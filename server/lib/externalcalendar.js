@@ -244,7 +244,7 @@ function getSettings(userId) {
   if (!r) return { rules: [{ words: DEFAULT_VACATION_WORDS.slice(), mode: 'none', maxMinutes: null }], defaultMinutes: null };
   let rules;
   try { rules = r.rules != null ? cleanRules(parseJsonArray(r.rules, [])) : rulesFromLegacy(r); } catch (e) { rules = []; }
-  return { rules, defaultMinutes: r.freeDayMinutes != null ? r.freeDayMinutes : null };
+  return { rules, defaultMinutes: null /* 18 oct. 2026 : plafond « tous les autres jours » supprimé ; toute valeur déjà enregistrée est ignorée */ };
 }
 
 function setSettings(userId, body) {

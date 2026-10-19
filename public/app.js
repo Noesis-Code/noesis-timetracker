@@ -215,6 +215,14 @@
   function handleSessionLost() {
     if (sessionLostHandled) return;
     sessionLostHandled = true;
+    // 18 oct. 2026 : garde-fou anti-boucle (un appel 401 au démarrage hors connexion
+    // rechargeait la page à l'infini → écran noir). Au plus 1 rechargement / 15 s.
+    try {
+      var last = Number(sessionStorage.getItem('noesisSessionLostAt') || 0);
+      if (Date.now() - last < 15000) return;
+      sessionStorage.setItem('noesisSessionLostAt', String(Date.now()));
+    } catch (e) {}
+    if (!profile) return; // pas connecté : rien à recharger, l'écran de connexion s'affiche
     location.reload();
   }
 

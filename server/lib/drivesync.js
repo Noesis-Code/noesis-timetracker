@@ -8,6 +8,9 @@
 //   - mode 'propose' : stocke en 'pending' ; rien n'est écrit avant la validation de l'utilisateur.
 // Les « modifications proposées » ne sont demandées qu'aux lectures suivantes d'un fichier (pas à la première : rien à comparer) ;
 // elles sortent de propose() (un seul passage), plus d'appel séparé ici (il doublait l'appel déjà fait par propose).
+// Tâches PARTAGÉES par activité (18 oct. 2026) : drive_seen_tasks a une ligne par (activityId, taskKey), commune à tous les membres ; liste, comptes, validation,
+// refus, suppression et annulation ne filtrent plus par utilisateur (un refus / un ajout vaut pour tous ; le scan d'un membre ne duplique pas celui d'un autre).
+// userId = « qui l'a trouvée » ; seule la notification « tâches ajoutées » (ack) reste par utilisateur.
 // Règles : une tâche supprimée ou refusée n'est jamais rajoutée (la ligne drive_seen_tasks reste) ;
 // le document est une DONNÉE (prompt de documenttasks) ; aucun contenu de document n'est journalisé
 // (compteurs seulement) ; plafond OPTIONNEL DRIVE_SYNC_MAX_AI_CALLS_PER_DAY (défaut : aucun) appels IA/jour/utilisateur ;
@@ -95,7 +98,7 @@ function settings(userId, activityId) {
     aiMessage: aibudget.status(userId).blocked ? aibudget.blockedMessage(aibudget.status(userId).resumesOn) : null,
     capReached: used >= max, callsToday: used, maxCallsPerDay: Number.isFinite(max) ? max : null,
     ...skippedInfo(userId, activityId),
-    pendingCount: db.prepare("SELECT COUNT(*) AS n FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'pending'").get(userId, activityId).n,
+    pendingCount: db.prepare("SELECT COUNT(*) AS n FROM drive_seen_tasks WHERE activityId = ? AND status = 'pending'").get(activityId).n,
   };
 }
 
@@ -130,7 +133,7 @@ function saveFolderSettings(userId, activityId, folderId, body) {
 
 // ---------- Tâches en attente (mode propose) ----------
 function listPending(userId, activityId) {
-  const rows = db.prepare("SELECT id, title, catKey AS key, week, day, minutes, createdAt FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'pending' ORDER BY createdAt DESC, id").all(userId, activityId);
+  const rows = db.prepare("SELECT id, title, catKey AS key, week, day, minutes, createdAt FROM drive_seen_tasks WHERE activityId = ? AND status = 'pending' ORDER BY createdAt DESC, id").all(activityId);
   const cands = classify.buildClassificationCandidates(activityId);
   const labels = new Map(cands.map((c) => [c.key, c.label]));
   return { tasks: rows.map((r) => ({ ...r, categoryLabel: labels.get(r.key) || '' })), categories: cands.map((c) => ({ key: c.key, label: c.label })) };
@@ -139,11 +142,11 @@ function listPending(userId, activityId) {
 // items : [{ id, key?, checked }] — cochées => ajoutées ; décochées => refusées (jamais re-proposées).
 function resolvePending(userId, activityId, items) {
   if (!Array.isArray(items) || !items.length) throw httpError(400, 'Rien à valider.');
-  const get = db.prepare("SELECT * FROM drive_seen_tasks WHERE id = ? AND userId = ? AND activityId = ? AND status = 'pending'");
+  const get = db.prepare("SELECT * FROM drive_seen_tasks WHERE id = ? AND activityId = ? AND status = 'pending'");
   const upd = db.prepare('UPDATE drive_seen_tasks SET status = ?, itemId = ? WHERE id = ?');
   let added = 0, dismissed = 0; const skipped = [];
   items.slice(0, 200).forEach((it) => {
-    const row = it && get.get(Number(it.id), userId, activityId);
+    const row = it && get.get(Number(it.id), activityId);
     if (!row) return;
     if (!it.checked) { upd.run('dismissed', null, row.id); dismissed++; return; }
     const key = typeof it.key === 'string' && it.key ? it.key : row.catKey;
@@ -166,7 +169,7 @@ function ackAdded(userId, activityId) {
 }
 // Supprime la tâche ajoutée et marque sa clé 'dismissed' : jamais rajoutée.
 function removeAdded(userId, activityId, id) {
-  const row = db.prepare("SELECT * FROM drive_seen_tasks WHERE id = ? AND userId = ? AND activityId = ? AND status = 'added'").get(Number(id), userId, activityId);
+  const row = db.prepare("SELECT * FROM drive_seen_tasks WHERE id = ? AND activityId = ? AND status = 'added'").get(Number(id), activityId);
   if (!row) throw httpError(404, 'Tâche introuvable.');
   if (row.itemId) { try { subprojects.deleteItem(row.itemId); } catch (e) { /* déjà supprimée */ } }
   db.prepare("UPDATE drive_seen_tasks SET status = 'dismissed', itemId = NULL WHERE id = ?").run(row.id);
@@ -174,7 +177,7 @@ function removeAdded(userId, activityId, id) {
 }
 // Annuler la suppression (toast) : la tâche revient et la clé redevient 'added'.
 function restoreAdded(userId, activityId, id) {
-  const row = db.prepare("SELECT * FROM drive_seen_tasks WHERE id = ? AND userId = ? AND activityId = ? AND status = 'dismissed' AND title IS NOT NULL").get(Number(id), userId, activityId);
+  const row = db.prepare("SELECT * FROM drive_seen_tasks WHERE id = ? AND activityId = ? AND status = 'dismissed' AND title IS NOT NULL").get(Number(id), activityId);
   if (!row) throw httpError(404, 'Tâche introuvable.');
   const r = documenttasks.apply(userId, activityId, [{ title: row.title, key: row.catKey, week: row.week, day: row.day || undefined, minutes: row.minutes }]);
   if (!r.addedCount) throw httpError(409, 'Impossible de rétablir cette tâche.');
@@ -240,7 +243,7 @@ function stmts() {
   return {
     putFile: db.prepare(`INSERT INTO drive_seen_files (userId, activityId, fileId, modifiedTime, contentHash) VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(userId, activityId, fileId) DO UPDATE SET modifiedTime = excluded.modifiedTime, contentHash = excluded.contentHash`),
-    keyRow: db.prepare('SELECT 1 FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND taskKey = ?'),
+    keyRow: db.prepare('SELECT 1 FROM drive_seen_tasks WHERE activityId = ? AND taskKey = ?'),
     putTask: db.prepare(`INSERT OR IGNORE INTO drive_seen_tasks (userId, activityId, fileId, taskKey, status, title, catKey, week, minutes, itemId, createdAt, day)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
   };
@@ -251,7 +254,7 @@ function storeTasks(userId, activityId, fileId, cfg, tasks, existing, st, out) {
   const now = new Date().toISOString();
   for (const t of tasks) {
     const tk = taskKey(t.title);
-    if (!tk || st.keyRow.get(userId, activityId, tk)) continue; // déjà ajoutée / refusée / en attente
+    if (!tk || st.keyRow.get(activityId, tk)) continue; // déjà ajoutée / refusée / en attente
     if (existing.has(tk)) { st.putTask.run(userId, activityId, fileId, tk, 'dismissed', null, null, null, null, null, now, null); continue; } // déjà dans l'app : jamais écrasée ni rajoutée
     if (cfg.mode === 'auto') {
       const r = documenttasks.apply(userId, activityId, [{ title: t.title, key: t.key, week: t.week, day: t.day || undefined, minutes: t.minutes }]);
@@ -637,7 +640,7 @@ async function syncNow(userId, activityId, folderId) {
 
 async function runSweep() {
   if (!drive.configured()) return 0;
-  const rows = db.prepare(`SELECT c.userId, c.activityId FROM drive_connections c JOIN drive_sync s ON s.userId = c.userId AND s.activityId = c.activityId
+  const rows = db.prepare(`SELECT c.userId, c.activityId FROM drive_connections c JOIN activities act ON act.id = c.activityId AND act.ownerId = c.userId JOIN drive_sync s ON s.userId = c.userId AND s.activityId = c.activityId
     WHERE EXISTS (SELECT 1 FROM drive_folders d WHERE d.userId = c.userId AND d.activityId = c.activityId) AND s.needsReconnect = 0`).all();
   let n = 0;
   for (const r of rows) {

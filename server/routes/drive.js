@@ -17,7 +17,15 @@ function guard(req, res, next) {
   req.activityId = id;
   next();
 }
+// 18 oct. 2026 : seul le PROPRIÉTAIRE de l'activité connecte et gère Drive (limite les appels IA / la lecture de documents). Les autres membres
+// voient et trient les mêmes « Nouvelles tâches » (pending, resolve, added...), sans connecter ni changer de dossier.
+function ownerOnly(req, res, next) {
+  const a = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(req.activityId);
+  if (!a || a.ownerId !== req.userId) return res.status(403).json({ error: "Seul le propriétaire de l'activité peut gérer la connexion à Drive." });
+  next();
+}
 const chain = [requireAuth, requireOffer1Access, guard];
+const ownerChain = [...chain, ownerOnly];
 
 function fail(res, e, req) {
   // Journal serveur : route + message seulement (jamais de token ni de secret).
@@ -26,24 +34,28 @@ function fail(res, e, req) {
 }
 const wrap = (fn) => async (req, res) => { try { res.json(await fn(req)); } catch (e) { fail(res, e, req); } };
 
-router.get('/drive/status', ...chain, wrap((req) => drive.status(req.userId, req.activityId)));
-router.get('/drive/connect', ...chain, wrap((req) => ({ url: drive.authUrl(req.userId, req.activityId) })));
-router.get('/drive/folders', ...chain, async (req, res) => {
+router.get('/drive/status', ...chain, wrap((req) => {
+  const a = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(req.activityId);
+  if (a && a.ownerId !== req.userId) return { configured: drive.status(req.userId, req.activityId).configured, connected: false, isOwner: false };
+  const s = drive.status(req.userId, req.activityId); s.isOwner = true; return s;
+}));
+router.get('/drive/connect', ...ownerChain, wrap((req) => ({ url: drive.authUrl(req.userId, req.activityId) })));
+router.get('/drive/folders', ...ownerChain, async (req, res) => {
   try { res.json({ folders: await drive.listFolders(req.userId, req.activityId, typeof req.query.q === 'string' ? req.query.q : '') }); } catch (e) { fail(res, e, req); }
 });
-router.post('/drive/folder', ...chain, wrap((req) => drive.chooseFolder(req.userId, req.activityId, req.body.folderId)));
-router.post('/drive/folder/remove', ...chain, wrap((req) => drive.removeFolder(req.userId, req.activityId, req.body.folderId)));
-router.get('/drive/files', ...chain, async (req, res) => {
+router.post('/drive/folder', ...ownerChain, wrap((req) => drive.chooseFolder(req.userId, req.activityId, req.body.folderId)));
+router.post('/drive/folder/remove', ...ownerChain, wrap((req) => drive.removeFolder(req.userId, req.activityId, req.body.folderId)));
+router.get('/drive/files', ...ownerChain, async (req, res) => {
   try { res.json({ files: await drive.listFiles(req.userId, req.activityId) }); } catch (e) { fail(res, e, req); }
 });
-router.post('/drive/propose', ...chain, wrap((req) => drive.proposeFromFile(req.userId, req.activityId, req.body.fileId, String(req.body.instruction || '').trim().slice(0, 1500))));
-router.post('/drive/disconnect', ...chain, wrap((req) => drive.disconnect(req.userId, req.activityId)));
+router.post('/drive/propose', ...ownerChain, wrap((req) => drive.proposeFromFile(req.userId, req.activityId, req.body.fileId, String(req.body.instruction || '').trim().slice(0, 1500))));
+router.post('/drive/disconnect', ...ownerChain, wrap((req) => drive.disconnect(req.userId, req.activityId)));
 
 // Surveillance permanente du dossier (server/lib/drivesync.js).
-router.get('/drive/sync', ...chain, wrap((req) => drivesync.settings(req.userId, req.activityId)));
-router.post('/drive/sync/settings', ...chain, wrap((req) => drivesync.saveSettings(req.userId, req.activityId, req.body)));
-router.post('/drive/sync/run', ...chain, wrap((req) => drivesync.syncNow(req.userId, req.activityId, typeof req.body.folderId === 'string' ? req.body.folderId : undefined)));
-router.post('/drive/folder/settings', ...chain, wrap((req) => drivesync.saveFolderSettings(req.userId, req.activityId, String(req.body.folderId || ''), req.body)));
+router.get('/drive/sync', ...ownerChain, wrap((req) => drivesync.settings(req.userId, req.activityId)));
+router.post('/drive/sync/settings', ...ownerChain, wrap((req) => drivesync.saveSettings(req.userId, req.activityId, req.body)));
+router.post('/drive/sync/run', ...ownerChain, wrap((req) => drivesync.syncNow(req.userId, req.activityId, typeof req.body.folderId === 'string' ? req.body.folderId : undefined)));
+router.post('/drive/folder/settings', ...ownerChain, wrap((req) => drivesync.saveFolderSettings(req.userId, req.activityId, String(req.body.folderId || ''), req.body)));
 router.get('/drive/sync/pending', ...chain, wrap((req) => drivesync.listPending(req.userId, req.activityId)));
 router.post('/drive/sync/resolve', ...chain, wrap((req) => drivesync.resolvePending(req.userId, req.activityId, req.body.items)));
 router.get('/drive/sync/added', ...chain, wrap((req) => drivesync.listAdded(req.userId, req.activityId)));
@@ -57,6 +69,8 @@ router.get('/drive/callback', requireAuth, requireOffer1Access, async (req, res)
     const activityId = await drive.handleCallback(req.userId, req.query || {}, (a) => {
       if (!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(a, req.userId)) throw Object.assign(new Error("Tu n'es pas membre de cette activité."), { statusCode: 403 });
       if (!activityHasEssor(a, req.userId)) throw Object.assign(new Error('essor_required'), { statusCode: 403 });
+      const ow = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(a);
+      if (!ow || ow.ownerId !== req.userId) throw Object.assign(new Error("Seul le propriétaire de l'activité peut connecter Drive."), { statusCode: 403 });
     });
     res.redirect('/?drive=connected&activityId=' + activityId);
   } catch (e) { fail(res, e, req); }

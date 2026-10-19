@@ -98,7 +98,7 @@ function ensureTable() {
     ack INTEGER NOT NULL DEFAULT 0,
     createdAt TEXT NOT NULL
   )`);
-  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_drive_seen_tasks_key ON drive_seen_tasks(userId, activityId, taskKey)');
+  // L'index unique (activityId, taskKey) est créé plus bas, après la déduplication des anciennes lignes par utilisateur.
   db.exec(`CREATE TABLE IF NOT EXISTS drive_seen_chunks (
     userId TEXT NOT NULL,
     activityId INTEGER NOT NULL,
@@ -138,6 +138,19 @@ function ensureTable() {
   if (!db.prepare('PRAGMA table_info(drive_batches)').all().some((c) => c.name === 'estCost')) db.exec('ALTER TABLE drive_batches ADD COLUMN estCost REAL NOT NULL DEFAULT 0');
   if (!db.prepare('PRAGMA table_info(drive_skipped)').all().some((c) => c.name === 'dupHash')) db.exec('ALTER TABLE drive_skipped ADD COLUMN dupHash TEXT');
   if (!db.prepare('PRAGMA table_info(drive_seen_tasks)').all().some((c) => c.name === 'day')) db.exec('ALTER TABLE drive_seen_tasks ADD COLUMN day TEXT'); // jour proposé (rééquilibré) ; NULL pour les anciennes lignes : on retombe sur la semaine
+  // Tâches Drive PARTAGÉES par activité (18 oct. 2026) : une ligne par (activityId, taskKey), quel que soit l'utilisateur.
+  // Migration idempotente : on garde UNE ligne par clé (priorité added > dismissed > pending, puis la plus ancienne), les autres sont des doublons par membre.
+  if (db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'idx_drive_seen_tasks_key'").get() || !db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'idx_drive_seen_tasks_act_key'").get()) { // ancien index présent (ou nouveau absent) : migration à faire
+  db.exec('BEGIN');
+  try {
+    db.exec(`DELETE FROM drive_seen_tasks WHERE id IN (
+      SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY activityId, taskKey ORDER BY
+        CASE status WHEN 'added' THEN 0 WHEN 'dismissed' THEN 1 ELSE 2 END, CASE WHEN itemId IS NOT NULL THEN 0 ELSE 1 END, id) AS rn FROM drive_seen_tasks) WHERE rn > 1)`);
+    db.exec('DROP INDEX IF EXISTS idx_drive_seen_tasks_key');
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_drive_seen_tasks_act_key ON drive_seen_tasks(activityId, taskKey)');
+    db.exec('COMMIT');
+  } catch (e) { try { db.exec('ROLLBACK'); } catch (_) { /* rien */ } throw e; }
+  }
   db.exec(`CREATE TABLE IF NOT EXISTS drive_infra_fails (
     userId TEXT NOT NULL,
     activityId INTEGER NOT NULL,

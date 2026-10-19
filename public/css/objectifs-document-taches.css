@@ -201,3 +201,7 @@ input[type="checkbox"].ptTaskCb:indeterminate, .ptPane input[type="checkbox"]:in
 /* Cases de « Nouvelles tâches » : contour d'origine inchangé, intérieur transparent (on ne voit que le contour) ; cochée = violet très translucide, coche blanche. */
 .ptPane input[type="checkbox"] { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .ptPane input[type="checkbox"]:checked, .ptPane input[type="checkbox"]:indeterminate { background: color-mix(in srgb, var(--purple) 28%, transparent); border-color: color-mix(in srgb, var(--text-light) 55%, transparent); box-shadow: none; }
+
+/* « Tout supprimer » : discret, devient rouge une fois armé (confirmation sur place). */
+.docTasksDelAll { align-self: center; }
+.docTasksDelAll[data-armed] { color: #e5484d; font-weight: 600; }
