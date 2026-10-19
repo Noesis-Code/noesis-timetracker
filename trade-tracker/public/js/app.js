@@ -43,6 +43,7 @@
   }
   function show() {
     var tab = current(), el = document.getElementById('screen');
+    document.body.classList.toggle('fullPage', tab === 'settings' || tab === 'security');
     renderTabs(tab === 'broker' || tab === 'invite' || tab === 'security' || tab === 'settings' ? 'sync' : tab);
     window.scrollTo(0, 0);
     el.setAttribute('aria-busy', 'true');

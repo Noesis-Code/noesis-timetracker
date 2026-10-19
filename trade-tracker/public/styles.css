@@ -294,3 +294,26 @@ a { color: inherit; text-decoration: none; }
 .kebabTitle { font-size: 12px; color: var(--text-light); margin-bottom: 6px; }
 .kebabChips { display: flex; flex-wrap: wrap; gap: 6px; }
 .syncStamp { text-align: center; margin: 16px 0 8px; font-size: 11px; }
+
+/* Fenêtre plein écran (Réglages, Sécurité) : même recette que Profil/Activité de TimeTracker — page qui recouvre l'écran, fond --bg,
+   halo, en-tête fixe (titre à gauche, ✕ à droite), défilement interne. Les autres pages gardent la mise en page ordinaire. */
+body.fullPage .topbar, body.fullPage .tabbar, body.fullPage .offlineBar { display: none; }
+body.fullPage #screen {
+  position: fixed; inset: 0; z-index: 90; max-width: 520px; margin: 0 auto;
+  background: var(--bg); overflow-y: auto; overscroll-behavior: contain;
+  padding: 0 max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+body.fullPage #screen::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(circle 325px at 50% 108%, rgba(var(--halo-n1-rgb), var(--halo-n1-a)) 0%, rgba(var(--halo-n1-rgb), 0) 72%);
+}
+body.fullPage .pageHead {
+  position: sticky; top: 0; z-index: 1; background: var(--bg); border-bottom: 1px solid var(--border);
+  margin: 0 calc(-1 * max(16px, env(safe-area-inset-right))) 0 calc(-1 * max(16px, env(safe-area-inset-left)));
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left));
+}
+body.fullPage .pageHead .screenTitle { margin: 0; font-size: 22px; line-height: 1.2; }
+body.fullPage .pageHead .topIconBtn {
+  width: 32px; height: 32px; flex-shrink: 0; border-radius: var(--radius-sm); font-size: 18px; line-height: 1;
+}
+body.fullPage .syncStamp { display: none; }

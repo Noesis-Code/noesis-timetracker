@@ -10423,26 +10423,8 @@
     // appelée par prudence avant l'ouverture de chaque autre panneau
     // flottant (voir plus bas), pas seulement au clic sur "←"/l'icône.
     if (panel.classList.contains('hidden')) return;
-    // Plein écran avec glissement gauche → droite à la fermeture (9
-    // septembre 2026, demande d'Emilien) : on retire .open (démarre la
-    // transition vers translateX(100%), hors écran à droite — voir
-    // styles.css) et on n'ajoute .hidden qu'une fois la transition VRAIMENT
-    // terminée, sinon le panneau disparaîtrait instantanément sans jamais
-    // glisser. transitionend plutôt qu'une durée fixe recopiée ici : reste
-    // synchronisé même si la durée change dans styles.css, et se déclenche
-    // immédiatement (durée nulle) quand `prefers-reduced-motion` a coupé la
-    // transition.
-    panel.classList.remove('open');
-    var finishClose = function () { panel.classList.add('hidden'); };
-    panel.addEventListener('transitionend', function onSettingsClosed(e) {
-      if (e.target !== panel || e.propertyName !== 'transform') return;
-      panel.removeEventListener('transitionend', onSettingsClosed);
-      finishClose();
-    });
-    // Filet de sécurité si transitionend ne se déclenche jamais pour une
-    // raison quelconque : 350ms, un peu plus que les 280ms de la transition
-    // définie dans styles.css.
-    setTimeout(finishClose, 350);
+    // Fermeture instantanée, comme Profil et Activité.
+    panel.classList.add('hidden');
   }
 
   // Ouvre le panneau flottant des Réglages. Referme d'abord celui des
@@ -10869,15 +10851,7 @@
     renderShareSettings();
     var settingsPanelEl = $('profileSettingsPanel');
     settingsPanelEl.classList.remove('hidden');
-    // Plein écran avec glissement droite → gauche à l'ouverture (9 septembre
-    // 2026, demande d'Emilien) : .hidden vient d'être retiré (le panneau
-    // redevient affiché, hors écran à droite — voir styles.css) ; on force
-    // un reflow AVANT d'ajouter .open pour que le navigateur ait bien "vu"
-    // cet état de départ dans une image séparée — sans ce forçage, les deux
-    // changements de classe risqueraient de se fondre dans la même image et
-    // le panneau apparaîtrait déjà ouvert, sans glisser.
-    void settingsPanelEl.offsetWidth;
-    settingsPanelEl.classList.add('open');
+    // Ouverture instantanée, comme Profil et Activité (retrait de .hidden seul).
     // Violette tant que Réglages est la vue affichée (1er septembre 2026,
     // demande d'Emilien : même comportement "sélectionné = violet" que les
     // onglets de la barre du bas).
