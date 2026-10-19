@@ -80,6 +80,13 @@ const { takeSnapshot } = require('../server/lib/snapshot');
     j = await (await get('/api/sync-log?limit=1', ex.cookie)).json();
     assert.strictEqual(j.entries.length, 1); assert(['id', 'at', 'accountId', 'kind', 'status', 'message', 'itemsCount'].every((k) => k in j.entries[0]));
 
+    // détail d'un échec de synchro de l'expert : visible de l'expert, pas du client
+    const expId = db.prepare("SELECT id FROM tt_users WHERE role = 'expert'").get().id;
+    db.prepare("INSERT INTO sync_log (userId, at, kind, status, message, itemsCount) VALUES (?, '2999-01-01T00:00:00.000Z', 'sync', 'ECHEC', 'Échec de synchro : détail interne courtier', 0)").run(expId);
+    j = await (await get('/api/sync-log?limit=1', ex.cookie)).json(); assert(/détail interne/.test(j.entries[0].message));
+    j = await (await get('/api/sync-log?scope=expert&limit=1', cl.cookie)).json(); assert(j.entries[0].status === 'ECHEC' && !/détail interne/.test(j.entries[0].message));
+    db.prepare("DELETE FROM sync_log WHERE at = '2999-01-01T00:00:00.000Z'").run();
+
     j = await (await get('/api/compare', cl.cookie)).json();
     assert(j.bySector.length && j.byPosition.length && 'gapPts' in j.bySector[0] && 'expertSyncedAt' in j);
 

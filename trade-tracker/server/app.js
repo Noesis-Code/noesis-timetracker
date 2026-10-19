@@ -174,6 +174,8 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     const s = scopeUserId(req, res); if (!s) return;
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
     const entries = db.prepare('SELECT id, at, accountId, kind, status, message, itemsCount FROM sync_log WHERE userId = ? ORDER BY id DESC LIMIT ?').all(s.userId, limit);
+    // Journal de l'expert vu par un client : le détail d'un échec (message du courtier) reste réservé à l'expert.
+    if (s.userId !== req.user.id && req.user.role !== 'expert') for (const e of entries) if (e.status === 'ECHEC') e.message = 'Échec de synchro';
     sendJson(req, res, { entries });
   });
 
