@@ -7809,20 +7809,44 @@
     // lecture seule, sans IA) : médiane de ses entrées de temps, « pas assez de données » sous 3 entrées.
     var memberEst = document.createElement('div'); memberEst.className = 'goalMemberEst hidden';
     body.appendChild(memberEst);
-    api('GET', '/api/activities/' + activityId + '/goals/member-estimates?all=1').then(function (r) {
-      if (!r || !r.members || r.members.length < 2 || !r.members.some(function (m) { return m.poles.length; })) return;
+    function paintMemberEst(r) {
+      memberEst.textContent = '';
       var title = document.createElement('div'); title.className = 'goalMemberEstTitle'; title.textContent = t('Estimation du temps par membre');
       memberEst.appendChild(title);
       r.members.forEach(function (m) {
-        var row = document.createElement('div'); row.className = 'goalMemberEstRow';
-        var name = document.createElement('span'); name.className = 'goalMemberEstName'; name.textContent = m.name;
-        var vals = document.createElement('span'); vals.className = 'goalMemberEstVals';
-        vals.textContent = m.poles.map(function (p) {
-          return p.label + ' ' + (p.estimate ? '~' + p.estimate.minutes + ' min' : t('pas assez de données'));
-        }).join(' · ');
-        row.appendChild(name); row.appendChild(vals); memberEst.appendChild(row);
+        var name = document.createElement('div'); name.className = 'goalMemberEstName'; name.textContent = m.name;
+        memberEst.appendChild(name);
+        var table = document.createElement('div'); table.className = 'timeCapsTable goalMemberEstTable';
+        m.poles.forEach(function (p) {
+          var lbl = document.createElement('div'); lbl.className = 'timeCapsRowLabel'; lbl.textContent = p.label;
+          var calc = document.createElement('div'); calc.className = 'timeCapsAvg';
+          calc.textContent = p.estimate ? '~' + p.estimate.minutes + ' min' : t('pas assez de données');
+          var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'timeCapsMax';
+          var shown = p.custom || (p.estimate && p.estimate.minutes) || 0;
+          btn.textContent = fmtCapMinutes(shown) || '0:00';
+          btn.classList.toggle('isEmpty', !p.custom);
+          function save(v) {
+            api('PUT', '/api/activities/' + activityId + '/goals/member-estimates', { memberId: m.id, category: p.key, minutes: v > 0 ? v : null })
+              .then(function () { p.custom = v > 0 ? v : null; paintMemberEst(r); }).catch(function () {});
+          }
+          btn.addEventListener('click', function () {
+            openDurationPicker({ title: 'Cible', minutes: shown, onDone: save });
+          });
+          table.appendChild(lbl); table.appendChild(calc); table.appendChild(btn);
+          if (p.custom) {
+            var back = document.createElement('button'); back.type = 'button'; back.className = 'linkBtn goalMemberEstBack';
+            back.textContent = t('Revenir à l’estimation calculée');
+            back.addEventListener('click', function () { save(0); });
+            table.appendChild(back);
+          }
+        });
+        memberEst.appendChild(table);
       });
       memberEst.classList.remove('hidden');
+    }
+    api('GET', '/api/activities/' + activityId + '/goals/member-estimates?all=1').then(function (r) {
+      if (!r || !r.members || r.members.length < 2 || !r.members.some(function (m) { return m.poles.length; })) return;
+      paintMemberEst(r);
     }).catch(function () {});
     node.appendChild(toggle); node.appendChild(body);
     api('GET', '/api/activities/' + activityId + '/goals/timecaps/' + key).then(function (c) {

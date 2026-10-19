@@ -1387,6 +1387,7 @@
     "Non prévu": "Not planned",
     "estimation": "estimate",
     "Estimation du temps par membre": "Estimated time per member",
+    "Revenir à l’estimation calculée": "Back to the calculated estimate",
     "pas assez de données": "not enough data",
     "Retirer le pôle « {name} » ?": "Remove the pole \"{name}\"?",
     "Retirer le secteur « {name} » ?": "Remove the sector \"{name}\"?",

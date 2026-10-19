@@ -192,6 +192,21 @@ router.get('/activities/:id/goals/member-estimates', (req, res) => {
   }
 });
 
+// Valeur saisie à la main pour l'estimation d'un membre sur un pôle (minutes ; vide = retour à l'estimation calculée).
+router.put('/activities/:id/goals/member-estimates', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    const b = req.body || {};
+    res.json(require('../lib/memberestimate').setOverride(activityId, String(b.category || ''), String(b.memberId || ''), b.minutes));
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
 // 15 septembre 2026 (chantier Objectifs — C, lien Sous-projets → Objectifs) —
 // liste seule des membres de l'activité (même source que planningForActivity,
 // membersForActivity), pour le sélecteur "membre prévu" d'une tâche

@@ -7,6 +7,29 @@ const db = require('../db');
 
 const MIN_SAMPLES = 3;
 
+// Valeur SAISIE par un membre de l'activité (remplace l'estimation calculée, jamais en silence :
+// geste explicite). Table additive créée ici, même motif que goal_time_caps (timecaps.js).
+db.exec(`CREATE TABLE IF NOT EXISTS member_time_overrides (
+  activityId INTEGER NOT NULL, poleKey TEXT NOT NULL, memberId TEXT NOT NULL, minutes INTEGER NOT NULL,
+  PRIMARY KEY (activityId, poleKey, memberId)
+)`);
+
+// minutes null/0/'' = retour à l'estimation calculée.
+function setOverride(activityId, poleKey, memberId, minutes) {
+  const goals = require('./goals');
+  const bad = (m) => Object.assign(new Error(m), { statusCode: 400 });
+  if (!goals.isValidCategoryForActivity(activityId, poleKey)) throw bad('Pôle inconnu.');
+  if (!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, memberId)) throw bad('Membre inconnu.');
+  if (minutes === null || minutes === undefined || minutes === '' || Number(minutes) === 0) {
+    db.prepare('DELETE FROM member_time_overrides WHERE activityId = ? AND poleKey = ? AND memberId = ?').run(activityId, poleKey, memberId);
+    return { ok: true, minutes: null };
+  }
+  const n = Number(minutes);
+  if (!Number.isInteger(n) || n < 1 || n > 100000) throw bad('Durée invalide : entier de minutes >= 1.');
+  db.prepare('INSERT INTO member_time_overrides (activityId, poleKey, memberId, minutes) VALUES (?, ?, ?, ?) ON CONFLICT(activityId, poleKey, memberId) DO UPDATE SET minutes = excluded.minutes').run(activityId, poleKey, memberId, n);
+  return { ok: true, minutes: n };
+}
+
 function median(values) {
   const s = values.slice().sort((a, b) => a - b);
   const m = Math.floor(s.length / 2);
@@ -41,6 +64,8 @@ function memberEstimatesByPole(activityId) {
   const stmt = db.prepare('SELECT goalCategory, durationSeconds FROM time_entries WHERE activityId = ? AND userId = ? AND goalCategory IS NOT NULL AND durationSeconds > 0');
   const cache = {};
   const poleOf = (k) => (k in cache ? cache[k] : (cache[k] = goals.resolveToPole(activityId, k)));
+  const ovr = {};
+  db.prepare('SELECT poleKey, memberId, minutes FROM member_time_overrides WHERE activityId = ?').all(activityId).forEach((o) => { ovr[o.memberId + '|' + o.poleKey] = o.minutes; });
   return members.map((m) => {
     const rows = stmt.all(activityId, m.id);
     return {
@@ -51,6 +76,7 @@ function memberEstimatesByPole(activityId) {
         return {
           key: p.key,
           label: p.label,
+          custom: ovr[m.id + '|' + p.key] || null,
           estimate: r.length >= MIN_SAMPLES
             ? { minutes: Math.max(1, Math.round(median(r.map((x) => x.durationSeconds)) / 60)), samples: r.length }
             : null,
@@ -60,4 +86,4 @@ function memberEstimatesByPole(activityId) {
   });
 }
 
-module.exports = { memberEstimates, memberEstimatesByPole, MIN_SAMPLES };
+module.exports = { memberEstimates, memberEstimatesByPole, setOverride, MIN_SAMPLES };
