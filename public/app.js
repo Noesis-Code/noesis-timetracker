@@ -1727,13 +1727,35 @@
     // création de profil qu'à une connexion à un profil existant sur cet
     // appareil, les deux chemins passant par ici.
     autoSubscribePushOnLogin();
-    api('GET', '/api/activities?userId=' + profile.id).then(function (acts) {
-      if (acts.length === 0) {
-        showOnboardingActivitiesStep();
-      } else {
-        showApp();
-      }
-    }).catch(function () { showApp(); });
+    // Nouveau compte (modulesChosen = false côté serveur) : choix des modules avant le reste ; comptes existants : jamais.
+    var afterModules = function () {
+      api('GET', '/api/activities?userId=' + profile.id).then(function (acts) {
+        if (acts.length === 0) {
+          showOnboardingActivitiesStep();
+        } else {
+          showApp();
+        }
+      }).catch(function () { showApp(); });
+    };
+    if (window.TMT.modules && window.TMT.modules.mountChoice) {
+      window.TMT.modules.mountChoice($('onbModulesList'), function (ok) { $('onbModulesValidate').disabled = !ok; }).then(function (ch) {
+        if (ch.chosen) { afterModules(); return; }
+        showOnboardingModulesStep(ch, afterModules);
+      }).catch(afterModules);
+    } else afterModules();
+  }
+
+  function showOnboardingModulesStep(choice, done) {
+    ['onbCreate', 'onbExisting', 'onbPinStep', 'onbActivities'].forEach(function (id) { $(id).classList.add('hidden'); });
+    $('onbMsg').textContent = '';
+    $('onbModules').classList.remove('hidden');
+    $('onbModulesValidate').disabled = !choice.valid();
+    $('onbModulesValidate').onclick = function () {
+      if (!choice.valid()) return;
+      $('onbModulesValidate').disabled = true;
+      choice.save().then(function () { $('onbModules').classList.add('hidden'); done(); })
+        .catch(function (err) { $('onbMsg').textContent = err.message; $('onbModulesValidate').disabled = false; });
+    };
   }
 
   $('onbSwitchToExisting').addEventListener('click', function (e) {

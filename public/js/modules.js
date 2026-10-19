@@ -33,18 +33,20 @@
     { key: 'time', title: 'Temps', desc: 'Chrono, statistiques du chrono et feuille de temps', ids: ['stats'], anchor: 'stats' },
     { key: 'tasks', title: 'Tâches et objectifs', desc: 'Objectifs (Feuille de route) et statistiques des tâches', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap' }
   ];
-  // Communauté et Profil = un seul interrupteur (le serveur garde les deux clés liées).
+  // Communauté et Profil vont ensemble : une seule ligne, les deux clés envoyées (le serveur les lie).
+  var OPTIONAL = [{ ids: ['community', 'profile'], label: 'Communauté et profil' }];
 
   function put(patch) {
     setMsg('');
     return call('PUT', { modules: patch }).then(function (d) { state = d.modules; }).catch(function (e) { setMsg(e.message); }).then(paint);
   }
 
-  function paint() {
-    if (!box || !state) return;
-    box.innerHTML = '';
+  // Dessine les deux cartes + « Ajouter » dans `target` pour l'état `st` ; `apply(patch)` reçoit chaque changement.
+  // `lastOk` : autorise de tout désélectionner (écran de premier choix, la validation reste bloquée) ; sinon au moins un ensemble.
+  function render(target, st, apply, lastOk) {
+    target.innerHTML = '';
     BUNDLES.forEach(function (b) {
-      var on = !!state[b.anchor];
+      var on = !!st[b.anchor];
       var card = document.createElement('button'); card.type = 'button'; card.className = 'moduleCard' + (on ? ' selected' : '');
       card.setAttribute('aria-pressed', on ? 'true' : 'false');
       var t = document.createElement('span'); t.className = 'moduleCardTitle'; t.textContent = tr(b.title);
@@ -52,23 +54,42 @@
       card.appendChild(t); card.appendChild(d);
       card.addEventListener('click', function () {
         var other = BUNDLES.filter(function (x) { return x !== b; })[0];
-        if (on && !state[other.anchor]) { setMsg(tr('Garde au moins un ensemble.')); return; }
+        if (!lastOk && on && !st[other.anchor]) { setMsg(tr('Garde au moins un ensemble.')); return; }
         var patch = {}; b.ids.forEach(function (id) { patch[id] = !on; });
-        put(patch);
+        apply(patch);
       });
-      box.appendChild(card);
+      target.appendChild(card);
     });
-    var h = document.createElement('p'); h.className = 'hint modulesAddTitle'; h.textContent = tr('Ajouter'); box.appendChild(h);
-    var row = document.createElement('div'); row.className = 'notifRow';
-    var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = tr('Communauté et profil');
-    var sw = document.createElement('label'); sw.className = 'toggleSwitch';
-    var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!state.community;
-    var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
-    inp.addEventListener('change', function () { put({ community: inp.checked, profile: inp.checked }); });
-    sw.appendChild(inp); sw.appendChild(track);
-    row.appendChild(label); row.appendChild(sw);
-    box.appendChild(row);
-    var hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = tr('Fil de la communauté, abonnements et profil public.'); box.appendChild(hint);
+    var h = document.createElement('p'); h.className = 'hint modulesAddTitle'; h.textContent = tr('Ajouter'); target.appendChild(h);
+    OPTIONAL.forEach(function (o) {
+      var row = document.createElement('div'); row.className = 'notifRow';
+      var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = tr(o.label);
+      var sw = document.createElement('label'); sw.className = 'toggleSwitch';
+      var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = o.ids.some(function (id) { return !!st[id]; });
+      var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
+      inp.addEventListener('change', function () { var patch = {}; o.ids.forEach(function (id) { patch[id] = inp.checked; }); apply(patch); });
+      sw.appendChild(inp); sw.appendChild(track);
+      row.appendChild(label); row.appendChild(sw);
+      target.appendChild(row);
+    });
+    var hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = tr('Fil de la communauté, abonnements et profil public.'); target.appendChild(hint);
+  }
+
+  function paint() { if (box && state) render(box, state, put, false); }
+
+  // Premier lancement (nouveau compte) : monte le choix dans `target` ; `onChange(valide)` à chaque changement.
+  // Renvoie une promesse { save() } ; save() enregistre via PUT et marque le choix fait.
+  function mountChoice(target, onChange) {
+    return call('GET').then(function (d) {
+      var local = Object.assign({}, d.modules);
+      function valid() { return BUNDLES.some(function (b) { return !!local[b.anchor]; }); }
+      function draw() {
+        render(target, local, function (patch) { Object.assign(local, patch); draw(); }, true);
+        if (onChange) onChange(valid());
+      }
+      draw();
+      return { chosen: d.modulesChosen !== false, valid: valid, save: function () { return call('PUT', { modules: local }).then(function (r) { state = r.modules; loadedFor = pid(); return r; }); } };
+    });
   }
 
   function load() {
@@ -81,7 +102,8 @@
   TMT.modules = {
     isOn: function (id) { return id === 'core' || !state || state[id] !== false; },
     all: function () { return Object.assign({}, state || {}); },
-    load: load
+    load: load,
+    mountChoice: mountChoice
   };
 
   // Chargement au démarrage : dès que le profil est connu (réessaie brièvement), puis à l'ouverture de la section.

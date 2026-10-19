@@ -2269,6 +2269,10 @@ if (!columnExists('users', 'communityNotifyEnabled')) {
 if (!columnExists('users', 'modules')) {
   db.exec('ALTER TABLE users ADD COLUMN modules TEXT');
 }
+// Choix des modules au premier lancement : 1 = fait (comptes existants, jamais l'écran), 0 = à faire (nouveaux comptes, posé à la création).
+if (!columnExists('users', 'modulesChosen')) {
+  db.exec('ALTER TABLE users ADD COLUMN modulesChosen INTEGER NOT NULL DEFAULT 1');
+}
 
 // 10 oct. 2026 (conformité Loi 25, trames 2/4/5) : consentement commercial, annuaire de connexion,
 // preuve d'acceptation des CGU/Politique. ALTER TABLE idempotents ; `users` n'est jamais reconstruite.
