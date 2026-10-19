@@ -3003,6 +3003,10 @@
             </div>
 
 
+            <!-- 19 oct. 2026 : trace discrète quand le module « Assistant IA » est désactivé (les blocs IA ci-dessus sont alors masqués). -->
+            <button type="button" class="moduleOffNote" data-off="ai">Gestion de l'IA : désactivé dans Modules</button>
+
+
             <!-- Calendrier et export de données : accordéon de groupe (fusion du
                  9 septembre 2026), retiré le 10 septembre 2026 (demande
                  d'Emilien : « pour calendrier et données, je souhaite
@@ -3046,6 +3050,7 @@
                    directs de #calendarFeedSection, sans changement d'id ni de
                    logique (renderCalendarFeedState continue de basculer leur
                    "hidden" tel quel). -->
+              <button type="button" class="moduleOffNote" data-off="calendar">Calendrier : désactivé dans Modules</button>
               <div id="calendarFeedSection" class="settingsFlat hidden" data-module="calendar">
                 <p class="sectionTitle settingsFlatTitle">Exporter mes données vers le calendrier</p>
                 <div id="calendarFeedOff" class="hidden">

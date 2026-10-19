@@ -131,6 +131,8 @@
     'Absent': 'Off',
     'Gestion de l\'IA': 'AI management',
     'Modules': 'Modules',
+    'Gestion de l\'IA : désactivé dans Modules': 'AI management: turned off in Modules',
+    'Calendrier : désactivé dans Modules': 'Calendar: turned off in Modules',
     'Désactiver un module ne supprime aucune donnée.': 'Turning a module off deletes no data.',
     'Activités partagées': 'Shared activities',
     'Feuille de route': 'Roadmap',

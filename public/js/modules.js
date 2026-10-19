@@ -119,5 +119,12 @@
   var tries = 0;
   (function boot() { if (pid()) { load(); } else if (tries++ < 40) { setTimeout(boot, 500); } })();
   if (head) head.addEventListener('click', function () { if (loadedFor !== pid()) load(); else paint(); });
+  // Traces « désactivé dans Modules » (Réglages) : un appui ouvre la section Modules.
+  document.addEventListener('click', function (e) {
+    var n = e.target.closest && e.target.closest('.moduleOffNote');
+    if (!n || !head) return;
+    if (head.getAttribute('aria-expanded') !== 'true') head.click();
+    head.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
   if (box) box.addEventListener('click', function (e) { e.stopPropagation(); });
 })();
