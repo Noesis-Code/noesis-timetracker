@@ -6,6 +6,7 @@ Extension Noèsis : suivi du portefeuille d'un expert et de ses clients. Autonom
 - Démo fictive : `node trade-tracker/seed-demo.js` (affiche des liens d'entrée).
 - Tests : `node trade-tracker/test/run.js` (inclus dans `node test/run-tests.js`).
 - Contrat d'API, variables d'environnement, événements vers TMT : voir `API.md`.
+- Sécurité (TOTP obligatoire, sessions, audit, alertes, lecture seule) : `SECURITY.md` ; mise en service : « Checklist de mise en service sécurisée » dans `DEPLOY.md`. Scripts d'exploitation : `node rotate-key.js [--dry-run]` (rotation de `TRADE_TOKEN_KEY`), `node mfa-reset.js <idTMT>` (urgence).
 
 ## Déployer comme service Railway séparé
 Rien n'est déployé automatiquement. Marche à suivre (Émilien) :

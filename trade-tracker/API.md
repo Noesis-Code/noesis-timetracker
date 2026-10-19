@@ -6,7 +6,7 @@ Conventions : JSON UTF-8 ; montants en nombres arrondis à 2 décimales ; pource
 
 ## Entrée et session
 - TMT émet un jeton court `<payload>.<signature>` (HMAC-SHA256, secret `TRADE_LINK_SECRET`, expiration 2 min, usage unique par `jti`, lié à l’utilisateur `sub`, à l’audience `aud=trade-tracker` et au navigateur `uah` = SHA-256 du user-agent) et ouvre `GET /link?token=<jeton>[&invite=<code>]`.
-- Succès : cookie `tt_session` (HttpOnly, SameSite=Lax, 12 h) puis redirection 302 vers `/`. Échec : redirection 302 vers `/?linkError=<code>` avec code parmi `denied` (jeton invalide, rejoué, falsifié, autre navigateur ou non invité : réponse uniforme) `| expired | unavailable`.
+- Succès : cookie de session (`__Host-tt_session` en HTTPS : HttpOnly, Secure, SameSite=None, Partitioned ; `tt_session` SameSite=Lax en HTTP local ; 12 h au plus, 15 min d'inactivité, lié au user-agent) puis redirection 302 vers `/`. Échec : redirection 302 vers `/?linkError=<code>` avec code parmi `denied` (jeton invalide, rejoué, falsifié, autre navigateur ou non invité : réponse uniforme) `| expired | unavailable`.
 - Toutes les routes `/api/*` (sauf `/api/health`) exigent ce cookie (ou `Authorization: Bearer <session>`). Sans session : 401 `{ "error": "unauthenticated" }`.
 - Rôles : `expert` (la source, voit tout, invite) et `client` (voit son portefeuille + celui de l'expert en lecture). Accès sur invitation seulement.
 
@@ -81,6 +81,17 @@ Expert seulement (client : 403 `forbidden`) :
 - Synchro : un connecteur qui déclare `requiresToken` (Questrade) n'est exécuté que pour les utilisateurs ayant un jeton, lu à chaque synchro ; l'échec est journalisé (`ECHEC`) avec le jeton masqué. Le connecteur `demo` (défaut) ignore le jeton et synchronise tout le monde, donc après un DELETE ses données fictives reviennent à la synchro suivante.
 
 Jeton courtier : chaque utilisateur (expert ou client) connecte son propre compte courtier ; le jeton est stocké chiffré par utilisateur (clé `TRADE_TOKEN_KEY`) et n'est jamais renvoyé par l'API. `GET /api/me` expose seulement `brokerConnected: boolean`.
+
+### Sécurité (TOTP, ré-authentification, sessions, audit)
+Le TOTP est obligatoire pour l'expert et pour tout utilisateur qui connecte un courtier (ou l'a activé). Tant qu'il n'est pas vérifié sur la session, toutes les routes sauf `GET /api/me`, `/api/auth/*`, `POST /api/logout` et `POST /api/security/sessions/revoke-all` répondent 403 `mfa_required` (TOTP activé) ou `mfa_enroll_required` (à activer). `GET /api/me` ajoute `mfa: { required, enrolled, verified, stepUpUntil|null, backupRemaining }`.
+- `POST /api/auth/totp/enroll` -> `{ secret (base32), otpauth, qrSvg }` (409 `already_enrolled` ; 503 `mfa_unavailable` sans `TRADE_TOKEN_KEY`). `POST /api/auth/totp/confirm` `{ code }` -> `{ ok, backupCodes: [10] }` (montrés UNE fois ; nouveau cookie de session).
+- `POST /api/auth/verify` `{ code }` : code TOTP à 6 chiffres ou code de secours (`XXXXX-XXXXX`) ; connexion (niveau 0 -> 1) ET ré-authentification (valide 5 min). Nouveau cookie à chaque succès. Échec : toujours 401 `invalid_code` (même corps, quelle qu'en soit la raison) ; verrou : 429 `locked` + `Retry-After`.
+- Actions sensibles (jeton courtier POST/DELETE, `POST /api/invitations`, `POST /api/auth/backup-codes`, `POST /api/auth/totp/reset`, `/api/export*`) : 403 `stepup_required` si la dernière vérification date de plus de 5 min.
+- `POST /api/auth/backup-codes` -> `{ backupCodes }` (les anciens meurent). `POST /api/auth/totp/reset` : retire le TOTP (à ré-enrôler).
+- `GET /api/security/sessions` -> `{ sessions: [{ current, createdAt, lastSeenAt, expiresAt, verified }] }` ; `POST /api/security/sessions/revoke-all` -> `{ ok, closed }` (toutes, celle-ci comprise, + `Clear-Site-Data`).
+- `GET /api/security/audit?limit=100&before=<id>` -> `{ entries: [{ id, at, event, ip, device, detail, hash }], chain: { ok, length, head } }` (ses lignes seulement).
+- 401 de session : `unauthenticated | session_idle | session_expired | session_device`. En-têtes de l'interface : `X-TT-Poll: 1` (rafraîchissement automatique : ne prolonge pas l'inactivité) et `X-TT-Active: 1` (la personne a agi récemment).
+- Alertes vers TMT : `POST ${TMT_BASE_URL}/api/trade-events`, même signature, corps `{ type: "security", kind: login|new_device|broker_token_set|broker_token_replaced|broker_token_deleted|auth_failures|backup_code, userId, occurredAt }` -> push `?notif=trade&secu=<kind>`.
 
 ## Import du Sheet (A9)
 `POST /api/admin/import-sheet` (hors session ; en-tête `X-Admin-Token` = `TRADE_ADMIN_TOKEN`, >= 16 car. ; variable absente => 404) corps `{ tmtUserId, role?: "expert"|"client", name?, files: { comptes, positions, transactions, soldes } }` (textes CSV, tous facultatifs) -> `{ accounts, positions, balances, transactions, skipped: [..] }` (compteurs de lignes NOUVELLES). Idempotent, sans suppression, sans événement d'achat. Script équivalent : `node trade-tracker/import-sheet.js <dossier-csv> --user <idTMT>`. Colonnes (en-têtes insensibles à la casse/aux accents, séparateur `,` ou `;`) : Comptes `compte,type,libelle,courtier` ; Positions `compte,symbole,nom,secteur,devise,quantite,prix_moyen,prix_actuel` ; Transactions `compte,id,date,type,symbole,quantite,prix,montant,devise` ; Soldes `compte,devise,encaisse`. Exemples fictifs : `test/fixtures/`.
