@@ -92,6 +92,8 @@ Réponse attendue : 2xx. Sinon l'événement reste `ECHEC` et est renvoyé à la
 ## Variables d'environnement
 `TRADE_LINK_SECRET` (signature des liens, >= 16 car., partagé avec TMT), `TRADE_TOKEN_KEY` (chiffrement des jetons courtier), `TRADE_EXPERT_TMT_IDS` (ids TMT amorçant le rôle expert, séparés par des virgules), `TRADE_NOTIFY_SECRET`, `TRADE_ADMIN_TOKEN` (import admin), `TMT_BASE_URL`, `TRADE_CONNECTOR` (défaut `demo`), `TRADE_SYNC_DISABLE`, `TRADE_SYNC_INTERVAL_MIN`, `TRADE_NOTIFY_DRYRUN`, `PORT` (3980), `NOESIS_DATA_DIR`. Aucun secret n'est stocké dans le code.
 
+Squelette Questrade : `server/lib/connectors/questrade.js` (OAuth refresh à usage unique, rotation sauvegardée chiffrée, correspondances comptes/positions/soldes/activités, client HTTP injecté ; aucun appel réseau, non enregistré) — à activer avec les jetons d'Émilien.
+
 ## Hors v0
 Connecteur courtier (Questrade), prix et taux automatiques, écriture de transactions : non inclus ; la synchro n'utilise que le connecteur de démonstration.
 
