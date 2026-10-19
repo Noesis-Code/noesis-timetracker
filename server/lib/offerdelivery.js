@@ -123,7 +123,9 @@ async function generateSubProjectsPlan(formsPayload) {
 function parsePlan(text) {
   let parsed;
   try {
-    parsed = JSON.parse(text);
+    // L'IA entoure parfois son JSON de clôtures markdown (``` ou ```json).
+    const cleaned = String(text).trim().replace(/^```[a-zA-Z]*\s*/, '').replace(/\s*```$/, '').trim();
+    parsed = JSON.parse(cleaned);
   } catch (err) {
     throw new Error("Réponse de Noèsis illisible (JSON invalide).");
   }
@@ -237,4 +239,5 @@ module.exports = {
   // Exportés séparément pour les tests et un futur outil d'admin.
   loadFormsPayload,
   generateSubProjectsPlan,
+  parsePlan,
 };
