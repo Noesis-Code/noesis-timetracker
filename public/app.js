@@ -7805,6 +7805,25 @@
     toggle.addEventListener('click', function () { body.classList.remove('hidden'); toggle.classList.add('hidden'); });
     paintToggle(); paint();
     body.appendChild(table); body.appendChild(use);
+    // Estimation indicative du temps par membre et par pôle (activité partagée seulement,
+    // lecture seule, sans IA) : médiane de ses entrées de temps, « pas assez de données » sous 3 entrées.
+    var memberEst = document.createElement('div'); memberEst.className = 'goalMemberEst hidden';
+    body.appendChild(memberEst);
+    api('GET', '/api/activities/' + activityId + '/goals/member-estimates?all=1').then(function (r) {
+      if (!r || !r.members || r.members.length < 2 || !r.members.some(function (m) { return m.poles.length; })) return;
+      var title = document.createElement('div'); title.className = 'goalMemberEstTitle'; title.textContent = t('Estimation du temps par membre');
+      memberEst.appendChild(title);
+      r.members.forEach(function (m) {
+        var row = document.createElement('div'); row.className = 'goalMemberEstRow';
+        var name = document.createElement('span'); name.className = 'goalMemberEstName'; name.textContent = m.name;
+        var vals = document.createElement('span'); vals.className = 'goalMemberEstVals';
+        vals.textContent = m.poles.map(function (p) {
+          return p.label + ' ' + (p.estimate ? '~' + p.estimate.minutes + ' min' : t('pas assez de données'));
+        }).join(' · ');
+        row.appendChild(name); row.appendChild(vals); memberEst.appendChild(row);
+      });
+      memberEst.classList.remove('hidden');
+    }).catch(function () {});
     node.appendChild(toggle); node.appendChild(body);
     api('GET', '/api/activities/' + activityId + '/goals/timecaps/' + key).then(function (c) {
       state.loaded = true; state.avgDay = c.avgDayMinutes; state.avgWeek = c.avgWeekMinutes;

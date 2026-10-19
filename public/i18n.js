@@ -1386,6 +1386,7 @@
     "Membre prévu pour cette tâche (planning Objectifs)": "Member planned for this task (Goals planning)",
     "Non prévu": "Not planned",
     "estimation": "estimate",
+    "Estimation du temps par membre": "Estimated time per member",
     "pas assez de données": "not enough data",
     "Retirer le pôle « {name} » ?": "Remove the pole \"{name}\"?",
     "Retirer le secteur « {name} » ?": "Remove the sector \"{name}\"?",

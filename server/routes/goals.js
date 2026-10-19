@@ -184,7 +184,9 @@ router.get('/activities/:id/goals/member-estimates', (req, res) => {
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
   try {
-    res.json({ estimates: require('../lib/memberestimate').memberEstimates(activityId, String(req.query.category || '')) });
+    const me = require('../lib/memberestimate');
+    if (req.query.all) return res.json({ members: me.memberEstimatesByPole(activityId) });
+    res.json({ estimates: me.memberEstimates(activityId, String(req.query.category || '')) });
   } catch (err) {
     handleGoalsError(res, err);
   }

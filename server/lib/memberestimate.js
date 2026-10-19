@@ -32,4 +32,32 @@ function memberEstimates(activityId, category) {
   return out;
 }
 
-module.exports = { memberEstimates, MIN_SAMPLES };
+// Toutes les estimations d'un coup, par membre puis par pôle (fenêtre Activité,
+// sous « Gérer mon temps ») : [{ id, name, poles: [{ key, label, estimate|null }] }].
+function memberEstimatesByPole(activityId) {
+  const goals = require('./goals');
+  const poles = goals.categoriesForActivity(activityId);
+  const members = goals.membersForActivity(activityId);
+  const stmt = db.prepare('SELECT goalCategory, durationSeconds FROM time_entries WHERE activityId = ? AND userId = ? AND goalCategory IS NOT NULL AND durationSeconds > 0');
+  const cache = {};
+  const poleOf = (k) => (k in cache ? cache[k] : (cache[k] = goals.resolveToPole(activityId, k)));
+  return members.map((m) => {
+    const rows = stmt.all(activityId, m.id);
+    return {
+      id: m.id,
+      name: m.name,
+      poles: poles.map((p) => {
+        const r = rows.filter((x) => poleOf(x.goalCategory) === p.key);
+        return {
+          key: p.key,
+          label: p.label,
+          estimate: r.length >= MIN_SAMPLES
+            ? { minutes: Math.max(1, Math.round(median(r.map((x) => x.durationSeconds)) / 60)), samples: r.length }
+            : null,
+        };
+      }),
+    };
+  });
+}
+
+module.exports = { memberEstimates, memberEstimatesByPole, MIN_SAMPLES };

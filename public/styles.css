@@ -6287,6 +6287,13 @@ button { -webkit-user-select: none; user-select: none; }
 .catEditForm .timeCapsBlock .hint { margin: 0; }
 .catEditForm .timeCapsBody { display: flex; flex-direction: column; gap: 6px; }
 .catEditForm .timeCapsBody.hidden { display: none; }
+/* Estimation indicative du temps par membre (activité partagée), sous « Gérer mon temps ». */
+.catEditForm .goalMemberEst { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.catEditForm .goalMemberEst.hidden { display: none; }
+.catEditForm .goalMemberEstTitle { font-size: 13px; font-weight: 700; color: var(--text-light); }
+.catEditForm .goalMemberEstRow { font-size: 13px; color: var(--text); }
+.catEditForm .goalMemberEstName { font-weight: 600; margin-right: 6px; }
+.catEditForm .goalMemberEstVals { color: var(--text-light); }
 .catEditForm .timeCapsTable { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px 8px; align-items: center; }
 .catEditForm .timeCapsHead { font-size: 13px; font-weight: 700; color: var(--text-light); text-align: center; }
 .catEditForm .timeCapsRowLabel { font-size: 14px; font-weight: 600; color: var(--text); }

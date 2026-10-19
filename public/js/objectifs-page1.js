@@ -136,34 +136,6 @@
       attachAutoTaskGlow = TMT.attachAutoTaskGlow, calendarDayLabel = TMT.calendarDayLabel,
       loadGoalsCaptureBadges = TMT.loadGoalsCaptureBadges;
 
-  // Chantier #73 (19 oct. 2026) : estimation INDICATIVE du temps par membre pour une
-  // tâche, affichée dans le sélecteur « Responsable » (lecture seule, sans IA, ne
-  // décide jamais). Catégorie comparable = pôle (le serveur y ramène les secteurs).
-  // sel : <select> dont les options (hors « — ») ont value = id du membre ;
-  // getCategory : () => clé du pôle/secteur de la tâche. Se remet à jour au changement de catégorie.
-  TMT.attachMemberEstimates = function (sel, activityId, getCategory, catSel) {
-    var seq = 0;
-    function paint(estimates) {
-      Array.prototype.forEach.call(sel.options, function (o) {
-        if (!o.value) return;
-        if (o.dataset.name === undefined) o.dataset.name = o.textContent;
-        var est = estimates ? estimates[o.value] : null;
-        o.textContent = o.dataset.name + ' \u2014 ' + (est ? t('estimation') + ' ~' + est.minutes + ' min' : t('pas assez de donn\u00e9es'));
-      });
-    }
-    function run() {
-      var cat = getCategory(), my = ++seq;
-      if (sel.options.length < 3) return; // activité non partagée : rien à comparer
-      if (!cat) { paint(null); return; }
-      api('GET', '/api/activities/' + activityId + '/goals/member-estimates?category=' + encodeURIComponent(cat))
-        .then(function (r) { if (my === seq) paint(r && r.estimates); })
-        .catch(function () {});
-    }
-    if (catSel) catSel.addEventListener('change', run);
-    return run;
-  };
-
-
   // ===================== VOLET OBJECTIFS — PAGE 1 : CAPTURE =====================
   // 25 septembre 2026 (discussion Objectifs — Logique métier), restructuration
   // en 3 pages sur demande directe d'Emilien — voir le commentaire de
@@ -999,7 +971,6 @@
             ms.forEach(function (m) { var o = document.createElement('option'); o.value = m.id; o.textContent = m.name; f.wSel.appendChild(o); });
             // Activité non partagée : le responsable est forcément la seule personne, aucun choix à proposer.
             if (ms.length <= 1) { wFieldMulti.style.display = 'none'; f.wSel.value = ''; }
-            else if (TMT.attachMemberEstimates) TMT.attachMemberEstimates(f.wSel, r.activityId, function () { return sel.value; }, sel)();
           }).catch(function () {});
           box.appendChild(fld(t('Quand'), f.dIn));
           box.appendChild(wFieldMulti);
@@ -1489,7 +1460,6 @@
             if (r.plannedUserId === m.id) o.selected = true;
             whoSel.appendChild(o);
           });
-          if (TMT.attachMemberEstimates) TMT.attachMemberEstimates(whoSel, r.activityId, function () { return whereSel.value; }, whereSel)();
         }).catch(function () {});
       }
     });
