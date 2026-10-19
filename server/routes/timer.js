@@ -3,8 +3,7 @@ const db = require('../db');
 const { isoDateOf, dayNameOf, formatElapsed } = require('../lib/dates');
 // Rattachement OPTIONNEL du temps à une CATÉGORIE Objectifs (17 septembre
 // 2026, suppression totale des sous-projets — remplace le rattachement
-// sous-projet du 4 septembre 2026, entrysubproject.js, retiré d'ici mais
-// gardé en filet invisible, voir ce fichier). Toute la validation vit dans
+// sous-projet du 4 septembre 2026, retiré). Toute la validation vit dans
 // ce module partagé avec server/routes/history.js — voir son en-tête.
 const { resolveCategoryKey, categorySummary } = require('../lib/entrycategory');
 
