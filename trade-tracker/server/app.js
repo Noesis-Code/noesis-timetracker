@@ -84,12 +84,16 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
 
   // Admin (hors session) : import d'un export CSV du Sheet. Protégé par TRADE_ADMIN_TOKEN
   // (en-tête X-Admin-Token, comparaison à temps constant) ; absent => route inexistante (404).
-  app.post('/api/admin/import-sheet', rlAdmin, express.json({ limit: '5mb' }), (req, res) => {
+  // Le jeton est vérifié AVANT de lire le corps (5 Mo) : un appelant anonyme ne fait pas analyser de gros JSON.
+  const adminGate = (req, res, next) => {
     const want = env.TRADE_ADMIN_TOKEN;
     if (!want || want.length < 16) return err(res, 404, 'not_found');
     const given = Buffer.from(String(req.headers['x-admin-token'] || ''));
     const exp = Buffer.from(want);
     if (given.length !== exp.length || !crypto.timingSafeEqual(given, exp)) return err(res, 401, 'unauthorized');
+    next();
+  };
+  app.post('/api/admin/import-sheet', rlAdmin, adminGate, express.json({ limit: '5mb' }), (req, res) => {
     const b = req.body || {};
     if (typeof b.tmtUserId !== 'string' || !b.tmtUserId || !b.files || typeof b.files !== 'object') return err(res, 400, 'bad_request', 'tmtUserId et files requis');
     try {
@@ -130,7 +134,9 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     const h = req.headers.authorization || '';
     if (h.startsWith('Bearer ')) return h.slice(7);
     const ck = parseCookies(req.headers.cookie);
-    return ck['__Host-tt_session'] || ck.tt_session;
+    // En HTTPS seul le cookie __Host- est accepté : un cookie « tt_session » nu (posé par un sous-domaine ou un script voisin) est ignoré.
+    const secure = req.secure || req.headers['x-forwarded-proto'] === 'https' || env.TRADE_COOKIE_CROSS_SITE === '1';
+    return secure ? ck['__Host-tt_session'] : (ck['__Host-tt_session'] || ck.tt_session);
   };
   // Session : durée absolue, inactivité 15 min, liaison au user-agent. Le rafraîchissement automatique de l'interface (X-TT-Poll: 1)
   // ne prolonge PAS l'inactivité, sauf si la personne a agi récemment (X-TT-Active: 1) : un onglet laissé ouvert finit par expirer.

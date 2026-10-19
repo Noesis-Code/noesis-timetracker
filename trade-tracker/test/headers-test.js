@@ -23,6 +23,8 @@ const { enrollAndVerify } = require('./mfa-helper');
     assert(!/Domain=/i.test(sc), 'pas de Domain (requis par __Host-)');
     const ck = sc.split(';')[0];
     assert.strictEqual((await fetch(base + '/api/me', { headers: { cookie: ck } })).status, 200, 'le cookie __Host- est relu');
+    const bare = ck.replace('__Host-', ''); // cookie nu « tt_session » en HTTPS : ignoré
+    assert.strictEqual((await fetch(base + '/api/me', { headers: { cookie: bare, 'x-forwarded-proto': 'https' } })).status, 401, 'cookie nu refusé en HTTPS');
     const e = await enrollAndVerify(base, ck);
     assert(!e.cookie.includes('__Host-') || e.cookie.startsWith('__Host-tt_session='), 'cookie renouvelé après vérification');
     // HTTP local : Lax, sans préfixe

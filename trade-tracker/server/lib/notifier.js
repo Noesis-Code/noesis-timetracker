@@ -25,7 +25,7 @@ function createNotifier({ env = process.env, fetchImpl, dryRun, now = () => Date
       if (isDry) return { status: 'DRYRUN', request };
       try {
         const f = fetchImpl || globalThis.fetch;
-        const res = await f(request.url, { method: 'POST', headers: request.headers, body: raw });
+        const res = await f(request.url, { method: 'POST', headers: request.headers, body: raw, redirect: 'error', signal: AbortSignal.timeout(10000) }); // délai borné ; jamais de redirection (la signature ne suit pas ailleurs)
         return res.ok ? { status: 'SENT', request } : { status: 'ECHEC', request, error: 'HTTP ' + res.status };
       } catch (e) {
         return { status: 'ECHEC', request, error: e.message };
