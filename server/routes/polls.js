@@ -50,43 +50,6 @@ polls.registerScopeGuard('profile', function (userId, scopeId) {
   return { canCreate: userId === owner.id };
 });
 
-// ----- scope 'subproject' : un sondage dans un sous-projet d'activité -----
-//
-// L'hôte est la discussion "Sous-projets" (server/lib/subprojects.js), qui
-// expose déjà `checkSubProjectAccess(userId, subProjectId)` renvoyant
-// exactement la forme attendue par le registre : { error } ou { subProject }.
-// Rien à écrire de plus, rien à recopier.
-//
-// ⚠️ Chargement TOLÉRANT, et ce n'est pas de la précaution théorique : au
-// moment où ce fichier a été écrit, `server/lib/subprojects.js` existait déjà
-// sur le disque d'Emilien mais ses tables n'étaient PAS encore dans
-// server/db.js (la discussion "Sous-projets" livrait son chantier en même
-// temps que celui-ci). Un `require` en dur aurait fait échouer le démarrage du
-// serveur ENTIER pendant cet intervalle — un chantier de sondages ne doit
-// jamais pouvoir empêcher l'app de démarrer.
-//
-// Les deux modes de défaillance sont couverts, et tous les deux REFUSENT :
-//   - module absent    -> aucune garde enregistrée pour ce scope, le socle
-//                         refuse (fermé par défaut) ;
-//   - module présent mais tables manquantes -> l'appel lève, et
-//                         checkScopeAccess convertit l'exception en 403.
-// Vérifié dans les deux cas en bac à sable avant livraison.
-try {
-  const sp = require('../lib/subprojects');
-  if (sp && typeof sp.checkSubProjectAccess === 'function') {
-    polls.registerScopeGuard('subproject', function (userId, scopeId) {
-      const check = sp.checkSubProjectAccess(userId, scopeId);
-      if (check.error) return check;
-      // Tout membre de l'activité peut lancer un sondage dans un sous-projet :
-      // un sous-projet appartient à l'activité, pas à son créateur (voir
-      // l'en-tête de server/lib/subprojects.js).
-      return { canCreate: true };
-    });
-  }
-} catch (err) {
-  console.warn('[polls] scope "subproject" non enregistré :', err && err.message);
-}
-
 // ===================== ROUTES =====================
 
 // Liste des sondages d'un emplacement donné.

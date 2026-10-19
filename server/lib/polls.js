@@ -17,8 +17,8 @@
 //                            « écrire à sa communauté » de #tab-community),
 //                            dans le flux Suivi de ses abonnés, et sur sa
 //                            page de visite de profil.
-//   scope = 'subproject'  -> scopeId = l'id du sous-projet (server/lib/
-//                            subprojects.js, discussion "Sous-projets").
+//                            (Le scope 'subproject' est retiré depuis le 19 octobre 2026 :
+//                            aucune garde enregistrée, le socle refuse.)
 //
 // ⚠️ Cadrage explicite d'Emilien (3 septembre 2026) : « Les sondages
 // n'apparaissent jamais dans les discussions, ils sont toujours des post qui
