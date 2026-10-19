@@ -99,10 +99,20 @@
     });
   }
 
+  // Ouverture de l'app : on arrive sur le premier volet (le plus à gauche) de la barre, modules désactivés exclus. Une fois par chargement ; ?notif= garde la priorité.
+  var openedFirst = false;
+  function openFirstTab() {
+    if (openedFirst) return; openedFirst = true;
+    if (location.search.indexOf('notif=') !== -1 || !nav || typeof TMT.switchTab !== 'function') return;
+    var first = tabBtns().filter(function (b) { return tabOn(b.dataset.tab); })[0];
+    var cur = nav.querySelector('.tabBtn.active');
+    if (first && (!cur || cur !== first)) TMT.switchTab(first.dataset.tab);
+  }
+
   function load() {
     if (!pid()) return Promise.resolve(null);
     var id = pid();
-    return call('GET').then(function (d) { state = d.modules; loadedFor = id; remember(); apply(); applyOrder(); paint(); return state; }).catch(function () { return null; });
+    return call('GET').then(function (d) { state = d.modules; loadedFor = id; remember(); apply(); applyOrder(); openFirstTab(); paint(); return state; }).catch(function () { return null; });
   }
 
   // ===== Barre du bas modulable (19 oct. 2026) =====
