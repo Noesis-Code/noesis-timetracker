@@ -197,6 +197,15 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     res.json({ ok: true, brokerConnected: true });
   });
 
+  // État de la connexion courtier : aucun secret. error = message de la dernière synchro si elle a échoué.
+  app.get('/api/broker/status', (req, res) => {
+    const last = db.prepare("SELECT at, status, message FROM sync_log WHERE userId = ? AND kind = 'sync' ORDER BY id DESC LIMIT 1").get(req.user.id);
+    const ok = db.prepare("SELECT at FROM sync_log WHERE userId = ? AND kind = 'sync' AND status != 'ECHEC' ORDER BY id DESC LIMIT 1").get(req.user.id);
+    const out = { connected: BT.hasBrokerToken(db, req.user.id), lastSyncAt: ok ? ok.at : null };
+    if (last && last.status === 'ECHEC') out.error = last.message;
+    res.json(out);
+  });
+
   // Suppression RÉELLE : jeton + données de synchro de l'utilisateur (comptes, positions, soldes, transactions, historique, journal, événements). La confirmation est faite côté client.
   app.delete('/api/broker/token', rlBroker, (req, res) => {
     try { BT.deleteBrokerToken(db, req.user.id); BT.purgeSyncData(db, req.user.id); } catch { return err(res, 500, 'delete_failed', 'Suppression non terminée.'); }

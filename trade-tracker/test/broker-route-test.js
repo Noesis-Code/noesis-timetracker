@@ -51,6 +51,17 @@ const B = require('../server/lib/brokertoken');
     assert.strictEqual(B.getBrokerToken(ctx.db, 1, { env: { TRADE_TOKEN_KEY: key } }), t2);
     assert.strictEqual(ctx.db.prepare('SELECT COUNT(*) n FROM broker_tokens').get().n, 1);
 
+    // statut : sans secret
+    assert.strictEqual((await call(ctx, 'GET', '/api/broker/status', null)).status, 401);
+    let st = await (await call(ctx, 'GET', '/api/broker/status', c2)).json();
+    assert.deepStrictEqual(st, { connected: false, lastSyncAt: null });
+    st = await (await call(ctx, 'GET', '/api/broker/status', c1)).json();
+    assert.strictEqual(st.connected, true); assert.strictEqual(st.lastSyncAt, null); assert(!('error' in st));
+    ctx.db.prepare("INSERT INTO sync_log (userId, kind, status, message) VALUES (1,'sync','ECHEC','Échec de synchro : boum')").run();
+    st = await (await call(ctx, 'GET', '/api/broker/status', c1)).json();
+    assert.strictEqual(st.error, 'Échec de synchro : boum'); assert(!JSON.stringify(st).includes(t2));
+    ctx.db.prepare("DELETE FROM sync_log WHERE userId = 1").run();
+
     // suppression : jeton + données dérivées de l'utilisateur 1 seulement
     const { syncAll } = require('../server/lib/sync');
     ctx.db.prepare("INSERT INTO tt_users (tmtUserId,name,role) VALUES ('tmt-e','E','expert')").run();
