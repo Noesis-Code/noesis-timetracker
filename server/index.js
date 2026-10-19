@@ -214,6 +214,7 @@ app.use('/api', require('./routes/feedback'));
 // ⚠️ Doit rester monté sous /api : le catch-all plus bas renvoie index.html
 // pour toute route non-API, et un lecteur de calendrier recevrait alors du
 // HTML au lieu du flux.
+app.use('/api', require('./routes/trade')); // Trade Tracker : lien d'entrée signé (module optionnel « trade »)
 app.use('/api', require('./routes/calendar'));
 app.use('/api', require('./routes/documenttasks'));
 app.use('/api', require('./routes/changeproposals'));

@@ -190,6 +190,8 @@ async function main() {
   catch (e) { assert(false, 'modules activables : tests échoués'); }
   try { execFileSync('node', [path.join(__dirname, 'commentaire-chrono-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'commentaire Chrono : tests passés'); }
   catch (e) { assert(false, 'commentaire Chrono : tests échoués'); }
+  try { execFileSync('node', [path.join(__dirname, 'trade-link-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'Trade Tracker : jeton de lien : tests passés'); }
+  catch (e) { assert(false, 'Trade Tracker : jeton de lien : tests échoués'); }
 
   try { execFileSync('node', [path.join(__dirname, 'parseplan-test.js')], { encoding: 'utf8' }); assert(true, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) passe'); }
   catch (e) { assert(false, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) échoue'); }
