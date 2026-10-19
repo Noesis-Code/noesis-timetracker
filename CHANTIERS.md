@@ -12,6 +12,11 @@ Sept chantiers tournent **en permanence**. Quand l'un se termine, le coordinateu
 | 6 | **Précision des tâches générées** | Stratégie pour que les tâches proposées par l'IA soient justes : jeu d'évaluation, mesure (précision, rappel, refus), réglage des consignes/prompts, usage de la stratégie d'activité, seuils de confiance. |
 | 7 | **Principal (pilotage)** | Améliore le fonctionnement de la veille et de l'amélioration permanentes : file des tâches, répartition, règles de travail (ce fichier), tests de non-régression, incidents (stash partagé, fichiers vides…), et **notifications à Émilien** (règles ci-dessous). C'est ici que se règlent la progression et la cadence. |
 
+## Règles automatiques du chantier 7 (décision d'Émilien, 19 oct. 2026)
+1. **Chantier terminé sans nouvelle tâche** : le coordinateur ne le laisse pas vide. Il envoie aussitôt un message dans le chantier principal et demande à Émilien (AskUserQuestion) de **choisir un autre chantier à réaliser ou d'ajouter de nouvelles tâches**.
+2. **Crédits Claude** : une tâche planifiée quotidienne (8 h 54, heure de New York, « Quota Claude quotidien ») envoie une notification push lui demandant son pourcentage de quota hebdomadaire et la cible attendue (≈ 14 % par jour depuis le samedi 5 h). Quand Émilien répond avec son pourcentage, le coordinateur ajuste le nombre de chantiers en cours (plus d'agents si en retard sur la cible, moins ou plus légers si en avance). Claude ne peut pas lire lui-même le quota.
+3. **Claude API** : le chantier 4 rend un rapport de coût (`scripts/ai-cost-report.js`) ; toute économie qui change la qualité visible est proposée à Émilien avant d'être appliquée.
+
 ## Notifications à Émilien (règles du chantier 7)
 À définir avec lui ; en attendant : un message court à chaque lot livré (fait / à valider / bloqué) avec une capture si l'interface change ; une notification push (outil `notifier` de TiMeTracker) seulement pour un blocage qui exige sa décision ou un incident de sécurité.
 
