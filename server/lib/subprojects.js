@@ -348,10 +348,6 @@ function checkSectionAccess(userId, sectionId) {
   return { section, subProject: access.subProject };
 }
 
-function hasPollSection(subProjectId) {
-  return !!db.prepare("SELECT 1 FROM sub_project_sections WHERE subProjectId = ? AND kind = 'poll'").get(subProjectId);
-}
-
 function createSection(subProjectId, userId, kind, title) {
   const next = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM sub_project_sections WHERE subProjectId = ?')
     .get(subProjectId).pos;
@@ -713,7 +709,6 @@ module.exports = {
   reorderSubProjects,
   // Sections
   getSection,
-  hasPollSection,
   createSection,
   updateSectionTitle,
   deleteSection,
