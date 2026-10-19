@@ -791,7 +791,6 @@
     'Intitulé de la tâche requis.': 'Task label required.',
     'Tâche introuvable.': 'Task not found.',
     'Tâche verrouillée : terminée depuis plus de 7 jours.': 'Task locked: completed more than 7 days ago.',
-    "Seul le créateur du sous-projet ou le propriétaire de l'activité peut le supprimer.": 'Only the sub-project creator or the activity owner can delete it.',
 
     // ---- Sondages (3 septembre 2026, 11ᵉ discussion "Sondages") ----
     // Textes statiques d'index.html (traduits par translateStaticDom), textes
@@ -874,14 +873,7 @@
     'vide': 'empty',
     'Tout son contenu sera supprimé pour tous les membres. Confirmer ?': 'All of its content will be deleted for every member. Confirm?',
     // Messages d'erreur renvoyés par server/routes/subprojects.js
-    'Type de section inconnu.': 'Unknown section type.',
-    'Ce sous-projet a déjà une discussion.': 'This sub-project already has a discussion.',
-    'Ce sous-projet a déjà une section de sondages.': 'This sub-project already has a polls section.',
-    'Cette section existe déjà dans ce sous-projet.': 'This section already exists in this sub-project.',
     'Section introuvable.': 'Section not found.',
-    "Cette section n'est pas une liste de tâches.": 'This section is not a task list.',
-    "Ce sous-projet n'a pas de discussion.": 'This sub-project has no discussion.',
-    "Seul le créateur de la section ou le propriétaire de l'activité peut la supprimer.": 'Only the section creator or the activity owner can remove it.',
 
 
     // ---- Sous-projets : anneau d'avancement et mode édition (3 sept. 2026) ----
