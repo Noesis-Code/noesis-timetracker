@@ -23,6 +23,8 @@ Rien n'est déployé automatiquement. Le serveur **refuse de démarrer en produc
 | `TRADE_TOKEN_KEY_V<n>` | facultatif : ancienne clé de version n, gardée le temps de la rotation (voir ci-dessous) |
 | `TMT_BASE_URL` | URL publique de TMT (obligatoire ; autorise l'iframe) |
 | `TRADE_EXPERT_TMT_IDS` | id(s) TMT de l'expert (obligatoire) |
+| `TRADE_RP_ID` | domaine de Trade sans `https://` (ex. `web-trade-xxxx.up.railway.app`) ; active les passkeys (sans lui : indisponibles). Changer le domaine invalide les passkeys existantes |
+| `TRADE_ORIGIN` | facultatif, défaut `https://<TRADE_RP_ID>` |
 | `TRADE_ADMIN_TOKEN` | facultatif, >= 16 car. ; active l'import admin |
 | `TRADE_CONNECTOR` | `demo` (défaut) ou `questrade` (voir ci-dessous) |
 | `TRADE_COOKIE_CROSS_SITE` | `1` si le cookie doit passer en iframe sans HTTPS détecté (inutile derrière Railway HTTPS) |

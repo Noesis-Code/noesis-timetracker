@@ -11,7 +11,8 @@ const db = openDb();
 const u = db.prepare('SELECT id, role FROM tt_users WHERE tmtUserId = ?').get(tmtId);
 if (!u) { console.error('Utilisateur inconnu.'); process.exit(1); }
 const had = M.resetMfa(db, u.id);
+const pk = require('./server/lib/passkeys').removeAll(db, u.id); // clean slate : une passkey peut être sur l'appareil perdu
 const closed = Number(db.prepare('DELETE FROM sessions WHERE userId = ?').run(u.id).changes);
 db.prepare('DELETE FROM auth_lockouts WHERE key = ?').run('acct:' + u.id);
-audit.log(db, { userId: u.id, event: 'mfa_reset_operator', detail: { hadTotp: had, sessionsClosed: closed } });
+audit.log(db, { userId: u.id, event: 'mfa_reset_operator', detail: { hadTotp: had, passkeysRemoved: pk, sessionsClosed: closed } });
 console.log(`TOTP ${had ? 'retiré' : 'absent'} ; ${closed} session(s) fermée(s). Rôle : ${u.role}. La personne devra réactiver la vérification en deux étapes.`);

@@ -100,6 +100,7 @@ const TEXTS = {
       login: 'Nouvelle connexion à ton compte.', new_device: 'Connexion depuis un nouvel appareil.', broker_token_set: 'Jeton courtier connecté.',
       broker_token_replaced: 'Jeton courtier remplacé.', broker_token_deleted: 'Jeton courtier supprimé.',
       auth_failures: 'Plusieurs échecs de vérification sur ton compte.', backup_code: 'Un code de secours a été utilisé.',
+      passkey_added: 'Une passkey a été ajoutée à ton compte.', passkey_removed: 'Une passkey a été retirée de ton compte.', passkey_clone: 'Une passkey a été refusée : copie possible. Vérifie ton compte.',
     },
     tradeSecurityHint: 'Pas toi ? Ferme toutes les sessions dans Trade Tracker.',
     announcementTitle: 'Noèsis',
@@ -116,6 +117,7 @@ const TEXTS = {
       login: 'New sign-in to your account.', new_device: 'Sign-in from a new device.', broker_token_set: 'Broker token connected.',
       broker_token_replaced: 'Broker token replaced.', broker_token_deleted: 'Broker token deleted.',
       auth_failures: 'Several failed verifications on your account.', backup_code: 'A backup code was used.',
+      passkey_added: 'A passkey was added to your account.', passkey_removed: 'A passkey was removed from your account.', passkey_clone: 'A passkey was rejected: possible copy. Check your account.',
     },
     tradeSecurityHint: 'Not you? Close all sessions in Trade Tracker.',
     announcementTitle: 'Noèsis',
@@ -391,7 +393,7 @@ function notifyTradePurchase(toUserId, ev) {
 
 // Alerte de sécurité Trade Tracker (POST /api/trade-events, type « security ») : connexion, nouvel appareil, jeton courtier, échecs répétés.
 // Aucune donnée financière dans le texte. Pas de filtre par module « trade » (une alerte de sécurité ne doit pas dépendre d'un réglage d'affichage).
-const TRADE_SECURITY_KINDS = ['login', 'new_device', 'broker_token_set', 'broker_token_replaced', 'broker_token_deleted', 'auth_failures', 'backup_code'];
+const TRADE_SECURITY_KINDS = ['login', 'new_device', 'broker_token_set', 'broker_token_replaced', 'broker_token_deleted', 'auth_failures', 'backup_code', 'passkey_added', 'passkey_removed', 'passkey_clone'];
 function notifyTradeSecurity(toUserId, ev) {
   if (!configured) return;
   try {

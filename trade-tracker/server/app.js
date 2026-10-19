@@ -13,6 +13,8 @@ const BT = require('./lib/brokertoken');
 const audit = require('./lib/audit');
 const M = require('./lib/mfa');
 const L = require('./lib/lockout');
+const P = require('./lib/passkeys');
+const passkeyRoutes = require('./lib/passkeyroutes');
 
 function parseCookies(h) {
   const out = {};
@@ -174,7 +176,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
   const mfaState = (req) => {
     const required = M.isRequired(db, req.user), enrolled = M.isEnrolled(db, req.user.id);
     const su = req.session.stepUpAt ? Date.parse(req.session.stepUpAt) + A.STEPUP_TTL_MS : 0;
-    return { required, enrolled, verified: req.session.authLevel >= 1, stepUpUntil: su > Date.now() ? new Date(su).toISOString() : null, backupRemaining: enrolled ? M.backupRemaining(db, req.user.id) : 0 };
+    return { required, enrolled, verified: req.session.authLevel >= 1, stepUpUntil: su > Date.now() ? new Date(su).toISOString() : null, backupRemaining: enrolled ? M.backupRemaining(db, req.user.id) : 0, passkeys: P.count(db, req.user.id), passkeyAvailable: !!P.getConfig(env, req) };
   };
   // Nouvel identifiant de session après élévation (TOTP vérifié) : cookie neuf ; l'ancien jeton est mort. Bearer : jeton neuf dans le corps.
   const elevate = (req, res, { authLevel = 1 } = {}) => {
@@ -343,12 +345,12 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     err(res, 429, 'locked', 'Trop d’essais. Réessaie dans ' + wait + ' s.');
     return false;
   };
-  const codeFailed = (req, res, event) => {
+  const codeFailed = (req, res, event, errCode, reason) => {
     const a = L.fail(db, 'acct:' + req.user.id, { threshold: 5 });
     L.fail(db, 'ip:' + (req.ip || 'inconnu'), { threshold: 10 });
-    aud(req, event, { fails: a.fails });
+    aud(req, event, reason ? { fails: a.fails, reason } : { fails: a.fails });
     if (a.fails === 3 || (a.fails >= 5 && a.fails % 5 === 0)) { aud(req, 'auth_failures_repeated', { fails: a.fails }); alertUser(req.user.id, 'auth_failures'); }
-    return mfaFail(res);
+    return errCode ? err(res, 401, errCode, 'Vérification refusée.') : mfaFail(res); // réponse identique pour tout échec
   };
   // Ré-authentification (step-up) : action sensible = TOTP vérifié il y a moins de 5 min, sinon 403 stepup_required (l'interface demande le code puis rejoue).
   const needStepUp = (req, res) => {
@@ -377,11 +379,13 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     if (!v.ok) return codeFailed(req, res, wasLogin ? 'totp_failed' : 'stepup_failed');
     L.clear(db, 'acct:' + req.user.id);
     const fresh = elevate(req, res);
-    aud(req, v.method === 'backup' ? 'backup_code_used' : wasLogin ? 'totp_verified' : 'stepup_ok', v.method === 'backup' ? { remaining: v.remaining } : {});
+    const fb = P.count(db, req.user.id) > 0 ? { fallback: true } : {}; // passkey enregistrée mais code utilisé : récupération, notée au journal
+    aud(req, v.method === 'backup' ? 'backup_code_used' : wasLogin ? 'totp_verified' : 'stepup_ok', v.method === 'backup' ? { remaining: v.remaining, ...fb } : fb);
     if (v.method === 'backup') alertUser(req.user.id, 'backup_code');
     if (wasLogin) alertUser(req.user.id, 'login');
     res.json({ ok: true, method: v.method, ...(v.method === 'backup' ? { backupRemaining: v.remaining } : {}), ...(req.headers.authorization ? { session: fresh } : {}) });
   });
+  passkeyRoutes.mount(app, { db, env, aud, alertUser, err, codeGate, codeFailed, needStepUp, elevate });
   // Nouveaux codes de secours (les anciens meurent) et changement d'appareil d'authentification : ré-authentification requise.
   app.post('/api/auth/backup-codes', (req, res) => {
     if (!needStepUp(req, res)) return;

@@ -1,9 +1,9 @@
 // Alertes de sécurité vers TMT (notification push, adressage ?notif=trade) : connexion, nouvel appareil, jeton courtier modifié/supprimé,
-// échecs d'authentification répétés, code de secours utilisé. Même canal signé HMAC que les événements d'achat (table events, type 'security').
+// échecs d'authentification répétés, code de secours utilisé, passkey ajoutée/retirée, compteur de passkey en régression (clone possible). Même canal signé HMAC que les événements d'achat (table events, type 'security').
 // Le message n'embarque AUCUNE donnée financière ni secret : seulement { type, kind, userId (id TMT), occurredAt }.
 const { notifyPending } = require('./notifier');
 
-const KINDS = ['login', 'new_device', 'broker_token_set', 'broker_token_replaced', 'broker_token_deleted', 'auth_failures', 'backup_code'];
+const KINDS = ['login', 'new_device', 'broker_token_set', 'broker_token_replaced', 'broker_token_deleted', 'auth_failures', 'backup_code', 'passkey_added', 'passkey_removed', 'passkey_clone'];
 
 // Retourne onAlert(userId (id Trade), kind) : enregistre l'événement puis tente l'envoi tout de suite (sans bloquer la requête).
 function createAlerter(db, notifier, { now = () => Date.now(), onError = (e) => console.warn('[trade-tracker] alerte :', e.message) } = {}) {

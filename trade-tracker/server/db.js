@@ -210,6 +210,30 @@ CREATE TABLE IF NOT EXISTS audit_log (
 CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(userId, id);
 CREATE TRIGGER IF NOT EXISTS audit_log_no_update BEFORE UPDATE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log est immuable'); END;
 CREATE TRIGGER IF NOT EXISTS audit_log_no_delete BEFORE DELETE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log est immuable'); END;
+
+-- Passkeys (WebAuthn). Rien de secret : identifiant public + clé PUBLIQUE (COSE, base64url) + compteur anti-clonage.
+CREATE TABLE IF NOT EXISTS webauthn_credentials (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId INTEGER NOT NULL REFERENCES tt_users(id) ON DELETE CASCADE,
+  credentialId TEXT NOT NULL UNIQUE,
+  publicKey TEXT NOT NULL,
+  counter INTEGER NOT NULL DEFAULT 0,
+  transports TEXT NOT NULL DEFAULT '',
+  deviceType TEXT NOT NULL DEFAULT '',
+  backedUp INTEGER NOT NULL DEFAULT 0,
+  label TEXT NOT NULL DEFAULT '',
+  createdAt TEXT NOT NULL,
+  lastUsedAt TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_webauthn_user ON webauthn_credentials(userId);
+-- Défis à usage unique (hachés), courts (2 min), liés à l'utilisateur, à la session et à l'usage (register | auth).
+CREATE TABLE IF NOT EXISTS webauthn_challenges (
+  challengeHash TEXT PRIMARY KEY,
+  userId INTEGER NOT NULL REFERENCES tt_users(id) ON DELETE CASCADE,
+  sessionHash TEXT NOT NULL,
+  purpose TEXT NOT NULL CHECK (purpose IN ('register','auth')),
+  expiresAt TEXT NOT NULL
+);
 `);
   // Sessions durcies : inactivité (lastSeenAt), liaison à l'appareil (uaHash), niveau d'authentification (0 = lien seul, 1 = TOTP vérifié), dernière ré-authentification.
   addColumnIfMissing(db, 'sessions', 'lastSeenAt', 'TEXT');

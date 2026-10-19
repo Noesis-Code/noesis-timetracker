@@ -13,7 +13,9 @@
     backup_codes_regenerated: 'Codes de secours régénérés', broker_token_set: 'Jeton courtier connecté', broker_token_replaced: 'Jeton courtier remplacé', broker_token_deleted: 'Jeton courtier supprimé',
     invitation_created: 'Invitation créée', invitation_created_expert: 'Invitation d’expert créée', sessions_revoked_all: 'Toutes les sessions fermées', session_idle: 'Session fermée (inactivité)',
     session_expired: 'Session expirée', session_device: 'Session fermée (appareil différent)', new_device: 'Nouvel appareil', code_locked: 'Saisie verrouillée (trop d’essais)',
-    auth_failures_repeated: 'Échecs répétés de vérification', logout: 'Déconnexion'
+    auth_failures_repeated: 'Échecs répétés de vérification', logout: 'Déconnexion',
+    passkey_added: 'Passkey ajoutée', passkey_removed: 'Passkey retirée', passkey_verified: 'Vérification par passkey', passkey_stepup_ok: 'Ré-authentification par passkey',
+    passkey_failed: 'Passkey refusée', passkey_stepup_failed: 'Ré-authentification par passkey refusée', passkey_register_failed: 'Ajout de passkey refusé', passkey_clone_suspected: 'Passkey refusée : copie possible'
   };
 
   function req(method, path, body) {
@@ -49,12 +51,50 @@
     return input;
   }
 
+  // --- Passkey : défi du serveur -> geste de la personne (Face ID, empreinte, clé) -> vérification serveur. Résout avec la réponse HTTP ou { err }. ---
+  function pkError(e) {
+    if (e && e.name === 'InvalidStateError') return 'Cette passkey est déjà enregistrée.';
+    if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) return 'Passkey annulée ou indisponible dans cette fenêtre. Utilise ton code, ou « Ouvrir à part ».';
+    return 'Passkey indisponible sur cet appareil.';
+  }
+  function pkFail(x) {
+    if (x.offline) return 'Hors ligne : rien n’a été envoyé.';
+    if (x.status === 429) return 'Trop d’essais. Réessaie dans ' + (x.retry || 'quelques') + ' s.';
+    if (x.status === 401 && x.j.error === 'invalid_passkey') return 'Passkey refusée.';
+    if (x.status === 401) return 'Session expirée. Ouvre Trade Tracker depuis TimeTracker.';
+    if (x.j && x.j.error === 'passkey_unavailable') return 'Passkeys indisponibles : le serveur n’est pas configuré.';
+    return 'Échec (' + x.status + ').';
+  }
+  function passkeyAuth() {
+    if (!window.TTPasskey || !TTPasskey.supported()) return Promise.resolve({ err: 'Passkey non prise en charge ici. Utilise ton code.' });
+    return req('POST', '/api/auth/passkey/auth/options', {}).then(function (x) {
+      if (!x.ok) return { err: pkFail(x) };
+      return TTPasskey.get(x.j).then(function (resp) {
+        return req('POST', '/api/auth/passkey/auth/verify', { response: resp }).then(function (y) { return y.ok ? { ok: true } : { err: pkFail(y) }; });
+      }, function (e) { return { err: pkError(e) }; });
+    });
+  }
+  function passkeyButton(id, label) {
+    return '<button type="button" class="btnPrimary" id="' + id + '" style="width:100%;margin:0 0 10px">' + label + '</button><div id="' + id + 'Msg" class="formMsg" role="status"></div>';
+  }
+  function wirePasskeyButton(root, id, onOk) {
+    var b = root.querySelector('#' + id), out = root.querySelector('#' + id + 'Msg');
+    b.addEventListener('click', function () {
+      b.disabled = true; out.className = 'formMsg'; out.textContent = 'Confirme sur ton appareil…';
+      passkeyAuth().then(function (r) { if (r.ok) { onOk(); return; } b.disabled = false; out.className = 'formMsg error'; out.textContent = r.err; });
+    });
+    return b;
+  }
+  function passkeyCount() { return req('GET', '/api/me').then(function (x) { return x.ok && x.j.mfa ? (x.j.mfa.passkeys || 0) : 0; }); }
+
   // --- Ré-authentification (pop-up centré avec ✕) : résout quand le code est accepté, rejette si la personne ferme. ---
   function stepUp() {
-    return new Promise(function (resolve, reject) {
+    return passkeyCount().then(function (npk) { return new Promise(function (resolve, reject) {
       var done = false;
-      var m = TTUI.modal('Confirme ton identité',
-        '<p class="hint" style="margin:0 0 10px">Cette action est sensible. Entre le code à 6 chiffres de ton application d’authentification (ou un code de secours).</p>' + codeField('stepCode', 'Code à 6 chiffres', false));
+      var m = TTUI.modal('Confirme ton identité', npk
+        ? '<p class="hint" style="margin:0 0 10px">Cette action est sensible. Confirme avec ta passkey.</p>' + passkeyButton('stepPk', 'Confirmer avec ma passkey') +
+          '<p class="hint" style="margin:6px 0 8px">Passkey indisponible ? Entre le code à 6 chiffres de ton application (ou un code de secours).</p>' + codeField('stepCode', 'Code à 6 chiffres', false)
+        : '<p class="hint" style="margin:0 0 10px">Cette action est sensible. Entre le code à 6 chiffres de ton application d’authentification (ou un code de secours).</p>' + codeField('stepCode', 'Code à 6 chiffres', false));
       function settle(ok) { if (done) return; done = true; document.removeEventListener('keydown', onEsc, true); ok ? resolve() : reject(new Error('cancelled')); }
       function onEsc(e) { if (e.key === 'Escape') settle(false); }
       document.addEventListener('keydown', onEsc, true);
@@ -63,8 +103,8 @@
       var input = wireCode(m.root, 'stepCode', function (code) {
         return req('POST', '/api/auth/verify', { code: code }).then(function (x) { if (x.ok) { m.close(); settle(true); return null; } return codeError(x); });
       });
-      input.focus();
-    });
+      if (npk) wirePasskeyButton(m.root, 'stepPk', function () { m.close(); settle(true); }); else input.focus();
+    }); });
   }
 
   // --- Codes de secours (affichés UNE fois) ---
@@ -126,13 +166,15 @@
         renderEnroll(el, { head: head, onDone: done });
         return;
       }
+      var pk = (mfa.passkeys || 0) > 0;
       el.innerHTML = '<div class="stateScreen"><div class="stateIcon">' + SHIELD + '</div><div class="stateTitle">Vérification en deux étapes</div>' +
-        '<div class="stateMsg">Entre le code à 6 chiffres de ton application d’authentification.</div></div>' +
-        '<div class="card">' + codeField('gateCode', 'Code à 6 chiffres ou code de secours', false) + '<div class="hint" style="margin-top:6px">Téléphone perdu ? Entre un de tes codes de secours (usage unique).</div></div>';
+        '<div class="stateMsg">' + (pk ? 'Confirme avec ta passkey.' : 'Entre le code à 6 chiffres de ton application d’authentification.') + '</div></div>' +
+        (pk ? '<div class="card">' + passkeyButton('gatePk', 'Utiliser ma passkey') + '</div>' : '') +
+        '<div class="card">' + codeField('gateCode', 'Code à 6 chiffres ou code de secours', false) + '<div class="hint" style="margin-top:6px">' + (pk ? 'Passkey indisponible ? Entre ton code, ou un de tes codes de secours (usage unique).' : 'Téléphone perdu ? Entre un de tes codes de secours (usage unique).') + '</div></div>';
       var input = wireCode(el, 'gateCode', function (code) {
         return req('POST', '/api/auth/verify', { code: code }).then(function (y) { if (y.ok) { done(); return null; } return codeError(y); });
       });
-      input.focus();
+      if (pk) wirePasskeyButton(el, 'gatePk', done); else input.focus();
     });
   }
 
@@ -144,12 +186,12 @@
       '<div class="logMsg">' + esc(e.device || '') + (e.ip ? ' · ' + esc(e.ip) : '') + '</div></div>';
   }
   function section(el, sel, html) { var b = el.querySelector(sel); if (b) b.innerHTML = html; }
-  function renderPage(el, raw) {
+  function renderPage(el, raw, demo) {
     var me = raw.me || {}, mfa = me.mfa || {};
     el.innerHTML =
       '<div class="pageHead"><div class="screenTitle">Sécurité</div><button type="button" class="topIconBtn" id="closePage" aria-label="Fermer">✕</button></div>' +
       (flash ? '<div class="formMsg ok" role="status">' + esc(flash) + '</div>' : '') +
-      '<div class="card" id="secState"></div><div class="card" id="secSessions"><div class="skel" style="height:60px"></div></div>' +
+      '<div class="card" id="secState"></div>' + (demo ? '' : '<div class="card" id="secPasskeys"></div>') + '<div class="card" id="secSessions"><div class="skel" style="height:60px"></div></div>' +
       '<div class="card" id="secAudit"><div class="skel" style="height:90px"></div></div>';
     flash = '';
     el.querySelector('#closePage').addEventListener('click', function () { location.hash = '#/settings'; });
@@ -184,6 +226,53 @@
       m.root.querySelector('#rsYes').addEventListener('click', function () { m.close(); sensitive('/api/auth/totp/reset', function () { TTD.reset(); TTApp.refresh(); }); });
     });
 
+    function passkeyCard(list, available) {
+      var can = mfa.enrolled && available && window.TTPasskey && TTPasskey.supported();
+      section(el, '#secPasskeys', '<div class="cardHead" style="margin:0"><div><div class="cardLabel">Passkey</div><div class="syncBannerVal">' + (list.length ? list.length + (list.length > 1 ? ' enregistrées' : ' enregistrée') : 'Aucune') + '</div></div>' +
+        '<span class="statusBadge ' + (list.length ? 'ok' : 'warn') + '"><span class="syncDot"></span>' + (list.length ? 'Actif' : 'Recommandé') + '</span></div>' +
+        '<p class="hint" style="margin:8px 0 0">Face ID, empreinte ou clé de sécurité : résiste à l’hameçonnage. Ton code à 6 chiffres reste la récupération.</p>' +
+        list.map(function (k) { return '<div class="detailRow"><span>' + esc(k.label || 'Passkey') + '<span class="hint"> · ' + esc(TTF.dateTime(k.createdAt)) + '</span></span><button type="button" class="btnGhost" data-pk="' + k.id + '" style="min-height:34px;padding:0 14px">Retirer</button></div>'; }).join('') +
+        (can ? '<button type="button" class="' + (list.length ? 'btnGhost linkBtn' : 'btnPrimary') + '" id="addPasskey">Ajouter une passkey</button>'
+          : '<p class="hint" style="margin:10px 0 0">' + (!mfa.enrolled ? 'Active d’abord la vérification en deux étapes.' : !available ? 'Indisponible : le serveur n’est pas configuré.' : 'Non prise en charge ici. Essaie « Ouvrir à part ».') + '</p>') +
+        '<div id="pkMsg" class="formMsg" role="status"></div>');
+      var pm = el.querySelector('#pkMsg');
+      function fail(t) { pm.className = 'formMsg error'; pm.textContent = t; }
+      function reload(msg) { flash = msg; TTD.reset(); TTApp.refresh(); }
+      var add = el.querySelector('#addPasskey');
+      if (add) add.addEventListener('click', function () {
+        function go() {
+          add.disabled = true;
+          req('POST', '/api/auth/passkey/register/options', {}).then(function (x) {
+            if (x.status === 403 && x.j.error === 'stepup_required') { add.disabled = false; return stepUp().then(go, function () { fail('Ré-authentification annulée.'); }); }
+            if (!x.ok) { add.disabled = false; return fail(pkFail(x)); }
+            TTPasskey.create(x.j).then(function (resp) {
+              var ua = navigator.userAgent, lab = /iPhone|iPad/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'Passkey';
+              return req('POST', '/api/auth/passkey/register/verify', { response: resp, label: lab }).then(function (y) { if (y.ok) reload('Passkey ajoutée.'); else { add.disabled = false; fail(pkFail(y)); } });
+            }, function (e) { add.disabled = false; fail(pkError(e)); });
+          });
+        }
+        go();
+      });
+      Array.prototype.forEach.call(el.querySelectorAll('[data-pk]'), function (b) {
+        b.addEventListener('click', function () {
+          var id = b.getAttribute('data-pk');
+          var m = TTUI.modal('Retirer cette passkey ?', '<p class="hint" style="margin:0 0 14px">Elle ne pourra plus ouvrir ta session. Ton code à 6 chiffres reste actif.</p>' +
+            '<div class="btnRow"><button type="button" class="btnGhost" id="pkNo">Annuler</button><button type="button" class="btnDanger" id="pkYes">Retirer</button></div>');
+          m.root.querySelector('#pkNo').addEventListener('click', m.close);
+          m.root.querySelector('#pkYes').addEventListener('click', function () {
+            m.close();
+            function go() { req('DELETE', '/api/auth/passkeys/' + encodeURIComponent(id)).then(function (x) {
+              if (x.status === 403 && x.j.error === 'stepup_required') return stepUp().then(go, function () { fail('Ré-authentification annulée.'); });
+              if (!x.ok) return fail('Échec (' + x.status + ').');
+              reload('Passkey retirée.');
+            }); }
+            go();
+          });
+        });
+      });
+    }
+    if (!demo) req('GET', '/api/auth/passkeys').then(function (x) { if (el.querySelector('#secPasskeys')) passkeyCard(x.ok ? x.j.passkeys : [], x.ok && x.j.available); });
+
     Promise.all([req('GET', '/api/security/sessions'), req('GET', '/api/security/audit?limit=40')]).then(function (r) {
       if (!el.querySelector('#secSessions')) return;
       var sess = r[0].ok ? r[0].j.sessions : null, au = r[1].ok ? r[1].j : null;
@@ -211,6 +300,6 @@
           (au.entries.length ? au.entries.map(eventRow).join('') : '<div class="emptyState">Rien à signaler.</div>') : '<div class="emptyState">Journal indisponible.</div>'));
     });
   }
-  window.TTScreens.security = { render: function (el, state, raw) { renderPage(el, raw); } };
+  window.TTScreens.security = { render: function (el, state, raw) { renderPage(el, raw, !!(state && state.data && state.data.source === 'demo')); } };
   window.TTSec = { gate: gate, stepUp: stepUp };
 })();
