@@ -39,7 +39,6 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 
 **2. Time Tracker Basic** (accessibilité et robustesse)
 1. `aria-label` des boutons-icônes et contrastes du texte à vérifier (sans changer la palette).
-2. Capture hors ligne : relecture des cas limites (file, reprise, doublons).
 3. Démarrage à froid : mesurer et réduire le chargement initial.
 4. Tests fonctionnels des vues Semaine, Mois et Année.
 5. Retrait de code mort (dont `bindSubProjectDrag`), vérifié par recherche d'usages.

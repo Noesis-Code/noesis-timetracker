@@ -62,18 +62,29 @@
   }
 
   // entry : { activityId, label, tz }
+  // Libellé vide refusé ; une même saisie répétée dans les 5 s (double appui)
+  // n'est mise en file qu'une fois.
+  var DEDUPE_MS = 5000;
   function add(entry) {
+    var label = String(entry.label == null ? '' : entry.label).trim();
+    if (!label) return Promise.reject(new Error('Libellé vide'));
     var record = {
       activityId: String(entry.activityId),
-      label: String(entry.label),
+      label: label,
       tz: entry.tz || null,
       createdAt: Date.now(),
     };
-    return withStore('readwrite', function (store) {
-      var req = store.add(record);
-      req.onsuccess = function () { record.id = req.result; };
-      return record;
-    }).then(function () { return record; });
+    return list().then(function (items) {
+      var twin = items.filter(function (it) {
+        return it.activityId === record.activityId && it.label === record.label && record.createdAt - it.createdAt < DEDUPE_MS;
+      })[0];
+      if (twin) return twin;
+      return withStore('readwrite', function (store) {
+        var req = store.add(record);
+        req.onsuccess = function () { record.id = req.result; };
+        return record;
+      }).then(function () { return record; });
+    });
   }
 
   function list() {
@@ -96,7 +107,7 @@
   // Résultat : { synced: [{activityId, label, categoryLabel}], failed:
   // [{activityId, label, error}], remaining: n, stopped: bool }.
   //   - 2xx               → retirée de la file, classée par l'IA ;
-  //   - réseau / 5xx / 429 / 401 → on s'arrête, tout reste en file (nouvel
+  //   - réseau / 5xx / 429 / 408 / 425 / 401 → on s'arrête, tout reste en file (nouvel
   //     essai plus tard ; un 401 attend la reconnexion du profil) ;
   //   - autre 4xx (activité quittée ou supprimée, libellé refusé…) → retirée
   //     de la file et signalée, sinon elle bloquerait toutes les suivantes
@@ -128,7 +139,7 @@
               });
               return remove(it.id).then(next);
             }
-            if (r.status >= 500 || r.status === 429 || r.status === 401) {
+            if (r.status >= 500 || r.status === 429 || r.status === 401 || r.status === 408 || r.status === 425) {
               out.stopped = true;
               out.remaining = items.length - i + 1;
               return out;
