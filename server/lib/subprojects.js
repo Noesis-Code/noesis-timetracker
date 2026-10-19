@@ -37,7 +37,7 @@ const { isoDateOf } = require('./dates');
 // saisie, épinglée) mais traitée comme « à dater » par la planification quotidienne.
 function todayIso() { return isoDateOf(new Date()); }
 
-const SECTION_KINDS = ['tasks', 'poll', 'discussion'];
+const SECTION_KINDS = ['tasks'];
 
 // Un sous-projet appartient à l'ACTIVITÉ, pas à la personne qui l'a créé
 // (cadrage d'Emilien : « communs à l'activité »). Le contrôle d'accès est
@@ -350,10 +350,6 @@ function checkSectionAccess(userId, sectionId) {
 
 function hasPollSection(subProjectId) {
   return !!db.prepare("SELECT 1 FROM sub_project_sections WHERE subProjectId = ? AND kind = 'poll'").get(subProjectId);
-}
-
-function hasDiscussionSection(subProjectId) {
-  return !!db.prepare("SELECT 1 FROM sub_project_sections WHERE subProjectId = ? AND kind = 'discussion'").get(subProjectId);
 }
 
 function createSection(subProjectId, userId, kind, title) {
@@ -696,48 +692,6 @@ function deletePollsForSubProject(subProjectId) {
   }
 }
 
-// ===================== FIL DE DISCUSSION (section 'discussion') =====================
-// Système NOUVEAU et distinct du fil de l'activité (activity_messages,
-// propriété de "Général") — demande explicite d'Emilien.
-//
-// Les messages restent rattachés au SOUS-PROJET, pas à la section : il ne peut
-// y avoir qu'une seule discussion par sous-projet (index unique partiel), donc
-// les deux reviennent au même — et retirer la section sans effacer ce que les
-// membres se sont écrit devient possible.
-
-function messagesForSubProject(subProjectId) {
-  return db.prepare(`
-    SELECT m.id, m.subProjectId, m.userId, m.body, m.createdAt,
-           u.name AS userName, u.color AS userColor
-    FROM sub_project_messages m
-    JOIN users u ON u.id = m.userId
-    WHERE m.subProjectId = ?
-    ORDER BY m.createdAt ASC, m.id ASC
-  `).all(subProjectId);
-}
-
-function postSubProjectMessage(subProjectId, userId, body) {
-  const info = db.prepare(`
-    INSERT INTO sub_project_messages (subProjectId, userId, body, createdAt)
-    VALUES (?, ?, ?, ?)
-  `).run(subProjectId, userId, body, new Date().toISOString());
-  return db.prepare(`
-    SELECT m.id, m.subProjectId, m.userId, m.body, m.createdAt,
-           u.name AS userName, u.color AS userColor
-    FROM sub_project_messages m
-    JOIN users u ON u.id = m.userId
-    WHERE m.id = ?
-  `).get(info.lastInsertRowid);
-}
-
-function getSubProjectMessage(messageId) {
-  return db.prepare('SELECT * FROM sub_project_messages WHERE id = ?').get(messageId) || null;
-}
-
-function deleteSubProjectMessage(messageId) {
-  db.prepare('DELETE FROM sub_project_messages WHERE id = ?').run(messageId);
-}
-
 module.exports = {
   SECTION_KINDS,
   LOCK_DAYS,
@@ -759,7 +713,6 @@ module.exports = {
   reorderSubProjects,
   // Sections
   getSection,
-  hasDiscussionSection,
   hasPollSection,
   createSection,
   updateSectionTitle,
@@ -780,8 +733,4 @@ module.exports = {
   // nettoyage à la suppression d'un sous-projet.
   deletePollsForSubProject,
   // Fil de discussion
-  messagesForSubProject,
-  postSubProjectMessage,
-  getSubProjectMessage,
-  deleteSubProjectMessage,
 };
