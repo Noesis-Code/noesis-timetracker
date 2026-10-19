@@ -6,11 +6,13 @@
 // Ne journalise jamais de clé ni de valeur déchiffrée.
 const { openDb } = require('./server/db');
 const { rotateAll } = require('./server/lib/keyrotate');
+const audit = require('./server/lib/audit');
 
 const dryRun = process.argv.includes('--dry-run');
 const db = openDb();
 try {
   const r = rotateAll(db, process.env, { dryRun });
+  if (!dryRun) audit.log(db, { event: 'key_rotation', detail: { version: r.currentVersion, rotated: r.rotated } });
   console.log(`${dryRun ? '[essai] ' : ''}Version courante ${r.currentVersion} : ${r.rotated} valeur(s) rechiffrée(s) sur ${r.total}. Versions rencontrées : ${JSON.stringify(r.byVersion)}.`);
 } catch (e) {
   console.error('Rotation annulée, aucune donnée modifiée :', e.message);

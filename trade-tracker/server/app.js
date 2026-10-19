@@ -10,6 +10,7 @@ const C = require('./lib/calc');
 const { buildPortfolio, latestUsdCad } = require('./lib/portfolio');
 const { compareProportions } = require('./lib/compare');
 const BT = require('./lib/brokertoken');
+const audit = require('./lib/audit');
 
 function parseCookies(h) {
   const out = {};
@@ -68,6 +69,8 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     if (inm && inm.split(',').some((t) => t.trim().replace(/^W\//, '') === tag)) return res.status(304).end();
     res.type('application/json').send(body);
   };
+  const ctxOf = (req) => ({ ip: req.ip || '', ua: String(req.headers['user-agent'] || '') });
+  const aud = (req, event, detail, userId) => { try { audit.log(db, { ...ctxOf(req), userId: userId === undefined ? (req.user ? req.user.id : null) : userId, event, detail }); } catch (e) { console.warn('[trade-tracker] audit :', e.message); } };
   const err = (res, status, error, message) => res.status(status).json({ error, message: message || error });
 
   // Admin (hors session) : import d'un export CSV du Sheet. Protégé par TRADE_ADMIN_TOKEN
@@ -93,6 +96,8 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
   app.get('/link', (req, res) => {
     const r = A.consumeLink(db, String(req.query.token || ''), { invite: req.query.invite ? String(req.query.invite) : undefined, env, ua: String(req.headers['user-agent'] || '') });
     // Réponses uniformes : un échec ne dit jamais POURQUOI (jeton falsifié, rejoué, utilisateur non invité...). Seuls « expiré » et « indisponible » sont distincts.
+    if (!r.ok) { aud(req, 'link_refused', { reason: r.error }, null); }
+    else aud(req, 'link_ok', { role: r.user.role }, r.user.id);
     if (!r.ok) return res.redirect(302, '/?linkError=' + (r.error === 'expired' ? 'expired' : r.error === 'server_misconfigured' ? 'unavailable' : 'denied'));
     res.setHeader('Set-Cookie', sessionCookie(req, r.session, r.maxAgeSec));
     res.redirect(302, '/');
@@ -216,7 +221,9 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     const token = req.body && req.body.token;
     if (typeof token !== 'string' || !BT.isValidTokenFormat(token.trim())) return err(res, 422, 'invalid_token', 'Format de jeton refusé.');
     if (!BT.hasEncryptionKey(env)) return err(res, 503, 'broker_unavailable', 'Connexion du courtier indisponible : la clé de chiffrement TRADE_TOKEN_KEY n’est pas configurée sur le serveur.');
+    const had = BT.hasBrokerToken(db, req.user.id);
     try { BT.saveBrokerToken(db, req.user.id, token.trim(), { env }); } catch { return err(res, 500, 'store_failed', 'Jeton non enregistré.'); }
+    aud(req, had ? 'broker_token_replaced' : 'broker_token_set', {});
     res.json({ ok: true, brokerConnected: true });
   });
 
@@ -232,6 +239,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
   // Suppression RÉELLE : jeton + données de synchro de l'utilisateur (comptes, positions, soldes, transactions, historique, journal, événements). La confirmation est faite côté client.
   app.delete('/api/broker/token', rlBroker, (req, res) => {
     try { BT.deleteBrokerToken(db, req.user.id); BT.purgeSyncData(db, req.user.id); } catch { return err(res, 500, 'delete_failed', 'Suppression non terminée.'); }
+    aud(req, 'broker_token_deleted', {});
     res.json({ ok: true, brokerConnected: false });
   });
 
@@ -240,11 +248,20 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     const email = req.body && req.body.email;
     if (!['client', 'expert'].includes(role)) return err(res, 400, 'bad_role');
     if (email != null && (typeof email !== 'string' || email.length > 200)) return err(res, 400, 'bad_email');
-    res.status(201).json(A.createInvitation(db, { invitedBy: req.user.id, email, role }));
+    const inv = A.createInvitation(db, { invitedBy: req.user.id, email, role });
+    aud(req, role === 'expert' ? 'invitation_created_expert' : 'invitation_created', { role });
+    res.status(201).json(inv);
   });
   app.get('/api/invitations', expertOnly, (req, res) => res.json({ invitations: A.listInvitations(db) }));
 
+  // Journal d'audit du compte connecté (ses propres lignes uniquement) + état de la chaîne.
+  app.get('/api/security/audit', (req, res) => {
+    const chain = audit.verifyChain(db);
+    res.json({ entries: audit.listForUser(db, req.user.id, { limit: req.query.limit, beforeId: req.query.before }), chain: { ok: chain.ok, length: chain.length, head: chain.head } });
+  });
+
   app.post('/api/logout', (req, res) => {
+    aud(req, 'logout', {});
     A.destroySession(db, sessionToken(req));
     res.setHeader('Set-Cookie', sessionCookie(req, '', 0));
     res.json({ ok: true });

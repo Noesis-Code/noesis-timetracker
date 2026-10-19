@@ -158,6 +158,23 @@ CREATE TABLE IF NOT EXISTS link_nonces (
   nonce TEXT PRIMARY KEY,
   expiresAt TEXT NOT NULL
 );
+
+-- Journal d'audit INALTÉRABLE : ajout seulement (déclencheurs ci-dessous) + chaîne de hachages (chaque ligne couvre la précédente).
+-- Jamais de secret, de code ni de jeton dans une ligne. userId sans clé étrangère : le journal survit à tout.
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  at TEXT NOT NULL,
+  userId INTEGER,
+  event TEXT NOT NULL,
+  ip TEXT NOT NULL DEFAULT '',
+  device TEXT NOT NULL DEFAULT '',
+  detail TEXT NOT NULL DEFAULT '{}',
+  prevHash TEXT NOT NULL,
+  hash TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(userId, id);
+CREATE TRIGGER IF NOT EXISTS audit_log_no_update BEFORE UPDATE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log est immuable'); END;
+CREATE TRIGGER IF NOT EXISTS audit_log_no_delete BEFORE DELETE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log est immuable'); END;
 `);
 }
 
