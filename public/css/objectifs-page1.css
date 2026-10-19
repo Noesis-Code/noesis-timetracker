@@ -228,7 +228,6 @@
 
 /* 5 oct. 2026 : pop-up de rangement après création */
 .goalsPlacementBox { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid var(--border); }
-.goalsPlacementTitle { font-weight: 600; margin: 0; }
 .goalsPlacementField { display: flex; flex-direction: column; gap: 4px; }
 .goalsPlacementField select, .goalsPlacementField input { width: 100%; max-width: 100%; font-size: 14px; }
 
@@ -259,8 +258,6 @@
 /* 5 oct. 2026 : choix de secteur (Autonome/Absence) — propositions moins opaques, liste déroulante pour « Autre ». */
 :root .aiModeModal .goalsCaptureConfirmChoice { background: color-mix(in srgb, var(--glass-calm-bg) 45%, transparent); box-shadow: inset 0 0 0 1px var(--glass-calm-line); border: 0; border-radius: 999px; }
 :root .aiModeModal .goalsCaptureConfirmList { margin-top: 12px; }
-:root .goalsCaptureConfirmSelect { width: 100%; min-height: 38px; padding: 8px 14px; box-sizing: border-box; -webkit-appearance: none; appearance: none; background: var(--glass-calm-bg) !important; box-shadow: inset 0 0 0 1px var(--glass-calm-line) !important; border: 0 !important; border-radius: 999px !important; text-align: left; color: var(--text); font-size: 14px; }
-.goalsCaptureConfirmOk { align-self: flex-end; }
 
 /* 5 oct. 2026 : pop-up de rangement — titre/croix fixes, contenu défilant ; activité au-dessus de la tâche ; activités espacées. */
 .goalTaskEditModal.goalsPlacementModal .goalTaskEditCard { display: flex; flex-direction: column; overflow: hidden; max-height: 85vh; }
@@ -271,8 +268,6 @@
 .goalsPlacementModal .goalsPlacementActivity { margin: 0 0 6px; padding: 0 4px 6px; font-size: 13px; font-weight: 700; letter-spacing: .02em; border-bottom: 1px solid var(--glass-calm-line); }
 :root .goalsPlacementModal .goalsPlacementBox textarea.goalsTaskEditText { padding: 2px 0 0; margin: 0; }
 .goalsPlacementModal .goalsPlacementField { margin-top: 2px; }
-
-.goalsCaptureConfirmFull { max-height: 52vh; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 4px; }
 :root .goalsPlacementBox textarea.goalsTaskEditText { min-height: 0 !important; }
 
 /* 5 oct. 2026 : barre sous le titre et la croix + moins d'espace au-dessus (choix de secteur, doublon). */
@@ -285,7 +280,7 @@
 /* 5 oct. 2026 : « Autre… » (Autonome/Absence) — bulle flottante pôles/secteurs dans le même pop-up. */
 .aiModeModal .goalTaskEditCard { position: relative; }
 .aiModeModal .goalTaskEditCard:has(.goalsCaptureFloat) { min-height: 380px; }
-.goalsCaptureFloat { position: absolute; left: 16px; right: 16px; top: 64px; bottom: 16px; overflow-y: auto; padding: 8px; border-radius: 20px; background: color-mix(in srgb, var(--bg) 92%, transparent); box-shadow: inset 0 0 0 1px var(--glass-calm-line), 0 8px 24px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); z-index: 2; }
+.goalsCaptureFloat { position: absolute; left: 16px; right: 16px; top: 64px; bottom: 16px; overflow-y: auto; padding: 8px; border-radius: 20px; background: color-mix(in srgb, var(--bg) 92%, transparent); box-shadow: inset 0 0 0 1px var(--glass-calm-line), 0 8px 24px var(--veil); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); z-index: 2; }
 .goalsCaptureFloatPole { margin: 8px 8px 4px; font-weight: 600; font-size: 14px; }
 .goalsCaptureFloatItem { display: block; width: 100%; text-align: left; background: transparent; border: 0; color: var(--text); font-family: inherit; font-size: 15px; padding: 9px 14px; border-radius: 999px; }
 .goalsCaptureFloatItem.sector { padding-left: 26px; }
@@ -306,7 +301,7 @@
 :root .goalsPlacementModal .goalsPlacementActivity { display: flex; align-items: center; gap: 10px; border-bottom: 0; padding: 0 4px 6px; font-size: 18px; font-weight: 700; letter-spacing: 0; }
 .goalsPlacementActivityDot { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; }
 
-.goalsCaptureFloat .goalsCaptureFloatPole { margin: 0; padding: 12px 14px 4px; border-top: 1px solid rgba(255,255,255,.12); font-size: 13px; color: var(--float-label); font-weight: 600; }
+.goalsCaptureFloat .goalsCaptureFloatPole { margin: 0; padding: 12px 14px 4px; border-top: 1px solid var(--glass-calm-line); font-size: 13px; color: var(--float-label); font-weight: 600; }
 .goalsCaptureFloat .goalsCaptureFloatPole:first-child { border-top: 0; }
 .goalsCaptureFloatTop { overflow-y: auto; border-radius: 20px; }
 
@@ -314,7 +309,7 @@
 :root .goalsCaptureFloat { background: rgba(24, 24, 30, 0.35); -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 8px 24px rgba(0,0,0,.35); }
 :root .goalsCaptureFloat .goalsCaptureFloatPole { color: rgba(255,255,255,.7); border-top-color: rgba(255,255,255,.14); }
 :root .goalsCaptureFloatItem { color: var(--white); }
-:root .goalsCaptureFloatItem:active { background: rgba(255,255,255,.12); }
+:root .goalsCaptureFloatItem:active { background: var(--glass-calm-line); }
 
 /* 5 oct. 2026 : verre liquide, même opacité que le menu natif du Chrono (capture d'Emilien). */
 :root .goalsCaptureFloat { background: rgba(44, 44, 50, 0.72); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8); box-shadow: inset 0 0 0 0.5px rgba(255,255,255,.18), 0 12px 32px rgba(0,0,0,.4); }

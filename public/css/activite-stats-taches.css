@@ -9,7 +9,7 @@
 .caTaskHead { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .caTaskRank { width: 18px; text-align: center; color: var(--grey-violet); font-size: 13px; }
 .caTaskName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.caTaskBar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); overflow: hidden; margin-bottom: 8px; }
+.caTaskBar { height: 8px; border-radius: 4px; background: var(--glass-calm-line); overflow: hidden; margin-bottom: 8px; }
 .caTaskFill { height: 100%; border-radius: 4px; }
 .caTaskFill.good { background: var(--good); }
 .caTaskFill.bad { background: var(--bad); }

@@ -50,7 +50,6 @@
 .docTasksCheck { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; font-size: 13px; }
 .docTasksCheck input { margin-top: 3px; accent-color: var(--purple); }
 .docTasksInstr { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--glass-border); background: transparent; color: inherit; font: inherit; font-size: 13px; resize: none; }
-.docTasksPill { display: inline-block; margin-bottom: 6px; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
 .docTasksPop { position: fixed; inset: 0; z-index: 103; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .55); }
 .docTasksPop.hidden { display: none; }
 .docTasksPopCard { width: 100%; max-width: 440px; max-height: 80vh; display: flex; flex-direction: column; padding: 14px; border-radius: 18px; color: var(--text);
@@ -58,11 +57,8 @@
   border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
 .docTasksPopList { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 8px 0; }
 .docTasksPopRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--glass-border); font-size: 14px; }
-.docTasksTrash { flex: 0 0 auto; background: none; border: 0; color: inherit; font-size: 16px; cursor: pointer; padding: 6px; opacity: .8; }
 .docTasksPopToast { min-height: 18px; font-size: 13px; }
 /* Modifications proposées (16 oct. 2026) : avant -> après, case cochée par défaut, corbeille à droite. Même verre/halo. */
-.docTasksChangesEntry { display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box; border-radius: 14px; margin-bottom: 10px; font: inherit; font-size: 15px; cursor: pointer; text-align: left; }
-.docTasksChangeTitle { font-size: 13px; opacity: .75; overflow-wrap: anywhere; }
 .docTasksChangeDiff { font-size: 14px; overflow-wrap: anywhere; }
 .docTasksChangeOld { opacity: .6; text-decoration: line-through; }
 .docTasksChangeNew { font-weight: 600; }
@@ -87,13 +83,11 @@
 .docTasksCancelRow { text-align: center; margin: 6px 0 20px; }
 .docTasksPickOn { background: rgba(var(--brique-rgb), .22); border-color: var(--brique); opacity: 1; }
 /* Dossiers surveillés (liste repliable, corbeille de l'app à droite). */
-.docTasksFoldersHead { font-size: 14px; }
 .docTasksFolderList { margin-bottom: 6px; }
 .docTasksFolderRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 14px; }
 .docTasksFolderName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 16 oct. 2026 : rangée du bas (dossiers connectés orange + Déconnecter gris) ; crayon/corbeille à cible tactile 44 px. */
 .docTasksBottomRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; margin-top: 4px; }
-.docTasksBottomBtn { flex: 1 1 auto; width: auto; min-height: 44px; padding: 10px 14px; border: 0; border-radius: 12px; font: inherit; font-weight: 600; cursor: pointer; }
 .docTasksBottomRow .docTasksFoldersLink { align-self: center; }
 .docTasksBottomRow .docTasksDiscLink { margin-left: auto; align-self: center; color: var(--text-light); }
 .docTasksFoldersInline { margin-top: 8px; }
@@ -168,7 +162,6 @@
 .ptCardTop strong { font-size: 18px; min-width: 0; overflow-wrap: anywhere; }
 .ptCardN { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 24px; height: 24px; padding: 0 8px; border-radius: 999px; background: var(--brique); color: var(--white); font-size: 12px; font-weight: 700; line-height: 1; flex: none; font-variant-numeric: tabular-nums; }
 .ptCard svg { flex: none; opacity: .6; }
-.ptChips { display: flex; flex-wrap: wrap; gap: 6px; }
 .ptChip { padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, .1); font-size: 12px; }
 .ptCardSec { flex-direction: row; align-items: center; }
 .ptSecTxt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -187,7 +180,7 @@
 .ptTask.ptNo { cursor: default; }
 .ptTask .ptBody { cursor: inherit; }
 .ptTask .historyRowIconBtn { flex: none; }
-input[type="checkbox"].ptTaskCb:indeterminate, .ptPane input[type="checkbox"]:indeterminate { background: var(--purple); border-color: var(--purple); }
+.ptPane input[type="checkbox"]:indeterminate { background: var(--purple); border-color: var(--purple); }
 .ptPane input[type="checkbox"]:indeterminate::after { content: ""; width: 10px; height: 2px; background: var(--white); border: 0; transform: none; }
 .ptPane input[type="checkbox"]:disabled { opacity: .35; cursor: default; }
 .ptBar { flex-direction: column; align-items: stretch; gap: 0; padding-top: 0; }

@@ -337,20 +337,11 @@ input[type=time]:focus, select:focus, textarea:focus {
   text-align: center;
 }
 .onboarding-card h1 { margin: 0; font-size: 32px; color: var(--purple); letter-spacing: -0.3px; }
-.onboarding-card .subtitle { margin: 2px 0 24px; color: var(--text-light); font-size: 14px; }
 .onboarding-card .lead { font-weight: bold; margin-bottom: 10px; text-align: left; }
 .onboarding-card input[type=text], .onboarding-card input[type=password],
 .onboarding-card input[type=tel], .onboarding-card input[type=email] {
   width: 100%; padding: 14px; font-size: 16px; border: 1px solid var(--border);
   border-radius: var(--radius-md); margin-bottom: 14px; box-sizing: border-box;
-}
-.colorLabel {
-  display: flex; align-items: center; justify-content: space-between;
-  font-size: 14px; color: var(--text-light); margin-bottom: 18px;
-}
-.colorLabel input[type=color] {
-  width: 48px; height: 36px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  padding: 0; cursor: pointer; background: none;
 }
 .switchLink { font-size: 13px; margin-top: 16px; }
 /* Violet (10 septembre 2026, demande d'Emilien : les liens « Lire les
@@ -560,7 +551,6 @@ input[type=time]:focus, select:focus, textarea:focus {
    d'identité, qui garde elle son propre display:flex (.identityHeader,
    ci-dessous) pour aligner photo/nom/icônes sur une ligne. */
 .topbarProfile { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.topbarProfile .brandCentered { font-size: 12px; font-weight: 600; opacity: 0.85; letter-spacing: 0.3px; }
 /* .identityHeader garde ici son display:flex/gap d'origine (règle générique
    plus bas, zone Profil) ; seule sa largeur et sa marge changent dans ce
    nouveau contexte — elle occupait avant toute la largeur de #profileMain
@@ -593,7 +583,7 @@ input[type=time]:focus, select:focus, textarea:focus {
 .projectChip {
   flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
   max-width: 60vw; padding: 4px 10px; border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.18);
+  background: var(--glass-calm-line); border: 1px solid rgba(255, 255, 255, 0.18);
   color: white; font-size: 13px; line-height: 1.3; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -783,7 +773,7 @@ input[type=time]:focus, select:focus, textarea:focus {
 }
 :root[data-theme="dark"] .tabbar::before {
   background: var(--glass-bg);
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: var(--glass-border);
   box-shadow: var(--glass-shadow);
 }
 /* Un volet = un carré de verre (.tabIcon) + son libellé dessous. Largeur
@@ -808,7 +798,7 @@ input[type=time]:focus, select:focus, textarea:focus {
   transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 :root[data-theme="dark"] .tabIcon {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.05) 100%);
+  background: linear-gradient(180deg, var(--glass-calm-line) 0%, rgba(255, 255, 255, 0.05) 100%);
   border-color: rgba(255, 255, 255, 0.14);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
@@ -965,7 +955,6 @@ body { isolation: isolate; }
 #mergeActivityModalClose,
 #deleteActivityModalClose,
 #categoryStatsClose,
-#secteurTasksClose,
 #viewProfileModalClose,
 #followsPanelClose,
 #notifPanelClose,
@@ -993,9 +982,7 @@ body { isolation: isolate; }
 #statsPieTodayBtn,
 #csTsPrevWeek,
 #csTsNextWeek,
-#csPieTodayBtn,
-#secteurTasksPrevWeek,
-#secteurTasksNextWeek {
+#csPieTodayBtn {
   background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
@@ -1040,7 +1027,6 @@ body { isolation: isolate; }
   border-radius: var(--radius-2xl); color: white; cursor: pointer;
   transition: transform var(--transition-fast), filter var(--transition-fast);
 }
-.chronoBtn-start { background: var(--green); }
 .chronoBtn-stop { background: var(--red); }
 .chronoBtn:active { transform: scale(0.97); }
 #liveTimer {
@@ -1051,7 +1037,6 @@ body { isolation: isolate; }
   display: inline-block; padding: 8px 18px; border-radius: 20px; font-weight: bold;
   font-size: 17px; color: var(--text); margin-bottom: 6px;
 }
-.elapsedInfo { text-align: center; color: var(--text-light); }
 .stepLabel { font-weight: bold; margin: 16px 0 8px; }
 .activityGrid { display: flex; flex-direction: column; gap: 10px; }
 .activityChoiceBtn {
@@ -1071,8 +1056,6 @@ textarea {
    communauté", à l'intérieur de #noteWrapper — une seule section de notes
    (fusionnée avec le champ note privé, plus de bloc séparé), et depuis ce
    passage plus de sélecteur d'audience : deux boutons distincts à la place. */
-.broadcastRow { display: flex; gap: 8px; margin-top: 8px; }
-.broadcastRow .iconBtn { flex: 1; }
 
 /* ===== Récapitulatif avant validation du STOP =====
    Message flottant qui remplace le bouton STOP le temps de confirmer les
@@ -1251,11 +1234,6 @@ textarea {
    plus bas), ajoute juste le badge "en direct" à côté du nom. Cette classe
    est propre à la fonctionnalité "note en direct" (Chrono + Communauté),
    pas une classe générique Design. */
-.liveBadge {
-  display: inline-block; font-size: 11px; font-weight: bold; color: var(--red);
-  border: 1px solid var(--red); border-radius: 999px; padding: 1px 8px; margin-left: 8px;
-  vertical-align: middle;
-}
 .btn {
   padding: 15px; font-size: 16px; font-weight: bold; border: none; border-radius: var(--radius-lg);
   cursor: pointer; width: 100%; margin-top: 12px;
@@ -1432,7 +1410,6 @@ textarea {
 }
 .caSubProjectBtn::after { content: '\25BE'; opacity: 0.7; }
 .caSubProjectBtn:hover { background: var(--hover-bg); }
-#caSubProjectBtnLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .caSubProjectMenu { left: 0; right: auto; max-height: 260px; overflow-y: auto; }
 
 /* Même écart entre la carte d'ajout et la première activité existante
@@ -2534,7 +2511,7 @@ body.scrollLock { overflow: hidden; }
 .btnBrique.btnBrique:disabled { opacity: 0.45; }
 /* Bouton orange brique PLEIN (2e recette de bouton, avec le contour .btnBrique ci-dessus) : fond --brique, texte blanc.
    Seules les dimensions/graisses propres à chaque bouton restent dans leur fichier. */
-.docTasksApplyBtn, .docTasksDriveBtn, .docTasksPill, .accompCodeOk {
+.docTasksApplyBtn, .docTasksDriveBtn, .accompCodeOk {
   background: var(--brique); color: var(--white); border: 0; font: inherit; cursor: pointer;
 }
 .chatComposer .msg { text-align: right; margin-top: 6px; }
@@ -2742,7 +2719,7 @@ body.scrollLock { overflow: hidden; }
 }
 :root[data-theme="dark"] #communitySearchBar input {
   background: var(--glass-bg);
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: var(--glass-border);
   box-shadow: var(--glass-shadow);
 }
 #communitySeekingFilters .seekingTagBtn { -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
@@ -2803,7 +2780,7 @@ body.scrollLock { overflow: hidden; }
 }
 #communitySeekingFilters .seekingTagBtn:active { transform: scale(0.96); }
 @media (hover: hover) {
-  #communitySeekingFilters .seekingTagBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.16); }
+  #communitySeekingFilters .seekingTagBtn:hover:not(.active) { background: var(--glass-border); }
 }
 
 /* ⚠️ 6 septembre 2026, demande d'Emilien : « [cette rangée] se déploie et
@@ -3170,7 +3147,6 @@ body.scrollLock { overflow: hidden; }
 /* Pastille de couleur devant le nom, dans l'en-tête de #viewProfileModal —
    même principe que .discussionMsgAuthor .dot (inline, pas dans un flex
    direct comme .activityRowHeader .dot). */
-#viewProfileDot { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: middle; }
 
 /* Rangée de boutons d'action — utilisée à la fois dans le panneau de
    réglages d'une activité et dans les lignes d'invitations reçues. */
@@ -3335,8 +3311,7 @@ button { -webkit-user-select: none; user-select: none; }
   display: flex; flex-direction: column; padding: 0; overflow: hidden;
 }
 #viewProfileScroll,
-#categoryStatsScroll,
-#secteurTasksScroll {
+#categoryStatsScroll {
   flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
   /* Le rebond de cette zone ne se propage pas à la page derrière la modale. */
   overscroll-behavior: contain;
@@ -3395,14 +3370,6 @@ button { -webkit-user-select: none; user-select: none; }
    (couleur du secteur via subProjectShade(), voir son commentaire). */
 #secteurTasksModal .viewProfileIdentity.tinted {
   border-bottom-color: rgba(0, 0, 0, 0.2);
-}
-#secteurTasksModal .viewProfileIdentity.tinted #secteurTasksClose {
-  background: transparent;
-  border-color: currentColor;
-  color: inherit;
-}
-#secteurTasksModal .viewProfileIdentity.tinted #secteurTasksClose:hover {
-  background: rgba(255, 255, 255, 0.18);
 }
 
 /* Point vert « chrono en cours » du profil visité (3 septembre 2026, demande
@@ -4158,10 +4125,6 @@ button { -webkit-user-select: none; user-select: none; }
   font-size: 16px;
 }
 
-#chronoSubProjectMsg:empty {
-  display: none;
-}
-
 /* ===================== SÉLECTEUR PÔLE/SECTEUR — Chrono (21 septembre 2026)
    =====================
    Demande directe d'Emilien : « Je souhaite que ce soit un vrai menu
@@ -4287,61 +4250,16 @@ button { -webkit-user-select: none; user-select: none; }
    display:flex/overflow qui la rend réellement fixe (voir le commentaire du
    2 septembre 2026 sur .viewProfileIdentity) sont ajoutés à leurs groupes de
    sélecteurs existants plutôt que redéfinis ici. */
-.secteurTasksDay {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.secteurTasksDay:last-child {
-  border-bottom: none;
-}
-
-.secteurTasksDayLabel {
-  font-weight: 600;
-  margin: 0 0 6px;
-}
-
-.secteurTasksTaskRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-}
 
 /* 22 septembre 2026, demande d'Emilien : flèches de navigation entre
    semaines, remplace l'ancien bloc d'ajout de tâche (.secteurTasksAddRow,
    retiré). */
-.secteurTasksWeekNav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-bottom: 10px;
-}
-
-.secteurTasksWeekLabel {
-  font-weight: 600;
-  min-width: 120px;
-  text-align: center;
-}
 
 /* Objectif hebdomadaire (goal_weekly) affiché en tête de liste — demande
    d'Emilien : « ajouter en haut de la liste des tâches, les objectifs
    hebdomadaires pour chaque semaine ». Vide (aucun objectif écrit pour cette
    semaine) → masqué par la classe .hidden posée en JS, pas de place
    réservée dans ce cas. */
-.secteurTasksObjective {
-  margin: 0 0 14px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--track-bg);
-  border: 1px solid var(--border);
-  font-size: 14px;
-}
-
-.historyEditSubProjectWrap {
-  margin-top: 4px;
-}
 
 /* ---- Flux calendrier (4 septembre 2026, discussion "Calendrier des clôtures")
    Une seule classe propre, préfixée, aucune générique de Design redéfinie.
@@ -4832,9 +4750,6 @@ button { -webkit-user-select: none; user-select: none; }
    d'écriture qui ne permet pas d'afficher les mots ») ; reproduit à
    l'identique en injectant ce même balisage dans le CSS déployé sur staging,
    confirmé résolu par le seul ajout de flex-wrap: wrap ci-dessous. */
-@media (hover: hover) {
-  .goalsCalendarTaskAddBtn:hover { background: var(--purple-dark, var(--purple)); }
-}
 
 /* ===== Volet Objectifs — devenu un onglet à part entière, 13 septembre 2026 =====
    Emilien est revenu sur l'emplacement du 12 septembre (section dans la page
@@ -4892,9 +4807,6 @@ button { -webkit-user-select: none; user-select: none; }
 /* Bascule à 2 segments Tâches/Objectifs — même gabarit que
    .communityModeSwitch/.communityModeBtn (Rechercher/Publier, Communauté),
    classes propres pour ne jamais coupler les deux bascules entre elles. */
-@media (hover: hover) {
-  .goalsPage2ModeBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.14); color: var(--white); }
-}
 
 /* 28 septembre 2026, demande directe d'Emilien : « je souhaite que dans
    tâches, il y ait une zone avancement identique à la zone d'avancement
@@ -6146,7 +6058,6 @@ button { -webkit-user-select: none; user-select: none; }
 #onboarding .onbConsentRow { align-items: flex-start; }
 #onboarding .onbConsentBody { flex: 1; min-width: 0; }
 #onboarding .onbConsentTitle { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.3; color: var(--text); }
-#onboarding .onbConsentSummary { margin: 2px 0 0; font-size: 12px; line-height: 1.35; color: var(--muted, var(--text)); opacity: .8; }
 #onboarding .onbConsentMore { margin-top: 4px; }
 #onboarding .onbConsentMore summary { font-size: 12px; color: var(--onb-purple); cursor: pointer; }
 #onboarding .onbConsentMore .onbLegalText { margin: 6px 0 0; }
@@ -6178,7 +6089,6 @@ button { -webkit-user-select: none; user-select: none; }
 #onboarding:has(#onbPinStep:not(.hidden)) .onbBackFooter { display: block; }
 #onboarding:has(#onbPinStep:not(.hidden)) .onboarding-card { margin: auto auto 0; }
 #onboarding .onbFooter a { color: var(--text-light); text-decoration: underline; }
-#onboarding .onbMutedLink { font-size: 11px; }
 #onboarding .onbInstallIcon { margin-bottom: 6px; }
 #onboarding .onbInstallSteps { margin: 8px 0; font-size: 13px; line-height: 1.4; }
 #onboarding .onbInstallSteps li { margin-bottom: 4px; }
@@ -6283,7 +6193,6 @@ button { -webkit-user-select: none; user-select: none; }
 
 /* Plafonds de temps dans le formulaire en place (7 oct. 2026). */
 .catEditForm .timeCapsBlock { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
-.catEditForm .timeCapsTitle { margin: 4px 0 0; font-weight: 700; color: var(--text); font-size: 14px; }
 .catEditForm .timeCapsBlock .hint { margin: 0; }
 .catEditForm .timeCapsBody { display: flex; flex-direction: column; gap: 6px; }
 .catEditForm .timeCapsBody.hidden { display: none; }
@@ -6337,7 +6246,7 @@ button { -webkit-user-select: none; user-select: none; }
 }
 :root[data-theme="dark"] .activityMembersSearchWrap input[type="text"] {
   background: linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.06) 100%);
-  border-color: rgba(255,255,255,0.16);
+  border-color: var(--glass-border);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.24), inset 0 -1px 0 rgba(0,0,0,0.35), 0 10px 30px rgba(0,0,0,0.55);
 }
 
@@ -6364,8 +6273,6 @@ button { -webkit-user-select: none; user-select: none; }
 
 /* 2 oct. 2026 (Emilien) : fenêtre Membres — l'en-tête (déjà paddé 16px) s'ajoutait au padding de la carte : trop d'espace au-dessus du titre et de la croix. */
 #communityMembersModal .communityMembersModalCard { padding-top: 0; }
-
-#activityPageSectionSwitch.tabsGhost { visibility: hidden; pointer-events: none; }
 
 @media (max-width: 340px) {
   #communitySearchInput { font-size: 14px; }
@@ -6452,11 +6359,6 @@ html.kbOpen #onboarding .onboarding-card { margin: 0 auto; }
 #legalTermsModal, #privacyPolicyModal, #legalNoticesModal { z-index: 400; }
 
 /* Réglages › calendrier/export : sections en grands rectangles verre, infobulle ⓘ, règles (maquette Option C). */
-#profileSettingsScroll .settingsFlat.agendaGlass {
-  background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
-  border-radius: var(--radius-lg); padding: 14px; margin-bottom: 12px;
-}
 #profileSettingsScroll .settingsFlat .settingsFlatTitle { display: flex; align-items: center; gap: 8px; }
 .infoTipWrap { position: relative; display: inline-flex; }
 .infoTipBtn { width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 1.5px solid currentColor; background: transparent; color: inherit; opacity: .75; font: italic 700 12px/1 Georgia, serif; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }

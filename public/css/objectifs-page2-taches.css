@@ -132,21 +132,9 @@
 
 /* Déplacer une tâche vers un autre pôle/secteur : bouton discret (même
    gabarit que la croix de suppression de tâche) + liste sous la tâche. */
-.goalsTasksGroup .subProjectItem .goalsTaskMoveBtn {
-  border: none;
-  background: none;
-  color: var(--muted, inherit);
-  opacity: .7;
-  font-size: 15px;
-  padding: 4px;
-  cursor: pointer;
-}
-.goalsTaskMoveRow { padding: 2px 0 6px 28px; }
-.goalsTaskMoveRow select { width: 100%; max-width: 100%; font-size: 14px; }
 
 /* 1er oct. 2026 (Emilien) : poignée ≡ à gauche de la case, corbeille du Chrono,
    case grise (couleur de la section). */
-.goalsTasksGroup .subProjectItem .goalsTaskMoveBtn { font-size: 1.1rem; line-height: 1; opacity: 1; color: var(--text-light); padding: 4px 6px 4px 0; }
 .goalsTasksGroup .subProjectItem .goalsTaskTrashBtn { display: inline-flex; align-items: center; justify-content: center; padding: 6px; color: var(--text-light); }
 .goalsTasksGroup .subProjectItem input[type="checkbox"] {
   -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 6px;
@@ -155,8 +143,6 @@
 }
 .goalsTasksGroup .subProjectItem input[type="checkbox"]:checked { background: var(--purple); border-color: var(--purple); }
 .goalsTasksGroup .subProjectItem input[type="checkbox"]:checked::after { content: ""; width: 5px; height: 10px; border: solid var(--white); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
-
-.goalsTasksGroup .subProjectItem .goalsTaskMoveBtn { cursor: grab; touch-action: none; user-select: none; }
 .goalsTasksGroup .subProjectItem.dragging { position: relative; z-index: 5; opacity: .9; background: var(--bg-raised, var(--card)); box-shadow: 0 6px 18px rgba(0,0,0,.45); border-radius: 10px; }
 .goalsTasksGroup.catDropTarget { outline: 2px solid var(--purple); outline-offset: -2px; }
 
@@ -177,7 +163,7 @@
   width: 56px; height: 56px; flex: none; padding: 0; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   background: var(--lilac-bg); color: var(--lilac-text); border: none;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 22px var(--veil);
 }
 #goalsPage2AddBtn.hidden, #goalsPage2AddBtn.active { display: none; }
 #goalsPage2AddBtn .notifDot { top: 8px; right: 8px; }
@@ -267,10 +253,6 @@
 #goalsActivitySwitcherScroll.noScroll { overflow-y: hidden; touch-action: pan-x; }
 
 /* 5 oct. 2026 (Emilien) : liste « du jour » (blanches) + « À venir » (grises) + bouton Archives (même gabarit que Historique du Chrono). */
-.goalsTasksUpcomingLabel {
-  margin: 10px 0 2px; padding-top: 8px; border-top: 1px solid var(--glass-border);
-  font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-light);
-}
 .goalsDailyGrey .subProjectItemLabel { color: var(--text-light); }
 .goalsDailyWhen { flex: 0 0 auto; font-size: 12px; color: var(--text-light); white-space: nowrap; }
 #goalsTasksArchiveSection { margin-top: 14px; padding-bottom: 72px; } /* espace vide permanent sous « Archives », au-dessus des 3 points */

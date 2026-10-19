@@ -212,12 +212,6 @@
 
 .goalWeeklyDot.goalStatusNonAtteint { background: var(--red); }
 
-.goalWeeklyAssignSelect {
-  flex-shrink: 0; max-width: 78px; font-size: 11px; padding: 3px 4px;
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--track-bg); color: var(--text-light);
-}
-
 .goalWeeklyDailyPlanBtn {
   flex-shrink: 0; padding: 3px 5px; font-size: 13px; line-height: 1;
   border: none; border-radius: var(--radius-sm); background: transparent;
@@ -288,22 +282,6 @@
 
 .goalsCalendarRow.weekEnd { flex-wrap: wrap; }
 
-.goalsCalendarWeekProgress { flex-basis: 100%; margin-top: 6px; }
-
-.goalsCalendarWeekProgressLabel {
-  display: block; width: 100%; text-align: left;
-  font: inherit; font-size: 11px; font-weight: 700; margin: 0 0 4px;
-  padding: 0; border: none; background: transparent; cursor: pointer;
-}
-
-.goalsCalendarWeekProgressTrack {
-  height: 5px; border-radius: 3px; background: var(--track-bg); overflow: hidden;
-}
-
-.goalsCalendarWeekProgressFill {
-  height: 100%; width: 0; border-radius: 3px; transition: width 0.2s ease;
-}
-
 .goalsCalendarAddTaskBtn {
   position: relative; flex-shrink: 0; width: 28px; height: 28px;
   border: none; padding: 0; border-radius: 50%; cursor: pointer;
@@ -321,24 +299,6 @@
 .goalsCalendarAddTaskBtn::after { width: 2px; height: 10px; }
 
 .goalsCalendarAddTaskBtn:hover { color: var(--text); background: var(--border); }
-
-.goalsCalendarTaskAdd {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
-  padding: 14px 12px; background: var(--card);
-}
-
-.goalsCalendarTaskAdd input {
-  flex: 1; min-width: 0; font-size: 16px; padding: 12px 14px;
-  border-radius: var(--radius-md);
-}
-
-.goalsCalendarTaskAddBtn {
-  flex-shrink: 0; padding: 12px 22px; font-size: 15px; font-weight: 600;
-  border: none; border-radius: var(--radius-md);
-  background: var(--purple); color: var(--white); cursor: pointer;
-}
-
-.goalsCalendarTaskAdd .msg { flex-basis: 100%; margin: 0; }
 
 
 .goalsCalendarTaskRow {
@@ -358,10 +318,6 @@
 .goalsCalendarTaskLabel { flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; }
 
 .goalsCalendarTaskRow.done .goalsCalendarTaskLabel { color: var(--text-light); text-decoration: line-through; }
-
-.goalAssigneesLabel { font-size: 12px; color: var(--text-light); margin: 12px 0 6px; }
-
-.goalAssignees { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .goalAssigneeChip {
   display: inline-flex; align-items: center; gap: 5px;
@@ -455,16 +411,6 @@
 .goalDescPreview { flex: 1; min-width: 0; font-size: 12px; opacity: 0.65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .goalDescPreview.hidden { display: none; }
 .goalDescEditBtn { margin-left: auto; flex: 0 0 auto; }
-#goalDescModal { z-index: 102; }
-#goalDescModalText { width: 100%; box-sizing: border-box; font-size: 16px; resize: none; }
-#goalDescModal .communityMembersModalCard { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
-#goalDescModal .categoryDetailBody { padding: 12px 16px 16px; }
-#goalDescModalTitle { font-size: 1.1rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#goalDescModalClose {
-  background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
-  box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
-}
 
 /* 3 oct. 2026 : objectif périodique en lecture (titre + description) avec bouton modifier à côté. */
 .goalMainRead { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -493,19 +439,12 @@
 #activityGoalsMainDescInput { margin-top: 0; }
 .goalMainEstEdit { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 .goalMainEstEdit label { font-size: 12px; opacity: .75; }
-.goalMainEstRow { display: flex; align-items: center; gap: 8px; }
-.goalMainEstRow input { width: 84px; text-align: center; }
-.goalMainEstBtn { margin-left: auto; padding: 8px 14px; border-radius: 12px; font: inherit; font-size: 13px; color: inherit; background: transparent; border: 1px solid var(--border, rgba(255,255,255,.14)); opacity: .45; }
-.goalMainEstBtn.lit { opacity: 1; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(var(--purple-rgb), .25), 0 0 14px rgba(var(--purple-rgb), .45); }
-.goalMainEstBtn:disabled { cursor: default; }
 
 /* Annuler : neutre, sans couleur. */
 #activityGoalsMainCard .goalMainCancelPlain { color: inherit; background: transparent; border: 1px solid var(--border, rgba(255,255,255,.14)); }
 #activityGoalsMainDescInput::placeholder { font-size: 14px; }
 /* 8 oct. 2026 : la description ne défile ni ne se redimensionne ; vide, elle occupe toute la bulle (texte d'aide en entier). */
 #activityGoalsMainDescInput { overflow: hidden; resize: none; min-height: 150px; font-size: 16px; }
-.goalMainEstBtn.lit { border-color: rgba(76,175,80,.7); background: rgba(76,175,80,.16); box-shadow: none; }
-.goalMainEstBtn:disabled:not(.lit) { opacity: .4; }
 
 /* Reformulation proposée par Noèsis (7 oct. 2026) : case teintée violet, bulle au clic. */
 .goalRewriteHint { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.85); background-color: rgba(139, 92, 246, 0.14); cursor: pointer; border-radius: 8px; }

@@ -181,18 +181,6 @@
 
 .goalsGridColumnsWrap { position: relative; display: flow-root; }
 
-.goalsGridCellAddIcon {
-  position: relative; width: 34px; height: 34px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--goalsAddAccent, var(--purple)); color: var(--bg);
-  font-size: 20px; font-weight: 300; line-height: 1; pointer-events: none;
-}
-
-.goalsGridCellAddLabel {
-  position: relative; font-size: 13px; font-weight: 700; color: var(--text);
-  text-align: center; white-space: nowrap; pointer-events: none;
-}
-
 .goalsGridAddOutline {
   position: absolute; display: none; pointer-events: none;
   border: 2px dashed var(--goalsAddAccent, var(--track-bg));
@@ -304,19 +292,13 @@
 .goalsYearAdd { border: 2px dashed var(--track-bg); border-radius: 12px; background: transparent; color: var(--text-light); padding: 8px; font: inherit; font-size: 12px; cursor: pointer; }
 .goalsYearField { width: 100%; box-sizing: border-box; resize: none; border: none; border-radius: 12px; background: var(--bg); color: var(--text); padding: 8px 10px; font: inherit; font-size: 13px; min-height: 44px; overflow: hidden; }
 .goalsYearSave { border: none; border-radius: 999px; background: var(--bg); color: var(--text); padding: 7px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
-.goalsYearLink { position: absolute; left: 50%; top: 100%; height: 38px; width: 0; border-left: 2px solid var(--track-bg); transform: translateX(-50%); pointer-events: none; z-index: -1; }
-.goalsYearCol--linked .goalsYearLink { border-left-color: var(--yearShade); }
-.goalsYearCol--vide .goalsYearLink { display: none; }
 
 .goalsYearCol--noPill.goalsYearCol--vide { padding: 3px; }
 .goalsYearCol--noPill .goalsYearAdd { padding: 10px; }
-
-.goalsYearLink { display: none !important; }
 
 /* Sélecteur d'année de l'arbre (9 oct. 2026) : même bouton et même menu que le filtre de pôle des Statistiques. */
 .goalsYearPickWrap { padding: 0 4px 10px 4px; }
 .goalsYearRow { display: flex; align-items: center; }
 .goalsYearRow .statsPeriodMenuItem { flex: 1 1 auto; }
-.goalsYearDel { border: none; background: transparent; color: var(--text-light); padding: 6px 10px; font: inherit; font-size: 12px; cursor: pointer; }
 .goalsYearNew { font-weight: 700; }
 .goalsYearPickWrap .statsPeriodMenu { z-index: 30; background: var(--card) !important; }
