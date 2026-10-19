@@ -6,17 +6,6 @@
   'use strict';
   var TMT = window.TMT = window.TMT || {};
   var tr = function (s) { return typeof window.t === 'function' ? window.t(s) : s; };
-  var LABELS = {
-    stats: 'Statistiques',
-    'stats-tasks': 'Statistiques des tâches',
-    sharing: 'Activités partagées',
-    community: 'Communauté',
-    roadmap: 'Feuille de route',
-    calendar: 'Calendrier',
-    ai: 'Assistant IA',
-    notifications: 'Notifications',
-    profile: 'Profil'
-  };
   var state = null, loadedFor = null;
   var CACHE_KEY = 'noesis_modules';
   // Dernier état connu (démarrage hors ligne / avant la réponse du serveur) : évite un flash d'interface masquée ou non.
@@ -56,52 +45,41 @@
   }
   function setMsg(t) { if (msg) msg.textContent = t || ''; }
 
-  // Deux ensembles au choix (au moins un, validé aussi côté serveur) + deux ajouts optionnels.
-  // Calendrier et Assistant IA se rattachent à l'ensemble B ; partage et notifications restent actifs (noyau), sans interrupteur ici.
-  var BUNDLES = [
-    { key: 'time', title: 'Temps', desc: 'Chrono, statistiques du chrono et feuille de temps', ids: ['stats'], anchor: 'stats' },
-    { key: 'tasks', title: 'Tâches et objectifs', desc: 'Objectifs (Feuille de route) et statistiques des tâches', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap' }
+  // Trois lignes, un interrupteur chacune : Temps, Tâches et objectifs, Communauté et profil (au moins l'un des deux premiers).
+  // Calendrier et Assistant IA se rattachent à « Tâches et objectifs » ; partage et notifications restent actifs (noyau), sans interrupteur.
+  var ROWS = [
+    { label: 'Temps', ids: ['stats'], anchor: 'stats', bundle: true },
+    { label: 'Tâches et objectifs', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap', bundle: true },
+    { label: 'Communauté et profil', ids: ['community', 'profile'], anchor: 'community', bundle: false }
   ];
-  // Communauté et Profil vont ensemble : une seule ligne, les deux clés envoyées (le serveur les lie).
-  var OPTIONAL = [{ ids: ['community', 'profile'], label: 'Communauté et profil' }];
+  var BUNDLES = ROWS.filter(function (r) { return r.bundle; });
 
   function put(patch) {
     setMsg('');
     return call('PUT', { modules: patch }).then(function (d) { state = d.modules; remember(); apply(); }).catch(function (e) { setMsg(e.message); }).then(paint);
   }
 
-  // Dessine les deux cartes + « Ajouter » dans `target` pour l'état `st` ; `apply(patch)` reçoit chaque changement.
-  // `lastOk` : autorise de tout désélectionner (écran de premier choix, la validation reste bloquée) ; sinon au moins un ensemble.
+  // Dessine les trois lignes dans `target` pour l'état `st` ; `apply(patch)` reçoit chaque changement.
+  // `lastOk` : autorise de tout désactiver (écran de premier choix, la validation reste bloquée) ; sinon au moins Temps ou Tâches.
   function render(target, st, apply, lastOk) {
     target.innerHTML = '';
-    BUNDLES.forEach(function (b) {
-      var on = !!st[b.anchor];
-      var card = document.createElement('button'); card.type = 'button'; card.className = 'moduleCard' + (on ? ' selected' : '');
-      card.setAttribute('aria-pressed', on ? 'true' : 'false');
-      var t = document.createElement('span'); t.className = 'moduleCardTitle'; t.textContent = tr(b.title);
-      var d = document.createElement('span'); d.className = 'moduleCardDesc'; d.textContent = tr(b.desc);
-      card.appendChild(t); card.appendChild(d);
-      card.addEventListener('click', function () {
-        var other = BUNDLES.filter(function (x) { return x !== b; })[0];
-        if (!lastOk && on && !st[other.anchor]) { setMsg(tr('Garde au moins un ensemble.')); return; }
-        var patch = {}; b.ids.forEach(function (id) { patch[id] = !on; });
+    ROWS.forEach(function (r) {
+      var row = document.createElement('div'); row.className = 'notifRow';
+      var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = tr(r.label);
+      var sw = document.createElement('label'); sw.className = 'toggleSwitch';
+      var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!st[r.anchor];
+      var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
+      inp.addEventListener('change', function () {
+        if (r.bundle && !inp.checked && !lastOk && !BUNDLES.some(function (b) { return b !== r && st[b.anchor]; })) {
+          inp.checked = true; setMsg(tr('Garde au moins Temps ou Tâches et objectifs.')); return;
+        }
+        var patch = {}; r.ids.forEach(function (id) { patch[id] = inp.checked; });
         apply(patch);
       });
-      target.appendChild(card);
-    });
-    var h = document.createElement('p'); h.className = 'hint modulesAddTitle'; h.textContent = tr('Ajouter'); target.appendChild(h);
-    OPTIONAL.forEach(function (o) {
-      var row = document.createElement('div'); row.className = 'notifRow';
-      var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = tr(o.label);
-      var sw = document.createElement('label'); sw.className = 'toggleSwitch';
-      var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = o.ids.some(function (id) { return !!st[id]; });
-      var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
-      inp.addEventListener('change', function () { var patch = {}; o.ids.forEach(function (id) { patch[id] = inp.checked; }); apply(patch); });
       sw.appendChild(inp); sw.appendChild(track);
       row.appendChild(label); row.appendChild(sw);
       target.appendChild(row);
     });
-    var hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = tr('Fil de la communauté, abonnements et profil public.'); target.appendChild(hint);
   }
 
   function paint() { if (box && state) render(box, state, put, false); }
