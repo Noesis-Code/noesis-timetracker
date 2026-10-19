@@ -37,8 +37,7 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 
 **2. Time Tracker Basic** (accessibilité et robustesse)
 1. `aria-label` des boutons-icônes et contrastes du texte à vérifier (sans changer la palette).
-3. Démarrage à froid : mesurer et réduire le chargement initial.
-4. Tests fonctionnels des vues Semaine, Mois et Année.
+3. Démarrage à froid : mesuré (19 oct.) = 20 scripts + 14 feuilles CSS, 2,48 Mo bruts, aucune compression HTTP (~714 Ko en gzip). Seul gain réel = compression gzip/brotli du serveur (mécanisme serveur, dépendance `compression` ou zlib) : à faire seulement sur décision explicite ; `defer` inutile (scripts déjà en fin de `<body>`).
 5. Retrait de code mort (dont `bindSubProjectDrag`), vérifié par recherche d'usages.
 6. Textes manquants dans `i18n.js` (`scripts/i18n-unused.js`).
 

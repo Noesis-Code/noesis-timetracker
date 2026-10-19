@@ -286,7 +286,7 @@ async function main() {
   }
 
   // Parcours fonctionnels HTTP (serveur réel sur données temporaires) : chrono, tâches, modules, secteurs, stats, export.
-  for (const [f, label] of [['fonctionnel-chrono.js', 'parcours chrono'], ['fonctionnel-taches.js', 'parcours tâches'], ['fonctionnel-modules.js', 'parcours modules'], ['fonctionnel-secteurs.js', 'parcours suppression de secteur'], ['fonctionnel-stats.js', 'parcours statistiques'], ['fonctionnel-export.js', 'parcours export'], ['fonctionnel-parcours.js', 'parcours profil, feuille de temps, modules partiels']]) {
+  for (const [f, label] of [['fonctionnel-chrono.js', 'parcours chrono'], ['fonctionnel-taches.js', 'parcours tâches'], ['fonctionnel-modules.js', 'parcours modules'], ['fonctionnel-secteurs.js', 'parcours suppression de secteur'], ['fonctionnel-stats.js', 'parcours statistiques'], ['fonctionnel-vues-periodes.js', 'parcours vues Semaine, Mois, Année'], ['fonctionnel-export.js', 'parcours export'], ['fonctionnel-parcours.js', 'parcours profil, feuille de temps, modules partiels']]) {
     let ok = true;
     try { execFileSync('node', [path.join(__dirname, f)], { encoding: 'utf8', stdio: 'pipe' }); } catch (e) { ok = false; }
     assert(ok, `${label} (test/${f}) passe`);
