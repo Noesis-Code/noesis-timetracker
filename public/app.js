@@ -2385,62 +2385,22 @@
     });
   }
 
-  // Option « Horloge défilante » (tâche 1344, désactivée par défaut, par profil) :
-  // le temps écoulé défile en continu (centièmes, requestAnimationFrame), calculé
-  // depuis l'heure de départ serveur sans appel réseau.
-  var scrollClockOn = false, scrollClockRaf = null, scrollClockLoaded = false;
+  // Chrono : le temps écoulé s'affiche en heures:minutes:secondes, mis à jour chaque seconde (pas de centièmes).
   function updateLiveTimer() {
     var elapsedMs = Math.max(0, Date.now() - timerStartMs);
     var h = Math.floor(elapsedMs / 3600000);
     var m = Math.floor((elapsedMs % 3600000) / 60000);
     var s = Math.floor((elapsedMs % 60000) / 1000);
-    var txt = pad(h) + ':' + pad(m) + ':' + pad(s);
-    if (scrollClockOn) txt += '.' + pad(Math.floor((elapsedMs % 1000) / 10));
-    $('liveTimer').textContent = txt;
-  }
-  function scrollClockFrame() {
-    updateLiveTimer();
-    scrollClockRaf = requestAnimationFrame(scrollClockFrame);
+    $('liveTimer').textContent = pad(h) + ':' + pad(m) + ':' + pad(s);
   }
   function startLiveTimer(startTimeIso) {
     timerStartMs = new Date(startTimeIso).getTime();
-    applyLiveTimerMode();
-    if (!scrollClockLoaded && profile) {
-      scrollClockLoaded = true;
-      api('GET', '/api/profile/' + profile.id + '/scroll-clock').then(function (d) {
-        scrollClockOn = !!(d && d.enabled);
-        if (scrollClockOn && (timerInterval || scrollClockRaf)) applyLiveTimerMode();
-      }).catch(function () { scrollClockLoaded = false; });
-    }
-  }
-  function applyLiveTimerMode() {
     stopLiveTimer();
     updateLiveTimer();
-    if (scrollClockOn) scrollClockRaf = requestAnimationFrame(scrollClockFrame);
-    else timerInterval = setInterval(updateLiveTimer, 1000);
+    timerInterval = setInterval(updateLiveTimer, 1000);
   }
   function stopLiveTimer() {
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-    if (scrollClockRaf) { cancelAnimationFrame(scrollClockRaf); scrollClockRaf = null; }
-  }
-  (function () {
-    var tg = $('scrollClockToggle');
-    if (!tg) return;
-    tg.addEventListener('change', function () {
-      var want = tg.checked;
-      api('PUT', '/api/profile/' + profile.id + '/scroll-clock', { enabled: want })
-        .then(function () {
-          scrollClockOn = want; scrollClockLoaded = true;
-          if (timerInterval || scrollClockRaf) applyLiveTimerMode();
-          $('scrollClockMsg').textContent = '';
-        })
-        .catch(function (e) { tg.checked = !want; $('scrollClockMsg').textContent = e.message; });
-    });
-  })();
-  function renderScrollClockSetting() {
-    var tg = $('scrollClockToggle');
-    if (!tg || !profile) return;
-    api('GET', '/api/profile/' + profile.id + '/scroll-clock').then(function (d) { tg.checked = !!(d && d.enabled); }).catch(function () {});
   }
 
   // ===================== CHRONO → CATÉGORIE (rattachement optionnel) =====================
@@ -10906,7 +10866,6 @@
     // thème actifs n'apparaissaient plus cochés.
     renderLangSwitch();
     renderShareSettings();
-    renderScrollClockSetting();
     var settingsPanelEl = $('profileSettingsPanel');
     settingsPanelEl.classList.remove('hidden');
     // Plein écran avec glissement droite → gauche à l'ouverture (9 septembre
