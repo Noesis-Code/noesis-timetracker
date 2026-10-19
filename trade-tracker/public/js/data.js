@@ -25,7 +25,7 @@
       sectors: c.bySector.map(function (r) { return { key: r.key, label: r.label, mePct: r.clientPct, expertPct: r.expertPct, gapPts: r.gapPts }; }),
       positions: c.byPosition.map(function (r) { return { symbol: r.symbol, name: r.label, sector: r.sector, mePct: r.clientPct, expertPct: r.expertPct, gapPts: r.gapPts }; }),
       lastSync: c.expertSyncedAt ? { at: c.expertSyncedAt, status: 'OK' } : null,
-      purchases: purchases || []   // GET /api/purchases : pas encore au contrat, liste vide tant qu'absent
+      purchases: purchases || []   // GET /api/purchases (liste vide si la route échoue)
     };
   }
   function loadApi() {

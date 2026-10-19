@@ -61,6 +61,11 @@ Tri par défaut : `valueCad` décroissant (le tri fin est fait côté interface)
 ```
 Pour l'expert lui-même, tous les écarts valent 0. Les poids sont en % de la valeur totale (encaisse incluse).
 
+`GET /api/purchases?limit=10&offset=0` (limit 1-50, défaut 10) -> derniers achats de l'EXPERT (transactions `ACHAT`, récents d'abord, lisible par tout utilisateur connecté) :
+```
+{ purchases: [ { id, symbol, name, sector, accountType, quantity, price, currency, amountCad|null, at: "YYYY-MM-DD" } ], limit, offset, hasMore }
+```
+
 Expert seulement (client : 403 `forbidden`) :
 - `POST /api/invitations` `{ email, role: "client"|"expert" }` -> `{ id, code, email, role, expiresAt }` (le code n'est montré qu'une fois ; valide 7 jours).
 - `GET /api/invitations` -> `{ invitations: [ { id, email, role, createdAt, expiresAt, used } ] }`.

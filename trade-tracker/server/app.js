@@ -4,7 +4,7 @@ const fs = require('fs');
 const express = require('express');
 const A = require('./lib/auth');
 const C = require('./lib/calc');
-const { buildPortfolio } = require('./lib/portfolio');
+const { buildPortfolio, latestUsdCad } = require('./lib/portfolio');
 const { compareProportions } = require('./lib/compare');
 
 function parseCookies(h) {
@@ -118,6 +118,29 @@ function createApp(db, { env = process.env } = {}) {
     if (!e) return err(res, 404, 'no_expert');
     const cmp = compareProportions(buildPortfolio(db, req.user.id), buildPortfolio(db, e.id));
     res.json({ expertSyncedAt: (db.prepare("SELECT at FROM sync_log WHERE userId = ? AND kind='sync' AND status='OK' ORDER BY id DESC LIMIT 1").get(e.id) || {}).at || null, ...cmp });
+  });
+
+  // Derniers achats de l'expert (lisibles par tous les utilisateurs connectés). Pagination courte.
+  app.get('/api/purchases', (req, res) => {
+    const e = expertUser();
+    if (!e) return err(res, 404, 'no_expert');
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
+    const offset = Math.min(Math.max(parseInt(req.query.offset, 10) || 0, 0), 10000);
+    const usdCad = latestUsdCad(db);
+    const rows = db.prepare(`SELECT t.id, t.date, t.symbol, t.quantity, t.price, t.amount, t.currency, a.type AS accountType,
+        p.name AS name, s.name AS sector
+      FROM transactions t JOIN accounts a ON a.id = t.accountId
+      LEFT JOIN positions p ON p.accountId = t.accountId AND p.symbol = t.symbol
+      LEFT JOIN sectors s ON s.id = p.sectorId
+      WHERE a.userId = ? AND t.type = 'ACHAT' ORDER BY t.date DESC, t.id DESC LIMIT ? OFFSET ?`).all(e.id, limit + 1, offset);
+    const more = rows.length > limit;
+    const purchases = rows.slice(0, limit).map((r) => ({
+      id: r.id, symbol: r.symbol, name: r.name || r.symbol, sector: r.sector || 'Non classé', accountType: r.accountType,
+      quantity: r.quantity, price: r.price, currency: r.currency,
+      amountCad: (() => { const c = C.toCad(r.amount, r.currency, usdCad); return c == null ? null : C.round2(c); })(),
+      at: r.date,
+    }));
+    res.json({ purchases, limit, offset, hasMore: more });
   });
 
   app.post('/api/invitations', expertOnly, (req, res) => {

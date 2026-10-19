@@ -82,6 +82,12 @@ const { takeSnapshot } = require('../server/lib/snapshot');
     j = await (await get('/api/compare', cl.cookie)).json();
     assert(j.bySector.length && j.byPosition.length && 'gapPts' in j.bySector[0] && 'expertSyncedAt' in j);
 
+    j = await (await get('/api/purchases?limit=1', cl.cookie)).json();
+    assert.strictEqual(j.purchases.length, 1); assert.strictEqual(j.hasMore, true); assert.strictEqual(j.purchases[0].at, '2026-04-10');
+    assert(['id', 'symbol', 'name', 'sector', 'accountType', 'quantity', 'price', 'currency', 'amountCad', 'at'].every((k) => k in j.purchases[0]));
+    assert.strictEqual((await (await get('/api/purchases?limit=1&offset=1', cl.cookie)).json()).purchases[0].at, '2026-03-03');
+    assert.strictEqual((await get('/api/purchases')).status, 401);
+
     // déconnexion
     await fetch(base + '/api/logout', { method: 'POST', headers: { cookie: cl.cookie } });
     assert.strictEqual((await get('/api/me', cl.cookie)).status, 401);
