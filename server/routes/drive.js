@@ -57,7 +57,6 @@ router.post('/drive/disconnect', ...ownerChain, wrap((req) => drive.disconnect(r
 
 // Surveillance permanente du dossier (server/lib/drivesync.js).
 router.get('/drive/sync', ...ownerChain, wrap((req) => drivesync.settings(req.userId, req.activityId)));
-router.post('/drive/sync/settings', ...ownerChain, wrap((req) => drivesync.saveSettings(req.userId, req.activityId, req.body)));
 router.post('/drive/sync/run', ...ownerChain, wrap((req) => drivesync.syncNow(req.userId, req.activityId, typeof req.body.folderId === 'string' ? req.body.folderId : undefined)));
 router.post('/drive/folder/settings', ...ownerChain, wrap((req) => drivesync.saveFolderSettings(req.userId, req.activityId, String(req.body.folderId || ''), req.body)));
 router.get('/drive/sync/pending', ...chain, wrap((req) => drivesync.listPending(req.userId, req.activityId)));
