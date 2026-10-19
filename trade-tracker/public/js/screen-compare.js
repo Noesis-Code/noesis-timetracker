@@ -28,10 +28,10 @@
         '<div><div class="duoTitle">' + TTF.esc(c.expertName) + '</div>' + TTUI.donut(donutItems(rows, 'expertPct'), [TTF.money0(c.expert.totalValueCad), ''], 140) + '</div></div>' +
         '<div class="legendList cols">' + donutItems(rows, 'mePct').map(function (i, k) { return '<div class="legendRow"><span class="legendDot" style="background:' + TTUI.color(k, i.key) + '"></span><span class="grow">' + TTF.esc(i.label) + '</span></div>'; }).join('') + '</div></div>' +
         '<div class="sectionTitle">Proportions côte à côte</div>' +
-        '<div class="card"><div class="duoKey"><span><i class="keyDot me"></i>Moi</span><span><i class="keyDot ex"></i>' + TTF.esc(c.expertName) + '</span><span class="hint">écart en points de %</span></div>' +
+        '<div class="card"><div class="duoKey"><span><i class="keyDot me"></i>Moi</span><span><i class="keyDot ex"></i>' + TTF.esc(c.expertName) + '</span><span class="hint">écart en points de %</span></div><div class="hint" style="margin:-4px 0 12px">+ : plus que l’expert · − : moins que l’expert</div>' +
         rows.map(function (r) {
           var cls = Math.abs(r.gapPts) < 0.05 ? '' : r.gapPts > 0 ? 'over' : 'under';
-          return '<div class="duoRow"><div class="barHead"><span class="barLabel">' + TTF.esc(r.label) + (r.sub ? '<span class="barSub"> · ' + TTF.esc(r.sub) + '</span>' : '') + '</span><span class="gapPill ' + cls + '">' + gapTxt(r.gapPts) + '</span></div>' +
+          return '<div class="duoRow"><div class="barHead"><span class="barLabel">' + TTF.esc(r.label) + (r.sub ? '<span class="barSub"> · ' + TTF.esc(r.sub) + '</span>' : '') + '</span><span class="gapPill ' + cls + '"' + (cls ? ' aria-label="' + (cls === 'over' ? 'plus que l’expert : ' : 'moins que l’expert : ') + gapTxt(r.gapPts) + '"' : '') + '>' + gapTxt(r.gapPts) + '</span></div>' +
             '<div class="duoBar"><div class="barTrack"><div class="barFill me" style="width:' + r.mePct / maxP * 100 + '%"></div></div><span>' + TTF.pct(r.mePct) + '</span></div>' +
             '<div class="duoBar"><div class="barTrack"><div class="barFill ex" style="width:' + r.expertPct / maxP * 100 + '%"></div></div><span>' + TTF.pct(r.expertPct) + '</span></div></div>';
         }).join('') + '</div>' +
