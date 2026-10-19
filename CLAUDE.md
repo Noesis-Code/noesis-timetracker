@@ -15,6 +15,10 @@ Source unique de vérité du fonctionnement du dépôt. Historique détaillé de
 
 Émilien trouve les délais trop longs. Règles : découper chaque lot de demandes en tâches indépendantes lancées EN PARALLÈLE (un sous-agent par segment de fichiers, plusieurs agents dans un même message) ; ne pas refaire soi-même ce qu'un agent fait ; vérification ciblée (`node --check`, tests, une capture de l'écran touché, pas de balayage complet) ; réponse finale en 2-4 lignes ; les corrections de détail (CSS, libellés) se font directement sans agent.
 
+## Chantiers permanents (19 oct. 2026)
+
+Sept chantiers tournent en permanence (Trade Tracker, TT Basic, TT Expansion, Crédits Claude et API, Simplification et design, Précision des tâches, Principal/pilotage). Missions et règles dans `CHANTIERS.md`.
+
 ## Simplification (19 oct. 2026) — priorité permanente
 
 Émilien veut une application **simple** : on retire avant d'ajouter. Lire `SIMPLIFICATION.md` (principes, test de simplicité à passer avant tout push d'un chantier UI, journal « Refusé par Émilien »). Un chantier permanent « Simplificateur » relit les livraisons et retire le superflu. Aucun bouton, option, réglage, écran ni couleur nouveau sans demande explicite.
