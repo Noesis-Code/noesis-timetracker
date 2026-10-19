@@ -202,7 +202,7 @@
     d.innerHTML = driveView === 'confirm'
       ? '<div class="docTasksConfirm">Déconnecter Drive de cette activité ? <button type="button" class="docTasksLink" data-d="disconnectYes">Déconnecter</button> <button type="button" class="docTasksLink" data-d="disconnectNo">Annuler</button></div>'
       : '<div class="docTasksBottomRow">' + (n ? '<button type="button" class="docTasksLink docTasksFoldersLink" data-d="openFolders" aria-expanded="' + (foldersOpen ? 'true' : 'false') + '">Voir mes dossiers connectés (' + n + ') ' + (foldersOpen ? '▴' : '▾') + '</button>' : '')
-        + '<button type="button" class="docTasksLink docTasksDiscLink" data-d="disconnect">Déconnecter Drive</button></div>'
+        + (s.isOwner === false ? '' : '<button type="button" class="docTasksLink docTasksDiscLink" data-d="disconnect">Déconnecter Drive</button>') + '</div>'
         + (foldersOpen && n ? '<div id="docTasksFoldersBody" class="docTasksFoldersInline"></div>' : '');
   }
   var FOLDER_ICON = '<svg class="docTasksFolderIco" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>';
@@ -210,7 +210,7 @@
   function folderFilesHtml(f) {
     var fs = driveList.filter(function (x) { return x.folderId === f.id; });
     if (!fs.length) return '<div class="docTasksFolderFiles"><p class="docTasksMeta">' + (driveList.length ? 'Aucun fichier lisible.' : 'Chargement…') + '</p></div>';
-    return '<div class="docTasksFolderFiles">' + fs.slice(0, 60).map(function (x) { return '<button type="button" class="docTasksFileRow" data-d="file" data-id="' + esc(x.id) + '">' + esc(x.path || x.name) + '</button>'; }).join('') + '</div>';
+    return '<div class="docTasksFolderFiles">' + fs.slice(0, 60).map(function (x) { return (driveSt && driveSt.isOwner === false ? '<div class="docTasksFileRow">' + esc(x.path || x.name) + '</div>' : '<button type="button" class="docTasksFileRow" data-d="file" data-id="' + esc(x.id) + '">' + esc(x.path || x.name) + '</button>'); }).join('') + '</div>';
   }
   var PENCIL_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
   function renderFoldersPop() {
@@ -220,7 +220,7 @@
       return folderRemoveId === f.id
         ? '<div class="docTasksConfirm">Ne plus surveiller ce dossier ? <button type="button" class="docTasksLink" data-d="folderRemoveYes" data-id="' + esc(f.id) + '">Retirer</button> <button type="button" class="docTasksLink" data-d="folderRemoveNo">Annuler</button></div>'
         : '<div class="docTasksFolderRow"><button type="button" class="docTasksFolderName docTasksFolderToggle" data-d="folderToggle" data-id="' + esc(f.id) + '" aria-expanded="' + (folderExpanded[f.id] ? 'true' : 'false') + '">' + FOLDER_ICON + esc(f.name || 'Dossier') + (f.paused ? ' <span class="docTasksMeta">(en pause)</span>' : '') + ' <span class="docTasksChev">' + (folderExpanded[f.id] ? '▴' : '▾') + '</span></button>'
-          + '<button type="button" class="historyRowIconBtn goalDescEditBtn docTasksFolderIconBtn" data-d="folderEdit" data-id="' + esc(f.id) + '" aria-label="Modifier les réglages de ce dossier" title="Modifier">' + PENCIL_ICON + '</button></div>' + (folderExpanded[f.id] ? folderFilesHtml(f) : '');
+          + (s.isOwner === false ? '' : '<button type="button" class="historyRowIconBtn goalDescEditBtn docTasksFolderIconBtn" data-d="folderEdit" data-id="' + esc(f.id) + '" aria-label="Modifier les réglages de ce dossier" title="Modifier">' + PENCIL_ICON + '</button>') + '</div>' + (folderExpanded[f.id] ? folderFilesHtml(f) : '');
     }).join('') + '</div>' : '<p class="hint">Aucun dossier connecté.</p>')
       + (filesErr ? '<p class="msg">' + esc(filesErr) + '</p>' : '');
   }
@@ -272,7 +272,7 @@
   function renderDriveMain() {
     var h = $('docTasksDrive'), s = driveSt, html = '';
     if (!s) { h.innerHTML = ''; return; }
-    if (s.configured && s.isOwner === false) { h.innerHTML = '<div class="docTasksDriveRow"><p class="docTasksMeta">Seul le propriétaire de l’activité connecte Drive. Les nouvelles tâches trouvées sont les mêmes pour tous les membres.</p></div>'; return; }
+    if (s.configured && s.isOwner === false) { h.innerHTML = ''; return; }
     if (!s.configured) {
       h.innerHTML = '<div class="docTasksDriveRow docTasksDriveOff" aria-disabled="true">Connecter Drive <span class="goalsAddSoon">Bientôt</span></div>'; return;
     }
