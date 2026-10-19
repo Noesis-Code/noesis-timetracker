@@ -8,7 +8,7 @@ const M = require('../server/lib/modules');
 db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u1', 'Test', '2026-01-01')").run();
 
 let m = M.getModules('u1');
-assert(Object.keys(m).every((k) => k === 'offer1' ? !m[k] : m[k]), 'compte existant (NULL) : tout actif sauf offer1');
+assert(Object.keys(m).every((k) => (k === 'offer1' || k === 'trade') ? !m[k] : m[k]), 'compte existant (NULL) : tout actif sauf offer1 et trade');
 assert(M.isEnabled('u1', 'core') && M.isEnabled('u1', 'roadmap') && !M.isEnabled('u1', 'offer1') && !M.isEnabled('u1', 'inconnu'), 'isEnabled');
 assert(M.getModules('absent') === null, 'profil absent : null');
 
