@@ -28,3 +28,6 @@ Sans plafond propre restant : Plan Offre 1 et Objectifs hebdo (rares, mémo acti
 
 ## Taille des prompts (tâche 3)
 Classement (12 catégories avec description) : 1635 -> 1553 caractères (strict) et 1931 -> 1834 (avec confiance), soit ~-5 %, par retrait de phrases redondantes à sens identique. `scripts/eval-task-precision.js --fake` n'utilise pas le prompt (résultats inchangés par construction : précision 98,6) ; à confirmer en `--live` par Émilien. Inter-secteurs : charge utile déjà minimale (champs vides omis) ; la consigne système (~1450 caractères) n'est pas touchée sans évaluation réelle.
+
+## Rapport sans accès base (repli 5)
+Exporter la table (`SELECT * FROM ai_usage_log` en JSON ou CSV avec en-têtes) puis `node scripts/ai-cost-report.js --from export.csv 30`. Test : `test/ia-rapport-export-test.js`.
