@@ -58,6 +58,14 @@ const nd = M.defaults();
 assert(nd.stats && nd.roadmap && nd['stats-tasks'] && !nd.community && !nd.profile, 'défaut nouveau compte : A+B actifs, Communauté+Profil inactifs');
 assert(M.setModules('absent', { stats: true }).status === 404, 'profil absent : 404');
 assert(Array.isArray(M.NEW_ACCOUNT_DEFAULT_MODULES) && M.defaults().core === true && M.defaults().offer1 === false, 'défauts nouveau compte');
+// Bug « Feuille de route vide / Stats : Aucune activité » : une valeur stockée sans aucun ensemble actif (ancienne version) = tout rallumé, jamais 403.
+for (const raw of ['{}', '[]', 'null', 'garbage', JSON.stringify({ roadmap: false, stats: false }), JSON.stringify({ roadmap: false, stats: false, calendar: false, ai: false, 'stats-tasks': false })]) {
+  db.prepare("UPDATE users SET modules = ? WHERE id = 'u1'").run(raw);
+  const g = M.getModules('u1');
+  assert(g.stats && g.roadmap && g['stats-tasks'] && g.calendar && g.ai && M.isEnabled('u1', 'roadmap') && M.isEnabled('u1', 'stats'), 'repli « tout actif » pour la valeur stockée ' + raw);
+}
+db.prepare("UPDATE users SET modules = ? WHERE id = 'u1'").run(JSON.stringify({ roadmap: false }));
+assert(M.getModules('u1').stats && !M.getModules('u1').roadmap, 'un seul ensemble coupé volontairement reste coupé');
 // Trade Tracker : off par défaut, réservé à TRADE_ALLOWED_USER_IDS (vide = personne).
 delete process.env.TRADE_ALLOWED_USER_IDS;
 db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('t1', 'Trader', '2026-01-01')").run();

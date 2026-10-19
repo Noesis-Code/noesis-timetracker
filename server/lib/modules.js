@@ -69,6 +69,9 @@ function normalize(raw, userId) {
       if (MODULES[id] && !NOT_TOGGLEABLE.includes(id)) base[id] = !!raw[id];
     }
   }
+  // Repli : une valeur stockée où AUCUN des deux ensembles n'est actif (état hérité d'une ancienne version) rendait Feuille de route et
+  // Statistiques vides (403 module_off). Jamais d'état « tout coupé » : on rallume les deux ensembles (aucune donnée n'était perdue).
+  if (!Object.keys(BUNDLES).some((b) => base[BUNDLES[b].anchor])) Object.keys(BUNDLES).forEach((b) => BUNDLES[b].all.forEach((id) => { base[id] = true; }));
   if (!isTradeAllowed(userId)) base.trade = false; // jamais actif pour un id non autorisé (même si la colonne dit vrai)
   return linkPair(base);
 }
