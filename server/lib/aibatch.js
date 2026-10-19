@@ -3,6 +3,7 @@
 // { custom_id, result: { type: succeeded|errored|canceled|expired, message? } }. fetch natif, injectable pour les tests (setFetch).
 // Jamais de contenu de document ni de tâche dans les logs.
 const classify = require('./goalstaskclassify');
+const aibudget = require('./aibudget');
 
 const BASE = 'https://api.anthropic.com/v1/messages/batches';
 const TIMEOUT_MS = 60000;
@@ -27,7 +28,11 @@ async function request(url, init) {
 }
 
 // requests : [{ custom_id, params }]
-async function submit(requests) {
+// userId : le budget IA (jour + tranche, lots en vol compris) est vérifié sur le coût maximal du lot (x0,5) avant tout envoi.
+async function submit(requests, userId) {
+  const est = (requests || []).reduce((a, r) => a + aibudget.estimateMaxCost(r && r.params, 0.5), 0);
+  const c = aibudget.check(userId || aibudget.currentUser() || aibudget.SYSTEM_USER, undefined, est);
+  if (!c.ok) throw Object.assign(new Error(c.message), { aiBlocked: true, resumesOn: c.resumesOn, period: c.period });
   const res = await request(BASE, { method: 'POST', body: JSON.stringify({ requests }) });
   const j = await res.json();
   if (!j || !j.id) throw new Error('lot sans identifiant');

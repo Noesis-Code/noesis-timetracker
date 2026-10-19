@@ -45,7 +45,12 @@ function evaluate(text, file) {
   if (!raw.trim()) return { skip: 'vide' };
   if (isSheet(file) && !hasWord(raw)) return { skip: 'sans mots' };
   if (wordCount(raw) < MIN_WORDS && !raw.split('\n').some((l) => LIST_LINE.test(l))) return { skip: 'vide' }; // vide ou moins de ~20 mots (sauf puces / cases / lignes numérotées : jamais ignoré)
+  if (actionFilterOn() && !raw.split('\n').some((l) => LIST_LINE.test(l)) && !ACTION_RE.test(raw)) return { skip: 'sans action' }; // aucune puce / case et aucun verbe d'action ni marqueur de tâche
   return { text: clean(raw) };
 }
 
-module.exports = { enabled, evaluate, clean, wordCount, MIN_WORDS, REPEAT_MIN };
+// (e) 19 oct. 2026 : fichier sans liste ET sans verbe d'action / marqueur de tâche (à faire, todo, doit, prévoir, appeler, envoyer…) : ignoré et listé. DRIVE_PREFILTER_ACTION=off pour couper.
+const actionFilterOn = () => String(process.env.DRIVE_PREFILTER_ACTION || '').trim().toLowerCase() !== 'off';
+const ACTION_RE = new RegExp('(?:\\b(?:à faire|a faire|todo|to do|to-do|tâches?|taches?|action|actions|prochaines? étapes?|next steps?|deadline|échéance|echeance|rappel|doit|doivent|faut|devons|devoir|penser à|ne pas oublier|il reste)\\b|\\b(?:appeler|envoyer|faire|préparer|finaliser|vérifier|verifier|contacter|rédiger|planifier|organiser|commander|payer|réserver|reserver|terminer|valider|répondre|relancer|acheter|créer|creer|mettre|prévoir|prevoir|livrer|signer|déposer|corriger|publier|installer|confirmer|réviser|revoir|compléter|completer|call|send|prepare|finish|review|schedule|book|buy|pay|fix|update|follow up)\\b)', 'i');
+
+module.exports = { actionFilterOn, enabled, evaluate, clean, wordCount, MIN_WORDS, REPEAT_MIN };

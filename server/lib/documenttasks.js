@@ -476,7 +476,7 @@ async function prepareProposal(userId, activityId, body, opts) {
   let wantC = !!doc.text && !o.skipChanges && !!(cctx.open.length || cctx.weeklies.length);
   if (wantC && !o.callTaken && !require('./drivesync').takeCall(userId)) wantC = false; // plafond quotidien partagé : on garde les tâches seules
   const want = { t: true, c: wantC };
-  return { ctx, cctx, doc, want, instruction, parts: docanalysis.buildParts(ctx, cctx, { instruction, doc: doc.text, want }) };
+  return { ctx, cctx, doc, want, instruction, model: o.model, parts: docanalysis.buildParts(ctx, cctx, { instruction, doc: doc.text, want }) };
 }
 
 // Interprétation de la réponse de l'IA (aussi pour un résultat de lot). prep : { ctx?, cctx?, doc?, want }.
