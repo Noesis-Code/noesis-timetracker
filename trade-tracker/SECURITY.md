@@ -10,13 +10,14 @@ Périmètre : `trade-tracker/` et l'intégration TMT (`server/lib/tradelink.js`,
 | Basse | CSP limitée à `frame-ancestors`. | CSP complète (`default-src 'self'`, `script-src 'self'`, `connect-src 'self'`, `object-src 'none'`, `base-uri 'none'`) + HSTS en HTTPS. |
 | Basse | Un client lisait le détail des échecs de synchro de l'expert (`/api/sync-log?scope=expert`). | Message générique « Échec de synchro » pour les clients. |
 | Basse | PWA : cache de données du service worker non lié à l'utilisateur (hors ligne, session expirée sans déconnexion, autre personne sur l'appareil). | Cache vidé quand `/api/me` change d'utilisateur (déjà vidé à la déconnexion et sur 401). |
+| Basse | Iframe `#tradeFrame` sans `sandbox`. | `sandbox="allow-scripts allow-same-origin"` (rien d'autre : Trade n'utilise ni formulaire, ni fenêtre, ni modale, ni téléchargement). Vérifié dans Chromium : écran chargé, `tt_session` posé, service worker enregistré, stockage local OK. `SameSite=None; Secure` non testable en HTTP local ; `allow-same-origin` garde l'origine réelle, donc le cookie n'est pas affecté. |
+| Basse | Pas de limite de débit sur `POST /api/trade-events`. | Limite par IP, 600/min (`TRADE_EVENTS_PER_MIN`), 429 + `Retry-After`. |
+| Basse | `trade_events_seen` sans purge. | Purge au démarrage puis chaque heure des entrées de plus de 30 jours. |
+
 
 ## Vérifié, conforme
 Lien signé HMAC-SHA256 (algorithme fixe, comparaison `timingSafeEqual`, expiration 5 min plafonnée, nonce à usage unique, rôle pris en base) ; session : 256 bits aléatoires, stockée hachée, HttpOnly, 12 h, nouvelle à chaque lien (pas de fixation), purge des expirées ; accès : chaque requête filtrée par `req.user.id`, `scope=expert` limité à la lecture de l'expert, invitations réservées à l'expert, aucun accès croisé aux jetons ; SQL toujours paramétré ; en-têtes `nosniff`, `Referrer-Policy: no-referrer`, `no-store` ; corps limités (50 ko, 5 Mo admin, 64 ko événements), limites de débit par IP ; jeton courtier AES-256-GCM, IV aléatoire de 12 octets, refus sans clé, jamais renvoyé ni journalisé ; événements TMT : signature `timingSafeEqual`, horodatage ±5 min, idempotence par id ; TMT ne met jamais l'API Trade en cache (`public/sw.js`) ; échappement HTML des champs affichés.
 
-## Restants (à décider par Émilien)
-- Basse : l'iframe `#tradeFrame` (TMT) n'a pas d'attribut `sandbox` (fichier très partagé `index.html`, non touché) ; l'origine séparée de Trade limite déjà le risque.
-- Basse : pas de limite de débit propre à `POST /api/trade-events` côté TMT (signature vérifiée avant tout effet, corps <= 64 ko).
-- Basse : `trade_events_seen` grossit sans purge (quelques octets par achat).
+## Restants
 - Info : session non révoquée côté serveur si l'expert retire un client (pas d'action de retrait dans l'API v0). Sans `TRADE_ADMIN_TOKEN`, l'import admin n'existe pas (404).
 - Info : les tests du service worker simulent le navigateur (module `vm`), pas un vrai navigateur.
