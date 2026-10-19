@@ -34,10 +34,12 @@
     renderTabs(tab);
     window.scrollTo(0, 0);
     TTD.load().then(function (data) {
-      state.data = data; renderPill(data.portfolio.lastSync);
+      state.data = data; document.body.classList.toggle('demoMode', data.source === 'demo'); renderPill(data.portfolio.lastSync);
       window.TTScreens[tab].render(el, state, data);
-    }).catch(function () {
-      el.innerHTML = '<div class="emptyState">Impossible de charger les données.</div>';
+    }).catch(function (e) {
+      el.innerHTML = e && e.code === 401
+        ? '<div class="emptyState">Session expirée ou accès sur invitation. Ouvre Trade Tracker depuis TimeTracker.</div>'
+        : '<div class="emptyState">Impossible de charger les données.</div>';
     });
   }
   window.TTApp = { refresh: show };

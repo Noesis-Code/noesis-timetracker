@@ -229,3 +229,5 @@ a { color: inherit; text-decoration: none; }
 .buyRow:nth-child(2) { border-top: none; }
 .legendList.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
 .duoDonuts .donutTop { font-size: 12px; }
+/* Bandeau discret en mode démonstration (données fictives) */
+body.demoMode .brand::after { content: 'démo'; margin-left: 8px; font-size: 10px; font-weight: bold; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--glass-calm-line); color: var(--text-light); vertical-align: 2px; }

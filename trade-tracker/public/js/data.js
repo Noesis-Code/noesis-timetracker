@@ -1,8 +1,30 @@
-/* Couche de données : source unique des écrans. Démo aujourd'hui ; branchement sur l'API réelle en B8.
-   raw = { me, portfolio, positions, history, syncLog, connections, broker } (formes de API.md). */
+/* Couche de données : source unique des écrans. API réelle (trade-tracker/API.md) si le serveur répond,
+   sinon données fictives (démo, ou ?demo=1). raw = { me, portfolio, positions, history, syncLog, connections, broker, compare }. */
 (function () {
   var cache = null;
   function r2(v) { return Math.round(v * 100) / 100; }
+
+  function get(path) {
+    return fetch(path, { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(function (r) {
+      if (r.status === 401) { var e = new Error('unauthenticated'); e.code = 401; throw e; }
+      if (!r.ok) throw new Error(path + ' ' + r.status);
+      return r.json();
+    });
+  }
+  function connectionsFrom(portfolio, entries) {
+    return portfolio.accounts.map(function (a) {
+      var e = entries.filter(function (x) { return x.accountId === a.id; })[0] || entries.filter(function (x) { return !x.accountId; })[0];
+      return { accountId: a.id, label: a.label, status: e ? e.status : 'OK', lastSync: e ? e.at : null };
+    });
+  }
+  function loadApi() {
+    return Promise.all([get('/api/me'), get('/api/portfolio'), get('/api/positions'), get('/api/history'), get('/api/sync-log?limit=50'),
+      get('/api/compare').catch(function (e) { if (e.code === 401) throw e; return null; })]).then(function (r) {
+      return { me: r[0], portfolio: r[1], positions: r[2].positions, history: r[3], syncLog: r[4].entries,
+        connections: connectionsFrom(r[1], r[4].entries), broker: 'Courtier (lecture seule)', compare: r[5], source: 'api' };
+    });
+  }
+  function loadDemo() { var d = Object.assign({ source: 'demo' }, window.TT_DEMO); return Promise.resolve(d); }
 
   // Vue filtrée par compte ('all' ou id de compte), calculée côté interface à partir des positions et soldes.
   function view(raw, account) {
@@ -32,7 +54,17 @@
   }
 
   window.TTD = {
-    load: function () { cache = cache || Promise.resolve(window.TT_DEMO); return cache; },
+    load: function () {
+      if (!cache) {
+        var demo = /[?&]demo=1/.test(location.search);
+        cache = demo ? loadDemo() : loadApi().catch(function (e) {
+          if (e.code === 401) throw e;           // session absente : pas de repli silencieux sur la démo
+          return loadDemo();                     // serveur injoignable : démo
+        });
+        cache.catch(function () { cache = null; });
+      }
+      return cache;
+    },
     reset: function () { cache = null; },
     view: view
   };
