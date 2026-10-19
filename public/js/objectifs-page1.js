@@ -1,77 +1,25 @@
 /* Noèsis TimeTracker — Objectifs, PAGE 1 (capture)
  *
- * 28 septembre 2026 — chantier de restructuration (demande d'Emilien) :
- * extrait de public/app.js et public/index.html pour que les 3 pages du
- * volet Objectifs (capture / grille périodique / détail d'une période)
- * puissent être modifiées en parallèle sans jamais se marcher dessus.
- * Déplacement PUR — aucun changement de comportement. Les fonctions/
- * variables encore utilisées par app.js ou par les autres pages Objectifs
- * passent par window.TMT (voir son en-tête, tout en haut de app.js).
- *
- * Contenu : le balisage HTML de #goalsCapturePage (qui vivait jusqu'ici
- * dans index.html) est désormais injecté ici, dans #tab-goals, AVANT tout
- * le reste de ce fichier — index.html ne garde plus qu'un conteneur vide
- * (<section id="tab-goals">) pour les 2 pages qui s'y insèrent (page 1 ET
- * page 2, chacune par son propre script).
- */
+  * Le balisage de #goalsCapturePage est injecté ici dans #tab-goals (index.html ne garde que le conteneur
+  * vide <section id="tab-goals">, partagé avec la page 2). Ce qui sert à app.js ou aux autres pages Objectifs
+  * passe par window.TMT (voir son en-tête, tout en haut de app.js).
+  */
 (function () {
   'use strict';
   var TMT = window.TMT = window.TMT || {};
 
   document.getElementById('tab-goals').insertAdjacentHTML('beforeend', `
-      <!-- ⚠️ 15 septembre 2026 (nuit), demande directe d'Emilien : le titre
-           "Objectifs" (.sectionTitleRow/.sectionTitle) est retiré entièrement
-           — l'onglet s'identifie déjà par son icône dans la barre du bas, ce
-           titre répétait une information déjà visible. Espace repris en
-           tête de page, voir #tab-goals dans styles.css (padding-top réduit
-           d'autant). Le nom de l'activité (.goalsActivityPlainRow, plus bas
-           — restructuration du 26 septembre 2026, voir plus loin) remonte
-           donc directement en haut de la page. -->
 
-      <!-- 25 septembre 2026 (discussion Objectifs — Logique métier),
-           restructuration du volet Objectifs en 3 pages sur demande directe
-           d'Emilien : #goalsCapturePage devient l'écran par défaut affiché
-           dès l'ouverture de l'onglet Objectifs, AVANT même le choix d'une
-           activité — reprend à l'identique la bulle de capture libre par IA
-           qui vivait jusqu'ici dans la section Tâches/Catégories de la
-           fenêtre Activité (retirée de là le 25 septembre 2026 par la
-           discussion Objectifs — Tâches, voir claude/noesis-timetracker-
-           taches-categories-reference-discussion-c.md), PLUS un sélecteur
-           d'activités à SÉLECTION MULTIPLE (une tâche écrite ici est
-           répertoriée dans TOUTES les activités sélectionnées). Double
-           fonction des boutons d'activité (voir renderGoalsCaptureActivities()
-           dans app.js) : zone de texte vide + clic sur une activité → navigue
-           directement sur la page 2 (pôles + arbre périodique) de CETTE
-           activité, plutôt que de la sélectionner pour la capture. Badge
-           violet par activité (tâches capturées pas encore vues, voir
-           server/lib/goalstasks.js#unseenCountsForActivity) — jamais un
-           compteur cumulatif : se vide dès que l'utilisateur ouvre
-           effectivement l'activité (page 2) ou une de ses catégories.
-           Page 2 = le contenu historique de cet onglet
-           (#goalsActivitySwitcher et tout ce qu'il contient, INCHANGÉ, juste
-           affiché DERRIÈRE celle-ci désormais — voir showGoalsCapturePage()/
-           showGoalsPolesPage() dans app.js) ; page 3 = #goalsDetailPage
-           (calendrier, objectif hebdomadaire, secteur, plus bas dans ce
-           fichier). -->
-      <!-- 26 septembre 2026, demande directe d'Emilien (page 1, points a/e) :
-           bulle EN PREMIER (puces sous la bulle, plus au-dessus), puis
-           l'invite de choix d'activité (masquée par défaut, affichée par
-           submit() dans buildGoalsCaptureBubble() — voir app.js — quand
-           « Ajouter » est cliqué sans activité sélectionnée), puis les
-           puces d'activité elles-mêmes. ⚠️ Ce bloc avait été reverti à son
-           ancien ordre (2 éléments, sans l'invite) par une écriture
-           concurrente entre l'écriture initiale et ce correctif — réappliqué
-           ici, voir l'encart correspondant de noesis-timetracker-chantiers-
-           en-cours.md pour le détail de l'incident. -->
+      <!-- Page 1 : écran par défaut de l'onglet Objectifs. Bulle de capture libre par IA, invite de choix d'activité
+           (affichée par submit() si « Ajouter » est cliqué sans activité), puis puces d'activité à sélection multiple :
+           la tâche est répertoriée dans toutes les activités choisies ; texte vide + clic sur une puce = ouvre la page 2
+           de cette activité. Badge violet = tâches capturées pas encore vues (jamais un compteur cumulatif). -->
       <div id="goalsCapturePage" class="goalsCapturePage">
         <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
         <p id="goalsCaptureActivityPrompt" class="hint goalsCaptureActivityPrompt hidden">Quelle activité pour cette tâche ?</p>
         <div id="goalsCaptureActivities" class="goalsCaptureActivities"></div>
-        <!-- Offre 1 (30 septembre 2026, demande d'Emilien) : a quitté Réglages pour
-             s'afficher ici, entre les activités et « Historique ». Contenu, ids et logique
-             inchangés (loadOffer1SubscribedSection/openOffer1CheckoutModal dans
-             app.js, exposés via TMT) ; la modale #offer1CheckoutModal reste dans
-             index.html. -->
+        <!-- Offre 1 : affichée ici, entre les activités et « Historique ». Logique dans app.js (loadOffer1SubscribedSection /
+             openOffer1CheckoutModal, exposés via TMT) ; la modale #offer1CheckoutModal reste dans index.html. -->
         <div id="offer1Section">
           <div class="offer1Promo offer1PromoSoon">
             <span class="offer1SoonBadge">À venir</span>
@@ -86,30 +34,10 @@
           </div>
         </div>
 
-        <!-- 28 septembre 2026 (backlog encart 71, puis DEUX refontes le même
-             jour). La première refonte (bouton .goalsTasksHistoryToggle avec
-             chevron, blocs par jour #goalsTasksHistoryDays) a été corrigée
-             point par point par Emilien, captures d'écran du panneau RÉEL du
-             Chrono à l'appui : « pas le même bouton [...] pas centré, pas la
-             même forme, pas la même couleur [...] pareil pour les flèches
-             [...] je ne t'ai jamais demandé d'avoir les jours de la semaine
-             [...] par semaine, pas par jour [...] aucun bouton
-             supprimer/modifier ». Cette 2e version REPREND LITTÉRALEMENT le
-             gabarit de #chronoHistorySection (voir plus haut dans ce
-             fichier) plutôt que de le réinterpréter — mêmes classes
-             génériques (.sectionTitleRow/.historyHeaderClickable/
-             .sectionTitle/.historyNav/.iconBtn/.meta/.hint), même
-             comportement (toute la ligne d'en-tête est le bouton, sans
-             chevron ; flèche "suivante" désactivée à la semaine courante,
-             jamais de semaine future). Portée inchangée : TOUTES ACTIVITÉS
-             confondues, tâches autoCaptured=1 uniquement, groupées par
-             semaine de CAPTURE (createdAt — pas dueDate, qui peut tomber
-             dans une semaine future via l'auto-placement et faisait à tort
-             disparaître des tâches pourtant récentes). Voir GET
-             /api/goals/tasks/history, server/lib/goalstasks.js#
-             tasksHistoryForWeek, et loadGoalsTasksHistory()/
-             renderGoalsTasksHistory()/buildGoalsTasksHistoryRow() dans
-             app.js. -->
+        <!-- Historique des tâches capturées, même gabarit que #chronoHistorySection : toute la ligne d'en-tête est le
+             bouton (sans chevron) ; flèche « suivante » désactivée à la semaine courante. Toutes activités confondues,
+             tâches autoCaptured=1 uniquement, groupées par semaine de CAPTURE (createdAt, pas dueDate). Voir GET
+             /api/goals/tasks/history et loadGoalsTasksHistory()/renderGoalsTasksHistory() dans ce fichier. -->
         <div id="goalsTasksHistorySection">
           <div class="sectionTitleRow historyHeaderClickable" id="goalsTasksHistoryHeader">
             <p class="sectionTitle">Historique</p>
@@ -137,13 +65,8 @@
       loadGoalsCaptureBadges = TMT.loadGoalsCaptureBadges;
 
   // ===================== VOLET OBJECTIFS — PAGE 1 : CAPTURE =====================
-  // 25 septembre 2026 (discussion Objectifs — Logique métier), restructuration
-  // en 3 pages sur demande directe d'Emilien — voir le commentaire de
-  // #goalsCapturePage dans index.html pour la spécification complète. Cette
-  // page devient l'écran par défaut de l'onglet Objectifs, avant même le
-  // choix d'une activité ; la grille/l'arbre périodique historique de cet
-  // onglet (#goalsActivitySwitcher, tout le code ci-dessus dans ce fichier)
-  // devient la page 2, atteinte uniquement depuis ici.
+  // Page 1 : écran par défaut de l'onglet Objectifs ; la grille/l'arbre périodique (#goalsActivitySwitcher) est la
+  // page 2, atteinte uniquement depuis ici.
   //
   // Sélection multi-activités pour la capture — jamais persistée, remise à
   // vide à chaque fois qu'on RE-montre cette page (ouverture de l'onglet,
@@ -151,36 +74,15 @@
   // se souvenir d'un choix qui datait potentiellement d'une session précédente.
   var goalsCaptureSelectedActivityIds = [];
 
-  // 26 septembre 2026, demande directe d'Emilien (page 1, point e) : vrai
-  // tant que l'utilisateur a cliqué « Ajouter » sans avoir choisi d'activité
-  // — les puces perdent leur couleur pleine (gardent le point) et l'invite
-  // #goalsCaptureActivityPrompt est visible, jusqu'à ce qu'au moins une
-  // activité soit sélectionnée. Jamais persisté au-delà de cet aller-retour.
+  // Vrai tant que l'utilisateur a cliqué « Ajouter » sans avoir choisi d'activité : les puces perdent leur couleur
+  // pleine (gardent le point) et l'invite #goalsCaptureActivityPrompt est visible. Jamais persisté.
   var goalsCaptureAwaitingActivityChoice = false;
 
 
-  // 28 septembre 2026 (backlog encart 71 du 27 septembre : « historique de
-  // tâches, même modèle que le Chrono », signalé par Emilien comme absent) —
-  // puis DEUX refontes le même jour. La première (retirée) reconstruisait le
-  // panneau de mémoire : bouton dédié avec chevron, blocs par jour. Emilien a
-  // corrigé point par point, captures d'écran du panneau Historique RÉEL du
-  // Chrono à l'appui : « ce n'est pas le même bouton que pour chrono. Il
-  // n'est pas centré, il n'a pas la même forme, pas la même couleur. Pareil
-  // pour les flèches [...] je ne t'ai jamais demandé d'avoir les jours de la
-  // semaine. Je souhaite juste avoir l'enregistrement des activités par
-  // semaine [...] puisqu'il n'y a pas d'activité visible [...] il n'y a
-  // aucun bouton supprimer ou modifier [...] Sers-toi de cette base ». Cette
-  // 2e version REPREND LITTÉRALEMENT le gabarit de #chronoHistorySection —
-  // voir buildChronoHistoryEntry()/loadChronoHistory()/renderChronoHistory()/
-  // chronoHistoryWeekLabel() plus haut dans ce fichier, laissées strictement
-  // inchangées, dont les fonctions ci-dessous sont des variantes quasi
-  // identiques adaptées aux tâches (pas de plage horaire/durée, un libellé
-  // au lieu d'une note, pas de pièces jointes). Même convention d'offset que
-  // Chrono (0 = semaine courante, un décalage positif recule dans le passé,
-  // jamais l'avenir — voir server/routes/goals.js) et même chargement
-  // paresseux (seulement à l'ouverture du panneau, pas à chaque affichage de
-  // la page 1 — voir showGoalsCapturePage() qui se contente de réinitialiser
-  // l'état, repliée et sur la semaine courante, sans requête réseau).
+  // Historique des tâches capturées : variantes quasi identiques des fonctions de l'historique du Chrono
+  // (buildChronoHistoryEntry/loadChronoHistory/renderChronoHistory/chronoHistoryWeekLabel), adaptées aux tâches.
+  // Même convention d'offset (0 = semaine courante, positif = passé, jamais l'avenir — voir server/routes/goals.js)
+  // et chargement paresseux (à l'ouverture du panneau ; showGoalsCapturePage() ne fait que réinitialiser l'état).
   var goalsTasksHistoryWeekOffset = 0;
 
 
@@ -214,19 +116,9 @@
   }
 
 
-  // 28 septembre 2026, suite (9) — demande directe d'Emilien : « simplifier
-  // la visualisation des tâches enregistrées », maquettes proposées en
-  // artefact Design, Option B (« groupé par jour ») choisie explicitement.
-  // La liste n'est plus une suite de cartes répétant chacune sa propre date
-  // — elle est regroupée par jour (task.dueDate, le jour où la tâche a été
-  // rangée, pas createdAt) : un en-tête de jour (.historyDayHeader) une
-  // seule fois, puis les tâches de ce jour dans une liste compacte
-  // (.historyDayList/.historyEntryCompact, voir buildGoalsTasksHistoryRow
-  // plus bas) — jamais de nouvelle requête réseau, un simple regroupement
-  // de la même réponse GET /api/goals/tasks/history qu'avant. L'ordre des
-  // groupes suit l'ordre d'arrivée des tâches (déjà trié côté serveur,
-  // tasksHistoryForWeek) — premier jour rencontré pour une tâche = position
-  // du groupe.
+  // Regroupée par jour (task.dueDate, le jour où la tâche a été rangée) : un en-tête (.historyDayHeader) puis une
+  // liste compacte (.historyDayList/.historyEntryCompact). Simple regroupement de la réponse de GET
+  // /api/goals/tasks/history ; l'ordre des groupes suit l'ordre d'arrivée (déjà trié par tasksHistoryForWeek).
   function renderGoalsTasksHistory(tasks) {
     var box = $('goalsTasksHistoryList');
     if (!box) return;
@@ -260,34 +152,13 @@
   }
 
 
-  // 28 septembre 2026, suite (9), demande directe d'Emilien (maquettes
-  // Design proposées, Option B « groupé par jour » retenue) : la carte
-  // dense d'avant (pôle/secteur, objectif périodique EN TOUTES LETTRES,
-  // objectif hebdomadaire EN TOUTES LETTRES, jour, date d'écriture, boutons
-  // Modifier/Supprimer pleine largeur) devient une ligne compacte — le jour
-  // est désormais porté UNE SEULE FOIS par l'en-tête de groupe
-  // (renderGoalsTasksHistory ci-dessus), donc retiré d'ici ; les objectifs
-  // périodique/hebdomadaire ne sont plus recopiés en entier (juste signalés
-  // par un indice « objectif lié » sur la ligne pôle › secteur, cliquer
-  // Modifier reste le moyen de tout revoir/changer) ; la date d'écriture
-  // (createdAt) est retirée elle aussi, redondante avec le jour du groupe
-  // dans l'immense majorité des cas. Boutons Modifier/Supprimer deviennent
-  // des icônes (voir HISTORY_EDIT_ICON/HISTORY_DELETE_ICON ci-dessous) au
-  // lieu de boutons texte pleine largeur. Classes toutes NOUVELLES et
-  // propres à cette page (.historyEntryCompact/.historyRowTop/
-  // .historyRowLabel/.historyRowDone/.historyRowIconBtn/.historyRowMeta/
-  // .historyRowDisplay, voir objectifs-page1.css) — .historyEntry/.rowTop/
-  // .actName/.note/.actions restent le gabarit du Chrono, non touchées ici.
-  // .historyEditFields reste la classe partagée (Design, styles.css) pour
-  // le conteneur du formulaire d'édition lui-même.
+  // Ligne compacte : le jour est porté par l'en-tête de groupe ; les objectifs sont signalés par un indice « objectif
+  // lié » (Modifier pour tout revoir) ; Modifier/Supprimer en icônes. Classes propres à cette page
+  // (.historyEntryCompact/.historyRowTop/..., voir objectifs-page1.css) ; .historyEntry/.rowTop/.actName/.note/.actions
+  // restent le gabarit du Chrono. .historyEditFields reste la classe partagée (styles.css) du formulaire d'édition.
   //
-  // 28 septembre 2026 (réaffectation depuis l'Historique) — dupliqué depuis
-  // server/lib/goals.js#addDays, même convention déjà documentée en tête de
-  // server/lib/goalstasks.js : un utilitaire de date minuscule, dupliqué
-  // plutôt qu'exposé sur window.TMT, pour ne pas alourdir la dépendance vers
-  // app.js pour un seul appelant. Base UTC (comme le serveur) pour que le
-  // calcul du jour choisi corresponde exactement à periodBounds/weekBounds
-  // côté server/lib/goals.js.
+  // Dupliqué depuis server/lib/goals.js#addDays (petit utilitaire, plutôt que d'alourdir window.TMT) ; base UTC comme
+  // le serveur pour que le jour choisi corresponde à periodBounds/weekBounds.
   function addDaysISO(isoDay, n) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(isoDay || ''));
     if (!m) return isoDay;
@@ -302,17 +173,9 @@
   var HISTORY_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
   var HISTORY_DELETE_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
 
-  // 28 septembre 2026, suite (9) — demande directe d'Emilien : « simplifier
-  // [...] la modification des tâches », maquette « Où + Quand » retenue.
-  // Les 3 sélecteurs Période/Semaine/Jour (choix explicite d'Emilien lors du
-  // passage précédent, voir plus bas) sont remplacés par UN SEUL champ date
-  // — la période et la semaine en DÉCOULENT toujours exactement de la même
-  // façon (server/lib/goals.js#periodNumberForDate), seulement affichées en
-  // lecture (goalsPreview) au lieu d'être choisies séparément. Activité et
-  // pôle/secteur restent deux sélecteurs séparés, regroupés sous un même
-  // libellé « Où ». Même route PUT /api/goals/tasks/:id/reassign
-  // (server/lib/goalstasks.js#reassignHistoryTask) — jamais moveCategoryTask
-  // (territoire du segment Objectifs — Tâches).
+  // Un seul champ date : la période et la semaine en découlent (server/lib/goals.js#periodNumberForDate) et sont
+  // affichées en lecture (goalsPreview). Activité et pôle/secteur restent deux sélecteurs sous « Où ». Route PUT
+  // /api/goals/tasks/:id/reassign (goalstasks.js#reassignHistoryTask), jamais moveCategoryTask.
   function buildGoalsTasksHistoryRow(task, onChanged) {
     var row = document.createElement('div');
     row.className = 'historyEntryCompact';
@@ -394,8 +257,7 @@
         '<button type="button" class="iconBtn historyEditSave">' + t('Enregistrer') + '</button>' +
       '</div>';
     row.appendChild(editFields);
-    // 5 oct. 2026 (Emilien) : la corbeille quitte la ligne (à côté de ✎) ; elle est tout à gauche
-    // de la zone d'édition, à gauche du bouton Annuler.
+    // La corbeille est tout à gauche de la zone d'édition, à gauche du bouton Annuler.
     delBtn.classList.add('historyEditDelete');
     editFields.querySelector('.rowActions').insertBefore(delBtn, editFields.querySelector('.rowActions').firstChild);
 
@@ -585,23 +447,12 @@
   }
 
 
-  // Toute la ligne d'en-tête ("Historique") est cliquable pour déplier/
-  // replier le panneau — c'est elle-même le bouton, sans aucun chevron à
-  // côté, exactement comme #chronoHistoryHeader. ⚠️ 28 septembre 2026,
-  // nouveau retour d'Emilien le même jour, captures d'écran à l'appui :
-  // « il n'est pas centré, il n'a pas la même forme, pas la même couleur » —
-  // les classes génériques .sectionTitleRow/.sectionTitle/.historyHeaderClickable
-  // (seules utilisées jusqu'ici) ne suffisaient PAS : #chronoHistoryHeader
-  // porte en réalité un style propre à son ID (bordure, fond, centré, largeur
-  // ajustée à son contenu — voir styles.css, commentaire "Historique
-  // modifiable (Chrono)") que .sectionTitleRow/.sectionTitle seules ne
-  // donnent pas. #goalsTasksHistoryHeader reçoit désormais la même règle
-  // ID-à-ID dans public/css/objectifs-page1.css (copie exacte des
-  // propriétés de #chronoHistoryHeader, jamais une redéfinition des classes
-  // génériques elles-mêmes — toujours propriété de Design).
+  // Toute la ligne d'en-tête (« Historique ») déplie/replie le panneau, sans chevron, comme #chronoHistoryHeader.
+  // Celui-ci porte un style propre à son ID (styles.css) : #goalsTasksHistoryHeader reçoit la même règle dans
+  // objectifs-page1.css (copie, sans redéfinir les classes génériques, propriété de Design).
   var goalsTasksHistoryHeaderEl = $('goalsTasksHistoryHeader');
 
-  // 5 oct. 2026 (Emilien) : même règle que « Historique » du Chrono et « Archives » (Page 2) — à
+  // Même règle que « Historique » du Chrono et « Archives » (Page 2) — à
   // l'ouverture la fenêtre remonte pour mettre « Historique » tout en haut (réserve d'espace sous la
   // section si la liste est courte), on peut toujours défiler vers le haut ; à la fermeture, retour à
   // la position d'avant. Espace vide permanent (72 px) sous le bouton, au-dessus des 3 points.
@@ -716,24 +567,9 @@
     if (!box) return;
     box.innerHTML = '';
     var list = TMT.getActivitiesCache() || [];
-    // 29 septembre 2026, demande directe d'Emilien : « trop de couleurs sur
-    // cette page 1 [...] bulle grise avec seulement le point coloré [...]
-    // le point coloré, rempli. » ⚠️ MÊME JOUR, correction directe d'Emilien
-    // après un premier essai trop large : « tu as changé le design des
-    // bulles [...] lorsque j'écris dans la zone de texte libre. Je ne t'ai
-    // jamais demandé de changer ça. Je veux conserver le point vide lorsque
-    // j'écris [...] et que lorsque je sélectionne une activité, le contour
-    // soit de la couleur de l'activité. » La demande initiale ne visait donc
-    // QUE l'état « au repos » (pas en train d'écrire) — les 2 états
-    // « en train d'écrire » (anneau creux si pas sélectionnée, contour +
-    // point pleins dans la couleur de l'activité si sélectionnée) sont
-    // restaurés à l'identique de ce qu'ils étaient avant ce chantier. Seul
-    // l'état « au repos » change : bulle neutre (base CSS de
-    // .goalsCaptureActivityChip, déjà grise) + point TOUJOURS plein, au lieu
-    // du fond plein coloré d'avant — plus besoin d'un contraste de texte
-    // calculé (`textColorForTheme`, retiré) pour CET état précis, le fond y
-    // étant désormais constant ; les 2 états d'écriture, eux, n'en avaient
-    // déjà jamais eu besoin.
+    // Au repos : bulle neutre (base CSS de .goalsCaptureActivityChip, déjà grise) + point toujours plein. En train
+    // d'écrire : anneau creux si non sélectionnée, contour + point pleins dans la couleur de l'activité si
+    // sélectionnée. Le fond au repos étant constant, aucun contraste de texte calculé n'est nécessaire.
     var bubbleWrapEl = $('goalsCaptureBubbleWrap');
     var textareaEl = bubbleWrapEl ? bubbleWrapEl.querySelector('textarea') : null;
     var typing = !!(textareaEl && textareaEl.value.trim());
@@ -780,7 +616,7 @@
       // Badge violet « non vu » — jamais un compteur cumulatif, voir
       // server/lib/goalstasks.js#unseenCountsForActivity.
       var badgeInfo = TMT.goalsCaptureBadges[a.id] || TMT.goalsCaptureBadges[id];
-      // 5 oct. 2026 (Emilien) : X/Y des tâches du jour ; rien s'il n'y en a aucune.
+      // X/Y des tâches du jour ; rien s'il n'y en a aucune.
       if (badgeInfo && badgeInfo.daily && badgeInfo.daily.total > 0) {
         var dc = document.createElement('span');
         dc.className = 'goalsCaptureDailyCount';
@@ -800,13 +636,8 @@
         var hasText = textarea && textarea.value.trim();
         if (hasText) {
           toggleGoalsCaptureActivitySelection(id);
-          // 27 septembre 2026, demande directe d'Emilien : « je souhaite que
-          // le message 'quelle activité pour cette tâche' ne disparaisse pas
-          // lorsque je choisis une activité » — on sort seulement du mode
-          // « attente » (pour que la puce choisie reprenne son rendu normal,
-          // voir renderGoalsCaptureActivities()), sans masquer l'invite
-          // elle-même : elle ne se ferme désormais que sur un envoi réussi
-          // (submit() plus bas), plus au premier choix d'activité.
+          // On sort seulement du mode « attente » (la puce choisie reprend son rendu normal) sans masquer l'invite :
+          // elle ne se ferme que sur un envoi réussi (submit()), pas au premier choix d'activité.
           if (goalsCaptureAwaitingActivityChoice && goalsCaptureSelectedActivityIds.length) {
             goalsCaptureAwaitingActivityChoice = false;
             renderGoalsCaptureActivities();
@@ -834,7 +665,7 @@
   // voir claude/noesis-timetracker-taches-categories-reference-discussion-c.md) :
   // cette nouvelle bulle demande une connexion réseau, limite assumée et
   // documentée plutôt que cachée.
-  // 3 oct. 2026 (décisions d'Emilien) : le serveur ne crée rien et répond
+  // Le serveur ne crée rien et répond
   // `needs` pour un doublon ('duplicate') ou un tri introuvable/incertain
   // ('category', avec candidates + suggested). Une activité à la fois dans la
   // même fenêtre, puis la capture est relancée pour cette seule activité avec
@@ -1000,7 +831,7 @@
 
   // Fenêtre bottom-sheet verre (mêmes classes que la fenêtre d'édition de
   // tâche) : résout { forcedCategory? } pour continuer, null si annulé (✕ ou fond).
-  // 5 oct. 2026 (Emilien) : menu flottant gris (pôles en titres, secteurs dessous, sélection directe,
+  // Menu flottant gris (pôles en titres, secteurs dessous, sélection directe,
   // sans « Aucun pôle ») qui remplace le <select> natif du choix pôle/secteur. Le <select> reste la source
   // de vérité (masqué) : le menu en lit les options/optgroup et y écrit le choix (événement `change`).
   function floatingWhereMenu(select, keepLook) {
@@ -1087,7 +918,7 @@
   function askCaptureChoice(label, r) {
     return new Promise(function (resolve) {
       var overlay = document.createElement('div');
-      // 5 oct. 2026 : le choix de secteur (tri introuvable, modes Autonome/Absence) est un pop-up centré.
+      // Le choix de secteur (tri introuvable, modes Autonome/Absence) est un pop-up centré.
       overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal' + (r.needs === 'category' ? ' goalsPlacementModal aiModeModal' : ' goalsBarModal');
       var card = document.createElement('div');
       card.className = 'goalTaskEditCard';
@@ -1264,7 +1095,7 @@
     });
   }
 
-  // 19 oct. 2026 (#1450, Emilien) : mode Autonome — la tâche rangée par l'IA est
+  // Mode Autonome — la tâche rangée par l'IA est
   // montrée (nom, pôle/secteur, échéance) avec Confirmer / Annuler ; ✕ ou Annuler
   // retire les tâches créées. (Partiel et Absence ont déjà leur propre validation.)
   function showCaptureConfirmModal(label, okResults, cb) {
@@ -1334,7 +1165,7 @@
     document.body.appendChild(overlay);
   }
 
-  // 5 oct. 2026 (Emilien) : pop-up après création — pour chaque activité, où la tâche
+  // Pop-up après création — pour chaque activité, où la tâche
   // a été rangée (pôle/secteur, date, responsable), modifiable. Responsable vide si
   // aucune info. ✕ ferme sans rien changer (la tâche est déjà enregistrée).
   function showCapturePlacementModal(label, okResults, cb) {
@@ -1400,7 +1231,7 @@
       var dateIn = document.createElement('input');
       dateIn.type = 'date'; dateIn.value = r.dueDate || '';
       box.appendChild(labeled(t('Quand'), dateIn));
-      // 16 oct. 2026 : suggestion rangée selon les objectifs (semaine + objectif visé), modifiable via la date.
+      // Suggestion rangée selon les objectifs (semaine + objectif visé), modifiable via la date.
       if (r.dueWhy && r.dueWhy.weekStart) {
         var whyLine = document.createElement('div');
         whyLine.className = 'goalsPlacementWhy';
@@ -1422,7 +1253,7 @@
         box.appendChild(labeled(t('Répéter'), recF.el));
       }
 
-      var shared = true; // 5 oct. 2026 : le choix du responsable est toujours proposé
+      var shared = true; // le choix du responsable est toujours proposé
       var whoSel = null, whoField = null;
       if (shared) {
         whoSel = document.createElement('select');
@@ -1508,7 +1339,7 @@
     forms.forEach(function (f) { var ta = f.labelIn; ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; });
   }
 
-  // ===== 5 oct. 2026 (Emilien) : gestion de l'IA — Autonome / Partiel / Absence =====
+  // ===== Gestion de l'IA — Autonome / Partiel / Absence =====
   // Choix obligatoire à la première capture (pop-up), modifiable ensuite dans Réglages.
   var AI_MODES = [
     { key: 'autonome', label: 'Autonome', desc: 'Noèsis range tes tâches seul, sans te demander ton avis.' },
@@ -1614,9 +1445,6 @@
     var textarea = document.createElement('textarea');
     textarea.rows = 4;
     textarea.maxLength = 300;
-    // 27 septembre 2026, demande d'Emilien : garder un texte proche de
-    // l'ancien plutôt que la formulation « Nouvelle tâche… choisis une ou
-    // plusieurs activités », avec des points de suspension à la fin.
     textarea.placeholder = t('Écris une nouvelle tâche, Noèsis l\'organise dans tes projets...');
 
     var btn = document.createElement('button');
@@ -1699,10 +1527,8 @@
       var label = textarea.value.trim();
       if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
       if (!goalsCaptureSelectedActivityIds.length) {
-        // 26 septembre 2026, demande directe d'Emilien (page 1, point e) :
-        // plus un simple message d'erreur dans la bulle — le clavier se
-        // referme et une invite apparaît entre la bulle et les puces (voir
-        // renderGoalsCaptureActivities() pour la sortie de ce mode).
+        // Pas un simple message d'erreur : le clavier se referme et une invite apparaît entre la bulle et les puces
+        // (sortie de ce mode : renderGoalsCaptureActivities()).
         textarea.blur();
         msg.textContent = '';
         goalsCaptureAwaitingActivityChoice = true;
@@ -1740,14 +1566,9 @@
             (TMT.getActivitiesCache() || []).forEach(function (a) { if (String(a.id) === String(r.activityId)) activityName = a.name; });
             var row = document.createElement('p');
             row.className = 'meta activityGoalsCategoryAutoTaskPendingRow';
-            // 27 septembre 2026, demande d'Emilien : « il y a beaucoup trop
-            // de couleurs sur cette page [...] les messages de validation »
-            // — seule l'icône ✓/✗ reste colorée (goalsCaptureResultIcon,
-            // styles.css), le texte de la ligne redevient neutre. Classe
-            // additive goalsCaptureResultRow, scopée à CETTE bulle : la base
-            // .activityGoalsCategoryAutoTaskPendingRow.isSuccess/isFailed
-            // (toute la ligne colorée) reste inchangée pour
-            // buildCategoryAutoTaskBubble() plus bas, hors de ce périmètre.
+            // Seule l'icône ✓/✗ reste colorée (goalsCaptureResultIcon, styles.css), le texte de la ligne reste neutre. Classe
+            // additive goalsCaptureResultRow, scopée à CETTE bulle : la base .activityGoalsCategoryAutoTaskPendingRow
+            // .isSuccess/.isFailed (ligne entière colorée) reste inchangée pour buildCategoryAutoTaskBubble().
             if (r.ok) {
               row.classList.add('isSuccess', 'goalsCaptureResultRow');
               var iconOk = document.createElement('span');
@@ -1804,12 +1625,10 @@
     textarea.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
     });
-    // 26 septembre 2026, demande directe d'Emilien : l'apparence des puces
-    // doit changer EN DIRECT selon que la zone de texte est vide ou non
-    // (voir renderGoalsCaptureActivities(), état « en train d'écrire ») —
-    // pas seulement à l'ouverture de la page ou après l'envoi.
+    // L'apparence des puces change en direct selon que la zone de texte est vide ou non
+    // (renderGoalsCaptureActivities(), état « en train d'écrire »).
     textarea.addEventListener('input', function () {
-      // 1er oct. 2026 (Emilien) : texte effacé -> activités désélectionnées, retour à la configuration par défaut.
+      // Texte effacé -> activités désélectionnées, retour à la configuration par défaut.
       if (!textarea.value.trim()) {
         goalsCaptureSelectedActivityIds = [];
         goalsCaptureAwaitingActivityChoice = false;
@@ -1869,7 +1688,7 @@
     renderGoalsCaptureBubble();
     renderGoalsCaptureActivities();
     loadGoalsCaptureBadges();
-    // 5 oct. 2026 (Emilien) : au retour sur la feuille de route, page tout en haut (bulle d'entrée libre visible en entier).
+    // Au retour sur la feuille de route, page tout en haut (bulle d'entrée libre visible en entier).
     function goalsScrollTop() {
       window.scrollTo(0, 0);
       var sc = histScroller();
@@ -1909,30 +1728,17 @@
     // (refreshActivities()) — pas de rechargement systématique ici pour ne
     // pas ralentir l'ouverture du volet, seulement s'il n'a jamais été
     // rempli (première ouverture de session sur ce volet en particulier).
-    // ⚠️ 25 septembre 2026 (restructuration en 3 pages, demande directe
-    // d'Emilien) : montre désormais la page 1 (capture) par défaut, jamais
-    // plus directement la grille d'une activité — openGoalsForActivity()
-    // n'est appelée que depuis showGoalsPolesPage() (clic sur une activité,
-    // texte vide) ou openGoalsPeriodFromNotification() (lien profond d'une
-    // notification, ci-dessous, inchangé).
+    // Montre la page 1 (capture) par défaut ; openGoalsForActivity() n'est appelée que depuis showGoalsPolesPage()
+    // (clic sur une activité, texte vide) ou openGoalsPeriodFromNotification() (lien profond de notification).
     var ready = TMT.getActivitiesCache() && TMT.getActivitiesCache().length ? Promise.resolve(TMT.getActivitiesCache()) : refreshActivities();
     ready.then(function () { showGoalsCapturePage(); });
   }
 
 
-  // Rappel de fin de période (server/lib/goalreminders.js, 15 septembre
-  // 2026, discussion D) : ouvre l'onglet Objectifs directement sur la bonne
-  // activité puis la page 2 de la bonne période, appelée depuis
-  // openTabFromNotification() ci-dessous. Attend la même promesse que
-  // loadGoalsTab() (TMT.getActivitiesCache() déjà prêt ou refreshActivities()) avant
-  // de choisir l'activité : comme switchTab('goals') déclenche déjà
-  // loadGoalsTab() (qui ouvre désormais la page 1 par défaut), on
-  // s'enregistre APRÈS lui pour que notre choix soit le dernier appliqué
-  // plutôt que le premier — même ordre d'exécution des microtâches que
-  // l'enregistrement des deux `.then()`, voir l'appel dans
-  // openTabFromNotification(). Referme explicitement la page 1 : un lien
-  // profond de notification doit atterrir directement sur la période visée,
-  // jamais sur l'écran de capture.
+  // Rappel de fin de période (server/lib/goalreminders.js) : ouvre l'onglet Objectifs sur la bonne activité puis la
+  // page 2 de la bonne période. Attend la même promesse que loadGoalsTab() et s'enregistre après lui pour que ce
+  // choix soit appliqué en dernier ; referme la page 1 : un lien profond atterrit sur la période visée, jamais sur
+  // l'écran de capture.
   function openGoalsPeriodFromNotification(activityId, category, periodNumber) {
     $('goalsCapturePage').classList.add('hidden');
     var ready = TMT.getActivitiesCache() && TMT.getActivitiesCache().length ? Promise.resolve(TMT.getActivitiesCache()) : refreshActivities();
@@ -1948,13 +1754,9 @@
   }
 
 
-  // Points d'entrée appelés depuis app.js (switchTab()/openTabFromNotification()
-  // et loadGoalsCaptureBadges(), restée côté app.js — voir son en-tête TMT), et
-  // depuis objectifs-page2.js (bouton #goalsBackToCaptureBtn — 28 septembre 2026,
-  // correctif régression c10fce8 : ce bouton est injecté par la page 2, donc son
-  // écouteur doit vivre là-bas, pas ici — un $('goalsBackToCaptureBtn') posé au
-  // niveau supérieur de CE fichier s'exécute avant que la page 2 ait inséré son
-  // HTML, puisque objectifs-page1.js charge en premier).
+  // Points d'entrée appelés depuis app.js (switchTab()/openTabFromNotification()/loadGoalsCaptureBadges(), restée
+  // côté app.js) et depuis la page 2. Le bouton #goalsBackToCaptureBtn et son écouteur vivent dans la page 2 : son
+  // HTML n'existe pas encore quand ce fichier s'exécute (il charge en premier).
   TMT.loadGoalsTab = loadGoalsTab;
   TMT.floatingWhereMenu = floatingWhereMenu; // réutilisé par la suppression d'un secteur (app.js)
   TMT.openGoalsPeriodFromNotification = openGoalsPeriodFromNotification;
