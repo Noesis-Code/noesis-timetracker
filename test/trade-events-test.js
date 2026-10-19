@@ -8,6 +8,7 @@ process.env.NOESIS_VAPID_PRIVATE_KEY = keys.privateKey;
 const SECRET = 'notify-secret-0123456789';
 process.env.TRADE_NOTIFY_SECRET = SECRET;
 process.env.TRADE_ALLOWED_USER_IDS = 't1';
+process.env.TRADE_EVENTS_PER_MIN = '20';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const sent = [];
@@ -62,6 +63,10 @@ const srv = app.listen(0, async () => {
   delete process.env.TRADE_NOTIFY_SECRET;
   r = await post(ev, { id: 'e5' });
   assert(r.status === 503, 'secret absent : 503');
+  // Limite de débit : un flux normal (<= 20/min ici) passe, un déluge est refusé en 429 avec Retry-After.
+  let got429 = false;
+  for (let i = 0; i < 30 && !got429; i++) { r = await post(ev, { id: 'flood' + i }); if (r.status === 429) got429 = true; }
+  assert(got429, 'déluge de requêtes : 429 (limite de débit par IP)');
   srv.close();
   process.exit(failed ? 1 : 0);
 });

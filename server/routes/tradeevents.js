@@ -8,6 +8,7 @@ const express = require('express');
 const db = require('../db');
 const modules = require('../lib/modules');
 const push = require('../lib/push');
+const { createLimiter } = require('../lib/ratelimit');
 
 const router = express.Router();
 const MAX_SKEW_S = 5 * 60;
@@ -19,6 +20,9 @@ db.exec(`CREATE TABLE IF NOT EXISTS trade_events_seen (
   receivedAt TEXT NOT NULL
 )`);
 
+// Limite de débit par IP (généreuse : un achat = 1 événement, Trade en envoie quelques-uns par minute au plus).
+const limiter = createLimiter({ ipMax: Number(process.env.TRADE_EVENTS_PER_MIN) > 0 ? Number(process.env.TRADE_EVENTS_PER_MIN) : 600 });
+
 function expectedSignature(secret, ts, raw) {
   return 'sha256=' + crypto.createHmac('sha256', secret).update(ts + '.' + raw).digest('hex');
 }
@@ -28,6 +32,8 @@ function safeEqual(a, b) {
 }
 
 router.post('/trade-events', express.raw({ type: () => true, limit: '64kb' }), (req, res) => {
+  const retryAfter = limiter.check(req.ip, null);
+  if (retryAfter) { res.set('Retry-After', String(retryAfter)); return res.status(429).json({ error: 'rate_limited', retryAfter }); }
   const secret = process.env.TRADE_NOTIFY_SECRET;
   if (!secret || secret.length < 16) return res.status(503).json({ error: 'not_configured' });
   const raw = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '';
