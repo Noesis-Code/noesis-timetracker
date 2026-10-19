@@ -2,7 +2,7 @@
   window.TTScreens = window.TTScreens || {};
   var PERIODS = [['1M', 30], ['3M', 91], ['6M', 182], ['1A', 365], ['Tout', 0]];
   var ui = { period: '6M', mode: 'return' };
-  var MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  var MONTHS = TTI.months;
   function short(d) { var x = new Date(d + 'T12:00:00'); return x.getDate() + ' ' + MONTHS[x.getMonth()]; }
   window.TTScreens.history = {
     render: function (el, state, raw) {

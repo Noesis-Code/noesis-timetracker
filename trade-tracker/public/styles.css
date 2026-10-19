@@ -276,3 +276,5 @@ a { color: inherit; text-decoration: none; }
 @keyframes skel { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } * { transition-duration: 0.01ms !important; } }
 .topIconBtn:focus-visible, .chip:focus-visible, .sendBtn:focus-visible, .tabBtn:focus-visible .tabIcon { outline: 2px solid var(--violet-soft); outline-offset: 2px; }
+.langBtn { height: 28px; min-width: 34px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: bold; color: var(--text); cursor: pointer; background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line); }
+.langBtn:active { transform: scale(0.96); }

@@ -2,7 +2,7 @@
   window.TTScreens = window.TTScreens || {};
   var mode = 'sectors';
   var LABEL = { OK: 'À jour', PARTIEL: 'Partielle', ECHEC: 'Échec' }, CLS = { OK: 'ok', PARTIEL: 'warn', ECHEC: 'error' };
-  function gapTxt(g) { return (g > 0 ? '+' : g < 0 ? '−' : '') + Math.abs(g).toLocaleString('fr-CA', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' pt'; }
+  function gapTxt(g) { return (g > 0 ? '+' : g < 0 ? '−' : '') + Math.abs(g).toLocaleString(TTI.locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' pt'; }
   function rowsOf(c) {
     var rows = mode === 'sectors' ? c.sectors : c.positions;
     return rows.map(function (r) { return { key: r.key || (r.symbol === 'cash' ? 'cash' : r.symbol), label: r.symbol && r.symbol !== 'cash' ? r.symbol : r.label || r.name, sub: r.symbol && r.symbol !== 'cash' ? r.name : '', mePct: r.mePct, expertPct: r.expertPct, gapPts: r.gapPts }; });
