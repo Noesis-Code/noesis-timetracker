@@ -261,6 +261,7 @@
     'Enregistré.': 'Saved.',
     'Répartition selon mon agenda': 'Planning based on my calendar',
     'Exporter mes données vers le calendrier': 'Export my data to the calendar',
+    'Exporter vers le calendrier': 'Export to the calendar',
     'Importer un calendrier dans l\'appli': 'Import a calendar into the app',
     "Colle l'adresse ICS d'un agenda (Google Agenda, Apple Calendar…) ; tu peux en ajouter plusieurs. Noèsis ne garde que les heures occupées et compare les titres à tes règles, rien d'autre.": "Paste the ICS address of a calendar (Google Calendar, Apple Calendar…); you can add several. Noèsis only keeps busy hours and compares titles with your rules, nothing else.",
     "Chaque règle s'applique aux jours où un événement a un titre contenant un de ses mots ; si plusieurs s'appliquent, la plus restrictive gagne. Seuls les titres sont comparés, rien n'est conservé.": "Each rule applies to days with an event whose title contains one of its words; if several apply, the strictest wins. Only titles are compared, nothing is kept.",
