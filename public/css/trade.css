@@ -1,0 +1,12 @@
+/* Trade Tracker (module optionnel « trade », produit séparé relié à TMT) : volet de la barre du bas + page plein écran (iframe).
+   Fenêtre plein écran selon DESIGN.md : fond --bg, z 90, en-tête .subpageHeader, fermeture ✕ (.menuBtn). Violet principal. */
+html:not([data-trade-on]) .tabBtn[data-tab="trade"] { display: none !important; }
+#tradePage { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; background: var(--bg); padding-top: env(safe-area-inset-top); }
+#tradePage.hidden { display: none; }
+#tradePage .tradePageHeader { padding: 12px 16px 8px; margin: 0; gap: 10px; }
+#tradePage .tradePageTitle { flex: 1; min-width: 0; font-size: 18px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#tradePage .tradeOpenExternal { font-size: 13px; color: var(--purple); text-decoration: underline; white-space: nowrap; }
+#tradePage .tradePageBody { flex: 1; min-height: 0; position: relative; }
+#tradeFrame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--bg); }
+#tradePage .tradeState { padding: 32px 24px; text-align: center; color: var(--text-light); font-size: 14px; }
+#tradePage .tradeState.hidden, #tradeFrame.hidden { display: none; }

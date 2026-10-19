@@ -1713,6 +1713,19 @@
   };
   Object.assign(DICT, DEFAULT_NAMES);
 
+  // 19 oct. 2026 : Trade Tracker (module optionnel).
+  Object.assign(DICT, {
+    "Trade Tracker": "Trade Tracker",
+    "Trade": "Trade",
+    "Ouvrir à part": "Open separately",
+    "Chargement…": "Loading…",
+    "Trade Tracker n’est pas configuré sur ce serveur.": "Trade Tracker is not configured on this server.",
+    "Trade Tracker est indisponible.": "Trade Tracker is unavailable.",
+    "Module désactivé : « Trade Tracker ».": "Module disabled: “Trade Tracker”.",
+    "Trade Tracker n'est pas disponible pour ce compte.": "Trade Tracker is not available for this account.",
+    "Nouvel achat :": "New purchase:"
+  });
+
   function translateNameText(raw) {
     var tv = raw && raw.trim();
     if (!tv) return raw;

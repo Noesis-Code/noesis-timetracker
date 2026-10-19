@@ -6,7 +6,7 @@
   'use strict';
   var TMT = window.TMT = window.TMT || {};
   var tr = function (s) { return typeof window.t === 'function' ? window.t(s) : s; };
-  var state = null, loadedFor = null;
+  var state = null, loadedFor = null, tradeAllowed = false;
   var CACHE_KEY = 'noesis_modules';
   // Dernier état connu (démarrage hors ligne / avant la réponse du serveur) : évite un flash d'interface masquée ou non.
   try {
@@ -30,6 +30,7 @@
     if (tab === 'stats') return on('stats') || on('stats-tasks');  // « Temps » off : l'onglet Stats ne garde que les stats des tâches (ensemble B)
     if (tab === 'goals') return on('roadmap');
     if (tab === 'community') return on('community');
+    if (tab === 'trade') return !!state && state.trade === true;
     return true;
   }
   function apply() {
@@ -37,6 +38,7 @@
     Object.keys(state || {}).forEach(function (id) { if (state[id] === false) off.push(id); });
     if (!tabOn('stats')) off.push('tab-stats');
     var root = document.documentElement;
+    if (state && state.trade === true) root.setAttribute('data-trade-on', ''); else root.removeAttribute('data-trade-on'); // volet Trade masqué par défaut (css/trade.css)
     if (off.length) root.setAttribute('data-modules-off', off.join(' ')); else root.removeAttribute('data-modules-off');
     try { document.dispatchEvent(new CustomEvent('tmt:modules')); } catch (e) { /* vieux navigateur */ }
   }
@@ -50,7 +52,8 @@
   var ROWS = [
     { label: 'Chrono', ids: ['stats'], anchor: 'stats', bundle: true },
     { label: 'Feuille de route', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap', bundle: true },
-    { label: 'Communauté et profil', ids: ['community', 'profile'], anchor: 'community', bundle: false }
+    { label: 'Communauté et profil', ids: ['community', 'profile'], anchor: 'community', bundle: false },
+    { label: 'Trade Tracker', ids: ['trade'], anchor: 'trade', bundle: false, gated: true } // visible seulement si le serveur autorise ce compte (tradeAllowed)
   ];
   var BUNDLES = ROWS.filter(function (r) { return r.bundle; });
 
@@ -65,6 +68,7 @@
     target.innerHTML = '';
     var inputs = [];
     ROWS.forEach(function (r) {
+      if (r.gated && !tradeAllowed) return;
       var row = document.createElement('div'); row.className = 'notifRow';
       var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = tr(r.label);
       var sw = document.createElement('label'); sw.className = 'toggleSwitch';
@@ -108,7 +112,7 @@
   function openFirstTab() {
     if (openedFirst) return; openedFirst = true;
     if (location.search.indexOf('notif=') !== -1 || !nav || typeof TMT.switchTab !== 'function') return;
-    var first = tabBtns().filter(function (b) { return tabOn(b.dataset.tab); })[0];
+    var first = tabBtns().filter(function (b) { return b.dataset.tab !== 'trade' && tabOn(b.dataset.tab); })[0];
     var cur = nav.querySelector('.tabBtn.active');
     if (first && (!cur || cur !== first)) TMT.switchTab(first.dataset.tab);
   }
@@ -116,7 +120,7 @@
   function load() {
     if (!pid()) return Promise.resolve(null);
     var id = pid();
-    return call('GET').then(function (d) { state = d.modules; loadedFor = id; remember(); apply(); applyOrder(); openFirstTab(); paint(); return state; }).catch(function () { return null; });
+    return call('GET').then(function (d) { state = d.modules; tradeAllowed = !!d.tradeAllowed; loadedFor = id; remember(); apply(); applyOrder(); openFirstTab(); paint(); return state; }).catch(function () { return null; });
   }
 
   // ===== Barre du bas modulable =====
@@ -145,6 +149,7 @@
     if (tab === 'chrono') { set(BUNDLES[0], false); if (!on('roadmap')) set(BUNDLES[1], true); return p; }
     if (tab === 'goals') { set(BUNDLES[1], false); if (!on('stats')) set(BUNDLES[0], true); return p; }
     if (tab === 'community') return { community: false, profile: false };
+    if (tab === 'trade') return { trade: false };
     return null;
   }
   function removalAllowed(tab) {

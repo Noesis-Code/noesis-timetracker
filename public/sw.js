@@ -86,6 +86,8 @@ const SHELL = [
   '/css/activite-stats-taches.css',
   '/css/connexion-ia.css',
   '/css/modules.css',
+  '/css/trade.css',
+  '/js/trade.js',
   '/css/verre-calme.css',
   '/i18n.js',
   '/legal-en.js',

@@ -11249,8 +11249,14 @@
 
     // Module désactivé (Réglages > Modules) : la notification est ignorée sans erreur.
     var NOTIF_MODULES = { activity: ['roadmap', 'sharing'], post: ['community'], follow: ['community'], community: ['community'], profile: ['community'],
-      invite: ['sharing'], dailypriority: ['roadmap'], drivesync: ['roadmap', 'ai'], taskassigned: ['roadmap'], goalperiod: ['roadmap'] };
+      invite: ['sharing'], dailypriority: ['roadmap'], drivesync: ['roadmap', 'ai'], taskassigned: ['roadmap'], goalperiod: ['roadmap'], trade: ['trade'] };
     if ((NOTIF_MODULES[target] || []).some(function (m) { return !modOn(m); })) return;
+
+    // Nouvel achat Trade Tracker (POST /api/trade-events -> push.js#notifyTradePurchase) : ouvre la page plein écran Trade Tracker.
+    if (target === 'trade') {
+      if (TMT.openTrade) { TMT.openTrade(); focusWhenReady('#tradePageTitle', 20); }
+      return;
+    }
 
     if (target === 'activity') {
       var activityId = params.get('activityId');
