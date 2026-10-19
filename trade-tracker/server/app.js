@@ -95,7 +95,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     if (!want || want.length < 16) return err(res, 404, 'not_found');
     const given = Buffer.from(String(req.headers['x-admin-token'] || ''));
     const exp = Buffer.from(want);
-    if (given.length !== exp.length || !crypto.timingSafeEqual(given, exp)) return err(res, 401, 'unauthorized');
+    if (given.length !== exp.length || !crypto.timingSafeEqual(given, exp)) { aud(req, 'admin_refused', { path: req.path }, null); return err(res, 401, 'unauthorized'); }
     next();
   };
   app.post('/api/admin/import-sheet', rlAdmin, adminGate, express.json({ limit: '5mb' }), (req, res) => {
@@ -103,6 +103,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     if (typeof b.tmtUserId !== 'string' || !b.tmtUserId || !b.files || typeof b.files !== 'object') return err(res, 400, 'bad_request', 'tmtUserId et files requis');
     try {
       const user = ensureUser(db, b.tmtUserId, b.role || 'expert', typeof b.name === 'string' ? b.name : '');
+      aud(req, 'admin_import', { role: user.role }, user.id); // accès administrateur au compte de l'expert tracé dans SON journal
       res.json(importSheet(db, user, b.files));
     } catch (e) { err(res, 400, 'import_failed', e.message); }
   });

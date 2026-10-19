@@ -28,12 +28,7 @@ Drive NOÈSIS et paiement Stripe : voir `CLAUDE.md` (source unique).
 Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1). Dans l'ordre ; chaque tâche : dans le périmètre du chantier, sans interface nouvelle, sans dépense, sans règle verrouillée, sans fusion `main` (SIMPLIFICATION.md). Cocher/retirer une tâche faite ; ajouter à la fin.
 
 **1. Trade Tracker** (sécurité)
-1. Limites de débit (rate limiting) sur toutes les routes sensibles, avec test.
-2. Sauvegarde et restauration de la base Trade, restauration testée sur copie.
-3. Alertes `/health` (statut, âge de la dernière synchro Questrade, espace disque).
-4. Revue des journaux d'audit : rien de secret journalisé, accès Nick tracés.
-5. Documentation DEPLOY à jour (variables, étapes, retour arrière).
-6. Test de rotation de clé (chiffrement/jeton) sans perte de données.
+1. Documentation DEPLOY à jour (variables, étapes, retour arrière).
 
 **2. Time Tracker Basic** (accessibilité et robustesse)
 1. `aria-label` des boutons-icônes et contrastes du texte à vérifier (sans changer la palette).
