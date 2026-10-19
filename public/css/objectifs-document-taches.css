@@ -205,3 +205,5 @@ input[type="checkbox"].ptTaskCb:indeterminate, .ptPane input[type="checkbox"]:in
 /* « Tout supprimer » : discret, devient rouge une fois armé (confirmation sur place). */
 .docTasksDelAll { align-self: center; }
 .docTasksDelAll[data-armed] { color: #e5484d; font-weight: 600; }
+
+.docTasksPauseRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; font-size: 13px; }
