@@ -72,7 +72,7 @@ Fichiers très partagés (un seul agent à la fois dessus, sinon conflits de mer
 | Objectifs — Page 2 Tâches quotidiennes | `public/js/objectifs-page2-taches.js`, `css/objectifs-page2-taches.css` | pas de réordonnancement manuel des tâches du jour |
 | Objectifs — Page 3 Calendrier | `public/js/objectifs-page3.js`, `css/objectifs-page3.css`, `server/lib/calendarfeed.js`, `goalreminders.js`, `externalcalendar.js`, `routes/calendar.js` | `#goalsDetailPage` z-index 101 (au-dessus de la Page 2) |
 | Objectifs — Pôles/secteurs/tâches | gestion pôles/secteurs de `goals.js`/`routes/goals.js`, `goalstasks.js`, `goalstaskclassify.js`, panneau « gérer mes catégories », fenêtre Activité (Tâches/Discussion) | seuls les pôles portent une couleur, jamais les secteurs |
-| Objectifs — Planification IA | `goalsauto.js`, `goalsdailyauto.js`, `scripts/apply-offre1-*.js` | |
+| Objectifs — Planification IA | `goalsauto.js`, `scripts/apply-offre1-*.js` | |
 | Capture hors ligne | `public/offline-queue.js`, `public/sw.js`, `manifest.webmanifest` | |
 | Sous-projets | `server/lib/subprojects.js` & co, `routes/subprojects*.js` | UI masquée depuis le 17 sept. ; `bindSubProjectDrag` = code mort à retirer |
 | Offre 1 / Paiement | `offerdelivery.js`, `subscriptioncron.js`, `stripe.js`, `routes/offercheckout.js`, `stripewebhook.js` | Stripe jamais testé en live |
