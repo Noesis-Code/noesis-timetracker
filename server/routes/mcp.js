@@ -1,6 +1,6 @@
 // « Connecter mon IA » — serveur MCP distant, LECTURE SEULE (19 oct. 2026).
 // POST /mcp : Streamable HTTP, JSON-RPC 2.0 sans état. Authentification par
-// jeton personnel (Authorization: Bearer ...), voir server/lib/aitokens.js.
+// jeton personnel (Authorization: Bearer ... ou POST /mcp/t/<jeton>), voir server/lib/aitokens.js.
 // Aucun outil n'écrit : les fonctions appelées ici sont des lectures.
 // Gestion des jetons depuis Réglages : /api/ai-tokens (session de l'utilisateur).
 const express = require('express');
@@ -266,9 +266,8 @@ function handleRpc(msg, ctx) {
   }
 }
 
-router.post('/mcp', (req, res) => {
-  const m = /^Bearer\s+(\S+)$/i.exec(req.get('Authorization') || '');
-  const auth = m ? aitokens.authenticate(m[1]) : null;
+function handleMcpPost(req, res, token) {
+  const auth = token ? aitokens.authenticate(token) : null;
   if (!auth) {
     res.set('WWW-Authenticate', 'Bearer realm="timetracker"');
     return res.status(401).json({ jsonrpc: '2.0', id: null, error: { code: -32001, message: 'Jeton invalide ou révoqué.' } });
@@ -287,14 +286,30 @@ router.post('/mcp', (req, res) => {
   if (forbidden) return res.status(403).json(rpcError(null, -32003, "Ce jeton est en lecture seule : crée un jeton avec l'écriture autorisée."));
   if (!replies.length) return res.status(202).end();
   res.json(batch ? replies : replies[0]);
+}
+
+router.post('/mcp', (req, res) => {
+  const m = /^Bearer\s+(\S+)$/i.exec(req.get('Authorization') || '');
+  handleMcpPost(req, res, m ? m[1] : null);
 });
+
+// Jeton dans l'URL (connecteur personnalisé de claude.ai, sans en-tête Authorization). Le jeton ne doit
+// JAMAIS être journalisé (aucun journal HTTP n'existe ; ne jamais écrire req.url / originalUrl ici).
+const urlTokenGuard = (req, res, next) => {
+  res.set({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+  next();
+};
+router.post('/mcp/t/:token', urlTokenGuard, (req, res) => handleMcpPost(req, res, req.params.token));
+router.get('/mcp/t/:token', urlTokenGuard, (req, res) => res.status(405).set('Allow', 'POST').json({ error: 'Utilise POST.' }));
+router.delete('/mcp/t/:token', urlTokenGuard, (req, res) => res.status(405).set('Allow', 'POST').json({ error: 'Utilise POST.' }));
+router.options('/mcp/t/:token', urlTokenGuard, (req, res) => res.status(204).set({ Allow: 'POST, OPTIONS', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Mcp-Session-Id, Mcp-Protocol-Version' }).end());
 
 router.get('/mcp', (req, res) => res.status(405).set('Allow', 'POST').json({ error: 'Utilise POST.' }));
 router.delete('/mcp', (req, res) => res.status(405).set('Allow', 'POST').json({ error: 'Utilise POST.' }));
 
 // ---------------------------------------------------------------- jetons (Réglages)
 router.get('/api/ai-tokens', requireAuth, (req, res) => {
-  res.json({ tokens: aitokens.listTokens(req.userId), max: aitokens.MAX_ACTIVE, url: req.protocol + '://' + req.get('host') + '/mcp' });
+  res.json({ tokens: aitokens.listTokens(req.userId), max: aitokens.MAX_ACTIVE, url: req.protocol + '://' + req.get('host') + '/mcp', origin: req.protocol + '://' + req.get('host') });
 });
 router.post('/api/ai-tokens', requireAuth, (req, res) => {
   try {
