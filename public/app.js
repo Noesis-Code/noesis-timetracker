@@ -4988,7 +4988,7 @@
   // utiliser le même pattern ») : ce rendu (SVG + crosshair/infobulle au
   // survol) portait trois implémentations quasi identiques — ici, et dans
   // renderActivityChart (page d'une activité partagée) et
-  // renderViewProfileChart (page de visite d'un profil). Réunifiées en une
+  // renderChart(VIEW_PROFILE_CHART_IDS) (page de visite d'un profil). Réunifiées en une
   // seule fonction, suivant exactement le même principe déjà appliqué au
   // Chrono↔Sous-projets le 5 septembre 2026 (voir chartIds/SP_CHART_IDS
   // ci-dessus) : ce qui varie par appelant (ids DOM, axe des séries via
@@ -12793,15 +12793,7 @@
     $('viewProfileProjectDetail').classList.add('hidden');
     $('viewProfileProjectDetail').innerHTML = '';
     $('viewProfileProjectsMsg').textContent = '';
-    $('viewProfilePie').innerHTML = '';
-    $('viewProfilePieEmptyHint').classList.add('hidden');
-    $('viewProfileStatsLabel').textContent = '';
-    $('viewProfileChart').innerHTML = '';
-    $('viewProfileChartLegend').innerHTML = '';
-    // L'infobulle repart masquée : celle du profil PRÉCÉDENT n'a aucune
-    // raison de rester affichée le temps que les données arrivent.
-    $('viewProfileChartTooltip').classList.add('hidden');
-    $('viewProfileChartEmptyHint').classList.add('hidden');
+    clearViewProfileStats();
     $('viewProfilePostsList').innerHTML = '';
     $('viewProfilePostsEmptyHint').classList.add('hidden');
     $('viewProfilePostsLockedHint').classList.add('hidden');
@@ -13065,6 +13057,19 @@
       .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
   }
 
+  // Vide camembert + graphique + libellé de la page de visite (réouverture
+  // sur un autre profil, ou accès refusé). L'infobulle repart masquée : celle
+  // du profil PRÉCÉDENT n'a aucune raison de rester affichée.
+  function clearViewProfileStats() {
+    $('viewProfilePie').innerHTML = '';
+    $('viewProfilePieEmptyHint').classList.add('hidden');
+    $('viewProfileStatsLabel').textContent = '';
+    $('viewProfileChart').innerHTML = '';
+    $('viewProfileChartLegend').innerHTML = '';
+    $('viewProfileChartTooltip').classList.add('hidden');
+    $('viewProfileChartEmptyHint').classList.add('hidden');
+  }
+
   function loadViewProfileStats() {
     if (!viewProfileUserId || !profile) return;
     var target = viewProfileUserId;
@@ -13076,12 +13081,7 @@
       // aucune activité — deux lectures fausses.
       $('viewProfilePieBlock').classList.add('hidden');
       $('viewProfileChartBlock').classList.add('hidden');
-      $('viewProfilePie').innerHTML = '';
-      $('viewProfilePieEmptyHint').classList.add('hidden');
-      $('viewProfileChart').innerHTML = '';
-      $('viewProfileChartLegend').innerHTML = '';
-      $('viewProfileChartEmptyHint').classList.add('hidden');
-      $('viewProfileStatsLabel').textContent = '';
+      clearViewProfileStats();
       if (TMT.visitorStats) TMT.visitorStats.lock();
       syncViewProfilePaneHeight();
       return;
@@ -13100,7 +13100,7 @@
         var breakdown = data.breakdown || { totalSeconds: 0, activities: [] };
         $('viewProfileStatsLabel').textContent = data.label ? t(data.label) : '';
         renderPie(breakdown.activities || [], breakdown.totalSeconds, { wrap: 'viewProfilePie', emptyHint: 'viewProfilePieEmptyHint' });
-        renderViewProfileChart(data.chart || []);
+        renderChart(data.chart || [], VIEW_PROFILE_CHART_IDS);
         syncViewProfilePaneHeight();
       })
       .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
@@ -13129,9 +13129,6 @@
     height: 160, padTop: 12, padBottom: 24,
     minWidthFloor: 280, useClientWidth: false,
   };
-  function renderViewProfileChart(days) {
-    renderChart(days, VIEW_PROFILE_CHART_IDS);
-  }
   // ----- Messages "Communauté" du profil visité (abonnés acceptés) -----
   // `allowed` vient de canSeePosts (GET /profile/:id/public) : quand l'accès
   // n'est pas accordé, on n'appelle même pas la route — le serveur a déjà
