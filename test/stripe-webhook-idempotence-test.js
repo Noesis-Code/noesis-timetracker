@@ -81,6 +81,13 @@ const sub = (id) => db.prepare('SELECT * FROM activity_subscriptions WHERE strip
   await post(port, { ...upd, id: 'evt_upd_1' });
   ok(sub('sub_1').status === 'past_due', 'subscription.updated rejoué : stable');
 
+  // Échec de paiement : invoice.payment_failed accepté sans action (le statut vient de subscription.updated), puis reprise par invoice.paid
+  r = await post(port, { id: 'evt_fail_1', type: 'invoice.payment_failed', data: { object: { subscription: 'sub_1' } } });
+  ok(r.status === 200 && sub('sub_1').status === 'past_due', 'invoice.payment_failed : 200, statut inchangé (past_due déjà posé par updated)');
+  subState = { status: 'active', current_period_start: 1707800000, current_period_end: 1710400000 };
+  await post(port, { id: 'evt_inv_2', type: 'invoice.paid', data: { object: { subscription: 'sub_1' } } });
+  ok(sub('sub_1').status === 'active', 'invoice.paid après échec : retour à active');
+
   // subscription.deleted
   const del = { id: 'evt_del_1', type: 'customer.subscription.deleted', data: { object: { id: 'sub_1' } } };
   await post(port, del);
