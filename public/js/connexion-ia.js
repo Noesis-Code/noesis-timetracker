@@ -6,6 +6,8 @@
   var head = document.getElementById('aiConnectHeader');
   if (!box || !head) return;
   var loaded = false, shown = null;
+  // Un clic dans la section ne doit jamais atteindre le gestionnaire global « clic hors du panneau » (le bouton cliqué peut être retiré du DOM au repaint).
+  box.addEventListener('click', function (e) { e.stopPropagation(); });
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function call(method, url, body) {
@@ -30,8 +32,8 @@
 
   function paint(data, msgText) {
     box.innerHTML = '';
-    box.appendChild(el('p', 'hint', "Branche TimeTracker à ton IA (Claude, ChatGPT…) : elle lit tes tâches et tes objectifs pour te proposer un plan. Elle ne peut rien modifier."));
-    box.appendChild(el('p', 'hint', "En créant un jeton, tu autorises l'IA connectée à lire tes tâches et tes objectifs, en lecture seule. Tu peux révoquer l'accès à tout moment."));
+    box.appendChild(el('p', 'hint', "Branche TimeTracker à ton IA (Claude, ChatGPT…) : elle lit tes tâches et tes objectifs pour te proposer un plan. Par défaut, elle ne peut rien modifier."));
+    box.appendChild(el('p', 'hint', "En créant un jeton, tu autorises l'IA connectée à lire tes tâches et tes objectifs, en lecture seule (sauf si tu autorises l'écriture ci-dessous). Tu peux révoquer l'accès à tout moment."));
 
     if (shown) {
       var card = el('div', 'aiConnectShown');
@@ -49,12 +51,12 @@
       var row = el('div', 'aiConnectRow');
       var info = el('div', 'aiConnectInfo');
       info.appendChild(el('strong', null, tk.label));
-      info.appendChild(el('span', 'hint', fmt(tk.lastUsedAt)));
+      info.appendChild(el('span', 'hint', fmt(tk.lastUsedAt) + (tk.canWrite ? ' · écriture autorisée' : ' · lecture seule')));
       row.appendChild(info);
       var act = el('div', 'aiConnectActions');
       var rev = el('button', 'iconBtn btnBrique', 'Révoquer'); rev.type = 'button';
       rev.addEventListener('click', function () {
-        act.innerHTML = '';
+        rev.hidden = true;
         act.appendChild(el('span', 'hint', 'Révoquer ?'));
         var yes = el('button', 'iconBtn btnBrique', 'Oui'); yes.type = 'button';
         var no = el('button', 'iconBtn', 'Non'); no.type = 'button';
@@ -69,13 +71,19 @@
 
     if (data.tokens.length < data.max) {
       var form = el('div', 'aiConnectForm');
+      var wl = el('label', 'aiConnectWrite');
+      var wc = el('input'); wc.type = 'checkbox';
+      wl.appendChild(wc);
+      wl.appendChild(el('span', null, " Autoriser l'IA à cocher mes tâches et m'écrire"));
+      var warn = el('p', 'hint', "Attention : avec cette option, l'IA peut cocher tes tâches comme faites, ajouter des notes « 🤖 » et t'envoyer des notifications (10 par jour). Elle ne peut jamais supprimer ni modifier tes tâches.");
       var name = el('input', 'aiConnectField'); name.type = 'text'; name.maxLength = 60; name.placeholder = 'Nom (ex. Claude)';
       var go = el('button', 'iconBtn', 'Créer un jeton'); go.type = 'button';
       go.addEventListener('click', function () {
         go.disabled = true;
-        call('POST', '/api/ai-tokens', { label: name.value }).then(function (r) { shown = r; refresh(); }).catch(function (e) { go.disabled = false; paint(data, e.message); });
+        call('POST', '/api/ai-tokens', { label: name.value, canWrite: wc.checked }).then(function (r) { shown = r; refresh(); }).catch(function (e) { go.disabled = false; paint(data, e.message); });
       });
       form.appendChild(name); form.appendChild(go);
+      box.appendChild(wl); box.appendChild(warn);
       box.appendChild(form);
     } else {
       box.appendChild(el('p', 'hint', 'Maximum de ' + data.max + ' jetons actifs : révoque-en un pour en créer un autre.'));

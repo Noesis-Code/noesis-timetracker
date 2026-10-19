@@ -9,6 +9,8 @@ const aitokens = require('../lib/aitokens');
 const goals = require('../lib/goals');
 const goalstasks = require('../lib/goalstasks');
 const goalsauto = require('../lib/goalsauto');
+const sp = require('../lib/subprojects');
+const push = require('../lib/push');
 const { requireAuth } = require('../lib/session');
 
 const router = express.Router();
@@ -163,10 +165,71 @@ const tools = {
   },
 };
 
+// Outils d'ÉCRITURE : exposés seulement avec un jeton créé avec la portée d'écriture.
+// Jamais de suppression ni de modification du texte d'une tâche existante.
+const MAX_NOTE = 280;
+Object.assign(tools, {
+  marquer_tache_faite: {
+    write: true,
+    description: "Coche une tâche de l'utilisateur comme faite (jamais l'inverse, jamais de modification du texte).",
+    inputSchema: { type: 'object', properties: { taskId: { type: 'integer' } }, required: ['taskId'], additionalProperties: false },
+    run(userId, args) {
+      const item = sp.getItem(Number(args.taskId));
+      if (!item) throw toolError('Tâche introuvable.');
+      const access = sp.checkSubProjectAccess(userId, item.subProjectId);
+      if (access.error) throw toolError('Tâche introuvable.');
+      if (item.plannedUserId && item.plannedUserId !== userId) throw toolError("Cette tâche est confiée à un autre membre.");
+      if (item.done) return { taskId: item.id, deja_faite: true };
+      try { sp.updateItem(item.id, { done: true }, userId); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de cocher cette tâche.'); }
+      return { taskId: item.id, tache: item.label, terminee: true };
+    },
+  },
+  ajouter_tache_note: {
+    write: true,
+    description: "Ajoute une tâche-note préfixée « 🤖 » (type question : « Question de l'IA : … », ou recap : « Récap : … ») dans une activité de l'utilisateur. 280 caractères maximum.",
+    inputSchema: {
+      type: 'object',
+      properties: { activityId: { type: 'integer' }, type: { type: 'string', enum: ['question', 'recap'] }, texte: { type: 'string' }, pole: { type: 'string' } },
+      required: ['activityId', 'type', 'texte'], additionalProperties: false,
+    },
+    run(userId, args) {
+      const a = memberActivity(userId, args.activityId);
+      if (!['question', 'recap'].includes(args.type)) throw toolError('type invalide (question ou recap).');
+      const texte = String(args.texte == null ? '' : args.texte).replace(/\s+/g, ' ').trim();
+      if (!texte) throw toolError('texte requis.');
+      if (texte.length > MAX_NOTE) throw toolError('texte trop long (' + MAX_NOTE + ' caractères maximum).');
+      const poles = goals.categoriesForActivity(a.id);
+      if (!poles.length) throw toolError("Cette activité n'a pas de pôle.");
+      const key = poleMatches(a.id, args.pole);
+      if (key === '__aucun__') throw toolError('Pôle inconnu.');
+      const pole = key ? poles.find((p) => p.key === key) : poles[0];
+      const sect = goals.secteursForPole(a.id, pole.key) || [];
+      const target = sect.length ? sect[0].key : pole.key;
+      const label = '🤖 ' + (args.type === 'question' ? "Question de l'IA : " : 'Récap : ') + texte;
+      const item = goalstasks.addCategoryTask(a.id, userId, target, label, { dueDate: todayLocal() });
+      return { taskId: item.id, activityId: a.id, tache: label };
+    },
+  },
+  notifier: {
+    write: true,
+    description: "Envoie une notification push à l'utilisateur (10 par jour au maximum).",
+    inputSchema: { type: 'object', properties: { titre: { type: 'string' }, message: { type: 'string' } }, required: ['message'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const message = String(args.message == null ? '' : args.message).trim().slice(0, 140);
+      if (!message) throw toolError('message requis.');
+      const titre = String(args.titre || 'Mon IA').trim().slice(0, 50);
+      if (!aitokens.takeNotifSlot(ctx.tokenId)) throw toolError('Limite atteinte : ' + aitokens.NOTIF_PER_DAY + ' notifications par jour.');
+      push.sendToUsers([userId], { title: '🤖 ' + titre, body: message, tag: 'ai-' + ctx.tokenId, url: '/' });
+      return { envoyee: true };
+    },
+  },
+});
+
 // ---------------------------------------------------------------- JSON-RPC
 function rpcError(id, code, message) { return { jsonrpc: '2.0', id: id == null ? null : id, error: { code, message } }; }
 
-function handleRpc(msg, userId) {
+function handleRpc(msg, ctx) {
+  const userId = ctx.userId;
   if (!msg || msg.jsonrpc !== '2.0' || typeof msg.method !== 'string') return rpcError(msg && msg.id, -32600, 'Requête invalide.');
   const isNotification = msg.id === undefined;
   const ok = (result) => (isNotification ? null : { jsonrpc: '2.0', id: msg.id, result });
@@ -184,13 +247,14 @@ function handleRpc(msg, userId) {
     case 'ping':
       return ok({});
     case 'tools/list':
-      return ok({ tools: Object.keys(tools).map((name) => ({ name, description: tools[name].description, inputSchema: tools[name].inputSchema, annotations: { readOnlyHint: true } })) });
+      return ok({ tools: Object.keys(tools).filter((n) => !tools[n].write || ctx.canWrite).map((name) => ({ name, description: tools[name].description, inputSchema: tools[name].inputSchema, annotations: { readOnlyHint: !tools[name].write } })) });
     case 'tools/call': {
       const p = msg.params || {};
       const tool = Object.prototype.hasOwnProperty.call(tools, p.name) ? tools[p.name] : null;
       if (!tool) return isNotification ? null : rpcError(msg.id, -32602, 'Outil inconnu : ' + p.name);
+      if (tool.write && !ctx.canWrite) { const e = new Error("Ce jeton est en lecture seule."); e.forbidden = true; throw e; }
       try {
-        const data = tool.run(userId, p.arguments && typeof p.arguments === 'object' ? p.arguments : {});
+        const data = tool.run(userId, p.arguments && typeof p.arguments === 'object' ? p.arguments : {}, ctx);
         return ok({ content: [{ type: 'text', text: JSON.stringify(data, null, 1) }] });
       } catch (err) {
         if (!err.toolError) console.error('[mcp] outil', p.name, err.message);
@@ -216,9 +280,11 @@ router.post('/mcp', (req, res) => {
   aitokens.touch(auth.tokenId);
   const body = req.body;
   const batch = Array.isArray(body);
-  const replies = (batch ? body : [body]).map((x) => handleRpc(x, auth.userId)).filter(Boolean);
+  let forbidden = false;
+  const replies = (batch ? body : [body]).map((x) => { try { return handleRpc(x, auth); } catch (e) { if (e.forbidden) { forbidden = true; return null; } throw e; } }).filter(Boolean);
   // Journal sans le jeton.
   console.log('[mcp] jeton#' + auth.tokenId + ' ' + (batch ? body : [body]).map((x) => x && x.method).join(','));
+  if (forbidden) return res.status(403).json(rpcError(null, -32003, "Ce jeton est en lecture seule : crée un jeton avec l'écriture autorisée."));
   if (!replies.length) return res.status(202).end();
   res.json(batch ? replies : replies[0]);
 });
@@ -232,7 +298,7 @@ router.get('/api/ai-tokens', requireAuth, (req, res) => {
 });
 router.post('/api/ai-tokens', requireAuth, (req, res) => {
   try {
-    res.json(aitokens.createToken(req.userId, req.body && req.body.label));
+    res.json(aitokens.createToken(req.userId, req.body && req.body.label, !!(req.body && req.body.canWrite)));
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     console.error('[mcp] création jeton', err.message);

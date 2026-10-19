@@ -59,6 +59,29 @@ setTimeout(async () => {
     const before = db.prepare('SELECT COUNT(*) n FROM sub_project_items').get().n;
     const w = await call(tA.token, rpc('tools/call', { name: 'ajouter_tache', arguments: { activityId: Number(actA), label: 'x' } }));
     assert(w.body.error && db.prepare('SELECT COUNT(*) n FROM sub_project_items').get().n === before, 'aucun outil d\'écriture');
+    // portée d'écriture opt-in
+    const tW = aitokens.createToken('A', 'ecriture', true);
+    const task = goalstasks.allTasksWithGroup(actA)[0];
+    const names0 = (await call(tA.token, rpc('tools/list'))).body.result.tools.map((t) => t.name);
+    assert(!names0.includes('notifier'), 'sans portée : outils d\'écriture non listés');
+    for (const n of ['marquer_tache_faite', 'ajouter_tache_note', 'notifier']) {
+      assert((await call(tA.token, rpc('tools/call', { name: n, arguments: { taskId: task.id, activityId: Number(actA), type: 'recap', texte: 'x', message: 'x' } }))).status === 403, 'sans portée : ' + n + ' = 403');
+    }
+    const namesW = (await call(tW.token, rpc('tools/list'))).body.result.tools.map((t) => t.name);
+    assert(namesW.includes('notifier') && namesW.length === 7, 'avec portée : 7 outils');
+    const wcall = async (name, args) => (await call(tW.token, rpc('tools/call', { name, arguments: args }))).body.result;
+    assert(!(await wcall('marquer_tache_faite', { taskId: task.id })).isError && db.prepare('SELECT done FROM sub_project_items WHERE id = ?').get(task.id).done === 1, 'marquer_tache_faite coche');
+    assert((await wcall('marquer_tache_faite', { taskId: 999999 })).isError, 'tâche inconnue refusée');
+    const secret = db.prepare("SELECT id FROM sub_project_items WHERE label LIKE '%secrète%'").get();
+    assert((await wcall('marquer_tache_faite', { taskId: secret.id })).isError && db.prepare('SELECT done FROM sub_project_items WHERE id = ?').get(secret.id).done === 0, "tâche d'un autre utilisateur : refusée");
+    const note = await wcall('ajouter_tache_note', { activityId: Number(actA), type: 'question', texte: 'Quelle priorité ?' });
+    assert(!note.isError && /^🤖 Question de l'IA : /.test(JSON.parse(note.content[0].text).tache), 'note 🤖 ajoutée');
+    assert((await wcall('ajouter_tache_note', { activityId: Number(actA), type: 'recap', texte: 'a'.repeat(400) })).isError, 'note trop longue refusée');
+    assert((await wcall('ajouter_tache_note', { activityId: Number(actB), type: 'recap', texte: 'x' })).isError, "note dans l'activité d'un autre refusée");
+    let sent = 0; for (let i = 0; i < 12; i++) { if (!(await wcall('notifier', { message: 'm' + i })).isError) sent++; }
+    assert(sent === 10, 'notifier limité à 10 par jour');
+    assert((await call(tW.token, rpc('tools/call', { name: 'supprimer_tache', arguments: { taskId: 1 } }))).body.error, 'aucun outil de suppression');
+    aitokens.revokeToken('A', tW.id);
     // révocation immédiate
     assert(aitokens.revokeToken('A', tA.id), 'révocation');
     assert((await call(tA.token, rpc('ping'))).status === 401, 'jeton révoqué = 401');
