@@ -675,7 +675,7 @@ router.post('/activities/:id/goals/rewrite', async (req, res) => {
   const check = requireMembership(userId, Number(req.params.id));
   if (check.error) return res.status(check.error.status).json(check.error.body);
   try {
-    const proposal = await goalsrewrite.proposeRewrite(req.body && req.body.text);
+    const proposal = await goalsrewrite.proposeRewrite(req.body && req.body.text, userId);
     res.json({ proposal });
   } catch (err) {
     if (err && err.status === 400) return res.status(400).json({ error: err.message });

@@ -49,6 +49,22 @@ async function memoize(parts, fn, opts) {
 }
 function memoClear() { memoStore.clear(); memoPending.clear(); }
 
+// Plafond quotidien par fonction et par compte (garde-fou contre l'abus, très au-dessus de l'usage normal).
+// Sans compte identifié ou max <= 0 : pas de plafond propre (le budget commun aibudget reste actif). Mémoire, remis à zéro chaque jour.
+const capUsage = new Map();
+function takeDailyCap(name, account, max) {
+  if (!account || !(max > 0)) return true;
+  const day = new Date().toISOString().slice(0, 10);
+  for (const k of capUsage.keys()) if (!k.endsWith('|' + day)) capUsage.delete(k);
+  const key = name + '|' + account + '|' + day;
+  const n = capUsage.get(key) || 0;
+  if (n >= max) return false;
+  capUsage.set(key, n + 1);
+  return true;
+}
+function capFromEnv(envName, dflt) { const n = parseInt(process.env[envName], 10); return Number.isFinite(n) && n >= 0 ? n : dflt; }
+function capClear() { capUsage.clear(); }
+
 // Paliers « modèle rapide d'abord, modèle fort en repli » (décision d'Emilien). Modèle rapide lu dans la variable d'environnement
 // `envModel` (défaut claude-haiku-4-5 ; 'off' ou égal au modèle fort = désactivé), seuil de confiance (0-100) dans `envConf` (défaut 80).
 function fastModelFor(envModel, strongModel) {
@@ -60,4 +76,4 @@ function minConfidenceFor(envConf) {
   return Number.isFinite(n) && n >= 0 && n <= 100 ? n : 80;
 }
 
-module.exports = { fastModelFor, minConfidenceFor, memoize, memoClear, messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };
+module.exports = { fastModelFor, minConfidenceFor, memoize, memoClear, takeDailyCap, capFromEnv, capClear, messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };

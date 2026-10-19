@@ -142,12 +142,11 @@ function buildPrompt(label, categories, examples, opts) {
     ...(allowUncertain
       ? [
         'Réponds UNIQUEMENT avec la clé de la catégorie la plus probable, sans texte autour, sans ponctuation, sans balises markdown.',
-        "Si deux catégories te paraissent réellement plausibles et que tu ne peux pas trancher, réponds à la place exactement : INCERTAIN: cléA, cléB (tes deux meilleurs choix, clés de la liste ci-dessus).",
-        "Ne devine pas au hasard : si aucune catégorie ne convient, réponds INCERTAIN suivi de tes deux meilleurs choix.",
+        "Si aucune catégorie ne convient ou si deux te paraissent réellement plausibles sans pouvoir trancher, réponds à la place exactement : INCERTAIN: cléA, cléB (tes deux meilleurs choix, clés de la liste ci-dessus).",
       ]
       : [
         'Réponds UNIQUEMENT avec la clé de la catégorie la plus probable, sans texte autour, sans ponctuation, sans balises markdown.',
-        'Choisis toujours une catégorie parmi la liste ci-dessus, même en cas de doute — jamais de réponse vide, jamais une clé qui ne figure pas dans la liste.',
+        'Choisis toujours une clé de la liste ci-dessus, même en cas de doute.',
       ]),
     ...(withConfidence ? ["Format de réponse : la clé, puis ' | ', puis ta confiance de 0 à 100 (exemple : cléA | 90). Sois honnête : en dessous de 80 si tu hésites."] : []),
   ].join('\n');
@@ -180,7 +179,11 @@ function extractUncertain(text, categories) {
 // `model` (4e paramètre, facultatif) : modèle imposé par l'appelant (ex. Haiku pour la correction d'orthographe).
 // Température 0 : réponse mémorisée par hash de l'entrée (aicache.memoize), 24 h.
 function callModel(prompt, maxTokens, feature, model) {
-  return aicache.memoize([model || modelName(), maxTokens || MAX_OUTPUT_TOKENS, prompt], () => callModelRaw(prompt, maxTokens, feature, model));
+  return aicache.memoize([model || modelName(), maxTokens || MAX_OUTPUT_TOKENS, prompt], () => {
+    // Plafond d'abus par compte, appels réels seulement (le mémo passe avant) ; l'orthographe a le sien (silentspellfix).
+    if (/^classement-tache/.test(feature || 'classement-tache') && !aicache.takeDailyCap('classement-tache', aibudget.currentUser(), aicache.capFromEnv('CLASSIFY_MAX_PER_DAY', 500))) throw new Error('Plafond quotidien de classement atteint.');
+    return callModelRaw(prompt, maxTokens, feature, model);
+  });
 }
 
 async function callModelRaw(prompt, maxTokens, feature, model) {
