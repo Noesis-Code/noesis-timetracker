@@ -2037,9 +2037,10 @@
 
   // Modules désactivés (js/modules.js) : un onglet masqué se replie sur Chrono ; sans modules.js, tout est actif.
   function tabAllowed(tab) { return !(window.TMT && TMT.modules && TMT.modules.tabOn) || TMT.modules.tabOn(tab); }
+  function firstTab() { return tabAllowed('chrono') ? 'chrono' : (tabAllowed('goals') ? 'goals' : 'activity'); }
   function modOn(id) { return !(window.TMT && TMT.modules) || TMT.modules.isOn(id); }
   function switchTab(tab) {
-    if (!tabAllowed(tab)) tab = 'chrono';
+    if (!tabAllowed(tab)) tab = firstTab();
     // 5 oct. 2026 (Emilien) : Historique/Archives reviennent enroulés (et sans réserve d'espace) à chaque changement d'onglet.
     collapseChronoHistory();
     if (TMT.collapseGoalsHistory) TMT.collapseGoalsHistory();
@@ -2069,9 +2070,8 @@
     $('profileSettingsBtn').classList.remove('active');
 
     if (tab === 'stats') {
-      // 3 oct. 2026 : on revient toujours sur la page 1 (stats de temps), jamais sur celle des tâches (sauf si « Temps » est désactivé).
-      if (TMT.setStatsPage) TMT.setStatsPage(modOn('stats') ? 1 : 2, { noAnim: true });
-      if (!modOn('stats')) { refreshScrollLock(); return; }
+      // 3 oct. 2026 : on revient toujours sur la page 1 (stats de temps), jamais sur celle des tâches .
+      if (TMT.setStatsPage) TMT.setStatsPage(1, { noAnim: true });
       loadStats();
       // La Feuille de temps repart toujours sur "Semaine, semaine en cours"
       // à chaque ouverture de l'onglet (comportement déjà établi le 29 août
@@ -9542,7 +9542,7 @@
   function loadFollowRequests() {
     if (!modOn('community')) return;
     if (!profile) return;
-    api('GET', '/api/follows/requests?userId=' + profile.id).then(renderFollowRequests);
+    api('GET', '/api/follows/requests?userId=' + profile.id).then(renderFollowRequests).catch(function () { /* module Communauté désactivé ou hors ligne */ });
   }
 
   function renderFollowRequests(list) {
@@ -15931,13 +15931,14 @@
   window.TMT.appendLinkified = appendLinkified;
   window.TMT.switchTab = switchTab;
   // Bascule d'un module (Réglages > Modules) : l'interface se met à jour sans recharger l'app.
-  document.addEventListener('tmt:modules', function () {
+  function onModulesChange() {
     var active = document.querySelector('.tabBtn.active');
-    if (active && !tabAllowed(active.dataset.tab)) { switchTab('chrono'); return; }
-    if (active && active.dataset.tab === 'stats') switchTab('stats');
+    if (active && !tabAllowed(active.dataset.tab)) { switchTab(firstTab()); return; }
     if (!modOn('community')) closeProfilePage();
-    loadPendingInvites(); loadFollowRequests(); refreshUnreadBadges();
-  });
+    if (profile) { loadPendingInvites(); loadFollowRequests(); refreshUnreadBadges(); }
+  }
+  document.addEventListener('tmt:modules', onModulesChange);
+  onModulesChange();
   window.TMT.whenElementReady = whenElementReady;
   window.TMT.focusWhenReady = focusWhenReady;
   window.TMT.setActivityPageSection = setActivityPageSection;

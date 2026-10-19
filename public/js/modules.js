@@ -35,9 +35,9 @@
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) { var e = new Error(d.error || 'Erreur.'); throw e; } return d; }); });
   }
   function on(id) { return id === 'core' || !state || state[id] !== false; }
-  // Onglets de la barre du bas : Chrono et Activité = noyau ; Stats = Temps (stats) ou Tâches (stats-tasks) ; le reste = son module.
+  // Onglets de la barre du bas : Activité = noyau ; ensemble « Temps » = onglets Chrono ET Stats ensemble ; le reste = son module.
   function tabOn(tab) {
-    if (tab === 'stats') return on('stats') || on('stats-tasks');
+    if (tab === 'stats' || tab === 'chrono') return on('stats');
     if (tab === 'goals') return on('roadmap');
     if (tab === 'community') return on('community');
     return true;
@@ -45,7 +45,6 @@
   function apply() {
     var off = [];
     Object.keys(state || {}).forEach(function (id) { if (state[id] === false) off.push(id); });
-    if (!tabOn('stats')) off.push('tab-stats');
     var root = document.documentElement;
     if (off.length) root.setAttribute('data-modules-off', off.join(' ')); else root.removeAttribute('data-modules-off');
     try { document.dispatchEvent(new CustomEvent('tmt:modules')); } catch (e) { /* vieux navigateur */ }
