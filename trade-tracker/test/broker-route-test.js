@@ -23,7 +23,7 @@ const B = require('../server/lib/brokertoken');
   const call = (ctx, method, p, cookie, body) => fetch(ctx.base + p, { method, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: body === undefined ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)) });
   const servers = [];
   try {
-    const ctx = mk({ TRADE_TOKEN_KEY: key }); servers.push(ctx.server);
+    const ctx = mk({ TRADE_TOKEN_KEY: key }, { broker: 200, write: 500 }); servers.push(ctx.server);
     const secretTok = 'Zq9-' + crypto.randomBytes(16).toString('hex');
     // session requise
     assert.strictEqual((await call(ctx, 'POST', '/api/broker/token', null, { token: secretTok })).status, 401);
@@ -50,6 +50,22 @@ const B = require('../server/lib/brokertoken');
     assert.strictEqual((await call(ctx, 'POST', '/api/broker/token', c1, { token: t2 })).status, 200);
     assert.strictEqual(B.getBrokerToken(ctx.db, 1, { env: { TRADE_TOKEN_KEY: key } }), t2);
     assert.strictEqual(ctx.db.prepare('SELECT COUNT(*) n FROM broker_tokens').get().n, 1);
+
+    // suppression : jeton + données dérivées de l'utilisateur 1 seulement
+    const { syncAll } = require('../server/lib/sync');
+    ctx.db.prepare("INSERT INTO tt_users (tmtUserId,name,role) VALUES ('tmt-e','E','expert')").run();
+    await syncAll(ctx.db);
+    const cnt = (t, u) => ctx.db.prepare(`SELECT COUNT(*) n FROM ${t} WHERE userId = ?`).get(u).n;
+    const u2acc = cnt('accounts', 3), u2log = cnt('sync_log', 3);
+    assert(u2acc > 0 && u2log > 0 && cnt('sync_log', 1) > 0);
+    assert.strictEqual((await call(ctx, 'DELETE', '/api/broker/token', null)).status, 401);
+    r = await call(ctx, 'DELETE', '/api/broker/token', c1);
+    assert.deepStrictEqual(await r.json(), { ok: true, brokerConnected: false });
+    assert(!B.hasBrokerToken(ctx.db, 1));
+    for (const t of ['accounts', 'sync_log', 'history', 'events']) assert.strictEqual(cnt(t, 1), 0, t);
+    assert.strictEqual(ctx.db.prepare('SELECT COUNT(*) n FROM positions p JOIN accounts a ON a.id = p.accountId WHERE a.userId = 1').get().n, 0);
+    assert.strictEqual(cnt('accounts', 3), u2acc); assert.strictEqual(cnt('sync_log', 3), u2log, 'autres utilisateurs intacts');
+    assert.strictEqual((await call(ctx, 'DELETE', '/api/broker/token', c1)).status, 200, 'idempotent');
 
     // clé absente : refus clair, rien de stocké
     const nk = mk({}); servers.push(nk.server);

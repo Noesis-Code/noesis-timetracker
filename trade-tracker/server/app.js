@@ -197,6 +197,12 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     res.json({ ok: true, brokerConnected: true });
   });
 
+  // Suppression RÉELLE : jeton + données de synchro de l'utilisateur (comptes, positions, soldes, transactions, historique, journal, événements). La confirmation est faite côté client.
+  app.delete('/api/broker/token', rlBroker, (req, res) => {
+    try { BT.deleteBrokerToken(db, req.user.id); BT.purgeSyncData(db, req.user.id); } catch { return err(res, 500, 'delete_failed', 'Suppression non terminée.'); }
+    res.json({ ok: true, brokerConnected: false });
+  });
+
   app.post('/api/invitations', expertOnly, (req, res) => {
     const role = req.body && req.body.role;
     const email = req.body && req.body.email;
