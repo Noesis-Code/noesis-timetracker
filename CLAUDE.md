@@ -17,7 +17,10 @@ Source unique de vérité du fonctionnement du dépôt. Historique détaillé de
 
 ## Chantiers permanents (19 oct. 2026)
 
-Sept chantiers tournent en permanence (Trade Tracker, TT Basic, TT Expansion, Crédits Claude et API, Simplification et design, Précision des tâches, Principal/pilotage). Missions et règles dans `CHANTIERS.md`.
+Sept chantiers tournent en permanence (Trade Tracker, TT Basic, TT Expansion, Crédits Claude et API, Simplification et design, Précision des tâches, Principal/pilotage). Missions et règles dans `CHANTIERS.md`. Chaque chantier est relié à un secteur de l'app (pôle Trading : « Trade Tracker » ; pôle Time Tracker : « Basic », « Expansion », « Crédits Claude et API », « Simplification et design général », « Précision des tâches générées », « Principal et pilotage ») : le coordinateur lit les nouvelles tâches par secteur (MCP TiMeTracker `lister_taches`).
+
+- **Drive NOÈSIS** (dossier partagé avec Gaspard) : il suit les pôles/secteurs de l'app (TiMeTracker, Communauté, Entreprise, PARTNERS ; secteurs de TiMeTracker = ceux ci-dessus). Renommage seul ; jamais de nouveau document sans demande.
+- **Paiement Stripe** : `staging` = clés de test uniquement, aucun vrai paiement ; le bouton d'achat Expansion n'est actif que sur staging.
 
 ## Simplification (19 oct. 2026) — priorité permanente
 

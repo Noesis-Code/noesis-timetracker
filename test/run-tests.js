@@ -70,7 +70,7 @@ async function main() {
   process.env.S3_ACCESS_KEY_ID = 'TESTKEYID';
   process.env.S3_SECRET_ACCESS_KEY = 'testsecretkeyvalue1234567890';
   process.env.NOESIS_BACKUP_KEY = TEST_KEY_HEX;
-  process.env.NOESIS_BACKUP_KEEP = '3';
+  process.env.BACKUP_RETENTION_APPLY = '1'; // la rétention 14 j / 8 sem. / 12 mois ne simule que sans ceci
   process.env.NOESIS_BACKUP_PREFIX = 'noesis-backups/';
 
   const { db } = makeTestDb(workDir, 500);
@@ -146,14 +146,17 @@ async function main() {
   assert(afterWrite === 501, 'la base source reste inscriptible et cohérente après l\'instantané concurrent');
   liveDb.close();
 
-  console.log('\n7. Rotation / purge (NOESIS_BACKUP_KEEP=3)');
+  console.log('\n7. Rotation / purge (rétention par jour, BACKUP_RETENTION_APPLY=1)');
   await backup.runBackupOnce({ log() {}, warn() {}, error() {} });
   await new Promise((r) => setTimeout(r, 1100)); // horodatage à la seconde près dans la clé : éviter les doublons
   await backup.runBackupOnce({ log() {}, warn() {}, error() {} });
   await new Promise((r) => setTimeout(r, 1100));
   await backup.runBackupOnce({ log() {}, warn() {}, error() {} });
-  let afterFive = await client.listObjects('noesis-backups/');
-  assert(afterFive.length === 3, `au-delà de 3 sauvegardes conservées, les plus anciennes sont purgées (obtenu : ${afterFive.length})`);
+  const afterFive = (await client.listObjects('noesis-backups/')).map((o) => o.key).sort();
+  // Une sauvegarde par jour est conservée (la plus récente) : plusieurs copies faites en quelques secondes
+  // = 1 seule, ou 2 si le test enjambe minuit UTC. (Ancien test « 3 conservées » : NOESIS_BACKUP_KEEP n'existe plus.)
+  const days = new Set(afterFive.map((k) => (/(\d{4}-\d{2}-\d{2})T/.exec(k) || [])[1]));
+  assert(afterFive.length >= 1 && afterFive.length <= 2 && afterFive.length === days.size, `une seule sauvegarde conservée par jour, les doublons sont purgés (obtenu : ${afterFive.length})`);
 
   console.log('\n8. Base absente (premier démarrage, avant toute donnée)');
   const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noesis-backup-empty-'));
