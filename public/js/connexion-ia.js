@@ -40,6 +40,8 @@
       card.appendChild(el('p', 'aiConnectWarn', 'Copie ce jeton maintenant : il ne sera plus jamais affiché.'));
       card.appendChild(copyRow('Jeton', shown.token));
       card.appendChild(copyRow('Adresse du serveur', data.url));
+      card.appendChild(copyRow('Adresse complète pour claude.ai', (data.origin || location.origin) + '/mcp/t/' + shown.token));
+      card.appendChild(el('p', 'hint', 'Colle cette adresse dans claude.ai > Paramètres > Connecteurs > Ajouter un connecteur personnalisé (sans identifiant). Elle contient ton jeton : ne la partage pas ; révoque-la ici au besoin.'));
       var ok = el('button', 'iconBtn', "J'ai copié"); ok.type = 'button';
       ok.addEventListener('click', function () { shown = null; paint(data); });
       card.appendChild(ok);

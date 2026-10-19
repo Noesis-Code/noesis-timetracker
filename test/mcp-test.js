@@ -27,10 +27,14 @@ assert(db.prepare('SELECT COUNT(*) n FROM ai_tokens WHERE tokenHash = ?').get(ai
 
 const app = require('../server/index.js');
 setTimeout(async () => {
-  const call = (token, body) => new Promise((resolve, reject) => {
+  const logs = [];
+  ['log', 'error', 'warn'].forEach((k) => { const o = console[k]; console[k] = (...a) => { logs.push(a.join(' ')); o.apply(console, a); }; });
+  const callUrl = (token, body) => callPath('/mcp/t/' + token, null, body);
+  const call = (token, body) => callPath('/mcp', token, body);
+  const callPath = (urlPath, token, body) => new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
-    const r = http.request({ port: process.env.PORT, host: 'localhost', path: '/mcp', method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data), 'X-Forwarded-Proto': 'https' }, token ? { Authorization: 'Bearer ' + token } : {}) }, (res) => {
-      let b = ''; res.on('data', (c) => b += c); res.on('end', () => resolve({ status: res.statusCode, body: b ? JSON.parse(b) : null }));
+    const r = http.request({ port: process.env.PORT, host: 'localhost', path: urlPath, method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data), 'X-Forwarded-Proto': 'https' }, token ? { Authorization: 'Bearer ' + token } : {}) }, (res) => {
+      let b = ''; res.on('data', (c) => b += c); res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: b ? JSON.parse(b) : null }));
     });
     r.on('error', reject); r.end(data);
   });
@@ -82,9 +86,16 @@ setTimeout(async () => {
     assert(sent === 10, 'notifier limité à 10 par jour');
     assert((await call(tW.token, rpc('tools/call', { name: 'supprimer_tache', arguments: { taskId: 1 } }))).body.error, 'aucun outil de suppression');
     aitokens.revokeToken('A', tW.id);
+    // jeton dans l'URL
+    const ul = await callUrl(tA.token, rpc('tools/list'));
+    assert(ul.status === 200 && ul.body.result.tools.length >= 4, 'URL : jeton valide -> tools/list');
+    assert(ul.headers['cache-control'] === 'no-store' && ul.headers['referrer-policy'] === 'no-referrer', 'URL : no-store + no-referrer');
+    assert((await callUrl('tmt_faux', rpc('ping'))).status === 401, 'URL : jeton invalide = 401');
     // révocation immédiate
     assert(aitokens.revokeToken('A', tA.id), 'révocation');
     assert((await call(tA.token, rpc('ping'))).status === 401, 'jeton révoqué = 401');
+    assert((await callUrl(tA.token, rpc('ping'))).status === 401, 'URL : jeton révoqué = 401');
+    assert(!logs.join('\n').includes(tA.token) && !logs.join('\n').includes(tW.token), 'aucune trace du jeton dans la console serveur');
     // max 5 actifs
     for (let i = 0; i < 4; i++) aitokens.createToken('B', 'n' + i);
     let blocked = false; try { aitokens.createToken('B', 'de trop'); } catch (e) { blocked = true; }
