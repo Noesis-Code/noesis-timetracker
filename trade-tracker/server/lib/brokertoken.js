@@ -29,6 +29,19 @@ function saveBrokerToken(db, userId, plain, { broker = 'questrade', env = proces
     .run(userId, broker, encrypt(plain, env), new Date(now).toISOString());
 }
 
+// Rotation d'un jeton à usage unique : remplace `oldPlain` par `newPlain` en une transaction (BEGIN IMMEDIATE).
+// Si le jeton stocké a changé entre-temps (l'utilisateur en a collé un nouveau), il est conservé : retourne false.
+function rotateBrokerToken(db, userId, oldPlain, newPlain, { broker = 'questrade', env = process.env, now = Date.now() } = {}) {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const cur = getBrokerToken(db, userId, { broker, env });
+    const swap = cur === oldPlain;
+    if (swap) saveBrokerToken(db, userId, newPlain, { broker, env, now });
+    db.exec('COMMIT');
+    return swap;
+  } catch (e) { try { db.exec('ROLLBACK'); } catch { /* déjà annulée */ } throw e; }
+}
+
 function getBrokerToken(db, userId, { broker = 'questrade', env = process.env } = {}) {
   const r = db.prepare('SELECT tokenEnc FROM broker_tokens WHERE userId = ? AND broker = ?').get(userId, broker);
   return r ? decrypt(r.tokenEnc, env) : null;
@@ -63,4 +76,4 @@ function purgeSyncData(db, userId) {
   } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 
-module.exports = { encrypt, decrypt, saveBrokerToken, getBrokerToken, hasBrokerToken, isValidTokenFormat, hasEncryptionKey, deleteBrokerToken, purgeSyncData };
+module.exports = { encrypt, decrypt, saveBrokerToken, rotateBrokerToken, getBrokerToken, hasBrokerToken, isValidTokenFormat, hasEncryptionKey, deleteBrokerToken, purgeSyncData };
