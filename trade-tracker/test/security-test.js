@@ -26,9 +26,9 @@ const B = require('../server/lib/brokertoken');
         return { cookie: r.headers.get('set-cookie'), csp: (await fetch(b + '/api/health')).headers.get('content-security-policy') };
       } finally { srv.close(); }
     };
-    let m = await run({}); assert(/SameSite=Lax/.test(m.cookie) && !/Secure/.test(m.cookie)); assert.strictEqual(m.csp, "frame-ancestors 'none'");
+    let m = await run({}); assert(/SameSite=Lax/.test(m.cookie) && !/Secure/.test(m.cookie)); assert(/default-src 'self'/.test(m.csp) && /script-src 'self'/.test(m.csp) && /frame-ancestors 'none'$/.test(m.csp));
     m = await run({ TMT_BASE_URL: 'https://tmt.example.test/app' }, { 'x-forwarded-proto': 'https' });
-    assert(/SameSite=None; Secure/.test(m.cookie) && /HttpOnly/.test(m.cookie)); assert.strictEqual(m.csp, 'frame-ancestors https://tmt.example.test');
+    assert(/SameSite=None; Secure/.test(m.cookie) && /HttpOnly/.test(m.cookie)); assert(/frame-ancestors https:\/\/tmt\.example\.test$/.test(m.csp));
     dbm.exec('DELETE FROM link_nonces');
     m = await run({ TRADE_COOKIE_CROSS_SITE: '1' }); assert(/SameSite=None; Secure/.test(m.cookie));
   }
@@ -36,6 +36,10 @@ const B = require('../server/lib/brokertoken');
     // en-têtes
     const h = await fetch(base + '/api/health');
     assert.strictEqual(h.headers.get('x-content-type-options'), 'nosniff'); assert.strictEqual(h.headers.get('referrer-policy'), 'no-referrer');
+    // CSRF : écriture avec Origin étranger refusée (avant même l'authentification), Origin de l'app ou absent passe
+    const post = (o) => fetch(base + '/api/logout', { method: 'POST', headers: o ? { origin: o } : {} }).then((r) => r.status);
+    assert.strictEqual(await post('https://evil.example'), 403);
+    assert.strictEqual(await post('null'), 403);
     // cookie malformé : pas de 500
     assert.strictEqual((await fetch(base + '/api/me', { headers: { cookie: 'tt_session=%E0%A4%A' } })).status, 401);
     // limitation de /link : 3 puis 429

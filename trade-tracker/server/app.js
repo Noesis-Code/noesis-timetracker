@@ -33,7 +33,9 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     // Intégration en iframe : seul TMT (origine de TMT_BASE_URL) peut afficher l'app ; sinon personne.
-    res.setHeader('Content-Security-Policy', `frame-ancestors ${tmtOrigin || "'none'"}`);
+    // CSP complète : aucun script ni ressource externe (l'app n'en charge aucune) ; styles en ligne tolérés (attributs style générés).
+    res.setHeader('Content-Security-Policy', `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors ${tmtOrigin || "'none'"}`);
+    if (req.secure || req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
     if (!tmtOrigin) res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer'); // le jeton de lien est dans l'URL
     res.setHeader('Cache-Control', 'no-store');
@@ -46,6 +48,15 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
   const rlAdmin = createLimiter({ max: limits.admin || 10 })(ip);
   const rlRead = createLimiter({ max: limits.read || 300 })(ip);
   const rlBroker = createLimiter({ max: limits.broker || 10 })(ip); // en plus de la limite d'écriture générale
+  // CSRF : le cookie peut être SameSite=None (iframe TMT). Toute écriture portant un en-tête Origin doit venir de cette app ou de TMT.
+  app.use('/api', (req, res, next) => {
+    if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+    const o = req.headers.origin;
+    if (o == null) return next(); // client non navigateur (les navigateurs envoient toujours Origin sur une écriture)
+    let host = null; try { host = new URL(o).host; } catch { /* Origin invalide ou « null » */ }
+    if (host && (host === req.headers.host || (tmtOrigin && o === tmtOrigin))) return next();
+    res.status(403).json({ error: 'bad_origin', message: 'Origine refusée.' });
+  });
   app.use('/link', rlLink);
   app.use('/api', (req, res, next) => (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE' ? rlWrite : rlRead)(req, res, next));
   // Réponse JSON avec ETag fort (empreinte du corps) : If-None-Match identique => 304 sans corps.
