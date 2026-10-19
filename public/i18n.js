@@ -1172,6 +1172,21 @@
     '(en pause)': '(paused)',
     'Dossier introuvable.': 'Folder not found.',
     'Lire un fichier avec l’IA': 'Read a file with the AI',
+    // ---- Stratégie d'une activité (19 oct. 2026) ----
+    'Stratégie': 'Strategy',
+    'Stratégie de l’activité': 'Activity strategy',
+    'Quel est ton but global ?': 'What is your overall goal?',
+    'Pour quand ?': 'By when?',
+    'Ta priorité n° 1': 'Your priority #1',
+    'Ta priorité n° 2': 'Your priority #2',
+    'Ta priorité n° 3': 'Your priority #3',
+    'Ce qui ne doit PAS être fait / ignoré': 'What must NOT be done / is to be ignored',
+    'L’IA suit ces consignes : elle n’ajoute pas de tâche qui s’en écarte.': 'The AI follows these guidelines: it will not add tasks that deviate from them.',
+    'Enregistrement…': 'Saving…',
+    'Enregistré': 'Saved',
+    'Erreur d’enregistrement.': 'Could not save.',
+    'Seul le propriétaire de l’activité peut modifier la stratégie.': 'Only the activity owner can edit the strategy.',
+    'Retirer (hors stratégie)': 'Remove (outside strategy)',
   };
 
   // ------------------- Messages contenant une valeur variable -------------

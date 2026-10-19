@@ -661,7 +661,7 @@
     var c = l.task;
     return '<div class="ptTask docTasksChangeItem' + (c.mine ? '' : ' docTasksOther') + '" data-tid="' + c.id + '"><input type="checkbox" data-tid="' + c.id + '" aria-label="Appliquer"><div class="ptBody">'
       + (c.forName ? '<div class="docTasksChangeWhen"><span class="docTasksFor' + (c.mine ? ' me' : '') + '">' + (c.mine ? 'Pour toi' : 'Pour ' + esc(c.forName)) + '</span></div>' : '')
-      + '<div class="ptLabel ptTaskTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>'
+      + '<div class="ptLabel ptTaskTitle">' + esc(c.label) + ' · ' + esc(typeof window.t === 'function' ? window.t(c.fieldLabel) : c.fieldLabel) + '</div>'
       + '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>'
       + (c.reason ? '<div class="ptSub">' + esc(c.reason) + '</div>' : '')
       + '</div><button type="button" class="historyRowIconBtn danger" data-pd="' + c.id + '" aria-label="Refuser" title="Refuser">' + TRASH_ICON + '</button></div>';
