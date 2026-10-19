@@ -48,6 +48,15 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
   const rlBroker = createLimiter({ max: limits.broker || 10 })(ip); // en plus de la limite d'écriture générale
   app.use('/link', rlLink);
   app.use('/api', (req, res, next) => (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE' ? rlWrite : rlRead)(req, res, next));
+  // Réponse JSON avec ETag fort (empreinte du corps) : If-None-Match identique => 304 sans corps.
+  const sendJson = (req, res, obj) => {
+    const body = JSON.stringify(obj);
+    const tag = '"' + crypto.createHash('sha1').update(body).digest('base64url') + '"';
+    res.setHeader('ETag', tag);
+    const inm = String(req.headers['if-none-match'] || '');
+    if (inm && inm.split(',').some((t) => t.trim().replace(/^W\//, '') === tag)) return res.status(304).end();
+    res.type('application/json').send(body);
+  };
   const err = (res, status, error, message) => res.status(status).json({ error, message: message || error });
 
   // Admin (hors session) : import d'un export CSV du Sheet. Protégé par TRADE_ADMIN_TOKEN
@@ -110,7 +119,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     const s = scopeUserId(req, res); if (!s) return;
     const pf = buildPortfolio(db, s.userId);
     const lastPrice = pf.positions.map((p) => p.priceUpdatedAt).filter(Boolean).sort().pop() || null;
-    res.json({
+    sendJson(req, res, {
       scope: s.scope, asOf: lastPrice, usdCad: pf.usdCad, fxMissing: pf.fxMissing,
       totalValueCad: C.round2(pf.totalValueCad), cashCad: C.round2(pf.cashCad), investedCad: C.round2(pf.investedCad),
       costCad: C.round2(pf.costCad), pnlCad: C.round2(pf.pnlCad), pnlPct: C.round2(pf.pnlPct), dayChangeCad: null,
@@ -129,7 +138,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     if (req.query.accountId) list = list.filter((p) => String(p.accountId) === String(req.query.accountId));
     if (req.query.sector) list = list.filter((p) => (p.sector || 'Non classé') === req.query.sector);
     list = list.map(({ priced, ...p }) => p).sort((a, b) => (b.valueCad || 0) - (a.valueCad || 0));
-    res.json({ positions: list });
+    sendJson(req, res, { positions: list });
   });
 
   app.get('/api/allocation', (req, res) => {
@@ -147,14 +156,14 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     const from = re.test(req.query.from || '') ? req.query.from : '0000-01-01';
     const to = re.test(req.query.to || '') ? req.query.to : '9999-12-31';
     const rows = db.prepare('SELECT date, valueCad, netFlowCad FROM history WHERE userId = ? AND date >= ? AND date <= ? ORDER BY date').all(s.userId, from, to);
-    res.json(C.indexSeries(rows));
+    sendJson(req, res, C.indexSeries(rows));
   });
 
   app.get('/api/sync-log', (req, res) => {
     const s = scopeUserId(req, res); if (!s) return;
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
     const entries = db.prepare('SELECT id, at, accountId, kind, status, message, itemsCount FROM sync_log WHERE userId = ? ORDER BY id DESC LIMIT ?').all(s.userId, limit);
-    res.json({ entries });
+    sendJson(req, res, { entries });
   });
 
   // Portefeuille de l'utilisateur comparé à celui de l'expert (écarts en points de %, client - expert).
@@ -162,7 +171,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     const e = expertUser();
     if (!e) return err(res, 404, 'no_expert');
     const cmp = compareProportions(buildPortfolio(db, req.user.id), buildPortfolio(db, e.id));
-    res.json({ expertSyncedAt: (db.prepare("SELECT at FROM sync_log WHERE userId = ? AND kind='sync' AND status='OK' ORDER BY id DESC LIMIT 1").get(e.id) || {}).at || null, ...cmp });
+    sendJson(req, res, { expertSyncedAt: (db.prepare("SELECT at FROM sync_log WHERE userId = ? AND kind='sync' AND status='OK' ORDER BY id DESC LIMIT 1").get(e.id) || {}).at || null, ...cmp });
   });
 
   // Derniers achats de l'expert (lisibles par tous les utilisateurs connectés). Pagination courte.
@@ -185,7 +194,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
       amountCad: (() => { const c = C.toCad(r.amount, r.currency, usdCad); return c == null ? null : C.round2(c); })(),
       at: r.date,
     }));
-    res.json({ purchases, limit, offset, hasMore: more });
+    sendJson(req, res, { purchases, limit, offset, hasMore: more });
   });
 
   // Jeton courtier : chiffré (TRADE_TOKEN_KEY), propre à l'utilisateur connecté, jamais renvoyé ni journalisé.

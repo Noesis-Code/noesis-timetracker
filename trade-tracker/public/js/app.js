@@ -52,7 +52,7 @@
       var empty = emptyFor(tab, data);
       if (empty) el.innerHTML = '<div class="screenTitle">' + (TABS.filter(function (t) { return t[0] === tab; })[0] || ['', ''])[1] + '</div>' + empty;
       else window.TTScreens[tab].render(el, state, data);
-      el.setAttribute('aria-busy', 'false');
+      el.setAttribute('aria-busy', 'false'); stamp(); schedule();
       var h = el.querySelector('.screenTitle'); if (h) { h.setAttribute('role', 'heading'); h.setAttribute('aria-level', '1'); document.title = h.textContent + ' · Trade Tracker'; }
     }).catch(function (e) {
       el.setAttribute('aria-busy', 'false');
@@ -78,7 +78,45 @@
     bar.hidden = !off;
     if (off) bar.textContent = 'Hors ligne · données lues ' + (data.portfolio.lastSync ? TTF.ago(data.portfolio.lastSync.at) : 'précédemment');
   }
-  window.TTApp = { refresh: show };
+  // Redessin local (filtres, options) : sans rechargement ni retour en haut de page.
+  function redraw() {
+    if (!state.data) return show();
+    var y = window.scrollY, el = document.getElementById('screen');
+    window.TTScreens[current()].render(el, state, state.data); stamp(); window.scrollTo(0, y);
+  }
+
+  // --- Rafraîchissement périodique : 30 s onglet visible, pause onglet caché, reprise au retour, recul exponentiel sur erreur ---
+  var BASE = 30000, MAX = 300000, fails = 0, timer = null, checkedAt = null, busy = false;
+  var USES = { dashboard: ['portfolio', 'positions', 'history'], positions: ['portfolio', 'positions'], allocation: ['portfolio', 'positions'],
+    history: ['history'], expert: ['compare', 'purchases'], sync: ['portfolio', 'syncLog'] };
+  function stamp() {
+    var el = document.getElementById('syncStamp'), host = document.getElementById('screen');
+    if (!state.data || !host) return;
+    if (!el) { el = document.createElement('div'); el.id = 'syncStamp'; el.className = 'hint syncStamp'; host.appendChild(el); }
+    var ls = state.data.portfolio.lastSync;
+    el.textContent = 'Dernière synchro : ' + (ls ? TTF.ago(ls.at) : 'jamais') + (checkedAt ? ' · vérifié à ' + checkedAt.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' }) : '') +
+      (fails ? ' · connexion instable, nouvel essai plus tard' : '');
+  }
+  function schedule() {
+    clearTimeout(timer); timer = null;
+    if (document.hidden || !state.data || state.data.source !== 'api') return;
+    timer = setTimeout(tick, Math.min(BASE * Math.pow(2, fails), MAX));
+  }
+  function tick() {
+    if (document.hidden || busy) return schedule();
+    busy = true;
+    TTD.refresh().then(function (r) {
+      fails = 0; checkedAt = new Date(); state.data = r.data;
+      renderPill(r.data.portfolio.lastSync);
+      var tab = current(), el = document.getElementById('screen');
+      if (r.changed.some(function (k) { return USES[tab].indexOf(k) >= 0; }) && !document.querySelector('#modalRoot .modalVeil')) redraw(); else stamp();
+    }).catch(function (e) {
+      if (e && e.code === 401) { busy = false; return show(); }
+      fails++; stamp();
+    }).then(function () { busy = false; schedule(); });
+  }
+  document.addEventListener('visibilitychange', function () { if (document.hidden) { clearTimeout(timer); timer = null; } else tick(); });
+  window.TTApp = { refresh: show, redraw: redraw };
 
   document.getElementById('tabbar').addEventListener('click', function (e) {
     var b = e.target.closest('.tabBtn'); if (b) location.hash = '#/' + b.dataset.tab;

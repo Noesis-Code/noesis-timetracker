@@ -63,10 +63,10 @@
   }
 
   // Lignes de barres horizontales : [{label, sub, pct, value}]
-  function barList(items, max) {
+  function barList(items, max, unit) {
     var m = max || Math.max.apply(null, items.map(function (i) { return i.weightPct; })) || 1;
     return '<div class="barList">' + items.map(function (it, i) {
-      return '<div class="barRow"><div class="barHead"><span class="barLabel">' + esc(it.label) + (it.sub ? '<span class="barSub"> · ' + esc(it.sub) + '</span>' : '') + '</span><span class="barPct">' + TTF.pct(it.weightPct) + '</span></div><div class="barTrack"><div class="barFill" style="width:' + (it.weightPct / m * 100) + '%;background:' + color(i, it.key) + '"></div></div><div class="barVal">' + TTF.money0(it.valueCad) + '</div></div>';
+      return '<div class="barRow"><div class="barHead"><span class="barLabel">' + esc(it.label) + (it.sub ? '<span class="barSub"> · ' + esc(it.sub) + '</span>' : '') + '</span><span class="barPct">' + (unit === 'value' ? TTF.money0(it.valueCad) : TTF.pct(it.weightPct)) + '</span></div><div class="barTrack"><div class="barFill" style="width:' + (it.weightPct / m * 100) + '%;background:' + color(i, it.key) + '"></div></div><div class="barVal">' + (unit === 'value' ? TTF.pct(it.weightPct) : TTF.money0(it.valueCad)) + '</div></div>';
     }).join('') + '</div>';
   }
 
