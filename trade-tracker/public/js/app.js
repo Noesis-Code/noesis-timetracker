@@ -31,7 +31,7 @@
   }
   function show() {
     var tab = current(), el = document.getElementById('screen');
-    renderTabs(tab);
+    renderTabs(tab === 'broker' || tab === 'invite' ? 'sync' : tab);
     window.scrollTo(0, 0);
     TTD.load().then(function (data) {
       state.data = data; document.body.classList.toggle('demoMode', data.source === 'demo'); renderPill(data.portfolio.lastSync); renderOffline(data);

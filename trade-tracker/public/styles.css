@@ -242,3 +242,25 @@ body.demoMode .brand::after { content: 'démo'; margin-left: 8px; font-size: 10p
 .stateMsg { font-size: 13px; color: var(--text-light); max-width: 300px; }
 .btnPrimary { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 20px; margin-top: 6px; border-radius: 999px; border: 1px solid rgba(170, 150, 230, 0.55); background: var(--purple); color: var(--white); font-size: 14px; font-weight: bold; cursor: pointer; }
 .btnPrimary:active { transform: scale(0.97); }
+
+/* ---- Phase 2 : formulaires (connexion du courtier, invitation) ---- */
+.pageHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pageHead .screenTitle { margin: 2px 2px 0; }
+.stepList { margin: 8px 0 0; padding-left: 22px; font-size: 14px; display: flex; flex-direction: column; gap: 8px; }
+.stepList li::marker { color: var(--violet-soft); font-weight: bold; }
+.sendField { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 4px 4px 4px 14px; border-radius: 999px; background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line); }
+.sendField:focus-within { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(var(--purple-rgb), 0.18); }
+.sendField input { flex: 1; min-width: 0; height: 36px; background: none; border: none; outline: none; color: var(--text); font-size: 14px; }
+.sendField input::placeholder { color: var(--text-light); }
+.sendBtn { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--purple); color: var(--white); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.sendBtn:disabled, .btnPrimary:disabled { opacity: 0.45; cursor: default; }
+.sendBtn:active { transform: scale(0.94); }
+.formMsg { min-height: 18px; margin-top: 8px; font-size: 13px; color: var(--text-light); }
+.formMsg.ok { color: var(--violet-soft); }
+.formMsg.error { color: var(--brique-text); }
+.btnRow { display: flex; gap: 10px; }
+.btnRow > button { flex: 1; }
+.btnGhost, .btnDanger, .btnDangerOutline { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 18px; border-radius: 999px; font-size: 14px; font-weight: bold; cursor: pointer; color: var(--text); background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line); }
+.btnDanger { background: var(--brique); border-color: var(--brique); color: var(--white); }
+.btnDangerOutline { color: var(--brique-text); border-color: var(--brique); background: none; }
+.linkBtn { margin-top: 12px; width: 100%; }

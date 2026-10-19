@@ -18,14 +18,23 @@
 
   // Pop-up centré avec ✕ (jamais de feuille du bas).
   function modal(title, html) {
-    var root = document.getElementById('modalRoot');
+    var root = document.getElementById('modalRoot'), opener = document.activeElement;
     root.innerHTML = '<div class="modalVeil" role="dialog" aria-modal="true" aria-label="' + esc(title) + '"><div class="modalCard"><button type="button" class="topIconBtn modalClose" aria-label="Fermer">✕</button><div class="modalTitle">' + esc(title) + '</div>' + html + '</div></div>';
-    function close() { root.innerHTML = ''; document.removeEventListener('keydown', onKey); }
-    function onKey(e) { if (e.key === 'Escape') close(); }
+    function close() { root.innerHTML = ''; document.removeEventListener('keydown', onKey); if (opener && opener.focus && document.contains(opener)) opener.focus(); }
+    function onKey(e) {
+      if (e.key === 'Escape') return close();
+      if (e.key !== 'Tab') return;
+      var f = root.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
     root.querySelector('.modalClose').addEventListener('click', close);
     root.querySelector('.modalVeil').addEventListener('click', function (e) { if (e.target === this) close(); });
     document.addEventListener('keydown', onKey);
     root.querySelector('.modalClose').focus();
+    return { close: close, root: root };
   }
 
   // Barre empilée des parts

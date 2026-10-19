@@ -16,7 +16,7 @@
         (conns.length ? conns.map(function (c) {
           return '<div class="detailRow"><span>' + TTF.esc(c.label) + '<span class="hint"> · ' + TTF.ago(c.lastSync) + '</span></span>' + badge(c.status) + '</div>';
         }).join('') : '<div class="emptyState">Aucun compte connecté.</div>') +
-        '<div class="hint" style="margin-top:10px">La connexion se gère côté serveur ; cet écran en affiche seulement l’état.</div></div>' +
+        '<a class="btnGhost linkBtn" href="#/broker">' + (raw.me && raw.me.brokerConnected ? 'Gérer ma connexion' : 'Connecter mon courtier') + '</a></div>' +
         '<div class="sectionTitle">Journal</div>' +
         '<div class="card">' + (raw.syncLog.length ? raw.syncLog.map(function (e) {
           return '<div class="logRow"><div class="logTop">' + badge(e.status) + '<span class="hint">' + TTF.dateTime(e.at) + '</span></div><div class="logMsg">' + TTF.esc(KIND[e.kind] || e.kind) + ' · ' + TTF.esc(e.message) + '</div></div>';

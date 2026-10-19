@@ -99,3 +99,9 @@ Connecteur courtier (Questrade), prix et taux automatiques, écriture de transac
 
 ## Sécurité (relecture du 19 oct. 2026)
 Limites par IP (fenêtre 1 min, 429 + `Retry-After`) : `/link` 20, écritures `POST/PUT/DELETE` 30, import admin 10, lecture 300. Cookie `SameSite=None; Secure; HttpOnly` en HTTPS ou si `TRADE_COOKIE_CROSS_SITE=1` (iframe TMT), `Lax` en HTTP local ; `Content-Security-Policy: frame-ancestors <origine de TMT_BASE_URL>` (sinon `'none'` + `X-Frame-Options: DENY`). En-têtes `nosniff`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`. Signature de lien comparée à temps constant, expiration 5 min (plafonnée), nonce à usage unique, sessions expirées purgées, jeton courtier chiffré AES-256-GCM, aucun secret journalisé ni en dur (test `security-test.js`).
+
+## Demandes à la piste serveur
+Demandées par l'interface (phase 2) ; l'écran « Connecter mon courtier » les appelle déjà et affiche « pas encore disponible » tant qu'elles répondent 404.
+- `POST /api/broker/token` `{ token }` -> `{ ok: true, brokerConnected: true }` (400/422 si le jeton est refusé). Chiffre et stocke (`saveBrokerToken`), ne renvoie jamais le jeton ; réponse jamais mise en cache. Le client n'envoie le jeton qu'à cette route et ne le garde pas.
+- `DELETE /api/broker/token` -> `{ ok: true, brokerConnected: false }` (efface le jeton chiffré de l'utilisateur connecté).
+- `GET /api/purchases` -> `{ purchases: [ { id, at, symbol, name, sector, accountType, quantity, price, currency, amountCad } ] }` (derniers achats de l'expert, pour « Moi et l'expert » ; liste vide tant que l'endpoint est absent).
