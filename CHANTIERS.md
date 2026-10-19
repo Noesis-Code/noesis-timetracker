@@ -48,8 +48,6 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 1. Portail client Stripe et résiliation : parcours préparé en mode test.
 2. Idempotence du webhook Stripe testée (même événement reçu deux fois).
 3. Textes « Offre 1 » → Expansion dans CGU, confidentialité et code, hors ids et routes.
-4. Cadrage écrit du plan de la semaine (entrées, sorties, limites).
-5. Parcours de bout en bout (achat, livraison, résiliation) en mode test sur staging.
 
 **4. Crédits Claude et API**
 1. Rapport de coût par fonction IA (`scripts/ai-cost-report.js`, `ai_usage_log`).
