@@ -269,7 +269,7 @@
 :root #goalsActivitySwitcher .goalsActivityHeader {
   background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important; backdrop-filter: var(--glass-blur) !important;
 }
 
 /* 2 oct. 2026 (Emilien) : flèches du cadre de pôle seules, sans zone carrée autour. */
@@ -319,4 +319,4 @@
 .goalsYearRow .statsPeriodMenuItem { flex: 1 1 auto; }
 .goalsYearDel { border: none; background: transparent; color: var(--text-light); padding: 6px 10px; font: inherit; font-size: 12px; cursor: pointer; }
 .goalsYearNew { font-weight: 700; }
-.goalsYearPickWrap .statsPeriodMenu { z-index: 30; background: var(--card, #1c1b24) !important; }
+.goalsYearPickWrap .statsPeriodMenu { z-index: 30; background: var(--card) !important; }

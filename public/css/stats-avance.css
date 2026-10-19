@@ -4,7 +4,7 @@
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
   bottom: var(--tabbar-h, 64px); display: flex; gap: 0;
 }
-#statsPageDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: #fff; opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+#statsPageDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
 #statsPageDots .goalsDotBtn.on .goalsDot { opacity: 1; }
 #statsAvancePage { padding-bottom: calc(var(--tabbar-h, 64px) + 40px); }
 .saChips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 12px; scrollbar-width: none; }
@@ -21,8 +21,8 @@
 .saHalf .saCard, .saCard.saHalf { padding: 8px 10px; }
 .saHalf h3 { font-size: 12.5px; }
 .saGlass { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: var(--glass-shadow, none); }
-/* 9 oct. 2026 : même verre que les sections de l'onglet 1 (.statsSection, verre-calme.css) : fond --vc-bg, liseré intérieur, flou. */
-:root .saGlass { background: var(--vc-bg); border: 0; box-shadow: inset 0 0 0 1px var(--vc-line); -webkit-backdrop-filter: var(--vc-blur); backdrop-filter: var(--vc-blur); }
+/* 9 oct. 2026 : même verre que les sections de l'onglet 1 (.statsSection, verre-calme.css) : fond --glass-calm-bg, liseré intérieur, flou. */
+:root .saGlass { background: var(--glass-calm-bg); border: 0; box-shadow: inset 0 0 0 1px var(--glass-calm-line); -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur); }
 .saCard { padding: 12px; }
 .saHd { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
 .saHd .sectionTitle { margin: 0; }
@@ -42,10 +42,10 @@
 .saBig { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .saSmall { font-size: 12px; opacity: .7; }
 .saBadge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 8px; white-space: nowrap; }
-.saBadge.up { color: #4CAF50; background: rgba(76, 175, 80, .15); }
-.saBadge.dn { color: #E74C3C; background: rgba(231, 76, 60, .15); }
+.saBadge.up { color: var(--green); background: rgba(76, 175, 80, .15); }
+.saBadge.dn { color: var(--red); background: rgba(231, 76, 60, .15); }
 .saCv { font-size: 12.5px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.saBar2 { height: 6px; border-radius: 3px; background: #2b2e35; overflow: hidden; display: flex; margin-top: 8px; }
+.saBar2 { height: 6px; border-radius: 3px; background: var(--track-bg); overflow: hidden; display: flex; margin-top: 8px; }
 .saBar2 u { display: block; height: 100%; }
 .saRw { display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin-top: 8px; }
 .saRwN { flex: 0 0 100px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -62,7 +62,7 @@
 .saTile b { font-size: 15px; font-variant-numeric: tabular-nums; }
 .saLst { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
 .saLst li { display: flex; justify-content: space-between; gap: 8px; }
-.saLst b { color: #E74C3C; font-weight: 500; white-space: nowrap; }
+.saLst b { color: var(--red); font-weight: 500; white-space: nowrap; }
 .saAdd { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px; border-radius: 14px; font: inherit; font-size: 13.5px; color: var(--text); background: none; border: 1px dashed var(--glass-border); }
 .saAdd b { color: var(--purple); font-size: 18px; line-height: 1; }
 .saSep { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; opacity: .65; margin: 4px 2px 0; }
@@ -73,7 +73,7 @@
 .saActs { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin-top: 4px; }
 .saCancel, .saApply { padding: 12px; border-radius: 14px; font: inherit; font-size: 14px; color: var(--text); }
 .saCancel { border: 1px solid var(--glass-border); background: rgba(255, 255, 255, .05); }
-.saApply { border: 1px solid #C2694A; background: transparent; color: #E08A69; font-weight: 600; }
+.saApply { border: 1px solid var(--brique); background: transparent; color: var(--brique-text); font-weight: 600; }
 
 /* 3 oct. 2026 : zone tactile au-dessus de la barre d'onglets (ne la recouvre pas), point visuel au même endroit qu'avant. */
 #statsPageDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
@@ -99,7 +99,7 @@
 .saDayCol { position: relative; flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
 .saDayCol i { width: 100%; position: relative; z-index: 1; }
 .saDayPlan { position: absolute; left: 0; right: 0; bottom: 0; border: 1px dashed var(--text); opacity: .55; border-radius: 3px 3px 0 0; box-sizing: border-box; z-index: 2; pointer-events: none; }
-.saDayCol.future::after { content: ''; width: 100%; height: 3px; border: 1px dashed #2b2e35; box-sizing: border-box; }
+.saDayCol.future::after { content: ''; width: 100%; height: 3px; border: 1px dashed var(--track-bg); box-sizing: border-box; }
 /* 9 oct. 2026 : fenêtre « Retirer cette information ? » — filet sous le titre et la croix, en-tête un peu plus haut (classe posée seulement depuis les stats). */
 #categoryRemoveModal.saConfirm .communityMembersModalCard { padding-top: 2px; }
 #categoryRemoveModal.saConfirm .communityMembersModalHeader { padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--glass-border); }

@@ -1,4 +1,12 @@
+/* =====================================================================
+   TOKENS — SEUL endroit où ajuster le design de l'app (sombre uniquement).
+   Tout le reste du CSS (ce fichier + public/css/*.css) lit ces variables ;
+   ne plus écrire de couleur, de flou ni d'ombre en dur ailleurs.
+   Le violet (--purple) reste la couleur principale, halos compris. Les
+   couleurs de pôle ne sont PAS ici : elles viennent de theme-palette.js.
+   ===================================================================== */
 :root {
+  /* ---- Couleurs de base ---- */
   --purple: #674EA7;
   --purple-dark: #4a3980;
   --purple-rgb: 103, 78, 167;
@@ -6,86 +14,95 @@
   --red: #E74C3C;
   --blue: #3498db;
   --grey: #CCCCCC;
-  --bg: #000000;
-  --card: #1f2229;
-  /* --bg-raised (28 septembre 2026, suite) : nuance initialement conçue
-     pour distinguer une "barre" du fond SANS ligne de séparation.
-     ⚠️ .tabbar/#app::after ne l'utilisent plus depuis le même jour (2e
-     revu : Emilien veut AUCUNE différence perceptible avec le fond, voir
-     leurs commentaires) — variable conservée pour un futur besoin de ce
-     type. Inchangée en thème clair (identique à --card). */
+  --white: #ffffff;
+  --black: #000000;
+  --bg: #000000;              /* fond page / fenêtres, = barre du haut */
   --bg-raised: #121214;
+  --card: #1f2229;
   --text: #eef0f2;
   --text-light: #9a9ea6;
   --border: #33363d;
   --track-bg: #2b2e35;
   --hover-bg: #2a2d34;
+  --surface-dim: #1c1c22;
 
-  /* ===== Design tokens (amélioration visuelle du 29 août 2026) =====
-     Rayons/ombres/transitions communs, pour que tous les composants
-     (cartes, boutons, contrôles) restent visuellement cohérents et que le
-     mode sombre ait de vraies ombres/séparations au lieu d'un aplat. */
+  /* ---- Accents ---- */
+  --brique-rgb: 194, 105, 74;
+  --brique: #C2694A;          /* boutons d'action / suppression : bordure ou fond */
+  --brique-text: #E08A69;     /* ... texte */
+  --brique-stop: #C4483F;     /* stop du chrono */
+  --unread: #f59a3c;          /* pastilles non lues */
+  --live-green: #22C55E;
+  --mine-violet: #B7AED3;
+  --mine-violet-text: #1E1833;
+  --violet-soft: #cdbdf0;     /* libellé d'onglet actif */
+  --violet-pale: #f3ecff;
+  --violet-trail: #9583c1;
+  --violet-promo: #c9b8ff;
+  --violet-me: #9d84e0;
+  --lilac-bg: #d9d0ff;
+  --lilac-text: #2b2058;
+  --grey-violet: #9a94b8;
+  --tab-idle: #555555;
+  --tab-idle-dark: #c9cdd4;
+  --link-blue: #7db8ff;
+  --ios-blue: #0a84ff;
+  --onb-bg: #000000;          /* écrans d'accueil */
+  --onb-purple: #a996dd;
+
+  /* ---- États (réussite, alerte, danger) ---- */
+  --good: #6fc9a0;
+  --good-text: #9be0bf;
+  --bad: #e0626b;
+  --danger-armed: #e5484d;
+  --warn-orange: #ff9f2e;
+  --warn-text-1: #f0b36b;
+  --warn-text-2: #e8ab62;
+  --warn-gold: #e8c46a;
+  --warn-line: #6b5a2a;
+  --partial: #f0ad4e;
+  --float-bg: #3a3a3f;        /* menu flottant de capture */
+  --float-active: #4a4a50;
+  --float-text: #e8e8ec;
+  --float-label: #b9b9c0;
+
+  /* ---- Rayons ---- */
   --radius-sm: 8px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 20px;
   --radius-2xl: 24px;
+
+  /* ---- Ombres, transitions ---- */
   --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
   --shadow-elevated: 0 16px 40px rgba(0, 0, 0, 0.5);
   --shadow-topbar: 0 2px 14px rgba(0, 0, 0, 0.4);
   --shadow-tabbar: 0 -2px 14px rgba(0, 0, 0, 0.4);
   --shadow-badge: 0 3px 10px rgba(0, 0, 0, 0.45);
   --transition-fast: 0.15s ease;
-}
+  --sheet-line: rgba(255, 255, 255, 0.3);   /* liseré haut des feuilles du bas */
+  --veil: rgba(0, 0, 0, 0.5);               /* voile derrière une fenêtre */
 
-/* Mode sombre (par défaut) — activé via l'attribut data-theme sur <html>,
-   posé par public/app.js selon le thème du profil connecté. Voir aussi
-   server/lib/theme.js pour les palettes de couleurs d'activités associées. */
-:root[data-theme="dark"] {
-  /* --bg alignée sur le noir pur de .topbar (#000000, voir plus bas) le
-     28 septembre 2026, demande d'Emilien : « le fond de l'application soit
-     noir de la même nuance que l'entête [...] pour tous les volets, pour
-     toutes les fenêtres, pour tout » — moins de nuances de fond distinctes,
-     rendu plus simple. --bg pilotant déjà la quasi-totalité des fonds de
-     volets/fenêtres/panneaux de l'app (var(--bg), utilisée dans tout le
-     fichier), ce seul changement suffit à couvrir "tout" sans variante par
-     écran. --card (cartes/éléments à l'intérieur d'un volet) reste distincte
-     pour conserver leur détachement visuel du fond, inchangée ici. */
-  --bg: #000000;
-  --card: #1f2229;
-  /* --bg-raised (28 septembre 2026, suite — demande d'Emilien : « supprimer
-     la barre visible entre la barre des volets et l'écran [...] et cette
-     barre en haut [...] entre la zone de texte pour rechercher ou publier
-     et la page [...] pas de barre, avec une nuance de noir plus clair »).
-     Introduite pour remplacer les traits nets (border-top de .tabbar,
-     border-bottom de #communitySearchBar) par une nuance de noir LÉGÈREMENT
-     plus claire que le fond pur (var(--bg), #000000), jamais par une ligne.
-     ⚠️ 2e revu le même jour : Emilien précise ne vouloir AUCUNE différence
-     perceptible entre .tabbar et le fond (« que les icônes [...] semblent
-     flotter [...] de façon libre ») — .tabbar/#app::after sont donc
-     repassées à var(--bg) strictement (voir leurs commentaires).
-     ⚠️ 3e revu le même jour : #communitySearchBar, qui restait sur cette
-     nuance (#121214, en littéral), est à son tour repassée au noir pur
-     (#000000) — Emilien voulait la même absence de différence là aussi.
-     --bg-raised n'a donc plus AUCUN consommateur actif dans ce fichier ;
-     conservée telle quelle (définition + valeur) au cas où un futur élément
-     aurait besoin d'une nuance "élevée mais pas carte", plutôt que
-     supprimée, pour ne pas effacer la trace de ce raisonnement. */
-  --bg-raised: #121214;
-  --text: #eef0f2;
-  --text-light: #9a9ea6;
-  --border: #33363d;
-  --track-bg: #2b2e35;
-  --hover-bg: #2a2d34;
+  /* ---- Verre : UN seul jeu --glass-*, deux niveaux ----
+     (a) verre « liquide » : boutons, panneaux, barre du haut (flou 24px) ;
+     (b) verre « calme »  : cartes, lignes, champs (--glass-calm-*, flou 12px,
+         ex-jetons --vc-* de verre-calme.css). */
+  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%);
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.55);
+  --glass-blur: blur(24px) saturate(160%);
+  --glass-blur-sheet: blur(40px) saturate(160%);
+  --glass-calm-bg: rgba(255, 255, 255, .05);
+  --glass-calm-line: rgba(255, 255, 255, .12);
+  --glass-calm-blur: blur(12px) saturate(1.1);
+  --glass-calm-bg-strong: rgba(24, 24, 30, .74);   /* menus, colonnes figées */
+  --glass-calm-blur-strong: blur(18px) saturate(1.15);
+  --glass-calm-btn-bg: rgba(255, 255, 255, .025);  /* boutons flèches, trombone */
+  --glass-calm-btn-line: rgba(255, 255, 255, .10);
 
-  /* Sur fond sombre, une ombre noire classique est quasi invisible : on
-     l'assombrit et on ajoute un très léger liseré clair pour que les cartes
-     se détachent nettement du fond, au lieu de rester à plat. */
-  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
-  --shadow-elevated: 0 16px 40px rgba(0, 0, 0, 0.5);
-  --shadow-topbar: 0 2px 14px rgba(0, 0, 0, 0.4);
-  --shadow-tabbar: 0 -2px 14px rgba(0, 0, 0, 0.4);
-  --shadow-badge: 0 3px 10px rgba(0, 0, 0, 0.45);
+  /* ---- Halos des fenêtres (niveau 1 indigo, niveau 2 prune) ---- */
+  --halo-n1-rgb: 80, 96, 210; --halo-n1-a: 0.54;
+  --halo-n2-rgb: 158, 72, 168; --halo-n2-a: 0.54;
 }
 
 * { box-sizing: border-box; }
@@ -108,7 +125,7 @@
    arrive. Depuis le 28 septembre 2026, var(--bg) EST elle-même ce même
    noir (#000000, voir plus haut) — ce filet <html> reste néanmoins en
    place pour le thème clair, où --bg diffère toujours du noir. */
-html { background: #000000; }
+html { background: var(--black); }
 
 /* 2 septembre 2026, deuxième passage, suite (Design) : .topbar continuait à
    visiblement "flotter" au tiré-vers-le-bas même après le passage de
@@ -239,8 +256,6 @@ input[type=time]:focus, select:focus, textarea:focus {
 /* Calme visuel (30 sept. 2026) : écrans de création/connexion/gate PWA, violet adouci (désaturé, plus sombre),
    jamais remplacé. Jetons locaux à #onboarding : le violet du reste de l'app est inchangé. */
 #onboarding {
-  --onb-bg: #000000;
-  --onb-purple: #a996dd;
   height: 100vh;
   height: 100dvh;
   /* 12 septembre 2026 (Design) : overflow:hidden coupait sans recours
@@ -485,7 +500,7 @@ input[type=time]:focus, select:focus, textarea:focus {
    flux normal de #app. */
 .topbar {
   padding: 14px 18px; color: white;
-  background: #000000;
+  background: var(--black);
   box-shadow: var(--shadow-topbar);
   position: fixed; top: 0; left: 0; right: 0; z-index: 10;
 }
@@ -763,13 +778,13 @@ input[type=time]:focus, select:focus, textarea:focus {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.6) 100%);
   border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 30px rgba(0, 0, 0, 0.12);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
 }
 :root[data-theme="dark"] .tabbar::before {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%);
+  background: var(--glass-bg);
   border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--glass-shadow);
 }
 /* Un volet = un carré de verre (.tabIcon) + son libellé dessous. Largeur
    automatique (pas de flex:1) : « Feuille de route » est plus large que le
@@ -777,12 +792,12 @@ input[type=time]:focus, select:focus, textarea:focus {
 .tabBtn {
   position: relative; pointer-events: auto;
   flex: 0 0 auto; min-width: 54px; background: none; border: none; padding: 11px 0;
-  color: #555555; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: var(--tab-idle); display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 5px;
   cursor: pointer;
   transition: color var(--transition-fast), transform var(--transition-fast);
 }
-:root[data-theme="dark"] .tabBtn { color: #c9cdd4; }
+:root[data-theme="dark"] .tabBtn { color: var(--tab-idle-dark); }
 .tabBtn:active { transform: scale(0.94); }
 .tabIcon {
   display: flex; align-items: center; justify-content: center; position: relative;
@@ -801,19 +816,19 @@ input[type=time]:focus, select:focus, textarea:focus {
 /* Volet actif : carré teinté violet, icône blanche, libellé violet clair. */
 .tabBtn.active .tabIcon,
 :root[data-theme="dark"] .tabBtn.active .tabIcon {
-  background: linear-gradient(180deg, rgba(133, 108, 200, 0.55) 0%, rgba(103, 78, 167, 0.38) 100%);
+  background: linear-gradient(180deg, rgba(133, 108, 200, 0.55) 0%, rgba(var(--purple-rgb), 0.38) 100%);
   border-color: rgba(170, 150, 230, 0.55);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 6px 18px rgba(103, 78, 167, 0.45);
-  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 6px 18px rgba(var(--purple-rgb), 0.45);
+  color: var(--white);
 }
-.tabBtn.active { color: #ffffff; }
+.tabBtn.active { color: var(--white); }
 /* Point de notification sur l'icône d'un onglet — motif générique (Design),
    introduit le 30 août 2026 pour l'onglet Activité (invitations en attente).
    Repositionné le 29 septembre 2026 dans l'angle du carré de verre (54px). */
 .tabBtnDot {
   position: absolute; top: 8px; right: 8px;
   width: 7px; height: 7px; border-radius: 50%;
-  background: #f59a3c; border: none; box-shadow: 0 0 0 1px rgba(245, 154, 60, 0.25);
+  background: var(--unread); border: none; box-shadow: 0 0 0 1px rgba(245, 154, 60, 0.25);
 }
 /* Nom de la section sous le carré, dans la barre d'onglets. */
 .tabLabel {
@@ -830,7 +845,7 @@ input[type=time]:focus, select:focus, textarea:focus {
   .tabIcon { width: 46px; height: 46px; border-radius: 15px; }
   .tabLabel { font-size: 9px; }
 }
-:root[data-theme="dark"] .tabBtn.active .tabLabel { color: #cdbdf0; }
+:root[data-theme="dark"] .tabBtn.active .tabLabel { color: var(--violet-soft); }
 
 /* ⚠️ 29 septembre 2026, demande d'Emilien (direction visuelle « Piste B »,
    validée sur rendu du volet Chrono) — MATIÈRE « VERRE » commune à l'app :
@@ -855,32 +870,20 @@ body { isolation: isolate; }
   filter: blur(60px);
 }
 :root[data-theme="dark"] #app::before { background: rgba(var(--purple-rgb), 0.32); }
-:root {
-  --sheet-line: rgba(255, 255, 255, 0.3);
-  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%);
-  --glass-border: rgba(255, 255, 255, 0.16);
-  --glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.55);
-}
-:root[data-theme="dark"] {
-  --sheet-line: rgba(255, 255, 255, 0.3);
-  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%);
-  --glass-border: rgba(255, 255, 255, 0.16);
-  --glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.55);
-}
 
 /* Barre du haut (état par défaut) : photo de profil à gauche (36px), réglages
    à droite en carré de verre (36px, coins 12px). .topbar reste noire dans les
    deux thèmes : le verre y est donc toujours le verre SOMBRE, en dur. */
 .topbarDefault .whoamiAvatar { width: 36px; height: 36px; font-size: 15px; font-weight: 600; }
 .topbarDefault .topIconBtn {
-  width: 36px; height: 36px; padding: 0; border-radius: 12px; color: #eef0f2;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.55);
-  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  width: 36px; height: 36px; padding: 0; border-radius: 12px; color: var(--text);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 .topbarDefault .topIconBtn svg { width: 18px; height: 18px; }
-.topbarDefault .topIconBtn.active { color: #ffffff; }
+.topbarDefault .topIconBtn.active { color: var(--white); }
 
 /* Volet Stats (Piste B, choisi par Emilien sur rendu) : les petits contrôles des
    cartes — ‹ › (période), ⋮ (menus) et « Aujourd'hui » — deviennent vitreux,
@@ -891,14 +894,14 @@ body { isolation: isolate; }
 #tab-stats .sectionTitleRow .menuBtn {
   background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 /* 30 septembre 2026 (Piste B, volet Activité) : SEUL le « + » du haut devient vitreux ; le reste du volet est inchangé. */
 #tab-activity #addActivityBtn,
 #activityPage #catAddPoleBtn {
   background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 #activityPage #catAddPoleBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 /* 30 septembre 2026 (Piste B, fenêtre d'activité) : SEULS les boutons du haut (inviter, fermer) deviennent vitreux ;
@@ -906,7 +909,7 @@ body { isolation: isolate; }
 #activityPage .activityPageHeader .menuBtn {
   background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 /* 30 septembre 2026 (Piste B, Réglages + fenêtres Objectifs) : boutons ✕, flèches ‹ › et en-têtes de sections de
    Réglages en verre (jetons --glass-*) ; le contenu (cartes, zones de saisie, onglets Tâches/Objectifs) reste inchangé.
@@ -923,7 +926,7 @@ body { isolation: isolate; }
 #goalsMonthView #activityGoalsNextBtn {
   background: var(--glass-bg); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 #profileSettingsPanel .subpageHeader .menuBtn,
 #goalsActivitySwitcher #goalsBackToCaptureBtn,
@@ -938,11 +941,6 @@ body { isolation: isolate; }
    en bas ; niveau 2 (Page 3 de l'objectif) = halo prune en bas. Teintes de la famille violette de la palette.
    Le halo vit sur ::before de chaque fenêtre (fixe, z-index -1, sous le contenu) ; les fonds pleins des cartes
    internes sont rendus transparents pour le laisser voir. */
-:root {
-  --halo-n1-rgb: 80, 96, 210; --halo-n1-a: 0.22;
-  --halo-n2-rgb: 158, 72, 168; --halo-n2-a: 0.22;
-}
-:root[data-theme="dark"] { --halo-n1-a: 0.54; --halo-n2-a: 0.54; }
 #activityPage::before,
 #goalsActivitySwitcher::before,
 #profileSettingsPanel::before,
@@ -985,7 +983,7 @@ body { isolation: isolate; }
 #viewProfileChartPeriodBtn {
   background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 /* 30 septembre 2026 (Piste B) : flèches ‹ › de semaine et boutons « Aujourd'hui » des Statistiques/Historique en verre. */
 #historyPrevWeek,
@@ -1000,7 +998,7 @@ body { isolation: isolate; }
 #secteurTasksNextWeek {
   background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 /* 30 septembre 2026 (Piste B, « verre partout ») : les bascules (.periodBtn / .themeBtn : Tâches/Objectifs, Catégories/Statistiques/Discussion,
    Abonnés/Abonnements…) et le « + » des projets du Profil passent en verre. L'état ACTIF des bascules reste violet plein
@@ -1010,7 +1008,7 @@ body { isolation: isolate; }
 #addProjectBtn {
   background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 @media (hover: hover) {
   .periodBtn.periodBtn:hover:not(.active),
@@ -1086,7 +1084,7 @@ textarea {
    avec une marge fixe tout autour (`padding` sur #stopConfirmPanel) pour que
    la carte ne touche jamais les bords de l'écran quelle que soit sa largeur. */
 #stopConfirmPanel {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
+  position: fixed; inset: 0; background: var(--veil);
   display: flex; align-items: center; justify-content: center; z-index: 100;
   padding: 20px; box-sizing: border-box;
 }
@@ -1161,7 +1159,7 @@ textarea {
   margin-top: 4px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
   /* 29 septembre 2026 (Piste B) : bouton vitreux transparent (jetons --glass-*). */
   background: var(--glass-bg); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 10px rgba(0, 0, 0, 0.08);
-  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
   padding: 10px 20px;
   display: flex; justify-content: center; width: fit-content;
   margin-left: auto; margin-right: auto;
@@ -1175,7 +1173,7 @@ textarea {
 #tab-goals #goalsTasksHistoryHeader {
   border: 1px solid var(--glass-border); background: var(--glass-bg);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 10px rgba(0, 0, 0, 0.08);
-  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 #tab-goals #goalsTasksHistoryHeader:hover { background: var(--glass-bg); filter: brightness(1.12); }
 :root[data-theme="dark"] #tab-goals #goalsTasksHistoryHeader { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24); }
@@ -1823,11 +1821,11 @@ body.scrollLock { overflow: hidden; }
    principe que .tabBtnDot sur les icônes de la barre du bas. Bordure noire
    (et non var(--card)) pour se fondre dans le fond de .topbar, lui-même
    noir depuis le même jour. */
-.topIconBtn .notifDot { top: -1px; right: -1px; border-color: #000000; }
+.topIconBtn .notifDot { top: -1px; right: -1px; border-color: var(--black); }
 .notifDot {
   position: absolute; top: 3px; right: 3px;
   width: 7px; height: 7px; border-radius: 50%;
-  background: #f59a3c; border: none; box-shadow: 0 0 0 1px rgba(245, 154, 60, 0.25);
+  background: var(--unread); border: none; box-shadow: 0 0 0 1px rgba(245, 154, 60, 0.25);
 }
 /* .notifWrap et .settingsWrap reprennent une position propre (`relative`)
    depuis le 2 septembre 2026, deuxième passage : elles ont quitté .topbar
@@ -1950,7 +1948,7 @@ body.scrollLock { overflow: hidden; }
    lecteur de QR code, y compris en thème sombre), donc le cadre autour doit
    rester blanc lui aussi plutôt que --card, sous peine d'un liseré visible. */
 .shareQr {
-  margin-top: 12px; padding: 12px; background: #fff; border-radius: var(--radius-md);
+  margin-top: 12px; padding: 12px; background: var(--white); border-radius: var(--radius-md);
   width: fit-content; max-width: 220px; margin-left: auto; margin-right: auto;
 }
 .shareQr svg { display: block; width: 100%; height: auto; }
@@ -2527,13 +2525,18 @@ body.scrollLock { overflow: hidden; }
   /* 30 sept. 2026 (demande d'Emilien) : TOUS les boutons Ajouter/Rechercher/Envoyer (zones d'écriture, IA,
      discussions, création pôle/secteur/projet…) = contour fin + texte orange brique, fond transparent
      (pas de verre : règle verrouillée). Classe .btnBrique à poser sur tout nouveau bouton de ce type. */
-  background: transparent; border: 1px solid #C2694A; color: #E08A69;
+  background: transparent; border: 1px solid var(--brique); color: var(--brique-text);
   -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
 }
 .chatComposerRow .iconBtn:hover:not(:disabled),
-.btnBrique.btnBrique:hover:not(:disabled) { background: rgba(194, 105, 74, 0.14); }
+.btnBrique.btnBrique:hover:not(:disabled) { background: rgba(var(--brique-rgb), 0.14); }
 .chatComposerRow .iconBtn:disabled,
 .btnBrique.btnBrique:disabled { opacity: 0.45; }
+/* Bouton orange brique PLEIN (2e recette de bouton, avec le contour .btnBrique ci-dessus) : fond --brique, texte blanc.
+   Seules les dimensions/graisses propres à chaque bouton restent dans leur fichier. */
+.docTasksApplyBtn, .docTasksDriveBtn, .docTasksPill, .accompCodeOk {
+  background: var(--brique); color: var(--white); border: 0; font: inherit; cursor: pointer;
+}
 .chatComposer .msg { text-align: right; margin-top: 6px; }
 .chatComposer .msg:empty { display: none; }
 
@@ -2572,7 +2575,6 @@ body.scrollLock { overflow: hidden; }
 
 /* 30 sept. 2026 (demande d'Emilien) : MES publications/messages en violet pâle crayeux (texte foncé).
    Le violet reste la couleur principale de l'app partout ailleurs. */
-:root { --mine-violet: #B7AED3; --mine-violet-text: #1E1833; }
 
 /* Mes propres publications dans le flux d'actualité de Communauté (3 septembre
    2026, demande d'Emilien : « le message doit être violet complètement pour
@@ -2646,7 +2648,7 @@ body.scrollLock { overflow: hidden; }
   right: max(12px, env(safe-area-inset-right));
   width: 40px; height: 40px; padding: 0;
   border: none; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15); color: #fff;
+  background: rgba(255, 255, 255, 0.15); color: var(--white);
   font-size: 20px; line-height: 1; cursor: pointer;
 }
 .imageViewerClose:hover { background: rgba(255, 255, 255, 0.28); }
@@ -2735,15 +2737,15 @@ body.scrollLock { overflow: hidden; }
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.6) 100%);
   border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 30px rgba(0, 0, 0, 0.12);
-  -webkit-backdrop-filter: blur(40px) saturate(160%); backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur-sheet); backdrop-filter: var(--glass-blur-sheet);
   border-radius: 22px;
 }
 :root[data-theme="dark"] #communitySearchBar input {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%);
+  background: var(--glass-bg);
   border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--glass-shadow);
 }
-#communitySeekingFilters .seekingTagBtn { -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%); }
+#communitySeekingFilters .seekingTagBtn { -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
 /* ⚠️ 3 septembre 2026, demande d'Emilien : « lorsque je clique sur le texte,
    cherchez un pseudo, les infos Noèsis et nom de l'utilisateur doivent
    toujours s'afficher. A présent, elles sont effacées par la zone texte qui
@@ -2794,7 +2796,7 @@ body.scrollLock { overflow: hidden; }
 #communitySeekingFilters .seekingTagBtn {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.2);
-  color: #fff;
+  color: var(--white);
   padding: 7px 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   transition: background-color var(--transition-fast), border-color var(--transition-fast), transform 0.12s ease;
@@ -2866,7 +2868,7 @@ body.scrollLock { overflow: hidden; }
 /* 1er oct. 2026 (Gaspard) : message non lu = point rouge (le nombre reste dans le DOM). */
 .unreadBadge {
   margin-left: auto; flex-shrink: 0; width: 8px; height: 8px; min-width: 0; padding: 0;
-  border-radius: 50%; background: #f59a3c; color: transparent;
+  border-radius: 50%; background: var(--unread); color: transparent;
   font-size: 0; line-height: 0; overflow: hidden;
 }
 .unreadBadge.hidden { display: none; }
@@ -2875,15 +2877,17 @@ body.scrollLock { overflow: hidden; }
 
 /* Page (modale) listant les membres d'une activité partagée précise, ouverte
    depuis le menu "⋮" ci-dessus. Propre à Communauté. */
-.communityMembersModal {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
+.communityMembersModal, .goalTaskEditModal {
+  position: fixed; inset: 0; background: var(--veil);
   display: flex; align-items: flex-end; justify-content: center; z-index: 100;
 }
-.communityMembersModalCard {
+.communityMembersModalCard, .goalTaskEditCard {
   background: var(--bg); width: 100%; max-width: 480px; max-height: 80vh;
   overflow-y: auto; border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   padding: 16px; box-shadow: var(--shadow-elevated);
 }
+/* Fenêtre d'édition d'une tâche (appui long) : même gabarit, mais au-dessus des plein écran (#goalsDetailPage z 101). */
+.goalTaskEditModal { z-index: 110; }
 /* 2 oct. 2026 (Emilien) : ligne fine sur le contour supérieur de toutes les fenêtres qui montent du bas
    (style profil d'un membre). Les pages plein écran (#activityPage, #profilePage, Objectifs) en sont exclues. */
 .communityMembersModal:not(#activityPage):not(#profilePage):not(#goalsActivitySwitcher):not(#goalsDetailPage) > .communityMembersModalCard,
@@ -3138,7 +3142,7 @@ body.scrollLock { overflow: hidden; }
 .seekingBadgesFullRow { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
 .seekingBadgeFull {
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
-  border-radius: 999px; font-size: 13px; color: #fff; font-weight: 600;
+  border-radius: 999px; font-size: 13px; color: var(--white); font-weight: 600;
 }
 
 /* Boutons monter/descendre (réordonnancement manuel, sans glisser-déposer —
@@ -3230,7 +3234,7 @@ button { -webkit-user-select: none; user-select: none; }
 .smallAvatar {
   flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; overflow: hidden;
   display: inline-flex; align-items: center; justify-content: center;
-  color: #fff; font-weight: bold; font-size: 14px; line-height: 1;
+  color: var(--white); font-weight: bold; font-size: 14px; line-height: 1;
 }
 .smallAvatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -3410,7 +3414,7 @@ button { -webkit-user-select: none; user-select: none; }
    vert doit rester le même quelle que soit la palette du profil. */
 .viewProfileLiveDot {
   flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%;
-  background: #22C55E; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.22);
+  background: var(--live-green); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.22);
 }
 
 /* Suivre + Contact de la page de visite (7 septembre 2026, demande
@@ -3590,7 +3594,7 @@ button { -webkit-user-select: none; user-select: none; }
 .viewProfileAvatar {
   flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
-  background: var(--purple); color: #fff; font-weight: bold; font-size: 17px;
+  background: var(--purple); color: var(--white); font-weight: bold; font-size: 17px;
 }
 .viewProfileAvatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -4253,12 +4257,12 @@ button { -webkit-user-select: none; user-select: none; }
 }
 
 .categoryPickerRow--selected .categoryPickerRowMain {
-  color: #fff;
+  color: var(--white);
 }
 
 .categoryPickerRow--selected .categoryPickerVisualiserBtn {
-  border-color: #fff;
-  color: #fff;
+  border-color: var(--white);
+  color: var(--white);
 }
 
 .categoryPickerVisualiserBtn {
@@ -4889,7 +4893,7 @@ button { -webkit-user-select: none; user-select: none; }
    .communityModeSwitch/.communityModeBtn (Rechercher/Publier, Communauté),
    classes propres pour ne jamais coupler les deux bascules entre elles. */
 @media (hover: hover) {
-  .goalsPage2ModeBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.14); color: #fff; }
+  .goalsPage2ModeBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.14); color: var(--white); }
 }
 
 /* 28 septembre 2026, demande directe d'Emilien : « je souhaite que dans
@@ -5498,7 +5502,7 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .autoTaskGlowMove {
   fill: none;
-  stroke: #9583C1;
+  stroke: var(--violet-trail);
   stroke-width: 3.5px;
   stroke-linecap: round;
   animation: activityGoalsAutoTaskGlow 6s linear infinite;
@@ -6035,12 +6039,12 @@ button { -webkit-user-select: none; user-select: none; }
 /* 30 sept. 2026 (demande d'Emilien) : les BOUTONS rouges (stop du chrono, croix de suppression de pôles/secteurs/
    sous-projets/activités, .danger, retrait de photo…) passent à l'orange brique des boutons Ajouter/Rechercher/Envoyer.
    Les pastilles de notification et indicateurs d'état restent rouges (ce ne sont pas des boutons). */
-.chronoBtn-stop.chronoBtn-stop { background: #C4483F; } /* rouge un peu moins crayeux (demande d'Emilien, 30 sept.) */
+.chronoBtn-stop.chronoBtn-stop { background: var(--brique-stop); } /* rouge un peu moins crayeux (demande d'Emilien, 30 sept.) */
 .iconBtn.danger.danger, .activityDeleteX.activityDeleteX, .subProjectDeleteX.subProjectDeleteX {
-  border-color: #C2694A; color: #E08A69;
+  border-color: var(--brique); color: var(--brique-text);
 }
-.discussionMsgDelete.discussionMsgDelete:hover, .historyRowIconBtn.danger.danger:hover { color: #E08A69; }
-.avatarRemoveBtn.avatarRemoveBtn:hover { background: #C2694A; }
+.discussionMsgDelete.discussionMsgDelete:hover, .historyRowIconBtn.danger.danger:hover { color: var(--brique-text); }
+.avatarRemoveBtn.avatarRemoveBtn:hover { background: var(--brique); }
 
 /* 30 sept. 2026 (demande d'Emilien, page Profil) : la bande des projets + le « + » remontent tout près de la barre du
    haut (message vide masqué, moins de marge haute) et se décollent de la zone d'écriture (marge basse plus grande) ;
@@ -6069,7 +6073,7 @@ button { -webkit-user-select: none; user-select: none; }
 #profileProjectsPanel #projectsPanelClose, #profileFollowsPanel #followsPanelClose {
   background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
   box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 
 /* 30 sept. 2026 (Sécurité) : « Changer mon code » en gris (comme « Enregistrer » d'Identité / confirmation chrono, .iconBtn) ;
@@ -6114,10 +6118,6 @@ button { -webkit-user-select: none; user-select: none; }
 /* 30 sept. 2026 (demande d'Emilien) : fond NOIR + même halo violet que #app::before, verre sombre en dur (jetons du thème sombre
    reposés localement : l'écran est noir aussi en thème clair), contenu resserré pour tenir sans coupure dès 375x667. */
 #onboarding {
-  --text: #eef0f2; --text-light: #9a9ea6; --border: #33363d; --card: #1f2229;
-  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%);
-  --glass-border: rgba(255, 255, 255, 0.16);
-  --glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.55);
   position: relative; z-index: 0; color: var(--text);
   align-items: center;
 }
@@ -6135,7 +6135,7 @@ button { -webkit-user-select: none; user-select: none; }
   padding: 18px 20px; margin: auto; overflow: visible; max-height: none;
 }
 #onboarding { padding: calc(env(safe-area-inset-top, 0px) + 16px) 20px calc(env(safe-area-inset-bottom, 0px) + 16px); }
-#onboarding .onboarding-card h1 { color: #eef0f2; font-size: 26px; margin-bottom: 10px; }
+#onboarding .onboarding-card h1 { color: var(--text); font-size: 26px; margin-bottom: 10px; }
 #onboarding .lead { margin: 0 0 8px; font-size: 15px; }
 #onboarding .hint { font-size: 12px; line-height: 1.35; margin: 0 0 8px; }
 #onboarding .msg { min-height: 0; margin: 4px 0 0; }
@@ -6152,7 +6152,7 @@ button { -webkit-user-select: none; user-select: none; }
 #onboarding .onbConsentMore .onbLegalText { margin: 6px 0 0; }
 #onboarding .toggleSwitch { width: 32px; height: 18px; }
 #onboarding .toggleSwitchTrack::before { left: 2px; top: 2px; width: 14px; height: 14px; }
-#onboarding .toggleSwitch input:checked + .toggleSwitchTrack { background: color-mix(in srgb, var(--green) 55%, #1c1c22); }
+#onboarding .toggleSwitch input:checked + .toggleSwitchTrack { background: color-mix(in srgb, var(--green) 55%, var(--surface-dim)); }
 #onboarding .toggleSwitch input:checked + .toggleSwitchTrack::before { transform: translateX(14px); }
 /* 10 oct. 2026 : petits écrans — l'inscription doit toujours rester atteignable.
    1) l'écran défile toujours verticalement (geste tactile autorisé, voir app.js) ;
@@ -6234,7 +6234,7 @@ button { -webkit-user-select: none; user-select: none; }
 .catSecteurRow > .meta { margin: 2px 0 0; }
 .catAddSecteurBtn {
   align-self: flex-end; margin: 4px 0 8px; padding: 8px 4px; border: 0; background: none;
-  color: color-mix(in srgb, var(--purple) 50%, #fff); font: inherit; font-weight: 500; cursor: pointer;
+  color: color-mix(in srgb, var(--purple) 50%, var(--white)); font: inherit; font-weight: 500; cursor: pointer;
 }
 /* Mode édition : lignes séparées par un trait fin ; barre « Terminer » FIXE, fond noir opaque. */
 .catList.editing .catSecteurRow { border-top: 1px solid var(--border); }
@@ -6303,7 +6303,7 @@ button { -webkit-user-select: none; user-select: none; }
 .catEditForm .timeCapsMax.isEmpty { color: var(--text-light); }
 .catEditForm .timeCapsMax:disabled { opacity: .6; cursor: default; }
 .durPickerOverlay { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,.35); display: flex; align-items: flex-end; justify-content: center; }
-.durPickerSheet { width: 100%; max-width: 480px; box-sizing: border-box; margin: 0 8px calc(8px + env(safe-area-inset-bottom)); padding: 12px 16px 16px; border-radius: 22px; background: rgba(38,40,48,.94); color: #fff; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 10px 40px rgba(0,0,0,.4); }
+.durPickerSheet { width: 100%; max-width: 480px; box-sizing: border-box; margin: 0 8px calc(8px + env(safe-area-inset-bottom)); padding: 12px 16px 16px; border-radius: 22px; background: rgba(38,40,48,.94); color: var(--white); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 10px 40px rgba(0,0,0,.4); }
 .durPickerHead { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px; }
 .durPickerClose { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: rgba(255,255,255,.75); font-size: 18px; cursor: pointer; }
 .durPickerWheels { position: relative; display: flex; justify-content: center; gap: 24px; height: 220px; margin: 4px 0 8px; }
@@ -6314,8 +6314,8 @@ button { -webkit-user-select: none; user-select: none; }
 .durPickerItem { height: 44px; line-height: 44px; text-align: center; font-size: 22px; scroll-snap-align: center; cursor: pointer; font-variant-numeric: tabular-nums; }
 .durPickerUnit { position: absolute; left: calc(50% + 24px); top: 0; height: 220px; display: flex; align-items: center; font-size: 12px; color: rgba(255,255,255,.6); pointer-events: none; }
 .durPickerBar { display: flex; align-items: center; justify-content: space-between; }
-.durPickerReset { min-height: 44px; padding: 0 14px; border: 0; background: transparent; color: #7db8ff; font: inherit; font-size: 16px; cursor: pointer; }
-.durPickerOk { width: 48px; height: 48px; border: 0; border-radius: 50%; background: #0a84ff; color: #fff; font-size: 22px; cursor: pointer; }
+.durPickerReset { min-height: 44px; padding: 0 14px; border: 0; background: transparent; color: var(--link-blue); font: inherit; font-size: 16px; cursor: pointer; }
+.durPickerOk { width: 48px; height: 48px; border: 0; border-radius: 50%; background: var(--ios-blue); color: var(--white); font-size: 22px; cursor: pointer; }
 .catEditForm .linkBtn { align-self: flex-start; background: none; border: 0; padding: 0; color: var(--purple); text-decoration: underline; font: inherit; font-size: 14px; cursor: pointer; }
 /* Saisie d'un nouveau pôle/secteur : champ titre au même gabarit que la description */
 .catNewPole input[type="text"] { padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border, rgba(255,255,255,.14)); background: var(--card); color: var(--text); }
@@ -6332,7 +6332,7 @@ button { -webkit-user-select: none; user-select: none; }
   background: linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.6) 100%);
   border: 1px solid rgba(0,0,0,0.08);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 30px rgba(0,0,0,0.12);
-  -webkit-backdrop-filter: blur(40px) saturate(160%); backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur-sheet); backdrop-filter: var(--glass-blur-sheet);
   border-radius: 22px;
 }
 :root[data-theme="dark"] .activityMembersSearchWrap input[type="text"] {
@@ -6421,10 +6421,10 @@ button { -webkit-user-select: none; user-select: none; }
 .settingsConsentCard .notifRow:last-child { border-bottom: none; }
 
 /* 10 oct. 2026 : Déconnexion dans le bandeau des Réglages, compacte, à gauche de la croix. */
-.subpageHeader .logoutBtnHeader { margin-left: auto; font-size: 12px; padding: 4px 8px; border: 1px solid var(--glass-border, var(--border)); border-radius: var(--radius-sm); }
+.subpageHeader .logoutBtnHeader { margin-left: auto; font-size: 12px; padding: 4px 8px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); }
 #profileSettingsPanel.settingsPanel .logoutBtnHeader ~ #settingsCloseBtn { margin-left: 0; }
-.subpageHeader .logoutBtn.logoutBtnHeader { color: #E08A69; border-color: #C2694A; background: transparent; }
-.subpageHeader .logoutBtn.logoutBtnHeader:hover { background: rgba(194, 105, 74, 0.14); text-decoration: none; }
+.subpageHeader .logoutBtn.logoutBtnHeader { color: var(--brique-text); border-color: var(--brique); background: transparent; }
+.subpageHeader .logoutBtn.logoutBtnHeader:hover { background: rgba(var(--brique-rgb), 0.14); text-decoration: none; }
 /* 10 oct. 2026 : Identité — moins d'espace entre « Enregistrer » et l'onglet Sécurité. */
 #settingsMsg:empty { min-height: 0; margin: 0; }
 #profileSettingsScroll .settingsCard:has(#settingsSaveBtn) { padding-bottom: 4px; }
@@ -6470,8 +6470,8 @@ html.kbOpen #onboarding .onboarding-card { margin: 0 auto; }
 .extCalLine { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .extCalSeg { display: flex; flex: 1 1 auto; gap: 4px; padding: 3px; border-radius: 999px; border: 1px solid var(--glass-border); }
 .extCalSeg button { flex: 1; white-space: nowrap; border: 0; border-radius: 999px; padding: 7px 6px; background: transparent; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
-.extCalSeg button.on { background: var(--purple); color: #fff; }
-.extCalRule[data-mode="none"] .extCalSeg button.on { background: #C2694A; }
+.extCalSeg button.on { background: var(--purple); color: var(--white); }
+.extCalRule[data-mode="none"] .extCalSeg button.on { background: var(--brique); }
 .extCalHrs { width: 64px; flex: 0 0 64px; }
 .extCalAddBtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-bottom: 10px; padding: 11px; border-radius: 14px; font: inherit; font-size: 13.5px; color: var(--text); background: none; border: 1px dashed var(--glass-border); cursor: pointer; } /* même case que « Ajouter une information » (Stats) */
 .extCalAddBtn b { color: var(--purple); font-size: 18px; line-height: 1; }

@@ -208,7 +208,7 @@
 
 .goalWeeklyDot.goalStatusAtteint { background: var(--green); }
 
-.goalWeeklyDot.goalStatusPartiel { background: #f0ad4e; }
+.goalWeeklyDot.goalStatusPartiel { background: var(--partial); }
 
 .goalWeeklyDot.goalStatusNonAtteint { background: var(--red); }
 
@@ -269,7 +269,7 @@
 .goalsCalendarTodayBadge {
   display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
-  color: #fff; background: var(--purple); vertical-align: middle;
+  color: var(--white); background: var(--purple); vertical-align: middle;
 }
 
 .goalsCalendarWeekBadge {
@@ -335,7 +335,7 @@
 .goalsCalendarTaskAddBtn {
   flex-shrink: 0; padding: 12px 22px; font-size: 15px; font-weight: 600;
   border: none; border-radius: var(--radius-md);
-  background: var(--purple); color: #fff; cursor: pointer;
+  background: var(--purple); color: var(--white); cursor: pointer;
 }
 
 .goalsCalendarTaskAdd .msg { flex-basis: 100%; margin: 0; }
@@ -374,10 +374,10 @@
 .goalAssigneeChip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
 .goalAssigneeChip.active {
-  background: var(--purple); color: #fff; border-color: transparent;
+  background: var(--purple); color: var(--white); border-color: transparent;
 }
 
-.goalAssigneeChip.active .dot { background: #fff; }
+.goalAssigneeChip.active .dot { background: var(--white); }
 
 .goalsCalendarTaskUnseenDot {
   display: inline-block; width: 8px; height: 8px; border-radius: 50%;
@@ -412,16 +412,7 @@
   overscroll-behavior: contain;
 }
 
-/* Fenêtre d'édition d'une tâche (appui long), 1er oct. 2026 — monte du bas, même gabarit que .communityMembersModal. */
-.goalTaskEditModal {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
-  display: flex; align-items: flex-end; justify-content: center; z-index: 110;
-}
-.goalTaskEditCard {
-  background: var(--bg); width: 100%; max-width: 480px; max-height: 80vh;
-  overflow-y: auto; border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  padding: 16px; box-shadow: var(--shadow-elevated);
-}
+/* Fenêtre d'édition d'une tâche (appui long) : gabarit partagé avec .communityMembersModal, voir styles.css. */
 .goalTaskEditHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .goalTaskEditField { display: block; margin-bottom: 12px; }
 .goalTaskEditField span { display: block; font-size: 12px; color: var(--text-light); margin-bottom: 4px; }
@@ -472,7 +463,7 @@
 #goalDescModalClose {
   background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
   box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 
 /* 3 oct. 2026 : objectif périodique en lecture (titre + description) avec bouton modifier à côté. */
@@ -571,9 +562,9 @@
 .goalWeeklyEditor.hasExtTitle { margin-top: 8px; }
 .goalWeeklyCard:has(.goalWeeklyEditor) .goalWeeklyDot { display: none; }
 
-.goalWeeklyBadgeStatus { cursor: pointer; color: #fff; }
+.goalWeeklyBadgeStatus { cursor: pointer; color: var(--white); }
 .goalWeeklyBadgeStatus.goalStatusAtteint { background: var(--green); }
-.goalWeeklyBadgeStatus.goalStatusPartiel { background: #f0ad4e; }
+.goalWeeklyBadgeStatus.goalStatusPartiel { background: var(--partial); }
 .goalWeeklyBadgeStatus.goalStatusNonAtteint { background: var(--red); }
 .goalWeekDaysPanel .goalsCalendarTaskRow { background: transparent !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; opacity: 1; }
 .goalWeekDaysPanel .goalsCalendarTaskRow { flex-wrap: wrap; }

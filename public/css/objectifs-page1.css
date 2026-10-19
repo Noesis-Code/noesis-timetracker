@@ -58,7 +58,7 @@
  * l'état au repos. */
 .goalsCaptureActivityChip.selected { border-color: var(--text); }
 /* 1er oct. 2026 (Gaspard) : message de discussion non lu = point rouge sur la puce. */
-.goalsCaptureUnreadDot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: #f59a3c; flex-shrink: 0; }
+.goalsCaptureUnreadDot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--unread); flex-shrink: 0; }
 
 .goalsCaptureActivityChipName { flex: 1; text-align: left; }
 
@@ -67,7 +67,7 @@
 .goalsCaptureBadge {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 18px; height: 18px; padding: 0 5px;
-  border-radius: 999px; background: var(--purple); color: #fff;
+  border-radius: 999px; background: var(--purple); color: var(--white);
   font-size: 11px; font-weight: 700; line-height: 1;
 }
 
@@ -211,11 +211,11 @@
 }
 
 /* Offre 1 — carte promo verre lumineux (1er oct. 2026, modèle C) */
-.offer1Promo{position:relative;overflow:hidden;border-radius:20px;padding:22px 20px;background:linear-gradient(180deg,rgba(103,78,167,.28),rgba(103,78,167,.08));border:1px solid rgba(160,135,230,.55);box-shadow:0 0 30px rgba(103,78,167,.35),inset 0 1px 0 rgba(255,255,255,.18);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.offer1Promo{position:relative;overflow:hidden;border-radius:20px;padding:22px 20px;background:linear-gradient(180deg,rgba(var(--purple-rgb), .28),rgba(var(--purple-rgb), .08));border:1px solid rgba(160,135,230,.55);box-shadow:0 0 30px rgba(var(--purple-rgb), .35),inset 0 1px 0 rgba(255,255,255,.18);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 .offer1PromoText{margin:0 0 16px;font-size:19px;line-height:1.3;font-weight:700}
-.offer1PromoText span{background:linear-gradient(90deg,#c9b8ff,#fff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.offer1PromoText span{background:linear-gradient(90deg,var(--violet-promo),var(--white));-webkit-background-clip:text;background-clip:text;color:transparent}
 .offer1PromoSub{display:block;font-size:12.5px;opacity:.85;margin:-6px 0 16px}
-.offer1PromoBtn{display:inline-block;padding:11px 20px;border:0;border-radius:999px;background:#C2694A;color:#fff;font-weight:600;font-size:14px;font-family:inherit}
+.offer1PromoBtn{display:inline-block;padding:11px 20px;border:0;border-radius:999px;background:var(--brique);color:var(--white);font-weight:600;font-size:14px;font-family:inherit}
 #offer1SubscribedEmptyHint{display:none}
 
 /* 3 oct. 2026 : fenêtre de confirmation de capture (doublon / tri incertain), gabarit .goalTaskEditModal. */
@@ -238,28 +238,28 @@
 
 /* 5 oct. 2026 : choix du mode « gestion de l'IA » (pop-up de 1re capture + Réglages). */
 .aiModeChoices { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-.aiModeChoice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; width: 100%; padding: 12px 16px; border-radius: 20px; background: var(--vc-bg, var(--card)); box-shadow: inset 0 0 0 1px var(--vc-line, var(--border)); border: 0; color: var(--text); font-family: inherit; }
+.aiModeChoice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; width: 100%; padding: 12px 16px; border-radius: 20px; background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--glass-calm-line); border: 0; color: var(--text); font-family: inherit; }
 .aiModeChoice.on { box-shadow: inset 0 0 0 2px var(--purple); }
 .aiModeChoiceTitle { font-weight: 600; font-size: 15px; }
 .aiModeChoiceDesc { font-size: 13px; }
 
 /* 5 oct. 2026 : pop-up du mode IA — choix encadrés d'un orange léger, barre sous le titre et la croix. */
-.aiModeModal .goalTaskEditHeader { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--vc-line, var(--border)); }
+.aiModeModal .goalTaskEditHeader { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--glass-calm-line); }
 :root .aiModeModal .goalTaskEditCard { box-shadow: inset 0 0 0 1.5px rgba(217, 130, 90, 0.55), var(--shadow-elevated); }
 
 /* 5 oct. 2026 : pop-up de rangement (mode Partiel) — modèle de modification de la page 2. */
 .goalsPlacementBox { border-top: 0; padding: 4px 0 10px; }
-.goalsPlacementBox + .goalsPlacementBox { border-top: 1px solid var(--vc-line, var(--border)); padding-top: 12px; }
+.goalsPlacementBox + .goalsPlacementBox { border-top: 1px solid var(--glass-calm-line); padding-top: 12px; }
 :root .goalsPlacementBox textarea.goalsTaskEditText { resize: none; overflow: hidden; width: 100%; box-sizing: border-box; font-family: inherit; line-height: 1.35; text-align: left; border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 6px 0; font-size: 16px; color: var(--text); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .goalsPlacementWhere { display: flex; flex-direction: column; gap: 6px; }
 .goalsPlacementActivity { margin: 0; font-weight: 600; font-size: 14px; padding: 0 4px; }
-:root .goalsPlacementField select, :root .goalsPlacementField input[type="date"] { min-height: 38px; padding: 8px 14px; box-sizing: border-box; text-align: left; text-align-last: left; -webkit-appearance: none; appearance: none; background: var(--vc-bg) !important; box-shadow: inset 0 0 0 1px var(--vc-line) !important; border: 0 !important; border-radius: 999px !important; }
+:root .goalsPlacementField select, :root .goalsPlacementField input[type="date"] { min-height: 38px; padding: 8px 14px; box-sizing: border-box; text-align: left; text-align-last: left; -webkit-appearance: none; appearance: none; background: var(--glass-calm-bg) !important; box-shadow: inset 0 0 0 1px var(--glass-calm-line) !important; border: 0 !important; border-radius: 999px !important; }
 :root .goalsPlacementField input[type="date"] { text-align: center; display: block; margin: 0 auto; width: 100%; }
 
 /* 5 oct. 2026 : choix de secteur (Autonome/Absence) — propositions moins opaques, liste déroulante pour « Autre ». */
-:root .aiModeModal .goalsCaptureConfirmChoice { background: color-mix(in srgb, var(--vc-bg) 45%, transparent); box-shadow: inset 0 0 0 1px var(--vc-line); border: 0; border-radius: 999px; }
+:root .aiModeModal .goalsCaptureConfirmChoice { background: color-mix(in srgb, var(--glass-calm-bg) 45%, transparent); box-shadow: inset 0 0 0 1px var(--glass-calm-line); border: 0; border-radius: 999px; }
 :root .aiModeModal .goalsCaptureConfirmList { margin-top: 12px; }
-:root .goalsCaptureConfirmSelect { width: 100%; min-height: 38px; padding: 8px 14px; box-sizing: border-box; -webkit-appearance: none; appearance: none; background: var(--vc-bg) !important; box-shadow: inset 0 0 0 1px var(--vc-line) !important; border: 0 !important; border-radius: 999px !important; text-align: left; color: var(--text); font-size: 14px; }
+:root .goalsCaptureConfirmSelect { width: 100%; min-height: 38px; padding: 8px 14px; box-sizing: border-box; -webkit-appearance: none; appearance: none; background: var(--glass-calm-bg) !important; box-shadow: inset 0 0 0 1px var(--glass-calm-line) !important; border: 0 !important; border-radius: 999px !important; text-align: left; color: var(--text); font-size: 14px; }
 .goalsCaptureConfirmOk { align-self: flex-end; }
 
 /* 5 oct. 2026 : pop-up de rangement — titre/croix fixes, contenu défilant ; activité au-dessus de la tâche ; activités espacées. */
@@ -267,8 +267,8 @@
 .goalsPlacementModal .goalTaskEditHeader { flex: 0 0 auto; }
 .goalsPlacementScroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .goalsPlacementModal .goalsPlacementBox { gap: 4px; padding: 0 0 6px; margin: 0; }
-.goalsPlacementModal .goalsPlacementBox + .goalsPlacementBox { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--vc-line, var(--border)); }
-.goalsPlacementModal .goalsPlacementActivity { margin: 0 0 6px; padding: 0 4px 6px; font-size: 13px; font-weight: 700; letter-spacing: .02em; border-bottom: 1px solid var(--vc-line, var(--border)); }
+.goalsPlacementModal .goalsPlacementBox + .goalsPlacementBox { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--glass-calm-line); }
+.goalsPlacementModal .goalsPlacementActivity { margin: 0 0 6px; padding: 0 4px 6px; font-size: 13px; font-weight: 700; letter-spacing: .02em; border-bottom: 1px solid var(--glass-calm-line); }
 :root .goalsPlacementModal .goalsPlacementBox textarea.goalsTaskEditText { padding: 2px 0 0; margin: 0; }
 .goalsPlacementModal .goalsPlacementField { margin-top: 2px; }
 
@@ -276,7 +276,7 @@
 :root .goalsPlacementBox textarea.goalsTaskEditText { min-height: 0 !important; }
 
 /* 5 oct. 2026 : barre sous le titre et la croix + moins d'espace au-dessus (choix de secteur, doublon). */
-.goalsBarModal .goalTaskEditHeader { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--vc-line, var(--border)); }
+.goalsBarModal .goalTaskEditHeader { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--glass-calm-line); }
 :root .goalsBarModal .goalTaskEditCard { padding-top: 12px; }
 :root .goalsBarModal .goalTaskEditHeader { gap: 20px; }
 :root .goalsBarModal .goalTaskEditHeader .sectionTitle { padding-right: 8px; }
@@ -285,20 +285,20 @@
 /* 5 oct. 2026 : « Autre… » (Autonome/Absence) — bulle flottante pôles/secteurs dans le même pop-up. */
 .aiModeModal .goalTaskEditCard { position: relative; }
 .aiModeModal .goalTaskEditCard:has(.goalsCaptureFloat) { min-height: 380px; }
-.goalsCaptureFloat { position: absolute; left: 16px; right: 16px; top: 64px; bottom: 16px; overflow-y: auto; padding: 8px; border-radius: 20px; background: color-mix(in srgb, var(--bg) 92%, transparent); box-shadow: inset 0 0 0 1px var(--vc-line), 0 8px 24px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); z-index: 2; }
+.goalsCaptureFloat { position: absolute; left: 16px; right: 16px; top: 64px; bottom: 16px; overflow-y: auto; padding: 8px; border-radius: 20px; background: color-mix(in srgb, var(--bg) 92%, transparent); box-shadow: inset 0 0 0 1px var(--glass-calm-line), 0 8px 24px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); z-index: 2; }
 .goalsCaptureFloatPole { margin: 8px 8px 4px; font-weight: 600; font-size: 14px; }
 .goalsCaptureFloatItem { display: block; width: 100%; text-align: left; background: transparent; border: 0; color: var(--text); font-family: inherit; font-size: 15px; padding: 9px 14px; border-radius: 999px; }
 .goalsCaptureFloatItem.sector { padding-left: 26px; }
-.goalsCaptureFloatItem:active { background: var(--vc-bg); }
+.goalsCaptureFloatItem:active { background: var(--glass-calm-bg); }
 
 /* 5 oct. 2026 : menu flottant « Autre… » gris, par-dessus le pop-up (pas de nouveau pop-up). */
-.goalsCaptureFloat { top: auto; bottom: 16px; max-height: 60%; background: #3a3a3f; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
-.goalsCaptureFloatPole { color: #fff; }
-.goalsCaptureFloatItem { color: #e8e8ec; }
-.goalsCaptureFloatItem:active { background: #4a4a50; }
+.goalsCaptureFloat { top: auto; bottom: 16px; max-height: 60%; background: var(--float-bg); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
+.goalsCaptureFloatPole { color: var(--white); }
+.goalsCaptureFloatItem { color: var(--float-text); }
+.goalsCaptureFloatItem:active { background: var(--float-active); }
 
 /* 5 oct. 2026 : bouton du menu flottant pôle/secteur (remplace le <select> natif). */
-:root .goalsWhereBtn { display: block; width: 100%; min-height: 38px; padding: 8px 14px; box-sizing: border-box; text-align: left; font-family: inherit; font-size: 14px; color: var(--text); background: var(--vc-bg) !important; box-shadow: inset 0 0 0 1px var(--vc-line) !important; border: 0 !important; border-radius: 999px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root .goalsWhereBtn { display: block; width: 100%; min-height: 38px; padding: 8px 14px; box-sizing: border-box; text-align: left; font-family: inherit; font-size: 14px; color: var(--text); background: var(--glass-calm-bg) !important; box-shadow: inset 0 0 0 1px var(--glass-calm-line) !important; border: 0 !important; border-radius: 999px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .goalsWhereFloat { position: fixed; overflow-y: auto; }
 .goalsCaptureFloatItem.on::before { content: '✓ '; }
 
@@ -306,14 +306,14 @@
 :root .goalsPlacementModal .goalsPlacementActivity { display: flex; align-items: center; gap: 10px; border-bottom: 0; padding: 0 4px 6px; font-size: 18px; font-weight: 700; letter-spacing: 0; }
 .goalsPlacementActivityDot { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; }
 
-.goalsCaptureFloat .goalsCaptureFloatPole { margin: 0; padding: 12px 14px 4px; border-top: 1px solid rgba(255,255,255,.12); font-size: 13px; color: #b9b9c0; font-weight: 600; }
+.goalsCaptureFloat .goalsCaptureFloatPole { margin: 0; padding: 12px 14px 4px; border-top: 1px solid rgba(255,255,255,.12); font-size: 13px; color: var(--float-label); font-weight: 600; }
 .goalsCaptureFloat .goalsCaptureFloatPole:first-child { border-top: 0; }
 .goalsCaptureFloatTop { overflow-y: auto; border-radius: 20px; }
 
 /* 5 oct. 2026 : menus flottants pôle/secteur transparents (verre) et non gris. */
 :root .goalsCaptureFloat { background: rgba(24, 24, 30, 0.35); -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 8px 24px rgba(0,0,0,.35); }
 :root .goalsCaptureFloat .goalsCaptureFloatPole { color: rgba(255,255,255,.7); border-top-color: rgba(255,255,255,.14); }
-:root .goalsCaptureFloatItem { color: #fff; }
+:root .goalsCaptureFloatItem { color: var(--white); }
 :root .goalsCaptureFloatItem:active { background: rgba(255,255,255,.12); }
 
 /* 5 oct. 2026 : verre liquide, même opacité que le menu natif du Chrono (capture d'Emilien). */
@@ -341,7 +341,7 @@
 
 /* Offre 1 pas encore disponible (9 oct. 2026) : badge « À venir » et bouton grisé, non cliquable. */
 .offer1SoonBadge{display:inline-block;margin-bottom:10px;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text);background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
-.offer1PromoBtn:disabled{background:#C2694A;color:#fff;opacity:.5;box-shadow:none;cursor:not-allowed}
+.offer1PromoBtn:disabled{background:var(--brique);color:var(--white);opacity:.5;box-shadow:none;cursor:not-allowed}
 /* Zone libre IA : trombone (document ou image) DANS la zone d'écriture, à gauche d'Ajouter. */
 .activityGoalsCategoryAutoTaskBubble .goalsCaptureAttach { z-index: 3; left: auto; right: 96px; }
 .activityGoalsCategoryAutoTaskBubble:has(.goalsCaptureAttach) textarea { padding-right: 130px; }
