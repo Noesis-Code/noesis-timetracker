@@ -113,6 +113,38 @@ CREATE TABLE IF NOT EXISTS sync_log (
   itemsCount INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_synclog_user_at ON sync_log(userId, at);
+
+CREATE TABLE IF NOT EXISTS invitations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  codeHash TEXT NOT NULL UNIQUE,           -- sha256 du code (le code n'est jamais stocké)
+  email TEXT,
+  role TEXT NOT NULL CHECK (role IN ('expert','client')),
+  invitedBy INTEGER REFERENCES tt_users(id) ON DELETE SET NULL,
+  createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  expiresAt TEXT NOT NULL,
+  usedBy INTEGER REFERENCES tt_users(id) ON DELETE SET NULL,
+  usedAt TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  tokenHash TEXT PRIMARY KEY,
+  userId INTEGER NOT NULL REFERENCES tt_users(id) ON DELETE CASCADE,
+  createdAt TEXT NOT NULL,
+  expiresAt TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS broker_tokens (
+  userId INTEGER NOT NULL REFERENCES tt_users(id) ON DELETE CASCADE,
+  broker TEXT NOT NULL DEFAULT 'questrade',
+  tokenEnc TEXT NOT NULL,                  -- AES-256-GCM (iv.tag.données en base64url), clé TRADE_TOKEN_KEY
+  updatedAt TEXT NOT NULL,
+  PRIMARY KEY (userId, broker)
+);
+
+CREATE TABLE IF NOT EXISTS link_nonces (
+  nonce TEXT PRIMARY KEY,
+  expiresAt TEXT NOT NULL
+);
 `);
 }
 

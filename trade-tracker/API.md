@@ -13,7 +13,7 @@ Conventions : JSON UTF-8 ; montants en nombres arrondis à 2 décimales ; pource
 ## Routes
 `GET /api/health` -> `{ ok: true }` (public).
 
-`GET /api/me` -> `{ id, name, role: "expert"|"client" }`.
+`GET /api/me` -> `{ id, name, role: "expert"|"client", brokerConnected: false }`.
 
 Portefeuille. Paramètre commun `scope=me` (défaut) `| expert` (portefeuille de l'expert, lisible par les clients). Un client sans compte ni donnée reçoit des tableaux vides, pas une erreur.
 
@@ -58,6 +58,8 @@ Expert seulement (client : 403 `forbidden`) :
 - `GET /api/invitations` -> `{ invitations: [ { id, email, role, createdAt, expiresAt, used } ] }`.
 
 `POST /api/logout` -> `{ ok: true }`.
+
+Jeton courtier : chaque utilisateur (expert ou client) connecte son propre compte courtier ; le jeton est stocké chiffré par utilisateur (clé `TRADE_TOKEN_KEY`) et n'est jamais renvoyé par l'API. `GET /api/me` expose seulement `brokerConnected: boolean`.
 
 ## Hors v0
 Connecteur courtier (Questrade), prix et taux automatiques, écriture de transactions : non inclus ; la synchro n'alimente pour l'instant que `sync_log` et les données de démo.
