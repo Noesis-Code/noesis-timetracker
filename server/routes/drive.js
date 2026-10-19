@@ -34,10 +34,14 @@ function fail(res, e, req) {
 }
 const wrap = (fn) => async (req, res) => { try { res.json(await fn(req)); } catch (e) { fail(res, e, req); } };
 
-router.get('/drive/status', ...chain, wrap((req) => {
+function ownerIdOf(req) {
   const a = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(req.activityId);
-  if (a && a.ownerId !== req.userId) return { configured: drive.status(req.userId, req.activityId).configured, connected: false, isOwner: false };
-  const s = drive.status(req.userId, req.activityId); s.isOwner = true; return s;
+  return a ? a.ownerId : req.userId;
+}
+// 19 oct. 2026 : les membres Essor VOIENT la connexion, les dossiers et les documents du propriétaire (lecture) ; seul le propriétaire connecte/déconnecte/ajoute/retire un dossier.
+router.get('/drive/status', ...chain, wrap((req) => {
+  const oid = ownerIdOf(req);
+  const s = drive.status(oid, req.activityId); s.isOwner = oid === req.userId; return s;
 }));
 router.get('/drive/connect', ...ownerChain, wrap((req) => ({ url: drive.authUrl(req.userId, req.activityId) })));
 router.get('/drive/folders', ...ownerChain, async (req, res) => {
@@ -45,8 +49,8 @@ router.get('/drive/folders', ...ownerChain, async (req, res) => {
 });
 router.post('/drive/folder', ...ownerChain, wrap((req) => drive.chooseFolder(req.userId, req.activityId, req.body.folderId)));
 router.post('/drive/folder/remove', ...ownerChain, wrap((req) => drive.removeFolder(req.userId, req.activityId, req.body.folderId)));
-router.get('/drive/files', ...ownerChain, async (req, res) => {
-  try { res.json({ files: await drive.listFiles(req.userId, req.activityId) }); } catch (e) { fail(res, e, req); }
+router.get('/drive/files', ...chain, async (req, res) => {
+  try { res.json({ files: await drive.listFiles(ownerIdOf(req), req.activityId) }); } catch (e) { fail(res, e, req); }
 });
 router.post('/drive/propose', ...ownerChain, wrap((req) => drive.proposeFromFile(req.userId, req.activityId, req.body.fileId, String(req.body.instruction || '').trim().slice(0, 1500))));
 router.post('/drive/disconnect', ...ownerChain, wrap((req) => drive.disconnect(req.userId, req.activityId)));
