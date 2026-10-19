@@ -55,8 +55,7 @@
   var ROWS = [
     { label: 'Chrono', ids: ['stats'], anchor: 'stats', bundle: true },
     { label: 'Feuille de route', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap', bundle: true },
-    { label: 'Communauté et profil', ids: ['community', 'profile'], anchor: 'community', bundle: false },
-    { label: 'Trade Tracker', ids: ['trade'], anchor: 'trade', bundle: false, gated: true } // visible seulement si le serveur autorise ce compte (tradeAllowed)
+    { label: 'Communauté et profil', ids: ['community', 'profile'], anchor: 'community', bundle: false }
   ];
   var BUNDLES = ROWS.filter(function (r) { return r.bundle; });
 
@@ -71,7 +70,6 @@
     target.innerHTML = '';
     var inputs = [];
     ROWS.forEach(function (r) {
-      if (r.gated && !tradeAllowed) return;
       var row = document.createElement('div'); row.className = 'notifRow';
       var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = tr(r.label);
       var sw = document.createElement('label'); sw.className = 'toggleSwitch';
@@ -152,10 +150,30 @@
   function saveOrder() {
     try { if (pid()) localStorage.setItem(ORDER_KEY(), JSON.stringify(tabBtns().map(function (b) { return b.dataset.tab; }))); } catch (e) { /* stockage plein */ }
   }
-  function exitEdit() { editing = false; if (nav) nav.classList.remove('tabbarEditing'); }
+  // Extension Trade Tracker (20 oct. 2026) : un interrupteur dans le menu de l'appui long ajoute / retire son onglet. Visible seulement si le serveur autorise le compte.
+  var menu = null, keepEdit = false;
+  function closeMenu() { if (menu) { menu.remove(); menu = null; } }
+  function openMenu() {
+    closeMenu();
+    if (!tradeAllowed) return;
+    menu = document.createElement('div'); menu.id = 'tabbarMenu';
+    var row = document.createElement('div'); row.className = 'notifRow';
+    var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = 'Trade Tracker';
+    var sw = document.createElement('label'); sw.className = 'toggleSwitch';
+    var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!state && state.trade === true;
+    var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
+    inp.addEventListener('change', function () {
+      keepEdit = true;
+      if (!inp.checked && typeof TMT.closeTrade === 'function') TMT.closeTrade(); // retrait : la page Trade se ferme (les données Trade sont conservées)
+      put({ trade: inp.checked }).then(function () { keepEdit = false; });
+    });
+    sw.appendChild(inp); sw.appendChild(track); row.appendChild(label); row.appendChild(sw); menu.appendChild(row);
+    document.body.appendChild(menu);
+  }
+  function exitEdit() { editing = false; closeMenu(); if (nav) nav.classList.remove('tabbarEditing'); }
   function enterEdit() {
     if (editing || !nav) return;
-    editing = true; nav.classList.add('tabbarEditing');
+    editing = true; nav.classList.add('tabbarEditing'); openMenu();
   }
   function startDrag(btn, e) {
     var items = tabBtns().filter(function (b) { return b.offsetParent !== null; });
@@ -210,8 +228,8 @@
       if (editing) { e.stopPropagation(); e.preventDefault(); exitEdit(); }
     }, true);
     nav.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-    document.addEventListener('pointerdown', function (e) { if (editing && !e.target.closest('.tabbar')) exitEdit(); });
-    document.addEventListener('tmt:modules', function () { applyOrder(); if (editing) { exitEdit(); } });
+    document.addEventListener('pointerdown', function (e) { if (editing && !e.target.closest('.tabbar, #tabbarMenu')) exitEdit(); });
+    document.addEventListener('tmt:modules', function () { applyOrder(); if (editing && !keepEdit) { exitEdit(); } });
     applyOrder();
   }
 
