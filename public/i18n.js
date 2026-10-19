@@ -146,6 +146,7 @@
     'Tâche': 'Task',
     'Tâche rangée': 'Task placed',
     'Ajouter cette tâche ?': 'Add this task?',
+    'Confirmer chaque tâche ajoutée par l\'IA': 'Confirm each task added by the AI',
     'Confirmer': 'Confirm',
     'Modifier cette tâche': 'Edit this task',
     'Durée : —': 'Duration: —',

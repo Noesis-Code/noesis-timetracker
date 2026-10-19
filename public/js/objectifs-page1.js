@@ -1346,12 +1346,15 @@
     { key: 'partiel', label: 'Partiel', desc: 'Noèsis propose un rangement ; tu le reconfirmes et tu peux le modifier.' },
     { key: 'absence', label: 'Absent', desc: 'Noèsis ne range rien : tu choisis toi-même où va chaque tâche.' }
   ];
+  TMT.aiConfirmEach = true; // 19 oct. 2026 : confirmer chaque tâche ajoutée par l'IA (Autonome) ; chargé avec le mode
   TMT.aiMode = undefined; // undefined = pas encore lu ; null = jamais choisi
   function loadAiMode() {
     if (TMT.aiMode !== undefined) return Promise.resolve(TMT.aiMode);
     return api('GET', '/api/profile/' + TMT.getProfile().id + '/ai-mode').then(function (d) {
       TMT.aiMode = (d && d.mode) || null;
-      return TMT.aiMode;
+      return api('GET', '/api/profile/' + TMT.getProfile().id + '/ai-confirm').then(function (c) {
+        TMT.aiConfirmEach = !c || c.enabled !== false;
+      }, function () {}).then(function () { return TMT.aiMode; });
     });
   }
   function saveAiMode(mode) {
@@ -1428,8 +1431,18 @@
         box.appendChild(h);
       }
     }
+    var tg = $('aiConfirmToggle');
+    if (tg && !tg._bound) {
+      tg._bound = true;
+      tg.addEventListener('change', function () {
+        var want = tg.checked;
+        api('PUT', '/api/profile/' + TMT.getProfile().id + '/ai-confirm', { enabled: want })
+          .then(function () { TMT.aiConfirmEach = want; if (msg) msg.textContent = ''; })
+          .catch(function (e) { tg.checked = !want; if (msg) msg.textContent = e.message; });
+      });
+    }
     TMT.aiMode = undefined;
-    loadAiMode().then(paint).catch(function () {});
+    loadAiMode().then(function () { if (tg) tg.checked = TMT.aiConfirmEach; paint(); }).catch(function () {});
   };
 
   function buildGoalsCaptureBubble() {
@@ -1605,7 +1618,7 @@
                 })).then(function () { loadGoalsCaptureBadges(); renderGoalsCaptureActivities(); });
               }
             });
-          } else if (TMT.aiMode === 'autonome' && okResults.length) {
+          } else if (TMT.aiMode === 'autonome' && TMT.aiConfirmEach !== false && okResults.length) {
             showCaptureConfirmModal(label, okResults, {
               onConfirm: finalize,
               onCancel: function () {
