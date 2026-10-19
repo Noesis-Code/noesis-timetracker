@@ -267,6 +267,8 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, '..', 'trade-tracker', 'test', 'run.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'Trade Tracker (trade-tracker/test/run.js) passe'); }
   catch (e) { assert(false, 'Trade Tracker (trade-tracker/test/run.js) échoue'); }
 
+  try { execFileSync('node', [path.join(__dirname, 'hebdo-recentdone-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'prompt hebdo : dernières tâches terminées bornées (test/hebdo-recentdone-test.js) passe'); }
+  catch (e) { assert(false, 'prompt hebdo : dernières tâches terminées bornées (test/hebdo-recentdone-test.js) échoue'); }
   // Nettoyage
   db.close();
   fs.rmSync(workDir, { recursive: true, force: true });

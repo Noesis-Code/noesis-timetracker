@@ -1,0 +1,20 @@
+// Dernières tâches terminées injectées (bornées) dans le prompt hebdomadaire. Usage : node test/hebdo-recentdone-test.js
+const os = require('os'), fs = require('fs'), path = require('path');
+process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-recent-'));
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
+let failed = 0;
+const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const db = require('../server/db');
+const w = require('../server/lib/goalsweeklyauto');
+db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u','u',datetime('now'))").run();
+const act = db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('A','u','')").run().lastInsertRowid;
+const sp = db.prepare("INSERT INTO sub_projects (activityId, name, createdBy, createdAt, goalCategory) VALUES (?, 'S','u','', 'cat')").run(act).lastInsertRowid;
+assert(w.recentDoneLabels(act, 'cat').length === 0, 'aucune tâche => liste vide');
+for (let i = 0; i < 15; i++) db.prepare("INSERT INTO sub_project_items (subProjectId, label, done, doneAt, createdAt) VALUES (?,?,1,?,'')").run(sp, 'Tâche ' + i + ' ' + 'x'.repeat(100), '2026-10-' + String(i + 1).padStart(2, '0'));
+db.prepare("INSERT INTO sub_project_items (subProjectId, label, done, createdAt) VALUES (?, 'ouverte', 0, '')").run(sp);
+const r = w.recentDoneLabels(act, 'cat');
+assert(r.length === 10, 'borné à 10');
+assert(r[0].startsWith('Tâche 14') && r[0].length <= 70, 'plus récente d\'abord, tronquée à 70');
+assert(!r.includes('ouverte'), 'seules les tâches terminées');
+assert(w.recentDoneLabels(act, 'autre').length === 0, 'autre catégorie exclue');
+process.exit(failed ? 1 : 0);

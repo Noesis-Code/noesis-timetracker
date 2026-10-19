@@ -120,7 +120,19 @@ function emptyWeekIndexes(periodId) {
 const SYSTEM_PROMPT = `Tu aides à planifier les objectifs d'une entreprise sur Noèsis. On te donne le grand objectif d'une période de 4 semaines (un pôle ou secteur d'activité) et, éventuellement, le texte déjà écrit pour certaines semaines de cette même période. Décline le grand objectif en objectifs hebdomadaires CONCRETS et ACTIONNABLES uniquement pour les numéros de semaine demandés (jamais les autres), cohérents entre eux et avec les semaines déjà écrites si il y en a.
 Réponds UNIQUEMENT avec un objet JSON de cette forme exacte, sans texte ni Markdown autour :
 {"weeklyGoals":[{"weekIndex":N,"text":"...","description":"..."}]}
-Contraintes : un objet par numéro de semaine demandé, jamais un numéro non demandé ; "text" est le TITRE de l'objectif de la semaine : court (moins de 100 caractères), en français, une action concrète ; "description" précise en 1 à 3 phrases ce qu'il faut accomplir et comment on saura que c'est fait (moins de ${MAX_WEEKLY_DESC_LENGTH} caractères). Jamais une reformulation vague du grand objectif.`;
+Contraintes : un objet par numéro de semaine demandé, jamais un numéro non demandé ; "text" est le TITRE de l'objectif de la semaine : court (moins de 100 caractères), en français, une action concrète ; "description" précise en 1 à 3 phrases ce qu'il faut accomplir et comment on saura que c'est fait (moins de ${MAX_WEEKLY_DESC_LENGTH} caractères). Jamais une reformulation vague du grand objectif. Si "recentDone" est fourni (dernières tâches terminées de ce secteur), sers-t'en pour caler le niveau de détail et ne pas reproposer ce qui est déjà fait ; ce n'est qu'un repère, jamais un ordre.`;
+
+// Dernières tâches TERMINÉES du pôle/secteur (borné : 10 libellés de 70 caractères) injectées dans la requête pour que l'IA s'appuie sur
+// le travail réel récent. Vide => champ omis (requête, donc mémo, inchangée).
+const RECENT_DONE_MAX = 10;
+function recentDoneLabels(activityId, category) {
+  try {
+    return db.prepare(`SELECT i.label FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
+      WHERE sp.activityId = ? AND sp.goalCategory = ? AND i.done = 1 AND i.doneAt IS NOT NULL
+      ORDER BY i.doneAt DESC, i.id DESC LIMIT ?`).all(activityId, category, RECENT_DONE_MAX)
+      .map((r) => String(r.label || '').replace(/\s+/g, ' ').trim().slice(0, 70)).filter(Boolean);
+  } catch (e) { return []; }
+}
 
 // Mêmes entrées => même réponse pendant 15 min (aperçu « Partiel » puis application, double envoi client, rechargement) ;
 // appels simultanés identiques fusionnés. Au-delà de 15 min, ou si l'objectif/les semaines changent, nouvel appel (une régénération reste possible).
@@ -273,11 +285,13 @@ async function generateForPeriod(activityId, userId, category, periodNumber, opt
       .filter((w) => w.carriedOverFromId == null && w.text && w.text.trim())
       .map((w) => (w.description ? { weekIndex: w.weekIndex, text: w.text, description: w.description } : { weekIndex: w.weekIndex, text: w.text }));
 
+    const recent = recentDoneLabels(activityId, category);
     const proposals = await callAi({
       category: { label: catInfo.label, description: catInfo.description || '' },
       period: { periodNumber, startDate: period.startDate, endDate: period.endDate },
       mainGoalText: period.mainGoalText,
       ...(period.mainGoalDescription ? { mainGoalDescription: period.mainGoalDescription } : {}),
+      ...(recent.length ? { recentDone: recent } : {}),
       weeksAlreadyWritten: alreadyWritten,
       weeksToFill: emptyWeeks,
     }, emptyWeeks);
@@ -315,4 +329,5 @@ module.exports = {  emptyWeekIndexes,
   callAi,
   // Exportés pour les tests (bac à sable) uniquement.
   parseWeeklyGoals,
+  recentDoneLabels,
 };
