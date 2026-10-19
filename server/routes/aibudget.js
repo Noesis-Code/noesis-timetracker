@@ -7,7 +7,7 @@ const aibudget = require('../lib/aibudget');
 
 router.get('/ai-budget', requireAuth, (req, res) => {
   const s = aibudget.status(req.userId);
-  res.json({ spentMonth: Math.round(s.spentMonth * 10000) / 10000, capMonth: s.capMonth, blocked: s.blocked, resumesOn: s.resumesOn, message: s.blocked ? aibudget.blockedMessage(s.resumesOn) : null });
+  res.json({ spentMonth: Math.round(s.spentMonth * 10000) / 10000, capMonth: s.capMonth, blocked: s.blocked, resumesOn: s.resumesOn, message: s.blocked ? aibudget.blockedMessage(s.resumesOn, s.period) : null });
 });
 
 module.exports = router;

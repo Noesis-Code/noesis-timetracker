@@ -2464,5 +2464,9 @@ CREATE TABLE IF NOT EXISTS ai_token_notifs (
 );
 CREATE INDEX IF NOT EXISTS idx_ai_tokens_user ON ai_tokens(userId);
 `);
+// 19 oct. 2026 : la table pouvait exister sans la colonne canWrite (1re version, lecture seule) : CREATE TABLE IF NOT EXISTS ne l'ajoute pas.
+if (!db.prepare('PRAGMA table_info(ai_tokens)').all().some((c) => c.name === 'canWrite')) {
+  db.exec('ALTER TABLE ai_tokens ADD COLUMN canWrite INTEGER NOT NULL DEFAULT 0');
+}
 
 module.exports = db;

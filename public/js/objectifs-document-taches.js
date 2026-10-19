@@ -229,7 +229,8 @@
     var f = ((driveSt && driveSt.folders) || []).filter(function (x) { return x.id === fsId; })[0]; if (!f) return;
     var dflt = (syncSt && syncSt.defaultInstruction) || 'Extrais toutes les tâches écrites dans le document';
     $('docTasksFsTitle').innerHTML = FOLDER_ICON + esc(f.name || 'Dossier');
-    $('docTasksFsBody').innerHTML = '<label class="docTasksCheck"><input type="checkbox" id="docTasksFsActive"' + (f.paused ? '' : ' checked') + '> Surveillance active (décoche pour la mettre en pause)</label>'
+    $('docTasksFsBody').innerHTML = '<div class="docTasksPauseRow"><span>Mettre en pause</span><label class="toggleSwitch"><input type="checkbox" id="docTasksFsPause" aria-label="Mettre en pause"' + (f.paused ? ' checked' : '') + '><span class="toggleSwitchTrack"></span></label></div>'
+      + (f.paused ? '<p class="docTasksMeta">Surveillance en pause : ce dossier n’est plus analysé.</p>' : '')
       + '<label class="docTasksCheck"><input type="checkbox" id="docTasksFsAuto"' + (f.mode === 'auto' ? ' checked' : '') + '> Ajouter automatiquement les nouvelles tâches (sinon elles te sont proposées pour validation)</label>'
       + '<label class="docTasksMeta" for="docTasksFsInstr">Consigne permanente (facultative)</label>'
       + '<textarea id="docTasksFsInstr" class="docTasksInstr" rows="2" maxlength="1500" placeholder="' + esc(dflt.replace(/[\s.…]+$/, '') + '…') + '">' + esc(f.instruction) + '</textarea>'
@@ -255,7 +256,7 @@
         if (driveSt.folderChosen) { loadSync(); } else { syncSt = null; renderSync(); }
       }).catch(fail);
     } else if (a === 'save') {
-      dApi('POST', '/api/drive/folder/settings', { folderId: fsId, mode: $('docTasksFsAuto').checked ? 'auto' : 'propose', instruction: $('docTasksFsInstr').value, paused: !$('docTasksFsActive').checked })
+      dApi('POST', '/api/drive/folder/settings', { folderId: fsId, mode: $('docTasksFsAuto').checked ? 'auto' : 'propose', instruction: $('docTasksFsInstr').value, paused: $('docTasksFsPause').checked })
         .then(function (r) { driveSt.folders = r.folders || driveSt.folders; syncSt = r; renderSync(); renderFoldersPop(); closeFolderSet(); }).catch(fail);
     } else if (a === 'run') {
       fsMsg = 'Synchronisation…'; renderFolderSet();
@@ -358,6 +359,8 @@
     if (!s || !(driveSt && driveSt.folderChosen)) { h.innerHTML = ''; return; }
     var html = '<div class="docTasksSyncRow">';
     html += '<div class="docTasksMeta">Dernière vérification : ' + esc(ago(s.lastCheckedAt)) + '</div>';
+    var fl = (driveSt && driveSt.folders) || [];
+    if (fl.length && fl.every(function (x) { return x.paused; })) html += '<div class="docTasksWarn">Surveillance en pause : aucun dossier n’est analysé.</div>';
     if (s.aiBlocked && s.aiResumesOn) html += '<div class="docTasksWarn">' + esc(s.aiMessage) + '</div>';
     else if (s.capReached) html += '<div class="docTasksWarn">Plafond de ' + s.maxCallsPerDay + ' analyses IA par jour atteint : la surveillance reprendra demain.</div>';
     if (syncMsg) html += '<p class="msg">' + esc(syncMsg) + '</p>';

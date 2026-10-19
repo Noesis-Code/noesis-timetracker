@@ -38,16 +38,23 @@ const push = require('./push');
 const { activityHasEssor } = require('./offer1access');
 const subprojects = require('./subprojects');
 
-const DEFAULT_INSTRUCTION = 'Extrais toutes les tâches écrites dans le document';
+const OLD_DEFAULT_INSTRUCTION = 'Extrais toutes les tâches écrites dans le document';
+// Consigne par défaut DURCIE (19 oct. 2026, coût et pertinence) : peu de tâches, claires, actionnables ; elle prime sur la règle d'exhaustivité du système.
+const DEFAULT_INSTRUCTION = "Ne retiens QUE les tâches clairement actionnables : concrètes, formulées par un verbe d'action, que la personne doit elle-même accomplir. Jamais d'idées, de notes, d'historique, de comptes rendus, de titres ni de tâches déjà faites (cochées, barrées, au passé). Au plus 8 tâches par document, les plus importantes ; en cas de doute, n'en retiens aucune. Réponse JSON courte, sans commentaire.";
+const MAX_TASKS_PER_FILE = Number(process.env.DRIVE_SYNC_MAX_TASKS_PER_FILE) > 0 ? Number(process.env.DRIVE_SYNC_MAX_TASKS_PER_FILE) : 8;
+// Première lecture d'un fichier : seulement ceux modifiés dans les N derniers jours (DRIVE_SYNC_FIRST_DAYS, défaut 30).
+const FIRST_DAYS = Number(process.env.DRIVE_SYNC_FIRST_DAYS) > 0 ? Number(process.env.DRIVE_SYNC_FIRST_DAYS) : 30;
+// Modèle d'extraction (tâches seules) : Haiku par défaut, DRIVE_SYNC_MODEL pour changer.
+const DRIVE_MODEL = process.env.DRIVE_SYNC_MODEL || 'claude-haiku-4-5';
 const MAX_INSTRUCTION = 1500;
-// Par passage de surveillance : au plus 50 fichiers envoyés à l'IA (les autres au passage suivant) ; arrêt après 3 échecs IA de suite.
-const MAX_AI_PER_PASS = Number(process.env.DRIVE_SYNC_MAX_AI_PER_PASS) > 0 ? Number(process.env.DRIVE_SYNC_MAX_AI_PER_PASS) : 50;
+// Par passage de surveillance : au plus 10 fichiers envoyés à l'IA (les autres au passage suivant) ; arrêt après 3 échecs IA de suite.
+const MAX_AI_PER_PASS = Number(process.env.DRIVE_SYNC_MAX_AI_PER_PASS) > 0 ? Number(process.env.DRIVE_SYNC_MAX_AI_PER_PASS) : 10;
 const MAX_AI_FAILS_IN_A_ROW = 3;
 
 function httpError(status, message) { return Object.assign(new Error(message), { statusCode: status }); }
 function maxCalls() {
   const n = parseInt(process.env.DRIVE_SYNC_MAX_AI_CALLS_PER_DAY, 10);
-  return Number.isFinite(n) && n >= 0 ? n : Infinity; // aucun plafond par défaut (décision d'Émilien, 16 oct. 2026)
+  return Number.isFinite(n) && n >= 0 ? n : 40; // 40 appels/jour/utilisateur par défaut (19 oct. 2026 : l'absence de plafond a coûté cher)
 }
 function intervalMin() {
   const raw = String(process.env.DRIVE_SYNC_INTERVAL_MIN == null ? '30' : process.env.DRIVE_SYNC_INTERVAL_MIN).trim().toLowerCase();
@@ -95,7 +102,7 @@ function settings(userId, activityId) {
     lastCheckedAt: sy.lastCheckedAt || null,
     needsReconnect: !!sy.needsReconnect,
     aiBlocked: aibudget.status(userId).blocked, aiResumesOn: aibudget.status(userId).resumesOn,
-    aiMessage: aibudget.status(userId).blocked ? aibudget.blockedMessage(aibudget.status(userId).resumesOn) : null,
+    aiMessage: aibudget.status(userId).blocked ? aibudget.blockedMessage(aibudget.status(userId).resumesOn, aibudget.status(userId).period) : null,
     capReached: used >= max, callsToday: used, maxCallsPerDay: Number.isFinite(max) ? max : null,
     ...skippedInfo(userId, activityId),
     pendingCount: db.prepare("SELECT COUNT(*) AS n FROM drive_seen_tasks WHERE activityId = ? AND status = 'pending'").get(activityId).n,
@@ -252,7 +259,7 @@ function stmts() {
 // Range les tâches proposées d'un fichier (dédoublonnage, mode auto/propose) : logique inchangée.
 function storeTasks(userId, activityId, fileId, cfg, tasks, existing, st, out) {
   const now = new Date().toISOString();
-  for (const t of tasks) {
+  for (const t of tasks.slice(0, MAX_TASKS_PER_FILE)) { // au plus 8 par fichier (segment)
     const tk = taskKey(t.title);
     if (!tk || st.keyRow.get(activityId, tk)) continue; // déjà ajoutée / refusée / en attente
     if (existing.has(tk)) { st.putTask.run(userId, activityId, fileId, tk, 'dismissed', null, null, null, null, null, now, null); continue; } // déjà dans l'app : jamais écrasée ni rajoutée
@@ -338,7 +345,7 @@ function errOutcome(e) {
 // Appel direct d'une demande préparée (mêmes étapes que documenttasks.propose, avec l'étape en cause pour classer la panne).
 async function callPrep(userId, activityId, pp) {
   let out;
-  try { out = await docanalysis.call({ parts: pp.parts, want: pp.want, feature: 'document-taches' }); }
+  try { out = await docanalysis.call({ parts: pp.parts, want: pp.want, feature: 'document-taches', model: pp.model }); }
   catch (e) { throw Object.assign(e && typeof e === 'object' ? e : new Error(String(e)), { stage: 'call' }); }
   return documenttasks.finishProposal(userId, activityId, out, pp);
 }
@@ -467,7 +474,7 @@ async function syncConnection(userId, activityId, opts) {
     for (const f of files) {
       if (out.aiCalls >= MAX_AI_PER_PASS || out.segs >= maxSegsPerPass()) break; // reprise au prochain passage
       const cfg = folderCfg.get(f.folderId) || {};
-      const instruction = cfg.instruction || DEFAULT_INSTRUCTION;
+      const instruction = (cfg.instruction && cfg.instruction.trim() !== OLD_DEFAULT_INSTRUCTION) ? cfg.instruction : DEFAULT_INSTRUCTION;
       out.filesChecked++;
       const seen = seenFile.get(userId, activityId, f.id);
       // inchangé : rien à lire. Une entrée « skip:* » (pré-filtre) est TOUJOURS réévaluée : le pré-filtre est local et gratuit (original modifié / disparu, manuel, DRIVE_PREFILTER=off).
@@ -480,6 +487,14 @@ async function syncConnection(userId, activityId, opts) {
       const att = attemptsOf(userId, activityId, f.id, f.modifiedTime);
       if (!opts.manual && att && att.nextAt > new Date().toISOString()) continue; // attente avant un nouvel essai (réponse coupée / inexploitable)
       if (!opts.manual && inflight.has(f.id)) continue; // lot en cours pour ce fichier (le manuel lit tout, immédiatement)
+      // Première lecture : seulement les fichiers récents (30 jours) ; les autres sont listés (invariant : traité ou listé), pas téléchargés.
+      if (pf && !seen && f.modifiedTime && Date.parse(f.modifiedTime) < Date.now() - FIRST_DAYS * 86400000) {
+        const reason = 'ancien (plus de ' + FIRST_DAYS + ' jours)';
+        st.putFile.run(userId, activityId, f.id, f.modifiedTime, 'skip:ancien');
+        skipIns.run(userId, activityId, f.id, f.name || '', reason, new Date().toISOString(), null);
+        (out.skipped = out.skipped || []).push({ name: f.name || '', reason });
+        continue;
+      }
       let text;
       try { text = (await drive.readFileText(userId, activityId, f.id)).text; }
       catch (e) {
@@ -531,7 +546,7 @@ async function syncConnection(userId, activityId, opts) {
       out.segs += take.length;
       const bodyOf = (t) => ({ instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl: 'data:text/plain;base64,' + Buffer.from(t, 'utf8').toString('base64') }] });
       // Les « modifications proposées » sortent du même appel que les tâches (1er segment du fichier seulement), sauf à la première lecture du fichier (rien à comparer).
-      const poptsOf = (i) => ({ skipRate: true, callTaken: true, skipChanges: isNew || i > 0 });
+      const poptsOf = (i) => ({ skipRate: true, callTaken: true, skipChanges: isNew || i > 0, model: DRIVE_MODEL });
       if (batch) {
         try { const preps = await aibudget.runAs(userId, async () => { const a = []; for (const x of take) a.push(await prepOf(userId, activityId, bodyOf(x.t), poptsOf(x.i))); return a; }); queue.push({ f, meta, first: isNew, cfg, preps, segs: take }); }
         catch (e) { const o = errOutcome(e); if (o.det) (out.suspects = out.suspects || []).push(meta); if (!(o.det && out.aiOk) && ++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; }
@@ -579,8 +594,7 @@ async function submitQueue(userId, activityId, queue, st, existing, out) {
   const bud = aibudget.check(userId);
   if (!bud.ok) { out.aiBlocked = true; out.aiResumesOn = bud.resumesOn; return; }
   const s0 = aibudget.status(userId);
-  const inflight = db.prepare("SELECT COALESCE(SUM(estCost), 0) AS c FROM drive_batches WHERE userId = ? AND status = 'submitted'").get(userId).c;
-  let remaining = s0.allowedNow - s0.spentMonth - inflight;
+  let remaining = s0.remaining; // déjà net des lots en vol et du plafond du jour
   const admitted = [];
   let estTotal = 0;
   for (const q0 of queue) {
@@ -606,7 +620,7 @@ async function submitQueue(userId, activityId, queue, st, existing, out) {
     fileMap[cid] = { fileId: q.f.id, name: q.f.name || '', modifiedTime: q.f.modifiedTime, contentHash: q.meta.hash, chunks: n === 0 ? q.meta.chunks : undefined, folderId: q.f.folderId, first: q.first, wantC: q.segs[n].i === 0 && !!q.preps[n].want.c, seg: n, segHash: q.segs[n].h, partial: !!q.meta.partial };
   }));
   try {
-    const { id } = await aibatch.submit(requests);
+    const { id } = await aibatch.submit(requests, userId);
     db.prepare('INSERT INTO drive_batches (userId, activityId, batchId, createdAt, status, fileMap, estCost) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(userId, activityId, id, new Date().toISOString(), 'submitted', JSON.stringify(fileMap), estTotal);
     out.batched = admitted.length;

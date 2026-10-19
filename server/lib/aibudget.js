@@ -12,7 +12,10 @@
 //
 // Tarifs en $/million de jetons ; surchargeables sans code : AI_PRICE_IN_PER_M,
 // AI_PRICE_OUT_PER_M (valent pour tous les modèles), AI_BUDGET_MONTH_USD (défaut 15).
-// Les appels sans utilisateur identifiable sont enregistrés sous 'system', jamais bloqués.
+// 19 oct. 2026 : TOUS les comptes sont plafonnés (codes d'accès, Emilien, Gaspard compris) ; garde-fou JOURNALIER en plus des tranches :
+// AI_BUDGET_DAY_USD (défaut 2 $/jour/utilisateur). Les appels sans utilisateur identifiable ('system') sont plafonnés eux aussi :
+// AI_BUDGET_SYSTEM_DAY_USD (défaut 3 $/jour). Le coût compté = réel enregistré + coût maximal estimé des appels directs en vol (réservés avant l'envoi)
+// + coût maximal des lots soumis non relevés (drive_batches.estCost) : un lot compte dès sa soumission.
 const { AsyncLocalStorage } = require('async_hooks');
 const db = require('../db');
 
@@ -52,6 +55,9 @@ function capMonth() {
   const n = Number(process.env.AI_BUDGET_MONTH_USD);
   return Number.isFinite(n) && n > 0 ? n : 15;
 }
+
+function capDay() { const n = Number(process.env.AI_BUDGET_DAY_USD); return Number.isFinite(n) && n > 0 ? n : 2; }
+function capSystemDay() { const n = Number(process.env.AI_BUDGET_SYSTEM_DAY_USD); return Number.isFinite(n) && n > 0 ? n : 3; }
 
 function priceFor(model) {
   const m = String(model || '').toLowerCase();
@@ -95,15 +101,56 @@ function spentMonth(userId, now) {
     .get(String(userId), month + '-01', month + '-31');
   return r.s || 0;
 }
+function spentDay(userId, now) {
+  const d = todayLocal(now);
+  return db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE userId = ? AND day = ?').get(String(userId), d).s || 0;
+}
 
-// État du budget d'un utilisateur : { spentMonth, capMonth, allowedNow, blocked, resumesOn }.
+// Appels directs en vol : coût maximal estimé, réservé avant l'envoi, libéré quand le coût réel est enregistré.
+const reserved = new Map();
+const reservedOf = (u) => reserved.get(String(u)) || 0;
+function reserve(u, amount) { reserved.set(String(u), reservedOf(u) + amount); }
+function release(u, amount) { const v = reservedOf(u) - amount; if (v > 1e-12) reserved.set(String(u), v); else reserved.delete(String(u)); }
+// Lots Anthropic soumis non relevés (table de drivesync.js ; absente => 0).
+function batchesInFlight(userId) {
+  try { return db.prepare("SELECT COALESCE(SUM(estCost), 0) AS c FROM drive_batches WHERE userId = ? AND status = 'submitted'").get(String(userId)).c || 0; }
+  catch (e) { return 0; }
+}
+// Coût maximal d'un corps /v1/messages : entrée (caractères/4, x1,25 : écriture de cache au pire) + max_tokens de sortie ; factor 0,5 pour un lot.
+function estimateMaxCost(body, factor) {
+  let b = body;
+  try { if (typeof body === 'string') b = JSON.parse(body); } catch (e) { b = null; }
+  if (!b || typeof b !== 'object') return 0.05;
+  const p = priceFor(b.model);
+  const inTok = Math.ceil(JSON.stringify([b.system || '', b.messages || []]).length / 4) * 1.25;
+  return (inTok * p.in + (Number(b.max_tokens) || 1024) * p.out) / 1e6 * (factor > 0 ? factor : 1);
+}
+
+// État du budget : { spentMonth, capMonth, allowedNow, blocked, resumesOn, period, remaining, spentDay, capDay }.
+// Dépenses = réel + en vol (appels directs réservés + lots). Plafond mensuel cumulé par tranche (inchangé) ET plafond du jour.
+// 'system' : seulement le plafond du jour système (AI_BUDGET_SYSTEM_DAY_USD).
 function status(userId, now) {
   const cap = capMonth();
-  if (!userId || userId === SYSTEM_USER) return { spentMonth: 0, capMonth: cap, allowedNow: cap, blocked: false, resumesOn: null };
-  const spent = spentMonth(userId, now);
+  const uid = userId || SYSTEM_USER;
+  const inflight = reservedOf(uid) + batchesInFlight(uid);
+  const sD = spentDay(uid, now) + inflight;
+  if (uid === SYSTEM_USER) {
+    const cd = capSystemDay(), blocked = sD >= cd - 1e-9;
+    return { spentMonth: spentMonth(uid, now), capMonth: cap, allowedNow: cd, spentDay: sD, capDay: cd, remaining: Math.max(0, cd - sD), blocked, period: blocked ? 'jour' : null, resumesOn: blocked ? addDay(now) : null };
+  }
+  const spent = spentMonth(uid, now) + inflight;
   const allowed = cap * trancheOf(now) / 4;
-  const blocked = spent >= allowed - 1e-9;
-  return { spentMonth: spent, capMonth: cap, allowedNow: allowed, blocked, resumesOn: blocked ? nextTrancheStart(now) : null };
+  const cd = capDay();
+  const bTr = spent >= allowed - 1e-9, bDay = sD >= cd - 1e-9;
+  const blocked = bTr || bDay;
+  // Reprise : le plus tardif des plafonds atteints (tranche suivante, ou demain).
+  const resumesOn = !blocked ? null : bTr ? nextTrancheStart(now) : addDay(now);
+  return { spentMonth: spent, capMonth: cap, allowedNow: allowed, spentDay: sD, capDay: cd, remaining: Math.max(0, Math.min(allowed - spent, cd - sD)), blocked, period: !blocked ? null : bTr ? 'semaine' : 'jour', resumesOn };
+}
+function addDay(now) {
+  const d = now instanceof Date ? new Date(now.getTime()) : new Date();
+  d.setDate(d.getDate() + 1);
+  return todayLocal(d);
 }
 
 const MONTHS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -112,15 +159,24 @@ function dateLabelFr(iso) {
   return (d === 1 ? '1er' : String(d)) + ' ' + MONTHS_FR[Number(iso.slice(5, 7)) - 1];
 }
 // Message en français ; i18n.js (PATTERNS) le traduit côté client en mode anglais.
-function blockedMessage(resumesOn) {
+function blockedMessage(resumesOn, period) {
+  if (period === 'jour') return "Limite d'utilisation de l'IA atteinte pour aujourd'hui. Elle reprend demain.";
   return "Limite d'utilisation de l'IA atteinte pour cette semaine. Elle reprend le " + dateLabelFr(resumesOn) + '.';
 }
 
-// check(userId) : { ok, resumesOn, message } — à appeler AVANT chaque appel à l'API.
-function check(userId, now) {
+// check(userId, now, estimate) : { ok, resumesOn, period, message } — à appeler AVANT chaque appel à l'API.
+// `estimate` (optionnel) : coût maximal de l'appel envisagé ; refusé s'il dépasse ce qui reste (jour ou tranche).
+function check(userId, now, estimate) {
   const s = status(userId, now);
-  if (!s.blocked) return { ok: true, resumesOn: null, message: null };
-  return { ok: false, resumesOn: s.resumesOn, message: blockedMessage(s.resumesOn) };
+  const est = Number(estimate) > 0 ? Number(estimate) : 0;
+  if (!s.blocked && s.remaining + 1e-9 >= est) return { ok: true, resumesOn: null, period: null, message: null };
+  let period = s.period, resumesOn = s.resumesOn;
+  if (!s.blocked) { // reste insuffisant pour cet appel : la contrainte la plus serrée
+    const dayTight = s.capDay - s.spentDay <= s.allowedNow - s.spentMonth || s.capDay === capSystemDay() && (userId || SYSTEM_USER) === SYSTEM_USER;
+    period = dayTight ? 'jour' : 'semaine';
+    resumesOn = dayTight ? addDay(now) : nextTrancheStart(now);
+  }
+  return { ok: false, resumesOn, period, message: blockedMessage(resumesOn, period) };
 }
 
 // record(userId, model, usage, feature, now, factor) : enregistre le coût réel d'un appel (factor 0,5 pour un lot Anthropic). Ne lève jamais.
@@ -147,17 +203,21 @@ function currentUser() { const s = als.getStore(); return s && s.userId ? s.user
 // Bloqué : lève une Error { aiBlocked: true, resumesOn } SANS appeler l'API (les appelants
 // l'attrapent déjà comme n'importe quelle panne IA). Renvoie la Response d'origine, intacte.
 async function fetchAnthropic(feature, url, init, userId) {
-  const uid = userId || currentUser();
-  const c = check(uid);
-  if (!c.ok) throw Object.assign(new Error(c.message), { aiBlocked: true, resumesOn: c.resumesOn });
-  const res = await fetch(url || ANTHROPIC_URL, init);
-  if (res && res.ok && typeof res.clone === 'function') {
-    try {
-      const body = await res.clone().json();
-      if (body && body.usage) record(uid, body.model || (init && init.body && JSON.parse(init.body).model), body.usage, feature);
-    } catch (e) { /* réponse non lisible : rien à enregistrer */ }
-  }
-  return res;
+  const uid = userId || currentUser() || SYSTEM_USER;
+  const est = estimateMaxCost(init && init.body);
+  const c = check(uid, undefined, est);
+  if (!c.ok) throw Object.assign(new Error(c.message), { aiBlocked: true, resumesOn: c.resumesOn, period: c.period });
+  reserve(uid, est);
+  try {
+    const res = await fetch(url || ANTHROPIC_URL, init);
+    if (res && res.ok && typeof res.clone === 'function') {
+      try {
+        const body = await res.clone().json();
+        if (body && body.usage) record(uid, body.model || (init && init.body && JSON.parse(init.body).model), body.usage, feature);
+      } catch (e) { /* réponse non lisible : rien à enregistrer */ }
+    }
+    return res;
+  } finally { release(uid, est); }
 }
 
-module.exports = { check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, capMonth, runAs, currentUser, fetchAnthropic, todayLocal, SYSTEM_USER };
+module.exports = { check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, estimateMaxCost, runAs, currentUser, fetchAnthropic, todayLocal, SYSTEM_USER };

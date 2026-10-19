@@ -5,6 +5,9 @@ process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 process.env.GOOGLE_CLIENT_ID = 'cid'; process.env.GOOGLE_CLIENT_SECRET = 'sec';
 process.env.GOOGLE_REDIRECT_URI = 'https://x.test/api/drive/callback'; process.env.DRIVE_TOKEN_KEY = 'a'.repeat(64);
 process.env.DRIVE_PREFILTER = 'off'; // les sections précédentes utilisent des textes très courts ; réactivé pour l'option 6
+process.env.DRIVE_PREFILTER_ACTION = 'off'; // le filtre « sans action » (19 oct. 2026) est testé à part ; ces fixtures sont des textes génériques
+process.env.DRIVE_SYNC_MODEL = 'claude-sonnet-4-5-20250929'; // les estimations de ces tests supposent Sonnet
+process.env.DRIVE_SYNC_MAX_AI_PER_PASS = '50'; process.env.DRIVE_SYNC_MAX_TASKS_PER_FILE = '1000'; process.env.DRIVE_SYNC_FIRST_DAYS = '36500'; process.env.AI_BUDGET_DAY_USD = '1000'; process.env.DRIVE_SYNC_MAX_AI_CALLS_PER_DAY = '100000'; // anciennes limites, pour ces scénarios
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');

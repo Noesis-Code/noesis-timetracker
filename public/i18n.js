@@ -1715,6 +1715,7 @@
     [/^Noèsis n'a pas pu (?:faire l'évaluation entre secteurs|générer les objectifs hebdomadaires|générer le plan) \(HTTP (\d+)\)(.*)$/, 'Noèsis could not complete the request (HTTP $1)$2'],
     [/^Anthropic a refusé l'appel \(HTTP (\d+)\)(.*)$/, 'Anthropic refused the call (HTTP $1)$2'],
     [/^(.+) requis\.$/, function (m) { return m[1] + ' required.'; }],
+    [/^Limite d'utilisation de l'IA atteinte pour aujourd'hui\. Elle reprend demain\.$/, 'AI usage limit reached for today. It resumes tomorrow.'],
     [/^Limite d'utilisation de l'IA atteinte pour cette semaine\. Elle reprend le (1er|\d+) (\S+)\.$/, function (m) {
       var fr = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
       var en = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
