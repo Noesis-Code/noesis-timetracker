@@ -23,12 +23,12 @@
         <div id="offer1Section">
           <div class="offer1Promo offer1PromoSoon">
             <span class="offer1SoonBadge">À venir</span>
-            <p class="offer1PromoText"><span>Génère automatiquement tes objectifs et tâches tous les mois en passant à l'Offre 1.</span></p>
+            <p class="offer1PromoText"><span>Génère automatiquement tes objectifs et tâches tous les mois en passant à Expansion.</span></p>
             <small class="offer1PromoSub">20 $/mois par activité · résiliable à tout moment</small>
             <div id="offer1SubscribedList" class="activitiesList"></div>
             <p id="offer1SubscribedEmptyHint" class="hint hidden">Aucun abonnement actif pour l'instant.</p>
             <div class="offer1PromoActions">
-              <button type="button" id="offer1CheckoutOpenBtn" class="offer1PromoBtn" disabled aria-disabled="true">Découvrir l'Offre 1</button>
+              <button type="button" id="offer1CheckoutOpenBtn" class="offer1PromoBtn" disabled aria-disabled="true">Découvrir Expansion</button>
               <button type="button" id="offer1CodeLink" class="offer1PromoBtn offer1PromoBtnGrey hidden">J’ai un code</button>
             </div>
           </div>
@@ -1700,8 +1700,22 @@
     var histPanel = $('goalsTasksHistoryPanel');
     if (histPanel) histPanel.classList.add('hidden');
     if (TMT.loadOffer1SubscribedSection) TMT.loadOffer1SubscribedSection();
+    loadOffer1Availability();
   }
 
+
+  // Achat Expansion : le bouton n'est actif que si le serveur ouvre le paiement (GET /api/offer/available).
+  function loadOffer1Availability() {
+    api('GET', '/api/offer/available').then(function (r) {
+      var open = !!(r && r.available), btn = $('offer1CheckoutOpenBtn'), promo = btn && btn.closest('.offer1Promo');
+      if (!btn) return;
+      btn.disabled = !open;
+      btn.setAttribute('aria-disabled', open ? 'false' : 'true');
+      if (promo) promo.classList.toggle('offer1PromoSoon', !open);
+      var badge = promo && promo.querySelector('.offer1SoonBadge');
+      if (badge) badge.classList.toggle('hidden', open);
+    }).catch(function () { /* hors-ligne : le bouton reste tel quel */ });
+  }
 
   // Navigue vers la page 2 (pôles + arbre périodique) d'une activité précise
   // — depuis un clic sur une puce d'activité de la page 1 (texte vide) ou le

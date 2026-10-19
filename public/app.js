@@ -15801,7 +15801,7 @@
     var achat = params.get('achat');
     if (achat !== 'succes' && achat !== 'annule') return;
     alert(achat === 'succes'
-      ? t("Abonnement à l'Offre 1 activé. Merci !")
+      ? t("Abonnement à Expansion activé. Merci !")
       : t('Paiement annulé — aucun abonnement créé.'));
     params.delete('achat');
     var qs = params.toString();

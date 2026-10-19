@@ -150,7 +150,7 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
   const activityId = resolved.activityId;
 
   if (alreadySubscribed(activityId, userId)) {
-    return res.status(409).json({ error: 'Tu es déjà abonné à l\'Offre 1 pour cette activité.' });
+    return res.status(409).json({ error: 'Tu es déjà abonné à Expansion pour cette activité.' });
   }
 
   // Si mineur : pas de Checkout Session tant que le représentant légal n'a
@@ -246,6 +246,13 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
 // activité une fois par abonnement. Le statut individuel de chacun n'a de
 // toute façon aucun sens à afficher ici (le front n'en fait rien, seule
 // l'appartenance à l'activité compte pour rouvrir les formulaires).
+// Paiement ouvert ? Clés Stripe présentes ET (staging OU OFFER_CHECKOUT_OPEN=1). Sinon le bouton reste « À venir ».
+router.get('/offer/available', (req, res) => {
+  const available = !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_OFFER1_PRICE_ID)
+    && (process.env.RAILWAY_ENVIRONMENT_NAME === 'staging' || process.env.OFFER_CHECKOUT_OPEN === '1');
+  res.json({ available });
+});
+
 router.get('/offer/subscriptions', requireAuth, (req, res) => {
   const rows = db.prepare(`
     SELECT a.id AS activityId, a.name AS activityName, m.color AS activityColor
