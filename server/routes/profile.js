@@ -719,19 +719,18 @@ router.put('/profile/:id/ai-mode', (req, res) => {
 // Modules activables (socle, 19 oct. 2026) : lecture/écriture de l'état ; ne masque rien encore, ne supprime aucune donnée.
 router.get('/profile/:id/modules', (req, res) => {
   if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
-  if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux lire que ton propre profil.' });
+  // Les modules sont toujours ceux du compte connecté (session) : un id de profil périmé côté client ne bloque plus.
   const modules = require('../lib/modules');
-  const state = modules.getModules(req.params.id);
+  const state = modules.getModules(req.userId);
   if (!state) return res.status(404).json({ error: 'Profil introuvable.' });
-  const mc = db.prepare('SELECT modulesChosen FROM users WHERE id = ?').get(req.params.id);
+  const mc = db.prepare('SELECT modulesChosen FROM users WHERE id = ?').get(req.userId);
   res.json({ modules: state, list: modules.list(), modulesChosen: !mc || mc.modulesChosen !== 0 });
 });
 router.put('/profile/:id/modules', (req, res) => {
   if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
-  if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux modifier que ton propre profil.' });
-  const r = require('../lib/modules').setModules(req.params.id, req.body && req.body.modules);
+  const r = require('../lib/modules').setModules(req.userId, req.body && req.body.modules);
   if (!r.ok) return res.status(r.status).json({ error: r.error });
-  db.prepare('UPDATE users SET modulesChosen = 1 WHERE id = ?').run(req.params.id);
+  db.prepare('UPDATE users SET modulesChosen = 1 WHERE id = ?').run(req.userId);
   res.json({ ok: true, modules: r.modules, modulesChosen: true });
 });
 
