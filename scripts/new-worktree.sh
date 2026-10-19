@@ -14,7 +14,9 @@ git worktree add "$dest" -b "claude/$sujet" FETCH_HEAD >/dev/null
 nm="${NM_SOURCE:-$top/node_modules}"
 [ -d "$nm" ] && ln -s "$nm" "$dest/node_modules"
 # Dépendances propres à Trade Tracker (@simplewebauthn/server) : lien vers celles du worktree courant (sinon : cd trade-tracker && npm ci)
-[ -d "$top/trade-tracker/node_modules" ] && ln -s "$top/trade-tracker/node_modules" "$dest/trade-tracker/node_modules" || echo "Avertissement : trade-tracker/node_modules absent, lancer 'cd trade-tracker && npm ci' (tests Trade)" >&2
+tnm=""
+for c in "$top" "$(dirname "$(git rev-parse --git-common-dir)")" "$(dirname "$top")"/wt-*; do [ -d "$c/trade-tracker/node_modules" ] && { tnm="$c/trade-tracker/node_modules"; break; }; done
+[ -n "$tnm" ] && ln -s "$tnm" "$dest/trade-tracker/node_modules" || echo "Avertissement : trade-tracker/node_modules absent, lancer 'cd trade-tracker && npm ci' (tests Trade)" >&2
 # Port libre : premier non utilisé à partir de 3900 et non déjà attribué à un autre chantier
 port=3900
 while (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null || grep -qs "PORT=$port\$" "$(dirname "$top")"/wt-*/.chantier.env 2>/dev/null; do port=$((port+1)); done
