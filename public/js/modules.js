@@ -12,9 +12,16 @@
     roadmap: 'Feuille de route',
     calendar: 'Calendrier',
     ai: 'Assistant IA',
-    notifications: 'Notifications'
+    notifications: 'Notifications',
+    profile: 'Profil'
   };
-  var ORDER = ['stats', 'stats-tasks', 'sharing', 'community', 'roadmap', 'calendar', 'ai', 'notifications'];
+  // Ensembles A/B (au moins un actif, validé côté serveur), puis optionnels et autres modules.
+  var GROUPS = [
+    { title: 'Temps', ids: ['stats'] },
+    { title: 'Tâches et objectifs', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'] },
+    { title: 'Optionnel', ids: ['community', 'profile'] },
+    { title: 'Autres', ids: ['sharing', 'notifications'] }
+  ];
   var state = null, loadedFor = null;
   var box = document.getElementById('modulesList');
   var msg = document.getElementById('modulesMsg');
@@ -30,7 +37,11 @@
   function paint() {
     if (!box || !state) return;
     box.innerHTML = '';
-    ORDER.forEach(function (id) {
+    GROUPS.forEach(function (g) {
+      var h = document.createElement('p'); h.className = 'hint'; h.textContent = tr(g.title); box.appendChild(h);
+      g.ids.forEach(addRow);
+    });
+    function addRow(id) {
       var row = document.createElement('div'); row.className = 'notifRow';
       var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = tr(LABELS[id]);
       var sw = document.createElement('label'); sw.className = 'toggleSwitch';
@@ -43,7 +54,7 @@
       sw.appendChild(inp); sw.appendChild(track);
       row.appendChild(label); row.appendChild(sw);
       box.appendChild(row);
-    });
+    }
   }
 
   function load() {

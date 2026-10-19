@@ -3,15 +3,27 @@
 const db = require('../db');
 
 // Un seul endroit à changer pour décider quels modules un NOUVEAU compte reçoit (décision d'Émilien en attente : tout actif pour l'instant).
-const NEW_ACCOUNT_DEFAULT_MODULES = ['stats', 'stats-tasks', 'sharing', 'community', 'roadmap', 'calendar', 'ai', 'notifications'];
+// Ensembles A et B actifs ; Communauté et Profil (optionnels) inactifs.
+const NEW_ACCOUNT_DEFAULT_MODULES = ['stats', 'stats-tasks', 'roadmap', 'sharing', 'calendar', 'ai', 'notifications'];
+
+// Ensembles (décision d'Émilien) : au moins UN des deux doit rester actif (Chrono, dans core, fait partie de A côté produit).
+// A « Temps » : statistiques du chrono / feuille de temps. B « Tâches et objectifs » : statistiques des tâches + Feuille de route.
+// `anchor` = module dont l'état dit si l'ensemble est actif.
+const BUNDLES = {
+  time: { label: 'Temps', anchor: 'stats', modules: ['stats'] },
+  tasks: { label: 'Tâches et objectifs', anchor: 'roadmap', modules: ['roadmap', 'stats-tasks'] },
+};
+// Optionnels, indépendants des ensembles.
+const OPTIONAL = ['community', 'profile'];
 
 // id -> { label, requires }. core toujours actif ; offer1 listé mais jamais activable ici (droit géré par l'offre/paiement).
 const MODULES = {
   core: { label: 'Noyau', requires: [] },
   stats: { label: 'Statistiques', requires: [] },
-  'stats-tasks': { label: 'Statistiques des tâches', requires: ['stats', 'roadmap'] },
+  'stats-tasks': { label: 'Statistiques des tâches', requires: ['roadmap'] },
   sharing: { label: 'Activités partagées', requires: [] },
-  community: { label: 'Communauté', requires: ['stats'] },
+  community: { label: 'Communauté', requires: [] },
+  profile: { label: 'Profil', requires: [] },
   roadmap: { label: 'Feuille de route', requires: [] },
   calendar: { label: 'Calendrier', requires: ['roadmap'] },
   ai: { label: 'Assistant IA', requires: ['roadmap'] },
@@ -70,6 +82,9 @@ function validate(next) {
       }
     }
   }
+  if (!Object.keys(BUNDLES).some((b) => next[BUNDLES[b].anchor])) {
+    return { ok: false, error: 'Garde au moins un ensemble : « Temps » ou « Tâches et objectifs ».' };
+  }
   return { ok: true };
 }
 
@@ -97,7 +112,7 @@ function setModules(userId, patch) {
 }
 
 function list() {
-  return Object.keys(MODULES).map((id) => ({ id, label: MODULES[id].label, requires: MODULES[id].requires, toggleable: !NOT_TOGGLEABLE.includes(id) }));
+  return Object.keys(MODULES).map((id) => ({ id, bundle: Object.keys(BUNDLES).find((b) => BUNDLES[b].modules.includes(id)) || (OPTIONAL.includes(id) ? 'optional' : null), label: MODULES[id].label, requires: MODULES[id].requires, toggleable: !NOT_TOGGLEABLE.includes(id) }));
 }
 
-module.exports = { MODULES, NEW_ACCOUNT_DEFAULT_MODULES, defaults, getModules, isEnabled, setModules, validate, list };
+module.exports = { BUNDLES, OPTIONAL, MODULES, NEW_ACCOUNT_DEFAULT_MODULES, defaults, getModules, isEnabled, setModules, validate, list };
