@@ -4,12 +4,17 @@
   var cache = null;
   function r2(v) { return Math.round(v * 100) / 100; }
 
+  // Sert-on des données gardées par le service worker (hors ligne) ?
+  var stale = false;
   function get(path) {
     return fetch(path, { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(function (r) {
+      if (r.headers.get('X-TT-Cache') === '1') stale = true;
       if (r.status === 401) { var e = new Error('unauthenticated'); e.code = 401; throw e; }
-      if (!r.ok) throw new Error(path + ' ' + r.status);
+      if (r.status === 503) { var o = new Error('offline'); o.code = 'offline'; throw o; }
+      if (r.status === 404) { var n = new Error('no-server'); n.code = 404; throw n; }   // hébergement statique : pas d'API
+      if (!r.ok) { var x = new Error(path + ' ' + r.status); x.code = r.status; throw x; }
       return r.json();
-    });
+    }, function () { var o = new Error('offline'); o.code = 'offline'; throw o; });
   }
   function connectionsFrom(portfolio, entries) {
     return portfolio.accounts.map(function (a) {
@@ -29,11 +34,12 @@
     };
   }
   function loadApi() {
+    stale = false;
     return Promise.all([get('/api/me'), get('/api/portfolio'), get('/api/positions'), get('/api/history'), get('/api/sync-log?limit=50'),
-      get('/api/compare').catch(function (e) { if (e.code === 401) throw e; return null; }),
+      get('/api/compare').catch(function (e) { if (e.code === 401 || e.code === 'offline') throw e; return null; }),
       get('/api/purchases').then(function (x) { return x.purchases; }).catch(function (e) { if (e.code === 401) throw e; return []; })]).then(function (r) {
       return { me: r[0], portfolio: r[1], positions: r[2].positions, history: r[3], syncLog: r[4].entries,
-        connections: connectionsFrom(r[1], r[4].entries), broker: 'Courtier (lecture seule)', compare: normCompare(r[5], r[6]), source: 'api' };
+        connections: connectionsFrom(r[1], r[4].entries), broker: 'Courtier (lecture seule)', compare: normCompare(r[5], r[6]), source: 'api', stale: stale };
     });
   }
   function loadDemo() { var d = Object.assign({ source: 'demo' }, window.TT_DEMO); return Promise.resolve(d); }
@@ -70,8 +76,8 @@
       if (!cache) {
         var demo = /[?&]demo=1/.test(location.search);
         cache = demo ? loadDemo() : loadApi().catch(function (e) {
-          if (e.code === 401) throw e;           // session absente : pas de repli silencieux sur la démo
-          return loadDemo();                     // serveur injoignable : démo
+          if (e.code !== 404) throw e;           // session absente, hors ligne ou erreur serveur : état explicite, jamais de faux chiffres
+          return loadDemo();                     // aucune API (hébergement statique) : démo fictive, pastille « démo »
         });
         cache.catch(function () { cache = null; });
       }

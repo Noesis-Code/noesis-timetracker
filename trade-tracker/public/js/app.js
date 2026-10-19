@@ -34,13 +34,30 @@
     renderTabs(tab);
     window.scrollTo(0, 0);
     TTD.load().then(function (data) {
-      state.data = data; document.body.classList.toggle('demoMode', data.source === 'demo'); renderPill(data.portfolio.lastSync);
+      state.data = data; document.body.classList.toggle('demoMode', data.source === 'demo'); renderPill(data.portfolio.lastSync); renderOffline(data);
       window.TTScreens[tab].render(el, state, data);
     }).catch(function (e) {
-      el.innerHTML = e && e.code === 401
-        ? '<div class="emptyState">Session expirée ou accès sur invitation. Ouvre Trade Tracker depuis TimeTracker.</div>'
-        : '<div class="emptyState">Impossible de charger les données.</div>';
+      el.innerHTML = errorState(e);
+      var b = el.querySelector('[data-retry]'); if (b) b.addEventListener('click', function () { TTD.reset(); show(); });
     });
+  }
+  // Écran d'erreur : session, hors ligne ou serveur. Toujours une action possible, jamais de faux chiffres.
+  function errorState(e) {
+    var code = e && e.code;
+    var icon = '<svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      (code === 'offline' ? '<path d="M2 8.8a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><path d="M3 3l18 18"/>' : '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/>') + '</svg>';
+    var title = code === 401 ? 'Accès sur invitation' : code === 'offline' ? 'Hors ligne' : 'Chargement impossible';
+    var msg = code === 401 ? 'Session expirée ou accès sur invitation. Ouvre Trade Tracker depuis TimeTracker.'
+      : code === 'offline' ? 'Aucune connexion et aucune donnée gardée sur cet appareil. Reconnecte-toi puis réessaie.'
+      : 'Le serveur ne répond pas comme prévu. Réessaie dans un instant.';
+    return '<div class="stateScreen" role="alert"><div class="stateIcon">' + icon + '</div><div class="stateTitle">' + title + '</div><div class="stateMsg">' + msg + '</div>' +
+      (code === 401 ? '<a class="btnPrimary" href="https://web-staging-6d1b.up.railway.app">Ouvrir TimeTracker</a>' : '<button type="button" class="btnPrimary" data-retry>Réessayer</button>') + '</div>';
+  }
+  function renderOffline(data) {
+    var bar = document.getElementById('offlineBar');
+    var off = data && data.stale;
+    bar.hidden = !off;
+    if (off) bar.textContent = 'Hors ligne · données lues ' + (data.portfolio.lastSync ? TTF.ago(data.portfolio.lastSync.at) : 'précédemment');
   }
   window.TTApp = { refresh: show };
 
@@ -49,5 +66,8 @@
   });
   document.getElementById('syncPill').addEventListener('click', function () { location.hash = '#/sync'; });
   window.addEventListener('hashchange', show);
+  window.addEventListener('online', function () { TTD.reset(); show(); });
+  window.addEventListener('offline', function () { var bar = document.getElementById('offlineBar'); bar.hidden = false; bar.textContent = 'Hors ligne'; });
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(function () {});
   show();
 })();

@@ -6,7 +6,9 @@
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="icon" href="data:,">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Trade Tracker</title>
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="styles.css">
@@ -22,6 +24,8 @@
       </a>
     </div>
   </header>
+
+  <div id="offlineBar" class="offlineBar" role="status" hidden></div>
 
   <main id="screen" class="screen" aria-live="polite"></main>
 

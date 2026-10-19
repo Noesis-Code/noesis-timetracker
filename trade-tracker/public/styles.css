@@ -231,3 +231,14 @@ a { color: inherit; text-decoration: none; }
 .duoDonuts .donutTop { font-size: 12px; }
 /* Bandeau discret en mode démonstration (données fictives) */
 body.demoMode .brand::after { content: 'démo'; margin-left: 8px; font-size: 10px; font-weight: bold; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--glass-calm-line); color: var(--text-light); vertical-align: 2px; }
+
+/* ---- Phase 2 : hors ligne, états ---- */
+.offlineBar { margin: calc(70px + env(safe-area-inset-top)) 14px 0; text-align: center; font-size: 12px; font-weight: bold; padding: 5px 12px; border-radius: 999px; color: var(--text); background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line); }
+.offlineBar:not([hidden]) + .screen { padding-top: 12px; }
+.offlineBar[hidden] { display: none; }
+.stateScreen { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 56px 24px; }
+.stateIcon { color: var(--violet-soft); }
+.stateTitle { font-size: 18px; font-weight: bold; }
+.stateMsg { font-size: 13px; color: var(--text-light); max-width: 300px; }
+.btnPrimary { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 20px; margin-top: 6px; border-radius: 999px; border: 1px solid rgba(170, 150, 230, 0.55); background: var(--purple); color: var(--white); font-size: 14px; font-weight: bold; cursor: pointer; }
+.btnPrimary:active { transform: scale(0.97); }
