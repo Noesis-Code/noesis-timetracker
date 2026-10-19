@@ -87,10 +87,12 @@ const OFFER_CONF = '\nAjoute à la racine de l\'objet JSON un champ "confidence"
 function planIsComplete(plan) {
   return plan.length === SUBPROJECT_COUNT && plan.every((p) => p.name && p.description && p.tasks.length >= REVEAL_BATCH_SIZE);
 }
-async function generateSubProjectsPlan(formsPayload) {
-  if (!aiConfigured()) {
-    throw new Error("Génération indisponible pour le moment.");
-  }
+// Mémo 24 h (entrée identique => même plan) : une relivraison/reprise avec les mêmes formulaires ne repaie pas l'appel. Échecs jamais mémorisés.
+function generateSubProjectsPlan(formsPayload) {
+  if (!aiConfigured()) return Promise.reject(new Error("Génération indisponible pour le moment."));
+  return aicache.memoize(['offre1-plan', ANTHROPIC_MODEL, formsPayload || {}], () => generatePlanUncached(formsPayload));
+}
+async function generatePlanUncached(formsPayload) {
   const fast = aicache.fastModelFor('NOESIS_OFFER_FAST_MODEL', ANTHROPIC_MODEL);
   if (fast) {
     try {
@@ -254,6 +256,7 @@ async function regenerateActivityRoadmap(activityId, userId) {
 }
 
 module.exports = {
+  generateSubProjectsPlan,
   activateActivitySubscription,
   regenerateActivityRoadmap,
   // Exportés séparément pour les tests et un futur outil d'admin.

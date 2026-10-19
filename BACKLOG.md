@@ -57,3 +57,18 @@ Dernière mise à jour : 30 sept. 2026 (construit à partir de `chantiers-en-cou
 8. Bouton « Tout supprimer » (Nouvelles tâches / Modifications proposées, 7405e05) : doublon du tri case par case ; à confirmer utile.
 9. Feuille de temps : vue Année dans le menu de période (8675c9f), à garder seulement si utilisée ; sinon retirer.
 10. Textes d'aide ⓘ des Réglages agenda : raccourcir à une ligne.
+
+## Économie des crédits (Claude API, chantier 4, 19 oct. 2026)
+Déjà en place avant ce lot : Haiku d'abord + repli fort sur seuil de confiance (classement, inter-secteurs, reformulation, hebdo, plan quotidien, offre 1, document-taches), mémo 24 h à température 0 (classement, reformulation, hebdo, document-taches), cache de prompt Anthropic, lots à -50 % (Drive), plafonds par utilisateur/jour/tranche et « system », max_tokens serrés. Seule l'orthographe est en Haiku seul.
+
+| Changement | Économie estimée |
+|---|---|
+| Mémo 24 h du plan Offre 1 (`generateSubProjectsPlan`) : relivraison Stripe/reprise avec mêmes formulaires = 0 appel | ~0,05-0,10 $ par relivraison évitée (rare) |
+| `scripts/ai-cost-report.js` : lecture seule, par fonction/modèle/jour, tokens moyens, % cache lu, taux de repli | 0 $ direct ; permet de mesurer les pistes ci-dessous |
+
+Prochaines pistes (à mesurer avec le rapport sur données réelles avant d'agir) :
+1. Lire le taux de repli réel par fonction ; si > 40 %, Haiku coûte plus qu'il n'économise : relever le seuil ou passer la fonction en fort seul.
+2. Cache de prompt (`aicache.messageParams`) pour inter-secteurs et classement : le préfixe (catégories) se répète par activité.
+3. Raccourcir `SYSTEM_PROMPT` de inter-secteurs et hebdo (consignes redondantes) avec jeu d'évaluation du chantier 6 pour garantir zéro perte.
+4. Passer les plans quotidien/hebdo générés la nuit en API Batch (-50 %), comme Drive.
+5. Exclure du prompt les catégories archivées/vides et tronquer les descriptions longues dans le payload du classement.
