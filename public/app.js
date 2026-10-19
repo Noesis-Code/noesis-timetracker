@@ -2503,19 +2503,6 @@
       onCommit(state.current);
     }
 
-    // 22 septembre 2026, demande directe d'Emilien : « lorsque je clique sur
-    // un secteur [...] toute la case soit coloriée en violet, mais [...] je
-    // souhaite qu'on reste sur la page [...] c'est un menu fixe où on
-    // sélectionne. On peut revenir en arrière, on sélectionne. » — le choix
-    // d'un secteur (ou « Aucun secteur ») attache la valeur exactement comme
-    // avant (onCommit), mais ne referme plus le panneau : seule la
-    // surbrillance change, la liste des secteurs reste affichée pour changer
-    // d'avis ou revenir en arrière sans rouvrir le menu.
-    function commitStay(key) {
-      state.current = key ? String(key) : null;
-      render();
-      onCommit(state.current);
-    }
 
     // Cliquer un pôle qui a des secteurs : ATTACHE le pôle immédiatement
     // (même geste qu'avant) ET affiche ses secteurs pour affiner sans
@@ -3016,200 +3003,6 @@
         $('stopConfirmBtn').disabled = false;
         $('stopCancelBtn').disabled = false;
       });
-  });
-
-  // ===================== TÂCHES HEBDOMADAIRES D'UN SECTEUR (« visualiser ») =====================
-  // 21 septembre 2026, demande directe d'Emilien : « un bouton [...] marqué
-  // visualiser [...] ouvre une fenêtre qui me donne l'ensemble des tâches
-  // hebdomadaires à réaliser pour le secteur [...] copiée sur le modèle de la
-  // fenêtre des profils [...] indique la journée et les tâches avec une
-  // option pour les cocher [...] Lorsque je coche la case cela se répercute
-  // également dans la fenêtre des activités section "tâche" et dans le volet
-  // objectif. » — voir #secteurTasksModal dans index.html. Ouverte
-  // uniquement depuis createCategoryPicker() (chrono en cours ou récapitulatif
-  // d'arrêt), jamais d'autre entrée. La case à cocher appelle le MÊME
-  // PUT /api/sub-project-items/:id que buildCategoryTaskRow ci-dessus : c'est
-  // la même ligne en base que celle affichée dans la section Tâches
-  // (activityGoalsCategoriesRefresh) et dans le calendrier du volet Objectifs
-  // (server/lib/calendarfeed.js, générique sur goalCategory) — aucune
-  // synchronisation supplémentaire à écrire, la répercussion demandée est déjà
-  // automatique dès que ces deux écrans se rechargent.
-  var secteurTasksModalActivityId = null;
-  var secteurTasksModalKey = null;
-  // 22 septembre 2026, demande d'Emilien : « ajouter une flèche pour faire
-  // défiler les semaines [...] uniquement futur » — 0 = semaine courante,
-  // jamais négatif (voir updateSecteurTasksWeekNav), sans plafond vers
-  // l'avenir.
-  var secteurTasksWeekOffset = 0;
-  // 22 septembre 2026, demande d'Emilien : « l'objectif de la semaine [...]
-  // de la même nuance de couleur que celle attribuée au pôle ou au secteur »
-  // — mémorisée ici pour que renderSecteurTasksModal() (rappelée à chaque
-  // changement de semaine, bien après openSecteurTasksModal()) puisse
-  // teinter #secteurTasksObjective avec la même nuance que l'entête, sans
-  // recalculer subProjectShade().
-  var secteurTasksModalColor = null;
-
-  // 22 septembre 2026, demande d'Emilien : « l'entête [...] reste fixe et
-  // qu'elle soit de la couleur du secteur attribué au secteur » — même
-  // principe que paintCategoryStatsHeader() plus bas dans ce fichier (barre
-  // .viewProfileIdentity teintée en ligne, classe `tinted` pour le bouton de
-  // fermeture), mais readableTextOn() plutôt que textColorForTheme() : la
-  // couleur ici vient de subProjectShade() (bande de clarté volontairement
-  // large, voir son commentaire), pas de la palette contrainte par thème des
-  // couleurs d'activité — textColorForTheme() supposerait à tort un fond
-  // toujours assez sombre/clair.
-  function paintSecteurTasksHeader(color) {
-    var bar = $('secteurTasksModal').querySelector('.viewProfileIdentity');
-    if (!bar) return;
-    bar.classList.toggle('tinted', !!color);
-    bar.style.background = color || '';
-    bar.style.color = color ? readableTextOn(color) : '';
-  }
-
-  function openSecteurTasksModal(secteurKey, secteurLabel, poleLabel, poleIndex) {
-    if (!chronoRunningActivityId) return;
-    secteurTasksModalActivityId = chronoRunningActivityId;
-    secteurTasksModalKey = secteurKey;
-    secteurTasksWeekOffset = 0;
-    // 22 septembre 2026 : un pôle sans secteur se visualise désormais comme
-    // un secteur (voir buildRow/render ci-dessus, createCategoryPicker) —
-    // poleLabel et secteurLabel sont alors identiques ; éviter d'afficher
-    // deux fois le même nom.
-    $('secteurTasksTitle').textContent = (poleLabel === secteurLabel) ? secteurLabel : (poleLabel + ' · ' + secteurLabel);
-    // Les secteurs partagent la nuance de leur PÔLE parent (jamais un index
-    // propre) — même convention que partout ailleurs dans l'app (dots de
-    // catégorie, badges du volet Objectifs) : poleIndex est le rang du pôle
-    // parent dans la liste, transmis par createCategoryPicker.
-    secteurTasksModalColor = chronoRunningActivityColor
-      ? subProjectShade(chronoRunningActivityColor, poleIndex, SUB_PROJECT_SHADE_COUNT)
-      : null;
-    paintSecteurTasksHeader(secteurTasksModalColor);
-    $('secteurTasksMsg').textContent = '';
-    $('secteurTasksModal').classList.remove('hidden');
-    loadSecteurTasksModal();
-  }
-
-  function closeSecteurTasksModal() {
-    $('secteurTasksModal').classList.add('hidden');
-    secteurTasksModalActivityId = null;
-    secteurTasksModalKey = null;
-    secteurTasksModalColor = null;
-  }
-
-  // Le bouton "semaine précédente" se désactive dès la semaine courante — « pas
-  // passées [...] uniquement futur » — mais "semaine suivante" n'a pas de
-  // plafond.
-  function updateSecteurTasksWeekNav() {
-    $('secteurTasksPrevWeek').disabled = secteurTasksWeekOffset <= 0;
-  }
-
-  function loadSecteurTasksModal() {
-    var activityId = secteurTasksModalActivityId;
-    var key = secteurTasksModalKey;
-    var weekOffset = secteurTasksWeekOffset;
-    if (!activityId || !key) return;
-    updateSecteurTasksWeekNav();
-    api('GET', '/api/activities/' + activityId + '/goals/categories/' + key + '/tasks/week?userId=' + profile.id + '&weekOffset=' + weekOffset)
-      .then(function (data) {
-        // Réponse en vol : le secteur affiché OU la semaine demandée ont pu
-        // changer entre-temps (clic rapide sur les flèches).
-        if (secteurTasksModalActivityId !== activityId || secteurTasksModalKey !== key || secteurTasksWeekOffset !== weekOffset) return;
-        renderSecteurTasksModal(data.days || [], data.weeklyObjective || '');
-      })
-      .catch(function (err) { $('secteurTasksMsg').textContent = err.message; });
-  }
-
-  function renderSecteurTasksModal(days, weeklyObjective) {
-    // Étiquette de la semaine affichée (JJ/MM au JJ/MM) — sans elle, les
-    // flèches de navigation n'ont aucun repère visuel de la semaine montrée.
-    if (days.length) {
-      var wkStart = new Date(days[0].date + 'T00:00:00Z');
-      var wkEnd = new Date(days[days.length - 1].date + 'T00:00:00Z');
-      var fmt = { day: '2-digit', month: '2-digit' };
-      $('secteurTasksWeekLabel').textContent = wkStart.toLocaleDateString(dateLocale(), fmt) + ' – ' + wkEnd.toLocaleDateString(dateLocale(), fmt);
-    }
-
-    // 22 septembre 2026, demande d'Emilien : « ajouter en haut de la liste
-    // des tâches, les objectifs hebdomadaires pour chaque semaine ».
-    var objectiveEl = $('secteurTasksObjective');
-    objectiveEl.textContent = weeklyObjective ? (t('Objectif de la semaine') + ' : ' + weeklyObjective) : '';
-    objectiveEl.classList.toggle('hidden', !weeklyObjective);
-    // 22 septembre 2026, demande d'Emilien : même nuance que l'entête
-    // (secteurTasksModalColor, calculée une fois dans openSecteurTasksModal).
-    objectiveEl.style.background = secteurTasksModalColor || '';
-    objectiveEl.style.borderColor = secteurTasksModalColor || '';
-    objectiveEl.style.color = secteurTasksModalColor ? readableTextOn(secteurTasksModalColor) : '';
-
-    var wrap = $('secteurTasksDays');
-    wrap.innerHTML = '';
-
-    days.forEach(function (day) {
-      var block = document.createElement('div');
-      block.className = 'secteurTasksDay';
-
-      var dayLabel = document.createElement('p');
-      dayLabel.className = 'secteurTasksDayLabel';
-      dayLabel.textContent = day.weekday;
-      block.appendChild(dayLabel);
-
-      if (!day.tasks.length) {
-        var empty = document.createElement('p');
-        empty.className = 'hint';
-        empty.textContent = t('Rien de prévu.');
-        block.appendChild(empty);
-      }
-
-      day.tasks.forEach(function (item) {
-        var row = document.createElement('div');
-        row.className = 'secteurTasksTaskRow subProjectItem' + (item.done ? ' done' : '');
-
-        var cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = item.done;
-        cb.addEventListener('change', function () {
-          cb.disabled = true;
-          // Même endpoint générique que la section Tâches (buildCategoryTaskRow
-          // ci-dessus) : c'est la même ligne en base, donc la case cochée ici
-          // se répercute d'elle-même dans la section Tâches et le volet
-          // Objectifs dès qu'ils se rechargent.
-          api('PUT', '/api/sub-project-items/' + item.id, { userId: profile.id, done: cb.checked })
-            .then(function () {
-              row.classList.toggle('done', cb.checked);
-              cb.disabled = false;
-              activityGoalsCategoriesRefresh(secteurTasksModalActivityId);
-            })
-            .catch(function (err) { cb.checked = !cb.checked; alert(err.message); cb.disabled = false; });
-        });
-        row.appendChild(cb);
-
-        var label = document.createElement('span');
-        label.className = 'subProjectItemLabel';
-        appendLinkified(label, item.label);
-        row.appendChild(label);
-
-        block.appendChild(row);
-      });
-
-      wrap.appendChild(block);
-    });
-  }
-
-  $('secteurTasksClose').addEventListener('click', closeSecteurTasksModal);
-
-  // 22 septembre 2026, demande d'Emilien : « ajouter une flèche pour faire
-  // défiler les semaines [...] uniquement futur » — remplace l'ancien bloc
-  // d'ajout de tâche (« je souhaite supprimer la possibilité d'ajouter une
-  // nouvelle tâche »), retiré ci-dessus de renderSecteurTasksModal et de
-  // #secteurTasksScroll (index.html).
-  $('secteurTasksPrevWeek').addEventListener('click', function () {
-    if (secteurTasksWeekOffset <= 0) return;
-    secteurTasksWeekOffset -= 1;
-    loadSecteurTasksModal();
-  });
-
-  $('secteurTasksNextWeek').addEventListener('click', function () {
-    secteurTasksWeekOffset += 1;
-    loadSecteurTasksModal();
   });
 
   // buildHistoryCard(entry, onDeleted) a été retirée le 4 septembre 2026 en
@@ -3777,7 +3570,6 @@
     else if (lastTimesheetPieData) renderPieBreakdown(lastTimesheetPieData);
     else loadTimesheet(); // resynchronisation avant toute réponse de la grille
   }
-  function setPieTodayMode(on) { setPieMode(on ? 'today' : 'sync'); }
 
   $('statsPieTodayBtn').addEventListener('click', function () {
     setPieMode(pieTodayMode ? 'week' : (pieWeekMode ? 'sync' : 'today'));
@@ -4282,41 +4074,6 @@
   // conséquence directe de doubler la résolution, pas un réglage à part.
   var SECTEUR_SHADE_COUNT = 10;
   var secteurShadeCache = {};
-  function secteurShade(baseHex, index) {
-    if (index === null || index === undefined) return baseHex;
-    var hsl = hexToHsl(baseHex);
-    if (!hsl) return baseHex;
-
-    var rank = ((Number(index) % SECTEUR_SHADE_COUNT) + SECTEUR_SHADE_COUNT) % SECTEUR_SHADE_COUNT;
-    var cacheKey = baseHex + '|' + rank;
-    if (secteurShadeCache[cacheKey]) return secteurShadeCache[cacheKey];
-
-    var LO = 22, HI = 90;
-    var GAP = 11;
-    var s = hsl.s;
-    var lBase = labLightness(baseHex);
-
-    var upLen = Math.max(0, HI - Math.max(lBase + GAP, LO));
-    var loLen = Math.max(0, Math.min(lBase - GAP, HI) - LO);
-    var total = upLen + loLen;
-
-    var target;
-    if (total <= 0) {
-      target = lBase >= (HI + LO) / 2 ? LO : HI;
-    } else {
-      var d = (rank / (SECTEUR_SHADE_COUNT - 1)) * total;
-      target = d <= upLen ? HI - d : Math.min(lBase - GAP, HI) - (d - upLen);
-    }
-
-    var lo2 = 0, hi2 = 1;
-    for (var k2 = 0; k2 < 28; k2++) {
-      var mid2 = (lo2 + hi2) / 2;
-      if (labLightness(hslToHex(hsl.h, s, mid2)) < target) lo2 = mid2; else hi2 = mid2;
-    }
-    var out2 = hslToHex(hsl.h, s, (lo2 + hi2) / 2);
-    secteurShadeCache[cacheKey] = out2;
-    return out2;
-  }
 
   // ----- La fenêtre -----
   // Elle reprend la structure du volet Statistiques : une Feuille de temps,
@@ -5856,11 +5613,6 @@
     return activityDetailNode;
   }
 
-  function detachActivityDetail() {
-    var detail = activityDetailEl();
-    if (detail && detail.parentNode) detail.parentNode.removeChild(detail);
-    return detail;
-  }
 
   // ⚠️ 3 septembre 2026 (Activité — général) : l'hôte par défaut n'est plus
   // #activityDetailAnchor (bas de l'onglet Activité) mais #activityPageBody,
@@ -6500,14 +6252,6 @@
     reloadOfflineAutoTasks().then(syncOfflineAutoTasks);
   }
 
-  // Signature de ce que la bulle affiche pour une activité (voir
-  // autoTaskBubbleUpToDate plus bas) : tâches classées + file hors ligne.
-  function autoTaskBubbleSignature(activityId) {
-    var id = String(activityId);
-    var pending = categoryAutoTaskPending.filter(function (p) { return !p.activityId || p.activityId === id; }).length;
-    var offline = categoryAutoTaskOffline.filter(function (o) { return o.activityId === id; }).length;
-    return pending + '/' + offline;
-  }
 
   // 22 septembre 2026 (Emilien, demande directe : « un point lumineux qui ne
   // se décroche pas du périmètre »). Après deux techniques CSS ratées
@@ -7321,15 +7065,6 @@
     catSyncComposer();
   }
 
-  function catDeleteButton(label, onClick, trash) {
-    var del = document.createElement('button');
-    del.type = 'button';
-    if (trash) { del.className = 'historyRowIconBtn danger'; del.innerHTML = CHRONO_HISTORY_DELETE_ICON; }
-    else { del.className = 'activityDeleteX'; del.textContent = '✕'; }
-    del.setAttribute('aria-label', label);
-    del.addEventListener('click', function (e) { e.stopPropagation(); onClick(); });
-    return del;
-  }
 
   function catSmallButton(glyph, label, onClick) {
     var b = document.createElement('button');
@@ -7705,17 +7440,6 @@
     return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
   }
   TMT.fmtCapMinutes = fmtCapMinutes;
-  function parseCapMinutes(txt) {
-    var s = String(txt || '').trim().toLowerCase().replace(',', '.');
-    if (!s) return { value: null };
-    var m = s.match(/^(\d+):([0-5]?\d)$/);
-    if (m) return { value: Number(m[1]) * 60 + Number(m[2]) };
-    m = s.match(/^(\d+)\s*h\s*([0-5]?\d)?$/);
-    if (m) return { value: Number(m[1]) * 60 + Number(m[2] || 0) };
-    m = s.match(/^(\d+)\s*(min|m)?$/);
-    if (m) return { value: Number(m[1]) };
-    return { error: true };
-  }
   // Feuille flottante de choix d'une durée (heures 0-99 + minutes par 5), style
   // sélecteur d'heure iOS : deux roues scroll-snap. opts : { title, minutes, onDone(min) }.
   // « Réinitialiser » = 0:00 ; ✓ valide ; ✕ ou toucher dehors ferme sans changer.
@@ -10039,28 +9763,6 @@
     renderNameOnlyList('settingsBlockedList', 'settingsBlockedEmptyHint', list, 'unblock');
   }
 
-  // ----- Flux "Partagée" et "Suivi" : cartes en lecture seule (activité de
-  // quelqu'un d'autre, jamais supprimable depuis ici), avec le nom de
-  // l'auteur — contrairement à l'ex-buildHistoryCard (mes propres entrées). --
-  function buildFeedEntryCard(entry) {
-    var card = document.createElement('div');
-    card.className = 'historyEntry';
-
-    var start = new Date(entry.startTime), end = new Date(entry.endTime);
-    var dateLabel = start.toLocaleDateString(dateLocale(), { weekday: 'long', day: '2-digit', month: '2-digit' });
-    var timeLabel = pad(start.getHours()) + ':' + pad(start.getMinutes()) + ' → ' + pad(end.getHours()) + ':' + pad(end.getMinutes());
-
-    card.innerHTML =
-      '<div class="rowTop">' +
-        '<span class="actName"><span class="dot" style="background:' + entry.userColor + '"></span>' +
-        escapeHtml(entry.userName) + (profile && entry.userId === profile.id ? t(' (toi)') : '') + ' · ' + escapeHtml(entry.activityName) + '</span>' +
-        '<span class="meta">' + formatHM(entry.durationSeconds) + '</span>' +
-      '</div>' +
-      '<div class="meta">' + dateLabel + ' · ' + timeLabel + '</div>' +
-      (entry.note ? '<div class="note">' + escapeHtml(entry.note) + '</div>' : '');
-
-    return card;
-  }
 
   // Carte d'un message "Communauté" (profile_posts) de quelqu'un qu'on suit,
   // dans le flux "Suivi" — 1er septembre 2026, demande d'Emilien : « les
@@ -10375,8 +10077,6 @@
     // Même point rouge sur le prénom de la barre du haut : c'est le seul
     // toujours visible depuis les autres onglets, le Profil n'étant plus
     // dans la barre du bas.
-    var topDot = $('whoamiDot');
-    if (topDot) topDot.classList.toggle('hidden', none);
   }
 
   // ----- Menu des Réglages : une section dépliée à la fois -----
@@ -12136,13 +11836,6 @@
   // (panneau déplié au clic sur la ligne, voir plus bas) affiche toujours
   // `description` en entier, jamais cette version tronquée.
   var PROJECT_DESC_TRUNCATE_AT = 180;
-  function truncateProjectDescription(description) {
-    if (!description || description.length <= PROJECT_DESC_TRUNCATE_AT) return description || '';
-    var cut = description.slice(0, PROJECT_DESC_TRUNCATE_AT);
-    var lastSpace = cut.lastIndexOf(' ');
-    if (lastSpace > PROJECT_DESC_TRUNCATE_AT - 40) cut = cut.slice(0, lastSpace);
-    return cut.trim() + '… ' + t('voir plus');
-  }
 
   // Nom affiché sur une CASE de la page de visite d'un profil (5 septembre
   // 2026, demande d'Emilien : « que la fenêtre des autres utilisateurs ne

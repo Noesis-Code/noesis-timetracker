@@ -632,20 +632,13 @@
          profil »). Bascule vers/depuis #topbarProfile ci-dessous, pilotée par
          openProfile()/switchTab() dans app.js (voir syncTopbarHeightVar(),
          appelée à chaque bascule pour que --topbar-h reste juste). -->
-    <div class="topbarDefault" id="topbarDefault">
+    <div class="topbarDefault">
       <!-- 29 septembre 2026, demande d'Emilien (direction « Piste B ») : « Noèsis » retiré de cet état ; la photo de profil (#whoami) passe à gauche, les réglages (.settingsWrap, ex-.identityHeader) à droite en carré de verre. « Noèsis » reste affiché, centré, dans #topbarProfile. -->
       <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
           <span class="whoamiAvatar" id="whoamiAvatar">
             <img id="whoamiAvatarImg" class="hidden" alt="">
             <span id="whoamiAvatarInitial"></span>
           </span>
-          <!-- Redondant avec le point rouge du bouton "avion en papier" du
-               Profil (une fois ouvert) depuis qu'il est visible en
-               permanence, mais conservé : visible même sans ouvrir le
-               Profil. Alimenté par notifPendingCounts.invites (voir
-               refreshNotifDot dans app.js) — reflète déjà les invitations en
-               attente, pas seulement les demandes de suivi. -->
-          <span id="whoamiDot" class="notifDot hidden"></span>
         </button>
       <div class="topbarActions">
         <div class="settingsWrap">
@@ -819,7 +812,7 @@
     <!-- ---------- ONGLET STATISTIQUES ---------- -->
     <section id="tab-stats" class="tab hidden">
       <div id="statsPages"><div id="statsPage1">
-      <div id="statsVisFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter">
+      <div class="statsPeriodMenuWrap caSubProjectFilter">
         <button type="button" class="caSubProjectBtn" id="statsVisBtn" aria-haspopup="true">
           <span id="statsVisBtnLabel">Tous</span>
         </button>
@@ -852,7 +845,7 @@
             <button id="tsPrevWeek" type="button" class="iconBtn" aria-label="Période précédente">‹</button>
             <span id="tsWeekLabel" class="meta"></span>
             <button id="tsNextWeek" type="button" class="iconBtn" aria-label="Période suivante">›</button>
-            <div class="statsPeriodMenuWrap" id="tsPeriodWrap">
+            <div class="statsPeriodMenuWrap">
               <button type="button" class="menuBtn" id="tsPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
               <div class="statsPeriodMenu hidden" id="tsPeriodMenu">
                 <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
@@ -976,7 +969,7 @@
       <div id="statsChartBlock" class="statsSection">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Graphique</p>
-          <div class="statsPeriodMenuWrap" id="chartPeriodWrap">
+          <div class="statsPeriodMenuWrap">
             <button type="button" class="menuBtn" id="chartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
             <div class="statsPeriodMenu hidden" id="chartPeriodMenu">
               <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
@@ -1180,7 +1173,7 @@
         <div class="activitySettingsPanel">
           <input type="text" id="newActivityName" placeholder="Nom de l'activité">
           <div id="newActivitySwatches" class="colorSwatches"></div>
-          <p class="meta" id="newActivityMsg"></p>
+          <p class="meta"></p>
           <div class="rowActions">
             <button id="newActivitySave" class="iconBtn btnBrique">Ajouter l'activité</button>
           </div>
@@ -1326,7 +1319,7 @@
         <!-- 10 oct. 2026 : deux pages glissantes (slidePager de stats-avance.js) : 1 = Temps (Répartition + Graphique), 2 = Tâches par membre
              (public/js/activite-stats-taches.js, GET /api/stats/activity-members). Deux points fixes au premier plan. -->
         <div id="caStatsPages"><div id="caStatsPage1">
-        <div id="communityActivityPieBlock" class="statsSection">
+        <div class="statsSection">
           <div class="sectionTitleRow">
             <p class="sectionTitle">Répartition</p>
             <!-- Motif "⋮" générique de l'onglet Statistiques (.statsPeriodMenu*),
@@ -1334,7 +1327,7 @@
                  règle CSS ni aucune ligne de ce helper n'a été modifiée.
                  "Aujourd'hui" n'existe QUE sur la Répartition, comme demandé :
                  le Graphique tracerait un seul point pour une seule journée. -->
-            <div class="statsPeriodMenuWrap" id="caPiePeriodWrap">
+            <div class="statsPeriodMenuWrap">
               <button type="button" class="menuBtn" id="caPiePeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
               <div class="statsPeriodMenu hidden" id="caPiePeriodMenu">
                 <button type="button" class="statsPeriodMenuItem" data-period="day">Aujourd'hui</button>
@@ -1365,7 +1358,7 @@
         <div id="communityActivityChartBlock" class="statsSection">
           <div class="sectionTitleRow">
             <p class="sectionTitle">Graphique</p>
-            <div class="statsPeriodMenuWrap" id="caChartPeriodWrap">
+            <div class="statsPeriodMenuWrap">
               <button type="button" class="menuBtn" id="caChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
               <!-- ⚠️ Second passage du 3 septembre : GRANULARITÉ (Jour/Semaine/Mois),
                    plus une période. Le graphique couvre toujours toute l'histoire
@@ -1425,7 +1418,7 @@
         <div id="activitySoloStatsBlock" class="statsSection hidden">
           <div class="sectionTitleRow">
             <p class="sectionTitle">Par pôle</p>
-            <div class="statsPeriodMenuWrap" id="soloStatsPeriodWrap">
+            <div class="statsPeriodMenuWrap">
               <button type="button" class="menuBtn" id="soloStatsPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
               <div class="statsPeriodMenu hidden" id="soloStatsPeriodMenu">
                 <button type="button" class="statsPeriodMenuItem" data-period="day">Aujourd'hui</button>
@@ -1689,7 +1682,7 @@
                 <button type="button" class="iconBtn" id="csTsPrevWeek" aria-label="Période précédente">‹</button>
                 <span class="meta" id="csTsWeekLabel"></span>
                 <button type="button" class="iconBtn" id="csTsNextWeek" aria-label="Période suivante">›</button>
-                <div class="statsPeriodMenuWrap" id="csTsPeriodWrap">
+                <div class="statsPeriodMenuWrap">
                   <button type="button" class="menuBtn" id="csTsPeriodBtn" aria-label="Choisir la période">⋮</button>
                   <div class="statsPeriodMenu hidden" id="csTsPeriodMenu">
                     <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
@@ -1744,7 +1737,7 @@
           <div id="csChartBlock" class="statsSection">
             <div class="sectionTitleRow">
               <p class="sectionTitle">Graphique</p>
-              <div class="statsPeriodMenuWrap" id="csChartPeriodWrap">
+              <div class="statsPeriodMenuWrap">
                 <button type="button" class="menuBtn" id="csChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
                 <div class="statsPeriodMenu hidden" id="csChartPeriodMenu">
                   <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
@@ -1764,50 +1757,6 @@
           </div>
 
           <p id="categoryStatsMsg" class="msg"></p>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== TÂCHES HEBDOMADAIRES D'UN SECTEUR — « visualiser » (21 septembre
-         2026, demande directe d'Emilien : « lorsque je clique dessus, cela
-         ouvre une fenêtre qui me donne l'ensemble des tâches hebdomadaires à
-         réaliser pour le secteur. La fenêtre qui s'ouvre est copiée sur le
-         modèle de la fenêtre des profils des autres utilisateurs. Elle
-         indique la journée et les tâches avec une option pour les cocher. »)
-         Ouverte depuis createCategoryPicker() (app.js) au clic sur le bouton
-         « Visualiser » d'un secteur, jamais depuis une autre entrée. Même
-         reprise telle quelle de .communityMembersModal/.communityMembersModalCard/
-         .viewProfileIdentity que #categoryStatsModal ci-dessus — mêmes
-         raisons, même piège (placée en frère direct des sections .tab).
-         Le contenu (7 jours, lundi→dimanche, tâches déjà datées cette
-         semaine) vient de GET .../goals/categories/:key/tasks/week — voir
-         server/lib/goalstasks.js#tasksForCategoryThisWeek. Cocher une case ici
-         appelle PUT /api/sub-project-items/:id, LE MÊME endpoint générique
-         que la section Tâches et le volet Objectifs : c'est littéralement la
-         même ligne en base, donc l'état cochée/pas cochée est déjà partagé
-         sans mécanisme de synchronisation supplémentaire. -->
-    <div id="secteurTasksModal" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
-        <div class="viewProfileIdentity">
-          <span class="identityName" id="secteurTasksTitle"></span>
-          <button type="button" class="menuBtn" id="secteurTasksClose" aria-label="Fermer">✕</button>
-        </div>
-        <div id="secteurTasksScroll" class="viewProfileScroll">
-          <!-- 22 septembre 2026, demande d'Emilien : « ajouter une flèche
-               pour faire défiler les semaines [...] voir les tâches des
-               semaines futures. Pas passées [...] uniquement futur. » —
-               remplace l'ancien bloc d'ajout de tâche (retiré à la même
-               date : « je souhaite supprimer la possibilité d'ajouter une
-               nouvelle tâche »). -->
-          <div class="secteurTasksWeekNav">
-            <button type="button" class="iconBtn" id="secteurTasksPrevWeek" aria-label="Semaine précédente">←</button>
-            <span id="secteurTasksWeekLabel" class="secteurTasksWeekLabel"></span>
-            <button type="button" class="iconBtn" id="secteurTasksNextWeek" aria-label="Semaine suivante">→</button>
-          </div>
-          <!-- Objectif hebdomadaire (goal_weekly) de la semaine affichée. -->
-          <p id="secteurTasksObjective" class="secteurTasksObjective hidden"></p>
-          <div id="secteurTasksDays"></div>
-          <p id="secteurTasksMsg" class="msg"></p>
         </div>
       </div>
     </div>
@@ -2016,7 +1965,7 @@
         <div id="viewProfilePieBlock" class="statsSection">
           <div class="sectionTitleRow">
             <p class="sectionTitle">Répartition</p>
-            <div class="statsPeriodMenuWrap" id="viewProfilePiePeriodWrap">
+            <div class="statsPeriodMenuWrap">
               <button type="button" class="menuBtn" id="viewProfilePiePeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
               <div class="statsPeriodMenu hidden" id="viewProfilePiePeriodMenu">
                 <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
@@ -2037,7 +1986,7 @@
         <div id="viewProfileChartBlock" class="statsSection">
           <div class="sectionTitleRow">
             <p class="sectionTitle">Graphique</p>
-            <div class="statsPeriodMenuWrap" id="viewProfileChartPeriodWrap">
+            <div class="statsPeriodMenuWrap">
               <button type="button" class="menuBtn" id="viewProfileChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
               <div class="statsPeriodMenu hidden" id="viewProfileChartPeriodMenu">
                 <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
@@ -2206,7 +2155,7 @@
              pas casser les liens profonds existants type
              setActivityPageSection('sub')). -->
         <div class="periodSwitch" id="activityPageSectionSwitch">
-          <button type="button" class="periodBtn active" id="activityPageTabSub" data-section="sub">Catégories</button>
+          <button type="button" class="periodBtn active" data-section="sub">Catégories</button>
           <button type="button" class="periodBtn" id="activityPageTabStats" data-section="stats">Statistiques</button>
           <!-- 30 septembre 2026 : l'onglet Discussion a déménagé dans la Page 2 du volet Feuille de route (#goalsPage2ModeDiscBtn). -->
         </div>
@@ -3095,7 +3044,7 @@
                 <p id="calendarFeedMsg" class="msg"></p>
               </div>
               <!-- 9 oct. 2026 : agenda externe lu par Noèsis (sens inverse du flux ci-dessus). -->
-              <div id="externalCalendarSection" class="settingsFlat">
+              <div class="settingsFlat">
                 <p class="sectionTitle settingsFlatTitle">Importer un calendrier dans l'appli <span class="infoTipWrap"><button type="button" class="infoTipBtn" aria-label="Informations" aria-expanded="false" data-tip="Colle l'adresse ICS d'un agenda (Google Agenda, Apple Calendar…) ; tu peux en ajouter plusieurs. Noèsis ne garde que les heures occupées et compare les titres à tes règles, rien d'autre.">i</button></span></p>
                 <input type="text" id="externalCalendarUrl" class="calendarFeedUrl" inputmode="url" placeholder="https://…/basic.ics" autocomplete="off">
                 <div class="shareActions">
