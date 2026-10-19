@@ -86,6 +86,9 @@ app.use((req, res, next) => {
 // AVANT express.json() : la signature du webhook porte sur le corps brut.
 app.use('/api', require('./routes/resendinbound'));
 
+// Événements d'achat de Trade Tracker (POST /api/trade-events) : signature HMAC sur le corps brut, donc AVANT express.json().
+app.use('/api', require('./routes/tradeevents'));
+
 // 15 Mo au lieu des 100 Ko par défaut : l'import CSV de l'historique
 // (POST /api/import/history) envoie tout le fichier dans le corps de la
 // requête, une photo de profil transite en data URL, et une pièce jointe de

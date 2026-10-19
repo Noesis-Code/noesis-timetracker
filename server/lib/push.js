@@ -94,6 +94,8 @@ const TEXTS = {
     followTitle: 'Demande de suivi',
     followBody: (from) => `${from} souhaite te suivre.`,
     postTitle: '📣 Communauté',
+    tradeTitle: 'Trade Tracker',
+    tradeBody: (symbol, qty, price) => `Nouvel achat : ${symbol}` + (qty != null ? ` — ${qty} × ${price} $` : ''),
     announcementTitle: 'Noèsis',
   },
   en: {
@@ -102,6 +104,8 @@ const TEXTS = {
     followTitle: 'Follow request',
     followBody: (from) => `${from} wants to follow you.`,
     postTitle: '📣 Community',
+    tradeTitle: 'Trade Tracker',
+    tradeBody: (symbol, qty, price) => `New purchase: ${symbol}` + (qty != null ? ` — ${qty} × $${price}` : ''),
     announcementTitle: 'Noèsis',
   },
 };
@@ -351,7 +355,29 @@ async function notifyAnnouncement(body) {
   return ids.length;
 }
 
+// Nouvel achat de l'expert Trade Tracker (POST /api/trade-events) : la personne visée uniquement.
+// Module « trade » (et « notifications ») requis : sendToUsers filtre. Adresse : /?notif=trade&symbol=..&eventId=..
+function notifyTradePurchase(toUserId, ev) {
+  if (!configured) return;
+  try {
+    const t = textsFor(toUserId);
+    const row = db.prepare('SELECT lang FROM users WHERE id = ?').get(toUserId);
+    const loc = row && row.lang === 'fr' ? 'fr-CA' : 'en-CA';
+    const fmt = (n, d) => (Number.isFinite(n) ? n.toLocaleString(loc, { maximumFractionDigits: d }) : null);
+    const qty = fmt(ev.quantity, 4), price = fmt(ev.price, 2);
+    sendToUsers([toUserId], {
+      title: t.tradeTitle,
+      body: t.tradeBody(truncate(ev.symbol, 20), qty != null && price != null ? qty : null, price),
+      module: 'trade',
+      tag: 'trade-' + ev.eventId,
+      url: '/?notif=trade&symbol=' + encodeURIComponent(ev.symbol) + '&eventId=' + encodeURIComponent(ev.eventId),
+    });
+  } catch (err) {
+    console.warn('[push] notifyTradePurchase :', err.message);
+  }
+}
+
 module.exports = {
   pushEnabled, publicKey, sendToUsers, allSubscribedUserIds, notifyAnnouncement,
-  notifyActivityMessage, notifyCommunityPost, notifyActivityInvite, notifyFollowRequest,
+  notifyActivityMessage, notifyCommunityPost, notifyActivityInvite, notifyFollowRequest, notifyTradePurchase,
 };
