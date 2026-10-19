@@ -2078,23 +2078,10 @@
     saveBtn.className = 'goalTaskEditSave btnBrique';
     saveBtn.textContent = t('Enregistrer');
     card.appendChild(saveBtn);
-    // Oct. 2026 : modifier et supprimer au même endroit (comme le panneau ✎ de la liste).
-    var delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.className = 'goalTaskEditSave goalTaskEditDelete iconBtn danger';
-    delBtn.textContent = t('Supprimer cette tâche');
-    card.appendChild(delBtn);
     overlay.appendChild(card);
     document.body.appendChild(overlay);
 
     function close() { overlay.remove(); }
-    delBtn.addEventListener('click', function () {
-      if (!confirm(t('Supprimer cette tâche ?'))) return;
-      delBtn.disabled = true;
-      api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + TMT.getProfile().id)
-        .then(function () { close(); loadGoalsCalendarDays(period); })
-        .catch(function (err) { delBtn.disabled = false; msg.textContent = (err && err.message) || ''; });
-    });
     closeBtn.addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
 
