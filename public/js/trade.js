@@ -45,7 +45,7 @@
   var nav = document.querySelector('.tabbar');
   if (nav) nav.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('.tabBtn[data-tab="trade"]');
-    if (!b || e.defaultPrevented || e.target.closest('.tabRemove')) return;
+    if (!b || e.defaultPrevented) return;
     e.stopPropagation(); e.preventDefault(); open();
   }, true);
 

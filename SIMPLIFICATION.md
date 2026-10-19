@@ -32,3 +32,5 @@ Le Simplificateur ne crée jamais de fonction, ne change pas de règle produit, 
 - Bouton « Stratégie » mal rangé dans la fenêtre Activité : remplacé par une icône simple en Page 2 de la Feuille de route, à gauche de la croix (19 oct.).
 - Orange comme couleur d'interface hors messages de suppression (19 oct., en cours).
 - Fenêtres qui montent du bas : remplacées par des pop-up centrés (19 oct., en cours).
+- Bascule « Confirmer chaque tâche ajoutée par l'IA » (Mon IA) : la confirmation reste toujours active, ne pas réintroduire de réglage (19 oct.).
+- Désactiver un module depuis la barre du bas (✕ en mode édition) : le seul chemin est Réglages > Modules ; l'appui long sert uniquement à réordonner (19 oct.).

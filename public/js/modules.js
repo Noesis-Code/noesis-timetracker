@@ -135,7 +135,7 @@
 
   // ===== Barre du bas modulable =====
   // Appui long sur un volet = mode édition : glisser-déposer pour réordonner (ordre mémorisé par utilisateur, localStorage),
-  // ✕ pour retirer = désactiver son module (même effet et même garde-fou que Réglages > Modules). Activité et Stats ne sont pas retirables.
+  // Activer/désactiver un module = uniquement Réglages > Modules (pas de ✕ dans la barre du bas, 19 oct. 2026).
   var nav = document.querySelector('.tabbar');
   var editing = false, suppressClick = false;
   var ORDER_KEY = function () { return 'noesis_tab_order_' + (pid() || ''); };
@@ -152,42 +152,10 @@
   function saveOrder() {
     try { if (pid()) localStorage.setItem(ORDER_KEY(), JSON.stringify(tabBtns().map(function (b) { return b.dataset.tab; }))); } catch (e) { /* stockage plein */ }
   }
-  // Retrait : onglet -> patch de modules. Chrono = ensemble Chrono ; Feuille de route = ensemble Feuille de route (couper l'un rallume l'autre s'il était coupé) ; Communauté = Communauté et profil.
-  function removalPatch(tab) {
-    var p = {};
-    function set(b, v) { b.ids.forEach(function (id) { p[id] = v; }); }
-    if (tab === 'chrono') { set(BUNDLES[0], false); if (!on('roadmap')) set(BUNDLES[1], true); return p; }
-    if (tab === 'goals') { set(BUNDLES[1], false); if (!on('stats')) set(BUNDLES[0], true); return p; }
-    if (tab === 'community') return { community: false, profile: false };
-    if (tab === 'trade') return { trade: false };
-    return null;
-  }
-  function removalAllowed(tab) {
-    return true;
-  }
-  function clearBadges() { tabBtns().forEach(function (b) { var x = b.querySelector('.tabRemove'); if (x) x.remove(); }); }
-  function exitEdit() { editing = false; if (nav) nav.classList.remove('tabbarEditing'); clearBadges(); }
+  function exitEdit() { editing = false; if (nav) nav.classList.remove('tabbarEditing'); }
   function enterEdit() {
     if (editing || !nav) return;
-    editing = true; nav.classList.add('tabbarEditing'); clearBadges();
-    tabBtns().forEach(function (b) {
-      var tab = b.dataset.tab, patch = removalPatch(tab);
-      if (!patch) return;
-      var x = document.createElement('span'); x.className = 'tabRemove'; x.textContent = '✕'; x.setAttribute('role', 'button');
-      x.setAttribute('aria-label', tr('Retirer ce volet'));
-      x.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
-      x.addEventListener('click', function (e) {
-        e.stopPropagation(); e.preventDefault();
-        if (!removalAllowed(tab)) { exitEdit(); setMsg(tr('Garde au moins un ensemble.')); if (window.TMT && TMT.toast) TMT.toast(tr('Garde au moins un ensemble.')); return; }
-        var label = (b.querySelector('.tabLabel') || {}).textContent || tab;
-        var run = function () { return call('PUT', { modules: patch }).then(function (d) { state = d.modules; remember(); apply(); paint(); exitEdit(); }); };
-        if (TMT.confirmDelete) {
-          TMT.confirmDelete({ title: tr('Retirer ce volet ?'), text: tr('Le volet') + ' « ' + tr(label) + ' » ' + tr('sera masqué. Aucune donnée n’est supprimée ; tu peux le remettre dans Réglages > Modules.'), onConfirm: run });
-          var ok = document.getElementById('categoryRemoveDeleteTasksBtn'); if (ok) ok.textContent = tr('Retirer');
-        } else run();
-      });
-      b.appendChild(x);
-    });
+    editing = true; nav.classList.add('tabbarEditing');
   }
   function startDrag(btn, e) {
     var items = tabBtns().filter(function (b) { return b.offsetParent !== null; });
@@ -229,7 +197,7 @@
   }
   if (nav) {
     nav.addEventListener('pointerdown', function (e) {
-      var btn = e.target.closest && e.target.closest('.tabBtn'); if (!btn || e.target.closest('.tabRemove')) return;
+      var btn = e.target.closest && e.target.closest('.tabBtn'); if (!btn) return;
       if (editing) { startDrag(btn, e); return; }
       var sx = e.clientX, sy = e.clientY, timer = setTimeout(function () { cleanup(); suppressClick = true; setTimeout(function () { suppressClick = false; }, 700); enterEdit(); startDrag(btn, e); }, 450);
       function cm(ev) { if (Math.abs(ev.clientX - sx) > 10 || Math.abs(ev.clientY - sy) > 10) { clearTimeout(timer); cleanup(); } }
@@ -238,12 +206,11 @@
     });
     // Capture : en édition, un toucher simple sur un volet ferme l'édition au lieu de naviguer ; juste après un glisser, aucun clic.
     nav.addEventListener('click', function (e) {
-      if (e.target.closest('.tabRemove')) return;
       if (suppressClick) { e.stopPropagation(); e.preventDefault(); return; }
       if (editing) { e.stopPropagation(); e.preventDefault(); exitEdit(); }
     }, true);
     nav.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-    document.addEventListener('pointerdown', function (e) { if (editing && !e.target.closest('.tabbar') && !e.target.closest('#categoryRemoveModal')) exitEdit(); });
+    document.addEventListener('pointerdown', function (e) { if (editing && !e.target.closest('.tabbar')) exitEdit(); });
     document.addEventListener('tmt:modules', function () { applyOrder(); if (editing) { exitEdit(); } });
     applyOrder();
   }

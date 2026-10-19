@@ -2262,7 +2262,7 @@ if (!columnExists('activity_members', 'confidential')) {
 if (!columnExists('users', 'aiMode')) {
   db.exec('ALTER TABLE users ADD COLUMN aiMode TEXT');
 }
-// 19 oct. 2026 (Emilien) : « Confirmer chaque tâche ajoutée par l'IA » (1 par défaut).
+// Colonne conservée (réglage retiré le 19 oct. 2026 : la confirmation IA est toujours active) ; ne pas supprimer de données.
 if (!columnExists('users', 'aiConfirmEach')) {
   db.exec('ALTER TABLE users ADD COLUMN aiConfirmEach INTEGER NOT NULL DEFAULT 1');
 }

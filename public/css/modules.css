@@ -10,4 +10,3 @@
 .tabbarEditing .tabBtn.tabDragging { animation: none; z-index: 2; opacity: .9; }
 @keyframes tabWiggle { from { rotate: -2deg; } to { rotate: 2deg; } }
 @media (prefers-reduced-motion: reduce) { .tabbarEditing .tabBtn { animation: none; } }
-.tabRemove { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--purple); color: #fff; font-size: 10px; line-height: 18px; text-align: center; box-shadow: 0 0 0 1px rgba(255,255,255,.25); }
