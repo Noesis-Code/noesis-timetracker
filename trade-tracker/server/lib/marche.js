@@ -21,11 +21,13 @@ function isMarketOpen(ms) {
   return dow >= 1 && dow <= 5 && min >= OPEN_MIN && min < CLOSE_MIN;
 }
 
-// Prochaine ouverture (ms) strictement après `ms` si fermé, ou `ms` si ouvert. Avance à la minute (au plus 8 jours).
+// Prochaine ouverture (ms) : `ms` si ouvert, sinon le premier instant ouvert (au plus 8 jours plus tard). L'ouverture tombe toujours
+// sur une demi-heure UTC (9 h 30 heure de l'Est, décalage en heures entières) : on avance par demi-heures, pas par minutes.
 function nextOpen(ms) {
-  let t = Math.floor(ms / 60e3) * 60e3;
-  if (isMarketOpen(t)) return t;
-  for (let i = 0; i < 8 * 24 * 60; i++) { t += 60e3; if (isMarketOpen(t)) return t; }
+  if (isMarketOpen(ms)) return ms;
+  const HALF = 30 * 60e3;
+  let t = (Math.floor(ms / HALF) + 1) * HALF;
+  for (let i = 0; i < 8 * 48; i++, t += HALF) if (isMarketOpen(t)) return t;
   return null;
 }
 
