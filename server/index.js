@@ -311,6 +311,7 @@ const HOST = process.env.NOESIS_HOST || (process.env.PORT ? '0.0.0.0' : 'localho
 app.listen(PORT, HOST, () => {
   console.log(`Noèsis TimeTracker en écoute sur http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   console.log(`Version de l'app servie : ${APP_VERSION}`);
+  require('./lib/envcheck').logAtStartup();
 
   // Rappels avant l'échéance d'un sous-projet (4 septembre 2026, discussion
   // "Calendrier des clôtures") : 3 jours avant, puis la veille.

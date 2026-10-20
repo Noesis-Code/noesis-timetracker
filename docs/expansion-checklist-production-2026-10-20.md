@@ -35,5 +35,15 @@ Règles en vigueur au 20 oct. (ce qui a changé) :
 - [ ] Rembourser le paiement dans Stripe et résilier l'abonnement ; contrôler l'accès fermé en fin de période et le courriel de fin.
 - [ ] Remettre le prix définitif dans `STRIPE_OFFER1_PRICE_ID`.
 
+## Décision : abonnement impayé (à cocher, non implémenté)
+Aujourd'hui : Stripe relance la carte seul (Smart Retries). Dès que l'abonnement passe `past_due` (événement `customer.subscription.updated`), l'accès Expansion se ferme et l'app affiche « paiement à régulariser » ; `invoice.payment_failed` est seulement journalisé. Le client ne reçoit aucun courriel de notre part (Stripe peut envoyer le sien si activé dans Billing). S'il paie, `invoice.paid` rouvre l'accès ; si Stripe abandonne, `subscription.deleted` ferme et envoie le courriel de fin.
+Choisir une seule option :
+- [ ] Rien (comportement actuel)
+- [ ] Courriel d'échec de paiement envoyé par nous (texte à valider, une fois par échec)
+- [ ] Accès gardé en pause N jours avant fermeture (N à fixer) au lieu de fermé tout de suite
+
+## Variables au démarrage
+Le serveur journalise `[config Expansion] …` (noms de variables seulement, jamais de valeur) si : clé `sk_live` sur staging, clé sans `STRIPE_WEBHOOK_SECRET` ou `STRIPE_OFFER1_PRICE_ID`, `OFFER_CHECKOUT_OPEN=1` sans Stripe complet, valeur autre que `1`, `EXPANSION_MAILS=1` sans `RESEND_API_KEY`/`RESEND_FROM`. Lire ces lignes dans les journaux Railway après chaque changement de variable.
+
 ## En cas de problème
 Retirer `OFFER_CHECKOUT_OPEN` (achat refusé de nouveau, abonnés existants non touchés) puis `EXPANSION_MAILS`.

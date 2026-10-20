@@ -178,9 +178,9 @@ async function handleChargeIssue(kind, obj) {
   if (!customer && kind === 'dispute' && obj.charge && stripe.secretKeyConfigured()) {
     try { customer = (await stripe.retrieveCharge(obj.charge)).customer || null; } catch (e) { console.warn('[stripe webhook] lecture de la charge impossible :', e.message); }
   }
-  const row = customer ? db.prepare('SELECT stripeSubscriptionId, status FROM activity_subscriptions WHERE stripeCustomerId = ? ORDER BY createdAt DESC LIMIT 1').get(customer) : null;
+  const row = customer ? db.prepare('SELECT stripeSubscriptionId, status, userId FROM activity_subscriptions WHERE stripeCustomerId = ? ORDER BY createdAt DESC LIMIT 1').get(customer) : null;
   const chargeId = kind === 'dispute' ? obj.charge : obj.id;
-  const line = `${kind}${kind === 'refund' ? refundScope(obj) : ''} charge=${chargeId || '?'} abonnement=${row ? row.stripeSubscriptionId : 'inconnu'} statut=${row ? row.status : '-'}`;
+  const line = `${kind}${kind === 'refund' ? refundScope(obj) : ''} charge=${chargeId || '?'} abonnement=${row ? row.stripeSubscriptionId : 'inconnu'} compte=${row ? row.userId : 'inconnu'} statut=${row ? row.status : '-'}`;
   console.warn('[stripe webhook]', line);
   await subMails.alertTeam(`[Noèsis — Stripe ${kind === 'dispute' ? 'litige' : 'remboursement'}]`, line + '\nAucune action automatique : décision à prendre dans le tableau de bord Stripe.');
 }
@@ -209,7 +209,7 @@ async function handleEvent(event) {
   // événement accepté sans action (200)
 }
 
-router.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/stripe/webhook', express.raw({ type: 'application/json', limit: '512kb' }), async (req, res) => {
   let event;
   try {
     event = stripe.constructEvent(req.body, req.headers['stripe-signature']);
@@ -218,6 +218,11 @@ router.post('/stripe/webhook', express.raw({ type: 'application/json' }), async 
     return res.status(400).send('Webhook signature invalide.');
   }
 
+  // Corps signé mais sans id/type (ou JSON non objet) : refusé, rien n'est enregistré.
+  if (!event || typeof event !== 'object' || typeof event.id !== 'string' || !event.id || typeof event.type !== 'string') {
+    console.warn('[stripe webhook] événement sans id ou type, refusé');
+    return res.status(400).send('Événement invalide.');
+  }
   if (alreadyHandled(event.id)) {
     return res.json({ received: true, alreadyHandled: true });
   }
