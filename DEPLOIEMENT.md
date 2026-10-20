@@ -163,3 +163,23 @@ Liste complète (Railway > Variables ; staging = clés de test uniquement) :
 - `EXPANSION_MAILS=1` : courriels d'abonnement aux clients ; défaut off, à valider par Émilien (`docs/expansion-courriels.md`). Requiert `RESEND_API_KEY` et `RESEND_FROM` (domaine vérifié).
 
 Côté Stripe, activer aussi le portail client (Paramètres > Billing > Portail client) en mode test.
+
+## 7. Autres variables d'environnement lues par le code (noms seulement)
+
+Relevé du 20 oct. 2026 (`grep process.env`). Toutes sont optionnelles sauf mention ; jamais de valeur dans le dépôt.
+
+- **Plateforme (posées par Railway)** : `RAILWAY_ENVIRONMENT_NAME` (distingue staging), `RAILWAY_DEPLOYMENT_ID`, `RAILWAY_GIT_COMMIT_SHA`, `NODE_ENV`. `TZ` est forcé à `America/Toronto` par le serveur.
+- **Sessions et sécurité** : `NOESIS_SESSION_SECRET`, `NOESIS_RATE_LIMIT_OFF`, `NOESIS_RATE_IP_PER_MIN`, `NOESIS_RATE_USER_PER_MIN`, `BLOCKED_WORDS`, `CONTACT_EMAIL`.
+- **Notifications push (VAPID)** : `NOESIS_VAPID_PUBLIC_KEY`, `NOESIS_VAPID_PRIVATE_KEY`, `NOESIS_VAPID_SUBJECT`.
+- **Sauvegardes (R2/S3)** : `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `NOESIS_BACKUP_KEY`, `NOESIS_BACKUP_PREFIX`, `BACKUP_RETENTION_APPLY`.
+- **IA (clé et modèles)** : `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `NOESIS_CLASSIFY_FAST_MODEL`, `NOESIS_CROSS_FAST_MODEL`, `NOESIS_DOC_FAST_MODEL`, `NOESIS_OFFER_FAST_MODEL`, `NOESIS_REWRITE_FAST_MODEL`, `NOESIS_WEEKLY_FAST_MODEL`, `NOESIS_GOALS_REWRITE_MODEL`, `NOESIS_SPELLFIX_MODEL`, `NOESIS_TASK_CATEGORY_MODEL`, `DRIVE_SYNC_MODEL`.
+- **IA (budgets, plafonds, seuils)** : `AI_BUDGET_DAY_USD`, `AI_BUDGET_MONTH_USD`, `AI_BUDGET_SYSTEM_DAY_USD`, `AI_COST_ALERT_DAY_USD`, `AI_WEEKLY_ALERT_USD`, `AI_PRICE_IN_PER_M`, `AI_PRICE_OUT_PER_M`, `CHANGES_MAX_PER_DAY`, `CLASSIFY_MAX_PER_DAY`, `CROSS_MAX_PER_ACTIVITY_DAY`, `HEBDO_MAX_PER_DAY`, `MATCH_MAX_PER_DAY`, `OFFER_MAX_PER_DAY`, `RECURRENCE_MAX_PER_DAY`, `REWRITE_MAX_PER_DAY`, `SPELLFIX_MAX_PER_DAY`, `NOESIS_CAPTUREPLACE_MIN_CONFIDENCE`, `NOESIS_CLASSIFY_MIN_CONFIDENCE`, `NOESIS_CROSS_MIN_CONFIDENCE`, `SPELLFIX` (`off` coupe la correction silencieuse), `DOCANALYSIS_MEMO` (`off` coupe le cache).
+- **Planification des objectifs** : `GOALS_RECALC_CRON`, `GOALS_WEEKLY_MEMO_MIN`, `CP_WEEKLY_DEBOUNCE_MS`, `CP_WEEKLY_MAX_PER_HOUR`, `STRATEGY_DEBOUNCE_MS`.
+- **Google Drive** : `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `DRIVE_TOKEN_KEY`, `DRIVE_PREFILTER`, `DRIVE_PREFILTER_ACTION`, `DRIVE_SYNC_INTERVAL_MIN`, `DRIVE_SYNC_BATCH`, `DRIVE_SYNC_FIRST_DAYS`, `DRIVE_SYNC_MAX_AI_CALLS_PER_DAY`, `DRIVE_SYNC_MAX_AI_PER_PASS`, `DRIVE_SYNC_MAX_DEFER_PASSES`, `DRIVE_SYNC_MAX_FILE_INFRA_FAILS`, `DRIVE_SYNC_MAX_SEGS_PER_PASS`, `DRIVE_SYNC_MAX_TASKS_PER_FILE`.
+- **Calendrier et rappels** : `NOESIS_CALENDAR_FEED`, `NOESIS_DUE_REMINDERS`, `NOESIS_GOAL_REMINDERS`.
+- **Annonce aux utilisateurs** : `NOESIS_ANNOUNCE_AT`, `NOESIS_ANNOUNCE_PUSH`, `NOESIS_ANNOUNCE_TEXT`.
+- **Offre / accès** : `OFFER_CHECKOUT_OPEN`, `OFFER1_EARLY_ACCESS_USER_IDS`, `OFFER1_FREE_CODE_HASHES`, `INACTIVE_ACCOUNTS_ENABLED`, `RESEND_WEBHOOK_SECRET` (courriels, avec `RESEND_API_KEY`/`RESEND_FROM` du §6).
+- **Trade Tracker** : `TRADE_BASE_URL`, `TRADE_DATA_DIR`, `TRADE_ALLOWED_USER_IDS`, `TRADE_LINK_SECRET` (avertissement au démarrage s'il manque), `TRADE_NOTIFY_SECRET`, `TRADE_TOKEN_KEY`, `TRADE_CONNECTOR`, `TRADE_EVENTS_PER_MIN`, `TRADE_SYNC_DISABLE`, `TRADE_SYNC_INTERVAL_MIN`.
+- **Tests et développement seulement** : `GUARD_BASE`, `GUARD_ALLOW_SHRINK`, `FONC_PORT_OFFSET`, `MOCK_PORT`, `SEED_SCENARIOS` (staging), `SEED_STATS_DEMO`, `PATH`, `TMPDIR`.
+
+`railway.json` : build NIXPACKS, démarrage `node server/index.js`, redémarrage sur échec (10 essais max) ; cohérent avec ce document (pas de healthcheck déclaré : à décider, non ajouté).

@@ -39,3 +39,8 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 - Précision des tâches : dernier = 25 cas d'évaluation, anglicismes ; prochain = élargir le jeu de cas, évaluation `--live`.
 - Principal et pilotage : dernier = index unique `questions-emilien-2026-10-20.md`, contrôle de staging sain (aucun marqueur, `node --check` ok, CACHE_VERSION v487 monotone) ; prochain = relecture des livraisons suivantes.
 
+
+## Pilotage : audit dépendances, variables, espace disque (repli 11)
+- `npm audit --omit=dev` : racine = 1 critique (`proxy-addr` <= 2.0.7, usurpation d'IP), corrigée par `npm audit fix` (mise à jour de correctif, lockfile seul) ; Trade Tracker = 0 vulnérabilité. Aucune majeure en attente.
+- Variables d'environnement : 114 lues par le code, ~100 absentes de `DEPLOIEMENT.md` ; ajoutées en §7 (noms seulement). `railway.json` cohérent.
+- Espace `/tmp/noesis-*` (comptage, rien supprimé) : 1431 entrées, 68 Mo au total ; 1384 sont des `noesis-verify-*.db-shm/-wal` (fichiers orphelins de vérification, quelques Ko chacun), 7 `noesis-backup-test`, 7 `noesis-backup-empty`, le reste = dossiers de chantiers `noesis-<sujet>-*`. Nettoyage à décider par Émilien/coordinateur.

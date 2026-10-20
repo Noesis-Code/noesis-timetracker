@@ -26,3 +26,7 @@ Titre court + lien ; les cases se cochent dans le fichier d'origine. Classé par
 ## 5. Accès et sessions
 - Benchmarks (Trade Q8, temps) : accès web refusé aux agents, session avec recherche web : `questions-emilien-trade.md`, `questions-emilien-simplification.md`
 - Expansion : relancer la lecture des tâches du secteur depuis une session avec le MCP TiMeTracker : `questions-emilien-expansion.md`
+
+## 6. Infra (pilotage)
+- [ ] Nettoyer les ~1384 fichiers orphelins `/tmp/noesis-verify-*.db-shm/-wal` (68 Mo au total dans `/tmp/noesis-*`) : action destructrice, à valider.
+- [ ] Ajouter un healthcheck à `railway.json` (non fait).
