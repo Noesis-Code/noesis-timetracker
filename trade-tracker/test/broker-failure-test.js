@@ -15,8 +15,9 @@ const env = { TRADE_TOKEN_KEY: crypto.randomBytes(16).toString('hex') };
 const NOW = Date.parse('2026-08-01T12:00:00Z');
 const OLD = 'OLD-REFRESH-TOKEN-0000001', ACCESS = fx('token').access_token;
 const noSleep = async () => {};
+const waits = []; const recSleep = async (ms) => { waits.push(ms); };
 
-// mode : 'ok' | 'expired' | 'down' | 'empty-accounts' | 'null-positions' | 'null-balances' | 'null-token'
+// mode : 'ok' | 'expired' | 'down' | 'empty-accounts' | 'null-positions' | 'null-balances' | 'null-token' | '429'
 function server(state) {
   const log = [];
   const http = async (req) => {
@@ -24,6 +25,7 @@ function server(state) {
     const u = new URL(req.url), m = state.mode;
     if (u.pathname === '/oauth2/token') {
       if (m === 'expired') return { status: 400, body: fx('error-invalid-grant') };
+      if (m === '429') return { status: 429, headers: { 'retry-after': '2' }, body: null };
       if (m === 'down') throw new Error('connect ECONNREFUSED ' + req.url);
       if (m === 'null-token') return { status: 200, body: null };
       return { status: 200, body: fx('token') };
@@ -46,7 +48,7 @@ const snap = (db) => JSON.stringify([db.prepare('SELECT symbol, quantity FROM po
   const user = db.prepare('SELECT * FROM tt_users').get();
   B.saveBrokerToken(db, user.id, OLD, { env });
   const state = { mode: 'ok' }; const s = server(state);
-  const connector = () => Q.createQuestradeConnector({ db, env, http: s.http, now: () => NOW, sleep: noSleep });
+  const connector = () => Q.createQuestradeConnector({ db, env, http: s.http, now: () => NOW, sleep: recSleep });
   process.env.TRADE_TOKEN_KEY = env.TRADE_TOKEN_KEY;
 
   let r = await syncUser(db, user, { connector: connector(), now: NOW });
@@ -54,8 +56,8 @@ const snap = (db) => JSON.stringify([db.prepare('SELECT symbol, quantity FROM po
   const before = snap(db); assert(JSON.parse(before)[0].length > 0, 'positions de départ');
   const tokenBefore = B.getBrokerToken(db, user.id, { env });
 
-  for (const mode of ['expired', 'down', 'empty-accounts', 'null-positions', 'null-balances', 'null-token']) {
-    state.mode = mode; s.log.length = 0;
+  for (const mode of ['expired', 'down', 'empty-accounts', 'null-positions', 'null-balances', 'null-token', '429']) {
+    state.mode = mode; s.log.length = 0; waits.length = 0;
     r = await syncUser(db, user, { connector: connector(), now: NOW + 3600e3 });
     assert.strictEqual(r.ok, false, mode + ' : doit échouer');
     assert.strictEqual(snap(db), before, mode + ' : dernières données conservées');
@@ -64,6 +66,11 @@ const snap = (db) => JSON.stringify([db.prepare('SELECT symbol, quantity FROM po
     const last = db.prepare('SELECT status, message FROM sync_log ORDER BY id DESC LIMIT 1').get();
     assert.strictEqual(last.status, 'ECHEC', mode); assert(!last.message.includes(OLD) && !last.message.includes(tokenBefore), mode + ' : journal sans jeton');
     if (mode === 'expired') assert(last.message.includes(Q.RENEW_MARKER), 'jeton à renouveler visible');
+    if (mode === '429') {
+      assert.strictEqual(s.log.length, 4, '429 : 1 essai + 3 reprises, puis abandon (aucune boucle serrée)');
+      assert.deepStrictEqual(waits, [2000, 2000, 2000], '429 : Retry-After respecté entre chaque reprise');
+      assert(r.error.includes('429'), '429 : message clair (' + r.error + ')');
+    }
     if (mode === 'down') assert.strictEqual(s.log.length, 4, 'injoignable : 1 essai + 3 reprises, puis abandon');
   }
   assert.strictEqual(B.getBrokerToken(db, user.id, { env }), tokenBefore, 'jeton conservé après échecs');

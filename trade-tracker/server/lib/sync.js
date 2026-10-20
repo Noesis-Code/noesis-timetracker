@@ -6,44 +6,51 @@ const { hasBrokerToken, getBrokerToken } = require('./brokertoken');
 
 const iso = (ms) => new Date(ms).toISOString();
 
-function upsertSector(db, name) {
+// Requêtes préparées une seule fois par appel (re-préparer à chaque ligne dominait la durée d'une synchro).
+function prep(db) {
+  const cache = new Map();
+  return (sql) => { let s = cache.get(sql); if (!s) { s = db.prepare(sql); cache.set(sql, s); } return s; };
+}
+
+function upsertSector(p, name) {
   if (!name) return null;
-  db.prepare('INSERT OR IGNORE INTO sectors (name) VALUES (?)').run(name);
-  return db.prepare('SELECT id FROM sectors WHERE name = ?').get(name).id;
+  p('INSERT OR IGNORE INTO sectors (name) VALUES (?)').run(name);
+  return p('SELECT id FROM sectors WHERE name = ?').get(name).id;
 }
 
 function applyData(db, user, data, now) {
-  const first = !db.prepare("SELECT 1 FROM sync_log WHERE userId = ? AND kind = 'sync' AND status != 'ECHEC'").get(user.id);
+  const p = prep(db);
+  const first = !p("SELECT 1 FROM sync_log WHERE userId = ? AND kind = 'sync' AND status != 'ECHEC'").get(user.id);
   const stamp = iso(now);
   const newPurchases = [];
   let items = 0;
   db.exec('BEGIN');
   try {
-    if (data.usdCad > 0) db.prepare("INSERT INTO fx_rates (date, pair, rate) VALUES (?, 'USDCAD', ?) ON CONFLICT(date, pair) DO UPDATE SET rate = excluded.rate").run(stamp.slice(0, 10), data.usdCad);
+    if (data.usdCad > 0) p("INSERT INTO fx_rates (date, pair, rate) VALUES (?, 'USDCAD', ?) ON CONFLICT(date, pair) DO UPDATE SET rate = excluded.rate").run(stamp.slice(0, 10), data.usdCad);
     for (const a of data.accounts || []) {
-      let acc = db.prepare('SELECT id FROM accounts WHERE userId = ? AND externalId = ?').get(user.id, a.externalId);
+      let acc = p('SELECT id FROM accounts WHERE userId = ? AND externalId = ?').get(user.id, a.externalId);
       if (!acc) {
-        const r = db.prepare('INSERT INTO accounts (userId, type, label, broker, externalId) VALUES (?,?,?,?,?)').run(user.id, a.type, a.label || '', data.broker || null, a.externalId);
+        const r = p('INSERT INTO accounts (userId, type, label, broker, externalId) VALUES (?,?,?,?,?)').run(user.id, a.type, a.label || '', data.broker || null, a.externalId);
         acc = { id: Number(r.lastInsertRowid) };
-      } else db.prepare('UPDATE accounts SET type = ?, label = ? WHERE id = ?').run(a.type, a.label || '', acc.id);
+      } else p('UPDATE accounts SET type = ?, label = ? WHERE id = ?').run(a.type, a.label || '', acc.id);
       // positions : reflet exact du courtier (celles qui disparaissent sont supprimées) ; sans prix reçu (marché fermé, symbole inconnu),
       // le dernier prix connu et son horodatage sont conservés (la mention « Prix mis à jour » reste exacte)
       const seen = [];
-      for (const p of a.positions || []) {
-        seen.push(p.symbol);
-        db.prepare(`INSERT INTO positions (accountId, symbol, name, sectorId, currency, quantity, avgCost, lastPrice, priceUpdatedAt) VALUES (?,?,?,?,?,?,?,?,?)
+      for (const pos of a.positions || []) {
+        seen.push(pos.symbol);
+        p(`INSERT INTO positions (accountId, symbol, name, sectorId, currency, quantity, avgCost, lastPrice, priceUpdatedAt) VALUES (?,?,?,?,?,?,?,?,?)
           ON CONFLICT(accountId, symbol) DO UPDATE SET name=excluded.name, sectorId=excluded.sectorId, currency=excluded.currency, quantity=excluded.quantity, avgCost=excluded.avgCost, lastPrice=COALESCE(excluded.lastPrice, lastPrice), priceUpdatedAt=CASE WHEN excluded.lastPrice IS NULL THEN priceUpdatedAt ELSE excluded.priceUpdatedAt END`)
-          .run(acc.id, p.symbol, p.name || '', upsertSector(db, p.sector), p.currency || 'CAD', p.quantity, p.avgCost, p.lastPrice ?? null, p.lastPrice != null ? stamp : null);
+          .run(acc.id, pos.symbol, pos.name || '', upsertSector(p, pos.sector), pos.currency || 'CAD', pos.quantity, pos.avgCost, pos.lastPrice ?? null, pos.lastPrice != null ? stamp : null);
         items++;
       }
-      const existing = db.prepare('SELECT id, symbol FROM positions WHERE accountId = ?').all(acc.id);
-      for (const e of existing) if (!seen.includes(e.symbol)) db.prepare('DELETE FROM positions WHERE id = ?').run(e.id);
+      const existing = p('SELECT id, symbol FROM positions WHERE accountId = ?').all(acc.id);
+      for (const e of existing) if (!seen.includes(e.symbol)) p('DELETE FROM positions WHERE id = ?').run(e.id);
       for (const b of a.balances || []) {
-        db.prepare(`INSERT INTO balances (accountId, currency, cash, updatedAt) VALUES (?,?,?,?)
+        p(`INSERT INTO balances (accountId, currency, cash, updatedAt) VALUES (?,?,?,?)
           ON CONFLICT(accountId, currency) DO UPDATE SET cash = excluded.cash, updatedAt = excluded.updatedAt`).run(acc.id, b.currency, b.cash, stamp);
       }
       for (const t of a.transactions || []) {
-        const r = db.prepare(`INSERT OR IGNORE INTO transactions (accountId, date, type, symbol, quantity, price, amount, currency, externalId) VALUES (?,?,?,?,?,?,?,?,?)`)
+        const r = p(`INSERT OR IGNORE INTO transactions (accountId, date, type, symbol, quantity, price, amount, currency, externalId) VALUES (?,?,?,?,?,?,?,?,?)`)
           .run(acc.id, t.date, t.type, t.symbol ?? null, t.quantity ?? null, t.price ?? null, t.amount, t.currency || 'CAD', t.externalId ?? null);
         if (Number(r.changes) > 0) {
           items++;
@@ -54,7 +61,7 @@ function applyData(db, user, data, now) {
     // événements d'achat (idempotents par transaction)
     for (const n of newPurchases) {
       const body = { userId: user.tmtUserId, symbol: n.t.symbol, quantity: n.t.quantity, price: n.t.price, account: n.account.type, occurredAt: n.t.date };
-      db.prepare("INSERT OR IGNORE INTO events (type, userId, transactionId, payload) VALUES ('purchase', ?, ?, ?)").run(user.id, n.txId, JSON.stringify(body));
+      p("INSERT OR IGNORE INTO events (type, userId, transactionId, payload) VALUES ('purchase', ?, ?, ?)").run(user.id, n.txId, JSON.stringify(body));
     }
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
