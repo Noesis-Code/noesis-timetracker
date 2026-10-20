@@ -30,3 +30,10 @@ Entrées IA bornées (repli 24, 20 oct. 2026) :
 
 Relance unique de la génération de tâches (repli 23, 20 oct. 2026) : quand TOUTES les tâches générées sont rejetées, `documenttasks.propose` refait UN appel (jamais plus ; code vérifié, `test/precision-repli-test.js`). Elle ne contourne rien : même plafond de 10 demandes par heure et par compte (la relance ne prend pas de créneau de plus), et le budget par compte (`aibudget.check`) est vérifié avant : compte au plafond = aucune relance, erreur 429 au message clair (« Limite d'utilisation de l'IA atteinte… Elle reprend le … »). Aucun plafond par fonction (`aifeaturecaps`) n'existe pour `document-taches` : le budget en dollars est le seul garde-fou.
 - Coût maximal ajouté : au plus 1 appel de plus par demande où tout est rejeté (cas rare), soit au pire le double du coût de cette demande (palier rapide + éventuel repli fort inclus, 2 appels chacun). Par jour et par compte, le plafond en dollars (`AI_BUDGET_DAY_USD`, 2 $ par défaut) borne le total, relances comprises : le coût ajouté ne peut pas dépasser ce plafond.
+
+Coût des échecs IA (repli 27, 20 oct. 2026, `docs/ia-echecs-2026-10-20.md`) : chaque case ci-dessous est un changement de comportement ; décocher = demander de le retirer.
+- [ ] Délai dépassé du modèle rapide : ne plus appeler le modèle fort (économie, repli local habituel) ; risque : une lenteur passagère du modèle rapide n'obtient plus de second essai ?
+- [ ] Erreurs 400/401/403 du modèle rapide : ne plus appeler le modèle fort (même corps/clé = même échec) ?
+- [ ] Délais plus courts (hebdo 90 -> 60 s, inter-secteurs 90 -> 60 s, Offre 1 120 -> 90 s) : une génération légitime plus lente échoue (et reste facturée) ?
+- [ ] Relances automatiques sur 429/529 (2 au plus, Retry-After respecté, 8 s au plus chacune, non facturées) : jusqu'à 16 s de latence en plus lors d'une surcharge ?
+- [ ] Réparation locale d'un JSON abîmé avant de rappeler le modèle fort (jamais sur sortie tronquée) : un texte légèrement différent d'une relance payante est accepté ?

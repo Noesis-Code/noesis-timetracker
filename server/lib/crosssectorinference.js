@@ -133,16 +133,16 @@ async function callAi(payload, allowedKeys) {
     try {
       const r = await callAiOnce(payload, allowedKeys, fast, 'inter-secteurs', SYSTEM_PROMPT + CONFIDENCE_ADDENDUM, true);
       if (r) return r;
-    } catch (err) { if (aicache.isThrottled(err)) throw err; /* repli sur le modèle fort */ }
+    } catch (err) { if (aicache.isNoFallback(err)) throw err; /* repli sur le modèle fort */ }
   }
   return callAiStrong(payload, allowedKeys, fast ? 'inter-secteurs:repli' : 'inter-secteurs');
 }
 
 // Vrai si la sortie de Haiku est sûre : JSON lisible, toutes les cibles connues, toutes les confiances >= seuil. Liste vide = sûre.
-function fastOutputIsSure(text, allowedKeys) {
+function fastOutputIsSure(text, allowedKeys, truncated) {
   let parsed;
   try { parsed = JSON.parse(text); } catch (e) {
-    try { parsed = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch (e2) { return false; }
+    try { parsed = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch (e2) { const rep = require('./jsonrepair').parse(text, { truncated }); if (!rep) return false; parsed = rep.value; }
   }
   if (!parsed || !Array.isArray(parsed.suggestions)) return false;
   const allowed = new Set(allowedKeys || []);
@@ -162,7 +162,7 @@ async function callAiStrong(payload, allowedKeys, feature) {
 async function callAiOnce(payload, allowedKeys, model, feature, system, fastMode) {
   const res = await aibudget.fetchAnthropic(feature || 'inter-secteurs', ANTHROPIC_API_URL, {
     method: 'POST',
-    signal: AbortSignal.timeout(90000), // délai dépassé = panne IA (repli habituel), jamais une attente sans fin
+    signal: AbortSignal.timeout(require('./aimodels').timeoutMs('inter-secteurs')), // délai dépassé = panne IA (repli habituel), jamais une attente sans fin
     headers: {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
@@ -187,9 +187,9 @@ async function callAiOnce(payload, allowedKeys, model, feature, system, fastMode
   }
   const body = await res.json();
   const text = (body.content || []).map((block) => block.text || '').join('');
-  if (fastMode && !fastOutputIsSure(text, allowedKeys)) return null; // peu sûr : l'appelant se replie sur le modèle fort
+  if (fastMode && !fastOutputIsSure(text, allowedKeys, body.stop_reason === 'max_tokens')) return null; // peu sûr : l'appelant se replie sur le modèle fort
   try {
-    return parseSuggestions(text, allowedKeys);
+    return parseSuggestions(text, allowedKeys, body.stop_reason === 'max_tokens');
   } catch (err) {
     console.error('[objectifs][cross-secteur] réponse illisible — arrêt : ' + body.stop_reason + ', début : ' + JSON.stringify(String(text).slice(0, 200)));
     throw err;
@@ -198,7 +198,7 @@ async function callAiOnce(payload, allowedKeys, model, feature, system, fastMode
 
 // Validation stricte — ne fait jamais confiance à l'IA pour respecter les
 // plafonds ou pour ne cibler que des catégories réellement candidates.
-function parseSuggestions(text, allowedKeys) {
+function parseSuggestions(text, allowedKeys, truncated) {
   let parsed;
   try {
     parsed = JSON.parse(text);
@@ -207,7 +207,9 @@ function parseSuggestions(text, allowedKeys) {
       const i = text.indexOf('{'), j = text.lastIndexOf('}');
       parsed = JSON.parse(text.slice(i, j + 1));
     } catch (err2) {
-      throw new Error("Réponse de Noèsis illisible (JSON invalide).");
+      const rep = require('./jsonrepair').parse(text, { truncated }); // réparation locale avant un nouvel appel payant
+      if (!rep) throw new Error("Réponse de Noèsis illisible (JSON invalide).");
+      parsed = rep.value;
     }
   }
   const raw = parsed && Array.isArray(parsed.suggestions) ? parsed.suggestions : [];

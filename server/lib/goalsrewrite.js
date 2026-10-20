@@ -13,7 +13,7 @@ const aibudget = require('./aibudget');
 const aicache = require('./aicache');
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_API_VERSION = '2023-06-01';
-const REQUEST_TIMEOUT_MS = 15000;
+const REQUEST_TIMEOUT_MS = () => require('./aimodels').timeoutMs('reformulation');
 const MAX_OUTPUT_TOKENS = 300;
 const MAX_TEXT_LENGTH = 500;
 
@@ -57,14 +57,14 @@ function callModel(prompt, original, userId) {
       const known = new Set(digitsOf(original));
       if (m && Number(m[1]) >= aicache.minConfidenceFor('NOESIS_REWRITE_MIN_CONFIDENCE') && body && !/\n/.test(body)
           && body.length <= MAX_TEXT_LENGTH && digitsOf(body).every((d) => known.has(d))) return body;
-    } catch (err) { /* repli sur le modèle fort */ }
+    } catch (err) { if (aicache.isNoFallback(err)) throw err; /* repli sur le modèle fort */ }
     return strong();
   });
 }
 
 async function callModelRaw(prompt, model, feature, maxTokens) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS());
   try {
     const res = await aibudget.fetchAnthropic(feature || 'reformulation', ANTHROPIC_API_URL, {
       method: 'POST',

@@ -99,20 +99,21 @@ async function generatePlanUncached(formsPayload) {
   const fast = aicache.fastModelFor('NOESIS_OFFER_FAST_MODEL', ANTHROPIC_MODEL);
   if (fast) {
     try {
-      const text = await callPlanApi(formsPayload, fast, SYSTEM_PROMPT + OFFER_CONF, 'offre1-plan');
-      const plan = parsePlan(text);
+      const { text, truncated } = await callPlanApi(formsPayload, fast, SYSTEM_PROMPT + OFFER_CONF, 'offre1-plan');
+      const plan = parsePlan(text, truncated);
       let conf = NaN;
-      try { conf = Number(JSON.parse(String(text).trim().replace(/^```[a-zA-Z]*\s*/, '').replace(/\s*```$/, '').trim()).confidence); } catch (e) { /* illisible : repli */ }
+      try { const rp = require('./jsonrepair').parse(text, { truncated }); conf = Number(rp && rp.value && rp.value.confidence); } catch (e) { /* illisible : repli */ }
       if (planIsComplete(plan) && conf >= aicache.minConfidenceFor('NOESIS_OFFER_MIN_CONFIDENCE')) return plan;
-    } catch (err) { if (err && (err.aiBlocked || aicache.isThrottled(err))) throw err; /* repli sur le modèle fort */ }
+    } catch (err) { if (err && (err.aiBlocked || aicache.isNoFallback(err))) throw err; /* repli sur le modèle fort */ }
   }
-  return parsePlan(await callPlanApi(formsPayload, ANTHROPIC_MODEL, SYSTEM_PROMPT, fast ? 'offre1-plan:repli' : 'offre1-plan'));
+  const strong = await callPlanApi(formsPayload, ANTHROPIC_MODEL, SYSTEM_PROMPT, fast ? 'offre1-plan:repli' : 'offre1-plan');
+  return parsePlan(strong.text, strong.truncated);
 }
 
 async function callPlanApi(formsPayload, model, system, feature) {
   const res = await aibudget.fetchAnthropic(feature, ANTHROPIC_API_URL, {
     method: 'POST',
-    signal: AbortSignal.timeout(120000), // délai dépassé = panne IA (repli habituel), jamais une attente sans fin
+    signal: AbortSignal.timeout(require('./aimodels').timeoutMs('offre1')), // délai dépassé = panne IA (repli habituel), jamais une attente sans fin
     headers: {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
@@ -139,21 +140,23 @@ async function callPlanApi(formsPayload, model, system, feature) {
   }
 
   const body = await res.json();
-  return (body.content || []).map((block) => block.text || '').join('');
+  return { text: (body.content || []).map((block) => block.text || '').join(''), truncated: body.stop_reason === 'max_tokens' };
 }
 
 // Validation stricte de la réponse IA : elle contourne les routes HTTP (on
 // appelle sp.createSubProject/createSection/createItem directement), donc
 // les plafonds normalement posés par server/routes/subprojects.js n'existent
 // plus en amont — ils sont réappliqués ici.
-function parsePlan(text) {
+function parsePlan(text, truncated) {
   let parsed;
   try {
     // L'IA entoure parfois son JSON de clôtures markdown (``` ou ```json).
     const cleaned = String(text).trim().replace(/^```[a-zA-Z]*\s*/, '').replace(/\s*```$/, '').trim();
     parsed = JSON.parse(cleaned);
   } catch (err) {
-    throw new Error("Réponse de Noèsis illisible (JSON invalide).");
+    const rep = require('./jsonrepair').parse(text, { truncated }); // réparation locale avant un nouvel appel payant
+    if (!rep) throw new Error("Réponse de Noèsis illisible (JSON invalide).");
+    parsed = rep.value;
   }
 
   const subProjects = parsed && Array.isArray(parsed.subProjects) ? parsed.subProjects : null;

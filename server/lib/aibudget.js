@@ -292,6 +292,37 @@ const als = new AsyncLocalStorage();
 function runAs(userId, fn) { return als.run({ userId: userId || null }, fn); }
 function currentUser() { const s = als.getStore(); return s && s.userId ? s.userId : null; }
 
+// Relances sur refus de débit 429 / surcharge 529 (jamais facturés : aucun jeton n'a été produit). Au plus AI_RETRY_MAX relances (défaut 2),
+// attente = Retry-After si fourni (abandon sans relance s'il dépasse AI_RETRY_MAX_WAIT_MS, défaut 8 s), sinon reculade exponentielle
+// AI_RETRY_BASE_MS x 2^n (défaut 1 s) bornée au même plafond. Les 400/401/403 et toute autre erreur ne sont jamais relancés (inutile de repayer).
+// L'attente s'interrompt avec le signal de délai de l'appelant.
+function retryDelayMs(res, attempt) {
+  const num = (k, d) => { const n = Number(process.env[k]); return Number.isFinite(n) && n >= 0 ? n : d; };
+  const cap = num('AI_RETRY_MAX_WAIT_MS', 8000);
+  let ra = NaN;
+  try { ra = res.headers && typeof res.headers.get === 'function' ? parseFloat(res.headers.get('retry-after')) : NaN; } catch (e) { /* en-tête absent */ }
+  if (Number.isFinite(ra) && ra >= 0) return ra * 1000 > cap ? null : ra * 1000;
+  return Math.min(cap, num('AI_RETRY_BASE_MS', 1000) * Math.pow(2, attempt));
+}
+function sleepAbortable(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal && signal.aborted) return reject(signal.reason || Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    const t = setTimeout(() => { if (signal) signal.removeEventListener('abort', onAbort); resolve(); }, ms);
+    const onAbort = () => { clearTimeout(t); reject(signal.reason || Object.assign(new Error('aborted'), { name: 'AbortError' })); };
+    if (signal) signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+async function fetchWithRetry(url, init) {
+  const maxRetries = Number.isFinite(Number(process.env.AI_RETRY_MAX)) && process.env.AI_RETRY_MAX !== '' ? Math.max(0, Number(process.env.AI_RETRY_MAX)) : 2;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, init);
+    if (!res || res.ok || (res.status !== 429 && res.status !== 529) || attempt >= maxRetries) return res;
+    const wait = retryDelayMs(res, attempt);
+    if (wait == null) return res;
+    await sleepAbortable(wait, init && init.signal);
+  }
+}
+
 // Remplace fetch(ANTHROPIC_URL, init) : vérifie le budget, appelle l'API, enregistre le coût.
 // Bloqué : lève une Error { aiBlocked: true, resumesOn } SANS appeler l'API (les appelants
 // l'attrapent déjà comme n'importe quelle panne IA). Renvoie la Response d'origine, intacte.
@@ -302,7 +333,7 @@ async function fetchAnthropic(feature, url, init, userId) {
   if (!c.ok) throw Object.assign(new Error(c.message), { aiBlocked: true, resumesOn: c.resumesOn, period: c.period });
   reserve(uid, est);
   try {
-    const res = await fetch(url || ANTHROPIC_URL, init && typeof init.body === 'string' ? { ...init, body: aiscrub.scrubBody(init.body) } : init); // Loi 25 : coordonnées masquées avant envoi
+    const res = await fetchWithRetry(url || ANTHROPIC_URL, init && typeof init.body === 'string' ? { ...init, body: aiscrub.scrubBody(init.body) } : init); // Loi 25 : coordonnées masquées avant envoi
     if (res && res.ok && typeof res.clone === 'function') {
       try {
         const body = await res.clone().json();

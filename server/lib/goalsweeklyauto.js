@@ -158,7 +158,7 @@ async function callAiTiered(payload, requestedWeeks) {
     try {
       const r = await callAiOnce(payload, requestedWeeks, fast, 'objectifs-hebdo', WEEKLY_CONF);
       if (r.goals.length && r.confidence >= aicache.minConfidenceFor('NOESIS_WEEKLY_MIN_CONFIDENCE')) return r.goals;
-    } catch (err) { if (aicache.isThrottled(err)) throw err; /* repli sur le modèle fort */ }
+    } catch (err) { if (aicache.isNoFallback(err)) throw err; /* repli sur le modèle fort */ }
   }
   return callAiRetry(payload, requestedWeeks, fast ? 'objectifs-hebdo:repli' : 'objectifs-hebdo');
 }
@@ -176,7 +176,7 @@ async function callAiRetry(payload, requestedWeeks, feature) {
 async function callAiOnce(payload, requestedWeeks, model, feature, extraSystem) {
   const res = await aibudget.fetchAnthropic(feature || 'objectifs-hebdo', ANTHROPIC_API_URL, {
     method: 'POST',
-    signal: AbortSignal.timeout(90000), // délai dépassé = panne IA (repli habituel), jamais une attente sans fin
+    signal: AbortSignal.timeout(require('./aimodels').timeoutMs('hebdo')), // délai dépassé = panne IA (repli habituel), jamais une attente sans fin
     headers: {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
@@ -202,9 +202,9 @@ async function callAiOnce(payload, requestedWeeks, model, feature, extraSystem) 
   const body = await res.json();
   const text = (body.content || []).map((block) => block.text || '').join('');
   try {
-    const goalsOut = parseWeeklyGoals(text, requestedWeeks);
+    const goalsOut = parseWeeklyGoals(text, requestedWeeks, body.stop_reason === 'max_tokens');
     let confidence = NaN;
-    if (extraSystem) { try { confidence = Number(JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)).confidence); } catch (e) { /* confiance absente */ } }
+    if (extraSystem) { try { const rp = require('./jsonrepair').parse(text, { truncated: body.stop_reason === 'max_tokens' }); confidence = Number(rp && rp.value && rp.value.confidence); } catch (e) { /* confiance absente */ } }
     return { goals: goalsOut, confidence };
   } catch (err) {
     console.error('[objectifs][remplissage IA hebdomadaire] réponse illisible — arrêt : ' + body.stop_reason + ', début : ' + JSON.stringify(String(text).slice(0, 200)));
@@ -215,7 +215,7 @@ async function callAiOnce(payload, requestedWeeks, model, feature, extraSystem) 
 // Validation stricte : ne fait JAMAIS confiance à l'IA pour respecter les
 // plafonds ou pour ne proposer que les semaines demandées — les deux sont
 // re-vérifiés ici (même discipline que offerdelivery.js#parsePlan).
-function parseWeeklyGoals(text, requestedWeeks) {
+function parseWeeklyGoals(text, requestedWeeks, truncated) {
   requestedWeeks = requestedWeeks || [];
   let parsed;
   try {
@@ -226,7 +226,9 @@ function parseWeeklyGoals(text, requestedWeeks) {
       const i = text.indexOf('{'), j = text.lastIndexOf('}');
       parsed = JSON.parse(text.slice(i, j + 1));
     } catch (err2) {
-      throw new Error("Réponse de Noèsis illisible (JSON invalide).");
+      const rep = require('./jsonrepair').parse(text, { truncated }); // réparation locale (clôtures, virgule finale, fermeture) avant un nouvel appel payant
+      if (!rep) throw new Error("Réponse de Noèsis illisible (JSON invalide).");
+      parsed = rep.value;
     }
   }
   const raw = parsed && Array.isArray(parsed.weeklyGoals) ? parsed.weeklyGoals : [];

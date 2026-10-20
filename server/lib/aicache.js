@@ -77,6 +77,15 @@ function capClear() { capUsage.clear(); }
 // Refus de débit de l'API (HTTP 429 limite, 529 surcharge) : le modèle fort subirait le même refus, donc pas de second appel de repli (panne IA habituelle).
 function isThrottled(err) { return !!err && (err.status === 429 || err.status === 529 || /\(?HTTP (429|529)\b/.test(String(err.message || ''))); }
 
+// Aucun second appel (payant) au modèle fort : refus de débit (429/529), requête refusée d'office (400/401/403 : le même corps ou la même clé échouerait
+// encore) ou délai dépassé (le modèle fort, plus lent, expirerait aussi). La panne IA habituelle s'applique (repli local, jamais mémorisé).
+function isNoFallback(err) {
+  if (isThrottled(err)) return true;
+  if (!err) return false;
+  if (err.name === 'TimeoutError' || err.name === 'AbortError') return true;
+  return err.status === 400 || err.status === 401 || err.status === 403 || /\(?HTTP (400|401|403)\b/.test(String(err.message || ''));
+}
+
 // Paliers « modèle rapide d'abord, modèle fort en repli » (décision d'Emilien). Modèle rapide lu dans la variable d'environnement
 // `envModel` (défaut Haiku, voir aimodels.js ; 'off' ou égal au modèle fort = désactivé), seuil de confiance (0-100) dans `envConf` (défaut 80).
 function fastModelFor(envModel, strongModel) {
@@ -88,4 +97,4 @@ function minConfidenceFor(envConf) {
   return Number.isFinite(n) && n >= 0 && n <= 100 ? n : 80;
 }
 
-module.exports = { fastModelFor, minConfidenceFor, memoize, memoClear, memoStats, takeDailyCap, isThrottled, capFromEnv, capClear, messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };
+module.exports = { fastModelFor, minConfidenceFor, memoize, memoClear, memoStats, takeDailyCap, isThrottled, isNoFallback, capFromEnv, capClear, messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };

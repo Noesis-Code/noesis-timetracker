@@ -1,6 +1,7 @@
 // Refus 429/529 : aucun appel de repli au modèle fort ; plafonds Offre 1 / modifications proposées. Usage : node test/ia-repli-429-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-429-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_DAY_USD = '1000';
+process.env.AI_RETRY_MAX = '0'; // ici : seul le repli vers le modèle fort est mesuré (relances : ia-echecs-test.js)
 process.env.OFFER_MAX_PER_DAY = '1'; process.env.CHANGES_MAX_PER_DAY = '1';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };

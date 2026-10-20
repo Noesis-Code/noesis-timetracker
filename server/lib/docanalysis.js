@@ -7,7 +7,7 @@ const aicache = require('./aicache');
 const classify = require('./goalstaskclassify');
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
-const TIMEOUT_MS = 45000;
+const TIMEOUT_MS = () => require('./aimodels').timeoutMs('documents');
 const MAX_TOKENS_TASKS = 8000, MAX_TOKENS_CHANGES = 3000;
 
 let caller = null; // injectable (tests) : async ({ system, user, stable, variable }) => string | { text, stopReason }
@@ -95,12 +95,13 @@ async function callTiered(args) {
   if (!fast) return callRaw(args);
   try {
     const out = await callRaw({ ...args, model: fast, tier: true, parts: { ...args.parts, variable: args.parts.variable + DOC_CONF } });
-    const j = out.stopReason === 'max_tokens' ? null : JSON.parse(out.text);
+    const rep = out.stopReason === 'max_tokens' ? null : require('./jsonrepair').parse(out.text); // réparation locale avant tout repli payant
+    const j = rep ? rep.value : null;
     if (j && typeof j === 'object' && Number(j.confidence) >= aicache.minConfidenceFor('NOESIS_DOC_MIN_CONFIDENCE')) {
       delete j.confidence;
       return { text: JSON.stringify(j), stopReason: out.stopReason };
     }
-  } catch (err) { if (err && (err.creditLow || err.aiBlocked || aicache.isThrottled(err))) throw err; /* repli sur le modèle fort */ }
+  } catch (err) { if (err && (err.creditLow || err.aiBlocked || aicache.isNoFallback(err))) throw err; /* repli sur le modèle fort */ }
   return callRaw({ ...args, feature: (args.feature || 'document-taches') + ':repli' });
 }
 
@@ -110,7 +111,7 @@ async function callRaw({ parts, want, feature, model, tier }) {
     return out && typeof out === 'object' ? { text: out.text, stopReason: out.stopReason || null } : { text: out, stopReason: null };
   }
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS());
   try {
     const res = await aibudget.fetchAnthropic(feature || 'document-taches', API_URL, {
       method: 'POST', signal: controller.signal,

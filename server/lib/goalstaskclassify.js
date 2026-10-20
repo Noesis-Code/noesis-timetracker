@@ -69,7 +69,7 @@ const ANTHROPIC_API_VERSION = '2023-06-01';
 // plus récent/moins coûteux après l'écriture de ce fichier — à vérifier sur
 // https://docs.claude.com/en/docs/about-claude/models avant de changer la
 // valeur par défaut en production.
-const REQUEST_TIMEOUT_MS = 15000;
+const timeoutFor = (feature) => require('./aimodels').timeoutMs(feature === 'correction-orthographe' ? 'orthographe' : feature === 'recurrence-tache' ? 'recurrence' : feature === 'rapprochement-objectif' ? 'rapprochement' : 'classement');
 // Une seule clé de catégorie en sortie : pas besoin d'un budget de sortie
 // élevé comme dans goalsdailyauto.js (qui renvoie une date par tâche).
 const MAX_OUTPUT_TOKENS = 32;
@@ -197,7 +197,7 @@ function callModel(prompt, maxTokens, feature, model) {
 
 async function callModelRaw(prompt, maxTokens, feature, model) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutFor(feature));
   try {
     const res = await aibudget.fetchAnthropic(feature || 'classement-tache', ANTHROPIC_API_URL, {
       method: 'POST',
@@ -266,7 +266,7 @@ async function callTiered(label, categories, examples, allowUncertain, maxTokens
       const m = /\|\s*(\d{1,3})/.exec(String(text || ''));
       const conf = m ? Number(m[1]) : null;
       if (key && !extractUncertain(text, categories) && conf != null && conf >= minConfidence()) return key;
-    } catch (err) { if (aicache.isThrottled(err)) throw err; /* repli sur le modèle fort */ }
+    } catch (err) { if (aicache.isNoFallback(err)) throw err; /* repli sur le modèle fort */ }
   }
   return callModel(strongPrompt(), maxTokens, fast ? 'classement-tache:repli' : 'classement-tache');
 }
