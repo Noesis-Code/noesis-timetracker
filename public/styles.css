@@ -7,7 +7,6 @@
   --green: #4CAF50;
   --red: #E74C3C;
   --blue: #3498db;
-  --grey: #CCCCCC;
   --white: #ffffff;
   --black: #000000;
   --bg: #000000;              /* fond page / fenêtres, = barre du haut */
@@ -30,7 +29,6 @@
   --mine-violet: #B7AED3;
   --mine-violet-text: #1E1833;
   --violet-soft: #cdbdf0;     /* libellé d'onglet actif */
-  --violet-pale: #f3ecff;
   --violet-trail: #9583c1;
   --violet-promo: #c9b8ff;
   --violet-me: #9d84e0;
@@ -72,7 +70,6 @@
   --shadow-elevated: 0 16px 40px rgba(0, 0, 0, 0.5);
   --shadow-topbar: 0 2px 14px rgba(0, 0, 0, 0.4);
   --shadow-tabbar: 0 -2px 14px rgba(0, 0, 0, 0.4);
-  --shadow-badge: 0 3px 10px rgba(0, 0, 0, 0.45);
   --transition-fast: 0.15s ease;
   --sheet-line: rgba(255, 255, 255, 0.3);   /* liseré haut des feuilles du bas */
   --veil: rgba(0, 0, 0, 0.5);               /* voile derrière une fenêtre */
@@ -2715,14 +2712,6 @@ button { -webkit-user-select: none; user-select: none; }
 /* 27 septembre 2026 (discussion "B. */
 @media (hover: hover) {
   .goalMainSaveBtn:hover { background: rgba(var(--purple-rgb), 0.26); }
-}
-
-/* 17 septembre 2026 (discussion "Objectifs — A : Offre1"), demande d'Emilien : ajustement manuel de la capacité hebdomadaire utilisée par l'auto-planification … */
-@media (hover: hover) {
-  .goalCapacityEditBtn:hover, .goalCapacityClearBtn:hover, .goalCapacityCancelBtn:hover { background: var(--hover-bg); }
-}
-@media (hover: hover) {
-  .goalCapacitySaveBtn:hover { background: rgba(var(--purple-rgb), 0.12); }
 }
 
 /* 22 septembre 2026 (discussion "Objectifs — Logique métier") — liste quotidienne, voir renderGoalsDailyPriority() dans app.js. */

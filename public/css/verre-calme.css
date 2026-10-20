@@ -25,10 +25,6 @@
 .discussionMsg,
 .entryCard,
 .goalAssigneeChip,
-.goalCapacityCancelBtn,
-.goalCapacityClearBtn,
-.goalCapacityEditBtn,
-.goalCapacitySaveBtn,
 .goalCard,
 .goalsActivityHeader,
 .goalsCalendarRow,
@@ -174,11 +170,6 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 /* ---- Volet 9 : le verre posé sur du verre n'ajoute PAS d'opacité ----
    Tout élément de verre (bouton, champ, menu déroulant, case, rangée) situé DANS une zone de verre n'a plus de fond ni de flou propres :
    seul son liseré fin le distingue. La zone parente fournit seule la teinte. */
-:root .statsSection, :root .activityRow, :root .settingsCard, :root .goalCard, :root .goalsActivityHeader, :root .historyEntry,
-:root .discussionMsg, :root .pollFormAdvanced, :root .entryCard, :root .activityProgressCard, :root .goalsTasksGroup, :root .dailyPriorityItem,
-:root .goalWeeklyCard, :root .goalsCalendarRow, :root .onboarding-card, :root .activityGoalsCategoryAutoTaskBubble, :root #chronoRunning {
-  --glass-calm-inner-bg: transparent;
-}
 :root :is(.statsSection, .activityRow, .settingsCard, .goalCard, .goalsActivityHeader, .historyEntry, .discussionMsg, .pollFormAdvanced, .entryCard,
           .activityProgressCard, .goalsTasksGroup, .dailyPriorityItem, .goalWeeklyCard, .goalsCalendarRow, .onboarding-card,
           .activityGoalsCategoryAutoTaskBubble, #chronoRunning)

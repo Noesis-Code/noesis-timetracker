@@ -1324,10 +1324,6 @@
   // GET/PUT /api/activities/:id/goals/capacity (server/routes/goals.js).
   var goalsCapacityRequestId = 0;
 
-  var goalsCapacityEditing = false;
-
-
-  var goalsCapacityUntil = null; // dernier jour de priorité de l'ajustement manuel (2 semaines)
   function renderGoalsCapacity() {
     var box = $('activityGoalsCapacity');
     if (!box) return;
@@ -1370,99 +1366,6 @@
     var total = plan && plan.periodNumber === period.periodNumber && plan.periodTotal != null ? plan.periodTotal : period.mainGoalEstimateMinutes;
     var line = total != null ? '≈ ' + formatGoalHours(total) + ' ' + t('estimées pour la période') : t('Temps estimé : à définir');
     el.textContent = line;
-  }
-
-
-  function renderGoalsCapacityBox(box, override, computed, derived) {
-    box.innerHTML = '';
-    if (derived) override = null;
-    var minutes = override != null ? override : computed;
-
-    var line = document.createElement('p');
-    line.className = 'goalCapacityLine';
-    var label = document.createElement('span');
-    label.className = 'goalCapacityLabel';
-    label.textContent = t('Capacité hebdomadaire') + ' : ';
-    line.appendChild(label);
-    var value = document.createElement('span');
-    value.className = 'goalCapacityValue';
-    value.textContent = minutes ? formatGoalHours(minutes) + '/' + t('semaine') : t('Pas encore assez d’historique.');
-    line.appendChild(value);
-    var tag = document.createElement('span');
-    tag.className = 'goalCapacityTag' + (override != null ? ' manual' : '');
-    tag.textContent = derived ? t('d’après le temps de la période') : override != null ? t('ajusté manuellement') + (goalsCapacityUntil ? ' · ' + t('jusqu’au') + ' ' + goalsCapacityUntil : '') : t('calculé automatiquement');
-    line.appendChild(tag);
-    box.appendChild(line);
-    if (derived) return;
-
-    if (!goalsCapacityEditing) {
-      var editBtn = document.createElement('button');
-      editBtn.type = 'button';
-      editBtn.className = 'goalCapacityEditBtn';
-      editBtn.textContent = t('Ajuster');
-      editBtn.addEventListener('click', function () {
-        goalsCapacityEditing = true;
-        renderGoalsCapacityBox(box, override, computed, derived);
-      });
-      box.appendChild(editBtn);
-      if (override != null) {
-        var clearBtn = document.createElement('button');
-        clearBtn.type = 'button';
-        clearBtn.className = 'goalCapacityClearBtn';
-        clearBtn.textContent = t('Revenir au calcul automatique');
-        clearBtn.addEventListener('click', function () { saveCapacityOverride(null); });
-        box.appendChild(clearBtn);
-      }
-      return;
-    }
-
-    var editRow = document.createElement('div');
-    editRow.className = 'goalCapacityEditRow';
-    var input = document.createElement('input');
-    input.type = 'number';
-    input.min = '0';
-    input.step = '0.5';
-    input.className = 'goalCapacityInput';
-    input.placeholder = t('Heures/semaine');
-    if (override != null) input.value = String(Math.round((override / 60) * 10) / 10);
-    editRow.appendChild(input);
-
-    var saveBtn = document.createElement('button');
-    saveBtn.type = 'button';
-    saveBtn.className = 'goalCapacitySaveBtn';
-    saveBtn.textContent = t('Enregistrer');
-    saveBtn.addEventListener('click', function () {
-      var hours = parseFloat(String(input.value).replace(',', '.'));
-      if (!hours || hours <= 0) {
-        $('activityGoalsMsg').textContent = t('Indique un nombre d’heures par semaine supérieur à 0.');
-        return;
-      }
-      saveCapacityOverride(Math.round(hours * 60));
-    });
-    editRow.appendChild(saveBtn);
-
-    var cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.className = 'goalCapacityCancelBtn';
-    cancelBtn.textContent = t('Annuler');
-    cancelBtn.addEventListener('click', function () {
-      goalsCapacityEditing = false;
-      renderGoalsCapacityBox(box, override, computed, derived);
-    });
-    editRow.appendChild(cancelBtn);
-
-    box.appendChild(editRow);
-    input.focus();
-  }
-
-
-  function saveCapacityOverride(weeklyMinutes) {
-    api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/capacity', { category: TMT.currentGoalsCategory, weeklyMinutes: weeklyMinutes })
-      .then(function () {
-        goalsCapacityEditing = false;
-        renderGoalsCapacity();
-      })
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
 

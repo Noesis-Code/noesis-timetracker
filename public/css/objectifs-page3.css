@@ -119,42 +119,6 @@
   margin: 6px 0 0; font-size: 12px; gap: 6px;
 }
 
-.goalCapacityLine { margin: 0; flex: 1; min-width: 0; }
-
-.goalCapacityLabel { color: var(--text-light); }
-
-.goalCapacityValue { color: var(--text); font-weight: bold; }
-
-.goalCapacityTag {
-  display: inline-block; margin-left: 6px; padding: 1px 7px;
-  border-radius: 999px; font-size: 10px; text-transform: uppercase;
-  letter-spacing: 0.02em; color: var(--text-light); background: var(--hover-bg);
-}
-
-.goalCapacityTag.manual { color: white; background: var(--purple); }
-
-.goalCapacityEditBtn, .goalCapacityClearBtn, .goalCapacitySaveBtn, .goalCapacityCancelBtn {
-  padding: 4px 9px; font-size: 11px; border: 1px solid var(--border);
-  background: var(--card); color: var(--text-light); border-radius: var(--radius-sm);
-  cursor: pointer; transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
-  white-space: nowrap;
-}
-
-.goalCapacitySaveBtn { border-color: var(--purple); color: var(--purple); }
-
-.goalCapacityEditRow { display: flex; align-items: center; gap: 6px; width: 100%; }
-
-.goalCapacityInput {
-  width: 90px; padding: 5px 7px; font-size: 12px; font: inherit;
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--bg, transparent); color: var(--text);
-}
-
-.goalCapacityInput:focus {
-  outline: none; border-color: var(--purple);
-  box-shadow: 0 0 0 3px rgba(var(--purple-rgb), 0.18);
-}
-
 .dailyPriorityCard { margin-top: 10px; }
 
 .dailyPriorityList { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
@@ -424,7 +388,6 @@
    plus de pastille « calculé automatiquement » ni de bouton « Ajuster » — le code reste, seule la vue est masquée). */
 #goalsMonthView .goalsMainOutLabel { margin: 0 0 8px; }
 #goalsMonthView .goalMainProgressRow { display: none; }
-#goalsMonthView .goalCapacityTag, #goalsMonthView .goalCapacityEditBtn, #goalsMonthView .goalCapacityClearBtn { display: none; }
 /* Modification sur place : mêmes champs arrondis que les pôles/secteurs. */
 #activityGoalsMainCard.mainEditing textarea,
 #activityGoalsMainCard.mainEditing input[type="number"] {
