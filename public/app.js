@@ -15643,7 +15643,9 @@
       (rows || []).forEach(function (row) {
         var line = document.createElement('p');
         line.className = 'meta';
-        line.textContent = row.activityName;
+        // Seul « active » ouvre l'accès : les autres états s'affichent pour ce qu'ils sont.
+        var stNote = row.status === 'past_due' ? t('paiement à régulariser') : (row.status && row.status !== 'active' ? t('en attente de paiement') : '');
+        line.textContent = row.activityName + (stNote ? ' — ' + stNote : '');
         box.appendChild(line);
       });
       $('offer1SubscribedEmptyHint').classList.toggle('hidden', !!(rows && rows.length));

@@ -1224,6 +1224,8 @@
     "Expansion": "Expansion",
     "Entre ton code d’accès gratuit à Expansion.": "Enter your free access code for Expansion.",
     "Aucun abonnement actif pour l'instant.": "No active subscription yet.",
+    "paiement à régulariser": "payment to settle",
+    "en attente de paiement": "awaiting payment",
     "Souscrire à Expansion": "Subscribe to Expansion",
     "Pôle précédent": "Previous pole",
     "Pôle suivant": "Next pole",
