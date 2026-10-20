@@ -115,10 +115,13 @@ function buildPrompt(label, categories, examples, opts) {
   const withConfidence = !!(opts && opts.confidence);
   // Description du candidat puis, entre parenthèses, celle de son pôle
   // (parties vides omises).
+  // La description du pôle n'est écrite qu'une fois par suite de secteurs du même pôle (économie de jetons, même information).
+  let lastPoleDesc = '';
   const list = categories.map((c) => {
     let line = `- ${c.key} : ${c.label}`;
     if (c.description) line += ` — ${c.description}`;
-    if (c.poleDescription) line += ` (pôle : ${c.poleDescription})`;
+    if (c.poleDescription && c.poleDescription !== lastPoleDesc) line += ` (pôle : ${c.poleDescription})`;
+    lastPoleDesc = c.poleDescription || '';
     return line;
   }).join('\n');
   const exampleLines = (examples && examples.length)
