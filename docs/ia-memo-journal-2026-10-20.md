@@ -1,7 +1,7 @@
 # Mémo IA mesuré et journal de coût (20 oct. 2026, chantier 4, repli 25)
 
 ## Instabilité de la suite
-`node test/run-tests.js` lancé 2 fois sur staging à jour : passage 1 = 144 passées, 0 échouée. Passage 2 : voir compte rendu (résultat en bas).
+`node test/run-tests.js` lancé 2 fois de suite sur staging à jour : 144 passées, 0 échouée aux deux passages. 2 passages propres, aucun test instable identifié.
 
 ## Taux de succès réel du mémo (`aicache.memoize`)
 Avant : aucune mesure (impossible de dire si le mémo évite des appels). Après : compteurs succès/échecs (`aicache.memoStats()`, succès = réponse en mémoire ou requête identique déjà en cours) et une ligne au journal serveur tous les 200 appels : `[aicache] mémo : X succès / N (P %)`. Aucun changement de comportement ni de dépense. Test : `test/ia-memo-stats-test.js` (5 appels, 2 succès = 40 %).
