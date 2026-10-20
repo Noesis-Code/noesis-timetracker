@@ -323,6 +323,17 @@ async function fetchWithRetry(url, init) {
   }
 }
 
+// 401/403 de l'API = clé refusée (invalide, révoquée, sans crédit ou sans droit) : toutes les fonctions IA tombent en repli local sans que
+// personne ne le voie. Une ligne ALERTE au journal serveur, au plus une par heure (compteur en mémoire), jamais le texte de la réponse ni la clé.
+let lastKeyAlert = 0;
+function alertKeyRefused(status, now) {
+  const t = now == null ? Date.now() : now;
+  if (t - lastKeyAlert < 3600000) return false;
+  lastKeyAlert = t;
+  console.error('[aibudget] ALERTE clé API Anthropic refusée (HTTP ' + status + ') : vérifier ANTHROPIC_API_KEY et le solde du compte ; toutes les fonctions IA sont en repli local (prochaine alerte dans 1 h au plus)');
+  return true;
+}
+
 // Remplace fetch(ANTHROPIC_URL, init) : vérifie le budget, appelle l'API, enregistre le coût.
 // Bloqué : lève une Error { aiBlocked: true, resumesOn } SANS appeler l'API (les appelants
 // l'attrapent déjà comme n'importe quelle panne IA). Renvoie la Response d'origine, intacte.
@@ -334,6 +345,7 @@ async function fetchAnthropic(feature, url, init, userId) {
   reserve(uid, est);
   try {
     const res = await fetchWithRetry(url || ANTHROPIC_URL, init && typeof init.body === 'string' ? { ...init, body: aiscrub.scrubBody(init.body) } : init); // Loi 25 : coordonnées masquées avant envoi
+    if (res && (res.status === 401 || res.status === 403)) alertKeyRefused(res.status);
     if (res && res.ok && typeof res.clone === 'function') {
       try {
         const body = await res.clone().json();
@@ -344,4 +356,4 @@ async function fetchAnthropic(feature, url, init, userId) {
   } finally { release(uid, est); }
 }
 
-module.exports = { recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, estimateMaxCost, runAs, currentUser, fetchAnthropic, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
+module.exports = { recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, estimateMaxCost, runAs, currentUser, fetchAnthropic, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };

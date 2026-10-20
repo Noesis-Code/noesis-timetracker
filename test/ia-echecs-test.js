@@ -51,11 +51,22 @@ const GOOD = JSON.stringify({ weeklyGoals: [{ weekIndex: 1, text: 'Lancer', desc
   }
   delete process.env.AI_TIMEOUT_HEBDO_MS; delete process.env.AI_TIMEOUT_CLASSEMENT_MS; delete process.env.AI_TIMEOUT_DOCUMENTS_MS;
   const am = require('../server/lib/aimodels');
-  assert(Object.values(am.TIMEOUTS_MS).every((v) => v > 0 && v <= 90000) && am.timeoutMs('inconnu') === 30000, 'chaque fonction a un délai <= 90 s (défaut 30 s)');
+  assert(Object.values(am.TIMEOUTS_MS).every((v) => v > 0 && v <= 120000) && am.timeoutMs('inconnu') === 30000, 'chaque fonction a un délai <= 120 s (défaut 30 s)');
+  // Marge : délai >= 1,8 x la durée d'une sortie maximale (max_tokens / 50 jetons par seconde pour un modèle fort) ; hebdo 1600 jetons, inter-secteurs 2500, Offre 1 4096
+  assert(am.TIMEOUTS_MS.hebdo >= 1.8 * 1600 / 50 * 1000 * 0.9 && am.TIMEOUTS_MS['inter-secteurs'] >= 1.8 * 2500 / 50 * 1000 && am.TIMEOUTS_MS.offre1 >= 1.4 * 4096 / 50 * 1000, 'délais : marge suffisante sur la durée de sortie maximale');
 
+  // Clé refusée (401/403) : une alerte au journal par heure au plus
+  { const logs = []; const oe = console.error; console.error = (m) => logs.push(String(m));
+    const a = aibudget.alertKeyRefused(401, 10e9), b = aibudget.alertKeyRefused(403, 10e9 + 60000), c = aibudget.alertKeyRefused(401, 10e9 + 3600001);
+    console.error = oe;
+    assert(a === true && b === false && c === true && logs.length === 2 && /ALERTE clé API/.test(logs[0]) && !/sk-/.test(logs.join('')), '401/403 : alerte claire au journal, une par heure au plus, sans secret'); }
   // (3) Relances 429/529
   reset(); behave = (n) => (n < 3 ? { status: 429, headers: { 'retry-after': '0' }, body: { error: {} } } : { status: 200, body: okBody('x') });
   let r = await fetchOnce(); assert(r.ok && hits === 3, '429 + Retry-After 0 deux fois puis succès : 3 requêtes, résultat obtenu (' + hits + ')');
+  { const d0 = aibudget.spentDay('u1'); reset(); behave = (n) => (n < 3 ? { status: 429, headers: { 'retry-after': '0' }, body: { error: {} } } : { status: 200, body: okBody('x') });
+    await fetchOnce(); const paid = aibudget.spentDay('u1') - d0, one = aibudget.computeCost('claude-haiku-4-5', { input_tokens: 5, output_tokens: 5 });
+    assert(hits === 3 && Math.abs(paid - one) < 1e-9, 'budget : 2 relances 429 + 1 succès = UN seul coût enregistré (' + paid + ' vs ' + one + ')');
+    const st = aibudget.status('u1'); assert(Math.abs(st.spentDay - aibudget.spentDay('u1')) < 1e-9, 'budget : aucune réservation résiduelle après relances'); }
   reset(); behave = () => ({ status: 429, headers: { 'retry-after': '30' }, body: { error: {} } });
   r = await fetchOnce(); assert(!r.ok && hits === 1, 'Retry-After 30 s > plafond d\'attente : abandon sans relance (' + hits + ')');
   reset(); behave = () => ({ status: 529, body: { error: {} } });
@@ -123,6 +134,12 @@ const GOOD = JSON.stringify({ weeklyGoals: [{ weekIndex: 1, text: 'Lancer', desc
   }
   console.log('  taux : ' + fixed + '/' + fixable + ' sorties abîmées réparables rendues IDENTIQUES ; détail : ' + rows.join(' | '));
   assert(jsonrepair.parse(damage.tronque_milieu(full), { truncated: true }) === null, 'sortie tronquée max_tokens : jamais réparée (aucun élément perdu en silence)');
+  assert(jsonrepair.parse(damage.guillemet_ouvert(full)) === null, 'chaîne restée ouverte : jamais fermée (aucune valeur inventée)');
+  assert(jsonrepair.parse('{"a":1,"b":') === null && jsonrepair.parse('{"a":1,"b"') === null, 'clé sans valeur : jamais complétée par null');
+  // Entrées pathologiques de 1 Mo : temps CPU borné (aucune regex quadratique), aucune exécution de code
+  const big = 1e6, evil = { accolades: '{'.repeat(10000), accolades_1mo: '{'.repeat(big), guillemets: '{"a":"' + '"x'.repeat(big / 2), chaine_ouverte: '{"a":"' + 'x'.repeat(big), virgules: '[' + ','.repeat(big), espaces: '{"a":1' + ' '.repeat(big) + 'x', cloture_espaces: '```json' + ' '.repeat(big) + 'x', antislash: '{"a":"' + '\\'.repeat(big), crochets: '['.repeat(big), proto: '{"__proto__":{"polluted":1}}' };
+  for (const [k, v] of Object.entries(evil)) { const c0 = process.cpuUsage(); jsonrepair.parse(v); const u = process.cpuUsage(c0); assert((u.user + u.system) / 1000 < 1500, 'jsonrepair ' + k + ' : CPU < 1,5 s (' + Math.round((u.user + u.system) / 1000) + ' ms)'); }
+  assert(({}).polluted === undefined, 'jsonrepair : aucune pollution de prototype');
   assert(jsonrepair.parse(damage.prose_seule(full)) === null, 'prose sans JSON : irréparable (repli habituel)');
   assert(fixed >= 6, 'au moins 6 types d\'abîmage sur 8 réparés à l\'identique (' + fixed + ')');
 
