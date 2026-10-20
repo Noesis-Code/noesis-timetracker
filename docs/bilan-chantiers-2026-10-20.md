@@ -31,4 +31,4 @@ Cases à cocher dans `docs/questions-emilien-2026-10-20.md` (section « Les 5 d�
 - Pilotage : suite de tests sérialisée (une à la fois), suite complète vérifiée sur la tête de staging, index des questions à 45 lignes ; retour après notification et ajout d'une tâche depuis la Feuille de route vérifiés sur téléphone simulé (390 px).
 
 ## Contrôle
-Suite complète sur la tête de staging : 151 passées, 0 échec (webhook Stripe durci et contrôle des variables au démarrage relus : rien de visible). Un correctif visible : le clic sur le rappel de 6 h ouvre maintenant la tâche aussitôt (avant, elle n'apparaissait qu'au bout de 4 s quand le pôle n'a pas de secteur). Détail dans le journal.
+Suite complète sur la tête de staging : 152 passées, 0 échec (webhook Stripe durci et contrôle des variables au démarrage relus : rien de visible). Un correctif visible : le clic sur le rappel de 6 h ouvre maintenant la tâche aussitôt (avant, elle n'apparaissait qu'au bout de 4 s quand le pôle n'a pas de secteur). Détail dans le journal.

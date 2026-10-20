@@ -105,4 +105,4 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 - Défaut corrigé (`public/app.js`, `focusGoalsTaskFromNotification`) : seuls les secteurs étaient dépliés avant de surligner la tâche, or les pôles sans secteur sont aussi repliés depuis le changement d'Émilien : la tâche n'était trouvée qu'après ~4 s (repli sur le groupe). Le pôle est maintenant déplié aussi : surlignage en 0,7 s. Aucun contrôle ajouté ; bump sw posé.
 - Constat non corrigé : `?notif=activity&...messageId=` n'arrive plus à la Discussion (le bouton `#goalsPage2ModeDiscBtn` a été retiré de l'UI le 15 oct., f36bb25) : on atterrit sur la Page 2 sans surlignage. Les messages ne s'envoyant plus depuis l'app, aucune notification de ce type ne part ; branche morte, question ajoutée à l'index (B).
 - Léger défaut visuel noté (non corrigé, détail) : la liste « Où » de la fenêtre de placement est translucide, « Quand » transparaît derrière.
-- Index des questions : 45 lignes (< 80).
+- Suite finale après rebase (29ca0f0 + ce commit) : 152 passées, 0 échouée. Index des questions : 45 lignes (< 80).
