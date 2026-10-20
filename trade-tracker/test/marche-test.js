@@ -115,3 +115,25 @@ assert(we.length <= 49, 'week-end : ~1 par heure (' + we.length + ')');
   clearInterval(t2); mock.timers.reset();
   console.log('marche-test OK');
 })().catch((e) => { console.error(e); process.exit(1); });
+
+// 5. Jours fériés communs TSX + NYSE : fermés ; fériés d'un seul marché : séance ouverte (en cas de doute, ouvert).
+{
+  const noon = (d) => Z(d + 'T17:00:00Z');
+  const closed = ['2026-01-01', '2026-02-16', '2026-04-03', '2026-09-07', '2026-12-25', '2027-01-01', '2027-02-15', '2027-03-26', '2027-09-06'];
+  for (const d of closed) assert(!M.isMarketOpen(noon(d)), 'férié commun fermé : ' + d);
+  assert(M.isMarketOpen(Z('2027-12-24T17:00:00Z')), '24 déc. 2027 (NYSE fermé, TSX ouvert) : ouvert');
+  for (const d of ['2026-05-18' /* Victoria */, '2026-05-25' /* Memorial */, '2026-07-03', '2026-10-12' /* Action de grâce CA */, '2026-11-26' /* US */, '2026-12-28', '2026-01-02'])
+    assert(M.isMarketOpen(noon(d)), 'férié d\'un seul marché ou jour normal : ouvert ' + d);
+  // Dimanche férié -> lundi : Noël 2022 (dim.) -> lun. 26 déc. 2022 ; jour de l'An 2023 (dim.) -> lun. 2 janv. 2023
+  assert(!M.isMarketOpen(noon('2022-12-26')) && !M.isMarketOpen(noon('2023-01-02')), 'dimanche férié reporté au lundi');
+  // Samedi férié : non géré, le vendredi reste ouvert
+  assert(M.isMarketOpen(noon('2021-12-24')) && M.isMarketOpen(noon('2022-12-30')), 'samedi férié : vendredi ouvert');
+  assert.strictEqual(M.nextOpen(Z('2026-12-24T22:00:00Z')), Z('2026-12-28T14:30:00Z'), 'veille de Noël -> lundi 28 déc. (EST)');
+  assert.strictEqual(M.nextOpen(Z('2026-04-02T21:00:00Z')), Z('2026-04-06T13:30:00Z'), 'jeudi saint soir -> lundi de Pâques (EDT)');
+  // Pâques : Vendredi saint de 2024 à 2030
+  const gf = { 2024: '03-29', 2025: '04-18', 2026: '04-03', 2027: '03-26', 2028: '04-14', 2029: '03-30', 2030: '04-19' };
+  for (const [y, md] of Object.entries(gf)) assert(!M.isMarketOpen(noon(y + '-' + md)), 'Vendredi saint ' + y);
+  // Aucune synchro de séance un férié : tick de 15 min le 7 sept. 2026, dernière synchro 15 min plus tôt -> pas de synchro
+  assert(!M.shouldSync(Z('2026-09-07T15:00:00Z'), Z('2026-09-07T14:45:00Z')), 'férié : rythme réduit');
+  assert(M.shouldSync(Z('2026-09-08T14:00:00Z'), Z('2026-09-08T13:45:00Z')), 'lendemain : rythme de séance');
+}
