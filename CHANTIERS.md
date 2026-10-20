@@ -35,6 +35,9 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 
 **2. Time Tracker Basic** (accessibilité et robustesse)
 1. `aria-label` des boutons-icônes et contrastes du texte à vérifier (sans changer la palette).
+2. Contrastes WCAG des couleurs de texte actuelles : rapport `scripts/contrast-report.js`. FAIT (repli 5) : tout >= 4.5:1 sur fond, carte et surface ; seules exceptions mineures sur `--hover-bg` (violet-trail 4.13, violet-me 4.47, bad 4.02), palette inchangée.
+3. Démarrage sans réseau : écran `offline.html` et message clair vérifiés (cache du service worker, FR/EN).
+4. Focus clavier visible (`:focus-visible`) sur les boutons-icônes et ✕ des pop-up, sans nouvelle couleur.
 
 **3. Time Tracker Expansion** (préparer, jamais de paiement réel)
 1. Portail client Stripe et résiliation : parcours préparé en mode test. FAIT (repli 4) : `POST /offer/portal` + `stripe.createPortalSession`, testé dans `expansion-parcours-test.js` ; reste côté Émilien : activer le portail dans le tableau de bord Stripe (mode test) ; aucune interface ajoutée.
