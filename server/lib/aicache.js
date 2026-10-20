@@ -68,9 +68,9 @@ function capClear() { capUsage.clear(); }
 function isThrottled(err) { return !!err && (err.status === 429 || err.status === 529 || /\(?HTTP (429|529)\b/.test(String(err.message || ''))); }
 
 // Paliers « modèle rapide d'abord, modèle fort en repli » (décision d'Emilien). Modèle rapide lu dans la variable d'environnement
-// `envModel` (défaut claude-haiku-4-5 ; 'off' ou égal au modèle fort = désactivé), seuil de confiance (0-100) dans `envConf` (défaut 80).
+// `envModel` (défaut Haiku, voir aimodels.js ; 'off' ou égal au modèle fort = désactivé), seuil de confiance (0-100) dans `envConf` (défaut 80).
 function fastModelFor(envModel, strongModel) {
-  const m = String(process.env[envModel] || 'claude-haiku-4-5').trim();
+  const m = require('./aimodels').fastModelRaw(envModel);
   return !m || /^(off|0|non|false)$/i.test(m) || m === strongModel ? null : m;
 }
 function minConfidenceFor(envConf) {

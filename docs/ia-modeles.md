@@ -24,3 +24,13 @@ Réinitialisation samedi 5 h (New York) : 7 jours x 14 % ~ 100 %. Cible quotidie
 - Tâches lourdes (multi-fichiers, évaluations `--live`, tests complets, balayages de code mort) : la nuit ou en fin de période, en un seul agent à la fois.
 - En avance sur la cible : moins d'agents en parallèle, tâches courtes (libellés, CSS). En retard : relancer les listes de repli, un agent par segment de fichiers.
 - Éviter le gaspillage : lectures ciblées, pas de balayage complet, un seul `node test/run-tests.js` en fin de tâche, aucun agent qui refait le travail d'un autre.
+
+## Identifiants de modèle codés en dur (20 oct. 2026)
+
+Tous centralisés dans `server/lib/aimodels.js` (seul fichier de `server/` contenant un identifiant `claude-...` ; le test `test/ia-modeles-centralises-test.js` échoue sinon). Valeurs par défaut inchangées.
+
+| Constante | Identifiant | Surcharge (variable d'environnement) | Utilisé par |
+|---|---|---|---|
+| `STRONG` | `claude-sonnet-5` | `ANTHROPIC_MODEL` | `offerdelivery`, `goalsweeklyauto`, `crosssectorinference` (modèle fort) |
+| `CLASSIFY_STRONG` | `claude-sonnet-4-5-20250929` | `NOESIS_TASK_CATEGORY_MODEL` (reformulation : `NOESIS_GOALS_REWRITE_MODEL` d'abord) | `goalstaskclassify`, `goalsrewrite`, `docanalysis` |
+| `FAST` | `claude-haiku-4-5` | `DRIVE_SYNC_MODEL`, `NOESIS_SPELLFIX_MODEL`, et par palier `NOESIS_CLASSIFY_FAST_MODEL`, `NOESIS_CROSS_FAST_MODEL`, `NOESIS_REWRITE_FAST_MODEL`, `NOESIS_WEEKLY_FAST_MODEL`, `NOESIS_DOC_FAST_MODEL`, `NOESIS_OFFER_FAST_MODEL` (`off` = désactivé) | `drivesync`, `silentspellfix`, `aicache.fastModelFor` (paliers) |

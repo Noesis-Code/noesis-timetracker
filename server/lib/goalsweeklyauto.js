@@ -89,7 +89,8 @@ const db = require('../db');
 const goals = require('./goals');
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
+const aimodels = require('./aimodels');
+const ANTHROPIC_MODEL = aimodels.strongModel();
 // Même plafond que PUT /activities/:id/goals/periods/:periodNumber/weekly/:weekIndex
 // (server/routes/goals.js) — un objectif hebdomadaire composé par l'IA n'a
 // pas droit à une limite différente de celle posée à l'utilisateur.

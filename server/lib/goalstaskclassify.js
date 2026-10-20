@@ -69,7 +69,6 @@ const ANTHROPIC_API_VERSION = '2023-06-01';
 // plus récent/moins coûteux après l'écriture de ce fichier — à vérifier sur
 // https://docs.claude.com/en/docs/about-claude/models avant de changer la
 // valeur par défaut en production.
-const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
 const REQUEST_TIMEOUT_MS = 15000;
 // Une seule clé de catégorie en sortie : pas besoin d'un budget de sortie
 // élevé comme dans goalsdailyauto.js (qui renvoie une date par tâche).
@@ -82,7 +81,7 @@ function configured() {
 }
 
 function modelName() {
-  return process.env.NOESIS_TASK_CATEGORY_MODEL || DEFAULT_MODEL;
+  return require('./aimodels').classifyModel();
 }
 
 // Liste aplatie des candidats de classement pour une activité : les secteurs
@@ -247,10 +246,10 @@ async function callModelRaw(prompt, maxTokens, feature, model) {
 // l'utilisateur (validé contre les candidats), aucun appel IA.
 // Haiku d'abord, repli sur le modèle fort (modelName(), NOESIS_TASK_CATEGORY_MODEL)
 // seulement si Haiku est peu sûr : appel en échec, clé inconnue/sortie invalide, INCERTAIN, ou confiance < seuil (ou absente).
-// Réglages : NOESIS_CLASSIFY_FAST_MODEL (défaut claude-haiku-4-5 ; 'off' = toujours le modèle fort), NOESIS_CLASSIFY_MIN_CONFIDENCE (défaut 80).
+// Réglages : NOESIS_CLASSIFY_FAST_MODEL (défaut Haiku, voir aimodels.js ; 'off' = toujours le modèle fort), NOESIS_CLASSIFY_MIN_CONFIDENCE (défaut 80).
 // Journal : feature 'classement-tache' (Haiku) et 'classement-tache:repli' (modèle fort) => taux de repli dans usageReport().
 function fastModel() {
-  const m = String(process.env.NOESIS_CLASSIFY_FAST_MODEL || 'claude-haiku-4-5').trim();
+  const m = require('./aimodels').fastModelRaw('NOESIS_CLASSIFY_FAST_MODEL');
   return !m || /^(off|0|non|false)$/i.test(m) || m === modelName() ? null : m;
 }
 function minConfidence() {

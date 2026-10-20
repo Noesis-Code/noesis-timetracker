@@ -71,7 +71,7 @@ const SYSTEM = [
 ].join('\n');
 
 // Haiku (coût) : tâche triviale, déjà encadrée par isPureSpellingFix (toute correction qui change plus que la forme est rejetée).
-const SPELL_MODEL = process.env.NOESIS_SPELLFIX_MODEL || 'claude-haiku-4-5';
+const SPELL_MODEL = require('./aimodels').spellModel();
 
 async function callModelForFix(text) {
   const out = await classify.callModel(SYSTEM + '\n\nTitre :\n' + text, 200, 'correction-orthographe', SPELL_MODEL);

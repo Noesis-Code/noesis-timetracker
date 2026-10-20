@@ -46,7 +46,7 @@ const MAX_TASKS_PER_FILE = Number(process.env.DRIVE_SYNC_MAX_TASKS_PER_FILE) > 0
 // Première lecture d'un fichier : seulement ceux modifiés dans les N derniers jours (DRIVE_SYNC_FIRST_DAYS, défaut 30).
 const FIRST_DAYS = Number(process.env.DRIVE_SYNC_FIRST_DAYS) > 0 ? Number(process.env.DRIVE_SYNC_FIRST_DAYS) : 30;
 // Modèle d'extraction (tâches seules) : Haiku par défaut, DRIVE_SYNC_MODEL pour changer.
-const DRIVE_MODEL = process.env.DRIVE_SYNC_MODEL || 'claude-haiku-4-5';
+const DRIVE_MODEL = require('./aimodels').driveModel();
 const MAX_INSTRUCTION = 1500;
 // Par passage de surveillance : au plus 10 fichiers envoyés à l'IA (les autres au passage suivant) ; arrêt après 3 échecs IA de suite.
 const MAX_AI_PER_PASS = Number(process.env.DRIVE_SYNC_MAX_AI_PER_PASS) > 0 ? Number(process.env.DRIVE_SYNC_MAX_AI_PER_PASS) : 10;

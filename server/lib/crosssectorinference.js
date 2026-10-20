@@ -62,7 +62,8 @@ const db = require('../db');
 const goals = require('./goals');
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
+const aimodels = require('./aimodels');
+const ANTHROPIC_MODEL = aimodels.strongModel();
 // Même plafond que mainGoalText (server/routes/goals.js, PUT .../main) — une
 // suggestion cross-secteur est un objectif périodique candidat, pas un objet
 // à part avec ses propres règles de longueur.
@@ -114,10 +115,10 @@ Contraintes : "targetCategory" doit être une des clés listées (jamais une cl�
 
 // Haiku d'abord, repli sur ANTHROPIC_MODEL (fort) si Haiku est peu sûr : JSON illisible,
 // catégorie cible inconnue, ou confiance (champ "confidence" 0-100 demandé par suggestion) < seuil.
-// Réglages : NOESIS_CROSS_FAST_MODEL (défaut claude-haiku-4-5 ; 'off' = modèle fort seul), NOESIS_CROSS_MIN_CONFIDENCE (défaut 80).
+// Réglages : NOESIS_CROSS_FAST_MODEL (défaut Haiku, voir aimodels.js ; 'off' = modèle fort seul), NOESIS_CROSS_MIN_CONFIDENCE (défaut 80).
 // Journal : feature 'inter-secteurs' (Haiku) / 'inter-secteurs:repli' (modèle fort).
 function crossFastModel() {
-  const m = String(process.env.NOESIS_CROSS_FAST_MODEL || 'claude-haiku-4-5').trim();
+  const m = require('./aimodels').fastModelRaw('NOESIS_CROSS_FAST_MODEL');
   return !m || /^(off|0|non|false)$/i.test(m) || m === ANTHROPIC_MODEL ? null : m;
 }
 function crossMinConfidence() {

@@ -34,7 +34,8 @@ const MAX_DESCRIPTION_LENGTH = 2000;
 const MAX_ITEM_LABEL_LENGTH = 300;
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
+const aimodels = require('./aimodels');
+const ANTHROPIC_MODEL = aimodels.strongModel();
 
 function aiConfigured() {
   return !!process.env.ANTHROPIC_API_KEY;

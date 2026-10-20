@@ -61,6 +61,13 @@ users.concat(rows.filter((r) => r.userId === SYSTEM_USER)).forEach((r) => consol
 const total = users.reduce((s, r) => s + r.cost, 0);
 console.log('\nUtilisateurs actifs : ' + users.length + ' | moyenne ' + fmt(users.length ? total / users.length : 0) + ' (cible 10 $) | max ' + fmt(users.length ? users[0].cost : 0) + ' (limite ' + fmt(capMonth) + ')');
 
+// Coût par utilisateur actif : coût total de la période (système compris) ÷ comptes distincts ayant au moins un appel sur la période.
+{
+  const tot = db.prepare('SELECT SUM(costUsd) AS cost FROM ai_usage_log WHERE day >= ?').get(since).cost || 0;
+  const act = db.prepare('SELECT COUNT(DISTINCT userId) AS n FROM ai_usage_log WHERE day >= ? AND userId <> ? AND calls > 0').get(since, SYSTEM_USER).n;
+  console.log('Coût par utilisateur actif (' + days + ' j) : ' + fmt(act ? tot / act : 0) + ' (' + fmt(tot) + ' ÷ ' + act + ' compte(s) actif(s))');
+}
+
 // Résumé par FONCTION (modèles et replis regroupés), une table texte triée par coût : à lancer sur la base de production.
 const ff = db.prepare(`SELECT feature, SUM(calls) AS calls, SUM(inputTokens) AS inTok, SUM(outputTokens) AS outTok, SUM(cacheReadTokens) AS cr, SUM(costUsd) AS cost
   FROM ai_usage_log WHERE day >= ? GROUP BY feature ORDER BY cost DESC`).all(since);

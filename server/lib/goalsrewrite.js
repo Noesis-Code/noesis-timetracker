@@ -13,7 +13,6 @@ const aibudget = require('./aibudget');
 const aicache = require('./aicache');
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_API_VERSION = '2023-06-01';
-const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
 const REQUEST_TIMEOUT_MS = 15000;
 const MAX_OUTPUT_TOKENS = 300;
 const MAX_TEXT_LENGTH = 500;
@@ -23,7 +22,7 @@ function configured() {
 }
 
 function modelName() {
-  return process.env.NOESIS_GOALS_REWRITE_MODEL || process.env.NOESIS_TASK_CATEGORY_MODEL || DEFAULT_MODEL;
+  return require('./aimodels').rewriteModel();
 }
 
 function buildPrompt(text) {
