@@ -1,4 +1,4 @@
-# Questions pour Émilien — Simplification (audits Stats, Communauté, Feuille de temps, 20 oct. 2026)
+# Questions pour Émilien — Simplification (audits Stats, Communauté, Feuille de temps, Écrans, 20 oct. 2026)
 
 Pour chaque ligne : cocher **retirer**, **garder** ou **déplacer**. Détails : `audit-stats-…`, `audit-feuille-de-temps-…`, `audit-communaute-…`, `benchmark-temps-…` (tous du 20 oct.).
 
@@ -27,3 +27,13 @@ Pour chaque ligne : cocher **retirer**, **garder** ou **déplacer**. Détails : 
 
 ## Benchmark
 - [ ] Le benchmark n'a pas pu consulter le web (accès refusé) : relancer depuis une session avec accès web pour vérifier les chiffres de Toggl, Clockify, Harvest ? oui / non
+
+## Réglages, Profil, Objectifs, Activité (audit `audit-ecrans-…`, 20 oct.)
+- [ ] Orange hors suppression (bouton « Déconnexion », bandeaux « Plafond atteint / Non réalisées », pastilles d'activité) : passer en violet / retirer / garder
+- [ ] Carte Expansion (« À VENIR… Découvrir Expansion · J'ai un code ») au-dessus de la zone de capture : déplacer sous « Historique » / déplacer en Réglages / garder
+- [ ] Page 2 Tâches : deux bandeaux d'alerte + carte « Avancement quotidien » avant les tâches : garder tout / un seul bandeau / retirer la carte « Avancement quotidien »
+- [ ] Fenêtre Activité : bascule « Catégories / Statistiques » (doublon de l'onglet Stats) : retirer / garder
+- [ ] Profil : zone « Écrire aux membres » (écrire, sondage, pièce jointe) : retirer (écrire = Communauté) / garder
+- [ ] Réglages › Partage : « Partager l'app » + « Partager mon profil » + QR : un seul bouton sans QR / garder
+- [ ] Réglages › Mon IA : bouton « Détails » de « Connecter mon IA » : retirer / garder
+- [ ] Réglages › Sécurité : « Se déconnecter de tous les appareils » (en plus de « Déconnexion ») : retirer / garder
