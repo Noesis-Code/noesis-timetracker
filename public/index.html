@@ -94,6 +94,8 @@
    piloté par l'OS, non modifiable) : celui-ci prend le relais visuellement dès
    que l'OS efface le sien, et jusqu'à ce que l'app soit réellement utilisable.
 
+   (20 oct. 2026 : durée minimale rétablie, voir IDENT_MIN plus bas ; le
+   paragraphe suivant est obsolète.)
    Aucune durée minimale, aucune temporisation : l'écran disparaît dès que
    #onboarding ou #app est prêt à être montré (voir hideBootSplash() plus bas
    et ses deux points d'appel dans app.js), quitte à couper l'ident en plein
@@ -254,7 +256,8 @@
     var FAILSAFE = 12000;  // filet de sécurité si app.js ne se charge pas du tout
     var IDENT_MAX = 6000;  // filet si `animationend` ne vient jamais
     var done = false;
-    var identDone = true;    // 613 : plus d'attente de l'ident, l'écran part dès que l'app est prête
+    var identDone = false;   // l'écran ne part pas avant la fin complète de l'ident (durée mini, voir IDENT_MIN)
+    var IDENT_MIN = 1350;    // animation (0,8 s + 0,4 s = 1,2 s) + 150 ms de marge, comptés depuis son DÉBUT réel
     var appReady = false;    // app.js a signalé que l'app est prête
     var failsafeTimer = null;
 
@@ -274,8 +277,11 @@
     // couperait l'ident au lieu de l'attendre. L'écouteur est posé avant même
     // que #bootSplash n'existe (ce script est dans le <head>), donc aucun
     // risque de manquer l'événement.
-    document.addEventListener('animationend', function (e) {
-      if (e.animationName === 'bsWord') { identDone = true; maybeHide(); }
+    var identTimer = false;
+    document.addEventListener('animationstart', function (e) {
+      if (e.animationName !== 'bsDraw' || identTimer) return;
+      identTimer = true;
+      setTimeout(function () { identDone = true; maybeHide(); }, IDENT_MIN);
     }, true);
     setTimeout(function () { identDone = true; maybeHide(); }, IDENT_MAX);
 
