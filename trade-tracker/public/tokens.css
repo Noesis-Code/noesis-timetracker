@@ -1,35 +1,36 @@
-/* Tokens Trade Tracker : copie du bloc TOKENS de TMT (public/styles.css). Sombre uniquement, violet = couleur principale. */
+/* Tokens Trade Tracker : palette Violet cendré (R11 de docs/regles-rangement.md). Sombre uniquement, violet = couleur principale. */
 :root {
   /* ---- Couleurs de base ---- */
-  --purple: #674EA7;
-  --purple-dark: #4a3980;
-  --purple-rgb: 103, 78, 167;
+  --purple: #9C8CC8;        /* R11 : action */
+  --purple-dark: #6E6194;
+  --purple-rgb: 156, 140, 200;
+  --on-action: #15111C;       /* texte sur bouton d'action */
   --green: #4CAF50;
-  --red: #E74C3C;
+  --red: #E0626B;
   --blue: #3498db;
   --grey: #CCCCCC;
   --white: #ffffff;
-  --black: #000000;
-  --bg: #000000;              /* fond page / fenêtres, = barre du haut */
+  --black: #0B0A0A;
+  --bg: #0B0A0A;              /* fond page / fenêtres, = barre du haut */
   --bg-raised: #121214;
   --card: #1f2229;
-  --text: #eef0f2;
-  --text-light: #9a9ea6;
-  --border: #33363d;
+  --text: #F3EEE8;
+  --text-light: #A59E96;
+  --border: rgba(243, 238, 232, 0.12);
   --track-bg: #2b2e35;
   --hover-bg: #2a2d34;
   --surface-dim: #1c1c22;
 
   /* ---- Accents ---- */
-  --brique-rgb: 194, 105, 74;
-  --brique: #C2694A;          /* boutons d'action / suppression : bordure ou fond */
-  --brique-text: #E08A69;     /* ... texte */
-  --brique-stop: #C4483F;     /* stop du chrono */
+  --brique-rgb: 224, 98, 107;
+  --brique: #E0626B;          /* boutons d'action / suppression : bordure ou fond */
+  --brique-text: #E0626B;     /* ... texte */
+  --brique-stop: #E0626B;     /* stop du chrono */
   --unread: #f59a3c;          /* pastilles non lues */
   --live-green: #22C55E;
   --mine-violet: #B7AED3;
   --mine-violet-text: #1E1833;
-  --violet-soft: #cdbdf0;     /* libellé d'onglet actif */
+  --violet-soft: #C4B9E6;     /* libellé d'onglet actif */
   --violet-pale: #f3ecff;
   --violet-trail: #9583c1;
   --violet-promo: #c9b8ff;
@@ -47,7 +48,7 @@
   /* ---- États (réussite, alerte, danger) ---- */
   --good: #6fc9a0;
   --good-text: #9be0bf;
-  --bad: #e0626b;
+  --bad: #E0626B;
   --danger-armed: #e5484d;
   --warn-orange: #ff9f2e;
   --warn-text-1: #f0b36b;
@@ -95,6 +96,6 @@
   --glass-calm-btn-line: rgba(255, 255, 255, .10);
 
   /* ---- Halos des fenêtres (niveau 1 indigo, niveau 2 prune) ---- */
-  --halo-n1-rgb: 80, 96, 210; --halo-n1-a: 0.54;
+  --halo-n1-rgb: 156, 140, 200; --halo-n1-a: 0.28;
   --halo-n2-rgb: 158, 72, 168; --halo-n2-a: 0.54;
 }

@@ -1,4 +1,5 @@
 /* Coquille : routeur par hash (#/dashboard), barre du bas, pastille de synchro, état partagé. */
+try { if (window.parent !== window) document.documentElement.classList.add('framed'); } catch (e) { document.documentElement.classList.add('framed'); }
 (function () {
   var ICONS = {
     dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>',
@@ -19,7 +20,7 @@
   }
   function renderTabs(active) {
     document.getElementById('tabbar').innerHTML = TABS.map(function (t) {
-      return '<button type="button" class="tabBtn' + (t[0] === active ? ' active' : '') + '" data-tab="' + t[0] + '"' + (t[0] === active ? ' aria-current="page"' : '') + '><span class="tabIcon">' + ICONS[t[0]] + '</span><span class="tabLabel">' + t[1] + '</span></button>';
+      return '<button type="button" aria-label="' + t[1] + '" class="tabBtn' + (t[0] === active ? ' active' : '') + '" data-tab="' + t[0] + '"' + (t[0] === active ? ' aria-current="page"' : '') + '><span class="tabIcon">' + ICONS[t[0]] + '</span><span class="tabLabel">' + t[1] + '</span></button>';
     }).join('');
   }
   function renderPill(sync) {

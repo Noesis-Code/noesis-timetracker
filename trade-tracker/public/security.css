@@ -1,5 +1,5 @@
 /* Sécurité du compte (Trade Tracker) : écrans d'activation, de vérification et page « Sécurité ». Sombre uniquement, violet = couleur principale. */
-.qrBox { display: flex; justify-content: center; padding: 14px; border-radius: var(--radius-md, 14px); background: var(--white); width: fit-content; margin: 0 auto; }
+.qrBox { display: flex; justify-content: center; padding: 16px; border-radius: var(--radius-md, 14px); background: var(--white); width: fit-content; margin: 0 auto; }
 .qrBox svg { display: block; width: 208px; height: 208px; max-width: 100%; height: auto; }
 .keyBox { margin-top: 6px; padding: 10px 12px; border-radius: var(--radius-md, 14px); background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; letter-spacing: 0.06em; word-break: break-all; user-select: all; }
 .codeGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
