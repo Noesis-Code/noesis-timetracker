@@ -40,7 +40,7 @@ const USER = 'u_parcours';
 const app = express();
 app.use(require('../server/routes/stripewebhook')); // avant express.json (octets bruts)
 app.use(express.json());
-app.use((req, res, next) => { req.userId = USER; next(); });
+app.use((req, res, next) => { req.userId = req.headers['x-test-user'] || USER; next(); });
 app.use(require('../server/routes/offercheckout'));
 
 function request(port, method, p, body, headers) {
@@ -109,6 +109,23 @@ const slots = (a) => db.prepare('SELECT COUNT(*) n FROM sub_projects WHERE activ
   subscription = { status: 'active', current_period_start: 1702600000, current_period_end: 1705200000, cancel_at_period_end: false };
   await webhook(port, { id: 'evt_e2e_inv', type: 'invoice.paid', data: { object: { subscription: 'sub_e2e' } } });
   ok(sub().currentPeriodEnd === new Date(1705200000 * 1000).toISOString(), 'renouvellement : période prolongée');
+
+  // 4b. Signature invalide et échec de paiement
+  r = await request(port, 'POST', '/stripe/webhook', '{"id":"evt_bad","type":"invoice.paid"}', { 'Stripe-Signature': 't=1,v1=00' });
+  ok(r.status === 400, 'webhook à signature invalide : refusé (400)');
+  await webhook(port, { id: 'evt_e2e_fail', type: 'invoice.payment_failed', data: { object: { subscription: 'sub_e2e' } } });
+  subscription = { status: 'past_due', current_period_start: 1702600000, current_period_end: 1705200000, cancel_at_period_end: false };
+  await webhook(port, { id: 'evt_e2e_pd', type: 'customer.subscription.updated', data: { object: { id: 'sub_e2e', status: 'past_due', cancel_at_period_end: false, current_period_start: 1702600000, current_period_end: 1705200000 } } });
+  ok(sub().status === 'past_due', 'échec de paiement : statut past_due en base');
+  ok(!access.hasActiveOffer1Subscription(USER), 'échec de paiement : plus d\'abonnement actif tant que non régularisé');
+  subscription = { status: 'active', current_period_start: 1702600000, current_period_end: 1705200000, cancel_at_period_end: false };
+  await webhook(port, { id: 'evt_e2e_inv2', type: 'invoice.paid', data: { object: { subscription: 'sub_e2e' } } });
+  ok(sub().status === 'active' && access.hasActiveOffer1Subscription(USER), 'paiement régularisé : abonnement actif de nouveau');
+
+  // Portail : refusé pour un profil sans client Stripe
+  db.prepare("INSERT OR IGNORE INTO users (id, name, createdAt) VALUES ('u_sans_stripe', 'Autre', ?)").run(new Date().toISOString());
+  r = await request(port, 'POST', '/offer/portal', {}, { 'x-test-user': 'u_sans_stripe' });
+  ok(r.status === 404, 'portail : 404 sans client Stripe (jamais le client d\'un autre)');
 
   // 5. Résiliation en fin de période : l'accès reste jusqu'à la fin du mois payé
   await webhook(port, { id: 'evt_e2e_upd', type: 'customer.subscription.updated', data: { object: { id: 'sub_e2e', status: 'active', cancel_at_period_end: true, current_period_start: 1702600000, current_period_end: 1705200000 } } });
