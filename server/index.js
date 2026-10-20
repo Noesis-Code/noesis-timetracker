@@ -48,6 +48,10 @@ const app = express();
 // server/routes/stripewebhook.js pour le détail.
 app.use('/api', require('./routes/stripewebhook'));
 
+// Compression HTTP gzip/brotli (20 oct. 2026) : après le webhook Stripe (réponse brute, jamais compressée),
+// avant l'API et les fichiers statiques. Les flux événementiels (SSE) sont exclus.
+app.use(require('compression')({ filter: (req, res) => !/text\/event-stream/.test(String(res.getHeader('Content-Type') || '')) && require('compression').filter(req, res) }));
+
 // Derrière le proxy d'un hébergeur (Railway, Render...), req.protocol et
 // req.ip reflètent le proxy et non le visiteur tant qu'on ne fait pas
 // confiance aux en-têtes X-Forwarded-*. Sans effet en local.
