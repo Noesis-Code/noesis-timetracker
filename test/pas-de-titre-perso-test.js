@@ -34,8 +34,7 @@ function walk(d, out) {
 const cibles = [];
 walk(path.join(ROOT, 'docs'), cibles);
 walk(path.join(ROOT, 'test'), cibles);
-// Rapports de tri des tâches (citent les titres par construction, avec leurs identifiants) : dette connue, aucun AUTRE fichier ne doit en recopier.
-const TOLERES = new Set(['docs/tri-taches-basic-2026-10-20.md', 'docs/tri-taches-expansion-2026-10-20.md']);
+const TOLERES = new Set();
 let bad = 0;
 for (const p of cibles) {
   if (TOLERES.has(path.relative(ROOT, p).split(path.sep).join('/'))) continue;

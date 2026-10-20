@@ -11393,7 +11393,9 @@
     if (e.target === $('announcementModal')) $('announcementModal').classList.add('hidden');
   });
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') showAnnouncement(false);
+    // Pas d'annonce par-dessus une saisie en cours (clavier ouvert) : elle reviendra au prochain retour.
+    var ae = document.activeElement;
+    if (document.visibilityState === 'visible' && !(ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName))) showAnnouncement(false);
   });
 
   function openTabFromNotification(url) {

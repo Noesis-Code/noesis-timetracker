@@ -29,20 +29,20 @@ Aucune tâche A : les tâches à code sont vagues (B). Étape 2 : tests du parco
 | 852 | - | Attributs évalués avant achat | C |  |
 | 844 | - | Messages de réassurance post-achat | C |  |
 | 853 | - | Garanties contre la dissonance post-achat | C |  |
-| 87 | - | Décrire le produit de l'offre payante | C |  |
+| 87 | - | Présentation commerciale du forfait payant | C |  |
 | 88 | - | Identifier le usager cible | C |  |
 | 94 | - | Zone géographique court terme | C |  |
 | 95 | - | Zone géographique moyen terme | C |  |
 | 96 | - | Zone géographique long terme | C |  |
-| 97 | - | Écrire la démarcation de l'offre | C |  |
+| 97 | - | Rédaction de la différence entre forfaits | C |  |
 | 906 | - | Développer l'abonnement FDR | B | Q4 |
 | 578 | - | Case à cocher résiliation avec option | B | Q5 |
 | 849 | - | Système de suivi post-achat | B | Q7 |
 | 478 | - | Moyen de paiement pour l'abonnement | D | Checkout Stripe + webhook + portail (test/expansion-parcours-test.js) |
 | 884 | - | Courriel type de prospection annonceurs | C |  |
 | 883 | - | Media kit annonceurs | C |  |
-| 687 | - | Définir les limites de l'Offre 1 | C |  |
+| 687 | - | Bornes du premier forfait | C |  |
 | 885 | - | 5-10 marques à démarcher | C |  |
 | 574 | - | Questionnaire automatique pour Offre 1 | D | formulaires d'activité déjà livrés (activity_forms) |
 | 278 | - | Cibler un domaine d'automatisation | C |  |
-| 570 | - | Développer l'espace publicitaire TMT | B | Q8 |
+| 570 | - | Emplacement d'annonces, hypothèse | B | Q8 |

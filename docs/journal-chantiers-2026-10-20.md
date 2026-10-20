@@ -80,3 +80,8 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 - CACHE_VERSION : strictement croissant sur les 30 derniers commits touchant `sw.js` (v477 à v506, sans trou ni doublon) ; `sw-bump-test` vert.
 - Nouveau test `test/pas-de-titre-perso-test.js` : échoue si `docs/` ou `test/` recopie un titre (>= 4 mots) des listes `/home/claude/taches-secteurs/*.json` (lues à l'exécution ; absentes -> ignoré). Deux titres retirés de `ia-amelioration-2026-10-20.md`. Tolérés (dette) : les deux rapports `tri-taches-*` qui citent ~65 titres par construction.
 - Index des questions : 44 lignes (< 80), chaque fichier cité existe.
+
+## Pilotage (repli 24) : titres personnels retirés des rapports de tri, relecture, friction
+- Les deux rapports `tri-taches-*` ne citent plus aucun titre : 65 titres remplacés par un résumé neutre (catégorie + nature, sans mot ni nom d'origine), classes, preuves et questions intactes. La liste de tolérance de `test/pas-de-titre-perso-test.js` est supprimée : le test est strict (281 titres, 0 recopie).
+- Relecture de 34c564d : écart d'horloge (cas NaN, > 1 jour, copie locale), resynchro au retour au premier plan sans refermer le récapitulatif ; aucun bouton/option/couleur, bump sw posé (c0610a4).
+- Friction (retour d'un autre onglet) : une annonce en attente s'affichait par-dessus une saisie en cours. Elle attend maintenant le prochain retour si un champ de texte a le focus. Aucun contrôle ajouté.
