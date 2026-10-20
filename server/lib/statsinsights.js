@@ -167,7 +167,9 @@ function loadScope(activityId, poleKey) {
   const out = poles.map((p) => {
     const keys = [p.key].concat((goals.secteursForPole(activityId, p.key) || []).map((s) => s.key));
     keys.forEach((k) => { keyToPole[k] = p.key; });
-    return { key: p.key, label: p.label, keys, sectors: (goals.secteursForPole(activityId, p.key) || []).map((x) => ({ key: x.key, label: x.label })) };
+    // Temps : aussi celui des secteurs supprimés (gelés), qui reste compté dans leur pôle.
+    const timeKeys = keys.concat(db.prepare('SELECT key FROM activity_goal_categories WHERE activityId = ? AND parentKey = ? AND removedAt IS NOT NULL').all(activityId, p.key).map((r) => r.key));
+    return { key: p.key, label: p.label, keys, timeKeys, sectors: (goals.secteursForPole(activityId, p.key) || []).map((x) => ({ key: x.key, label: x.label })) };
   });
   return { poles: out, keyToPole };
 }
@@ -237,7 +239,7 @@ function onTimeFor(tasks, today, r) {
 
 // Journées travaillées : une période de 28 jours (vues Année et Période) ou une semaine, décalée de `offset` (<= 0).
 function workedDays(activityId, scope, today, kind, offset, allTasks) {
-  const keys = scope.poles.reduce((a, p) => a.concat(p.keys), []);
+  const keys = scope.poles.reduce((a, p) => a.concat(p.timeKeys), []);
   if (!keys.length) return null;
   const len = kind === 'week' ? 7 : 28;
   const cur = viewRange(kind, today);
@@ -285,7 +287,7 @@ function tasksCards(ctx) {
       const mine = tasks.filter((t) => t.pole === p.key && doneIn(t)).slice(0, 200);
       let est = 0; let counted = 0;
       mine.forEach((t) => { const e = goals.estimateForGoal(activityId, t.key, 'weekly', t.label); if (e && e.minutes) { est += e.minutes; counted += 1; } });
-      const actual = minutesFor(activityId, p.keys, since, until);
+      const actual = minutesFor(activityId, p.timeKeys, since, until);
       if (counted && actual) list.push({ key: p.key, label: p.label, estimatedMin: est, actualMin: actual, deltaPct: Math.round((actual - est) / est * 100) });
     });
     return list.length ? list : null;
@@ -436,7 +438,7 @@ function objectivesCards(ctx) {
   };
   const targetFor = (p, list) => {
     const mine = list.filter((o) => o.pole === p.key);
-    const c = targetCore(mine, p.keys);
+    const c = targetCore(mine, p.timeKeys);
     if (!c) return null;
     // Détail par secteur (le pôle sans secteur = libellé null).
     const sectors = (p.sectors || []).map((sc) => { const x = targetCore(list.filter((o) => o.key === sc.key), [sc.key]); return x && { key: sc.key, label: sc.label, targetMin: x.targetMin, doneMin: x.doneMin }; }).filter(Boolean);

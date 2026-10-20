@@ -85,7 +85,7 @@ function buildUserExport(userId) {
 
   const timeEntries = rows(
     `SELECT te.id, te.activityId, a.name AS activityName, te.note, te.startTime,
-            te.endTime, te.durationSeconds, te.isoDate, te.dayOfWeek, te.subProjectId
+            te.endTime, te.durationSeconds, te.isoDate, te.dayOfWeek, te.goalCategory, te.subProjectId
      FROM time_entries te
      LEFT JOIN activities a ON a.id = te.activityId
      WHERE te.userId = ?

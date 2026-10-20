@@ -75,9 +75,11 @@ function ownVisibilityExcludedIds(userId, visibility) {
     .all(userId, wantConf).map((r) => r.id);
 }
 
-function breakdownForRange(userId, startIso, endIso, excludeActivityIds) {
+function breakdownForRange(userId, startIso, endIso, excludeActivityIds, clipEndIso) {
   const rangeStart = new Date(startIso + 'T00:00:00');
-  const rangeEnd = new Date(endIso + 'T00:00:00');
+  // `clipEndIso` (optionnel, Année) : une entrée de la fenêtre est comptée jusqu'à cette borne plutôt que jusqu'à `endIso`,
+  // pour qu'une entrée à cheval sur deux mois reste entière dans son mois de départ (somme des 12 mois = total de l'année).
+  const rangeEnd = new Date((clipEndIso || endIso) + 'T00:00:00');
   rangeEnd.setDate(rangeEnd.getDate() + 1); // borne haute exclusive = lendemain du dernier jour affiché
 
   const rows = db.prepare(`
@@ -646,7 +648,7 @@ function timesheetYearForUser(userId, yearOffset, opts) {
   for (let m = 0; m < 12; m++) {
     const first = new Date(year, m, 1);
     const last = new Date(year, m + 1, 0);
-    const b = breakdownForRange(userId, isoDateOf(first), isoDateOf(last), excl);
+    const b = breakdownForRange(userId, isoDateOf(first), isoDateOf(last), excl, `${year}-12-31`);
     monthTotals.push(b.totalSeconds);
     b.activities.forEach((a) => {
       if (!rowsById[a.activityId]) {
