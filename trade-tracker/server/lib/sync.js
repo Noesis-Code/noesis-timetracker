@@ -3,6 +3,7 @@
 const { getConnector } = require('./connectors');
 const { notifyPending } = require('./notifier');
 const { hasBrokerToken, getBrokerToken } = require('./brokertoken');
+const { shouldSync } = require('./marche');
 
 const iso = (ms) => new Date(ms).toISOString();
 
@@ -114,7 +115,14 @@ async function syncAll(db, opts = {}) {
 
 function startSyncScheduler(db, { intervalMin = Number(process.env.TRADE_SYNC_INTERVAL_MIN) || 15, notifier, log = console.log } = {}) {
   if (process.env.TRADE_SYNC_DISABLE === '1') return null;
-  const tick = () => syncAll(db, { notifier }).catch((e) => log('synchro : ' + e.message));
+  // Hors séance (marché fermé), la synchro passe à une fois par heure, sauf juste avant l'ouverture (voir marche.js) ; en séance : rythme normal.
+  let lastAt = 0;
+  const tick = () => {
+    const now = Date.now();
+    if (!shouldSync(now, lastAt, { intervalMin })) return;
+    lastAt = now;
+    return syncAll(db, { notifier }).catch((e) => log('synchro : ' + e.message));
+  };
   const t = setInterval(tick, intervalMin * 60e3);
   t.unref();
   return t;

@@ -43,7 +43,7 @@ function verifyLinkToken(token, secret, now = Date.now(), { ua, allowUnbound = f
   if (!secret) return { ok: false, error: 'server_misconfigured' };
   if (typeof token !== 'string' || token.length > 2048) return { ok: false, error: 'invalid' };
   const parts = token.split('.');
-  if (parts.length !== 2) return { ok: false, error: 'invalid' };
+  if (parts.length !== 2 || !/^[A-Za-z0-9_-]+$/.test(parts[0]) || !/^[A-Za-z0-9_-]+$/.test(parts[1])) return { ok: false, error: 'invalid' }; // alphabet base64url strict : Buffer.from ignore sinon espaces et sauts de ligne (jeton « modifié » qui passerait)
   const given = Buffer.from(parts[1], 'base64url');
   const expected = sign(parts[0], secret);
   if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) return { ok: false, error: 'invalid' };
