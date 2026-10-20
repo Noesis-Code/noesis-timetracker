@@ -60,7 +60,10 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 4. Cas limites : titres très courts (1-2 mots) dans le jeu d'évaluation. *(fait 19 oct. : s01-s06 ; seuil 80 confirmé, plateau 50-80 à 98,1 %, 85+ régresse)*
 5. Cas limites : formulations avec nom propre seul (« Appeler Marc ») ou verbe sans objet (« Faire le suivi ») : mesurer que le résultat est « incertain » plutôt qu'un secteur choisi au hasard.
 6. Seuil de confiance par fournisseur : comparer `--min-confidence` en simulé après chaque nouvelle série de cas, et noter le plateau dans cette liste.
-7. Cas limites : titres mixtes fr/en avec dates (« Send invoice avant vendredi ») ; ajouter et mesurer.
+7. Cas limites : titres mixtes fr/en avec dates (« Send invoice avant vendredi ») ; ajouter et mesurer. *(déjà couvert : m01-m15, d01-d09)*
+8. Verbes d'action ambigus (« Passer », « Régler », « Gérer », « Traiter ») : mesurer incertain vs secteur. *(fait 20 oct. : a01-a10 ; règle « Régler » = paiement ; restent a05 ex æquo Clients/Prospection et a07 « pharmacie » hors vocabulaire du simulé)*
+9. Tâches multi-actions avec « et » (« Appeler le fournisseur et envoyer la facture ») : mesurer qu'elles restent placées sur le secteur dominant ou incertaines, et que la génération les propose scindées.
+10. Titres avec nombres/montants et tâches mixtes perso/pro (« Payer 450 $ de loyer », « Rendez-vous dentiste et appel client ») : ajouter et mesurer.
 
 **7. Principal et pilotage**
 1. État des worktrees et branches à nettoyer (`scripts/chantiers-status.js`), liste pour Émilien si suppression distante.

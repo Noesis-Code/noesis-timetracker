@@ -225,6 +225,16 @@
     { "id": "q01", "context": "dup", "kind": "classify", "label": "Appeler le client", "expect": {"outcome": "uncertain"} },
     { "id": "q02", "context": "dup", "kind": "classify", "label": "Suivi client soumission", "expect": {"outcome": "uncertain"} },
     { "id": "q03", "context": "dup", "kind": "classify", "label": "Envoyer la facture", "expect": {"outcome": "place", "key": "compta"} },
-    { "id": "q04", "context": "dup", "kind": "classify", "label": "Suivi des clients demain", "expect": {"outcome": "uncertain"} }
+    { "id": "q04", "context": "dup", "kind": "classify", "label": "Suivi des clients demain", "expect": {"outcome": "uncertain"} },
+    { "id": "a01", "context": "pige", "kind": "classify", "label": "Revoir le dossier", "expect": {"outcome": "uncertain"} },
+    { "id": "a02", "context": "pige", "kind": "classify", "label": "Régler ça", "expect": {"outcome": "uncertain"} },
+    { "id": "a03", "context": "cafe", "kind": "classify", "label": "Passer la commande de café vert", "expect": {"outcome": "place", "key": "appro"} },
+    { "id": "a04", "context": "cafe", "kind": "classify", "label": "Gérer les choses", "expect": {"outcome": "uncertain"} },
+    { "id": "a05", "context": "pige", "kind": "classify", "label": "Traiter le dossier du client Acme", "expect": {"outcome": "place", "key": "clients"} },
+    { "id": "a06", "context": "cafe", "kind": "classify", "label": "Suivre le colis", "expect": {"outcome": "place", "key": "emball"} },
+    { "id": "a07", "context": "etu", "kind": "classify", "label": "Passer à la pharmacie", "expect": {"outcome": "place", "key": "perso"} },
+    { "id": "a08", "context": "cafe", "kind": "classify", "label": "Vérifier", "expect": {"outcome": "uncertain"} },
+    { "id": "a09", "context": "pige", "kind": "classify", "label": "Faire la facture", "expect": {"outcome": "place", "key": "admin"} },
+    { "id": "a10", "context": "cafe", "kind": "classify", "label": "Régler la facture du fournisseur", "expect": {"outcome": "place", "key": "compta"} }
   ]
 }
