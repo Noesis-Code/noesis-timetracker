@@ -46,3 +46,7 @@ Même mécanisme que le classement (`CALL_CAPS` dans `goalstaskclassify.js`, app
 
 ## Alerte de coût journalier (repli 8)
 `aibudget.record` écrit une ligne `[aibudget] ALERTE coût IA du jour ...` dans le journal serveur (une par jour, tous comptes) quand le coût estimé du jour dépasse `AI_COST_ALERT_DAY_USD` (défaut 8 $). Ni notification ni interface. Test : `test/ia-alerte-memo-test.js` (couvre aussi : appel mémoïsé = aucun jeton journalisé).
+
+## Cache de prompt sur classement / reformulation / inter-secteurs : non activé (repli 9, 20 oct. 2026)
+Mesure : inter-secteurs = seule fonction avec `system` statique, 1360 caractères (~340 jetons) ; classement et reformulation n'ont aucun `system` (un seul message user, catégories/exemples variables, ~400-900 jetons au total). Minimum cachable de l'API : 1024 jetons (Sonnet), 2048-4096 (Haiku, premier essai de toutes ces fonctions). Tous les blocs sont donc très sous le seuil : `cache_control` serait ignoré par l'API (économie nulle) et la création coûterait 1,25 x si un jour le seuil était franchi sans lectures. Décision : ne pas activer. À reconsidérer seulement si une consigne statique dépasse ~4000 jetons. Le cache de prompt reste actif là où il paie (Drive, documents, modifications : `aicache.messageParams`).
+Tâches de repli proposées : (1) ce constat (fait) ; (2) réduction du nombre d'appels par lot (classement de plusieurs tâches en un appel : exige évaluation `--live`) ; (3) rapport hebdomadaire de coût par fonction (enveloppe de `scripts/ai-cost-report.js 7`, planifiée).
