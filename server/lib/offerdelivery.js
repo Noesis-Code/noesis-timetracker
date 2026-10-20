@@ -168,9 +168,13 @@ function parsePlan(text) {
 
     const description = typeof raw.description === 'string' ? raw.description.trim().slice(0, MAX_DESCRIPTION_LENGTH) : '';
 
-    const tasks = Array.isArray(raw.tasks)
-      ? raw.tasks.map((t) => (typeof t === 'string' ? t.trim().slice(0, MAX_ITEM_LABEL_LENGTH) : '')).map((t) => require('./taskprecision').checkGenerated(t).title).filter(Boolean) // validateur déterministe : vide/sans verbe/horaire fixe écartés
-      : [];
+    const tasks = [];
+    const skipped = {}; // raison -> nombre (jamais le titre : aucune donnée personnelle dans les journaux)
+    (Array.isArray(raw.tasks) ? raw.tasks : []).forEach((t) => {
+      const chk = require('./taskprecision').checkGenerated(typeof t === 'string' ? t.trim().slice(0, MAX_ITEM_LABEL_LENGTH) : ''); // validateur déterministe : vide/sans sens/horaire fixe écartés
+      if (chk.title) tasks.push(chk.title); else skipped[chk.reason] = (skipped[chk.reason] || 0) + 1;
+    });
+    if (Object.keys(skipped).length) console.log('[offerdelivery] taches ecartees=' + Object.keys(skipped).map((k) => k + ':' + skipped[k]).join(','));
     if (!tasks.length) throw new Error(`Sous-projet #${index + 1} ("${name}") : aucune tâche exploitable dans la réponse de Noèsis.`);
 
     return { name, description, tasks };

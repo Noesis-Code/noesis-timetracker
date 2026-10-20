@@ -121,7 +121,7 @@ function emptyWeekIndexes(periodId) {
 const SYSTEM_PROMPT = `Tu aides à planifier les objectifs d'une entreprise sur Noèsis. On te donne le grand objectif d'une période de 4 semaines (un pôle ou secteur d'activité) et, éventuellement, le texte déjà écrit pour certaines semaines de cette même période. Décline le grand objectif en objectifs hebdomadaires CONCRETS et ACTIONNABLES uniquement pour les numéros de semaine demandés (jamais les autres), cohérents entre eux et avec les semaines déjà écrites si il y en a.
 Réponds UNIQUEMENT avec un objet JSON de cette forme exacte, sans texte ni Markdown autour :
 {"weeklyGoals":[{"weekIndex":N,"text":"...","description":"..."}]}
-Contraintes : un objet par numéro de semaine demandé, jamais un numéro non demandé ; "text" est le TITRE de l'objectif de la semaine : court (moins de 100 caractères), en français, une action concrète ; "description" précise en 1 à 3 phrases ce qu'il faut accomplir et comment on saura que c'est fait (moins de ${MAX_WEEKLY_DESC_LENGTH} caractères). Jamais une reformulation vague du grand objectif. Si "recentDone" est fourni (dernières tâches terminées de ce secteur), sers-t'en pour caler le niveau de détail et ne pas reproposer ce qui est déjà fait ; ce n'est qu'un repère, jamais un ordre.`;
+Contraintes : un objet par numéro de semaine demandé, jamais un numéro non demandé ; "text" est le TITRE de l'objectif de la semaine : court (moins de 100 caractères), une action concrète, rédigé dans la langue du grand objectif (français par défaut) ; "description" précise en 1 à 3 phrases ce qu'il faut accomplir et comment on saura que c'est fait (moins de ${MAX_WEEKLY_DESC_LENGTH} caractères). Jamais une reformulation vague du grand objectif. Si "recentDone" est fourni (dernières tâches terminées de ce secteur), sers-t'en pour caler le niveau de détail et ne pas reproposer ce qui est déjà fait ; ce n'est qu'un repère, jamais un ordre.`;
 
 // Dernières tâches TERMINÉES du pôle/secteur (borné : 10 libellés de 70 caractères) injectées dans la requête pour que l'IA s'appuie sur
 // le travail réel récent. Vide => champ omis (requête, donc mémo, inchangée).
@@ -334,4 +334,5 @@ module.exports = {  emptyWeekIndexes,
   // Exportés pour les tests (bac à sable) uniquement.
   parseWeeklyGoals,
   recentDoneLabels,
+  SYSTEM_PROMPT,
 };
