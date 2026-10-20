@@ -7,7 +7,7 @@ Statut : **désactivé par défaut**. Un courriel aux clients est une communicat
 
 ## Ce qui est envoyé (`server/lib/subscriptionmails.js`)
 - Confirmation d'abonnement (`checkout.session.completed`) et fin d'abonnement (`customer.subscription.deleted`) à l'abonné : prénom, mention du renouvellement mensuel et de la résiliation dans Réglages. Aucun montant, identifiant Stripe, ni autre donnée.
-- Alerte interne (`charge.refunded`, `charge.dispute.created`) à `confidentialite.noesis@gmail.com` : identifiants Stripe et statut seulement, aucune donnée personnelle.
+- Alerte interne (`charge.refunded`, `charge.dispute.created`) à `<COURRIEL_CONFIDENTIALITE>` (adresse publique de contact) : identifiants Stripe et statut seulement, aucune donnée personnelle.
 
 ## Vérifications (20 oct. 2026)
 - **Déclenchement** : `notifyUser` / `alertTeam` ne sont appelés que depuis `server/routes/stripewebhook.js`, après `stripe.constructEvent` (signature HMAC obligatoire, sinon 400) et après le contrôle d'idempotence (un événement rejoué n'envoie rien). Aucune route, tâche planifiée ni script ne les appelle.
