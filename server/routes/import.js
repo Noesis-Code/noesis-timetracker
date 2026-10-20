@@ -71,8 +71,6 @@ router.post('/import/history', (req, res) => {
   const iDurationH = findCol(header, ['durée (h)', 'duree (h)']);
   const iStartH = findCol(header, ['début (décimal)', 'debut (decimal)']);
   const iNote = findCol(header, ['note']);
-  const iStartTime = findCol(header, ['heure de début', 'heure de debut']);
-  const iEndTime = findCol(header, ['heure de fin']);
 
   if (iIsoDate === -1 || iActivity === -1 || iDurationH === -1) {
     return res.status(400).json({

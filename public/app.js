@@ -4118,22 +4118,6 @@
     return out;
   }
 
-  // 22 septembre 2026, demande directe d'Emilien : « les pôles ne possèdent
-  // pas de couleur ni d'icône ni de motif. Et c'est les secteurs auxquels on
-  // attribue automatiquement une des 10 nuances. » Fonction DISTINCTE de
-  // subProjectShade() ci-dessus, volontairement : son paramètre `count` est
-  // mort (toujours SUB_PROJECT_SHADE_COUNT=5, voir son commentaire ci-dessus)
-  // — cette fonction-ci a son propre nombre de nuances (SECTEUR_SHADE_COUNT
-  // = 10), scindé du système à 5 nuances partagé par Chrono/Statistiques/la
-  // grille périodique d'Objectifs, qui reste inchangé (ni ce fichier, ni
-  // subProjectShade/SUB_PROJECT_SHADE_COUNT ne sont touchés par ce chantier).
-  // Même algorithme (bande de clarté CIE L* 22–90, écart minimal 11 avec la
-  // base) simplement redivisé en 10 rangs au lieu de 5 : les nuances
-  // adjacentes sont donc mécaniquement plus proches (ΔE plus faible) —
-  // conséquence directe de doubler la résolution, pas un réglage à part.
-  var SECTEUR_SHADE_COUNT = 10;
-  var secteurShadeCache = {};
-
   // ----- La fenêtre -----
   // Elle reprend la structure du volet Statistiques : une Feuille de temps,
   // puis une Répartition qui la résume. Les deux sortent d'UN SEUL appel
@@ -12035,15 +12019,6 @@
 
     return wrap;
   }
-
-  // Troncature de la description en vue liste (150-200 caractères, choix
-  // 180 comme point médian, + « … voir plus » si dépassement — demande
-  // confirmée par Emilien, chantier "Simplification du formulaire de
-  // saisie Projets"). Coupure sur un espace proche de la limite plutôt
-  // qu'en plein milieu d'un mot, quand c'est possible. La vue détail
-  // (panneau déplié au clic sur la ligne, voir plus bas) affiche toujours
-  // `description` en entier, jamais cette version tronquée.
-  var PROJECT_DESC_TRUNCATE_AT = 180;
 
   // Nom affiché sur une CASE de la page de visite d'un profil (5 septembre
   // 2026, demande d'Emilien : « que la fenêtre des autres utilisateurs ne

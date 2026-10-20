@@ -168,10 +168,6 @@ const STATUSES = ['non_atteint', 'partiel', 'atteint'];
 const CATEGORIES = ['entreprise', 'communaute', 'produit'];
 const CATEGORY_LABELS = { entreprise: 'Entreprise', communaute: 'Communauté', produit: 'Produit' };
 
-function isValidCategory(category) {
-  return CATEGORIES.includes(category);
-}
-
 const {
   MAX_CUSTOM_CATEGORIES,
   MAX_SECTEURS_PER_POLE,

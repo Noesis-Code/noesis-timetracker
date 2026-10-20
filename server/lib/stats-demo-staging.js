@@ -165,7 +165,6 @@ function build(u, fakeNames, NAME, NAME_CONF, seed) {
   const keyOf = (label) => goals.categoriesForActivity(aid).flatMap((p) => [p].concat(goals.secteursForPole(aid, p.key))).find((c) => c.label === label).key;
   const K = { produit: first.key, interface: keyOf('Interface'), serveur: keyOf('Serveur'), marketing: keyOf('Marketing'), communaute: keyOf('Communauté') };
   const LEAVES = ['interface', 'serveur', 'marketing', 'communaute'];
-  const keyByName = (n) => K[n];
 
   // ---- Grille des périodes : plan démarré 2 ans avant l'année en cours ; données dès ~25 mois avant aujourd'hui.
   const curYear = Number(todayIso.slice(0, 4));

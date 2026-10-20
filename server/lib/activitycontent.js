@@ -69,8 +69,6 @@ function transferActivityContent(fromId, toId, opts) {
       r.fromYear == null ? null : r.fromYear, r.removedYear == null ? null : r.removedYear, r.removedFromDate || null);
   });
 
-  const remap = (sql, extra) => map.forEach((nk, ok) => db.prepare(sql).run(nk, ...extra(ok)));
-
   // Sous-projets (porteurs des tâches) et leurs tâches.
   const spWhere = userId ? ' AND createdBy = ?' : '';
   const spIds = db.prepare('SELECT id, slot FROM sub_projects WHERE activityId = ?' + spWhere).all(...(userId ? [fromId, userId] : [fromId]));
