@@ -28,7 +28,7 @@ Cases à cocher dans `docs/questions-emilien-2026-10-20.md` (section « Les 5 d�
 - Crédits Claude et API : coûts mesurés, plafonds posés ; attend la décision 3.
 - Simplification et design : code mort retiré par passages ; attend la décision 4.
 - Précision des tâches : 0 faux rejet sur les cas connus ; attend la décision 3 et le choix sur l'horaire fixe.
-- Pilotage : suite de tests sérialisée (une à la fois), suite complète vérifiée sur la tête de staging, index des questions à 45 lignes ; retour après notification et ajout d'une tâche depuis la Feuille de route vérifiés sur téléphone simulé (390 px).
+- Pilotage : suite de tests sérialisée, suite complète vérifiée sur la tête de staging, index des questions < 80 lignes ; les 11 types de notification mènent tous à un écran existant (table dans `docs/notifications-liens-2026-10-20.md`, test ajouté).
 
 ## Contrôle
-Suite complète sur la tête de staging : 152 passées, 0 échec (webhook Stripe durci et contrôle des variables au démarrage relus : rien de visible). Un correctif visible : le clic sur le rappel de 6 h ouvre maintenant la tâche aussitôt (avant, elle n'apparaissait qu'au bout de 4 s quand le pôle n'a pas de secteur). Détail dans le journal.
+Suite complète sur la tête de staging : 152 passées, 0 échec (webhook Stripe durci et contrôle des variables au démarrage relus : rien de visible). Deux correctifs visibles : le rappel de 6 h ouvre la tâche aussitôt ; une notification de message d'activité ouvre la Page 2 de l'activité sans attendre l'écran Discussion retiré. Détail dans le journal.

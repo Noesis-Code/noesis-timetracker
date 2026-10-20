@@ -22,7 +22,8 @@ Une case par ligne. Détail et choix dans le fichier cité (`questions-emilien-<
 - [ ] Trade Q3 : filtres de Positions à garder ; Q7 : retraits de l'écran Trade (`trade`)
 - [ ] Basic : retirer les écrans de `points-non-necessaires.md`, rien ajouter (`basic`)
 - [ ] Basic : récupération de profil, activité sans pôle, bouton « Créer mon profil » grisé, nom/téléphone à la création (`basic`, Premier lancement)
-- [ ] Retirer la notification « message d'activité » (`?notif=activity`) : l'écran Discussion n'existe plus depuis le 15 oct., le clic arrive sur la Page 2 sans rien surligner (`pilotage`)
+- [ ] Retirer la notification « message d'activité » (`?notif=activity`) : elle ouvre désormais la Page 2 de l'activité (Discussion retirée le 15 oct.) ; aucun message n'est plus envoyé sans écran pour en écrire (`pilotage`, `notifications-liens-2026-10-20.md`)
+- [ ] Pop-up de placement : liste « Où » en verre translucide (voulu le 5 oct.) ; la rendre opaque (`--float-bg`) ? (`pilotage`)
 - [ ] Routes dormantes `offerforms.js` ; scripts et docs sans appelant (`simplification`, `code-mort-2026-10-20.md`)
 - [ ] Feuille de temps, vue Semaine : garder l'ouverture 1 h avant la première case remplie, ou revenir à 0 h ? (aucun contrôle ajouté)
 

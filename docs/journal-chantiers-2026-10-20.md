@@ -106,3 +106,9 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 - Constat non corrigé : `?notif=activity&...messageId=` n'arrive plus à la Discussion (le bouton `#goalsPage2ModeDiscBtn` a été retiré de l'UI le 15 oct., f36bb25) : on atterrit sur la Page 2 sans surlignage. Les messages ne s'envoyant plus depuis l'app, aucune notification de ce type ne part ; branche morte, question ajoutée à l'index (B).
 - Léger défaut visuel noté (non corrigé, détail) : la liste « Où » de la fenêtre de placement est translucide, « Quand » transparaît derrière.
 - Suite finale après rebase (29ca0f0 + ce commit) : 152 passées, 0 échouée. Index des questions : 45 lignes (< 80).
+
+## Pilotage (repli 28) : liens de notification
+- Aucun commit sur `staging` depuis ebf2a4e ; relu en plus le code Précision entré après le dernier test (608dbb1 : `temporalvocab.js`, `capturedatehint.js`, `taskprecision.js`) : cohérent. Réserve mineure, non corrigée : « 3 mar. » devient « 3 mardi » (abréviation de jour prioritaire sur celle du mois), cas rare.
+- `?notif=activity` : la branche attendait pendant 8 s un bouton Discussion qui n'existe plus, puis laissait l'utilisateur sur la Page 2 sans repère. Elle ouvre maintenant directement la Page 2 de l'activité (écran existant le plus proche). Retrait de la notification : case dans l'index des questions.
+- Table type -> écran de tous les liens `?notif=` (11 types) : `docs/notifications-liens-2026-10-20.md`. Test `test/notif-liens-test.js` (branche par type, écrans visés, plus de Discussion).
+- Liste « Où » translucide : voulu (Émilien, 5 oct., 6f29fb7) et conforme à `DESIGN.md` (verre, flou 40 px pour les menus ; les cartes de pop-up sont opaques). Pas de modification ; case dans l'index. Capture 390 px non refaite.

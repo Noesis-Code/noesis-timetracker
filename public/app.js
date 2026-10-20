@@ -11429,28 +11429,11 @@
     }
 
     if (target === 'activity') {
-      var activityId = params.get('activityId');
-      var messageId = params.get('messageId');
-      // 30 septembre 2026 : la discussion d'activité vit dans la Page 2 du
-      // volet Feuille de route (onglet Discussion). On y ouvre l'activité
-      // (même chemin que les notifications Objectifs), puis on bascule sur
-      // l'onglet dès que la Page 2 affiche cette activité.
+      // 20 oct. 2026 : l'écran Discussion n'existe plus (retiré le 15 oct.). Une ancienne notification de
+      // message d'activité (?notif=activity) ouvre l'écran le plus proche : la Page 2 de cette activité.
+      var activityId = notifIdParam(params, 'activityId');
       switchTab('goals');
-      if (activityId) {
-        openGoalsActivityFromNotification(activityId, null, null);
-        var discTries = 80;
-        setTimeout(function pollDisc() {
-          var sw = $('goalsActivitySwitcher');
-          if (window.TMT.currentGoalsActivityId === String(activityId) && sw && !sw.classList.contains('hidden')
-              && $('goalsPage2ModeDiscBtn') && !$('goalsPage2ModeDiscBtn').classList.contains('hidden')) {
-            window.TMT.setGoalsPage2Mode('disc');
-            if (messageId) focusWhenReady('#communityDiscussionList [data-message-id="' + messageId + '"]');
-            else focusWhenReady('#communityDiscussionBlock');
-            return;
-          }
-          if (discTries-- > 0) setTimeout(pollDisc, 100);
-        }, 250); // après l'ouverture (asynchrone) de l'activité par la ligne ci-dessus
-      }
+      if (activityId) openGoalsActivityFromNotification(activityId, null, null);
       return;
     }
 
