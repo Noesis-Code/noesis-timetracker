@@ -6,6 +6,12 @@ const mail = require('./mail');
 
 const ALERT_TO = 'confidentialite.noesis@gmail.com';
 
+// Interrupteur : rien ne part tant que EXPANSION_MAILS=1 n'est pas posé (défaut : off).
+// Courriel aux clients = légal/communication, à valider par Émilien (docs/expansion-courriels.md).
+function enabled() {
+  return process.env.EXPANSION_MAILS === '1';
+}
+
 const TEXTS = {
   confirmed: {
     fr: {
@@ -36,6 +42,7 @@ function build(kind, lang, name) {
 
 async function notifyUser(userId, kind, { mailer = mail.sendMail } = {}) {
   try {
+    if (!enabled()) return false;
     const u = db.prepare('SELECT name, email, lang FROM users WHERE id = ?').get(userId);
     if (!u || !u.email) return false;
     if (mailer === mail.sendMail && !mail.configured()) return false;
@@ -51,6 +58,7 @@ async function notifyUser(userId, kind, { mailer = mail.sendMail } = {}) {
 // Alerte interne (remboursement/litige) : identifiants Stripe seulement, aucune donnée personnelle.
 async function alertTeam(subject, text, { mailer = mail.sendMail } = {}) {
   try {
+    if (!enabled()) return false;
     if (mailer === mail.sendMail && !mail.configured()) return false;
     await mailer({ to: ALERT_TO, subject, text });
     return true;
@@ -60,4 +68,4 @@ async function alertTeam(subject, text, { mailer = mail.sendMail } = {}) {
   }
 }
 
-module.exports = { build, notifyUser, alertTeam, TEXTS };
+module.exports = { enabled, build, notifyUser, alertTeam, TEXTS };

@@ -144,6 +144,13 @@ async function retrieveSubscription(subscriptionId) {
   return stripeRequest('GET', `/subscriptions/${encodeURIComponent(subscriptionId)}`);
 }
 
+// Lecture seule d'une charge : un litige (charge.dispute.created) ne porte pas `customer`,
+// la charge, elle, le porte. Voir server/routes/stripewebhook.js::handleChargeIssue.
+async function retrieveCharge(chargeId) {
+  if (!chargeId) throw new Error('chargeId requis.');
+  return stripeRequest('GET', `/charges/${encodeURIComponent(chargeId)}`);
+}
+
 // ===================== VÉRIFICATION DE SIGNATURE WEBHOOK =====================
 // Algorithme documenté par Stripe (https://stripe.com/docs/webhooks#verify-manually) :
 // l'en-tête `Stripe-Signature` porte "t=<timestamp>,v1=<signature>[,v0=...]" ;
@@ -201,5 +208,6 @@ module.exports = {
   createPortalSession,
   buildCheckoutParams,
   retrieveSubscription,
+  retrieveCharge,
   constructEvent,
 };

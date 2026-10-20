@@ -155,7 +155,11 @@ async function handleSubscriptionDeleted(subscription) {
 // émis quand l'abonnement est résilié côté Stripe). On journalise (identifiants Stripe seulement)
 // et on alerte l'équipe pour décision humaine. Événement accepté (200), jamais en erreur.
 async function handleChargeIssue(kind, obj) {
-  const customer = obj.customer || null;
+  let customer = obj.customer || null;
+  // Litige : pas de `customer` dans l'événement, on le lit sur la charge (lecture seule, meilleur effort).
+  if (!customer && kind === 'dispute' && obj.charge && stripe.secretKeyConfigured()) {
+    try { customer = (await stripe.retrieveCharge(obj.charge)).customer || null; } catch (e) { console.warn('[stripe webhook] lecture de la charge impossible :', e.message); }
+  }
   const row = customer ? db.prepare('SELECT stripeSubscriptionId, status FROM activity_subscriptions WHERE stripeCustomerId = ? ORDER BY createdAt DESC LIMIT 1').get(customer) : null;
   const chargeId = kind === 'dispute' ? obj.charge : obj.id;
   const line = `${kind} charge=${chargeId || '?'} abonnement=${row ? row.stripeSubscriptionId : 'inconnu'} statut=${row ? row.status : '-'}`;

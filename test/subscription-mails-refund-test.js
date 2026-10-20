@@ -58,6 +58,13 @@ const sub = (id) => db.prepare('SELECT * FROM activity_subscriptions WHERE strip
   const act = (o) => Number(db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('A', ?, ?)").run(o, now).lastInsertRowid);
   const co = (id, u, cus, s) => ({ id, type: 'checkout.session.completed', data: { object: { id: 'cs_' + id, mode: 'subscription', customer: cus, subscription: s, metadata: { activityId: String(act(u)), userId: u } } } });
 
+  // Interrupteur : défaut off, rien ne part
+  delete process.env.EXPANSION_MAILS;
+  await post(port, co('evt_off', 'u_fr', 'cus_off', 'sub_off'));
+  await post(port, { id: 'evt_off_ref', type: 'charge.refunded', data: { object: { id: 'ch_off', customer: 'cus_off' } } });
+  ok(sent.length === 0 && sub('sub_off'), 'EXPANSION_MAILS absent : webhook traité, aucun courriel (client ni alerte)');
+  process.env.EXPANSION_MAILS = '1';
+
   // Confirmation FR / EN / sans courriel
   await post(port, co('evt_a', 'u_fr', 'cus_fr', 'sub_fr'));
   ok(sent.length === 1 && sent[0].to === 'lea@example.test' && /^Votre abonnement/.test(sent[0].subject), 'confirmation FR envoyée');
@@ -95,6 +102,17 @@ const sub = (id) => db.prepare('SELECT * FROM activity_subscriptions WHERE strip
   ok(rr.status === 200 && sent.length === n + 1, 'litige rejoué : pas de seconde alerte');
   rr = await post(port, { id: 'evt_ref2', type: 'charge.refunded', data: { object: { id: 'ch_9', customer: 'cus_inconnu' } } });
   ok(rr.status === 200, 'remboursement client inconnu : 200');
+
+  // Litige sans `customer` : relié à l'abonnement par la charge (lecture Stripe simulée)
+  process.env.STRIPE_SECRET_KEY = 'sk_test_local';
+  stripe.retrieveCharge = async (id) => ({ id, customer: 'cus_en' });
+  n = sent.length;
+  rr = await post(port, { id: 'evt_dis2', type: 'charge.dispute.created', data: { object: { id: 'dp_2', charge: 'ch_3' } } });
+  ok(rr.status === 200 && sent.length === n + 1 && /abonnement=sub_en2/.test(sent[n].text), 'litige sans customer : alerte nomme l\'abonnement via la charge');
+  stripe.retrieveCharge = async () => { throw new Error('réseau'); };
+  n = sent.length;
+  rr = await post(port, { id: 'evt_dis3', type: 'charge.dispute.created', data: { object: { id: 'dp_3', charge: 'ch_4' } } });
+  ok(rr.status === 200 && sent.length === n + 1 && /abonnement=inconnu/.test(sent[n].text), 'lecture de la charge en panne : alerte quand même, 200');
 
   server.close();
   fs.rmSync(D, { recursive: true, force: true });
