@@ -1,4 +1,29 @@
-# Précision à l'aveugle — repli 11 (20 oct. 2026)
+# Précision à l'aveugle — repli 11 et 12 (20 oct. 2026)
+
+**Conclusion : le taux réel est celui de l'aveugle, pas celui du jeu entier.** Chaque lot neuf, jugé AVANT correction, donne 83,3 % (lot 1) puis 60,0 % (lot 2, volontairement plus dur). Le 99-100 % du jeu complet mesure surtout ce qu'on a déjà corrigé.
+
+| Lot | Cas | Aveugle (avant correction) | Après correction (non indépendant) | Jeu entier ensuite |
+|---|---|---|---|---|
+| h01-h30 (repli 11) | 30 | 83,3 % (25/30) | 100 % | 99,3 % |
+| h31-h60 (repli 12) | 30 | 60,0 % (18/30) | 100 % | 100 % (302 cas) |
+
+Lecture : la courbe à l'aveugle ne monte pas, car chaque lot vise les points faibles du précédent (synonymes, abréviations, noms propres). Les anciens cas restent à 100 % (≥ 98 % exigé) : aucune régression. Estimation honnête du taux réel du simulé : entre 60 et 85 % selon la difficulté ; le vrai chiffre (modèle réel) se mesure en `--live` (voir `docs/questions-emilien-precision.md`).
+
+## Lot 2 (h31-h60), écrit avant lecture de `taskprecision.js`
+Couvre : synonymes de « à ignorer » (Instagram, recruter, infolettre, balado, Uber Eats, cartes de fidélité, webinar), refonte/« nouveau », abréviations (exam, TP), verbe flou + nom propre, clients/commerces nommés, anglais, épicerie hors liste.
+12 échecs sur 30 : 8 refus manqués (synonymes), « exam de stats », « lait et œufs », « Café Olimpico », « the client ».
+
+### Corrections (classes, pas des cas)
+- « À ignorer » : titre ET terme ramenés au même concept par groupes de synonymes (refonte/redessiner/refaire/nouveau, embauche/recruter, newsletter/infolettre, podcast/balado, webinaire/webinar, conférence/colloque, livraison/delivery, fidélité/loyalty) et plateformes (réseaux sociaux : Instagram, Facebook, TikTok, LinkedIn... ; livraison à domicile : Uber, DoorDash...). Noms génériques d'un terme (programme, plan, service, campagne, carte) ignorés si un mot porteur reste.
+- Classement : abréviations exam/TP ; correction/retouche/modification = révision ; follow-up = suivi ; « étudier/réviser » -> cours/examen ; denrées courantes (lait, œufs, pain, fruits...) -> épicerie ; « le/mon/the client » (article défini, pas « nouveau/potentiel ») = client en place ; envoi/relance vers un commerce nommé (Café/Restaurant/Hôtel + nom propre) = clientèle professionnelle.
+- Effet de bord positif : h07 (corrections) et h18 (« nouveau logo ») du lot 1, laissés en erreur, sont résolus.
+
+### Limites
+Les groupes de synonymes sont finis : un synonyme absent échouera encore. Un lot 3 neuf est nécessaire pour mesurer le gain réel ; il tombera probablement sous 100 %.
+
+---
+
+# Détail du lot 1 (repli 11)
 
 30 cas h01-h30 écrits AVANT l'évaluation, sans lire `taskprecision.js` (resto, pigiste, café, étudiante, SaaS, jargon de l'app ; québécois, dates/heures, fautes, anglicismes, multi-actions).
 

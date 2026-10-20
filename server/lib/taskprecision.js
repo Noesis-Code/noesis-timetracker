@@ -19,16 +19,19 @@ function fold(v) {
   return String(v == null ? '' : v).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’']/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 // Abréviations courantes (formes pliées : « fact. » -> fact) ramenées au mot plein pour la comparaison seulement, jamais affichées.
-const ABBREV = { fact: 'facture', compta: 'comptabilite', qte: 'quantite', tel: 'telephone', tuto: 'tutoriel', stats: 'statistique', dispo: 'disponibilite' };
+const ABBREV = { fact: 'facture', compta: 'comptabilite', qte: 'quantite', tel: 'telephone', tuto: 'tutoriel', stats: 'statistique', dispo: 'disponibilite', exam: 'examen', exams: 'examens', tp: 'travail' };
 // Mots utiles (sans mots vides, pluriel simple ramené au singulier).
 // Anglicismes courants du français de bureau : le mot anglais garde son sens ET ajoute son équivalent français (comparaison seulement).
-const ANGLICISM = { invoice: 'facture', meeting: 'reunion', deadline: 'echeance' };
+const ANGLICISM = { invoice: 'facture', meeting: 'reunion', deadline: 'echeance', followup: 'suivi', follow: 'suivi' };
+// Retouches d'un livrable : mêmes sens que « révision » pour le classement (corrections, retouches, modifications).
+const ANGLICISM_EXTRA = { correction: 'revision', corrections: 'revision', retouche: 'revision', retouches: 'revision', modification: 'revision', modifications: 'revision' };
 const VAGUE_VERBS = new Set(['penser', 'voir', 'regarder', 'revoir', 'checker', 'think'].map((w) => stem(w)));
 function tokens(v) {
   const out = [];
   fold(v).split(' ').filter((w) => w && !STOP.has(w) && (w.length > 2 || /\d/.test(w))).forEach((w) => {
     out.push(stem(ABBREV[w] || w));
     if (ANGLICISM[w]) out.push(stem(ANGLICISM[w]));
+    if (ANGLICISM_EXTRA[w]) out.push(stem(ANGLICISM_EXTRA[w]));
   });
   // Titre vague (verbe flou + UN seul mot-objet : « Penser au projet », « Revoir ça ») : un objet isolé ne désigne aucun secteur, il ne compte pas.
   if (out.length === 2 && VAGUE_VERBS.has(out[0])) out.pop();
@@ -48,13 +51,44 @@ function stem(w) {
   return s;
 }
 
+// Concepts équivalents pour « à ignorer » seulement (titre ET terme ramenés au même mot) : classes de synonymes, pas des cas.
+const IGN_GROUPS = [
+  ['refonte', 'refondre', 'redessiner', 'redesign', 'refaire', 'repenser', 'redo', 'revamp', 'nouveau', 'nouvelle', 'new'],
+  ['embauche', 'recruter', 'recrutement', 'hiring', 'hire'],
+  ['newsletter', 'infolettre', 'emailing', 'mailchimp'],
+  ['podcast', 'balado', 'baladodiffusion'],
+  ['webinaire', 'webinar'],
+  ['conference', 'colloque', 'congres'],
+  ['livraison', 'delivery'],
+  ['fidelite', 'loyalty'],
+];
+// Plateformes : désignent à elles seules le concept (« sur Instagram » = réseaux sociaux ; « Uber Eats » = livraison à domicile).
+const IGN_PLATFORMS = {
+  reseaux_sociaux: ['instagram', 'facebook', 'tiktok', 'linkedin', 'twitter', 'youtube', 'snapchat', 'pinterest'],
+  livraison_domicile: ['uber', 'ubereats', 'doordash', 'skipthedishes'],
+};
+const IGN_CANON = {}, IGN_ADD = {};
+IGN_GROUPS.forEach((g) => g.forEach((w) => { IGN_CANON[stem(w)] = stem(g[0]); }));
+IGN_PLATFORMS.reseaux_sociaux.forEach((w) => { IGN_ADD[stem(w)] = [stem('reseaux'), stem('sociaux')]; });
+IGN_PLATFORMS.livraison_domicile.forEach((w) => { IGN_ADD[stem(w)] = [stem('livraison'), stem('domicile')]; });
+// Noms génériques d'un terme (« programme de fidélité », « plan marketing ») : le mot qui porte le sens suffit.
+const IGN_GENERIC = new Set(['programme', 'projet', 'service', 'plan', 'strategie', 'campagne', 'systeme', 'carte'].map(stem));
+function ignoreTokens(v) {
+  const out = [];
+  tokens(v).forEach((w) => { if (IGN_ADD[w]) out.push(...IGN_ADD[w]); out.push(IGN_CANON[w] || w); });
+  return out;
+}
+
 // Termes de la rubrique « à ignorer » : séparés par virgule, point-virgule, retour de ligne ou puce. Chaque terme garde ses mots utiles.
 function ignoreTerms(ignoreText) {
-  return String(ignoreText || '').split(/[,;\n•]+|\s[-–—]\s/).map(tokens).filter((t) => t.length);
+  return String(ignoreText || '').split(/[,;\n•]+|\s[-–—]\s/).map(ignoreTokens).map((t) => {
+    const core = t.filter((w) => !IGN_GENERIC.has(w));
+    return core.length ? core : t;
+  }).filter((t) => t.length);
 }
 // Vrai si TOUS les mots utiles d'un terme à ignorer figurent dans le titre (prudent : « site web » n'écarte pas « Écrire au webmestre »).
 function matchesIgnore(title, ignoreText) {
-  const t = new Set(tokens(title));
+  const t = new Set(ignoreTokens(title));
   if (!t.size) return null;
   const hit = ignoreTerms(ignoreText).find((term) => term.every((w) => t.has(w)));
   return hit ? hit.join(' ') : null;
@@ -85,9 +119,9 @@ function isDuplicate(title, others) { return (others || []).some((o) => sameTitl
 
 // « Action contre sujet » : le verbe d'ouverture dit le domaine (« Payer la facture du fournisseur » = finances, pas approvisionnement).
 // Renvoie les mots-thèmes (racines) à pondérer en plus des mots du titre ; liste fermée, volontairement courte, 0 hasard.
-const ACTION_THEMES = { pay: ['paiement', 'payment', 'invoice'], rembours: ['paiement'], regl: ['paiement'], declar: ['impot', 'taxe'], form: ['formation'], embauch: ['embauche'], photographi: ['photo'], horair: ['employe'] };
+const ACTION_THEMES = { pay: ['paiement', 'payment', 'invoice'], rembours: ['paiement'], regl: ['paiement'], declar: ['impot', 'taxe'], form: ['formation'], embauch: ['embauche'], photographi: ['photo'], horair: ['employe'], etudi: ['cours', 'examen', 'revision'], revis: ['cours', 'examen'] };
 // Lieux/démarches du quotidien (liste fermée) : « Passer à la pharmacie » = vie personnelle (santé), même sans mot de catégorie dans le titre.
-const ERRAND_THEMES = { pharmaci: ['sante'], medecin: ['sante'], dentist: ['sante'], docteur: ['sante'], clinique: ['sante'], epicer: ['epicerie'] };
+const ERRAND_THEMES = { pharmaci: ['sante'], medecin: ['sante'], dentist: ['sante'], docteur: ['sante'], clinique: ['sante'], epicer: ['epicerie'], lait: ['epicerie'], oeuf: ['epicerie'], pain: ['epicerie'], fromage: ['epicerie'], fruit: ['epicerie'], beurre: ['epicerie'], viande: ['epicerie'] };
 function actionHints(title) {
   const tk = tokens(title);
   const first = tk[0];
@@ -96,7 +130,11 @@ function actionHints(title) {
   // Un document financier domine son destinataire (« Envoyer la facture au client » = facturation, pas Clients) ; pas pour une double action (« … et relancer le client »).
   if (tk.includes('factur') && !/\s(?:et|and)\s/i.test(String(title))) out.push('facturation');
   // « le client Acme » (nom propre après « client ») : client existant, donc travail en cours, pas prospection.
-  if (/\bclient\s+[A-ZÉÈÀ]/.test(String(title))) out.push('livrables', 'projets', 'suivi');
+  if (/\bclient\s+[A-ZÉÈÀ]/.test(String(title))) out.push('livrables', 'projets', 'suivi', 'deliverables', 'projects');
+  // « le/mon/the client » (article défini) : client déjà en place, donc travail en cours ; pas « client potentiel / nouveau ».
+  else if (/\b(?:le|la|mon|ma|notre|the|my|our)\s+client(?:e)?\b(?!\s+(?:potentiel|prospect))/i.test(String(title)) && !/\b(?:nouveau|nouvelle|new|potentiel|prospect)/i.test(String(title))) out.push('livrables', 'projets', 'suivi', 'deliverables', 'projects');
+  // Envoi/relance vers un commerce nommé (« au Café Olimpico », « chez Restaurant Chez Luc ») : clientèle professionnelle, pas fournisseur.
+  if (/^(?:envoy|propos|pr[ée]sent|offr|relanc|rappel|contact|visit)/i.test(fold(title)) && !tk.includes('factur') && /\b(?:au|[àa] la|[àa] l'|chez|pour)\s+(?:le |la |l')?(?:Caf[ée]|Restaurant|Resto|Bistro|H[ôo]tel|Boulangerie|Bar|Brasserie|Pâtisserie)\s+[A-ZÉÈÀ]/.test(String(title))) out.push('clients', 'professionnels', 'restaurants');
   return out.map(stem);
 }
 

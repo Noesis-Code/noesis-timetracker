@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Jeu d'évaluation de la précision des tâches classées/générées (chantier permanent n°6).
 // Usage : node scripts/eval-task-precision.js [--fake] [--json] [--min-confidence=80]
+//         node scripts/eval-task-precision.js --live --only=h  (--only=<préfixe d'id> limite aux cas voulus ; ici les 60 cas à l'aveugle h01-h60)
 //         node scripts/eval-task-precision.js --live   (clé ANTHROPIC_API_KEY requise ; coûte des appels réels : lancé par Émilien seulement)
 // Par défaut --fake : fournisseur déterministe (recouvrement de mots), sans réseau ni coût. Le fournisseur est INJECTABLE :
 // run({ provider, cases, minConfidence }) accepte tout objet { classify({ label, candidates, strategy }) -> { key, uncertain, confidence } }.
@@ -97,7 +98,10 @@ if (require.main === module) {
   (async () => {
     const provider = args.includes('--live') ? liveProvider() : fakeProvider;
     const mc = arg('min-confidence');
-    const out = await run({ provider, minConfidence: mc !== undefined ? Number(mc) : undefined });
+    const only = arg('only'); // préfixe d'id (ex. --only=h : lots à l'aveugle h01-h60) pour limiter le coût d'un --live
+    const all = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
+    const cases = only ? { ...all, cases: all.cases.filter((c) => c.id.startsWith(only)) } : undefined;
+    const out = await run({ provider, cases, minConfidence: mc !== undefined ? Number(mc) : undefined });
     if (args.includes('--json')) { console.log(JSON.stringify(out, null, 2)); return; }
     console.log(`Fournisseur : ${out.provider} · seuil de confiance : ${out.minConfidence}`);
     out.rows.filter((r) => !r.ok).forEach((r) => console.log(`  ÉCART ${r.id} « ${r.label} » attendu ${JSON.stringify(r.expected)} obtenu ${JSON.stringify(r.got)}`));
