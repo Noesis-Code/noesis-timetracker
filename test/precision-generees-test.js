@@ -93,6 +93,11 @@ assert(blind2.rejetsAttendus.every((t) => !tp.checkGenerated(t, []).title), 'lot
   const b4 = require('./fixtures/task-precision/blind-h151-h180.json');
   const bad4 = b4.titles.filter((t) => tp.checkGenerated(t, []).title !== (b4.attendus[t] || t) || (t in b4.hints && JSON.stringify(hint.parseDateHint(t, b4.today)) !== JSON.stringify(b4.hints[t])));
   assert(b4.titles.length === 30 && bad4.length === 0, 'lot h151-h180 : ' + bad4.length + '/30 en échec' + (bad4.length ? ' ' + JSON.stringify(bad4) : ''));
+  // Lot h181-h210 (fautes, heures québécoises, dates relatives, doublons ; corrigé ensuite par règles générales : non indépendant après coup).
+  const b5 = require('./fixtures/task-precision/blind-h181-h210.json');
+  const bad5 = b5.titles.filter((t) => tp.checkGenerated(t, []).title !== (b5.attendus[t] || t) || (t in b5.hints && JSON.stringify(hint.parseDateHint(t, b5.today)) !== JSON.stringify(b5.hints[t])))
+    .concat(b5.doublons.filter(([a, n]) => tp.checkGenerated(n, [a]).reason !== 'doublon').map((p) => p[1]));
+  assert(b5.titles.length === 30 && bad5.length === 0, 'lot h181-h210 : ' + bad5.length + ' en échec' + (bad5.length ? ' ' + JSON.stringify(bad5) : ''));
   assert(tp.checkGenerated('Réunion de 9 h à 10 h', []).title === 'Réunion' && tp.checkGenerated('Dentiste à 3 heures', []).title === 'Dentiste', 'plages et « à N heures » restent des horaires retirés');
 }
 

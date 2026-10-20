@@ -90,7 +90,7 @@ function parseDateHint(text, today) {
   }
 
   // « Payer le loyer le 15 » : jour du mois nu en fin de titre (pas suivi d'une unité ou d'un mot : « le 15 chapitres » n'est pas une date).
-  m = / le (\d{1,2})(?:er)? $/.exec(t);
+  m = / le (\d{1,2})(?:er)?(?: (?:a |vers |at |@ )?\d{1,2} ?(?:h|heures?)(?: ?\d{2})?| (?:a |at |@ )?\d{1,2}(?::\d{2})? ?(?:am|pm))? $/.exec(t); // heure d'horloge facultative derrière (« le 28 à 16h »)
   if (m && +m[1] >= 1 && +m[1] <= 31) {
     const iso = dayOfMonth(today, +m[1]);
     if (iso) return { kind: 'day', date: iso };

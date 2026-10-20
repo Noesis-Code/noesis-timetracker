@@ -94,3 +94,22 @@ Colonnes : `day`, `feature`, `generated`, `rejected`, `cleaned`. Aucun identifia
 | « réunion du 12 octobre » -> 2027 | « du N mois » déjà passé cette année = référence, aucun indice (sauf échéance ou « à partir du ») |
 
 Limite : « 1h30 » vs « 3h30 » sans contexte reste ambigu (garder le texte est le choix sûr). Aucune règle ne cible un cas précis ; les lots précédents restent à 100 %.
+
+---
+
+# Lot h181-h210 : vraiment neuf (repli 20, 20 oct. 2026)
+
+`test/fixtures/task-precision/blind-h181-h210.json`, écrit AVANT de rouvrir `taskprecision.js`, `capturedatehint.js` et `taskrecurrence.js`. 30 titres + 4 paires de doublons, tous neutres (aucune tâche personnelle réelle recopiée). Axes : fautes de frappe, MAJUSCULES, abréviations, heures québécoises (9h30, 10h, midi), dates relatives (semaine prochaine, fin du mois, d'ici vendredi, dans 2 semaines), durées, titres sans verbe, listes collées.
+
+**Taux aveugle honnête : 29/34 = 85,3 %** (5 écarts avant correction). Dont 2 étaient une erreur de MON attente (« la semaine prochaine » donne bien un indice de semaine ; « Appeler X » / « Appeler X demain » n'est pas un doublon sûr : la date diffère), corrigées dans la fixture. Vrais défauts : 3 sur 34 (91,2 % si on ne compte qu'eux).
+
+| Défaut | Règle généralisée |
+|---|---|
+| « vendredi à midi » : heure non retirée | « à / vers / at / @ » + midi, minuit, noon, midnight = horaire |
+| « mercredi 10h » : heure non retirée | heure 5-12 h collée à un jour de semaine ou « demain » = horaire (une durée ne s'écrit pas ainsi) |
+| « le 28 à 16h » : aucun indice de date | « le N » suivi d'une heure d'horloge facultative = jour du mois |
+
+Corrections : `server/lib/taskprecision.js` (FIXED_TIME), `server/lib/capturedatehint.js` (jour du mois nu). Rien ne crée de récurrence : « tous les lundis » reste un titre inchangé, sans validation automatique.
+Limite : « 10h » sans jour ni « à » reste ambigu avec une durée ; le texte est conservé (choix sûr).
+
+Non-régression : les lots h121-h150 et h151-h180 rejoués à 0 écart ; `eval-task-precision` : exactitude 100 %, refus justes 100 % ; `precision-generees-test.js` couvre maintenant h181-h210.
