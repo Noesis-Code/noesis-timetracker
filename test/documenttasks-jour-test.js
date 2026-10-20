@@ -39,14 +39,14 @@ const fin = (rows, doc) => {
   const fr = d.getUTCDate() + ' ' + ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'][d.getUTCMonth()];
   assert(dt.docMentionsDate('Rendre le ' + fr + ' au plus tard', sat) && dt.docMentionsDate('pour le ' + d.getUTCDate() + '/' + (d.getUTCMonth() + 1), sat) && !dt.docMentionsDate('rien ici', sat), 'date du document reconnue (ISO, « 24 oct. », JJ/MM)');
 
-  p = parse([['Faire Passé', key, '1999-01-04', 30], ['Faire Loin', key, '2099-01-05', 30], ['Faire Faux', key, '2026-02-31', 30]]);
+  p = parse([['Passé', key, '1999-01-04', 30], ['Loin', key, '2099-01-05', 30], ['Faux', key, '2026-02-31', 30]]);
   assert(p.tasks.every((t) => t.day === null && t.week === null), 'jour passé, hors horizon ou impossible : rejeté');
-  p = parse([['Faire Hier', key, goals.addDays(today, -3), 30]]);
+  p = parse([['Hier', key, goals.addDays(today, -3), 30]]);
   assert(p.tasks[0].day === null || p.tasks[0].day >= today, 'jamais avant aujourd\'hui');
 
-  p = parse([['Faire Ancien', key, goals.mostRecentMonday(today), 30], ['Faire Lundi futur', key, nextMon, 30]]);
+  p = parse([['Ancien', key, goals.mostRecentMonday(today), 30], ['Lundi futur', key, nextMon, 30]]);
   assert(p.tasks[0].day >= today && isFinite(Date.parse(p.tasks[0].day)) && p.tasks[1].day === nextMon, 'ancien format (lundi de semaine) toujours accepté');
-  const old = dt.parseDetailed(JSON.stringify({ tasks: [{ title: 'Remplacer le vieux', key, week: nextMon, minutes: 20 }] }), dt.buildContext('own', act));
+  const old = dt.parseDetailed(JSON.stringify({ tasks: [{ title: 'Vieux', key, week: nextMon, minutes: 20 }] }), dt.buildContext('own', act));
   assert(old.tasks[0].week === nextMon && old.tasks[0].day === nextMon, 'ancien format objet {tasks:[...]} accepté');
 
   // Débordement : capacité 60 min/jour ; 3 tâches de 30 min le mercredi -> la moins importante (dernière) part au jeudi

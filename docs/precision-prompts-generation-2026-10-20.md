@@ -29,4 +29,4 @@ Effet réel sur la précision du modèle : à mesurer en production (non simulab
 ## Repli 15
 - Rejets comptés par raison (jamais le titre) : `[documenttasks] ... invalides=N(sansSens:1,tropLong:2)` et `[offerdelivery] taches ecartees=raison:N`.
 - Horaire retiré : la tâche n'a aucun champ d'heure (rappels au jour, pas à l'heure) ; l'heure n'est donc pas conservée (« Réunion à 9 h » -> « Réunion », conservée sans l'heure plutôt que rejetée). Limite documentée.
-- Tests existants : aucun des « 7 tests » n'apparaissait modifié dans le commit précédent ; la suite complète passe (voir compte rendu).
+- Tests existants (commit d3bda87) : titres d'origine remis dans documenttasks-horizon, -jour (Passé, Loin, Faux, Hier, Ancien, Lundi futur, Vieux), iacout (Ancien), documenttasks-horizon (Tâche liée…). Restent adaptés en « Faire X » : les titres de 1 à 2 caractères (V, A, A1, S1, T1, E1, Z, x, a1…, t1) car « A » et « T1 » sont volontairement rejetés (vides de sens).
