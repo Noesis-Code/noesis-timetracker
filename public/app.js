@@ -2133,7 +2133,41 @@
   function tabAllowed(tab) { return !(window.TMT && TMT.modules && TMT.modules.tabOn) || TMT.modules.tabOn(tab); }
   function firstTab() { return tabAllowed('chrono') ? 'chrono' : (tabAllowed('goals') ? 'goals' : 'activity'); }
   function modOn(id) { return !(window.TMT && TMT.modules) || TMT.modules.isOn(id); }
-  function switchTab(tab) {
+  // Page de statistiques (ancien onglet Stats, chantier B 20 oct. 2026) : ctx = 'chrono' (temps : feuille de temps, répartition, graphique)
+  // ou 'goals' (tâches et objectifs, public/js/stats-avance.js). Ne touche pas aux autres onglets : le glissement les gère.
+  function enterStats(ctx) {
+    if (TMT.setStatsContext) TMT.setStatsContext(ctx);
+    if (ctx !== 'chrono' || !modOn('stats')) return;
+    loadStats();
+    // La Feuille de temps repart toujours sur "Semaine, semaine en cours"
+    // à chaque ouverture de l'onglet (comportement déjà établi le 29 août
+    // 2026) — Répartition/Graphique, eux, gardent la période choisie
+    // précédemment (comme l'ancien sélecteur global #statsPeriodSwitch).
+    currentTimesheetPeriod = 'week';
+    currentTimesheetOffset = 0;
+    currentTimesheetMonthOffset = 0;
+    currentTimesheetYearOffset = 0;
+    syncPeriodMenuActive($('tsPeriodMenu'), 'week');
+    // La Répartition repart toujours SYNCHRONISÉE sur la Feuille de temps
+    // (3 septembre 2026, demande d'Emilien : « je souhaite que la
+    // répartition soit par défaut synchronisée à la feuille de temps »).
+    // Remis à zéro à l'ENTRÉE dans l'onglet plutôt qu'à la sortie : même
+    // résultat observable, mais ça couvre aussi le tout premier affichage
+    // et une réouverture de l'app directement sur cet onglet. Pas de
+    // repeinture ici — loadTimesheet() juste en dessous s'en charge.
+    pieTodayMode = false;
+    pieWeekMode = false;
+    syncPieTodayBtn();
+    loadTimesheet();
+  }
+  // Ouvre la page de statistiques sans glissement (points de pagination) ; n = 3 : onglet Objectifs de la page tâches/objectifs.
+  function openStats(ctx, n) {
+    enterStats(ctx);
+    switchTab('stats', { prepared: true });
+    if (ctx === 'goals' && n === 3 && TMT.setStatsPage) TMT.setStatsPage(3, { noAnim: true });
+  }
+
+  function switchTab(tab, opts) {
     if (!tabAllowed(tab)) tab = firstTab();
     // 5 oct. 2026 (Emilien) : Historique/Archives reviennent enroulés (et sans réserve d'espace) à chaque changement d'onglet.
     collapseChronoHistory();
@@ -2142,9 +2176,12 @@
     if (TMT.collapseGoalsAlerts) TMT.collapseGoalsAlerts();
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
+    // Chantier B (20 oct. 2026) : Stats n'est plus un onglet de la barre, c'est une page à gauche de Chrono (stats de temps) ou de la
+    // Feuille de route (tâches et objectifs) ; l'icône de la barre qui reste allumée est celle du volet d'où l'on vient.
+    var barTab = tab === 'stats' ? ((TMT.statsContext && TMT.statsContext()) === 'goals' ? 'goals' : 'chrono') : tab;
     tabButtons.forEach(function (b) {
-      b.classList.toggle('active', b.dataset.tab === tab);
-      if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); // onglet courant annoncé par les lecteurs d'écran
+      b.classList.toggle('active', b.dataset.tab === barTab);
+      if (b.dataset.tab === barTab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); // onglet courant annoncé par les lecteurs d'écran
     });
     // Tout onglet de la barre du bas quitte forcément le Profil (voir plus
     // bas, openProfile()) — la topbar revient donc à son état par défaut
@@ -2167,30 +2204,9 @@
     $('profileSettingsBtn').classList.remove('active');
 
     if (tab === 'stats') {
-      // 3 oct. 2026 : on revient toujours sur la page 1 (stats de temps), jamais sur celle des tâches .
-      if (TMT.setStatsPage) TMT.setStatsPage(modOn('stats') ? 1 : 2, { noAnim: true });
-      if (!modOn('stats')) { refreshScrollLock(); return; }
-      loadStats();
-      // La Feuille de temps repart toujours sur "Semaine, semaine en cours"
-      // à chaque ouverture de l'onglet (comportement déjà établi le 29 août
-      // 2026) — Répartition/Graphique, eux, gardent la période choisie
-      // précédemment (comme l'ancien sélecteur global #statsPeriodSwitch).
-      currentTimesheetPeriod = 'week';
-      currentTimesheetOffset = 0;
-      currentTimesheetMonthOffset = 0;
-      currentTimesheetYearOffset = 0;
-      syncPeriodMenuActive($('tsPeriodMenu'), 'week');
-      // La Répartition repart toujours SYNCHRONISÉE sur la Feuille de temps
-      // (3 septembre 2026, demande d'Emilien : « je souhaite que la
-      // répartition soit par défaut synchronisée à la feuille de temps »).
-      // Remis à zéro à l'ENTRÉE dans l'onglet plutôt qu'à la sortie : même
-      // résultat observable, mais ça couvre aussi le tout premier affichage
-      // et une réouverture de l'app directement sur cet onglet. Pas de
-      // repeinture ici — loadTimesheet() juste en dessous s'en charge.
-      pieTodayMode = false;
-      pieWeekMode = false;
-      syncPieTodayBtn();
-      loadTimesheet();
+      // Page de statistiques à gauche de Chrono (stats de temps) ou de la Feuille de route (tâches/objectifs) : voir enterStats().
+      if (!(opts && opts.prepared)) enterStats('chrono');
+      refreshScrollLock();
     }
     else {
       if (tab === 'community') loadCommunity();
@@ -16302,6 +16318,8 @@
   window.TMT.readableTextOn = readableTextOn;
   window.TMT.appendLinkified = appendLinkified;
   window.TMT.switchTab = switchTab;
+  window.TMT.enterStats = enterStats;
+  window.TMT.openStats = openStats;
   // Bascule d'un module (Réglages > Modules) : l'interface se met à jour sans recharger l'app.
   function onModulesChange() {
     var active = document.querySelector('.tabBtn.active');

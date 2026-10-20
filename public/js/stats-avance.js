@@ -936,14 +936,64 @@
     .observe(zone, { attributes: true, attributeFilter: ['class', 'style'] });
   function closeModal() { inst.hideSheet(); inst.reset(); }
 
-  // ---------- Changement de page (même animation que setGoalsPage2Mode) ----------
-  // Trois points globaux : Temps | Tâches | Objectifs. n = 1..3 ; 2 et 3 sont la page 2 (onglet Tâches / Objectifs).
-  function setDots() {
-    var lp = page === 1 ? 1 : (inst.getTab() === 'o' ? 3 : 2);
-    if (dots) Array.prototype.forEach.call(dots.children, function (d, i) { d.classList.toggle('on', i === lp - 1); });
+  // ---------- Pages de statistiques à GAUCHE de Chrono et de la Feuille de route (chantier B, 20 oct. 2026) ----------
+  // L'onglet Stats n'existe plus dans la barre : #tab-stats reste le conteneur, mais on y arrive en glissant vers la droite.
+  //   contexte « chrono » : [ Statistiques (temps) | Chrono ]
+  //   contexte « goals »  : [ Tâches | Objectifs | Feuille de route (page 1) ]
+  // Les écrans eux-mêmes (feuille de temps, répartition, graphique, cartes Tâches/Objectifs) ne changent pas.
+  var ctx = 'chrono';
+  function showing(id) { var e = document.getElementById(id); return !!e && !e.classList.contains('hidden'); }
+  function modOnId(id) { return !TMT.modules || TMT.modules.isOn(id); }
+  TMT.statsContext = function () { return ctx; };
+  TMT.setStatsContext = function (c) {
+    ctx = c === 'goals' ? 'goals' : 'chrono';
+    if (ctx === 'goals' && page === 2) { inst.setTab('t'); inst.open(); } // déjà sur la page tâches/objectifs : on repart de Tâches, données fraîches
+    else setStatsPage(ctx === 'goals' ? 2 : 1, { noAnim: true });
+    setDots();
+  };
+
+  // ---------- Points de pagination (un seul jeu, #statsPageDots, posé hors des onglets) ----------
+  var DOT_LABELS = { chrono: ['Statistiques', 'Chrono'], goals: ['Tâches', 'Objectifs', 'Feuille de route'] };
+  var dotsKey = '', dotsTimer = 0;
+  function place() {
+    if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (inst.getTab() === 'o' ? 1 : 0) : 0 };
+    if (showing('tab-chrono')) return { ctx: 'chrono', idx: 1 };
+    if (showing('tab-goals') && showing('goalsCapturePage')) return { ctx: 'goals', idx: 2 };
+    return null;
   }
+  function paintDots() {
+    dotsTimer = 0;
+    if (!dots || !inst) return;
+    var pl = place();
+    if (!pl || (pl.ctx === 'goals' && !modOnId('stats-tasks')) || (pl.ctx === 'chrono' && !modOnId('stats'))) { dots.classList.add('hidden'); return; }
+    dots.classList.remove('hidden');
+    if (dotsKey !== pl.ctx) {
+      dotsKey = pl.ctx; dots.innerHTML = '';
+      DOT_LABELS[pl.ctx].forEach(function (lab) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'goalsDotBtn'; b.setAttribute('aria-label', tr(lab));
+        b.appendChild(el('span', 'goalsDot')); dots.appendChild(b);
+      });
+    }
+    Array.prototype.forEach.call(dots.children, function (d, i) { d.classList.toggle('on', i === pl.idx); });
+  }
+  function setDots() { if (!dotsTimer) dotsTimer = window.requestAnimationFrame(paintDots); }
+  if (dots) dots.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.goalsDotBtn'); if (!b) return;
+    var i = Array.prototype.indexOf.call(dots.children, b), pl = place();
+    if (!pl || i === pl.idx) return;
+    if (pl.ctx === 'chrono') { if (i === 0) TMT.openStats('chrono'); else TMT.switchTab('chrono'); return; }
+    if (i === 2) { TMT.switchTab('goals'); return; }
+    if (showing('tab-stats')) setStatsPage(i + 2); else TMT.openStats('goals', i + 2);
+  });
+  // Les points suivent les onglets et l'écran de capture (ouvrir/fermer une page, glissement, notification…).
+  (function () {
+    var mo = new MutationObserver(setDots);
+    Array.prototype.forEach.call(document.querySelectorAll('.tab, #goalsCapturePage'), function (n) { mo.observe(n, { attributes: true, attributeFilter: ['class'] }); });
+  })();
+
+  // ---------- Changement de page interne (Tâches | Objectifs) : même animation que setGoalsPage2Mode ----------
   // Modules (js/modules.js) : page 1 = « stats » (Temps), pages 2-3 = « stats-tasks » (Tâches, Objectifs).
-  function pageOn(n) { return !TMT.modules || TMT.modules.isOn(n === 1 ? 'stats' : 'stats-tasks'); }
+  function pageOn(n) { return modOnId(n === 1 ? 'stats' : 'stats-tasks'); }
   function setStatsPage(n, opts) {
     opts = opts || {};
     if (!pageOn(n)) return;
@@ -971,27 +1021,49 @@
     };
   }
   TMT.setStatsPage = setStatsPage;
-  if (dots) Array.prototype.forEach.call(dots.children, function (b, i) { b.addEventListener('click', function () { setStatsPage(i + 1); }); });
 
-  // Glissement continu Temps | Tâches | Objectifs (slidePager, mêmes gardes que la Page 2 de la feuille de route :
-  // champs, zones défilant horizontalement — heatmap, graphique —, fenêtres ouvertes). Vers la droite depuis Tâches : retour à Temps.
-  function curIdx() { return page === 1 ? 0 : (inst.getTab() === 'o' ? 2 : 1); }
+  // Glissement continu (slidePager, mêmes gardes que la Page 2 de la feuille de route : champs, zones défilant horizontalement,
+  // fenêtres ouvertes). Vers la droite = page à gauche ; vers la gauche = retour vers Chrono / Feuille de route.
+  // Voisine « externe » : un autre onglet complet glisse à côté de celui-ci (le conteneur commun devient le repère de position).
+  function external(curEl, nbEl, start, target) {
+    var host = curEl.parentElement;
+    function done() { host.style.position = ''; }
+    return {
+      cur: curEl, nb: nbEl, host: host,
+      start: function () { host.style.position = 'relative'; if (start) start(); },
+      commit: function () { done(); TMT.switchTab(target, target === 'stats' ? { prepared: true } : undefined); },
+      cancel: done
+    };
+  }
+  function curIdx() { return ctx === 'goals' ? (inst.getTab() === 'o' ? 1 : 0) : 0; }
   slidePager({
     zone: zone,
-    swallow: function (dir) { return dir > 0 && curIdx() === 2; },
+    swallow: function (dir) { return dir < 0 && curIdx() === 0; },
     neighbor: function (dir) {
       var i = curIdx(), t = i + dir;
-      if (t < 0 || t > 2 || !pageOn(t + 1)) return null;
-      if (i === 0 || t === 0) {
-        return {
-          cur: i === 0 ? page1 : page2, nb: t === 0 ? page1 : page2, host: pages,
-          start: function () { if (t > 0) inst.open(); },
-          commit: function () { page = t === 0 ? 1 : 2; closeModal(); setDots(); }
-        };
-      }
+      if (ctx === 'chrono') return dir > 0 ? external(zone, document.getElementById('tab-chrono'), null, 'chrono') : null;
+      if (t < 0) return null;
+      if (t > 1) return external(zone, document.getElementById('tab-goals'), function () { if (TMT.showGoalsCapturePage) TMT.showGoalsCapturePage(); }, 'goals');
       if (!inst.otherReady()) return null;
-      var nt = t === 2 ? 'o' : 't';
+      var nt = t === 1 ? 'o' : 't';
       return { cur: inst.bodyOf(nt === 'o' ? 't' : 'o'), nb: inst.bodyOf(nt), host: page2, commit: function () { inst.commitTab(nt); } };
     }
   });
+  // Arrivée sur la page de statistiques depuis Chrono (glisser vers la droite) ou depuis la page 1 de la Feuille de route.
+  var chronoZone = document.getElementById('tab-chrono'), goalsZone = document.getElementById('tab-goals');
+  if (chronoZone) slidePager({
+    zone: chronoZone,
+    neighbor: function (dir) {
+      if (dir > 0 || !modOnId('stats')) return null;
+      return external(chronoZone, zone, function () { TMT.enterStats('chrono'); }, 'stats');
+    }
+  });
+  if (goalsZone) slidePager({
+    zone: goalsZone,
+    neighbor: function (dir) {
+      if (dir > 0 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsDetailPage')) return null;
+      return external(goalsZone, zone, function () { TMT.enterStats('goals'); }, 'stats');
+    }
+  });
+  setDots();
 })();

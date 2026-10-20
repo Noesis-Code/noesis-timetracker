@@ -42,7 +42,9 @@
   function refresh() {
     var list = load();
     list.forEach(function (tab) { var b = btnOf(tab); if (b) pill.appendChild(b); });
-    addBtn.classList.toggle('barNoAdd', !addable().length); // plus rien à ajouter : le « + » disparaît, la barre s'allonge
+    var avail = addable();
+    addBtn.classList.toggle('barNoAdd', !avail.length); // plus rien à ajouter : le « + » disparaît, la barre s'allonge
+    addBtn.classList.toggle('barPaid', avail.some(isPaid)); // variante verre fort : extension payée à ajouter (jamais les deux à la fois)
     Array.prototype.forEach.call(pill.querySelectorAll('.tabBtn'), function (b) {
       var on = list.indexOf(b.dataset.tab) !== -1 && tabAllowed(b.dataset.tab);
       b.classList.toggle('barOut', !on);
@@ -161,6 +163,9 @@
   }
 
   // ----- Pop-up « Ajouter à la barre » -----
+  // Extension payée (Expansion) proposée à l'ajout : aucun onglet payant n'existe encore dans ALL ; le jour où il existera, il se déclare ici.
+  var PAID_TABS = [];
+  function isPaid(tab) { return PAID_TABS.indexOf(tab) !== -1; }
   function addable() {
     var inBar = load();
     return ALL.filter(function (tab) {

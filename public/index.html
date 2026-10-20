@@ -1003,7 +1003,6 @@
       </div>
       <!-- 2 oct. 2026 : page 2 « tâches réalisées » (public/js/stats-avance.js), balayage droite → gauche depuis la page 1 -->
       <div id="statsAvancePage" class="hidden"></div></div>
-      <div id="statsPageDots" role="group"><button type="button" class="goalsDotBtn on" aria-label="Statistiques"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" aria-label="Tâches réalisées"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" aria-label="Objectifs"><span class="goalsDot"></span></button></div>
     </section>
 
     <!-- ---------- ONGLET COMMUNAUTÉ ---------- -->
@@ -3209,6 +3208,8 @@
 
   </main>
 
+  <!-- Points de pagination des pages de statistiques (gauche de Chrono / de la Feuille de route) : js/stats-avance.js. -->
+  <div id="statsPageDots" class="hidden" role="group"></div>
   <nav class="tabbar">
    <div class="tabbarPill" id="tabbarPill" role="tablist">
     <button class="tabBtn active" data-tab="chrono" data-module="stats" aria-label="Chrono">
@@ -3221,14 +3222,6 @@
         </svg>
       </span>
       <span class="tabLabel">Chrono</span>
-    </button>
-    <button class="tabBtn" data-tab="stats" data-module="tab-stats" aria-label="Statistiques">
-      <span class="tabIcon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="3,17 9,10 13,14 21,5"/>
-        </svg>
-      </span>
-      <span class="tabLabel">Stats</span>
     </button>
     <!-- Objectifs (13 septembre 2026, demande d'Emilien : retiré de la page
          d'activité — voir l'ancien encart juste avant #activityGoalsBlock,
