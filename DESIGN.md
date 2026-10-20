@@ -7,7 +7,7 @@ Extrait du code réel (`public/styles.css`, `public/css/*.css`, `public/theme-pa
 - **Sombre uniquement : aucun mode clair, ne jamais ajouter de variante claire** (règle ferme d'Émilien, 19 oct. 2026).
 - **Violet = couleur principale** (`--purple`), halos compris. Une autre teinte n'est jamais introduite sans demande explicite d'Émilien.
 - **Seuls les pôles portent une couleur** (palette `theme-palette.js`) ; jamais les secteurs.
-- **Direction « verre »** : fonds translucides + flou + liseré clair (`--glass-*`, `--vc-*`), halo violet flou en bas de l'écran. Fond de l'app = noir pur ; la barre du haut est noire.
+- **Direction « verre »** : fonds translucides + flou + liseré clair (`--glass-*`, dont `--glass-calm-*`), halo violet flou en bas de l'écran. Fond de l'app = noir pur ; la barre du haut est noire.
 - **Barres sans séparation visible** : `.tabbar` = même fond que la page, sans bordure ni ombre (icônes « flottantes »). Pas de trait de séparation nouveau.
 - **Une seule technique d'interaction par fonction** : fermeture d'un plein écran = croix ✕ ; réordonnancement = glisser-déposer ; bouton d'envoi DANS la zone d'écriture ; une LISTE de tâches, jamais un horaire à créneaux.
 - Les actions destructrices/« rouges » sont des boutons orange brique (voir 2.1), les pastilles/états restent rouges.
@@ -21,7 +21,7 @@ Extrait du code réel (`public/styles.css`, `public/css/*.css`, `public/theme-pa
 | `--purple` / `--purple-dark` / `--purple-rgb` | `#674EA7` / `#4a3980` / `103, 78, 167` |
 | `--green` (états actifs, interrupteur ON) | `#4CAF50` |
 | `--red` (pastilles, états) | `#E74C3C` |
-| `--blue` / `--grey` | `#3498db` / `#CCCCCC` |
+| `--blue` | `#3498db` |
 | `--bg` (fond page/fenêtres) | `#000000` |
 | `--card` | `#1f2229` |
 | `--bg-raised` (sans consommateur actif) | `#121214` |
@@ -30,6 +30,8 @@ Extrait du code réel (`public/styles.css`, `public/css/*.css`, `public/theme-pa
 | `--track-bg` / `--hover-bg` | `#2b2e35` / `#2a2d34` |
 | `--sheet-line` (liseré haut des feuilles) | `rgba(255,255,255,.3)` |
 | `--mine-violet` / `--mine-violet-text` | `#B7AED3` / `#1E1833` |
+
+Autres variables de `:root` (`styles.css`, présentes, à utiliser plutôt que d'en inventer) : neutres `--white` `--black` `--surface-dim` `--veil` ; états `--good` `--good-text` `--bad` `--partial` `--danger-armed` `--unread` `--live-green` `--ios-blue` `--link-blue` ; avertissements `--warn-gold` `--warn-line` `--warn-orange` `--warn-text-1` `--warn-text-2` ; violets annexes `--violet-me` `--violet-promo` `--violet-soft` `--violet-trail` `--grey-violet` `--lilac-bg` `--lilac-text` `--onb-bg` `--onb-purple` ; barre d'onglets `--tab-idle` `--tab-idle-dark` ; boutons flottants `--float-bg/-active/-label/-text` ; calendrier `--cal-gap` `--cal-head` `--cal-row` ; accent brique `--brique` `--brique-rgb` `--brique-text` `--brique-stop`.
 
 Accent « orange brique » des boutons d'action/suppression : `#C2694A` (bordure), `#E08A69` (texte), `#C4483F` (stop du chrono, `.chronoBtn-stop`), `#f59a3c` (pastilles non lues). Définis en dur (voir §5).
 
@@ -46,9 +48,9 @@ Accent « orange brique » des boutons d'action/suppression : `#C2694A` (bordure
 ### 2.3 Ombres, verre, transitions
 
 - `--shadow-card` : `0 2px 10px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.04)`.
-- `--shadow-elevated` : `0 16px 40px rgba(0,0,0,.5)`. Aussi `--shadow-topbar`, `--shadow-tabbar`, `--shadow-badge`.
+- `--shadow-elevated` : `0 16px 40px rgba(0,0,0,.5)`. Aussi `--shadow-topbar`, `--shadow-tabbar`.
 - **Verre** : `--glass-bg` (`linear-gradient` blanc `.14 → .06`), `--glass-border` (`rgba(255,255,255,.16)`), `--glass-shadow` (liseré interne haut + ombre portée), toujours avec `backdrop-filter: blur(24px) saturate(160%)` (variante feuilles/menus : `blur(40px) saturate(160%)`).
-- **Verre calme** (`css/verre-calme.css`, chargé en dernier) : `--vc-bg` (`rgba(255,255,255,.05)`), `--vc-line` (`rgba(255,255,255,.12)`), `--vc-blur: blur(12px) saturate(1.1)`. Remplace le fond gris `--card` des cartes/lignes/champs listés dans ce fichier.
+- **Verre calme** (`css/verre-calme.css`, chargé en dernier) : `--glass-calm-bg` (`rgba(255,255,255,.05)`), `--glass-calm-line` (`rgba(255,255,255,.12)`), `--glass-calm-blur: blur(12px) saturate(1.1)` (variantes `-bg-strong`, `-blur-strong`, `-btn-bg`, `-btn-line`). Remplace le fond gris `--card` des cartes/lignes/champs listés dans ce fichier.
 - Transition : `--transition-fast: 0.15s ease`. `prefers-reduced-motion` coupe tout.
 - Focus clavier : `outline: 2px solid var(--purple); offset 2px`. Focus champ : halo `0 0 0 3px rgba(var(--purple-rgb), .18)`.
 
