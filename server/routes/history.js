@@ -12,6 +12,10 @@ const { checkEntryTimes } = require('../lib/entryguard');
 
 const router = express.Router();
 
+function isMember(userId, activityId) {
+  return !!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId);
+}
+
 // Catégorie rattachée, pour l'afficher sur la carte d'historique. Un cache
 // local à la requête suffit : une semaine d'enregistrements pointe en
 // pratique une poignée de catégories, et on passe par la fonction de
@@ -97,6 +101,8 @@ router.post('/history', (req, res) => {
   const activityIdIn = Number(req.body.activityId); // absent/objet : 400 (node:sqlite lève sur undefined)
   const activity = Number.isInteger(activityIdIn) ? db.prepare('SELECT * FROM activities WHERE id = ?').get(activityIdIn) : null;
   if (!activity) return res.status(400).json({ error: 'Activité invalide.' });
+  // Sécurité : on n'enregistre que dans une activité dont on est membre (jamais celle d'un autre compte).
+  if (!isMember(userId, activity.id)) return res.status(403).json({ error: "Cette activité ne t'appartient pas." });
 
   const startTime = new Date(req.body.startTime);
   const endTime = new Date(req.body.endTime);
@@ -131,6 +137,11 @@ router.put('/history/:id', (req, res) => {
   const activityId = req.body.activityId ? Number(req.body.activityId) : entry.activityId;
   const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(activityId);
   if (!activity) return res.status(400).json({ error: 'Activité invalide.' });
+  // Déplacer une entrée vers une autre activité exige d'en être membre ; la laisser où elle est reste permis
+  // (ancien membre qui corrige une note).
+  if (Number(activity.id) !== Number(entry.activityId) && !isMember(req.userId, activity.id)) {
+    return res.status(403).json({ error: "Cette activité ne t'appartient pas." });
+  }
 
   const startTime = req.body.startTime ? new Date(req.body.startTime) : new Date(entry.startTime);
   const endTime = req.body.endTime ? new Date(req.body.endTime) : new Date(entry.endTime);

@@ -305,7 +305,6 @@ function moveCategoryTask(activityId, userId, itemId, newCategoryKey) {
 function reassignHistoryTask(userId, itemId, newActivityId, newCategoryKey, newDueDate) {
   const item = subprojects.getItemRaw(itemId);
   if (!item) throw Object.assign(new Error('Tâche introuvable.'), { statusCode: 404 });
-  subprojects.assertItemEditable(item);
 
   const currentSubProject = subprojects.getSubProject(item.subProjectId);
   if (!currentSubProject) throw Object.assign(new Error('Tâche introuvable.'), { statusCode: 404 });
@@ -317,6 +316,12 @@ function reassignHistoryTask(userId, itemId, newActivityId, newCategoryKey, newD
   // via activity_members — voir tasksHistoryForWeek) : seule l'appartenance
   // à la NOUVELLE activité reste à vérifier ici, même garde que
   // moveCategoryTask pour la catégorie elle-même.
+  // Vérifié aussi côté serveur pour l'ANCIENNE activité : sans cela, l'identifiant d'une tâche d'un autre compte
+  // pouvait être déplacé par appel direct (404 identique à « introuvable » : on ne révèle pas son existence).
+  const isOldMember = !!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?')
+    .get(oldActivityId, userId);
+  if (!isOldMember) throw Object.assign(new Error('Tâche introuvable.'), { statusCode: 404 });
+  subprojects.assertItemEditable(item);
   const isMember = !!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?')
     .get(newActivityId, userId);
   if (!isMember) throw Object.assign(new Error("Tu n'es pas membre de cette activité."), { statusCode: 403 });
