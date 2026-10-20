@@ -2490,4 +2490,16 @@ if (!db.prepare('PRAGMA table_info(ai_tokens)').all().some((c) => c.name === 'ca
   db.exec('ALTER TABLE ai_tokens ADD COLUMN canWrite INTEGER NOT NULL DEFAULT 0');
 }
 
+// Cles d'idempotence de la capture hors ligne (20 oct. 2026) : un renvoi de la meme cle
+// renvoie la reponse deja enregistree au lieu de creer un doublon. Additif, idempotent.
+db.exec(`
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+  userId TEXT NOT NULL,
+  key TEXT NOT NULL,
+  response TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  PRIMARY KEY (userId, key)
+);
+`);
+
 module.exports = db;

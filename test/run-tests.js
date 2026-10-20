@@ -208,6 +208,9 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'offline-queue-test.js')], { encoding: 'utf8' }); assert(true, 'file hors ligne : cas limites (test/offline-queue-test.js) passe'); }
   catch (e) { assert(false, 'file hors ligne : cas limites (test/offline-queue-test.js) échoue'); }
 
+  try { execFileSync('node', [path.join(__dirname, 'offline-idempotence-test.js')], { encoding: 'utf8' }); assert(true, 'file hors ligne : idempotence (test/offline-idempotence-test.js) passe'); }
+  catch (e) { assert(false, 'file hors ligne : idempotence (test/offline-idempotence-test.js) échoue'); }
+
   // Planificateur de semaines (lot A) : suite autonome, base temporaire propre.
   let wpOk = true;
   try { execFileSync('node', [path.join(__dirname, 'weekplanner-test.js')], { encoding: 'utf8' }); } catch (e) { wpOk = false; }

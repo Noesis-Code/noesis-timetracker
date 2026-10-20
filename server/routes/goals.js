@@ -658,8 +658,20 @@ router.post('/activities/:id/goals/categories/auto-task', async (req, res) => {
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
+  // Clé d'idempotence (capture hors ligne) : même clé rejouée => tâche déjà créée, sans doublon.
+  const rawKey = req.get('Idempotency-Key');
+  const idemKey = rawKey ? String(rawKey).slice(0, 100) : null;
+  if (idemKey) {
+    const prev = db.prepare('SELECT response FROM idempotency_keys WHERE userId = ? AND key = ?').get(userId, idemKey);
+    if (prev) { try { return res.status(200).json(JSON.parse(prev.response)); } catch (_) { /* ignorée : on recrée */ } }
+  }
+
   try {
     const item = await goalstaskclassify.addTaskWithAutoCategory(activityId, userId, req.body.label);
+    if (idemKey) {
+      db.prepare('INSERT OR REPLACE INTO idempotency_keys (userId, key, response, createdAt) VALUES (?, ?, ?, ?)')
+        .run(userId, idemKey, JSON.stringify(item), new Date().toISOString());
+    }
     res.status(201).json(item);
   } catch (err) {
     handleGoalsError(res, err);

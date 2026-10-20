@@ -65,6 +65,13 @@
   // Libellé vide refusé ; une même saisie répétée dans les 5 s (double appui)
   // n'est mise en file qu'une fois.
   var DEDUPE_MS = 5000;
+  // Clé d'idempotence unique par élément : un renvoi après coupure (envoi réussi
+  // mais élément pas encore retiré) ne crée pas de doublon côté serveur.
+  function newKey() {
+    var c = root.crypto;
+    if (c && c.randomUUID) return c.randomUUID();
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  }
   function add(entry) {
     var label = String(entry.label == null ? '' : entry.label).trim();
     if (!label) return Promise.reject(new Error('Libellé vide'));
@@ -73,6 +80,7 @@
       label: label,
       tz: entry.tz || null,
       createdAt: Date.now(),
+      key: newKey(),
     };
     return list().then(function (items) {
       var twin = items.filter(function (it) {
@@ -124,6 +132,7 @@
         var it = items[i++];
         var headers = { 'Content-Type': 'application/json' };
         if (it.tz) headers['X-Client-Tz'] = it.tz;
+        if (it.key) headers['Idempotency-Key'] = it.key;
         return fetch('/api/activities/' + encodeURIComponent(it.activityId) + '/goals/categories/auto-task', {
           method: 'POST',
           headers: headers,
