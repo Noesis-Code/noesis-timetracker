@@ -61,13 +61,9 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 
 **5. Simplification et design général**
 1. Propositions 6 à 10 du Simplificateur non réservées : les exécuter.
-<<<<<<< HEAD
 3. Retrait des doublons (deux entrées vers la même fonction).
 4. Audit de simplicité écran par écran (`docs/boucle-veille.md`, un écran par passe, capture 390 px) : Stats, Feuille de route, Communauté, Activité, Profil, Réglages.
 5. Benchmark concurrents « 0 → 1 » (Toggl, Clockify, Harvest) : par écran, ce qu'ils font avec le moins d'éléments ; en tirer des tâches de retrait.
-=======
-2. Retrait des doublons (deux entrées vers la même fonction).
->>>>>>> c701f0c (Simplification : commentaires historiques de styles.css raccourcis (CSS inchangé, aucun sélecteur orphelin trouvé))
 
 **6. Précision des tâches générées**
 1. Cas restants c12 et c54 du jeu d'évaluation.
