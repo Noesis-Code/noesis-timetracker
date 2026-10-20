@@ -11847,23 +11847,6 @@
     });
   })();
 
-  // Commentaire d'amélioration de l'écran Chrono : réutilise POST /api/feedback (screen=chrono, 500 caractères max).
-  (function initChronoImprove() {
-    var input = $('chronoImproveInput'), btn = $('chronoImproveSendBtn'), msg = $('chronoImproveMsg');
-    if (!input || !btn) return;
-    input.addEventListener('input', function () { pollAutoGrow(input); });
-    btn.addEventListener('click', function () {
-      var text = (input.value || '').trim();
-      if (!text) return;
-      btn.disabled = true;
-      msg.textContent = '';
-      api('POST', '/api/feedback', { category: 'suggestion', screen: 'chrono', message: text.slice(0, 500) })
-        .then(function () { input.value = ''; pollAutoGrow(input); msg.textContent = t('Merci pour ta suggestion.'); })
-        .catch(function () { msg.textContent = t('L\'envoi a échoué, réessaie plus tard'); })
-        .finally(function () { btn.disabled = false; });
-    });
-  })();
-
   // ===================== MES NOTES — SUPPRIMÉE LE 4 SEPTEMBRE 2026 =====================
   // Demande d'Emilien : « je souhaite supprimer les notes », cadrée en
   // « Tout supprimer, interface et serveur ». loadProfileNotes/renderNotesList

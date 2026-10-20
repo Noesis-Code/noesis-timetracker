@@ -17,7 +17,7 @@ Les noms de secteurs ci-dessus sont exacts (ne pas les reformuler). **Règle** :
 Drive NOÈSIS et paiement Stripe : voir `CLAUDE.md` (source unique).
 
 ## Règles automatiques du chantier 7 (décision d'Émilien, 19 oct. 2026)
-1. **Sept chantiers actifs en tout temps** (directive d'Émilien, 19 oct. 2026) : il ne doit jamais y en avoir moins de sept. Quand un chantier finit, le coordinateur le relance aussitôt avec la première tâche disponible, dans cet ordre : (a) tâches non réservées du secteur principal (`lister_taches`) ; (b) la liste de repli du chantier (section « Listes de repli ») ; (c) à défaut, le chantier génère lui-même 3 tâches utiles dans son périmètre et les inscrit à la fin de sa liste de repli. Aucune question à Émilien pour relancer ; ses réponses éventuelles passent en tête de file.
+1. **Sept chantiers actifs en tout temps** (directive d'Émilien, 19 oct. 2026) : il ne doit jamais y en avoir moins de sept. Quand un chantier finit, le coordinateur le relance aussitôt avec la première tâche disponible, dans cet ordre : (a) tâches non réservées du secteur principal (`lister_taches`) ; (b) la liste de repli du chantier (section « Listes de repli ») ; (c) à défaut, appliquer la boucle `docs/boucle-veille.md` : le chantier génère 3 tâches candidates (échecs, relectures, mesures, audit de simplicité, benchmark concurrents), chacune au format `docs/modele-tache.md` (incomplète = question à cocher, non lancée), et les inscrit à la fin de sa liste de repli. Les demandes d'Émilien sont copiées mot pour mot dans `docs/intentions.md`. Aucune question à Émilien pour relancer ; ses réponses éventuelles passent en tête de file.
 2. **Crédits Claude** : une tâche planifiée quotidienne (8 h 54, heure de New York, « Quota Claude quotidien ») envoie une notification push lui demandant son pourcentage de quota hebdomadaire et la cible attendue (≈ 14 % par jour depuis le samedi 5 h). Quand Émilien répond avec son pourcentage, le coordinateur ajuste le nombre de chantiers en cours (plus d'agents si en retard sur la cible, moins ou plus légers si en avance). Claude ne peut pas lire lui-même le quota.
 3. **Claude API** : le chantier 4 rend un rapport de coût (`scripts/ai-cost-report.js`) ; toute économie qui change la qualité visible est proposée à Émilien avant d'être appliquée.
 
@@ -53,6 +53,8 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 **5. Simplification et design général**
 1. Propositions 6 à 10 du Simplificateur non réservées : les exécuter.
 3. Retrait des doublons (deux entrées vers la même fonction).
+4. Audit de simplicité écran par écran (`docs/boucle-veille.md`, un écran par passe, capture 390 px) : Stats, Feuille de route, Communauté, Activité, Profil, Réglages.
+5. Benchmark concurrents « 0 → 1 » (Toggl, Clockify, Harvest) : par écran, ce qu'ils font avec le moins d'éléments ; en tirer des tâches de retrait.
 
 **6. Précision des tâches générées**
 1. Cas restants c12 et c54 du jeu d'évaluation.
@@ -71,6 +73,8 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 2. Relecture croisée des dernières livraisons de `staging`.
 3. Mise à jour du Projet Claude NOÈSIS (journal des chantiers).
 4. Cohérence de `BACKLOG.md` (doublons, périmé).
+5. Audit de simplicité écran par écran : faire tourner la boucle `docs/boucle-veille.md` sur les écrans non audités et tenir le journal des malentendus.
+6. Benchmark concurrents (Toggl, Clockify, Harvest ; Sharesight, Delta pour Trade) : alimenter les tâches de retrait des autres chantiers.
 
 ## Règles communes
 - Un chantier = une branche `claude/<sujet>` depuis `origin/staging`, un worktree ; rebase avant push ; jamais `--force` ; **jamais `git stash`** (partagé entre worktrees) : utiliser un commit WIP.
