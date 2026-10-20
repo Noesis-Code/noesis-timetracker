@@ -143,6 +143,7 @@ function buildPrompt(label, categories, examples, opts) {
       ? [
         'Réponds UNIQUEMENT avec la clé de la catégorie la plus probable, sans texte autour, sans ponctuation, sans balises markdown.',
         "Si aucune catégorie ne convient ou si deux te paraissent réellement plausibles sans pouvoir trancher, réponds à la place exactement : INCERTAIN: cléA, cléB (tes deux meilleurs choix, clés de la liste ci-dessus).",
+        "Si la tâche enchaîne plusieurs actions avec « et » (ex. « Appeler Marc et envoyer la facture ») : choisis la catégorie qui couvre l'action principale si une domine, sinon réponds INCERTAIN avec les catégories des deux actions.",
       ]
       : [
         'Réponds UNIQUEMENT avec la clé de la catégorie la plus probable, sans texte autour, sans ponctuation, sans balises markdown.',

@@ -235,6 +235,18 @@
     { "id": "a07", "context": "etu", "kind": "classify", "label": "Passer à la pharmacie", "expect": {"outcome": "place", "key": "perso"} },
     { "id": "a08", "context": "cafe", "kind": "classify", "label": "Vérifier", "expect": {"outcome": "uncertain"} },
     { "id": "a09", "context": "pige", "kind": "classify", "label": "Faire la facture", "expect": {"outcome": "place", "key": "admin"} },
-    { "id": "a10", "context": "cafe", "kind": "classify", "label": "Régler la facture du fournisseur", "expect": {"outcome": "place", "key": "compta"} }
+    { "id": "a10", "context": "cafe", "kind": "classify", "label": "Régler la facture du fournisseur", "expect": {"outcome": "place", "key": "compta"} },
+    { "id": "e01", "context": "cafe", "kind": "classify", "label": "Appeler le fournisseur et envoyer la facture", "expect": {"outcome": "uncertain"} },
+    { "id": "e02", "context": "cafe", "kind": "classify", "label": "Commander du café vert et appeler le fournisseur", "expect": {"outcome": "place", "key": "appro"} },
+    { "id": "e03", "context": "pige", "kind": "classify", "label": "Envoyer la facture et relancer le client", "expect": {"outcome": "uncertain"} },
+    { "id": "e04", "context": "resto", "kind": "classify", "label": "Faire l'inventaire des légumes et commander chez le fournisseur", "expect": {"outcome": "place", "key": "achats"} },
+    { "id": "e05", "context": "etu", "kind": "classify", "label": "Rédiger le rapport et le remettre à l'équipe", "expect": {"outcome": "place", "key": "travaux"} },
+    { "id": "e06", "context": "cafe", "kind": "classify", "label": "Payer 450 $ de TPS", "expect": {"outcome": "place", "key": "compta"} },
+    { "id": "e07", "context": "etu", "kind": "classify", "label": "Payer 450 $ de loyer", "expect": {"outcome": "place", "key": "perso"} },
+    { "id": "e08", "context": "cafe", "kind": "classify", "label": "Commander 50 kg de café vert", "expect": {"outcome": "place", "key": "appro"} },
+    { "id": "e09", "context": "pige", "kind": "classify", "label": "Envoyer la facture de 1200 $ à la comptable", "expect": {"outcome": "place", "key": "admin"} },
+    { "id": "e10", "context": "etu", "kind": "classify", "label": "Rendez-vous dentiste et rédiger le rapport", "expect": {"outcome": "uncertain"} },
+    { "id": "e11", "context": "etu", "kind": "classify", "label": "Rendez-vous dentiste à 14 h", "expect": {"outcome": "place", "key": "perso"} },
+    { "id": "e12", "context": "resto", "kind": "classify", "label": "Payer la TPS et la TVQ", "expect": {"outcome": "place", "key": "compta"} }
   ]
 }

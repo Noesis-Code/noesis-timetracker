@@ -15,6 +15,12 @@ const FIXTURE = path.join(__dirname, '..', 'test', 'fixtures', 'task-precision',
 const fakeProvider = {
   name: 'fake',
   async classify({ label, candidates }) {
+    // Multi-actions « A et B » : si les deux moitiés désignent des catégories différentes, incertain (même règle que le prompt réel).
+    const halves = label.split(/\s+et\s+/i);
+    if (halves.length === 2) {
+      const sub = await Promise.all(halves.map((h) => fakeProvider.classify({ label: h, candidates })));
+      if (sub[0].key && sub[1].key && sub[0].key !== sub[1].key) return { key: null, uncertain: [sub[0].key, sub[1].key], confidence: 40 };
+    }
     const t = new Set(tp.tokens(label));
     const scored = candidates.map((c) => {
       const words = new Set(tp.tokens(c.label + ' ' + (c.description || '')));
