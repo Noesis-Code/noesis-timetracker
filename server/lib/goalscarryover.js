@@ -17,9 +17,7 @@ const HORIZON = 60;
 const MARGIN = 1.15;
 
 function todayLocal() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return require('./dates').userToday(); // jour de la requête en cours (fuseau du téléphone), sinon jour du processus
 }
 
 function httpError(msg, code) { return Object.assign(new Error(msg), { statusCode: code }); }

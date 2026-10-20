@@ -58,7 +58,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const db = require('../db');
-const { isValidTimezone, DEFAULT_TIMEZONE } = require('./dates');
+const { isValidTimezone, DEFAULT_TIMEZONE, runWithTimezone } = require('./dates');
 
 const COOKIE_NAME = 'noesis_session';
 const MAX_AGE_MS = 1000 * 60 * 60 * 24 * 180; // 180 jours — persistant comme l'était l'id en localStorage
@@ -275,7 +275,7 @@ function middleware(req, res, next) {
   }
   const headerTz = req.get('X-Client-Tz');
   req.timezone = isValidTimezone(headerTz) ? headerTz : DEFAULT_TIMEZONE;
-  next();
+  runWithTimezone(req.timezone, next); // « aujourd'hui » des modules d'objectifs = jour du téléphone (dates.userToday)
 }
 
 function requireAuth(req, res, next) {

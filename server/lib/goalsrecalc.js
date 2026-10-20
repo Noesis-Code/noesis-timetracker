@@ -38,9 +38,7 @@ db.exec('CREATE INDEX IF NOT EXISTS idx_goal_recalc_lookup ON goal_recalc_propos
 function httpError(msg, code) { return Object.assign(new Error(msg), { statusCode: code }); }
 
 function todayLocal() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return require('./dates').userToday(); // jour de la requête en cours (fuseau du téléphone), sinon jour du processus
 }
 
 // PURE. Renvoie null (pas d'écart significatif / pas assez d'information) ou la proposition chiffrée.

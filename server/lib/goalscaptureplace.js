@@ -56,9 +56,7 @@ const LOOKAHEAD_DAYS = 14;
 const DEFAULT_TASK_MINUTES = 30;
 
 function todayLocal() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return require('./dates').userToday(); // jour de la requête en cours (fuseau du téléphone), sinon jour du processus
 }
 
 // Dupliqué depuis server/lib/calendarfeed.js#activitiesForUser (même

@@ -35,7 +35,7 @@ const { isoDateOf } = require('./dates');
 // sait pas classer, ajout manuel sans jour…), la date par défaut est AUJOURD'HUI, posée
 // avec dueDateAuto = 2 : « défaut », déplaçable par le moteur (contrairement à une date
 // saisie, épinglée) mais traitée comme « à dater » par la planification quotidienne.
-function todayIso() { return isoDateOf(new Date()); }
+function todayIso() { return require('./dates').userToday(); } // jour de la requête en cours (fuseau du téléphone), sinon jour du processus
 
 // Un sous-projet appartient à l'ACTIVITÉ, pas à la personne qui l'a créé
 // (cadrage d'Emilien : « communs à l'activité »). Le contrôle d'accès est

@@ -346,9 +346,7 @@ function assertActivityMember(userId, activityId) {
 // construction que todayLocal() dans server/lib/duereminders.js, dupliquée
 // ici plutôt qu'importée pour la même raison qu'ailleurs dans ce fichier.
 function todayLocalDay() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return require('./dates').userToday(); // jour de la requête en cours (fuseau du téléphone), sinon jour du processus
 }
 
 // 28 jours (4 semaines) par période, par construction du volet Objectifs —

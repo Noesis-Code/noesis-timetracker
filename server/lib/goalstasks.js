@@ -46,9 +46,7 @@ const goalsclassifyexamples = require('./goalsclassifyexamples');
 // server/lib/goals.js : un utilitaire de date minuscule, dupliqué plutôt
 // qu'importé, pour ne pas alourdir la dépendance).
 function todayLocal(now) {
-  const d = now instanceof Date ? now : new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return require('./dates').userToday(now); // jour de la requête en cours (fuseau du téléphone), sinon jour du processus
 }
 
 // 22 septembre 2026 (fenêtre « visualiser », navigation entre semaines) —
@@ -115,7 +113,7 @@ function tasksForCategory(activityId, categoryKey) {
           out.push(Object.assign({}, item, {
             subProjectId: sp.id,
             subProjectName: sp.name,
-            subProjectClosed: !!sp.closesAt && sp.closesAt < new Date().toISOString().slice(0, 10),
+            subProjectClosed: !!sp.closesAt && sp.closesAt < todayLocal(),
             sectionId: s.id,
           }));
         });

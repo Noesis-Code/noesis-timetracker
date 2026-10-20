@@ -49,10 +49,7 @@ db.exec('CREATE INDEX IF NOT EXISTS idx_change_proposals_act ON change_proposals
 
 function setCaller(fn) { docanalysis.setCaller(fn); } // appelant injectable (tests), partagé avec documenttasks
 function httpError(status, message) { return Object.assign(new Error(message), { statusCode: status }); }
-function todayIso() {
-  const d = new Date(); const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
-}
+function todayIso() { return require('./dates').userToday(); }
 const sha = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
 const normText = (v) => String(v == null ? '' : v).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 

@@ -27,11 +27,7 @@ function linkedTasks(activityId, weeklyId, category) {
   return { total: rows.length, undone, doneMinutes };
 }
 
-function today() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
-}
+function today() { return require('./dates').userToday(); }
 
 function planFor(userId, activityId, category, periodNumber) {
   const period = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?')

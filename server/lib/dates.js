@@ -137,6 +137,17 @@ function calendarNow(tz) {
   return new Date(year, month - 1, day, p.hour, p.minute, p.second);
 }
 
+// Fuseau de la requête en cours (même technique que aibudget.runAs) : posé par server/lib/session.js après le fuseau lu dans
+// X-Client-Tz. Les modules d'objectifs décident d'un « aujourd'hui » (priorité du jour, non réalisées, placement) avec userToday() :
+// le jour de la personne, comme la Feuille de temps. Hors requête (cron, script, test) : jour du processus, comme avant.
+const { AsyncLocalStorage } = require('async_hooks');
+const tzStore = new AsyncLocalStorage();
+function runWithTimezone(tz, fn) { return tzStore.run(isValidTimezone(tz) ? tz : null, fn); }
+function userToday(now) {
+  const tz = now instanceof Date ? null : tzStore.getStore();
+  return isoDateOf(now instanceof Date ? now : new Date(), tz);
+}
+
 function formatElapsed(ms) {
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
@@ -153,5 +164,5 @@ function formatHM(decimalHours) {
 
 module.exports = {
   DAY_NAMES, MONTH_NAMES_FR, isoDateOf, dayNameOf, mondayOf, formatElapsed, formatHM, pad2,
-  DEFAULT_TIMEZONE, isValidTimezone, localPartsOf, zonedMidnight, calendarNow,
+  DEFAULT_TIMEZONE, isValidTimezone, localPartsOf, zonedMidnight, calendarNow, runWithTimezone, userToday,
 };

@@ -54,9 +54,7 @@ const SIMILARITY_THRESHOLD = 0.15;
 // justifie pas un export de plus — même raisonnement que le commentaire en
 // tête de goals.js.
 function todayLocal() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return require('./dates').userToday(); // jour de la requête en cours (fuseau du téléphone), sinon jour du processus
 }
 
 // ---------------------------------------------------------------------------

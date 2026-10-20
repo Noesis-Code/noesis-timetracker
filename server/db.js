@@ -1684,6 +1684,13 @@ if (goalsCategoryCheckStillHardcoded()) {
   }
 }
 
+// La reconstruction ci-dessus (première ouverture d'une base neuve) recrée goal_periods sans les colonnes de report ajoutées plus haut :
+// sans ce rappel, la liste « Non réalisées » échouait (« no such column: carriedToId ») jusqu'au redémarrage suivant.
+if (tableExists('goal_periods') && !columnExists('goal_periods', 'carriedOverFromId')) {
+  db.exec('ALTER TABLE goal_periods ADD COLUMN carriedOverFromId INTEGER');
+  db.exec('ALTER TABLE goal_periods ADD COLUMN carriedToId INTEGER');
+}
+
 // ----- Objectifs : description détaillée (2 octobre 2026) -----
 // Le texte existant devient le TITRE (quelques mots) ; la description aide
 // l'IA et l'utilisateur. Additive, NOT NULL DEFAULT '' : sans effet sur l'existant.

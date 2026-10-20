@@ -14,9 +14,7 @@ const externalcalendar = require('./externalcalendar');
 const WEEKDAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 function todayLocal(now) {
-  const d = now instanceof Date ? now : new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return require('./dates').userToday(now); // jour de la requête en cours (fuseau du téléphone), sinon jour du processus
 }
 // Période 1 = premier lundi de janvier (même grille que goals.js).
 function yearAnchor(year) { return goals.yearAnchor(year); }

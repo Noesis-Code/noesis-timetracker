@@ -15,9 +15,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS goal_time_caps (
 const AVG_DAYS = 28;
 
 function todayLocal() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return require('./dates').userToday(); // jour de la requête en cours (fuseau du téléphone), sinon jour du processus
 }
 
 function isKnownKey(activityId, key) {

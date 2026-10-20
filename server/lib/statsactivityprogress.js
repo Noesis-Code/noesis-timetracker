@@ -22,8 +22,7 @@ function keyStats(activityId, key) {
   const plan = goals.getPlan(activityId, key);
   const out = { cells: new Array(PERIODS).fill(null).map(() => ({ done: 0, total: 0 })), current: null, fraction: 0 };
   if (!plan) return out;
-  const d = new Date(); const p2 = (n) => String(n).padStart(2, '0');
-  const localToday = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+  const localToday = require('./dates').userToday();
   const cur = goals.periodNumberForDate(plan.startDate, localToday);
   const cycle = Math.floor((cur - 1) / PERIODS) + 1;
   out.current = ((cur - 1) % PERIODS) + 1;

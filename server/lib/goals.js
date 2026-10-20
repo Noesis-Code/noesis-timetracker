@@ -214,9 +214,7 @@ const {
 // avec les notifications. Même raisonnement que period.js, volontairement
 // minuscule et sans dépendance inutile.
 function todayLocal(now) {
-  const d = now instanceof Date ? now : new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return require('./dates').userToday(now); // jour de la requête en cours (fuseau du téléphone), sinon jour du processus
 }
 
 function daysBetween(fromDay, toDay) {

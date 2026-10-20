@@ -35,9 +35,7 @@ const URGENCE_OBJECTIF_SHARE = 0.6;
 const URGENCE_DEADLINE_SHARE = 0.4;
 
 function todayLocal() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return require('./dates').userToday(); // jour de la requête en cours (fuseau du téléphone), sinon jour du processus
 }
 
 // Tâches en attente d'une activité, pôles ET secteurs confondus, au format

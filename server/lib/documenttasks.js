@@ -49,10 +49,7 @@ function takeRateSlot(userId) {
   return true;
 }
 
-function todayIso() {
-  const d = new Date(); const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
-}
+function todayIso() { return require('./dates').userToday(); }
 
 // ---------- Extraction de texte (sans dépendance) ----------
 function dataBuffer(dataUrl) {

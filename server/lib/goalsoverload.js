@@ -44,9 +44,7 @@ if (!db.prepare('PRAGMA table_info(goal_overload_dismissals)').all().some((c) =>
 }
 
 function todayLocal() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return require('./dates').userToday(); // jour de la requête en cours (fuseau du téléphone), sinon jour du processus
 }
 
 // PURE. tasks : [{id,label,category,dueDate,minutes,dueDateAuto,importance:{score,level,reasons},
