@@ -1,6 +1,6 @@
 # Amélioration de l'utilisation de l'IA : état des lieux et pistes (20 oct. 2026) — PROPOSITION
 
-Sources : tâches Basic « Améliorer utilisation IA dans application » (id 1464, 19 oct.) et « Améliorer l'utilisation de l'IA dans l'application » (id 553, 21 oct.), trop vagues pour être lancées (`modele-tache.md` : pas de résultat attendu cité). Ce document les transforme en pistes vérifiables. Aucune n'est implémentée ici sauf le plafond du point « Exécuté ». Coûts = estimations de `ia-appels.md` / `ia-modeles.md` (aucune base de production disponible ici : `node scripts/ai-cost-report.js 30` et `node scripts/ai-acceptance-report.js 30` donnent les vrais chiffres).
+Sources : deux tâches Basic sur l'amélioration de l'usage de l'IA (ids 1464 et 553), trop vagues pour être lancées (`modele-tache.md` : pas de résultat attendu cité). Ce document les transforme en pistes vérifiables. Aucune n'est implémentée ici sauf le plafond du point « Exécuté ». Coûts = estimations de `ia-appels.md` / `ia-modeles.md` (aucune base de production disponible ici : `node scripts/ai-cost-report.js 30` et `node scripts/ai-acceptance-report.js 30` donnent les vrais chiffres).
 
 ## État des lieux (9 fonctions)
 
