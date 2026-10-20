@@ -139,6 +139,7 @@ const SUITE_FILES = [
   'apprentissage-e2e-test.js',
   'expansion-achat-staging-test.js',
   'expansion-repli-test.js',
+  'expansion-prix-idempotence-test.js',
   'expansion-retour-checkout-test.js',
   'expansion-i18n-test.js',
   'expansion-webhook-evenements-test.js',

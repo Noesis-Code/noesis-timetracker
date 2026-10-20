@@ -38,7 +38,7 @@ const { requireAuth } = require('../lib/session');
 
 const MAX_ACTIVITY_NAME_LENGTH = 120; // même plafond que server/routes/activities.js
 const AGE_DECLARATIONS = new Set(['adult', 'minor']);
-const OFFER1_PRICE_LABEL = '20 $/mois'; // libellé humain pour le courriel de consentement — jamais une valeur lue depuis Stripe
+const OFFER1_PRICE_LABEL = require('../lib/offerprice').MONTHLY_LABEL_FR; // libellé humain pour le courriel de consentement — source unique server/lib/offerprice.js
 
 const router = express.Router();
 
@@ -239,6 +239,7 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
       cancelUrl: origin + cancelPath,
       customerId: user.stripeCustomerId || undefined,
       customerEmail: user.stripeCustomerId ? undefined : user.email,
+      idempotencyScope: `${userId}|${activityId}`,
       // userId aussi : l'acheteur n'est pas forcément le PROPRIÉTAIRE de
       // l'activité (juste un de ses membres, voir resolveActivityChoice), le
       // webhook ne peut donc pas le déduire de activities.ownerId. Les deux

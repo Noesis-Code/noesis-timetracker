@@ -30,6 +30,9 @@ Dans Railway, service de production, Shell : `node scripts/preflight-expansion.j
 - [ ] Webhook live vers `<domaine de production>/stripe/webhook` avec les événements cochés : `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `charge.refunded`, `charge.dispute.created`. (`invoice.payment_failed` n'est pas traité : le statut `past_due`, qui ferme l'accès, arrive par `customer.subscription.updated` ; s'il est coché, il est journalisé et reçoit 200.) Poser `STRIPE_WEBHOOK_SECRET` (secret de signature de CE webhook live).
 - [ ] Portail client activé en mode live (Paramètres > Billing > Portail client) : résiliation en fin de période permise.
 - [ ] Taxes : décider `STRIPE_TAX_ENABLED=1` (voir `docs/stripe-taxes.md`).
+- [ ] Le prix live est créé en CAD (une session dans une autre devise est refusée par le serveur) et correspond au texte affiché (20 $/mois).
+- [ ] Reçus : activer dans Stripe les courriels de reçu pour les paiements réussis (l'app n'en envoie pas). Parcours complet et points P1 à P9 à trancher : `docs/expansion-parcours-commercial-2026-10-20.md`.
+- [ ] Résiliation : aucun écran de l'app n'ouvre le portail (P1) ; le courriel de confirmation promet « depuis Réglages ». Trancher P1 avant d'ouvrir.
 
 ## Courriels (Resend)
 - [ ] Domaine d'envoi vérifié sur Resend ; poser `RESEND_API_KEY` et `RESEND_FROM` (adresse du domaine vérifié). Sans `RESEND_FROM`, l'expéditeur par défaut est `onboarding@resend.dev`, qui n'envoie qu'à l'adresse du compte Resend : les abonnés ne reçoivent rien (l'échec est journalisé, le webhook réussit quand même).

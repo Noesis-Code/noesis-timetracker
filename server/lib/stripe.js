@@ -13,6 +13,8 @@
 // STRIPE_WEBHOOK_SECRET (vérification de signature), toutes deux dans .env.
 const crypto = require('crypto');
 
+const offerprice = require('./offerprice');
+
 const API_BASE = 'https://api.stripe.com/v1';
 
 // Staging = clés de test uniquement : une clé live (sk_live / rk_live) y est traitée comme absente.
@@ -61,7 +63,7 @@ function flatten(params, prefix, out) {
   return out;
 }
 
-async function stripeRequest(method, path, params) {
+async function stripeRequest(method, path, params, { idempotencyKey } = {}) {
   if (!secretKeyConfigured()) {
     throw new Error("Stripe indisponible : STRIPE_SECRET_KEY n'est pas configurée côté serveur.");
   }
@@ -75,6 +77,8 @@ async function stripeRequest(method, path, params) {
       // API REST directe (pas de "Bearer" pour les clés secrètes classiques).
       Authorization: 'Basic ' + Buffer.from(`${process.env.STRIPE_SECRET_KEY}:`).toString('base64'),
       'Content-Type': 'application/x-www-form-urlencoded',
+      // Même clé = même résultat côté Stripe (24 h) : une requête rejouée ne crée jamais une seconde ressource.
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
     },
     body,
   });
@@ -96,14 +100,29 @@ async function stripeRequest(method, path, params) {
 // est fourni (voir users.stripeCustomerId), réutilise le client Stripe déjà
 // créé pour cette personne plutôt que d'en recréer un à chaque activité
 // abonnée — sinon Stripe en crée un nouveau à partir de `customerEmail`.
-async function createCheckoutSession({ mode, priceId, successUrl, cancelUrl, customerId, customerEmail, metadata }) {
+// Clé d'idempotence : déterminée par le contenu EXACT de la requête (même achat = même clé, donc même session
+// rendue par Stripe pendant 24 h ; achat différent = clé différente, donc jamais d'erreur « clé réutilisée
+// avec d'autres paramètres »). `scope` ajoute l'identité de l'acheteur (compte + activité).
+function checkoutIdempotencyKey(scope, params, nonce) {
+  const canonical = flatten(params, '', new URLSearchParams());
+  canonical.sort();
+  return 'cs_' + crypto.createHash('sha256').update(`${scope}|${canonical.toString()}|${nonce || ''}`).digest('hex').slice(0, 48);
+}
+
+async function createCheckoutSession({ mode, priceId, successUrl, cancelUrl, customerId, customerEmail, metadata, idempotencyScope }) {
   if (mode !== 'subscription' && mode !== 'payment') throw new Error("mode invalide : 'subscription' ou 'payment' attendu.");
   if (!priceId) throw new Error('priceId requis.');
   if (!successUrl || !cancelUrl) throw new Error('successUrl et cancelUrl requis.');
 
   const params = buildCheckoutParams({ mode, priceId, successUrl, cancelUrl, customerId, customerEmail, metadata });
+  let session;
   try {
-    return await stripeRequest('POST', '/checkout/sessions', params);
+    const create = (nonce) => stripeRequest('POST', '/checkout/sessions', params,
+      idempotencyScope ? { idempotencyKey: checkoutIdempotencyKey(idempotencyScope, params, nonce) } : {});
+    session = await create('');
+    // Session déjà terminée ou expirée (même achat refait dans les 24 h, ex. réabonnement) : Stripe la rend
+    // sans `url` ; on repart d'une clé neuve plutôt que d'envoyer le client vers une page morte.
+    if (!session.url && idempotencyScope) session = await create(crypto.randomBytes(8).toString('hex'));
   } catch (e) {
     // Stripe Tax non configuré dans le compte : message clair, sans détail Stripe.
     if (params.automatic_tax) {
@@ -112,6 +131,12 @@ async function createCheckoutSession({ mode, priceId, successUrl, cancelUrl, cus
     }
     throw e;
   }
+  // Garde-fou de devise : un Price qui ne serait pas en CAD ne doit jamais atteindre le client.
+  if (session.currency && String(session.currency).toLowerCase() !== offerprice.CURRENCY) {
+    console.error('[stripe] devise inattendue sur la session Checkout (prix non CAD ?) :', String(session.currency).slice(0, 8));
+    throw new Error('Devise de la session Checkout inattendue.');
+  }
+  return session;
 }
 
 // Corps de la requête Checkout (pur, testable sans réseau). Taxes TPS/TVQ
@@ -217,6 +242,7 @@ module.exports = {
   secretKeyConfigured,
   checkoutOpen,
   createCheckoutSession,
+  checkoutIdempotencyKey,
   createPortalSession,
   buildCheckoutParams,
   retrieveSubscription,

@@ -14,7 +14,7 @@ const express = require('express');
 const parentalconsent = require('../lib/parentalconsent');
 
 const router = express.Router();
-const OFFER1_PRICE_LABEL = '20 $/mois'; // libellé humain pour la page/le courriel — jamais une valeur lue depuis Stripe ici
+const OFFER1_PRICE_LABEL = require('../lib/offerprice').MONTHLY_LABEL_FR; // libellé humain pour la page/le courriel — source unique server/lib/offerprice.js
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (c) => ({

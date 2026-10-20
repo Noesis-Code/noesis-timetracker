@@ -184,7 +184,7 @@ async function handleSubscriptionDeleted(subscription) {
 // et on alerte l'équipe pour décision humaine. Événement accepté (200), jamais en erreur.
 // Montants Stripe = entiers en centimes (amount, amount_refunded) : comparaison entière, jamais de flottant.
 // Texte d'alerte seulement (équipe) : " partiel 5.00/20.00 CAD" ou " total 20.00 CAD" ; vide si les montants manquent.
-function fmtCents(n) { return (Math.round(n) / 100).toFixed(2); }
+function fmtCents(n) { const c = Math.round(n); return `${Math.trunc(c / 100)}.${String(c % 100).padStart(2, '0')}`; } // entiers seulement, pas de flottant
 function refundScope(ch) {
   const amount = Number(ch && ch.amount), refunded = Number(ch && ch.amount_refunded);
   if (!Number.isFinite(amount) || !Number.isFinite(refunded) || amount <= 0) return '';
