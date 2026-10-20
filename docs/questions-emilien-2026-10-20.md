@@ -28,6 +28,8 @@ Une case par ligne, par urgence. Détail dans le fichier cité (`questions-emili
 - [ ] Basic : simplifier le premier lancement (retirer l'étape modules, l'étape « Crée tes activités », la confirmation du code ; -3 à -6 taps) (`basic`, section Premier lancement)
 - [ ] Basic : retirer les écrans de `points-non-necessaires.md`, ne rien ajouter (`basic`)
 
+- [ ] Feuille de temps, vue Semaine : garder l'ouverture de la grille 1 h avant la première case remplie (changement non demandé, repli 19) ou revenir à 0 h ? (aucun contrôle ajouté ; défilement libre)
+
 ## 3. Gain moyen : débloque des tâches
 - [ ] Trade : afficher le gain réalisé (calcul prêt, non branché à l'écran) (`fiabilite-trade-2026-10-20.md`)
 - [ ] Basic : entrée dimanche 23 h → lundi 1 h, compter l'heure après minuit au lundi ? (`basic`)
@@ -56,4 +58,4 @@ Une case par ligne, par urgence. Détail dans le fichier cité (`questions-emili
 ## 6. Infra
 - [ ] Nettoyer ~1384 fichiers orphelins `/tmp/noesis-verify-*` (68 Mo) : destructeur, à valider ; cause corrigée.
 - [ ] Supprimer les fichiers parasites à la racine du système (`/o2.txt`, `/o3.txt`, `/o4.txt`, `/out.txt`, `/x`) : à valider.
-- [ ] Healthcheck `/healthz` dans `railway.json` (route prête, fichier non touché).
+- [ ] Healthcheck Railway : ajouter `"healthcheckPath": "/healthz"` (et `healthcheckTimeout`) dans `deploy` de `railway.json` (route prête et testée, fichier non touché ; un déploiement qui ne répond pas ne remplace plus l'ancien).

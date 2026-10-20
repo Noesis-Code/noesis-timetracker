@@ -54,3 +54,9 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 - Relecture des pushs 06af14a, 86ea01b, 561afc7, 327c34e, 5a12f13, 24ce87d : serveur + tests + docs seulement, aucun bouton/option/couleur, aucun fichier hors périmètre ; titres des jeux d'essai = exemples inventés (pas de tâche personnelle).
 - Friction corrigée (Feuille de temps, vue Semaine) : la grille s'ouvrait sur 0 h alors que ~5 h sur 24 sont visibles à 390 px, donc souvent vide. Elle s'ouvre maintenant 1 h avant la première case remplie (aucun contrôle ajouté, seulement si l'utilisateur n'a pas défilé). Capture 390 px : grille démarre à 7 h. À valider sur téléphone.
 - Index des questions : inchangé, les lignes restent ouvertes (aucune résolue par un commit ; `/healthz` toujours absent de `railway.json`).
+
+## Pilotage (repli 20) : suite complète, grille Semaine, healthcheck
+- Aucun push d'autre chantier depuis 4a8dd8a : rien à relire pour régression, bouton/option/couleur ou titre personnel recopié.
+- Grille Semaine (4a8dd8a), cas limites relus dans le code : semaine vide = aucun défilement (0 h) ; entrée à 0 h = `max(0, h-1)` donc 0 h ; entrée à cheval sur minuit = cases 23 h (jour N) et 0 h (jour N+1), la plus petite case est 0 h donc 0 h ; fuseau = les cases viennent déjà du serveur dans le fuseau du téléphone (09bfaa0), aucune conversion côté grille. Seule la position initiale change, toutes les heures restent atteignables en défilant ; rien n'est réappliqué si la grille est déjà défilée. Case ajoutée à l'index (garder / revenir à 0 h).
+- `/healthz` toujours absent de `railway.json` : case d'index précisée (`healthcheckPath`), fichier non modifié.
+- Suite complète sur staging 4a8dd8a : 142 passées, 0 échouée.
