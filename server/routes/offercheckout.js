@@ -227,6 +227,26 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
   res.status(201).json({ url: session.url });
 });
 
+// Portail client Stripe : URL de gestion de l'abonnement (moyen de paiement,
+// résiliation). Réservé à un profil déjà client Stripe ; retour à l'origine de
+// la requête (jamais une URL fournie par le client).
+router.post('/offer/portal', requireAuth, async (req, res) => {
+  const user = db.prepare('SELECT stripeCustomerId FROM users WHERE id = ?').get(req.userId);
+  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
+  if (!stripe.secretKeyConfigured()) return res.status(503).json({ error: 'Paiement indisponible pour le moment.' });
+  if (!user.stripeCustomerId) return res.status(404).json({ error: "Aucun abonnement à gérer pour ce profil." });
+  try {
+    const session = await stripe.createPortalSession({
+      customerId: user.stripeCustomerId,
+      returnUrl: `${req.protocol}://${req.get('host')}/`,
+    });
+    res.status(201).json({ url: session.url });
+  } catch (e) {
+    console.error('[stripe] Portail client refusé :', String(e.message).slice(0, 200));
+    res.status(502).json({ error: 'Portail de gestion indisponible pour le moment. Réessaie plus tard.' });
+  }
+});
+
 // Activités du client courant déjà abonnées à l'Offre 1 (Réglages > Offre 1,
 // 9 septembre 2026) — c'est ce qui permet d'y rouvrir directement l'édition
 // des 4 formulaires d'une activité DÉJÀ abonnée, plutôt que de ne proposer

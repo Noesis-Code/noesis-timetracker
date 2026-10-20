@@ -28,6 +28,7 @@ const json = (body, status = 200) => ({ ok: status < 400, status, json: async ()
 global.fetch = async (url, init = {}) => {
   url = String(url);
   if (url.startsWith('https://api.stripe.com/v1/checkout/sessions')) { stripeCalls.push({ url, body: String(init.body) }); return json({ id: 'cs_test_1', url: 'https://checkout.stripe.test/cs_test_1' }); }
+  if (url.startsWith('https://api.stripe.com/v1/billing_portal/sessions')) { stripeCalls.push({ url, body: String(init.body) }); return json({ id: 'bps_1', url: 'https://billing.stripe.test/bps_1' }); }
   if (url.startsWith('https://api.stripe.com/v1/subscriptions/')) return json({ id: 'sub_e2e', ...subscription, items: { data: [{ price: { id: 'price_test_local' } }] } });
   if (url.startsWith('https://api.anthropic.com/')) return json({ content: [{ text: JSON.stringify(plan) }] });
   throw new Error('Appel réseau inattendu : ' + url);
@@ -81,6 +82,12 @@ const slots = (a) => db.prepare('SELECT COUNT(*) n FROM sub_projects WHERE activ
   ok(access.hasOffer1Access(USER) && access.hasActiveOffer1Subscription(USER), 'accès Expansion ouvert');
   r = await request(port, 'GET', '/offer/subscriptions');
   ok(JSON.parse(r.body).some((x) => x.activityId === activityId), 'activité listée dans /offer/subscriptions');
+
+  // Portail client : refusé sans client Stripe (avant achat payé), sinon URL du portail
+  r = await request(port, 'POST', '/offer/portal', {});
+  ok(r.status === 201 && JSON.parse(r.body).url === 'https://billing.stripe.test/bps_1', 'portail client : session créée pour le client Stripe');
+  const pp = new URLSearchParams(stripeCalls[stripeCalls.length - 1].body);
+  ok(pp.get('customer') === 'cus_e2e' && /^http:\/\/[^/]+\/$/.test(pp.get('return_url') || ''), 'portail : client mémorisé, retour sur l\'origine de la requête');
 
   // 3. Rejeu et double achat
   r = await webhook(port, co);

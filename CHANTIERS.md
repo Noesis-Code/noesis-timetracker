@@ -35,8 +35,8 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 3. Démarrage à froid : mesuré (19 oct.) = 20 scripts + 14 feuilles CSS, 2,48 Mo bruts, aucune compression HTTP (~714 Ko en gzip). Seul gain réel = compression gzip/brotli du serveur (mécanisme serveur, dépendance `compression` ou zlib) : à faire seulement sur décision explicite ; `defer` inutile (scripts déjà en fin de `<body>`).
 
 **3. Time Tracker Expansion** (préparer, jamais de paiement réel)
-1. Portail client Stripe et résiliation : parcours préparé en mode test.
-2. Idempotence du webhook Stripe testée (même événement reçu deux fois).
+1. Portail client Stripe et résiliation : parcours préparé en mode test. FAIT (repli 4) : `POST /offer/portal` + `stripe.createPortalSession`, testé dans `expansion-parcours-test.js` ; reste côté Émilien : activer le portail dans le tableau de bord Stripe (mode test) ; aucune interface ajoutée.
+2. Idempotence du webhook Stripe testée (même événement reçu deux fois). FAIT (`test/stripe-webhook-idempotence-test.js`).
 3. Textes « Offre 1 » → Expansion dans CGU, confidentialité et code, hors ids et routes.
 4. Échecs de paiement : `invoice.payment_failed` testé par événement signé local (fait, `test/stripe-webhook-idempotence-test.js`).
 5. Messages d'erreur du checkout et du webhook relus (FR/EN, aucun détail interne exposé).

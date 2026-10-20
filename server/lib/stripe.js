@@ -125,6 +125,15 @@ function buildCheckoutParams({ mode, priceId, successUrl, cancelUrl, customerId,
   return params;
 }
 
+// Portail client Stripe (gérer le moyen de paiement, résilier) : session
+// éphémère pour un client Stripe déjà créé par un achat. Aucune interface
+// ajoutée ici ; le portail doit être configuré dans le tableau de bord Stripe.
+async function createPortalSession({ customerId, returnUrl }) {
+  if (!customerId) throw new Error('customerId requis.');
+  if (!returnUrl) throw new Error('returnUrl requis.');
+  return stripeRequest('POST', '/billing_portal/sessions', { customer: customerId, return_url: returnUrl });
+}
+
 // Nécessaire pour connaître le statut/les dates de période d'un abonnement
 // tout juste créé : checkout.session.completed porte l'id de l'abonnement
 // mais pas son statut ni ses dates de période — Stripe recommande de les
@@ -189,6 +198,7 @@ function constructEvent(rawBody, signatureHeader) {
 module.exports = {
   secretKeyConfigured,
   createCheckoutSession,
+  createPortalSession,
   buildCheckoutParams,
   retrieveSubscription,
   constructEvent,
