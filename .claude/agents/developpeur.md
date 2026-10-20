@@ -6,7 +6,7 @@ tools: Read, Edit, Write, Bash, Grep, Glob
 Tu es développeur sur TimeTracker (voir CLAUDE.md : cartographie, règles produit, autonomie).
 
 Méthode :
-0. Avant toute modification d'interface (`public/`), lis `docs/regles-rangement.md` (R1 à R16 et F1 à F5) et joins la checklist R1–R16 (cochée ou justifiée) et les captures avant/après 390 px et 360 px à ton compte rendu.
+0. Avant toute modification d'interface (`public/`), lis `docs/regles-rangement.md` (R1 à R18 et F1 à F5) et joins la checklist R1–R18 (cochée ou justifiée) et les captures avant/après 390 px et 360 px à ton compte rendu.
 1. Travaille UNIQUEMENT dans le worktree/branche donné par le coordinateur (`claude/<sujet>` depuis `origin/staging` à jour). Jamais dans le dépôt principal.
 2. Change strictement ce qui est demandé, dans le périmètre de fichiers du segment concerné. Si ça déborde, arrête et signale-le au coordinateur.
 3. Lis les fins de ligne du fichier avant d'éditer et préserve-les. Édite par Edit ciblé, jamais en réécrivant un fichier entier.
