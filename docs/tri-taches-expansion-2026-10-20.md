@@ -14,14 +14,14 @@ Aucune tâche A : les tâches à code sont vagues (B). Étape 2 : tests du parco
 
 | id | échéance | résumé | classe | preuve / question |
 |---|---|---|---|---|
-| 577 | 2026-10-25 | Tester questionnaires et génération FDR par projet | B | Q3 |
-| 576 | 2026-10-30 | Retirer la phase de paiement dans TMT test | B | Q1 |
-| 855 | 2026-10-30 | Documenter motivations du client type | C |  |
-| 851 | 2026-11-01 | Cartographier décision du client type | C |  |
-| 847 | 2026-11-04 | Facteurs psychologiques du client type | C |  |
-| 843 | 2026-11-06 | Besoins du client type (Maslow) | C |  |
-| 551 | 2026-11-07 | Créer la formule 1 de l'offre payante | B | Q6 |
-| 842 | 2026-11-07 | Risques perçus par le client type | C |  |
+| 577 | 2026-10-25 | Tester questionnaires et génération FDR | B | Q3 |
+| 576 | 2026-10-30 | Retirer la phase de paiement | B | Q1 |
+| 855 | 2026-10-30 | Documenter motivations du usager type | C |  |
+| 851 | 2026-11-01 | Cartographier décision du usager type | C |  |
+| 847 | 2026-11-04 | Facteurs psychologiques du usager type | C |  |
+| 843 | 2026-11-06 | Besoins du usager type (Maslow) | C |  |
+| 551 | 2026-11-07 | Créer la formule 1 de l'offre | B | Q6 |
+| 842 | 2026-11-07 | Risques perçus par le usager type | C |  |
 | 530 | 2026-11-08 | Créer la formule 1 | B | Q6 |
 | 688 | 2026-11-08 | Préparer les documents de l'Offre 1 | C |  |
 | 575 | 2026-11-09 | Génération automatique de FDR depuis questionnaire | B | Q3 |
@@ -30,13 +30,13 @@ Aucune tâche A : les tâches à code sont vagues (B). Étape 2 : tests du parco
 | 844 | - | Messages de réassurance post-achat | C |  |
 | 853 | - | Garanties contre la dissonance post-achat | C |  |
 | 87 | - | Décrire le produit de l'offre payante | C |  |
-| 88 | - | Identifier le client cible | C |  |
+| 88 | - | Identifier le usager cible | C |  |
 | 94 | - | Zone géographique court terme | C |  |
 | 95 | - | Zone géographique moyen terme | C |  |
 | 96 | - | Zone géographique long terme | C |  |
 | 97 | - | Écrire la démarcation de l'offre | C |  |
 | 906 | - | Développer l'abonnement FDR | B | Q4 |
-| 578 | - | Case à cocher résiliation avec option RDV | B | Q5 |
+| 578 | - | Case à cocher résiliation avec option | B | Q5 |
 | 849 | - | Système de suivi post-achat | B | Q7 |
 | 478 | - | Moyen de paiement pour l'abonnement | D | Checkout Stripe + webhook + portail (test/expansion-parcours-test.js) |
 | 884 | - | Courriel type de prospection annonceurs | C |  |

@@ -7,7 +7,7 @@ Source des tâches : lecture MCP par le coordinateur (secteur Trade, pôle Trade
 Code d'entrée côté TMT : `server/routes/trade.js` (`GET /api/trade/link`), `server/lib/tradelink.js`, `public/js/trade.js` (iframe plein écran), activation via la modification d'une activité (`TMT.modules.setTrade`). Côté Trade : `trade-tracker/` (serveur Express + SQLite, PWA).
 
 ---
-## 1. « Implémenter la synchronisation temps réel des données » (18 nov.)
+## 1. Synchro temps réel (18 nov.)
 
 **Existe**
 - Synchro serveur planifiée toutes les 15 min (`TRADE_SYNC_INTERVAL_MIN`), expert d'abord, échec isolé par utilisateur : `trade-tracker/server/lib/sync.js`. Connecteurs `demo` et `questrade` (lecture seule) : `server/lib/connectors/`.
@@ -22,7 +22,7 @@ Code d'entrée côté TMT : `server/routes/trade.js` (`GET /api/trade/link`), `s
 
 **Version proposée (modèle)**
 ```
-Titre : Mesurer sur staging le délai entre un achat Questrade et la notification Trade Tracker
+Titre proposé : Mesurer sur staging le délai entre un achat Questrade et la notification Trade Tracker
 Chantier / secteur : 1 Trade Tracker / pôle Trading › Trade Tracker
 1. Contexte observé : synchro 15 min + lecture écran 30 s (code ci-dessus) ; jamais essayé avec un vrai jeton.
 2. Problème : « temps réel » non défini ; on ne sait pas si 15 min suffit à Émilien/Nick.
@@ -35,7 +35,7 @@ Chantier / secteur : 1 Trade Tracker / pôle Trading › Trade Tracker
 Statut proposé : bloquée par Q1 ; si Q1 = « 15 min suffit », la tâche se ferme sans code.
 
 ---
-## 2. « Créer le système de génération de lien privé » (14 nov.)
+## 2. Lien privé (14 nov.)
 
 **Existe : OUI, complet et testé.** Deux sens possibles de « lien privé » :
 - **Entrée TMT -> Trade** : jeton HMAC-SHA256 signé (`TRADE_LINK_SECRET` >= 16 car.), expire en 2 min, usage unique (jti mémorisé), lié à l'utilisateur, à l'audience `trade-tracker` et au navigateur (hash du user-agent, obligatoire en production). Émission : `server/lib/tradelink.js` ; vérification : `trade-tracker/server/lib/auth.js` (`verifyLinkToken`, `consumeLink`) ; route `GET /api/trade/link` réservée aux ids autorisés avec module actif ; ouverture en iframe ou « Ouvrir à part » (lien neuf à chaque clic).
@@ -61,7 +61,7 @@ Chantier / secteur : 1 Trade Tracker
 Dépend de la tâche 5 (déploiement). Aucun code à écrire : la tâche d'origine peut être fermée comme « déjà livrée » si Q2 = oui.
 
 ---
-## 3. « Implémenter les filtres et options de visualisation » (3 nov.)
+## 3. Filtres de visualisation (3 nov.)
 
 **Existe** (`trade-tracker/public/js/screen-positions.js`, `prefs.js`, `screen-allocation.js`)
 - Écran Positions : puces de compte (Tous/CELI/REER/…), 4 tris (Valeur, Gain $, Gain %, Symbole), 3 filtres Gains/Pertes (Toutes/Gains/Pertes), liste déroulante de secteur, menu ⋮ : Montants (valeur/%), Masquer petites positions (non, <1, <2, <5 %), Graphique (camembert/barres) sur Répartition. Préférences mémorisées dans le navigateur.
@@ -85,7 +85,7 @@ Chantier / secteur : 1 Trade Tracker (+ 5 Simplification pour l'avis)
 Bloquée par Q3. Les préférences mémorisées (`tt.view.v1`) sont locales : retirer une option ne détruit aucune donnée serveur.
 
 ---
-## 4. « Optimiser les performances de rafraîchissement temps réel » (6 nov.)
+## 4. Perf. du rafraîchissement (6 nov.)
 
 **Existe**
 - Interrogation conditionnelle (ETag/304, corps identique = même objet, pas de redessin), pause onglet caché, recul exponentiel (30 s -> 5 min), pas de prolongation de session si la personne est inactive (`X-TT-Poll`/`X-TT-Active`), modale ouverte = pas de redessin.
@@ -98,7 +98,7 @@ Bloquée par Q3. Les préférences mémorisées (`tt.view.v1`) sont locales : re
 
 **Version proposée**
 ```
-Titre : Mesurer le coût d'un rafraîchissement de 30 s et fixer un budget
+Titre proposé : Mesurer le coût d'un rafraîchissement de 30 s et fixer un budget
 Chantier / secteur : 1 Trade Tracker
 1. Contexte : polling 30 s avec ETag (app.js, data.js) ; aucune mesure.
 2. Problème : impossible de dire si c'est « optimisé ».
@@ -111,7 +111,7 @@ Chantier / secteur : 1 Trade Tracker
 Fusionnable avec la tâche 1 (une seule mesure).
 
 ---
-## 5. « Déployer l'extension en environnement de staging » (11 nov.)
+## 5. Déploiement staging (11 nov.)
 
 **Existe**
 - Guide complet `trade-tracker/DEPLOY.md` (variables TMT et Trade, ordre des étapes, Questrade, checklist sécurité, sauvegarde/restauration, retour arrière), `railway.json`, `Procfile`, `/health`, démarrage refusé en production si un secret manque (`preflight.js`), tests `deploy-doc-test.js`, `preflight-test.js`, `restore-e2e-test.js`.
@@ -136,7 +136,7 @@ Chantier / secteur : 1 Trade Tracker
 Agent : préparer et vérifier seulement ; la création du service et des secrets reste à Émilien.
 
 ---
-## 6. « Valider le fonctionnement avec le portefeuille réel de Nic » (12 nov.)
+## 6. Validation portefeuille réel (12 nov.)
 
 **Existe**
 - Connecteur Questrade complet en lecture seule (renouvellement du jeton à chaque usage, `renewToken` si refus), TOTP obligatoire avant tout collage de jeton, import CSV de secours (`import-sheet.js`), purge `DELETE /api/broker/token`.
@@ -162,7 +162,7 @@ Chantier / secteur : 1 Trade Tracker
 Dépend de la tâche 5. Réservé à Émilien/Nic pour l'exécution.
 
 ---
-## 7. « Mettre en production l'extension TradeTracker » (14 nov.)
+## 7. Mise en production (14 nov.)
 
 **RÉSERVÉ À ÉMILIEN : préparer la check-list, ne pas exécuter** (fusion `main`, secrets de production, dépense Railway possible).
 

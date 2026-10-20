@@ -1,9 +1,9 @@
 # Questions à cocher en attente : index unique (20 oct. 2026)
 
-Titre court + lien ; les cases se cochent dans le fichier d'origine. Classé par urgence/gain (débloque le plus, ou bloque la production, d'abord). Précision des tâches : aucun fichier de questions à ce jour (`precision-*.md` sont des bilans, sans case à cocher).
+Titre court + lien ; les cases se cochent dans le fichier d'origine. Classé par urgence/gain (débloque le plus, ou bloque la production, d'abord). Précision des tâches : `questions-emilien-precision.md` (cas réels dont le bon résultat dépend d'une préférence).
 
 ## 1. Urgent : bloque une mise en ligne ou un chantier entier
-- Trade Q4 (service Railway Trade existe-t-il ?), Q5 (critères « validé » du portefeuille de Nic), Q6 (condition de lancement en production) : `questions-emilien-trade.md`
+- Trade Q4 (service Railway Trade existe-t-il ?), Q5 (critères « validé » du portefeuille réel), Q6 (condition de lancement en production) : `questions-emilien-trade.md`
 - Expansion : valider les courriels d'abonnement et activer `EXPANSION_MAILS=1` : `questions-emilien-expansion.md`
 - Expansion : remplacer « Offre 1 » par « Expansion » dans CGU et confidentialité (légal) : `questions-emilien-expansion.md`
 - Basic : liste des 26 bugs staging du 2 oct. et correctifs en attente (#1299, #1307, #1308) : `questions-emilien-basic.md`
