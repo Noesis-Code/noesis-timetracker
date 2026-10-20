@@ -61,6 +61,7 @@ const SUITE_FILES = [
   'strategie-test.js',
   'precision-taches-test.js',
   'precision-generees-test.js',
+  'recurrence-ia-test.js',
   'saisie-manuelle-proposition-test.js',
   'apprentissage-usage-test.js',
   'stripe-tax-test.js',
@@ -411,7 +412,7 @@ async function main() {
   let prOk = true;
   try { await runChild('precision-taches-test.js'); } catch (e) { prOk = false; }
   assert(prOk, 'précision des tâches (test/precision-taches-test.js) passe');
-  for (const [f, label] of [['precision-generees-test.js', 'validateur des tâches générées + saisie manuelle intacte'], ['saisie-manuelle-proposition-test.js', 'saisie manuelle : modifiée seulement par proposition validée']]) {
+  for (const [f, label] of [['precision-generees-test.js', 'validateur des tâches générées + saisie manuelle intacte'], ['saisie-manuelle-proposition-test.js', 'saisie manuelle : modifiée seulement par proposition validée'], ['recurrence-ia-test.js', 'récurrences proposées par l\'IA et rapprochement objectif (faux client)']]) {
     let ok = true;
     try { await runChild(f); } catch (e) { ok = false; }
     assert(ok, label + ' (test/' + f + ') passe');

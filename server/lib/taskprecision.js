@@ -118,9 +118,11 @@ function sameTitle(a, b) {
 // Validateur déterministe d'un titre GÉNÉRÉ par l'IA (jamais d'une saisie manuelle). Renvoie { title, reason } : title = titre nettoyé
 // (horaire à créneau fixe retiré s'il reste une tâche valable) ou null si rejeté ; reason = 'vide' | 'horaire' | 'sansSens' | 'tropLong' | 'doublon'.
 const MAX_GENERATED_TITLE = 140;
-const HM = '\\d{1,2}\\s*(?:h\\s*\\d{0,2}|:\\d{2})', AMPM = '\\d{1,2}(?:[:.]\\d{2})?\\s*(?:am|pm)';
-// Heure précise : « à 14 h », « 14 h 30 », « 10:30 », « 3pm », « de 9 h à 10 h ». Un « 2 h » nu reste une durée, jamais un horaire.
-const FIXED_TIME = new RegExp('\\s*(?:(?<=^|\\s)(?:à|a|vers|dès|de|at|@)\\s+(?:' + AMPM + '|' + HM + ')|\\b\\d{1,2}\\s*h\\s*\\d{2}\\b|\\b\\d{1,2}:\\d{2}\\b|\\b' + AMPM + '\\b)(?:\\s*(?:à|a|-|–|to)\\s*(?:' + AMPM + '|' + HM + '))?', 'i');
+const HM = '\\d{1,2}\\s*(?:h(?:eures?)?(?:\\s*\\d{2})?|:\\d{2})(?![a-zà-ÿ])', AMPM = '\\d{1,2}(?:[:.]\\d{2})?\\s*(?:am|pm)';
+// Heure précise : « à 14 h », « 14 h 30 », « 10:30 », « 3pm », « de 9 h à 10 h ». Un « 2 h » nu reste une durée, jamais un horaire ; « de 3 heures »,
+// « (1 h 30) », « environ 1h30 », « pendant 1 h 15 », « 1 h 30 max » sont des DURÉES (contexte de durée devant/derrière) : conservées telles quelles.
+const DUR_BEFORE = '(?<!(?:\\(|pendant|environ|about|for|dur[ée]e|pour|\\bde|d[\'’]|~)\\s*)', DUR_AFTER = '(?!\\s*(?:\\)|max\\b|maximum|environ|approx))';
+const FIXED_TIME = new RegExp('\\s*(?:(?<=^|\\s)de\\s+' + HM + '\\s*(?:à|a|-|–)\\s*(?:' + AMPM + '|' + HM + ')|(?<=^|[\\s(])(?:à|a|vers|dès|at|@)\\s+(?:' + AMPM + '|' + HM + ')|' + DUR_BEFORE + '\\b\\d{1,2}\\s*h\\s*\\d{2}\\b' + DUR_AFTER + '|\\b\\d{1,2}:\\d{2}\\b|\\b' + AMPM + '\\b)(?:\\s*(?:à|a|-|–|to)\\s*(?:' + AMPM + '|' + HM + '))?', 'i');
 // Mots vides de sens : un titre qui n'est fait QUE de ces mots (« truc », « à faire », « todo ») ne désigne aucune action. Tout autre mot, même seul
 // (« Épicerie », « Facture Hydro-Québec », « Vérifier », « Acme »), est une tâche valable : pas de liste de verbes, donc pas de faux rejets.
 const VAGUE = new Set(['truc', 'trucs', 'chose', 'choses', 'machin', 'bidule', 'divers', 'autre', 'autres', 'rien', 'tache', 'taches', 'task', 'tasks', 'todo', 'to', 'do', 'stuff', 'thing', 'things', 'misc', 'tbd', 'tba', 'etc', 'na', 'n', 'le', 'la', 'les', 'l', 'un', 'une', 'des', 'du', 'de', 'the', 'an', 'mon', 'ma', 'mes', 'notre', 'nos', 'ce', 'cette', 'ca', 'cela', 'ceci', 'it', 'this', 'that']);
@@ -128,7 +130,7 @@ function checkGenerated(raw, existing) {
   const t0 = cleanTitle(raw);
   if (!t0) return { title: null, reason: 'vide' };
   let t = t0;
-  if (FIXED_TIME.test(t)) t = cleanTitle(t.replace(FIXED_TIME, ' ')); // « Appeler Paul à 14 h 30 » -> « Appeler Paul »
+  if (FIXED_TIME.test(t)) t = cleanTitle(t.replace(FIXED_TIME, ' ').replace(/\(\s*\)/g, ' ')); // « Appeler Paul à 14 h 30 » -> « Appeler Paul »
   const words = fold(t).split(' ').filter(Boolean);
   if (!words.length) return { title: null, reason: t !== t0 ? 'horaire' : 'vide' };
   if (t.length > MAX_GENERATED_TITLE) return { title: null, reason: 'tropLong' };

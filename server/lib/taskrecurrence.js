@@ -55,9 +55,10 @@ const NUM = { un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept
 function parseExplicit(text) {
   let label = String(text || '');
   if (!new RegExp('\\b' + WORD + '\\b', 'i').test(label)) return null;
+  if (unsupportedFrequency(label)) return null; // « jour ouvrable », « 3 fois par semaine » : { every, unit } ne sait pas les dire, rien n'est créé de faux
   let every = 1; let unit = 'week';
   const patterns = [
-    [/\b(?:tous|toutes|chaque)\s+les\s+(\d+|un|une|deux|trois|quatre|cinq|six|sept|huit|dix)\s+(jours?|semaines?|mois)\b/i, 'n'],
+    [/\b(?:(?:tous|toutes|chaque)\s+les|aux|aux\s+les|each|every)\s+(\d+|un|une|deux|trois|quatre|cinq|six|sept|huit|dix)\s+(jours?|semaines?|mois|days?|weeks?|months?)\b/i, 'n'],
     [/\b(?:tous\s+les\s+jours|chaque\s+jour|quotidien(?:ne)?s?)\b/i, 'day'],
     [/\b(?:toutes\s+les\s+semaines|chaque\s+semaine|hebdomadaires?)\b/i, 'week'],
     [/\b(?:tous\s+les\s+mois|chaque\s+mois|mensuel(?:le)?s?)\b/i, 'month'],
@@ -69,7 +70,7 @@ function parseExplicit(text) {
     if (kind === 'n') {
       const n = /^\d+$/.test(m[1]) ? Number(m[1]) : NUM[m[1].toLowerCase()];
       every = Math.min(MAX_EVERY, Math.max(1, n || 1));
-      unit = /^jour/i.test(m[2]) ? 'day' : /^semaine/i.test(m[2]) ? 'week' : 'month';
+      unit = /^(?:jour|day)/i.test(m[2]) ? 'day' : /^(?:semaine|week)/i.test(m[2]) ? 'week' : 'month';
     } else if (kind === 'year') { every = 12; unit = 'month'; } else { every = 1; unit = kind; }
     label = label.replace(re, ' ');
     break;
@@ -80,9 +81,20 @@ function parseExplicit(text) {
 }
 
 // Mode Partiel : Noèsis PROPOSE (jamais n'impose). Mot explicite d'abord, sinon avis du modèle ; null si doute/panne.
+// Fréquences que { every, unit } ne sait PAS dire (proposer l'approximation la plus proche serait fausse : « 3 fois par semaine » ≠ « toutes les 3 semaines »,
+// « chaque jour ouvrable » ≠ chaque jour, « une fois » = pas de récurrence) : aucune proposition, la tâche reste simple.
+function unsupportedFrequency(label) {
+  const t = String(label || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (/\b(?:jours?\s+ouvrables?|jours?\s+de\s+semaine|en\s+semaine|weekdays?|business\s+days?|working\s+days?)\b/.test(t)) return true;
+  if (/\b(?:[2-9]|\d{2}|deux|trois|quatre|cinq|six|sept|huit|neuf|dix)\s+(?:fois|x|times)\b|\b(?:twice|thrice)\b/.test(t)) return true;
+  if (/\b(?:une\s+(?:seule\s+)?fois|once|one[- ]time)\b(?!\s+(?:par|chaque|a|per|every|each|la|le|tous|toutes|\/))/.test(t)) return true;
+  return false;
+}
+
 async function suggest(label) {
   const explicit = parseExplicit(label);
   if (explicit) return { every: explicit.every, unit: explicit.unit, label: explicit.label };
+  if (unsupportedFrequency(label)) return null;
   const classify = require('./goalstaskclassify');
   if (!classify.configured()) return null;
   try {
@@ -92,8 +104,10 @@ async function suggest(label) {
       + 'Tâche : ' + String(label).slice(0, 300), 60, 'recurrence-tache');
     const m = String(text || '').match(/\{[^}]*\}/);
     if (!m) return null;
-    return normalize(JSON.parse(m[0]));
+    const j = JSON.parse(m[0]);
+    if (!Number.isInteger(Number(j.every))) return null; // « 1,5 » ou texte : pas de proposition approximative
+    return normalize(j);
   } catch (e) { return null; }
 }
 
-module.exports = { UNITS, normalize, addInterval, nextDueDate, parseExplicit, suggest };
+module.exports = { UNITS, normalize, addInterval, nextDueDate, parseExplicit, suggest, unsupportedFrequency };

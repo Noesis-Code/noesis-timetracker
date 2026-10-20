@@ -79,6 +79,18 @@ const bad2 = blind2.titles.filter((t) => { const r = tp.checkGenerated(t, []); r
 assert(blind2.titles.length === 30 && bad2.length / 30 <= 0.02, 'lot aveugle h91-h120 : faux rejets/déformations ' + bad2.length + '/30 (<= 2 %)' + (bad2.length ? ' ' + JSON.stringify(bad2) : ''));
 assert(tp.checkGenerated('Meeting with Léa @ 2:30 pm', []).title === 'Meeting with Léa', 'horaire « @ 2:30 pm » retiré en entier (sans « pm » résiduel)');
 assert(blind2.rejetsAttendus.every((t) => !tp.checkGenerated(t, []).title), 'lot h91-h120 : titres vides de sens rejetés');
+// Lot aveugle h121-h150 (durées et dates dans les titres, écrit avant mesure) : durée conservée, heure d'horloge retirée, indice de date attendu.
+{
+  const b3 = require('./fixtures/task-precision/blind-h121-h150.json');
+  const hint = require('../server/lib/capturedatehint');
+  const bad3 = b3.titles.filter((t) => {
+    if (tp.checkGenerated(t, []).title !== (b3.attendus[t] || t)) return true;
+    if (!(t in b3.hints)) return false;
+    return JSON.stringify(hint.parseDateHint(t, b3.today)) !== JSON.stringify(b3.hints[t]);
+  });
+  assert(b3.titles.length === 30 && bad3.length === 0, 'lot aveugle h121-h150 : durées/dates ' + bad3.length + '/30 en échec' + (bad3.length ? ' ' + JSON.stringify(bad3) : ''));
+  assert(tp.checkGenerated('Réunion de 9 h à 10 h', []).title === 'Réunion' && tp.checkGenerated('Dentiste à 3 heures', []).title === 'Dentiste', 'plages et « à N heures » restent des horaires retirés');
+}
 
 // Saisie manuelle : la VRAIE route POST /activities/:id/goals/categories/:key/tasks enregistre le titre tel quel (heure dans le titre, mot seul,
 // « truc »), sans nettoyage ni rejet ; seule la correction orthographique silencieuse (règle du 16 oct. 2026) est permise (ici : appelant identité).

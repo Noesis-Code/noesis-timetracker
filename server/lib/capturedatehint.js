@@ -48,8 +48,14 @@ function parseDateHint(text, today) {
   }
 
   if (/ apres demain /.test(t)) return { kind: 'day', date: add(today, 2) };
-  if (/ demain /.test(t)) return { kind: 'day', date: add(today, 1) };
-  if (/ (aujourd hui|aujourdhui|ce soir|ce matin) /.test(t)) return { kind: 'day', date: today };
+  if (/ (demain|tomorrow) /.test(t)) return { kind: 'day', date: add(today, 1) };
+  if (/ (aujourd hui|aujourdhui|ce soir|ce matin|today|tonight) /.test(t)) return { kind: 'day', date: today };
+  // « dans 3 jours », « dans 2 semaines » (relatif, jamais une heure) ; « dans une heure » ne donne aucun indice.
+  m = / dans (\d{1,2}|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix) (jours?|semaines?) /.exec(t);
+  if (m) {
+    const n = /^\d/.test(m[1]) ? +m[1] : ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'].indexOf(m[1]) || 1;
+    return { kind: 'day', date: add(today, n * (m[2][0] === 's' ? 7 : 1)) };
+  }
 
   if (/ semaine prochaine | la semaine suivante | semaine d apres /.test(t)) return { kind: 'week', date: add(monday(today), 7) };
   if (/ (cette semaine|d ici la fin de la semaine|d ici vendredi) /.test(t) && !/ d ici vendredi /.test(t)) return { kind: 'week', date: monday(today) };
@@ -74,12 +80,27 @@ function parseDateHint(text, today) {
     if (iso) return { kind: 'deadline', date: iso };
   }
 
-  m = /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)( prochain)?\b/.exec(t);
+  // « Payer le loyer le 15 » : jour du mois nu en fin de titre (pas suivi d'une unité ou d'un mot : « le 15 chapitres » n'est pas une date).
+  m = / le (\d{1,2})(?:er)? $/.exec(t);
+  if (m && +m[1] >= 1 && +m[1] <= 31) {
+    const iso = dayOfMonth(today, +m[1]);
+    if (iso) return { kind: 'day', date: iso };
+  }
+
+  // « le 1er de chaque mois », « le 15 du mois » : prochain jour du mois (point de départ d'une récurrence mensuelle).
+  m = / le (\d{1,2})(?:er)? (?:de chaque|de tous les|du|de) mois /.exec(t);
+  if (m && +m[1] >= 1 && +m[1] <= 31) {
+    const iso = dayOfMonth(today, +m[1]);
+    if (iso) return { kind: 'day', date: iso };
+  }
+
+  // « tous les lundis » : le pluriel désigne le prochain lundi (point de départ d'une récurrence hebdomadaire).
+  m = /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)(s)?( prochain)?\b/.exec(t);
   if (m) {
     const target = DAYS[m[1]];
     const w = parse(today).getUTCDay();
     let diff = (target - w + 7) % 7;
-    if (m[2] && diff === 0) diff = 7;
+    if (m[3] && diff === 0) diff = 7;
     return { kind: dead ? 'deadline' : 'day', date: add(today, diff) };
   }
   return null;
