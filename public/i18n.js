@@ -109,7 +109,7 @@
     // ajoutée pour le texte réellement affiché. Trouvée et comblée le
     // 10 septembre 2026 (audit des traductions manquantes signalé par
     // Emilien).
-    "Aucune activité pour l'instant — ajoutes-en une dans Activité.": 'No activities yet — add one in Activity.',
+    "Aucune activité pour l'instant — ajoutes-en une dans Réglages.": 'No activities yet — add one in Settings.',
     'Note': 'Note',
     'Envoyer à la communauté': 'Send to community',
     "Confirmer l'arrêt": 'Confirm stop',

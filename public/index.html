@@ -696,7 +696,7 @@
       <div id="chronoIdle" class="chronoBlock">
         <p class="stepLabel">Quelle activité ?</p>
         <div id="activityButtons" class="activityGrid"></div>
-        <p id="noActivitiesHint" class="hint hidden">Aucune activité pour l'instant — ajoutes-en une dans Activité.</p>
+        <p id="noActivitiesHint" class="hint hidden">Aucune activité pour l'instant — ajoutes-en une dans Réglages.</p>
       </div>
 
       <div id="chronoRunning" class="chronoBlock hidden">
@@ -1172,27 +1172,7 @@
          Le Profil lui-même reste un panneau plein écran comme avant, mais
          s'ouvre désormais en cliquant sur le prénom en haut à droite (voir
          #whoami) plutôt que depuis cette barre. -->
-    <section id="tab-activity" class="tab hidden">
-      <div class="sectionTitleRow">
-        <p class="sectionTitle">Activités</p>
-        <button id="addActivityBtn" class="menuBtn" title="Ajouter une activité" aria-label="Ajouter une activité">+</button>
-      </div>
-      <div class="activityRow hidden" id="newActivityCard">
-        <div class="activityRowHeader">
-          <span class="dot" id="newActivityDot"></span>
-          <span class="activityRowName">Nouvelle activité</span>
-        </div>
-        <div class="activitySettingsPanel">
-          <input type="text" id="newActivityName" placeholder="Nom de l'activité">
-          <div id="newActivitySwatches" class="colorSwatches"></div>
-          <p class="meta"></p>
-          <div class="rowActions">
-            <button id="newActivitySave" class="iconBtn btnBrique">Ajouter l'activité</button>
-          </div>
-        </div>
-      </div>
-      <div id="activitiesList" class="activitiesList"></div>
-
+    <!-- Onglet Activité supprimé (chantier B, 20 oct. 2026) : son détail et ses fenêtres restent ici, hors de toute .tab (voir « Activités » dans Réglages). -->
       <!-- Ancre du détail : #communityActivityDetail est déplacé DANS la
            ligne de l'activité sélectionnée (pour s'ouvrir juste en dessous
            d'elle) et revient ici dès qu'aucune activité n'est sélectionnée —
@@ -1589,7 +1569,7 @@
           <p id="deleteActivityModalMsg" class="msg"></p>
         </div>
       </div>
-    </section>
+
 
     <!-- ===================== ONGLET OBJECTIFS =====================
          13 septembre 2026, demande d'Emilien (revient sur l'emplacement
@@ -2696,6 +2676,28 @@
                  « cran par cran » pousserait sinon un simple sticky/fixed posé
                  À L'INTÉRIEUR hors champ avec elle). -->
             <div id="profileSettingsScroll">
+            <!-- Chantier B (20 oct. 2026) : l'onglet Activité n'existe plus ; ses fonctions (liste, couleur, ✎ modifier, fusion, suppression,
+                 catégories) vivent ici, carte « Activités » au-dessus des sections « Paramètres ». Mêmes ids qu'avant. -->
+            <div class="settingsActivities" id="settingsActivitiesBlock">
+              <p class="settingsBlockLabel">Activités</p>
+      <div id="activitiesList" class="activitiesList"></div>
+      <div class="activityRow hidden" id="newActivityCard">
+        <div class="activityRowHeader">
+          <span class="dot" id="newActivityDot"></span>
+          <span class="activityRowName">Nouvelle activité</span>
+        </div>
+        <div class="activitySettingsPanel">
+          <input type="text" id="newActivityName" placeholder="Nom de l'activité">
+          <div id="newActivitySwatches" class="colorSwatches"></div>
+          <p class="meta"></p>
+          <div class="rowActions">
+            <button id="newActivitySave" class="iconBtn btnBrique">Ajouter l'activité</button>
+          </div>
+        </div>
+      </div>
+              <button id="addActivityBtn" class="saAdd" type="button" aria-label="Ajouter une activité"><b>+</b>Ajouter une activité</button>
+            </div>
+            <p class="settingsBlockLabel">Paramètres</p>
             <!-- Menu des Réglages (31 août 2026, demande d'Emilien) : le panneau
                  n'affiche plus toutes les sections déroulées les unes sous les
                  autres, mais la liste de leurs titres. Cliquer un titre déplie sa

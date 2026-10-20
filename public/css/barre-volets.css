@@ -99,3 +99,12 @@
 
 /* Pages de statistiques à gauche de Chrono / de la Feuille de route : le geste de glissement doit marcher aussi dans la zone vide sous le contenu. */
 #tab-chrono, #tab-stats, #tab-goals { min-height: 70vh; }
+
+/* Réglages : section « Activités » (ancien onglet Activité) au-dessus des « Paramètres » (chantier B). */
+.settingsBlockLabel { margin: 0; padding: 0 4px 8px; font-size: 13px; color: var(--text-light, #A59E96); }
+#settingsActivitiesBlock { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+#settingsActivitiesBlock .saAdd { min-height: 48px; border: 1px dashed rgba(243, 238, 232, .28); cursor: pointer; }
+#settingsActivitiesBlock .saAdd b { color: var(--purple, #9C8CC8); font-size: 20px; font-weight: 700; }
+/* La page d'une activité s'ouvre par-dessus Réglages (même z-index 90, Réglages est plus bas dans le document). */
+#activityPage { z-index: 91; }
+#settingsActivitiesBlock { scroll-snap-align: start; }

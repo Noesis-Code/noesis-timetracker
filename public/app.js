@@ -2131,7 +2131,7 @@
 
   // Modules désactivés (js/modules.js) : un onglet masqué se replie sur Chrono ; sans modules.js, tout est actif.
   function tabAllowed(tab) { return !(window.TMT && TMT.modules && TMT.modules.tabOn) || TMT.modules.tabOn(tab); }
-  function firstTab() { return tabAllowed('chrono') ? 'chrono' : (tabAllowed('goals') ? 'goals' : 'activity'); }
+  function firstTab() { return tabAllowed('chrono') ? 'chrono' : (tabAllowed('goals') ? 'goals' : 'community'); }
   function modOn(id) { return !(window.TMT && TMT.modules) || TMT.modules.isOn(id); }
   // Page de statistiques (ancien onglet Stats, chantier B 20 oct. 2026) : ctx = 'chrono' (temps : feuille de temps, répartition, graphique)
   // ou 'goals' (tâches et objectifs, public/js/stats-avance.js). Ne touche pas aux autres onglets : le glissement les gère.
@@ -2210,7 +2210,6 @@
     }
     else {
       if (tab === 'community') loadCommunity();
-      else if (tab === 'activity') loadActivityTab();
       else if (tab === 'goals') { TMT.loadGoalsTab(); maybeShowAiNotice(); }
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
@@ -11057,11 +11056,13 @@
     renderShareSettings();
     var settingsPanelEl = $('profileSettingsPanel');
     settingsPanelEl.classList.remove('hidden');
+    $('profileSettingsScroll').scrollTop = 0;
     // Ouverture instantanée, comme Profil et Activité (retrait de .hidden seul).
     // Violette tant que Réglages est la vue affichée (1er septembre 2026,
     // demande d'Emilien : même comportement "sélectionné = violet" que les
     // onglets de la barre du bas).
     $('profileSettingsBtn').classList.add('active');
+    loadActivityTab(); // section « Activités » (ancien onglet Activité, chantier B)
     renderNotificationsSection();
     if (TMT.renderAiModeSection) TMT.renderAiModeSection();
     refreshCalendarFeedSection();
@@ -11073,6 +11074,9 @@
   // il n'est donc plus nécessaire d'ouvrir explicitement #tab-profile avant
   // de basculer sur la vue Réglages, le bouton n'étant de toute façon visible
   // que lorsque Profil est déjà affiché.
+  // Ancien onglet Activité (retiré le 20 oct. 2026) : ses fonctions vivent dans Réglages > « Activités ».
+  function openActivitiesSettings() { showProfileSettings(); }
+  TMT.openActivitiesSettings = openActivitiesSettings;
   $('profileSettingsBtn').addEventListener('click', function (e) {
     e.stopPropagation();
     if ($('profileSettingsPanel').classList.contains('hidden')) showProfileSettings();
@@ -11592,7 +11596,7 @@
     // reconstruire les arguments d'openActivityPage().
     if (target === 'subproject') {
       var dueActivityId = params.get('activityId');
-      switchTab('activity');
+      openActivitiesSettings();
       if (dueActivityId) {
         whenElementReady('#activitiesList .activityRow[data-activity-id="' + dueActivityId + '"] .activityRowHeader', function (header) {
           header.click();
@@ -16178,7 +16182,7 @@
   }
   
   // Le formulaire d'ajout est replié par défaut derrière le bouton "+" à
-  // côté du titre "Activités" (au lieu d'être toujours affiché).
+  // du bouton « Ajouter une activité » (Réglages > Activités).
   $('addActivityBtn').addEventListener('click', function () {
     $('newActivityCard').classList.toggle('hidden');
   });

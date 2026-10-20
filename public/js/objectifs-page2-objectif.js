@@ -1039,7 +1039,7 @@
   function goToGoalsCategorySettings() {
     var activityId = TMT.currentGoalsActivityId;
     if (!activityId) return;
-    switchTab('activity');
+    TMT.openActivitiesSettings();
     whenElementReady('#activitiesList .activityRow[data-activity-id="' + activityId + '"] .activityRowHeader', function (header) {
       header.click();
       setActivityPageSection('sub');

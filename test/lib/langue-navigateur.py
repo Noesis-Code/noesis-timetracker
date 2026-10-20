@@ -45,7 +45,11 @@ with sync_playwright() as p:
     pg.evaluate("([k,v])=>localStorage.setItem(k,v)", ['noesis_profile', json.dumps(pj)])
     pg.reload(); pg.wait_for_timeout(2500)
     def grab(name): etats[name] = pg.evaluate(JS_TEXT)
-    def tab(name): pg.click('.tabBtn[data-tab=%s]' % name); pg.wait_for_timeout(900)
+    # Chantier B : Stats n'est plus un onglet de la barre mais la page à gauche de Chrono (mêmes écrans, ouverte sans glissement) ; la barre est repliée en icônes seules.
+    def tab(name):
+        if name == 'stats': pg.evaluate("window.TMT.openStats('chrono')")
+        else: pg.click('.tabBtn[data-tab=%s]' % name)
+        pg.wait_for_timeout(900)
     def click(sel, wait=500):
         try: pg.click(sel, timeout=3000); pg.wait_for_timeout(wait); return True
         except Exception: return False
