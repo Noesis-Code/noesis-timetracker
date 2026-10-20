@@ -38,6 +38,18 @@ const cls = require('../server/lib/goalstaskclassify');
   // Rapport.
   const rep = execFileSync('node', [path.join(__dirname, '../scripts/ai-acceptance-report.js'), '30'], { encoding: 'utf8', env: Object.assign({}, process.env, { NOESIS_DATA_DIR: dir }) });
   assert(/Classement de tâche/.test(rep) && /modifiée/.test(rep), 'rapport d\'acceptation produit');
+  // Refus mémorisés (20 oct. 2026) : un refus (ou une proposition devenue inapplicable) est conservé SANS expiration ; même cible+champ+valeur ne revient jamais, une autre valeur est une nouvelle proposition.
+  const cp = require('../server/lib/changeproposals');
+  const chg = (after) => ({ target: 'task', targetId: 999, field: 'date', before: '', after, reason: 'test' });
+  assert(cp.store('u1', A, [chg('2099-01-10')]) === 1, 'refus : proposition créée');
+  const pend = db.prepare("SELECT id FROM change_proposals WHERE activityId = ? AND status = 'pending'").all(A);
+  cp.dismiss(A, pend.map((r) => r.id));
+  db.prepare("UPDATE change_proposals SET createdAt = '2024-01-01T00:00:00.000Z', resolvedAt = '2024-01-02T00:00:00.000Z'").run();
+  assert(cp.store('u1', A, [chg('2099-01-10')]) === 0, 'refus vieux de 2 ans : toujours mémorisé (aucune expiration)');
+  assert(cp.store('u1', A, [chg('2099-01-11')]) === 1, 'même cible, autre valeur : nouvelle proposition possible');
+  const p2 = db.prepare("SELECT id FROM change_proposals WHERE activityId = ? AND status = 'pending'").all(A);
+  const ap = cp.apply('u1', A, p2.map((r) => r.id));
+  assert(ap.skipped.length === 1 && cp.store('u1', A, [chg('2099-01-11')]) === 0, 'proposition inapplicable (cible disparue) : marquée refusée, donc jamais re-proposée');
   fs.rmSync(dir, { recursive: true, force: true });
   if (failed) { console.log(failed + ' échec(s)'); process.exit(1); }
   process.exit(0);
