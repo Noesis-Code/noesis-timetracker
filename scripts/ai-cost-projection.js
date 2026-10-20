@@ -7,10 +7,11 @@ const { PRICES } = require('../server/lib/aimodels');
 
 const PROFILES = ['leger', 'moyen', 'intensif'];
 const SIZES = [10, 100, 1000];
+const MILLION = 10 ** 6; // jetons par unite de tarif (PRICES est en $ / million)
 
 // Cout ($) d'UN appel de la fonction f (memo, relance, repli fort, cache de prompt, remise inclus).
 function callCost(f) {
-  const one = (price) => ((f.in * (1 - (f.cached || 0) * 0.9) * price.in) + (f.out * price.out)) / 1e6;
+  const one = (price) => ((f.in * (1 - (f.cached || 0) * 0.9) * price.in) + (f.out * price.out)) / MILLION;
   const base = one(PRICES[f.model] || PRICES.haiku);
   const strong = one(PRICES.sonnet);
   return (1 - (f.memo || 0)) * ((1 + (f.retry || 0)) * base + (f.fallback || 0) * strong) * (f.discount == null ? 1 : f.discount);
