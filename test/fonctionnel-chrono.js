@@ -32,6 +32,15 @@ const iso = (ms) => new Date(Date.now() + ms).toISOString();
     assert(e && e.durationSeconds >= 3599 && e.durationSeconds <= 3605, 'durée ~1 h');
     assert(e && e.note === 'ma note' && e.activity === 'Activité chr', 'note et activité conservées');
 
+    // Chrono oublié (départ il y a 3 jours), arrêté après 2 h, application « rouverte » : le départ est relu tel quel (statut) et la durée reste exacte à l'arrêt.
+    const t0 = new Date(Date.now() - 3 * 86400e3);
+    await c.post('/api/timer/start', { activityId: A, startTime: t0.toISOString() });
+    const reopened = (await c.get('/api/timer/status')).body;
+    assert(reopened.running === true && reopened.startTime === t0.toISOString(), 'chrono de 2 h (il y a 3 jours) : départ relu à la milliseconde après réouverture');
+    const h2stop = await c.post('/api/timer/stop', { endTime: new Date(t0.getTime() + 7200e3).toISOString() });
+    const e2h = (await c.get('/api/history?period=year')).body.find((x) => x.id === h2stop.body.entryId);
+    assert(h2stop.status === 200 && e2h && e2h.durationSeconds === 7200, 'chrono de 2 h : durée exacte = 7200 s (reçu ' + (e2h && e2h.durationSeconds) + ')');
+
     // Heure de départ invalide / fin avant début
     assert((await c.post('/api/timer/start', { activityId: A, startTime: iso(60 * 60e3) })).status === 400, 'départ dans le futur refusé');
     await c.post('/api/timer/start', { activityId: A });

@@ -148,6 +148,9 @@
     'Durée : —': 'Duration: —',
     'Durée : ': 'Duration: ',
     'Heures invalides.': 'Invalid times.',
+    'Une entrée ne peut pas durer plus de 24 h.': 'An entry cannot last more than 24 h.',
+    'Les heures ne peuvent pas être dans le futur.': 'Times cannot be in the future.',
+    'Ces heures chevauchent une autre de tes entrées.': 'These times overlap another of your entries.',
     "L'heure de fin doit être après l'heure de début.": 'The end time must be after the start time.',
     'Supprimer': 'Delete',
     // Historique modifiable du Chrono (ajouté par la discussion Chrono le

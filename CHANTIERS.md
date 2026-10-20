@@ -46,7 +46,7 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 4. Focus clavier visible (`:focus-visible`) sur les boutons-icônes et ✕ des pop-up, sans nouvelle couleur. FAIT (repli 6).
 5. Test que chaque pop-up de `index.html` a une croix ✕ avec `aria-label` et se ferme à Échap ; lister les écarts dans `docs/accessibilite-2026-10-20.md` sans ajouter de croix. Fini quand : test dans `test/` et liste notée. Périmètre : lecture de `public/index.html`, test seulement.
 6. Mesure du poids de la première page (HTML + CSS + JS en gzip) ; lister les 3 plus gros fichiers à alléger par retrait de code mort. Fini quand : tableau dans `docs/`, aucune modification de `public/`.
-7. Test d'un chrono démarré, application rouverte 2 h plus tard (horloge simulée) : durée exacte conservée. Fini quand : le test `test/fonctionnel-*.js` passe. Périmètre : test seulement, chrono inchangé.
+7. Test d'un chrono démarré, application rouverte 2 h plus tard (horloge simulée) : durée exacte conservée. FAIT (repli 17, `test/fonctionnel-chrono.js`). Fini quand : le test `test/fonctionnel-*.js` passe. Périmètre : test seulement, chrono inchangé.
 
 **3. Time Tracker Expansion** (préparer, jamais de paiement réel)
 1. Portail client Stripe et résiliation : parcours préparé en mode test. FAIT (repli 4) : `POST /offer/portal` + `stripe.createPortalSession`, testé dans `expansion-parcours-test.js` ; reste côté Émilien : activer le portail dans le tableau de bord Stripe (mode test) ; aucune interface ajoutée.

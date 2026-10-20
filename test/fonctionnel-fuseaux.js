@@ -102,6 +102,12 @@ function dayIn(tz, off) {
       };
       const cc2 = await findCol(d2.iso), cc1 = await findCol(d1.iso);
       assert(cc2 && cc2.slots[94] && !cc2.slots[93] && cc1 && cc1.slots[2] && !cc1.slots[1], `${tz} : Communauté, grille, créneaux 23 h 30 (${d2.iso}) et 00 h 30 (${d1.iso}) au bon jour`);
+
+      // Page publique d'un membre (/api/profile/:id/stats) : fenêtres dans le fuseau du lecteur.
+      const ps = (await c.get(`/api/profile/${u.id}/stats?period=week&granularity=day`)).body;
+      const ppt = (i) => (ps.chart || []).find((x) => x.isoDate === i);
+      assert(ps.breakdown.start === mon, `${tz} : page membre, semaine commence le lundi local ${mon} (reçu ${ps.breakdown.start})`);
+      assert(ppt(d0.iso) && ppt(d1.iso) && ppt(d1.iso).totalSeconds === 1200, `${tz} : page membre, graphique contient le jour local ${d0.iso}`);
     }
   } finally { raw.close(); s.stop(); }
   console.log(`\n${T.passed} ok, ${T.failed} échec(s)`);

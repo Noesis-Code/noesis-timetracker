@@ -654,7 +654,9 @@
   function apiNetwork(method, url, body, extra) {
     var opts = { method: method, headers: {} };
     if (extra && extra.signal) opts.signal = extra.signal;
-    if (clientTimezone) opts.headers['X-Client-Tz'] = clientTimezone;
+    // `extra.tz` : fuseau noté à la saisie (chrono hors ligne rejoué plus tard) ; sinon celui du téléphone maintenant.
+    var sendTz = (extra && extra.tz) || clientTimezone;
+    if (sendTz) opts.headers['X-Client-Tz'] = sendTz;
     if (body !== undefined) {
       opts.headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(body);
@@ -2245,7 +2247,8 @@
     } catch (e) { /* stockage indisponible : pas de mode hors ligne */ }
   }
   function loadOfflineChrono() { return offlineStoreGet('chrono'); }
-  function saveOfflineChrono(rec) { offlineStoreSet('chrono', rec); }
+  // Le fuseau du téléphone est noté une fois dans l'enregistrement : le jour de l'entrée suit le fuseau de la saisie, pas celui de la relecture.
+  function saveOfflineChrono(rec) { if (rec && !rec.tz && clientTimezone) rec.tz = clientTimezone; offlineStoreSet('chrono', rec); }
   function offlineChronoHasPending(rec) { return !!rec && (rec.origin === 'offline' || !!rec.stop); }
 
   function formatClock(iso) {
@@ -2278,11 +2281,11 @@
     function toHistory(start, end, category) {
       var body = { userId: profile.id, activityId: rec.activity.id, startTime: start, endTime: end };
       if (category !== undefined) body.category = category;
-      return api('POST', '/api/history', body).catch(function (err) {
+      return api('POST', '/api/history', body, { tz: rec.tz }).catch(function (err) {
         // Pôle/secteur retiré entre-temps : on enregistre quand même, sans.
         if (err.offline || category === undefined || category === null) throw err;
         delete body.category;
-        return api('POST', '/api/history', body);
+        return api('POST', '/api/history', body, { tz: rec.tz });
       });
     }
     offlineChronoFlushing = api('GET', '/api/timer/status?userId=' + profile.id).then(function (status) {
@@ -2301,10 +2304,10 @@
         }
         var startBody = { userId: profile.id, activityId: rec.activity.id, startTime: rec.startTime };
         if (rec.category && rec.category.key) startBody.category = rec.category.key;
-        return api('POST', '/api/timer/start', startBody).catch(function (err) {
+        return api('POST', '/api/timer/start', startBody, { tz: rec.tz }).catch(function (err) {
           if (err.offline || !startBody.category) throw err;
           delete startBody.category;
-          return api('POST', '/api/timer/start', startBody);
+          return api('POST', '/api/timer/start', startBody, { tz: rec.tz });
         }).then(function (data) {
           if (data && data.alreadyRunning) {
             notes.push(t('Un chrono tournait déjà sur un autre appareil : ton chrono hors ligne ({activity}, {time}) n\'a pas été repris.',
@@ -2342,7 +2345,7 @@
       }
       var stopBody = { userId: profile.id, startTime: rec.stop.startTime, endTime: rec.stop.endTime };
       if (rec.stop.category !== undefined) stopBody.category = rec.stop.category;
-      return api('POST', '/api/timer/stop', stopBody).then(function () {
+      return api('POST', '/api/timer/stop', stopBody, { tz: rec.tz }).then(function () {
         notes.push(t('Arrêt hors ligne synchronisé ({activity}).', { activity: rec.activity.name }));
         return done();
       });
