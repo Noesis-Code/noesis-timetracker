@@ -29,7 +29,7 @@ const ok = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; consol
 
 const sent = [];
 mail.sendMail = async (m) => { sent.push(m); return {}; };
-offerdelivery.activateActivitySubscription = async () => {}; // livraison IA testée ailleurs (expansion-bout-en-bout)
+offerdelivery.activatePendingActivity = async () => {}; // livraison IA testée ailleurs (expansion-bout-en-bout)
 const subs = {}; // id -> état Stripe simulé
 stripe.retrieveSubscription = async (id) => ({ id, current_period_start: 1700000000, current_period_end: 1702600000, items: { data: [{ price: { id: 'price_test_local' } }] }, ...subs[id] });
 global.fetch = async (url) => { throw new Error('Appel réseau inattendu : ' + url); };

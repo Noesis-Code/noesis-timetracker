@@ -18,7 +18,7 @@ const ok = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; consol
 let activations = 0;
 let retrieveFails = false;
 let subState = { status: 'active', current_period_start: 1700000000, current_period_end: 1702600000 };
-offerdelivery.activateActivitySubscription = async () => { activations++; };
+offerdelivery.activatePendingActivity = async () => { activations++; };
 stripe.retrieveSubscription = async (id) => {
   if (retrieveFails) throw new Error('panne transitoire simulée');
   return { id, ...subState, items: { data: [{ price: { id: 'price_test' } }] } };

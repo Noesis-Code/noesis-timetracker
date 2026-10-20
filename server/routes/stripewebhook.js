@@ -142,8 +142,8 @@ function activateInBackground(sessionId, activityId, userId) {
   activating.add(activityId);
   setImmediate(async () => {
     try {
-      const r = await offerdelivery.activateActivitySubscription(activityId, userId);
-      if (!r || !r.alreadyActivated) await subMails.notifyUser(userId, 'confirmed');
+      const r = await offerdelivery.activatePendingActivity(activityId, userId);
+      if (!r || (!r.alreadyActivated && !r.skipped)) await subMails.notifyUser(userId, 'confirmed');
     } catch (e) {
       console.error('[stripe webhook] livraison du plan échouée, activité', activityId, 'session', sessionId, ':', e.message);
       try { await subMails.alertTeam('[Noèsis — Expansion : plan non généré]', `activité=${activityId} compte=${userId} session=${sessionId}\nNouvel essai automatique au prochain balayage horaire.`); } catch (e2) { /* meilleur effort */ }

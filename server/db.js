@@ -1809,6 +1809,28 @@ if (tableExists('activity_subscriptions') && !columnExists('activity_subscriptio
   db.exec('ALTER TABLE activity_subscriptions ADD COLUMN cancelAtPeriodEnd INTEGER NOT NULL DEFAULT 0');
 }
 
+// Un seul plan par activité, garanti par la base (pas seulement par un drapeau en mémoire) : index unique (activityId, slot).
+// Il n'était créé que lors de l'ALTER d'une base ancienne, donc ABSENT d'une base neuve. Posé ici, une fois, si aucun doublon
+// n'existe déjà (sinon : journal, démarrage inchangé, la vérification sous transaction de offerdelivery.js reste en place).
+if (tableExists('sub_projects') && columnExists('sub_projects', 'slot')
+    && !db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'uniq_sub_projects_activity_slot'").get()) {
+  if (db.prepare('SELECT 1 FROM sub_projects WHERE slot IS NOT NULL GROUP BY activityId, slot HAVING COUNT(*) > 1 LIMIT 1').get()) {
+    console.error('[db] doublons (activityId, slot) dans sub_projects : index unique non posé, à nettoyer');
+  } else {
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS uniq_sub_projects_activity_slot ON sub_projects(activityId, slot) WHERE slot IS NOT NULL');
+  }
+}
+
+// Tentatives de génération du plan Expansion par activité et par jour (plafond de reprise : jamais de boucle payante).
+db.exec(`CREATE TABLE IF NOT EXISTS plan_activation_attempts (
+  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  day TEXT NOT NULL,
+  n INTEGER NOT NULL DEFAULT 0,
+  lastError TEXT,
+  lastAt TEXT,
+  PRIMARY KEY (activityId, day)
+)`);
+
 // Rétro-remplissage de activity_billing_cycles (table neuve) pour toute
 // activité DÉJÀ activée avant ce pivot (au moins un sous-projet à slot posé)
 // — sans cette ligne, dueActivities() (server/lib/offerquota.js) ne la

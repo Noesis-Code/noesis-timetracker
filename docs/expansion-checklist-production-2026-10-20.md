@@ -1,6 +1,6 @@
 # Expansion — liste de contrôle pour l'activer en production (20 oct. 2026)
 
-Tout est à faire par Émilien. Aucune valeur secrète dans ce fichier : les valeurs se posent dans Railway > Variables (service de production) ou dans Stripe/Resend. Staging reste en clés de test.
+Tout est à faire par Émilien. Suivre aussi, dans les journaux Railway après l'ouverture, les lignes « reprise de livraison suspendue » (plafond de tentatives atteint : plan à relancer à la main ou attendre demain). Aucune valeur secrète dans ce fichier : les valeurs se posent dans Railway > Variables (service de production) ou dans Stripe/Resend. Staging reste en clés de test.
 
 Vérifié en staging avec faux Stripe (aucun réseau, aucun paiement) : `test/expansion-bout-en-bout-test.js` (paiement, webhook signé, accès, courriel, portail, résiliation, fin de période), `test/expansion-cycle-complet-test.js` (cycle FR et EN : paiement refusé, rétabli, résiliation programmée, remboursement, fin, réabonnement ; accès réel et texte affiché à chaque étape), `test/expansion-checkout-securite-test.js` (chemins de retour hostiles, session jamais partagée entre comptes), `test/expansion-achat-staging-test.js` (ouverture de l'achat).
 
@@ -9,6 +9,8 @@ Règles en vigueur au 20 oct. (ce qui a changé) :
 - Staging est ouvert d'office (`RAILWAY_ENVIRONMENT_NAME=staging`) mais une clé `sk_live`/`rk_live` y est traitée comme absente : aucun vrai paiement possible.
 - Retour de Stripe : seul un chemin local est accepté (`//`, `\`, `@`, espace, caractère de contrôle, schéma, URL absolue refusés), toujours collé à l'origine de la requête. Un double clic (10 s) reçoit la même session, par compte ET par activité ET par déclaration d'âge.
 - Remboursement ou litige : alerte à l'équipe seulement (si `EXPANSION_MAILS=1`), accès inchangé tant que l'abonnement n'est pas résilié (question Q3). Paiement refusé (`past_due`) : accès fermé, « paiement à régulariser » affiché ; rétabli par `invoice.paid`. Fin d'abonnement : accès retiré, courriel de fin, activité retirée de la liste.
+- Livraison du plan (webhook puis reprise) : le webhook répond 200 avant la génération ; le plan part en arrière-plan. Un seul plan par activité est garanti par la base (index unique `(activityId, slot)`, posé au démarrage même sur une base neuve) et par une vérification sous transaction. Reprise horaire bornée : au plus `EXPANSION_PLAN_MAX_ATTEMPTS` essais par activité et par jour (défaut 3, compte en base, survit à un redémarrage) ; un budget IA atteint ne compte pas. Un processus tué en pleine génération laisse l'activation « en attente » (aucun plan partiel) et le balayage la reprend. Le balayage n'envoie aucun courriel : voir Q14 de `docs/questions-emilien-expansion.md`. Tests : `test/expansion-plan-course-test.js`, `test/migration-cancelatperiodend-test.js` (colonne `cancelAtPeriodEnd` ajoutée sur une base ancienne, 3 démarrages, aucune ligne perdue).
+- Capturé en 390 px (FR/EN, 20 oct.) : ligne « résiliation programmée le <date> » (1 novembre 2026 à Paris, 31 octobre à Vancouver pour la même échéance) lisible sur deux lignes sans coupure ; champ texte de la fenêtre d'achat avec focus : anneau violet 6,8:1 sur le vrai fond noir de la fenêtre (seuil 3:1).
 - Au retour de Stripe, l'app affiche encore un `alert` natif (question Q11).
 
 ## Avant

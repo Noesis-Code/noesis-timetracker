@@ -193,7 +193,44 @@ function parsePlan(text, truncated) {
 // sous-projets de cette activité existent déjà (slot posé), ne fait RIEN de
 // plus — une relivraison Stripe du même événement ne doit jamais dupliquer
 // la feuille de route.
-async function activateActivitySubscription(activityId, userId) {
+// Une seule génération à la fois par activité DANS le processus (webhook et balayage horaire se rejoignent) ; la garantie « un seul
+// plan » est dans la base : vérification sous transaction + index unique (activityId, slot).
+const inFlight = new Map();
+function activateActivitySubscription(activityId, userId) {
+  if (inFlight.has(activityId)) return inFlight.get(activityId);
+  const p = activateOnce(activityId, userId).finally(() => inFlight.delete(activityId));
+  inFlight.set(activityId, p);
+  return p;
+}
+
+// Reprise bornée : au plus EXPANSION_PLAN_MAX_ATTEMPTS (défaut 3) essais payants par activité et par jour (jour de Toronto, comme les
+// autres plafonds IA), comptés en base (survivent à un redémarrage). Un refus du budget IA (aucun appel fait) ne compte pas et ne consomme pas le plafond de génération du compte.
+// Retourne { skipped: 'cap' } sans rien générer quand le plafond du jour est atteint ; l'état reste « en attente » (abonnement actif, aucun plan).
+function maxAttemptsPerDay() { const n = parseInt(process.env.EXPANSION_PLAN_MAX_ATTEMPTS, 10); return Number.isFinite(n) && n > 0 ? n : 3; }
+async function activatePendingActivity(activityId, userId) {
+  if (inFlight.has(activityId)) return inFlight.get(activityId);
+  if (db.prepare('SELECT 1 FROM sub_projects WHERE activityId = ? AND slot IS NOT NULL LIMIT 1').get(activityId)) return { activityId, alreadyActivated: true };
+  const day = require('./aifeaturecaps').dayKey();
+  if (!aibudget.check(userId).ok) { // budget IA atteint : aucun appel, aucun essai décompté, état lisible ; reprise dès que le budget revient
+    db.prepare("INSERT INTO plan_activation_attempts (activityId, day, n, lastError, lastAt) VALUES (?, ?, 0, 'budget IA atteint', ?) ON CONFLICT(activityId, day) DO UPDATE SET lastError = 'budget IA atteint', lastAt = excluded.lastAt")
+      .run(activityId, day, new Date().toISOString());
+    return { activityId, skipped: 'budget' };
+  }
+  const row = db.prepare('SELECT n FROM plan_activation_attempts WHERE activityId = ? AND day = ?').get(activityId, day);
+  if (row && row.n >= maxAttemptsPerDay()) return { activityId, skipped: 'cap', attempts: row.n };
+  db.prepare("INSERT INTO plan_activation_attempts (activityId, day, n, lastAt) VALUES (?, ?, 1, ?) ON CONFLICT(activityId, day) DO UPDATE SET n = n + 1, lastAt = excluded.lastAt")
+    .run(activityId, day, new Date().toISOString());
+  try {
+    return await activateActivitySubscription(activityId, userId);
+  } catch (e) {
+    const refund = e && e.aiBlocked ? 1 : 0;
+    db.prepare('UPDATE plan_activation_attempts SET n = MAX(0, n - ?), lastError = ? WHERE activityId = ? AND day = ?')
+      .run(refund, (e && e.aiBlocked ? 'budget IA atteint' : String((e && e.message) || e)).slice(0, 200), activityId, day);
+    throw e;
+  }
+}
+
+async function activateOnce(activityId, userId) {
   const already = db.prepare('SELECT 1 FROM sub_projects WHERE activityId = ? AND slot IS NOT NULL LIMIT 1').get(activityId);
   if (already) return { activityId, alreadyActivated: true };
 
@@ -229,6 +266,9 @@ async function activateActivitySubscription(activityId, userId) {
     db.exec('COMMIT');
   } catch (e) {
     db.exec('ROLLBACK');
+    // Index unique (activityId, slot) : un autre plan a été posé entre-temps, il n'y a rien à refaire.
+    if (/UNIQUE constraint failed: sub_projects\.activityId/.test(String(e && e.message))
+        && db.prepare('SELECT 1 FROM sub_projects WHERE activityId = ? AND slot IS NOT NULL LIMIT 1').get(activityId)) return { activityId, alreadyActivated: true };
     throw e;
   }
 
@@ -278,6 +318,7 @@ async function regenerateActivityRoadmap(activityId, userId) {
 module.exports = {
   generateSubProjectsPlan,
   activateActivitySubscription,
+  activatePendingActivity,
   regenerateActivityRoadmap,
   // Exportés séparément pour les tests et un futur outil d'admin.
   parsePlan,

@@ -56,7 +56,7 @@ async function runMonthlyRegeneration() {
 }
 
 // Reprise d'une livraison de plan qui a échoué après la réponse 200 du webhook (voir stripewebhook.js) : abonnement actif sans
-// aucun sous-projet à emplacement. Une seule tentative par activité et par passage ; un échec reste pour le passage suivant.
+// aucun sous-projet à emplacement. Une seule tentative par activité et par passage, au plus EXPANSION_PLAN_MAX_ATTEMPTS par jour (offerdelivery.activatePendingActivity) ; un échec reste pour le passage suivant.
 async function runPendingActivations() {
   const rows = db.prepare(`
     SELECT s.activityId AS activityId, s.userId AS userId FROM activity_subscriptions s
@@ -66,7 +66,8 @@ async function runPendingActivations() {
   for (const row of rows) {
     if (!modules.isEnabled(row.userId, 'ai') || !modules.isEnabled(row.userId, 'roadmap')) continue;
     try {
-      await offerdelivery.activateActivitySubscription(row.activityId, row.userId); // aucun courriel ici (le cron n'en envoie jamais)
+      const r = await offerdelivery.activatePendingActivity(row.activityId, row.userId); // aucun courriel ici (le cron n'en envoie jamais)
+      if (r && r.skipped === 'cap') console.error('[subscriptioncron] reprise de livraison suspendue jusqu\'à demain, activité', row.activityId, ': plafond de tentatives du jour atteint');
     } catch (e) {
       console.error('[subscriptioncron] reprise de livraison échouée, activité', row.activityId, ':', e.message);
     }

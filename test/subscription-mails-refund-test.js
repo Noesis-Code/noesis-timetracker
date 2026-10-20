@@ -22,7 +22,7 @@ const sent = [];
 let mailFails = false;
 process.env.RESEND_API_KEY = 'test';
 mail.sendMail = async (m) => { if (mailFails) throw new Error('Resend HTTP 500'); sent.push(m); return {}; };
-offerdelivery.activateActivitySubscription = async () => {};
+offerdelivery.activatePendingActivity = async () => {};
 stripe.retrieveSubscription = async (id) => ({ id, status: 'active', current_period_start: 1700000000, current_period_end: 1702600000, items: { data: [{ price: { id: 'p' } }] } });
 
 const app = express();

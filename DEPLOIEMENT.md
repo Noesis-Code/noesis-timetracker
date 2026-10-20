@@ -161,6 +161,7 @@ Liste complète (Railway > Variables ; staging = clés de test uniquement) :
 - `STRIPE_WEBHOOK_SECRET` : secret de signature du webhook `/stripe/webhook` (sans lui, événements refusés).
 - `STRIPE_TAX_ENABLED=1` : optionnelle, active TPS/TVQ (voir `docs/stripe-taxes.md`).
 - `EXPANSION_MAILS=1` : courriels d'abonnement aux clients ; défaut off, à valider par Émilien (`docs/expansion-courriels.md`). Requiert `RESEND_API_KEY` et `RESEND_FROM` (domaine vérifié).
+- `EXPANSION_PLAN_MAX_ATTEMPTS` (optionnel, défaut 3) : essais de génération du plan Expansion par activité et par jour (reprise horaire bornée).
 
 - `OFFER_CHECKOUT_OPEN=1` : ouvre l'achat Expansion hors staging (sur staging il est ouvert d'office, avec clés de test). Sans elle, en production, `/offer/available` est faux et `POST /offer/checkout` répond 403. Lue à un seul endroit (`checkoutOpen()` dans `server/lib/stripe.js`, testé). **Ne jamais l'activer en production avant décision d'Émilien (fusion `main`).** Checklist : `docs/expansion-checklist-production-2026-10-20.md`.
 
