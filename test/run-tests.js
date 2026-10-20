@@ -176,13 +176,15 @@ async function main() {
 
   console.log('\n9. Script de restauration en ligne de commande (execFileSync, serveur dans un AUTRE process)');
   const { execFileSync } = require('child_process');
-  const cliEnv = Object.assign({}, process.env);
+  const verifyTmp = require('./lib/tmpdir').mkTmp('noesis-verify-tmpdir-');
+  const cliEnv = Object.assign({}, process.env, { TMPDIR: verifyTmp });
   const listOutput = execFileSync('node', [path.join(__dirname, '..', 'scripts', 'restore-backup.js'), 'list'], { env: cliEnv, encoding: 'utf8' });
   assert(listOutput.includes('noesis-backups/'), 'la commande "list" affiche bien les clés de sauvegarde');
 
   const verifyOutput = execFileSync('node', [path.join(__dirname, '..', 'scripts', 'restore-backup.js'), 'verify'], { env: cliEnv, encoding: 'utf8' });
   assert(verifyOutput.includes('Intégrité SQLite : OK'), 'la commande "verify" confirme l\'intégrité de la sauvegarde la plus récente');
   assert(/time_entries : \d+/.test(verifyOutput), 'la commande "verify" affiche un décompte de lignes réel');
+  assert(fs.readdirSync(verifyTmp).length === 0, '"verify" ne laisse aucun fichier temporaire (.db, -wal, -shm) dans le dossier temporaire');
 
   const restoreDest = path.join(workDir, 'restored-via-cli.db');
   const restoreOutput = execFileSync('node', [path.join(__dirname, '..', 'scripts', 'restore-backup.js'), 'restore', afterFive[0].key, restoreDest], { env: cliEnv, encoding: 'utf8' });
@@ -333,7 +335,7 @@ async function main() {
   catch (e) { assert(false, 'signalement de messages et mots bloqués (test/signalement-test.js) échoue'); }
   try { execFileSync('node', [path.join(__dirname, 'guard-integrity.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'intégrité des fichiers : aucun vide/tronqué (test/guard-integrity.js) passe'); }
   catch (e) { assert(false, 'intégrité des fichiers (test/guard-integrity.js) échoue : ' + String(e.stdout || e.message).trim().split('\n').slice(0, 5).join(' | ')); }
-  for (const f of ['cal-externe-capacite-test.js', 'capture-objectifs-horizon-test.js', 'categories-visibility-test.js', 'category-delete-carry-test.js', 'compression-test.js', 'export-test.js', 'feuille-mois-css-test.js', 'goalstatus-test.js', 'importance-test.js', 'inactive-accounts-test.js', 'member-series-test.js', 'modules-gating-test.js', 'pin-lock-test.js', 'silentspellfix-test.js', 'stats-profile-insights-test.js', 'stripe-webhook-idempotence-test.js', 'structure-migration-test.js', 'subproject-migration-test.js', 'task-lock-test.js', 'year-anchor-test.js', 'year-bound-test.js', 'zone-ia-secteur-periode-test.js']) {
+  for (const f of ['cal-externe-capacite-test.js', 'capture-objectifs-horizon-test.js', 'categories-visibility-test.js', 'category-delete-carry-test.js', 'compression-test.js', 'export-test.js', 'feuille-mois-css-test.js', 'goalstatus-test.js', 'healthz-test.js', 'importance-test.js', 'inactive-accounts-test.js', 'member-series-test.js', 'modules-gating-test.js', 'pin-lock-test.js', 'silentspellfix-test.js', 'stats-profile-insights-test.js', 'stripe-webhook-idempotence-test.js', 'structure-migration-test.js', 'subproject-migration-test.js', 'task-lock-test.js', 'year-anchor-test.js', 'year-bound-test.js', 'zone-ia-secteur-periode-test.js']) {
     try { execFileSync('node', [path.join(__dirname, f)], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'test/' + f + ' passe'); }
     catch (e) { assert(false, 'test/' + f + ' échoue'); }
   }

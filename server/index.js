@@ -103,6 +103,9 @@ app.use('/api', require('./routes/tradeevents'));
 // jointes du Chrono (une seule à la fois par requête).
 app.use(express.json({ limit: '15mb' }));
 
+// Sonde de vie minimale : 200 sans accès base ni donnée utilisateur (avant la session).
+app.get('/healthz', (req, res) => { res.set('Cache-Control', 'no-store'); res.status(200).type('text/plain').send('ok'); });
+
 // Système de session (chantier 1, échéance du 11 septembre 2026 — voir
 // noesis-timetracker-securite.md) : résout req.userId depuis un témoin
 // signé côté serveur, posé dans une routes/session.js à ne jamais depuis

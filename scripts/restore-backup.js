@@ -125,8 +125,8 @@ async function cmdVerify(key) {
     for (const [table, count] of Object.entries(result.counts)) {
       console.log(`  ${table} : ${count}`);
     }
-    if (!result.ok) process.exit(1);
-    console.log('\nCette sauvegarde est restaurable. Rien n\'a été écrit en dehors d\'un fichier temporaire.');
+    if (!result.ok) process.exitCode = 1; // pas de process.exit ici : le finally doit supprimer le .db, -wal et -shm
+    else console.log('\nCette sauvegarde est restaurable. Rien n\'a été écrit en dehors d\'un fichier temporaire.');
   } finally {
     for (const suf of ['', '-wal', '-shm']) { try { fs.unlinkSync(tmpPath + suf); } catch (e) { /* absent */ } }
   }
