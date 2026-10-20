@@ -1,5 +1,7 @@
 # Boucle de veille (génération continue de tâches)
 
+> Rappel : les sous-agents n'ont pas le MCP TiMeTracker : le coordinateur exporte les tâches par secteur dans `/home/claude/taches-secteurs/<secteur>.json` avant de lancer l'agent ; ces fichiers ne vont jamais dans le dépôt.
+
 Décision d'Émilien du 20 oct. 2026 (citation : `intentions.md`). Objectif : lire ses tâches automatiquement, générer en continu des tâches **assez précises pour être comprises sans lui**, et garder un produit qui part de 0 et ne gagne que ce qui sert (modèle « 0 → 1 »). Aucun code serveur ni interface : c'est une procédure suivie par le coordinateur et les chantiers.
 
 ## La boucle (à chaque relance d'un chantier)

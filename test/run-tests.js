@@ -208,6 +208,8 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'trade-e2e-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'Trade Tracker : bout en bout TMT <-> Trade : tests passés'); }
   catch (e) { assert(false, 'Trade Tracker : bout en bout TMT <-> Trade : tests échoués'); }
 
+  try { execFileSync('node', [path.join(__dirname, 'idempotency-purge-test.js')], { encoding: 'utf8' }); assert(true, 'purge des clés d\'idempotence (test/idempotency-purge-test.js) passe'); }
+  catch (e) { assert(false, 'purge des clés d\'idempotence (test/idempotency-purge-test.js) échoue'); }
   try { execFileSync('node', [path.join(__dirname, 'parseplan-test.js')], { encoding: 'utf8' }); assert(true, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) passe'); }
   catch (e) { assert(false, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) échoue'); }
   try { execFileSync('node', [path.join(__dirname, 'a11y-attributs-test.js')], { encoding: 'utf8' }); assert(true, 'accessibilité : attributs (test/a11y-attributs-test.js) passe'); }

@@ -2501,5 +2501,6 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
   PRIMARY KEY (userId, key)
 );
 `);
+require('./lib/idempotencypurge').startIdempotencyPurge(db);
 
 module.exports = db;
