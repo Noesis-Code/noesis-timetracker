@@ -206,7 +206,7 @@ async function handleChargeIssue(kind, obj) {
 }
 
 // Source unique des types traités : sert au routage ci-dessous ET au test qui la compare à la
-// checklist de production (docs/expansion-checklist-production-2026-10-20.md).
+// checklist de production (docs/expansion/expansion-checklist-production-2026-10-20.md).
 // invoice.payment_failed n'y est PAS : le passage en past_due arrive par customer.subscription.updated
 // (accès fermé) ; l'événement est seulement journalisé (voir handleEvent), jamais en erreur.
 const EVENT_HANDLERS = {

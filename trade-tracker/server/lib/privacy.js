@@ -5,7 +5,7 @@
 
 // Tables sans donnée personnelle d'un utilisateur (partagées ou techniques).
 const NON_PERSONAL = new Set(['sectors', 'fx_rates', 'link_nonces', 'auth_lockouts']);
-// Conservée volontairement à l'effacement : journal d'audit inaltérable (déclencheurs). Voir docs/loi25-trade-2026-10-20.md, question L1.
+// Conservée volontairement à l'effacement : journal d'audit inaltérable (déclencheurs). Voir docs/audits/loi25-trade-2026-10-20.md, question L1.
 const KEPT_ON_ERASE = new Set(['audit_log']);
 // Colonnes jamais exportées : secrets, empreintes et jetons (même chiffrés, ils n'ont aucun sens pour la personne).
 const SECRET_COL = /^(tokenEnc|secretEnc|tokenHash|salt|hash|prevHash|challengeHash|codeHash|publicKey)$/;

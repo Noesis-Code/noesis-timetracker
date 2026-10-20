@@ -26,12 +26,16 @@ Cinq chantiers tournent en veille permanente (décision d'Émilien, 20 oct. 2026
 
 Émilien veut une application **simple** : on retire avant d'ajouter. Lire `SIMPLIFICATION.md` (principes, test de simplicité à passer avant tout push d'un chantier UI, journal « Refusé par Émilien »). Un chantier permanent « Simplificateur » relit les livraisons et retire le superflu. Aucun bouton, option, réglage, écran ni couleur nouveau sans demande explicite.
 
-**Règles de rangement (20 oct. 2026) — obligatoires pour tout agent** : `docs/regles-rangement.md` (R1 à R13, modèles Linear, Apple, Things 3, Bear, Oura).
+**Règles de rangement (20 oct. 2026) — obligatoires pour tout agent** : `docs/regles/regles-rangement.md` (R1 à R13, modèles Linear, Apple, Things 3, Bear, Oura).
 **Référence design unique** : ce même fichier fait foi pour la palette « Violet cendré » (R11), les couleurs sémantiques (R12) et la fermeture ✕ (R13) ; le code garde l'ancienne palette jusqu'à demande d'Émilien.
 - Lire ce fichier avant toute modification d'interface (`public/`) ; ne pas l'assouplir sans accord d'Émilien.
 - Joindre au compte rendu la checklist R1–R29 (cochée ou justifiée) et les captures avant/après à 390 px et 360 px.
-- Nouvelle règle = application partout : chaque règle ajoutée à `docs/regles-rangement.md` déclenche un audit de toute l'app (`public/`, `trade-tracker/`, Expansion) par le chantier « Simplification et design général » (ou tâche « à venir »), en réutilisant le composant unique de R29 (jamais recopié).
+- Nouvelle règle = application partout : chaque règle ajoutée à `docs/regles/regles-rangement.md` déclenche un audit de toute l'app (`public/`, `trade-tracker/`, Expansion) par le chantier « Simplification et design général » (ou tâche « à venir »), en réutilisant le composant unique de R29 (jamais recopié).
 - Le relecteur refuse toute branche touchant `public/` sans cette checklist ou avec une règle violée sans justification.
+
+## Rangement de docs/ (20 oct. 2026)
+
+Tout nouveau document va dans le sous-dossier de son sujet (`docs/regles|audits|ia|expansion|trade|basic|precision|questions|journal|simplifications/`) et est listé dans `docs/INDEX.md`. Jamais à plat dans `docs/`.
 
 ## Autonomie
 

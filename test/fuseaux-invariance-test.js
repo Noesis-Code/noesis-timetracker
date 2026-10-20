@@ -1,6 +1,6 @@
 // Invariance du « aujourd'hui » : priorité du jour, tâches non réalisées, capture d'une tâche et Feuille de temps donnent le MÊME jour
 // (celui du téléphone), pour 3 fuseaux et 3 heures limites (23 h 30, 00 h 30, passage à l'heure d'été/d'hiver), serveur à Toronto.
-// Horloge simulée (Date sans argument). Voir docs/fuseaux-serveur-2026-10-20.md. Usage : node test/fuseaux-invariance-test.js
+// Horloge simulée (Date sans argument). Voir docs/audits/fuseaux-serveur-2026-10-20.md. Usage : node test/fuseaux-invariance-test.js
 process.env.TZ = 'America/Toronto'; // fuseau du serveur (server/index.js)
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-tzinv-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';

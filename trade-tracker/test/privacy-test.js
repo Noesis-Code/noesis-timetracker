@@ -1,6 +1,6 @@
 // Loi 25 : effacement et export complets d'un compte Trade. Parcours DYNAMIQUE de toutes les tables (sqlite_master) :
 // aucune ligne ne doit référencer l'utilisateur effacé, aucun texte (courriel, nom, identifiant TMT) ne doit subsister,
-// sauf le journal d'audit inaltérable (conservation documentée, docs/loi25-trade-2026-10-20.md). L'export couvre toutes les tables personnelles.
+// sauf le journal d'audit inaltérable (conservation documentée, docs/audits/loi25-trade-2026-10-20.md). L'export couvre toutes les tables personnelles.
 const assert = require('assert');
 const { DatabaseSync } = require('node:sqlite');
 const { migrate } = require('../server/db');

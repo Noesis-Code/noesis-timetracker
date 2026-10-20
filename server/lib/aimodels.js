@@ -4,7 +4,7 @@ const FAST = 'claude-haiku-4-5';
 const STRONG = 'claude-sonnet-5';
 const CLASSIFY_STRONG = 'claude-sonnet-4-5-20250929';
 
-// Tarifs ($ / million de jetons) : SEUL endroit du dépôt. À confirmer par Émilien (docs/questions-emilien-credits.md) ;
+// Tarifs ($ / million de jetons) : SEUL endroit du dépôt. À confirmer par Émilien (docs/questions/questions-emilien-credits.md) ;
 // PRICES_UPDATED = date de la dernière confirmation (le rapport avertit au-delà de 90 jours). Le rapport et aibudget lisent ces valeurs.
 const PRICES = { sonnet: { in: 3, out: 15 }, haiku: { in: 1, out: 5 }, opus: { in: 15, out: 75 } };
 const PRICES_UPDATED = '2026-10-16';

@@ -1,5 +1,5 @@
 // Calculs financiers : rendement, réalisé vs non réalisé, coût moyen pondéré, dividendes, USD/CAD, fractions, ventes à découvert.
-// Chaque résultat attendu est calculé à la main dans le commentaire du cas (voir docs/fiabilite-trade-2026-10-20.md).
+// Chaque résultat attendu est calculé à la main dans le commentaire du cas (voir docs/audits/fiabilite-trade-2026-10-20.md).
 const assert = require('assert');
 const C = require('../server/lib/calc');
 const eq = (a, b, m) => assert.strictEqual(a, b, `${m} : ${a} != ${b}`);

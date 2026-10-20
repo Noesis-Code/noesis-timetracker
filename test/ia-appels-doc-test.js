@@ -1,7 +1,7 @@
-// Garde-fou : tout appel IA de server/ est documenté (docs/ia-appels.md) et journalisé (ai_usage_log). Usage : node test/ia-appels-doc-test.js
+// Garde-fou : tout appel IA de server/ est documenté (docs/ia/ia-appels.md) et journalisé (ai_usage_log). Usage : node test/ia-appels-doc-test.js
 const fs = require('fs'), path = require('path');
 const root = path.join(__dirname, '..');
-const doc = fs.readFileSync(path.join(root, 'docs', 'ia-appels.md'), 'utf8');
+const doc = fs.readFileSync(path.join(root, 'docs', 'ia', 'ia-appels.md'), 'utf8');
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 function walk(d) { return fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? (e.name === 'node_modules' ? [] : walk(path.join(d, e.name))) : e.name.endsWith('.js') ? [path.join(d, e.name)] : []); }
@@ -14,7 +14,7 @@ for (const f of walk(path.join(root, 'server'))) {
   const src = strip(fs.readFileSync(f, 'utf8'));
   if (!CALL.test(src)) continue;
   found++;
-  assert(doc.includes(base), rel + ' : documenté dans docs/ia-appels.md');
+  assert(doc.includes(base), rel + ' : documenté dans docs/ia/ia-appels.md');
   if (base === 'aibatch.js') assert(/aibudget\.record\([^)]*surveillance-drive-batch/.test(strip(fs.readFileSync(path.join(root, 'server/lib/drivesync.js'), 'utf8'))), rel + ' : coût des lots enregistré par drivesync.js');
   else if (/api\.anthropic\.com/.test(src)) assert(/fetchAnthropic\(|aibudget\.record\(/.test(src), rel + ' : appel API journalisé (fetchAnthropic ou record)');
   // callModel(prompt, max) sans feature (3e argument) retombe sur « classement-tache » : interdit hors goalstaskclassify.

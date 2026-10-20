@@ -1,5 +1,5 @@
 // Chaque adresse ?notif=type&... envoyée par le serveur mène à un écran qui existe (analyse de texte).
-// Table type -> écran : docs/notifications-liens-2026-10-20.md.
+// Table type -> écran : docs/audits/notifications-liens-2026-10-20.md.
 const fs = require('fs');
 const path = require('path');
 const root = path.join(__dirname, '..');

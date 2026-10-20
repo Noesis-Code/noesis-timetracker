@@ -46,7 +46,7 @@
   align-items: center; justify-content: center;
   border: 1.5px dashed rgba(243, 238, 232, .28); background: none; color: var(--purple, #9C8CC8);
 }
-/* Variante « extension payée » : même composant, verre fort de l'icône sélectionnée (exception assumée à R17, voir docs/regles-rangement.md). */
+/* Variante « extension payée » : même composant, verre fort de l'icône sélectionnée (exception assumée à R17, voir docs/regles/regles-rangement.md). */
 .tabbar .tabBtnAdd.barPaid {
   border: 1px solid rgba(243, 238, 232, .2); color: var(--text, #F3EEE8);
   background: linear-gradient(180deg, rgba(243, 238, 232, .16), rgba(243, 238, 232, .07));

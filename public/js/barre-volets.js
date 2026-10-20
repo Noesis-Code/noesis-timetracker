@@ -1,4 +1,4 @@
-/* Barre des volets (chantier B, 20 oct. 2026 ; R18 de docs/regles-rangement.md).
+/* Barre des volets (chantier B, 20 oct. 2026 ; R18 de docs/regles/regles-rangement.md).
  * Barre fixe, toujours visible : pilule de 4 icônes au plus, centrées et réparties ; « + » séparé (absent quand rien
  * n'est à ajouter) qui ouvre un pop-up centré « Ajouter à la barre ». Appui long (500 ms, annulé au-delà de 10 px, comme les activités) :
  * mode édition — glisser une icône pour l'ordre, croix rouge pour la retirer (le dernier onglet restant n'est pas retirable).

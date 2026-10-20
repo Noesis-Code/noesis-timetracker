@@ -1,5 +1,5 @@
 // 5 portefeuilles types, résultats calculés À LA MAIN (hors du code : Decimal en arrondi « moitié vers le haut », vérifié séparément), comparés à calc.js.
-// Conventions de produit épinglées ici (cases à cocher dans docs/questions-emilien-trade.md, Q13/Q14) :
+// Conventions de produit épinglées ici (cases à cocher dans docs/questions/questions-emilien-trade.md, Q13/Q14) :
 //   - coût de revient = COÛT MOYEN PONDÉRÉ (pas FIFO) ; frais inclus dans le coût d'achat et déduits du produit de vente ;
 //   - le gain réalisé/dividendes USD est converti au taux COURANT ; les montants CAD sont arrondis AVANT la soustraction du gain (somme des gains = gain total au cent près).
 const assert = require('assert');

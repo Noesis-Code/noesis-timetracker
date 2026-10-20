@@ -7,7 +7,7 @@ const mail = require('./mail');
 const ALERT_TO = 'confidentialite.noesis@gmail.com';
 
 // Interrupteur : rien ne part tant que EXPANSION_MAILS=1 n'est pas posé (défaut : off).
-// Courriel aux clients = légal/communication, à valider par Émilien (docs/expansion-courriels.md).
+// Courriel aux clients = légal/communication, à valider par Émilien (docs/expansion/expansion-courriels.md).
 function enabled() {
   return process.env.EXPANSION_MAILS === '1';
 }

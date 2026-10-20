@@ -1,7 +1,7 @@
 // Exactitude des Statistiques et de la Feuille de temps (de bout en bout, serveur réel, données temporaires).
 // Règle verrouillée : les secteurs n'apparaissent ni dans la grille, ni dans la feuille de temps, ni dans le graphique (leur temps
 // remonte au pôle), sauf en Répartition. Somme par pôle = somme du temps brut ; écrans = valeurs de l'API ; export = mêmes totaux.
-// Usage : node test/fonctionnel-exactitude.js (voir docs/exactitude-stats-2026-10-20.md)
+// Usage : node test/fonctionnel-exactitude.js (voir docs/audits/exactitude-stats-2026-10-20.md)
 process.env.TZ = 'America/Toronto'; // même fuseau que le serveur et que X-Client-Tz du client de test
 const path = require('path');
 const { DatabaseSync } = require('node:sqlite');

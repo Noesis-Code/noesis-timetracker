@@ -14,7 +14,7 @@ const router = require('../server/routes/stripewebhook');
 let failed = 0;
 const ok = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 
-const doc = fs.readFileSync(path.join(__dirname, '../docs/expansion-checklist-production-2026-10-20.md'), 'utf8');
+const doc = fs.readFileSync(path.join(__dirname, '../docs/expansion/expansion-checklist-production-2026-10-20.md'), 'utf8');
 const line = doc.split('\n').find((l) => l.includes('avec les événements cochés')) || '';
 const documented = [...new Set([...line.split('Poser')[0].matchAll(/`([a-z_]+(?:\.[a-z_]+)+)`/g)].map((m) => m[1]).filter((t) => t !== 'invoice.payment_failed'))];
 const inCode = router.HANDLED_EVENT_TYPES;

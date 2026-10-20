@@ -1,6 +1,6 @@
 // Fuseaux horaires : une entrée posée à 23 h 30 / 00 h 30 (heure locale de la personne) doit tomber dans le bon jour partout
 // (Historique, grille, Répartition, Aujourd'hui, Graphique, Communauté), même quand le fuseau du serveur (America/Toronto) diffère.
-// Voir docs/fuseaux-2026-10-20.md. Usage : node test/fonctionnel-fuseaux.js
+// Voir docs/audits/fuseaux-2026-10-20.md. Usage : node test/fonctionnel-fuseaux.js
 process.env.TZ = 'America/Toronto'; // fuseau du serveur
 const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
