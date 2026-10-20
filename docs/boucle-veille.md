@@ -33,3 +33,6 @@ Rendu : section « Benchmark » dans le même `docs/audit-<écran>-<date>.md`.
 | Date | Malentendu | Cause | Règle |
 |---|---|---|---|
 | 20 oct. 2026 | Une case « Une amélioration à suggérer ? » est apparue sous le Chrono, qu'Émilien n'a pas voulue. | Une demande de feedback a été interprétée comme « ajouter un champ » à l'écran sans demande explicite d'interface. | Une demande qui ne nomme pas d'élément d'interface n'en crée pas : utiliser l'entrée existante ou poser une question à cocher. Le Chrono ne reçoit aucun ajout sans demande mot pour mot. |
+
+## Lecture des tâches
+Les sous-agents n'ont pas le MCP TiMeTracker. Avant de lancer un agent, le coordinateur exporte les tâches du secteur concerné (`lister_taches`) dans `/home/claude/taches-secteurs/<secteur>.json` (ex. `Basic.json`, `Expansion.json`). Ce dossier est **hors dépôt** : données personnelles, jamais commitées. L'agent lit ce fichier (id, tâche, échéance) ; avant de coder, il vérifie si la tâche est déjà faite (`BACKLOG.md`, `git log -S`) et, si oui, n'ajoute que le test manquant.
