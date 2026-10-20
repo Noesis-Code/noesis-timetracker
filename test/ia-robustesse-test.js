@@ -57,7 +57,7 @@ const today = new Date().toISOString().slice(0, 10);
 const end = goals.addDays(today, 27);
 const pid = db.prepare("INSERT INTO goal_periods (activityId, category, periodNumber, cycleIndex, periodIndexInCycle, startDate, endDate, mainGoalText, createdAt) VALUES (?, 'produit', 1, 0, 0, ?, ?, 'Lancer la nouvelle version du produit', datetime('now'))").run(act, today, end).lastInsertRowid;
 
-const reset = () => { aicache.memoClear(); aicache.capClear(); calls = 0; signals = 0; Object.keys(capTaken).forEach((k) => delete capTaken[k]); };
+const reset = () => { aibudget.breakerReset(); aicache.memoClear(); aicache.capClear(); calls = 0; signals = 0; Object.keys(capTaken).forEach((k) => delete capTaken[k]); };
 const noThrow = async (fn) => { try { return { v: await fn() }; } catch (e) { return { err: e }; } };
 
 (async () => {

@@ -379,7 +379,7 @@ async function fetchAnthropic(feature, url, init, userId) {
     let res;
     try { res = await fetchWithRetry(url || ANTHROPIC_URL, init && typeof init.body === 'string' ? { ...init, body: aiscrub.scrubBody(init.body) } : init); } // Loi 25 : coordonnées masquées avant envoi
     catch (e) { breakerResult(!!e && (e.name === 'TypeError' || /\bECONN|ENOTFOUND|ETIMEDOUT|EAI_AGAIN/.test(String(e.message || '') + String(e.code || ''))), Date.now()); throw e; }
-    breakerResult(!!res && res.status >= 500, Date.now());
+    breakerResult(!!res && (res.status === 529 || (res.status >= 502 && res.status <= 504)), Date.now());
     if (res && (res.status === 401 || res.status === 403)) alertKeyRefused(res.status);
     if (res && res.ok && typeof res.clone === 'function') {
       try {
