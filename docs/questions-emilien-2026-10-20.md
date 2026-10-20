@@ -1,5 +1,12 @@
 # Questions en attente : index (20 oct. 2026)
 
+## Les 5 décisions les plus importantes (résumé)
+1. Activation d'Expansion en production : courriels (`EXPANSION_MAILS=1`, `RESEND_FROM`), CGU « Offre 1 » -> Expansion, portail Stripe, Q1 à Q4 (`expansion`).
+2. Précision : lancer l'évaluation `--live` (~0,05 $, jusqu'à ~0,15 $) pour connaître le vrai taux ; trancher l'horaire fixe A/B/C (`precision`).
+3. Infra : supprimer ce qui traîne dans `/tmp` (~1384 fichiers `noesis-verify-*`, 68 Mo) et les fichiers parasites à la racine du système (`/o2.txt`, `/o3.txt`, `/o4.txt`, `/out.txt`, `/x`) : destructeur, à valider.
+4. Trade : afficher le gain réalisé (calcul prêt, non branché ; Q9) avant la mise en production (Q4 à Q6).
+5. Simplification : trancher les retraits proposés par les audits, cases retirer/garder (`simplification`, Trade Q7).
+
 Une case par ligne, par urgence. Détail dans le fichier cité (`questions-emilien-<chantier>.md`). Les lignes sans fichier source se cochent ici.
 
 ## 1. Urgent : bloque une mise en ligne
@@ -33,6 +40,7 @@ Une case par ligne, par urgence. Détail dans le fichier cité (`questions-emili
 - [ ] Crédits : garder le seuil d'alerte à 5 $ par semaine (`credits`)
 - [ ] Crédits : évaluations `--live` (regroupement des classements, retrait du repli Sonnet) (`credits`)
 - [ ] Précision : évaluation `--live` du jeu à l'aveugle (~83 % simulé) (`precision-aveugle-2026-10-20.md`)
+- [ ] Précision : horaire fixe dans un titre IA, A retirer / B « (vers 9 h) » / C garder (recommandé B) (`precision`)
 - [ ] Précision : 5 cas à trancher, ex. « horaire », « loyer » (`precision`)
 - [ ] Crédits : mémo IA persistant ; signal d'acceptation de la reformulation (`credits`)
 - [ ] Contrastes : 3 couleurs sous 4,5:1 (`contrastes-basic.md`)
@@ -46,4 +54,7 @@ Une case par ligne, par urgence. Détail dans le fichier cité (`questions-emili
 
 ## 6. Infra
 - [ ] Nettoyer ~1384 fichiers orphelins `/tmp/noesis-verify-*` (68 Mo) : destructeur, à valider ; cause corrigée.
+- [ ] Supprimer les fichiers parasites à la racine du système (`/o2.txt`, `/o3.txt`, `/o4.txt`, `/out.txt`, `/x`) : à valider.
 - [ ] Healthcheck `/healthz` dans `railway.json` (route prête, fichier non touché).
+
+À ajouter quand écrites : Basic (simplification du premier lancement, chantier 2) ; Trade (délai « temps réel » et lien 2 min : déjà Q1 et Q2 de `trade`, rien à ajouter).

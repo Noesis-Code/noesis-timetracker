@@ -53,8 +53,8 @@ db.exec('BEGIN');
 for (let i = 0; i < 20000; i++) { const d = ago(8 + (i % 700)); ins.run(sp, sec, 'hist ' + i, u.id, d, d, d.slice(0, 10)); }
 db.exec('COMMIT');
 const insights = require('../server/lib/statsinsights');
-// Meilleur de 3 mesures : une machine chargée (CI, autres chantiers) ne doit pas faire échouer le test.
-const best = (fn) => { let m = Infinity; for (let k = 0; k < 3; k++) { const t = Date.now(); fn(); m = Math.min(m, Date.now() - t); } return m; };
+// Meilleur de 3 mesures, en temps CPU (et non mural) : une machine chargée ou les tests en parallèle ne doivent pas faire échouer le test.
+const best = (fn) => { let m = Infinity; for (let k = 0; k < 3; k++) { const t = process.cpuUsage(); fn(); const c = process.cpuUsage(t); m = Math.min(m, Math.round((c.user + c.system) / 1000)); } return m; };
 const ms = best(() => insights.insightsForActivity(aid, u.id, null, 'all', { scope: 'year' }));
 assert(ms < 2000, 'activity-insights avec 20 000 tâches : ' + ms + ' ms');
 const ms2 = best(() => goalstasks.tasksOverviewForActivity(aid));

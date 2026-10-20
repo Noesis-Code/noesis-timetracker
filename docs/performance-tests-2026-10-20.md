@@ -18,3 +18,14 @@ La liste des scripts exécutés est identique (mêmes libellés, mêmes comptes)
 
 ## Écriture hors dossiers temporaires
 `test/run-tests.js` refuse de démarrer si `TMPDIR` est défini mais vide, si le dossier temporaire est la racine du système ou situé dans le dépôt, ou s'il n'est pas inscriptible. En fin de suite : aucun dossier temporaire résiduel (existant) et aucun nouveau fichier à la racine du dépôt. La racine du système n'est pas surveillée : sur une machine partagée, d'autres processus y écrivent (faux positif observé avec `/o3.txt`).
+
+## Stabilité avec le parallélisme (`TMT_TEST_JOBS=3`), 3 exécutions complètes consécutives
+Machine partagée, 2 cœurs, charge 12 à 17 (d'autres agents tournaient : conditions défavorables).
+
+| Exécution | Durée | Charge en fin | Résultat |
+|---|---|---|---|
+| 1 | 474 s | 17,6 | 130 passées, 0 échouée |
+| 2 | 359 s | 15,2 | 130 passées, 0 échouée |
+| 3 | 365 s | 12,6 | 129 passées, 1 échouée |
+
+Seul échec : `task-lock-test.js`, « Page 2 avec 20 000 tâches : 3000 ms » (seuil 3000 ms). Cause : seuil en temps mural sur un calcul synchrone, dépassé par la charge de la machine (et non par le parallélisme : ports et dossiers sont isolés). Correctif : la mesure utilise le temps CPU du processus (`process.cpuUsage`, meilleur de 3), insensible à la charge ; seul seuil temporel de la suite touché (mesure seule : 113 ms et 446 ms pour des seuils de 2000 et 3000 ms). Aucun autre test instable observé sur les 3 passes. Les durées (359 à 474 s) sont supérieures aux 257 s de la mesure précédente uniquement à cause de la charge.

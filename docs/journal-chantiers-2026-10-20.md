@@ -30,14 +30,14 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 ## Serveur
 - Clés d'idempotence : purge des clés de plus de 7 jours au démarrage puis chaque jour (`server/lib/idempotencypurge.js`, test `test/idempotency-purge-test.js`).
 
-## État par chantier (mise à jour : dernières 3 h)
-- Trade Tracker : dernier = calculs fiabilisés (ventes à découvert, dernier prix conservé, gain réalisé pur, non affiché), synchro courtier refuse les réponses vides ; prochain = Q1 à Q8 et affichage du gain réalisé.
-- TT Basic : dernier = fiabilité (dates, concurrence du chrono), zones tactiles 44 px, tests des tâches légales ; prochain = minuit dimanche→lundi, 26 bugs staging.
-- TT Expansion : dernier = revue de sécurité du paiement, `subscription.updated` ancien ignoré (`lastEventAt`), résiliation finale ; prochain = Q9 (rappel de renouvellement), courriels et CGU.
-- Crédits Claude et API : dernier = prompt de classement -24 %, projection mensuelle du coût, délais IA manquants, tests de robustesse ; prochain = `--live`, seuil 5 $, registre Loi 25 de l'apprentissage.
-- Simplification et design : dernier = retrait de la capacité (route, JS/CSS, 9 clés i18n), audit Réglages/Profil/Objectifs ; prochain = cases retirer/garder.
-- Précision des tâches : dernier = 30 cas à l'aveugle (83,3 % avant correction), règles généralisées, bilan ; prochain = évaluation `--live`.
-- Principal et pilotage : dernier = relecture indépendante des 12 livraisons, cache long des ressources versionnées, titres personnels remplacés par des résumés neutres, index des questions à cases ; prochain = relecture des livraisons suivantes.
+## État par chantier (mise à jour : dernières 4 h, jusqu'à 7589bac)
+- Trade Tracker : dernier = effacement/export Loi 25 d'un compte (`privacy.js`), index de lecture, gain par position cohérent, doublons d'import, test de volume 5 000 transactions, preuves d'intégration TMT-Trade (captures 390 px) ; prochain = Q4 à Q6 (déploiement, validation, production), affichage du gain réalisé (Q9), cases L1 à L5.
+- TT Basic : dernier = clavier Android (barre d'onglets masquée si le viewport rétrécit), docs PWA hors ligne, N de chargement mesuré en 3G simulée (aucune correction), bump sw v497 + garde-fou `test/sw-bump-test.js` ; prochain = minuit dimanche->lundi, 26 bugs staging, file hors ligne.
+- TT Expansion : dernier = test de bout en bout et garde `OFFER_CHECKOUT_OPEN`, checklist de mise en production, achat refusé hors staging, traductions EN du code gratuit, `invoice.payment_failed` documenté (Q12) ; prochain = courriels, CGU, Q9 à Q12.
+- Crédits Claude et API : dernier = identifiants de modèle centralisés (`aimodels.js`), test d'apprentissage de bout en bout, coût par utilisateur actif, masquage Loi 25 avant envoi à l'IA ; prochain = `--live`, seuil 5 $, mémo persistant.
+- Simplification et design : dernier = 46 clés i18n mortes retirées, route `weekly-capacity` et 4 fonctions orphelines retirées, 18 `!important` sans effet retirés (captures identiques), DESIGN.md aligné sur le CSS ; prochain = cases retirer/garder d'Émilien.
+- Précision des tâches : dernier = validateur assoupli (0 faux rejet sur 315 titres), compteur journalier générées/rejetées, lot aveugle h61-h90, consignes resserrées ; prochain = évaluation `--live`, horaire fixe A/B/C.
+- Principal et pilotage : dernier = suite de tests parallèle bornée à 3 (472 s -> 257 s), garde TMPDIR/racine du dépôt, `mcp-test` déterministe, bump sw ; prochain = vérification de stabilité (`docs/performance-tests-2026-10-20.md`), relecture des livraisons suivantes.
 
 ## Pilotage : audit dépendances, variables, espace disque (repli 11)
 - `npm audit --omit=dev` : racine = 1 critique (`proxy-addr` <= 2.0.7, usurpation d'IP), corrigée par `npm audit fix` (mise à jour de correctif, lockfile seul) ; Trade Tracker = 0 vulnérabilité. Aucune majeure en attente.
