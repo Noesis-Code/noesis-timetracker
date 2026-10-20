@@ -50,6 +50,7 @@ const SUITE_FILES = [
   'parseplan-test.js',
   'a11y-attributs-test.js',
   'popups-croix-test.js',
+  'interactions-test.js',
   'offline-queue-test.js',
   'offline-idempotence-test.js',
   'offline-rejeu-test.js',
@@ -388,6 +389,8 @@ async function main() {
   catch (e) { assert(false, 'accessibilité : attributs (test/a11y-attributs-test.js) échoue'); }
   try { await runChild('popups-croix-test.js'); assert(true, 'pop-up : croix ✕ nommée (test/popups-croix-test.js) passe'); }
   catch (e) { assert(false, 'pop-up : croix ✕ nommée (test/popups-croix-test.js) échoue'); }
+  try { await runChild('interactions-test.js'); assert(true, 'interactions : Échap et zone 44 px des croix (test/interactions-test.js) passe'); }
+  catch (e) { assert(false, 'interactions : Échap et zone 44 px des croix (test/interactions-test.js) échoue'); }
 
   try { await runChild('offline-queue-test.js'); assert(true, 'file hors ligne : cas limites (test/offline-queue-test.js) passe'); }
   catch (e) { assert(false, 'file hors ligne : cas limites (test/offline-queue-test.js) échoue'); }

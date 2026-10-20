@@ -7640,6 +7640,7 @@
         .then(function () { delBtn.disabled = false; });
     };
     $('categoryRemoveClose').onclick = close;
+    modal.onclick = function (e) { if (e.target === modal) close(); }; // clic hors fenêtre = croix
     $('categoryRemoveCancelBtn').onclick = close;
   }
 
@@ -7756,6 +7757,7 @@
         .then(function () { delBtn.disabled = false; });
     };
     $('categoryRemoveClose').onclick = close;
+    modal.onclick = function (e) { if (e.target === modal) close(); }; // clic hors fenêtre = croix
     $('categoryRemoveCancelBtn').onclick = close;
   };
 
@@ -7962,6 +7964,7 @@
       box.appendChild(row);
     });
     $('categoryMoveClose').onclick = close;
+    modal.onclick = function (e) { if (e.target === modal) close(); }; // clic hors fenêtre = croix
   }
 
   // Clic sur le fond noir, hors de la carte : referme, comme la page de visite

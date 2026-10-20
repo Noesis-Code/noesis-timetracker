@@ -5,6 +5,9 @@
 (function () {
   'use strict';
   var SEL = '.communityMembersModal, .imageViewer, .docTasksPop, .strategyPop, #offer1CodePage';
+  // Plein écrans et fenêtres dont la croix ✕ fermait déjà, mais que le focus/Tab ne pilote pas (créés à la volée ou sans
+  // classe commune) : Échap seulement, aucun rôle ni focus ajouté. Même geste que la croix, aucun effet visuel.
+  var ESC_ONLY = '#profileSettingsPanel, #tradePage, #docTasksPage, .goalTaskEditModal, .reportOverlay, .goalsDiscSheet';
   var FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
   var open = []; // { el, from }
 
@@ -17,6 +20,7 @@
     for (var i = 0; i < bs.length; i++) {
       var l = (bs[i].getAttribute('aria-label') || '').toLowerCase();
       var x = (bs[i].textContent || '').trim();
+      if (l === 'retirer') continue;
       if (x === '✕' || l === 'fermer' || l === 'close') return bs[i];
     }
     return null;
@@ -54,13 +58,31 @@
     }
   }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
 
+  function z(el) { return parseInt(getComputedStyle(el).zIndex, 10) || 0; }
+  // Fenêtre la plus haute parmi les pop-up gérés et les plein écrans Échap-seul (z-index, puis ordre dans la page).
+  function topmost(top) {
+    var best = top, bz = top ? z(top) : -1;
+    document.querySelectorAll(ESC_ONLY).forEach(function (el) {
+      if (!visible(el)) return;
+      var ez = z(el);
+      if (!best || ez > bz || (ez === bz && best.compareDocumentPosition(el) & 4)) { best = el; bz = ez; }
+    });
+    return best;
+  }
+
   document.addEventListener('keydown', function (e) {
     var top = open.length ? open[open.length - 1].el : null;
-    if (!top || !visible(top)) return;
+    if (top && !visible(top)) top = null;
     if (e.key === 'Escape') {
-      var b = closeButton(top);
+      // Une saisie qui gère déjà Échap (nouveau pôle...) ou la roue de durée (sa propre fermeture) passent d'abord.
+      if (e.defaultPrevented || document.querySelector('.durPickerOverlay')) return;
+      var tp = topmost(top);
+      var b = tp && closeButton(tp);
       if (b) { e.preventDefault(); b.click(); }
-    } else if (e.key === 'Tab') {
+      return;
+    }
+    if (!top) return;
+    if (e.key === 'Tab') {
       var fs = focusables(top);
       if (!fs.length) { e.preventDefault(); return; }
       var first = fs[0], last = fs[fs.length - 1], a = document.activeElement;

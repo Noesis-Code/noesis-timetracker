@@ -3521,3 +3521,6 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 #tsPrevWeek::after, #tsNextWeek::after, #tsPeriodBtn::after,
 #statsPieTodayBtn::after, #chartPeriodBtn::after, #statsVisBtn::before { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
 #statsVisBtn, #tsPrevWeek, #tsNextWeek, #tsPeriodBtn, #statsPieTodayBtn, #chartPeriodBtn { position: relative; }
+/* 20 oct. 2026 (interactions) : zone tactile des croix de fermeture portée à 44 px sans changer leur apparence (même technique que #statsVisBtn). */
+.communityMembersModalHeader .menuBtn, .activityPageHeader .menuBtn, .subpageHeader .menuBtn, .goalTaskEditHeader .menuBtn, .profileSubWindowHeader .menuBtn, .strategyHead .menuBtn, .reportHead .menuBtn, .profileSquareBtn { position: relative; }
+.communityMembersModalHeader .menuBtn::after, .activityPageHeader .menuBtn::after, .subpageHeader .menuBtn::after, .goalTaskEditHeader .menuBtn::after, .profileSubWindowHeader .menuBtn::after, .strategyHead .menuBtn::after, .reportHead .menuBtn::after, .profileSquareBtn::after, .imageViewerClose::after, .pollFormCancel::after, .goalRewriteClose::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
