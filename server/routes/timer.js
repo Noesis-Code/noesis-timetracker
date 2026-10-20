@@ -185,7 +185,7 @@ router.post('/timer/stop', (req, res) => {
     // Horloge d'un téléphone en avance (ou arrêt hors ligne rejoué avec un écart périmé) : une fin plus d'une minute dans le futur
     // est ramenée à l'heure du serveur au lieu d'être refusée (la session n'est pas perdue) ; sans cela l'entrée déborderait sur la suivante.
     const nowTs = Date.now();
-    if (stopTime.getTime() > nowTs + 60 * 1000) stopTime = new Date(nowTs);
+    if (stopTime.getTime() > nowTs + 60 * 1000 && startTime.getTime() <= nowTs + 60 * 1000) stopTime = new Date(nowTs);
   }
 
   if (stopTime <= startTime) {

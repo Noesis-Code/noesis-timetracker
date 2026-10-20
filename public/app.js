@@ -5734,13 +5734,13 @@
     var frozen = '<div class="tsCalCorner"></div>';
     var html = '';
     for (var mi = 0; mi < 12; mi++) {
-      html += '<div class="tsCalHeaderCell">' + monthNameLocal(mi).slice(0, 3) + '</div>';
+      html += '<div class="tsCalHeaderCell">' + escapeHtml(monthNameLocal(mi).slice(0, 3)) + '</div>';
     }
     data.rows.forEach(function (r) {
       var rowName = r.name || t('Sans pôle');
       frozen += '<div class="tsCalWeekLabel" style="overflow:hidden;text-overflow:ellipsis;display:block;line-height:var(--cal-row)" title="' + escapeHtml(rowName) + '">' + escapeHtml(rowName) + '</div>';
       r.months.forEach(function (sec, m) {
-        html += '<div class="tsCalDay" title="' + escapeHtml(rowName) + ' · ' + monthNameLocal(m) + '">';
+        html += '<div class="tsCalDay" title="' + escapeHtml(rowName) + ' · ' + escapeHtml(monthNameLocal(m)) + '">';
         html += '<div class="tsCalDayNum">' + (sec > 0 ? formatHM(sec) : '') + '</div>';
         html += '<div class="tsSlot tsSlot-filled" style="height:6px;width:' + (sec > 0 && max > 0 ? Math.max(8, Math.round(sec / max * 100)) : 0)
           + '%;background:' + r.color + '"></div></div>';

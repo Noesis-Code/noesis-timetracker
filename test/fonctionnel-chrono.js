@@ -93,7 +93,7 @@ const iso = (ms) => new Date(Date.now() + ms).toISOString();
     // Sans correction, un téléphone en AVANCE de 10 min qui envoie sa propre heure de fin gonfle la durée de 10 min (le départ est celui du serveur) ; en RETARD, une session courte est refusée.
     const ahead = await c.post('/api/timer/stop', { endTime: new Date(Date.now() + 10 * 60e3).toISOString() });
     const aheadRow = (await c.get('/api/history?period=year')).body.find((x) => x.id === ahead.body.entryId);
-    assert(aheadRow && aheadRow.durationSeconds >= 599 && aheadRow.durationSeconds <= 605, 'horloge en avance de 10 min sans correction : durée = +10 min (mesure ; le client corrige avec serverNow)');
+    assert(aheadRow && aheadRow.durationSeconds <= 5, 'horloge en avance de 10 min sans correction : fin ramenée à l\'heure du serveur (durée réelle, pas +10 min)');
     await c.post('/api/timer/start', { activityId: A });
     const behind = await c.post('/api/timer/stop', { endTime: new Date(Date.now() - 10 * 60e3).toISOString() });
     assert(behind.status === 400, 'horloge en retard de 10 min sans correction : arrêt court refusé (fin avant le départ)');
