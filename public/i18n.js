@@ -1552,6 +1552,7 @@
     "Cette période n'est plus d'actualité.": "This period is no longer current.",
     "Texte requis.": "Text required.",
     "Aucune catégorie sur cette activité.": "No category on this activity.",
+    "Cette activité n'a pas encore de pôle. Vide le champ, puis touche son nom pour en créer un.": "This activity has no division yet. Clear the field, then tap its name to create one.",
     "Catégorie choisie invalide pour cette activité.": "Chosen category invalid for this activity.",
     "Au moins une activité doit être sélectionnée.": "At least one activity must be selected.",
     "Cette tâche existe déjà dans cette activité.": "This task already exists in this activity.",

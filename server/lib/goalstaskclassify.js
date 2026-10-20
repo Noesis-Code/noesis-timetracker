@@ -275,7 +275,7 @@ async function classifyCategory(activityId, label, opts) {
   let categories = buildClassificationCandidates(activityId);
   if (opts && Array.isArray(opts.restrictKeys)) categories = categories.filter((c) => opts.restrictKeys.includes(c.key));
   if (!categories.length) {
-    throw Object.assign(new Error('Aucune catégorie sur cette activité.'), { statusCode: 400 });
+    throw Object.assign(new Error('Cette activité n\'a pas encore de pôle. Vide le champ, puis touche son nom pour en créer un.'), { statusCode: 400 });
   }
   if (opts && opts.strict) {
     const asChoices = (keys) => keys.map((k) => categories.find((c) => c.key === k)).filter(Boolean).map((c) => ({ key: c.key, label: c.label }));
