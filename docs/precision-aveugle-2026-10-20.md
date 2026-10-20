@@ -74,3 +74,23 @@ Correction (classe, pas un cas) : dans `FIXED_TIME`, les formes am/pm sont essay
 
 # Table `generation_quality_log`
 Colonnes : `day`, `feature`, `generated`, `rejected`, `cleaned`. Aucun identifiant de compte ni titre : compteur agrégé par jour et fonction. Rien à effacer à la suppression de compte (et le test `precision-generees-test.js` vérifie que les colonnes sont exactement celles-là).
+
+---
+
+# Lot h151-h180 : vraiment neuf (repli 19, 20 oct. 2026)
+
+`test/fixtures/task-precision/blind-h151-h180.json`, écrit AVANT de rouvrir `taskprecision.js`, `capturedatehint.js` et `taskrecurrence.js` (qui avait été lu pour la question des récurrences, hors dates). Mélange : vie perso, travail, dev ; fr/en ; abréviations (rdv, sem., nov., chap., CR) ; noms propres ; durées et heures sans espace (14h, 1h30).
+
+**Taux aveugle honnête : 22/30 = 73,3 %** (8 échecs avant correction). Après correction : 30/30, non indépendant.
+
+| Échec | Règle généralisée |
+|---|---|
+| « pour son anniversaire samedi » lu comme échéance | « pour » n'est une échéance que devant une date (le, jour de semaine, chiffre) |
+| « jeudi 14h » : heure non retirée | heure 13-23 h sans minutes = horaire (sauf « de », « max », « environ », contexte de durée) |
+| « 1h30 mercredi » : durée prise pour une heure | `H h MM` avec H de 1 à 4 sans « à » = durée (un horaire se dit « à 14 h » ou 15h30) |
+| « 5 nov. », « 3 sem. » : point final retiré | point d'abréviation après chiffre + mot de 2-5 lettres conservé |
+| « dans 3 sem. » sans indice | abréviations sem / j / jr dans « dans N » |
+| « before Friday », « on the 1st » sans indice | jours de semaine anglais, before / by / until, « the 1st/15th » |
+| « réunion du 12 octobre » -> 2027 | « du N mois » déjà passé cette année = référence, aucun indice (sauf échéance ou « à partir du ») |
+
+Limite : « 1h30 » vs « 3h30 » sans contexte reste ambigu (garder le texte est le choix sûr). Aucune règle ne cible un cas précis ; les lots précédents restent à 100 %.

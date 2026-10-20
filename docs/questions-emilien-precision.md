@@ -15,3 +15,10 @@ Cas réels de `test/fixtures/task-precision/cases.json` dont le bon résultat d�
   - [ ] B. Garder en mention non contraignante. « Réunion à 9 h » -> « Réunion (vers 9 h) » ; « Appeler Paul à 14 h 30 » -> « Appeler Paul (vers 14 h 30) » ; « Dentiste 10:30 » -> « Dentiste (vers 10 h 30) ». Aucun créneau, l'information survit dans le titre.
   - [ ] C. Garder tel quel. « Réunion à 9 h » -> « Réunion à 9 h » (le titre de l'IA n'est pas touché ; l'heure reste lisible mais ressemble à un horaire fixe).
   Recommandation : B (rien de perdu, aucune heure contraignante). Non appliqué tant que rien n'est coché.
+
+- [ ] Récurrence « chaque jour ouvrable » / « 3 fois par semaine » : l'app ne sait dire que « tous les N jours / semaines / mois ». Cocher UNE option :
+  - [ ] A. Ignorer (actuel). Aucune proposition de récurrence ; la tâche est créée normalement, titre intact (« Courir 3 fois par semaine »), à refaire à la main.
+  - [ ] B. Approcher par récurrence hebdomadaire. « 3 fois par semaine » -> proposition « chaque semaine » (à valider dans le pop-up) ; « jour ouvrable » -> « chaque jour » (inclut samedi et dimanche : faux). Le sens exact est perdu.
+  - [ ] C. Ne rien faire de plus. Identique à A (aucune proposition), mais sans en parler dans les consignes de l'IA.
+  Recommandation : A (une approximation fausse est pire qu'aucune proposition).
+

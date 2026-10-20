@@ -20,7 +20,9 @@ Aucune récurrence n'est créée sans l'utilisateur : Partiel = proposition vali
 
 Expansion des dates (jours calendaires locaux, testés en fuseau Montréal) : semaine à travers les changements d'heure de mars et novembre, fins de mois 28/29/30/31, 29 févr. + 12 mois, passage d'année, pas de 2 et 3 mois, retard (saut au prochain jour à venir). Toujours un jour AAAA-MM-JJ, jamais une heure (règle « liste, pas de créneaux »).
 
-**Limite connue (non corrigée)** : un mois « le 31 » dérive (31 janv. -> 28 févr. -> 28 mars) car l'occurrence suivante repart de la date clampée ; corriger demande de mémoriser le jour d'ancrage (nouvelle colonne). À décider.
+**Vérifié (repli 19)** : types supportés = jour / semaine / mois (`UNITS`), « tous les N ». « Jour ouvrable », « N fois par semaine », « une fois » sont donc volontairement sans proposition (pas une régression) ; la tâche reste créée normalement, titre gardé (testé en Partiel et Autonome). Choix à confirmer : `docs/questions-emilien-precision.md`.
+
+**Dérive « le 31 » corrigée sans colonne** : le jour demandé est lu dans le titre (`anchorDayFromLabel`, jours 29-31 seulement : « …le 31 », « le 30 de chaque mois », « on the 31st »). À la coche, `spawnNextOccurrence` le réapplique tant que l'échéance précédente en est la version ramenée à la fin du mois (31 janv. -> 28 févr. -> 31 mars -> 30 avr. -> 31 mai). Date déplacée à la main = respectée ; titre sans ce jour = ancien comportement (le jour de départ n'est stocké nulle part ailleurs).
 
 ## Rapprochement tâche -> objectif (cap MATCH)
 | Contrôle | Résultat |

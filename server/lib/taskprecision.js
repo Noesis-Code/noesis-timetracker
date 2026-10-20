@@ -10,7 +10,10 @@ const STOP = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'un', 'une', 'et', '
 function cleanTitle(raw) {
   let s = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim();
   for (let i = 0; i < 3; i += 1) s = s.replace(/^(?:[-*•–—▪◦]+|\[[ xX]?\]|\(?\d{1,2}[.)]|\d{1,2}\s*[-–:])\s+/, '').trim();
-  s = s.replace(/^["«“]\s*/, '').replace(/[\s.;,:"»”]+$/, '').trim();
+  s = s.replace(/^["«“]\s*/, '');
+  const abbr = /\d\s+[a-zéû]{2,5}\.$/i.test(s); // « le 5 nov. », « dans 3 sem. » : le point d'une abréviation de date/durée est conservé
+  s = s.replace(/[\s.;,:"»”]+$/, '').trim();
+  if (abbr) s += '.';
   return s.slice(0, 200);
 }
 
@@ -122,7 +125,7 @@ const HM = '\\d{1,2}\\s*(?:h(?:eures?)?(?:\\s*\\d{2})?|:\\d{2})(?![a-zà-ÿ])', 
 // Heure précise : « à 14 h », « 14 h 30 », « 10:30 », « 3pm », « de 9 h à 10 h ». Un « 2 h » nu reste une durée, jamais un horaire ; « de 3 heures »,
 // « (1 h 30) », « environ 1h30 », « pendant 1 h 15 », « 1 h 30 max » sont des DURÉES (contexte de durée devant/derrière) : conservées telles quelles.
 const DUR_BEFORE = '(?<!(?:\\(|pendant|environ|about|for|dur[ée]e|pour|\\bde|d[\'’]|~)\\s*)', DUR_AFTER = '(?!\\s*(?:\\)|max\\b|maximum|environ|approx))';
-const FIXED_TIME = new RegExp('\\s*(?:(?<=^|\\s)de\\s+' + HM + '\\s*(?:à|a|-|–)\\s*(?:' + AMPM + '|' + HM + ')|(?<=^|[\\s(])(?:à|a|vers|dès|at|@)\\s+(?:' + AMPM + '|' + HM + ')|' + DUR_BEFORE + '\\b\\d{1,2}\\s*h\\s*\\d{2}\\b' + DUR_AFTER + '|\\b\\d{1,2}:\\d{2}\\b|\\b' + AMPM + '\\b)(?:\\s*(?:à|a|-|–|to)\\s*(?:' + AMPM + '|' + HM + '))?', 'i');
+const FIXED_TIME = new RegExp('\\s*(?:(?<=^|\\s)de\\s+' + HM + '\\s*(?:à|a|-|–)\\s*(?:' + AMPM + '|' + HM + ')|(?<=^|[\\s(])(?:à|a|vers|dès|at|@)\\s+(?:' + AMPM + '|' + HM + ')|' + DUR_BEFORE + '\\b(?:[5-9]|0\\d|1\\d|2[0-3])\\s*h\\s*\\d{2}\\b' + DUR_AFTER + '|' + DUR_BEFORE + '\\b(?:1[3-9]|2[0-3])\\s*h(?![a-zà-ÿ0-9])(?!\\s*(?:de\\b|d[\'’]|max|maximum|environ|\\)))|\\b\\d{1,2}:\\d{2}\\b|\\b' + AMPM + '\\b)(?:\\s*(?:à|a|-|–|to)\\s*(?:' + AMPM + '|' + HM + '))?', 'i');
 // Mots vides de sens : un titre qui n'est fait QUE de ces mots (« truc », « à faire », « todo ») ne désigne aucune action. Tout autre mot, même seul
 // (« Épicerie », « Facture Hydro-Québec », « Vérifier », « Acme »), est une tâche valable : pas de liste de verbes, donc pas de faux rejets.
 const VAGUE = new Set(['truc', 'trucs', 'chose', 'choses', 'machin', 'bidule', 'divers', 'autre', 'autres', 'rien', 'tache', 'taches', 'task', 'tasks', 'todo', 'to', 'do', 'stuff', 'thing', 'things', 'misc', 'tbd', 'tba', 'etc', 'na', 'n', 'le', 'la', 'les', 'l', 'un', 'une', 'des', 'du', 'de', 'the', 'an', 'mon', 'ma', 'mes', 'notre', 'nos', 'ce', 'cette', 'ca', 'cela', 'ceci', 'it', 'this', 'that']);

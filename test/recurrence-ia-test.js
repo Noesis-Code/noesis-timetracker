@@ -27,6 +27,11 @@ assert(ai('2026-12-15', 2, 'month') === '2027-02-15' && ai('2026-11-30', 3, 'mon
 assert(ai('2026-10-01', 1, 'month') === '2026-11-01' && ai('2026-12-01', 1, 'month') === '2027-01-01', 'le 1er de chaque mois reste le 1er');
 assert(ai('2026-10-19', 2, 'week') === '2026-11-02', 'aux deux semaines : +14 jours');
 assert(rec.nextDueDate('2026-01-05', 1, 'week', '2026-10-20') === '2026-10-26', 'retard : la suivante saute au prochain lundi à venir, pas de retard recréé');
+// Dérive des mois : le jour demandé dans le titre (« le 31 ») est repris tant que l'échéance précédente en est la version ramenée à la fin du mois.
+assert(rec.anchorDayFromLabel('Payer le loyer le 31') === 31 && rec.anchorDayFromLabel('Bilan le 30 de chaque mois') === 30 && rec.anchorDayFromLabel('Pay rent on the 29th') === 29, 'jour d\'ancrage 29-31 lu dans le titre');
+assert(rec.anchorDayFromLabel('Payer le loyer le 15') === null && rec.anchorDayFromLabel('Payer le loyer') === null && rec.anchorDayFromLabel('Lire le 31 chapitres') === null, 'pas d\'ancrage sans jour 29-31 en fin de titre');
+assert(rec.nextDueDate('2026-01-31', 1, 'month', '2026-01-31', 31) === '2026-02-28' && rec.nextDueDate('2026-02-28', 1, 'month', '2026-02-28', 31) === '2026-03-31' && rec.nextDueDate('2026-03-31', 1, 'month', '2026-03-31', 31) === '2026-04-30' && rec.nextDueDate('2026-04-30', 1, 'month', '2026-04-30', 31) === '2026-05-31', 'le 31 : 31 janv. -> 28 févr. -> 31 mars -> 30 avr. -> 31 mai (plus de dérive)');
+assert(rec.nextDueDate('2026-02-28', 1, 'month', '2026-02-28') === '2026-03-28', 'sans ancrage : comportement inchangé');
 assert(/^\d{4}-\d{2}-\d{2}$/.test(ai('2026-10-19', 1, 'day')), 'la date générée est un JOUR (AAAA-MM-JJ), jamais une heure');
 
 // ---- Détection explicite (Autonome) ----
@@ -96,6 +101,13 @@ fake = {
   assert(r.ok && !r.recurrenceSuggestion && !recOf(r.id).recurEvery, 'Absence : aucune proposition ni création');
   r = await cap('Appeler le client une fois', 'partiel');
   assert(r.ok && !r.recurrenceSuggestion, 'Partiel : « une fois » ne propose rien');
+  // Types supportés = jour / semaine / mois (UNITS). Expression non exprimable : la tâche est quand même créée, simple, sans récurrence ni perte du texte.
+  assert(JSON.stringify(rec.UNITS) === '["day","week","month"]', 'types de récurrence réellement supportés : jour, semaine, mois (tous les N)');
+  for (const [label, mode] of [['Rapport chaque jour ouvrable', 'partiel'], ['Courir 3 fois par semaine', 'partiel'], ['Rapport récurrente chaque jour ouvrable', 'autonome'], ['Courir récurrente 3 fois par semaine', 'autonome']]) {
+    r = await cap(label, mode);
+    const row = db.prepare('SELECT label, recurEvery FROM sub_project_items WHERE id = ?').get(r.id);
+    assert(r.ok && !r.recurrenceSuggestion && !row.recurEvery && /jour ouvrable|3 fois par semaine/.test(row.label), 'non exprimable (' + mode + ') « ' + label.slice(0, 22) + ' » : tâche normale créée, titre gardé, sans récurrence');
+  }
 
   // Cochée : la suivante naît avec un JOUR (liste, pas de créneau), une seule ouverte à la fois
   const sub = require('../server/lib/subprojects');

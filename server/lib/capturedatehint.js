@@ -9,7 +9,7 @@
 // Ce n'est qu'une SUGGESTION (dueDateAuto=2) modifiable dans le pop-up ; une
 // date saisie par l'utilisateur prime toujours (jamais écrasée).
 
-const DAYS = { lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5, samedi: 6, dimanche: 0 };
+const DAYS = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0, lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5, samedi: 6, dimanche: 0 };
 const MONTHS = { janvier: 1, fevrier: 2, mars: 3, avril: 4, mai: 5, juin: 6, juillet: 7, aout: 8, septembre: 9, octobre: 10, novembre: 11, decembre: 12 };
 
 function norm(s) {
@@ -51,7 +51,7 @@ function parseDateHint(text, today) {
   if (/ (demain|tomorrow) /.test(t)) return { kind: 'day', date: add(today, 1) };
   if (/ (aujourd hui|aujourdhui|ce soir|ce matin|today|tonight) /.test(t)) return { kind: 'day', date: today };
   // « dans 3 jours », « dans 2 semaines » (relatif, jamais une heure) ; « dans une heure » ne donne aucun indice.
-  m = / dans (\d{1,2}|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix) (jours?|semaines?) /.exec(t);
+  m = / dans (\d{1,2}|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix) (jours?|jrs?|semaines?|sem) /.exec(t);
   if (m) {
     const n = /^\d/.test(m[1]) ? +m[1] : ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'].indexOf(m[1]) || 1;
     return { kind: 'day', date: add(today, n * (m[2][0] === 's' ? 7 : 1)) };
@@ -68,11 +68,20 @@ function parseDateHint(text, today) {
     return { kind: 'week', date: monday(fmt(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)))) };
   }
 
-  const dead = /\b(avant|d ici|dici|pour|au plus tard)( le| lundi| mardi| mercredi| jeudi| vendredi| samedi| dimanche)?\b/.test(t);
+  // « pour » n'est une échéance que devant une date (« pour le 5 nov. », « pour vendredi ») : « pour son anniversaire samedi » reste un jour.
+  const dead = /\b(avant|d ici|dici|au plus tard|before|by|until)\b|\bpour (le|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|\d)/.test(t);
   m = /\b(?:le |du )?(\d{1,2})(?:er)? (janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/.exec(t);
-  if (m) {
+  // « la réunion du 12 octobre » (déjà passé cette année) est une référence, pas une date à venir : aucun indice (sans échéance ni « à partir du »).
+  const pastRef = m && / du \d{1,2}(?:er)? [a-z]+ /.test(t) && !dead && !/ (partir|des|from) du /.test(t) && (() => { const d = parse(today); return fmt(new Date(Date.UTC(d.getUTCFullYear(), MONTHS[m[2]] - 1, +m[1]))) < today; })();
+  if (m && !pastRef) {
     const iso = dayOfMonth(today, +m[1], MONTHS[m[2]]);
     if (iso) return { kind: dead ? 'deadline' : 'day', date: iso };
+  }
+  // « on the 1st », « the 15th » (anglais) : jour du mois nu en fin de titre.
+  m = / the (\d{1,2})(?:st|nd|rd|th) $/.exec(t);
+  if (m && +m[1] >= 1 && +m[1] <= 31) {
+    const iso = dayOfMonth(today, +m[1]);
+    if (iso) return { kind: 'day', date: iso };
   }
   m = /\b(?:avant|d ici|dici|pour|au plus tard)(?: le| au)? (\d{1,2})(?:er)?\b(?! ?(?:h|heures?|min|minutes|%|\$|euros?))/.exec(t);
   if (m && +m[1] >= 1 && +m[1] <= 31) {
@@ -95,7 +104,7 @@ function parseDateHint(text, today) {
   }
 
   // « tous les lundis » : le pluriel désigne le prochain lundi (point de départ d'une récurrence hebdomadaire).
-  m = /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)(s)?( prochain)?\b/.exec(t);
+  m = /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday)(s)?( prochain| next)?\b/.exec(t);
   if (m) {
     const target = DAYS[m[1]];
     const w = parse(today).getUTCDay();

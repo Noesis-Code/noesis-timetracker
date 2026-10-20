@@ -576,7 +576,11 @@ function updateItem(itemId, fields, userId) {
 }
 
 function spawnNextOccurrence(done) {
-  const next = taskrecurrence.nextDueDate(done.dueDate || todayIso(), done.recurEvery, done.recurUnit, todayIso());
+  // Mois courts : le jour demandé dans le titre (« le 31 ») est repris tant que l'échéance précédente en est la version ramenée à la fin du mois.
+  const base = done.dueDate || todayIso();
+  let anchor = done.recurUnit === 'month' ? taskrecurrence.anchorDayFromLabel(done.label) : null;
+  if (anchor) { const [by, bm, bd] = base.split('-').map(Number); if (bd !== Math.min(anchor, new Date(by, bm, 0).getDate())) anchor = null; } // date déplacée à la main : on la respecte
+  const next = taskrecurrence.nextDueDate(base, done.recurEvery, done.recurUnit, todayIso(), anchor);
   const pos = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM sub_project_items WHERE sectionId = ?').get(done.sectionId).pos;
   db.prepare(`
     INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt, dueDate, dueDateAuto, plannedUserId, autoCaptured, recurEvery, recurUnit)

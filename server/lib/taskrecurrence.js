@@ -27,24 +27,33 @@ function normalize(rec) {
 function pad(n) { return String(n).padStart(2, '0'); }
 
 // Date AAAA-MM-JJ + intervalle (calcul calendaire local, fin de mois ramenée au dernier jour).
-function addInterval(iso, every, unit) {
+function addInterval(iso, every, unit, anchorDay) {
   const [y, m, d] = iso.split('-').map(Number);
   if (unit === 'month') {
     const total = (m - 1) + every;
     const ny = y + Math.floor(total / 12);
     const nm = ((total % 12) + 12) % 12;
     const last = new Date(ny, nm + 1, 0).getDate();
-    return ny + '-' + pad(nm + 1) + '-' + pad(Math.min(d, last));
+    return ny + '-' + pad(nm + 1) + '-' + pad(Math.min(Math.max(d, anchorDay || 0), last));
   }
   const dt = new Date(y, m - 1, d + every * (unit === 'week' ? 7 : 1));
   return dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate());
 }
 
 // Prochaine échéance : base + intervalle, répété tant qu'elle est dans le passé (on ne recrée pas du retard).
-function nextDueDate(baseIso, every, unit, todayIso) {
-  let next = addInterval(baseIso, every, unit);
-  for (let i = 0; i < 800 && next < todayIso; i += 1) next = addInterval(next, every, unit);
+function nextDueDate(baseIso, every, unit, todayIso, anchorDay) {
+  let next = addInterval(baseIso, every, unit, anchorDay);
+  for (let i = 0; i < 800 && next < todayIso; i += 1) next = addInterval(next, every, unit, anchorDay);
   return next;
+}
+
+// Jour d'ancrage d'une récurrence mensuelle, lu dans le titre (« Payer le loyer le 31 », « le 30 de chaque mois », « on the 31st ») : sans lui, une échéance
+// ramenée au 28 févr. repartirait du 28 (31 janv. -> 28 févr. -> 28 mars). Aucune colonne : le titre porte déjà le jour demandé. Sinon null (comportement inchangé).
+function anchorDayFromLabel(label) {
+  const t = String(label || '').toLowerCase();
+  const m = /\ble\s+(\d{1,2})(?:er)?(?:\s+(?:de\s+chaque|de\s+tous\s+les|du|de)\s+mois)?\s*[.!)]*$/.exec(t) || /\bthe\s+(\d{1,2})(?:st|nd|rd|th)\s*$/.exec(t);
+  const d = m ? Number(m[1]) : 0;
+  return d >= 29 && d <= 31 ? d : null; // seuls 29-31 dérivent ; un jour plus petit n'a pas besoin d'ancrage
 }
 
 const WORD = '(?:r[ée]current(?:e|s|es)?)';
@@ -110,4 +119,4 @@ async function suggest(label) {
   } catch (e) { return null; }
 }
 
-module.exports = { UNITS, normalize, addInterval, nextDueDate, parseExplicit, suggest, unsupportedFrequency };
+module.exports = { UNITS, normalize, addInterval, nextDueDate, anchorDayFromLabel, parseExplicit, suggest, unsupportedFrequency };
