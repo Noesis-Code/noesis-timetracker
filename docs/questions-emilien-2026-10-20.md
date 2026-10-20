@@ -35,6 +35,7 @@ Une case par ligne. Détail et choix dans le fichier cité (`questions-emilien-<
 - [ ] Crédits : seuil d'alerte 5 $/sem. ; canal d'alerte (journal / push / courriel) ; seuils par compte actif ; tarifs IA à confirmer (`credits`)
 - [ ] Crédits : mémo IA persistant ; signal d'acceptation de la reformulation ; troncature inter-secteurs ; candidats 60 -> 25 (`credits`)
 - [ ] Contrastes : 3 couleurs sous 4,5:1 (`contrastes-basic.md`)
+- [ ] Fuseaux : le rappel de 6 h part à l'heure de Toronto pour tous (Paris midi, Vancouver 3 h) ; l'envoyer à 6 h locale exige d'enregistrer le fuseau au profil (nouveau champ) ; plafonds de jour IA : unifier Montréal / UTC ? (`fuseaux-serveur-2026-10-20.md`)
 - [ ] Traduire en EN « Ajouter des tâches > document » ; trancher 4 clés EN en conflit (`simplification`, `code-mort-2026-10-20.md`)
 
 ## D. Ajouts (refus par défaut, Simplification)
