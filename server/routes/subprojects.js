@@ -13,6 +13,7 @@
 
 const express = require('express');
 const sp = require('../lib/subprojects');
+const textlimits = require('../lib/textlimits');
 // Chantier Objectifs — C (auto-planification Offre1, 15 septembre 2026) :
 // déclenché après création/modification d'une tâche, jamais bloquant.
 const goalsauto = require('../lib/goalsauto');
@@ -55,8 +56,10 @@ router.put('/sub-project-items/:id', (req, res) => {
   const access = sp.checkSubProjectAccess(userId, item.subProjectId);
   if (access.error) return res.status(access.error.status).json(access.error.body);
 
-  if (typeof req.body.label === 'string' && req.body.label.trim().length > MAX_ITEM_LABEL_LENGTH) {
-    return res.status(400).json({ error: 'Intitulé trop long (300 caractères maximum).' });
+  if (req.body.label !== undefined) {
+    const chk = textlimits.clean(req.body.label, { max: MAX_ITEM_LABEL_LENGTH, word: 'Intitulé' });
+    if (chk.error) return res.status(400).json({ error: chk.error });
+    req.body.label = chk.text; // contrôle et sauts de ligne normalisés ; vide = inchangé (comme avant)
   }
 
   let updated;

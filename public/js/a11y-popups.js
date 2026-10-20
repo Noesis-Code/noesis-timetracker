@@ -4,7 +4,7 @@
  * le bouton de fermeture (✕ / « Fermer ») du pop-up le plus récemment ouvert. */
 (function () {
   'use strict';
-  var SEL = '.communityMembersModal, .imageViewer, .docTasksPop, .strategyPop, #offer1CodePage';
+  var SEL = '.communityMembersModal, .imageViewer, .docTasksPop, .strategyPop, #offer1CodePage, #stopConfirmPanel';
   // Plein écrans et fenêtres dont la croix ✕ fermait déjà, mais que le focus/Tab ne pilote pas (créés à la volée ou sans
   // classe commune) : Échap seulement, aucun rôle ni focus ajouté. Même geste que la croix, aucun effet visuel.
   var ESC_ONLY = '#profileSettingsPanel, #tradePage, #docTasksPage, .goalTaskEditModal, .reportOverlay, .goalsDiscSheet';
@@ -31,7 +31,7 @@
       var l = (bs[i].getAttribute('aria-label') || '').toLowerCase();
       var x = (bs[i].textContent || '').trim();
       if (l === 'retirer') continue;
-      if (x === '✕' || l === 'fermer' || l === 'close') return bs[i];
+      if (x === '✕' || l === 'fermer' || l === 'close' || bs[i].id === 'stopCancelBtn') return bs[i]; // « Annuler » du récapitulatif d'arrêt : le chrono continue
     }
     return null;
   }
@@ -102,5 +102,23 @@
       else if (!e.shiftKey && a === last) { e.preventDefault(); first.focus(); }
     }
   });
+
+  // Clavier : un élément role="button" qui n'est pas un vrai <button> (ligne de légende, en-tête repliable) s'active avec Entrée ou Espace.
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var t = e.target;
+    if (!t || !t.getAttribute || t.getAttribute('role') !== 'button' || /^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+    e.preventDefault(); t.click();
+  });
+
+  // Boutons à menu (aria-haspopup) : aria-expanded suit l'état du menu qui les suit (classe « hidden »).
+  function syncMenus() {
+    document.querySelectorAll('button[aria-haspopup]').forEach(function (b) {
+      var m = b.nextElementSibling;
+      if (m && /Menu/.test(m.className)) b.setAttribute('aria-expanded', m.classList.contains('hidden') ? 'false' : 'true');
+    });
+  }
+  new MutationObserver(syncMenus).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['class'] });
+  syncMenus();
   schedule();
 })();

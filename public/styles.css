@@ -3524,3 +3524,15 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 /* 20 oct. 2026 (interactions) : zone tactile des croix de fermeture portée à 44 px sans changer leur apparence (même technique que #statsVisBtn). */
 .communityMembersModalHeader .menuBtn, .activityPageHeader .menuBtn, .subpageHeader .menuBtn, .goalTaskEditHeader .menuBtn, .profileSubWindowHeader .menuBtn, .strategyHead .menuBtn, .reportHead .menuBtn, .profileSquareBtn { position: relative; }
 .communityMembersModalHeader .menuBtn::after, .activityPageHeader .menuBtn::after, .subpageHeader .menuBtn::after, .goalTaskEditHeader .menuBtn::after, .profileSubWindowHeader .menuBtn::after, .strategyHead .menuBtn::after, .reportHead .menuBtn::after, .profileSquareBtn::after, .imageViewerClose::after, .pollFormCancel::after, .goalRewriteClose::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+
+/* Textes d'utilisateur très longs (20 oct. 2026, Basic n°16) : un nom d'activité sans espace ne doit jamais élargir la page à 390 px. */
+.chartLegend { min-width: 0; }
+.chartLegendRow { min-width: 0; max-width: 100%; }
+.chartLegendLabel { min-width: 0; overflow-wrap: anywhere; }
+.goalsCaptureActivityChip .goalsCaptureActivityChipName { min-width: 0; overflow-wrap: anywhere; }
+.activityChoiceBtn { min-width: 0; overflow-wrap: anywhere; }
+.runningActivityLabel { max-width: 100%; overflow-wrap: anywhere; }
+.goalsPoleTxt .activityPageName { max-width: 100%; }
+
+/* Texte réservé aux lecteurs d'écran (annonces du chronomètre) : invisible, hors flux. */
+.srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

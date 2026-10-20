@@ -36,6 +36,7 @@
 
 const db = require('../db');
 const goals = require('./goals');
+const textlimits = require('./textlimits');
 const subprojects = require('./subprojects');
 const goalsauto = require('./goalsauto');
 const goalsclassifyexamples = require('./goalsclassifyexamples');
@@ -179,9 +180,10 @@ function weeklyObjectiveForWeek(activityId, categoryKey, weekOffset) {
 // Déclenche le moteur d'auto-planification, comme toute création de tâche
 // Sous-projets déjà liée à une catégorie (voir server/routes/subprojects.js).
 function addCategoryTask(activityId, userId, categoryKey, label, extra) {
-  const clean = String(label || '').trim();
+  const chk = textlimits.clean(label, { max: textlimits.LIMITS.TASK_TITLE, word: 'Intitulé' }); // refus (jamais de troncature) ; contrôle et sauts de ligne normalisés
+  if (chk.error) throw Object.assign(new Error(chk.error), { statusCode: 400 });
+  const clean = chk.text;
   if (!clean) throw Object.assign(new Error('Intitulé de la tâche requis.'), { statusCode: 400 });
-  if (clean.length > 300) throw Object.assign(new Error('Intitulé trop long (300 caractères maximum).'), { statusCode: 400 });
 
   // 27 septembre 2026 (demande d'Emilien : « Un pôle qui a des secteurs ne
   // peut pas recevoir ses propres tâches en plus de celles des secteurs. »)

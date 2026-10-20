@@ -51,6 +51,10 @@ const SUITE_FILES = [
   'a11y-attributs-test.js',
   'popups-croix-test.js',
   'interactions-test.js',
+  'a11y-chrono-stats-test.js',
+  'limites-caracteres-test.js',
+  'innerhtml-statique-test.js',
+  'chrono-reseau-lent-test.js',
   'offline-queue-test.js',
   'offline-idempotence-test.js',
   'offline-rejeu-test.js',
@@ -394,6 +398,14 @@ async function main() {
   catch (e) { assert(false, 'pop-up : croix ✕ nommée (test/popups-croix-test.js) échoue'); }
   try { await runChild('interactions-test.js'); assert(true, 'interactions : Échap et zone 44 px des croix (test/interactions-test.js) passe'); }
   catch (e) { assert(false, 'interactions : Échap et zone 44 px des croix (test/interactions-test.js) échoue'); }
+  try { await runChild('a11y-chrono-stats-test.js'); assert(true, 'accessibilité Chrono et Stats (test/a11y-chrono-stats-test.js) passe'); }
+  catch (e) { assert(false, 'accessibilité Chrono et Stats (test/a11y-chrono-stats-test.js) échoue'); }
+  try { await runChild('limites-caracteres-test.js'); assert(true, 'limites de texte et caractères spéciaux (test/limites-caracteres-test.js) passe'); }
+  catch (e) { assert(false, 'limites de texte et caractères spéciaux (test/limites-caracteres-test.js) échoue'); }
+  try { await runChild('innerhtml-statique-test.js'); assert(true, 'insertions HTML échappées, garde statique (test/innerhtml-statique-test.js) passe'); }
+  catch (e) { assert(false, 'insertions HTML échappées, garde statique (test/innerhtml-statique-test.js) échoue'); }
+  try { await runChild('chrono-reseau-lent-test.js'); assert(true, 'chrono sur réseau lent (test/chrono-reseau-lent-test.js) passe'); }
+  catch (e) { assert(false, 'chrono sur réseau lent (test/chrono-reseau-lent-test.js) échoue'); }
 
   try { await runChild('offline-queue-test.js'); assert(true, 'file hors ligne : cas limites (test/offline-queue-test.js) passe'); }
   catch (e) { assert(false, 'file hors ligne : cas limites (test/offline-queue-test.js) échoue'); }

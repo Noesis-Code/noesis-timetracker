@@ -952,6 +952,9 @@
     'Aucune publication pour l\'instant.': 'No post yet.',
     'Suis ce profil pour voir ses publications.': 'Follow this profile to see its posts.',
     'Chrono en cours': 'Timer running',
+    'Chronomètre': 'Stopwatch',
+    'Temps écoulé': 'Elapsed time',
+    'Graphique du temps par jour': 'Chart of time per day',
     'Autoriser une autre réponse': 'Allow another answer',
     'Réponse libre autorisée': 'Free answer allowed',
     'Ta réponse...': 'Your answer...',
@@ -1423,6 +1426,10 @@
   });
   PATTERNS.push(
     [/^Nom d'activité trop long \((\d+) caractères maximum\)\.$/, 'Activity name too long ($1 characters maximum).'],
+    [/^Intitulé trop long \((\d+) caractères maximum\)\.$/, 'Title too long ($1 characters maximum).'],
+    [/^Nom trop long \((\d+) caractères maximum\)\.$/, 'Name too long ($1 characters maximum).'],
+    [/^Note trop longue \((\d+) caractères maximum\)\.$/, 'Note too long ($1 characters maximum).'],
+    [/^(Intitulé|Nom|Note|Message) invalide\.$/, 'Invalid text.'],
     [/^Tu as déjà une activité "(.+)"\.$/, 'You already have an activity "$1".']
   );
 

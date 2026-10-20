@@ -8,6 +8,7 @@ const {
 const { notifyActivityMessage } = require('../lib/push');
 const discussionFiles = require('../lib/discussionfiles');
 const messageReports = require('../lib/messagereports');
+const textlimits = require('../lib/textlimits');
 const { containsBlockedWord, BLOCKED_MESSAGE } = require('../lib/blockedwords');
 const { sendMail } = require('../lib/mail');
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL || 'confidentialite.noesis@gmail.com';
@@ -137,7 +138,9 @@ router.post('/community/activity-messages', (req, res) => {
   const check = checkSharedActivityAccess(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
-  const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
+  const bodyChk = textlimits.clean(req.body.body, { max: MAX_MESSAGE_LENGTH, word: 'Message', kind: 'text' });
+  if (bodyChk.error) return res.status(400).json({ error: bodyChk.error });
+  const body = bodyChk.text;
   // Pièce jointe optionnelle (image ou PDF, 5 Mo) : un message peut n'avoir que le fichier.
   let upload = null;
   if (req.body.attachment) {
@@ -145,7 +148,6 @@ router.post('/community/activity-messages', (req, res) => {
     if (upload.error) return res.status(400).json({ error: upload.error });
   }
   if (!body && !upload) return res.status(400).json({ error: 'Message vide.' });
-  if (body.length > MAX_MESSAGE_LENGTH) return res.status(400).json({ error: 'Message trop long (2000 caractères maximum).' });
 
   if (containsBlockedWord(body)) return res.status(422).json({ error: BLOCKED_MESSAGE, blocked: true });
 

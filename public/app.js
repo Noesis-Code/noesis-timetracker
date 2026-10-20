@@ -2107,7 +2107,10 @@
     if (TMT.collapseGoalsAlerts) TMT.collapseGoalsAlerts();
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
-    tabButtons.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tab); });
+    tabButtons.forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tab === tab);
+      if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); // onglet courant annoncé par les lecteurs d'écran
+    });
     // Tout onglet de la barre du bas quitte forcément le Profil (voir plus
     // bas, openProfile()) — la topbar revient donc à son état par défaut
     // (photo + "Noèsis" à gauche) si elle était dans son état "Profil ouvert"
@@ -2495,11 +2498,18 @@
     var m = Math.floor((elapsedMs % 3600000) / 60000);
     var s = Math.floor((elapsedMs % 60000) / 1000);
     $('liveTimer').textContent = pad(h) + ':' + pad(m) + ':' + pad(s);
+    // Lecteur d'écran : #liveTimer est role="timer" (jamais annoncé seconde par seconde) ; une annonce polie toutes les 10 minutes pleines.
+    if (s === 0 && m % 10 === 0 && (h > 0 || m > 0)) announceChrono(t('Temps écoulé') + ' : ' + (h > 0 ? h + ' h ' : '') + m + ' min');
+  }
+  function announceChrono(text) {
+    var el = $('chronoAnnounce');
+    if (el) el.textContent = text;
   }
   function startLiveTimer(startTimeIso) {
     timerStartMs = new Date(startTimeIso).getTime();
     stopLiveTimer();
     updateLiveTimer();
+    announceChrono(t('Chrono en cours') + ' : ' + ($('runningActivityLabel').textContent || ''));
     timerInterval = setInterval(updateLiveTimer, 1000);
   }
   function stopLiveTimer() {
@@ -2941,6 +2951,7 @@
         noteServerNow(data.serverNow, startSentAt);
         saveOfflineChrono({ origin: 'server', activity: data.activity, startTime: data.startTime, category: data.category || null, stop: null });
         enterRunning(data.activity, data.startTime, data.category);
+        try { $('stopBtn').focus({ preventScroll: true }); } catch (e) { /* ignoré */ } // la grille disparaît : le focus clavier passe sur STOP
       })
       .catch(function (err) {
         if (err.offline) { startOfflineChrono(activity); return; }
@@ -3502,6 +3513,7 @@
     var panel = $('chronoHistoryPanel');
     if (!panel) return;
     panel.classList.add('hidden');
+    $('chronoHistoryHeader').setAttribute('aria-expanded', 'false');
     if (chronoHistoryRO) { chronoHistoryRO.disconnect(); chronoHistoryRO = null; }
     var sec = $('chronoHistorySection');
     if (sec) sec.style.paddingBottom = '';
@@ -3510,6 +3522,7 @@
   $('chronoHistoryHeader').addEventListener('click', function () {
     var opening = $('chronoHistoryPanel').classList.contains('hidden');
     $('chronoHistoryPanel').classList.toggle('hidden', !opening);
+    $('chronoHistoryHeader').setAttribute('aria-expanded', opening ? 'true' : 'false');
     if (opening) {
       chronoHistoryScrollBack = window.scrollY;
       currentHistoryWeekOffset = 0; loadChronoHistory();
@@ -3855,7 +3868,10 @@
     svg.setAttribute('viewBox', '0 0 100 100');
     svg.setAttribute('class', 'pieSvg');
     svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', (ids && ids.ariaLabel) || t('Répartition du temps par activité'));
+    // Alternative texte : titre + chaque part (nom, durée, pourcentage) + total, pour qui ne voit pas le graphique.
+    svg.setAttribute('aria-label', ((ids && ids.ariaLabel) || t('Répartition du temps par activité')) + ' : '
+      + activities.map(function (a) { return a.name + ' ' + formatHM(a.seconds) + ' (' + a.percent + ' %)'; }).join(', ')
+      + ' — ' + t('Total') + ' ' + formatHM(totalSeconds));
 
     // Centre du donut — total par défaut, ou `ids.centerOverride` ({ value,
     // label }, 22 septembre 2026 — voir `ids.onGroupTap` plus bas) affiché à
@@ -5099,6 +5115,15 @@
     };
   }
 
+  // Résumé lu à la place du tracé : période couverte, puis le total de chaque série (Total, activités).
+  function chartSummary(sorted, series) {
+    var parts = series.filter(function (s) { return !s.deleted; }).map(function (s) {
+      var sum = 0; (s.values || []).forEach(function (v) { sum += Number(v) || 0; });
+      return s.name + ' ' + formatHM(sum);
+    });
+    return t('Graphique du temps par jour') + ' ' + sorted[0].isoDate + ' → ' + sorted[sorted.length - 1].isoDate + ' : ' + parts.join(', ');
+  }
+
   function renderChartLegend(series, legendId) {
     var legend = $(legendId || 'statsChartLegend');
     legend.innerHTML = '';
@@ -5182,6 +5207,8 @@
     svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
     svg.setAttribute('class', 'chartSvg');
     svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', chartSummary(sorted, series)); // alternative texte résumée du graphique
     svg.style.width = width + 'px';
     svg.style.height = height + 'px';
 

@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../db');
+const textlimits = require('../lib/textlimits');
 const { isoDateOf, dayNameOf } = require('../lib/dates');
 const { periodRange } = require('../lib/period');
 const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
@@ -93,7 +94,8 @@ router.post('/history', (req, res) => {
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
-  const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(req.body.activityId);
+  const activityIdIn = Number(req.body.activityId); // absent/objet : 400 (node:sqlite lève sur undefined)
+  const activity = Number.isInteger(activityIdIn) ? db.prepare('SELECT * FROM activities WHERE id = ?').get(activityIdIn) : null;
   if (!activity) return res.status(400).json({ error: 'Activité invalide.' });
 
   const startTime = new Date(req.body.startTime);
@@ -105,6 +107,8 @@ router.post('/history', (req, res) => {
   const guardMsg = checkEntryTimes(userId, startTime, endTime, 0);
   if (guardMsg) return res.status(400).json({ error: guardMsg });
   const durationSeconds = Math.round((endTime - startTime) / 1000);
+  const noteChk = textlimits.clean(req.body.note, { max: textlimits.LIMITS.SESSION_NOTE, word: 'Note', fem: true, kind: 'text' });
+  if (noteChk.error) return res.status(400).json({ error: noteChk.error });
 
   const resolved = resolveCategoryKey(activity.id, req.body.category, null);
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
@@ -113,7 +117,7 @@ router.post('/history', (req, res) => {
   // server/routes/timer.js pour le même changement et son raisonnement).
   const info = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(userId, activity.id, (req.body.note || '').trim(), startTime.toISOString(), endTime.toISOString(),
+    .run(userId, activity.id, noteChk.text, startTime.toISOString(), endTime.toISOString(),
       durationSeconds, isoDateOf(startTime, req.timezone), dayNameOf(startTime, req.timezone), resolved.categoryKey);
 
   res.status(201).json({ id: info.lastInsertRowid, category: categorySummary(activity.id, resolved.categoryKey) });
@@ -136,7 +140,12 @@ router.put('/history/:id', (req, res) => {
   const guardMsg = checkEntryTimes(entry.userId, startTime, endTime, entry.id);
   if (guardMsg) return res.status(400).json({ error: guardMsg });
   const durationSeconds = Math.round((endTime - startTime) / 1000);
-  const note = req.body.note !== undefined ? req.body.note.trim() : entry.note;
+  let note = entry.note;
+  if (req.body.note !== undefined) {
+    const noteChk = textlimits.clean(req.body.note, { max: textlimits.LIMITS.SESSION_NOTE, word: 'Note', fem: true, kind: 'text' });
+    if (noteChk.error) return res.status(400).json({ error: noteChk.error });
+    note = noteChk.text;
+  }
 
   // Le rattachement courant ne « suit » l'enregistrement que si l'activité ne
   // change pas : déplacer une session vers une AUTRE activité détache

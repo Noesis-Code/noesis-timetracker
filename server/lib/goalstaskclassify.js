@@ -374,9 +374,10 @@ function suggestWeeklyObjective(activityId, categoryKey, taskLabel) {
 // (voir suggestWeeklyObjective ci-dessus) — jamais bloquant, jamais écrit en
 // base : une simple indication renvoyée au client pour cet ajout précis.
 async function addTaskWithAutoCategory(activityId, userId, label, opts) {
-  const clean = String(label || '').trim();
+  const chk = require('./textlimits').clean(label, { max: 300, word: 'Intitulé' }); // refus (jamais de troncature) ; contrôle et sauts de ligne normalisés
+  if (chk.error) throw Object.assign(new Error(chk.error), { statusCode: 400 });
+  const clean = chk.text;
   if (!clean) throw Object.assign(new Error('Intitulé de la tâche requis.'), { statusCode: 400 });
-  if (clean.length > 300) throw Object.assign(new Error('Intitulé trop long (300 caractères maximum).'), { statusCode: 400 });
 
   const cls = await classifyCategory(activityId, clean, Object.assign({}, opts, { userId }));
   // Mode strict : classement non résolu, rien n'est créé (voir classifyCategory).

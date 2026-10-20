@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../db');
+const textlimits = require('../lib/textlimits');
 const { paletteFor, isInPalette } = require('../lib/theme');
 const { notifyActivityInvite } = require('../lib/push');
 // ⚠️ 3 septembre 2026 — débordement signalé par la discussion "Activité —
@@ -82,7 +83,9 @@ router.post('/activities', (req, res) => {
   const user = db.prepare('SELECT id, theme FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
-  const name = (req.body.name || '').trim();
+  const nameChk = textlimits.clean(req.body.name, { max: textlimits.LIMITS.ACTIVITY_NAME, word: 'Nom' });
+  if (nameChk.error) return res.status(400).json({ error: nameChk.error });
+  const name = nameChk.text;
   if (!name) return res.status(400).json({ error: "Le nom de l'activité est requis." });
 
   const clash = db.prepare(`
@@ -154,7 +157,12 @@ router.put('/activities/:id', (req, res) => {
   }
 
   if (wantsSharedChange) {
-    const name = (req.body.name || activity.name).trim();
+    let name = activity.name;
+    if (req.body.name) {
+      const nameChk = textlimits.clean(req.body.name, { max: textlimits.LIMITS.ACTIVITY_NAME, word: 'Nom' });
+      if (nameChk.error) return res.status(400).json({ error: nameChk.error });
+      name = nameChk.text || activity.name;
+    }
     const requiresNote = req.body.requiresNote !== undefined ? (req.body.requiresNote ? 1 : 0) : activity.requiresNote;
 
     if (name.toLowerCase() !== activity.name.toLowerCase()) {

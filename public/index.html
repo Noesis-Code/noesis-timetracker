@@ -700,7 +700,8 @@
 
       <div id="chronoRunning" class="chronoBlock hidden">
         <p class="runningActivityLabel" id="runningActivityLabel"></p>
-        <div id="liveTimer">00:00:00</div>
+        <div id="liveTimer" role="timer" aria-live="off" aria-label="Chronomètre">00:00:00</div>
+        <p id="chronoAnnounce" class="srOnly" role="status" aria-live="polite" aria-atomic="true"></p>
         <!-- La zone "Note" (brouillon de session + pièces jointes "en
              attente" + envoi "en direct" aux membres/à la communauté) a été
              retirée le 31 août 2026 (demande d'Emilien : « ajouter une zone
@@ -732,8 +733,8 @@
              bas quand il s'ouvre puisqu'il occupe une place réelle dans la
              page plutôt qu'une couche flottante par-dessus. -->
         <div id="chronoCategoryWrap" class="chronoSubProjectWrap hidden">
-          <label class="stopFieldLabel">Pôle ou secteur (facultatif)</label>
-          <div id="chronoCategoryPicker" class="categoryPicker"></div>
+          <label class="stopFieldLabel" id="chronoCategoryLabel">Pôle ou secteur (facultatif)</label>
+          <div id="chronoCategoryPicker" class="categoryPicker" role="group" aria-labelledby="chronoCategoryLabel"></div>
           <p id="chronoCategoryMsg" class="msg"></p>
         </div>
 
@@ -755,9 +756,9 @@
              la date une place volontairement plus petite qu'à l'heure (31
              août 2026, demande d'Emilien), ce qu'un champ combiné ne permet
              pas de régler par CSS. -->
-        <div id="stopConfirmPanel" class="hidden">
+        <div id="stopConfirmPanel" class="hidden" role="dialog" aria-modal="true" aria-labelledby="stopConfirmTitle">
           <div class="stopConfirmCard">
-            <p class="stepLabel">Confirmer l'arrêt</p>
+            <p class="stepLabel" id="stopConfirmTitle">Confirmer l'arrêt</p>
             <p class="stopFieldLabel">Heure de début</p>
             <div class="stopDateTimeRow">
               <input type="date" id="stopStartDateInput" aria-label="Heure de début" class="stopDateInput">
@@ -775,11 +776,11 @@
                  17 septembre 2026 : remplace le sous-projet, voir le
                  commentaire de #chronoCategoryWrap plus haut. -->
             <div id="stopCategoryWrap" class="hidden">
-              <p class="stopFieldLabel">Pôle ou secteur</p>
-              <div id="stopCategoryPicker" class="categoryPicker"></div>
+              <p class="stopFieldLabel" id="stopCategoryLabel">Pôle ou secteur</p>
+              <div id="stopCategoryPicker" class="categoryPicker" role="group" aria-labelledby="stopCategoryLabel"></div>
             </div>
             <p id="stopDurationLabel" class="meta"></p>
-            <p id="stopConfirmMsg" class="msg"></p>
+            <p id="stopConfirmMsg" class="msg" role="alert"></p>
             <div class="rowActions stopConfirmActions">
               <button id="stopCancelBtn" class="iconBtn">Annuler</button>
               <button id="stopConfirmBtn" class="iconBtn">Valider</button>
@@ -788,7 +789,7 @@
         </div>
       </div>
 
-      <p id="chronoStatus" class="msg"></p>
+      <p id="chronoStatus" class="msg" role="status" aria-live="polite"></p>
 
       <!-- Historique modifiable des sessions déjà enregistrées : corriger la
            date/l'heure d'un enregistrement validé, ou le supprimer. Fonction
@@ -804,13 +805,13 @@
            page à part, écarté par Emilien au profit de ce panneau repliable
            sur place, plus proche de ce qu'il avait initialement en tête). -->
       <div id="chronoHistorySection">
-        <div class="sectionTitleRow historyHeaderClickable" id="chronoHistoryHeader">
+        <div class="sectionTitleRow historyHeaderClickable" id="chronoHistoryHeader" role="button" tabindex="0" aria-expanded="false" aria-controls="chronoHistoryPanel">
           <p class="sectionTitle">Historique</p>
         </div>
         <div id="chronoHistoryPanel" class="hidden">
           <div class="historyNav">
             <button id="historyPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
-            <span id="historyWeekLabel" class="meta"></span>
+            <span id="historyWeekLabel" class="meta" aria-live="polite"></span>
             <button id="historyNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
           </div>
           <div id="historyList"></div>
@@ -823,7 +824,7 @@
     <section id="tab-stats" class="tab hidden">
       <div id="statsPages"><div id="statsPage1">
       <div class="statsPeriodMenuWrap caSubProjectFilter">
-        <button type="button" class="caSubProjectBtn" id="statsVisBtn" aria-haspopup="true">
+        <button type="button" class="caSubProjectBtn" id="statsVisBtn" aria-haspopup="true" aria-expanded="false">
           <span id="statsVisBtnLabel">Tous</span>
         </button>
         <div class="statsPeriodMenu caSubProjectMenu hidden" id="statsVisMenu">
@@ -853,10 +854,10 @@
           <p class="sectionTitle">Feuille de temps</p>
           <div class="timesheetNav">
             <button id="tsPrevWeek" type="button" class="iconBtn" aria-label="Période précédente">‹</button>
-            <span id="tsWeekLabel" class="meta"></span>
+            <span id="tsWeekLabel" class="meta" aria-live="polite"></span>
             <button id="tsNextWeek" type="button" class="iconBtn" aria-label="Période suivante">›</button>
             <div class="statsPeriodMenuWrap">
-              <button type="button" class="menuBtn" id="tsPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
+              <button type="button" class="menuBtn" id="tsPeriodBtn" aria-haspopup="true" aria-expanded="false" aria-label="Choisir la période">⋮</button>
               <div class="statsPeriodMenu hidden" id="tsPeriodMenu">
                 <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
                 <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
@@ -981,7 +982,7 @@
         <div class="sectionTitleRow">
           <p class="sectionTitle">Graphique</p>
           <div class="statsPeriodMenuWrap">
-            <button type="button" class="menuBtn" id="chartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
+            <button type="button" class="menuBtn" id="chartPeriodBtn" aria-haspopup="true" aria-expanded="false" aria-label="Choisir la granularité">⋮</button>
             <div class="statsPeriodMenu hidden" id="chartPeriodMenu">
               <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
               <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>

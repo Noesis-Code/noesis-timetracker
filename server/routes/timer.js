@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../db');
+const textlimits = require('../lib/textlimits');
 const { isoDateOf, dayNameOf, formatElapsed } = require('../lib/dates');
 // Rattachement OPTIONNEL du temps à une CATÉGORIE Objectifs (17 septembre
 // 2026, suppression totale des sous-projets — remplace le rattachement
@@ -188,7 +189,9 @@ router.post('/timer/stop', (req, res) => {
   }
 
   const durationSeconds = Math.max(0, Math.round((stopTime - startTime) / 1000));
-  const note = (req.body.note !== undefined ? req.body.note : running.note) || '';
+  const noteChk = textlimits.clean(req.body.note !== undefined ? req.body.note : running.note, { max: textlimits.LIMITS.SESSION_NOTE, word: 'Note', fem: true, kind: 'text' });
+  if (noteChk.error) return res.status(400).json({ error: noteChk.error });
+  const note = noteChk.text;
 
   const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(running.activityId);
 
@@ -212,7 +215,7 @@ router.post('/timer/stop', (req, res) => {
   // quiconque n'est pas à l'heure de l'Est.
   const info = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(user.id, running.activityId, note.trim(), startTime.toISOString(), stopTime.toISOString(), durationSeconds,
+    .run(user.id, running.activityId, note, startTime.toISOString(), stopTime.toISOString(), durationSeconds,
       isoDateOf(startTime, req.timezone), dayNameOf(startTime, req.timezone), resolved.categoryKey);
 
   db.prepare('DELETE FROM running_timers WHERE userId = ?').run(user.id);
