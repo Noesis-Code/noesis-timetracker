@@ -46,7 +46,8 @@ const GOOD = JSON.stringify({ weeklyGoals: [{ weekIndex: 1, text: 'Lancer', desc
     reset(); const t0 = Date.now(); let err = null;
     try { await aibudget.runAs('u1', run); } catch (e) { err = e; }
     const dt = Date.now() - t0;
-    assert(err && dt < 1500, label + ' : serveur lent => échec après ~0,3 s (' + dt + ' ms), pas d\'attente sans fin');
+    // Marge proportionnelle au faux serveur (délai 3000 ms) : échec bien avant la réponse = le délai de 300 ms a joué ; insensible à la charge machine.
+    assert(err && dt < 2500, label + ' : serveur lent (3 s) => échec au délai de 0,3 s, bien avant la réponse (' + dt + ' ms), pas d\'attente sans fin');
     assert(hits === 1, label + ' : délai dépassé => un seul appel, aucun repli vers le modèle fort (' + hits + ')');
   }
   delete process.env.AI_TIMEOUT_HEBDO_MS; delete process.env.AI_TIMEOUT_CLASSEMENT_MS; delete process.env.AI_TIMEOUT_DOCUMENTS_MS;

@@ -20,6 +20,7 @@ async function request(url, init) {
   try {
     const res = await doFetch(url, { ...init, signal: controller.signal, headers: headers() });
     if (!res.ok) {
+      if (res.status === 401 || res.status === 403) aibudget.alertKeyRefused(res.status); // même alerte horaire que les appels directs
       let detail = '';
       try { const j = await res.json(); detail = (j && j.error && j.error.message) || ''; } catch (e) { /* corps illisible */ }
       throw Object.assign(new Error('HTTP ' + res.status), { statusCode: res.status, creditLow: /credit balance/i.test(String(detail)) });
