@@ -24,3 +24,6 @@ Test : `test/offline-idempotence-test.js`.
 - Avant : rejeu séquentiel de la même clé `Idempotency-Key` = une seule tâche (OK). **Trou trouvé** : deux requêtes de même clé en parallèle (réponse perdue puis réémission pendant que la 1re classification tourne) créaient un doublon.
 - Après : `server/routes/goals.js` partage la requête en cours par clé (`idemInFlight`) : une seule tâche, même réponse.
 - Ajouté au test : parallèle (une tâche) ; échec serveur puis rejeu (rien n'est mémorisé, la tâche est créée au rejeu : aucune perte).
+
+## 5. Croix ✕ des pop-up (repli 18)
+Test : `test/popups-croix-test.js` (22 pop-up de `index.html`). Tous ont une croix ✕ avec `aria-label`, que Échap active (`js/a11y-popups.js`). Seul écart, voulu : `marketingInviteModal` (question de consentement, « J'accepte » / « Non merci » tient lieu de fermeture ; une croix serait un refus implicite). Aucune croix ajoutée.

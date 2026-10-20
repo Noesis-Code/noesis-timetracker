@@ -32,10 +32,12 @@ router.get('/timer/status', (req, res) => {
   if (!user) return;
 
   const running = db.prepare('SELECT * FROM running_timers WHERE userId = ?').get(user.id);
-  if (!running) return res.json({ running: false });
+  // serverNow : le téléphone en déduit l'écart de son horloge (voir clockSkewMs, public/app.js).
+  if (!running) return res.json({ running: false, serverNow: Date.now() });
 
   res.json({
     running: true,
+    serverNow: Date.now(),
     startTime: running.startTime,
     activity: activityWithColor(running.activityId, user.id),
     // null est le cas NORMAL : le choix d'une catégorie est optionnel.
@@ -60,6 +62,7 @@ router.post('/timer/start', (req, res) => {
   if (existing) {
     return res.json({
       alreadyRunning: true,
+      serverNow: Date.now(),
       startTime: existing.startTime,
       activity: activityWithColor(existing.activityId, user.id),
       category: categorySummary(existing.activityId, existing.goalCategory),
@@ -94,6 +97,7 @@ router.post('/timer/start', (req, res) => {
     .run(user.id, activity.id, startTime, '', resolved.categoryKey);
   res.json({
     alreadyRunning: false,
+    serverNow: Date.now(),
     startTime,
     activity: activityWithColor(activity.id, user.id),
     category: categorySummary(activity.id, resolved.categoryKey),

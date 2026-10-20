@@ -84,6 +84,38 @@ const iso = (ms) => new Date(Date.now() + ms).toISOString();
     assert((await c.post('/api/timer/category', { category: 'zzz' })).status >= 400, 'catégorie invalide refusée');
     const stop2 = await c.post('/api/timer/stop', { startTime: iso(-1800e3) });
     assert(stop2.body.category && stop2.body.category.key === pk, "l'arrêt garde la catégorie");
+
+    // Horloge du téléphone décalée (repli 18) : le serveur donne son heure (serverNow) pour que le client mesure l'écart.
+    const sn = (await c.get('/api/timer/status')).body;
+    assert(typeof sn.serverNow === 'number' && Math.abs(sn.serverNow - Date.now()) < 5000, 'statut : serverNow = heure du serveur');
+    const skewStart = await c.post('/api/timer/start', { activityId: A });
+    assert(typeof skewStart.body.serverNow === 'number', 'démarrage : serverNow présent');
+    // Sans correction, un téléphone en AVANCE de 10 min qui envoie sa propre heure de fin gonfle la durée de 10 min (le départ est celui du serveur) ; en RETARD, une session courte est refusée.
+    const ahead = await c.post('/api/timer/stop', { endTime: new Date(Date.now() + 10 * 60e3).toISOString() });
+    const aheadRow = (await c.get('/api/history?period=year')).body.find((x) => x.id === ahead.body.entryId);
+    assert(aheadRow && aheadRow.durationSeconds >= 599 && aheadRow.durationSeconds <= 605, 'horloge en avance de 10 min sans correction : durée = +10 min (mesure ; le client corrige avec serverNow)');
+    await c.post('/api/timer/start', { activityId: A });
+    const behind = await c.post('/api/timer/stop', { endTime: new Date(Date.now() - 10 * 60e3).toISOString() });
+    assert(behind.status === 400, 'horloge en retard de 10 min sans correction : arrêt court refusé (fin avant le départ)');
+    await c.post('/api/timer/stop', {});
+    // Rejeu hors ligne refusé : heure de départ dans le futur (téléphone en avance) et chevauchement, avec message.
+    const fut = await c.post('/api/timer/start', { activityId: A, startTime: iso(10 * 60e3) });
+    assert(fut.status === 400 && /invalide/.test(fut.body.error), 'rejeu : départ 10 min dans le futur refusé');
+    const futH = await c.post('/api/history', { activityId: A, startTime: iso(-600e3), endTime: iso(600e3) });
+    assert(futH.status === 400 && /futur/.test(futH.body.error), 'rejeu : fin dans le futur refusée avec message');
+    const base1 = Date.now() - 3 * 3600e3;
+    await c.post('/api/history', { activityId: A, startTime: new Date(base1).toISOString(), endTime: new Date(base1 + 1800e3).toISOString() });
+    const clash = await c.post('/api/history', { activityId: A, startTime: new Date(base1 + 600e3).toISOString(), endTime: new Date(base1 + 2400e3).toISOString() });
+    assert(clash.status === 400 && /chevauchent/.test(clash.body.error), 'rejeu : chevauchement refusé avec message');
+
+    // Voyage Montréal -> Paris pendant un chrono : la durée est absolue (UTC), seul le jour suit le fuseau envoyé à l'arrêt.
+    const trav = await newUser(s.base, 'trv', 'America/Toronto');
+    const t1 = new Date(Date.now() - 9 * 3600e3);
+    await trav.c.post('/api/timer/start', { activityId: trav.activityId, startTime: t1.toISOString() });
+    trav.c.setTz('Europe/Paris'); // l'utilisateur atterrit à Paris, chrono toujours en cours
+    const tstop = await trav.c.post('/api/timer/stop', { endTime: new Date(t1.getTime() + 8 * 3600e3).toISOString() });
+    const trow = (await trav.c.get('/api/history?period=year')).body.find((x) => x.id === tstop.body.entryId);
+    assert(trow && trow.durationSeconds === 8 * 3600, 'chrono de 8 h : durée exacte (fuseau changé en cours de route)');
   } finally { s.stop(); }
   console.log(`\n${T.passed} ok, ${T.failed} échec(s)`);
   process.exit(T.failed ? 1 : 0);

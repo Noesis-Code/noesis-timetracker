@@ -48,6 +48,7 @@ const SUITE_FILES = [
   'idempotency-purge-test.js',
   'parseplan-test.js',
   'a11y-attributs-test.js',
+  'popups-croix-test.js',
   'offline-queue-test.js',
   'offline-idempotence-test.js',
   'weekplanner-test.js',
@@ -365,6 +366,8 @@ async function main() {
   catch (e) { assert(false, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) échoue'); }
   try { await runChild('a11y-attributs-test.js'); assert(true, 'accessibilité : attributs (test/a11y-attributs-test.js) passe'); }
   catch (e) { assert(false, 'accessibilité : attributs (test/a11y-attributs-test.js) échoue'); }
+  try { await runChild('popups-croix-test.js'); assert(true, 'pop-up : croix ✕ nommée (test/popups-croix-test.js) passe'); }
+  catch (e) { assert(false, 'pop-up : croix ✕ nommée (test/popups-croix-test.js) échoue'); }
 
   try { await runChild('offline-queue-test.js'); assert(true, 'file hors ligne : cas limites (test/offline-queue-test.js) passe'); }
   catch (e) { assert(false, 'file hors ligne : cas limites (test/offline-queue-test.js) échoue'); }

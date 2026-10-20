@@ -15,6 +15,16 @@
   var activitiesCache = [];
   var timerInterval = null;
   var timerStartMs = null;
+  // Écart (ms) entre l'horloge du serveur et celle du téléphone, appris des réponses du chrono (serverNow) et gardé pour l'hors ligne. Corrige le chrono d'un téléphone en avance/en retard ; ignoré sous 5 s.
+  var clockSkewMs = 0;
+  try { clockSkewMs = Number(localStorage.getItem('tmtClockSkew')) || 0; } catch (e) { /* stockage indisponible */ }
+  function nowMs() { return Date.now() + clockSkewMs; }
+  function noteServerNow(serverNow) {
+    if (typeof serverNow !== 'number') return;
+    var d = serverNow - Date.now();
+    clockSkewMs = Math.abs(d) < 5000 ? 0 : d;
+    try { localStorage.setItem('tmtClockSkew', String(clockSkewMs)); } catch (e) { /* ignoré */ }
+  }
   // Rattachement OPTIONNEL de la session en cours à une CATÉGORIE Objectifs
   // (17 septembre 2026, suppression totale des sous-projets — remplace le
   // rattachement sous-projet du 4 septembre 2026). null = aucune catégorie,
@@ -2260,7 +2270,7 @@
     var rec = {
       origin: 'offline',
       activity: { id: activity.id, name: activity.name, color: activity.color },
-      startTime: new Date().toISOString(),
+      startTime: new Date(nowMs()).toISOString(),
       category: null,
       stop: null,
     };
@@ -2289,6 +2299,7 @@
       });
     }
     offlineChronoFlushing = api('GET', '/api/timer/status?userId=' + profile.id).then(function (status) {
+      noteServerNow(status.serverNow);
       if (rec.origin === 'offline' && rec.stop) {
         var cat = rec.stop.category !== undefined ? rec.stop.category : (rec.category ? rec.category.key : undefined);
         return toHistory(rec.stop.startTime, rec.stop.endTime, cat).then(function () {
@@ -2353,7 +2364,9 @@
       if (err && err.offline) return false;
       // Refus définitif du serveur (activité supprimée, heures invalides…) :
       // on ne bloque pas l'appli indéfiniment.
-      notes.push(t('Chrono hors ligne non synchronisé : {error}', { error: err.message }));
+      // Heures et activité dans le message : la session refusée (heure future, chevauchement) n'est pas gardée, l'utilisateur sait quoi ressaisir.
+      var from = rec.stop ? rec.stop.startTime : rec.startTime;
+      notes.push(t('Chrono hors ligne non synchronisé ({activity}, {from}–{to}) : {error}', { activity: rec.activity.name, from: formatClock(from), to: rec.stop ? formatClock(rec.stop.endTime) : '…', error: err.message }));
       return done();
     }).then(function (ok) {
       offlineChronoFlushing = null;
@@ -2397,7 +2410,7 @@
 
   // Chrono : le temps écoulé s'affiche en heures:minutes:secondes, mis à jour chaque seconde (pas de centièmes).
   function updateLiveTimer() {
-    var elapsedMs = Math.max(0, Date.now() - timerStartMs);
+    var elapsedMs = Math.max(0, nowMs() - timerStartMs);
     var h = Math.floor(elapsedMs / 3600000);
     var m = Math.floor((elapsedMs % 3600000) / 60000);
     var s = Math.floor((elapsedMs % 60000) / 1000);
@@ -2808,6 +2821,7 @@
 
   function syncChronoStatusFromServer() {
     return api('GET', '/api/timer/status?userId=' + profile.id).then(function (data) {
+      noteServerNow(data.serverNow);
       if (!data.running) {
         saveOfflineChrono(null);
         showChronoIdle();
@@ -2837,6 +2851,7 @@
     if (navigator.onLine === false) { startOfflineChrono(activity); return; }
     api('POST', '/api/timer/start', { userId: profile.id, activityId: activity.id })
       .then(function (data) {
+        noteServerNow(data.serverNow);
         saveOfflineChrono({ origin: 'server', activity: data.activity, startTime: data.startTime, category: data.category || null, stop: null });
         enterRunning(data.activity, data.startTime, data.category);
       })
@@ -2945,7 +2960,7 @@
     }
     $('stopStartDateInput').value = toDateValue(timerStartMs);
     $('stopStartTimeInput').value = toTimeValue(timerStartMs);
-    var now = new Date();
+    var now = new Date(nowMs());
     $('stopEndDateInput').value = toDateValue(now);
     $('stopEndTimeInput').value = toTimeValue(now);
     updateStopDurationLabel();

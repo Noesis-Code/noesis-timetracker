@@ -1043,7 +1043,7 @@
     'Un chrono tournait déjà sur un autre appareil : ton chrono hors ligne ({activity}, {time}) n\'a pas été repris.': 'A timer was already running on another device: your offline timer ({activity}, {time}) was not kept.',
     'Ce chrono avait déjà été arrêté sur un autre appareil : ton arrêt hors ligne n\'a pas été appliqué.': 'This timer was already stopped on another device: your offline stop was not applied.',
     'Arrêt hors ligne synchronisé ({activity}).': 'Offline stop synced ({activity}).',
-    'Chrono hors ligne non synchronisé : {error}': 'Offline timer not synced: {error}',
+    'Chrono hors ligne non synchronisé ({activity}, {from}–{to}) : {error}': 'Offline timer not synced ({activity}, {from}–{to}): {error}',
     'Déplacer ce pôle': 'Move this division',
     'Nom de pôle requis.': 'Division name required.',
     'Maximum de pôles atteint ({max}).': 'Maximum number of divisions reached ({max}).',

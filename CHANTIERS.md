@@ -44,7 +44,7 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 2. Contrastes WCAG des couleurs de texte actuelles : rapport `scripts/contrast-report.js`. FAIT (repli 5) : tout >= 4.5:1 sur fond, carte et surface ; seules exceptions mineures sur `--hover-bg` (violet-trail 4.13, violet-me 4.47, bad 4.02), palette inchangée.
 3. Démarrage sans réseau : écran `offline.html` et message clair vérifiés (cache du service worker, FR/EN). FAIT (repli 6).
 4. Focus clavier visible (`:focus-visible`) sur les boutons-icônes et ✕ des pop-up, sans nouvelle couleur. FAIT (repli 6).
-5. Test que chaque pop-up de `index.html` a une croix ✕ avec `aria-label` et se ferme à Échap ; lister les écarts dans `docs/accessibilite-2026-10-20.md` sans ajouter de croix. Fini quand : test dans `test/` et liste notée. Périmètre : lecture de `public/index.html`, test seulement.
+5. Test que chaque pop-up de `index.html` a une croix ✕ avec `aria-label` et se ferme à Échap ; lister les écarts dans `docs/accessibilite-2026-10-20.md` sans ajouter de croix. FAIT (repli 18, `test/popups-croix-test.js`, `docs/accessibilite-2026-10-20.md` §5). Fini quand : test dans `test/` et liste notée. Périmètre : lecture de `public/index.html`, test seulement.
 6. Mesure du poids de la première page (HTML + CSS + JS en gzip) ; lister les 3 plus gros fichiers à alléger par retrait de code mort. Fini quand : tableau dans `docs/`, aucune modification de `public/`.
 7. Test d'un chrono démarré, application rouverte 2 h plus tard (horloge simulée) : durée exacte conservée. FAIT (repli 17, `test/fonctionnel-chrono.js`). Fini quand : le test `test/fonctionnel-*.js` passe. Périmètre : test seulement, chrono inchangé.
 

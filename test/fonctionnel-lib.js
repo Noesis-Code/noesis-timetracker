@@ -44,7 +44,7 @@ function client(base, tz) {
     try { json = await res.json(); } catch (e) { /* corps non JSON */ }
     return { status: res.status, body: json, headers: res.headers };
   }
-  return { get: (u) => call('GET', u), post: (u, b) => call('POST', u, b || {}), put: (u, b) => call('PUT', u, b || {}), del: (u, b) => call('DELETE', u, b) };
+  return { setTz: (z) => { tz = z; }, get: (u) => call('GET', u), post: (u, b) => call('POST', u, b || {}), put: (u, b) => call('PUT', u, b || {}), del: (u, b) => call('DELETE', u, b) };
 }
 
 // Crée un profil (connecte le client) puis une activité personnelle.
