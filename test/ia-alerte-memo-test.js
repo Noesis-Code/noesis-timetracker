@@ -13,7 +13,7 @@ const warns = [];
 const origWarn = console.warn; console.warn = (...a) => { warns.push(a.join(' ')); };
 const alerts = () => warns.filter((w) => w.includes('ALERTE coût IA')).length;
 (async () => {
-  assert(aibudget.alertDayUsd() === 8, 'seuil par défaut 8 $');
+  assert(aibudget.alertDayCad() === 8, 'seuil par défaut 8 CAD');
   process.env.AI_COST_ALERT_DAY_USD = '0.001'; aibudget.resetDayAlert();
   aibudget.record('u1', 'claude-haiku-4-5', { input_tokens: 100, output_tokens: 1 }, 'test'); // ~0,0001 $ : sous le seuil
   assert(alerts() === 0, 'sous le seuil : aucune alerte');

@@ -17,12 +17,12 @@ fs.writeFileSync(csv, '﻿' + cols.join(',') + '\r\n' + rows.map((r) => cols.map
 const run = (f) => execFileSync('node', [path.join(__dirname, '..', 'scripts', 'ai-cost-report.js'), '--from', f, '7'], { encoding: 'utf8' });
 for (const f of [js, csv]) {
   const o = run(f);
-  assert(/classement-tache/.test(o) && /TOTAL/.test(o) && /0\.75 \$/.test(o), path.extname(f) + ' : total 0.75 $ par fonction');
+  assert(/classement-tache/.test(o) && /TOTAL/.test(o) && /0\.75 USD/.test(o), path.extname(f) + ' : total 0.75 $ par fonction');
   assert(/= 10 %/.test(o), path.extname(f) + ' : taux de repli 10 %');
 }
 { // --court : 10 lignes maximum, comptes anonymisés
   const o = execFileSync('node', [path.join(__dirname, '..', 'scripts', 'ai-cost-report.js'), '--from', js, '--court', '7'], { encoding: 'utf8' }).trim().split('\n');
-  assert(o.length <= 10 && /0\.75 \$/.test(o[0]) && /compte A/.test(o.join('\n')) && !/u1/.test(o.join('\n')), '--court : au plus 10 lignes, total, compte anonymisé');
+  assert(o.length <= 10 && /0\.75 USD/.test(o[0]) && /compte A/.test(o.join('\n')) && !/u1/.test(o.join('\n')), '--court : au plus 10 lignes, total, compte anonymisé');
 }
 fs.writeFileSync(path.join(dir, 'bad.json'), '{pas du json');
 let code = 0; try { run(path.join(dir, 'bad.json')); } catch (e) { code = e.status; }

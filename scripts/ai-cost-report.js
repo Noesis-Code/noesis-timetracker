@@ -47,11 +47,13 @@ function openDb() {
 }
 const db = openDb();
 try { db.prepare('SELECT 1 FROM ai_usage_log LIMIT 1').get(); } catch (e) { console.log('Aucun journal IA (ai_usage_log) dans cette base.'); process.exit(0); }
-const capMonth = (() => { const n = Number(process.env.AI_BUDGET_MONTH_USD); return Number.isFinite(n) && n > 0 ? n : 15; })();
+const fx = require('../server/lib/fx');
+// Plafond mensuel : 15 CAD (AI_BUDGET_MONTH_CAD) ; l'ancienne AI_BUDGET_MONTH_USD reste acceptée (USD). capMonth est en USD, comme les coûts du journal.
+const capMonth = (() => { const u = Number(process.env.AI_BUDGET_MONTH_USD), c = Number(process.env.AI_BUDGET_MONTH_CAD); return Number.isFinite(u) && u > 0 ? u : fx.toUsd(Number.isFinite(c) && c > 0 ? c : 15); })();
 const SYSTEM_USER = 'system';
 const p2 = (n) => String(n).padStart(2, '0');
 const local = (d) => require('../server/lib/aifeaturecaps').dayKey(d); // jour de Montréal, comme le journal ai_usage_log
-const fmt = (n) => (n || 0).toFixed(2) + ' $';
+const fmt = fx.fmtUsd; // tous les coûts du journal sont en USD
 const days = Math.max(1, Math.floor(Number(args[0])) || 30);
 const since = (() => { const d = new Date(); d.setDate(d.getDate() - days + 1); return local(d); })();
 const month = local(new Date()).slice(0, 7);
@@ -74,18 +76,19 @@ if (court) { // Résumé de 10 lignes maximum : total/projection, 4 premières f
 }
 const rows = db.prepare('SELECT userId, SUM(costUsd) AS cost, SUM(calls) AS calls FROM ai_usage_log WHERE day >= ? AND day <= ? GROUP BY userId ORDER BY cost DESC').all(month + '-01', month + '-31');
 const users = rows.filter((r) => r.userId !== SYSTEM_USER);
-console.log('Coût IA — ' + month + ' (plafond ' + fmt(capMonth) + '/utilisateur)');
+console.log('Coût IA (montants en USD, coût réel de l\'API) — ' + month + ' (plafond ' + fx.fmtCad(fx.toCad(capMonth)) + ' = ' + fmt(capMonth) + ' par utilisateur)');
+console.log(fx.fxLine());
 { // Tarifs ($/M jetons) : un seul endroit, server/lib/aimodels.js ; le coût du journal est calculé avec eux à chaque appel.
   const { PRICES, PRICES_UPDATED } = require('../server/lib/aimodels');
   const age = Math.floor((Date.now() - Date.parse(PRICES_UPDATED + 'T12:00:00Z')) / 86400000);
-  console.log('Tarifs $/M jetons (entrée/sortie) : ' + Object.keys(PRICES).map((k) => k + ' ' + PRICES[k].in + '/' + PRICES[k].out).join(', ') + ' — mis à jour le ' + PRICES_UPDATED + ' (' + age + ' j)');
+  console.log('Tarifs USD/M jetons (entrée/sortie) : ' + Object.keys(PRICES).map((k) => k + ' ' + PRICES[k].in + '/' + PRICES[k].out).join(', ') + ' — mis à jour le ' + PRICES_UPDATED + ' (' + age + ' j)');
   if (!(age <= 90)) console.log('AVERTISSEMENT : tarifs de plus de 90 jours, à confirmer (PRICES dans server/lib/aimodels.js).');
   if (process.env.AI_PRICE_IN_PER_M || process.env.AI_PRICE_OUT_PER_M) console.log('NB : AI_PRICE_IN_PER_M / AI_PRICE_OUT_PER_M surchargent ces tarifs pour tous les modèles.');
   console.log('');
 }
 users.concat(rows.filter((r) => r.userId === SYSTEM_USER)).forEach((r) => console.log(String(r.userId).padEnd(40) + fmt(r.cost).padStart(10) + '  ' + r.calls + ' appel(s)'));
 const total = users.reduce((s, r) => s + r.cost, 0);
-console.log('\nUtilisateurs actifs : ' + users.length + ' | moyenne ' + fmt(users.length ? total / users.length : 0) + ' (cible 10 $) | max ' + fmt(users.length ? users[0].cost : 0) + ' (limite ' + fmt(capMonth) + ')');
+console.log('\nUtilisateurs actifs : ' + users.length + ' | moyenne ' + fmt(users.length ? total / users.length : 0) + ' (cible ' + fx.fmtCad(10) + ' = ' + fmt(fx.toUsd(10)) + ') | max ' + fmt(users.length ? users[0].cost : 0) + ' (limite ' + fmt(capMonth) + ')');
 
 // Coût par utilisateur actif : coût total de la période (système compris) ÷ comptes distincts ayant au moins un appel sur la période.
 {
@@ -99,18 +102,18 @@ const ff = db.prepare(`SELECT feature, SUM(calls) AS calls, SUM(inputTokens) AS 
   FROM ai_usage_log WHERE day >= ? GROUP BY feature ORDER BY cost DESC`).all(since);
 const totCost = ff.reduce((s, r) => s + r.cost, 0), totCalls = ff.reduce((s, r) => s + r.calls, 0);
 console.log('\nRésumé par fonction (' + days + ' j, repli inclus) :');
-console.log('  ' + 'fonction'.padEnd(30) + 'appels'.padStart(8) + '/jour'.padStart(7) + 'ent.moy'.padStart(9) + 'sort.moy'.padStart(9) + 'cache'.padStart(7) + '$'.padStart(9) + '$/appel'.padStart(9) + 'part'.padStart(6));
+console.log('  ' + 'fonction'.padEnd(30) + 'appels'.padStart(8) + '/jour'.padStart(7) + 'ent.moy'.padStart(9) + 'sort.moy'.padStart(9) + 'cache'.padStart(7) + 'USD'.padStart(11) + 'USD/appel'.padStart(11) + 'part'.padStart(6));
 ff.forEach((r) => {
   const c = r.calls || 1;
   console.log('  ' + r.feature.padEnd(30) + String(r.calls).padStart(8) + (r.calls / days).toFixed(1).padStart(7) + String(Math.round(r.inTok / c)).padStart(9) + String(Math.round(r.outTok / c)).padStart(9)
-    + ((r.inTok ? Math.round(100 * r.cr / r.inTok) : 0) + ' %').padStart(7) + fmt(r.cost).padStart(9) + (r.cost / c).toFixed(4).padStart(9) + ((totCost ? Math.round(100 * r.cost / totCost) : 0) + ' %').padStart(6));
+    + ((r.inTok ? Math.round(100 * r.cr / r.inTok) : 0) + ' %').padStart(7) + fmt(r.cost).padStart(11) + (r.cost / c).toFixed(4).padStart(11) + ((totCost ? Math.round(100 * r.cost / totCost) : 0) + ' %').padStart(6));
 });
-console.log('  ' + 'TOTAL'.padEnd(30) + String(totCalls).padStart(8) + (totCalls / days).toFixed(1).padStart(7) + ''.padStart(25) + fmt(totCost).padStart(9));
+console.log('  ' + 'TOTAL'.padEnd(30) + String(totCalls).padStart(8) + (totCalls / days).toFixed(1).padStart(7) + ''.padStart(25) + fmt(totCost).padStart(11));
 
 const fm = db.prepare(`SELECT feature, model, SUM(calls) AS calls, SUM(inputTokens) AS inTok, SUM(outputTokens) AS outTok,
     SUM(cacheReadTokens) AS cr, SUM(cacheWriteTokens) AS cw, SUM(costUsd) AS cost
   FROM ai_usage_log WHERE day >= ? GROUP BY feature, model ORDER BY cost DESC`).all(since);
-console.log('\nPar fonction et modèle (' + days + ' j) : appels | entrée moy. | sortie moy. | cache lu | $ | $/appel');
+console.log('\nPar fonction et modèle (' + days + ' j) : appels | entrée moy. | sortie moy. | cache lu | USD | USD/appel');
 fm.forEach((r) => {
   const c = r.calls || 1, hit = r.inTok ? Math.round(100 * r.cr / r.inTok) : 0;
   console.log('  ' + (r.feature + ' [' + String(r.model).replace(/^claude-/, '') + ']').padEnd(52) + String(r.calls).padStart(6) + Math.round(r.inTok / c).toString().padStart(8) + Math.round(r.outTok / c).toString().padStart(7) + (hit + ' %').padStart(7) + fmt(r.cost).padStart(10) + (r.cost / c).toFixed(4).padStart(9));
@@ -126,7 +129,7 @@ fm.forEach((r) => {
 
 console.log('\nPar jour (' + days + ' j) :');
 db.prepare('SELECT day, SUM(calls) AS calls, SUM(costUsd) AS cost FROM ai_usage_log WHERE day >= ? GROUP BY day ORDER BY day DESC').all(since)
-  .forEach((r) => console.log('  ' + r.day + fmt(r.cost).padStart(10) + '  ' + r.calls + ' appel(s)'));
+  .forEach((r) => console.log('  ' + r.day + fmt(r.cost).padStart(12) + '  ' + r.calls + ' appel(s)'));
 
 // Projection mensuelle : coût moyen par jour (calendaire) des 7 derniers jours x 30.
 {

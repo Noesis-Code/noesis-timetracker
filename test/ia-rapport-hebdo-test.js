@@ -12,8 +12,8 @@ const run = (rows, env) => {
   return execFileSync('node', [path.join(__dirname, '..', 'scripts', 'ai-cost-weekly.js'), '--from', f], { encoding: 'utf8', env: { ...process.env, ...env } });
 };
 let o = run([row(back(1), 'classement-tache', 10, 1), row(back(2), 'classement-tache:repli', 1, 0.7), row(back(9), 'classement-tache', 10, 1), row(back(3), 'plan', 2, 0.1)]);
-assert(/7 derniers jours : 1\.80 \$/.test(o), 'total semaine 1.80 $ (repli regroupé)');
-assert(/Semaine précédente : 1\.00 \$ \(\+80 %\)/.test(o), 'comparaison +80 %');
+assert(/7 derniers jours : 1\.80 USD/.test(o), 'total semaine 1.80 $ (repli regroupé)');
+assert(/Semaine précédente : 1\.00 USD \(\+80 %\)/.test(o), 'comparaison +80 %');
 assert(/ALERTE : classement-tache en hausse/.test(o), 'alerte hausse de fonction');
 assert(!/ALERTE.*total/.test(o), 'pas d\'alerte de total sous le seuil');
 o = run([row(back(1), 'plan', 1, 0.3)], { AI_WEEKLY_ALERT_USD: '0.2' });

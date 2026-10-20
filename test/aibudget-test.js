@@ -55,7 +55,7 @@ const D = (day) => new Date(2026, 10, day, 12); // novembre 2026
   let err = null;
   try { await ab.runAs(w, () => ab.fetchAnthropic('t', 'https://api.anthropic.com/v1/messages', { body: '{}' })); } catch (e) { err = e; }
   assert(calls === 1 && err && err.aiBlocked && /Limite d'utilisation/.test(err.message), 'bloqué : fetch NON appelé, erreur lisible');
-  assert(ab.status(w).blocked && ab.status(w).capMonth === 15, 'état exposé');
+  assert(ab.status(w).blocked && Math.abs(ab.status(w).capMonth - 15 * 0.72) < 1e-9 && ab.status(w).capMonthCad === 15, 'état exposé');
   void realNow;
 
   // --- Garde-fou journalier (2 $), tous les comptes, 'system', lots en vol (19 oct. 2026)
@@ -67,7 +67,7 @@ const D = (day) => new Date(2026, 10, day, 12); // novembre 2026
   const dc = ab.check(d1, E);
   assert(!dc.ok && dc.period === 'jour' && dc.resumesOn === '2026-10-28' && /pour aujourd'hui\. Elle reprend demain\.$/.test(dc.message), 'jour : bloqué à 2 $, reprise demain, message dédié');
   assert(ab.check(d1, new Date(2026, 9, 28, 12)).ok, 'jour : libre le lendemain');
-  assert(ab.status(d1, E).capDay === 2, 'plafond du jour par défaut 2 $');
+  assert(Math.abs(ab.status(d1, E).capDay - 2 * 0.72) < 1e-9, 'plafond du jour par défaut 2 CAD (= 1,44 USD)');
   process.env.AI_BUDGET_DAY_USD = '5';
   assert(ab.check(d1, E).ok, 'AI_BUDGET_DAY_USD surchargeable');
   delete process.env.AI_BUDGET_DAY_USD;

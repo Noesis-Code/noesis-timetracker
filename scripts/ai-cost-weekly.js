@@ -1,19 +1,21 @@
 // Rapport hebdomadaire de coût IA par fonction, LECTURE SEULE, court, en français (enveloppe de ai-cost-report.js 7).
 // Usage : NOESIS_DATA_DIR=... node scripts/ai-cost-weekly.js   |   node scripts/ai-cost-weekly.js --from export.json
-// Alerte : total 7 j > AI_WEEKLY_ALERT_USD (défaut 5 $) ; fonction en hausse de plus de 50 % (et > 0,25 $) vs la semaine précédente.
+// Montants affichés en USD (coût réel de l'API) ; seuils en CAD, convertis (server/lib/fx.js).
+// Alerte : total 7 j > AI_WEEKLY_ALERT_CAD (défaut 5 CAD ; l'ancienne AI_WEEKLY_ALERT_USD reste acceptée, en USD) ; fonction en hausse de plus de 50 % (et > 0,25 $) vs la semaine précédente.
 const path = require('path');
 const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
 const args = process.argv.slice(2);
 const fi = args.indexOf('--from');
 const fromFile = fi >= 0 ? args.splice(fi, 2)[1] : null;
-const alertUsdFixed = (() => { const n = Number(process.env.AI_WEEKLY_ALERT_USD); return Number.isFinite(n) && n > 0 ? n : 5; })();
-// AI_ALERT_ADAPTIVE=1 (désactivé par défaut) : seuil = 3,50 $ x comptes actifs sur 7 jours (server/lib/aialertthreshold.js). Sinon seuil fixe inchangé.
+const fx = require('../server/lib/fx');
+const alertUsdFixed = (() => { const u = Number(process.env.AI_WEEKLY_ALERT_USD), c = Number(process.env.AI_WEEKLY_ALERT_CAD); return Number.isFinite(u) && u > 0 ? u : fx.toUsd(Number.isFinite(c) && c > 0 ? c : 5); })();
+// AI_ALERT_ADAPTIVE=1 (désactivé par défaut) : seuil = 3,50 CAD x comptes actifs sur 7 jours (server/lib/aialertthreshold.js). Sinon seuil fixe inchangé.
 const adaptive = process.env.AI_ALERT_ADAPTIVE === '1';
 const p2 = (n) => String(n).padStart(2, '0');
 const local = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
 const back = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return local(d); };
-const fmt = (n) => (n || 0).toFixed(2) + ' $';
+const fmt = fx.fmtUsd;
 
 // Agrège [{feature, calls, cost}] par fonction (replis regroupés) sur [from, to] inclus.
 function aggregate(rows, from, to) {
@@ -30,11 +32,11 @@ function weeklyReport(rows, opts) {
   const cur = aggregate(rows, back(6), back(0)), prev = aggregate(rows, back(13), back(7));
   const sum = (o) => Object.values(o).reduce((s, a) => s + a.cost, 0);
   const tc = sum(cur), tp = sum(prev), hasPrev = Object.keys(prev).length > 0;
-  const out = ['Coût IA, 7 derniers jours : ' + fmt(tc) + ' (' + Object.values(cur).reduce((s, a) => s + a.calls, 0) + ' appels)'];
+  const out = [fx.fxLine(), 'Coût IA, 7 derniers jours : ' + fmt(tc) + ' (' + Object.values(cur).reduce((s, a) => s + a.calls, 0) + ' appels)'];
   if (hasPrev) out.push('Semaine précédente : ' + fmt(tp) + (tp ? ' (' + (tc >= tp ? '+' : '') + Math.round(100 * (tc - tp) / tp) + ' %)' : ''));
   else out.push('Semaine précédente : pas de données.');
   const alerts = [];
-  if (tc > opts.alertUsd) alerts.push('total ' + fmt(tc) + ' au-dessus du seuil ' + fmt(opts.alertUsd));
+  if (tc > opts.alertUsd) alerts.push('total ' + fmt(tc) + ' au-dessus du seuil ' + fmt(opts.alertUsd) + ' (' + fx.fmtCad(fx.toCad(opts.alertUsd)) + ')');
   Object.keys(cur).sort((a, b) => cur[b].cost - cur[a].cost).forEach((f) => {
     const c = cur[f], p = prev[f];
     let cmp = '';
@@ -43,7 +45,7 @@ function weeklyReport(rows, opts) {
       else if (p.cost > 0) cmp = '  ' + (c.cost >= p.cost ? '+' : '') + Math.round(100 * (c.cost - p.cost) / p.cost) + ' %';
       if ((!p && c.cost > 0.25) || (p && p.cost > 0 && c.cost > 0.25 && c.cost > 1.5 * p.cost)) alerts.push(f + ' en hausse (' + fmt(c.cost) + (p ? ' vs ' + fmt(p.cost) : '') + ')');
     }
-    out.push('  ' + f.padEnd(30) + fmt(c.cost).padStart(9) + String(c.calls).padStart(6) + ' app.' + cmp);
+    out.push('  ' + f.padEnd(30) + fmt(c.cost).padStart(11) + String(c.calls).padStart(6) + ' app.' + cmp);
   });
   out.push(alerts.length ? 'ALERTE : ' + alerts.join(' ; ') : 'Aucune alerte.');
   return out.join('\n');

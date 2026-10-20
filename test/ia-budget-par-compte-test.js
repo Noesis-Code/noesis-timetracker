@@ -10,7 +10,7 @@ const sonnet = 'claude-sonnet-5';
 const E = new Date(2026, 9, 27, 12); // fin de mois (tranche 4 : plafond cumulé 15 $)
 
 (async () => {
-  assert(ab.capDay() === 2 && ab.capMonth() === 15, 'défauts : 2 $/jour et 15 $/mois par compte');
+  assert(ab.capDayCad() === 2 && ab.capMonthCad() === 15 && Math.abs(ab.capDay() - 1.44) < 1e-9 && Math.abs(ab.capMonth() - 10.8) < 1e-9, 'défauts : 2 CAD/jour et 15 CAD/mois par compte (1,44 et 10,80 USD)');
   // Jour : A dépasse 2 $, B (0,5 $) et C (rien) restent libres.
   ab.record('A', sonnet, { input_tokens: 700000 }, 't', E); // 2,1 $
   ab.record('B', sonnet, { input_tokens: 170000 }, 't', E); // 0,51 $
@@ -23,7 +23,7 @@ const E = new Date(2026, 9, 27, 12); // fin de mois (tranche 4 : plafond cumulé
   const dm = ab.check('D', E);
   assert(!dm.ok && dm.period === 'semaine' && /^Limite d'utilisation de l'IA atteinte pour cette semaine\. Elle reprend le /.test(dm.message), 'mois : D bloqué à 15 $, message clair existant');
   assert(ab.check('E', E).ok && ab.check('B', E).ok, 'mois : les autres comptes ne sont pas bloqués par la dépense de D');
-  assert(ab.status('D', E).capMonth === 15 && ab.status('B', E).spentMonth < 1, 'plafond mensuel et dépense propres à chaque compte');
+  assert(Math.abs(ab.status('D', E).capMonth - 10.8) < 1e-9 && ab.status('B', E).spentMonth < 1, 'plafond mensuel et dépense propres à chaque compte');
   // Appel réel (jour courant) : le compte au plafond est refusé sans réseau, avec le message clair ; un autre compte passe.
   ab.record('A2', sonnet, { input_tokens: 700000 }, 't'); // 2,1 $ aujourd'hui
   ab.record('B2', sonnet, { input_tokens: 170000 }, 't'); // 0,51 $ aujourd'hui

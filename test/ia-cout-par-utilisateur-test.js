@@ -13,9 +13,9 @@ fs.writeFileSync(f, JSON.stringify(rows));
 const run = (...a) => execFileSync('node', [path.join(__dirname, '..', 'scripts', 'ai-cost-report.js'), '--from', f, ...a], { encoding: 'utf8' });
 const line = (o) => (o.split('\n').find((l) => /^Coût par utilisateur actif/.test(l)) || '');
 let l = line(run('30'));
-assert(/2\.50 \$ ÷ 2 compte/.test(l) && /1\.25 \$/.test(l), '30 j : (1 + 0,5 + 0,5 + 0,5 système) ÷ 2 comptes actifs = 1,25 $ (' + l + ')');
+assert(/2\.50 USD ÷ 2 compte/.test(l) && /1\.25 USD/.test(l), '30 j : (1 + 0,5 + 0,5 + 0,5 système) ÷ 2 comptes actifs = 1,25 $ (' + l + ')');
 l = line(run('5'));
-assert(/2\.00 \$ ÷ 1 compte/.test(l) && /2\.00 \$/.test(l), '5 j : 2,00 $ ÷ 1 compte actif (u2 hors période, u4 sans appel)');
+assert(/2\.00 USD ÷ 1 compte/.test(l) && /2\.00 USD/.test(l), '5 j : 2,00 $ ÷ 1 compte actif (u2 hors période, u4 sans appel)');
 fs.writeFileSync(f, JSON.stringify([row('system', ago(0), 1, 1)]));
-assert(/0\.00 \$ \(1\.00 \$ ÷ 0 compte/.test(line(run('30'))), 'aucun compte actif : 0,00 $, pas de division par zéro');
+assert(/0\.00 USD \(1\.00 USD ÷ 0 compte/.test(line(run('30'))), 'aucun compte actif : 0,00 $, pas de division par zéro');
 if (failed) { console.log(failed + ' échec(s)'); process.exit(1); }

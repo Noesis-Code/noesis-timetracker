@@ -11,12 +11,12 @@ const db = require('../server/db');
 console.warn = () => {};
 
 // (1) Seuil adaptatif : semaine seulement (décision d'Émilien : pas de seuil quotidien)
-assert(seuilAlerte(10).semaineUsd === 35 && seuilAlerte(10).jourUsd === undefined, '10 comptes intensifs : 35 $/semaine, aucun seuil quotidien');
-assert(seuilAlerte(100).semaineUsd === 350, '100 comptes moyens : 350 $/semaine');
-assert(seuilAlerte(1).semaineUsd === 3.5, '1 compte : 3,50 $/semaine');
-assert(seuilAlerte(0).semaineUsd === 3.5 && seuilAlerte(NaN).semaineUsd === 3.5 && seuilAlerte(-4).semaineUsd === 3.5, '0, NaN, négatif : au moins 1 compte');
+assert(seuilAlerte(10).semaineCad === 35 && Math.abs(seuilAlerte(10).semaineUsd - 35 * 0.72) < 1e-9 && seuilAlerte(10).jourUsd === undefined, '10 comptes intensifs : 35 CAD/semaine, aucun seuil quotidien');
+assert(seuilAlerte(100).semaineCad === 350, '100 comptes moyens : 350 CAD/semaine');
+assert(seuilAlerte(1).semaineCad === 3.5, '1 compte : 3,50 CAD/semaine');
+assert(seuilAlerte(0).semaineCad === 3.5 && seuilAlerte(NaN).semaineCad === 3.5 && seuilAlerte(-4).semaineCad === 3.5, '0, NaN, négatif : au moins 1 compte');
 process.env.AI_ALERT_ADAPTIVE = '1';
-assert(aibudget.alertDayUsd() === 8, 'même avec le drapeau : le seuil quotidien reste 8 $ (inchangé)');
+assert(aibudget.alertDayCad() === 8, 'même avec le drapeau : le seuil quotidien reste 8 CAD (inchangé)');
 delete process.env.AI_ALERT_ADAPTIVE;
 db.exec('DELETE FROM ai_usage_log');
 

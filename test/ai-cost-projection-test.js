@@ -11,9 +11,9 @@ fs.writeFileSync(f, JSON.stringify([row(0, 0.3), row(3, 0.2), row(6, 0.2), row(7
 const out = execFileSync('node', [path.join(__dirname, '..', 'scripts', 'ai-cost-report.js'), '--from', f, '30'], { encoding: 'utf8' });
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
-assert(/Total mensuel projeté : 3\.00 \$ \(moyenne 0\.10 \$\/jour/.test(out), '0,70 $ / 7 x 30 = 3,00 $ (jours > 7 ignorés)');
+assert(/Total mensuel projeté : 3\.00 USD \(moyenne 0\.10 USD\/jour/.test(out), '0,70 $ / 7 x 30 = 3,00 $ (jours > 7 ignorés)');
 fs.writeFileSync(f, JSON.stringify([row(10, 5)]));
-assert(/Total mensuel projeté : 0\.00 \$/.test(execFileSync('node', [path.join(__dirname, '..', 'scripts', 'ai-cost-report.js'), '--from', f], { encoding: 'utf8' })), 'aucun appel récent : 0,00 $');
+assert(/Total mensuel projeté : 0\.00 USD/.test(execFileSync('node', [path.join(__dirname, '..', 'scripts', 'ai-cost-report.js'), '--from', f], { encoding: 'utf8' })), 'aucun appel récent : 0,00 $');
 try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}
 if (failed) process.exit(1);
 console.log('OK');

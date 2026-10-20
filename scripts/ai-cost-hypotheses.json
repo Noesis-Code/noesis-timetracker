@@ -1,8 +1,8 @@
 {
   "_note": "Hypotheses modifiables (aucune mesure : a remplacer par ai-cost-report.js sur la production). calls = appels par utilisateur actif et par jour [leger, moyen, intensif]. in/out = jetons moyens. model = haiku|sonnet. memo = part d'appels servis par le memo (cout 0). fallback = part d'appels qui declenchent AUSSI un appel au modele fort (sonnet). retry = part d'appels relances une fois (meme modele). cached = part de l'entree lue dans le cache de prompt (0,1 x le prix). discount = remise (0,5 = lots Drive).",
   "daysPerMonth": 30,
-  "expansionUsdPerMonth": 20,
-  "capUsdPerMonth": 15,
+  "expansionCadPerMonth": 20,
+  "capCadPerMonth": 15,
   "functions": {
     "correction-orthographe":  { "calls": [10, 25, 60],      "in": 110,  "out": 20,   "model": "haiku",  "memo": 0.2, "fallback": 0,    "retry": 0,   "cached": 0,   "discount": 1 },
     "classement-tache":        { "calls": [3, 10, 30],       "in": 700,  "out": 40,   "model": "haiku",  "memo": 0.1, "fallback": 0.15, "retry": 0,   "cached": 0,   "discount": 1 },

@@ -33,5 +33,9 @@ Délais d'expiration plus courts, relances 429/529, retrait des replis payants, 
 ## 6. Loi 25 (registre des traitements, texte légal non modifié par l'agent)
 - [ ] Ajouter au registre (et à la politique de confidentialité si utile) : « Les courriels, numéros de téléphone et numéros de carte/NAS probables écrits dans un texte libre sont masqués automatiquement avant tout envoi à l'IA » (`server/lib/aiscrub.js`) ? Reco. : oui.
 
+## 7. Devises (20 oct. 2026, `docs/ia-devise-2026-10-20.md`)
+- [ ] Oui / non : 1 CAD = 0,72 USD est-il le bon taux à retenir (estimation, non vérifiée) ? Sinon donner le taux ; à revérifier tous les 90 jours (`FX_UPDATED`, `server/lib/fx.js`).
+- [ ] Oui / non : le plafond quotidien de 2 $ et le plafond « système » de 3 $ sont-ils aussi en CAD (interprétation retenue) ?
+
 ## Information (rien à cocher)
 Relance unique de la génération de tâches (`documenttasks.propose`) : au plus UN appel de plus quand toutes les tâches générées sont rejetées, sans créneau horaire de plus, après vérification du budget par compte ; le plafond en dollars (`AI_BUDGET_DAY_USD`, 2 $) borne le total relances comprises (`test/precision-repli-test.js`).
