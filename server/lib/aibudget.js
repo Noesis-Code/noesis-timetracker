@@ -239,15 +239,25 @@ function claimAlert(kind, day, key) {
     return r.changes > 0;
   } catch (e) { return true; } // base indisponible : on alerte (mieux vaut un doublon qu'un silence)
 }
-function alertDayUsd() { const n = Number(process.env.AI_COST_ALERT_DAY_USD); return Number.isFinite(n) && n > 0 ? n : 8; }
+function alertDayUsd(now) {
+  // Règle adaptative (désactivée par défaut) : AI_ALERT_ADAPTIVE=1 => 0,50 $ x comptes actifs du jour (aialertthreshold.js).
+  if (process.env.AI_ALERT_ADAPTIVE === '1') {
+    try {
+      const n = db.prepare("SELECT COUNT(DISTINCT userId) AS n FROM ai_usage_log WHERE day = ? AND userId != ?").get(todayLocal(now), SYSTEM_USER).n || 0;
+      return require('./aialertthreshold').seuilAlerte(n).jourUsd;
+    } catch (e) { /* repli sur le seuil fixe */ }
+  }
+  const n = Number(process.env.AI_COST_ALERT_DAY_USD); return Number.isFinite(n) && n > 0 ? n : 8;
+}
 function alertIfDayCostHigh(now) {
   const d = todayLocal(now);
   if (alertedDay === d) return;
   const total = db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE day = ?').get(d).s || 0;
-  if (total < alertDayUsd()) return;
+  const seuil = alertDayUsd(now);
+  if (total < seuil) return;
   alertedDay = d;
-  if (!claimAlert('jour', d, alertDayUsd())) return; // déjà émise pour ce jour et ce seuil (avant un redémarrage)
-  console.warn('[aibudget] ALERTE coût IA du jour ' + d + ' : ' + total.toFixed(2) + ' $ estimé (seuil ' + alertDayUsd() + ' $, AI_COST_ALERT_DAY_USD)');
+  if (!claimAlert('jour', d, seuil)) return; // déjà émise pour ce jour et ce seuil (avant un redémarrage)
+  console.warn('[aibudget] ALERTE coût IA du jour ' + d + ' : ' + total.toFixed(2) + ' $ estimé (seuil ' + seuil + ' $, ' + (process.env.AI_ALERT_ADAPTIVE === '1' ? 'AI_ALERT_ADAPTIVE' : 'AI_COST_ALERT_DAY_USD') + ')');
 }
 // Remet à zéro la mémoire du processus (simule un redémarrage) ; `all` efface aussi la mémoire durable (tests).
 function resetDayAlert(all) { alertedDay = null; alertedCaps.clear(); if (all !== false) { try { db.exec('DELETE FROM ai_alerts_sent'); } catch (e) { /* ignoré */ } } }
@@ -334,6 +344,27 @@ function alertKeyRefused(status, now) {
   return true;
 }
 
+// Disjoncteur de panne fournisseur : AI_BREAKER_N échecs de SUITE (défaut 5 ; 529/5xx après relances, ou réseau coupé) => plus aucun appel pendant
+// AI_BREAKER_OPEN_MS (défaut 60 s), puis UN seul appel sonde (les autres restent refusés) ; succès = refermé, échec = rouvert. Les 4xx et 429 ne comptent pas.
+// Refus = Error « HTTP 529 » (status 529) : mêmes repli local et message « Génération indisponible » que toute panne IA ; rien n'est réservé ni compté.
+const breaker = { fails: 0, openUntil: 0, probing: false };
+function breakerNum(k, d) { const n = Number(process.env[k]); return Number.isFinite(n) && n > 0 ? n : d; }
+function breakerGate(now) {
+  if (!breaker.openUntil) return;
+  if (now < breaker.openUntil || breaker.probing) throw Object.assign(new Error('HTTP 529 (appels IA suspendus après des échecs répétés)'), { status: 529, breakerOpen: true });
+  breaker.probing = true; breaker.openUntil = now + breakerNum('AI_BREAKER_OPEN_MS', 60000); // sonde : si elle reste sans réponse, nouvelle sonde après le même délai
+}
+function breakerResult(failed, now) {
+  breaker.probing = false;
+  if (!failed) { breaker.fails = 0; breaker.openUntil = 0; return; }
+  breaker.fails++;
+  if (breaker.fails >= breakerNum('AI_BREAKER_N', 5)) {
+    if (!breaker.openUntil) console.warn('[aibudget] ALERTE panne fournisseur IA : ' + breaker.fails + ' échecs de suite, appels suspendus (sonde dans ' + Math.round(breakerNum('AI_BREAKER_OPEN_MS', 60000) / 1000) + ' s)');
+    breaker.openUntil = now + breakerNum('AI_BREAKER_OPEN_MS', 60000);
+  }
+}
+function breakerReset() { breaker.fails = 0; breaker.openUntil = 0; breaker.probing = false; }
+
 // Remplace fetch(ANTHROPIC_URL, init) : vérifie le budget, appelle l'API, enregistre le coût.
 // Bloqué : lève une Error { aiBlocked: true, resumesOn } SANS appeler l'API (les appelants
 // l'attrapent déjà comme n'importe quelle panne IA). Renvoie la Response d'origine, intacte.
@@ -342,9 +373,13 @@ async function fetchAnthropic(feature, url, init, userId) {
   const est = estimateMaxCost(init && init.body);
   const c = check(uid, undefined, est);
   if (!c.ok) throw Object.assign(new Error(c.message), { aiBlocked: true, resumesOn: c.resumesOn, period: c.period });
+  breakerGate(Date.now());
   reserve(uid, est);
   try {
-    const res = await fetchWithRetry(url || ANTHROPIC_URL, init && typeof init.body === 'string' ? { ...init, body: aiscrub.scrubBody(init.body) } : init); // Loi 25 : coordonnées masquées avant envoi
+    let res;
+    try { res = await fetchWithRetry(url || ANTHROPIC_URL, init && typeof init.body === 'string' ? { ...init, body: aiscrub.scrubBody(init.body) } : init); } // Loi 25 : coordonnées masquées avant envoi
+    catch (e) { breakerResult(!!e && (e.name === 'TypeError' || /\bECONN|ENOTFOUND|ETIMEDOUT|EAI_AGAIN/.test(String(e.message || '') + String(e.code || ''))), Date.now()); throw e; }
+    breakerResult(!!res && res.status >= 500, Date.now());
     if (res && (res.status === 401 || res.status === 403)) alertKeyRefused(res.status);
     if (res && res.ok && typeof res.clone === 'function') {
       try {
@@ -356,4 +391,4 @@ async function fetchAnthropic(feature, url, init, userId) {
   } finally { release(uid, est); }
 }
 
-module.exports = { recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, estimateMaxCost, runAs, currentUser, fetchAnthropic, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
+module.exports = { recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
