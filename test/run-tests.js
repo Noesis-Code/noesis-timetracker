@@ -71,6 +71,7 @@ const SUITE_FILES = [
   'recurrence-ia-test.js',
   'saisie-manuelle-proposition-test.js',
   'apprentissage-usage-test.js',
+  'estimation-partage-test.js',
   'stripe-tax-test.js',
   'expansion-parcours-test.js',
   'drive-test.js',
@@ -456,6 +457,11 @@ async function main() {
   let apOk = true;
   try { await runChild('apprentissage-usage-test.js'); } catch (e) { apOk = false; }
   assert(apOk, 'apprentissage par l\'usage (test/apprentissage-usage-test.js) passe');
+
+  // Estimation d'objectif : temps chronométré partagé entre les objectifs de l'activité (10 scénarios chiffrés).
+  let esOk = true;
+  try { await runChild('estimation-partage-test.js'); } catch (e) { esOk = false; }
+  assert(esOk, 'estimation partagée (test/estimation-partage-test.js) passe');
 
   // Stripe Tax : corps Checkout avec/sans STRIPE_TAX_ENABLED (sans réseau).
   let txOk = true;

@@ -49,7 +49,7 @@ const cls = require('../server/lib/goalstaskclassify');
   assert(cp.store('u1', A, [chg('2099-01-11')]) === 1, 'même cible, autre valeur : nouvelle proposition possible');
   const p2 = db.prepare("SELECT id FROM change_proposals WHERE activityId = ? AND status = 'pending'").all(A);
   const ap = cp.apply('u1', A, p2.map((r) => r.id));
-  assert(ap.skipped.length === 1 && cp.store('u1', A, [chg('2099-01-11')]) === 0, 'proposition inapplicable (cible disparue) : marquée refusée, donc jamais re-proposée');
+  assert(ap.skipped.length === 1 && cp.store('u1', A, [chg('2099-01-11')]) === 1 && !db.prepare("SELECT 1 FROM change_proposals WHERE status = 'dismissed' AND afterValue = '2099-01-11'").get(), 'proposition inapplicable (cible disparue) : statut « inapplicable », pas un refus, donc pas mémorisée');
   fs.rmSync(dir, { recursive: true, force: true });
   if (failed) { console.log(failed + ' échec(s)'); process.exit(1); }
   process.exit(0);

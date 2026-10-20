@@ -255,14 +255,19 @@ function list(activityId, viewerId) {
 
 // Stocke des changements validés ('pending' uniquement) ; renvoie le nombre de nouvelles lignes.
 function store(userId, activityId, changes) {
-  const find = db.prepare('SELECT id FROM change_proposals WHERE activityId = ? AND hash = ?');
+  const find = db.prepare("SELECT id, status FROM change_proposals WHERE activityId = ? AND hash = ?"); // un refus (dismissed) reste mémorisé ; une ligne « inapplicable » (échec d'application) n'est PAS un refus
   const ins = db.prepare(`INSERT INTO change_proposals (activityId, userId, target, targetId, field, beforeValue, afterValue, reason, hash, status, createdAt)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`);
   const now = new Date().toISOString();
   let added = 0;
   changes.forEach((c) => {
     const h = hashOf(c);
-    if (find.get(activityId, h)) return; // déjà en attente, refusée (mémorisée) ou appliquée : jamais re-proposée
+    const old = find.get(activityId, h);
+    if (old && old.status === 'inapplicable') { // échec d'application passé (pas un refus) : proposée de nouveau
+      db.prepare("UPDATE change_proposals SET status = 'pending', checked = 1, createdAt = ?, resolvedAt = NULL WHERE id = ?").run(now, old.id);
+      added++; return;
+    }
+    if (old) return; // déjà en attente, refusée (mémorisée) ou appliquée : jamais re-proposée
     ins.run(activityId, userId, c.target, c.targetId, c.field, c.before, c.after, c.reason, h, now);
     added++;
   });
@@ -489,7 +494,7 @@ function applyOne(userId, activityId, r) {
   return null;
 }
 
-// N'applique QUE les ids fournis (cochés). Une proposition non applicable est refusée (mémorisée) avec sa raison.
+// N'applique QUE les ids fournis (cochés). Une proposition non applicable passe à « inapplicable » avec sa raison : ce n'est PAS un refus (non mémorisée, pas comptée comme refusée).
 function apply(userId, activityId, ids) {
   const rows = pendingRows(activityId, ids, true); // une ligne décochée n'est jamais appliquée (et reste affichée)
   const applied = [], skipped = [];
@@ -497,7 +502,7 @@ function apply(userId, activityId, ids) {
     let why;
     try { why = applyOne(userId, activityId, r); }
     catch (e) { why = e.statusCode ? e.message : 'erreur'; }
-    if (why) { mark(r.id, 'dismissed'); skipped.push({ id: r.id, reason: why }); }
+    if (why) { mark(r.id, 'inapplicable'); skipped.push({ id: r.id, reason: why }); }
     else { mark(r.id, 'accepted'); applied.push(r.id); }
   });
   return { appliedCount: applied.length, appliedIds: applied, skipped };

@@ -529,32 +529,56 @@ function jaccard(setA, setB) {
 // dont le temps réel est déjà connu (la semaine/période correspondante est
 // terminée) — comparer à un objectif encore en cours donnerait un temps réel
 // tronqué, trompeur.
+//
+// Le chrono ne distingue pas la catégorie : le temps de la plage appartient à
+// TOUS les objectifs de l'activité sur cette plage. Il est donc PARTAGÉ entre
+// eux (proportionnellement à leur temps planifié, à parts égales si aucun n'est
+// planifié) au lieu d'être attribué en entier à chacun (surestimation x N).
+function sharedMinutes(totalSeconds, weights, i) {
+  const known = weights.filter((w) => w > 0);
+  const fill = known.length ? known.reduce((a, b) => a + b, 0) / known.length : 1;
+  const ws = weights.map((w) => (w > 0 ? w : fill));
+  return Math.round((totalSeconds / 60) * ws[i] / ws.reduce((a, b) => a + b, 0));
+}
+
 function pastSamplesFor(activityId, category, scope) {
   const today = todayLocal();
   if (scope === 'main') {
     const rows = db.prepare(`
-      SELECT mainGoalText AS text, startDate, endDate
+      SELECT category, mainGoalText AS text, mainGoalEstimateMinutes AS est, startDate, endDate
       FROM goal_periods
-      WHERE activityId = ? AND category = ? AND endDate < ? AND mainGoalText != ''
-    `).all(activityId, category, today);
-    return rows.map((r) => ({
-      text: r.text,
-      minutes: Math.round(actualSecondsForRange(activityId, r.startDate, r.endDate) / 60),
-    }));
+      WHERE activityId = ? AND endDate < ? AND mainGoalText != ''
+    `).all(activityId, today);
+    const groups = new Map();
+    rows.forEach((r) => { const k = r.startDate + '|' + r.endDate; (groups.get(k) || groups.set(k, []).get(k)).push(r); });
+    const out = [];
+    groups.forEach((g) => {
+      const secs = actualSecondsForRange(activityId, g[0].startDate, g[0].endDate);
+      const weights = g.map((r) => r.est || 0);
+      g.forEach((r, i) => { if (r.category === category) out.push({ text: r.text, minutes: sharedMinutes(secs, weights, i) }); });
+    });
+    return out;
   }
   const rows = db.prepare(`
-    SELECT w.text AS text, w.weekIndex AS weekIndex, p.startDate AS periodStart
+    SELECT p.category AS category, w.text AS text, w.estimateMinutes AS est, w.weekIndex AS weekIndex, p.startDate AS periodStart
     FROM goal_weekly w
     JOIN goal_periods p ON p.id = w.periodId
-    WHERE p.activityId = ? AND p.category = ? AND w.text != ''
-  `).all(activityId, category);
-  return rows
-    .map((r) => {
-      const b = weekBounds(r.periodStart, r.weekIndex);
-      if (b.end >= today) return null; // semaine pas encore terminée
-      return { text: r.text, minutes: Math.round(actualSecondsForRange(activityId, b.start, b.end) / 60) };
-    })
-    .filter(Boolean);
+    WHERE p.activityId = ? AND w.text != ''
+  `).all(activityId);
+  const groups = new Map();
+  rows.forEach((r) => {
+    const b = weekBounds(r.periodStart, r.weekIndex);
+    if (b.end >= today) return; // semaine pas encore terminée
+    const k = b.start + '|' + b.end;
+    (groups.get(k) || groups.set(k, { b, rows: [] }).get(k)).rows.push(r);
+  });
+  const out = [];
+  groups.forEach(({ b, rows: g }) => {
+    const secs = actualSecondsForRange(activityId, b.start, b.end);
+    const weights = g.map((r) => r.est || 0);
+    g.forEach((r, i) => { if (r.category === category) out.push({ text: r.text, minutes: sharedMinutes(secs, weights, i) }); });
+  });
+  return out;
 }
 
 // Renvoie { minutes, confidence, basedOn, source } — `minutes` est null si
