@@ -31,12 +31,22 @@ function cacheable(system, stable) { return estimateTokens(system) + estimateTok
 const crypto = require('crypto');
 const MEMO_MAX = 500, MEMO_TTL_MS = 24 * 3600 * 1000;
 const memoStore = new Map(), memoPending = new Map();
+// Taux de succès réel du mémo (succès = réponse en mémoire ou requête identique en cours ; échec = appel payé). Une ligne au journal tous les 200 appels.
+const memoCount = { hits: 0, misses: 0 };
+const MEMO_LOG_EVERY = 200;
+function memoStats() { const n = memoCount.hits + memoCount.misses; return { hits: memoCount.hits, misses: memoCount.misses, total: n, rate: n ? memoCount.hits / n : 0 }; }
+function memoTally(hit) {
+  memoCount[hit ? 'hits' : 'misses']++;
+  const n = memoCount.hits + memoCount.misses;
+  if (n % MEMO_LOG_EVERY === 0) console.log('[aicache] mémo : ' + memoCount.hits + ' succès / ' + n + ' (' + Math.round(100 * memoCount.hits / n) + ' %)');
+}
 async function memoize(parts, fn, opts) {
   const ttl = (opts && opts.ttlMs) || MEMO_TTL_MS;
   const key = crypto.createHash('sha256').update(JSON.stringify(parts)).digest('hex');
   const hit = memoStore.get(key);
-  if (hit && hit.exp > Date.now()) return hit.value;
-  if (memoPending.has(key)) return memoPending.get(key);
+  if (hit && hit.exp > Date.now()) { memoTally(true); return hit.value; }
+  if (memoPending.has(key)) { memoTally(true); return memoPending.get(key); }
+  memoTally(false);
   const p = (async () => {
     const value = await fn();
     if (opts && opts.cacheIf && !opts.cacheIf(value)) return value;
@@ -47,7 +57,7 @@ async function memoize(parts, fn, opts) {
   memoPending.set(key, p);
   try { return await p; } finally { memoPending.delete(key); }
 }
-function memoClear() { memoStore.clear(); memoPending.clear(); }
+function memoClear() { memoStore.clear(); memoPending.clear(); memoCount.hits = 0; memoCount.misses = 0; }
 
 // Plafond quotidien par fonction et par compte (garde-fou contre l'abus, très au-dessus de l'usage normal).
 // Sans compte identifié ou max <= 0 : pas de plafond propre (le budget commun aibudget reste actif). Mémoire, remis à zéro chaque jour.
@@ -78,4 +88,4 @@ function minConfidenceFor(envConf) {
   return Number.isFinite(n) && n >= 0 && n <= 100 ? n : 80;
 }
 
-module.exports = { fastModelFor, minConfidenceFor, memoize, memoClear, takeDailyCap, isThrottled, capFromEnv, capClear, messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };
+module.exports = { fastModelFor, minConfidenceFor, memoize, memoClear, memoStats, takeDailyCap, isThrottled, capFromEnv, capClear, messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };
