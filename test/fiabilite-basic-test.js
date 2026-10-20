@@ -145,21 +145,22 @@ function insertEntry(userId, activityId, startIso, endIso) {
     assert(addDst.status === 201, 'DST : ajout à cheval sur 02:00 accepté');
     const hd = (await c.get('/api/history?period=day&date=2026-03-08')).body.find((x) => x.id === addDst.body.id);
     assert(hd && hd.durationSeconds === 3600 && hd.isoDate === '2026-03-08' && hd.dayOfWeek === 'Dimanche', 'DST : 1 h réelle, datée dimanche 8 mars');
-    // Retour à l'heure normale : 1er nov. 01:30 EDT -> 01:30 EST = 1 h réelle
-    const addFb = await c.post('/api/history', { activityId: B, startTime: '2026-11-01T05:30:00Z', endTime: '2026-11-01T06:30:00Z' });
+    // Retour à l'heure normale : 2 nov. 2025 01:30 EDT (dans le passé : l'ajout refuse l'avenir) -> 01:30 EST = 1 h réelle
+    const addFb = await c.post('/api/history', { activityId: B, startTime: '2025-11-02T05:30:00Z', endTime: '2025-11-02T06:30:00Z' });
     assert(addFb.status === 201, 'DST nov. : ajout dans l\'heure répétée accepté');
-    const hf = (await c.get('/api/history?period=day&date=2026-11-01')).body.find((x) => x.id === addFb.body.id);
-    assert(hf && hf.durationSeconds === 3600 && hf.isoDate === '2026-11-01', 'DST nov. : 1 h réelle, datée du 1er nov.');
+    const hf = (await c.get('/api/history?period=day&date=2025-11-02')).body.find((x) => x.id === addFb.body.id);
+    assert(hf && hf.durationSeconds === 3600 && hf.isoDate === '2025-11-02', 'DST nov. : 1 h réelle, datée du 2 nov. 2025 (retour à l\'heure normale)');
     // Dimanche -> lundi : "week" du lundi ne contient pas le dimanche
-    const addSun = await c.post('/api/history', { activityId: B, startTime: '2026-10-19T02:00:00Z', endTime: '2026-10-19T03:00:00Z' }); // dim 18 oct 22:00 EDT
-    const wkMon = (await c.get('/api/history?period=week&date=2026-10-19')).body;
-    const wkSun = (await c.get('/api/history?period=week&date=2026-10-18')).body;
+    const addSun = await c.post('/api/history', { activityId: B, startTime: '2025-10-13T02:00:00Z', endTime: '2025-10-13T03:00:00Z' }); // dim 12 oct 2025 22:00 EDT
+    const wkMon = (await c.get('/api/history?period=week&date=2025-10-13')).body;
+    const wkSun = (await c.get('/api/history?period=week&date=2025-10-12')).body;
+    assert(addSun.status === 201, 'lundi : ajout du dimanche soir accepté ' + JSON.stringify(addSun.body));
     assert(!wkMon.some((x) => x.id === addSun.body.id) && wkSun.some((x) => x.id === addSun.body.id), 'lundi : une entrée du dimanche soir reste dans la semaine précédente');
     // Fin de mois / bissextile via l'historique
-    const addLeap = await c.post('/api/history', { activityId: B, startTime: '2028-02-29T15:00:00Z', endTime: '2028-02-29T16:00:00Z' });
-    assert(addLeap.status === 201, 'bissextile : ajout au 29 février 2028 accepté');
-    const hl = (await c.get('/api/history?period=month&date=2028-02-10')).body.find((x) => x.id === addLeap.body.id);
-    assert(hl && hl.isoDate === '2028-02-29', 'bissextile : visible dans le mois de février 2028');
+    const addLeap = await c.post('/api/history', { activityId: B, startTime: '2024-02-29T15:00:00Z', endTime: '2024-02-29T16:00:00Z' });
+    assert(addLeap.status === 201, 'bissextile : ajout au 29 février 2024 accepté');
+    const hl = (await c.get('/api/history?period=month&date=2024-02-10')).body.find((x) => x.id === addLeap.body.id);
+    assert(hl && hl.isoDate === '2024-02-29', 'bissextile : visible dans le mois de février 2024');
     const addEom = await c.post('/api/history', { activityId: B, startTime: '2026-01-31T14:00:00Z', endTime: '2026-01-31T15:00:00Z' });
     const hj = (await c.get('/api/history?period=month&date=2026-01-15')).body.find((x) => x.id === addEom.body.id);
     const hf2 = (await c.get('/api/history?period=month&date=2026-02-15')).body.find((x) => x.id === addEom.body.id);
