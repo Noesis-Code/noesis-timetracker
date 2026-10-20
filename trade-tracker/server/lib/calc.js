@@ -2,7 +2,8 @@
 // Convention : pourcentages en points (12.34 = 12,34 %), montants arrondis à 2 décimales en sortie.
 
 const round2 = (n) => (n == null || !Number.isFinite(n) ? null : Math.round((n + Number.EPSILON) * 100) / 100);
-const pct = (num, den) => (den ? (num / den) * 100 : 0);
+// Dénominateur en valeur absolue : le coût d'une vente à découvert est négatif, le gain doit garder son signe.
+const pct = (num, den) => (den ? (num / Math.abs(den)) * 100 : 0);
 
 // Convertit en CAD ; USD sans taux -> null (l'appelant signale fxMissing).
 function toCad(amount, currency, usdCad) {
@@ -89,4 +90,36 @@ function indexSeries(points) {
   return { points: out.map(({ _idx, ...rest }) => rest), totalReturnPct: round2(idx - 100) };
 }
 
-module.exports = { round2, toCad, positionMetrics, weigh, allocationBySector, allocationByAccount, netFlowCad, dailyReturn, indexSeries };
+// Gain réalisé et dividendes à partir des transactions (ACHAT/VENTE/DIVIDENDE), coût moyen pondéré, par symbole et devise.
+// Quantité signée : < 0 = vente à découvert. Un achat unitaire = amount / quantité (frais inclus), une vente = produit net / quantité.
+// Le réalisé est converti au taux fourni (taux courant : l'historique des taux par transaction n'est pas conservé). USD sans taux -> null.
+function realizedSummary(transactions, usdCad) {
+  const books = new Map(), div = { CAD: 0, USD: 0 };
+  const sorted = transactions.map((t, i) => [t, i]).sort((a, b) => (a[0].date < b[0].date ? -1 : a[0].date > b[0].date ? 1 : a[1] - b[1])).map((x) => x[0]);
+  for (const t of sorted) {
+    const cur = t.currency === 'USD' ? 'USD' : 'CAD';
+    if (t.type === 'DIVIDENDE') { div[cur] += t.amount; continue; }
+    if ((t.type !== 'ACHAT' && t.type !== 'VENTE') || !(t.quantity > 0) || !t.symbol) continue;
+    const key = t.symbol + '|' + cur;
+    const b = books.get(key) || { symbol: t.symbol, currency: cur, quantity: 0, avgCost: 0, realizedNative: 0 };
+    books.set(key, b);
+    const signed = t.type === 'ACHAT' ? t.quantity : -t.quantity, unit = t.amount / t.quantity;
+    if (b.quantity === 0 || Math.sign(b.quantity) === Math.sign(signed)) {
+      const q = Math.abs(b.quantity) + Math.abs(signed);
+      b.avgCost = (Math.abs(b.quantity) * b.avgCost + Math.abs(signed) * unit) / q; b.quantity += signed;
+    } else {
+      const closing = Math.min(Math.abs(signed), Math.abs(b.quantity)), dir = Math.sign(b.quantity);
+      b.realizedNative += dir * closing * (unit - b.avgCost);
+      b.quantity += Math.sign(signed) * closing;
+      const rest = Math.abs(signed) - closing;
+      if (Math.abs(b.quantity) < 1e-9) { b.quantity = 0; b.avgCost = 0; }
+      if (rest > 1e-9) { b.quantity = Math.sign(signed) * rest; b.avgCost = unit; } // le surplus ouvre une position de sens inverse
+    }
+  }
+  const positions = [...books.values()].map((b) => ({ ...b, quantity: Math.round(b.quantity * 1e9) / 1e9, avgCost: round2(b.avgCost), realizedNative: round2(b.realizedNative) }));
+  const sumCad = (get) => { let s = 0; for (const x of positions) { const c = toCad(get(x), x.currency, usdCad); if (c == null) return null; s += c; } return round2(s); };
+  const dividendsCad = div.USD && !(usdCad > 0) ? null : round2(div.CAD + (div.USD ? div.USD * usdCad : 0));
+  return { positions, realizedCad: sumCad((x) => x.realizedNative), dividendsCad };
+}
+
+module.exports = { round2, toCad, positionMetrics, realizedSummary, weigh, allocationBySector, allocationByAccount, netFlowCad, dailyReturn, indexSeries };

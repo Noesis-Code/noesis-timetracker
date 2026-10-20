@@ -216,7 +216,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
       lastSync: pf.lastSync,
       accounts: pf.accounts.map((a) => ({
         id: a.id, type: a.type, label: a.label, valueCad: C.round2(a.valueCad), cashCad: C.round2(a.cashCad),
-        pnlCad: C.round2(a.investedCad - a.costCad), pnlPct: C.round2(a.costCad ? ((a.investedCad - a.costCad) / a.costCad) * 100 : 0),
+        pnlCad: C.round2(a.investedCad - a.costCad), pnlPct: C.round2(a.costCad ? ((a.investedCad - a.costCad) / Math.abs(a.costCad)) * 100 : 0),
         weightPct: C.round2(pf.totalValueCad ? (a.valueCad / pf.totalValueCad) * 100 : 0),
       })),
     });

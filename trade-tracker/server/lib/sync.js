@@ -26,12 +26,13 @@ function applyData(db, user, data, now) {
         const r = db.prepare('INSERT INTO accounts (userId, type, label, broker, externalId) VALUES (?,?,?,?,?)').run(user.id, a.type, a.label || '', data.broker || null, a.externalId);
         acc = { id: Number(r.lastInsertRowid) };
       } else db.prepare('UPDATE accounts SET type = ?, label = ? WHERE id = ?').run(a.type, a.label || '', acc.id);
-      // positions : reflet exact du courtier (celles qui disparaissent sont supprimées)
+      // positions : reflet exact du courtier (celles qui disparaissent sont supprimées) ; sans prix reçu (marché fermé, symbole inconnu),
+      // le dernier prix connu et son horodatage sont conservés (la mention « Prix mis à jour » reste exacte)
       const seen = [];
       for (const p of a.positions || []) {
         seen.push(p.symbol);
         db.prepare(`INSERT INTO positions (accountId, symbol, name, sectorId, currency, quantity, avgCost, lastPrice, priceUpdatedAt) VALUES (?,?,?,?,?,?,?,?,?)
-          ON CONFLICT(accountId, symbol) DO UPDATE SET name=excluded.name, sectorId=excluded.sectorId, currency=excluded.currency, quantity=excluded.quantity, avgCost=excluded.avgCost, lastPrice=excluded.lastPrice, priceUpdatedAt=excluded.priceUpdatedAt`)
+          ON CONFLICT(accountId, symbol) DO UPDATE SET name=excluded.name, sectorId=excluded.sectorId, currency=excluded.currency, quantity=excluded.quantity, avgCost=excluded.avgCost, lastPrice=COALESCE(excluded.lastPrice, lastPrice), priceUpdatedAt=CASE WHEN excluded.lastPrice IS NULL THEN priceUpdatedAt ELSE excluded.priceUpdatedAt END`)
           .run(acc.id, p.symbol, p.name || '', upsertSector(db, p.sector), p.currency || 'CAD', p.quantity, p.avgCost, p.lastPrice ?? null, p.lastPrice != null ? stamp : null);
         items++;
       }

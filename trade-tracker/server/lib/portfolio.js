@@ -15,7 +15,7 @@ function loadAccounts(db, userId) {
 function loadPositions(db, userId, usdCad) {
   const rows = db.prepare(`SELECT p.*, a.type AS accountType, s.name AS sector
     FROM positions p JOIN accounts a ON a.id = p.accountId LEFT JOIN sectors s ON s.id = p.sectorId
-    WHERE a.userId = ? AND p.quantity > 0`).all(userId);
+    WHERE a.userId = ? AND p.quantity != 0`).all(userId); // quantité négative = vente à découvert
   const list = rows.map((p) => ({
     id: p.id, accountId: p.accountId, accountType: p.accountType, symbol: p.symbol, name: p.name, sector: p.sector,
     currency: p.currency, quantity: p.quantity, avgCost: p.avgCost, lastPrice: p.lastPrice, priceUpdatedAt: p.priceUpdatedAt,
@@ -60,7 +60,7 @@ function buildPortfolio(db, userId) {
   return {
     usdCad, fxMissing, positions, accounts: accOut,
     totalValueCad: total, cashCad, investedCad, costCad, pnlCad: investedCad - costCad,
-    pnlPct: costCad ? ((investedCad - costCad) / costCad) * 100 : 0,
+    pnlPct: costCad ? ((investedCad - costCad) / Math.abs(costCad)) * 100 : 0,
     lastSync: last || null,
   };
 }
