@@ -1,6 +1,6 @@
 // Alerte douce de coût journalier (journal serveur) + un appel mémoïsé ne journalise aucun jeton. Usage : node test/ia-alerte-memo-test.js
 const os = require('os'), fs = require('fs'), path = require('path');
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-alerte-'));
+const dir = require('./lib/tmpdir').mkTmp('tmt-alerte-');
 process.env.NOESIS_DATA_DIR = dir; process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_DAY_USD = '1000'; process.env.NOESIS_REWRITE_FAST_MODEL = 'off';
 let failed = 0;

@@ -17,7 +17,7 @@ const { createApp } = require('../server/app');
 
 const R = (n) => crypto.randomBytes(n).toString('hex');
 const fx = (n) => JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'questrade', n + '.json'), 'utf8'));
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tt-lse-'));
+const tmp = require('../../test/lib/tmpdir').mkTmp('tt-lse-');
 
 (async () => {
   const lines = [];

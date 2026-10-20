@@ -1,6 +1,6 @@
 // Apprentissage par l'usage : exemples par utilisateur, plafond de prompt, remise à zéro, précision inchangée, rapport. Aucun réseau.
 const os = require('os'), fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-appr-'));
+const dir = require('./lib/tmpdir').mkTmp('tmt-appr-');
 process.env.NOESIS_DATA_DIR = dir; process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };

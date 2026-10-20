@@ -13,7 +13,7 @@ const BK = require('../server/lib/backup');
 const { syncUser } = require('../server/lib/sync');
 const { createApp } = require('../server/app');
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tt-rst-'));
+const dir = require('../../test/lib/tmpdir').mkTmp('tt-rst-');
 const R = (n) => crypto.randomBytes(n).toString('hex');
 const env = { TRADE_LINK_SECRET: 'LNK' + R(16), TRADE_EXPERT_TMT_IDS: 'nick', TRADE_TOKEN_KEY: 'KEY' + R(16) };
 const BROKER = 'BRK-TOKEN-' + R(8);
