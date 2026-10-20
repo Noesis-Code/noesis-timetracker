@@ -80,6 +80,7 @@
 <link rel="stylesheet" href="/css/modules.css">
 <link rel="stylesheet" href="/css/trade.css">
 <link rel="stylesheet" href="/css/verre-calme.css">
+<link rel="stylesheet" href="/css/barre-volets.css">
 
 <style>
 /* ===================== ÉCRAN DE CHARGEMENT ANIMÉ (4 septembre 2026, Design) ===
@@ -3209,6 +3210,7 @@
   </main>
 
   <nav class="tabbar">
+   <div class="tabbarPill" id="tabbarPill" role="tablist">
     <button class="tabBtn active" data-tab="chrono" data-module="stats" aria-label="Chrono">
       <span class="tabIcon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3321,7 +3323,22 @@
       </span>
       <span class="tabLabel">Activité</span>
     </button>
+   </div>
+    <button type="button" class="tabBtnAdd" id="tabbarAdd" aria-label="Ajouter un onglet" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
   </nav>
+  <p class="barHint hidden" id="barHint">Appui long : les onglets bougent. Glisse pour changer l'ordre. Croix rouge = retirer. L'onglet le plus à gauche est celui où l'app s'ouvre.</p>
+  <div class="barAddPop hidden" id="barAddPop" role="dialog" aria-modal="true" aria-labelledby="barAddTitle">
+    <div class="barAddCard">
+      <div class="barAddHeader">
+        <p class="sectionTitle" id="barAddTitle">Ajouter à la barre</p>
+        <button type="button" class="menuBtn" id="barAddClose" aria-label="Fermer">✕</button>
+      </div>
+      <div class="barAddList" id="barAddList"></div>
+      <p class="msg" id="barAddMsg"></p>
+    </div>
+  </div>
 </div>
 
 <!-- Texte des Conditions d'utilisation (7 septembre 2026, discussion
@@ -3742,6 +3759,7 @@
 <script src="/js/modules.js"></script>
 <script src="/app.js"></script>
 <script src="/js/trade.js"></script>
+<script src="/js/barre-volets.js"></script>
 <script src="/js/axis-lock.js"></script>
 <script src="/js/objectifs-page1.js"></script>
 <!-- 29 sept. 2026 : Page 2 scindée en 2 fichiers exclusifs (ordre obligatoire : « taches » crée la coque, « objectif » s'y insère) -->

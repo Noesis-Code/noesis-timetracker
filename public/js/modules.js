@@ -114,9 +114,10 @@
   function openFirstTab() {
     if (openedFirst) return; openedFirst = true;
     if (location.search.indexOf('notif=') !== -1 || !nav || typeof TMT.switchTab !== 'function') return;
-    var first = tabBtns().filter(function (b) { return b.dataset.tab !== 'trade' && tabOn(b.dataset.tab); })[0];
+    // Barre des volets (js/barre-volets.js) : l'onglet le plus à gauche selon l'ordre choisi ; sinon le premier de la barre.
+    var firstTab = TMT.navBar ? TMT.navBar.firstTab() : ((tabBtns().filter(function (b) { return b.dataset.tab !== 'trade' && tabOn(b.dataset.tab); })[0] || {}).dataset || {}).tab;
     var cur = nav.querySelector('.tabBtn.active');
-    if (first && (!cur || cur !== first)) TMT.switchTab(first.dataset.tab);
+    if (firstTab && (!cur || cur.dataset.tab !== firstTab)) TMT.switchTab(firstTab);
   }
 
   function load() {

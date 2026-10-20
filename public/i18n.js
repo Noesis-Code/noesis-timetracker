@@ -134,6 +134,12 @@
     'Calendrier : désactivé dans Modules': 'Calendar: turned off in Modules',
     'Activités partagées': 'Shared activities',
     'Feuille de route': 'Roadmap',
+    // Barre des volets (chantier B, 20 oct. 2026).
+    'Ajouter un onglet': 'Add a tab',
+    'Ajouter à la barre': 'Add to the bar',
+    'Retirer de la barre': 'Remove from the bar',
+    'Tout est déjà dans la barre.': 'Everything is already in the bar.',
+    'Appui long : les onglets bougent. Glisse pour changer l\'ordre. Croix rouge = retirer. L\'onglet le plus à gauche est celui où l\'app s\'ouvre.': 'Long press: tabs wiggle. Drag to change the order. Red cross = remove. The leftmost tab is where the app opens.',
     'Assistant IA': 'AI assistant',
     'Temps': 'Time',
     'Choisis ce dont tu as besoin': 'Choose what you need',
