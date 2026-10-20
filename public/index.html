@@ -3696,7 +3696,6 @@
      et server/lib/theme.js (même source, consommée côté serveur via require). -->
 <script src="/theme-palette.js"></script>
 <script src="/i18n.js"></script>
-<script src="/qrcode.js"></script>
 <!-- 10 oct. 2026 (trame 3) : invite pour les comptes existants (marketingConsentAt NULL). Aucune croix, deux boutons identiques, rien de pré-coché. Placée AVANT les modales légales pour que la Politique s'ouvre par-dessus. -->
 <div id="marketingInviteModal" class="communityMembersModal hidden">
   <div class="communityMembersModalCard">
@@ -3747,7 +3746,29 @@
 </div>
 
 <!-- 10 oct. 2026 : textes légaux en anglais (remplace le français quand la langue du profil est « en ») ; après tous les documents/modales, avant app.js -->
-<script src="/legal-en.js"></script>
+<!-- 20 oct. 2026 : qrcode.js et legal-en.js ne sont plus chargés au démarrage (première page plus légère). data-lazy-src reçoit son ?v= comme un src. qrcode.js : à l'ouverture de Partager (app.js, renderShareQrCode). legal-en.js : seulement en anglais (au démarrage si le profil local est en, sinon au passage à l'anglais). Hors ligne : les deux restent dans le précache de sw.js. -->
+<script type="text/plain" id="lazyQrcode" data-lazy-src="/qrcode.js"></script>
+<script type="text/plain" id="lazyLegalEn" data-lazy-src="/legal-en.js"></script>
+<script>
+  window.loadLazyScript = function (id, done) {
+    var ph = document.getElementById(id);
+    if (!ph || ph.getAttribute('data-loading')) { if (ph && done) ph.addEventListener('lazyloaded', done); return; }
+    ph.setAttribute('data-loading', '1');
+    var s = document.createElement('script');
+    s.src = ph.getAttribute('data-lazy-src');
+    s.onload = function () { if (done) done(); ph.dispatchEvent(new Event('lazyloaded')); };
+    s.onerror = function () { ph.removeAttribute('data-loading'); };
+    document.head.appendChild(s);
+  };
+  (function () {
+    var legal = function () { if (document.documentElement.lang === 'en' && !window.NoesisLegalEn) window.loadLazyScript('lazyLegalEn'); };
+    try {
+      var p = JSON.parse(localStorage.getItem('noesis_profile') || 'null');
+      if (p && p.lang === 'en') document.write('<script src="' + document.getElementById('lazyLegalEn').getAttribute('data-lazy-src') + '"><\/script>');
+    } catch (e) { /* ignore */ }
+    new MutationObserver(legal).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+  })();
+</script>
 <!-- 22 sept. 2026 : file d'attente des tâches capturées hors ligne (partagée avec sw.js) -->
 <script src="/offline-queue.js"></script>
 <!-- 19 oct. 2026 : avant app.js pour que le masquage des modules soit posé dès le premier rendu -->

@@ -14891,7 +14891,12 @@
     var box = $('shareQrCode');
     if (!box) return;
     box.innerHTML = '';
-    if (typeof qrcode !== 'function' || !url) return;
+    if (!url) return;
+    if (typeof qrcode !== 'function') {
+      // qrcode.js n'est plus chargé au démarrage : on le charge ici, puis on redessine.
+      if (window.loadLazyScript) window.loadLazyScript('lazyQrcode', function () { renderShareQrCode(url); });
+      return;
+    }
     try {
       var qr = qrcode(0, 'M');
       qr.addData(url);
