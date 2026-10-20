@@ -276,11 +276,16 @@ router.post('/offer/portal', requireAuth, async (req, res) => {
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
   if (!stripe.secretKeyConfigured()) return res.status(503).json({ error: tr(req, 'Paiement indisponible pour le moment.', 'Payment is unavailable right now.') });
   if (!user.stripeCustomerId) return res.status(404).json({ error: tr(req, 'Aucun abonnement à gérer pour ce profil.', 'No subscription to manage for this profile.') });
+  // Retour local seulement : l'hôte doit ressembler à un nom d'hôte (jamais d'espace, de « @ » ni de « / »).
+  const host = String(req.get('host') || '');
+  if (!/^[a-z0-9.-]+(:\d{1,5})?$/i.test(host)) return res.status(400).json({ error: tr(req, 'Requête invalide.', 'Invalid request.') });
   try {
     const session = await stripe.createPortalSession({
       customerId: user.stripeCustomerId,
-      returnUrl: `${req.protocol}://${req.get('host')}/`,
+      returnUrl: `${req.protocol}://${host}/`,
     });
+    // Seule une URL https de Stripe repart au client (jamais une valeur vide ou inattendue).
+    if (!session || typeof session.url !== 'string' || !/^https:\/\//.test(session.url)) throw new Error('Réponse du portail sans URL valide.');
     res.status(201).json({ url: session.url });
   } catch (e) {
     console.error('[stripe] Portail client refusé :', String(e.message).slice(0, 200));

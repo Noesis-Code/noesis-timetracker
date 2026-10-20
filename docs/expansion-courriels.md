@@ -6,7 +6,7 @@ Statut : **désactivé par défaut**. Un courriel aux clients est une communicat
 `EXPANSION_MAILS=1` requis (Railway > Variables). Absent ou autre valeur = aucun courriel (client ni alerte interne) ; le webhook Stripe est traité normalement. Test : `test/subscription-mails-refund-test.js`.
 
 ## Ce qui est envoyé (`server/lib/subscriptionmails.js`)
-- Confirmation d'abonnement (`checkout.session.completed`) et fin d'abonnement (`customer.subscription.deleted`) à l'abonné : prénom, mention du renouvellement mensuel et de la résiliation dans Réglages. Aucun montant, identifiant Stripe, ni autre donnée.
+- Confirmation d'abonnement (`checkout.session.completed`) et fin d'abonnement (`customer.subscription.deleted`) à l'abonné : prénom, mention du renouvellement mensuel (la phrase « résiliable depuis Réglages » a été retirée le 20 oct. : aucun écran n'y mène encore, voir `expansion-resiliation-2026-10-20.md`). Aucun montant, identifiant Stripe, ni autre donnée.
 - Alerte interne (`charge.refunded`, `charge.dispute.created`) à `<COURRIEL_CONFIDENTIALITE>` (adresse publique de contact) : identifiants Stripe et statut seulement, aucune donnée personnelle.
 
 ## Vérifications (20 oct. 2026)

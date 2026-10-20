@@ -118,6 +118,15 @@ const now = () => new Date().toISOString();
   ok(r.status === 201 && portalCustomers[portalCustomers.length - 1] === 'cus_D', 'portail : D reçoit son propre client même s\'il envoie l\'id de C');
   r = await request(port, 'POST', '/offer/portal', '{}', {});
   ok(r.status === 401, 'portail sans session : 401');
+  // Portail : hôte forgé refusé (aucun appel Stripe), URL de réponse invalide -> 502 sans fuite
+  const nPortal = portalCustomers.length;
+  r = await request(port, 'POST', '/offer/portal', '{}', { 'x-test-user': 'uD', Host: 'evil.test@autre.site' });
+  ok(r.status === 400 && portalCustomers.length === nPortal, 'portail : hôte forgé refusé, aucun appel Stripe');
+  const fetchOk = global.fetch;
+  global.fetch = async () => ({ ok: true, status: 200, json: async () => ({ id: 'bps', url: 'javascript:alert(1)' }), clone() { return this; } });
+  r = await request(port, 'POST', '/offer/portal', '{}', { 'x-test-user': 'uD' });
+  ok(r.status === 502 && !/javascript|cus_/.test(r.body), 'portail : URL de réponse invalide -> 502 sans fuite');
+  global.fetch = fetchOk;
   r = await request(port, 'GET', '/offer/subscriptions', undefined, { 'x-test-user': 'uD' });
   ok(r.status === 200 && JSON.parse(r.body).length === 0, '/offer/subscriptions : D ne voit pas l\'activité de C');
   r = await request(port, 'POST', '/offer/checkout', JSON.stringify({ ageDeclaration: 'adult', activityChoice: { activityId: actC } }), { 'x-test-user': 'uD' });

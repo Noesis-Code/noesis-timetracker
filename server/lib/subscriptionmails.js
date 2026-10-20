@@ -25,11 +25,11 @@ const TEXTS = {
   confirmed: {
     fr: {
       subject: 'Votre abonnement Expansion est actif',
-      body: (n) => `Bonjour ${n},\n\nVotre abonnement Expansion est confirmé. Il se renouvelle chaque mois et vous pouvez le résilier à tout moment depuis Réglages, sans frais supplémentaires.\n\nMerci de votre confiance.\nL'équipe Noèsis\n\n${FOOT.fr}`,
+      body: (n) => `Bonjour ${n},\n\nVotre abonnement Expansion est confirmé. Il se renouvelle chaque mois.\n\nMerci de votre confiance.\nL'équipe Noèsis\n\n${FOOT.fr}`,
     },
     en: {
       subject: 'Your Expansion subscription is active',
-      body: (n) => `Hello ${n},\n\nYour Expansion subscription is confirmed. It renews monthly and you can cancel at any time from Settings, at no extra cost.\n\nThank you for your trust.\nThe Noèsis team\n\n${FOOT.en}`,
+      body: (n) => `Hello ${n},\n\nYour Expansion subscription is confirmed. It renews monthly.\n\nThank you for your trust.\nThe Noèsis team\n\n${FOOT.en}`,
     },
   },
   ended: {
