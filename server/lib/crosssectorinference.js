@@ -57,6 +57,7 @@
 // re-validés côté serveur après réponse.
 
 const aibudget = require('./aibudget');
+const aicache = require('./aicache');
 const db = require('../db');
 const goals = require('./goals');
 
@@ -297,7 +298,8 @@ async function evaluateCrossSectorLinks(activityId, sourceCategory, source) {
     if ((dayCount.get(dk) || 0) >= crossMaxPerDay()) return { skipped: 'daily-cap' };
     dayCount.set(dk, (dayCount.get(dk) || 0) + 1);
     if (dayCount.size > 500) dayCount.delete(dayCount.keys().next().value);
-    const suggestions = await callAi(payload, candidates.map((c) => c.key));
+    // Cache court (10 min, mémoire) : deux évaluations identiques simultanées (capture + objectif réenregistré) partagent un seul appel ; un échec n'est jamais mémorisé.
+    const suggestions = await aicache.memoize(['inter-secteurs', payload], () => callAi(payload, candidates.map((c) => c.key)), { ttlMs: 10 * 60000 });
     if (evaluated.size >= 1000) evaluated.delete(evaluated.keys().next().value);
     evaluated.set(hash, Date.now() + 24 * 3600 * 1000);
     writeSuggestions(activityId, sourceCategory, { type: source.type, text, periodNumber: source.periodNumber, itemId: source.itemId }, suggestions);

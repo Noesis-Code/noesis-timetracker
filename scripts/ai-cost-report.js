@@ -83,6 +83,14 @@ fm.forEach((r) => {
   console.log('  ' + (r.feature + ' [' + String(r.model).replace(/^claude-/, '') + ']').padEnd(52) + String(r.calls).padStart(6) + Math.round(r.inTok / c).toString().padStart(8) + Math.round(r.outTok / c).toString().padStart(7) + (hit + ' %').padStart(7) + fmt(r.cost).padStart(10) + (r.cost / c).toFixed(4).padStart(9));
 });
 
+// Plafonds d'appels par compte et par jour (aifeaturecaps) : plus forte journée d'un compte sur la période, repli inclus (borne haute).
+{
+  const { capUsage } = require('../server/lib/aifeaturecaps');
+  const cu = capUsage(db.prepare('SELECT userId, day, feature, calls FROM ai_usage_log WHERE day >= ?').all(since));
+  console.log('\nPlafonds par compte et par jour (' + days + ' j) : plus forte journée | plafond | part');
+  cu.forEach((u) => console.log('  ' + (u.feature + ' (' + u.env + ')').padEnd(52) + String(u.maxCallsPerAccountDay).padStart(6) + (u.cap ? String(u.cap) : 'aucun').padStart(8) + (u.share === null ? '' : (Math.round(100 * u.share) + ' %').padStart(7) + (u.share >= 0.8 ? '  PROCHE DU PLAFOND' : ''))));
+}
+
 console.log('\nPar jour (' + days + ' j) :');
 db.prepare('SELECT day, SUM(calls) AS calls, SUM(costUsd) AS cost FROM ai_usage_log WHERE day >= ? GROUP BY day ORDER BY day DESC').all(since)
   .forEach((r) => console.log('  ' + r.day + fmt(r.cost).padStart(10) + '  ' + r.calls + ' appel(s)'));

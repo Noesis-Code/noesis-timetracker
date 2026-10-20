@@ -18,6 +18,7 @@
 // + coût maximal des lots soumis non relevés (drive_batches.estCost) : un lot compte dès sa soumission.
 const { AsyncLocalStorage } = require('async_hooks');
 const db = require('../db');
+const featureCaps = require('./aifeaturecaps');
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const SYSTEM_USER = 'system';
@@ -199,6 +200,7 @@ function record(userId, model, usage, feature, now, factor) {
       .run(String(userId || SYSTEM_USER), todayLocal(now), String(model || 'inconnu'), String(feature || 'autre'), inTok, outTok, computeCost(model, u) * (Number.isFinite(factor) && factor > 0 ? factor : 1),
         Number(u.cache_read_input_tokens) || 0, Number(u.cache_creation_input_tokens) || 0);
     alertIfDayCostHigh(now);
+    alertIfCapNear(userId, feature, now);
   } catch (e) { console.warn('[aibudget] enregistrement impossible :', e && e.message); }
 }
 
@@ -214,7 +216,20 @@ function alertIfDayCostHigh(now) {
   alertedDay = d;
   console.warn('[aibudget] ALERTE coût IA du jour ' + d + ' : ' + total.toFixed(2) + ' $ estimé (seuil ' + alertDayUsd() + ' $, AI_COST_ALERT_DAY_USD)');
 }
-function resetDayAlert() { alertedDay = null; }
+function resetDayAlert() { alertedDay = null; alertedCaps.clear(); }
+// Alerte douce (journal serveur, sans identifiant de compte) : une fonction atteint 80 % de son plafond d'appels du jour pour un compte. Une ligne par fonction et par jour.
+const alertedCaps = new Set();
+function alertIfCapNear(userId, feature, now) {
+  const cap = featureCaps.capFor(feature);
+  if (!cap) return;
+  const base = featureCaps.baseFeature(feature), d = todayLocal(now), k = base + '|' + d;
+  if (alertedCaps.has(k)) return;
+  const n = db.prepare("SELECT COALESCE(SUM(calls), 0) AS s FROM ai_usage_log WHERE userId = ? AND day = ? AND (feature = ? OR feature = ?)").get(String(userId || SYSTEM_USER), d, base, base + ':repli').s || 0;
+  if (n < cap * 0.8) return;
+  for (const x of alertedCaps) if (!x.endsWith('|' + d)) alertedCaps.delete(x);
+  alertedCaps.add(k);
+  console.warn('[aibudget] ALERTE plafond ' + base + ' : ' + n + ' appels aujourd\'hui pour un compte (plafond ' + cap + '/jour, 80 % atteint)');
+}
 
 // Rapport de coût par fonctionnalité et modèle sur les `days` derniers jours (tous comptes) : appels, jetons, cache, $.
 function usageReport(days) {
