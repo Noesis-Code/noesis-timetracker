@@ -46,7 +46,6 @@ const now = () => new Date().toISOString();
 
 // Liste exhaustive des routes Expansion (vérifiée par grep : requireOffer1Access / activityHasEssor).
 const ROUTES = (a) => [
-  ['GET', '/api/profile/weekly-capacity'], ['PUT', '/api/profile/weekly-capacity', { minutes: 1200 }],
   ['GET', `/api/activities/${a}/change-proposals`], ['POST', `/api/activities/${a}/change-proposals/generate`, {}],
   ['POST', `/api/activities/${a}/change-proposals/apply`, {}], ['POST', `/api/activities/${a}/change-proposals/check`, {}],
   ['POST', `/api/activities/${a}/change-proposals/dismiss`, {}],

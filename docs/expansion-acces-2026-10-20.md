@@ -6,7 +6,7 @@ Clés Stripe de test seulement, aucun réseau. Tests : `test/expansion-acces-tes
 Accès = abonnement `active` sur l'activité (payé par l'utilisateur lui-même) OU droit par code gratuit actif. Seul `active` ouvre (`server/lib/offer1access.js`). Les routes par activité exigent en plus d'être membre de l'activité.
 Remboursement (`charge.refunded`, partiel ou total : l'alerte équipe l'indique avec le montant en CAD, `test/expansion-remboursement-multi-test.js`) et litige (`charge.dispute.created`) : **aucun changement d'accès automatique** (choix existant de `stripewebhook.js`, alerte à l'équipe) ; l'accès ne s'arrête qu'avec `customer.subscription.deleted`. À confirmer par Émilien : c'est une règle produit/financière.
 
-## États × résultat (identique pour les 27 routes ci-dessous)
+## États × résultat (identique pour les routes ci-dessous)
 | État du compte | Accès aux fonctions Expansion |
 |---|---|
 | Aucun abonnement | fermé (403 `offer1_required`) |
@@ -23,7 +23,6 @@ Remboursement (`charge.refunded`, partiel ou total : l'alerte équipe l'indique 
 ## Routes Expansion (liste exhaustive, grep `requireOffer1Access` / `activityHasEssor`) — toutes protégées
 | Groupe | Routes | Garde |
 |---|---|---|
-| Capacité de la semaine | GET, PUT `/profile/weekly-capacity` | requireOffer1Access |
 | Modifications proposées | GET `/activities/:id/change-proposals` ; POST `…/generate`, `…/apply`, `…/check`, `…/dismiss` | requireOffer1Access + membre + essor |
 | Tâches depuis un document | POST `/activities/:id/document-tasks/propose`, `…/apply` | idem |
 | Drive | GET `/drive/status`, `/connect`, `/folders`, `/files`, `/sync`, `/sync/pending`, `/sync/added`, `/callback` ; POST `/drive/folder`, `/folder/remove`, `/propose`, `/disconnect`, `/sync/run`, `/folder/settings`, `/sync/resolve`, `/sync/added/ack`, `/sync/added/remove`, `/sync/added/restore` | idem (+ propriétaire pour connecter/gérer) |
