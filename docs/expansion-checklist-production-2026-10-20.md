@@ -13,6 +13,13 @@ Règles en vigueur au 20 oct. (ce qui a changé) :
 - Capturé en 390 px (FR/EN, 20 oct.) : ligne « résiliation programmée le <date> » (1 novembre 2026 à Paris, 31 octobre à Vancouver pour la même échéance) lisible sur deux lignes sans coupure ; champ texte de la fenêtre d'achat avec focus : anneau violet 6,8:1 sur le vrai fond noir de la fenêtre (seuil 3:1).
 - Au retour de Stripe, l'app affiche encore un `alert` natif (question Q11).
 
+## Contrôle automatique avant d'ouvrir
+Dans Railway, service de production, Shell : `node scripts/preflight-expansion.js`.
+- Lecture seule, aucun réseau ; il n'imprime jamais une valeur (des clés : seulement `sk_live` ou `sk_test`).
+- Il vérifie les variables (STRIPE_*, OFFER_CHECKOUT_OPEN, EXPANSION_MAILS, RESEND_*, EXPANSION_PLAN_MAX_ATTEMPTS), la base (colonnes, index unique, tables), les abonnements orphelins, les plans en attente depuis plus d'une heure et les événements Stripe non traités.
+- Il rend des lignes `OK` / `À CORRIGER` (11 environ) et termine par un verdict ; code de sortie 1 s'il reste un point à corriger.
+- À lancer une fois les variables posées et AVANT `OFFER_CHECKOUT_OPEN=1` (« achat fermé » est alors normal) ; relancer jusqu'à zéro `À CORRIGER`.
+
 ## Avant
 - [ ] Fusion `staging` vers `main` décidée et faite par Émilien (rien n'est ouvert tant que `OFFER_CHECKOUT_OPEN` n'est pas posée).
 - [ ] Texte légal relu et validé : conditions d'utilisation et politique de confidentialité (mention de l'abonnement, du renouvellement mensuel, de la résiliation, du prestataire de paiement) ; textes des courriels (`TEXTS` dans `server/lib/subscriptionmails.js`).
@@ -50,5 +57,9 @@ Le serveur journalise `[config Expansion] …` (noms de variables seulement, jam
 ## Webhook : réponse rapide, livraison en arrière-plan (20 oct. 2026)
 Le webhook répond 200 dès l'abonnement enregistré ; la génération du plan Expansion (IA, jusqu'à ~180 s) part en arrière-plan, une seule fois par activité (rejeu = aucun doublon ni second courriel, revérification sous transaction). Si la génération échoue : l'équipe est alertée par courriel et le balayage horaire (`subscriptioncron.runPendingActivations`) réessaie jusqu'au succès. Test : `test/expansion-webhook-livraison-lente-test.js`. À contrôler après le premier achat réel : plan livré dans les minutes qui suivent, pas dans la réponse du webhook.
 
-## En cas de problème
-Retirer `OFFER_CHECKOUT_OPEN` (achat refusé de nouveau, abonnés existants non touchés) puis `EXPANSION_MAILS`.
+## En cas de problème : retour arrière
+1. Couper l'achat : retirer `OFFER_CHECKOUT_OPEN` dans Railway (service de production) et laisser le service redéployer. Le code relit la variable à chaque requête : dès que le nouveau déploiement tourne, `/offer/available` répond faux et `POST /offer/checkout` répond 403 (testé : `test/expansion-repli-test.js`). Les achats déjà payés ne sont pas touchés.
+2. Ce qui continue : l'accès des abonnés existants, leur portail de résiliation et les webhooks (testé). Retirer ensuite `EXPANSION_MAILS` si les courriels posent problème.
+3. Suspendre le webhook sans perdre d'événements : ne pas le supprimer. Dans Stripe > Développeurs > Webhooks, désactiver le point de terminaison (ou laisser le service répondre en erreur) ; Stripe réessaie chaque événement environ 3 jours, avec délais croissants. Réactiver avant la fin de ce délai, puis, dans Stripe, « renvoyer » les événements restés en échec (le traitement est idempotent : un rejeu est sans effet).
+4. Client facturé sans accès : vérifier dans Stripe que l'événement `checkout.session.completed` est livré (sinon le renvoyer ; l'accès s'ouvre au traitement et le plan est livré par la reprise horaire, 3 essais par jour au plus). Si le paiement est bon mais que rien ne passe, rembourser dans Stripe et résilier (l'accès se ferme tout seul), puis prévenir le client par courriel.
+5. Après l'incident : relancer `node scripts/preflight-expansion.js` avant de rouvrir.

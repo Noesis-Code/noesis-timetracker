@@ -1814,8 +1814,11 @@ if (tableExists('activity_subscriptions') && !columnExists('activity_subscriptio
 // n'existe déjà (sinon : journal, démarrage inchangé, la vérification sous transaction de offerdelivery.js reste en place).
 if (tableExists('sub_projects') && columnExists('sub_projects', 'slot')
     && !db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'uniq_sub_projects_activity_slot'").get()) {
-  if (db.prepare('SELECT 1 FROM sub_projects WHERE slot IS NOT NULL GROUP BY activityId, slot HAVING COUNT(*) > 1 LIMIT 1').get()) {
-    console.error('[db] doublons (activityId, slot) dans sub_projects : index unique non posé, à nettoyer');
+  const dups = db.prepare('SELECT activityId, slot, COUNT(*) AS n FROM sub_projects WHERE slot IS NOT NULL GROUP BY activityId, slot HAVING COUNT(*) > 1 ORDER BY activityId, slot LIMIT 20').all();
+  if (dups.length) {
+    // Ids seulement (aucune donnée perso) ; rien n'est supprimé, le démarrage continue sans l'index.
+    console.error('[db] DOUBLONS (activityId, slot) dans sub_projects : index unique NON posé, aucune donnée supprimée, démarrage poursuivi. À nettoyer à la main (activité:slot xN lignes, 20 max) : '
+      + dups.map((d) => d.activityId + ':' + d.slot + ' x' + d.n).join(', '));
   } else {
     db.exec('CREATE UNIQUE INDEX IF NOT EXISTS uniq_sub_projects_activity_slot ON sub_projects(activityId, slot) WHERE slot IS NOT NULL');
   }
