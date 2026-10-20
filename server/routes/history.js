@@ -90,6 +90,9 @@ router.post('/history', (req, res) => {
   if (isNaN(startTime) || isNaN(endTime) || endTime <= startTime) {
     return res.status(400).json({ error: 'Heures invalides (fin doit être après le début).' });
   }
+  // Mêmes contrôles que la modification (PUT ci-dessous) : plus de 24 h, heure future, chevauchement.
+  const guardMsg = checkEntryTimes(userId, startTime, endTime, 0);
+  if (guardMsg) return res.status(400).json({ error: guardMsg });
   const durationSeconds = Math.round((endTime - startTime) / 1000);
 
   const resolved = resolveCategoryKey(activity.id, req.body.category, null);

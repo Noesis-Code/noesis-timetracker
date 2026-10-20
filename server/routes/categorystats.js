@@ -69,7 +69,7 @@ router.get('/category-stats', (req, res) => {
   // comportement, et la discipline « on ne recalcule jamais une période quand
   // l'écran d'où l'on vient en affiche déjà une » reste intacte.
   if (!from && !to && ['day', 'week', 'month', 'year'].includes(String(req.query.period || ''))) {
-    const range = periodRange(String(req.query.period));
+    const range = periodRange(String(req.query.period), null, req.timezone);
     from = range.start;
     to = range.end;
     periodLabel = range.label;
@@ -92,7 +92,7 @@ router.get('/category-stats', (req, res) => {
     'SELECT color FROM activity_members WHERE activityId = ? AND userId = ?'
   ).get(activityId, targetId);
 
-  const data = categoryBreakdownForRange(targetId, activityId, from, to);
+  const data = categoryBreakdownForRange(targetId, activityId, from, to, req.timezone);
 
   res.json(Object.assign({
     activityName: access.activity.name,
@@ -127,9 +127,9 @@ router.get('/category-timesheet', (req, res) => {
   const rawOffset = Number(period === 'month' ? req.query.monthOffset : req.query.weekOffset);
   const offset = Number.isFinite(rawOffset) ? rawOffset : 0;
 
-  const grid = categoryTimesheet(targetId, activityId, period, offset);
+  const grid = categoryTimesheet(targetId, activityId, period, offset, req.timezone);
   // La répartition porte sur EXACTEMENT les bornes de la grille ci-dessus.
-  const breakdown = categoryBreakdownForRange(targetId, activityId, grid.start, grid.end);
+  const breakdown = categoryBreakdownForRange(targetId, activityId, grid.start, grid.end, req.timezone);
 
   const member = db.prepare('SELECT name, lastName FROM users WHERE id = ?').get(targetId);
   const membership = db.prepare(
@@ -176,7 +176,7 @@ router.get('/category-chart', (req, res) => {
       memberId: access.targetId,
       baseColor: membership ? membership.color : '#3498db',
     },
-    categoryChart(access.targetId, activityId, String(req.query.granularity || 'day')),
+    categoryChart(access.targetId, activityId, String(req.query.granularity || 'day'), req.timezone),
   ));
 });
 

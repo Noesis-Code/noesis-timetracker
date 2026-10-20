@@ -4,7 +4,7 @@
 // fichier en même temps.
 
 const db = require('../db');
-const { mondayOf, isoDateOf, dayNameOf, pad2, MONTH_NAMES_FR } = require('./dates');
+const { mondayOf, isoDateOf, dayNameOf, pad2, MONTH_NAMES_FR, zonedMidnight, calendarNow } = require('./dates');
 // 17 septembre 2026 (suppression totale des sous-projets, chantier Chrono) :
 // nécessaire pour catégoryLabelFor(), qui résout le libellé affichable d'une
 // catégorie (active, gelée, ou clé brute en dernier recours) — la même
@@ -75,12 +75,15 @@ function ownVisibilityExcludedIds(userId, visibility) {
     .all(userId, wantConf).map((r) => r.id);
 }
 
-function breakdownForRange(userId, startIso, endIso, excludeActivityIds, clipEndIso) {
-  const rangeStart = new Date(startIso + 'T00:00:00');
+// `tz` (optionnel, fuseau IANA de la personne) : les bornes de la fenêtre sont les minuits de CE fuseau, comme `isoDate` des entrées.
+function breakdownForRange(userId, startIso, endIso, excludeActivityIds, clipEndIso, tz) {
+  const rangeStart = zonedMidnight(startIso, tz);
   // `clipEndIso` (optionnel, Année) : une entrée de la fenêtre est comptée jusqu'à cette borne plutôt que jusqu'à `endIso`,
   // pour qu'une entrée à cheval sur deux mois reste entière dans son mois de départ (somme des 12 mois = total de l'année).
-  const rangeEnd = new Date((clipEndIso || endIso) + 'T00:00:00');
-  rangeEnd.setDate(rangeEnd.getDate() + 1); // borne haute exclusive = lendemain du dernier jour affiché
+  const lastIso = clipEndIso || endIso;
+  const nextDay = new Date(lastIso + 'T12:00:00');
+  nextDay.setDate(nextDay.getDate() + 1);
+  const rangeEnd = zonedMidnight(isoDateOf(nextDay), tz); // borne haute exclusive = lendemain du dernier jour affiché
 
   const rows = db.prepare(`
     SELECT t.startTime, t.endTime, a.id AS activityId, a.name AS activity,
@@ -149,9 +152,9 @@ function breakdownForRange(userId, startIso, endIso, excludeActivityIds, clipEnd
 // elle démarre au premier jour enregistré SUR CETTE ACTIVITÉ : sans quoi le
 // graphique d'une activité créée en septembre commencerait par des mois de
 // points à zéro hérités d'une autre activité.
-function totalRangeForUser(userId, refDate, activityId) {
+function totalRangeForUser(userId, refDate, activityId, tz) {
   const ref = refDate ? new Date(refDate) : new Date();
-  const todayIso = isoDateOf(ref);
+  const todayIso = isoDateOf(ref, refDate ? null : tz);
   const earliest = activityId
     ? db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ? AND activityId = ?')
       .get(userId, Number(activityId))
@@ -208,7 +211,7 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
   const byCategory = !!o.groupByCategory;
   const activityId = o.activityId ? Number(o.activityId) : null;
   const groupKey = byCategory ? 'categories' : 'activities';
-  const { start, end } = totalRangeForUser(userId, refDate, activityId);
+  const { start, end } = totalRangeForUser(userId, refDate, activityId, o.tz);
 
   let rows = byCategory
     ? db.prepare(`
@@ -452,8 +455,9 @@ function computeSlotsForDays(userId, days, slotMinutes, opts) {
     const entryEnd = new Date(r.endTime);
 
     days.forEach((d, dayIndex) => {
-      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-      const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0);
+      // Minuits du jour dans le fuseau de la personne (opts.tz) ; sans fuseau, fuseau du processus comme avant.
+      const dayStart = zonedMidnight(isoDateOf(d), opts && opts.tz);
+      const dayEnd = zonedMidnight(isoDateOf(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)), opts && opts.tz);
       const clipStart = entryStart > dayStart ? entryStart : dayStart;
       const clipEnd = entryEnd < dayEnd ? entryEnd : dayEnd;
       if (clipEnd <= clipStart) return; // cette entrée ne touche pas ce jour-là
@@ -532,7 +536,7 @@ function computeSlotsForDays(userId, days, slotMinutes, opts) {
 function timesheetForUser(userId, weekOffset, opts) {
   const offset = Math.max(0, Math.floor(Number(weekOffset)) || 0);
 
-  const today = new Date();
+  const today = calendarNow(opts && opts.tz); // jour calendaire de la personne (fuseau du téléphone)
   today.setHours(0, 0, 0, 0);
 
   const days = [];
@@ -598,7 +602,7 @@ function timesheetForUser(userId, weekOffset, opts) {
 function timesheetMonthForUser(userId, monthOffset, opts) {
   const offset = Math.max(0, Math.floor(Number(monthOffset)) || 0);
 
-  const now = new Date();
+  const now = calendarNow(opts && opts.tz);
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth() - offset, 1);
   const lastOfMonth = new Date(now.getFullYear(), now.getMonth() - offset + 1, 0);
   const targetMonth = firstOfMonth.getMonth();
@@ -641,14 +645,14 @@ function timesheetMonthForUser(userId, monthOffset, opts) {
 // (mêmes totaux que le camembert, donc réconciliables).
 function timesheetYearForUser(userId, yearOffset, opts) {
   const offset = Math.max(0, Math.floor(Number(yearOffset)) || 0);
-  const year = new Date().getFullYear() - offset;
+  const year = calendarNow(opts && opts.tz).getFullYear() - offset;
   const excl = (opts && opts.excludeActivityIds) || [];
   const rowsById = {};
   const monthTotals = [];
   for (let m = 0; m < 12; m++) {
     const first = new Date(year, m, 1);
     const last = new Date(year, m + 1, 0);
-    const b = breakdownForRange(userId, isoDateOf(first), isoDateOf(last), excl, `${year}-12-31`);
+    const b = breakdownForRange(userId, isoDateOf(first), isoDateOf(last), excl, `${year}-12-31`, opts && opts.tz);
     monthTotals.push(b.totalSeconds);
     b.activities.forEach((a) => {
       if (!rowsById[a.activityId]) {

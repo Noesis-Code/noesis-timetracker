@@ -32,10 +32,10 @@ async function startServer() {
 }
 
 // Client HTTP avec témoin de session (cookie) conservé.
-function client(base) {
+function client(base, tz) {
   let cookie = '';
   async function call(method, url, body) {
-    const headers = { 'Content-Type': 'application/json', 'X-Client-Tz': 'America/Toronto' };
+    const headers = { 'Content-Type': 'application/json', 'X-Client-Tz': tz || 'America/Toronto' };
     if (cookie) headers.Cookie = cookie;
     const res = await fetch(base + url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
     const sc = res.headers.getSetCookie ? res.headers.getSetCookie() : [];
@@ -48,8 +48,8 @@ function client(base) {
 }
 
 // Crée un profil (connecte le client) puis une activité personnelle.
-async function newUser(base, tag) {
-  const c = client(base);
+async function newUser(base, tag, tz) {
+  const c = client(base, tz);
   const r = await c.post('/api/profile', {
     name: 'Test' + tag, lastName: 'Fonc' + tag, phone: '5145550100', email: `t${tag}@exemple.test`, pin: '1234', termsAccepted: true,
   });

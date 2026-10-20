@@ -25,6 +25,7 @@
 const db = require('../db');
 const { isActivityMember } = require('./subprojects');
 const goals = require('./goals');
+const { zonedMidnight, isoDateOf } = require('./dates');
 
 // Une session qui déborde de la fenêtre affichée n'est comptée que pour sa
 // partie visible — même règle que la grille juste au-dessus, sans quoi le
@@ -123,10 +124,12 @@ function shadeRanks(activityId) {
 // `category: null`. C'est le cas NORMAL (le rattachement à une catégorie est
 // optionnel) et le masquer donnerait un camembert dont les parts ne font pas
 // le total affiché juste au-dessus par la Répartition.
-function categoryBreakdownForRange(userId, activityId, startIso, endIso) {
-  const rangeStart = new Date(startIso + 'T00:00:00');
-  const rangeEnd = new Date(endIso + 'T00:00:00');
-  rangeEnd.setDate(rangeEnd.getDate() + 1); // borne haute exclusive
+function categoryBreakdownForRange(userId, activityId, startIso, endIso, tz) {
+  // Bornes = minuits du fuseau de la personne (tz optionnel), comme `isoDate` des entrées.
+  const rangeStart = zonedMidnight(startIso, tz);
+  const nextDay = new Date(endIso + 'T12:00:00');
+  nextDay.setDate(nextDay.getDate() + 1);
+  const rangeEnd = zonedMidnight(isoDateOf(nextDay), tz); // borne haute exclusive
 
   const rows = db.prepare(`
     SELECT t.startTime, t.endTime, t.goalCategory AS category
@@ -231,8 +234,8 @@ function categoryBreakdownForRange(userId, activityId, startIso, endIso) {
 // ajustement.
 const { timesheetForUser, timesheetMonthForUser, chartBreakdownForUser } = require('./stats');
 
-function categoryTimesheet(userId, activityId, period, offset) {
-  const opts = { activityId: Number(activityId), groupByCategory: true };
+function categoryTimesheet(userId, activityId, period, offset, tz) {
+  const opts = { activityId: Number(activityId), groupByCategory: true, tz };
   const grid = period === 'month'
     ? timesheetMonthForUser(userId, offset, opts)
     : timesheetForUser(userId, offset, opts);
@@ -286,11 +289,12 @@ function activitiesWithCategoryTime(userId, startIso, endIso) {
 // pas la période, qui se choisit. La Répartition, elle, reste synchronisée
 // sur la Feuille de temps — les deux comportements sont ceux du volet
 // Statistiques, dont Emilien demande la reprise.
-function categoryChart(userId, activityId, granularity) {
+function categoryChart(userId, activityId, granularity, tz) {
   const g = granularity === 'week' || granularity === 'month' ? granularity : 'day';
   const points = chartBreakdownForUser(userId, g, null, {
     activityId: Number(activityId),
     groupByCategory: true,
+    tz,
   });
 
   const { ranks, count } = shadeRanks(Number(activityId));

@@ -86,6 +86,37 @@ function mondayOf(d, tz) {
   return copy;
 }
 
+// Minuit (00:00) du jour calendaire `iso` (« AAAA-MM-JJ ») tel qu'il se vit dans le fuseau `tz`, en vrai instant.
+// Sert aux fenêtres de la grille et de la Répartition : leurs bornes suivent le fuseau de la personne, pas celui du serveur.
+// Sans `tz` valide : minuit du fuseau du processus (comportement d'avant).
+function zonedMidnight(iso, tz) {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!tz || !isValidTimezone(tz)) return new Date(y, m - 1, d);
+  const wall = Date.UTC(y, m - 1, d);
+  let t = wall;
+  for (let i = 0; i < 3; i++) {
+    const p = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+    }).formatToParts(new Date(t)).reduce((o, x) => { o[x.type] = Number(x.value); return o; }, {});
+    const shown = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+    if (shown === wall) break;
+    t -= shown - wall;
+  }
+  return new Date(t);
+}
+
+// « Maintenant » vu dans le fuseau `tz`, porté par un Date dont les champs locaux du PROCESSUS (getDate, setHours...) affichent
+// l'heure murale de `tz`. Permet de réutiliser tel quel le calcul de jours calendaires (aujourd'hui, lundi, 1er du mois) en suivant
+// la personne. Sans `tz` valide : new Date() (comportement d'avant). Ne sert qu'à lire une date calendaire, jamais à mesurer un temps.
+function calendarNow(tz) {
+  const now = new Date();
+  if (!tz || !isValidTimezone(tz)) return now;
+  const { year, month, day } = localPartsOf(now, tz);
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone: tz, hourCycle: 'h23', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    .formatToParts(now).reduce((o, x) => { o[x.type] = Number(x.value); return o; }, {});
+  return new Date(year, month - 1, day, p.hour, p.minute, p.second);
+}
+
 function formatElapsed(ms) {
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
@@ -102,5 +133,5 @@ function formatHM(decimalHours) {
 
 module.exports = {
   DAY_NAMES, MONTH_NAMES_FR, isoDateOf, dayNameOf, mondayOf, formatElapsed, formatHM, pad2,
-  DEFAULT_TIMEZONE, isValidTimezone, localPartsOf,
+  DEFAULT_TIMEZONE, isValidTimezone, localPartsOf, zonedMidnight, calendarNow,
 };

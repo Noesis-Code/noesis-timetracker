@@ -63,7 +63,7 @@ router.get('/community', (req, res) => {
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
   const period = ['day', 'week', 'month', 'year'].includes(req.query.period) ? req.query.period : 'week';
-  res.json(sharedActivitiesForUser(userId, period, req.query.date || null));
+  res.json(sharedActivitiesForUser(userId, period, req.query.date || null, req.timezone));
 });
 
 // Détail d'UNE activité partagée précise (section Membres > sélecteur
@@ -304,10 +304,10 @@ router.get('/community/activity-stats', (req, res) => {
     // le MÊME filtre : les deux sections de cette page doivent comparer les
     // mêmes enregistrements.
     category: categoryFilter,
-    breakdown: activityBreakdownForUser(activityId, period, refDate, categoryFilter),
+    breakdown: activityBreakdownForUser(activityId, period, refDate, categoryFilter, req.timezone),
     chartGranularity,
-    chartLabel: activityTotalRange(activityId, refDate).label,
-    dailyBreakdown: activityChartBreakdownForUser(activityId, chartGranularity, refDate, categoryFilter),
+    chartLabel: activityTotalRange(activityId, refDate, req.timezone).label,
+    dailyBreakdown: activityChartBreakdownForUser(activityId, chartGranularity, refDate, categoryFilter, req.timezone),
   });
 });
 
@@ -328,7 +328,7 @@ router.get('/community/activity-timesheet', (req, res) => {
     return res.status(400).json({ error: 'weekOffset invalide.' });
   }
 
-  const data = activityTimesheetForUser(activityId, isNaN(weekOffset) ? 0 : weekOffset);
+  const data = activityTimesheetForUser(activityId, isNaN(weekOffset) ? 0 : weekOffset, req.timezone);
   res.json(Object.assign({ activityName: check.activity.name }, data));
 });
 

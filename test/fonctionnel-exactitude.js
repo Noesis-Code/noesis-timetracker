@@ -60,7 +60,22 @@ const ymd = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
 
     // --- Entrée plus longue que 24 h (27 h, secteur 2), à cheval sur deux jours ---
     const longStart = at(Y, 7, 10, 20, 0), longEnd = at(Y, 7, 11, 23, 0);
-    await post(longStart, longEnd, S2); add(S2, 27 * 3600);
+    // Posée directement en base : l'API refuse désormais plus de 24 h (ajout comme modification) ; les anciennes données restent comptées.
+    const rawL = new DatabaseSync(path.join(s.dir, 'noesis.db'));
+    rawL.exec('PRAGMA busy_timeout = 5000');
+    rawL.prepare("INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory) VALUES (?, ?, '', ?, ?, ?, ?, 'Lundi', ?)")
+      .run(u.id, A, iso(longStart), iso(longEnd), 27 * 3600, ymd(Y, 7, 10), S2);
+    rawL.close();
+    add(S2, 27 * 3600);
+    // Ajout manuel : mêmes contrôles que la modification (plus de 24 h, heure future, chevauchement).
+    const addBad = (st, en) => c.post('/api/history', { activityId: A, startTime: iso(st), endTime: iso(en), category: P });
+    const r25 = await addBad(at(Y, 8, 1, 8, 0), at(Y, 8, 2, 9, 0));
+    assert(r25.status === 400 && /24 h/.test(r25.body.error), 'ajout > 24 h refusé (400, même message que la modification)');
+    const fut = new Date(Date.now() + 2 * 3600e3);
+    const rf = await addBad(fut, new Date(fut.getTime() + 3600e3));
+    assert(rf.status === 400 && /futur/.test(rf.body.error), 'ajout dans le futur refusé (400)');
+    const rov = await addBad(at(Y, 7, 10, 22, 0), at(Y, 7, 10, 23, 0));
+    assert(rov.status === 400 && /chevauchent/.test(rov.body.error), 'ajout qui chevauche une autre entrée refusé (400)');
 
     // --- Entrée qui franchit la fin d'un mois (31 janvier 23 h -> 1er février 1 h, secteur 1) ---
     await post(at(Y, 1, 31, 23, 0), at(Y, 2, 1, 1, 0), S1); add(S1, 7200);

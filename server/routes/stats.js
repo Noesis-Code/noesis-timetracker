@@ -32,10 +32,10 @@ function displayedRange(result) {
   return null;
 }
 
-function withBreakdown(userId, result, excluded) {
+function withBreakdown(userId, result, excluded, tz) {
   const range = displayedRange(result);
   return Object.assign({}, result, {
-    breakdown: range ? breakdownForRange(userId, range.start, range.end, excluded) : { start: null, end: null, totalSeconds: 0, activities: [] },
+    breakdown: range ? breakdownForRange(userId, range.start, range.end, excluded, undefined, tz) : { start: null, end: null, totalSeconds: 0, activities: [] },
   });
 }
 
@@ -66,7 +66,7 @@ router.get('/stats', (req, res) => {
   res.json({
     // Nom de champ conservé tel quel (historique) même si ce n'est plus
     // forcément "journalier" : le client (app.js) le lit sous ce nom.
-    dailyBreakdown: chartBreakdownForUser(userId, granularity, refDate, { excludeActivityIds: ownVisibilityExcludedIds(userId, req.query.visibility) }),
+    dailyBreakdown: chartBreakdownForUser(userId, granularity, refDate, { excludeActivityIds: ownVisibilityExcludedIds(userId, req.query.visibility), tz: req.timezone }),
   });
 });
 
@@ -101,7 +101,7 @@ router.get('/stats/timesheet', (req, res) => {
     if (req.query.yearOffset !== undefined && (isNaN(yearOffset) || yearOffset < 0)) {
       return res.status(400).json({ error: 'yearOffset invalide.' });
     }
-    return res.json(Object.assign({ period }, withBreakdown(userId, timesheetYearForUser(userId, isNaN(yearOffset) ? 0 : yearOffset, { excludeActivityIds: excl }), excl)));
+    return res.json(Object.assign({ period }, withBreakdown(userId, timesheetYearForUser(userId, isNaN(yearOffset) ? 0 : yearOffset, { excludeActivityIds: excl, tz: req.timezone }), excl, req.timezone)));
   }
 
   if (period === 'month') {
@@ -109,7 +109,7 @@ router.get('/stats/timesheet', (req, res) => {
     if (req.query.monthOffset !== undefined && (isNaN(monthOffset) || monthOffset < 0)) {
       return res.status(400).json({ error: 'monthOffset invalide.' });
     }
-    return res.json(Object.assign({ period }, withBreakdown(userId, timesheetMonthForUser(userId, isNaN(monthOffset) ? 0 : monthOffset, { excludeActivityIds: excl }), excl)));
+    return res.json(Object.assign({ period }, withBreakdown(userId, timesheetMonthForUser(userId, isNaN(monthOffset) ? 0 : monthOffset, { excludeActivityIds: excl, tz: req.timezone }), excl, req.timezone)));
   }
 
   // `weekOffset` : 0 = semaine en cours, 1 = la précédente, etc. Depuis le
@@ -128,7 +128,7 @@ router.get('/stats/timesheet', (req, res) => {
     return res.status(400).json({ error: 'weekOffset invalide.' });
   }
 
-  res.json(Object.assign({ period }, withBreakdown(userId, timesheetForUser(userId, isNaN(weekOffset) ? 0 : weekOffset, { excludeActivityIds: excl }), excl)));
+  res.json(Object.assign({ period }, withBreakdown(userId, timesheetForUser(userId, isNaN(weekOffset) ? 0 : weekOffset, { excludeActivityIds: excl, tz: req.timezone }), excl, req.timezone)));
 });
 
 // Répartition en mode "Aujourd'hui" — 3 septembre 2026, demande d'Emilien :
@@ -168,7 +168,7 @@ router.get('/stats/today', (req, res) => {
   // Forme volontairement identique à celle de GET /stats/timesheet ({ label,
   // breakdown }) pour que le client repeigne le camembert par le même chemin,
   // sans code de rendu en double.
-  res.json({ day: today, label: "Aujourd'hui", breakdown: breakdownForRange(userId, today, today, ownVisibilityExcludedIds(userId, req.query.visibility)) });
+  res.json({ day: today, label: "Aujourd'hui", breakdown: breakdownForRange(userId, today, today, ownVisibilityExcludedIds(userId, req.query.visibility), undefined, req.timezone) });
 });
 
 // Mode « Semaine » du bouton de la Répartition — semaine calendaire en cours, depuis lundi jusqu'à aujourd'hui.
@@ -177,8 +177,8 @@ router.get('/stats/week-so-far', (req, res) => {
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
   const today = isoDateOf(new Date(), req.timezone);
-  const monday = isoDateOf(mondayOf(new Date(), req.timezone), req.timezone);
-  res.json({ start: monday, end: today, label: 'Semaine en cours', breakdown: breakdownForRange(userId, monday, today, ownVisibilityExcludedIds(userId, req.query.visibility)) });
+  const monday = isoDateOf(mondayOf(new Date(), req.timezone)); // mondayOf rend déjà un jour calendaire du fuseau : pas de seconde conversion
+  res.json({ start: monday, end: today, label: 'Semaine en cours', breakdown: breakdownForRange(userId, monday, today, ownVisibilityExcludedIds(userId, req.query.visibility), undefined, req.timezone) });
 });
 
 module.exports = router;

@@ -4,10 +4,10 @@
 
 const db = require('../db');
 const { periodRange } = require('./period');
-const { mondayOf, isoDateOf, dayNameOf, pad2, MONTH_NAMES_FR } = require('./dates');
+const { mondayOf, isoDateOf, dayNameOf, pad2, MONTH_NAMES_FR, zonedMidnight, calendarNow } = require('./dates');
 
-function sharedActivitiesForUser(userId, period, refDate) {
-  const { start, end, label } = periodRange(period, refDate);
+function sharedActivitiesForUser(userId, period, refDate, tz) {
+  const { start, end, label } = periodRange(period, refDate, tz);
 
   const activityRows = db.prepare(`
     SELECT a.id AS activityId, a.name AS name, a.ownerId AS ownerId
@@ -327,8 +327,8 @@ function unreadMessageCountsForUser(userId) {
 // qui n'a rien enregistré sur cette catégorie doit rester dans la
 // comparaison avec 0, sinon il disparaîtrait de la liste des membres — or
 // c'est justement une information (« lui n'y a pas touché »).
-function activityBreakdownForUser(activityId, period, refDate, categoryFilter) {
-  const { start, end, label } = periodRange(period, refDate);
+function activityBreakdownForUser(activityId, period, refDate, categoryFilter, tz) {
+  const { start, end, label } = periodRange(period, refDate, tz);
 
   let joinExtra = '';
   const joinArgs = [];
@@ -379,9 +379,9 @@ function activityBreakdownForUser(activityId, period, refDate, categoryFilter) {
 // c'est la GRANULARITÉ ('day' | 'week' | 'month') qui décide du regroupement.
 // L'axe de comparaison, lui, reste propre à cette page : une série par MEMBRE
 // de l'activité, là où Statistiques trace une série par activité.
-function activityTotalRange(activityId, refDate) {
+function activityTotalRange(activityId, refDate, tz) {
   const ref = refDate ? new Date(refDate) : new Date();
-  const todayIso = isoDateOf(ref);
+  const todayIso = isoDateOf(ref, refDate ? null : tz);
   const earliest = db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE activityId = ?').get(activityId);
   return { start: (earliest && earliest.d) || todayIso, end: todayIso, label: 'Depuis le début' };
 }
@@ -392,8 +392,8 @@ function activityTotalRange(activityId, refDate) {
 // sémantique que pour activityBreakdownForUser ci-dessus. Le graphique suit
 // le même filtre que le camembert — les deux sections de cette page
 // comparent les mêmes enregistrements, sinon elles se contrediraient.
-function activityChartBreakdownForUser(activityId, granularity, refDate, categoryFilter) {
-  const { start, end } = activityTotalRange(activityId, refDate);
+function activityChartBreakdownForUser(activityId, granularity, refDate, categoryFilter, tz) {
+  const { start, end } = activityTotalRange(activityId, refDate, tz);
 
   let whereExtra = '';
   const extraArgs = [];
@@ -474,10 +474,10 @@ function activityChartBreakdownForUser(activityId, granularity, refDate, categor
 const ACTIVITY_TS_SLOTS_PER_DAY = 96; // 24h / 15 min
 const ACTIVITY_TS_SLOT_MINUTES = 15;
 
-function activityTimesheetForUser(activityId, weekOffset) {
+function activityTimesheetForUser(activityId, weekOffset, tz) {
   const offset = Math.max(0, Math.floor(Number(weekOffset)) || 0);
 
-  const ref = new Date();
+  const ref = calendarNow(tz); // jour calendaire de la personne qui regarde
   ref.setDate(ref.getDate() - offset * 7);
   const monday = mondayOf(ref);
 
@@ -513,8 +513,8 @@ function activityTimesheetForUser(activityId, weekOffset) {
     const entryEnd = new Date(r.endTime);
 
     days.forEach((d, dayIndex) => {
-      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-      const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0);
+      const dayStart = zonedMidnight(isoDateOf(d), tz);
+      const dayEnd = zonedMidnight(isoDateOf(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)), tz);
       const clipStart = entryStart > dayStart ? entryStart : dayStart;
       const clipEnd = entryEnd < dayEnd ? entryEnd : dayEnd;
       if (clipEnd <= clipStart) return;
