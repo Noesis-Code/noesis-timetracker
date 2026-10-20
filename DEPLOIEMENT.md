@@ -162,6 +162,8 @@ Liste complète (Railway > Variables ; staging = clés de test uniquement) :
 - `STRIPE_TAX_ENABLED=1` : optionnelle, active TPS/TVQ (voir `docs/stripe-taxes.md`).
 - `EXPANSION_MAILS=1` : courriels d'abonnement aux clients ; défaut off, à valider par Émilien (`docs/expansion-courriels.md`). Requiert `RESEND_API_KEY` et `RESEND_FROM` (domaine vérifié).
 
+- `OFFER_CHECKOUT_OPEN=1` : ouvre l'achat Expansion hors staging (sur staging il est ouvert d'office, avec clés de test). Sans elle, en production, `/offer/available` est faux et `POST /offer/checkout` répond 403. Lue à un seul endroit (`checkoutOpen()` dans `server/lib/stripe.js`, testé). **Ne jamais l'activer en production avant décision d'Émilien (fusion `main`).** Checklist : `docs/expansion-checklist-production-2026-10-20.md`.
+
 Côté Stripe, activer aussi le portail client (Paramètres > Billing > Portail client) en mode test.
 
 ## 7. Autres variables d'environnement lues par le code (noms seulement)
@@ -178,7 +180,7 @@ Relevé du 20 oct. 2026 (`grep process.env`). Toutes sont optionnelles sauf ment
 - **Google Drive** : `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `DRIVE_TOKEN_KEY`, `DRIVE_PREFILTER`, `DRIVE_PREFILTER_ACTION`, `DRIVE_SYNC_INTERVAL_MIN`, `DRIVE_SYNC_BATCH`, `DRIVE_SYNC_FIRST_DAYS`, `DRIVE_SYNC_MAX_AI_CALLS_PER_DAY`, `DRIVE_SYNC_MAX_AI_PER_PASS`, `DRIVE_SYNC_MAX_DEFER_PASSES`, `DRIVE_SYNC_MAX_FILE_INFRA_FAILS`, `DRIVE_SYNC_MAX_SEGS_PER_PASS`, `DRIVE_SYNC_MAX_TASKS_PER_FILE`.
 - **Calendrier et rappels** : `NOESIS_CALENDAR_FEED`, `NOESIS_DUE_REMINDERS`, `NOESIS_GOAL_REMINDERS`.
 - **Annonce aux utilisateurs** : `NOESIS_ANNOUNCE_AT`, `NOESIS_ANNOUNCE_PUSH`, `NOESIS_ANNOUNCE_TEXT`.
-- **Offre / accès** : `OFFER_CHECKOUT_OPEN`, `OFFER1_EARLY_ACCESS_USER_IDS`, `OFFER1_FREE_CODE_HASHES`, `INACTIVE_ACCOUNTS_ENABLED`, `RESEND_WEBHOOK_SECRET` (courriels, avec `RESEND_API_KEY`/`RESEND_FROM` du §6).
+- **Offre / accès** : `OFFER_CHECKOUT_OPEN` (voir §6 : jamais en production avant décision d'Émilien), `OFFER1_EARLY_ACCESS_USER_IDS`, `OFFER1_FREE_CODE_HASHES`, `INACTIVE_ACCOUNTS_ENABLED`, `RESEND_WEBHOOK_SECRET` (courriels, avec `RESEND_API_KEY`/`RESEND_FROM` du §6).
 - **Trade Tracker** : `TRADE_BASE_URL`, `TRADE_DATA_DIR`, `TRADE_ALLOWED_USER_IDS`, `TRADE_LINK_SECRET` (avertissement au démarrage s'il manque), `TRADE_NOTIFY_SECRET`, `TRADE_TOKEN_KEY`, `TRADE_CONNECTOR`, `TRADE_EVENTS_PER_MIN`, `TRADE_SYNC_DISABLE`, `TRADE_SYNC_INTERVAL_MIN`.
 - **Tests et développement seulement** : `GUARD_BASE`, `GUARD_ALLOW_SHRINK`, `FONC_PORT_OFFSET`, `MOCK_PORT`, `SEED_SCENARIOS` (staging), `SEED_STATS_DEMO`, `PATH`, `TMPDIR`.
 

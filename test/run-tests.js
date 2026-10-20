@@ -288,6 +288,11 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'expansion-parcours-test.js')], { encoding: 'utf8' }); } catch (e) { expOk = false; }
   assert(expOk, 'parcours Expansion (test/expansion-parcours-test.js) passe');
 
+  // Expansion de bout en bout (paiement, webhook, accès, courriel, portail, résiliation ; faux Stripe et faux envoi).
+  let e2eOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'expansion-bout-en-bout-test.js')], { encoding: 'utf8' }); } catch (e) { e2eOk = false; }
+  assert(e2eOk, 'Expansion de bout en bout (test/expansion-bout-en-bout-test.js) passe');
+
   // Connecteur Drive (Google simulé, PDF compris).
   let drOk = true;
   try { execFileSync('node', [path.join(__dirname, 'drive-test.js')], { encoding: 'utf8' }); } catch (e) { drOk = false; }

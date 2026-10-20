@@ -90,6 +90,22 @@ function setEnv(env, key, open) {
     'client : bouton activé seulement si /api/offer/available répond available=true');
   ok(!/offer1CheckoutOpenBtn[^;]*\.disabled\s*=\s*false/.test(html + fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8')), 'client : aucun autre code ne réactive le bouton');
 
+  // OFFER_CHECKOUT_OPEN n'est lue qu'à un seul endroit (server/lib/stripe.js), jamais ailleurs dans le serveur ni le client.
+  const readers = [];
+  (function scan(d) {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const f = path.join(d, e.name);
+      if (e.isDirectory()) { if (e.name !== 'node_modules') scan(f); } else if (e.name.endsWith('.js') && /OFFER_CHECKOUT_OPEN/.test(fs.readFileSync(f, 'utf8').replace(/\/\/.*$/gm, ''))) readers.push(path.relative(path.join(__dirname, '..'), f));
+    }
+  })(path.join(__dirname, '..', 'server'));
+  (function scan(d) {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const f = path.join(d, e.name);
+      if (e.isDirectory()) scan(f); else if (e.name.endsWith('.js') && /OFFER_CHECKOUT_OPEN/.test(fs.readFileSync(f, 'utf8'))) readers.push(path.relative(path.join(__dirname, '..'), f));
+    }
+  })(path.join(__dirname, '..', 'public'));
+  ok(readers.length === 1 && readers[0] === path.join('server', 'lib', 'stripe.js'), 'OFFER_CHECKOUT_OPEN lue à un seul endroit centralisé (' + readers.join(', ') + ')');
+
   server.close();
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });
