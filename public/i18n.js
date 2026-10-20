@@ -1687,7 +1687,10 @@
     "Trade Tracker est indisponible.": "Trade Tracker is unavailable.",
     "Module désactivé : « Trade Tracker ».": "Module disabled: “Trade Tracker”.",
     "Trade Tracker n'est pas disponible pour ce compte.": "Trade Tracker is not available for this account.",
-    "Nouvel achat :": "New purchase:"
+    "Nouvel achat :": "New purchase:",
+    // 20 oct. 2026 (Basic n°19, bascule de langue) : chaînes passées à t() sans traduction.
+    "Colle d\u2019abord l\u2019adresse de ton agenda.": "Paste your calendar address first.",
+    "Rejoins-moi sur Noèsis, mon TimeTracker partagé : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.": "Join me on Noèsis, my shared TimeTracker: {url}\nMy username is “{pseudo}” — find me in Community > Find members to follow me."
   });
 
   function translateNameText(raw) {

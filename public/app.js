@@ -5711,7 +5711,11 @@
   // (activités ; les secteurs remontent au pôle). Même structure que la vue
   // Mois (colonne figée + calendrier), mêmes classes. Chaque case porte la
   // durée du mois et une barre proportionnelle au mois le plus chargé. -----
-  var MONTH_NAMES_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  // Nom du mois dans la langue courante (le dictionnaire ne traduit pas les noms de mois : « Février » restait en français en mode anglais).
+  function monthNameLocal(m) {
+    var n = new Date(2000, m, 1).toLocaleDateString(dateLocale(), { month: 'long' });
+    return n.charAt(0).toUpperCase() + n.slice(1);
+  }
   function renderTimesheetYear(data, idsIn) {
     var I = tsIds(idsIn);
     $(I.calendar).classList.remove('hidden');
@@ -5729,14 +5733,14 @@
     data.rows.forEach(function (r) { r.months.forEach(function (s) { if (s > max) max = s; }); });
     var frozen = '<div class="tsCalCorner"></div>';
     var html = '';
-    MONTH_NAMES_FR.forEach(function (name) {
-      html += '<div class="tsCalHeaderCell">' + t(name).slice(0, 3) + '</div>';
-    });
+    for (var mi = 0; mi < 12; mi++) {
+      html += '<div class="tsCalHeaderCell">' + monthNameLocal(mi).slice(0, 3) + '</div>';
+    }
     data.rows.forEach(function (r) {
       var rowName = r.name || t('Sans pôle');
       frozen += '<div class="tsCalWeekLabel" style="overflow:hidden;text-overflow:ellipsis;display:block;line-height:var(--cal-row)" title="' + escapeHtml(rowName) + '">' + escapeHtml(rowName) + '</div>';
       r.months.forEach(function (sec, m) {
-        html += '<div class="tsCalDay" title="' + escapeHtml(rowName) + ' · ' + t(MONTH_NAMES_FR[m]) + '">';
+        html += '<div class="tsCalDay" title="' + escapeHtml(rowName) + ' · ' + monthNameLocal(m) + '">';
         html += '<div class="tsCalDayNum">' + (sec > 0 ? formatHM(sec) : '') + '</div>';
         html += '<div class="tsSlot tsSlot-filled" style="height:6px;width:' + (sec > 0 && max > 0 ? Math.max(8, Math.round(sec / max * 100)) : 0)
           + '%;background:' + r.color + '"></div></div>';
