@@ -9,6 +9,22 @@
 
 Lecture : la courbe à l'aveugle ne monte pas, car chaque lot vise les points faibles du précédent (synonymes, abréviations, noms propres). Les anciens cas restent à 100 % (≥ 98 % exigé) : aucune régression. Estimation honnête du taux réel du simulé : entre 60 et 85 % selon la difficulté ; le vrai chiffre (modèle réel) se mesure en `--live` (voir `docs/questions-emilien-precision.md`).
 
+## Lot 6 (h301-h330, repli 30) : fautes, abréviations, dates relatives, durées implicites, vague
+`test/fixtures/task-precision/blind-h301-h330.json`. 30 titres FR/QC/EN écrits avant toute relecture du code du repli (jour de référence : mardi 20 oct. 2026), taux noté AVANT correction.
+
+**Aveugle brut : 27/30 = 90,0 %** (3 titres en écart, 3 causes) :
+| Écart | Cause | Suite |
+|---|---|---|
+| « Finish onboarding doc in a week » : indice au 19 oct. (passé) | la forme « in a week » comptait « a » comme -1 ; et « weeks » (anglais) était lu comme des jours (seul « s... » valait 7 jours) | corrigé : « a » = 1, semaines anglaises = 7 jours (« in 2 weeks » donnait aussi +2 jours) |
+| « Envoyer le contrat ... avant 17h » : titre « ...cliente avant » | l'heure est retirée mais pas sa préposition (avant, après, before, by, after, until, till, jusqu'à) | corrigée avec l'heure (devant une heure explicite seulement) |
+| « Finalize Q4 budget by next Fri » : attente de l'auteur fausse | « next Friday » dit un mardi est ambigu en anglais ; la convention existante (vendredi à venir) est gardée | attente alignée, laissée dans le taux brut |
+
+Aussi: l'attente d'indice « avant 17h » (jour même) était une erreur d'auteur (une heure seule n'est pas une date) ; corrigée, comptée dans le brut. Bien traités d'emblée : fautes (« Apeler », « Renouveller », « mornin »), « thurs 3pm », « rdv », « CR », « w/ », « pis », « ce weekend », « dans 10 jours », « d'ici la fin du mois », « (environ 2h) » conservé, tâches vagues (« Faire le truc », « Do stuff », « Voir pour ça », « À faire », « Misc ») rejetées, aucun titre vague accepté, aucune récurrence créée.
+
+**Non-régression** : après correction h301-h330 30/30 (non indépendant) ; h181-h300 et g001-g060 inchangés à 100 % (test `precision-generees-test.js`) ; jeu `cases.json` 99,7 % (302 cas, identique à avant : seul e28, ancien) ; faux rejets 5/345 = 1,4 %, identique à avant et ce sont des rejets voulus (« Voir ça », « Faire ça », « Gérer les choses », « Penser au projet », titre de plus de 140 caractères). Les 2 corrections de h271-h300 (« before the 25th », titres vagues « affaire(s) », « s'occuper », « deal with ») ne créent donc aucun faux rejet sur les lots existants.
+
+Lecture : 90 % à l'aveugle, au niveau des meilleurs lots (h181, h271) ; les deux vrais défauts étaient des bogues de règles existantes (anglais), pas des mots absents. Aucun appel IA payant, aucune interface touchée.
+
 ## Lot 5 (h271-h300, repli 29) : vie courante, écrit avant relecture du code
 `test/fixtures/task-precision/blind-h271-h300.json`. 30 titres neutres (courses, rendez-vous médicaux génériques, école/garderie, voiture, finances perso, vacances, bricolage, anniversaires, administratif) en FR, québécois et EN, sans prénom réel. Attendus écrits avant toute relecture de `taskprecision.js` / `capturedatehint.js` (jour de référence : mardi 20 oct. 2026).
 

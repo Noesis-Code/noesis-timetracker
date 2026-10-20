@@ -114,6 +114,11 @@ assert(blind2.rejetsAttendus.every((t) => !tp.checkGenerated(t, []).title), 'lot
   const b9 = require('./fixtures/task-precision/blind-h271-h300.json');
   const bad9 = b9.titles.filter((t) => b9.rejets.includes(t) ? !!tp.checkGenerated(t, []).title : (tp.checkGenerated(t, []).title !== (b9.attendus[t] || t) || (t in b9.hints && JSON.stringify(hint.parseDateHint(t, b9.today)) !== JSON.stringify(b9.hints[t]))));
   assert(b9.titles.length === 30 && bad9.length === 0, 'lot h271-h300 : ' + bad9.length + ' en échec' + (bad9.length ? ' ' + JSON.stringify(bad9) : ''));
+  // Lot h301-h330 (fautes, abréviations, dates relatives, durées implicites, vague ; 27/30 à l'aveugle, corrigé ensuite par règles générales : non indépendant après coup).
+  const b10 = require('./fixtures/task-precision/blind-h301-h330.json');
+  const bad10 = b10.titles.filter((t) => b10.rejets.includes(t) ? !!tp.checkGenerated(t, []).title : (tp.checkGenerated(t, []).title !== (b10.attendus[t] || t) || (t in b10.hints && JSON.stringify(hint.parseDateHint(t, b10.today)) !== JSON.stringify(b10.hints[t]))));
+  assert(b10.titles.length === 30 && bad10.length === 0, 'lot h301-h330 : ' + bad10.length + ' en échec' + (bad10.length ? ' ' + JSON.stringify(bad10) : ''));
+  assert(hint.parseDateHint('Ship in 2 weeks', '2026-10-20').date === '2026-11-03' && tp.checkGenerated('Call Paul before 5pm', []).title === 'Call Paul', 'semaines anglaises = 7 jours ; « before 5pm » retiré avec l\'heure');
   const voc = require('../server/lib/temporalvocab');
   assert(voc.canon('Appeler lun. et ven') === 'Appeler lundi et ven' && voc.canon('sept jours') === 'sept jours' && voc.canon('le 1 sept.') === 'le 1 septembre' && voc.canon('Fri 2pm') === 'friday 14 h' && voc.canon('mon ami') === 'mon ami', 'table temporalvocab : abréviations de jours/mois sûres seulement (« sept jours », « mon ami » inchangés)');
   assert(tp.checkGenerated('Réunion de 9 h à 10 h', []).title === 'Réunion' && tp.checkGenerated('Dentiste à 3 heures', []).title === 'Dentiste', 'plages et « à N heures » restent des horaires retirés');

@@ -53,8 +53,8 @@ function parseDateHint(text, today) {
   // « dans 3 jours », « dans 2 semaines » (relatif, jamais une heure) ; « dans une heure » ne donne aucun indice.
   m = / (?:dans|in) (\d{1,2}|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|a|one|two|three|four|five|six|seven|eight|nine|ten) (jours?|jrs?|days?|semaines?|sem|weeks?|wks?) /.exec(t);
   if (m) {
-    const n = /^\d/.test(m[1]) ? +m[1] : (/^(?:a|one|two|three|four|five|six|seven|eight|nine|ten)$/.test(m[1]) ? ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'].indexOf(m[1]) : ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'].indexOf(m[1])) || 1;
-    return { kind: 'day', date: add(today, n * (m[2][0] === 's' ? 7 : 1)) };
+    const n = /^\d/.test(m[1]) ? +m[1] : m[1] === 'a' ? 1 : (/^(?:a|one|two|three|four|five|six|seven|eight|nine|ten)$/.test(m[1]) ? ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'].indexOf(m[1]) : ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'].indexOf(m[1])) || 1;
+    return { kind: 'day', date: add(today, n * (/^[sw]/.test(m[2]) ? 7 : 1)) };
   }
 
   // « fin de semaine » (québécois) = le week-end : le samedi (le jour même un samedi ou dimanche) ; « prochaine » = celui d'après ; « pour / avant » = échéance.

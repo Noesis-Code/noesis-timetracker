@@ -1,0 +1,125 @@
+{
+ "note": "Lot aveugle h301-h330 (20 oct. 2026, repli 30) : 30 titres écrits AVANT toute relecture du code du repli, FR/QC/EN, fautes de frappe, abréviations, dates relatives, durées implicites, tâches vagues. today = 2026-10-20 (mardi) ; attendus = titre après retrait de l'heure ; hints : null = aucun indice attendu. Attentes corrigées APRÈS mesure (erreurs d'auteur, comptées dans le taux brut) : « avant 17h » = aucun indice (une heure seule n'est pas une date) ; « by next Fri » = vendredi à venir (convention existante, ambiguë en anglais).",
+ "today": "2026-10-20",
+ "titles": [
+  "Apeler le plombier demain matin",
+  "Envoyer la facture a Dupont avant jeudi",
+  "Prep slides for Monday standup",
+  "Rdv ostéo vendredi 16h",
+  "Finir le rapport d'ici la fin du mois",
+  "Relancer le fournisseur dans 10 jours",
+  "Call w/ client thurs 3pm",
+  "Faire le ménage du garage ce weekend",
+  "Quick sync with the design team",
+  "Appel rapide avec le comptable",
+  "Envoyer le contrat signé a la cliente avant 17h",
+  "Reserver une salle pour la formation du 4 novembre",
+  "Renouveller l'abonnement du gym lundi prochain",
+  "Ecrire l'article de blog (environ 2h)",
+  "Check emails every mornin",
+  "Prendre rdv chez l'optométriste en novembre",
+  "Acheter cadeau Noël pour les neveux",
+  "Rédiger le CR de la réunion d'hier",
+  "Follow up w/ vendor re: delivery asap",
+  "Déposer le chèque à la banque mercredi",
+  "Finalize Q4 budget by next Fri",
+  "Nettoyer le frigo pis sortir les vidanges ce soir",
+  "Mettre à jour la doc de l'API",
+  "Appeler maman dimanche",
+  "Finish onboarding doc in a week",
+  "Faire le truc",
+  "Do stuff",
+  "Voir pour ça",
+  "À faire",
+  "Misc"
+ ],
+ "attendus": {
+  "Rdv ostéo vendredi 16h": "Rdv ostéo vendredi",
+  "Call w/ client thurs 3pm": "Call w/ client thurs",
+  "Envoyer le contrat signé a la cliente avant 17h": "Envoyer le contrat signé a la cliente"
+ },
+ "rejets": [
+  "Faire le truc",
+  "Do stuff",
+  "Voir pour ça",
+  "À faire",
+  "Misc"
+ ],
+ "hints": {
+  "Apeler le plombier demain matin": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Envoyer la facture a Dupont avant jeudi": {
+   "kind": "deadline",
+   "date": "2026-10-22"
+  },
+  "Prep slides for Monday standup": {
+   "kind": "day",
+   "date": "2026-10-26"
+  },
+  "Rdv ostéo vendredi 16h": {
+   "kind": "day",
+   "date": "2026-10-23"
+  },
+  "Finir le rapport d'ici la fin du mois": {
+   "kind": "deadline",
+   "date": "2026-10-31"
+  },
+  "Relancer le fournisseur dans 10 jours": {
+   "kind": "day",
+   "date": "2026-10-30"
+  },
+  "Call w/ client thurs 3pm": {
+   "kind": "day",
+   "date": "2026-10-22"
+  },
+  "Faire le ménage du garage ce weekend": {
+   "kind": "day",
+   "date": "2026-10-24"
+  },
+  "Quick sync with the design team": null,
+  "Appel rapide avec le comptable": null,
+  "Envoyer le contrat signé a la cliente avant 17h": null,
+  "Reserver une salle pour la formation du 4 novembre": {
+   "kind": "day",
+   "date": "2026-11-04"
+  },
+  "Renouveller l'abonnement du gym lundi prochain": {
+   "kind": "day",
+   "date": "2026-10-26"
+  },
+  "Ecrire l'article de blog (environ 2h)": null,
+  "Check emails every mornin": null,
+  "Prendre rdv chez l'optométriste en novembre": null,
+  "Acheter cadeau Noël pour les neveux": null,
+  "Rédiger le CR de la réunion d'hier": null,
+  "Follow up w/ vendor re: delivery asap": null,
+  "Déposer le chèque à la banque mercredi": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Finalize Q4 budget by next Fri": {
+   "kind": "deadline",
+   "date": "2026-10-23"
+  },
+  "Nettoyer le frigo pis sortir les vidanges ce soir": {
+   "kind": "day",
+   "date": "2026-10-20"
+  },
+  "Mettre à jour la doc de l'API": null,
+  "Appeler maman dimanche": {
+   "kind": "day",
+   "date": "2026-10-25"
+  },
+  "Finish onboarding doc in a week": {
+   "kind": "day",
+   "date": "2026-10-27"
+  },
+  "Faire le truc": null,
+  "Do stuff": null,
+  "Voir pour ça": null,
+  "À faire": null,
+  "Misc": null
+ }
+}
