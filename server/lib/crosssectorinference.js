@@ -161,6 +161,7 @@ async function callAiStrong(payload, allowedKeys, feature) {
 async function callAiOnce(payload, allowedKeys, model, feature, system, fastMode) {
   const res = await aibudget.fetchAnthropic(feature || 'inter-secteurs', ANTHROPIC_API_URL, {
     method: 'POST',
+    signal: AbortSignal.timeout(90000), // délai dépassé = panne IA (repli habituel), jamais une attente sans fin
     headers: {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
@@ -208,12 +209,12 @@ function parseSuggestions(text, allowedKeys) {
       throw new Error("Réponse de Noèsis illisible (JSON invalide).");
     }
   }
-  const raw = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
+  const raw = parsed && Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
   const allowed = new Set(allowedKeys || []);
   const seen = new Set();
   const out = [];
   raw.forEach((entry) => {
-    const targetCategory = typeof entry.targetCategory === 'string' ? entry.targetCategory : '';
+    const targetCategory = entry && typeof entry.targetCategory === 'string' ? entry.targetCategory : '';
     if (!allowed.has(targetCategory) || seen.has(targetCategory)) return; // hors périmètre ou doublon : ignoré, jamais une erreur bloquante
     const cleanText = typeof entry.text === 'string' ? entry.text.trim().slice(0, MAX_SUGGESTION_TEXT_LENGTH) : '';
     if (!cleanText) return;

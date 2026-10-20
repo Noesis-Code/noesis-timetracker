@@ -111,6 +111,7 @@ async function generatePlanUncached(formsPayload) {
 async function callPlanApi(formsPayload, model, system, feature) {
   const res = await aibudget.fetchAnthropic(feature, ANTHROPIC_API_URL, {
     method: 'POST',
+    signal: AbortSignal.timeout(120000), // délai dépassé = panne IA (repli habituel), jamais une attente sans fin
     headers: {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
@@ -154,12 +155,13 @@ function parsePlan(text) {
     throw new Error("Réponse de Noèsis illisible (JSON invalide).");
   }
 
-  const subProjects = Array.isArray(parsed.subProjects) ? parsed.subProjects : null;
+  const subProjects = parsed && Array.isArray(parsed.subProjects) ? parsed.subProjects : null;
   if (!subProjects || subProjects.length !== SUBPROJECT_COUNT) {
     throw new Error(`Noèsis doit renvoyer exactement ${SUBPROJECT_COUNT} sous-projets (reçu : ${subProjects ? subProjects.length : 0}).`);
   }
 
-  return subProjects.map((raw, index) => {
+  return subProjects.map((raw0, index) => {
+    const raw = raw0 && typeof raw0 === 'object' ? raw0 : {};
     const name = typeof raw.name === 'string' ? raw.name.trim().slice(0, MAX_NAME_LENGTH) : '';
     if (!name) throw new Error(`Sous-projet #${index + 1} : nom manquant dans la réponse de Noèsis.`);
 

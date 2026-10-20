@@ -173,6 +173,7 @@ async function callAiRetry(payload, requestedWeeks, feature) {
 async function callAiOnce(payload, requestedWeeks, model, feature, extraSystem) {
   const res = await aibudget.fetchAnthropic(feature || 'objectifs-hebdo', ANTHROPIC_API_URL, {
     method: 'POST',
+    signal: AbortSignal.timeout(90000), // délai dépassé = panne IA (repli habituel), jamais une attente sans fin
     headers: {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
@@ -225,7 +226,7 @@ function parseWeeklyGoals(text, requestedWeeks) {
       throw new Error("Réponse de Noèsis illisible (JSON invalide).");
     }
   }
-  const raw = Array.isArray(parsed.weeklyGoals) ? parsed.weeklyGoals : [];
+  const raw = parsed && Array.isArray(parsed.weeklyGoals) ? parsed.weeklyGoals : [];
   const allowed = new Set(requestedWeeks);
   const seen = new Set();
   const out = [];
