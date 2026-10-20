@@ -48,6 +48,7 @@ const pendingCount = () => db.prepare("SELECT COUNT(*) c FROM change_proposals W
   const w = goals.setWeekly(act, key, sNext.n, sNext.wi, 'Lancer le produit', 'Tout le lancement', 120);
   let r = await cp.generateForWeekly('own', act, w.id);
   assert(r.added === 1 && calls === 1, 'déplacement proposé pour la tâche de S+2 (autres propositions invalides écartées)');
+  assert(seen.want && seen.want.c && !seen.want.t && seen.want.cMax === 10, 'sortie bornée : au plus 10 changements demandés (max_tokens réduit)');
   assert(dueOf(task.id) === goals.addDays(nextMonday, 8) && dueOf(sameWeek.id) === goals.addDays(nextMonday, 2), 'rien écrit avant apply');
   assert(/Lancer le produit/.test(seen.user) && /Préparer le lancement/.test(seen.user) && !/Déjà dans la bonne semaine/.test(seen.user), 'contexte : objectif visé + tâches des autres semaines seulement');
   const row = db.prepare("SELECT * FROM change_proposals WHERE activityId = ? AND status = 'pending'").get(act);

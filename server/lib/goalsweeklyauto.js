@@ -96,6 +96,8 @@ const ANTHROPIC_MODEL = aimodels.strongModel();
 // pas droit à une limite différente de celle posée à l'utilisateur.
 const MAX_WEEKLY_TEXT_LENGTH = 300;
 const MAX_WEEKLY_DESC_LENGTH = 600;
+// Sortie : au plus WEEKS_PER_PERIOD objets {weekIndex, text <= 100 car., description <= 600 car.} (~260 jetons chacun au pire) + confiance ; marge ~1,5 x (réponse tronquée = JSON inutilisable).
+const WEEKLY_MAX_TOKENS = 1600;
 
 function aiConfigured() {
   return !!process.env.ANTHROPIC_API_KEY;
@@ -182,7 +184,7 @@ async function callAiOnce(payload, requestedWeeks, model, feature, extraSystem) 
     },
     body: JSON.stringify({
       model: model || ANTHROPIC_MODEL,
-      max_tokens: 3000,
+      max_tokens: WEEKLY_MAX_TOKENS,
       system: SYSTEM_PROMPT + (extraSystem || ''),
       messages: [{ role: 'user', content: JSON.stringify(payload) }],
     }),

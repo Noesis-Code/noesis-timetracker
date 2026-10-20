@@ -388,7 +388,7 @@ async function generateForWeekly(userId, activityId, weeklyId) {
     if (!c) return { added: 0 };
     if (!aibudget.check(userId).ok) return { added: 0, aiBlocked: true };
     if (!require('./drivesync').takeCall(userId)) return { added: 0, capReached: true };
-    const out = await aibudget.runAs(userId, () => docanalysis.call({ parts: weeklyParts(c), want: { t: false, c: true }, feature: 'redistribution-objectif' }));
+    const out = await aibudget.runAs(userId, () => docanalysis.call({ parts: weeklyParts(c), want: { t: false, c: true, cMax: WEEKLY_MAX_CHANGES }, feature: 'redistribution-objectif' }));
     const changes = validateWeekly(out && out.text, c);
     if (!changes) return { added: 0, failed: true };
     return { added: store(userId, activityId, changes) }; // hash déjà en attente / refusé / appliqué : rien de recréé

@@ -61,7 +61,10 @@ function buildParts(tctx, cctx, { instruction, doc, want }) {
   return { stable, variable };
 }
 
-function maxTokensFor(want) { return (want.t ? MAX_TOKENS_TASKS : 0) + (want.c ? (want.t ? 2000 : MAX_TOKENS_CHANGES) : 0); }
+// want.cMax (redistribution par objectif : au plus N changements retenus par la validation) borne la sortie à ~150 jetons par changement ;
+// sans cMax, plafond historique. Une réponse tronquée est inutilisable (JSON coupé) : la marge reste >= 3 x la sortie typique.
+const TOKENS_PER_CHANGE = 150;
+function maxTokensFor(want) { return (want.t ? MAX_TOKENS_TASKS : 0) + (want.c ? (want.t ? 2000 : (want.cMax ? Math.min(MAX_TOKENS_CHANGES, want.cMax * TOKENS_PER_CHANGE) : MAX_TOKENS_CHANGES)) : 0); }
 
 // Corps d'une requête /v1/messages (aussi utilisé tel quel comme params d'une requête de lot).
 // model : modèle moins cher réservé à l'extraction de tâches seules (jamais quand les modifications proposées "c" sont demandées).
