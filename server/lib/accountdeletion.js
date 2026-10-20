@@ -7,9 +7,26 @@
 // (PIN pour la route, délai d'inactivité + avis préalable pour la tâche).
 const db = require('../db');
 
+// [table, colonne du compte] : tables à userId sans ON DELETE CASCADE vers users.
+const PERSONAL_NO_FK = [
+  ['ai_usage_log', 'userId'], ['change_proposals', 'userId'], ['message_reports', 'reporterId'],
+  ['member_time_overrides', 'memberId'], ['goal_overload_dismissals', 'userId'], ['goal_recalc_proposals', 'userId'],
+  ['goal_time_caps', 'userId'], ['external_calendar_settings', 'userId'], ['external_calendar_subscriptions', 'userId'],
+  ['external_calendar_urls', 'userId'], ['drive_ai_usage', 'userId'], ['drive_attempts', 'userId'], ['drive_batches', 'userId'],
+  ['drive_connections', 'userId'], ['drive_folders', 'userId'], ['drive_infra_fails', 'userId'], ['drive_progress', 'userId'],
+  ['drive_seen_chunks', 'userId'], ['drive_seen_files', 'userId'], ['drive_seen_tasks', 'userId'], ['drive_seg_done', 'userId'],
+  ['drive_skipped', 'userId'], ['drive_sync', 'userId'],
+];
+const tableExists = (t) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(t);
+
 function deleteAccountData(user) {
   const now = new Date().toISOString();
   const memberships = db.prepare('SELECT activityId FROM activity_members WHERE userId = ?').all(user.id);
+
+  // Fichiers de discussion sur disque : les lignes partent par cascade, pas les fichiers.
+  const storedFiles = tableExists('activity_message_files')
+    ? db.prepare('SELECT f.storedName FROM activity_message_files f JOIN activity_messages m ON m.id = f.messageId WHERE m.userId = ?').all(user.id).map((r) => r.storedName)
+    : [];
 
   db.exec('BEGIN');
   try {
@@ -101,13 +118,20 @@ function deleteAccountData(user) {
 
     // Clés d'idempotence de la capture hors ligne : pas de clé étrangère, effacées ici (Loi 25).
     db.prepare('DELETE FROM idempotency_keys WHERE userId = ?').run(user.id);
+    // Tables personnelles SANS clé étrangère vers users (donc sans cascade) : effacées ici (Loi 25).
+    // Liste tenue par test/privacy-tables-test.js, qui échoue si une table au userId est oubliée.
+    PERSONAL_NO_FK.forEach(([table, col]) => {
+      if (tableExists(table)) db.prepare('DELETE FROM ' + table + ' WHERE ' + col + ' = ?').run(user.id);
+    });
+    if (tableExists('activity_strategies')) db.prepare('UPDATE activity_strategies SET updatedBy = NULL WHERE updatedBy = ?').run(user.id);
     db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
     db.exec('COMMIT');
   } catch (e) {
     db.exec('ROLLBACK');
     throw e;
   }
+  if (storedFiles.length) require('./discussionfiles').removeStored(storedFiles);
 
 }
 
-module.exports = { deleteAccountData };
+module.exports = { deleteAccountData, PERSONAL_NO_FK };

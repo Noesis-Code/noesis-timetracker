@@ -258,6 +258,36 @@ function buildUserExport(userId) {
     ? { enabled: true, createdAt: calendarFeedRow.createdAt, lastAccessAt: calendarFeedRow.lastAccessAt }
     : { enabled: false };
 
+  // ---- Autres données personnelles (ajout 20 oct. 2026, garde test/privacy-tables-test.js) ----
+  // Tables créées par d'autres modules : lues seulement si elles existent.
+  const has = (t) => !!row("SELECT 1 AS x FROM sqlite_master WHERE type = 'table' AND name = ?", t);
+  const blocked = has('blocks') ? rows(
+    `SELECT b.id, b.blockedId AS userId, u.name, u.lastName, b.createdAt
+     FROM blocks b JOIN users u ON u.id = b.blockedId WHERE b.blockerId = ? ORDER BY b.createdAt`,
+    userId
+  ) : [];
+  const clientProfileForm = has('client_profile_forms')
+    ? row('SELECT answers, updatedAt FROM client_profile_forms WHERE userId = ?', userId) || null : null;
+  const goalTimeCaps = has('goal_time_caps') ? rows(
+    `SELECT c.activityId, a.name AS activityName, c.category, c.maxDayMinutes, c.maxWeekMinutes
+     FROM goal_time_caps c JOIN activities a ON a.id = c.activityId WHERE c.userId = ?`,
+    userId
+  ) : [];
+  const goalCapacityOverrides = has('goal_capacity_overrides') ? rows(
+    `SELECT o.activityId, a.name AS activityName, o.category, o.weeklyMinutes, o.updatedAt
+     FROM goal_capacity_overrides o JOIN activities a ON a.id = o.activityId WHERE o.userId = ?`,
+    userId
+  ) : [];
+  const dailySuggestionSettings = has('daily_suggestion_settings')
+    ? row('SELECT declaredMinutes, updatedAt FROM daily_suggestion_settings WHERE userId = ?', userId) || null : null;
+  // Abonnement payant : état et dates seulement, jamais les identifiants Stripe.
+  const subscriptions = has('activity_subscriptions') ? rows(
+    `SELECT s.activityId, a.name AS activityName, s.status, s.currentPeriodStart, s.currentPeriodEnd,
+            s.createdAt, s.canceledAt
+     FROM activity_subscriptions s LEFT JOIN activities a ON a.id = s.activityId WHERE s.userId = ?`,
+    userId
+  ) : [];
+
   // ---- Objectifs et tâches (ajout 10 oct. 2026, décision d'Emilien) ----
   // Périmètre « à moi » : activités dont il est propriétaire ou seul membre
   // (le plan lui appartient) ; dans une activité partagée dont il n'est pas
@@ -365,6 +395,12 @@ function buildUserExport(userId) {
     goalYearGoals,
     goalCategories,
     tasks,
+    blockedUsers: blocked,
+    clientProfileForm,
+    goalTimeCaps,
+    goalCapacityOverrides,
+    dailySuggestionSettings,
+    subscriptions,
   };
 }
 

@@ -81,4 +81,11 @@ function deleteFilesOfMessage(messageId) {
   });
 }
 
-module.exports = { validateUpload, saveFile, attachFiles, getFile, deleteFilesOfMessage };
+// Supprime des fichiers par nom stocké (suppression de compte : les lignes sont déjà parties par cascade).
+function removeStored(names) {
+  (names || []).forEach((n) => {
+    try { fs.unlinkSync(path.join(FILES_DIR, path.basename(n))); } catch (e) { /* déjà absent */ }
+  });
+}
+
+module.exports = { validateUpload, saveFile, attachFiles, getFile, deleteFilesOfMessage, removeStored };
