@@ -46,9 +46,7 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 
 **5. Simplification et design général**
 1. Propositions 6 à 10 du Simplificateur non réservées : les exécuter.
-2. CSS et JS morts (sélecteurs sans usage, fonctions non appelées).
 3. Retrait des doublons (deux entrées vers la même fonction).
-4. Libellés trop longs à raccourcir.
 
 **6. Précision des tâches générées**
 1. Cas restants c12 et c54 du jeu d'évaluation.

@@ -1899,7 +1899,6 @@ body.scrollLock { overflow: hidden; }
 /* Page "Réglages" (Apparence / Sécurité / Import) : remplace #profileMain au
    clic sur le bouton "⚙️", plutôt qu'un panneau replié dans la même page. */
 .subpageHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-.subpageHeader .subpageTitle { margin: 0; }
 /* Déconnexion : en haut à droite du bandeau de Réglages, au-dessus
    d'Identité (voir index.html) — poussé à droite via margin-left: auto sur
    le flex row .subpageHeader. */
