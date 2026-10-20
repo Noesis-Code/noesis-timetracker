@@ -59,6 +59,7 @@ Chacun dirige sa propre discussion Claude sur le même dépôt. Pour ne pas s'é
 - Dépôt : https://github.com/Noesis-Code/noesis-timetracker.git — branche d'intégration `staging`.
 - Push vers `staging` : direct, une fois le chantier prêt et testé, **sans question de confirmation** (décision du 20 sept. 2026 ; il n'existe pas d'« application Teste » distincte : `staging` EST l'environnement de test).
 - `staging` est déployé automatiquement sur Railway (https://web-staging-6d1b.up.railway.app). Fusion `staging` → `main` : toujours par Émilien, après test.
+- Depuis le 10 sept. 2026, rien ne part en production (`main`) sans avoir été testé et validé sur `staging` ; la PR `staging` → `main` n'est jamais fusionnée sans validation explicite d'Émilien.
 - Fins de ligne : lire celles du fichier avant d'éditer et les préserver (dépôt en LF ; ne jamais réécrire un fichier entier en changeant CRLF/LF).
 - Ce dossier local `C:\Users\morel\Projects\noesis-timetracker` (machine `nacarat`) est le clone de référence d'Émilien ; le travail des agents passe par GitHub, il fait `git pull` pour récupérer.
 
