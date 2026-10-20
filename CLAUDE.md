@@ -29,7 +29,7 @@ Sept chantiers tournent en permanence (Trade Tracker, TT Basic, TT Expansion, Cr
 **Règles de rangement (20 oct. 2026) — obligatoires pour tout agent** : `docs/regles-rangement.md` (R1 à R13, modèles Linear, Apple, Things 3, Bear, Oura).
 **Référence design unique** : ce même fichier fait foi pour la palette « Violet cendré » (R11), les couleurs sémantiques (R12) et la fermeture ✕ (R13) ; le code garde l'ancienne palette jusqu'à demande d'Émilien.
 - Lire ce fichier avant toute modification d'interface (`public/`) ; ne pas l'assouplir sans accord d'Émilien.
-- Joindre au compte rendu la checklist R1–R10 (cochée ou justifiée) et les captures avant/après à 390 px et 360 px.
+- Joindre au compte rendu la checklist R1–R18 (cochée ou justifiée) et les captures avant/après à 390 px et 360 px.
 - Le relecteur refuse toute branche touchant `public/` sans cette checklist ou avec une règle violée sans justification.
 
 ## Autonomie
