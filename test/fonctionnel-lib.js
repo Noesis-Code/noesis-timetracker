@@ -11,7 +11,7 @@ function makeCounter() {
 }
 
 async function startServer() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-fonc-'));
+  const dir = require('./lib/tmpdir').mkTmp('tmt-fonc-');
   const port = 39000 + Math.floor(Math.random() * 900) + Number(process.env.FONC_PORT_OFFSET || 0);
   const env = Object.assign({}, process.env, {
     NOESIS_DATA_DIR: dir, PORT: String(port), NOESIS_HOST: '127.0.0.1',

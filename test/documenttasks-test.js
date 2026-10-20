@@ -1,6 +1,6 @@
 // Tests « Ajouter des tâches depuis un document » (IA simulée). Usage : node test/documenttasks-test.js
 const os = require('os'), fs = require('fs'), path = require('path'), zlib = require('zlib');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-dt-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-dt-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };

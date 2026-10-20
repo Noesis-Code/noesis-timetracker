@@ -1,6 +1,6 @@
 // Plafonds quotidiens d'abus par compte (reformulation, classement) sans effet sur l'usage normal. Usage : node test/ia-plafonds-test.js
 const os = require('os'), fs = require('fs'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-plaf-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-plaf-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_DAY_USD = '1000';
 process.env.NOESIS_REWRITE_FAST_MODEL = 'off'; process.env.REWRITE_MAX_PER_DAY = '2'; process.env.CLASSIFY_MAX_PER_DAY = '2';
 let failed = 0;

@@ -1,6 +1,6 @@
 // Usage : node test/trade-events-test.js — POST /api/trade-events : signature HMAC, fraîcheur, idempotence, push (module + notifications).
 const os = require('os'), fs = require('fs'), path = require('path'), crypto = require('crypto'), http = require('http');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-tev-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-tev-');
 const webpush = require('web-push');
 const keys = webpush.generateVAPIDKeys();
 process.env.NOESIS_VAPID_PUBLIC_KEY = keys.publicKey;

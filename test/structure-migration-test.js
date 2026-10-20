@@ -1,6 +1,6 @@
 // Migration de structure. Usage : node test/structure-migration-test.js
 const os = require('os'); const fs = require('fs'); const path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-struct-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-struct-');
 let failed = 0;
 function assert(c, l) { if (c) console.log('  ok  ' + l); else { failed += 1; console.log('  FAIL ' + l); } }
 const db = require('../server/db');

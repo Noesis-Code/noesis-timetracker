@@ -1,6 +1,6 @@
 // Dernières tâches terminées injectées (bornées) dans le prompt hebdomadaire. Usage : node test/hebdo-recentdone-test.js
 const os = require('os'), fs = require('fs'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-recent-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-recent-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };

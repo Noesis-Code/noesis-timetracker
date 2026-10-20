@@ -1,7 +1,7 @@
 // Idempotence de la capture hors ligne : rejeu de la même clé => une seule tâche.
 // Usage : node test/offline-idempotence-test.js
 const fs = require('fs'), os = require('os'), path = require('path'), http = require('http');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-idem-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-idem-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 try { require('child_process').execFileSync('node', [path.join(__dirname, '..', 'scripts', 'dev-seed.js')], { env: process.env, stdio: 'ignore' }); } catch (e) {}
 const express = require('express');

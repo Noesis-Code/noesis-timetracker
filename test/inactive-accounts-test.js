@@ -1,6 +1,6 @@
 // Fermeture des comptes inactifs — courriel simulé, base temporaire.
 const fs = require('fs'), os = require('os'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'inactive-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('inactive-');
 const db = require('../server/db');
 const ia = require('../server/lib/inactiveaccounts');
 

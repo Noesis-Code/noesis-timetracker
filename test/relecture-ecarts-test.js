@@ -1,6 +1,6 @@
 // Tests : drivesync listAdded/ackAdded par activité + balayage objectifs par module « roadmap » de chaque membre.
 const os = require('os'), fs = require('fs'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-relec-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-relec-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };

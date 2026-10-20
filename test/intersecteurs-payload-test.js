@@ -1,6 +1,6 @@
 // Coût IA : charge utile inter-secteurs sans champs vides (aucun appel IA). Usage : node test/intersecteurs-payload-test.js
 const os = require('os'), fs = require('fs'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-xp-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-xp-');
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const x = require('../server/lib/crosssectorinference');

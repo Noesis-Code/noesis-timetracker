@@ -4,7 +4,7 @@ const fs = require('fs'); const os = require('os'); const path = require('path')
 const { spawn, spawnSync } = require('child_process');
 const A = require('../server/lib/auth');
 (async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tt-e2e-'));
+  const dir = require('../../test/lib/tmpdir').mkTmp('tt-e2e-');
   const secret = crypto.randomBytes(16).toString('hex'), key = crypto.randomBytes(24).toString('hex');
   const port = 20000 + Math.floor(Math.random() * 20000);
   const srv = spawn('node', [path.join(__dirname, '../server/index.js')], { env: { ...process.env, PORT: String(port), NOESIS_DATA_DIR: dir, TRADE_LINK_SECRET: secret, TRADE_TOKEN_KEY: key, TRADE_EXPERT_TMT_IDS: 'e2e', TRADE_SYNC_DISABLE: '1' }, stdio: 'pipe' });

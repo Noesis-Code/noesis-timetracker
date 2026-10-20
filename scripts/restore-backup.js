@@ -128,7 +128,7 @@ async function cmdVerify(key) {
     if (!result.ok) process.exit(1);
     console.log('\nCette sauvegarde est restaurable. Rien n\'a été écrit en dehors d\'un fichier temporaire.');
   } finally {
-    fs.unlinkSync(tmpPath);
+    for (const suf of ['', '-wal', '-shm']) { try { fs.unlinkSync(tmpPath + suf); } catch (e) { /* absent */ } }
   }
 }
 

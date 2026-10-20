@@ -1,6 +1,6 @@
 // Chemin d'extraction de la zone libre IA (image -> bloc image, texte -> texte), sans appel IA.
 const os = require('os'), fs = require('fs'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'zf-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('zf-');
 const assert = require('assert');
 const d = require('../server/lib/documenttasks');
 (async () => {

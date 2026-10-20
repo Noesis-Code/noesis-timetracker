@@ -1,6 +1,6 @@
 // Tests signalement de messages + mots bloqués. Usage : node test/signalement-test.js
 const fs = require('fs'), os = require('os'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sig-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('sig-');
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const { containsBlockedWord } = require('../server/lib/blockedwords');

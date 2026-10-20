@@ -1,6 +1,6 @@
 // Mémo 24 h du plan Offre 1 + rapport de coût lecture seule (aucun appel réseau : fetch simulé). Usage : node test/iacout-memo-test.js
 const os = require('os'), fs = require('fs'), path = require('path'), cp = require('child_process');
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-iacm-'));
+const dir = require('./lib/tmpdir').mkTmp('tmt-iacm-');
 process.env.NOESIS_DATA_DIR = dir; process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 process.env.ANTHROPIC_API_KEY = 'fake'; process.env.NOESIS_OFFER_FAST_MODEL = 'off'; process.env.AI_BUDGET_DAY_USD = '1000';
 let failed = 0;

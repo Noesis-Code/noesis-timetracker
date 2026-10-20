@@ -34,7 +34,7 @@ const { cookieOf } = require('./mfa-helper');
   const m = qrMatrix(uri); assert(m.length >= 21 && m.length <= 41 && m.length === m[0].length);
   assert(/^<svg [^>]*viewBox/.test(qrSvg(uri)) && !/https?:/.test(qrSvg(uri).replace('http://www.w3.org/2000/svg', '')), 'SVG local, sans lien externe');
   assert.throws(() => qrMatrix('x'.repeat(200)));
-  { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tt-qr-')); const sc = 8, n = m.length, dim = (n + 8) * sc, px = Buffer.alloc(dim * dim, 255);
+  { const dir = require('../../test/lib/tmpdir').mkTmp('tt-qr-'); const sc = 8, n = m.length, dim = (n + 8) * sc, px = Buffer.alloc(dim * dim, 255);
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (m[y][x]) for (let a = 0; a < sc; a++) for (let b = 0; b < sc; b++) px[((y + 4) * sc + a) * dim + (x + 4) * sc + b] = 0;
     fs.writeFileSync(path.join(dir, 'q.pgm'), Buffer.concat([Buffer.from(`P5 ${dim} ${dim} 255\n`), px]));
     const py = spawnSync('python3', ['-I', '-c', 'import cv2,sys\nv,_,_=cv2.QRCodeDetectorAruco().detectAndDecode(cv2.imread(sys.argv[1],0))\nsys.stdout.write(v)', path.join(dir, 'q.pgm')], { encoding: 'utf8' });

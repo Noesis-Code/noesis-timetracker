@@ -1,6 +1,6 @@
 // Tests du budget IA. Usage : node test/aibudget-test.js
 const os = require('os'), fs = require('fs'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-aib-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-aib-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 delete process.env.AI_PRICE_IN_PER_M; delete process.env.AI_PRICE_OUT_PER_M; delete process.env.AI_BUDGET_MONTH_USD; delete process.env.AI_BUDGET_DAY_USD; delete process.env.AI_BUDGET_SYSTEM_DAY_USD;
 let failed = 0;

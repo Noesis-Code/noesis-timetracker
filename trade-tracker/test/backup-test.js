@@ -6,7 +6,7 @@ const { openDb } = require('../server/db');
 const audit = require('../server/lib/audit');
 const BK = require('../server/lib/backup');
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tt-bk-'));
+const dir = require('../../test/lib/tmpdir').mkTmp('tt-bk-');
 const run = (script, args, d) => spawnSync('node', [path.join(__dirname, '..', script), ...args], { env: { ...process.env, TRADE_DATA_DIR: d, NOESIS_DATA_DIR: '' }, encoding: 'utf8' });
 try {
   const dataA = path.join(dir, 'a'); fs.mkdirSync(dataA);

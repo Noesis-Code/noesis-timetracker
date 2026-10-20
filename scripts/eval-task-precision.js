@@ -37,7 +37,7 @@ const fakeProvider = {
 // Fournisseur réel : même prompt que la production (goalstaskclassify.buildPrompt). Jamais lancé par les tests.
 function liveProvider() {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error('--live exige ANTHROPIC_API_KEY.');
-  if (!process.env.NOESIS_DATA_DIR) process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(require('os').tmpdir(), 'tmt-eval-'));
+  if (!process.env.NOESIS_DATA_DIR) process.env.NOESIS_DATA_DIR = require('../test/lib/tmpdir').mkTmp('tmt-eval-');
   const cls = require('../server/lib/goalstaskclassify');
   return {
     name: 'live',

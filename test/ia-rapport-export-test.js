@@ -3,7 +3,7 @@ const os = require('os'), fs = require('fs'), path = require('path');
 const { execFileSync } = require('child_process');
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-rapport-'));
+const dir = require('./lib/tmpdir').mkTmp('tmt-rapport-');
 const d = new Date(), p2 = (n) => String(n).padStart(2, '0');
 const day = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
 const rows = [

@@ -1,7 +1,7 @@
 // Suppression d'un secteur dont des objectifs hebdo ont été reportés (liens carriedToId/carriedOverFromId) : pas d'erreur FK.
 // Usage : node test/category-delete-carry-test.js
 const os = require('os'); const fs = require('fs'); const path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-carry-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-carry-');
 let failed = 0;
 function assert(c, l) { if (c) console.log('  ok  ' + l); else { failed += 1; console.log('  FAIL ' + l); } }
 const db = require('../server/db');

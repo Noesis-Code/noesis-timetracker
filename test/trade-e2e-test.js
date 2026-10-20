@@ -12,8 +12,8 @@ Promise.all([get(), get()]).then((p) => console.log(JSON.stringify(p)));`], { en
 try { require.resolve('@simplewebauthn/server', { paths: [path.join(ROOT, 'trade-tracker')] }); }
 catch (e) { console.error('Dépendances de Trade absentes. Exécuter une fois : cd trade-tracker && npm ci  (ou scripts/new-worktree.sh, qui lie node_modules)'); process.exit(1); }
 const TMT = 'http://localhost:' + TMT_PORT, TRADE = 'http://localhost:' + TRADE_PORT;
-const tmtDir = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-tmt-'));
-const tradeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-trade-'));
+const tmtDir = require('./lib/tmpdir').mkTmp('e2e-tmt-');
+const tradeDir = require('./lib/tmpdir').mkTmp('e2e-trade-');
 const pushLog = path.join(tmtDir, 'push-log.jsonl');
 const stub = path.join(tmtDir, 'push-stub.js');
 fs.writeFileSync(stub, `const wp = require(${JSON.stringify(require.resolve('web-push', { paths: [ROOT] }))});

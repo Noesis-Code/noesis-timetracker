@@ -3,7 +3,7 @@
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-pin-'));
+const dir = require('./lib/tmpdir').mkTmp('tmt-pin-');
 process.env.NOESIS_DATA_DIR = dir;
 
 let failed = 0;

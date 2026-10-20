@@ -2,7 +2,7 @@
 const fs = require('fs'), os = require('os'), path = require('path'), http = require('http');
 const { spawn } = require('child_process');
 const port = 3800 + Math.floor(Math.random() * 90);
-const env = { ...process.env, PORT: String(port), NOESIS_DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'gz-test-')) };
+const env = { ...process.env, PORT: String(port), NOESIS_DATA_DIR: require('./lib/tmpdir').mkTmp('gz-test-') };
 let failed = 0;
 const ok = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const get = (p, enc) => new Promise((res, rej) => http.get({ port, path: p, headers: { 'Accept-Encoding': enc } }, (r) => {

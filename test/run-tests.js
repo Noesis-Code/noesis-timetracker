@@ -10,6 +10,14 @@ const os = require('os');
 const { fork } = require('child_process');
 const { DatabaseSync } = require('node:sqlite');
 
+// Racine temporaire privée à la suite : tout enfant (os.tmpdir() lit TMPDIR) y crée ses dossiers ;
+// à la fin elle doit être vide, sinon la suite échoue (anti-fuite de /tmp).
+const tmpLib = require('./lib/tmpdir');
+const suiteTmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-suite-'));
+process.env.TMPDIR = suiteTmpRoot;
+process.on('exit', () => { try { fs.rmSync(suiteTmpRoot, { recursive: true, force: true }); } catch (e) { /* ignoré */ } });
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => process.exit(130));
+
 let passed = 0, failed = 0;
 function assert(cond, label) {
   if (cond) { passed++; console.log(`  ✓ ${label}`); }
@@ -61,7 +69,7 @@ async function main() {
   console.log('=== Sauvegardes Noèsis — suite de vérification ===\n');
 
   const { child, port } = await startMockServer();
-  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noesis-backup-test-'));
+  const workDir = require('./lib/tmpdir').mkTmp('noesis-backup-test-');
 
   process.env.NOESIS_DATA_DIR = path.join(workDir, 'data');
   process.env.S3_ENDPOINT = `http://127.0.0.1:${port}`;
@@ -159,7 +167,7 @@ async function main() {
   assert(afterFive.length >= 1 && afterFive.length <= 2 && afterFive.length === days.size, `une seule sauvegarde conservée par jour, les doublons sont purgés (obtenu : ${afterFive.length})`);
 
   console.log('\n8. Base absente (premier démarrage, avant toute donnée)');
-  const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noesis-backup-empty-'));
+  const emptyDir = require('./lib/tmpdir').mkTmp('noesis-backup-empty-');
   const savedDataDir = process.env.NOESIS_DATA_DIR;
   process.env.NOESIS_DATA_DIR = emptyDir;
   const emptyResult = await backup.runBackupOnce({ log() {}, warn() {}, error() {} });
@@ -327,6 +335,9 @@ async function main() {
   fs.rmSync(workDir, { recursive: true, force: true });
   fs.rmSync(emptyDir, { recursive: true, force: true });
   await stopMockServer(child);
+  tmpLib.cleanup();
+  const leftover = fs.readdirSync(suiteTmpRoot);
+  assert(leftover.length === 0, 'aucun dossier temporaire laissé par la suite' + (leftover.length ? ' (' + leftover.length + ' : ' + leftover.slice(0, 5).join(', ') + ')' : ''));
 
   console.log(`\n=== ${passed} passées, ${failed} échouées ===`);
   process.exit(failed ? 1 : 0);

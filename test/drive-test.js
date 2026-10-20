@@ -1,6 +1,6 @@
 // Tests connecteur Drive (Google simulé). Usage : node test/drive-test.js
 const os = require('os'), fs = require('fs'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-drive-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-drive-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
@@ -157,7 +157,7 @@ async function assertThrows(fn, code, label) { try { await fn(); assert(false, l
   assert(db.prepare('SELECT folderId f FROM drive_connections').get().f === 'fold-1111', 'compat : drive_connections.folderId = premier dossier');
   // Migration idempotente depuis l'ancien schéma (un dossier par connexion)
   const cp = require('child_process');
-  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-drive-mig-'));
+  const dir2 = require('./lib/tmpdir').mkTmp('tmt-drive-mig-');
   const out = cp.spawnSync(process.execPath, ['-e', `
     const db = require('./server/db');
     db.exec("CREATE TABLE IF NOT EXISTS drive_connections (userId TEXT NOT NULL, activityId INTEGER NOT NULL, encryptedToken TEXT NOT NULL, folderId TEXT, folderName TEXT, connectedAt TEXT NOT NULL, PRIMARY KEY (userId, activityId))");

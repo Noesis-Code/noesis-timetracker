@@ -8,7 +8,7 @@ const B = require('../server/lib/brokertoken');
 const M = require('../server/lib/mfa');
 const audit = require('../server/lib/audit');
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tt-ops-'));
+const dir = require('../../test/lib/tmpdir').mkTmp('tt-ops-');
 const k1 = crypto.randomBytes(24).toString('hex'), k2 = crypto.randomBytes(24).toString('hex');
 const run = (script, args, env) => spawnSync('node', [path.join(__dirname, '..', script), ...args], { env: { ...process.env, TRADE_DATA_DIR: dir, NOESIS_DATA_DIR: '', ...env }, encoding: 'utf8' });
 try {

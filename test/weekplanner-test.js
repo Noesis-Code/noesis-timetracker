@@ -1,6 +1,6 @@
 // Tests du planificateur de semaines (lot A). Usage : node test/weekplanner-test.js
 const os = require('os'), fs = require('fs'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-wp-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-wp-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 const { planWeeks, getWeeklyCapacity, setWeeklyCapacity } = require('../server/lib/weekplanner');
 let failed = 0;

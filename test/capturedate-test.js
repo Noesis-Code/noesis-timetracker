@@ -18,7 +18,7 @@ assert(parseDateHint('Vendredi', 'x') === null, 'today invalide : null');
 
 // Placement : date manuelle prioritaire, sans indice pas « aujourd'hui » par défaut, capacité.
 const os = require('os'), fs = require('fs'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-cd-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-cd-');
 try { require('child_process').execFileSync('node', [path.join(__dirname, '..', 'scripts', 'dev-seed.js')], { env: Object.assign({}, process.env, { RAILWAY_ENVIRONMENT_NAME: 'staging' }), stdio: 'ignore' }); } catch (e) {}
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 const db = require('../server/db');

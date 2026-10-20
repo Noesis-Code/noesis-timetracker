@@ -1,7 +1,7 @@
 // Suppression d'un secteur : mode 'delete' (tâches supprimées) ou 'move' (déplacées, même pôle ou autre pôle).
 // Usage : node test/category-delete-mode-test.js
 const os = require('os'); const fs = require('fs'); const path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-delmode-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-delmode-');
 let failed = 0;
 function assert(c, l) { if (c) console.log('  ok  ' + l); else { failed += 1; console.log('  FAIL ' + l); } }
 const db = require('../server/db');

@@ -1,6 +1,6 @@
 // Usage : node test/trade-link-test.js — jeton de lien Trade Tracker + GET /api/trade/link (gating, contrat HMAC, pas de secret dans la réponse).
 const os = require('os'), fs = require('fs'), path = require('path'), crypto = require('crypto');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-tlink-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-tlink-');
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');

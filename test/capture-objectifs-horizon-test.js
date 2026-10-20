@@ -1,7 +1,7 @@
 // Tests du rapprochement tâche -> objectif sur tout l'horizon (IA simulée + repli lexical).
 // Usage : node test/capture-objectifs-horizon-test.js
 const os = require('os'), fs = require('fs'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-coh-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-coh-');
 delete process.env.ANTHROPIC_API_KEY;
 try { require('child_process').execFileSync('node', [path.join(__dirname, '..', 'scripts', 'dev-seed.js')], { env: Object.assign({}, process.env, { RAILWAY_ENVIRONMENT_NAME: 'staging' }), stdio: 'ignore' }); } catch (e) {}
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';

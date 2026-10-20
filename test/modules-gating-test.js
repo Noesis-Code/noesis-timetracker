@@ -1,6 +1,6 @@
 // Usage : node test/modules-gating-test.js — masquage côté serveur des modules désactivés (403, push filtré, crons sautés, tout actif inchangé).
 const os = require('os'), fs = require('fs'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-gate-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-gate-');
 const webpush = require('web-push');
 const keys = webpush.generateVAPIDKeys();
 process.env.NOESIS_VAPID_PUBLIC_KEY = keys.publicKey;

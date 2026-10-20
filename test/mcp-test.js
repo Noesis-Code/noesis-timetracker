@@ -1,6 +1,6 @@
 // Tests : serveur MCP lecture seule + jetons. Usage : node test/mcp-test.js
 const os = require('os'), fs = require('fs'), path = require('path'), http = require('http');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-mcp-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-mcp-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 process.env.PORT = '39' + (50 + Math.floor(Math.random() * 40));
 let failed = 0;

@@ -1,6 +1,6 @@
 // Usage : node test/offer1access-test.js
 const os = require('os'), fs = require('fs'), path = require('path');
-process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-o1-'));
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-o1-');
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const { hasOffer1Access, requireOffer1Access, grantAccess, revokeAccess, isValidFreeCode, sha256Hex } = require('../server/lib/offer1access');
