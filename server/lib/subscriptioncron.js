@@ -11,7 +11,6 @@
 // contrainte déjà posée pour server/lib/session.js.
 const cron = require('node-cron');
 const db = require('../db');
-const subMails = require('./subscriptionmails');
 const modules = require('./modules');
 const offerdelivery = require('./offerdelivery');
 const offerquota = require('./offerquota');
@@ -67,8 +66,7 @@ async function runPendingActivations() {
   for (const row of rows) {
     if (!modules.isEnabled(row.userId, 'ai') || !modules.isEnabled(row.userId, 'roadmap')) continue;
     try {
-      const r = await offerdelivery.activateActivitySubscription(row.activityId, row.userId);
-      if (!r.alreadyActivated) await subMails.notifyUser(row.userId, 'confirmed');
+      await offerdelivery.activateActivitySubscription(row.activityId, row.userId); // aucun courriel ici (le cron n'en envoie jamais)
     } catch (e) {
       console.error('[subscriptioncron] reprise de livraison échouée, activité', row.activityId, ':', e.message);
     }
