@@ -181,10 +181,11 @@ a { color: inherit; text-decoration: none; }
 
 /* ---- B3 : positions ---- */
 .selectCapsule {
-  width: 100%; min-height: 44px; padding: 8px 14px; border-radius: 999px; color: var(--text); font-size: 14px;
-  background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line);
+  /* Zone tactile 44 px, capsule visible inchangée (38 px) : bordure transparente de 3 px, trait dessiné en ombre interne */
+  width: calc(100% + 6px); min-height: 44px; margin: -3px; padding: 6px 12px 6px 15px; border-radius: 999px; color: var(--text); font-size: 14px;
+  background: var(--glass-calm-bg); background-clip: padding-box; border: 3px solid transparent; box-shadow: inset 0 0 0 1px var(--glass-calm-line);
 }
-.selectCapsule:focus { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(var(--purple-rgb), 0.18); }
+.selectCapsule:focus { outline: 3px solid rgba(var(--purple-rgb), 0.18); outline-offset: -3px; box-shadow: inset 0 0 0 1px var(--purple); }
 .selectCapsule option { background: var(--card); color: var(--text); }
 .posCard { display: block; width: 100%; text-align: left; color: inherit; font: inherit; cursor: pointer; transition: transform var(--transition-fast); }
 .posCard:active { transform: scale(0.99); }
@@ -201,7 +202,7 @@ a { color: inherit; text-decoration: none; }
 .card > .detailRow:last-child { padding-bottom: 0; }
 
 /* ---- B5 : historique ---- */
-.cardHead .chipRow { margin: 0; }
+.cardHead .chipRow { margin: -5px 0; }
 
 /* ---- B6 : synchro ---- */
 .statusBadge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: bold; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--glass-calm-line); color: var(--text-light); white-space: nowrap; }
@@ -269,8 +270,9 @@ a { color: inherit; text-decoration: none; }
 .formMsg.error { color: var(--brique-text); }
 .btnRow { display: flex; gap: 10px; }
 .btnRow > button { flex: 1; }
-.btnGhost, .btnDanger, .btnDangerOutline { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 999px; font-size: 14px; font-weight: bold; cursor: pointer; color: var(--text); background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line); }
-.btnDanger { background: var(--brique); border-color: var(--brique); color: var(--white); }
+.btnGhost, .btnDanger, .btnDangerOutline { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 18px; border-radius: 999px; font-size: 14px; font-weight: bold; cursor: pointer; color: var(--text); background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line); }
+.btnGhost::after, .btnDanger::after, .btnDangerOutline::after { content: ''; position: absolute; inset: -1px 0; } /* zone tactile 44 px, hauteur visible 42 px */
+.btnDanger { background: var(--brique-stop); border-color: var(--brique-stop); color: var(--white); } /* contraste du texte blanc 4,8:1 (3,9:1 avec --brique) */
 .btnDangerOutline { color: var(--brique-text); border-color: var(--brique); background: none; }
 .linkBtn { margin-top: 12px; width: 100%; }
 .codeCard { text-align: center; background: linear-gradient(180deg, rgba(var(--purple-rgb), 0.28) 0%, var(--glass-calm-bg) 100%); }
@@ -287,6 +289,8 @@ a { color: inherit; text-decoration: none; }
 /* Sélecteur de langue (Réglages) : mêmes .themeSwitch/.themeBtn que TMT */
 .themeSwitch { display: flex; gap: 8px; }
 .themeBtn { flex: 1; padding: 10px; border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: var(--radius-md); cursor: pointer; font-size: 14px; transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast); }
+.themeBtn { position: relative; }
+.themeBtn::after { content: ''; position: absolute; inset: -3px 0; } /* zone tactile 44 px, hauteur visible 38 px */
 .themeBtn.active { background: var(--purple); color: var(--white); border-color: var(--purple); }
 
 /* Barre d'outils des filtres + menu ⋮ des options d'affichage + ligne « Dernière synchro » */
