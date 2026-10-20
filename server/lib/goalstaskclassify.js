@@ -262,7 +262,7 @@ async function callTiered(label, categories, examples, allowUncertain, maxTokens
       const m = /\|\s*(\d{1,3})/.exec(String(text || ''));
       const conf = m ? Number(m[1]) : null;
       if (key && !extractUncertain(text, categories) && conf != null && conf >= minConfidence()) return key;
-    } catch (err) { /* repli sur le modèle fort */ }
+    } catch (err) { if (aicache.isThrottled(err)) throw err; /* repli sur le modèle fort */ }
   }
   return callModel(strongPrompt(), maxTokens, fast ? 'classement-tache:repli' : 'classement-tache');
 }

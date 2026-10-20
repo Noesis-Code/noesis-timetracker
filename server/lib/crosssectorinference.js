@@ -131,7 +131,7 @@ async function callAi(payload, allowedKeys) {
     try {
       const r = await callAiOnce(payload, allowedKeys, fast, 'inter-secteurs', SYSTEM_PROMPT + CONFIDENCE_ADDENDUM, true);
       if (r) return r;
-    } catch (err) { /* repli sur le modèle fort */ }
+    } catch (err) { if (aicache.isThrottled(err)) throw err; /* repli sur le modèle fort */ }
   }
   return callAiStrong(payload, allowedKeys, fast ? 'inter-secteurs:repli' : 'inter-secteurs');
 }

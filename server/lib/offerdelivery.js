@@ -93,6 +93,8 @@ function generateSubProjectsPlan(formsPayload) {
   return aicache.memoize(['offre1-plan', ANTHROPIC_MODEL, formsPayload || {}], () => generatePlanUncached(formsPayload));
 }
 async function generatePlanUncached(formsPayload) {
+  // Plafond d'abus par compte et par jour (appels réels seulement, après le mémo) ; refus = panne IA. OFFER_MAX_PER_DAY (défaut 10 ; 0 = désactivé).
+  if (!aicache.takeDailyCap('offre1-plan', aibudget.currentUser(), aicache.capFromEnv('OFFER_MAX_PER_DAY', 10))) throw new Error('Plafond quotidien de génération atteint.');
   const fast = aicache.fastModelFor('NOESIS_OFFER_FAST_MODEL', ANTHROPIC_MODEL);
   if (fast) {
     try {
@@ -101,7 +103,7 @@ async function generatePlanUncached(formsPayload) {
       let conf = NaN;
       try { conf = Number(JSON.parse(String(text).trim().replace(/^```[a-zA-Z]*\s*/, '').replace(/\s*```$/, '').trim()).confidence); } catch (e) { /* illisible : repli */ }
       if (planIsComplete(plan) && conf >= aicache.minConfidenceFor('NOESIS_OFFER_MIN_CONFIDENCE')) return plan;
-    } catch (err) { if (err && err.aiBlocked) throw err; /* repli sur le modèle fort */ }
+    } catch (err) { if (err && (err.aiBlocked || aicache.isThrottled(err))) throw err; /* repli sur le modèle fort */ }
   }
   return parsePlan(await callPlanApi(formsPayload, ANTHROPIC_MODEL, SYSTEM_PROMPT, fast ? 'offre1-plan:repli' : 'offre1-plan'));
 }

@@ -64,6 +64,8 @@ function takeDailyCap(name, account, max) {
 }
 function capFromEnv(envName, dflt) { const n = parseInt(process.env[envName], 10); return Number.isFinite(n) && n >= 0 ? n : dflt; }
 function capClear() { capUsage.clear(); }
+// Refus de débit de l'API (HTTP 429 limite, 529 surcharge) : le modèle fort subirait le même refus, donc pas de second appel de repli (panne IA habituelle).
+function isThrottled(err) { return !!err && (err.status === 429 || err.status === 529 || /\(?HTTP (429|529)\b/.test(String(err.message || ''))); }
 
 // Paliers « modèle rapide d'abord, modèle fort en repli » (décision d'Emilien). Modèle rapide lu dans la variable d'environnement
 // `envModel` (défaut claude-haiku-4-5 ; 'off' ou égal au modèle fort = désactivé), seuil de confiance (0-100) dans `envConf` (défaut 80).
@@ -76,4 +78,4 @@ function minConfidenceFor(envConf) {
   return Number.isFinite(n) && n >= 0 && n <= 100 ? n : 80;
 }
 
-module.exports = { fastModelFor, minConfidenceFor, memoize, memoClear, takeDailyCap, capFromEnv, capClear, messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };
+module.exports = { fastModelFor, minConfidenceFor, memoize, memoClear, takeDailyCap, isThrottled, capFromEnv, capClear, messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };

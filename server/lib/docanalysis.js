@@ -83,7 +83,11 @@ function call(args) {
 // Sans effet si l'appelant impose déjà un modèle (surveillance Drive). Journal : 'document-taches' (Haiku) / 'document-taches:repli' (fort).
 // Avec un appelant injecté (tests), le palier n'agit que si NOESIS_DOC_FAST_MODEL est défini explicitement.
 const DOC_CONF = '\n\nAjoute à la racine de l\'objet JSON un champ "confidence" (entier 0-100, ta confiance dans cette analyse ; sous 80 si tu hésites).';
+// Plafonds d'abus par compte/jour pour les chemins sans plafond propre (appels réels seulement, après le mémo) ; refus = panne IA. 0 = désactivé.
+const CALL_CAPS = { 'modifications-proposees': ['CHANGES_MAX_PER_DAY', 100], 'redistribution-objectif': ['REDISTRIB_MAX_PER_DAY', 60] };
 async function callTiered(args) {
+  const cap = !caller && CALL_CAPS[args.feature];
+  if (cap && !aicache.takeDailyCap(args.feature, aibudget.currentUser(), aicache.capFromEnv(cap[0], cap[1]))) throw new Error('Plafond quotidien d\'analyse atteint.');
   const fast = args.model || (caller && !process.env.NOESIS_DOC_FAST_MODEL) ? null : aicache.fastModelFor('NOESIS_DOC_FAST_MODEL', classify.modelName());
   if (!fast) return callRaw(args);
   try {
@@ -93,7 +97,7 @@ async function callTiered(args) {
       delete j.confidence;
       return { text: JSON.stringify(j), stopReason: out.stopReason };
     }
-  } catch (err) { if (err && (err.creditLow || err.aiBlocked)) throw err; /* repli sur le modèle fort */ }
+  } catch (err) { if (err && (err.creditLow || err.aiBlocked || aicache.isThrottled(err))) throw err; /* repli sur le modèle fort */ }
   return callRaw({ ...args, feature: (args.feature || 'document-taches') + ':repli' });
 }
 

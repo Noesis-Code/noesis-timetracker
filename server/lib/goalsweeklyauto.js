@@ -155,7 +155,7 @@ async function callAiTiered(payload, requestedWeeks) {
     try {
       const r = await callAiOnce(payload, requestedWeeks, fast, 'objectifs-hebdo', WEEKLY_CONF);
       if (r.goals.length && r.confidence >= aicache.minConfidenceFor('NOESIS_WEEKLY_MIN_CONFIDENCE')) return r.goals;
-    } catch (err) { /* repli sur le modèle fort */ }
+    } catch (err) { if (aicache.isThrottled(err)) throw err; /* repli sur le modèle fort */ }
   }
   return callAiRetry(payload, requestedWeeks, fast ? 'objectifs-hebdo:repli' : 'objectifs-hebdo');
 }
