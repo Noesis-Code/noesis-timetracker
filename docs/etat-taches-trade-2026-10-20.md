@@ -25,7 +25,7 @@ Code d'entrée côté TMT : `server/routes/trade.js` (`GET /api/trade/link`), `s
 Titre proposé : Mesurer sur staging le délai entre un achat Questrade et la notification Trade Tracker
 Chantier / secteur : 1 Trade Tracker / pôle Trading › Trade Tracker
 1. Contexte observé : synchro 15 min + lecture écran 30 s (code ci-dessus) ; jamais essayé avec un vrai jeton.
-2. Problème : « temps réel » non défini ; on ne sait pas si 15 min suffit à Émilien/Nick.
+2. Problème : « temps réel » non défini ; on ne sait pas si 15 min suffit à Émilien ou l'expert.
 3. Résultat attendu, dans ses mots : AUCUNE CITATION -> question Q1 (questions-emilien-trade.md).
 4. C'est fini quand… : (a) un achat test (ou simulé via le connecteur de démo) apparaît dans l'écran en <= intervalle de synchro + 30 s, durée mesurée et écrite dans le compte rendu ; (b) test `sync-test.js`/`refresh-test.js` passent ; (c) Émilien a coché la réponse Q1.
 5. Périmètre : trade-tracker/server/lib/sync.js, trade-tracker/public/js/app.js (aucun autre).
@@ -144,22 +144,22 @@ Agent : préparer et vérifier seulement ; la création du service et des secret
 - Tests sur fixtures uniquement.
 
 **Manque**
-- Tout essai réel : il exige le jeton Questrade de Nic (donnée sensible, jamais confié à un agent) et ses TOTP/codes de secours. Priorité absolue sécurité (`CHANTIERS.md`). Aucun agent ne doit manipuler ce jeton.
+- Tout essai réel : il exige le jeton Questrade de l'expert (donnée sensible, jamais confié à un agent) et ses TOTP/codes de secours. Priorité absolue sécurité (`CHANTIERS.md`). Aucun agent ne doit manipuler ce jeton.
 - Critère de « validé » : pas défini (quels chiffres comparer ? valeur totale, positions, encaisse ?).
 
 **Version proposée (préparation seulement)**
 ```
-Titre : Préparer la grille de comparaison des chiffres Trade Tracker avec le relevé Questrade de Nic
+Titre : Préparer la grille de comparaison des chiffres Trade Tracker avec le relevé Questrade de l'expert
 Chantier / secteur : 1 Trade Tracker
 1. Contexte : connecteur Questrade testé sur fixtures ; jamais sur un vrai compte.
 2. Problème : pas de définition de « validé ».
 3. Résultat attendu, dans ses mots : AUCUNE CITATION -> question Q5.
-4. C'est fini quand… : (a) une grille écrite (valeur totale, encaisse, N positions, gain par compte : colonne Questrade / colonne Trade, tolérance) ; (b) Nic ou Émilien la remplit lui-même après avoir collé son propre jeton (TOTP actif, checklist DEPLOY points 1-10 faits) ; (c) écarts > tolérance = tâche de correction ouverte.
+4. C'est fini quand… : (a) une grille écrite (valeur totale, encaisse, N positions, gain par compte : colonne Questrade / colonne Trade, tolérance) ; (b) l'expert ou Émilien la remplit lui-même après avoir collé son propre jeton (TOTP actif, checklist DEPLOY points 1-10 faits) ; (c) écarts > tolérance = tâche de correction ouverte.
 5. Périmètre : document seulement ; aucun agent ne voit le jeton.
 6. On ne touche pas : jeton, données réelles dans le dépôt ou les logs, portée Questrade (lecture seule).
-7. Preuve : grille remplie par Émilien/Nic (valeurs agrégées, sans numéros de compte).
+7. Preuve : grille remplie par Émilien ou l'expert (valeurs agrégées, sans numéros de compte).
 ```
-Dépend de la tâche 5. Réservé à Émilien/Nic pour l'exécution.
+Dépend de la tâche 5. Réservé à Émilien ou l'expert pour l'exécution.
 
 ---
 ## 7. Mise en production (14 nov.)
@@ -169,10 +169,10 @@ Dépend de la tâche 5. Réservé à Émilien/Nic pour l'exécution.
 Check-list proposée (à valider par Émilien ; rien n'est coché) :
 - [ ] Tâches 5 et 6 terminées ; aucun échec ouvert sur Trade en staging ; `node test/run-tests.js` et `trade-tracker/test/run.js` verts.
 - [ ] Revue sécurité relue (`SECURITY.md`, `DEPLOY.md` points 1-14) : secrets distincts générés (jamais dans le dépôt), `TRADE_ADMIN_TOKEN` absent, un seul réplica, Railway 2FA.
-- [ ] `TRADE_ALLOWED_USER_IDS` (TMT) = Émilien + Nic + clients invités seulement ; `TRADE_EXPERT_TMT_IDS` = id de Nic.
+- [ ] `TRADE_ALLOWED_USER_IDS` (TMT) = Émilien + l'expert + clients invités seulement ; `TRADE_EXPERT_TMT_IDS` = id de l'expert.
 - [ ] Service Trade de production distinct de staging (volume `/data`, `TRADE_RP_ID` propre), sauvegarde planifiée + copie hors volume testée en restauration.
 - [ ] `TRADE_BASE_URL` de production côté TMT `main`, `TMT_BASE_URL` côté Trade ; la bannière « TimeTracker » de `trade-tracker/public/index.html` pointe encore vers staging (`web-staging-6d1b…`) : à faire corriger (code) AVANT la production.
-- [ ] TOTP de Nic activé et codes de secours conservés hors appareil avant toute invitation.
+- [ ] TOTP de l'expert activé et codes de secours conservés hors appareil avant toute invitation.
 - [ ] Plan de retour arrière lu (`DEPLOY.md`, « Retour arrière ») ; qui est joignable le jour J.
 - [ ] Fusion `staging` -> `main` : par Émilien.
 

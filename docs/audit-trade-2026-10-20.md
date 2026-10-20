@@ -1,6 +1,6 @@
 # Audit de simplicité : écran Trade Tracker (20 oct. 2026)
 
-Méthode : `boucle-veille.md`. Captures 390 px (données de démonstration `?demo=1`, serveur local) : `img/trade-accueil-390.png` (Accueil) et `img/trade-positions-menu-390.png` (Positions, menu ⋮ ouvert). **Tout est en PROPOSITION : rien n'est retiré.** Aucune citation d'Émilien ne décrit le contenu de ces écrans (`intentions.md` : seulement « connecter le module à l'activité ») ; donc « personne n'a demandé » vaut pour tout, mais retirer sans son avis un écran déjà livré et utilisé par Nic serait risqué : décision demandée (Q3, Q7 dans `questions-emilien-trade.md`).
+Méthode : `boucle-veille.md`. Captures 390 px (données de démonstration `?demo=1`, serveur local) : `img/trade-accueil-390.png` (Accueil) et `img/trade-positions-menu-390.png` (Positions, menu ⋮ ouvert). **Tout est en PROPOSITION : rien n'est retiré.** Aucune citation d'Émilien ne décrit le contenu de ces écrans (`intentions.md` : seulement « connecter le module à l'activité ») ; donc « personne n'a demandé » vaut pour tout, mais retirer sans son avis un écran déjà livré et utilisé par l'expert serait risqué : décision demandée (Q3, Q7 dans `questions-emilien-trade.md`).
 
 **Fonction unique de l'écran** : voir d'un coup d'oeil la valeur et la composition de son portefeuille (et, pour un client, l'écart avec celui de l'expert).
 
@@ -25,7 +25,7 @@ Positions : puces de compte, 4 tris, menu ⋮ (2 groupes), 3 filtres Gains/Perte
 | 12 | Pastille « démo » | Utile seulement en mode fictif | Garder (jamais en production) |
 
 ## Ce qu'on garde (justifie la différence)
-Valeur totale + gain, composition par secteur (cœur du suivi de Nic), liste des positions, comparaison à l'expert (Expert), sécurité (TOTP).
+Valeur totale + gain, composition par secteur (cœur du suivi de l'expert), liste des positions, comparaison à l'expert (Expert), sécurité (TOTP).
 
 ## Estimation du gain
 Les points 1 à 6 retirent environ 9 contrôles de l'écran Positions (4 tris -> 1, 3 filtres, 1 liste, menu ⋮) : la première position passerait de la 4e rangée à la 2e.

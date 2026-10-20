@@ -30,15 +30,14 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 ## Serveur
 - Clés d'idempotence : purge des clés de plus de 7 jours au démarrage puis chaque jour (`server/lib/idempotencypurge.js`, test `test/idempotency-purge-test.js`).
 
-## État par chantier (fin de journée)
-- Trade Tracker : dernier livrable = état des 7 tâches, audit, URL de TMT configurable ; prochain = réponses Q1 à Q8 d'Émilien (`questions-emilien-trade.md`).
-- TT Basic : dernier = tri des 268 tâches (A/B/C/D) ; prochain = réponses aux 8 questions (`questions-emilien-basic.md`).
-- TT Expansion : dernier = interrupteur `EXPANSION_MAILS`, erreurs checkout/portail ; prochain = validation des courriels et des CGU.
-- Crédits Claude et API : dernier = plafonds quotidiens, état des lieux IA ; prochain = évaluations `--live` et seuil 5 $.
-- Simplification et design : dernier = audits Stats, Communauté, Feuille de temps ; prochain = cases retirer/garder (`questions-emilien-simplification.md`).
-- Précision des tâches : dernier = 25 cas d'évaluation, anglicismes ; prochain = élargir le jeu de cas, évaluation `--live`.
-- Principal et pilotage : dernier = index unique `questions-emilien-2026-10-20.md`, contrôle de staging sain (aucun marqueur, `node --check` ok, CACHE_VERSION v487 monotone) ; prochain = relecture des livraisons suivantes.
-
+## État par chantier (mise à jour : dernières 3 h)
+- Trade Tracker : dernier = calculs fiabilisés (ventes à découvert, dernier prix conservé, gain réalisé pur, non affiché), synchro courtier refuse les réponses vides ; prochain = Q1 à Q8 et affichage du gain réalisé.
+- TT Basic : dernier = fiabilité (dates, concurrence du chrono), zones tactiles 44 px, tests des tâches légales ; prochain = minuit dimanche→lundi, 26 bugs staging.
+- TT Expansion : dernier = revue de sécurité du paiement, `subscription.updated` ancien ignoré (`lastEventAt`), résiliation finale ; prochain = Q9 (rappel de renouvellement), courriels et CGU.
+- Crédits Claude et API : dernier = prompt de classement -24 %, projection mensuelle du coût, délais IA manquants, tests de robustesse ; prochain = `--live`, seuil 5 $, registre Loi 25 de l'apprentissage.
+- Simplification et design : dernier = retrait de la capacité (route, JS/CSS, 9 clés i18n), audit Réglages/Profil/Objectifs ; prochain = cases retirer/garder.
+- Précision des tâches : dernier = 30 cas à l'aveugle (83,3 % avant correction), règles généralisées, bilan ; prochain = évaluation `--live`.
+- Principal et pilotage : dernier = relecture indépendante des 12 livraisons, cache long des ressources versionnées, titres personnels remplacés par des résumés neutres, index des questions à cases ; prochain = relecture des livraisons suivantes.
 
 ## Pilotage : audit dépendances, variables, espace disque (repli 11)
 - `npm audit --omit=dev` : racine = 1 critique (`proxy-addr` <= 2.0.7, usurpation d'IP), corrigée par `npm audit fix` (mise à jour de correctif, lockfile seul) ; Trade Tracker = 0 vulnérabilité. Aucune majeure en attente.
