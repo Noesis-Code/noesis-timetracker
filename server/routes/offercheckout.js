@@ -225,8 +225,8 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
   // ne sont que des chemins relatifs, pour éviter d'exposer un redirect
   // ouvert vers un domaine arbitraire.
   const origin = `${req.protocol}://${req.get('host')}`;
-  // Chemin local seulement ("/..." sans "//" ni "@") : sinon « origine + "@autre.site" » redirigerait hors de l'app.
-  const localPath = (v, fallback) => (/^\/(?![/\\])[^@\s]*$/.test(v) ? v : fallback);
+  // Chemin local seulement ("/..." sans "//", "\\", "@", espace ni caractère de contrôle) : sinon « origine + "@autre.site" » redirigerait hors de l'app.
+  const localPath = (v, fallback) => (/^\/(?![/\\])[^@\s\u0000-\u001f\u007f]*$/.test(v) ? v : fallback);
   const successPath = localPath(str(req.body.successPath), '/?achat=succes');
   const cancelPath = localPath(str(req.body.cancelPath), '/?achat=annule');
 

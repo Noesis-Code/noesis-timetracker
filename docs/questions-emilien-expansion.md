@@ -14,6 +14,7 @@ Une case par ligne, par urgence. Q1 à Q4 bloquent ou conditionnent l'activation
 - [ ] Q7 (#575, #577, #906, #530, #551) FDR et « formule 1 » : génération automatique depuis le questionnaire (déclencheur : à l'envoi ou à la demande ? livrable ?), manque de l'abonnement actuel (20 $/mois par activité), formule = nouveau prix Stripe ou contenu livré (prix, contenus) ? Effet : débloque 5 tâches ; rien n'est codé d'ici là.
 - [ ] Q8 (#849) Suivi post-achat : quels signaux (utilisation, résiliation, courriels) et où les voir ? Effet : sans réponse, aucun tableau de suivi n'est ajouté.
 - [ ] Q9 (#570) Espace publicitaire dans l'app : à créer ? Contraire à `SIMPLIFICATION.md`. Effet : sans accord, refusé par défaut.
+- [ ] Q11 Retour de Stripe : l'app affiche un message natif du navigateur (`alert`, `handleOffer1ReturnParams` dans `public/app.js`) : « Abonnement à Expansion activé. Merci ! » ou « Paiement annulé — aucun abonnement créé. » (FR/EN). [ ] garder / [ ] remplacer par un message intégré à l'app. Effet : « garder » = rien à changer ; « remplacer » = un message dans l'écran, sans nouveau bouton. Pas de changement fait.
 
 ## Accès
 - [ ] Q10 Le MCP TiMeTracker (`lister_taches`) n'était pas branché dans les sessions de repli : relire les tâches du secteur « Expansion » depuis une session où il l'est.

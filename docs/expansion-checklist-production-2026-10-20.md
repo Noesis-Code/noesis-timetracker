@@ -2,7 +2,14 @@
 
 Tout est à faire par Émilien. Aucune valeur secrète dans ce fichier : les valeurs se posent dans Railway > Variables (service de production) ou dans Stripe/Resend. Staging reste en clés de test.
 
-Vérifié en staging avec faux Stripe : `test/expansion-bout-en-bout-test.js` (paiement, webhook signé, accès, courriel, portail, résiliation, fin de période).
+Vérifié en staging avec faux Stripe (aucun réseau, aucun paiement) : `test/expansion-bout-en-bout-test.js` (paiement, webhook signé, accès, courriel, portail, résiliation, fin de période), `test/expansion-cycle-complet-test.js` (cycle FR et EN : paiement refusé, rétabli, résiliation programmée, remboursement, fin, réabonnement ; accès réel et texte affiché à chaque étape), `test/expansion-checkout-securite-test.js` (chemins de retour hostiles, session jamais partagée entre comptes), `test/expansion-achat-staging-test.js` (ouverture de l'achat).
+
+Règles en vigueur au 20 oct. (ce qui a changé) :
+- Trois variables d'ouverture, toutes absentes par défaut en production : `OFFER_CHECKOUT_OPEN=1` (achat), `EXPANSION_MAILS=1` (courriels aux abonnés et alertes internes), `RESEND_FROM` (expéditeur). Sans `OFFER_CHECKOUT_OPEN`, `GET /offer/available` répond faux et `POST /offer/checkout` répond 403, même si les clés Stripe sont posées. L'achat exige aussi `STRIPE_SECRET_KEY` et `STRIPE_OFFER1_PRICE_ID`.
+- Staging est ouvert d'office (`RAILWAY_ENVIRONMENT_NAME=staging`) mais une clé `sk_live`/`rk_live` y est traitée comme absente : aucun vrai paiement possible.
+- Retour de Stripe : seul un chemin local est accepté (`//`, `\`, `@`, espace, caractère de contrôle, schéma, URL absolue refusés), toujours collé à l'origine de la requête. Un double clic (10 s) reçoit la même session, par compte ET par activité ET par déclaration d'âge.
+- Remboursement ou litige : alerte à l'équipe seulement (si `EXPANSION_MAILS=1`), accès inchangé tant que l'abonnement n'est pas résilié (question Q3). Paiement refusé (`past_due`) : accès fermé, « paiement à régulariser » affiché ; rétabli par `invoice.paid`. Fin d'abonnement : accès retiré, courriel de fin, activité retirée de la liste.
+- Au retour de Stripe, l'app affiche encore un `alert` natif (question Q11).
 
 ## Avant
 - [ ] Fusion `staging` vers `main` décidée et faite par Émilien (rien n'est ouvert tant que `OFFER_CHECKOUT_OPEN` n'est pas posée).
@@ -16,11 +23,11 @@ Vérifié en staging avec faux Stripe : `test/expansion-bout-en-bout-test.js` (p
 - [ ] Taxes : décider `STRIPE_TAX_ENABLED=1` (voir `docs/stripe-taxes.md`).
 
 ## Courriels (Resend)
-- [ ] Domaine d'envoi vérifié sur Resend ; poser `RESEND_API_KEY` et `RESEND_FROM` (adresse du domaine vérifié, sinon les abonnés ne reçoivent rien).
-- [ ] Poser `EXPANSION_MAILS=1` seulement après les deux points précédents et la validation des textes.
+- [ ] Domaine d'envoi vérifié sur Resend ; poser `RESEND_API_KEY` et `RESEND_FROM` (adresse du domaine vérifié). Sans `RESEND_FROM`, l'expéditeur par défaut est `onboarding@resend.dev`, qui n'envoie qu'à l'adresse du compte Resend : les abonnés ne reçoivent rien (l'échec est journalisé, le webhook réussit quand même).
+- [ ] Poser `EXPANSION_MAILS=1` seulement après les deux points précédents et la validation des textes (Q1). Défaut : aucun courriel, ni client ni alerte interne.
 
 ## Ouverture
-- [ ] Poser `OFFER_CHECKOUT_OPEN=1` en dernier. Sans elle, l'achat reste refusé en production (403).
+- [ ] Poser `OFFER_CHECKOUT_OPEN=1` en dernier, une fois les points précédents faits. Sans elle, l'achat reste refusé en production (403) et le bouton reste « À venir ».
 
 ## Test réel puis retour arrière
 - [ ] Prix de test à 1 $ (ou coupon) : achat réel avec sa propre carte.
