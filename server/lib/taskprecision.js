@@ -116,7 +116,7 @@ function priorityRank(title, priorities) {
 // seulement sans mot de direction (« Envoyer A à B » n'est pas « Envoyer B à A »). Ce qui distingue deux tâches reste un marqueur : lettre
 // isolée (« salle A » / « salle B »), sigle de 2 lettres (« IA »), négation (« Ne pas annuler » / « Annuler »).
 const DUP_SYN = [[/\b(?:rdv|rendez vous)\b/g, 'rendezvous'], [/\b(?:svp|stp|please|merci|s il (?:vous|te) plait)\b/g, ' '], [/\b(?:telephoner|phoner|call)\b/g, 'appeler'], [/\brencontre\b/g, 'reunion'], [/\bchez\b/g, ' ']];
-const DUP_DIR = new Set(['a', 'au', 'aux', 'vers', 'from', 'to', 'into', 'de', 'du', 'des', 'd', 'avec', 'with', 'par', 'by', 'pour', 'for', 'sur', 'on', 'entre', 'between', 'contre', 'apres', 'avant', 'after', 'before']);
+const DUP_DIR = new Set(['a', 'au', 'aux', 'vers', 'from', 'to', 'into', 'avec', 'with', 'par', 'by', 'pour', 'for', 'sur', 'on', 'entre', 'between', 'contre', 'apres', 'avant', 'after', 'before']);
 const DUP_NEUTRAL2 = new Set(['de', 'du', 'le', 'la', 'un', 'en', 'au', 'et', 'ou', 'ce', 'ma', 'se', 'si', 'ca', 'qu', 'to', 'on', 'in', 'at', 'of', 'my', 'it', 'is', 'as', 'an', 'or', 'by', 'up', 'do', 'me', 'ne', 'l', 'd', 's', 't', 'n', 'm', 'j', 'c', 'y', 'a']);
 const DUP_NEG = new Set(['ne', 'pas', 'sans', 'non', 'not', 'no', 'jamais', 'never', 'aucun', 'aucune']);
 function dupForm(v) {
