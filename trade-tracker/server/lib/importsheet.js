@@ -6,7 +6,7 @@
 // Colonnes (insensibles à la casse et aux accents ; séparateur « , » ou « ; ») :
 //   Comptes       : compte (identifiant/numéro), type (CELI|REER|CELIAPP), libelle, courtier
 //   Positions     : compte, symbole, nom, secteur, devise (CAD|USD), quantite, prix_moyen, prix_actuel
-//   Transactions  : compte, id (facultatif), date (AAAA-MM-JJ), type (Achat|Vente|Dividende|Apport|Retrait),
+//   Transactions  : compte, id (facultatif), date (AAAA-MM-JJ ou JJ/MM/AAAA), type (Achat|Vente|Dividende|Apport|Retrait),
 //                   symbole, quantite, prix, montant, devise
 //   Soldes        : compte, devise, encaisse
 const crypto = require('node:crypto');
@@ -35,7 +35,8 @@ function parseCsv(text) {
 function num(v) {
   if (v == null || String(v).trim() === '') return null;
   let s = String(v).replace(/[\s  $]/g, '');
-  if (s.includes(',') && !s.includes('.')) s = s.replace(',', '.'); else s = s.replace(/,/g, '');
+  if (s.includes(',') && s.includes('.')) s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, ''); // « 1.234,50 » ou « 1,234.50 »
+  else if (s.includes(',')) s = s.replace(',', '.'); // « 12,5 » (format québécois)
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
@@ -44,7 +45,14 @@ const accType = (v) => { const t = fold(v).replace(/_/g, ''); return ['celi', 'r
 const cur = (v) => { const c = String(v || 'CAD').trim().toUpperCase(); return c === 'USD' ? 'USD' : c === 'CAD' || c === '' ? 'CAD' : null; };
 const TX = { achat: 'ACHAT', vente: 'VENTE', dividende: 'DIVIDENDE', apport: 'APPORT', depot: 'APPORT', retrait: 'RETRAIT' };
 const txType = (v) => TX[fold(v)] || null;
-const isoDate = (v) => { const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[1] + '-' + m[2] + '-' + m[3] : null; };
+const isoDate = (v) => {
+  const s = String(v).trim(); let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); let y, mo, d;
+  if (m) [y, mo, d] = [m[1], m[2], m[3]];
+  else if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) [y, mo, d] = [m[3], m[2].padStart(2, '0'), m[1].padStart(2, '0')]; // JJ/MM/AAAA
+  else return null;
+  const t = new Date(`${y}-${mo}-${d}T00:00:00Z`);
+  return t.getUTCFullYear() == y && t.getUTCMonth() + 1 == Number(mo) && t.getUTCDate() == Number(d) ? `${y}-${mo}-${d}` : null;
+};
 
 function importSheet(db, user, files, { now = Date.now() } = {}) {
   const stamp = new Date(now).toISOString();

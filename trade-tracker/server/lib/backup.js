@@ -6,6 +6,8 @@ const { DatabaseSync } = require('node:sqlite');
 const audit = require('./audit');
 
 const REQUIRED_TABLES = ['tt_users', 'accounts', 'positions', 'transactions', 'sessions', 'audit_log', 'mfa_totp'];
+// Version du schéma des sauvegardes (PRAGMA user_version de la copie). Une copie sans version (0) = version 1.
+const SCHEMA_VERSION = 1;
 const qlit = (s) => "'" + String(s).replace(/'/g, "''") + "'";
 
 // Copie cohérente (VACUUM INTO), lisible par le seul compte du service ; garde les `keep` plus récentes.
@@ -14,6 +16,8 @@ function backupTo(db, dir, { keep = 14, date = new Date() } = {}) {
   const out = path.join(dir, `trade-tracker-${date.toISOString().slice(0, 10)}.db`);
   if (fs.existsSync(out)) fs.unlinkSync(out);
   db.exec(`VACUUM INTO ${qlit(out)}`);
+  const c = new DatabaseSync(out);
+  try { c.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`); } finally { c.close(); }
   fs.chmodSync(out, 0o600);
   for (const f of fs.readdirSync(dir).filter((x) => /^trade-tracker-.*\.db$/.test(x)).sort().slice(0, -keep)) fs.unlinkSync(path.join(dir, f));
   return out;
@@ -25,6 +29,9 @@ function verifyBackup(file) {
   let d;
   try {
     d = new DatabaseSync(file, { readOnly: true });
+    const uv = d.prepare('PRAGMA user_version').get().user_version;
+    const schemaVersion = uv > 0 ? uv : 1;
+    if (schemaVersion > SCHEMA_VERSION) return { ok: false, error: `sauvegarde de version ${schemaVersion}, plus récente que ce code (version ${SCHEMA_VERSION}) : mettre l'application à jour avant de restaurer` };
     const ic = d.prepare('PRAGMA integrity_check').all();
     if (ic.length !== 1 || ic[0].integrity_check !== 'ok') return { ok: false, error: 'intégrité SQLite en échec' };
     const have = new Set(d.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((r) => r.name));
@@ -32,7 +39,7 @@ function verifyBackup(file) {
     if (missing.length) return { ok: false, error: 'tables manquantes : ' + missing.join(', ') };
     const chain = audit.verifyChain(d);
     if (!chain.ok) return { ok: false, error: 'chaîne d\'audit rompue' };
-    return { ok: true, users: d.prepare('SELECT COUNT(*) n FROM tt_users').get().n, auditLength: chain.length };
+    return { ok: true, schemaVersion, users: d.prepare('SELECT COUNT(*) n FROM tt_users').get().n, auditLength: chain.length };
   } catch (e) { return { ok: false, error: 'illisible : ' + e.message };
   } finally { if (d) try { d.close(); } catch { /* déjà fermée */ } }
 }
@@ -57,4 +64,4 @@ function restoreBackup(file, target, { force = false, now = Date.now() } = {}) {
   return { ok: true, kept, ...v };
 }
 
-module.exports = { backupTo, verifyBackup, restoreBackup, REQUIRED_TABLES };
+module.exports = { backupTo, verifyBackup, restoreBackup, REQUIRED_TABLES, SCHEMA_VERSION };

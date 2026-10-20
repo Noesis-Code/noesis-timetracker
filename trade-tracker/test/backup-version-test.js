@@ -43,5 +43,19 @@ try {
   { const o = new DatabaseSync(neuve); o.exec('ALTER TABLE positions ADD COLUMN futur TEXT'); o.close(); }
   r = BK.restoreBackup(neuve, target); assert.strictEqual(r.ok, true, r.error);
   d = openDb(target); assert.strictEqual(d.prepare('SELECT COUNT(*) n FROM positions').get().n, 1); d.close();
+
+  // schemaVersion : écrit à chaque sauvegarde ; absent = version 1 acceptée ; plus récent que le code = refusé sans toucher aux données
+  { const o = new DatabaseSync(good); assert.strictEqual(o.prepare('PRAGMA user_version').get().user_version, BK.SCHEMA_VERSION); o.close(); }
+  assert.strictEqual(BK.verifyBackup(good).schemaVersion, BK.SCHEMA_VERSION);
+  const sans = path.join(dir, 'sans-version.db'); fs.copyFileSync(good, sans);
+  { const o = new DatabaseSync(sans); o.exec('PRAGMA user_version = 0'); o.close(); }
+  assert.strictEqual(BK.verifyBackup(sans).schemaVersion, 1);
+  fs.rmSync(path.dirname(target), { recursive: true, force: true });
+  r = BK.restoreBackup(sans, target); assert.strictEqual(r.ok, true, r.error); fs.rmSync(path.dirname(target), { recursive: true, force: true });
+  const futur = path.join(dir, 'futur.db'); fs.copyFileSync(good, futur);
+  { const o = new DatabaseSync(futur); o.exec(`PRAGMA user_version = ${BK.SCHEMA_VERSION + 1}`); o.close(); }
+  const hBefore = fs.readFileSync(futur);
+  refused(futur, /plus récente/);
+  assert(hBefore.equals(fs.readFileSync(futur)), 'sauvegarde intacte');
 } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 console.log('backup-version-test OK');
