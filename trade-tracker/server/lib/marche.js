@@ -3,6 +3,8 @@
 // de l'instant (UTC) avec Intl, donc l'heure d'été (2e dim. de mars, 1er dim. de novembre, les mêmes pour le Canada et les États-Unis)
 // est suivie sans table. CONSIGNE : les jours fériés boursiers ne sont PAS gérés (un jour férié compte comme séance ouverte :
 // la synchro tourne alors à rythme normal, au pire un peu de travail inutile ; jamais une ouverture ratée).
+// CONSIGNE 24/7 : le rythme est global (une tournée pour tous les symboles). Trade ne suit aucun actif coté 24/7 (Questrade seul) ; si un jour
+// un tel actif est branché, il ne doit PAS être ralenti hors séance (le sortir de ce calcul).
 const ZONE = 'America/Toronto';
 const OPEN_MIN = 9 * 60 + 30;
 const CLOSE_MIN = 16 * 60;

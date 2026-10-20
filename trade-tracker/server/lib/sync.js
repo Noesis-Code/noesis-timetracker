@@ -113,15 +113,17 @@ async function syncAll(db, opts = {}) {
   return out;
 }
 
-function startSyncScheduler(db, { intervalMin = Number(process.env.TRADE_SYNC_INTERVAL_MIN) || 15, notifier, log = console.log } = {}) {
+function startSyncScheduler(db, { intervalMin = Number(process.env.TRADE_SYNC_INTERVAL_MIN) || 15, notifier, log = console.log, run = syncAll } = {}) {
   if (process.env.TRADE_SYNC_DISABLE === '1') return null;
   // Hors séance (marché fermé), la synchro passe à une fois par heure, sauf juste avant l'ouverture (voir marche.js) ; en séance : rythme normal.
-  let lastAt = 0;
+  // Une seule tournée à la fois : si la précédente n'est pas finie (beaucoup de comptes, Questrade lent, intervalle court), le tick est sauté
+  // plutôt que de doubler les appels au fournisseur.
+  let lastAt = 0, running = false;
   const tick = () => {
     const now = Date.now();
-    if (!shouldSync(now, lastAt, { intervalMin })) return;
-    lastAt = now;
-    return syncAll(db, { notifier }).catch((e) => log('synchro : ' + e.message));
+    if (running || !shouldSync(now, lastAt, { intervalMin })) return;
+    lastAt = now; running = true;
+    return run(db, { notifier }).catch((e) => log('synchro : ' + e.message)).finally(() => { running = false; });
   };
   const t = setInterval(tick, intervalMin * 60e3);
   t.unref();

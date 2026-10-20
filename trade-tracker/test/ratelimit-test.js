@@ -34,12 +34,12 @@ const { createApp } = require('../server/app');
     assert.strictEqual((await post('/api/admin/import-sheet', { 'x-admin-token': env.TRADE_ADMIN_TOKEN })).status, 429);
   } finally { server.close(); }
 
-  // défauts : les limites existent sans configuration (salve de 25 saisies de code => 429 avant la 25e)
+  // défauts : les limites existent sans configuration (salve de 70 saisies de code => 429)
   const s2 = createApp(db, { env, limits: { write: 1000 } }).listen(0), b2 = 'http://127.0.0.1:' + s2.address().port;
   try {
     let first429 = 0;
-    for (let i = 1; i <= 25 && !first429; i++) if ((await fetch(b2 + '/api/auth/verify', { method: 'POST' })).status === 429) first429 = i;
-    assert.strictEqual(first429, 21, 'limite par défaut sur /api/auth : 20 par minute, la 21e est refusée');
+    for (let i = 1; i <= 70 && !first429; i++) if ((await fetch(b2 + '/api/auth/verify', { method: 'POST' })).status === 429) first429 = i;
+    assert.strictEqual(first429, 61, 'limite par défaut sur /api/auth : 60 par minute et par IP (plafond large : IP partagée), la 61e est refusée');
   } finally { s2.close(); }
   console.log('ratelimit-test OK');
 })().catch((e) => { console.error(e); process.exit(1); });

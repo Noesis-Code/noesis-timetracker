@@ -53,14 +53,22 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
     next();
   });
-  // Limitation de débit : /link (jetons), écritures (POST), échecs d'authentification admin, lecture générale.
+  // Limitation de débit, DEUX clés : par adresse IP (plafond large, pour qu'une IP partagée, ex. NAT d'entreprise, ne bloque pas tout le monde)
+  // ET par compte (plafond serré, après authentification : un compte ne peut ni marteler ni se faire bloquer par ses voisins d'IP).
+  // Chaque route est classée (limitée / exemptée avec raison) par test/limites-routes-test.js : une route non classée fait échouer la suite.
   const ip = (req) => req.ip || 'inconnu';
-  const rlLink = createLimiter({ max: limits.link || 20 })(ip);
-  const rlWrite = createLimiter({ max: limits.write || 30 })(ip);
-  const rlAdmin = createLimiter({ max: limits.admin || 10 })(ip);
-  const rlRead = createLimiter({ max: limits.read || 300 })(ip);
-  const rlAuth = createLimiter({ max: limits.auth || 20 })(ip); // saisies de codes/passkeys/step-up : en plus de la limite d'écriture et des verrouillages par compte/IP
-  const rlBroker = createLimiter({ max: limits.broker || 10 })(ip); // en plus de la limite d'écriture générale
+  const acct = (req) => 'u:' + (req.user ? req.user.id : 'anonyme');
+  const rlLink = createLimiter({ max: limits.link || 60 })(ip);
+  const rlWrite = createLimiter({ max: limits.write || 90 })(ip);
+  const rlAdmin = createLimiter({ max: limits.admin || 10 })(ip); // route à jeton : échecs comptés par IP uniquement (pas de compte)
+  const rlRead = createLimiter({ max: limits.read || 600 })(ip);
+  const rlAuth = createLimiter({ max: limits.auth || 60 })(ip); // saisies de codes/passkeys/step-up : en plus des verrouillages par compte/IP
+  const rlBroker = createLimiter({ max: limits.broker || 30 })(ip);
+  const rlExport = createLimiter({ max: limits.export || 15 })(ip);
+  const rlWriteAcct = createLimiter({ max: limits.acctWrite || limits.write || 30 })(acct);
+  const rlAuthAcct = createLimiter({ max: limits.acctAuth || limits.auth || 20 })(acct);
+  const rlBrokerAcct = createLimiter({ max: limits.acctBroker || limits.broker || 10 })(acct);
+  const rlExportAcct = createLimiter({ max: limits.acctExport || limits.export || 5 })(acct);
   // CSRF : le cookie peut être SameSite=None (iframe TMT). Toute écriture portant un en-tête Origin doit venir de cette app ou de TMT.
   app.use('/api', (req, res, next) => {
     if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
@@ -126,7 +134,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     if (!r.ok) {
       const known = r.sub ? db.prepare('SELECT id FROM tt_users WHERE tmtUserId = ?').get(r.sub) : null;
       aud(req, 'link_refused', { reason: r.error }, known ? known.id : null); // visible dans le journal du compte visé
-      L.fail(db, ipKey, { threshold: 10 });
+      L.fail(db, ipKey, { threshold: L.IP_THRESHOLD });
       if (r.sub) {
         const f = L.fail(db, 'linksub:' + r.sub, { threshold: 5 });
         if (known && (f.fails === 3 || (f.fails >= 5 && f.fails % 5 === 0))) { aud(req, 'auth_failures_repeated', { fails: f.fails, via: 'link' }, known.id); alertUser(known.id, 'auth_failures'); }
@@ -174,6 +182,9 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
   };
 
   app.use('/api', (req, res, next) => (req.path === '/health' ? next() : auth(req, res, next)));
+  // Plafonds par compte (la session est connue ici) : écritures, saisies de codes/passkeys/step-up, jeton du courtier.
+  app.use('/api/auth', (req, res, next) => (req.method === 'POST' || req.method === 'DELETE' ? rlAuthAcct(req, res, next) : next()));
+  app.use('/api', (req, res, next) => (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE' ? rlWriteAcct(req, res, next) : next()));
 
   // Porte d'authentification forte : tant que le TOTP exigé (expert, courtier connecté, TOTP activé) n'est pas vérifié sur CETTE session,
   // seules l'identité, l'enrôlement/la vérification, la déconnexion et la fermeture des sessions répondent. Aucune donnée financière.
@@ -290,7 +301,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
   });
 
   // Jeton courtier : chiffré (TRADE_TOKEN_KEY), propre à l'utilisateur connecté, jamais renvoyé ni journalisé.
-  app.post('/api/broker/token', rlBroker, (req, res) => {
+  app.post('/api/broker/token', rlBroker, rlBrokerAcct, (req, res) => {
     const token = req.body && req.body.token;
     if (typeof token !== 'string' || !BT.isValidTokenFormat(token.trim())) return err(res, 422, 'invalid_token', 'Format de jeton refusé.');
     if (!BT.hasEncryptionKey(env)) return err(res, 503, 'broker_unavailable', 'Connexion du courtier indisponible : la clé de chiffrement TRADE_TOKEN_KEY n’est pas configurée sur le serveur.');
@@ -312,7 +323,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
   });
 
   // Suppression RÉELLE : jeton + données de synchro de l'utilisateur (comptes, positions, soldes, transactions, historique, journal, événements). La confirmation est faite côté client.
-  app.delete('/api/broker/token', rlBroker, (req, res) => {
+  app.delete('/api/broker/token', rlBroker, rlBrokerAcct, (req, res) => {
     if (!needStepUp(req, res)) return;
     try { BT.deleteBrokerToken(db, req.user.id); BT.purgeSyncData(db, req.user.id); } catch { return err(res, 500, 'delete_failed', 'Suppression non terminée.'); }
     aud(req, 'broker_token_deleted', {});
@@ -345,7 +356,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
       err(res, 500, 'server_error', 'Erreur du serveur.');
     }
   });
-  // Verrouillage progressif par compte (5 échecs) ET par IP (10) sur toute saisie de code. Pendant le verrou, le code n'est même pas examiné.
+  // Verrouillage progressif par compte (5 échecs) ET par IP (30, IP partagée possible) sur toute saisie de code. Pendant le verrou, le code n'est même pas examiné.
   const codeGate = (req, res) => {
     const a = L.status(db, 'acct:' + req.user.id), i = L.status(db, 'ip:' + (req.ip || 'inconnu'));
     if (!a.locked && !i.locked) return true;
@@ -357,7 +368,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
   };
   const codeFailed = (req, res, event, errCode, reason) => {
     const a = L.fail(db, 'acct:' + req.user.id, { threshold: 5 });
-    L.fail(db, 'ip:' + (req.ip || 'inconnu'), { threshold: 10 });
+    L.fail(db, 'ip:' + (req.ip || 'inconnu'), { threshold: L.IP_THRESHOLD });
     aud(req, event, reason ? { fails: a.fails, reason } : { fails: a.fails });
     if (a.fails === 3 || (a.fails >= 5 && a.fails % 5 === 0)) { aud(req, 'auth_failures_repeated', { fails: a.fails }); alertUser(req.user.id, 'auth_failures'); }
     return errCode ? err(res, 401, errCode, 'Vérification refusée.') : mfaFail(res); // réponse identique pour tout échec
@@ -369,6 +380,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     if (!(Date.now() - t <= A.STEPUP_TTL_MS) || req.session.authLevel < 1) { aud(req, 'stepup_required', { path: req.path }); err(res, 403, 'stepup_required', 'Confirme avec ton code à 6 chiffres.'); return false; }
     return true;
   };
+  app.use('/api/export', rlExport, rlExportAcct); // exports (lourds, sensibles) : plafond serré par IP et par compte, avant même le step-up
   app.use('/api/export', (req, res, next) => (needStepUp(req, res) ? next() : undefined)); // exports futurs : ré-authentification d'office
 
   app.post('/api/auth/totp/confirm', (req, res) => {

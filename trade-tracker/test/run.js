@@ -6,7 +6,7 @@ catch { console.error('Dépendances de Trade absentes (@simplewebauthn/server). 
 // Plafond de 20 s par test (un test bloqué échoue vite, message « DÉLAI DÉPASSÉ ») ; 60 s pour les tests lents connus ; TMT_TEST_TIMEOUT_MS le remplace (0 = sans plafond).
 // Scripts indépendants (ports éphémères, dossiers via mkTmp) : 3 en parallèle au plus (TMT_TEST_JOBS pour changer), lents d'abord.
 const { runPool } = require('../../test/lib/parallel');
-const SLOW = ['stepup-test.js', 'sync-charge-test.js', 'broker-e2e-test.js', 'coupure-synchro-test.js', 'broker-route-test.js', 'proprietaire-routes-test.js'];
+const SLOW = ['stepup-test.js', 'sync-charge-test.js', 'broker-e2e-test.js', 'coupure-synchro-test.js', 'broker-route-test.js', 'proprietaire-routes-test.js', 'limites-routes-test.js'];
 const files = fs.readdirSync(__dirname).filter((n) => n.endsWith('-test.js')).sort();
 const order = files.slice().sort((a, b) => SLOW.includes(b) - SLOW.includes(a));
 (async () => {

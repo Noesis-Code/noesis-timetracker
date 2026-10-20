@@ -91,15 +91,27 @@ assert(we.length <= 49, 'week-end : ~1 par heure (' + we.length + ')');
   let calls = 0;
   const db = { prepare: () => ({ all: () => { calls++; return []; } }) };
   mock.timers.enable({ apis: ['setInterval', 'Date'], now: Z('2026-10-17T10:00:00Z') }); // samedi
-  const step = (ms) => { for (let x = 0; x < ms; x += 15 * 60e3) mock.timers.tick(15 * 60e3); }; // l'horloge simulée saute à la fin d'un gros tick : on avance par tick de 15 min
+  const step = async (ms) => { for (let x = 0; x < ms; x += 15 * 60e3) { mock.timers.tick(15 * 60e3); await new Promise((r) => setImmediate(r)); } }; // l'horloge simulée saute à la fin d'un gros tick : on avance par tick de 15 min
   const t = startSyncScheduler(db, { intervalMin: 15 });
-  step(24 * 3600e3); // 24 h de week-end (sam. 6 h -> dim. 6 h EDT)
+  await step(24 * 3600e3); // 24 h de week-end (sam. 6 h -> dim. 6 h EDT)
   const weekend = calls;
   assert(weekend >= 22 && weekend <= 26, 'week-end : ~1 synchro par heure, pas 96 (' + weekend + ')');
-  step(27 * 3600e3 - 3 * 15 * 60e3); // dim. 10 h UTC -> lun. 12 h 15 UTC, avant le dernier tick d'avant-ouverture
+  await step(27 * 3600e3 - 3 * 15 * 60e3); // dim. 10 h UTC -> lun. 12 h 15 UTC, avant le dernier tick d'avant-ouverture
   const before = calls;
-  step(3 * 3600e3 + 15 * 60e3); // traverse l'ouverture (lun. 13 h 30 UTC) jusqu'à 16 h UTC
+  await step(3 * 3600e3 + 15 * 60e3); // traverse l'ouverture (lun. 13 h 30 UTC) jusqu'à 16 h UTC
   assert(calls - before >= 9, 'ouverture couverte : synchros avant et après 9 h 30 (' + (calls - before) + ')');
   clearInterval(t); mock.timers.reset();
+
+  // Une tournée lente ne se superpose jamais à la suivante (intervalle court, beaucoup de comptes) : le tick est sauté, puis la synchro reprend.
+  mock.timers.enable({ apis: ['setInterval', 'Date'], now: Z('2026-10-19T14:00:00Z') }); // lundi, en séance
+  let starts = 0, finish;
+  const slow = () => { starts++; return new Promise((r) => { finish = r; }); };
+  const t2 = startSyncScheduler(db, { intervalMin: 1, run: slow });
+  mock.timers.tick(60e3); mock.timers.tick(60e3); mock.timers.tick(60e3);
+  assert.strictEqual(starts, 1, 'tournée en cours : les ticks suivants sont sautés (' + starts + ')');
+  finish([]); await new Promise((r) => setImmediate(r));
+  mock.timers.tick(60e3);
+  assert.strictEqual(starts, 2, 'tournée finie : la synchro reprend au tick suivant (' + starts + ')');
+  clearInterval(t2); mock.timers.reset();
   console.log('marche-test OK');
 })().catch((e) => { console.error(e); process.exit(1); });

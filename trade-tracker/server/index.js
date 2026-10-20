@@ -11,7 +11,11 @@ const { checkProductionEnv } = require('./lib/preflight');
     process.exit(1);
   }
 }
-const { openDb } = require('./db');
+const { openDb, dataDir } = require('./db');
+{ // Base abîmée, tronquée ou perdue : refuser de démarrer (jamais de base vide en silence) et proposer la sauvegarde la plus récente.
+  const chk = require('./lib/startcheck').checkDbAtStartup(dataDir());
+  if (!chk.ok) { console.error(chk.message); process.exit(1); }
+}
 const { createApp } = require('./app');
 const { startSnapshotScheduler } = require('./lib/snapshot');
 const { startSyncScheduler } = require('./lib/sync');

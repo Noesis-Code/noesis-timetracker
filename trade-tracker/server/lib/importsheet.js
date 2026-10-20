@@ -3,20 +3,23 @@
 // compte+externalId / compte+symbole / compte+devise ; transactions dédupliquées). Ne supprime
 // jamais rien et ne crée AUCUN événement d'achat (historique de départ).
 //
-// Colonnes (insensibles à la casse et aux accents ; séparateur « , » ou « ; ») :
+// Colonnes (insensibles à la casse et aux accents ; séparateur « , », « ; » ou tabulation ; BOM, fins de ligne CR/LF, nombres « 1 234,50 » « 1,234.50 » « (12,5) » « −3 » « 12 $ ») :
 //   Comptes       : compte (identifiant/numéro), type (CELI|REER|CELIAPP), libelle, courtier
 //   Positions     : compte, symbole, nom, secteur, devise (CAD|USD), quantite, prix_moyen, prix_actuel
-//   Transactions  : compte, id (facultatif), date (AAAA-MM-JJ ou JJ/MM/AAAA), type (Achat|Vente|Dividende|Apport|Retrait),
+//   Transactions  : compte, id (facultatif), date (AAAA-MM-JJ, AAAA/MM/JJ, JJ/MM/AAAA, JJ-MM-AAAA ou JJ.MM.AAAA, heure facultative ; jamais MM/JJ/AAAA), type (Achat|Vente|Dividende|Apport|Retrait),
 //                   symbole, quantite, prix, montant, devise
 //   Soldes        : compte, devise, encaisse
+// Ambiguïté connue : un nombre à UN séparateur suivi de 3 chiffres (« 1,234 », « 3.000 ») est lu comme décimal (1,234 ; 3), jamais comme des milliers.
 const crypto = require('node:crypto');
 
 const fold = (s) => String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 
 function parseCsv(text) {
   const src = String(text || '').replace(/^﻿/, '');
-  const first = src.split(/\r?\n/)[0] || '';
-  const sep = (first.match(/;/g) || []).length > (first.match(/,/g) || []).length ? ';' : ',';
+  // Séparateur : celui qui revient le plus dans l'en-tête HORS guillemets (« , » « ; » ou tabulation). Un en-tête entre guillemets contenant une virgule ne trompe pas.
+  const first = (src.split(/\r\n|\n|\r/).find((l) => l.trim() !== '') || '').replace(/"[^"]*"/g, '');
+  const count = (ch) => first.split(ch).length - 1;
+  const sep = [',', ';', '\t'].reduce((best, ch) => (count(ch) > count(best) ? ch : best), ',');
   const rows = []; let row = [], cur = '', q = false;
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
@@ -34,11 +37,14 @@ function parseCsv(text) {
 
 function num(v) {
   if (v == null || String(v).trim() === '') return null;
-  let s = String(v).replace(/[\s  $]/g, '');
+  let s = String(v).replace(/[\s  $]/g, '').replace(/(CAD|USD|CA|US)$/i, '').replace(/^(CAD|USD|CA|US)/i, '');
+  let neg = false;
+  if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); } // (1 234,50) = négatif (comptabilité)
+  s = s.replace(/^[−–]/, '-'); // signe moins typographique
   if (s.includes(',') && s.includes('.')) s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, ''); // « 1.234,50 » ou « 1,234.50 »
   else if (s.includes(',')) s = s.replace(',', '.'); // « 12,5 » (format québécois)
   const n = Number(s);
-  return Number.isFinite(n) ? n : null;
+  return Number.isFinite(n) ? (neg ? -n : n) : null;
 }
 const pick = (o, ...keys) => { for (const k of keys) if (o[k] !== undefined && o[k] !== '') return o[k]; return ''; };
 const accType = (v) => { const t = fold(v).replace(/_/g, ''); return ['celi', 'reer', 'celiapp'].includes(t) ? t.toUpperCase() : null; };
@@ -48,7 +54,8 @@ const txType = (v) => TX[fold(v)] || null;
 const isoDate = (v) => {
   const s = String(v).trim(); let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); let y, mo, d;
   if (m) [y, mo, d] = [m[1], m[2], m[3]];
-  else if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) [y, mo, d] = [m[3], m[2].padStart(2, '0'), m[1].padStart(2, '0')]; // JJ/MM/AAAA
+  else if ((m = s.match(/^(\d{4})[/.](\d{1,2})[/.](\d{1,2})(?:[ T].*)?$/))) [y, mo, d] = [m[1], m[2].padStart(2, '0'), m[3].padStart(2, '0')]; // AAAA/MM/JJ
+  else if ((m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?:[ T].*)?$/))) [y, mo, d] = [m[3], m[2].padStart(2, '0'), m[1].padStart(2, '0')]; // JJ/MM/AAAA (convention du Sheet, jamais MM/JJ), JJ-MM-AAAA, JJ.MM.AAAA, avec heure facultative
   else return null;
   const t = new Date(`${y}-${mo}-${d}T00:00:00Z`);
   return t.getUTCFullYear() == y && t.getUTCMonth() + 1 == Number(mo) && t.getUTCDate() == Number(d) ? `${y}-${mo}-${d}` : null;

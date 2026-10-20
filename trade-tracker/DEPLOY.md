@@ -82,6 +82,8 @@ Rien n'est déployé automatiquement. Le serveur **refuse de démarrer en produc
 
 **Restauration** (service ARRÊTÉ, avec la `TRADE_TOKEN_KEY` en vigueur à la date de la sauvegarde) : `node restore.js <sauvegarde.db>` ; sur une base existante, `--force` la conserve à côté sous `trade-tracker.db.avant-restauration-<date>`. Le contrôle (intégrité, tables, chaîne d'audit) précède tout écrasement.
 
+**Base abîmée au démarrage** : le serveur refuse de démarrer (code 1) si `trade-tracker.db` est illisible, tronquée, vidée ou absente alors que des sauvegardes existent (jamais de base vide créée en silence). Le journal indique la cause, la sauvegarde valide la plus récente et la commande `node restore.js <fichier> --force` ; l'original n'est pas modifié et une copie `trade-tracker.db.corrompue-<date>` est rangée à côté. Premier démarrage (aucune sauvegarde) : base neuve, normal.
+
 **Retour arrière d'un déploiement**
 1. Code : Railway > Deployments > redéployer la version précédente (ou `git revert` du commit fautif sur `staging`). Les variables ne reviennent pas seules : remettre les anciennes valeurs si elles ont changé.
 2. Données (si le nouveau code a migré ou abîmé la base) : lancer `npm run backup` d'abord (état actuel), arrêter le service, `node restore.js <dernière bonne sauvegarde> --force`, redémarrer, vérifier `/health` et la ligne « Chaîne intacte » (Sécurité > Journal).

@@ -11,10 +11,10 @@
     function r(l, v) { return '<div class="detailRow"><span>' + l + '</span><span>' + v + '</span></div>'; }
     TTUI.modal(p.symbol + ' · ' + p.name,
       '<div class="hint" style="margin-bottom:8px">' + TTF.esc(p.sector) + ' · ' + TTF.esc(p.accountType) + '</div>' +
-      r('Quantité', TTF.num(p.quantity)) + r('Coût moyen', TTF.num(p.avgCost) + ' ' + p.currency) + r('Dernier prix', TTF.num(p.lastPrice) + ' ' + p.currency) +
+      r('Quantité', TTF.num(p.quantity)) + r('Coût moyen', TTF.num(p.avgCost) + ' ' + p.currency) + r('Dernier prix', p.lastPrice == null ? 'Aucun prix reçu' : TTF.num(p.lastPrice) + ' ' + p.currency) +
       r('Valeur', TTF.money(p.valueCad)) + r('Coût', TTF.money(p.costCad)) +
       r('Gain', '<span class="' + TTF.cls(p.pnlCad) + '">' + TTF.signedMoney(p.pnlCad) + ' (' + TTF.pct(p.pnlPct, true) + ')</span>') +
-      r('Poids du portefeuille', TTF.pct(p.weightPct)) + r('Prix mis à jour', TTF.ago(p.priceUpdatedAt)));
+      r('Poids du portefeuille', TTF.pct(p.weightPct)) + r('Prix mis à jour', p.priceUpdatedAt ? TTF.ago(p.priceUpdatedAt) : 'Jamais'));
   }
   window.TTScreens.positions = {
     render: function (el, state, raw) {

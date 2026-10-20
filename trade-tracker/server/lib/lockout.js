@@ -29,4 +29,6 @@ function fail(db, key, { threshold = 5, now = Date.now() } = {}) {
 }
 function clear(db, key) { db.prepare('DELETE FROM auth_lockouts WHERE key = ?').run(key); }
 
-module.exports = { delaySeconds, status, fail, clear };
+// Seuil d'échecs par adresse IP : large, car une IP partagée (NAT d'entreprise) réunit plusieurs comptes ; le seuil par compte (5) reste le garde ciblé.
+const IP_THRESHOLD = 30;
+module.exports = { delaySeconds, status, fail, clear, IP_THRESHOLD };
