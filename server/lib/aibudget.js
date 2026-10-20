@@ -198,8 +198,23 @@ function record(userId, model, usage, feature, now, factor) {
         cacheReadTokens = cacheReadTokens + excluded.cacheReadTokens, cacheWriteTokens = cacheWriteTokens + excluded.cacheWriteTokens`)
       .run(String(userId || SYSTEM_USER), todayLocal(now), String(model || 'inconnu'), String(feature || 'autre'), inTok, outTok, computeCost(model, u) * (Number.isFinite(factor) && factor > 0 ? factor : 1),
         Number(u.cache_read_input_tokens) || 0, Number(u.cache_creation_input_tokens) || 0);
+    alertIfDayCostHigh(now);
   } catch (e) { console.warn('[aibudget] enregistrement impossible :', e && e.message); }
 }
+
+// Alerte douce (journal serveur seulement, ni notification ni interface) : coût estimé du jour, tous comptes, au-delà de AI_COST_ALERT_DAY_USD (défaut 8 $).
+// Une seule ligne par jour ; 0 ou valeur invalide = défaut.
+let alertedDay = null;
+function alertDayUsd() { const n = Number(process.env.AI_COST_ALERT_DAY_USD); return Number.isFinite(n) && n > 0 ? n : 8; }
+function alertIfDayCostHigh(now) {
+  const d = todayLocal(now);
+  if (alertedDay === d) return;
+  const total = db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE day = ?').get(d).s || 0;
+  if (total < alertDayUsd()) return;
+  alertedDay = d;
+  console.warn('[aibudget] ALERTE coût IA du jour ' + d + ' : ' + total.toFixed(2) + ' $ estimé (seuil ' + alertDayUsd() + ' $, AI_COST_ALERT_DAY_USD)');
+}
+function resetDayAlert() { alertedDay = null; }
 
 // Rapport de coût par fonctionnalité et modèle sur les `days` derniers jours (tous comptes) : appels, jetons, cache, $.
 function usageReport(days) {
@@ -248,4 +263,4 @@ async function fetchAnthropic(feature, url, init, userId) {
   } finally { release(uid, est); }
 }
 
-module.exports = { usageReport, fallbackReport, check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, estimateMaxCost, runAs, currentUser, fetchAnthropic, todayLocal, SYSTEM_USER };
+module.exports = { usageReport, fallbackReport, check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, estimateMaxCost, runAs, currentUser, fetchAnthropic, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };

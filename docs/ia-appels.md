@@ -43,3 +43,6 @@ Appels secondaires (coût marginal, journalisés sous leur propre `feature`) :
 
 ## Plafonds recurrence-tache et rapprochement-objectif (repli 7)
 Même mécanisme que le classement (`CALL_CAPS` dans `goalstaskclassify.js`, appels réels seulement, mémo déjà actif) : `RECURRENCE_MAX_PER_DAY` 300 et `MATCH_MAX_PER_DAY` 500 par compte/jour. Refus = panne IA (repli habituel). Test : `test/ia-plafonds-test.js`.
+
+## Alerte de coût journalier (repli 8)
+`aibudget.record` écrit une ligne `[aibudget] ALERTE coût IA du jour ...` dans le journal serveur (une par jour, tous comptes) quand le coût estimé du jour dépasse `AI_COST_ALERT_DAY_USD` (défaut 8 $). Ni notification ni interface. Test : `test/ia-alerte-memo-test.js` (couvre aussi : appel mémoïsé = aucun jeton journalisé).

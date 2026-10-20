@@ -49,6 +49,8 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 
 **4. Crédits Claude et API**
 1. Rapport de coût par fonction IA (`scripts/ai-cost-report.js`, `ai_usage_log`).
+2. Alerte douce dans le journal serveur (pas de notification) quand le coût journalier estimé dépasse `AI_COST_ALERT_DAY_USD` (défaut 8 $). FAIT (repli 8, `aibudget.js`).
+3. Test qu'un appel mémoïsé ne journalise pas de jetons. FAIT (repli 8, `test/ia-alerte-memo-test.js`).
 
 **5. Simplification et design général**
 1. Propositions 6 à 10 du Simplificateur non réservées : les exécuter.
