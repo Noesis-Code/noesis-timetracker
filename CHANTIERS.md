@@ -120,7 +120,7 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 12. Abréviations courantes (« fact. », « RDV », « tel », « compta », « qté ») : ajouter et mesurer placement vs incertain. *(fait 20 oct. : p07-p15, expansion fact/compta/qte/tel dans taskprecision.tokens ; 97,7 % sur 172)*
 13. Noms propres de clients seuls ou en début de titre (« Acme : maquette », « Dupuis - retouches ») : mesurer que le nom propre ne pèse pas contre le vocabulaire du secteur. *(fait 20 oct. : n01-n08, aucun écart, aucune règle ajoutée)*
 14. Titres avec négation ou annulation (« Ne pas oublier la facture », « Annuler le rendez-vous ») : ajouter et mesurer que le secteur reste celui du sujet. Fini quand : cas ajoutés au jeu, score noté ici. *(fait 20 oct. : ng01-ng09, 8/9 justes, aucune règle changée ; seul écart ng07 « Cancel the tutorial course » = vocabulaire anglais « tutorial » absent du simulé, comme a07 ; exactitude 99,4 % sur 311)*
-15. Mesurer la précision par longueur de titre (1, 2-3, 4-8, 9+ mots) et noter le palier faible. Fini quand : tableau dans `docs/`, aucune règle changée sans mesure.
+15. Mesurer la précision par longueur de titre (1, 2-3, 4-8, 9+ mots) et noter le palier faible. Fini quand : tableau dans `docs/`, aucune règle changée sans mesure. *(fait 20 oct. : `docs/precision-longueur-titre-2026-10-20.md`, palier faible 4-8 mots à 99,1 %, aucune règle changée)*
 16. Rejouer les 60 cas aveugles h01-h60 après les dernières règles généralisées : aucun cas déjà juste ne régresse. Fini quand : `scripts/eval-task-precision.js` compare avant/après, résultat noté.
 
 **7. Principal et pilotage**
