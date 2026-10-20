@@ -836,6 +836,9 @@ input[type=time]:focus, select:focus, textarea:focus {
   .tabLabel { font-size: 9px; }
 }
 :root[data-theme="dark"] .tabBtn.active .tabLabel { color: var(--violet-soft); }
+/* 6 volets (extension Trade connectée) : libellés à 9px et marges latérales réduites pour que « Feuille de route » et « Communauté » ne se touchent pas. */
+:root[data-trade-on] .tabLabel { font-size: 9px; }
+:root[data-trade-on] .tabbar { padding-left: 17px; padding-right: 17px; }
 
 /* ⚠️ 29 septembre 2026, demande d'Emilien (direction visuelle « Piste B »,
    validée sur rendu du volet Chrono) — MATIÈRE « VERRE » commune à l'app :
