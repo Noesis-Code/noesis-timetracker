@@ -28,7 +28,7 @@ Une case par ligne, par urgence. Détail dans le fichier cité (`questions-emili
 - [ ] Basic : simplifier le premier lancement (retirer l'étape modules, l'étape « Crée tes activités », la confirmation du code ; -3 à -6 taps) (`basic`, section Premier lancement)
 - [ ] Basic : retirer les écrans de `points-non-necessaires.md`, ne rien ajouter (`basic`)
 
-- [ ] Feuille de temps, vue Semaine : garder l'ouverture de la grille 1 h avant la première case remplie (changement non demandé, repli 19) ou revenir à 0 h ? (aucun contrôle ajouté ; défilement libre)
+- [ ] Feuille de temps, vue Semaine : garder l'ouverture de la grille 1 h avant la première case remplie (changement non demandé, repli 19) ou revenir à 0 h ? (aucun contrôle ajouté ; défilement libre ; testée en navigateur 390 px au repli 21, la position suit maintenant le changement de semaine)
 
 ## 3. Gain moyen : débloque des tâches
 - [ ] Trade : afficher le gain réalisé (calcul prêt, non branché à l'écran) (`fiabilite-trade-2026-10-20.md`)

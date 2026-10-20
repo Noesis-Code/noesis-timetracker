@@ -5434,14 +5434,16 @@
 
     // Ouvre la grille sur les heures où il y a du temps (1 h avant la première
     // case remplie) au lieu de minuit : à 390 px on ne voit que ~5 h sur 24.
-    // Seulement si la grille n'a pas déjà été défilée par l'utilisateur.
+    // Seulement si la grille n'a pas déjà été défilée par l'utilisateur (la position
+    // posée ici est mémorisée : changer de semaine la recale sur les nouvelles heures).
     var scroller = $(I.grid).parentNode;
-    if (scroller && scroller.scrollLeft === 0) {
+    if (scroller && (scroller.scrollLeft === 0 || scroller.scrollLeft === scroller._autoLeft)) {
       var firstSlot = 96;
       data.days.forEach(function (day) { day.slots.forEach(function (slot, i) { if (slot && i < firstSlot) firstSlot = i; }); });
       var hourEl = firstSlot < 96 ? $(I.grid).children[Math.max(0, Math.floor(firstSlot / 4) - 1)] : null;
       if (hourEl && $(I.grid).getBoundingClientRect().width > 0) {
         scroller.scrollLeft = Math.max(0, hourEl.getBoundingClientRect().left - $(I.grid).getBoundingClientRect().left);
+        scroller._autoLeft = scroller.scrollLeft; // position posée par programme : un changement de semaine la recale, un défilement de l'utilisateur non
       }
     }
   }

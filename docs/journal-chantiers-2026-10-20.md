@@ -60,3 +60,9 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 - Grille Semaine (4a8dd8a), cas limites relus dans le code : semaine vide = aucun défilement (0 h) ; entrée à 0 h = `max(0, h-1)` donc 0 h ; entrée à cheval sur minuit = cases 23 h (jour N) et 0 h (jour N+1), la plus petite case est 0 h donc 0 h ; fuseau = les cases viennent déjà du serveur dans le fuseau du téléphone (09bfaa0), aucune conversion côté grille. Seule la position initiale change, toutes les heures restent atteignables en défilant ; rien n'est réappliqué si la grille est déjà défilée. Case ajoutée à l'index (garder / revenir à 0 h).
 - `/healthz` toujours absent de `railway.json` : case d'index précisée (`healthcheckPath`), fichier non modifié.
 - Suite complète sur staging 4a8dd8a : 142 passées, 0 échouée.
+
+## Pilotage (repli 21) : relecture, grille Semaine testée en navigateur
+- Relecture de 672ac64 à e33015b : retraits de code mort seulement (7 symboles, grep : aucune référence restante), aucun bouton/option/couleur, aucun titre personnel, aucun fichier hors périmètre.
+- Grille Semaine testée (Playwright, 390 px, fuseau UTC) : semaine vide = 0 h (message « Rien d'enregistré ») ; entrée 0 h = 0 h ; entrée 21 h = grille sur 19-20 h, 23 h visible ; entrées 9 h 30 = 8 h ; défilement manuel conservé (0 h et 150 px) ; captures `late.png`, `prevweek.png` vues.
+- Défaut trouvé et corrigé : en changeant de semaine, la grille gardait la position de la semaine précédente (14 h au lieu de 6 h, entrées hors de vue). La position posée par programme est maintenant mémorisée : elle est recalée à chaque changement de semaine, un défilement de l'utilisateur reste respecté. Aucun contrôle ajouté.
+- Arrêt oublié du chrono : déjà couvert (le dialogue d'arrêt affiche la durée et laisse corriger début/fin) ; rien à faire.
