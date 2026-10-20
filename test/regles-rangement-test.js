@@ -1,4 +1,4 @@
-// Garde statique : les règles de rangement existent (R1 à R22, F1 à F5) et CLAUDE.md et les deux agents les mentionnent.
+// Garde statique : les règles de rangement existent (R1 à R29, F1 à F5) et CLAUDE.md et les deux agents les mentionnent.
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
@@ -7,10 +7,18 @@ const ok = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; consol
 const read = (f) => { try { return fs.readFileSync(path.join(ROOT, f), 'utf8'); } catch (e) { return ''; } };
 const regles = read('docs/regles-rangement.md');
 ok(regles.length > 0, 'docs/regles-rangement.md existe');
-for (let i = 1; i <= 22; i++) ok(new RegExp('\\bR' + i + '\\.').test(regles), 'règle R' + i + ' présente');
+for (let i = 1; i <= 29; i++) ok(new RegExp('\\bR' + i + '\\.').test(regles), 'règle R' + i + ' présente');
 for (let i = 1; i <= 5; i++) ok(new RegExp('\\bF' + i + '\\.').test(regles), 'règle F' + i + ' présente');
 ok(/R21\.[^\n]*droite[^\n]*jamais à gauche/.test(regles), 'R21 flèche à droite');
 ok(/R22\.[^\n]*bord gauche ET[^\n]*bord droit/.test(regles), 'R22 séparateurs pleine largeur');
+ok(/R23\.[^\n]*\.saAdd[^\n]*#9C8CC8/.test(regles), 'R23 même contrôle, .saAdd, #9C8CC8');
+ok(/R24\.[^\n]*verre fort/.test(regles), 'R24 un seul verre fort');
+ok(/R25\.[^\n]*13 px[^\n]*44 px/.test(regles), 'R25 marques secondaires');
+ok(/R26\.[^\n]*disparaît/.test(regles), 'R26 fonction disparue');
+ok(/R27\.[^\n]*500 ms/.test(regles), 'R27 mécanique existante');
+ok(/R28\.[^\n]*rouge/.test(regles), 'R28 rouge');
+ok(/R29\.[^\n]*UNE SEULE FOIS[^\n]*composants\.css/.test(regles), 'R29 composant unique');
+ok(/## Nouvelle règle = application partout/.test(regles) && /recopie un composant/.test(regles), 'section application partout');
 ok(regles.toLowerCase().includes('verre calme'), 'verre calme présent');
 ok(regles.includes('500 ms'), '500 ms présent');
 for (const c of ['#E0626B', '#6FC9A0', '#F0AD4E']) ok(regles.includes(c), 'couleur sémantique ' + c + ' présente');
