@@ -43,9 +43,6 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 
 **4. Crédits Claude et API**
 1. Rapport de coût par fonction IA (`scripts/ai-cost-report.js`, `ai_usage_log`).
-2. Rapport de coût lisible depuis un export JSON/CSV de `ai_usage_log` (`--from`), sans accès base. FAIT (repli 5).
-3. Test qui échoue si un appel IA (`callModel`/fetch Anthropic) est ajouté dans `server/` sans entrée dans `docs/ia-appels.md`.
-4. Vérifier que chaque appel IA journalise ses jetons dans `ai_usage_log` (appels qui échappent au journal).
 
 **5. Simplification et design général**
 1. Propositions 6 à 10 du Simplificateur non réservées : les exécuter.

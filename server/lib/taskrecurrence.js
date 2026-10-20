@@ -89,7 +89,7 @@ async function suggest(label) {
     const text = await classify.callModel(
       'Cette tâche est-elle de nature récurrente (à refaire régulièrement, ex. « payer le loyer », « faire la paie ») ? '
       + 'Réponds UNIQUEMENT par un JSON {"every":nombre,"unit":"day"|"week"|"month"} si oui et si la fréquence est évidente, sinon par le mot NON.\n'
-      + 'Tâche : ' + String(label).slice(0, 300), 60);
+      + 'Tâche : ' + String(label).slice(0, 300), 60, 'recurrence-tache');
     const m = String(text || '').match(/\{[^}]*\}/);
     if (!m) return null;
     return normalize(JSON.parse(m[0]));

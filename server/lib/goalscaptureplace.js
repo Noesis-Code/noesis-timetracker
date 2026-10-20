@@ -493,7 +493,7 @@ async function matchObjective(userId, activityId, categoryKey, taskLabel, opts) 
   let tiers;
   try { tiers = candidateTiers(activityId, categoryKey, today); } catch (e) { return null; }
   const classify = require('./goalstaskclassify');
-  const ai = (opts && opts.ai) || (classify.configured() ? (p) => classify.callModel(p, 120) : null);
+  const ai = (opts && opts.ai) || (classify.configured() ? (p) => classify.callModel(p, 120, 'rapprochement-objectif') : null);
   for (let ti = 0; ti < tiers.length; ti += 1) {
     const tier = tiers[ti];
     if (!tier.length) continue;

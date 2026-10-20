@@ -31,3 +31,12 @@ Classement (12 catégories avec description) : 1635 -> 1553 caractères (strict)
 
 ## Rapport sans accès base (repli 5)
 Exporter la table (`SELECT * FROM ai_usage_log` en JSON ou CSV avec en-têtes) puis `node scripts/ai-cost-report.js --from export.csv 30`. Test : `test/ia-rapport-export-test.js`.
+
+## Garde-fou de documentation et de journal (repli 6)
+`test/ia-appels-doc-test.js` échoue si un fichier de `server/` appelle Anthropic (`api.anthropic.com`, `callModel(`, `docanalysis.call(`) sans être nommé dans ce document, ou si un appel IA échappe à `ai_usage_log` (URL Anthropic hors `aibudget.fetchAnthropic`/`record`, ou `callModel` sans `feature`). Ajouter une ligne ci-dessous en créant un appel.
+
+Appels secondaires (coût marginal, journalisés sous leur propre `feature`) :
+- `taskrecurrence.js` (`recurrence-tache`) : suggestion de récurrence, 60 sortie, mémo 24 h ; avant, comptée à tort en « classement-tache ».
+- `goalscaptureplace.js` (`rapprochement-objectif`) : rapprochement tâche -> objectif, 120 sortie, au plus deux appels par tâche ; avant, comptée à tort en « classement-tache ».
+- `aibatch.js` : lots Drive à -50 %, coût enregistré à la relève par `drivesync.js` (`surveillance-drive-batch`).
+- `documenttasks.js` (`document-taches`) et `changeproposals.js` (`modifications-proposees`, `redistribution-objectif`) : passent par `docanalysis.js`.
