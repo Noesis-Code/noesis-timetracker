@@ -41,7 +41,7 @@ const srv = app.listen(0, async () => {
   assert(r.status === 401, 'mauvais secret : 401');
   r = await post(ev, { ts: String(Math.floor(Date.now() / 1000) - 3600) });
   assert(r.status === 401 && r.body.error === 'stale', 'horodatage de plus de 5 min : refusé');
-  r = await post(ev, { id: 'e0', ts: String(Math.floor(Date.now() / 1000) - 2) }); await tick();
+  r = await post(ev, { id: 'e0', ts: String(Math.floor(Date.now() / 1000) - 10) }); await tick();
   assert(r.status === 200 && r.body.notified === false && sent.length === 0, 'module off : reçu, aucune notification');
   M.setModules('t1', { trade: true });
   const t1 = String(Math.floor(Date.now() / 1000) - 3);

@@ -22,8 +22,9 @@ const T = makeCounter(); const assert = T.assert;
     const hasSec = async (p, k) => { const r = await secteurs(p); return (Array.isArray(r) ? r : []).some((x) => x.key === k); };
 
     await mkTask(a, 'a1'); await mkTask(a, 'a2');
-    const now = Date.now();
-    await c.post('/api/history', { activityId: A, startTime: new Date(now - 7200e3).toISOString(), endTime: new Date(now - 3600e3).toISOString(), category: a });
+    // Hier 10 h-11 h (heure locale) : jamais à cheval sur minuit, quelle que soit l'heure d'exécution du test.
+    const h0 = new Date(); h0.setDate(h0.getDate() - 1); h0.setHours(10, 0, 0, 0);
+    await c.post('/api/history', { activityId: A, startTime: h0.toISOString(), endTime: new Date(h0.getTime() + 3600e3).toISOString(), category: a });
 
     // Refus : rien ne change
     assert((await c.del(rmUrl(p1, a), { mode: 'move', target: a })).status >= 400, 'cible = secteur supprimé refusée');
@@ -40,7 +41,8 @@ const T = makeCounter(); const assert = T.assert;
     assert(!group(ov, a) && group(ov, b).total === 2, 'tâches déplacées vers B, A disparu de l\'aperçu');
     assert(!(await hasSec(p1, a)), 'secteur A retiré');
     const chart = (await c.get(`/api/category-chart?activityId=${A}&granularity=day`)).body;
-    assert(chart.points.length === 1 && chart.points[0].totalSeconds === 3600, 'temps chrono conservé après suppression du secteur');
+    const used = chart.points.filter((p) => p.totalSeconds > 0);
+    assert(used.length === 1 && used[0].totalSeconds === 3600, 'temps chrono conservé après suppression du secteur');
 
     // Déplacer vers un secteur d'un autre pôle
     const mv2 = await c.del(rmUrl(p1, b), { mode: 'move', target: e });
