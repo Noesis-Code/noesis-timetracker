@@ -76,7 +76,7 @@
 /* zone tactile au-dessus de la barre d'onglets (ne la recouvre pas), point visuel au même endroit qu'avant. */
 #statsPageDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
 /* bouton ⋮ sans fond (comme dans .statsSection, verre-calme.css : seul le liseré le distingue). */
-:root .saGlass .menuBtn { background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+:root .saGlass .menuBtn { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
 
 /* jours travaillés (période de 28 jours / semaine) avec flèches ‹ › comme la Feuille de temps. */
 .saDaysNav { justify-content: center; gap: 10px; margin-bottom: 4px; }
