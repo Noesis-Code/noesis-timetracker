@@ -5,6 +5,7 @@
   'use strict';
   var TMT = window.TMT = window.TMT || {};
   function $(id) { return document.getElementById(id); }
+  function t(s) { return window.t ? window.t(s) : s; }
 
   // Lien « J'ai un code » : seulement si le serveur confirme que l'accès n'est pas encore acquis.
   TMT.api('GET', '/api/offer1/access').then(function (r) {
@@ -32,16 +33,17 @@
         <p id="offer1CodeMsg" class="msg"></p>
       </div>
     </div>`);
+  if (window.NoesisI18n) window.NoesisI18n.translateStaticDom($('offer1CodePage'));
   $('offer1CodeClose').addEventListener('click', function () { $('offer1CodePage').classList.add('hidden'); });
   function submitCode() {
     var code = $('offer1CodeInput').value.trim();
-    if (!code) { $('offer1CodeMsg').textContent = 'Entre un code.'; return; }
-    $('offer1CodeMsg').textContent = 'Vérification…';
+    if (!code) { $('offer1CodeMsg').textContent = t('Entre un code.'); return; }
+    $('offer1CodeMsg').textContent = t('Vérification…');
     TMT.api('POST', '/api/offer1/redeem', { code: code }).then(function (r) {
-      if (!r || r.hasAccess !== true) { $('offer1CodeMsg').textContent = 'Erreur. Réessaie.'; return; }
+      if (!r || r.hasAccess !== true) { $('offer1CodeMsg').textContent = t('Erreur. Réessaie.'); return; }
       $('offer1CodePage').classList.add('hidden');
       var l = $('offer1CodeLink'); if (l) l.classList.add('hidden');
-    }).catch(function (err) { $('offer1CodeMsg').textContent = (err && err.message) || 'Code invalide.'; });
+    }).catch(function (err) { $('offer1CodeMsg').textContent = (err && err.message) || t('Code invalide.'); });
   }
   $('offer1CodeSend').addEventListener('click', submitCode);
   $('offer1CodeInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') submitCode(); });

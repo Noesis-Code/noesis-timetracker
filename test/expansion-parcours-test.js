@@ -9,6 +9,7 @@ const http = require('http');
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('exp-parcours-');
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_local';
 process.env.STRIPE_SECRET_KEY = 'sk_test_local';
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 process.env.STRIPE_OFFER1_PRICE_ID = 'price_test_local';
 process.env.ANTHROPIC_API_KEY = 'sk-ant-local';
 process.env.NOESIS_OFFER_FAST_MODEL = 'off';

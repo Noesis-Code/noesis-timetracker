@@ -9,6 +9,7 @@ const zlib = require('zlib');
 const { DatabaseSync } = require('node:sqlite');
 // Config Stripe factice (jamais appelée : on s'arrête avant la création de session) pour atteindre la validation d'âge.
 process.env.STRIPE_SECRET_KEY = 'sk_test_factice';
+process.env.OFFER_CHECKOUT_OPEN = '1'; // achat ouvert (sans passer par le mode staging du serveur lancé)
 process.env.STRIPE_OFFER1_PRICE_ID = 'price_factice';
 const { startServer, makeCounter, newUser, client } = require('./fonctionnel-lib');
 const T = makeCounter(); const assert = T.assert;

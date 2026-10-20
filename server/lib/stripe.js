@@ -15,8 +15,19 @@ const crypto = require('crypto');
 
 const API_BASE = 'https://api.stripe.com/v1';
 
+// Staging = clés de test uniquement : une clé live (sk_live / rk_live) y est traitée comme absente.
+function liveKeyOnStaging() {
+  return process.env.RAILWAY_ENVIRONMENT_NAME === 'staging' && /^(sk|rk)_live/.test(String(process.env.STRIPE_SECRET_KEY || ''));
+}
+
 function secretKeyConfigured() {
-  return !!process.env.STRIPE_SECRET_KEY;
+  return !!process.env.STRIPE_SECRET_KEY && !liveKeyOnStaging();
+}
+
+// Achat ouvert ? Clé utilisable ET (staging OU OFFER_CHECKOUT_OPEN=1). Source unique pour le serveur et /offer/available.
+function checkoutOpen() {
+  return secretKeyConfigured() && !!process.env.STRIPE_OFFER1_PRICE_ID
+    && (process.env.RAILWAY_ENVIRONMENT_NAME === 'staging' || process.env.OFFER_CHECKOUT_OPEN === '1');
 }
 
 function webhookSecretConfigured() {
@@ -204,6 +215,7 @@ function constructEvent(rawBody, signatureHeader) {
 
 module.exports = {
   secretKeyConfigured,
+  checkoutOpen,
   createCheckoutSession,
   createPortalSession,
   buildCheckoutParams,

@@ -2,6 +2,7 @@
 // Aucun réseau. Usage : node test/expansion-code-statut-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('exp-code-');
 process.env.STRIPE_SECRET_KEY = 'sk_test_local';
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 let failed = 0;
 const ok = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');

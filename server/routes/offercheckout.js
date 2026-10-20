@@ -133,6 +133,11 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
     return res.status(503).json({ error: tr(req, 'Paiement indisponible pour le moment.', 'Payment is unavailable right now.') });
   }
 
+  // Achat réservé à staging (ou OFFER_CHECKOUT_OPEN=1) : refusé côté serveur, pas seulement grisé côté client.
+  if (!stripe.checkoutOpen()) {
+    return res.status(403).json({ error: tr(req, 'Paiement indisponible pour le moment.', 'Payment is unavailable right now.') });
+  }
+
   // Déclaration d'âge — binaire et auto-déclarée, jamais une date de
   // naissance (voir l'en-tête de ce fichier). Validée avant toute création
   // d'activité ou d'appel Stripe, comme le reste des vérifications ci-dessus.
@@ -281,9 +286,7 @@ router.post('/offer/portal', requireAuth, async (req, res) => {
 // l'appartenance à l'activité compte pour rouvrir les formulaires).
 // Paiement ouvert ? Clés Stripe présentes ET (staging OU OFFER_CHECKOUT_OPEN=1). Sinon le bouton reste « À venir ».
 router.get('/offer/available', (req, res) => {
-  const available = !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_OFFER1_PRICE_ID)
-    && (process.env.RAILWAY_ENVIRONMENT_NAME === 'staging' || process.env.OFFER_CHECKOUT_OPEN === '1');
-  res.json({ available });
+  res.json({ available: stripe.checkoutOpen() });
 });
 
 router.get('/offer/subscriptions', requireAuth, (req, res) => {

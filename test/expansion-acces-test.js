@@ -6,6 +6,7 @@ const http = require('http');
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('exp-acces-');
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_local';
 process.env.STRIPE_SECRET_KEY = 'sk_test_local';
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 const express = require('express');
 const db = require('../server/db');
 const stripe = require('../server/lib/stripe');
