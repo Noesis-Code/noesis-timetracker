@@ -441,7 +441,10 @@ function hasOpenDuplicate(activityId, label) {
     JOIN sub_projects sp ON sp.id = s.subProjectId
     WHERE sp.activityId = ? AND s.kind = 'tasks' AND i.done = 0
   `).all(activityId);
-  return rows.some((r) => normalizeTitle(r.label) === norm);
+  // Même titre à la mise en forme près, OU doublon prudent (article/pluriel/ordre/RDV : « Appeler plombier » = « Appeler le plombier »).
+  // Ce n'est qu'une demande de confirmation (allowDuplicate) : rien n'est fusionné ni supprimé.
+  const tp = require('./taskprecision');
+  return rows.some((r) => normalizeTitle(r.label) === norm || tp.sameTitle(label, r.label));
 }
 
 function activityNameFor(activityId) {

@@ -111,13 +111,32 @@ function priorityRank(title, priorities) {
   return best;
 }
 
-// Doublon : même titre à la mise en forme près (accents, casse, ponctuation) OU mêmes mots utiles (ordre libre).
+// Doublon (prudent : zéro faux doublon vaut mieux qu'un doublon manqué) : même titre à la mise en forme près (accents, casse, ponctuation,
+// « svp », RDV = rendez-vous, rencontre = réunion, téléphoner = appeler) OU mêmes mots utiles dans le même ordre, OU dans un autre ordre
+// seulement sans mot de direction (« Envoyer A à B » n'est pas « Envoyer B à A »). Ce qui distingue deux tâches reste un marqueur : lettre
+// isolée (« salle A » / « salle B »), sigle de 2 lettres (« IA »), négation (« Ne pas annuler » / « Annuler »).
+const DUP_SYN = [[/\b(?:rdv|rendez vous)\b/g, 'rendezvous'], [/\b(?:svp|stp|please|merci|s il (?:vous|te) plait)\b/g, ' '], [/\b(?:telephoner|phoner|call)\b/g, 'appeler'], [/\brencontre\b/g, 'reunion'], [/\bchez\b/g, ' ']];
+const DUP_DIR = new Set(['a', 'au', 'aux', 'vers', 'from', 'to', 'into', 'de', 'du', 'des', 'd', 'avec', 'with', 'par', 'by', 'pour', 'for', 'sur', 'on', 'entre', 'between', 'contre', 'apres', 'avant', 'after', 'before']);
+const DUP_NEUTRAL2 = new Set(['de', 'du', 'le', 'la', 'un', 'en', 'au', 'et', 'ou', 'ce', 'ma', 'se', 'si', 'ca', 'qu', 'to', 'on', 'in', 'at', 'of', 'my', 'it', 'is', 'as', 'an', 'or', 'by', 'up', 'do', 'me', 'ne', 'l', 'd', 's', 't', 'n', 'm', 'j', 'c', 'y', 'a']);
+const DUP_NEG = new Set(['ne', 'pas', 'sans', 'non', 'not', 'no', 'jamais', 'never', 'aucun', 'aucune']);
+function dupForm(v) {
+  let f = fold(v);
+  DUP_SYN.forEach(([re, to]) => { f = f.replace(re, to); });
+  f = f.replace(/\s+/g, ' ').trim();
+  const words = f.split(' ').filter(Boolean);
+  const marks = [];
+  words.forEach((w) => { if (DUP_NEG.has(w)) marks.push(w); else if (w.length === 2 && !DUP_NEUTRAL2.has(w)) marks.push(w); });
+  String(v == null ? '' : v).split(/\s+/).forEach((w) => { const m = /^[("«\[]*([A-Za-z])[)"»\].,;:!?]*$/.exec(w); if (m && m[1] !== 'a' && m[1] !== 'y') marks.push('#' + m[1].toLowerCase()); }); // lettre isolée : « salle A »
+  return { f, tk: tokens(f), dir: words.some((w) => DUP_DIR.has(w)), marks: marks.sort().join(' ') };
+}
 function sameTitle(a, b) {
   const fa = fold(a), fb = fold(b);
   if (!fa || !fb) return false;
   if (fa === fb) return true;
-  const ta = tokens(a), tb = tokens(b);
-  return ta.length > 0 && ta.length === tb.length && ta.slice().sort().join(' ') === tb.slice().sort().join(' ');
+  const A = dupForm(a), B = dupForm(b);
+  if (!A.tk.length || A.tk.length !== B.tk.length || A.marks !== B.marks) return false;
+  if (A.tk.join(' ') === B.tk.join(' ')) return true;
+  return !A.dir && !B.dir && A.tk.slice().sort().join(' ') === B.tk.slice().sort().join(' ');
 }
 // Validateur déterministe d'un titre GÉNÉRÉ par l'IA (jamais d'une saisie manuelle). Renvoie { title, reason } : title = titre nettoyé
 // (horaire à créneau fixe retiré s'il reste une tâche valable) ou null si rejeté ; reason = 'vide' | 'horaire' | 'sansSens' | 'tropLong' | 'doublon'.
