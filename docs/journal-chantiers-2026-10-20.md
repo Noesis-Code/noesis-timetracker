@@ -85,3 +85,8 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 - Les deux rapports `tri-taches-*` ne citent plus aucun titre : 65 titres remplacés par un résumé neutre (catégorie + nature, sans mot ni nom d'origine), classes, preuves et questions intactes. La liste de tolérance de `test/pas-de-titre-perso-test.js` est supprimée : le test est strict (281 titres, 0 recopie).
 - Relecture de 34c564d : écart d'horloge (cas NaN, > 1 jour, copie locale), resynchro au retour au premier plan sans refermer le récapitulatif ; aucun bouton/option/couleur, bump sw posé (c0610a4).
 - Friction (retour d'un autre onglet) : une annonce en attente s'affichait par-dessus une saisie en cours. Elle attend maintenant le prochain retour si un champ de texte a le focus. Aucun contrôle ajouté.
+
+## Pilotage (repli 25) : suite sérialisée, règle de rebase tardif
+- Suite complète en tête de staging (a723dfd), lancée par le nouveau `scripts/suite-verrouillee.sh` : 149 passées, 0 échouée. Aucun commit après a723dfd ; 81aec93, 3f0f51e relus (requêtes préparées en cache, garde de focus avant l'annonce) : aucune régression, aucun bouton/option/couleur.
+- `scripts/suite-verrouillee.sh` : verrou `flock` sur `/tmp/tmt-suite.lock` (hors dépôt), attente max 25 min (code 75 + message clair), suite limitée à 25 min, le fils n'hérite pas du verrou (libéré même sur `kill -9` du script). Testé avec un faux `run-tests.js` : deux lancements simultanés = séquentiels, délai dépassé = code 75, verrou repris après kill.
+- `docs/brief-chantier.md` : points 10 (suite sérialisée) et 11 (règle de rebase tardif : diff entrant limité à `docs/` ou bump sw = `sw-bump-test` + tests du périmètre ; sinon suite complète).
