@@ -182,6 +182,10 @@ router.post('/timer/stop', (req, res) => {
     const parsed = new Date(req.body.endTime);
     if (isNaN(parsed.getTime())) return res.status(400).json({ error: 'Heure de fin invalide.' });
     stopTime = parsed;
+    // Horloge d'un téléphone en avance (ou arrêt hors ligne rejoué avec un écart périmé) : une fin plus d'une minute dans le futur
+    // est ramenée à l'heure du serveur au lieu d'être refusée (la session n'est pas perdue) ; sans cela l'entrée déborderait sur la suivante.
+    const nowTs = Date.now();
+    if (stopTime.getTime() > nowTs + 60 * 1000) stopTime = new Date(nowTs);
   }
 
   if (stopTime <= startTime) {

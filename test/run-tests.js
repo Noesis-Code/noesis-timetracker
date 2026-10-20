@@ -55,6 +55,10 @@ const SUITE_FILES = [
   'limites-caracteres-test.js',
   'innerhtml-statique-test.js',
   'chrono-reseau-lent-test.js',
+  'isolation-comptes-test.js',
+  'delai-requetes-test.js',
+  'langue-bascule-test.js',
+  'chrono-deux-appareils-test.js',
   'offline-queue-test.js',
   'offline-idempotence-test.js',
   'offline-rejeu-test.js',
@@ -417,6 +421,14 @@ async function main() {
   catch (e) { assert(false, 'insertions HTML échappées, garde statique (test/innerhtml-statique-test.js) échoue'); }
   try { await runChild('chrono-reseau-lent-test.js'); assert(true, 'chrono sur réseau lent (test/chrono-reseau-lent-test.js) passe'); }
   catch (e) { assert(false, 'chrono sur réseau lent (test/chrono-reseau-lent-test.js) échoue'); }
+  try { await runChild('isolation-comptes-test.js'); assert(true, 'isolation entre deux comptes (test/isolation-comptes-test.js) passe'); }
+  catch (e) { assert(false, 'isolation entre deux comptes (test/isolation-comptes-test.js) échoue'); }
+  try { await runChild('delai-requetes-test.js'); assert(true, 'délai maximal des requêtes client (test/delai-requetes-test.js) passe'); }
+  catch (e) { assert(false, 'délai maximal des requêtes client (test/delai-requetes-test.js) échoue'); }
+  try { await runChild('langue-bascule-test.js'); assert(true, 'bascule de langue FR/EN en session (test/langue-bascule-test.js) passe'); }
+  catch (e) { assert(false, 'bascule de langue FR/EN en session (test/langue-bascule-test.js) échoue'); }
+  try { await runChild('chrono-deux-appareils-test.js'); assert(true, 'chrono sur deux appareils (test/chrono-deux-appareils-test.js) passe'); }
+  catch (e) { assert(false, 'chrono sur deux appareils (test/chrono-deux-appareils-test.js) échoue'); }
 
   try { await runChild('offline-queue-test.js'); assert(true, 'file hors ligne : cas limites (test/offline-queue-test.js) passe'); }
   catch (e) { assert(false, 'file hors ligne : cas limites (test/offline-queue-test.js) échoue'); }
