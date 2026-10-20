@@ -88,6 +88,18 @@
       ],
       "strategy": { "goal": "", "deadline": "", "priorities": ["", "", ""], "ignore": "webinaire, conférence" }
     },
+    "tmt": {
+      "name": "TimeTracker (pôles et secteurs de l'app)",
+      "candidates": [
+        { "key": "trade", "label": "Trading → Trade Tracker", "description": "Questrade portefeuille courtier trading positions achat vente notifications Nick expert" },
+        { "key": "basic", "label": "Time Tracker → Basic", "description": "offre gratuite chrono statistiques feuille communauté profil" },
+        { "key": "expansion", "label": "Time Tracker → Expansion", "description": "offre payante abonnement Stripe accompagnement plan semaine Drive documents" },
+        { "key": "credits", "label": "Time Tracker → Crédits Claude et API", "description": "crédits quota Claude API coût appel Haiku modèle plafond" },
+        { "key": "simpl", "label": "Time Tracker → Simplification et design général", "description": "simplifier retirer design violet sombre bouton écran cohérence" },
+        { "key": "precision", "label": "Time Tracker → Précision des tâches générées", "description": "précision tâches générées jeu évaluation prompt seuil classement" }
+      ],
+      "strategy": { "goal": "", "deadline": "", "priorities": ["", "", ""], "ignore": "" }
+    },
     "dup": {
       "name": "Deux secteurs aux libellés proches",
       "candidates": [
@@ -320,6 +332,26 @@
     { "id": "r22", "context": "saas", "kind": "classify", "label": "Corriger le bug de connexion avant jeudi 16h", "expect": { "outcome": "place", "key": "produit" } },
     { "id": "r23", "context": "saas", "kind": "classify", "label": "Répondre aux tickets de support de la fin de semaine", "expect": { "outcome": "place", "key": "support" } },
     { "id": "r24", "context": "saas", "kind": "classify", "label": "Démo pour Desjardins demain 10h", "expect": { "outcome": "place", "key": "ventes" } },
-    { "id": "r25", "context": "dup", "kind": "classify", "label": "Envoyer la facture de Provigo le 3", "expect": { "outcome": "place", "key": "compta" } }
+    { "id": "r25", "context": "dup", "kind": "classify", "label": "Envoyer la facture de Provigo le 3", "expect": { "outcome": "place", "key": "compta" } },
+    { "id": "s07", "context": "tmt", "kind": "classify", "label": "Brancher Questrade en lecture seule", "expect": {"outcome": "place", "key": "trade"} },
+    { "id": "s08", "context": "tmt", "kind": "classify", "label": "Notification d'achat pour le portefeuille de Nick", "expect": {"outcome": "place", "key": "trade"} },
+    { "id": "s09", "context": "tmt", "kind": "classify", "label": "Vérifier les positions du courtier", "expect": {"outcome": "place", "key": "trade"} },
+    { "id": "s10", "context": "tmt", "kind": "classify", "label": "Corriger les statistiques du chrono", "expect": {"outcome": "place", "key": "basic"} },
+    { "id": "s11", "context": "tmt", "kind": "classify", "label": "Ajouter la feuille de temps du mois dans le profil gratuit", "expect": {"outcome": "place", "key": "basic"} },
+    { "id": "s12", "context": "tmt", "kind": "classify", "label": "Tester l'abonnement Stripe en mode test", "expect": {"outcome": "place", "key": "expansion"} },
+    { "id": "s13", "context": "tmt", "kind": "classify", "label": "Analyser les documents Drive pour le plan de la semaine", "expect": {"outcome": "place", "key": "expansion"} },
+    { "id": "s14", "context": "tmt", "kind": "classify", "label": "Réduire le coût par appel de l'API Claude", "expect": {"outcome": "place", "key": "credits"} },
+    { "id": "s15", "context": "tmt", "kind": "classify", "label": "Plafonner les crédits Claude du modèle Haiku", "expect": {"outcome": "place", "key": "credits"} },
+    { "id": "s16", "context": "tmt", "kind": "classify", "label": "Retirer un bouton de l'écran Profil", "expect": {"outcome": "place", "key": "simpl"} },
+    { "id": "s17", "context": "tmt", "kind": "classify", "label": "Uniformiser le violet du design sombre", "expect": {"outcome": "place", "key": "simpl"} },
+    { "id": "s18", "context": "tmt", "kind": "classify", "label": "Mesurer la précision du classement des tâches générées", "expect": {"outcome": "place", "key": "precision"} },
+    { "id": "s19", "context": "tmt", "kind": "classify", "label": "Ajuster le seuil de confiance du prompt", "expect": {"outcome": "place", "key": "precision"} },
+    { "id": "s20", "context": "tmt", "kind": "classify", "label": "Ajouter des cas au jeu d'évaluation", "expect": {"outcome": "place", "key": "precision"} },
+    { "id": "s21", "context": "tmt", "kind": "classify", "label": "Payer l'abonnement Claude", "expect": {"outcome": "uncertain"} },
+    { "id": "s22", "context": "tmt", "kind": "classify", "label": "Retirer un bouton inutile du chrono", "expect": {"outcome": "place", "key": "simpl"} },
+    { "id": "s23", "context": "tmt", "kind": "classify", "label": "Corriger le bouton de la fenêtre", "expect": {"outcome": "place", "key": "simpl"} },
+    { "id": "s24", "context": "tmt", "kind": "classify", "label": "Penser à l'offre", "expect": {"outcome": "uncertain"} },
+    { "id": "s25", "context": "tmt", "kind": "classify", "label": "Revoir le classement des achats du portefeuille", "expect": {"outcome": "place", "key": "trade"} },
+    { "id": "s26", "context": "tmt", "kind": "classify", "label": "Répondre au quota de Nick sur Questrade", "expect": {"outcome": "place", "key": "trade"} }
   ]
 }

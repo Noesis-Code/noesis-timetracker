@@ -23,12 +23,15 @@ const ABBREV = { fact: 'facture', compta: 'comptabilite', qte: 'quantite', tel: 
 // Mots utiles (sans mots vides, pluriel simple ramené au singulier).
 // Anglicismes courants du français de bureau : le mot anglais garde son sens ET ajoute son équivalent français (comparaison seulement).
 const ANGLICISM = { invoice: 'facture', meeting: 'reunion', deadline: 'echeance' };
+const VAGUE_VERBS = new Set(['penser', 'voir', 'regarder', 'revoir', 'checker', 'think'].map((w) => stem(w)));
 function tokens(v) {
   const out = [];
   fold(v).split(' ').filter((w) => w && !STOP.has(w) && (w.length > 2 || /\d/.test(w))).forEach((w) => {
     out.push(stem(ABBREV[w] || w));
     if (ANGLICISM[w]) out.push(stem(ANGLICISM[w]));
   });
+  // Titre vague (verbe flou + « projet » seul : « Penser au projet ») : « projet » ne désigne aucun secteur, il ne compte pas.
+  if (out.length === 2 && VAGUE_VERBS.has(out[0]) && out[1] === stem('projet')) out.pop();
   return out;
 }
 // Racine légère (comparaison seulement, jamais affichée) : « commander/commande/commandes », « embaucher/embauche », « terrasse/terase » (faute),
@@ -83,9 +86,18 @@ function isDuplicate(title, others) { return (others || []).some((o) => sameTitl
 // « Action contre sujet » : le verbe d'ouverture dit le domaine (« Payer la facture du fournisseur » = finances, pas approvisionnement).
 // Renvoie les mots-thèmes (racines) à pondérer en plus des mots du titre ; liste fermée, volontairement courte, 0 hasard.
 const ACTION_THEMES = { pay: ['paiement', 'payment', 'invoice'], rembours: ['paiement'], regl: ['paiement'], declar: ['impot', 'taxe'], form: ['formation'], embauch: ['embauche'], photographi: ['photo'], horair: ['employe'] };
+// Lieux/démarches du quotidien (liste fermée) : « Passer à la pharmacie » = vie personnelle (santé), même sans mot de catégorie dans le titre.
+const ERRAND_THEMES = { pharmaci: ['sante'], medecin: ['sante'], dentist: ['sante'], docteur: ['sante'], clinique: ['sante'], epicer: ['epicerie'] };
 function actionHints(title) {
-  const first = tokens(title)[0];
-  return first && ACTION_THEMES[first] ? ACTION_THEMES[first].map(stem) : [];
+  const tk = tokens(title);
+  const first = tk[0];
+  const out = first && ACTION_THEMES[first] ? ACTION_THEMES[first].slice() : [];
+  tk.forEach((w) => { if (ERRAND_THEMES[w]) out.push(...ERRAND_THEMES[w]); });
+  // Un document financier domine son destinataire (« Envoyer la facture au client » = facturation, pas Clients) ; pas pour une double action (« … et relancer le client »).
+  if (tk.includes('factur') && !/\s(?:et|and)\s/i.test(String(title))) out.push('facturation');
+  // « le client Acme » (nom propre après « client ») : client existant, donc travail en cours, pas prospection.
+  if (/\bclient\s+[A-ZÉÈÀ]/.test(String(title))) out.push('livrables');
+  return out.map(stem);
 }
 
 module.exports = { stem, actionHints,  cleanTitle, fold, tokens, ignoreTerms, matchesIgnore, priorityRank, sameTitle, isDuplicate };
