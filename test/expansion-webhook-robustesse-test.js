@@ -112,6 +112,31 @@ const snapshot = () => JSON.stringify([db.prepare('SELECT * FROM activity_subscr
   const logged = []; envcheck.logAtStartup({ RAILWAY_ENVIRONMENT_NAME: 'staging', STRIPE_SECRET_KEY: SECRET }, (x) => logged.push(x));
   ok(logged.length > 0 && logged.every((x) => x.startsWith('[config Expansion]')) && !logged.join('').includes('TOPSECRET'), 'journal de démarrage préfixé, sans secret');
 
+  // Cas limites : vide, espaces, guillemets collés, CRLF ; jamais de valeur dans les messages ; jamais de plantage
+  const dirtyEnv = { RAILWAY_ENVIRONMENT_NAME: 'staging\r', STRIPE_SECRET_KEY: '"sk_test_TOPSECRET1"', STRIPE_WEBHOOK_SECRET: 'whsec_TOPSECRET2\r\n', STRIPE_OFFER1_PRICE_ID: "  'price_TOPSECRET3' ", OFFER_CHECKOUT_OPEN: '1\r', EXPANSION_MAILS: '   ', RESEND_API_KEY: '""', RESEND_FROM: 'TOPSECRET4@x.y ' };
+  m = msgs(dirtyEnv);
+  ok(['RAILWAY_ENVIRONMENT_NAME', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_OFFER1_PRICE_ID', 'OFFER_CHECKOUT_OPEN', 'EXPANSION_MAILS', 'RESEND_API_KEY', 'RESEND_FROM'].every((k) => m.some((x) => x.startsWith(k + ' :'))), 'valeurs sales ou vides : chaque variable nommée');
+  ok(!/TOPSECRET|sk_test_|whsec_|price_/.test(JSON.stringify(m)), 'valeurs sales : aucune valeur dans les messages');
+  ok(!m.some((x) => /format inattendu/.test(x)), 'valeur sale : pas de faux « format inattendu »');
+  ok(msgs({ STRIPE_SECRET_KEY: '' , STRIPE_WEBHOOK_SECRET: '' }).length === 0, 'variables vides : silence');
+  ok(msgs(null).length === 0 && msgs(undefined).length === 0, 'env absent : pas de plantage');
+  const boom = { get STRIPE_SECRET_KEY() { throw new Error('TOPSECRET5 sk_live_x'); } };
+  const lg = []; const w = console.warn; console.warn = (x) => lg.push(String(x));
+  let threw = false; try { envcheck.logAtStartup(boom); envcheck.logAtStartup({ STRIPE_SECRET_KEY: { toString() { throw new Error('TOPSECRET6'); } } }, () => { throw new Error('TOPSECRET7'); }); } catch (e) { threw = true; }
+  console.warn = w;
+  ok(!threw && !lg.join('').includes('TOPSECRET') && !lg.join('').includes('sk_live'), 'exception interne : démarrage intact, rien de sensible journalisé');
+
+  // Aucun appel IA d'Expansion hors budget : seuls les fichiers Expansion appellent l'IA, et uniquement via aibudget.fetchAnthropic (plafonds par compte + par fonction)
+  const fsx = require('fs'), pathx = require('path');
+  const exp = ['server/lib/offerdelivery.js', 'server/lib/offerforms.js', 'server/lib/offerquota.js', 'server/lib/offer1access.js', 'server/lib/subscriptioncron.js', 'server/lib/subscriptionmails.js', 'server/lib/stripe.js', 'server/routes/stripewebhook.js', 'server/routes/offercheckout.js']
+    .filter((f) => fsx.existsSync(pathx.join(__dirname, '..', f))).map((f) => [f, fsx.readFileSync(pathx.join(__dirname, '..', f), 'utf8').replace(/\/\/.*$/gm, '')]);
+  ok(exp.length >= 6, 'fichiers Expansion lus');
+  ok(exp.every(([f, src]) => !/\bfetch\s*\(/.test(src) || f === 'server/lib/stripe.js'), 'aucun fetch direct hors stripe.js dans Expansion');
+  ok(exp.every(([f, src]) => !/ANTHROPIC_API_KEY|api\.anthropic\.com/.test(src) || f === 'server/lib/offerdelivery.js'), 'clé et URL IA seulement dans offerdelivery.js');
+  const od = exp.find(([f]) => f.endsWith('offerdelivery.js'))[1];
+  ok((od.match(/\bfetch\w*\s*\(/g) || []).filter((x) => !/^fetchAnthropic/.test(x)).length === 0 && /aibudget\.fetchAnthropic\(/.test(od) && /takeDailyCap\('offre1-plan'/.test(od), 'offerdelivery : appel IA via aibudget.fetchAnthropic + plafond quotidien offre1-plan');
+  ok(require('../server/lib/aifeaturecaps').capFor('offre1-plan') !== undefined, 'fonction offre1-plan présente dans aifeaturecaps');
+
   server.close();
   process.exit(failed ? 1 : 0);
 })();
