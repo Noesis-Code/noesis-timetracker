@@ -33,7 +33,7 @@ for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => process.exit(130)
 
 // Scripts de test indépendants (un processus chacun, ports éphémères, dossiers via mkTmp) : lancés d'avance en parallèle
 // (3 au plus, TMT_TEST_JOBS pour changer) ; les résultats sont consommés dans l'ordre d'origine, donc mêmes libellés et mêmes comptes.
-const { runPool } = require('./lib/parallel');
+const { runPool, runNode } = require('./lib/parallel');
 const TRADE_DIR = path.join(__dirname, '..', 'trade-tracker', 'test');
 const TRADE_SLOW = ['stepup-test.js', 'sync-charge-test.js', 'broker-e2e-test.js'];
 let tradeFiles = [];
@@ -134,8 +134,8 @@ const SUITE_FILES = [
 ];
 const poolResults = runPool([...tradeFiles, ...SUITE_FILES.map((f) => path.join(__dirname, f))], { serial: ['sync-charge-test.js'] });
 async function runChild(f) {
-  const r = await poolResults.get(path.join(__dirname, f));
-  if (!r) throw new Error('script de test non déclaré dans SUITE_FILES : ' + f);
+  // Script absent de SUITE_FILES (ajouté plus tard) : exécuté en série à son tour, sans perte de couverture.
+  const r = await (poolResults.get(path.join(__dirname, f)) || runNode(path.join(__dirname, f)));
   if (!r.ok) { console.log('  --- sortie de ' + f + ' ---\n' + (r.stdout + r.stderr).split('\n').slice(-30).join('\n')); throw new Error(f + ' échoue'); }
 }
 async function childTrade() {
