@@ -24,7 +24,7 @@ function positionMetrics(pos, usdCad) {
     costNative: round2(costNative), valueNative: round2(valueNative), pnlNative: round2(pnlNative),
     pnlPct: round2(pct(pnlNative, costNative)),
     costCad: round2(costCad), valueCad: round2(valueCad),
-    pnlCad: costCad == null ? null : round2(valueCad - costCad),
+    pnlCad: costCad == null ? null : round2(round2(valueCad) - round2(costCad)), // sur les montants affichés : la somme des gains = gain total au cent près
     priced,
   };
 }

@@ -235,6 +235,9 @@ CREATE TABLE IF NOT EXISTS webauthn_challenges (
   expiresAt TEXT NOT NULL
 );
 `);
+  // Index de lecture (volume : 5 000 transactions) : dernière synchro sans tri temporaire ; achats de l'expert filtrés par type. Idempotents, sans effet sur les résultats.
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_synclog_user_id ON sync_log(userId, id);
+CREATE INDEX IF NOT EXISTS idx_tx_account_type_date ON transactions(accountId, type, date);`);
   // Sessions durcies : inactivité (lastSeenAt), liaison à l'appareil (uaHash), niveau d'authentification (0 = lien seul, 1 = TOTP vérifié), dernière ré-authentification.
   addColumnIfMissing(db, 'sessions', 'lastSeenAt', 'TEXT');
   addColumnIfMissing(db, 'sessions', 'uaHash', 'TEXT');
