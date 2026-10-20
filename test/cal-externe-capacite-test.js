@@ -71,16 +71,16 @@ const fin = (rows, dayCaps, cap) => {
 
 (async () => {
   // Vacances le mardi : une tâche proposée ce jour-là part au mercredi, silencieusement (même semaine)
-  let r = await fin([['V', key, tue, 30]], { [tue]: 0 });
+  let r = await fin([['Faire V', key, tue, 30]], { [tue]: 0 });
   let t = r.tasks[0];
   assert(t.day === wed && t.week === nextMon && !t.moved && r.movedCount === 0, 'jour de vacances : tâche replacée le prochain jour ouvert, même semaine, silencieux');
   // Jour Jacopo (60 min) : 3 x 30 min -> la 3e passe au jour suivant, silencieusement
-  r = await fin([['A1', key, mon, 30], ['A2', key, mon, 30], ['A3', key, mon, 30]], { [mon]: 60, [tue]: 0 });
+  r = await fin([['Faire A1', key, mon, 30], ['Faire A2', key, mon, 30], ['Faire A3', key, mon, 30]], { [mon]: 60, [tue]: 0 });
   const by = Object.fromEntries(r.tasks.map((x) => [x.title, x]));
-  assert(by.A1.day === mon && by.A2.day === mon && by.A3.day === wed && !by.A3.moved, 'capacité du jour travaillé ailleurs respectée ; déplacement intra-semaine sans signalement');
+  assert(by['Faire A1'].day === mon && by['Faire A2'].day === mon && by['Faire A3'].day === wed && !by['Faire A3'].moved, 'capacité du jour travaillé ailleurs respectée ; déplacement intra-semaine sans signalement');
   // Déborde sur toute la fin de semaine -> autre semaine : signalé
-  r = await fin([['S1', key, sun, 30], ['S2', key, sun, 30], ['S3', key, sun, 30]], { [sun]: 60 });
-  const s3 = r.tasks.find((x) => x.title === 'S3');
+  r = await fin([['Faire S1', key, sun, 30], ['Faire S2', key, sun, 30], ['Faire S3', key, sun, 30]], { [sun]: 60 });
+  const s3 = r.tasks.find((x) => x.title === 'Faire S3');
   assert(s3.day === mon2 && s3.moved === true && s3.fromWeek === nextMon && s3.week === mon2 && r.movedCount === 1, 'déplacement vers une AUTRE semaine : toujours signalé');
   // Le test d'une saisie manuelle : les tâches proposées seulement sont déplacées (rien d'écrit par balanceDays)
   console.log(failed ? '\n' + failed + ' échec(s)' : '\nTout est ok');

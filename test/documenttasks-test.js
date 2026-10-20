@@ -57,7 +57,7 @@ function call(path_, userId, id, body) {
   assert(r.st === 200 && r.b.tasks.length === 12 && r.b.found === 12 && r.b.kept === 12, '12 tâches renvoyées -> 12 proposées');
   assert(/TOUTES les tâches/.test(dt.SYSTEM) && /renvoie N/.test(dt.SYSTEM), 'prompt : exhaustivité demandée');
   assert(Array.isArray(r.b.categories) && r.b.categories.some((c) => c.key === key), 'catégories renvoyées pour le sélecteur');
-  dt.setCaller(async () => ({ stopReason: 'max_tokens', text: '{"tasks":[{"title":"A","key":"' + key + '","week":null,"minutes":10},{"title":"B","key":"' + key + '","week":null,"minutes":10},{"title":"C coup' }));
+  dt.setCaller(async () => ({ stopReason: 'max_tokens', text: '{"tasks":[{"title":"Faire A","key":"' + key + '","week":null,"minutes":10},{"title":"Faire B","key":"' + key + '","week":null,"minutes":10},{"title":"C coup' }));
   r = await call('propose', 'own', act, { instruction: 'x' });
   assert(r.st === 200 && r.b.tasks.length === 2 && r.b.repaired === true && r.b.aiTruncated === true, 'réponse tronquée : objets complets gardés et signalé');
   const exact = goals.addDays(monday, 9);
@@ -69,7 +69,7 @@ function call(path_, userId, id, body) {
   assert(r.b.addedCount === 1 && due && due.d === exact, 'apply : date exacte posée comme échéance');
   dt.resetRate();
 
-  dt.setCaller(async () => '{"tasks":[{"title":"x","key":"' + key + '","week":null,"minutes":500}]}');
+  dt.setCaller(async () => '{"tasks":[{"title":"Faire x","key":"' + key + '","week":null,"minutes":500}]}');
   r = await call('propose', 'own', act, { instruction: 'x', files: [] });
   assert(r.st === 200 && r.b.tasks.length === 1, 'consigne seule acceptée');
 

@@ -24,7 +24,7 @@ const ok = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; consol
 const stripeCalls = [];
 let portalMode = 'ok';
 let subscription = { status: 'active', current_period_start: 1700000000, current_period_end: 1702600000, cancel_at_period_end: false };
-const plan = { confidence: 95, subProjects: [1, 2, 3].map((n) => ({ name: 'Sous-projet ' + n, description: 'Description ' + n, tasks: ['a', 'b', 'c', 'd', 'e'].map((t) => t + n) })) };
+const plan = { confidence: 95, subProjects: [1, 2, 3].map((n) => ({ name: 'Sous-projet ' + n, description: 'Description ' + n, tasks: ['a', 'b', 'c', 'd', 'e'].map((t) => 'Faire ' + t + n) })) };
 const json = (body, status = 200) => ({ ok: status < 400, status, json: async () => body, clone() { return this; } });
 global.fetch = async (url, init = {}) => {
   url = String(url);

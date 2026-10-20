@@ -26,35 +26,35 @@ const fin = (rows, doc) => {
 };
 
 (async () => {
-  let p = parse([['A', key, wed, 30]]);
+  let p = parse([['Faire A', key, wed, 30]]);
   assert(p.tasks[0].day === wed && p.tasks[0].week === nextMon, 'jour proposé accepté, week = lundi du jour');
 
-  p = parse([['A', key, sat, 30], ['B', key, sun, 30]]);
+  p = parse([['Faire A', key, sat, 30], ['Faire B', key, sun, 30]]);
   assert(p.tasks[0].day === sat && p.tasks[1].day === sun && p.tasks[0].week === nextMon, 'week-end accepté (7 jours travaillés), non décalé');
   assert(dt.buildContext('own', act).dayCapacityMinutes === 60, 'capacité du jour = capacité hebdo / 7');
 
-  p = parse([['A', key, sat, 30]], { docText: 'Livrer le rapport le ' + sat });
+  p = parse([['Faire A', key, sat, 30]], { docText: 'Livrer le rapport le ' + sat });
   assert(p.tasks[0].day === sat && p.tasks[0].exact === true, 'date exacte du document (ISO) : week-end accepté tel quel');
   const d = new Date(sat + 'T00:00:00Z');
   const fr = d.getUTCDate() + ' ' + ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'][d.getUTCMonth()];
   assert(dt.docMentionsDate('Rendre le ' + fr + ' au plus tard', sat) && dt.docMentionsDate('pour le ' + d.getUTCDate() + '/' + (d.getUTCMonth() + 1), sat) && !dt.docMentionsDate('rien ici', sat), 'date du document reconnue (ISO, « 24 oct. », JJ/MM)');
 
-  p = parse([['Passé', key, '1999-01-04', 30], ['Loin', key, '2099-01-05', 30], ['Faux', key, '2026-02-31', 30]]);
+  p = parse([['Faire Passé', key, '1999-01-04', 30], ['Faire Loin', key, '2099-01-05', 30], ['Faire Faux', key, '2026-02-31', 30]]);
   assert(p.tasks.every((t) => t.day === null && t.week === null), 'jour passé, hors horizon ou impossible : rejeté');
-  p = parse([['Hier', key, goals.addDays(today, -3), 30]]);
+  p = parse([['Faire Hier', key, goals.addDays(today, -3), 30]]);
   assert(p.tasks[0].day === null || p.tasks[0].day >= today, 'jamais avant aujourd\'hui');
 
-  p = parse([['Ancien', key, goals.mostRecentMonday(today), 30], ['Lundi futur', key, nextMon, 30]]);
+  p = parse([['Faire Ancien', key, goals.mostRecentMonday(today), 30], ['Faire Lundi futur', key, nextMon, 30]]);
   assert(p.tasks[0].day >= today && isFinite(Date.parse(p.tasks[0].day)) && p.tasks[1].day === nextMon, 'ancien format (lundi de semaine) toujours accepté');
-  const old = dt.parseDetailed(JSON.stringify({ tasks: [{ title: 'Vieux', key, week: nextMon, minutes: 20 }] }), dt.buildContext('own', act));
+  const old = dt.parseDetailed(JSON.stringify({ tasks: [{ title: 'Remplacer le vieux', key, week: nextMon, minutes: 20 }] }), dt.buildContext('own', act));
   assert(old.tasks[0].week === nextMon && old.tasks[0].day === nextMon, 'ancien format objet {tasks:[...]} accepté');
 
   // Débordement : capacité 60 min/jour ; 3 tâches de 30 min le mercredi -> la moins importante (dernière) part au jeudi
-  let r = await fin([['T1', key, wed, 30], ['T2', key, wed, 30], ['T3', key, wed, 30]]);
+  let r = await fin([['Faire T1', key, wed, 30], ['Faire T2', key, wed, 30], ['Faire T3', key, wed, 30]]);
   const by = Object.fromEntries(r.tasks.map((t) => [t.title, t]));
-  assert(by.T1.day === wed && by.T2.day === wed && by.T3.day === thu && !by.T3.moved && by.T3.week === nextMon, 'débordement : tâche proposée la moins importante déplacée au jour suivant (même semaine : silencieux, pas de moved)');
+  assert(by['Faire T1'].day === wed && by['Faire T2'].day === wed && by['Faire T3'].day === thu && !by['Faire T3'].moved && by['Faire T3'].week === nextMon, 'débordement : tâche proposée la moins importante déplacée au jour suivant (même semaine : silencieux, pas de moved)');
   // Date exacte jamais déplacée
-  r = await fin([['E1', key, wed, 60], ['E2', key, wed, 60]], 'à faire le ' + wed + ' (E1 et E2)');
+  r = await fin([['Faire E1', key, wed, 60], ['Faire E2', key, wed, 60]], 'à faire le ' + wed + ' (E1 et E2)');
   assert(r.tasks.every((t) => t.day === wed && !t.moved) && r.dayWarnings.length === 1, 'dates exactes du document jamais déplacées (avertissement par jour)');
   // Aucun jour libre : tout l'horizon plein par des tâches acceptées -> sans jour
   const sp = db.prepare("INSERT INTO sub_projects (activityId, goalCategory, name, createdBy, createdAt) VALUES (?,?,?,?,datetime('now'))").run(act, key, 'x', 'own').lastInsertRowid;
@@ -64,7 +64,7 @@ const fin = (rows, doc) => {
   for (let dd = goals.mostRecentMonday(today); dd <= lastDay; dd = goals.addDays(dd, 1)) { ins.run(sp, 'Acceptée ' + dd + ' a', dd); ins.run(sp, 'Acceptée ' + dd + ' b', dd); }
   const ctx1 = dt.buildContext('own', act);
   assert(ctx1.loadByDay[wed] === 60, 'charge acceptée par jour calculée (2 x 30 min par défaut)');
-  r = await fin([['Z', key, wed, 30]]);
+  r = await fin([['Faire Z', key, wed, 30]]);
   assert(r.tasks[0].day === null && r.tasks[0].noRoom === true && r.tasks[0].week === nextMon, 'aucune place : tâche sans jour (à choisir)');
   const acceptedBefore = db.prepare("SELECT COUNT(*) c FROM sub_project_items WHERE label LIKE 'Acceptée%' AND dueDate = ?").get(wed).c;
   assert(acceptedBefore === 2, 'tâches acceptées jamais déplacées');

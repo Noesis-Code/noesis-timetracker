@@ -49,7 +49,7 @@ const lastMondayOf = (y) => goals.addDays(goals.yearAnchor(y), 51 * 7);
   const parts = dt.buildUserParts(ctx, 'plan', '');
   assert(parts.stable.includes(target) || parts.stable.includes(target.slice(5)), 'prompt : semaine +30 citée');
   assert(/Objectif lointain/.test(parts.stable) && !/semaine du/.test(parts.stable), 'prompt : objectif listé en format compact');
-  const reply = JSON.stringify({ t: [['Tâche liée', key, target, 60], ['Date exacte lointaine', key, goals.addDays(target, 2), 30], ['Hors horizon', key, '2099-01-04', 30], ['Passé', key, '1999-01-04', 30]] });
+  const reply = JSON.stringify({ t: [['Relier une tâche', key, target, 60], ['Fixer date exacte lointaine', key, goals.addDays(target, 2), 30], ['Placer hors horizon', key, '2099-01-04', 30], ['Rattraper le passé', key, '1999-01-04', 30]] });
   const parsed = dt.parseDetailed(reply, ctx);
   assert(parsed.tasks[0].week === target, 'tâche liée : semaine +30 acceptée');
   assert(parsed.tasks[1].day === goals.addDays(target, 2) && parsed.tasks[1].week === target, 'date exacte dans l\'horizon (jour quelconque) acceptée');

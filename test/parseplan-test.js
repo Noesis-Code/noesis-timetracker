@@ -5,7 +5,7 @@ process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const { parsePlan } = require('../server/lib/offerdelivery');
-const json = JSON.stringify({ subProjects: [1, 2, 3].map((i) => ({ name: 'SP' + i, description: 'd', tasks: ['t1', 't2'] })) });
+const json = JSON.stringify({ subProjects: [1, 2, 3].map((i) => ({ name: 'SP' + i, description: 'd', tasks: ['Faire t1', 'Faire t2'] })) });
 const ok = (t) => { try { return parsePlan(t).length === 3; } catch (e) { return false; } };
 assert(ok(json), 'JSON nu accepté');
 assert(ok('```json\n' + json + '\n```'), 'JSON entouré de ```json accepté');
