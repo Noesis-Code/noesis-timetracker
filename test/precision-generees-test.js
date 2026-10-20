@@ -53,13 +53,8 @@ assert(out.dropped.invalide === 1 && out.dropped.doublon === 1, 'parseDetailed :
 assert(out.dropped.raisons.sansSens === 1, 'parseDetailed : raison comptée sans titre');
 const wk = require('../server/lib/goalsweeklyauto');
 assert(!/en français/.test(wk.SYSTEM_PROMPT) && /langue du grand objectif/.test(wk.SYSTEM_PROMPT), 'goalsweeklyauto : langue suivie (pas de « en français » codé en dur)');
-// Saisie manuelle jamais altérée : checkGenerated n'est appelé que sur la sortie de l'IA (documenttasks, offerdelivery), jamais sur le chemin de saisie.
-const fs = require('fs'), pth = require('path');
-const callers = ['server/lib', 'server/routes'].flatMap((d) => fs.readdirSync(pth.join(__dirname, '..', d)).filter((f) => f.endsWith('.js')).map((f) => d + '/' + f))
-  .filter((f) => /checkGenerated/.test(fs.readFileSync(pth.join(__dirname, '..', f), 'utf8'))).sort();
-assert(callers.join(',') === 'server/lib/documenttasks.js,server/lib/offerdelivery.js,server/lib/taskprecision.js', 'checkGenerated : appelé seulement sur les sorties IA');
-const manual = 'Réunion à 9 h avec l\'équipe'; // saisie manuelle : aucune fonction de ce module n'est appliquée au chemin de saisie
-assert(callers.indexOf('server/routes/goals.js') < 0 && manual === 'Réunion à 9 h avec l\'équipe', 'saisie manuelle avec une heure : intacte (aucune route de saisie n\'appelle checkGenerated)');
+// Saisie manuelle jamais altérée : test de comportement par la VRAIE route de création de tâche (async, plus bas) ; voir le bloc « saisie manuelle ».
+const pth = require('path');
 // Compteur agrégé journalier (sans titre) lu par ai-acceptance-report.
 const ab = require('../server/lib/aibudget');
 const dtq = require('../server/lib/documenttasks');
@@ -77,4 +72,43 @@ assert(new RegExp('documenttasks ' + qr.generated + ' générée\\(s\\), ' + qr.
 const blind = require('./fixtures/task-precision/blind-h61-h90.json').titles;
 const falseRej = blind.filter((t) => !tp.checkGenerated(t, []).title);
 assert(blind.length === 30 && falseRej.length / blind.length <= 0.02, 'lot aveugle h61-h90 : faux rejets ' + falseRej.length + '/30 (<= 2 %)');
-process.exit(failed ? 1 : 0);
+// Lot aveugle h91-h120 (écrit sans relire le validateur) : les titres de plus de 140 caractères sont rejetés VOLONTAIREMENT (consigne de génération) ;
+// ailleurs, aucun faux rejet et aucun titre déformé sauf horaire retiré / ponctuation finale.
+const blind2 = require('./fixtures/task-precision/blind-h91-h120.json');
+const bad2 = blind2.titles.filter((t) => { const r = tp.checkGenerated(t, []); return t.length <= 140 && (!r.title || (r.title !== t.replace(/[\s.]+$/, '') && r.reason !== 'horaire')); });
+assert(blind2.titles.length === 30 && bad2.length / 30 <= 0.02, 'lot aveugle h91-h120 : faux rejets/déformations ' + bad2.length + '/30 (<= 2 %)' + (bad2.length ? ' ' + JSON.stringify(bad2) : ''));
+assert(tp.checkGenerated('Meeting with Léa @ 2:30 pm', []).title === 'Meeting with Léa', 'horaire « @ 2:30 pm » retiré en entier (sans « pm » résiduel)');
+assert(blind2.rejetsAttendus.every((t) => !tp.checkGenerated(t, []).title), 'lot h91-h120 : titres vides de sens rejetés');
+
+// Saisie manuelle : la VRAIE route POST /activities/:id/goals/categories/:key/tasks enregistre le titre tel quel (heure dans le titre, mot seul,
+// « truc »), sans nettoyage ni rejet ; seule la correction orthographique silencieuse (règle du 16 oct. 2026) est permise (ici : appelant identité).
+(async () => {
+  const db = require('../server/db');
+  const goals = require('../server/lib/goals');
+  const router = require('../server/routes/goals');
+  require('../server/lib/silentspellfix').setCaller(async (t) => t);
+  db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('man', 'man', datetime('now'))").run();
+  const act = db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('M','man','')").run().lastInsertRowid;
+  db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?,'man','#fff','')").run(act);
+  const g = goals.addCategory(act, 'Production'); const key = (g && g.key) || goals.categoriesForActivity(act)[0].key;
+  const post = (label) => new Promise((resolve) => {
+    const layer = router.stack.find((l) => l.route && l.route.methods.post && l.route.path === '/activities/:id/goals/categories/:key/tasks');
+    const res = { status(s) { this.st = s; return this; }, json(b) { resolve({ st: this.st || 200, b }); } };
+    const req = { userId: 'man', params: { id: String(act), key }, body: { label }, query: {} };
+    const hs = layer.route.stack.map((x) => x.handle); let i = 0;
+    const next = () => { const h = hs[i++]; if (h) { const r = h(req, res, next); if (r && r.catch) r.catch(() => {}); } };
+    next();
+  });
+  const saisies = ['Réunion à 9 h', 'Épicerie', 'truc'];
+  const ids = [];
+  for (const label of saisies) {
+    const r = await post(label);
+    assert(r.st === 201 && r.b && r.b.label === label, 'saisie manuelle (' + label.length + ' car.) : acceptée par la route, titre renvoyé tel quel');
+    ids.push(r.b && r.b.id);
+  }
+  await new Promise((r) => setTimeout(r, 400)); // laisse passer la correction orthographique silencieuse (appelant identité)
+  const stored = ids.map((id) => db.prepare('SELECT label, origin FROM sub_project_items WHERE id = ?').get(id));
+  assert(stored.every((x, i) => x && x.label === saisies[i]), 'saisie manuelle : titres relus en base identiques (heure conservée, mot seul et titre vague ni nettoyés ni rejetés)');
+  assert(stored.every((x) => x && x.origin === 'user'), 'saisie manuelle : origine « user » (jamais traitée comme sortie IA)');
+  process.exit(failed ? 1 : 0);
+})();

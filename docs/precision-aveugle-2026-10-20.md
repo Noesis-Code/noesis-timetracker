@@ -50,3 +50,27 @@ h07 (synonymes : demanderait un dictionnaire, sur-apprentissage) et h18 (formula
 c45 : était un mot unique (« projet ») -> généralisée. c47 (facture domine le destinataire) : règle sur une classe de documents, gardée. a05 : élargie. a07 : liste fermée de lieux de santé/épicerie (plusieurs mots, par thème), gardée ; limite : ne couvre pas les lieux hors liste.
 
 Jeu : 272 cas, exactitude 99,3 % (global, non indépendant : seuls h01-h30 sont à l'aveugle).
+
+---
+
+# Lot h61-h90 : réserve, et lot h91-h120 vraiment à l'aveugle (repli 17)
+
+**Réserve sur h61-h90** : ces 30 titres ont été écrits APRÈS lecture de `checkGenerated`. Le résultat « 0/30 faux rejet » est donc optimiste : il ne prouve pas le taux réel.
+
+**Lot h91-h120** (`test/fixtures/task-precision/blind-h91-h120.json`) : écrit SANS relire `taskprecision.js`. Mélange : titres de 1 mot, très longs (> 140 car.), chiffres/dates/heures, emoji, noms propres, MAJUSCULES, abréviations (fact., tel., qté, compta), fr/en.
+
+Mesure (avant correction) : 27/30 inchangés ou nettoyés comme prévu ; 3 écarts.
+| Titre (résumé) | Résultat | Verdict |
+|---|---|---|
+| 2 titres de 150-170 car. | rejetés « tropLong » | voulu (consigne de génération : 140 car. max), pas un défaut |
+| « Meeting with … @ 2:30 pm » | « Meeting with … pm » | VRAI DÉFAUT : l'alternation heure testait « 2:30 » avant « 2:30 pm » |
+| « … ACME Corp. » | point final retiré | nettoyage normal de ponctuation finale |
+Limite notée : un mot sans sens non listé (« asdf ») est conservé (volontaire : pas de liste de mots, pour éviter les faux rejets).
+
+Correction (classe, pas un cas) : dans `FIXED_TIME`, les formes am/pm sont essayées AVANT les formes « 9 h »/« 10:30 », après un « à / at / @ / vers ». Taux réel de faux rejet à l'aveugle : 0/28 hors titres trop longs ; 1 déformation sur 30 (corrigée). Les 4 titres vides de sens du lot (`rejetsAttendus`) sont rejetés.
+
+# Garde ajoutée au test
+`test/precision-generees-test.js` (qui n'était PAS lancé par `run-tests.js` : maintenant branché) crée des tâches manuelles par la vraie route (« Réunion à 9 h », « Épicerie », « truc ») et vérifie qu'elles sont enregistrées telles quelles. `test/saisie-manuelle-proposition-test.js` : l'IA (faux client) propose de changer une saisie manuelle -> rien n'est modifié avant validation, avant/après champ par champ, refus mémorisé et non re-proposé au cycle suivant. Aucun écart de code trouvé sur ce point.
+
+# Table `generation_quality_log`
+Colonnes : `day`, `feature`, `generated`, `rejected`, `cleaned`. Aucun identifiant de compte ni titre : compteur agrégé par jour et fonction. Rien à effacer à la suppression de compte (et le test `precision-generees-test.js` vérifie que les colonnes sont exactement celles-là).

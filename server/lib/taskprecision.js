@@ -120,7 +120,7 @@ function sameTitle(a, b) {
 const MAX_GENERATED_TITLE = 140;
 const HM = '\\d{1,2}\\s*(?:h\\s*\\d{0,2}|:\\d{2})', AMPM = '\\d{1,2}(?:[:.]\\d{2})?\\s*(?:am|pm)';
 // Heure précise : « à 14 h », « 14 h 30 », « 10:30 », « 3pm », « de 9 h à 10 h ». Un « 2 h » nu reste une durée, jamais un horaire.
-const FIXED_TIME = new RegExp('\\s*(?:(?<=^|\\s)(?:à|a|vers|dès|de|at|@)\\s+(?:' + HM + '|' + AMPM + ')|\\b\\d{1,2}\\s*h\\s*\\d{2}\\b|\\b\\d{1,2}:\\d{2}\\b|\\b' + AMPM + '\\b)(?:\\s*(?:à|a|-|–|to)\\s*(?:' + HM + '|' + AMPM + '))?', 'i');
+const FIXED_TIME = new RegExp('\\s*(?:(?<=^|\\s)(?:à|a|vers|dès|de|at|@)\\s+(?:' + AMPM + '|' + HM + ')|\\b\\d{1,2}\\s*h\\s*\\d{2}\\b|\\b\\d{1,2}:\\d{2}\\b|\\b' + AMPM + '\\b)(?:\\s*(?:à|a|-|–|to)\\s*(?:' + AMPM + '|' + HM + '))?', 'i');
 // Mots vides de sens : un titre qui n'est fait QUE de ces mots (« truc », « à faire », « todo ») ne désigne aucune action. Tout autre mot, même seul
 // (« Épicerie », « Facture Hydro-Québec », « Vérifier », « Acme »), est une tâche valable : pas de liste de verbes, donc pas de faux rejets.
 const VAGUE = new Set(['truc', 'trucs', 'chose', 'choses', 'machin', 'bidule', 'divers', 'autre', 'autres', 'rien', 'tache', 'taches', 'task', 'tasks', 'todo', 'to', 'do', 'stuff', 'thing', 'things', 'misc', 'tbd', 'tba', 'etc', 'na', 'n', 'le', 'la', 'les', 'l', 'un', 'une', 'des', 'du', 'de', 'the', 'an', 'mon', 'ma', 'mes', 'notre', 'nos', 'ce', 'cette', 'ca', 'cela', 'ceci', 'it', 'this', 'that']);
