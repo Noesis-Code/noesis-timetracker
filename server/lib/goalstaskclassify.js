@@ -123,7 +123,7 @@ function buildPrompt(label, categories, examples, opts) {
   }).join('\n');
   const exampleLines = (examples && examples.length)
     ? [
-      "Corrections récentes faites par les membres de cette activité (à suivre en priorité pour des tâches semblables) :",
+      "Tes corrections récentes (à suivre en priorité pour des tâches semblables) :",
       ...examples.map((e) => `- « ${e.label} » → ${e.categoryLabel}`),
       '',
     ]
@@ -291,7 +291,7 @@ async function classifyCategory(activityId, label, opts) {
     if (opts.skipAi) return unresolved(null, null); // mode « Absence » : l'utilisateur choisit lui-même
     if (!configured()) return unresolved(null, 'Clé API absente.');
     try {
-      const text = await callTiered(label, categories, goalsclassifyexamples.recentExamples(activityId, categories), true, MAX_OUTPUT_TOKENS_STRICT);
+      const text = await callTiered(label, categories, goalsclassifyexamples.recentExamples(activityId, categories, undefined, opts && opts.userId), true, MAX_OUTPUT_TOKENS_STRICT);
       const unc = extractUncertain(text, categories);
       if (unc) return unresolved(unc, null);
       const key = extractKey(text, categories);
@@ -306,7 +306,7 @@ async function classifyCategory(activityId, label, opts) {
     return { key: fallbackKey, usedAi: false, aiError: null };
   }
   try {
-    const text = await callTiered(label, categories, goalsclassifyexamples.recentExamples(activityId, categories), false, MAX_OUTPUT_TOKENS);
+    const text = await callTiered(label, categories, goalsclassifyexamples.recentExamples(activityId, categories, undefined, opts && opts.userId), false, MAX_OUTPUT_TOKENS);
     const key = extractKey(text, categories);
     if (key) return { key, usedAi: true, aiError: null };
     return { key: fallbackKey, usedAi: false, aiError: "Réponse de Noèsis inexploitable." };
@@ -374,7 +374,7 @@ async function addTaskWithAutoCategory(activityId, userId, label, opts) {
   if (!clean) throw Object.assign(new Error('Intitulé de la tâche requis.'), { statusCode: 400 });
   if (clean.length > 300) throw Object.assign(new Error('Intitulé trop long (300 caractères maximum).'), { statusCode: 400 });
 
-  const cls = await classifyCategory(activityId, clean, opts);
+  const cls = await classifyCategory(activityId, clean, Object.assign({}, opts, { userId }));
   // Mode strict : classement non résolu, rien n'est créé (voir classifyCategory).
   if (cls.unresolved) return cls;
   const { key, usedAi, aiError } = cls;

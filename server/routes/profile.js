@@ -818,6 +818,13 @@ router.post('/profile/:id/set-pin', (req, res) => {
 //    restant") et un message du fil de discussion d'un sous-projet
 //    perdent seulement leur auteur (ON DELETE SET NULL, voir server/db.js),
 //    le contenu et les votes/messages des autres survivent dans les deux cas.
+// Remise à zéro de l'apprentissage du classement IA (exemples tirés des corrections du compte). Sans écran : appelable par l'API.
+router.delete('/profile/:id/ai-examples', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux effacer que ton propre apprentissage.' });
+  res.json({ deleted: require('../lib/goalsclassifyexamples').resetForUser(req.userId) });
+});
+
 router.delete('/profile/:id', (req, res) => {
   // Point de sécurité signalé par la discussion Sécurité (6 septembre 2026) :
   // cette route n'était protégée que par le PIN, jamais par la session.

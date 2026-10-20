@@ -269,6 +269,11 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'precision-taches-test.js')], { encoding: 'utf8' }); } catch (e) { prOk = false; }
   assert(prOk, 'précision des tâches (test/precision-taches-test.js) passe');
 
+  // Apprentissage par l'usage (exemples par utilisateur, plafond de prompt, remise à zéro, rapport).
+  let apOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'apprentissage-usage-test.js')], { encoding: 'utf8' }); } catch (e) { apOk = false; }
+  assert(apOk, 'apprentissage par l\'usage (test/apprentissage-usage-test.js) passe');
+
   // Stripe Tax : corps Checkout avec/sans STRIPE_TAX_ENABLED (sans réseau).
   let txOk = true;
   try { execFileSync('node', [path.join(__dirname, 'stripe-tax-test.js')], { encoding: 'utf8' }); } catch (e) { txOk = false; }
