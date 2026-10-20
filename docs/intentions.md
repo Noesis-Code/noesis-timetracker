@@ -7,18 +7,30 @@ Règle d'écriture : le coordinateur ajoute l'entrée à la réception de la dem
 ## 19-20 oct. 2026
 
 ### Chantier 1 — Trade Tracker
-- **19 oct.** Le Trade doit apparaître en « + » dans « modifier l'activité ». [Formulation exacte d'Émilien à reporter ici depuis sa discussion : le coordinateur complète la citation mot pour mot ; la présente ligne n'en est que le résumé.]
+- **19 oct.** Mots exacts :
+  > « Au tradetracker, je souhaite que ce ne soit pas un bouton ni un onglet dans les paramètres, mais une extension ajoutable directement depuis le volet activé »
+- **20 oct.** Correction (remplace la précédente interprétation « appui long sur la barre du bas »), mots exacts :
+  > « Ce n'est pas ce que j'ai demandé. J'ai demandé... Dans le volet activité, lorsqu'on clique sur modifier l'activité, d'ajouter une option avec un plus où on peut connecter le module Trade Tracker à l'activité. »
 
 ### Chantier 5 — Simplification et design général
-- **19 oct.** Réglages en plein écran. [Résumé ; citation exacte à compléter par le coordinateur.]
-- **19 oct.** Le « N » du chargement complet, avec le triangle. [Résumé ; citation exacte à compléter.]
+- **19 oct.** Réglages en plein écran, mots exacts :
+  > « Je souhaite que le réglage soit basé sur le même principe qu'une fenêtre de l'écran aussi je ne comprends pas les modifications propres modules et trade tracker n'est pas un module mais une extension »
+- **20 oct.** Écran de chargement (le N), mots exacts, dans l'ordre :
+  > « Commande pour design, je t'ai demandé de changer le N de chargement. Je souhaite qu'il y ait encore le triangle en haut à droite qui apparaisse. Fais moi des maquettes. »
+  > « Rappel, à chaque chargement, le N doit se charger en entier. Soit il charge plus vite, soit on laisse le temps de chargement un peu plus longtemps pour voir le N charger en entier. »
+  > « Pour le N qui charge, je n'aime pas la nouvelle version, honnêtement. Je préférais la première version, celle qui est encore disponible sur la production. Remets-la et éventuellement propose-moi des améliorations en maquette. »
+  [Cette dernière demande remplace les deux précédentes : la version de la production est rétablie ; les améliorations passent par des maquettes, pas par du code.]
 - **19 oct.** Simplification : l'application doit rester simple, on retire avant d'ajouter (voir `SIMPLIFICATION.md`, ouverture du 19 oct.).
 - **20 oct.** Chrono : pas de case en dessous pour suggérer une amélioration (« tu aurais compris par toi-même que dans Chrono, il ne devait pas y avoir une case en dessous pour une amélioration à suggérer »).
 
 ### Chantier 7 — Principal et pilotage
-- **19 oct.** Sept chantiers permanents, jamais moins de sept actifs (voir `CHANTIERS.md`). [Résumé ; citation à compléter.]
+- **19 oct.** Sept chantiers permanents, mots exacts :
+  > « Pour le chantier principal cette chantier doivent tourner en permanence si plus rien à faire trouve de ta affaire, il ne doit jamais y avoir moins de sept chantiers qui tourne en permanence »
+- **20 oct.** Apprentissage, mots exacts :
+  > « En gros, l'objectif, c'est que tu t'entraînes et que tu entraînes les tâches et la génération de tâches dans mon app à comprendre ma personnalité, mon besoin et ma vision. Et que tu t'ajustes par rapport à cela en permanence. Je souhaite que ceci s'applique aussi pour l'app, que les tâches générées par l'app grâce à l'API deviennent de plus en plus performantes au fil de l'utilisation par l'utilisateur. »
+  > « Je souhaite codwer les 2 mais tout dépend du cout de chacune » [mesure + profil par utilisateur]
 - **20 oct.** Demande de la boucle de veille, mots exacts :
   > « garder la partie sur la comparaison avec les apps concurrentes afin de garder un modèle qui passe de 0 à 1. Aussi, je souhaite que tu lises automatiquement les tâches de mon thread tracker. Donc, il faut trouver un moyen pour générer les tâches quasiment en continu en fonction de tes résultats et que les tâches soient suffisamment spécifiques pour que tu les comprennes et que ce soit bien cerné sur ma demande. Ainsi, ça se auto-générera en permanence. Par exemple, pour l'application actuelle, tu aurais compris par toi-même que dans Chrono, il ne devait pas y avoir une case en dessous pour une amélioration à suggérer. »
 
 ## Note d'amorçage
-Seule la dernière citation (20 oct., boucle de veille) est reproduite mot pour mot : les autres demandes n'étaient pas dans le message reçu par l'agent qui a créé ce fichier. Les lignes marquées « résumé » sont à remplacer par les mots exacts d'Émilien (le coordinateur les a).
+Les citations du 19-20 oct. ont été complétées mot pour mot par le coordinateur (20 oct.). Seule l'entrée « Simplification » reste un renvoi à `SIMPLIFICATION.md`.
