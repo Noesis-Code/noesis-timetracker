@@ -34,3 +34,7 @@ prByField.forEach((r) => console.log('  ' + String(r.field).padEnd(14) + r.statu
 const xs = q('SELECT status, COUNT(*) AS n FROM goal_cross_sector_suggestions WHERE createdAt >= ? GROUP BY status', since);
 console.log('Suggestions inter-secteurs : ' + (xs.length ? xs.map((r) => r.status + ' ' + r.n).join(' | ') : 'aucune'));
 console.log('Reformulation : aucun signal stocké (rien n\'est enregistré côté serveur).');
+
+// Tâches générées : compteur agrégé journalier (generation_quality_log), sans titre ni compte.
+const gq = q('SELECT feature, SUM(generated) AS g, SUM(rejected) AS r, SUM(cleaned) AS c FROM generation_quality_log WHERE day >= ? GROUP BY feature', since.slice(0, 10));
+console.log('Tâches générées : ' + (gq.length ? gq.map((r) => r.feature + ' ' + r.g + ' générée(s), ' + r.r + ' rejetée(s) (' + pct(r.r, r.g) + '), ' + r.c + ' nettoyée(s)').join(' | ') : 'aucune mesure'));

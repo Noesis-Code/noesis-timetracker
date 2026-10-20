@@ -170,10 +170,13 @@ function parsePlan(text) {
 
     const tasks = [];
     const skipped = {}; // raison -> nombre (jamais le titre : aucune donnée personnelle dans les journaux)
+    let nGen = 0, nClean = 0;
     (Array.isArray(raw.tasks) ? raw.tasks : []).forEach((t) => {
+      nGen++;
       const chk = require('./taskprecision').checkGenerated(typeof t === 'string' ? t.trim().slice(0, MAX_ITEM_LABEL_LENGTH) : ''); // validateur déterministe : vide/sans sens/horaire fixe écartés
-      if (chk.title) tasks.push(chk.title); else skipped[chk.reason] = (skipped[chk.reason] || 0) + 1;
+      if (chk.title) { tasks.push(chk.title); if (chk.reason) nClean++; } else skipped[chk.reason] = (skipped[chk.reason] || 0) + 1;
     });
+    aibudget.recordQuality('offerdelivery', nGen, nGen - tasks.length, nClean);
     if (Object.keys(skipped).length) console.log('[offerdelivery] taches ecartees=' + Object.keys(skipped).map((k) => k + ':' + skipped[k]).join(','));
     if (!tasks.length) throw new Error(`Sous-projet #${index + 1} ("${name}") : aucune tâche exploitable dans la réponse de Noèsis.`);
 

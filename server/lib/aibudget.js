@@ -47,6 +47,28 @@ CREATE TABLE IF NOT EXISTS ai_usage_log (
 CREATE INDEX IF NOT EXISTS idx_ai_usage_log_day ON ai_usage_log(day, userId);
 `);
 
+// Qualité des tâches générées (chantier Précision) : compteur agrégé par jour et par fonction, SANS titre ni compte.
+db.exec(`
+CREATE TABLE IF NOT EXISTS generation_quality_log (
+  day TEXT NOT NULL,
+  feature TEXT NOT NULL,
+  generated INTEGER NOT NULL DEFAULT 0,
+  rejected INTEGER NOT NULL DEFAULT 0,
+  cleaned INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, feature)
+);
+`);
+// recordQuality(feature, generated, rejected, cleaned, now) : ne lève jamais.
+function recordQuality(feature, generated, rejected, cleaned, now) {
+  try {
+    const n = (v) => Math.max(0, Math.floor(Number(v)) || 0);
+    if (!n(generated)) return;
+    db.prepare(`INSERT INTO generation_quality_log (day, feature, generated, rejected, cleaned) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(day, feature) DO UPDATE SET generated = generated + excluded.generated, rejected = rejected + excluded.rejected, cleaned = cleaned + excluded.cleaned`)
+      .run(todayLocal(now), String(feature || 'autre'), n(generated), n(rejected), n(cleaned));
+  } catch (e) { console.warn('[aibudget] qualite non enregistree :', e && e.message); }
+}
+
 // Détail du cache de prompt par fonctionnalité (jetons lus / écrits dans le cache), pour mesurer l'efficacité.
 for (const col of ['cacheReadTokens', 'cacheWriteTokens']) {
   try { db.exec('ALTER TABLE ai_usage_log ADD COLUMN ' + col + ' INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* colonne déjà présente */ }
@@ -279,4 +301,4 @@ async function fetchAnthropic(feature, url, init, userId) {
   } finally { release(uid, est); }
 }
 
-module.exports = { usageReport, fallbackReport, check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, estimateMaxCost, runAs, currentUser, fetchAnthropic, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
+module.exports = { recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, estimateMaxCost, runAs, currentUser, fetchAnthropic, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };

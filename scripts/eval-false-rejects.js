@@ -16,5 +16,7 @@ function run(name, list) {
   bad.forEach(([t, r]) => console.log('   - ' + r.reason + ' : ' + t));
   return bad.length;
 }
-const n = run('cases.json', real) + run('courts', SHORT);
-console.log('TOTAL faux rejets : ' + n + '/' + (real.length + SHORT.length) + ' (' + (100 * n / (real.length + SHORT.length)).toFixed(1) + ' %)');
+const BLIND = require('../test/fixtures/task-precision/blind-h61-h90.json').titles;
+const n = run('cases.json', real) + run('courts', SHORT) + run('aveugle h61-h90', BLIND);
+const tot = real.length + SHORT.length + BLIND.length;
+console.log('TOTAL faux rejets : ' + n + '/' + tot + ' (' + (100 * n / tot).toFixed(1) + ' %)');

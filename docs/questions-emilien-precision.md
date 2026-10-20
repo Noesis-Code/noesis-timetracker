@@ -9,3 +9,9 @@ Cas réels de `test/fixtures/task-precision/cases.json` dont le bon résultat d�
 - [ ] « Penser au projet » (c45) : un titre à verbe flou et sans sujet précis doit rester « incertain » plutôt qu'être placé sur le premier secteur qui parle de projets ?
 
 - [ ] Lancer l'évaluation réelle sur les 60 cas à l'aveugle h01-h60 (seule mesure fiable du taux réel). Commande : `ANTHROPIC_API_KEY=... node scripts/eval-task-precision.js --live --only=h`. Coût estimé : 60 cas, dont ~11 refusés sans appel (« à ignorer ») = ~49 appels de classement Haiku à ~0,0009 $ = environ 0,05 $ (au plus ~0,15 $ si le repli Sonnet, ~0,0027 $, est déclenché partout). Tarifs et modèles : `docs/ia-modeles.md`.
+
+- [ ] Horaire fixe dans un titre généré par l'IA (aucun champ d'heure sur les tâches ; règle « une liste, jamais des créneaux fixes »). Cocher UNE option :
+  - [ ] A. Retirer l'heure (actuel). « Réunion à 9 h » -> « Réunion » ; « Appeler Paul à 14 h 30 » -> « Appeler Paul » ; « Dentiste 10:30 » -> « Dentiste ». L'heure est perdue.
+  - [ ] B. Garder en mention non contraignante. « Réunion à 9 h » -> « Réunion (vers 9 h) » ; « Appeler Paul à 14 h 30 » -> « Appeler Paul (vers 14 h 30) » ; « Dentiste 10:30 » -> « Dentiste (vers 10 h 30) ». Aucun créneau, l'information survit dans le titre.
+  - [ ] C. Garder tel quel. « Réunion à 9 h » -> « Réunion à 9 h » (le titre de l'IA n'est pas touché ; l'heure reste lisible mais ressemble à un horaire fixe).
+  Recommandation : B (rien de perdu, aucune heure contraignante). Non appliqué tant que rien n'est coché.

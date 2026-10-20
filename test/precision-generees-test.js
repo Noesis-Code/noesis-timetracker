@@ -53,4 +53,28 @@ assert(out.dropped.invalide === 1 && out.dropped.doublon === 1, 'parseDetailed :
 assert(out.dropped.raisons.sansSens === 1, 'parseDetailed : raison comptée sans titre');
 const wk = require('../server/lib/goalsweeklyauto');
 assert(!/en français/.test(wk.SYSTEM_PROMPT) && /langue du grand objectif/.test(wk.SYSTEM_PROMPT), 'goalsweeklyauto : langue suivie (pas de « en français » codé en dur)');
+// Saisie manuelle jamais altérée : checkGenerated n'est appelé que sur la sortie de l'IA (documenttasks, offerdelivery), jamais sur le chemin de saisie.
+const fs = require('fs'), pth = require('path');
+const callers = ['server/lib', 'server/routes'].flatMap((d) => fs.readdirSync(pth.join(__dirname, '..', d)).filter((f) => f.endsWith('.js')).map((f) => d + '/' + f))
+  .filter((f) => /checkGenerated/.test(fs.readFileSync(pth.join(__dirname, '..', f), 'utf8'))).sort();
+assert(callers.join(',') === 'server/lib/documenttasks.js,server/lib/offerdelivery.js,server/lib/taskprecision.js', 'checkGenerated : appelé seulement sur les sorties IA');
+const manual = 'Réunion à 9 h avec l\'équipe'; // saisie manuelle : aucune fonction de ce module n'est appliquée au chemin de saisie
+assert(callers.indexOf('server/routes/goals.js') < 0 && manual === 'Réunion à 9 h avec l\'équipe', 'saisie manuelle avec une heure : intacte (aucune route de saisie n\'appelle checkGenerated)');
+// Compteur agrégé journalier (sans titre) lu par ai-acceptance-report.
+const ab = require('../server/lib/aibudget');
+const dtq = require('../server/lib/documenttasks');
+const qBefore = (() => { const d = new (require('node:sqlite').DatabaseSync)(require('path').join(process.env.NOESIS_DATA_DIR, 'noesis.db'), { readOnly: true }); const r = d.prepare('SELECT * FROM generation_quality_log WHERE feature = ?').get('documenttasks') || { generated: 0, rejected: 0, cleaned: 0 }; d.close(); return r; })();
+dtq.parseDetailed(JSON.stringify({ t: [['Rédiger le devis', 'a', null, 30], ['Truc', 'a', null, 10], ['Appeler Paul à 14 h', 'a', null, 15]] }), { candidates: [{ key: 'a', label: 'A' }], weeks: ['2026-10-19'], today: '2026-10-20', app: { open: [] } });
+const { DatabaseSync } = require('node:sqlite');
+const qdb = new DatabaseSync(pth.join(process.env.NOESIS_DATA_DIR, 'noesis.db'), { readOnly: true });
+const qr = qdb.prepare('SELECT * FROM generation_quality_log WHERE feature = ?').get('documenttasks');
+assert(qr && qr.day === ab.todayLocal() && qr.generated - qBefore.generated === 3 && qr.rejected - qBefore.rejected === 1 && qr.cleaned - qBefore.cleaned === 1, 'compteur journalier : 3 générées, 1 rejetée, 1 nettoyée');
+assert(Object.keys(qr).sort().join(',') === 'cleaned,day,feature,generated,rejected', 'compteur : aucune colonne titre ni compte');
+qdb.close();
+const rep = require('child_process').execFileSync('node', [pth.join(__dirname, '..', 'scripts', 'ai-acceptance-report.js'), '7'], { encoding: 'utf8', env: process.env });
+assert(new RegExp('documenttasks ' + qr.generated + ' générée\\(s\\), ' + qr.rejected + ' rejetée\\(s\\)').test(rep), 'ai-acceptance-report lit le compteur');
+// Lot aveugle h61-h90 : taux de faux rejets <= 2 %.
+const blind = require('./fixtures/task-precision/blind-h61-h90.json').titles;
+const falseRej = blind.filter((t) => !tp.checkGenerated(t, []).title);
+assert(blind.length === 30 && falseRej.length / blind.length <= 0.02, 'lot aveugle h61-h90 : faux rejets ' + falseRej.length + '/30 (<= 2 %)');
 process.exit(failed ? 1 : 0);

@@ -388,10 +388,11 @@ function parseDetailed(text, ctx) {
   const openTitles = ((ctx.app && ctx.app.open) || []).map((o) => o.label);
   const strat = ctx.activityId ? require('./strategy').get(ctx.activityId) : null; // « à ignorer » appliqué strictement, avant tout affichage
   const tp = require('./taskprecision');
-  let toChoose = 0;
+  let toChoose = 0, cleaned = 0, rejected = 0;
   list.forEach((t) => {
-    if (!t || typeof t !== 'object') { dropped.vide++; return; }
+    if (!t || typeof t !== 'object') { dropped.vide++; rejected++; return; }
     const chk = tp.checkGenerated(t.title, openTitles);
+    if (!chk.title) rejected++; else if (chk.reason) cleaned++;
     if (!chk.title) { if (chk.reason === 'doublon') dropped.doublon++; else if (chk.reason === 'vide') dropped.vide++; else { dropped.invalide++; dropped.raisons[chk.reason] = (dropped.raisons[chk.reason] || 0) + 1; } return; }
     const title = chk.title;
     if (strat && strat.ignore && tp.matchesIgnore(title, strat.ignore)) { dropped.ignore++; return; }
@@ -412,6 +413,7 @@ function parseDetailed(text, ctx) {
     const rd = resolveDay(t.week != null ? t.week : t.day, ctx);
     tasks.push({ title, key, categoryLabel: labels.get(key), toChoose: pick, week: rd ? goals.mostRecentMonday(rd.day) : null, day: rd ? rd.day : null, exact: !!(rd && rd.exact), moved: false, minutes: Number.isFinite(mn) && mn >= 5 && mn <= 1440 ? mn : null });
   });
+  aibudget.recordQuality('documenttasks', list.length, rejected, cleaned);
   return { tasks, found: list.length, dropped, toChoose, repaired };
 }
 
