@@ -255,8 +255,31 @@ function openDb(file) {
   const db = new DatabaseSync(f);
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA foreign_keys = ON');
+  backupBeforeMigration(db, f);
   migrate(db);
+  const { SCHEMA_VERSION } = require('./lib/backup');
+  if (db.prepare('PRAGMA user_version').get().user_version < SCHEMA_VERSION) db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   return db;
+}
+
+// Avant de faire monter le schéma (user_version de la base < version du code), copie cohérente de la base existante dans
+// <dossier>/backups/avant-migration-<version>.db (droits 600). Base neuve ou en mémoire : rien à protéger. Échec de la copie = démarrage refusé.
+function backupBeforeMigration(db, file) {
+  if (file === ':memory:') return;
+  const { SCHEMA_VERSION } = require('./lib/backup');
+  const uv = db.prepare('PRAGMA user_version').get().user_version;
+  if (uv >= SCHEMA_VERSION) return;
+  if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'tt_users'").get()) return;
+  const dir = path.join(path.dirname(path.resolve(file)), 'backups');
+  const out = path.join(dir, `avant-migration-${uv}.db`);
+  try {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    if (fs.existsSync(out)) fs.unlinkSync(out);
+    db.exec(`VACUUM INTO '${out.replace(/'/g, "''")}'`);
+    fs.chmodSync(out, 0o600);
+  } catch (e) {
+    throw new Error('Sauvegarde avant migration impossible (' + e.message + ') : démarrage refusé, la base n\'a pas été modifiée.');
+  }
 }
 
 module.exports = { openDb, migrate, addColumnIfMissing, hasColumn, dataDir };
