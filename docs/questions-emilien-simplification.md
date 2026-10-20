@@ -26,7 +26,7 @@ Pour chaque ligne : cocher **retirer**, **garder** ou **déplacer**. Détails : 
 - [ ] Pastille orange sur « Feuille de route » : passer en violet / retirer / garder
 
 ## Benchmark
-- [ ] Le benchmark n'a pas pu consulter le web (accès refusé) : relancer depuis une session avec accès web pour vérifier les chiffres de Toggl, Clockify, Harvest ? oui / non
+- Benchmark Toggl, Clockify, Harvest (web refusé) : fusionné avec Trade Q8 (une seule case : session avec accès web, `questions-emilien-trade.md`).
 
 ## Réglages, Profil, Objectifs, Activité (audit `audit-ecrans-…`, 20 oct.)
 - [ ] Orange hors suppression (bouton « Déconnexion », bandeaux « Plafond atteint / Non réalisées », pastilles d'activité) : passer en violet / retirer / garder
