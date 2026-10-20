@@ -24,7 +24,13 @@ def ok(c, m):
     if not c: raise AssertionError(m)
 bodies = []
 with sync_playwright() as p:
-    b = p.chromium.launch(executable_path=CHROME)
+    # Lancement seulement : sous charge (2 CPU, suites en parallèle) Chromium peut dépasser le délai ; une nouvelle tentative, plus patiente.
+    # Les assertions plus bas ne sont jamais rejouées.
+    try:
+        b = p.chromium.launch(executable_path=CHROME, timeout=45000)
+    except Exception:
+        time.sleep(5)
+        b = p.chromium.launch(executable_path=CHROME, timeout=90000)
     c = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, has_touch=True, is_mobile=True, base_url=base, locale='fr-CA', service_workers='block')
     pg = c.new_page()
     pg.on('request', lambda r: bodies.append(r.post_data or '') if r.method == 'POST' else None)

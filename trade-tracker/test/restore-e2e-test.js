@@ -43,10 +43,25 @@ const stub = { name: 'stub', fetchPortfolio: async () => ({ broker: 'questrade',
       original = await (await fetch(base + '/api/portfolio', { headers: { cookie } })).json();
       assert.strictEqual(original.accounts.length, 1);
     } finally { server.close(); }
+    // Tables encore vides après les parcours : remplies à la main pour que la restauration soit vérifiée sur TOUTES les tables
+    // (une table ajoutée plus tard et restée vide fait échouer la garde ci-dessous : à remplir ici).
+    const nick = db.prepare("SELECT id FROM tt_users WHERE tmtUserId='nick'").get().id;
+    const tx1 = db.prepare('SELECT id FROM transactions LIMIT 1').get().id;
+    db.prepare("INSERT INTO auth_lockouts (key,fails,lastFailAt,lockedUntil) VALUES ('acct:" + nick + "',3,'2026-03-05T10:00:00.000Z','2026-03-05T10:05:00.000Z')").run();
+    db.prepare("INSERT INTO events (type,userId,transactionId,payload) VALUES ('purchase',?,?,'{}')").run(nick, tx1);
+    db.prepare("INSERT INTO history (userId,date,valueCad,netFlowCad,returnPct,idx) VALUES (?,?,?,?,?,?)").run(nick, '2026-03-05', 60, 50, 0.1, 100.1);
+    db.prepare("INSERT INTO invitations (codeHash,email,role,invitedBy,expiresAt) VALUES ('h-" + R(8) + "','client@example.test','client',?,'2026-12-31T00:00:00.000Z')").run(nick);
+    db.prepare("INSERT INTO webauthn_challenges (challengeHash,userId,sessionHash,purpose,expiresAt) VALUES ('c-" + R(8) + "',?,'s-" + R(8) + "','auth','2026-12-31T00:00:00.000Z')").run(nick);
+    db.prepare("INSERT INTO webauthn_credentials (userId,credentialId,publicKey,createdAt) VALUES (?,?,?,'2026-03-05T10:00:00.000Z')").run(nick, 'cred-' + R(8), 'pk-' + R(8));
     const before = dump(db);
+    for (const t of Object.keys(before)) assert(before[t].length > 0, 'table vide au départ, donc non vérifiée par la restauration : ' + t);
+    const totpSecret = B.decrypt(db.prepare('SELECT secretEnc FROM mfa_totp').get().secretEnc, env, 'totp:' + nick);
     for (const t of ['tt_users', 'accounts', 'positions', 'balances', 'transactions', 'sessions', 'broker_tokens', 'mfa_totp', 'mfa_backup_codes', 'audit_log', 'sync_log']) assert(before[t].length > 0, 'données de départ : ' + t);
     const bfile = BK.backupTo(db, path.join(dataA, 'backups'));
     db.close();
+    // Fichier de sauvegarde brut (octets) : ni le jeton courtier, ni le secret TOTP, ni les clés ne s'y trouvent en clair.
+    const raw = fs.readFileSync(bfile).toString('latin1');
+    for (const [nom, v] of [['jeton courtier', BROKER], ['secret TOTP', totpSecret], ['TRADE_TOKEN_KEY', env.TRADE_TOKEN_KEY], ['TRADE_LINK_SECRET', env.TRADE_LINK_SECRET]]) assert(!raw.includes(v), nom + ' en clair dans la sauvegarde');
 
     // restauration par le vrai script, dans un dossier neuf
     const dataB = path.join(dir, 'b'); fs.mkdirSync(dataB);
