@@ -22,6 +22,11 @@ const never = [['Envoyer Alpha à Bravo', 'Envoyer Bravo à Alpha'], ['Virer 100
 assert(never.every(([a, b]) => !tp.sameTitle(a, b)), 'cas adverses (direction inversée, négation, sigle, lettre, nombre, titre plus long) : jamais fusionnés');
 assert(tp.sameTitle('Appeler le plombier', 'APPELER  PLOMBIER !') && tp.isDuplicate('Rendez-vous dentiste', ['Prendre RDV dentiste', 'Rendez vous dentiste']), 'mise en forme / RDV : toujours reconnus');
 
+// ---- « mar. » : mars derrière un numéro, mardi sinon (temporalvocab.canon) ----
+const tv = require('../server/lib/temporalvocab');
+assert(tv.canon('Payer le 3 mar.') === 'Payer le 3 mars' && tv.canon('Appeler 15 mar. demain') === 'Appeler 15 mars demain', '« 3 mar. » = mars (pas « 3 mardi »)');
+assert(tv.canon('Rdv mar. 9h') === 'Rdv mardi 9h' && tv.canon('mar. prochain') === 'mardi prochain', '« mar. » seul = mardi');
+
 (async () => {
   // ---- (1 bis) génération en lot vs tâches ouvertes ; (2) faites / archivées ----
   const dt = require('../server/lib/documenttasks');

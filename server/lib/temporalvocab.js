@@ -13,7 +13,7 @@ const EN_MONTHS = { jan: 'janvier', feb: 'fevrier', mar: 'mars', apr: 'avril', m
 const DAY_ABBR = { lun: 'lundi', mar: 'mardi', mer: 'mercredi', jeu: 'jeudi', ven: 'vendredi', sam: 'samedi', dim: 'dimanche', mon: 'monday', tue: 'tuesday', tues: 'tuesday', wed: 'wednesday', thu: 'thursday', thur: 'thursday', thurs: 'thursday', fri: 'friday', sat: 'saturday', sun: 'sunday' };
 const DAY_ABBR_BARE = new Set(['tue', 'tues', 'wed', 'thu', 'thur', 'thurs', 'fri']);
 // Mois abrégés français (derrière un numéro de jour seulement : « 5 nov. », « 1 sept », jamais « sept jours »).
-const MONTH_ABBR = { janv: 'janvier', jan: 'janvier', fevr: 'fevrier', fev: 'fevrier', avr: 'avril', juil: 'juillet', sept: 'septembre', sep: 'septembre', oct: 'octobre', nov: 'novembre', dec: 'decembre' };
+const MONTH_ABBR = { mar: 'mars', janv: 'janvier', jan: 'janvier', fevr: 'fevrier', fev: 'fevrier', avr: 'avril', juil: 'juillet', sept: 'septembre', sep: 'septembre', oct: 'octobre', nov: 'novembre', dec: 'decembre' };
 
 const DAY_NAMES = '(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday)';
 // Fragment de regex : un jour abrégé reconnu (pour le retrait d'une heure collée au jour : « lun. 9h »).
@@ -58,7 +58,7 @@ function canon(text) {
   s = s.replace(/(^|[^\d:])(\d{1,2})\s?([ap])\.?m\.?(?![a-z])/gi, (all, pre, h, ap) => (+h >= 1 && +h <= 12) ? pre + (+h % 12 + (/p/i.test(ap) ? 12 : 0)) + ' h' : all);
   s = s.replace(/(\d)\s?H\b/g, '$1 h');
   s = s.replace(/[A-Za-zÀ-ÿ]{5,}/g, (w) => { const f = fixTimeTypo(strip(w).toLowerCase()); return f === strip(w).toLowerCase() ? w : f; });
-  s = s.replace(/(^|[\s(,;])([A-Za-zéÉ]{3,5})\.(?=[\s),;:]|$)/g, (all, pre, w) => { const k = strip(w).toLowerCase(); return DAY_ABBR[k] ? pre + DAY_ABBR[k] : all; });
+  s = s.replace(/(^|[\s(,;])([A-Za-zéÉ]{3,5})\.(?=[\s),;:]|$)/g, (all, pre, w, off, str) => { const k = strip(w).toLowerCase(); if (k === 'mar' && /\d\s*$/.test(str.slice(0, off + pre.length))) return all; return DAY_ABBR[k] ? pre + DAY_ABBR[k] : all; }); // « 3 mar. » = mars (mois après un numéro), « mar. 9h » = mardi
   s = s.replace(/(^|[\s(,;])([A-Za-z]{3,5})(?=[\s),;:]|$)/g, (all, pre, w) => { const k = w.toLowerCase(); return DAY_ABBR_BARE.has(k) ? pre + DAY_ABBR[k] : all; });
   s = s.replace(/(\d{1,2}(?:er)?)\s+([A-Za-zéÉûÛ]{3,5})\.?(?=[\s),;:.]|$)/g, (all, d, w) => { const m = MONTH_ABBR[strip(w).toLowerCase()]; return m ? d + ' ' + m : all; });
   s = s.replace(/apr[eè]s-demain/gi, 'apres demain');
