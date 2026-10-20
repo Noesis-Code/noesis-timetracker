@@ -619,6 +619,7 @@ function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel,
 }
 
 module.exports = {  placeCaptureDefault,
+  buildMatchPrompt,
   dateForCapture,
   objectiveTarget,
   matchObjective,

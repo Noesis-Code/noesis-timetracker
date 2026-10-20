@@ -23,3 +23,7 @@ Alerte de dépassement de coût (20 oct. 2026, `docs/ia-pire-cas-2026-10-20.md`)
 - [ ] Courriel Resend : un courriel par dépassement du jour ; demande une adresse de destination (`ALERT_EMAIL`) et une clé Resend active en production.
 - [ ] Seuils d'alerte : adopter la règle jour = 1 $ x comptes actifs, semaine = 3,5 $ x comptes actifs (aujourd'hui 8 $ et 5 $, la semaine est incohérente avec le jour) ?
 
+
+Entrées IA bornées (repli 24, 20 oct. 2026) :
+- [ ] Accepter la troncature inter-secteurs (objectif actuel du candidat 240 caractères, description 160 ; -56 % d'entrée au pire cas, `docs/ia-entree-bornee-2026-10-20.md`) ? Si non, cocher ici : revenir au texte complet (retirer `cut(...)` dans `buildPayload`, `server/lib/crosssectorinference.js`). Vérifié : jamais d'identifiant coupé ; décision du modèle non rejouable hors `--live`.
+- [ ] Rapprochement tâche -> objectif : ramener le plafond de candidats envoyés de 60 à 25 (pire cas 5236 -> ~2200 jetons, -58 %, `docs/ia-rapprochement-2026-10-20.md`) ? Risque : un objectif sans mot commun au-delà du 25e n'est plus proposé.
