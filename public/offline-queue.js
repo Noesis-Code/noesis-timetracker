@@ -120,6 +120,7 @@
   //   - autre 4xx (activité quittée ou supprimée, libellé refusé…) → retirée
   //     de la file et signalée, sinon elle bloquerait toutes les suivantes
   //     indéfiniment.
+  var FLUSH_TIMEOUT_MS = 60000; // classement par IA : plus long qu'une requête ordinaire
   var flushing = null;
   function flush() {
     if (flushing) return flushing;
@@ -133,12 +134,17 @@
         var headers = { 'Content-Type': 'application/json' };
         if (it.tz) headers['X-Client-Tz'] = it.tz;
         if (it.key) headers['Idempotency-Key'] = it.key;
+        // Délai maximal (20 oct. 2026) : un lien qui ne répond jamais ne bloque plus toute la file ; la clé d'idempotence rend le rejeu sans doublon.
+        var ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+        var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, FLUSH_TIMEOUT_MS) : null;
         return fetch('/api/activities/' + encodeURIComponent(it.activityId) + '/goals/categories/auto-task', {
           method: 'POST',
           headers: headers,
           credentials: 'same-origin',
           body: JSON.stringify({ label: it.label }),
+          signal: ctrl ? ctrl.signal : undefined,
         }).then(function (r) {
+          if (timer) clearTimeout(timer);
           return r.json().catch(function () { return {}; }).then(function (data) {
             if (r.ok) {
               out.synced.push({
@@ -157,6 +163,7 @@
             return remove(it.id).then(next);
           });
         }, function () {
+          if (timer) clearTimeout(timer);
           out.stopped = true;
           out.remaining = items.length - i + 1;
           return out;

@@ -286,7 +286,7 @@
     if (write) {
       if (navigator.onLine === false) return queueOfflineWrite(method, url, body, write);
       return apiNetwork(method, url, body).catch(function (err) {
-        if (err && err.offline) return queueOfflineWrite(method, url, body, write);
+        if (err && err.offline) return queueOfflineWrite(method, url, body, write, !!err.timedOut);
         throw err;
       });
     }
@@ -483,7 +483,9 @@
     Array.prototype.push.apply(list, out);
   }
 
-  function queueOfflineWrite(method, url, body, w) {
+  // `maybeSent` : la requête a été abandonnée par délai, le serveur a peut-être déjà créé l'élément : on note les clés connues
+  // AVANT l'ajout local pour que le rejeu adopte l'élément créé au lieu d'en créer un second (voir flushOfflineWrites).
+  function queueOfflineWrite(method, url, body, w, maybeSent) {
     var op = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), method: method, url: url, body: body || null,
       kind: w.kind, activityId: w.activityId, at: Date.now(), before: null, tmpKey: null };
     if (w.kind === 'addPole' || w.kind === 'addSecteur') op.tmpKey = 'tmp-' + op.id;
@@ -493,6 +495,10 @@
       var found = targetKey ? findCategoryEntity(doc, targetKey) : null;
       if (found) op.before = { label: found.entity.label, type: found.type };
       var label = body && typeof body.label === 'string' ? body.label.trim() : '';
+      if (maybeSent && (w.kind === 'addPole' || w.kind === 'addSecteur')) {
+        var known = w.kind === 'addPole' ? cats : ((found && found.entity.secteurs) || []);
+        op.knownKeys = known.map(function (x) { return String(x.key); });
+      }
       if (w.kind === 'addPole') cats.unshift({ key: op.tmpKey, label: label, secteurs: [] });
       else if (w.kind === 'addSecteur' && found) (found.entity.secteurs || (found.entity.secteurs = [])).push({ key: op.tmpKey, label: label, parentKey: w.poleKey });
       else if ((w.kind === 'renamePole' || w.kind === 'renameSecteur') && found) found.entity.label = label;
@@ -686,6 +692,35 @@
     else setTimeout(start, 3000);
   }
 
+  // 20 oct. 2026 (Basic, réseau lent) : délai maximal d'une requête, sinon un lien qui ne répond jamais laisse l'écran figé.
+  // Une requête abandonnée par délai est traitée exactement comme une coupure réseau (err.offline, même message) :
+  // les mécanismes de rejeu existants s'appliquent (file hors ligne, chrono hors ligne, détection des doublons).
+  // Appels lents par nature (IA, Drive, fichiers) : délai long, sinon une réponse en cours de calcul serait coupée puis redemandée.
+  var API_TIMEOUT_MS = 20000, API_SLOW_TIMEOUT_MS = 120000;
+  var API_SLOW_RE = /\/(auto-task|rewrite|weekly-proposals|document-tasks|change-proposals|drive|goals\/capture|import|attachments|activity-messages|daily-suggestion|feedback|offer|strategy|recalc|overload|unfinished|realism)(\/|\?|$)/;
+  function apiTimeoutFor(url, body) {
+    if (API_SLOW_RE.test(String(url).split('?')[0])) return API_SLOW_TIMEOUT_MS;
+    return body !== undefined && JSON.stringify(body).length > 200000 ? API_SLOW_TIMEOUT_MS : API_TIMEOUT_MS;
+  }
+  // fetch avec délai maximal ; le signal éventuel de l'appelant (anti-rebond IA) reste honoré.
+  function fetchWithTimeout(url, opts, ms) {
+    if (typeof AbortController !== 'function' || !(ms > 0)) return fetch(url, opts);
+    var ctrl = new AbortController();
+    var timedOut = false;
+    var timer = setTimeout(function () { timedOut = true; ctrl.abort(); }, ms);
+    var outer = opts.signal;
+    if (outer) {
+      if (outer.aborted) ctrl.abort();
+      else outer.addEventListener('abort', function () { ctrl.abort(); });
+    }
+    var o = Object.assign({}, opts, { signal: ctrl.signal });
+    return fetch(url, o).then(function (r) { clearTimeout(timer); return r; }, function (e) {
+      clearTimeout(timer);
+      if (timedOut && e) e.timedOut = true;
+      throw e;
+    });
+  }
+
   function apiNetwork(method, url, body, extra) {
     var opts = { method: method, headers: {} };
     if (extra && extra.signal) opts.signal = extra.signal;
@@ -700,7 +735,7 @@
     // désormais marquée `err.offline = true` — échec brut de fetch (pas de
     // service worker) ou réponse 503 `{ offline: true }` fabriquée par
     // public/sw.js. Message d'erreur inchangé pour tous les autres appelants.
-    return fetch(url, opts).then(function (r) {
+    return fetchWithTimeout(url, opts, (extra && extra.timeoutMs !== undefined) ? extra.timeoutMs : apiTimeoutFor(url, body)).then(function (r) {
       // 16 oct. 2026 : une réponse non JSON (redémarrage, route absente) faisait afficher le message
       // BRUT du navigateur (anglais : « The string did not match the expected pattern »). Message maison.
       // 502/503/504 sans JSON = serveur en redémarrage ou injoignable : même message qu'une coupure réseau.
@@ -2314,11 +2349,13 @@
     return pad(d.getHours()) + ':' + pad(d.getMinutes());
   }
 
-  function startOfflineChrono(activity) {
+  // `tappedAt` (Date.now() au toucher) : démarrage abandonné par délai, le serveur l'a peut-être enregistré ; on garde l'heure du
+  // toucher pour que le rejeu reconnaisse ce même chrono (écart < 2 s) au lieu de croire à un chrono d'un autre appareil.
+  function startOfflineChrono(activity, tappedAt) {
     var rec = {
       origin: 'offline',
       activity: { id: activity.id, name: activity.name, color: activity.color },
-      startTime: new Date(nowMs()).toISOString(),
+      startTime: new Date(nowMs() - (tappedAt ? Math.max(0, Date.now() - tappedAt) : 0)).toISOString(),
       category: null,
       stop: null,
     };
@@ -2954,7 +2991,7 @@
         try { $('stopBtn').focus({ preventScroll: true }); } catch (e) { /* ignoré */ } // la grille disparaît : le focus clavier passe sur STOP
       })
       .catch(function (err) {
-        if (err.offline) { startOfflineChrono(activity); return; }
+        if (err.offline) { startOfflineChrono(activity, err.timedOut ? startSentAt : 0); return; }
         $('chronoStatus').textContent = err.message;
       });
   }
