@@ -9,4 +9,5 @@ Relecture seule (16 commits + gzip, idempotence hors ligne, connexion Trade). In
 4. Mineur : la clé d'idempotence est lue avant la validation du corps ; une clé réutilisée avec un autre libellé renvoie l'ancienne tâche (voulu pour le renvoi, à garder en tête).
 
 ## Tests
-Trois exécutions d'affilée de `node test/run-tests.js` en worktree neuf : voir résultat ci-dessous.
+Exécutions de `node test/run-tests.js` en worktree neuf (machine à charge 16 sur 2 cœurs) : 1re 100/101 (`task-lock-test.js`, seuil de durée « Page 2 avec 20 000 tâches » dépassé sous charge), 2e 101/101, finale après rebase 103/103 (contrôle « aucun dossier temporaire » inclus).
+Corrigés : `task-lock-test.js` (meilleur de 3 mesures, seuil Page 2 à 3 s ; une vraie régression fait échouer les 3 mesures) ; `mkdtempSync` -> `test/lib/tmpdir` dans `ia-alerte-memo`, `apprentissage-usage`, `subscription-mails-refund`, `trade-tracker/test/restore-e2e` et `logs-secrets-errors` (dossiers laissés dans /tmp).
