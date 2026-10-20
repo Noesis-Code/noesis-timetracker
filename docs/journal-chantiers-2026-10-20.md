@@ -29,3 +29,13 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 
 ## Serveur
 - Clés d'idempotence : purge des clés de plus de 7 jours au démarrage puis chaque jour (`server/lib/idempotencypurge.js`, test `test/idempotency-purge-test.js`).
+
+## État par chantier (fin de journée)
+- Trade Tracker : dernier livrable = état des 7 tâches, audit, URL de TMT configurable ; prochain = réponses Q1 à Q8 d'Émilien (`questions-emilien-trade.md`).
+- TT Basic : dernier = tri des 268 tâches (A/B/C/D) ; prochain = réponses aux 8 questions (`questions-emilien-basic.md`).
+- TT Expansion : dernier = interrupteur `EXPANSION_MAILS`, erreurs checkout/portail ; prochain = validation des courriels et des CGU.
+- Crédits Claude et API : dernier = plafonds quotidiens, état des lieux IA ; prochain = évaluations `--live` et seuil 5 $.
+- Simplification et design : dernier = audits Stats, Communauté, Feuille de temps ; prochain = cases retirer/garder (`questions-emilien-simplification.md`).
+- Précision des tâches : dernier = 25 cas d'évaluation, anglicismes ; prochain = élargir le jeu de cas, évaluation `--live`.
+- Principal et pilotage : dernier = index unique `questions-emilien-2026-10-20.md`, contrôle de staging sain (aucun marqueur, `node --check` ok, CACHE_VERSION v487 monotone) ; prochain = relecture des livraisons suivantes.
+
