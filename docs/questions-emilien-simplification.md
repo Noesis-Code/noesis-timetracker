@@ -37,3 +37,7 @@ Pour chaque ligne : cocher **retirer**, **garder** ou **déplacer**. Détails : 
 - [ ] Réglages › Partage : « Partager l'app » + « Partager mon profil » + QR : un seul bouton sans QR / garder
 - [ ] Réglages › Mon IA : bouton « Détails » de « Connecter mon IA » : retirer / garder
 - [ ] Réglages › Sécurité : « Se déconnecter de tous les appareils » (en plus de « Déconnexion ») : retirer / garder
+
+
+## Routes dormantes (4e passage code mort)
+- [ ] `routes/offerforms.js` (`/activities/:id/forms`, `/profile-form`) : aucun appelant client, flux Offre 1 « formulaires » dormant ; l'Offre 1 lit pourtant ces données : retirer les routes / garder
