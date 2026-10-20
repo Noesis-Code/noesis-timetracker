@@ -28,3 +28,9 @@ Cas réels de `test/fixtures/task-precision/cases.json` dont le bon résultat d�
   - [ ] B. Vendredi soir. « Faire l'épicerie pour la fin de semaine » -> vendredi (avant le début du week-end).
   - [ ] C. Dimanche. « Préparer la semaine d'ici la fin de semaine » -> dimanche (fin du week-end).
   Recommandation : A (aucune récurrence, un seul jour, l'utilisateur peut changer).
+
+- [ ] « EOW » / « by EOW » (anglais, fin de semaine de travail) : quel jour proposer ? Seule une suggestion, échéance modifiable. Cocher UNE option :
+  - [ ] A. Vendredi (fin de la semaine de travail). « Draft newsletter by EOW » -> échéance vendredi.
+  - [ ] B. Dimanche (fin de la semaine civile lundi-dimanche).
+  - [ ] C. Ignorer (actuel). Aucun indice de date, le titre reste intact.
+  Recommandation : C tant que rien n'est coché (aucune date inventée).

@@ -2,6 +2,7 @@
 // appliquées avant/après l'IA. Rien ici ne modifie une saisie manuelle : ces règles ne touchent que les tâches PROPOSÉES par l'IA
 // (titres normalisés, doublons, « à ignorer » de la stratégie) ou servent de mesure (scripts/eval-task-precision.js).
 
+const { DAY_ABBR_RE } = require('./temporalvocab');
 const STOP = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'un', 'une', 'et', 'ou', 'a', 'au', 'aux', 'en', 'pour', 'sur', 'dans', 'd', 'l', 'ne', 'pas', 'tout', 'tous', 'avec', 'par', 'mon', 'ma', 'mes', 'ce', 'cette', 'faire', 'ignorer', 'eviter',
   // anglais (titres rédigés en anglais ou mixtes fr/en)
   'the', 'for', 'and', 'with', 'from', 'our', 'your', 'that', 'this', 'about', 'after', 'before', 'into', 'then', 'them', 'their', 'his', 'her', 'its', 'all', 'you', 'are', 'was']);
@@ -11,7 +12,7 @@ function cleanTitle(raw) {
   let s = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim();
   for (let i = 0; i < 3; i += 1) s = s.replace(/^(?:[-*•–—▪◦]+|\[[ xX]?\]|\(?\d{1,2}[.)]|\d{1,2}\s*[-–:])\s+/, '').trim();
   s = s.replace(/^["«“]\s*/, '');
-  const abbr = /\d\s+[a-zéû]{2,5}\.$/i.test(s); // « le 5 nov. », « dans 3 sem. » : le point d'une abréviation de date/durée est conservé
+  const abbr = /\d\s+[a-zéû]{2,5}\.$/i.test(s) || /(?:^|\s)(?:lun|mar|mer|jeu|ven|sam|dim|mon|tue|wed|thu|fri|sat|sun)\.$/i.test(s); // « le 5 nov. », « dans 3 sem. » : le point d'une abréviation de date/durée est conservé
   s = s.replace(/[\s.;,:"»”]+$/, '').trim();
   if (abbr) s += '.';
   return s.slice(0, 200);
@@ -127,7 +128,7 @@ const HM = '\\d{1,2}\\s*(?:h(?:eures?)?(?:\\s*\\d{2})?|:\\d{2})(?![a-zà-ÿ])', 
 const DUR_BEFORE = '(?<!(?:\\(|pendant|environ|about|for|dur[ée]e|pour|\\bde|d[\'’]|~)\\s*)', DUR_AFTER = '(?!\\s*(?:\\)|max\\b|maximum|environ|approx))';
 // « à midi », « at noon » ; heure 5-12 h collée à un jour (« mercredi 10h », « demain 9h30 ») = horaire, pas une durée.
 const NOON = '(?:midi|minuit|noon|midnight)\\b', DAYW = '(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|demain|monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow)';
-const FIXED_TIME = new RegExp('\\s*(?:(?<=^|\\s)de\\s+' + HM + '\\s*(?:à|a|-|–)\\s*(?:' + AMPM + '|' + HM + ')|(?<=^|[\\s(])(?:à|a|vers|dès|at|@)\\s+(?:' + AMPM + '|' + HM + '|' + NOON + ')|(?<=\\b' + DAYW + '\\s+)(?:[5-9]|1[0-2])\\s*h(?:\\s*\\d{2})?(?![a-zà-ÿ0-9])|' + DUR_BEFORE + '\\b(?:[5-9]|0\\d|1\\d|2[0-3])\\s*h\\s*\\d{2}\\b' + DUR_AFTER + '|' + DUR_BEFORE + '\\b(?:1[3-9]|2[0-3])\\s*h(?![a-zà-ÿ0-9])(?!\\s*(?:de\\b|d[\'’]|max|maximum|environ|\\)))|\\b\\d{1,2}:\\d{2}\\b|(?:(?<=^|\\s)(?:from|de)\\s+)?\\b' + AMPM + '\\b)(?:\\s*(?:à|a|-|–|to)\\s*(?:' + AMPM + '|' + HM + '))?', 'i');
+const FIXED_TIME = new RegExp('\\s*(?:(?<=^|\\s)de\\s+' + HM + '\\s*(?:à|a|-|–)\\s*(?:' + AMPM + '|' + HM + ')|(?<=^|[\\s(])(?:à|a|vers|dès|at|@)\\s+(?:' + AMPM + '|' + HM + '|' + NOON + ')|(?<=\\b' + DAYW + '\\s+|' + DAY_ABBR_RE + '\\s+)(?:[5-9]|1[0-2])\\s*h(?:\\s*\\d{2})?(?![a-zà-ÿ0-9])|' + DUR_BEFORE + '\\b(?:[5-9]|0\\d|1\\d|2[0-3])\\s*h\\s*\\d{2}\\b' + DUR_AFTER + '|' + DUR_BEFORE + '\\b(?:1[3-9]|2[0-3])\\s*h(?![a-zà-ÿ0-9])(?!\\s*(?:de\\b|d[\'’]|max|maximum|environ|\\)))|\\b\\d{1,2}:\\d{2}\\b|(?:(?<=^|\\s)(?:from|de)\\s+)?\\b' + AMPM + '\\b)(?:\\s*(?:à|a|-|–|to)\\s*(?:' + AMPM + '|' + HM + '))?', 'i');
 // Mots vides de sens : un titre qui n'est fait QUE de ces mots (« truc », « à faire », « todo ») ne désigne aucune action. Tout autre mot, même seul
 // (« Épicerie », « Facture Hydro-Québec », « Vérifier », « Acme »), est une tâche valable : pas de liste de verbes, donc pas de faux rejets.
 const VAGUE = new Set(['truc', 'trucs', 'chose', 'choses', 'machin', 'bidule', 'divers', 'autre', 'autres', 'rien', 'tache', 'taches', 'task', 'tasks', 'todo', 'to', 'do', 'stuff', 'thing', 'things', 'misc', 'tbd', 'tba', 'etc', 'na', 'n', 'le', 'la', 'les', 'l', 'un', 'une', 'des', 'du', 'de', 'the', 'an', 'mon', 'ma', 'mes', 'notre', 'nos', 'ce', 'cette', 'ca', 'quoi', 'pis', 'puis', 'cela', 'ceci', 'it', 'this', 'that']);

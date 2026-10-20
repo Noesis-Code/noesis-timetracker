@@ -163,3 +163,35 @@ Bien traité d'emblée : « pick up kids at 3pm », « 9am Monday », « 10:30am
 # « Fin de semaine » : cohérence (repli 23)
 
 Jour d'aujourd'hui -> « cette fin de semaine » / « la fin de semaine prochaine » / « la semaine prochaine » : dimanche -> ce dimanche / samedi suivant / lundi suivant ; lundi à vendredi -> samedi à venir / samedi d'après / lundi suivant ; samedi -> aujourd'hui / samedi suivant / lundi suivant. Cohérent : la semaine va de lundi à dimanche, le week-end en cours (samedi-dimanche) reste « cette » fin de semaine jusqu'au dimanche inclus, « prochaine » saute toujours à la suivante, « la semaine prochaine » est la semaine entière (lundi). Ambiguïté restante : le samedi est un choix (voir `docs/questions-emilien-precision.md`).
+
+---
+
+# Lot de GÉNÉRALISATION g001-g060 et causes communes (repli 24, 20 oct. 2026)
+
+`test/fixtures/task-precision/blind-g001-g060.json`. Aucun lot par thème : 54 titres COMPOSÉS AU HASARD (graine fixe 20261020) à partir de 29 bases neutres (FR, québécois, EN) et de 50 suffixes de date/heure/durée/abréviation vus dans tous les thèmes précédents, plus 6 titres sans date (dont 3 à rejeter). Les attendus sont déduits des composants du générateur, jamais du code. Réserve honnête : j'avais relu `taskprecision.js` et `capturedatehint.js` avant d'écrire le générateur ; l'indépendance est donc partielle. La répartition par thème est celle du tirage (FR 24, québécois 9, EN 21).
+
+**Taux global avant correction : 52/60 = 86,7 %** (FR 19/24 = 79 %, québécois 9/9, EN 18/21 = 86 %, sans date 6/6). Les 8 écarts sont de 3 sortes seulement, toutes déjà cousines de défauts passés :
+| Écart | Cause |
+|---|---|
+| « le 5 nov. », « le 3 déc. » (3 titres) : aucun indice | mois français ABRÉGÉ (le nettoyage de titre gardait le point, mais l'indice ne connaissait que les mois complets) |
+| « next Tue », « Fri 2pm » (3 titres) : aucun indice ; « lun. 9h » : heure non retirée | jour ABRÉGÉ (EN et FR) |
+| « après-demain » (2 titres) : aucun indice | variante graphique (trait d'union) d'un mot connu |
+
+Lecture : 86,7 % global est entre le meilleur (85 %, h181-h210) et les pires (57-70 %) des lots par thème. Les règles généralisent mal surtout hors de leur FORMULATION (abréviation, trait d'union), moins hors de leur thème : tout ce qui est une forme pleine d'un mot déjà connu passe (23 titres sur 24 des suffixes pleins FR, 9/9 québécois).
+
+## Causes communes des 24 défauts des lots h211-h270 (+ ceux de g001)
+1. **Forme non listée d'un mot de temps connu** (la majorité : à soir, tmrw, EOD, tonite, « sem. », « Oct 30 », trait d'union) : chaque lot ajoutait des alternatives à des regex dispersées. Remède : une table unique.
+2. **Jour + heure collés** (jeudi 14h, mercredi 10h, 1h30 mercredi, vendredi à midi, « lun. 9h ») : la frontière durée / horaire dépend du contexte (jour ou « à » devant).
+3. **« pour / by / avant » = échéance** seulement devant une date (anniversaire samedi, pour la fin de semaine).
+4. **Fêtes et locutions à date fixe** (St-Jean, Noël seulement avec contexte, fin de semaine).
+5. **Mots vides de sens** (quoi, pis, on, about) : liste fermée.
+6. **Attentes erronées de l'auteur** (3 sur 4 lots) : le lot se trompe aussi.
+
+## Table de normalisation appliquée : `server/lib/temporalvocab.js`
+Un seul module pour jours (FR + EN), mois (complets, abrégés FR, abrégés EN), abréviations de jours (avec point : toutes ; sans point : seulement tue/tues/wed/thu(r)(s)/fri, jamais « mon », « sat », « sun », « mar », « jeu », « mer » nus) et « après-demain ». `canon(texte)` met les abréviations en toutes lettres AVANT l'analyse de date ; `DAY_ABBR_RE` sert au retrait de l'heure dans `taskprecision.js`. Garde-fous : un mois abrégé n'est reconnu que derrière un numéro de jour (« sept jours » inchangé), « mon ami » inchangé.
+Appliquée parce que sûre : h01-h270, `generees-objectifs`, `eval-task-precision` (exactitude 100 %) et g001-g060 passent (59/60 puis 60/60 après le point d'abréviation d'un jour conservé dans le titre).
+**Non appliqué (risque, proposition)** : y déplacer aussi les mots RELATIFS (demain, ce soir, à soir, EOD, tmrw, next wk, dans N jours, fin de semaine, fêtes) et les moments de la journée (matin, soir, midi, minuit). Ils vivent dans 12 regex de `parseDateHint` dont l'ordre porte des priorités (semaine prochaine avant jour de semaine, échéance avant jour) ; les extraire en table exigerait de modéliser l'ordre et fait courir un risque de régression sans gain démontré (aucun écart de g001 ne vient de là). À faire seulement si un prochain lot de généralisation montre des échecs de cette famille.
+Limite : « mar » (mardi, mars, March), « jeu », « mer », « sam » restent ignorés sans point ; « Mon » / « Sun » sans point aussi.
+
+# « EOW » (fin de semaine de travail)
+Inchangé : « by EOW » ne donne aucun indice de date (ambigu : vendredi ou dimanche). Case à cocher ajoutée dans `docs/questions-emilien-precision.md` (vendredi / dimanche / ignorer) ; rien n'est appliqué tant que rien n'est coché. Aucune récurrence créée.

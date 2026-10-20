@@ -9,8 +9,7 @@
 // Ce n'est qu'une SUGGESTION (dueDateAuto=2) modifiable dans le pop-up ; une
 // date saisie par l'utilisateur prime toujours (jamais écrasée).
 
-const DAYS = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0, lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5, samedi: 6, dimanche: 0 };
-const MONTHS = { janvier: 1, fevrier: 2, mars: 3, avril: 4, mai: 5, juin: 6, juillet: 7, aout: 8, septembre: 9, octobre: 10, novembre: 11, decembre: 12 };
+const { DAYS, MONTHS, EN_MONTHS: EN_M, canon } = require('./temporalvocab'); // table unique du vocabulaire de temps (jours, mois, abréviations)
 
 function norm(s) {
   return ' ' + String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9/\-]+/g, ' ').trim() + ' ';
@@ -40,8 +39,7 @@ function dayOfMonth(today, dom, month) {
 function parseDateHint(text, today) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(today || ''))) return null;
   // Mois anglais suivi du jour (« Oct 30 », « October 30th ») : ramené à la forme française « 30 octobre » traitée plus bas.
-  const EN_M = { jan: 'janvier', feb: 'fevrier', mar: 'mars', apr: 'avril', may: 'mai', jun: 'juin', jul: 'juillet', aug: 'aout', sep: 'septembre', oct: 'octobre', nov: 'novembre', dec: 'decembre' };
-  const t = norm(text).replace(/ (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(?:uary|ruary|ch|il|e|y|ust|t|tember|ober|ember)? (\d{1,2})(?:st|nd|rd|th)? /g, (all, mo, d) => ' ' + d + ' ' + EN_M[mo] + ' ');
+  const t = norm(canon(text)).replace(/ (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(?:uary|ruary|ch|il|e|y|ust|t|tember|ober|ember)? (\d{1,2})(?:st|nd|rd|th)? /g, (all, mo, d) => ' ' + d + ' ' + EN_M[mo] + ' ');
 
   let m = /\b(\d{4})-(\d{2})-(\d{2})\b/.exec(t);
   if (m) {

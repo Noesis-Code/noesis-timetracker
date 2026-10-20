@@ -1,0 +1,362 @@
+{
+ "note": "Lot de GENERALISATION g001-g060 (repli 24, 20 oct. 2026) : 54 titres composes au hasard (graine fixe 20261020, script de generation hors depot) a partir de bases neutres FR/quebecois/EN et de 24+8+18 suffixes de date/heure/duree/abreviation; attendus deduits des composants, jamais du code. today = 2026-10-20 (mardi).",
+ "today": "2026-10-20",
+ "titles": [
+  "Préparer la présentation après-demain",
+  "Passer à la SAQ la semaine prochaine",
+  "Préparer la présentation vendredi à 14h",
+  "Submit the expense report in 3 days",
+  "Update the roadmap next Monday",
+  "Relire le contrat demain",
+  "Payer la facture d'électricité le 3 déc.",
+  "Update the roadmap tomorrow",
+  "Écrire le rapport mensuel samedi matin",
+  "Pay the insurance in 3 days",
+  "Planifier la formation après-demain",
+  "Send the invoice EOD",
+  "Réserver la salle mercredi 10h",
+  "Appeler le plombier pour la fin de semaine",
+  "Envoyer le devis avant le 30",
+  "Prepare the quarterly review on Wednesday at 10am",
+  "Relire le contrat avant le 30",
+  "Magasiner un cadeau la semaine prochaine",
+  "Schedule the interview next week",
+  "Préparer la présentation dans 2 sem.",
+  "Submit the expense report by Friday",
+  "Review the pull request on Dec 3rd",
+  "Submit the expense report tmrw",
+  "Review the pull request next Tue",
+  "Planifier la formation le 15 décembre",
+  "Écrire le rapport mensuel avant la fin du mois",
+  "Écrire le rapport mensuel le 5 nov.",
+  "Submit the expense report by EOM",
+  "Submit the expense report Fri 2pm",
+  "Commander les fournitures (2h)",
+  "Appeler le fournisseur avant le 30",
+  "Payer la facture d'électricité mercredi 10h",
+  "Send the invoice next week",
+  "Confirmer la livraison lun. 9h",
+  "Faire le lavage pour la fin de semaine",
+  "Booker le resto vers 15h demain",
+  "Passer à la SAQ à soir",
+  "Planifier la formation vendredi à 14h",
+  "Appeler le fournisseur le 15 décembre",
+  "Réserver la salle la semaine prochaine",
+  "Update the roadmap by Friday",
+  "Prepare the quarterly review on Dec 3rd",
+  "Mettre à jour le budget mardi prochain",
+  "Écrire le rapport mensuel avant le 30",
+  "Booker le resto la semaine prochaine",
+  "Schedule the interview tmrw",
+  "Payer la facture d'électricité avant le 30",
+  "Order office supplies by Oct 30",
+  "Book the venue by EOM",
+  "Schedule the interview by Oct 30",
+  "Order office supplies Fri 2pm",
+  "Envoyer le devis avant la fin du mois",
+  "Appeler le plombier la semaine prochaine",
+  "Booker le resto à soir",
+  "Faire l'épicerie",
+  "Review contract",
+  "Appeler Paul",
+  "truc",
+  "Réfléchir",
+  "Todo"
+ ],
+ "attendus": {
+  "Préparer la présentation vendredi à 14h": "Préparer la présentation vendredi",
+  "Réserver la salle mercredi 10h": "Réserver la salle mercredi",
+  "Prepare the quarterly review on Wednesday at 10am": "Prepare the quarterly review on Wednesday",
+  "Submit the expense report Fri 2pm": "Submit the expense report Fri",
+  "Payer la facture d'électricité mercredi 10h": "Payer la facture d'électricité mercredi",
+  "Confirmer la livraison lun. 9h": "Confirmer la livraison lun.",
+  "Booker le resto vers 15h demain": "Booker le resto demain",
+  "Planifier la formation vendredi à 14h": "Planifier la formation vendredi",
+  "Order office supplies Fri 2pm": "Order office supplies Fri"
+ },
+ "hints": {
+  "Préparer la présentation après-demain": {
+   "kind": "day",
+   "date": "2026-10-22"
+  },
+  "Passer à la SAQ la semaine prochaine": {
+   "kind": "week",
+   "date": "2026-10-26"
+  },
+  "Préparer la présentation vendredi à 14h": {
+   "kind": "day",
+   "date": "2026-10-23"
+  },
+  "Submit the expense report in 3 days": {
+   "kind": "day",
+   "date": "2026-10-23"
+  },
+  "Update the roadmap next Monday": {
+   "kind": "day",
+   "date": "2026-10-26"
+  },
+  "Relire le contrat demain": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Payer la facture d'électricité le 3 déc.": {
+   "kind": "day",
+   "date": "2026-12-03"
+  },
+  "Update the roadmap tomorrow": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Écrire le rapport mensuel samedi matin": {
+   "kind": "day",
+   "date": "2026-10-24"
+  },
+  "Pay the insurance in 3 days": {
+   "kind": "day",
+   "date": "2026-10-23"
+  },
+  "Planifier la formation après-demain": {
+   "kind": "day",
+   "date": "2026-10-22"
+  },
+  "Send the invoice EOD": {
+   "kind": "day",
+   "date": "2026-10-20"
+  },
+  "Réserver la salle mercredi 10h": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Appeler le plombier pour la fin de semaine": {
+   "kind": "deadline",
+   "date": "2026-10-24"
+  },
+  "Envoyer le devis avant le 30": {
+   "kind": "deadline",
+   "date": "2026-10-30"
+  },
+  "Prepare the quarterly review on Wednesday at 10am": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Relire le contrat avant le 30": {
+   "kind": "deadline",
+   "date": "2026-10-30"
+  },
+  "Magasiner un cadeau la semaine prochaine": {
+   "kind": "week",
+   "date": "2026-10-26"
+  },
+  "Schedule the interview next week": {
+   "kind": "week",
+   "date": "2026-10-26"
+  },
+  "Préparer la présentation dans 2 sem.": {
+   "kind": "day",
+   "date": "2026-11-03"
+  },
+  "Submit the expense report by Friday": {
+   "kind": "deadline",
+   "date": "2026-10-23"
+  },
+  "Review the pull request on Dec 3rd": {
+   "kind": "day",
+   "date": "2026-12-03"
+  },
+  "Submit the expense report tmrw": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Review the pull request next Tue": {
+   "kind": "day",
+   "date": "2026-10-27"
+  },
+  "Planifier la formation le 15 décembre": {
+   "kind": "day",
+   "date": "2026-12-15"
+  },
+  "Écrire le rapport mensuel avant la fin du mois": {
+   "kind": "deadline",
+   "date": "2026-10-31"
+  },
+  "Écrire le rapport mensuel le 5 nov.": {
+   "kind": "day",
+   "date": "2026-11-05"
+  },
+  "Submit the expense report by EOM": {
+   "kind": "deadline",
+   "date": "2026-10-31"
+  },
+  "Submit the expense report Fri 2pm": {
+   "kind": "day",
+   "date": "2026-10-23"
+  },
+  "Commander les fournitures (2h)": null,
+  "Appeler le fournisseur avant le 30": {
+   "kind": "deadline",
+   "date": "2026-10-30"
+  },
+  "Payer la facture d'électricité mercredi 10h": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Send the invoice next week": {
+   "kind": "week",
+   "date": "2026-10-26"
+  },
+  "Confirmer la livraison lun. 9h": {
+   "kind": "day",
+   "date": "2026-10-26"
+  },
+  "Faire le lavage pour la fin de semaine": {
+   "kind": "deadline",
+   "date": "2026-10-24"
+  },
+  "Booker le resto vers 15h demain": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Passer à la SAQ à soir": {
+   "kind": "day",
+   "date": "2026-10-20"
+  },
+  "Planifier la formation vendredi à 14h": {
+   "kind": "day",
+   "date": "2026-10-23"
+  },
+  "Appeler le fournisseur le 15 décembre": {
+   "kind": "day",
+   "date": "2026-12-15"
+  },
+  "Réserver la salle la semaine prochaine": {
+   "kind": "week",
+   "date": "2026-10-26"
+  },
+  "Update the roadmap by Friday": {
+   "kind": "deadline",
+   "date": "2026-10-23"
+  },
+  "Prepare the quarterly review on Dec 3rd": {
+   "kind": "day",
+   "date": "2026-12-03"
+  },
+  "Mettre à jour le budget mardi prochain": {
+   "kind": "day",
+   "date": "2026-10-27"
+  },
+  "Écrire le rapport mensuel avant le 30": {
+   "kind": "deadline",
+   "date": "2026-10-30"
+  },
+  "Booker le resto la semaine prochaine": {
+   "kind": "week",
+   "date": "2026-10-26"
+  },
+  "Schedule the interview tmrw": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Payer la facture d'électricité avant le 30": {
+   "kind": "deadline",
+   "date": "2026-10-30"
+  },
+  "Order office supplies by Oct 30": {
+   "kind": "deadline",
+   "date": "2026-10-30"
+  },
+  "Book the venue by EOM": {
+   "kind": "deadline",
+   "date": "2026-10-31"
+  },
+  "Schedule the interview by Oct 30": {
+   "kind": "deadline",
+   "date": "2026-10-30"
+  },
+  "Order office supplies Fri 2pm": {
+   "kind": "day",
+   "date": "2026-10-23"
+  },
+  "Envoyer le devis avant la fin du mois": {
+   "kind": "deadline",
+   "date": "2026-10-31"
+  },
+  "Appeler le plombier la semaine prochaine": {
+   "kind": "week",
+   "date": "2026-10-26"
+  },
+  "Booker le resto à soir": {
+   "kind": "day",
+   "date": "2026-10-20"
+  },
+  "Faire l'épicerie": null,
+  "Review contract": null,
+  "Appeler Paul": null
+ },
+ "rejets": [
+  "truc",
+  "Réfléchir",
+  "Todo"
+ ],
+ "themes": {
+  "Préparer la présentation après-demain": "fr",
+  "Passer à la SAQ la semaine prochaine": "qc",
+  "Préparer la présentation vendredi à 14h": "fr",
+  "Submit the expense report in 3 days": "en",
+  "Update the roadmap next Monday": "en",
+  "Relire le contrat demain": "fr",
+  "Payer la facture d'électricité le 3 déc.": "fr",
+  "Update the roadmap tomorrow": "en",
+  "Écrire le rapport mensuel samedi matin": "fr",
+  "Pay the insurance in 3 days": "en",
+  "Planifier la formation après-demain": "fr",
+  "Send the invoice EOD": "en",
+  "Réserver la salle mercredi 10h": "fr",
+  "Appeler le plombier pour la fin de semaine": "qc",
+  "Envoyer le devis avant le 30": "fr",
+  "Prepare the quarterly review on Wednesday at 10am": "en",
+  "Relire le contrat avant le 30": "fr",
+  "Magasiner un cadeau la semaine prochaine": "qc",
+  "Schedule the interview next week": "en",
+  "Préparer la présentation dans 2 sem.": "fr",
+  "Submit the expense report by Friday": "en",
+  "Review the pull request on Dec 3rd": "en",
+  "Submit the expense report tmrw": "en",
+  "Review the pull request next Tue": "en",
+  "Planifier la formation le 15 décembre": "fr",
+  "Écrire le rapport mensuel avant la fin du mois": "fr",
+  "Écrire le rapport mensuel le 5 nov.": "fr",
+  "Submit the expense report by EOM": "en",
+  "Submit the expense report Fri 2pm": "en",
+  "Commander les fournitures (2h)": "fr",
+  "Appeler le fournisseur avant le 30": "fr",
+  "Payer la facture d'électricité mercredi 10h": "fr",
+  "Send the invoice next week": "en",
+  "Confirmer la livraison lun. 9h": "fr",
+  "Faire le lavage pour la fin de semaine": "qc",
+  "Booker le resto vers 15h demain": "qc",
+  "Passer à la SAQ à soir": "qc",
+  "Planifier la formation vendredi à 14h": "fr",
+  "Appeler le fournisseur le 15 décembre": "fr",
+  "Réserver la salle la semaine prochaine": "fr",
+  "Update the roadmap by Friday": "en",
+  "Prepare the quarterly review on Dec 3rd": "en",
+  "Mettre à jour le budget mardi prochain": "fr",
+  "Écrire le rapport mensuel avant le 30": "fr",
+  "Booker le resto la semaine prochaine": "qc",
+  "Schedule the interview tmrw": "en",
+  "Payer la facture d'électricité avant le 30": "fr",
+  "Order office supplies by Oct 30": "en",
+  "Book the venue by EOM": "en",
+  "Schedule the interview by Oct 30": "en",
+  "Order office supplies Fri 2pm": "en",
+  "Envoyer le devis avant la fin du mois": "fr",
+  "Appeler le plombier la semaine prochaine": "qc",
+  "Booker le resto à soir": "qc",
+  "Faire l'épicerie": "aucune",
+  "Review contract": "aucune",
+  "Appeler Paul": "aucune",
+  "truc": "aucune",
+  "Réfléchir": "aucune",
+  "Todo": "aucune"
+ }
+}

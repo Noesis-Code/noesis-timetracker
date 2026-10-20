@@ -106,6 +106,12 @@ assert(blind2.rejetsAttendus.every((t) => !tp.checkGenerated(t, []).title), 'lot
   const b7 = require('./fixtures/task-precision/blind-h241-h270.json');
   const bad7 = b7.titles.filter((t) => b7.rejets.includes(t) ? !!tp.checkGenerated(t, []).title : (tp.checkGenerated(t, []).title !== (b7.attendus[t] || t) || (t in b7.hints && JSON.stringify(hint.parseDateHint(t, b7.today)) !== JSON.stringify(b7.hints[t]))));
   assert(b7.titles.length === 30 && bad7.length === 0, 'lot h241-h270 : ' + bad7.length + ' en échec' + (bad7.length ? ' ' + JSON.stringify(bad7) : ''));
+  // Lot de GENERALISATION g001-g060 (titres composes au hasard, graine fixe, attendus deduits des composants ; corrige ensuite par la table temporalvocab.js).
+  const b8 = require('./fixtures/task-precision/blind-g001-g060.json');
+  const bad8 = b8.titles.filter((t) => b8.rejets.includes(t) ? !!tp.checkGenerated(t, []).title : (tp.checkGenerated(t, []).title !== (b8.attendus[t] || t) || (t in b8.hints && JSON.stringify(hint.parseDateHint(t, b8.today)) !== JSON.stringify(b8.hints[t]))));
+  assert(b8.titles.length === 60 && bad8.length === 0, 'lot de generalisation g001-g060 : ' + bad8.length + '/60 en échec' + (bad8.length ? ' ' + JSON.stringify(bad8) : ''));
+  const voc = require('../server/lib/temporalvocab');
+  assert(voc.canon('Appeler lun. et ven') === 'Appeler lundi et ven' && voc.canon('sept jours') === 'sept jours' && voc.canon('le 1 sept.') === 'le 1 septembre' && voc.canon('Fri 2pm') === 'friday 2pm' && voc.canon('mon ami') === 'mon ami', 'table temporalvocab : abréviations de jours/mois sûres seulement (« sept jours », « mon ami » inchangés)');
   assert(tp.checkGenerated('Réunion de 9 h à 10 h', []).title === 'Réunion' && tp.checkGenerated('Dentiste à 3 heures', []).title === 'Dentiste', 'plages et « à N heures » restent des horaires retirés');
 }
 
