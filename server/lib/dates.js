@@ -17,15 +17,39 @@ const DEFAULT_TIMEZONE = 'America/Toronto';
 
 // Un fuseau IANA est valide si Intl accepte de construire un formateur avec
 // lui — pas de liste à tenir à jour à la main.
+// Construire un Intl.DateTimeFormat coûte cher (dizaines de µs) : validité et formateurs sont mis en cache par fuseau
+// (cache borné, l'en-tête de fuseau venant du client). Résultats strictement identiques.
+const tzValidCache = new Map();
+const fmtCache = new Map();
+function cachePut(map, key, value) {
+  if (map.size >= 500) map.clear();
+  map.set(key, value);
+  return value;
+}
 function isValidTimezone(tz) {
   if (!tz || typeof tz !== 'string') return false;
+  const hit = tzValidCache.get(tz);
+  if (hit !== undefined) return hit;
+  let ok = true;
   try {
     // eslint-disable-next-line no-new
     new Intl.DateTimeFormat('en-CA', { timeZone: tz });
-    return true;
   } catch (err) {
-    return false;
+    ok = false;
   }
+  return cachePut(tzValidCache, tz, ok);
+}
+// kind 'd' = année/mois/jour ; 'dt' = date + heure:minute:seconde.
+function formatterFor(tz, kind) {
+  const key = kind + '|' + tz;
+  let f = fmtCache.get(key);
+  if (!f) {
+    const o = kind === 'dt'
+      ? { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }
+      : { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' };
+    f = cachePut(fmtCache, key, new Intl.DateTimeFormat('en-CA', o));
+  }
+  return f;
 }
 
 // {year, month (1-12), day} de l'instant `d` TEL QU'IL S'AFFICHE dans le
@@ -35,9 +59,7 @@ function isValidTimezone(tz) {
 // numérique par défaut est déjà année-mois-jour, pratique à relire sans
 // dépendre de l'ordre des jetons.
 function localPartsOf(d, tz) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(d);
+  const parts = formatterFor(tz, 'd').formatToParts(d);
   const get = (type) => Number(parts.find((p) => p.type === type).value);
   return { year: get('year'), month: get('month'), day: get('day') };
 }
@@ -95,9 +117,7 @@ function zonedMidnight(iso, tz) {
   const wall = Date.UTC(y, m - 1, d);
   let t = wall;
   for (let i = 0; i < 3; i++) {
-    const p = new Intl.DateTimeFormat('en-CA', {
-      timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
-    }).formatToParts(new Date(t)).reduce((o, x) => { o[x.type] = Number(x.value); return o; }, {});
+    const p = formatterFor(tz, 'dt').formatToParts(new Date(t)).reduce((o, x) => { o[x.type] = Number(x.value); return o; }, {});
     const shown = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
     if (shown === wall) break;
     t -= shown - wall;

@@ -283,7 +283,7 @@
     'Arrête le chrono en cours avant de fusionner ces activités.': 'Stop the running timer before merging these activities.',
     // ---- Suppression d'une activité (2 septembre 2026) ----
     'Supprimer « {activity} » ?': 'Delete "{activity}"?',
-    "Elle disparaîtra de ton Chrono et de ta liste d'activités. Les autres personnes qui la partagent avec toi ne sont pas concernées.": 'It will disappear from your Timer and from your activity list. The other people sharing it with you are not affected.',
+    "Elle disparaîtra de ton Chrono et de ta liste d'activités. Les autres personnes qui la partagent avec toi ne sont pas concernées. Conserver : tes heures restent comptées dans tes statistiques. Supprimer : tes enregistrements sont effacés définitivement.": 'It will disappear from your Timer and from your activity list. The other people sharing it with you are not affected. Keep: your hours stay counted in your statistics. Delete: your sessions are permanently erased.',
     'Conserver les anciens enregistrements': 'Keep the past sessions',
     'Supprimer les anciens enregistrements': 'Delete the past sessions',
     'Membres · ': 'Members · ',

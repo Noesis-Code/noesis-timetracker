@@ -64,7 +64,18 @@ router.get('/history', (req, res) => {
   // Chrono. Dataset borné à une semaine, une requête par entrée reste
   // largement raisonnable (cohérent avec le reste de l'app, qui préfère la
   // simplicité à l'optimisation prématurée pour un usage personnel).
-  rows.forEach((row) => { row.attachments = attachmentsFor(row.id); });
+  // Une seule requête pour toutes les entrées (et non une par entrée : lent sur une année entière), même ordre qu'avant.
+  const byEntry = new Map();
+  if (rows.length) {
+    db.prepare(`SELECT id, timeEntryId, fileName, mimeType, sizeBytes, dataUrl, createdAt
+                  FROM note_attachments WHERE timeEntryId IN (SELECT id FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ?)
+                  ORDER BY createdAt ASC`).all(userId, start, end).forEach((a) => {
+      const tid = a.timeEntryId; delete a.timeEntryId;
+      if (!byEntry.has(tid)) byEntry.set(tid, []);
+      byEntry.get(tid).push(a);
+    });
+  }
+  rows.forEach((row) => { row.attachments = byEntry.get(row.id) || []; });
 
   res.json(rows);
 });

@@ -450,14 +450,20 @@ function computeSlotsForDays(userId, days, slotMinutes, opts) {
     return slots;
   });
 
+  // Bornes de chaque jour calculées UNE fois (et non par entrée × jour : 10 s sur un mois à 5000 entrées).
+  const dayBounds = days.map((d) => ({
+    dayStart: zonedMidnight(isoDateOf(d), opts && opts.tz),
+    dayEnd: zonedMidnight(isoDateOf(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)), opts && opts.tz),
+  }));
+
   rows.forEach((r) => {
     const entryStart = new Date(r.startTime);
     const entryEnd = new Date(r.endTime);
 
     days.forEach((d, dayIndex) => {
       // Minuits du jour dans le fuseau de la personne (opts.tz) ; sans fuseau, fuseau du processus comme avant.
-      const dayStart = zonedMidnight(isoDateOf(d), opts && opts.tz);
-      const dayEnd = zonedMidnight(isoDateOf(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)), opts && opts.tz);
+      const dayStart = dayBounds[dayIndex].dayStart;
+      const dayEnd = dayBounds[dayIndex].dayEnd;
       const clipStart = entryStart > dayStart ? entryStart : dayStart;
       const clipEnd = entryEnd < dayEnd ? entryEnd : dayEnd;
       if (clipEnd <= clipStart) return; // cette entrée ne touche pas ce jour-là
