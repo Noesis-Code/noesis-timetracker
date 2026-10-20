@@ -21,8 +21,15 @@ function fold(v) {
 // Abréviations courantes (formes pliées : « fact. » -> fact) ramenées au mot plein pour la comparaison seulement, jamais affichées.
 const ABBREV = { fact: 'facture', compta: 'comptabilite', qte: 'quantite', tel: 'telephone' };
 // Mots utiles (sans mots vides, pluriel simple ramené au singulier).
+// Anglicismes courants du français de bureau : le mot anglais garde son sens ET ajoute son équivalent français (comparaison seulement).
+const ANGLICISM = { invoice: 'facture', meeting: 'reunion', deadline: 'echeance' };
 function tokens(v) {
-  return fold(v).split(' ').filter((w) => w && !STOP.has(w) && (w.length > 2 || /\d/.test(w))).map((w) => stem(ABBREV[w] || w));
+  const out = [];
+  fold(v).split(' ').filter((w) => w && !STOP.has(w) && (w.length > 2 || /\d/.test(w))).forEach((w) => {
+    out.push(stem(ABBREV[w] || w));
+    if (ANGLICISM[w]) out.push(stem(ANGLICISM[w]));
+  });
+  return out;
 }
 // Racine légère (comparaison seulement, jamais affichée) : « commander/commande/commandes », « embaucher/embauche », « terrasse/terase » (faute),
 // « réservation/réserver » donnent la même racine. Les mots courts et les nombres restent intacts.
