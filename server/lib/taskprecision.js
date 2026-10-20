@@ -19,7 +19,7 @@ function fold(v) {
   return String(v == null ? '' : v).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’']/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 // Abréviations courantes (formes pliées : « fact. » -> fact) ramenées au mot plein pour la comparaison seulement, jamais affichées.
-const ABBREV = { fact: 'facture', compta: 'comptabilite', qte: 'quantite', tel: 'telephone' };
+const ABBREV = { fact: 'facture', compta: 'comptabilite', qte: 'quantite', tel: 'telephone', tuto: 'tutoriel', stats: 'statistique', dispo: 'disponibilite' };
 // Mots utiles (sans mots vides, pluriel simple ramené au singulier).
 // Anglicismes courants du français de bureau : le mot anglais garde son sens ET ajoute son équivalent français (comparaison seulement).
 const ANGLICISM = { invoice: 'facture', meeting: 'reunion', deadline: 'echeance' };
@@ -30,8 +30,8 @@ function tokens(v) {
     out.push(stem(ABBREV[w] || w));
     if (ANGLICISM[w]) out.push(stem(ANGLICISM[w]));
   });
-  // Titre vague (verbe flou + « projet » seul : « Penser au projet ») : « projet » ne désigne aucun secteur, il ne compte pas.
-  if (out.length === 2 && VAGUE_VERBS.has(out[0]) && out[1] === stem('projet')) out.pop();
+  // Titre vague (verbe flou + UN seul mot-objet : « Penser au projet », « Revoir ça ») : un objet isolé ne désigne aucun secteur, il ne compte pas.
+  if (out.length === 2 && VAGUE_VERBS.has(out[0])) out.pop();
   return out;
 }
 // Racine légère (comparaison seulement, jamais affichée) : « commander/commande/commandes », « embaucher/embauche », « terrasse/terase » (faute),
@@ -96,7 +96,7 @@ function actionHints(title) {
   // Un document financier domine son destinataire (« Envoyer la facture au client » = facturation, pas Clients) ; pas pour une double action (« … et relancer le client »).
   if (tk.includes('factur') && !/\s(?:et|and)\s/i.test(String(title))) out.push('facturation');
   // « le client Acme » (nom propre après « client ») : client existant, donc travail en cours, pas prospection.
-  if (/\bclient\s+[A-ZÉÈÀ]/.test(String(title))) out.push('livrables');
+  if (/\bclient\s+[A-ZÉÈÀ]/.test(String(title))) out.push('livrables', 'projets', 'suivi');
   return out.map(stem);
 }
 
