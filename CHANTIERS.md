@@ -30,17 +30,23 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 **1. Trade Tracker** (sécurité)
 1. Documentation DEPLOY à jour (variables, étapes, retour arrière). FAIT (repli 3).
 2. Test qui échoue si une variable `TRADE_*` lue par le code de Trade manque dans `trade-tracker/DEPLOY.md`. FAIT (repli 3, `deploy-doc-test.js`).
-3. Test de bout en bout sauvegarde -> altération -> restauration (`restore.js`) : chaîne d'audit et jetons chiffrés relus après restauration.
-4. Vérifier que les journaux et réponses d'erreur de Trade ne contiennent jamais une valeur `TRADE_*` secrète (échec de démarrage, erreurs 500).
+3. Test de bout en bout sauvegarde -> altération -> restauration (`restore.js`) : chaîne d'audit et jetons chiffrés relus après restauration. FAIT (20 oct.).
+4. Vérifier que les journaux et réponses d'erreur de Trade ne contiennent jamais une valeur `TRADE_*` secrète (échec de démarrage, erreurs 500). FAIT (20 oct., test anti-secret sur tous les chemins d'erreur).
 5. Test de tenue en charge de la synchro Questrade simulée (150 utilisateurs, pannes isolées, idempotence). FAIT (repli 5 bis, `trade-tracker/test/sync-charge-test.js` : ~9 s pour 150 utilisateurs, soit ~60 ms/utilisateur, large marge sur l'intervalle de 15 min).
-6. Audit de simplicité de l'écran Trade Tracker (capture 390 px, `docs/boucle-veille.md`) : liste des éléments à retirer en proposition seulement, `docs/audit-trade-<date>.md`. Champs à compléter avant lancement : citation d'intention (aucune pour cet écran).
-7. Benchmark « 0 → 1 » Sharesight et Delta (sources citées, `docs/benchmark-trade-<date>.md`) : ce qu'ils font avec le moins d'éléments, tâches de retrait seulement. Dépend de 6 (fonction unique de l'écran).
+6. Audit de simplicité de l'écran Trade Tracker (capture 390 px, `docs/boucle-veille.md`) : liste des éléments à retirer en proposition seulement, `docs/audit-trade-<date>.md`. FAIT (20 oct., `docs/audit-trade-2026-10-20.md`, propositions seulement).
+7. Benchmark « 0 → 1 » Sharesight et Delta (sources citées, `docs/benchmark-trade-<date>.md`) : ce qu'ils font avec le moins d'éléments, tâches de retrait seulement. Dépend de 6 (fonction unique de l'écran). BLOQUÉ (20 oct. : accès web absent), état dans `docs/benchmark-trade-2026-10-20.md`.
+8. Test que `trade-tracker/` n'écrit aucune clé de chiffrement ni jeton Questrade dans ses journaux de démarrage, y compris avec des `TRADE_*` mal formées. Contexte : les tests anti-secret du 20 oct. couvrent les erreurs 500, pas le démarrage. Intention : « sécurité niveau bancaire » (CHANTIERS #1). Fini quand : `node test/run-tests.js` échoue si le démarrage imprime une valeur secrète. Périmètre : `trade-tracker/test/`, aucune interface.
+9. Test de reprise après coupure en pleine synchro Questrade simulée (processus tué au milieu) : aucun doublon d'opération, solde cohérent au redémarrage. Fini quand : le test passe deux fois de suite. Périmètre : `trade-tracker/test/`, aucune interface.
+10. Plafonner chaque test Trade à 20 s (délai explicite plutôt que blocage sous charge). Fini quand : un test bloqué échoue vite avec un message clair. Périmètre : `trade-tracker/test/`.
 
 **2. Time Tracker Basic** (accessibilité et robustesse)
-1. `aria-label` des boutons-icônes et contrastes du texte à vérifier (sans changer la palette).
+1. `aria-label` des boutons-icônes et contrastes du texte à vérifier (sans changer la palette). FAIT (20 oct.).
 2. Contrastes WCAG des couleurs de texte actuelles : rapport `scripts/contrast-report.js`. FAIT (repli 5) : tout >= 4.5:1 sur fond, carte et surface ; seules exceptions mineures sur `--hover-bg` (violet-trail 4.13, violet-me 4.47, bad 4.02), palette inchangée.
-3. Démarrage sans réseau : écran `offline.html` et message clair vérifiés (cache du service worker, FR/EN).
-4. Focus clavier visible (`:focus-visible`) sur les boutons-icônes et ✕ des pop-up, sans nouvelle couleur.
+3. Démarrage sans réseau : écran `offline.html` et message clair vérifiés (cache du service worker, FR/EN). FAIT (repli 6).
+4. Focus clavier visible (`:focus-visible`) sur les boutons-icônes et ✕ des pop-up, sans nouvelle couleur. FAIT (repli 6).
+5. Test que chaque pop-up de `index.html` a une croix ✕ avec `aria-label` et se ferme à Échap ; lister les écarts dans `docs/accessibilite-2026-10-20.md` sans ajouter de croix. Fini quand : test dans `test/` et liste notée. Périmètre : lecture de `public/index.html`, test seulement.
+6. Mesure du poids de la première page (HTML + CSS + JS en gzip) ; lister les 3 plus gros fichiers à alléger par retrait de code mort. Fini quand : tableau dans `docs/`, aucune modification de `public/`.
+7. Test d'un chrono démarré, application rouverte 2 h plus tard (horloge simulée) : durée exacte conservée. Fini quand : le test `test/fonctionnel-*.js` passe. Périmètre : test seulement, chrono inchangé.
 
 **3. Time Tracker Expansion** (préparer, jamais de paiement réel)
 1. Portail client Stripe et résiliation : parcours préparé en mode test. FAIT (repli 4) : `POST /offer/portal` + `stripe.createPortalSession`, testé dans `expansion-parcours-test.js` ; reste côté Émilien : activer le portail dans le tableau de bord Stripe (mode test) ; aucune interface ajoutée.
@@ -53,22 +59,31 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 8. Événements Stripe à cocher dans le tableau de bord (mode test) pour le webhook : ajouter `charge.refunded` et `charge.dispute.created` (comportement : aucun changement d'accès, alerte interne, `server/routes/stripewebhook.js`). E-mails d'abonnement FR/EN et remboursement/litige FAITS (repli 7, `test/subscription-mails-refund-test.js`).
 9. Courriels : `RESEND_FROM` avec domaine vérifié requis pour écrire aux abonnés (sinon `onboarding@resend.dev` n'envoie qu'au compte Resend). FAIT (repli 8) : documenté dans `docs/expansion-courriels.md` et `DEPLOIEMENT.md` §6 ; interrupteur `EXPANSION_MAILS=1` (défaut off) en place, activation = Émilien.
 10. Litige : `charge.dispute.created` ne porte pas `customer`. FAIT (repli 8) : `stripe.retrieveCharge` (lecture seule) relie la charge à l'abonnement, testé.
+11. Test que toute route Expansion refuse (403 clair FR/EN) un utilisateur sans abonnement actif, y compris après `past_due` + délai de grâce. Fini quand : le tableau état x route de `docs/expansion-acces.md` est couvert par un test. Périmètre : `test/`, `docs/`.
+12. Test du cron d'abonnement sur un changement d'heure (passage à l'heure d'été) : un renouvellement n'est ni doublé ni sauté. Fini quand : le test passe avec horloge simulée. Périmètre : `test/` ; `server/lib/subscriptioncron.js` seulement si bug trouvé (préparer, aucun paiement).
+13. Relire les textes d'erreur Expansion visibles : plus de « Offre 1 » côté utilisateur (hors ids/routes, hors CGU = légal). Fini quand : liste dans le compte rendu, corrections hors légal appliquées.
 
 **4. Crédits Claude et API**
-1. Rapport de coût par fonction IA (`scripts/ai-cost-report.js`, `ai_usage_log`).
+1. Rapport de coût par fonction IA (`scripts/ai-cost-report.js`, `ai_usage_log`). FAIT (rapport hebdomadaire, résumé par fonction).
 2. Alerte douce dans le journal serveur (pas de notification) quand le coût journalier estimé dépasse `AI_COST_ALERT_DAY_USD` (défaut 8 $). FAIT (repli 8, `aibudget.js`).
 3. Test qu'un appel mémoïsé ne journalise pas de jetons. FAIT (repli 8, `test/ia-alerte-memo-test.js`).
+4. Table de la part de chaque fonction IA dans le coût du jour (`ai-cost-report.js --from`), top 3 à réduire en premier. Fini quand : table dans `docs/ia-couts-reels-<date>.md`. Aucune interface.
+5. Mesurer quels appels passent encore en Sonnet alors que Haiku suffit (jeu d'évaluation de Précision) et proposer les fonctions à basculer, sans appliquer si la qualité baisse. Fini quand : tableau précision/coût par modèle. Périmètre : `docs/`, `scripts/`.
+6. Test qu'un appel IA sans plafond `max_tokens` ou sans délai d'expiration fait échouer la suite. Fini quand : le test existe et passe. Périmètre : `test/`.
 
 **5. Simplification et design général**
 1. Propositions 6 à 10 du Simplificateur non réservées : les exécuter.
 3. Retrait des doublons (deux entrées vers la même fonction).
-4. Audit de simplicité écran par écran (`docs/boucle-veille.md`, un écran par passe, capture 390 px) : Stats, Feuille de route, Communauté, Activité, Profil, Réglages.
+4. Audit de simplicité écran par écran (`docs/boucle-veille.md`, un écran par passe, capture 390 px) : Stats, Feuille de route, Communauté, Activité, Profil, Réglages. FAIT (20 oct. : écrans audités, propositions dans `docs/questions-emilien-simplification.md`).
 5. Benchmark concurrents « 0 → 1 » (Toggl, Clockify, Harvest) : par écran, ce qu'ils font avec le moins d'éléments ; en tirer des tâches de retrait.
+6. Retirer les variables CSS et clés i18n devenues inutilisées depuis le dernier passage (`i18n-unused`, relevé CSS). Fini quand : liste retirée, tests verts, bump sw. Périmètre : `public/styles.css`, `public/i18n.js` (très partagés : un agent à la fois).
+7. Exécuter les écarts DESIGN.md de `docs/ecarts-design-2026-10-20.md` qui se règlent par suppression ou alignement sur un jeton existant. Fini quand : capture 390 px avant/après de chaque écran touché. Aucune couleur nouvelle.
+8. Retirer les routes serveur sans appelant dans `public/` (liste de `docs/code-mort-2026-10-20.md`) avec test de non-régression. Fini quand : routes supprimées, tests verts. Périmètre : `server/routes/`, sans toucher aux données.
 
 **6. Précision des tâches générées**
 1. Cas restants c12 et c54 du jeu d'évaluation.
-2. Cas en anglais : étendre le jeu et mesurer.
-3. Seuils de confiance : revérifier avec `scripts/eval-task-precision.js`.
+2. Cas en anglais : étendre le jeu et mesurer. FAIT (45 cas fr/en).
+3. Seuils de confiance : revérifier avec `scripts/eval-task-precision.js`. FAIT (seuil 80).
 4. Cas limites : titres très courts (1-2 mots) dans le jeu d'évaluation. *(fait 19 oct. : s01-s06 ; seuil 80 confirmé, plateau 50-80 à 98,1 %, 85+ régresse)*
 5. Cas limites : formulations avec nom propre seul (« Appeler Marc ») ou verbe sans objet (« Faire le suivi ») : mesurer que le résultat est « incertain » plutôt qu'un secteur choisi au hasard.
 6. Seuil de confiance par fournisseur : comparer `--min-confidence` en simulé après chaque nouvelle série de cas, et noter le plateau dans cette liste.
@@ -79,14 +94,20 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 11. Ponctuation et majuscules : titres TOUT EN MAJUSCULES, sans majuscule initiale, puces/guillemets/points de suspension ; mesurer que le placement ne change pas. *(fait 20 oct. : p01-p06)*
 12. Abréviations courantes (« fact. », « RDV », « tel », « compta », « qté ») : ajouter et mesurer placement vs incertain. *(fait 20 oct. : p07-p15, expansion fact/compta/qte/tel dans taskprecision.tokens ; 97,7 % sur 172)*
 13. Noms propres de clients seuls ou en début de titre (« Acme : maquette », « Dupuis - retouches ») : mesurer que le nom propre ne pèse pas contre le vocabulaire du secteur. *(fait 20 oct. : n01-n08, aucun écart, aucune règle ajoutée)*
+14. Titres avec négation ou annulation (« Ne pas oublier la facture », « Annuler le rendez-vous ») : ajouter et mesurer que le secteur reste celui du sujet. Fini quand : cas ajoutés au jeu, score noté ici.
+15. Mesurer la précision par longueur de titre (1, 2-3, 4-8, 9+ mots) et noter le palier faible. Fini quand : tableau dans `docs/`, aucune règle changée sans mesure.
+16. Rejouer les 60 cas aveugles h01-h60 après les dernières règles généralisées : aucun cas déjà juste ne régresse. Fini quand : `scripts/eval-task-precision.js` compare avant/après, résultat noté.
 
 **7. Principal et pilotage**
-1. État des worktrees et branches à nettoyer (`scripts/chantiers-status.js`), liste pour Émilien si suppression distante.
-2. Relecture croisée des dernières livraisons de `staging`.
-3. Mise à jour du Projet Claude NOÈSIS (journal des chantiers).
-4. Cohérence de `BACKLOG.md` (doublons, périmé).
-5. Audit de simplicité écran par écran : faire tourner la boucle `docs/boucle-veille.md` sur les écrans non audités et tenir le journal des malentendus.
-6. Benchmark concurrents (Toggl, Clockify, Harvest ; Sharesight, Delta pour Trade) : alimenter les tâches de retrait des autres chantiers.
+1. État des worktrees et branches à nettoyer (`scripts/chantiers-status.js`), liste pour Émilien si suppression distante. FAIT (19 oct.).
+2. Relecture croisée des dernières livraisons de `staging`. FAIT (replis 4 à 7, `docs/relecture-*.md`).
+3. Mise à jour du Projet Claude NOÈSIS (journal des chantiers). FAIT (journaux des 19 et 20 oct.).
+4. Cohérence de `BACKLOG.md` (doublons, périmé). Récurrente, à refaire à chaque lot.
+5. Audit de simplicité écran par écran : faire tourner la boucle `docs/boucle-veille.md` sur les écrans non audités et tenir le journal des malentendus. FAIT (20 oct., tous les écrans de TMT et Trade).
+6. Benchmark concurrents (Toggl, Clockify, Harvest ; Sharesight, Delta pour Trade) : alimenter les tâches de retrait des autres chantiers. FAIT pour le temps (`docs/benchmark-temps-2026-10-20.md`) ; Trade bloqué (accès web).
+7. Après chaque lot, relever les tests de plus de 20 s dans `node test/run-tests.js` et stabiliser ceux qui échouent sous charge (hors `test/mcp-test.js`). Fini quand : liste au journal du jour.
+8. Retirer de `docs/questions-emilien-2026-10-20.md` les questions déjà résolues par un commit. Fini quand : index à jour, aucune notification.
+9. Contrôle de staging en fin de lot : aucun marqueur de conflit, CACHE_VERSION monotone, `/healthz` OK sur un port libre (tuer par PID). Fini quand : résultat noté au journal.
 
 ## Règles communes
 - Un chantier = une branche `claude/<sujet>` depuis `origin/staging`, un worktree ; rebase avant push ; jamais `--force` ; **jamais `git stash`** (partagé entre worktrees) : utiliser un commit WIP.
