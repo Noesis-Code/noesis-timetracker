@@ -60,6 +60,8 @@ const SUITE_FILES = [
   'glisse-coherence-test.js',
   'strategie-test.js',
   'precision-taches-test.js',
+  'precision-generees-test.js',
+  'saisie-manuelle-proposition-test.js',
   'apprentissage-usage-test.js',
   'stripe-tax-test.js',
   'expansion-parcours-test.js',
@@ -410,7 +412,7 @@ async function main() {
   assert(prOk, 'précision des tâches (test/precision-taches-test.js) passe');
   for (const [f, label] of [['precision-generees-test.js', 'validateur des tâches générées + saisie manuelle intacte'], ['saisie-manuelle-proposition-test.js', 'saisie manuelle : modifiée seulement par proposition validée']]) {
     let ok = true;
-    try { execFileSync('node', [path.join(__dirname, f)], { encoding: 'utf8' }); } catch (e) { ok = false; }
+    try { await runChild(f); } catch (e) { ok = false; }
     assert(ok, label + ' (test/' + f + ') passe');
   }
 
