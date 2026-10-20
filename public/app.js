@@ -15283,6 +15283,7 @@
     if (TMT.modules && TMT.modules.tradeAllowed()) {
       var tradeRow = document.createElement('div');
       tradeRow.className = 'notifRow';
+      var tradeMsg = function (r) { if (msg) msg.textContent = r && r.ok === false ? r.message : ''; };
       var paintTrade = function () {
         tradeRow.innerHTML = '';
         var lbl = document.createElement('span');
@@ -15296,7 +15297,7 @@
           tin.type = 'checkbox'; tin.checked = true; tin.setAttribute('role', 'switch'); tin.setAttribute('aria-label', 'Trade Tracker');
           var ttr = document.createElement('span');
           ttr.className = 'toggleSwitchTrack';
-          tin.addEventListener('change', function () { TMT.modules.setTrade(false).then(paintTrade); });
+          tin.addEventListener('change', function () { tin.disabled = true; TMT.modules.setTrade(false).then(function (r) { paintTrade(); tradeMsg(r); }); });
           tsw.appendChild(tin); tsw.appendChild(ttr);
           tradeRow.appendChild(tsw);
         } else {
@@ -15305,7 +15306,7 @@
           plus.className = 'iconBtn';
           plus.textContent = '+';
           plus.setAttribute('aria-label', t('Connecter Trade Tracker'));
-          plus.addEventListener('click', function () { TMT.modules.setTrade(true).then(paintTrade); });
+          plus.addEventListener('click', function () { plus.disabled = true; TMT.modules.setTrade(true).then(function (r) { paintTrade(); tradeMsg(r); }); });
           tradeRow.appendChild(plus);
         }
       };

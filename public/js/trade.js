@@ -31,7 +31,10 @@
     fetchLink().then(function (d) {
       if (!d.configured || !d.url) showState(tr('Trade Tracker n’est pas configuré sur ce serveur.'));
       else showLink(d.url);
-    }).catch(function (e) { showState(e && e.message ? e.message : tr('Trade Tracker est indisponible.')); })
+    }).catch(function (e) {
+      var offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+      showState(offline ? tr('Hors ligne — connecte-toi à internet pour continuer.') : (e && !(e instanceof TypeError) && e.message) ? tr(e.message) : tr('Trade Tracker est indisponible.'));
+    })
       .then(function () { loading = false; });
   }
   function close() { page.classList.add('hidden'); frame.removeAttribute('src'); }

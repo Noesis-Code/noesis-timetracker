@@ -143,9 +143,18 @@
     tradeAllowed: function () { return tradeAllowed; },
     tradeOn: function () { return !!state && state.trade === true; },
     // Connecte / déconnecte l'extension Trade Tracker (retrait : la page Trade se ferme, ses données sont conservées).
+    // Renvoie { ok } ou { ok: false, message } (message clair : hors ligne, réseau, refus du serveur) ; l'appelant l'affiche, rien ne bloque.
     setTrade: function (v) {
-      if (!v && typeof TMT.closeTrade === 'function') TMT.closeTrade();
-      return put({ trade: !!v });
+      return call('PUT', { modules: { trade: !!v } }).then(function (d) {
+        state = d.modules; remember(); apply();
+        if (!v && typeof TMT.closeTrade === 'function') TMT.closeTrade();
+        paint(); return { ok: true };
+      }).catch(function (e) {
+        paint();
+        var offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        var net = !e || e instanceof TypeError || !e.message;
+        return { ok: false, message: offline ? tr('Hors ligne — connecte-toi à internet pour continuer.') : net ? tr('Trade Tracker est indisponible.') : tr(e.message) };
+      });
     },
     mountChoice: mountChoice
   };

@@ -351,6 +351,8 @@ async function main() {
   catch (e) { assert(false, 'Trade Tracker : jeton de lien : tests échoués'); }
   try { await runChild('trade-events-test.js'); assert(true, 'Trade Tracker : événements d\'achat : tests passés'); }
   catch (e) { assert(false, 'Trade Tracker : événements d\'achat : tests échoués'); }
+  try { await runChild('trade-connexion-ui-test.js'); assert(true, 'Trade Tracker : états de connexion dans l\'activité : tests passés'); }
+  catch (e) { assert(false, 'Trade Tracker : états de connexion dans l\'activité : tests échoués'); }
   try { await runChild('trade-e2e-test.js'); assert(true, 'Trade Tracker : bout en bout TMT <-> Trade : tests passés'); }
   catch (e) { assert(false, 'Trade Tracker : bout en bout TMT <-> Trade : tests échoués'); }
 
