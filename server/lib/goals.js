@@ -534,11 +534,25 @@ function jaccard(setA, setB) {
 // TOUS les objectifs de l'activité sur cette plage. Il est donc PARTAGÉ entre
 // eux (proportionnellement à leur temps planifié, à parts égales si aucun n'est
 // planifié) au lieu d'être attribué en entier à chacun (surestimation x N).
-function sharedMinutes(totalSeconds, weights, i) {
-  const known = weights.filter((w) => w > 0);
+// Parts entières en minutes dont la SOMME vaut exactement le temps total arrondi
+// (méthode du plus grand reste : aucune minute perdue ni inventée). Poids
+// invalides (NaN, Infinity, <= 0) = poids moyen des poids valides (1 si aucun) ;
+// total invalide ou <= 0 = toutes les parts à 0.
+function shareMinutes(totalSeconds, weights) {
+  const n = weights.length;
+  const secs = Number(totalSeconds);
+  const total = Number.isFinite(secs) && secs > 0 ? Math.round(secs / 60) : 0;
+  if (!n || !total) return weights.map(() => 0);
+  const known = weights.map(Number).filter((w) => Number.isFinite(w) && w > 0);
   const fill = known.length ? known.reduce((a, b) => a + b, 0) / known.length : 1;
-  const ws = weights.map((w) => (w > 0 ? w : fill));
-  return Math.round((totalSeconds / 60) * ws[i] / ws.reduce((a, b) => a + b, 0));
+  const ws = weights.map((w) => (Number.isFinite(Number(w)) && Number(w) > 0 ? Number(w) : fill));
+  const sum = ws.reduce((a, b) => a + b, 0);
+  const exact = ws.map((w) => total * w / sum);
+  const parts = exact.map(Math.floor);
+  let left = total - parts.reduce((a, b) => a + b, 0);
+  exact.map((x, i) => ({ i, r: x - Math.floor(x) })).sort((p, q) => q.r - p.r || p.i - q.i)
+    .slice(0, Math.max(0, left)).forEach((o) => { parts[o.i] += 1; });
+  return parts;
 }
 
 function pastSamplesFor(activityId, category, scope) {
@@ -554,8 +568,8 @@ function pastSamplesFor(activityId, category, scope) {
     const out = [];
     groups.forEach((g) => {
       const secs = actualSecondsForRange(activityId, g[0].startDate, g[0].endDate);
-      const weights = g.map((r) => r.est || 0);
-      g.forEach((r, i) => { if (r.category === category) out.push({ text: r.text, minutes: sharedMinutes(secs, weights, i) }); });
+      const parts = shareMinutes(secs, g.map((r) => r.est || 0));
+      g.forEach((r, i) => { if (r.category === category) out.push({ text: r.text, minutes: parts[i] }); });
     });
     return out;
   }
@@ -575,8 +589,8 @@ function pastSamplesFor(activityId, category, scope) {
   const out = [];
   groups.forEach(({ b, rows: g }) => {
     const secs = actualSecondsForRange(activityId, b.start, b.end);
-    const weights = g.map((r) => r.est || 0);
-    g.forEach((r, i) => { if (r.category === category) out.push({ text: r.text, minutes: sharedMinutes(secs, weights, i) }); });
+    const parts = shareMinutes(secs, g.map((r) => r.est || 0));
+    g.forEach((r, i) => { if (r.category === category) out.push({ text: r.text, minutes: parts[i] }); });
   });
   return out;
 }
@@ -1296,6 +1310,8 @@ module.exports = {
   weekBounds,
   periodNumberForDate,
   estimateForGoal,
+  pastSamplesFor,
+  shareMinutes,
   buildBilanText,
   addDays,
   // Exportés pour server/lib/goalsauto.js (chantier Objectifs — C,

@@ -1,0 +1,132 @@
+{
+ "note": "Lot aveugle h271-h300 (20 oct. 2026, repli 29) : vie courante (courses, rendez-vous médicaux génériques, école/garderie, voiture, finances perso, vacances, bricolage, anniversaires, administratif) en FR/QC/EN, sans prénom réel. Écrit AVANT toute relecture de taskprecision.js / capturedatehint.js dans ce repli. today = 2026-10-20 (mardi) ; attendus = titre après retrait de l'heure ; hints : null = aucun indice attendu ; absent = non contrôlé.",
+ "today": "2026-10-20",
+ "titles": [
+  "Acheter du lait et des couches demain",
+  "Rendez-vous chez le médecin jeudi à 14 h 30",
+  "Signer le formulaire de l'école avant vendredi",
+  "Prendre rdv pour les pneus d'hiver la semaine prochaine",
+  "Faire le plein d'essence ce soir",
+  "Payer l'impôt foncier d'ici le 30 octobre",
+  "Pick up groceries after work",
+  "Renew car insurance by Oct 31",
+  "Buy a birthday gift for mom Saturday",
+  "Réserver le chalet pour les vacances de Noël",
+  "Appeler la garderie lundi matin",
+  "Dentist appointment tomorrow at 8am",
+  "Ramasser les feuilles samedi",
+  "Changer l'ampoule du garage dans 3 jours",
+  "Acheter un gâteau pour la fête de ma sœur dimanche",
+  "Call the school about the field trip form",
+  "Transférer 200 $ dans le compte d'épargne le 1er",
+  "Rapporter les livres à la bibliothèque mardi prochain",
+  "Book flights for the holidays next month",
+  "Aller chercher les enfants à 15 h 30",
+  "Faire réparer le pare-brise cette semaine",
+  "Mettre les pneus d'hiver samedi à 9 h",
+  "Faire une demande de passeport pour la petite",
+  "Apporter le gâteau à l'anniversaire de papa dimanche à midi",
+  "Pay the daycare invoice before the 25th",
+  "Faire des affaires",
+  "Réunion parents-enseignants mercredi 18h30",
+  "Vérifier le solde de la carte de crédit ce weekend",
+  "Acheter des cadeaux de Noël",
+  "S'occuper de ça"
+ ],
+ "attendus": {
+  "Rendez-vous chez le médecin jeudi à 14 h 30": "Rendez-vous chez le médecin jeudi",
+  "Dentist appointment tomorrow at 8am": "Dentist appointment tomorrow",
+  "Aller chercher les enfants à 15 h 30": "Aller chercher les enfants",
+  "Mettre les pneus d'hiver samedi à 9 h": "Mettre les pneus d'hiver samedi",
+  "Apporter le gâteau à l'anniversaire de papa dimanche à midi": "Apporter le gâteau à l'anniversaire de papa dimanche",
+  "Réunion parents-enseignants mercredi 18h30": "Réunion parents-enseignants mercredi"
+ },
+ "rejets": [
+  "Faire des affaires",
+  "S'occuper de ça"
+ ],
+ "hints": {
+  "Acheter du lait et des couches demain": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Rendez-vous chez le médecin jeudi à 14 h 30": {
+   "kind": "day",
+   "date": "2026-10-22"
+  },
+  "Signer le formulaire de l'école avant vendredi": {
+   "kind": "deadline",
+   "date": "2026-10-23"
+  },
+  "Prendre rdv pour les pneus d'hiver la semaine prochaine": {
+   "kind": "week",
+   "date": "2026-10-26"
+  },
+  "Faire le plein d'essence ce soir": {
+   "kind": "day",
+   "date": "2026-10-20"
+  },
+  "Payer l'impôt foncier d'ici le 30 octobre": {
+   "kind": "deadline",
+   "date": "2026-10-30"
+  },
+  "Pick up groceries after work": null,
+  "Renew car insurance by Oct 31": {
+   "kind": "deadline",
+   "date": "2026-10-31"
+  },
+  "Buy a birthday gift for mom Saturday": {
+   "kind": "day",
+   "date": "2026-10-24"
+  },
+  "Réserver le chalet pour les vacances de Noël": null,
+  "Appeler la garderie lundi matin": {
+   "kind": "day",
+   "date": "2026-10-26"
+  },
+  "Dentist appointment tomorrow at 8am": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Ramasser les feuilles samedi": {
+   "kind": "day",
+   "date": "2026-10-24"
+  },
+  "Changer l'ampoule du garage dans 3 jours": {
+   "kind": "day",
+   "date": "2026-10-23"
+  },
+  "Acheter un gâteau pour la fête de ma sœur dimanche": {
+   "kind": "day",
+   "date": "2026-10-25"
+  },
+  "Call the school about the field trip form": null,
+  "Transférer 200 $ dans le compte d'épargne le 1er": {
+   "kind": "day",
+   "date": "2026-11-01"
+  },
+  "Rapporter les livres à la bibliothèque mardi prochain": {
+   "kind": "day",
+   "date": "2026-10-27"
+  },
+  "Aller chercher les enfants à 15 h 30": null,
+  "Mettre les pneus d'hiver samedi à 9 h": {
+   "kind": "day",
+   "date": "2026-10-24"
+  },
+  "Faire une demande de passeport pour la petite": null,
+  "Apporter le gâteau à l'anniversaire de papa dimanche à midi": {
+   "kind": "day",
+   "date": "2026-10-25"
+  },
+  "Pay the daycare invoice before the 25th": {
+   "kind": "deadline",
+   "date": "2026-10-25"
+  },
+  "Réunion parents-enseignants mercredi 18h30": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Acheter des cadeaux de Noël": null
+ }
+}

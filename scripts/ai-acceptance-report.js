@@ -1,7 +1,7 @@
 // Mesure de l'apprentissage par l'usage (20 oct. 2026), LECTURE SEULE, aucun jeton, aucune interface.
 // Usage : NOESIS_DATA_DIR=... node scripts/ai-acceptance-report.js [jours=30]
 // Signaux déjà stockés : tâches classées par l'IA (autoCaptured), corrections du classement (goal_classify_examples),
-// propositions de modification (change_proposals : applied / dismissed / pending), suggestions inter-secteurs (goal_cross_sector_suggestions).
+// propositions de modification (change_proposals : accepted (ou applied) / dismissed / pending / inapplicable), suggestions inter-secteurs (goal_cross_sector_suggestions).
 // Approximations assumées : « modifiée » = déplacée à la main (correction enregistrée) ; « sans modification » = classée - corrigée ;
 // pas de signal pour la reformulation (rien n'est stocké côté serveur).
 const path = require('path');
@@ -24,11 +24,12 @@ console.log('Classement de tâche : ' + classified + ' classée(s) par l\'IA | s
 const perUser = q('SELECT userId, COUNT(*) AS n FROM goal_classify_examples WHERE createdAt >= ? GROUP BY userId ORDER BY n DESC', since);
 console.log('  corrections par compte : ' + (perUser.length ? perUser.map((r) => (r.userId || 'supprimé') + '=' + r.n).join(', ') : 'aucune'));
 
-const prop = q('SELECT status, COUNT(*) AS n FROM change_proposals WHERE createdAt >= ? GROUP BY status', since);
+// change_proposals.apply écrit « accepted » (valeur des lignes existantes) ; « applied » est lu aussi par sécurité : les deux comptent comme acceptées.
+const prop = q("SELECT CASE WHEN status IN ('accepted','applied') THEN 'accepted' ELSE status END AS status, COUNT(*) AS n FROM change_proposals WHERE createdAt >= ? GROUP BY 1", since);
 const pc = Object.fromEntries(prop.map((r) => [r.status, r.n]));
-const pDecided = (pc.applied || 0) + (pc.dismissed || 0);
-console.log('Modifications proposées : acceptées ' + (pc.applied || 0) + ' (' + pct(pc.applied || 0, pDecided) + ') | refusées ' + (pc.dismissed || 0) + ' (' + pct(pc.dismissed || 0, pDecided) + ') | en attente ' + (pc.pending || 0));
-const prByField = q("SELECT field, status, COUNT(*) AS n FROM change_proposals WHERE createdAt >= ? AND status IN ('applied','dismissed') GROUP BY field, status", since);
+const pDecided = (pc.accepted || 0) + (pc.dismissed || 0);
+console.log('Modifications proposées : acceptées ' + (pc.accepted || 0) + ' (' + pct(pc.accepted || 0, pDecided) + ') | refusées ' + (pc.dismissed || 0) + ' (' + pct(pc.dismissed || 0, pDecided) + ') | en attente ' + (pc.pending || 0) + ' | inapplicables ' + (pc.inapplicable || 0));
+const prByField = q("SELECT field, CASE WHEN status IN ('accepted','applied') THEN 'accepted' ELSE status END AS status, COUNT(*) AS n FROM change_proposals WHERE createdAt >= ? AND status IN ('accepted','applied','dismissed') GROUP BY 1, 2", since);
 prByField.forEach((r) => console.log('  ' + String(r.field).padEnd(14) + r.status.padEnd(10) + r.n));
 
 const xs = q('SELECT status, COUNT(*) AS n FROM goal_cross_sector_suggestions WHERE createdAt >= ? GROUP BY status', since);

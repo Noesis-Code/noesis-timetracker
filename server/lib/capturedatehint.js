@@ -96,7 +96,7 @@ function parseDateHint(text, today) {
   m = / the (\d{1,2})(?:st|nd|rd|th) $/.exec(t);
   if (m && +m[1] >= 1 && +m[1] <= 31) {
     const iso = dayOfMonth(today, +m[1]);
-    if (iso) return { kind: 'day', date: iso };
+    if (iso) return { kind: /\b(?:before|by|until|avant|d ici|dici)\b/.test(t) ? 'deadline' : 'day', date: iso }; // « before the 25th » = échéance
   }
   m = /\b(?:avant|d ici|dici|pour|au plus tard)(?: le| au)? (\d{1,2})(?:er)?\b(?! ?(?:h|heures?|min|minutes|%|\$|euros?))/.exec(t);
   if (m && +m[1] >= 1 && +m[1] <= 31) {

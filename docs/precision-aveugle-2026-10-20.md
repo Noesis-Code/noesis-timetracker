@@ -9,6 +9,17 @@
 
 Lecture : la courbe à l'aveugle ne monte pas, car chaque lot vise les points faibles du précédent (synonymes, abréviations, noms propres). Les anciens cas restent à 100 % (≥ 98 % exigé) : aucune régression. Estimation honnête du taux réel du simulé : entre 60 et 85 % selon la difficulté ; le vrai chiffre (modèle réel) se mesure en `--live` (voir `docs/questions-emilien-precision.md`).
 
+## Lot 5 (h271-h300, repli 29) : vie courante, écrit avant relecture du code
+`test/fixtures/task-precision/blind-h271-h300.json`. 30 titres neutres (courses, rendez-vous médicaux génériques, école/garderie, voiture, finances perso, vacances, bricolage, anniversaires, administratif) en FR, québécois et EN, sans prénom réel. Attendus écrits avant toute relecture de `taskprecision.js` / `capturedatehint.js` (jour de référence : mardi 20 oct. 2026).
+
+**Aveugle (avant correction) : 27/30 = 90,0 %** (meilleur lot à ce jour avec h181-h210). 3 écarts, 2 causes :
+| Écart | Cause |
+|---|---|
+| « Pay the daycare invoice before the 25th » : jour au lieu d'échéance | la règle « the 25th » ignorait before/by/until/avant (échéance) |
+| « Faire des affaires », « S'occuper de ça » : acceptés | noms et verbes sans contenu (« affaire(s) », « s'occuper », « deal with ») absents de la liste fermée du vague |
+
+Corrections générales (classes, pas des cas) : « the Nth » lit l'échéance comme les autres formes ; vague = + affaire(s), s'occuper, deal with. Les 30 passent ensuite (non indépendant après coup) ; lots précédents inchangés. Aucune récurrence créée par l'IA.
+
 ## Lot 2 (h31-h60), écrit avant lecture de `taskprecision.js`
 Couvre : synonymes de « à ignorer » (Instagram, recruter, infolettre, balado, Uber Eats, cartes de fidélité, webinar), refonte/« nouveau », abréviations (exam, TP), verbe flou + nom propre, clients/commerces nommés, anglais, épicerie hors liste.
 12 échecs sur 30 : 8 refus manqués (synonymes), « exam de stats », « lait et œufs », « Café Olimpico », « the client ».

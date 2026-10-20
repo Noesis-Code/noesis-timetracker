@@ -110,6 +110,10 @@ assert(blind2.rejetsAttendus.every((t) => !tp.checkGenerated(t, []).title), 'lot
   const b8 = require('./fixtures/task-precision/blind-g001-g060.json');
   const bad8 = b8.titles.filter((t) => b8.rejets.includes(t) ? !!tp.checkGenerated(t, []).title : (tp.checkGenerated(t, []).title !== (b8.attendus[t] || t) || (t in b8.hints && JSON.stringify(hint.parseDateHint(t, b8.today)) !== JSON.stringify(b8.hints[t]))));
   assert(b8.titles.length === 60 && bad8.length === 0, 'lot de generalisation g001-g060 : ' + bad8.length + '/60 en échec' + (bad8.length ? ' ' + JSON.stringify(bad8) : ''));
+  // Lot h271-h300 (vie courante FR/QC/EN ; 27/30 à l'aveugle, corrigé ensuite par règles générales : non indépendant après coup).
+  const b9 = require('./fixtures/task-precision/blind-h271-h300.json');
+  const bad9 = b9.titles.filter((t) => b9.rejets.includes(t) ? !!tp.checkGenerated(t, []).title : (tp.checkGenerated(t, []).title !== (b9.attendus[t] || t) || (t in b9.hints && JSON.stringify(hint.parseDateHint(t, b9.today)) !== JSON.stringify(b9.hints[t]))));
+  assert(b9.titles.length === 30 && bad9.length === 0, 'lot h271-h300 : ' + bad9.length + ' en échec' + (bad9.length ? ' ' + JSON.stringify(bad9) : ''));
   const voc = require('../server/lib/temporalvocab');
   assert(voc.canon('Appeler lun. et ven') === 'Appeler lundi et ven' && voc.canon('sept jours') === 'sept jours' && voc.canon('le 1 sept.') === 'le 1 septembre' && voc.canon('Fri 2pm') === 'friday 14 h' && voc.canon('mon ami') === 'mon ami', 'table temporalvocab : abréviations de jours/mois sûres seulement (« sept jours », « mon ami » inchangés)');
   assert(tp.checkGenerated('Réunion de 9 h à 10 h', []).title === 'Réunion' && tp.checkGenerated('Dentiste à 3 heures', []).title === 'Dentiste', 'plages et « à N heures » restent des horaires retirés');
