@@ -68,6 +68,23 @@ ok(st('past_due') === 'past_due', 'état past_due => status past_due (texte « p
 ok(st('incomplete') === 'incomplete' && st('trialing') === 'trialing', 'incomplete / trialing => affichés « en attente de paiement » (accès fermé)');
 ok(!rows.some((r) => r.activityId === ids.canceled), 'annulé => absent de la liste');
 ok(access.hasOffer1Access('f') === true && !access.hasActiveGrant('f'), 'l\'accès réel ne vient que de l\'état active (autres états listés mais fermés)');
+// Libellés d'état : chaque état non actif affiché a sa clé i18n en FR (clé = texte) et en EN (traduction non vide, différente)
+{
+  const vm = require('vm');
+  const sandbox = { window: {}, document: { documentElement: { setAttribute() {} }, addEventListener() {} }, console };
+  sandbox.global = sandbox.window; sandbox.self = sandbox.window;
+  vm.createContext(sandbox);
+  vm.runInContext(require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'i18n.js'), 'utf8'), sandbox);
+  const I = sandbox.window.NoesisI18n;
+  const labelOf = (status) => status === 'past_due' ? 'paiement à régulariser' : 'en attente de paiement'; // même règle que loadOffer1SubscribedSection
+  I.setLang('en');
+  for (const s of ['past_due', 'trialing', 'incomplete']) {
+    const fr = labelOf(s), en = I.t(fr);
+    ok(st(s) === s && en && en !== fr, 'état ' + s + ' : route => ' + s + ', clé « ' + fr + ' » traduite en EN (« ' + en + ' »)');
+  }
+  I.setLang('fr');
+  ok(I.t('paiement à régulariser') === 'paiement à régulariser' && I.t('en attente de paiement') === 'en attente de paiement', 'FR : les clés s\'affichent telles quelles');
+}
 db.prepare("UPDATE activity_subscriptions SET status = 'canceled' WHERE activityId = ?").run(ids.active);
 ok(!access.hasOffer1Access('f'), 'sans actif : accès fermé alors que past_due / incomplete restent listés avec leur état');
 process.exit(failed ? 1 : 0);
