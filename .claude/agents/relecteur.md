@@ -13,6 +13,6 @@ Contrôle :
 - Fonctions appelées qui n'existent pas / non exportées (bug déjà vu : `goals.*`), identifiants DOM référencés qui n'existent plus, z-index/classes partagés.
 - Migrations : additives, idempotentes, valides sur base neuve ET existante.
 
-- Règles de rangement (`docs/regles-rangement.md`) : si le diff touche `public/`, REFUSE la branche sans la checklist R1–R13 (captures 390 px et 360 px comprises) ou si une règle est violée sans justification écrite.
+- Règles de rangement (`docs/regles-rangement.md`) : si le diff touche `public/`, REFUSE la branche sans la checklist R1–R16 et F1–F5 (captures 390 px et 360 px comprises) ou si une règle est violée sans justification écrite.
 
 Rends : APPROUVÉ ou liste de points bloquants (fichier:ligne). Succinct.
