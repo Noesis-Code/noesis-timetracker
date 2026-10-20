@@ -15752,6 +15752,15 @@
         line.className = 'meta';
         // Seul « active » ouvre l'accès : les autres états s'affichent pour ce qu'ils sont.
         var stNote = row.status === 'past_due' ? t('paiement à régulariser') : (row.status && row.status !== 'active' ? t('en attente de paiement') : '');
+        // Résiliation programmée : même ligne, même note (aucun élément nouveau) ; date dans le fuseau de l'utilisateur (celui de X-Client-Tz).
+        if (!stNote && row.status === 'active' && row.cancelAtPeriodEnd && row.currentPeriodEnd) {
+          var endAt = new Date(row.currentPeriodEnd);
+          if (!isNaN(endAt.getTime())) {
+            var endOpts = { day: 'numeric', month: 'long', year: 'numeric' };
+            if (clientTimezone) endOpts.timeZone = clientTimezone;
+            stNote = t('résiliation programmée le {date}', { date: endAt.toLocaleDateString(dateLocale(), endOpts) });
+          }
+        }
         line.textContent = row.activityName + (stNote ? ' — ' + stNote : '');
         box.appendChild(line);
       });

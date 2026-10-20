@@ -45,5 +45,8 @@ Choisir une seule option :
 ## Variables au démarrage
 Le serveur journalise `[config Expansion] …` (noms de variables seulement, jamais de valeur) si : clé `sk_live` sur staging, clé sans `STRIPE_WEBHOOK_SECRET` ou `STRIPE_OFFER1_PRICE_ID`, `OFFER_CHECKOUT_OPEN=1` sans Stripe complet, valeur autre que `1`, `EXPANSION_MAILS=1` sans `RESEND_API_KEY`/`RESEND_FROM`. Lire ces lignes dans les journaux Railway après chaque changement de variable.
 
+## Webhook : réponse rapide, livraison en arrière-plan (20 oct. 2026)
+Le webhook répond 200 dès l'abonnement enregistré ; la génération du plan Expansion (IA, jusqu'à ~180 s) part en arrière-plan, une seule fois par activité (rejeu = aucun doublon ni second courriel, revérification sous transaction). Si la génération échoue : l'équipe est alertée par courriel et le balayage horaire (`subscriptioncron.runPendingActivations`) réessaie jusqu'au succès. Test : `test/expansion-webhook-livraison-lente-test.js`. À contrôler après le premier achat réel : plan livré dans les minutes qui suivent, pas dans la réponse du webhook.
+
 ## En cas de problème
 Retirer `OFFER_CHECKOUT_OPEN` (achat refusé de nouveau, abonnés existants non touchés) puis `EXPANSION_MAILS`.

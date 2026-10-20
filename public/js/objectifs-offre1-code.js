@@ -17,9 +17,9 @@
   }).catch(function () {});
 
   document.getElementById('content').insertAdjacentHTML('beforeend', `
-    <div id="offer1CodePage" class="accompPage hidden">
+    <div id="offer1CodePage" class="accompPage hidden" role="dialog" aria-modal="true" aria-labelledby="offer1CodeTitle">
       <div class="activityPageHeader">
-        <span class="activityPageName">J’ai un code</span>
+        <span class="activityPageName" id="offer1CodeTitle">J’ai un code</span>
         <button type="button" class="menuBtn" id="offer1CodeClose" aria-label="Fermer">✕</button>
       </div>
       <div class="accompScroll">

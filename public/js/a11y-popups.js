@@ -4,7 +4,7 @@
  * le bouton de fermeture (✕ / « Fermer ») du pop-up le plus récemment ouvert. */
 (function () {
   'use strict';
-  var SEL = '.communityMembersModal, .imageViewer, .docTasksPop, .strategyPop';
+  var SEL = '.communityMembersModal, .imageViewer, .docTasksPop, .strategyPop, #offer1CodePage';
   var FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
   var open = []; // { el, from }
 

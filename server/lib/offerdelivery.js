@@ -202,6 +202,11 @@ async function activateActivitySubscription(activityId, userId) {
   const created = [];
   db.exec('BEGIN');
   try {
+    // La génération (jusqu'à plusieurs minutes) a laissé passer d'autres appels : on revérifie sous transaction (aucun plan en double).
+    if (db.prepare('SELECT 1 FROM sub_projects WHERE activityId = ? AND slot IS NOT NULL LIMIT 1').get(activityId)) {
+      db.exec('ROLLBACK');
+      return { activityId, alreadyActivated: true };
+    }
     plan.forEach((item, slot) => {
       const subProject = sp.createSubProject(activityId, userId, item.name, item.description, null, /* pinned */ true);
       db.prepare('UPDATE sub_projects SET slot = ? WHERE id = ?').run(slot, subProject.id);

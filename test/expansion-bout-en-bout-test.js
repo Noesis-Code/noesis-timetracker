@@ -90,6 +90,7 @@ const wait = async (cond) => { for (let i = 0; i < 50 && !cond(); i++) await new
 
   // Étape 3 : accès Expansion ouvert
   ok(access.hasOffer1Access(USER) && access.hasActiveOffer1Subscription(USER), 'étape 3 : accès Expansion ouvert');
+  await wait(() => db.prepare('SELECT COUNT(*) n FROM sub_projects WHERE activityId = ? AND slot IS NOT NULL').get(activityId).n === 3); // livraison en arrière-plan (réponse 200 immédiate)
   ok(db.prepare('SELECT COUNT(*) n FROM sub_projects WHERE activityId = ? AND slot IS NOT NULL').get(activityId).n === 3, 'étape 3 : 3 sous-projets livrés');
 
   // Étape 4 : courriel de confirmation

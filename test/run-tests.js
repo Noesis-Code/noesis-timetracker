@@ -131,6 +131,8 @@ const SUITE_FILES = [
   'expansion-i18n-test.js',
   'expansion-webhook-evenements-test.js',
   'expansion-webhook-robustesse-test.js',
+  'expansion-resiliation-charge-test.js',
+  'expansion-webhook-livraison-lente-test.js',
   'ia-cout-par-utilisateur-test.js',
   'ia-modeles-centralises-test.js',
   'expansion-bout-en-bout-test.js',

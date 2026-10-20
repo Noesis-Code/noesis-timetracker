@@ -10,6 +10,8 @@
 // facturation. Pure JS, aucune compilation native — cohérent avec la
 // contrainte déjà posée pour server/lib/session.js.
 const cron = require('node-cron');
+const db = require('../db');
+const subMails = require('./subscriptionmails');
 const modules = require('./modules');
 const offerdelivery = require('./offerdelivery');
 const offerquota = require('./offerquota');
@@ -54,6 +56,26 @@ async function runMonthlyRegeneration() {
   return due.length;
 }
 
+// Reprise d'une livraison de plan qui a échoué après la réponse 200 du webhook (voir stripewebhook.js) : abonnement actif sans
+// aucun sous-projet à emplacement. Une seule tentative par activité et par passage ; un échec reste pour le passage suivant.
+async function runPendingActivations() {
+  const rows = db.prepare(`
+    SELECT s.activityId AS activityId, s.userId AS userId FROM activity_subscriptions s
+    WHERE s.status = 'active' AND NOT EXISTS (SELECT 1 FROM sub_projects p WHERE p.activityId = s.activityId AND p.slot IS NOT NULL)
+    GROUP BY s.activityId
+  `).all();
+  for (const row of rows) {
+    if (!modules.isEnabled(row.userId, 'ai') || !modules.isEnabled(row.userId, 'roadmap')) continue;
+    try {
+      const r = await offerdelivery.activateActivitySubscription(row.activityId, row.userId);
+      if (!r.alreadyActivated) await subMails.notifyUser(row.userId, 'confirmed');
+    } catch (e) {
+      console.error('[subscriptioncron] reprise de livraison échouée, activité', row.activityId, ':', e.message);
+    }
+  }
+  return rows.length;
+}
+
 function runReplacementSweep() {
   try {
     return revealDueReplacements();
@@ -83,6 +105,7 @@ function startSubscriptionCron() {
   // 24h — être en retard de quelques minutes ne se voit pas.
   cron.schedule('0 * * * *', () => {
     runReplacementSweep();
+    runPendingActivations().catch((e) => console.error('[subscriptioncron] reprise des livraisons échouée :', e.message));
   });
 }
 
@@ -92,4 +115,5 @@ module.exports = {
   // le prochain passage planifié.
   dueSubscriptions,
   runMonthlyRegeneration,
+  runPendingActivations,
 };

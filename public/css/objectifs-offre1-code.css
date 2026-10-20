@@ -30,4 +30,4 @@
 #offer1SubscribedList:empty { display: none; }
 #offer1SubscribedList .meta { margin: 0; }
 /* Focus clavier visible sur les champs Expansion (le halo violet à 18 % du style générique était trop faible, contraste < 3:1) : même anneau violet que les boutons. */
-#offer1CheckoutModal :is(select, input[type=text], input[type=email]):focus-visible, #offer1CodePage .offer1CodeInput:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+#offer1CheckoutModal :is(select, input[type=text], input[type=email]):focus-visible, #offer1CodePage .offer1CodeInput:focus-visible { outline: 2px solid var(--violet-me); outline-offset: 2px; }

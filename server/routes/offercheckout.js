@@ -320,7 +320,13 @@ router.get('/offer/subscriptions', requireAuth, (req, res) => {
     SELECT a.id AS activityId, a.name AS activityName, m.color AS activityColor,
       (SELECT s.status FROM activity_subscriptions s WHERE s.activityId = a.id AND s.userId = m.userId
          AND s.status IN ('active', 'past_due', 'trialing', 'incomplete')
-         ORDER BY (s.status = 'active') DESC, s.createdAt DESC LIMIT 1) AS status
+         ORDER BY (s.status = 'active') DESC, s.createdAt DESC LIMIT 1) AS status,
+      (SELECT s.cancelAtPeriodEnd FROM activity_subscriptions s WHERE s.activityId = a.id AND s.userId = m.userId
+         AND s.status IN ('active', 'past_due', 'trialing', 'incomplete')
+         ORDER BY (s.status = 'active') DESC, s.createdAt DESC LIMIT 1) AS cancelAtPeriodEnd,
+      (SELECT s.currentPeriodEnd FROM activity_subscriptions s WHERE s.activityId = a.id AND s.userId = m.userId
+         AND s.status IN ('active', 'past_due', 'trialing', 'incomplete')
+         ORDER BY (s.status = 'active') DESC, s.createdAt DESC LIMIT 1) AS currentPeriodEnd
     FROM activities a
     JOIN activity_members m ON m.activityId = a.id
     WHERE m.userId = ? AND EXISTS (

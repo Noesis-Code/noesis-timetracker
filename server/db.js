@@ -1804,6 +1804,11 @@ if (tableExists('activity_subscriptions') && !columnExists('activity_subscriptio
   db.exec('ALTER TABLE activity_subscriptions ADD COLUMN lastEventAt INTEGER');
 }
 
+// Résiliation programmée en fin de période (Stripe cancel_at_period_end) : 1 = l'abonnement actif s'arrêtera à currentPeriodEnd.
+if (tableExists('activity_subscriptions') && !columnExists('activity_subscriptions', 'cancelAtPeriodEnd')) {
+  db.exec('ALTER TABLE activity_subscriptions ADD COLUMN cancelAtPeriodEnd INTEGER NOT NULL DEFAULT 0');
+}
+
 // Rétro-remplissage de activity_billing_cycles (table neuve) pour toute
 // activité DÉJÀ activée avant ce pivot (au moins un sous-projet à slot posé)
 // — sans cette ligne, dueActivities() (server/lib/offerquota.js) ne la

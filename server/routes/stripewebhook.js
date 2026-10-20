@@ -78,13 +78,14 @@ function upsertSubscriptionRow({ activityId, userId, stripeCustomerId, stripeSub
 
   db.prepare(`
     INSERT INTO activity_subscriptions
-      (activityId, userId, stripeCustomerId, stripeSubscriptionId, stripePriceId, status, currentPeriodStart, currentPeriodEnd, createdAt, parentalConsentAt, parentalConsentMethod)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (activityId, userId, stripeCustomerId, stripeSubscriptionId, stripePriceId, status, currentPeriodStart, currentPeriodEnd, createdAt, parentalConsentAt, parentalConsentMethod, cancelAtPeriodEnd)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(stripeSubscriptionId) DO UPDATE SET
       status = excluded.status,
       currentPeriodStart = excluded.currentPeriodStart,
-      currentPeriodEnd = excluded.currentPeriodEnd
-  `).run(activityId, userId, stripeCustomerId, stripeSubscriptionId, priceId, subscription.status, periodStart, periodEnd, now, parentalConsentAt || null, parentalConsentMethod || null);
+      currentPeriodEnd = excluded.currentPeriodEnd,
+      cancelAtPeriodEnd = excluded.cancelAtPeriodEnd
+  `).run(activityId, userId, stripeCustomerId, stripeSubscriptionId, priceId, subscription.status, periodStart, periodEnd, now, parentalConsentAt || null, parentalConsentMethod || null, subscription.cancel_at_period_end ? 1 : 0);
 }
 
 async function handleCheckoutCompleted(session) {
@@ -129,15 +130,34 @@ async function handleCheckoutCompleted(session) {
 
   // Événements inversés : si l'abonnement est déjà résilié quand ce checkout arrive, rien à livrer ni à confirmer.
   if (subscription.status === 'canceled') return;
-  await offerdelivery.activateActivitySubscription(activityId, userId);
-  await subMails.notifyUser(userId, 'confirmed');
+  // La génération du plan (IA, jusqu'à ~180 s) ne doit JAMAIS retarder la réponse 200 : Stripe relivrerait l'événement.
+  // L'abonnement est déjà enregistré ci-dessus ; la livraison part en arrière-plan, une seule fois par activité. Un échec
+  // est journalisé + signalé à l'équipe, puis repris par le balayage horaire (subscriptioncron.runPendingActivations).
+  activateInBackground(session.id, activityId, userId);
+}
+
+const activating = new Set();
+function activateInBackground(sessionId, activityId, userId) {
+  if (activating.has(activityId)) return; // déjà en cours : l'autre exécution livrera et enverra le courriel
+  activating.add(activityId);
+  setImmediate(async () => {
+    try {
+      const r = await offerdelivery.activateActivitySubscription(activityId, userId);
+      if (!r || !r.alreadyActivated) await subMails.notifyUser(userId, 'confirmed');
+    } catch (e) {
+      console.error('[stripe webhook] livraison du plan échouée, activité', activityId, 'session', sessionId, ':', e.message);
+      try { await subMails.alertTeam('[Noèsis — Expansion : plan non généré]', `activité=${activityId} compte=${userId} session=${sessionId}\nNouvel essai automatique au prochain balayage horaire.`); } catch (e2) { /* meilleur effort */ }
+    } finally {
+      activating.delete(activityId);
+    }
+  });
 }
 
 async function handleInvoicePaid(invoice) {
   if (!invoice.subscription) return;
   const subscription = await stripe.retrieveSubscription(invoice.subscription);
-  db.prepare('UPDATE activity_subscriptions SET status = ?, currentPeriodStart = ?, currentPeriodEnd = ? WHERE stripeSubscriptionId = ? AND status != \'canceled\'')
-    .run(subscription.status, toIso(subscription.current_period_start), toIso(subscription.current_period_end), invoice.subscription);
+  db.prepare('UPDATE activity_subscriptions SET status = ?, currentPeriodStart = ?, currentPeriodEnd = ?, cancelAtPeriodEnd = ? WHERE stripeSubscriptionId = ? AND status != \'canceled\'')
+    .run(subscription.status, toIso(subscription.current_period_start), toIso(subscription.current_period_end), subscription.cancel_at_period_end ? 1 : 0, invoice.subscription);
 }
 
 // 'canceled' est final côté Stripe (un réabonnement crée un nouvel id) : un événement arrivé en retard
@@ -147,8 +167,8 @@ function handleSubscriptionUpdated(subscription, eventCreated) {
   const at = Number.isFinite(eventCreated) ? eventCreated : null;
   // Changement de plan : le prix courant suit l'abonnement (sans prix dans l'événement, l'ancien est conservé).
   const priceId = (subscription.items && subscription.items.data && subscription.items.data[0] && subscription.items.data[0].price && subscription.items.data[0].price.id) || null;
-  db.prepare('UPDATE activity_subscriptions SET status = ?, currentPeriodStart = ?, currentPeriodEnd = ?, stripePriceId = COALESCE(?, stripePriceId), lastEventAt = COALESCE(?, lastEventAt) WHERE stripeSubscriptionId = ? AND status != \'canceled\' AND (? IS NULL OR lastEventAt IS NULL OR lastEventAt <= ?)')
-    .run(subscription.status, toIso(subscription.current_period_start), toIso(subscription.current_period_end), priceId, at, subscription.id, at, at);
+  db.prepare('UPDATE activity_subscriptions SET status = ?, currentPeriodStart = ?, currentPeriodEnd = ?, cancelAtPeriodEnd = ?, stripePriceId = COALESCE(?, stripePriceId), lastEventAt = COALESCE(?, lastEventAt) WHERE stripeSubscriptionId = ? AND status != \'canceled\' AND (? IS NULL OR lastEventAt IS NULL OR lastEventAt <= ?)')
+    .run(subscription.status, toIso(subscription.current_period_start), toIso(subscription.current_period_end), subscription.cancel_at_period_end ? 1 : 0, priceId, at, subscription.id, at, at);
 }
 
 async function handleSubscriptionDeleted(subscription) {
