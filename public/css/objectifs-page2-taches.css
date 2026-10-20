@@ -287,7 +287,7 @@
 .goalsTasksGroup .goalsTaskEditing > input[type="checkbox"], .goalsTasksGroup .goalsTaskEditing > .subProjectItemLabel, .goalsTasksGroup .goalsTaskEditing > .goalsDailyWhen { display: none !important; }
 .goalsTaskEditPanel { padding-top: 0; }
 :root .goalsTaskEditPanel textarea.goalsTaskEditText { resize: none; overflow: hidden; font-family: inherit; line-height: 1.35;} :root .goalsTaskEditPanel textarea.goalsTaskEditText { max-width: none; width: 100%; text-align: left; border: 0 !important; background: transparent !important; padding: 6px 0; font-size: inherit; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
-:root .goalsTaskEditPanel select { text-align: left; text-align-last: left; border-radius: 999px; border: 0 !important; padding-left: 14px; }
+:root .goalsTaskEditPanel select { border-radius: 999px; border: 0 !important; padding-left: 14px; }
 :root .goalsTaskEditPanel input[type="date"],
 :root .historyReassign input[type="date"],
 :root .historyEditFields input[type="datetime-local"],
@@ -296,7 +296,7 @@
 }
 :root .goalsTaskEditPanel input[type="date"], :root .goalsTaskEditPanel select { min-height: 38px; padding: 8px 14px; box-sizing: border-box; background: var(--card) !important; -webkit-appearance: none; appearance: none; }
 :root .goalsTaskEditPanel select { text-align: left; text-align-last: left; }
-:root .goalsTaskEditPanel input[type="date"], :root .goalsTaskEditPanel select, :root .historyReassign input[type="date"], :root .historyEditFields input[type="datetime-local"] { background: rgba(255, 255, 255, 0.07) !important; border: 0 !important; }
+:root .goalsTaskEditPanel input[type="date"], :root .goalsTaskEditPanel select, :root .historyReassign input[type="date"], :root .historyEditFields input[type="datetime-local"] { border: 0 !important; }
 :root .goalsTaskEditPanel.historyEditFields input[type="date"], :root .goalsTaskEditPanel.historyEditFields select, :root .historyReassign input[type="date"], :root .historyEditFields input[type="datetime-local"], :root .goalsPlacementField input[type="date"], :root .goalsPlacementField select {
   background: var(--glass-calm-bg) !important; box-shadow: inset 0 0 0 1px var(--glass-calm-line) !important; border: 0 !important; border-radius: 999px !important;
 }
@@ -304,8 +304,7 @@
 /* dates = même bulle arrondie que Responsable (fond verre + liseré fin), partout. */
 :root .goalsTaskEditPanel input[type="date"], :root .goalsTaskEditPanel select, :root .historyReassign input[type="date"], :root .historyEditFields input[type="datetime-local"] { background: var(--glass-calm-bg) !important; box-shadow: inset 0 0 0 1px var(--glass-calm-line) !important; }
 /* en modification, une bulle arrondie entoure toute la tâche (texte + date + responsable + boutons). */
-:root .goalsTasksGroup .subProjectItem.goalsTaskEditing {
-  background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--glass-calm-line); border-radius: 20px;
+:root .goalsTasksGroup .subProjectItem.goalsTaskEditing { box-shadow: inset 0 0 0 1px var(--glass-calm-line); border-radius: 20px;
   padding: 10px 14px; margin: 6px 0; -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
 }
 /* bulle de modification plus transparente. */

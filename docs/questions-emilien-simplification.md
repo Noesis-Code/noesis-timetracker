@@ -41,3 +41,6 @@ Pour chaque ligne : cocher **retirer**, **garder** ou **déplacer**. Détails : 
 
 ## Routes dormantes (4e passage code mort)
 - [ ] `routes/offerforms.js` (`/activities/:id/forms`, `/profile-form`) : aucun appelant client, flux Offre 1 « formulaires » dormant ; l'Offre 1 lit pourtant ces données : retirer les routes / garder
+
+## 6e passage : traduction EN du module « Ajouter des tâches > document »
+`objectifs-document-taches.js` n'a aucune traduction EN (~60 phrases restent en français). Le corriger ajoute un mécanisme de traduction au module. Veux-tu qu'on le traduise (oui/non) ? Voir aussi les 4 clés EN en conflit (`Valider`, `Atteint`, `En cours`, `En retard`) dans `code-mort-2026-10-20.md`.

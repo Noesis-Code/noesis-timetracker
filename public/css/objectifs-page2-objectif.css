@@ -46,9 +46,7 @@
 }
 
 .goalsGridHeadCell {
-  flex: 1 1 0; min-width: 0; text-align: center; padding: 6px 4px;
-  border-radius: var(--radius-sm);
-  font-size: 11px; font-weight: 700; white-space: nowrap;
+  flex: 1 1 0; min-width: 0; text-align: center; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
 
@@ -101,7 +99,7 @@
 .goalsSwipeBtn { flex-shrink: 0; }
 
 
-.goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 12px; }
+.goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 .goalsGridScroll--locked { overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; }
 

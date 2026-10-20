@@ -376,7 +376,7 @@
 .goalMainReadHead { display: flex; align-items: flex-start; gap: 8px; }
 .goalMainReadTitle { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
 .goalMainReadDesc { margin: 0; font-size: 13px; opacity: 0.8; overflow-wrap: anywhere; white-space: pre-wrap; }
-#activityGoalsMainDescInput { margin-top: 6px; font-size: 14px; font-weight: 400; field-sizing: content; min-height: 60px; }
+#activityGoalsMainDescInput { font-weight: 400; field-sizing: content; }
 #activityGoalsMainCancelBtn { margin-right: 8px; }
 
 /* titre « Objectif périodique » hors de la carte ; carte épurée (plus de barre de progression,

@@ -11,7 +11,7 @@
 .offer1CodeInput { flex: 1 1 auto; min-width: 0; background: transparent; border: 1px solid var(--border, rgba(127,127,127,.35)); border-radius: 10px; padding: 10px; color: inherit; font: inherit; }
 .accompCodeOk { flex: 0 0 auto; border-radius: 10px; padding: 10px 16px; }
 /* « J'ai un code » : simple texte gris souligné (pas un bouton). */
-#offer1CodeLink.offer1PromoBtnGrey { background: transparent; border: 0; padding: 0 4px; border-radius: 0; box-shadow: none; color: var(--text-light); text-decoration: underline; font-weight: 400; }
+#offer1CodeLink.offer1PromoBtnGrey { background: transparent; border: 0; border-radius: 0; box-shadow: none; color: var(--text-light); text-decoration: underline; font-weight: 400; }
 
 /* Achat Expansion (20 oct. 2026, vérif. 390 px / 360×640) : champs pleine largeur, zones tactiles >= 44 px, aucune couleur ni bouton nouveau. */
 .offer1PromoBtn { min-height: 44px; }

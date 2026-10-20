@@ -176,13 +176,9 @@ input[type=time]:focus, select:focus, textarea:focus {
 #onboarding {
   height: 100vh;
   height: 100dvh;
-  /* 12 septembre 2026 (Design) : overflow:hidden coupait sans recours l'écran d'instructions « Ajoute Noèsis à ton écran d'accueil » (#onbInstallPwa, navigateur … */
-  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 24px;
   background: var(--onb-bg);
 }
 /* 11 septembre 2026 (nuit, diagnostic chiffré) : indicateur temporaire posé sur l'app (safe-top/safe-bottom/innerH/outerH) a montré, sur l'iPhone d'Emilien en … */
@@ -364,7 +360,7 @@ input[type=time]:focus, select:focus, textarea:focus {
 #followsScroll,
 #projectsScroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 /* Les parties FIXES, hors défilement. */
-#profileFollowsPanel #followsSwitch { flex: 0 0 auto; margin-bottom: 10px; }
+#profileFollowsPanel #followsSwitch { margin-bottom: 10px; }
 /* Un filet sous le titre : sans lui, la première ligne du contenu passe juste
    sous le mot « Abonnés »/« Projets » pendant le défilement et on ne voit plus
    que le titre est un en-tête fixe, pas une ligne comme les autres. */
@@ -1285,7 +1281,6 @@ body.scrollLock { overflow: hidden; }
 }
 /* .settingsFlat (9 septembre 2026, demande d'Emilien : limiter les menus déroulants aux seules sections qui en ont vraiment besoin) — variante SANS accordéon de … */
 #profileSettingsPanel .settingsFlatTitle { margin: 0 0 8px; }
-#profileSettingsScroll .settingsFlatTitle { padding-left: 44px; }
 
 .settingsCard input[type=text], .settingsCard input[type=password],
 .settingsCard input[type=tel], .settingsCard input[type=email] {
@@ -2796,7 +2791,6 @@ button { -webkit-user-select: none; user-select: none; }
 
 /* ===== Gestion des catégories d'objectifs — fenêtre activité, 15 septembre 2026 (7e passage, demande d'Emilien : « je souhaite que la fenêtre activité soit les … */
 /* 16 septembre 2026 (discussion Objectifs — C) : ce panneau ne s'affiche plus seul (ancien 4e bouton "Objectifs" du sélecteur) — il apparaît maintenant À LA … */
-#activityGoalsCategoriesBlock { margin-top: 8px; }
 /* ⚠️ 22 septembre 2026 : `.activityGoalsCategoryWeeklySummary`/ `...WeeklySummaryLine` (résumé lecture-seule des objectifs hebdomadaires sous chaque pôle, posé … */
 /* 17 septembre 2026 (fusion sous-projet → catégorie, section Tâches) — même retrait/bordure que .activityGoalsCategoryWeeklySummary ci-dessus, pour rattacher visuellement ce bloc à sa ligne de catégorie. */
 .activityGoalsCategoryTasksBlock {
@@ -2950,7 +2944,6 @@ button { -webkit-user-select: none; user-select: none; }
   overscroll-behavior: contain;
 }
 /* La bande des projets arrive juste sous le bandeau, la Discussion après. */
-#profilePageScroll > #topbarProjects { margin-bottom: 16px; }
 
 /* Les « carrés » d'Emilien. */
 .profileSquareBtn {
@@ -3091,7 +3084,7 @@ button { -webkit-user-select: none; user-select: none; }
 #profileProjectsPanel .profileSubWindowHeader #projectsPanelClose { margin-left: auto; flex: 0 0 auto; }
 #profileProjectsPanel #projectsScroll { padding: 12px 16px 16px; overscroll-behavior: contain; }
 
-#profilePage #profilePageClose { font-size: 22px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+#profilePage #profilePageClose { line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
 
 /* Projets : en mode « + », seul le formulaire d'ajout est visible. */
 #profileProjectsPanel.projectsAddMode #projectsList { display: none; }
@@ -3140,7 +3133,6 @@ button { -webkit-user-select: none; user-select: none; }
    reposés localement : l'écran est noir aussi en thème clair), contenu resserré pour tenir sans coupure dès 375x667. */
 #onboarding {
   position: relative; z-index: 0; color: var(--text);
-  align-items: center;
 }
 #onboarding::before {
   content: '';
@@ -3153,7 +3145,7 @@ button { -webkit-user-select: none; user-select: none; }
 #onboarding .onboarding-card {
   background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
   -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
-  padding: 18px 20px; margin: auto; overflow: visible; max-height: none;
+  padding: 18px 20px; overflow: visible; max-height: none;
 }
 #onboarding { padding: calc(env(safe-area-inset-top, 0px) + 16px) 20px calc(env(safe-area-inset-bottom, 0px) + 16px); }
 #onboarding .onboarding-card h1 { color: var(--text); font-size: 26px; margin-bottom: 10px; }
@@ -3446,7 +3438,7 @@ button { -webkit-user-select: none; user-select: none; }
 #profileSettingsScroll .settingsCard:has(#settingsSaveBtn) { padding-bottom: 4px; }
 /* 10 oct. 2026 : fenêtre info IA — titre fixe en haut, texte qui défile, bouton toujours visible. */
 #aiNoticeModal > .communityMembersModalCard { display: flex; flex-direction: column; overflow: hidden; max-height: 85vh; max-height: 85dvh; }
-#aiNoticeModal .aiNoticeBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+#aiNoticeModal .aiNoticeBody { min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 #aiNoticeModal .communityMembersModalHeader, #aiNoticeModal .marketingInviteActions { flex: 0 0 auto; }
 /* 10 oct. 2026 : info IA — le bouton défile avec le texte ; titre fixe, barre dessous, moins d'espace en haut. */
 #aiNoticeModal > .communityMembersModalCard { padding-top: 8px; }
