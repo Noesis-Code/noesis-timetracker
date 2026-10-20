@@ -98,6 +98,10 @@ assert(blind2.rejetsAttendus.every((t) => !tp.checkGenerated(t, []).title), 'lot
   const bad5 = b5.titles.filter((t) => tp.checkGenerated(t, []).title !== (b5.attendus[t] || t) || (t in b5.hints && JSON.stringify(hint.parseDateHint(t, b5.today)) !== JSON.stringify(b5.hints[t])))
     .concat(b5.doublons.filter(([a, n]) => tp.checkGenerated(n, [a]).reason !== 'doublon').map((p) => p[1]));
   assert(b5.titles.length === 30 && bad5.length === 0, 'lot h181-h210 : ' + bad5.length + ' en échec' + (bad5.length ? ' ' + JSON.stringify(bad5) : ''));
+  // Lot h211-h240 (mots québécois, oral écrit ; corrigé ensuite par règles générales : non indépendant après coup).
+  const b6 = require('./fixtures/task-precision/blind-h211-h240.json');
+  const bad6 = b6.titles.filter((t) => b6.rejets.includes(t) ? !!tp.checkGenerated(t, []).title : (tp.checkGenerated(t, []).title !== (b6.attendus[t] || t) || (t in b6.hints && JSON.stringify(hint.parseDateHint(t, b6.today)) !== JSON.stringify(b6.hints[t]))));
+  assert(b6.titles.length === 30 && bad6.length === 0, 'lot h211-h240 : ' + bad6.length + ' en échec' + (bad6.length ? ' ' + JSON.stringify(bad6) : ''));
   assert(tp.checkGenerated('Réunion de 9 h à 10 h', []).title === 'Réunion' && tp.checkGenerated('Dentiste à 3 heures', []).title === 'Dentiste', 'plages et « à N heures » restent des horaires retirés');
 }
 

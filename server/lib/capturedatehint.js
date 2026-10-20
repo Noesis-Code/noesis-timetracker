@@ -49,7 +49,7 @@ function parseDateHint(text, today) {
 
   if (/ apres demain /.test(t)) return { kind: 'day', date: add(today, 2) };
   if (/ (demain|tomorrow) /.test(t)) return { kind: 'day', date: add(today, 1) };
-  if (/ (aujourd hui|aujourdhui|ce soir|ce matin|today|tonight) /.test(t)) return { kind: 'day', date: today };
+  if (/ (aujourd hui|aujourdhui|ce soir|ce matin|a soir|a matin|cet apres-midi|cet apres midi|today|tonight) /.test(t)) return { kind: 'day', date: today };
   // « dans 3 jours », « dans 2 semaines » (relatif, jamais une heure) ; « dans une heure » ne donne aucun indice.
   m = / dans (\d{1,2}|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix) (jours?|jrs?|semaines?|sem) /.exec(t);
   if (m) {
@@ -57,6 +57,21 @@ function parseDateHint(text, today) {
     return { kind: 'day', date: add(today, n * (m[2][0] === 's' ? 7 : 1)) };
   }
 
+  // « fin de semaine » (québécois) = le week-end : le samedi (le jour même un samedi ou dimanche) ; « prochaine » = celui d'après ; « pour / avant » = échéance.
+  m = / (?:la )?(?:fin de semaine|week-end|weekend)( prochaine| prochain)? /.exec(t);
+  if (m) {
+    const w = parse(today).getUTCDay();
+    let d = w === 0 || w === 6 ? today : add(today, 6 - w);
+    if (m[1]) d = add(w === 0 ? add(today, -1) : add(today, 6 - w), 7);
+    return { kind: / (pour|avant|d ici) /.test(t) ? 'deadline' : 'day', date: d };
+  }
+  // « semaine du 10 novembre » = la semaine (lundi) de cette date.
+  m = / semaine du (\d{1,2})(?:er)? (janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre) /.exec(t);
+  if (m) { const iso = dayOfMonth(today, +m[1], MONTHS[m[2]]); if (iso) return { kind: 'week', date: monday(iso) }; }
+  // Fêtes à date fixe, avec un mot de contexte (jamais « Noël » seul : prénom) : « la St-Jean » (24 juin), « pour Noël », « avant l'Halloween ».
+  const hol = / (?:la |a la |pour la |avant la |d ici la |fete de la )(?:st|saint)-jean(?:-baptiste)? /.test(t) ? [6, 24]
+    : / (?:pour|avant|d ici|veille de|reveillon de|jour de) (?:noel|l halloween|halloween) /.exec(t) ? (/noel/.test(t) ? [12, 25] : [10, 31]) : null;
+  if (hol) { const iso = dayOfMonth(today, hol[1], hol[0]); if (iso) return { kind: / (pour|avant|d ici) /.test(t) ? 'deadline' : 'day', date: iso }; }
   if (/ semaine prochaine | la semaine suivante | semaine d apres /.test(t)) return { kind: 'week', date: add(monday(today), 7) };
   if (/ (cette semaine|d ici la fin de la semaine|d ici vendredi) /.test(t) && !/ d ici vendredi /.test(t)) return { kind: 'week', date: monday(today) };
   if (/ (la )?fin (de|du) mois /.test(t)) {

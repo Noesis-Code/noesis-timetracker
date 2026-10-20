@@ -1,0 +1,142 @@
+{
+ "note": "Lot aveugle h211-h240 (20 oct. 2026) : mots QUEBECOIS et oral ecrit (faut que, pis, a soir, fin de semaine, magasiner, diner = midi, 5 a 7, St-Jean, 1er juillet, char, booker). Ecrit AVANT toute relecture de capturedatehint.js ; taskprecision.js deja lu lors des lots precedents. today = 2026-10-20 (mardi) ; attendus = titre apres retrait de l'heure ; 'REJET' = titre sans sens a rejeter ; hints : null = aucun indice attendu ; titre absent de hints = non controle.",
+ "today": "2026-10-20",
+ "titles": [
+  "Faut que j'appelle le plombier à soir",
+  "Pis après, magasiner des bottes",
+  "Magasiner un cadeau pour la fin de semaine",
+  "Dîner avec Marc demain",
+  "Dîner avec la gang du bureau jeudi à midi",
+  "Souper chez mes parents samedi à 18h",
+  "Organiser le 5 à 7 de l'équipe vendredi",
+  "Acheter le gâteau pour la St-Jean",
+  "Trouver un camion pour le 1er juillet",
+  "Réunion pis lunch avec Jean mardi prochain",
+  "Passer chercher le char au garage à 8h demain",
+  "Emballer la vaisselle la semaine prochaine",
+  "Aller magasiner chez Canadian Tire",
+  "Dormir 8h cette nuit",
+  "Payer le compte d'Hydro avant le 15 novembre",
+  "Cuisiner pour le réveillon le 24 décembre au soir",
+  "Écrire un courriel à la boss ce matin",
+  "Rentrer les poubelles à soir",
+  "Aller au 5 à 7 de Sophie jeudi",
+  "Finir le rapport pour lundi prochain",
+  "Tondre la pelouse samedi",
+  "Faire du lavage pis du ménage",
+  "Booker l'hôtel pour la semaine du 10 novembre",
+  "Voir le médecin dans 3 semaines",
+  "Magasiner un manteau d'hiver cette semaine",
+  "Dîner de famille chez grand-maman à 12h",
+  "Appeler le gars du chauffage à matin",
+  "Faire de quoi",
+  "Checker ça",
+  "Pis ça"
+ ],
+ "attendus": {
+  "Dîner avec la gang du bureau jeudi à midi": "Dîner avec la gang du bureau jeudi",
+  "Souper chez mes parents samedi à 18h": "Souper chez mes parents samedi",
+  "Passer chercher le char au garage à 8h demain": "Passer chercher le char au garage demain",
+  "Dîner de famille chez grand-maman à 12h": "Dîner de famille chez grand-maman"
+ },
+ "rejets": [
+  "Faire de quoi",
+  "Checker ça",
+  "Pis ça"
+ ],
+ "hints": {
+  "Faut que j'appelle le plombier à soir": {
+   "kind": "day",
+   "date": "2026-10-20"
+  },
+  "Pis après, magasiner des bottes": null,
+  "Magasiner un cadeau pour la fin de semaine": {
+   "kind": "deadline",
+   "date": "2026-10-24"
+  },
+  "Dîner avec Marc demain": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Dîner avec la gang du bureau jeudi à midi": {
+   "kind": "day",
+   "date": "2026-10-22"
+  },
+  "Souper chez mes parents samedi à 18h": {
+   "kind": "day",
+   "date": "2026-10-24"
+  },
+  "Organiser le 5 à 7 de l'équipe vendredi": {
+   "kind": "day",
+   "date": "2026-10-23"
+  },
+  "Acheter le gâteau pour la St-Jean": {
+   "kind": "deadline",
+   "date": "2027-06-24"
+  },
+  "Trouver un camion pour le 1er juillet": {
+   "kind": "deadline",
+   "date": "2027-07-01"
+  },
+  "Réunion pis lunch avec Jean mardi prochain": {
+   "kind": "day",
+   "date": "2026-10-27"
+  },
+  "Passer chercher le char au garage à 8h demain": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Emballer la vaisselle la semaine prochaine": {
+   "kind": "week",
+   "date": "2026-10-26"
+  },
+  "Aller magasiner chez Canadian Tire": null,
+  "Dormir 8h cette nuit": null,
+  "Payer le compte d'Hydro avant le 15 novembre": {
+   "kind": "deadline",
+   "date": "2026-11-15"
+  },
+  "Cuisiner pour le réveillon le 24 décembre au soir": {
+   "kind": "deadline",
+   "date": "2026-12-24"
+  },
+  "Écrire un courriel à la boss ce matin": {
+   "kind": "day",
+   "date": "2026-10-20"
+  },
+  "Rentrer les poubelles à soir": {
+   "kind": "day",
+   "date": "2026-10-20"
+  },
+  "Aller au 5 à 7 de Sophie jeudi": {
+   "kind": "day",
+   "date": "2026-10-22"
+  },
+  "Finir le rapport pour lundi prochain": {
+   "kind": "deadline",
+   "date": "2026-10-26"
+  },
+  "Tondre la pelouse samedi": {
+   "kind": "day",
+   "date": "2026-10-24"
+  },
+  "Faire du lavage pis du ménage": null,
+  "Booker l'hôtel pour la semaine du 10 novembre": {
+   "kind": "week",
+   "date": "2026-11-09"
+  },
+  "Voir le médecin dans 3 semaines": {
+   "kind": "day",
+   "date": "2026-11-10"
+  },
+  "Magasiner un manteau d'hiver cette semaine": {
+   "kind": "week",
+   "date": "2026-10-19"
+  },
+  "Dîner de famille chez grand-maman à 12h": null,
+  "Appeler le gars du chauffage à matin": {
+   "kind": "day",
+   "date": "2026-10-20"
+  }
+ }
+}

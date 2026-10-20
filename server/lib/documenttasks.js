@@ -546,7 +546,20 @@ async function propose(userId, activityId, body, opts) {
   let out;
   try { out = await docanalysis.call({ parts: prep.parts, want: prep.want, feature: 'document-taches' }); }
   catch (e) { throw e && e.aiBlocked ? httpError(429, e.message) : httpError(502, "L'IA n'a pas répondu. Réessaie dans un moment."); }
-  return finishProposal(userId, activityId, out, prep);
+  const res = finishProposal(userId, activityId, out, prep);
+  // Repli : tout a été rejeté comme vague / recopié (rien d'affiché) -> UNE seule relance, consigne précisée (autre requête, donc hors cache), tâches seules.
+  // Jamais plus d'une relance ; un échec de la relance garde le premier résultat (le message dit pourquoi rien n'est affiché).
+  if (!res.kept && res.found > 0 && res.dropped && res.dropped.invalide > 0) {
+    try {
+      const want2 = { t: true, c: false };
+      const parts2 = docanalysis.buildParts(prep.ctx, prep.cctx, { instruction: prep.instruction + '\n(Les tâches précédentes étaient trop vagues ou recopiaient l\'objectif. Propose 3 à 6 tâches concrètes : un verbe d\'action et un objet précis, jamais le texte de l\'objectif.)', doc: prep.doc.text || '', want: want2 });
+      if (prep.doc.images && prep.doc.images.length) parts2.images = prep.doc.images;
+      const out2 = await docanalysis.call({ parts: parts2, want: want2, feature: 'document-taches' });
+      const res2 = finishProposal(userId, activityId, out2, { ...prep, want: want2, parts: parts2 });
+      if (res2.kept) return { ...res2, retried: true };
+    } catch (e) { /* relance impossible : premier résultat conservé */ }
+  }
+  return res;
 }
 
 // `tasks` : uniquement ce que l'utilisateur a coché ({ title, key, week?, minutes? }).

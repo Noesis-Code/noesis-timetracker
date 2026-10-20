@@ -145,6 +145,7 @@
           if (d.doublon) why.push(d.doublon + ' doublon(s)');
           if (d.limite) why.push(d.limite + ' au-delà de la limite');
           if (d.vide) why.push(d.vide + ' sans titre');
+          if (d.invalide) why.push(d.invalide + ' trop vague(s) ou recopiée(s) de l’objectif');
           notes.push('L’IA a trouvé ' + r.found + ' tâches, ' + proposals.length + ' affichées' + (why.length ? ' (' + why.join(', ') + ')' : '') + '.');
         }
         if (r.repaired) notes.push('La réponse de l’IA a été coupée : seules les tâches complètes sont affichées. Relance pour obtenir la suite.');

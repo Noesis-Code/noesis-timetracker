@@ -62,6 +62,7 @@ const SUITE_FILES = [
   'precision-taches-test.js',
   'precision-generees-test.js',
   'precision-objectifs-test.js',
+  'precision-repli-test.js',
   'recurrence-ia-test.js',
   'saisie-manuelle-proposition-test.js',
   'apprentissage-usage-test.js',

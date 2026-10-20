@@ -113,3 +113,27 @@ Corrections : `server/lib/taskprecision.js` (FIXED_TIME), `server/lib/capturedat
 Limite : « 10h » sans jour ni « à » reste ambigu avec une durée ; le texte est conservé (choix sûr).
 
 Non-régression : les lots h121-h150 et h151-h180 rejoués à 0 écart ; `eval-task-precision` : exactitude 100 %, refus justes 100 % ; `precision-generees-test.js` couvre maintenant h181-h210.
+
+---
+
+# Lot h211-h240 : vraiment neuf, québécois et oral écrit (repli 22, 20 oct. 2026)
+
+`test/fixtures/task-precision/blind-h211-h240.json`, écrit AVANT de rouvrir `capturedatehint.js` (`taskprecision.js` déjà connu). 30 titres neutres : « faut que », « pis », « à soir / à matin », « fin de semaine », « magasiner », « dîner » = midi, « 5 à 7 », « la St-Jean », « 1er juillet », « char », « booker », « de quoi ».
+
+**Taux aveugle honnête : 21/30 = 70 %** (9 écarts avant correction). Dont 1 était une erreur de MON attente (« pour le réveillon le 24 décembre » = échéance à cause de « pour », corrigée dans la fixture). 8 vrais défauts. Après correction : 30/30, non indépendant.
+
+| Défaut | Règle généralisée |
+|---|---|
+| « à soir », « à matin » : aucun indice (= ce soir / ce matin) | ajoutés avec « cet après-midi » aux formes du jour même |
+| « pour la fin de semaine » : aucun indice | « fin de semaine / week-end » = le samedi (jour même un samedi/dimanche) ; « prochaine » = le suivant ; « pour / avant / d'ici » = échéance |
+| « pour la St-Jean » : aucun indice | fêtes à date fixe avec mot de contexte : « la St-Jean » (24 juin), « pour / avant Noël », « l'Halloween » ; jamais « Noël » seul (prénom) |
+| « semaine du 10 novembre » lu comme un jour | « semaine du N mois » = la semaine (lundi) de cette date |
+| « Faire de quoi », « Pis ça » acceptés | « quoi », « pis », « puis » mots vides de sens (titre fait que de cela = rejeté) |
+
+Bien traité d'emblée : « 5 à 7 » jamais lu comme une heure ; « dîner à midi » / « souper à 18h » retirés ; « 1er juillet » ; « dormir 8h » (durée) ; « à 8h demain ». Limite : « dîner » seul n'est pas converti en 12 h (aucune heure n'est posée) ; « fin de semaine » = samedi est un choix (la case de l'utilisateur prime, simple suggestion). Aucune récurrence créée.
+
+# Règles de rejet : saisie manuelle et repli (repli 22)
+
+- **Jamais appliquées à une saisie manuelle ni à l'existant** (`test/precision-repli-test.js`, branché) : « Réfléchir », « Faire des recherches », « Avancer sur le projet », « Penser à l'objectif », un doublon exact et « Appeler Paul à 14 h 30 » saisis à la main sont créés tels quels (origine user). `checkGenerated` n'est appelé que par `documenttasks.parseDetailed` et `offerdelivery.parsePlan`. Une génération ne retire ni ne modifie rien d'existant avant validation ; `apply` (cases cochées) ne refiltre pas.
+- **Tout rejeté, que voit l'utilisateur ?** Avant : « L'IA a trouvé N tâches, 0 affichées » sans raison, aucun repli. Maintenant : la raison est écrite (« N trop vague(s) ou recopiée(s) de l'objectif ») et, si RIEN n'est retenu, **une seule relance** du modèle (consigne précisée, tâches seules, même plafond quotidien) ; si elle échoue aussi, le premier résultat et son message sont gardés. Rejet partiel : pas de relance.
+- **Feuille de route (offre 1)** : un sous-projet entièrement vague lève une erreur, ce qui déclenche le repli existant sur le modèle fort ; s'il échoue aussi, l'activation est annulée sans rien créer (jamais un sous-projet vide).
