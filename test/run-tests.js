@@ -110,6 +110,7 @@ const SUITE_FILES = [
   'ia-sortie-reduite-test.js',
   'ia-budget-par-compte-test.js',
   'ai-cost-projection-test.js',
+  'ia-projection-test.js',
   'mcp-test.js',
   'zone-fichier-test.js',
   'fonctionnel-chrono.js',

@@ -1,0 +1,20 @@
+{
+  "_note": "Hypotheses modifiables (aucune mesure : a remplacer par ai-cost-report.js sur la production). calls = appels par utilisateur actif et par jour [leger, moyen, intensif]. in/out = jetons moyens. model = haiku|sonnet. memo = part d'appels servis par le memo (cout 0). fallback = part d'appels qui declenchent AUSSI un appel au modele fort (sonnet). retry = part d'appels relances une fois (meme modele). cached = part de l'entree lue dans le cache de prompt (0,1 x le prix). discount = remise (0,5 = lots Drive).",
+  "daysPerMonth": 30,
+  "expansionUsdPerMonth": 20,
+  "capUsdPerMonth": 15,
+  "functions": {
+    "correction-orthographe":  { "calls": [10, 25, 60],      "in": 110,  "out": 20,   "model": "haiku",  "memo": 0.2, "fallback": 0,    "retry": 0,   "cached": 0,   "discount": 1 },
+    "classement-tache":        { "calls": [3, 10, 30],       "in": 700,  "out": 40,   "model": "haiku",  "memo": 0.1, "fallback": 0.15, "retry": 0,   "cached": 0,   "discount": 1 },
+    "rapprochement-objectif":  { "calls": [2, 6, 20],        "in": 1500, "out": 100,  "model": "haiku",  "memo": 0.1, "fallback": 0.1,  "retry": 0.3, "cached": 0,   "discount": 1 },
+    "recurrence-tache":        { "calls": [1, 4, 12],        "in": 200,  "out": 40,   "model": "haiku",  "memo": 0.2, "fallback": 0.05, "retry": 0,   "cached": 0,   "discount": 1 },
+    "reformulation":           { "calls": [0.5, 2, 8],       "in": 300,  "out": 150,  "model": "haiku",  "memo": 0.1, "fallback": 0.1,  "retry": 0,   "cached": 0,   "discount": 1 },
+    "inter-secteurs":          { "calls": [0.5, 2, 6],       "in": 1200, "out": 400,  "model": "haiku",  "memo": 0.2, "fallback": 0.3,  "retry": 0,   "cached": 0,   "discount": 1 },
+    "objectifs-hebdo":         { "calls": [0.1, 0.3, 1],     "in": 3000, "out": 2000, "model": "haiku",  "memo": 0.1, "fallback": 0.5,  "retry": 0.1, "cached": 0,   "discount": 1 },
+    "document-taches":         { "calls": [0.1, 0.4, 1.5],   "in": 4000, "out": 1500, "model": "haiku",  "memo": 0.1, "fallback": 0.3,  "retry": 0.1, "cached": 0.3, "discount": 1 },
+    "modifications-proposees": { "calls": [0.2, 0.8, 3],     "in": 2500, "out": 600,  "model": "haiku",  "memo": 0.1, "fallback": 0.3,  "retry": 0,   "cached": 0.3, "discount": 1 },
+    "redistribution-objectif": { "calls": [0.05, 0.2, 1],    "in": 1500, "out": 400,  "model": "haiku",  "memo": 0.3, "fallback": 0.3,  "retry": 0,   "cached": 0.3, "discount": 1 },
+    "offre1-plan":             { "calls": [0.01, 0.03, 0.1], "in": 4000, "out": 3500, "model": "sonnet", "memo": 0.3, "fallback": 0,    "retry": 0,   "cached": 0,   "discount": 1 },
+    "surveillance-drive-batch":{ "calls": [0, 1, 4],         "in": 5000, "out": 1000, "model": "haiku",  "memo": 0.2, "fallback": 0.3,  "retry": 0,   "cached": 0.5, "discount": 0.5 }
+  }
+}
