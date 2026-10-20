@@ -78,7 +78,7 @@ const SYSTEM_PROMPT = `Tu prépares la feuille de route de l'Offre 1 de Noèsis 
 À partir de l'état courant de ses 4 formulaires (discovery, means, strategy, clientProfile), propose exactement ${SUBPROJECT_COUNT} sous-projets concrets et actionnables, chacun avec une liste de tâches ORDONNÉES (les premières sont les plus urgentes/prioritaires — elles seront montrées en premier).
 Réponds UNIQUEMENT avec un objet JSON de cette forme exacte, sans texte ni Markdown autour :
 {"subProjects":[{"name":"...","description":"...","tasks":["...","..."]}]}
-Contraintes : exactement ${SUBPROJECT_COUNT} sous-projets ; chaque "name" fait moins de ${MAX_NAME_LENGTH} caractères ; chaque "description" fait moins de ${MAX_DESCRIPTION_LENGTH} caractères ; chaque tâche fait moins de ${MAX_ITEM_LABEL_LENGTH} caractères ; entre ${REVEAL_BATCH_SIZE} et 15 tâches par sous-projet (une vraie feuille de route, pas juste les 3 premières étapes).`;
+Contraintes : exactement ${SUBPROJECT_COUNT} sous-projets ; chaque "name" fait moins de ${MAX_NAME_LENGTH} caractères ; chaque "description" fait moins de ${MAX_DESCRIPTION_LENGTH} caractères ; chaque tâche (verbe d'action + objet, sans horaire) fait moins de ${MAX_ITEM_LABEL_LENGTH} caractères ; entre ${REVEAL_BATCH_SIZE} et 15 tâches par sous-projet (une vraie feuille de route, pas juste les 3 premières étapes).`;
 
 // Haiku d'abord, repli sur ANTHROPIC_MODEL (fort) si Haiku est peu sûr : appel en échec, JSON non conforme, plan trop court/incomplet
 // (un sous-projet sans description, ou moins de REVEAL_BATCH_SIZE tâches), ou confiance (champ racine "confidence") < seuil.
@@ -168,7 +168,7 @@ function parsePlan(text) {
     const description = typeof raw.description === 'string' ? raw.description.trim().slice(0, MAX_DESCRIPTION_LENGTH) : '';
 
     const tasks = Array.isArray(raw.tasks)
-      ? raw.tasks.map((t) => (typeof t === 'string' ? t.trim().slice(0, MAX_ITEM_LABEL_LENGTH) : '')).filter(Boolean)
+      ? raw.tasks.map((t) => (typeof t === 'string' ? t.trim().slice(0, MAX_ITEM_LABEL_LENGTH) : '')).map((t) => require('./taskprecision').checkGenerated(t).title).filter(Boolean) // validateur déterministe : vide/sans verbe/horaire fixe écartés
       : [];
     if (!tasks.length) throw new Error(`Sous-projet #${index + 1} ("${name}") : aucune tâche exploitable dans la réponse de Noèsis.`);
 

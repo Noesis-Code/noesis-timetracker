@@ -384,14 +384,16 @@ function parseDetailed(text, ctx) {
   list = list.map(taskFromRow);
   const labels = new Map(ctx.candidates.map((c) => [c.key, c.label]));
   const seen = new Set(), tasks = [];
-  const dropped = { doublon: 0, vide: 0, limite: 0, categorieInconnue: 0, ignore: 0 };
+  const dropped = { doublon: 0, vide: 0, limite: 0, categorieInconnue: 0, ignore: 0, invalide: 0 }; // invalide : sans verbe, > 140 car., horaire fixe seul
+  const openTitles = ((ctx.app && ctx.app.open) || []).map((o) => o.label);
   const strat = ctx.activityId ? require('./strategy').get(ctx.activityId) : null; // « à ignorer » appliqué strictement, avant tout affichage
   const tp = require('./taskprecision');
   let toChoose = 0;
   list.forEach((t) => {
     if (!t || typeof t !== 'object') { dropped.vide++; return; }
-    const title = tp.cleanTitle(t.title);
-    if (!title) { dropped.vide++; return; }
+    const chk = tp.checkGenerated(t.title, openTitles);
+    if (!chk.title) { if (chk.reason === 'doublon') dropped.doublon++; else if (chk.reason === 'vide') dropped.vide++; else dropped.invalide++; return; }
+    const title = chk.title;
     if (strat && strat.ignore && tp.matchesIgnore(title, strat.ignore)) { dropped.ignore++; return; }
     let key = t.key, pick = false;
     if (!labels.has(key)) {
@@ -509,7 +511,7 @@ function finishProposal(userId, activityId, out, prep) {
   if (!parsed) throw Object.assign(httpError(502, "La réponse de l'IA était inexploitable. Réessaie ou reformule la consigne."), { unusable: true });
   const tasks = balanceDays(parsed.tasks, ctx);
   // Compteurs seulement : aucun contenu de document ni de tâche n'est journalisé.
-  console.log(`[documenttasks] trouvées=${parsed.found} retenues=${tasks.length} doublons=${parsed.dropped.doublon} vides=${parsed.dropped.vide} limite=${parsed.dropped.limite} categorieInconnue=${parsed.dropped.categorieInconnue} ignorees=${parsed.dropped.ignore} aChoisir=${parsed.toChoose} reparee=${parsed.repaired} coupee=${aiTruncated}`);
+  console.log(`[documenttasks] trouvées=${parsed.found} retenues=${tasks.length} doublons=${parsed.dropped.doublon} vides=${parsed.dropped.vide} limite=${parsed.dropped.limite} categorieInconnue=${parsed.dropped.categorieInconnue} ignorees=${parsed.dropped.ignore} invalides=${parsed.dropped.invalide} aChoisir=${parsed.toChoose} reparee=${parsed.repaired} coupee=${aiTruncated}`);
   // Modifications proposées : propositions d'avant/après sur l'existant, rien n'est écrit. Section "c" de la même réponse.
   let changes = 0;
   if (prep.want && prep.want.c) { try { changes = changeproposals.storeFromText(userId, activityId, text, prep.cctx || changeproposals.buildContext(userId, activityId)); } catch (e) { /* non bloquant */ } }

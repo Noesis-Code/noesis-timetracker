@@ -115,6 +115,26 @@ function sameTitle(a, b) {
   const ta = tokens(a), tb = tokens(b);
   return ta.length > 0 && ta.length === tb.length && ta.slice().sort().join(' ') === tb.slice().sort().join(' ');
 }
+// Validateur déterministe d'un titre GÉNÉRÉ par l'IA (jamais d'une saisie manuelle). Renvoie { title, reason } : title = titre nettoyé
+// (horaire à créneau fixe retiré s'il reste une tâche valable) ou null si rejeté ; reason = 'vide' | 'horaire' | 'sansVerbe' | 'tropLong' | 'doublon'.
+const MAX_GENERATED_TITLE = 140;
+const HM = '\\d{1,2}\\s*(?:h\\s*\\d{0,2}|:\\d{2})', AMPM = '\\d{1,2}(?:[:.]\\d{2})?\\s*(?:am|pm)';
+// Heure précise : « à 14 h », « 14 h 30 », « 10:30 », « 3pm », « de 9 h à 10 h ». Un « 2 h » nu reste une durée, jamais un horaire.
+const FIXED_TIME = new RegExp('\\s*(?:(?<=^|\\s)(?:à|a|vers|dès|de|at|@)\\s+(?:' + HM + '|' + AMPM + ')|\\b\\d{1,2}\\s*h\\s*\\d{2}\\b|\\b\\d{1,2}:\\d{2}\\b|\\b' + AMPM + '\\b)(?:\\s*(?:à|a|-|–|to)\\s*(?:' + HM + '|' + AMPM + '))?', 'i');
+const NOT_VERB = new Set(['le', 'la', 'les', 'l', 'un', 'une', 'des', 'du', 'de', 'the', 'a', 'an', 'mon', 'ma', 'mes', 'notre', 'nos', 'ce', 'cette']);
+function checkGenerated(raw, existing) {
+  const t0 = cleanTitle(raw);
+  if (!t0) return { title: null, reason: 'vide' };
+  let t = t0;
+  if (FIXED_TIME.test(t)) t = cleanTitle(t.replace(FIXED_TIME, ' ')); // « Appeler Paul à 14 h 30 » -> « Appeler Paul »
+  const words = fold(t).split(' ').filter(Boolean);
+  if (!words.length) return { title: null, reason: t !== t0 ? 'horaire' : 'vide' };
+  if (t !== t0 && words.length < 2) return { title: null, reason: 'horaire' };
+  if (t.length > MAX_GENERATED_TITLE) return { title: null, reason: 'tropLong' };
+  if (words.length < 2 || NOT_VERB.has(words[0]) || !/[a-z]/.test(words[0])) return { title: null, reason: 'sansVerbe' }; // un mot seul ou groupe nominal : pas d'action + objet
+  if ((existing || []).some((o) => sameTitle(t, o))) return { title: null, reason: 'doublon' };
+  return { title: t, reason: t !== t0 ? 'horaire' : null }; // reason 'horaire' avec title = nettoyé
+}
 function isDuplicate(title, others) { return (others || []).some((o) => sameTitle(title, o)); }
 
 // « Action contre sujet » : le verbe d'ouverture dit le domaine (« Payer la facture du fournisseur » = finances, pas approvisionnement).
@@ -138,4 +158,4 @@ function actionHints(title) {
   return out.map(stem);
 }
 
-module.exports = { stem, actionHints,  cleanTitle, fold, tokens, ignoreTerms, matchesIgnore, priorityRank, sameTitle, isDuplicate };
+module.exports = { stem, actionHints,  cleanTitle, fold, tokens, ignoreTerms, matchesIgnore, priorityRank, sameTitle, isDuplicate, checkGenerated, MAX_GENERATED_TITLE };
