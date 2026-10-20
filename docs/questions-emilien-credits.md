@@ -10,3 +10,6 @@ Pistes d'amélioration IA (`docs/ia-amelioration-2026-10-20.md`) :
 - [ ] Conserver les réponses IA répétées (orthographe, classement) après un redémarrage du serveur, via une table de la base ? — tâche bloquée : Mémo persistant — champ manquant : 3 (citation d'intention)
 - [ ] Enregistrer, sans le texte, si une reformulation proposée est utilisée, pour mesurer son utilité (et la retirer si personne ne s'en sert) ? — tâche bloquée : Signal d'acceptation de la reformulation — champ manquant : 3
 - [ ] Lancer l'évaluation `eval-task-precision.js --live` pour décider de retirer le repli Sonnet du classement ? — tâche bloquée : Classement Haiku seul — champ manquant : 4
+
+Loi 25 (registre des traitements, légal non modifié par l'agent) :
+- [ ] Ajouter au registre des traitements (et à la politique de confidentialité si tu le juges utile) la mention : « Les courriels, numéros de téléphone et numéros de carte/NAS probables écrits dans un texte libre sont masqués automatiquement avant tout envoi à l'IA » (module `server/lib/aiscrub.js`) ? — tâche : Masquage avant envoi à l'IA

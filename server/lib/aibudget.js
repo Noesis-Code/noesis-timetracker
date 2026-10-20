@@ -19,6 +19,7 @@
 const { AsyncLocalStorage } = require('async_hooks');
 const db = require('../db');
 const featureCaps = require('./aifeaturecaps');
+const aiscrub = require('./aiscrub');
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const SYSTEM_USER = 'system';
@@ -267,7 +268,7 @@ async function fetchAnthropic(feature, url, init, userId) {
   if (!c.ok) throw Object.assign(new Error(c.message), { aiBlocked: true, resumesOn: c.resumesOn, period: c.period });
   reserve(uid, est);
   try {
-    const res = await fetch(url || ANTHROPIC_URL, init);
+    const res = await fetch(url || ANTHROPIC_URL, init && typeof init.body === 'string' ? { ...init, body: aiscrub.scrubBody(init.body) } : init); // Loi 25 : coordonnées masquées avant envoi
     if (res && res.ok && typeof res.clone === 'function') {
       try {
         const body = await res.clone().json();

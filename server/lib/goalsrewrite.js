@@ -91,6 +91,17 @@ async function callModelRaw(prompt, model, feature, maxTokens) {
   }
 }
 
+// Validation de la sortie du modèle : non vide, longueur raisonnable (pas plus de ~4x l'original), pas de refus/commentaire type « je ne peux pas ».
+// Sinon null = repli sur le texte original (aucune proposition).
+const REFUSAL = /^\s*(?:je (?:ne )?(?:peux|suis) (?:pas|désolé)|désolé|d[ée]sol[ée]e?\b|je regrette|i (?:can'?t|cannot|am unable|'m sorry)|i'?m sorry|sorry\b|as an ai|en tant qu'?(?:ia|assistant))|\bje ne peux pas\b|\bi (?:can'?t|cannot) (?:help|assist|rewrite)/i;
+function validRewrite(out, original) {
+  const t = String(out || '').trim();
+  if (!t || t.length > MAX_TEXT_LENGTH) return false;
+  if (t.length > String(original || '').length * 4 + 40) return false;
+  if (REFUSAL.test(t) && !REFUSAL.test(String(original || ''))) return false;
+  return true;
+}
+
 // Renvoie la proposition (string) ou null. Ne lève jamais pour une panne IA.
 // Lève une Error { status: 400 } si le texte est invalide (vide / trop long).
 async function proposeRewrite(rawText, userId) {
@@ -109,11 +120,11 @@ async function proposeRewrite(rawText, userId) {
   try {
     const out = await callModel(buildPrompt(text), text, userId);
     const cleaned = String(out || '').trim().replace(/^["«'`]+|["»'`]+$/g, '').replace(/\s*\n+\s*/g, ' ').trim();
-    if (!cleaned || cleaned.length > MAX_TEXT_LENGTH || cleaned === text) return null;
+    if (!validRewrite(cleaned, text) || cleaned === text) return null;
     return cleaned;
   } catch (err) {
     return null;
   }
 }
 
-module.exports = { proposeRewrite, MAX_TEXT_LENGTH };
+module.exports = { proposeRewrite, validRewrite, MAX_TEXT_LENGTH };
