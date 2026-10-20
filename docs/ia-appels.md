@@ -40,3 +40,6 @@ Appels secondaires (coût marginal, journalisés sous leur propre `feature`) :
 - `goalscaptureplace.js` (`rapprochement-objectif`) : rapprochement tâche -> objectif, 120 sortie, au plus deux appels par tâche ; avant, comptée à tort en « classement-tache ».
 - `aibatch.js` : lots Drive à -50 %, coût enregistré à la relève par `drivesync.js` (`surveillance-drive-batch`).
 - `documenttasks.js` (`document-taches`) et `changeproposals.js` (`modifications-proposees`, `redistribution-objectif`) : passent par `docanalysis.js`.
+
+## Plafonds recurrence-tache et rapprochement-objectif (repli 7)
+Même mécanisme que le classement (`CALL_CAPS` dans `goalstaskclassify.js`, appels réels seulement, mémo déjà actif) : `RECURRENCE_MAX_PER_DAY` 300 et `MATCH_MAX_PER_DAY` 500 par compte/jour. Refus = panne IA (repli habituel). Test : `test/ia-plafonds-test.js`.

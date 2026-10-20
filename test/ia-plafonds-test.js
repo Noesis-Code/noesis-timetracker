@@ -26,5 +26,10 @@ global.fetch = async () => { calls++; return { ok: true, status: 200, clone() { 
     try { await classify.callModel('o', 50, 'correction-orthographe', 'claude-haiku-4-5'); r.push('spell-ok'); } catch (e) { r.push('spell-err'); }
   });
   assert(calls === 3 && r.includes('err') && r.includes('spell-ok'), 'classement : 3e appel refusé ; orthographe hors plafond de classement');
+  process.env.RECURRENCE_MAX_PER_DAY = '1'; process.env.MATCH_MAX_PER_DAY = '1'; calls = 0; const q = [];
+  await aibudget.runAs('u4', async () => {
+    for (const f of ['recurrence-tache', 'rapprochement-objectif']) for (const p of [f + '1', f + '2']) { try { await classify.callModel(p, 50, f, 'claude-haiku-4-5'); q.push('ok'); } catch (e) { q.push('err'); } }
+  });
+  assert(calls === 2 && q.join() === 'ok,err,ok,err', 'recurrence-tache et rapprochement-objectif : plafond propre au 2e appel réel');
   console.log(failed ? '\nÉCHEC' : '\nOK'); process.exit(failed ? 1 : 0);
 })();
