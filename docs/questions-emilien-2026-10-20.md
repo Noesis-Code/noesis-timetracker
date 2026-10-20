@@ -25,13 +25,14 @@ Une case par ligne, par urgence. Détail dans le fichier cité (`questions-emili
 - [ ] Simplification : 15 cases retirer/garder/déplacer (Feuille de temps, Stats, Communauté, pastille) (`simplification`)
 - [ ] Trade Q7 : retraits de l'écran Trade (`trade`)
 - [ ] Trade Q3 : filtres de Positions à garder (`trade`)
+- [ ] Basic : simplifier le premier lancement (retirer l'étape modules, l'étape « Crée tes activités », la confirmation du code ; -3 à -6 taps) (`basic`, section Premier lancement)
 - [ ] Basic : retirer les écrans de `points-non-necessaires.md`, ne rien ajouter (`basic`)
 
 ## 3. Gain moyen : débloque des tâches
 - [ ] Trade : afficher le gain réalisé (calcul prêt, non branché à l'écran) (`fiabilite-trade-2026-10-20.md`)
 - [ ] Basic : entrée dimanche 23 h → lundi 1 h, compter l'heure après minuit au lundi ? (`basic`)
-- [ ] Trade Q1 : « temps réel » = 15 min suffisent ? (`trade`)
-- [ ] Trade Q2 : lien privé déjà fait ? (`trade`)
+- [ ] Trade Q1 : « temps réel » = délai mesuré suffisant ? (`trade`, `trade-delais-2026-10-20.md`)
+- [ ] Trade Q2 : lien privé (lien signé 2 min, usage unique) déjà fait ? (`trade`)
 - [ ] Trade L1 : journal d'audit après effacement d'un compte : garder, anonymiser ou limiter la durée ? (`loi25-trade-2026-10-20.md`)
 - [ ] Trade L2 : sauvegardes contenant un compte effacé : expiration seule (~14 jours) ou purge ? (`loi25-trade`)
 - [ ] Trade L3 : déclencheur de l'effacement : script, propagation depuis TMT ou bouton ? (`loi25-trade`)
@@ -56,5 +57,3 @@ Une case par ligne, par urgence. Détail dans le fichier cité (`questions-emili
 - [ ] Nettoyer ~1384 fichiers orphelins `/tmp/noesis-verify-*` (68 Mo) : destructeur, à valider ; cause corrigée.
 - [ ] Supprimer les fichiers parasites à la racine du système (`/o2.txt`, `/o3.txt`, `/o4.txt`, `/out.txt`, `/x`) : à valider.
 - [ ] Healthcheck `/healthz` dans `railway.json` (route prête, fichier non touché).
-
-À ajouter quand écrites : Basic (simplification du premier lancement, chantier 2) ; Trade (délai « temps réel » et lien 2 min : déjà Q1 et Q2 de `trade`, rien à ajouter).
