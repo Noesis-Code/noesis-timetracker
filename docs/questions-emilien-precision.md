@@ -22,3 +22,9 @@ Cas réels de `test/fixtures/task-precision/cases.json` dont le bon résultat d�
   - [ ] C. Ne rien faire de plus. Identique à A (aucune proposition), mais sans en parler dans les consignes de l'IA.
   Recommandation : A (une approximation fausse est pire qu'aucune proposition).
 
+
+- [ ] « Fin de semaine » (et « week-end ») sans jour précis : quel jour proposer ? Seule une suggestion, modifiable. Cocher UNE option :
+  - [ ] A. Samedi (actuel). « Magasiner pour la fin de semaine » -> samedi ; dimanche = le jour même.
+  - [ ] B. Vendredi soir. « Faire l'épicerie pour la fin de semaine » -> vendredi (avant le début du week-end).
+  - [ ] C. Dimanche. « Préparer la semaine d'ici la fin de semaine » -> dimanche (fin du week-end).
+  Recommandation : A (aucune récurrence, un seul jour, l'utilisateur peut changer).

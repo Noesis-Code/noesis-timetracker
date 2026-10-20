@@ -39,7 +39,9 @@ function dayOfMonth(today, dom, month) {
 // today : 'YYYY-MM-DD'. Retourne { kind: 'day'|'week'|'deadline', date } ou null.
 function parseDateHint(text, today) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(today || ''))) return null;
-  const t = norm(text);
+  // Mois anglais suivi du jour (« Oct 30 », « October 30th ») : ramené à la forme française « 30 octobre » traitée plus bas.
+  const EN_M = { jan: 'janvier', feb: 'fevrier', mar: 'mars', apr: 'avril', may: 'mai', jun: 'juin', jul: 'juillet', aug: 'aout', sep: 'septembre', oct: 'octobre', nov: 'novembre', dec: 'decembre' };
+  const t = norm(text).replace(/ (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(?:uary|ruary|ch|il|e|y|ust|t|tember|ober|ember)? (\d{1,2})(?:st|nd|rd|th)? /g, (all, mo, d) => ' ' + d + ' ' + EN_M[mo] + ' ');
 
   let m = /\b(\d{4})-(\d{2})-(\d{2})\b/.exec(t);
   if (m) {
@@ -48,17 +50,17 @@ function parseDateHint(text, today) {
   }
 
   if (/ apres demain /.test(t)) return { kind: 'day', date: add(today, 2) };
-  if (/ (demain|tomorrow) /.test(t)) return { kind: 'day', date: add(today, 1) };
-  if (/ (aujourd hui|aujourdhui|ce soir|ce matin|a soir|a matin|cet apres-midi|cet apres midi|today|tonight) /.test(t)) return { kind: 'day', date: today };
+  if (/ (demain|tomorrow|tmrw|tmr|tmw|2morrow) /.test(t)) return { kind: 'day', date: add(today, 1) };
+  if (/ (aujourd hui|aujourdhui|ce soir|ce matin|a soir|a matin|cet apres-midi|cet apres midi|today|tonight|tonite|eod|cob|end of (?:the )?day|this (?:morning|afternoon|evening)) /.test(t)) return { kind: 'day', date: today };
   // « dans 3 jours », « dans 2 semaines » (relatif, jamais une heure) ; « dans une heure » ne donne aucun indice.
-  m = / dans (\d{1,2}|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix) (jours?|jrs?|semaines?|sem) /.exec(t);
+  m = / (?:dans|in) (\d{1,2}|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|a|one|two|three|four|five|six|seven|eight|nine|ten) (jours?|jrs?|days?|semaines?|sem|weeks?|wks?) /.exec(t);
   if (m) {
-    const n = /^\d/.test(m[1]) ? +m[1] : ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'].indexOf(m[1]) || 1;
+    const n = /^\d/.test(m[1]) ? +m[1] : (/^(?:a|one|two|three|four|five|six|seven|eight|nine|ten)$/.test(m[1]) ? ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'].indexOf(m[1]) : ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'].indexOf(m[1])) || 1;
     return { kind: 'day', date: add(today, n * (m[2][0] === 's' ? 7 : 1)) };
   }
 
   // « fin de semaine » (québécois) = le week-end : le samedi (le jour même un samedi ou dimanche) ; « prochaine » = celui d'après ; « pour / avant » = échéance.
-  m = / (?:la )?(?:fin de semaine|week-end|weekend)( prochaine| prochain)? /.exec(t);
+  m = / (?:la |the )?(?:fin de semaine|week-end|weekend)( prochaine| prochain| next)? /.exec(t);
   if (m) {
     const w = parse(today).getUTCDay();
     let d = w === 0 || w === 6 ? today : add(today, 6 - w);
@@ -72,13 +74,13 @@ function parseDateHint(text, today) {
   const hol = / (?:la |a la |pour la |avant la |d ici la |fete de la )(?:st|saint)-jean(?:-baptiste)? /.test(t) ? [6, 24]
     : / (?:pour|avant|d ici|veille de|reveillon de|jour de) (?:noel|l halloween|halloween) /.exec(t) ? (/noel/.test(t) ? [12, 25] : [10, 31]) : null;
   if (hol) { const iso = dayOfMonth(today, hol[1], hol[0]); if (iso) return { kind: / (pour|avant|d ici) /.test(t) ? 'deadline' : 'day', date: iso }; }
-  if (/ semaine prochaine | la semaine suivante | semaine d apres /.test(t)) return { kind: 'week', date: add(monday(today), 7) };
-  if (/ (cette semaine|d ici la fin de la semaine|d ici vendredi) /.test(t) && !/ d ici vendredi /.test(t)) return { kind: 'week', date: monday(today) };
-  if (/ (la )?fin (de|du) mois /.test(t)) {
+  if (/ semaine prochaine | la semaine suivante | semaine d apres | next (?:week|wk) /.test(t)) return { kind: 'week', date: add(monday(today), 7) };
+  if (/ (cette semaine|this (?:week|wk)|d ici la fin de la semaine|d ici vendredi) /.test(t) && !/ d ici vendredi /.test(t)) return { kind: 'week', date: monday(today) };
+  if (/ (la )?fin (de|du) mois | end of (?:the )?month | eom /.test(t)) {
     const d = parse(today);
     return { kind: 'deadline', date: fmt(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), daysInMonth(d.getUTCFullYear(), d.getUTCMonth() + 1)))) };
   }
-  if (/ (le )?mois prochain /.test(t)) {
+  if (/ (le )?mois prochain | next month /.test(t)) {
     const d = parse(today);
     return { kind: 'week', date: monday(fmt(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)))) };
   }
@@ -119,12 +121,12 @@ function parseDateHint(text, today) {
   }
 
   // « tous les lundis » : le pluriel désigne le prochain lundi (point de départ d'une récurrence hebdomadaire).
-  m = /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday)(s)?( prochain| next)?\b/.exec(t);
+  m = /\b(?:(next) )?(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday)(s)?( prochain| next)?\b/.exec(t);
   if (m) {
-    const target = DAYS[m[1]];
+    const target = DAYS[m[2]];
     const w = parse(today).getUTCDay();
     let diff = (target - w + 7) % 7;
-    if (m[3] && diff === 0) diff = 7;
+    if ((m[1] || m[4]) && diff === 0) diff = 7;
     return { kind: dead ? 'deadline' : 'day', date: add(today, diff) };
   }
   return null;

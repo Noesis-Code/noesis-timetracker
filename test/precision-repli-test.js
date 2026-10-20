@@ -57,6 +57,12 @@ const router = require('../server/routes/goals');
   dt.setCaller(async () => { calls++; return JSON.stringify({ t: [['Acheter la peinture', key, null, 30], ['Réfléchir', key, null, 30]] }); });
   r = await dt.propose('rp', act, { instruction: 'tâches pour mon objectif, variante D' });
   assert(calls === 1 && r.kept === 1, 'rejet partiel : pas de relance');
+  // Compte au plafond de budget : aucune relance (1 seul appel), message clair (429), jamais de boucle.
+  dt.resetRate(); calls = 0;
+  const aib = require('../server/lib/aibudget');
+  dt.setCaller(async () => { calls++; aib.record('rp', 'claude-haiku-4-5', { input_tokens: 50000000, output_tokens: 50000000 }, 'document-taches'); return JSON.stringify({ t: [['Réfléchir', key, null, 30], ['Avancer', key, null, 30]] }); });
+  let bud = null; try { await dt.propose('rp', act, { instruction: 'tâches pour mon objectif, variante E' }); } catch (e) { bud = e; }
+  assert(calls === 1 && bud && bud.statusCode === 429 && /reprend|limite|budget|IA/i.test(bud.message), 'budget atteint : pas de relance (1 appel), 429 avec message clair : ' + (bud && bud.message));
   // Plan de feuille de route (offre 1) : un sous-projet dont toutes les tâches sont rejetées lève une erreur (le repli modèle fort s'applique, sinon activation annulée sans rien créer).
   const od = require('../server/lib/offerdelivery');
   const plan = (t) => JSON.stringify({ subProjects: [0, 1, 2].map((i) => ({ name: 'S' + i, description: 'd', tasks: i === 1 ? t : ['Appeler le notaire'] })) });

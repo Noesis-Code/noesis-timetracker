@@ -137,3 +137,29 @@ Bien traité d'emblée : « 5 à 7 » jamais lu comme une heure ; « dîner à m
 - **Jamais appliquées à une saisie manuelle ni à l'existant** (`test/precision-repli-test.js`, branché) : « Réfléchir », « Faire des recherches », « Avancer sur le projet », « Penser à l'objectif », un doublon exact et « Appeler Paul à 14 h 30 » saisis à la main sont créés tels quels (origine user). `checkGenerated` n'est appelé que par `documenttasks.parseDetailed` et `offerdelivery.parsePlan`. Une génération ne retire ni ne modifie rien d'existant avant validation ; `apply` (cases cochées) ne refiltre pas.
 - **Tout rejeté, que voit l'utilisateur ?** Avant : « L'IA a trouvé N tâches, 0 affichées » sans raison, aucun repli. Maintenant : la raison est écrite (« N trop vague(s) ou recopiée(s) de l'objectif ») et, si RIEN n'est retenu, **une seule relance** du modèle (consigne précisée, tâches seules, même plafond quotidien) ; si elle échoue aussi, le premier résultat et son message sont gardés. Rejet partiel : pas de relance.
 - **Feuille de route (offre 1)** : un sous-projet entièrement vague lève une erreur, ce qui déclenche le repli existant sur le modèle fort ; s'il échoue aussi, l'activation est annulée sans rien créer (jamais un sous-projet vide).
+
+---
+
+# Lot h241-h270 : anglais informel et mélanges FR/EN (repli 23, 20 oct. 2026)
+
+`test/fixtures/task-precision/blind-h241-h270.json`, titres et attentes écrits AVANT de tester ; `capturedatehint.js` avait été lu plus tôt dans la session (question « fin de semaine »), donc indépendance partielle pour les dates, entière pour `taskprecision.js`. 30 titres : « remind me to », ASAP, EOD, « by Friday », « call Paul re: invoice », « pick up kids at 3pm », tmrw, next wk, « Oct 30 », « in 2 days », « 2pm to 3pm ».
+
+**Taux aveugle honnête : 17/30 = 57 %** (13 écarts avant correction, tous de vrais défauts ; aucune attente à corriger). Après correction : 30/30, non indépendant.
+
+| Défaut | Règle généralisée |
+|---|---|
+| EOD, COB, « end of day », « this afternoon / morning / evening », tonite : aucun indice | formes du jour même |
+| tmrw, tmr, 2morrow : aucun indice | = demain |
+| « next wk / next week », « this week / wk » : aucun indice | = semaine prochaine / en cours |
+| « next Tuesday » lu comme AUJOURD'HUI (mardi) | « next <jour> » = le suivant (jamais le jour même) |
+| « in 2 days / a week » : aucun indice | = « dans N jours / semaines » (chiffres ou mots anglais) |
+| « by end of month / EOM », « next month », « next weekend », « the weekend » | = fin de mois (échéance), mois prochain, week-end |
+| « by Oct 30 », « September 3rd » : aucun indice | mois anglais + jour ramené à « 30 octobre » (liste fermée de mois : « Decide 5 » n'est pas décembre) |
+| « Meeting from 2pm to 3pm » -> « Meeting from » | « from / de » devant l'heure am/pm retiré avec la plage |
+| « Work on it » accepté | « on », « about » ajoutés aux mots vides de sens |
+
+Bien traité d'emblée : « pick up kids at 3pm », « 9am Monday », « 10:30am Thursday », « at noon », « re: invoice » (non lu comme une date), « ASAP » (aucune date inventée), « by Friday » = échéance, « on the 1st », titres FR/EN mêlés. Limite : « EOW » (fin de semaine : vendredi ou dimanche ?) laissé sans indice, choix sûr. Aucune récurrence créée.
+
+# « Fin de semaine » : cohérence (repli 23)
+
+Jour d'aujourd'hui -> « cette fin de semaine » / « la fin de semaine prochaine » / « la semaine prochaine » : dimanche -> ce dimanche / samedi suivant / lundi suivant ; lundi à vendredi -> samedi à venir / samedi d'après / lundi suivant ; samedi -> aujourd'hui / samedi suivant / lundi suivant. Cohérent : la semaine va de lundi à dimanche, le week-end en cours (samedi-dimanche) reste « cette » fin de semaine jusqu'au dimanche inclus, « prochaine » saute toujours à la suivante, « la semaine prochaine » est la semaine entière (lundi). Ambiguïté restante : le samedi est un choix (voir `docs/questions-emilien-precision.md`).

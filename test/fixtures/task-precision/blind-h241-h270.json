@@ -1,0 +1,142 @@
+{
+ "note": "Lot aveugle h241-h270 (20 oct. 2026) : ANGLAIS informel et melanges FR/EN (remind me to, ASAP, EOD, by Friday, re:, pick up kids at 3pm, tmrw, next wk). Ecrit AVANT toute relecture de taskprecision.js ; capturedatehint.js lu plus tot dans la session (pour la question fin de semaine), donc independance partielle. today = 2026-10-20 (mardi) ; attendus = titre apres retrait de l'heure ; hints : null = aucun indice attendu ; titre absent = non controle (EOW ambigu).",
+ "today": "2026-10-20",
+ "titles": [
+  "Remind me to call Paul tomorrow",
+  "Remind me to send the invoice ASAP",
+  "Send report EOD",
+  "Submit the proposal by Friday",
+  "Call Paul re: invoice",
+  "Pick up kids at 3pm",
+  "Email Sarah tmrw",
+  "Finish slides next wk",
+  "Book dentist next week",
+  "Prep meeting at 9am Monday",
+  "Pay rent on the 1st",
+  "Renouveler le passeport, ASAP",
+  "Appeler le client re: facture by Friday",
+  "Faire le follow-up avec Marc EOD",
+  "Send contract before Thursday",
+  "Gym at 6pm tonight",
+  "Lunch with Anna Wednesday at noon",
+  "Review PR this afternoon",
+  "Check in with team this week",
+  "Do laundry on the weekend",
+  "Follow up w/ Lucie next Tuesday",
+  "Dentist appt 10:30am Thursday",
+  "Call mom in 2 days",
+  "Draft newsletter by EOW",
+  "Wrap up Q4 budget by end of month",
+  "Prendre rendez-vous chez le dentist tomorrow",
+  "Finish taxes by Oct 30",
+  "Meeting from 2pm to 3pm",
+  "Do stuff",
+  "Work on it"
+ ],
+ "attendus": {
+  "Pick up kids at 3pm": "Pick up kids",
+  "Prep meeting at 9am Monday": "Prep meeting Monday",
+  "Gym at 6pm tonight": "Gym tonight",
+  "Lunch with Anna Wednesday at noon": "Lunch with Anna Wednesday",
+  "Dentist appt 10:30am Thursday": "Dentist appt Thursday",
+  "Meeting from 2pm to 3pm": "Meeting"
+ },
+ "rejets": [
+  "Do stuff",
+  "Work on it"
+ ],
+ "hints": {
+  "Remind me to call Paul tomorrow": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Remind me to send the invoice ASAP": null,
+  "Send report EOD": {
+   "kind": "day",
+   "date": "2026-10-20"
+  },
+  "Submit the proposal by Friday": {
+   "kind": "deadline",
+   "date": "2026-10-23"
+  },
+  "Call Paul re: invoice": null,
+  "Pick up kids at 3pm": null,
+  "Email Sarah tmrw": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Finish slides next wk": {
+   "kind": "week",
+   "date": "2026-10-26"
+  },
+  "Book dentist next week": {
+   "kind": "week",
+   "date": "2026-10-26"
+  },
+  "Prep meeting at 9am Monday": {
+   "kind": "day",
+   "date": "2026-10-26"
+  },
+  "Pay rent on the 1st": {
+   "kind": "day",
+   "date": "2026-11-01"
+  },
+  "Renouveler le passeport, ASAP": null,
+  "Appeler le client re: facture by Friday": {
+   "kind": "deadline",
+   "date": "2026-10-23"
+  },
+  "Faire le follow-up avec Marc EOD": {
+   "kind": "day",
+   "date": "2026-10-20"
+  },
+  "Send contract before Thursday": {
+   "kind": "deadline",
+   "date": "2026-10-22"
+  },
+  "Gym at 6pm tonight": {
+   "kind": "day",
+   "date": "2026-10-20"
+  },
+  "Lunch with Anna Wednesday at noon": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Review PR this afternoon": {
+   "kind": "day",
+   "date": "2026-10-20"
+  },
+  "Check in with team this week": {
+   "kind": "week",
+   "date": "2026-10-19"
+  },
+  "Do laundry on the weekend": {
+   "kind": "day",
+   "date": "2026-10-24"
+  },
+  "Follow up w/ Lucie next Tuesday": {
+   "kind": "day",
+   "date": "2026-10-27"
+  },
+  "Dentist appt 10:30am Thursday": {
+   "kind": "day",
+   "date": "2026-10-22"
+  },
+  "Call mom in 2 days": {
+   "kind": "day",
+   "date": "2026-10-22"
+  },
+  "Wrap up Q4 budget by end of month": {
+   "kind": "deadline",
+   "date": "2026-10-31"
+  },
+  "Prendre rendez-vous chez le dentist tomorrow": {
+   "kind": "day",
+   "date": "2026-10-21"
+  },
+  "Finish taxes by Oct 30": {
+   "kind": "deadline",
+   "date": "2026-10-30"
+  }
+ }
+}
