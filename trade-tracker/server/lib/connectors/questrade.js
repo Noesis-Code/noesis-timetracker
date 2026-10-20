@@ -152,6 +152,12 @@ function createQuestradeConnector({ db, env = process.env, http, now = () => Dat
     return refreshing.get(user.id);
   }
 
+  // Réponse vide ou sans la liste attendue : échec (sinon une synchro « réussie » effacerait les dernières données valides).
+  const list = (body, key, what) => {
+    if (!body || !Array.isArray(body[key])) throw new QuestradeError(`réponse Questrade vide ou invalide (${what})`, { code: 'BAD_RESPONSE' });
+    return body[key];
+  };
+
   // GET d'un chemin d'API ; sur 401, une seule reprise avec une session neuve.
   async function call(user, path) {
     for (let again = 0; ; again++) {
@@ -187,13 +193,14 @@ function createQuestradeConnector({ db, env = process.env, http, now = () => Dat
     // Tout ou rien : une erreur sur un compte fait échouer la synchro (sinon applyData effacerait des positions valides).
     async fetchPortfolio(user) {
       const accounts = [];
-      for (const a of (await call(user, 'v1/accounts')).accounts || []) {
+      for (const a of list(await call(user, 'v1/accounts'), 'accounts', 'comptes')) {
         const m = mapAccount(a); if (!m) continue;
         const n = encodeURIComponent(a.number);
-        const pos = await call(user, `v1/accounts/${n}/positions`);
+        const pos = list(await call(user, `v1/accounts/${n}/positions`), 'positions', 'positions');
         const bal = await call(user, `v1/accounts/${n}/balances`);
+        list(bal, 'perCurrencyBalances', 'soldes');
         const transactions = await fetchActivities(user, a.number, m.externalId);
-        accounts.push({ ...m, balances: mapBalances(bal), positions: (pos.positions || []).filter((p) => p.openQuantity > 0).map((p) => mapPosition(p, sectorLookup)), transactions });
+        accounts.push({ ...m, balances: mapBalances(bal), positions: pos.filter((p) => p.openQuantity > 0).map((p) => mapPosition(p, sectorLookup)), transactions });
       }
       return { broker: 'questrade', accounts }; // usdCad : fourni par la source de taux (A6), Questrade n'en expose pas
     },

@@ -6,6 +6,7 @@ Extension Noèsis : suivi du portefeuille d'un expert et de ses clients. Autonom
 - Démarrer : `NOESIS_DATA_DIR=<dossier> TRADE_LINK_SECRET=<16+ car.> PORT=3980 node trade-tracker/server/index.js`
 - Démo fictive : `node trade-tracker/seed-demo.js` (affiche des liens d'entrée).
 - Tests : `cd trade-tracker && npm ci && node test/run.js` (inclus dans `node test/run-tests.js`).
+- Parcours navigateur `test/e2e-broker.py` : lancé par `test/broker-e2e-test.js` (donc par `run.js`), via `python3` + Playwright/Chromium déjà présents ; ignoré proprement (code 77) s'ils manquent. Aucune dépendance ajoutée.
 - Contrat d'API, variables d'environnement, événements vers TMT : voir `API.md`.
 - Sécurité (TOTP obligatoire, sessions, audit, alertes, lecture seule) : `SECURITY.md` ; mise en service : « Checklist de mise en service sécurisée » dans `DEPLOY.md`. Scripts d'exploitation : `node rotate-key.js [--dry-run]` (rotation de `TRADE_TOKEN_KEY`), `node mfa-reset.js <idTMT>` (urgence).
 
