@@ -19,7 +19,7 @@
 
 .goalsCaptureResultRow.isSuccess .goalsCaptureResultIcon { color: var(--green); }
 
-.goalsCaptureResultRow.isFailed .goalsCaptureResultIcon { color: var(--red); }
+.goalsCaptureResultRow.isFailed .goalsCaptureResultIcon { color: var(--text-light); }
 
 .goalsCapturePage {
   display: flex; flex-direction: column; gap: 14px;
@@ -67,7 +67,7 @@
 .goalsCaptureBadge {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 18px; height: 18px; padding: 0 5px;
-  border-radius: 999px; background: var(--purple); color: var(--white);
+  border-radius: 999px; background: var(--purple); color: var(--on-action);
   font-size: 11px; font-weight: 700; line-height: 1;
 }
 
@@ -211,11 +211,11 @@
 }
 
 /* Offre 1 — carte promo verre lumineux */
-.offer1Promo{position:relative;overflow:hidden;border-radius:var(--radius-xl);padding:22px 20px;background:linear-gradient(180deg,rgba(var(--purple-rgb), .28),rgba(var(--purple-rgb), .08));border:1px solid rgba(160,135,230,.55);box-shadow:0 0 30px rgba(var(--purple-rgb), .35),inset 0 1px 0 rgba(255,255,255,.18);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.offer1Promo{position:relative;overflow:hidden;border-radius:var(--radius-xl);padding:22px 20px;background:linear-gradient(180deg,rgba(var(--purple-rgb), .28),rgba(var(--purple-rgb), .08));border:1px solid rgba(156, 140, 200,.55);box-shadow:0 0 30px rgba(var(--purple-rgb), .35),inset 0 1px 0 rgba(255,255,255,.18);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 .offer1PromoText{margin:0 0 16px;font-size:19px;line-height:1.3;font-weight:700}
 .offer1PromoText span{background:linear-gradient(90deg,var(--violet-promo),var(--white));-webkit-background-clip:text;background-clip:text;color:transparent}
 .offer1PromoSub{display:block;font-size:12.5px;opacity:.85;margin:-6px 0 16px}
-.offer1PromoBtn{display:inline-block;padding:11px 20px;border:0;border-radius:999px;background:var(--purple);color:var(--white);font-weight:600;font-size:14px;font-family:inherit}
+.offer1PromoBtn{display:inline-block;padding:11px 20px;border:0;border-radius:999px;background:var(--purple);color: var(--on-action);font-weight:600;font-size:14px;font-family:inherit}
 #offer1SubscribedEmptyHint{display:none}
 
 /* fenêtre de confirmation de capture (doublon / tri incertain), gabarit .goalTaskEditModal. */
@@ -244,7 +244,7 @@
 
 /* pop-up du mode IA — choix encadrés d'un orange léger, barre sous le titre et la croix. */
 .aiModeModal .goalTaskEditHeader { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--glass-calm-line); }
-:root .aiModeModal .goalTaskEditCard { box-shadow: inset 0 0 0 1.5px rgba(217, 130, 90, 0.55), var(--shadow-elevated); }
+:root .aiModeModal .goalTaskEditCard { box-shadow: inset 0 0 0 1.5px rgba(156, 140, 200, 0.55), var(--shadow-elevated); }
 
 /* pop-up de rangement (mode Partiel) — modèle de modification de la page 2. */
 .goalsPlacementBox { border-top: 0; padding: 4px 0 10px; }
@@ -313,7 +313,7 @@
 :root .goalsCaptureFloat { box-shadow: inset 0 0 0 0.5px rgba(255,255,255,.18), 0 12px 32px rgba(0,0,0,.4); }
 
 /* menu flottant étroit (≈ capture du menu natif) et très peu opaque. */
-:root .goalsCaptureFloat { width: 230px !important; max-width: calc(100vw - 48px); background: rgba(40, 40, 46, 0.28); -webkit-backdrop-filter: blur(40px) saturate(1.8); backdrop-filter: blur(40px) saturate(1.8); }
+:root .goalsCaptureFloat { width: 230px !important; max-width: calc(100vw - 48px); background: var(--pop-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
 
 /* Historique — la 2e case « Où » garde son format de <select> ; une couche transparente ouvre le menu flottant. */
 .goalsWhereKeep { position: relative; display: block; flex: 1; min-width: 0; }
@@ -334,7 +334,7 @@
 
 /* Offre 1 pas encore disponible : badge « À venir » et bouton grisé, non cliquable. */
 .offer1SoonBadge{display:inline-block;margin-bottom:10px;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text);background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
-.offer1PromoBtn:disabled{background:var(--purple);color:var(--white);opacity:.5;box-shadow:none;cursor:not-allowed}
+.offer1PromoBtn:disabled{background:var(--purple);color: var(--on-action);opacity:.5;box-shadow:none;cursor:not-allowed}
 /* Zone libre IA : trombone (document ou image) DANS la zone d'écriture, à gauche d'Ajouter. */
 .activityGoalsCategoryAutoTaskBubble .goalsCaptureAttach { z-index: 3; left: auto; right: 96px; }
 .activityGoalsCategoryAutoTaskBubble:has(.goalsCaptureAttach) textarea { padding-right: 130px; }

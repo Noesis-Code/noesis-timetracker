@@ -41,8 +41,8 @@
 .saBig { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .saSmall { font-size: 12px; opacity: .7; }
 .saBadge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-sm); white-space: nowrap; }
-.saBadge.up { color: var(--green); background: rgba(76, 175, 80, .15); }
-.saBadge.dn { color: var(--red); background: rgba(231, 76, 60, .15); }
+.saBadge.up { color: var(--green); background: rgba(156, 140, 200, .15); }
+.saBadge.dn { color: var(--text-light); background: rgba(243, 238, 232, .15); }
 .saCv { font-size: 12.5px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .saBar2 { height: 6px; border-radius: 3px; background: var(--track-bg); overflow: hidden; display: flex; margin-top: 8px; }
 .saBar2 u { display: block; height: 100%; }
@@ -61,7 +61,7 @@
 .saTile b { font-size: 15px; font-variant-numeric: tabular-nums; }
 .saLst { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
 .saLst li { display: flex; justify-content: space-between; gap: 8px; }
-.saLst b { color: var(--red); font-weight: 500; white-space: nowrap; }
+.saLst b { color: var(--text); font-weight: 500; white-space: nowrap; }
 .saAdd { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px; border-radius: var(--radius-lg); font: inherit; font-size: 13.5px; color: var(--text); background: none; border: 1px dashed var(--glass-border); }
 .saAdd b { color: var(--purple); font-size: 18px; line-height: 1; }
 .saGh { border-radius: 16px; cursor: pointer; }

@@ -212,12 +212,12 @@
 .goalsOverloadList { margin: 8px 0; padding-left: 18px; font-size: 13px; color: var(--text); }
 .goalsOverloadActions { display: flex; gap: 8px; }
 .goalsOverloadActions button { flex: 1; padding: 10px; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text); font-weight: 600; }
-.goalsOverloadActions .goalsOverloadOk { background: var(--purple); border-color: transparent; color: var(--white); }
+.goalsOverloadActions .goalsOverloadOk { background: var(--purple); border-color: transparent; color: var(--on-action); }
 
 /* design commun des cartes d'alerte (surcharge, non réalisées, cible irréaliste,
    recalcul) — orange, repliées par défaut, croix = masquée pour aujourd'hui. Le violet y devient orange ;
    il reste la couleur principale partout ailleurs. */
-.goalsAlertCard { --alert: var(--warn-orange); padding: 0; border: 1px solid rgba(255,159,46,.42); background: linear-gradient(rgba(255,159,46,.045), rgba(255,159,46,.045)), var(--glass-bg); }
+.goalsAlertCard { --alert: var(--warn-orange); padding: 0; border: 1px solid rgba(156, 140, 200,.42); background: linear-gradient(rgba(156, 140, 200,.045), rgba(156, 140, 200,.045)), var(--glass-bg); }
 .goalsAlertHead { display: flex; align-items: center; }
 .goalsAlertToggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 4px 4px 4px 12px; border: 0; background: none; color: rgba(255,255,255,.82); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .goalsAlertIcon { flex: 0 0 auto; width: 17px; height: 17px; fill: none; stroke: var(--alert); stroke-width: 2; opacity: .85; stroke-linecap: round; stroke-linejoin: round; }
@@ -228,9 +228,9 @@
 .goalsAlertBody { padding: 0 16px 14px; }
 .goalsAlertBody[hidden] { display: none; }
 .goalsAlertCard .goalsOverloadActions .goalsOverloadOk,
-.goalsAlertCard .goalsReportAll { background: rgba(255,159,46,.16); border: 1px solid rgba(255,159,46,.45); color: var(--warn-text-1); font-weight: 600; }
-.goalsAlertCard .goalsReportBtn { border: 1px solid rgba(255,159,46,.4); color: var(--warn-text-2); background: none; }
-.goalsAlertCard .goalsOverloadActions .goalsRealismBtn { border-color: rgba(255,159,46,.55); }
+.goalsAlertCard .goalsReportAll { background: rgba(156, 140, 200,.16); border: 1px solid rgba(156, 140, 200,.45); color: var(--warn-text-1); font-weight: 600; }
+.goalsAlertCard .goalsReportBtn { border: 1px solid rgba(156, 140, 200,.4); color: var(--warn-text-2); background: none; }
+.goalsAlertCard .goalsOverloadActions .goalsRealismBtn { border-color: rgba(156, 140, 200,.55); }
 .goalsAlertCard .goalsReportBtn--blocked { opacity: .5; cursor: default; }
 @keyframes goalsNoteIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 .goalsReportNote { list-style: none; margin: 2px 0 6px; padding: 2px 4px 2px 0; font-size: 13px; line-height: 1.4; color: rgba(255,255,255,.62);  animation: goalsNoteIn .22s ease-out; }
@@ -317,7 +317,7 @@
 .goalsReportList { padding-left: 0; }
 .goalsReportText { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .goalsReportBtn, .goalsReportAll { padding: 6px 12px; border-radius: 12px; border: 1px solid var(--purple); background: transparent; color: var(--purple); font-weight: 600; flex: 0 0 auto; }
-.goalsReportAll { margin-top: 6px; background: var(--purple); color: var(--white); border-color: transparent; }
+.goalsReportAll { margin-top: 6px; background: var(--purple); color: var(--on-action); border-color: transparent; }
 .goalsReportBtn:disabled, .goalsReportAll:disabled { opacity: .5; }
 .goalsReportDel { flex: 0 0 auto; width: 44px; height: 44px; margin: -6px -8px -6px -4px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 0; color: rgba(255,255,255,.5); }
 .goalsReportDel svg { width: 14px; height: 14px; }

@@ -45,7 +45,7 @@ Tout agent lit ce fichier avant de toucher à l'interface (`public/`). Le relect
 Sans titres, mêmes icônes, plus petite ; statistiques de temps accessibles en glissant depuis le Chrono, statistiques de tâches/objectifs en glissant depuis la 1re page de Feuille de route ; onglet Stats supprimé.
 
 ## État actuel
-Le code utilise encore l'ancienne palette (violet #674EA7 etc.). La migration vers R11 se fera sur demande d'Émilien, pas avant.
+Palette R11 migrée (20 oct. 2026) par jetons CSS dans `public/styles.css` (`--purple`, `--text`, `--on-action`, `--pop-bg`, `--halo`, `--glass-strong-*` pour le verre fort). Reste à faire : barre des volets R18 (agent B).
 
 ## Checklist à joindre au compte rendu
 ```
