@@ -21,6 +21,7 @@ process.env.TZ = 'America/Toronto';
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { versionHtml } = require('./lib/assetversion');
 const express = require('express');
 
 // Pas d'activités par défaut : chaque déploiement démarre vide, à chacun
@@ -264,11 +265,14 @@ app.use((req, res, next) => {
     req.path === '/styles.css' ||
     req.path === '/i18n.js' ||
     req.path === '/theme-palette.js' ||
+    req.path === '/qrcode.js' ||
+    req.path === '/legal-en.js' ||
+    req.path === '/offline-queue.js' ||
     // 18 oct. 2026 : /js/*.js et /css/*.css (objectifs-document-taches.js, etc.) n'avaient aucun en-tête : l'iPhone les gardait périmés (glissement/Modifications proposées jamais mis à jour).
     /^\/(js|css)\/[^/]+\.(js|css)$/.test(req.path)
   ) {
     // 20 oct. 2026 : /js/*.js et /css/*.css demandés avec ?v=<build> (posé par sendIndex) : l'URL change à chaque déploiement, donc cache long sûr (visites suivantes sans requête).
-    res.set('Cache-Control', /^\/(js|css)\//.test(req.path) && /^[0-9a-zA-Z_-]{1,40}$/.test(String(req.query.v || '')) ? 'public, max-age=31536000, immutable' : 'no-cache');
+    res.set('Cache-Control', /^\/((js|css)\/|(app|styles|i18n|theme-palette|qrcode|legal-en|offline-queue)\.(js|css)$)/.test(req.path) && /^[0-9a-zA-Z_-]{1,40}$/.test(String(req.query.v || '')) ? 'public, max-age=31536000, immutable' : 'no-cache');
   }
   next();
 });
@@ -280,7 +284,7 @@ function sendIndex(req, res) {
   res.set('Cache-Control', 'no-cache');
   fs.readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8', (err, html) => {
     if (err) return res.status(500).end();
-    res.type('html').send(html.replace(/((?:src|href)=")(\/(?:js|css)\/[^"?]+\.(?:js|css))"/g, '$1$2?v=' + ASSET_BUILD + '"'));
+    res.type('html').send(versionHtml(html, PUBLIC_DIR, ASSET_BUILD));
   });
 }
 app.get(['/', '/index.html'], sendIndex);
