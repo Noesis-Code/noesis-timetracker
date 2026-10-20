@@ -76,6 +76,22 @@ assert(/delete copy\.serverNow/.test(src), 'copie locale hors ligne : serverNow 
     const startB = await d2.post('/api/timer/start', { activityId: A });
     assert(startB.body.alreadyRunning === true && typeof startB.body.serverNow === 'number', 'démarrage sur B pendant que A tourne : alreadyRunning avec serverNow');
     await c.post('/api/timer/stop', {});
+    // --- 4. Changement d'heure / horloge changée pendant une session ---
+    // Retour à l'heure normale (1er nov. 2026, Montréal) : 01:30 EDT -> 01:10 EST = 40 min réelles, envoyées en instants exacts (UTC).
+    const dstStart = new Date('2026-11-01T05:30:00Z'), dstEnd = new Date('2026-11-01T06:10:00Z');
+    await c.post('/api/timer/start', { activityId: A, startTime: new Date(Date.now() - 3600e3).toISOString() });
+    const dstStop = await c.post('/api/timer/stop', { startTime: dstStart.toISOString(), endTime: dstEnd.toISOString() });
+    assert(dstStop.status === 200, 'retour à l\'heure normale : arrêt accepté avec instants exacts');
+    const dstRow = (await c.get('/api/history?period=year&date=2026-11-01')).body.filter((x) => x.id === dstStop.body.entryId);
+    assert(dstRow.length === 1 && dstRow[0].durationSeconds === 2400, 'retour à l\'heure normale : 2400 s (jamais négatif), une seule entrée');
+    // Heure de fin avant le départ (horloge reculée) : refus clair, aucune entrée, le chrono reste en cours.
+    await c.post('/api/timer/start', { activityId: A, startTime: new Date(Date.now() - 600e3).toISOString() });
+    const neg = await c.post('/api/timer/stop', { endTime: new Date(Date.now() - 3600e3).toISOString() });
+    assert(neg.status === 400 && (await c.get('/api/timer/status')).body.running === true, 'horloge reculée : fin avant le départ refusée, chrono conservé');
+    await c.post('/api/timer/stop', {});
+    // Client : instants exacts du récapitulatif, saut d'horloge détecté, jamais de durée négative.
+    assert(/function stopDateOf\(which\)/.test(src) && /new Date\(stopExact\[which\]\.ms\)/.test(src) && !/combineDateTime\(\$\('stop(Start|End)DateInput'\)/.test(src), 'récapitulatif d\'arrêt : instant exact tant que le champ n\'est pas modifié');
+    assert(/function liveClockJumped\(\)/.test(src) && /performance\.now/.test(src) && /liveClockJumped\(\) && profile/.test(src), 'chrono : saut d\'horloge du téléphone détecté, heure du serveur relue');
   } finally { s.stop(); }
   console.log(`\n${T.passed} ok, ${T.failed} échec(s)`);
   process.exit(T.failed ? 1 : 0);

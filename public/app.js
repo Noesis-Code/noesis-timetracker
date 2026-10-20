@@ -2420,7 +2420,16 @@
   }
 
   // Chrono : le temps écoulé s'affiche en heures:minutes:secondes, mis à jour chaque seconde (pas de centièmes).
+  // Horloge du téléphone changée en cours de chrono (heure remise, fuseau, heure d'été) : le temps monotone (performance.now) ne suit pas ce saut ; écart > 5 s = on relit l'heure du serveur (nouvel écart d'horloge), jamais de durée négative.
+  var liveTickWall = 0, liveTickMono = 0;
+  function liveClockJumped() {
+    var wall = Date.now(), mono = (window.performance && performance.now) ? performance.now() : null;
+    var jumped = mono !== null && liveTickWall && Math.abs((wall - liveTickWall) - (mono - liveTickMono)) > 5000;
+    liveTickWall = wall; liveTickMono = mono === null ? 0 : mono;
+    return jumped;
+  }
   function updateLiveTimer() {
+    if (liveClockJumped() && profile) { try { syncChronoStatus(); } catch (e) { /* ignoré */ } }
     var elapsedMs = Math.max(0, nowMs() - timerStartMs);
     var h = Math.floor(elapsedMs / 3600000);
     var m = Math.floor((elapsedMs % 3600000) / 60000);
@@ -2920,10 +2929,16 @@
     if (!dateStr || !timeStr) return new Date(NaN);
     return new Date(dateStr + 'T' + timeStr);
   }
+  var stopExact = null;
+  function stopDateOf(which) {
+    var d = $(which === 'start' ? 'stopStartDateInput' : 'stopEndDateInput').value, tm = $(which === 'start' ? 'stopStartTimeInput' : 'stopEndTimeInput').value;
+    if (stopExact && stopExact[which] && d + 'T' + tm === stopExact[which].key && isFinite(stopExact[which].ms)) return new Date(stopExact[which].ms);
+    return combineDateTime(d, tm);
+  }
 
   function updateStopDurationLabel() {
-    var start = combineDateTime($('stopStartDateInput').value, $('stopStartTimeInput').value);
-    var end = combineDateTime($('stopEndDateInput').value, $('stopEndTimeInput').value);
+    var start = stopDateOf('start');
+    var end = stopDateOf('end');
     if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
       $('stopDurationLabel').textContent = t('Durée : —');
       $('stopConfirmBtn').disabled = true;
@@ -2980,6 +2995,11 @@
     var now = new Date(nowMs());
     $('stopEndDateInput').value = toDateValue(now);
     $('stopEndTimeInput').value = toTimeValue(now);
+    // Instants exacts gardés : tant qu'un champ n'est pas modifié, on envoie l'instant exact (l'heure locale seule est ambiguë au retour à l'heure normale : 01:30 existe deux fois).
+    stopExact = {
+      start: { key: $('stopStartDateInput').value + 'T' + $('stopStartTimeInput').value, ms: new Date(timerStartMs).getTime() },
+      end: { key: $('stopEndDateInput').value + 'T' + $('stopEndTimeInput').value, ms: now.getTime() },
+    };
     updateStopDurationLabel();
     $('stopBtn').classList.add('hidden');
     $('stopConfirmPanel').classList.remove('hidden');
@@ -2998,8 +3018,8 @@
   $('stopCancelBtn').addEventListener('click', closeStopConfirm);
 
   $('stopConfirmBtn').addEventListener('click', function () {
-    var startDate = combineDateTime($('stopStartDateInput').value, $('stopStartTimeInput').value);
-    var endDate = combineDateTime($('stopEndDateInput').value, $('stopEndTimeInput').value);
+    var startDate = stopDateOf('start');
+    var endDate = stopDateOf('end');
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       $('stopConfirmMsg').textContent = t('Heures invalides.');
       return;
