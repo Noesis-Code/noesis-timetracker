@@ -2,7 +2,8 @@
 const os = require('os'), fs = require('fs'), path = require('path'), http = require('http');
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-mcp-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
-process.env.PORT = '39' + (50 + Math.floor(Math.random() * 40));
+// Port libre demandé au système (un port tiré au hasard pouvait tomber sur le serveur d'un autre test parallèle : 401 au lieu de 200).
+process.env.PORT = require('child_process').execFileSync(process.execPath, ['-e', "const s=require('net').createServer().listen(0,'127.0.0.1',()=>{console.log(s.address().port);s.close();})"]).toString().trim();
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');
@@ -26,7 +27,16 @@ assert(db.prepare('SELECT COUNT(*) n FROM ai_tokens WHERE tokenHash = ? OR token
 assert(db.prepare('SELECT COUNT(*) n FROM ai_tokens WHERE tokenHash = ?').get(aitokens.hash(tA.token)).n === 1, 'empreinte SHA-256 stockée');
 
 const app = require('../server/index.js');
-setTimeout(async () => {
+// Attente du serveur lui-même (pas d'un délai fixe) : prêt quand /healthz répond.
+const waitReady = async () => {
+  for (let i = 0; i < 200; i++) {
+    const ok = await new Promise((r) => { const q = http.get({ port: process.env.PORT, host: 'localhost', path: '/healthz' }, (res) => { res.resume(); r(res.statusCode === 200); }); q.on('error', () => r(false)); });
+    if (ok) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+};
+(async () => {
+  await waitReady();
   const logs = [];
   ['log', 'error', 'warn'].forEach((k) => { const o = console[k]; console[k] = (...a) => { logs.push(a.join(' ')); o.apply(console, a); }; });
   const callUrl = (token, body) => callPath('/mcp/t/' + token, null, body);
@@ -42,7 +52,7 @@ setTimeout(async () => {
   try {
     assert((await call(null, rpc('ping'))).status === 401, 'sans jeton = 401');
     assert((await call('tmt_faux', rpc('ping'))).status === 401, 'jeton invalide = 401');
-    assert((await call(tA.token, rpc('ping'))).status === 200, 'jeton valide = 200');
+    { const pr = await call(tA.token, rpc('ping')); assert(pr.status === 200, 'jeton valide = 200 (reçu ' + pr.status + ' ' + JSON.stringify(pr.body) + ')'); }
     const init = await call(tA.token, rpc('initialize', {}));
     assert(init.body.result && init.body.result.capabilities.tools, 'initialize annonce les outils');
     assert((await call(tA.token, { jsonrpc: '2.0', method: 'notifications/initialized' })).status === 202, 'notification = 202');
@@ -106,4 +116,4 @@ setTimeout(async () => {
   } catch (e) { failed++; console.log('  FAIL exception', e); }
   console.log(failed ? 'ÉCHEC' : 'OK');
   process.exit(failed ? 1 : 0);
-}, 1500);
+})();
