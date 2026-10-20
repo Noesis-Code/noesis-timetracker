@@ -41,6 +41,13 @@ CREATE TABLE IF NOT EXISTS ai_usage_log (
   PRIMARY KEY (userId, day, model, feature)
 );
 CREATE INDEX IF NOT EXISTS idx_ai_usage_log_day ON ai_usage_log(day, userId);
+-- Alertes de coût déjà émises (jour de Montréal + type + seuil) : un redémarrage du serveur ne les répète pas. Additif, idempotent, sans compte ni texte.
+CREATE TABLE IF NOT EXISTS ai_alerts_sent (
+  kind TEXT NOT NULL,
+  day TEXT NOT NULL,
+  key TEXT NOT NULL,
+  PRIMARY KEY (kind, day, key)
+);
 `);
 
 // Qualité des tâches générées (chantier Précision) : compteur agrégé par jour et par fonction, SANS titre ni compte.
@@ -224,6 +231,14 @@ function record(userId, model, usage, feature, now, factor) {
 // Alerte douce (journal serveur seulement, ni notification ni interface) : coût estimé du jour, tous comptes, au-delà de AI_COST_ALERT_DAY_USD (défaut 8 $).
 // Une seule ligne par jour ; 0 ou valeur invalide = défaut.
 let alertedDay = null;
+// Vrai si l'alerte (kind, jour, clé) n'avait jamais été émise (et la mémorise durablement) ; faux si déjà émise, même avant un redémarrage.
+function claimAlert(kind, day, key) {
+  try {
+    const r = db.prepare('INSERT OR IGNORE INTO ai_alerts_sent (kind, day, key) VALUES (?, ?, ?)').run(kind, day, String(key));
+    if (r.changes) db.prepare('DELETE FROM ai_alerts_sent WHERE day < ?').run(day);
+    return r.changes > 0;
+  } catch (e) { return true; } // base indisponible : on alerte (mieux vaut un doublon qu'un silence)
+}
 function alertDayUsd() { const n = Number(process.env.AI_COST_ALERT_DAY_USD); return Number.isFinite(n) && n > 0 ? n : 8; }
 function alertIfDayCostHigh(now) {
   const d = todayLocal(now);
@@ -231,9 +246,11 @@ function alertIfDayCostHigh(now) {
   const total = db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE day = ?').get(d).s || 0;
   if (total < alertDayUsd()) return;
   alertedDay = d;
+  if (!claimAlert('jour', d, alertDayUsd())) return; // déjà émise pour ce jour et ce seuil (avant un redémarrage)
   console.warn('[aibudget] ALERTE coût IA du jour ' + d + ' : ' + total.toFixed(2) + ' $ estimé (seuil ' + alertDayUsd() + ' $, AI_COST_ALERT_DAY_USD)');
 }
-function resetDayAlert() { alertedDay = null; alertedCaps.clear(); }
+// Remet à zéro la mémoire du processus (simule un redémarrage) ; `all` efface aussi la mémoire durable (tests).
+function resetDayAlert(all) { alertedDay = null; alertedCaps.clear(); if (all !== false) { try { db.exec('DELETE FROM ai_alerts_sent'); } catch (e) { /* ignoré */ } } }
 // Alerte douce (journal serveur, sans identifiant de compte) : une fonction atteint 80 % de son plafond d'appels du jour pour un compte. Une ligne par fonction et par jour.
 const alertedCaps = new Set();
 function alertIfCapNear(userId, feature, now) {
@@ -245,6 +262,7 @@ function alertIfCapNear(userId, feature, now) {
   if (n < cap * 0.8) return;
   for (const x of alertedCaps) if (!x.endsWith('|' + d)) alertedCaps.delete(x);
   alertedCaps.add(k);
+  if (!claimAlert('plafond', d, base + '|' + cap)) return;
   console.warn('[aibudget] ALERTE plafond ' + base + ' : ' + n + ' appels aujourd\'hui pour un compte (plafond ' + cap + '/jour, 80 % atteint)');
 }
 

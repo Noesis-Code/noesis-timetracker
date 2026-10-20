@@ -21,6 +21,13 @@ const alerts = () => warns.filter((w) => w.includes('ALERTE coût IA')).length;
   assert(alerts() === 1, 'seuil dépassé : une alerte dans le journal');
   aibudget.record('u2', 'claude-haiku-4-5', { input_tokens: 1000, output_tokens: 500 }, 'test');
   assert(alerts() === 1, 'une seule alerte par jour');
+  // Redémarrage simulé : mémoire du processus perdue, table conservée -> pas de répétition le même jour ; autre seuil = nouvelle alerte.
+  aibudget.resetDayAlert(false);
+  aibudget.record('u3', 'claude-haiku-4-5', { input_tokens: 1000, output_tokens: 500 }, 'test');
+  assert(alerts() === 1, 'après redémarrage simulé : alerte du jour non répétée');
+  process.env.AI_COST_ALERT_DAY_USD = '0.002'; aibudget.resetDayAlert(false);
+  aibudget.record('u3', 'claude-haiku-4-5', { input_tokens: 1000, output_tokens: 500 }, 'test');
+  assert(alerts() === 2, 'seuil différent le même jour : nouvelle alerte');
   process.env.AI_COST_ALERT_DAY_USD = '8';
   let calls = 0;
   global.fetch = async () => { calls++; return { ok: true, status: 200, clone() { return this; }, json: async () => ({ model: 'claude-haiku-4-5', usage: { input_tokens: 77, output_tokens: 33 }, content: [{ type: 'text', text: 'Texte reformulé' }] }) }; };

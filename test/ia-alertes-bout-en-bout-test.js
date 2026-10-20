@@ -34,6 +34,10 @@ global.fetch = async () => { net++; return { ok: true, status: 200, clone() { re
   // Repli : un refus de plafond n'est jamais mémorisé et un autre compte reste servi.
   await aibudget.runAs('u2', async () => { await classify.callModel('autre', 50, 'classement-tache', 'claude-haiku-4-5'); });
   assert(net === 11, 'autre compte : non bloqué');
+  // Redémarrage simulé (mémoire du processus perdue, table conservée) : l'alerte de plafond n'est pas répétée le même jour.
+  aibudget.resetDayAlert(false);
+  aibudget.record('u1', 'claude-haiku-4-5', { input_tokens: 10, output_tokens: 5 }, 'classement-tache');
+  assert(n(/ALERTE plafond/) === 1, 'après redémarrage simulé : alerte de plafond non répétée');
   // 2. Seuil du jour (tous comptes) : une seule alerte, même avec plusieurs comptes.
   process.env.AI_COST_ALERT_DAY_USD = '0.001'; aibudget.resetDayAlert(); warns.length = 0;
   const t1 = new Date('2026-10-20T15:00:00Z');

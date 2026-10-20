@@ -16,3 +16,10 @@ Loi 25 (registre des traitements, légal non modifié par l'agent) :
 
 Tarifs IA (`PRICES` dans `server/lib/aimodels.js`, mis à jour le 2026-10-16, non vérifiés en ligne) :
 - [ ] Confirmer les tarifs actuels en $ par million de jetons (entrée/sortie) : Haiku 1/5, Sonnet 3/15, Opus 15/75 ? Si faux, donner les bons chiffres ; le rapport `ai-cost-report.js` affiche la date et avertit au-delà de 90 jours.
+
+Alerte de dépassement de coût (20 oct. 2026, `docs/ia-pire-cas-2026-10-20.md`) : aujourd'hui, les alertes (coût du jour, plafond à 80 %) vont au journal serveur seulement, une seule fois par jour de Montréal, même après un redémarrage. Canaux existants : la notification push (`server/lib/push.js`, vers un compte précis ; il faudrait désigner ton compte), le courriel Resend (`server/lib/mail.js`, aucune adresse interne configurée, pas de variable `ALERT_EMAIL`), le MCP `notifier` (côté coordinateur seulement, pas depuis le serveur). Rien n'est branché. Quel canal ?
+- [ ] Journal seulement (statu quo) : rien ne te prévient, il faut lire les journaux Railway ; aucun risque de bruit.
+- [ ] Notification push à ton compte : un message sur le téléphone au premier dépassement du jour (une fois par jour et par seuil) ; demande de désigner ton compte par une variable d'environnement.
+- [ ] Courriel Resend : un courriel par dépassement du jour ; demande une adresse de destination (`ALERT_EMAIL`) et une clé Resend active en production.
+- [ ] Seuils d'alerte : adopter la règle jour = 1 $ x comptes actifs, semaine = 3,5 $ x comptes actifs (aujourd'hui 8 $ et 5 $, la semaine est incohérente avec le jour) ?
+
