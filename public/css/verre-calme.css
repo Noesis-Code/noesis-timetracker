@@ -96,7 +96,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 /* ---- Volet 4 : modification des enregistrements Chrono (date/heure, pôle) et confirmation d'arrêt ---- */
 :root .historyEditFields input[type=datetime-local], :root .historyEditFields select, :root .historyEditCategory,
 :root .stopDateTimeRow input, :root #stopConfirmPanel select, :root #stopConfirmPanel input {
-  background: var(--glass-calm-bg) !important; border-color: var(--glass-calm-line) !important; color: var(--text);
+  background: var(--glass-calm-bg) !important; border-color: var(--glass-calm-line); color: var(--text);
   -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
 }
 
@@ -104,14 +104,14 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
    Aucune zone intermédiaire : fonds, liserés et flou retirés sur les contenants INTERNES (la section .statsSection garde son verre). */
 :root .chartWrap, :root .chartScroll, :root .timesheetScroll, :root .tsCalSlot:not([style]),
 :root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel {
-  background: transparent !important; box-shadow: none !important; border-color: transparent !important;
+  background: transparent; box-shadow: none !important; border-color: transparent;
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 
 /* ---- Volet 5 : feuille de temps et graphique = données posées directement sur la section, sans zone intermédiaire ---- */
 :root .chartWrap, :root .chartScroll, :root .timesheetScroll, :root .tsCalSlot:not([style]),
 :root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel {
-  background: transparent !important; box-shadow: none !important; border-color: transparent !important;
+  background: transparent; box-shadow: none !important; border-color: transparent;
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 
@@ -135,7 +135,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 }
 :root .discussionMsg .attachmentRow { background: var(--glass-calm-bg); border-color: var(--glass-calm-line); }
 :root #profileDiscussionAttachBtn, :root .communityComposerRow .attachMenuIconBtn, :root .menuBtn.attachMenuIconBtn {
-  background: var(--glass-calm-bg) !important; border-color: var(--glass-calm-line) !important; color: color-mix(in srgb, var(--purple) 55%, var(--text));
+  background: var(--glass-calm-bg) !important; border-color: var(--glass-calm-line); color: color-mix(in srgb, var(--purple) 55%, var(--text));
 }
 
 /* ---- Volet 7 : création de sondage — options avancées, cases à cocher, champs, sans blanc ---- */
@@ -144,7 +144,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
   -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
 }
 :root .pollForm textarea, :root .pollFormRow input[type="date"], :root .pollOtherInput, :root .pollAddOptionBtn, :root .pollOptionsBtn {
-  background: var(--glass-calm-bg) !important; border-color: var(--glass-calm-line) !important; color: var(--text);
+  background: var(--glass-calm-bg) !important; border-color: var(--glass-calm-line); color: var(--text);
   -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
 }
 :root .pollFormRow input[type="checkbox"] {
