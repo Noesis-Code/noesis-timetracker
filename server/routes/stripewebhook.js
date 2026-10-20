@@ -145,8 +145,10 @@ async function handleInvoicePaid(invoice) {
 function handleSubscriptionUpdated(subscription, eventCreated) {
   // Événement plus ancien que le dernier appliqué : ignoré. Sans horodatage (event.created absent) : appliqué, sans toucher au dernier horodatage.
   const at = Number.isFinite(eventCreated) ? eventCreated : null;
-  db.prepare('UPDATE activity_subscriptions SET status = ?, currentPeriodStart = ?, currentPeriodEnd = ?, lastEventAt = COALESCE(?, lastEventAt) WHERE stripeSubscriptionId = ? AND status != \'canceled\' AND (? IS NULL OR lastEventAt IS NULL OR lastEventAt <= ?)')
-    .run(subscription.status, toIso(subscription.current_period_start), toIso(subscription.current_period_end), at, subscription.id, at, at);
+  // Changement de plan : le prix courant suit l'abonnement (sans prix dans l'événement, l'ancien est conservé).
+  const priceId = (subscription.items && subscription.items.data && subscription.items.data[0] && subscription.items.data[0].price && subscription.items.data[0].price.id) || null;
+  db.prepare('UPDATE activity_subscriptions SET status = ?, currentPeriodStart = ?, currentPeriodEnd = ?, stripePriceId = COALESCE(?, stripePriceId), lastEventAt = COALESCE(?, lastEventAt) WHERE stripeSubscriptionId = ? AND status != \'canceled\' AND (? IS NULL OR lastEventAt IS NULL OR lastEventAt <= ?)')
+    .run(subscription.status, toIso(subscription.current_period_start), toIso(subscription.current_period_end), priceId, at, subscription.id, at, at);
 }
 
 async function handleSubscriptionDeleted(subscription) {
@@ -160,6 +162,16 @@ async function handleSubscriptionDeleted(subscription) {
 // un litige gagné ne doit pas couper un abonné ; l'arrêt passe par customer.subscription.deleted,
 // émis quand l'abonnement est résilié côté Stripe). On journalise (identifiants Stripe seulement)
 // et on alerte l'équipe pour décision humaine. Événement accepté (200), jamais en erreur.
+// Montants Stripe = entiers en centimes (amount, amount_refunded) : comparaison entière, jamais de flottant.
+// Texte d'alerte seulement (équipe) : " partiel 5.00/20.00 CAD" ou " total 20.00 CAD" ; vide si les montants manquent.
+function fmtCents(n) { return (Math.round(n) / 100).toFixed(2); }
+function refundScope(ch) {
+  const amount = Number(ch && ch.amount), refunded = Number(ch && ch.amount_refunded);
+  if (!Number.isFinite(amount) || !Number.isFinite(refunded) || amount <= 0) return '';
+  const cur = String(ch.currency || 'cad').toUpperCase();
+  return refunded < amount ? ` partiel ${fmtCents(refunded)}/${fmtCents(amount)} ${cur}` : ` total ${fmtCents(amount)} ${cur}`;
+}
+
 async function handleChargeIssue(kind, obj) {
   let customer = obj.customer || null;
   // Litige : pas de `customer` dans l'événement, on le lit sur la charge (lecture seule, meilleur effort).
@@ -168,7 +180,7 @@ async function handleChargeIssue(kind, obj) {
   }
   const row = customer ? db.prepare('SELECT stripeSubscriptionId, status FROM activity_subscriptions WHERE stripeCustomerId = ? ORDER BY createdAt DESC LIMIT 1').get(customer) : null;
   const chargeId = kind === 'dispute' ? obj.charge : obj.id;
-  const line = `${kind} charge=${chargeId || '?'} abonnement=${row ? row.stripeSubscriptionId : 'inconnu'} statut=${row ? row.status : '-'}`;
+  const line = `${kind}${kind === 'refund' ? refundScope(obj) : ''} charge=${chargeId || '?'} abonnement=${row ? row.stripeSubscriptionId : 'inconnu'} statut=${row ? row.status : '-'}`;
   console.warn('[stripe webhook]', line);
   await subMails.alertTeam(`[Noèsis — Stripe ${kind === 'dispute' ? 'litige' : 'remboursement'}]`, line + '\nAucune action automatique : décision à prendre dans le tableau de bord Stripe.');
 }

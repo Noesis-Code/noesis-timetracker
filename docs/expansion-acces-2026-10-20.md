@@ -4,7 +4,7 @@ Clés Stripe de test seulement, aucun réseau. Tests : `test/expansion-acces-tes
 
 ## Règle
 Accès = abonnement `active` sur l'activité (payé par l'utilisateur lui-même) OU droit par code gratuit actif. Seul `active` ouvre (`server/lib/offer1access.js`). Les routes par activité exigent en plus d'être membre de l'activité.
-Remboursement (`charge.refunded`) et litige (`charge.dispute.created`) : **aucun changement d'accès automatique** (choix existant de `stripewebhook.js`, alerte à l'équipe) ; l'accès ne s'arrête qu'avec `customer.subscription.deleted`. À confirmer par Émilien : c'est une règle produit/financière.
+Remboursement (`charge.refunded`, partiel ou total : l'alerte équipe l'indique avec le montant en CAD, `test/expansion-remboursement-multi-test.js`) et litige (`charge.dispute.created`) : **aucun changement d'accès automatique** (choix existant de `stripewebhook.js`, alerte à l'équipe) ; l'accès ne s'arrête qu'avec `customer.subscription.deleted`. À confirmer par Émilien : c'est une règle produit/financière.
 
 ## États × résultat (identique pour les 27 routes ci-dessous)
 | État du compte | Accès aux fonctions Expansion |

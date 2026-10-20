@@ -1,18 +1,22 @@
 # Questions pour Émilien — Expansion
 
-- [ ] Le MCP TiMeTracker (`lister_taches`) n'était pas disponible dans cette session de repli : les nouvelles tâches du secteur « Expansion » n'ont pas été lues — à relancer depuis une session où l'outil est branché.
-- [ ] Valides-tu les textes des courriels d'abonnement (`docs/expansion-courriels.md`) et l'activation de `EXPANSION_MAILS=1` en production ? — tâche bloquée : activer les courriels aux abonnés — champ manquant : 3 (cas légal/communication réservé).
-- [ ] Autorises-tu de remplacer « Offre 1 / Offer 1 » par « Expansion » dans les CGU et la politique de confidentialité (FR `public/index.html`, EN `public/legal-en.js`) ? — tâche bloquée : Textes « Offre 1 » → Expansion — champ manquant : 3 (légal, réservé).
+Une case par ligne, par urgence. Q1 à Q4 bloquent ou conditionnent l'activation en production (voir `expansion-checklist-production-2026-10-20.md`). Fusions du 20 oct. : anciennes Q3, Q4, Q6 deviennent Q7 ; anciens courriels, Q9 et Q12 deviennent Q1 ; ancienne Q10 devient Q3, Q11 devient Q4, Q5 devient Q5, Q1 devient Q6, Q7 devient Q8, Q8 devient Q9.
 
-- [ ] Q1 (#576) « Retirer la phase de paiement dans TMT test » : staging utilise déjà des clés de test (aucun vrai paiement). Veux-tu quand même contourner Checkout sur staging, ou garder le parcours de test complet ?
-- [ ] Q3 (#575, #577) Génération automatique de la FDR depuis le questionnaire : quel déclencheur (à l'envoi du questionnaire, ou à la demande) et quel livrable attendu ?
-- [ ] Q4 (#906) « Développer l'abonnement FDR » : quel manque précis par rapport à l'abonnement Expansion actuel (20 $/mois par activité) ?
-- [ ] Q5 (#578) Case à cocher de résiliation avec RDV : on passe par le portail Stripe (docs/expansion-resiliation.md) sans nouvel écran. Est-ce acceptable, ou veux-tu la case dans l'app ?
-- [ ] Q6 (#530, #551) « Créer la formule 1 » : formule = nouvel abonnement/prix Stripe, ou contenu livré ? Quel prix et quels contenus ?
-- [ ] Q7 (#849) Suivi post-achat : quels signaux suivre (utilisation, résiliation, courriels) et où les voir ?
-- [ ] Q8 (#570) Espace publicitaire dans l'app : à créer ? Contraire à la simplification (SIMPLIFICATION.md), à confirmer.
-- [ ] Q9 Rappel avant renouvellement (communication client, réservé) : l'envoies-tu, désactivé par défaut tant que tu n'as pas validé ? Texte proposé : « Objet : Votre abonnement Expansion se renouvelle bientôt. Bonjour, votre abonnement Expansion pour « {activité} » se renouvelle le {date} pour 20 $. Rien à faire pour le conserver. Pour le modifier ou le résilier, ouvrez la gestion de l'abonnement dans l'application. L'équipe Noèsis. »
+## Bloque l'activation en production
+- [ ] Q1 Courriels clients (communication, réservé) : valides-tu les textes `docs/expansion-courriels.md` (confirmation, fin), le rappel avant renouvellement (texte dans ce fichier plus bas) et un courriel « paiement à régulariser » (échec de paiement) ? Effet : `EXPANSION_MAILS=1` ne se pose qu'après ton accord ; sans, aucun courriel ne part et les relances viennent de Stripe seulement (à activer dans son tableau de bord).
+- [ ] Q2 Légal (réservé) : remplacer « Offre 1 / Offer 1 » par « Expansion » dans les CGU et la politique de confidentialité (FR `public/index.html`, EN `public/legal-en.js`) ? Effet : sans ton accord, les textes légaux parlent de « Offre 1 » alors que l'achat dit « Expansion ».
+- [ ] Q3 Remboursement ou litige (règle financière, réservée) : [ ] garder tel quel / [ ] couper l'accès au remboursement total seulement / [ ] couper aussi au litige. Effet : « garder » = un client remboursé garde Expansion jusqu'à ta résiliation manuelle (alerte équipe avec « partiel » ou « total » et le montant en CAD) ; « couper » = accès fermé aussitôt, au risque de priver un client à tort (litige abusif). Un remboursement partiel ne coupe jamais. Inchangé en attendant.
+- [ ] Q4 Code gratuit : valable pour tous les comptes, sans date d'expiration ni limite d'usage (révocation manuelle). [ ] garder / [ ] ajouter une expiration ou un nombre maximal d'utilisations (nouveau mécanisme). Effet : « garder » = un code diffusé reste utilisable jusqu'à retrait.
 
-- [ ] Q10 Remboursement ou litige seuls (règle financière, réservée) : aujourd'hui ils ne coupent PAS l'accès (alerte à l'équipe, aucune action automatique ; seule la résiliation de l'abonnement coupe). Choisis : [ ] garder tel quel / [ ] couper l'accès au remboursement complet / [ ] couper l'accès au litige. Effet concret : « garder » = un client remboursé garde Expansion jusqu'à la résiliation faite à la main ; « couper » = l'accès tombe aussitôt, mais un litige abusif ou un remboursement partiel pourrait priver un client à tort. Comportement inchangé en attendant ta réponse.
-- [ ] Q11 Code gratuit : il n'a ni date d'expiration ni limite d'usage (un code = valable pour tous les comptes, droit permanent jusqu'à révocation manuelle). Garder ainsi, ou veux-tu une date d'expiration / un nombre maximal d'utilisations (nouveau mécanisme) ?
-- [ ] Q12 Échec de paiement : `invoice.payment_failed` n'est pas traité par le code (l'abonnement passe `past_due` via `customer.subscription.updated`, accès fermé, régularisation par le portail ; l'événement est seulement journalisé). Il manque un courriel au client (communication réservée). Choisis : [ ] garder tel quel (relances Stripe seulement, à activer dans le tableau de bord Stripe) / [ ] courriel Noèsis « paiement à régulariser » (texte à valider).
+## Décisions de produit
+- [ ] Q5 (#578) Résiliation avec RDV : on passe par le portail Stripe (`docs/expansion-resiliation.md`), sans nouvel écran. Acceptable, ou case dans l'app ? Effet : « acceptable » = rien à construire.
+- [ ] Q6 (#576) Staging utilise déjà des clés de test (aucun vrai paiement). Contourner Checkout sur staging, ou garder le parcours complet ? Effet : « garder » = rien à changer.
+- [ ] Q7 (#575, #577, #906, #530, #551) FDR et « formule 1 » : génération automatique depuis le questionnaire (déclencheur : à l'envoi ou à la demande ? livrable ?), manque de l'abonnement actuel (20 $/mois par activité), formule = nouveau prix Stripe ou contenu livré (prix, contenus) ? Effet : débloque 5 tâches ; rien n'est codé d'ici là.
+- [ ] Q8 (#849) Suivi post-achat : quels signaux (utilisation, résiliation, courriels) et où les voir ? Effet : sans réponse, aucun tableau de suivi n'est ajouté.
+- [ ] Q9 (#570) Espace publicitaire dans l'app : à créer ? Contraire à `SIMPLIFICATION.md`. Effet : sans accord, refusé par défaut.
+
+## Accès
+- [ ] Q10 Le MCP TiMeTracker (`lister_taches`) n'était pas branché dans les sessions de repli : relire les tâches du secteur « Expansion » depuis une session où il l'est.
+
+## Texte du rappel avant renouvellement (Q1)
+« Objet : Votre abonnement Expansion se renouvelle bientôt. Bonjour, votre abonnement Expansion pour « {activité} » se renouvelle le {date} pour 20 $. Rien à faire pour le conserver. Pour le modifier ou le résilier, ouvrez la gestion de l'abonnement dans l'application. L'équipe Noèsis. » (désactivé par défaut).

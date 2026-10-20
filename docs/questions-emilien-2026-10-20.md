@@ -6,9 +6,10 @@ Une case par ligne, par urgence. Détail dans le fichier cité (`questions-emili
 - [ ] Trade Q4 : le service Railway Trade existe-t-il ? (`trade`)
 - [ ] Trade Q5 : critères « validé » du portefeuille réel (`trade`)
 - [ ] Trade Q6 : condition de lancement en production (`trade`)
-- [ ] Expansion : valider les courriels, activer `EXPANSION_MAILS=1` (`expansion`)
-- [ ] Expansion : « Offre 1 » devient « Expansion » dans CGU et confidentialité (`expansion`)
-- [ ] Expansion Q9 : rappel avant renouvellement, désactivé par défaut ? (`expansion`)
+- [ ] Expansion Q1 : valider les courriels (confirmation, fin, rappel, paiement à régulariser), activer `EXPANSION_MAILS=1` (`expansion`)
+- [ ] Expansion Q2 : « Offre 1 » devient « Expansion » dans CGU et confidentialité (`expansion`)
+- [ ] Expansion Q3 : remboursement ou litige : couper l'accès ou garder ? (`expansion`)
+- [ ] Expansion Q4 : code gratuit sans expiration : garder ? (`expansion`)
 - [ ] Crédits : ajouter au registre Loi 25 « Apprentissage du classement des tâches » (`apprentissage-usage.md`)
 - [ ] Basic : 26 bugs staging du 2 oct. (#1299, #1307, #1308) (`basic`)
 - [ ] Basic : effacer nom de famille et téléphone en base (irréversible, après sauvegarde) (`basic`)
@@ -41,7 +42,7 @@ Une case par ligne, par urgence. Détail dans le fichier cité (`questions-emili
 
 ## 5. Accès et sessions
 - [ ] Benchmarks (Trade Q8, temps) : session avec recherche web (`trade`, `simplification`)
-- [ ] Expansion : relire les tâches du secteur depuis une session avec le MCP TiMeTracker (`expansion`)
+- [ ] Expansion Q10 : relire les tâches du secteur depuis une session avec le MCP TiMeTracker (`expansion`)
 
 ## 6. Infra
 - [ ] Nettoyer ~1384 fichiers orphelins `/tmp/noesis-verify-*` (68 Mo) : destructeur, à valider ; cause corrigée.

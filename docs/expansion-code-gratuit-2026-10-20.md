@@ -14,7 +14,7 @@ Mécanisme : hash sha256 dans `OFFER1_FREE_CODE_HASHES` (jamais en clair) ; réu
 | Même compte rejoue le code | succès, un seul droit (pas de doublon) | oui |
 | Compte déjà ouvert + faux code | succès immédiat, pas d'échec compté | oui |
 | 5 échecs en 15 min | 429, même avec le bon code, par compte ET par IP ; levé après 15 min | oui |
-| Expiration du code | non gérée : retirer le hash empêche les nouveaux, les droits existants restent (révocation manuelle) — question Q11 | oui |
+| Expiration du code | non gérée : retirer le hash empêche les nouveaux, les droits existants restent (révocation manuelle) — question Q4 | oui |
 | Révocation puis nouveau code valide | nouvel accès accordé | oui |
 | Code de la liste retiré | refusé pour les nouveaux | oui |
 
