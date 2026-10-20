@@ -18,6 +18,7 @@
 // donc la page de l'app, et le lecteur de calendrier recevrait du HTML.
 
 const express = require('express');
+const { userMessage } = require('../lib/usermessage');
 const feed = require('../lib/calendarfeed');
 const externalcalendar = require('../lib/externalcalendar');
 
@@ -147,7 +148,7 @@ router.put('/calendar/export-selection', (req, res) => {
     feed.setExportIncluded(req.userId, activityId, typeof req.body.poleKey === 'string' ? req.body.poleKey : '', !!req.body.included);
     res.json({ activities: feed.exportSelectionForUser(req.userId) });
   } catch (err) {
-    res.status(err.statusCode || 400).json({ error: err.message });
+    res.status(err.statusCode || 400).json({ error: userMessage(err, 'Erreur serveur') });
   }
 });
 
@@ -173,7 +174,7 @@ router.post('/calendar/external', (req, res) => {
     externalcalendar.addUrl(userId, icsUrl.replace(/^webcal:/i, 'https:'));
     res.status(201).json({ urls: externalcalendar.listUrls(userId) });
   } catch (err) {
-    res.status(err.statusCode || 400).json({ error: err.message });
+    res.status(err.statusCode || 400).json({ error: userMessage(err, 'Erreur serveur') });
   }
 });
 
@@ -188,7 +189,7 @@ router.put('/calendar/external-settings', (req, res) => {
   try {
     res.json(externalcalendar.setSettings(req.userId, req.body));
   } catch (err) {
-    res.status(err.statusCode || 400).json({ error: err.message });
+    res.status(err.statusCode || 400).json({ error: userMessage(err, 'Erreur serveur') });
   }
 });
 

@@ -1582,7 +1582,7 @@
               iconFail.className = 'goalsCaptureResultIcon';
               iconFail.textContent = '✗';
               row.appendChild(iconFail);
-              row.appendChild(document.createTextNode(' ' + label + ' — ' + (activityName || '') + ' : ' + (r.error || t('non ajoutée'))));
+              row.appendChild(document.createTextNode(' ' + label + ' — ' + (activityName || '') + ' : ' + (r.error ? t(r.error) : t('non ajoutée'))));
             }
             pending.appendChild(row);
           });

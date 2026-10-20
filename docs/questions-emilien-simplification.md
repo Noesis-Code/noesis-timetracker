@@ -44,3 +44,30 @@ Pour chaque ligne : cocher **retirer**, **garder** ou **déplacer**. Détails : 
 
 ## 6e passage : traduction EN du module « Ajouter des tâches > document »
 `objectifs-document-taches.js` n'a aucune traduction EN (~60 phrases restent en français). Le corriger ajoute un mécanisme de traduction au module. Veux-tu qu'on le traduise (oui/non) ? Voir aussi les 4 clés EN en conflit (`Valider`, `Atteint`, `En cours`, `En retard`) dans `code-mort-2026-10-20.md`.
+
+## 8e passage : simplicité vue par l'utilisateur (20 oct.)
+
+### Première minute d'un profil neuf (Playwright 390 px, mesuré)
+Profil neuf, app installée → premier chrono : **4 écrans** (Création, Modules, Activités, Chrono), **13 taps** (6 pour poser le curseur dans un champ d'identité + 1 pour le nom d'activité, 6 d'action), **8 champs/interrupteurs** (6 champs, 1 case obligatoire, 2 interrupteurs facultatifs laissés éteints). Rien d'illisible ni hors écran. Le consentement légal (case conditions/16 ans) et les deux consentements facultatifs restent intacts dans toutes les propositions.
+- [ ] Étape « Choisis ce dont tu as besoin » (modules) : la sauter en gardant le choix par défaut (Chrono + Feuille de route), changeable en Réglages > Modules : 13 → 12 taps, 4 → 3 écrans
+- [ ] Étape « Crée tes activités » : quitter l'étape dès la première activité ajoutée (sans taper « Continuer ») : 13 → 12 taps ; ou la sauter (le Chrono vide dit déjà « ajoutes-en une dans Activité ») : 13 → 10 taps mais le premier chrono demande alors d'aller créer l'activité plus tard
+- [ ] Création : curseur posé d'emblée dans « Prénom » et touche « Suivant » du clavier de champ en champ (même écran, aucun élément nouveau) : 13 → 8 taps ; même chose pour le nom de la première activité : 8 → 7
+- [ ] Création : « Confirme le code » (2e saisie du code) : retirer / garder. Gain 2 taps (13 → 11), mais risque de faute de frappe qui verrouille le compte (le code est la seule voie de récupération) : à garder sauf avis contraire
+- [ ] Création : téléphone obligatoire (le courriel l'est déjà) : le rendre facultatif / garder. Gain 1 champ et 1 tap (13 → 12). Choix d'avril 2026 pour la recherche de profil et le partage de contact ; ce n'est pas un consentement légal
+- [ ] Création : deux champs « Prénom » et « Nom de famille » : un seul champ « Nom » / garder. Gain 1 tap ; demande de changer le stockage (nom + nom de famille séparés partout) : à garder
+
+### Textes à l'écran
+- Libellés > 40 caractères relevés (hors textes légaux) : « Autoriser mes abonnés à me contacter par email / par téléphone » (46-50), « Déjà casée dans le planning hebdomadaire Objectifs » (50), « Calculé par Noèsis d'après les tâches réalisées » (47), « Replie les projets pour pouvoir les réordonner » (46), « Afficher/masquer les jours de cette semaine » (43), « Gouvernance des renseignements personnels » (41, titre légal). Aucun n'est tronqué à 390 px ; raccourcir ne change aucune fonction.
+- [ ] Raccourcir ces libellés (ex. « Contact par email », « Déjà planifiée », « Calculé d'après tes tâches ») : oui / non
+- Doublons de sens : « Être trouvable à la connexion » (création) et « Être trouvable dans la recherche de l'écran de connexion » (Réglages) ; « Aucune activité ajoutée pour l'instant. » (onboarding) et « Aucune activité pour l'instant — ajoutes-en une dans Activité. » (Chrono) ; « Déconnexion » et « Se déconnecter de tous les appareils » (déjà en case plus haut).
+- [ ] Un seul libellé « Être trouvable à la connexion » aux deux endroits : oui / non
+- Corrigé sans nouvel écran : un message technique brut pouvait s'afficher à l'utilisateur (« Anthropic a refusé l'appel (HTTP 529) : … » dans le résultat d'une tâche non ajoutée par l'IA ; message d'erreur interne sur 3 routes du calendrier). Il devient « Erreur serveur » / « Server error » (`server/lib/usermessage.js`, test `test/messages-clairs-test.js`). Côté client, « Failed to fetch » / « Load failed » étaient déjà remplacés par « Connexion impossible. Réessaie. ».
+- Laissé tel quel : « Module inconnu : <id> » (`lib/modules.js`), jamais atteignable depuis l'interface (identifiants fixes).
+
+### Routes serveur sans appelant dans l'interface (preuve : aucune occurrence du chemin, même construit par concaténation/gabarit, dans `public/`, repérage par script sur les 231 routes de `server/routes/`)
+Hors liste, vivantes : routes appelées par chemin construit (`change-proposals/*`, `goals/overload|unfinished|realism|recalc`), webhooks externes (`/stripe/webhook`, `/webhooks/resend-inbound`), retour OAuth (`/drive/callback`), page du lien de courriel (`/offer/parental-consent/:token`), `/mcp`.
+- [ ] `POST /import/history` (import CSV de l'ancienne feuille Google ; usage unique, décrit en tête de `routes/import.js`, aucun test, aucun script) : retirer / garder
+- [ ] `POST /offer/portal` (portail de facturation Stripe ; testé côté serveur, aucun bouton ne l'appelle ; lié au paiement) : retirer / garder (réservé à Émilien : paiement)
+- [ ] `DELETE /profile/:id/ai-examples` (remise à zéro de l'apprentissage du classement IA ; « sans écran » par décision, testé) : retirer / garder
+- [ ] `GET /push/status` (état de l'abonnement aux notifications ; seulement dans `test/modules-gating-test.js`) : retirer / garder
+- [ ] `routes/offerforms.js` (4 routes `/activities/:id/forms`, `/profile-form`) : voir case plus haut

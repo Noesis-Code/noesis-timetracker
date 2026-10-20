@@ -538,7 +538,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
       // ci-dessus).
       crosssectorinference.suggestCrossSectorLinks(activityId, item.categoryKey, { type: 'task', text: label, itemId: item.id }).catch(() => {});
     } catch (err) {
-      results.push({ activityId, ok: false, error: err.message || 'Erreur serveur.' });
+      results.push({ activityId, ok: false, error: require('./usermessage').userMessage(err, 'Erreur serveur') });
     }
   }
   return results;

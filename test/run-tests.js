@@ -41,6 +41,7 @@ try { require.resolve('@simplewebauthn/server', { paths: [path.join(__dirname, '
 const SUITE_FILES = [
   'offer1access-test.js',
   'modules-test.js',
+  'messages-clairs-test.js',
   'commentaire-chrono-test.js',
   'trade-link-test.js',
   'trade-events-test.js',
@@ -351,6 +352,8 @@ async function main() {
   catch (e) { assert(false, 'accès anticipé Offre 1 : tests échoués'); }
   try { await runChild('modules-test.js'); assert(true, 'modules activables : tests passés'); }
   catch (e) { assert(false, 'modules activables : tests échoués'); }
+  try { await runChild('messages-clairs-test.js'); assert(true, 'messages clairs : tests passés'); }
+  catch (e) { assert(false, 'messages clairs : tests échoués'); }
   try { await runChild('commentaire-chrono-test.js'); assert(true, 'commentaire Chrono : tests passés'); }
   catch (e) { assert(false, 'commentaire Chrono : tests échoués'); }
   try { await runChild('trade-link-test.js'); assert(true, 'Trade Tracker : jeton de lien : tests passés'); }
