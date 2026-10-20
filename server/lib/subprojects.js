@@ -154,10 +154,6 @@ function progressForActivities(userId, activityIds) {
   return out;
 }
 
-function progressForActivity(userId, activityId) {
-  return progressForActivities(userId, [activityId]).get(Number(activityId)) || null;
-}
-
 // ===================== SOUS-PROJETS =====================
 
 // Liste d'une activité, avec l'avancement de chaque sous-projet et un aperçu
@@ -602,7 +598,6 @@ module.exports = {  isItemLocked,
   assertItemEditable,
   // Contrat "Général" — ne pas changer sans le prévenir (R6).
   progressForActivities,
-  progressForActivity,
   // Accès
   isActivityMember,
   checkSubProjectAccess,

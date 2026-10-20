@@ -79,10 +79,6 @@ function resetRenewalsUsed(activityId) {
   db.prepare('UPDATE sub_projects SET renewalsUsedThisPeriod = 0 WHERE activityId = ? AND slot IS NOT NULL').run(activityId);
 }
 
-function getCycle(activityId) {
-  return db.prepare('SELECT * FROM activity_billing_cycles WHERE activityId = ?').get(activityId) || null;
-}
-
 // Démarre le cycle d'une activité — appelé une seule fois, à l'activation.
 // INSERT OR IGNORE : l'appelant (activateActivitySubscription) est déjà
 // idempotent sur son propre critère (slot posé), ceci n'est qu'un filet.
@@ -133,7 +129,6 @@ module.exports = {  liveSubscriberCount,
   incrementRenewalsUsed,
   seedRenewalsUsed,
   resetRenewalsUsed,
-  getCycle,
   ensureCycleStarted,
   advanceCycle,
   dueActivities,
