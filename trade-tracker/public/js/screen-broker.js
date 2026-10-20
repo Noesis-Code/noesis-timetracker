@@ -71,7 +71,7 @@
     render: function (el, state, raw) {
       var connected = !!(raw.me && raw.me.brokerConnected), demo = raw.source === 'demo';
       el.innerHTML =
-        '<div class="pageHead"><div class="screenTitle">Connecter mon courtier</div><button type="button" class="topIconBtn" id="closePage" aria-label="Fermer">✕</button></div>' +
+        '<div class="pageHead"><div class="screenTitle">Connecter mon courtier</div><button type="button" class="cmpClose" id="closePage" aria-label="Fermer">✕</button></div>' +
         '<div class="card"><div class="cardHead" style="margin:0"><div><div class="cardLabel">État</div><div class="syncBannerVal">' + (connected ? 'Connecté' : 'Non connecté') + '</div></div>' +
         '<span class="statusBadge ' + (connected ? 'ok' : '') + '"><span class="syncDot"></span>' + (connected ? 'Actif' : 'Inactif') + '</span></div>' +
         (connected && !demo ? '<div class="cardMeta" id="brokerSyncInfo" aria-live="polite">Lecture de l’état…</div>' : '') + '</div>' +

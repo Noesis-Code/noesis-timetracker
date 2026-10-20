@@ -17,7 +17,7 @@
       <div class="communityMembersModalCard">
         <div class="activityPageHeader">
           <span class="activityPageName" id="goalsDetailTitle"></span>
-          <button type="button" class="menuBtn" id="goalsDetailBack" aria-label="Fermer">✕</button>
+          <button type="button" class="cmpClose" id="goalsDetailBack" aria-label="Fermer">✕</button>
         </div>
         <div id="goalsDetailScroll">
           <div id="activityGoalsBlock">
@@ -388,7 +388,7 @@
     var card = document.createElement('div'); card.className = 'goalTaskEditCard';
     var header = document.createElement('div'); header.className = 'goalTaskEditHeader';
     var title = document.createElement('p'); title.className = 'sectionTitle'; title.textContent = t('Objectifs hebdomadaires proposés');
-    var closeBtn = document.createElement('button'); closeBtn.type = 'button'; closeBtn.className = 'menuBtn';
+    var closeBtn = document.createElement('button'); closeBtn.type = 'button'; closeBtn.className = 'cmpClose';
     closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
     header.appendChild(title); header.appendChild(closeBtn); card.appendChild(header);
     var hint = document.createElement('p'); hint.className = 'meta';
@@ -493,7 +493,7 @@
     b.className = 'goalRewriteBubble';
     var close = document.createElement('button');
     close.type = 'button';
-    close.className = 'goalRewriteClose';
+    close.className = 'cmpClose goalRewriteClose';
     close.textContent = '\u2715';
     close.setAttribute('aria-label', t('Fermer'));
     close.onclick = closeGoalRewriteBubble;
@@ -1782,7 +1782,7 @@
     title.textContent = t('Modifier la tâche');
     var closeBtn = document.createElement('button');
     closeBtn.type = 'button';
-    closeBtn.className = 'menuBtn';
+    closeBtn.className = 'cmpClose';
     closeBtn.setAttribute('aria-label', t('Fermer'));
     closeBtn.textContent = '✕';
     header.appendChild(title);

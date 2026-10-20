@@ -748,7 +748,7 @@
       title.className = 'sectionTitle';
       title.textContent = absence ? t('Sélection du pôle & secteur') : t('Pôle et secteur non trouvés — où placer cette tâche ?');
       var closeBtn = document.createElement('button');
-      closeBtn.type = 'button'; closeBtn.className = 'menuBtn';
+      closeBtn.type = 'button'; closeBtn.className = 'cmpClose';
       closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
       header.appendChild(title); header.appendChild(closeBtn);
       card.appendChild(header);
@@ -929,7 +929,7 @@
       title.className = 'sectionTitle';
       var closeBtn = document.createElement('button');
       closeBtn.type = 'button';
-      closeBtn.className = 'menuBtn';
+      closeBtn.className = 'cmpClose';
       closeBtn.setAttribute('aria-label', t('Fermer'));
       closeBtn.textContent = '✕';
       header.appendChild(title);
@@ -1113,7 +1113,7 @@
     title.className = 'sectionTitle';
     title.textContent = t('Ajouter cette tâche ?');
     var closeBtn = document.createElement('button');
-    closeBtn.type = 'button'; closeBtn.className = 'menuBtn';
+    closeBtn.type = 'button'; closeBtn.className = 'cmpClose';
     closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
     header.appendChild(title); header.appendChild(closeBtn);
     card.appendChild(header);
@@ -1183,7 +1183,7 @@
     title.className = 'sectionTitle';
     title.textContent = t('Tâche rangée');
     var closeBtn = document.createElement('button');
-    closeBtn.type = 'button'; closeBtn.className = 'menuBtn';
+    closeBtn.type = 'button'; closeBtn.className = 'cmpClose';
     closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
     header.appendChild(title); header.appendChild(closeBtn);
     card.appendChild(header);
@@ -1389,7 +1389,7 @@
       title.className = 'sectionTitle';
       title.textContent = t('Comment Noèsis gère tes tâches ?');
       var closeBtn = document.createElement('button');
-      closeBtn.type = 'button'; closeBtn.className = 'menuBtn';
+      closeBtn.type = 'button'; closeBtn.className = 'cmpClose';
       closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
       header.appendChild(title); header.appendChild(closeBtn);
       card.appendChild(header);

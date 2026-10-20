@@ -63,7 +63,7 @@
         <div class="activityPageHeader">
           <span class="activityPageName" id="goalsActivityName"></span>
           <button type="button" class="menuBtn" id="goalsStrategyBtn" data-module="ai" aria-label="Stratégie" title="Stratégie"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="4.5"></circle><circle cx="12" cy="12" r="1"></circle></svg></button>
-          <button type="button" class="menuBtn" id="goalsBackToCaptureBtn" aria-label="Fermer">✕</button>
+          <button type="button" class="cmpClose" id="goalsBackToCaptureBtn" aria-label="Fermer">✕</button>
         </div>
         <div id="goalsNoPoleState" class="goalsNoPoleState hidden">
           <p class="goalsNoPoleTitle">Cette activité n’a pas encore de pôle.</p>
@@ -194,7 +194,7 @@
       var sheet = document.createElement('div');
       sheet.className = 'goalsDiscSheet';
       sheet.innerHTML = '<div class="profileSubWindowHeader"><p class="sectionTitle" id="goalsDiscSheetTitle">Discussion</p>'
-        + '<button type="button" class="menuBtn" id="goalsDiscSheetClose" aria-label="Fermer">✕</button></div>';
+        + '<button type="button" class="cmpClose" id="goalsDiscSheetClose" aria-label="Fermer">✕</button></div>';
       sheet.appendChild(blk);
       host.appendChild(sheet);
     }
@@ -638,7 +638,7 @@
     var chev = document.createElementNS(ns, 'svg'); chev.setAttribute('class', 'goalsAlertChevron'); chev.setAttribute('viewBox', '0 0 24 24'); chev.setAttribute('aria-hidden', 'true');
     var cp = document.createElementNS(ns, 'path'); cp.setAttribute('d', 'M6 9l6 6 6-6'); chev.appendChild(cp);
     tg.appendChild(ico); tg.appendChild(tt); tg.appendChild(chev);
-    var x = document.createElement('button'); x.type = 'button'; x.className = 'goalsAlertClose'; x.textContent = '\u2715'; x.setAttribute('aria-label', t('Fermer pour aujourd\'hui'));
+    var x = document.createElement('button'); x.type = 'button'; x.className = 'cmpClose'; x.textContent = '\u2715'; x.setAttribute('aria-label', t('Fermer pour aujourd\'hui'));
     head.appendChild(tg); head.appendChild(x);
     var body = document.createElement('div'); body.className = 'goalsAlertBody';
     var sk = alertDayKey(key);

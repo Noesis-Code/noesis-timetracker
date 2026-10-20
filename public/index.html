@@ -1505,7 +1505,7 @@
         <div class="communityMembersModalCard">
           <div class="profileSubWindowHeader">
             <p class="sectionTitle" id="communityMembersModalTitle"></p>
-            <button type="button" class="menuBtn" id="communityMembersModalClose" aria-label="Fermer">✕</button>
+            <button type="button" class="cmpClose" id="communityMembersModalClose" aria-label="Fermer">✕</button>
           </div>
           <div id="communityMembersModalList" class="activitiesList"></div>
           <!-- ⚠️ 5 septembre 2026 (Activité solo) : zone d'actions sous la liste,
@@ -1536,7 +1536,7 @@
         <div class="communityMembersModalCard">
           <div class="communityMembersModalHeader">
             <p class="sectionTitle" id="mergeActivityModalTitle"></p>
-            <button type="button" class="menuBtn" id="mergeActivityModalClose" aria-label="Fermer">✕</button>
+            <button type="button" class="cmpClose" id="mergeActivityModalClose" aria-label="Fermer">✕</button>
           </div>
 
           <div id="mergeActivityStepPick">
@@ -1560,7 +1560,7 @@
         <div class="communityMembersModalCard">
           <div class="communityMembersModalHeader">
             <p class="sectionTitle" id="deleteActivityModalTitle"></p>
-            <button type="button" class="menuBtn" id="deleteActivityModalClose" aria-label="Fermer">✕</button>
+            <button type="button" class="cmpClose" id="deleteActivityModalClose" aria-label="Fermer">✕</button>
           </div>
           <p class="hint">Elle disparaîtra de ton Chrono et de ta liste d'activités. Les autres personnes qui la partagent avec toi ne sont pas concernées. Conserver : tes heures restent comptées dans tes statistiques. Supprimer : tes enregistrements sont effacés définitivement.</p>
           <div class="rowActions deleteActivityChoices">
@@ -1657,7 +1657,7 @@
       <div class="communityMembersModalCard">
         <div class="viewProfileIdentity">
           <span class="identityName" id="categoryStatsTitle"></span>
-          <button type="button" class="menuBtn" id="categoryStatsClose" aria-label="Fermer">✕</button>
+          <button type="button" class="cmpClose" id="categoryStatsClose" aria-label="Fermer">✕</button>
         </div>
         <div id="categoryStatsScroll" class="viewProfileScroll">
           <!-- Feuille de temps — MÊME structure que #statsTimesheetBlock du
@@ -1762,7 +1762,7 @@
       <div class="communityMembersModalCard">
         <div class="communityMembersModalHeader">
           <p class="sectionTitle" id="categoryRemoveTitle"></p>
-          <button type="button" class="menuBtn" id="categoryRemoveClose" aria-label="Fermer">✕</button>
+          <button type="button" class="cmpClose" id="categoryRemoveClose" aria-label="Fermer">✕</button>
         </div>
         <p class="hint" id="categoryRemoveText"></p>
         <div class="rowActions deleteActivityChoices">
@@ -1780,7 +1780,7 @@
       <div class="communityMembersModalCard">
         <div class="communityMembersModalHeader">
           <p class="sectionTitle" id="categoryMoveTitle"></p>
-          <button type="button" class="menuBtn" id="categoryMoveClose" aria-label="Fermer">✕</button>
+          <button type="button" class="cmpClose" id="categoryMoveClose" aria-label="Fermer">✕</button>
         </div>
         <div id="categoryMoveList" class="activitiesList"></div>
         <p id="categoryMoveMsg" class="msg"></p>
@@ -1821,7 +1821,7 @@
                que ce qui a été demandé. Un <span> vide et décoratif, d'où le
                title/aria-label qui portent seuls le sens. -->
           <span id="viewProfileLiveDot" class="viewProfileLiveDot hidden" title="Chrono en cours" role="img" aria-label="Chrono en cours"></span>
-          <button type="button" class="menuBtn" id="viewProfileModalClose" aria-label="Fermer">✕</button>
+          <button type="button" class="cmpClose" id="viewProfileModalClose" aria-label="Fermer">✕</button>
         </div>
 
         <!-- ⚠️ 2 septembre 2026, correction (demande d'Emilien : « lorsque je
@@ -2126,7 +2126,7 @@
               <path d="M15 16h6"></path>
             </svg>
           </button>
-          <button type="button" class="menuBtn" id="activityPageClose" aria-label="Fermer">✕</button>
+          <button type="button" class="cmpClose" id="activityPageClose" aria-label="Fermer">✕</button>
         </div>
         <!-- 🆕 29 septembre 2026, demande directe d'Emilien : ce sélecteur
              appartient désormais à la barre du haut — déplacé hors de
@@ -2250,7 +2250,7 @@
     <!-- 19 oct. 2026 : Trade Tracker en page plein écran (iframe), fermeture ✕ (public/js/trade.js, css/trade.css). -->
     <div id="tradePage" class="hidden" role="dialog" aria-label="Trade Tracker">
       <div class="subpageHeader tradePageHeader">
-        <button type="button" class="menuBtn" id="tradePageClose" aria-label="Fermer">✕</button>
+        <button type="button" class="cmpClose" id="tradePageClose" aria-label="Fermer">✕</button>
         <span class="tradePageTitle" id="tradePageTitle">Trade Tracker</span>
         <a class="tradeOpenExternal hidden" id="tradeOpenExternal" href="#" target="_blank" rel="noopener">Ouvrir à part</a>
       </div>
@@ -2292,7 +2292,7 @@
           </svg>
           <span id="profileNotifDot" class="notifDot hidden"></span>
           </button>
-          <button type="button" id="profilePageClose" class="profileSquareBtn" aria-label="Fermer" title="Fermer">✕</button>
+          <button type="button" id="profilePageClose" class="cmpClose" aria-label="Fermer" title="Fermer">✕</button>
         </div>
         <div id="profilePageScroll">
           <p id="avatarMsg" class="msg"></p>
@@ -2403,7 +2403,7 @@
           enregistrer. Premier enfant du formulaire, posée en absolu par
           .pollFormCancel pour rester au coin haut droit quelle que soit
           la hauteur des champs. -->
-          <button type="button" class="pollFormCancel" id="profilePollsCancelBtn" aria-label="Annuler la création du sondage" title="Annuler">✕</button>
+          <button type="button" class="cmpClose pollFormCancel" id="profilePollsCancelBtn" aria-label="Annuler la création du sondage" title="Annuler">✕</button>
           <textarea id="profilePollsQuestion" class="pollAutoGrow" rows="1" maxlength="300" placeholder="Ta question..."></textarea>
           <div class="pollFormOptions" id="profilePollsOptions"></div>
           <div class="pollFormActions">
@@ -2471,7 +2471,7 @@
       <div class="communityMembersModalCard">
         <div class="profileSubWindowHeader">
           <p class="sectionTitle" id="followsPanelTitle">Abonnés</p>
-          <button type="button" id="followsPanelClose" class="menuBtn" aria-label="Fermer">✕</button>
+          <button type="button" id="followsPanelClose" class="cmpClose" aria-label="Fermer">✕</button>
         </div>
         <div class="periodSwitch" id="followsSwitch">
         <button type="button" class="periodBtn active" id="followsTabFollowers">Abonnés</button>
@@ -2510,7 +2510,7 @@
 <div class="communityMembersModalCard">
 <div class="profileSubWindowHeader">
 <p class="sectionTitle" id="projectsPanelTitle">Projets</p>
-<button type="button" id="projectsPanelClose" class="menuBtn" aria-label="Fermer">✕</button>
+<button type="button" id="projectsPanelClose" class="cmpClose" aria-label="Fermer">✕</button>
 </div>
 <!-- ⚠️ 10 septembre 2026, demande d'Emilien : « lorsque l'option pour
           ajouter des projets est ouverte, le titre projet reste bloqué en
@@ -2604,7 +2604,7 @@
       <div class="communityMembersModalCard">
         <div class="profileSubWindowHeader">
           <p class="sectionTitle">Invitations et demandes de suivi</p>
-          <button type="button" id="notifPanelClose" class="menuBtn" aria-label="Fermer">✕</button>
+          <button type="button" id="notifPanelClose" class="cmpClose" aria-label="Fermer">✕</button>
         </div>
         <div id="notifScroll">
           <div id="invitesList" class="activitiesList"></div>
@@ -2666,7 +2666,7 @@
                    tous les appareils », son voisin naturel. -->
               <!-- 10 oct. 2026 : « Déconnexion » remonte dans le bandeau, à droite du titre, à gauche de la croix (taille réduite). -->
               <button type="button" id="logoutBtn" class="logoutBtn logoutBtnHeader">Déconnexion</button>
-              <button type="button" id="settingsCloseBtn" class="menuBtn" aria-label="Fermer">✕</button>
+              <button type="button" id="settingsCloseBtn" class="cmpClose" aria-label="Fermer">✕</button>
             </div>
             <!-- Le contenu défilant (sections/groupes) est isolé dans
                  #profileSettingsScroll, séparé du bouton "←" ET du bandeau
@@ -3329,7 +3329,7 @@
     <div class="barAddCard">
       <div class="barAddHeader">
         <p class="sectionTitle" id="barAddTitle">Ajouter à la barre</p>
-        <button type="button" class="menuBtn" id="barAddClose" aria-label="Fermer">✕</button>
+        <button type="button" class="cmpClose" id="barAddClose" aria-label="Fermer">✕</button>
       </div>
       <div class="barAddList" id="barAddList"></div>
       <p class="msg" id="barAddMsg"></p>
@@ -3373,7 +3373,7 @@
   <div class="communityMembersModalCard legalTermsModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Conditions d'utilisation</p>
-      <button type="button" class="menuBtn" id="legalTermsModalClose" aria-label="Fermer">✕</button>
+      <button type="button" class="cmpClose" id="legalTermsModalClose" aria-label="Fermer">✕</button>
     </div>
     <div class="legalTermsBody">
       <p class="hint">Version 1.2 — en vigueur le 10 octobre 2026.</p>
@@ -3467,7 +3467,7 @@
   <div class="communityMembersModalCard legalTermsModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Politique de confidentialité</p>
-      <button type="button" class="menuBtn" id="privacyPolicyModalClose" aria-label="Fermer">✕</button>
+      <button type="button" class="cmpClose" id="privacyPolicyModalClose" aria-label="Fermer">✕</button>
     </div>
     <div class="legalTermsBody">
       <p class="hint">Version 3.7 — en vigueur le 10 octobre 2026.</p>
@@ -3588,7 +3588,7 @@
   <div class="communityMembersModalCard legalTermsModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Mentions légales</p>
-      <button type="button" class="menuBtn" id="legalNoticesModalClose" aria-label="Fermer">✕</button>
+      <button type="button" class="cmpClose" id="legalNoticesModalClose" aria-label="Fermer">✕</button>
     </div>
     <div class="legalTermsBody">
       <p class="hint">Version 1.2 — en vigueur le 10 octobre 2026.</p>
@@ -3617,7 +3617,7 @@
   <div class="communityMembersModalCard legalTermsModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Gouvernance des renseignements personnels</p>
-      <button type="button" class="menuBtn" id="governanceModalClose" aria-label="Fermer">✕</button>
+      <button type="button" class="cmpClose" id="governanceModalClose" aria-label="Fermer">✕</button>
     </div>
     <div class="legalTermsBody">
       <p>Noèsis recueille le minimum de renseignements, ne les vend pas, les héberge chez des fournisseurs liés par contrat et vous permet de les consulter, corriger ou supprimer. Pour joindre le responsable de la protection des renseignements personnels, faire une demande ou une plainte, écrivez à compagnie.noesis@gmail.com. Nous visons une réponse dans les 15 jours; la loi nous donne 30 jours. Si vous n'êtes pas satisfait de la réponse, vous pouvez vous adresser à la Commission d'accès à l'information du Québec.</p>
@@ -3642,7 +3642,7 @@
   <div class="communityMembersModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Souscrire à Expansion</p>
-      <button type="button" class="menuBtn" id="offer1CheckoutModalClose" aria-label="Fermer">✕</button>
+      <button type="button" class="cmpClose" id="offer1CheckoutModalClose" aria-label="Fermer">✕</button>
     </div>
 
     <div id="offer1CheckoutForm">
@@ -3686,7 +3686,7 @@
      même visionneuse sert les pièces jointes du Profil, de Communauté, du fil
      d'une activité et d'un sous-projet. Voir openImageViewer dans app.js. -->
 <div id="imageViewerModal" class="imageViewer hidden">
-  <button type="button" id="imageViewerClose" class="imageViewerClose" aria-label="Fermer">✕</button>
+  <button type="button" id="imageViewerClose" class="cmpClose imageViewerClose" aria-label="Fermer">✕</button>
   <img id="imageViewerImg" class="imageViewerImg" alt="">
   <p id="imageViewerName" class="imageViewerName"></p>
 </div>
@@ -3716,7 +3716,7 @@
   <div class="communityMembersModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Comment Noèsis utilise vos renseignements</p>
-      <button type="button" class="menuBtn" id="aiNoticeClose" aria-label="Fermer">✕</button>
+      <button type="button" class="cmpClose" id="aiNoticeClose" aria-label="Fermer">✕</button>
     </div>
     <div class="aiNoticeScroll">
     <div class="marketingInviteBody aiNoticeBody">
@@ -3740,7 +3740,7 @@
   <div class="communityMembersModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle" id="announcementModalTitle"></p>
-      <button type="button" class="menuBtn" id="announcementModalClose" aria-label="Fermer">✕</button>
+      <button type="button" class="cmpClose" id="announcementModalClose" aria-label="Fermer">✕</button>
     </div>
     <p id="announcementModalBody" class="announcementBody"></p>
   </div>

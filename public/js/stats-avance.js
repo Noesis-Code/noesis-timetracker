@@ -157,7 +157,7 @@
     var card = el('div', 'communityMembersModalCard');
     var head = el('div', 'saModalHead');
     var title = el('div', 'saModalTitle');
-    var close = el('button', 'menuBtn', '✕'); close.type = 'button'; close.setAttribute('aria-label', tr('Fermer'));
+    var close = el('button', 'cmpClose', '✕'); close.type = 'button'; close.setAttribute('aria-label', tr('Fermer'));
     head.appendChild(title); head.appendChild(close);
     var sub = el('p', 'meta saModalSub');
     var list = el('div', 'statsSection saCard');

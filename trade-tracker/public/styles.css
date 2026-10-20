@@ -177,8 +177,7 @@ a { color: inherit; text-decoration: none; }
   background: var(--bg); border: 1px solid var(--glass-border); border-radius: var(--radius-xl);
   box-shadow: var(--shadow-elevated); padding: 18px;
 }
-.modalClose { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border-radius: var(--radius-md); font-size: 15px; }
-.modalClose::after { inset: -7px; }
+.cmpClose.modalClose { position: absolute; top: 12px; right: 12px; }
 .modalTitle { font-size: 18px; font-weight: bold; padding-right: 40px; margin-bottom: 10px; }
 
 /* ---- B3 : positions ---- */
@@ -327,12 +326,7 @@ body.fullPage .pageHead {
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left));
 }
 body.fullPage .pageHead .screenTitle { margin: 0; font-size: 22px; line-height: 1.2; }
-body.fullPage .pageHead .topIconBtn {
-  width: 32px; height: 32px; flex-shrink: 0; border-radius: var(--radius-sm); font-size: 18px; line-height: 1;
-}
-body.fullPage .pageHead .topIconBtn::after { inset: -7px; }
 body.fullPage .syncStamp { display: none; }
 
 /* Extension plein écran : ✕ en haut à droite ferme Trade (retour TimeTracker). Dans le cadre de TMT, la ✕ de TMT fait déjà cet office. */
-.topClose { font-size: 18px; line-height: 1; }
 html.framed #tmtLink { display: none; }

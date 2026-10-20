@@ -17,8 +17,8 @@ if (!/e\.defaultPrevented/.test(a11y)) fail('Échap : une saisie qui gère déj�
 if (!/durPickerOverlay/.test(a11y)) fail('Échap : la roue de durée garde sa propre fermeture');
 if ((pub('app.js').match(/modal\.onclick = function \(e\) \{ if \(e\.target === modal\) close\(\); \}/g) || []).length < 3) fail('clic hors fenêtre : retrait pôle/secteur, confirmation générique et déplacement doivent fermer comme la croix');
 if (!/var DISCARD = '[^']*goalTaskEditModal/.test(a11y) || !/if \(tp && unsaved\(tp\)\) return;/.test(a11y)) fail('Échap : garde de saisie non sauvegardée absente (fenêtres retirées du DOM)');
-const css = pub('styles.css');
-if (!/\.reportHead \.menuBtn::after[^{]*\{[^}]*max\(100%, 44px\)/.test(css)) fail('zone tactile 44 px des croix absente');
+const css = pub('css/composants.css'); // R29 : la zone tactile des croix vit dans le composant .cmpClose
+if (!/\.cmpClose::after[^{]*\{[^}]*max\(100%, var\(--cmp-hit\)\)/.test(css) || !/--cmp-hit:\s*44px/.test(css)) fail('zone tactile 44 px des croix absente');
 // Toute croix ✕ créée en JS porte un aria-label
 all.split('\n').forEach((l, i) => {
   if (/textContent = '(✕|\\u2715)'/.test(l)) {

@@ -5,7 +5,7 @@
     render: function (el) {
       var cur = TTI.lang;
       el.innerHTML =
-        '<div class="pageHead"><div class="screenTitle">Réglages</div><button type="button" class="topIconBtn" id="closePage" aria-label="Fermer">✕</button></div>' +
+        '<div class="pageHead"><div class="screenTitle">Réglages</div><button type="button" class="cmpClose" id="closePage" aria-label="Fermer">✕</button></div>' +
         '<div class="sectionTitle">Langue</div>' +
         '<div class="card"><div class="themeSwitch" role="group" aria-label="Langue">' +
         '<button type="button" class="themeBtn' + (cur === 'fr' ? ' active' : '') + '" data-lang="fr" aria-pressed="' + (cur === 'fr') + '">Français</button>' +

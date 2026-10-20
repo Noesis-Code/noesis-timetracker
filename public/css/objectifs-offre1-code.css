@@ -16,8 +16,6 @@
 /* Achat Expansion (20 oct. 2026, vérif. 390 px / 360×640) : champs pleine largeur, zones tactiles >= 44 px, aucune couleur ni bouton nouveau. */
 .offer1PromoBtn { min-height: 44px; }
 #offer1CodeLink.offer1PromoBtnGrey { min-height: 44px; padding: 0 8px; }
-#offer1CheckoutModalClose, #offer1CodeClose { position: relative; }
-#offer1CheckoutModalClose::after, #offer1CodeClose::after { content: ''; position: absolute; inset: -6px; }
 #offer1CheckoutForm, #offer1CheckoutPending, #offer1GuardianFields { display: flex; flex-direction: column; gap: 10px; }
 #offer1CheckoutForm .hint, #offer1CheckoutPending .hint { margin: 0; }
 #offer1CheckoutModal select, #offer1CheckoutModal input[type=text], #offer1CheckoutModal input[type=email] { width: 100%; box-sizing: border-box; min-height: 44px; padding: 10px 12px; font-size: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); }

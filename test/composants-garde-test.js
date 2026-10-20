@@ -14,7 +14,9 @@ ok(/composants\.css/.test(tindex) && /js\/composants\.js/.test(tindex), 'Trade T
 // Fichiers de sources de l'interface (hors composants eux-mêmes)
 function walk(d, out) { for (const n of fs.readdirSync(path.join(R, d))) { const p = d + '/' + n; const st = fs.statSync(path.join(R, p)); if (st.isDirectory()) { if (n !== 'node_modules' && n !== 'icons') walk(p, out); } else if (/\.(js|css|html)$/.test(n) && !/composants\.(js|css)$/.test(n) && !/(legal-en|qrcode|i18n)\.js$/.test(n) && !/\/(sw)\.js$/.test(p)) out.push(p); } return out; }
 const files = walk('public', []).concat(walk('trade-tracker/public', []));
-const RULES = [];  // [libellé, regex, fichiers exemptés]
+const RULES = [  // [libellé, regex]
+  ['croix ✕ de fermeture : classe .cmpClose seulement (plus de .menuBtn/.topIconBtn/.docTasksX…)', /class="(topIconBtn|docTasksX|profileSquareBtn)[ "][^>]*>✕</],
+];
 const hits = (re) => files.filter((f) => re.test(read(f)));
 // Règles activées au fil des étapes (voir tout en bas)
 for (const [label, re] of RULES) { const h = hits(re); ok(h.length === 0, label + (h.length ? ' : ' + h.slice(0, 4).join(', ') : '')); }

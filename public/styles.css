@@ -571,18 +571,6 @@ body { isolation: isolate; }
 /* 30 septembre 2026 (Piste B) : tous les boutons de type « réglage » deviennent vitreux — ✕ de chaque fenêtre/panneau,
    boutons du haut du Profil (abonnés, notifications, ✕), boutons de période (⋮) des Statistiques (fenêtre d'activité,
    catégories, profil d'un membre) et « + » des catégories. Boutons d'envoi (.iconBtn « Envoyer ») et pièces jointes inchangés. */
-#communityMembersModalClose,
-#mergeActivityModalClose,
-#deleteActivityModalClose,
-#categoryStatsClose,
-#viewProfileModalClose,
-#followsPanelClose,
-#notifPanelClose,
-#legalTermsModalClose,
-#privacyPolicyModalClose,
-#legalNoticesModalClose,
-#offer1CheckoutModalClose,
-#profilePage .profileSquareBtn,
 #caPiePeriodBtn,
 #caChartPeriodBtn,
 #soloStatsPeriodBtn,
@@ -1518,16 +1506,11 @@ body.scrollLock { overflow: hidden; }
   object-fit: contain;
   border-radius: var(--radius-md);
 }
-.imageViewerClose {
+.cmpClose.imageViewerClose {
   position: absolute;
   top: max(12px, env(safe-area-inset-top));
   right: max(12px, env(safe-area-inset-right));
-  width: 40px; height: 40px; padding: 0;
-  border: none; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15); color: var(--white);
-  font-size: 20px; line-height: 1; cursor: pointer;
 }
-.imageViewerClose:hover { background: rgba(255, 255, 255, 0.28); }
 .imageViewerName {
   position: absolute; left: 0; right: 0;
   bottom: max(12px, env(safe-area-inset-bottom));
@@ -1953,8 +1936,6 @@ button { -webkit-user-select: none; user-select: none; }
   flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-#viewProfileModalClose,
-#categoryStatsClose { flex-shrink: 0; }
 
 /* Barre supérieure de la fenêtre de détail, teintée de la couleur de l'activité (6 septembre 2026, demande d'Emilien : « je souhaite que la barre supérieure soit de la même couleur que l'activité »). */
 #categoryStatsModal .viewProfileIdentity.tinted {
@@ -2067,7 +2048,6 @@ button { -webkit-user-select: none; user-select: none; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .activityPageHeader .dot { flex-shrink: 0; }
-#activityPageClose { flex-shrink: 0; }
 /* Le premier titre de section de la zone défilante n'a pas besoin de la marge
    haute qui sert à séparer deux sections l'une de l'autre — même ajustement
    que #viewProfileScroll > .sectionTitle ci-dessus. */
@@ -2230,13 +2210,7 @@ button { -webkit-user-select: none; user-select: none; }
 .pollForm { position: relative; padding-top: 36px; }
 /* Seule la question passe sous la croix : on lui réserve la place à droite, plutôt que de rétrécir tout le formulaire (ce qui décalait « Terminer » et rendait les marges asymétriques). */
 .pollForm > textarea.pollAutoGrow { padding-right: 34px; }
-.pollFormCancel {
-  position: absolute; top: 8px; right: 8px;
-  width: 26px; height: 26px; padding: 0; line-height: 1;
-  border: none; background: none; color: var(--text-light);
-  font-size: 15px; cursor: pointer; border-radius: var(--radius-sm);
-}
-.pollFormCancel:hover { background: var(--hover-bg); color: var(--text); }
+.cmpClose.pollFormCancel { position: absolute; top: 8px; right: 8px; }
 
 /* Choix « Autre » : la case garde sa place en haut, le champ de saisie
    s'ouvre en dessous du mot, à l'intérieur du même cadre de réponse. */
@@ -2683,7 +2657,7 @@ button { -webkit-user-select: none; user-select: none; }
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
     .topbar { padding-top: max(47px, env(safe-area-inset-top)); }
-    .imageViewerClose { top: max(47px, env(safe-area-inset-top)); }
+    .cmpClose.imageViewerClose { top: max(47px, env(safe-area-inset-top)); }
     .activityPageHeader { padding-top: max(47px, env(safe-area-inset-top)); }
   }
 }
@@ -3093,16 +3067,9 @@ button { -webkit-user-select: none; user-select: none; }
 #profileProjectsPanel .profileSubWindowHeader #projectsPanelClose { margin-left: auto; flex: 0 0 auto; }
 #profileProjectsPanel #projectsScroll { padding: 12px 16px 16px; overscroll-behavior: contain; }
 
-#profilePage #profilePageClose { line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
 
 /* Projets : en mode « + », seul le formulaire d'ajout est visible. */
 #profileProjectsPanel.projectsAddMode #projectsList { display: none; }
-/* Croix des fenêtres du profil en verre liquide (jetons --glass-*). */
-#profileProjectsPanel #projectsPanelClose, #profileFollowsPanel #followsPanelClose {
-  background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
-  box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
-}
 
 /* 30 sept. 2026 (Sécurité) : « Changer mon code » en gris (comme « Enregistrer » d'Identité / confirmation chrono, .iconBtn) ;
    boutons empilés pleine largeur, écart uniforme de 8px entre « Changer mon code », « Se déconnecter de tous les appareils »
@@ -3324,7 +3291,6 @@ button { -webkit-user-select: none; user-select: none; }
 .durPickerOverlay { position: fixed; inset: 0; z-index: 400; background: var(--veil); display: flex; align-items: center; justify-content: center; }
 .durPickerSheet { width: 100%; max-width: 480px; box-sizing: border-box; margin: 0 8px; padding: 12px 16px 16px; border-radius: 22px; background: var(--pop-bg); color: var(--text); box-shadow: inset 0 0 0 1px var(--glass-calm-line), 0 10px 40px rgba(0,0,0,.4); }
 .durPickerHead { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px; }
-.durPickerClose { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: rgba(255,255,255,.75); font-size: 18px; cursor: pointer; }
 .durPickerWheels { position: relative; display: flex; justify-content: center; gap: 24px; height: 220px; margin: 4px 0 8px; }
 .durPickerBand { position: absolute; left: 0; right: 0; top: 88px; height: 44px; border-radius: var(--radius-md); background: rgba(255,255,255,.14); pointer-events: none; }
 .durPickerCol { position: relative; width: 110px; }
@@ -3342,7 +3308,6 @@ button { -webkit-user-select: none; user-select: none; }
 /* 1er oct. 2026 : icônes de la fenêtre du profil à la taille standard des fenêtres (.menuBtn : 32 px, ✕ 18 px). */
 #profilePage .profileSquareBtn { width: 32px; height: 32px; border-radius: var(--radius-sm); }
 #profilePage .profileSquareBtn svg { width: 18px; height: 18px; }
-#profilePage #profilePageClose { font-size: 18px; }
 /* Fenêtre Membres : barre de recherche toujours en haut, au-dessus des membres. */
 .activityMembersSearchWrap { padding: 12px 16px 4px; }
 .activityMembersSearchWrap .communitySearchRow { margin-bottom: 8px; }
@@ -3530,9 +3495,10 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 #tsPrevWeek::after, #tsNextWeek::after, #tsPeriodBtn::after,
 #statsPieTodayBtn::after, #chartPeriodBtn::after, #statsVisBtn::before { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
 #statsVisBtn, #tsPrevWeek, #tsNextWeek, #tsPeriodBtn, #statsPieTodayBtn, #chartPeriodBtn { position: relative; }
-/* 20 oct. 2026 (interactions) : zone tactile des croix de fermeture portée à 44 px sans changer leur apparence (même technique que #statsVisBtn). */
-.communityMembersModalHeader .menuBtn, .activityPageHeader .menuBtn, .subpageHeader .menuBtn, .goalTaskEditHeader .menuBtn, .profileSubWindowHeader .menuBtn, .strategyHead .menuBtn, .reportHead .menuBtn, .profileSquareBtn { position: relative; }
-.communityMembersModalHeader .menuBtn::after, .activityPageHeader .menuBtn::after, .subpageHeader .menuBtn::after, .goalTaskEditHeader .menuBtn::after, .profileSubWindowHeader .menuBtn::after, .strategyHead .menuBtn::after, .reportHead .menuBtn::after, .profileSquareBtn::after, .imageViewerClose::after, .pollFormCancel::after, .goalRewriteClose::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+
+/* Zone tactile >= 44 px des boutons d'en-tête qui ne sont pas des croix (les croix la portent via .cmpClose). */
+.communityMembersModalHeader .menuBtn, .activityPageHeader .menuBtn, .subpageHeader .menuBtn, .goalTaskEditHeader .menuBtn, .profileSubWindowHeader .menuBtn, .profileSquareBtn { position: relative; }
+.communityMembersModalHeader .menuBtn::after, .activityPageHeader .menuBtn::after, .subpageHeader .menuBtn::after, .goalTaskEditHeader .menuBtn::after, .profileSubWindowHeader .menuBtn::after, .profileSquareBtn::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
 
 /* Textes d'utilisateur très longs (20 oct. 2026, Basic n°16) : un nom d'activité sans espace ne doit jamais élargir la page à 390 px. */
 .chartLegend { min-width: 0; }

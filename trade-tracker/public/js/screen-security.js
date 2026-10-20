@@ -189,7 +189,7 @@
   function renderPage(el, raw, demo) {
     var me = raw.me || {}, mfa = me.mfa || {};
     el.innerHTML =
-      '<div class="pageHead"><div class="screenTitle">Sécurité</div><button type="button" class="topIconBtn" id="closePage" aria-label="Fermer">✕</button></div>' +
+      '<div class="pageHead"><div class="screenTitle">Sécurité</div><button type="button" class="cmpClose" id="closePage" aria-label="Fermer">✕</button></div>' +
       (flash ? '<div class="formMsg ok" role="status">' + esc(flash) + '</div>' : '') +
       '<div class="card" id="secState"></div>' + (demo ? '' : '<div class="card" id="secPasskeys"></div>') + '<div class="card" id="secSessions"><div class="skel" style="height:60px"></div></div>' +
       '<div class="card" id="secAudit"><div class="skel" style="height:90px"></div></div>';
@@ -202,7 +202,7 @@
         '<div class="btnRow" style="margin-top:12px"><button type="button" class="btnGhost" id="regenCodes">Nouveaux codes de secours</button><button type="button" class="btnDangerOutline" id="resetTotp">Changer d’appareil</button></div><div id="stateMsg" class="formMsg" role="status"></div>'
         : '<p class="hint" style="margin:8px 0 0">Obligatoire pour l’expert et pour connecter un courtier. Une application d’authentification génère un code à 6 chiffres.</p><button type="button" class="btnPrimary" id="enableTotp">Activer</button>'));
     var en = el.querySelector('#enableTotp');
-    if (en) en.addEventListener('click', function () { renderEnroll(el, { head: '<div class="pageHead"><div class="screenTitle">Activer</div><button type="button" class="topIconBtn" id="closePage" aria-label="Fermer">✕</button></div>', onClose: function () { TTD.reset(); TTApp.refresh(); }, onDone: function () { flash = 'Vérification en deux étapes activée.'; TTD.reset(); TTApp.refresh(); } }); });
+    if (en) en.addEventListener('click', function () { renderEnroll(el, { head: '<div class="pageHead"><div class="screenTitle">Activer</div><button type="button" class="cmpClose" id="closePage" aria-label="Fermer">✕</button></div>', onClose: function () { TTD.reset(); TTApp.refresh(); }, onDone: function () { flash = 'Vérification en deux étapes activée.'; TTD.reset(); TTApp.refresh(); } }); });
     var rg = el.querySelector('#regenCodes'), rs = el.querySelector('#resetTotp'), sm = el.querySelector('#stateMsg');
     function sensitive(path, onOk) {
       function go() { req('POST', path, {}).then(function (x) {

@@ -411,7 +411,7 @@
 .goalRewriteText { margin-bottom: 8px; white-space: pre-wrap; }
 .goalRewriteActions { display: flex; gap: 8px; justify-content: flex-end; }
 .goalRewriteActions button { padding: 6px 12px; font-size: 13px; }
-.goalRewriteClose { position: absolute; top: 4px; right: 6px; width: 28px; height: 28px; padding: 0; background: transparent; border: 0; color: inherit; font-size: 16px; cursor: pointer; }
+.cmpClose.goalRewriteClose { position: absolute; top: 4px; right: 6px; }
 
 /* Temps estimé de la période : même tableau que « Gérer mon temps » (Activité > Catégories). */
 .goalMainEstEdit .goalEstTable { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px 8px; align-items: center; }

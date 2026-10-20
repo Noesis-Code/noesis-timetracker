@@ -7744,7 +7744,7 @@
     title.className = 'sectionTitle';
     title.textContent = t('Supprimer le secteur « {name} » ?', { name: o.label });
     var closeBtn = document.createElement('button');
-    closeBtn.type = 'button'; closeBtn.className = 'menuBtn';
+    closeBtn.type = 'button'; closeBtn.className = 'cmpClose';
     closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
     header.appendChild(title); header.appendChild(closeBtn);
     card.appendChild(header);
@@ -7864,7 +7864,7 @@
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
     var head = document.createElement('div'); head.className = 'durPickerHead';
     var ttl = document.createElement('span'); ttl.textContent = t(opts.title || 'Cible');
-    var x = document.createElement('button'); x.type = 'button'; x.className = 'durPickerClose'; x.textContent = '✕'; x.setAttribute('aria-label', t('Fermer'));
+    var x = document.createElement('button'); x.type = 'button'; x.className = 'cmpClose'; x.textContent = '✕'; x.setAttribute('aria-label', t('Fermer'));
     x.addEventListener('click', close);
     head.appendChild(ttl); head.appendChild(x);
     var wheels = document.createElement('div'); wheels.className = 'durPickerWheels';
@@ -8559,7 +8559,7 @@
     card.className = 'reportCard';
     card.innerHTML =
       '<div class="reportHead"><strong>' + escapeHtml(t('Signaler ce message')) + '</strong>' +
-      '<button type="button" class="menuBtn reportClose" aria-label="' + escapeHtml(t('Fermer')) + '">✕</button></div>' +
+      '<button type="button" class="cmpClose reportClose" aria-label="' + escapeHtml(t('Fermer')) + '">✕</button></div>' +
       reasons.map(function (r, i) {
         return '<label class="reportReason"><input type="radio" name="reportReason" value="' + r[0] + '"' + (i === 0 ? ' checked' : '') + '> ' + escapeHtml(t(r[1])) + '</label>';
       }).join('') +

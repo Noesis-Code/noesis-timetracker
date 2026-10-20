@@ -31,7 +31,7 @@
       var l = (bs[i].getAttribute('aria-label') || '').toLowerCase();
       var x = (bs[i].textContent || '').trim();
       if (l === 'retirer') continue;
-      if (x === '✕' || l === 'fermer' || l === 'close' || bs[i].id === 'stopCancelBtn') return bs[i]; // « Annuler » du récapitulatif d'arrêt : le chrono continue
+      if (bs[i].classList.contains('cmpClose') || x === '✕' || l === 'fermer' || l === 'close' || bs[i].id === 'stopCancelBtn') return bs[i]; // « Annuler » du récapitulatif d'arrêt : le chrono continue
     }
     return null;
   }

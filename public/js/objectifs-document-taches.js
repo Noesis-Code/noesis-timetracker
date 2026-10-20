@@ -31,7 +31,7 @@
     <div id="docTasksPage" class="docTasksWin hidden">
       <div class="activityPageHeader">
         <span class="activityPageName">Ajouter des tâches <span id="docTasksBadge" class="essorBadge">Expansion</span></span>
-        <button type="button" class="menuBtn" id="docTasksClose" aria-label="Fermer">✕</button>
+        <button type="button" class="cmpClose" id="docTasksClose" aria-label="Fermer">✕</button>
       </div>
       <div class="docTasksScroll">
         <div class="activityGoalsCategoryAutoTaskWrapOuter">
@@ -58,7 +58,7 @@
     </div>
     <div id="docTasksAddedPop" class="docTasksPop hidden" role="dialog" aria-label="Tâches ajoutées">
       <div class="docTasksPopCard">
-        <div class="docTasksDriveHead"><strong>Tâches ajoutées</strong><button type="button" class="docTasksX" id="docTasksPopClose" aria-label="Fermer">✕</button></div>
+        <div class="docTasksDriveHead"><strong>Tâches ajoutées</strong><button type="button" class="cmpClose" id="docTasksPopClose" aria-label="Fermer">✕</button></div>
         <div id="docTasksPopList" class="docTasksPopList"></div>
         <div id="docTasksPopToast" class="docTasksPopToast"></div>
         <button type="button" id="docTasksPopOk" class="docTasksApplyBtn">OK</button>
@@ -66,13 +66,13 @@
     </div>
     <div id="docTasksFolderSetPop" class="docTasksPop hidden" role="dialog" aria-label="Réglages du dossier">
       <div class="docTasksPopCard">
-        <div class="docTasksDriveHead"><strong id="docTasksFsTitle">Réglages du dossier</strong><button type="button" class="docTasksX" id="docTasksFsClose" aria-label="Fermer">✕</button></div>
+        <div class="docTasksDriveHead"><strong id="docTasksFsTitle">Réglages du dossier</strong><button type="button" class="cmpClose" id="docTasksFsClose" aria-label="Fermer">✕</button></div>
         <div id="docTasksFsBody" class="docTasksPopList"></div>
       </div>
     </div>
     <div id="docTasksChangesPop" class="docTasksPop hidden" role="dialog" aria-label="Modifications proposées">
       <div class="docTasksPopCard">
-        <div class="docTasksDriveHead"><strong id="docTasksChangesTitle">Modifications proposées</strong><button type="button" class="docTasksX" id="docTasksChangesClose" aria-label="Fermer">✕</button></div>
+        <div class="docTasksDriveHead"><strong id="docTasksChangesTitle">Modifications proposées</strong><button type="button" class="cmpClose" id="docTasksChangesClose" aria-label="Fermer">✕</button></div>
         <p id="docTasksChangesHint" class="docTasksMeta">Rien ne change sans ta validation. Décoche ou supprime ce que tu refuses ; un refus n’est pas reproposé.</p>
         <div id="docTasksChangesBox" class="docTasksPopList"><div id="docTasksChangesTasks"></div></div>
         <div id="docTasksChangesToast" class="docTasksPopToast"></div>
@@ -291,7 +291,7 @@
       html = '<div class="docTasksDriveRow"><button type="button" class="docTasksDriveBtn" data-d="connect">Connecter Drive</button>'
         + '<p class="docTasksConsent">En connectant Drive, tu autorises TiMeTracker à lire (lecture seule) les fichiers des dossiers que tu choisis (10 au maximum), uniquement pour que l’IA te propose des tâches. Rien n’est modifié ni conservé. Une fois les dossiers choisis, TiMeTracker les surveille en continu pour y repérer les nouvelles tâches ; tu règles le mode (ajout automatique ou validation) et tu peux te déconnecter à tout moment, ce qui arrête et efface toute la surveillance.</p></div>';
     } else if (driveView === 'folders') {
-      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Choisis un dossier</span><button type="button" class="docTasksX" data-d="closeFolders" aria-label="Fermer">✕</button></div>'
+      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Choisis un dossier</span><button type="button" class="cmpClose" data-d="closeFolders" aria-label="Fermer">✕</button></div>'
         + '<input type="text" id="docTasksFolderQ" class="docTasksInstr" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Écris le nom du dossier…" value="' + esc(folderQuery) + '">'
         + '<div id="docTasksFolderSug"></div></div>';
     } else {

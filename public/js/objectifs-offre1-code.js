@@ -20,7 +20,7 @@
     <div id="offer1CodePage" class="accompPage hidden" role="dialog" aria-modal="true" aria-labelledby="offer1CodeTitle">
       <div class="activityPageHeader">
         <span class="activityPageName" id="offer1CodeTitle">J’ai un code</span>
-        <button type="button" class="menuBtn" id="offer1CodeClose" aria-label="Fermer">✕</button>
+        <button type="button" class="cmpClose" id="offer1CodeClose" aria-label="Fermer">✕</button>
       </div>
       <div class="accompScroll">
         <p class="hint">Entre ton code d’accès gratuit à Expansion.</p>

@@ -45,7 +45,7 @@
   }
   window.TTScreens.invite = {
     render: function (el, state, raw) {
-      var head = '<div class="pageHead"><div class="screenTitle">Inviter</div><button type="button" class="topIconBtn" id="closePage" aria-label="Fermer">✕</button></div>';
+      var head = '<div class="pageHead"><div class="screenTitle">Inviter</div><button type="button" class="cmpClose" id="closePage" aria-label="Fermer">✕</button></div>';
       var wire = function () { el.querySelector('#closePage').addEventListener('click', function () { location.hash = '#/sync'; }); };
       if (raw.source === 'demo' || (raw.me && raw.me.role !== 'expert')) {
         el.innerHTML = head + '<div class="stateScreen"><div class="stateTitle">Réservé à l’expert</div><div class="stateMsg">' + (raw.source === 'demo' ? 'Mode démonstration : aucune invitation possible.' : 'Seul l’expert peut inviter des clients ou d’autres experts.') + '</div></div>';

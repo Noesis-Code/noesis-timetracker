@@ -15,7 +15,7 @@
     ['stIgnore', 'Ce qui ne doit PAS être fait / ignoré', 'textarea']
   ];
   var html = '<div id="strategyPop" class="strategyPop hidden"><div class="strategyCard" role="dialog" aria-label="' + tr('Stratégie') + '">'
-    + '<div class="strategyHead"><span>' + tr('Stratégie de l’activité') + '</span><button type="button" class="menuBtn" id="strategyClose" aria-label="' + tr('Fermer') + '">✕</button></div>'
+    + '<div class="strategyHead"><span>' + tr('Stratégie de l’activité') + '</span><button type="button" class="cmpClose" id="strategyClose" aria-label="' + tr('Fermer') + '">✕</button></div>'
     + '<p class="hint">' + tr('L’IA suit ces consignes : elle n’ajoute pas de tâche qui s’en écarte.') + '</p>';
   FIELDS.forEach(function (f) {
     html += '<label class="strategyLabel" for="' + f[0] + '">' + tr(f[1]) + '</label>'
