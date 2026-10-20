@@ -52,6 +52,8 @@ const SUITE_FILES = [
   'popups-croix-test.js',
   'offline-queue-test.js',
   'offline-idempotence-test.js',
+  'offline-rejeu-test.js',
+  'stats-equivalence-test.js',
   'weekplanner-test.js',
   'capturedate-test.js',
   'documenttasks-test.js',
@@ -380,6 +382,12 @@ async function main() {
 
   try { await runChild('offline-idempotence-test.js'); assert(true, 'file hors ligne : idempotence (test/offline-idempotence-test.js) passe'); }
   catch (e) { assert(false, 'file hors ligne : idempotence (test/offline-idempotence-test.js) échoue'); }
+
+  try { await runChild('offline-rejeu-test.js'); assert(true, 'rejeu hors ligne : chrono et pôles, faux serveur (test/offline-rejeu-test.js) passe'); }
+  catch (e) { assert(false, 'rejeu hors ligne : chrono et pôles, faux serveur (test/offline-rejeu-test.js) échoue'); }
+
+  try { await runChild('stats-equivalence-test.js'); assert(true, 'Feuille de temps Mois = ancien algorithme naïf, 3 fuseaux (test/stats-equivalence-test.js) passe'); }
+  catch (e) { assert(false, 'Feuille de temps Mois = ancien algorithme naïf, 3 fuseaux (test/stats-equivalence-test.js) échoue'); }
 
   // Planificateur de semaines (lot A) : suite autonome, base temporaire propre.
   let wpOk = true;

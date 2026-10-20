@@ -54,3 +54,28 @@ Test : `test/volume-coherence-test.js` (≈ 5000 entrées sur 2 ans, CPU serveur
 - Lent, corrigé sans changer l'affichage : Feuille de temps Mois ~10 s, Semaine ~0,6 s (un `Intl.DateTimeFormat` recréé à chaque appel de date, minuits de jour recalculés par entrée × jour). Maintenant ~10-30 ms : formateurs et validité de fuseau en cache (`server/lib/dates.js`), bornes de jours calculées une fois (`stats.js`). Historique Année : pièces jointes lues en une requête au lieu d'une par entrée. Index `(userId, isoDate)` déjà utilisé (EXPLAIN QUERY PLAN vérifié).
 - Coupure d'une session en deux, fusion, suppression, déplacement de jour : Historique, Graphique, Feuille Année (lignes, mois, répartition), Répartition, Export et Communauté donnent le même total. Aucun écart.
 - Suppression d'une activité avec historique : « conserver » garde tout (Historique, Feuille, Graphique, Export inchangés) ; « supprimer » retire les entrées de la personne partout et laisse intactes celles des autres membres. Le choix existait déjà (deux boutons) ; seul le texte de la fenêtre dit maintenant ce qu'il advient des heures.
+
+## Repli 22 : texte de suppression, hors ligne, équivalence Feuille de temps Mois (20 oct. 2026)
+**Fenêtre de suppression d'activité** : FR/EN relus, capture 390 px et 360x640 (FR et EN) : aucun débordement, les deux boutons (« Conserver / Supprimer les anciens enregistrements ») restent clairs et sont repris dans le texte. Texte inchangé.
+
+**Hors ligne dans Basic** (`public/app.js`, `public/offline-queue.js`) :
+| Action hors ligne | Possible | Rejeu au retour |
+|---|---|---|
+| Démarrer / arrêter le chrono | oui (un enregistrement local) | départ envoyé avec son heure ; arrêt = entrée d'historique ; chrono déjà en cours ailleurs = message |
+| Plusieurs sessions d'affilée | oui (corrigé : la session arrêtée était écrasée par le départ suivant) | file `chronoDone`, envoyée dans l'ordre avant le chrono courant |
+| Ajouter une tâche (capture) | oui (file IndexedDB, clé d'idempotence) | dans l'ordre, 5xx/401/429 = on garde, autre 4xx = retirée et signalée |
+| Pôles/secteurs : ajout, renommage, retrait, ordre | oui | dans l'ordre ; conflit = confirmation ou message |
+| Ajouter/modifier/supprimer une entrée d'historique, modifier/supprimer une tâche | non (message « Connexion impossible ») | sans objet |
+
+Corrigé (test `test/offline-rejeu-test.js`, faux serveur, vérifié rouge sur l'ancien code) :
+- une erreur serveur passagère (5xx, page non JSON, 401, 408, 425, 429) pendant le rejeu faisait ABANDONNER la session ou la modification : maintenant gardée et réessayée (`isTransientApiError`, `err.status`) ;
+- rejeu d'une session déjà créée dont la réponse s'était perdue : faux message « chevauchement » ; maintenant reconnue (même activité, même départ) ;
+- rejeu d'un départ de chrono déjà créé : faux message « un chrono tournait ailleurs » ; maintenant reconnu ;
+- rejeu d'un ajout de pôle/secteur déjà créé : doublon ; maintenant l'entrée créée est adoptée (clés connues notées à l'envoi) ;
+- deux sessions hors ligne d'affilée : la première était perdue.
+
+Cases (non corrigées, rares) :
+- [ ] Rejeu d'un réordonnancement de pôles/secteurs interrompu après envoi : la question « l'ordre a été modifié » peut être reposée (sans perte).
+- [ ] Modifier/supprimer une entrée d'historique ou une tâche hors ligne n'est pas proposé : à décider par Émilien (nouvelle fonction, pas un correctif).
+
+**Équivalence Feuille de temps Mois** : `test/stats-equivalence-test.js`, graine fixe, référence naïve (formateur Intl recréé à chaque appel, minuits recalculés par entrée x jour) ; 3 fuseaux (Toronto, Vancouver, Paris), mars 2026 (heure d'été) et octobre 2026 (retour à l'heure normale), entrées collées aux changements d'heure et à minuit ; en plus, `isoDateOf`, `dayNameOf`, `mondayOf`, `zonedMidnight`, `isValidTimezone` sur ~8 000 instants x 8 fuseaux (dont invalides) : résultats strictement identiques. Vérifié rouge en décalant la borne de jour.

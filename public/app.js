@@ -566,6 +566,21 @@
             return 'skip';
           }
         }
+        if (op.tmpKey) {
+          // Ajout déjà envoyé lors d'un essai interrompu (réponse perdue) : on adopte l'entrée créée au lieu d'en créer une seconde.
+          var list0 = op.kind === 'addPole' ? (doc.categories || [])
+            : (((findCategoryEntity(doc, w.poleKey) || {}).entity || {}).secteurs || []);
+          var label0 = body && body.label ? String(body.label).trim() : '';
+          if (op.knownKeys) {
+            var known0 = {};
+            op.knownKeys.forEach(function (k) { known0[k] = true; });
+            var twin = list0.filter(function (x) { return !known0[String(x.key)] && String(x.label).trim() === label0; })[0];
+            if (twin) { tmpMap[op.tmpKey] = String(twin.key); return 'sent'; }
+          } else {
+            op.knownKeys = list0.map(function (x) { return String(x.key); });
+            saveOfflineWrites(loadOfflineWrites().map(function (o) { return o.id === op.id ? op : o; }));
+          }
+        }
         return apiNetwork(op.method, url, body).then(function (res) {
           if (op.tmpKey) {
             // Nouvelle clé attribuée par le serveur : la seule entrée de même
@@ -588,7 +603,7 @@
         remove();
         return step(i + 1);
       }, function (err) {
-        if (err && err.offline) return false;
+        if (err && (err.offline || isTransientApiError(err))) return false;
         notes.push(t('Modification hors ligne non appliquée : {error}', { error: err.message }));
         touched[op.activityId] = true;
         remove();
@@ -688,10 +703,11 @@
     return fetch(url, opts).then(function (r) {
       // 16 oct. 2026 : une réponse non JSON (redémarrage, route absente) faisait afficher le message
       // BRUT du navigateur (anglais : « The string did not match the expected pattern »). Message maison.
-      return r.json().catch(function () { throw new Error(t('Erreur serveur')); }).then(function (data) {
+      return r.json().catch(function () { var badErr = new Error(t('Erreur serveur')); badErr.status = r.status; throw badErr; }).then(function (data) {
         if (!r.ok) {
           if (data.needsLogin) handleSessionLost();
           var apiErr = new Error(t(data.error || 'Erreur serveur'));
+          apiErr.status = r.status;
           if (data.offline) apiErr.offline = true;
           throw apiErr;
         }
@@ -703,6 +719,13 @@
       try { netErr.message = t('Connexion impossible. Réessaie.'); } catch (e2) {}
       throw netErr;
     });
+  }
+
+  // Erreur passagère (serveur en redémarrage, 5xx, 401/408/425/429, réponse non JSON sans statut) : la file hors ligne garde l'élément et réessaie plus tard au lieu de le perdre.
+  function isTransientApiError(err) {
+    if (!err) return false;
+    var st = err.status;
+    return st === undefined ? false : (st >= 500 || st === 401 || st === 408 || st === 425 || st === 429);
   }
 
   function escapeHtml(s) {
@@ -2270,6 +2293,16 @@
   // Le fuseau du téléphone est noté une fois dans l'enregistrement : le jour de l'entrée suit le fuseau de la saisie, pas celui de la relecture.
   function saveOfflineChrono(rec) { if (rec && !rec.tz && clientTimezone) rec.tz = clientTimezone; offlineStoreSet('chrono', rec); }
   function offlineChronoHasPending(rec) { return !!rec && (rec.origin === 'offline' || !!rec.stop); }
+  // Sessions déjà arrêtées hors ligne, en attente d'envoi, quand un nouveau chrono démarre avant le retour du réseau (sinon la session arrêtée serait écrasée). Envoyées dans l'ordre, avant le chrono courant.
+  function loadChronoDone() { return offlineStoreGet('chronoDone') || []; }
+  function parkPendingChronoStop() {
+    var rec = loadOfflineChrono();
+    if (!rec || !rec.stop) return;
+    var list = loadChronoDone();
+    list.push(rec);
+    offlineStoreSet('chronoDone', list);
+    saveOfflineChrono(null);
+  }
 
   function formatClock(iso) {
     var d = new Date(iso);
@@ -2292,12 +2325,8 @@
   // Rend une promesse : true si plus rien n'est en attente, false si on
   // n'a pas pu joindre le serveur (nouvel essai plus tard).
   var offlineChronoFlushing = null;
-  function flushOfflineChrono() {
-    if (offlineChronoFlushing) return offlineChronoFlushing;
-    var rec = loadOfflineChrono();
-    if (!offlineChronoHasPending(rec)) return Promise.resolve(true);
-    var notes = [];
-    function done() { saveOfflineChrono(null); return true; }
+  function flushChronoRecord(rec, notes, onDone) {
+    function done() { onDone(); return true; }
     function toHistory(start, end, category) {
       var body = { userId: profile.id, activityId: rec.activity.id, startTime: start, endTime: end };
       if (category !== undefined) body.category = category;
@@ -2309,16 +2338,27 @@
       });
     }
     var statusSentAt = Date.now();
-    offlineChronoFlushing = api('GET', '/api/timer/status?userId=' + profile.id).then(function (status) {
+    return api('GET', '/api/timer/status?userId=' + profile.id).then(function (status) {
       noteServerNow(status.serverNow, statusSentAt);
       if (rec.origin === 'offline' && rec.stop) {
         var cat = rec.stop.category !== undefined ? rec.stop.category : (rec.category ? rec.category.key : undefined);
-        return toHistory(rec.stop.startTime, rec.stop.endTime, cat).then(function () {
-          notes.push(t('Session hors ligne enregistrée ({activity}).', { activity: rec.activity.name }));
-          return done();
+        // Rejeu après une coupure en plein envoi (entrée créée, réponse perdue) : même activité et même départ déjà dans l'historique = rien à recréer.
+        return api('GET', '/api/history?userId=' + profile.id + '&period=week&date=' + String(rec.stop.startTime).slice(0, 10)).then(function (rows) {
+          var t1 = new Date(rec.stop.startTime).getTime();
+          return (rows || []).some(function (r) { return String(r.activityId) === String(rec.activity.id) && Math.abs(new Date(r.startTime).getTime() - t1) <= 2000; });
+        }, function (err) { if (err.offline || isTransientApiError(err)) throw err; return false; }).then(function (already) {
+          if (already) return done();
+          return toHistory(rec.stop.startTime, rec.stop.endTime, cat).then(function () {
+            notes.push(t('Session hors ligne enregistrée ({activity}).', { activity: rec.activity.name }));
+            return done();
+          });
         });
       }
       if (rec.origin === 'offline') {
+        if (status.running && status.activity && String(status.activity.id) === String(rec.activity.id) &&
+            Math.abs(new Date(status.startTime).getTime() - new Date(rec.startTime).getTime()) <= 2000) {
+          return done(); // rejeu : ce chrono hors ligne a déjà été démarré côté serveur
+        }
         if (status.running) {
           notes.push(t('Un chrono tournait déjà sur un autre appareil : ton chrono hors ligne ({activity}, {time}) n\'a pas été repris.',
             { activity: rec.activity.name, time: formatClock(rec.startTime) }));
@@ -2372,13 +2412,31 @@
         return done();
       });
     }).catch(function (err) {
-      if (err && err.offline) return false;
+      if (err && (err.offline || isTransientApiError(err))) return false;
       // Refus définitif du serveur (activité supprimée, heures invalides…) :
       // on ne bloque pas l'appli indéfiniment.
       // Heures et activité dans le message : la session refusée (heure future, chevauchement) n'est pas gardée, l'utilisateur sait quoi ressaisir.
       var from = rec.stop ? rec.stop.startTime : rec.startTime;
       notes.push(t('Chrono hors ligne non synchronisé ({activity}, {from}–{to}) : {error}', { activity: rec.activity.name, from: formatClock(from), to: rec.stop ? formatClock(rec.stop.endTime) : '…', error: err.message }));
       return done();
+    });
+  }
+  function flushOfflineChrono() {
+    if (offlineChronoFlushing) return offlineChronoFlushing;
+    if (!loadChronoDone().length && !offlineChronoHasPending(loadOfflineChrono())) return Promise.resolve(true);
+    var notes = [];
+    function drain() {
+      var list = loadChronoDone();
+      if (!list.length) return Promise.resolve(true);
+      return flushChronoRecord(list[0], notes, function () {
+        var rest = loadChronoDone().slice(1);
+        offlineStoreSet('chronoDone', rest.length ? rest : null);
+      }).then(function (ok) { return ok ? drain() : false; });
+    }
+    offlineChronoFlushing = drain().then(function (ok) {
+      var cur = loadOfflineChrono();
+      if (!ok || !offlineChronoHasPending(cur)) return ok;
+      return flushChronoRecord(cur, notes, function () { saveOfflineChrono(null); });
     }).then(function (ok) {
       offlineChronoFlushing = null;
       if (notes.length) $('chronoStatus').textContent = notes.join(' ');
@@ -2393,7 +2451,7 @@
     // Retour du réseau : le bandeau « données enregistrées du … » n'a plus lieu d'être.
     offlineBannerState.savedAt = null;
     renderOfflineBanner();
-    if (profile && offlineChronoHasPending(loadOfflineChrono())) syncChronoStatus();
+    if (profile && (offlineChronoHasPending(loadOfflineChrono()) || loadChronoDone().length)) syncChronoStatus();
   });
 
   // ===================== CHRONO =====================
@@ -2830,7 +2888,7 @@
 
   function syncChronoStatus() {
     var rec = loadOfflineChrono();
-    if (offlineChronoHasPending(rec)) {
+    if (offlineChronoHasPending(rec) || loadChronoDone().length) {
       return flushOfflineChrono().then(function (ok) {
         if (!ok) return showLocalChrono(loadOfflineChrono());
         return syncChronoStatusFromServer();
@@ -2872,6 +2930,7 @@
 
   function startActivity(activity) {
     $('chronoStatus').textContent = '';
+    parkPendingChronoStop();
     // 23 septembre 2026 : sans réseau, démarrage local (voir CHRONO HORS LIGNE).
     if (navigator.onLine === false) { startOfflineChrono(activity); return; }
     var startSentAt = Date.now();
