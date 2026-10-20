@@ -12,25 +12,34 @@ function enabled() {
   return process.env.EXPANSION_MAILS === '1';
 }
 
+// Pied de courriel : message transactionnel (pas d'infolettre, donc pas de désabonnement) + contact Loi 25.
+const FOOT = {
+  fr: `Courriel de service lié à votre abonnement, envoyé une seule fois par événement (ce n'est pas une infolettre). Vos renseignements personnels sont protégés selon la Loi 25 ; pour y accéder, les corriger ou les retirer : ${ALERT_TO}`,
+  en: `Service email about your subscription, sent once per event (not a newsletter). Your personal information is protected under Quebec's Law 25; to access, correct or delete it: ${ALERT_TO}`,
+};
+
+// Journal sans adresse courriel (le message d'erreur du fournisseur peut citer le destinataire).
+const scrub = (m) => String(m).replace(/[^\s<>"',;:()]+@[^\s<>"',;:()]+/g, '[courriel]');
+
 const TEXTS = {
   confirmed: {
     fr: {
       subject: 'Votre abonnement Expansion est actif',
-      body: (n) => `Bonjour ${n},\n\nVotre abonnement Expansion est confirmé. Il se renouvelle chaque mois et vous pouvez le résilier à tout moment depuis Réglages, sans frais supplémentaires.\n\nMerci de votre confiance.\nL'équipe Noèsis`,
+      body: (n) => `Bonjour ${n},\n\nVotre abonnement Expansion est confirmé. Il se renouvelle chaque mois et vous pouvez le résilier à tout moment depuis Réglages, sans frais supplémentaires.\n\nMerci de votre confiance.\nL'équipe Noèsis\n\n${FOOT.fr}`,
     },
     en: {
       subject: 'Your Expansion subscription is active',
-      body: (n) => `Hello ${n},\n\nYour Expansion subscription is confirmed. It renews monthly and you can cancel at any time from Settings, at no extra cost.\n\nThank you for your trust.\nThe Noèsis team`,
+      body: (n) => `Hello ${n},\n\nYour Expansion subscription is confirmed. It renews monthly and you can cancel at any time from Settings, at no extra cost.\n\nThank you for your trust.\nThe Noèsis team\n\n${FOOT.en}`,
     },
   },
   ended: {
     fr: {
       subject: 'Votre abonnement Expansion est terminé',
-      body: (n) => `Bonjour ${n},\n\nVotre abonnement Expansion est terminé. Vos données et votre usage de Basic restent intacts. Vous pouvez vous réabonner quand vous le souhaitez.\n\nL'équipe Noèsis`,
+      body: (n) => `Bonjour ${n},\n\nVotre abonnement Expansion est terminé. Vos données et votre usage de Basic restent intacts. Vous pouvez vous réabonner quand vous le souhaitez.\n\nL'équipe Noèsis\n\n${FOOT.fr}`,
     },
     en: {
       subject: 'Your Expansion subscription has ended',
-      body: (n) => `Hello ${n},\n\nYour Expansion subscription has ended. Your data and your use of Basic are unchanged. You can subscribe again whenever you like.\n\nThe Noèsis team`,
+      body: (n) => `Hello ${n},\n\nYour Expansion subscription has ended. Your data and your use of Basic are unchanged. You can subscribe again whenever you like.\n\nThe Noèsis team\n\n${FOOT.en}`,
     },
   },
 };
@@ -50,7 +59,7 @@ async function notifyUser(userId, kind, { mailer = mail.sendMail } = {}) {
     await mailer({ to: u.email, subject, text });
     return true;
   } catch (e) {
-    console.warn('[subscription mail] envoi échoué (', kind, ') :', e.message);
+    console.warn('[subscription mail] envoi échoué (', kind, ') :', scrub(e.message));
     return false;
   }
 }
@@ -63,9 +72,9 @@ async function alertTeam(subject, text, { mailer = mail.sendMail } = {}) {
     await mailer({ to: ALERT_TO, subject, text });
     return true;
   } catch (e) {
-    console.warn('[subscription mail] alerte interne échouée :', e.message);
+    console.warn('[subscription mail] alerte interne échouée :', scrub(e.message));
     return false;
   }
 }
 
-module.exports = { enabled, build, notifyUser, alertTeam, TEXTS };
+module.exports = { scrub, enabled, build, notifyUser, alertTeam, TEXTS };

@@ -24,10 +24,21 @@ ok(call('a', '').st === 400 && call('a', 42).st === 400 && call('a', undefined).
 ok(call('a', 'x'.repeat(500)).st === 400, 'code trop long : 400');
 router._resetFails();
 ok(call('a', CODE.toUpperCase()).st === 400, 'la casse compte (code différent refusé)');
+ok(call('a', CODE.slice(0, 5) + ' ' + CODE.slice(5)).st === 400, 'espace au milieu du code : refusé');
+router._resetFails();
+ok(call('f', '\t\u00a0' + CODE + '\n').st === 200 && access.revokeAccess('f') === 1, 'tabulation, espace insécable et saut de ligne autour : acceptés (trim)');
+router._resetFails();
 ok(call('a', ' ' + CODE + ' ').st === 200 && access.hasOffer1Access('a'), 'bon code avec espaces : accès');
 ok(call('b', CODE, '2.2.2.2').st === 200 && access.hasOffer1Access('b'), 'code à usage multiple : un autre compte l\'obtient aussi (déjà utilisé par a)');
 ok(call('a', CODE).st === 200 && db.prepare('SELECT COUNT(*) n FROM offer1_grants WHERE userId = ?').get('a').n === 1, 'même compte qui rejoue : succès sans doublon');
 ok(call('a', 'faux').st === 200, 'compte déjà ouvert : un faux code ne compte pas comme échec');
+
+// Deux comptes en même temps (même tick) : chacun obtient son droit, un seul droit par compte
+{
+  const r = [call('e', CODE, '7.7.7.7'), call('f', CODE, '7.7.7.7'), call('e', CODE, '7.7.7.7')];
+  ok(r.every((x) => x.st === 200) && db.prepare("SELECT COUNT(*) n FROM offer1_grants WHERE userId IN ('e','f') AND revokedAt IS NULL").get().n === 2, 'deux comptes simultanés (et rejeu) : deux droits, aucun doublon');
+  access.revokeAccess('e'); access.revokeAccess('f');
+}
 
 // Tentatives : 5 échecs puis 429, par compte ET par IP ; fenêtre de 15 min
 router._resetFails();

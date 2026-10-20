@@ -16,6 +16,9 @@ Statut : **désactivé par défaut**. Un courriel aux clients est une communicat
 - **Langue** : `users.lang` (`fr` sinon anglais), textes FR/EN testés.
 - **Panne** : un échec d'envoi ne fait jamais échouer le webhook (200 conservé).
 
+- **Désabonnement / Loi 25 (21 oct.)** : courriels de service (un par événement), pas d'infolettre, donc pas de lien de désabonnement ; chaque courriel FR/EN se termine par une mention Loi 25 et le contact `confidentialite.noesis@gmail.com` (texte à valider avec Q1). Aucun lien ni jeton dans les courriels ; le journal masque toute adresse courriel citée par Resend (`scrub`).
+- **Essai gratuit** : aucun essai n'existe (pas de `trial_period_days`) et l'app n'affiche aucune date de fin ; rien à corriger côté fuseau (`X-Client-Tz`). Afficher une date serait un nouvel élément d'interface : non fait.
+
 ## À faire avant d'activer (Émilien)
 1. Valider les textes (`TEXTS` dans `subscriptionmails.js`) : légal/communication.
 2. `RESEND_FROM` avec un domaine vérifié sur Resend : sans lui, `onboarding@resend.dev` n'écrit qu'au compte Resend, les abonnés ne recevraient rien.

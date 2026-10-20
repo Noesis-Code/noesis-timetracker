@@ -11,6 +11,8 @@ Mécanisme : hash sha256 dans `OFFER1_FREE_CODE_HASHES` (jamais en clair) ; réu
 | Casse différente | refusé (sensible à la casse) | oui |
 | Espaces autour du bon code | accepté (trim) | oui |
 | Usage multiple / déjà utilisé par un autre compte | accepté : un code vaut pour tous les comptes, sans compteur d'usage | oui |
+| Espace au milieu / tabulation, espace insécable, saut de ligne autour | milieu : refusé ; autour : accepté | oui |
+| Deux comptes en même temps | deux droits, aucun doublon | oui |
 | Même compte rejoue le code | succès, un seul droit (pas de doublon) | oui |
 | Compte déjà ouvert + faux code | succès immédiat, pas d'échec compté | oui |
 | 5 échecs en 15 min | 429, même avec le bon code, par compte ET par IP ; levé après 15 min | oui |

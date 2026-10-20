@@ -47,6 +47,11 @@ const sub = (id) => db.prepare('SELECT * FROM activity_subscriptions WHERE strip
     ok(/Bonjour Léa/.test(fr.text) && /Hello Lea/.test(en.text) && fr.subject !== en.subject, kind + ' : FR et EN distincts avec prénom');
     ok(!/stripe|sk_|cus_|sub_/i.test(fr.text + en.text + fr.subject + en.subject), kind + ' : aucun détail technique');
   }
+  for (const kind of ['confirmed', 'ended']) {
+    ok(/Loi 25/.test(sm.build(kind, 'fr', 'A').text) && /Law 25/.test(sm.build(kind, 'en', 'A').text) && /confidentialite\.noesis@gmail\.com/.test(sm.build(kind, 'en', 'A').text), kind + ' : mention Loi 25 et contact (courriel de service, pas d\'infolettre)');
+    ok(!/https?:\/\/|token|jeton/i.test(sm.build(kind, 'fr', 'A').text + sm.build(kind, 'en', 'A').text), kind + ' : aucun lien ni jeton');
+  }
+  ok(sm.scrub("Resend: invalid to 'lea@example.test' (HTTP 422)") === "Resend: invalid to '[courriel]' (HTTP 422)", 'journal : adresse courriel masquée');
   ok(sm.build('ended', 'xx', '').text.startsWith('Hello there'), 'langue inconnue : EN, prénom vide géré');
 
   const server = app.listen(0);
@@ -79,9 +84,11 @@ const sub = (id) => db.prepare('SELECT * FROM activity_subscriptions WHERE strip
 
   // Panne d'envoi : le webhook reste 200
   mailFails = true;
+  const warns = []; const realWarn = console.warn; console.warn = (...a) => warns.push(a.join(' '));
   const r = await post(port, co('evt_d', 'u_en', 'cus_en', 'sub_en2'));
   ok(r.status === 200 && sub('sub_en2'), 'panne Resend : webhook 200, abonnement enregistré');
-  mailFails = false;
+  mailFails = false; console.warn = realWarn;
+  ok(warns.length && !warns.join(' ').includes('@') && !/sam@|lea@/.test(warns.join(' ')), 'panne : journal sans adresse courriel');
 
   // Fin d'abonnement
   await post(port, { id: 'evt_del', type: 'customer.subscription.deleted', data: { object: { id: 'sub_fr' } } });
