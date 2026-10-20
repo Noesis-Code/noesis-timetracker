@@ -28,7 +28,10 @@ Drive NOÈSIS et paiement Stripe : voir `CLAUDE.md` (source unique).
 Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1). Dans l'ordre ; chaque tâche : dans le périmètre du chantier, sans interface nouvelle, sans dépense, sans règle verrouillée, sans fusion `main` (SIMPLIFICATION.md). Cocher/retirer une tâche faite ; ajouter à la fin.
 
 **1. Trade Tracker** (sécurité)
-1. Documentation DEPLOY à jour (variables, étapes, retour arrière).
+1. Documentation DEPLOY à jour (variables, étapes, retour arrière). FAIT (repli 3).
+2. Test qui échoue si une variable `TRADE_*` lue par le code de Trade manque dans `trade-tracker/DEPLOY.md`. FAIT (repli 3, `deploy-doc-test.js`).
+3. Test de bout en bout sauvegarde -> altération -> restauration (`restore.js`) : chaîne d'audit et jetons chiffrés relus après restauration.
+4. Vérifier que les journaux et réponses d'erreur de Trade ne contiennent jamais une valeur `TRADE_*` secrète (échec de démarrage, erreurs 500).
 
 **2. Time Tracker Basic** (accessibilité et robustesse)
 1. `aria-label` des boutons-icônes et contrastes du texte à vérifier (sans changer la palette).

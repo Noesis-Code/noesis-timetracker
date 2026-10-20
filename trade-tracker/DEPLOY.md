@@ -12,6 +12,7 @@ Rien n'est déployé automatiquement. Le serveur **refuse de démarrer en produc
 | `TRADE_LINK_SECRET` | secret >= 16 car. (= celui de Trade) |
 | `TRADE_BASE_URL` | URL publique de Trade (https://...) |
 | `TRADE_NOTIFY_SECRET` | secret >= 16 car. (= celui de Trade) |
+| `TRADE_EVENTS_PER_MIN` | facultatif (défaut 600) : limite de débit par IP de `POST /api/trade-events` |
 
 ## Variables côté Trade (service Trade Tracker)
 | Variable | Valeur |
@@ -27,6 +28,9 @@ Rien n'est déployé automatiquement. Le serveur **refuse de démarrer en produc
 | `TRADE_ORIGIN` | facultatif, défaut `https://<TRADE_RP_ID>` |
 | `TRADE_ADMIN_TOKEN` | facultatif, >= 16 car. ; active l'import admin |
 | `TRADE_PRICE_STALE_MIN` | facultatif (défaut 120) : minutes sans synchro de prix avant l'alerte push `prices_stale` (au plus une par 24 h) ; `/health` répond toujours 200 avec `pricesStale` |
+| `TRADE_SYNC_INTERVAL_MIN` | facultatif (défaut 15) : minutes entre deux synchros ; `TRADE_SYNC_DISABLE=1` coupe la synchro |
+| `TRADE_QUESTRADE_LOOKBACK_DAYS` | facultatif (défaut 365) : historique lu pour un compte Questrade inconnu |
+| `TRADE_NOTIFY_DRYRUN` | `1` = alertes construites et journalisées sans être envoyées à TMT (essais seulement) |
 | `TRADE_CONNECTOR` | `demo` (défaut) ou `questrade` (voir ci-dessous) |
 | `TRADE_COOKIE_CROSS_SITE` | `1` si le cookie doit passer en iframe sans HTTPS détecté (inutile derrière Railway HTTPS) |
 | `TRADE_DATA_DIR` | `/data` (le volume) ; `NOESIS_DATA_DIR` accepté en repli |
@@ -72,3 +76,15 @@ Rien n'est déployé automatiquement. Le serveur **refuse de démarrer en produc
 12. Téléphone perdu : un code de secours, puis Sécurité > « Changer d'appareil ». Téléphone et codes perdus : après avoir vérifié l'identité par un autre canal, `node mfa-reset.js <idTMT>` (journalisé) ; la personne se ré-enrôle à sa prochaine entrée.
 13. Consulter régulièrement Sécurité > « Journal d'activité » (la ligne « Chaîne intacte » doit s'afficher). Noter de temps en temps l'empreinte affichée.
 14. Sauvegardes : `npm run backup` planifié + copie hors volume (R2). Ne jamais ranger `TRADE_TOKEN_KEY` avec les sauvegardes.
+
+## Sauvegarde, restauration et retour arrière
+**Sauvegarde** : `npm run backup` (dans `trade-tracker`) crée `$TRADE_DATA_DIR/backups/trade-tracker-AAAA-MM-JJ.db` (14 gardées), contrôlée à la création. À planifier (cron Railway) puis copier hors du volume.
+
+**Restauration** (service ARRÊTÉ, avec la `TRADE_TOKEN_KEY` en vigueur à la date de la sauvegarde) : `node restore.js <sauvegarde.db>` ; sur une base existante, `--force` la conserve à côté sous `trade-tracker.db.avant-restauration-<date>`. Le contrôle (intégrité, tables, chaîne d'audit) précède tout écrasement.
+
+**Retour arrière d'un déploiement**
+1. Code : Railway > Deployments > redéployer la version précédente (ou `git revert` du commit fautif sur `staging`). Les variables ne reviennent pas seules : remettre les anciennes valeurs si elles ont changé.
+2. Données (si le nouveau code a migré ou abîmé la base) : lancer `npm run backup` d'abord (état actuel), arrêter le service, `node restore.js <dernière bonne sauvegarde> --force`, redémarrer, vérifier `/health` et la ligne « Chaîne intacte » (Sécurité > Journal).
+3. Clé : après une rotation de `TRADE_TOKEN_KEY` ratée, remettre l'ancienne clé et son numéro de version (`TRADE_TOKEN_KEY_VERSION`) puis restaurer la sauvegarde d'avant la rotation.
+4. `TRADE_RP_ID` : le rétablir à sa valeur d'origine rend les passkeys à nouveau valides.
+5. Côté TMT : retirer `TRADE_BASE_URL` (ou `TRADE_ALLOWED_USER_IDS`) et redéployer coupe l'accès à Trade sans toucher à ses données.
