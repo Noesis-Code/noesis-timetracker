@@ -183,6 +183,45 @@ function tradeScript(code) {
   r = await fetch(TRADE + '/api/compare', { headers: { Cookie: expertSession } });
   const ce = await r.json();
   assert(r.status === 200 && ce.bySector.concat(ce.byPosition).every((x) => x.gapPts === 0), 'compare : expert contre lui-même = écarts nuls');
+
+  // 7. Intégration TMT <-> Trade (chantier 1, repli 15) : retrait, comptes, navigateur, liste « modifier l'activité »
+  const putMod = (who, v) => fetch(TMT + '/api/profile/' + who + '/modules', { method: 'PUT', headers: { Cookie: cookies[who], 'Content-Type': 'application/json' }, body: JSON.stringify({ modules: { trade: v } }) });
+  const getMod = async (who) => (await (await tmtGet('/api/profile/' + who + '/modules', who)).json());
+  let gm = await getMod(EXPERT);
+  assert(gm.tradeAllowed === true && gm.modules.trade === true && gm.list.some((m) => m.id === 'trade'), 'activé : le « + » de l\'activité voit Trade (tradeAllowed, état actif, listé)');
+  assert((await getMod(OTHER)).tradeAllowed === false && !(await getMod(OTHER)).list.some((m) => m.id === 'trade'), 'compte non autorisé : tradeAllowed faux, Trade non listé');
+  r = await tmtGet('/api/trade/link', EXPERT);
+  const linkBeforeOff = await r.json();
+  r = await putMod(EXPERT, false);
+  assert(r.status === 200, 'retrait de Trade de l\'activité (module désactivé)');
+  gm = await getMod(EXPERT);
+  assert(gm.modules.trade === false && gm.list.some((m) => m.id === 'trade'), 'après retrait : état inactif, Trade reste proposé au « + »');
+  r = await tmtGet('/api/trade/link', EXPERT);
+  assert(r.status === 403 && (await r.json()).code === 'module_off', 'après retrait : nouveau lien refusé (module_off)');
+  r = await fetch(linkBeforeOff.url, { redirect: 'manual' });
+  assert(r.status === 302 && r.headers.get('location') === '/' && !!setCookie(r), 'lien émis AVANT le retrait : valable jusqu\'à 2 min, usage unique (limite connue, aucune donnée perdue)');
+  r = await putMod(EXPERT, true);
+  assert(r.status === 200 && (await getMod(EXPERT)).modules.trade === true, 'réactivation : état actif de nouveau');
+  r = await tmtGet('/api/trade/link', CLIENT);
+  assert(r.status === 403, 'module jamais activé (id autorisé) : lien refusé');
+  // tradeAllowed retiré alors que le module est stocké actif : refusé et masqué (lecture directe de la base, liste d'autorisés vide)
+  const off = JSON.parse(execFileSync('node', ['-e', `
+const m = require('./server/lib/modules');
+console.log(JSON.stringify({ en: m.isEnabled(${JSON.stringify(EXPERT)}, 'trade'), st: m.getModules(${JSON.stringify(EXPERT)}).trade, listed: m.list(${JSON.stringify(EXPERT)}).some((x) => x.id === 'trade'), allowed: m.isTradeAllowed(${JSON.stringify(EXPERT)}) }));`], { cwd: ROOT, env: { ...envTmt, TRADE_ALLOWED_USER_IDS: '' }, encoding: 'utf8' }).trim().split('\n').pop());
+  assert(off.en === false && off.st === false && off.listed === false && off.allowed === false, 'tradeAllowed retiré : module inactif, masqué, jamais actif malgré la valeur stockée');
+  // Comptes et navigateurs : jetons valides mais non admis
+  const tokAs = (sub, ua) => tradeLib.signLinkToken({ sub, name: sub, ua }, LINK_SECRET, Date.now());
+  r = await fetch(TRADE + '/link?token=' + encodeURIComponent(tokAs(OTHER, 'node')), { redirect: 'manual' });
+  assert(r.status === 302 && /linkError=/.test(r.headers.get('location')) && !setCookie(r), 'lien d\'un compte non invité : refusé, aucune session');
+  r = await fetch(TRADE + '/link?token=' + encodeURIComponent(tokAs('e2e-stranger', 'node')), { redirect: 'manual' });
+  assert(r.status === 302 && /linkError=/.test(r.headers.get('location')) && !setCookie(r), 'lien d\'un compte autorisé mais non invité par l\'expert : refusé');
+  r = await tmtGet('/api/trade/link', EXPERT);
+  const linkUa = await r.json();
+  r = await fetch(linkUa.url, { redirect: 'manual', headers: { 'User-Agent': 'autre-navigateur/1.0' } });
+  assert(r.status === 302 && /linkError=/.test(r.headers.get('location')) && !setCookie(r), 'lien ouvert dans un autre navigateur : refusé');
+  const secret2 = tradeLib.signLinkToken({ sub: EXPERT, name: 'x', ua: 'node' }, 'autre-secret-0123456789', Date.now());
+  r = await fetch(TRADE + '/link?token=' + encodeURIComponent(secret2), { redirect: 'manual' });
+  assert(r.status === 302 && /linkError=denied/.test(r.headers.get('location')) && !setCookie(r), 'jeton signé avec un autre secret : refusé');
 })().catch((e) => { failed++; console.log('  FAIL erreur : ' + (e && e.stack || e)); }).finally(() => {
   procs.forEach((p) => p.kill());
   for (const d of [tmtDir, tradeDir]) { try { fs.rmSync(d, { recursive: true, force: true }); } catch (e) { /* sans conséquence */ } }
