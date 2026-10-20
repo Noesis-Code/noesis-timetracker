@@ -131,3 +131,4 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 - `scripts/smoke-staging.sh` : testé contre un serveur local (10 contrôles ok) et contre un port fermé (6 ECHEC, code 1). Brief point 13.
 - Relecture depuis 7855c9a : aucun commit sur `staging` depuis (rien à relire).
 - Constaté, non traité : 6 tests ne sont appelés par aucune liste de `run-tests.js` (doublons-similarites, expansion-acces, expansion-checkout-securite, expansion-cycle-complet, migration-lasteventat, subscription-mails-refund). `ia-plafonds-jour-test.js` est bien dans la suite.
+- Suite complète via le script sur la tête (avec garde-sources-test) : 161 passées, 0 échouée.
