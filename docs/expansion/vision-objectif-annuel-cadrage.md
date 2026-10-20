@@ -1,6 +1,6 @@
 # Vision Expansion (18 oct. 2026) : cadrage d'une page
 
-Source : `BACKLOG.md` section 5 (vision d'Émilien du 18 oct.) : l'utilisateur d'Expansion ne saisit que son objectif annuel et sa stratégie ; l'IA propose objectifs périodiques, hebdomadaires et tâches, par pôle/secteur, toujours en proposition validée (avant/après). Aucune citation mot pour mot dans `docs/intentions.md` : à ajouter par le coordinateur avant tout code (règle de `modele-tache.md`). NON codé.
+Source : `BACKLOG.md` section 5 (vision d'Émilien du 18 oct.) : l'utilisateur d'Expansion ne saisit que son objectif annuel et sa stratégie ; l'IA propose objectifs périodiques, hebdomadaires et tâches, par pôle/secteur, toujours en proposition validée (avant/après). Aucune citation mot pour mot dans `docs/regles/intentions.md` : à ajouter par le coordinateur avant tout code (règle de `modele-tache.md`). NON codé.
 
 ## Ce qui existe
 - Objectif annuel par activité/pôle (`goals.js`, tables `goal_years`, `goal_year_goals`) et objectifs périodiques saisis à la main.

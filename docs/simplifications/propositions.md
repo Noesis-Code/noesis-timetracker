@@ -8,13 +8,13 @@ Pour chaque proposition : répondre **oui** ou **non**. Rien n'est exécuté ava
 Quoi : Trade Tracker garde sa propre copie des couleurs et du verre (`trade-tracker/public/tokens.css`) qui a dérivé ; on sert le même fichier aux deux apps.
 Gain : une copie de jetons en moins, fin des écarts de fond de carte et de rouge entre les deux apps.
 Risque : moyen, l'aspect de Trade peut bouger.
-Preuve : `docs/audit-composants-2026-10-20.md` §1.7 et §3.3 ; `trade-tracker/public/index.html:13`.
+Preuve : `docs/audits/audit-composants-2026-10-20.md` §1.7 et §3.3 ; `trade-tracker/public/index.html:13`.
 
 ### S2 · Un seul rouge de danger
 Quoi : trois noms (`--red`, `--bad`, `--danger-armed`) et un 4e rouge dans Trade désignent le même rouge ; n'en garder qu'un.
 Gain : 3 variables CSS en moins, un seul rouge dans l'app.
 Risque : faible, même valeur #E0626B.
-Preuve : `docs/audit-composants-2026-10-20.md` §1.2 ; `grep -rn "danger-armed" public trade-tracker/public`.
+Preuve : `docs/audits/audit-composants-2026-10-20.md` §1.2 ; `grep -rn "danger-armed" public trade-tracker/public`.
 
 ### S3 · Retirer les scripts d'une seule fois
 Quoi : supprimer les scripts de rattrapage déjà passés (`apply-offre1-roadmap`, `apply-offre1-weekly-goals`, `realign-goals-monday`, `cross-sector-retroactive-sweep`, `migrate-year-grid`, `seed-stats-demo`) ; aucune fonction de l'app retirée.
@@ -32,7 +32,7 @@ Preuve : `CHRONO_HISTORY_EDIT_ICON` (`public/app.js:3263`), `HISTORY_EDIT_ICON` 
 Quoi : la croix rouge qui supprime un message de discussion est copiée-collée 6 fois dans `app.js` ; une seule fonction la fabrique.
 Gain : environ 5 copies de code en moins, aucun changement visible.
 Risque : faible, copies identiques.
-Preuve : `grep -c discussionMsgDelete public/app.js` = 7 ; `docs/audit-composants-2026-10-20.md` §1.2.
+Preuve : `grep -c discussionMsgDelete public/app.js` = 7 ; `docs/audits/audit-composants-2026-10-20.md` §1.2.
 
 ### S6 · Fusionner deux boutons « + » pointillés
 Quoi : `.extCalAddBtn` (Réglages, calendrier) est une copie de `.saAdd` (Stats) ; les deux deviennent la même classe.
@@ -44,7 +44,7 @@ Preuve : `public/styles.css:3488-3489` contre `public/css/stats-avance.css:65`.
 Quoi : effacer les commentaires qui parlent de `bindSubProjectDrag` (retiré) et de `liveFeed` (périmé) ; aucune fonction touchée.
 Gain : environ 10 lignes de bruit, lecture du code plus claire.
 Risque : faible, commentaires seulement.
-Preuve : `public/app.js:12382`, `15579` ; `docs/questions-emilien-simplification.md` (ligne `liveFeed`).
+Preuve : `public/app.js:12382`, `15579` ; `docs/questions/questions-emilien-simplification.md` (ligne `liveFeed`).
 
 ## B) Fonctionnement de l'IA
 
@@ -52,36 +52,36 @@ Preuve : `public/app.js:12382`, `15579` ; `docs/questions-emilien-simplification
 Quoi : ne plus rappeler le gros modèle quand le petit hésite ; si le résultat est faible, la tâche reste sans catégorie (ou sans reformulation) comme en cas de panne. Retire une étape de l'IA.
 Gain : environ -2/3 du coût des appels concernés quand le repli se produit (classement 0,0027 $ contre 0,0009 $ ; reformulation 0,003 $ contre 0,001 $), 2 modèles forts en moins sur ces fonctions.
 Risque : moyen, quelques tâches mal classées.
-Preuve : `docs/ia-modeles.md` (tableau) ; à mesurer d'abord par `node scripts/eval-task-precision.js --live` et le taux de repli de `scripts/ai-cost-report.js`.
+Preuve : `docs/ia/ia-modeles.md` (tableau) ; à mesurer d'abord par `node scripts/eval-task-precision.js --live` et le taux de repli de `scripts/ai-cost-report.js`.
 
 ### S9 · Un seul modèle fort au lieu de deux
 Quoi : aujourd'hui le repli utilise Sonnet 5 pour certaines fonctions et Sonnet 4.5 pour d'autres ; on garde un seul identifiant.
 Gain : une constante et un tarif en moins, un comportement plus simple à expliquer.
 Risque : faible, mêmes tarifs (3 $ / 15 $ le million).
-Preuve : `server/lib/aimodels.js` (`STRONG` contre `CLASSIFY_STRONG`) ; `docs/ia-modeles.md` (section « Identifiants de modèle »).
+Preuve : `server/lib/aimodels.js` (`STRONG` contre `CLASSIFY_STRONG`) ; `docs/ia/ia-modeles.md` (section « Identifiants de modèle »).
 
 ### S10 · Un seul réglage de modèle rapide
 Quoi : six variables d'environnement `NOESIS_*_FAST_MODEL` permettent de choisir un modèle rapide par fonction ; on ne garde que `FAST` pour toutes.
 Gain : 6 réglages cachés en moins, un test de moins à entretenir.
 Risque : faible, jamais utilisés (défaut Haiku partout).
-Preuve : `docs/ia-modeles.md` (tableau des constantes) ; `grep -rn "FAST_MODEL" server`.
+Preuve : `docs/ia/ia-modeles.md` (tableau des constantes) ; `grep -rn "FAST_MODEL" server`.
 
 ### S11 · Retirer les plafonds par fonction redondants
 Quoi : le budget commun (2 $/jour et 15 $/mois par compte) arrête déjà tout emballement ; retirer les plafonds propres des fonctions bon marché (orthographe 200, reformulation 150, classement 500, rapprochement 500, récurrence 300 par jour). Aucune fonction retirée.
 Gain : 5 compteurs et 5 variables en moins, `aifeaturecaps.js` (43 lignes) et ses tests de cohérence réduits.
 Risque : moyen, un bogue en boucle coûterait jusqu'au budget commun.
-Preuve : `server/lib/aifeaturecaps.js` ; `docs/ia-appels.md` (section « Plafonds et mémos »).
+Preuve : `server/lib/aifeaturecaps.js` ; `docs/ia/ia-appels.md` (section « Plafonds et mémos »).
 
 ### S12 · Un seul script de rapport de coût
 Quoi : `ai-cost-report`, `ai-cost-weekly`, `ai-cost-projection` et `ai-acceptance-report` se recoupent (la projection est déjà dans le rapport) ; en faire une commande avec options (`--court`, `--semaine`).
 Gain : 3 fichiers et environ 180 lignes en moins, une seule commande à retenir.
 Risque : faible, outils de lecture seule.
-Preuve : `scripts/ai-*.js` (331 lignes) ; `docs/ia-couts-reels-2026-10-20.md` (étapes 1 et 4).
+Preuve : `scripts/ai-*.js` (331 lignes) ; `docs/ia/ia-couts-reels-2026-10-20.md` (étapes 1 et 4).
 
 ## C) Processus de propositions lui-même
 
 ### S13 · Un seul document IA au lieu de seize
-Quoi : les 16 fichiers `docs/ia-*.md` (64 Ko) se répètent (plafonds, modèles, échecs, coûts) ; les fondre dans `docs/ia-appels.md` et supprimer le reste.
+Quoi : les 16 fichiers `docs/ia-*.md` (64 Ko) se répètent (plafonds, modèles, échecs, coûts) ; les fondre dans `docs/ia/ia-appels.md` et supprimer le reste.
 Gain : 15 fichiers et environ 50 Ko en moins, une seule source à lire.
 Risque : faible, texte seulement ; garder les liens du test `ia-appels-doc-test.js`.
 Preuve : `ls docs/ia-*.md` ; `wc -c docs/ia-*` = 63 814.
@@ -90,10 +90,10 @@ Preuve : `ls docs/ia-*.md` ; `wc -c docs/ia-*` = 63 814.
 Quoi : sept `docs/questions-emilien-*.md` (47 Ko) à cocher ; les fondre en un seul fichier, une case par décision, sans doublon (ex. benchmark déjà fusionné avec Trade Q8).
 Gain : 6 fichiers en moins, une seule liste à ouvrir ; cette page devient la liste de référence des propositions.
 Risque : faible, texte seulement.
-Preuve : `ls docs/questions-emilien*` ; `docs/questions-emilien-simplification.md` (renvoie à d'autres audits).
+Preuve : `ls docs/questions-emilien*` ; `docs/questions/questions-emilien-simplification.md` (renvoie à d'autres audits).
 
 ### S15 · Fondre audits de simplification en un
 Quoi : `code-mort`, `points-non-necessaires`, `inventaire-options` et `audit-composants` listent les mêmes éléments (croix, « + », filtre Stats, pastille orange) ; ne garder que ce fichier-ci, et que `SIMPLIFICATION.md` (étape 4 de la boucle) y renvoie. Une proposition acceptée ou refusée y est cochée puis archivée au journal de `SIMPLIFICATION.md`.
 Gain : 4 audits (environ 56 Ko) en moins ; une seule liste vivante, plus de décision demandée deux fois.
 Risque : faible, les constats utiles sont repris ici.
-Preuve : `docs/points-non-necessaires.md` (11 points) contre `docs/questions-emilien-simplification.md` (mêmes points en cases) ; `SIMPLIFICATION.md` étape 4.
+Preuve : `docs/audits/points-non-necessaires.md` (11 points) contre `docs/questions/questions-emilien-simplification.md` (mêmes points en cases) ; `SIMPLIFICATION.md` étape 4.
