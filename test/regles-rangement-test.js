@@ -1,4 +1,4 @@
-// Garde statique : les règles de rangement existent (R1 à R20, F1 à F5) et CLAUDE.md et les deux agents les mentionnent.
+// Garde statique : les règles de rangement existent (R1 à R22, F1 à F5) et CLAUDE.md et les deux agents les mentionnent.
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
@@ -7,8 +7,10 @@ const ok = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; consol
 const read = (f) => { try { return fs.readFileSync(path.join(ROOT, f), 'utf8'); } catch (e) { return ''; } };
 const regles = read('docs/regles-rangement.md');
 ok(regles.length > 0, 'docs/regles-rangement.md existe');
-for (let i = 1; i <= 20; i++) ok(new RegExp('\\bR' + i + '\\.').test(regles), 'règle R' + i + ' présente');
+for (let i = 1; i <= 22; i++) ok(new RegExp('\\bR' + i + '\\.').test(regles), 'règle R' + i + ' présente');
 for (let i = 1; i <= 5; i++) ok(new RegExp('\\bF' + i + '\\.').test(regles), 'règle F' + i + ' présente');
+ok(/R21\.[^\n]*droite[^\n]*jamais à gauche/.test(regles), 'R21 flèche à droite');
+ok(/R22\.[^\n]*bord gauche ET[^\n]*bord droit/.test(regles), 'R22 séparateurs pleine largeur');
 ok(regles.toLowerCase().includes('verre calme'), 'verre calme présent');
 ok(regles.includes('500 ms'), '500 ms présent');
 for (const c of ['#E0626B', '#6FC9A0', '#F0AD4E']) ok(regles.includes(c), 'couleur sémantique ' + c + ' présente');
