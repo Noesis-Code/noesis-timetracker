@@ -1422,6 +1422,15 @@
       var vv = window.visualViewport;
       var pinned = false;
       var unpinTimer = null;
+      // 20 oct. 2026 (Basic, Android) : avec `interactive-widget=resizes-content` la hauteur de mise en page rétrécit
+      // AVEC le clavier (clientHeight = vv.height), l'écart seul ne le détectait plus et la barre d'onglets
+      // recouvrait les puces sous le champ. On compare donc à la hauteur relevée avant l'ouverture (au focus).
+      var baseH = 0, baseW = 0;
+      function kbIsOpen() {
+        var de = document.documentElement;
+        if (de.clientWidth !== baseW) { baseW = de.clientWidth; baseH = de.clientHeight; }
+        return (Math.max(baseH, de.clientHeight) - vv.height) > 100;
+      }
       // 28 septembre 2026 (bug clavier — Emilien, capture à l'appui du 28
       // septembre) : le HUD de diagnostic temporaire posé ici le même jour
       // (texte vert en surimpression, position:fixed en haut à gauche,
@@ -1444,7 +1453,7 @@
       // une lecture à 0 par erreur ne dure jamais plus d'une image.
       function applyPin() {
         // 5 oct. 2026 (Emilien) : bulle Discussion et 3 points masqués tant que le clavier est ouvert.
-        document.documentElement.classList.toggle('kbOpen', (document.documentElement.clientHeight - vv.height) > 100);
+        document.documentElement.classList.toggle('kbOpen', kbIsOpen());
         var yT = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
         var h = Math.round(vv.height) + 'px';
         for (var i = 0; i < pinBars.length; i++) {
@@ -1472,7 +1481,7 @@
           // 100px de marge absorbe la barre d'adresse mobile/le safe-area/les
           // arrondis, tout en restant bien en dessous d'un clavier réel
           // (généralement 200-350px sur téléphone).
-          var keyboardOpen = (document.documentElement.clientHeight - vv.height) > 100;
+          var keyboardOpen = kbIsOpen();
           for (var i = 0; i < pinBottomBars.length; i++) {
             pinBottomBars[i].style.display = keyboardOpen ? 'none' : '';
           }
@@ -1486,7 +1495,7 @@
       document.addEventListener('focusin', function (e) {
         if (!_isTextInputEl(e.target)) return;
         if (unpinTimer) { clearTimeout(unpinTimer); unpinTimer = null; }
-        if (!pinned) { pinned = true; pinLoop(); }
+        if (!pinned) { baseW = document.documentElement.clientWidth; baseH = document.documentElement.clientHeight; pinned = true; pinLoop(); }
       }, true);
       document.addEventListener('focusout', function (e) {
         if (!_isTextInputEl(e.target)) return;
