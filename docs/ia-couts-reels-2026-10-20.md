@@ -9,6 +9,10 @@ But : remplacer les estimations de `docs/ia-appels.md` par des mesures. Lecture 
 4. Le rapport se termine (avant les taux de repli) par `Total mensuel projeté` = coût des 7 derniers jours calendaires / 7 x 30 (tous comptes, replis inclus) ; à comparer à la cible (10 $ moyens par utilisateur actif). Test : `test/ai-cost-projection-test.js` (données synthétiques).
 5. Refaire à J+7 puis chaque mois ; les replis (`:repli`) sont déjà regroupés dans la fonction.
 
+## Résumé en 10 lignes (21 oct. 2026)
+`node scripts/ai-cost-report.js --court 30` (ou `--from export.json --court 30`) : total et projection mensuelle, 4 premières fonctions, 7 derniers jours, 3 premiers comptes anonymisés (A, B, C). Le taux de mémo (`aicache.memoStats`) vit en mémoire du serveur : il n'est pas dans la base, il s'écrit au journal Railway (« [aicache] mémo : ... », tous les 200 appels).
+Sur Railway, sans secret à donner : service web > onglet Shell (ou `railway run` depuis ton poste connecté), puis la commande ci-dessus ; lecture seule, aucun appel IA.
+
 ## Tableau à remplir (30 j)
 | Fonction (feature) | Appels | /jour | Ent. moy | Sort. moy | Cache % | $ total | $/appel | Part | Plus forte journée / plafond |
 |---|---|---|---|---|---|---|---|---|---|

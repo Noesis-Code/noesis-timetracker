@@ -8,6 +8,8 @@ const { DatabaseSync } = require('node:sqlite');
 const args = process.argv.slice(2);
 const fi = args.indexOf('--from');
 const fromFile = fi >= 0 ? args.splice(fi, 2)[1] : null;
+const ci = args.indexOf('--court');
+const court = ci >= 0; if (court) args.splice(ci, 1); // --court : 10 lignes maximum (voir plus bas)
 // --from <export.json|export.csv> : lit un export de ai_usage_log (SELECT * FROM ai_usage_log) au lieu de la base, sans accès base.
 function parseCsv(txt) {
   const out = []; let row = [], cur = '', q = false;
@@ -54,6 +56,22 @@ const days = Math.max(1, Math.floor(Number(args[0])) || 30);
 const since = (() => { const d = new Date(); d.setDate(d.getDate() - days + 1); return local(d); })();
 const month = local(new Date()).slice(0, 7);
 
+if (court) { // Résumé de 10 lignes maximum : total/projection, 4 premières fonctions, 7 derniers jours, 3 premiers comptes (anonymisés), mémo.
+  const q = (s, ...a) => db.prepare(s).all(...a);
+  const tot = q('SELECT COALESCE(SUM(costUsd),0) AS c, COALESCE(SUM(calls),0) AS n FROM ai_usage_log WHERE day >= ?', since)[0];
+  const d7 = new Date(); d7.setDate(d7.getDate() - 6);
+  const c7 = q('SELECT COALESCE(SUM(costUsd),0) AS c FROM ai_usage_log WHERE day >= ?', local(d7))[0].c;
+  console.log('Coût IA ' + days + ' j : ' + fmt(tot.c) + ', ' + tot.n + ' appels | projection mensuelle ' + fmt(c7 / 7 * 30) + ' (7 j x 30)');
+  const top = q('SELECT feature, SUM(calls) AS n, SUM(costUsd) AS c FROM ai_usage_log WHERE day >= ? GROUP BY feature ORDER BY c DESC LIMIT 4', since);
+  console.log('Par fonction : ' + (top.map((r) => r.feature + ' ' + fmt(r.c) + ' (' + r.n + ')').join(' ; ') || 'aucune'));
+  const dj = q('SELECT day, SUM(costUsd) AS c FROM ai_usage_log WHERE day >= ? GROUP BY day ORDER BY day DESC LIMIT 7', since);
+  console.log('Par jour : ' + (dj.map((r) => r.day.slice(5) + ' ' + fmt(r.c)).join(' ; ') || 'aucun'));
+  const cu = q('SELECT userId, SUM(costUsd) AS c FROM ai_usage_log WHERE day >= ? AND userId <> ? GROUP BY userId ORDER BY c DESC LIMIT 3', since, SYSTEM_USER);
+  console.log('Top comptes (anonymisés) : ' + (cu.map((r, i) => 'compte ' + 'ABC'[i] + ' ' + fmt(r.c)).join(' ; ') || 'aucun'));
+  const ms = require('../server/lib/aicache').memoStats(); // en mémoire du processus serveur : un script séparé ne le voit pas
+  console.log(ms.total ? 'Mémo : ' + Math.round(100 * ms.rate) + ' % de succès (' + ms.hits + '/' + ms.total + ')' : 'Mémo : taux visible au journal du serveur (ligne « [aicache] mémo : ... », tous les 200 appels), pas dans la base.');
+  process.exit(0);
+}
 const rows = db.prepare('SELECT userId, SUM(costUsd) AS cost, SUM(calls) AS calls FROM ai_usage_log WHERE day >= ? AND day <= ? GROUP BY userId ORDER BY cost DESC').all(month + '-01', month + '-31');
 const users = rows.filter((r) => r.userId !== SYSTEM_USER);
 console.log('Coût IA — ' + month + ' (plafond ' + fmt(capMonth) + '/utilisateur)');
