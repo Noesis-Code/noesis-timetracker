@@ -127,6 +127,7 @@
     'Confidentielle': 'Confidential',
     'Visibilité': 'Visibility',
     'Fusionner avec…': 'Merge with…',
+    'Connecter Trade Tracker': 'Connect Trade Tracker',
     'Modifier cette activité': 'Edit this activity',
     'Absent': 'Off',
     'Gestion de l\'IA': 'AI management',

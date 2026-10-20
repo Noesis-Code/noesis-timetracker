@@ -4,10 +4,3 @@
 #onbModules { display: flex; flex-direction: column; min-height: 0; text-align: left; }
 #onbModulesList { overflow-y: auto; min-height: 0; padding: 8px; margin: 0 -8px; max-height: calc(100dvh - 300px); }
 .onbModulesFooter { flex: none; padding-top: 8px; }
-/* Barre du bas modulable : appui long = édition (glisser pour réordonner, ✕ pour retirer le volet). Violet principal. */
-.tabBtn { touch-action: none; -webkit-touch-callout: none; user-select: none; }
-.tabbarEditing .tabBtn { animation: tabWiggle .5s ease-in-out infinite alternate; }
-.tabbarEditing .tabBtn.tabDragging { animation: none; z-index: 2; opacity: .9; }
-@keyframes tabWiggle { from { rotate: -2deg; } to { rotate: 2deg; } }
-@media (prefers-reduced-motion: reduce) { .tabbarEditing .tabBtn { animation: none; } }
-/* Menu de l'appui long sur la barre du bas : pop-up centré (.communityMembersModal), extension Trade Tracker (interrupteur) */

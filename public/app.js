@@ -15274,6 +15274,40 @@
       visLine.appendChild(mergeBtn);
     }
 
+    // Extension Trade Tracker : « + » connecte (l'onglet Trade apparaît dans la barre du bas) ; connectée, l'interrupteur la retire. Comptes autorisés seulement.
+    if (TMT.modules && TMT.modules.tradeAllowed()) {
+      var tradeRow = document.createElement('div');
+      tradeRow.className = 'notifRow';
+      var paintTrade = function () {
+        tradeRow.innerHTML = '';
+        var lbl = document.createElement('span');
+        lbl.className = 'notifRowLabel';
+        lbl.textContent = 'Trade Tracker';
+        tradeRow.appendChild(lbl);
+        if (TMT.modules.tradeOn()) {
+          var tsw = document.createElement('label');
+          tsw.className = 'toggleSwitch';
+          var tin = document.createElement('input');
+          tin.type = 'checkbox'; tin.checked = true; tin.setAttribute('role', 'switch'); tin.setAttribute('aria-label', 'Trade Tracker');
+          var ttr = document.createElement('span');
+          ttr.className = 'toggleSwitchTrack';
+          tin.addEventListener('change', function () { TMT.modules.setTrade(false).then(paintTrade); });
+          tsw.appendChild(tin); tsw.appendChild(ttr);
+          tradeRow.appendChild(tsw);
+        } else {
+          var plus = document.createElement('button');
+          plus.type = 'button';
+          plus.className = 'iconBtn';
+          plus.textContent = '+';
+          plus.setAttribute('aria-label', t('Connecter Trade Tracker'));
+          plus.addEventListener('click', function () { TMT.modules.setTrade(true).then(paintTrade); });
+          tradeRow.appendChild(plus);
+        }
+      };
+      paintTrade();
+      fields.appendChild(tradeRow);
+    }
+
     var msg = document.createElement('p');
     msg.className = 'msg';
     fields.appendChild(msg);

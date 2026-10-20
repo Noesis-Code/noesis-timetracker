@@ -123,7 +123,7 @@
     var id = pid();
     // Toujours rafraîchi depuis le serveur, même avec un cache. Réponse inutilisable (tout coupé) = tout actif ; échec = on garde le dernier état valide et on réessaie.
     return call('GET').then(function (d) {
-      state = usable(d.modules) ? d.modules : null; tradeAllowed = !!d.tradeAllowed; loadedFor = id; loadFails = 0; remember(); apply(); applyOrder(); openFirstTab(); paint(); return state;
+      state = usable(d.modules) ? d.modules : null; tradeAllowed = !!d.tradeAllowed; loadedFor = id; loadFails = 0; remember(); apply(); openFirstTab(); paint(); return state;
     }).catch(function () { if (loadFails++ < 5) setTimeout(function () { if (loadedFor !== pid()) load(); }, 2000 * loadFails); return null; });
   }
   var loadFails = 0;
@@ -131,121 +131,22 @@
   document.addEventListener('visibilitychange', function () { if (!document.hidden && pid()) load(); });
   window.addEventListener('online', function () { if (pid()) load(); });
 
-  // ===== Barre du bas modulable =====
-  // Appui long sur un volet = mode édition : glisser-déposer pour réordonner (ordre mémorisé par utilisateur, localStorage),
-  // Activer/désactiver un module = uniquement Réglages > Modules (pas de ✕ dans la barre du bas, 19 oct. 2026).
+  // ===== Barre du bas =====
+  // Activer/désactiver un module = Réglages > Modules ; l'extension Trade Tracker se connecte depuis la modification d'une activité (TMT.modules.setTrade).
   var nav = document.querySelector('.tabbar');
-  var editing = false, suppressClick = false;
-  var ORDER_KEY = function () { return 'noesis_tab_order_' + (pid() || ''); };
   function tabBtns() { return nav ? Array.prototype.slice.call(nav.querySelectorAll('.tabBtn')) : []; }
-  function savedOrder() { try { var a = JSON.parse(localStorage.getItem(ORDER_KEY()) || 'null'); return Array.isArray(a) ? a : null; } catch (e) { return null; } }
-  function applyOrder() {
-    var order = savedOrder(); if (!nav || !order) return;
-    var btns = tabBtns(), by = {};
-    btns.forEach(function (b) { by[b.dataset.tab] = b; });
-    var seq = order.filter(function (k) { return by[k]; });
-    btns.forEach(function (b) { if (seq.indexOf(b.dataset.tab) < 0) seq.push(b.dataset.tab); });
-    seq.forEach(function (k) { nav.appendChild(by[k]); });
-  }
-  function saveOrder() {
-    try { if (pid()) localStorage.setItem(ORDER_KEY(), JSON.stringify(tabBtns().map(function (b) { return b.dataset.tab; }))); } catch (e) { /* stockage plein */ }
-  }
-  // Extension Trade Tracker (20 oct. 2026) : un interrupteur dans le menu de l'appui long ajoute / retire son onglet. Visible seulement si le serveur autorise le compte.
-  var menu = null, keepEdit = false;
-  function closeMenu() { if (menu) { menu.remove(); menu = null; } }
-  function openMenu() {
-    closeMenu();
-    if (!tradeAllowed) return;
-    // Pop-up centré (recette .communityMembersModal) : voile + carte, titre, ✕ en haut à droite ; fermeture = ✕ ou toucher le voile.
-    menu = document.createElement('div'); menu.id = 'tabbarMenu'; menu.className = 'communityMembersModal';
-    menu.setAttribute('role', 'dialog'); menu.setAttribute('aria-modal', 'true'); menu.setAttribute('aria-labelledby', 'tabbarMenuTitle');
-    var card = document.createElement('div'); card.className = 'communityMembersModalCard';
-    var hd = document.createElement('div'); hd.className = 'profileSubWindowHeader';
-    var ttl = document.createElement('p'); ttl.className = 'sectionTitle'; ttl.id = 'tabbarMenuTitle'; ttl.textContent = tr('Ma barre du bas');
-    var x = document.createElement('button'); x.type = 'button'; x.className = 'menuBtn'; x.textContent = '✕'; x.setAttribute('aria-label', tr('Fermer'));
-    x.addEventListener('click', exitEdit);
-    hd.appendChild(ttl); hd.appendChild(x); card.appendChild(hd);
-    menu.addEventListener('click', function (e) { if (e.target === menu) exitEdit(); });
-    var row = document.createElement('div'); row.className = 'notifRow';
-    var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = 'Trade Tracker';
-    var sw = document.createElement('label'); sw.className = 'toggleSwitch';
-    var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!state && state.trade === true; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', 'Trade Tracker');
-    var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
-    inp.addEventListener('change', function () {
-      keepEdit = true;
-      if (!inp.checked && typeof TMT.closeTrade === 'function') TMT.closeTrade(); // retrait : la page Trade se ferme (les données Trade sont conservées)
-      put({ trade: inp.checked }).then(function () { keepEdit = false; });
-    });
-    sw.appendChild(inp); sw.appendChild(track); row.appendChild(label); row.appendChild(sw); card.appendChild(row); menu.appendChild(card);
-    document.body.appendChild(menu);
-  }
-  function exitEdit() { editing = false; closeMenu(); if (nav) nav.classList.remove('tabbarEditing'); }
-  function enterEdit() {
-    if (editing || !nav) return;
-    editing = true; nav.classList.add('tabbarEditing'); openMenu();
-  }
-  function startDrag(btn, e) {
-    var items = tabBtns().filter(function (b) { return b.offsetParent !== null; });
-    var mids = items.map(function (el) { var r = el.getBoundingClientRect(); return r.left + r.width / 2; });
-    var from = items.indexOf(btn); if (from < 0) return;
-    var startX = e.clientX, target = from, moved = false;
-    var step = items.length > 1 ? Math.abs(mids[1] - mids[0]) : 0;
-    try { btn.setPointerCapture(e.pointerId); } catch (er) { /* capture refusée */ }
-    function gap() {
-      items.forEach(function (el, i) {
-        if (i === from) return;
-        var sh = 0;
-        if (target > from && i > from && i <= target) sh = -step; else if (target < from && i >= target && i < from) sh = step;
-        el.style.transform = sh ? 'translateX(' + sh + 'px)' : '';
-      });
-    }
-    function mv(ev) {
-      var dx = ev.clientX - startX;
-      if (!moved && Math.abs(dx) < 6) return;
-      moved = true; btn.classList.add('tabDragging');
-      btn.style.transform = 'translateX(' + dx + 'px)';
-      var idx = 0; for (var i = 0; i < mids.length; i++) if (ev.clientX > mids[i]) idx = i;
-      if (idx !== target) { target = idx; gap(); }
-    }
-    function up() {
-      btn.removeEventListener('pointermove', mv); btn.removeEventListener('pointerup', up); btn.removeEventListener('pointercancel', up);
-      btn.classList.remove('tabDragging'); btn.style.transform = ''; items.forEach(function (el) { el.style.transform = ''; });
-      if (moved) {
-        suppressClick = true; setTimeout(function () { suppressClick = false; }, 400);
-        if (target !== from) {
-          var ordered = items.slice(); ordered.splice(from, 1); ordered.splice(target, 0, btn);
-          var all = tabBtns(), hidden = all.filter(function (b) { return items.indexOf(b) < 0; });
-          ordered.concat(hidden).forEach(function (b) { nav.appendChild(b); });
-          saveOrder();
-        }
-      }
-    }
-    btn.addEventListener('pointermove', mv); btn.addEventListener('pointerup', up); btn.addEventListener('pointercancel', up);
-  }
-  if (nav) {
-    nav.addEventListener('pointerdown', function (e) {
-      var btn = e.target.closest && e.target.closest('.tabBtn'); if (!btn) return;
-      if (editing) { startDrag(btn, e); return; }
-      var sx = e.clientX, sy = e.clientY, timer = setTimeout(function () { cleanup(); suppressClick = true; setTimeout(function () { suppressClick = false; }, 700); enterEdit(); startDrag(btn, e); }, 450);
-      function cm(ev) { if (Math.abs(ev.clientX - sx) > 10 || Math.abs(ev.clientY - sy) > 10) { clearTimeout(timer); cleanup(); } }
-      function cleanup() { clearTimeout(timer); document.removeEventListener('pointermove', cm); document.removeEventListener('pointerup', cleanup); document.removeEventListener('pointercancel', cleanup); }
-      document.addEventListener('pointermove', cm); document.addEventListener('pointerup', cleanup); document.addEventListener('pointercancel', cleanup);
-    });
-    // Capture : en édition, un toucher simple sur un volet ferme l'édition au lieu de naviguer ; juste après un glisser, aucun clic.
-    nav.addEventListener('click', function (e) {
-      if (suppressClick) { e.stopPropagation(); e.preventDefault(); return; }
-      if (editing) { e.stopPropagation(); e.preventDefault(); exitEdit(); }
-    }, true);
-    nav.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-    document.addEventListener('pointerdown', function (e) { if (editing && !e.target.closest('.tabbar, #tabbarMenu')) exitEdit(); });
-    document.addEventListener('tmt:modules', function () { applyOrder(); if (editing && !keepEdit) { exitEdit(); } });
-    applyOrder();
-  }
 
   // Tant que rien n'est chargé (hors ligne, avant connexion), tout est considéré actif : comportement d'avant le socle.
   TMT.modules = {
     isOn: on,
     tabOn: tabOn,
+    tradeAllowed: function () { return tradeAllowed; },
+    tradeOn: function () { return !!state && state.trade === true; },
+    // Connecte / déconnecte l'extension Trade Tracker (retrait : la page Trade se ferme, ses données sont conservées).
+    setTrade: function (v) {
+      if (!v && typeof TMT.closeTrade === 'function') TMT.closeTrade();
+      return put({ trade: !!v });
+    },
     mountChoice: mountChoice
   };
 
