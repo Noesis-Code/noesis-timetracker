@@ -22,7 +22,7 @@ function maxPerDay() {
 }
 function enabled() { return String(process.env.SPELLFIX || '').toLowerCase() !== 'off'; }
 function takeCall(account) {
-  const day = new Date().toISOString().slice(0, 10);
+  const day = require('./aifeaturecaps').dayKey(); // jour de Montréal, comme le budget IA (jamais UTC : double plafond par jour)
   for (const k of usage.keys()) if (!k.endsWith('|' + day)) usage.delete(k);
   const key = (account || '?') + '|' + day;
   const n = usage.get(key) || 0;
@@ -122,4 +122,4 @@ function schedule(itemId) {
   setTimeout(() => { fixItemLabel(itemId).catch(() => {}); }, 50).unref();
 }
 
-module.exports = { schedule, fixItemLabel, fixText, isPureSpellingFix, editDistance, setCaller, SYSTEM };
+module.exports = { schedule, fixItemLabel, fixText, isPureSpellingFix, editDistance, setCaller, takeCall, SYSTEM };

@@ -19,7 +19,7 @@ Le processus serveur tourne à `America/Toronto` (`server/index.js`, pas en UTC)
 | Rappels d'échéance d'objectif / sous-projet (`goalreminders.js`, `duereminders.js`, balayage 30 min) | « jours restants » | Toronto | Toronto (inchangé) |
 | Bilans automatiques (`goals.js` balayage 6 h), abonnements (3 h, horaire), comptes inactifs | jour de balayage | Toronto | Toronto (inchangé) |
 | Plafonds et budget IA par jour/mois (`aibudget.js`, `aifeaturecaps.dayKey`) | jour du compteur | Montréal | Montréal |
-| Plafonds par jour de `silentspellfix.js`, `crosssectorinference.js`, `drivesync.js` (`drive_ai_usage.day`) | jour du compteur | **UTC** | UTC (inchangé) |
+| Plafonds par jour de `silentspellfix.js`, `crosssectorinference.js`, `drivesync.js` (`drive_ai_usage.day`) | jour du compteur | **UTC** | Montréal (repli 30) |
 | MCP (`routes/mcp.js`, `todayLocal` propre) | dates relatives de l'outil | Toronto | Toronto (client IA sans en-tête) |
 
 Mécanisme : `dates.runWithTimezone` (posé par `session.js`, même technique que `aibudget.runAs`) et `dates.userToday()`. Les `todayLocal()` des modules d'objectifs l'appellent ; hors requête (cron, script, test) : jour du processus, comme avant.
@@ -27,7 +27,7 @@ Mécanisme : `dates.runWithTimezone` (posé par `session.js`, même technique qu
 ## Incohérences (non corrigées : cases dans l'index)
 1. **Rappel de 6 h** : heure de Toronto pour tous (Paris : midi, Vancouver : 3 h). Il faut un fuseau enregistré (dernier `X-Client-Tz`) : nouveau champ de profil, donc à décider.
 2. **Rappels d'échéance** (30 min) : « il reste N jours » compté au jour de Toronto ; écart d'au plus un jour pour Paris/Vancouver, sans doublon (clé période + seuil).
-3. **Trois définitions du jour pour les plafonds** : Montréal (budget IA), UTC (correction orthographique, inter-secteurs, Drive). Le plafond UTC se remet à zéro à 19-20 h à Toronto. Inoffensif (plafonds de sécurité), à unifier si besoin.
+3. **Trois définitions du jour pour les plafonds** : Montréal (budget IA), UTC (correction orthographique, inter-secteurs, Drive). Le plafond UTC se remet à zéro à 19-20 h à Toronto. **Corrigé (repli 30)** : les trois utilisent maintenant le jour de Montréal (`aifeaturecaps.dayKey`) ; avant, chacun pouvait être consommé deux fois dans un même jour de Montréal (Drive 40 -> 80 appels, inter-secteurs 30 -> 60 par activité). Test : `test/ia-plafonds-jour-test.js`.
 4. **Activité partagée entre fuseaux** : chaque membre voit « aujourd'hui » selon son téléphone ; une échéance posée par l'un est lue au jour de l'autre. Voulu.
 5. Les cron (rappel de 6 h) calculent la liste avec le jour de Toronto, pas celui du membre : la notification peut annoncer une tâche du jour de Toronto.
 

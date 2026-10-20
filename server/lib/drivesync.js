@@ -63,7 +63,7 @@ function intervalMin() {
   const n = Number(raw);
   return Number.isFinite(n) && n >= 1 ? n : (n === 0 ? 0 : 60); // défaut 60 min depuis le 19 oct. 2026 (30 avant) : un fichier inchangé ne coûte déjà aucun appel IA
 }
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { return require('./aifeaturecaps').dayKey(); } // jour de Montréal, comme le budget IA (jamais UTC : plafond double par jour)
 const taskKey = (title) => documenttasks.norm(title).slice(0, 200);
 
 function callsToday(userId) {

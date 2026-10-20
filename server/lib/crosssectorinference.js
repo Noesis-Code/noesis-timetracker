@@ -285,6 +285,14 @@ function buildPayload(sourceInfo, type, text, candidates, mainGoalOf) {
 }
 const dayCount = new Map(); // 'activité|jour' -> n
 function crossMaxPerDay() { const n = parseInt(process.env.CROSS_MAX_PER_ACTIVITY_DAY, 10); return Number.isFinite(n) && n >= 0 ? n : 30; }
+// Plafond par activité et par jour de Montréal (comme le budget IA ; jamais UTC : il se remettrait à zéro deux fois en 24 h).
+function takeDayCall(activityId) {
+  const dk = activityId + '|' + require('./aifeaturecaps').dayKey();
+  if ((dayCount.get(dk) || 0) >= crossMaxPerDay()) return false;
+  dayCount.set(dk, (dayCount.get(dk) || 0) + 1);
+  if (dayCount.size > 500) dayCount.delete(dayCount.keys().next().value);
+  return true;
+}
 async function evaluateCrossSectorLinks(activityId, sourceCategory, source) {
   try {
     if (!aiConfigured()) return { skipped: 'ai-not-configured' };
@@ -301,10 +309,7 @@ async function evaluateCrossSectorLinks(activityId, sourceCategory, source) {
 
     const hash = require('crypto').createHash('sha256').update(JSON.stringify(payload)).digest('hex');
     if ((evaluated.get(hash) || 0) > Date.now()) return { skipped: 'unchanged' };
-    const dk = activityId + '|' + new Date().toISOString().slice(0, 10);
-    if ((dayCount.get(dk) || 0) >= crossMaxPerDay()) return { skipped: 'daily-cap' };
-    dayCount.set(dk, (dayCount.get(dk) || 0) + 1);
-    if (dayCount.size > 500) dayCount.delete(dayCount.keys().next().value);
+    if (!takeDayCall(activityId)) return { skipped: 'daily-cap' };
     // Cache court (10 min, mémoire) : deux évaluations identiques simultanées (capture + objectif réenregistré) partagent un seul appel ; un échec n'est jamais mémorisé.
     const suggestions = await aicache.memoize(['inter-secteurs', payload], () => callAi(payload, candidates.map((c) => c.key)), { ttlMs: 10 * 60000 });
     if (evaluated.size >= 1000) evaluated.delete(evaluated.keys().next().value);
@@ -347,6 +352,7 @@ function categoriesWithMainGoal(activityId) {
 module.exports = {
   callAi,
   evaluateCrossSectorLinks,
+  takeDayCall,
   suggestCrossSectorLinks,
   categoriesWithMainGoal,
   // Exportés pour les tests (bac à sable) uniquement.

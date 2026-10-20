@@ -35,7 +35,10 @@ Une case par ligne. Détail et choix dans le fichier cité (`questions-emilien-<
 - [ ] Crédits : seuil d'alerte 5 $/sem. ; canal d'alerte (journal / push / courriel) ; seuils par compte actif ; tarifs IA à confirmer (`credits`)
 - [ ] Crédits : mémo IA persistant ; signal d'acceptation de la reformulation ; troncature inter-secteurs ; candidats 60 -> 25 (`credits`)
 - [ ] Contrastes : 3 couleurs sous 4,5:1 (`contrastes-basic.md`)
-- [ ] Fuseaux : le rappel de 6 h part à l'heure de Toronto pour tous (Paris midi, Vancouver 3 h) ; l'envoyer à 6 h locale exige d'enregistrer le fuseau au profil (nouveau champ) ; plafonds de jour IA : unifier Montréal / UTC ? (`fuseaux-serveur-2026-10-20.md`)
+- [ ] Rappel de 6 h (`fuseaux-serveur-2026-10-20.md`, plafonds IA de jour déjà unifiés sur Montréal) : choisir UNE option
+  - [ ] A. Statu quo : 6 h de Toronto pour tous (Paris reçoit à midi, Vancouver à 3 h) ; rien à construire, aucun risque
+  - [ ] B. Heure du serveur remplacée par le dernier fuseau vu du téléphone (`X-Client-Tz`) : 6 h locale partout, un champ de profil invisible ; limite : un voyage ou un téléphone muet décale le rappel d'un jour, balayage horaire au lieu d'un cron fixe
+  - [ ] C. Fuseau choisi dans le profil : 6 h locale fixe, mais un réglage de plus (refus par défaut, SIMPLIFICATION.md)
 - [ ] Traduire en EN « Ajouter des tâches > document » ; trancher 4 clés EN en conflit (`simplification`, `code-mort-2026-10-20.md`)
 
 ## D. Ajouts (refus par défaut, Simplification)
