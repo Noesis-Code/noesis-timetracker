@@ -3534,3 +3534,9 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 .reportCard { width: 100%; max-width: 360px; background: var(--bg); border: 1px solid var(--border, rgba(128,128,128,.3)); border-radius: var(--radius, 12px); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .reportHead { display: flex; justify-content: space-between; align-items: center; }
 .reportReason { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
+
+/* Accessibilité (20 oct. 2026, 390 px) : zone tactile >= 44 px sans changer l'apparence (zone invisible autour du bouton). */
+.whoami::after, .topIconBtn::after,
+#tsPrevWeek::after, #tsNextWeek::after, #tsPeriodBtn::after,
+#statsPieTodayBtn::after, #chartPeriodBtn::after, #statsVisBtn::before { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+#statsVisBtn, #tsPrevWeek, #tsNextWeek, #tsPeriodBtn, #statsPieTodayBtn, #chartPeriodBtn { position: relative; }

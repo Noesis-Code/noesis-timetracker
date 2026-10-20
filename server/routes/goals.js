@@ -650,6 +650,7 @@ router.put('/activities/:id/goals/timecaps/:key', timecapsRoute((u, a, k, b) => 
 // (voir le commentaire au-dessus de GET .../categories) : "auto-task" est un
 // segment littéral, jamais confondu avec un :key, et aucune autre route
 // POST n'a la même forme.
+const idemInFlight = new Map();
 router.post('/activities/:id/goals/categories/auto-task', async (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
@@ -667,7 +668,14 @@ router.post('/activities/:id/goals/categories/auto-task', async (req, res) => {
   }
 
   try {
-    const item = await goalstaskclassify.addTaskWithAutoCategory(activityId, userId, req.body.label);
+    // Même clé reçue pendant que la 1re requête est en cours (reconnexion, réponse perdue) : on attend son résultat.
+    const flightId = idemKey ? userId + '|' + idemKey : null;
+    if (flightId && idemInFlight.has(flightId)) {
+      return res.status(200).json(await idemInFlight.get(flightId));
+    }
+    const work = goalstaskclassify.addTaskWithAutoCategory(activityId, userId, req.body.label);
+    if (flightId) { idemInFlight.set(flightId, work); const clear = () => idemInFlight.delete(flightId); work.then(clear, clear); }
+    const item = await work;
     if (idemKey) {
       db.prepare('INSERT OR REPLACE INTO idempotency_keys (userId, key, response, createdAt) VALUES (?, ?, ?, ?)')
         .run(userId, idemKey, JSON.stringify(item), new Date().toISOString());

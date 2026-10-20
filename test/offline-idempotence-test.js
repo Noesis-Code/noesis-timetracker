@@ -14,7 +14,7 @@ const m = db.prepare('SELECT userId, activityId FROM activity_members LIMIT 1').
 if (!m) { console.log('  (pas de données de base : test ignoré)'); process.exit(0); }
 
 let created = 0;
-classify.addTaskWithAutoCategory = async (a, u, label) => ({ id: ++created, label, categoryKey: 'k' });
+classify.addTaskWithAutoCategory = async (a, u, label) => { await new Promise((r) => setTimeout(r, 40)); return { id: ++created, label, categoryKey: 'k' }; };
 const app = express();
 app.use(express.json());
 app.use((req, _res, next) => { req.userId = m.userId; next(); });
@@ -41,6 +41,16 @@ function post(port, key, label) {
   ok(created === 2, 'autre clé : nouvelle tâche');
   await post(port, null, 'Tâche C'); await post(port, null, 'Tâche C');
   ok(created === 4, 'sans clé : comportement inchangé');
+  // Reconnexion : le client réémet la même clé pendant que la 1re requête est encore en cours (réponse perdue) : une seule tâche.
+  const before = created;
+  const [c, d] = await Promise.all([post(port, 'cle-3', 'Tâche D'), post(port, 'cle-3', 'Tâche D')]);
+  ok(created === before + 1 && c.body.id === d.body.id, 'même clé en parallèle : une seule tâche, même réponse');
+  // Échec serveur : rien n'est mémorisé, le rejeu crée bien la tâche (aucune perte).
+  const orig = classify.addTaskWithAutoCategory; let boom = true;
+  classify.addTaskWithAutoCategory = async (a, u, l) => { if (boom) { boom = false; throw new Error('panne'); } return orig(a, u, l); };
+  const e1 = await post(port, 'cle-4', 'Tâche E'); const e2 = await post(port, 'cle-4', 'Tâche E');
+  ok(e1.status >= 400 && e2.status === 201, 'échec puis rejeu : la tâche est créée au rejeu (pas de perte)');
+  classify.addTaskWithAutoCategory = orig;
   server.close();
   process.exit(failed ? 1 : 0);
 })();
