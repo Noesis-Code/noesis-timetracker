@@ -11,7 +11,8 @@ const get = (p) => new Promise((res, rej) => http.get({ port, path: p }, (r) => 
 const child = spawn('node', [path.join(__dirname, '..', 'server', 'index.js')], { env, stdio: 'ignore' });
 (async () => {
   let r;
-  for (let i = 0; i < 60; i++) { try { r = await get('/healthz'); break; } catch { await new Promise((x) => setTimeout(x, 250)); } }
+  // Démarrage du serveur sous charge (suite en parallèle) : jusqu'à 60 s au lieu de 15 s (cause du 144/145 intermittent).
+  for (let i = 0; i < 240 && child.exitCode === null; i++) { try { r = await get('/healthz'); break; } catch { await new Promise((x) => setTimeout(x, 250)); } }
   ok(r && r.status === 200, '/healthz répond 200');
   ok(r && r.body === 'ok', '/healthz ne renvoie que « ok » (aucune donnée)');
   ok(r && !r.headers['set-cookie'], '/healthz ne pose aucun témoin de session');
