@@ -11331,7 +11331,8 @@
           if (tries-- > 0) setTimeout(poll, 100);
           return;
         }
-        if (!group.isPole && !row.classList.contains('open')) {
+        // Pôles comme secteurs sont des accordéons repliés par défaut : on déplie dans les deux cas.
+        if (!row.classList.contains('open')) {
           var header = row.querySelector('.subProjectRowHeader');
           if (header) header.click();
         }
