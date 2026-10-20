@@ -1,7 +1,7 @@
 // Compression HTTP : gzip sur un .js statique et sur /api/version. Usage : node test/compression-test.js
 const fs = require('fs'), os = require('os'), path = require('path'), http = require('http');
 const { spawn } = require('child_process');
-const port = 3800 + Math.floor(Math.random() * 90);
+const port = require('./lib/freeport')();
 const env = { ...process.env, PORT: String(port), NOESIS_DATA_DIR: require('./lib/tmpdir').mkTmp('gz-test-') };
 let failed = 0;
 const ok = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };

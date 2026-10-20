@@ -12,7 +12,7 @@ function makeCounter() {
 
 async function startServer() {
   const dir = require('./lib/tmpdir').mkTmp('tmt-fonc-');
-  const port = 39000 + Math.floor(Math.random() * 900) + Number(process.env.FONC_PORT_OFFSET || 0);
+  const port = require('./lib/freeport')();
   const env = Object.assign({}, process.env, {
     NOESIS_DATA_DIR: dir, PORT: String(port), NOESIS_HOST: '127.0.0.1',
     ANTHROPIC_API_KEY: '', RAILWAY_ENVIRONMENT_NAME: '', NODE_ENV: 'test',

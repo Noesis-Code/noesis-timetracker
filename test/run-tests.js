@@ -10,6 +10,19 @@ const os = require('os');
 const { fork } = require('child_process');
 const { DatabaseSync } = require('node:sqlite');
 
+// Garde-fou : aucun test ne doit écrire à la racine du système ni dans le dépôt. Refus de démarrer si TMPDIR est
+// défini mais vide/inutilisable, ou si le dossier temporaire résolu est la racine ou le dépôt.
+{
+  const repoRoot = path.join(__dirname, '..');
+  const bad = (m) => { console.error('REFUS DE DÉMARRER : ' + m); process.exit(2); };
+  if (process.env.TMPDIR !== undefined && process.env.TMPDIR.trim() === '') bad('TMPDIR est défini mais vide (les tests écriraient hors des dossiers temporaires prévus). Définir TMPDIR vers un dossier temporaire ou le retirer.');
+  const t = path.resolve(os.tmpdir());
+  if (t === path.parse(t).root || t === path.resolve(repoRoot) || t.startsWith(path.resolve(repoRoot) + path.sep)) bad('le dossier temporaire (' + t + ') est la racine du système ou situé dans le dépôt.');
+  try { fs.accessSync(t, fs.constants.W_OK); } catch (e) { bad('le dossier temporaire (' + t + ') n\'est pas accessible en écriture.'); }
+}
+const topNames = (d) => { try { return fs.readdirSync(d).sort(); } catch (e) { return []; } };
+const repoBefore = topNames(path.join(__dirname, '..'));
+
 // Racine temporaire privée à la suite : tout enfant (os.tmpdir() lit TMPDIR) y crée ses dossiers ;
 // à la fin elle doit être vide, sinon la suite échoue (anti-fuite de /tmp).
 const tmpLib = require('./lib/tmpdir');
@@ -17,6 +30,123 @@ const suiteTmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-suite-'));
 process.env.TMPDIR = suiteTmpRoot;
 process.on('exit', () => { try { fs.rmSync(suiteTmpRoot, { recursive: true, force: true }); } catch (e) { /* ignoré */ } });
 for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => process.exit(130));
+
+// Scripts de test indépendants (un processus chacun, ports éphémères, dossiers via mkTmp) : lancés d'avance en parallèle
+// (3 au plus, TMT_TEST_JOBS pour changer) ; les résultats sont consommés dans l'ordre d'origine, donc mêmes libellés et mêmes comptes.
+const { runPool } = require('./lib/parallel');
+const TRADE_DIR = path.join(__dirname, '..', 'trade-tracker', 'test');
+const TRADE_SLOW = ['stepup-test.js', 'sync-charge-test.js', 'broker-e2e-test.js'];
+let tradeFiles = [];
+try { require.resolve('@simplewebauthn/server', { paths: [path.join(__dirname, '..', 'trade-tracker')] }); tradeFiles = fs.readdirSync(TRADE_DIR).filter((n) => n.endsWith('-test.js')).sort().sort((a, b) => TRADE_SLOW.includes(b) - TRADE_SLOW.includes(a)).map((n) => path.join(TRADE_DIR, n)); } catch (e) { /* dépendances Trade absentes : childTrade() échoue */ }
+const SUITE_FILES = [
+  'offer1access-test.js',
+  'modules-test.js',
+  'commentaire-chrono-test.js',
+  'trade-link-test.js',
+  'trade-events-test.js',
+  'trade-e2e-test.js',
+  'idempotency-purge-test.js',
+  'parseplan-test.js',
+  'a11y-attributs-test.js',
+  'offline-queue-test.js',
+  'offline-idempotence-test.js',
+  'weekplanner-test.js',
+  'capturedate-test.js',
+  'documenttasks-test.js',
+  'categorie-inconnue-test.js',
+  'category-delete-mode-test.js',
+  'documenttasks-horizon-test.js',
+  'documenttasks-jour-test.js',
+  'glisse-coherence-test.js',
+  'strategie-test.js',
+  'precision-taches-test.js',
+  'apprentissage-usage-test.js',
+  'stripe-tax-test.js',
+  'expansion-parcours-test.js',
+  'drive-test.js',
+  'drivesync-test.js',
+  'drivepartage-test.js',
+  'relecture-ecarts-test.js',
+  'hebdo-recentdone-test.js',
+  'intersecteurs-test.js',
+  'intersecteurs-payload-test.js',
+  'debit-sauvegardes-test.js',
+  'signalement-test.js',
+  'guard-integrity.js',
+  'aibudget-test.js',
+  'changeproposals-test.js',
+  'changeproposals-weekly-test.js',
+  'iacout-test.js',
+  'iacout-memo-test.js',
+  'ia-plafonds-test.js',
+  'ia-repli-429-test.js',
+  'ia-appels-doc-test.js',
+  'ia-alerte-memo-test.js',
+  'ia-rapport-export-test.js',
+  'ia-rapport-hebdo-test.js',
+  'ia-cache-court-test.js',
+  'ia-robustesse-test.js',
+  'ia-confidentialite-test.js',
+  'ia-masquage-test.js',
+  'ia-masquage-champs-test.js',
+  'ia-prompts-reduction-test.js',
+  'ai-cost-projection-test.js',
+  'mcp-test.js',
+  'zone-fichier-test.js',
+  'fonctionnel-chrono.js',
+  'fonctionnel-taches.js',
+  'fonctionnel-modules.js',
+  'fonctionnel-secteurs.js',
+  'fonctionnel-stats.js',
+  'fonctionnel-vues-periodes.js',
+  'fonctionnel-export.js',
+  'fonctionnel-basic-legal.js',
+  'fonctionnel-parcours.js',
+  'cal-externe-capacite-test.js',
+  'capture-objectifs-horizon-test.js',
+  'categories-visibility-test.js',
+  'category-delete-carry-test.js',
+  'asset-version-test.js',
+  'sw-bump-test.js',
+  'expansion-bout-en-bout-test.js',
+  'compression-test.js',
+  'export-test.js',
+  'fiabilite-basic-test.js',
+  'feuille-mois-css-test.js',
+  'goalstatus-test.js',
+  'healthz-test.js',
+  'importance-test.js',
+  'inactive-accounts-test.js',
+  'member-series-test.js',
+  'modules-gating-test.js',
+  'pin-lock-test.js',
+  'silentspellfix-test.js',
+  'stats-profile-insights-test.js',
+  'stripe-webhook-idempotence-test.js',
+  'expansion-securite-test.js',
+  'expansion-code-statut-test.js',
+  'structure-migration-test.js',
+  'subproject-migration-test.js',
+  'task-lock-test.js',
+  'year-anchor-test.js',
+  'year-bound-test.js',
+  'zone-ia-secteur-periode-test.js',
+];
+const poolResults = runPool([...tradeFiles, ...SUITE_FILES.map((f) => path.join(__dirname, f))], { serial: ['sync-charge-test.js'] });
+async function runChild(f) {
+  const r = await poolResults.get(path.join(__dirname, f));
+  if (!r) throw new Error('script de test non déclaré dans SUITE_FILES : ' + f);
+  if (!r.ok) { console.log('  --- sortie de ' + f + ' ---\n' + (r.stdout + r.stderr).split('\n').slice(-30).join('\n')); throw new Error(f + ' échoue'); }
+}
+async function childTrade() {
+  if (!tradeFiles.length) throw new Error('Dépendances de Trade absentes : cd trade-tracker && npm ci');
+  let failed = 0;
+  for (const f of tradeFiles) {
+    const r = await poolResults.get(f);
+    if (r.ok) console.log('  ok', path.basename(f)); else { failed++; console.log('  ÉCHEC', path.basename(f), r.stdout, r.stderr); }
+  }
+  if (failed) throw new Error(failed + ' test(s) Trade échoué(s)');
+}
 
 let passed = 0, failed = 0;
 function assert(cond, label) {
@@ -197,151 +327,151 @@ async function main() {
   } catch (e) { refusedOverwrite = true; }
   assert(refusedOverwrite, 'la commande "restore" refuse d\'écraser un fichier destination déjà existant');
 
-  try { execFileSync('node', [path.join(__dirname, 'offer1access-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'accès anticipé Offre 1 : tests passés'); }
+  try { await runChild('offer1access-test.js'); assert(true, 'accès anticipé Offre 1 : tests passés'); }
   catch (e) { assert(false, 'accès anticipé Offre 1 : tests échoués'); }
-  try { execFileSync('node', [path.join(__dirname, 'modules-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'modules activables : tests passés'); }
+  try { await runChild('modules-test.js'); assert(true, 'modules activables : tests passés'); }
   catch (e) { assert(false, 'modules activables : tests échoués'); }
-  try { execFileSync('node', [path.join(__dirname, 'commentaire-chrono-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'commentaire Chrono : tests passés'); }
+  try { await runChild('commentaire-chrono-test.js'); assert(true, 'commentaire Chrono : tests passés'); }
   catch (e) { assert(false, 'commentaire Chrono : tests échoués'); }
-  try { execFileSync('node', [path.join(__dirname, 'trade-link-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'Trade Tracker : jeton de lien : tests passés'); }
+  try { await runChild('trade-link-test.js'); assert(true, 'Trade Tracker : jeton de lien : tests passés'); }
   catch (e) { assert(false, 'Trade Tracker : jeton de lien : tests échoués'); }
-  try { execFileSync('node', [path.join(__dirname, 'trade-events-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'Trade Tracker : événements d\'achat : tests passés'); }
+  try { await runChild('trade-events-test.js'); assert(true, 'Trade Tracker : événements d\'achat : tests passés'); }
   catch (e) { assert(false, 'Trade Tracker : événements d\'achat : tests échoués'); }
-  try { execFileSync('node', [path.join(__dirname, 'trade-e2e-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'Trade Tracker : bout en bout TMT <-> Trade : tests passés'); }
+  try { await runChild('trade-e2e-test.js'); assert(true, 'Trade Tracker : bout en bout TMT <-> Trade : tests passés'); }
   catch (e) { assert(false, 'Trade Tracker : bout en bout TMT <-> Trade : tests échoués'); }
 
-  try { execFileSync('node', [path.join(__dirname, 'idempotency-purge-test.js')], { encoding: 'utf8' }); assert(true, 'purge des clés d\'idempotence (test/idempotency-purge-test.js) passe'); }
+  try { await runChild('idempotency-purge-test.js'); assert(true, 'purge des clés d\'idempotence (test/idempotency-purge-test.js) passe'); }
   catch (e) { assert(false, 'purge des clés d\'idempotence (test/idempotency-purge-test.js) échoue'); }
-  try { execFileSync('node', [path.join(__dirname, 'parseplan-test.js')], { encoding: 'utf8' }); assert(true, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) passe'); }
+  try { await runChild('parseplan-test.js'); assert(true, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) passe'); }
   catch (e) { assert(false, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) échoue'); }
-  try { execFileSync('node', [path.join(__dirname, 'a11y-attributs-test.js')], { encoding: 'utf8' }); assert(true, 'accessibilité : attributs (test/a11y-attributs-test.js) passe'); }
+  try { await runChild('a11y-attributs-test.js'); assert(true, 'accessibilité : attributs (test/a11y-attributs-test.js) passe'); }
   catch (e) { assert(false, 'accessibilité : attributs (test/a11y-attributs-test.js) échoue'); }
 
-  try { execFileSync('node', [path.join(__dirname, 'offline-queue-test.js')], { encoding: 'utf8' }); assert(true, 'file hors ligne : cas limites (test/offline-queue-test.js) passe'); }
+  try { await runChild('offline-queue-test.js'); assert(true, 'file hors ligne : cas limites (test/offline-queue-test.js) passe'); }
   catch (e) { assert(false, 'file hors ligne : cas limites (test/offline-queue-test.js) échoue'); }
 
-  try { execFileSync('node', [path.join(__dirname, 'offline-idempotence-test.js')], { encoding: 'utf8' }); assert(true, 'file hors ligne : idempotence (test/offline-idempotence-test.js) passe'); }
+  try { await runChild('offline-idempotence-test.js'); assert(true, 'file hors ligne : idempotence (test/offline-idempotence-test.js) passe'); }
   catch (e) { assert(false, 'file hors ligne : idempotence (test/offline-idempotence-test.js) échoue'); }
 
   // Planificateur de semaines (lot A) : suite autonome, base temporaire propre.
   let wpOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'weekplanner-test.js')], { encoding: 'utf8' }); } catch (e) { wpOk = false; }
+  try { await runChild('weekplanner-test.js'); } catch (e) { wpOk = false; }
   assert(wpOk, 'le planificateur de semaines (test/weekplanner-test.js) passe');
 
   // Rangement par date à la capture (indices de date, date manuelle prioritaire).
   let cdOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'capturedate-test.js')], { encoding: 'utf8' }); } catch (e) { cdOk = false; }
+  try { await runChild('capturedate-test.js'); } catch (e) { cdOk = false; }
   assert(cdOk, 'le rangement par date à la capture (test/capturedate-test.js) passe');
 
   // Ajout de tâches depuis un document (IA simulée).
   let dtOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'documenttasks-test.js')], { encoding: 'utf8' }); } catch (e) { dtOk = false; }
+  try { await runChild('documenttasks-test.js'); } catch (e) { dtOk = false; }
   assert(dtOk, 'ajout de tâches depuis un document (test/documenttasks-test.js) passe');
 
   // Catégorie inconnue : tâche IA écartée et comptée.
   let ciOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'categorie-inconnue-test.js')], { encoding: 'utf8' }); } catch (e) { ciOk = false; }
+  try { await runChild('categorie-inconnue-test.js'); } catch (e) { ciOk = false; }
   assert(ciOk, 'tâche IA à catégorie inconnue écartée (test/categorie-inconnue-test.js) passe');
 
   // Suppression d'un secteur : supprimer ou déplacer ses tâches.
   let sdOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'category-delete-mode-test.js')], { encoding: 'utf8' }); } catch (e) { sdOk = false; }
+  try { await runChild('category-delete-mode-test.js'); } catch (e) { sdOk = false; }
   assert(sdOk, 'suppression de secteur : supprimer/déplacer les tâches (test/category-delete-mode-test.js) passe');
 
   // Horizon étendu de « Ajouter des tâches ».
   let dthOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'documenttasks-horizon-test.js')], { encoding: 'utf8' }); } catch (e) { dthOk = false; }
+  try { await runChild('documenttasks-horizon-test.js'); } catch (e) { dthOk = false; }
   assert(dthOk, 'horizon étendu des tâches IA (test/documenttasks-horizon-test.js) passe');
 
   // Jour proposé par l'IA, contrôle de capacité par jour.
   let dtjOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'documenttasks-jour-test.js')], { encoding: 'utf8' }); } catch (e) { dtjOk = false; }
+  try { await runChild('documenttasks-jour-test.js'); } catch (e) { dtjOk = false; }
   assert(dtjOk, 'jour proposé et capacité par jour (test/documenttasks-jour-test.js) passe');
 
   // Cohérence « Où ça glisse » : bulle == feuille == règle du statut.
   let glOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'glisse-coherence-test.js')], { encoding: 'utf8' }); } catch (e) { glOk = false; }
+  try { await runChild('glisse-coherence-test.js'); } catch (e) { glOk = false; }
   assert(glOk, 'cohérence « Où ça glisse » (test/glisse-coherence-test.js) passe');
 
   // Stratégie d'activité (filtre IA, retrait silencieux des tâches de l'IA seulement).
   let stOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'strategie-test.js')], { encoding: 'utf8' }); } catch (e) { stOk = false; }
+  try { await runChild('strategie-test.js'); } catch (e) { stOk = false; }
   assert(stOk, 'stratégie d\'activité (test/strategie-test.js) passe');
 
   // Précision des tâches générées (règles déterministes + harnais d'évaluation simulé).
   let prOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'precision-taches-test.js')], { encoding: 'utf8' }); } catch (e) { prOk = false; }
+  try { await runChild('precision-taches-test.js'); } catch (e) { prOk = false; }
   assert(prOk, 'précision des tâches (test/precision-taches-test.js) passe');
 
   // Apprentissage par l'usage (exemples par utilisateur, plafond de prompt, remise à zéro, rapport).
   let apOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'apprentissage-usage-test.js')], { encoding: 'utf8' }); } catch (e) { apOk = false; }
+  try { await runChild('apprentissage-usage-test.js'); } catch (e) { apOk = false; }
   assert(apOk, 'apprentissage par l\'usage (test/apprentissage-usage-test.js) passe');
 
   // Stripe Tax : corps Checkout avec/sans STRIPE_TAX_ENABLED (sans réseau).
   let txOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'stripe-tax-test.js')], { encoding: 'utf8' }); } catch (e) { txOk = false; }
+  try { await runChild('stripe-tax-test.js'); } catch (e) { txOk = false; }
   assert(txOk, 'Stripe Tax (test/stripe-tax-test.js) passe');
 
   // Parcours Expansion achat -> livraison -> résiliation (Stripe et IA simulés, sans réseau).
   let expOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'expansion-parcours-test.js')], { encoding: 'utf8' }); } catch (e) { expOk = false; }
+  try { await runChild('expansion-parcours-test.js'); } catch (e) { expOk = false; }
   assert(expOk, 'parcours Expansion (test/expansion-parcours-test.js) passe');
 
   // Expansion de bout en bout (paiement, webhook, accès, courriel, portail, résiliation ; faux Stripe et faux envoi).
   let e2eOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'expansion-bout-en-bout-test.js')], { encoding: 'utf8' }); } catch (e) { e2eOk = false; }
+  try { await runChild('expansion-bout-en-bout-test.js'); } catch (e) { e2eOk = false; }
   assert(e2eOk, 'Expansion de bout en bout (test/expansion-bout-en-bout-test.js) passe');
 
   // Connecteur Drive (Google simulé, PDF compris).
   let drOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'drive-test.js')], { encoding: 'utf8' }); } catch (e) { drOk = false; }
+  try { await runChild('drive-test.js'); } catch (e) { drOk = false; }
   assert(drOk, 'connecteur Drive (test/drive-test.js) passe');
 
   // Surveillance du dossier Drive (Google et IA simulés).
   let dsOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'drivesync-test.js')], { encoding: 'utf8' }); } catch (e) { dsOk = false; }
+  try { await runChild('drivesync-test.js'); } catch (e) { dsOk = false; }
   assert(dsOk, 'surveillance Drive (test/drivesync-test.js) passe');
 
   // Tâches Drive partagées par activité (migration + règles communes aux membres).
   let dpOk = true;
-  try { execFileSync('node', [path.join(__dirname, 'drivepartage-test.js')], { encoding: 'utf8' }); } catch (e) { dpOk = false; }
+  try { await runChild('drivepartage-test.js'); } catch (e) { dpOk = false; }
   assert(dpOk, 'tâches Drive partagées (test/drivepartage-test.js) passe');
 
   // Budget IA et économies de coût IA (cache de prompt, appel fusionné, lots, empreintes, pré-filtre).
   for (const [f, label] of [['aibudget-test.js', 'budget IA'], ['changeproposals-test.js', 'modifications proposées'], ['changeproposals-weekly-test.js', 'redistribution par objectif hebdomadaire'], ['iacout-test.js', 'économies de coût IA'], ['iacout-memo-test.js', 'mémo plan Offre 1 + rapport de coût'], ['ia-plafonds-test.js', 'plafonds quotidiens IA (reformulation, classement)'],  ['ia-repli-429-test.js', 'refus 429/529 sans second appel + plafonds'], ['ia-appels-doc-test.js', 'appels IA documentés et journalisés'], ['ia-alerte-memo-test.js', 'alerte coût IA journalier + mémo sans jetons'], ['ia-rapport-export-test.js', 'rapport de coût IA depuis un export JSON/CSV'], ['ia-rapport-hebdo-test.js', 'rapport hebdomadaire de coût IA'], ['ia-cache-court-test.js', 'cache court inter-secteurs + plafonds visibles (rapport, alerte)'], ['ia-robustesse-test.js', 'robustesse des appels IA (JSON invalide/tronqué, vide, délai, 500) : repli sans exception'], ['ia-confidentialite-test.js', 'prompts IA sans courriel, téléphone, nom de famille ni identifiant de compte'], ['ia-masquage-test.js', 'masquage Loi 25 des textes libres avant envoi à l\'IA + validation de la reformulation'],  ['ia-masquage-champs-test.js', 'masquage Loi 25 : champs à garder intacts (secteurs, dates ISO, montants, heures)'], ['ia-prompts-reduction-test.js', 'prompts IA réduits + exemples par utilisateur bornés'], ['ai-cost-projection-test.js', 'projection mensuelle du coût IA'], ['ia-modeles-centralises-test.js', 'identifiants de modèle IA centralisés (aimodels.js) + surcharge par variable'], ['apprentissage-e2e-test.js', 'apprentissage par utilisateur de bout en bout (isolation, bornes, remise à zéro, suppression de compte)'], ['ia-cout-par-utilisateur-test.js', 'coût par utilisateur actif du rapport de coût IA'], ['mcp-test.js', 'serveur MCP lecture seule (Connecter mon IA)'], ['zone-fichier-test.js', 'zone libre IA : fichier joint']]) {
     let ok = true;
-    try { execFileSync('node', [path.join(__dirname, f)], { encoding: 'utf8', stdio: 'pipe' }); } catch (e) { ok = false; }
+    try { await runChild(f); } catch (e) { ok = false; }
     assert(ok, `${label} (test/${f}) passe`);
   }
 
   // Parcours fonctionnels HTTP (serveur réel sur données temporaires) : chrono, tâches, modules, secteurs, stats, export.
   for (const [f, label] of [['fonctionnel-chrono.js', 'parcours chrono'], ['fonctionnel-taches.js', 'parcours tâches'], ['fonctionnel-modules.js', 'parcours modules'], ['fonctionnel-secteurs.js', 'parcours suppression de secteur'], ['fonctionnel-stats.js', 'parcours statistiques'], ['fonctionnel-vues-periodes.js', 'parcours vues Semaine, Mois, Année'], ['fonctionnel-export.js', 'parcours export'], ['fonctionnel-basic-legal.js', 'parcours Basic légal (mentions, consentements, âge, résiliation, signalement, sauvegardes)'], ['fonctionnel-parcours.js', 'parcours profil, feuille de temps, modules partiels']]) {
     let ok = true;
-    try { execFileSync('node', [path.join(__dirname, f)], { encoding: 'utf8', stdio: 'pipe' }); } catch (e) { ok = false; }
+    try { await runChild(f); } catch (e) { ok = false; }
     assert(ok, `${label} (test/${f}) passe`);
   }
 
-  try { execFileSync('node', [path.join(__dirname, 'relecture-ecarts-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'Drive ajoutées par activité + roadmap par membre (test/relecture-ecarts-test.js) passe'); }
+  try { await runChild('relecture-ecarts-test.js'); assert(true, 'Drive ajoutées par activité + roadmap par membre (test/relecture-ecarts-test.js) passe'); }
   catch (e) { assert(false, 'Drive ajoutées par activité + roadmap par membre (test/relecture-ecarts-test.js) échoue'); }
 
-  try { execFileSync('node', [path.join(__dirname, '..', 'trade-tracker', 'test', 'run.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'Trade Tracker (trade-tracker/test/run.js) passe'); }
+  try { await childTrade(); assert(true, 'Trade Tracker (trade-tracker/test/run.js) passe'); }
   catch (e) { assert(false, 'Trade Tracker (trade-tracker/test/run.js) échoue'); }
 
-  try { execFileSync('node', [path.join(__dirname, 'hebdo-recentdone-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'prompt hebdo : dernières tâches terminées bornées (test/hebdo-recentdone-test.js) passe'); }
+  try { await runChild('hebdo-recentdone-test.js'); assert(true, 'prompt hebdo : dernières tâches terminées bornées (test/hebdo-recentdone-test.js) passe'); }
   catch (e) { assert(false, 'prompt hebdo : dernières tâches terminées bornées (test/hebdo-recentdone-test.js) échoue'); }
-  try { execFileSync('node', [path.join(__dirname, 'intersecteurs-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'suggestions inter-secteurs dans Modifications proposées (test/intersecteurs-test.js) passe'); }
+  try { await runChild('intersecteurs-test.js'); assert(true, 'suggestions inter-secteurs dans Modifications proposées (test/intersecteurs-test.js) passe'); }
   catch (e) { assert(false, 'suggestions inter-secteurs dans Modifications proposées (test/intersecteurs-test.js) échoue'); }
-  try { execFileSync('node', [path.join(__dirname, 'intersecteurs-payload-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'payload inter-secteurs sans champs vides (test/intersecteurs-payload-test.js) passe'); }
+  try { await runChild('intersecteurs-payload-test.js'); assert(true, 'payload inter-secteurs sans champs vides (test/intersecteurs-payload-test.js) passe'); }
   catch (e) { assert(false, 'payload inter-secteurs sans champs vides (test/intersecteurs-payload-test.js) échoue'); }
-  try { execFileSync('node', [path.join(__dirname, 'debit-sauvegardes-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'limitation de débit et rétention des sauvegardes (test/debit-sauvegardes-test.js) passe'); }
+  try { await runChild('debit-sauvegardes-test.js'); assert(true, 'limitation de débit et rétention des sauvegardes (test/debit-sauvegardes-test.js) passe'); }
   catch (e) { assert(false, 'limitation de débit et rétention des sauvegardes (test/debit-sauvegardes-test.js) échoue'); }
-  try { execFileSync('node', [path.join(__dirname, 'signalement-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'signalement de messages et mots bloqués (test/signalement-test.js) passe'); }
+  try { await runChild('signalement-test.js'); assert(true, 'signalement de messages et mots bloqués (test/signalement-test.js) passe'); }
   catch (e) { assert(false, 'signalement de messages et mots bloqués (test/signalement-test.js) échoue'); }
-  try { execFileSync('node', [path.join(__dirname, 'guard-integrity.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'intégrité des fichiers : aucun vide/tronqué (test/guard-integrity.js) passe'); }
+  try { await runChild('guard-integrity.js'); assert(true, 'intégrité des fichiers : aucun vide/tronqué (test/guard-integrity.js) passe'); }
   catch (e) { assert(false, 'intégrité des fichiers (test/guard-integrity.js) échoue : ' + String(e.stdout || e.message).trim().split('\n').slice(0, 5).join(' | ')); }
   for (const f of ['cal-externe-capacite-test.js', 'capture-objectifs-horizon-test.js', 'categories-visibility-test.js', 'category-delete-carry-test.js', 'asset-version-test.js', 'sw-bump-test.js', 'compression-test.js', 'export-test.js', 'fiabilite-basic-test.js', 'feuille-mois-css-test.js', 'goalstatus-test.js', 'healthz-test.js', 'importance-test.js', 'inactive-accounts-test.js', 'member-series-test.js', 'modules-gating-test.js', 'pin-lock-test.js', 'silentspellfix-test.js', 'stats-profile-insights-test.js', 'stripe-webhook-idempotence-test.js', 'expansion-webhook-evenements-test.js', 'expansion-securite-test.js', 'expansion-code-statut-test.js', 'expansion-i18n-test.js', 'expansion-achat-staging-test.js', 'structure-migration-test.js', 'subproject-migration-test.js', 'task-lock-test.js', 'year-anchor-test.js', 'year-bound-test.js', 'zone-ia-secteur-periode-test.js']) {
-    try { execFileSync('node', [path.join(__dirname, f)], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'test/' + f + ' passe'); }
+    try { await runChild(f); assert(true, 'test/' + f + ' passe'); }
     catch (e) { assert(false, 'test/' + f + ' échoue'); }
   }
   // Nettoyage
@@ -352,6 +482,10 @@ async function main() {
   tmpLib.cleanup();
   const leftover = fs.readdirSync(suiteTmpRoot);
   assert(leftover.length === 0, 'aucun dossier temporaire laissé par la suite' + (leftover.length ? ' (' + leftover.length + ' : ' + leftover.slice(0, 5).join(', ') + ')' : ''));
+
+  const repoAfter = topNames(path.join(__dirname, '..'));
+  const added = repoAfter.filter((n) => !repoBefore.includes(n));
+  assert(added.length === 0, 'aucun fichier créé à la racine du dépôt (le dossier temporaire privé de la suite est vérifié vide ci-dessus)' + (added.length ? ' (' + added.slice(0, 5).join(', ') + ')' : ''));
 
   console.log(`\n=== ${passed} passées, ${failed} échouées ===`);
   process.exit(failed ? 1 : 0);

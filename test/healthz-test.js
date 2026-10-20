@@ -1,7 +1,7 @@
 // /healthz : 200 « ok » sans session ni base. Usage : node test/healthz-test.js
 const path = require('path'), http = require('http');
 const { spawn } = require('child_process');
-const port = 3800 + Math.floor(Math.random() * 90);
+const port = require('./lib/freeport')();
 const env = { ...process.env, PORT: String(port), NOESIS_DATA_DIR: require('./lib/tmpdir').mkTmp('healthz-test-') };
 let failed = 0;
 const ok = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };

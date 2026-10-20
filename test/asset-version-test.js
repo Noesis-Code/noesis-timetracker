@@ -20,7 +20,7 @@ ok(h1 === h1bis, 'URL stable si le fichier ne change pas');
 ok(h1 !== h2 && h1.match(/js\/x\.js\?v=\w+/)[0] === h2.match(/js\/x\.js\?v=\w+/)[0], "modifier app.js change son URL seulement");
 ok(h2.includes('https://e.com/a.css"'), 'URL externe intacte');
 
-const port = 3700 + Math.floor(Math.random() * 90);
+const port = require('./lib/freeport')();
 const env = { ...process.env, PORT: String(port), NOESIS_DATA_DIR: mkTmp('assetver-srv-') };
 const get = (p) => new Promise((res, rej) => http.get({ port, path: p }, (r) => { let b = ''; r.on('data', (d) => b += d); r.on('end', () => res({ h: r.headers, b })); }).on('error', rej));
 const child = spawn('node', [path.join(__dirname, '..', 'server', 'index.js')], { env, stdio: 'ignore' });
