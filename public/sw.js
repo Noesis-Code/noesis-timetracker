@@ -89,6 +89,8 @@ const SHELL = [
   '/css/modules.css',
   '/css/trade.css',
   '/js/trade.js',
+  '/css/composants.css',
+  '/js/composants.js',
   '/css/verre-calme.css',
   '/css/barre-volets.css',
   '/js/barre-volets.js',

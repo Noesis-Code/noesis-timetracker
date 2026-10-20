@@ -6,7 +6,7 @@
    Pour forcer un renouvellement complet : incrémenter CACHE_VERSION. */
 var CACHE_VERSION = 'tt-v6';
 var SHELL = CACHE_VERSION + '-shell';
-var SHELL_FILES = ['./', 'index.html', 'styles.css', 'tokens.css', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png',
+var SHELL_FILES = ['./', 'index.html', 'styles.css', 'tokens.css', 'composants.css', 'js/composants.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png',
   'js/i18n.js', 'js/format.js', 'js/demo-data.js', 'js/data.js', 'js/charts.js', 'js/screen-dashboard.js', 'js/screen-positions.js',
   'js/screen-allocation.js', 'js/screen-history.js', 'js/screen-compare.js', 'js/screen-sync.js', 'js/screen-broker.js',
   'js/screen-invite.js', 'js/passkey.js', 'js/screen-security.js', 'js/screen-settings.js', 'security.css', 'js/app.js'];

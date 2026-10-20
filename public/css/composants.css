@@ -1,0 +1,61 @@
+/* Composants partagés (R29, 20 oct. 2026). UNE définition par type de contrôle, pour TimeTracker, Expansion et Trade Tracker.
+   Source unique : public/css/composants.css ; trade-tracker/public/composants.css en est la copie exacte (node scripts/sync-composants.js, vérifiée par test/composants-garde-test.js).
+   Chargé juste après styles.css et AVANT les feuilles de segments. Changer une définition ici la change partout. */
+:root {
+  --cmp-hit: 44px;                          /* zone de toucher minimale (invisible) */
+  --sep: rgba(243, 238, 232, 0.12);         /* R22 : UN seul trait de séparation */
+  --danger: #E0626B;                        /* R12/R28 : UN seul rouge, réservé au retrait/suppression */
+  --cmp-dash: rgba(243, 238, 232, 0.28);    /* pointillés des boutons « + » */
+}
+
+/* Croix de fermeture ✕ (R13 : en haut à droite de la fenêtre) */
+.cmpClose {
+  position: relative; flex-shrink: 0; width: 32px; height: 32px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center; line-height: 1; font-size: 18px;
+  color: var(--text); background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform var(--transition-fast);
+}
+.cmpClose:active { transform: scale(0.92); }
+.cmpClose::after, .cmpRemove::after, .cmpEdit::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--cmp-hit)); height: max(100%, var(--cmp-hit)); transform: translate(-50%, -50%);
+}
+
+/* Croix rouge de retrait (R25) : pastille ~13 px, ✕ ~7 px dessiné (aucun texte : jamais prise pour une fermeture) */
+.cmpRemove {
+  position: relative; flex-shrink: 0; width: 13px; height: 13px; padding: 0; box-sizing: border-box;
+  border: 0; border-radius: 50%; background-color: var(--danger); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 13'%3E%3Cpath d='M3.6 3.6l5.8 5.8M9.4 3.6L3.6 9.4' stroke='%2315111C' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+}
+.cmpRemove:disabled { opacity: .5; }
+
+/* « + » pointillé large (R19/R23) : bas des listes (pôles, secteurs, activités, règles…) */
+.cmpAdd {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; box-sizing: border-box; min-height: 48px; padding: 11px;
+  border-radius: var(--radius-lg); font: inherit; font-size: 13.5px; color: var(--text); background: none; border: 1px dashed var(--cmp-dash); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cmpAdd b { color: var(--purple); font-size: 20px; font-weight: 700; line-height: 1; }
+.cmpAdd:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Flèche de déroulement (R21) : toujours dernier enfant de la cellule, à droite, même colonne que ✎ ; .open la pivote */
+.cmpChev {
+  flex-shrink: 0; margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;
+  color: var(--text-light); font-size: 18px; line-height: 1; transition: transform var(--transition-fast); pointer-events: none;
+}
+.cmpChev::before { content: '\203A'; }
+.cmpChev.open { transform: rotate(90deg); }
+
+/* Modifier ✎ (R15/R21) : icône fournie par TMT.ui.editIcon() */
+.cmpEdit {
+  position: relative; width: 26px; height: 26px; flex-shrink: 0; padding: 0; border: none; background: transparent; border-radius: var(--radius-sm);
+  color: var(--text-light); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.cmpEdit:hover { background: var(--hover-bg); color: var(--text); }
+
+/* Séparateur (R22) : trait pleine largeur d'un bord à l'autre de la cellule, jamais de marges. Sur la liste : entre deux enfants ; sur une ligne : au-dessus. */
+.cmpList > * + *, .cmpSep { border-top: 1px solid var(--sep); }
