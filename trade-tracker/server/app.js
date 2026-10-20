@@ -442,6 +442,14 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     err(res, status, status === 500 ? 'server_error' : 'bad_request', status === 500 ? 'Erreur du serveur.' : 'Requête invalide.');
   });
   const pub = path.join(__dirname, '..', 'public');
+  // URL de TMT (lien de retour) : TMT_BASE_URL (http/https) ; sinon la valeur par défaut écrite dans index.html (staging).
+  const tmtUrl = (() => { try { const u = new URL(env.TMT_BASE_URL || ''); return /^https?:$/.test(u.protocol) ? u.href.replace(/\/$/, '') : null; } catch { return null; } })();
+  if (tmtUrl && fs.existsSync(path.join(pub, 'index.html'))) {
+    app.get(['/', '/index.html'], (req, res) => {
+      const html = fs.readFileSync(path.join(pub, 'index.html'), 'utf8').replace(/(id="tmtLink" href=")[^"]*"/, (m, a) => a + tmtUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"');
+      res.type('html').send(html);
+    });
+  }
   if (fs.existsSync(pub)) app.use(express.static(pub));
   return app;
 }

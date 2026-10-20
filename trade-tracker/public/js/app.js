@@ -63,6 +63,8 @@
       var b = el.querySelector('[data-retry]'); if (b) b.addEventListener('click', function () { TTD.reset(); show(); });
     });
   }
+  // URL de TMT : lue sur le lien de retour (index.html, remplacée côté serveur par TMT_BASE_URL).
+  function tmtHref() { var a = document.getElementById('tmtLink'); return a ? a.getAttribute('href') : ''; }
   // Écran d'erreur : session, hors ligne ou serveur. Toujours une action possible, jamais de faux chiffres.
   function errorState(e) {
     var code = e && e.code;
@@ -73,7 +75,7 @@
       : code === 'offline' ? 'Aucune connexion et aucune donnée gardée sur cet appareil. Reconnecte-toi puis réessaie.'
       : 'Le serveur ne répond pas comme prévu. Réessaie dans un instant.';
     return '<div class="stateScreen" role="alert"><div class="stateIcon">' + icon + '</div><div class="stateTitle">' + title + '</div><div class="stateMsg">' + msg + '</div>' +
-      (code === 401 ? '<a class="btnPrimary" href="https://web-staging-6d1b.up.railway.app">Ouvrir TimeTracker</a>' : '<button type="button" class="btnPrimary" data-retry>Réessayer</button>') + '</div>';
+      (code === 401 ? '<a class="btnPrimary" href="' + tmtHref() + '">Ouvrir TimeTracker</a>' : '<button type="button" class="btnPrimary" data-retry>Réessayer</button>') + '</div>';
   }
   function renderOffline(data) {
     var bar = document.getElementById('offlineBar');
