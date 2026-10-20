@@ -32,6 +32,9 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 2. Test qui échoue si une variable `TRADE_*` lue par le code de Trade manque dans `trade-tracker/DEPLOY.md`. FAIT (repli 3, `deploy-doc-test.js`).
 3. Test de bout en bout sauvegarde -> altération -> restauration (`restore.js`) : chaîne d'audit et jetons chiffrés relus après restauration.
 4. Vérifier que les journaux et réponses d'erreur de Trade ne contiennent jamais une valeur `TRADE_*` secrète (échec de démarrage, erreurs 500).
+5. Test de tenue en charge de la synchro Questrade simulée (150 utilisateurs, pannes isolées, idempotence). FAIT (repli 5 bis, `trade-tracker/test/sync-charge-test.js` : ~9 s pour 150 utilisateurs, soit ~60 ms/utilisateur, large marge sur l'intervalle de 15 min).
+6. Audit de simplicité de l'écran Trade Tracker (capture 390 px, `docs/boucle-veille.md`) : liste des éléments à retirer en proposition seulement, `docs/audit-trade-<date>.md`. Champs à compléter avant lancement : citation d'intention (aucune pour cet écran).
+7. Benchmark « 0 → 1 » Sharesight et Delta (sources citées, `docs/benchmark-trade-<date>.md`) : ce qu'ils font avec le moins d'éléments, tâches de retrait seulement. Dépend de 6 (fonction unique de l'écran).
 
 **2. Time Tracker Basic** (accessibilité et robustesse)
 1. `aria-label` des boutons-icônes et contrastes du texte à vérifier (sans changer la palette).
