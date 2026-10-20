@@ -23,7 +23,7 @@ Réinitialisation samedi 5 h (New York) : 7 jours x 14 % ~ 100 %. Cible quotidie
 - Ordre des chantiers selon le retard : Précision des tâches (6) et Expansion (3) d'abord (valeur produit), puis Basic (2), Trade Tracker (1), Simplification (5) ; Crédits (4) et Principal (7) sont légers.
 - Tâches lourdes (multi-fichiers, évaluations `--live`, tests complets, balayages de code mort) : la nuit ou en fin de période, en un seul agent à la fois.
 - En avance sur la cible : moins d'agents en parallèle, tâches courtes (libellés, CSS). En retard : relancer les listes de repli, un agent par segment de fichiers.
-- Éviter le gaspillage : lectures ciblées, pas de balayage complet, un seul `node test/run-tests.js` en fin de tâche, aucun agent qui refait le travail d'un autre.
+- Éviter le gaspillage : lectures ciblées, pas de balayage complet, un seul `scripts/suite-verrouillee.sh` en fin de tâche, aucun agent qui refait le travail d'un autre.
 
 ## Identifiants de modèle codés en dur (20 oct. 2026)
 
