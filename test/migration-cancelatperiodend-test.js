@@ -57,7 +57,7 @@ const act = e.prepare('SELECT id, ownerId FROM activities LIMIT 1').get();
 for (let i = 0; i < 2; i++) e.prepare("INSERT INTO sub_projects (activityId, name, createdBy, createdAt, slot) VALUES (?, 'x', ?, ?, 0)").run(act.id, act.ownerId, new Date().toISOString());
 e.close();
 const bd = boot(dup);
-ok(bd.status === 0 && bd.j && bd.j.idx === 0 && /doublons/.test(bd.err), 'doublons hérités : démarrage OK, index non posé, signalé dans le journal');
+ok(bd.status === 0 && bd.j && bd.j.idx === 0 && /doublons/i.test(bd.err), 'doublons hérités : démarrage OK, index non posé, signalé dans le journal');
 
 console.log(failed ? `\n${failed} échec(s)` : '\nTout est ok');
 process.exit(failed ? 1 : 0);

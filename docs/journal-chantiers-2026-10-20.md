@@ -139,6 +139,7 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 - 6 orphelins exécutés seuls, tous verts (1 à 4 s chacun, ~12 s en tout) : doublons-similarites, expansion-acces, expansion-checkout-securite, expansion-cycle-complet, migration-lasteventat, subscription-mails-refund. Rattachés à `SUITE_FILES` (groupe rapide, lancés en parallèle) et à la boucle finale. Aucun test périmé, aucun code cassé.
 - `fonctionnel-lib.js` : exception écrite (bibliothèque, pas un test).
 - Après rebase, la garde a aussitôt attrapé 2 nouveaux orphelins entrés de `staging` (expansion-plan-course, migration-cancelatperiodend) : exécutés seuls (4 s, 1 s), verts, rattachés.
+- Au 2e rebase (0119ab3 change le message de db.js en « DOUBLONS »), migration-cancelatperiodend-test échouait (regex sensible à la casse) : test périmé, corrigé (`/doublons/i`), code intact.
 - Garde : `test/tests-orphelins-test.js` (dans la suite) échoue si un fichier de test est hors liste sans exception raisonnée, ou si une exception est périmée.
 - Aucun commit sur `staging` depuis 64d08de : rien à relire.
 - Suite complète via le script : 171 passées, 0 échouée, 718 s avant rebase (durée ajoutée par les orphelins et la garde : ~13 s) ; après rebase et 2 orphelins de plus : 177 passées, 0 échouée. Un premier passage avec `TMPDIR` dans le dossier de travail de session avait 1 échec (broker-e2e : Chromium ne se lance pas avec ce TMPDIR, vérifié seul avec python3 playwright ; sans `TMPDIR` tout passe) : limite d'environnement, pas de code.
