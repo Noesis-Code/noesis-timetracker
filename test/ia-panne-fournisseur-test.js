@@ -1,5 +1,5 @@
 // Panne fournisseur IA : 30 min d'erreurs 529 (faux fetch, horloge simulée) sur toutes les fonctions, disjoncteur, aucun coût doublé, aucune file de relances.
-// Seuil adaptatif d'alerte (calcul pur seuilAlerte) : 10 intensifs / 100 moyens / 1. Aucun appel payant. Usage : node test/ia-panne-fournisseur-test.js
+// Seuil hebdomadaire adaptatif (calcul pur seuilAlerte) : 10 intensifs / 100 moyens / 1. Aucun appel payant. Usage : node test/ia-panne-fournisseur-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-panne-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_DAY_USD = '1000'; process.env.AI_BUDGET_SYSTEM_DAY_USD = '1000'; process.env.AI_BUDGET_MONTH_USD = '100000';
 process.env.AI_RETRY_BASE_MS = '1'; process.env.AI_RETRY_MAX_WAIT_MS = '2'; delete process.env.AI_BREAKER_N; delete process.env.AI_BREAKER_OPEN_MS;
@@ -10,17 +10,14 @@ const { seuilAlerte } = require('../server/lib/aialertthreshold');
 const db = require('../server/db');
 console.warn = () => {};
 
-// (1) Seuil adaptatif
-assert(seuilAlerte(10).jourUsd === 5 && seuilAlerte(10).semaineUsd === 35, '10 comptes intensifs : 5 $/jour, 35 $/semaine');
-assert(seuilAlerte(100).jourUsd === 50 && seuilAlerte(100).semaineUsd === 350, '100 comptes moyens : 50 $/jour, 350 $/semaine');
-assert(seuilAlerte(1).jourUsd === 0.5 && seuilAlerte(1).semaineUsd === 3.5, '1 compte : 0,50 $/jour, 3,50 $/semaine');
-assert(seuilAlerte(0).jourUsd === 0.5 && seuilAlerte(NaN).jourUsd === 0.5 && seuilAlerte(-4).jourUsd === 0.5, '0, NaN, négatif : au moins 1 compte');
-assert(aibudget.alertDayUsd() === 8, 'drapeau absent : seuil fixe 8 $ inchangé');
+// (1) Seuil adaptatif : semaine seulement (décision d'Émilien : pas de seuil quotidien)
+assert(seuilAlerte(10).semaineUsd === 35 && seuilAlerte(10).jourUsd === undefined, '10 comptes intensifs : 35 $/semaine, aucun seuil quotidien');
+assert(seuilAlerte(100).semaineUsd === 350, '100 comptes moyens : 350 $/semaine');
+assert(seuilAlerte(1).semaineUsd === 3.5, '1 compte : 3,50 $/semaine');
+assert(seuilAlerte(0).semaineUsd === 3.5 && seuilAlerte(NaN).semaineUsd === 3.5 && seuilAlerte(-4).semaineUsd === 3.5, '0, NaN, négatif : au moins 1 compte');
 process.env.AI_ALERT_ADAPTIVE = '1';
-db.prepare("INSERT INTO ai_usage_log (userId, day, model, feature, calls, costUsd) VALUES ('a', ?, 'm', 'f', 1, 0.1), ('b', ?, 'm', 'f', 1, 0.1), ('system', ?, 'm', 'f', 1, 0.1)").run(aibudget.todayLocal(), aibudget.todayLocal(), aibudget.todayLocal());
-assert(aibudget.alertDayUsd() === 1, 'drapeau AI_ALERT_ADAPTIVE=1 : 2 comptes actifs (hors système) = 1 $');
+assert(aibudget.alertDayUsd() === 8, 'même avec le drapeau : le seuil quotidien reste 8 $ (inchangé)');
 delete process.env.AI_ALERT_ADAPTIVE;
-assert(aibudget.alertDayUsd() === 8, 'drapeau retiré : retour à 8 $');
 db.exec('DELETE FROM ai_usage_log');
 
 // (2) Panne 529 de 30 min

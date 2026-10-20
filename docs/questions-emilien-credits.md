@@ -4,11 +4,15 @@ Regroupées par thème (20 oct. 2026). « Reco. » = recommandation de l'agent. 
 
 ## 1. Alertes de coût
 Aujourd'hui les alertes (coût du jour tous comptes, plafond à 80 %, rapport hebdo) vont au journal serveur seulement, une fois par jour de Montréal. Le seuil global existe mais est FIXE (8 $/jour, 5 $/semaine) : franchi tous les jours vers 100 utilisateurs moyens, muet à 10 comptes intensifs (`docs/ia-projection-2026-10-20.md`).
-- [ ] Seuils proportionnels aux comptes actifs : jour = 0,50 $ x comptes actifs (15 $ / 30), semaine = 3,5 $ x comptes actifs, à la place de 8 $ et 5 $ fixes ? Reco. : oui (même rythme que le plafond mensuel ; ni bruit à 100 comptes, ni silence à 1000). Ce choix remplace aussi la question « garder 5 $ par semaine ».
+- Décision d'Émilien (20 oct.) : NON au seuil quotidien de 0,50 $ x comptes (trop strict) ; coût limité PAR SEMAINE seulement.
+  - [ ] Seuil hebdomadaire = 3,5 $ x comptes actifs (10 comptes : 35 $ ; 100 : 350 $), à la place de 5 $ fixes ? Calcul prêt et testé (`server/lib/aialertthreshold.js`, `scripts/ai-cost-weekly.js`), désactivé tant que `AI_ALERT_ADAPTIVE=1` n'est pas posé. Le seuil quotidien de 8 $ reste inchangé.
 - Canal d'alerte, un seul à choisir. Reco. : push à ton compte (rien à configurer sauf une variable désignant ton compte).
   - [ ] Journal seulement (statu quo) : il faut lire les journaux Railway ; aucun bruit.
   - [ ] Notification push à ton compte : un message au premier dépassement du jour et par seuil ; demande de désigner ton compte par une variable d'environnement.
   - [ ] Courriel Resend : un courriel par dépassement ; demande `ALERT_EMAIL` et une clé Resend active en production.
+
+## Décisions validées OUI (Émilien, 20 oct. 2026)
+Délais d'expiration plus courts, relances 429/529, retrait des replis payants, réparation locale du JSON, tarifs (Haiku 1/5, Sonnet 3/15, Opus 15/75). Le disjoncteur de panne est documenté dans `docs/ia-panne-2026-10-20.md`.
 
 ## 2. Tarifs
 `PRICES` dans `server/lib/aimodels.js` (mis à jour le 2026-10-16, non vérifiés en ligne). Le rapport avertit au-delà de 90 jours.

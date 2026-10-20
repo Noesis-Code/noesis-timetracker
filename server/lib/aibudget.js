@@ -239,25 +239,16 @@ function claimAlert(kind, day, key) {
     return r.changes > 0;
   } catch (e) { return true; } // base indisponible : on alerte (mieux vaut un doublon qu'un silence)
 }
-function alertDayUsd(now) {
-  // Règle adaptative (désactivée par défaut) : AI_ALERT_ADAPTIVE=1 => 0,50 $ x comptes actifs du jour (aialertthreshold.js).
-  if (process.env.AI_ALERT_ADAPTIVE === '1') {
-    try {
-      const n = db.prepare("SELECT COUNT(DISTINCT userId) AS n FROM ai_usage_log WHERE day = ? AND userId != ?").get(todayLocal(now), SYSTEM_USER).n || 0;
-      return require('./aialertthreshold').seuilAlerte(n).jourUsd;
-    } catch (e) { /* repli sur le seuil fixe */ }
-  }
-  const n = Number(process.env.AI_COST_ALERT_DAY_USD); return Number.isFinite(n) && n > 0 ? n : 8;
-}
+function alertDayUsd() { const n = Number(process.env.AI_COST_ALERT_DAY_USD); return Number.isFinite(n) && n > 0 ? n : 8; }
 function alertIfDayCostHigh(now) {
   const d = todayLocal(now);
   if (alertedDay === d) return;
   const total = db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE day = ?').get(d).s || 0;
-  const seuil = alertDayUsd(now);
+  const seuil = alertDayUsd();
   if (total < seuil) return;
   alertedDay = d;
   if (!claimAlert('jour', d, seuil)) return; // déjà émise pour ce jour et ce seuil (avant un redémarrage)
-  console.warn('[aibudget] ALERTE coût IA du jour ' + d + ' : ' + total.toFixed(2) + ' $ estimé (seuil ' + seuil + ' $, ' + (process.env.AI_ALERT_ADAPTIVE === '1' ? 'AI_ALERT_ADAPTIVE' : 'AI_COST_ALERT_DAY_USD') + ')');
+  console.warn('[aibudget] ALERTE coût IA du jour ' + d + ' : ' + total.toFixed(2) + ' $ estimé (seuil ' + seuil + ' $, ' + 'AI_COST_ALERT_DAY_USD' + ')');
 }
 // Remet à zéro la mémoire du processus (simule un redémarrage) ; `all` efface aussi la mémoire durable (tests).
 function resetDayAlert(all) { alertedDay = null; alertedCaps.clear(); if (all !== false) { try { db.exec('DELETE FROM ai_alerts_sent'); } catch (e) { /* ignoré */ } } }

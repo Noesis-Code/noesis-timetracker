@@ -7,7 +7,9 @@ const { DatabaseSync } = require('node:sqlite');
 const args = process.argv.slice(2);
 const fi = args.indexOf('--from');
 const fromFile = fi >= 0 ? args.splice(fi, 2)[1] : null;
-const alertUsd = (() => { const n = Number(process.env.AI_WEEKLY_ALERT_USD); return Number.isFinite(n) && n > 0 ? n : 5; })();
+const alertUsdFixed = (() => { const n = Number(process.env.AI_WEEKLY_ALERT_USD); return Number.isFinite(n) && n > 0 ? n : 5; })();
+// AI_ALERT_ADAPTIVE=1 (désactivé par défaut) : seuil = 3,50 $ x comptes actifs sur 7 jours (server/lib/aialertthreshold.js). Sinon seuil fixe inchangé.
+const adaptive = process.env.AI_ALERT_ADAPTIVE === '1';
 const p2 = (n) => String(n).padStart(2, '0');
 const local = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
 const back = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return local(d); };
@@ -59,8 +61,12 @@ function loadRows() {
   const file = path.join(dir, 'noesis.db');
   if (!fs.existsSync(file)) { console.log('Aucune base : ' + file); process.exit(0); }
   const db = new DatabaseSync(file, { readOnly: true });
-  try { return db.prepare('SELECT day, feature, calls, costUsd FROM ai_usage_log WHERE day >= ?').all(back(13)); }
+  try { return db.prepare('SELECT userId, day, feature, calls, costUsd FROM ai_usage_log WHERE day >= ?').all(back(13)); }
   catch (e) { console.log('Aucun journal IA (ai_usage_log) dans cette base.'); process.exit(0); }
 }
-if (require.main === module) console.log(weeklyReport(loadRows(), { alertUsd }));
+if (require.main === module) {
+  const rows = loadRows();
+  const comptes = new Set(rows.filter((r) => r.day >= back(6) && r.userId && r.userId !== 'system').map((r) => r.userId)).size;
+  console.log(weeklyReport(rows, { alertUsd: adaptive && comptes ? require('../server/lib/aialertthreshold').seuilAlerte(comptes).semaineUsd : alertUsdFixed }));
+}
 module.exports = { weeklyReport };
