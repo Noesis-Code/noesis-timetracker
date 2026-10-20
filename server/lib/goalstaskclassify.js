@@ -142,7 +142,7 @@ function buildPrompt(label, categories, examples, opts) {
     ...exampleLines,
     `Tâche à classer : "${label}"`,
     '',
-    "Règle de classement : l'action prime sur le sujet. Classe selon ce que la personne doit FAIRE, pas selon l'objet dont parle la tâche. Exemples : « Payer la facture du fournisseur de grains verts » va dans Administration / Comptabilité et finances (pas dans Production / Approvisionnement) ; « Former le nouvel employé à l'emballage » va dans Ressources humaines. Le document ou l'action prime aussi sur la personne concernée : « Envoyer la facture au client » va dans la catégorie de facturation/administration, pas dans celle des clients. Un titre vague sans action ni objet précis (« Penser au projet ») ne se range pas par un seul mot commun avec une catégorie : c'est incertain.",
+    "Règle : l'action prime sur le sujet (ce que la personne doit FAIRE, pas l'objet dont elle parle) et le document prime sur la personne concernée. Exemples (tâche → type de catégorie) : « Payer la facture du fournisseur de grains » → administration/finances, pas approvisionnement ; « Envoyer la facture au client » → facturation, pas clients ; « Former le nouvel employé » → ressources humaines ; « Suivre le tuto Figma » → formation, pas l'outil ; « Corrections sur le logo du client Fournier » → travail pour un client en place, pas prospection ; « Rdv dentiste » → vie personnelle ; « Penser au projet » (action et objet flous, un seul mot commun avec une catégorie) → c'est incertain.",
     '',
     ...(allowUncertain
       ? [
