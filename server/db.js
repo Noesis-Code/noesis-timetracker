@@ -1791,6 +1791,12 @@ if (tableExists('activity_subscriptions') && !columnExists('activity_subscriptio
   db.exec('ALTER TABLE activity_subscriptions ADD COLUMN parentalConsentMethod TEXT');
 }
 
+// Horodatage (event.created Stripe, secondes) du dernier customer.subscription.updated appliqué : un événement
+// plus ancien reçu après un plus récent est ignoré (server/routes/stripewebhook.js). NULL = aucun encore appliqué.
+if (tableExists('activity_subscriptions') && !columnExists('activity_subscriptions', 'lastEventAt')) {
+  db.exec('ALTER TABLE activity_subscriptions ADD COLUMN lastEventAt INTEGER');
+}
+
 // Rétro-remplissage de activity_billing_cycles (table neuve) pour toute
 // activité DÉJÀ activée avant ce pivot (au moins un sous-projet à slot posé)
 // — sans cette ligne, dueActivities() (server/lib/offerquota.js) ne la

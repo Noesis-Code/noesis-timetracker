@@ -26,6 +26,8 @@ Clés Stripe de test seulement, aucun réseau. Tests : `test/expansion-securite-
 | Cron : échec IA | cycle reste dû, retenté au passage suivant | securite |
 | Cron : `startSubscriptionCron` rappelé | une seule planification | securite |
 
+## Corrigé : `subscription.updated` hors ordre
+Colonne `activity_subscriptions.lastEventAt` (INTEGER, `event.created` Stripe en secondes), ajoutée par migration additive idempotente (`server/db.js`, vérifiée sur base existante, deux démarrages). Un `customer.subscription.updated` plus ancien que le dernier appliqué est ignoré ; un événement sans horodatage est appliqué sans toucher au dernier ; un doublon reste filtré par `event.id`. Tests : `test/stripe-webhook-idempotence-test.js` (ordre inversé, doublon, sans horodatage). `invoice.paid` relit l'état réel chez Stripe et n'est pas concerné.
+
 ## Limites connues (non corrigées)
 - **Pas de rappel avant renouvellement** : le cron n'envoie aucun courriel. Un rappel serait une communication client (légal, réservé à Émilien) ; Stripe peut envoyer les siens (réglage du tableau de bord).
-- Un `subscription.updated` plus ancien reçu après un plus récent (hors résiliation) peut écraser le statut jusqu'au prochain événement ; `invoice.paid` relit l'état réel chez Stripe et rattrape. Un horodatage d'événement en base réglerait cela (changement de schéma, non fait).

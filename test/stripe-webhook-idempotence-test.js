@@ -88,6 +88,20 @@ const sub = (id) => db.prepare('SELECT * FROM activity_subscriptions WHERE strip
   await post(port, { id: 'evt_inv_2', type: 'invoice.paid', data: { object: { subscription: 'sub_1' } } });
   ok(sub('sub_1').status === 'active', 'invoice.paid après échec : retour à active');
 
+  // Ordre inversé : un updated plus ancien (event.created) ne doit pas écraser un plus récent
+  const actO = Number(db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('ActO', ?, ?)").run(userId, new Date().toISOString()).lastInsertRowid);
+  db.prepare("INSERT INTO activity_subscriptions (activityId, userId, stripeCustomerId, stripeSubscriptionId, stripePriceId, status, createdAt) VALUES (?, ?, 'cus_o', 'sub_o', 'price_test', 'active', ?)").run(actO, userId, new Date().toISOString());
+  const updO = (id, status, created) => ({ id, type: 'customer.subscription.updated', ...(created === undefined ? {} : { created }), data: { object: { id: 'sub_o', status, current_period_start: 1, current_period_end: 2 } } });
+  await post(port, updO('evt_o_new', 'past_due', 2000));
+  await post(port, updO('evt_o_old', 'active', 1000));
+  ok(sub('sub_o').status === 'past_due' && sub('sub_o').lastEventAt === 2000, 'updated plus ancien reçu après un plus récent : ignoré');
+  await post(port, updO('evt_o_new', 'active', 2000));
+  ok(sub('sub_o').status === 'past_due', 'updated doublon (même event.id) : sans effet');
+  await post(port, updO('evt_o_newer', 'active', 3000));
+  ok(sub('sub_o').status === 'active' && sub('sub_o').lastEventAt === 3000, 'updated plus récent : appliqué');
+  await post(port, updO('evt_o_nots', 'unpaid'));
+  ok(sub('sub_o').status === 'unpaid' && sub('sub_o').lastEventAt === 3000, 'updated sans horodatage : appliqué, dernier horodatage conservé');
+
   // subscription.deleted
   const del = { id: 'evt_del_1', type: 'customer.subscription.deleted', data: { object: { id: 'sub_1' } } };
   await post(port, del);

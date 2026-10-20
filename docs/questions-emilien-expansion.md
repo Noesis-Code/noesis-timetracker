@@ -11,3 +11,4 @@
 - [ ] Q6 (#530, #551) « Créer la formule 1 » : formule = nouvel abonnement/prix Stripe, ou contenu livré ? Quel prix et quels contenus ?
 - [ ] Q7 (#849) Suivi post-achat : quels signaux suivre (utilisation, résiliation, courriels) et où les voir ?
 - [ ] Q8 (#570) Espace publicitaire dans l'app : à créer ? Contraire à la simplification (SIMPLIFICATION.md), à confirmer.
+- [ ] Q9 Rappel avant renouvellement (communication client, réservé) : l'envoies-tu, désactivé par défaut tant que tu n'as pas validé ? Texte proposé : « Objet : Votre abonnement Expansion se renouvelle bientôt. Bonjour, votre abonnement Expansion pour « {activité} » se renouvelle le {date} pour 20 $. Rien à faire pour le conserver. Pour le modifier ou le résilier, ouvrez la gestion de l'abonnement dans l'application. L'équipe Noèsis. »

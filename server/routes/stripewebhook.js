@@ -142,9 +142,11 @@ async function handleInvoicePaid(invoice) {
 
 // 'canceled' est final côté Stripe (un réabonnement crée un nouvel id) : un événement arrivé en retard
 // (updated/invoice.paid après deleted) ne doit jamais rouvrir l'accès.
-function handleSubscriptionUpdated(subscription) {
-  db.prepare('UPDATE activity_subscriptions SET status = ?, currentPeriodStart = ?, currentPeriodEnd = ? WHERE stripeSubscriptionId = ? AND status != \'canceled\'')
-    .run(subscription.status, toIso(subscription.current_period_start), toIso(subscription.current_period_end), subscription.id);
+function handleSubscriptionUpdated(subscription, eventCreated) {
+  // Événement plus ancien que le dernier appliqué : ignoré. Sans horodatage (event.created absent) : appliqué, sans toucher au dernier horodatage.
+  const at = Number.isFinite(eventCreated) ? eventCreated : null;
+  db.prepare('UPDATE activity_subscriptions SET status = ?, currentPeriodStart = ?, currentPeriodEnd = ?, lastEventAt = COALESCE(?, lastEventAt) WHERE stripeSubscriptionId = ? AND status != \'canceled\' AND (? IS NULL OR lastEventAt IS NULL OR lastEventAt <= ?)')
+    .run(subscription.status, toIso(subscription.current_period_start), toIso(subscription.current_period_end), at, subscription.id, at, at);
 }
 
 async function handleSubscriptionDeleted(subscription) {
@@ -178,7 +180,7 @@ async function handleEvent(event) {
     case 'invoice.paid':
       return handleInvoicePaid(event.data.object);
     case 'customer.subscription.updated':
-      return handleSubscriptionUpdated(event.data.object);
+      return handleSubscriptionUpdated(event.data.object, event.created);
     case 'customer.subscription.deleted':
       return handleSubscriptionDeleted(event.data.object);
     case 'charge.refunded':
