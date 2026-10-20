@@ -386,7 +386,7 @@
 /* Modification sur place : mêmes champs arrondis que les pôles/secteurs. */
 #activityGoalsMainCard.mainEditing textarea,
 #activityGoalsMainCard.mainEditing input[type="number"] {
-  box-sizing: border-box; padding: 10px 14px; border-radius: 14px; font-size: 16px; font-weight: 400;
+  box-sizing: border-box; padding: 10px 14px; border-radius: var(--radius-lg); font-size: 16px; font-weight: 400;
   border: 1px solid var(--border, rgba(255,255,255,.14)); background: var(--card); color: var(--text);
 }
 #activityGoalsMainCard.mainEditing #activityGoalsMainInput { font-weight: 600; margin-bottom: 8px; }
@@ -405,7 +405,7 @@
 #activityGoalsMainDescInput { overflow: hidden; resize: none; min-height: 150px; font-size: 16px; }
 
 /* Reformulation proposée par Noèsis : case teintée violet, bulle au clic. */
-.goalRewriteHint { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.85); background-color: rgba(139, 92, 246, 0.14); cursor: pointer; border-radius: 8px; }
+.goalRewriteHint { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.85); background-color: rgba(139, 92, 246, 0.14); cursor: pointer; border-radius: var(--radius-sm); }
 .goalRewriteBubble { position: relative; margin: 6px 0; padding: 10px 34px 10px 12px; border: 1px solid rgba(139, 92, 246, 0.7); border-radius: 12px; background: rgba(139, 92, 246, 0.12); backdrop-filter: blur(10px); color: inherit; font-size: 14px; text-align: left; }
 .goalRewriteTitle { font-weight: 600; font-size: 12px; opacity: .8; margin-bottom: 4px; }
 .goalRewriteText { margin-bottom: 8px; white-space: pre-wrap; }

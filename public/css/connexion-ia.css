@@ -1,7 +1,7 @@
 /* « Connecter mon IA » (section « Mon IA » des Réglages) */
 .aiConnectWarn { font-size: 13px; font-weight: 600; margin: 0 0 8px; }
 .aiConnectCopyLine { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-.aiConnectField { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: inherit; font-size: 13px; }
+.aiConnectField { flex: 1; min-width: 0; padding: 8px 10px; border-radius: var(--radius-md); border: 1px solid var(--border); background: transparent; color: inherit; font-size: 13px; }
 .aiConnectDetails { margin-top: 10px; }
 .aiConnectWrite { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 10px 0 4px; }
 #aiConnectBox > .btn, #aiConnectBox > .iconBtn { margin: 8px 8px 0 0; }

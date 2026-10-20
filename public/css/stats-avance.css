@@ -40,7 +40,7 @@
 .saRow1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .saBig { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .saSmall { font-size: 12px; opacity: .7; }
-.saBadge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 8px; white-space: nowrap; }
+.saBadge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-sm); white-space: nowrap; }
 .saBadge.up { color: var(--green); background: rgba(76, 175, 80, .15); }
 .saBadge.dn { color: var(--red); background: rgba(231, 76, 60, .15); }
 .saCv { font-size: 12.5px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -56,20 +56,20 @@
 .saDl { display: flex; gap: 5px; font-size: 10px; opacity: .6; margin-top: 2px; }
 .saDl span { flex: 1; text-align: center; }
 .saTiles { display: grid; gap: 8px; }
-.saTile { padding: 8px 6px; display: flex; flex-direction: column; align-items: center; border: 2px solid var(--glass-border); border-radius: 14px; }
+.saTile { padding: 8px 6px; display: flex; flex-direction: column; align-items: center; border: 2px solid var(--glass-border); border-radius: var(--radius-lg); }
 .saTile small { font-size: 11px; opacity: .7; }
 .saTile b { font-size: 15px; font-variant-numeric: tabular-nums; }
 .saLst { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
 .saLst li { display: flex; justify-content: space-between; gap: 8px; }
 .saLst b { color: var(--red); font-weight: 500; white-space: nowrap; }
-.saAdd { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px; border-radius: 14px; font: inherit; font-size: 13.5px; color: var(--text); background: none; border: 1px dashed var(--glass-border); }
+.saAdd { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px; border-radius: var(--radius-lg); font: inherit; font-size: 13.5px; color: var(--text); background: none; border: 1px dashed var(--glass-border); }
 .saAdd b { color: var(--purple); font-size: 18px; line-height: 1; }
 .saGh { border-radius: 16px; cursor: pointer; }
 .saGin { opacity: .35; filter: saturate(.6); pointer-events: none; }
 .saGh.sel { box-shadow: 0 0 0 1.5px var(--purple); }
 .saGh.sel .saGin { opacity: 1; filter: none; }
 .saActs { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin-top: 4px; }
-.saCancel, .saApply { padding: 12px; border-radius: 14px; font: inherit; font-size: 14px; color: var(--text); }
+.saCancel, .saApply { padding: 12px; border-radius: var(--radius-lg); font: inherit; font-size: 14px; color: var(--text); }
 .saCancel { border: 1px solid var(--glass-border); background: rgba(255, 255, 255, .05); }
 .saApply { border: 1px solid var(--purple); background: transparent; color: var(--text); font-weight: 600; }
 

@@ -24,7 +24,7 @@
   background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); color: var(--text);
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
-.docTasksDriveRow { border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; font-size: 15px; }
+.docTasksDriveRow { border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 10px; font-size: 15px; }
 .docTasksDriveOff { opacity: 0.6; cursor: default; }
 /* Zone libre = bulle de la Page 1 (.activityGoalsCategoryAutoTaskBubble + contour animé) ; trombone .chatAttachBtn ; envoi .btnBrique. */
 #docTasksBubble textarea { padding: 14px 12px 60px 12px; text-align: left; }
@@ -34,12 +34,12 @@
 .docTasksFilesBox { display: flex; flex-wrap: wrap; gap: 6px; }
 .docTasksChip { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(124, 92, 255, .18); margin-top: 6px; }
 .docTasksChip button { background: none; border: 0; color: inherit; cursor: pointer; }
-.docTasksApplyBtn { margin-top: 14px; width: 100%; padding: 12px; border-radius: 14px; font-weight: 600; }
+.docTasksApplyBtn { margin-top: 14px; width: 100%; padding: 12px; border-radius: var(--radius-lg); font-weight: 600; }
 .docTasksDrive { margin-bottom: 2px; }
 .docTasksDriveHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 .docTasksDriveBtn { width: 100%; padding: 10px; border-radius: 12px; font-weight: 600; }
 .docTasksConsent { font-size: 12px; opacity: .75; margin: 8px 0 0; line-height: 1.4; }
-.docTasksPick { display: block; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--glass-border); border-radius: 10px; background: transparent; color: inherit; font: inherit; font-size: 14px; cursor: pointer; }
+.docTasksPick { display: block; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: transparent; color: inherit; font: inherit; font-size: 14px; cursor: pointer; }
 .docTasksPick:hover { background: rgba(124, 92, 255, .18); }
 .docTasksLink { background: none; border: 0; color: var(--purple); font: inherit; font-size: 13px; cursor: pointer; padding: 4px 2px; text-decoration: underline; }
 .docTasksX { background: none; border: 0; color: inherit; font-size: 16px; cursor: pointer; padding: 2px 6px; }
@@ -49,7 +49,7 @@
 .docTasksSync .docTasksSyncRow { font-size: 13px; padding: 0 4px; margin: -4px 0 12px; background: none; border: 0; box-shadow: none; }
 .docTasksCheck { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; font-size: 13px; }
 .docTasksCheck input { margin-top: 3px; accent-color: var(--purple); }
-.docTasksInstr { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--glass-border); background: transparent; color: inherit; font: inherit; font-size: 13px; resize: none; }
+.docTasksInstr { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 10px; border-radius: var(--radius-md); border: 1px solid var(--glass-border); background: transparent; color: inherit; font: inherit; font-size: 13px; resize: none; }
 .docTasksPop { position: fixed; inset: 0; z-index: 103; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .55); }
 .docTasksPop.hidden { display: none; }
 .docTasksPopCard { width: 100%; max-width: 440px; max-height: 80vh; display: flex; flex-direction: column; padding: 14px; border-radius: 18px; color: var(--text);
