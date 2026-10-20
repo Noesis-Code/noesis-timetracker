@@ -173,23 +173,28 @@ async function handleChargeIssue(kind, obj) {
   await subMails.alertTeam(`[Noèsis — Stripe ${kind === 'dispute' ? 'litige' : 'remboursement'}]`, line + '\nAucune action automatique : décision à prendre dans le tableau de bord Stripe.');
 }
 
+// Source unique des types traités : sert au routage ci-dessous ET au test qui la compare à la
+// checklist de production (docs/expansion-checklist-production-2026-10-20.md).
+// invoice.payment_failed n'y est PAS : le passage en past_due arrive par customer.subscription.updated
+// (accès fermé) ; l'événement est seulement journalisé (voir handleEvent), jamais en erreur.
+const EVENT_HANDLERS = {
+  'checkout.session.completed': (event) => handleCheckoutCompleted(event.data.object),
+  'invoice.paid': (event) => handleInvoicePaid(event.data.object),
+  'customer.subscription.updated': (event) => handleSubscriptionUpdated(event.data.object, event.created),
+  'customer.subscription.deleted': (event) => handleSubscriptionDeleted(event.data.object),
+  'charge.refunded': (event) => handleChargeIssue('refund', event.data.object),
+  'charge.dispute.created': (event) => handleChargeIssue('dispute', event.data.object),
+};
+const HANDLED_EVENT_TYPES = Object.freeze(Object.keys(EVENT_HANDLERS));
+
 async function handleEvent(event) {
-  switch (event.type) {
-    case 'checkout.session.completed':
-      return handleCheckoutCompleted(event.data.object);
-    case 'invoice.paid':
-      return handleInvoicePaid(event.data.object);
-    case 'customer.subscription.updated':
-      return handleSubscriptionUpdated(event.data.object, event.created);
-    case 'customer.subscription.deleted':
-      return handleSubscriptionDeleted(event.data.object);
-    case 'charge.refunded':
-      return handleChargeIssue('refund', event.data.object);
-    case 'charge.dispute.created':
-      return handleChargeIssue('dispute', event.data.object);
-    default:
-      return; // événement accepté sans action
+  const handler = EVENT_HANDLERS[event.type];
+  if (handler) return handler(event);
+  if (event.type === 'invoice.payment_failed') {
+    const o = (event.data && event.data.object) || {};
+    console.warn('[stripe webhook] invoice.payment_failed abonnement=' + (o.subscription || '?') + ' (statut via customer.subscription.updated)');
   }
+  // événement accepté sans action (200)
 }
 
 router.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -223,3 +228,4 @@ router.post('/stripe/webhook', express.raw({ type: 'application/json' }), async 
 });
 
 module.exports = router;
+module.exports.HANDLED_EVENT_TYPES = HANDLED_EVENT_TYPES;

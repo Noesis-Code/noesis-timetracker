@@ -52,7 +52,7 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 1. Portail client Stripe et résiliation : parcours préparé en mode test. FAIT (repli 4) : `POST /offer/portal` + `stripe.createPortalSession`, testé dans `expansion-parcours-test.js` ; reste côté Émilien : activer le portail dans le tableau de bord Stripe (mode test) ; aucune interface ajoutée.
 2. Idempotence du webhook Stripe testée (même événement reçu deux fois). FAIT (`test/stripe-webhook-idempotence-test.js`).
 3. Textes « Offre 1 » → Expansion dans CGU, confidentialité et code, hors ids et routes. BLOQUÉ (repli 8) : CGU/confidentialité = légal, réservé à Émilien ; question dans `docs/questions-emilien-expansion.md`.
-4. Échecs de paiement : `invoice.payment_failed` testé par événement signé local (fait, `test/stripe-webhook-idempotence-test.js`).
+4. Échecs de paiement : `invoice.payment_failed` non traité par le code (200, journalisé) ; `past_due` arrive par `customer.subscription.updated` (testé : `test/stripe-webhook-idempotence-test.js`, `test/expansion-webhook-evenements-test.js`).
 5. Messages d'erreur du checkout et du webhook relus (FR/EN, aucun détail interne exposé). FAIT (repli 5) : `Accept-Language`, portail non activé couvert par `expansion-parcours-test.js`.
 6. Variables d'env Stripe auditées (`docs/stripe-taxes.md`, `DEPLOIEMENT.md`) : liste unique, rien d'oublié. FAIT (repli 5) : `DEPLOIEMENT.md` §6.
 7. Suite complète `node test/run-tests.js` relancée après rebase. FAIT (repli 6, 20 oct. : 100 passées, 0 échouée, rien à corriger côté Expansion).

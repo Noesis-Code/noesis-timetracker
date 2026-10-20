@@ -9,7 +9,7 @@ Clés Stripe de test seulement, aucun réseau. Tests : `test/expansion-securite-
 | Signature d'un mauvais secret | 400 | idempotence |
 | Même event.id rejoué | ignoré, un seul effet | idempotence, parcours |
 | Échec transitoire puis relivraison | 500 puis retraité une fois | idempotence |
-| Événement inconnu (ex. `invoice.payment_failed`) | 200, marqué traité, aucun effet | securite, idempotence |
+| Événement non traité (ex. `invoice.payment_failed`, journalisé) | 200, marqué traité, aucun effet | securite, idempotence |
 | `subscription.updated` ou `invoice.paid` arrivé APRÈS `deleted` | **corrigé** : restait réouvert (statut réécrit en actif) ; `canceled` est maintenant final | securite |
 | `checkout.session.completed` arrivé après la résiliation | **corrigé** : plus de livraison ni de courriel de confirmation | securite |
 | `deleted` d'un abonnement jamais vu | 200, aucune ligne | securite |

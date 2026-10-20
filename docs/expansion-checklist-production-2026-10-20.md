@@ -11,7 +11,7 @@ Vérifié en staging avec faux Stripe : `test/expansion-bout-en-bout-test.js` (p
 ## Stripe (mode live)
 - [ ] Produit et prix mensuel Expansion créés en live ; poser `STRIPE_OFFER1_PRICE_ID` (identifiant du prix live).
 - [ ] Poser `STRIPE_SECRET_KEY` (clé live) dans Railway production uniquement, jamais sur staging.
-- [ ] Webhook live vers `<domaine de production>/stripe/webhook` avec les événements cochés : `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `charge.refunded`, `charge.dispute.created`. Poser `STRIPE_WEBHOOK_SECRET` (secret de signature de CE webhook live).
+- [ ] Webhook live vers `<domaine de production>/stripe/webhook` avec les événements cochés : `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `charge.refunded`, `charge.dispute.created`. (`invoice.payment_failed` n'est pas traité : le statut `past_due`, qui ferme l'accès, arrive par `customer.subscription.updated` ; s'il est coché, il est journalisé et reçoit 200.) Poser `STRIPE_WEBHOOK_SECRET` (secret de signature de CE webhook live).
 - [ ] Portail client activé en mode live (Paramètres > Billing > Portail client) : résiliation en fin de période permise.
 - [ ] Taxes : décider `STRIPE_TAX_ENABLED=1` (voir `docs/stripe-taxes.md`).
 
