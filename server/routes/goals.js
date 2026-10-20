@@ -60,7 +60,7 @@ function requireMembership(userId, activityId) {
 function handleGoalsError(res, err) {
   if (err && err.statusCode) return res.status(err.statusCode).json(err.taskCount !== undefined ? { error: err.message, taskCount: err.taskCount } : { error: err.message });
   console.error('[goals]', err);
-  return res.status(500).json({ error: 'Erreur serveur.' });
+  return res.status(500).json({ error: 'Erreur serveur' });
 }
 
 // 15 septembre 2026 (discussion Objectifs — B) : la catégorie par défaut

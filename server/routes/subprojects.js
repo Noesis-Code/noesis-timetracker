@@ -29,7 +29,7 @@ const router = express.Router();
 function handleSubProjectsError(res, err) {
   if (err && err.statusCode) return res.status(err.statusCode).json({ error: err.message });
   console.error('[sous-projets]', err);
-  return res.status(500).json({ error: 'Erreur serveur.' });
+  return res.status(500).json({ error: 'Erreur serveur' });
 }
 
 // ===================== SOUS-PROJETS =====================

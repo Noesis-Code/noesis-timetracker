@@ -350,7 +350,7 @@ function loginIpLimited(ip) {
   return e.n > LOGIN_IP_LIMIT;
 }
 router.get('/users', (req, res) => {
-  if (usersRateLimited(req.ip || 'inconnu')) return res.status(429).json({ error: 'Trop de recherches. Réessayez dans une minute.' });
+  if (usersRateLimited(req.ip || 'inconnu')) return res.status(429).json({ error: 'Trop de recherches. Réessaie dans une minute.' });
   const q = (req.query.q || '').trim();
   if (q) {
     if (q.length < USERS_SEARCH_MIN_LENGTH) return res.json([]);
@@ -724,7 +724,7 @@ router.put('/profile/:id/modules', (req, res) => {
 // profil" (typiquement depuis un autre appareil/navigateur). Ne renvoie le
 // profil qu'en cas de succès, et protège contre le bourrinage.
 router.post('/profile/:id/verify-pin', (req, res) => {
-  if (loginIpLimited(req.ip || 'inconnu')) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans une minute.' });
+  if (loginIpLimited(req.ip || 'inconnu')) return res.status(429).json({ error: 'Trop de tentatives. Réessaie dans une minute.' });
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 

@@ -61,7 +61,7 @@ function middleware(opts = {}) {
     const retryAfter = lim.check(req.ip, req.userId);
     if (!retryAfter) return next();
     res.set('Retry-After', String(retryAfter));
-    return res.status(429).json({ error: `Trop de requêtes. Réessayez dans ${retryAfter} s.`, retryAfter });
+    return res.status(429).json({ error: `Trop d’essais. Réessaie dans quelques minutes.`, retryAfter });
   };
 }
 

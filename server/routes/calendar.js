@@ -100,7 +100,7 @@ router.get('/activities/:id/goals-days', (req, res) => {
   } catch (err) {
     if (err && err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     console.error('[calendar]', err);
-    res.status(500).json({ error: 'Erreur serveur.' });
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
@@ -121,7 +121,7 @@ router.post('/activities/:id/goals-days/task', (req, res) => {
   } catch (err) {
     if (err && err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     console.error('[calendar]', err);
-    res.status(500).json({ error: 'Erreur serveur.' });
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 

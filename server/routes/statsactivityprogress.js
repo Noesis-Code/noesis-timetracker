@@ -18,7 +18,7 @@ router.get('/stats/activity-progress', (req, res) => {
   if (!membership) return res.status(403).json({ error: "Tu n'es pas membre de cette activité." });
   try { return res.json(progress.progressForActivity(activityId)); } catch (err) {
     console.error('[stats-activity-progress]', err);
-    return res.status(500).json({ error: 'Erreur serveur.' });
+    return res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
@@ -35,7 +35,7 @@ router.get('/stats/activity-insights', (req, res) => {
   const poleKey = req.query.poleKey ? String(req.query.poleKey) : null;
   try { return res.json(insights.insightsForActivity(activityId, userId, poleKey, req.query.year, { scope: req.query.scope, offset: req.query.offset, woff: req.query.woff, kind: req.query.kind })); } catch (err) {
     console.error('[stats-activity-insights]', err);
-    return res.status(500).json({ error: 'Erreur serveur.' });
+    return res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
@@ -54,7 +54,7 @@ router.get('/stats/activity-insights/glisse', (req, res) => {
   if (week !== null && !(Number.isInteger(week) && week >= 1 && week <= 4)) return res.status(400).json({ error: 'week invalide.' });
   try { return res.json(insights.glisseDetail(activityId, ps, week)); } catch (err) {
     console.error('[stats-glisse]', err);
-    return res.status(500).json({ error: 'Erreur serveur.' });
+    return res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
@@ -69,7 +69,7 @@ router.get('/stats/activity-members', (req, res) => {
   if (!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId)) return res.status(403).json({ error: "Tu n'es pas membre de cette activité." });
   try { return res.json(insights.memberStats(activityId, req.query.scope, null, typeof req.query.category === 'string' && req.query.category !== '' && req.query.category !== 'all' ? req.query.category : null)); } catch (err) {
     console.error('[stats-activity-members]', err);
-    return res.status(500).json({ error: 'Erreur serveur.' });
+    return res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
@@ -104,7 +104,7 @@ router.get('/stats/profile-insights', (req, res) => {
     return res.json({ activities, activityId, data });
   } catch (err) {
     console.error('[stats-profile-insights]', err);
-    return res.status(500).json({ error: 'Erreur serveur.' });
+    return res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 

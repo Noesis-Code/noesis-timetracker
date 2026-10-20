@@ -14,7 +14,8 @@
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function call(method, url, body) {
     return fetch(url, { method: method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
-      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(d.error || tr('Erreur.')); return d; }); });
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(tr(d.error || 'Erreur.')); return d; }); },
+        function () { throw new Error(tr('Connexion impossible. Réessaie.')); }); // coupure réseau : plus de « Load failed » brut
   }
   function fmt(iso) {
     if (!iso) return tr('jamais utilisé');

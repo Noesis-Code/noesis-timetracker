@@ -24,7 +24,8 @@
   function pid() { var p = typeof TMT.getProfile === 'function' ? TMT.getProfile() : null; return p && p.id; }
   function call(method, body) {
     return fetch('/api/profile/' + encodeURIComponent(pid()) + '/modules', { method: method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
-      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) { var e = new Error(d.error || 'Erreur.'); throw e; } return d; }); });
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) { var e = new Error(tr(d.error || 'Erreur.')); throw e; } return d; }); },
+        function () { throw new Error(tr('Connexion impossible. Réessaie.')); }); // coupure réseau : plus de « Load failed » brut
   }
   function on(id) { return id === 'core' || !state || state[id] !== false; }
   // Onglets de la barre du bas : Activité = noyau ; ensemble « Temps » = onglets Chrono ET Stats ensemble ; le reste = son module.

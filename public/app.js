@@ -703,11 +703,20 @@
     return fetch(url, opts).then(function (r) {
       // 16 oct. 2026 : une réponse non JSON (redémarrage, route absente) faisait afficher le message
       // BRUT du navigateur (anglais : « The string did not match the expected pattern »). Message maison.
+<<<<<<< HEAD
       return r.json().catch(function () { var badErr = new Error(t('Erreur serveur')); badErr.status = r.status; throw badErr; }).then(function (data) {
         if (!r.ok) {
           if (data.needsLogin) handleSessionLost();
           var apiErr = new Error(t(data.error || 'Erreur serveur'));
           apiErr.status = r.status;
+=======
+      // 502/503/504 sans JSON = serveur en redémarrage ou injoignable : même message qu'une coupure réseau.
+      return r.json().catch(function () { throw new Error(t(r.status === 502 || r.status === 503 || r.status === 504 ? 'Connexion impossible. Réessaie.' : 'Erreur serveur')); }).then(function (data) {
+        if (!r.ok) {
+          if (data.needsLogin) handleSessionLost();
+          // Code technique (« offer1_required ») renvoyé par une route réservée : jamais montré tel quel.
+          var apiErr = new Error(t(!data.error ? 'Erreur serveur' : /^[a-z0-9_]+$/.test(data.error) ? 'Accès refusé.' : data.error));
+>>>>>>> a1bc1fe (Messages d'erreur : IA indisponible distincte, réseau/403/429/5xx lisibles, table des cas)
           if (data.offline) apiErr.offline = true;
           throw apiErr;
         }

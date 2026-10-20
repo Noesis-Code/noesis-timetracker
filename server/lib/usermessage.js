@@ -2,9 +2,13 @@
 // (« HTTP 529 », « fetch failed », « SQLITE_… », nom de service) ; repli sur « Erreur serveur ».
 const TECHNIQUE = /HTTP \d{3}|\bfetch failed|\bECONN|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|SQLITE|constraint failed|Unexpected token|is not (?:a function|defined)|Cannot read|\bundefined\b|\[object|Anthropic|Stripe|Resend/i;
 
+// Surcharge ou panne passagère du service d'IA / du réseau : clé i18n existante (FR + EN).
+const INDISPONIBLE = /HTTP (?:429|5\d\d)\b|\bfetch failed|\bECONN|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|timed? ?out|aborted|overloaded/i;
+
 function userMessage(err, fallback) {
   const msg = err && err.message ? String(err.message) : '';
   if (err && (err.statusCode || err.aiBlocked)) return msg || fallback || 'Erreur serveur';
+  if (INDISPONIBLE.test(msg)) return 'Génération indisponible pour le moment.';
   if (!msg || TECHNIQUE.test(msg)) return fallback || 'Erreur serveur';
   return msg;
 }
