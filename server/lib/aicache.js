@@ -52,9 +52,9 @@ function memoClear() { memoStore.clear(); memoPending.clear(); }
 // Plafond quotidien par fonction et par compte (garde-fou contre l'abus, très au-dessus de l'usage normal).
 // Sans compte identifié ou max <= 0 : pas de plafond propre (le budget commun aibudget reste actif). Mémoire, remis à zéro chaque jour.
 const capUsage = new Map();
-function takeDailyCap(name, account, max) {
+function takeDailyCap(name, account, max, now) {
   if (!account || !(max > 0)) return true;
-  const day = new Date().toISOString().slice(0, 10);
+  const day = require('./aifeaturecaps').dayKey(now);
   for (const k of capUsage.keys()) if (!k.endsWith('|' + day)) capUsage.delete(k);
   const key = name + '|' + account + '|' + day;
   const n = capUsage.get(key) || 0;

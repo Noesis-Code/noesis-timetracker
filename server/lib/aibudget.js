@@ -25,11 +25,7 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const SYSTEM_USER = 'system';
 
 // Hypothèses de tarifs ($ / million de jetons) — à ajuster via l'environnement si Anthropic change.
-const PRICES = {
-  sonnet: { in: 3, out: 15 },
-  haiku: { in: 1, out: 5 },
-  opus: { in: 15, out: 75 },
-};
+const { PRICES } = require('./aimodels'); // tarifs : un seul endroit (aimodels.js)
 const DEFAULT_PRICE = PRICES.sonnet;
 
 db.exec(`
@@ -75,9 +71,7 @@ for (const col of ['cacheReadTokens', 'cacheWriteTokens']) {
 }
 
 function todayLocal(now) {
-  const d = now instanceof Date ? now : new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return featureCaps.dayKey(now); // jour civil de Montréal, indépendant du fuseau du processus
 }
 
 function capMonth() {

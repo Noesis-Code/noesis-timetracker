@@ -13,3 +13,6 @@ Pistes d'amélioration IA (`docs/ia-amelioration-2026-10-20.md`) :
 
 Loi 25 (registre des traitements, légal non modifié par l'agent) :
 - [ ] Ajouter au registre des traitements (et à la politique de confidentialité si tu le juges utile) la mention : « Les courriels, numéros de téléphone et numéros de carte/NAS probables écrits dans un texte libre sont masqués automatiquement avant tout envoi à l'IA » (module `server/lib/aiscrub.js`) ? — tâche : Masquage avant envoi à l'IA
+
+Tarifs IA (`PRICES` dans `server/lib/aimodels.js`, mis à jour le 2026-10-16, non vérifiés en ligne) :
+- [ ] Confirmer les tarifs actuels en $ par million de jetons (entrée/sortie) : Haiku 1/5, Sonnet 3/15, Opus 15/75 ? Si faux, donner les bons chiffres ; le rapport `ai-cost-report.js` affiche la date et avertit au-delà de 90 jours.

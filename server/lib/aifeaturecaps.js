@@ -11,6 +11,13 @@ const FEATURE_CAPS = [
   { feature: 'reformulation', env: 'REWRITE_MAX_PER_DAY', dflt: 150, label: 'Reformulation' },
   { feature: 'correction-orthographe', env: 'SPELLFIX_MAX_PER_DAY', dflt: 200, label: 'Orthographe' },
 ];
+// Jour des compteurs IA (plafonds, budget, alertes) : jour civil de Montréal (America/Toronto, même fuseau), jamais UTC ni le fuseau du processus.
+function dayKey(now) {
+  const d = now instanceof Date ? now : new Date();
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d);
+  const g = (t) => p.find((x) => x.type === t).value;
+  return g('year') + '-' + g('month') + '-' + g('day');
+}
 const baseFeature = (f) => String(f || '').replace(/:repli$/, '');
 // Plafond effectif (0 = désactivé -> null).
 function capOf(entry, env) {
@@ -33,4 +40,4 @@ function capUsage(rows, env) {
     return { feature: e.feature, label: e.label, env: e.env, cap, maxCallsPerAccountDay: max, share: cap ? max / cap : null };
   });
 }
-module.exports = { FEATURE_CAPS, capFor, capUsage, baseFeature };
+module.exports = { dayKey, FEATURE_CAPS, capFor, capUsage, baseFeature };

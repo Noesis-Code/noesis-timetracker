@@ -48,7 +48,7 @@ try { db.prepare('SELECT 1 FROM ai_usage_log LIMIT 1').get(); } catch (e) { cons
 const capMonth = (() => { const n = Number(process.env.AI_BUDGET_MONTH_USD); return Number.isFinite(n) && n > 0 ? n : 15; })();
 const SYSTEM_USER = 'system';
 const p2 = (n) => String(n).padStart(2, '0');
-const local = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+const local = (d) => require('../server/lib/aifeaturecaps').dayKey(d); // jour de Montréal, comme le journal ai_usage_log
 const fmt = (n) => (n || 0).toFixed(2) + ' $';
 const days = Math.max(1, Math.floor(Number(args[0])) || 30);
 const since = (() => { const d = new Date(); d.setDate(d.getDate() - days + 1); return local(d); })();
@@ -56,7 +56,15 @@ const month = local(new Date()).slice(0, 7);
 
 const rows = db.prepare('SELECT userId, SUM(costUsd) AS cost, SUM(calls) AS calls FROM ai_usage_log WHERE day >= ? AND day <= ? GROUP BY userId ORDER BY cost DESC').all(month + '-01', month + '-31');
 const users = rows.filter((r) => r.userId !== SYSTEM_USER);
-console.log('Coût IA — ' + month + ' (plafond ' + fmt(capMonth) + '/utilisateur)\n');
+console.log('Coût IA — ' + month + ' (plafond ' + fmt(capMonth) + '/utilisateur)');
+{ // Tarifs ($/M jetons) : un seul endroit, server/lib/aimodels.js ; le coût du journal est calculé avec eux à chaque appel.
+  const { PRICES, PRICES_UPDATED } = require('../server/lib/aimodels');
+  const age = Math.floor((Date.now() - Date.parse(PRICES_UPDATED + 'T12:00:00Z')) / 86400000);
+  console.log('Tarifs $/M jetons (entrée/sortie) : ' + Object.keys(PRICES).map((k) => k + ' ' + PRICES[k].in + '/' + PRICES[k].out).join(', ') + ' — mis à jour le ' + PRICES_UPDATED + ' (' + age + ' j)');
+  if (!(age <= 90)) console.log('AVERTISSEMENT : tarifs de plus de 90 jours, à confirmer (PRICES dans server/lib/aimodels.js).');
+  if (process.env.AI_PRICE_IN_PER_M || process.env.AI_PRICE_OUT_PER_M) console.log('NB : AI_PRICE_IN_PER_M / AI_PRICE_OUT_PER_M surchargent ces tarifs pour tous les modèles.');
+  console.log('');
+}
 users.concat(rows.filter((r) => r.userId === SYSTEM_USER)).forEach((r) => console.log(String(r.userId).padEnd(40) + fmt(r.cost).padStart(10) + '  ' + r.calls + ' appel(s)'));
 const total = users.reduce((s, r) => s + r.cost, 0);
 console.log('\nUtilisateurs actifs : ' + users.length + ' | moyenne ' + fmt(users.length ? total / users.length : 0) + ' (cible 10 $) | max ' + fmt(users.length ? users[0].cost : 0) + ' (limite ' + fmt(capMonth) + ')');
