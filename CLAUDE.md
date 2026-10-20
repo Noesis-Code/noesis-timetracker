@@ -26,6 +26,11 @@ Sept chantiers tournent en permanence (Trade Tracker, TT Basic, TT Expansion, Cr
 
 Émilien veut une application **simple** : on retire avant d'ajouter. Lire `SIMPLIFICATION.md` (principes, test de simplicité à passer avant tout push d'un chantier UI, journal « Refusé par Émilien »). Un chantier permanent « Simplificateur » relit les livraisons et retire le superflu. Aucun bouton, option, réglage, écran ni couleur nouveau sans demande explicite.
 
+**Règles de rangement (20 oct. 2026) — obligatoires pour tout agent** : `docs/regles-rangement.md` (R1 à R10, modèles Linear, Apple, Things 3, Bear, Oura).
+- Lire ce fichier avant toute modification d'interface (`public/`) ; ne pas l'assouplir sans accord d'Émilien.
+- Joindre au compte rendu la checklist R1–R10 (cochée ou justifiée) et les captures avant/après à 390 px et 360 px.
+- Le relecteur refuse toute branche touchant `public/` sans cette checklist ou avec une règle violée sans justification.
+
 ## Autonomie
 
 Décision d'Émilien, 30 sept. 2026 : **plus d'autonomie, plus de demande de permission**. Tout s'exécute sans validation préalable (correctifs, fonctionnalités, nouveaux mécanismes, architecture, dépendances, migrations) dès que c'est cohérent avec la demande ; on le signale en une ligne dans le compte rendu au lieu de demander avant.

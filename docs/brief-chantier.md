@@ -19,3 +19,4 @@ Chantier : <sujet> · Branche : `claude/<sujet>` · Demande : <1-3 lignes>
     - Il vérifie : `/healthz` 200, accueil 200, `app.js` et `styles.css` avec `?v=` en cache immutable, gzip/br actif, `sw.js` sans cache.
     - Sortie : une ligne ok/ECHEC par contrôle, code 0 si tout passe ; un ECHEC = ne rien annoncer, ouvrir un correctif.
     - Garde-fous de dépôt : `test/garde-sources-test.js` (suite) refuse marqueur de conflit hors `docs/`, `node --check` en échec sur `public/**/*.js`, CSS déséquilibré ; le hook `pre-push-sw.sh` refuse aussi un diff qui ajoute un marqueur.
+14. **Règles de rangement (obligatoires)** : lire `docs/regles-rangement.md` avant toute modification de `public/`, et joindre au compte rendu la checklist R1–R10 (chaque règle cochée ou justifiée) avec les captures avant/après à 390 px et 360 px. Sans cela, le relecteur refuse la branche.

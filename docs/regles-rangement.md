@@ -1,0 +1,28 @@
+# Règles de rangement (obligatoires, décision d'Émilien du 20 oct. 2026)
+
+Tout agent lit ce fichier avant de toucher à l'interface (`public/`). Le relecteur refuse toute branche qui les viole sans justification écrite.
+
+## Modèles retenus et ce qu'on en copie
+- Linear : peu d'éléments, une action claire, tout le reste discret.
+- Apple (Rappels, Santé, Horloge) : listes simples, grands gestes, un mot par chose.
+- Things 3 : espace généreux, regroupement par l'espace plutôt que par des traits.
+- Bear : écran d'écriture dépouillé, rien qui distrait de la saisie.
+- Oura : les chiffres sont grands, lisibles, sans décor autour.
+
+## Les règles
+- R1. Un écran = une action principale, en violet. Le reste est discret.
+- R2. Montre au plus 7 éléments par écran ou fenêtre. Au-delà, regroupe ou cache derrière un affichage progressif (« Avancé », fermé par défaut).
+- R3. Regroupe les champs liés et sépare les groupes par de l'espace, pas par des traits. Ordre = ordre d'usage, le plus fréquent en haut.
+- R4. Mets les actions rares ou destructrices tout en bas, séparées, en brique. Jamais à côté de l'action principale.
+- R5. Un mot court (1 à 3 mots) par chose, et le même mot partout dans l'app.
+- R6. Espacement : uniquement 8, 12, 16 ou 24 px. Aligne sur une grille, marges égales, jamais de carte dans une carte.
+- R7. Cibles tactiles de 44 px au moins, texte de 13 px au moins.
+- R8. Une option qui a une valeur par défaut raisonnable n'est pas affichée (elle va dans « Avancé »).
+- R9. N'ajoute aucun élément sans en retirer un équivalent. Ne retire aucune fonction sans l'accord d'Émilien.
+- R10. Chaque changement visuel est livré avec une capture avant/après à 390 px et à 360 px, et la liste R1 à R9 vérifiée une par une (cochée, ou justifiée en une phrase).
+
+## Checklist à joindre au compte rendu
+```
+R1 [ ] R2 [ ] R3 [ ] R4 [ ] R5 [ ] R6 [ ] R7 [ ] R8 [ ] R9 [ ]  R10 : captures 390 px + 360 px jointes [ ]
+(une règle non cochée = une phrase de justification)
+```
