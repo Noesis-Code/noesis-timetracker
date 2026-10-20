@@ -71,3 +71,30 @@ Hors liste, vivantes : routes appelées par chemin construit (`change-proposals/
 - [ ] `DELETE /profile/:id/ai-examples` (remise à zéro de l'apprentissage du classement IA ; « sans écran » par décision, testé) : retirer / garder
 - [ ] `GET /push/status` (état de l'abonnement aux notifications ; seulement dans `test/modules-gating-test.js`) : retirer / garder
 - [ ] `routes/offerforms.js` (4 routes `/activities/:id/forms`, `/profile-form`) : voir case plus haut
+
+## 9e passage : inventaire des options et réglages (20 oct.)
+Tableau complet (63 options TimeTracker, 17 Trade, ≈ lignes de code, taps) : `inventaire-options-2026-10-20.md`. Rien n'est retiré ; une ligne par option, effet « avant → après ». Les options déjà en case plus haut, demandées par Émilien ou légales ne sont pas répétées. Coût à connaître pour la case « Partager » : le QR code coûte 2 320 lignes (librairie `qrcode.js`).
+
+### TimeTracker
+- [ ] Contact par courriel + par téléphone (Identité) : un seul interrupteur « Autoriser mes abonnés à me contacter » / garder deux. Avant : 2 interrupteurs ; après : 1 (les deux colonnes restent, écrites ensemble)
+- [ ] Mode IA (Autonome / Partiel / Absent) : défaut « Partiel » sans pop-up à la première tâche, changeable en Réglages › Mon IA / garder le pop-up obligatoire. Avant : 1 pop-up et 1 tap à la 1re tâche ; après : 0
+- [ ] Mon IA › case « Autoriser l'IA à cocher mes tâches et m'écrire » (cachée sous Détails) : retirer (IA toujours en lecture seule) / garder. Avant : 1 case + 2 phrases ; après : rien (l'adresse est en lecture seule)
+- [ ] Calendrier › « Activités exportées » : un interrupteur par activité seulement, sans le niveau par pôle / garder. Avant : activité puis pôles dépliables ; après : activité seule
+- [ ] Calendrier › « Règles de répartition » (mots du titre → max heures) : retirer (les heures occupées importées suffisent) / garder. Avant : règles à écrire (mots, heures, ajouter) ; après : aucune règle, ≈ 200 lignes en moins
+- [ ] Graphique (Jour / Semaine / Mois) : granularité déduite de la période de la Feuille de temps (Semaine → jours, Mois → semaines, Année → mois) / garder les 2 menus ⋮. Avant : 2 menus ⋮ par écran de stats (10 au total) ; après : 1 (5 menus en moins)
+- [ ] Tâche récurrente : retirer le bouton « Arrêter la récurrence » (le menu « Ne se répète pas » fait la même chose) / garder. Avant : 2 chemins ; après : 1
+- [ ] Projet du Profil : nom + description seulement, sans « + Ajouter des détails » (lien externe, date de début) / garder. Avant : 4 champs dont 2 cachés ; après : 2
+
+### Trade Tracker
+- [ ] Langue de Trade : reprendre celle de TimeTracker (transmise dans le lien), retirer le choix FR/EN de Trade / garder. Avant : deux choix de langue indépendants ; après : un seul (celui de TimeTracker)
+- [ ] Graphique Camembert / Barres (⋮ Répartition) : retirer (camembert + détail en barres toujours affichés) / garder. Avant : 1 groupe de 2 choix ; après : aucun
+- [ ] « Masquer les petites positions » (< 1 %, < 2 %, < 5 %) : retirer (défaut « Non ») / garder. Avant : 4 choix ; après : aucun
+- [ ] Filtre Gains / Pertes de Positions : retirer (le tri « Gain $ / Gain % » suffit) / garder. Avant : 3 puces ; après : aucune
+- [ ] Sélecteur « Tous les secteurs » de Positions : retirer (la Répartition regroupe déjà par secteur) / garder. Avant : 1 sélecteur ; après : aucun
+
+### Onboarding
+- [ ] Langue : déduite du navigateur à la création (aucun écran, aucune question) / garder `fr` pour tous. Avant : un utilisateur anglophone démarre en français ; après : démarre dans sa langue
+- [ ] Création : retirer les deux interrupteurs facultatifs (usage commercial, trouvable à la connexion) de l'écran, ils restent en Réglages › Sécurité, éteints par défaut / garder. Avant : 2 interrupteurs + « En savoir plus » à la création ; après : aucun (légal/Loi 25 : réservé à Émilien)
+
+### Sans interface, à noter
+- Colonnes sans lecteur ni écrivain : `users.chronoScrollClock` (horloge défilante) et `users.aiConfirmEach` (confirmation par tâche), deux options déjà refusées. Données inertes, à supprimer par Émilien si souhaité.

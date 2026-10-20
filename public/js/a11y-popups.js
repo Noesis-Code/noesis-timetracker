@@ -8,6 +8,16 @@
   // Plein écrans et fenêtres dont la croix ✕ fermait déjà, mais que le focus/Tab ne pilote pas (créés à la volée ou sans
   // classe commune) : Échap seulement, aucun rôle ni focus ajouté. Même geste que la croix, aucun effet visuel.
   var ESC_ONLY = '#profileSettingsPanel, #tradePage, #docTasksPage, .goalTaskEditModal, .reportOverlay, .goalsDiscSheet';
+  // Fenêtres retirées du DOM à la fermeture : ce qui y est tapé serait perdu. Échap (frappe accidentelle) ne les ferme pas
+  // tant qu'un champ y a été modifié ou qu'un envoi est en cours ; la croix ✕ reste le geste volontaire. Aucun élément visible.
+  var DISCARD = '.goalTaskEditModal, .reportOverlay';
+  var typed = new WeakSet();
+  document.addEventListener('input', function (e) { if (e.target && typeof e.target === 'object') typed.add(e.target); }, true);
+  function unsaved(el) {
+    if (!el.matches(DISCARD)) return false;
+    if (el.querySelector('button.btnBrique:disabled')) return true;
+    return Array.prototype.some.call(el.querySelectorAll('input, textarea'), function (f) { return typed.has(f); });
+  }
   var FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
   var open = []; // { el, from }
 
@@ -77,6 +87,7 @@
       // Une saisie qui gère déjà Échap (nouveau pôle...) ou la roue de durée (sa propre fermeture) passent d'abord.
       if (e.defaultPrevented || document.querySelector('.durPickerOverlay')) return;
       var tp = topmost(top);
+      if (tp && unsaved(tp)) return;
       var b = tp && closeButton(tp);
       if (b) { e.preventDefault(); b.click(); }
       return;

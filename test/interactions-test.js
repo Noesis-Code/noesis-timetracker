@@ -16,6 +16,7 @@ else m[1].split(',').map((s) => s.trim()).forEach((sel) => {
 if (!/e\.defaultPrevented/.test(a11y)) fail('Échap : une saisie qui gère déjà Échap doit passer d\'abord');
 if (!/durPickerOverlay/.test(a11y)) fail('Échap : la roue de durée garde sa propre fermeture');
 if ((pub('app.js').match(/modal\.onclick = function \(e\) \{ if \(e\.target === modal\) close\(\); \}/g) || []).length < 3) fail('clic hors fenêtre : retrait pôle/secteur, confirmation générique et déplacement doivent fermer comme la croix');
+if (!/var DISCARD = '[^']*goalTaskEditModal/.test(a11y) || !/if \(tp && unsaved\(tp\)\) return;/.test(a11y)) fail('Échap : garde de saisie non sauvegardée absente (fenêtres retirées du DOM)');
 const css = pub('styles.css');
 if (!/\.reportHead \.menuBtn::after[^{]*\{[^}]*max\(100%, 44px\)/.test(css)) fail('zone tactile 44 px des croix absente');
 // Toute croix ✕ créée en JS porte un aria-label
