@@ -1009,7 +1009,7 @@ body { isolation: isolate; }
    restent génériques ailleurs, ex. « Confirmer l'arrêt »). */
 #chronoIdle .stepLabel { font-size: 17px; font-weight: 600; }
 #activityButtons { gap: 14px; }
-#activityButtons .activityChoiceBtn { min-height: 58px; padding: 0 20px; border-radius: 16px; font-weight: 600; }
+#activityButtons .activityChoiceBtn { min-height: 58px; padding: 0 20px; border-radius: var(--radius-lg); font-weight: 600; }
 
 /* ===== Chrono ===== */
 .chronoBlock { text-align: center; margin: 20px 0; }
