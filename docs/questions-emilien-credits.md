@@ -5,3 +5,8 @@
 - Lecture des tâches du secteur « Crédits Claude et API » : l'outil MCP `lister_taches` n'était pas disponible dans cette session de repli ; aucune tâche traitée.
 
 Rapport hebdomadaire : `node scripts/ai-cost-weekly.js` (base) ou `--from export.json`.
+
+Pistes d'amélioration IA (`docs/ia-amelioration-2026-10-20.md`) :
+- [ ] Conserver les réponses IA répétées (orthographe, classement) après un redémarrage du serveur, via une table de la base ? — tâche bloquée : Mémo persistant — champ manquant : 3 (citation d'intention)
+- [ ] Enregistrer, sans le texte, si une reformulation proposée est utilisée, pour mesurer son utilité (et la retirer si personne ne s'en sert) ? — tâche bloquée : Signal d'acceptation de la reformulation — champ manquant : 3
+- [ ] Lancer l'évaluation `eval-task-precision.js --live` pour décider de retirer le repli Sonnet du classement ? — tâche bloquée : Classement Haiku seul — champ manquant : 4

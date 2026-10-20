@@ -148,6 +148,8 @@ function callAi(payload, requestedWeeks) {
 // Journal : features 'objectifs-hebdo' (Haiku) / 'objectifs-hebdo:repli' (fort).
 const WEEKLY_CONF = '\nAjoute à la racine de l\'objet JSON un champ "confidence" (entier 0-100, ta confiance dans ce plan ; sous 80 si tu hésites).';
 async function callAiTiered(payload, requestedWeeks) {
+  // Plafond d'abus par compte et par jour (appels réels seulement, après le mémo) ; refus = panne IA. HEBDO_MAX_PER_DAY (défaut 60 ; 0 = désactivé).
+  if (!aicache.takeDailyCap('objectifs-hebdo', aibudget.currentUser(), aicache.capFromEnv('HEBDO_MAX_PER_DAY', 60))) throw new Error('Plafond quotidien de génération atteint.');
   const fast = aicache.fastModelFor('NOESIS_WEEKLY_FAST_MODEL', ANTHROPIC_MODEL);
   if (fast) {
     try {
