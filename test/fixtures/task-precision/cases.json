@@ -247,6 +247,12 @@
     { "id": "x09", "context": "pige", "kind": "classify", "label": "Envoyer la facture de 1200 $ à la comptable", "expect": {"outcome": "place", "key": "admin"} },
     { "id": "x10", "context": "etu", "kind": "classify", "label": "Rendez-vous dentiste et rédiger le rapport", "expect": {"outcome": "uncertain"} },
     { "id": "x11", "context": "etu", "kind": "classify", "label": "Rendez-vous dentiste à 14 h", "expect": {"outcome": "place", "key": "perso"} },
-    { "id": "x12", "context": "resto", "kind": "classify", "label": "Payer la TPS et la TVQ", "expect": {"outcome": "place", "key": "compta"} }
+    { "id": "x12", "context": "resto", "kind": "classify", "label": "Payer la TPS et la TVQ", "expect": {"outcome": "place", "key": "compta"} },
+    { "id": "p01", "context": "pige", "kind": "classify", "label": "ENVOYER MA FACTURE DE MARS", "expect": {"outcome": "place", "key": "admin"} },
+    { "id": "p02", "context": "cafe", "kind": "classify", "label": "commander du café vert chez le fournisseur", "expect": {"outcome": "place", "key": "appro"} },
+    { "id": "p03", "context": "pige", "kind": "classify", "label": "- [ ] Envoyer ma facture de mars.", "expect": {"outcome": "place", "key": "admin"} },
+    { "id": "p04", "context": "pige", "kind": "classify", "label": "« Mettre à jour le portfolio pour démarchage » ;", "expect": {"outcome": "place", "key": "prospect"} },
+    { "id": "p05", "context": "pige", "kind": "classify", "label": "REUNION", "expect": {"outcome": "uncertain"} },
+    { "id": "p06", "context": "cafe", "kind": "classify", "label": "payer la tps...", "expect": {"outcome": "place", "key": "compta"} }
   ]
 }
