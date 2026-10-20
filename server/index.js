@@ -267,7 +267,8 @@ app.use((req, res, next) => {
     // 18 oct. 2026 : /js/*.js et /css/*.css (objectifs-document-taches.js, etc.) n'avaient aucun en-tête : l'iPhone les gardait périmés (glissement/Modifications proposées jamais mis à jour).
     /^\/(js|css)\/[^/]+\.(js|css)$/.test(req.path)
   ) {
-    res.set('Cache-Control', 'no-cache');
+    // 20 oct. 2026 : /js/*.js et /css/*.css demandés avec ?v=<build> (posé par sendIndex) : l'URL change à chaque déploiement, donc cache long sûr (visites suivantes sans requête).
+    res.set('Cache-Control', /^\/(js|css)\//.test(req.path) && /^[0-9a-zA-Z_-]{1,40}$/.test(String(req.query.v || '')) ? 'public, max-age=31536000, immutable' : 'no-cache');
   }
   next();
 });

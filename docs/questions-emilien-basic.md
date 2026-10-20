@@ -10,3 +10,4 @@ Classe B du tri (`tri-taches-basic-2026-10-20.md`). Cocher = oui ; ajouter une p
 - [ ] Communauté : zone de communication pour Justin, entre-aide et modération proactive (#753, #907, #1553, #1274, #1281) : à faire dans Basic ?
 - [ ] Ajouter prise de RDV, phase découverte et animation du N (#581, #1476, #622, #1490, #1491, #613) : à faire dans Basic ?
 - [ ] Effacer les valeurs nom de famille et téléphone déjà en base (#1256, #1268, #1289) : suppression irréversible, tu autorises (après sauvegarde) ?
+- [ ] Entrée qui passe minuit (ex. dimanche 23 h → lundi 1 h) : attribuer aussi l'heure après minuit au lundi ? Aujourd'hui les 2 h comptent entièrement le dimanche (jour de départ) : le lundi semble avoir 1 h de moins et, si c'est un dimanche de fin de semaine, cette heure sort de la semaine suivante. Changer demande de découper l'entrée par jour dans stats, communauté et objectifs.
