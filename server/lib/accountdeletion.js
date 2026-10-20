@@ -56,6 +56,12 @@ function deleteAccountData(user) {
       if (stillReferenced) {
         db.prepare('UPDATE activities SET active = 0, deletedAt = ?, ownerId = NULL WHERE id = ?').run(now, m.activityId);
       } else {
+        // Les lignes du fil partent avec l'activité (cascade), y compris celles d'anciens membres : leurs fichiers sur disque
+        // ne seraient plus joignables par personne. Effacés après la validation, comme les autres.
+        if (tableExists('activity_message_files')) {
+          db.prepare('SELECT f.storedName FROM activity_message_files f JOIN activity_messages m ON m.id = f.messageId WHERE m.activityId = ?')
+            .all(m.activityId).forEach((r) => storedFiles.push(r.storedName));
+        }
         db.prepare('DELETE FROM activities WHERE id = ?').run(m.activityId);
       }
     });
@@ -131,7 +137,6 @@ function deleteAccountData(user) {
     throw e;
   }
   if (storedFiles.length) require('./discussionfiles').removeStored(storedFiles);
-
 }
 
 module.exports = { deleteAccountData, PERSONAL_NO_FK };

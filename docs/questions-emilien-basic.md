@@ -23,3 +23,11 @@ Classe B du tri (`tri-taches-basic-2026-10-20.md`). Cocher = oui ; ajouter une p
 - [ ] Retirer la confirmation du code à la création (« Confirme le code ») ? (-1 champ)
 - [ ] Activité neuve sans pôle : à la première tâche, ouvrir directement l'écran « Cette activité n'a pas encore de pôle » au lieu d'afficher un message ? (ou créer un pôle par défaut « Général » ; contredit « aucun pôle par défaut »)
 - [ ] « Créer mon profil » grisé sans explication : laisser tel quel, ou faire apparaître le message « Tu dois accepter… » au tap sur le bouton grisé ?
+
+## Loi 25 : export, effacement, rappels (repli 24)
+
+- [ ] Export de mes données : les fichiers joints aux discussions (images/PDF, 5 Mo max chacun) n'y sont pas. Choix : (a) ajouter seulement la liste (nom, type, taille, date : ~150 octets par fichier, aucune lourdeur) / (b) inclure les fichiers dans une archive (jusqu'à 5 Mo par fichier, l'export JSON seul devient une archive .zip : nouveau format de téléchargement) / (c) laisser tel quel. Recommandé : (a). Rien n'est fait sans ta réponse.
+- [ ] Messages que j'ai écrits dans le fil d'une activité PARTAGÉE : à la suppression de mon compte ils sont effacés (les autres membres perdent ces lignes), alors que mes messages de sous-projet restent sous « Compte supprimé ». Choix : (a) effacer partout / (b) garder tous les messages de discussion avec l'auteur « Compte supprimé ». Aujourd'hui : (a) pour le fil d'activité. Recommandé : (a) (le plus protecteur de la vie privée), à écrire dans la politique.
+- [ ] Rétention des sauvegardes et journal d'inactivité : voir les deux cases de `docs/retention-effacement-2026-10-20.md`.
+- [ ] Rappels et suggestions du matin (6 h) : ils suivent l'heure de Toronto pour tout le monde (aucun fuseau enregistré au profil) ; à Vancouver la suggestion arrive à 3 h, à Paris à midi. Les rappels de fin de période partent au premier balayage après minuit (Toronto), donc vers minuit. Choix : (a) laisser / (b) n'envoyer qu'entre 8 h et 21 h (heure de Toronto, sans nouveau réglage) / (c) mémoriser le fuseau du téléphone au profil (champ invisible, nouvelle colonne) et envoyer à 6 h / 8 h locales. Recommandé : (b) tout de suite, (c) ensuite.
+
