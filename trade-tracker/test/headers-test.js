@@ -42,6 +42,8 @@ const { enrollAndVerify } = require('./mfa-helper');
     const h = (await fetch(base + '/api/health')).headers;
     assert.strictEqual(h.get('pragma'), 'no-cache'); assert.strictEqual(h.get('cross-origin-resource-policy'), 'same-origin'); assert(/camera=\(\)/.test(h.get('permissions-policy')));
     assert(/frame-ancestors https:\/\/tmt\.example\.test$/.test(h.get('content-security-policy')));
+    assert(/max-age=\d{7,}/.test(h.get('strict-transport-security') || '') === false, 'pas de HSTS en HTTP simple');
+    assert(/max-age=\d{7,}/.test((await fetch(base + '/api/health', { headers: { 'x-forwarded-proto': 'https' } })).headers.get('strict-transport-security') || ''), 'HSTS derrière HTTPS');
     // déconnexion : cookie effacé + cache du navigateur purgé
     const lo = await fetch(base + '/api/logout', { method: 'POST', headers: { cookie: e.cookie } });
     assert.strictEqual(lo.status, 200); assert.strictEqual(lo.headers.get('clear-site-data'), '"cache"');

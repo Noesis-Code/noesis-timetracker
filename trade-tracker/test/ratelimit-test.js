@@ -39,7 +39,7 @@ const { createApp } = require('../server/app');
   try {
     let first429 = 0;
     for (let i = 1; i <= 25 && !first429; i++) if ((await fetch(b2 + '/api/auth/verify', { method: 'POST' })).status === 429) first429 = i;
-    assert(first429 > 0 && first429 <= 25, 'limite par défaut sur /api/auth');
+    assert.strictEqual(first429, 21, 'limite par défaut sur /api/auth : 20 par minute, la 21e est refusée');
   } finally { s2.close(); }
   console.log('ratelimit-test OK');
 })().catch((e) => { console.error(e); process.exit(1); });
