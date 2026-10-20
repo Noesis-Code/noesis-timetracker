@@ -1,6 +1,6 @@
 # Les 7 chantiers permanents (décision d'Émilien, 19 oct. 2026)
 
-Sept chantiers tournent **en permanence**. Quand l'un se termine, le coordinateur le relance aussitôt sur la suite de sa mission (jamais de créneau vide). Chacun respecte `SIMPLIFICATION.md`, `DESIGN.md` et les règles de `CLAUDE.md` ; aucun n'élargit une demande.
+Cinq chantiers tournent **en veille permanente** (Trade Tracker, Basic, Expansion, Simplification et design général, Précision des tâches), plus un chantier éphémère quand Émilien est actif (décision du 20 oct. 2026). Les chantiers 4 (Crédits) et 7 (Principal) sont suspendus : le coordinateur applique leurs règles. Un chantier fini se met en veille et ne repart que sur une tâche du secteur ou un repli utile. Chacun respecte `SIMPLIFICATION.md`, `docs/regles-rangement.md` (R1–R18), `DESIGN.md` et les règles de `CLAUDE.md` ; aucun n'élargit une demande.
 
 | # | Chantier | Mission permanente |
 |---|---|---|
@@ -17,7 +17,7 @@ Les noms de secteurs ci-dessus sont exacts (ne pas les reformuler). **Règle** :
 Drive NOÈSIS et paiement Stripe : voir `CLAUDE.md` (source unique).
 
 ## Règles automatiques du chantier 7 (décision d'Émilien, 19 oct. 2026)
-1. **Sept chantiers actifs en tout temps** (directive d'Émilien, 19 oct. 2026) : il ne doit jamais y en avoir moins de sept. Quand un chantier finit, le coordinateur le relance aussitôt avec la première tâche disponible, dans cet ordre : (a) tâches non réservées du secteur principal (`lister_taches`) ; (b) la liste de repli du chantier (section « Listes de repli ») ; (c) à défaut, appliquer la boucle `docs/boucle-veille.md` : le chantier génère 3 tâches candidates (échecs, relectures, mesures, audit de simplicité, benchmark concurrents), chacune au format `docs/modele-tache.md` (incomplète = question à cocher, non lancée), et les inscrit à la fin de sa liste de repli. Les demandes d'Émilien sont copiées mot pour mot dans `docs/intentions.md`. Aucune question à Émilien pour relancer ; ses réponses éventuelles passent en tête de file.
+1. **Cinq chantiers permanents au plus, en veille** (directive d'Émilien du 20 oct. 2026, qui remplace celle des sept du 19 oct.) : jamais plus de 5 + 1 éphémère, modèle léger par défaut. Quand un chantier finit, il est relancé seulement avec : (a) tâches non réservées du secteur principal (`lister_taches`) ; (b) la liste de repli du chantier ; (c) à défaut, il reste en veille (plus de génération de tâches pour remplir). Les demandes d'Émilien sont copiées mot pour mot dans `docs/intentions.md`. Aucune question à Émilien pour relancer ; ses réponses éventuelles passent en tête de file.
 2. **Crédits Claude** : une tâche planifiée quotidienne (8 h 54, heure de New York, « Quota Claude quotidien ») envoie une notification push lui demandant son pourcentage de quota hebdomadaire et la cible attendue (≈ 14 % par jour depuis le samedi 5 h). Quand Émilien répond avec son pourcentage, le coordinateur ajuste le nombre de chantiers en cours (plus d'agents si en retard sur la cible, moins ou plus légers si en avance). Claude ne peut pas lire lui-même le quota.
 3. **Claude API** : le chantier 4 rend un rapport de coût (`scripts/ai-cost-report.js`) ; toute économie qui change la qualité visible est proposée à Émilien avant d'être appliquée.
 
