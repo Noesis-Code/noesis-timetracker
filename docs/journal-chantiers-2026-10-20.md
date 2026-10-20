@@ -48,3 +48,9 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 - `node test/run-tests.js` : 7 min 39 s (119 passées, 0 échouée) mais 1 min 48 s de CPU : la machine était chargée (load 7-9). Les plus lents mesurés seuls : `trade-tracker/test/run.js` ~118 s (enchaîne les autres tests Trade), `member-series-test.js` 32 s, `sync-charge-test.js` 19 s, `broker-e2e-test.js` 13 s, `stepup-test.js` 12 s. Accélération possible (non appliquée, risque de masquer une régression) : exécuter les tests Trade indépendants en parallèle ; réduire les séries de `member-series-test.js`.
 - Instabilité : `task-lock-test.js` (seuil de durée sous charge) déjà stabilisé ; passe en 5 s seul. Rien d'autre à corriger.
 - Staging : aucun marqueur de conflit, CACHE_VERSION monotone (v467 à v491), `/healthz` ok.
+
+## Pilotage (repli 19) : contrôle de staging, relecture, friction
+- Staging (bc365cd) : `/healthz` ok, CACHE_VERSION v498 (monotone), aucun marqueur de conflit, `node --check` des .js modifiés ok. Écart `main..staging` = chantiers du jour (540 fichiers), rien d'imprévu.
+- Relecture des pushs 06af14a, 86ea01b, 561afc7, 327c34e, 5a12f13, 24ce87d : serveur + tests + docs seulement, aucun bouton/option/couleur, aucun fichier hors périmètre ; titres des jeux d'essai = exemples inventés (pas de tâche personnelle).
+- Friction corrigée (Feuille de temps, vue Semaine) : la grille s'ouvrait sur 0 h alors que ~5 h sur 24 sont visibles à 390 px, donc souvent vide. Elle s'ouvre maintenant 1 h avant la première case remplie (aucun contrôle ajouté, seulement si l'utilisateur n'a pas défilé). Capture 390 px : grille démarre à 7 h. À valider sur téléphone.
+- Index des questions : inchangé, les lignes restent ouvertes (aucune résolue par un commit ; `/healthz` toujours absent de `railway.json`).
