@@ -123,15 +123,6 @@
                   <div class="goalMainProgressTrack"><div class="goalMainProgressFill" id="activityGoalsMainProgressFill"></div></div>
                   <span class="goalMainProgressPct" id="activityGoalsMainProgressPct"></span>
                 </div>
-                <!-- (discussion "Objectifs — A : Offre1"),
-                     demande d'Emilien : pouvoir ajuster manuellement la
-                     capacité hebdomadaire utilisée par l'auto-planification
-                     (server/lib/goalsauto.js), pour couvrir le cas d'une
-                     activité volontairement mise de côté un temps (la moyenne
-                     sur l'historique récent tomberait sinon près de zéro).
-                     Contenu entièrement construit par renderGoalsCapacity()
-                     (app.js) — vide au chargement. -->
-                <div class="goalCapacityRow" id="activityGoalsCapacity"></div>
               </div>
             </div>
 
@@ -141,8 +132,7 @@
                  (server/lib/goalsdailypriority.js) — toujours une
                  proposition en lecture seule, jamais appliquée
                  automatiquement. Contenu entièrement construit par
-                 renderGoalsDailyPriority() (app.js) — vide au chargement,
-                 même pattern que .goalCapacityRow juste au-dessus.
+                 renderGoalsDailyPriority() (app.js) — vide au chargement.
                  demande directe d'Emilien (restructuration
                  du volet Objectifs en 3 pages) : « s'il veut voir tous les
                  détails, cette liste est véritablement présente de manière
@@ -1310,32 +1300,18 @@
 
 
   // ===================== OBJECTIFS — PAGE 2 : CAPACITÉ HEBDOMADAIRE =====================
-  // (discussion "Objectifs — A : Offre1"), demande
-  // d'Emilien : pouvoir ajuster manuellement la capacité hebdomadaire que
-  // l'auto-planification (server/lib/goalsauto.js) lui attribue — cas d'une
-  // activité volontairement mise de côté un temps : la moyenne calculée sur
-  // l'historique récent (RECENT_WEEKS_WINDOW, réduite à 4 semaines le même
-  // jour) tomberait sinon près de zéro, alors qu'Emilien resterait
-  // disponible plusieurs heures par jour dès qu'il s'y remet. Cadré avec lui
-  // (AskUserQuestion) : l'ajustement REMPLACE le calcul automatique (jamais
-  // un plancher, jamais d'expiration), et porte sur SA capacité à lui pour
-  // CETTE activité et CETTE catégorie — même granularité que
-  // goalsauto.capacityMinutesForMember (activityId, category, userId=session).
-  // GET/PUT /api/activities/:id/goals/capacity (server/routes/goals.js).
+  // Charge le plan de capacité serveur (GET .../capacity-plan) et repeint la liste hebdomadaire / l'estimation.
   var goalsCapacityRequestId = 0;
 
   function renderGoalsCapacity() {
-    var box = $('activityGoalsCapacity');
-    if (!box) return;
     var activityId = TMT.currentGoalsActivityId;
     var category = TMT.currentGoalsCategory;
-    if (!activityId) { box.innerHTML = ''; return; }
+    if (!activityId) return;
     var requestId = ++goalsCapacityRequestId;
     var periodNumber = TMT.currentGoalsViewPeriodNumber;
     api('GET', '/api/activities/' + activityId + '/goals/periods/' + periodNumber + '/capacity-plan?category=' + encodeURIComponent(category))
       .then(function (data) {
         if (requestId !== goalsCapacityRequestId) return;
-        box.innerHTML = '';
         var plan = data && data.plan;
         var prev = JSON.stringify(TMT.goalsCapPlan || null);
         TMT.goalsCapPlan = plan || null;
@@ -1345,10 +1321,7 @@
           if (pp) { renderGoalsWeeklyList(pp); paintPeriodEstimate(pp); }
         }
       })
-      .catch(function () {
-        if (requestId !== goalsCapacityRequestId) return;
-        box.innerHTML = '';
-      });
+      .catch(function () {});
   }
 
   // Capacité de la semaine (plan serveur : cible propre, sinon valeur dérivée de la période / des activités / de l'historique).

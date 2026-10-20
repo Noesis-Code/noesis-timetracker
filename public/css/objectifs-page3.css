@@ -114,11 +114,6 @@
 
 .goalBilanHint { text-align: center; font-size: 13px; color: var(--text-light); margin: 4px 0 0; }
 
-.goalCapacityRow {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
-  margin: 6px 0 0; font-size: 12px; gap: 6px;
-}
-
 .dailyPriorityCard { margin-top: 10px; }
 
 .dailyPriorityList { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }

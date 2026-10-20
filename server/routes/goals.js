@@ -934,68 +934,6 @@ router.post('/activities/:id/goals/tasks/:itemId/mark-seen', (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// 17 septembre 2026 (discussion A — Offre1, cadré avec Emilien) : ajustement
-// manuel de la capacité hebdomadaire utilisée par le moteur d'auto-
-// planification (server/lib/goalsauto.js) — voir le commentaire de
-// goal_capacity_overrides dans server/db.js. Portée (activité, catégorie,
-// membre COURANT) : chaque membre ajuste sa propre capacité, jamais celle
-// d'un autre membre de l'activité.
-router.get('/activities/:id/goals/capacity', (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  const activityId = Number(req.params.id);
-
-  const check = requireMembership(userId, activityId);
-  if (check.error) return res.status(check.error.status).json(check.error.body);
-
-  try {
-    const category = resolveCategory(activityId, req.query.category);
-    // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
-    // secteurs — la capacité peut désormais être ajustée pour un secteur,
-    // pas seulement pour un pôle.
-    if (!goals.isValidCategoryOrSecteurForActivity(activityId, category)) {
-      return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
-    }
-    const override = goalsauto.getCapacityOverrideMinutes(activityId, category, userId);
-    const computed = goalsauto.capacityMinutesForMember(activityId, category, userId);
-    const row = goalsauto.getCapacityOverrideRow(activityId, category, userId);
-    res.json({ override, computed, derived: goalsauto.periodDerivedWeeklyMinutes(activityId, category) != null, overrideUntil: override != null && row ? goals.addDays(row.endDay, -1) : null });
-  } catch (err) {
-    handleGoalsError(res, err);
-  }
-});
-
-// weeklyMinutes: null, '' ou absent retire l'ajustement manuel (retour au
-// calcul automatique) ; sinon pose/remplace la valeur (REMPLACE le calcul
-// auto tant qu'elle est active, ne l'additionne ni ne le plafonne).
-router.put('/activities/:id/goals/capacity', (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  const activityId = Number(req.params.id);
-
-  const check = requireMembership(userId, activityId);
-  if (check.error) return res.status(check.error.status).json(check.error.body);
-
-  try {
-    const category = resolveCategory(activityId, req.body.category);
-    // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
-    // secteurs — la capacité peut désormais être ajustée pour un secteur,
-    // pas seulement pour un pôle.
-    if (!goals.isValidCategoryOrSecteurForActivity(activityId, category)) {
-      return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
-    }
-    if (req.body.weeklyMinutes === null || req.body.weeklyMinutes === '' || req.body.weeklyMinutes === undefined) {
-      goalsauto.clearCapacityOverride(activityId, category, userId);
-      return res.json({ ok: true, override: null });
-    }
-    const result = goalsauto.setCapacityOverrideMinutes(activityId, category, userId, req.body.weeklyMinutes);
-    res.json({ ok: true, override: result.weeklyMinutes });
-  } catch (err) {
-    handleGoalsError(res, err);
-  }
-});
-
 // Brief B (22 septembre 2026, Aiguillage) — liste quotidienne de tâches
 // priorisées, voir server/lib/goalsdailypriority.js. Toujours une
 // PROPOSITION à valider par l'utilisateur (règle verrouillée) — cette route

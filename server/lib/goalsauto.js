@@ -150,38 +150,6 @@ function getCapacityOverrideRow(activityId, category, userId) {
   return { minutes: row.weeklyMinutes, startDay, endDay };
 }
 
-// Valeur manuelle seulement tant que la priorité de 2 semaines court (sinon null).
-function getCapacityOverrideMinutes(activityId, category, userId) {
-  const row = getCapacityOverrideRow(activityId, category, userId);
-  return row && todayLocal() < row.endDay ? row.minutes : null;
-}
-
-function setCapacityOverrideMinutes(activityId, category, userId, weeklyMinutes) {
-  const minutes = Math.round(Number(weeklyMinutes));
-  if (!Number.isFinite(minutes) || minutes <= 0) {
-    throw Object.assign(new Error('Capacité invalide (minutes par semaine positives requises).'), { statusCode: 400 });
-  }
-  const updatedAt = new Date().toISOString();
-  const existing = db.prepare(
-    'SELECT 1 FROM goal_capacity_overrides WHERE activityId = ? AND category = ? AND userId = ?'
-  ).get(activityId, category, userId);
-  if (existing) {
-    db.prepare(
-      'UPDATE goal_capacity_overrides SET weeklyMinutes = ?, updatedAt = ? WHERE activityId = ? AND category = ? AND userId = ?'
-    ).run(minutes, updatedAt, activityId, category, userId);
-  } else {
-    db.prepare(
-      'INSERT INTO goal_capacity_overrides (activityId, category, userId, weeklyMinutes, updatedAt) VALUES (?, ?, ?, ?, ?)'
-    ).run(activityId, category, userId, minutes, updatedAt);
-  }
-  return { activityId, category, userId, weeklyMinutes: minutes, updatedAt };
-}
-
-function clearCapacityOverride(activityId, category, userId) {
-  db.prepare('DELETE FROM goal_capacity_overrides WHERE activityId = ? AND category = ? AND userId = ?')
-    .run(activityId, category, userId);
-}
-
 // Capacité hebdomadaire dérivée du temps estimé de la période en cours
 // (demande d'Émilien) : estimation de la période ÷ nombre de
 // semaines. null si la période courante n'a pas d'estimation.
@@ -408,9 +376,6 @@ module.exports = {
   activateOffre1,
   deactivateOffre1,
   capacityMinutesForMember,
-  getCapacityOverrideMinutes,
   getCapacityOverrideRow,
-  setCapacityOverrideMinutes,
-  clearCapacityOverride,
   onSubProjectItemChanged,
 };
