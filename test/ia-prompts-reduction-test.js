@@ -28,6 +28,26 @@ assert(strict.includes('Tâche à classer : "Payer la facture"') && conf.include
 const mixed = classify.buildPrompt('x', [cats[0], cats[4], cats[1]], [], {});
 assert(mixed.split(poles[0][2]).length - 1 === 2, 'description répétée si un autre pôle s\'intercale');
 
+// Rattachement non ambigu : pour 3 configurations, la description effective de chaque secteur (report de la dernière description du MEME pôle, lu dans le libellé) égale l'attendue
+function effectivePoleDescs(cs) {
+  const lines = classify.buildPrompt('x', cs, [], {}).split('\n').filter((l) => l.startsWith('- ') && !l.startsWith('- «'));
+  const seen = {}; let prevPole = null;
+  return cs.map((c, i) => {
+    const pole = c.label.split(' → ')[0], m = /\(pôle : (.*)\)$/.exec(lines[i]);
+    if (m) seen[pole] = m[1];
+    else if (prevPole !== pole) seen[pole] = ''; // pas de description écrite et pôle différent de la ligne précédente : rien à reporter
+    prevPole = pole;
+    return seen[pole] || '';
+  });
+}
+const cfgs = {
+  '1 pôle / 1 secteur': [{ key: 'p.a', label: 'P → A', description: 'a', poleDescription: 'Desc P' }],
+  '2 pôles / 4 secteurs': [{ key: 'p.a', label: 'P → A', description: 'a', poleDescription: 'Desc P' }, { key: 'p.b', label: 'P → B', description: 'b', poleDescription: 'Desc P' }, { key: 'q.a', label: 'Q → A', description: 'a', poleDescription: 'Desc Q' }, { key: 'q.b', label: 'Q → B', description: 'b', poleDescription: 'Desc Q' }],
+  'secteur sans description': [{ key: 'p.a', label: 'P → A', description: '', poleDescription: 'Desc P' }, { key: 'p.b', label: 'P → B', description: 'b', poleDescription: 'Desc P' }, { key: 'q.a', label: 'Q → A', description: '', poleDescription: 'Desc Q' }],
+  'deux pôles à description identique': [{ key: 'p.a', label: 'P → A', description: 'a', poleDescription: 'Même' }, { key: 'q.a', label: 'Q → A', description: 'a', poleDescription: 'Même' }],
+};
+Object.keys(cfgs).forEach((n) => assert(JSON.stringify(effectivePoleDescs(cfgs[n])) === JSON.stringify(cfgs[n].map((c) => c.poleDescription)), 'rattachement pôle sans ambiguïté : ' + n));
+
 // Exemples par utilisateur : N <= 5 et bloc <= 250 caractères, jamais d'un autre utilisateur
 const now = new Date().toISOString();
 ['u1', 'u2', 'u3'].forEach((u) => db.prepare('INSERT INTO users (id, name, createdAt) VALUES (?, ?, ?)').run(u, u, now));

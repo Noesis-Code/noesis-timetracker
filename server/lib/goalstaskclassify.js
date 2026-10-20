@@ -120,8 +120,10 @@ function buildPrompt(label, categories, examples, opts) {
   const list = categories.map((c) => {
     let line = `- ${c.key} : ${c.label}`;
     if (c.description) line += ` — ${c.description}`;
-    if (c.poleDescription && c.poleDescription !== lastPoleDesc) line += ` (pôle : ${c.poleDescription})`;
-    lastPoleDesc = c.poleDescription || '';
+    // Clé = pôle (préfixe du libellé) + description : deux pôles à description identique ne se confondent pas.
+    const poleId = c.poleDescription ? String(c.label).split(' → ')[0] + '\u0000' + c.poleDescription : '';
+    if (c.poleDescription && poleId !== lastPoleDesc) line += ` (pôle : ${c.poleDescription})`;
+    lastPoleDesc = poleId;
     return line;
   }).join('\n');
   const exampleLines = (examples && examples.length)

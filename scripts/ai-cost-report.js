@@ -95,6 +95,13 @@ console.log('\nPar jour (' + days + ' j) :');
 db.prepare('SELECT day, SUM(calls) AS calls, SUM(costUsd) AS cost FROM ai_usage_log WHERE day >= ? GROUP BY day ORDER BY day DESC').all(since)
   .forEach((r) => console.log('  ' + r.day + fmt(r.cost).padStart(10) + '  ' + r.calls + ' appel(s)'));
 
+// Projection mensuelle : coût moyen par jour (calendaire) des 7 derniers jours x 30.
+{
+  const d7 = new Date(); d7.setDate(d7.getDate() - 6);
+  const c7 = db.prepare('SELECT SUM(costUsd) AS cost FROM ai_usage_log WHERE day >= ?').get(local(d7)).cost || 0;
+  console.log('\nTotal mensuel projeté : ' + fmt(c7 / 7 * 30) + ' (moyenne ' + fmt(c7 / 7) + '/jour sur 7 j x 30)');
+}
+
 // Repli : « X:repli » suit un essai Haiku de « X ».
 const by = {};
 fm.forEach((r) => {
