@@ -133,3 +133,11 @@ Résumé de la journée (source : historique `staging`, depuis a85aacb).
 - Constaté, non traité : 6 tests ne sont appelés par aucune liste de `run-tests.js` (doublons-similarites, expansion-acces, expansion-checkout-securite, expansion-cycle-complet, migration-lasteventat, subscription-mails-refund). `ia-plafonds-jour-test.js` est bien dans la suite.
 - Suite complète via le script sur la tête (avec garde-sources-test) : 161 passées, 0 échouée.
 - Après rebase final (Expansion, Loi 25 entrés) : 163 passées, 0 échouée.
+
+## Pilotage (repli 32) : tests orphelins
+- `scripts/tests-orphelins.js` liste ce que `run-tests.js` n'appelle pas : `test/*-test.js` et `test/fonctionnel-*.js` (143 fichiers). Trade : aucun orphelin (`run.js` et `run-tests.js` lisent le dossier, 51 tests tous lancés).
+- 6 orphelins exécutés seuls, tous verts (1 à 4 s chacun, ~12 s en tout) : doublons-similarites, expansion-acces, expansion-checkout-securite, expansion-cycle-complet, migration-lasteventat, subscription-mails-refund. Rattachés à `SUITE_FILES` (groupe rapide, lancés en parallèle) et à la boucle finale. Aucun test périmé, aucun code cassé.
+- `fonctionnel-lib.js` : exception écrite (bibliothèque, pas un test).
+- Garde : `test/tests-orphelins-test.js` (dans la suite) échoue si un fichier de test est hors liste sans exception raisonnée, ou si une exception est périmée.
+- Aucun commit sur `staging` depuis 64d08de : rien à relire.
+- Suite complète via le script : 171 passées, 0 échouée, 718 s (durée ajoutée par les orphelins et la garde : ~13 s). Un premier passage avec `TMPDIR` dans le dossier de travail de session avait 1 échec (broker-e2e : Chromium ne se lance pas avec ce TMPDIR, vérifié seul avec python3 playwright ; sans `TMPDIR` tout passe) : limite d'environnement, pas de code.

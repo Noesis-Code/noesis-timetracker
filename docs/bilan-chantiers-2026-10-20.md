@@ -31,11 +31,8 @@ Cases à cocher dans `docs/questions-emilien-2026-10-20.md` (section « Les 5 d�
 - Précision des tâches : 0 faux rejet sur les cas connus ; attend la décision 3 et le choix sur l'horaire fixe.
 - Pilotage : suite de tests sérialisée, suite complète vérifiée sur la tête de staging, index des questions < 80 lignes ; les 11 types de notification mènent tous à un écran existant (table dans `docs/notifications-liens-2026-10-20.md`, test ajouté).
 
-## Contrôle (repli 30)
-Intégrité de staging relue : aucun marqueur de conflit restant (un avait été commité en f7e5583, corrigé en 3eff6af, résolution juste), tous les .js passent `node --check`, CSS équilibrés, `CACHE_VERSION` strictement croissant v499 -> v521 sans doublon. Plafonds IA : Drive, inter-secteurs et correction d'orthographe se remettaient à zéro à minuit UTC (19-20 h à Montréal), donc jusqu'à deux fois le plafond par jour ; ils suivent maintenant le jour de Montréal, comme le budget en dollars. Rappel de 6 h : 3 options à cocher dans l'index, rien changé. Suite complète : 159 passées avant ce correctif.
-
-## Contrôle (précédent)
-Suite complète sur la tête de staging avec le correctif des fuseaux : 156 passées, 0 échec (webhook Stripe durci et contrôle des variables au démarrage relus : rien de visible). Deux correctifs visibles : le rappel de 6 h ouvre la tâche aussitôt ; une notification de message d'activité ouvre la Page 2 de l'activité sans attendre l'écran Discussion retiré. Détail dans le journal.
-
 ## Contrôle (repli 31)
 Suite complète sur la tête de staging (script verrouillé) : 163 passées, 0 échec (après rebase final), avec `ia-plafonds-jour-test`. La fenêtre du conflit commité (76 s, f7e5583 -> 3eff6af) n'aurait pas fait échouer le démarrage ni le build (rien ne lit `app.js` côté serveur) mais aurait servi un `app.js` invalide ; le service worker se rétablit seul (réseau d'abord, URL `?v=` par contenu, deux bumps passés depuis). Nouveaux garde-fous dans la suite : marqueurs de conflit, `node --check` de `public/`, équilibre CSS ; hook pre-push étendu. `scripts/smoke-staging.sh <URL>` : contrôle de la première minute après déploiement (brief, point 13). Constaté : 6 tests ne sont dans aucune liste de la suite (journal).
+
+## Contrôle (repli 32)
+Les 6 tests qui ne tournaient jamais sont rattachés à la suite (tous verts, ~13 s de plus) ; un test de garde refuse désormais tout fichier de test hors liste sans exception écrite. Suite complète : 171 passées, 0 échec (718 s). Rien de nouveau sur `staging` depuis le repli 31.
