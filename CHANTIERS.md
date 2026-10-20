@@ -47,8 +47,9 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 5. Messages d'erreur du checkout et du webhook relus (FR/EN, aucun détail interne exposé). FAIT (repli 5) : `Accept-Language`, portail non activé couvert par `expansion-parcours-test.js`.
 6. Variables d'env Stripe auditées (`docs/stripe-taxes.md`, `DEPLOIEMENT.md`) : liste unique, rien d'oublié. FAIT (repli 5) : `DEPLOIEMENT.md` §6.
 7. Suite complète `node test/run-tests.js` relancée après rebase. FAIT (repli 6, 20 oct. : 100 passées, 0 échouée, rien à corriger côté Expansion).
-8. E-mails de confirmation et de fin d'abonnement (FR/EN) : relecture et test.
-9. Remboursement/litige (`charge.refunded`, `charge.dispute.created`) : comportement documenté et testé par événements signés locaux.
+8. Événements Stripe à cocher dans le tableau de bord (mode test) pour le webhook : ajouter `charge.refunded` et `charge.dispute.created` (comportement : aucun changement d'accès, alerte interne, `server/routes/stripewebhook.js`). E-mails d'abonnement FR/EN et remboursement/litige FAITS (repli 7, `test/subscription-mails-refund-test.js`).
+9. Courriels : `RESEND_FROM` avec domaine vérifié requis pour écrire aux abonnés (sinon `onboarding@resend.dev` n'envoie qu'au compte Resend) ; à vérifier avant la mise en production.
+10. Litige : `charge.dispute.created` ne porte pas `customer` ; relier la charge à l'abonnement via `payment_intent` (lecture Stripe) pour que l'alerte nomme l'abonnement.
 
 **4. Crédits Claude et API**
 1. Rapport de coût par fonction IA (`scripts/ai-cost-report.js`, `ai_usage_log`).

@@ -23,6 +23,7 @@ const express = require('express');
 const db = require('../db');
 const stripe = require('../lib/stripe');
 const offerdelivery = require('../lib/offerdelivery');
+const subMails = require('../lib/subscriptionmails');
 
 const router = express.Router();
 
@@ -127,6 +128,7 @@ async function handleCheckoutCompleted(session) {
   });
 
   await offerdelivery.activateActivitySubscription(activityId, userId);
+  await subMails.notifyUser(userId, 'confirmed');
 }
 
 async function handleInvoicePaid(invoice) {
@@ -141,9 +143,24 @@ function handleSubscriptionUpdated(subscription) {
     .run(subscription.status, toIso(subscription.current_period_start), toIso(subscription.current_period_end), subscription.id);
 }
 
-function handleSubscriptionDeleted(subscription) {
+async function handleSubscriptionDeleted(subscription) {
   db.prepare("UPDATE activity_subscriptions SET status = 'canceled', canceledAt = ? WHERE stripeSubscriptionId = ?")
     .run(new Date().toISOString(), subscription.id);
+  const row = db.prepare('SELECT userId FROM activity_subscriptions WHERE stripeSubscriptionId = ?').get(subscription.id);
+  if (row) await subMails.notifyUser(row.userId, 'ended');
+}
+
+// Remboursement et litige : AUCUN changement d'accès automatique (un remboursement partiel ou
+// un litige gagné ne doit pas couper un abonné ; l'arrêt passe par customer.subscription.deleted,
+// émis quand l'abonnement est résilié côté Stripe). On journalise (identifiants Stripe seulement)
+// et on alerte l'équipe pour décision humaine. Événement accepté (200), jamais en erreur.
+async function handleChargeIssue(kind, obj) {
+  const customer = obj.customer || null;
+  const row = customer ? db.prepare('SELECT stripeSubscriptionId, status FROM activity_subscriptions WHERE stripeCustomerId = ? ORDER BY createdAt DESC LIMIT 1').get(customer) : null;
+  const chargeId = kind === 'dispute' ? obj.charge : obj.id;
+  const line = `${kind} charge=${chargeId || '?'} abonnement=${row ? row.stripeSubscriptionId : 'inconnu'} statut=${row ? row.status : '-'}`;
+  console.warn('[stripe webhook]', line);
+  await subMails.alertTeam(`[Noèsis — Stripe ${kind === 'dispute' ? 'litige' : 'remboursement'}]`, line + '\nAucune action automatique : décision à prendre dans le tableau de bord Stripe.');
 }
 
 async function handleEvent(event) {
@@ -156,6 +173,10 @@ async function handleEvent(event) {
       return handleSubscriptionUpdated(event.data.object);
     case 'customer.subscription.deleted':
       return handleSubscriptionDeleted(event.data.object);
+    case 'charge.refunded':
+      return handleChargeIssue('refund', event.data.object);
+    case 'charge.dispute.created':
+      return handleChargeIssue('dispute', event.data.object);
     default:
       return; // événement accepté sans action
   }
