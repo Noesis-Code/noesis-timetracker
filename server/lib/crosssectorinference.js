@@ -264,16 +264,19 @@ const evaluated = new Map(); // hash -> expiration
 
 // Charge utile envoyée au modèle. Économie de jetons sans perte : les champs vides (description, objectif actuel)
 // sont omis au lieu d'être envoyés vides (le prompt système les décrit déjà comme « éventuels »).
+// Bornes d'entrée (caractères) : un objectif actuel peut faire 500 caractères et être répété pour chaque pôle/secteur candidat.
+const MAX_CAND_GOAL_CHARS = 240, MAX_DESC_CHARS = 160;
+const cut = (s, n) => { const t = String(s); return t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, '') + '…'; };
 function buildPayload(sourceInfo, type, text, candidates, mainGoalOf) {
   const cat = { key: sourceInfo.key, label: sourceInfo.label };
-  if (sourceInfo.description) cat.description = sourceInfo.description;
+  if (sourceInfo.description) cat.description = cut(sourceInfo.description, MAX_DESC_CHARS);
   return {
     source: { category: cat, type, text },
     candidates: candidates.map((c) => {
       const o = { key: c.key, label: c.label };
-      if (c.description) o.description = c.description;
+      if (c.description) o.description = cut(c.description, MAX_DESC_CHARS);
       const g = mainGoalOf(c.key);
-      if (g) o.currentMainGoalText = g;
+      if (g) o.currentMainGoalText = cut(g, MAX_CAND_GOAL_CHARS);
       return o;
     }),
   };
