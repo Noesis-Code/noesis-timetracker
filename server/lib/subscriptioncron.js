@@ -91,4 +91,5 @@ module.exports = {
   // Exportés pour les tests et un déclenchement manuel (admin) sans attendre
   // le prochain passage planifié.
   dueSubscriptions,
+  runMonthlyRegeneration,
 };

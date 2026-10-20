@@ -127,6 +127,8 @@ async function handleCheckoutCompleted(session) {
     parentalConsentMethod,
   });
 
+  // Événements inversés : si l'abonnement est déjà résilié quand ce checkout arrive, rien à livrer ni à confirmer.
+  if (subscription.status === 'canceled') return;
   await offerdelivery.activateActivitySubscription(activityId, userId);
   await subMails.notifyUser(userId, 'confirmed');
 }
@@ -134,12 +136,14 @@ async function handleCheckoutCompleted(session) {
 async function handleInvoicePaid(invoice) {
   if (!invoice.subscription) return;
   const subscription = await stripe.retrieveSubscription(invoice.subscription);
-  db.prepare('UPDATE activity_subscriptions SET status = ?, currentPeriodStart = ?, currentPeriodEnd = ? WHERE stripeSubscriptionId = ?')
+  db.prepare('UPDATE activity_subscriptions SET status = ?, currentPeriodStart = ?, currentPeriodEnd = ? WHERE stripeSubscriptionId = ? AND status != \'canceled\'')
     .run(subscription.status, toIso(subscription.current_period_start), toIso(subscription.current_period_end), invoice.subscription);
 }
 
+// 'canceled' est final côté Stripe (un réabonnement crée un nouvel id) : un événement arrivé en retard
+// (updated/invoice.paid après deleted) ne doit jamais rouvrir l'accès.
 function handleSubscriptionUpdated(subscription) {
-  db.prepare('UPDATE activity_subscriptions SET status = ?, currentPeriodStart = ?, currentPeriodEnd = ? WHERE stripeSubscriptionId = ?')
+  db.prepare('UPDATE activity_subscriptions SET status = ?, currentPeriodStart = ?, currentPeriodEnd = ? WHERE stripeSubscriptionId = ? AND status != \'canceled\'')
     .run(subscription.status, toIso(subscription.current_period_start), toIso(subscription.current_period_end), subscription.id);
 }
 
