@@ -49,7 +49,7 @@ global.fetch = async () => { net++; return { ok: true, status: 200, clone() { re
   aicache.capClear();
   const before = new Date('2026-10-21T03:30:00Z'), afterMid = new Date('2026-10-21T04:01:00Z');
   const take = (t) => aicache.takeDailyCap('classement-tache', 'z', 2, t);
-  assert(take(new Date('2026-10-20T12:00:00Z')) && take(before) && !take(before), 'plafond 2 atteint à 23 h 30 Montréal (03 h 30 UTC le 21), même jour qu'à midi le 20');
+  assert(take(new Date('2026-10-20T12:00:00Z')) && take(before) && !take(before), 'plafond 2 atteint à 23 h 30 Montréal (03 h 30 UTC le 21), même jour que midi le 20');
   assert(take(afterMid), 'compteur remis à zéro à minuit de Montréal');
   // Alerte du jour : repart le nouveau jour (une alerte par jour).
   warns.length = 0; aibudget.record('a', 'claude-haiku-4-5', { input_tokens: 1000, output_tokens: 500 }, 'test', afterMid);
