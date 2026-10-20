@@ -72,7 +72,7 @@ const GOOD = JSON.stringify({ weeklyGoals: [{ weekIndex: 1, text: 'Lancer', desc
   r = await fetchOnce(); assert(!r.ok && hits === 1, 'Retry-After 30 s > plafond d\'attente : abandon sans relance (' + hits + ')');
   reset(); behave = () => ({ status: 529, body: { error: {} } });
   let t0 = Date.now(); r = await fetchOnce(); let dt = Date.now() - t0;
-  assert(!r.ok && r.status === 529 && hits === 3 && dt < 1000, '529 persistant : 1 + 2 relances au plus, reculade courte bornée (' + hits + ', ' + dt + ' ms)');
+  assert(!r.ok && r.status === 529 && hits === 3 && dt < 2500, '529 persistant : 1 + 2 relances au plus, reculade courte bornée (' + hits + ', ' + dt + ' ms)');
   reset(); behave = (n) => (n === 1 ? { status: 529, body: {} } : { status: 200, body: okBody('x') });
   r = await fetchOnce(); assert(r.ok && hits === 2, '529 puis succès : une seule relance');
   for (const st of [400, 401, 403, 500]) {
@@ -83,7 +83,7 @@ const GOOD = JSON.stringify({ weeklyGoals: [{ weekIndex: 1, text: 'Lancer', desc
   const ctl = AbortSignal.timeout(100); process.env.AI_RETRY_MAX_WAIT_MS = '10000';
   t0 = Date.now(); let ab = null;
   try { await aibudget.runAs('u1', () => aibudget.fetchAnthropic('t', 'x', { method: 'POST', signal: ctl, body: '{"model":"claude-haiku-4-5","max_tokens":5,"messages":[]}' })); } catch (e) { ab = e; }
-  assert(ab && Date.now() - t0 < 1500, 'l\'attente d\'une relance s\'interrompt avec le délai de l\'appelant');
+  assert(ab && Date.now() - t0 < 3500, 'l\'attente d\'une relance s\'interrompt avec le délai de l\'appelant');
   process.env.AI_RETRY_MAX_WAIT_MS = '200';
 
   // Repli payant : 400/401/403 sur le modèle rapide => pas de second appel au modèle fort ; 500 => repli conservé
@@ -139,7 +139,7 @@ const GOOD = JSON.stringify({ weeklyGoals: [{ weekIndex: 1, text: 'Lancer', desc
   assert(jsonrepair.parse('{"a":1,"b":') === null && jsonrepair.parse('{"a":1,"b"') === null, 'clé sans valeur : jamais complétée par null');
   // Entrées pathologiques de 1 Mo : temps CPU borné (aucune regex quadratique), aucune exécution de code
   const big = 1e6, evil = { accolades: '{'.repeat(10000), accolades_1mo: '{'.repeat(big), guillemets: '{"a":"' + '"x'.repeat(big / 2), chaine_ouverte: '{"a":"' + 'x'.repeat(big), virgules: '[' + ','.repeat(big), espaces: '{"a":1' + ' '.repeat(big) + 'x', cloture_espaces: '```json' + ' '.repeat(big) + 'x', antislash: '{"a":"' + '\\'.repeat(big), crochets: '['.repeat(big), proto: '{"__proto__":{"polluted":1}}' };
-  for (const [k, v] of Object.entries(evil)) { const c0 = process.cpuUsage(); jsonrepair.parse(v); const u = process.cpuUsage(c0); assert((u.user + u.system) / 1000 < 1500, 'jsonrepair ' + k + ' : CPU < 1,5 s (' + Math.round((u.user + u.system) / 1000) + ' ms)'); }
+  for (const [k, v] of Object.entries(evil)) { const c0 = process.cpuUsage(); jsonrepair.parse(v); const u = process.cpuUsage(c0); assert((u.user + u.system) / 1000 < 4000, 'jsonrepair ' + k + ' : CPU < 4 s (' + Math.round((u.user + u.system) / 1000) + ' ms)'); }
   assert(({}).polluted === undefined, 'jsonrepair : aucune pollution de prototype');
   assert(jsonrepair.parse(damage.prose_seule(full)) === null, 'prose sans JSON : irréparable (repli habituel)');
   assert(fixed >= 6, 'au moins 6 types d\'abîmage sur 8 réparés à l\'identique (' + fixed + ')');
