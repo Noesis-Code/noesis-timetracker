@@ -81,10 +81,27 @@ async function syncUser(db, user, { connector = getConnector(undefined, { db }),
   }
 }
 
+// Délai croissant après des échecs consécutifs (fournisseur en 429 / 5xx / réponse invalide) : base x 2^(n-1), plafonné à 6 h.
+// État en mémoire par base ; la dernière valeur de prix reste en place (un échec n'écrit rien). Une synchro réussie remet à zéro.
+const failState = new WeakMap(); // db -> Map(userId -> { n, nextAt })
+const MAX_BACKOFF_MS = 6 * 3600e3;
+
 async function syncAll(db, opts = {}) {
   const out = [];
+  const now = opts.now ?? Date.now();
+  const base = opts.backoffBaseMs ?? 15 * 60e3;
+  if (!failState.has(db)) failState.set(db, new Map());
+  const st = failState.get(db);
   // l'expert d'abord : les clients se comparent à son portefeuille à jour
-  for (const u of db.prepare("SELECT * FROM tt_users ORDER BY CASE role WHEN 'expert' THEN 0 ELSE 1 END, id").all()) out.push({ userId: u.id, ...(await syncUser(db, u, opts)) });
+  for (const u of db.prepare("SELECT * FROM tt_users ORDER BY CASE role WHEN 'expert' THEN 0 ELSE 1 END, id").all()) {
+    const f = st.get(u.id);
+    if (f && now < f.nextAt) { out.push({ userId: u.id, ok: false, skipped: true, backoff: true, retryAt: iso(f.nextAt) }); continue; }
+    let r;
+    try { r = await syncUser(db, u, opts); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
+    if (r.ok) st.delete(u.id);
+    else if (!r.skipped) { const n = (f ? f.n : 0) + 1; st.set(u.id, { n, nextAt: now + Math.min(base * 2 ** (n - 1), MAX_BACKOFF_MS) }); }
+    out.push({ userId: u.id, ...r });
+  }
   return out;
 }
 

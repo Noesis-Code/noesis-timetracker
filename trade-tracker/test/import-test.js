@@ -49,4 +49,23 @@ assert(pf.totalValueCad > 0);
   assert.strictEqual(n(), b4, 'réimport idempotent'); assert.strictEqual(again.transactions, 0);
   assert.strictEqual(require('../server/lib/importsheet').parseCsv('a,b\n1.234,50,x')[0].a, '1.234');
 }
+
+
+// Doublons sans colonne id : clé naturelle + rang d'occurrence (deux achats identiques légitimes conservés, réimport jamais doublé, même réordonné)
+{
+  const d3 = new DatabaseSync(':memory:'); d3.exec('PRAGMA foreign_keys = ON'); migrate(d3);
+  const u3 = ensureUser(d3, 'tmt-d', 'expert');
+  const hdr = 'compte;date;type;symbole;quantite;prix;montant;devise\n';
+  const L = (d, q) => `D1;${d};Achat;AAA.TO;${q};10;${q * 10};CAD\n`;
+  const mk = (rows) => ({ comptes: 'compte;type\nD1;CELI\n', positions: '', soldes: '', transactions: hdr + rows });
+  const n3 = () => d3.prepare('SELECT COUNT(*) n FROM transactions').get().n;
+  const f1 = mk(L('2026-03-05', 5) + L('2026-03-05', 5) + L('2026-03-06', 1));
+  const r = importSheet(d3, u3, f1);
+  assert.strictEqual(r.transactions, 3, 'deux achats identiques le même jour : deux opérations'); assert.strictEqual(r.possibleDuplicates.length, 1);
+  assert.strictEqual(importSheet(d3, u3, f1).transactions, 0, 'réimport identique : rien de nouveau');
+  const f2 = mk(L('2026-03-04', 2) + L('2026-03-06', 1) + L('2026-03-05', 5) + L('2026-03-05', 5)); // ligne ajoutée, ordre changé
+  assert.strictEqual(importSheet(d3, u3, f2).transactions, 1, 'réimport décalé : seule la ligne nouvelle est ajoutée'); assert.strictEqual(n3(), 4);
+  const f3 = mk(L('2026-03-05', 5) + L('2026-03-05', 5) + L('2026-03-05', 5) + L('2026-03-06', 1)); // un 3e achat identique réellement nouveau
+  assert.strictEqual(importSheet(d3, u3, f3).transactions, 1); assert.strictEqual(n3(), 5);
+}
 console.log('import-test OK');

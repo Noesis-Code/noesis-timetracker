@@ -56,7 +56,7 @@ const isoDate = (v) => {
 
 function importSheet(db, user, files, { now = Date.now() } = {}) {
   const stamp = new Date(now).toISOString();
-  const rep = { accounts: 0, positions: 0, balances: 0, transactions: 0, skipped: [] };
+  const rep = { accounts: 0, positions: 0, balances: 0, transactions: 0, skipped: [], possibleDuplicates: [] };
   const skip = (tab, i, why) => rep.skipped.push(`${tab} ligne ${i + 2} : ${why}`);
   const comptes = parseCsv(files.comptes), positions = parseCsv(files.positions), txs = parseCsv(files.transactions), soldes = parseCsv(files.soldes);
   db.exec('BEGIN');
@@ -97,13 +97,28 @@ function importSheet(db, user, files, { now = Date.now() } = {}) {
         ON CONFLICT(accountId, currency) DO UPDATE SET cash = excluded.cash, updatedAt = excluded.updatedAt`).run(acc, c, cash, stamp);
       rep.balances++;
     });
+    const seen = new Map();
     txs.forEach((r, i) => {
       const acc = accOf(pick(r, 'compte')), type = txType(pick(r, 'type')), date = isoDate(pick(r, 'date')), c = cur(pick(r, 'devise'));
       let amount = num(pick(r, 'montant', 'amount')); const q = num(pick(r, 'quantite')), p = num(pick(r, 'prix'));
       if (amount == null && q != null && p != null) amount = q * p;
       if (!acc || !type || !date || !c || amount == null) return skip('Transactions', i, 'compte, type, date, devise ou montant invalide');
       const sym = pick(r, 'symbole', 'symbol') || null;
-      const ext = pick(r, 'id', 'id_transaction') || 'sheet-' + crypto.createHash('sha256').update([date, type, sym, q, p, Math.abs(amount), c, i].join('|')).digest('hex').slice(0, 16);
+      // Sans colonne id : clé naturelle (compte + date + type + symbole + quantité + prix + montant + devise) + rang de l'occurrence dans le fichier.
+      // Deux achats identiques le même jour restent deux opérations (rangs 1 et 2) ; un réimport, même réordonné, ne les double jamais.
+      let ext = pick(r, 'id', 'id_transaction');
+      let dup = false;
+      if (!ext) {
+        const nat = [acc, date, type, sym, q, p, Math.abs(amount), c].join('|');
+        const rank = (seen.get(nat) || 0) + 1; seen.set(nat, rank);
+        if (rank > 1) rep.possibleDuplicates.push(`Transactions ligne ${i + 2} : identique à une ligne précédente du fichier (conservée comme opération distincte)`);
+        ext = 'sheet-' + crypto.createHash('sha256').update(nat + '|' + rank).digest('hex').slice(0, 16);
+        // anciens imports (clé liée au numéro de ligne) : déjà présent si la base compte au moins `rank` opérations identiques importées du Sheet
+        const known = db.prepare("SELECT COUNT(*) n FROM transactions WHERE accountId = ? AND date = ? AND type = ? AND symbol IS ? AND quantity IS ? AND price IS ? AND amount = ? AND currency = ? AND externalId LIKE 'sheet-%'")
+          .get(acc, date, type, sym, q, p, Math.abs(amount), c).n;
+        dup = known >= rank;
+      }
+      if (dup) return;
       const res = db.prepare('INSERT OR IGNORE INTO transactions (accountId, date, type, symbol, quantity, price, amount, currency, externalId) VALUES (?,?,?,?,?,?,?,?,?)')
         .run(acc, date, type, sym, q, p, Math.abs(amount), c, ext);
       if (Number(res.changes) > 0) rep.transactions++;

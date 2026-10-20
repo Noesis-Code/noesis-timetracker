@@ -4,6 +4,7 @@
 # Usage : scripts/new-worktree.sh <sujet>      (depuis n'importe quel worktree du dépôt)
 # Variable : NM_SOURCE=<dossier node_modules> pour choisir la source (défaut : celui du worktree courant).
 set -euo pipefail
+export TMPDIR="${TMPDIR:-/tmp}"  # jamais vide : évite les redirections \$TMPDIR/x vers /x
 sujet="${1:?usage: new-worktree.sh <sujet>}"
 [[ "$sujet" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "sujet : minuscules, chiffres, tirets" >&2; exit 1; }
 top="$(git rev-parse --show-toplevel)"
