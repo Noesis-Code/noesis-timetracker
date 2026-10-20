@@ -77,8 +77,8 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 9. Tâches multi-actions avec « et » (« Appeler le fournisseur et envoyer la facture ») : mesurer qu'elles restent placées sur le secteur dominant ou incertaines, et que la génération les propose scindées.
 10. Titres avec nombres/montants et tâches mixtes perso/pro (« Payer 450 $ de loyer », « Rendez-vous dentiste et appel client ») : ajouter et mesurer.
 11. Ponctuation et majuscules : titres TOUT EN MAJUSCULES, sans majuscule initiale, puces/guillemets/points de suspension ; mesurer que le placement ne change pas. *(fait 20 oct. : p01-p06)*
-12. Abréviations courantes (« fact. », « RDV », « tel », « compta », « qté ») : ajouter et mesurer placement vs incertain.
-13. Noms propres de clients seuls ou en début de titre (« Acme : maquette », « Dupuis - retouches ») : mesurer que le nom propre ne pèse pas contre le vocabulaire du secteur.
+12. Abréviations courantes (« fact. », « RDV », « tel », « compta », « qté ») : ajouter et mesurer placement vs incertain. *(fait 20 oct. : p07-p15, expansion fact/compta/qte/tel dans taskprecision.tokens ; 97,7 % sur 172)*
+13. Noms propres de clients seuls ou en début de titre (« Acme : maquette », « Dupuis - retouches ») : mesurer que le nom propre ne pèse pas contre le vocabulaire du secteur. *(fait 20 oct. : n01-n08, aucun écart, aucune règle ajoutée)*
 
 **7. Principal et pilotage**
 1. État des worktrees et branches à nettoyer (`scripts/chantiers-status.js`), liste pour Émilien si suppression distante.

@@ -18,9 +18,11 @@ function cleanTitle(raw) {
 function fold(v) {
   return String(v == null ? '' : v).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’']/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
 }
+// Abréviations courantes (formes pliées : « fact. » -> fact) ramenées au mot plein pour la comparaison seulement, jamais affichées.
+const ABBREV = { fact: 'facture', compta: 'comptabilite', qte: 'quantite', tel: 'telephone' };
 // Mots utiles (sans mots vides, pluriel simple ramené au singulier).
 function tokens(v) {
-  return fold(v).split(' ').filter((w) => w && !STOP.has(w) && (w.length > 2 || /\d/.test(w))).map(stem);
+  return fold(v).split(' ').filter((w) => w && !STOP.has(w) && (w.length > 2 || /\d/.test(w))).map((w) => stem(ABBREV[w] || w));
 }
 // Racine légère (comparaison seulement, jamais affichée) : « commander/commande/commandes », « embaucher/embauche », « terrasse/terase » (faute),
 // « réservation/réserver » donnent la même racine. Les mots courts et les nombres restent intacts.
