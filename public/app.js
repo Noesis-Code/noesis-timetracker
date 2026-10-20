@@ -16,13 +16,21 @@
   var timerInterval = null;
   var timerStartMs = null;
   // Écart (ms) entre l'horloge du serveur et celle du téléphone, appris des réponses du chrono (serverNow) et gardé pour l'hors ligne. Corrige le chrono d'un téléphone en avance/en retard ; ignoré sous 5 s.
+  // clockSkewFrom : écart mesuré au milieu de la requête (envoi -> réponse) pour neutraliser la latence ; recalculé à chaque réponse (aucune dérive) ; valeur absurde (NaN, > 1 jour, réponse avant l'envoi) = ignorée, on garde l'écart précédent.
+  function clockSkewFrom(serverNow, sentAt, recvAt, previous) {
+    if (typeof serverNow !== 'number' || !isFinite(serverNow)) return previous;
+    if (!isFinite(sentAt) || !isFinite(recvAt) || recvAt < sentAt) return previous;
+    var d = serverNow - (sentAt + recvAt) / 2;
+    if (!isFinite(d) || Math.abs(d) > 86400000) return previous;
+    return Math.abs(d) < 5000 ? 0 : Math.round(d);
+  }
   var clockSkewMs = 0;
-  try { clockSkewMs = Number(localStorage.getItem('tmtClockSkew')) || 0; } catch (e) { /* stockage indisponible */ }
+  try { clockSkewMs = clockSkewFrom(Date.now() + Number(localStorage.getItem('tmtClockSkew')), Date.now(), Date.now(), 0) || 0; } catch (e) { /* stockage indisponible */ }
   function nowMs() { return Date.now() + clockSkewMs; }
-  function noteServerNow(serverNow) {
-    if (typeof serverNow !== 'number') return;
-    var d = serverNow - Date.now();
-    clockSkewMs = Math.abs(d) < 5000 ? 0 : d;
+  function noteServerNow(serverNow, sentAt) {
+    var next = clockSkewFrom(serverNow, sentAt, Date.now(), clockSkewMs);
+    if (next === clockSkewMs) return;
+    clockSkewMs = next;
     try { localStorage.setItem('tmtClockSkew', String(clockSkewMs)); } catch (e) { /* ignoré */ }
   }
   // Rattachement OPTIONNEL de la session en cours à une CATÉGORIE Objectifs
@@ -268,6 +276,8 @@
         return offlineCacheGet(url).then(function (entry) {
           if (!entry) throw err;
           setOfflineDataBanner(entry.savedAt);
+          // serverNow d'une copie locale est périmé : il fausserait l'écart d'horloge.
+          if (entry.data && typeof entry.data === 'object' && 'serverNow' in entry.data) { var copy = Object.assign({}, entry.data); delete copy.serverNow; return copy; }
           return entry.data;
         });
       });
@@ -2298,8 +2308,9 @@
         return api('POST', '/api/history', body, { tz: rec.tz });
       });
     }
+    var statusSentAt = Date.now();
     offlineChronoFlushing = api('GET', '/api/timer/status?userId=' + profile.id).then(function (status) {
-      noteServerNow(status.serverNow);
+      noteServerNow(status.serverNow, statusSentAt);
       if (rec.origin === 'offline' && rec.stop) {
         var cat = rec.stop.category !== undefined ? rec.stop.category : (rec.category ? rec.category.key : undefined);
         return toHistory(rec.stop.startTime, rec.stop.endTime, cat).then(function () {
@@ -2820,8 +2831,9 @@
   }
 
   function syncChronoStatusFromServer() {
+    var sentAt = Date.now();
     return api('GET', '/api/timer/status?userId=' + profile.id).then(function (data) {
-      noteServerNow(data.serverNow);
+      noteServerNow(data.serverNow, sentAt);
       if (!data.running) {
         saveOfflineChrono(null);
         showChronoIdle();
@@ -2829,6 +2841,10 @@
       }
       // Copie locale du chrono serveur (voir CHRONO HORS LIGNE plus haut).
       saveOfflineChrono({ origin: 'server', activity: data.activity, startTime: data.startTime, category: data.category || null, stop: null });
+      // Même chrono déjà affiché (retour au premier plan) : on ne refait pas l'écran, sinon le récapitulatif d'arrêt en cours de saisie se ferme.
+      if (chronoRunningActivityId === data.activity.id && timerStartMs === new Date(data.startTime).getTime() &&
+          (chronoRunningCategory ? chronoRunningCategory.key : null) === (data.category ? data.category.key : null) &&
+          !$('chronoRunning').classList.contains('hidden')) return;
       return enterRunning(data.activity, data.startTime, data.category);
     }).catch(function (err) {
       var rec = err && err.offline ? loadOfflineChrono() : null;
@@ -2849,9 +2865,10 @@
     $('chronoStatus').textContent = '';
     // 23 septembre 2026 : sans réseau, démarrage local (voir CHRONO HORS LIGNE).
     if (navigator.onLine === false) { startOfflineChrono(activity); return; }
+    var startSentAt = Date.now();
     api('POST', '/api/timer/start', { userId: profile.id, activityId: activity.id })
       .then(function (data) {
-        noteServerNow(data.serverNow);
+        noteServerNow(data.serverNow, startSentAt);
         saveOfflineChrono({ origin: 'server', activity: data.activity, startTime: data.startTime, category: data.category || null, stop: null });
         enterRunning(data.activity, data.startTime, data.category);
       })
@@ -3050,6 +3067,11 @@
       .catch(function (err) {
         if (err.offline) { stopLocally(); return; }
         $('stopConfirmMsg').textContent = err.message;
+        // Chrono peut-être déjà arrêté depuis un autre appareil : on relit l'état du serveur (le message reste dit dans l'écran d'attente).
+        var shownMsg = err.message;
+        syncChronoStatusFromServer().then(function () {
+          if ($('chronoRunning').classList.contains('hidden')) $('chronoStatus').textContent = shownMsg;
+        });
       })
       .finally(function () {
         $('stopConfirmBtn').disabled = false;

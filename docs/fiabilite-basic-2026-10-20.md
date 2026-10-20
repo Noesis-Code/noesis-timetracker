@@ -26,3 +26,13 @@ Test : `test/fiabilite-basic-test.js` (inscrit dans `node test/run-tests.js`, do
 - Une entrée du dimanche 23 h au lundi 1 h est rattachée au jour de départ (`isoDate`) : dans la grille/camembert, l'heure après minuit n'apparaît pas dans la semaine suivante (1 h manquante côté lundi). Même convention partout (stats, communauté, objectifs) ; la changer touche plusieurs requêtes : décision d'Émilien.
 - Un jour de 25 h (1er nov.) : une entrée minuit à minuit dure 25 h réelles et est refusée par le garde-fou 24 h (cas très rare).
 - Un chrono oublié arrêté sans correction enregistre sa durée réelle (> 24 h) : le récapitulatif d'arrêt permet de corriger la fin.
+
+## Repli 19 : relecture de l'écart d'horloge, reprise, deux appareils (20 oct. 2026)
+
+Test : `test/chrono-horloge-test.js`. Pièges trouvés et corrigés dans `public/app.js` :
+- Écart calculé à l'arrivée de la réponse (latence comptée en entier) : mesuré maintenant au milieu de la requête (`clockSkewFrom`).
+- `serverNow` NaN ou non fini donnait un écart NaN (chrono « NaN ») ; écart > 1 jour ou stockage corrompu : ignoré (ancien écart gardé / 0 au chargement).
+- Hors ligne, la copie locale du statut servait un `serverNow` périmé (fausse dérive jusqu'à 1 jour) : retiré de la copie.
+- Retour au premier plan pendant la saisie du récapitulatif d'arrêt : l'écran du chrono était refait et refermait le récapitulatif ; inchangé si le même chrono tourne.
+- Arrêt tenté sur un chrono déjà arrêté sur l'autre appareil : message du serveur gardé, puis l'état est relu (écran repassé à l'attente).
+Écart conservé après rechargement (`localStorage`), recalculé à chaque réponse sans dérive, durée jamais négative (`Math.max(0, …)`). Reprise : le départ vient toujours du serveur (testé 3 ouvertures).

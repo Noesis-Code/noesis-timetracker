@@ -103,6 +103,7 @@ const SUITE_FILES = [
   'mcp-test.js',
   'zone-fichier-test.js',
   'fonctionnel-chrono.js',
+  'chrono-horloge-test.js',
   'fonctionnel-taches.js',
   'fonctionnel-modules.js',
   'fonctionnel-secteurs.js',
@@ -473,7 +474,7 @@ async function main() {
   }
 
   // Parcours fonctionnels HTTP (serveur réel sur données temporaires) : chrono, tâches, modules, secteurs, stats, export.
-  for (const [f, label] of [['fonctionnel-chrono.js', 'parcours chrono'], ['fonctionnel-taches.js', 'parcours tâches'], ['fonctionnel-modules.js', 'parcours modules'], ['fonctionnel-secteurs.js', 'parcours suppression de secteur'], ['fonctionnel-stats.js', 'parcours statistiques'], ['fonctionnel-exactitude.js', 'exactitude statistiques et feuille de temps'], ['fonctionnel-fuseaux.js', 'fuseaux horaires (grille, Répartition, Graphique, Communauté)'], ['fonctionnel-vues-periodes.js', 'parcours vues Semaine, Mois, Année'], ['fonctionnel-export.js', 'parcours export'], ['fonctionnel-basic-legal.js', 'parcours Basic légal (mentions, consentements, âge, résiliation, signalement, sauvegardes)'], ['fonctionnel-parcours.js', 'parcours profil, feuille de temps, modules partiels'], ['fonctionnel-recuperation.js', 'parcours premier lancement et récupération de profil']]) {
+  for (const [f, label] of [['fonctionnel-chrono.js', 'parcours chrono'], ['chrono-horloge-test.js', 'chrono : écart d\'horloge, reprise, deux appareils'], ['fonctionnel-taches.js', 'parcours tâches'], ['fonctionnel-modules.js', 'parcours modules'], ['fonctionnel-secteurs.js', 'parcours suppression de secteur'], ['fonctionnel-stats.js', 'parcours statistiques'], ['fonctionnel-exactitude.js', 'exactitude statistiques et feuille de temps'], ['fonctionnel-fuseaux.js', 'fuseaux horaires (grille, Répartition, Graphique, Communauté)'], ['fonctionnel-vues-periodes.js', 'parcours vues Semaine, Mois, Année'], ['fonctionnel-export.js', 'parcours export'], ['fonctionnel-basic-legal.js', 'parcours Basic légal (mentions, consentements, âge, résiliation, signalement, sauvegardes)'], ['fonctionnel-parcours.js', 'parcours profil, feuille de temps, modules partiels'], ['fonctionnel-recuperation.js', 'parcours premier lancement et récupération de profil']]) {
     let ok = true;
     try { await runChild(f); } catch (e) { ok = false; }
     assert(ok, `${label} (test/${f}) passe`);
