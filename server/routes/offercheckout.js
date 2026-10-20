@@ -108,6 +108,11 @@ function alreadySubscribed(activityId, userId) {
   `).get(activityId, userId);
 }
 
+// Message d'erreur FR/EN selon Accept-Language (français par défaut).
+function tr(req, fr, en) {
+  return /^\s*en\b/i.test(String(req.get('accept-language') || '')) ? en : fr;
+}
+
 router.post('/offer/checkout', requireAuth, async (req, res) => {
   const userId = req.userId;
   const user = db.prepare('SELECT id, email, phone, stripeCustomerId FROM users WHERE id = ?').get(userId);
@@ -124,7 +129,8 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
   }
   const priceId = process.env.STRIPE_OFFER1_PRICE_ID;
   if (!priceId) {
-    return res.status(503).json({ error: "Paiement indisponible : STRIPE_OFFER1_PRICE_ID n'est pas configurée." });
+    console.error("[stripe] STRIPE_OFFER1_PRICE_ID n'est pas configurée.");
+    return res.status(503).json({ error: tr(req, 'Paiement indisponible pour le moment.', 'Payment is unavailable right now.') });
   }
 
   // Déclaration d'âge — binaire et auto-déclarée, jamais une date de
@@ -169,7 +175,8 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
         req, activityId, userId, guardianName, guardianEmail, priceLabel: OFFER1_PRICE_LABEL,
       });
     } catch (e) {
-      return res.status(502).json({ error: `Impossible d'envoyer le courriel de consentement : ${e.message}` });
+      console.error('[consent] Envoi du courriel refusé :', String(e.message).slice(0, 200));
+      return res.status(502).json({ error: tr(req, "Impossible d'envoyer le courriel de consentement pour le moment.", 'Unable to send the consent email right now.') });
     }
     if (!request.confirmedAt) {
       return res.status(202).json({
@@ -216,7 +223,9 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
       },
     });
   } catch (e) {
-    return res.status(502).json({ error: e.message });
+    console.error('[stripe] Checkout refusé :', String(e.message).slice(0, 200));
+    if (/^Calcul des taxes/.test(e.message)) return res.status(502).json({ error: tr(req, 'Calcul des taxes indisponible pour le moment. Réessaie plus tard.', 'Tax calculation is unavailable right now. Please try again later.') });
+    return res.status(502).json({ error: tr(req, 'Paiement indisponible pour le moment. Réessaie plus tard.', 'Payment is unavailable right now. Please try again later.') });
   }
 
   // Consommé seulement une fois la session Stripe effectivement créée — si
@@ -233,8 +242,8 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
 router.post('/offer/portal', requireAuth, async (req, res) => {
   const user = db.prepare('SELECT stripeCustomerId FROM users WHERE id = ?').get(req.userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
-  if (!stripe.secretKeyConfigured()) return res.status(503).json({ error: 'Paiement indisponible pour le moment.' });
-  if (!user.stripeCustomerId) return res.status(404).json({ error: "Aucun abonnement à gérer pour ce profil." });
+  if (!stripe.secretKeyConfigured()) return res.status(503).json({ error: tr(req, 'Paiement indisponible pour le moment.', 'Payment is unavailable right now.') });
+  if (!user.stripeCustomerId) return res.status(404).json({ error: tr(req, 'Aucun abonnement à gérer pour ce profil.', 'No subscription to manage for this profile.') });
   try {
     const session = await stripe.createPortalSession({
       customerId: user.stripeCustomerId,
@@ -243,7 +252,11 @@ router.post('/offer/portal', requireAuth, async (req, res) => {
     res.status(201).json({ url: session.url });
   } catch (e) {
     console.error('[stripe] Portail client refusé :', String(e.message).slice(0, 200));
-    res.status(502).json({ error: 'Portail de gestion indisponible pour le moment. Réessaie plus tard.' });
+    // Portail non activé dans le tableau de bord Stripe : Stripe répond « No configuration provided… ».
+    if (/configuration/i.test(String(e.message))) {
+      return res.status(503).json({ error: tr(req, "La gestion de l'abonnement n'est pas encore activée. Contacte-nous pour modifier ou résilier ton abonnement.", 'Subscription management is not enabled yet. Contact us to change or cancel your subscription.') });
+    }
+    res.status(502).json({ error: tr(req, 'Portail de gestion indisponible pour le moment. Réessaie plus tard.', 'Management portal is unavailable right now. Please try again later.') });
   }
 });
 

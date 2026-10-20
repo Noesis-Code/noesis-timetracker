@@ -22,12 +22,14 @@ const ok = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; consol
 
 // Réseau interdit : seuls Stripe et Anthropic sont simulés, tout autre appel fait échouer le test.
 const stripeCalls = [];
+let portalMode = 'ok';
 let subscription = { status: 'active', current_period_start: 1700000000, current_period_end: 1702600000, cancel_at_period_end: false };
 const plan = { confidence: 95, subProjects: [1, 2, 3].map((n) => ({ name: 'Sous-projet ' + n, description: 'Description ' + n, tasks: ['a', 'b', 'c', 'd', 'e'].map((t) => t + n) })) };
 const json = (body, status = 200) => ({ ok: status < 400, status, json: async () => body, clone() { return this; } });
 global.fetch = async (url, init = {}) => {
   url = String(url);
   if (url.startsWith('https://api.stripe.com/v1/checkout/sessions')) { stripeCalls.push({ url, body: String(init.body) }); return json({ id: 'cs_test_1', url: 'https://checkout.stripe.test/cs_test_1' }); }
+  if (url.startsWith('https://api.stripe.com/v1/billing_portal/sessions') && portalMode === 'noconfig') return json({ error: { message: 'No configuration provided and your test mode default configuration has not been created.' } }, 400);
   if (url.startsWith('https://api.stripe.com/v1/billing_portal/sessions')) { stripeCalls.push({ url, body: String(init.body) }); return json({ id: 'bps_1', url: 'https://billing.stripe.test/bps_1' }); }
   if (url.startsWith('https://api.stripe.com/v1/subscriptions/')) return json({ id: 'sub_e2e', ...subscription, items: { data: [{ price: { id: 'price_test_local' } }] } });
   if (url.startsWith('https://api.anthropic.com/')) return json({ content: [{ text: JSON.stringify(plan) }] });
@@ -88,6 +90,14 @@ const slots = (a) => db.prepare('SELECT COUNT(*) n FROM sub_projects WHERE activ
   ok(r.status === 201 && JSON.parse(r.body).url === 'https://billing.stripe.test/bps_1', 'portail client : session créée pour le client Stripe');
   const pp = new URLSearchParams(stripeCalls[stripeCalls.length - 1].body);
   ok(pp.get('customer') === 'cus_e2e' && /^http:\/\/[^/]+\/$/.test(pp.get('return_url') || ''), 'portail : client mémorisé, retour sur l\'origine de la requête');
+
+  // Portail non activé côté Stripe : message clair FR/EN, sans détail interne
+  portalMode = 'noconfig';
+  r = await request(port, 'POST', '/offer/portal', {});
+  ok(r.status === 503 && /pas encore activée/.test(JSON.parse(r.body).error) && !/configuration provided|Stripe a refus/.test(r.body), 'portail non activé : message FR sans détail interne');
+  r = await request(port, 'POST', '/offer/portal', {}, { 'Accept-Language': 'en-CA,en;q=0.9' });
+  ok(r.status === 503 && /not enabled yet/.test(JSON.parse(r.body).error), 'portail non activé : message EN');
+  portalMode = 'ok';
 
   // 3. Rejeu et double achat
   r = await webhook(port, co);

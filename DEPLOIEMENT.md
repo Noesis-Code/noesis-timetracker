@@ -151,3 +151,14 @@ ipconfig       # relever l'IPv4, ex. 192.168.1.24
 Puis ouvrir `http://192.168.1.24:3000` sur le téléphone. Attention : en http
 (sans « s »), le service worker ne s'enregistre pas — l'app fonctionne, mais
 n'est pas installable. Pour l'installation, il faut l'URL https du déploiement.
+
+## 6. Variables Stripe (Expansion)
+
+Liste complète (Railway > Variables ; staging = clés de test uniquement) :
+
+- `STRIPE_SECRET_KEY` : clé secrète Stripe (sans elle, paiement et portail indisponibles).
+- `STRIPE_OFFER1_PRICE_ID` : identifiant du prix Expansion (sans lui, le bouton d'achat est masqué).
+- `STRIPE_WEBHOOK_SECRET` : secret de signature du webhook `/stripe/webhook` (sans lui, événements refusés).
+- `STRIPE_TAX_ENABLED=1` : optionnelle, active TPS/TVQ (voir `docs/stripe-taxes.md`).
+
+Côté Stripe, activer aussi le portail client (Paramètres > Billing > Portail client) en mode test.

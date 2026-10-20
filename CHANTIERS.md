@@ -41,8 +41,8 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 2. Idempotence du webhook Stripe testée (même événement reçu deux fois). FAIT (`test/stripe-webhook-idempotence-test.js`).
 3. Textes « Offre 1 » → Expansion dans CGU, confidentialité et code, hors ids et routes.
 4. Échecs de paiement : `invoice.payment_failed` testé par événement signé local (fait, `test/stripe-webhook-idempotence-test.js`).
-5. Messages d'erreur du checkout et du webhook relus (FR/EN, aucun détail interne exposé).
-6. Variables d'env Stripe auditées (`docs/stripe-taxes.md`, `DEPLOIEMENT.md`) : liste unique, rien d'oublié.
+5. Messages d'erreur du checkout et du webhook relus (FR/EN, aucun détail interne exposé). FAIT (repli 5) : `Accept-Language`, portail non activé couvert par `expansion-parcours-test.js`.
+6. Variables d'env Stripe auditées (`docs/stripe-taxes.md`, `DEPLOIEMENT.md`) : liste unique, rien d'oublié. FAIT (repli 5) : `DEPLOIEMENT.md` §6.
 
 **4. Crédits Claude et API**
 1. Rapport de coût par fonction IA (`scripts/ai-cost-report.js`, `ai_usage_log`).

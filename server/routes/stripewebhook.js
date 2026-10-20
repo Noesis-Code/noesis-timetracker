@@ -167,7 +167,7 @@ router.post('/stripe/webhook', express.raw({ type: 'application/json' }), async 
     event = stripe.constructEvent(req.body, req.headers['stripe-signature']);
   } catch (e) {
     console.warn('[stripe webhook] signature invalide :', e.message);
-    return res.status(400).send(`Webhook signature invalide : ${e.message}`);
+    return res.status(400).send('Webhook signature invalide.');
   }
 
   if (alreadyHandled(event.id)) {
