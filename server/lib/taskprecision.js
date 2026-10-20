@@ -131,6 +131,9 @@ const FIXED_TIME = new RegExp('\\s*(?:(?<=^|\\s)de\\s+' + HM + '\\s*(?:à|a|-|�
 // Mots vides de sens : un titre qui n'est fait QUE de ces mots (« truc », « à faire », « todo ») ne désigne aucune action. Tout autre mot, même seul
 // (« Épicerie », « Facture Hydro-Québec », « Vérifier », « Acme »), est une tâche valable : pas de liste de verbes, donc pas de faux rejets.
 const VAGUE = new Set(['truc', 'trucs', 'chose', 'choses', 'machin', 'bidule', 'divers', 'autre', 'autres', 'rien', 'tache', 'taches', 'task', 'tasks', 'todo', 'to', 'do', 'stuff', 'thing', 'things', 'misc', 'tbd', 'tba', 'etc', 'na', 'n', 'le', 'la', 'les', 'l', 'un', 'une', 'des', 'du', 'de', 'the', 'an', 'mon', 'ma', 'mes', 'notre', 'nos', 'ce', 'cette', 'ca', 'cela', 'ceci', 'it', 'this', 'that']);
+// Verbes sans contenu (« Réfléchir », « Avancer », « Penser à l'objectif ») : un titre fait QUE de ces mots + mots vides ne dit pas quoi faire.
+// Liste fermée, volontairement courte ; un verbe concret seul (« Vérifier », « Courir ») reste valable.
+const EMPTY_VERBS = new Set(['reflechir', 'reflechis', 'penser', 'avancer', 'continuer', 'commencer', 'demarrer', 'travailler', 'essayer', 'se', 'motiver', 'planifier', 'organiser', 'preparer', 'faire', 'gerer', 'traiter', 'regarder', 'voir', 'checker', 'think', 'work', 'try', 'start', 'continue', 'organize', 'prepare', 'handle', 'dessus', 'tout', 'objectif', 'but', 'goal', 'recherche', 'recherches', 'research', 'projet', 'project', 'sur', 'au', 'aux', 'pour', 'avec']);
 function checkGenerated(raw, existing) {
   const t0 = cleanTitle(raw);
   if (!t0) return { title: null, reason: 'vide' };
@@ -140,6 +143,8 @@ function checkGenerated(raw, existing) {
   if (!words.length) return { title: null, reason: t !== t0 ? 'horaire' : 'vide' };
   if (t.length > MAX_GENERATED_TITLE) return { title: null, reason: 'tropLong' };
   if (words.every((w) => VAGUE.has(w)) || /^(?:a faire|to do|a voir|a completer)$/.test(words.join(' ')) || fold(t).replace(/[^a-z]/g, '').length < 3) return { title: null, reason: 'sansSens' }; // « truc », « à faire », « A », « T1 », « 12345 » : rien à faire de ce titre
+  const w2 = fold(t.replace(/\s[àÀ]\s/g, ' ')).split(' ').filter(Boolean); // « à » (préposition) ignoré ; une lettre seule (« Faire A ») n'est pas du vague
+  if (w2.length <= 4 && w2.every((w) => VAGUE.has(w) || EMPTY_VERBS.has(w))) return { title: null, reason: 'sansSens' }; // « Réfléchir », « Avancer sur le projet »
   if ((existing || []).some((o) => sameTitle(t, o))) return { title: null, reason: 'doublon' };
   return { title: t, reason: t !== t0 ? 'horaire' : null }; // reason 'horaire' avec title = nettoyé
 }

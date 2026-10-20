@@ -25,6 +25,7 @@ const MAX_DOC_CHARS = 24000;
 const MAX_INSTRUCTION = 1500;
 const MAX_IMAGES = 2, MAX_IMAGE_BYTES = 400 * 1024; // images jointes : plafond de coût IA
 const MAX_TASKS = 80;
+const MAX_TASK_MINUTES = 480; // même borne que la consigne du prompt (5 à 480 min) : au-delà, durée inconnue (null), la tâche reste
 const MAX_WEEKS = 260;      // plafond technique de lundis (≈ 5 ans), pour borner la taille du prompt sans couper les années créées
 const MAX_OBJECTIVES = 200; // objectifs hebdomadaires listés dans le prompt (les plus proches d'abord)
 const MAX_PERIOD_GOALS = 120; // objectifs périodiques listés dans le prompt (les plus proches d'abord)
@@ -388,6 +389,8 @@ function parseDetailed(text, ctx) {
   const openTitles = ((ctx.app && ctx.app.open) || []).map((o) => o.label);
   const strat = ctx.activityId ? require('./strategy').get(ctx.activityId) : null; // « à ignorer » appliqué strictement, avant tout affichage
   const tp = require('./taskprecision');
+  const ap = ctx.app || {};
+  const goalTexts = [].concat(ap.objectives || [], ap.yearGoals || [], ap.periodGoals || []).map((g) => g && g.text).filter(Boolean);
   let toChoose = 0, cleaned = 0, rejected = 0;
   list.forEach((t) => {
     if (!t || typeof t !== 'object') { dropped.vide++; rejected++; return; }
@@ -395,6 +398,7 @@ function parseDetailed(text, ctx) {
     if (!chk.title) rejected++; else if (chk.reason) cleaned++;
     if (!chk.title) { if (chk.reason === 'doublon') dropped.doublon++; else if (chk.reason === 'vide') dropped.vide++; else { dropped.invalide++; dropped.raisons[chk.reason] = (dropped.raisons[chk.reason] || 0) + 1; } return; }
     const title = chk.title;
+    if (goalTexts.some((g) => tp.sameTitle(title, g))) { rejected++; dropped.invalide++; dropped.raisons.objectif = (dropped.raisons.objectif || 0) + 1; return; } // objectif recopié tel quel : ce n'est pas une étape
     if (strat && strat.ignore && tp.matchesIgnore(title, strat.ignore)) { dropped.ignore++; return; }
     let key = t.key, pick = false;
     if (!labels.has(key)) {
@@ -411,8 +415,15 @@ function parseDetailed(text, ctx) {
     const mn = Math.round(Number(t.minutes));
     if (pick) toChoose++;
     const rd = resolveDay(t.week != null ? t.week : t.day, ctx);
-    tasks.push({ title, key, categoryLabel: labels.get(key), toChoose: pick, week: rd ? goals.mostRecentMonday(rd.day) : null, day: rd ? rd.day : null, exact: !!(rd && rd.exact), moved: false, minutes: Number.isFinite(mn) && mn >= 5 && mn <= 1440 ? mn : null });
+    tasks.push({ title, key, categoryLabel: labels.get(key), toChoose: pick, week: rd ? goals.mostRecentMonday(rd.day) : null, day: rd ? rd.day : null, exact: !!(rd && rd.exact), moved: false, minutes: Number.isFinite(mn) && mn >= 5 && mn <= MAX_TASK_MINUTES ? mn : null });
   });
+  // Durées recopiées en série (6 tâches ou plus, 80 % ou plus avec exactement la même durée) : estimation sans information, durée inconnue (les tâches restent).
+  if (tasks.length >= 6) {
+    const freq = {};
+    tasks.forEach((x) => { if (x.minutes) freq[x.minutes] = (freq[x.minutes] || 0) + 1; });
+    const top = Object.keys(freq).sort((p, q) => freq[q] - freq[p])[0];
+    if (top && freq[top] >= Math.ceil(tasks.length * 0.8)) tasks.forEach((x) => { if (String(x.minutes) === top) x.minutes = null; });
+  }
   aibudget.recordQuality('documenttasks', list.length, rejected, cleaned);
   return { tasks, found: list.length, dropped, toChoose, repaired };
 }

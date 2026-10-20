@@ -1,0 +1,22 @@
+[
+{"id":"g01","objectif":"Courir mon premier 10 km en novembre","bon":[["Choisir un plan d'entraînement de 8 semaines",30],["Acheter des chaussures de course",60],["Faire une sortie de 5 km à rythme facile",40],["S'inscrire à une course de 10 km",15]]},
+{"id":"g02","objectif":"Apprendre les bases de l'espagnol","bon":[["Installer une application de langues",10],["Mémoriser 20 mots de vocabulaire de base",25],["Écouter un balado pour débutants",30],["Rédiger cinq phrases de présentation",20]]},
+{"id":"g03","objectif":"Préparer l'examen de statistiques","bon":[["Relire les notes des chapitres 1 à 4",60],["Refaire les exercices de probabilités",90],["Dresser une fiche de formules",30],["Passer un examen blanc chronométré",120]]},
+{"id":"g04","objectif":"Lancer le site vitrine de mon atelier","bon":[["Rédiger le texte de la page d'accueil",60],["Photographier six réalisations",90],["Choisir un nom de domaine",20],["Publier le site et le tester sur mobile",45]]},
+{"id":"g05","objectif":"Organiser le déménagement","bon":[["Réserver un camion de location",20],["Rassembler des boîtes de carton",30],["Emballer la cuisine",120],["Faire le changement d'adresse",25]]},
+{"id":"g06","objectif":"Réduire mes dépenses de restaurant","bon":[["Relever les dépenses de restaurant du dernier mois",30],["Fixer un budget mensuel de restaurant",15],["Planifier les repas de la semaine",30]]},
+{"id":"g07","objectif":"Livrer le rapport trimestriel au client","bon":[["Extraire les chiffres du trimestre",45],["Rédiger la synthèse de deux pages",90],["Faire relire le rapport par un collègue",20],["Envoyer le rapport au client",10]]},
+{"id":"g08","objectif":"Écrire un chapitre de mon roman chaque semaine","bon":[["Esquisser le plan du chapitre",30],["Écrire la première version de la scène d'ouverture",90],["Relire et corriger le chapitre",45]]},
+{"id":"g09","objectif":"Mettre en place une sauvegarde automatique des fichiers","bon":[["Comparer trois services de sauvegarde",40],["Configurer la sauvegarde du dossier Documents",30],["Tester la restauration d'un fichier",20]]},
+{"id":"g10","objectif":"Planifier un voyage de camping de trois jours","bon":[["Choisir un site de camping",30],["Réserver l'emplacement",15],["Dresser la liste du matériel",20],["Préparer le menu des repas",25]]},
+{"id":"g11","objectif":"Obtenir ma certification en gestion de projet","bon":[["Choisir un organisme de certification",30],["Suivre le module sur la planification",120],["Faire un test de pratique",60]]},
+{"id":"g12","objectif":"Remettre mon vélo en état","bon":[["Inspecter les freins et les pneus",20],["Acheter une chaîne neuve",30],["Lubrifier la transmission",15]]},
+{"id":"g13","objectif":"Améliorer mon CV et trouver un nouvel emploi","bon":[["Mettre à jour mon CV",60],["Rédiger une lettre de présentation type",45],["Repérer dix offres d'emploi pertinentes",40],["Envoyer trois candidatures",60]]},
+{"id":"g14","objectif":"Faire du yoga trois fois par semaine","bon":[["Choisir un cours de yoga en ligne",20],["Installer le tapis dans le salon",5],["Faire une séance de 30 minutes",30]]},
+{"id":"g15","objectif":"Migrer la base de données vers la nouvelle version","bon":[["Lister les tables et les dépendances",45],["Écrire le script de migration",120],["Exécuter la migration sur une copie",60],["Valider les résultats avec l'équipe",30]]},
+{"id":"g16","objectif":"Rénover la salle de bain","bon":[["Demander trois soumissions à des entrepreneurs",45],["Choisir la céramique du plancher",60],["Fixer le budget des travaux",30]]},
+{"id":"g17","objectif":"Mieux dormir","bon":[["Fixer une heure de coucher régulière",10],["Retirer les écrans de la chambre",15],["Noter la qualité du sommeil pendant une semaine",10]]},
+{"id":"g18","objectif":"Monter un budget familial pour l'année","bon":[["Rassembler les relevés bancaires",30],["Classer les dépenses par catégorie",60],["Établir un budget mensuel",45]]},
+{"id":"g19","objectif":"Présenter mon mémoire en décembre","bon":[["Terminer la rédaction de la conclusion",120],["Préparer les diapositives de la présentation",90],["Répéter la présentation devant un ami",45],["Imprimer le mémoire",20]]},
+{"id":"g20","objectif":"Apprendre à jouer de la guitare","bon":[["Accorder la guitare",10],["Apprendre les accords de base",45],["Pratiquer une chanson simple",30]]}
+]
