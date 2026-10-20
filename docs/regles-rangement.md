@@ -1,4 +1,4 @@
-# Règles de rangement (obligatoires, décision d'Émilien du 20 oct. 2026)
+# Référence design unique (règles R1–R13, obligatoires, décision d'Émilien du 20 oct. 2026)
 
 Tout agent lit ce fichier avant de toucher à l'interface (`public/`). Le relecteur refuse toute branche qui les viole sans justification écrite.
 
@@ -13,16 +13,23 @@ Tout agent lit ce fichier avant de toucher à l'interface (`public/`). Le relect
 - R1. Un écran = une action principale, en violet. Le reste est discret.
 - R2. Montre au plus 7 éléments par écran ou fenêtre. Au-delà, regroupe ou cache derrière un affichage progressif (« Avancé », fermé par défaut).
 - R3. Regroupe les champs liés et sépare les groupes par de l'espace, pas par des traits. Ordre = ordre d'usage, le plus fréquent en haut.
-- R4. Mets les actions rares ou destructrices tout en bas, séparées, en brique. Jamais à côté de l'action principale.
+- R4. Mets les actions rares ou destructrices tout en bas, séparées, en ROUGE (#E0626B, voir R12). Jamais à côté de l'action principale.
 - R5. Un mot court (1 à 3 mots) par chose, et le même mot partout dans l'app.
 - R6. Espacement : uniquement 8, 12, 16 ou 24 px. Aligne sur une grille, marges égales, jamais de carte dans une carte.
 - R7. Cibles tactiles de 44 px au moins, texte de 13 px au moins.
 - R8. Une option qui a une valeur par défaut raisonnable n'est pas affichée (elle va dans « Avancé »).
 - R9. N'ajoute aucun élément sans en retirer un équivalent. Ne retire aucune fonction sans l'accord d'Émilien.
-- R10. Chaque changement visuel est livré avec une capture avant/après à 390 px et à 360 px, et la liste R1 à R9 vérifiée une par une (cochée, ou justifiée en une phrase).
+- R10. Chaque changement visuel est livré avec une capture avant/après à 390 px et à 360 px, et la liste R1 à R9 et R11 à R13 vérifiée une par une (cochée, ou justifiée en une phrase).
+
+- R11. Palette « Violet cendré », seule couleur de l'app, sombre uniquement : action #9C8CC8, texte #F3EEE8, gris sable #A59E96, lien #C4B9E6, texte sur bouton d'action #15111C, fond #0B0A0A, halo rgba(156,140,200,.28), bordures rgba(243,238,232,.12).
+- R12. Trois couleurs sémantiques, rien d'autre : rouge #E0626B = danger de perte de données (supprimer une activité ou le compte) ; vert #6FC9A0 / jaune #F0AD4E / rouge #E0626B = semaine atteinte / partielle / non atteinte. Aucun autre usage, aucune couleur nouvelle.
+- R13. La croix ✕ de fermeture est toujours en haut à droite. Une seule technique par fonction : fermeture = ✕, réordonnancement = glisser-déposer, bouton d'envoi dans la zone d'écriture.
+
+## État actuel
+Le code utilise encore l'ancienne palette (violet #674EA7 etc.). La migration vers R11 se fera sur demande d'Émilien, pas avant.
 
 ## Checklist à joindre au compte rendu
 ```
-R1 [ ] R2 [ ] R3 [ ] R4 [ ] R5 [ ] R6 [ ] R7 [ ] R8 [ ] R9 [ ]  R10 : captures 390 px + 360 px jointes [ ]
+R1 [ ] R2 [ ] R3 [ ] R4 [ ] R5 [ ] R6 [ ] R7 [ ] R8 [ ] R9 [ ] R11 [ ] R12 [ ] R13 [ ]  R10 : captures 390 px + 360 px jointes [ ]
 (une règle non cochée = une phrase de justification)
 ```
