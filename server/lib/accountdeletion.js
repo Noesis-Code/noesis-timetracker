@@ -99,6 +99,8 @@ function deleteAccountData(user) {
       if (next) db.prepare('UPDATE polls SET authorId = ? WHERE id = ?').run(next.userId, p.id);
     });
 
+    // Clés d'idempotence de la capture hors ligne : pas de clé étrangère, effacées ici (Loi 25).
+    db.prepare('DELETE FROM idempotency_keys WHERE userId = ?').run(user.id);
     db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
     db.exec('COMMIT');
   } catch (e) {
