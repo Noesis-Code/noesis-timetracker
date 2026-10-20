@@ -1,6 +1,6 @@
 # Résiliation Expansion : état et 2 options minimales (20 oct. 2026, repli 28)
 
-Analyse de code, pas un conseil juridique. Rien n'est activé en production ; staging = clés de test. Aucun bouton, option ni couleur ajouté dans `public/`.
+Analyse de code, pas un conseil juridique. Rien n'est activé en production ; staging = clés de test. Le seul ajout dans `public/` est le bouton demandé par Émilien (section 6).
 
 ## 1. Côté serveur : vérifié par test (faux Stripe, aucun réseau)
 
@@ -42,3 +42,7 @@ Constat : il disait « vous pouvez le résilier à tout moment depuis Réglages 
 ## 5. CGU art. 4.2 (futur)
 
 Constat : l'art. 4.2 dit toujours « non applicable au lancement… offre qui n'existe pas encore… prix envisagé 20 $ » (et l'art. 6 « non applicable tant que l'Expansion n'existe pas »). Vrai tant que l'achat est fermé, faux dès `OFFER_CHECKOUT_OPEN=1`. Texte légal non modifié : case pour Émilien (déjà Q2 pour le nom ; ajouter ici le temps verbal et l'avis de résiliation).
+
+## 6. Décision d'Émilien (20 oct. 2026, 11:14) : implémenté
+
+Bouton « Résilier mon abonnement » (EN : « Cancel my subscription »), dans la carte Expansion, dans la rangée d'actions existante (`.offer1PromoActions`), classe `offer1PromoBtn` existante (violet), masqué sans abonnement. Un toucher appelle `POST /api/offer/portal` puis ouvre le portail Stripe ; erreur = message serveur dans une alerte (technique existante). Les options A/B ci-dessus sont caduques. Test : `test/expansion-resilier-bouton-test.js`. Reste côté Émilien : activer le portail dans Stripe (mode test).

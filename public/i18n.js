@@ -1229,6 +1229,7 @@
     "Écris une nouvelle tâche, Noèsis l'organise dans tes projets...": "Write a new task, Noèsis sorts it into your projects...",
     "Expansion": "Expansion",
     "J’ai un code": "I have a code",
+    "Résilier mon abonnement": "Cancel my subscription",
     "Code d’accès": "Access code",
     "Entre un code.": "Enter a code.",
     "Vérification…": "Checking…",

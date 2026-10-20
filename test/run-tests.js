@@ -173,6 +173,7 @@ const SUITE_FILES = [
   'stats-profile-insights-test.js',
   'stripe-webhook-idempotence-test.js',
   'expansion-securite-test.js',
+  'expansion-resilier-bouton-test.js',
   'expansion-code-statut-test.js',
   'structure-migration-test.js',
   'subproject-migration-test.js',

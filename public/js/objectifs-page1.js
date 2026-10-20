@@ -30,6 +30,7 @@
             <div class="offer1PromoActions">
               <button type="button" id="offer1CheckoutOpenBtn" class="offer1PromoBtn" disabled aria-disabled="true">Découvrir Expansion</button>
               <button type="button" id="offer1CodeLink" class="offer1PromoBtn offer1PromoBtnGrey hidden">J’ai un code</button>
+              <button type="button" id="offer1CancelBtn" class="offer1PromoBtn hidden">Résilier mon abonnement</button>
             </div>
           </div>
         </div>
@@ -1777,4 +1778,9 @@
   TMT.renderGoalsCaptureActivities = renderGoalsCaptureActivities;
   TMT.showGoalsCapturePage = showGoalsCapturePage;
   $('offer1CheckoutOpenBtn').addEventListener('click', TMT.openOffer1CheckoutModal);
+  // Résiliation : ouvre le portail client Stripe (POST /api/offer/portal) ; visible seulement avec un abonnement (voir loadOffer1SubscribedSection).
+  $('offer1CancelBtn').addEventListener('click', function () {
+    var btn = this; btn.disabled = true;
+    api('POST', '/api/offer/portal', {}).then(function (r) { btn.disabled = false; if (r && r.url) window.location.href = r.url; }).catch(function (err) { btn.disabled = false; alert(err.message); });
+  });
 })();

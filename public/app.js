@@ -15836,6 +15836,7 @@
         box.appendChild(line);
       });
       $('offer1SubscribedEmptyHint').classList.toggle('hidden', !!(rows && rows.length));
+      $('offer1CancelBtn').classList.toggle('hidden', !(rows && rows.length));
     }).catch(function () { /* hors-ligne : la section reste telle quelle */ });
   }
 
