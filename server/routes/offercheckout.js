@@ -42,6 +42,9 @@ const OFFER1_PRICE_LABEL = '20 $/mois'; // libellé humain pour le courriel de c
 
 const router = express.Router();
 
+const DEDUPE_MS = 10000;
+const recentCheckouts = new Map(); // dedupeKey -> { at, promise } (voir POST /offer/checkout)
+
 function str(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -156,6 +159,27 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
     }
   }
 
+  // Double clic / double envoi : une même demande (même personne, même activité) reçue pendant qu'une
+  // session est en cours de création, ou dans les 10 s qui suivent un succès, reçoit la MÊME session
+  // (jamais deux Checkout Sessions pour un seul achat, jamais d'« activité déjà créée » au second clic).
+  const choice = req.body.activityChoice || {};
+  const dedupeKey = [userId, ageDeclaration, choice.activityId ? 'id:' + Number(choice.activityId) : 'new:' + str(choice.newActivityName).toLowerCase()].join('|');
+  const prior = recentCheckouts.get(dedupeKey);
+  if (prior && Date.now() - prior.at < DEDUPE_MS) {
+    const r = await prior.promise;
+    return res.status(r.status).json(r.body);
+  }
+  for (const [k, v] of recentCheckouts) if (Date.now() - v.at >= DEDUPE_MS) recentCheckouts.delete(k);
+  let settle;
+  const entry = { at: Date.now(), promise: new Promise((resolve) => { settle = resolve; }) };
+  recentCheckouts.set(dedupeKey, entry);
+  const baseJson = res.json.bind(res);
+  res.json = (body) => {
+    settle({ status: res.statusCode, body });
+    if (res.statusCode !== 201 && recentCheckouts.get(dedupeKey) === entry) recentCheckouts.delete(dedupeKey); // erreur ou attente de consentement : un nouvel essai repart de zéro
+    return baseJson(body);
+  };
+
   const resolved = resolveActivityChoice(userId, req.body.activityChoice);
   if (resolved.error) return res.status(400).json({ error: resolved.error });
   const activityId = resolved.activityId;
@@ -201,8 +225,10 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
   // ne sont que des chemins relatifs, pour éviter d'exposer un redirect
   // ouvert vers un domaine arbitraire.
   const origin = `${req.protocol}://${req.get('host')}`;
-  const successPath = str(req.body.successPath) || '/?achat=succes';
-  const cancelPath = str(req.body.cancelPath) || '/?achat=annule';
+  // Chemin local seulement ("/..." sans "//" ni "@") : sinon « origine + "@autre.site" » redirigerait hors de l'app.
+  const localPath = (v, fallback) => (/^\/(?![/\\])[^@\s]*$/.test(v) ? v : fallback);
+  const successPath = localPath(str(req.body.successPath), '/?achat=succes');
+  const cancelPath = localPath(str(req.body.cancelPath), '/?achat=annule');
 
   let session;
   try {

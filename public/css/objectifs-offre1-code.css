@@ -12,3 +12,20 @@
 .accompCodeOk { flex: 0 0 auto; border-radius: 10px; padding: 10px 16px; }
 /* « J'ai un code » : simple texte gris souligné (pas un bouton). */
 #offer1CodeLink.offer1PromoBtnGrey { background: transparent; border: 0; padding: 0 4px; border-radius: 0; box-shadow: none; color: var(--text-light); text-decoration: underline; font-weight: 400; }
+
+/* Achat Expansion (20 oct. 2026, vérif. 390 px / 360×640) : champs pleine largeur, zones tactiles >= 44 px, aucune couleur ni bouton nouveau. */
+.offer1PromoBtn { min-height: 44px; }
+#offer1CodeLink.offer1PromoBtnGrey { min-height: 44px; padding: 0 8px; }
+#offer1CheckoutModalClose, #offer1CodeClose { position: relative; }
+#offer1CheckoutModalClose::after, #offer1CodeClose::after { content: ''; position: absolute; inset: -6px; }
+#offer1CheckoutForm, #offer1CheckoutPending, #offer1GuardianFields { display: flex; flex-direction: column; gap: 10px; }
+#offer1CheckoutForm .hint, #offer1CheckoutPending .hint { margin: 0; }
+#offer1CheckoutModal select, #offer1CheckoutModal input[type=text], #offer1CheckoutModal input[type=email] { width: 100%; box-sizing: border-box; min-height: 44px; padding: 10px 12px; font-size: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+#offer1CheckoutModal .rowActions { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 0; }
+#offer1CheckoutModal .rowActions label { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+#offer1CheckoutModal .rowActions input[type=radio] { margin: 0; width: 20px; height: 20px; accent-color: var(--purple); flex: 0 0 auto; }
+#offer1CheckoutSubmitBtn, #offer1CheckoutRecheckBtn { width: 100%; min-height: 48px; font-size: 15px; font-weight: 600; }
+#offer1CheckoutModal .msg { overflow-wrap: anywhere; }
+#offer1SubscribedList { margin: 0 0 14px; gap: 4px; }
+#offer1SubscribedList:empty { display: none; }
+#offer1SubscribedList .meta { margin: 0; }
