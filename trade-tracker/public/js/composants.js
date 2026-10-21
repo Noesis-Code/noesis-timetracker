@@ -58,6 +58,7 @@
       return b;
     },
     chev: function (open) { var s = document.createElement('span'); s.className = 'cmpChev' + (open ? ' open' : ''); s.setAttribute('aria-hidden', 'true'); return s; },
+    toggleLabel: function (btn, label, open) { btn.textContent = ''; btn.classList.add('cmpToggle'); var s = document.createElement('span'); s.textContent = label; btn.appendChild(s); btn.appendChild(ui.chev(open)); },
     setChev: function (el, open) { if (el) el.classList.toggle('open', !!open); },
     confirm: confirmBox
   };

@@ -75,7 +75,7 @@
               </div>
               <textarea id="activityGoalsMainDescInput" class="hidden" rows="3" maxlength="600" autocomplete="off"></textarea>
               <div class="goalMainEstEdit hidden" id="activityGoalsMainEstEdit">
-                <button type="button" class="linkBtn goalEstUse hidden" id="activityGoalsMainEstToggle">▸ Gérer mon temps</button>
+                <button type="button" class="linkBtn goalEstUse hidden" id="activityGoalsMainEstToggle">Gérer mon temps</button>
                 <div class="goalEstBody" id="activityGoalsMainEstBody">
                 <div class="goalEstTable">
                   <div></div>
@@ -671,7 +671,7 @@
     var body = document.createElement('div');
     body.className = 'goalEstBody';
     var open = d.target == null && !w ? true : d.target != null;
-    function paintToggle() { toggle.textContent = '▸ ' + t('Gérer mon temps'); toggle.classList.toggle('hidden', open); body.classList.toggle('hidden', !open); }
+    function paintToggle() { TMT.ui.toggleLabel(toggle, t('Gérer mon temps'), false); toggle.classList.toggle('hidden', open); body.classList.toggle('hidden', !open); }
     toggle.addEventListener('click', function () { open = true; paintToggle(); });
     var table = document.createElement('div'); table.className = 'goalEstTable';
     ['', 'Moyenne', 'Cible'].forEach(function (h) { var c = document.createElement('div'); if (h) { c.className = 'goalEstHead'; c.textContent = t(h); } table.appendChild(c); });
@@ -1112,7 +1112,7 @@
         // Objectif déjà créé : tableau replié derrière « Gérer mon temps » ; sinon visible d'emblée.
         estBody.classList.toggle('hidden', hasMainNow); estToggle.classList.toggle('hidden', !hasMainNow);
       }
-      estToggle.textContent = '▸ ' + t('Gérer mon temps');
+      TMT.ui.toggleLabel(estToggle, t('Gérer mon temps'), false);
       estToggle.onclick = function () { estBody.classList.remove('hidden'); estToggle.classList.add('hidden'); };
       var autoMinutes = null;
       if (maxBtn.dataset.editFor !== curKey) {

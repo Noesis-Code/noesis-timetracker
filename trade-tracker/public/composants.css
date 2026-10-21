@@ -48,6 +48,8 @@
   color: var(--text-light); font-size: 18px; line-height: 1; transition: transform var(--transition-fast); pointer-events: none;
 }
 .cmpChev::before { content: '\203A'; }
+/* Bascule texte repliable : libellé à gauche, flèche à droite (R21) */
+.cmpToggle { display: flex; align-items: center; width: 100%; text-align: left; }
 .cmpChev.open { transform: rotate(90deg); }
 
 /* Modifier ✎ (R15/R21) : icône fournie par TMT.ui.editIcon() */

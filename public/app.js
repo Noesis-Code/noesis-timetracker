@@ -7917,7 +7917,7 @@
     });
     var toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'linkBtn';
     var body = document.createElement('div'); body.className = 'timeCapsBody hidden';
-    function paintToggle() { toggle.textContent = '▸ ' + t('Gérer mon temps'); toggle.setAttribute('aria-expanded', body.classList.contains('hidden') ? 'false' : 'true'); }
+    function paintToggle() { TMT.ui.toggleLabel(toggle, t('Gérer mon temps'), false); toggle.setAttribute('aria-expanded', body.classList.contains('hidden') ? 'false' : 'true'); }
     toggle.addEventListener('click', function () { body.classList.remove('hidden'); toggle.classList.add('hidden'); });
     paintToggle(); paint();
     body.appendChild(table); body.appendChild(use);
@@ -7930,7 +7930,7 @@
     var memEstBody = document.createElement('div'); memEstBody.className = 'goalMemberEstBody hidden';
     var memEstOpen = false;
     function paintMemEstToggle() {
-      memEstToggle.textContent = (memEstOpen ? '▾ ' : '▸ ') + t('Estimation du temps par membre');
+      TMT.ui.toggleLabel(memEstToggle, t('Estimation du temps par membre'), memEstOpen);
       memEstToggle.setAttribute('aria-expanded', memEstOpen ? 'true' : 'false');
       memEstBody.classList.toggle('hidden', !memEstOpen);
     }
@@ -10676,7 +10676,8 @@
       var r = document.createElement('div'); r.className = 'notifRow';
       var l = document.createElement('div'); l.setAttribute('role', 'button'); l.tabIndex = 0; l.className = 'notifRowLabel calExportName';
       l.style.cssText = 'flex:1;cursor:pointer';
-      l.textContent = (open ? '▾ ' : '▸ ') + a.name;
+      l.style.display = 'flex'; l.style.alignItems = 'center';
+      var ln = document.createElement('span'); ln.textContent = a.name; l.appendChild(ln); l.appendChild(TMT.ui.chev(open));
       l.addEventListener('click', function (ev) { ev.stopPropagation(); if (!a.included) return; calExportOpen[a.id] = !open; renderCalendarExportList(data); });
       var sw = document.createElement('label'); sw.className = 'toggleSwitch';
       var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = a.included; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', a.name);
@@ -10750,7 +10751,7 @@
     }
     btn.classList.toggle('hidden', !urls.length);
     if (!urls.length) { externalCalendarListOpen = false; box.classList.add('hidden'); box.innerHTML = ''; return; }
-    btn.textContent = (externalCalendarListOpen ? '▾ ' : '▸ ') + t('URL enregistrées') + ' (' + urls.length + ')';
+    TMT.ui.toggleLabel(btn, t('URL enregistrées') + ' (' + urls.length + ')', externalCalendarListOpen);
     box.classList.toggle('hidden', !externalCalendarListOpen);
     box.innerHTML = '';
     urls.forEach(function (u) {
