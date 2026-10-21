@@ -5560,6 +5560,7 @@
 
   function renderTimesheetWeek(data, idsIn) {
     var I = tsIds(idsIn);
+    var tsBlk = $(I.grid).closest('.timesheetBlock'); if (tsBlk) tsBlk.classList.remove('tsYearMode');
     $(I.grid).classList.remove('hidden');
     $(I.calendar).classList.add('hidden');
     // Marque le cadre défilant comme étant en vue "Semaine" : styles.css s'en
@@ -5651,6 +5652,7 @@
   var TS_CAL_WEEKDAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   function renderTimesheetMonth(data, idsIn) {
     var I = tsIds(idsIn);
+    var tsBlk = $(I.grid).closest('.timesheetBlock'); if (tsBlk) tsBlk.classList.remove('tsYearMode');
     $(I.calendar).classList.remove('hidden');
     $(I.grid).classList.add('hidden');
     // ⚠️ 2 septembre 2026 — la vue "Mois" avait exactement le même défaut que
@@ -5737,6 +5739,7 @@
     $(I.prevBtn).disabled = !data.hasMoreBefore;
     $(I.emptyHint).classList.toggle('hidden', data.rows.length > 0);
 
+    $(I.grid).closest('.timesheetBlock') && $(I.grid).closest('.timesheetBlock').classList.add('tsYearMode');
     var max = 0;
     data.rows.forEach(function (r) { r.months.forEach(function (s) { if (s > max) max = s; }); });
     var frozen = '<div class="tsCalCorner"></div>';
@@ -5750,8 +5753,10 @@
       r.months.forEach(function (sec, m) {
         html += '<div class="tsCalDay" title="' + escapeHtml(rowName) + ' · ' + escapeHtml(monthNameLocal(m)) + '">';
         html += '<div class="tsCalDayNum">' + (sec > 0 ? formatHM(sec) : '') + '</div>';
-        html += '<div class="tsSlot tsSlot-filled" style="height:6px;width:' + (sec > 0 && max > 0 ? Math.max(8, Math.round(sec / max * 100)) : 0)
-          + '%;background:' + r.color + '"></div></div>';
+        var dim = new Date(data.start.slice(0, 4), m + 1, 0).getDate(), used = (r.days && r.days[m]) || [];
+        html += '<div class="tsYearDots">';
+        for (var dn = 1; dn <= dim; dn++) html += '<i' + (used.indexOf(dn) !== -1 ? ' style="background:' + r.color + '"' : '') + '></i>';
+        html += '</div></div>';
       });
     });
     $(I.frozen).innerHTML = frozen;

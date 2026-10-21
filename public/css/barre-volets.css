@@ -105,3 +105,14 @@
 /* La page d'une activité s'ouvre par-dessus Réglages (même z-index 90, Réglages est plus bas dans le document). */
 #activityPage { z-index: 91; }
 #settingsActivitiesBlock { scroll-snap-align: start; }
+
+/* MAQUETTE (captures anticipées) : feuille de temps sans zones grises. Mois = 12 carrés gris de 2 h comme en semaine ; Année = un point par jour. */
+:root .tsCalDay { background: transparent; box-shadow: none; }
+:root .tsCalDaySlots { grid-auto-rows: auto; gap: 2px; }
+:root .tsCalSlot { aspect-ratio: 1; border-radius: 2px; }
+:root .tsCalSlot:not([style]) { background: var(--track-bg) !important; }
+.timesheetBlock.tsYearMode { --cal-row: 78px; }
+.tsYearDots { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; padding-right: 8px; }
+.tsYearDots i { display: block; aspect-ratio: 1; border-radius: 50%; background: var(--track-bg); }
+/* Pop-up « Confirmer l'arrêt » légèrement plus bas */
+#stopConfirmPanel { align-items: flex-start; padding-top: 40px; }

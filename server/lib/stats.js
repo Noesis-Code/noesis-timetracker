@@ -668,6 +668,13 @@ function timesheetYearForUser(userId, yearOffset, opts) {
       rowsById[a.activityId].totalSeconds += a.seconds;
     });
   }
+  // Maquette : jours avec au moins un enregistrement, par activité et par mois (un point par jour côté affichage).
+  db.prepare('SELECT DISTINCT activityId, isoDate FROM time_entries WHERE userId = ? AND isoDate >= ? AND isoDate <= ?').all(userId, `${year}-01-01`, `${year}-12-31`).forEach((r) => {
+    const row = rowsById[r.activityId];
+    if (!row) return;
+    if (!row.days) row.days = Array.from({ length: 12 }, () => []);
+    row.days[Number(r.isoDate.slice(5, 7)) - 1].push(Number(r.isoDate.slice(8, 10)));
+  });
   const rows = Object.keys(rowsById).map((k) => rowsById[k]).sort((a, b) => b.totalSeconds - a.totalSeconds);
   const start = `${year}-01-01`;
   const end = `${year}-12-31`;
