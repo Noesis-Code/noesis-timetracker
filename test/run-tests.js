@@ -48,6 +48,7 @@ const SUITE_FILES = [
   'trade-e2e-test.js',
   'idempotency-purge-test.js',
   'parseplan-test.js',
+  'planstructurerecap-test.js',
   'a11y-attributs-test.js',
   'popups-croix-test.js',
   'interactions-test.js',
@@ -414,6 +415,8 @@ async function main() {
   catch (e) { assert(false, 'purge des clés d\'idempotence (test/idempotency-purge-test.js) échoue'); }
   try { await runChild('parseplan-test.js'); assert(true, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) passe'); }
   catch (e) { assert(false, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) échoue'); }
+  try { await runChild('planstructurerecap-test.js'); assert(true, 'récap de structure des plans (test/planstructurerecap-test.js) passe'); }
+  catch (e) { assert(false, 'récap de structure des plans (test/planstructurerecap-test.js) échoue'); }
   try { await runChild('a11y-attributs-test.js'); assert(true, 'accessibilité : attributs (test/a11y-attributs-test.js) passe'); }
   catch (e) { assert(false, 'accessibilité : attributs (test/a11y-attributs-test.js) échoue'); }
   try { await runChild('popups-croix-test.js'); assert(true, 'pop-up : croix ✕ nommée (test/popups-croix-test.js) passe'); }

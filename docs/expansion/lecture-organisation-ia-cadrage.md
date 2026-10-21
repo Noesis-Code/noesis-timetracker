@@ -56,6 +56,7 @@ Décision d'Émilien : les critères d'évaluation de la structure des plans par
 **Formes ajoutées d'après Hill** : objectif chiffré et daté ; délai avant la première action ; part des tâches partagées ; concentration (part des tâches dans un seul domaine) ; délai de décision et stabilité de l'objectif ; taux de reports (procrastination).
 **Contrepartie (valeur donnée)** : trois niveaux d'orientation, jamais un prix ni une valeur déclarée : part tournée vers le client ; amélioration continue de l'offre (dont tâches issues d'écoute) ; efficacité de production (réduction de coût). Limite : on mesure l'intention visible, pas la valeur reçue ni le prix.
 **Analyse continue du marché** (ajout d'Émilien) : part des tâches de veille / étude de marché (liste fermée de marqueurs) et sa régularité (semaines avec au moins une telle tâche).
+**Décision du 21 oct. 2026 (Émilien), VALIDÉE** : l'analyse continue du marché = 2 mesures sans mots : (1) part des tâches de veille ; (2) régularité = part des semaines avec au moins une tâche de veille. Voir `docs/expansion/recap-structure-plans.md`.
 **Non mesurables, consignés tels quels** : subconscient, cerveau, sixième sens, transmutation, foi (approchée seulement par le délai avant la première action).
 
 ### Points de confidentialité : VALIDÉS par Émilien (21 oct. 2026)
