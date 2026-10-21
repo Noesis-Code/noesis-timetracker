@@ -26,7 +26,10 @@ router.post('/activities/:id/change-proposals/generate', ...mw, async (req, res)
   try {
     // Étape 1 Expansion : s'il reste des périodes vides sous un objectif annuel, la demande sert à les proposer (UN seul appel IA par demande) ; sinon, recherche habituelle.
     const yp = await require('../lib/yearplanproposals').generate(req.userId, Number(req.params.id));
-    const r = yp.nothing || yp.configured === false || yp.notEssor ? await changeproposals.generate(req.userId, Number(req.params.id), {}) : yp;
+    // Étape 4 : sinon, tâches proposées pour les objectifs de la semaine encore sans tâche (UN appel IA, jamais deux dans la même demande).
+    const skip = (x) => x.nothing || x.configured === false || x.notEssor;
+    const wt = skip(yp) ? await require('../lib/weeklytaskproposals').generate(req.userId, Number(req.params.id)) : yp;
+    const r = skip(yp) && skip(wt) ? await changeproposals.generate(req.userId, Number(req.params.id), {}) : (skip(yp) ? wt : yp);
     res.json({ ...r, proposals: changeproposals.list(Number(req.params.id), req.userId) });
   } catch (e) { fail(res, e); }
 });

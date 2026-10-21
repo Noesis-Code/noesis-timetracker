@@ -57,7 +57,7 @@ const FIELDS = {
   task: { date: 'date', text: 'text', retirer: 'retirer' },
   weekly: { time: 'time', instruction: 'instruction' },
 };
-const FIELD_LABEL = { date: 'Date', text: 'Texte', time: 'Temps estimé', instruction: 'Consigne', retirer: 'Retirer (hors stratégie)', category: 'Secteur', goal: 'Objectif de période' };
+const FIELD_LABEL = { date: 'Date', text: 'Texte', time: 'Temps estimé', instruction: 'Consigne', retirer: 'Retirer (hors stratégie)', category: 'Secteur', goal: 'Objectif de période', newtask: 'Nouvelle tâche' };
 
 // ---------- Contexte ----------
 function buildContext(userId, activityId) {
@@ -498,6 +498,12 @@ function applyOne(userId, activityId, r) {
   const w = db.prepare(`SELECT w.*, p.category AS cat, p.periodNumber FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId
     WHERE w.id = ? AND p.activityId = ? AND w.carriedOverFromId IS NULL`).get(r.targetId, activityId);
   if (!w) return 'objectif introuvable';
+  if (r.field === 'newtask') { // tâche proposée à partir de l'objectif de la semaine (weeklytaskproposals.js) : créée seulement après validation
+    const dup = db.prepare(`SELECT 1 FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId WHERE sp.activityId = ? AND sp.goalCategory = ? AND i.done = 0 AND LOWER(i.label) = ? LIMIT 1`).get(activityId, w.cat, String(r.afterValue).toLowerCase());
+    if (dup) return 'tâche déjà présente';
+    require('./goalstasks').addCategoryTask(activityId, userId, w.cat, r.afterValue, { origin: 'ai' });
+    return null;
+  }
   const now = r.field === 'time' ? (w.estimateMinutes == null ? '' : String(w.estimateMinutes)) : (w.description || '');
   if (now !== (r.beforeValue || '')) return 'déjà modifié depuis la proposition';
   if (r.field === 'time') goals.setWeekly(activityId, w.cat, w.periodNumber, w.weekIndex, w.text, undefined, Number(r.afterValue));

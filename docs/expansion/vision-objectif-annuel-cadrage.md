@@ -52,3 +52,6 @@ L'organisation faite par l'IA de l'utilisateur via le connecteur est gratuite po
 
 ## E3 livrée (21 oct. 2026)
 Le remplissage hebdomadaire existant (`goalsweeklyauto.js`, déclenché à la saisie d'un objectif de période, gratuit) reçoit maintenant la stratégie de l'activité (bloc `strategie`, omis si vide : requête et mémo inchangés) et la consigne de la respecter. Aucun écran, aucun appel de plus. Reste : E4 (tâches par secteur à la demande), E5 (`planWeeks`).
+
+## E4 livrée (21 oct. 2026)
+`server/lib/weeklytaskproposals.js` : sur le même geste « chercher des modifications » (après l'étape 1, avant la recherche habituelle), si un objectif de la semaine en cours ou suivante est dans un secteur sans tâche ouverte, UN appel IA (stratégie + objectifs) propose 1 à 4 tâches par objectif dans « Modifications proposées » (ligne « Nouvelle tâche », avant vide, refus mémorisé). `apply` crée la tâche via `addCategoryTask` (origine IA). Expansion seulement, budget IA existant, aucun écran ni bouton. Test : `test/weeklytaskproposals-test.js`. Reste : E5 (`planWeeks`).
