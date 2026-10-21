@@ -7,7 +7,8 @@
   var head = document.getElementById('aiConnectHeader');
   if (!box || !head) return;
   var tr = function (s) { return typeof window.t === 'function' ? window.t(s) : s; };
-  var loaded = false, shown = null, detailsOpen = false, canWrite = false;
+  var loaded = false, shown = null, detailsOpen = false, canWrite = false, writeInit = false;
+  var WKEY = 'tmt_ai_can_write';
   // Un clic dans la section ne doit jamais atteindre le gestionnaire global « clic hors du panneau » (le bouton cliqué peut être retiré du DOM au repaint).
   box.addEventListener('click', function (e) { e.stopPropagation(); });
 
@@ -52,12 +53,17 @@
 
   function paint(data, msgText) {
     box.innerHTML = '';
+    if (!writeInit) {
+      writeInit = true;
+      if (data.tokens.length) canWrite = !!data.tokens[0].canWrite;
+      else { try { canWrite = localStorage.getItem(WKEY) === '1'; } catch (e) {} }
+    }
     var connected = data.tokens.length > 0;
     var top = el('div', 'notifRow');
     top.appendChild(el('span', 'notifRowLabel', tr('Connecter mon IA')));
     top.appendChild(el('span', 'hint', connected ? tr('Connectée') : tr('Non connectée')));
     box.appendChild(top);
-    box.appendChild(el('p', 'hint', tr("Branche TimeTracker à ton IA (Claude, ChatGPT…) : elle lit tes tâches et tes objectifs, sans rien modifier.")));
+    box.appendChild(el('p', 'hint', tr("Branche TimeTracker à ton IA (Claude, ChatGPT…) : elle lit tes tâches et tes objectifs ; en écriture (case ci-dessous), elle peut aussi les organiser.")));
 
     if (shown) {
       var full = (data.origin || location.origin) + '/mcp/t/' + shown.token;
@@ -73,6 +79,12 @@
         main.disabled = true;
         create(data).catch(function (e) { paint(data, e.message); });
       });
+      var wl = el('label', 'aiConnectWrite');
+      var wc = el('input'); wc.type = 'checkbox'; wc.checked = canWrite;
+      wc.addEventListener('change', function () { canWrite = wc.checked; try { localStorage.setItem(WKEY, canWrite ? '1' : '0'); } catch (e) {} });
+      wl.appendChild(wc);
+      wl.appendChild(el('span', null, ' ' + tr("Autoriser l'IA à écrire (créer, modifier, ordonner, planifier, objectifs)")));
+      box.appendChild(wl);
       box.appendChild(main);
       if (connected) {
         var rev = el('button', 'iconBtn btnBrique', tr("Révoquer l'accès")); rev.type = 'button';
@@ -95,13 +107,7 @@
       data.tokens.forEach(function (tk) {
         d.appendChild(el('p', 'hint', fmt(tk.lastUsedAt) + (tk.canWrite ? ' · ' + tr('écriture autorisée') : ' · ' + tr('lecture seule'))));
       });
-      var wl = el('label', 'aiConnectWrite');
-      var wc = el('input'); wc.type = 'checkbox'; wc.checked = canWrite;
-      wc.addEventListener('change', function () { canWrite = wc.checked; });
-      wl.appendChild(wc);
-      wl.appendChild(el('span', null, ' ' + tr("Autoriser l'IA à cocher mes tâches et m'écrire (pour la prochaine adresse)")));
-      d.appendChild(wl);
-      d.appendChild(el('p', 'hint', tr("Avec cette option, l'IA peut cocher tes tâches comme faites, ajouter des notes « 🤖 » et t'envoyer des notifications (10 par jour). Elle ne peut jamais supprimer ni modifier tes tâches.")));
+      d.appendChild(el('p', 'hint', tr("Avec l'écriture, l'IA peut créer, modifier, ordonner et planifier tes tâches, définir tes objectifs et en retirer (de façon réversible). Chaque écriture est au journal et s'annule pendant 30 jours. Une nouvelle adresse applique ton choix.")));
       if (data.url) { d.appendChild(el('p', 'hint', tr('Adresse du serveur'))); d.appendChild(copyLine(data.url)); }
       box.appendChild(d);
     }
