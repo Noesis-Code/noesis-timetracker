@@ -46,6 +46,7 @@
     var list = load();
     list.forEach(function (tab) { var b = btnOf(tab); if (b) pill.appendChild(b); });
     var avail = addable();
+    var who = document.getElementById('whoami'); if (who) who.style.display = visibleOrder().indexOf('community') !== -1 ? '' : 'none'; // pastille « E » : seulement si Communauté est dans la barre
     addBtn.classList.toggle('barNoAdd', !avail.length); // plus rien à ajouter : le « + » disparaît, la barre s'allonge
     addBtn.classList.toggle('barPaid', avail.some(isPaid)); // variante verre fort : extension payée à ajouter (jamais les deux à la fois)
     var solo = visibleOrder().length <= 1 && avail.length > 0; // un seul volet : la barre ne montre que le « + » perceptible
