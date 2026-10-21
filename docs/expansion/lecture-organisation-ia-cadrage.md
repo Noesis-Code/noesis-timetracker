@@ -41,6 +41,9 @@ Mots d'Émilien : un plan marche selon le résultat, mais le résultat doit êtr
 3. **Hauteur d'un objectif**, par ordre d'importance : structure de mots (ex. « succursale ») > niveau dans le plan (annuel, mensuel, hebdomadaire) > temps total prévu.
 4. **Peu de données** : (a) on classe tout de suite avec la mention « peu fiable » (pas de seuil) ET (b) on compare toujours aussi l'utilisateur à lui-même (sa vitesse actuelle contre sa vitesse passée).
 
+### Liste fermée des domaines : VALIDÉE par Émilien (21 oct. 2026)
+15 domaines : commerce / vente ; services professionnels ; création / contenu ; enseignement / formation ; santé / bien-être ; technologie / produit ; finance / gestion ; restauration / hôtellerie ; construction / métiers ; droit / administration ; recherche / études ; personnel / autres ; arts et spectacle ; transport / logistique ; agriculture / environnement. Tout plan non reconnu va dans « personnel / autres ». Liste modifiable en un seul endroit.
+
 ### Tableau des formes : verdicts d'Émilien (21 oct. 2026)
 Principe : être très flexible, pour pouvoir analyser n'importe quel type de structure d'algorithme.
 - **Gardées** : nombre d'étapes d'un plan ; précision de l'estimation ; présence d'une note ou d'une échéance ; constance dans la durée ; ORDRE des tâches (gardé à sa demande, malgré le risque moyen : un ordre rare peut se reconnaître ; il n'est jamais montré, seulement mesuré).
