@@ -110,7 +110,7 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 2. Cas en anglais : étendre le jeu et mesurer. FAIT (45 cas fr/en).
 3. Seuils de confiance : revérifier avec `scripts/eval-task-precision.js`. FAIT (seuil 80).
 4. Cas limites : titres très courts (1-2 mots) dans le jeu d'évaluation. *(fait 19 oct. : s01-s06 ; seuil 80 confirmé, plateau 50-80 à 98,1 %, 85+ régresse)*
-5. Cas limites : formulations avec nom propre seul (« Appeler Marc ») ou verbe sans objet (« Faire le suivi ») : mesurer que le résultat est « incertain » plutôt qu'un secteur choisi au hasard.
+5. Cas limites : formulations avec nom propre seul (« Appeler Marc ») ou verbe sans objet (« Faire le suivi ») : mesurer que le résultat est « incertain » plutôt qu'un secteur choisi au hasard. *(fait 21 oct. : déjà couvert par c09, d01, m11, h29 — tous « incertain » ; jeu 325 cas à 98,8 %, aucune règle changée)*
 6. Seuil de confiance par fournisseur : comparer `--min-confidence` en simulé après chaque nouvelle série de cas, et noter le plateau dans cette liste.
 7. Cas limites : titres mixtes fr/en avec dates (« Send invoice avant vendredi ») ; ajouter et mesurer. *(déjà couvert : m01-m15, d01-d09)*
 8. Verbes d'action ambigus (« Passer », « Régler », « Gérer », « Traiter ») : mesurer incertain vs secteur. *(fait 20 oct. : a01-a10 ; règle « Régler » = paiement ; restent a05 ex æquo Clients/Prospection et a07 « pharmacie » hors vocabulaire du simulé)*
