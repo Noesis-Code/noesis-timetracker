@@ -24,7 +24,9 @@ router.get('/activities/:id/change-proposals', ...mw, (req, res) => {
 // Demande à l'IA de chercher de nouvelles modifications (propositions seulement ; plafond IA quotidien partagé).
 router.post('/activities/:id/change-proposals/generate', ...mw, async (req, res) => {
   try {
-    const r = await changeproposals.generate(req.userId, Number(req.params.id), {});
+    // Étape 1 Expansion : s'il reste des périodes vides sous un objectif annuel, la demande sert à les proposer (UN seul appel IA par demande) ; sinon, recherche habituelle.
+    const yp = await require('../lib/yearplanproposals').generate(req.userId, Number(req.params.id));
+    const r = yp.nothing || yp.configured === false || yp.notEssor ? await changeproposals.generate(req.userId, Number(req.params.id), {}) : yp;
     res.json({ ...r, proposals: changeproposals.list(Number(req.params.id), req.userId) });
   } catch (e) { fail(res, e); }
 });

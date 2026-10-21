@@ -69,7 +69,7 @@ function maxTokensFor(want) { return (want.t ? MAX_TOKENS_TASKS : 0) + (want.c ?
 // Corps d'une requête /v1/messages (aussi utilisé tel quel comme params d'une requête de lot).
 // model : modèle moins cher réservé à l'extraction de tâches seules (jamais quand les modifications proposées "c" sont demandées).
 function requestParams({ parts, want, model, tier }) {
-  return aicache.messageParams({ model: (model && (!want.c || tier)) ? model : classify.modelName(), maxTokens: maxTokensFor(want), system: SYSTEM, stable: parts.stable, variable: parts.variable, images: parts.images });
+  return aicache.messageParams({ model: (model && (!want.c || tier)) ? model : classify.modelName(), maxTokens: maxTokensFor(want), system: parts.system || SYSTEM, stable: parts.stable, variable: parts.variable, images: parts.images });
 }
 
 // Appel direct immédiat. Renvoie { text, stopReason }.
@@ -103,7 +103,7 @@ async function callTiered(args) {
 
 async function callRaw({ parts, want, feature, model, tier }) {
   if (caller) {
-    const out = await caller({ model, system: SYSTEM, user: parts.stable + '\n\n' + parts.variable, stable: parts.stable, variable: parts.variable, want });
+    const out = await caller({ model, system: parts.system || SYSTEM, user: parts.stable + '\n\n' + parts.variable, stable: parts.stable, variable: parts.variable, want });
     return out && typeof out === 'object' ? { text: out.text, stopReason: out.stopReason || null } : { text: out, stopReason: null };
   }
   const controller = new AbortController();

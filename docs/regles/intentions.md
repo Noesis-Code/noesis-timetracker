@@ -32,5 +32,11 @@ Règle d'écriture : le coordinateur ajoute l'entrée à la réception de la dem
 - **20 oct.** Demande de la boucle de veille, mots exacts :
   > « garder la partie sur la comparaison avec les apps concurrentes afin de garder un modèle qui passe de 0 à 1. Aussi, je souhaite que tu lises automatiquement les tâches de mon thread tracker. Donc, il faut trouver un moyen pour générer les tâches quasiment en continu en fonction de tes résultats et que les tâches soient suffisamment spécifiques pour que tu les comprennes et que ce soit bien cerné sur ma demande. Ainsi, ça se auto-générera en permanence. Par exemple, pour l'application actuelle, tu aurais compris par toi-même que dans Chrono, il ne devait pas y avoir une case en dessous pour une amélioration à suggérer. »
 
+## 18 oct. 2026
+
+### Chantier 3 — TT Expansion : de l'objectif annuel aux tâches
+- **18 oct.** Vision d'Émilien. Mots exacts : **NON RETROUVÉS** (le texte d'origine n'est ni dans le dépôt, ni dans l'historique git, ni accessible depuis cette session ; seule sa reformulation figure dans `BACKLOG.md` section 5). À coller ici par Émilien ou le coordinateur, sans reformulation. Résumé de la reformulation, NON citation : l'utilisateur d'Expansion saisit son objectif annuel et sa stratégie ; l'IA propose objectifs périodiques, hebdomadaires puis tâches, par pôle/secteur, en proposition validée avant/après.
+- **21 oct.** Réponses d'Émilien : E1 à E4 OUI (feuille de route : `docs/expansion/vision-objectif-annuel-cadrage.md`). Étape 1 livrée : objectif annuel + stratégie vers objectifs de période (`server/lib/yearplanproposals.js`).
+
 ## Note d'amorçage
 Les citations du 19-20 oct. ont été complétées mot pour mot par le coordinateur (20 oct.). Seule l'entrée « Simplification » reste un renvoi à `SIMPLIFICATION.md`.

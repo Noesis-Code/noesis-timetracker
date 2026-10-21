@@ -43,3 +43,6 @@ Par activité et par an : 1 (annuel->périodiques) + 4 (périodiques->hebdo) + ~
 5. Ce que tu vois : pas de nouvel écran, un seul geste pour demander les propositions, et la partie « de l'objectif annuel jusqu'aux tâches » est réservée à Expansion.
 
 Question restante : OK pour cette feuille de route (étapes E2 à E5) ? Et ta demande d'origine, citée mot pour mot, est à ajouter à `intentions.md` avant tout code.
+
+## E1 : OUI (21 oct. 2026)
+Étape 1 livrée (branche `claude/expansion-e1`) : sur le geste existant « chercher des modifications », si des périodes de l'année sont vides sous un objectif annuel, UN appel IA (annuel + stratégie) propose les objectifs de période dans « Modifications proposées » (avant/après, refus mémorisé, périodes déjà saisies jamais touchées, Expansion seulement). Aucun écran ni bouton nouveau. E3-E5 restent à faire.

@@ -57,7 +57,7 @@ const FIELDS = {
   task: { date: 'date', text: 'text', retirer: 'retirer' },
   weekly: { time: 'time', instruction: 'instruction' },
 };
-const FIELD_LABEL = { date: 'Date', text: 'Texte', time: 'Temps estimé', instruction: 'Consigne', retirer: 'Retirer (hors stratégie)', category: 'Secteur' };
+const FIELD_LABEL = { date: 'Date', text: 'Texte', time: 'Temps estimé', instruction: 'Consigne', retirer: 'Retirer (hors stratégie)', category: 'Secteur', goal: 'Objectif de période' };
 
 // ---------- Contexte ----------
 function buildContext(userId, activityId) {
@@ -210,8 +210,13 @@ function withLabels(rows, viewerId) {
   // categoryKey : pôle ou secteur de la cible (sub_projects.goalCategory / goal_periods.category), pour le parcours Pôle › Secteur.
   const task = db.prepare('SELECT i.label AS label, i.plannedUserId AS uid, sp.goalCategory AS cat FROM sub_project_items i LEFT JOIN sub_projects sp ON sp.id = i.subProjectId WHERE i.id = ?');
   const weekly = db.prepare('SELECT w.text AS text, w.assignedUserId AS uid, p.category AS cat FROM goal_weekly w LEFT JOIN goal_periods p ON p.id = w.periodId WHERE w.id = ?');
+  const period = db.prepare('SELECT p.startDate AS startDate, p.endDate AS endDate, p.category AS cat FROM goal_periods p WHERE p.id = ?');
   const user = db.prepare('SELECT name FROM users WHERE id = ?');
   return rows.map((r) => {
+    if (r.target === 'period') { // objectif de période proposé à partir de l'objectif annuel (yearplanproposals.js)
+      const p = period.get(r.targetId), u = r.userId ? user.get(r.userId) : null;
+      return rowOut({ ...r, label: p ? 'Période du ' + p.startDate + ' au ' + p.endDate : '', forUserId: r.userId || null, forName: u ? u.name : '', mine: !!viewerId && r.userId === viewerId, categoryKey: (p && p.cat) || null });
+    }
     const t = r.target === 'task' ? task.get(r.targetId) : weekly.get(r.targetId);
     const forUserId = (t && t.uid) || r.userId || null;
     const u = forUserId ? user.get(forUserId) : null;
@@ -466,6 +471,13 @@ function mark(id, status) {
 }
 
 function applyOne(userId, activityId, r) {
+  if (r.target === 'period') { // objectif de période : seulement si la période est restée vide (une saisie de l'utilisateur n'est jamais écrasée)
+    const p = db.prepare('SELECT category, periodNumber, mainGoalText FROM goal_periods WHERE id = ? AND activityId = ?').get(r.targetId, activityId);
+    if (!p) return 'période introuvable';
+    if (String(p.mainGoalText || '').trim() !== (r.beforeValue || '')) return 'déjà modifiée depuis la proposition';
+    goals.setMainGoal(activityId, p.category, p.periodNumber, r.afterValue);
+    return null;
+  }
   if (r.target === 'task') {
     const cur = db.prepare(`SELECT i.id, i.label, i.dueDate, i.done FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
       WHERE i.id = ? AND sp.activityId = ?`).get(r.targetId, activityId);

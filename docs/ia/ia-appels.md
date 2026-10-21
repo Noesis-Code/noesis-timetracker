@@ -32,6 +32,8 @@ Tarifs (`PRICES`, $ / million de jetons) : Haiku 1 / 5 ; Sonnet 3 / 15 ; Opus 15
 
 Point d'appel unique : tout `/v1/messages` passe par `aibudget.fetchAnthropic` (budget, relances 429/529, masquage Loi 25, alerte clé 401/403, journal). Exception : `aibatch.js` (API Batch Drive : budget `submit`, délai 60 s, masquage, alerte 401/403 ; coût à la relève, facteur 0,5). `test/ia-point-unique-test.js` échoue sinon.
 
+- `yearplanproposals.js` (`modifications-proposees`, Expansion seulement) : objectif annuel + stratégie -> objectifs de période proposés, UN appel par demande, 2-3 k entrée, <= 2 k sortie, passe par `docanalysis.js` (mêmes plafonds/budget).
+
 ## 3. Budget par compte (seuls plafonds, décision du 21 oct. 2026)
 
 `aibudget.js` : **3,5 CAD par semaine civile (lundi-dimanche, Montréal)** et **15 CAD par mois civil**, par compte (tous les comptes, y compris les appels sans utilisateur « system »). Plus de plafond journalier ni de plafond par fonction (anciens `*_MAX_PER_DAY`, `aifeaturecaps` réduit à `dayKey`). Réglages : `AI_BUDGET_WEEK_CAD`, `AI_BUDGET_MONTH_CAD` (anciennes `_USD` acceptées, en USD, prioritaires). Coût compté = réel + appels en vol + lots soumis. Messages : « ... pour cette semaine. Elle reprend le <date>. » / « ... pour ce mois. ... » (traduits dans `public/i18n.js`). Les montants sont en CAD, les coûts du journal (`ai_usage_log.costUsd`) en USD ; conversion `server/lib/fx.js` (`USD_PER_CAD` 0,72, estimation non vérifiée ; surcharge `AI_USD_PER_CAD`, avertissement au-delà de 90 jours). 15 CAD = 10,80 USD de coût réel.
