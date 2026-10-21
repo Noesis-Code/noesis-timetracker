@@ -25,14 +25,27 @@ L'algorithme intégré à l'app (« Timetracker-bespoke »), pour ceux qui ne ve
 Propositions larges, liste non tranchée : 1. commerce / vente ; 2. services professionnels ; 3. création / contenu ; 4. enseignement / formation ; 5. santé / bien-être ; 6. technologie / produit ; 7. finance / gestion ; 8. restauration / hôtellerie ; 9. construction / métiers ; 10. droit / administration ; 11. recherche / études ; 12. personnel / autres. Candidats à discuter : arts et spectacle, transport / logistique, agriculture / environnement.
 
 ## À trancher
-- **Ce qui « marche »** : à définir avec Émilien lors d'une discussion (21 oct. : « demain »). Pistes, non tranchées : tâches cochées à temps, objectifs atteints, précision de l'estimation, constance dans la durée.
+- **Ce qui « marche »** : DÉFINI avec Émilien le 21 oct. 2026 (voir « Ce qui marche : décisions du 21 oct. »). Reste à trancher : le poids exact des 4 mesures et les seuils.
 - **Texte légal et conditions** : réservé à Émilien. Rien n'est rédigé comme définitif.
 - ~~Seuil minimal d'utilisateurs~~ : abandonné à la demande d'Émilien (voir « Garde-fous », point 2).
 - **Durée de conservation**.
 - **Écran de retrait** : sans nouveau bouton si possible (`SIMPLIFICATION.md`).
 - **Point sensible** : la lecture ne concerne que l'organisation écrite via le connecteur de l'utilisateur. Rien n'est lu des comptes qui n'ont pas accepté.
 
-## Ordre du jour de la discussion de demain (22 oct.)
+## Ce qui marche : décisions du 21 oct. 2026
+
+Mots d'Émilien : un plan marche selon le résultat, mais le résultat doit être assez haut ; ce qui compte surtout, c'est la RAPIDITÉ à laquelle les objectifs sont atteints, comparée à la moyenne des objectifs similaires du même domaine (exemple : une boulangerie ouverte en 2 mois bat 50 ans pour ouvrir des succursales). On cherche celui qui avance anormalement vite par rapport à des objectifs comparables.
+
+1. **Mesure centrale** : vitesse de réalisation d'un objectif, rapportée à la moyenne d'objectifs comparables. On juge d'abord la HAUTEUR de l'objectif, puis la vitesse.
+2. **Comparer deux objectifs « similaires »** : domaine (liste fermée) > taille > localisation (ville ou campagne ; même ville ou ville différente).
+3. **Hauteur d'un objectif**, par ordre d'importance : structure de mots (ex. « succursale ») > niveau dans le plan (annuel, mensuel, hebdomadaire) > temps total prévu.
+4. **Peu de données** : (a) on classe tout de suite avec la mention « peu fiable » (pas de seuil) ET (b) on compare toujours aussi l'utilisateur à lui-même (sa vitesse actuelle contre sa vitesse passée).
+
+### Points de confidentialité à valider par Émilien
+- **Localisation** : plus identifiante que le domaine. Proposition : seulement un niveau très large (ville / campagne / autre), jamais le nom d'un lieu, et jamais lue dans les mots de l'utilisateur sans règle fermée.
+- **« Structure de mots »** : lue une fois, puis jetée, comme pour le domaine. Proposition : liste FERMÉE de marqueurs de hauteur (multiplication, expansion, premier lancement...) ; on ne conserve qu'un niveau (étiquette), jamais le mot.
+
+## Ordre du jour de la discussion (21 oct. : point 1 fait)
 1. Définir ce qui « marche » (voir « À trancher »).
 2. Remplir le tableau des formes observées (voir « Garde-fous », point 1) : Émilien juge chaque forme.
 3. Définir la liste fermée des domaines (voir « Domaines candidats », décision 5).
