@@ -116,3 +116,4 @@
 .tsYearDots i { display: block; aspect-ratio: 1; border-radius: 50%; background: var(--track-bg); }
 /* Pop-up « Confirmer l'arrêt » légèrement plus bas */
 #stopConfirmPanel { align-items: flex-start; padding-top: 40px; }
+#stopBtn.hidden { display: block !important; visibility: hidden; } /* le bloc garde sa hauteur : « Historique » ne bouge pas quand le pop-up s'ouvre */
