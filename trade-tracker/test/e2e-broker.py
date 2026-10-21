@@ -73,12 +73,12 @@ with sync_playwright() as p:
     d.execute("INSERT INTO sync_log (userId, kind, status, message) VALUES (?, 'sync', 'ECHEC', 'Échec de synchro : jeton expiré')", (uid,)); d.commit()
     pg.reload(); pg.wait_for_selector('#brokerSyncInfo [role=alert]:has-text("jeton expiré")'); shot(pg, '5-synchro-echec')
     # déconnexion : annuler, puis confirmer
-    pg.click('#brokerDisc'); pg.wait_for_selector('.modalCard'); ok(pg.is_visible('.modalClose'), 'croix ✕ de la pop-up'); shot(pg, '6-confirmation')
-    pg.click('#discNo'); ok(pg.locator('.modalCard').count() == 0, 'annulation ferme'); ok(pg.inner_text('.syncBannerVal') == 'Connecté', 'toujours connecté')
+    pg.click('#brokerDisc'); pg.wait_for_selector('.cmpConfirmCard'); ok(pg.is_visible('.cmpConfirmCard .cmpClose'), 'croix ✕ de la pop-up'); shot(pg, '6-confirmation')
+    pg.click('.cmpConfirmCard .cmpClose'); ok(pg.locator('.cmpConfirmCard').count() == 0, 'annulation ferme'); ok(pg.inner_text('.syncBannerVal') == 'Connecté', 'toujours connecté')
     n = d.execute('SELECT COUNT(*) FROM broker_tokens').fetchone()[0]; ok(n == 1, 'jeton conservé après annulation')
     # ré-authentification expirée : la suppression redemande un code (pop-up centrée avec ✕), puis aboutit
     d.execute("UPDATE sessions SET stepUpAt = strftime('%Y-%m-%dT%H:%M:%fZ','now','-10 minutes')"); d.commit()
-    pg.click('#brokerDisc'); pg.click('#discYes'); pg.wait_for_selector('#stepCode'); ok(pg.is_visible('.modalClose'), 'croix ✕ de la ré-authentification'); sshot(pg, '7-reauthentification')
+    pg.click('#brokerDisc'); pg.click('.cmpConfirmCard .cmpBtn'); pg.wait_for_selector('#stepCode'); ok(pg.is_visible('.modalClose'), 'croix ✕ de la ré-authentification'); sshot(pg, '7-reauthentification')
     pg.fill('#stepCode', totp(key, 1)); pg.click('#stepCodeSend'); pg.wait_for_selector('.syncBannerVal:has-text("Non connecté")')
     pg.wait_for_selector('#brokerMsg.ok:has-text("déconnecté")'); shot(pg, '7-deconnecte')
     d.close(); d = sqlite3.connect(dbf)
