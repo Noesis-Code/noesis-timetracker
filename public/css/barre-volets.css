@@ -48,7 +48,7 @@
 }
 /* Un seul volet restant (règle Q1) : la barre ne montre que le « + », plus perceptible (bord violet plein, plus épais). */
 .tabbar.barSolo .tabbarPill { display: none; }
-.tabbar.barSolo .tabBtnAdd { margin-left: auto; border: 2px solid var(--purple, #9C8CC8); }
+.tabbar.barSolo .tabBtnAdd { margin-left: auto; }
 /* Variante « extension payée » : même composant, verre fort de l'icône sélectionnée (exception assumée à R17, voir docs/regles/regles-rangement.md). */
 .tabbar .tabBtnAdd.barPaid {
   border: 1px solid rgba(243, 238, 232, .2); color: var(--text, #F3EEE8);

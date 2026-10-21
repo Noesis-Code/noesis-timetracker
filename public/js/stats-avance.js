@@ -953,11 +953,11 @@
   };
 
   // ---------- Points de pagination (un seul jeu, #statsPageDots, posé hors des onglets) ----------
-  var DOT_LABELS = { chrono: ['Statistiques', 'Chrono'], goals: ['Tâches', 'Objectifs', 'Feuille de route'] };
+  var DOT_LABELS = { chrono: ['Chrono', 'Statistiques'], goals: ['Tâches', 'Objectifs', 'Feuille de route'] };
   var dotsKey = '', dotsTimer = 0;
   function place() {
-    if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (inst.getTab() === 'o' ? 1 : 0) : 0 };
-    if (showing('tab-chrono')) return { ctx: 'chrono', idx: 1 };
+    if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (inst.getTab() === 'o' ? 1 : 0) : 1 };
+    if (showing('tab-chrono')) return { ctx: 'chrono', idx: 0 };
     if (showing('tab-goals') && showing('goalsCapturePage')) return { ctx: 'goals', idx: 2 };
     return null;
   }
@@ -981,7 +981,7 @@
     var b = e.target.closest && e.target.closest('.goalsDotBtn'); if (!b) return;
     var i = Array.prototype.indexOf.call(dots.children, b), pl = place();
     if (!pl || i === pl.idx) return;
-    if (pl.ctx === 'chrono') { if (i === 0) TMT.openStats('chrono'); else TMT.switchTab('chrono'); return; }
+    if (pl.ctx === 'chrono') { if (i === 1) TMT.openStats('chrono'); else TMT.switchTab('chrono'); return; }
     if (i === 2) { TMT.switchTab('goals'); return; }
     if (showing('tab-stats')) setStatsPage(i + 2); else TMT.openStats('goals', i + 2);
   });
@@ -1038,10 +1038,10 @@
   function curIdx() { return ctx === 'goals' ? (inst.getTab() === 'o' ? 1 : 0) : 0; }
   slidePager({
     zone: zone,
-    swallow: function (dir) { return dir < 0 && curIdx() === 0; },
+    swallow: function (dir) { return ctx === 'chrono' ? dir > 0 : (dir < 0 && curIdx() === 0); },
     neighbor: function (dir) {
       var i = curIdx(), t = i + dir;
-      if (ctx === 'chrono') return dir > 0 ? external(zone, document.getElementById('tab-chrono'), null, 'chrono') : null;
+      if (ctx === 'chrono') return dir < 0 ? external(zone, document.getElementById('tab-chrono'), null, 'chrono') : null;
       if (t < 0) return null;
       if (t > 1) return external(zone, document.getElementById('tab-goals'), function () { if (TMT.showGoalsCapturePage) TMT.showGoalsCapturePage(); }, 'goals');
       if (!inst.otherReady()) return null;
@@ -1054,7 +1054,7 @@
   if (chronoZone) slidePager({
     zone: chronoZone,
     neighbor: function (dir) {
-      if (dir > 0 || !modOnId('stats')) return null;
+      if (dir < 0 || !modOnId('stats')) return null;
       return external(chronoZone, zone, function () { TMT.enterStats('chrono'); }, 'stats');
     }
   });
