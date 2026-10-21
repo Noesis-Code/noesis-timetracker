@@ -551,7 +551,7 @@ function createItem(section, label, extra) {
 // remis à NULL au décochage : sur une activité partagée, savoir QUI a coché
 // évite le « c'est moi qui l'ai fait » — et un item décoché ne doit pas garder
 // le nom de la dernière personne qui l'avait coché.
-function updateItem(itemId, fields, userId) {
+function updateItem(itemId, fields, userId, opts) {
   const current = getItemRaw(itemId);
   if (!current) return null;
   assertItemEditable(current);
@@ -615,7 +615,7 @@ function updateItem(itemId, fields, userId) {
     .run(label, done, doneBy, doneAt, plannedUserId, goalWeeklyId, dueDate, dueDate, itemId);
   // Statut automatique des objectifs (9 oct. 2026) : coche/décoche, libellé ou rattachement modifié.
   goals.recomputeForWeeklies([current.goalWeeklyId, goalWeeklyId]);
-  if (label !== current.label) require('./silentspellfix').schedule(itemId); // correction silencieuse (16 oct. 2026)
+  if (label !== current.label && !(opts && opts.noSpellfix)) require('./silentspellfix').schedule(itemId); // correction silencieuse (16 oct. 2026)
 
   // Récurrence (9 oct. 2026) : `recurrence` absent => inchangée ; null => on l'arrête ; { every, unit } => on la pose.
   if ('recurrence' in fields) {
