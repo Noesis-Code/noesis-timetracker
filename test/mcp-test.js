@@ -72,7 +72,7 @@ setTimeout(async () => {
       assert((await call(tA.token, rpc('tools/call', { name: n, arguments: { taskId: task.id, activityId: Number(actA), type: 'recap', texte: 'x', message: 'x' } }))).status === 403, 'sans portée : ' + n + ' = 403');
     }
     const namesW = (await call(tW.token, rpc('tools/list'))).body.result.tools.map((t) => t.name);
-    assert(namesW.includes('notifier') && namesW.length === 7, 'avec portée : 7 outils');
+    assert(namesW.includes('notifier') && namesW.length === 15, 'avec portée : 15 outils');
     const wcall = async (name, args) => (await call(tW.token, rpc('tools/call', { name, arguments: args }))).body.result;
     assert(!(await wcall('marquer_tache_faite', { taskId: task.id })).isError && db.prepare('SELECT done FROM sub_project_items WHERE id = ?').get(task.id).done === 1, 'marquer_tache_faite coche');
     assert((await wcall('marquer_tache_faite', { taskId: 999999 })).isError, 'tâche inconnue refusée');
