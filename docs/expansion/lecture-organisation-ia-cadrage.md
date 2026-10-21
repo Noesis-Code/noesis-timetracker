@@ -6,14 +6,23 @@ Cadrage seulement. Aucun code. Mots exacts d'Émilien : `docs/regles/intentions.
 Quand un utilisateur connecte son IA, TimeTracker se réserve le droit de LIRE (sans modifier) l'organisation qu'elle écrit : tâches, plan, stratégie. Le but : s'inspirer de ce qui marche pour ajuster l'algorithme intégré, le garder secret et le vendre.
 
 ## À vendre
-L'algorithme intégré à l'app (« Timetracker-bespoke »), pour ceux qui ne veulent pas gérer leur IA ou qui veulent mieux que ce qu'ils feraient seuls. Il est personnalisé grâce au domaine d'expertise de l'utilisateur.
+L'algorithme intégré à l'app (« Timetracker-bespoke »), pour ceux qui ne veulent pas gérer leur IA ou qui veulent mieux que ce qu'ils feraient seuls. Il est personnalisé grâce au domaine d'expertise de l'utilisateur, DEVINÉ par nous (décision 5).
 
 ## Décisions d'Émilien (21 oct.)
 1. **Contenu lu** : tout SAUF les données sensibles ou secrètes. On retient la STRUCTURE (titres, notes, objectifs, stratégies), jamais les termes exacts (protection des données confidentielles des clients).
 2. **Consentement** : case claire affichée à la connexion de l'IA + conditions d'utilisation (Loi 25).
 3. **Usage** : statistiques anonymes, sans nom ni lien avec un compte, pour ajuster l'algorithme.
-4. **Traitement** : automatique, aucun humain sur un compte précis. L'utilisateur voit dans ses réglages qu'une lecture a eu lieu et peut se retirer. S'ajoute le domaine d'expertise de l'utilisateur (offre « Timetracker-bespoke »).
-5. **Domaine d'expertise** : déclaré par l'utilisateur à la connexion de l'IA, pour le moment. Émilien peut changer d'avis vite : la source du domaine doit rester modifiable en UN seul endroit.
+4. **Traitement** : automatique, aucun humain sur un compte précis. L'utilisateur voit dans ses réglages qu'une lecture a eu lieu et peut se retirer. S'ajoute le domaine d'expertise, deviné par nous (décision 5 ; offre « Timetracker-bespoke »).
+5. **Domaine d'expertise DEVINÉ par nous** (décision d'Émilien, 21 oct. 2026, 02 h 26, qui remplace « déclaré par l'utilisateur »). Motif d'Émilien : « C'est pour ça que c'est peut-être pas une bonne chose de demander l'expertise directement à l'utilisateur. C'est peut-être plus juste si c'est nous qui soit la devinons, soit décidons à quelle expertise ça peut s'appliquer. » (déclenché par le risque de réidentification d'un plan atypique rattaché à un domaine déclaré).
+   - **Liste FERMÉE** de grands domaines, définie par Émilien (voir « Domaines candidats »).
+   - **Attribution AUTOMATIQUE** à la lecture, à partir de la structure et des intitulés : (a) règle locale sans coût (mots-clés des noms de pôles/secteurs) ; (b) repli par un petit modèle (Haiku) SEULEMENT si la règle hésite, dans le budget IA existant.
+   - **On ne conserve QUE l'étiquette du domaine**, jamais les mots lus.
+   - **Visible et corrigeable** : l'utilisateur voit l'étiquette détectée dans ses réglages et peut la corriger (ce qui valide aussi notre devinette).
+   - **Un seul endroit modifiable** : l'étiquette vit en un seul endroit ; Émilien peut encore changer d'avis.
+   - **Compromis, dit honnêtement** : la classification lit les mots une fois, puis les jette. Les mots sont donc lus (en mémoire, automatiquement, sans humain) le temps de choisir l'étiquette, mais jamais stockés.
+
+### Domaines candidats (à définir avec Émilien, 22 oct.)
+Propositions larges, liste non tranchée : 1. commerce / vente ; 2. services professionnels ; 3. création / contenu ; 4. enseignement / formation ; 5. santé / bien-être ; 6. technologie / produit ; 7. finance / gestion ; 8. restauration / hôtellerie ; 9. construction / métiers ; 10. droit / administration ; 11. recherche / études ; 12. personnel / autres. Candidats à discuter : arts et spectacle, transport / logistique, agriculture / environnement.
 
 ## À trancher
 - **Ce qui « marche »** : à définir avec Émilien lors d'une discussion (21 oct. : « demain »). Pistes, non tranchées : tâches cochées à temps, objectifs atteints, précision de l'estimation, constance dans la durée.
@@ -26,6 +35,7 @@ L'algorithme intégré à l'app (« Timetracker-bespoke »), pour ceux qui ne ve
 ## Ordre du jour de la discussion de demain (22 oct.)
 1. Définir ce qui « marche » (voir « À trancher »).
 2. Remplir le tableau des formes observées (voir « Garde-fous », point 1) : Émilien juge chaque forme.
+3. Définir la liste fermée des domaines (voir « Domaines candidats », décision 5).
 
 ## Garde-fous (décision d'Émilien, 21 oct. 2026)
 
