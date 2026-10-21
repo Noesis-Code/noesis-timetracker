@@ -12738,8 +12738,8 @@
       // traiter différemment un projet selon qu'il a déjà des détails ou
       // non.
       var moreBtn = document.createElement('button');
-      moreBtn.type = 'button'; moreBtn.className = 'iconBtn projectMoreDetailsBtn';
-      moreBtn.textContent = '+ ' + t('Ajouter des détails');
+      moreBtn.type = 'button'; moreBtn.className = 'cmpAdd';
+      moreBtn.innerHTML = '<b>+</b>' + t('Ajouter des détails');
 
       var moreDetails = document.createElement('div');
       moreDetails.className = 'activitySettingsPanel projectMoreDetails hidden';

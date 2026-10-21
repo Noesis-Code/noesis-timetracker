@@ -1760,12 +1760,6 @@ body.scrollLock { overflow: hidden; }
 /* ===== Section "Projets" de Profil (1er septembre 2026, demande d'Emilien) — voir #projectsList/#newProjectCard dans index.html et le commentaire au-dessus d'eux. */
 .seekingTagPicker { display: flex; flex-wrap: wrap; gap: 6px; }
 
-/* Palier 3 du formulaire d'ajout/édition d'un projet (lien externe, date de début, catégorie) : replié par défaut derrière ce bouton, même principe que "+" sur … */
-.projectMoreDetailsBtn {
-  align-self: flex-start; background: transparent; border: 1px dashed var(--border);
-  color: var(--text-light); font-size: 13px;
-}
-.projectMoreDetailsBtn:hover { background: var(--hover-bg); }
 /* .projectMoreDetails réutilise directement .activitySettingsPanel (voir index.html/app.js, deux classes posées sur le même élément) pour hériter du même … */
 .seekingTagBtn {
   display: flex; align-items: center; gap: 5px; padding: 6px 10px;
