@@ -29,8 +29,17 @@ Source : `BACKLOG.md` section 5 (vision d'Émilien du 18 oct.) : l'utilisateur d
 Un appel type : 4 k jetons en entrée, 3 k en sortie = ~0,02 $ Haiku, ~0,06 $ Sonnet (repli fort).
 Par activité et par an : 1 (annuel->périodiques) + 4 (périodiques->hebdo) + ~52 (hebdo->tâches) = ~57 appels = ~1,1 $ (tout Haiku) à ~3,4 $ (tout fort). Réaliste avec replis ~2 $/an/activité, contre 20 $/mois facturés. Marge large; plafond `aibudget` (2 $/jour/utilisateur) inchangé. À confirmer avec `scripts/ai-cost-report.js` en production.
 
-## Questions à Émilien
-1. Confirmer la vision comme feuille de route (étapes E2 à E5) et citer ta demande mot pour mot pour `intentions.md`.
-2. Les propositions arrivent dans « Modifications proposées » (aucun écran nouveau) : d'accord ?
-3. Périodique -> hebdo reste gratuit, l'enchaînement depuis l'annuel est payant : d'accord ?
-4. Déclenchement : à la demande (un geste) ou automatique chaque début de période ?
+## Décisions d'Émilien (21 oct. 2026)
+- E2 OUI : les propositions de l'IA arrivent par l'écran « Modifications proposées » existant, avant/après, aucun écran nouveau.
+- E3 OUI : périodique -> hebdo reste gratuit ; l'enchaînement depuis l'objectif annuel est réservé à Expansion.
+- E4 OUI : génération à la demande (un geste), pas automatique ; moins de coût IA.
+- E1 NON, « Besoin de clarification. Je ne comprends pas. » : reformulé ci-dessous, en attente d'un oui. Aucun code Expansion avant ce oui.
+
+## E1 reformulée : la feuille de route en 5 lignes
+1. Ce qui serait construit : une aide qui part de ton objectif de l'année et de ta stratégie, et te propose les objectifs de chaque période, puis ceux de chaque semaine, puis les tâches.
+2. Dans quel ordre : d'abord les objectifs de période, ensuite ceux de la semaine, ensuite les tâches par secteur, enfin un coup de main pour répartir la semaine ; chaque étape sort seule.
+3. Ce que tu gardes : rien ne change sans ton accord ; tu vois l'avant et l'après dans « Modifications proposées », et un refus est retenu.
+4. Ce que ça coûte en IA : un appel seulement quand tu le demandes, environ 2 $ par an et par activité en moyenne, contre 20 $ par mois facturés.
+5. Ce que tu vois : pas de nouvel écran, un seul geste pour demander les propositions, et la partie « de l'objectif annuel jusqu'aux tâches » est réservée à Expansion.
+
+Question restante : OK pour cette feuille de route (étapes E2 à E5) ? Et ta demande d'origine, citée mot pour mot, est à ajouter à `intentions.md` avant tout code.
