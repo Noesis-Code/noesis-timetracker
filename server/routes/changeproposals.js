@@ -30,7 +30,9 @@ router.post('/activities/:id/change-proposals/generate', ...mw, async (req, res)
     const skip = (x) => x.nothing || x.configured === false || x.notEssor;
     const wt = skip(yp) ? await require('../lib/weeklytaskproposals').generate(req.userId, Number(req.params.id)) : yp;
     const r = skip(yp) && skip(wt) ? await changeproposals.generate(req.userId, Number(req.params.id), {}) : (skip(yp) ? wt : yp);
-    res.json({ ...r, proposals: changeproposals.list(Number(req.params.id), req.userId) });
+    // Étape 5 : report proposé des tâches qui dépassent la capacité de la semaine (sans IA, gratuit, Expansion seulement).
+    const wl = require('../lib/weekloadproposals').generate(req.userId, Number(req.params.id));
+    res.json({ ...r, added: (r.added || 0) + wl.added, proposals: changeproposals.list(Number(req.params.id), req.userId) });
   } catch (e) { fail(res, e); }
 });
 router.post('/activities/:id/change-proposals/apply', ...mw, (req, res) => {

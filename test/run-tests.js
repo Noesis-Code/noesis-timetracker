@@ -99,6 +99,8 @@ const SUITE_FILES = [
   'changeproposals-weekly-test.js',
   'hebdo-strategie-test.js',
   'yearplanproposals-test.js',
+  'weeklytaskproposals-test.js',
+  'weekloadproposals-test.js',
   'iacout-test.js',
   'iacout-memo-test.js',
   'ia-repli-429-test.js',

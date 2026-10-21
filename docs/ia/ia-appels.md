@@ -33,6 +33,7 @@ Tarifs (`PRICES`, $ / million de jetons) : Haiku 1 / 5 ; Sonnet 3 / 15 ; Opus 15
 Point d'appel unique : tout `/v1/messages` passe par `aibudget.fetchAnthropic` (budget, relances 429/529, masquage Loi 25, alerte clé 401/403, journal). Exception : `aibatch.js` (API Batch Drive : budget `submit`, délai 60 s, masquage, alerte 401/403 ; coût à la relève, facteur 0,5). `test/ia-point-unique-test.js` échoue sinon.
 
 - `yearplanproposals.js` (`modifications-proposees`, Expansion seulement) : objectif annuel + stratégie -> objectifs de période proposés, UN appel par demande, 2-3 k entrée, <= 2 k sortie, passe par `docanalysis.js` (mêmes plafonds/budget).
+- `weeklytaskproposals.js` (`modifications-proposees`, Expansion seulement) : objectifs de la semaine sans tâche -> tâches proposées, UN appel par demande, via `docanalysis.js` (mêmes plafonds/budget). Le report des tâches en excès de capacité (`weekloadproposals.js`) n'appelle aucune IA.
 
 ## 3. Budget par compte (seuls plafonds, décision du 21 oct. 2026)
 

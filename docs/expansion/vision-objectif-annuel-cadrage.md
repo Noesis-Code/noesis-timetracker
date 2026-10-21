@@ -55,3 +55,6 @@ Le remplissage hebdomadaire existant (`goalsweeklyauto.js`, déclenché à la sa
 
 ## E4 livrée (21 oct. 2026)
 `server/lib/weeklytaskproposals.js` : sur le même geste « chercher des modifications » (après l'étape 1, avant la recherche habituelle), si un objectif de la semaine en cours ou suivante est dans un secteur sans tâche ouverte, UN appel IA (stratégie + objectifs) propose 1 à 4 tâches par objectif dans « Modifications proposées » (ligne « Nouvelle tâche », avant vide, refus mémorisé). `apply` crée la tâche via `addCategoryTask` (origine IA). Expansion seulement, budget IA existant, aucun écran ni bouton. Test : `test/weeklytaskproposals-test.js`. Reste : E5 (`planWeeks`).
+
+## E5 livrée (21 oct. 2026)
+`server/lib/weekloadproposals.js` branche `weekplanner.planWeeks` : sur le même geste « chercher des modifications », si les tâches datées de la semaine en cours ou suivante dépassent la capacité hebdomadaire (30 min par tâche sans durée, toutes activités comptées), les tâches de l'activité qui débordent reçoivent une proposition de report de +7 jours dans « Modifications proposées » (avant/après, refus mémorisé). Sans IA, gratuit, Expansion seulement, aucun écran ni bouton, jamais d'horaire. Test : `test/weekloadproposals-test.js`. Le vision objectif annuel (E1 à E5) est livrée.
