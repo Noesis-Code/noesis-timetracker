@@ -114,7 +114,3 @@
 .timesheetBlock.tsYearMode { --cal-row: 78px; }
 .tsYearDots { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; padding-right: 8px; }
 .tsYearDots i { display: block; aspect-ratio: 1; border-radius: 50%; background: var(--track-bg); }
-/* Pop-up « Confirmer l'arrêt » (maquette) : dans le flux, sous le chrono ; « Historique » le suit (même écart, menu fermé ou déroulé). */
-#stopConfirmPanel { position: static; inset: auto; display: block; background: none; padding: 12px 0 0; }
-#stopConfirmPanel .stopConfirmCard { max-width: none; max-height: none; overflow: visible; margin: 0 auto; }
-#chronoRunning:has(#stopConfirmPanel:not(.hidden)) #chronoCategoryWrap { display: none; }
