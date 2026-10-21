@@ -1,0 +1,192 @@
+{
+ "chrono": [
+  {
+   "nom": "Chrono : choix de l'activité",
+   "fichier": "chrono/01-accueil.png"
+  },
+  {
+   "nom": "Historique de la semaine",
+   "fichier": "chrono/02-historique.png"
+  },
+  {
+   "nom": "Statistiques du temps (camembert)",
+   "fichier": "chrono/03-statistiques.png"
+  },
+  {
+   "nom": "Chrono en marche",
+   "fichier": "chrono/04-en-cours.png"
+  },
+  {
+   "nom": "Confirmer l'arrêt",
+   "fichier": "chrono/05-confirmer-arret.png"
+  }
+ ],
+ "objectifs": [
+  {
+   "nom": "Page 1 : capture d'une tâche",
+   "fichier": "objectifs/01-capture.png"
+  },
+  {
+   "nom": "Page 2 : pôles et avancement quotidien",
+   "fichier": "objectifs/02-poles.png"
+  },
+  {
+   "nom": "Page 2 : alerte « plafond atteint » dépliée",
+   "fichier": "objectifs/03-alerte-plafond.png"
+  },
+  {
+   "nom": "Page 2 : avancement quotidien (tâches du jour)",
+   "fichier": "objectifs/04-avancement-quotidien.png"
+  },
+  {
+   "nom": "Page 2 : un pôle déplié (ses tâches)",
+   "fichier": "objectifs/05-pole-deplie.png"
+  },
+  {
+   "nom": "Page 2 : archives",
+   "fichier": "objectifs/06-archives.png"
+  },
+  {
+   "nom": "Page 2 : objectif périodique et hebdomadaires",
+   "fichier": "objectifs/07-periode-arbre.png"
+  },
+  {
+   "nom": "Page 2 : grille annuelle",
+   "fichier": "objectifs/08-annee.png"
+  },
+  {
+   "nom": "Stratégie de l'activité",
+   "fichier": "objectifs/09-strategie.png"
+  },
+  {
+   "nom": "Statistiques des tâches",
+   "fichier": "objectifs/10-stats-taches.png"
+  },
+  {
+   "nom": "Statistiques des objectifs",
+   "fichier": "objectifs/11-stats-objectifs.png"
+  }
+ ],
+ "communaute": [
+  {
+   "nom": "Communauté : fil et cercles de découverte",
+   "fichier": "communaute/01-accueil.png"
+  },
+  {
+   "nom": "Recherche de membres : résultats",
+   "fichier": "communaute/02-recherche.png"
+  },
+  {
+   "nom": "Profil d'un membre (visite)",
+   "fichier": "communaute/03-profil-membre.png"
+  },
+  {
+   "nom": "Mon profil",
+   "fichier": "communaute/04-profil.png"
+  },
+  {
+   "nom": "Profil : abonnements et abonnés",
+   "fichier": "communaute/05-abonnements.png"
+  },
+  {
+   "nom": "Profil : notifications",
+   "fichier": "communaute/06-notifications.png"
+  }
+ ],
+ "reglages": [
+  {
+   "nom": "Réglages : activités et liste des sections",
+   "fichier": "reglages/01-en-tete.png"
+  },
+  {
+   "nom": "Réglages : Identité",
+   "fichier": "reglages/02-identite.png"
+  },
+  {
+   "nom": "Réglages : Sécurité",
+   "fichier": "reglages/03-securite.png"
+  },
+  {
+   "nom": "Réglages : Supprimer mon compte",
+   "fichier": "reglages/04-supprimer-mon-compte.png"
+  },
+  {
+   "nom": "Réglages : Langue",
+   "fichier": "reglages/05-langue.png"
+  },
+  {
+   "nom": "Réglages : Modules",
+   "fichier": "reglages/06-modules.png"
+  },
+  {
+   "nom": "Réglages : Notifications",
+   "fichier": "reglages/07-notifications.png"
+  },
+  {
+   "nom": "Réglages : Mon IA",
+   "fichier": "reglages/08-mon-ia.png"
+  },
+  {
+   "nom": "Réglages : Calendrier et export de données",
+   "fichier": "reglages/09-calendrier-et-export-de-donnees.png"
+  },
+  {
+   "nom": "Réglages : Partage",
+   "fichier": "reglages/10-partage.png"
+  },
+  {
+   "nom": "Réglages : Aide et suggestions",
+   "fichier": "reglages/11-aide-et-suggestions.png"
+  }
+ ],
+ "trade": [
+  {
+   "nom": "Premier accès : activation de la vérification en deux étapes",
+   "fichier": "trade/01-activation-totp.png"
+  },
+  {
+   "nom": "Premier accès : codes de secours",
+   "fichier": "trade/02-codes-secours.png"
+  },
+  {
+   "nom": "Trade Tracker : Accueil",
+   "fichier": "trade/03-dashboard.png"
+  },
+  {
+   "nom": "Trade Tracker : Positions",
+   "fichier": "trade/04-positions.png"
+  },
+  {
+   "nom": "Trade Tracker : Répartition",
+   "fichier": "trade/05-allocation.png"
+  },
+  {
+   "nom": "Trade Tracker : Historique",
+   "fichier": "trade/06-history.png"
+  },
+  {
+   "nom": "Trade Tracker : Expert",
+   "fichier": "trade/07-expert.png"
+  },
+  {
+   "nom": "Trade Tracker : Réglages",
+   "fichier": "trade/08-settings.png"
+  },
+  {
+   "nom": "Trade Tracker : Sécurité",
+   "fichier": "trade/09-security.png"
+  },
+  {
+   "nom": "Trade Tracker : Connecter mon courtier",
+   "fichier": "trade/10-broker.png"
+  },
+  {
+   "nom": "Trade Tracker : Invitation",
+   "fichier": "trade/11-invite.png"
+  },
+  {
+   "nom": "Trade Tracker : Synchronisation",
+   "fichier": "trade/12-sync.png"
+  }
+ ]
+}

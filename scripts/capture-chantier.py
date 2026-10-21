@@ -1,5 +1,7 @@
 """Capture 390 px de la page principale d'un chantier permanent (voir docs/fonctionnalites/captures-chantiers.md).
 Usage : python3 scripts/capture-chantier.py <basic|expansion|simpl|precision|trade> [dossier]
+        python3 scripts/capture-chantier.py --toutes [chrono|objectifs|communaute|reglages|trade ...]   (une capture par page de chaque module)
+        python3 scripts/capture-chantier.py --element <identifiant|--liste>   (pop-up, menu, confirmation)
 Sortie : <dossier>/<chantier>.png (défaut : docs/img/chantiers). Montre le code du dossier où le script est lancé
 (donc `origin/staging` seul, ou staging + plan anticipé dans un worktree jetable jamais poussé).
 Tout est fabriqué ici : base temporaire (scripts/dev-seed.js, staging), serveur TMT sur PORT (défaut 3999),
@@ -8,6 +10,10 @@ Viewport 390x844, thème sombre."""
 import sys, os, json, re, time, shutil, tempfile, subprocess, hmac, hashlib, struct, base64, secrets, urllib.request
 from playwright.sync_api import sync_playwright
 
+if '--toutes' in sys.argv or '--element' in sys.argv:  # une capture PAR PAGE de chaque module / un élément précis : voir capture-pages.py
+    sys.argv[0] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'capture-pages.py')
+    exec(compile(open(sys.argv[0], encoding='utf-8').read(), sys.argv[0], 'exec'))
+    sys.exit(0)
 CHANTIERS = ('basic', 'expansion', 'simpl', 'precision', 'trade')
 if len(sys.argv) < 2 or sys.argv[1] not in CHANTIERS:
     sys.exit(__doc__)
