@@ -747,9 +747,7 @@
       var title = document.createElement('p');
       title.className = 'sectionTitle';
       title.textContent = absence ? t('Sélection du pôle & secteur') : t('Pôle et secteur non trouvés — où placer cette tâche ?');
-      var closeBtn = document.createElement('button');
-      closeBtn.type = 'button'; closeBtn.className = 'cmpClose';
-      closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
+      var closeBtn = TMT.ui.closeBtn(null, t('Fermer'));
       header.appendChild(title); header.appendChild(closeBtn);
       card.appendChild(header);
       var body = document.createElement('div');
@@ -927,11 +925,7 @@
       header.className = 'goalTaskEditHeader';
       var title = document.createElement('p');
       title.className = 'sectionTitle';
-      var closeBtn = document.createElement('button');
-      closeBtn.type = 'button';
-      closeBtn.className = 'cmpClose';
-      closeBtn.setAttribute('aria-label', t('Fermer'));
-      closeBtn.textContent = '✕';
+      var closeBtn = TMT.ui.closeBtn(null, t('Fermer'));
       header.appendChild(title);
       header.appendChild(closeBtn);
       card.appendChild(header);
@@ -1112,9 +1106,7 @@
     var title = document.createElement('p');
     title.className = 'sectionTitle';
     title.textContent = t('Ajouter cette tâche ?');
-    var closeBtn = document.createElement('button');
-    closeBtn.type = 'button'; closeBtn.className = 'cmpClose';
-    closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
+    var closeBtn = TMT.ui.closeBtn(null, t('Fermer'));
     header.appendChild(title); header.appendChild(closeBtn);
     card.appendChild(header);
     var body = document.createElement('div');
@@ -1182,9 +1174,7 @@
     var title = document.createElement('p');
     title.className = 'sectionTitle';
     title.textContent = t('Tâche rangée');
-    var closeBtn = document.createElement('button');
-    closeBtn.type = 'button'; closeBtn.className = 'cmpClose';
-    closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
+    var closeBtn = TMT.ui.closeBtn(null, t('Fermer'));
     header.appendChild(title); header.appendChild(closeBtn);
     card.appendChild(header);
     var body = document.createElement('div');
@@ -1388,9 +1378,7 @@
       var title = document.createElement('p');
       title.className = 'sectionTitle';
       title.textContent = t('Comment Noèsis gère tes tâches ?');
-      var closeBtn = document.createElement('button');
-      closeBtn.type = 'button'; closeBtn.className = 'cmpClose';
-      closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
+      var closeBtn = TMT.ui.closeBtn(null, t('Fermer'));
       header.appendChild(title); header.appendChild(closeBtn);
       card.appendChild(header);
       var hint = document.createElement('p');

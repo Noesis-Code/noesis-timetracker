@@ -387,8 +387,7 @@
     var card = document.createElement('div'); card.className = 'goalTaskEditCard';
     var header = document.createElement('div'); header.className = 'goalTaskEditHeader';
     var title = document.createElement('p'); title.className = 'sectionTitle'; title.textContent = t('Objectifs hebdomadaires proposés');
-    var closeBtn = document.createElement('button'); closeBtn.type = 'button'; closeBtn.className = 'cmpClose';
-    closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
+    var closeBtn = TMT.ui.closeBtn(null, t('Fermer'));
     header.appendChild(title); header.appendChild(closeBtn); card.appendChild(header);
     var hint = document.createElement('p'); hint.className = 'meta';
     hint.textContent = t('Modifie ou vide une ligne, puis valide. Rien n’est enregistré avant ta validation.');
@@ -1781,11 +1780,7 @@
     var title = document.createElement('p');
     title.className = 'sectionTitle';
     title.textContent = t('Modifier la tâche');
-    var closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'cmpClose';
-    closeBtn.setAttribute('aria-label', t('Fermer'));
-    closeBtn.textContent = '✕';
+    var closeBtn = TMT.ui.closeBtn(null, t('Fermer'));
     header.appendChild(title);
     header.appendChild(closeBtn);
     card.appendChild(header);
