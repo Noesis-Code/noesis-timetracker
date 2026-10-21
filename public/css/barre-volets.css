@@ -107,9 +107,9 @@
 #settingsActivitiesBlock { scroll-snap-align: start; }
 
 /* MAQUETTE (captures anticipées) : feuille de temps sans zones grises. Mois = 12 carrés gris de 2 h comme en semaine ; Année = un point par jour. */
-:root .tsCalDay { background: transparent; box-shadow: none; }
-:root .tsCalDaySlots { grid-auto-rows: auto; gap: 2px; }
-:root .tsCalSlot { aspect-ratio: 1; border-radius: 2px; }
+:root .tsCalDay { background: transparent; box-shadow: none; padding: 5px 0; }
+:root .tsCalDaySlots { grid-auto-rows: 20px; gap: 1px; }
+:root .tsCalSlot { border-radius: 2px; }
 :root .tsCalSlot:not([style]) { background: var(--track-bg) !important; }
 .timesheetBlock.tsYearMode { --cal-row: 78px; }
 .tsYearDots { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; padding-right: 8px; }
