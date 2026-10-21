@@ -11,7 +11,7 @@ for (let i = 1; i <= 29; i++) ok(new RegExp('\\bR' + i + '\\.').test(regles), 'r
 for (let i = 1; i <= 5; i++) ok(new RegExp('\\bF' + i + '\\.').test(regles), 'règle F' + i + ' présente');
 ok(/R21\.[^\n]*droite[^\n]*jamais à gauche/.test(regles), 'R21 flèche à droite');
 ok(/R22\.[^\n]*bord gauche ET[^\n]*bord droit/.test(regles), 'R22 séparateurs pleine largeur');
-ok(/R23\.[^\n]*\.saAdd[^\n]*#9C8CC8/.test(regles), 'R23 même contrôle, .saAdd, #9C8CC8');
+ok(/R23\.[^\n]*\.cmpAdd[^\n]*#9C8CC8/.test(regles), 'R23 même contrôle, .cmpAdd, #9C8CC8');
 ok(/R24\.[^\n]*verre fort/.test(regles), 'R24 un seul verre fort');
 ok(/R25\.[^\n]*13 px[^\n]*44 px/.test(regles), 'R25 marques secondaires');
 ok(/R26\.[^\n]*disparaît/.test(regles), 'R26 fonction disparue');

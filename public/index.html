@@ -1482,12 +1482,12 @@
              ce même appui long couvre désormais aussi les secteurs (voir
              bindSecteurDrag/buildPoleSecteursEditBlock, app.js). -->
         <div id="activityGoalsCategoriesBlock">
-          <!-- 1er octobre 2026 : « + » en verre (comme #addActivityBtn) = ajouter un PÔLE, ligne de saisie en haut de liste. -->
           <div class="sectionTitleRow catTitleRow">
             <p class="sectionTitle">Pôles &amp; secteurs</p>
-            <button type="button" id="catAddPoleBtn" class="menuBtn" title="Ajouter un pôle" aria-label="Ajouter un pôle">+</button>
           </div>
           <div id="activityGoalsCategoriesList" class="activityGoalsCategoriesList"></div>
+          <!-- 21 oct. 2026 : « + » pointillé large (composant .cmpAdd) en BAS de la liste = ajouter un PÔLE. -->
+          <button type="button" id="catAddPoleBtn" class="cmpAdd" title="Ajouter un pôle"><b>+</b>Ajouter un pôle</button>
           <p id="activityGoalsCategoriesMsg" class="msg"></p>
         </div>
       </div>
@@ -2177,7 +2177,7 @@
         <div id="catComposer" class="catComposer hidden">
           <div id="catComposerTarget" class="catComposerTarget hidden">
             <span id="catComposerTargetLabel"></span>
-            <button type="button" class="menuBtn" id="catComposerTargetClear" aria-label="Annuler">✕</button>
+            <button type="button" class="cmpRemove" id="catComposerTargetClear" aria-label="Annuler"></button>
           </div>
           <div class="catComposerRow">
             <input type="text" id="activityGoalsCategoryAddInput" aria-label="Ajouter" maxlength="40" autocomplete="off" enterkeyhint="send">
@@ -2263,7 +2263,7 @@
           <img id="avatarDisplayImg" class="hidden" alt="">
           <span id="avatarDisplayInitial"></span>
           </button>
-          <button type="button" id="avatarRemoveBtn" class="avatarRemoveBtn hidden" title="Retirer la photo" aria-label="Retirer la photo">×</button>
+          <button type="button" id="avatarRemoveBtn" class="cmpRemove avatarRemoveBtn hidden" title="Retirer la photo" aria-label="Retirer la photo"></button>
           </div>
           <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/webp" class="hidden">
           <span class="activityPageName" id="identityDisplayName"></span>
@@ -2692,7 +2692,7 @@
           </div>
         </div>
       </div>
-              <button id="addActivityBtn" class="saAdd" type="button" aria-label="Ajouter une activité"><b>+</b>Ajouter une activité</button>
+              <button id="addActivityBtn" class="cmpAdd" type="button" aria-label="Ajouter une activité"><b>+</b>Ajouter une activité</button>
             </div>
             <p class="settingsBlockLabel">Paramètres</p>
             <!-- Menu des Réglages (31 août 2026, demande d'Emilien) : le panneau
@@ -3088,7 +3088,7 @@
                 <div id="extCalRulesBlock" class="extCalRulesBlock">
                   <p class="extCalSubTitle">Répartition selon mon agenda <span class="infoTipWrap"><button type="button" class="infoTipBtn" aria-label="Informations" aria-expanded="false" data-tip="Chaque règle s'applique aux jours où un événement a un titre contenant un de ses mots ; si plusieurs s'appliquent, la plus restrictive gagne. Seuls les titres sont comparés, rien n'est conservé.">i</button></span></p>
                   <div id="extCalRules"></div>
-                  <button type="button" id="extCalAddRuleBtn" class="extCalAddBtn"><b>+</b>Ajouter une règle</button>
+                  <button type="button" id="extCalAddRuleBtn" class="cmpAdd"><b>+</b>Ajouter une règle</button>
                   <p id="extCalSettingsMsg" class="msg"></p>
                 </div>
               </div>

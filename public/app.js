@@ -545,6 +545,7 @@
       var targetKey = w.secteurKey || w.poleKey;
       function remove() { var rest = loadOfflineWrites().filter(function (o) { return o.id !== op.id; }); saveOfflineWrites(rest); }
       return freshDoc(op.activityId).then(function (doc) {
+        var ask = null;   // question de conflit hors ligne (fenêtre maison, plus de confirm natif)
         var needsCheck = targetKey && !/^tmp-/.test(targetKey) && op.kind !== 'addPole';
         if (needsCheck && op.kind !== 'addSecteur') {
           var cur = findCategoryEntity(doc, targetKey);
@@ -552,26 +553,25 @@
             var order = op.kind === 'reorderPoles'
               ? (doc.categories || []).map(function (c) { return String(c.key); })
               : (cur && cur.entity.secteurs ? cur.entity.secteurs.map(function (s) { return String(s.key); }) : []);
-            if (op.before && op.before.order && order.join(',') !== op.before.order.join(',') &&
-                !window.confirm(t('L\'ordre a été modifié pendant que tu étais hors ligne. Souhaites-tu appliquer tes modifications hors ligne ?'))) {
-              return 'skip';
+            if (op.before && op.before.order && order.join(',') !== op.before.order.join(',')) {
+              ask = t('L\'ordre a été modifié pendant que tu étais hors ligne. Souhaites-tu appliquer tes modifications hors ligne ?');
             }
           } else if (!cur) {
             notes.push(t('Le {type} « {label} » a été retiré ailleurs : ta modification hors ligne est ignorée.',
               { type: typeLabel(op.before && op.before.type), label: (op.before && op.before.label) || targetKey }));
             return 'skip';
-          } else if (op.before && cur.entity.label !== op.before.label &&
-              !window.confirm(t('Le {type} « {label} » a été modifié pendant que tu étais hors ligne. Souhaites-tu appliquer tes modifications hors ligne ?',
-                { type: typeLabel(cur.type), label: cur.entity.label }))) {
-            return 'skip';
+          } else if (op.before && cur.entity.label !== op.before.label) {
+            ask = t('Le {type} « {label} » a été modifié pendant que tu étais hors ligne. Souhaites-tu appliquer tes modifications hors ligne ?',
+              { type: typeLabel(cur.type), label: cur.entity.label });
           }
         } else if (op.kind === 'reorderPoles' && op.before && op.before.order) {
           var ord = (doc.categories || []).map(function (c) { return String(c.key); });
-          if (ord.join(',') !== op.before.order.map(resolveTmp).join(',') &&
-              !window.confirm(t('L\'ordre a été modifié pendant que tu étais hors ligne. Souhaites-tu appliquer tes modifications hors ligne ?'))) {
-            return 'skip';
+          if (ord.join(',') !== op.before.order.map(resolveTmp).join(',')) {
+            ask = t('L\'ordre a été modifié pendant que tu étais hors ligne. Souhaites-tu appliquer tes modifications hors ligne ?');
           }
         }
+        return (ask ? TMT.ui.confirm(ask, { ok: t('Appliquer') }) : Promise.resolve(true)).then(function (go) {
+        if (!go) return 'skip';
         if (op.tmpKey) {
           // Ajout déjà envoyé lors d'un essai interrompu (réponse perdue) : on adopte l'entrée créée au lieu d'en créer une seconde.
           var list0 = op.kind === 'addPole' ? (doc.categories || [])
@@ -603,6 +603,7 @@
           }
           delete fresh[op.activityId];
           return 'sent';
+        });
         });
       }).then(function (result) {
         touched[op.activityId] = true;
@@ -921,18 +922,14 @@
       row.appendChild(openLink);
     }
 
-    var removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'iconBtn danger attachmentRemove';
-    removeBtn.textContent = '×';
-    removeBtn.title = t('Supprimer cette pièce jointe');
-    removeBtn.setAttribute('aria-label', removeBtn.title);
+    var removeBtn = TMT.ui.removeBtn(null, t('Supprimer cette pièce jointe'));
     removeBtn.addEventListener('click', function () {
-      if (!confirm(t('Supprimer cette pièce jointe ?'))) return;
+      TMT.ui.confirm(t('Supprimer cette pièce jointe ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
       if (deleteApiPath === null) { onRemoved(att.id); return; }
       api('DELETE', (deleteApiPath || '/api/attachments/') + att.id + '?userId=' + profile.id)
         .then(function () { onRemoved(att.id); })
         .catch(function (err) { alert(err.message); });
+    });
     });
     row.appendChild(removeBtn);
 
@@ -3260,7 +3257,6 @@
   // cette classe, mais elle reste utilisée telle quelle par le flux "En ce
   // moment" de Communauté (voir styles.css, ~ligne 886) — un autre
   // appelant, un autre territoire.
-  var CHRONO_HISTORY_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
   var CHRONO_HISTORY_DELETE_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
 
   function buildChronoHistoryEntry(entry, onChanged) {
@@ -3306,7 +3302,7 @@
     editBtn.type = 'button';
     editBtn.className = 'historyRowIconBtn';
     editBtn.setAttribute('aria-label', t('Modifier'));
-    editBtn.innerHTML = CHRONO_HISTORY_EDIT_ICON;
+    editBtn.innerHTML = TMT.ui.editIcon();
     var delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.className = 'historyRowIconBtn danger';
@@ -3467,8 +3463,9 @@
     });
 
     delBtn.addEventListener('click', function () {
-      if (!confirm(t('Supprimer définitivement cet enregistrement ?'))) return;
+      TMT.ui.confirm(t('Supprimer définitivement cet enregistrement ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
       api('DELETE', '/api/history/' + entry.id + '?userId=' + profile.id).then(onChanged).catch(function (err) { alert(err.message); });
+    });
     });
 
     return row;
@@ -6411,17 +6408,13 @@
     });
     row.appendChild(moveSelect);
 
-    var del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'discussionMsgDelete';
-    del.textContent = '✕';
-    del.title = t('Supprimer cette tâche');
-    del.setAttribute('aria-label', del.title);
+    var del = TMT.ui.removeBtn(null, t('Supprimer cette tâche'));
     del.addEventListener('click', function () {
-      if (!confirm(t('Supprimer cette tâche ?'))) return;
+      TMT.ui.confirm(t('Supprimer cette tâche ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
       api('DELETE', '/api/sub-project-items/' + item.id + '?userId=' + profile.id)
         .then(function () { activityGoalsCategoriesRefresh(activityId); })
         .catch(function (err) { alert(err.message); });
+    });
     });
     row.appendChild(del);
     return row;
@@ -7196,7 +7189,7 @@
       else if (e.key === 'Escape') { e.preventDefault(); catCloseNewPole(); }
     });
     catNewPoleRow = group;
-    list.insertBefore(group, list.firstChild);
+    list.appendChild(group);
     nameIn.focus();
     if (group.scrollIntoView) group.scrollIntoView({ block: 'nearest' });
   }
@@ -7380,7 +7373,7 @@
   function catSmallButton(glyph, label, onClick) {
     var b = document.createElement('button');
     b.type = 'button';
-    if (glyph === '✎') { b.className = 'historyRowIconBtn'; b.innerHTML = CHRONO_HISTORY_EDIT_ICON; }
+    if (glyph === '✎') { b.className = 'historyRowIconBtn'; b.innerHTML = TMT.ui.editIcon(); }
     else { b.className = 'activityMergeBtn'; b.textContent = glyph; }
     b.setAttribute('aria-label', label);
     b.addEventListener('click', function (e) { e.stopPropagation(); onClick(); });
@@ -7611,12 +7604,9 @@
     });
 
     if (!edit) {
-      var add = document.createElement('button');
-      add.type = 'button';
-      add.className = 'catAddSecteurBtn';
-      add.textContent = t('+ Nouveau secteur');
+      var add = TMT.ui.addBtn(t('Nouveau secteur'), null);
       if ((pole.secteurs || []).length >= currentActivityGoalsMaxSecteurs) {
-        add.disabled = true; add.style.opacity = '0.4';
+        add.disabled = true;
         add.textContent = t('Maximum {max} secteurs par pôle', { max: currentActivityGoalsMaxSecteurs });
       }
       add.addEventListener('click', function () {
@@ -8644,17 +8634,13 @@
       // l'activité n'a aucun droit particulier ici, comme partout ailleurs
       // dans l'app (voir DELETE /community/activity-messages/:id).
       if (mine) {
-        var del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'discussionMsgDelete';
-        del.textContent = '✕';
-        del.title = t('Supprimer ce message');
-        del.setAttribute('aria-label', del.title);
+        var del = TMT.ui.removeBtn(null, t('Supprimer ce message'));
         del.addEventListener('click', function () {
-          if (!confirm(t('Supprimer ce message ?'))) return;
+          TMT.ui.confirm(t('Supprimer ce message ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
           api('DELETE', '/api/community/activity-messages/' + m.id + '?userId=' + profile.id)
             .then(function () { discussionRenderedIds = ''; loadDiscussion(true); })
             .catch(function (err) { alert(err.message); });
+        });
         });
         // Placée dans la ligne d'en-tête (et pas en position absolue) pour ne
         // jamais recouvrir l'horodatage, quelle que soit la longueur du nom.
@@ -8690,8 +8676,7 @@
     if (!f) return;
     var span = document.createElement('span');
     span.textContent = '📎 ' + f.fileName;
-    var x = document.createElement('button');
-    x.type = 'button'; x.textContent = '✕'; x.title = t('Retirer'); x.setAttribute('aria-label', x.title);
+    var x = TMT.ui.removeBtn(null, t('Retirer'));
     x.addEventListener('click', function () { setDiscussionPendingFile(null); });
     box.appendChild(span); box.appendChild(x);
   }
@@ -9160,7 +9145,7 @@
       excludeBtn.className = 'iconBtn btnBrique btnDanger';
       excludeBtn.textContent = t('Exclure');
       excludeBtn.addEventListener('click', function () {
-        if (!confirm(t('Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.', { name: displayName, activity: opts.activityName }))) return;
+        TMT.ui.confirm(t('Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.', { name: displayName, activity: opts.activityName }), { ok: t('Exclure') }).then(function (ok) { if (!ok) return;
         excludeBtn.disabled = true;
         api('DELETE', '/api/activities/' + opts.activityId + '/members/' + m.userId, { userId: profile.id })
           .then(function (res) {
@@ -9171,6 +9156,7 @@
             excludeBtn.disabled = false;
             alert(err.message);
           });
+      });
       });
       header.appendChild(excludeBtn);
     }
@@ -9230,7 +9216,7 @@
       leaveBtn.className = 'iconBtn btnBrique btnDanger';
       leaveBtn.textContent = t('Quitter la communauté');
       leaveBtn.addEventListener('click', function () {
-        if (!confirm(t('Quitter "{activity}" ? Tu gardes ta propre activité personnelle du même nom, avec tout ton historique déjà enregistré. Les autres membres ne sont pas concernés.', { activity: a.name }))) return;
+        TMT.ui.confirm(t('Quitter "{activity}" ? Tu gardes ta propre activité personnelle du même nom, avec tout ton historique déjà enregistré. Les autres membres ne sont pas concernés.', { activity: a.name }), { ok: t('Quitter') }).then(function (ok) { if (!ok) return;
         api('POST', '/api/activities/' + a.id + '/separate', { userId: profile.id })
           .then(function (res) {
             $('communityMembersModal').classList.add('hidden');
@@ -9242,6 +9228,7 @@
             alert(t(res.message));
           })
           .catch(function (err) { alert(err.message); });
+      });
       });
       actionsRow.appendChild(leaveBtn);
     }
@@ -10055,10 +10042,11 @@
     btn.className = 'iconBtn danger';
     btn.textContent = t('Bloquer');
     btn.addEventListener('click', function () {
-      if (!confirm(t('Bloquer {name} ? Cette personne sera retirée de tes abonnés et ne pourra plus te suivre tant que tu ne l\'auras pas débloquée.', { name: name }))) return;
+      TMT.ui.confirm(t('Bloquer {name} ? Cette personne sera retirée de tes abonnés et ne pourra plus te suivre tant que tu ne l\'auras pas débloquée.', { name: name }), { ok: t('Bloquer') }).then(function (ok) { if (!ok) return;
       api('POST', '/api/blocks', { blockedId: userId })
         .then(onDone)
         .catch(function (err) { alert(err.message); });
+    });
     });
     return btn;
   }
@@ -10262,17 +10250,13 @@
     // Communauté disparaîtrait avec elle. Même règle que partout : chacun ne
     // supprime que ses propres traces.
     if (isMine) {
-      var del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'discussionMsgDelete';
-      del.textContent = '✕';
-      del.title = t('Supprimer ce message');
-      del.setAttribute('aria-label', del.title);
+      var del = TMT.ui.removeBtn(null, t('Supprimer ce message'));
       del.addEventListener('click', function () {
-        if (!confirm(t('Supprimer ce message ?'))) return;
+        TMT.ui.confirm(t('Supprimer ce message ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
         api('DELETE', '/api/profile/posts/' + entry.id + '?userId=' + profile.id)
           .then(function () { refreshAllProfilePostsComposers(); loadFollowingFeed(); })
           .catch(function (err) { alert(err.message); });
+      });
       });
       top.appendChild(del);
     }
@@ -10450,13 +10434,14 @@
   });
 
   $('avatarRemoveBtn').addEventListener('click', function () {
-    if (!confirm(t('Retirer la photo de profil ?'))) return;
+    TMT.ui.confirm(t('Retirer la photo de profil ?'), { ok: t('Retirer'), danger: true }).then(function (ok) { if (!ok) return;
     api('PUT', '/api/profile/' + profile.id, { avatar: null })
       .then(function (p) {
         saveProfile(p);
         $('avatarMsg').textContent = t('Photo retirée.');
       })
       .catch(function (err) { $('avatarMsg').textContent = err.message; });
+  });
   });
 
   // Apparence, Sécurité et Import vivent sur une page "Réglages" séparée
@@ -10766,7 +10751,7 @@
     var rb = $('extCalRulesBlock');
     if (rb) {
       rb.classList.toggle('hidden', !urls.length);
-      rb.querySelectorAll('input,button.extCalAddBtn,#extCalSettingsSaveBtn,.extCalSeg button,.historyRowIconBtn').forEach(function (el) { el.disabled = !urls.length; });
+      rb.querySelectorAll('input,button.cmpAdd,#extCalSettingsSaveBtn,.extCalSeg button,.historyRowIconBtn').forEach(function (el) { el.disabled = !urls.length; });
     }
     btn.classList.toggle('hidden', !urls.length);
     if (!urls.length) { externalCalendarListOpen = false; box.classList.add('hidden'); box.innerHTML = ''; return; }
@@ -10956,20 +10941,22 @@
   var calFeedRenewBtn = $('calendarFeedRenewBtn');
   if (calFeedRenewBtn) calFeedRenewBtn.addEventListener('click', function () {
     if (!profile) return;
-    if (!confirm(t("Régénérer l'adresse ? L'ancienne cessera immédiatement de fonctionner, et tu devras refaire l'abonnement sur chaque appareil."))) return;
+    TMT.ui.confirm(t("Régénérer l'adresse ? L'ancienne cessera immédiatement de fonctionner, et tu devras refaire l'abonnement sur chaque appareil."), { ok: t('Régénérer') }).then(function (ok) { if (!ok) return;
     issueCalendarFeed('Lien créé. Colle-le dans ton calendrier comme un abonnement.');
+  });
   });
 
   var calFeedRevokeBtn = $('calendarFeedRevokeBtn');
   if (calFeedRevokeBtn) calFeedRevokeBtn.addEventListener('click', function () {
     if (!profile) return;
-    if (!confirm(t("Désactiver le calendrier ? L'adresse cesse de fonctionner et les échéances disparaîtront de ton agenda."))) return;
+    TMT.ui.confirm(t("Désactiver le calendrier ? L'adresse cesse de fonctionner et les échéances disparaîtront de ton agenda."), { ok: t('Désactiver') }).then(function (ok) { if (!ok) return;
     api('DELETE', '/api/calendar/feed?userId=' + encodeURIComponent(profile.id))
       .then(function (state) {
         renderCalendarFeedState(state);
         $('calendarFeedMsg').textContent = t('Calendrier désactivé.');
       })
       .catch(function (err) { $('calendarFeedMsg').textContent = err.message; });
+  });
   });
 
   var calFeedCopyBtn = $('calendarFeedCopyBtn');
@@ -11907,7 +11894,7 @@
   // témoin valide et redemande le code, exactement comme sur un nouvel
   // appareil (voir plus haut, section "DÉMARRAGE").
   $('settingsLogoutAllBtn').addEventListener('click', function () {
-    if (!confirm(t('Se déconnecter de TOUS les appareils, y compris celui-ci ? Chacun redemandera ton code à la prochaine ouverture.'))) return;
+    TMT.ui.confirm(t('Se déconnecter de TOUS les appareils, y compris celui-ci ? Chacun redemandera ton code à la prochaine ouverture.'), { ok: t('Se déconnecter') }).then(function (ok) { if (!ok) return;
     $('settingsLogoutAllBtn').disabled = true;
     api('POST', '/api/session/logout-all')
       .then(function () {
@@ -11917,6 +11904,7 @@
         $('settingsLogoutAllMsg').textContent = err.message;
         $('settingsLogoutAllBtn').disabled = false;
       });
+  });
   });
 
   // Export de mes données personnelles (7 septembre 2026, candidate n°1 de
@@ -12799,10 +12787,11 @@
       var delBtn = document.createElement('button');
       delBtn.type = 'button'; delBtn.className = 'iconBtn danger'; delBtn.textContent = t('Supprimer');
       delBtn.addEventListener('click', function () {
-        if (!confirm(t('Supprimer ce projet ?'))) return;
+        TMT.ui.confirm(t('Supprimer ce projet ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
         api('DELETE', '/api/profile/projects/' + p.id + '?userId=' + profile.id)
           .then(loadProfileProjects)
           .catch(function (err) { alert(err.message); });
+      });
       });
 
       var actionsWrap = document.createElement('div');
@@ -13685,17 +13674,13 @@
         '<span class="meta">' + dateLabel + ' · ' + timeLabel + '</span>';
 
       if (mine) {
-        var del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'discussionMsgDelete';
-        del.textContent = '✕';
-        del.title = t('Supprimer ce message');
-        del.setAttribute('aria-label', del.title);
+        var del = TMT.ui.removeBtn(null, t('Supprimer ce message'));
         del.addEventListener('click', function () {
-          if (!confirm(t('Supprimer ce message ?'))) return;
+          TMT.ui.confirm(t('Supprimer ce message ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
           api('DELETE', cfg.deleteUrl(post))
             .then(refreshRegistry)
             .catch(function (err) { alert(err.message); });
+        });
         });
         top.appendChild(del);
       }
@@ -13880,7 +13865,29 @@
     }
 
     if (cfg.attachments) {
-      $(cfg.ids.attachBtn).addEventListener('click', function () { $(cfg.ids.attachInput).click(); });
+      $(cfg.ids.attachBtn).addEventListener('click', function () {
+        // 21 oct. 2026 : la « + » des sondages est retirée du composeur du Profil ; l'option vit dans
+        // l'épingle (ce bouton) : menu « Pièce jointe / Sondage » quand l'utilisateur peut créer un sondage.
+        var pollBtn = cfg.ids.pollBtn ? $(cfg.ids.pollBtn) : null;
+        if (!pollBtn || pollBtn.classList.contains('hidden')) { $(cfg.ids.attachInput).click(); return; }
+        var old = document.querySelector('.msgMenuPop');
+        if (old) old.remove();
+        var pop = document.createElement('div');
+        pop.className = 'msgMenuPop';
+        [[t('Pièce jointe'), function () { $(cfg.ids.attachInput).click(); }], [t('Sondage'), function () { pollBtn.click(); }]].forEach(function (o) {
+          var b = document.createElement('button');
+          b.type = 'button'; b.textContent = o[0];
+          b.addEventListener('click', function () { pop.remove(); o[1](); });
+          pop.appendChild(b);
+        });
+        var r = this.getBoundingClientRect();
+        pop.style.bottom = (window.innerHeight - r.top + 4) + 'px';
+        pop.style.left = Math.max(8, r.left) + 'px';
+        document.body.appendChild(pop);
+        setTimeout(function () {
+          document.addEventListener('click', function close() { pop.remove(); document.removeEventListener('click', close); });
+        }, 0);
+      });
       $(cfg.ids.attachInput).addEventListener('change', function () {
         var file = this.files[0];
         this.value = '';
@@ -13965,7 +13972,7 @@
   // profil juste après un envoi.
   var profileDiscussionComposer = mountProfilePostsComposer({
     input: 'profileDiscussionCommunityInput', pendingList: 'profileDiscussionPendingList',
-    attachBtn: 'profileDiscussionAttachBtn', attachInput: 'profileDiscussionAttachInput',
+    attachBtn: 'profileDiscussionAttachBtn', attachInput: 'profileDiscussionAttachInput', pollBtn: 'profilePollsAddBtn',
     sendBtn: 'profileDiscussionCommunitySendBtn', msg: 'profileDiscussionCommunityMsg',
   }, function () { renderProfileFeed(); });
   // ⚠️ 29 septembre 2026 (épuration visuelle, demande d'Emilien : « Dans
@@ -14020,17 +14027,13 @@
     top.innerHTML = '<span class="discussionMsgAuthor">' + escapeHtml(profile ? profile.name : '') + t(' (toi)') + '</span>' +
       '<span class="meta">' + dateLabel + ' · ' + timeLabel + '</span>';
 
-    var del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'discussionMsgDelete';
-    del.textContent = '✕';
-    del.title = t('Supprimer ce message');
-    del.setAttribute('aria-label', del.title);
+    var del = TMT.ui.removeBtn(null, t('Supprimer ce message'));
     del.addEventListener('click', function () {
-      if (!confirm(t('Supprimer ce message ?'))) return;
+      TMT.ui.confirm(t('Supprimer ce message ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
       api('DELETE', '/api/profile/posts/' + post.id + '?userId=' + profile.id)
         .then(renderProfileFeed)
         .catch(function (err) { alert(err.message); });
+    });
     });
     top.appendChild(del);
     msg.appendChild(top);
@@ -14312,24 +14315,21 @@
         closeBtn.textContent = t('Finir');
         closeBtn.title = t('Clore ce sondage');
         closeBtn.addEventListener('click', function () {
-          if (!confirm(t('Clore ce sondage ? Plus personne ne pourra voter.'))) return;
+          TMT.ui.confirm(t('Clore ce sondage ? Plus personne ne pourra voter.'), { ok: t('Clore') }).then(function (ok) { if (!ok) return;
           api('POST', '/api/polls/' + poll.id + '/close', { userId: profile.id })
             .then(function () { if (onChanged) onChanged(); })
             .catch(function (err) { msgEl.textContent = err.message; });
         });
+        });
         top.appendChild(closeBtn);
       }
-      var del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'discussionMsgDelete';
-      del.textContent = '✕';
-      del.title = t('Supprimer ce sondage');
-      del.setAttribute('aria-label', del.title);
+      var del = TMT.ui.removeBtn(null, t('Supprimer ce sondage'));
       del.addEventListener('click', function () {
-        if (!confirm(t('Supprimer ce sondage et tous ses votes ?'))) return;
+        TMT.ui.confirm(t('Supprimer ce sondage et tous ses votes ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
         api('DELETE', '/api/polls/' + poll.id + '?userId=' + profile.id)
           .then(function () { if (onChanged) onChanged(); })
           .catch(function (err) { msgEl.textContent = err.message; });
+      });
       });
       top.appendChild(del);
     }
@@ -14465,13 +14465,14 @@
         // c'est celle qu'on vient de taper, donc celle qu'on relit le mieux.
         if (suggestion) pickedList.push(suggestion);
         var picked = pickedList.join(', ');
-        if (!confirm(t('Ton vote est définitif et ne pourra plus être modifié.') + '\n\n' + picked + '\n\n' + t('Confirmer ce vote ?'))) return;
+        TMT.ui.confirm(t('Ton vote est définitif et ne pourra plus être modifié.') + '\n\n' + picked + '\n\n' + t('Confirmer ce vote ?'), { ok: t('Voter') }).then(function (ok) { if (!ok) return;
 
         voteBtn.disabled = true;
         msgEl.textContent = '';
         api('POST', '/api/polls/' + poll.id + '/vote', { userId: profile.id, optionIds: chosen, suggestion: suggestion })
           .then(function () { if (onChanged) onChanged(); })
           .catch(function (err) { msgEl.textContent = err.message; voteBtn.disabled = false; });
+      });
       });
       actions.appendChild(voteBtn);
       card.appendChild(actions);
@@ -14578,12 +14579,7 @@
       input.maxLength = 120;
       bindPollAutoGrow(input);
       row.appendChild(input);
-      var rm = document.createElement('button');
-      rm.type = 'button';
-      rm.className = 'menuBtn';
-      rm.textContent = '✕';
-      rm.title = t('Retirer cette réponse');
-      rm.setAttribute('aria-label', rm.title);
+      var rm = TMT.ui.removeBtn(null, t('Retirer cette réponse'));
       rm.addEventListener('click', function () {
         if (box.children.length <= 2) return;
         box.removeChild(row);
@@ -14827,7 +14823,7 @@
   // 2026, demande d'Emilien) — anciennement un lien texte en bas de la
   // section Identité.
   $('logoutBtn').addEventListener('click', function () {
-    if (!confirm(t('Se déconnecter de ce profil sur cet appareil ?'))) return;
+    TMT.ui.confirm(t('Se déconnecter de ce profil sur cet appareil ?'), { ok: t('Se déconnecter') }).then(function (ok) { if (!ok) return;
     // Système de session (chantier 1, 6 septembre 2026) : efface aussi le
     // témoin de session côté serveur, pas seulement le profil mémorisé
     // localement — sinon "se déconnecter" ne déconnectait plus vraiment
@@ -14836,6 +14832,7 @@
       clearProfile();
       location.reload();
     });
+  });
   });
 
   // ----- Partage (adresse publique de l'app + invitation par pseudo) -----
@@ -14969,8 +14966,8 @@
     var pin = $('deleteAccountPin').value.trim();
     $('deleteAccountMsg').textContent = '';
     if (!pin) { $('deleteAccountMsg').textContent = t('Saisis ton code pour confirmer la suppression.'); return; }
-    if (!confirm(t('Supprimer définitivement ton compte ? Cette action est irréversible.'))) return;
-    if (!confirm(t('Dernière confirmation : tout ton historique et tes notes seront perdus. Continuer ?'))) return;
+    TMT.ui.confirm(t('Supprimer définitivement ton compte ? Cette action est irréversible.'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
+    TMT.ui.confirm(t('Dernière confirmation : tout ton historique et tes notes seront perdus. Continuer ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
     $('deleteAccountBtn').disabled = true;
     api('DELETE', '/api/profile/' + profile.id, { pin: pin })
       .then(function () {
@@ -14981,6 +14978,8 @@
         $('deleteAccountMsg').textContent = err.message;
         $('deleteAccountBtn').disabled = false;
       });
+  });
+  });
   });
 
   // Mode édition par appui long (5 septembre 2026, demande d'Emilien :
@@ -15280,7 +15279,7 @@
       var penBtn = document.createElement('button');
       penBtn.type = 'button';
       penBtn.className = 'historyRowIconBtn activityEditPen';
-      penBtn.innerHTML = CHRONO_HISTORY_EDIT_ICON;
+      penBtn.innerHTML = TMT.ui.editIcon();
       penBtn.setAttribute('aria-label', t('Modifier cette activité'));
       penBtn.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -16127,22 +16126,21 @@
       acceptBtn.textContent = t('Accepter');
       acceptBtn.addEventListener('click', function () {
         var mergeActivityId = mergeSelect && mergeSelect.value ? mergeSelect.value : null;
-        if (mergeActivityId) {
-          var mineName = mergeSelect.options[mergeSelect.selectedIndex].textContent;
-          if (!confirm(t('Fusionner ton activité « {mine} » avec « {activity} » ? Ton historique déjà enregistré sur « {mine} » sera transféré dessus, et « {mine} » disparaîtra en tant qu\'activité séparée.', { mine: mineName, activity: inv.activityName }))) {
-            return;
-          }
+        function doAccept() {
+          var payload = { userId: profile.id };
+          if (mergeActivityId) payload.mergeActivityId = mergeActivityId;
+          api('POST', '/api/invites/' + inv.id + '/accept', payload)
+            .then(function (res) {
+              refreshActivities().then(renderActivityGrid);
+              loadSettingsActivities();
+              loadPendingInvites();
+              if (mergeActivityId) alert(t(res.message));
+            })
+            .catch(function (err) { alert(err.message); });
         }
-        var payload = { userId: profile.id };
-        if (mergeActivityId) payload.mergeActivityId = mergeActivityId;
-        api('POST', '/api/invites/' + inv.id + '/accept', payload)
-          .then(function (res) {
-            refreshActivities().then(renderActivityGrid);
-            loadSettingsActivities();
-            loadPendingInvites();
-            if (mergeActivityId) alert(t(res.message));
-          })
-          .catch(function (err) { alert(err.message); });
+        if (!mergeActivityId) { doAccept(); return; }
+        var mineName = mergeSelect.options[mergeSelect.selectedIndex].textContent;
+          TMT.ui.confirm(t('Fusionner ton activité « {mine} » avec « {activity} » ? Ton historique déjà enregistré sur « {mine} » sera transféré dessus, et « {mine} » disparaîtra en tant qu\'activité séparée.', { mine: mineName, activity: inv.activityName }), { ok: t('Fusionner') }).then(function (ok) { if (ok) doAccept(); });
       });
 
       var declineBtn = document.createElement('button');

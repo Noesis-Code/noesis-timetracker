@@ -6,20 +6,19 @@
   --purple-rgb: 156, 140, 200;
   --on-action: #15111C;       /* texte sur bouton d'action */
   --green: #4CAF50;
-  --red: #E0626B;
   --blue: #3498db;
   --grey: #CCCCCC;
   --white: #ffffff;
   --black: #0B0A0A;
   --bg: #0B0A0A;              /* fond page / fenêtres, = barre du haut */
-  --bg-raised: #121214;
-  --card: #1f2229;
+  --bg-raised: #16141A;
+  --card: #16141A;
   --text: #F3EEE8;
   --text-light: #A59E96;
   --border: rgba(243, 238, 232, 0.12);
-  --track-bg: #2b2e35;
-  --hover-bg: #2a2d34;
-  --surface-dim: #1c1c22;
+  --track-bg: rgba(243, 238, 232, 0.10);
+  --hover-bg: rgba(243, 238, 232, 0.08);
+  --surface-dim: #16141A;
 
   /* ---- Accents ---- */
   --brique-rgb: 224, 98, 107;
@@ -48,8 +47,6 @@
   /* ---- États (réussite, alerte, danger) ---- */
   --good: #6fc9a0;
   --good-text: #9be0bf;
-  --bad: #E0626B;
-  --danger-armed: #e5484d;
   --warn-orange: #ff9f2e;
   --warn-text-1: #f0b36b;
   --warn-text-2: #e8ab62;

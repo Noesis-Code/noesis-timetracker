@@ -12,7 +12,7 @@
 .caTaskBar { height: 8px; border-radius: 4px; background: var(--glass-calm-line); overflow: hidden; margin-bottom: 8px; }
 .caTaskFill { height: 100%; border-radius: 4px; }
 .caTaskFill.good { background: var(--good); }
-.caTaskFill.bad { background: var(--bad); }
+.caTaskFill.bad { background: var(--danger); }
 .caTaskLine { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 2px 0; }
 .caTaskPage > .sectionTitleRow { margin: 0 4px 10px; }
 /* page Tâches par membre — « Sans pôle » retiré du filtre ; graphique en tête. */

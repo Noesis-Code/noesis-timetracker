@@ -357,7 +357,6 @@
   // Fenêtre bas d'écran calquée sur celle des pôles/secteurs (#categoryDetailModal) :
   // mêmes classes (.communityMembersModal, .profileSubWindowHeader, .categoryDetailBody),
   // croix ✕, textarea, bouton Enregistrer DANS la zone.
-  var GOAL_DESC_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
 
   var mainFormForceKey = null; // posé par openGoalsDetail() (clic sur une période dans l'arbre) : formulaire visible d'emblée
   var mainDraft = null; // { key, text } : texte commencé dans le formulaire d'objectif périodique vide
@@ -848,7 +847,7 @@
           var editBtn = document.createElement('button');
           editBtn.type = 'button';
           editBtn.className = 'historyRowIconBtn goalDescEditBtn goalWeeklyEditBtn';
-          editBtn.innerHTML = GOAL_DESC_EDIT_ICON;
+          editBtn.innerHTML = TMT.ui.editIcon();
           editBtn.title = t('Modifier');
           editBtn.setAttribute('aria-label', t('Modifier'));
           editBtn.addEventListener('click', function () {
@@ -1058,7 +1057,7 @@
     var readDesc = $('activityGoalsMainReadDesc');
     readDesc.textContent = period.mainGoalDescription || '';
     readDesc.classList.add('hidden'); // la description n'est visible qu'en modification (utile à Noèsis, pas à la lecture)
-    editBtn.innerHTML = GOAL_DESC_EDIT_ICON;
+    editBtn.innerHTML = TMT.ui.editIcon();
     editBtn.setAttribute('aria-label', t('Modifier l’objectif'));
     editBtn.title = t('Modifier l’objectif');
     readBox.classList.toggle('hidden', !hasMainNow || editing);

@@ -203,7 +203,7 @@
   transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 .historyRowIconBtn:hover { background: var(--hover-bg); color: var(--text); }
-.historyRowIconBtn.danger:hover { color: var(--red); }
+.historyRowIconBtn.danger:hover { color: var(--danger); }
 
 .historyRowMeta {
   font-size: 11px; color: var(--text-light); padding-left: 16px;

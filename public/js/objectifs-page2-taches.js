@@ -70,7 +70,7 @@
           <p class="hint">Crée ton premier pôle pour organiser tes tâches et tes objectifs.</p>
           <div class="goalsNoPoleForm">
             <input type="text" id="goalsNoPoleInput" maxlength="40" placeholder="Nom du pôle" aria-label="Nom du pôle">
-            <button type="button" id="goalsNoPoleAddBtn" class="menuBtn" aria-label="Ajouter un pôle">+ Ajouter un pôle</button>
+            <button type="button" id="goalsNoPoleAddBtn" class="cmpAdd" aria-label="Ajouter un pôle"><b>+</b>Ajouter un pôle</button>
           </div>
           <p id="goalsNoPoleMsg" class="msg"></p>
         </div>
@@ -733,7 +733,8 @@
           li.appendChild(b);
           if (onDelete) {
             var d = el('button', 'goalsReportDel'); d.type = 'button'; d.innerHTML = GOALS_TASK_TRASH_ICON; d.setAttribute('aria-label', t('Supprimer la tâche'));
-            d.addEventListener('click', function () { if (!confirm(t('Supprimer cette tâche ?'))) return; d.disabled = b.disabled = true; onDelete(); });
+            d.addEventListener('click', function () { TMT.ui.confirm(t('Supprimer cette tâche ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return; d.disabled = b.disabled = true; onDelete();
+});});
             li.appendChild(d);
           }
           ul.appendChild(li);
@@ -1056,7 +1057,7 @@
   }
   TMT.collapseGoalsArchives = collapseGoalsArchives;
   TMT.openGoalsTaskEditPanel = openGoalsTaskEditPanel; // réutilisé par les jours du calendrier (page 2, onglet 2)
-  TMT.goalsTaskEditIcon = function () { return GOALS_TASK_EDIT_ICON; };
+  TMT.goalsTaskEditIcon = function () { return TMT.ui.editIcon(); };
 
   // Rappelé par le sélecteur de pôle (objectifs-page2-objectif.js) au changement de pôle.
   TMT.rerenderGoalsTasksOverview = function () {
@@ -1157,7 +1158,6 @@
   // Même icône corbeille que l'historique du Chrono (CHRONO_HISTORY_DELETE_ICON, app.js).
   var GOALS_TASK_TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
 
-  var GOALS_TASK_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
 
   // Tâche récurrente : champ « Répéter » partagé (onglet 1 capture, onglet 2 édition).
   // initial = { every, unit } ou null. get() renvoie { every, unit } ou null (= ne se répète pas).
@@ -1257,10 +1257,11 @@
     delBtn.type = 'button'; delBtn.className = 'historyRowIconBtn danger historyEditDelete'; delBtn.innerHTML = GOALS_TASK_TRASH_ICON;
     delBtn.setAttribute('aria-label', t('Supprimer cette tâche'));
     delBtn.addEventListener('click', function () {
-      if (!confirm(t('Supprimer cette tâche ?'))) return;
+      TMT.ui.confirm(t('Supprimer cette tâche ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
       api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + uid)
         .then(function () { refresh(); })
         .catch(function (err) { alert(err.message); });
+    });
     });
     var cancel = document.createElement('button');
     cancel.type = 'button'; cancel.className = 'iconBtn'; cancel.textContent = t('Annuler');
@@ -1362,7 +1363,7 @@
     var edit = document.createElement('button');
     edit.type = 'button';
     edit.className = 'subProjectDeleteX goalsTaskTrashBtn goalsTaskEditBtn';
-    edit.innerHTML = GOALS_TASK_EDIT_ICON;
+    edit.innerHTML = TMT.ui.editIcon();
     edit.title = t('Modifier cette tâche');
     edit.setAttribute('aria-label', t('Modifier cette tâche'));
     edit.addEventListener('click', function (e) {

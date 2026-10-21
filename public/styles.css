@@ -5,7 +5,6 @@
   --purple-dark: #9C8CC8;
   --purple-rgb: 156, 140, 200;
   --green: #9C8CC8;
-  --red: #E0626B;
   --blue: #C4B9E6;
   --white: #ffffff;
   --black: #0B0A0A;
@@ -45,8 +44,6 @@
   /* ---- États (réussite, alerte, danger) ---- */
   --good: #6FC9A0;
   --good-text: #6FC9A0;
-  --bad: #E0626B;
-  --danger-armed: #E0626B;
   --warn-orange: #C4B9E6;
   --warn-text-1: #C4B9E6;
   --warn-text-2: #C4B9E6;
@@ -635,7 +632,7 @@ body { isolation: isolate; }
   border-radius: var(--radius-2xl); color: white; cursor: pointer;
   transition: transform var(--transition-fast), filter var(--transition-fast);
 }
-.chronoBtn-stop { background: var(--red); }
+.chronoBtn-stop { background: var(--danger); }
 .chronoBtn:active { transform: scale(0.97); }
 #liveTimer {
   font-size: 44px; font-weight: bold; color: var(--text); margin: 10px 0 24px;
@@ -757,8 +754,7 @@ textarea {
 .attachmentIcon { font-size: 20px; width: 36px; text-align: center; flex-shrink: 0; }
 .attachmentInfo { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .attachmentName { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.attachmentOpen, .attachmentRemove { flex-shrink: 0; }
-.attachmentRemove { font-size: 16px; line-height: 1; padding: 4px 9px; }
+.attachmentOpen { flex-shrink: 0; }
 .attachmentMsg { text-align: left; margin: 4px 0 0; }
 
 /* ===== Flux "En ce moment" (Communauté) — réutilise .historyEntry (voir plus bas), ajoute juste le badge "en direct" à côté du nom. */
@@ -835,7 +831,7 @@ textarea {
 }
 .iconBtn:hover { background: var(--hover-bg); }
 .iconBtn:active { transform: scale(0.96); }
-.iconBtn.danger { color: var(--red); border-color: var(--red); }
+.iconBtn.danger { color: var(--danger); border-color: var(--danger); }
 .iconBtn:disabled { opacity: 0.35; cursor: default; transform: none; }
 
 /* 28 septembre 2026 (suite, même jour) — demande directe d'Emilien : le panneau Historique du Chrono (buildChronoHistoryEntry, public/app.js) adopte le même … */
@@ -1132,13 +1128,7 @@ body.scrollLock { overflow: hidden; }
   .avatarDisplay:hover { filter: brightness(1.08); }
 }
 .avatarDisplay:active { transform: scale(0.96); }
-.avatarRemoveBtn {
-  position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px;
-  border-radius: 50%; padding: 0; line-height: 1; font-size: 12px;
-  border: 2px solid var(--card); background: var(--text-light); color: var(--card);
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-}
-.avatarRemoveBtn:hover { background: var(--red); }
+.cmpRemove.avatarRemoveBtn { position: absolute; top: -2px; right: -2px; } /* croix rouge R25 : le composant .cmpRemove fait le reste */
 .identityName {
   flex: 1; min-width: 0; font-weight: bold; font-size: 17px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -1350,7 +1340,7 @@ body.scrollLock { overflow: hidden; }
   border: none; background: none; color: var(--text-light); font-size: 13px;
   line-height: 1; cursor: pointer; border-radius: var(--radius-sm);
 }
-.discussionMsgDelete:hover { background: var(--hover-bg); color: var(--red); }
+.discussionMsgDelete:hover { background: var(--hover-bg); color: var(--danger); }
 /* Flux du Profil (4 septembre 2026, demande d'Emilien : « je souhaite que les publications fassent partie à part entière du flux dans le profil et ne soient pas … */
 #profileDiscussionCommunityList { max-height: none; overflow-y: visible; padding-right: 0; }
 /* Le formulaire de sondage vit désormais entre le composeur et le flux (voir
@@ -1415,7 +1405,7 @@ body.scrollLock { overflow: hidden; }
   background: transparent; border: none; color: var(--text-light); cursor: pointer;
 }
 .chatPendingFile { margin-top: 6px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
-.chatPendingFile button { background: none; border: none; color: var(--red); cursor: pointer; font-size: 14px; }
+.chatPendingFile button { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 14px; }
 .discussionMsgFiles { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
 .discussionMsgFiles img { max-width: 220px; max-height: 220px; border-radius: var(--radius-sm); cursor: pointer; display: block; }
 .discussionMsgFiles a { color: inherit; text-decoration: underline; }
@@ -1785,7 +1775,7 @@ body.scrollLock { overflow: hidden; }
 .activityColorDot { flex: 0 0 auto; width: 20px; height: 20px; padding: 0; border: 1px solid var(--border); border-radius: 50%; cursor: pointer; }
 .activityNameInput { flex: 1 1 auto; min-width: 0; }
 .activityMergeBtn { flex: 0 0 auto; width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); font-size: 0.95rem; line-height: 1; cursor: pointer; }
-.activityDeleteX { flex: 0 0 auto; width: 30px; height: 30px; padding: 0; border: 1px solid var(--red); border-radius: var(--radius-sm); background: none; color: var(--red); font-size: 0.9rem; line-height: 1; cursor: pointer; }
+.activityDeleteX { flex: 0 0 auto; width: 30px; height: 30px; padding: 0; border: 1px solid var(--danger); border-radius: var(--radius-sm); background: none; color: var(--danger); font-size: 0.9rem; line-height: 1; cursor: pointer; }
 
 /* ===== Section "Projets" de Profil (1er septembre 2026, demande d'Emilien) — voir #projectsList/#newProjectCard dans index.html et le commentaire au-dessus d'eux. */
 .seekingTagPicker { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -2260,7 +2250,7 @@ button { -webkit-user-select: none; user-select: none; }
 
 /* Le "+" qui ouvre le formulaire vit dans la barre du composeur de messages,
    à gauche du trombone — pas dans le bloc des sondages. */
-.pollComposerAddBtn { font-size: 20px; }
+.pollComposerAddBtn { display: none !important; } /* 21 oct. 2026 : plus de « + » visible ; le bouton ne garde que l'état « peut créer un sondage » et l'ouverture du formulaire, déclenchée par l'épingle du Profil */
 
 .pollFormRow {
   display: flex; align-items: center; gap: 8px;
@@ -2436,10 +2426,10 @@ button { -webkit-user-select: none; user-select: none; }
   width: 30px;
   height: 30px;
   padding: 0;
-  border: 1px solid var(--red);
+  border: 1px solid var(--danger);
   border-radius: var(--radius-sm);
   background: none;
-  color: var(--red);
+  color: var(--danger);
   font-size: 0.9rem;
   line-height: 1;
   cursor: pointer;
@@ -3043,10 +3033,9 @@ button { -webkit-user-select: none; user-select: none; }
    Les pastilles de notification et indicateurs d'état restent rouges (ce ne sont pas des boutons). */
 .chronoBtn-stop.chronoBtn-stop { background: var(--brique-stop); color: var(--on-action); } /* rouge un peu moins crayeux (demande d'Emilien, 30 sept.) */
 .iconBtn.danger.danger, .activityDeleteX.activityDeleteX, .subProjectDeleteX.subProjectDeleteX {
-  border-color: var(--red); color: var(--red);   /* R12 : rouge = suppression de données */
+  border-color: var(--danger); color: var(--danger);   /* R12 : rouge = suppression de données */
 }
 .discussionMsgDelete.discussionMsgDelete:hover, .historyRowIconBtn.danger.danger:hover { color: var(--brique-text); }
-.avatarRemoveBtn.avatarRemoveBtn:hover { background: var(--brique); }
 
 /* 30 sept. 2026 (demande d'Emilien, page Profil) : la bande des projets + le « + » remontent tout près de la barre du
    haut (message vide masqué, moins de marge haute) et se décollent de la zone d'écriture (marge basse plus grande) ;
@@ -3219,10 +3208,8 @@ button { -webkit-user-select: none; user-select: none; }
 .catList:not(.editing) .catSecteurRow:first-child { border-top: 0; }
 .catSecteurRow .activityRowName { font-weight: 500; }
 .catSecteurRow > .meta { margin: 2px 0 0; }
-.catAddSecteurBtn {
-  align-self: flex-end; margin: 4px 0 8px; padding: 8px 4px; border: 0; background: none;
-  color: color-mix(in srgb, var(--purple) 50%, var(--white)); font: inherit; font-weight: 500; cursor: pointer;
-}
+.catSecteurs > .cmpAdd { margin: 8px 0; }
+#activityGoalsCategoriesBlock > #catAddPoleBtn { margin-top: 16px; }
 /* Mode édition : lignes séparées par un trait fin ; barre « Terminer » FIXE, fond noir opaque. */
 .catList.editing .catSecteurRow { border-top: 1px solid var(--border); }
 .catList .activityEditBar {
@@ -3450,8 +3437,6 @@ html.kbOpen #onboarding .onboarding-card { margin: 0 auto; }
 .extCalSeg button.on { background: var(--purple); color: var(--on-action); }
 .extCalRule[data-mode="none"] .extCalSeg button.on { background: var(--brique); }
 .extCalHrs { width: 64px; flex: 0 0 64px; }
-.extCalAddBtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-bottom: 10px; padding: 11px; border-radius: var(--radius-lg); font: inherit; font-size: 13.5px; color: var(--text); background: none; border: 1px dashed var(--glass-border); cursor: pointer; } /* même case que « Ajouter une information » (Stats) */
-.extCalAddBtn b { color: var(--purple); font-size: 18px; line-height: 1; }
 
 /* 18 oct. 2026 : champs de « Répartition selon mon agenda » = transparents comme le reste ; champ des mots plus long, bords très arrondis. */
 .extCalRulesBlock input.calendarFeedUrl { background: transparent; color: var(--text); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); padding: 9px 14px; box-sizing: border-box; font-size: 13px; }
@@ -3511,3 +3496,4 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 
 /* Texte réservé aux lecteurs d'écran (annonces du chronomètre) : invisible, hors flux. */
 .srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+#extCalAddRuleBtn { margin-bottom: 10px; }

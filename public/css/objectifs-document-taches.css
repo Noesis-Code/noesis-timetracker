@@ -32,8 +32,7 @@
 #docTasksBubble .chatAttachBtn { z-index: 1; left: auto; right: 104px; top: auto; bottom: 13px; transform: none; }
 #docTasksBubble .iconBtn:disabled { opacity: 0.45; cursor: default; }
 .docTasksFilesBox { display: flex; flex-wrap: wrap; gap: 6px; }
-.docTasksChip { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(156, 140, 200, .18); margin-top: 6px; }
-.docTasksChip button { background: none; border: 0; color: inherit; cursor: pointer; }
+.docTasksChip { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(156, 140, 200, .18); margin-top: 6px; }
 .docTasksApplyBtn { margin-top: 14px; width: 100%; padding: 12px; border-radius: var(--radius-lg); font-weight: 600; }
 .docTasksDrive { margin-bottom: 2px; }
 .docTasksDriveHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
@@ -196,6 +195,6 @@
 
 /* « Tout supprimer » : discret, devient rouge une fois armé (confirmation sur place). */
 .docTasksDelAll { align-self: center; }
-.docTasksDelAll[data-armed] { color: var(--danger-armed); font-weight: 600; }
+.docTasksDelAll[data-armed] { color: var(--danger); font-weight: 600; }
 
 .docTasksPauseRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; font-size: 13px; }

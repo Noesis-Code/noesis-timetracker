@@ -21,7 +21,7 @@ const REVIEWED = [
   [/^(?:weekLabel|dayOrWeekLabel|formatGoalPeriodDates)\(/, 'libellé de date calculé à partir d\'une date ISO validée'],
   [/^(?:svg|qr\.createSvgTag\(.*\))$/, 'SVG généré par le code (graphique : étiquettes de date échappées ; QR : bibliothèque)'],
   [/^(?:paneHtml|folderFilesHtml)\(/, 'fonction du même fichier dont les opérandes sont relevés séparément (esc partout)'],
-  [/^TMT\.goalsTaskEditIcon\(\)$/, 'icône SVG constante'],
+  [/^TMT\.(?:goalsTaskEditIcon|ui\.editIcon)\(\)$/, 'icône SVG constante'],
   [/^r\[0\]$/, 'motif de signalement : constante du code'],
   [/^f\[0\]$|^tr\(f\[1\]\)$/, 'champs de la stratégie : constantes du code'],
   [/^folderRemoveId === f\.id \? /, 'test de comparaison ; ses branches sont des littéraux et des appels déjà relevés'],

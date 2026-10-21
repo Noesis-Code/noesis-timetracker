@@ -169,7 +169,7 @@
 
 .goalWeeklyDot.goalStatusPartiel { background: var(--partial); }
 
-.goalWeeklyDot.goalStatusNonAtteint { background: var(--red); }
+.goalWeeklyDot.goalStatusNonAtteint { background: var(--danger); }
 
 .goalWeeklyDailyPlanBtn {
   flex-shrink: 0; padding: 3px 5px; font-size: 13px; line-height: 1;
@@ -462,7 +462,7 @@
 .goalWeeklyBadgeStatus { cursor: pointer; color: var(--white); }
 .goalWeeklyBadgeStatus.goalStatusAtteint { background: var(--good); }
 .goalWeeklyBadgeStatus.goalStatusPartiel { background: var(--partial); }
-.goalWeeklyBadgeStatus.goalStatusNonAtteint { background: var(--red); }
+.goalWeeklyBadgeStatus.goalStatusNonAtteint { background: var(--danger); }
 .goalWeekDaysPanel .goalsCalendarTaskRow { background: transparent !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; opacity: 1; }
 .goalWeekDaysPanel .goalsCalendarTaskRow { flex-wrap: wrap; }
 .goalWeekDaysPanel .goalsDayTaskEditBtn { flex: 0 0 auto; margin-left: auto; display: inline-flex; align-items: center; justify-content: center; padding: 6px; color: var(--text-light); background: transparent !important; border: none !important; box-shadow: none !important; }

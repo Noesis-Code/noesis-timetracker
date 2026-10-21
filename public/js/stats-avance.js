@@ -742,7 +742,7 @@
       defs.filter(function (c) { return !c.def && added.indexOf(c.key) >= 0; }).forEach(function (c) {
         var n = c.body(data); if (n) els.body.appendChild(infoCard(c, n, true));
       });
-      var add = el('button', 'saAdd'); add.type = 'button';
+      var add = el('button', 'cmpAdd'); add.type = 'button';
       add.appendChild(el('b', null, '+')); add.appendChild(document.createTextNode(tr('Ajouter une information')));
       add.addEventListener('click', function () { adding = true; draft = added.slice(); render(); });
       els.body.appendChild(add);

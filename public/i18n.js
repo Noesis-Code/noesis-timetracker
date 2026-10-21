@@ -1347,6 +1347,12 @@
   Object.assign(DICT, {
     "Secteur dans « {name} »": "Sector in \"{name}\"",
     "+ Nouveau secteur": "+ New sector",
+    "Nouveau secteur": "New sector",
+    "Pièce jointe": "Attachment",
+    "Quitter": "Leave",
+    "Se déconnecter": "Sign out",
+    "Clore": "Close poll",
+    "Sondage": "Poll",
     "Modifier la description": "Edit description",
     "Déplacer « {name} » vers…": "Move \"{name}\" to…",
   });

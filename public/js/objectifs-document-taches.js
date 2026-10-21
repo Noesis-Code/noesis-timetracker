@@ -109,7 +109,7 @@
 
   function renderFiles() {
     $('docTasksFiles').innerHTML = files.map(function (f, i) {
-      return '<span class="docTasksChip">' + esc(f.fileName) + ' <button type="button" data-i="' + i + '" aria-label="Retirer">✕</button></span>';
+      return '<span class="docTasksChip">' + esc(f.fileName) + ' <button type="button" class="cmpRemove" data-i="' + i + '" aria-label="Retirer"></button></span>';
     }).join('');
   }
   $('docTasksFiles').addEventListener('click', function (e) {
@@ -297,7 +297,7 @@
     } else {
       html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Drive connecté</span></div>'
         + ((s.folders || []).length < 10 ? '<button type="button" class="docTasksDriveBtn" data-d="pickFolder">Choisir un dossier</button>' : '<p class="hint">10 dossiers surveillés (maximum).</p>')
-        + (driveFile ? '<div><span class="docTasksChip">' + esc(driveFile.path || driveFile.name) + ' <button type="button" data-d="unpick" aria-label="Retirer">✕</button></span></div>' : '') + '</div>';
+        + (driveFile ? '<div><span class="docTasksChip">' + esc(driveFile.path || driveFile.name) + ' <button type="button" class="cmpRemove" data-d="unpick" aria-label="Retirer"></button></span></div>' : '') + '</div>';
     }
     if (s.connected && s.needsReconnect) html += '<div class="docTasksWarn">L’accès à Drive a été révoqué ou a expiré : la surveillance est en pause. <button type="button" class="docTasksLink" data-d="connect">Reconnecter Drive</button></div>';
     if (driveErr) html += '<p class="msg">' + esc(driveErr) + '</p>';

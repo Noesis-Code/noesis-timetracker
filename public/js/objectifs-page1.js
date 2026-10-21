@@ -171,7 +171,6 @@
 
   // Icônes crayon/corbeille, inline (pas d'emoji, pas de dépendance externe)
   // — mêmes tracés que la maquette Design validée par Emilien.
-  var HISTORY_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
   var HISTORY_DELETE_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
 
   // Un seul champ date : la période et la semaine en découlent (server/lib/goals.js#periodNumberForDate) et sont
@@ -211,7 +210,7 @@
     editBtn.type = 'button';
     editBtn.className = 'historyRowIconBtn';
     editBtn.setAttribute('aria-label', t('Modifier'));
-    editBtn.innerHTML = HISTORY_EDIT_ICON;
+    editBtn.innerHTML = TMT.ui.editIcon();
     var delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.className = 'historyRowIconBtn danger';
@@ -440,8 +439,9 @@
     });
 
     delBtn.addEventListener('click', function () {
-      if (!confirm(t('Supprimer définitivement cette tâche ?'))) return;
+      TMT.ui.confirm(t('Supprimer définitivement cette tâche ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
       api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + TMT.getProfile().id).then(onChanged).catch(function (err) { alert(err.message); });
+    });
     });
 
     return row;
@@ -1472,7 +1472,7 @@
       files.forEach(function (f, i) {
         var c = document.createElement('span'); c.className = 'docTasksChip';
         c.appendChild(document.createTextNode(f.fileName + ' '));
-        var x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', t('Retirer'));
+        var x = TMT.ui.removeBtn(null, t('Retirer'));
         x.addEventListener('click', function () { files.splice(i, 1); renderChips(); });
         c.appendChild(x); chips.appendChild(c);
       });
