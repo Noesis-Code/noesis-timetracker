@@ -49,3 +49,6 @@ Question restante : OK pour cette feuille de route (étapes E2 à E5) ? Et ta de
 
 ## Ajustement de E3 (21 oct. 2026)
 L'organisation faite par l'IA de l'utilisateur via le connecteur est gratuite pour tous les comptes ; seul l'enchaînement par l'IA intégrée (payée par Noèsis) reste réservé à Expansion. Voir `connecteur-ia-libre.md`.
+
+## E3 livrée (21 oct. 2026)
+Le remplissage hebdomadaire existant (`goalsweeklyauto.js`, déclenché à la saisie d'un objectif de période, gratuit) reçoit maintenant la stratégie de l'activité (bloc `strategie`, omis si vide : requête et mémo inchangés) et la consigne de la respecter. Aucun écran, aucun appel de plus. Reste : E4 (tâches par secteur à la demande), E5 (`planWeeks`).

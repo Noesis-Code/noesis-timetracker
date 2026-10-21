@@ -1,0 +1,34 @@
+// E3 Expansion : la stratégie de l'activité est injectée dans la demande hebdomadaire (omise si vide). Aucun réseau (fetch simulé). Usage : node test/hebdo-strategie-test.js
+const fs = require('fs');
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-hs-');
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
+process.env.ANTHROPIC_API_KEY = 'test'; process.env.GOALS_WEEKLY_MEMO_MIN = '0';
+let failed = 0;
+const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const db = require('../server/db');
+const goals = require('../server/lib/goals');
+const strategy = require('../server/lib/strategy');
+const w = require('../server/lib/goalsweeklyauto');
+db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u','u',datetime('now'))").run();
+const act = db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('A','u','')").run().lastInsertRowid;
+db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, 'u', '#fff', '')").run(act);
+const g = goals.addCategory(act, 'Production'); const key = (g && g.key) || goals.categoriesForActivity(act)[0].key;
+goals.ensurePlan(act, key);
+goals.setMainGoal(act, key, 1, 'Lancer le prototype');
+(async () => {
+  const bodies = [];
+  const real = global.fetch;
+  global.fetch = async (u, o) => { bodies.push(JSON.parse(o.body)); return { ok: true, status: 200, clone() { return this; }, json: async () => ({ model: 'claude-sonnet-5', usage: { input_tokens: 10, output_tokens: 5 }, content: [{ type: 'text', text: JSON.stringify({ weeklyGoals: [{ weekIndex: 1, text: 'Semaine 1', description: 'd' }], confidence: 95 }) }] }) }; };
+  assert(w.strategyText(act) === '', 'sans stratégie : bloc vide');
+  await w.generateForPeriod(act, 'u', key, 1, { dryRun: true });
+  assert(bodies.length >= 1 && !/strategie/.test(bodies[0].messages[0].content), 'sans stratégie : champ omis de la requête');
+  strategy.set(act, 'u', { goal: 'Devenir rentable', priorities: ['Clients', '', ''], ignore: 'Site web' });
+  const n = bodies.length;
+  await w.generateForPeriod(act, 'u', key, 1, { dryRun: true });
+  const sent = JSON.parse(bodies[n].messages[0].content);
+  assert(/Devenir rentable/.test(sent.strategie) && /Clients/.test(sent.strategie) && /Site web/.test(sent.strategie), 'avec stratégie : but, priorité et « à ignorer » transmis');
+  assert(/strategie/.test(bodies[n].system), 'consigne système : respecter la stratégie');
+  global.fetch = real;
+  fs.rmSync(process.env.NOESIS_DATA_DIR, { recursive: true, force: true });
+  process.exit(failed ? 1 : 0);
+})();
