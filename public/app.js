@@ -12059,9 +12059,9 @@
   // (qui ne connaît que la clé). À étendre des DEUX côtés à la fois si
   // Emilien demande un jour une nouvelle catégorie de recherche.
   var SEEKING_TAGS = [
-    { key: 'partners', label: 'Partenaires', symbol: '🤝', color: '#3498db' },
-    { key: 'clients', label: 'Clients', symbol: '💼', color: '#F39C12' },
-    { key: 'funding', label: 'Financement', symbol: '💰', color: '#4CAF50' },
+    { key: 'partners', label: 'Partenaires', symbol: '🤝' },
+    { key: 'clients', label: 'Clients', symbol: '💼' },
+    { key: 'funding', label: 'Financement', symbol: '💰' },
   ];
   function seekingTagByKey(key) {
     for (var i = 0; i < SEEKING_TAGS.length; i++) { if (SEEKING_TAGS[i].key === key) return SEEKING_TAGS[i]; }
@@ -12257,8 +12257,6 @@
       function refresh() {
         var active = selected.indexOf(tag.key) !== -1;
         btn.classList.toggle('active', active);
-        btn.style.background = active ? tag.color : '';
-        btn.style.color = active ? '#fff' : '';
       }
       btn.addEventListener('click', function () {
         var idx = selected.indexOf(tag.key);
@@ -12288,11 +12286,9 @@
       var el = document.createElement('span');
       if (detailed) {
         el.className = 'seekingBadgeFull';
-        el.style.background = tag.color;
         el.textContent = tag.symbol + ' ' + t(tag.label);
       } else {
         el.className = 'seekingBadgeDot';
-        el.style.background = tag.color;
         el.title = t(tag.label);
         el.textContent = tag.symbol;
       }

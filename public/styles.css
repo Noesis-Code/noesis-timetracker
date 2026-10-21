@@ -3497,3 +3497,24 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 /* Texte réservé aux lecteurs d'écran (annonces du chronomètre) : invisible, hors flux. */
 .srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 #extCalAddRuleBtn { margin-bottom: 10px; }
+
+/* Réduction des couleurs, Profil et Communauté (21 oct. 2026, demande d'Émilien).
+   Ces écrans n'affichent plus que le violet cendré et les neutres : pastille et
+   avatar des membres en violet (au lieu de la couleur propre à chaque membre),
+   badges « je cherche » neutres. Les couleurs de pôle des graphiques et le rouge
+   de retrait (Se désabonner, Bloquer) restent. Portée limitée à ces écrans. */
+#tab-community .smallAvatar:not(:has(img)),
+#viewProfileModal .smallAvatar:not(:has(img)),
+#profileFollowsPanel .smallAvatar:not(:has(img)),
+#profileNotifPanel .smallAvatar:not(:has(img)),
+#profilePage .smallAvatar:not(:has(img)),
+#profilePage .avatarDisplay:not(:has(img:not(.hidden))),
+#viewProfileModal .viewProfileAvatar:not(:has(img:not(.hidden))) { background: var(--purple) !important; color: var(--on-action); }
+body:has(#tab-community:not(.hidden)) .whoamiAvatar:not(:has(img:not(.hidden))) { background: var(--purple) !important; color: var(--on-action); }
+#tab-community .dot,
+#profilePage .dot,
+#profileFollowsPanel .dot,
+#profileNotifPanel .dot,
+#viewProfileModal .discussionMsgAuthor .dot { background: var(--purple) !important; }
+.seekingBadgeDot, .seekingBadgeFull { background: var(--hover-bg); color: var(--text); border: 1px solid var(--border); }
+.seekingTagBtn.active, #communitySeekingFilters .seekingTagBtn.active { background: var(--purple); color: var(--on-action); border-color: var(--purple); }
