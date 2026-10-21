@@ -4,6 +4,12 @@ Source de vérité de ce qu'Émilien a demandé. Une entrée = une demande copi�
 
 Règle d'écriture : le coordinateur ajoute l'entrée à la réception de la demande, avant de la découper. Entre crochets = contexte ajouté par Claude, jamais présenté comme citation. Une demande plus récente qui contredit une ancienne la remplace : on l'indique, on ne supprime pas.
 
+## 21 oct. 2026
+
+### Captures des modifications visuelles (règle R30)
+- **21 oct.** Décision d'Émilien, mots exacts :
+  > « chaque tâche qui est une modification visuelle doit avoir une capture d'écran avec la modification appliquée pour que je sache exactement ce qui va être et on doit se tenir exactement au plan. »
+
 ## 19-20 oct. 2026
 
 ### Chantier 1 — Trade Tracker

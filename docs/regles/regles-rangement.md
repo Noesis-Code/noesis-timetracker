@@ -41,6 +41,7 @@ Tout agent lit ce fichier avant de toucher à l'interface (`public/`). Le relect
 - R27. On réutilise une mécanique existante (ex. appui long 500 ms des activités) avant d'en inventer une.
 - R28. Le rouge sert uniquement à retirer ou supprimer (Quitter, Exclure, Déconnexion restent violets, Q2 du 21 oct. 2026). Confirmations : une seule fenêtre maison `TMT.ui.confirm` (fond #16141A, ✕ en haut à droite, bouton principal violet, rouge seulement pour supprimer/retirer), jamais `confirm()` natif.
 - R29. Un seul composant par contrôle : chaque type de contrôle récurrent (petite croix de retrait, bouton « + », flèche de déroulement, séparateur…) est défini UNE SEULE FOIS (jeton/classe CSS partagée, par ex. dans `css/composants.css`) ; on ne le recopie pas ; changer sa définition le change partout dans l'application (TimeTracker, Expansion, Trade Tracker).
+- R30. Capture du plan avant toute modification visuelle (décision d'Émilien, 21 oct. 2026, citée dans `docs/regles/intentions.md`). Toute tâche qui change l'aspect de l'app (`public/`, `trade-tracker/public/`, CSS, textes visibles, composants) produit D'ABORD une capture 390 px (et 360 px) du résultat prévu, obtenue en appliquant la modification dans le worktree sans la pousser ; mode d'emploi dans `docs/fonctionnalites/chantiers-planifies.md`. Une modification visuelle NOUVELLE (non demandée par Émilien dans le chat) n'est pas poussée avant son Oui. Après exécution, la capture finale doit être conforme à la capture du plan : tout écart (couleur, taille, position, texte) est corrigé avant le push. Rien n'est ajouté au plan en cours de route.
 
 ## Nouvelle règle = application partout
 Toute nouvelle règle écrite ici déclenche (par le coordinateur) un chantier ou, si les cinq chantiers permanents sont occupés, une tâche « à venir » dans le chantier « Simplification et design général » : auditer TOUTE l'application (`public/`, `trade-tracker/`, Expansion), lister les écarts, les corriger en réutilisant le composant unique de R29, puis cocher la checklist. Le relecteur refuse une branche qui recopie un composant au lieu de le réutiliser.
@@ -60,6 +61,6 @@ Palette R11 migrée (20 oct. 2026) par jetons CSS dans `public/styles.css` (`--p
 
 ## Checklist à joindre au compte rendu
 ```
-R1 [ ] R2 [ ] R3 [ ] R4 [ ] R5 [ ] R6 [ ] R7 [ ] R8 [ ] R9 [ ] R11 [ ] R12 [ ] R13 [ ] R14 [ ] R15 [ ] R16 [ ] R17 [ ] R18 [ ] R19 [ ] R20 [ ] R21 [ ] R22 [ ] R23 [ ] R24 [ ] R25 [ ] R26 [ ] R27 [ ] R28 [ ] R29 [ ] F1-F5 [ ]  R10 : captures 390 px + 360 px jointes [ ]
+R1 [ ] R2 [ ] R3 [ ] R4 [ ] R5 [ ] R6 [ ] R7 [ ] R8 [ ] R9 [ ] R11 [ ] R12 [ ] R13 [ ] R14 [ ] R15 [ ] R16 [ ] R17 [ ] R18 [ ] R19 [ ] R20 [ ] R21 [ ] R22 [ ] R23 [ ] R24 [ ] R25 [ ] R26 [ ] R27 [ ] R28 [ ] R29 [ ] R30 [ ] F1-F5 [ ]  R10 : captures 390 px + 360 px jointes [ ]
 (une règle non cochée = une phrase de justification)
 ```

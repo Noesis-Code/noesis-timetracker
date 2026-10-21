@@ -42,3 +42,12 @@ Page : https://claude.ai/artifact/MQx8786BCLjVdjZb4zjMbv. Collections db : `proc
 3. Chaque modification, ajout ou retrait écrit un document dans la collection `corrections` : `{chantier, type: modif|retrait, avant, apres, at}`. Chaque chantier lit les corrections de SON chantier à chaque relance et les prend en compte.
 4. Le chantier « Précision des tâches générées » lit toutes les corrections et s'en sert pour améliorer la génération de tâches de l'API (jeu d'évaluation `scripts/eval-task-precision.js`, prompts), et explique dans son rapport (champ `perf`) comment, en lignes simples. Chaque amélioration passe par « Modifications proposées » : jamais de changement silencieux d'une saisie manuelle.
 5. Garde de coût : `lister_taches` sur le pôle renvoie tous les secteurs (environ 380 tâches). Toujours borner avec `du`/`au`, sauvegarder le résultat, filtrer en python par champ secteur, ne jamais le lire en entier.
+
+## Modifications visuelles : capture du plan (R30)
+
+Décision d'Émilien, 21 oct. 2026 (mots exacts dans `docs/regles/intentions.md`).
+
+1. **Capture D'ABORD.** Toute tâche qui change l'aspect de l'app (`public/`, `trade-tracker/public/`, CSS, textes visibles, composants) produit une capture 390 px (et 360 px) du résultat prévu : appliquer la modification dans le worktree sans la pousser, `NOESIS_DATA_DIR` + `scripts/dev-seed.js`, puis `scripts/visual-check.py`. Réduire en JPEG (largeur 390, qualité 60, moins de 60 Ko), encoder en data URI et la placer dans le champ `capture` de l'élément de la liste du chantier (collection `prochaines/<code>`, via ArtifactData).
+2. **Accord.** Modification visuelle NOUVELLE proposée par un chantier (pas déjà demandée par Émilien dans le chat) : pas de push avant son Oui ; présentée avec sa capture sur la page de décisions ou dans la liste. Modification déjà demandée explicitement : on pousse, capture au rapport.
+3. **Fidélité au plan.** Après exécution, nouvelle capture avant/après comparée à celle du plan. Tout écart (couleur, taille, position, texte) est corrigé avant le push, jamais livré. Le relecteur (`.claude/agents/relecteur.md`) refuse une branche visuelle sans capture du plan et sans capture finale conforme.
+4. **Pas d'ajout en cours de route** : rien n'est ajouté au plan.

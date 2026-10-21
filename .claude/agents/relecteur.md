@@ -14,5 +14,6 @@ Contrôle :
 - Migrations : additives, idempotentes, valides sur base neuve ET existante.
 
 - Règles de rangement (`docs/regles/regles-rangement.md`) : si le diff touche `public/`, REFUSE la branche sans la checklist R1–R29 et F1–F5 (captures 390 px et 360 px comprises) ou si une règle est violée sans justification écrite. REFUSE aussi toute branche qui recopie un composant (croix, « + », flèche, séparateur…) au lieu de réutiliser le composant unique de R29.
+- R30 : si le diff est visuel (`public/`, `trade-tracker/public/`), REFUSE sans la capture du plan (champ `capture`) ET sans capture finale conforme à ce plan (aucun écart de couleur, taille, position, texte) ; REFUSE aussi une modification visuelle nouvelle sans le Oui d'Émilien.
 
 Rends : APPROUVÉ ou liste de points bloquants (fichier:ligne). Succinct.
