@@ -1,7 +1,7 @@
-// « Connecter mon IA » — serveur MCP distant, LECTURE SEULE.
+// « Connecter mon IA » — serveur MCP distant : lectures, plus écritures gratuites réservées aux jetons « écriture ».
 // POST /mcp : Streamable HTTP, JSON-RPC 2.0 sans état. Authentification par
 // jeton personnel (Authorization: Bearer ... ou POST /mcp/t/<jeton>), voir server/lib/aitokens.js.
-// Aucun outil n'écrit : les fonctions appelées ici sont des lectures.
+// Les écritures (outils `write`) agissent sur le compte du jeton seulement, sont journalisées (lib/aiwritelog.js) et réversibles.
 // Gestion des jetons depuis Réglages : /api/ai-tokens (session de l'utilisateur).
 const express = require('express');
 const db = require('../db');
@@ -167,7 +167,7 @@ const tools = {
 };
 
 // Outils d'ÉCRITURE : exposés seulement avec un jeton créé avec la portée d'écriture.
-// Jamais de suppression ni de modification du texte d'une tâche existante.
+// Outils historiques ci-dessous ; les outils d'organisation libre (21 oct. 2026) suivent plus bas.
 const MAX_NOTE = 280;
 Object.assign(tools, {
   marquer_tache_faite: {
@@ -207,7 +207,7 @@ Object.assign(tools, {
       const sect = goals.secteursForPole(a.id, pole.key) || [];
       const target = sect.length ? sect[0].key : pole.key;
       const label = '🤖 ' + (args.type === 'question' ? "Question de l'IA : " : 'Récap : ') + texte;
-      const item = goalstasks.addCategoryTask(a.id, userId, target, label, { dueDate: todayLocal() });
+      const item = goalstasks.addCategoryTask(a.id, userId, target, label, { dueDate: todayLocal(), noSpellfix: true });
       return { taskId: item.id, activityId: a.id, tache: label };
     },
   },
@@ -222,6 +222,243 @@ Object.assign(tools, {
       if (!aitokens.takeNotifSlot(ctx.tokenId)) throw toolError('Limite atteinte : ' + aitokens.NOTIF_PER_DAY + ' notifications par jour.');
       push.sendToUsers([userId], { module: 'ai', title: '🤖 ' + titre, body: message, tag: 'ai-' + ctx.tokenId, url: '/' });
       return { envoyee: true };
+    },
+  },
+});
+
+// ---------------------------------------------------------------- écriture libre (21 oct. 2026)
+// Décision d'Émilien : l'IA de l'utilisateur peut organiser (tâches, objectifs, plan du jour) gratuitement,
+// avec SON jeton, sur SON compte uniquement. Aucun appel IA de Noèsis, jamais de suppression définitive :
+// chaque écriture est journalisée (ai_write_log) avec l'état d'avant et `annuler_modification` le rétablit.
+const wlog = require('../lib/aiwritelog');
+const textlimits = require('../lib/textlimits');
+const MAX_BATCH = 30;
+const MAX_GOAL = 300;
+const MAX_DESC = 1000;
+
+function checkDay(s, nom) {
+  if (!isDay(s)) throw toolError(nom + ' : format AAAA-MM-JJ attendu.');
+  const [y, m, d] = s.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) throw toolError(nom + ' : date inexistante.');
+  const t = todayLocal();
+  const lo = String(Number(t.slice(0, 4)) - 1) + t.slice(4), hi = String(Number(t.slice(0, 4)) + 5) + t.slice(4);
+  if (s < lo || s > hi) throw toolError(nom + ' : entre un an avant et cinq ans après aujourd\'hui.');
+  return s;
+}
+function checkTitle(raw) {
+  const c = textlimits.clean(raw, { max: textlimits.LIMITS.TASK_TITLE, word: 'Titre' });
+  if (c.error) throw toolError(c.error);
+  if (!c.text) throw toolError('Titre requis.');
+  return c.text;
+}
+function checkText(raw, max, word) {
+  const c = textlimits.clean(raw, { max, word, kind: 'text' });
+  if (c.error) throw toolError(c.error);
+  return c.text;
+}
+function checkIds(list, nom) {
+  if (!Array.isArray(list) || !list.length) throw toolError(nom + ' : liste non vide requise.');
+  if (list.length > MAX_BATCH) throw toolError(nom + ' : ' + MAX_BATCH + ' éléments maximum.');
+  const ids = list.map(Number);
+  if (ids.some((n) => !Number.isInteger(n)) || new Set(ids).size !== ids.length) throw toolError(nom + ' : identifiants entiers distincts requis.');
+  return ids;
+}
+// Tâche de l'utilisateur (membre de son activité, non confiée à un autre, non verrouillée).
+function ownTask(userId, taskId) {
+  const item = sp.getItemRaw(Number(taskId));
+  if (!item) throw toolError('Tâche introuvable.');
+  const access = sp.checkSubProjectAccess(userId, item.subProjectId);
+  if (access.error) throw toolError('Tâche introuvable.');
+  if (item.plannedUserId && item.plannedUserId !== userId) throw toolError('Cette tâche est confiée à un autre membre.');
+  try { sp.assertItemEditable(item); } catch (e) { throw toolError(e.message); }
+  return { item, activityId: sp.getSubProject(item.subProjectId).activityId };
+}
+// Pôle ou secteur d'une activité, par nom ou clé.
+function resolveTarget(activityId, wanted) {
+  const w = String(wanted == null ? '' : wanted).trim().toLowerCase();
+  if (!w) throw toolError('pole requis (nom ou clé d\'un pôle ou d\'un secteur, voir lister_activites).');
+  for (const p of goals.categoriesForActivity(activityId)) {
+    if (p.key.toLowerCase() === w || String(p.label).toLowerCase() === w) return { key: p.key, pole: p, secteurs: goals.secteursForPole(activityId, p.key) || [] };
+    for (const s of (goals.secteursForPole(activityId, p.key) || [])) {
+      if (s.key.toLowerCase() === w || String(s.label).toLowerCase() === w) return { key: s.key, pole: p, secteurs: [] };
+    }
+  }
+  throw toolError('Pôle ou secteur inconnu.');
+}
+function poleAndSecteurs(activityId, wanted) { // pôle ou secteur pour une TÂCHE : un pôle à secteurs n'en reçoit pas directement
+  const t = resolveTarget(activityId, wanted);
+  if (t.secteurs.length) throw toolError('Ce pôle a des secteurs : choisis-en un (' + t.secteurs.map((s) => s.label).join(', ') + ').');
+  return t;
+}
+function periodNumber(v) { const n = Number(v); if (!Number.isInteger(n) || n < 1 || n > 39) throw toolError('periode : entier de 1 à 39.'); return n; }
+function periodRow(activityId, key, n) { return db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, key, n); }
+function setPositions(pairs) {
+  db.exec('BEGIN');
+  try { pairs.forEach(([id, pos]) => db.prepare('UPDATE sub_project_items SET position = ? WHERE id = ?').run(pos, id)); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
+}
+const done = (data, logId) => Object.assign({}, data, { journal: logId });
+
+Object.assign(tools, {
+  creer_tache: {
+    write: true, journal: true,
+    description: "Ajoute une tâche (titre 300 caractères max) dans un pôle ou secteur de l'utilisateur, avec une échéance facultative AAAA-MM-JJ. Correction d'orthographe de Noèsis désactivée.",
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, titre: { type: 'string' }, pole: { type: 'string', description: 'Pôle (ou secteur si le pôle en a).' }, echeance: { type: 'string' } }, required: ['activityId', 'titre', 'pole'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const a = memberActivity(userId, args.activityId);
+      const titre = checkTitle(args.titre);
+      const t = poleAndSecteurs(a.id, args.pole);
+      const extra = { noSpellfix: true };
+      if (args.echeance != null && args.echeance !== '') extra.dueDate = checkDay(args.echeance, 'echeance');
+      let item;
+      try { item = goalstasks.addCategoryTask(a.id, userId, t.key, titre, extra); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible d\'ajouter la tâche.'); }
+      const logId = wlog.record(ctx, 'creer_tache', a.id, item.id, null, { label: titre, dueDate: extra.dueDate || null });
+      return done({ taskId: item.id, activityId: a.id, tache: titre }, logId);
+    },
+  },
+  modifier_tache: {
+    write: true, journal: true,
+    description: "Change le titre (300 caractères max) et/ou l'échéance (AAAA-MM-JJ) d'une tâche de l'utilisateur. Réversible avec annuler_modification.",
+    inputSchema: { type: 'object', properties: { taskId: { type: 'integer' }, titre: { type: 'string' }, echeance: { type: 'string' } }, required: ['taskId'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const { item, activityId } = ownTask(userId, args.taskId);
+      const fields = {};
+      if (args.titre !== undefined) fields.label = checkTitle(args.titre);
+      if (args.echeance !== undefined) fields.dueDate = checkDay(args.echeance, 'echeance');
+      if (!Object.keys(fields).length) throw toolError('Rien à modifier (titre ou echeance).');
+      try { sp.updateItem(item.id, fields, userId, { noSpellfix: true }); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de modifier cette tâche.'); }
+      const logId = wlog.record(ctx, 'modifier_tache', activityId, item.id, { label: item.label, dueDate: item.dueDate }, { label: fields.label || item.label, dueDate: fields.dueDate || item.dueDate });
+      return done({ taskId: item.id, tache: fields.label || item.label, echeance: fields.dueDate || item.dueDate }, logId);
+    },
+  },
+  ordonner_taches: {
+    write: true, journal: true,
+    description: "Fixe l'ordre d'une liste de tâches de l'utilisateur appartenant au MÊME secteur (ou pôle sans secteur), de la première à la dernière. 30 maximum.",
+    inputSchema: { type: 'object', properties: { taskIds: { type: 'array', items: { type: 'integer' } } }, required: ['taskIds'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const ids = checkIds(args.taskIds, 'taskIds');
+      const rows = ids.map((id) => ownTask(userId, id));
+      if (new Set(rows.map((r) => r.item.sectionId)).size !== 1) throw toolError('Toutes les tâches doivent être dans le même secteur.');
+      const slots = rows.map((r) => r.item.position).sort((x, y) => x - y);
+      const before = {}; rows.forEach((r) => { before[r.item.id] = r.item.position; });
+      const after = {}; ids.forEach((id, i) => { after[id] = slots[i]; });
+      setPositions(ids.map((id, i) => [id, slots[i]]));
+      const logId = wlog.record(ctx, 'ordonner_taches', rows[0].activityId, null, before, after);
+      return done({ ordre: ids }, logId);
+    },
+  },
+  planifier_jour: {
+    write: true, journal: true,
+    description: "Plan du jour : place des tâches de l'utilisateur sur un jour (échéance AAAA-MM-JJ). 30 maximum. Liste de tâches, jamais un horaire à créneaux.",
+    inputSchema: { type: 'object', properties: { jour: { type: 'string' }, taskIds: { type: 'array', items: { type: 'integer' } } }, required: ['jour', 'taskIds'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const jour = checkDay(args.jour, 'jour');
+      const ids = checkIds(args.taskIds, 'taskIds');
+      const rows = ids.map((id) => ownTask(userId, id));
+      const before = {}; rows.forEach((r) => { before[r.item.id] = r.item.dueDate; });
+      rows.forEach((r) => { try { sp.updateItem(r.item.id, { dueDate: jour }, userId, { noSpellfix: true }); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de planifier.'); } });
+      const logId = wlog.record(ctx, 'planifier_jour', rows[0].activityId, null, before, { jour });
+      return done({ jour, taches: ids.length }, logId);
+    },
+  },
+  retirer_tache: {
+    write: true, journal: true,
+    description: "Retire une tâche de l'utilisateur de ses listes. Une copie complète reste au journal : annuler_modification la rétablit (30 jours). Pas de suppression définitive.",
+    inputSchema: { type: 'object', properties: { taskId: { type: 'integer' } }, required: ['taskId'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const { item, activityId } = ownTask(userId, args.taskId);
+      const logId = wlog.record(ctx, 'retirer_tache', activityId, item.id, item, null);
+      try { sp.deleteItem(item.id); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de retirer cette tâche.'); }
+      return done({ taskId: item.id, retiree: true, pour_la_rétablir: 'annuler_modification journal=' + logId }, logId);
+    },
+  },
+  definir_objectif_periodique: {
+    write: true, journal: true,
+    description: "Écrit l'objectif d'une période (1 à 39, voir objectifs) pour un pôle ou secteur. Texte 300 caractères max, description 1000 max. Remplace le texte actuel, qui reste au journal (annuler_modification).",
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, pole: { type: 'string' }, periode: { type: 'integer' }, texte: { type: 'string' }, description: { type: 'string' } }, required: ['activityId', 'pole', 'periode', 'texte'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const a = memberActivity(userId, args.activityId);
+      const t = resolveTarget(a.id, args.pole);
+      const n = periodNumber(args.periode);
+      const texte = checkText(args.texte, MAX_GOAL, 'Objectif');
+      if (!texte) throw toolError('texte requis (un objectif ne se supprime pas par ce connecteur).');
+      const description = args.description === undefined ? undefined : checkText(args.description, MAX_DESC, 'Description');
+      const old = periodRow(a.id, t.key, n);
+      const before = old ? { text: old.mainGoalText || '', description: old.mainGoalDescription || '', minutes: old.mainGoalEstimateSource === 'manual' ? old.mainGoalEstimateMinutes : null } : { text: '', description: '', minutes: null };
+      try { goals.setMainGoal(a.id, t.key, n, texte, description); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible d\'écrire cet objectif.'); }
+      const logId = wlog.record(ctx, 'definir_objectif_periodique', a.id, null, Object.assign({ key: t.key, periode: n }, before), { text: texte });
+      return done({ activityId: a.id, pole: t.key, periode: n, objectif: texte }, logId);
+    },
+  },
+  definir_objectif_hebdomadaire: {
+    write: true, journal: true,
+    description: "Écrit l'objectif d'une semaine (1 à 4) d'une période pour un pôle ou secteur. Texte 300 caractères max. Un objectif confié à un autre membre est refusé. Réversible (annuler_modification).",
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, pole: { type: 'string' }, periode: { type: 'integer' }, semaine: { type: 'integer' }, texte: { type: 'string' }, description: { type: 'string' } }, required: ['activityId', 'pole', 'periode', 'semaine', 'texte'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const a = memberActivity(userId, args.activityId);
+      const t = resolveTarget(a.id, args.pole);
+      const n = periodNumber(args.periode);
+      const w = Number(args.semaine);
+      if (!Number.isInteger(w) || w < 1 || w > 4) throw toolError('semaine : entier de 1 à 4.');
+      const texte = checkText(args.texte, MAX_GOAL, 'Objectif');
+      if (!texte) throw toolError('texte requis (un objectif ne se supprime pas par ce connecteur).');
+      const description = args.description === undefined ? undefined : checkText(args.description, MAX_DESC, 'Description');
+      const per = periodRow(a.id, t.key, n);
+      const old = per ? db.prepare('SELECT * FROM goal_weekly WHERE periodId = ? AND weekIndex = ? AND carriedOverFromId IS NULL').get(per.id, w) : null;
+      if (old && old.assignedUserId && old.assignedUserId !== userId) throw toolError('Cet objectif est confié à un autre membre.');
+      let res;
+      try { res = goals.setWeekly(a.id, t.key, n, w, texte, description); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible d\'écrire cet objectif.'); }
+      const logId = wlog.record(ctx, 'definir_objectif_hebdomadaire', a.id, res.id, { key: t.key, periode: n, semaine: w, existait: !!old, text: old ? old.text : '', description: old ? old.description || '' : '' }, { text: texte });
+      return done({ activityId: a.id, pole: t.key, periode: n, semaine: w, objectif: texte }, logId);
+    },
+  },
+  annuler_modification: {
+    write: true, journal: true,
+    description: "Annule une écriture du journal (le numéro `journal` renvoyé par chaque outil d'écriture), de moins de 30 jours, une seule fois. Rétablit l'état d'avant.",
+    inputSchema: { type: 'object', properties: { journal: { type: 'integer' } }, required: ['journal'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const u = wlog.undoable(userId, args.journal);
+      if (u.error) throw toolError(u.error);
+      const { row, before, after } = u;
+      const act = row.activityId == null ? null : memberActivity(userId, row.activityId).id; // toujours membre de l'activité
+      try {
+        switch (row.tool) {
+          case 'creer_tache': {
+            const { item } = ownTask(userId, row.targetId);
+            if (item.done) throw toolError('Cette tâche a été cochée depuis : elle reste.');
+            wlog.record(ctx, 'annuler_modification', act, row.targetId, item, null);
+            sp.deleteItem(item.id); break;
+          }
+          case 'modifier_tache': {
+            const { item } = ownTask(userId, row.targetId);
+            sp.updateItem(item.id, { label: before.label, dueDate: before.dueDate }, userId, { noSpellfix: true }); break;
+          }
+          case 'ordonner_taches': {
+            Object.keys(before).forEach((id) => { ownTask(userId, id); });
+            setPositions(Object.keys(before).map((id) => [Number(id), before[id]])); break;
+          }
+          case 'planifier_jour': {
+            Object.keys(before).forEach((id) => { ownTask(userId, id); });
+            Object.keys(before).forEach((id) => sp.updateItem(Number(id), { dueDate: before[id] }, userId, { noSpellfix: true })); break;
+          }
+          case 'retirer_tache': {
+            if (sp.getItemRaw(before.id)) throw toolError('Cette tâche existe déjà.');
+            const sec = sp.getSection(before.sectionId);
+            if (!sec || sp.checkSubProjectAccess(userId, before.subProjectId).error) throw toolError('Le rangement d\'origine n\'existe plus.');
+            const cols = Object.keys(before);
+            db.prepare('INSERT INTO sub_project_items (' + cols.join(',') + ') VALUES (' + cols.map(() => '?').join(',') + ')').run(...cols.map((c) => before[c])); break;
+          }
+          case 'definir_objectif_periodique':
+            goals.setMainGoal(act, before.key, before.periode, before.text, before.description, before.minutes == null ? undefined : before.minutes); break;
+          case 'definir_objectif_hebdomadaire':
+            if (before.existait) goals.setWeekly(act, before.key, before.periode, before.semaine, before.text, before.description);
+            else goals.deleteWeekly(act, before.key, before.periode, before.semaine);
+            break;
+          default: throw toolError('Cette entrée ne peut pas être annulée.');
+        }
+      } catch (e) { if (e.toolError) throw e; throw toolError(e.statusCode ? e.message : 'Annulation impossible.'); }
+      wlog.markUndone(row.id);
+      return { annulee: row.id, outil: row.tool };
     },
   },
 });
@@ -244,8 +481,8 @@ function handleRpc(msg, ctx) {
       return ok({
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: {} },
-        serverInfo: { name: 'timetracker', version: '1.0.0' },
-        instructions: "TimeTracker, lecture seule : les tâches et objectifs de l'utilisateur. Commence par lister_activites. Propose un plan, ne décide pas à sa place.",
+        serverInfo: { name: 'timetracker', version: '1.1.0' },
+        instructions: "TimeTracker : les tâches et objectifs de l'utilisateur. Commence par lister_activites. Avec un jeton en écriture, tu peux organiser (créer, modifier, ordonner, planifier, objectifs) mais seulement à la demande de l'utilisateur, jamais de ta propre initiative ; chaque écriture renvoie un numéro de journal pour annuler_modification.",
       });
     case 'notifications/initialized':
     case 'notifications/cancelled':
@@ -260,6 +497,7 @@ function handleRpc(msg, ctx) {
       if (!tool) return isNotification ? null : rpcError(msg.id, -32602, 'Outil inconnu : ' + p.name);
       if (!toolOn(userId, p.name)) return isNotification ? null : ok({ isError: true, content: [{ type: 'text', text: 'Module désactivé dans TimeTracker pour cet outil.' }] });
       if (tool.write && !ctx.canWrite) { const e = new Error("Ce jeton est en lecture seule."); e.forbidden = true; throw e; }
+      if (tool.journal && !wlog.takeWriteSlot(ctx.tokenId)) return ok({ isError: true, content: [{ type: 'text', text: 'Limite atteinte : ' + wlog.WRITES_PER_MINUTE + ' écritures par minute et ' + wlog.WRITES_PER_DAY + ' par 24 h.' }] });
       try {
         const data = tool.run(userId, p.arguments && typeof p.arguments === 'object' ? p.arguments : {}, ctx);
         return ok({ content: [{ type: 'text', text: JSON.stringify(data, null, 1) }] });

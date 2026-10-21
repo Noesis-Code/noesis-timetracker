@@ -46,3 +46,6 @@ Question restante : OK pour cette feuille de route (étapes E2 à E5) ? Et ta de
 
 ## E1 : OUI (21 oct. 2026)
 Étape 1 livrée (branche `claude/expansion-e1`) : sur le geste existant « chercher des modifications », si des périodes de l'année sont vides sous un objectif annuel, UN appel IA (annuel + stratégie) propose les objectifs de période dans « Modifications proposées » (avant/après, refus mémorisé, périodes déjà saisies jamais touchées, Expansion seulement). Aucun écran ni bouton nouveau. E3-E5 restent à faire.
+
+## Ajustement de E3 (21 oct. 2026)
+L'organisation faite par l'IA de l'utilisateur via le connecteur est gratuite pour tous les comptes ; seul l'enchaînement par l'IA intégrée (payée par Noèsis) reste réservé à Expansion. Voir `connecteur-ia-libre.md`.

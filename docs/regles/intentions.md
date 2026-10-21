@@ -44,5 +44,12 @@ Règle d'écriture : le coordinateur ajoute l'entrée à la réception de la dem
 - **18 oct.** Vision d'Émilien. Mots exacts : **NON RETROUVÉS** (le texte d'origine n'est ni dans le dépôt, ni dans l'historique git, ni accessible depuis cette session ; seule sa reformulation figure dans `BACKLOG.md` section 5). À coller ici par Émilien ou le coordinateur, sans reformulation. Résumé de la reformulation, NON citation : l'utilisateur d'Expansion saisit son objectif annuel et sa stratégie ; l'IA propose objectifs périodiques, hebdomadaires puis tâches, par pôle/secteur, en proposition validée avant/après.
 - **21 oct.** Réponses d'Émilien : E1 à E4 OUI (feuille de route : `docs/expansion/vision-objectif-annuel-cadrage.md`). Étape 1 livrée : objectif annuel + stratégie vers objectifs de période (`server/lib/yearplanproposals.js`).
 
+## 21 oct. 2026
+
+### Chantier 3 — TT Expansion : connecteur IA libre
+- **21 oct.** Décision d'Émilien, mots exacts :
+  > « Je permets aux utilisateurs le plus de flexibilité possible entre la connexion de l'application avec leur IA. C'est déjà assez efficace et assez à l'aise avec l'IA. Ils devraient donc pouvoir utiliser la version extension, la version gratuite, avec les mêmes fonctionnalité de l'extension sans payer l'extension, mais grâce à une bonne organisation avec leur connecteur IA. Je ne veux pas limiter l'organisation. »
+  Confirmé en chat (21 oct., 01 h 51) « Oui, aux deux » : outils d'écriture au connecteur, et seule l'IA intégrée reste payante. Cadrage : `docs/expansion/connecteur-ia-libre.md`.
+
 ## Note d'amorçage
 Les citations du 19-20 oct. ont été complétées mot pour mot par le coordinateur (20 oct.). Seule l'entrée « Simplification » reste un renvoi à `SIMPLIFICATION.md`.

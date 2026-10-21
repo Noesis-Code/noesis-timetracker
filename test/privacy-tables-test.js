@@ -37,6 +37,7 @@ const P = {
   activity_subscriptions: { cols: ['userId'], erase: 'cascade', exp: 'subscriptions' },
   ai_tokens: { cols: ['userId'], erase: 'cascade', exp: 'NON: jetons de connexion IA, secret (empreinte)' },
   ai_token_notifs: { cols: [], erase: 'via', exp: 'NON: journal technique d\'un jeton' },
+  ai_write_log: { cols: ['userId'], erase: 'cascade', exp: 'NON: journal technique des écritures de l\'IA du compte (copies de tâches), effacé avec le compte' },
   ai_usage_log: { cols: ['userId'], erase: 'explicit', exp: 'NON: compteurs de coût IA, aucun contenu' },
   announcement_seen: { cols: ['userId'], erase: 'cascade', exp: 'NON: marqueur de lecture technique' },
   blocks: { cols: ['blockerId', 'blockedId'], erase: 'cascade', exp: 'blockedUsers' },

@@ -123,6 +123,7 @@ const SUITE_FILES = [
   'ai-cost-projection-test.js',
   'ia-projection-test.js',
   'mcp-test.js',
+  'mcp-ecriture-libre-test.js',
   'zone-fichier-test.js',
   'fonctionnel-chrono.js',
   'chrono-horloge-test.js',
