@@ -50,6 +50,12 @@ Principe : être très flexible, pour pouvoir analyser n'importe quel type de st
 - **Retirées** : longueur du titre (déjà couverte par la structure de mots) ; découpage (couvert par le nombre d'étapes).
 - Ouvert : une forme peut être ajoutée plus tard sur demande d'Émilien.
 
+### Décisions d'Émilien, 21 oct. 2026 (fin de matinée)
+- **Condition de connexion** : l'utilisateur ne peut pas connecter son IA s'il n'accepte pas la lecture (remplace la proposition « connexion gratuite sans lecture »). Risque légal consigné pour le juriste : `docs/legal/lecture-organisation-ia-brouillon.md`.
+- **Texte légal et consentement** : confiés à Claude par Émilien (brouillon, relecture juridique avant activation).
+- **Durées validées** : statistiques anonymes 24 mois ; journal du consentement = durée du compte + 3 ans.
+- **Principe** : jamais la structure totale d'un algorithme (un algorithme doit être flexible et propre à la personne). Le but : comprendre les personnalités, ce qui marche pour chacune, puis créer un algorithme SPÉCIFIQUE par utilisateur. Comment connaître la personnalité : proposition de Claude (déduite seulement de la façon dont la personne s'organise, sans questionnaire, profilage déclaré et désactivable), EN ATTENTE de réponse d'Émilien.
+
 ### Grille de référence d'étude (Napoléon Hill) et structure de mots (21 oct. 2026) : à peaufiner
 Décision d'Émilien : les critères d'évaluation de la structure des plans partent a priori de ceux de Hill (Réfléchissez et devenez riche), POUR ÉTUDIER, pas comme modèle à viser ni à imiter ; on se fera ensuite notre propre opinion. Tout point de Hill doit être couvert ou consigné « non mesurable ». Grille retenue pour étude, à peaufiner au fil du temps. Tout est mesuré sans conserver aucun mot (niveaux ou nombres).
 **Axes de structure de mots (3 niveaux chacun, liste fermée de marqueurs, repli petit modèle si hésitation)** : flou ↔ dicté (précision + guidage fusionnés) ; type d'action (exécuter / décider / explorer-créer) ; phase (suite d'un mot par phase parmi : définir, préparer, produire, optimiser, diffuser, réviser : proposition, à confirmer) ; test avant engagement ; boucles de révision ; tourné vers qui (soi / équipe / clients).

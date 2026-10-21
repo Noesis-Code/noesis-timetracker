@@ -6,6 +6,12 @@
 
 Ce que fait la fonction, en une phrase : quand l'utilisateur connecte son IA, TimeTracker lit (sans rien modifier) la STRUCTURE de ce que l'IA organise (tâches et objectifs ; stratégies plus tard) et n'en garde que des statistiques de FORME, anonymes, pour améliorer l'algorithme intégré.
 
+> ## DÉCISION D'ÉMILIEN DU 21 OCT. 2026 : PRIME SUR TOUT CE QUI SUIT
+> **La lecture est une CONDITION de la connexion de l'IA gratuite** : sans acceptation de la lecture, l'utilisateur ne peut pas connecter son IA. Le reste de l'application (sans connexion d'IA) n'est pas affecté. Les passages ci-dessous qui disent « facultative », « refus sans conséquence » ou « la connexion fonctionne quand même sans lecture » sont **remplacés** par cette décision et seront réécrits avant toute activation. L'option payante « connecteur sans lecture » (2027) devient l'alternative qui donne un vrai choix.
+> **Risque n° 1 pour le juriste** (de mémoire, à vérifier) : la Loi 25 exige un consentement libre, et le secteur privé ne peut en principe pas refuser un service parce que la personne refuse de communiquer des renseignements, sauf si la collecte est nécessaire, autorisée par la loi, ou s'il y a un motif légitime et important. Questions : les statistiques de forme anonymes sont-elles des renseignements personnels ? La condition est-elle défendable avec l'option payante sans lecture ? Le texte de la case doit dire clairement que la lecture est le prix de la connexion gratuite.
+> **Durées validées par Émilien (21 oct.)** : statistiques anonymes 24 mois ; journal du consentement = durée du compte + 3 ans.
+> **Principe produit (21 oct.)** : jamais de copie de la structure d'un algorithme ; on comprend les personnalités et ce qui marche pour elles, puis on crée un algorithme sur mesure par utilisateur. Le profilage doit être déclaré à l'utilisateur et désactivable (à valider par le juriste).
+
 ---
 
 ## 1. Case de consentement (affichée à la connexion de l'IA)
