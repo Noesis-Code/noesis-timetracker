@@ -2785,12 +2785,8 @@
         btn.setAttribute('aria-expanded', 'false');
         var labelSpan = document.createElement('span');
         labelSpan.textContent = labelFor(state.current) || t('Aucun pôle sélectionné...');
-        var chevron = document.createElement('span');
-        chevron.className = 'categoryPickerChevron';
-        chevron.setAttribute('aria-hidden', 'true');
-        chevron.textContent = '▾';
         btn.appendChild(labelSpan);
-        btn.appendChild(chevron);
+        btn.appendChild(TMT.ui.chev(false));
         btn.addEventListener('click', function () {
           // Ouverture : si la sélection en cours est un secteur, entrer
           // directement dans la liste de ses secteurs (évite un clic
@@ -7522,9 +7518,7 @@
     var name = document.createElement('span');
     name.className = 'activityRowName';
     name.textContent = pole.label;
-    var chevron = document.createElement('span');
-    chevron.className = 'catChevron' + (isOpen ? ' open' : '');
-    chevron.textContent = '›';
+    var chevron = TMT.ui.chev(isOpen);
     header.appendChild(dot);
     header.appendChild(name);
     header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
@@ -10522,6 +10516,8 @@
   // ci-dessous.
   function closeSettingsContainer(container) {
     container.classList.remove('open');
+    var ownChev = container.querySelector('.settingsSectionHeader .cmpChev');
+    if (ownChev) TMT.ui.setChev(ownChev, false);
     var isGroup = container.classList.contains('settingsGroup');
     var body = container.querySelector(isGroup ? '.settingsGroupBody' : '.settingsSectionBody');
     // Le premier .settingsSectionHeader rencontré dans l'ordre du document
@@ -10573,6 +10569,7 @@
       }
       if (!willOpen) return;
       container.classList.add('open');
+      TMT.ui.setChev(head.querySelector('.cmpChev'), true);
       var body = container.classList.contains('settingsGroup')
         ? container.querySelector('.settingsGroupBody')
         : container.querySelector('.settingsSectionBody');
@@ -12129,9 +12126,7 @@
     trigger.className = 'categoryDropdownTrigger';
     var label = document.createElement('span');
     label.className = 'categoryDropdownLabel';
-    var arrow = document.createElement('span');
-    arrow.className = 'categoryDropdownArrow';
-    arrow.textContent = '▾';
+    var arrow = TMT.ui.chev(false);
     trigger.appendChild(label);
     trigger.appendChild(arrow);
 
@@ -12159,10 +12154,12 @@
     function close() {
       menu.classList.add('hidden');
       wrap.classList.remove('open');
+      TMT.ui.setChev(arrow, false);
       document.removeEventListener('click', onDocClick, true);
     }
     function open() {
       wrap.classList.add('open');
+      TMT.ui.setChev(arrow, true);
       menu.classList.remove('hidden');
       // Aligne le défilement sur l'option active à l'ouverture (sans
       // animation) plutôt que de toujours rouvrir en haut de liste.

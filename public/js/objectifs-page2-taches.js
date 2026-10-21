@@ -635,14 +635,13 @@
     var ico = document.createElementNS(ns, 'svg'); ico.setAttribute('class', 'goalsAlertIcon'); ico.setAttribute('viewBox', '0 0 24 24'); ico.setAttribute('aria-hidden', 'true');
     ['M12 3.5 2.5 20h19L12 3.5z', 'M12 10v4.5', 'M12 17.6v.1'].forEach(function (d) { var pa = document.createElementNS(ns, 'path'); pa.setAttribute('d', d); ico.appendChild(pa); });
     var tt = document.createElement('span'); tt.className = 'goalsAlertTitle'; tt.textContent = title;
-    var chev = document.createElementNS(ns, 'svg'); chev.setAttribute('class', 'goalsAlertChevron'); chev.setAttribute('viewBox', '0 0 24 24'); chev.setAttribute('aria-hidden', 'true');
-    var cp = document.createElementNS(ns, 'path'); cp.setAttribute('d', 'M6 9l6 6 6-6'); chev.appendChild(cp);
+    var chev = TMT.ui.chev(false);
     tg.appendChild(ico); tg.appendChild(tt); tg.appendChild(chev);
     var x = document.createElement('button'); x.type = 'button'; x.className = 'cmpClose'; x.textContent = '\u2715'; x.setAttribute('aria-label', t('Fermer pour aujourd\'hui'));
     head.appendChild(tg); head.appendChild(x);
     var body = document.createElement('div'); body.className = 'goalsAlertBody';
     var sk = alertDayKey(key);
-    function sync() { var o = !!alertOpen[sk]; card.classList.toggle('open', o); body.hidden = !o; tg.setAttribute('aria-expanded', o ? 'true' : 'false'); }
+    function sync() { var o = !!alertOpen[sk]; card.classList.toggle('open', o); TMT.ui.setChev(chev, o); body.hidden = !o; tg.setAttribute('aria-expanded', o ? 'true' : 'false'); }
     tg.addEventListener('click', function () { alertOpen[sk] = !alertOpen[sk]; if (!alertOpen[sk]) card.querySelectorAll('.goalsReportNote').forEach(function (n) { n.remove(); }); sync(); });
     x.addEventListener('click', function () { try { localStorage.setItem(alertDayKey(key), localIso(new Date())); } catch (e) { /* stockage indisponible */ } card.classList.add('hidden'); });
     sync();
@@ -1092,10 +1091,7 @@
     var header = document.createElement('div');
     header.className = 'activityRowHeader subProjectRowHeader';
 
-    var chevron = document.createElement('span');
-    chevron.className = 'goalsTasksGroupChevron';
-    chevron.textContent = '›';
-    header.appendChild(chevron);
+    var chevron = TMT.ui.chev(isOpen);
 
     var name = document.createElement('span');
     name.className = 'activityRowName';
@@ -1108,6 +1104,7 @@
       ? t('Aucune tâche')
       : g.percent + '% · ' + g.done + '/' + g.total;
     header.appendChild(badge);
+    header.appendChild(chevron);
 
     row.appendChild(header);
 

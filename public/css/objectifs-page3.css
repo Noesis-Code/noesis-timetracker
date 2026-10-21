@@ -191,14 +191,13 @@
 .goalWeeklyExpandBtn {
   flex-shrink: 0; width: 26px; height: 26px; padding: 0; margin-left: auto;
   border: none; border-radius: 50%; background: transparent;
-  color: var(--text-light); cursor: pointer; font-size: 15px; line-height: 1;
+  color: var(--text-light); cursor: pointer; line-height: 1;
   display: flex; align-items: center; justify-content: center;
-  transition: transform var(--transition-fast), background-color var(--transition-fast);
+  transition: background-color var(--transition-fast);
 }
+.goalWeeklyExpandBtn .cmpChev { color: inherit; }
 
 .goalWeeklyExpandBtn:hover { background: var(--track-bg); }
-
-.goalWeeklyExpandBtn.open { transform: rotate(90deg); }
 
 .goalWeekDaysPanel {
   display: flex; flex-direction: column; gap: 0; background: transparent;

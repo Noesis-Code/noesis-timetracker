@@ -1249,14 +1249,8 @@ body.scrollLock { overflow: hidden; }
 /* ⚠️ padding-left ramené à 16px le 26 septembre 2026 : les 44px réservaient la colonne du bouton « ← » flottant, qui n'existe plus (croix dans le bandeau). */
 #profileSettingsScroll .settingsSectionHeader { padding-left: 16px; }
 #profileSettingsPanel .settingsSectionHeader .sectionTitle { margin: 0; }
-#profileSettingsPanel .settingsSectionChevron {
-  color: var(--text-light); font-size: 13px; flex-shrink: 0;
-  transition: transform var(--transition-fast);
-}
 #profileSettingsPanel .settingsSection.open .settingsSectionHeader,
 #profileSettingsPanel .settingsGroup.open .settingsSectionHeader { border-color: var(--purple); }
-#profileSettingsPanel .settingsSection.open .settingsSectionChevron,
-#profileSettingsPanel .settingsGroup.open .settingsSectionChevron { transform: rotate(180deg); }
 #profileSettingsPanel .settingsSectionBody { margin-top: 8px; }
 #profileSettingsPanel .settingsSectionBody .settingsCard,
 #profileSettingsPanel .settingsSectionBody .entryCard { margin-bottom: 0; }
@@ -1739,11 +1733,6 @@ body.scrollLock { overflow: hidden; }
 .categoryDropdownLabel {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.categoryDropdownArrow {
-  flex-shrink: 0; font-size: 11px; color: var(--text-light);
-  transition: transform var(--transition-fast);
-}
-.categoryDropdown.open .categoryDropdownArrow { transform: rotate(180deg); }
 /* Liste d'options : hauteur maximale calée EXACTEMENT sur 5 lignes de 40px (voir .categoryDropdownOption ci-dessous, hauteur fixe en px) — demande d'Emilien "montrer maximum 5 options à la fois". */
 .categoryDropdownMenu {
   margin-top: 4px; border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -2487,11 +2476,6 @@ button { -webkit-user-select: none; user-select: none; }
   cursor: pointer;
 }
 
-.categoryPickerChevron {
-  color: var(--text-light);
-  flex: none;
-}
-
 /* Panneau en FLUX NORMAL (pas de position absolue) — c'est ce qui pousse
    #stopBtn vers le bas quand il s'ouvre, exactement comme demandé. */
 .categoryPickerPanel {
@@ -3201,8 +3185,6 @@ button { -webkit-user-select: none; user-select: none; }
 #activityGoalsCategoriesBlock { margin-top: 8px; }
 .catList { margin: 10px 0; }
 .catGroup { display: flex; flex-direction: column; gap: 4px; }
-.catChevron { flex: 0 0 auto; display: inline-block; transition: transform var(--transition-fast); color: var(--muted); }
-.catChevron.open { transform: rotate(90deg); }
 .catSecteurs { display: flex; flex-direction: column; margin-left: 14px; }
 .catSecteurRow { padding: 10px 0; border-top: 1px solid var(--border); }
 .catList:not(.editing) .catSecteurRow:first-child { border-top: 0; }

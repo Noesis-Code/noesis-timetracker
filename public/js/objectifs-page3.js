@@ -885,7 +885,8 @@
         var expandBtn = document.createElement('button');
         expandBtn.type = 'button';
         expandBtn.className = 'goalWeeklyExpandBtn' + (isOpen ? ' open' : '');
-        expandBtn.textContent = '›';
+        var expandChev = TMT.ui.chev(isOpen);
+        expandBtn.appendChild(expandChev);
         expandBtn.title = t('Afficher/masquer les jours de cette semaine');
         expandBtn.setAttribute('aria-label', t('Afficher/masquer les jours de cette semaine'));
         expandBtn.addEventListener('click', function () {
@@ -895,6 +896,7 @@
           panel.classList.toggle('hidden', !opening);
           if (!opening) Array.prototype.forEach.call(panel.querySelectorAll('.goalsDayTaskAdd'), function (f) { f.classList.add('hidden'); });
           expandBtn.classList.toggle('open', opening);
+          TMT.ui.setChev(expandChev, opening);
           row.classList.toggle('weekOpen', opening);
           goalsOpenWeekIndexes[goalsOpenKey(period, weekIndex)] = opening;
         });
@@ -1483,7 +1485,7 @@
     var expandBtn = target.querySelector('.goalWeeklyExpandBtn');
     if (panel && panel.classList.contains('hidden')) {
       panel.classList.remove('hidden');
-      if (expandBtn) expandBtn.classList.add('open');
+      if (expandBtn) { expandBtn.classList.add('open'); TMT.ui.setChev(expandBtn.querySelector('.cmpChev'), true); }
       goalsOpenSync();
       goalsOpenWeekIndexes[goalsOpenKey(period, weekIndex)] = true;
     }
