@@ -46,6 +46,9 @@
   align-items: center; justify-content: center;
   border: 1.5px dashed rgba(243, 238, 232, .28); background: none; color: var(--purple, #9C8CC8);
 }
+/* Un seul volet restant (règle Q1) : la barre ne montre que le « + », plus perceptible (bord violet plein, plus épais). */
+.tabbar.barSolo .tabbarPill { display: none; }
+.tabbar.barSolo .tabBtnAdd { margin-left: auto; border: 2px solid var(--purple, #9C8CC8); }
 /* Variante « extension payée » : même composant, verre fort de l'icône sélectionnée (exception assumée à R17, voir docs/regles/regles-rangement.md). */
 .tabbar .tabBtnAdd.barPaid {
   border: 1px solid rgba(243, 238, 232, .2); color: var(--text, #F3EEE8);
@@ -65,11 +68,9 @@
 }
 .tabbar.barEdit .tabBtn.dragging { z-index: 2; transition: none; scale: 1.08; box-shadow: 0 4px 12px rgba(0, 0, 0, .4); }
 .tabbar .barX {
-  position: absolute; top: -2px; right: -2px; width: 13px; height: 13px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; background: #E0626B; color: #15111C; cursor: pointer;
+  position: absolute; top: -2px; right: -2px; /* croix rouge R25 : le composant .cmpRemove fait le reste */
 }
 .tabbar .tabBtn.dragging .barX { display: none; }
-.tabbar .barX::after { content: ''; position: absolute; inset: -16px; } /* cible de toucher réelle >= 44 px (R7) */
 .barHint {
   position: fixed; left: 16px; right: 16px; z-index: 51; margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-light, #A59E96);
   bottom: calc(max(16px, env(safe-area-inset-bottom)) + 52px + 12px); pointer-events: none;
@@ -103,8 +104,6 @@
 /* Réglages : section « Activités » (ancien onglet Activité) au-dessus des « Paramètres » (chantier B). */
 .settingsBlockLabel { margin: 0; padding: 0 4px 8px; font-size: 13px; color: var(--text-light, #A59E96); }
 #settingsActivitiesBlock { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
-#settingsActivitiesBlock .saAdd { min-height: 48px; border: 1px dashed rgba(243, 238, 232, .28); cursor: pointer; }
-#settingsActivitiesBlock .saAdd b { color: var(--purple, #9C8CC8); font-size: 20px; font-weight: 700; }
 /* La page d'une activité s'ouvre par-dessus Réglages (même z-index 90, Réglages est plus bas dans le document). */
 #activityPage { z-index: 91; }
 #settingsActivitiesBlock { scroll-snap-align: start; }

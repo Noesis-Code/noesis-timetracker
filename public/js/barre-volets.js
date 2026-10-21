@@ -1,7 +1,8 @@
 /* Barre des volets (chantier B, 20 oct. 2026 ; R18 de docs/regles/regles-rangement.md).
  * Barre fixe, toujours visible : pilule de 4 icônes au plus, centrées et réparties ; « + » séparé (absent quand rien
  * n'est à ajouter) qui ouvre un pop-up centré « Ajouter à la barre ». Appui long (500 ms, annulé au-delà de 10 px, comme les activités) :
- * mode édition — glisser une icône pour l'ordre, croix rouge pour la retirer (le dernier onglet restant n'est pas retirable).
+ * mode édition — glisser une icône pour l'ordre, croix rouge pour la retirer. Règle Q1 (21 oct. 2026) : au moins un des trois volets Chrono, Feuille de route ou
+ * Trade Tracker doit rester ; s'il ne reste qu'un volet au total, la barre ne montre que le bouton « + » (plus perceptible).
  * L'ordre est mémorisé par compte (localStorage) ; l'app s'ouvre sur l'onglet le plus à gauche (modules.js → TMT.navBar.firstTab).
  * Trade Tracker est un onglet ajoutable : l'ajouter connecte le module « trade » (TMT.modules.setTrade). */
 (function () {
@@ -17,6 +18,7 @@
   var popList = document.getElementById('barAddList');
   var popMsg = document.getElementById('barAddMsg');
   var ALL = ['chrono', 'goals', 'community', 'trade'];
+  var KEEP = ['chrono', 'goals', 'trade']; // au moins un de ces trois doit rester dans la barre (Q1)
   var LONG_MS = 500, MOVE_PX = 10;
   var editMode = false, justEdited = false;
 
@@ -37,6 +39,7 @@
   }
   function save(list) { try { localStorage.setItem(key(), JSON.stringify(list)); } catch (e) { /* stockage plein */ } }
   function visibleOrder() { return load().filter(tabAllowed); }
+  function mayRemove(tab) { return visibleOrder().some(function (x) { return x !== tab && KEEP.indexOf(x) !== -1; }); }
 
   // Pose l'ordre et la visibilité sur les boutons existants (aucun n'est recréé : les écouteurs de app.js/trade.js restent).
   function refresh() {
@@ -45,12 +48,15 @@
     var avail = addable();
     addBtn.classList.toggle('barNoAdd', !avail.length); // plus rien à ajouter : le « + » disparaît, la barre s'allonge
     addBtn.classList.toggle('barPaid', avail.some(isPaid)); // variante verre fort : extension payée à ajouter (jamais les deux à la fois)
+    var solo = visibleOrder().length <= 1 && avail.length > 0; // un seul volet : la barre ne montre que le « + » perceptible
+    nav.classList.toggle('barSolo', solo);
+    if (solo && editMode) { editMode = false; nav.classList.remove('barEdit'); hint.classList.add('hidden'); }
     Array.prototype.forEach.call(pill.querySelectorAll('.tabBtn'), function (b) {
       var on = list.indexOf(b.dataset.tab) !== -1 && tabAllowed(b.dataset.tab);
       b.classList.toggle('barOut', !on);
       b.tabIndex = on ? 0 : -1;
       var x = b.querySelector('.barX');
-      var crossOk = editMode && on && visibleOrder().length > 1; // garde-fou : le dernier onglet n'est pas retirable
+      var crossOk = editMode && on && mayRemove(b.dataset.tab); // garde-fou Q1 : Chrono, Feuille de route ou Trade Tracker reste
       if (x && !crossOk) x.remove();
       if (!x && crossOk) addX(b);
     });
@@ -73,8 +79,7 @@
   // ----- Mode édition (appui long, mêmes délais et gardes que bindActivityLongPress) -----
   function addX(b) {
     var x = document.createElement('span');
-    x.className = 'barX'; x.setAttribute('role', 'button'); x.setAttribute('aria-label', tr('Retirer de la barre'));
-    x.innerHTML = '<svg aria-hidden="true" width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    x.className = 'cmpRemove barX'; x.setAttribute('role', 'button'); x.setAttribute('aria-label', tr('Retirer de la barre'));
     x.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
     x.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); removeTab(b.dataset.tab); });
     b.appendChild(x);
@@ -86,7 +91,7 @@
     refresh();
   }
   function removeTab(tab) {
-    if (visibleOrder().length <= 1) return;
+    if (!mayRemove(tab)) return;
     var wasActive = btnOf(tab) && btnOf(tab).classList.contains('active');
     save(load().filter(function (x) { return x !== tab; }));
     refresh();
