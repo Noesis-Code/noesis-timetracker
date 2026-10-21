@@ -34,3 +34,4 @@ Le Simplificateur ne crée jamais de fonction, ne change pas de règle produit, 
 - Fenêtres qui montent du bas : remplacées par des pop-up centrés (19 oct., en cours).
 - Bascule « Confirmer chaque tâche ajoutée par l'IA » (Mon IA) : la confirmation reste toujours active, ne pas réintroduire de réglage (19 oct.).
 - Désactiver un module depuis la barre du bas (✕ en mode édition) : le seul chemin est Réglages > Modules ; l'appui long sert uniquement à réordonner (19 oct.).
+- Trade Tracker : retirer des filtres/options de l'écran Positions (comptes, tris, filtre Gains/Pertes, secteur, valeur/%, camembert/barres, masquer petites positions) : tous restent ; et ligne « Gain réalisé » sur la carte du portefeuille : non ajoutée (20 oct.).

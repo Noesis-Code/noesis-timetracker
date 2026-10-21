@@ -145,7 +145,7 @@ Agent : préparer et vérifier seulement ; la création du service et des secret
 
 **Manque**
 - Tout essai réel : il exige le jeton Questrade de l'expert (donnée sensible, jamais confié à un agent) et ses TOTP/codes de secours. Priorité absolue sécurité (`CHANTIERS.md`). Aucun agent ne doit manipuler ce jeton.
-- Critère de « validé » : pas défini (quels chiffres comparer ? valeur totale, positions, encaisse ?).
+- Critère de « validé » (Émilien, 20 oct.) : on compare TOUT avec le portefeuille de l'expert, pas seulement 4 chiffres.
 
 **Version proposée (préparation seulement)**
 ```
@@ -153,8 +153,8 @@ Titre : Préparer la grille de comparaison des chiffres Trade Tracker avec le re
 Chantier / secteur : 1 Trade Tracker
 1. Contexte : connecteur Questrade testé sur fixtures ; jamais sur un vrai compte.
 2. Problème : pas de définition de « validé ».
-3. Résultat attendu, dans ses mots : AUCUNE CITATION -> question Q5.
-4. C'est fini quand… : (a) une grille écrite (valeur totale, encaisse, N positions, gain par compte : colonne Questrade / colonne Trade, tolérance) ; (b) l'expert ou Émilien la remplit lui-même après avoir collé son propre jeton (TOTP actif, checklist DEPLOY points 1-10 faits) ; (c) écarts > tolérance = tâche de correction ouverte.
+3. Résultat attendu, dans ses mots : « validé » = on compare TOUT avec le portefeuille de l'expert, pas seulement 4 chiffres (Émilien, 20 oct. 2026).
+4. C'est fini quand… : (a) une grille écrite couvrant TOUT ce que Trade affiche (valeur totale, encaisse, rendement, chaque position : quantité, coût, valeur, gain ; chaque compte ; répartition par secteur ; historique ; gain réalisé non affiché : à calculer à part ; colonne Questrade / colonne Trade, écart et tolérance par ligne, tolérance à fixer avec l'expert) ; (b) l'expert ou Émilien la remplit lui-même après avoir collé son propre jeton (TOTP actif, checklist DEPLOY points 1-10 faits) ; (c) écarts > tolérance = tâche de correction ouverte.
 5. Périmètre : document seulement ; aucun agent ne voit le jeton.
 6. On ne touche pas : jeton, données réelles dans le dépôt ou les logs, portée Questrade (lecture seule).
 7. Preuve : grille remplie par Émilien ou l'expert (valeurs agrégées, sans numéros de compte).
