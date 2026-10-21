@@ -2217,7 +2217,7 @@ button { -webkit-user-select: none; user-select: none; }
 /* "+ Ajouter une réponse" et "Option" sur la même ligne, la seconde à droite
    de la première. Le bouton "Option" ouvre .pollFormAdvanced juste en dessous. */
 .pollFormActions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.pollFormActions .pollAddOptionBtn { align-self: auto; }
+.pollFormActions .cmpAdd { width: auto; flex: 1 1 auto; }
 /* Le panneau des réglages est ENCADRÉ (3 septembre 2026, demande d'Emilien : « lorsque je clique sur option, un cadre se forme et entoure les options »). */
 .pollFormAdvanced {
   display: flex; flex-direction: column; gap: 10px;

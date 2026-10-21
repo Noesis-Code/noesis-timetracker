@@ -779,6 +779,7 @@
     'Créer un sondage': 'Create a poll',
     'Ta question...': 'Your question...',
     '+ Ajouter une réponse': '+ Add an answer',
+    'Ajouter une réponse': 'Add an answer',
     // Bouton qui déplie le choix multiple et la date de clôture (3 septembre
     // 2026). Singulier en français, voulu tel quel par Emilien (« un bouton
     // option à droite de "+ajouter une réponse" ») ; pluriel en anglais, où
