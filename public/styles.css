@@ -13,7 +13,7 @@
   --card: #16141A;
   --text: #F3EEE8;
   --text-light: #A59E96;
-  --border: rgba(243, 238, 232, 0.12);
+  --border: var(--sep);
   --track-bg: rgba(243, 238, 232, 0.10);
   --hover-bg: rgba(243, 238, 232, 0.08);
   --surface-dim: #16141A;
@@ -73,7 +73,7 @@
 
   /* ---- Verre : UN seul jeu --glass-*, deux niveaux ---- (a) verre « liquide » : boutons, panneaux, barre du haut (flou 24px) ; (b) verre « calme » : cartes, … */
   --glass-bg: rgba(243, 238, 232, .05);   /* verre calme par défaut (R17) */
-  --glass-border: rgba(243, 238, 232, 0.12);
+  --glass-border: var(--sep);
   --glass-shadow: inset 0 0 0 1px rgba(243, 238, 232, .12);
   --glass-blur: blur(12px) saturate(1.1);
   --glass-blur-sheet: none;
@@ -86,7 +86,7 @@
   --glass-strong-line: rgba(255, 255, 255, 0.16);
   --glass-strong-blur: blur(24px) saturate(160%);
   --glass-calm-bg: rgba(243, 238, 232, .05);
-  --glass-calm-line: rgba(243, 238, 232, .12);
+  --glass-calm-line: var(--sep);
   --glass-calm-blur: blur(12px) saturate(1.1);
   --glass-calm-bg-strong: #16141A;   /* menus, colonnes figées */
   --glass-calm-blur-strong: blur(18px) saturate(1.15);
