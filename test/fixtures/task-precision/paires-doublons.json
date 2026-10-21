@@ -41,6 +41,10 @@
     {"id":"N17","a":"Entraînement jambes","b":"Entraînement bras","dup":false},
     {"id":"N18","a":"Nettoyer la cuisine","b":"Nettoyer la salle de bain","dup":false},
     {"id":"N19","a":"Appeler maman","b":"Appeler le notaire","dup":false},
-    {"id":"N20","a":"Facture 1042","b":"Facture 1043","dup":false}
+    {"id":"N20","a":"Facture 1042","b":"Facture 1043","dup":false},
+    {"id":"R01","a":"Ajouter possibilité de nommer un responsable de tâche","b":"Ajouter possibilité de nommer un responsable de la tâche","dup":true},
+    {"id":"R02","a":"Faire le formatage écrit à la main dans le CRM","b":"Faire le formatage écrit à la main dans CRM","dup":true},
+    {"id":"R03","a":"Exécuter la trame 3 pour Émilien","b":"Exécuter la trame 4 pour Émilien","dup":false},
+    {"id":"R04","a":"Finaliser la page 3 de l'application","b":"Finaliser la page 4 de l'application","dup":false}
   ]
 }
