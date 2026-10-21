@@ -3176,15 +3176,15 @@ button { -webkit-user-select: none; user-select: none; }
 #activityGoalsCategoriesBlock { margin-top: 8px; }
 .catList { margin: 10px 0; }
 .catGroup { display: flex; flex-direction: column; gap: 4px; }
-.catSecteurs { display: flex; flex-direction: column; margin-left: 14px; }
-.catSecteurRow { padding: 10px 0; border-top: 1px solid var(--border); }
+.catSecteurs { display: flex; flex-direction: column; }
+.catSecteurRow { padding: 10px 0 10px 14px; border-top: 1px solid var(--sep); }  /* R22 : trait de bord à bord, l'indentation passe en padding */
 .catList:not(.editing) .catSecteurRow:first-child { border-top: 0; }
 .catSecteurRow .activityRowName { font-weight: 500; }
 .catSecteurRow > .meta { margin: 2px 0 0; }
-.catSecteurs > .cmpAdd { margin: 8px 0; }
+.catSecteurs > .cmpAdd { margin: 8px 0 8px 14px; width: calc(100% - 14px); }
 #activityGoalsCategoriesBlock > #catAddPoleBtn { margin-top: 16px; }
 /* Mode édition : lignes séparées par un trait fin ; barre « Terminer » FIXE, fond noir opaque. */
-.catList.editing .catSecteurRow { border-top: 1px solid var(--border); }
+.catList.editing .catSecteurRow { border-top: 1px solid var(--sep); }
 .catList .activityEditBar {
   position: sticky; top: calc(var(--activity-switch-h, 46px) + 2px); z-index: 6; background: var(--bg);
   padding: 8px 2px; border-bottom: 1px solid var(--border);
