@@ -15483,8 +15483,7 @@
     actions.className = 'catNewPoleActions';
     var trash = document.createElement('button');
     trash.type = 'button';
-    trash.className = 'historyRowIconBtn danger';
-    trash.innerHTML = CHRONO_HISTORY_DELETE_ICON;
+    trash.className = 'cmpRemove';
     trash.setAttribute('aria-label', t('Supprimer cette activité'));
     trash.addEventListener('click', function () { openDeleteActivityModal(a); });
     var cancel = document.createElement('button');

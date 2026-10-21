@@ -47,12 +47,9 @@
     }).catch(function () { if (box.isConnected) box.innerHTML = '<span class="formMsg error">État de la synchro indisponible.</span>'; });
   }
   function confirmDisconnect() {
-    var m = TTUI.modal('Déconnecter le courtier ?',
-      '<p class="hint" style="margin:0 0 14px">Le jeton sera effacé du serveur, la synchronisation s’arrêtera et les données synchronisées de ton compte (positions, historique, journal) seront supprimées définitivement.</p>' +
-      '<div class="btnRow"><button type="button" class="btnGhost" id="discNo">Annuler</button><button type="button" class="btnDanger" id="discYes">Déconnecter</button></div>');
-    m.root.querySelector('#discNo').addEventListener('click', m.close);
-    m.root.querySelector('#discYes').addEventListener('click', function () {
-      var b = this; b.disabled = true;
+    TMT.ui.confirm('Déconnecter le courtier ?\nLe jeton sera effacé du serveur, la synchronisation s’arrêtera et les données synchronisées de ton compte (positions, historique, journal) seront supprimées définitivement.', { ok: 'Déconnecter', danger: true }).then(function (yes) {
+      if (!yes) return;
+      var m = { close: function () {} };
       function del() {
         return fetch('/api/broker/token', { method: 'DELETE', credentials: 'same-origin' }).then(function (r) {
           if (r.status === 403) return r.json().catch(function () { return {}; }).then(function (j) {

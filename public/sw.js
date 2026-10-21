@@ -46,7 +46,11 @@
 // demande d'Emilien) : v6 → v7 ; objectifs-page2.js/.css remplacés par
 // objectifs-page2-taches.js/.css et objectifs-page2-objectif.js/.css.
 // 2 oct. 2026 : v9 → v10, ajout de stats-avance.js/.css (Statistiques, page 2).
-const CACHE_VERSION = 'noesis-v542';
+<<<<<<< HEAD
+const CACHE_VERSION = 'noesis-v543';
+=======
+const CACHE_VERSION = 'noesis-v544';
+>>>>>>> d3f41a7b (Écarts visuels (audit 21 oct.) : « + Ajouter un pôle » pointillé, croix rouge R25, cartes et confirmations Trade unies, pop-up barre #16141A, pastille avatar violet cendré)
 
 // File d'attente des tâches capturées hors ligne (voir l'en-tête de
 // public/offline-queue.js). Chargée ici pour que Background Sync puisse la

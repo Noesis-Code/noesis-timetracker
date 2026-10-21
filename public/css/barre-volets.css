@@ -83,9 +83,7 @@
 }
 .barAddCard {
   box-sizing: border-box; width: min(100%, 340px); padding: 16px; border-radius: 20px;
-  background: var(--glass-bg, linear-gradient(180deg, rgba(243, 238, 232, .14), rgba(243, 238, 232, .06)));
-  border: 1px solid var(--glass-border, rgba(243, 238, 232, .16)); box-shadow: var(--glass-shadow, none);
-  -webkit-backdrop-filter: var(--glass-blur, blur(24px) saturate(160%)); backdrop-filter: var(--glass-blur, blur(24px) saturate(160%));
+  background: var(--pop-bg, #16141A); border: 1px solid var(--border, rgba(243, 238, 232, .16));
 }
 .barAddHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .barAddHeader .sectionTitle { margin: 0; }

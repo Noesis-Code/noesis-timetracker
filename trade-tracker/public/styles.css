@@ -109,9 +109,8 @@ a { color: inherit; text-decoration: none; }
 
 /* Cartes (verre calme) */
 .card {
-  background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line);
+  background: var(--card); border: 1px solid var(--glass-calm-line);
   border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-card);
-  -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
 }
 .cardLabel { font-size: 13px; color: var(--text-light); }
 .cardValue { font-size: 22px; font-weight: bold; margin-top: 2px; font-variant-numeric: tabular-nums; }

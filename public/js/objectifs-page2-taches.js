@@ -731,7 +731,7 @@
           b.addEventListener('click', function () { if (!b.classList.contains('goalsReportBtn--blocked')) b.disabled = true; onClick(); });
           li.appendChild(b);
           if (onDelete) {
-            var d = el('button', 'goalsReportDel'); d.type = 'button'; d.innerHTML = GOALS_TASK_TRASH_ICON; d.setAttribute('aria-label', t('Supprimer la tâche'));
+            var d = el('button', 'cmpRemove goalsReportDel'); d.type = 'button'; d.setAttribute('aria-label', t('Supprimer la tâche'));
             d.addEventListener('click', function () { TMT.ui.confirm(t('Supprimer cette tâche ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return; d.disabled = b.disabled = true; onDelete();
 });});
             li.appendChild(d);

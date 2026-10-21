@@ -220,10 +220,7 @@
       });
     });
     if (rs) rs.addEventListener('click', function () {
-      var m = TTUI.modal('Changer d’appareil ?', '<p class="hint" style="margin:0 0 14px">L’appareil d’authentification actuel et les codes de secours seront supprimés. Tu devras activer le nouvel appareil tout de suite.</p>' +
-        '<div class="btnRow"><button type="button" class="btnGhost" id="rsNo">Annuler</button><button type="button" class="btnDanger" id="rsYes">Continuer</button></div>');
-      m.root.querySelector('#rsNo').addEventListener('click', m.close);
-      m.root.querySelector('#rsYes').addEventListener('click', function () { m.close(); sensitive('/api/auth/totp/reset', function () { TTD.reset(); TTApp.refresh(); }); });
+      TMT.ui.confirm('Changer d’appareil ?\nL’appareil d’authentification actuel et les codes de secours seront supprimés. Tu devras activer le nouvel appareil tout de suite.', { ok: 'Continuer', danger: true }).then(function (yes) { if (!yes) return; sensitive('/api/auth/totp/reset', function () { TTD.reset(); TTApp.refresh(); }); });
     });
 
     function passkeyCard(list, available) {
@@ -231,7 +228,7 @@
       section(el, '#secPasskeys', '<div class="cardHead" style="margin:0"><div><div class="cardLabel">Passkey</div><div class="syncBannerVal">' + (list.length ? list.length + (list.length > 1 ? ' enregistrées' : ' enregistrée') : 'Aucune') + '</div></div>' +
         '<span class="statusBadge ' + (list.length ? 'ok' : 'warn') + '"><span class="syncDot"></span>' + (list.length ? 'Actif' : 'Recommandé') + '</span></div>' +
         '<p class="hint" style="margin:8px 0 0">Face ID, empreinte ou clé de sécurité : résiste à l’hameçonnage. Ton code à 6 chiffres reste la récupération.</p>' +
-        list.map(function (k) { return '<div class="detailRow"><span>' + esc(k.label || 'Passkey') + '<span class="hint"> · ' + esc(TTF.dateTime(k.createdAt)) + '</span></span><button type="button" class="btnGhost" data-pk="' + k.id + '" style="min-height:34px;padding:0 14px">Retirer</button></div>'; }).join('') +
+        list.map(function (k) { return '<div class="detailRow"><span>' + esc(k.label || 'Passkey') + '<span class="hint"> · ' + esc(TTF.dateTime(k.createdAt)) + '</span></span><button type="button" class="cmpRemove" data-pk="' + k.id + '" aria-label="Retirer cette passkey"></button></div>'; }).join('') +
         (can ? '<button type="button" class="' + (list.length ? 'btnGhost linkBtn' : 'btnPrimary') + '" id="addPasskey">Ajouter une passkey</button>'
           : '<p class="hint" style="margin:10px 0 0">' + (!mfa.enrolled ? 'Active d’abord la vérification en deux étapes.' : !available ? 'Indisponible : le serveur n’est pas configuré.' : 'Non prise en charge ici. Essaie « Ouvrir à part ».') + '</p>') +
         '<div id="pkMsg" class="formMsg" role="status"></div>');
@@ -256,11 +253,8 @@
       Array.prototype.forEach.call(el.querySelectorAll('[data-pk]'), function (b) {
         b.addEventListener('click', function () {
           var id = b.getAttribute('data-pk');
-          var m = TTUI.modal('Retirer cette passkey ?', '<p class="hint" style="margin:0 0 14px">Elle ne pourra plus ouvrir ta session. Ton code à 6 chiffres reste actif.</p>' +
-            '<div class="btnRow"><button type="button" class="btnGhost" id="pkNo">Annuler</button><button type="button" class="btnDanger" id="pkYes">Retirer</button></div>');
-          m.root.querySelector('#pkNo').addEventListener('click', m.close);
-          m.root.querySelector('#pkYes').addEventListener('click', function () {
-            m.close();
+          TMT.ui.confirm('Retirer cette passkey ?\nElle ne pourra plus ouvrir ta session. Ton code à 6 chiffres reste actif.', { ok: 'Retirer', danger: true }).then(function (yes) {
+            if (!yes) return;
             function go() { req('DELETE', '/api/auth/passkeys/' + encodeURIComponent(id)).then(function (x) {
               if (x.status === 403 && x.j.error === 'stepup_required') return stepUp().then(go, function () { fail('Ré-authentification annulée.'); });
               if (!x.ok) return fail('Échec (' + x.status + ').');
@@ -284,12 +278,9 @@
         '<button type="button" class="btnDangerOutline linkBtn" id="revokeAll">Fermer toutes mes sessions</button><div id="sessMsg" class="formMsg" role="status"></div>');
       var ra = el.querySelector('#revokeAll');
       if (ra) ra.addEventListener('click', function () {
-        var m = TTUI.modal('Fermer toutes les sessions ?', '<p class="hint" style="margin:0 0 14px">Tous tes appareils seront déconnectés, celui-ci compris. Pour revenir, ouvre Trade Tracker depuis TimeTracker.</p>' +
-          '<div class="btnRow"><button type="button" class="btnGhost" id="raNo">Annuler</button><button type="button" class="btnDanger" id="raYes">Tout fermer</button></div>');
-        m.root.querySelector('#raNo').addEventListener('click', m.close);
-        m.root.querySelector('#raYes').addEventListener('click', function () {
+        TMT.ui.confirm('Fermer toutes les sessions ?\nTous tes appareils seront déconnectés, celui-ci compris. Pour revenir, ouvre Trade Tracker depuis TimeTracker.', { ok: 'Tout fermer', danger: true }).then(function (yes) {
+          if (!yes) return;
           req('POST', '/api/security/sessions/revoke-all', {}).then(function (x) {
-            m.close();
             if (x.ok) { TTD.reset(); el.innerHTML = '<div class="stateScreen" role="status"><div class="stateIcon">' + SHIELD + '</div><div class="stateTitle">Sessions fermées</div><div class="stateMsg">' + esc(String(x.j.closed || 0)) + ' session(s) fermée(s). Ouvre Trade Tracker depuis TimeTracker pour te reconnecter.</div></div>'; }
             else { var sm2 = el.querySelector('#sessMsg'); if (sm2) { sm2.className = 'formMsg error'; sm2.textContent = 'Échec (' + x.status + ').'; } }
           });
