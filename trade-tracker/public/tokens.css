@@ -13,7 +13,7 @@
   --card: #16141A;
   --text: #F3EEE8;
   --text-light: #A59E96;
-  --border: rgba(243, 238, 232, 0.12);
+  --border: var(--sep);          /* alias du séparateur commun (composants.css), même valeur qu'avant */
   --track-bg: rgba(243, 238, 232, 0.10);
   --hover-bg: rgba(243, 238, 232, 0.08);
 
