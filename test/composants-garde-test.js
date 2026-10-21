@@ -20,4 +20,16 @@ const RULES = [  // [libellé, regex]
 const hits = (re) => files.filter((f) => re.test(read(f)));
 // Règles activées au fil des étapes (voir tout en bas)
 for (const [label, re] of RULES) { const h = hits(re); ok(h.length === 0, label + (h.length ? ' : ' + h.slice(0, 4).join(', ') : '')); }
+// Croix ✕ (R25/R29, étape 2 faite) : tout ✕ de code hors composants.js passe par .cmpClose (hors commentaires).
+{
+  const bad = [];
+  for (const f of files) {
+    if (!/\.(js|html)$/.test(f) || /composants\.js$/.test(f)) continue;
+    read(f).split(/\r?\n/).forEach((l, i) => {
+      if (!/['">]✕['"<]/.test(l) || /^\s*(\/\/|\/\*|\*|<!--)/.test(l) || /cmpClose/.test(l)) return;
+      bad.push(f + ':' + (i + 1));
+    });
+  }
+  ok(bad.length === 0, 'croix ✕ : toujours .cmpClose / TMT.ui.closeBtn' + (bad.length ? ' : ' + bad.slice(0, 4).join(', ') : ''));
+}
 process.exit(failed ? 1 : 0);
