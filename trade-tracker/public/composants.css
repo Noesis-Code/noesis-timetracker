@@ -60,3 +60,21 @@
 
 /* Séparateur (R22) : trait pleine largeur d'un bord à l'autre de la cellule, jamais de marges. Sur la liste : entre deux enfants ; sur une ligne : au-dessus. */
 .cmpList > * + *, .cmpSep { border-top: 1px solid var(--sep); }
+
+/* Bouton d'action (R1/R11) : violet plein ; .cmpBtnDanger = rouge, uniquement pour retirer/supprimer (R12/R28) */
+.cmpBtn {
+  display: flex; align-items: center; justify-content: center; width: 100%; box-sizing: border-box; min-height: 48px; padding: 12px 16px;
+  border: 0; border-radius: var(--radius-lg); font: inherit; font-size: 15px; font-weight: 600; background: var(--purple); color: var(--on-action);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.cmpBtn:disabled { opacity: .5; cursor: not-allowed; }
+.cmpBtnDanger { background: var(--danger); }
+
+/* Fenêtre de confirmation (TMT.ui.confirm) : remplace window.confirm ; fond #16141A opaque, ✕ en haut à droite */
+.cmpConfirmVeil { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--veil, rgba(0, 0, 0, .5)); }
+.cmpConfirmCard {
+  width: 100%; max-width: 360px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 16px;
+  background: #16141A; border: 1px solid rgba(243, 238, 232, .14); border-radius: var(--radius-xl); box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+}
+.cmpConfirmHead { display: flex; justify-content: flex-end; }
+.cmpConfirmText { margin: 0; font-size: 15px; line-height: 1.45; color: var(--text); word-break: break-word; }
