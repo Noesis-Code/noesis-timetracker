@@ -41,9 +41,9 @@ Mots d'Émilien : un plan marche selon le résultat, mais le résultat doit êtr
 3. **Hauteur d'un objectif**, par ordre d'importance : structure de mots (ex. « succursale ») > niveau dans le plan (annuel, mensuel, hebdomadaire) > temps total prévu.
 4. **Peu de données** : (a) on classe tout de suite avec la mention « peu fiable » (pas de seuil) ET (b) on compare toujours aussi l'utilisateur à lui-même (sa vitesse actuelle contre sa vitesse passée).
 
-### Points de confidentialité à valider par Émilien
-- **Localisation** : plus identifiante que le domaine. Proposition : seulement un niveau très large (ville / campagne / autre), jamais le nom d'un lieu, et jamais lue dans les mots de l'utilisateur sans règle fermée.
-- **« Structure de mots »** : lue une fois, puis jetée, comme pour le domaine. Proposition : liste FERMÉE de marqueurs de hauteur (multiplication, expansion, premier lancement...) ; on ne conserve qu'un niveau (étiquette), jamais le mot.
+### Points de confidentialité : VALIDÉS par Émilien (21 oct. 2026)
+- **Localisation = regroupement par ville** : les entreprises d'une même ville sont rangées ensemble (marché le plus semblable). Clé ANONYME et irréversible par ville ; le nom du lieu n'est jamais stocké ni lu par un humain ; comparaison entre clés identiques ; ville peu représentée = mention « peu fiable », sans seuil minimum. Risque résiduel dit honnêtement : domaine + taille + ville peut cibler une seule entreprise dans une petite ville ; compensation : aucune statistique n'est montrée à personne, seul l'algorithme les utilise.
+- **Structure de mots** (« succursale ») : liste FERMÉE de marqueurs de hauteur ; le mot est lu une fois puis jeté, on ne garde qu'un niveau (étiquette).
 
 ## Ordre du jour de la discussion (21 oct. : point 1 fait)
 1. Définir ce qui « marche » (voir « À trancher »).
