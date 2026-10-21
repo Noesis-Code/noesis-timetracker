@@ -51,3 +51,11 @@ Décision d'Émilien, 21 oct. 2026 (mots exacts dans `docs/regles/intentions.md`
 2. **Accord.** Modification visuelle NOUVELLE proposée par un chantier (pas déjà demandée par Émilien dans le chat) : pas de push avant son Oui ; présentée avec sa capture sur la page de décisions ou dans la liste. Modification déjà demandée explicitement : on pousse, capture au rapport.
 3. **Fidélité au plan.** Après exécution, nouvelle capture avant/après comparée à celle du plan. Tout écart (couleur, taille, position, texte) est corrigé avant le push, jamais livré. Le relecteur (`.claude/agents/relecteur.md`) refuse une branche visuelle sans capture du plan et sans capture finale conforme.
 4. **Pas d'ajout en cours de route** : rien n'est ajouté au plan.
+
+## Rotation et liaison avec la production
+
+1. **Rotation** : l'ordre de TOUS les chantiers (plus de 5) est le tableau 1 « Ordre des chantiers » de la page Prochaines tâches (collection `ordre`, document `chantiers`, champ `items` de `{nom, note}`). Les 5 premiers sont actifs ; quand un chantier actif est fini, le suivant de la liste prend sa place. Seul Émilien change l'ordre.
+2. **Tableau 2** : chronologie des tâches par chantier (les cartes de la page, déjà éditables).
+3. **Liaison avec la production** : les tâches du tableau 2 sont les tâches réelles de TiMeTracker production, par secteur (lecture). Ce qu'Émilien modifie dans la page se reflète dans l'app dès que les outils d'écriture du connecteur sont en production ; l'ordre des chantiers sera alors aussi enregistré dans l'app (tâches datées par chantier).
+4. **Capture du chantier** : une capture 390 px par chantier (staging + améliorations visuelles anticipées, jamais poussées), voir `docs/fonctionnalites/captures-chantiers.md`.
+5. **Récapitulatif de fin de session** : à la demande d'Émilien, Claude résume ce que la Précision a appris (champ `perf` des rapports).
