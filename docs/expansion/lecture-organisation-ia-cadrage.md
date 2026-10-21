@@ -41,6 +41,12 @@ Mots d'Émilien : un plan marche selon le résultat, mais le résultat doit êtr
 3. **Hauteur d'un objectif**, par ordre d'importance : structure de mots (ex. « succursale ») > niveau dans le plan (annuel, mensuel, hebdomadaire) > temps total prévu.
 4. **Peu de données** : (a) on classe tout de suite avec la mention « peu fiable » (pas de seuil) ET (b) on compare toujours aussi l'utilisateur à lui-même (sa vitesse actuelle contre sa vitesse passée).
 
+### Tableau des formes : verdicts d'Émilien (21 oct. 2026)
+Principe : être très flexible, pour pouvoir analyser n'importe quel type de structure d'algorithme.
+- **Gardées** : nombre d'étapes d'un plan ; précision de l'estimation ; présence d'une note ou d'une échéance ; constance dans la durée ; ORDRE des tâches (gardé à sa demande, malgré le risque moyen : un ordre rare peut se reconnaître ; il n'est jamais montré, seulement mesuré).
+- **Retirées** : longueur du titre (déjà couverte par la structure de mots) ; découpage (couvert par le nombre d'étapes).
+- Ouvert : une forme peut être ajoutée plus tard sur demande d'Émilien.
+
 ### Points de confidentialité : VALIDÉS par Émilien (21 oct. 2026)
 - **Localisation = regroupement par ville** : les entreprises d'une même ville sont rangées ensemble (marché le plus semblable). Clé ANONYME et irréversible par ville ; le nom du lieu n'est jamais stocké ni lu par un humain ; comparaison entre clés identiques ; ville peu représentée = mention « peu fiable », sans seuil minimum. Risque résiduel dit honnêtement : domaine + taille + ville peut cibler une seule entreprise dans une petite ville ; compensation : aucune statistique n'est montrée à personne, seul l'algorithme les utilise.
 - **Structure de mots** (« succursale ») : liste FERMÉE de marqueurs de hauteur ; le mot est lu une fois puis jeté, on ne garde qu'un niveau (étiquette).
