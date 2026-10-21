@@ -24,6 +24,12 @@ Un « élément » = on ouvre l'écran, on déclenche l'élément, on capture. S
 - Sur mesure, sans rien modifier : `python3 scripts/capture-chantier.py --element "Nom lisible" --depuis chrono --etapes '[{"clic":"#chronoHistoryHeader"},{"attendre":800}]'` (`--depuis` = chrono, objectifs (modules seuls), communaute, reglages ou tous (app normale, écran d accueil) : écran de départ ; les étapes mènent à l'élément).
 - **Pour en demander un** : écrire au coordinateur « capture de l'élément <description> (écran, geste pour l'ouvrir) » ; il l'ajoute à `ELEMENTS` dans `scripts/capture-pages.py` (ou le lance en sur mesure) et publie l'image.
 
+### Manquant (non capturé)
+
+- Chrono : liste des activités avec pôle/secteur de la fenêtre « Pôle ou secteur » du Chrono en marche (aucun pôle dans les données de test), feuille de temps détaillée, écran Activité d'un partage.
+- Objectifs : Page 3 Calendrier de la période (créneau d'une tâche), panneau « gérer mes catégories », proposition IA / Modifications proposées, achat Expansion (compte réel Stripe), fenêtre Activité (Tâches/Discussion) : à ajouter dans `OBJECTIFS` dès qu'un parcours stable existe.
+- Communauté : sondage (création, vote), fil d'une activité partagée. Réglages : chaque sous-écran légal (conditions, politique), connexion IA. Trade : données réelles du courtier, vérification TOTP d'un vrai compte.
+
 ### Limites connues
 
 - Écrans qui exigent un compte réel (paiement Expansion, TOTP d'un vrai compte, réponses IA, notifications push) : non capturés, listés dans « Manquant » plus bas.
