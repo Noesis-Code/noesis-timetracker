@@ -50,6 +50,14 @@ Principe : être très flexible, pour pouvoir analyser n'importe quel type de st
 - **Retirées** : longueur du titre (déjà couverte par la structure de mots) ; découpage (couvert par le nombre d'étapes).
 - Ouvert : une forme peut être ajoutée plus tard sur demande d'Émilien.
 
+### Grille de référence d'étude (Napoléon Hill) et structure de mots (21 oct. 2026) : à peaufiner
+Décision d'Émilien : les critères d'évaluation de la structure des plans partent a priori de ceux de Hill (Réfléchissez et devenez riche), POUR ÉTUDIER, pas comme modèle à viser ni à imiter ; on se fera ensuite notre propre opinion. Tout point de Hill doit être couvert ou consigné « non mesurable ». Grille retenue pour étude, à peaufiner au fil du temps. Tout est mesuré sans conserver aucun mot (niveaux ou nombres).
+**Axes de structure de mots (3 niveaux chacun, liste fermée de marqueurs, repli petit modèle si hésitation)** : flou ↔ dicté (précision + guidage fusionnés) ; type d'action (exécuter / décider / explorer-créer) ; phase (suite d'un mot par phase parmi : définir, préparer, produire, optimiser, diffuser, réviser : proposition, à confirmer) ; test avant engagement ; boucles de révision ; tourné vers qui (soi / équipe / clients).
+**Formes ajoutées d'après Hill** : objectif chiffré et daté ; délai avant la première action ; part des tâches partagées ; concentration (part des tâches dans un seul domaine) ; délai de décision et stabilité de l'objectif ; taux de reports (procrastination).
+**Contrepartie (valeur donnée)** : trois niveaux d'orientation, jamais un prix ni une valeur déclarée : part tournée vers le client ; amélioration continue de l'offre (dont tâches issues d'écoute) ; efficacité de production (réduction de coût). Limite : on mesure l'intention visible, pas la valeur reçue ni le prix.
+**Analyse continue du marché** (ajout d'Émilien) : part des tâches de veille / étude de marché (liste fermée de marqueurs) et sa régularité (semaines avec au moins une telle tâche).
+**Non mesurables, consignés tels quels** : subconscient, cerveau, sixième sens, transmutation, foi (approchée seulement par le délai avant la première action).
+
 ### Points de confidentialité : VALIDÉS par Émilien (21 oct. 2026)
 - **Localisation = regroupement par ville** : les entreprises d'une même ville sont rangées ensemble (marché le plus semblable). Clé ANONYME et irréversible par ville ; le nom du lieu n'est jamais stocké ni lu par un humain ; comparaison entre clés identiques ; ville peu représentée = mention « peu fiable », sans seuil minimum. Risque résiduel dit honnêtement : domaine + taille + ville peut cibler une seule entreprise dans une petite ville ; compensation : aucune statistique n'est montrée à personne, seul l'algorithme les utilise.
 - **Structure de mots** (« succursale ») : liste FERMÉE de marqueurs de hauteur ; le mot est lu une fois puis jeté, on ne garde qu'un niveau (étiquette).
