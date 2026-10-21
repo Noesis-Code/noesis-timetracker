@@ -1,6 +1,6 @@
 # Audit de simplicité : écran Trade Tracker (20 oct. 2026)
 
-Méthode : `docs/regles/boucle-veille.md`. Captures 390 px (données de démonstration `?demo=1`, serveur local) : `docs/img/trade-accueil-390.png` (Accueil) et `docs/img/trade-positions-menu-390.png` (Positions, menu ⋮ ouvert). **Tout est en PROPOSITION : rien n'est retiré.** Aucune citation d'Émilien ne décrit le contenu de ces écrans (`docs/regles/intentions.md` : seulement « connecter le module à l'activité ») ; donc « personne n'a demandé » vaut pour tout, mais retirer sans son avis un écran déjà livré et utilisé par l'expert serait risqué : décision demandée (Q3, Q7 dans `questions-emilien-trade.md`).
+Méthode : `docs/regles/boucle-veille.md`. Captures 390 px (données de démonstration `?demo=1`, serveur local) : `docs/img/trade-accueil-390.png` (Accueil) et `docs/img/trade-positions-menu-390.png` (Positions, menu ⋮ ouvert). **Tout est en PROPOSITION : rien n'est retiré.** Aucune citation d'Émilien ne décrit le contenu de ces écrans (`docs/regles/intentions.md` : seulement « connecter le module à l'activité ») ; donc « personne n'a demandé » vaut pour tout, mais retirer sans son avis un écran déjà livré et utilisé par l'expert serait risqué : décision demandée (Q3, Q7 dans `questions-emilien.md`).
 
 **Fonction unique de l'écran** : voir d'un coup d'oeil la valeur et la composition de son portefeuille (et, pour un client, l'écart avec celui de l'expert).
 

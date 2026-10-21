@@ -22,7 +22,7 @@ Boucle (une passe par lot de livraisons, ou à la demande) :
 1. Lister les commits de `staging` depuis la dernière passe (`git log`) et relever tout ce qui ajoute de l'interface (boutons, options, sections, bascules, écrans, pop-up, couleurs).
 2. Confronter chaque ajout à cette charte et au journal « Refusé par Émilien » ci-dessous.
 3. Pour chaque ajout superflu : le retirer ou le fusionner avec l'existant (petit commit, capture avant/après, bump `sw.js`), sauf cas **réservé à Émilien** (règle produit verrouillée, légal, paiement, suppression de données) : le lister en une ligne pour décision.
-4. Proposer (liste courte, sans exécuter) les simplifications plus profondes (écrans à fusionner, réglages à supprimer, textes à raccourcir) pour validation d'Émilien.
+4. Proposer (liste courte, sans exécuter) les simplifications plus profondes (écrans à fusionner, réglages à supprimer, textes à raccourcir) dans `docs/simplifications/propositions.md` (liste vivante unique) pour validation d'Émilien ; une proposition acceptée ou refusée y est cochée, puis archivée au journal ci-dessous.
 5. Mettre à jour le journal ci-dessous et rendre un compte rendu de 2 lignes (retiré / à décider).
 Le Simplificateur ne crée jamais de fonction, ne change pas de règle produit, ne touche pas au Chrono ni à l'arbre périodique sans demande.
 
@@ -35,3 +35,7 @@ Le Simplificateur ne crée jamais de fonction, ne change pas de règle produit, 
 - Bascule « Confirmer chaque tâche ajoutée par l'IA » (Mon IA) : la confirmation reste toujours active, ne pas réintroduire de réglage (19 oct.).
 - Désactiver un module depuis la barre du bas (✕ en mode édition) : le seul chemin est Réglages > Modules ; l'appui long sert uniquement à réordonner (19 oct.).
 - Trade Tracker : retirer des filtres/options de l'écran Positions (comptes, tris, filtre Gains/Pertes, secteur, valeur/%, camembert/barres, masquer petites positions) : tous restent ; et ligne « Gain réalisé » sur la carte du portefeuille : non ajoutée (20 oct.).
+- Haiku seul pour le classement et la reformulation (proposition S8 : retirer le repli vers le modèle fort) : le repli reste (21 oct. 2026).
+
+## Journal des simplifications validées
+- Validé le 21 oct. 2026 (propositions S3, S7, S9 à S15) : scripts d'une seule fois retirés ; un seul modèle de repli (Sonnet 4.5) ; une seule variable `NOESIS_FAST_MODEL` ; plafonds IA réduits à 3,5 CAD par semaine et 15 CAD par mois par compte (plus de plafond du jour ni par fonction) ; un seul script de rapport de coût (`ai-cost-report.js`), un seul document IA (`docs/ia/ia-appels.md`), un seul fichier de questions (`docs/questions/questions-emilien.md`) ; audits de simplification fondus dans `propositions.md`.

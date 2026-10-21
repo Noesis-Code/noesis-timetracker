@@ -15,7 +15,7 @@ Tout est sur `staging` (test). Rien n'est sur `main`.
 - Menu allégé : clés et styles morts retirés, captures identiques.
 
 ## Les 5 décisions qui débloquent le plus
-Cases à cocher dans `docs/questions/questions-emilien-2026-10-20.md` (section « Les 5 décisions ») :
+Cases à cocher dans `docs/questions/questions-emilien.md` (section « Les 5 décisions ») :
 1. Expansion en production (courriels, CGU, remboursement, code gratuit).
 2. Trade en production (service, « validé », condition de lancement).
 3. Lancer les évaluations IA `--live` (environ 0,05 $, au plus 0,15 $).

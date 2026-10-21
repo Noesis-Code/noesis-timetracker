@@ -48,4 +48,4 @@ Sans la réduction hors séance : 672 synchros / semaine à 15 min (le ralentiss
 - Flux continu (streaming Questrade, portée supplémentaire) : nouveau mécanisme, à ne pas lancer sans réponse.
 
 ## Question à Émilien
-Voir `questions-emilien-trade.md`, Q1 (reformulée) : « quel délai attend-il ? »
+Voir `questions-emilien.md`, Q1 (reformulée) : « quel délai attend-il ? »

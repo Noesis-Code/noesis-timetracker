@@ -1,6 +1,6 @@
 # État des 7 tâches ouvertes du secteur Trade (20 oct. 2026)
 
-Source des tâches : lecture MCP par le coordinateur (secteur Trade, pôle TradeTracker). Rien n'est modifié ni marqué dans l'app. Les versions « modèle » sont des PROPOSITIONS (`docs/regles/modele-tache.md`). Questions regroupées : `questions-emilien-trade.md`.
+Source des tâches : lecture MCP par le coordinateur (secteur Trade, pôle TradeTracker). Rien n'est modifié ni marqué dans l'app. Les versions « modèle » sont des PROPOSITIONS (`docs/regles/modele-tache.md`). Questions regroupées : `questions-emilien.md`.
 
 **Constat général** : le code couvre déjà l'essentiel de ces 7 titres. Elles sont vagues car elles décrivent des fonctions déjà livrées ; ce qui manque est surtout de la **preuve** (essai réel avec Questrade, déploiement, parcours testé de bout en bout sur staging). Aucune citation d'intention d'Émilien n'existe pour elles (`docs/regles/intentions.md` ne contient que la connexion via « modifier l'activité ») : le champ 3 du modèle est donc vide partout, d'où des questions à cocher.
 
@@ -26,7 +26,7 @@ Titre proposé : Mesurer sur staging le délai entre un achat Questrade et la no
 Chantier / secteur : 1 Trade Tracker / pôle Trading › Trade Tracker
 1. Contexte observé : synchro 15 min + lecture écran 30 s (code ci-dessus) ; jamais essayé avec un vrai jeton.
 2. Problème : « temps réel » non défini ; on ne sait pas si 15 min suffit à Émilien ou l'expert.
-3. Résultat attendu, dans ses mots : AUCUNE CITATION -> question Q1 (questions-emilien-trade.md).
+3. Résultat attendu, dans ses mots : AUCUNE CITATION -> question Q1 (questions-emilien.md).
 4. C'est fini quand… : (a) un achat test (ou simulé via le connecteur de démo) apparaît dans l'écran en <= intervalle de synchro + 30 s, durée mesurée et écrite dans le compte rendu ; (b) test `sync-test.js`/`refresh-test.js` passent ; (c) Émilien a coché la réponse Q1.
 5. Périmètre : trade-tracker/server/lib/sync.js, trade-tracker/public/js/app.js (aucun autre).
 6. On ne touche pas : connecteur en écriture (interdit : lecture seule), interface (aucun bouton « actualiser » nouveau), sécurité.

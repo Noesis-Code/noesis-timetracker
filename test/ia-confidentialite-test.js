@@ -2,7 +2,7 @@
 // Profil d'essai rempli ; on capte le corps de CHAQUE requête réseau des appels IA réels (faux client) et on y cherche ces valeurs.
 // Usage : node test/ia-confidentialite-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-confid-');
-process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_DAY_USD = '1000';
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_WEEK_USD = '1000';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');
@@ -78,7 +78,7 @@ const since = (m) => bodies.slice(m).join('\n').toLowerCase();
   ];
   const seen = {};
   for (const [name, fn] of runs) {
-    aicache.memoClear(); aicache.capClear();
+    aicache.memoClear();
     const m = mark(); reply = '{}';
     await safe(fn);
     seen[name] = bodies.length - m;

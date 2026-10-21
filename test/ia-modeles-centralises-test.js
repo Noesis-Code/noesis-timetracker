@@ -21,13 +21,13 @@ const allowPerM = ['aibudget.js', 'drivesync.js'];
 const priceOffenders = jsFiles.filter((f) => path.basename(f) !== 'aimodels.js' && (priceLiteral.test(fs.readFileSync(f, 'utf8')) || (perMillion.test(fs.readFileSync(f, 'utf8')) && !allowPerM.includes(path.basename(f)))));
 assert(priceOffenders.length === 0, 'aucun prix IA codé en dur hors aimodels.js (server/ et scripts/)' + (priceOffenders.length ? ' : ' + priceOffenders.map((f) => path.relative(path.join(__dirname, '..'), f)).join(', ') : ''));
 ['aibudget.js', 'drivesync.js'].forEach((n) => { const src = fs.readFileSync(jsFiles.find((f) => path.basename(f) === n), 'utf8'); assert(/priceFor\(|PRICES/.test(src), n + ' : tarifs lus via priceFor/PRICES'); });
-const KEYS = ['ANTHROPIC_MODEL', 'NOESIS_TASK_CATEGORY_MODEL', 'NOESIS_GOALS_REWRITE_MODEL', 'DRIVE_SYNC_MODEL', 'NOESIS_SPELLFIX_MODEL', 'X_FAST'];
+const KEYS = ['ANTHROPIC_MODEL', 'NOESIS_TASK_CATEGORY_MODEL', 'NOESIS_GOALS_REWRITE_MODEL', 'DRIVE_SYNC_MODEL', 'NOESIS_SPELLFIX_MODEL', 'NOESIS_FAST_MODEL'];
 KEYS.forEach((k) => delete process.env[k]);
 const m = require('../server/lib/aimodels');
-assert(m.strongModel() === 'claude-sonnet-5' && m.classifyModel() === 'claude-sonnet-4-5-20250929' && m.rewriteModel() === 'claude-sonnet-4-5-20250929', 'valeurs par défaut inchangées (fort)');
-assert(m.driveModel() === 'claude-haiku-4-5' && m.spellModel() === 'claude-haiku-4-5' && m.fastModelRaw('X_FAST') === 'claude-haiku-4-5', 'valeurs par défaut inchangées (rapide)');
-process.env.ANTHROPIC_MODEL = 'a'; process.env.NOESIS_TASK_CATEGORY_MODEL = 'b'; process.env.DRIVE_SYNC_MODEL = 'c'; process.env.NOESIS_SPELLFIX_MODEL = 'd'; process.env.X_FAST = ' e ';
-assert(m.strongModel() === 'a' && m.classifyModel() === 'b' && m.rewriteModel() === 'b' && m.driveModel() === 'c' && m.spellModel() === 'd' && m.fastModelRaw('X_FAST') === 'e', 'surcharge par variable d\'environnement');
+assert(m.strongModel() === 'claude-sonnet-4-5-20250929' && m.classifyModel() === 'claude-sonnet-4-5-20250929' && m.rewriteModel() === 'claude-sonnet-4-5-20250929', 'valeurs par défaut inchangées (fort)');
+assert(m.driveModel() === 'claude-haiku-4-5' && m.spellModel() === 'claude-haiku-4-5' && m.fastModelRaw() === 'claude-haiku-4-5', 'valeurs par défaut inchangées (rapide)');
+process.env.ANTHROPIC_MODEL = 'a'; process.env.NOESIS_TASK_CATEGORY_MODEL = 'b'; process.env.DRIVE_SYNC_MODEL = 'c'; process.env.NOESIS_SPELLFIX_MODEL = 'd'; process.env.NOESIS_FAST_MODEL = ' e ';
+assert(m.strongModel() === 'a' && m.classifyModel() === 'b' && m.rewriteModel() === 'b' && m.driveModel() === 'c' && m.spellModel() === 'd' && m.fastModelRaw() === 'e', 'surcharge par variable d\'environnement');
 process.env.NOESIS_GOALS_REWRITE_MODEL = 'f';
 assert(m.rewriteModel() === 'f', 'reformulation : variable propre prioritaire');
 if (failed) { console.log(failed + ' échec(s)'); process.exit(1); }

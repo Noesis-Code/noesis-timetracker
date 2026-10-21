@@ -22,7 +22,7 @@ const chronoSec = (act, day, sec) => db.prepare("INSERT INTO time_entries (userI
   const A = mkAct();
   const ins = db.prepare("INSERT INTO change_proposals (activityId, userId, target, targetId, field, beforeValue, afterValue, reason, hash, status, createdAt) VALUES (?, 'u1', 'task', 1, ?, 'a', 'b', '', ?, ?, ?)");
   [['text', 'accepted'], ['text', 'accepted'], ['date', 'applied'], ['date', 'dismissed'], ['text', 'pending'], ['text', 'inapplicable']].forEach(([f, st], i) => ins.run(A, f, 'h' + i, st, now));
-  const rep = execFileSync('node', [path.join(__dirname, '../scripts/ai-acceptance-report.js'), '30'], { encoding: 'utf8', env: Object.assign({}, process.env, { NOESIS_DATA_DIR: dir }) });
+  const rep = execFileSync('node', [path.join(__dirname, '../scripts/ai-cost-report.js'), '--acceptation', '30'], { encoding: 'utf8', env: Object.assign({}, process.env, { NOESIS_DATA_DIR: dir }) });
   assert(/acceptées 3 \(75 %\) \| refusées 1 \(25 %\) \| en attente 1 \| inapplicables 1/.test(rep), 'rapport : accepted (2) + applied (1) comptés acceptés, refus 1, attente 1, inapplicable 1 hors taux');
   assert(/date\s+accepted\s+1/.test(rep) && /text\s+accepted\s+2/.test(rep), 'rapport par champ : les deux valeurs regroupées');
   // L'écriture réelle (apply) produit une ligne comptée par le rapport.

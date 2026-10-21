@@ -47,7 +47,7 @@ Test : `test/chrono-horloge-test.js`. Pièges trouvés et corrigés dans `public
 - Raison : `legal-en.js` remplace les textes légaux à l'exécution (différer = texte français visible un instant en anglais, nouvel état) ; `qrcode.js` est appelé de façon synchrone (`qrcode(0,'M')`) : différer = délai à l'affichage du QR. Les deux contredisent « aucun nouvel état visible ». Laissé.
 
 ## Code mort d'`app.js` (tâche 9)
-Relu `docs/audits/code-mort-2026-10-20.md` : rien de plus (aucune fonction/variable d'`app.js` à une seule occurrence hors IIFE nommée vivante `initFeedbackSection`).
+Relu l'ancien audit code mort (retiré le 21 oct. 2026) : rien de plus (aucune fonction/variable d'`app.js` à une seule occurrence hors IIFE nommée vivante `initFeedbackSection`).
 
 ## Repli 21 : gros volume, cohérence des vues, suppression d'activité (21 oct. 2026)
 Test : `test/volume-coherence-test.js` (≈ 5000 entrées sur 2 ans, CPU serveur lu dans `/proc`, plafond 400 ms par route).

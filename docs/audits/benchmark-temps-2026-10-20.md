@@ -13,7 +13,7 @@
 Ce qui rend leur écran principal minimal (observation, à confirmer) : **un seul geste (start) devant un seul champ**, et **toutes les analyses déportées dans un onglet « Rapports » distinct** de l'enregistrement. L'historique du jour est une liste, pas un graphique.
 
 ## 5 propositions (format `docs/regles/modele-tache.md`)
-Aucune ne passe le contrôle « citation d'intention » : chacune est donc **à valider** (voir `questions-emilien-simplification.md`). Dans chaque cas, champs 1 (contexte), 2 (problème), 4 (fini quand), 5 (périmètre), 6 (on ne touche pas), 7 (preuve) sont remplis ; le champ 3 (citation) est vide = question à cocher.
+Aucune ne passe le contrôle « citation d'intention » : chacune est donc **à valider** (voir `questions-emilien.md`). Dans chaque cas, champs 1 (contexte), 2 (problème), 4 (fini quand), 5 (périmètre), 6 (on ne touche pas), 7 (preuve) sont remplis ; le champ 3 (citation) est vide = question à cocher.
 
 ### P1 — Retirer le libellé de période de la Répartition
 1. Contexte : captures `audit-stats-2026-10-20.png` : le libellé « Semaine du 14/10 au 20/10 » apparaît dans la Feuille de temps et dans la Répartition.

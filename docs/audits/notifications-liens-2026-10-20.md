@@ -18,7 +18,7 @@ Source : adresses `?notif=type&...` émises par `server/lib/*.js` ; branches de 
 | `community`, `profile` | anciennes notifications | Onglet Communauté / Profil | – |
 
 ## Constat `?notif=activity` (réglé)
-Avant : l'utilisateur arrivait sur la Page 2 de l'activité sans rien surligner, après une attente de 8 s du bouton Discussion absent. Maintenant : même écran, sans attente. Aucun message n'est plus envoyé tant qu'aucun écran ne permet d'en écrire (la route POST reste active). Retirer la notification elle-même : case dans `questions-emilien-2026-10-20.md`.
+Avant : l'utilisateur arrivait sur la Page 2 de l'activité sans rien surligner, après une attente de 8 s du bouton Discussion absent. Maintenant : même écran, sans attente. Aucun message n'est plus envoyé tant qu'aucun écran ne permet d'en écrire (la route POST reste active). Retirer la notification elle-même : case dans `questions-emilien.md`.
 
 ## Constat « Où » translucide (non corrigé : voulu)
 La liste « Où » du pop-up de placement est un menu flottant en verre (`.goalsCaptureFloat`, `rgba(40,40,46,.28)` + flou 40 px). C'est une décision d'Émilien du 5 oct. (6f29fb7 « très peu opaque », « même opacité que le menu natif du Chrono »), et `DESIGN.md` §2.3 prévoit le verre (flou 40 px) pour les menus. Les cartes de pop-up, elles, sont opaques (`--bg`) : ce n'est pas un écart. Capture 390 px non refaite (aucune modification). Case à cocher pour opacifier (`--float-bg`, jeton existant).

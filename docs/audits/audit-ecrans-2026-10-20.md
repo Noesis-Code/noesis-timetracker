@@ -1,6 +1,6 @@
 # Audit de simplicité — Réglages, Profil, Objectifs (pages 1-3), fenêtre Activité (20 oct. 2026)
 
-Propositions seulement, rien retiré (aucune citation d'Émilien ne couvre ces éléments dans `docs/regles/intentions.md`, sauf les Réglages en plein écran du 19 oct., déjà appliqués). Captures 390 px dans `docs/img/audit-ecrans2-*-2026-10-20.png` (données de démo : activité « Scénarios Feuille de route (test) »). Questions à cocher : `questions-emilien-simplification.md`.
+Propositions seulement, rien retiré (aucune citation d'Émilien ne couvre ces éléments dans `docs/regles/intentions.md`, sauf les Réglages en plein écran du 19 oct., déjà appliqués). Captures 390 px dans `docs/img/audit-ecrans2-*-2026-10-20.png` (données de démo : activité « Scénarios Feuille de route (test) »). Questions à cocher : `questions-emilien.md`.
 
 ## Réglages (`audit-ecrans2-reglages-…`, `…-mon-ia-…`, `…-securite-…`)
 Fonction unique : **régler mon compte et l'app une fois, puis ne plus y revenir**. 10 sections repliées ; la liste fermée est claire.

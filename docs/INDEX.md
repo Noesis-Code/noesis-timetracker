@@ -13,12 +13,12 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 ## Sous-dossiers
 - `regles/` : règles de travail (`regles-rangement`, `brief-chantier`, `boucle-veille`, `modele-tache`, `intentions`).
 - `audits/` : audits, benchmarks, écarts de design, performance, fiabilité, sécurité, accessibilité, fuseaux, PWA.
-- `ia/` : appels IA, modèles, coûts, robustesse, alertes, prompts.
+- `ia/` : `ia-appels.md`, document IA unique (appels, modèles, budget, échecs, coûts).
 - `expansion/` : offre payante (accès, résiliation, courriels, Stripe, taxes, parcours commercial).
 - `trade/` : Trade Tracker (connexion, délais, intégration).
 - `basic/` : offre gratuite (contrastes).
 - `precision/` : génération et estimation des tâches, tri.
-- `questions/` : questions à Émilien (`questions-emilien-*`).
+- `questions/` : `questions-emilien.md`, fichier unique des questions à Émilien.
 - `journal/` : journaux de chantiers, bilans, relectures croisées, plan de semaine.
-- `simplifications/` : rapports du chantier Simplification.
+- `simplifications/` : `propositions.md`, liste vivante unique des propositions de simplification (S1 à S15 et suivantes).
 - `img/`, `maquettes/` : images et maquettes.

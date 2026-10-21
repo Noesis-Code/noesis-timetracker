@@ -1,8 +1,8 @@
 // Apprentissage par utilisateur, de bout en bout (faux client IA) : A corrige 5 fois, son prompt suivant contient ses exemples (bornés),
 // celui de B (même activité) aucun de A ; DELETE /api/profile/:id/ai-examples et la suppression du compte les retirent. Aucun réseau.
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-appr-e2e-');
-process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_DAY_USD = '1000';
-process.env.NOESIS_CLASSIFY_FAST_MODEL = 'off';
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_WEEK_USD = '1000';
+process.env.NOESIS_FAST_MODEL = 'off';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');

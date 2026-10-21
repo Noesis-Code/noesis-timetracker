@@ -147,13 +147,11 @@ function callAi(payload, requestedWeeks) {
 }
 
 // Haiku d'abord, repli sur le modèle fort si Haiku est peu sûr : appel en échec, JSON illisible, aucune semaine, ou confiance (champ racine
-// "confidence", 0-100) < seuil. Réglages : NOESIS_WEEKLY_FAST_MODEL ('off' = fort seul), NOESIS_WEEKLY_MIN_CONFIDENCE (défaut 80).
+// "confidence", 0-100) < seuil. Réglages : NOESIS_FAST_MODEL ('off' = fort seul), NOESIS_WEEKLY_MIN_CONFIDENCE (défaut 80).
 // Journal : features 'objectifs-hebdo' (Haiku) / 'objectifs-hebdo:repli' (fort).
 const WEEKLY_CONF = '\nAjoute à la racine de l\'objet JSON un champ "confidence" (entier 0-100, ta confiance dans ce plan ; sous 80 si tu hésites).';
 async function callAiTiered(payload, requestedWeeks) {
-  // Plafond d'abus par compte et par jour (appels réels seulement, après le mémo) ; refus = panne IA. HEBDO_MAX_PER_DAY (défaut 60 ; 0 = désactivé).
-  if (!aicache.takeDailyCap('objectifs-hebdo', aibudget.currentUser(), aicache.capFromEnv('HEBDO_MAX_PER_DAY', 60))) throw new Error('Plafond quotidien de génération atteint.');
-  const fast = aicache.fastModelFor('NOESIS_WEEKLY_FAST_MODEL', ANTHROPIC_MODEL);
+  const fast = aicache.fastModelFor(ANTHROPIC_MODEL);
   if (fast) {
     try {
       const r = await callAiOnce(payload, requestedWeeks, fast, 'objectifs-hebdo', WEEKLY_CONF);

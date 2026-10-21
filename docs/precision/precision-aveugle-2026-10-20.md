@@ -7,7 +7,7 @@
 | h01-h30 (repli 11) | 30 | 83,3 % (25/30) | 100 % | 99,3 % |
 | h31-h60 (repli 12) | 30 | 60,0 % (18/30) | 100 % | 100 % (302 cas) |
 
-Lecture : la courbe à l'aveugle ne monte pas, car chaque lot vise les points faibles du précédent (synonymes, abréviations, noms propres). Les anciens cas restent à 100 % (≥ 98 % exigé) : aucune régression. Estimation honnête du taux réel du simulé : entre 60 et 85 % selon la difficulté ; le vrai chiffre (modèle réel) se mesure en `--live` (voir `docs/questions/questions-emilien-precision.md`).
+Lecture : la courbe à l'aveugle ne monte pas, car chaque lot vise les points faibles du précédent (synonymes, abréviations, noms propres). Les anciens cas restent à 100 % (≥ 98 % exigé) : aucune régression. Estimation honnête du taux réel du simulé : entre 60 et 85 % selon la difficulté ; le vrai chiffre (modèle réel) se mesure en `--live` (voir `docs/questions/questions-emilien.md`).
 
 ## Lot 6 (h301-h330, repli 30) : fautes, abréviations, dates relatives, durées implicites, vague
 `test/fixtures/task-precision/blind-h301-h330.json`. 30 titres FR/QC/EN écrits avant toute relecture du code du repli (jour de référence : mardi 20 oct. 2026), taux noté AVANT correction.
@@ -189,7 +189,7 @@ Bien traité d'emblée : « pick up kids at 3pm », « 9am Monday », « 10:30am
 
 # « Fin de semaine » : cohérence (repli 23)
 
-Jour d'aujourd'hui -> « cette fin de semaine » / « la fin de semaine prochaine » / « la semaine prochaine » : dimanche -> ce dimanche / samedi suivant / lundi suivant ; lundi à vendredi -> samedi à venir / samedi d'après / lundi suivant ; samedi -> aujourd'hui / samedi suivant / lundi suivant. Cohérent : la semaine va de lundi à dimanche, le week-end en cours (samedi-dimanche) reste « cette » fin de semaine jusqu'au dimanche inclus, « prochaine » saute toujours à la suivante, « la semaine prochaine » est la semaine entière (lundi). Ambiguïté restante : le samedi est un choix (voir `docs/questions/questions-emilien-precision.md`).
+Jour d'aujourd'hui -> « cette fin de semaine » / « la fin de semaine prochaine » / « la semaine prochaine » : dimanche -> ce dimanche / samedi suivant / lundi suivant ; lundi à vendredi -> samedi à venir / samedi d'après / lundi suivant ; samedi -> aujourd'hui / samedi suivant / lundi suivant. Cohérent : la semaine va de lundi à dimanche, le week-end en cours (samedi-dimanche) reste « cette » fin de semaine jusqu'au dimanche inclus, « prochaine » saute toujours à la suivante, « la semaine prochaine » est la semaine entière (lundi). Ambiguïté restante : le samedi est un choix (voir `docs/questions/questions-emilien.md`).
 
 ---
 
@@ -221,4 +221,4 @@ Appliquée parce que sûre : h01-h270, `generees-objectifs`, `eval-task-precisio
 Limite : « mar » (mardi, mars, March), « jeu », « mer », « sam » restent ignorés sans point ; « Mon » / « Sun » sans point aussi.
 
 # « EOW » (fin de semaine de travail)
-Inchangé : « by EOW » ne donne aucun indice de date (ambigu : vendredi ou dimanche). Case à cocher ajoutée dans `docs/questions/questions-emilien-precision.md` (vendredi / dimanche / ignorer) ; rien n'est appliqué tant que rien n'est coché. Aucune récurrence créée.
+Inchangé : « by EOW » ne donne aucun indice de date (ambigu : vendredi ou dimanche). Case à cocher ajoutée dans `docs/questions/questions-emilien.md` (vendredi / dimanche / ignorer) ; rien n'est appliqué tant que rien n'est coché. Aucune récurrence créée.

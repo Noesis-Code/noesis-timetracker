@@ -1,27 +1,24 @@
 // Budget de coût IA par utilisateur (demande d'Emilien).
 // Cible : ~10 CAD/mois en moyenne, JAMAIS plus de 15 CAD/mois pour un utilisateur.
 // DEVISES (décision du 20 oct. 2026) : plafonds et seuils en DOLLARS CANADIENS ; coûts réels (API Anthropic, ai_usage_log.costUsd) en DOLLARS AMÉRICAINS.
-// Chaque plafond est converti en USD par server/lib/fx.js (AI_USD_PER_CAD) avant toute comparaison ; capMonth()/capDay()/... renvoient des USD, capMonthCad()/... des CAD.
-// Pour éviter de tout dépenser avant la fin du mois, le blocage est HEBDOMADAIRE :
-// le mois est découpé en 4 tranches (jours 1-7, 8-14, 15-21, 22-fin) ; le plafond
-// CUMULÉ à la fin de la tranche k vaut cap × k/4. Le non-dépensé se reporte ; la
-// dépense du mois courant est toujours comparée au plafond cumulé de la tranche.
+// Chaque plafond est converti en USD par server/lib/fx.js (AI_USD_PER_CAD) avant toute comparaison ; capMonth()/capWeek() renvoient des USD, capMonthCad()/capWeekCad() des CAD.
+// Deux plafonds par compte, seuls : HEBDOMADAIRE (3,5 CAD par semaine civile, lundi-dimanche, heure de Montréal) et MENSUEL (15 CAD par mois civil).
+// Plus de plafond journalier ni par fonction (décision d'Émilien, 21 oct. 2026). Tous les comptes et les appels sans utilisateur ('system') y sont soumis.
 // Le coût réel vient du champ `usage` de chaque réponse de l'API Anthropic (cache de prompt : lecture ×0,1,
 // création ×1,25 du prix d'entrée ; lots Anthropic : facteur 0,5 passé à record).
 //
 // Lots Anthropic (drivesync.js) : le coût réel est enregistré à la RELÈVE du lot (facteur 0,5) ; avant la soumission, le coût MAXIMAL estimé
-// (entrée + max_tokens de sortie, x 0,5) est comparé à ce qui reste de la tranche (status) pour ne pas la dépasser.
+// (entrée + max_tokens de sortie, x 0,5) est comparé à ce qui reste du plafond (status) pour ne pas le dépasser.
 //
 // Tarifs en $/million de jetons ; surchargeables sans code : AI_PRICE_IN_PER_M,
-// AI_PRICE_OUT_PER_M (valent pour tous les modèles), AI_BUDGET_MONTH_CAD (défaut 15 CAD). Anciennes variables AI_BUDGET_*_USD / AI_COST_ALERT_DAY_USD :
+// AI_PRICE_OUT_PER_M (valent pour tous les modèles), AI_BUDGET_MONTH_CAD, AI_BUDGET_WEEK_CAD. Anciennes variables AI_BUDGET_*_USD / AI_COST_ALERT_DAY_USD :
 // toujours acceptées, interprétées en USD (sans conversion), et prioritaires sur la variable _CAD.
-// TOUS les comptes sont plafonnés (codes d'accès, Emilien, Gaspard compris) ; garde-fou JOURNALIER en plus des tranches :
-// AI_BUDGET_DAY_CAD (défaut 2 CAD/jour/utilisateur). Les appels sans utilisateur identifiable ('system') sont plafonnés eux aussi :
-// AI_BUDGET_SYSTEM_DAY_CAD (défaut 3 CAD/jour). Le coût compté = réel enregistré + coût maximal estimé des appels directs en vol (réservés avant l'envoi)
+// TOUS les comptes sont plafonnés (codes d'accès, Emilien, Gaspard compris). AI_BUDGET_WEEK_CAD (défaut 3,5 CAD), AI_BUDGET_MONTH_CAD (défaut 15 CAD).
+// Le coût compté = réel enregistré + coût maximal estimé des appels directs en vol (réservés avant l'envoi)
 // + coût maximal des lots soumis non relevés (drive_batches.estCost) : un lot compte dès sa soumission.
 const { AsyncLocalStorage } = require('async_hooks');
 const db = require('../db');
-const featureCaps = require('./aifeaturecaps');
+const dayKeys = require('./aifeaturecaps');
 const aiscrub = require('./aiscrub');
 const fx = require('./fx');
 
@@ -82,7 +79,7 @@ for (const col of ['cacheReadTokens', 'cacheWriteTokens']) {
 }
 
 function todayLocal(now) {
-  return featureCaps.dayKey(now); // jour civil de Montréal, indépendant du fuseau du processus
+  return dayKeys.dayKey(now); // jour civil de Montréal, indépendant du fuseau du processus
 }
 
 // Plafond en CAD : variable _CAD (défaut) ; l'ancienne variable _USD, si présente, donne directement des USD.
@@ -93,12 +90,10 @@ function capCad(cadKey, usdKey, def) {
   return envNum(cadKey) != null ? envNum(cadKey) : def;
 }
 function capMonthCad() { return capCad('AI_BUDGET_MONTH_CAD', 'AI_BUDGET_MONTH_USD', 15); }
-function capDayCad() { return capCad('AI_BUDGET_DAY_CAD', 'AI_BUDGET_DAY_USD', 2); }
-function capSystemDayCad() { return capCad('AI_BUDGET_SYSTEM_DAY_CAD', 'AI_BUDGET_SYSTEM_DAY_USD', 3); }
+function capWeekCad() { return capCad('AI_BUDGET_WEEK_CAD', 'AI_BUDGET_WEEK_USD', 3.5); }
 // Versions en USD : unité de comparaison avec les coûts réels.
 function capMonth() { return fx.toUsd(capMonthCad()); }
-function capDay() { return fx.toUsd(capDayCad()); }
-function capSystemDay() { return fx.toUsd(capSystemDayCad()); }
+function capWeek() { return fx.toUsd(capWeekCad()); }
 
 function priceFor(model) {
   const m = String(model || '').toLowerCase();
@@ -121,19 +116,18 @@ function computeCost(model, usage) {
   return (inTok * p.in + cw * p.in * 1.25 + cr * p.in * 0.1 + outTok * p.out) / 1e6;
 }
 
-// Tranche (1..4) d'une date locale 'AAAA-MM-JJ' ou d'un Date.
-function trancheOf(now) {
-  const day = Number(todayLocal(now).slice(8, 10));
-  return day <= 7 ? 1 : day <= 14 ? 2 : day <= 21 ? 3 : 4;
-}
-
-// Premier jour de la tranche suivante ('AAAA-MM-JJ').
-function nextTrancheStart(now) {
+const pad2 = (n) => String(n).padStart(2, '0');
+// Lundi de la semaine civile ('AAAA-MM-JJ') de la date locale `now`, décalé de `plus` jours.
+function weekStart(now, plus) {
   const d = todayLocal(now);
-  const y = Number(d.slice(0, 4)), m = Number(d.slice(5, 7)), k = trancheOf(now);
-  const p = (n) => String(n).padStart(2, '0');
-  if (k === 4) return m === 12 ? (y + 1) + '-01-01' : y + '-' + p(m + 1) + '-01';
-  return y + '-' + p(m) + '-' + p(k * 7 + 1);
+  const t = new Date(Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10))));
+  t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7) + (plus || 0));
+  return t.getUTCFullYear() + '-' + pad2(t.getUTCMonth() + 1) + '-' + pad2(t.getUTCDate());
+}
+// Premier jour du mois suivant.
+function nextMonthStart(now) {
+  const d = todayLocal(now), y = Number(d.slice(0, 4)), m = Number(d.slice(5, 7));
+  return m === 12 ? (y + 1) + '-01-01' : y + '-' + pad2(m + 1) + '-01';
 }
 
 function spentMonth(userId, now) {
@@ -142,9 +136,9 @@ function spentMonth(userId, now) {
     .get(String(userId), month + '-01', month + '-31');
   return r.s || 0;
 }
-function spentDay(userId, now) {
-  const d = todayLocal(now);
-  return db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE userId = ? AND day = ?').get(String(userId), d).s || 0;
+function spentWeek(userId, now) {
+  return db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE userId = ? AND day >= ? AND day <= ?')
+    .get(String(userId), weekStart(now), todayLocal(now)).s || 0;
 }
 
 // Appels directs en vol : coût maximal estimé, réservé avant l'envoi, libéré quand le coût réel est enregistré.
@@ -167,31 +161,20 @@ function estimateMaxCost(body, factor) {
   return (inTok * p.in + (Number(b.max_tokens) || 1024) * p.out) / 1e6 * (factor > 0 ? factor : 1);
 }
 
-// État du budget (montants en USD, plafonds aussi ; capMonthCad/capDayCad = les plafonds d'origine en CAD) : { spentMonth, capMonth, allowedNow, blocked, resumesOn, period, remaining, spentDay, capDay }.
-// Dépenses = réel + en vol (appels directs réservés + lots). Plafond mensuel cumulé par tranche (inchangé) ET plafond du jour.
-// 'system' : seulement le plafond du jour système (AI_BUDGET_SYSTEM_DAY_USD).
+// État du budget (montants en USD ; capMonthCad/capWeekCad = les plafonds d'origine en CAD) : { spentMonth, spentWeek, capMonth, capWeek, blocked, resumesOn, period, remaining }.
+// Dépenses = réel + en vol (appels directs réservés + lots). period : 'semaine' ou 'mois' (le plus tardif des plafonds atteints).
 function status(userId, now) {
-  const cap = capMonth();
   const uid = userId || SYSTEM_USER;
   const inflight = reservedOf(uid) + batchesInFlight(uid);
-  const sD = spentDay(uid, now) + inflight;
-  if (uid === SYSTEM_USER) {
-    const cd = capSystemDay(), blocked = sD >= cd - 1e-9;
-    return { spentMonth: spentMonth(uid, now), capMonth: cap, capMonthCad: capMonthCad(), allowedNow: cd, spentDay: sD, capDay: cd, remaining: Math.max(0, cd - sD), blocked, period: blocked ? 'jour' : null, resumesOn: blocked ? addDay(now) : null };
-  }
-  const spent = spentMonth(uid, now) + inflight;
-  const allowed = cap * trancheOf(now) / 4;
-  const cd = capDay();
-  const bTr = spent >= allowed - 1e-9, bDay = sD >= cd - 1e-9;
-  const blocked = bTr || bDay;
-  // Reprise : le plus tardif des plafonds atteints (tranche suivante, ou demain).
-  const resumesOn = !blocked ? null : bTr ? nextTrancheStart(now) : addDay(now);
-  return { spentMonth: spent, capMonth: cap, capMonthCad: capMonthCad(), capDayCad: capDayCad(), allowedNow: allowed, spentDay: sD, capDay: cd, remaining: Math.max(0, Math.min(allowed - spent, cd - sD)), blocked, period: !blocked ? null : bTr ? 'semaine' : 'jour', resumesOn };
-}
-function addDay(now) {
-  const d = now instanceof Date ? new Date(now.getTime()) : new Date();
-  d.setDate(d.getDate() + 1);
-  return todayLocal(d);
+  const sM = spentMonth(uid, now) + inflight, sW = spentWeek(uid, now) + inflight;
+  const cM = capMonth(), cW = capWeek();
+  const bM = sM >= cM - 1e-9, bW = sW >= cW - 1e-9, blocked = bM || bW;
+  return {
+    spentMonth: sM, spentWeek: sW, capMonth: cM, capWeek: cW, capMonthCad: capMonthCad(), capWeekCad: capWeekCad(),
+    remaining: Math.max(0, Math.min(cM - sM, cW - sW)), blocked,
+    period: !blocked ? null : bM ? 'mois' : 'semaine',
+    resumesOn: !blocked ? null : bM ? nextMonthStart(now) : weekStart(now, 7),
+  };
 }
 
 const MONTHS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -201,21 +184,21 @@ function dateLabelFr(iso) {
 }
 // Message en français ; i18n.js (PATTERNS) le traduit côté client en mode anglais.
 function blockedMessage(resumesOn, period) {
-  if (period === 'jour') return "Limite d'utilisation de l'IA atteinte pour aujourd'hui. Elle reprend demain.";
+  if (period === 'mois') return "Limite d'utilisation de l'IA atteinte pour ce mois. Elle reprend le " + dateLabelFr(resumesOn) + '.';
   return "Limite d'utilisation de l'IA atteinte pour cette semaine. Elle reprend le " + dateLabelFr(resumesOn) + '.';
 }
 
 // check(userId, now, estimate) : { ok, resumesOn, period, message } — à appeler AVANT chaque appel à l'API.
-// `estimate` (optionnel) : coût maximal de l'appel envisagé ; refusé s'il dépasse ce qui reste (jour ou tranche).
+// `estimate` (optionnel) : coût maximal de l'appel envisagé ; refusé s'il dépasse ce qui reste (semaine ou mois).
 function check(userId, now, estimate) {
   const s = status(userId, now);
   const est = Number(estimate) > 0 ? Number(estimate) : 0;
   if (!s.blocked && s.remaining + 1e-9 >= est) return { ok: true, resumesOn: null, period: null, message: null };
   let period = s.period, resumesOn = s.resumesOn;
   if (!s.blocked) { // reste insuffisant pour cet appel : la contrainte la plus serrée
-    const dayTight = s.capDay - s.spentDay <= s.allowedNow - s.spentMonth || s.capDay === capSystemDay() && (userId || SYSTEM_USER) === SYSTEM_USER;
-    period = dayTight ? 'jour' : 'semaine';
-    resumesOn = dayTight ? addDay(now) : nextTrancheStart(now);
+    const monthTight = s.capMonth - s.spentMonth <= s.capWeek - s.spentWeek;
+    period = monthTight ? 'mois' : 'semaine';
+    resumesOn = monthTight ? nextMonthStart(now) : weekStart(now, 7);
   }
   return { ok: false, resumesOn, period, message: blockedMessage(resumesOn, period) };
 }
@@ -235,7 +218,6 @@ function record(userId, model, usage, feature, now, factor) {
       .run(String(userId || SYSTEM_USER), todayLocal(now), String(model || 'inconnu'), String(feature || 'autre'), inTok, outTok, computeCost(model, u) * (Number.isFinite(factor) && factor > 0 ? factor : 1),
         Number(u.cache_read_input_tokens) || 0, Number(u.cache_creation_input_tokens) || 0);
     alertIfDayCostHigh(now);
-    alertIfCapNear(userId, feature, now);
   } catch (e) { console.warn('[aibudget] enregistrement impossible :', e && e.message); }
 }
 
@@ -264,22 +246,7 @@ function alertIfDayCostHigh(now) {
   console.warn('[aibudget] ALERTE coût IA du jour ' + d + ' : ' + total.toFixed(2) + ' USD estimé (= ' + fx.toCad(total).toFixed(2) + ' CAD ; seuil ' + alertDayCad().toFixed(2) + ' CAD = ' + seuil.toFixed(2) + ' USD, AI_COST_ALERT_DAY_CAD)');
 }
 // Remet à zéro la mémoire du processus (simule un redémarrage) ; `all` efface aussi la mémoire durable (tests).
-function resetDayAlert(all) { alertedDay = null; alertedCaps.clear(); if (all !== false) { try { db.exec('DELETE FROM ai_alerts_sent'); } catch (e) { /* ignoré */ } } }
-// Alerte douce (journal serveur, sans identifiant de compte) : une fonction atteint 80 % de son plafond d'appels du jour pour un compte. Une ligne par fonction et par jour.
-const alertedCaps = new Set();
-function alertIfCapNear(userId, feature, now) {
-  const cap = featureCaps.capFor(feature);
-  if (!cap) return;
-  const base = featureCaps.baseFeature(feature), d = todayLocal(now), k = base + '|' + d;
-  if (alertedCaps.has(k)) return;
-  const n = db.prepare("SELECT COALESCE(SUM(calls), 0) AS s FROM ai_usage_log WHERE userId = ? AND day = ? AND (feature = ? OR feature = ?)").get(String(userId || SYSTEM_USER), d, base, base + ':repli').s || 0;
-  if (n < cap * 0.8) return;
-  for (const x of alertedCaps) if (!x.endsWith('|' + d)) alertedCaps.delete(x);
-  alertedCaps.add(k);
-  if (!claimAlert('plafond', d, base + '|' + cap)) return;
-  console.warn('[aibudget] ALERTE plafond ' + base + ' : ' + n + ' appels aujourd\'hui pour un compte (plafond ' + cap + '/jour, 80 % atteint)');
-}
-
+function resetDayAlert(all) { alertedDay = null; if (all !== false) { try { db.exec('DELETE FROM ai_alerts_sent'); } catch (e) { /* ignoré */ } } }
 // Rapport de coût par fonctionnalité et modèle sur les `days` derniers jours (tous comptes) : appels, jetons, cache, $.
 function usageReport(days) {
   const n = Math.max(1, Math.floor(Number(days)) || 30);
@@ -395,4 +362,4 @@ async function fetchAnthropic(feature, url, init, userId) {
   } finally { release(uid, est); }
 }
 
-module.exports = { recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, capMonthCad, capDayCad, capSystemDayCad, alertDayCad, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
+module.exports = { recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };

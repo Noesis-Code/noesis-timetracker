@@ -36,7 +36,7 @@ const cls = require('../server/lib/goalstaskclassify');
   const out = await ev.run({});
   assert(out.metrics.precision >= 98, 'précision simulée >= 98 % (' + out.metrics.precision + ')');
   // Rapport.
-  const rep = execFileSync('node', [path.join(__dirname, '../scripts/ai-acceptance-report.js'), '30'], { encoding: 'utf8', env: Object.assign({}, process.env, { NOESIS_DATA_DIR: dir }) });
+  const rep = execFileSync('node', [path.join(__dirname, '../scripts/ai-cost-report.js'), '--acceptation', '30'], { encoding: 'utf8', env: Object.assign({}, process.env, { NOESIS_DATA_DIR: dir }) });
   assert(/Classement de tâche/.test(rep) && /modifiée/.test(rep), 'rapport d\'acceptation produit');
   // Refus mémorisés (20 oct. 2026) : un refus (ou une proposition devenue inapplicable) est conservé SANS expiration ; même cible+champ+valeur ne revient jamais, une autre valeur est une nouvelle proposition.
   const cp = require('../server/lib/changeproposals');

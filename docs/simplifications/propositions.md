@@ -1,4 +1,6 @@
-# Propositions de simplification (20 oct. 2026)
+# Propositions de simplification (20 oct. 2026) — liste vivante unique
+
+État au 21 oct. 2026 : S3, S7, S9, S10, S11 (modifiée : seulement 3,5 CAD/semaine et 15 CAD/mois par compte, plus de plafond du jour ni par fonction), S12, S13, S14, S15 EXÉCUTÉES ; S1, S2, S4, S5, S6 par l'agent composants ; S8 REFUSÉE (journal de `SIMPLIFICATION.md`).
 
 Pour chaque proposition : répondre **oui** ou **non**. Rien n'est exécuté avant ton oui ; chaque entrée est assez précise pour qu'un agent l'exécute telle quelle. Classées par gain, groupe par groupe. Constats vérifiés sur `origin/staging` (f4509f6) : les points déjà corrigés des audits (route PUT `goals/capacity`, `bindSubProjectDrag`, classes `goalCapacity*`) ne sont plus listés.
 
@@ -97,3 +99,13 @@ Quoi : `code-mort`, `points-non-necessaires`, `inventaire-options` et `audit-com
 Gain : 4 audits (environ 56 Ko) en moins ; une seule liste vivante, plus de décision demandée deux fois.
 Risque : faible, les constats utiles sont repris ici.
 Preuve : `docs/audits/points-non-necessaires.md` (11 points) contre `docs/questions/questions-emilien-simplification.md` (mêmes points en cases) ; `SIMPLIFICATION.md` étape 4.
+
+## Constats repris des anciens audits (S15, 21 oct. 2026)
+Les audits `code-mort`, `points-non-necessaires`, `inventaire-options` et `audit-composants` sont retirés. Reste à décider (cases dans `docs/questions/questions-emilien.md`, section Simplification) :
+- Écrans et options : pastille orange de « Feuille de route », filtre Public/Confidentiel de Stats, deux menus de période, sections Réglages à fusionner (Sécurité + Supprimer mon compte, Partage), langue de Trade, graphique Camembert/Barres, petites positions.
+- Routes sans appelant : `routes/offerforms.js` (`/activities/:id/forms`, `/profile-form`, flux Offre 1 dormant mais tables lues par `offerdelivery.js`), `POST /import/history`, `POST /offer/portal`, `DELETE /profile/:id/ai-examples`, `GET /push/status`.
+- Scripts sans appelant restants : `activate-offre1.js` (cité en commentaire seulement), `eval-false-rejects.js`, `hash-offer1-code.js` et `run-inactive-accounts.js` (outils d'exploitation, à garder), `export-activity-structure.js`.
+- i18n : `objectifs-document-taches.js` n'a aucune traduction EN (~60 phrases) ; 4 clés EN en conflit (`Valider`, `Atteint`, `En cours`, `En retard`).
+- CSS : 106 déclarations `!important` non vérifiables (états inatteignables en test) ; quasi-doublons JS non fusionnés (`bindProjectDrag`/`bindActivityDrag`, `buildAttachmentRow`/`ReadOnly`, `buildPostCard`/`buildProfileFeedPostCard`, `chronoHistoryWeekLabel`/`goalsTasksHistoryWeekLabel`).
+- Composants (S1 à S6 faits ou en cours) : il n'existe pas de `css/composants.css` ; croix ✕ en 12 variantes, croix rouge de retrait en 9, « + » pointillé, flèches, séparateurs, verre et ✎ redéfinis par écran ; plan de migration vers un composant unique par contrôle (R29), garde `test/composants-garde-test.js`.
+- Colonnes inertes à supprimer par Émilien si souhaité : `users.chronoScrollClock`, `users.aiConfirmEach`.

@@ -1,6 +1,6 @@
 # Tri des tâches du secteur Expansion — 20 oct. 2026
 
-Source : 32 tâches ouvertes du secteur « Expansion » (hors dépôt, liens personnels non recopiés). A = code précis, lançable ; B = code trop vague, question à cocher (`questions-emilien-expansion.md`) ; C = non technique / légal / marché : ignorée ; D = déjà fait dans le code.
+Source : 32 tâches ouvertes du secteur « Expansion » (hors dépôt, liens personnels non recopiés). A = code précis, lançable ; B = code trop vague, question à cocher (`questions-emilien.md`) ; C = non technique / légal / marché : ignorée ; D = déjà fait dans le code.
 
 | Classe | Nombre |
 |---|---|

@@ -38,18 +38,15 @@ function buildPrompt(text) {
 }
 
 // Haiku d'abord, repli sur le modèle fort (modelName()) si Haiku est peu sûr : appel en échec, sortie vide/multi-lignes/trop longue,
-// chiffre absent du texte d'origine (fait inventé), ou confiance < seuil. Réglages : NOESIS_REWRITE_FAST_MODEL ('off' = fort seul), NOESIS_REWRITE_MIN_CONFIDENCE.
+// chiffre absent du texte d'origine (fait inventé), ou confiance < seuil. Réglages : NOESIS_FAST_MODEL ('off' = fort seul), NOESIS_REWRITE_MIN_CONFIDENCE.
 // Journal : features 'reformulation' (Haiku) / 'reformulation:repli' (fort).
 const CONF_LINE = "\nTermine par une seconde ligne exactement de la forme « CONFIANCE: N » (N de 0 à 100 : ta confiance que la reformulation est fidèle et meilleure ; sous 80 si tu hésites).";
 const digitsOf = (t) => (String(t).match(/\d+/g) || []);
 function callModel(prompt, original, userId) {
-  // Plafond d'abus par compte (REWRITE_MAX_PER_DAY, défaut 150) : compté seulement sur un vrai appel (le mémo passe avant) ; refus = comme une panne IA, jamais mémorisé.
-  const cap = () => { if (!aicache.takeDailyCap('reformulation', userId, aicache.capFromEnv('REWRITE_MAX_PER_DAY', 150))) throw new Error('Plafond quotidien de reformulation atteint.'); };
-  const fast = aicache.fastModelFor('NOESIS_REWRITE_FAST_MODEL', modelName());
-  const strong = () => aicache.memoize([modelName(), MAX_OUTPUT_TOKENS, prompt], () => { if (!fast) cap(); return callModelRaw(prompt, modelName(), fast ? 'reformulation:repli' : 'reformulation'); });
+  const fast = aicache.fastModelFor(modelName());
+  const strong = () => aicache.memoize([modelName(), MAX_OUTPUT_TOKENS, prompt], () => callModelRaw(prompt, modelName(), fast ? 'reformulation:repli' : 'reformulation'));
   if (!fast) return strong();
   return aicache.memoize([fast, MAX_OUTPUT_TOKENS + 12, prompt], async () => {
-    cap();
     try {
       const raw = String(await callModelRaw(prompt + CONF_LINE, fast, 'reformulation', MAX_OUTPUT_TOKENS + 12)).trim();
       const m = /\n\s*CONFIANCE\s*:\s*(\d{1,3})\s*$/i.exec(raw);

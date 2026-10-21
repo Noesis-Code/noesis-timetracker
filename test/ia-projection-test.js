@@ -1,12 +1,12 @@
 // Projection de cout IA (valeurs connues) et seuil d'alerte GLOBAL (somme des comptes par jour).
 // Usage : node test/ia-projection-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-projection-');
-process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.AI_BUDGET_DAY_USD = '1000'; process.env.AI_BUDGET_MONTH_USD = '1000';
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.AI_BUDGET_WEEK_USD = '1000'; process.env.AI_BUDGET_MONTH_USD = '1000';
 delete process.env.AI_COST_ALERT_DAY_USD;
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const near = (a, b) => Math.abs(a - b) < 1e-9;
-const proj = require('../scripts/ai-cost-projection');
+const proj = require('../scripts/ai-cost-report');
 const h = require('../scripts/ai-cost-hypotheses.json');
 const models = require('../server/lib/aimodels');
 

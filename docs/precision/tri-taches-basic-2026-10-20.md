@@ -1,6 +1,6 @@
 # Tri des tâches du secteur Basic — 20 oct. 2026
 
-Source : 268 tâches ouvertes du secteur « Basic » (hors dépôt, liens personnels non recopiés). A = code précis, lançable ; B = code trop vague, question à cocher (`questions-emilien-basic.md`) ; C = non technique, hors chantier, refusée ou d'un autre produit : ignorée ; D = déjà faite dans le code.
+Source : 268 tâches ouvertes du secteur « Basic » (hors dépôt, liens personnels non recopiés). A = code précis, lançable ; B = code trop vague, question à cocher (`questions-emilien.md`) ; C = non technique, hors chantier, refusée ou d'un autre produit : ignorée ; D = déjà faite dans le code.
 
 | Classe | Nombre |
 |---|---|

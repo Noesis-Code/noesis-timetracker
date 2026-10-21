@@ -2,7 +2,7 @@
 // Usage : node test/ia-fx-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-fx-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
-for (const k of ['AI_USD_PER_CAD', 'AI_BUDGET_MONTH_USD', 'AI_BUDGET_MONTH_CAD', 'AI_BUDGET_DAY_USD', 'AI_BUDGET_DAY_CAD', 'AI_COST_ALERT_DAY_USD', 'AI_COST_ALERT_DAY_CAD']) delete process.env[k];
+for (const k of ['AI_USD_PER_CAD', 'AI_BUDGET_MONTH_USD', 'AI_BUDGET_MONTH_CAD', 'AI_BUDGET_WEEK_USD', 'AI_BUDGET_WEEK_CAD', 'AI_COST_ALERT_DAY_USD', 'AI_COST_ALERT_DAY_CAD']) delete process.env[k];
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const near = (a, b) => Math.abs(a - b) < 1e-9;
@@ -27,22 +27,22 @@ const age = fx.fxAgeDays();
 if (age > 90) console.log('  AVERTISSEMENT taux USD/CAD non revérifié depuis ' + age + ' jours (FX_UPDATED ' + fx.FX_UPDATED + ') : confirmer le taux, puis mettre FX_UPDATED à jour.');
 // Plafond mensuel : 15 CAD exact. Coût d'un usage Haiku 1 M jetons d'entrée = 1 USD ; on ajoute des USD directement au journal.
 const addUsd = (u, usd) => ab.record(u, 'claude-haiku-4-5', { input_tokens: Math.round(usd * 1e6), output_tokens: 0 }, 'test', E, 1);
-process.env.AI_BUDGET_DAY_USD = '1000'; // isole le plafond mensuel
+process.env.AI_BUDGET_WEEK_USD = '1000'; // isole le plafond mensuel
 addUsd('A', 10.79);
 assert(!ab.status('A', E).blocked, '10,79 USD (< 15 CAD) : pas bloqué');
 addUsd('A', 0.01);
-assert(ab.status('A', E).blocked && ab.status('A', E).period === 'semaine', '10,80 USD = 15 CAD exact : plafond atteint');
+assert(ab.status('A', E).blocked && ab.status('A', E).period === 'mois', '10,80 USD = 15 CAD exact : plafond atteint');
 assert(!ab.check('A', E).ok, 'check refuse à 15 CAD');
-// Quotidien : 2 CAD = 1,44 USD
-delete process.env.AI_BUDGET_DAY_USD;
-addUsd('B', 1.43);
-assert(!ab.status('B', E).blocked, '1,43 USD (< 2 CAD) : jour pas bloqué');
+// Hebdomadaire : 3,5 CAD = 2,52 USD
+delete process.env.AI_BUDGET_WEEK_USD;
+addUsd('B', 2.51);
+assert(!ab.status('B', E).blocked, '2,51 USD (< 3,5 CAD) : semaine pas bloquée');
 addUsd('B', 0.01);
-assert(ab.status('B', E).blocked && ab.status('B', E).period === 'jour', '1,44 USD = 2 CAD : plafond du jour atteint');
+assert(ab.status('B', E).blocked && ab.status('B', E).period === 'semaine', '2,52 USD = 3,5 CAD : plafond de la semaine atteint');
 // Variables _CAD et ancienne _USD
-process.env.AI_BUDGET_DAY_CAD = '10'; assert(near(ab.capDay(), 7.2) && ab.capDayCad() === 10, 'AI_BUDGET_DAY_CAD : 10 CAD = 7,20 USD');
-process.env.AI_BUDGET_DAY_USD = '5'; assert(near(ab.capDay(), 5) && near(ab.capDayCad(), 5 / 0.72), 'ancienne AI_BUDGET_DAY_USD : interprétée en USD, prioritaire');
-delete process.env.AI_BUDGET_DAY_USD; delete process.env.AI_BUDGET_DAY_CAD;
+process.env.AI_BUDGET_WEEK_CAD = '10'; assert(near(ab.capWeek(), 7.2) && ab.capWeekCad() === 10, 'AI_BUDGET_WEEK_CAD : 10 CAD = 7,20 USD');
+process.env.AI_BUDGET_WEEK_USD = '5'; assert(near(ab.capWeek(), 5) && near(ab.capWeekCad(), 5 / 0.72), 'ancienne AI_BUDGET_WEEK_USD : interprétée en USD, prioritaire');
+delete process.env.AI_BUDGET_WEEK_USD; delete process.env.AI_BUDGET_WEEK_CAD;
 // Seuils d'alerte en CAD
 const { seuilAlerte } = require('../server/lib/aialertthreshold');
 assert(seuilAlerte(4).semaineCad === 14 && near(seuilAlerte(4).semaineUsd, 14 * 0.72), 'seuil hebdomadaire : 3,5 CAD par compte, converti en USD');

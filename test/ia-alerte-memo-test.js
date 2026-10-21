@@ -2,7 +2,7 @@
 const os = require('os'), fs = require('fs'), path = require('path');
 const dir = require('./lib/tmpdir').mkTmp('tmt-alerte-');
 process.env.NOESIS_DATA_DIR = dir; process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
-process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_DAY_USD = '1000'; process.env.NOESIS_REWRITE_FAST_MODEL = 'off';
+process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_WEEK_USD = '1000'; process.env.NOESIS_FAST_MODEL = 'off';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const aibudget = require('../server/lib/aibudget');

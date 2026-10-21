@@ -7,7 +7,7 @@ process.env.GOOGLE_REDIRECT_URI = 'https://x.test/api/drive/callback'; process.e
 process.env.DRIVE_PREFILTER = 'off'; // les sections précédentes utilisent des textes très courts ; réactivé pour l'option 6
 process.env.DRIVE_PREFILTER_ACTION = 'off'; // le filtre « sans action » (19 oct. 2026) est testé à part ; ces fixtures sont des textes génériques
 process.env.DRIVE_SYNC_MODEL = 'claude-sonnet-4-5-20250929'; // les estimations de ces tests supposent Sonnet
-process.env.DRIVE_SYNC_MAX_AI_PER_PASS = '50'; process.env.DRIVE_SYNC_MAX_TASKS_PER_FILE = '1000'; process.env.DRIVE_SYNC_FIRST_DAYS = '36500'; process.env.AI_BUDGET_DAY_USD = '1000'; process.env.DRIVE_SYNC_MAX_AI_CALLS_PER_DAY = '100000'; // anciennes limites, pour ces scénarios
+process.env.DRIVE_SYNC_MAX_AI_PER_PASS = '50'; process.env.DRIVE_SYNC_MAX_TASKS_PER_FILE = '1000'; process.env.DRIVE_SYNC_FIRST_DAYS = '36500'; process.env.AI_BUDGET_WEEK_USD = '1000'; process.env.DRIVE_SYNC_MAX_AI_CALLS_PER_DAY = '100000'; // anciennes limites, pour ces scénarios
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');
@@ -420,9 +420,9 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   endBatch('msgbatch_' + nSubmit, []);
   await ds.syncConnection('own', act);
   for (let k = 1; k <= 3; k++) addDoc('bud' + k + '-aaaaa', NW(30, 'budget' + k + '_'));
-  const sp0 = ab.status('own'); const tr = ab.trancheOf(new Date());
+  const sp0 = ab.status('own');
   const reqCost = (() => { const prep = { parts: { stable: 'x'.repeat(4000), variable: 'y'.repeat(2000) }, want: { t: true, c: false } }; const pr = require('../server/lib/docanalysis').requestParams(prep); return (Math.ceil((JSON.stringify(pr.system).length + JSON.stringify(pr.messages).length) / 4) * 3 + pr.max_tokens * 15) * 0.5 / 1e6; })();
-  process.env.AI_BUDGET_MONTH_USD = String((sp0.spentMonth + reqCost * 1.6) * 4 / tr);
+  process.env.AI_BUDGET_MONTH_USD = String(sp0.spentMonth + reqCost * 1.6);
   const sub2 = nSubmit;
   rr = await ds.syncConnection('own', act);
   delete process.env.AI_BUDGET_MONTH_USD;
@@ -485,8 +485,8 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   const plainTok = Math.ceil(JSON.stringify(prm.messages[0].content[1]).length / 4);
   const pr = ab.priceFor(prm.model);
   assert(Math.abs(ds.maxCostOf(prm) - ((cacheTok * 1.25 + plainTok) * pr.in + prm.max_tokens * pr.out) * 0.5 / 1e6) < 1e-12, 'N3 : estimation = entrée mise en cache x 1,25 + entrée normale x 1 + sortie maximale, à 50 %');
-  const sp3 = ab.status('own'); const tr3 = ab.trancheOf(new Date()); const c3 = ds.maxCostOf(prm);
-  process.env.AI_BUDGET_MONTH_USD = String((sp3.spentMonth + c3 * 1.6) * 4 / tr3);
+  const sp3 = ab.status('own'); const c3 = ds.maxCostOf(prm);
+  process.env.AI_BUDGET_MONTH_USD = String(sp3.spentMonth + c3 * 1.6);
   addDoc('n3a-aaaaa', NW(30, 'n3a_'));
   const sub3 = nSubmit; rr = await ds.syncConnection('own', act);
   const est1 = db.prepare("SELECT estCost FROM drive_batches WHERE status = 'submitted' ORDER BY id DESC").get();
@@ -573,7 +573,7 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   // ---- Haiku d'abord (plan hebdomadaire, analyse de document) : confiant => pas de repli ; peu sûr / JSON invalide => repli Sonnet ----
   {
     const aibudget = require('../server/lib/aibudget'), weekly = require('../server/lib/goalsweeklyauto'), da = require('../server/lib/docanalysis');
-    process.env.ANTHROPIC_API_KEY = 'k'; process.env.GOALS_WEEKLY_MEMO_MIN = '0'; process.env.DOCANALYSIS_MEMO = 'off'; delete process.env.NOESIS_WEEKLY_FAST_MODEL; delete process.env.NOESIS_DOC_FAST_MODEL;
+    process.env.ANTHROPIC_API_KEY = 'k'; process.env.GOALS_WEEKLY_MEMO_MIN = '0'; process.env.DOCANALYSIS_MEMO = 'off'; delete process.env.NOESIS_FAST_MODEL; delete process.env.NOESIS_FAST_MODEL;
     const realFetch = global.fetch; const seen = []; let script = [];
     global.fetch = async (url, init) => {
       const m = JSON.parse(init.body).model; seen.push(m);
@@ -592,10 +592,10 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
     seen.length = 0; script = ['pas du json', wk()];
     out = await weekly.callAi({ g: 3 }, [1]);
     assert(seen.length === 2 && !isHaiku(seen[1]) && out.length === 1, 'Haiku hebdo : JSON invalide => repli Sonnet');
-    process.env.NOESIS_WEEKLY_FAST_MODEL = 'off'; seen.length = 0; script = [wk()];
+    process.env.NOESIS_FAST_MODEL = 'off'; seen.length = 0; script = [wk()];
     await weekly.callAi({ g: 4 }, [1]);
     assert(seen.length === 1 && !isHaiku(seen[0]), 'Haiku hebdo : off => Sonnet seul');
-    delete process.env.NOESIS_WEEKLY_FAST_MODEL;
+    delete process.env.NOESIS_FAST_MODEL;
 
     const parts = { stable: 'S', variable: 'V' }, want = { t: true, c: false };
     const dj = (conf) => JSON.stringify(Object.assign({ t: [['Appeler Paul', KEY, null, 30]] }, conf === undefined ? {} : { confidence: conf }));

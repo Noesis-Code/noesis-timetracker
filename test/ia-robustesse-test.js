@@ -2,7 +2,7 @@
 // au plus 2 appels réseau (modèle rapide puis fort) et une seule prise de plafond par appel réel. Faux client = global.fetch.
 // Usage : node test/ia-robustesse-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-robustesse-');
-process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_DAY_USD = '1000';
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_WEEK_USD = '1000';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');
@@ -41,8 +41,6 @@ global.fetch = async (url, init) => {
 const SCENARIOS = ['badjson', 'truncated', 'maxtokens', 'empty', 'emptytext', 'prose', 'nulljson', 'timeout', 'network', 'http500'];
 
 // Compte des prises de plafond par fonction.
-const capTaken = {}; const realTake = aicache.takeDailyCap;
-aicache.takeDailyCap = (name, ...r) => { capTaken[name] = (capTaken[name] || 0) + 1; return realTake(name, ...r); };
 
 // Données minimales : une activité, des catégories, un objectif périodique et une période vide.
 ['u1'].forEach((u) => db.prepare("INSERT INTO users (id, name, createdAt) VALUES (?, ?, datetime('now'))").run(u, u));
@@ -57,7 +55,7 @@ const today = new Date().toISOString().slice(0, 10);
 const end = goals.addDays(today, 27);
 const pid = db.prepare("INSERT INTO goal_periods (activityId, category, periodNumber, cycleIndex, periodIndexInCycle, startDate, endDate, mainGoalText, createdAt) VALUES (?, 'produit', 1, 0, 0, ?, ?, 'Lancer la nouvelle version du produit', datetime('now'))").run(act, today, end).lastInsertRowid;
 
-const reset = () => { aibudget.breakerReset(); aicache.memoClear(); aicache.capClear(); calls = 0; signals = 0; Object.keys(capTaken).forEach((k) => delete capTaken[k]); };
+const reset = () => { aibudget.breakerReset(); aicache.memoClear(); calls = 0; signals = 0; };
 const noThrow = async (fn) => { try { return { v: await fn() }; } catch (e) { return { err: e }; } };
 
 (async () => {
@@ -69,7 +67,7 @@ const noThrow = async (fn) => { try { return { v: await fn() }; } catch (e) { re
     reset(); goodText = 'Texte reformulé\nCONFIANCE: 95';
     let r = await noThrow(() => rewrite.proposeRewrite('Faire le truc ' + s, 'u1'));
     const textual = ['truncated', 'maxtokens', 'prose', 'nulljson'].includes(s); // texte lisible mais hors format : seulement une PROPOSITION que l'utilisateur valide ou non
-    assert(!r.err && (r.v === null || (textual && typeof r.v === 'string')) && calls <= 2 && (capTaken.reformulation || 0) <= 1, 'reformulation / ' + s + ' : null, ' + calls + ' appel(s), plafond x' + (capTaken.reformulation || 0));
+    assert(!r.err && (r.v === null || (textual && typeof r.v === 'string')) && calls <= 2, 'reformulation / ' + s + ' : null, ' + calls + ' appel(s)');
 
     // Correction d'orthographe silencieuse
     reset(); goodText = 'Appeler le client';
@@ -79,12 +77,12 @@ const noThrow = async (fn) => { try { return { v: await fn() }; } catch (e) { re
     // Récurrence
     reset(); goodText = '{"every":1,"unit":"week"}';
     r = await noThrow(() => aibudget.runAs('u1', () => recurrence.suggest('Tâche de fond ' + s)));
-    assert(!r.err && r.v === null && calls <= 1 && (capTaken['recurrence-tache'] || 0) <= 1, 'récurrence / ' + s + ' : null, ' + calls + ' appel(s)');
+    assert(!r.err && r.v === null && calls <= 1, 'récurrence / ' + s + ' : null, ' + calls + ' appel(s)');
 
     // Classement : mode normal (repli = premier candidat) et strict (repli = choix par l'utilisateur)
     reset(); goodText = 'produit | 95';
     r = await noThrow(() => aibudget.runAs('u1', () => classify.classifyCategory(act, 'Écrire la note de ' + s, { userId: 'u1' })));
-    assert(!r.err && r.v && r.v.key === 'produit' && r.v.usedAi === false && calls <= 2 && (capTaken['classement-tache'] || 0) <= 2, 'classement / ' + s + ' : premier candidat, ' + calls + ' appel(s), plafond x' + (capTaken['classement-tache'] || 0));
+    assert(!r.err && r.v && r.v.key === 'produit' && r.v.usedAi === false && calls <= 2, 'classement / ' + s + ' : premier candidat, ' + calls + ' appel(s)');
     reset();
     r = await noThrow(() => aibudget.runAs('u1', () => classify.classifyCategory(act, 'Écrire la note stricte ' + s, { userId: 'u1', strict: true })));
     assert(!r.err && r.v && r.v.unresolved === true && Array.isArray(r.v.candidates) && r.v.candidates.length === 2 && calls <= 2, 'classement strict / ' + s + ' : demande à l\'utilisateur, ' + calls + ' appel(s)');
@@ -92,12 +90,12 @@ const noThrow = async (fn) => { try { return { v: await fn() }; } catch (e) { re
     // Rapprochement tâche -> objectif (repli lexical ; null si rien de commun)
     reset(); goodText = '{"index":1,"confidence":0.9,"reason":"ok"}';
     r = await noThrow(() => aibudget.runAs('u1', () => place.matchObjective('u1', act, 'produit', 'Préparer la nouvelle version du produit ' + s)));
-    assert(!r.err && r.v && r.v.method === 'lexical' && calls <= 1 && (capTaken['rapprochement-objectif'] || 0) <= 1, 'rapprochement / ' + s + ' : repli lexical, ' + calls + ' appel(s)');
+    assert(!r.err && r.v && r.v.method === 'lexical' && calls <= 1, 'rapprochement / ' + s + ' : repli lexical, ' + calls + ' appel(s)');
 
     // Objectifs hebdomadaires : point d'entrée qui ne lève jamais
     reset(); goodText = '{"weeklyGoals":[{"weekIndex":1,"text":"Semaine 1","description":""}]}';
     r = await noThrow(() => aibudget.runAs('u1', () => weekly.generateForPeriod(act, 'u1', 'produit', 1, { dryRun: true })));
-    assert(!r.err && r.v && (r.v.error === true || (r.v.proposals && !r.v.proposals.length)) && calls <= 3 && (capTaken['objectifs-hebdo'] || 0) <= 1, 'hebdo (generateForPeriod) / ' + s + ' : { error } sans exception, ' + calls + ' appel(s), plafond x' + (capTaken['objectifs-hebdo'] || 0));
+    assert(!r.err && r.v && (r.v.error === true || (r.v.proposals && !r.v.proposals.length)) && calls <= 3, 'hebdo (generateForPeriod) / ' + s + ' : { error } sans exception, ' + calls + ' appel(s)');
 
     // Inter-secteurs : point d'entrée qui ne lève jamais
     reset(); goodText = '{"suggestions":[]}';
@@ -112,7 +110,7 @@ const noThrow = async (fn) => { try { return { v: await fn() }; } catch (e) { re
     // Plan Offre 1 : panne propagée (aucun repli local ; l'appelant garde l'abonnement/le quota intacts), erreur propre, 2 appels max
     reset(); goodText = '{}';
     r = await noThrow(() => aibudget.runAs('u1', () => offer.generateSubProjectsPlan({ discovery: { q: s } })));
-    assert(r.err instanceof Error && calls <= 2 && (capTaken['offre1-plan'] || 0) === 1, 'Offre 1 / ' + s + ' : Error propre, ' + calls + ' appel(s), plafond x' + (capTaken['offre1-plan'] || 0));
+    assert(r.err instanceof Error && calls <= 2, 'Offre 1 / ' + s + ' : Error propre, ' + calls + ' appel(s)');
     quiet(false);
   }
 

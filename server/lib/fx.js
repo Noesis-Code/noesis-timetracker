@@ -1,6 +1,6 @@
 // Change USD/CAD : SEUL endroit du dépôt. Décision d'Émilien (20 oct. 2026) : les plafonds et seuils de coût IA sont en DOLLARS CANADIENS (CAD) ;
 // l'API Anthropic facture et le journal ai_usage_log (colonne costUsd) comptent en dollars AMÉRICAINS (USD). Toute comparaison convertit CAD -> USD ici.
-// USD_PER_CAD = nombre d'USD pour 1 CAD. 0,72 est une ESTIMATION, pas une donnée vérifiée (à confirmer : docs/questions/questions-emilien-credits.md).
+// USD_PER_CAD = nombre d'USD pour 1 CAD. 0,72 est une ESTIMATION, pas une donnée vérifiée (à confirmer : docs/questions/questions-emilien.md).
 // FX_UPDATED = date de la dernière vérification ; le rapport et test/ia-fx-test.js avertissent au-delà de 90 jours.
 // Surcharge sans code : variable d'environnement AI_USD_PER_CAD (nombre > 0).
 const USD_PER_CAD = 0.72;

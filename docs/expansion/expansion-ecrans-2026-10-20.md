@@ -24,4 +24,4 @@ Vérifié par Playwright à 390×844 et 360×640, FR et EN, staging (clés de te
 - À savoir : le retour de Stripe s'ouvre dans le navigateur ; si l'app est installée (PWA), l'état « abonné » se lit au prochain chargement de la carte (le webhook peut arriver quelques secondes après le retour).
 
 ## Reste côté Émilien
-Rien de nouveau (légal, courriels, activation du portail : voir `docs/questions/questions-emilien-expansion.md`).
+Rien de nouveau (légal, courriels, activation du portail : voir `docs/questions/questions-emilien.md`).

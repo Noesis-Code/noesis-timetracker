@@ -1,7 +1,7 @@
 // Panne fournisseur IA : 30 min d'erreurs 529 (faux fetch, horloge simulée) sur toutes les fonctions, disjoncteur, aucun coût doublé, aucune file de relances.
 // Seuil hebdomadaire adaptatif (calcul pur seuilAlerte) : 10 intensifs / 100 moyens / 1. Aucun appel payant. Usage : node test/ia-panne-fournisseur-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-panne-');
-process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_DAY_USD = '1000'; process.env.AI_BUDGET_SYSTEM_DAY_USD = '1000'; process.env.AI_BUDGET_MONTH_USD = '100000';
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_WEEK_USD = '1000'; process.env.AI_BUDGET_SYSTEM_DAY_USD = '1000'; process.env.AI_BUDGET_MONTH_USD = '100000';
 process.env.AI_RETRY_BASE_MS = '1'; process.env.AI_RETRY_MAX_WAIT_MS = '2'; delete process.env.AI_BREAKER_N; delete process.env.AI_BREAKER_OPEN_MS;
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
@@ -49,7 +49,7 @@ const call = (u, f) => aibudget.runAs(u, () => aibudget.fetchAnthropic(f, 'x', {
   assert(returns529 > 0 && throwsBreaker > 0, 'le disjoncteur s\'ouvre après des échecs de suite');
   assert(netCalls < tentatives / 5, 'appels réseau réduits de plus de 80 % pendant la panne (sondes seulement)');
   assert(spent.c === 0 && spent.n === 0, 'aucun coût ni appel comptabilisé pendant la panne (529 jamais facturés)');
-  assert(aibudget.status('u0').spentDay === 0 && aibudget.status('system').spentDay === 0, 'aucune réservation en vol laissée (budget du jour intact)');
+  assert(aibudget.status('u0').spentWeek === 0 && aibudget.status('system').spentWeek === 0, 'aucune réservation en vol laissée (budget de la semaine intact)');
   // Aucune file de relances : tout est synchrone et borné, rien en attente
   assert(process._getActiveHandles().filter((h) => h.constructor && h.constructor.name === 'Timeout').length === 0, 'aucun minuteur de relance en attente (pas de file)');
   // Reprise sondée

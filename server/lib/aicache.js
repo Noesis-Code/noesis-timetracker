@@ -59,21 +59,6 @@ async function memoize(parts, fn, opts) {
 }
 function memoClear() { memoStore.clear(); memoPending.clear(); memoCount.hits = 0; memoCount.misses = 0; }
 
-// Plafond quotidien par fonction et par compte (garde-fou contre l'abus, très au-dessus de l'usage normal).
-// Sans compte identifié ou max <= 0 : pas de plafond propre (le budget commun aibudget reste actif). Mémoire, remis à zéro chaque jour.
-const capUsage = new Map();
-function takeDailyCap(name, account, max, now) {
-  if (!account || !(max > 0)) return true;
-  const day = require('./aifeaturecaps').dayKey(now);
-  for (const k of capUsage.keys()) if (!k.endsWith('|' + day)) capUsage.delete(k);
-  const key = name + '|' + account + '|' + day;
-  const n = capUsage.get(key) || 0;
-  if (n >= max) return false;
-  capUsage.set(key, n + 1);
-  return true;
-}
-function capFromEnv(envName, dflt) { const n = parseInt(process.env[envName], 10); return Number.isFinite(n) && n >= 0 ? n : dflt; }
-function capClear() { capUsage.clear(); }
 // Refus de débit de l'API (HTTP 429 limite, 529 surcharge) : le modèle fort subirait le même refus, donc pas de second appel de repli (panne IA habituelle).
 function isThrottled(err) { return !!err && (err.status === 429 || err.status === 529 || /\(?HTTP (429|529)\b/.test(String(err.message || ''))); }
 
@@ -86,10 +71,10 @@ function isNoFallback(err) {
   return err.status === 400 || err.status === 401 || err.status === 403 || /\(?HTTP (400|401|403)\b/.test(String(err.message || ''));
 }
 
-// Paliers « modèle rapide d'abord, modèle fort en repli » (décision d'Emilien). Modèle rapide lu dans la variable d'environnement
-// `envModel` (défaut Haiku, voir aimodels.js ; 'off' ou égal au modèle fort = désactivé), seuil de confiance (0-100) dans `envConf` (défaut 80).
-function fastModelFor(envModel, strongModel) {
-  const m = require('./aimodels').fastModelRaw(envModel);
+// Paliers « modèle rapide d'abord, modèle fort en repli » (décision d'Emilien). Modèle rapide lu dans NOESIS_FAST_MODEL
+// (défaut Haiku, voir aimodels.js ; 'off' ou égal au modèle fort = désactivé), seuil de confiance (0-100) dans `envConf` (défaut 80).
+function fastModelFor(strongModel) {
+  const m = require('./aimodels').fastModelRaw();
   return !m || /^(off|0|non|false)$/i.test(m) || m === strongModel ? null : m;
 }
 function minConfidenceFor(envConf) {
@@ -97,4 +82,4 @@ function minConfidenceFor(envConf) {
   return Number.isFinite(n) && n >= 0 && n <= 100 ? n : 80;
 }
 
-module.exports = { fastModelFor, minConfidenceFor, memoize, memoClear, memoStats, takeDailyCap, isThrottled, isNoFallback, capFromEnv, capClear, messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };
+module.exports = { fastModelFor, minConfidenceFor, memoize, memoClear, memoStats, isThrottled, isNoFallback, messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };

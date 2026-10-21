@@ -29,6 +29,6 @@ Test de bout en bout : `test/fonctionnel-exactitude.js` (serveur réel, données
 - `server/lib/dataexport.js` : ajoute `goalCategory` à chaque entrée exportée.
 
 ## Constats non modifiés (décision d'Émilien en attente ou hors périmètre)
-- Entrée qui passe minuit : le Graphique et la Communauté la comptent entière au jour de départ ; la Répartition et la grille la découpent à la fin de la fenêtre affichée (la partie après la dernière journée de la fenêtre n'est pas comptée). Les totaux sur une fenêtre qui contient toute l'entrée sont exacts. Question déjà posée dans `docs/questions/questions-emilien-basic.md` (découpe par jour).
+- Entrée qui passe minuit : le Graphique et la Communauté la comptent entière au jour de départ ; la Répartition et la grille la découpent à la fin de la fenêtre affichée (la partie après la dernière journée de la fenêtre n'est pas comptée). Les totaux sur une fenêtre qui contient toute l'entrée sont exacts. Question déjà posée dans `docs/questions/questions-emilien.md` (découpe par jour).
 - Le garde-fou « pas plus de 24 h / pas de chevauchement / pas dans le futur » (`entryguard.js`) ne s'applique qu'à la modification (PUT), pas à l'ajout manuel (POST `/api/history`) : une entrée de 27 h peut donc être créée. À décider (il changerait la saisie ; hors périmètre de ce chantier).
 - Fenêtres de la Répartition et de la grille calculées en heure du serveur (America/Toronto) alors que `isoDate` suit le fuseau du téléphone : exact pour le Québec/Ontario, écart possible aux bords de journée ailleurs au Canada.

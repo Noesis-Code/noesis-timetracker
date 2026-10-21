@@ -83,7 +83,7 @@ Contraintes : exactement ${SUBPROJECT_COUNT} sous-projets ; chaque "name" fait m
 
 // Haiku d'abord, repli sur ANTHROPIC_MODEL (fort) si Haiku est peu sûr : appel en échec, JSON non conforme, plan trop court/incomplet
 // (un sous-projet sans description, ou moins de REVEAL_BATCH_SIZE tâches), ou confiance (champ racine "confidence") < seuil.
-// Réglages : NOESIS_OFFER_FAST_MODEL ('off' = fort seul), NOESIS_OFFER_MIN_CONFIDENCE (défaut 80). Journal : 'offre1-plan' / 'offre1-plan:repli'.
+// Réglages : NOESIS_FAST_MODEL ('off' = fort seul), NOESIS_OFFER_MIN_CONFIDENCE (défaut 80). Journal : 'offre1-plan' / 'offre1-plan:repli'.
 const OFFER_CONF = '\nAjoute à la racine de l\'objet JSON un champ "confidence" (entier 0-100, ta confiance que ce plan est complet, concret et adapté aux formulaires ; sous 80 si tu hésites).';
 function planIsComplete(plan) {
   return plan.length === SUBPROJECT_COUNT && plan.every((p) => p.name && p.description && p.tasks.length >= REVEAL_BATCH_SIZE);
@@ -94,9 +94,7 @@ function generateSubProjectsPlan(formsPayload) {
   return aicache.memoize(['offre1-plan', ANTHROPIC_MODEL, formsPayload || {}], () => generatePlanUncached(formsPayload));
 }
 async function generatePlanUncached(formsPayload) {
-  // Plafond d'abus par compte et par jour (appels réels seulement, après le mémo) ; refus = panne IA. OFFER_MAX_PER_DAY (défaut 10 ; 0 = désactivé).
-  if (!aicache.takeDailyCap('offre1-plan', aibudget.currentUser(), aicache.capFromEnv('OFFER_MAX_PER_DAY', 10))) throw new Error('Plafond quotidien de génération atteint.');
-  const fast = aicache.fastModelFor('NOESIS_OFFER_FAST_MODEL', ANTHROPIC_MODEL);
+  const fast = aicache.fastModelFor(ANTHROPIC_MODEL);
   if (fast) {
     try {
       const { text, truncated } = await callPlanApi(formsPayload, fast, SYSTEM_PROMPT + OFFER_CONF, 'offre1-plan');

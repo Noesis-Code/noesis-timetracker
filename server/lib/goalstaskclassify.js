@@ -181,16 +181,10 @@ function extractUncertain(text, categories) {
   return keys;
 }
 
-// Plafonds d'abus par compte et par jour : [variable d'environnement, défaut].
-const CALL_CAPS = { 'classement-tache': ['CLASSIFY_MAX_PER_DAY', 500], 'recurrence-tache': ['RECURRENCE_MAX_PER_DAY', 300], 'rapprochement-objectif': ['MATCH_MAX_PER_DAY', 500] };
 // `model` (4e paramètre, facultatif) : modèle imposé par l'appelant (ex. Haiku pour la correction d'orthographe).
 // Température 0 : réponse mémorisée par hash de l'entrée (aicache.memoize), 24 h.
 function callModel(prompt, maxTokens, feature, model) {
   return aicache.memoize([model || modelName(), maxTokens || MAX_OUTPUT_TOKENS, prompt], () => {
-    // Plafond d'abus par compte, appels réels seulement (le mémo passe avant) ; l'orthographe a le sien (silentspellfix).
-    const capKey = /^classement-tache/.test(feature || 'classement-tache') ? 'classement-tache' : feature;
-    const cap = CALL_CAPS[capKey];
-    if (cap && !aicache.takeDailyCap(capKey, aibudget.currentUser(), aicache.capFromEnv(cap[0], cap[1]))) throw new Error('Plafond quotidien de classement atteint.');
     return callModelRaw(prompt, maxTokens, feature, model);
   });
 }
@@ -246,10 +240,10 @@ async function callModelRaw(prompt, maxTokens, feature, model) {
 // l'utilisateur (validé contre les candidats), aucun appel IA.
 // Haiku d'abord, repli sur le modèle fort (modelName(), NOESIS_TASK_CATEGORY_MODEL)
 // seulement si Haiku est peu sûr : appel en échec, clé inconnue/sortie invalide, INCERTAIN, ou confiance < seuil (ou absente).
-// Réglages : NOESIS_CLASSIFY_FAST_MODEL (défaut Haiku, voir aimodels.js ; 'off' = toujours le modèle fort), NOESIS_CLASSIFY_MIN_CONFIDENCE (défaut 80).
+// Réglages : NOESIS_FAST_MODEL (défaut Haiku, voir aimodels.js ; 'off' = toujours le modèle fort), NOESIS_CLASSIFY_MIN_CONFIDENCE (défaut 80).
 // Journal : feature 'classement-tache' (Haiku) et 'classement-tache:repli' (modèle fort) => taux de repli dans usageReport().
 function fastModel() {
-  const m = require('./aimodels').fastModelRaw('NOESIS_CLASSIFY_FAST_MODEL');
+  const m = require('./aimodels').fastModelRaw();
   return !m || /^(off|0|non|false)$/i.test(m) || m === modelName() ? null : m;
 }
 function minConfidence() {

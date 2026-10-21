@@ -1,6 +1,6 @@
 // Sortie IA bornée au besoin (redistribution, objectifs hebdo) : max_tokens réduit sans changer la sortie lue. Usage : node test/ia-sortie-reduite-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-sortie-');
-process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_DAY_USD = '1000'; process.env.AI_BUDGET_MONTH_USD = '1000';
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_WEEK_USD = '1000'; process.env.AI_BUDGET_MONTH_USD = '1000';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const docanalysis = require('../server/lib/docanalysis');

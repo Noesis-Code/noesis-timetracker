@@ -55,7 +55,7 @@ const wk = require('../server/lib/goalsweeklyauto');
 assert(!/en français/.test(wk.SYSTEM_PROMPT) && /langue du grand objectif/.test(wk.SYSTEM_PROMPT), 'goalsweeklyauto : langue suivie (pas de « en français » codé en dur)');
 // Saisie manuelle jamais altérée : test de comportement par la VRAIE route de création de tâche (async, plus bas) ; voir le bloc « saisie manuelle ».
 const pth = require('path');
-// Compteur agrégé journalier (sans titre) lu par ai-acceptance-report.
+// Compteur agrégé journalier (sans titre) lu par ai-cost-report --acceptation.
 const ab = require('../server/lib/aibudget');
 const dtq = require('../server/lib/documenttasks');
 const qBefore = (() => { const d = new (require('node:sqlite').DatabaseSync)(require('path').join(process.env.NOESIS_DATA_DIR, 'noesis.db'), { readOnly: true }); const r = d.prepare('SELECT * FROM generation_quality_log WHERE feature = ?').get('documenttasks') || { generated: 0, rejected: 0, cleaned: 0 }; d.close(); return r; })();
@@ -66,8 +66,8 @@ const qr = qdb.prepare('SELECT * FROM generation_quality_log WHERE feature = ?')
 assert(qr && qr.day === ab.todayLocal() && qr.generated - qBefore.generated === 3 && qr.rejected - qBefore.rejected === 1 && qr.cleaned - qBefore.cleaned === 1, 'compteur journalier : 3 générées, 1 rejetée, 1 nettoyée');
 assert(Object.keys(qr).sort().join(',') === 'cleaned,day,feature,generated,rejected', 'compteur : aucune colonne titre ni compte');
 qdb.close();
-const rep = require('child_process').execFileSync('node', [pth.join(__dirname, '..', 'scripts', 'ai-acceptance-report.js'), '7'], { encoding: 'utf8', env: process.env });
-assert(new RegExp('documenttasks ' + qr.generated + ' générée\\(s\\), ' + qr.rejected + ' rejetée\\(s\\)').test(rep), 'ai-acceptance-report lit le compteur');
+const rep = require('child_process').execFileSync('node', [pth.join(__dirname, '..', 'scripts', 'ai-cost-report.js'), '--acceptation', '7'], { encoding: 'utf8', env: process.env });
+assert(new RegExp('documenttasks ' + qr.generated + ' générée\\(s\\), ' + qr.rejected + ' rejetée\\(s\\)').test(rep), 'ai-cost-report --acceptation lit le compteur');
 // Lot aveugle h61-h90 : taux de faux rejets <= 2 %.
 const blind = require('./fixtures/task-precision/blind-h61-h90.json').titles;
 const falseRej = blind.filter((t) => !tp.checkGenerated(t, []).title);

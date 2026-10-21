@@ -2,7 +2,7 @@
 // et sur délai dépassé (pas de repli payant), réparation locale d'un JSON abîmé (taux mesuré), mémo après abandon du client.
 // Faux serveur = vrai serveur HTTP local ; global.fetch y redirige les appels. Aucun appel payant. Usage : node test/ia-echecs-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-echecs-');
-process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_DAY_USD = '1000';
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_WEEK_USD = '1000';
 process.env.AI_RETRY_BASE_MS = '10'; process.env.AI_RETRY_MAX_WAIT_MS = '200';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
@@ -32,7 +32,7 @@ const GOOD = JSON.stringify({ weeklyGoals: [{ weekIndex: 1, text: 'Lancer', desc
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = 'http://127.0.0.1:' + server.address().port + '/v1/messages';
   global.fetch = (url, init) => origFetch(base, init);
-  const reset = () => { aicache.memoClear(); aicache.capClear(); hits = 0; };
+  const reset = () => { aicache.memoClear(); hits = 0; };
   const fetchOnce = () => aibudget.runAs('u1', () => aibudget.fetchAnthropic('test', 'x', { method: 'POST', signal: AbortSignal.timeout(5000), headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 10, messages: [{ role: 'user', content: 'a' }] }) }));
 
   // (2) Délais maximaux : un faux serveur lent ne bloque jamais au-delà du délai, et le délai dépassé ne déclenche pas de repli payant.
@@ -64,10 +64,10 @@ const GOOD = JSON.stringify({ weeklyGoals: [{ weekIndex: 1, text: 'Lancer', desc
   // (3) Relances 429/529
   reset(); behave = (n) => (n < 3 ? { status: 429, headers: { 'retry-after': '0' }, body: { error: {} } } : { status: 200, body: okBody('x') });
   let r = await fetchOnce(); assert(r.ok && hits === 3, '429 + Retry-After 0 deux fois puis succès : 3 requêtes, résultat obtenu (' + hits + ')');
-  { const d0 = aibudget.spentDay('u1'); reset(); behave = (n) => (n < 3 ? { status: 429, headers: { 'retry-after': '0' }, body: { error: {} } } : { status: 200, body: okBody('x') });
-    await fetchOnce(); const paid = aibudget.spentDay('u1') - d0, one = aibudget.computeCost('claude-haiku-4-5', { input_tokens: 5, output_tokens: 5 });
+  { const d0 = aibudget.spentWeek('u1'); reset(); behave = (n) => (n < 3 ? { status: 429, headers: { 'retry-after': '0' }, body: { error: {} } } : { status: 200, body: okBody('x') });
+    await fetchOnce(); const paid = aibudget.spentWeek('u1') - d0, one = aibudget.computeCost('claude-haiku-4-5', { input_tokens: 5, output_tokens: 5 });
     assert(hits === 3 && Math.abs(paid - one) < 1e-9, 'budget : 2 relances 429 + 1 succès = UN seul coût enregistré (' + paid + ' vs ' + one + ')');
-    const st = aibudget.status('u1'); assert(Math.abs(st.spentDay - aibudget.spentDay('u1')) < 1e-9, 'budget : aucune réservation résiduelle après relances'); }
+    const st = aibudget.status('u1'); assert(Math.abs(st.spentWeek - aibudget.spentWeek('u1')) < 1e-9, 'budget : aucune réservation résiduelle après relances'); }
   reset(); behave = () => ({ status: 429, headers: { 'retry-after': '30' }, body: { error: {} } });
   r = await fetchOnce(); assert(!r.ok && hits === 1, 'Retry-After 30 s > plafond d\'attente : abandon sans relance (' + hits + ')');
   reset(); behave = () => ({ status: 529, body: { error: {} } });

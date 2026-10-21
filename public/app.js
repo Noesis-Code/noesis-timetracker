@@ -10344,14 +10344,6 @@
     });
   }
 
-  // ----- "En ce moment" (notes envoyées en direct par des membres/abonnés
-  // dont le chrono tourne ENCORE) a été retiré du volet Communauté le 30
-  // août 2026 (demande d'Emilien) — buildLiveBroadcastCard/loadLiveFeed,
-  // qui l'alimentaient, ont été supprimées avec lui : plus aucun élément
-  // #liveFeed/#liveFeedEmptyHint dans le DOM pour les recevoir. Le backend
-  // (liveFeedForUser / GET /community/live-feed) reste disponible si une
-  // future section en a besoin ailleurs. -----
-
   // ===================== PROFIL =====================
 
   // ----- Photo de profil -----
@@ -12377,9 +12369,7 @@
   // ⚠️ 26 septembre 2026, demande d'Emilien : les deux boutons ▲▼ sont
   // remplacés par le glisser-déposer à la poignée déjà utilisé ailleurs dans
   // l'app (Pôles, Secteurs, Activités, Sous-projets). moveProject() est donc
-  // retirée avec eux — le commentaire qu'elle portait (« pas de
-  // glisser-déposer : plus fiable sur mobile ») datait du 1er septembre, avant
-  // que bindSubProjectDrag n'existe et ne fasse la preuve du contraire.
+  // retirée avec eux.
   //
   // Copiée de bindActivityDrag (même mécanique au pixel près, mêmes pièges
   // évités — voir son commentaire). Deux différences seulement : la liste
@@ -15580,10 +15570,7 @@
     loadSettingsActivities();
   }
 
-  // Glisser-déposer d'une ligne d'activité, à la poignée — copié à l'origine
-  // de bindSubProjectDrag (retirée le 26 septembre 2026 avec l'écran
-  // #subProjectsList, masqué depuis le 17 septembre ; son explication du piège
-  // est reprise ci-dessous). Persistance sur PUT /api/activities/reorder
+  // Glisser-déposer d'une ligne d'activité, à la poignée. Persistance sur PUT /api/activities/reorder
   // (ordre PERSONNEL, sans activityId à transmettre), et rafraîchissement du
   // Chrono ensuite, puisque sa grille suit désormais le même ordre que ce
   // volet.

@@ -12,7 +12,7 @@ Méthode : Playwright/Chromium (mobile, standalone simulé), serveur local seed�
 | Retour du réseau (chrono démarré hors ligne) | OK : un seul chrono côté serveur, même heure de départ | `/api/timer/status` : running, 1 seul |
 | Arrêter le chrono hors ligne | OK : écran repasse au repos, « Session enregistrée hors ligne… » | enregistrement local `stop` rempli |
 | Retour du réseau (arrêt hors ligne) | OK : 1 session ajoutée (7 → 8), enregistrement local vidé, message « Arrêt hors ligne synchronisé » | `/api/history` avant/après |
-| Ajouter une tâche (Feuille de route) hors ligne | Pas de file (limite assumée, voir `objectifs-page1.js` ; mise en file proposée dans `docs/questions/questions-emilien-basic.md`) : message « Connexion impossible. Réessaie. », texte conservé, rien créé | `docs/img/pwa-capture-hors-ligne-2026-10-20.png` |
+| Ajouter une tâche (Feuille de route) hors ligne | Pas de file (limite assumée, voir `objectifs-page1.js` ; mise en file proposée dans `docs/questions/questions-emilien.md`) : message « Connexion impossible. Réessaie. », texte conservé, rien créé | `docs/img/pwa-capture-hors-ligne-2026-10-20.png` |
 | Même tâche, réseau revenu, nouvel appui | OK : une seule tâche créée (aucun doublon) | `/api/activities/8/goals/categories` : 1 occurrence |
 | File hors ligne (`NoesisAutoTaskQueue`) : envoi sans réseau | OK : reste en file (`remaining:1, stopped:true`) | retour de `flush()` |
 | File : envoi au retour du réseau | OK : vidée, tâche classée (« Pôle test ») | `list()` = 0 |

@@ -9,7 +9,7 @@ const back = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d
 const row = (day, feature, calls, costUsd) => ({ userId: 'u1', day, model: 'claude-haiku-4-5', feature, calls, costUsd });
 const run = (rows, env) => {
   const f = path.join(dir, 'e.json'); fs.writeFileSync(f, JSON.stringify(rows));
-  return execFileSync('node', [path.join(__dirname, '..', 'scripts', 'ai-cost-weekly.js'), '--from', f], { encoding: 'utf8', env: { ...process.env, ...env } });
+  return execFileSync('node', [path.join(__dirname, '..', 'scripts', 'ai-cost-report.js'), '--semaine', '--from', f], { encoding: 'utf8', env: { ...process.env, ...env } });
 };
 let o = run([row(back(1), 'classement-tache', 10, 1), row(back(2), 'classement-tache:repli', 1, 0.7), row(back(9), 'classement-tache', 10, 1), row(back(3), 'plan', 2, 0.1)]);
 assert(/7 derniers jours : 1\.80 USD/.test(o), 'total semaine 1.80 $ (repli regroupé)');

@@ -54,12 +54,6 @@ const sf = require('../server/lib/silentspellfix');
   await sf.fixText('planifier la reunion', 'own'); await sf.fixText('planifier la reunion', 'own');
   assert(calls === before + 1, 'cache par texte');
 
-  // plafond journalier
-  process.env.SPELLFIX_MAX_PER_DAY = '2'; answer = 'Texte un ok'; const c0 = calls;
-  await sf.fixText('texte un oc', 'plaf'); await sf.fixText('texte deux oc', 'plaf'); await sf.fixText('texte trois oc', 'plaf');
-  assert(calls === c0 + 2, 'plafond par compte');
-  delete process.env.SPELLFIX_MAX_PER_DAY;
-
   // désactivation
   process.env.SPELLFIX = 'off'; const c1 = calls;
   assert(await sf.fixText('un texte fote', 'own') === null && calls === c1, 'SPELLFIX=off');

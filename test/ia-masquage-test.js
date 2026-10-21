@@ -1,6 +1,6 @@
 // Loi 25 : masquage des coordonnées avant envoi au modèle + validation de la reformulation. Usage : node test/ia-masquage-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-scrub-');
-process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_DAY_USD = '1000';
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_WEEK_USD = '1000';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const { scrubText: s, scrubBody } = require('../server/lib/aiscrub');
@@ -39,7 +39,7 @@ assert(scrubBody('pas du json') === 'pas du json', 'corps illisible inchangé');
   assert(validRewrite('x'.repeat(300), 'ventes') === false, 'trop long vs original rejeté');
   let reply = 'Je ne peux pas aider avec cela.';
   global.fetch = async () => ({ ok: true, status: 200, clone() { return this; }, json: async () => ({ model: 'claude-sonnet-4-5', usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: 'text', text: reply }] }) });
-  process.env.NOESIS_REWRITE_FAST_MODEL = 'off';
+  process.env.NOESIS_FAST_MODEL = 'off';
   assert((await proposeRewrite('lancer boutique', 'u-scrub')) === null, 'refus du modèle -> repli sur le texte original (null)');
   reply = 'Lancer la boutique en ligne';
   assert((await proposeRewrite('lancer boutique en ligne vite', 'u-scrub2')) === 'Lancer la boutique en ligne', 'sortie valide conservée');

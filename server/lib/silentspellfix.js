@@ -4,7 +4,7 @@
 // « modification proposée »). Contraintes : la tâche est enregistrée d'abord ; la correction passe
 // ensuite en arrière-plan et met à jour le titre ; IA absente/en erreur => texte laissé tel quel,
 // sans erreur visible ; correction rejetée si elle change le sens/les mots au-delà de la faute.
-// Réglages : SPELLFIX=off (désactive), SPELLFIX_MAX_PER_DAY (défaut 200, par compte).
+// Réglage : SPELLFIX=off (désactive).
 // Les titres de tâche n'ont pas de description courte en base : seul le titre est corrigé.
 const db = require('../db');
 const classify = require('./goalstaskclassify');
@@ -15,21 +15,7 @@ function setCaller(fn) { caller = fn; }
 
 const cache = new Map(); // texte -> texte corrigé (ou null si rejeté) ; borné
 const CACHE_MAX = 500;
-const usage = new Map(); // `${compte}|${jour}` -> nombre d'appels IA
-function maxPerDay() {
-  const n = parseInt(process.env.SPELLFIX_MAX_PER_DAY, 10);
-  return Number.isFinite(n) && n >= 0 ? n : 200;
-}
 function enabled() { return String(process.env.SPELLFIX || '').toLowerCase() !== 'off'; }
-function takeCall(account) {
-  const day = require('./aifeaturecaps').dayKey(); // jour de Montréal, comme le budget IA (jamais UTC : double plafond par jour)
-  for (const k of usage.keys()) if (!k.endsWith('|' + day)) usage.delete(k);
-  const key = (account || '?') + '|' + day;
-  const n = usage.get(key) || 0;
-  if (n >= maxPerDay()) return false;
-  usage.set(key, n + 1);
-  return true;
-}
 
 const fold = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 function editDistance(a, b) {
@@ -86,7 +72,6 @@ async function fixText(text, account) {
     if (!caller && !classify.configured()) return null;
     const memoKey = src.replace(/\s+/g, ' '); // espaces multiples = même titre : une seule correction payée
     if (cache.has(memoKey)) return cache.get(memoKey);
-    if (!takeCall(account)) return null;
     let out = await (caller || callModelForFix)(src);
     out = String(out == null ? '' : out).trim();
     const res = out && out !== src && isPureSpellingFix(src, out) ? out : null;
@@ -122,4 +107,4 @@ function schedule(itemId) {
   setTimeout(() => { fixItemLabel(itemId).catch(() => {}); }, 50).unref();
 }
 
-module.exports = { schedule, fixItemLabel, fixText, isPureSpellingFix, editDistance, setCaller, takeCall, SYSTEM };
+module.exports = { schedule, fixItemLabel, fixText, isPureSpellingFix, editDistance, setCaller, SYSTEM };

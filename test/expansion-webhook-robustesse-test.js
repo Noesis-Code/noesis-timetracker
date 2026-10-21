@@ -134,8 +134,7 @@ const snapshot = () => JSON.stringify([db.prepare('SELECT * FROM activity_subscr
   ok(exp.every(([f, src]) => !/\bfetch\s*\(/.test(src) || f === 'server/lib/stripe.js'), 'aucun fetch direct hors stripe.js dans Expansion');
   ok(exp.every(([f, src]) => !/ANTHROPIC_API_KEY|api\.anthropic\.com/.test(src) || f === 'server/lib/offerdelivery.js'), 'clé et URL IA seulement dans offerdelivery.js');
   const od = exp.find(([f]) => f.endsWith('offerdelivery.js'))[1];
-  ok((od.match(/\bfetch\w*\s*\(/g) || []).filter((x) => !/^fetchAnthropic/.test(x)).length === 0 && /aibudget\.fetchAnthropic\(/.test(od) && /takeDailyCap\('offre1-plan'/.test(od), 'offerdelivery : appel IA via aibudget.fetchAnthropic + plafond quotidien offre1-plan');
-  ok(require('../server/lib/aifeaturecaps').capFor('offre1-plan') !== undefined, 'fonction offre1-plan présente dans aifeaturecaps');
+  ok((od.match(/\bfetch\w*\s*\(/g) || []).filter((x) => !/^fetchAnthropic/.test(x)).length === 0 && /aibudget\.fetchAnthropic\(/.test(od), 'offerdelivery : appel IA via aibudget.fetchAnthropic');
 
   server.close();
   process.exit(failed ? 1 : 0);

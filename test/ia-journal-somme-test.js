@@ -1,9 +1,9 @@
 // Journal de coût (ai_usage_log) = jetons réellement retournés par l'API : somme exacte, y compris les échecs PAYANTS (JSON invalide, sortie tronquée),
 // les relances (429/529 non facturées = 0 ligne) et les replis (chaque appel payant écrit sa ligne). Faux serveur HTTP local renvoyant `usage`.
-// Limite connue (documentée docs/ia/ia-modeles.md) : un délai dépassé coupe la réponse AVANT de connaître `usage` : le coût n'est pas journalisé. Aucun appel payant.
+// Limite connue (documentée docs/ia/ia-appels.md) : un délai dépassé coupe la réponse AVANT de connaître `usage` : le coût n'est pas journalisé. Aucun appel payant.
 // Usage : node test/ia-journal-somme-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-somme-');
-process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_DAY_USD = '1000'; process.env.AI_BUDGET_MONTH_USD = '1000';
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging'; process.env.ANTHROPIC_API_KEY = 'fake'; process.env.AI_BUDGET_WEEK_USD = '1000'; process.env.AI_BUDGET_MONTH_USD = '1000';
 process.env.AI_RETRY_BASE_MS = '5'; process.env.AI_RETRY_MAX_WAIT_MS = '100';
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
@@ -41,7 +41,7 @@ const sameAsPaid = (label) => { const j = journal(); assert(j.i === paid.inTok &
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = 'http://127.0.0.1:' + server.address().port + '/v1/messages';
   global.fetch = (url, init) => origFetch(base, init);
-  const reset = () => { aicache.memoClear(); aicache.capClear(); };
+  const reset = () => { aicache.memoClear(); };
   const run = (fn) => aibudget.runAs('u1', fn).catch(() => null);
 
   reset(); script = [{ text: GOOD }];
@@ -67,7 +67,7 @@ const sameAsPaid = (label) => { const j = journal(); assert(j.i === paid.inTok &
   // Délai dépassé après réponse partielle : le serveur facture (usage connu de lui seul), le journal ne peut pas le savoir. Limite documentée : on la fige ici.
   reset(); process.env.AI_TIMEOUT_CLASSEMENT_MS = '150'; const before = journal(); script = [{ text: '{"category":"x","confidence":90}', delay: 800, noBill: true }];
   await run(() => classify.callModel('p lent', 50, 'classement-tache', 'claude-haiku-4-5'));
-  const after = journal(); assert(after.k === before.k, 'délai dépassé : aucune ligne écrite (coût inconnu côté client ; limite documentée dans docs/ia/ia-modeles.md)');
+  const after = journal(); assert(after.k === before.k, 'délai dépassé : aucune ligne écrite (coût inconnu côté client ; limite documentée dans docs/ia/ia-appels.md)');
   delete process.env.AI_TIMEOUT_CLASSEMENT_MS;
   // Séparation par fonction : la somme par fonction égale la somme totale.
   const byFeat = db.prepare('SELECT SUM(costUsd) c FROM (SELECT feature, SUM(costUsd) costUsd FROM ai_usage_log GROUP BY feature)').get().c;

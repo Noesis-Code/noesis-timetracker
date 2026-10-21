@@ -115,10 +115,10 @@ Contraintes : "targetCategory" doit être une des clés listées (jamais une cl�
 
 // Haiku d'abord, repli sur ANTHROPIC_MODEL (fort) si Haiku est peu sûr : JSON illisible,
 // catégorie cible inconnue, ou confiance (champ "confidence" 0-100 demandé par suggestion) < seuil.
-// Réglages : NOESIS_CROSS_FAST_MODEL (défaut Haiku, voir aimodels.js ; 'off' = modèle fort seul), NOESIS_CROSS_MIN_CONFIDENCE (défaut 80).
+// Réglages : NOESIS_FAST_MODEL (défaut Haiku, voir aimodels.js ; 'off' = modèle fort seul), NOESIS_CROSS_MIN_CONFIDENCE (défaut 80).
 // Journal : feature 'inter-secteurs' (Haiku) / 'inter-secteurs:repli' (modèle fort).
 function crossFastModel() {
-  const m = require('./aimodels').fastModelRaw('NOESIS_CROSS_FAST_MODEL');
+  const m = require('./aimodels').fastModelRaw();
   return !m || /^(off|0|non|false)$/i.test(m) || m === ANTHROPIC_MODEL ? null : m;
 }
 function crossMinConfidence() {

@@ -12,7 +12,7 @@ process.env.STRIPE_SECRET_KEY = 'sk_test_local';
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 process.env.STRIPE_OFFER1_PRICE_ID = 'price_test_local';
 process.env.ANTHROPIC_API_KEY = 'sk-ant-local';
-process.env.NOESIS_OFFER_FAST_MODEL = 'off';
+process.env.NOESIS_FAST_MODEL = 'off';
 delete process.env.STRIPE_TAX_ENABLED;
 const express = require('express');
 const db = require('../server/db');
