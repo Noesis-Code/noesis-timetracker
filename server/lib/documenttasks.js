@@ -181,7 +181,7 @@ function weeksContext(activityId) {
 // Sans document joint, l'IA s'appuie sur elles ; avec un document, elles s'ajoutent comme ressources.
 function appData(activityId, weeks) {
   const monday = weeks[0], end = goals.addDays(weeks[weeks.length - 1], 6);
-  let objectives = [], open = [];
+  let objectives = [], open = [], recentDone = [];
   try {
     objectives = db.prepare(`SELECT w.text, w.description, w.estimateMinutes, w.weekIndex, p.startDate, p.category AS cat
       FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId
@@ -191,6 +191,9 @@ function appData(activityId, weeks) {
       .sort((a, b) => a.week.localeCompare(b.week)).slice(0, MAX_OBJECTIVES);
     open = db.prepare(`SELECT i.label, i.dueDate, sp.goalCategory AS cat FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
       WHERE sp.activityId = ? AND i.done = 0 ORDER BY i.dueDate, i.id LIMIT 80`).all(activityId);
+    // Tâches terminées depuis 30 jours : jamais reproposées (doublon écarté par parseDetailed, non montrées à l'IA : aucun jeton de plus).
+    recentDone = db.prepare(`SELECT i.label FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
+      WHERE sp.activityId = ? AND i.done = 1 AND i.doneAt >= date('now', '-30 day') ORDER BY i.doneAt DESC LIMIT 200`).all(activityId);
   } catch (e) { /* données absentes : l'IA répond avec la consigne seule */ }
   // Hiérarchie : objectif ANNUEL par catégorie (années de l'horizon) puis objectif PÉRIODIQUE (grand objectif des périodes de l'horizon).
   let yearGoals = [], periodGoals = [];
@@ -202,7 +205,7 @@ function appData(activityId, weeks) {
     periodGoals = db.prepare(`SELECT category AS cat, startDate, endDate, mainGoalText AS text FROM goal_periods
       WHERE activityId = ? AND mainGoalText != '' AND endDate >= ? AND startDate <= ? ORDER BY startDate, category LIMIT ?`).all(activityId, monday, end, MAX_PERIOD_GOALS);
   } catch (e) { /* objectifs annuels/périodiques absents */ }
-  return { objectives, open, yearGoals, periodGoals };
+  return { objectives, open, recentDone, yearGoals, periodGoals };
 }
 
 // Tâches ACCEPTÉES (ouvertes, avec échéance dans l'horizon) : charge par jour en minutes. Aucune colonne d'estimation n'existe sur
@@ -383,7 +386,7 @@ function parseDetailed(text, ctx) {
   const labels = new Map(ctx.candidates.map((c) => [c.key, c.label]));
   const seen = new Set(), tasks = [];
   const dropped = { doublon: 0, vide: 0, limite: 0, categorieInconnue: 0, ignore: 0, invalide: 0, raisons: {} }; // invalide : sans verbe, > 140 car., horaire fixe seul
-  const openTitles = ((ctx.app && ctx.app.open) || []).map((o) => o.label);
+  const openTitles = ((ctx.app && ctx.app.open) || []).concat((ctx.app && ctx.app.recentDone) || []).map((o) => o.label); // ouvertes + terminées récentes
   const strat = ctx.activityId ? require('./strategy').get(ctx.activityId) : null; // « à ignorer » appliqué strictement, avant tout affichage
   const tp = require('./taskprecision');
   const ap = ctx.app || {};
