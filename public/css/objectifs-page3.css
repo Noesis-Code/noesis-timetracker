@@ -474,9 +474,7 @@
 #goalsMonthView .goalsWeeklyList .goalWeeklyCard.weekOpen:not(:has(.goalWeeklyEditor)) input.goalWeeklyText { color: var(--poleText) !important; }
 #goalsMonthView .goalsWeeklyList .goalWeeklyCard.weekOpen:not(:has(.goalWeeklyEditor)) input.goalWeeklyText::placeholder { color: var(--poleText) !important; opacity: 0.55; }
 .goalsWeeklyList .goalWeeklyExpandBtn, .goalsWeeklyList .goalWeeklyExpandBtn:hover, .goalsWeeklyList .goalWeeklyExpandBtn:focus, .goalsWeeklyList .goalWeeklyExpandBtn:active, .goalsWeeklyList .goalWeeklyExpandBtn:focus-visible { background: transparent !important; box-shadow: none !important; outline: none !important; -webkit-tap-highlight-color: transparent; border-radius: 0; }
-.goalMainEmptyBar { display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box; padding: 12px 14px; margin-bottom: 14px; background: transparent; border: 1px dashed var(--border); border-radius: var(--radius-md); color: var(--text-light); font-size: 13px; cursor: pointer; }
-.goalMainEmptyBar.hidden { display: none; }
-.goalMainEmptyAdd { color: var(--purple); font-weight: 600; }
+.cmpAdd#activityGoalsMainEmptyBar { margin-bottom: 14px; }
 .goalWeeklyCapInfo { font-size: 12px; color: var(--text-light); padding: 2px 0; }
 
 /* corbeille tout à gauche des formulaires de modification (objectif périodique / hebdomadaire). */

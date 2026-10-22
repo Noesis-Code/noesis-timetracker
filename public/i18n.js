@@ -1502,6 +1502,7 @@
     "Mensuel": "Monthly",
     "Annuel": "Yearly",
     "Aucun objectif périodique": "No periodic goal",
+    "Aucun objectif périodique · Ajouter": "No periodic goal · Add",
     "+ Ajouter": "+ Add",
     "Objectifs hebdomadaires": "Weekly goals",
     "Titre de l'objectif": "Goal title",

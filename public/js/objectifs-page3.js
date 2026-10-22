@@ -55,7 +55,7 @@
                  bandeau plein largeur de la couleur de catégorie (voir
                  renderActivityGoals(), app.js). -->
             <p class="goalCardLabel goalsWeeklyLabel goalsMainOutLabel">Objectif périodique</p>
-            <button type="button" class="goalMainEmptyBar hidden" id="activityGoalsMainEmptyBar"><span>Aucun objectif périodique</span><span class="goalMainEmptyAdd">+ Ajouter</span></button>
+            <button type="button" class="cmpAdd hidden" id="activityGoalsMainEmptyBar"><b>+</b>Aucun objectif périodique · Ajouter</button>
             <div class="goalCard goalMainCard" id="activityGoalsMainCard">
               <!-- (discussion "Objectifs — D"), demande
                    d'Emilien : « la zone de texte [...] moins grande [...]
