@@ -65,6 +65,12 @@ const pending = () => db.prepare("SELECT * FROM change_proposals WHERE activityI
   mode = 'fail';
   const k2 = goals.addCategory(act, 'Autre'); const key2 = (k2 && k2.key);
   if (key2) { goals.setYearGoal(act, key2, 'Objectif B', year); goals.ensurePlan(act, key2); }
+  // Plafond IA atteint : aucun appel, état « aiBlocked » (nouveau pôle avec périodes vides)
+  require('../server/lib/aibudget').record('own', 'claude-sonnet-4-5', { input_tokens: 5e6, output_tokens: 0 }, 'test');
+  const c1 = calls;
+  r = await yp.generate('own', act);
+  assert(key2 ? (r.aiBlocked === true && r.added === 0 && calls === c1) : true, 'budget IA atteint : aucun appel, aiBlocked');
+  db.prepare("DELETE FROM ai_usage_log").run();
   r = await yp.generate('own', act);
   assert(r.failed === true || r.nothing === true, 'échec IA : silencieux');
 
