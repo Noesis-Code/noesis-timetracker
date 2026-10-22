@@ -86,7 +86,7 @@
 .docTasksFolderName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* rangée du bas (dossiers connectés orange + Déconnecter gris) ; crayon/corbeille à cible tactile 44 px. */
 .docTasksBottomRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; margin-top: 4px; }
-.docTasksBottomRow .docTasksFoldersLink { align-self: center; }
+.docTasksBottomRow .docTasksFoldersLink { align-self: center; display: inline-flex; align-items: center; }
 .docTasksBottomRow .docTasksDiscLink { margin-left: auto; align-self: center; color: var(--text-light); }
 .docTasksFoldersInline { margin-top: 8px; }
 .docTasksFolderIconBtn { width: 44px; height: 44px; }
@@ -98,7 +98,6 @@
 .docTasksFsActions .docTasksApplyBtn { margin-top: 0; }
 
 .docTasksFolderToggle { background: transparent; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; display: flex; align-items: center; }
-.docTasksChev { margin-left: 8px; font-size: 12px; }
 .docTasksFolderFiles { margin: 0 0 6px 24px; }
 .docTasksFileRow { display: block; width: 100%; text-align: left; padding: 8px 0; border: 0; border-bottom: 1px solid var(--glass-border); background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
 .docTasksFileRow:last-child { border-bottom: 0; }
