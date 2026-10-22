@@ -10,3 +10,6 @@ Source : aucun journal de refus/corrections n'existe en base de test ni dans les
 | (connu) racine trop agressive | « client » -> « cli » (`stem`, suffixe `ent`) | recoupements parasites | non modifié : sans effet sur le score, à traiter avec un jeu plus large |
 
 Rien n'est en cause côté refus (« à ignorer » : 100 % justes). Score simulé inchangé : 98,1 %.
+
+## Doublons sémantiques réels (22 oct. 2026)
+Relevé sur les tâches générées de la semaine (pôle TiMeTracker) : 5 quasi-doublons réels ajoutés au jeu (w01-w05 : mentions légales, session signée, retrait nom de famille/téléphone, consentement commercial, signalement). `sameTitle` est volontairement prudent (même titre à la mise en forme près) : les 5 passent en « incertain », comme v01 et v02. Écarts connus, aucune règle changée (zéro faux doublon prioritaire) ; exactitude 96,7 % sur 333 cas. Piste : comparaison sémantique dans le prompt de génération (liste des tâches existantes), pas dans le simulé.

@@ -438,6 +438,11 @@
     { "id": "q07", "context": "cafe", "kind": "classify", "label": "Commander 40 kg de café vert", "expect": {"outcome": "place", "key": "appro"} },
     { "id": "q08", "context": "resto", "kind": "classify", "label": "Payer 3 000 $ de paie au personnel", "expect": {"outcome": "place", "key": "rh"} },
     { "id": "v01", "context": "free", "kind": "generate", "label": "Améliorer le prompt feuille de route pour catégoriser les tâches en 3 parties", "existing": ["Améliorer le prompt feuille de route pour catégoriser en 3 parties"], "expect": {"outcome": "duplicate"} },
-    { "id": "v02", "context": "free", "kind": "generate", "label": "Créer système de modules activables/désactivables par utilisateur", "existing": ["Développer interface de personnalisation des fonctionnalités", "Créer bibliothèque de modules optionnels (chrono, tâches, objectifs, communauté)"], "expect": {"outcome": "duplicate"} }
+    { "id": "v02", "context": "free", "kind": "generate", "label": "Créer système de modules activables/désactivables par utilisateur", "existing": ["Développer interface de personnalisation des fonctionnalités", "Créer bibliothèque de modules optionnels (chrono, tâches, objectifs, communauté)"], "expect": {"outcome": "duplicate"} },
+    {"id": "w01", "context": "free", "kind": "generate", "label": "Publier les mentions légales dans l'application", "existing": ["Publier les mentions légales dans l'onglet Profil de l'application"], "expect": {"outcome": "duplicate"}},
+    {"id": "w02", "context": "free", "kind": "generate", "label": "Implémenter la session signée côté serveur", "existing": ["Déployer l'authentification par session signée côté serveur"], "expect": {"outcome": "duplicate"}},
+    {"id": "w03", "context": "free", "kind": "generate", "label": "Retirer les champs nom de famille et téléphone", "existing": ["Retirer le nom de famille et le numéro de téléphone de l'inscription"], "expect": {"outcome": "duplicate"}},
+    {"id": "w04", "context": "free", "kind": "generate", "label": "Créer un consentement distinct pour les communications commerciales", "existing": ["Ajouter une case de consentement séparée pour les communications commerciales"], "expect": {"outcome": "duplicate"}},
+    {"id": "w05", "context": "free", "kind": "generate", "label": "Créer le système de signalement des messages dans l'application", "existing": ["Créer le système de signalement dans l'application"], "expect": {"outcome": "duplicate"}}
   ]
 }
