@@ -1,27 +1,13 @@
 /* Tokens Trade Tracker : palette Violet cendré (R11 de docs/regles/regles-rangement.md). Sombre uniquement, violet = couleur principale. */
 :root {
   /* ---- Couleurs de base ---- */
-  --purple: #9C8CC8;        /* R11 : action */
   --purple-dark: #6E6194;
-  --purple-rgb: 156, 140, 200;
-  --on-action: #15111C;       /* texte sur bouton d'action */
   --green: #4CAF50;
-  --white: #ffffff;
-  --black: #0B0A0A;
-  --bg: #0B0A0A;              /* fond page / fenêtres, = barre du haut */
-  --bg-raised: #16141A;
-  --card: #16141A;
-  --text: #F3EEE8;
-  --text-light: #A59E96;
-  --border: var(--sep);          /* alias du séparateur commun (composants.css), même valeur qu'avant */
-  --track-bg: rgba(243, 238, 232, 0.10);
-  --hover-bg: rgba(243, 238, 232, 0.08);
 
   /* ---- Accents ---- */
   --brique: #E0626B;          /* boutons d'action / suppression : bordure ou fond */
   --brique-text: #E0626B;     /* ... texte */
   --brique-stop: #E0626B;     /* stop du chrono */
-  --violet-soft: #C4B9E6;     /* libellé d'onglet actif */
   --violet-trail: #9583c1;
   --violet-me: #9d84e0;
   --lilac-bg: #d9d0ff;
@@ -34,17 +20,8 @@
   --warn-orange: #ff9f2e;
 
   /* ---- Rayons ---- */
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
 
   /* ---- Ombres, transitions ---- */
-  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
-  --shadow-elevated: 0 16px 40px rgba(0, 0, 0, 0.5);
-  --shadow-topbar: 0 2px 14px rgba(0, 0, 0, 0.4);
-  --transition-fast: 0.15s ease;
-  --veil: rgba(0, 0, 0, 0.5);               /* voile derrière une fenêtre */
 
   /* ---- Verre : UN seul jeu --glass-*, deux niveaux ----
      (a) verre « liquide » : boutons, panneaux, barre du haut (flou 24px) ;

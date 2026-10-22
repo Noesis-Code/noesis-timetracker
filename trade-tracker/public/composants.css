@@ -5,6 +5,30 @@
   --cmp-hit: 44px;                          /* zone de toucher minimale (invisible) */
   --sep: rgba(243, 238, 232, 0.12);         /* R22 : UN seul trait de séparation */
   --danger: #E0626B;                        /* R12/R28 : UN seul rouge, réservé au retrait/suppression */
+  /* Jetons communs à TimeTracker, Expansion et Trade Tracker (S1) : définis ICI une seule fois. */
+  --purple: #9C8CC8;
+  --purple-rgb: 156, 140, 200;
+  --on-action: #15111C;
+  --white: #ffffff;
+  --black: #0B0A0A;
+  --bg: #0B0A0A;
+  --bg-raised: #16141A;
+  --card: #16141A;
+  --text: #F3EEE8;
+  --text-light: #A59E96;
+  --border: var(--sep);
+  --track-bg: rgba(243, 238, 232, 0.10);
+  --hover-bg: rgba(243, 238, 232, 0.08);
+  --violet-soft: #C4B9E6;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-elevated: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --shadow-topbar: 0 2px 14px rgba(0, 0, 0, 0.4);
+  --transition-fast: 0.15s ease;
+  --veil: rgba(0, 0, 0, 0.5);
   --cmp-dash: rgba(243, 238, 232, 0.28);    /* pointillés des boutons « + » */
 }
 

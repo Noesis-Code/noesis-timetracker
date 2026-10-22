@@ -1,21 +1,9 @@
 /* ===================================================================== */
 :root {
   /* ---- Couleurs de base ---- */
-  --purple: #9C8CC8;
   --purple-dark: #9C8CC8;
-  --purple-rgb: 156, 140, 200;
   --green: #9C8CC8;
   --blue: #C4B9E6;
-  --white: #ffffff;
-  --black: #0B0A0A;
-  --bg: #0B0A0A;              /* fond page / fenêtres, = barre du haut */
-  --bg-raised: #16141A;
-  --card: #16141A;
-  --text: #F3EEE8;
-  --text-light: #A59E96;
-  --border: var(--sep);
-  --track-bg: rgba(243, 238, 232, 0.10);
-  --hover-bg: rgba(243, 238, 232, 0.08);
   --surface-dim: #16141A;
 
   /* ---- Accents ---- */
@@ -27,7 +15,6 @@
   --live-green: #9C8CC8;
   --mine-violet: #9C8CC8;
   --mine-violet-text: #15111C;
-  --violet-soft: #C4B9E6;     /* libellé d'onglet actif */
   --violet-trail: #9C8CC8;
   --violet-promo: #C4B9E6;
   --violet-me: #C4B9E6;
@@ -56,20 +43,11 @@
   --float-label: #A59E96;
 
   /* ---- Rayons ---- */
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
   --radius-2xl: 24px;
 
   /* ---- Ombres, transitions ---- */
-  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
-  --shadow-elevated: 0 16px 40px rgba(0, 0, 0, 0.5);
-  --shadow-topbar: 0 2px 14px rgba(0, 0, 0, 0.4);
   --shadow-tabbar: 0 -2px 14px rgba(0, 0, 0, 0.4);
-  --transition-fast: 0.15s ease;
   --sheet-line: rgba(243, 238, 232, 0.12);   /* liseré haut des feuilles du bas */
-  --veil: rgba(0, 0, 0, 0.5);               /* voile derrière une fenêtre */
 
   /* ---- Verre : UN seul jeu --glass-*, deux niveaux ---- (a) verre « liquide » : boutons, panneaux, barre du haut (flou 24px) ; (b) verre « calme » : cartes, … */
   --glass-bg: rgba(243, 238, 232, .05);   /* verre calme par défaut (R17) */
@@ -78,7 +56,6 @@
   --glass-blur: blur(12px) saturate(1.1);
   --glass-blur-sheet: none;
   --pop-bg: #16141A;   /* pop-ups, menus, feuilles : fond sombre uni */
-  --on-action: #15111C; /* texte sur bouton d'action */
   --link: #C4B9E6;
   --halo: rgba(156, 140, 200, .28);
   /* verre FORT (R17) : uniquement la bulle de l'icône active de la barre et le bouton flottant */
