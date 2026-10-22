@@ -60,6 +60,15 @@ const tasks = () => db.prepare("SELECT i.label FROM sub_project_items i JOIN sub
   r = await wt.generate('free', actFree);
   assert(r.notEssor && calls === c0, 'réservé à Expansion : aucun appel IA sans accès');
 
+  // Plafond IA atteint (3,5 CAD/semaine) : aucun appel, état « aiBlocked » ; la suite reprend après la remise à zéro
+  db.prepare("DELETE FROM sub_project_items").run();
+  db.prepare("DELETE FROM change_proposals").run();
+  require('../server/lib/aibudget').record('own', 'claude-sonnet-4-5', { input_tokens: 5e6, output_tokens: 0 }, 'test');
+  const c1 = calls;
+  r = await wt.generate('own', act);
+  assert(r.aiBlocked === true && r.added === 0 && calls === c1, 'budget IA atteint : aucun appel, aiBlocked');
+  db.prepare("DELETE FROM ai_usage_log").run();
+
   mode = 'fail';
   db.prepare("DELETE FROM sub_project_items").run();
   db.prepare("DELETE FROM change_proposals").run();
