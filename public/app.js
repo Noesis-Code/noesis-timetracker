@@ -1190,7 +1190,6 @@
     $('onbCreate').classList.add('hidden');
     $('onbExisting').classList.add('hidden');
     $('onbPinStep').classList.add('hidden');
-    $('onbActivities').classList.add('hidden');
     $('onbMsg').textContent = '';
     renderOnbInstallSteps();
     $('onbInstallPwa').classList.remove('hidden');
@@ -1818,35 +1817,12 @@
     // création de profil qu'à une connexion à un profil existant sur cet
     // appareil, les deux chemins passant par ici.
     autoSubscribePushOnLogin();
-    // Nouveau compte (modulesChosen = false côté serveur) : choix des modules avant le reste ; comptes existants : jamais.
-    var afterModules = function () {
-      api('GET', '/api/activities?userId=' + profile.id).then(function (acts) {
-        if (acts.length === 0) {
-          showOnboardingActivitiesStep();
-        } else {
-          showApp();
-        }
-      }).catch(function () { showApp(); });
-    };
-    if (window.TMT.modules && window.TMT.modules.mountChoice) {
-      window.TMT.modules.mountChoice($('onbModulesList'), function (ok) { $('onbModulesValidate').disabled = !ok; }).then(function (ch) {
-        if (ch.chosen) { afterModules(); return; }
-        showOnboardingModulesStep(ch, afterModules);
-      }).catch(afterModules);
-    } else afterModules();
-  }
-
-  function showOnboardingModulesStep(choice, done) {
-    ['onbCreate', 'onbExisting', 'onbPinStep', 'onbActivities'].forEach(function (id) { $(id).classList.add('hidden'); });
-    $('onbMsg').textContent = '';
-    $('onbModules').classList.remove('hidden');
-    $('onbModulesValidate').disabled = !choice.valid();
-    $('onbModulesValidate').onclick = function () {
-      if (!choice.valid()) return;
-      $('onbModulesValidate').disabled = true;
-      choice.save().then(function () { $('onbModules').classList.add('hidden'); done(); })
-        .catch(function (err) { $('onbMsg').textContent = err.message; $('onbModulesValidate').disabled = false; });
-    };
+    // Premier lancement simplifié (décision d'Émilien, 22 oct. 2026) : plus d'étape « Choix des modules » (le serveur pose les modules par
+    // défaut, réglables dans Réglages) ni d'étape « Crée tes activités » (une activité par défaut est créée, nommée d'après le prénom).
+    api('GET', '/api/activities?userId=' + profile.id).then(function (acts) {
+      if (acts.length > 0) return;
+      return api('POST', '/api/activities', { name: (profile.name || '').trim() || t('Mon activité'), color: PALETTES[currentTheme][0], userId: profile.id });
+    }).then(function () { showApp(); }).catch(function () { showApp(); });
   }
 
   $('onbSwitchToExisting').addEventListener('click', function (e) {
@@ -2069,55 +2045,6 @@
         .catch(function (err) { $('onbMsg').textContent = err.message; })
         .finally(function () { $('onbPinSubmit').disabled = false; });
     }
-  });
-
-  // ----- Étape "Crée tes activités" -----
-  var onbNewActivityColor = PALETTES[currentTheme][0];
-  function showOnboardingActivitiesStep() {
-    $('onbCreate').classList.add('hidden');
-    $('onbExisting').classList.add('hidden');
-    $('onbPinStep').classList.add('hidden');
-    $('onbActivities').classList.remove('hidden');
-    $('onbMsg').textContent = '';
-    renderOnbActivityList([]);
-    onbNewActivityColor = PALETTES[currentTheme][0];
-    renderColorSwatches($('onbNewActivitySwatches'), onbNewActivityColor, function (c) { onbNewActivityColor = c; });
-  }
-
-  function renderOnbActivityList(list) {
-    var box = $('onbActivityList');
-    box.innerHTML = '';
-    if (list.length === 0) {
-      box.innerHTML = '<p class="hint">' + t('Aucune activité ajoutée pour l\'instant.') + '</p>';
-    } else {
-      list.forEach(function (a) {
-        var row = document.createElement('div');
-        row.className = 'userChip';
-        row.innerHTML = '<span class="dot" style="background:' + a.color + '"></span><span>' + escapeHtml(a.name) + '</span>';
-        box.appendChild(row);
-      });
-    }
-    $('onbActivitiesContinue').disabled = list.length === 0;
-  }
-
-  var onbCreatedActivities = [];
-  $('onbNewActivitySave').addEventListener('click', function () {
-    var name = $('onbNewActivityName').value.trim();
-    if (!name) return;
-    $('onbNewActivitySave').disabled = true;
-    api('POST', '/api/activities', {
-      name: name, color: onbNewActivityColor, userId: profile.id,
-    }).then(function (a) {
-      onbCreatedActivities.push(a);
-      renderOnbActivityList(onbCreatedActivities);
-      $('onbNewActivityName').value = '';
-      $('onbMsg').textContent = '';
-    }).catch(function (err) { $('onbMsg').textContent = err.message; })
-      .finally(function () { $('onbNewActivitySave').disabled = false; });
-  });
-
-  $('onbActivitiesContinue').addEventListener('click', function () {
-    showApp();
   });
 
   // ===================== NAVIGATION ONGLETS =====================

@@ -1,6 +1,0 @@
-/* Écran de premier choix des modules : un peu d'air avant « Valider ». */
-.onbModulesFooter { margin-top: 16px; }
-/* Premier lancement : liste défilante + pied fixe contenant le bouton de validation. */
-#onbModules { display: flex; flex-direction: column; min-height: 0; text-align: left; }
-#onbModulesList { overflow-y: auto; min-height: 0; padding: 8px; margin: 0 -8px; max-height: calc(100dvh - 300px); }
-.onbModulesFooter { flex: none; padding-top: 8px; }
