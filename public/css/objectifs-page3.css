@@ -202,7 +202,7 @@
 .goalWeekDaysPanel {
   display: flex; flex-direction: column; gap: 0; background: transparent;
 }
-.goalWeekDaysPanel .goalsCalendarRow { background: transparent !important; border: none; border-top: 1px solid rgba(255,255,255,0.05); }
+.goalWeekDaysPanel .goalsCalendarRow { background: transparent !important; border: none; border-top: 1px solid var(--sep); }
 #goalsMonthView .goalsWeeklyList .goalWeeklyCard.weekOpen:not(:has(.goalWeeklyEditor)) { background: var(--poleColor) !important; box-shadow: none !important; color: var(--poleText); }
 #goalsMonthView .goalsWeeklyList .goalWeeklyCard.weekOpen:not(:has(.goalWeeklyEditor)) :is(.goalWeeklyTitleText, .goalWeeklyCapInfo, .goalWeeklyCapBtn, .goalWeeklyExpandBtn, .goalWeeklyEditBtn, .goalWeeklyEditBtn svg) { color: var(--poleText) !important; }
 .goalWeekDaysPanel .goalsCalendarRow { box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
