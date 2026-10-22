@@ -436,6 +436,7 @@
     { "id": "q05", "context": "pige", "kind": "classify", "label": "Rendez-vous dentiste et appel client", "expect": {"outcome": "uncertain"} },
     { "id": "q06", "context": "pige", "kind": "classify", "label": "Relancer 15 prospects avant vendredi", "expect": {"outcome": "place", "key": "prospect"} },
     { "id": "q07", "context": "cafe", "kind": "classify", "label": "Commander 40 kg de café vert", "expect": {"outcome": "place", "key": "appro"} },
-    { "id": "q08", "context": "resto", "kind": "classify", "label": "Payer 3 000 $ de paie au personnel", "expect": {"outcome": "place", "key": "rh"} }
+    { "id": "q08", "context": "resto", "kind": "classify", "label": "Payer 3 000 $ de paie au personnel", "expect": {"outcome": "place", "key": "rh"} },
+    { "id": "v01", "context": "free", "kind": "generate", "label": "Améliorer le prompt feuille de route pour catégoriser les tâches en 3 parties", "existing": ["Améliorer le prompt feuille de route pour catégoriser en 3 parties"], "expect": {"outcome": "duplicate"} }
   ]
 }
