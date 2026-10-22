@@ -1,6 +1,6 @@
 # Benchmark « 0 -> 1 » Trade Tracker : Sharesight, Delta (20 oct. 2026)
 
-## Statut : NON FAIT (accès aux sources bloqué)
+## Statut : refait le 22 oct. 2026, voir `benchmark-trade-2026-10-22.md`
 Le benchmark exige des sources citées en lecture seule (`docs/regles/boucle-veille.md`). Dans cette session, les outils WebSearch/WebFetch n'existent pas pour l'agent et le proxy de sortie a refusé les connexions vers `www.sharesight.com`, `delta.app` et `apps.apple.com` (403, « host non autorisé », 20 oct. 2026). Je n'écris donc aucune affirmation sur ces produits : une comparaison de mémoire serait une invention sans source.
 
 ## Grille prête à remplir (une passe avec accès web)
