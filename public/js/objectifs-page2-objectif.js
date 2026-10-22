@@ -873,9 +873,7 @@
         col.appendChild(ta); col.appendChild(ok);
         window.setTimeout(function () { fit(); ta.focus(); }, 0);
       } else if (empty) {
-        var add = document.createElement('button');
-        add.type = 'button'; add.className = 'goalsYearAdd'; add.textContent = '+ ' + t('Objectif de l’année');
-        add.addEventListener('click', function () { goalsYearEditing[key] = true; rerender(); });
+        var add = TMT.ui.addBtn(t('Objectif de l’année'), function () { goalsYearEditing[key] = true; rerender(); });
         col.appendChild(add);
       } else {
         var p = document.createElement('p');

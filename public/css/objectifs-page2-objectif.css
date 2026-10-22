@@ -287,13 +287,11 @@
 .goalsYearCol--vide { border: 3px solid var(--yearShade); padding: 3px; }
 .goalsYearCol--vide .goalsGridHeadCell { background: var(--yearShade); color: var(--yearInk); border-color: transparent; font-weight: 600; }
 .goalsYearText { margin: 0; padding: 2px 8px 6px; font-size: 13px; font-weight: 700; line-height: 1.3; cursor: pointer; }
-.goalsYearAdd { border: 2px dashed var(--track-bg); border-radius: 12px; background: transparent; color: var(--text-light); padding: 8px; font: inherit; font-size: 12px; cursor: pointer; }
 .goalsYearField { width: 100%; box-sizing: border-box; resize: none; border: none; border-radius: 12px; background: var(--bg); color: var(--text); padding: 8px 10px; font: inherit; font-size: 13px; min-height: 44px; overflow: hidden; }
 .goalsYearSave { border: none; border-radius: 999px; background: var(--bg); color: var(--text); padding: 7px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 
 .goalsYearCol--noPill.goalsYearCol--vide { padding: 3px; }
-.goalsYearCol--noPill .goalsYearAdd { padding: 10px; }
-
+.goalsYearCol--noPill 
 /* Sélecteur d'année de l'arbre : même bouton et même menu que le filtre de pôle des Statistiques. */
 .goalsYearPickWrap { padding: 0 4px 10px 4px; }
 .goalsYearRow { display: flex; align-items: center; }
