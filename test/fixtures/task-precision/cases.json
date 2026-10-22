@@ -203,6 +203,7 @@
     { "id": "e27", "context": "roast", "kind": "classify", "label": "Ordr green cofee from the suplier", "expect": {"outcome": "place", "key": "sourcing"} },
     { "id": "e28", "context": "free", "kind": "generate", "label": "Review the client feedback", "existing": ["Feedback from the client: review"], "expect": {"outcome": "duplicate"} },
     { "id": "e29", "context": "roast", "kind": "generate", "label": "Call the supplier to confirm the 120 kg green coffee order, then check delivery with the importer and email the whole team", "expect": {"outcome": "place", "key": "sourcing"} },
+    { "id": "r01", "context": "free", "kind": "generate", "label": "Finaliser le volet Objectif", "existing": ["Finir le volet Objectif"], "expect": {"outcome": "duplicate"} },
     { "id": "e30", "context": "free", "kind": "generate", "label": "Finish the mockups", "existing": ["Finish the mockup"], "expect": {"outcome": "duplicate"} },
     { "id": "m01", "context": "saas", "kind": "classify", "label": "Fix the bug de connexion", "expect": {"outcome": "place", "key": "produit"} },
     { "id": "m02", "context": "saas", "kind": "classify", "label": "Répondre au ticket du client Acme", "expect": {"outcome": "place", "key": "support"} },
