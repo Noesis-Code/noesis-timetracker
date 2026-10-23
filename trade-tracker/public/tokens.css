@@ -5,9 +5,7 @@
   --green: #4CAF50;
 
   /* ---- Accents ---- */
-  --brique: #E0626B;          /* boutons d'action / suppression : bordure ou fond */
-  --brique-text: #E0626B;     /* ... texte */
-  --brique-stop: #E0626B;     /* stop du chrono */
+  --brique: #E0626B;          /* rouge R12 : danger, suppression, stop (jeton unique) */
   --violet-trail: #9583c1;
   --violet-me: #9d84e0;
   --lilac-bg: #d9d0ff;

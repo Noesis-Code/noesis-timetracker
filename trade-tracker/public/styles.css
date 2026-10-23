@@ -54,7 +54,7 @@ a { color: inherit; text-decoration: none; }
 .syncPill.ok .syncDot { background: var(--green); }
 .syncPill.warn .syncDot { background: var(--warn-orange); }
 .syncPill.error .syncDot { background: var(--danger); }
-.syncPill.error { color: var(--brique-text); }
+.syncPill.error { color: var(--brique); }
 
 /* Écran */
 .screen {
@@ -209,7 +209,7 @@ a { color: inherit; text-decoration: none; }
 .statusBadge.ok .syncDot { background: var(--green); }
 .statusBadge.warn .syncDot { background: var(--warn-orange); }
 .statusBadge.error .syncDot { background: var(--danger); }
-.statusBadge.error { color: var(--brique-text); border-color: var(--brique); }
+.statusBadge.error { color: var(--brique); border-color: var(--brique); }
 .logRow { padding: 12px 0; border-top: 1px solid var(--glass-calm-line); }
 .logRow:first-child { border-top: none; padding-top: 0; }
 .logTop { display: flex; justify-content: space-between; align-items: center; }
@@ -267,13 +267,13 @@ a { color: inherit; text-decoration: none; }
 .sendBtn:active { transform: scale(0.94); }
 .formMsg { min-height: 18px; margin-top: 8px; font-size: 13px; color: var(--text-light); }
 .formMsg.ok { color: var(--violet-soft); }
-.formMsg.error { color: var(--brique-text); }
+.formMsg.error { color: var(--brique); }
 .btnRow { display: flex; gap: 10px; }
 .btnRow > button { flex: 1; }
 .btnGhost, .btnDanger, .btnDangerOutline { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 18px; border-radius: 999px; font-size: 14px; font-weight: bold; cursor: pointer; color: var(--text); background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line); }
 .btnGhost::after, .btnDanger::after, .btnDangerOutline::after { content: ''; position: absolute; inset: -1px 0; } /* zone tactile 44 px, hauteur visible 42 px */
-.btnDanger { background: var(--brique-stop); border-color: var(--brique-stop); color: var(--on-action); } /* R12 : rouge danger, texte sombre */
-.btnDangerOutline { color: var(--brique-text); border-color: var(--brique); background: none; }
+.btnDanger { background: var(--brique); border-color: var(--brique); color: var(--on-action); } /* R12 : rouge danger, texte sombre */
+.btnDangerOutline { color: var(--brique); border-color: var(--brique); background: none; }
 .linkBtn { margin-top: 12px; width: 100%; }
 .codeCard { text-align: center; background: linear-gradient(180deg, rgba(var(--purple-rgb), 0.14) 0%, var(--glass-calm-bg) 100%); }
 .codeVal { font-size: 20px; font-weight: bold; letter-spacing: 1px; margin: 8px 0; word-break: break-all; user-select: all; font-variant-numeric: tabular-nums; }
