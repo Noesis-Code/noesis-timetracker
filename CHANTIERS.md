@@ -94,7 +94,7 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 3. Test qu'un appel mémoïsé ne journalise pas de jetons. FAIT (repli 8, `test/ia-alerte-memo-test.js`).
 4. Table de la part de chaque fonction IA dans le coût du jour (`ai-cost-report.js --from`), top 3 à réduire en premier. Fini quand : table dans `docs/ia/ia-appels.md`. Aucune interface.
 5. Mesurer quels appels passent encore en Sonnet alors que Haiku suffit (jeu d'évaluation de Précision) et proposer les fonctions à basculer, sans appliquer si la qualité baisse. Fini quand : tableau précision/coût par modèle. Périmètre : `docs/`, `scripts/`.
-6. Test qu'un appel IA sans plafond `max_tokens` ou sans délai d'expiration fait échouer la suite. Fini quand : le test existe et passe. Périmètre : `test/`.
+6. Test qu'un appel IA sans plafond `max_tokens` ou sans délai d'expiration fait échouer la suite. Fini quand : le test existe et passe. Périmètre : `test/`. FAIT (23 oct., `test/ia-max-tokens-delai-test.js`).
 
 **5. Simplification et design général**
 1. Propositions 6 à 10 du Simplificateur non réservées : les exécuter.

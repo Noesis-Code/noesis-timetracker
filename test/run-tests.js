@@ -112,6 +112,7 @@ const SUITE_FILES = [
   'ia-tarifs-echeance-test.js',
   'ia-fx-test.js',
   'ia-appels-doc-test.js',
+  'ia-max-tokens-delai-test.js',
   'ia-alerte-memo-test.js',
   'ia-rapport-export-test.js',
   'ia-rapport-hebdo-test.js',
