@@ -443,6 +443,11 @@
     {"id": "w02", "context": "free", "kind": "generate", "label": "Implémenter la session signée côté serveur", "existing": ["Déployer l'authentification par session signée côté serveur"], "expect": {"outcome": "duplicate"}},
     {"id": "w03", "context": "free", "kind": "generate", "label": "Retirer les champs nom de famille et téléphone", "existing": ["Retirer le nom de famille et le numéro de téléphone de l'inscription"], "expect": {"outcome": "duplicate"}},
     {"id": "w04", "context": "free", "kind": "generate", "label": "Créer un consentement distinct pour les communications commerciales", "existing": ["Ajouter une case de consentement séparée pour les communications commerciales"], "expect": {"outcome": "duplicate"}},
-    {"id": "w05", "context": "free", "kind": "generate", "label": "Créer le système de signalement des messages dans l'application", "existing": ["Créer le système de signalement dans l'application"], "expect": {"outcome": "duplicate"}}
+    {"id": "w05", "context": "free", "kind": "generate", "label": "Créer le système de signalement des messages dans l'application", "existing": ["Créer le système de signalement dans l'application"], "expect": {"outcome": "duplicate"}},
+    {"id": "w06", "context": "free", "kind": "generate", "label": "Améliorer utilisation IA dans application", "existing": ["Améliorer l'utilisation de l'IA dans l'application"], "expect": {"outcome": "duplicate"}},
+    {"id": "w07", "context": "free", "kind": "generate", "label": "Ajouter option sans confirmation dans les paramètres", "existing": ["Ajouter option sans confirmation IA dans les paramètres"], "expect": {"outcome": "duplicate"}},
+    {"id": "w08", "context": "free", "kind": "generate", "label": "Ajouter possibilité de mettre des tâches récurrentes", "existing": ["Ajouter possibilité de créer des tâches récurrentes"], "expect": {"outcome": "duplicate"}},
+    {"id": "w09", "context": "free", "kind": "generate", "label": "Regrouper modifier et supprimer au même endroit", "existing": ["Regrouper modifier et supprimer au même endroit pour les tâches"], "expect": {"outcome": "duplicate"}},
+    {"id": "w10", "context": "free", "kind": "generate", "label": "Créer onglet Activité avec paramètres, stats et collaboration", "existing": ["Réorganiser l'onglet Activité avec paramètres, stats et collaboration"], "expect": {"outcome": "duplicate"}}
   ]
 }
