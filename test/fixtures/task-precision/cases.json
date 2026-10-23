@@ -448,6 +448,11 @@
     {"id": "w07", "context": "free", "kind": "generate", "label": "Ajouter option sans confirmation dans les paramètres", "existing": ["Ajouter option sans confirmation IA dans les paramètres"], "expect": {"outcome": "duplicate"}},
     {"id": "w08", "context": "free", "kind": "generate", "label": "Ajouter possibilité de mettre des tâches récurrentes", "existing": ["Ajouter possibilité de créer des tâches récurrentes"], "expect": {"outcome": "duplicate"}},
     {"id": "w09", "context": "free", "kind": "generate", "label": "Regrouper modifier et supprimer au même endroit", "existing": ["Regrouper modifier et supprimer au même endroit pour les tâches"], "expect": {"outcome": "duplicate"}},
-    {"id": "w10", "context": "free", "kind": "generate", "label": "Créer onglet Activité avec paramètres, stats et collaboration", "existing": ["Réorganiser l'onglet Activité avec paramètres, stats et collaboration"], "expect": {"outcome": "duplicate"}}
+    {"id": "w10", "context": "free", "kind": "generate", "label": "Créer onglet Activité avec paramètres, stats et collaboration", "existing": ["Réorganiser l'onglet Activité avec paramètres, stats et collaboration"], "expect": {"outcome": "duplicate"}},
+    {"id": "x01", "context": "free", "kind": "generate", "label": "Créer feuille de route EM-GA dans CRM", "existing": ["Créer la feuille de route EM-GA dans le CRM"], "expect": {"outcome": "duplicate"}},
+    {"id": "x02", "context": "free", "kind": "generate", "label": "Exportation de staging dans MAINS", "existing": ["Exporter staging dans MAINS"], "expect": {"outcome": "duplicate"}},
+    {"id": "x03", "context": "free", "kind": "generate", "label": "Créer liste objectif avec rapprochement des 3 prochaines tâches pour Émilien", "existing": ["Créer la liste d'objectifs avec rapprochement des 3 prochaines tâches"], "expect": {"outcome": "duplicate"}},
+    {"id": "x04", "context": "free", "kind": "generate", "label": "Publier la politique de confidentialité dans l'application", "existing": ["Publier la politique de confidentialité sur l'application"], "expect": {"outcome": "duplicate"}},
+    {"id": "x05", "context": "free", "kind": "generate", "label": "Finir de volet Objectif", "existing": ["Finaliser le volet Objectif"], "expect": {"outcome": "duplicate"}}
   ]
 }
