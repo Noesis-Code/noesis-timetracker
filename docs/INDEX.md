@@ -21,5 +21,5 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 - `questions/` : `questions-emilien.md`, fichier unique des questions à Émilien.
 - `journal/` : journaux de chantiers, bilans, relectures croisées, plan de semaine.
 - `simplifications/` : `propositions.md`, liste vivante unique des propositions de simplification (S1 à S15 et suivantes).
-- `fonctionnalites/` : `chantiers-planifies.md`, les 5 tâches planifiées qui font avancer les chantiers (rythme, exécution, rapports, rotation), `captures-chantiers.md` (une capture 390 px par chantier).
+- `fonctionnalites/` : `capture-rapide.md` (outil `scripts/shot.py`, capture en ~2 s), `chantiers-planifies.md`, les 5 tâches planifiées qui font avancer les chantiers (rythme, exécution, rapports, rotation), `captures-chantiers.md` (une capture 390 px par chantier).
 - `img/`, `maquettes/` : images et maquettes.
