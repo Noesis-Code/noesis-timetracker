@@ -48,8 +48,8 @@
         <p id="docTasksMsg" class="msg"></p>
         <div id="docTasksResults"></div>
         <div class="docTasksPair">
-          <button type="button" id="docTasksChangesBtn" class="docTasksTile"><span class="docTasksTileLabel">Modifications proposées</span><span id="docTasksChangesN" class="docTasksCount"></span><svg class="docTasksChev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"></polyline></svg></button>
-          <button type="button" id="docTasksTasksBtn" class="docTasksTile"><span class="docTasksTileLabel">Nouvelles tâches</span><span id="docTasksTasksN" class="docTasksCount"></span><svg class="docTasksChev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"></polyline></svg></button>
+          <button type="button" id="docTasksChangesBtn" class="docTasksTile"><span class="docTasksTileLabel">Modifications proposées</span><span id="docTasksChangesN" class="docTasksCount"></span><span class="cmpChev" aria-hidden="true"></span></button>
+          <button type="button" id="docTasksTasksBtn" class="docTasksTile"><span class="docTasksTileLabel">Nouvelles tâches</span><span id="docTasksTasksN" class="docTasksCount"></span><span class="cmpChev" aria-hidden="true"></span></button>
         </div>
         <div id="docTasksDrive" class="docTasksDrive"></div>
         <div id="docTasksSync" class="docTasksSync"></div>
