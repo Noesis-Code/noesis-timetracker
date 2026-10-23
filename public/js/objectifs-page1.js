@@ -1494,7 +1494,7 @@
       card.appendChild(header);
       var hint = document.createElement('p');
       hint.className = 'meta';
-      hint.textContent = t('Tu pourras changer ce choix à tout moment dans Réglages › Gestion de l\'IA.');
+      hint.textContent = t('Tu pourras changer ce choix à tout moment dans Réglages › Mon IA.');
       card.appendChild(hint);
       var err = document.createElement('p'); err.className = 'msg';
       var done = false;

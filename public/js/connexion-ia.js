@@ -1,94 +1,115 @@
-/* « Connecter mon IA » (Réglages) — jetons d'accès au serveur MCP en lecture seule.
- * Le jeton n'est montré qu'une fois, à la création. Voir server/routes/mcp.js. */
+/* « Connecter mon IA » (section « Mon IA » des Réglages) — accès au serveur MCP, en lecture seule par défaut.
+ * Essentiel : état (connectée ou non), UN bouton principal, une phrase d'aide, un bouton pour révoquer.
+ * Le reste est replié sous « Détails ». Le jeton n'est montré qu'une fois, à la création. Voir server/routes/mcp.js. */
 (function () {
   'use strict';
   var box = document.getElementById('aiConnectBox');
   var head = document.getElementById('aiConnectHeader');
   if (!box || !head) return;
-  var loaded = false, shown = null;
+  var tr = function (s) { return typeof window.t === 'function' ? window.t(s) : s; };
+  var loaded = false, shown = null, detailsOpen = false, canWrite = false, writeInit = false;
+  var WKEY = 'tmt_ai_can_write';
   // Un clic dans la section ne doit jamais atteindre le gestionnaire global « clic hors du panneau » (le bouton cliqué peut être retiré du DOM au repaint).
   box.addEventListener('click', function (e) { e.stopPropagation(); });
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function call(method, url, body) {
     return fetch(url, { method: method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
-      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(d.error || 'Erreur.'); return d; }); });
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(d.error || tr('Erreur.')); return d; }); });
   }
-  function fmt(iso) { if (!iso) return 'jamais utilisé'; try { return 'dernière utilisation : ' + new Date(iso).toLocaleDateString('fr-CA', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return ''; } }
-  function copyRow(label, value) {
-    var row = el('div', 'aiConnectCopy');
-    row.appendChild(el('span', 'hint', label));
+  function fmt(iso) {
+    if (!iso) return tr('jamais utilisé');
+    try { return tr('dernière utilisation : ') + new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return ''; }
+  }
+  function copyBtn(value, field) {
+    var b = el('button', 'iconBtn', tr('Copier')); b.type = 'button';
+    b.addEventListener('click', function () {
+      var done = function () { b.textContent = tr('Copié'); setTimeout(function () { b.textContent = tr('Copier'); }, 1500); };
+      if (navigator.clipboard) navigator.clipboard.writeText(value).then(done, function () { field.select(); }); else field.select();
+    });
+    return b;
+  }
+  function copyLine(value) {
+    var line = el('div', 'aiConnectCopyLine');
     var inp = el('input', 'aiConnectField'); inp.type = 'text'; inp.readOnly = true; inp.value = value;
     inp.addEventListener('focus', function () { inp.select(); });
-    var b = el('button', 'iconBtn', 'Copier'); b.type = 'button';
-    b.addEventListener('click', function () {
-      var done = function () { b.textContent = 'Copié'; setTimeout(function () { b.textContent = 'Copier'; }, 1500); };
-      if (navigator.clipboard) navigator.clipboard.writeText(value).then(done, function () { inp.select(); }); else inp.select();
-    });
-    var line = el('div', 'aiConnectCopyLine'); line.appendChild(inp); line.appendChild(b);
-    row.appendChild(line);
-    return row;
+    line.appendChild(inp); line.appendChild(copyBtn(value, inp));
+    return line;
+  }
+
+  // Crée une adresse : si des accès existent déjà, ils sont d'abord révoqués (une seule adresse active à la fois).
+  function create(data) {
+    var old = data.tokens.slice();
+    var chain = Promise.resolve();
+    old.forEach(function (tk) { chain = chain.then(function () { return call('DELETE', '/api/ai-tokens/' + tk.id); }); });
+    return chain.then(function () { return call('POST', '/api/ai-tokens', { label: 'Claude', canWrite: canWrite }); })
+      .then(function (r) { shown = r; return refresh(); });
+  }
+  function revokeAll(data) {
+    var chain = Promise.resolve();
+    data.tokens.forEach(function (tk) { chain = chain.then(function () { return call('DELETE', '/api/ai-tokens/' + tk.id); }); });
+    return chain.then(function () { shown = null; return refresh(); });
   }
 
   function paint(data, msgText) {
     box.innerHTML = '';
-    box.appendChild(el('p', 'hint', "Branche TimeTracker à ton IA (Claude, ChatGPT…) : elle lit tes tâches et tes objectifs pour te proposer un plan. Par défaut, elle ne peut rien modifier."));
-    box.appendChild(el('p', 'hint', "En créant un jeton, tu autorises l'IA connectée à lire tes tâches et tes objectifs, en lecture seule (sauf si tu autorises l'écriture ci-dessous). Tu peux révoquer l'accès à tout moment."));
+    if (!writeInit) {
+      writeInit = true;
+      if (data.tokens.length) canWrite = !!data.tokens[0].canWrite;
+      else { try { canWrite = localStorage.getItem(WKEY) === '1'; } catch (e) {} }
+    }
+    var connected = data.tokens.length > 0;
+    var top = el('div', 'notifRow');
+    top.appendChild(el('span', 'notifRowLabel', tr('Connecter mon IA')));
+    top.appendChild(el('span', 'hint', connected ? tr('Connectée') : tr('Non connectée')));
+    box.appendChild(top);
+    box.appendChild(el('p', 'hint', tr("Branche TimeTracker à ton IA (Claude, ChatGPT…) : elle lit tes tâches et tes objectifs ; en écriture (case ci-dessous), elle peut aussi les organiser.")));
 
     if (shown) {
-      var card = el('div', 'aiConnectShown');
-      card.appendChild(el('p', 'aiConnectWarn', 'Copie ce jeton maintenant : il ne sera plus jamais affiché.'));
-      card.appendChild(copyRow('Jeton', shown.token));
-      card.appendChild(copyRow('Adresse du serveur', data.url));
-      card.appendChild(copyRow('Adresse complète pour claude.ai', (data.origin || location.origin) + '/mcp/t/' + shown.token));
-      card.appendChild(el('p', 'hint', 'Colle cette adresse dans claude.ai > Paramètres > Connecteurs > Ajouter un connecteur personnalisé (sans identifiant). Elle contient ton jeton : ne la partage pas ; révoque-la ici au besoin.'));
-      var ok = el('button', 'iconBtn', "J'ai copié"); ok.type = 'button';
+      var full = (data.origin || location.origin) + '/mcp/t/' + shown.token;
+      box.appendChild(el('p', 'aiConnectWarn', tr("Copie cette adresse maintenant : elle ne sera plus affichée.")));
+      box.appendChild(copyLine(full));
+      box.appendChild(el('p', 'hint', tr("Colle-la dans claude.ai > Paramètres > Connecteurs > Ajouter un connecteur personnalisé. Elle contient ton accès : ne la partage pas.")));
+      var ok = el('button', 'btn btn-primary btn-small', tr("J'ai copié")); ok.type = 'button';
       ok.addEventListener('click', function () { shown = null; paint(data); });
-      card.appendChild(ok);
-      box.appendChild(card);
+      box.appendChild(ok);
+    } else {
+      var main = el('button', 'btn btn-primary btn-small', connected ? tr('Générer une nouvelle adresse') : tr("Créer l'adresse de connexion")); main.type = 'button';
+      main.addEventListener('click', function () {
+        main.disabled = true;
+        create(data).catch(function (e) { paint(data, e.message); });
+      });
+      var wl = el('label', 'aiConnectWrite');
+      var wc = el('input'); wc.type = 'checkbox'; wc.checked = canWrite;
+      wc.addEventListener('change', function () { canWrite = wc.checked; try { localStorage.setItem(WKEY, canWrite ? '1' : '0'); } catch (e) {} });
+      wl.appendChild(wc);
+      wl.appendChild(el('span', null, ' ' + tr("Autoriser l'IA à écrire (créer, modifier, ordonner, planifier, objectifs)")));
+      box.appendChild(wl);
+      box.appendChild(main);
+      if (connected) {
+        var rev = el('button', 'iconBtn btnBrique', tr("Révoquer l'accès")); rev.type = 'button';
+        rev.addEventListener('click', function () {
+          var run = function () { return revokeAll(data); };
+          if (window.TMT && typeof window.TMT.confirmDelete === 'function') {
+            window.TMT.confirmDelete({ title: tr("Révoquer l'accès ?"), text: tr("Ton IA ne pourra plus lire tes tâches ni tes objectifs. Tu pourras recréer une adresse à tout moment."), onConfirm: run });
+          } else { run().catch(function (e) { paint(data, e.message); }); }
+        });
+        box.appendChild(rev);
+      }
     }
 
-    var list = el('div', 'aiConnectList');
-    data.tokens.forEach(function (tk) {
-      var row = el('div', 'aiConnectRow');
-      var info = el('div', 'aiConnectInfo');
-      info.appendChild(el('strong', null, tk.label));
-      info.appendChild(el('span', 'hint', fmt(tk.lastUsedAt) + (tk.canWrite ? ' · écriture autorisée' : ' · lecture seule')));
-      row.appendChild(info);
-      var act = el('div', 'aiConnectActions');
-      var rev = el('button', 'iconBtn btnBrique', 'Révoquer'); rev.type = 'button';
-      rev.addEventListener('click', function () {
-        rev.hidden = true;
-        act.appendChild(el('span', 'hint', 'Révoquer ?'));
-        var yes = el('button', 'iconBtn btnBrique', 'Oui'); yes.type = 'button';
-        var no = el('button', 'iconBtn', 'Non'); no.type = 'button';
-        yes.addEventListener('click', function () { call('DELETE', '/api/ai-tokens/' + tk.id).then(refresh).catch(function (e) { paint(data, e.message); }); });
-        no.addEventListener('click', function () { paint(data); });
-        act.appendChild(yes); act.appendChild(no);
+    var det = el('button', 'iconBtn', detailsOpen ? tr('Masquer les détails') : tr('Détails')); det.type = 'button';
+    det.addEventListener('click', function () { detailsOpen = !detailsOpen; paint(data); });
+    box.appendChild(det);
+    if (detailsOpen) {
+      var d = el('div', 'aiConnectDetails');
+      d.appendChild(el('p', 'hint', tr("Tu peux révoquer l'accès à tout moment. Une nouvelle adresse remplace l'ancienne.")));
+      data.tokens.forEach(function (tk) {
+        d.appendChild(el('p', 'hint', fmt(tk.lastUsedAt) + (tk.canWrite ? ' · ' + tr('écriture autorisée') : ' · ' + tr('lecture seule'))));
       });
-      act.appendChild(rev); row.appendChild(act);
-      list.appendChild(row);
-    });
-    box.appendChild(list);
-
-    if (data.tokens.length < data.max) {
-      var form = el('div', 'aiConnectForm');
-      var wl = el('label', 'aiConnectWrite');
-      var wc = el('input'); wc.type = 'checkbox';
-      wl.appendChild(wc);
-      wl.appendChild(el('span', null, " Autoriser l'IA à cocher mes tâches et m'écrire"));
-      var warn = el('p', 'hint', "Attention : avec cette option, l'IA peut cocher tes tâches comme faites, ajouter des notes « 🤖 » et t'envoyer des notifications (10 par jour). Elle ne peut jamais supprimer ni modifier tes tâches.");
-      var name = el('input', 'aiConnectField'); name.type = 'text'; name.maxLength = 60; name.placeholder = 'Nom (ex. Claude)';
-      var go = el('button', 'iconBtn', 'Créer un jeton'); go.type = 'button';
-      go.addEventListener('click', function () {
-        go.disabled = true;
-        call('POST', '/api/ai-tokens', { label: name.value, canWrite: wc.checked }).then(function (r) { shown = r; refresh(); }).catch(function (e) { go.disabled = false; paint(data, e.message); });
-      });
-      form.appendChild(name); form.appendChild(go);
-      box.appendChild(wl); box.appendChild(warn);
-      box.appendChild(form);
-    } else {
-      box.appendChild(el('p', 'hint', 'Maximum de ' + data.max + ' jetons actifs : révoque-en un pour en créer un autre.'));
+      d.appendChild(el('p', 'hint', tr("Avec l'écriture, l'IA peut créer, modifier, ordonner et planifier tes tâches, définir tes objectifs et en retirer (de façon réversible). Chaque écriture est au journal et s'annule pendant 30 jours. Une nouvelle adresse applique ton choix.")));
+      if (data.url) { d.appendChild(el('p', 'hint', tr('Adresse du serveur'))); d.appendChild(copyLine(data.url)); }
+      box.appendChild(d);
     }
     box.appendChild(el('p', 'msg', msgText || ''));
   }
@@ -96,5 +117,5 @@
   function refresh() {
     return call('GET', '/api/ai-tokens').then(function (d) { paint(d); loaded = true; }).catch(function (e) { box.textContent = e.message; });
   }
-  head.addEventListener('click', function () { if (!loaded) refresh(); else if (!shown) refresh(); });
+  head.addEventListener('click', function () { if (!shown) refresh(); });
 })();

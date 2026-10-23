@@ -1,14 +1,7 @@
-/* « Connecter mon IA » (Réglages) */
-.aiConnectShown { background: rgba(124, 92, 255, 0.10); border-radius: var(--radius-lg); padding: 12px; margin: 8px 0 12px; }
+/* « Connecter mon IA » (section « Mon IA » des Réglages) */
 .aiConnectWarn { font-size: 13px; font-weight: 600; margin: 0 0 8px; }
-.aiConnectCopy { margin-bottom: 8px; }
-.aiConnectCopyLine, .aiConnectForm { display: flex; gap: 8px; align-items: center; }
-.aiConnectField { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border, rgba(128,128,128,.3)); background: transparent; color: inherit; font-size: 13px; }
-.aiConnectRow { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; }
-.aiConnectInfo { display: flex; flex-direction: column; min-width: 0; }
-.aiConnectInfo .hint { margin: 0; }
-.aiConnectActions { display: flex; gap: 6px; align-items: center; }
-.aiConnectActions .hint { margin: 0; }
+.aiConnectCopyLine { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.aiConnectField { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: inherit; font-size: 13px; }
+.aiConnectDetails { margin-top: 10px; }
 .aiConnectWrite { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 10px 0 4px; }
-.aiConnectActions { flex-shrink: 0; }
-.aiConnectActions .hint { white-space: nowrap; }
+#aiConnectBox > .btn, #aiConnectBox > .iconBtn { margin: 8px 8px 0 0; }
