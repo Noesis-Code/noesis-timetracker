@@ -45,6 +45,11 @@ cases.forEach(([raw, want, reason], i) => {
   assert(r.title === want && r.reason === reason, 'sortie ' + (i + 1) + ' : ' + (want ? 'retenue' : 'rejetée (' + reason + ')'));
 });
 // Branchement : parseDetailed écarte les mauvaises sorties, compte `invalide`, n'écrase rien d'existant.
+// Doublon par inclusion (titres réels du 22 oct.) : version plus longue du même titre = doublon ; titres courts ou autres mots = pas doublon.
+assert(tp.isDuplicate('Publier les mentions légales dans l\'application', ['Publier les mentions légales dans l\'onglet Profil de l\'application']), 'inclusion : mentions légales (version longue)');
+assert(tp.isDuplicate('Retirer les champs nom de famille et téléphone', ['Retirer les champs nom de famille et téléphone et effacer les valeurs en base']), 'inclusion : champs retirés');
+assert(!tp.isDuplicate('Appeler Paul', ['Appeler Paul pour le devis du site web']), 'inclusion : moins de 4 mots utiles = pas doublon');
+assert(!tp.isDuplicate('Envoyer la facture Acme', ['Envoyer la facture Acme au client Dupuis après la réunion de lundi']), 'inclusion : 60 % requis');
 const dt = require('../server/lib/documenttasks');
 const ctx = { candidates: [{ key: 'a', label: 'A' }], weeks: ['2026-10-19', '2026-10-26'], today: '2026-10-20', app: { open: [{ label: 'Payer la TPS' }] } };
 const out = dt.parseDetailed(JSON.stringify({ t: [['Rédiger le devis', 'a', null, 30], ['Truc', 'a', null, 10], ['Payer la TPS', 'a', null, 10], ['Appeler Paul à 14 h', 'a', null, 15]] }), ctx);

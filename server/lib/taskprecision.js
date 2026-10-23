@@ -138,6 +138,15 @@ function sameTitle(a, b) {
   if (A.tk.join(' ') === B.tk.join(' ')) return true;
   return !A.dir && !B.dir && A.tk.slice().sort().join(' ') === B.tk.slice().sort().join(' ');
 }
+// Inclusion : une version plus longue d'un même titre (« Publier les mentions légales » / « ... dans l'onglet Profil »). Prudent : le plus court a
+// 4 mots utiles ou plus, ils se retrouvent tous dans l'autre dans le même ordre, il en forme au moins 60 %, mêmes marqueurs (lettre, sigle, négation).
+function inSeq(s, l) { let i = 0; for (const w of l) if (i < s.length && w === s[i]) i++; return i === s.length; }
+function includedTitle(a, b) {
+  const A = dupForm(a), B = dupForm(b);
+  const [S, L] = A.tk.length <= B.tk.length ? [A, B] : [B, A];
+  if (S.tk.length < 4 || S.marks !== L.marks || S.tk.length < 0.6 * L.tk.length) return false;
+  return inSeq(S.tk, L.tk);
+}
 // Validateur déterministe d'un titre GÉNÉRÉ par l'IA (jamais d'une saisie manuelle). Renvoie { title, reason } : title = titre nettoyé
 // (horaire à créneau fixe retiré s'il reste une tâche valable) ou null si rejeté ; reason = 'vide' | 'horaire' | 'sansSens' | 'tropLong' | 'doublon'.
 const MAX_GENERATED_TITLE = 140;
@@ -165,10 +174,10 @@ function checkGenerated(raw, existing) {
   if (words.every((w) => VAGUE.has(w)) || /^(?:a faire|to do|a voir|a completer)$/.test(words.join(' ')) || fold(t).replace(/[^a-z]/g, '').length < 3) return { title: null, reason: 'sansSens' }; // « truc », « à faire », « A », « T1 », « 12345 » : rien à faire de ce titre
   const w2 = fold(t.replace(/\s[àÀ]\s/g, ' ')).split(' ').filter(Boolean); // « à » (préposition) ignoré ; une lettre seule (« Faire A ») n'est pas du vague
   if (w2.length <= 4 && w2.every((w) => VAGUE.has(w) || EMPTY_VERBS.has(w))) return { title: null, reason: 'sansSens' }; // « Réfléchir », « Avancer sur le projet »
-  if ((existing || []).some((o) => sameTitle(t, o))) return { title: null, reason: 'doublon' };
+  if ((existing || []).some((o) => sameTitle(t, o) || includedTitle(t, o))) return { title: null, reason: 'doublon' };
   return { title: t, reason: t !== t0 ? 'horaire' : null }; // reason 'horaire' avec title = nettoyé
 }
-function isDuplicate(title, others) { return (others || []).some((o) => sameTitle(title, o)); }
+function isDuplicate(title, others) { return (others || []).some((o) => sameTitle(title, o) || includedTitle(title, o)); }
 
 // « Action contre sujet » : le verbe d'ouverture dit le domaine (« Payer la facture du fournisseur » = finances, pas approvisionnement).
 // Renvoie les mots-thèmes (racines) à pondérer en plus des mots du titre ; liste fermée, volontairement courte, 0 hasard.
