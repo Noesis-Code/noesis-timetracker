@@ -2089,6 +2089,7 @@
     enterStats(ctx);
     switchTab('stats', { prepared: true });
     if (ctx === 'goals' && n === 3 && TMT.setStatsPage) TMT.setStatsPage(3, { noAnim: true });
+    if (ctx === 'chrono' && n === 3 && TMT.setSharedPage) TMT.setSharedPage(true, { noAnim: true });
   }
 
   function switchTab(tab, opts) {
@@ -3046,11 +3047,13 @@
     };
     updateStopDurationLabel();
     $('stopBtn').classList.add('hidden');
+    $('chronoRunning').classList.add('stopConfirming');
     $('stopConfirmPanel').classList.remove('hidden');
   }
 
   function closeStopConfirm() {
     $('stopConfirmPanel').classList.add('hidden');
+    $('chronoRunning').classList.remove('stopConfirming');
     $('stopBtn').classList.remove('hidden');
   }
 
@@ -4826,10 +4829,10 @@
   // partagée (< 2 membres) n'a donc ni onglet « Statistiques » ni rangée d'onglets (supprimée, pas masquée : aucun vide
   // sous le titre) et ouvre directement « Pôles & secteurs ». Seule règle : currentActivityIsShared.
   function syncActivityTabs() {
+    // Chantier Chrono : les statistiques par membre ont déménagé dans la 3e page du Chrono ; il ne reste qu'un onglet « Catégories », donc plus de rangée d'onglets.
     var sw = $('activityPageSectionSwitch');
-    if (sw) sw.classList.toggle('hidden', !currentActivityIsShared);
-    $('activityPageTabStats').classList.toggle('hidden', !currentActivityIsShared);
-    if (!currentActivityIsShared && activityPageSection === 'stats') setActivityPageSection('sub');
+    if (sw) sw.classList.add('hidden');
+    if (activityPageSection === 'stats') setActivityPageSection('sub');
   }
 
   function renderSoloCategoryPie(data) {
@@ -5494,6 +5497,7 @@
     // .tsWeekScroll là-bas). Le même conteneur sert aux deux vues, d'où le
     // retrait symétrique dans renderTimesheetMonth.
     $(I.grid).parentNode.classList.add('tsWeekScroll');
+    if ($(I.calendar).closest('.timesheetBlock')) $(I.calendar).closest('.timesheetBlock').classList.remove('tsYearView');
     $(I.frozen).classList.remove('hidden');
     $(I.frozen).classList.remove('tsFrozenCal');
 
@@ -5589,6 +5593,7 @@
     // comme celle de la vue Semaine : sortie dans #tsFrozenCol, qui prend ici
     // les métriques du calendrier (classe tsFrozenCal, voir styles.css).
     $(I.grid).parentNode.classList.remove('tsWeekScroll');
+    if ($(I.calendar).closest('.timesheetBlock')) $(I.calendar).closest('.timesheetBlock').classList.remove('tsYearView');
     $(I.frozen).classList.remove('hidden');
     $(I.frozen).classList.add('tsFrozenCal');
 
@@ -5658,14 +5663,15 @@
     $(I.grid).parentNode.classList.remove('tsWeekScroll');
     $(I.frozen).classList.remove('hidden');
     $(I.frozen).classList.add('tsFrozenCal');
+    if ($(I.calendar).closest('.timesheetBlock')) $(I.calendar).closest('.timesheetBlock').classList.add('tsYearView'); // lignes plus hautes (points par jour)
 
     $(I.weekLabel).textContent = data.label + (data.isCurrentYear ? t(' (en cours)') : '');
     $(I.nextBtn).disabled = data.isCurrentYear;
     $(I.prevBtn).disabled = !data.hasMoreBefore;
     $(I.emptyHint).classList.toggle('hidden', data.rows.length > 0);
 
-    var max = 0;
-    data.rows.forEach(function (r) { r.months.forEach(function (s) { if (s > max) max = s; }); });
+    // Un point gris par jour du mois, coloré (couleur de l'activité) quand la journée compte un enregistrement chrono ; heure totale du mois au-dessus.
+    var year = parseInt(String(data.start).slice(0, 4), 10);
     var frozen = '<div class="tsCalCorner"></div>';
     var html = '';
     for (var mi = 0; mi < 12; mi++) {
@@ -5675,10 +5681,15 @@
       var rowName = r.name || t('Sans pôle');
       frozen += '<div class="tsCalWeekLabel" style="overflow:hidden;text-overflow:ellipsis;display:block;line-height:var(--cal-row)" title="' + escapeHtml(rowName) + '">' + escapeHtml(rowName) + '</div>';
       r.months.forEach(function (sec, m) {
-        html += '<div class="tsCalDay" title="' + escapeHtml(rowName) + ' · ' + escapeHtml(monthNameLocal(m)) + '">';
-        html += '<div class="tsCalDayNum">' + (sec > 0 ? formatHM(sec) : '') + '</div>';
-        html += '<div class="tsSlot tsSlot-filled" style="height:6px;width:' + (sec > 0 && max > 0 ? Math.max(8, Math.round(sec / max * 100)) : 0)
-          + '%;background:' + r.color + '"></div></div>';
+        var lit = {};
+        ((r.days && r.days[m]) || []).forEach(function (d) { lit[d] = true; });
+        html += '<div class="tsCalDay tsYearCell" title="' + escapeHtml(rowName) + ' · ' + escapeHtml(monthNameLocal(m)) + '">';
+        if (sec > 0) html += '<div class="tsCalDayNum">' + formatHM(sec) + '</div>';
+        html += '<div class="tsYearDots">';
+        for (var d = 1, n = new Date(year, m + 1, 0).getDate(); d <= n; d++) {
+          html += '<i class="tsYearDot"' + (lit[d] ? ' style="background:' + r.color + '"' : '') + '></i>';
+        }
+        html += '</div></div>';
       });
     });
     $(I.frozen).innerHTML = frozen;
@@ -5790,6 +5801,7 @@
   // et l'ensemble ne fait que GRANDIR au fil des réponses reçues — un membre
   // absent d'une période donnée ne décale personne.
   var activityMemberIds = {};   // activityId -> tableau d'identifiants triés
+  var sharedStatsActivityId = ''; // activité affichée dans la 3e page du Chrono (statistiques des activités partagées)
 
   function rememberActivityMembers(activityId, lists) {
     var key = String(activityId);
@@ -5810,7 +5822,7 @@
   // (aucune régression possible : c'est le comportement d'avant).
   function activityMemberColor(userId, fallbackColor) {
     if (!currentActivityColor || !userId) return fallbackColor;
-    var known = activityMemberIds[String(currentCommunityActivityId)] || [];
+    var known = activityMemberIds[String(sharedStatsActivityId)] || [];
     var index = known.indexOf(String(userId));
     if (index < 0) return fallbackColor;
     // Un seul membre : rien à distinguer, on garde sa couleur telle quelle.
@@ -5862,17 +5874,6 @@
       return;
     }
 
-    // Nouvelle sélection : on repart toujours de zéro sur les statistiques de
-    // CETTE activité (période "Semaine", semaine en cours) — même logique
-    // que l'ouverture de l'onglet Statistiques.
-    currentActivityPiePeriod = 'week';
-    currentActivityChartGranularity = 'day';
-    // Le filtre par catégorie repart lui aussi de zéro : les catégories de
-    // l'activité précédente n'existent pas ici, et laisser une clé en place
-    // filtrerait sur une catégorie qui n'appartient pas à cette activité.
-    currentActivityCategory = '';
-    syncActivityPeriodMenus();
-    if (TMT.caTasks) TMT.caTasks.onActivity(); // 10 oct. 2026 : retour sur la page Temps, données Tâches à recharger
     // Nouvelle activité : on repart d'un fil vide côté affichage, sinon la
     // signature du fil précédent empêcherait le premier rendu (et le
     // défilement automatique vers le dernier message).
@@ -5907,8 +5908,6 @@
     activityDetailEl().classList.remove('hidden');
     if (shouldScroll) activityDetailEl().scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-    loadActivityCategoryFilter(currentCommunityActivityId);
-    loadActivityStats(currentCommunityActivityId);
   }
 
 
@@ -8753,7 +8752,7 @@
   // Statistiques (setupStatsPeriodMenu) — réutilisé tel quel, pas une ligne
   // modifiée, exactement comme la page de visite d'un profil le fait déjà.
   function reloadActivityStats() {
-    if (currentCommunityActivityId) loadActivityStats(currentCommunityActivityId);
+    if (sharedStatsActivityId) loadActivityStats(sharedStatsActivityId);
   }
   var caPieMenu = bindPeriodMenu({
     btn: $('caPiePeriodBtn'), menu: $('caPiePeriodMenu'),
@@ -8796,7 +8795,7 @@
     menu.innerHTML = '';
     fetchChronoCategories(activityId).then(function (list) {
       // Garde anti-réponse-en-vol : l'activité a pu changer entre-temps.
-      if (String(activityId) !== String(currentCommunityActivityId)) return;
+      if (String(activityId) !== String(sharedStatsActivityId)) return;
       if (list.length <= 1) return; // une seule catégorie : rien à filtrer, rien à montrer
       var options = [{ value: '', label: t('Tous les pôles') },
                      { value: 'none', label: t('Sans pôle') }];
@@ -8848,7 +8847,7 @@
     currentActivityCategory = value;
     syncActivityCategoryBtn();
     if (TMT.caTasks) TMT.caTasks.onCategory();
-    if (currentCommunityActivityId) loadActivityStats(currentCommunityActivityId);
+    if (sharedStatsActivityId) loadActivityStats(sharedStatsActivityId);
   });
 
   function syncActivityPeriodMenus() {
@@ -8874,7 +8873,7 @@
       (currentActivityCategory
         ? '&category=' + encodeURIComponent(currentActivityCategory) : '');
     api('GET', url).then(function (data) {
-      if (String(activityId) !== String(currentCommunityActivityId)) return; // sélection changée entre-temps
+      if (String(activityId) !== String(sharedStatsActivityId)) return; // sélection changée entre-temps
       var block = data.breakdown;
       // Libellé de période seul, dans le bloc Répartition lui-même (motif
       // .statsSummary de l'onglet Statistiques). Le total qui l'accompagnait
@@ -8904,11 +8903,24 @@
       // membre. Cette garde vivait dans l'appel à /community/activity-feed,
       // retiré avec le flux des notes : elle est reprise ici, sur le seul
       // appel qui reste à porter la même vérification d'accès.
-      if (String(activityId) !== String(currentCommunityActivityId)) return;
-      $('activityPage').classList.add('hidden');
-      currentCommunityActivityId = '';
-      loadSettingsActivities();
+      if (String(activityId) !== String(sharedStatsActivityId)) return;
+      // Chantier Chrono : l'activité n'est plus accessible (quittée ou supprimée) : la 3e page du Chrono relit la liste des activités.
+      refreshActivities().then(function () { if (TMT.sharedStatsRefresh) TMT.sharedStatsRefresh(); }, function () {});
     });
+  }
+
+  // 3e page du Chrono (chantier Chrono) : statistiques de l'activité partagée choisie par les puces (public/js/stats-avance.js).
+  // Repart de zéro à chaque choix : période « Semaine », graphique « Jour », aucun filtre de pôle.
+  function selectSharedStats(a) {
+    sharedStatsActivityId = a ? String(a.id) : '';
+    if (!a) return;
+    currentActivityColor = a.color || '';
+    currentActivityPiePeriod = 'week';
+    currentActivityChartGranularity = 'day';
+    currentActivityCategory = '';
+    syncActivityPeriodMenus();
+    loadActivityCategoryFilter(a.id);
+    loadActivityStats(a.id);
   }
 
   // ----- Section Camembert : une part par MEMBRE (couleur = nuance personnelle
@@ -16207,6 +16219,7 @@
   // restent à jour même après connexion/déconnexion ou changement de thème.
   window.TMT.$ = $;
   window.TMT.api = api;
+  window.TMT.selectSharedStats = selectSharedStats;
   window.TMT.getCaState = function () { return { id: currentCommunityActivityId, category: currentActivityCategory }; }; // fenêtre Activité (activite-stats-taches.js)
   // Page « Tâches par membre » : le filtre de pôle n'y propose pas « Sans pôle » ; couleurs de membres = nuances de l'activité.
   window.TMT.caTasksPage = function (on) {

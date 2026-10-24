@@ -662,12 +662,19 @@ function timesheetYearForUser(userId, yearOffset, opts) {
     monthTotals.push(b.totalSeconds);
     b.activities.forEach((a) => {
       if (!rowsById[a.activityId]) {
-        rowsById[a.activityId] = { activityId: a.activityId, name: a.name, color: a.color, months: new Array(12).fill(0), totalSeconds: 0 };
+        rowsById[a.activityId] = { activityId: a.activityId, name: a.name, color: a.color, months: new Array(12).fill(0), days: Array.from({ length: 12 }, () => []), totalSeconds: 0 };
       }
       rowsById[a.activityId].months[m] = a.seconds;
       rowsById[a.activityId].totalSeconds += a.seconds;
     });
   }
+  // Jours (1 à 31) de chaque mois où l'activité a au moins un enregistrement chrono : un point coloré par jour dans la vue Année.
+  db.prepare('SELECT DISTINCT activityId, isoDate FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ?')
+    .all(userId, `${year}-01-01`, `${year}-12-31`)
+    .forEach((r) => {
+      const row = rowsById[r.activityId];
+      if (row) row.days[Number(r.isoDate.slice(5, 7)) - 1].push(Number(r.isoDate.slice(8, 10)));
+    });
   const rows = Object.keys(rowsById).map((k) => rowsById[k]).sort((a, b) => b.totalSeconds - a.totalSeconds);
   const start = `${year}-01-01`;
   const end = `${year}-12-31`;
