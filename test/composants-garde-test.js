@@ -32,4 +32,17 @@ for (const [label, re] of RULES) { const h = hits(re); ok(h.length === 0, label 
   }
   ok(bad.length === 0, 'croix ✕ : toujours .cmpClose / TMT.ui.closeBtn' + (bad.length ? ' : ' + bad.slice(0, 4).join(', ') : ''));
 }
+// Traits de séparation (R22/R29) : un trait 1px haut/bas en CSS passe par --sep (ou une couleur d'accent --purple), jamais par un alias ou un rgba en dur.
+{
+  const bad = [];
+  for (const f of files) {
+    if (!/\.css$/.test(f) || !/^public\//.test(f)) continue; // Trade Tracker : à migrer (S1)
+    read(f).split(/\r?\n/).forEach((l, i) => {
+      if (/^\s*(\/\/|\/\*|\*)/.test(l)) return;
+      const m = l.match(/border-(?:top|bottom)\s*:\s*1px\s+solid\s+(rgba?\([^)]*\)|var\(--(?:border|glass-border|glass-calm-line)\b[^)]*\))/);
+      if (m) bad.push(f + ':' + (i + 1));
+    });
+  }
+  ok(bad.length === 0, 'traits de séparation 1px : toujours var(--sep)' + (bad.length ? ' : ' + bad.slice(0, 4).join(', ') : ''));
+}
 process.exit(failed ? 1 : 0);

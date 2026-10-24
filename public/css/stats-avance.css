@@ -98,7 +98,7 @@
 .saDayCol.future::after { content: ''; width: 100%; height: 3px; border: 1px dashed var(--track-bg); box-sizing: border-box; }
 /* fenêtre « Retirer cette information ? » — filet sous le titre et la croix, en-tête un peu plus haut (classe posée seulement depuis les stats). */
 #categoryRemoveModal.saConfirm .communityMembersModalCard { padding-top: 2px; }
-#categoryRemoveModal.saConfirm .communityMembersModalHeader { padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--glass-border); }
+#categoryRemoveModal.saConfirm .communityMembersModalHeader { padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--sep); }
 /* le liseré de sélection épouse exactement la carte (cartes d'une même ligne de même hauteur et de même largeur). */
 .saGh { display: flex; }
 .saGh > .saGin { flex: 1; display: flex; min-width: 0; }
@@ -123,7 +123,7 @@
 .saGsec { margin-top: 12px; }
 .saGsec h4 { margin: 0 0 4px; font-size: 13px; display: flex; justify-content: space-between; align-items: baseline; }
 .saGsec h4 em { font-style: normal; font-size: 12px; opacity: .8; }
-.saGrow { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--glass-border); font-size: 13px; }
+.saGrow { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--sep); font-size: 13px; }
 .saGrow small { font-size: 12px; opacity: .85; white-space: nowrap; }
 .saGmore { background: none; border: 0; padding: 6px 0 0; color: var(--text); opacity: .6; font: inherit; font-size: 12px; }
 
