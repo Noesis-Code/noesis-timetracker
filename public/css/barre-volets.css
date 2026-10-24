@@ -71,12 +71,13 @@
   background: var(--glass-calm-bg, rgba(243, 238, 232, .05)); box-shadow: inset 0 0 0 1px var(--glass-calm-line, rgba(243, 238, 232, .12));
   -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
 }
+/* Icône d'extension (Trade) en édition : un seul contour, le carré (pas de rond en plus). */
+:root[data-theme] .tabbar.barEdit .tabBtn[data-expansion] { background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .tabbar.barEdit .tabBtn.dragging { z-index: 2; transition: none; scale: 1.08; box-shadow: 0 4px 12px rgba(0, 0, 0, .4); }
 .tabbar .barX {
   position: absolute; top: -2px; right: -2px; /* croix rouge R25 : le composant .cmpRemove fait le reste */
 }
-/* Zone de toucher de la croix limitée à son coin (28 px) : à 44 px elle couvrait toute l'icône et empêchait de la saisir pour la déplacer. */
-.tabbar .barX::after { width: 28px; height: 28px; }
+/* Zone de toucher de la croix : 44 px (R25, composant .cmpRemove). Elle recouvre l'icône : un glisser qui commence sur la croix déplace l'icône (barre-volets.js), seul un tap court retire. */
 .tabbar .tabBtn.dragging .barX { display: none; }
 .barHint {
   position: fixed; left: 16px; right: 16px; z-index: 51; margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-light, #A59E96);

@@ -80,8 +80,11 @@
   function addX(b) {
     var x = document.createElement('span');
     x.className = 'cmpRemove barX'; x.setAttribute('role', 'button'); x.setAttribute('aria-label', tr('Retirer de la barre'));
-    x.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
-    x.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); removeTab(b.dataset.tab); });
+    x.addEventListener('click', function (e) {
+      e.stopPropagation(); e.preventDefault();
+      if (crossDragged) { crossDragged = false; return; } // le geste était un glisser de l'icône, pas un tap sur la croix
+      removeTab(b.dataset.tab);
+    });
     b.appendChild(x);
   }
   function setEdit(v) {
@@ -98,10 +101,29 @@
     if (wasActive && typeof TMT.switchTab === 'function') TMT.switchTab(firstTab());
   }
 
-  var timer = null;
+  var timer = null, crossDragged = false;
   pill.addEventListener('pointerdown', function (e) {
     var b = e.target.closest && e.target.closest('.tabBtn');
-    if (!b || e.target.closest('.barX')) return;
+    if (!b) return;
+    if (e.target.closest('.barX')) {
+      // Croix (zone de toucher 44 px, R25) : un tap court la retire ; un glisser au-delà de MOVE_PX déplace l'icône.
+      if (!editMode) return;
+      var cx = e.clientX, cy = e.clientY, cid = e.pointerId;
+      var onCrossMove = function (ev) {
+        if (ev.pointerId !== cid || (Math.abs(ev.clientX - cx) <= MOVE_PX && Math.abs(ev.clientY - cy) <= MOVE_PX)) return;
+        stopCross(); crossDragged = true;
+        startDrag(b, { clientX: cx, pointerId: cid, preventDefault: function () {} });
+      };
+      var stopCross = function () {
+        document.removeEventListener('pointermove', onCrossMove);
+        document.removeEventListener('pointerup', stopCross);
+        document.removeEventListener('pointercancel', stopCross);
+      };
+      document.addEventListener('pointermove', onCrossMove);
+      document.addEventListener('pointerup', stopCross);
+      document.addEventListener('pointercancel', stopCross);
+      return;
+    }
     if (editMode) { startDrag(b, e); return; }
     var sx = e.clientX, sy = e.clientY;
     function cancel() {
