@@ -14,23 +14,11 @@
   --tab-idle-dark: #c9cdd4;
 
   /* ---- États (réussite, alerte, danger) ---- */
-  --good: #6fc9a0;
   --warn-orange: #ff9f2e;
 
   /* ---- Rayons ---- */
 
   /* ---- Ombres, transitions ---- */
-
-  /* ---- Verre : UN seul jeu --glass-*, deux niveaux ----
-     (a) verre « liquide » : boutons, panneaux, barre du haut (flou 24px) ;
-     (b) verre « calme »  : cartes, lignes, champs (--glass-calm-*, flou 12px,
-         ex-jetons --vc-* de verre-calme.css). */
-  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%);
-  --glass-border: rgba(255, 255, 255, 0.16);
-  --glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.55);
-  --glass-blur: blur(24px) saturate(160%);
-  --glass-calm-bg: rgba(255, 255, 255, .05);
-  --glass-calm-line: rgba(255, 255, 255, .12);
 
   /* ---- Halos des fenêtres (niveau 1 indigo, niveau 2 prune) ---- */
   --halo-n1-rgb: 156, 140, 200; --halo-n1-a: 0.28;

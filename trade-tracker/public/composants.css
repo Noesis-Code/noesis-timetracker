@@ -30,6 +30,17 @@
   --transition-fast: 0.15s ease;
   --veil: rgba(0, 0, 0, 0.5);
   --cmp-dash: rgba(243, 238, 232, 0.28);    /* pointillés des boutons « + » */
+  --good: #6FC9A0;                          /* R12 : semaine atteinte */
+  /* Verre (R14/R17, S1 étape 2) : UNE seule recette de verre calme pour toute l'app, TimeTracker, Expansion et Trade Tracker. */
+  --glass-bg: rgba(243, 238, 232, .05);
+  --glass-border: var(--sep);
+  --glass-shadow: inset 0 0 0 1px rgba(243, 238, 232, .12);
+  --glass-blur: blur(12px) saturate(1.1);
+  --glass-calm-bg: var(--glass-bg);
+  --glass-calm-line: var(--sep);
+  --glass-calm-blur: var(--glass-blur);
+  --pop-bg: #16141A;                        /* menus, feuilles : fond sombre uni */
+  --halo: rgba(156, 140, 200, .28);
 }
 
 /* Croix de fermeture ✕ (R13 : en haut à droite de la fenêtre) */
