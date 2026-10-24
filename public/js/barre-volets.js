@@ -116,7 +116,10 @@
     pill.addEventListener('pointerup', cancel);
     pill.addEventListener('pointercancel', cancel);
     pill.addEventListener('pointerleave', cancel);
-    timer = setTimeout(function () { cancel(); justEdited = true; setEdit(true); }, LONG_MS);
+    timer = setTimeout(function () {
+      cancel(); justEdited = true; setEdit(true);
+      try { if (navigator.vibrate) navigator.vibrate(15); } catch (err) { /* vibration indisponible */ } // petit retour tactile (téléphone)
+    }, LONG_MS);
   });
   pill.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
