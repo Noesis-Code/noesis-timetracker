@@ -34,8 +34,14 @@ const tp = require('../server/lib/taskprecision');
   assert(tp.contradicts('Ajouter le bouton Exporter', 'Retirer le bouton Exporter') && tp.contradicts('Add X field', 'Remove the X field'), 'lot : Ajouter X / Retirer X détecté (fr/en)');
   assert(!tp.contradicts('Ajouter un bouton', 'Retirer un bouton de partage') && !tp.contradicts('Créer le dossier clients', 'Supprimer le dossier fournisseurs') && !tp.contradicts('Ajouter le champ A', 'Ajouter le champ B'), 'lot : objets différents ou même sens = pas de contradiction');
   assert(JSON.stringify(tp.contradictionsInBatch(['Ajouter le bouton Exporter', 'Appeler Paul', 'Retirer le bouton Exporter'])) === '[-1,-1,0]', 'lot : le titre le plus récent pointe le plus ancien');
-  assert(tp.sameTitle('Rédiger le courriel de relance au client', 'Écrire un mail de relance au client') && tp.sameTitle('Envoi de la facture à Paul', 'Envoyer la facture à Paul') && tp.sameTitle('Mettre à jour la page des tarifs', 'Actualiser la page des tarifs'), 'doublon : reformulations (synonymes courts, nom d\'action)');
+  assert(tp.sameTitle('Rédiger le courriel de relance au client', 'Écrire un mail de relance au client', true) && tp.sameTitle('Envoi de la facture à Paul', 'Envoyer la facture à Paul', true) && tp.sameTitle('Mettre à jour la page des tarifs', 'Actualiser la page des tarifs', true), 'doublon : reformulations (synonymes courts, nom d\'action)');
   assert(!tp.sameTitle('Payer la facture à Paul', 'Envoyer la facture à Paul') && !tp.sameTitle('Écrire à Paul', 'Écrire à Marie') && !tp.sameTitle('Acheter du café', 'Vendre du café') && !tp.sameTitle('Acheter du café', 'Commander du café') && !tp.sameTitle('Envoyer la facture', 'Relire la facture') && !tp.sameTitle('Écrire un courriel à Paul', 'Appeler Paul'), 'doublon : tâches réellement différentes jamais fusionnées');
+  // Corrections du 24 oct. : synonymes réservés à l'IA, synonymes ambigus retirés, objets distincts, paires réversibles, titres génériques.
+  assert(tp.sameTitle('Écrire un mail à Paul', 'Rédiger un courriel à Paul', true) && !tp.sameTitle('Écrire un mail à Paul', 'Rédiger un courriel à Paul') && !tp.isDuplicate('Mettre à jour la page des tarifs', ['Actualiser la page des tarifs']) && tp.isDuplicate('Mettre à jour la page des tarifs', ['Actualiser la page des tarifs'], true), 'doublon : table de synonymes seulement pour l\'IA (sans drapeau = comportement d\'origine)');
+  assert(!tp.sameTitle('Régler la facture', 'Payer la facture', true) && !tp.sameTitle('Composer le menu', 'Rédiger le menu', true) && !tp.sameTitle('Contrôle de la caisse', 'Vérifier la caisse', true) && tp.sameTitle('Contrôler la caisse', 'Vérifier la caisse', true), 'doublon : regler, composer, controle ne sont plus des synonymes');
+  assert(!tp.contradicts('Accepter le devis A', 'Refuser le devis B') && !tp.contradicts('Accepter le devis 1', 'Refuser le devis 2') && tp.contradicts('Accepter le devis A', 'Refuser le devis A'), 'lot : une lettre ou un chiffre isolé distingue l\'objet');
+  assert(!tp.contradicts('Ouvrir le compte', 'Fermer le compte') && !tp.contradicts('Lancer le serveur', 'Arrêter le serveur') && !tp.contradicts('Créer le dossier clients', 'Supprimer le dossier clients') && tp.contradicts('Ajouter le bouton Exporter', 'Retirer le bouton Exporter'), 'lot : ouvrir/fermer, lancer/arrêter, créer/supprimer ne rejettent plus');
+  assert(tp.checkGenerated('Revoir le dossier Martin', []).title === 'Revoir le dossier Martin' && tp.checkGenerated('Revoir le dossier', []).reason === null && tp.checkGenerated('Simplifier le processus', []).reason === 'sansObjet', 'titres génériques : revoir et dossier retirés, simplifier le processus toujours écarté');
   assert(tp.cleanTitle('Le relire') === 'Le relire', 'saisie : ces règles ne réécrivent aucun titre (le rejet ne vise que les tâches proposées)');
 
   // Harnais (fournisseur simulé) : garde-fous de non-régression.
@@ -63,6 +69,13 @@ const tp = require('../server/lib/taskprecision');
   db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('o', 'o', datetime('now'))").run();
   const act = db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('A','o','')").run().lastInsertRowid;
   db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?,?,'#fff','')").run(act, 'o');
+  // hasOpenDuplicate (capture MANUELLE) : comportement d'origin/staging, sans la table de synonymes de l'IA.
+  { const sp = db.prepare("INSERT INTO sub_projects (activityId, name, createdBy, createdAt) VALUES (?, 'P', 'o', '')").run(act).lastInsertRowid;
+    const sec = db.prepare("INSERT INTO sub_project_sections (subProjectId, kind, createdBy, createdAt) VALUES (?, 'tasks', 'o', '')").run(sp).lastInsertRowid;
+    ['Appeler le plombier', 'Écrire un mail à Paul', 'Mettre à jour la page des tarifs', 'Régler la facture'].forEach((l, i) => db.prepare("INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt) VALUES (?, ?, ?, 0, ?, '')").run(sp, sec, l, i));
+    const hod = require('../server/lib/goalstaskclassify').hasOpenDuplicate;
+    assert(hod(act, 'Appeler plombier') && hod(act, 'écrire un mail à paul.'), 'hasOpenDuplicate : doublons d\'origine toujours détectés');
+    assert(!hod(act, 'Rédiger un courriel à Paul') && !hod(act, 'Actualiser la page des tarifs') && !hod(act, 'Payer la facture'), 'hasOpenDuplicate inchangé : aucun synonyme de l\'IA à la capture manuelle'); }
   strategy.set(act, 'o', { ignore: 'réseaux sociaux, embauche' });
   const ctx = { candidates: [{ key: 'k1', label: 'Ventes' }], weeks: [], activityId: act, today: '2026-10-19' };
   const text = JSON.stringify({ t: [

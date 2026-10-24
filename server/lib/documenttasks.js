@@ -398,7 +398,7 @@ function parseDetailed(text, ctx) {
     if (!chk.title) rejected++; else if (chk.reason) cleaned++;
     if (!chk.title) { if (chk.reason === 'doublon') dropped.doublon++; else if (chk.reason === 'vide') dropped.vide++; else { dropped.invalide++; dropped.raisons[chk.reason] = (dropped.raisons[chk.reason] || 0) + 1; } return; }
     const title = chk.title;
-    if (goalTexts.some((g) => tp.sameTitle(title, g))) { rejected++; dropped.invalide++; dropped.raisons.objectif = (dropped.raisons.objectif || 0) + 1; return; } // objectif recopié tel quel : ce n'est pas une étape
+    if (goalTexts.some((g) => tp.sameTitle(title, g, true))) { rejected++; dropped.invalide++; dropped.raisons.objectif = (dropped.raisons.objectif || 0) + 1; return; } // objectif recopié tel quel : ce n'est pas une étape
     if (strat && strat.ignore && tp.matchesIgnore(title, strat.ignore)) { dropped.ignore++; return; }
     let key = t.key, pick = false;
     if (!labels.has(key)) {
@@ -407,7 +407,7 @@ function parseDetailed(text, ctx) {
       if (!near) { dropped.categorieInconnue++; return; }
       key = near; pick = true;
     }
-    if (tasks.some((x) => x.key === key && tp.sameTitle(x.title, title))) { dropped.doublon++; return; }
+    if (tasks.some((x) => x.key === key && tp.sameTitle(x.title, title, true))) { dropped.doublon++; return; }
     if (tasks.some((x) => tp.contradicts(x.title, title))) { rejected++; dropped.invalide++; dropped.raisons.contradiction = (dropped.raisons.contradiction || 0) + 1; return; } // « Ajouter X » puis « Retirer X » dans le même lot : une seule proposée (la première)
     const dedupe = key + '|' + title.toLowerCase();
     if (seen.has(dedupe)) { dropped.doublon++; return; }

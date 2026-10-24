@@ -115,18 +115,20 @@ function priorityRank(title, priorities) {
 // « svp », RDV = rendez-vous, rencontre = réunion, téléphoner = appeler) OU mêmes mots utiles dans le même ordre, OU dans un autre ordre
 // seulement sans mot de direction (« Envoyer A à B » n'est pas « Envoyer B à A »). Ce qui distingue deux tâches reste un marqueur : lettre
 // isolée (« salle A » / « salle B »), sigle de 2 lettres (« IA »), négation (« Ne pas annuler » / « Annuler »).
-const DUP_SYN = [[/\b(?:rdv|rendez vous)\b/g, 'rendezvous'], [/\b(?:svp|stp|please|merci|s il (?:vous|te) plait)\b/g, ' '], [/\b(?:telephoner|phoner|call)\b/g, 'appeler'], [/\brencontre\b/g, 'reunion'], [/\bchez\b/g, ' '], [/\b(?:finaliser|terminer|achever|finish|complete)\b/g, 'finir'],
-  // Reformulations (24 oct.) : synonymes courts et noms d'action ramenés au verbe ; liste fermée, jamais de rapprochement de sens large.
-  [/\b(?:ecrire|composer|rediger|redaction)\b/g, 'rediger'], [/\b(?:e mail|email|mail|courriel|courrier electronique)\b/g, 'courriel'],
+const DUP_SYN = [[/\b(?:rdv|rendez vous)\b/g, 'rendezvous'], [/\b(?:svp|stp|please|merci|s il (?:vous|te) plait)\b/g, ' '], [/\b(?:telephoner|phoner|call)\b/g, 'appeler'], [/\brencontre\b/g, 'reunion'], [/\bchez\b/g, ' '], [/\b(?:finaliser|terminer|achever|finish|complete)\b/g, 'finir']]; // « Finaliser le volet » = « Finir le volet » (doublons vus le 21 oct.)
+// Reformulations (24 oct.) : synonymes courts et noms d'action ramenés au verbe ; liste fermée, jamais de rapprochement de sens large.
+// Appliquée UNIQUEMENT aux tâches générées par l'IA (checkGenerated, isDuplicate, lots) : la capture manuelle (hasOpenDuplicate) garde la table d'origine.
+const DUP_SYN_AI = [[/\b(?:ecrire|rediger|redaction)\b/g, 'rediger'], [/\b(?:e mail|email|mail|courriel|courrier electronique)\b/g, 'courriel'],
   [/\b(?:mettre a jour|mise a jour|maj|actualiser|actualisation|update)\b/g, 'actualiser'], [/\b(?:acheter|achat|acquerir|se procurer)\b/g, 'acheter'],
-  [/\b(?:controler|controle|verifier|verification)\b/g, 'verifier'], [/\b(?:envoi|envoyer|expedier|expedition)\b/g, 'envoyer'],
-  [/\b(?:paiement|payer|regler)\b/g, 'payer'], [/\b(?:livraison|livrer)\b/g, 'livrer'], [/\b(?:relecture|relire)\b/g, 'relire']];
+  [/\b(?:controler|verifier|verification)\b/g, 'verifier'], [/\b(?:envoi|envoyer|expedier|expedition)\b/g, 'envoyer'],
+  [/\b(?:paiement|payer)\b/g, 'payer'], [/\b(?:livraison|livrer)\b/g, 'livrer'], [/\b(?:relecture|relire)\b/g, 'relire']];
 const DUP_DIR = new Set(['a', 'au', 'aux', 'vers', 'from', 'to', 'into', 'avec', 'with', 'par', 'by', 'pour', 'for', 'sur', 'on', 'entre', 'between', 'contre', 'apres', 'avant', 'after', 'before']);
 const DUP_NEUTRAL2 = new Set(['de', 'du', 'le', 'la', 'un', 'en', 'au', 'et', 'ou', 'ce', 'ma', 'se', 'si', 'ca', 'qu', 'to', 'on', 'in', 'at', 'of', 'my', 'it', 'is', 'as', 'an', 'or', 'by', 'up', 'do', 'me', 'ne', 'l', 'd', 's', 't', 'n', 'm', 'j', 'c', 'y', 'a']);
 const DUP_NEG = new Set(['ne', 'pas', 'sans', 'non', 'not', 'no', 'jamais', 'never', 'aucun', 'aucune']);
-function dupForm(v) {
+function dupForm(v, ai) {
   let f = fold(v);
   DUP_SYN.forEach(([re, to]) => { f = f.replace(re, to); });
+  if (ai) DUP_SYN_AI.forEach(([re, to]) => { f = f.replace(re, to); });
   f = f.replace(/\s+/g, ' ').trim();
   const words = f.split(' ').filter(Boolean);
   const marks = [];
@@ -134,11 +136,11 @@ function dupForm(v) {
   String(v == null ? '' : v).split(/\s+/).forEach((w) => { const m = /^[("«\[]*([A-Za-z])[)"»\].,;:!?]*$/.exec(w); if (m && m[1] !== 'a' && m[1] !== 'y') marks.push('#' + m[1].toLowerCase()); }); // lettre isolée : « salle A »
   return { f, tk: tokens(f), dir: words.some((w) => DUP_DIR.has(w)), marks: marks.sort().join(' ') };
 }
-function sameTitle(a, b) {
+function sameTitle(a, b, ai) { // ai = true : titre généré par l'IA (synonymes de reformulation en plus) ; omis : comportement d'origin/staging
   const fa = fold(a), fb = fold(b);
   if (!fa || !fb) return false;
   if (fa === fb) return true;
-  const A = dupForm(a), B = dupForm(b);
+  const A = dupForm(a, ai), B = dupForm(b, ai);
   if (!A.tk.length || A.tk.length !== B.tk.length || A.marks !== B.marks) return false;
   if (A.tk.join(' ') === B.tk.join(' ')) return true;
   return !A.dir && !B.dir && A.tk.slice().sort().join(' ') === B.tk.slice().sort().join(' ');
@@ -147,7 +149,7 @@ function sameTitle(a, b) {
 // 4 mots utiles ou plus, ils se retrouvent tous dans l'autre dans le même ordre, il en forme au moins 60 %, mêmes marqueurs (lettre, sigle, négation).
 function inSeq(s, l) { let i = 0; for (const w of l) if (i < s.length && w === s[i]) i++; return i === s.length; }
 function includedTitle(a, b) {
-  const A = dupForm(a), B = dupForm(b);
+  const A = dupForm(a, true), B = dupForm(b, true);
   const [S, L] = A.tk.length <= B.tk.length ? [A, B] : [B, A];
   if (S.tk.length < 4 || S.marks !== L.marks || S.tk.length < 0.6 * L.tk.length) return false;
   return inSeq(S.tk, L.tk);
@@ -183,8 +185,8 @@ function citesAbsent(w) {
   return false;
 }
 // (b) Consigne sans cible : verbe d'amélioration/gestion + seulement des objets génériques (« Simplifier », « Simplifier le processus », « Faire le point »).
-const GENERIC_ACTION = new Set(['simplifier', 'ameliorer', 'optimiser', 'rationaliser', 'alleger', 'fluidifier', 'standardiser', 'reorganiser', 'restructurer', 'repenser', 'revoir', 'reviser', 'corriger', 'automatiser', 'moderniser', 'simplify', 'improve', 'optimize', 'optimise', 'streamline', 'rework', 'review', 'refactor', 'faire']);
-const GENERIC_OBJECT = new Set(['processus', 'process', 'procedure', 'procedures', 'methode', 'methodes', 'demarche', 'demarches', 'fonctionnement', 'organisation', 'workflow', 'workflows', 'flux', 'systeme', 'systemes', 'system', 'systems', 'travail', 'dossier', 'dossiers', 'sujet', 'sujets', 'probleme', 'problemes', 'point', 'bilan', 'suivi', 'retour', 'choses', 'chose', 'tout', 'general', 'ensemble', 'situation', 'etat', 'avancement', 'status', 'progress', 'things', 'everything', 'le', 'la', 'les', 'l', 'un', 'une', 'des', 'du', 'de', 'd', 'sur', 'au', 'aux', 'mon', 'ma', 'mes', 'notre', 'nos', 'the', 'my', 'our', 'a', 'on', 'of', 'ce', 'cet', 'cette', 'ces', 'et', 'and', 'global', 'globale']);
+const GENERIC_ACTION = new Set(['simplifier', 'ameliorer', 'optimiser', 'rationaliser', 'alleger', 'fluidifier', 'standardiser', 'reorganiser', 'restructurer', 'repenser', 'reviser', 'corriger', 'automatiser', 'moderniser', 'simplify', 'improve', 'optimize', 'optimise', 'streamline', 'rework', 'review', 'refactor', 'faire']);
+const GENERIC_OBJECT = new Set(['processus', 'process', 'procedure', 'procedures', 'methode', 'methodes', 'demarche', 'demarches', 'fonctionnement', 'organisation', 'workflow', 'workflows', 'flux', 'systeme', 'systemes', 'system', 'systems', 'travail', 'sujet', 'sujets', 'probleme', 'problemes', 'point', 'bilan', 'suivi', 'retour', 'choses', 'chose', 'tout', 'general', 'ensemble', 'situation', 'etat', 'avancement', 'status', 'progress', 'things', 'everything', 'le', 'la', 'les', 'l', 'un', 'une', 'des', 'du', 'de', 'd', 'sur', 'au', 'aux', 'mon', 'ma', 'mes', 'notre', 'nos', 'the', 'my', 'our', 'a', 'on', 'of', 'ce', 'cet', 'cette', 'ces', 'et', 'and', 'global', 'globale']);
 function noTarget(w) {
   if (!w.length || w.length > 5 || !GENERIC_ACTION.has(w[0])) return false;
   const rest = w.slice(1);
@@ -192,15 +194,19 @@ function noTarget(w) {
   return rest.every((x) => GENERIC_OBJECT.has(x));                                                                                               // « Simplifier le processus » ; « ... de paie » reste valable
 }
 // (c) Lot contradictoire : deux titres d'une MÊME génération qui font et défont la même chose (« Ajouter X » / « Retirer X »).
-const POS_VERBS = new Set(['ajouter', 'creer', 'inserer', 'add', 'create', 'activer', 'enable', 'ouvrir', 'open', 'afficher', 'show', 'publier', 'publish', 'augmenter', 'increase', 'embaucher', 'hire', 'accepter', 'accept', 'autoriser', 'allow', 'allonger', 'lancer']);
-const NEG_VERBS = new Set(['retirer', 'supprimer', 'enlever', 'effacer', 'remove', 'delete', 'desactiver', 'disable', 'fermer', 'close', 'masquer', 'cacher', 'hide', 'depublier', 'unpublish', 'diminuer', 'reduire', 'decrease', 'reduce', 'licencier', 'fire', 'refuser', 'refuse', 'reject', 'interdire', 'bloquer', 'block', 'raccourcir', 'arreter']);
+const POS_VERBS = new Set(['ajouter', 'inserer', 'add', 'activer', 'enable', 'afficher', 'show', 'publier', 'publish', 'augmenter', 'increase', 'embaucher', 'hire', 'accepter', 'accept', 'autoriser', 'allow', 'allonger']);
+const NEG_VERBS = new Set(['retirer', 'enlever', 'effacer', 'remove', 'desactiver', 'disable', 'masquer', 'cacher', 'hide', 'depublier', 'unpublish', 'diminuer', 'reduire', 'decrease', 'reduce', 'licencier', 'fire', 'refuser', 'refuse', 'reject', 'interdire', 'bloquer', 'block', 'raccourcir']);
+// Paires ouvrir/fermer, lancer/arrêter, créer/supprimer : retirées (le même objet peut légitimement être ouvert puis fermé, créé puis supprimé : jamais de rejet).
 const polarity = (v) => (POS_VERBS.has(v) ? 1 : NEG_VERBS.has(v) ? -1 : 0);
+const isoMarks = (w) => w.filter((x) => (x.length === 1 && !'ayldstnmjc'.includes(x)) || (x.length === 2 && !DUP_NEUTRAL2.has(x) && !DUP_NEG.has(x) && !STOP.has(x))).sort().join(' ');
 function contradicts(a, b) {
   const wa = fold(cleanTitle(a)).split(' ').filter(Boolean), wb = fold(cleanTitle(b)).split(' ').filter(Boolean);
   if (wa.length < 2 || wb.length < 2) return false;
   const pa = polarity(wa[0]), pb = polarity(wb[0]);
   if (!pa || !pb || pa === pb) return false;
   if (/^(?:ne|pas|sans|non|not)$/.test(wa[1]) || /^(?:ne|pas|sans|non|not)$/.test(wb[1])) return false; // négations : hors périmètre, prudence
+  const isoA = isoMarks(wa.slice(1)), isoB = isoMarks(wb.slice(1));
+  if (isoA !== isoB) return false; // lettre/sigle/chiffre isolé qui distingue l'objet (« devis A » / « devis B ») : pas la même chose
   const oa = new Set(tokens(wa.slice(1).join(' '))), ob = new Set(tokens(wb.slice(1).join(' ')));
   if (!oa.size || !ob.size) return false;
   const [S, L] = oa.size <= ob.size ? [oa, ob] : [ob, oa];
@@ -228,10 +234,10 @@ function checkGenerated(raw, existing) {
   const w3 = fold(t.replace(/[’']/g, ' ')).split(' ').filter(Boolean);
   if (citesAbsent(w3)) return { title: null, reason: 'sansAntecedent' }; // « Le relire », « Envoyer ça »
   if (noTarget(w3)) return { title: null, reason: 'sansObjet' };          // « Simplifier le processus », « Faire le point »
-  if ((existing || []).some((o) => sameTitle(t, o) || includedTitle(t, o))) return { title: null, reason: 'doublon' };
+  if ((existing || []).some((o) => sameTitle(t, o, true) || includedTitle(t, o))) return { title: null, reason: 'doublon' };
   return { title: t, reason: t !== t0 ? 'horaire' : null }; // reason 'horaire' avec title = nettoyé
 }
-function isDuplicate(title, others) { return (others || []).some((o) => sameTitle(title, o) || includedTitle(title, o)); }
+function isDuplicate(title, others, ai) { return (others || []).some((o) => sameTitle(title, o, ai) || includedTitle(title, o)); }
 
 // « Action contre sujet » : le verbe d'ouverture dit le domaine (« Payer la facture du fournisseur » = finances, pas approvisionnement).
 // Renvoie les mots-thèmes (racines) à pondérer en plus des mots du titre ; liste fermée, volontairement courte, 0 hasard.

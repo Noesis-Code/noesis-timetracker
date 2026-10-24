@@ -61,7 +61,7 @@ async function decide(c, ctx, provider, minConfidence) {
     if (['sansSens', 'sansObjet', 'sansAntecedent'].includes(chk.reason)) return { outcome: 'reject', reason: chk.reason };
     if ((c.batch || []).some((o) => tp.contradicts(label, o))) return { outcome: 'reject', reason: 'contradiction' };
   }
-  if (tp.isDuplicate(label, c.existing)) return { outcome: 'duplicate' };
+  if (tp.isDuplicate(label, c.existing, c.kind === 'generate')) return { outcome: 'duplicate' };
   const r = await provider.classify({ label, candidates: ctx.candidates, strategy: ctx.strategy });
   if (!r || !r.key || r.uncertain || r.confidence < minConfidence) return { outcome: 'uncertain', suggested: r && r.uncertain ? r.uncertain : null };
   return { outcome: 'place', key: r.key };
