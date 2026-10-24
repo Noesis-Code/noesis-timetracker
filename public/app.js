@@ -5751,7 +5751,10 @@
   // fil de la frappe (voir l'écouteur 'input' plus bas, loadCommunityDiscovery) ;
   // ce clic déclenche la même fonction tout de suite, pour qui tape puis
   // clique plutôt que d'attendre le debounce de 250ms.
-  $('communitySearchBtn').addEventListener('click', function () {
+  // Le bouton « Rechercher » est retiré (chantier Communauté) : la recherche part avec Entrée.
+  $('communitySearchInput').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
     clearTimeout(communitySearchDebounce);
     loadCommunityDiscovery();
   });
@@ -11982,10 +11985,31 @@
   // (qui ne connaît que la clé). À étendre des DEUX côtés à la fois si
   // Emilien demande un jour une nouvelle catégorie de recherche.
   var SEEKING_TAGS = [
-    { key: 'partners', label: 'Partenaires', symbol: '🤝' },
-    { key: 'clients', label: 'Clients', symbol: '💼' },
-    { key: 'funding', label: 'Financement', symbol: '💰' },
+    { key: 'partners', label: 'Partenaires', icon: [['circle', { cx: 8.5, cy: 12, r: 4.5 }], ['circle', { cx: 15.5, cy: 12, r: 4.5 }]] },
+    { key: 'clients', label: 'Clients', icon: [['rect', { x: 3, y: 7, width: 18, height: 13, rx: 2 }], ['path', { d: 'M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7' }]] },
+    { key: 'funding', label: 'Financement', icon: [['circle', { cx: 12, cy: 12, r: 9 }], ['path', { d: 'M12 7v10M14.5 9.5h-3.25a1.75 1.75 0 0 0 0 3.5h1.5a1.75 1.75 0 0 1 0 3.5H9.5' }]] },
   ];
+  // Icône de pastille « je cherche » : trait seul, sans couleur (currentColor).
+  function seekingIconEl(tag) {
+    var NS = 'http://www.w3.org/2000/svg';
+    var el = document.createElement('span');
+    el.className = 'seekingIcon';
+    el.setAttribute('aria-hidden', 'true');
+    var svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    tag.icon.forEach(function (shape) {
+      var node = document.createElementNS(NS, shape[0]);
+      Object.keys(shape[1]).forEach(function (k) { node.setAttribute(k, shape[1][k]); });
+      svg.appendChild(node);
+    });
+    el.appendChild(svg);
+    return el;
+  }
   function seekingTagByKey(key) {
     for (var i = 0; i < SEEKING_TAGS.length; i++) { if (SEEKING_TAGS[i].key === key) return SEEKING_TAGS[i]; }
     return null;
@@ -12162,7 +12186,8 @@
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'seekingTagBtn';
-      btn.textContent = tag.symbol + ' ' + t(tag.label);
+      btn.appendChild(seekingIconEl(tag));
+      btn.appendChild(document.createTextNode(t(tag.label)));
       // ⚠️ 5 septembre 2026 (demande d'Emilien, filtres de découverte
       // #communitySeekingFilters : « je peux continuer à cliquer dessus tout
       // en conservant mon clavier ouvert [...] le seul endroit où je peux
@@ -12209,11 +12234,12 @@
       var el = document.createElement('span');
       if (detailed) {
         el.className = 'seekingBadgeFull';
-        el.textContent = tag.symbol + ' ' + t(tag.label);
+        el.appendChild(seekingIconEl(tag));
+        el.appendChild(document.createTextNode(t(tag.label)));
       } else {
         el.className = 'seekingBadgeDot';
         el.title = t(tag.label);
-        el.textContent = tag.symbol;
+        el.appendChild(seekingIconEl(tag));
       }
       wrap.appendChild(el);
     });

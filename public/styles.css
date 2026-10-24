@@ -1499,6 +1499,7 @@ body.scrollLock { overflow: hidden; }
   background: var(--glass-bg);
   border-color: var(--glass-border);
   box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);  /* même verre que la barre des volets (.tabbar::before) */
 }
 #communitySeekingFilters .seekingTagBtn { -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
 /* ⚠️ 3 septembre 2026, demande d'Emilien : « lorsque je clique sur le texte, cherchez un pseudo, les infos Noèsis et nom de l'utilisateur doivent toujours s'afficher. */
@@ -1514,6 +1515,12 @@ body.scrollLock { overflow: hidden; }
 /* Bouton "Rechercher" DANS la zone de texte : repris tel quel du gabarit .chatComposerRow/.iconBtn (déjà défini plus haut, voir sa note) plutôt qu'une variante … */
 .communitySearchRow { margin-bottom: 8px; }
 .communitySearchRow input[type="text"] { padding-right: 118px; margin-bottom: 0; }
+/* Barre de recherche de l'onglet Communauté (maquette v2) : loupe à l'intérieur, à gauche ; plus de bouton « Rechercher » (la recherche part avec Entrée). */
+#communitySearchBar .communitySearchRow input[type="text"] { padding-left: 46px; padding-right: 16px; }
+.communitySearchIcon {
+  position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
+  width: 18px; height: 18px; color: var(--text-light); pointer-events: none; z-index: 1;
+}
 
 /* Décollement + modernisation des étiquettes de filtre Partenaires/Clients/ Financement (6 septembre 2026, demande d'Emilien : « j'aimerais que les boutons … */
 #communitySeekingFilters {
@@ -1756,6 +1763,12 @@ body.scrollLock { overflow: hidden; }
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
   border-radius: 999px; font-size: 13px; color: var(--white); font-weight: 600;
 }
+
+/* Icône de pastille « je cherche » (Partenaires, Clients, Financement) : trait seul, sans couleur. */
+.seekingIcon { display: inline-flex; flex-shrink: 0; }
+.seekingIcon svg { width: 16px; height: 16px; display: block; }
+.seekingBadgeDot .seekingIcon svg { width: 13px; height: 13px; }
+.seekingBadgeFull { gap: 6px; }
 
 /* Boutons monter/descendre (réordonnancement manuel, sans glisser-déposer — plus fiable sur mobile sans bibliothèque tierce). */
 /* ⚠️ .projectMoveBtn (les deux boutons ▲▼ de réordonnancement d'un projet) a été RETIRÉE le 26 septembre 2026, demande d'Emilien : le glisser-déposer à la poignée la remplace (voir bindProjectDrag dans app.js). */
@@ -3445,9 +3458,9 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
    badges « je cherche » neutres. Les couleurs de pôle des graphiques et le rouge
    de retrait (Se désabonner, Bloquer) restent. Portée limitée à ces écrans. */
 .smallAvatar:not(:has(img)),
+.viewProfileAvatar:not(:has(img:not(.hidden))) { background: rgba(156, 140, 200, .22) !important; color: #C4B9E6; } /* maquette Communauté v2 : avatars des membres */
 .avatarDisplay:not(:has(img:not(.hidden))),
-.viewProfileAvatar:not(:has(img:not(.hidden))),
-.whoamiAvatar:not(:has(img:not(.hidden))) { background: var(--purple) !important; color: var(--on-action); } /* 21 oct. 2026 : même violet cendré partout */
+.whoamiAvatar:not(:has(img:not(.hidden))) { background: rgba(243, 238, 232, .14) !important; color: #F3EEE8; } /* maquette Communauté v2 : pastille de l'utilisateur (« E ») */
 #tab-community .dot,
 #profilePage .dot,
 #profileFollowsPanel .dot,
@@ -3455,3 +3468,14 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 #viewProfileModal .discussionMsgAuthor .dot { background: var(--purple) !important; }
 .seekingBadgeDot, .seekingBadgeFull { background: var(--hover-bg); color: var(--text); border: 1px solid var(--border); }
 .seekingTagBtn.active, #communitySeekingFilters .seekingTagBtn.active { background: var(--purple); color: var(--on-action); border-color: var(--purple); }
+
+/* Profil d'un autre membre (#viewProfileModal) : pop-up en verre, même verre que la barre des volets ; barre du haut en verre aussi, sans bande noire. */
+#viewProfileModal .communityMembersModalCard {
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+}
+#viewProfileModal .viewProfileIdentity {
+  background: var(--glass-bg);
+  border-bottom-color: var(--glass-border);
+}
