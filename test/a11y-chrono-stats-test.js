@@ -18,9 +18,9 @@ ok(!/liveTimer'\)\.setAttribute\('aria-live', 'polite'/.test(app) && !/id="liveT
 ok(/role="status"/.test(tag('chronoStatus')), '#chronoStatus : messages (hors ligne, erreurs) annoncés');
 ok(/role="alert"/.test(tag('stopConfirmMsg')), 'erreur du récapitulatif d\'arrêt annoncée');
 
-// Récapitulatif d'arrêt : pop-up modal (rôle, focus piégé, Échap = Annuler).
-ok(/role="dialog"/.test(tag('stopConfirmPanel')) && /aria-modal="true"/.test(tag('stopConfirmPanel')) && /aria-labelledby="stopConfirmTitle"/.test(tag('stopConfirmPanel')), '#stopConfirmPanel : dialog modal nommé');
-ok(/SEL = '[^']*#stopConfirmPanel/.test(pop) && /stopCancelBtn/.test(pop), 'focus piégé et Échap (Annuler) pour le récapitulatif');
+// Récapitulatif d'arrêt : dans le flux de la page (non modal : pas de piège de tabulation, pas de focus automatique).
+ok(/role="dialog"/.test(tag('stopConfirmPanel')) && !/aria-modal/.test(tag('stopConfirmPanel')) && /aria-labelledby="stopConfirmTitle"/.test(tag('stopConfirmPanel')), '#stopConfirmPanel : dialog nommé, non modal');
+ok(!/SEL = '[^']*#stopConfirmPanel/.test(pop), '#stopConfirmPanel hors de la liste SEL (aucun piège de focus)');
 
 // En-tête repliable de l'historique : atteignable et activable au clavier.
 const hh = tag('chronoHistoryHeader');

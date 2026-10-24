@@ -1373,6 +1373,7 @@
     "Atteint": "Reached",
     "En cours": "In progress",
     "Aucune activité.": "No activity.",
+    "Aucune activité partagée.": "No shared activity.",
     "Pôle (hors secteur)": "Pole (no sector)",
     "Chargement impossible.": "Could not load.",
     "En avance": "Ahead",

@@ -736,7 +736,7 @@
              la date une place volontairement plus petite qu'à l'heure (31
              août 2026, demande d'Emilien), ce qu'un champ combiné ne permet
              pas de régler par CSS. -->
-        <div id="stopConfirmPanel" class="hidden" role="dialog" aria-modal="true" aria-labelledby="stopConfirmTitle">
+        <div id="stopConfirmPanel" class="hidden" role="dialog" aria-labelledby="stopConfirmTitle">
           <div class="stopConfirmCard">
             <p class="stepLabel" id="stopConfirmTitle">Confirmer l'arrêt</p>
             <p class="stopFieldLabel">Heure de début</p>
@@ -981,7 +981,84 @@
       </div>
       </div>
       <!-- 2 oct. 2026 : page 2 « tâches réalisées » (public/js/stats-avance.js), balayage droite → gauche depuis la page 1 -->
-      <div id="statsAvancePage" class="hidden"></div></div>
+      <div id="statsAvancePage" class="hidden"></div>
+      <!-- Chantier Chrono : 3e page du Chrono (tout à droite) = statistiques des activités partagées. Sélection de l'activité en haut (puces, comme les stats de tâches et d'objectifs) ;
+           Répartition par membre + Graphique : blocs déplacés tels quels depuis la fenêtre Activité (mêmes ids). Logique : public/js/stats-avance.js (puces) et app.js (loadActivityStats). -->
+      <div id="statsSharedPage" class="hidden">
+        <div id="ssChips" class="saChips"></div>
+        <p id="ssEmpty" class="hint hidden">Aucune activité partagée.</p>
+        <div id="ssBody">
+        <div id="caCategoryFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
+          <button type="button" class="caSubProjectBtn" id="caCategoryBtn" aria-haspopup="true">
+            <span id="caCategoryBtnLabel">Tous les pôles</span>
+          </button>
+          <div class="statsPeriodMenu caSubProjectMenu hidden" id="caCategoryMenu"></div>
+        </div>
+
+        <div class="statsSection">
+          <div class="sectionTitleRow">
+            <p class="sectionTitle">Répartition</p>
+            <!-- Motif "⋮" générique de l'onglet Statistiques (.statsPeriodMenu*),
+                 câblé par setupStatsPeriodMenu() — réutilisé tel quel, aucune
+                 règle CSS ni aucune ligne de ce helper n'a été modifiée.
+                 "Aujourd'hui" n'existe QUE sur la Répartition, comme demandé :
+                 le Graphique tracerait un seul point pour une seule journée. -->
+            <div class="statsPeriodMenuWrap">
+              <button type="button" class="menuBtn" id="caPiePeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
+              <div class="statsPeriodMenu hidden" id="caPiePeriodMenu">
+                <button type="button" class="statsPeriodMenuItem" data-period="day">Aujourd'hui</button>
+                <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
+              </div>
+            </div>
+          </div>
+          <!-- ⚠️ 3 septembre 2026, demande d'Emilien : « je souhaite que
+               l'indication de l'année ou de la semaine ou du mois ou
+               d'aujourd'hui soit affichée comme sur la capture d'écran, comme
+               dans le volet statistique ». Reprise à l'identique de
+               #statsPieBlock : .statsSummary (libellé de période au-dessus)
+               entre la ligne de titre et le camembert.
+               ⚠️ 6 septembre 2026 : le total en gros qui l'accompagnait a
+               été retiré, ici comme dans les quatre autres Répartitions —
+               il faisait doublon avec celui que renderActivityPie écrit au
+               centre du camembert. Le libellé de période, lui, reste :
+               c'est ce qu'Emilien demandait le 3 septembre. -->
+          <div class="statsSummary">
+            <p class="statsLabel" id="communityActivityStatsLabel"></p>
+          </div>
+          <div id="communityActivityPie" class="pieWrap"></div>
+          <p id="communityActivityPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+        </div>
+
+        <div id="communityActivityChartBlock" class="statsSection">
+          <div class="sectionTitleRow">
+            <p class="sectionTitle">Graphique</p>
+            <div class="statsPeriodMenuWrap">
+              <button type="button" class="menuBtn" id="caChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
+              <!-- ⚠️ Second passage du 3 septembre : GRANULARITÉ (Jour/Semaine/Mois),
+                   plus une période. Le graphique couvre toujours toute l'histoire
+                   de l'activité — mêmes valeurs et même ordre que #chartPeriodMenu
+                   dans l'onglet Statistiques, dont ce bloc est la copie. -->
+              <div class="statsPeriodMenu hidden" id="caChartPeriodMenu">
+                <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+              </div>
+            </div>
+          </div>
+          <div class="chartWrap" id="communityActivityChartWrap">
+            <div class="chartScroll">
+              <div id="communityActivityChart" class="chartSvgWrap"></div>
+            </div>
+            <div id="caChartTooltip" class="chartTooltip hidden" role="tooltip"></div>
+          </div>
+          <div id="communityActivityChartLegend" class="chartLegend"></div>
+          <p id="communityActivityChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+        </div>
+        </div><!-- /#ssBody -->
+      </div><!-- /#statsSharedPage -->
+      </div>
     </section>
 
     <!-- ---------- ONGLET COMMUNAUTÉ ---------- -->
@@ -1214,144 +1291,13 @@
           </div>
         </div>
 
-        <!-- Partie RÉSERVÉE AUX ACTIVITÉS PARTAGÉES : statistiques comparant
-             les membres entre eux, et flux des sessions de l'activité. Isolée
-             dans ce conteneur le 3 septembre 2026 (discussion "Sous-projets",
-             débordement signalé) pour une raison précise : le détail d'une
-             activité ne s'ouvrait jusque-là QUE sur une activité partagée,
-             alors que les sous-projets ci-dessus ont tout leur sens sur une
-             activité SOLO (découper sa propre activité est même leur cas
-             d'usage principal). Le détail s'ouvre donc désormais pour toute
-             activité, et c'est ce bloc-ci — plus le fil de discussion des
-             membres — qui est masqué quand l'activité n'est pas partagée.
-             Aucun id ni aucune classe existante n'a changé : seul un div
-             englobant a été ajouté. -->
+        <!-- Fenêtre Activité > Statistiques : seule reste la page « Tâches par membre » (public/js/activite-stats-taches.js, GET /api/stats/activity-members).
+             La Répartition et le Graphique des activités partagées sont dans la 3e page du Chrono (#statsSharedPage) ; #caStatsPage1 reste vide donc la page unique s'ouvre directement, sans points. -->
         <div id="communityActivityMembersPart" data-module="sharing">
-        <!-- ⚠️ 3 septembre 2026 (Activité — général) : le nom de l'activité
-             était répété ici, en petit, à la suite du titre de section. Il est
-             désormais écrit en gros dans l'en-tête de la page, juste au-dessus
-             — le répéter deux fois à trois centimètres d'intervalle n'apprend
-             rien. Le <span id="communityActivityDetailName"> a donc été retiré,
-             ainsi que la ligne de loadActivityDetail qui le remplissait. -->
-        <!-- ⚠️ 3 septembre 2026 (Activité — général), demande d'Emilien — quatre
-             retraits et un déplacement dans cette section :
-               · le titre "Statistiques et activités des membres" (le bouton
-                 "Statistiques" du sélecteur de sections le nomme déjà) ;
-               · le sélecteur de période PARTAGÉ par les trois blocs
-                 (#communityActivityPeriodSwitch) — « je souhaite que les
-                 options semaines, mois, années se trouvent directement dans
-                 les sections répartition et graphique ». Chaque section a
-                 donc désormais son propre menu "⋮", indépendant de l'autre ;
-               · le total en haut (.statsSummary) — « puisqu'elle se trouve
-                 déjà dans répartition » : c'est exact, renderActivityPie
-                 l'écrit au centre du camembert depuis toujours ;
-               · la Feuille de temps (#communityActivityTimesheetBlock) ;
-               · le flux des enregistrements des autres membres
-                 (#communityActivityDetailFeed, « les notes »).
-             ⚠️ Ce dernier était de toute façon vide de sens depuis le
-             31 août 2026 : la zone Note du Chrono ayant été retirée, plus
-             rien ne peut écrire time_entries.note. Il affichait donc des
-             sessions dont la note est toujours vide.
-             Restent les deux blocs que compare vraiment cette page : la
-             Répartition (qui compare les MEMBRES entre eux) et le Graphique.
-             Ids et blocs toujours entièrement distincts de ceux de l'onglet
-             Statistiques (préfixe communityActivity/ca) : jamais partagés. -->
-        <!-- ⚠️ 4 septembre 2026, chantier « Chrono — sous-projets », demande
-             d'Emilien : « je souhaite que les membres d'une activité puissent
-             comparer entre eux leurs enregistrements globaux (cette fonction
-             existe déjà), ainsi que leurs enregistrements par sous-projet »,
-             et « je souhaite que l'affichage ne se fasse plus avec un clic
-             rapide sur la couleur d'une activité (ce qui est le cas pour le
-             volet stat) mais grâce à un bouton et des options pour
-             sélectionner le sous-projet que l'on désire observer ».
-             Le sélecteur est posé AU-DESSUS des deux blocs, et non dans la
-             ligne de titre de la Répartition : il filtre la Répartition ET le
-             Graphique, qui sont servis par un seul appel. Le mettre dans un
-             seul des deux en-têtes ferait croire qu'il n'agit que là.
-             Le bloc reste caché tant que l'activité n'a qu'une seule
-             catégorie : un menu à une seule entrée n'apprend rien.
-             Aucune Feuille de temps ici : demande explicite d'Emilien du
-             4 septembre (« pas de feuille de temps »).
-             17 septembre 2026 (suppression totale des sous-projets, demande
-             d'Emilien : « [les catégories] sont visibles dans le stat
-             lorsque tu cliques sur une stat. ») — le filtre porte désormais
-             sur les catégories Objectifs de l'activité. -->
-        <div id="caCategoryFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
-          <button type="button" class="caSubProjectBtn" id="caCategoryBtn" aria-haspopup="true">
-            <span id="caCategoryBtnLabel">Tous les pôles</span>
-          </button>
-          <div class="statsPeriodMenu caSubProjectMenu hidden" id="caCategoryMenu"></div>
-        </div>
-
-        <!-- 10 oct. 2026 : deux pages glissantes (slidePager de stats-avance.js) : 1 = Temps (Répartition + Graphique), 2 = Tâches par membre
-             (public/js/activite-stats-taches.js, GET /api/stats/activity-members). Deux points fixes au premier plan. -->
-        <div id="caStatsPages"><div id="caStatsPage1">
-        <div class="statsSection">
-          <div class="sectionTitleRow">
-            <p class="sectionTitle">Répartition</p>
-            <!-- Motif "⋮" générique de l'onglet Statistiques (.statsPeriodMenu*),
-                 câblé par setupStatsPeriodMenu() — réutilisé tel quel, aucune
-                 règle CSS ni aucune ligne de ce helper n'a été modifiée.
-                 "Aujourd'hui" n'existe QUE sur la Répartition, comme demandé :
-                 le Graphique tracerait un seul point pour une seule journée. -->
-            <div class="statsPeriodMenuWrap">
-              <button type="button" class="menuBtn" id="caPiePeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
-              <div class="statsPeriodMenu hidden" id="caPiePeriodMenu">
-                <button type="button" class="statsPeriodMenuItem" data-period="day">Aujourd'hui</button>
-                <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
-              </div>
-            </div>
-          </div>
-          <!-- ⚠️ 3 septembre 2026, demande d'Emilien : « je souhaite que
-               l'indication de l'année ou de la semaine ou du mois ou
-               d'aujourd'hui soit affichée comme sur la capture d'écran, comme
-               dans le volet statistique ». Reprise à l'identique de
-               #statsPieBlock : .statsSummary (libellé de période au-dessus)
-               entre la ligne de titre et le camembert.
-               ⚠️ 6 septembre 2026 : le total en gros qui l'accompagnait a
-               été retiré, ici comme dans les quatre autres Répartitions —
-               il faisait doublon avec celui que renderActivityPie écrit au
-               centre du camembert. Le libellé de période, lui, reste :
-               c'est ce qu'Emilien demandait le 3 septembre. -->
-          <div class="statsSummary">
-            <p class="statsLabel" id="communityActivityStatsLabel"></p>
-          </div>
-          <div id="communityActivityPie" class="pieWrap"></div>
-          <p id="communityActivityPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
-        </div>
-
-        <div id="communityActivityChartBlock" class="statsSection">
-          <div class="sectionTitleRow">
-            <p class="sectionTitle">Graphique</p>
-            <div class="statsPeriodMenuWrap">
-              <button type="button" class="menuBtn" id="caChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
-              <!-- ⚠️ Second passage du 3 septembre : GRANULARITÉ (Jour/Semaine/Mois),
-                   plus une période. Le graphique couvre toujours toute l'histoire
-                   de l'activité — mêmes valeurs et même ordre que #chartPeriodMenu
-                   dans l'onglet Statistiques, dont ce bloc est la copie. -->
-              <div class="statsPeriodMenu hidden" id="caChartPeriodMenu">
-                <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
-              </div>
-            </div>
-          </div>
-          <div class="chartWrap" id="communityActivityChartWrap">
-            <div class="chartScroll">
-              <div id="communityActivityChart" class="chartSvgWrap"></div>
-            </div>
-            <div id="caChartTooltip" class="chartTooltip hidden" role="tooltip"></div>
-          </div>
-          <div id="communityActivityChartLegend" class="chartLegend"></div>
-          <p id="communityActivityChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
-        </div>
-        </div><!-- /#caStatsPage1 -->
-        <div id="caStatsPage2" class="hidden"></div>
+        <div id="caStatsPages"><div id="caStatsPage1" class="hidden"></div>
+        <div id="caStatsPage2"></div>
         </div><!-- /#caStatsPages -->
-        <div id="caStatsDots" role="group"><button type="button" class="goalsDotBtn on" aria-label="Temps"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" aria-label="Tâches par membre"><span class="goalsDot"></span></button></div>
-
+        <div id="caStatsDots" role="group" class="hidden"><button type="button" class="goalsDotBtn on" aria-label="Temps"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" aria-label="Tâches par membre"><span class="goalsDot"></span></button></div>
         </div><!-- /#communityActivityMembersPart -->
 
         <!-- ⚠️ 5 septembre 2026 (discussion « Activité solo »), demande d'Emilien :

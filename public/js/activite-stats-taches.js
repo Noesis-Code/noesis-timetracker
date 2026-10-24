@@ -8,7 +8,8 @@
   if (!pages || !p1 || !p2 || !dots || !TMT.slidePager) return;
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-  var page = 1, scope = 'year', seq = 0, built = false, loadedKey = null, body;
+  var single = !p1.firstElementChild; // page Temps déménagée dans le Chrono : la page Tâches est alors la seule
+  var page = single ? 2 : 1, scope = 'year', seq = 0, built = false, loadedKey = null, body;
   var SCOPES = [['all', 'Tout'], ['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
   var chartBody, chartMeta;
 
@@ -143,10 +144,12 @@
     };
   }
   Array.prototype.forEach.call(dots.children, function (b, i) { b.addEventListener('click', function () { setPage(i + 1); }); });
+  if (single) { dots.classList.add('hidden'); p1.classList.add('hidden'); p2.classList.remove('hidden'); }
   TMT.slidePager({
     zone: pages,
     swallow: function (dir) { return dir > 0 && page === 2; },
     neighbor: function (dir) {
+      if (single) return null;
       var t = page + dir;
       if (t < 1 || t > 2) return null;
       return {
@@ -156,11 +159,13 @@
       };
     }
   });
-  function backToTime() { page = 1; if (TMT.caTasksPage) TMT.caTasksPage(false); p1.classList.remove('hidden'); p2.classList.add('hidden'); setDots(); }
+  function backToTime() { if (single) return; page = 1; if (TMT.caTasksPage) TMT.caTasksPage(false); p1.classList.remove('hidden'); p2.classList.add('hidden'); setDots(); }
   TMT.caTasks = {
     // Nouvelle activité sélectionnée : retour sur la page Temps, données à recharger.
     onActivity: function () { backToTime(); loadedKey = null; scope = 'year'; setMeta(); if (built) Array.prototype.forEach.call(p2.querySelectorAll('[data-scope]'), function (b) { b.classList.toggle('active', b.getAttribute('data-scope') === 'year'); }); },
     // Pastille « pôle » changée : la page Tâches suit si elle est affichée.
-    onCategory: function () { if (page === 2) load(); }
+    onCategory: function () { if (page === 2) load(); },
+    // Page unique : affichée à l'ouverture de l'onglet « Statistiques ».
+    onShow: function () { if (single) { build(); load(); } }
   };
 })();
