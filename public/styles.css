@@ -3401,13 +3401,8 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 .seekingBadgeDot, .seekingBadgeFull { background: var(--hover-bg); color: var(--text); border: 1px solid var(--border); }
 .seekingTagBtn.active, #communitySeekingFilters .seekingTagBtn.active { background: var(--purple); color: var(--on-action); border-color: var(--purple); }
 
-/* Profil d'un autre membre (#viewProfileModal) : pop-up en verre, même verre que la barre des volets ; barre du haut en verre aussi, sans bande noire. */
-#viewProfileModal .communityMembersModalCard {
-  background: var(--glass-bg);
-  border-color: var(--glass-border);
-  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
-}
+/* Profil d'un autre membre (#viewProfileModal) : le verre vient du composant commun .cmpGlass (R31) ; seule la barre du haut est rendue transparente, sans bande noire. */
 #viewProfileModal .viewProfileIdentity {
-  background: var(--glass-bg);
+  background: transparent;
   border-bottom-color: var(--glass-border);
 }
