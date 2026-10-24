@@ -7648,7 +7648,7 @@
     var overlay = document.createElement('div');
     overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
     var card = document.createElement('div');
-    card.className = 'goalTaskEditCard';
+    card.className = 'goalTaskEditCard cmpGlass';
     var header = document.createElement('div');
     header.className = 'goalTaskEditHeader';
     var title = document.createElement('p');
@@ -7765,7 +7765,7 @@
   function openDurationPicker(opts) {
     var ROW = 44, init = Math.max(0, Math.min(99 * 60 + 59, Number(opts.minutes) || 0));
     var ov = document.createElement('div'); ov.className = 'durPickerOverlay';
-    var sheet = document.createElement('div'); sheet.className = 'durPickerSheet';
+    var sheet = document.createElement('div'); sheet.className = 'durPickerSheet cmpGlass';
     sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-label', t(opts.title || 'Cible'));
     function close() { document.removeEventListener('keydown', onKey); ov.remove(); }
     function onKey(e) { if (e.key === 'Escape') close(); }

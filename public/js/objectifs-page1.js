@@ -741,7 +741,7 @@
       var overlay = document.createElement('div');
       overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
       var card = document.createElement('div');
-      card.className = 'goalTaskEditCard';
+      card.className = 'goalTaskEditCard cmpGlass';
       var header = document.createElement('div');
       header.className = 'goalTaskEditHeader';
       var title = document.createElement('p');
@@ -920,7 +920,7 @@
       // Le choix de secteur (tri introuvable, modes Autonome/Absence) est un pop-up centré.
       overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal' + (r.needs === 'category' ? ' goalsPlacementModal aiModeModal' : ' goalsBarModal');
       var card = document.createElement('div');
-      card.className = 'goalTaskEditCard';
+      card.className = 'goalTaskEditCard cmpGlass';
       var header = document.createElement('div');
       header.className = 'goalTaskEditHeader';
       var title = document.createElement('p');
@@ -1100,7 +1100,7 @@
     var overlay = document.createElement('div');
     overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
     var card = document.createElement('div');
-    card.className = 'goalTaskEditCard';
+    card.className = 'goalTaskEditCard cmpGlass';
     var header = document.createElement('div');
     header.className = 'goalTaskEditHeader';
     var title = document.createElement('p');
@@ -1168,7 +1168,7 @@
     var overlay = document.createElement('div');
     overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
     var card = document.createElement('div');
-    card.className = 'goalTaskEditCard';
+    card.className = 'goalTaskEditCard cmpGlass';
     var header = document.createElement('div');
     header.className = 'goalTaskEditHeader';
     var title = document.createElement('p');
@@ -1372,7 +1372,7 @@
       var overlay = document.createElement('div');
       overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
       var card = document.createElement('div');
-      card.className = 'goalTaskEditCard';
+      card.className = 'goalTaskEditCard cmpGlass';
       var header = document.createElement('div');
       header.className = 'goalTaskEditHeader';
       var title = document.createElement('p');

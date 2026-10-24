@@ -173,8 +173,7 @@ a { color: inherit; text-decoration: none; }
 .modalVeil { position: fixed; inset: 0; z-index: 110; background: var(--veil); display: flex; align-items: center; justify-content: center; padding: 18px; }
 .modalCard {
   position: relative; width: 100%; max-width: 420px; max-height: 80vh; overflow-y: auto;
-  background: var(--bg); border: 1px solid var(--glass-border); border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-elevated); padding: 18px;
+  border-radius: var(--radius-xl); padding: 18px;
 }
 .cmpClose.modalClose { position: absolute; top: 12px; right: 12px; }
 .modalTitle { font-size: 18px; font-weight: bold; padding-right: 40px; margin-bottom: 10px; }

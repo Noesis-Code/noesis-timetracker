@@ -154,7 +154,7 @@
     if (visitor) { bodies.t.classList.add('saVisitor'); bodies.o.classList.add('saVisitor'); }
     // Feuille du bas (charge restante par secteur) : même fenêtre qu'avant (communityMembersModal), fermeture ✕.
     var m = el('div', 'communityMembersModal hidden'); if (!visitor) m.id = 'statsAvanceModal';
-    var card = el('div', 'communityMembersModalCard');
+    var card = el('div', 'communityMembersModalCard cmpGlass');
     var head = el('div', 'saModalHead');
     var title = el('div', 'saModalTitle');
     var close = el('button', 'cmpClose', '✕'); close.type = 'button'; close.setAttribute('aria-label', tr('Fermer'));

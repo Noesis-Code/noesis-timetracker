@@ -9,11 +9,7 @@
   display: flex; pointer-events: auto; box-sizing: border-box;
   flex: 1 1 auto; min-width: 0; height: 52px; padding: 0 8px;
   align-items: center; justify-content: space-evenly;
-  border-radius: 999px;
-  background: var(--glass-bg, linear-gradient(180deg, rgba(243, 238, 232, .14), rgba(243, 238, 232, .06)));
-  border: 1px solid var(--glass-border, rgba(243, 238, 232, .16));
-  box-shadow: var(--glass-shadow, inset 0 1px 0 rgba(243, 238, 232, .18));
-  -webkit-backdrop-filter: var(--glass-blur, blur(24px) saturate(160%)); backdrop-filter: var(--glass-blur, blur(24px) saturate(160%));
+  border-radius: 999px; /* verre : .cmpGlass (composants.css) */
 }
 .tabbar .tabBtnAdd:not(.barNoAdd) { display: flex; }
 
@@ -83,7 +79,6 @@
 }
 .barAddCard {
   box-sizing: border-box; width: min(100%, 340px); padding: 16px; border-radius: 20px;
-  background: var(--pop-bg, #16141A); border: 1px solid var(--border, rgba(243, 238, 232, .16));
 }
 .barAddHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .barAddHeader .sectionTitle { margin: 0; }

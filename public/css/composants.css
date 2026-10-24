@@ -43,6 +43,13 @@
   --halo: rgba(156, 140, 200, .28);
 }
 
+/* Verre commun (R14/R29, étape 8) : UNE seule opacité de verre pour toute l'app : barre des volets, pop-ups (fond) et fenêtres. Un en-tête de pop-up
+   n'a pas de fond propre (il reste transparent sur le verre de sa fenêtre : le verre posé sur du verre n'ajoute pas d'opacité). */
+.cmpGlass {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+}
+
 /* Croix de fermeture ✕ (R13 : en haut à droite de la fenêtre) */
 .cmpClose {
   position: relative; flex-shrink: 0; width: 32px; height: 32px; padding: 0;
@@ -107,11 +114,11 @@
 .cmpBtn:disabled { opacity: .5; cursor: not-allowed; }
 .cmpBtnDanger { background: var(--danger); }
 
-/* Fenêtre de confirmation (TMT.ui.confirm) : remplace window.confirm ; fond #16141A opaque, ✕ en haut à droite */
+/* Fenêtre de confirmation (TMT.ui.confirm) : remplace window.confirm ; verre commun (.cmpGlass), ✕ en haut à droite */
 .cmpConfirmVeil { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--veil, rgba(0, 0, 0, .5)); }
 .cmpConfirmCard {
   width: 100%; max-width: 360px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 16px;
-  background: #16141A; border: 1px solid rgba(243, 238, 232, .14); border-radius: var(--radius-xl); box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+  border-radius: var(--radius-xl);
 }
 .cmpConfirmHead { display: flex; justify-content: flex-end; }
 .cmpConfirmText { margin: 0; font-size: 15px; line-height: 1.45; color: var(--text); word-break: break-word; }

@@ -384,7 +384,7 @@
   function showWeeklyProposalsModal(activityId, category, periodNumber, list) {
     var overlay = document.createElement('div');
     overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
-    var card = document.createElement('div'); card.className = 'goalTaskEditCard';
+    var card = document.createElement('div'); card.className = 'goalTaskEditCard cmpGlass';
     var header = document.createElement('div'); header.className = 'goalTaskEditHeader';
     var title = document.createElement('p'); title.className = 'sectionTitle'; title.textContent = t('Objectifs hebdomadaires proposés');
     var closeBtn = TMT.ui.closeBtn(null, t('Fermer'));
@@ -1774,7 +1774,7 @@
     var overlay = document.createElement('div');
     overlay.className = 'goalTaskEditModal';
     var card = document.createElement('div');
-    card.className = 'goalTaskEditCard';
+    card.className = 'goalTaskEditCard cmpGlass';
     var header = document.createElement('div');
     header.className = 'goalTaskEditHeader';
     var title = document.createElement('p');

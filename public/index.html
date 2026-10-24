@@ -1476,7 +1476,7 @@
            si son chrono est ACTUELLEMENT en cours pour CETTE activité
            précise (pas un chrono quelconque sur une autre activité). -->
       <div id="communityMembersModal" class="communityMembersModal hidden">
-        <div class="communityMembersModalCard">
+        <div class="communityMembersModalCard cmpGlass">
           <div class="profileSubWindowHeader">
             <p class="sectionTitle" id="communityMembersModalTitle"></p>
             <button type="button" class="cmpClose" id="communityMembersModalClose" aria-label="Fermer">✕</button>
@@ -1507,7 +1507,7 @@
            lequel on est parti : une activité partagée ne disparaît jamais,
            c'est elle qui recueille les enregistrements de l'autre. -->
       <div id="mergeActivityModal" class="communityMembersModal hidden">
-        <div class="communityMembersModalCard">
+        <div class="communityMembersModalCard cmpGlass">
           <div class="communityMembersModalHeader">
             <p class="sectionTitle" id="mergeActivityModalTitle"></p>
             <button type="button" class="cmpClose" id="mergeActivityModalClose" aria-label="Fermer">✕</button>
@@ -1531,7 +1531,7 @@
       </div>
 
       <div id="deleteActivityModal" class="communityMembersModal hidden">
-        <div class="communityMembersModalCard">
+        <div class="communityMembersModalCard cmpGlass">
           <div class="communityMembersModalHeader">
             <p class="sectionTitle" id="deleteActivityModalTitle"></p>
             <button type="button" class="cmpClose" id="deleteActivityModalClose" aria-label="Fermer">✕</button>
@@ -1628,7 +1628,7 @@
          ⚠️ Le GRAPHIQUE n'ouvre PAS cette fenêtre (précision d'Emilien) : il
          garde son appui qui affiche le nombre d'heures enregistrées. -->
     <div id="categoryStatsModal" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
+      <div class="communityMembersModalCard cmpGlass">
         <div class="viewProfileIdentity">
           <span class="identityName" id="categoryStatsTitle"></span>
           <button type="button" class="cmpClose" id="categoryStatsClose" aria-label="Fermer">✕</button>
@@ -1733,7 +1733,7 @@
          fonctionne pas en PWA) — 2 choix pour les tâches affiliées + annuler.
          Construite/pilotée par openCategoryRemoveModal() (app.js). -->
     <div id="categoryRemoveModal" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
+      <div class="communityMembersModalCard cmpGlass">
         <div class="communityMembersModalHeader">
           <p class="sectionTitle" id="categoryRemoveTitle"></p>
           <button type="button" class="cmpClose" id="categoryRemoveClose" aria-label="Fermer">✕</button>
@@ -1751,7 +1751,7 @@
     <!-- 1er octobre 2026 : « Déplacer vers… » — change un secteur de pôle (mode
          édition, ⇄). Rempli par openCategoryMoveModal() (app.js). -->
     <div id="categoryMoveModal" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
+      <div class="communityMembersModalCard cmpGlass">
         <div class="communityMembersModalHeader">
           <p class="sectionTitle" id="categoryMoveTitle"></p>
           <button type="button" class="cmpClose" id="categoryMoveClose" aria-label="Fermer">✕</button>
@@ -1762,7 +1762,7 @@
     </div>
 
     <div id="viewProfileModal" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
+      <div class="communityMembersModalCard cmpGlass">
         <!-- En-tête d'identité, FIXE (2 septembre 2026, demande d'Emilien :
              « je souhaite que la croix pour fermer le profil se trouve au
              même niveau que la photo et que le nom de l'utilisateur et je
@@ -2442,7 +2442,7 @@
          demandé le 10 septembre et qui ne doit pas se perdre dans la
          conversion. Contenu et ids inchangés. -->
     <div id="profileFollowsPanel" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
+      <div class="communityMembersModalCard cmpGlass">
         <div class="profileSubWindowHeader">
           <p class="sectionTitle" id="followsPanelTitle">Abonnés</p>
           <button type="button" id="followsPanelClose" class="cmpClose" aria-label="Fermer">✕</button>
@@ -2481,7 +2481,7 @@
 
     <!-- 30 sept. 2026 : « Projets » devient une fenêtre (même gabarit que Abonnés), ouverte par une pastille ou par le « + ». -->
 <div id="profileProjectsPanel" class="communityMembersModal hidden">
-<div class="communityMembersModalCard">
+<div class="communityMembersModalCard cmpGlass">
 <div class="profileSubWindowHeader">
 <p class="sectionTitle" id="projectsPanelTitle">Projets</p>
 <button type="button" id="projectsPanelClose" class="cmpClose" aria-label="Fermer">✕</button>
@@ -2575,7 +2575,7 @@
          septembre pour la discussion Notifications — un contrat entre
          segments, à ne pas casser en déplaçant le bloc. -->
     <div id="profileNotifPanel" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
+      <div class="communityMembersModalCard cmpGlass">
         <div class="profileSubWindowHeader">
           <p class="sectionTitle">Invitations et demandes de suivi</p>
           <button type="button" id="notifPanelClose" class="cmpClose" aria-label="Fermer">✕</button>
@@ -3188,7 +3188,7 @@
   <!-- Points de pagination des pages de statistiques (gauche de Chrono / de la Feuille de route) : js/stats-avance.js. -->
   <div id="statsPageDots" class="hidden" role="group"></div>
   <nav class="tabbar">
-   <div class="tabbarPill" id="tabbarPill" role="tablist">
+   <div class="tabbarPill cmpGlass" id="tabbarPill" role="tablist">
     <button class="tabBtn active" data-tab="chrono" data-module="stats" aria-label="Chrono">
       <span class="tabIcon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3300,7 +3300,7 @@
   </nav>
   <p class="barHint hidden" id="barHint">Appui long : les onglets bougent. Glisse pour changer l'ordre. Croix rouge = retirer. L'onglet le plus à gauche est celui où l'app s'ouvre.</p>
   <div class="barAddPop hidden" id="barAddPop" role="dialog" aria-modal="true" aria-labelledby="barAddTitle">
-    <div class="barAddCard">
+    <div class="barAddCard cmpGlass">
       <div class="barAddHeader">
         <p class="sectionTitle" id="barAddTitle">Ajouter à la barre</p>
         <button type="button" class="cmpClose" id="barAddClose" aria-label="Fermer">✕</button>
@@ -3344,7 +3344,7 @@
      article 14) : seuls les libellés d'interface autour de lui (titre de
      section, bouton, indice) sont traduits via i18n.js. -->
 <div id="legalTermsModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard legalTermsModalCard">
+  <div class="communityMembersModalCard cmpGlass legalTermsModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Conditions d'utilisation</p>
       <button type="button" class="cmpClose" id="legalTermsModalClose" aria-label="Fermer">✕</button>
@@ -3438,7 +3438,7 @@
 
 <!-- Politique de confidentialité V3.7 (en vigueur le 10 octobre 2026), reprise mot pour mot depuis le texte source validé. Même gabarit que #legalTermsModal. Toute mise à jour du fond passe par le texte source, jamais rédigée ici. -->
 <div id="privacyPolicyModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard legalTermsModalCard">
+  <div class="communityMembersModalCard cmpGlass legalTermsModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Politique de confidentialité</p>
       <button type="button" class="cmpClose" id="privacyPolicyModalClose" aria-label="Fermer">✕</button>
@@ -3559,7 +3559,7 @@
      (notes sur l'incorporation, immatriculation) et n'est jamais montrée à
      l'Utilisateur. Même motif que les deux modaux juste au-dessus. -->
 <div id="legalNoticesModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard legalTermsModalCard">
+  <div class="communityMembersModalCard cmpGlass legalTermsModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Mentions légales</p>
       <button type="button" class="cmpClose" id="legalNoticesModalClose" aria-label="Fermer">✕</button>
@@ -3588,7 +3588,7 @@
 
 <!-- 10 oct. 2026 (trame 8) : Gouvernance des renseignements personnels, publique (sans connexion), même gabarit que les autres documents légaux. -->
 <div id="governanceModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard legalTermsModalCard">
+  <div class="communityMembersModalCard cmpGlass legalTermsModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Gouvernance des renseignements personnels</p>
       <button type="button" class="cmpClose" id="governanceModalClose" aria-label="Fermer">✕</button>
@@ -3613,7 +3613,7 @@
      attente"), un second — rejoué par #offer1CheckoutRecheckBtn — reprend
      une fois le représentant légal confirmé (201, redirection Stripe). -->
 <div id="offer1CheckoutModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard">
+  <div class="communityMembersModalCard cmpGlass">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Souscrire à Expansion</p>
       <button type="button" class="cmpClose" id="offer1CheckoutModalClose" aria-label="Fermer">✕</button>
@@ -3673,7 +3673,7 @@
 <script src="/i18n.js"></script>
 <!-- 10 oct. 2026 (trame 3) : invite pour les comptes existants (marketingConsentAt NULL). Aucune croix, deux boutons identiques, rien de pré-coché. Placée AVANT les modales légales pour que la Politique s'ouvre par-dessus. -->
 <div id="marketingInviteModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard">
+  <div class="communityMembersModalCard cmpGlass">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Une question sur vos données</p>
     </div>
@@ -3687,7 +3687,7 @@
 
 <!-- 10 oct. 2026 (trame 13) : info IA a la premiere ouverture de la Feuille de route. Ne bloque rien : fermer sans cliquer laisse tout utilisable. -->
 <div id="aiNoticeModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard">
+  <div class="communityMembersModalCard cmpGlass">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Comment Noèsis utilise vos renseignements</p>
       <button type="button" class="cmpClose" id="aiNoticeClose" aria-label="Fermer">✕</button>
@@ -3711,7 +3711,7 @@
 
 <!-- Annonce diffusee a tous (30 sept. 2026) : texte complet, une seule fois. -->
 <div id="announcementModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard">
+  <div class="communityMembersModalCard cmpGlass">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle" id="announcementModalTitle"></p>
       <button type="button" class="cmpClose" id="announcementModalClose" aria-label="Fermer">✕</button>
