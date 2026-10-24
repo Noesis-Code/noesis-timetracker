@@ -3,6 +3,7 @@
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('exp-code-');
 process.env.STRIPE_SECRET_KEY = 'sk_test_local';
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
+process.env.EXPANSION_SANS_PAIEMENT = '0'; // ce test vérifie le paiement : interrupteur staging rétabli
 let failed = 0;
 const ok = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');

@@ -191,6 +191,7 @@ const SUITE_FILES = [
   'zone-ia-secteur-periode-test.js',
   'doublons-similarites-test.js',
   'expansion-acces-test.js',
+  'expansion-sans-paiement-test.js',
   'expansion-checkout-securite-test.js',
   'expansion-cycle-complet-test.js',
   'expansion-cron-dst-test.js',

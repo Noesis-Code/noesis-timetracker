@@ -7,6 +7,7 @@ process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('exp-acces-');
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_local';
 process.env.STRIPE_SECRET_KEY = 'sk_test_local';
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
+process.env.EXPANSION_SANS_PAIEMENT = '0'; // ce test vérifie le paiement : interrupteur staging rétabli
 const express = require('express');
 const db = require('../server/db');
 const stripe = require('../server/lib/stripe');

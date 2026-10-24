@@ -64,7 +64,18 @@ function hasActiveOffer1Subscription(userId) {
   } catch (e) { return false; }
 }
 
+// Interrupteur TEMPORAIRE (staging seulement) : sans paiement Stripe, l'accès Expansion est ouvert à tout profil. Jamais actif hors staging ;
+// pour rétablir le paiement sur staging : variable EXPANSION_SANS_PAIEMENT = 0, false, off ou non (insensible à la casse ; voir docs/expansion/expansion-acces-2026-10-20.md).
+// Variable absente ou 1/true/on : paiement retiré sur staging. Toute autre valeur : paiement rétabli (prudence).
+function sansPaiementStaging() {
+  if (process.env.RAILWAY_ENVIRONMENT_NAME !== 'staging') return false;
+  const v = process.env.EXPANSION_SANS_PAIEMENT;
+  if (v === undefined) return true;
+  return ['1', 'true', 'on'].includes(String(v).trim().toLowerCase());
+}
+
 function hasOffer1Access(userId) {
+  if (sansPaiementStaging() && userId) return true;
   return hasActiveGrant(userId) || hasActiveOffer1Subscription(userId);
 }
 
@@ -75,7 +86,7 @@ function activityHasEssor(activityId, userId) {
   try {
     const db = require('../db');
     if (!userId || !db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId)) return false;
-    if (hasActiveGrant(userId)) return true;
+    if (sansPaiementStaging() || hasActiveGrant(userId)) return true;
     return !!db.prepare("SELECT 1 FROM activity_subscriptions WHERE activityId = ? AND userId = ? AND status = 'active' LIMIT 1").get(activityId, userId);
   } catch (e) { return false; }
 }
