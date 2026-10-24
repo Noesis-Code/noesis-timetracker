@@ -36,7 +36,7 @@ for (const [label, re] of RULES) { const h = hits(re); ok(h.length === 0, label 
 {
   const bad = [];
   for (const f of files) {
-    if (!/\.css$/.test(f) || !/^public\//.test(f)) continue; // Trade Tracker : à migrer (S1)
+    if (!/\.css$/.test(f) || !/^(trade-tracker\/)?public\//.test(f)) continue;
     read(f).split(/\r?\n/).forEach((l, i) => {
       if (/^\s*(\/\/|\/\*|\*)/.test(l)) return;
       const m = l.match(/border-(?:top|bottom)\s*:\s*1px\s+solid\s+(rgba?\([^)]*\)|var\(--(?:border|glass-border|glass-calm-line)\b[^)]*\))/);
