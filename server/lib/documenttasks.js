@@ -408,6 +408,7 @@ function parseDetailed(text, ctx) {
       key = near; pick = true;
     }
     if (tasks.some((x) => x.key === key && tp.sameTitle(x.title, title))) { dropped.doublon++; return; }
+    if (tasks.some((x) => tp.contradicts(x.title, title))) { rejected++; dropped.invalide++; dropped.raisons.contradiction = (dropped.raisons.contradiction || 0) + 1; return; } // « Ajouter X » puis « Retirer X » dans le même lot : une seule proposée (la première)
     const dedupe = key + '|' + title.toLowerCase();
     if (seen.has(dedupe)) { dropped.doublon++; return; }
     if (tasks.length >= MAX_TASKS) { dropped.limite++; return; }

@@ -24,6 +24,20 @@ const tp = require('../server/lib/taskprecision');
   assert(tp.stem('terrasse') === tp.stem('terase'), 'racine : faute de frappe (lettre doublée)');
   assert(tp.actionHints('Payer la facture du fournisseur').length >= 1 && tp.actionHints('Appeler Marc').length === 0, 'action : verbe d\'ouverture connu seulement');
 
+  // Tâches proposées par l'IA (24 oct.) : consigne sans cible, antécédent absent, objet absent, lot contradictoire, reformulations.
+  const why = (t) => tp.checkGenerated(t, []).reason;
+  ['Simplifier', 'Simplifier le processus', 'Améliorer le système', 'Simplify the process'].forEach((t) => assert(why(t) === 'sansObjet', 'sans cible : « ' + t + ' » écarté'));
+  ['Faire le point', 'Faire un bilan'].forEach((t) => assert(why(t) === 'sansObjet', 'sans objet concret : « ' + t + ' » écarté'));
+  ['Avancer', 'Travailler sur le projet'].forEach((t) => assert(why(t) === 'sansSens', 'sans objet concret : « ' + t + ' » écarté'));
+  ['Le relire', 'Envoyer ça', 'Finir celui-ci', 'Relire ce document', 'Send it'].forEach((t) => assert(why(t) === 'sansAntecedent', 'antécédent absent : « ' + t + ' » écarté'));
+  ['Simplifier le processus de paie', 'Faire le point avec Paul', 'Relire le contrat de bail', 'Envoyer ce document à Paul', 'Le livre de comptes', 'La poste', 'Revoir le budget'].forEach((t) => assert(why(t) === null, 'titre précis conservé : « ' + t + ' »'));
+  assert(tp.contradicts('Ajouter le bouton Exporter', 'Retirer le bouton Exporter') && tp.contradicts('Add X field', 'Remove the X field'), 'lot : Ajouter X / Retirer X détecté (fr/en)');
+  assert(!tp.contradicts('Ajouter un bouton', 'Retirer un bouton de partage') && !tp.contradicts('Créer le dossier clients', 'Supprimer le dossier fournisseurs') && !tp.contradicts('Ajouter le champ A', 'Ajouter le champ B'), 'lot : objets différents ou même sens = pas de contradiction');
+  assert(JSON.stringify(tp.contradictionsInBatch(['Ajouter le bouton Exporter', 'Appeler Paul', 'Retirer le bouton Exporter'])) === '[-1,-1,0]', 'lot : le titre le plus récent pointe le plus ancien');
+  assert(tp.sameTitle('Rédiger le courriel de relance au client', 'Écrire un mail de relance au client') && tp.sameTitle('Envoi de la facture à Paul', 'Envoyer la facture à Paul') && tp.sameTitle('Mettre à jour la page des tarifs', 'Actualiser la page des tarifs'), 'doublon : reformulations (synonymes courts, nom d\'action)');
+  assert(!tp.sameTitle('Payer la facture à Paul', 'Envoyer la facture à Paul') && !tp.sameTitle('Écrire à Paul', 'Écrire à Marie') && !tp.sameTitle('Acheter du café', 'Vendre du café') && !tp.sameTitle('Acheter du café', 'Commander du café') && !tp.sameTitle('Envoyer la facture', 'Relire la facture') && !tp.sameTitle('Écrire un courriel à Paul', 'Appeler Paul'), 'doublon : tâches réellement différentes jamais fusionnées');
+  assert(tp.cleanTitle('Le relire') === 'Le relire', 'saisie : ces règles ne réécrivent aucun titre (le rejet ne vise que les tâches proposées)');
+
   // Harnais (fournisseur simulé) : garde-fous de non-régression.
   const ev = require('../scripts/eval-task-precision');
   const out = await ev.run({});
@@ -60,6 +74,13 @@ const tp = require('../server/lib/taskprecision');
   const r = dt.parseDetailed(text, ctx);
   assert(r.tasks.length === 1 && r.tasks[0].title === 'Appeler le client', 'documenttasks : 1 tâche retenue, titre propre');
   assert(r.dropped.ignore === 2 && r.dropped.doublon === 1, 'documenttasks : 2 ignorées, 1 doublon');
+  const lot = dt.parseDetailed(JSON.stringify({ t: [
+    { title: 'Ajouter le bouton Exporter', key: 'k1' }, { title: 'Retirer le bouton Exporter', key: 'k1' },
+    { title: 'Simplifier le processus', key: 'k1' }, { title: 'Le relire', key: 'k1' }, { title: 'Faire le point', key: 'k1' },
+    { title: 'Appeler le fournisseur de grains', key: 'k1' },
+  ] }), { ...ctx, activityId: null });
+  assert(lot.tasks.length === 2 && lot.tasks[0].title === 'Ajouter le bouton Exporter' && lot.tasks[1].title === 'Appeler le fournisseur de grains', 'documenttasks : lot contradictoire = une seule proposée (la première), vagues et antécédent écartés');
+  assert(lot.dropped.invalide === 4 && lot.dropped.raisons.contradiction === 1 && lot.dropped.raisons.sansObjet === 2 && lot.dropped.raisons.sansAntecedent === 1, 'documenttasks : raisons comptées, rien d\'affiché');
   const ctx2 = { ...ctx, activityId: null };
   assert(dt.parseDetailed(text, ctx2).dropped.ignore === 0, 'sans activité/stratégie : rien d\'écarté');
 

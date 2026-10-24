@@ -115,7 +115,12 @@ function priorityRank(title, priorities) {
 // « svp », RDV = rendez-vous, rencontre = réunion, téléphoner = appeler) OU mêmes mots utiles dans le même ordre, OU dans un autre ordre
 // seulement sans mot de direction (« Envoyer A à B » n'est pas « Envoyer B à A »). Ce qui distingue deux tâches reste un marqueur : lettre
 // isolée (« salle A » / « salle B »), sigle de 2 lettres (« IA »), négation (« Ne pas annuler » / « Annuler »).
-const DUP_SYN = [[/\b(?:rdv|rendez vous)\b/g, 'rendezvous'], [/\b(?:svp|stp|please|merci|s il (?:vous|te) plait)\b/g, ' '], [/\b(?:telephoner|phoner|call)\b/g, 'appeler'], [/\brencontre\b/g, 'reunion'], [/\bchez\b/g, ' '], [/\b(?:finaliser|terminer|achever|finish|complete)\b/g, 'finir']]; // « Finaliser le volet » = « Finir le volet » (doublons vus le 21 oct.)
+const DUP_SYN = [[/\b(?:rdv|rendez vous)\b/g, 'rendezvous'], [/\b(?:svp|stp|please|merci|s il (?:vous|te) plait)\b/g, ' '], [/\b(?:telephoner|phoner|call)\b/g, 'appeler'], [/\brencontre\b/g, 'reunion'], [/\bchez\b/g, ' '], [/\b(?:finaliser|terminer|achever|finish|complete)\b/g, 'finir'],
+  // Reformulations (24 oct.) : synonymes courts et noms d'action ramenés au verbe ; liste fermée, jamais de rapprochement de sens large.
+  [/\b(?:ecrire|composer|rediger|redaction)\b/g, 'rediger'], [/\b(?:e mail|email|mail|courriel|courrier electronique)\b/g, 'courriel'],
+  [/\b(?:mettre a jour|mise a jour|maj|actualiser|actualisation|update)\b/g, 'actualiser'], [/\b(?:acheter|achat|acquerir|se procurer)\b/g, 'acheter'],
+  [/\b(?:controler|controle|verifier|verification)\b/g, 'verifier'], [/\b(?:envoi|envoyer|expedier|expedition)\b/g, 'envoyer'],
+  [/\b(?:paiement|payer|regler)\b/g, 'payer'], [/\b(?:livraison|livrer)\b/g, 'livrer'], [/\b(?:relecture|relire)\b/g, 'relire']];
 const DUP_DIR = new Set(['a', 'au', 'aux', 'vers', 'from', 'to', 'into', 'avec', 'with', 'par', 'by', 'pour', 'for', 'sur', 'on', 'entre', 'between', 'contre', 'apres', 'avant', 'after', 'before']);
 const DUP_NEUTRAL2 = new Set(['de', 'du', 'le', 'la', 'un', 'en', 'au', 'et', 'ou', 'ce', 'ma', 'se', 'si', 'ca', 'qu', 'to', 'on', 'in', 'at', 'of', 'my', 'it', 'is', 'as', 'an', 'or', 'by', 'up', 'do', 'me', 'ne', 'l', 'd', 's', 't', 'n', 'm', 'j', 'c', 'y', 'a']);
 const DUP_NEG = new Set(['ne', 'pas', 'sans', 'non', 'not', 'no', 'jamais', 'never', 'aucun', 'aucune']);
@@ -148,7 +153,7 @@ function includedTitle(a, b) {
   return inSeq(S.tk, L.tk);
 }
 // Validateur déterministe d'un titre GÉNÉRÉ par l'IA (jamais d'une saisie manuelle). Renvoie { title, reason } : title = titre nettoyé
-// (horaire à créneau fixe retiré s'il reste une tâche valable) ou null si rejeté ; reason = 'vide' | 'horaire' | 'sansSens' | 'tropLong' | 'doublon'.
+// (horaire à créneau fixe retiré s'il reste une tâche valable) ou null si rejeté ; reason = 'vide' | 'horaire' | 'sansSens' | 'sansAntecedent' | 'sansObjet' | 'tropLong' | 'doublon'.
 const MAX_GENERATED_TITLE = 140;
 const HM = '\\d{1,2}\\s*(?:h(?:eures?)?(?:\\s*\\d{2})?|:\\d{2})(?![a-zà-ÿ])', AMPM = '\\d{1,2}(?:[:.]\\d{2})?\\s*(?:am|pm)';
 // Heure précise : « à 14 h », « 14 h 30 », « 10:30 », « 3pm », « de 9 h à 10 h ». Un « 2 h » nu reste une durée, jamais un horaire ; « de 3 heures »,
@@ -163,6 +168,52 @@ const VAGUE = new Set(['truc', 'trucs', 'chose', 'choses', 'machin', 'bidule', '
 // Verbes sans contenu (« Réfléchir », « Avancer », « Penser à l'objectif ») : un titre fait QUE de ces mots + mots vides ne dit pas quoi faire.
 // Liste fermée, volontairement courte ; un verbe concret seul (« Vérifier », « Courir ») reste valable.
 const EMPTY_VERBS = new Set(['reflechir', 'reflechis', 'penser', 'avancer', 'continuer', 'commencer', 'demarrer', 'travailler', 'essayer', 'se', 'motiver', 'planifier', 'organiser', 'preparer', 'faire', 'gerer', 'traiter', 'regarder', 'voir', 'checker', 'think', 'work', 'try', 'start', 'continue', 'organize', 'prepare', 'handle', 'dessus', 'on', 'about', 'tout', 'objectif', 'but', 'goal', 'recherche', 'recherches', 'research', 'projet', 'project', 'sur', 'au', 'aux', 'pour', 'avec', 's', 'occuper', 'deal', 'with']);
+// --- Règles ajoutées le 24 oct. 2026 (tâches PROPOSÉES par l'IA seulement ; une saisie manuelle n'est jamais écartée par ces règles) ---
+// (a) Titre qui cite un antécédent absent : pronom seul (« Le relire », « Envoyer ça », « Finir celui-ci », « Send it »). Un titre isolé ne dit pas QUOI.
+const DEMO = new Set(['ca', 'cela', 'ceci', 'celui ci', 'celle ci', 'ceux ci', 'celles ci', 'celui la', 'celle la', 'ceux la', 'celles la', 'ce truc', 'ce machin', 'cette chose', 'ce document', 'ce fichier', 'ce message', 'ce courriel', 'ce mail', 'cet email']);
+const CLITIC = new Set(['le', 'la', 'les', 'l', 'y', 'en']);
+const RE_ANTECEDENT_EN = /^[a-z]+(?: (?:up|out|off|on|over))? (?:it|this|that|them|these|those)(?: (?:again|now|today))?$/;
+const INF_CLOSED = new Set(['relire', 'lire', 'faire', 'refaire', 'mettre', 'remettre', 'prendre', 'reprendre', 'ecrire', 'reecrire', 'rendre', 'finir', 'dire', 'redire', 'revoir', 'voir', 'suivre', 'poursuivre']);
+const isInf = (w) => /^[a-z]{3,}(?:er|ir|oir)$/.test(w) || INF_CLOSED.has(w);
+function citesAbsent(w) {
+  if (RE_ANTECEDENT_EN.test(w.join(' '))) return true;
+  if (w.length === 2 && CLITIC.has(w[0]) && isInf(w[1])) return true;                       // « Le relire » (pas « Le livre », « La poste »)
+  if (w.length === 2 && ['le', 'la', 'les', 'l'].includes(w[1]) && isInf(w[0])) return true; // « Envoyer le »
+  for (let i = 1; i <= 3 && i < w.length; i += 1) if (DEMO.has(w.slice(i).join(' ')) && isInf(w[0])) return true; // « Envoyer ça », « Finir celui-ci », « Relire ce document »
+  return false;
+}
+// (b) Consigne sans cible : verbe d'amélioration/gestion + seulement des objets génériques (« Simplifier », « Simplifier le processus », « Faire le point »).
+const GENERIC_ACTION = new Set(['simplifier', 'ameliorer', 'optimiser', 'rationaliser', 'alleger', 'fluidifier', 'standardiser', 'reorganiser', 'restructurer', 'repenser', 'revoir', 'reviser', 'corriger', 'automatiser', 'moderniser', 'simplify', 'improve', 'optimize', 'optimise', 'streamline', 'rework', 'review', 'refactor', 'faire']);
+const GENERIC_OBJECT = new Set(['processus', 'process', 'procedure', 'procedures', 'methode', 'methodes', 'demarche', 'demarches', 'fonctionnement', 'organisation', 'workflow', 'workflows', 'flux', 'systeme', 'systemes', 'system', 'systems', 'travail', 'dossier', 'dossiers', 'sujet', 'sujets', 'probleme', 'problemes', 'point', 'bilan', 'suivi', 'retour', 'choses', 'chose', 'tout', 'general', 'ensemble', 'situation', 'etat', 'avancement', 'status', 'progress', 'things', 'everything', 'le', 'la', 'les', 'l', 'un', 'une', 'des', 'du', 'de', 'd', 'sur', 'au', 'aux', 'mon', 'ma', 'mes', 'notre', 'nos', 'the', 'my', 'our', 'a', 'on', 'of', 'ce', 'cet', 'cette', 'ces', 'et', 'and', 'global', 'globale']);
+function noTarget(w) {
+  if (!w.length || w.length > 5 || !GENERIC_ACTION.has(w[0])) return false;
+  const rest = w.slice(1);
+  if (w[0] === 'faire') return rest.some((x) => ['point', 'bilan', 'suivi', 'retour'].includes(x)) && rest.every((x) => GENERIC_OBJECT.has(x)); // « Faire le point » ; « Faire le point avec Paul » reste valable
+  return rest.every((x) => GENERIC_OBJECT.has(x));                                                                                               // « Simplifier le processus » ; « ... de paie » reste valable
+}
+// (c) Lot contradictoire : deux titres d'une MÊME génération qui font et défont la même chose (« Ajouter X » / « Retirer X »).
+const POS_VERBS = new Set(['ajouter', 'creer', 'inserer', 'add', 'create', 'activer', 'enable', 'ouvrir', 'open', 'afficher', 'show', 'publier', 'publish', 'augmenter', 'increase', 'embaucher', 'hire', 'accepter', 'accept', 'autoriser', 'allow', 'allonger', 'lancer']);
+const NEG_VERBS = new Set(['retirer', 'supprimer', 'enlever', 'effacer', 'remove', 'delete', 'desactiver', 'disable', 'fermer', 'close', 'masquer', 'cacher', 'hide', 'depublier', 'unpublish', 'diminuer', 'reduire', 'decrease', 'reduce', 'licencier', 'fire', 'refuser', 'refuse', 'reject', 'interdire', 'bloquer', 'block', 'raccourcir', 'arreter']);
+const polarity = (v) => (POS_VERBS.has(v) ? 1 : NEG_VERBS.has(v) ? -1 : 0);
+function contradicts(a, b) {
+  const wa = fold(cleanTitle(a)).split(' ').filter(Boolean), wb = fold(cleanTitle(b)).split(' ').filter(Boolean);
+  if (wa.length < 2 || wb.length < 2) return false;
+  const pa = polarity(wa[0]), pb = polarity(wb[0]);
+  if (!pa || !pb || pa === pb) return false;
+  if (/^(?:ne|pas|sans|non|not)$/.test(wa[1]) || /^(?:ne|pas|sans|non|not)$/.test(wb[1])) return false; // négations : hors périmètre, prudence
+  const oa = new Set(tokens(wa.slice(1).join(' '))), ob = new Set(tokens(wb.slice(1).join(' ')));
+  if (!oa.size || !ob.size) return false;
+  const [S, L] = oa.size <= ob.size ? [oa, ob] : [ob, oa];
+  const common = [...S].filter((x) => L.has(x)).length;
+  if (common !== S.size) return false;
+  return S.size === L.size || (S.size >= 2 && S.size >= 0.66 * L.size); // même objet, ou objet inclus assez précis (2 mots et 2/3 de l'autre)
+}
+// Lot : pour chaque titre, l'indice du titre PLUS ANCIEN avec lequel il est en contradiction (-1 sinon). Ne dit pas lequel a raison.
+function contradictionsInBatch(titles) {
+  const l = titles || [];
+  return l.map((t, i) => l.findIndex((o, j) => j < i && contradicts(t, o)));
+}
+
 function checkGenerated(raw, existing) {
   const t0 = cleanTitle(raw);
   if (!t0) return { title: null, reason: 'vide' };
@@ -174,6 +225,9 @@ function checkGenerated(raw, existing) {
   if (words.every((w) => VAGUE.has(w)) || /^(?:a faire|to do|a voir|a completer)$/.test(words.join(' ')) || fold(t).replace(/[^a-z]/g, '').length < 3) return { title: null, reason: 'sansSens' }; // « truc », « à faire », « A », « T1 », « 12345 » : rien à faire de ce titre
   const w2 = fold(t.replace(/\s[àÀ]\s/g, ' ')).split(' ').filter(Boolean); // « à » (préposition) ignoré ; une lettre seule (« Faire A ») n'est pas du vague
   if (w2.length <= 4 && w2.every((w) => VAGUE.has(w) || EMPTY_VERBS.has(w))) return { title: null, reason: 'sansSens' }; // « Réfléchir », « Avancer sur le projet »
+  const w3 = fold(t.replace(/[’']/g, ' ')).split(' ').filter(Boolean);
+  if (citesAbsent(w3)) return { title: null, reason: 'sansAntecedent' }; // « Le relire », « Envoyer ça »
+  if (noTarget(w3)) return { title: null, reason: 'sansObjet' };          // « Simplifier le processus », « Faire le point »
   if ((existing || []).some((o) => sameTitle(t, o) || includedTitle(t, o))) return { title: null, reason: 'doublon' };
   return { title: t, reason: t !== t0 ? 'horaire' : null }; // reason 'horaire' avec title = nettoyé
 }
@@ -200,4 +254,4 @@ function actionHints(title) {
   return out.map(stem);
 }
 
-module.exports = { stem, actionHints,  cleanTitle, fold, tokens, ignoreTerms, matchesIgnore, priorityRank, sameTitle, isDuplicate, checkGenerated, MAX_GENERATED_TITLE };
+module.exports = { stem, actionHints,  cleanTitle, fold, tokens, ignoreTerms, matchesIgnore, priorityRank, sameTitle, isDuplicate, checkGenerated, contradicts, contradictionsInBatch, MAX_GENERATED_TITLE };
