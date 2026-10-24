@@ -4829,10 +4829,10 @@
   // partagée (< 2 membres) n'a donc ni onglet « Statistiques » ni rangée d'onglets (supprimée, pas masquée : aucun vide
   // sous le titre) et ouvre directement « Pôles & secteurs ». Seule règle : currentActivityIsShared.
   function syncActivityTabs() {
-    // Chantier Chrono : les statistiques par membre ont déménagé dans la 3e page du Chrono ; il ne reste qu'un onglet « Catégories », donc plus de rangée d'onglets.
     var sw = $('activityPageSectionSwitch');
-    if (sw) sw.classList.add('hidden');
-    if (activityPageSection === 'stats') setActivityPageSection('sub');
+    if (sw) sw.classList.toggle('hidden', !currentActivityIsShared);
+    $('activityPageTabStats').classList.toggle('hidden', !currentActivityIsShared);
+    if (!currentActivityIsShared && activityPageSection === 'stats') setActivityPageSection('sub');
   }
 
   function renderSoloCategoryPie(data) {
@@ -5684,7 +5684,7 @@
         var lit = {};
         ((r.days && r.days[m]) || []).forEach(function (d) { lit[d] = true; });
         html += '<div class="tsCalDay tsYearCell" title="' + escapeHtml(rowName) + ' · ' + escapeHtml(monthNameLocal(m)) + '">';
-        if (sec > 0) html += '<div class="tsCalDayNum">' + formatHM(sec) + '</div>';
+        html += '<div class="tsCalDayNum">' + (sec > 0 ? formatHM(sec) : '') + '</div>'; // ligne du total toujours réservée : points à la même hauteur dans une ligne
         html += '<div class="tsYearDots">';
         for (var d = 1, n = new Date(year, m + 1, 0).getDate(); d <= n; d++) {
           html += '<i class="tsYearDot"' + (lit[d] ? ' style="background:' + r.color + '"' : '') + '></i>';
@@ -5694,6 +5694,13 @@
     });
     $(I.frozen).innerHTML = frozen;
     $(I.calendar).innerHTML = '<div class="tsCalendarGrid" style="grid-template-columns:repeat(12,minmax(56px,1fr))">' + html + '</div>';
+
+    // Ouvre la vue sur le mois en cours (dernière colonne visible), pas sur janvier ; une année passée s'ouvre sur janvier.
+    var yScroller = $(I.calendar).parentNode;
+    if (yScroller && yScroller.clientWidth > 0) {
+      var cw = yScroller.scrollWidth / 12;
+      yScroller.scrollLeft = data.isCurrentYear ? Math.max(0, Math.round((new Date().getMonth() + 1) * cw - yScroller.clientWidth)) : 0;
+    }
   }
 
   // ===================== COMMUNAUTÉ =====================
@@ -5820,9 +5827,9 @@
   // Couleur d'un membre dans les statistiques de l'activité ouverte. Repli sur
   // sa couleur personnelle si la couleur de l'activité n'est pas connue
   // (aucune régression possible : c'est le comportement d'avant).
-  function activityMemberColor(userId, fallbackColor) {
+  function activityMemberColor(userId, fallbackColor, activityId) {
     if (!currentActivityColor || !userId) return fallbackColor;
-    var known = activityMemberIds[String(sharedStatsActivityId)] || [];
+    var known = activityMemberIds[String(activityId || sharedStatsActivityId)] || [];
     var index = known.indexOf(String(userId));
     if (index < 0) return fallbackColor;
     // Un seul membre : rien à distinguer, on garde sa couleur telle quelle.
@@ -5988,6 +5995,7 @@
     // Une activité non partagée n'a ni statistiques ni fil, quelle que soit la
     // section demandée : le partage a toujours le dernier mot.
     if (stats) stats.classList.toggle('hidden', name !== 'stats' || !currentActivityIsShared);
+    if (name === 'stats' && currentActivityIsShared && TMT.caTasks) TMT.caTasks.onShow(); // page « Tâches par membre » (seule page de cette fenêtre)
     // ⚠️ Les deux blocs « Statistiques » sont mutuellement exclusifs et ne se
     // ressemblent que de nom : celui du partagé compare les MEMBRES, celui du
     // solo compare les SOUS-PROJETS. Aucun des deux n'est jamais affiché dans
@@ -6092,6 +6100,7 @@
     $('activityPageName').textContent = a.name;
     // Base des nuances de membres (voir activityMemberColor).
     currentActivityColor = a.color || '';
+    if (TMT.caTasks) TMT.caTasks.onActivity(); // page « Tâches par membre » : données à recharger pour cette activité
 
     // ⚠️ 5 septembre 2026, second passage — une activité SOLO a elle aussi
     // une section Statistiques, mais seulement à partir du moment où elle a du
@@ -16220,18 +16229,12 @@
   window.TMT.$ = $;
   window.TMT.api = api;
   window.TMT.selectSharedStats = selectSharedStats;
-  window.TMT.getCaState = function () { return { id: currentCommunityActivityId, category: currentActivityCategory }; }; // fenêtre Activité (activite-stats-taches.js)
+  window.TMT.getCaState = function () { return { id: currentCommunityActivityId, category: '' }; }; // fenêtre Activité (activite-stats-taches.js)
   // Page « Tâches par membre » : le filtre de pôle n'y propose pas « Sans pôle » ; couleurs de membres = nuances de l'activité.
-  window.TMT.caTasksPage = function (on) {
-    var m = $('caCategoryMenu'); if (m) m.classList.toggle('caNoNone', !!on);
-    if (on && currentActivityCategory === 'none') {
-      currentActivityCategory = ''; syncActivityCategoryBtn();
-      if (currentCommunityActivityId) loadActivityStats(currentCommunityActivityId);
-    }
-  };
+  window.TMT.caTasksPage = function () {}; // plus de filtre de pôle dans la fenêtre Activité (les filtres vivent dans la 3e page du Chrono)
   window.TMT.caMemberColors = function (members) {
     rememberActivityMembers(currentCommunityActivityId, [members]);
-    return members.map(function (m) { return activityMemberColor(m.userId, m.color || '#674EA7'); });
+    return members.map(function (m) { return activityMemberColor(m.userId, m.color || '#674EA7', currentCommunityActivityId); });
   };
   window.TMT.pad = pad;
   window.TMT.dateLocale = dateLocale;

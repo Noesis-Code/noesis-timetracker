@@ -627,8 +627,9 @@ textarea {
 /* ===== Récapitulatif avant validation du STOP ===== */
 /* Taches 4 et 7 (chantier Chrono) : le récapitulatif REMPLACE le bloc chrono, dans le flux de la page (plus de couche fixe : le menu des pôles déroulé pousse « Historique » vers le bas). */
 #stopConfirmPanel { display: block; box-sizing: border-box; }
-#chronoRunning.stopConfirming { padding-bottom: 20px; background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+#chronoRunning.stopConfirming { padding-bottom: 0; margin-bottom: 8px; background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 #chronoRunning.stopConfirming > :not(#stopConfirmPanel) { display: none; }
+#chronoRunning.stopConfirming + #chronoStatus { min-height: 0; margin: 0; } /* écart Valider / Historique ≈ 10 px */
 /* Carte volontairement étroite (31 août 2026, demande d'Emilien : "que les bords ne dépassent pas l'écran") — 340px de large maximum, et de toute façon jamais … */
 .stopConfirmCard {
   background: none; width: 100%;
@@ -973,6 +974,8 @@ textarea {
 .tsCalSlot { border-radius: 2px; background: var(--track-bg); } /* mêmes petits carrés gris que la vue Semaine (.tsSlot) */
 /* Vue Année : un petit point gris par jour du mois (coloré par l'activité si enregistrement), heure totale du mois au-dessus. */
 .timesheetBlock.tsYearView { --cal-row: 78px; }
+.tsYearCell { justify-content: center; } /* nom d'activité (colonne figée, centré dans la ligne) aligné avec ses points */
+.tsYearCell .tsCalDayNum { min-height: 14px; }
 .tsYearDots { display: grid; grid-template-columns: repeat(7, 3px); gap: 3px; }
 .tsYearDot { display: block; width: 3px; height: 3px; border-radius: 50%; background: var(--track-bg); }
 

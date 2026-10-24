@@ -4,7 +4,7 @@
  * le bouton de fermeture (✕ / « Fermer ») du pop-up le plus récemment ouvert. */
 (function () {
   'use strict';
-  var SEL = '.communityMembersModal, .imageViewer, .docTasksPop, .strategyPop, #offer1CodePage, #stopConfirmPanel';
+  var SEL = '.communityMembersModal, .imageViewer, .docTasksPop, .strategyPop, #offer1CodePage';
   // Plein écrans et fenêtres dont la croix ✕ fermait déjà, mais que le focus/Tab ne pilote pas (créés à la volée ou sans
   // classe commune) : Échap seulement, aucun rôle ni focus ajouté. Même geste que la croix, aucun effet visuel.
   var ESC_ONLY = '#profileSettingsPanel, #tradePage, #docTasksPage, .goalTaskEditModal, .reportOverlay, .goalsDiscSheet';

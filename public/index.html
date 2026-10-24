@@ -736,7 +736,7 @@
              la date une place volontairement plus petite qu'à l'heure (31
              août 2026, demande d'Emilien), ce qu'un champ combiné ne permet
              pas de régler par CSS. -->
-        <div id="stopConfirmPanel" class="hidden" role="dialog" aria-modal="true" aria-labelledby="stopConfirmTitle">
+        <div id="stopConfirmPanel" class="hidden" role="dialog" aria-labelledby="stopConfirmTitle">
           <div class="stopConfirmCard">
             <p class="stepLabel" id="stopConfirmTitle">Confirmer l'arrêt</p>
             <p class="stopFieldLabel">Heure de début</p>
@@ -1291,7 +1291,14 @@
           </div>
         </div>
 
-        <!-- Statistiques des activités partagées : déplacées dans la 3e page du Chrono (#statsSharedPage, dans #tab-stats). -->
+        <!-- Fenêtre Activité > Statistiques : seule reste la page « Tâches par membre » (public/js/activite-stats-taches.js, GET /api/stats/activity-members).
+             La Répartition et le Graphique des activités partagées sont dans la 3e page du Chrono (#statsSharedPage) ; #caStatsPage1 reste vide donc la page unique s'ouvre directement, sans points. -->
+        <div id="communityActivityMembersPart" data-module="sharing">
+        <div id="caStatsPages"><div id="caStatsPage1" class="hidden"></div>
+        <div id="caStatsPage2"></div>
+        </div><!-- /#caStatsPages -->
+        <div id="caStatsDots" role="group" class="hidden"><button type="button" class="goalsDotBtn on" aria-label="Temps"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" aria-label="Tâches par membre"><span class="goalsDot"></span></button></div>
+        </div><!-- /#communityActivityMembersPart -->
 
         <!-- ⚠️ 5 septembre 2026 (discussion « Activité solo »), demande d'Emilien :
              « lorsqu'un sous-projet a été créé, une section statistique apparaît
@@ -2061,7 +2068,7 @@
              setActivityPageSection('sub')). -->
         <div class="periodSwitch" id="activityPageSectionSwitch" data-module="stats">
           <button type="button" class="periodBtn active" data-section="sub">Catégories</button>
-          <!-- Statistiques des activités partagées : déplacées dans la 3e page du Chrono (chantier Chrono). -->
+          <button type="button" class="periodBtn" id="activityPageTabStats" data-section="stats">Statistiques</button>
           <!-- 30 septembre 2026 : l'onglet Discussion a déménagé dans la Page 2 du volet Feuille de route (#goalsPage2ModeDiscBtn). -->
         </div>
         <div id="activityPageScroll">
