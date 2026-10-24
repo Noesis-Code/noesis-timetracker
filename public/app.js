@@ -15377,8 +15377,8 @@
         var lbl = document.createElement('span');
         lbl.className = 'notifRowLabel';
         lbl.textContent = 'Trade Tracker';
-        tradeRow.appendChild(lbl);
         if (TMT.modules.tradeOn()) {
+          tradeRow.appendChild(lbl);
           var tsw = document.createElement('label');
           tsw.className = 'toggleSwitch';
           var tin = document.createElement('input');
@@ -15389,12 +15389,7 @@
           tsw.appendChild(tin); tsw.appendChild(ttr);
           tradeRow.appendChild(tsw);
         } else {
-          var plus = document.createElement('button');
-          plus.type = 'button';
-          plus.className = 'iconBtn';
-          plus.textContent = '+';
-          plus.setAttribute('aria-label', t('Connecter Trade Tracker'));
-          plus.addEventListener('click', function () { plus.disabled = true; TMT.modules.setTrade(true).then(function (r) { paintTrade(); tradeMsg(r); }); });
+          var plus = TMT.ui.addBtn(t('Connecter Trade Tracker'), function () { plus.disabled = true; TMT.modules.setTrade(true).then(function (r) { paintTrade(); tradeMsg(r); }); });
           tradeRow.appendChild(plus);
         }
       };
