@@ -20,6 +20,8 @@
   --track-bg: rgba(243, 238, 232, 0.10);
   --hover-bg: rgba(243, 238, 232, 0.08);
   --violet-soft: #C4B9E6;
+  --avatar-membre-bg: rgba(156, 140, 200, .22);   /* avatars des membres (maquette Communauté v2) */
+  --avatar-moi-bg: rgba(243, 238, 232, .14);      /* pastille « E » de la barre du haut */
   --radius-sm: 8px;
   --radius-md: 10px;
   --radius-lg: 14px;

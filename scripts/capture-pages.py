@@ -44,8 +44,8 @@ OBJECTIFS = [
 ]
 COMMUNAUTE = [
     ('accueil', 'Communauté : fil et cercles de découverte', []),
-    ('recherche', 'Recherche de membres : résultats', [{'remplir': ['#communitySearchInput', 'Léo']}, {'clic': '#communitySearchBtn'}, POSE]),
-    ('profil-membre', 'Profil d\'un membre (visite)', [{'remplir': ['#communitySearchInput', 'Léo']}, {'clic': '#communitySearchBtn'}, POSE, {'clic': '#communitySearchResults >> text=Léo >> nth=0'}, POSE]),
+    ('recherche', 'Recherche de membres : résultats', [{'remplir': ['#communitySearchInput', 'Léo']}, {'eval': "document.getElementById('communitySearchInput').dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}))"}, POSE]),
+    ('profil-membre', 'Profil d\'un membre (visite)', [{'remplir': ['#communitySearchInput', 'Léo']}, {'eval': "document.getElementById('communitySearchInput').dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}))"}, POSE, {'clic': '#communitySearchResults >> text=Léo >> nth=0'}, POSE]),
     ('profil', 'Mon profil', [{'clic': '#whoami'}, POSE]),
     ('abonnements', 'Profil : abonnements et abonnés', [{'clic': '#whoami'}, POSE, {'clic': '#profileFollowsBtn'}, POSE]),
     ('notifications', 'Profil : notifications', [{'clic': '#whoami'}, POSE, {'clic': '#profileNotifBtn'}, POSE]),
