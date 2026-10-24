@@ -12,11 +12,6 @@
   background: radial-gradient(circle 325px at 50% 108%, rgba(var(--halo-n2-rgb), var(--halo-n2-a)) 0%, rgba(var(--halo-n2-rgb), 0) 72%);
 }
 .docTasksWin .activityPageName { display: inline-flex; align-items: center; gap: 8px; }
-.docTasksWin .activityPageHeader .menuBtn {
-  background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
-}
 .essorBadge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--purple); color: var(--on-action); }
 .goalsAddSoon { margin-left: 6px; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--glass-border); }
 .docTasksScroll { flex: 1 1 auto; overflow-y: auto; padding: 14px 16px calc(24px + env(safe-area-inset-bottom)); }

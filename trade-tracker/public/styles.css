@@ -33,8 +33,7 @@ a { color: inherit; text-decoration: none; }
 .topIconBtn {
   width: 36px; height: 36px; border-radius: 12px; color: var(--text);
   display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
-  background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  background: none; border: 0;
 }
 .topIconBtn:active { transform: scale(0.96); }
 /* Zone tactile 44 px minimum : extension invisible (apparence inchangée) */
