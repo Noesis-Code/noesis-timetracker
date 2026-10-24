@@ -1489,17 +1489,11 @@ body.scrollLock { overflow: hidden; }
   padding: 0;
 }
 #communitySearchBar input {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.6) 100%);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 30px rgba(0, 0, 0, 0.12);
-  -webkit-backdrop-filter: var(--glass-blur-sheet); backdrop-filter: var(--glass-blur-sheet);
-  border-radius: 22px;
-}
-:root[data-theme="dark"] #communitySearchBar input {
   background: var(--glass-bg);
-  border-color: var(--glass-border);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);  /* même verre que la barre des volets (.tabbar::before) */
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);  /* même verre que la barre des volets (.tabbar::before) ; app sombre uniquement */
+  border-radius: 22px;
 }
 #communitySeekingFilters .seekingTagBtn { -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
 /* ⚠️ 3 septembre 2026, demande d'Emilien : « lorsque je clique sur le texte, cherchez un pseudo, les infos Noèsis et nom de l'utilisateur doivent toujours s'afficher. */
@@ -1514,7 +1508,6 @@ body.scrollLock { overflow: hidden; }
 
 /* Bouton "Rechercher" DANS la zone de texte : repris tel quel du gabarit .chatComposerRow/.iconBtn (déjà défini plus haut, voir sa note) plutôt qu'une variante … */
 .communitySearchRow { margin-bottom: 8px; }
-.communitySearchRow input[type="text"] { padding-right: 118px; margin-bottom: 0; }
 /* Barre de recherche de l'onglet Communauté (maquette v2) : loupe à l'intérieur, à gauche ; plus de bouton « Rechercher » (la recherche part avec Entrée). */
 #communitySearchBar .communitySearchRow input[type="text"] { padding-left: 46px; padding-right: 16px; }
 .communitySearchIcon {
@@ -3458,9 +3451,9 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
    badges « je cherche » neutres. Les couleurs de pôle des graphiques et le rouge
    de retrait (Se désabonner, Bloquer) restent. Portée limitée à ces écrans. */
 .smallAvatar:not(:has(img)),
-.viewProfileAvatar:not(:has(img:not(.hidden))) { background: rgba(156, 140, 200, .22) !important; color: #C4B9E6; } /* maquette Communauté v2 : avatars des membres */
-.avatarDisplay:not(:has(img:not(.hidden))),
-.whoamiAvatar:not(:has(img:not(.hidden))) { background: rgba(243, 238, 232, .14) !important; color: #F3EEE8; } /* maquette Communauté v2 : pastille de l'utilisateur (« E ») */
+.viewProfileAvatar:not(:has(img:not(.hidden))) { background: var(--avatar-membre-bg) !important; color: var(--violet-soft); } /* maquette Communauté v2 : avatars des membres */
+.avatarDisplay:not(:has(img:not(.hidden))) { background: var(--purple) !important; color: var(--on-action); } /* 21 oct. 2026 : même violet cendré (inchangé, comme staging) */
+.whoamiAvatar:not(:has(img:not(.hidden))) { background: var(--avatar-moi-bg) !important; color: var(--text); } /* maquette Communauté v2 : pastille de l'utilisateur (« E ») */
 #tab-community .dot,
 #profilePage .dot,
 #profileFollowsPanel .dot,

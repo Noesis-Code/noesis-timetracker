@@ -5746,14 +5746,10 @@
     collapseCommunitySearchBarRow();
   });
 
-  // ⚠️ 29 septembre 2026 (épuration visuelle, demande d'Emilien : « le bouton
-  // Rechercher à l'intérieur de la zone texte »). La recherche reste live au
-  // fil de la frappe (voir l'écouteur 'input' plus bas, loadCommunityDiscovery) ;
-  // ce clic déclenche la même fonction tout de suite, pour qui tape puis
-  // clique plutôt que d'attendre le debounce de 250ms.
+  // La recherche reste live au fil de la frappe (écouteur 'input' plus bas, loadCommunityDiscovery).
   // Le bouton « Rechercher » est retiré (chantier Communauté) : la recherche part avec Entrée.
   $('communitySearchInput').addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter') return;
+    if (e.key !== 'Enter' || e.isComposing) return;
     e.preventDefault();
     clearTimeout(communitySearchDebounce);
     loadCommunityDiscovery();
