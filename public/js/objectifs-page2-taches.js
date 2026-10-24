@@ -43,7 +43,7 @@
   var TMT = window.TMT = window.TMT || {};
 
   document.getElementById('content').insertAdjacentHTML('beforeend', `
-      <div id="goalsActivitySwitcher" class="goalsActivitySwitcher communityMembersModal hidden">
+      <div id="goalsActivitySwitcher" class="goalsActivitySwitcher communityMembersModal cmpHalo hidden">
       <div class="communityMembersModalCard">
         <!-- chantier « Épuration visuelle » : en-tête
              fixe titre+croix, repris à l'identique du montage #activityPage
@@ -192,7 +192,7 @@
     if (blk && host) {
       // la Discussion s'ouvre dans une fenêtre type « profil d'un autre utilisateur » (en-tête fixe + ✕, contenu dessous).
       var sheet = document.createElement('div');
-      sheet.className = 'goalsDiscSheet';
+      sheet.className = 'goalsDiscSheet cmpGlass';
       sheet.innerHTML = '<div class="profileSubWindowHeader"><p class="sectionTitle" id="goalsDiscSheetTitle">Discussion</p>'
         + '<button type="button" class="cmpClose" id="goalsDiscSheetClose" aria-label="Fermer">✕</button></div>';
       sheet.appendChild(blk);

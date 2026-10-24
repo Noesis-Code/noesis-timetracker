@@ -1,6 +1,7 @@
 # Propositions de simplification (20 oct. 2026) — liste vivante unique
 
 État au 21 oct. 2026 : S3, S7, S9, S10, S11 (modifiée : seulement 3,5 CAD/semaine et 15 CAD/mois par compte, plus de plafond du jour ni par fonction), S12, S13, S14, S15 EXÉCUTÉES ; S1, S2, S4, S5, S6 par l'agent composants ; S8 REFUSÉE (journal de `SIMPLIFICATION.md`).
+Livraison (24 oct. 2026) : la tâche « S1 étape 2 » (jetons communs : verre calme, --pop-bg, --halo, --good) est livrée par le commit 3134671, intitulé par erreur « S1 étape 4 » (historique non réécrit).
 
 Pour chaque proposition : répondre **oui** ou **non**. Rien n'est exécuté avant ton oui ; chaque entrée est assez précise pour qu'un agent l'exécute telle quelle. Classées par gain, groupe par groupe. Constats vérifiés sur `origin/staging` (f4509f6) : les points déjà corrigés des audits (route PUT `goals/capacity`, `bindSubProjectDrag`, classes `goalCapacity*`) ne sont plus listés.
 

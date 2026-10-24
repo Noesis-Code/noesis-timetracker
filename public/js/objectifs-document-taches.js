@@ -28,7 +28,7 @@
   }
 
   document.getElementById('content').insertAdjacentHTML('beforeend', `
-    <div id="docTasksPage" class="docTasksWin hidden">
+    <div id="docTasksPage" class="docTasksWin cmpHalo hidden">
       <div class="activityPageHeader">
         <span class="activityPageName">Ajouter des tâches <span id="docTasksBadge" class="essorBadge">Expansion</span></span>
         <button type="button" class="cmpClose" id="docTasksClose" aria-label="Fermer">✕</button>
@@ -57,7 +57,7 @@
       </div>
     </div>
     <div id="docTasksAddedPop" class="docTasksPop hidden" role="dialog" aria-label="Tâches ajoutées">
-      <div class="docTasksPopCard">
+      <div class="docTasksPopCard cmpGlass">
         <div class="docTasksDriveHead"><strong>Tâches ajoutées</strong><button type="button" class="cmpClose" id="docTasksPopClose" aria-label="Fermer">✕</button></div>
         <div id="docTasksPopList" class="docTasksPopList"></div>
         <div id="docTasksPopToast" class="docTasksPopToast"></div>
@@ -65,13 +65,13 @@
       </div>
     </div>
     <div id="docTasksFolderSetPop" class="docTasksPop hidden" role="dialog" aria-label="Réglages du dossier">
-      <div class="docTasksPopCard">
+      <div class="docTasksPopCard cmpGlass">
         <div class="docTasksDriveHead"><strong id="docTasksFsTitle">Réglages du dossier</strong><button type="button" class="cmpClose" id="docTasksFsClose" aria-label="Fermer">✕</button></div>
         <div id="docTasksFsBody" class="docTasksPopList"></div>
       </div>
     </div>
     <div id="docTasksChangesPop" class="docTasksPop hidden" role="dialog" aria-label="Modifications proposées">
-      <div class="docTasksPopCard">
+      <div class="docTasksPopCard cmpGlass">
         <div class="docTasksDriveHead"><strong id="docTasksChangesTitle">Modifications proposées</strong><button type="button" class="cmpClose" id="docTasksChangesClose" aria-label="Fermer">✕</button></div>
         <p id="docTasksChangesHint" class="docTasksMeta">Rien ne change sans ta validation. Décoche ou supprime ce que tu refuses ; un refus n’est pas reproposé.</p>
         <div id="docTasksChangesBox" class="docTasksPopList"><div id="docTasksChangesTasks"></div></div>

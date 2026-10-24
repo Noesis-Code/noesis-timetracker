@@ -29,7 +29,6 @@
   --onb-purple: #C4B9E6;
 
   /* ---- États (réussite, alerte, danger) ---- */
-  --good: #6FC9A0;
   --good-text: #6FC9A0;
   --warn-orange: #C4B9E6;
   --warn-text-1: #C4B9E6;
@@ -50,26 +49,13 @@
   --sheet-line: rgba(243, 238, 232, 0.12);   /* liseré haut des feuilles du bas */
 
   /* ---- Verre : UN seul jeu --glass-*, deux niveaux ---- (a) verre « liquide » : boutons, panneaux, barre du haut (flou 24px) ; (b) verre « calme » : cartes, … */
-  --glass-bg: rgba(243, 238, 232, .05);   /* verre calme par défaut (R17) */
-  --glass-border: var(--sep);
-  --glass-shadow: inset 0 0 0 1px rgba(243, 238, 232, .12);
-  --glass-blur: blur(12px) saturate(1.1);
   --glass-blur-sheet: none;
-  --pop-bg: #16141A;   /* pop-ups, menus, feuilles : fond sombre uni */
-  --halo: rgba(156, 140, 200, .28);
   /* verre FORT (R17) : uniquement la bulle de l'icône active de la barre et le bouton flottant */
   --glass-strong-blur: blur(24px) saturate(160%);
-  --glass-calm-bg: rgba(243, 238, 232, .05);
-  --glass-calm-line: var(--sep);
-  --glass-calm-blur: blur(12px) saturate(1.1);
   --glass-calm-bg-strong: #16141A;   /* menus, colonnes figées */
   --glass-calm-blur-strong: blur(18px) saturate(1.15);
   --glass-calm-btn-bg: rgba(243, 238, 232, .03);  /* boutons flèches, trombone */
   --glass-calm-btn-line: rgba(243, 238, 232, .10);
-
-  /* ---- Halos des fenêtres (niveau 1 indigo, niveau 2 prune) ---- */
-  --halo-n1-rgb: 156, 140, 200; --halo-n1-a: 0.28;
-  --halo-n2-rgb: 156, 140, 200; --halo-n2-a: 0.28;
 }
 
 * { box-sizing: border-box; }
@@ -301,9 +287,10 @@ input[type=time]:focus, select:focus, textarea:focus {
 /* .identityHeader garde ici son display:flex/gap d'origine (règle générique plus bas, zone Profil) ; seule sa largeur et sa marge changent dans ce nouveau … */
 .topbarProfile .identityHeader { width: 100%; margin-bottom: 0; }
 /* Bande "Projets" de la barre supérieure (4 septembre 2026, demande d'Emilien : « déplacer les projets dans la zone du profil [...] une fois créé les projet … */
-.topbarProjects { display: flex; align-items: center; gap: 8px; width: 100%; }
+.topbarProjects { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; }
+.topbarProjectsStrip:empty { display: none; }
 .topbarProjectsStrip {
-  flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
+  min-width: 0; display: flex; align-items: center; gap: 6px;
   overflow-x: auto; overflow-y: hidden; padding-bottom: 2px;
   scrollbar-width: none;
 }
@@ -322,14 +309,6 @@ input[type=time]:focus, select:focus, textarea:focus {
 .projectChipName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Les badges viennent de buildSeekingBadges(seeking, false), partagée avec la liste dépliée et la page de visite d'un profil : aucune de ses règles n'est … */
 .projectChip .seekingBadges { margin: 0; flex-shrink: 0; }
-/* Le "+" : même sobriété que .topIconBtn (pas de fond, pas de bordure,
-   directement sur le noir de .topbar), mais un glyphe texte plutôt qu'un
-   SVG. */
-.topbarProjectsAddBtn {
-  flex-shrink: 0; background: none; border: none; padding: 0 4px; margin: 0;
-  color: white; font-size: 20px; line-height: 1; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
 /* Le panneau flottant des projets réutilise .notifPanel telle quelle (aucune
    de ses règles redéfinie) — seulement élargi comme l'est déjà celui des
    Réglages : il contient des formulaires, pas une simple liste. */
@@ -450,15 +429,6 @@ input[type=time]:focus, select:focus, textarea:focus {
 
 /* ⚠️ 29 septembre 2026, demande d'Emilien (direction visuelle « Piste B », validée sur rendu du volet Chrono) — MATIÈRE « VERRE » commune à l'app : 1) un halo … */
 body { isolation: isolate; }
-#app::before {
-  content: '';
-  position: fixed; z-index: -1; pointer-events: none;
-  left: 50%; margin-left: -200px; bottom: -130px;
-  width: 400px; height: 400px; border-radius: 50%;
-  background: rgba(var(--purple-rgb), 0.16);
-  filter: blur(60px);
-}
-:root[data-theme="dark"] #app::before { background: var(--halo); }
 
 /* Barre du haut (état par défaut) : photo de profil à gauche (36px), réglages
    à droite en carré de verre (36px, coins 12px). .topbar reste noire dans les
@@ -466,10 +436,6 @@ body { isolation: isolate; }
 .topbarDefault .whoamiAvatar { width: 36px; height: 36px; font-size: 15px; font-weight: 600; }
 .topbarDefault .topIconBtn {
   width: 36px; height: 36px; padding: 0; border-radius: 12px; color: var(--text);
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 .topbarDefault .topIconBtn svg { width: 18px; height: 18px; }
 .topbarDefault .topIconBtn.active { color: var(--white); }
@@ -481,17 +447,9 @@ body { isolation: isolate; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
-/* 30 septembre 2026 (Piste B, fenêtre d'activité) : SEULS les boutons du haut (inviter, fermer) deviennent vitreux ;
-   onglets et cartes inchangés. */
-#activityPage .activityPageHeader .menuBtn {
-  background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
-}
 /* 30 septembre 2026 (Piste B, Réglages + fenêtres Objectifs) : boutons ✕, flèches ‹ › et en-têtes de sections de
    Réglages en verre (jetons --glass-*) ; le contenu (cartes, zones de saisie, onglets Tâches/Objectifs) reste inchangé.
    Bordure des en-têtes de Réglages non touchée (sa couleur violette à l'ouverture reste pilotée plus bas). */
-#profileSettingsPanel .subpageHeader .menuBtn,
 #profileSettingsPanel .settingsGroup > .settingsSectionHeader,
 #profileSettingsPanel .settingsSection > .settingsSectionHeader,
 #goalsActivitySwitcher #goalsBackToCaptureBtn,
@@ -505,7 +463,6 @@ body { isolation: isolate; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
-#profileSettingsPanel .subpageHeader .menuBtn,
 #goalsActivitySwitcher #goalsBackToCaptureBtn,
 #goalsActivitySwitcher .goalsSwipeBtn,
 #goalsDetailPage #goalsDetailBack,
@@ -513,18 +470,7 @@ body { isolation: isolate; }
 #goalsDetailPage #activityGoalsNextBtn,
 #goalsMonthView #activityGoalsPrevBtn,
 #goalsMonthView #activityGoalsNextBtn { border: 1px solid var(--glass-border); }
-/* 30 septembre 2026 (Piste B, option B validée par Emilien) : halos lumineux dans les fenêtres, pour les distinguer de l'écran d'accueil (halo violet en bas). */
-#activityPage::before,
-#goalsActivitySwitcher::before,
-#profileSettingsPanel::before,
-#profilePage::before {
-  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background: radial-gradient(circle 325px at 50% 108%, rgba(var(--halo-n1-rgb), var(--halo-n1-a)) 0%, rgba(var(--halo-n1-rgb), 0) 72%);
-}
-#goalsDetailPage::before {
-  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background: radial-gradient(circle 325px at 50% 108%, rgba(var(--halo-n2-rgb), var(--halo-n2-a)) 0%, rgba(var(--halo-n2-rgb), 0) 72%);
-}
+/* Halo des fenêtres : le halo unique .cmpHalo (composants.css), posé sur chaque fenêtre plein écran. */
 #activityPage .communityMembersModalCard,
 #profilePage .communityMembersModalCard,
 #goalsActivitySwitcher .communityMembersModalCard,
@@ -559,11 +505,10 @@ body { isolation: isolate; }
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 /* 30 septembre 2026 (Piste B, « verre partout ») : les bascules (.periodBtn / .themeBtn : Tâches/Objectifs, Catégories/Statistiques/Discussion,
-   Abonnés/Abonnements…) et le « + » des projets du Profil passent en verre. L'état ACTIF des bascules reste violet plein
+   Abonnés/Abonnements…) passent en verre (le « + » des projets est devenu .cmpAdd, R23). L'état ACTIF des bascules reste violet plein
    (lisibilité de l'état). Restent inchangés : boutons d'envoi (Envoyer, Ajouter, Rechercher), accessoires du composeur (« + » sondage, pièce jointe), cartes, données. */
 .periodBtn:not(.active),
-.themeBtn:not(.active),
-#addProjectBtn {
+.themeBtn:not(.active) {
   background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
@@ -572,8 +517,6 @@ body { isolation: isolate; }
   .periodBtn.periodBtn:hover:not(.active),
   .themeBtn.themeBtn:hover:not(.active) { background: var(--glass-bg); filter: brightness(1.12); }
 }
-/* Le « + » des projets était un glyphe nu : lui donner la taille des autres boutons vitreux (32 px). */
-#addProjectBtn { min-width: 32px; height: 32px; padding: 0; border-radius: var(--radius-md); display: inline-flex; align-items: center; justify-content: center; }
 
 /* Volet Chrono : question et boutons d'activité un peu plus aérés. Portés par
    #chronoIdle/#activityButtons (les classes .stepLabel/.activityChoiceBtn
@@ -1576,9 +1519,9 @@ body.scrollLock { overflow: hidden; }
   display: flex; align-items: flex-end; justify-content: center; z-index: 100;
 }
 .communityMembersModalCard, .goalTaskEditCard {
-  background: var(--pop-bg); width: 100%; max-width: 480px; max-height: 80vh;
+  width: 100%; max-width: 480px; max-height: 80vh;
   overflow-y: auto; border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  padding: 16px; box-shadow: var(--shadow-elevated);
+  padding: 16px;
 }
 /* Fenêtre d'édition d'une tâche (appui long) : même gabarit, mais au-dessus des plein écran (#goalsDetailPage z 101). */
 .goalTaskEditModal { z-index: 110; }
@@ -2868,9 +2811,9 @@ button { -webkit-user-select: none; user-select: none; }
   display: inline-flex; align-items: center; justify-content: center;
   padding: 0;
   background: transparent; color: var(--text);
-  border: 1px solid var(--border); border-radius: var(--radius-md);
+  border: 0; border-radius: var(--radius-md);
   cursor: pointer; font-size: 16px; line-height: 1;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+  transition: background-color var(--transition-fast);
 }
 .profileSquareBtn svg { width: 20px; height: 20px; display: block; }
 .profileSquareBtn .notifDot { top: -2px; right: -2px; }
@@ -2886,7 +2829,7 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .profileSubWindowHeader {
   display: flex; align-items: center; gap: 10px; flex: 0 0 auto;
-  background: var(--bg); padding: 16px;
+  padding: 16px;
   border-bottom: 1px solid var(--border);
 }
 .profileSubWindowHeader .sectionTitle { flex: 1; min-width: 0; margin: 0; }
@@ -3041,14 +2984,6 @@ button { -webkit-user-select: none; user-select: none; }
    reposés localement : l'écran est noir aussi en thème clair), contenu resserré pour tenir sans coupure dès 375x667. */
 #onboarding {
   position: relative; z-index: 0; color: var(--text);
-}
-#onboarding::before {
-  content: '';
-  position: fixed; z-index: -1; pointer-events: none;
-  left: 50%; margin-left: -200px; bottom: -130px;
-  width: 400px; height: 400px; border-radius: 50%;
-  background: rgba(var(--purple-rgb), 0.45);
-  filter: blur(60px);
 }
 #onboarding .onboarding-card {
   background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
@@ -3217,7 +3152,7 @@ button { -webkit-user-select: none; user-select: none; }
 .catEditForm .timeCapsMax.isEmpty { color: var(--text-light); }
 .catEditForm .timeCapsMax:disabled { opacity: .6; cursor: default; }
 .durPickerOverlay { position: fixed; inset: 0; z-index: 400; background: var(--veil); display: flex; align-items: center; justify-content: center; }
-.durPickerSheet { width: 100%; max-width: 480px; box-sizing: border-box; margin: 0 8px; padding: 12px 16px 16px; border-radius: 22px; background: var(--pop-bg); color: var(--text); box-shadow: inset 0 0 0 1px var(--glass-calm-line), 0 10px 40px rgba(0,0,0,.4); }
+.durPickerSheet { width: 100%; max-width: 480px; box-sizing: border-box; margin: 0 8px; padding: 12px 16px 16px; border-radius: 22px; color: var(--text); }
 .durPickerHead { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px; }
 .durPickerWheels { position: relative; display: flex; justify-content: center; gap: 24px; height: 220px; margin: 4px 0 8px; }
 .durPickerBand { position: absolute; left: 0; right: 0; top: 88px; height: 44px; border-radius: var(--radius-md); background: rgba(255,255,255,.14); pointer-events: none; }

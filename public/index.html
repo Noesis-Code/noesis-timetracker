@@ -479,7 +479,7 @@
 </div>
 
 <!-- ===================== ONBOARDING (première ouverture) ===================== -->
-<div id="onboarding" class="screen hidden">
+<div id="onboarding" class="screen cmpHalo hidden">
   <div class="onboarding-card">
     <h1>Noèsis</h1>
 
@@ -612,7 +612,7 @@
 </div>
 
 <!-- ===================== APPLICATION ===================== -->
-<div id="app" class="screen hidden">
+<div id="app" class="screen cmpHalo hidden">
 
   <header class="topbar" id="topbar">
     <!-- État par défaut (Profil fermé) : "Noèsis" à gauche, #whoami à droite
@@ -1476,7 +1476,7 @@
            si son chrono est ACTUELLEMENT en cours pour CETTE activité
            précise (pas un chrono quelconque sur une autre activité). -->
       <div id="communityMembersModal" class="communityMembersModal hidden">
-        <div class="communityMembersModalCard">
+        <div class="communityMembersModalCard cmpGlass">
           <div class="profileSubWindowHeader">
             <p class="sectionTitle" id="communityMembersModalTitle"></p>
             <button type="button" class="cmpClose" id="communityMembersModalClose" aria-label="Fermer">✕</button>
@@ -1507,7 +1507,7 @@
            lequel on est parti : une activité partagée ne disparaît jamais,
            c'est elle qui recueille les enregistrements de l'autre. -->
       <div id="mergeActivityModal" class="communityMembersModal hidden">
-        <div class="communityMembersModalCard">
+        <div class="communityMembersModalCard cmpGlass">
           <div class="communityMembersModalHeader">
             <p class="sectionTitle" id="mergeActivityModalTitle"></p>
             <button type="button" class="cmpClose" id="mergeActivityModalClose" aria-label="Fermer">✕</button>
@@ -1531,7 +1531,7 @@
       </div>
 
       <div id="deleteActivityModal" class="communityMembersModal hidden">
-        <div class="communityMembersModalCard">
+        <div class="communityMembersModalCard cmpGlass">
           <div class="communityMembersModalHeader">
             <p class="sectionTitle" id="deleteActivityModalTitle"></p>
             <button type="button" class="cmpClose" id="deleteActivityModalClose" aria-label="Fermer">✕</button>
@@ -1628,7 +1628,7 @@
          ⚠️ Le GRAPHIQUE n'ouvre PAS cette fenêtre (précision d'Emilien) : il
          garde son appui qui affiche le nombre d'heures enregistrées. -->
     <div id="categoryStatsModal" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
+      <div class="communityMembersModalCard cmpGlass">
         <div class="viewProfileIdentity">
           <span class="identityName" id="categoryStatsTitle"></span>
           <button type="button" class="cmpClose" id="categoryStatsClose" aria-label="Fermer">✕</button>
@@ -1733,7 +1733,7 @@
          fonctionne pas en PWA) — 2 choix pour les tâches affiliées + annuler.
          Construite/pilotée par openCategoryRemoveModal() (app.js). -->
     <div id="categoryRemoveModal" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
+      <div class="communityMembersModalCard cmpGlass">
         <div class="communityMembersModalHeader">
           <p class="sectionTitle" id="categoryRemoveTitle"></p>
           <button type="button" class="cmpClose" id="categoryRemoveClose" aria-label="Fermer">✕</button>
@@ -1751,7 +1751,7 @@
     <!-- 1er octobre 2026 : « Déplacer vers… » — change un secteur de pôle (mode
          édition, ⇄). Rempli par openCategoryMoveModal() (app.js). -->
     <div id="categoryMoveModal" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
+      <div class="communityMembersModalCard cmpGlass">
         <div class="communityMembersModalHeader">
           <p class="sectionTitle" id="categoryMoveTitle"></p>
           <button type="button" class="cmpClose" id="categoryMoveClose" aria-label="Fermer">✕</button>
@@ -1762,7 +1762,7 @@
     </div>
 
     <div id="viewProfileModal" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
+      <div class="communityMembersModalCard cmpGlass">
         <!-- En-tête d'identité, FIXE (2 septembre 2026, demande d'Emilien :
              « je souhaite que la croix pour fermer le profil se trouve au
              même niveau que la photo et que le nom de l'utilisateur et je
@@ -2080,7 +2080,7 @@
          elle n'a ni statistiques (personne à comparer) ni fil (personne à qui
          parler), donc une seule section — un sélecteur à un seul bouton est du
          bruit. -->
-    <div id="activityPage" class="communityMembersModal hidden">
+    <div id="activityPage" class="communityMembersModal cmpHalo hidden">
       <div class="communityMembersModalCard">
         <div class="activityPageHeader">
           <span class="dot" id="activityPageDot"></span>
@@ -2187,7 +2187,7 @@
          La bande de tendance des 13 périodes
          (#activityGoalsTrendRow) a déménagé sur la PAGE 1 (#tab-goals,
          second passage du 14 septembre) — elle n'est plus ici. -->
-    <div id="goalsDetailPage" class="communityMembersModal hidden">
+    <div id="goalsDetailPage" class="communityMembersModal cmpHalo hidden">
     </div>
 
     <!-- Réglages (#profileSettingsPanel) déplacé ici le 9 septembre 2026 (demande d'Emilien, fenêtre plein écran) : il vivait jusque-là imbriqué dans .topbar (.settingsWrap > .identityHeader > #topbarProfile > .topbar), qui établit sa PROPRE zone d'empilement (position: fixed + z-index) — un enfant aussi profondément imbriqué ne peut pas, avec son seul z-index, se peindre au-dessus d'un AUTRE enfant direct de #app comme .tabbar : c'est la position de .topbar elle-même (z-index 10) qui aurait été comparée à .tabbar (z-index 10 aussi), pas celle du panneau, et .tabbar (déclarée après .topbar dans le document) l'aurait donc emporté et serait restée visible par-dessus. Déplacé ici, comme #activityPage juste au-dessus (même principe, voir son propre commentaire plus bas dans ce fichier) : enfant direct de <main>, qui ne crée aucune zone d'empilement propre — son z-index (90, styles.css) se compare alors directement à celui de .topbar/.tabbar (10 chacune) et l'emporte réellement. Le bouton "⚙️" (#profileSettingsBtn), lui, reste à sa place dans .identityHeader — seul le PANNEAU a bougé, showProfileSettings()/closeSettingsPanel() (app.js) continuent de le cibler par id, inchangés. -->
@@ -2233,7 +2233,7 @@
         <iframe id="tradeFrame" class="hidden" title="Trade Tracker" sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer-when-downgrade" allow="clipboard-write; publickey-credentials-get *; publickey-credentials-create *"></iframe>
       </div>
     </div>
-    <div id="profilePage" class="communityMembersModal hidden">
+    <div id="profilePage" class="communityMembersModal cmpHalo hidden">
       <div class="communityMembersModalCard">
         <div class="activityPageHeader profilePageHeader">
           <div class="avatarWrap">
@@ -2272,7 +2272,7 @@
           <p id="avatarMsg" class="msg"></p>
           <div class="topbarProjects projectsWrap" id="topbarProjects">
           <div class="topbarProjectsStrip" id="topbarProjectsList"></div>
-          <button type="button" id="addProjectBtn" class="topbarProjectsAddBtn" title="Ajouter un projet" aria-label="Ajouter un projet">+</button>
+          <button type="button" id="addProjectBtn" class="cmpAdd" title="Ajouter un projet" aria-label="Ajouter un projet"><b>+</b>Ajouter un projet</button>
           </div>
           <div id="profileMain">
 
@@ -2442,7 +2442,7 @@
          demandé le 10 septembre et qui ne doit pas se perdre dans la
          conversion. Contenu et ids inchangés. -->
     <div id="profileFollowsPanel" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
+      <div class="communityMembersModalCard cmpGlass">
         <div class="profileSubWindowHeader">
           <p class="sectionTitle" id="followsPanelTitle">Abonnés</p>
           <button type="button" id="followsPanelClose" class="cmpClose" aria-label="Fermer">✕</button>
@@ -2481,7 +2481,7 @@
 
     <!-- 30 sept. 2026 : « Projets » devient une fenêtre (même gabarit que Abonnés), ouverte par une pastille ou par le « + ». -->
 <div id="profileProjectsPanel" class="communityMembersModal hidden">
-<div class="communityMembersModalCard">
+<div class="communityMembersModalCard cmpGlass">
 <div class="profileSubWindowHeader">
 <p class="sectionTitle" id="projectsPanelTitle">Projets</p>
 <button type="button" id="projectsPanelClose" class="cmpClose" aria-label="Fermer">✕</button>
@@ -2575,7 +2575,7 @@
          septembre pour la discussion Notifications — un contrat entre
          segments, à ne pas casser en déplaçant le bloc. -->
     <div id="profileNotifPanel" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
+      <div class="communityMembersModalCard cmpGlass">
         <div class="profileSubWindowHeader">
           <p class="sectionTitle">Invitations et demandes de suivi</p>
           <button type="button" id="notifPanelClose" class="cmpClose" aria-label="Fermer">✕</button>
@@ -2592,7 +2592,7 @@
       </div>
     </div>
 
-<div id="profileSettingsPanel" class="notifPanel settingsPanel hidden">
+<div id="profileSettingsPanel" class="notifPanel settingsPanel cmpHalo hidden">
             <!-- 26 septembre 2026, demande d'Emilien (« remplacer flèche desktop
                  + swipe tactile par une croix ✕ + clic sur le fond, même mécanisme
                  qu'Activité ») : le contenu du panneau vit dans une CARTE, et le
@@ -3188,7 +3188,7 @@
   <!-- Points de pagination des pages de statistiques (gauche de Chrono / de la Feuille de route) : js/stats-avance.js. -->
   <div id="statsPageDots" class="hidden" role="group"></div>
   <nav class="tabbar">
-   <div class="tabbarPill" id="tabbarPill" role="tablist">
+   <div class="tabbarPill cmpGlass" id="tabbarPill" role="tablist">
     <button class="tabBtn active" data-tab="chrono" data-module="stats" aria-label="Chrono">
       <span class="tabIcon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3266,7 +3266,7 @@
       <span class="tabLabel">Communauté</span>
     </button>
     <!-- 19 oct. 2026 : Trade Tracker (module optionnel « trade », public/js/trade.js) : ouvre une page plein écran, ne change pas d'onglet. -->
-    <button class="tabBtn" data-tab="trade" data-module="trade" id="tradeTabBtn" aria-label="Trade Tracker">
+    <button class="tabBtn" data-tab="trade" data-expansion data-module="trade" id="tradeTabBtn" aria-label="Trade Tracker">
       <span class="tabIcon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="3,17 9,11 13,15 21,6"/>
@@ -3300,7 +3300,7 @@
   </nav>
   <p class="barHint hidden" id="barHint">Appui long : les onglets bougent. Glisse pour changer l'ordre. Croix rouge = retirer. L'onglet le plus à gauche est celui où l'app s'ouvre.</p>
   <div class="barAddPop hidden" id="barAddPop" role="dialog" aria-modal="true" aria-labelledby="barAddTitle">
-    <div class="barAddCard">
+    <div class="barAddCard cmpGlass">
       <div class="barAddHeader">
         <p class="sectionTitle" id="barAddTitle">Ajouter à la barre</p>
         <button type="button" class="cmpClose" id="barAddClose" aria-label="Fermer">✕</button>
@@ -3344,7 +3344,7 @@
      article 14) : seuls les libellés d'interface autour de lui (titre de
      section, bouton, indice) sont traduits via i18n.js. -->
 <div id="legalTermsModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard legalTermsModalCard">
+  <div class="communityMembersModalCard cmpGlass legalTermsModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Conditions d'utilisation</p>
       <button type="button" class="cmpClose" id="legalTermsModalClose" aria-label="Fermer">✕</button>
@@ -3438,7 +3438,7 @@
 
 <!-- Politique de confidentialité V3.7 (en vigueur le 10 octobre 2026), reprise mot pour mot depuis le texte source validé. Même gabarit que #legalTermsModal. Toute mise à jour du fond passe par le texte source, jamais rédigée ici. -->
 <div id="privacyPolicyModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard legalTermsModalCard">
+  <div class="communityMembersModalCard cmpGlass legalTermsModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Politique de confidentialité</p>
       <button type="button" class="cmpClose" id="privacyPolicyModalClose" aria-label="Fermer">✕</button>
@@ -3559,7 +3559,7 @@
      (notes sur l'incorporation, immatriculation) et n'est jamais montrée à
      l'Utilisateur. Même motif que les deux modaux juste au-dessus. -->
 <div id="legalNoticesModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard legalTermsModalCard">
+  <div class="communityMembersModalCard cmpGlass legalTermsModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Mentions légales</p>
       <button type="button" class="cmpClose" id="legalNoticesModalClose" aria-label="Fermer">✕</button>
@@ -3588,7 +3588,7 @@
 
 <!-- 10 oct. 2026 (trame 8) : Gouvernance des renseignements personnels, publique (sans connexion), même gabarit que les autres documents légaux. -->
 <div id="governanceModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard legalTermsModalCard">
+  <div class="communityMembersModalCard cmpGlass legalTermsModalCard">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Gouvernance des renseignements personnels</p>
       <button type="button" class="cmpClose" id="governanceModalClose" aria-label="Fermer">✕</button>
@@ -3613,7 +3613,7 @@
      attente"), un second — rejoué par #offer1CheckoutRecheckBtn — reprend
      une fois le représentant légal confirmé (201, redirection Stripe). -->
 <div id="offer1CheckoutModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard">
+  <div class="communityMembersModalCard cmpGlass">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Souscrire à Expansion</p>
       <button type="button" class="cmpClose" id="offer1CheckoutModalClose" aria-label="Fermer">✕</button>
@@ -3673,7 +3673,7 @@
 <script src="/i18n.js"></script>
 <!-- 10 oct. 2026 (trame 3) : invite pour les comptes existants (marketingConsentAt NULL). Aucune croix, deux boutons identiques, rien de pré-coché. Placée AVANT les modales légales pour que la Politique s'ouvre par-dessus. -->
 <div id="marketingInviteModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard">
+  <div class="communityMembersModalCard cmpGlass">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Une question sur vos données</p>
     </div>
@@ -3687,7 +3687,7 @@
 
 <!-- 10 oct. 2026 (trame 13) : info IA a la premiere ouverture de la Feuille de route. Ne bloque rien : fermer sans cliquer laisse tout utilisable. -->
 <div id="aiNoticeModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard">
+  <div class="communityMembersModalCard cmpGlass">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle">Comment Noèsis utilise vos renseignements</p>
       <button type="button" class="cmpClose" id="aiNoticeClose" aria-label="Fermer">✕</button>
@@ -3711,7 +3711,7 @@
 
 <!-- Annonce diffusee a tous (30 sept. 2026) : texte complet, une seule fois. -->
 <div id="announcementModal" class="communityMembersModal hidden">
-  <div class="communityMembersModalCard">
+  <div class="communityMembersModalCard cmpGlass">
     <div class="communityMembersModalHeader">
       <p class="sectionTitle" id="announcementModalTitle"></p>
       <button type="button" class="cmpClose" id="announcementModalClose" aria-label="Fermer">✕</button>

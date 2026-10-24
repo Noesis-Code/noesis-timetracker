@@ -44,6 +44,7 @@ try { if (window.parent !== window) document.documentElement.classList.add('fram
   function show() {
     var tab = current(), el = document.getElementById('screen');
     document.body.classList.toggle('fullPage', tab === 'settings' || tab === 'security');
+    document.getElementById('screen').classList.toggle('cmpHalo', tab === 'settings' || tab === 'security'); // halo unique (composants.css) sur la fenêtre plein écran
     renderTabs(tab === 'broker' || tab === 'invite' || tab === 'security' || tab === 'settings' || tab === 'sync' ? '' : tab);
     window.scrollTo(0, 0);
     el.setAttribute('aria-busy', 'true');

@@ -14,7 +14,7 @@
     ['stP3', 'Ta priorité n° 3', 'input'],
     ['stIgnore', 'Ce qui ne doit PAS être fait / ignoré', 'textarea']
   ];
-  var html = '<div id="strategyPop" class="strategyPop hidden"><div class="strategyCard" role="dialog" aria-label="' + tr('Stratégie') + '">'
+  var html = '<div id="strategyPop" class="strategyPop hidden"><div class="strategyCard cmpGlass" role="dialog" aria-label="' + tr('Stratégie') + '">'
     + '<div class="strategyHead"><span>' + tr('Stratégie de l’activité') + '</span><button type="button" class="cmpClose" id="strategyClose" aria-label="' + tr('Fermer') + '">✕</button></div>'
     + '<p class="hint">' + tr('L’IA suit ces consignes : elle n’ajoute pas de tâche qui s’en écarte.') + '</p>';
   FIELDS.forEach(function (f) {

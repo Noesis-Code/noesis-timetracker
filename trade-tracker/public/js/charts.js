@@ -19,7 +19,7 @@
   // Pop-up centré avec ✕ (jamais de feuille du bas).
   function modal(title, html) {
     var root = document.getElementById('modalRoot'), opener = document.activeElement;
-    root.innerHTML = '<div class="modalVeil" role="dialog" aria-modal="true" aria-label="' + esc(title) + '"><div class="modalCard"><button type="button" class="cmpClose modalClose" aria-label="Fermer">✕</button><div class="modalTitle">' + esc(title) + '</div>' + html + '</div></div>';
+    root.innerHTML = '<div class="modalVeil" role="dialog" aria-modal="true" aria-label="' + esc(title) + '"><div class="modalCard cmpGlass"><button type="button" class="cmpClose modalClose" aria-label="Fermer">✕</button><div class="modalTitle">' + esc(title) + '</div>' + html + '</div></div>';
     function close() { root.innerHTML = ''; document.removeEventListener('keydown', onKey); if (opener && opener.focus && document.contains(opener)) opener.focus(); }
     function onKey(e) {
       if (e.key === 'Escape') return close();

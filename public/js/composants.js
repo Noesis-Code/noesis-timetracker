@@ -10,7 +10,7 @@
     opts = opts || {};
     return new Promise(function (resolve) {
       var veil = document.createElement('div'); veil.className = 'cmpConfirmVeil';
-      var card = document.createElement('div'); card.className = 'cmpConfirmCard';
+      var card = document.createElement('div'); card.className = 'cmpConfirmCard cmpGlass';
       card.setAttribute('role', 'alertdialog'); card.setAttribute('aria-modal', 'true');
       var head = document.createElement('div'); head.className = 'cmpConfirmHead';
       var x = ui.closeBtn(null, opts.closeLabel);

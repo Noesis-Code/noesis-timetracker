@@ -7648,7 +7648,7 @@
     var overlay = document.createElement('div');
     overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
     var card = document.createElement('div');
-    card.className = 'goalTaskEditCard';
+    card.className = 'goalTaskEditCard cmpGlass';
     var header = document.createElement('div');
     header.className = 'goalTaskEditHeader';
     var title = document.createElement('p');
@@ -7765,7 +7765,7 @@
   function openDurationPicker(opts) {
     var ROW = 44, init = Math.max(0, Math.min(99 * 60 + 59, Number(opts.minutes) || 0));
     var ov = document.createElement('div'); ov.className = 'durPickerOverlay';
-    var sheet = document.createElement('div'); sheet.className = 'durPickerSheet';
+    var sheet = document.createElement('div'); sheet.className = 'durPickerSheet cmpGlass';
     sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-label', t(opts.title || 'Cible'));
     function close() { document.removeEventListener('keydown', onKey); ov.remove(); }
     function onKey(e) { if (e.key === 'Escape') close(); }
@@ -15377,8 +15377,8 @@
         var lbl = document.createElement('span');
         lbl.className = 'notifRowLabel';
         lbl.textContent = 'Trade Tracker';
-        tradeRow.appendChild(lbl);
         if (TMT.modules.tradeOn()) {
+          tradeRow.appendChild(lbl);
           var tsw = document.createElement('label');
           tsw.className = 'toggleSwitch';
           var tin = document.createElement('input');
@@ -15389,12 +15389,7 @@
           tsw.appendChild(tin); tsw.appendChild(ttr);
           tradeRow.appendChild(tsw);
         } else {
-          var plus = document.createElement('button');
-          plus.type = 'button';
-          plus.className = 'iconBtn';
-          plus.textContent = '+';
-          plus.setAttribute('aria-label', t('Connecter Trade Tracker'));
-          plus.addEventListener('click', function () { plus.disabled = true; TMT.modules.setTrade(true).then(function (r) { paintTrade(); tradeMsg(r); }); });
+          var plus = TMT.ui.addBtn(t('Connecter Trade Tracker'), function () { plus.disabled = true; TMT.modules.setTrade(true).then(function (r) { paintTrade(); tradeMsg(r); }); });
           tradeRow.appendChild(plus);
         }
       };

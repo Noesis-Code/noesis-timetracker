@@ -1436,6 +1436,7 @@
     "Tâches liées terminées avant la fin de semaine": "Linked tasks finished before the end of the week",
     "Pression entre pôles": "Pressure between poles",
     "Ajouter une information": "Add information",
+    "Ajouter un projet": "Add a project",
     "Retirer cette information ?": "Remove this information?",
     "« {name} » ne sera plus affichée dans l’onglet {tab}. Tu pourras la rajouter à tout moment.": "“{name}” will no longer be shown in the {tab} tab. You can add it back at any time.",
   });
