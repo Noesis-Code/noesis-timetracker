@@ -65,9 +65,13 @@ function hasActiveOffer1Subscription(userId) {
 }
 
 // Interrupteur TEMPORAIRE (staging seulement) : sans paiement Stripe, l'accès Expansion est ouvert à tout profil. Jamais actif hors staging ;
-// pour rétablir le paiement sur staging : variable EXPANSION_SANS_PAIEMENT=0 (voir docs/expansion/expansion-acces-2026-10-20.md).
+// pour rétablir le paiement sur staging : variable EXPANSION_SANS_PAIEMENT = 0, false, off ou non (insensible à la casse ; voir docs/expansion/expansion-acces-2026-10-20.md).
+// Variable absente ou 1/true/on : paiement retiré sur staging. Toute autre valeur : paiement rétabli (prudence).
 function sansPaiementStaging() {
-  return process.env.RAILWAY_ENVIRONMENT_NAME === 'staging' && process.env.EXPANSION_SANS_PAIEMENT !== '0';
+  if (process.env.RAILWAY_ENVIRONMENT_NAME !== 'staging') return false;
+  const v = process.env.EXPANSION_SANS_PAIEMENT;
+  if (v === undefined) return true;
+  return ['1', 'true', 'on'].includes(String(v).trim().toLowerCase());
 }
 
 function hasOffer1Access(userId) {
