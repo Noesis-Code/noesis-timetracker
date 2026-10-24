@@ -6,7 +6,7 @@ Décision d'Émilien : **l'application doit rester simple. On simplifie, on ne c
 1. **Retirer avant d'ajouter.** Aucune option, bouton, réglage, bascule, écran, pop-up ou couleur nouveau sans demande explicite d'Émilien dans le message du jour. Une tâche de son pôle qui ajoute de l'interface n'est faite que dans sa forme **minimale** (pas d'option annexe, pas de réglage « désactivé par défaut », pas de deuxième entrée vers la même fonction).
 2. **Une fonction = une entrée = une technique d'interaction** (croix ✕ pour fermer, glisser-déposer pour réordonner, bouton d'envoi dans la zone d'écriture). Jamais deux chemins vers la même chose.
 3. **Ne jamais élargir la demande** : ne changer que ce qui est demandé, ne rien « interpréter » en plus. En cas de doute sur une interprétation qui ajoute de l'interface, ne pas l'ajouter et le dire.
-4. **Design** : DESIGN.md. Sombre seulement, **violet #674EA7 = couleur principale**, pop-up centrés avec ✕, aucune fenêtre montant du bas, composants existants réutilisés. Le Chrono et l'arbre périodique ne changent pas visuellement sans demande.
+4. **Design** : DESIGN.md. Sombre seulement, **violet cendré #9C8CC8 = couleur principale**, pop-up centrés avec ✕, aucune fenêtre montant du bas, composants existants réutilisés. Le Chrono et l'arbre périodique ne changent pas visuellement sans demande.
 5. **Moins de texte, moins d'étapes, moins de réglages.** Un libellé court, une action directe, un état par défaut qui convient.
 6. **Rien de destructeur** : retirer une fonction = retirer l'interface et le code, jamais les données (tables inertes notées dans BACKLOG.md « à supprimer par Émilien »).
 

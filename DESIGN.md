@@ -18,7 +18,7 @@ Extrait du code réel (`public/styles.css`, `public/css/*.css`, `public/theme-pa
 
 | Variable | Valeur |
 |---|---|
-| `--purple` / `--purple-dark` / `--purple-rgb` | `#674EA7` / `#4a3980` / `103, 78, 167` |
+| `--purple` / `--purple-dark` / `--purple-rgb` | `#9C8CC8` / `#9C8CC8` / `156, 140, 200` |
 | `--green` (états actifs, interrupteur ON) | `#4CAF50` |
 | `--red` (pastilles, états) | `#E74C3C` |
 | `--blue` | `#3498db` |
@@ -99,7 +99,7 @@ Accent « orange brique » des boutons d'action/suppression : `#C2694A` (bordure
 ## 5. Nettoyage du 19 oct. 2026 (bloc Tokens)
 
 - **Un seul endroit pour ajuster le design** : bloc « TOKENS » en tête de `public/styles.css` (couleurs, accents orange brique, états, rayons, ombres, verre, halos, voile `--veil`). Plus aucune couleur hex en dur dans le CSS (hors commentaires) ; nouvelle couleur = nouvelle variable dans ce bloc.
-- **`#7c5cff` fusionné dans `--purple`** (`#674EA7`) ; `rgba(103,78,167,x)` → `rgba(var(--purple-rgb), x)` ; orange brique : `--brique`, `--brique-text`, `--brique-stop`, `--brique-rgb`.
+- **`#7c5cff` fusionné dans `--purple`** (aujourd'hui `#9C8CC8`, violet cendré R11 ; `#674EA7` n'est plus utilisé) ; `rgba(103,78,167,x)` → `rgba(var(--purple-rgb), x)` ; orange brique : `--brique`, `--brique-text`, `--brique-stop`, `--brique-rgb`.
 - **Verre : un seul jeu `--glass-*`**, deux niveaux : liquide (`--glass-bg/-border/-shadow/-blur/-blur-sheet`, flou 24/40 px) et calme (`--glass-calm-*`, ex-`--vc-*`, flou 12 px). Les valeurs n'ont pas été fusionnées (rendu inchangé).
 - **Modales** : `.communityMembersModal`/`.goalTaskEditModal` (et leurs cartes) partagent une seule recette (z-index 110 pour la seconde).
 - **Boutons orange brique** : contour = `.btnBrique` ; plein = groupe `.docTasksApplyBtn, .docTasksDriveBtn, .docTasksPill, .accompCodeOk` (styles.css).
