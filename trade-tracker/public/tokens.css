@@ -19,7 +19,4 @@
   /* ---- Rayons ---- */
 
   /* ---- Ombres, transitions ---- */
-
-  /* ---- Halos des fenêtres (niveau 1 indigo, niveau 2 prune) ---- */
-  --halo-n1-rgb: 156, 140, 200; --halo-n1-a: 0.28;
 }

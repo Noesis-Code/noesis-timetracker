@@ -479,7 +479,7 @@
 </div>
 
 <!-- ===================== ONBOARDING (première ouverture) ===================== -->
-<div id="onboarding" class="screen hidden">
+<div id="onboarding" class="screen cmpHalo hidden">
   <div class="onboarding-card">
     <h1>Noèsis</h1>
 
@@ -612,7 +612,7 @@
 </div>
 
 <!-- ===================== APPLICATION ===================== -->
-<div id="app" class="screen hidden">
+<div id="app" class="screen cmpHalo hidden">
 
   <header class="topbar" id="topbar">
     <!-- État par défaut (Profil fermé) : "Noèsis" à gauche, #whoami à droite
@@ -2080,7 +2080,7 @@
          elle n'a ni statistiques (personne à comparer) ni fil (personne à qui
          parler), donc une seule section — un sélecteur à un seul bouton est du
          bruit. -->
-    <div id="activityPage" class="communityMembersModal hidden">
+    <div id="activityPage" class="communityMembersModal cmpHalo hidden">
       <div class="communityMembersModalCard">
         <div class="activityPageHeader">
           <span class="dot" id="activityPageDot"></span>
@@ -2187,7 +2187,7 @@
          La bande de tendance des 13 périodes
          (#activityGoalsTrendRow) a déménagé sur la PAGE 1 (#tab-goals,
          second passage du 14 septembre) — elle n'est plus ici. -->
-    <div id="goalsDetailPage" class="communityMembersModal hidden">
+    <div id="goalsDetailPage" class="communityMembersModal cmpHalo hidden">
     </div>
 
     <!-- Réglages (#profileSettingsPanel) déplacé ici le 9 septembre 2026 (demande d'Emilien, fenêtre plein écran) : il vivait jusque-là imbriqué dans .topbar (.settingsWrap > .identityHeader > #topbarProfile > .topbar), qui établit sa PROPRE zone d'empilement (position: fixed + z-index) — un enfant aussi profondément imbriqué ne peut pas, avec son seul z-index, se peindre au-dessus d'un AUTRE enfant direct de #app comme .tabbar : c'est la position de .topbar elle-même (z-index 10) qui aurait été comparée à .tabbar (z-index 10 aussi), pas celle du panneau, et .tabbar (déclarée après .topbar dans le document) l'aurait donc emporté et serait restée visible par-dessus. Déplacé ici, comme #activityPage juste au-dessus (même principe, voir son propre commentaire plus bas dans ce fichier) : enfant direct de <main>, qui ne crée aucune zone d'empilement propre — son z-index (90, styles.css) se compare alors directement à celui de .topbar/.tabbar (10 chacune) et l'emporte réellement. Le bouton "⚙️" (#profileSettingsBtn), lui, reste à sa place dans .identityHeader — seul le PANNEAU a bougé, showProfileSettings()/closeSettingsPanel() (app.js) continuent de le cibler par id, inchangés. -->
@@ -2233,7 +2233,7 @@
         <iframe id="tradeFrame" class="hidden" title="Trade Tracker" sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer-when-downgrade" allow="clipboard-write; publickey-credentials-get *; publickey-credentials-create *"></iframe>
       </div>
     </div>
-    <div id="profilePage" class="communityMembersModal hidden">
+    <div id="profilePage" class="communityMembersModal cmpHalo hidden">
       <div class="communityMembersModalCard">
         <div class="activityPageHeader profilePageHeader">
           <div class="avatarWrap">
@@ -2592,7 +2592,7 @@
       </div>
     </div>
 
-<div id="profileSettingsPanel" class="notifPanel settingsPanel hidden">
+<div id="profileSettingsPanel" class="notifPanel settingsPanel cmpHalo hidden">
             <!-- 26 septembre 2026, demande d'Emilien (« remplacer flèche desktop
                  + swipe tactile par une croix ✕ + clic sur le fond, même mécanisme
                  qu'Activité ») : le contenu du panneau vit dans une CARTE, et le

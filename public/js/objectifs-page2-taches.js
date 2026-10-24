@@ -43,7 +43,7 @@
   var TMT = window.TMT = window.TMT || {};
 
   document.getElementById('content').insertAdjacentHTML('beforeend', `
-      <div id="goalsActivitySwitcher" class="goalsActivitySwitcher communityMembersModal hidden">
+      <div id="goalsActivitySwitcher" class="goalsActivitySwitcher communityMembersModal cmpHalo hidden">
       <div class="communityMembersModalCard">
         <!-- chantier « Épuration visuelle » : en-tête
              fixe titre+croix, repris à l'identique du montage #activityPage

@@ -1,16 +1,12 @@
-/* Ajouter des tâches depuis un document (Essor) — page verre + halo de la Page 3 (--halo-n2-*) ; violet = couleur principale. */
+/* Ajouter des tâches depuis un document (Essor) — page verre + halo unique (.cmpHalo) ; violet = couleur principale. */
 .docTasksRow { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
 .docTasksRow input[type=checkbox] { margin-top: 3px; accent-color: var(--purple); }
 .docTasksMeta { font-size: 12px; opacity: .7; margin-top: 2px; }
 .docTasksWarn { margin-top: 10px; padding: 8px 10px; border-radius: 12px; background: rgba(156, 140, 200, .16); border: 1px solid rgba(156, 140, 200, .5); font-size: 13px; }
 
-/* Page « Ajouter des tâches » : plein écran, halo de la Page 3 (mêmes variables/valeurs que #goalsDetailPage::before) + cartes en verre. */
+/* Page « Ajouter des tâches » : plein écran, halo unique (.cmpHalo) + cartes en verre. */
 .docTasksWin { position: fixed; inset: 0; z-index: 102; background: var(--bg); display: flex; flex-direction: column; }
 .docTasksWin.hidden { display: none; }
-.docTasksWin::before {
-  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background: radial-gradient(circle 325px at 50% 108%, rgba(var(--halo-n2-rgb), var(--halo-n2-a)) 0%, rgba(var(--halo-n2-rgb), 0) 72%);
-}
 .docTasksWin .activityPageName { display: inline-flex; align-items: center; gap: 8px; }
 .essorBadge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--purple); color: var(--on-action); }
 .goalsAddSoon { margin-left: 6px; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--glass-border); }

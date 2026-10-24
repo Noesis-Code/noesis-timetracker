@@ -28,7 +28,7 @@
   }
 
   document.getElementById('content').insertAdjacentHTML('beforeend', `
-    <div id="docTasksPage" class="docTasksWin hidden">
+    <div id="docTasksPage" class="docTasksWin cmpHalo hidden">
       <div class="activityPageHeader">
         <span class="activityPageName">Ajouter des tâches <span id="docTasksBadge" class="essorBadge">Expansion</span></span>
         <button type="button" class="cmpClose" id="docTasksClose" aria-label="Fermer">✕</button>
