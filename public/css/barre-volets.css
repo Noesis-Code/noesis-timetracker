@@ -23,14 +23,23 @@
 :root[data-theme] .tabbar .tabBtn .tabIcon,
 :root[data-theme] .tabbar .tabBtn.active .tabIcon {
   width: auto; height: auto; border: 0; border-radius: 0; background: none; box-shadow: none; color: inherit;
+  -webkit-backdrop-filter: none; backdrop-filter: none; /* plus de carré flou derrière l'icône */
 }
 :root[data-theme] .tabbar .tabBtn .tabIcon svg { width: 22px; height: 22px; }
 :root[data-theme] .tabbar .tabBtn[data-tab="goals"] .tabIcon svg { width: 21px; height: 25px; }
-/* Onglet actif = bulle de verre fort neutre. */
+/* Onglet actif = « goutte d'eau » : forme naturelle, fond doux sans bord ni opacité appuyée, apparition progressive. */
+:root[data-theme] .tabbar .tabBtn { transition: background .3s ease, box-shadow .3s ease, color .3s ease; }
 :root[data-theme] .tabbar .tabBtn.active {
   color: var(--text, #F3EEE8);
-  background: var(--glass-bg, linear-gradient(180deg, rgba(243, 238, 232, .14), rgba(243, 238, 232, .06)));
-  box-shadow: inset 0 0 0 1px var(--glass-border, rgba(243, 238, 232, .16)), inset 0 1px 0 rgba(243, 238, 232, .18);
+  border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+  background: radial-gradient(120% 110% at 38% 22%, rgba(243, 238, 232, .13) 0%, rgba(243, 238, 232, .05) 70%);
+  box-shadow: inset 0 1px 1px rgba(243, 238, 232, .14), 0 3px 8px rgba(0, 0, 0, .22);
+}
+/* Extensions (Expansion ; pour le moment Trade Tracker seulement, attribut data-expansion) : un carré autour de l'icône. */
+:root[data-theme] .tabbar .tabBtn[data-expansion] .tabIcon,
+:root[data-theme] .tabbar .tabBtn[data-expansion].active .tabIcon {
+  box-sizing: border-box; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--glass-calm-line, rgba(243, 238, 232, .12)); border-radius: 10px;
 }
 .tabbar .tabBtnDot { top: 6px; right: 6px; }
 /* Retirés de la barre : Stats et Activité (leurs contenus migrent, chantier B) ; onglets non ajoutés. */
@@ -42,9 +51,9 @@
   align-items: center; justify-content: center;
   border: 1.5px dashed rgba(243, 238, 232, .28); background: none; color: var(--purple, #9C8CC8);
 }
-/* Un seul volet restant (règle Q1) : la barre ne montre que le « + », plus perceptible (bord violet plein, plus épais). */
+/* Un seul volet restant (règle Q1) : la barre ne montre que le « + », même cercle pointillé gris, calé à droite. */
 .tabbar.barSolo .tabbarPill { display: none; }
-.tabbar.barSolo .tabBtnAdd { margin-left: auto; border: 2px solid var(--purple, #9C8CC8); }
+.tabbar.barSolo .tabBtnAdd { margin-left: auto; }
 /* Variante « extension payée » : même composant, verre fort de l'icône sélectionnée (exception assumée à R17, voir docs/regles/regles-rangement.md). */
 .tabbar .tabBtnAdd.barPaid {
   border: 1px solid rgba(243, 238, 232, .2); color: var(--text, #F3EEE8);
@@ -66,6 +75,8 @@
 .tabbar .barX {
   position: absolute; top: -2px; right: -2px; /* croix rouge R25 : le composant .cmpRemove fait le reste */
 }
+/* Zone de toucher de la croix limitée à son coin (28 px) : à 44 px elle couvrait toute l'icône et empêchait de la saisir pour la déplacer. */
+.tabbar .barX::after { width: 28px; height: 28px; }
 .tabbar .tabBtn.dragging .barX { display: none; }
 .barHint {
   position: fixed; left: 16px; right: 16px; z-index: 51; margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-light, #A59E96);
