@@ -64,7 +64,14 @@ function hasActiveOffer1Subscription(userId) {
   } catch (e) { return false; }
 }
 
+// Interrupteur TEMPORAIRE (staging seulement) : sans paiement Stripe, l'accès Expansion est ouvert à tout profil. Jamais actif hors staging ;
+// pour rétablir le paiement sur staging : variable EXPANSION_SANS_PAIEMENT=0 (voir docs/expansion/expansion-acces-2026-10-20.md).
+function sansPaiementStaging() {
+  return process.env.RAILWAY_ENVIRONMENT_NAME === 'staging' && process.env.EXPANSION_SANS_PAIEMENT !== '0';
+}
+
 function hasOffer1Access(userId) {
+  if (sansPaiementStaging() && userId) return true;
   return hasActiveGrant(userId) || hasActiveOffer1Subscription(userId);
 }
 
@@ -75,7 +82,7 @@ function activityHasEssor(activityId, userId) {
   try {
     const db = require('../db');
     if (!userId || !db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId)) return false;
-    if (hasActiveGrant(userId)) return true;
+    if (sansPaiementStaging() || hasActiveGrant(userId)) return true;
     return !!db.prepare("SELECT 1 FROM activity_subscriptions WHERE activityId = ? AND userId = ? AND status = 'active' LIMIT 1").get(activityId, userId);
   } catch (e) { return false; }
 }
