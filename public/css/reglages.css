@@ -130,9 +130,9 @@
 .activityEditBubble > .cmpRemove { position: absolute; top: 8px; right: 10px; margin: 0; }
 /* Modification d'une activité (maquette d'Émilien, 25 oct. 2026) : lignes sans cadre séparées par des traits pleine largeur, « Avancé » replié, Annuler gris à côté d'Enregistrer. */
 .activityEditRows, .activityEditAdv { display: flex; flex-direction: column; margin-top: 4px; }
-.activityEditRows > * + *, .activityEditAdv > * + * { border-top: 1px solid var(--sep); }
 .activityEditRow { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; padding: 0 4px; box-sizing: border-box; background: none; border: 0; color: var(--text); font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
-.activityEditAdvToggle { align-self: stretch; min-height: 44px; padding: 0 4px; background: none; border: 0; color: var(--violet-soft); font: inherit; font-size: 14px; cursor: pointer; }
+.activityEditRows > .activityEditRow + .activityEditRow, .activityEditAdv > .activityEditRow + .activityEditRow { border-top: 1px solid var(--sep); }
+.activityEditAdvToggle { align-self: stretch; min-height: 48px; padding: 0 4px; background: none; border: 0; border-top: 1px solid var(--sep); color: var(--violet-soft); font: inherit; font-size: 14px; cursor: pointer; } /* flèche commune .cmpChev à droite (R21) via TMT.ui.toggleLabel */
 .activityEditActions { align-items: center; gap: 12px; }
 .activityEditCancel { flex: 0 0 auto; min-height: 44px; padding: 0 12px; background: none; border: 0; color: var(--text-light); font: inherit; font-size: 15px; cursor: pointer; }
 .activityEditActions > .cmpBtn { flex: 1 1 auto; width: auto; }
@@ -142,3 +142,7 @@
 .editPopHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .editPopHead .sectionTitle { margin: 0; }
 .editPopBody { overflow-y: auto; min-height: 0; }
+/* Modifier un pôle ou un secteur : croix rouge standard en haut à droite de la carte, plus de corbeille. */
+.catEditForm { position: relative; }
+.catEditForm .catNewPoleFields { padding-top: 24px; }
+.catEditForm > .cmpRemove { position: absolute; top: 8px; right: 10px; margin: 0; }

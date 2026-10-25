@@ -7357,17 +7357,18 @@
     var msg = document.createElement('p'); msg.className = 'msg';
     var actions = document.createElement('div'); actions.className = 'catNewPoleActions';
     var del = document.createElement('button');
-    del.type = 'button'; del.className = 'historyRowIconBtn danger'; del.innerHTML = CHRONO_HISTORY_DELETE_ICON;
+    del.type = 'button'; del.className = 'cmpRemove'; // croix rouge standard en haut à droite (demande d'Émilien, 25 oct. 2026), plus de corbeille
     del.setAttribute('aria-label', t('Supprimer'));
     del.disabled = !st.poleKey && currentActivityGoalsCategories.length <= 1;
     var cancel = document.createElement('button');
     cancel.type = 'button'; cancel.className = 'iconBtn'; cancel.textContent = t('Annuler');
     var save = document.createElement('button');
     save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
-    actions.appendChild(del); actions.appendChild(cancel); actions.appendChild(save);
+    actions.appendChild(cancel); actions.appendChild(save);
     var caps = buildTimeCapsBlock(activityId, st.key, !st.poleKey);
     fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(caps.node); fields.appendChild(msg); fields.appendChild(actions);
     box.appendChild(fields);
+    box.appendChild(del);
     nameIn.addEventListener('input', function () { st.name = nameIn.value; });
     descIn.addEventListener('input', function () { st.desc = descIn.value; });
     function close() { catEditState = null; catRerender(); }
@@ -7852,7 +7853,7 @@
     });
     var toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'linkBtn';
     var body = document.createElement('div'); body.className = 'timeCapsBody hidden';
-    function paintToggle() { TMT.ui.toggleLabel(toggle, t('Gérer mon temps'), false); toggle.setAttribute('aria-expanded', body.classList.contains('hidden') ? 'false' : 'true'); }
+    function paintToggle() { toggle.textContent = t('Gérer mon temps'); toggle.setAttribute('aria-expanded', body.classList.contains('hidden') ? 'false' : 'true'); }
     toggle.addEventListener('click', function () { body.classList.remove('hidden'); toggle.classList.add('hidden'); });
     paintToggle(); paint();
     body.appendChild(table); body.appendChild(use);
@@ -15278,8 +15279,7 @@
       penBtn.className = 'historyRowIconBtn activityEditPen';
       penBtn.innerHTML = TMT.ui.editIcon();
       penBtn.setAttribute('aria-label', t('Modifier cette activité'));
-      penBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
+      function openEdit() {
         activityEditId = a.id;
         renderActivitiesSettings(acts, sharedList);
         // La bulle doit apparaître en entier au-dessus de la barre des volets : l'écran remonte au besoin.
@@ -15287,6 +15287,10 @@
           var bubble = document.querySelector('#activitiesList .activityEditBubble');
           if (bubble && bubble.scrollIntoView) bubble.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
+      }
+      penBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openEdit();
       });
       header.appendChild(penBtn);
 
@@ -15315,9 +15319,8 @@
       // retiré le 5 septembre 2026 : c'est désormais l'appui long
       // (bindActivityLongPress) qui ouvre le mode édition, exactement comme
       // pour les sous-projets.
-      header.addEventListener('click', function () {
-        openActivityPage(a, sharedInfo, row);
-      });
+      // 25 oct. 2026 (demande d'Émilien) : la page des activités n'est plus une destination ; un clic sur l'activité ouvre ses réglages de modification.
+      header.addEventListener('click', openEdit);
       header.classList.add('clickable');
       bindActivityLongPress(row);
 
@@ -15508,6 +15511,7 @@
     visRow.appendChild(sw);
     adv.appendChild(visRow);
     if ((acts || []).length > 1) adv.appendChild(plainRow(t('Fusionner avec…'), function () { openMergeActivityModal(a); }));
+    adv.appendChild(plainRow(t('Membres'), function () { openCommunityMembersModal(a.id, a.name, { activity: a, solo: !(a.membersCount > 1) }); }));
     advToggle.addEventListener('click', function () {
       var open = adv.classList.toggle('hidden') === false;
       advToggle.setAttribute('aria-expanded', open ? 'true' : 'false');

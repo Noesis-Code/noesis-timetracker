@@ -114,17 +114,25 @@
     hint.classList.toggle('hidden', !v);
     refresh();
   }
+  // À quoi sert chaque volet (affiché dans la confirmation d'ajout ou de retrait, demande d'Émilien, 25 oct. 2026).
+  var DESCRIPTIONS = {
+    chrono: 'Le Chrono mesure le temps passé sur chacune de tes activités : tu démarres, tu arrêtes, et tu retrouves l’historique et les statistiques.',
+    goals: 'La Feuille de route organise tes tâches et tes objectifs par activité, pôle et secteur, avec le calendrier et l’avancement.',
+    community: 'La Communauté te met en lien avec d’autres membres : ton profil, tes projets, leurs publications, les abonnements et les messages.',
+    trade: 'Trade Tracker suit tes positions et ton portefeuille de trading : tableau de bord, historique, allocation, avec la connexion à ton courtier.'
+  };
+  function describe(tab) { return DESCRIPTIONS[tab] ? tr(DESCRIPTIONS[tab]) + '\n' : ''; }
   function label(tab) { var b = btnOf(tab); return b ? tr(b.getAttribute('aria-label') || tab) : tab; }
   // Retirer ou ajouter un volet passe par la fenêtre de confirmation commune (demande d'Émilien, 25 oct. 2026) : ce que ça implique, puis on accepte.
   function askRemove(tab) {
     if (!mayRemove(tab) || !(TMT.ui && TMT.ui.confirm)) { removeTab(tab); return; }
-    TMT.ui.confirm(tr('Êtes-vous sûr de vouloir retirer le volet') + ' « ' + label(tab) + ' » ?\n' + tr('Voici ce que ça implique : il n’apparaît plus dans la barre. Tes données sont conservées et tu peux le remettre avec le « + ».'), { ok: tr('Retirer'), danger: true, closeLabel: tr('Fermer') })
+    TMT.ui.confirm(tr('Êtes-vous sûr de vouloir retirer le volet') + ' « ' + label(tab) + ' » ?\n' + describe(tab) + tr('Voici ce que ça implique : il n’apparaît plus dans la barre. Tes données sont conservées et tu peux le remettre avec le « + ».'), { ok: tr('Retirer'), danger: true, closeLabel: tr('Fermer') })
       .then(function (yes) { if (yes) removeTab(tab); });
   }
   function askAdd(tab, el) {
     if (!(TMT.ui && TMT.ui.confirm)) { addTab(tab, el); return; }
     var more = tab === 'trade' ? '\n' + tr('Cela connecte aussi Trade Tracker à ton compte.') : '';
-    TMT.ui.confirm(tr('Êtes-vous sûr de vouloir ajouter le volet') + ' « ' + label(tab) + ' » ?\n' + tr('Voici ce que ça implique : il apparaît dans la barre et tu peux le retirer à tout moment.') + more, { ok: tr('Ajouter'), closeLabel: tr('Fermer') })
+    TMT.ui.confirm(tr('Êtes-vous sûr de vouloir ajouter le volet') + ' « ' + label(tab) + ' » ?\n' + describe(tab) + tr('Voici ce que ça implique : il apparaît dans la barre et tu peux le retirer à tout moment.') + more, { ok: tr('Ajouter'), closeLabel: tr('Fermer') })
       .then(function (yes) { if (yes) addTab(tab, el); });
   }
   function removeTab(tab) {
