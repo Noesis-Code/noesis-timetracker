@@ -1753,7 +1753,6 @@
     // commentaire sur #settingsContactShareEmail dans index.html.
     $('settingsContactShareEmail').checked = !!profile.contactShareEmail;
     $('settingsContactSharePhone').checked = !!profile.contactSharePhone;
-    syncIdentitySaveState(true);
     renderIdentityHeader();
     // Vérifie tout de suite s'il y a des invitations/demandes de suivi en
     // attente, pour que le point rouge sur l'icône "avion en papier" soit à
@@ -11736,22 +11735,6 @@
     if (e.target === $('profileNotifPanel')) closeNotifPanel();
   });
 
-  // R35 : « Enregistrer » gris et inactif tant que rien n'a changé, violet dès qu'il y a un changement.
-  var identityBaseline = '';
-  function identityState() {
-    return JSON.stringify(['settingsName', 'settingsLastName', 'settingsPhone', 'settingsEmail'].map(function (id) { return $(id).value.trim(); })
-      .concat([$('settingsContactShareEmail').checked, $('settingsContactSharePhone').checked]));
-  }
-  function syncIdentitySaveState(resetBaseline) {
-    if (resetBaseline) identityBaseline = identityState();
-    var dirty = identityState() !== identityBaseline;
-    $('settingsSaveBtn').disabled = !dirty;
-    $('settingsSaveBtn').classList.toggle('cmpBtnIdle', !dirty);
-  }
-  ['settingsName', 'settingsLastName', 'settingsPhone', 'settingsEmail', 'settingsContactShareEmail', 'settingsContactSharePhone'].forEach(function (id) {
-    $(id).addEventListener('input', function () { syncIdentitySaveState(false); });
-    $(id).addEventListener('change', function () { syncIdentitySaveState(false); });
-  });
   $('settingsSaveBtn').addEventListener('click', function () {
     $('settingsSaveBtn').disabled = true;
     // La photo ne fait plus partie de ce formulaire (voir plus haut,
@@ -11782,10 +11765,9 @@
         // 2026 (remplacement du nom en topbar par une photo) a été retirée.
         saveProfile(p);
         $('settingsMsg').textContent = t('Profil mis à jour.');
-        syncIdentitySaveState(true);
       })
       .catch(function (err) { $('settingsMsg').textContent = err.message; })
-      .finally(function () { syncIdentitySaveState(false); });
+      .finally(function () { $('settingsSaveBtn').disabled = false; });
   });
 
   // ----- Apparence : thème sombre unique (le sélecteur clair/sombre a été retiré le 30 sept. 2026) -----
@@ -15475,17 +15457,8 @@
     cancel.addEventListener('click', function () { activityEditId = null; loadSettingsActivities(); });
     var save = document.createElement('button');
     save.type = 'button';
-    save.className = 'cmpBtn cmpBtnIdle';
-    save.disabled = true;
+    save.className = 'iconBtn btnBrique';
     save.textContent = t('Enregistrer');
-    // R35 : gris et inactif tant que rien n'a changé, violet dès qu'il y a un changement.
-    function markDirty() {
-      var dirty = (a.isOwner && nameIn.value.trim() !== a.name) || conf !== !!a.confidential;
-      save.disabled = !dirty;
-      save.classList.toggle('cmpBtnIdle', !dirty);
-    }
-    nameIn.addEventListener('input', markDirty);
-    cb.addEventListener('change', markDirty);
     save.addEventListener('click', function () {
       save.disabled = true;
       var newName = nameIn.value.trim();

@@ -125,8 +125,6 @@
 }
 .cmpBtn:disabled { opacity: .5; cursor: not-allowed; }
 .cmpBtnDanger { background: var(--danger); }
-/* Enregistrer (R35) : gris tant que rien n'a changé (.cmpBtnIdle), violet dès qu'il y a un changement. */
-.cmpBtn.cmpBtnIdle { background: var(--card); color: var(--text-light); box-shadow: inset 0 0 0 1px var(--border); }
 
 /* Fenêtre de confirmation (TMT.ui.confirm) : remplace window.confirm ; verre commun (.cmpGlass), ✕ en haut à droite */
 .cmpConfirmVeil { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--veil, rgba(0, 0, 0, .5)); }
