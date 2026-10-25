@@ -15445,6 +15445,32 @@
       visLine.appendChild(mergeBtn);
     }
 
+    // Stratégie de l'activité (déplacée ici le 25 oct. 2026, demande d'Émilien) : ligne qui se déroule sur place (R36), formulaire de strategie.js.
+    if (TMT.strategy) {
+      var stToggle = document.createElement('button');
+      stToggle.type = 'button';
+      stToggle.className = 'activityEditStrategyToggle';
+      stToggle.setAttribute('data-module', 'ai');
+      stToggle.setAttribute('aria-expanded', 'false');
+      var stLabel = document.createElement('span');
+      stLabel.textContent = t('Stratégie');
+      var stChev = document.createElement('span');
+      stChev.className = 'cmpChev';
+      stChev.setAttribute('aria-hidden', 'true');
+      stToggle.appendChild(stLabel);
+      stToggle.appendChild(stChev);
+      var stBody = document.createElement('div');
+      stBody.className = 'activityEditStrategyBody hidden';
+      stBody.setAttribute('data-module', 'ai');
+      var stMounted = false;
+      stToggle.addEventListener('click', function () {
+        var open = stBody.classList.toggle('hidden') === false;
+        stToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open && !stMounted) { stMounted = true; TMT.strategy.mount(stBody, a.id); }
+      });
+      fields.appendChild(stToggle);
+      fields.appendChild(stBody);
+    }
     // Extension Trade Tracker : « + » connecte (l'onglet Trade apparaît dans la barre du bas) ; connectée, l'interrupteur la retire. Comptes autorisés seulement.
     if (TMT.modules && TMT.modules.tradeAllowed()) {
       var tradeRow = document.createElement('div');

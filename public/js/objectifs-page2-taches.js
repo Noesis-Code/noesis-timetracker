@@ -62,7 +62,6 @@
              #activityPageHeader/#activityPageScroll. -->
         <div class="activityPageHeader">
           <span class="activityPageName" id="goalsActivityName"></span>
-          <button type="button" class="menuBtn" id="goalsStrategyBtn" data-module="ai" aria-label="Stratégie" title="Stratégie"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="4.5"></circle><circle cx="12" cy="12" r="1"></circle></svg></button>
           <button type="button" class="cmpClose" id="goalsBackToCaptureBtn" aria-label="Fermer">✕</button>
         </div>
         <div id="goalsNoPoleState" class="goalsNoPoleState hidden">
