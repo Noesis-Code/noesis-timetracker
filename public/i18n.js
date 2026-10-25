@@ -455,6 +455,7 @@
     'Compte et sécurité': 'Account & security',
     'Affichage': 'Display',
     'Calendrier et export de données': 'Calendar & data export',
+    'Calendrier et export': 'Calendar & export',
     'Identité': 'Identity',
     'Enregistrer': 'Save',
     'Nouveau': 'New',

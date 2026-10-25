@@ -1,0 +1,121 @@
+/* Réglages conformes à la maquette d'Émilien du 25 oct. 2026 (écran principal, sous-écrans « ‹ Retour », activités en une carte).
+   Chargé en dernier : il remplace le « mode épuré » du 30 sept. 2026 (styles.css) sans toucher à d'autres écrans. Jetons uniquement, aucune couleur en dur. */
+
+/* ----- Écran principal ----- */
+#profileSettingsScroll { scroll-snap-type: none; padding-top: 12px; }
+#profileSettingsPanel .settingsBlockLabel { padding: 0 0 8px; font-weight: 600; color: var(--text); }
+#settingsActivitiesBlock { gap: 12px; margin-bottom: 16px; }
+
+/* Activités : UNE carte, une ligne par activité, ✎ à droite (R19, R21, R22) */
+#activitiesList { gap: 0; border-radius: var(--radius-lg); background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); overflow: hidden; }
+#activitiesList:empty { display: none; }
+#activitiesList > .activityRow { background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-radius: 0; padding: 12px 16px; gap: 2px; }
+#activitiesList > .activityRow + .activityRow { border-top: 1px solid var(--sep); }
+#activitiesList > .activityRow.selected { border: 0; }
+#activitiesList > .activityRow + .activityRow.selected { border-top: 1px solid var(--sep); }
+#activitiesList .activityRowName { font-size: 14px; font-weight: 600; }
+#activitiesList .activityMetaLine { padding-left: 24px; font-size: 13px; color: var(--text-light); }
+#activitiesList .activityVisChip { background: none; padding: 0 0 0 4px; font-size: 13px; }
+#activitiesList .activityRow > .activityRowHeader > .activityEditPen { margin-left: auto; }
+
+/* Paramètres : UNE carte, séparateurs pleine largeur (R22) ; la flèche reste dans la colonne de droite (R21) */
+.settingsParamsCard { border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; }
+#profileSettingsScroll .settingsParamsCard .settingsSectionHeader { border: 0; padding: 14px 16px; min-height: 48px; box-sizing: border-box; background: none; }
+#profileSettingsPanel .settingsParamsCard .settingsSectionHeader .sectionTitle { font-size: 15px; font-weight: 600; }
+
+/* Déconnexion : texte gris centré ; Supprimer mon compte : contour rouge pleine largeur, tout en bas (R4, R12) */
+.settingsLogoutLink { display: block; width: 100%; min-height: 44px; margin: 0; padding: 0; background: none; border: 0; font: inherit; font-size: 14px; color: var(--text-light); cursor: pointer; text-align: center; }
+.settingsDeleteBtn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; box-sizing: border-box; margin: 8px 0 0; padding: 12px 16px; background: none; border: 1px solid var(--danger); border-radius: var(--radius-lg); font: inherit; font-size: 15px; color: var(--danger); cursor: pointer; }
+.settingsCancelLink { display: block; width: 100%; min-height: 44px; margin-top: 8px; padding: 0; background: none; border: 0; font: inherit; font-size: 14px; color: var(--text-light); cursor: pointer; text-align: center; }
+#deleteAccountModal input { width: 100%; box-sizing: border-box; padding: 12px; font-size: 16px; border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 12px; }
+#deleteAccountModal #deleteAccountBtn { width: 100%; min-height: 44px; }
+#deleteAccountModal .msg:empty { display: none; }
+
+/* ----- Sous-écrans (une section ouverte) ----- */
+.settingsSubHead { display: none; }
+#profileSettingsPanel.settingsDrill > .settingsPanelCard > .subpageHeader,
+#profileSettingsPanel.settingsDrill #settingsActivitiesBlock,
+#profileSettingsPanel.settingsDrill #profileSettingsScroll > .settingsBlockLabel,
+#profileSettingsPanel.settingsDrill #settingsParamsCard > :not(.open),
+#profileSettingsPanel.settingsDrill #settingsParamsCard > .open > .settingsSectionHeader,
+#profileSettingsPanel.settingsDrill .settingsLogoutLink,
+#profileSettingsPanel.settingsDrill .settingsDeleteBtn { display: none; }
+#profileSettingsPanel.settingsDrill .settingsSubHead { display: block; margin-bottom: 16px; }
+.settingsBackBtn { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin-left: -4px; padding: 0 4px; background: none; border: 0; font: inherit; font-size: 14px; color: var(--violet-soft); cursor: pointer; }
+.settingsSubTitle { margin: 0; font-size: 22px; font-weight: 700; color: var(--text); }
+#profileSettingsPanel.settingsDrill .settingsParamsCard { background: none; border-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; overflow: visible; margin-bottom: 0; }
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsSectionBody,
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody { margin: 0; }
+
+/* Cartes des sous-écrans : verre (jetons), 12 / 16 px de marge intérieure ; les cartes faites de lignes (interrupteurs, champs, choix) n'ont pas de marge : chaque ligne porte la sienne */
+#profileSettingsScroll #settingsParamsCard .settingsCard,
+#profileSettingsScroll #settingsParamsCard .settingsFlat {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  padding: 12px 16px; margin: 0 0 12px; overflow: hidden; box-sizing: border-box;
+}
+#profileSettingsPanel.settingsDrill #settingsParamsCard > .open { border-top: 0; }
+#profileSettingsScroll #settingsParamsCard .settingsCard:has(> .notifRow, > #modulesList, > #notifActivityList, > .consentItem),
+#profileSettingsScroll #settingsParamsCard .settingsFieldList,
+#profileSettingsScroll #settingsParamsCard .settingsFlat:has(#langSwitch) { padding: 0; }
+#settingsParamsCard .hint { margin: 0 0 8px; }
+#settingsParamsCard .msg { min-height: 0; margin: 8px 0 0; text-align: left; }
+#settingsParamsCard .msg:empty { display: none; }
+#settingsParamsCard .settingsHintBelow { padding: 0 4px; margin: -4px 0 12px; font-size: 13px; color: var(--text-light); }
+#profileSettingsScroll #settingsParamsCard .settingsFlatTitle { padding: 0; margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+#profileSettingsScroll #calendarFeedSection:not(.hidden) + .settingsFlat .settingsFlatTitle { padding-top: 0; }
+#settingsParamsCard .settingsFlat input[type=text], #settingsParamsCard .settingsCard input[type=text] { width: 100%; box-sizing: border-box; }
+
+/* Lignes de liste (interrupteurs, champs) : 48 px, trait pleine largeur entre deux lignes */
+#settingsParamsCard .notifRow { margin: 0; padding: 12px 16px; min-height: 48px; box-sizing: border-box; border-bottom: 1px solid var(--sep); }
+#settingsParamsCard .notifRow:last-child { border-bottom: 0; }
+#settingsParamsCard .notifRowLabel { font-size: 14px; }
+#profileSettingsScroll #settingsParamsCard .settingsFieldList > input { display: block; width: 100%; margin: 0; border: 0; border-bottom: 1px solid var(--sep); border-radius: 0; box-shadow: none; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 14px 16px; min-height: 48px; box-sizing: border-box; font-size: 15px; color: var(--text); }
+#profileSettingsScroll #settingsParamsCard .settingsFieldList > input:last-of-type { border-bottom: 0; }
+#settingsParamsCard #settingsSaveBtn { margin-top: 4px; }
+#settingsParamsCard #settingsPinSaveBtn { margin: 0; }
+
+/* Langue : deux lignes, coche à droite sur la langue active */
+#settingsParamsCard #langSwitch { display: block; margin: 0; }
+#settingsParamsCard #langSwitch .themeBtn { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; padding: 12px 16px; border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: var(--text); text-align: left; font-size: 15px; }
+#settingsParamsCard #langSwitch .themeBtn + .themeBtn { border-top: 1px solid var(--sep); }
+#settingsParamsCard #langSwitch .themeBtn.active { background: none; color: var(--text); }
+#settingsParamsCard #langSwitch .themeBtn.active::after { content: '\2713'; color: var(--text); font-size: 15px; }
+
+/* Mon IA : les trois choix forment UNE carte de lignes ; la phrase « Pas encore choisi » est sous la carte */
+#profileSettingsScroll #settingsParamsCard .settingsCard:has(#aiModeOptions) { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; overflow: visible; }
+#settingsParamsCard .aiModeChoices { gap: 0; margin: 0; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); overflow: hidden; }
+#settingsParamsCard .aiModeChoice { background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; border-radius: 0; padding: 12px 16px; }
+#settingsParamsCard .aiModeChoice + .aiModeChoice { border-top: 1px solid var(--sep); }
+#settingsParamsCard .aiModeChoice.on .aiModeChoiceTitle { color: var(--violet-soft); }
+#settingsParamsCard #aiModeOptions > .hint { margin: 8px 4px 0; }
+#settingsParamsCard #aiConnectBox .notifRow { padding: 0 0 8px; min-height: 0; border-bottom: 1px solid var(--sep); margin-bottom: 8px; }
+#settingsParamsCard #aiConnectBox > .btn, #settingsParamsCard #aiConnectBox > .iconBtn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; margin: 4px 8px 0 0; padding: 0 16px; }
+
+/* Partage et Aide : pas de carte autour des boutons du haut (maquette) */
+#profileSettingsScroll #settingsParamsCard .settingsCard:has(#shareQrCode),
+#profileSettingsScroll #settingsParamsCard .settingsCard:has(#feedbackCategorySwitch),
+#profileSettingsScroll #settingsParamsCard .settingsCard:has(#settingsLogoutAllBtn) { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; overflow: visible; }
+#settingsParamsCard #shareQrCode { margin: 16px auto 8px; }
+#settingsParamsCard #feedbackCategorySwitch .themeBtn.active { color: var(--text); background: var(--glass-bg); border-color: var(--purple); }
+#settingsParamsCard #shareAppBtn, #settingsParamsCard #shareProfileBtn { min-height: 44px; }
+#settingsParamsCard .settingsCard:has(#feedbackCategorySwitch) .hint { margin-top: 8px; }
+
+/* Sécurité : interrupteurs de consentement en lignes, documents légaux en lignes avec › à droite (R21) */
+#settingsParamsCard .settingsConsentCard .consentItem { border-bottom: 1px solid var(--sep); padding: 0; }
+#settingsParamsCard .settingsConsentCard .consentItem .notifRow { border-bottom: 0; }
+#settingsParamsCard .settingsConsentCard .consentItem .hint { margin: 0 16px 12px; }
+#settingsParamsCard .settingsConsentCard .msg { display: none; }
+#settingsParamsCard #settingsLogoutAllBtn, #settingsParamsCard #settingsPinSaveBtn { margin: 0; min-height: 44px; }
+#profileSettingsScroll #settingsParamsCard .settingsCard:has(#openPrivacyPolicyBtn) { padding: 0; }
+#settingsParamsCard .settingsCard:has(#openPrivacyPolicyBtn) > .hint { margin: 12px 16px; }
+#settingsParamsCard #openPrivacyPolicyBtn, #settingsParamsCard #openGovernanceBtn, #settingsParamsCard #openLegalNoticesBtn, #settingsParamsCard #openLegalTermsBtn {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; margin: 0; padding: 12px 16px; font-size: 14px; text-align: left;
+  background: none; box-shadow: none; border: 0; border-top: 1px solid var(--sep); border-radius: 0; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+#settingsParamsCard #openPrivacyPolicyBtn::after, #settingsParamsCard #openGovernanceBtn::after, #settingsParamsCard #openLegalNoticesBtn::after, #settingsParamsCard #openLegalTermsBtn::after { content: '\203A'; color: var(--text-light); font-size: 18px; }
+#settingsParamsCard #settingsPinSaveBtn { margin-bottom: 8px; }
+
+/* Modifier l'activité : ligne déroulée sur place dans la carte ; Annuler et Enregistrer de même largeur */
+#activitiesList .catNewPoleActions { gap: 8px; }
+#activitiesList .catNewPoleActions > .iconBtn, #activitiesList .catNewPoleActions > .cmpBtn { flex: 1; width: auto; min-height: 44px; padding: 0 16px; font-size: 14px; }

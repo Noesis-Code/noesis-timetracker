@@ -1753,6 +1753,7 @@
     // commentaire sur #settingsContactShareEmail dans index.html.
     $('settingsContactShareEmail').checked = !!profile.contactShareEmail;
     $('settingsContactSharePhone').checked = !!profile.contactSharePhone;
+    syncIdentitySaveState(true);
     renderIdentityHeader();
     // Vérifie tout de suite s'il y a des invitations/demandes de suivi en
     // attente, pour que le point rouge sur l'icône "avion en papier" soit à
@@ -10484,7 +10485,8 @@
   // plus que le bouton "←" et #profileSettingsScroll) — voir index.html et
   // le commentaire de #profileSettingsScroll dans styles.css.
   function closeAllSettingsSections() {
-    document.querySelectorAll('#profileSettingsScroll > .settingsSection, #profileSettingsScroll > .settingsGroup').forEach(function (top) {
+    $('profileSettingsPanel').classList.remove('settingsDrill'); // maquette 25 oct. 2026 : retour à la liste
+    document.querySelectorAll('#settingsParamsCard > .settingsSection, #settingsParamsCard > .settingsGroup').forEach(function (top) {
       closeSettingsContainer(top);
       if (top.classList.contains('settingsGroup')) {
         top.querySelectorAll('.settingsSection').forEach(closeSettingsContainer);
@@ -10520,6 +10522,13 @@
         : container.querySelector('.settingsSectionBody');
       if (body) body.classList.remove('hidden');
       head.setAttribute('aria-expanded', 'true');
+      // Maquette Réglages (25 oct. 2026) : une section ouverte est un sous-écran (« ‹ Retour » + titre), pas un accordéon.
+      if (!isNested) {
+        $('settingsSubTitle').textContent = head.querySelector('.sectionTitle').textContent;
+        $('profileSettingsPanel').classList.add('settingsDrill');
+        $('profileSettingsScroll').scrollTop = 0;
+        return;
+      }
       // La section/le groupe qu'on vient d'ouvrir se cale en haut du panneau :
       // son contenu est donc visible en entier d'un coup, sans que le bas soit
       // coupé par le bord du panneau (demande d'Emilien, 2 septembre 2026).
@@ -11735,6 +11744,22 @@
     if (e.target === $('profileNotifPanel')) closeNotifPanel();
   });
 
+  // « Enregistrer » gris et inactif tant que rien n'a changé, violet dès qu'il y a un changement (maquette Réglages, 25 oct. 2026).
+  var identityBaseline = '';
+  function identityState() {
+    return JSON.stringify(['settingsName', 'settingsLastName', 'settingsPhone', 'settingsEmail'].map(function (id) { return $(id).value.trim(); })
+      .concat([$('settingsContactShareEmail').checked, $('settingsContactSharePhone').checked]));
+  }
+  function syncIdentitySaveState(resetBaseline) {
+    if (resetBaseline) identityBaseline = identityState();
+    var dirty = identityState() !== identityBaseline;
+    $('settingsSaveBtn').disabled = !dirty;
+    $('settingsSaveBtn').classList.toggle('cmpBtnIdle', !dirty);
+  }
+  ['settingsName', 'settingsLastName', 'settingsPhone', 'settingsEmail', 'settingsContactShareEmail', 'settingsContactSharePhone'].forEach(function (id) {
+    $(id).addEventListener('input', function () { syncIdentitySaveState(false); });
+    $(id).addEventListener('change', function () { syncIdentitySaveState(false); });
+  });
   $('settingsSaveBtn').addEventListener('click', function () {
     $('settingsSaveBtn').disabled = true;
     // La photo ne fait plus partie de ce formulaire (voir plus haut,
@@ -11765,9 +11790,10 @@
         // 2026 (remplacement du nom en topbar par une photo) a été retirée.
         saveProfile(p);
         $('settingsMsg').textContent = t('Profil mis à jour.');
+        syncIdentitySaveState(true);
       })
       .catch(function (err) { $('settingsMsg').textContent = err.message; })
-      .finally(function () { $('settingsSaveBtn').disabled = false; });
+      .finally(function () { syncIdentitySaveState(false); });
   });
 
   // ----- Apparence : thème sombre unique (le sélecteur clair/sombre a été retiré le 30 sept. 2026) -----
@@ -14924,6 +14950,15 @@
   // confirmations enchaînées — même style que la suppression définitive
   // d'une activité, mais avec un cran de plus vu que c'est irréversible et
   // que ça emporte tout l'historique.
+  function closeDeleteAccountModal() {
+    $('deleteAccountModal').classList.add('hidden');
+    $('deleteAccountPin').value = '';
+    $('deleteAccountMsg').textContent = '';
+  }
+  $('deleteAccountOpenBtn').addEventListener('click', function () { $('deleteAccountModal').classList.remove('hidden'); });
+  $('deleteAccountClose').addEventListener('click', closeDeleteAccountModal);
+  $('deleteAccountCancel').addEventListener('click', closeDeleteAccountModal);
+  $('settingsBackBtn').addEventListener('click', closeAllSettingsSections);
   $('deleteAccountBtn').addEventListener('click', function () {
     var pin = $('deleteAccountPin').value.trim();
     $('deleteAccountMsg').textContent = '';
@@ -15373,7 +15408,7 @@
     sw.className = 'toggleSwitch';
     var cb = document.createElement('input');
     cb.type = 'checkbox';
-    cb.checked = !conf;
+    cb.checked = conf;
     cb.setAttribute('role', 'switch');
     var track = document.createElement('span');
     track.className = 'toggleSwitchTrack';
@@ -15392,8 +15427,8 @@
     note.className = 'meta activityVisNote';
     fields.appendChild(note);
     function paintVis() {
-      conf = !cb.checked;
-      word.textContent = conf ? t('Confidentielle') : t('Publique');
+      conf = cb.checked;
+      word.textContent = t('Confidentiel');
       note.textContent = conf
         ? t('Activité invisible pour les autres.')
         : t('Activité visible par les autres.');
@@ -15457,8 +15492,17 @@
     cancel.addEventListener('click', function () { activityEditId = null; loadSettingsActivities(); });
     var save = document.createElement('button');
     save.type = 'button';
-    save.className = 'iconBtn btnBrique';
+    save.className = 'cmpBtn cmpBtnIdle';
+    save.disabled = true;
     save.textContent = t('Enregistrer');
+    // Gris et inactif tant que rien n'a changé, violet dès qu'il y a un changement (maquette Réglages, 25 oct. 2026).
+    function markDirty() {
+      var dirty = (a.isOwner && nameIn.value.trim() !== a.name) || conf !== !!a.confidential;
+      save.disabled = !dirty;
+      save.classList.toggle('cmpBtnIdle', !dirty);
+    }
+    nameIn.addEventListener('input', markDirty);
+    cb.addEventListener('change', markDirty);
     save.addEventListener('click', function () {
       save.disabled = true;
       var newName = nameIn.value.trim();
@@ -15474,7 +15518,7 @@
         return refreshActivities().then(function () { renderActivityGrid(); loadSettingsActivities(); });
       }).catch(function (err) { msg.textContent = err.message; save.disabled = false; });
     });
-    actions.appendChild(trash);
+    nameLine.appendChild(trash); // maquette : ⊖ rouge à droite du nom
     actions.appendChild(cancel);
     actions.appendChild(save);
     fields.appendChild(actions);

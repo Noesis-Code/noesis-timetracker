@@ -92,6 +92,7 @@ const SHELL = [
   '/js/composants.js',
   '/css/verre-calme.css',
   '/css/barre-volets.css',
+  '/css/reglages.css',
   '/js/barre-volets.js',
   '/i18n.js',
   '/legal-en.js',
