@@ -16,6 +16,7 @@
 /* Icônes seules : pas de titre, pas de carré de verre propre (la bulle de verre est celle de l'onglet actif). */
 :root[data-theme] .tabbar .tabBtn {
   flex: 1 1 0; min-width: 0; width: auto; height: 100%; padding: 0; gap: 0; border-radius: 999px;
+  border: 0 solid transparent; box-sizing: border-box;
   color: var(--text-light, #A59E96); touch-action: none;
   background: none; box-shadow: none;
 }
@@ -28,11 +29,12 @@
 :root[data-theme] .tabbar .tabBtn .tabIcon svg { width: 22px; height: 22px; }
 :root[data-theme] .tabbar .tabBtn[data-tab="goals"] .tabIcon svg { width: 21px; height: 25px; }
 /* Onglet actif (demande d'Émilien, 25 oct. 2026, d'après la recherche de la bibliothèque d'apps de l'iPhone) : pilule de la forme de la barre qui remplit la zone de son volet (elle s'arrête au milieu de l'écart avec le voisin), verre sans couleur de même opacité que les pop-up, contour fin ; elle déforme ce qui passe derrière (filtre #tabLens, navigateurs qui le permettent). */
-:root[data-theme] .tabbar .tabBtn { transition: background .3s ease, box-shadow .3s ease, color .3s ease; }
+:root[data-theme] .tabbar .tabBtn { transition: background .3s ease, box-shadow .3s ease, color .3s ease, flex-grow .4s cubic-bezier(.4, 0, .2, 1), flex-basis .4s cubic-bezier(.4, 0, .2, 1), border-color .3s ease; }
 :root[data-theme] .tabbar .tabBtn.active { color: var(--text, #F3EEE8); background: none; box-shadow: none; border-radius: 0; }
 :root[data-theme] .tabbar .tabBtn.active .tabIcon { position: relative; z-index: 1; }
 :root[data-theme] .tabbar .tabBtn.active::before {
   content: ''; position: absolute; left: 0; right: 0; top: 4px; bottom: 4px; pointer-events: none; box-sizing: border-box;
+  transition: top .4s cubic-bezier(.4, 0, .2, 1), bottom .4s cubic-bezier(.4, 0, .2, 1), background-color .4s ease, border-color .4s ease;
   border-radius: var(--radius-pill, 999px);
   background: var(--glass-bg); /* sans couleur : même verre que les pop-up, posé sur le verre de la barre (demande d'Émilien, 25 oct. 2026) */
   border: 1px solid var(--glass-border);
@@ -40,6 +42,15 @@
 }
 @supports (backdrop-filter: url(#tabLens)) {
   :root[data-theme] .tabbar .tabBtn.active::before { backdrop-filter: url(#tabLens) blur(.4px) saturate(1.1); }
+}
+/* Ajout direct (demande d'Émilien, 25 oct. 2026) : le « + » déploie dans la barre les volets pas encore installés, en cercles pointillés ; un « + » vert (le vert « atteint ») remplace la croix rouge ; un tap installe le volet. */
+:root[data-theme] .tabbar .tabBtn.barGhost { display: flex; flex: 0 0 52px; width: auto; height: 52px; border-radius: 50%; border: 1.5px dashed var(--cmp-dash, rgba(243, 238, 232, .28)); }
+.tabbar.barSolo.barAdding .tabbarPill { display: flex; }
+.tabbar .barPlus { position: absolute; top: -2px; right: -2px; }
+.cmpAddBadge {
+  flex-shrink: 0; width: 13px; height: 13px; box-sizing: border-box; border-radius: 50%; pointer-events: none;
+  background-color: var(--good); background-size: 100% 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 13'%3E%3Cpath d='M6.5 3.2v6.6M3.2 6.5h6.6' stroke='%2315111C' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 .tabbar .tabBtnDot { top: 8px; left: calc(50% + 6px); right: auto; } /* la pastille reste contre son icône, même quand le volet occupe toute sa zone */
 /* Retirés de la barre : Stats et Activité (leurs contenus migrent, chantier B) ; onglets non ajoutés. */
@@ -67,11 +78,13 @@
 .tabbar.barEdit .tabbarPill { justify-content: space-evenly; padding: 0; }
 :root[data-theme] .tabbar.barEdit .tabBtn,
 :root[data-theme] .tabbar.barEdit .tabBtn.active {
-  flex: none; width: 52px; height: 52px; border-radius: 50%; background: none; box-shadow: none;
-  border: 1.5px solid var(--cmp-dash, rgba(243, 238, 232, .28)); box-sizing: border-box;
+  flex: 0 0 52px; width: auto; height: 52px; border-radius: 50%; background: none; box-shadow: none;
+  border: 1.5px solid var(--cmp-dash, rgba(243, 238, 232, .28));
   -webkit-backdrop-filter: none; backdrop-filter: none;
 }
-:root[data-theme] .tabbar.barEdit .tabBtn.active::before,
+/* L'ovale du volet actif rétrécit et se referme en rond : il devient lui-même le cercle de ce volet. */
+:root[data-theme] .tabbar.barEdit .tabBtn.active { border-color: transparent; }
+:root[data-theme] .tabbar.barEdit .tabBtn.active::before { top: 0; bottom: 0; background-color: transparent; border: 1.5px solid var(--cmp-dash, rgba(243, 238, 232, .28)); }
 :root[data-theme] .tabbar.barEdit .tabBtn.active::after { display: none; }
 .tabbar.barEdit .tabBtn { transform: rotate(2deg); animation: tabJiggle .26s ease-in-out infinite alternate; }
 .tabbar.barEdit .tabBtn:nth-child(even) { transform: rotate(-2deg); animation-delay: -.13s; }
@@ -87,24 +100,6 @@
   bottom: calc(max(16px, env(safe-area-inset-bottom)) + 52px + 12px); pointer-events: none;
 }
 
-/* Pop-up centré « Ajouter à la barre » (R13 : ✕ en haut à droite ; R17 : verre fort). */
-.barAddPop {
-  position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px;
-  background: rgba(0, 0, 0, .55);
-}
-.barAddCard {
-  box-sizing: border-box; width: min(100%, 340px); padding: 16px; border-radius: 20px;
-}
-.barAddHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.barAddHeader .sectionTitle { margin: 0; }
-.barAddList { display: flex; flex-direction: column; gap: 8px; }
-.barAddRow {
-  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 16px; border-radius: 14px; font: inherit; font-size: 15px; text-align: left;
-  color: var(--text, #F3EEE8); cursor: pointer;
-  background: var(--glass-calm-bg, rgba(243, 238, 232, .05)); border: 1px solid var(--glass-calm-line, rgba(243, 238, 232, .12));
-}
-.barAddIcon { display: flex; align-items: center; justify-content: center; width: 24px; }
-.barAddIcon svg { width: 22px; height: 22px; display: block; }
 
 /* Pages de statistiques à gauche de Chrono / de la Feuille de route : le geste de glissement doit marcher aussi dans la zone vide sous le contenu. */
 #tab-chrono, #tab-stats, #tab-goals { min-height: 70vh; }

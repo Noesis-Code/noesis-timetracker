@@ -1,6 +1,6 @@
 /* Barre des volets (chantier B, 20 oct. 2026 ; R18 de docs/regles/regles-rangement.md).
  * Barre fixe, toujours visible : pilule de 4 icônes au plus, centrées et réparties ; « + » séparé (absent quand rien
- * n'est à ajouter) qui ouvre un pop-up centré « Ajouter à la barre ». Appui long (500 ms, annulé au-delà de 10 px, comme les activités) :
+ * n'est à ajouter) qui déploie dans la barre les volets pas encore installés (cercles pointillés au « + » vert, un tap les installe). Appui long (500 ms, annulé au-delà de 10 px, comme les activités) :
  * mode édition — glisser une icône pour l'ordre, croix rouge pour la retirer. Règle Q1 (21 oct. 2026) : au moins un des trois volets Chrono, Feuille de route ou
  * Trade Tracker doit rester ; s'il ne reste qu'un volet au total, la barre ne montre que le bouton « + » (plus perceptible).
  * L'ordre est mémorisé par compte (localStorage) ; l'app s'ouvre sur l'onglet le plus à gauche (modules.js → TMT.navBar.firstTab).
@@ -13,14 +13,11 @@
   var pill = document.getElementById('tabbarPill');
     var addBtn = document.getElementById('tabbarAdd');
   var hint = { classList: { add: function () {}, toggle: function () {} } }; // le message « Appui long… » est supprimé (demande d'Émilien, 25 oct. 2026)
-  var pop = document.getElementById('barAddPop');
-  if (!nav || !pill || !addBtn || !pop) return;
-  var popList = document.getElementById('barAddList');
-  var popMsg = document.getElementById('barAddMsg');
+  if (!nav || !pill || !addBtn) return;
   var ALL = ['chrono', 'goals', 'community', 'trade'];
   var KEEP = ['chrono', 'goals', 'trade']; // au moins un de ces trois doit rester dans la barre (Q1)
   var LONG_MS = 500, MOVE_PX = 10;
-  var editMode = false, justEdited = false;
+  var editMode = false, justEdited = false, adding = false;
 
   function pid() { var p = typeof TMT.getProfile === 'function' ? TMT.getProfile() : null; return p && p.id; }
   function key() { return 'noesis-bar:' + (pid() || ''); }
@@ -48,31 +45,41 @@
     var avail = addable();
     addBtn.classList.toggle('barNoAdd', !avail.length); // plus rien à ajouter : le « + » disparaît, la barre s'allonge
     addBtn.classList.toggle('barPaid', avail.some(isPaid)); // variante verre fort : extension payée à ajouter (jamais les deux à la fois)
+    if (adding && !avail.length) { adding = false; nav.classList.remove('barAdding'); }
     var solo = visibleOrder().length <= 1 && avail.length > 0; // un seul volet : la barre ne montre que le « + » perceptible
     nav.classList.toggle('barSolo', solo);
     if (solo && editMode) { editMode = false; nav.classList.remove('barEdit'); hint.classList.add('hidden'); }
     Array.prototype.forEach.call(pill.querySelectorAll('.tabBtn'), function (b) {
       var on = list.indexOf(b.dataset.tab) !== -1 && tabAllowed(b.dataset.tab);
-      b.classList.toggle('barOut', !on);
-      b.tabIndex = on ? 0 : -1;
+      var ghost = adding && !on && avail.indexOf(b.dataset.tab) !== -1; // volet pas encore installé, proposé dans la barre
+      b.classList.toggle('barOut', !on && !ghost);
+      b.classList.toggle('barGhost', ghost);
+      b.tabIndex = (on || ghost) ? 0 : -1;
+      var pl = b.querySelector('.barPlus');
+      if (pl && !ghost) pl.remove();
+      if (!pl && ghost) addPlus(b);
       var x = b.querySelector('.barX');
       var crossOk = editMode && on && mayRemove(b.dataset.tab); // garde-fou Q1 : Chrono, Feuille de route ou Trade Tracker reste
       if (x && !crossOk) x.remove();
       if (!x && crossOk) addX(b);
     });
+    Array.prototype.forEach.call(pill.querySelectorAll('.tabBtn.barGhost'), function (b) { pill.appendChild(b); }); // les volets proposés viennent après les volets installés
   }
 
   // ----- Fermeture -----
   // La barre est fixe (toujours visible). Un appui hors de la barre ou du pop-up quitte le mode édition ;
   // en mode édition, un appui sur une icône ne change pas d'onglet.
   document.addEventListener('pointerdown', function (e) {
-    if (!editMode || !e.target.closest) return;
-    if (e.target.closest('.tabbar') || e.target.closest('#barAddPop')) return;
-    setEdit(false);
+    if (!(editMode || adding) || !e.target.closest) return;
+    if (e.target.closest('.tabbar')) return;
+    if (editMode) setEdit(false);
+    if (adding) setAdding(false);
   }, true);
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('#tabbarPill .tabBtn');
-    if (!b || e.target.closest('.barX')) return;
+    if (!b) return;
+    if (b.classList.contains('barGhost')) { e.stopPropagation(); e.preventDefault(); addTab(b.dataset.tab, b); return; }
+    if (e.target.closest('.barX')) return;
     if (editMode || justEdited) { e.stopPropagation(); e.preventDefault(); justEdited = false; }
   }, true);
 
@@ -87,7 +94,19 @@
     });
     b.appendChild(x);
   }
+  function addPlus(b) {
+    var p = document.createElement('span');
+    p.className = 'cmpAddBadge barPlus'; p.setAttribute('aria-hidden', 'true');
+    b.appendChild(p);
+  }
+  function setAdding(v) {
+    if (v && editMode) setEdit(false);
+    adding = v && addable().length > 0;
+    nav.classList.toggle('barAdding', adding);
+    refresh();
+  }
   function setEdit(v) {
+    if (v && adding) { adding = false; nav.classList.remove('barAdding'); }
     editMode = v;
     nav.classList.toggle('barEdit', v);
     hint.classList.toggle('hidden', !v);
@@ -192,7 +211,7 @@
     btn.addEventListener('pointercancel', onUp);
   }
 
-  // ----- Pop-up « Ajouter à la barre » -----
+  // ----- Ajout direct dans la barre (demande d'Émilien, 25 oct. 2026) : plus de pop-up -----
   // Extension payée (Expansion) proposée à l'ajout : aucun onglet payant n'existe encore dans ALL ; le jour où il existera, il se déclare ici.
   var PAID_TABS = [];
   function isPaid(tab) { return PAID_TABS.indexOf(tab) !== -1; }
@@ -204,42 +223,17 @@
       return tabAllowed(tab);
     });
   }
-  function label(tab) { var b = btnOf(tab); return b ? tr(b.getAttribute('aria-label') || tab) : tab; }
-  function drawPop() {
-    popList.innerHTML = '';
-    popMsg.textContent = '';
-    var items = addable();
-    if (!items.length) { var p = document.createElement('p'); p.className = 'hint'; p.textContent = tr('Tout est déjà dans la barre.'); popList.appendChild(p); return; }
-    items.forEach(function (tab) {
-      var row = document.createElement('button');
-      row.type = 'button'; row.className = 'barAddRow';
-      var ic = btnOf(tab) && btnOf(tab).querySelector('.tabIcon svg');
-      var icon = document.createElement('span'); icon.className = 'barAddIcon';
-      if (ic) icon.appendChild(ic.cloneNode(true));
-      var name = document.createElement('span'); name.textContent = label(tab);
-      row.appendChild(icon); row.appendChild(name);
-      row.addEventListener('click', function () { addTab(tab, row); });
-      popList.appendChild(row);
-    });
-  }
-  function addTab(tab, row) {
-    function done() { var l = load(); if (l.indexOf(tab) === -1) l.push(tab); save(l); closePop(); refresh(); }
+  function addTab(tab, el) {
+    function done() { var l = load(); if (l.indexOf(tab) === -1) l.push(tab); save(l); refresh(); }
     if (tab === 'trade' && !tradeOn()) {
-      row.disabled = true;
-      mods().setTrade(true).then(function (r) {
-        row.disabled = false;
-        if (r && r.ok) done(); else popMsg.textContent = (r && r.message) || tr('Trade Tracker est indisponible.');
-      });
+      el.disabled = true;
+      mods().setTrade(true).then(function (r) { el.disabled = false; if (r && r.ok) done(); });
       return;
     }
     done();
   }
-  function openPop() { drawPop(); pop.classList.remove('hidden'); var c = document.getElementById('barAddClose'); if (c) c.focus(); }
-  function closePop() { pop.classList.add('hidden'); }
-  addBtn.addEventListener('click', function () { if (editMode) setEdit(false); openPop(); });
-  document.getElementById('barAddClose').addEventListener('click', closePop);
-  pop.addEventListener('click', function (e) { if (e.target === pop) closePop(); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !pop.classList.contains('hidden')) closePop(); });
+  addBtn.addEventListener('click', function () { setAdding(!adding); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && adding) setAdding(false); });
 
   // ----- Onglet d'ouverture : le plus à gauche (Trade, simple page superposée, ne compte pas) -----
   function firstTab() {

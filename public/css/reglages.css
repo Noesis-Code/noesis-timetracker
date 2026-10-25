@@ -122,3 +122,9 @@
 /* Légende sous le QR de Partage (maquette Réglages d'Émilien, 25 oct. 2026) : visible seulement quand un QR est affiché. */
 .shareHint { text-align: center; margin: 0 0 8px; }
 #shareQrCode:empty + .shareHint { display: none; }
+/* Sous-écran de Réglages : « ‹ Retour » à la hauteur de l'en-tête du Profil (centre à 40 px), le reste suit en dessous (demande d'Émilien, 25 oct. 2026). */
+#profileSettingsPanel.settingsDrill .settingsSubHead { padding-top: 6px; }
+/* Modifier une activité : la croix rouge est en haut à droite de la carte, dans sa marge du haut ; elle n'entre jamais dans le champ du nom ni dans le choix des couleurs. */
+.activityEditBubble { position: relative; }
+.activityEditBubble .catNewPoleFields { padding-top: 24px; }
+.activityEditBubble > .cmpRemove { position: absolute; top: 8px; right: 10px; margin: 0; }

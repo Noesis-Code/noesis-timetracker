@@ -15544,7 +15544,7 @@
         return refreshActivities().then(function () { renderActivityGrid(); loadSettingsActivities(); });
       }).catch(function (err) { msg.textContent = err.message; save.disabled = false; });
     });
-    nameLine.appendChild(trash); // maquette : ⊖ rouge à droite du nom
+    row.appendChild(trash); // croix rouge en haut à droite de la carte, hors du champ du nom et des couleurs (demande d'Émilien, 25 oct. 2026)
     actions.appendChild(cancel);
     actions.appendChild(save);
     fields.appendChild(actions);
