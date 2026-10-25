@@ -287,12 +287,12 @@ input[type=time]:focus, select:focus, textarea:focus {
 /* .identityHeader garde ici son display:flex/gap d'origine (règle générique plus bas, zone Profil) ; seule sa largeur et sa marge changent dans ce nouveau … */
 .topbarProfile .identityHeader { width: 100%; margin-bottom: 0; }
 /* Bande "Projets" de la barre supérieure (4 septembre 2026, demande d'Emilien : « déplacer les projets dans la zone du profil [...] une fois créé les projet … */
-.topbarProjects { display: flex; align-items: flex-start; gap: 6px; width: 100%; }
-/* Le « + » reste calé à droite quel que soit le nombre de projets ; les projets passent à la ligne à sa gauche, jamais dessous (demande d'Émilien, 25 oct. 2026). */
-.topbarProjects .cmpAddSquare { margin-left: auto; }
+/* Rangée « + » puis projets : un seul défilement horizontal, le « + » défile avec les projets (demande d'Émilien, 25 oct. 2026). */
+.topbarProjects { display: flex; align-items: center; gap: 6px; width: 100%; overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; scrollbar-width: none; }
+.topbarProjects::-webkit-scrollbar { display: none; }
 .topbarProjectsStrip:empty { display: none; }
 .topbarProjectsStrip {
-  flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  flex: 0 0 auto; display: flex; align-items: center; gap: 6px;
 }
 /* Pastille d'un projet : nom + badges "Recherche", rien d'autre (c'est la
    demande). `max-width` + ellipse : un nom long ne pousse jamais les autres
