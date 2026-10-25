@@ -2691,13 +2691,13 @@ button { -webkit-user-select: none; user-select: none; }
   stroke: var(--purple);
   stroke-width: 3.5px;
 }
-/* Trait qui serpente plus brillant, dans toutes les zones d'écriture d'IA (demande d'Émilien, 25 oct. 2026) : teinte claire et halo violet. */
+/* Trait qui serpente plus brillant, dans toutes les zones d'écriture d'IA (demande d'Émilien, 25 oct. 2026) : même violet que le contour fixe, plus brillant. */
 .autoTaskGlowMove {
   fill: none;
-  stroke: var(--violet-soft);
+  stroke: var(--purple);
   stroke-width: 3.5px;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 3px var(--violet-soft)) drop-shadow(0 0 7px var(--purple));
+  filter: brightness(1.5) drop-shadow(0 0 3px var(--purple)) drop-shadow(0 0 6px var(--purple));
   animation: activityGoalsAutoTaskGlow 6s linear infinite;
 }
 @keyframes activityGoalsAutoTaskGlow {

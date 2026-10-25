@@ -12,7 +12,7 @@
   var nav = document.querySelector('.tabbar');
   var pill = document.getElementById('tabbarPill');
     var addBtn = document.getElementById('tabbarAdd');
-  var hint = document.getElementById('barHint');
+  var hint = { classList: { add: function () {}, toggle: function () {} } }; // le message « Appui long… » est supprimé (demande d'Émilien, 25 oct. 2026)
   var pop = document.getElementById('barAddPop');
   if (!nav || !pill || !addBtn || !pop) return;
   var popList = document.getElementById('barAddList');

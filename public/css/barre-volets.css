@@ -7,7 +7,7 @@
 .tabbar::before { display: none; }
 .tabbarPill {
   display: flex; pointer-events: auto; box-sizing: border-box;
-  flex: 1 1 auto; min-width: 0; height: 52px; padding: 0 8px;
+  flex: 1 1 auto; min-width: 0; height: 52px; padding: 0 4px;
   align-items: center; justify-content: space-evenly;
   border-radius: 999px; /* verre : .cmpGlass (composants.css) */
 }
@@ -15,7 +15,7 @@
 
 /* Icônes seules : pas de titre, pas de carré de verre propre (la bulle de verre est celle de l'onglet actif). */
 :root[data-theme] .tabbar .tabBtn {
-  flex: none; min-width: 0; width: 44px; height: 44px; padding: 0; gap: 0; border-radius: 999px;
+  flex: 1 1 0; min-width: 0; width: auto; height: 100%; padding: 0; gap: 0; border-radius: 999px;
   color: var(--text-light, #A59E96); touch-action: none;
   background: none; box-shadow: none;
 }
@@ -27,26 +27,21 @@
 }
 :root[data-theme] .tabbar .tabBtn .tabIcon svg { width: 22px; height: 22px; }
 :root[data-theme] .tabbar .tabBtn[data-tab="goals"] .tabIcon svg { width: 21px; height: 25px; }
-/* Onglet actif (demande d'Émilien, 25 oct. 2026, d'après la recherche de la bibliothèque d'apps de l'iPhone) : petite pilule de verre, calme et légère, contour fin, sans fond teinté ; elle déforme ce qui passe derrière elle (filtre #tabLens, navigateurs qui le permettent), sinon un flou très léger. */
+/* Onglet actif (demande d'Émilien, 25 oct. 2026, d'après la recherche de la bibliothèque d'apps de l'iPhone) : pilule de la forme de la barre qui remplit la zone de son volet (elle s'arrête au milieu de l'écart avec le voisin), verre vert léger du vert « atteint », contour fin ; elle déforme ce qui passe derrière (filtre #tabLens, navigateurs qui le permettent). */
 :root[data-theme] .tabbar .tabBtn { transition: background .3s ease, box-shadow .3s ease, color .3s ease; }
 :root[data-theme] .tabbar .tabBtn.active { color: var(--text, #F3EEE8); background: none; box-shadow: none; border-radius: 0; }
 :root[data-theme] .tabbar .tabBtn.active .tabIcon { position: relative; z-index: 1; }
 :root[data-theme] .tabbar .tabBtn.active::before {
-  content: ''; position: absolute; left: 50%; top: 50%; width: min(32px, 8vw); height: 28px; transform: translate(-50%, -50%); pointer-events: none; box-sizing: border-box;
-  border-radius: var(--radius-pill, 999px); background: none;
-  border: 1px solid rgba(243, 238, 232, .16); box-shadow: 0 2px 6px rgba(0, 0, 0, .18);
+  content: ''; position: absolute; left: 0; right: 0; top: 4px; bottom: 4px; pointer-events: none; box-sizing: border-box;
+  border-radius: var(--radius-pill, 999px);
+  background: color-mix(in srgb, var(--good, #6FC9A0) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--good, #6FC9A0) 40%, transparent);
   -webkit-backdrop-filter: blur(.4px) saturate(1.1); backdrop-filter: blur(.4px) saturate(1.1);
 }
 @supports (backdrop-filter: url(#tabLens)) {
   :root[data-theme] .tabbar .tabBtn.active::before { backdrop-filter: url(#tabLens) blur(.4px) saturate(1.1); }
 }
-/* Extensions (Expansion ; pour le moment Trade Tracker seulement, attribut data-expansion) : un carré autour de l'icône. */
-:root[data-theme] .tabbar .tabBtn[data-expansion] .tabIcon,
-:root[data-theme] .tabbar .tabBtn[data-expansion].active .tabIcon {
-  box-sizing: border-box; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
-  border: 1px solid var(--glass-calm-line, rgba(243, 238, 232, .12)); border-radius: 10px;
-}
-.tabbar .tabBtnDot { top: 6px; right: 6px; }
+.tabbar .tabBtnDot { top: 8px; left: calc(50% + 6px); right: auto; } /* la pastille reste contre son icône, même quand le volet occupe toute sa zone */
 /* Retirés de la barre : Stats et Activité (leurs contenus migrent, chantier B) ; onglets non ajoutés. */
 .tabbar .tabBtn[data-tab="stats"], .tabbar .tabBtn[data-tab="activity"], .tabbar .tabBtn.barOut { display: none; }
 
@@ -68,17 +63,19 @@
 }
 .tabbar .tabBtnAdd svg { width: 22px; height: 22px; }
 
-/* Mode édition (appui long ; demande d'Émilien, 25 oct. 2026) : aucun rond, aucun carré, aucun verre autour des volets, même pas l'actif ni celui qu'on déplace ; ils tremblent seulement et la petite croix rouge apparaît en haut à droite (R12, R18). */
+/* Mode édition (appui long ; demande d'Émilien, 25 oct. 2026) : chaque volet, même l'actif, dans un cercle plein de la taille du « + » pointillé (52 px), sans ovale ; ils tremblent et la petite croix rouge apparaît en haut à droite (R12, R18). */
+.tabbar.barEdit .tabbarPill { justify-content: space-evenly; padding: 0; }
+:root[data-theme] .tabbar.barEdit .tabBtn,
+:root[data-theme] .tabbar.barEdit .tabBtn.active {
+  flex: none; width: 52px; height: 52px; border-radius: 50%; background: none; box-shadow: none;
+  border: 1.5px solid var(--cmp-dash, rgba(243, 238, 232, .28)); box-sizing: border-box;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+:root[data-theme] .tabbar.barEdit .tabBtn.active::before,
+:root[data-theme] .tabbar.barEdit .tabBtn.active::after { display: none; }
 .tabbar.barEdit .tabBtn { transform: rotate(2deg); animation: tabJiggle .26s ease-in-out infinite alternate; }
 .tabbar.barEdit .tabBtn:nth-child(even) { transform: rotate(-2deg); animation-delay: -.13s; }
 @keyframes tabJiggle { from { transform: rotate(-2.2deg); } to { transform: rotate(2.2deg); } }
-:root[data-theme] .tabbar.barEdit .tabBtn,
-:root[data-theme] .tabbar.barEdit .tabBtn.active { background: none; box-shadow: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
-:root[data-theme] .tabbar.barEdit .tabBtn.active::before,
-:root[data-theme] .tabbar.barEdit .tabBtn.active::after { display: none; }
-:root[data-theme] .tabbar.barEdit .tabBtn .tabIcon,
-:root[data-theme] .tabbar.barEdit .tabBtn.active .tabIcon,
-:root[data-theme] .tabbar.barEdit .tabBtn[data-expansion] .tabIcon { border: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; transform: none; }
 .tabbar.barEdit .tabBtn.dragging { z-index: 2; transition: none; animation: none; scale: 1.08; box-shadow: none; }
 .tabbar .barX {
   position: absolute; top: -2px; right: -2px; /* croix rouge R25 : le composant .cmpRemove fait le reste */
