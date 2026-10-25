@@ -136,3 +136,18 @@
 }
 .cmpConfirmHead { display: flex; justify-content: flex-end; }
 .cmpConfirmText { margin: 0; font-size: 15px; line-height: 1.45; color: var(--text); word-break: break-word; }
+/* Bouton-symbole (R29, 25 oct. 2026, demande d'Émilien) : un bouton qui ne contient qu'un symbole ou une icône (‹ › ⋮ d'une période ou d'une semaine, engrenage, abonnés, invitations, membres, flèches de pôle)
+   n'a AUCUN carré autour : ni fond, ni liseré, ni ombre, ni flou. Restent : la taille et la couleur de l'icône, l'alignement, la zone de toucher invisible de 44 px (R7), le contour violet au clavier.
+   Les boutons avec un mot, les avatars, les cases et interrupteurs, les « + » pointillés et les croix rouges ne sont pas concernés. */
+:root :is(.menuBtn, .topIconBtn, .profileSquareBtn, .cmpSymbol, .historyNav > .iconBtn, .timesheetNav > .iconBtn) {
+  position: relative; background: none; border: 0; box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+:root :is(.menuBtn, .historyNav > .iconBtn, .timesheetNav > .iconBtn)::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--cmp-hit)); height: max(100%, var(--cmp-hit)); transform: translate(-50%, -50%);
+}
+:root :is(.menuBtn, .topIconBtn, .profileSquareBtn, .cmpSymbol, .historyNav > .iconBtn, .timesheetNav > .iconBtn):focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+:root :is(.menuBtn, .historyNav > .iconBtn, .timesheetNav > .iconBtn):disabled { opacity: 0.35; }
+@media (hover: hover) {
+  :root :is(.menuBtn, .profileSquareBtn, .cmpSymbol, .historyNav > .iconBtn, .timesheetNav > .iconBtn):hover:not(:disabled) { background: var(--hover-bg); }
+}
