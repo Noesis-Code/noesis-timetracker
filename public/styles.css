@@ -3398,7 +3398,7 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 #profileNotifPanel .dot,
 #viewProfileModal .discussionMsgAuthor .dot { background: var(--purple) !important; }
 .seekingBadgeDot, .seekingBadgeFull { background: var(--hover-bg); color: var(--text); border: 1px solid var(--border); }
-.seekingTagBtn.active, #communitySeekingFilters .seekingTagBtn.active { background: var(--purple); color: var(--on-action); border-color: var(--purple); }
+.seekingTagBtn.active, #communitySeekingFilters .seekingTagBtn.active { background: var(--purple); color: var(--text); border-color: var(--purple); } /* texte blanc partout, y compris quand le verre rend le fond transparent (demande d'Émilien, 25 oct. 2026) */
 
 /* Profil d'un autre membre (#viewProfileModal) : le verre vient du composant commun .cmpGlass (R31) ; seule la barre du haut est rendue transparente, sans bande noire. */
 #viewProfileModal .viewProfileIdentity {
