@@ -15351,6 +15351,60 @@
 
 
 
+  // Pop-up de modification ouvert depuis la modification d'une activité (Stratégie, Catégories) : demande d'Émilien, 25 oct. 2026.
+  function openEditPopup(title, buildBody, onClose) {
+    var pop = document.createElement('div');
+    pop.className = 'editPop';
+    var card = document.createElement('div');
+    card.className = 'editPopCard cmpGlass';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-label', title);
+    var head = document.createElement('div');
+    head.className = 'editPopHead';
+    var ttl = document.createElement('span');
+    ttl.className = 'sectionTitle';
+    ttl.textContent = title;
+    var body = document.createElement('div');
+    body.className = 'editPopBody';
+    function close() { if (onClose) onClose(); pop.remove(); }
+    head.appendChild(ttl);
+    head.appendChild(TMT.ui.closeBtn(close, t('Fermer')));
+    card.appendChild(head);
+    card.appendChild(body);
+    pop.appendChild(card);
+    pop.addEventListener('click', function (e) { if (e.target === pop) close(); });
+    document.body.appendChild(pop);
+    buildBody(body);
+    return { body: body, close: close };
+  }
+
+  // Catégories : la même liste de pôles et de secteurs que dans la fenêtre des activités (modifier, ajouter, retirer), déplacée le temps du pop-up.
+  function openCategoriesPopup(a) {
+    var block = $('activityGoalsCategoriesBlock');
+    var composer = $('catComposer');
+    if (!block || !composer) return;
+    var saved = {
+      block: block, blockParent: block.parentNode, blockNext: block.nextSibling, blockHidden: block.classList.contains('hidden'),
+      composer: composer, composerParent: composer.parentNode, composerNext: composer.nextSibling,
+      activityId: currentCommunityActivityId, section: activityPageSection
+    };
+    openEditPopup(t('Catégories'), function (body) {
+      body.appendChild(block);
+      body.appendChild(composer);
+      block.classList.remove('hidden');
+      currentCommunityActivityId = a.id;
+      activityPageSection = 'sub';
+      loadActivityGoalsCategories(a.id);
+    }, function () {
+      saved.blockParent.insertBefore(saved.block, saved.blockNext);
+      saved.composerParent.insertBefore(saved.composer, saved.composerNext);
+      saved.block.classList.toggle('hidden', saved.blockHidden);
+      saved.composer.classList.add('hidden');
+      currentCommunityActivityId = saved.activityId;
+      activityPageSection = saved.section;
+    });
+  }
+
   // 6 oct. 2026 (Emilien, variante 1 « édition en place ») : bulle d'édition d'une activité — nom,
   // visibilité (Publique/Confidentielle, propre à chaque membre), Fusionner avec… (ouvre la feuille du
   // bas existante), corbeille à gauche, Annuler / Enregistrer.
@@ -15401,111 +15455,72 @@
     nameLine.appendChild(swatches);
     fields.appendChild(nameLine);
 
-    // Curseur : vert = Publique, gris = Confidentielle (réglage propre à chaque membre).
+    // Maquette d'Émilien (25 oct. 2026) : lignes sans cadre séparées par des traits (Stratégie, Catégories), puis « Avancé » replié.
+    function plainRow(label, onClick, mod) {
+      var r = document.createElement('button');
+      r.type = 'button';
+      r.className = 'activityEditRow';
+      if (mod) r.setAttribute('data-module', mod);
+      var l = document.createElement('span');
+      l.textContent = label;
+      var c = document.createElement('span');
+      c.className = 'cmpChev';
+      c.setAttribute('aria-hidden', 'true');
+      r.appendChild(l);
+      r.appendChild(c);
+      r.addEventListener('click', onClick);
+      return r;
+    }
+    var rows = document.createElement('div');
+    rows.className = 'activityEditRows';
+    if (TMT.strategy) {
+      rows.appendChild(plainRow(t('Stratégie'), function () {
+        openEditPopup(t('Stratégie'), function (body) { TMT.strategy.mount(body, a.id); });
+      }, 'ai'));
+    }
+    rows.appendChild(plainRow(t('Catégories'), function () { openCategoriesPopup(a); }));
+    fields.appendChild(rows);
+
+    // « Avancé » : replié par défaut ; ouvert, il montre la visibilité et la fusion.
+    var advToggle = document.createElement('button');
+    advToggle.type = 'button';
+    advToggle.className = 'activityEditAdvToggle';
+    advToggle.setAttribute('aria-expanded', 'false');
+    advToggle.textContent = t('Avancé') + ' ▾';
+    var adv = document.createElement('div');
+    adv.className = 'activityEditAdv hidden';
     var visRow = document.createElement('label');
-    visRow.className = 'activityVisRow';
+    visRow.className = 'activityEditRow activityEditVis';
+    var visWord = document.createElement('span');
+    visWord.textContent = t('Visible par les autres');
     var sw = document.createElement('span');
     sw.className = 'toggleSwitch';
     var cb = document.createElement('input');
     cb.type = 'checkbox';
-    cb.checked = conf;
+    cb.checked = !conf; // interrupteur allumé = visible ; éteint = confidentielle
     cb.setAttribute('role', 'switch');
     var track = document.createElement('span');
     track.className = 'toggleSwitchTrack';
     sw.appendChild(cb);
     sw.appendChild(track);
-    var word = document.createElement('span');
-    word.className = 'activityVisWord';
+    visRow.appendChild(visWord);
     visRow.appendChild(sw);
-    visRow.appendChild(word);
-    // Fusionner : à droite du curseur, bord droit aligné avec celui de la zone de texte.
-    var visLine = document.createElement('div');
-    visLine.className = 'activityVisLine';
-    visLine.appendChild(visRow);
-    fields.appendChild(visLine);
-    var note = document.createElement('p');
-    note.className = 'meta activityVisNote';
-    fields.appendChild(note);
-    function paintVis() {
-      conf = cb.checked;
-      word.textContent = t('Confidentiel');
-      note.textContent = conf
-        ? t('Activité invisible pour les autres.')
-        : t('Activité visible par les autres.');
-    }
-    cb.addEventListener('change', paintVis);
-    paintVis();
-
-    if ((acts || []).length > 1) {
-      var mergeBtn = document.createElement('button');
-      mergeBtn.type = 'button';
-      mergeBtn.className = 'iconBtn activityEditMerge';
-      mergeBtn.textContent = '⇄ ' + t('Fusionner avec…');
-      mergeBtn.addEventListener('click', function () { openMergeActivityModal(a); });
-      visLine.appendChild(mergeBtn);
-    }
-
-    // Stratégie de l'activité (déplacée ici le 25 oct. 2026, demande d'Émilien) : ligne qui se déroule sur place (R36), formulaire de strategie.js.
-    if (TMT.strategy) {
-      var stToggle = document.createElement('button');
-      stToggle.type = 'button';
-      stToggle.className = 'activityEditStrategyToggle';
-      stToggle.setAttribute('data-module', 'ai');
-      stToggle.setAttribute('aria-expanded', 'false');
-      var stLabel = document.createElement('span');
-      stLabel.textContent = t('Stratégie');
-      var stChev = document.createElement('span');
-      stChev.className = 'cmpChev';
-      stChev.setAttribute('aria-hidden', 'true');
-      stToggle.appendChild(stLabel);
-      stToggle.appendChild(stChev);
-      var stBody = document.createElement('div');
-      stBody.className = 'activityEditStrategyBody hidden';
-      stBody.setAttribute('data-module', 'ai');
-      var stMounted = false;
-      stToggle.addEventListener('click', function () {
-        var open = stBody.classList.toggle('hidden') === false;
-        stToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-        if (open && !stMounted) { stMounted = true; TMT.strategy.mount(stBody, a.id); }
-      });
-      fields.appendChild(stToggle);
-      fields.appendChild(stBody);
-    }
-    // Extension Trade Tracker : « + » connecte (l'onglet Trade apparaît dans la barre du bas) ; connectée, l'interrupteur la retire. Comptes autorisés seulement.
-    if (TMT.modules && TMT.modules.tradeAllowed()) {
-      var tradeRow = document.createElement('div');
-      tradeRow.className = 'notifRow';
-      var tradeMsg = function (r) { if (msg) msg.textContent = r && r.ok === false ? r.message : ''; };
-      var paintTrade = function () {
-        tradeRow.innerHTML = '';
-        var lbl = document.createElement('span');
-        lbl.className = 'notifRowLabel';
-        lbl.textContent = 'Trade Tracker';
-        if (TMT.modules.tradeOn()) {
-          tradeRow.appendChild(lbl);
-          var tsw = document.createElement('label');
-          tsw.className = 'toggleSwitch';
-          var tin = document.createElement('input');
-          tin.type = 'checkbox'; tin.checked = true; tin.setAttribute('role', 'switch'); tin.setAttribute('aria-label', 'Trade Tracker');
-          var ttr = document.createElement('span');
-          ttr.className = 'toggleSwitchTrack';
-          tin.addEventListener('change', function () { tin.disabled = true; TMT.modules.setTrade(false).then(function (r) { paintTrade(); tradeMsg(r); }); });
-          tsw.appendChild(tin); tsw.appendChild(ttr);
-          tradeRow.appendChild(tsw);
-        } else {
-          var plus = TMT.ui.addBtn(t('Connecter Trade Tracker'), function () { plus.disabled = true; TMT.modules.setTrade(true).then(function (r) { paintTrade(); tradeMsg(r); }); });
-          tradeRow.appendChild(plus);
-        }
-      };
-      paintTrade();
-      fields.appendChild(tradeRow);
-    }
+    adv.appendChild(visRow);
+    if ((acts || []).length > 1) adv.appendChild(plainRow(t('Fusionner avec…'), function () { openMergeActivityModal(a); }));
+    advToggle.addEventListener('click', function () {
+      var open = adv.classList.toggle('hidden') === false;
+      advToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      advToggle.textContent = t('Avancé') + (open ? ' ▴' : ' ▾');
+    });
+    fields.appendChild(advToggle);
+    fields.appendChild(adv);
+    // Trade Tracker : son bouton de connexion est mis de côté pour le moment (demande d'Émilien, 25 oct. 2026) ; TMT.modules.setTrade reste en place pour plus tard.
 
     var msg = document.createElement('p');
     msg.className = 'msg';
     fields.appendChild(msg);
     var actions = document.createElement('div');
-    actions.className = 'catNewPoleActions';
+    actions.className = 'catNewPoleActions activityEditActions';
     var trash = document.createElement('button');
     trash.type = 'button';
     trash.className = 'cmpRemove';
@@ -15513,7 +15528,7 @@
     trash.addEventListener('click', function () { openDeleteActivityModal(a); });
     var cancel = document.createElement('button');
     cancel.type = 'button';
-    cancel.className = 'iconBtn';
+    cancel.className = 'activityEditCancel';
     cancel.textContent = t('Annuler');
     cancel.addEventListener('click', function () { activityEditId = null; loadSettingsActivities(); });
     var save = document.createElement('button');
@@ -15521,14 +15536,14 @@
     save.className = 'cmpBtn cmpBtnIdle';
     save.disabled = true;
     save.textContent = t('Enregistrer');
-    // Gris et inactif tant que rien n'a changé, violet dès qu'il y a un changement (maquette Réglages, 25 oct. 2026).
+    // Gris et inactif tant que rien n'a changé, violet dès qu'il y a un changement.
     function markDirty() {
       var dirty = (a.isOwner && nameIn.value.trim() !== a.name) || conf !== !!a.confidential;
       save.disabled = !dirty;
       save.classList.toggle('cmpBtnIdle', !dirty);
     }
     nameIn.addEventListener('input', markDirty);
-    cb.addEventListener('change', markDirty);
+    cb.addEventListener('change', function () { conf = !cb.checked; markDirty(); });
     save.addEventListener('click', function () {
       save.disabled = true;
       var newName = nameIn.value.trim();
@@ -15544,7 +15559,7 @@
         return refreshActivities().then(function () { renderActivityGrid(); loadSettingsActivities(); });
       }).catch(function (err) { msg.textContent = err.message; save.disabled = false; });
     });
-    row.appendChild(trash); // croix rouge en haut à droite de la carte, hors du champ du nom et des couleurs (demande d'Émilien, 25 oct. 2026)
+    row.appendChild(trash); // croix rouge en haut à droite de la carte, hors du champ du nom et des couleurs
     actions.appendChild(cancel);
     actions.appendChild(save);
     fields.appendChild(actions);
