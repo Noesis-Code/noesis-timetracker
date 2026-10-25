@@ -64,12 +64,14 @@
 /* Croix de fermeture ✕ (R13 : en haut à droite de la fenêtre) */
 .cmpClose {
   position: relative; flex-shrink: 0; width: 32px; height: 32px; padding: 0;
-  display: inline-flex; align-items: center; justify-content: center; line-height: 1; font-size: 18px;
+  display: inline-flex; align-items: center; justify-content: center; line-height: 1; font-size: 0;
   color: var(--text); background: none; border: 0; border-radius: var(--radius-sm); /* aucun carré autour de la croix (24 oct. 2026) */
   cursor: pointer; text-decoration: none; -webkit-tap-highlight-color: transparent;
   transition: transform var(--transition-fast);
 }
 .cmpClose:active { transform: scale(0.92); }
+/* ✕ dessiné (14 px), identique sur tous les appareils : la police du glyphe ✕ le rendait plus petit sur téléphone (demande d'Émilien, 25 oct. 2026) */
+.cmpClose::before { content: ''; width: 14px; height: 14px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 2l10 10M12 2L2 12' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 2l10 10M12 2L2 12' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; }
 .cmpClose:focus-visible, .cmpRemove:focus-visible, .cmpAdd:focus-visible, .cmpEdit:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
 .cmpClose::after, .cmpRemove::after, .cmpEdit::after {
   content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--cmp-hit)); height: max(100%, var(--cmp-hit)); transform: translate(-50%, -50%);
