@@ -84,7 +84,6 @@
     // sans y toucher, celle-ci ajoutée pour correspondre au texte réel.
     // Trouvée et comblée le 10 septembre 2026 (audit des traductions
     // manquantes signalé par Emilien).
-    'Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Activité.': 'Choose the activities you want to track, and a colour for each one. You can add or edit them later in Activity.',
     "Nom de l'activité": 'Activity name',
     'Couleur': 'Colour',
     'Ajouter': 'Add',
@@ -121,8 +120,6 @@
     'Autonome': 'Autonomous',
     'Partiel': 'Partial',
     'Absence': 'Off',
-    'Activité visible par les autres.': 'Activity visible to others.',
-    'Activité invisible pour les autres.': 'Activity hidden from others.',
     'Publique': 'Public',
     'Confidentielle': 'Confidential',
     'Visibilité': 'Visibility',
@@ -137,13 +134,9 @@
     'Feuille de route': 'Roadmap',
     // Barre des volets (chantier B, 20 oct. 2026).
     'Ajouter un onglet': 'Add a tab',
-    'Ajouter à la barre': 'Add to the bar',
     'Retirer de la barre': 'Remove from the bar',
-    'Tout est déjà dans la barre.': 'Everything is already in the bar.',
-    'Appui long : les onglets bougent. Glisse pour changer l\'ordre. Croix rouge = retirer. L\'onglet le plus à gauche est celui où l\'app s\'ouvre.': 'Long press: tabs wiggle. Drag to change the order. Red cross = remove. The leftmost tab is where the app opens.',
     'Assistant IA': 'AI assistant',
     'Temps': 'Time',
-    'Choisis ce dont tu as besoin': 'Choose what you need',
     'Optionnel': 'Optional',
     'Autres': 'Other',
     'Tâche': 'Task',
@@ -1087,7 +1080,6 @@
     'Dossier introuvable.': 'Folder not found.',
     // ---- Stratégie d'une activité (19 oct. 2026) ----
     'Stratégie': 'Strategy',
-    'Stratégie de l’activité': 'Activity strategy',
     'Quel est ton but global ?': 'What is your overall goal?',
     'Pour quand ?': 'By when?',
     'Ta priorité n° 1': 'Your priority #1',
