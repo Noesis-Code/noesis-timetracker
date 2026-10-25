@@ -186,12 +186,11 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
   background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none;
 }
 
-/* Épingle (trombone) : icône blanche, verre et contour exactement comme le « + » (jetons --glass-*). */
+/* Épingle (trombone) : icône blanche seule, sans carré ni fond (règle onglet 6, décision d'Émilien du 25 oct. 2026). */
 :root #profileDiscussionAttachBtn, :root .communityComposerRow .attachMenuIconBtn, :root .menuBtn.attachMenuIconBtn,
-:root :is(.communityMembersModalCard, .viewProfileScroll, .statsSection, .activityRow, .discussionMsg) .menuBtn.attachMenuIconBtn {
-  background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; color: var(--text) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.24) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important; backdrop-filter: var(--glass-blur) !important;
+:root :is(#profilePage, .communityMembersModalCard, .viewProfileScroll, .statsSection, .activityRow, .discussionMsg) .menuBtn.attachMenuIconBtn {
+  background: none !important; border: 0 !important; color: var(--text) !important; box-shadow: none !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 
 
@@ -207,7 +206,8 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 :root .topbarDefault .topIconBtn, :root .topIconBtn, :root .profileSquareBtn,
 :root #activityPage .activityPageHeader .menuBtn, :root #activityPage .activityPageHeader .topIconBtn,
 :root .communityMembersModalHeader .menuBtn, :root .profileSubWindowHeader .menuBtn,
-:root #profileSettingsPanel .subpageHeader .menuBtn, :root .docTasksWin .activityPageHeader .menuBtn {
+:root #profileSettingsPanel .subpageHeader .menuBtn, :root .docTasksWin .activityPageHeader .menuBtn,
+:root #viewProfileModal .statsSection .menuBtn {
   background: none !important; border: 0 !important; box-shadow: none !important;
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
