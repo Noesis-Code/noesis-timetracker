@@ -27,15 +27,15 @@
 }
 :root[data-theme] .tabbar .tabBtn .tabIcon svg { width: 22px; height: 22px; }
 :root[data-theme] .tabbar .tabBtn[data-tab="goals"] .tabIcon svg { width: 21px; height: 25px; }
-/* Onglet actif (demande d'Émilien, 25 oct. 2026, d'après la recherche de la bibliothèque d'apps de l'iPhone) : pilule de la forme de la barre qui remplit la zone de son volet (elle s'arrête au milieu de l'écart avec le voisin), verre vert léger du vert « atteint », contour fin ; elle déforme ce qui passe derrière (filtre #tabLens, navigateurs qui le permettent). */
+/* Onglet actif (demande d'Émilien, 25 oct. 2026, d'après la recherche de la bibliothèque d'apps de l'iPhone) : pilule de la forme de la barre qui remplit la zone de son volet (elle s'arrête au milieu de l'écart avec le voisin), verre sans couleur de même opacité que les pop-up, contour fin ; elle déforme ce qui passe derrière (filtre #tabLens, navigateurs qui le permettent). */
 :root[data-theme] .tabbar .tabBtn { transition: background .3s ease, box-shadow .3s ease, color .3s ease; }
 :root[data-theme] .tabbar .tabBtn.active { color: var(--text, #F3EEE8); background: none; box-shadow: none; border-radius: 0; }
 :root[data-theme] .tabbar .tabBtn.active .tabIcon { position: relative; z-index: 1; }
 :root[data-theme] .tabbar .tabBtn.active::before {
   content: ''; position: absolute; left: 0; right: 0; top: 4px; bottom: 4px; pointer-events: none; box-sizing: border-box;
   border-radius: var(--radius-pill, 999px);
-  background: color-mix(in srgb, var(--good, #6FC9A0) 20%, transparent);
-  border: 1px solid color-mix(in srgb, var(--good, #6FC9A0) 40%, transparent);
+  background: var(--glass-bg); /* sans couleur : même verre que les pop-up, posé sur le verre de la barre (demande d'Émilien, 25 oct. 2026) */
+  border: 1px solid var(--glass-border);
   -webkit-backdrop-filter: blur(.4px) saturate(1.1); backdrop-filter: blur(.4px) saturate(1.1);
 }
 @supports (backdrop-filter: url(#tabLens)) {
