@@ -1796,14 +1796,7 @@ button { -webkit-user-select: none; user-select: none; }
 }
 /* Le bouton de fermeture s'efface au profit de la couleur d'activité : fond
    transparent, bordure et glyphe dans la couleur du texte de la barre. */
-#categoryStatsModal .viewProfileIdentity.tinted #categoryStatsClose {
-  background: transparent;
-  border-color: currentColor;
-  color: inherit;
-}
-#categoryStatsModal .viewProfileIdentity.tinted #categoryStatsClose:hover {
-  background: rgba(255, 255, 255, 0.18);
-}
+#categoryStatsModal .viewProfileIdentity.tinted #categoryStatsClose { color: inherit; }
 
 /* Point vert « chrono en cours » du profil visité (3 septembre 2026, demande d'Emilien). */
 .viewProfileLiveDot {
