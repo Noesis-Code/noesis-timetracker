@@ -71,14 +71,13 @@
   // en mode édition, un appui sur une icône ne change pas d'onglet.
   document.addEventListener('pointerdown', function (e) {
     if (!(editMode || adding) || !e.target.closest) return;
-    if (e.target.closest('.tabbar')) return;
-    if (editMode) setEdit(false);
-    if (adding) setAdding(false);
+    if (e.target.closest('.tabbar') || e.target.closest('.cmpConfirmVeil')) return;
+    setEdit(false);
   }, true);
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('#tabbarPill .tabBtn');
     if (!b) return;
-    if (b.classList.contains('barGhost')) { e.stopPropagation(); e.preventDefault(); addTab(b.dataset.tab, b); return; }
+    if (b.classList.contains('barGhost')) { e.stopPropagation(); e.preventDefault(); askAdd(b.dataset.tab, b); return; }
     if (e.target.closest('.barX')) return;
     if (editMode || justEdited) { e.stopPropagation(); e.preventDefault(); justEdited = false; }
   }, true);
@@ -90,7 +89,7 @@
     x.addEventListener('click', function (e) {
       e.stopPropagation(); e.preventDefault();
       if (crossDragged) { crossDragged = false; return; } // le geste était un glisser de l'icône, pas un tap sur la croix
-      removeTab(b.dataset.tab);
+      askRemove(b.dataset.tab);
     });
     b.appendChild(x);
   }
@@ -99,18 +98,34 @@
     p.className = 'cmpAddBadge barPlus'; p.setAttribute('aria-hidden', 'true');
     b.appendChild(p);
   }
+  // « + » : tous les volets sont dans la barre, à espace égal ; les installés comme à l'appui long (cercle plein, croix rouge), les absents en pointillés avec un « + » vert.
   function setAdding(v) {
-    if (v && editMode) setEdit(false);
-    adding = v && addable().length > 0;
-    nav.classList.toggle('barAdding', adding);
+    if (!v) { if (adding) setEdit(false); return; }
+    adding = addable().length > 0;
+    if (!adding) return;
+    editMode = true;
+    nav.classList.add('barEdit', 'barAdding');
     refresh();
   }
   function setEdit(v) {
-    if (v && adding) { adding = false; nav.classList.remove('barAdding'); }
+    if (!v && adding) { adding = false; nav.classList.remove('barAdding'); }
     editMode = v;
     nav.classList.toggle('barEdit', v);
     hint.classList.toggle('hidden', !v);
     refresh();
+  }
+  function label(tab) { var b = btnOf(tab); return b ? tr(b.getAttribute('aria-label') || tab) : tab; }
+  // Retirer ou ajouter un volet passe par la fenêtre de confirmation commune (demande d'Émilien, 25 oct. 2026) : ce que ça implique, puis on accepte.
+  function askRemove(tab) {
+    if (!mayRemove(tab) || !(TMT.ui && TMT.ui.confirm)) { removeTab(tab); return; }
+    TMT.ui.confirm(tr('Êtes-vous sûr de vouloir retirer le volet') + ' « ' + label(tab) + ' » ?\n' + tr('Voici ce que ça implique : il n’apparaît plus dans la barre. Tes données sont conservées et tu peux le remettre avec le « + ».'), { ok: tr('Retirer'), danger: true, closeLabel: tr('Fermer') })
+      .then(function (yes) { if (yes) removeTab(tab); });
+  }
+  function askAdd(tab, el) {
+    if (!(TMT.ui && TMT.ui.confirm)) { addTab(tab, el); return; }
+    var more = tab === 'trade' ? '\n' + tr('Cela connecte aussi Trade Tracker à ton compte.') : '';
+    TMT.ui.confirm(tr('Êtes-vous sûr de vouloir ajouter le volet') + ' « ' + label(tab) + ' » ?\n' + tr('Voici ce que ça implique : il apparaît dans la barre et tu peux le retirer à tout moment.') + more, { ok: tr('Ajouter'), closeLabel: tr('Fermer') })
+      .then(function (yes) { if (yes) addTab(tab, el); });
   }
   function removeTab(tab) {
     if (!mayRemove(tab)) return;
