@@ -15352,6 +15352,7 @@
 
 
   // Pop-up de modification ouvert depuis la modification d'une activité (Stratégie, Catégories) : demande d'Émilien, 25 oct. 2026.
+  var SHOW_TRADE_CONNECT = false; // Trade Tracker mis de côté (25 oct. 2026) : le bouton de connexion n'apparaît pas dans la modification d'une activité
   function openEditPopup(title, buildBody, onClose) {
     var pop = document.createElement('div');
     pop.className = 'editPop';
@@ -15514,7 +15515,37 @@
     });
     fields.appendChild(advToggle);
     fields.appendChild(adv);
-    // Trade Tracker : son bouton de connexion est mis de côté pour le moment (demande d'Émilien, 25 oct. 2026) ; TMT.modules.setTrade reste en place pour plus tard.
+    // Trade Tracker : son bouton de connexion est mis de côté pour le moment (demande d'Émilien, 25 oct. 2026) : SHOW_TRADE_CONNECT passe à true le jour où on le reconnecte.
+    // Extension Trade Tracker : « + » connecte (l'onglet Trade apparaît dans la barre du bas) ; connectée, l'interrupteur la retire. Comptes autorisés seulement.
+    if (SHOW_TRADE_CONNECT && TMT.modules && TMT.modules.tradeAllowed()) {
+      var tradeRow = document.createElement('div');
+      tradeRow.className = 'notifRow';
+      var tradeMsg = function (r) { if (msg) msg.textContent = r && r.ok === false ? r.message : ''; };
+      var paintTrade = function () {
+        tradeRow.innerHTML = '';
+        var lbl = document.createElement('span');
+        lbl.className = 'notifRowLabel';
+        lbl.textContent = 'Trade Tracker';
+        if (TMT.modules.tradeOn()) {
+          tradeRow.appendChild(lbl);
+          var tsw = document.createElement('label');
+          tsw.className = 'toggleSwitch';
+          var tin = document.createElement('input');
+          tin.type = 'checkbox'; tin.checked = true; tin.setAttribute('role', 'switch'); tin.setAttribute('aria-label', 'Trade Tracker');
+          var ttr = document.createElement('span');
+          ttr.className = 'toggleSwitchTrack';
+          tin.addEventListener('change', function () { tin.disabled = true; TMT.modules.setTrade(false).then(function (r) { paintTrade(); tradeMsg(r); }); });
+          tsw.appendChild(tin); tsw.appendChild(ttr);
+          tradeRow.appendChild(tsw);
+        } else {
+          var plus = TMT.ui.addBtn(t('Connecter Trade Tracker'), function () { plus.disabled = true; TMT.modules.setTrade(true).then(function (r) { paintTrade(); tradeMsg(r); }); });
+          tradeRow.appendChild(plus);
+        }
+      };
+      paintTrade();
+      fields.appendChild(tradeRow);
+    }
+
 
     var msg = document.createElement('p');
     msg.className = 'msg';
