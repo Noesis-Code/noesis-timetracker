@@ -12002,7 +12002,7 @@
   // (qui ne connaît que la clé). À étendre des DEUX côtés à la fois si
   // Emilien demande un jour une nouvelle catégorie de recherche.
   var SEEKING_TAGS = [
-    { key: 'partners', label: 'Partenaires', icon: [['circle', { cx: 8.5, cy: 12, r: 4.5 }], ['circle', { cx: 15.5, cy: 12, r: 4.5 }]] },
+    { key: 'partners', label: 'Partenaires', icon: [['path', { d: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1' }], ['path', { d: 'M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 10 18.7l1-1' }]] },
     { key: 'clients', label: 'Clients', icon: [['rect', { x: 3, y: 7, width: 18, height: 13, rx: 2 }], ['path', { d: 'M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7' }]] },
     { key: 'funding', label: 'Financement', icon: [['circle', { cx: 12, cy: 12, r: 9 }], ['path', { d: 'M12 7v10M14.5 9.5h-3.25a1.75 1.75 0 0 0 0 3.5h1.5a1.75 1.75 0 0 1 0 3.5H9.5' }]] },
   ];
