@@ -119,3 +119,6 @@
 /* Modifier l'activité : ligne déroulée sur place dans la carte ; Annuler et Enregistrer de même largeur */
 #activitiesList .catNewPoleActions { gap: 8px; }
 #activitiesList .catNewPoleActions > .iconBtn, #activitiesList .catNewPoleActions > .cmpBtn { flex: 1; width: auto; min-height: 44px; padding: 0 16px; font-size: 14px; }
+/* Légende sous le QR de Partage (maquette Réglages d'Émilien, 25 oct. 2026) : visible seulement quand un QR est affiché. */
+.shareHint { text-align: center; margin: 0 0 8px; }
+#shareQrCode:empty + .shareHint { display: none; }
