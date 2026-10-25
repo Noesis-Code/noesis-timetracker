@@ -92,6 +92,9 @@
 }
 .cmpAdd b { color: var(--purple); font-size: 20px; font-weight: 700; line-height: 1; }
 .cmpAdd:disabled { opacity: .4; cursor: not-allowed; }
+/* Variante carrée (R33, 25 oct. 2026) : petit carré pointillé gris, « + » seul, au même niveau que les éléments qu'il ajoute (ex. projets du Profil). */
+.cmpAddSquare { flex: 0 0 32px; width: 32px; min-height: 0; height: 32px; padding: 0; border-radius: var(--radius-md); position: relative; }
+.cmpAddSquare::after { content: ''; position: absolute; left: 50%; top: 50%; width: var(--cmp-hit); height: var(--cmp-hit); transform: translate(-50%, -50%); }
 
 /* Flèche de déroulement (R21) : toujours dernier enfant de la cellule, à droite, même colonne que ✎ ; .open la pivote */
 .cmpChev {
