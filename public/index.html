@@ -2676,7 +2676,7 @@
                     <span class="toggleSwitchTrack"></span>
                   </label>
                 </div>
-                <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
+                <button id="settingsSaveBtn" class="cmpBtn cmpBtnIdle" disabled>Enregistrer</button>
                 <p id="settingsMsg" class="msg"></p>
                 <!-- « Déconnexion » (26 septembre 2026, demande d'Emilien) : placé
                      ici, sous « Enregistrer », après deux emplacements précédents
@@ -2698,101 +2698,6 @@
                    ("Se désabonner"), 1er septembre 2026, second passage — voir
                    le commentaire laissé là-bas. -->
 
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Sécurité</span>
-                  <span class="cmpChev" aria-hidden="true"></span>
-                </button>
-                <div class="settingsSectionBody hidden">
-              <div class="settingsCard">
-                <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsCurrentPin" placeholder="Code actuel" maxlength="6" autocomplete="off">
-                <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPin" placeholder="Nouveau code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
-                <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPinConfirm" placeholder="Confirme le nouveau code" maxlength="6" autocomplete="off">
-                <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon code</button>
-                <p id="settingsPinMsg" class="msg"></p>
-              </div>
-              <!-- "Se déconnecter de tous les appareils" (7 septembre 2026,
-                   discussion "Sécurité — Réglages utilisateur") : le système de
-                   session (6 septembre) n'a aucun registre de sessions
-                   individuelles — un témoin auto-suffisant par appareil, sans
-                   liste consultable en base (voir server/lib/session.js). Pas
-                   de "voir mes sessions" possible sans un chantier plus lourd
-                   (table `sessions`), hors périmètre retenu pour l'échéance du
-                   11 septembre : cette carte se limite donc à une révocation
-                   GLOBALE, immédiate, de tous les appareils à la fois. -->
-              <!-- ⚠️ « Déconnexion » a brièvement vécu ICI le 26 septembre 2026, entre
-                   son départ du bandeau « Réglages » et sa place actuelle : Emilien
-                   l'a fait remonter le jour même dans Identité, sous le bouton
-                   « Enregistrer » (voir son nouvel emplacement plus haut). Ne pas
-                   le redescendre ici en croyant le rapprocher de son voisin
-                   « Se déconnecter de tous les appareils » : ce rapprochement a été
-                   essayé et écarté. -->
-              <div class="settingsCard">
-                <button id="settingsLogoutAllBtn" class="iconBtn">Se déconnecter de tous les appareils</button>
-                <p id="settingsLogoutAllMsg" class="msg"></p>
-              </div>
-              <!-- Documents légaux (10 septembre 2026, demande directe
-                   d'Emilien) : la politique de confidentialité et les
-                   mentions légales n'étaient nulle part visibles dans l'app
-                   (seules les Conditions d'utilisation avaient une page,
-                   depuis le 7 septembre 2026) — voir
-                   noesis-timetracker-inventaire-11-septembre.md. Emilien a
-                   demandé une SEULE sous-section déroulante regroupant les
-                   trois documents plutôt que trois entrées séparées. Ancienne
-                   section "Conditions d'utilisation" (.settingsFlat, toujours
-                   dépliée) transformée en .settingsSection repliable, sur le
-                   même patron que "Sécurité"/"Supprimer mon compte" juste
-                   au-dessus/en-dessous dans ce même groupe "Compte et
-                   sécurité" — l'accordéon imbriqué générique
-                   (closeAllSettingsSections/closeSettingsContainer, voir
-                   app.js) la gère sans aucun changement de logique.
-                   #openLegalTermsBtn est INCHANGÉ (même id, même
-                   comportement) : seul son conteneur direct change. Les deux
-                   nouveaux boutons suivent exactement le même patron
-                   (#privacyPolicyModal/#legalNoticesModal, voir plus bas dans
-                   ce fichier) : lecture seule, aucun mandat sur le fond
-                   juridique, textes repris tels quels depuis
-                   noesis-timetracker-conformite-loi25.md (section 1) et
-                   noesis-timetracker-mentions-legales.md (Partie A
-                   uniquement — la Partie B est un usage interne, jamais
-                   montrée à l'Utilisateur). Toute mise à jour du FOND doit
-                   passer par ces documents projet, jamais être rédigée ici
-                   directement. -->
-              <!-- 10 oct. 2026 : consentements déplacés dans Sécurité, juste au-dessus des documents légaux ; interrupteurs qui agissent au clic (routes PUT dédiées), sans passer par « Enregistrer ». -->
-              <div class="settingsCard settingsConsentCard">
-                <div class="consentItem">
-                <div class="notifRow">
-                  <span class="notifRowLabel">Utilisation commerciale de mes données</span>
-                  <label class="toggleSwitch">
-                    <input type="checkbox" id="settingsMarketingConsent" role="switch" aria-label="Utilisation commerciale de mes données">
-                    <span class="toggleSwitchTrack"></span>
-                  </label>
-                </div>
-                <p class="hint">Analyse de l'usage, statistiques, communications commerciales et campagnes publicitaires de Noesis. <a href="#" class="policy24Link">§2.4</a></p>
-                <p id="settingsMarketingMsg" class="msg"></p>
-                </div>
-                <div class="notifRow">
-                  <span class="notifRowLabel">Être trouvable dans la recherche de l'écran de connexion</span>
-                  <label class="toggleSwitch">
-                    <input type="checkbox" id="settingsDirectoryConsent" role="switch" aria-label="Être trouvable dans la recherche de l'écran de connexion">
-                    <span class="toggleSwitchTrack"></span>
-                  </label>
-                </div>
-              </div>
-              <!-- Documents légaux (ex-sous-section, réunie à Sécurité le 30
-                   septembre 2026, demande d'Emilien) : mêmes ids et même
-                   comportement qu'avant, seul le conteneur change. Voir
-                   #privacyPolicyModal/#legalNoticesModal/#legalTermsModal plus
-                   bas dans ce fichier. -->
-              <div class="settingsCard">
-                <p class="hint">Comment Noèsis TimeTracker fonctionne, ce qu'il fait de tes renseignements, et les règles d'utilisation du service.</p>
-                <button type="button" id="openPrivacyPolicyBtn" class="iconBtn">Lire la politique de confidentialité</button>
-                <button type="button" id="openGovernanceBtn" class="iconBtn governanceLink">Gouvernance des renseignements personnels</button>
-                <button type="button" id="openLegalNoticesBtn" class="iconBtn">Lire les mentions légales</button>
-                <button type="button" id="openLegalTermsBtn" class="iconBtn">Lire les conditions d'utilisation</button>
-              </div>
-                </div>
-              </div>
 
               <!-- Zone "danger", volontairement tout en bas de Réglages (29 août
                    2026, demande d'Emilien) : suppression définitive du compte,
@@ -3125,6 +3030,101 @@
                 </div>
               </div>
             </div>
+              <div class="settingsSection">
+                <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                  <span class="sectionTitle">Sécurité</span>
+                  <span class="cmpChev" aria-hidden="true"></span>
+                </button>
+                <div class="settingsSectionBody hidden">
+              <div class="settingsCard">
+                <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsCurrentPin" placeholder="Code actuel" maxlength="6" autocomplete="off">
+                <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPin" placeholder="Nouveau code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
+                <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPinConfirm" placeholder="Confirme le nouveau code" maxlength="6" autocomplete="off">
+                <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon code</button>
+                <p id="settingsPinMsg" class="msg"></p>
+              </div>
+              <!-- "Se déconnecter de tous les appareils" (7 septembre 2026,
+                   discussion "Sécurité — Réglages utilisateur") : le système de
+                   session (6 septembre) n'a aucun registre de sessions
+                   individuelles — un témoin auto-suffisant par appareil, sans
+                   liste consultable en base (voir server/lib/session.js). Pas
+                   de "voir mes sessions" possible sans un chantier plus lourd
+                   (table `sessions`), hors périmètre retenu pour l'échéance du
+                   11 septembre : cette carte se limite donc à une révocation
+                   GLOBALE, immédiate, de tous les appareils à la fois. -->
+              <!-- ⚠️ « Déconnexion » a brièvement vécu ICI le 26 septembre 2026, entre
+                   son départ du bandeau « Réglages » et sa place actuelle : Emilien
+                   l'a fait remonter le jour même dans Identité, sous le bouton
+                   « Enregistrer » (voir son nouvel emplacement plus haut). Ne pas
+                   le redescendre ici en croyant le rapprocher de son voisin
+                   « Se déconnecter de tous les appareils » : ce rapprochement a été
+                   essayé et écarté. -->
+              <div class="settingsCard">
+                <button id="settingsLogoutAllBtn" class="iconBtn">Se déconnecter de tous les appareils</button>
+                <p id="settingsLogoutAllMsg" class="msg"></p>
+              </div>
+              <!-- Documents légaux (10 septembre 2026, demande directe
+                   d'Emilien) : la politique de confidentialité et les
+                   mentions légales n'étaient nulle part visibles dans l'app
+                   (seules les Conditions d'utilisation avaient une page,
+                   depuis le 7 septembre 2026) — voir
+                   noesis-timetracker-inventaire-11-septembre.md. Emilien a
+                   demandé une SEULE sous-section déroulante regroupant les
+                   trois documents plutôt que trois entrées séparées. Ancienne
+                   section "Conditions d'utilisation" (.settingsFlat, toujours
+                   dépliée) transformée en .settingsSection repliable, sur le
+                   même patron que "Sécurité"/"Supprimer mon compte" juste
+                   au-dessus/en-dessous dans ce même groupe "Compte et
+                   sécurité" — l'accordéon imbriqué générique
+                   (closeAllSettingsSections/closeSettingsContainer, voir
+                   app.js) la gère sans aucun changement de logique.
+                   #openLegalTermsBtn est INCHANGÉ (même id, même
+                   comportement) : seul son conteneur direct change. Les deux
+                   nouveaux boutons suivent exactement le même patron
+                   (#privacyPolicyModal/#legalNoticesModal, voir plus bas dans
+                   ce fichier) : lecture seule, aucun mandat sur le fond
+                   juridique, textes repris tels quels depuis
+                   noesis-timetracker-conformite-loi25.md (section 1) et
+                   noesis-timetracker-mentions-legales.md (Partie A
+                   uniquement — la Partie B est un usage interne, jamais
+                   montrée à l'Utilisateur). Toute mise à jour du FOND doit
+                   passer par ces documents projet, jamais être rédigée ici
+                   directement. -->
+              <!-- 10 oct. 2026 : consentements déplacés dans Sécurité, juste au-dessus des documents légaux ; interrupteurs qui agissent au clic (routes PUT dédiées), sans passer par « Enregistrer ». -->
+              <div class="settingsCard settingsConsentCard">
+                <div class="consentItem">
+                <div class="notifRow">
+                  <span class="notifRowLabel">Utilisation commerciale de mes données</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsMarketingConsent" role="switch" aria-label="Utilisation commerciale de mes données">
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
+                <p class="hint">Analyse de l'usage, statistiques, communications commerciales et campagnes publicitaires de Noesis. <a href="#" class="policy24Link">§2.4</a></p>
+                <p id="settingsMarketingMsg" class="msg"></p>
+                </div>
+                <div class="notifRow">
+                  <span class="notifRowLabel">Être trouvable dans la recherche de l'écran de connexion</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsDirectoryConsent" role="switch" aria-label="Être trouvable dans la recherche de l'écran de connexion">
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
+              </div>
+              <!-- Documents légaux (ex-sous-section, réunie à Sécurité le 30
+                   septembre 2026, demande d'Emilien) : mêmes ids et même
+                   comportement qu'avant, seul le conteneur change. Voir
+                   #privacyPolicyModal/#legalNoticesModal/#legalTermsModal plus
+                   bas dans ce fichier. -->
+              <div class="settingsCard">
+                <p class="hint">Comment Noèsis TimeTracker fonctionne, ce qu'il fait de tes renseignements, et les règles d'utilisation du service.</p>
+                <button type="button" id="openPrivacyPolicyBtn" class="iconBtn">Lire la politique de confidentialité</button>
+                <button type="button" id="openGovernanceBtn" class="iconBtn governanceLink">Gouvernance des renseignements personnels</button>
+                <button type="button" id="openLegalNoticesBtn" class="iconBtn">Lire les mentions légales</button>
+                <button type="button" id="openLegalTermsBtn" class="iconBtn">Lire les conditions d'utilisation</button>
+              </div>
+                </div>
+              </div>
                       </div>
             </div>
           </div>
