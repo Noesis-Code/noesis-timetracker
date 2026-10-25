@@ -15487,7 +15487,7 @@
     advToggle.type = 'button';
     advToggle.className = 'activityEditAdvToggle';
     advToggle.setAttribute('aria-expanded', 'false');
-    advToggle.textContent = t('Avancé') + ' ▾';
+    TMT.ui.toggleLabel(advToggle, t('Avancé'), false);
     var adv = document.createElement('div');
     adv.className = 'activityEditAdv hidden';
     var visRow = document.createElement('label');
@@ -15511,7 +15511,7 @@
     advToggle.addEventListener('click', function () {
       var open = adv.classList.toggle('hidden') === false;
       advToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-      advToggle.textContent = t('Avancé') + (open ? ' ▴' : ' ▾');
+      TMT.ui.toggleLabel(advToggle, t('Avancé'), open);
     });
     fields.appendChild(advToggle);
     fields.appendChild(adv);
