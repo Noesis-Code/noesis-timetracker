@@ -27,13 +27,18 @@
 }
 :root[data-theme] .tabbar .tabBtn .tabIcon svg { width: 22px; height: 22px; }
 :root[data-theme] .tabbar .tabBtn[data-tab="goals"] .tabIcon svg { width: 21px; height: 25px; }
-/* Onglet actif = « goutte d'eau » : forme naturelle, fond doux sans bord ni opacité appuyée, apparition progressive. */
+/* Onglet actif (demande d'Émilien, 25 oct. 2026, d'après la recherche de la bibliothèque d'apps de l'iPhone) : petite pilule de verre, calme et légère, contour fin, sans fond teinté ; elle déforme ce qui passe derrière elle (filtre #tabLens, navigateurs qui le permettent), sinon un flou très léger. */
 :root[data-theme] .tabbar .tabBtn { transition: background .3s ease, box-shadow .3s ease, color .3s ease; }
-:root[data-theme] .tabbar .tabBtn.active {
-  color: var(--text, #F3EEE8);
-  border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
-  background: radial-gradient(120% 110% at 38% 22%, rgba(243, 238, 232, .13) 0%, rgba(243, 238, 232, .05) 70%);
-  box-shadow: inset 0 1px 1px rgba(243, 238, 232, .14), 0 3px 8px rgba(0, 0, 0, .22);
+:root[data-theme] .tabbar .tabBtn.active { color: var(--text, #F3EEE8); background: none; box-shadow: none; border-radius: 0; }
+:root[data-theme] .tabbar .tabBtn.active .tabIcon { position: relative; z-index: 1; }
+:root[data-theme] .tabbar .tabBtn.active::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: min(32px, 8vw); height: 28px; transform: translate(-50%, -50%); pointer-events: none; box-sizing: border-box;
+  border-radius: var(--radius-pill, 999px); background: none;
+  border: 1px solid rgba(243, 238, 232, .16); box-shadow: 0 2px 6px rgba(0, 0, 0, .18);
+  -webkit-backdrop-filter: blur(.4px) saturate(1.1); backdrop-filter: blur(.4px) saturate(1.1);
+}
+@supports (backdrop-filter: url(#tabLens)) {
+  :root[data-theme] .tabbar .tabBtn.active::before { backdrop-filter: url(#tabLens) blur(.4px) saturate(1.1); }
 }
 /* Extensions (Expansion ; pour le moment Trade Tracker seulement, attribut data-expansion) : un carré autour de l'icône. */
 :root[data-theme] .tabbar .tabBtn[data-expansion] .tabIcon,
@@ -63,17 +68,18 @@
 }
 .tabbar .tabBtnAdd svg { width: 22px; height: 22px; }
 
-/* Mode édition (appui long) : un rond de verre calme autour de chaque icône, aucun verre fort (même pas sur l'icône active ni sur celle qu'on déplace) ; croix rouge minuscule (R12, R18). */
-.tabbar.barEdit .tabBtn { transform: rotate(2deg); }
-.tabbar.barEdit .tabBtn:nth-child(even) { transform: rotate(-2deg); }
+/* Mode édition (appui long ; demande d'Émilien, 25 oct. 2026) : aucun rond, aucun carré, aucun verre autour des volets, même pas l'actif ni celui qu'on déplace ; ils tremblent seulement et la petite croix rouge apparaît en haut à droite (R12, R18). */
+.tabbar.barEdit .tabBtn { transform: rotate(2deg); animation: tabJiggle .26s ease-in-out infinite alternate; }
+.tabbar.barEdit .tabBtn:nth-child(even) { transform: rotate(-2deg); animation-delay: -.13s; }
+@keyframes tabJiggle { from { transform: rotate(-2.2deg); } to { transform: rotate(2.2deg); } }
 :root[data-theme] .tabbar.barEdit .tabBtn,
-:root[data-theme] .tabbar.barEdit .tabBtn.active {
-  background: var(--glass-calm-bg, rgba(243, 238, 232, .05)); box-shadow: inset 0 0 0 1px var(--glass-calm-line, rgba(243, 238, 232, .12));
-  -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
-}
-/* Icône d'extension (Trade) en édition : un seul contour, le carré (pas de rond en plus). */
-:root[data-theme] .tabbar.barEdit .tabBtn[data-expansion] { background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
-.tabbar.barEdit .tabBtn.dragging { z-index: 2; transition: none; scale: 1.08; box-shadow: 0 4px 12px rgba(0, 0, 0, .4); }
+:root[data-theme] .tabbar.barEdit .tabBtn.active { background: none; box-shadow: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root[data-theme] .tabbar.barEdit .tabBtn.active::before,
+:root[data-theme] .tabbar.barEdit .tabBtn.active::after { display: none; }
+:root[data-theme] .tabbar.barEdit .tabBtn .tabIcon,
+:root[data-theme] .tabbar.barEdit .tabBtn.active .tabIcon,
+:root[data-theme] .tabbar.barEdit .tabBtn[data-expansion] .tabIcon { border: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; transform: none; }
+.tabbar.barEdit .tabBtn.dragging { z-index: 2; transition: none; animation: none; scale: 1.08; box-shadow: none; }
 .tabbar .barX {
   position: absolute; top: -2px; right: -2px; /* croix rouge R25 : le composant .cmpRemove fait le reste */
 }
