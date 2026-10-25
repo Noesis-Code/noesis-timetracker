@@ -36,7 +36,6 @@
 .historyEntry,
 .historyEntryCompact.isEditing,
 .iconBtn,
-.menuBtn,
 .onboarding-card,
 .periodBtn,
 .pollOtherInput,
@@ -71,7 +70,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 :root .chatComposerRow textarea, :root .discussionComposer textarea, :root .chatComposer textarea {
   background: var(--glass-calm-bg); border-color: var(--glass-calm-line); -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
 }
-:root .menuBtn.attachMenuIconBtn, :root .attachmentRow {
+:root .attachmentRow {
   background: var(--glass-calm-bg); border-color: var(--glass-calm-line); -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
 }
 :root .discussionMsgFiles img, :root .feedPost img, :root .attachmentThumb {
@@ -211,10 +210,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 
-/* ---- Fenêtres : icônes de la barre du haut, boutons Catégories/Statistiques et « + » retrouvent leur verre d'avant (un peu plus opaque) ---- */
-:root #profilePage .menuBtn,
-:root #goalsActivitySwitcher #goalsBackToCaptureBtn, :root #goalsActivitySwitcher .goalsSwipeBtn,
-:root #goalsDetailPage #goalsDetailBack, :root #goalsDetailPage #activityGoalsPrevBtn, :root #goalsDetailPage #activityGoalsNextBtn, :root #goalsMonthView #activityGoalsPrevBtn, :root #goalsMonthView #activityGoalsNextBtn,
+/* ---- Fenêtres : boutons Catégories/Statistiques retrouvent leur verre d'avant (un peu plus opaque) ; les symboles seuls n'en ont jamais (composants.css, « Bouton-symbole ») ---- */
 :root #activityPageSectionSwitch .periodBtn:not(.active) {
   background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; color: var(--text) !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.24) !important;

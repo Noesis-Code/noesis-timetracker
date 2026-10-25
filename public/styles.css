@@ -439,36 +439,16 @@ body { isolation: isolate; }
 .topbarDefault .topIconBtn svg { width: 18px; height: 18px; }
 .topbarDefault .topIconBtn.active { color: var(--white); }
 
-/* Volet Stats (Piste B, choisi par Emilien sur rendu) : les petits contrôles des cartes — ‹ › (période), ⋮ (menus) et « Aujourd'hui » — deviennent vitreux, comme « Historique » (jetons --glass-*). */
-#tab-stats .sectionTitleRow .iconBtn,
-#tab-stats .sectionTitleRow .menuBtn {
-  background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
-}
+/* Volet Stats : « Aujourd'hui » reste une pastille de verre (voir plus bas) ; les symboles ‹ › ⋮ n'ont aucun carré (composants.css, « Bouton-symbole »). */
 /* 30 septembre 2026 (Piste B, Réglages + fenêtres Objectifs) : boutons ✕, flèches ‹ › et en-têtes de sections de
    Réglages en verre (jetons --glass-*) ; le contenu (cartes, zones de saisie, onglets Tâches/Objectifs) reste inchangé.
    Bordure des en-têtes de Réglages non touchée (sa couleur violette à l'ouverture reste pilotée plus bas). */
 #profileSettingsPanel .settingsGroup > .settingsSectionHeader,
-#profileSettingsPanel .settingsSection > .settingsSectionHeader,
-#goalsActivitySwitcher #goalsBackToCaptureBtn,
-#goalsActivitySwitcher .goalsSwipeBtn,
-#goalsDetailPage #goalsDetailBack,
-#goalsDetailPage #activityGoalsPrevBtn,
-#goalsDetailPage #activityGoalsNextBtn,
-#goalsMonthView #activityGoalsPrevBtn,
-#goalsMonthView #activityGoalsNextBtn {
+#profileSettingsPanel .settingsSection > .settingsSectionHeader {
   background: var(--glass-bg); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
-#goalsActivitySwitcher #goalsBackToCaptureBtn,
-#goalsActivitySwitcher .goalsSwipeBtn,
-#goalsDetailPage #goalsDetailBack,
-#goalsDetailPage #activityGoalsPrevBtn,
-#goalsDetailPage #activityGoalsNextBtn,
-#goalsMonthView #activityGoalsPrevBtn,
-#goalsMonthView #activityGoalsNextBtn { border: 1px solid var(--glass-border); }
 /* Halo des fenêtres : le halo unique .cmpHalo (composants.css), posé sur chaque fenêtre plein écran. */
 #activityPage .communityMembersModalCard,
 #profilePage .communityMembersModalCard,
@@ -479,25 +459,8 @@ body { isolation: isolate; }
 /* 30 septembre 2026 (Piste B) : tous les boutons de type « réglage » deviennent vitreux — ✕ de chaque fenêtre/panneau,
    boutons du haut du Profil (abonnés, notifications, ✕), boutons de période (⋮) des Statistiques (fenêtre d'activité,
    catégories, profil d'un membre) et « + » des catégories. Boutons d'envoi (.iconBtn « Envoyer ») et pièces jointes inchangés. */
-#caPiePeriodBtn,
-#caChartPeriodBtn,
-#soloStatsPeriodBtn,
-#csTsPeriodBtn,
-#csChartPeriodBtn,
-#viewProfilePiePeriodBtn,
-#viewProfileChartPeriodBtn {
-  background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
-}
 /* 30 septembre 2026 (Piste B) : flèches ‹ › de semaine et boutons « Aujourd'hui » des Statistiques/Historique en verre. */
-#historyPrevWeek,
-#historyNextWeek,
-#tsPrevWeek,
-#tsNextWeek,
 #statsPieTodayBtn,
-#csTsPrevWeek,
-#csTsNextWeek,
 #csPieTodayBtn {
   background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
@@ -1832,14 +1795,7 @@ button { -webkit-user-select: none; user-select: none; }
 }
 /* Le bouton de fermeture s'efface au profit de la couleur d'activité : fond
    transparent, bordure et glyphe dans la couleur du texte de la barre. */
-#categoryStatsModal .viewProfileIdentity.tinted #categoryStatsClose {
-  background: transparent;
-  border-color: currentColor;
-  color: inherit;
-}
-#categoryStatsModal .viewProfileIdentity.tinted #categoryStatsClose:hover {
-  background: rgba(255, 255, 255, 0.18);
-}
+#categoryStatsModal .viewProfileIdentity.tinted #categoryStatsClose { color: inherit; }
 
 /* Point vert « chrono en cours » du profil visité (3 septembre 2026, demande d'Emilien). */
 .viewProfileLiveDot {
