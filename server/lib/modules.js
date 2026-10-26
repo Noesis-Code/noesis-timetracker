@@ -6,13 +6,16 @@ const db = require('../db');
 // Ensembles A et B actifs ; Communauté et Profil (optionnels) inactifs.
 const NEW_ACCOUNT_DEFAULT_MODULES = ['stats', 'stats-tasks', 'roadmap', 'sharing', 'calendar', 'ai', 'notifications'];
 
-// Ensembles (décision d'Émilien) : au moins UN des deux doit rester actif (Chrono, dans core, fait partie de A côté produit).
-// A « Chrono » : statistiques du chrono / feuille de temps. B « Feuille de route » : statistiques des tâches + Feuille de route.
+// Ensembles (décision d'Émilien, étendue le 26 oct. 2026) : au moins UN des trois doit rester actif (Chrono, dans core, fait partie de A côté produit).
+// A « Chrono » : statistiques du chrono / feuille de temps. B « Feuille de route » : statistiques des tâches + Feuille de route. C « Horaire » : horaires du personnel.
 // `anchor` = module dont l'état dit si l'ensemble est actif.
 const BUNDLES = {
   time: { label: 'Chrono', anchor: 'stats', modules: ['stats'], all: ['stats'] },
   tasks: { label: 'Feuille de route', anchor: 'roadmap', modules: ['roadmap', 'stats-tasks'], all: ['roadmap', 'stats-tasks', 'calendar', 'ai'] },
+  horaire: { label: 'Horaire', anchor: 'horaire', modules: ['horaire'], all: ['horaire'] },
 };
+// Repli d'un état stocké sans aucun ensemble actif : on rallume les deux ensembles historiques (Horaire reste un choix explicite).
+const FALLBACK_BUNDLES = ['time', 'tasks'];
 // Optionnels, indépendants des ensembles.
 const OPTIONAL = ['community', 'profile', 'trade'];
 // Communauté et Profil vont ensemble (un seul module côté usage) : les deux clés sont toujours égales.
@@ -36,6 +39,7 @@ const MODULES = {
   ai: { label: 'Assistant IA', requires: ['roadmap'] },
   notifications: { label: 'Notifications', requires: [] },
   trade: { label: 'Trade Tracker', requires: [] },
+  horaire: { label: 'Horaire', requires: [] },
   offer1: { label: 'Offre payante', requires: ['roadmap', 'ai'] },
 };
 const ALWAYS_ON = ['core'];
@@ -55,10 +59,10 @@ function defaults() {
   return linkPair(out);
 }
 
-// Comptes existants (colonne NULL) : tout actif, comme avant ce socle.
+// Comptes existants (colonne NULL) : tout actif, comme avant ce socle (sauf Horaire, ajouté le 26 oct. 2026 : il se choisit).
 function legacyDefaults() {
   const out = {};
-  for (const id of Object.keys(MODULES)) out[id] = id !== 'offer1' && id !== 'trade';
+  for (const id of Object.keys(MODULES)) out[id] = id !== 'offer1' && id !== 'trade' && id !== 'horaire';
   return out;
 }
 
@@ -69,9 +73,9 @@ function normalize(raw, userId) {
       if (MODULES[id] && !NOT_TOGGLEABLE.includes(id)) base[id] = !!raw[id];
     }
   }
-  // Repli : une valeur stockée où AUCUN des deux ensembles n'est actif (état hérité d'une ancienne version) rendait Feuille de route et
-  // Statistiques vides (403 module_off). Jamais d'état « tout coupé » : on rallume les deux ensembles (aucune donnée n'était perdue).
-  if (!Object.keys(BUNDLES).some((b) => base[BUNDLES[b].anchor])) Object.keys(BUNDLES).forEach((b) => BUNDLES[b].all.forEach((id) => { base[id] = true; }));
+  // Repli : une valeur stockée où AUCUN ensemble n'est actif (état hérité d'une ancienne version) rendait Feuille de route et
+  // Statistiques vides (403 module_off). Jamais d'état « tout coupé » : on rallume Chrono et Feuille de route (aucune donnée n'était perdue).
+  if (!Object.keys(BUNDLES).some((b) => base[BUNDLES[b].anchor])) FALLBACK_BUNDLES.forEach((b) => BUNDLES[b].all.forEach((id) => { base[id] = true; }));
   if (!isTradeAllowed(userId)) base.trade = false; // jamais actif pour un id non autorisé (même si la colonne dit vrai)
   return linkPair(base);
 }
@@ -102,7 +106,7 @@ function validate(next) {
     }
   }
   if (!Object.keys(BUNDLES).some((b) => next[BUNDLES[b].anchor])) {
-    return { ok: false, error: 'Garde au moins un ensemble : « Chrono » ou « Feuille de route ».' };
+    return { ok: false, error: 'Garde au moins un ensemble : « Chrono », « Feuille de route » ou « Horaire ».' };
   }
   return { ok: true };
 }
@@ -135,12 +139,7 @@ function setModules(userId, patch) {
       if (next[id] && !NOT_TOGGLEABLE.includes(id) && MODULES[id].requires.some((d) => !next[d])) { next[id] = false; changed = true; }
     }
   }
-  // Règle croisée : si ce patch coupe un ensemble et que l'autre était déjà coupé, l'autre est réactivé (jamais une erreur).
-  const bs = Object.keys(BUNDLES);
-  if (!bs.some((b) => next[BUNDLES[b].anchor])) {
-    const touched = bs.filter((b) => BUNDLES[b].all.some((id) => id in patch));
-    if (touched.length === 1) bs.filter((b) => b !== touched[0]).forEach((b) => BUNDLES[b].all.forEach((id) => { next[id] = true; }));
-  }
+  // Au moins un des trois ensembles (Chrono, Feuille de route, Horaire) reste actif : un état sans aucun est refusé par validate() (26 oct. 2026).
   const linked = LINKED.find((k) => k in patch);
   if (linked) linkPair(next, patch[linked]);
   const v = validate(next);

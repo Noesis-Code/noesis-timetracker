@@ -8,7 +8,7 @@ const M = require('../server/lib/modules');
 db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u1', 'Test', '2026-01-01')").run();
 
 let m = M.getModules('u1');
-assert(Object.keys(m).every((k) => (k === 'offer1' || k === 'trade') ? !m[k] : m[k]), 'compte existant (NULL) : tout actif sauf offer1 et trade');
+assert(Object.keys(m).every((k) => (k === 'offer1' || k === 'trade' || k === 'horaire') ? !m[k] : m[k]), 'compte existant (NULL) : tout actif sauf offer1, trade et horaire');
 assert(M.isEnabled('u1', 'core') && M.isEnabled('u1', 'roadmap') && !M.isEnabled('u1', 'offer1') && !M.isEnabled('u1', 'inconnu'), 'isEnabled');
 assert(M.getModules('absent') === null, 'profil absent : null');
 
@@ -47,15 +47,19 @@ assert(M.setModules('u1', { stats: 'oui' }).status === 400, 'valeur non booléen
 assert(M.setModules('u1', null).status === 400 && M.setModules('u1', []).status === 400, 'corps invalide refusé');
 r = M.setModules('u1', { stats: false });
 assert(r.ok && !M.isEnabled('u1', 'stats') && M.isEnabled('u1', 'roadmap'), 'ensemble B seul accepté');
+// Au moins un des trois (Chrono, Feuille de route, Horaire) reste actif (26 oct. 2026) : couper le dernier est refusé, rien n'est rallumé en douce.
+assert(!M.isEnabled('u1', 'horaire'), 'horaire : inactif pour un compte existant');
 r = M.setModules('u1', { roadmap: false, 'stats-tasks': false, calendar: false, ai: false });
-assert(r.ok && M.isEnabled('u1', 'stats') && !M.isEnabled('u1', 'roadmap'), 'règle croisée : couper B (A coupé) rallume A, sans erreur');
-r = M.setModules('u1', { stats: false });
-assert(r.ok && M.isEnabled('u1', 'roadmap') && M.isEnabled('u1', 'calendar') && M.isEnabled('u1', 'ai') && !M.isEnabled('u1', 'stats'), 'règle croisée : couper A (B coupé) rallume B et ses dépendants');
-r = M.setModules('u1', { stats: false, calendar: false, ai: false, 'stats-tasks': false, roadmap: false });
-assert(!r.ok && r.status === 409 && /ensemble/.test(r.error), 'tout désactiver (A et B) dans un même envoi refusé');
-assert(M.setModules('u1', { stats: true }).ok && M.setModules('u1', { calendar: false, ai: false, 'stats-tasks': false, roadmap: false }).ok, 'ensemble A seul accepté');
+assert(!r.ok && r.status === 409 && /Horaire/.test(r.error) && M.isEnabled('u1', 'roadmap') && !M.isEnabled('u1', 'stats'), 'au moins un des trois : couper le dernier (Feuille de route) refusé, état inchangé');
+assert(M.setModules('u1', { horaire: true }).ok && M.setModules('u1', { roadmap: false, 'stats-tasks': false, calendar: false, ai: false }).ok && M.isEnabled('u1', 'horaire') && !M.isEnabled('u1', 'roadmap') && !M.isEnabled('u1', 'stats'), 'Horaire seul accepté');
+r = M.setModules('u1', { horaire: false });
+assert(!r.ok && r.status === 409 && M.isEnabled('u1', 'horaire'), 'au moins un des trois : couper Horaire seul restant refusé');
+r = M.setModules('u1', { stats: false, roadmap: false, horaire: false });
+assert(!r.ok && r.status === 409 && /ensemble/.test(r.error), 'tout désactiver (Chrono, Feuille de route, Horaire) dans un même envoi refusé');
+assert(M.setModules('u1', { stats: true, horaire: false }).ok && M.isEnabled('u1', 'stats') && !M.isEnabled('u1', 'horaire'), 'ensemble A seul accepté');
+assert(M.validate({ stats: false, roadmap: false, horaire: true }).ok && !M.validate({ stats: false, roadmap: false, horaire: false }).ok, 'validate : au moins un des trois');
 const nd = M.defaults();
-assert(nd.stats && nd.roadmap && nd['stats-tasks'] && !nd.community && !nd.profile, 'défaut nouveau compte : A+B actifs, Communauté+Profil inactifs');
+assert(nd.stats && nd.roadmap && nd['stats-tasks'] && !nd.horaire && !nd.community && !nd.profile, 'défaut nouveau compte : A+B actifs, Horaire, Communauté+Profil inactifs');
 assert(M.setModules('absent', { stats: true }).status === 404, 'profil absent : 404');
 assert(Array.isArray(M.NEW_ACCOUNT_DEFAULT_MODULES) && M.defaults().core === true && M.defaults().offer1 === false, 'défauts nouveau compte');
 // Bug « Feuille de route vide / Stats : Aucune activité » : une valeur stockée sans aucun ensemble actif (ancienne version) = tout rallumé, jamais 403.

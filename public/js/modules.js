@@ -9,8 +9,8 @@
   var state = null, loadedFor = null, tradeAllowed = false;
   var CACHE_KEY = 'noesis_modules';
   // Dernier état connu (démarrage hors ligne / avant la réponse du serveur) : évite un flash d'interface masquée ou non.
-  // Un état où ni Chrono (stats) ni Feuille de route (roadmap) n'est actif n'est jamais valide (le serveur le rallume) : traité comme « tout actif ».
-  function usable(st) { return !!st && typeof st === 'object' && (st.stats !== false || st.roadmap !== false); }
+  // Un état où ni Chrono (stats), ni Feuille de route (roadmap), ni Horaire n'est actif n'est jamais valide (le serveur le refuse) : traité comme « tout actif ».
+  function usable(st) { return !!st && typeof st === 'object' && (st.stats !== false || st.roadmap !== false || st.horaire === true); }
   try {
     var cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
     var lp = JSON.parse(localStorage.getItem('noesis_profile') || 'null');
@@ -35,6 +35,7 @@
     if (tab === 'goals') return on('roadmap');
     if (tab === 'community') return on('community');
     if (tab === 'trade') return !!state && state.trade === true;
+    if (tab === 'horaire') return !!state && state.horaire === true;
     return true;
   }
   function apply() {
@@ -51,11 +52,13 @@
   }
   function setMsg(t) { if (msg) msg.textContent = t || ''; }
 
-  // Trois lignes, un interrupteur chacune : Chrono, Feuille de route, Communauté et profil. Au moins l'un des deux premiers reste actif : couper le dernier rallume l'autre.
+  // Quatre lignes, un interrupteur chacune : Chrono, Feuille de route, Horaire, Communauté et profil. Au moins l'un des trois premiers reste actif :
+  // couper le dernier est refusé par le serveur (message affiché, l'interrupteur revient).
   // Calendrier et Assistant IA se rattachent à « Tâches et objectifs » ; partage et notifications restent actifs (noyau), sans interrupteur.
   var ROWS = [
     { label: 'Chrono', ids: ['stats'], anchor: 'stats', bundle: true },
     { label: 'Feuille de route', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap', bundle: true },
+    { label: 'Horaire', ids: ['horaire'], anchor: 'horaire', bundle: true },
     { label: 'Communauté et profil', ids: ['community', 'profile'], anchor: 'community', bundle: false }
   ];
   var BUNDLES = ROWS.filter(function (r) { return r.bundle; });
@@ -65,25 +68,17 @@
     return call('PUT', { modules: patch }).then(function (d) { state = d.modules; remember(); apply(); }).catch(function (e) { setMsg(e.message); }).then(paint);
   }
 
-  // Dessine les trois lignes dans `target` pour l'état `st` ; `apply(patch)` reçoit chaque changement.
-  // `lastOk` : autorise de tout désactiver (écran de premier choix, la validation reste bloquée) ; sinon couper l'un des deux rallume l'autre.
-  function render(target, st, apply, lastOk) {
+  // Dessine les lignes `rows` dans `target` pour l'état `st` ; `apply(patch)` reçoit chaque changement.
+  function render(target, st, apply, rows) {
     target.innerHTML = '';
-    var inputs = [];
-    ROWS.forEach(function (r) {
+    rows.forEach(function (r) {
       var row = document.createElement('div'); row.className = 'notifRow';
       var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = tr(r.label);
       var sw = document.createElement('label'); sw.className = 'toggleSwitch';
       var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!st[r.anchor]; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', tr(r.label));
       var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
-      inputs.push({ row: r, inp: inp });
       inp.addEventListener('change', function () {
         var patch = {}; r.ids.forEach(function (id) { patch[id] = inp.checked; });
-        // Règle croisée : couper le dernier des deux ensembles rallume l'autre (affichage immédiat de sa bascule).
-        if (r.bundle && !inp.checked && !lastOk && !BUNDLES.some(function (b) { return b !== r && st[b.anchor]; })) {
-          BUNDLES.forEach(function (b) { if (b !== r) b.ids.forEach(function (id) { patch[id] = true; }); });
-          inputs.forEach(function (o) { if (o.row !== r && o.row.bundle) o.inp.checked = true; });
-        }
         apply(patch);
       });
       sw.appendChild(inp); sw.appendChild(track);
@@ -92,21 +87,19 @@
     });
   }
 
-  function paint() { if (box && state) render(box, state, put, false); }
+  function paint() { if (box && state) render(box, state, put, ROWS); }
 
-  // Premier lancement (nouveau compte) : monte le choix dans `target` ; `onChange(valide)` à chaque changement.
-  // Renvoie une promesse { save() } ; save() enregistre via PUT et marque le choix fait.
+  // Création du compte (26 oct. 2026) : choix de Chrono, Feuille de route, Horaire dans `target`, au moins un ; `onChange(valide)` à chaque changement.
+  // Monté avant que le profil existe (aucun appel serveur) ; save() enregistre via PUT une fois le profil créé et marque le choix fait.
   function mountChoice(target, onChange) {
-    return call('GET').then(function (d) {
-      var local = Object.assign({}, d.modules);
-      function valid() { return BUNDLES.some(function (b) { return !!local[b.anchor]; }); }
-      function draw() {
-        render(target, local, function (patch) { Object.assign(local, patch); draw(); }, true);
-        if (onChange) onChange(valid());
-      }
-      draw();
-      return { chosen: d.modulesChosen !== false, valid: valid, save: function () { return call('PUT', { modules: local }).then(function (r) { state = r.modules; loadedFor = pid(); return r; }); } };
-    });
+    var local = { stats: true, roadmap: true, 'stats-tasks': true, calendar: true, ai: true, horaire: false };
+    function valid() { return BUNDLES.some(function (b) { return !!local[b.anchor]; }); }
+    function draw() {
+      render(target, local, function (patch) { Object.assign(local, patch); draw(); }, BUNDLES);
+      if (onChange) onChange(valid());
+    }
+    draw();
+    return { valid: valid, save: function () { return call('PUT', { modules: local }).then(function (r) { state = r.modules; loadedFor = pid(); remember(); apply(); return r; }); } };
   }
 
   // Ouverture de l'app : on arrive sur le premier volet (le plus à gauche) de la barre, modules désactivés exclus. Une fois par chargement ; ?notif= garde la priorité.

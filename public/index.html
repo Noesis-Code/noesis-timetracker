@@ -497,6 +497,9 @@
       <input type="password" id="onbPinConfirm" placeholder="Confirme le mot de passe" maxlength="128" autocomplete="new-password">
       <p class="hint pwdRules">10 caractères ou plus, avec une minuscule, une majuscule, un chiffre et un caractère spécial.</p>
       <p class="hint">Ce code te sera redemandé si tu récupères ce profil depuis un autre appareil — retiens-le bien.</p>
+      <!-- 26 oct. 2026 (Émilien) : modules choisis à la création du compte, au moins un (js/modules.js, mountChoice). -->
+      <p class="lead">Choisis tes modules</p>
+      <div id="onbModulesList"></div>
       <!-- 11 septembre 2026, demande directe d'Emilien : le simple lien de
            lecture des CGU (7 septembre 2026, voir plus bas dans ce fichier)
            ne suffisait pas à formaliser un consentement — n'importe qui
@@ -1527,6 +1530,11 @@
          et consorts, simplement retargetées sur currentGoalsActivityId au
          lieu de currentCommunityActivityId). -->
     <section id="tab-goals" class="tab hidden">
+    </section>
+
+    <!-- ---------- ONGLET HORAIRE (26 oct. 2026) : écran vide, les écrans viendront après maquette validée ---------- -->
+    <section id="tab-horaire" class="tab hidden">
+      <p class="lead">Horaire</p>
     </section>
 
     <!-- ---------- ONGLET PROFIL ---------- -->
@@ -3237,6 +3245,18 @@
         </svg>
       </span>
       <span class="tabLabel">Trade</span>
+    </button>
+    <!-- 26 oct. 2026 : volet Horaire (module « horaire ») ; écran vide en attendant la maquette validée. -->
+    <button class="tabBtn" data-tab="horaire" aria-label="Horaire">
+      <span class="tabIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="5" width="18" height="16" rx="2"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+          <line x1="8" y1="3" x2="8" y2="7"/>
+          <line x1="16" y1="3" x2="16" y2="7"/>
+        </svg>
+      </span>
+      <span class="tabLabel">Horaire</span>
     </button>
     <!-- Remplace l'ancien onglet "Profil" (déplacé le 30 août 2026 vers un
          accès par clic sur le prénom, #whoami — voir openProfile dans

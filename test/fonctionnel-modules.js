@@ -53,6 +53,10 @@ const T = makeCounter(); const assert = T.assert;
     const on = await c.put(url, { modules: { roadmap: true } });
     assert(on.status === 200 && (await c.get(`/api/activities/${A}/goals/tasks/overview`)).status === 200, 'roadmap réactivée : accès rétabli');
     assert((await c.put(url, { modules: { community: true } })).body.modules.profile === true, 'Communauté et Profil liés');
+    const h = await c.put(url, { modules: { horaire: true } });
+    assert(h.status === 200 && h.body.modules.horaire === true && (await c.get(url)).body.list.some((m) => m.id === 'horaire'), 'module Horaire activable et listé');
+    const none = await c.put(url, { modules: { stats: false, roadmap: false, horaire: false } });
+    assert(none.status === 409 && (await c.get(url)).body.modules.horaire === true, 'PUT : aucun des trois (Chrono, Feuille de route, Horaire) refusé');
   } finally { s.stop(); }
   console.log(`\n${T.passed} ok, ${T.failed} échec(s)`);
   process.exit(T.failed ? 1 : 0);

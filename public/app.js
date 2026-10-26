@@ -1865,8 +1865,10 @@
   // — voir public/index.html) ; aucune case distincte par document, la
   // décision d'Emilien étant un consentement unique aux deux.
   function onbUpdateCreateBtnState() {
-    $('onbCreateBtn').disabled = !$('onbLegalTermsCheckbox').checked;
+    $('onbCreateBtn').disabled = !$('onbLegalTermsCheckbox').checked || !!(onbModules && !onbModules.valid());
   }
+  // 26 oct. 2026 (Émilien) : choix des modules à la création du compte (Chrono, Feuille de route, Horaire), au moins un (js/modules.js).
+  var onbModules = window.TMT.modules && window.TMT.modules.mountChoice ? window.TMT.modules.mountChoice($('onbModulesList'), onbUpdateCreateBtnState) : null;
   $('onbLegalTermsCheckbox').addEventListener('change', onbUpdateCreateBtnState);
 
   $('onbCreateBtn').addEventListener('click', function () {
@@ -1887,11 +1889,13 @@
     var pinProblem = passwordProblem(pin);
     if (pinProblem) { $('onbMsg').textContent = pinProblem; return; }
     if (pin !== pinConfirm) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
+    if (onbModules && !onbModules.valid()) { $('onbMsg').textContent = t('Choisis au moins un module.'); return; }
     $('onbCreateBtn').disabled = true;
     api('POST', '/api/profile', { name: name, lastName: lastName, phone: phone, email: email, pin: pin, termsAccepted: true, marketingConsent: $('onbMarketingCheckbox').checked, directoryConsent: $('onbDirectoryCheckbox').checked })
       .then(function (p) {
         saveProfile(p);
-        proceedAfterProfile();
+        // Modules choisis enregistrés avant la suite ; un échec garde les modules par défaut (réglables dans Réglages).
+        (onbModules ? onbModules.save().catch(function () {}) : Promise.resolve()).then(proceedAfterProfile);
       })
       .catch(function (err) {
         $('onbMsg').textContent = err.message;
@@ -2097,7 +2101,7 @@
 
   // Modules désactivés (js/modules.js) : un onglet masqué se replie sur Chrono ; sans modules.js, tout est actif.
   function tabAllowed(tab) { return !(window.TMT && TMT.modules && TMT.modules.tabOn) || TMT.modules.tabOn(tab); }
-  function firstTab() { return tabAllowed('chrono') ? 'chrono' : (tabAllowed('goals') ? 'goals' : 'community'); }
+  function firstTab() { return tabAllowed('chrono') ? 'chrono' : (tabAllowed('goals') ? 'goals' : (tabAllowed('horaire') ? 'horaire' : 'community')); }
   function modOn(id) { return !(window.TMT && TMT.modules) || TMT.modules.isOn(id); }
   // Page de statistiques (ancien onglet Stats, chantier B 20 oct. 2026) : ctx = 'chrono' (temps : feuille de temps, répartition, graphique)
   // ou 'goals' (tâches et objectifs, public/js/stats-avance.js). Ne touche pas aux autres onglets : le glissement les gère.

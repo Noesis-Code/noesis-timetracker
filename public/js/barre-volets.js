@@ -4,7 +4,9 @@
  * mode édition — glisser une icône pour l'ordre, croix rouge pour la retirer. Règle Q1 (21 oct. 2026) : au moins un des trois volets Chrono, Feuille de route ou
  * Trade Tracker doit rester ; s'il ne reste qu'un volet au total, la barre ne montre que le bouton « + » (plus perceptible).
  * L'ordre est mémorisé par compte (localStorage) ; l'app s'ouvre sur l'onglet le plus à gauche (modules.js → TMT.navBar.firstTab).
- * Trade Tracker est un onglet ajoutable : l'ajouter connecte le module « trade » (TMT.modules.setTrade). */
+ * Trade Tracker est un onglet ajoutable : l'ajouter connecte le module « trade » (TMT.modules.setTrade).
+ * 26 oct. 2026 (Émilien) : volet Horaire (module « horaire »), ajoutable par le même « + » ; au moins un des trois volets Chrono,
+ * Feuille de route ou Horaire reste dans la barre (remplace Trade Tracker dans la règle Q1). */
 (function () {
   'use strict';
   var TMT = window.TMT = window.TMT || {};
@@ -14,8 +16,8 @@
     var addBtn = document.getElementById('tabbarAdd');
   var hint = { classList: { add: function () {}, toggle: function () {} } }; // le message « Appui long… » est supprimé (demande d'Émilien, 25 oct. 2026)
   if (!nav || !pill || !addBtn) return;
-  var ALL = ['chrono', 'goals', 'community', 'trade'];
-  var KEEP = ['chrono', 'goals', 'trade']; // au moins un de ces trois doit rester dans la barre (Q1)
+  var ALL = ['chrono', 'goals', 'horaire', 'community', 'trade'];
+  var KEEP = ['chrono', 'goals', 'horaire']; // au moins un de ces trois doit rester dans la barre (26 oct. 2026)
   var LONG_MS = 500, MOVE_PX = 10;
   var editMode = false, justEdited = false, adding = false;
 
@@ -26,7 +28,7 @@
   function tradeOn() { var m = mods(); return !!(m && m.tradeOn && m.tradeOn()); }
   function btnOf(tab) { return pill.querySelector('.tabBtn[data-tab="' + tab + '"]'); }
 
-  function defaults() { var d = ['chrono', 'goals', 'community']; if (tradeOn()) d.push('trade'); return d; }
+  function defaults() { var d = ['chrono', 'goals', 'horaire', 'community']; if (tradeOn()) d.push('trade'); return d; }
   function load() {
     var list = null;
     try { list = JSON.parse(localStorage.getItem(key()) || 'null'); } catch (e) { /* illisible : défaut */ }
@@ -59,7 +61,7 @@
       if (pl && !ghost) pl.remove();
       if (!pl && ghost) addPlus(b);
       var x = b.querySelector('.barX');
-      var crossOk = editMode && on && mayRemove(b.dataset.tab); // garde-fou Q1 : Chrono, Feuille de route ou Trade Tracker reste
+      var crossOk = editMode && on && mayRemove(b.dataset.tab); // garde-fou : Chrono, Feuille de route ou Horaire reste
       if (x && !crossOk) x.remove();
       if (!x && crossOk) addX(b);
     });
@@ -119,6 +121,7 @@
     chrono: 'Le Chrono mesure le temps passé sur chacune de tes activités : tu démarres, tu arrêtes, et tu retrouves l’historique et les statistiques.',
     goals: 'La Feuille de route organise tes tâches et tes objectifs par activité, pôle et secteur, avec le calendrier et l’avancement.',
     community: 'La Communauté te met en lien avec d’autres membres : ton profil, tes projets, leurs publications, les abonnements et les messages.',
+    horaire: 'L’Horaire prépare les horaires de ton personnel.',
     trade: 'Trade Tracker suit tes positions et ton portefeuille de trading : tableau de bord, historique, allocation, avec la connexion à ton courtier.'
   };
   function describe(tab) { return DESCRIPTIONS[tab] ? tr(DESCRIPTIONS[tab]) + '\n' : ''; }
