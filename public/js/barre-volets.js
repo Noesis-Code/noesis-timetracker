@@ -253,7 +253,7 @@
     var shown = visibleOrder();
     return ALL.filter(function (tab) {
       if (shown.indexOf(tab) !== -1) return false;
-      if (tab === 'trade') { var m = mods(); return tradeOn() || !!(m && m.tradeAllowed && m.tradeAllowed()); }
+      if (tab === 'trade') return tradeOn(); // Trade Tracker est en pause (26 oct. 2026, Émilien) : il n'est plus proposé par le « + » tant qu'il n'est pas connecté ; le « + » disparaît quand les autres volets sont tous là
       return true;
     });
   }
