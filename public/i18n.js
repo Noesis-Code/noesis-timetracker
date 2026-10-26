@@ -63,6 +63,7 @@
     'Adresse email': 'Email address',
     'Choisis un code (4 à 6 chiffres)': 'Choose a PIN (4 to 6 digits)',
     'Confirme le code': 'Confirm the PIN',
+    "Me connecter": "Sign in",
     "Création de compte": "Account creation",
     "Qui êtes-vous ?": "Who are you?",
     "Individu": "Individual",

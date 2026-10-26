@@ -167,5 +167,6 @@
 /* Première page de création de compte (26 oct. 2026) : « J'ai déjà un compte » puis le choix individu / entreprise, espacés sur la grille 8/16. */
 #onbTypeStep .btnBrique { margin-bottom: 8px; }
 #onbTypeStep .lead { margin: 0 0 8px; }
-#onbTypeStep .onbTypeAsk { margin: 0 0 16px; text-align: left; }
-#onbTypeStep #onbSwitchToExisting { width: 100%; margin-top: 16px; }
+#onbTypeStep .onbTypeAsk { margin: 0 0 8px; text-align: left; }
+#onbTypeStep .onbTypeExisting { margin: 24px 0 8px; text-align: left; }
+#onbTypeStep #onbSwitchToExisting { width: 100%; }
