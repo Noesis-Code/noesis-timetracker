@@ -648,6 +648,8 @@ router.put('/profile/:id', (req, res) => {
     }
   }
 
+  // Adresse déjà associée à un autre profil : message clair (sans cela, l'index unique faisait une erreur serveur 500).
+  if (email && db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id != ?').get(email, user.id)) return res.status(409).json({ error: 'Cette adresse courriel est déjà associée à un autre profil.' });
   const clash = db.prepare('SELECT id FROM users WHERE name = ? COLLATE NOCASE AND id != ?').get(name, user.id);
   if (clash) return res.status(409).json({ error: `"${name}" est déjà pris par un autre profil.` });
 
