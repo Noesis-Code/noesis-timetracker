@@ -939,29 +939,32 @@
   // ---------- Pages de statistiques à GAUCHE de Chrono et de la Feuille de route (chantier B, 20 oct. 2026) ----------
   // L'onglet Stats n'existe plus dans la barre : #tab-stats reste le conteneur, mais on y arrive en glissant vers la droite.
   //   contexte « chrono » : [ Chrono | Statistiques (temps) | Statistiques des activités partagées ]  (chantier Chrono : statistiques À DROITE du chrono)
-  //   contexte « goals »  : [ Tâches | Objectifs | Feuille de route (page 1) ]
+  //   contexte « goals »  : [ Feuille de route (page 1) | Tâches | Objectifs | Groupe ]  (26 oct. 2026 : statistiques À DROITE de la page 1)
   // Les écrans eux-mêmes (feuille de temps, répartition, graphique, cartes Tâches/Objectifs) ne changent pas.
   var ctx = 'chrono';
   var sharedEl = document.getElementById('statsSharedPage');
   var sharedOn = false; // contexte « chrono » : 3e page (activités partagées) affichée à la place de la page Temps
+  var groupEl = document.getElementById('statsGroupPage');
+  var groupOn = false; // contexte « goals » : page Groupe (Tâches par membre) affichée à la place de la page Tâches/Objectifs
   function showing(id) { var e = document.getElementById(id); return !!e && !e.classList.contains('hidden'); }
   function modOnId(id) { return !TMT.modules || TMT.modules.isOn(id); }
   TMT.statsContext = function () { return ctx; };
   TMT.setStatsContext = function (c) {
     ctx = c === 'goals' ? 'goals' : 'chrono';
     setSharedPage(false, { noAnim: true }); // on arrive toujours sur la page Temps (ou Tâches), jamais sur la 3e page
+    setGroupPage(false, { noAnim: true });
     if (ctx === 'goals' && page === 2) { inst.setTab('t'); inst.open(); } // déjà sur la page tâches/objectifs : on repart de Tâches, données fraîches
     else setStatsPage(ctx === 'goals' ? 2 : 1, { noAnim: true });
     setDots();
   };
 
   // ---------- Points de pagination (un seul jeu, #statsPageDots, posé hors des onglets) ----------
-  var DOT_LABELS = { chrono: ['Chrono', 'Statistiques', 'Activités partagées'], goals: ['Tâches', 'Objectifs', 'Feuille de route'] };
+  var DOT_LABELS = { chrono: ['Chrono', 'Statistiques', 'Activités partagées'], goals: ['Feuille de route', 'Tâches', 'Objectifs', 'Groupe'] };
   var dotsKey = '', dotsTimer = 0;
   function place() {
-    if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (inst.getTab() === 'o' ? 1 : 0) : (sharedOn ? 2 : 1) };
+    if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (groupOn ? 3 : (inst.getTab() === 'o' ? 2 : 1)) : (sharedOn ? 2 : 1) };
     if (showing('tab-chrono')) return { ctx: 'chrono', idx: 0 };
-    if (showing('tab-goals') && showing('goalsCapturePage')) return { ctx: 'goals', idx: 2 };
+    if (showing('tab-goals') && showing('goalsCapturePage')) return { ctx: 'goals', idx: 0 };
     return null;
   }
   function paintDots() {
@@ -970,7 +973,7 @@
     var pl = place();
     if (!pl || (pl.ctx === 'goals' && !modOnId('stats-tasks')) || (pl.ctx === 'chrono' && !modOnId('stats'))) { dots.classList.add('hidden'); return; }
     dots.classList.remove('hidden');
-    var labels = DOT_LABELS[pl.ctx].slice(0, pl.ctx === 'chrono' && !sharedAvailable() ? 2 : 3); // sans partage : pas de 3e page, deux points
+    var labels = DOT_LABELS[pl.ctx].slice(0, pl.ctx === 'chrono' ? (sharedAvailable() ? 3 : 2) : (groupAvailable() ? 4 : 3)); // sans partage : une page de moins
     if (dotsKey !== pl.ctx + labels.length) {
       dotsKey = pl.ctx + labels.length; dots.innerHTML = '';
       labels.forEach(function (lab) {
@@ -991,8 +994,9 @@
       else TMT.openStats('chrono', i === 2 ? 3 : 1);
       return;
     }
-    if (i === 2) { TMT.switchTab('goals'); return; }
-    if (showing('tab-stats')) setStatsPage(i + 2); else TMT.openStats('goals', i + 2);
+    if (i === 0) { TMT.switchTab('goals'); return; }
+    if (i === 3) { if (showing('tab-stats')) setGroupPage(true); else TMT.openStats('goals', 4); return; }
+    if (showing('tab-stats')) { if (groupOn) setGroupPage(false); setStatsPage(i + 1); } else TMT.openStats('goals', i + 1);
   });
   // Les points suivent les onglets et l'écran de capture (ouvrir/fermer une page, glissement, notification…).
   (function () {
@@ -1005,6 +1009,7 @@
   // Répartition par membre et Graphique (déplacés tels quels depuis la fenêtre Activité ; données et dessin : app.js, TMT.selectSharedStats).
   var ssChips = document.getElementById('ssChips'), ssEmpty = document.getElementById('ssEmpty'), ssBody = document.getElementById('ssBody');
   var ssActId = null;
+  function groupAvailable() { return !!groupEl && modOnId('sharing'); }
   function sharedAvailable() { return !!sharedEl && modOnId('stats') && modOnId('sharing'); }
   function sharedActivities() {
     return ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a.membersCount > 1; });
@@ -1070,6 +1075,26 @@
     slideInternal(from, to, on ? 1 : -1);
   }
   TMT.setSharedPage = setSharedPage;
+  // Page Groupe (Tâches par membre) : glissement animé depuis / vers la page Tâches-Objectifs.
+  function setGroupPage(on, opts) {
+    opts = opts || {};
+    if (!groupEl || on === groupOn) return;
+    if (on && !groupAvailable()) return;
+    groupOn = on;
+    if (on && TMT.groupStats) TMT.groupStats.open();
+    setDots();
+    var from = on ? page2 : groupEl, to = on ? groupEl : page2;
+    if (opts.noAnim) { to.classList.remove('hidden'); from.classList.add('hidden'); return; }
+    slideInternal(from, to, on ? 1 : -1);
+  }
+  TMT.setGroupPage = setGroupPage;
+  function groupNeighbor(on) {
+    return {
+      cur: on ? page2 : groupEl, nb: on ? groupEl : page2, host: pages,
+      start: function () { if (on && TMT.groupStats) TMT.groupStats.open(); },
+      commit: function () { groupOn = on; setDots(); }
+    };
+  }
   // Voisine du glissement continu : page Temps <-> 3e page (même objet que les autres voisines internes de slidePager).
   function sharedNeighbor(on) {
     return {
@@ -1123,10 +1148,10 @@
       cancel: done
     };
   }
-  function curIdx() { return ctx === 'goals' ? (inst.getTab() === 'o' ? 1 : 0) : 0; }
+  function curIdx() { return ctx === 'goals' ? (groupOn ? 2 : (inst.getTab() === 'o' ? 1 : 0)) : 0; }
   slidePager({
     zone: zone,
-    swallow: function (dir) { return ctx === 'chrono' ? (sharedOn && dir > 0) : (dir < 0 && curIdx() === 0); },
+    swallow: function (dir) { return ctx === 'chrono' ? (sharedOn && dir > 0) : (dir > 0 && curIdx() === (groupAvailable() ? 2 : 1)); },
     neighbor: function (dir) {
       var i = curIdx(), t = i + dir;
       if (ctx === 'chrono') {
@@ -1134,14 +1159,16 @@
         if (dir > 0) return sharedAvailable() ? sharedNeighbor(true) : null; // glisser de droite à gauche : page des activités partagées
         return external(zone, document.getElementById('tab-chrono'), null, 'chrono'); // glisser de gauche à droite : retour au Chrono
       }
-      if (t < 0) return null;
-      if (t > 1) return external(zone, document.getElementById('tab-goals'), function () { if (TMT.showGoalsCapturePage) TMT.showGoalsCapturePage(); }, 'goals');
+      if (t < 0) return external(zone, document.getElementById('tab-goals'), function () { if (TMT.showGoalsCapturePage) TMT.showGoalsCapturePage(); }, 'goals'); // retour à la page 1, à gauche
+      if (t > 2) return null;
+      if (t === 2) return groupAvailable() ? groupNeighbor(true) : null; // page Groupe, tout à droite
+      if (i === 2) return groupNeighbor(false); // de Groupe vers Objectifs
       if (!inst.otherReady()) return null;
       var nt = t === 1 ? 'o' : 't';
       return { cur: inst.bodyOf(nt === 'o' ? 't' : 'o'), nb: inst.bodyOf(nt), host: page2, commit: function () { inst.commitTab(nt); } };
     }
   });
-  // Arrivée sur la page de statistiques depuis Chrono (glisser vers la droite) ou depuis la page 1 de la Feuille de route.
+  // Arrivée sur la page de statistiques depuis Chrono ou depuis la page 1 de la Feuille de route (glisser vers la gauche dans les deux cas).
   var chronoZone = document.getElementById('tab-chrono'), goalsZone = document.getElementById('tab-goals');
   if (chronoZone) slidePager({
     zone: chronoZone,
@@ -1153,7 +1180,7 @@
   if (goalsZone) slidePager({
     zone: goalsZone,
     neighbor: function (dir) {
-      if (dir > 0 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsDetailPage')) return null;
+      if (dir < 0 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsDetailPage')) return null; // les statistiques sont à droite de la page 1
       return external(goalsZone, zone, function () { TMT.enterStats('goals'); }, 'stats');
     }
   });

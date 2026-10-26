@@ -1,15 +1,14 @@
-// Fenêtre Activité > Statistiques > page 2 « Tâches par membre ».
-// Page 1 = Temps (Répartition + Graphique, inchangés) ; page 2 = réalisation des tâches par membre
-// (GET /api/stats/activity-members : membres seulement, agrégats, filtre « pôle » de la pastille). Glissement : TMT.slidePager (stats-avance.js).
+// Statistiques de groupe de la Feuille de route : « Tâches par membre » (réalisation des tâches et des objectifs par membre, activités partagées).
+// Page tout à droite des statistiques de la Feuille de route : [ Feuille de route | Tâches | Objectifs | Groupe ] (demande d'Émilien, 26 oct. 2026).
+// Avant, cette page vivait dans la fenêtre Activité (page 2 de Statistiques) ; elle est désormais ici (#statsGroupPage, GET /api/stats/activity-members).
 (function () {
   'use strict';
   var TMT = window.TMT;
-  var pages = document.getElementById('caStatsPages'), p1 = document.getElementById('caStatsPage1'), p2 = document.getElementById('caStatsPage2'), dots = document.getElementById('caStatsDots');
-  if (!pages || !p1 || !p2 || !dots || !TMT.slidePager) return;
+  var host = document.getElementById('sgBody'), chips = document.getElementById('sgChips'), empty = document.getElementById('sgEmpty');
+  if (!host || !chips || !empty) return;
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-  var single = !p1.firstElementChild; // page Temps déménagée dans le Chrono : la page Tâches est alors la seule
-  var page = single ? 2 : 1, scope = 'year', seq = 0, built = false, loadedKey = null, body;
+  var actId = null, scope = 'year', seq = 0, built = false, loadedKey = null, body;
   var SCOPES = [['all', 'Tout'], ['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
   var chartBody, chartMeta;
 
@@ -86,7 +85,7 @@
     });
     wrap.appendChild(btn); wrap.appendChild(menu); row.appendChild(wrap); chartCard.appendChild(row);
     chartBody = el('div'); chartCard.appendChild(chartBody); card.appendChild(chartCard); setMeta();
-    body = el('div', 'caTaskBody'); card.appendChild(body); p2.appendChild(card);
+    body = el('div', 'caTaskBody'); card.appendChild(body); host.appendChild(card);
   }
   function render(d) {
     renderChart(d);
@@ -111,61 +110,48 @@
     });
   }
   function load(force) {
-    var st = TMT.getCaState ? TMT.getCaState() : {};
-    if (!st.id) return;
-    if (st.category === 'none') st.category = ''; // « Sans pôle » n'existe pas pour les tâches
-    var key = st.id + '|' + (st.category || '') + '|' + scope;
+    if (!actId) return;
+    var key = actId + '|' + scope;
     if (!force && key === loadedKey) return;
     build();
     var my = ++seq;
-    TMT.api('GET', '/api/stats/activity-members?activityId=' + encodeURIComponent(st.id) + '&scope=' + scope + (st.category ? '&category=' + encodeURIComponent(st.category) : '')).then(function (d) {
+    TMT.api('GET', '/api/stats/activity-members?activityId=' + encodeURIComponent(actId) + '&scope=' + scope).then(function (d) {
       if (my !== seq) return; loadedKey = key; render(d);
     }).catch(function (err) { if (my === seq) { body.textContent = ''; body.appendChild(el('p', 'hint', err.message)); } });
   }
-  function setDots() { Array.prototype.forEach.call(dots.children, function (d, i) { d.classList.toggle('on', i === page - 1); }); }
-  function setPage(n) {
-    if (n === page) return;
-    var from = page === 1 ? p1 : p2, to = n === 1 ? p1 : p2, dir = n > page ? 1 : -1;
-    page = n; setDots(); if (TMT.caTasksPage) TMT.caTasksPage(n === 2);
-    if (n === 2) { build(); load(); }
-    to.classList.remove('hidden');
-    if (typeof to.animate !== 'function') { from.classList.add('hidden'); return; }
-    var r = from.getBoundingClientRect(), pr = pages.getBoundingClientRect();
-    from.style.cssText += ';position:absolute;left:' + (r.left - pr.left) + 'px;top:' + (r.top - pr.top) + 'px;width:' + r.width + 'px;pointer-events:none;';
-    pages.style.overflowX = 'hidden';
-    var ao = { duration: 280, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'both' };
-    to.animate([{ transform: 'translateX(' + (dir * 100) + '%)' }, { transform: 'translateX(0)' }], ao);
-    var out = from.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(' + (-dir * 100) + '%)' }], ao);
-    out.onfinish = function () {
-      ['position', 'left', 'top', 'width', 'pointerEvents'].forEach(function (k) { from.style[k] = ''; });
-      from.classList.add('hidden'); out.cancel();
-      to.getAnimations().forEach(function (a) { a.cancel(); });
-      pages.style.overflowX = '';
-    };
+
+  // Activités partagées seulement (au moins deux membres), choisies par des puces en haut, comme la 3e page du Chrono.
+  function shared() { return ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a.membersCount > 1; }); }
+  function renderChips(list) {
+    chips.innerHTML = '';
+    list.forEach(function (a) {
+      var b = el('button', 'saChip' + (String(a.id) === String(actId) ? ' on' : ''));
+      b.type = 'button';
+      b.style.setProperty('--chipEdge', a.color || '#674EA7');
+      var d = el('span', 'saChipDot'); d.style.background = a.color || '#674EA7';
+      b.appendChild(d); b.appendChild(el('span', null, a.name));
+      b.addEventListener('click', function () {
+        if (String(a.id) === String(actId)) return;
+        actId = a.id; loadedKey = null; renderChips(list); load(true);
+      });
+      chips.appendChild(b);
+    });
   }
-  Array.prototype.forEach.call(dots.children, function (b, i) { b.addEventListener('click', function () { setPage(i + 1); }); });
-  if (single) { dots.classList.add('hidden'); p1.classList.add('hidden'); p2.classList.remove('hidden'); }
-  TMT.slidePager({
-    zone: pages,
-    swallow: function (dir) { return dir > 0 && page === 2; },
-    neighbor: function (dir) {
-      if (single) return null;
-      var t = page + dir;
-      if (t < 1 || t > 2) return null;
-      return {
-        cur: page === 1 ? p1 : p2, nb: t === 1 ? p1 : p2, host: pages,
-        start: function () { if (t === 2) { build(); load(); } },
-        commit: function () { page = t; setDots(); if (TMT.caTasksPage) TMT.caTasksPage(t === 2); }
-      };
+  TMT.groupStats = {
+    // Ouverture de la page : puces des activités partagées, puis les données de l'activité choisie.
+    open: function () {
+      var list = shared();
+      if (!list.some(function (a) { return String(a.id) === String(actId); })) {
+        var pref = list.filter(function (a) { return String(a.id) === String(TMT.currentGoalsActivityId); })[0];
+        actId = pref ? pref.id : (list[0] ? list[0].id : null);
+        loadedKey = null;
+      }
+      empty.classList.toggle('hidden', list.length > 0);
+      host.classList.toggle('hidden', list.length === 0);
+      renderChips(list);
+      if (list.length) { build(); load(); }
     }
-  });
-  function backToTime() { if (single) return; page = 1; if (TMT.caTasksPage) TMT.caTasksPage(false); p1.classList.remove('hidden'); p2.classList.add('hidden'); setDots(); }
-  TMT.caTasks = {
-    // Nouvelle activité sélectionnée : retour sur la page Temps, données à recharger.
-    onActivity: function () { backToTime(); loadedKey = null; scope = 'year'; setMeta(); if (built) Array.prototype.forEach.call(p2.querySelectorAll('[data-scope]'), function (b) { b.classList.toggle('active', b.getAttribute('data-scope') === 'year'); }); },
-    // Pastille « pôle » changée : la page Tâches suit si elle est affichée.
-    onCategory: function () { if (page === 2) load(); },
-    // Page unique : affichée à l'ouverture de l'onglet « Statistiques ».
-    onShow: function () { if (single) { build(); load(); } }
   };
+  // Anciens appels (fenêtre Activité) : plus rien à faire, la page n'est plus là-bas.
+  TMT.caTasks = { onActivity: function () {}, onCategory: function () {}, onShow: function () {} };
 })();

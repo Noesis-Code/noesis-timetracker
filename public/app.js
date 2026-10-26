@@ -2091,6 +2091,7 @@
     switchTab('stats', { prepared: true });
     if (ctx === 'goals' && n === 3 && TMT.setStatsPage) TMT.setStatsPage(3, { noAnim: true });
     if (ctx === 'chrono' && n === 3 && TMT.setSharedPage) TMT.setSharedPage(true, { noAnim: true });
+    if (ctx === 'goals' && n === 4 && TMT.setGroupPage) TMT.setGroupPage(true, { noAnim: true });
   }
 
   function switchTab(tab, opts) {
