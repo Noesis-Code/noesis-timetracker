@@ -1802,7 +1802,7 @@
   // Les activités sont PERSONNELLES : un profil tout juste créé n'en a
   // jamais aucune (ce n'est pas parce que d'autres personnes en ont créé
   // qu'on en hérite).
-  function proceedAfterProfile() {
+  function proceedAfterProfile(askActivities) {
     // Récupérer un profil existant depuis un nouvel appareil peut ramener une
     // langue différente de celle utilisée pendant l'onboarding (l'anglais par
     // défaut, tant qu'aucun profil n'est connu). Dans ce cas on recharge une
@@ -1822,11 +1822,52 @@
     autoSubscribePushOnLogin();
     // Premier lancement simplifié (décision d'Émilien, 22 oct. 2026) : plus d'étape « Choix des modules » (le serveur pose les modules par
     // défaut, réglables dans Réglages) ni d'étape « Crée tes activités » (une activité par défaut est créée, nommée d'après le prénom).
+    // Création d'un compte individu : il crée lui-même au moins une activité (étape « Crée tes activités ») ; entreprise ou connexion : activité au nom du profil.
+    if (askActivities === true) { showOnboardingActivitiesStep(); return; }
     api('GET', '/api/activities?userId=' + profile.id).then(function (acts) {
       if (acts.length > 0) return;
       return api('POST', '/api/activities', { name: (profile.name || '').trim() || t('Mon activité'), color: PALETTES[currentTheme][0], userId: profile.id });
     }).then(function () { showApp(); }).catch(function () { showApp(); });
   }
+
+  // ----- Étape « Crée tes activités » (compte individu, au moins une) -----
+  var onbNewActivityColor = PALETTES[currentTheme][0];
+  var onbCreatedActivities = [];
+  function showOnboardingActivitiesStep() {
+    ['onbCreate', 'onbExisting', 'onbPinStep'].forEach(function (id) { $(id).classList.add('hidden'); });
+    $('onbActivities').classList.remove('hidden');
+    $('onbMsg').textContent = '';
+    renderOnbActivityList(onbCreatedActivities);
+    renderColorSwatches($('onbNewActivitySwatches'), onbNewActivityColor, function (c) { onbNewActivityColor = c; });
+  }
+  function renderOnbActivityList(list) {
+    var box = $('onbActivityList');
+    box.innerHTML = '';
+    if (list.length === 0) {
+      box.innerHTML = '<p class="hint">' + t("Aucune activité ajoutée pour l'instant.") + '</p>';
+    } else {
+      list.forEach(function (a) {
+        var row = document.createElement('div');
+        row.className = 'userChip';
+        row.innerHTML = '<span class="dot" style="background:' + a.color + '"></span><span>' + escapeHtml(a.name) + '</span>';
+        box.appendChild(row);
+      });
+    }
+    $('onbActivitiesContinue').disabled = list.length === 0;
+  }
+  $('onbNewActivitySave').addEventListener('click', function () {
+    var name = $('onbNewActivityName').value.trim();
+    if (!name) return;
+    $('onbNewActivitySave').disabled = true;
+    api('POST', '/api/activities', { name: name, color: onbNewActivityColor, userId: profile.id }).then(function (a) {
+      onbCreatedActivities.push(a);
+      renderOnbActivityList(onbCreatedActivities);
+      $('onbNewActivityName').value = '';
+      $('onbMsg').textContent = '';
+    }).catch(function (err) { $('onbMsg').textContent = err.message; })
+      .finally(function () { $('onbNewActivitySave').disabled = false; });
+  });
+  $('onbActivitiesContinue').addEventListener('click', function () { showApp(); });
 
   $('onbSwitchToExisting').addEventListener('click', function (e) {
     e.preventDefault();
@@ -1954,7 +1995,7 @@
       .then(function (p) {
         saveProfile(p);
         // Modules choisis enregistrés avant la suite ; un échec garde les modules par défaut (réglables dans Réglages).
-        (onbModules ? onbModules.save().catch(function () {}) : Promise.resolve()).then(proceedAfterProfile);
+        (onbModules ? onbModules.save().catch(function () {}) : Promise.resolve()).then(function () { proceedAfterProfile(onbAccountType !== 'entreprise'); });
       })
       .catch(function (err) {
         $('onbMsg').textContent = err.message;

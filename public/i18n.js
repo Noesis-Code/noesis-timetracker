@@ -63,6 +63,7 @@
     'Adresse email': 'Email address',
     'Choisis un code (4 à 6 chiffres)': 'Choose a PIN (4 to 6 digits)',
     'Confirme le code': 'Confirm the PIN',
+    "Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter ou en modifier plus tard dans Réglages.": "Choose the activities you want to track, and a colour for each. You can add or edit them later in Settings.",
     "Importer les réservations (CSV)": "Import reservations (CSV)",
     "Rapport « Réservations » de GuestCenter. Colonnes : date ; heure ; taille du groupe (+ statut). Aucun nom de client n’est gardé.": "GuestCenter “Reservations” report. Columns: date; time; party size (+ status). No customer name is kept.",
     "réservation(s)": "reservation(s)",
