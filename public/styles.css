@@ -299,11 +299,13 @@ input[type=time]:focus, select:focus, textarea:focus {
 .projectChip {
   flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
   max-width: 60vw; padding: 4px 10px; border-radius: 999px;
-  background: var(--glass-calm-line); border: 1px solid rgba(255, 255, 255, 0.18);
+  /* verre commun (R14/R17) : translucide, flou et liseré clair, comme la barre des volets ; plus de fond opaque */
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
   color: white; font-size: 13px; line-height: 1.3; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.projectChip:active { background: rgba(255, 255, 255, 0.22); }
+.projectChip:active { background: var(--glass-border); }
 .projectChipName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Les badges viennent de buildSeekingBadges(seeking, false), partagée avec la liste dépliée et la page de visite d'un profil : aucune de ses règles n'est … */
 .projectChip .seekingBadges { margin: 0; flex-shrink: 0; }
