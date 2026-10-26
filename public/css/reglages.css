@@ -122,7 +122,7 @@
 .shareHint { text-align: center; margin: 0 0 8px; }
 #shareQrCode:empty + .shareHint { display: none; }
 /* Sous-écran de Réglages : « ‹ Retour » à la hauteur de l'en-tête du Profil (centre à 40 px), le reste suit en dessous (demande d'Émilien, 25 oct. 2026). */
-#profileSettingsPanel.settingsDrill .settingsSubHead { padding-top: 6px; }
+#profileSettingsPanel.settingsDrill .settingsSubHead { padding-top: calc(env(safe-area-inset-top, 0px) + 6px); }
 /* Modifier une activité : la croix rouge est en haut à droite de la carte, dans sa marge du haut ; elle n'entre jamais dans le champ du nom ni dans le choix des couleurs. */
 .activityEditBubble { position: relative; }
 .activityEditBubble .catNewPoleFields { padding-top: 24px; }
@@ -147,6 +147,7 @@
 .catEditForm > .cmpRemove { position: absolute; top: 8px; right: 10px; margin: 0; }
 /* Mot de passe fort (26 oct. 2026) : règles sous les champs, et écran bloquant pour les comptes qui ont encore l'ancien code à 4 chiffres. */
 .pwdRules { margin: 0 0 8px; }
+.settingsCard .pwdRules { margin: 0; padding: 8px 16px 12px; overflow-wrap: anywhere; }
 .forcePwd { position: fixed; inset: 0; z-index: 600; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--bg); }
 .forcePwdCard { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: var(--radius-xl); color: var(--text); box-sizing: border-box; }
 .forcePwdCard .sectionTitle { margin: 0; }
@@ -162,3 +163,7 @@
 .passkeyRow { display: flex; align-items: center; gap: 12px; min-height: 48px; }
 .passkeyRow + .passkeyRow { border-top: 1px solid var(--sep); }
 .passkeyName { flex: 1; font-size: 15px; }
+
+/* Première page de création de compte (26 oct. 2026) : « J'ai déjà un compte » puis le choix individu / entreprise, espacés sur la grille 8/16. */
+#onbTypeStep .btnBrique { margin-bottom: 8px; }
+#onbTypeStep .lead { margin: 16px 0 8px; }

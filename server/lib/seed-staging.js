@@ -237,7 +237,7 @@ function seedStagingData(db) {
     const emilienPinRecord = makePinRecord(EMILIEN_SEED_ACCOUNT.pin);
 
     const insertUser = db.prepare(
-      "INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang, passwordStrong) VALUES (?, ?, ?, '', '', ?, ?, ?, 'dark', 1, 'fr', 1)"
+      "INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang, passwordStrong) VALUES (?, ?, ?, '', 'seed@exemple.test', ?, ?, ?, 'dark', 1, 'fr', 1)"
     );
     const insertActivity = db.prepare(
       'INSERT INTO activities (name, requiresNote, active, ownerId, shareToken, createdAt) VALUES (?, 0, 1, ?, ?, ?)'

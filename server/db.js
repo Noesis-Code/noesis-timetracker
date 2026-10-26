@@ -1307,10 +1307,24 @@ if (!columnExists('users', 'pinFailCount')) {
   db.exec('ALTER TABLE users ADD COLUMN pinFailCount INTEGER NOT NULL DEFAULT 0');
 }
 // Mot de passe fort (26 oct. 2026) : 0 = ancien code à 4-6 chiffres (changement exigé à la prochaine connexion), 1 = mot de passe fort.
+// Type de compte choisi à la création (26 oct. 2026) : 'individu' (défaut) ou 'entreprise'.
+if (!columnExists('users', 'accountType')) {
+  db.exec("ALTER TABLE users ADD COLUMN accountType TEXT NOT NULL DEFAULT 'individu'");
+}
 if (!columnExists('users', 'passwordStrong')) {
   db.exec('ALTER TABLE users ADD COLUMN passwordStrong INTEGER NOT NULL DEFAULT 0');
 }
 // Clés d'accès (Face ID, 26 oct. 2026) : identifiant public et clé publique seulement, aucun secret. Défis à usage unique (hachés, 2 min).
+// Mot de passe oublié (26 oct. 2026) : empreintes de jetons à usage unique (1 h), jamais le jeton lui-même.
+db.exec(`
+CREATE TABLE IF NOT EXISTS password_resets (
+  tokenHash TEXT PRIMARY KEY,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  createdAt TEXT NOT NULL,
+  expiresAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(userId);
+`);
 db.exec(`
 CREATE TABLE IF NOT EXISTS user_passkeys (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -170,6 +170,7 @@ app.get('/api/version', (req, res) => {
 app.use('/api', require('./routes/session'));
 app.use('/api', require('./routes/profile'));
 app.use('/api', require('./routes/passkeys')); // Face ID / clés d'accès (26 oct. 2026)
+app.use('/api', require('./routes/passwordreset')); // mot de passe oublié (26 oct. 2026)
 app.use('/api', require('./routes/activities'));
 app.use('/api', require('./routes/invites'));
 app.use('/api', require('./routes/follows'));

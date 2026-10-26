@@ -5,7 +5,7 @@ const { makePinRecord, verifyPinRecord, isValidPinFormat, checkPasswordStrength,
 const { isInPalette, pairedColor } = require('../lib/theme');
 const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
 const { notifyCommunityPost } = require('../lib/push');
-const { setSessionCookie, requireAuth } = require('../lib/session');
+const { bumpSessionEpoch, setSessionCookie, requireAuth } = require('../lib/session');
 const { deleteAccountData } = require('../lib/accountdeletion');
 const { PRIVACY_VERSION, TERMS_VERSION, MARKETING_CONSENT_VERSION, AI_NOTICE_VERSION } = require('../lib/legalversions');
 // Export de mes données personnelles (7 septembre 2026) — voir GET
@@ -443,6 +443,7 @@ router.post('/profile', (req, res) => {
   db.prepare('INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang, marketingConsent, marketingConsentAt, marketingConsentVersion, directoryConsent, termsAcceptedAt, termsVersion, privacyVersion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)')
     .run(id, name, lastName, phone, email, color, createdAt, makePinRecord(pin), 'dark', lang, marketingConsent, createdAt, MARKETING_CONSENT_VERSION, directoryConsent, createdAt, TERMS_VERSION, PRIVACY_VERSION);
   db.prepare('UPDATE users SET passwordStrong = 1 WHERE id = ?').run(id); // mot de passe fort dès la création
+  if (req.body.accountType === 'entreprise') db.prepare("UPDATE users SET accountType = 'entreprise' WHERE id = ?").run(id); // entreprise ou individu (défaut)
   db.prepare('UPDATE users SET modules = ?, modulesChosen = 0 WHERE id = ?').run(JSON.stringify(require('../lib/modules').defaults()), id); // défaut nouveau compte : NEW_ACCOUNT_DEFAULT_MODULES
   // Système de session (chantier 1) : la création d'un profil vaut
   // connexion — le témoin posé ici est ce qui authentifiera ensuite chaque
@@ -774,6 +775,9 @@ router.post('/profile/:id/set-pin', (req, res) => {
   }
 
   db.prepare('UPDATE users SET pin = ?, passwordStrong = 1 WHERE id = ?').run(makePinRecord(newPin), user.id);
+  // Changer de mot de passe déconnecte tous les autres appareils (demande d'Émilien, 26 oct. 2026) ; celui qui vient de le changer reste connecté.
+  bumpSessionEpoch(user.id);
+  if (req.userId === user.id) setSessionCookie(req, res, user.id);
   res.json({ ok: true });
 });
 

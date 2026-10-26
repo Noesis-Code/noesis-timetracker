@@ -485,6 +485,14 @@
     <h1>Noèsis</h1>
 
     <div id="onbCreate">
+      <!-- 26 oct. 2026 (Émilien) : création en trois pages — 1) entreprise ou individu, 2) identité + mot de passe + consentements, 3) modules (au moins un) puis Enregistrer. -->
+      <div id="onbTypeStep">
+        <button type="button" class="btn btn-primary btnBrique" id="onbSwitchToExisting">J'ai déjà un compte</button>
+        <p class="lead">Créer un compte</p>
+        <button type="button" class="btn btn-primary btnBrique" id="onbTypeIndividu">Je suis un individu</button>
+        <button type="button" class="btn btn-primary btnBrique" id="onbTypeEntreprise">Je suis une entreprise</button>
+      </div>
+      <div id="onbIdStep" class="hidden">
       <p class="lead">Comment t'appelles-tu ?</p>
       <input type="text" id="onbName" placeholder="Prénom" maxlength="40" autocomplete="off">
       <!-- Identité complète demandée dès la création du profil (29 août
@@ -497,9 +505,6 @@
       <input type="password" id="onbPinConfirm" placeholder="Confirme le mot de passe" maxlength="128" autocomplete="new-password">
       <p class="hint pwdRules">10 caractères ou plus, avec une minuscule, une majuscule, un chiffre et un caractère spécial.</p>
       <p class="hint">Ce code te sera redemandé si tu récupères ce profil depuis un autre appareil — retiens-le bien.</p>
-      <!-- 26 oct. 2026 (Émilien) : modules choisis à la création du compte, au moins un (js/modules.js, mountChoice). -->
-      <p class="lead">Choisis tes modules</p>
-      <div id="onbModulesList"></div>
       <!-- 11 septembre 2026, demande directe d'Emilien : le simple lien de
            lecture des CGU (7 septembre 2026, voir plus bas dans ce fichier)
            ne suffisait pas à formaliser un consentement — n'importe qui
@@ -526,7 +531,7 @@
           <input type="checkbox" id="onbLegalTermsCheckbox" role="switch">
           <span class="toggleSwitchTrack"></span>
         </label>
-        <label for="onbLegalTermsCheckbox" class="onbLegalText">J'ai lu et j'accepte les <a href="#" id="onbLegalTermsLink">conditions d'utilisation</a> et la <a href="#" id="onbPrivacyPolicyLink">politique de confidentialité</a>, et j'ai 16 ans ou plus.</label>
+        <label for="onbLegalTermsCheckbox" id="onbLegalTermsText" class="onbLegalText">J'ai lu et j'accepte les <a href="#" id="onbLegalTermsLink">conditions d'utilisation</a> et la <a href="#" id="onbPrivacyPolicyLink">politique de confidentialité</a>, et j'ai 16 ans ou plus.</label>
       </p>
       <!-- 10 oct. 2026 (conformité, trames 2 et 4) : deux cases FACULTATIVES, non cochées, séparées de la case CGU ; seule la case CGU bloque « Créer mon profil ». -->
       <div class="onbOptionalConsents">
@@ -536,10 +541,10 @@
             <span class="toggleSwitchTrack"></span>
           </label>
           <div class="onbConsentBody">
-            <label for="onbMarketingCheckbox" class="onbConsentTitle">Utilisation commerciale de mes données</label>
+            <label for="onbMarketingCheckbox" id="onbMarketingTitle" class="onbConsentTitle">Utilisation commerciale de mes données</label>
             <details class="onbConsentMore">
               <summary>En savoir plus</summary>
-              <p class="onbLegalText">J'accepte que Noesis utilise les données que je saisis pour analyser l'usage, produire des statistiques, m'envoyer des communications commerciales et cibler ses propres campagnes publicitaires. Mon code PIN et mes messages privés ne sont jamais utilisés. Je peux retirer mon accord à tout moment dans Réglages, section Sécurité. (Politique de confidentialité, <a href="#" class="policy24Link">§2.4</a>)</p>
+              <p class="onbLegalText" id="onbMarketingText">J'accepte que Noesis utilise les données que je saisis pour analyser l'usage, produire des statistiques, m'envoyer des communications commerciales et cibler ses propres campagnes publicitaires. Mon code PIN et mes messages privés ne sont jamais utilisés. Je peux retirer mon accord à tout moment dans Réglages, section Sécurité. (Politique de confidentialité, <a href="#" class="policy24Link">§2.4</a>)</p>
             </details>
           </div>
         </div>
@@ -552,14 +557,21 @@
             <label for="onbDirectoryCheckbox" class="onbConsentTitle">Être trouvable à la connexion</label>
             <details class="onbConsentMore">
               <summary>En savoir plus</summary>
-              <p class="onbLegalText">J'accepte que mon prénom et mon nom puissent être trouvés dans la recherche de membres de l'écran de connexion. (Politique de confidentialité, section 4.1)</p>
+              <p class="onbLegalText" id="onbDirectoryText">J'accepte que mon prénom et mon nom puissent être trouvés dans la recherche de membres de l'écran de connexion. (Politique de confidentialité, section 4.1)</p>
             </details>
           </div>
         </div>
       </div>
-      <p class="switchLink onbGovRow"><a href="#" class="governanceLink">Gouvernance des renseignements personnels</a></p>
-      <button class="btn btn-primary btnBrique" id="onbCreateBtn" disabled>Créer mon profil</button>
-      <p class="switchLink"><a href="#" id="onbSwitchToExisting">J'ai déjà un profil sur cette app</a></p>
+      <p class="switchLink onbGovRow"><a href="#" class="governanceLink" id="onbGovLink">Gouvernance des renseignements personnels</a></p>
+      <button class="btn btn-primary btnBrique" id="onbNextBtn" disabled>Continuer</button>
+      <p class="switchLink"><a href="#" id="onbBackToType">Retour</a></p>
+      </div>
+      <div id="onbModStep" class="hidden">
+        <p class="lead">Choisis tes modules</p>
+        <div id="onbModulesList"></div>
+        <button class="btn btn-primary btnBrique" id="onbCreateBtn" disabled>Enregistrer</button>
+        <p class="switchLink"><a href="#" id="onbBackToId">Retour</a></p>
+      </div>
     </div>
 
     <div id="onbExisting" class="hidden">
@@ -573,10 +585,10 @@
            dans server/routes/profile.js pour le compromis vie privée
            retenu avec Emilien (résultats plafonnés, seule l'initiale du nom
            de famille est renvoyée par le serveur). -->
-      <button type="button" class="btn btn-primary btnBrique hidden" id="onbPasskeyBtn">Se connecter avec Face ID</button>
-      <p id="onbPasskeyMsg" class="msg"></p>
       <input type="text" id="onbSearch" placeholder="Tape ton nom complet..." autocomplete="off">
       <div id="onbUserList" class="userList"></div>
+      <button type="button" class="btn btn-primary btnBrique hidden" id="onbPasskeyBtn">Se connecter avec Face ID</button>
+      <p id="onbPasskeyMsg" class="msg"></p>
       <p class="switchLink"><a href="#" id="onbSwitchToCreate">Créer un nouveau profil</a></p>
     </div>
 
@@ -586,6 +598,13 @@
       <input type="password" id="onbPinInput" placeholder="Mot de passe" maxlength="128" autocomplete="current-password">
       <input type="password" id="onbPinConfirmInput" placeholder="Confirme le mot de passe" maxlength="128" autocomplete="new-password" class="hidden">
       <button class="btn btn-primary btnBrique" id="onbPinSubmit">Valider</button>
+      <p class="switchLink"><a href="#" id="onbForgotLink">Mot de passe oublié ?</a></p>
+      <div id="onbForgot" class="hidden">
+        <p class="hint">Entre le courriel de ton compte : on t'envoie un lien pour choisir un nouveau mot de passe.</p>
+        <input type="email" id="onbForgotEmail" placeholder="Courriel du compte" maxlength="254" autocomplete="email">
+        <button type="button" class="btn btn-primary btnBrique" id="onbForgotSend">Envoyer le lien</button>
+        <p id="onbForgotMsg" class="msg"></p>
+      </div>
     </div>
 
     <!-- 11 septembre 2026 (demande d'Emilien) : tant que l'app n'est pas
@@ -2698,6 +2717,111 @@
                      app.js n'a jamais bougé, quel que soit l'emplacement. -->
               </div>
             </div>
+<div class="settingsSection">
+                <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                  <span class="sectionTitle">Sécurité</span>
+                  <span class="cmpChev" aria-hidden="true"></span>
+                </button>
+                <div class="settingsSectionBody hidden">
+              <div class="settingsCard settingsFieldList">
+                <input type="password" id="settingsCurrentPin" placeholder="Mot de passe actuel" maxlength="128" autocomplete="current-password">
+                <input type="password" id="settingsNewPin" placeholder="Nouveau mot de passe" maxlength="128" autocomplete="new-password">
+                <input type="password" id="settingsNewPinConfirm" placeholder="Confirme le nouveau mot de passe" maxlength="128" autocomplete="new-password">
+                <p class="hint pwdRules">10 caractères ou plus, avec une minuscule, une majuscule, un chiffre et un caractère spécial.</p>
+              </div>
+              <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon mot de passe</button>
+              <p id="settingsPinMsg" class="msg"></p>
+              <!-- Face ID (clés d'accès WebAuthn, 26 oct. 2026) : se connecter sans taper son mot de passe. Activer exige le mot de passe actuel. -->
+              <div id="passkeyBlock" class="passkeyBlock hidden">
+                <p class="sectionTitle">Face ID</p>
+                <p class="hint">Connecte-toi sans taper ton mot de passe, avec Face ID, Touch ID ou le code de ton appareil. Ton mot de passe reste nécessaire pour activer Face ID.</p>
+                <div id="passkeyList" class="passkeyList"></div>
+                <div class="settingsCard settingsFieldList"><input type="password" id="passkeyPassword" placeholder="Mot de passe actuel" maxlength="128" autocomplete="current-password"></div>
+                <button id="passkeyAddBtn" class="btn btn-primary btn-small" type="button">Activer Face ID sur cet appareil</button>
+                <p id="passkeyMsg" class="msg"></p>
+              </div>
+              <!-- "Se déconnecter de tous les appareils" (7 septembre 2026,
+                   discussion "Sécurité — Réglages utilisateur") : le système de
+                   session (6 septembre) n'a aucun registre de sessions
+                   individuelles — un témoin auto-suffisant par appareil, sans
+                   liste consultable en base (voir server/lib/session.js). Pas
+                   de "voir mes sessions" possible sans un chantier plus lourd
+                   (table `sessions`), hors périmètre retenu pour l'échéance du
+                   11 septembre : cette carte se limite donc à une révocation
+                   GLOBALE, immédiate, de tous les appareils à la fois. -->
+              <!-- ⚠️ « Déconnexion » a brièvement vécu ICI le 26 septembre 2026, entre
+                   son départ du bandeau « Réglages » et sa place actuelle : Emilien
+                   l'a fait remonter le jour même dans Identité, sous le bouton
+                   « Enregistrer » (voir son nouvel emplacement plus haut). Ne pas
+                   le redescendre ici en croyant le rapprocher de son voisin
+                   « Se déconnecter de tous les appareils » : ce rapprochement a été
+                   essayé et écarté. -->
+              <div class="settingsCard">
+                <button id="settingsLogoutAllBtn" class="iconBtn">Se déconnecter de tous les appareils</button>
+                <p id="settingsLogoutAllMsg" class="msg"></p>
+              </div>
+              <!-- Documents légaux (10 septembre 2026, demande directe
+                   d'Emilien) : la politique de confidentialité et les
+                   mentions légales n'étaient nulle part visibles dans l'app
+                   (seules les Conditions d'utilisation avaient une page,
+                   depuis le 7 septembre 2026) — voir
+                   noesis-timetracker-inventaire-11-septembre.md. Emilien a
+                   demandé une SEULE sous-section déroulante regroupant les
+                   trois documents plutôt que trois entrées séparées. Ancienne
+                   section "Conditions d'utilisation" (.settingsFlat, toujours
+                   dépliée) transformée en .settingsSection repliable, sur le
+                   même patron que "Sécurité"/"Supprimer mon compte" juste
+                   au-dessus/en-dessous dans ce même groupe "Compte et
+                   sécurité" — l'accordéon imbriqué générique
+                   (closeAllSettingsSections/closeSettingsContainer, voir
+                   app.js) la gère sans aucun changement de logique.
+                   #openLegalTermsBtn est INCHANGÉ (même id, même
+                   comportement) : seul son conteneur direct change. Les deux
+                   nouveaux boutons suivent exactement le même patron
+                   (#privacyPolicyModal/#legalNoticesModal, voir plus bas dans
+                   ce fichier) : lecture seule, aucun mandat sur le fond
+                   juridique, textes repris tels quels depuis
+                   noesis-timetracker-conformite-loi25.md (section 1) et
+                   noesis-timetracker-mentions-legales.md (Partie A
+                   uniquement — la Partie B est un usage interne, jamais
+                   montrée à l'Utilisateur). Toute mise à jour du FOND doit
+                   passer par ces documents projet, jamais être rédigée ici
+                   directement. -->
+              <!-- 10 oct. 2026 : consentements déplacés dans Sécurité, juste au-dessus des documents légaux ; interrupteurs qui agissent au clic (routes PUT dédiées), sans passer par « Enregistrer ». -->
+              <div class="settingsCard settingsConsentCard">
+                <div class="consentItem">
+                <div class="notifRow">
+                  <span class="notifRowLabel">Utilisation commerciale de mes données</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsMarketingConsent" role="switch" aria-label="Utilisation commerciale de mes données">
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
+                <p class="hint">Analyse de l'usage, statistiques, communications commerciales et campagnes publicitaires de Noesis. <a href="#" class="policy24Link">§2.4</a></p>
+                <p id="settingsMarketingMsg" class="msg"></p>
+                </div>
+                <div class="notifRow">
+                  <span class="notifRowLabel">Être trouvable dans la recherche de l'écran de connexion</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsDirectoryConsent" role="switch" aria-label="Être trouvable dans la recherche de l'écran de connexion">
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
+              </div>
+              <!-- Documents légaux (ex-sous-section, réunie à Sécurité le 30
+                   septembre 2026, demande d'Emilien) : mêmes ids et même
+                   comportement qu'avant, seul le conteneur change. Voir
+                   #privacyPolicyModal/#legalNoticesModal/#legalTermsModal plus
+                   bas dans ce fichier. -->
+              <div class="settingsCard">
+                <p class="hint">Comment Noèsis TimeTracker fonctionne, ce qu'il fait de tes renseignements, et les règles d'utilisation du service.</p>
+                <button type="button" id="openPrivacyPolicyBtn" class="iconBtn">Lire la politique de confidentialité<span class="cmpChev" aria-hidden="true"></span></button>
+                <button type="button" id="openGovernanceBtn" class="iconBtn governanceLink">Gouvernance des renseignements personnels<span class="cmpChev" aria-hidden="true"></span></button>
+                <button type="button" id="openLegalNoticesBtn" class="iconBtn">Lire les mentions légales<span class="cmpChev" aria-hidden="true"></span></button>
+                <button type="button" id="openLegalTermsBtn" class="iconBtn">Lire les conditions d'utilisation<span class="cmpChev" aria-hidden="true"></span></button>
+              </div>
+                </div>
+              </div>
 <div class="settingsGroup">
               <button type="button" class="settingsSectionHeader" aria-expanded="false">
                 <span class="sectionTitle">Langue</span>
@@ -2899,111 +3023,6 @@
                 </div>
               </div>
             </div>
-<div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Sécurité</span>
-                  <span class="cmpChev" aria-hidden="true"></span>
-                </button>
-                <div class="settingsSectionBody hidden">
-              <div class="settingsCard settingsFieldList">
-                <input type="password" id="settingsCurrentPin" placeholder="Mot de passe actuel" maxlength="128" autocomplete="current-password">
-                <input type="password" id="settingsNewPin" placeholder="Nouveau mot de passe" maxlength="128" autocomplete="new-password">
-                <input type="password" id="settingsNewPinConfirm" placeholder="Confirme le nouveau mot de passe" maxlength="128" autocomplete="new-password">
-                <p class="hint pwdRules">10 caractères ou plus, avec une minuscule, une majuscule, un chiffre et un caractère spécial.</p>
-              </div>
-              <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon mot de passe</button>
-              <p id="settingsPinMsg" class="msg"></p>
-              <!-- Face ID (clés d'accès WebAuthn, 26 oct. 2026) : se connecter sans taper son mot de passe. Activer exige le mot de passe actuel. -->
-              <div id="passkeyBlock" class="passkeyBlock hidden">
-                <p class="sectionTitle">Face ID</p>
-                <p class="hint">Connecte-toi sans taper ton mot de passe, avec Face ID, Touch ID ou le code de ton appareil. Ton mot de passe reste nécessaire pour activer Face ID.</p>
-                <div id="passkeyList" class="passkeyList"></div>
-                <div class="settingsCard settingsFieldList"><input type="password" id="passkeyPassword" placeholder="Mot de passe actuel" maxlength="128" autocomplete="current-password"></div>
-                <button id="passkeyAddBtn" class="btn btn-primary btn-small" type="button">Activer Face ID sur cet appareil</button>
-                <p id="passkeyMsg" class="msg"></p>
-              </div>
-              <!-- "Se déconnecter de tous les appareils" (7 septembre 2026,
-                   discussion "Sécurité — Réglages utilisateur") : le système de
-                   session (6 septembre) n'a aucun registre de sessions
-                   individuelles — un témoin auto-suffisant par appareil, sans
-                   liste consultable en base (voir server/lib/session.js). Pas
-                   de "voir mes sessions" possible sans un chantier plus lourd
-                   (table `sessions`), hors périmètre retenu pour l'échéance du
-                   11 septembre : cette carte se limite donc à une révocation
-                   GLOBALE, immédiate, de tous les appareils à la fois. -->
-              <!-- ⚠️ « Déconnexion » a brièvement vécu ICI le 26 septembre 2026, entre
-                   son départ du bandeau « Réglages » et sa place actuelle : Emilien
-                   l'a fait remonter le jour même dans Identité, sous le bouton
-                   « Enregistrer » (voir son nouvel emplacement plus haut). Ne pas
-                   le redescendre ici en croyant le rapprocher de son voisin
-                   « Se déconnecter de tous les appareils » : ce rapprochement a été
-                   essayé et écarté. -->
-              <div class="settingsCard">
-                <button id="settingsLogoutAllBtn" class="iconBtn">Se déconnecter de tous les appareils</button>
-                <p id="settingsLogoutAllMsg" class="msg"></p>
-              </div>
-              <!-- Documents légaux (10 septembre 2026, demande directe
-                   d'Emilien) : la politique de confidentialité et les
-                   mentions légales n'étaient nulle part visibles dans l'app
-                   (seules les Conditions d'utilisation avaient une page,
-                   depuis le 7 septembre 2026) — voir
-                   noesis-timetracker-inventaire-11-septembre.md. Emilien a
-                   demandé une SEULE sous-section déroulante regroupant les
-                   trois documents plutôt que trois entrées séparées. Ancienne
-                   section "Conditions d'utilisation" (.settingsFlat, toujours
-                   dépliée) transformée en .settingsSection repliable, sur le
-                   même patron que "Sécurité"/"Supprimer mon compte" juste
-                   au-dessus/en-dessous dans ce même groupe "Compte et
-                   sécurité" — l'accordéon imbriqué générique
-                   (closeAllSettingsSections/closeSettingsContainer, voir
-                   app.js) la gère sans aucun changement de logique.
-                   #openLegalTermsBtn est INCHANGÉ (même id, même
-                   comportement) : seul son conteneur direct change. Les deux
-                   nouveaux boutons suivent exactement le même patron
-                   (#privacyPolicyModal/#legalNoticesModal, voir plus bas dans
-                   ce fichier) : lecture seule, aucun mandat sur le fond
-                   juridique, textes repris tels quels depuis
-                   noesis-timetracker-conformite-loi25.md (section 1) et
-                   noesis-timetracker-mentions-legales.md (Partie A
-                   uniquement — la Partie B est un usage interne, jamais
-                   montrée à l'Utilisateur). Toute mise à jour du FOND doit
-                   passer par ces documents projet, jamais être rédigée ici
-                   directement. -->
-              <!-- 10 oct. 2026 : consentements déplacés dans Sécurité, juste au-dessus des documents légaux ; interrupteurs qui agissent au clic (routes PUT dédiées), sans passer par « Enregistrer ». -->
-              <div class="settingsCard settingsConsentCard">
-                <div class="consentItem">
-                <div class="notifRow">
-                  <span class="notifRowLabel">Utilisation commerciale de mes données</span>
-                  <label class="toggleSwitch">
-                    <input type="checkbox" id="settingsMarketingConsent" role="switch" aria-label="Utilisation commerciale de mes données">
-                    <span class="toggleSwitchTrack"></span>
-                  </label>
-                </div>
-                <p class="hint">Analyse de l'usage, statistiques, communications commerciales et campagnes publicitaires de Noesis. <a href="#" class="policy24Link">§2.4</a></p>
-                <p id="settingsMarketingMsg" class="msg"></p>
-                </div>
-                <div class="notifRow">
-                  <span class="notifRowLabel">Être trouvable dans la recherche de l'écran de connexion</span>
-                  <label class="toggleSwitch">
-                    <input type="checkbox" id="settingsDirectoryConsent" role="switch" aria-label="Être trouvable dans la recherche de l'écran de connexion">
-                    <span class="toggleSwitchTrack"></span>
-                  </label>
-                </div>
-              </div>
-              <!-- Documents légaux (ex-sous-section, réunie à Sécurité le 30
-                   septembre 2026, demande d'Emilien) : mêmes ids et même
-                   comportement qu'avant, seul le conteneur change. Voir
-                   #privacyPolicyModal/#legalNoticesModal/#legalTermsModal plus
-                   bas dans ce fichier. -->
-              <div class="settingsCard">
-                <p class="hint">Comment Noèsis TimeTracker fonctionne, ce qu'il fait de tes renseignements, et les règles d'utilisation du service.</p>
-                <button type="button" id="openPrivacyPolicyBtn" class="iconBtn">Lire la politique de confidentialité<span class="cmpChev" aria-hidden="true"></span></button>
-                <button type="button" id="openGovernanceBtn" class="iconBtn governanceLink">Gouvernance des renseignements personnels<span class="cmpChev" aria-hidden="true"></span></button>
-                <button type="button" id="openLegalNoticesBtn" class="iconBtn">Lire les mentions légales<span class="cmpChev" aria-hidden="true"></span></button>
-                <button type="button" id="openLegalTermsBtn" class="iconBtn">Lire les conditions d'utilisation<span class="cmpChev" aria-hidden="true"></span></button>
-              </div>
-                </div>
-              </div>
             </div>
             <button type="button" id="logoutBtn" class="settingsLogoutLink">Déconnexion</button>
             <button type="button" id="deleteAccountOpenBtn" class="settingsDeleteBtn">Supprimer mon compte</button>
@@ -3652,6 +3671,27 @@
      Design) : pose window.NOESIS_THEME_PALETTES, lu par app.js juste après.
      Doit être chargé avant app.js, comme i18n.js. Voir public/theme-palette.js
      et server/lib/theme.js (même source, consommée côté serveur via require). -->
+<!-- Mot de passe oublié : écran du lien reçu par courriel (?reset=…), et courriel obligatoire pour les comptes qui n'en ont pas encore. Hors de toute zone cachée. -->
+<div id="resetPwd" class="forcePwd hidden" role="dialog" aria-modal="true" aria-labelledby="resetPwdTitle">
+  <div class="forcePwdCard cmpGlass">
+    <p class="sectionTitle" id="resetPwdTitle">Choisis un nouveau mot de passe</p>
+    <p class="hint" id="resetPwdHint">10 caractères ou plus, avec une minuscule, une majuscule, un chiffre et un caractère spécial.</p>
+    <input type="password" id="resetPwdNew" placeholder="Nouveau mot de passe" maxlength="128" autocomplete="new-password">
+    <input type="password" id="resetPwdConfirm" placeholder="Confirme le nouveau mot de passe" maxlength="128" autocomplete="new-password">
+    <button type="button" class="cmpBtn" id="resetPwdSave">Enregistrer</button>
+    <p id="resetPwdMsg" class="msg"></p>
+    <button type="button" class="activityEditCancel" id="resetPwdCancel">Annuler</button>
+  </div>
+</div>
+<div id="forceEmail" class="forcePwd hidden" role="dialog" aria-modal="true" aria-labelledby="forceEmailTitle">
+  <div class="forcePwdCard cmpGlass">
+    <p class="sectionTitle" id="forceEmailTitle">Ajoute ton courriel</p>
+    <p class="hint">Ton courriel sert à retrouver ton compte si tu oublies ton mot de passe. Il est obligatoire pour tout le monde.</p>
+    <input type="email" id="forceEmailInput" placeholder="Ton courriel" maxlength="254" autocomplete="email">
+    <button type="button" class="cmpBtn" id="forceEmailSave">Enregistrer</button>
+    <p id="forceEmailMsg" class="msg"></p>
+  </div>
+</div>
 <!-- Mot de passe fort : écran bloquant (hors de toute zone cachée) pour les comptes qui ont encore l'ancien code à 4 chiffres. -->
 <div id="forcePwd" class="forcePwd hidden" role="dialog" aria-modal="true" aria-labelledby="forcePwdTitle">
   <div class="forcePwdCard cmpGlass">

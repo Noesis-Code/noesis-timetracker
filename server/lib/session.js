@@ -259,14 +259,19 @@ function touchLastSeen(userId) {
 }
 
 // Mot de passe fort (26 oct. 2026) : un compte encore protégé par l'ancien code à 4-6 chiffres (users.passwordStrong = 0) n'a accès qu'à la connexion, à la session et au changement de mot de passe, tant qu'il n'en a pas choisi un fort.
-const PASSWORD_FREE = /^\/api\/(session\/|version$|profile\/[^/]+\/(set-pin|verify-pin)$)/;
+const PASSWORD_FREE = /^\/api\/(session\/|version$|password\/|profile\/[^/]+\/(set-pin|verify-pin)$)/;
+// Courriel obligatoire pour tous (26 oct. 2026) : il sert à retrouver son compte (mot de passe oublié). Un compte plus ancien sans courriel valable n'a accès
+// qu'à l'ajout de son courriel (PUT /api/profile/:id) tant qu'il n'est pas renseigné.
+const EMAIL_VALID = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_FREE = (req) => req.method === 'PUT' && /^\/api\/profile\/[^/]+$/.test(req.path);
 
 function middleware(req, res, next) {
   req.userId = readSessionUserId(req);
   if (req.userId) touchLastSeen(req.userId);
   if (req.userId && req.path.indexOf('/api/') === 0 && !PASSWORD_FREE.test(req.path)) {
-    const row = db.prepare('SELECT passwordStrong FROM users WHERE id = ?').get(req.userId);
+    const row = db.prepare('SELECT passwordStrong, email FROM users WHERE id = ?').get(req.userId);
     if (row && !row.passwordStrong) return res.status(403).json({ error: 'Choisis un nouveau mot de passe pour continuer.', mustChangePassword: true });
+    if (row && !EMAIL_VALID.test(String(row.email || '').trim()) && !EMAIL_FREE(req)) return res.status(403).json({ error: 'Ajoute ton courriel pour continuer.', mustAddEmail: true });
   }
   // Sans session valide, une route qui répond « userId requis. » (400) doit dire « reconnecte-toi » (401 needsLogin) :
   // le client redemande alors le code au lieu d'afficher un écran vide (Feuille de route, Stats) sans explication.

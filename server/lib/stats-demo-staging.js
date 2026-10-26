@@ -53,7 +53,7 @@ function ensureLea(emilienId) {
   if (!lea) {
     const { makePinRecord } = require('./auth');
     const id = require('node:crypto').randomUUID();
-    db.prepare("INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang, passwordStrong) VALUES (?, ?, ?, '', '', ?, ?, ?, 'dark', 1, 'fr', 1)")
+    db.prepare("INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang, passwordStrong) VALUES (?, ?, ?, '', 'seed@exemple.test', ?, ?, ?, 'dark', 1, 'fr', 1)")
       .run(id, LEA.name, LEA.lastName, LEA.color, new Date().toISOString(), makePinRecord('0000'));
     lea = { id, name: LEA.name, color: LEA.color };
   }

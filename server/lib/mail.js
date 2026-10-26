@@ -36,6 +36,12 @@ function fromAddress() {
 // html et replyTo sont optionnels (renvoi des courriels reçus, voir
 // server/routes/resendinbound.js).
 async function sendMail({ to, subject, text, html, replyTo, attachments }) {
+  // Banc d'essai seulement (NODE_ENV=test) : le courriel est écrit dans un dossier au lieu d'être envoyé.
+  if (process.env.NODE_ENV === 'test' && process.env.NOESIS_MAIL_DIR) {
+    const fs = require('fs'); const path = require('path');
+    fs.writeFileSync(path.join(process.env.NOESIS_MAIL_DIR, Date.now() + '-' + Math.random().toString(36).slice(2) + '.json'), JSON.stringify({ to, subject, text, html }));
+    return { id: 'test' };
+  }
   if (!configured()) {
     throw new Error("Envoi de courriel indisponible : RESEND_API_KEY n'est pas configurée côté serveur.");
   }

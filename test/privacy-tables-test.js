@@ -35,6 +35,7 @@ const P = {
   activity_message_files: { cols: [], erase: 'via', exp: 'NON: limite connue, fichiers de discussion sur disque (effacés avec le compte, non joints à l\'export)' },
   activity_strategies: { cols: ['updatedBy'], erase: 'explicit', exp: 'NON: stratégie partagée de l\'activité (le lien auteur seul est retiré)' },
   activity_subscriptions: { cols: ['userId'], erase: 'cascade', exp: 'subscriptions' },
+  password_resets: { cols: ['userId'], erase: 'cascade', exp: 'NON: empreinte du jeton de réinitialisation (1 h), jamais le jeton lui-même' },
   user_passkeys: { cols: ['userId'], erase: 'cascade', exp: 'NON: clés d\'accès (Face ID) : identifiant public et clé publique, aucun secret' },
   ai_tokens: { cols: ['userId'], erase: 'cascade', exp: 'NON: jetons de connexion IA, secret (empreinte)' },
   ai_token_notifs: { cols: [], erase: 'via', exp: 'NON: journal technique d\'un jeton' },

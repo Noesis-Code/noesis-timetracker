@@ -41,7 +41,7 @@ const T = makeCounter(); const assert = T.assert;
 
     // Ancien compte (code à 4 chiffres, passwordStrong = 0)
     const db = new DatabaseSync(path.join(s.dir, 'noesis.db'));
-    db.prepare("INSERT INTO users (id, name, lastName, pin, createdAt) VALUES ('ancien1', 'Ancien', 'Compte', ?, datetime('now'))").run(auth.makePinRecord('1234'));
+    db.prepare("INSERT INTO users (id, name, lastName, email, pin, createdAt) VALUES ('ancien1', 'Ancien', 'Compte', 'ancien@exemple.test', ?, datetime('now'))").run(auth.makePinRecord('1234'));
     db.close();
     const d2 = client(s.base);
     const old = await d2.post('/api/profile/ancien1/verify-pin', { pin: '1234' });

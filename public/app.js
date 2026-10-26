@@ -744,6 +744,7 @@
         if (!r.ok) {
           if (data.needsLogin) handleSessionLost();
           if (data.mustChangePassword) showForcePassword();
+          if (data.mustAddEmail) showForceEmail();
           // Code technique (« offer1_required ») renvoyé par une route réservée : jamais montré tel quel.
           var apiErr = new Error(t(!data.error ? 'Erreur serveur' : /^[a-z0-9_]+$/.test(data.error) ? 'Accès refusé.' : data.error));
           apiErr.status = r.status;
@@ -1839,7 +1840,7 @@
     e.preventDefault();
     $('onbExisting').classList.add('hidden');
     $('onbCreate').classList.remove('hidden');
-    $('onbMsg').textContent = '';
+    onbShowStep('onbTypeStep');
   });
 
   // Identité complète (nom de famille, téléphone, email) demandée dès la
@@ -1865,11 +1866,67 @@
   // — voir public/index.html) ; aucune case distincte par document, la
   // décision d'Emilien étant un consentement unique aux deux.
   function onbUpdateCreateBtnState() {
-    $('onbCreateBtn').disabled = !$('onbLegalTermsCheckbox').checked || !!(onbModules && !onbModules.valid());
+    $('onbNextBtn').disabled = !$('onbLegalTermsCheckbox').checked;
+    $('onbCreateBtn').disabled = !!(onbModules && !onbModules.valid());
   }
   // 26 oct. 2026 (Émilien) : choix des modules à la création du compte (Chrono, Feuille de route, Horaire), au moins un (js/modules.js).
   var onbModules = window.TMT.modules && window.TMT.modules.mountChoice ? window.TMT.modules.mountChoice($('onbModulesList'), onbUpdateCreateBtnState) : null;
   $('onbLegalTermsCheckbox').addEventListener('change', onbUpdateCreateBtnState);
+
+  // Pages de création (26 oct. 2026) : 1) type de compte, 2) identité, 3) modules. Le type est envoyé au serveur avec le profil.
+  var onbAccountType = 'individu';
+  function onbShowStep(id) {
+    ['onbTypeStep', 'onbIdStep', 'onbModStep'].forEach(function (s) { $(s).classList.toggle('hidden', s !== id); });
+    $('onbMsg').textContent = '';
+  }
+  function onbChooseType(type) {
+    onbAccountType = type;
+    var company = type === 'entreprise';
+    $('onbName').placeholder = t(company ? "Nom de l'entreprise" : 'Prénom');
+    $('onbLastName').placeholder = t(company ? 'Nom du responsable' : 'Nom de famille');
+    // Textes de consentement adaptés aux entreprises (26 oct. 2026) ; les nœuds d'origine (liens et leurs écouteurs) sont gardés puis remis tels quels.
+    onbSwapText('onbLegalTermsText', company ? t(", et je suis autorisé à engager l'entreprise.") : null, true);
+    onbSwapText('onbMarketingTitle', company ? t("Utilisation commerciale des données de l'entreprise") : null);
+    onbSwapText('onbMarketingText', company ? t("J'accepte que Noesis utilise les données saisies pour l'entreprise afin d'analyser l'usage, produire des statistiques, envoyer des communications commerciales à l'entreprise et cibler ses propres campagnes publicitaires. Les mots de passe et les messages privés ne sont jamais utilisés. L'entreprise peut retirer cet accord à tout moment dans Réglages, section Sécurité.") : null);
+    onbSwapText('onbDirectoryText', company ? t("J'accepte que le nom de l'entreprise et celui de son responsable puissent être trouvés dans la recherche de membres de l'écran de connexion.") : null);
+    onbSwapText('onbGovLink', company ? t("Gouvernance des renseignements de l'entreprise") : null);
+    onbShowStep('onbIdStep');
+  }
+  var onbSwapOrig = {};
+  // text = nouveau texte (null = remettre l'original) ; keepLinks = garde les liens du début et ne remplace que le texte final.
+  function onbSwapText(id, text, keepLinks) {
+    var el = $(id);
+    if (!onbSwapOrig[id]) onbSwapOrig[id] = Array.prototype.slice.call(el.childNodes);
+    var orig = onbSwapOrig[id];
+    el.textContent = '';
+    if (text === null) { orig.forEach(function (n) { el.appendChild(n); }); return; }
+    if (keepLinks) { orig.slice(0, -1).forEach(function (n) { el.appendChild(n); }); el.appendChild(document.createTextNode(text)); return; }
+    el.textContent = text;
+  }
+  $('onbTypeIndividu').addEventListener('click', function () { onbChooseType('individu'); });
+  $('onbTypeEntreprise').addEventListener('click', function () { onbChooseType('entreprise'); });
+  $('onbBackToType').addEventListener('click', function (e) { e.preventDefault(); onbShowStep('onbTypeStep'); });
+  $('onbBackToId').addEventListener('click', function (e) { e.preventDefault(); onbShowStep('onbIdStep'); });
+  $('onbNextBtn').addEventListener('click', function () {
+    if (!onbValidateIdentity()) return;
+    onbShowStep('onbModStep');
+  });
+
+  function onbValidateIdentity() {
+    if (!$('onbLegalTermsCheckbox').checked) {
+      $('onbMsg').textContent = t('Tu dois accepter les conditions d\'utilisation et la politique de confidentialité avant de créer ton profil.');
+      return false;
+    }
+    var name = $('onbName').value.trim();
+    if (!name) { $('onbMsg').textContent = t(onbAccountType === 'entreprise' ? "Indique le nom de l'entreprise." : 'Indique un prénom ou un pseudo.'); return false; }
+    if (!$('onbLastName').value.trim()) { $('onbMsg').textContent = t(onbAccountType === 'entreprise' ? 'Indique le nom du responsable.' : 'Indique ton nom de famille.'); return false; }
+    if (!ONB_PHONE_RE.test($('onbPhone').value.trim())) { $('onbMsg').textContent = t('Indique un numéro de téléphone valide.'); return false; }
+    if (!ONB_EMAIL_RE.test($('onbEmail').value.trim())) { $('onbMsg').textContent = t('Indique une adresse email valide.'); return false; }
+    var pinProblem = passwordProblem($('onbPin').value.trim());
+    if (pinProblem) { $('onbMsg').textContent = pinProblem; return false; }
+    if ($('onbPin').value.trim() !== $('onbPinConfirm').value.trim()) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return false; }
+    return true;
+  }
 
   $('onbCreateBtn').addEventListener('click', function () {
     if (!$('onbLegalTermsCheckbox').checked) {
@@ -1885,13 +1942,12 @@
     var email = $('onbEmail').value.trim();
     if (!ONB_EMAIL_RE.test(email)) { $('onbMsg').textContent = t('Indique une adresse email valide.'); return; }
     var pin = $('onbPin').value.trim();
-    var pinConfirm = $('onbPinConfirm').value.trim();
     var pinProblem = passwordProblem(pin);
     if (pinProblem) { $('onbMsg').textContent = pinProblem; return; }
-    if (pin !== pinConfirm) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
+    if (pin !== $('onbPinConfirm').value.trim()) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
     if (onbModules && !onbModules.valid()) { $('onbMsg').textContent = t('Choisis au moins un module.'); return; }
     $('onbCreateBtn').disabled = true;
-    api('POST', '/api/profile', { name: name, lastName: lastName, phone: phone, email: email, pin: pin, termsAccepted: true, marketingConsent: $('onbMarketingCheckbox').checked, directoryConsent: $('onbDirectoryCheckbox').checked })
+    api('POST', '/api/profile', { name: name, lastName: lastName, phone: phone, email: email, pin: pin, accountType: onbAccountType, termsAccepted: true, marketingConsent: $('onbMarketingCheckbox').checked, directoryConsent: $('onbDirectoryCheckbox').checked })
       .then(function (p) {
         saveProfile(p);
         // Modules choisis enregistrés avant la suite ; un échec garde les modules par défaut (réglables dans Réglages).
@@ -2013,6 +2069,67 @@
       .catch(function (err) { $('forcePwdMsg').textContent = err.message; })
       .finally(function () { $('forcePwdSave').disabled = false; });
   });
+  // ----- Courriel obligatoire pour tout le monde (26 oct. 2026) : les comptes plus anciens sans courriel valable l'ajoutent avant d'aller plus loin -----
+  function showForceEmail() { $('forceEmailMsg').textContent = ''; $('forceEmail').classList.remove('hidden'); }
+  $('forceEmailSave').addEventListener('click', function () {
+    var email = $('forceEmailInput').value.trim();
+    if (!ONB_EMAIL_RE.test(email)) { $('forceEmailMsg').textContent = t('Indique une adresse email valide.'); return; }
+    var p = profile || loadProfile();
+    if (!p) return;
+    $('forceEmailSave').disabled = true;
+    api('PUT', '/api/profile/' + p.id, { email: email })
+      .then(function () { $('forceEmail').classList.add('hidden'); window.location.reload(); })
+      .catch(function (err) { $('forceEmailMsg').textContent = err.message; })
+      .finally(function () { $('forceEmailSave').disabled = false; });
+  });
+
+  // ----- Mot de passe oublié : demander le lien (écran de connexion) -----
+  $('onbForgotLink').addEventListener('click', function (e) {
+    e.preventDefault();
+    $('onbForgot').classList.toggle('hidden');
+    $('onbForgotMsg').textContent = '';
+  });
+  $('onbForgotSend').addEventListener('click', function () {
+    var email = $('onbForgotEmail').value.trim();
+    if (!ONB_EMAIL_RE.test(email)) { $('onbForgotMsg').textContent = t('Indique une adresse email valide.'); return; }
+    $('onbForgotSend').disabled = true;
+    api('POST', '/api/password/forgot', { email: email })
+      .then(function (r) { $('onbForgotMsg').textContent = t((r && r.message) || 'Si un compte correspond à ce courriel, un lien vient d’y être envoyé.'); })
+      .catch(function (err) { $('onbForgotMsg').textContent = err.message; })
+      .finally(function () { $('onbForgotSend').disabled = false; });
+  });
+
+  // ----- Mot de passe oublié : le lien reçu par courriel ouvre l'app avec ?reset=… -----
+  (function () {
+    var tok = '';
+    try { tok = new URLSearchParams(window.location.search).get('reset') || ''; } catch (e) { tok = ''; }
+    if (!tok) return;
+    $('resetPwd').classList.remove('hidden');
+    function leave() { try { window.history.replaceState(null, '', window.location.pathname); } catch (e) {} window.location.reload(); }
+    $('resetPwdCancel').addEventListener('click', leave);
+    $('resetPwdSave').addEventListener('click', function () {
+      var pw = $('resetPwdNew').value.trim();
+      var problem = passwordProblem(pw);
+      if (problem) { $('resetPwdMsg').textContent = problem; return; }
+      if (pw !== $('resetPwdConfirm').value.trim()) { $('resetPwdMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
+      $('resetPwdSave').disabled = true;
+      api('POST', '/api/password/reset', { token: tok, password: pw })
+        .then(function (r) {
+          // Tous les autres appareils sont déconnectés ; celui-ci est connecté (dans l'app installée, on entre directement).
+          if (isStandaloneMode()) {
+            return api('GET', '/api/profile/' + r.id).then(function (p) { saveProfile(p); leave(); });
+          }
+          $('resetPwdMsg').textContent = t('Mot de passe changé. Ouvre l’app depuis ton écran d’accueil et connecte-toi avec ton nouveau mot de passe.');
+          $('resetPwdSave').classList.add('hidden');
+          $('resetPwdNew').classList.add('hidden');
+          $('resetPwdConfirm').classList.add('hidden');
+          $('resetPwdHint').classList.add('hidden');
+        })
+        .catch(function (err) { $('resetPwdMsg').textContent = err.message; })
+        .finally(function () { $('resetPwdSave').disabled = false; });
+    });
+  })();
+
   $('forcePwdLogout').addEventListener('click', function () {
     api('POST', '/api/session/logout').catch(function () {}).then(function () { $('forcePwd').classList.add('hidden'); handleSessionLost(); });
   });
