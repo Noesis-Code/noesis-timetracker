@@ -89,13 +89,13 @@
 
   function paint() { if (box && state) render(box, state, put, ROWS); }
 
-  // Création du compte (26 oct. 2026) : choix de Chrono, Feuille de route, Horaire dans `target`, au moins un ; `onChange(valide)` à chaque changement.
+  // Création du compte (26 oct. 2026) : choix de Chrono, Feuille de route, Horaire, Communauté dans `target` (tout coché par défaut), au moins un des trois premiers ; `onChange(valide)` à chaque changement.
   // Monté avant que le profil existe (aucun appel serveur) ; save() enregistre via PUT une fois le profil créé et marque le choix fait.
   function mountChoice(target, onChange) {
-    var local = { stats: true, roadmap: true, 'stats-tasks': true, calendar: true, ai: true, horaire: false };
+    var local = { stats: true, roadmap: true, 'stats-tasks': true, calendar: true, ai: true, horaire: true, community: true, profile: true }; // tout coché par défaut
     function valid() { return BUNDLES.some(function (b) { return !!local[b.anchor]; }); }
     function draw() {
-      render(target, local, function (patch) { Object.assign(local, patch); draw(); }, BUNDLES);
+      render(target, local, function (patch) { Object.assign(local, patch); draw(); }, ROWS);
       if (onChange) onChange(valid());
     }
     draw();
