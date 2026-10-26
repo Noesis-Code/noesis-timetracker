@@ -2255,6 +2255,13 @@
   }
 
   // Face ID / Touch ID (clés d'accès WebAuthn, 26 oct. 2026) : la clé choisie par le téléphone désigne le compte, rien à taper.
+  // Lien « Se connecter avec Face ID » sous Valider (écran du mot de passe), même format que « Mot de passe oublié ? » ; seulement si l'appareil sait faire Face ID.
+  (function () {
+    var row = $('onbFaceIdRow'), link = $('onbFaceIdLink');
+    if (!row || !link || !(window.TMT && TMT.passkey && TMT.passkey.supported())) return;
+    row.classList.remove('hidden');
+    link.addEventListener('click', function (e) { e.preventDefault(); passkeyLogin($('onbMsg'), $('onbPinSubmit')); });
+  })();
   function passkeyOnDevice() { try { return !!(TMT.passkey && TMT.passkey.supported() && localStorage.getItem('noesis_passkey_device') === '1'); } catch (e) { return false; } }
   function passkeyLogin(msgEl, btn) {
     if (!(TMT.passkey && TMT.passkey.supported())) return;
