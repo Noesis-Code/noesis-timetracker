@@ -51,6 +51,8 @@
     // Le profil (pastille en haut à gauche) apparaît avec le volet Communauté et disparaît avec lui (demande d'Émilien, 26 oct. 2026).
     var hasCommunity = visibleOrder().indexOf('community') !== -1;
     document.documentElement.classList.toggle('noCommunityBar', !hasCommunity);
+    // « Mon IA » (Réglages) sert à organiser la Feuille de route : retirée de la barre, le réglage disparaît (demande d'Émilien, 26 oct. 2026).
+    document.documentElement.classList.toggle('noRoadmapBar', visibleOrder().indexOf('goals') === -1);
     if (!hasCommunity) { var pp = document.getElementById('profilePage'), pc = document.getElementById('profilePageClose'); if (pp && pc && !pp.classList.contains('hidden')) pc.click(); }
     var solo = visibleOrder().length <= 1 && avail.length > 0; // un seul volet : la barre ne montre que le « + » perceptible
     nav.classList.toggle('barSolo', solo);

@@ -2049,7 +2049,7 @@
       u.displayName = displayName;
       chip.innerHTML = '<span class="dot" style="background:' + u.color + '"></span><span>' + escapeHtml(displayName) + '</span>';
       chip.addEventListener('click', function () {
-        showOnbPinStep(u);
+        showOnbPinStep(u, true);
       });
       box.appendChild(chip);
     });
@@ -2205,7 +2205,7 @@
     api('POST', '/api/session/logout').catch(function () {}).then(function () { $('forcePwd').classList.add('hidden'); handleSessionLost(); });
   });
 
-  function showOnbPinStep(user) {
+  function showOnbPinStep(user, fromSearch) {
     // Garde-fou : cette fonction est aussi appelée directement (hors clic
     // sur une carte de résultat de recherche) par le flux de
     // revérification de session au démarrage — voir plus bas,
@@ -2238,10 +2238,14 @@
       $('onbPinStepHint').classList.remove('hidden');
       $('onbPinConfirmInput').classList.remove('hidden');
     }
+    // Face ID automatique (26 oct. 2026, demande d'Émilien) : si Face ID a déjà été activé sur CET appareil, le choix du nom lance tout de suite la vérification
+    // (Face ID, empreinte… selon le téléphone) ; annulée ou échouée, le mot de passe reste là. Seulement après un geste (clic sur le nom), jamais au démarrage.
+    if (fromSearch === true && user.hasPin && passkeyOnDevice()) { passkeyLogin($('onbMsg'), $('onbPinSubmit')); return; }
     $('onbPinInput').focus();
   }
 
   // Face ID / Touch ID (clés d'accès WebAuthn, 26 oct. 2026) : la clé choisie par le téléphone désigne le compte, rien à taper.
+  function passkeyOnDevice() { try { return !!(TMT.passkey && TMT.passkey.supported() && localStorage.getItem('noesis_passkey_device') === '1'); } catch (e) { return false; } }
   function passkeyLogin(msgEl, btn) {
     if (!(TMT.passkey && TMT.passkey.supported())) return;
     msgEl.textContent = '';
@@ -2250,7 +2254,7 @@
       .then(function (r) { return TMT.passkey.get(r.options); })
       .then(function (assertion) { return api('POST', '/api/passkey/login/verify', { response: assertion }); })
       .then(function (r) { return api('GET', '/api/profile/' + r.id); })
-      .then(function (p) { saveProfile(p); pendingPinUser = null; proceedAfterProfile(); })
+      .then(function (p) { try { localStorage.setItem('noesis_passkey_device', '1'); } catch (e) {} saveProfile(p); pendingPinUser = null; proceedAfterProfile(); })
       .catch(function (err) {
         // Annulé par la personne (NotAllowedError) : aucun message.
         if (err && (err.name === 'NotAllowedError' || err.name === 'AbortError')) return;
@@ -12143,6 +12147,7 @@
       .then(function (cred) { return api('POST', '/api/passkey/register/verify', { response: cred, label: TMT.passkey.deviceName() }); })
       .then(function (r) {
         $('passkeyPassword').value = '';
+        try { localStorage.setItem('noesis_passkey_device', '1'); } catch (e) {} // cet appareil a Face ID : la connexion le lancera seule après le choix du nom
         renderPasskeys(r.passkeys || []);
         msg.textContent = t('Face ID activé.');
       })
