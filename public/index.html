@@ -590,7 +590,10 @@
            de famille est renvoyée par le serveur). -->
       <input type="text" id="onbSearch" placeholder="Tape ton nom complet..." autocomplete="off">
       <div id="onbUserList" class="userList"></div>
-      <!-- Nom d'utilisateur oublié : au-dessus de Face ID ; « Mot de passe oublié » n'apparaît qu'une fois le nom choisi (écran suivant). -->
+      <button type="button" class="btn btn-primary btnBrique hidden" id="onbPasskeyBtn">Se connecter avec Face ID</button>
+      <p id="onbPasskeyMsg" class="msg"></p>
+      <p class="switchLink"><a href="#" id="onbSwitchToCreate">Créer un nouveau profil</a></p>
+      <!-- Nom d'utilisateur oublié : sous Face ID et « Créer un nouveau profil » ; « Mot de passe oublié » n'apparaît qu'une fois le nom choisi (écran suivant). -->
       <p class="switchLink"><a href="#" id="onbEmailLoginLink">Nom d'utilisateur oublié ?</a></p>
       <div id="onbEmailLogin" class="hidden">
         <p class="hint">Connecte-toi avec le courriel de ton compte et ton mot de passe.</p>
@@ -598,9 +601,6 @@
         <input type="password" id="onbEmailLoginPwd" placeholder="Mot de passe" maxlength="128" autocomplete="current-password">
         <button type="button" class="btn btn-primary btnBrique" id="onbEmailLoginBtn">Se connecter</button>
       </div>
-      <button type="button" class="btn btn-primary btnBrique hidden" id="onbPasskeyBtn">Se connecter avec Face ID</button>
-      <p id="onbPasskeyMsg" class="msg"></p>
-      <p class="switchLink"><a href="#" id="onbSwitchToCreate">Créer un nouveau profil</a></p>
     </div>
 
     <!-- 26 oct. 2026 (Émilien) : un individu crée au moins une activité après le choix des modules (une entreprise : l'activité porte son nom, créée seule). -->
