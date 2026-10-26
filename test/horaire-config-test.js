@@ -18,7 +18,7 @@ mkUser('uA'); mkUser('uB');
 let s = h.getSettings('uA');
 assert(s.configured === false && s.setupStep === 0, 'compte neuf : non configuré, étape 0');
 s = h.setSettings('uA', { setupStep: 2 });
-assert(s.setupStep === 2 && s.configured === false, 'étape courante mémorisée (reprise après ✕)');
+assert(s.setupStep === 2 && s.configured === false, 'étape courante mémorisée (reprise après fermeture de l\'app)');
 s = h.setSettings('uA', { eventsSource: 'Cahier de la réception', eventsNoticeDays: 14, eventsStaffRule: '1 serveur par 15 convives', dataInCanada: 'nsp' });
 assert(s.eventsSource === 'Cahier de la réception' && s.eventsNoticeDays === 14 && s.eventsStaffRule === '1 serveur par 15 convives' && s.dataInCanada === 'nsp', 'réglages des événements et hébergement enregistrés');
 s = h.setSettings('uA', { dayforceTemplate: { name: 'modele.csv', content: 'EmployeeXRefCode,StartDate\n' } });
@@ -59,6 +59,13 @@ function call(method, path, body, user) {
   assert(r.status === 200 && r.body.settings.configured === false, 'GET settings : non configuré');
   r = await call('PUT', 'settings', { setupStep: 3 });
   assert(r.status === 200 && r.body.settings.setupStep === 3, 'PUT setupStep');
+  // Volet retiré puis rajouté (barre-volets.js → TMT.horaire.restartSetup) : étape remise à 0, données saisies conservées.
+  const kept = await call('POST', 'positions', { name: 'Barman' });
+  await call('PUT', 'settings', { eventsSource: 'Agenda' });
+  r = await call('PUT', 'settings', { setupStep: 0 });
+  assert(r.status === 200 && r.body.settings.setupStep === 0 && r.body.settings.configured === false && r.body.settings.eventsSource === 'Agenda', 'volet retiré : reprise à l\'étape 1, réglages conservés');
+  assert((await call('GET', 'positions')).body.positions.some((x) => x.id === kept.body.position.id), 'volet retiré : postes conservés');
+  await call('PUT', 'settings', { eventsSource: '' });
   assert((await call('PUT', 'settings', { setupStep: 8 })).status === 400, 'étape hors bornes refusée');
   assert((await call('PUT', 'settings', { configured: 'oui' })).status === 400, 'configured non booléen refusé');
   assert((await call('PUT', 'settings', { dataInCanada: 'peut-être' })).status === 400, 'hébergement : réponse inconnue refusée');
@@ -67,6 +74,8 @@ function call(method, path, body, user) {
   assert((await call('PUT', 'settings', { dayforceTemplate: { name: 'a.csv', content: '' } })).status === 400, 'fichier modèle vide refusé');
   r = await call('PUT', 'settings', { eventsSource: '', eventsNoticeDays: null, dataInCanada: 'oui', configured: true });
   assert(r.status === 200 && r.body.settings.configured === true && r.body.settings.eventsSource === null && r.body.settings.dataInCanada === 'oui', 'Terminer par la route, champs effacés par chaîne vide');
+  r = await call('PUT', 'settings', { setupStep: 0 });
+  assert(r.status === 200 && r.body.settings.configured === true, 'volet retiré d\'un compte configuré : reste configuré (pas de nouvelle configuration)');
   r = await call('PUT', 'settings', { dayforceTemplate: null }, 'uA');
   assert(r.status === 200 && r.body.settings.dayforceTemplateName === null, 'fichier modèle retiré');
   const pos = await call('POST', 'positions', { name: 'Hôte' });

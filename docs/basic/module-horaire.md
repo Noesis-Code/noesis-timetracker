@@ -78,8 +78,11 @@ Pour ne jamais solliciter le restaurant à part, la première ouverture du volet
 (ou import CSV) ; 3. Besoins normaux ; 4. Disponibilités de la semaine en cours (ou import CSV) ; 5. Événements ; 6. OpenTable ;
 7. Dayforce ; 8. Hébergement des données. Chaque étape réutilise la section correspondante des Paramètres (`public/js/horaire.js`,
 mêmes fonctions de rendu) ; « Suivant » enregistre le formulaire de l'étape (5 à 8) et avance, « Passer » avance sans enregistrer,
-« Terminer » pose `configured = true`. ✕ = reprise plus tard : l'étape courante est mémorisée côté serveur (`setupStep`, 0 à 7)
-et la configuration revient à la prochaine ouverture du volet. Les comptes qui avaient déjà des postes au moment de la migration
+« Terminer » pose `configured = true`. Balayer vers la gauche = étape suivante sans enregistrer (comme « Passer »), vers la
+droite = étape précédente (technique commune `TMT.slidePager`, la page suit le doigt, les points suivent). Pas de ✕ (26 oct. 2026) :
+on sort par « Suivant », « Passer » ou « Terminer » ; l'étape courante est mémorisée côté serveur (`setupStep`, 0 à 7) et la
+configuration reprend au même endroit à la prochaine ouverture. Volet retiré de la barre (`barre-volets.js`, `TMT.horaire.restartSetup`) :
+`setupStep` revient à 0, une configuration non terminée recommence à l'étape 1 au rajout, toutes les données saisies sont conservées. Les comptes qui avaient déjà des postes au moment de la migration
 sont réputés configurés.
 
 Nouveaux réglages (table `horaire_settings`, une ligne par compte, migration douce, NULL = non renseigné), ensuite modifiables

@@ -146,6 +146,7 @@
     if (!mayRemove(tab)) return;
     var wasActive = btnOf(tab) && btnOf(tab).classList.contains('active');
     save(load().filter(function (x) { return x !== tab; }));
+    if (tab === 'horaire' && TMT.horaire && TMT.horaire.restartSetup) TMT.horaire.restartSetup(); // configuration non terminée : reprendra à l'étape 1
     refresh();
     if (wasActive && typeof TMT.switchTab === 'function') TMT.switchTab(firstTab());
   }

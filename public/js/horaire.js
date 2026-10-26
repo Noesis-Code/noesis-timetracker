@@ -3,8 +3,9 @@
  * semaine ‹ › , « Générer » (action principale), alertes, quarts par jour, « Exporter vers Dayforce » ; puis « Paramètres » en sections
  * repliables fermées par défaut (R2) : Employés, Postes, Besoins, Disponibilités, Événements, OpenTable, Dayforce, Hébergement.
  * Configuration guidée (26 oct. 2026) : tant que le compte n'est pas « configured », l'ouverture du volet montre une étape par écran
- * (les mêmes sections, dépliées dans un cadre d'étape), « Suivant » / « Passer », points de pagination ; ✕ = reprise plus tard
- * à l'étape mémorisée côté serveur (settings.setupStep). Doc : docs/basic/module-horaire.md.
+ * (les mêmes sections, dépliées dans un cadre d'étape), « Suivant » / « Passer », points de pagination, balayage gauche/droite
+ * entre les étapes ; pas de ✕ (on sort par « Suivant », « Passer » ou « Terminer ») ; app fermée = reprise à l'étape mémorisée
+ * côté serveur (settings.setupStep), remise à l'étape 1 quand le volet est retiré de la barre. Doc : docs/basic/module-horaire.md.
  * Modifier = la ligne se déroule sur place (R36) ; réordonner les postes = glisser-déposer (poignée ≡, même mécanique que les activités, R27) ;
  * supprimer = TMT.ui.confirm rouge (R28). Données du personnel confidentielles (Loi 25) : appels fetch directs, aucune copie hors ligne, rien en console. */
 (function () {
@@ -32,7 +33,7 @@
 
   var S = {
     week: mondayOf(new Date()), employees: [], positions: [], quals: [], needs: [], events: [], avail: [], schedule: null, settings: {},
-    open: {}, editing: null, msg: '', busy: false, loaded: false, setupOff: false,
+    open: {}, editing: null, msg: '', busy: false, loaded: false,
   };
 
   // ---------- réseau ----------
@@ -187,7 +188,7 @@
     }).catch(fail);
   }
   function renderMsg() { [msgBox, setupMsg].forEach(function (m) { m.textContent = S.msg; m.classList.toggle('hidden', !S.msg); }); }
-  function inSetup() { return S.loaded && !S.settings.configured && !S.setupOff; }
+  function inSetup() { return S.loaded && !S.settings.configured; }
   function render() {
     var setup = inSetup();
     mainNodes.forEach(function (n) { n.classList.toggle('horaireOff', setup); });
@@ -632,14 +633,46 @@
       return done ? loadAll().then(render) : render();
     }).catch(fail).then(function () { S.busy = false; });
   }
-  function renderSetup() {
-    setupBox.textContent = '';
-    var i = setupStep(), st = STEPS[i], last = i === STEPS.length - 1;
+  // Une page d'étape : titre + section dépliée (la page courante porte aussi le message).
+  function setupPage(i, withMsg) {
+    var st = STEPS[i], page = el('div', 'horaireSetupPage');
     var head = el('div', 'horaireSetupHead');
     head.appendChild(el('h2', 'horaireSetupTitle', tr(st[1]) + (st[0] === 'avail' ? ' · ' + tr('semaine du') + ' ' + dayLabel(S.week).replace(/^\S+ /, '') : '')));
-    head.appendChild(TMT.ui.closeBtn(function () { S.setupOff = true; S.editing = null; S.msg = ''; render(); }, tr('Fermer')));
     var body = el('div', 'horaireSetupBody horaireSecBody cmpGlass');
     var save = (st[2] || section(st[0])[3])(body, true);
+    page.appendChild(head); if (withMsg) page.appendChild(setupMsg); page.appendChild(body);
+    return { page: page, save: save };
+  }
+  // Balayage entre les étapes : technique commune des pages (TMT.slidePager, stats-avance.js, R27). Gauche = étape suivante
+  // sans enregistrer (comme « Passer »), droite = étape précédente. Branché au premier rendu (stats-avance.js se charge après ce fichier).
+  var setupPages = null, swipeBound = false;
+  function bindSetupSwipe() {
+    if (swipeBound || !(window.TMT && TMT.slidePager)) return; swipeBound = true;
+    TMT.slidePager({
+      zone: setupBox,
+      neighbor: function (dir) {
+        var t = setupStep() + dir, cur = setupPages && setupPages.firstChild;
+        if (S.busy || !cur || t < 0 || t >= STEPS.length) return null;
+        var nb = setupPage(t, false).page;
+        nb.classList.add('hidden'); setupPages.appendChild(nb);
+        return {
+          cur: cur, nb: nb, host: setupPages,
+          commit: function () {
+            Array.prototype.forEach.call(setupBox.querySelectorAll('.horaireSetupDots .goalsDotBtn'), function (d, k) { d.classList.toggle('on', k === t); });
+            goStep(t);
+          },
+          cancel: function () { nb.remove(); }
+        };
+      },
+      swallow: function () { return true; } // première et dernière étape : le geste reste dans la configuration
+    });
+  }
+  function renderSetup() {
+    setupBox.textContent = '';
+    var i = setupStep(), last = i === STEPS.length - 1;
+    var p = setupPage(i, true), save = p.save;
+    setupPages = el('div', 'horaireSetupPages'); setupPages.appendChild(p.page);
+    bindSetupSwipe();
     var next = el('button', 'cmpBtn', tr(last ? 'Terminer' : 'Suivant')); next.type = 'button';
     next.addEventListener('click', function () {
       if (S.busy) return;
@@ -657,18 +690,22 @@
       d.addEventListener('click', function () { if (k !== i) goStep(k); });
       dots.appendChild(d);
     });
-    [head, setupMsg, body, next, skip, dots].forEach(function (n) { setupBox.appendChild(n); });
+    [setupPages, next, skip, dots].forEach(function (n) { setupBox.appendChild(n); });
   }
 
   // ---------- ouverture de l'onglet (aucun changement d'app.js : on suit la classe .hidden de la section) ----------
-  var built = false, wasHidden = true;
+  var built = false;
   function onShow() {
-    if (root.classList.contains('hidden')) { wasHidden = true; return; }
-    if (wasHidden) { S.setupOff = false; wasHidden = false; }
+    if (root.classList.contains('hidden')) return;
     if (!built) { build(); built = true; }
     refresh();
   }
   new MutationObserver(onShow).observe(root, { attributes: true, attributeFilter: ['class'] });
   onShow();
-  TMT.horaire = { refresh: refresh };
+  // Volet retiré de la barre (barre-volets.js) : une configuration non terminée reprendra à l'étape 1 quand il sera rajouté.
+  // Seule l'étape revient à 0 ; toutes les données saisies restent (sans effet sur un compte déjà configuré).
+  function restartSetup() {
+    return req('PUT', 'settings', { setupStep: 0 }).then(function (d) { S.settings = d.settings; }, function () { /* hors ligne : on reprend à l'étape mémorisée */ });
+  }
+  TMT.horaire = { refresh: refresh, restartSetup: restartSetup };
 })();
