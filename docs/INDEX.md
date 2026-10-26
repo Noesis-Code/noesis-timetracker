@@ -16,7 +16,7 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 - `ia/` : `ia-appels.md`, document IA unique (appels, modèles, budget, échecs, coûts).
 - `expansion/` : offre payante (accès, résiliation, courriels, Stripe, taxes, parcours commercial) ; `connecteur-ia-libre.md` (outils d'écriture du connecteur IA, gratuits) ; `lecture-organisation-ia-cadrage.md` (lecture anonyme de l'organisation IA, à trancher).
 - `trade/` : Trade Tracker (connexion, délais, intégration).
-- `basic/` : offre gratuite (contrastes).
+- `basic/` : offre gratuite (contrastes) ; `module-horaire.md` (module « Horaire » : horaires du personnel d'un restaurant, backend).
 - `precision/` : génération et estimation des tâches, tri.
 - `questions/` : `questions-emilien.md`, fichier unique des questions à Émilien.
 - `journal/` : journaux de chantiers, bilans, relectures croisées, plan de semaine.

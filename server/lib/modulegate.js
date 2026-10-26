@@ -23,6 +23,7 @@ const RULES = [
   ['sharing', /^\/api\/(invites(\/|$)|community\/(activity-[a-z-]+|unread-messages))/],
   ['community', /^\/api\/(community(\/(shared-feed|following-feed))?|follows|blocks|users\/search|polls)(\/|$)/],
   ['trade', /^\/api\/trade(\/|$)/],
+  ['horaire', /^\/api\/horaire(\/|$)/], // module « Horaire » (personnel d'un restaurant), voir server/routes/horaire.js
   ['profile', /^\/api\/profile\/(posts|post-attachments|projects)(\/|$)/],
   ['profile', /^\/api\/profile\/[^/]+\/(public|projects|posts)$/],
 ];

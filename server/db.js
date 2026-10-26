@@ -2550,4 +2550,85 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 `);
 require('./lib/idempotencypurge').startIdempotencyPurge(db);
 
+// Module « Horaire » (26 oct. 2026) : horaires du personnel d'un restaurant, gestionnaire seul. Toutes les tables portent le
+// userId du propriétaire (ON DELETE CASCADE : effacées avec le compte, Loi 25). Logique : server/lib/horaire.js. Additif, idempotent.
+db.exec(`
+CREATE TABLE IF NOT EXISTS horaire_employees (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  maxWeekMinutes INTEGER,
+  active INTEGER NOT NULL DEFAULT 1,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS horaire_positions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  fillOrder INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS horaire_qualifications (
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  employeeId INTEGER NOT NULL,
+  positionId INTEGER NOT NULL,
+  rank INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (employeeId, positionId)
+);
+CREATE TABLE IF NOT EXISTS horaire_availabilities (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  employeeId INTEGER NOT NULL,
+  weekStart TEXT NOT NULL,
+  day TEXT NOT NULL,
+  start TEXT NOT NULL,
+  end TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_horaire_avail_week ON horaire_availabilities(userId, weekStart);
+CREATE TABLE IF NOT EXISTS horaire_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day TEXT NOT NULL,
+  label TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS horaire_needs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  positionId INTEGER NOT NULL,
+  weekday INTEGER,
+  eventId INTEGER,
+  start TEXT NOT NULL,
+  end TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS idx_horaire_needs_user ON horaire_needs(userId);
+CREATE TABLE IF NOT EXISTS horaire_rotation (
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  positionId INTEGER NOT NULL,
+  rank INTEGER NOT NULL,
+  lastEmployeeId INTEGER,
+  PRIMARY KEY (userId, positionId, rank)
+);
+CREATE TABLE IF NOT EXISTS horaire_schedules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  weekStart TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  alerts TEXT NOT NULL DEFAULT '[]',
+  generatedAt TEXT NOT NULL,
+  UNIQUE (userId, weekStart)
+);
+CREATE TABLE IF NOT EXISTS horaire_assignments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  scheduleId INTEGER NOT NULL,
+  employeeId INTEGER NOT NULL,
+  positionId INTEGER NOT NULL,
+  day TEXT NOT NULL,
+  start TEXT NOT NULL,
+  end TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_horaire_assign_schedule ON horaire_assignments(scheduleId);
+`);
+
 module.exports = db;

@@ -287,6 +287,19 @@ function buildUserExport(userId) {
      FROM activity_subscriptions s LEFT JOIN activities a ON a.id = s.activityId WHERE s.userId = ?`,
     userId
   ) : [];
+  // Module « Horaire » (données du personnel saisies par le gestionnaire, Loi 25) : tout ce que le compte a saisi ou généré.
+  const horaire = has('horaire_employees') ? {
+    employees: rows('SELECT id, name, maxWeekMinutes, active, createdAt FROM horaire_employees WHERE userId = ? ORDER BY id', userId),
+    positions: rows('SELECT id, name, fillOrder, createdAt FROM horaire_positions WHERE userId = ? ORDER BY fillOrder, id', userId),
+    qualifications: rows('SELECT employeeId, positionId, rank FROM horaire_qualifications WHERE userId = ?', userId),
+    availabilities: rows('SELECT employeeId, weekStart, day, start, end FROM horaire_availabilities WHERE userId = ? ORDER BY day, start', userId),
+    events: rows('SELECT id, day, label FROM horaire_events WHERE userId = ? ORDER BY day', userId),
+    needs: rows('SELECT id, positionId, weekday, eventId, start, end, count FROM horaire_needs WHERE userId = ? ORDER BY id', userId),
+    rotation: rows('SELECT positionId, rank, lastEmployeeId FROM horaire_rotation WHERE userId = ?', userId),
+    schedules: rows('SELECT id, weekStart, status, alerts, generatedAt FROM horaire_schedules WHERE userId = ? ORDER BY weekStart', userId)
+      .map((s) => { let alerts = []; try { alerts = JSON.parse(s.alerts || '[]'); } catch (e) { /* illisible : vide */ } return { ...s, alerts }; }),
+    assignments: rows('SELECT scheduleId, employeeId, positionId, day, start, end FROM horaire_assignments WHERE userId = ? ORDER BY day, start', userId),
+  } : null;
 
   // ---- Objectifs et tâches (ajout 10 oct. 2026, décision d'Emilien) ----
   // Périmètre « à moi » : activités dont il est propriétaire ou seul membre
@@ -401,6 +414,7 @@ function buildUserExport(userId) {
     goalCapacityOverrides,
     dailySuggestionSettings,
     subscriptions,
+    horaire,
   };
 }
 

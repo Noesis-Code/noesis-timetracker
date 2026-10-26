@@ -236,6 +236,7 @@ app.use('/api', require('./routes/drive'));
 // server/lib/dailysuggestioncron.js (démarré plus bas). Segment neuf et
 // indépendant, voir server/lib/dailysuggestion.js.
 app.use('/api', require('./routes/dailysuggestion'));
+app.use('/api', require('./routes/horaire')); // module « Horaire » (gestionnaire seul, refusé si le module est inactif : modulegate.js)
 
 // Le service worker ne doit JAMAIS être servi depuis le cache du navigateur :
 // c'est lui qui pilote la mise à jour de l'app sur les téléphones installés.
