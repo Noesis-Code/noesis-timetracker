@@ -3304,7 +3304,6 @@ html[data-modules-off~="sharing"] #activitiesList .unreadBadge { display: none !
 
 /* Trace « désactivé dans Modules » : visible seulement quand le module concerné est éteint ; un appui ouvre Réglages > Modules. */
 .moduleOffNote { display: none; background: none; border: 0; padding: 6px 2px; margin: 0 0 8px; color: var(--text-light); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
-html[data-modules-off~="ai"] .moduleOffNote[data-off="ai"],
 html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display: block; }
 
 /* Signalement de message : menu ⋮ et pop-up centré avec ✕ (chantier signalement). */
