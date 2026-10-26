@@ -64,6 +64,8 @@
   border: 1.5px dashed var(--cmp-dash); background: none; color: var(--purple, #9C8CC8);
 }
 /* Un seul volet restant (règle Q1) : la barre ne montre que le « + », même cercle pointillé gris, calé à droite. */
+/* Profil : seulement avec le volet Communauté dans la barre. */
+html.noCommunityBar #whoami { display: none; }
 .tabbar.barSolo .tabbarPill { display: none; }
 .tabbar.barSolo .tabBtnAdd { margin-left: auto; }
 /* Variante « extension payée » : même composant, verre fort de l'icône sélectionnée (exception assumée à R17, voir docs/regles/regles-rangement.md). */

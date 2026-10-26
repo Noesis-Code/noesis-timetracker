@@ -48,6 +48,10 @@
     addBtn.classList.toggle('barNoAdd', !avail.length); // plus rien à ajouter : le « + » disparaît, la barre s'allonge
     addBtn.classList.toggle('barPaid', avail.some(isPaid)); // variante verre fort : extension payée à ajouter (jamais les deux à la fois)
     if (adding && !avail.length) { adding = false; nav.classList.remove('barAdding'); }
+    // Le profil (pastille en haut à gauche) apparaît avec le volet Communauté et disparaît avec lui (demande d'Émilien, 26 oct. 2026).
+    var hasCommunity = visibleOrder().indexOf('community') !== -1;
+    document.documentElement.classList.toggle('noCommunityBar', !hasCommunity);
+    if (!hasCommunity) { var pp = document.getElementById('profilePage'), pc = document.getElementById('profilePageClose'); if (pp && pc && !pp.classList.contains('hidden')) pc.click(); }
     var solo = visibleOrder().length <= 1 && avail.length > 0; // un seul volet : la barre ne montre que le « + » perceptible
     nav.classList.toggle('barSolo', solo);
     if (solo && editMode) { editMode = false; nav.classList.remove('barEdit'); hint.classList.add('hidden'); }

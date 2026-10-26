@@ -155,3 +155,10 @@
 .forcePwdCard .activityEditCancel { align-self: center; }
 .forcePwdCard input { width: 100%; box-sizing: border-box; min-height: 48px; padding: 0 14px; font: inherit; font-size: 16px; color: var(--text); background: var(--glass-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 .forcePwdCard input:focus { outline: none; border-color: var(--purple); box-shadow: var(--focus-halo); }
+/* Face ID (clés d'accès) : liste des appareils dans Sécurité. */
+.passkeyBlock { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.passkeyBlock .sectionTitle, .passkeyBlock .hint { margin: 0; }
+.passkeyList { display: flex; flex-direction: column; }
+.passkeyRow { display: flex; align-items: center; gap: 12px; min-height: 48px; }
+.passkeyRow + .passkeyRow { border-top: 1px solid var(--sep); }
+.passkeyName { flex: 1; font-size: 15px; }

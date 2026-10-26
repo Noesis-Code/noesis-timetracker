@@ -2053,6 +2053,30 @@
     $('onbPinInput').focus();
   }
 
+  // Face ID / Touch ID (clés d'accès WebAuthn, 26 oct. 2026) : la clé choisie par le téléphone désigne le compte, rien à taper.
+  function passkeyLogin(msgEl, btn) {
+    if (!(TMT.passkey && TMT.passkey.supported())) return;
+    msgEl.textContent = '';
+    btn.disabled = true;
+    api('POST', '/api/passkey/login/options', {})
+      .then(function (r) { return TMT.passkey.get(r.options); })
+      .then(function (assertion) { return api('POST', '/api/passkey/login/verify', { response: assertion }); })
+      .then(function (r) { return api('GET', '/api/profile/' + r.id); })
+      .then(function (p) { saveProfile(p); pendingPinUser = null; proceedAfterProfile(); })
+      .catch(function (err) {
+        // Annulé par la personne (NotAllowedError) : aucun message.
+        if (err && (err.name === 'NotAllowedError' || err.name === 'AbortError')) return;
+        msgEl.textContent = (err && err.message) || t('Face ID n’a pas pu te connecter.');
+      })
+      .finally(function () { btn.disabled = false; });
+  }
+  (function () {
+    var b = $('onbPasskeyBtn');
+    if (!b || !(window.TMT && TMT.passkey && TMT.passkey.supported())) return;
+    b.classList.remove('hidden');
+    b.addEventListener('click', function () { passkeyLogin($('onbPasskeyMsg'), b); });
+  })();
+
   $('onbPinCancel').addEventListener('click', function (e) {
     e.preventDefault();
     pendingPinUser = null;
@@ -10568,6 +10592,7 @@
         ? container.querySelector('.settingsGroupBody')
         : container.querySelector('.settingsSectionBody');
       if (body) body.classList.remove('hidden');
+      if (body && body.querySelector('#passkeyBlock') && TMT.loadPasskeys) TMT.loadPasskeys(); // liste des appareils Face ID
       head.setAttribute('aria-expanded', 'true');
       // Maquette Réglages (25 oct. 2026) : une section ouverte est un sous-écran (« ‹ Retour » + titre), pas un accordéon.
       if (!isNested) {
@@ -11880,6 +11905,64 @@
         })
         .catch(function (err) { $('langMsg').textContent = err.message; });
     });
+  });
+
+  // ----- Face ID : activer sur cet appareil, liste des appareils, retrait (Réglages > Sécurité) -----
+  function renderPasskeys(list) {
+    var box = $('passkeyList');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!list.length) { var none = document.createElement('p'); none.className = 'hint'; none.textContent = t('Aucun appareil pour l’instant.'); box.appendChild(none); return; }
+    list.forEach(function (k) {
+      var row = document.createElement('div');
+      row.className = 'passkeyRow';
+      var name = document.createElement('span');
+      name.className = 'passkeyName';
+      name.textContent = k.label || t('Appareil');
+      var meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.textContent = new Date(k.createdAt).toLocaleDateString(dateLocale());
+      var del = document.createElement('button');
+      del.type = 'button'; del.className = 'cmpRemove'; del.setAttribute('aria-label', t('Retirer'));
+      del.addEventListener('click', function () {
+        TMT.ui.confirm(t('Retirer Face ID de cet appareil ?') + '\n' + t('Tu pourras toujours te connecter avec ton mot de passe.'), { ok: t('Retirer'), danger: true, closeLabel: t('Fermer') }).then(function (yes) {
+          if (!yes) return;
+          api('DELETE', '/api/passkey/' + k.id).then(function (r) { renderPasskeys(r.passkeys || []); }).catch(function (err) { $('passkeyMsg').textContent = err.message; });
+        });
+      });
+      row.appendChild(name); row.appendChild(meta); row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
+  TMT.loadPasskeys = function () {
+    var blk = $('passkeyBlock');
+    if (!blk) return;
+    var ok = !!(TMT.passkey && TMT.passkey.supported());
+    blk.classList.toggle('hidden', !ok);
+    if (!ok) return;
+    $('passkeyMsg').textContent = '';
+    api('GET', '/api/passkey/list').then(function (r) { renderPasskeys(r.passkeys || []); }).catch(function () {});
+  };
+  if ($('passkeyAddBtn')) $('passkeyAddBtn').addEventListener('click', function () {
+    var pw = $('passkeyPassword').value.trim();
+    var msg = $('passkeyMsg');
+    msg.textContent = '';
+    if (!pw) { msg.textContent = t('Entre ton mot de passe actuel pour activer Face ID.'); return; }
+    var btn = $('passkeyAddBtn');
+    btn.disabled = true;
+    api('POST', '/api/passkey/register/options', { password: pw })
+      .then(function (r) { return TMT.passkey.create(r.options); })
+      .then(function (cred) { return api('POST', '/api/passkey/register/verify', { response: cred, label: TMT.passkey.deviceName() }); })
+      .then(function (r) {
+        $('passkeyPassword').value = '';
+        renderPasskeys(r.passkeys || []);
+        msg.textContent = t('Face ID activé.');
+      })
+      .catch(function (err) {
+        if (err && (err.name === 'NotAllowedError' || err.name === 'AbortError')) return;
+        msg.textContent = (err && err.message) || t('Face ID n’a pas pu être activé.');
+      })
+      .finally(function () { btn.disabled = false; });
   });
 
   $('settingsPinSaveBtn').addEventListener('click', function () {

@@ -573,6 +573,8 @@
            dans server/routes/profile.js pour le compromis vie privée
            retenu avec Emilien (résultats plafonnés, seule l'initiale du nom
            de famille est renvoyée par le serveur). -->
+      <button type="button" class="btn btn-primary btnBrique hidden" id="onbPasskeyBtn">Se connecter avec Face ID</button>
+      <p id="onbPasskeyMsg" class="msg"></p>
       <input type="text" id="onbSearch" placeholder="Tape ton nom complet..." autocomplete="off">
       <div id="onbUserList" class="userList"></div>
       <p class="switchLink"><a href="#" id="onbSwitchToCreate">Créer un nouveau profil</a></p>
@@ -2911,6 +2913,15 @@
               </div>
               <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon mot de passe</button>
               <p id="settingsPinMsg" class="msg"></p>
+              <!-- Face ID (clés d'accès WebAuthn, 26 oct. 2026) : se connecter sans taper son mot de passe. Activer exige le mot de passe actuel. -->
+              <div id="passkeyBlock" class="passkeyBlock hidden">
+                <p class="sectionTitle">Face ID</p>
+                <p class="hint">Connecte-toi sans taper ton mot de passe, avec Face ID, Touch ID ou le code de ton appareil. Ton mot de passe reste nécessaire pour activer Face ID.</p>
+                <div id="passkeyList" class="passkeyList"></div>
+                <div class="settingsCard settingsFieldList"><input type="password" id="passkeyPassword" placeholder="Mot de passe actuel" maxlength="128" autocomplete="current-password"></div>
+                <button id="passkeyAddBtn" class="btn btn-primary btn-small" type="button">Activer Face ID sur cet appareil</button>
+                <p id="passkeyMsg" class="msg"></p>
+              </div>
               <!-- "Se déconnecter de tous les appareils" (7 septembre 2026,
                    discussion "Sécurité — Réglages utilisateur") : le système de
                    session (6 septembre) n'a aucun registre de sessions
@@ -3748,6 +3759,7 @@
 <script src="/offline-queue.js"></script>
 <!-- 19 oct. 2026 : avant app.js pour que le masquage des modules soit posé dès le premier rendu -->
 <script src="/js/composants.js"></script>
+<script src="/js/passkey.js"></script>
 <script src="/js/modules.js"></script>
 <script src="/app.js"></script>
 <script src="/js/trade.js"></script>

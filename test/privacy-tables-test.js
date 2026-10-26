@@ -35,6 +35,7 @@ const P = {
   activity_message_files: { cols: [], erase: 'via', exp: 'NON: limite connue, fichiers de discussion sur disque (effacés avec le compte, non joints à l\'export)' },
   activity_strategies: { cols: ['updatedBy'], erase: 'explicit', exp: 'NON: stratégie partagée de l\'activité (le lien auteur seul est retiré)' },
   activity_subscriptions: { cols: ['userId'], erase: 'cascade', exp: 'subscriptions' },
+  user_passkeys: { cols: ['userId'], erase: 'cascade', exp: 'NON: clés d\'accès (Face ID) : identifiant public et clé publique, aucun secret' },
   ai_tokens: { cols: ['userId'], erase: 'cascade', exp: 'NON: jetons de connexion IA, secret (empreinte)' },
   ai_token_notifs: { cols: [], erase: 'via', exp: 'NON: journal technique d\'un jeton' },
   ai_write_log: { cols: ['userId'], erase: 'cascade', exp: 'NON: journal technique des écritures de l\'IA du compte (copies de tâches), effacé avec le compte' },
@@ -85,7 +86,7 @@ for (const t of ['horaire_employees', 'horaire_positions', 'horaire_qualificatio
 // Tables sans aucune colonne qui désigne un compte (contenu d'activité, journaux globaux, jetons de webhooks...).
 const NON_PERSONAL = new Set(['activities_rebuild', 'activity_billing_cycles', 'activity_goal_categories', 'activity_goal_plans', 'activity_offre1',
   'announcements', 'generation_quality_log', 'goal_cross_sector_suggestions', 'goal_periods', 'goal_year_goals', 'goal_years', 'inactive_account_runs',
-  'poll_options', 'plan_activation_attempts', 'stripe_webhook_events', 'sub_project_item_queue', 'ai_alerts_sent']);
+  'poll_options', 'plan_activation_attempts', 'stripe_webhook_events', 'sub_project_item_queue', 'ai_alerts_sent', 'passkey_challenges']);
 
 const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map((r) => r.name);
 const info = (t) => db.prepare(`PRAGMA table_info(${t})`).all();

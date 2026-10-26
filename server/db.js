@@ -1310,6 +1310,30 @@ if (!columnExists('users', 'pinFailCount')) {
 if (!columnExists('users', 'passwordStrong')) {
   db.exec('ALTER TABLE users ADD COLUMN passwordStrong INTEGER NOT NULL DEFAULT 0');
 }
+// Clés d'accès (Face ID, 26 oct. 2026) : identifiant public et clé publique seulement, aucun secret. Défis à usage unique (hachés, 2 min).
+db.exec(`
+CREATE TABLE IF NOT EXISTS user_passkeys (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  credentialId TEXT NOT NULL UNIQUE,
+  publicKey TEXT NOT NULL,
+  counter INTEGER NOT NULL DEFAULT 0,
+  transports TEXT NOT NULL DEFAULT '',
+  deviceType TEXT NOT NULL DEFAULT '',
+  backedUp INTEGER NOT NULL DEFAULT 0,
+  label TEXT NOT NULL DEFAULT '',
+  rpId TEXT NOT NULL DEFAULT '',
+  createdAt TEXT NOT NULL,
+  lastUsedAt TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_user_passkeys_user ON user_passkeys(userId);
+CREATE TABLE IF NOT EXISTS passkey_challenges (
+  challengeHash TEXT PRIMARY KEY,
+  purpose TEXT NOT NULL CHECK (purpose IN ('register','login')),
+  bindHash TEXT NOT NULL DEFAULT '',
+  expiresAt TEXT NOT NULL
+);
+`);
 if (!columnExists('users', 'pinLockedUntil')) {
   db.exec('ALTER TABLE users ADD COLUMN pinLockedUntil TEXT');
 }
