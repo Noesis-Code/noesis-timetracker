@@ -2654,5 +2654,9 @@ CREATE TABLE IF NOT EXISTS horaire_assignments (
 );
 CREATE INDEX IF NOT EXISTS idx_horaire_assign_schedule ON horaire_assignments(scheduleId);
 `);
+// Export Dayforce (26 oct. 2026) : codes de correspondance, migration douce (NULL = non renseigné). Voir server/lib/horaire-dayforce.js.
+for (const [t, col] of [['horaire_employees', 'dayforceId'], ['horaire_positions', 'dayforceCode'], ['users', 'horaireDayforceLocation']]) {
+  if (!db.prepare('PRAGMA table_info(' + t + ')').all().some((c) => c.name === col)) db.exec('ALTER TABLE ' + t + ' ADD COLUMN ' + col + ' TEXT');
+}
 
 module.exports = db;

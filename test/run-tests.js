@@ -66,6 +66,7 @@ const SUITE_FILES = [
   'stats-equivalence-test.js',
   'weekplanner-test.js',
   'horaire-generation-test.js',
+  'horaire-dayforce-test.js',
   'capturedate-test.js',
   'documenttasks-test.js',
   'categorie-inconnue-test.js',

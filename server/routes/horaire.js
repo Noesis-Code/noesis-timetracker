@@ -11,6 +11,13 @@ router.use('/horaire', requireAuth);
 const bad = (res, msg) => res.status(400).json({ error: msg });
 const notFound = (res, what) => res.status(404).json({ error: (what || 'Élément') + ' introuvable.' });
 const intOr = (v, d) => (v === undefined ? d : (Number.isInteger(v) ? v : NaN));
+// Code Dayforce (matricule, code de poste, code d'unité) : texte court ; '' ou null = effacé ; undefined = invalide.
+function dayforceCode(v) {
+  if (v === null || v === '') return null;
+  if (typeof v !== 'string') return undefined;
+  const s = v.trim();
+  return s.length <= 64 && !/[\u0000-\u001f\u007f]/.test(s) ? (s || null) : undefined;
+}
 
 function weekParam(req, res) {
   const w = req.params.weekStart;
@@ -59,6 +66,10 @@ function employeeInput(res, body, partial) {
     if (typeof body.active !== 'boolean') { bad(res, 'Valeur « active » invalide.'); return null; }
     out.active = body.active;
   }
+  if (body.dayforceId !== undefined) {
+    out.dayforceId = dayforceCode(body.dayforceId);
+    if (out.dayforceId === undefined) { bad(res, 'Matricule Dayforce invalide (64 caractères au plus).'); return null; }
+  }
   return out;
 }
 router.get('/horaire/employees', (req, res) => res.json({ employees: h.listEmployees(req.userId) }));
@@ -84,6 +95,10 @@ function positionInput(res, body, partial) {
   if (body.fillOrder !== undefined) {
     if (!(Number.isInteger(body.fillOrder) && body.fillOrder >= 0 && body.fillOrder <= 1000)) { bad(res, 'Ordre de comblement invalide.'); return null; }
     out.fillOrder = body.fillOrder;
+  }
+  if (body.dayforceCode !== undefined) {
+    out.dayforceCode = dayforceCode(body.dayforceCode);
+    if (out.dayforceCode === undefined) { bad(res, 'Code de poste Dayforce invalide (64 caractères au plus).'); return null; }
   }
   return out;
 }
@@ -180,6 +195,25 @@ router.get('/horaire/weeks/:weekStart', (req, res) => {
 router.post('/horaire/weeks/:weekStart/generate', (req, res) => {
   const w = weekParam(req, res); if (!w) return;
   res.json({ schedule: h.generate(req.userId, w) });
+});
+
+// ---------- export Dayforce (CSV, format : server/lib/horaire-dayforce.js) ----------
+router.get('/horaire/settings', (req, res) => res.json({ settings: h.getSettings(req.userId) }));
+router.put('/horaire/settings', (req, res) => {
+  const b = req.body || {};
+  const loc = b.dayforceLocation === undefined ? undefined : dayforceCode(b.dayforceLocation);
+  if (b.dayforceLocation !== undefined && loc === undefined) return bad(res, 'Code d\'unité Dayforce invalide (64 caractères au plus).');
+  res.json({ settings: h.setSettings(req.userId, { dayforceLocation: loc }) });
+});
+router.get('/horaire/weeks/:weekStart/export/dayforce', (req, res) => {
+  const w = weekParam(req, res); if (!w) return;
+  const out = h.exportDayforce(req.userId, w);
+  if (!out) return notFound(res, 'Horaire');
+  // Codes manquants signalés en en-tête (nombres seulement, aucun nom) : la future interface pourra prévenir avant l'import.
+  res.set('X-Dayforce-Missing', 'employees=' + out.missing.employees + ';positions=' + out.missing.positions + ';location=' + (out.missing.location ? 1 : 0));
+  res.set('Cache-Control', 'no-store');
+  res.attachment('horaire-dayforce-' + w + '.csv');
+  res.type('text/csv; charset=utf-8').send(out.csv);
 });
 
 // ---------- import CSV : corps { csv: "texte" } ----------

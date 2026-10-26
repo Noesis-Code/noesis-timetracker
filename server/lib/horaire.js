@@ -28,22 +28,23 @@ const ownEvent = (u, id) => db.prepare('SELECT * FROM horaire_events WHERE id = 
 
 // ---------- employés (le max hebdo, en minutes, est un champ de l'employé) ----------
 function listEmployees(u) {
-  return db.prepare('SELECT id, name, maxWeekMinutes, active, createdAt FROM horaire_employees WHERE userId = ? ORDER BY name COLLATE NOCASE, id').all(u)
+  return db.prepare('SELECT id, name, maxWeekMinutes, active, dayforceId, createdAt FROM horaire_employees WHERE userId = ? ORDER BY name COLLATE NOCASE, id').all(u)
     .map((e) => ({ ...e, active: !!e.active }));
 }
 function countEmployees(u) { return db.prepare('SELECT COUNT(*) AS n FROM horaire_employees WHERE userId = ?').get(u).n; }
-function createEmployee(u, { name, maxWeekMinutes }) {
-  const r = db.prepare('INSERT INTO horaire_employees (userId, name, maxWeekMinutes, active, createdAt) VALUES (?, ?, ?, 1, ?)')
-    .run(u, name, maxWeekMinutes === undefined ? null : maxWeekMinutes, nowIso());
+function createEmployee(u, { name, maxWeekMinutes, dayforceId }) {
+  const r = db.prepare('INSERT INTO horaire_employees (userId, name, maxWeekMinutes, active, dayforceId, createdAt) VALUES (?, ?, ?, 1, ?, ?)')
+    .run(u, name, maxWeekMinutes === undefined ? null : maxWeekMinutes, dayforceId || null, nowIso());
   return listEmployees(u).find((e) => e.id === Number(r.lastInsertRowid));
 }
 function updateEmployee(u, id, f) {
   const e = ownEmployee(u, id);
   if (!e) return null;
-  db.prepare('UPDATE horaire_employees SET name = ?, maxWeekMinutes = ?, active = ? WHERE id = ? AND userId = ?').run(
+  db.prepare('UPDATE horaire_employees SET name = ?, maxWeekMinutes = ?, active = ?, dayforceId = ? WHERE id = ? AND userId = ?').run(
     f.name !== undefined ? f.name : e.name,
     f.maxWeekMinutes !== undefined ? f.maxWeekMinutes : e.maxWeekMinutes,
-    f.active !== undefined ? (f.active ? 1 : 0) : e.active, e.id, u);
+    f.active !== undefined ? (f.active ? 1 : 0) : e.active,
+    f.dayforceId !== undefined ? (f.dayforceId || null) : e.dayforceId, e.id, u);
   return listEmployees(u).find((x) => x.id === e.id);
 }
 // Suppression en cascade, toujours bornée au compte (pas de clé étrangère entre tables du module : chaque DELETE filtre userId).
@@ -70,20 +71,21 @@ function deleteEmployee(u, id) {
 
 // ---------- postes (ordre de comblement = fillOrder croissant) ----------
 function listPositions(u) {
-  return db.prepare('SELECT id, name, fillOrder, createdAt FROM horaire_positions WHERE userId = ? ORDER BY fillOrder, id').all(u);
+  return db.prepare('SELECT id, name, fillOrder, dayforceCode, createdAt FROM horaire_positions WHERE userId = ? ORDER BY fillOrder, id').all(u);
 }
 function countPositions(u) { return db.prepare('SELECT COUNT(*) AS n FROM horaire_positions WHERE userId = ?').get(u).n; }
-function createPosition(u, { name, fillOrder }) {
+function createPosition(u, { name, fillOrder, dayforceCode }) {
   const order = Number.isInteger(fillOrder) ? fillOrder
     : (db.prepare('SELECT COALESCE(MAX(fillOrder), -1) + 1 AS n FROM horaire_positions WHERE userId = ?').get(u).n);
-  const r = db.prepare('INSERT INTO horaire_positions (userId, name, fillOrder, createdAt) VALUES (?, ?, ?, ?)').run(u, name, order, nowIso());
+  const r = db.prepare('INSERT INTO horaire_positions (userId, name, fillOrder, dayforceCode, createdAt) VALUES (?, ?, ?, ?, ?)').run(u, name, order, dayforceCode || null, nowIso());
   return listPositions(u).find((p) => p.id === Number(r.lastInsertRowid));
 }
 function updatePosition(u, id, f) {
   const p = ownPosition(u, id);
   if (!p) return null;
-  db.prepare('UPDATE horaire_positions SET name = ?, fillOrder = ? WHERE id = ? AND userId = ?')
-    .run(f.name !== undefined ? f.name : p.name, f.fillOrder !== undefined ? f.fillOrder : p.fillOrder, p.id, u);
+  db.prepare('UPDATE horaire_positions SET name = ?, fillOrder = ?, dayforceCode = ? WHERE id = ? AND userId = ?')
+    .run(f.name !== undefined ? f.name : p.name, f.fillOrder !== undefined ? f.fillOrder : p.fillOrder,
+      f.dayforceCode !== undefined ? (f.dayforceCode || null) : p.dayforceCode, p.id, u);
   return listPositions(u).find((x) => x.id === p.id);
 }
 function deletePosition(u, id) {
@@ -221,6 +223,27 @@ function generate(u, weekStart) {
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   return getSchedule(u, weekStart);
+}
+
+// ---------- export Dayforce (format centralisé dans ./horaire-dayforce.js) ----------
+// Code d'unité (lieu) Dayforce : un par compte (colonne users.horaireDayforceLocation).
+function getSettings(u) {
+  const r = db.prepare('SELECT horaireDayforceLocation AS dayforceLocation FROM users WHERE id = ?').get(u);
+  return { dayforceLocation: (r && r.dayforceLocation) || null };
+}
+function setSettings(u, { dayforceLocation }) {
+  if (dayforceLocation !== undefined) db.prepare('UPDATE users SET horaireDayforceLocation = ? WHERE id = ?').run(dayforceLocation || null, u);
+  return getSettings(u);
+}
+// CSV de l'horaire enregistré de la semaine ; null si aucun horaire. Seuls les quarts sont exportés (jamais les trous).
+function exportDayforce(u, weekStart) {
+  const s = db.prepare('SELECT id FROM horaire_schedules WHERE userId = ? AND weekStart = ?').get(u, weekStart);
+  if (!s) return null;
+  const assignments = db.prepare(`SELECT a.employeeId, e.dayforceId, a.positionId, p.dayforceCode, p.fillOrder, a.day, a.start, a.end
+    FROM horaire_assignments a JOIN horaire_employees e ON e.id = a.employeeId AND e.userId = a.userId
+    JOIN horaire_positions p ON p.id = a.positionId AND p.userId = a.userId
+    WHERE a.userId = ? AND a.scheduleId = ?`).all(u, s.id);
+  return require('./horaire-dayforce').buildDayforceCsv(assignments, getSettings(u).dayforceLocation);
 }
 
 // ---------- import CSV (format souple, documenté dans docs/basic/module-horaire.md) ----------
@@ -362,6 +385,6 @@ module.exports = {
   getAvailabilities, setAvailabilities,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  generate, getSchedule,
+  generate, getSchedule, getSettings, setSettings, exportDayforce,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv,
 };

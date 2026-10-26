@@ -46,6 +46,8 @@ rang) ; horaires (brouillon par semaine + alertes) et quarts. Un quart dont la f
 | GET | `weeks/:lundi` | horaire enregistré (quarts + alertes, `null` si aucun) |
 | POST | `import/employees` | CSV `{csv}` |
 | POST | `weeks/:lundi/import/availabilities` | CSV `{csv}` |
+| GET | `weeks/:lundi/export/dayforce` | CSV pour l'import Dayforce (voir plus bas) |
+| GET, PUT | `settings` | code d'unité Dayforce du compte `{dayforceLocation}` |
 
 ## Import CSV (format souple, en attendant l'échantillon du maître d'hôtel)
 Séparateur `;`, `,` ou tabulation (détecté) ; guillemets acceptés ; en-tête facultatif (sinon ordre ci-dessous).
@@ -54,9 +56,26 @@ Séparateur `;`, `,` ou tabulation (détecté) ; guillemets acceptés ; en-tête
 - Disponibilités : `nom ; jour ; début ; fin`, une ligne par plage. Jour = date de la semaine ou nom (lundi, lun, monday…).
   Heures : `17:00`, `17h`, `17h30`, `5 pm`. Remplace la semaine des seuls employés présents ; noms inconnus listés.
 
+## Export Dayforce (26 oct. 2026)
+Le restaurant gère sa paie dans Dayforce (Ceridian). `GET /api/horaire/weeks/:lundi/export/dayforce` renvoie le CSV de
+l'horaire enregistré de la semaine (404 si aucun), prêt pour l'import des horaires de Dayforce : une ligne par quart.
+- Format centralisé dans `server/lib/horaire-dayforce.js` (constante `DAYFORCE_FORMAT` : séparateur, fins de ligne, ordre
+  et en-tête des colonnes). En-tête provisoire : `EmployeeXRefCode, StartDate, StartTime, EndDate, EndTime, JobXRefCode,
+  OrgUnitXRefCode` — à ajuster sur le fichier modèle du restaurant, sans toucher au reste.
+- Dates `AAAA-MM-JJ`, heures `HH:MM` (24 h), calculées sans dépendre du fuseau du serveur. Un quart qui traverse minuit
+  finit le lendemain (date de fin explicite) ; `24:00` devient `00:00` le lendemain. Les trous (créneaux non comblés) ne
+  sont pas exportés. Échappement CSV RFC 4180, BOM UTF-8 et fins de ligne CRLF (Excel).
+- Correspondances (texte, 64 caractères au plus, `null` ou `''` = effacé) : `dayforceId` (matricule) par employé via
+  `POST/PUT employees`, `dayforceCode` (code de poste) par poste via `POST/PUT positions`, `dayforceLocation` (code
+  d'unité) par compte via `GET/PUT /api/horaire/settings`. Un code absent laisse la cellule vide ; l'en-tête de réponse
+  `X-Dayforce-Missing: employees=N;positions=N;location=0|1` le signale (nombres seuls, aucun nom).
+- Réservé au compte propriétaire (session) et au module `horaire` actif ; rien n'est journalisé. Test :
+  `test/horaire-dayforce-test.js`.
+
 ## Loi 25
 Données confidentielles du personnel : jamais envoyées à l'IA, à la Communauté, au partage ni aux journaux. Incluses dans
 l'export du compte (clé `horaire`), effacées à la suppression du compte (cascade + `accountdeletion.js`).
 
 ## Reste à faire
-Écrans (après maquette validée) ; ajustement de l'import à l'échantillon réel ; export vers Dayforce si demandé.
+Écrans (après maquette validée) ; ajustement de l'import à l'échantillon réel ; colonnes de l'export Dayforce à fixer sur
+le fichier modèle d'import du restaurant.
