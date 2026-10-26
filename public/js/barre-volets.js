@@ -245,19 +245,20 @@
   // Extension payée (Expansion) proposée à l'ajout : aucun onglet payant n'existe encore dans ALL ; le jour où il existera, il se déclare ici.
   var PAID_TABS = [];
   function isPaid(tab) { return PAID_TABS.indexOf(tab) !== -1; }
+  // 26 oct. 2026 (Émilien) : tout volet absent de la barre s'ajoute, même si son module est éteint ; l'ajouter l'active (comme Trade).
   function addable() {
-    var inBar = load();
+    var shown = visibleOrder();
     return ALL.filter(function (tab) {
-      if (inBar.indexOf(tab) !== -1) return false;
+      if (shown.indexOf(tab) !== -1) return false;
       if (tab === 'trade') { var m = mods(); return tradeOn() || !!(m && m.tradeAllowed && m.tradeAllowed()); }
-      return tabAllowed(tab);
+      return true;
     });
   }
   function addTab(tab, el) {
     function done() { var l = load(); if (l.indexOf(tab) === -1) l.push(tab); save(l); refresh(); }
-    if (tab === 'trade' && !tradeOn()) {
+    if (!tabAllowed(tab) && mods() && mods().setTab) {
       el.disabled = true;
-      mods().setTrade(true).then(function (r) { el.disabled = false; if (r && r.ok) done(); });
+      mods().setTab(tab).then(function (r) { el.disabled = false; if (r && r.ok) done(); });
       return;
     }
     done();

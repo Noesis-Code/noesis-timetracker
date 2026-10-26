@@ -151,6 +151,17 @@
         return { ok: false, message: offline ? tr('Hors ligne — connecte-toi à internet pour continuer.') : net ? tr('Trade Tracker est indisponible.') : tr(e.message) };
       });
     },
+    // Active le module d'un volet ajouté par le « + » de la barre (26 oct. 2026, Émilien : chaque volet s'ajoute comme Trade Tracker).
+    // Même retour que setTrade : { ok } ou { ok: false, message }.
+    setTab: function (tab) {
+      var ids = { chrono: ['stats'], goals: ['roadmap', 'stats-tasks'], community: ['community', 'profile'], horaire: ['horaire'] }[tab];
+      if (tab === 'trade') return TMT.modules.setTrade(true);
+      if (!ids) return Promise.resolve({ ok: true });
+      var patch = {}; ids.forEach(function (id) { patch[id] = true; });
+      return call('PUT', { modules: patch }).then(function (d) {
+        state = d.modules; remember(); apply(); paint(); return { ok: true };
+      }).catch(function (e) { paint(); return { ok: false, message: tr(e.message || 'Connexion impossible. Réessaie.') }; });
+    },
     mountChoice: mountChoice
   };
 
