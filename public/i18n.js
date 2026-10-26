@@ -63,6 +63,8 @@
     'Adresse email': 'Email address',
     'Choisis un code (4 à 6 chiffres)': 'Choose a PIN (4 to 6 digits)',
     'Confirme le code': 'Confirm the PIN',
+    "Afficher le mot de passe": "Show password",
+    "Masquer le mot de passe": "Hide password",
     "J'ai déjà un compte.": "I already have an account.",
     "Me connecter": "Sign in",
     "Création de compte": "Account creation",

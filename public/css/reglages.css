@@ -70,8 +70,8 @@
 #settingsParamsCard .notifRow { margin: 0; padding: 12px 16px; min-height: 48px; box-sizing: border-box; border-bottom: 1px solid var(--sep); }
 #settingsParamsCard .notifRow:last-child { border-bottom: 0; }
 #settingsParamsCard .notifRowLabel { font-size: 14px; }
-#profileSettingsScroll #settingsParamsCard .settingsFieldList > input { display: block; width: 100%; margin: 0; border: 0; border-bottom: 1px solid var(--sep); border-radius: 0; box-shadow: none; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 14px 16px; min-height: 48px; box-sizing: border-box; font-size: 15px; color: var(--text); }
-#profileSettingsScroll #settingsParamsCard .settingsFieldList > input:last-of-type { border-bottom: 0; }
+#profileSettingsScroll #settingsParamsCard .settingsFieldList > input, #profileSettingsScroll #settingsParamsCard .settingsFieldList > .cmpPwdWrap > input { display: block; width: 100%; margin: 0; border: 0; border-bottom: 1px solid var(--sep); border-radius: 0; box-shadow: none; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 14px 16px; min-height: 48px; box-sizing: border-box; font-size: 15px; color: var(--text); }
+#profileSettingsScroll #settingsParamsCard .settingsFieldList > input:last-of-type, #profileSettingsScroll #settingsParamsCard .settingsFieldList > .cmpPwdWrap:last-of-type > input { border-bottom: 0; }
 #settingsParamsCard #settingsSaveBtn { margin-top: 4px; }
 #settingsParamsCard #settingsPinSaveBtn { margin: 0; }
 

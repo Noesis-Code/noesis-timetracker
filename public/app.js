@@ -2069,6 +2069,27 @@
       .catch(function (err) { $('forcePwdMsg').textContent = err.message; })
       .finally(function () { $('forcePwdSave').disabled = false; });
   });
+  // ----- Œil « voir le mot de passe » sur chaque champ mot de passe (26 oct. 2026, demande d'Émilien) : un appui montre les caractères, un second les masque -----
+  document.querySelectorAll('input[type=password]').forEach(function (input) {
+    var wrap = document.createElement('span');
+    wrap.className = 'cmpPwdWrap';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    input.style.paddingRight = '44px';
+    var eye = document.createElement('button');
+    eye.type = 'button';
+    eye.className = 'cmpEye';
+    eye.setAttribute('aria-pressed', 'false');
+    eye.setAttribute('aria-label', t('Afficher le mot de passe'));
+    eye.addEventListener('click', function () {
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      eye.setAttribute('aria-pressed', show ? 'true' : 'false');
+      eye.setAttribute('aria-label', t(show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'));
+    });
+    wrap.appendChild(eye);
+  });
+
   // ----- Courriel obligatoire pour tout le monde (26 oct. 2026) : les comptes plus anciens sans courriel valable l'ajoutent avant d'aller plus loin -----
   function showForceEmail() { $('forceEmailMsg').textContent = ''; $('forceEmail').classList.remove('hidden'); }
   $('forceEmailSave').addEventListener('click', function () {
