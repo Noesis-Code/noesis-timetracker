@@ -2026,6 +2026,7 @@
     if (seq !== onbSearchSeq) return;
     var box = $('onbUserList');
     box.innerHTML = '';
+    onbSelectUser(null);
     if (q.length < ONB_SEARCH_MIN_LENGTH) {
       box.innerHTML = '<p class="hint">' + t('Tape au moins 3 caractères de ton nom complet pour retrouver ton profil.') + '</p>';
       return;
@@ -2048,12 +2049,21 @@
       var displayName = u.lastName ? (u.name + ' ' + u.lastName) : u.name;
       u.displayName = displayName;
       chip.innerHTML = '<span class="dot" style="background:' + u.color + '"></span><span>' + escapeHtml(displayName) + '</span>';
-      chip.addEventListener('click', function () {
-        showOnbPinStep(u, true);
-      });
+      chip.addEventListener('click', function () { onbSelectUser(u, chip); });
       box.appendChild(chip);
+      // Un seul profil trouvé et nom tapé en entier : choisi d'office.
+      if (users.length === 1 && fold(q) === fold(displayName)) onbSelectUser(u, chip);
     });
   }
+  // Nom valide choisi : le bouton Continuer s'allume ; il ouvre l'écran du mot de passe (Face ID automatique s'il est activé sur l'appareil).
+  var onbSelectedUser = null;
+  function fold(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); }
+  function onbSelectUser(u, chip) {
+    onbSelectedUser = u || null;
+    Array.prototype.forEach.call($('onbUserList').querySelectorAll('.userChip'), function (c) { c.classList.toggle('selected', c === chip); });
+    $('onbContinueBtn').disabled = !onbSelectedUser;
+  }
+  $('onbContinueBtn').addEventListener('click', function () { if (onbSelectedUser) showOnbPinStep(onbSelectedUser, true); });
   $('onbSearch').addEventListener('input', function () { loadUserListForOnboarding(); });
 
   // ----- Étape "code PIN" (récupérer un profil existant, ou lui en définir
@@ -2262,12 +2272,6 @@
       })
       .finally(function () { btn.disabled = false; });
   }
-  (function () {
-    var b = $('onbPasskeyBtn');
-    if (!b || !(window.TMT && TMT.passkey && TMT.passkey.supported())) return;
-    b.classList.remove('hidden');
-    b.addEventListener('click', function () { passkeyLogin($('onbPasskeyMsg'), b); });
-  })();
 
   $('onbPinCancel').addEventListener('click', function (e) {
     e.preventDefault();

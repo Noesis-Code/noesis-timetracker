@@ -590,8 +590,8 @@
            de famille est renvoyée par le serveur). -->
       <input type="text" id="onbSearch" placeholder="Tape ton nom complet..." autocomplete="off">
       <div id="onbUserList" class="userList"></div>
-      <button type="button" class="btn btn-primary btnBrique hidden" id="onbPasskeyBtn">Se connecter avec Face ID</button>
-      <p id="onbPasskeyMsg" class="msg"></p>
+      <!-- Continuer : allumé seulement quand un nom valide est choisi ; il ouvre l'écran du mot de passe, où Face ID se lance seul s'il est activé sur l'appareil. -->
+      <button type="button" class="btn btn-primary btnBrique" id="onbContinueBtn" disabled>Continuer</button>
       <p class="switchLink"><a href="#" id="onbSwitchToCreate">Créer un nouveau profil</a></p>
       <!-- Nom d'utilisateur oublié : sous Face ID et « Créer un nouveau profil » ; « Mot de passe oublié » n'apparaît qu'une fois le nom choisi (écran suivant). -->
       <p class="switchLink"><a href="#" id="onbEmailLoginLink">Nom d'utilisateur oublié ?</a></p>
