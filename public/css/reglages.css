@@ -113,7 +113,6 @@
   display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; margin: 0; padding: 12px 16px; font-size: 14px; text-align: left;
   background: none; box-shadow: none; border: 0; border-top: 1px solid var(--sep); border-radius: 0; -webkit-backdrop-filter: none; backdrop-filter: none;
 }
-#settingsParamsCard #openPrivacyPolicyBtn::after, #settingsParamsCard #openGovernanceBtn::after, #settingsParamsCard #openLegalNoticesBtn::after, #settingsParamsCard #openLegalTermsBtn::after { content: '\203A'; color: var(--text-light); font-size: 18px; }
 #settingsParamsCard #settingsPinSaveBtn { margin-bottom: 8px; }
 
 /* Modifier l'activité : ligne déroulée sur place dans la carte ; Annuler et Enregistrer de même largeur */
