@@ -159,6 +159,8 @@
 /* Face ID (clés d'accès) : liste des appareils dans Sécurité. */
 .passkeyBlock { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
 .passkeyBlock .sectionTitle, .passkeyBlock .hint { margin: 0; }
+/* Face ID : 24 px d'air et un trait fin sur toute la largeur avant « Se déconnecter de tous les appareils » (26 oct. 2026). */
+.passkeyBlock { padding-bottom: 24px; margin-bottom: 24px; border-bottom: 1px solid var(--sep); }
 .passkeyList { display: flex; flex-direction: column; }
 .passkeyRow { display: flex; align-items: center; gap: 12px; min-height: 48px; }
 .passkeyRow + .passkeyRow { border-top: 1px solid var(--sep); }
