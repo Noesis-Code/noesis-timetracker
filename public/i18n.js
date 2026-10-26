@@ -175,7 +175,7 @@
     'Horaire': 'Schedule',
     'Choisis tes modules': 'Choose your modules',
     'Choisis au moins un module.': 'Choose at least one module.',
-    'L’Horaire prépare les horaires de ton personnel.': 'Schedule prepares your staff schedules.',
+    'L’Horaire planifie les quarts de ton personnel à partir des données importées de tes partenaires (Dayforce, OpenTable).': 'Schedule plans your staff shifts from data imported from your partners (Dayforce, OpenTable).',
     'Garde au moins un ensemble : « Chrono », « Feuille de route » ou « Horaire ».': 'Keep at least one: “Chrono”, “Roadmap” or “Schedule”.',
     // ---- Module Horaire (26 oct. 2026, public/js/horaire.js) ----
     'Générer': 'Generate', 'Exporter vers Dayforce': 'Export to Dayforce', 'Paramètres': 'Settings',

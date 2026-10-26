@@ -125,7 +125,7 @@
     chrono: 'Le Chrono mesure le temps passé sur chacune de tes activités : tu démarres, tu arrêtes, et tu retrouves l’historique et les statistiques.',
     goals: 'La Feuille de route organise tes tâches et tes objectifs par activité, pôle et secteur, avec le calendrier et l’avancement.',
     community: 'La Communauté te met en lien avec d’autres membres : ton profil, tes projets, leurs publications, les abonnements et les messages.',
-    horaire: 'L’Horaire prépare les horaires de ton personnel.',
+    horaire: 'L’Horaire planifie les quarts de ton personnel à partir des données importées de tes partenaires (Dayforce, OpenTable).',
     trade: 'Trade Tracker suit tes positions et ton portefeuille de trading : tableau de bord, historique, allocation, avec la connexion à ton courtier.'
   };
   function describe(tab) { return DESCRIPTIONS[tab] ? tr(DESCRIPTIONS[tab]) + '\n' : ''; }
