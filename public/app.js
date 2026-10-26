@@ -1830,44 +1830,24 @@
     }).then(function () { showApp(); }).catch(function () { showApp(); });
   }
 
-  // ----- Étape « Crée tes activités » (compte individu, au moins une) -----
+  // ----- Étape « Crée tes activités » (compte individu) : une première activité obligatoire ; le bouton Ajouter la crée puis ouvre l'app -----
   var onbNewActivityColor = PALETTES[currentTheme][0];
-  var onbCreatedActivities = [];
   function showOnboardingActivitiesStep() {
     ['onbCreate', 'onbExisting', 'onbPinStep'].forEach(function (id) { $(id).classList.add('hidden'); });
     $('onbActivities').classList.remove('hidden');
     $('onbMsg').textContent = '';
-    renderOnbActivityList(onbCreatedActivities);
+    $('onbNewActivitySave').disabled = !$('onbNewActivityName').value.trim();
     renderColorSwatches($('onbNewActivitySwatches'), onbNewActivityColor, function (c) { onbNewActivityColor = c; });
   }
-  function renderOnbActivityList(list) {
-    var box = $('onbActivityList');
-    box.innerHTML = '';
-    if (list.length === 0) {
-      box.innerHTML = '<p class="hint">' + t("Aucune activité ajoutée pour l'instant.") + '</p>';
-    } else {
-      list.forEach(function (a) {
-        var row = document.createElement('div');
-        row.className = 'userChip';
-        row.innerHTML = '<span class="dot" style="background:' + a.color + '"></span><span>' + escapeHtml(a.name) + '</span>';
-        box.appendChild(row);
-      });
-    }
-    $('onbActivitiesContinue').disabled = list.length === 0;
-  }
+  $('onbNewActivityName').addEventListener('input', function () { $('onbNewActivitySave').disabled = !$('onbNewActivityName').value.trim(); });
   $('onbNewActivitySave').addEventListener('click', function () {
     var name = $('onbNewActivityName').value.trim();
     if (!name) return;
     $('onbNewActivitySave').disabled = true;
-    api('POST', '/api/activities', { name: name, color: onbNewActivityColor, userId: profile.id }).then(function (a) {
-      onbCreatedActivities.push(a);
-      renderOnbActivityList(onbCreatedActivities);
-      $('onbNewActivityName').value = '';
-      $('onbMsg').textContent = '';
-    }).catch(function (err) { $('onbMsg').textContent = err.message; })
-      .finally(function () { $('onbNewActivitySave').disabled = false; });
+    api('POST', '/api/activities', { name: name, color: onbNewActivityColor, userId: profile.id })
+      .then(function () { showApp(); })
+      .catch(function (err) { $('onbMsg').textContent = err.message; $('onbNewActivitySave').disabled = false; });
   });
-  $('onbActivitiesContinue').addEventListener('click', function () { showApp(); });
 
   $('onbSwitchToExisting').addEventListener('click', function (e) {
     e.preventDefault();
