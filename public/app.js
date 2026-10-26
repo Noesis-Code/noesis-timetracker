@@ -1877,11 +1877,14 @@
   var onbAccountType = 'individu';
   function onbShowStep(id) {
     ['onbTypeStep', 'onbIdStep', 'onbModStep'].forEach(function (s) { $(s).classList.toggle('hidden', s !== id); });
+    // Changer de page remet les mots de passe masqués (œil désactivé par défaut).
+    document.querySelectorAll('#onboarding .cmpEye[aria-pressed="true"]').forEach(function (b) { b.click(); });
     $('onbMsg').textContent = '';
   }
   function onbChooseType(type) {
     onbAccountType = type;
     var company = type === 'entreprise';
+    $('onbIdLead').textContent = t(company ? "Informations sur l'entreprise" : "Comment t'appelles-tu ?");
     $('onbName').placeholder = t(company ? "Nom de l'entreprise" : 'Prénom');
     $('onbLastName').placeholder = t(company ? 'Nom du responsable' : 'Nom de famille');
     // Textes de consentement adaptés aux entreprises (26 oct. 2026) ; les nœuds d'origine (liens et leurs écouteurs) sont gardés puis remis tels quels.
