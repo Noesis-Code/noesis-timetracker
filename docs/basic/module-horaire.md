@@ -20,8 +20,9 @@ spéciaux (date + besoins qui remplacent le modèle normal ce jour-là) ; état 
 rang) ; horaires (brouillon par semaine + alertes) et quarts. Un quart dont la fin est avant le début traverse minuit.
 
 ## Algorithme
-1. Postes dans l'ordre de comblement ; dans un poste, créneaux par criticité : fin de semaine (sam., dim.) + soir
-   (début à 16 h ou plus), puis fin de semaine + jour, puis semaine + soir, puis semaine + jour.
+1. Postes dans l'ordre de comblement ; dans un poste, créneaux par criticité : soir d'événement spécial, puis tous les
+   autres soirs (début à 16 h ou plus, à égalité, ordre chronologique), puis jour de fin de semaine (brunch), puis jour
+   de semaine (lunch) — décision d'Émilien, 26 oct. 2026.
 2. Contraintes strictes : un employé = un seul poste par jour (plusieurs quarts du même poste s'ils ne se chevauchent
    pas) ; jamais hors disponibilité ; jamais sans qualification.
 3. Meilleur rang d'abord ; à rang égal, tourniquet (repris d'une génération à l'autre).

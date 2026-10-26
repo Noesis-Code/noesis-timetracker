@@ -4,7 +4,8 @@
 // Règles (décision d'Émilien, 26 oct. 2026, voir docs/basic/module-horaire.md) :
 // - les postes sont comblés dans leur ordre de comblement (fillOrder croissant) ;
 // - dans un poste, les créneaux sont traités par CRITICITÉ, pas dans l'ordre chronologique :
-//   fin de semaine + soir, puis fin de semaine + jour, puis semaine + soir, puis semaine + jour ;
+//   soir d'événement spécial, puis tous les autres soirs (à égalité, ordre chronologique), puis fin de semaine + jour
+//   (brunch), puis semaine + jour (lunch) ;
 // - contraintes strictes : un employé = un seul poste par jour (plusieurs quarts du même poste possibles s'ils ne se
 //   chevauchent pas) ; jamais hors disponibilité ; jamais sans qualification pour le poste ;
 // - meilleur rang d'abord (1 = meilleur) ; à rang égal, rotation (tourniquet par poste et par rang) ;
@@ -41,9 +42,11 @@ function weekDays(weekStart) {
   return [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(weekStart, i));
 }
 
-// Criticité : plus grand = traité plus tôt.
-function criticality(weekday, startMin) {
-  return (WEEKEND.includes(weekday) ? 2 : 0) + (startMin >= EVENING_FROM ? 1 : 0);
+// Criticité : plus grand = traité plus tôt. Tous les soirs d'abord, à égalité entre eux, sauf un soir d'événement
+// spécial qui passe devant ; puis la journée de fin de semaine (brunch), puis la journée en semaine (lunch).
+function criticality(weekday, startMin, isEvent) {
+  if (startMin >= EVENING_FROM) return isEvent ? 3 : 2;
+  return WEEKEND.includes(weekday) ? 1 : 0;
 }
 
 // Créneaux à combler pour la semaine : un événement spécial d'une date REMPLACE le modèle normal de ce jour
@@ -108,7 +111,7 @@ function generateSchedule(input) {
   // Ordre de traitement : poste (ordre de comblement), puis criticité décroissante, puis jour et heure.
   const ordered = slots.filter((s) => posRank.has(s.positionId)).sort((a, b) =>
     (posRank.get(a.positionId) - posRank.get(b.positionId))
-    || (criticality(b.weekday, b.from) - criticality(a.weekday, a.from))
+    || (criticality(b.weekday, b.from, !!b.eventId) - criticality(a.weekday, a.from, !!a.eventId))
     || (a.day < b.day ? -1 : a.day > b.day ? 1 : 0)
     || (a.from - b.from));
 

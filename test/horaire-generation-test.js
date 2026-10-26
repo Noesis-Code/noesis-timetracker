@@ -9,9 +9,10 @@ const D = weekDays(W); // D[0] lundi ... D[5] samedi, D[6] dimanche
 const allDay = (empIds, days) => empIds.flatMap((e) => days.map((d) => ({ employeeId: e, day: d, start: '00:00', end: '23:59' })));
 const find = (r, pos, day, start) => r.assignments.filter((a) => a.positionId === pos && a.day === day && (!start || a.start === start));
 
-// ---- Criticité : fin de semaine + soir d'abord, semaine + jour en dernier ----
-assert(criticality(5, 17 * 60) > criticality(5, 9 * 60) && criticality(5, 9 * 60) > criticality(0, 17 * 60) && criticality(0, 17 * 60) > criticality(0, 9 * 60),
-  'criticité : sam. soir > sam. jour > lun. soir > lun. jour');
+// ---- Criticité : soirs d'abord (événement devant, sinon à égalité), puis brunch de fin de semaine, puis lunch en semaine ----
+assert(criticality(0, 17 * 60, true) > criticality(0, 17 * 60) && criticality(0, 17 * 60) === criticality(5, 17 * 60)
+  && criticality(0, 17 * 60) > criticality(5, 9 * 60) && criticality(5, 9 * 60) > criticality(0, 9 * 60),
+  'criticité : soir d\'événement > soirs (lun. = sam.) > sam. jour > lun. jour');
 let r = generateSchedule({
   weekStart: W,
   positions: [{ id: 1, fillOrder: 0 }],
@@ -19,11 +20,11 @@ let r = generateSchedule({
   qualifications: [{ employeeId: 10, positionId: 1, rank: 1 }, { employeeId: 11, positionId: 1, rank: 2 }],
   availabilities: allDay([10, 11], D),
   needs: [{ positionId: 1, weekday: 0, start: '09:00', end: '15:00', count: 1 }, { positionId: 1, weekday: 0, start: '17:00', end: '23:00', count: 1 },
-    { positionId: 1, weekday: 5, start: '09:00', end: '15:00', count: 1 }, { positionId: 1, weekday: 5, start: '17:00', end: '23:00', count: 1 }],
+    { positionId: 1, weekday: 5, start: '09:00', end: '15:00', count: 1 }],
 });
-assert(find(r, 1, D[5], '17:00')[0].employeeId === 10, 'le meilleur rang reçoit le samedi soir (créneau le plus critique), pas le lundi matin');
+assert(find(r, 1, D[0], '17:00')[0].employeeId === 10, 'le meilleur rang reçoit le lundi soir (un soir passe avant le brunch du samedi)');
 assert(find(r, 1, D[5], '09:00')[0].employeeId === 11, 'samedi jour : le meilleur rang est au max, le rang suivant le prend');
-assert(r.assignments.length === 4, 'tous les créneaux comblés (2e passe pour le lundi)');
+assert(r.assignments.length === 3, 'tous les créneaux comblés (2e passe pour le lundi midi)');
 const over = r.alerts.filter((a) => a.type === 'depassement');
 assert(over.length >= 1 && over.every((a) => a.minutes > a.maxWeekMinutes), 'dépassements du max signalés en alerte');
 assert(!r.alerts.some((a) => a.type === 'trou'), 'aucun trou quand le max seul bloquait');
