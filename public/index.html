@@ -593,6 +593,14 @@
       <button type="button" class="btn btn-primary btnBrique hidden" id="onbPasskeyBtn">Se connecter avec Face ID</button>
       <p id="onbPasskeyMsg" class="msg"></p>
       <p class="switchLink"><a href="#" id="onbSwitchToCreate">Créer un nouveau profil</a></p>
+      <!-- Mot de passe oublié depuis la recherche : un profil non « trouvable à la connexion » ne sort pas de la recherche, le courriel du compte reste le moyen de le retrouver. -->
+      <p class="switchLink"><a href="#" id="onbForgotLinkS">Mot de passe oublié ?</a></p>
+      <div id="onbForgotS" class="hidden">
+        <p class="hint">Entre le courriel de ton compte : on t'envoie un lien pour choisir un nouveau mot de passe.</p>
+        <input type="email" id="onbForgotEmailS" placeholder="Courriel du compte" maxlength="254" autocomplete="email">
+        <button type="button" class="btn btn-primary btnBrique" id="onbForgotSendS">Envoyer le lien</button>
+        <p id="onbForgotMsgS" class="msg"></p>
+      </div>
     </div>
 
     <div id="onbPinStep" class="hidden">

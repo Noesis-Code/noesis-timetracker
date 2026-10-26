@@ -2108,19 +2108,22 @@
   });
 
   // ----- Mot de passe oublié : demander le lien (écran de connexion) -----
-  $('onbForgotLink').addEventListener('click', function (e) {
-    e.preventDefault();
-    $('onbForgot').classList.toggle('hidden');
-    $('onbForgotMsg').textContent = '';
-  });
-  $('onbForgotSend').addEventListener('click', function () {
-    var email = $('onbForgotEmail').value.trim();
-    if (!ONB_EMAIL_RE.test(email)) { $('onbForgotMsg').textContent = t('Indique une adresse email valide.'); return; }
-    $('onbForgotSend').disabled = true;
-    api('POST', '/api/password/forgot', { email: email })
-      .then(function (r) { $('onbForgotMsg').textContent = t((r && r.message) || 'Si un compte correspond à ce courriel, un lien vient d’y être envoyé.'); })
-      .catch(function (err) { $('onbForgotMsg').textContent = err.message; })
-      .finally(function () { $('onbForgotSend').disabled = false; });
+  // Même bloc sur l'écran du mot de passe (suffixe vide) et sur la recherche de profil (suffixe « S »).
+  ['', 'S'].forEach(function (sfx) {
+    $('onbForgotLink' + sfx).addEventListener('click', function (e) {
+      e.preventDefault();
+      $('onbForgot' + sfx).classList.toggle('hidden');
+      $('onbForgotMsg' + sfx).textContent = '';
+    });
+    $('onbForgotSend' + sfx).addEventListener('click', function () {
+      var email = $('onbForgotEmail' + sfx).value.trim();
+      if (!ONB_EMAIL_RE.test(email)) { $('onbForgotMsg' + sfx).textContent = t('Indique une adresse email valide.'); return; }
+      $('onbForgotSend' + sfx).disabled = true;
+      api('POST', '/api/password/forgot', { email: email })
+        .then(function (r) { $('onbForgotMsg' + sfx).textContent = t((r && r.message) || 'Si un compte correspond à ce courriel, un lien vient d’y être envoyé.'); })
+        .catch(function (err) { $('onbForgotMsg' + sfx).textContent = err.message; })
+        .finally(function () { $('onbForgotSend' + sfx).disabled = false; });
+    });
   });
 
   // ----- Mot de passe oublié : le lien reçu par courriel ouvre l'app avec ?reset=… -----
