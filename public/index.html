@@ -595,6 +595,13 @@
       <p class="switchLink"><a href="#" id="onbSwitchToCreate">Créer un nouveau profil</a></p>
       <!-- Mot de passe oublié depuis la recherche : un profil non « trouvable à la connexion » ne sort pas de la recherche, le courriel du compte reste le moyen de le retrouver. -->
       <p class="switchLink"><a href="#" id="onbForgotLinkS">Mot de passe oublié ?</a></p>
+      <p class="switchLink"><a href="#" id="onbEmailLoginLink">Nom d'utilisateur oublié ?</a></p>
+      <div id="onbEmailLogin" class="hidden">
+        <p class="hint">Connecte-toi avec le courriel de ton compte et ton mot de passe.</p>
+        <input type="email" id="onbEmailLoginEmail" placeholder="Courriel du compte" maxlength="254" autocomplete="email">
+        <input type="password" id="onbEmailLoginPwd" placeholder="Mot de passe" maxlength="128" autocomplete="current-password">
+        <button type="button" class="btn btn-primary btnBrique" id="onbEmailLoginBtn">Se connecter</button>
+      </div>
       <div id="onbForgotS" class="hidden">
         <p class="hint">Entre le courriel de ton compte : on t'envoie un lien pour choisir un nouveau mot de passe.</p>
         <input type="email" id="onbForgotEmailS" placeholder="Courriel du compte" maxlength="254" autocomplete="email">

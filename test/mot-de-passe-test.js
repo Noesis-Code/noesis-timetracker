@@ -57,6 +57,14 @@ const T = makeCounter(); const assert = T.assert;
     const again = await d3.post('/api/profile/ancien1/verify-pin', { pin: 'Zr7#Autre-Mot-2026!' });
     assert(again.status === 200 && again.body.mustChangePassword === false, 'reconnexion avec le nouveau mot de passe : plus rien d\'exigé');
     assert((await client(s.base).post('/api/profile/ancien1/verify-pin', { pin: '1234' })).status === 401, 'l\'ancien code ne marche plus');
+    // Connexion par courriel + mot de passe (nom d'utilisateur oublié)
+    const em = client(s.base);
+    const okMail = await em.post('/api/login-email', { email: 'Ancien@Exemple.test', password: 'Zr7#Autre-Mot-2026!' });
+    assert(okMail.status === 200 && okMail.body.id === 'ancien1', 'connexion par courriel (casse ignorée) : bon mot de passe accepté');
+    assert((await em.get('/api/activities?userId=ancien1')).status === 200, 'connexion par courriel : la session est posée');
+    assert((await client(s.base).post('/api/login-email', { email: 'ancien@exemple.test', password: 'faux' })).status === 401, 'connexion par courriel : mauvais mot de passe refusé');
+    const unknown = await client(s.base).post('/api/login-email', { email: 'inconnu@exemple.test', password: 'Zr7#Autre-Mot-2026!' });
+    assert(unknown.status === 401 && unknown.body.error === 'Courriel ou mot de passe incorrect.', 'connexion par courriel : courriel inconnu, réponse neutre');
   } finally { s.stop(); }
   console.log(`\n${T.passed} ok, ${T.failed} échec(s)`);
   process.exit(T.failed ? 1 : 0);

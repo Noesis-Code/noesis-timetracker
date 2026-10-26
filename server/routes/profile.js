@@ -728,7 +728,7 @@ router.put('/profile/:id/modules', (req, res) => {
 // Vérifie le code d'un profil avant de le "récupérer" depuis "J'ai déjà un
 // profil" (typiquement depuis un autre appareil/navigateur). Ne renvoie le
 // profil qu'en cas de succès, et protège contre le bourrinage.
-router.post('/profile/:id/verify-pin', (req, res) => {
+function verifyPin(req, res) {
   if (loginIpLimited(req.ip || 'inconnu')) return res.status(429).json({ error: 'Trop de tentatives. Réessaie dans une minute.' });
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
@@ -746,6 +746,19 @@ router.post('/profile/:id/verify-pin', (req, res) => {
   // ci-dessus — c'est le seul autre point d'entrée qui doit poser le témoin.
   setSessionCookie(req, res, user.id);
   res.json({ mustChangePassword: !user.passwordStrong, id: user.id, name: user.name, lastName: user.lastName || null, phone: user.phone || null, email: user.email || null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled });
+}
+router.post('/profile/:id/verify-pin', verifyPin);
+
+// Connexion par courriel + mot de passe (26 oct. 2026, demande d'Émilien) : « nom d'utilisateur oublié », pour les comptes individu comme entreprise.
+// Même vérification, mêmes limites et même verrou que verify-pin ; la réponse ne dit jamais si le courriel existe.
+router.post('/login-email', (req, res) => {
+  if (loginIpLimited(req.ip || 'inconnu')) return res.status(429).json({ error: 'Trop de tentatives. Réessaie dans une minute.' });
+  const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+  const user = EMAIL_RE.test(email) && email.length <= 254 ? db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(email) : null;
+  if (!user) return res.status(401).json({ error: 'Courriel ou mot de passe incorrect.' });
+  req.params = { id: user.id };
+  req.body = { pin: req.body.password };
+  return verifyPin(req, res);
 });
 
 // Définit le code d'un profil qui n'en a pas encore (comptes créés avant

@@ -2108,6 +2108,29 @@
   });
 
   // ----- Mot de passe oublié : demander le lien (écran de connexion) -----
+  // ----- Connexion par courriel + mot de passe (« nom d'utilisateur oublié ») -----
+  $('onbEmailLoginLink').addEventListener('click', function (e) {
+    e.preventDefault();
+    $('onbEmailLogin').classList.toggle('hidden');
+    $('onbMsg').textContent = '';
+  });
+  $('onbEmailLoginBtn').addEventListener('click', function () {
+    var email = $('onbEmailLoginEmail').value.trim();
+    var pw = $('onbEmailLoginPwd').value.trim();
+    if (!ONB_EMAIL_RE.test(email)) { $('onbMsg').textContent = t('Indique une adresse email valide.'); return; }
+    if (!pw) { $('onbMsg').textContent = t('Indique ton mot de passe.'); return; }
+    $('onbMsg').textContent = '';
+    $('onbEmailLoginBtn').disabled = true;
+    api('POST', '/api/login-email', { email: email, password: pw })
+      .then(function (p) {
+        saveProfile(p);
+        if (p.mustChangePassword) showForcePassword(pw, proceedAfterProfile);
+        else proceedAfterProfile();
+      })
+      .catch(function (err) { $('onbMsg').textContent = err.message; })
+      .finally(function () { $('onbEmailLoginBtn').disabled = false; });
+  });
+
   // Même bloc sur l'écran du mot de passe (suffixe vide) et sur la recherche de profil (suffixe « S »).
   ['', 'S'].forEach(function (sfx) {
     $('onbForgotLink' + sfx).addEventListener('click', function (e) {
