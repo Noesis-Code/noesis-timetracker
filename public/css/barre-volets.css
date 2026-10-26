@@ -44,7 +44,7 @@
   :root[data-theme] .tabbar .tabBtn.active::before { backdrop-filter: url(#tabLens) blur(.4px) saturate(1.1); }
 }
 /* Ajout direct (demande d'Émilien, 25 oct. 2026) : le « + » déploie dans la barre les volets pas encore installés, en cercles pointillés ; un « + » vert (le vert « atteint ») remplace la croix rouge ; un tap installe le volet. */
-:root[data-theme] .tabbar .tabBtn.barGhost { display: flex; flex: 0 0 52px; width: auto; height: 52px; border-radius: 50%; border: 1.5px dashed var(--cmp-dash, rgba(243, 238, 232, .28)); }
+:root[data-theme] .tabbar .tabBtn.barGhost { display: flex; flex: 0 0 52px; width: auto; height: 52px; border-radius: 50%; border: 1.5px dashed var(--cmp-dash); }
 .tabbar.barSolo.barAdding .tabbarPill { display: flex; }
 :root[data-theme] .tabbar.barEdit .tabBtn.barGhost { border-style: dashed; } /* en mode ajout, les volets absents restent en pointillés */
 .tabbar .barPlus { position: absolute; top: -2px; right: -2px; }
@@ -61,7 +61,7 @@
 .tabbar .tabBtnAdd {
   display: none; pointer-events: auto; margin-left: 8px; cursor: pointer; flex: none; width: 52px; height: 52px; padding: 0; border-radius: 50%; box-sizing: border-box;
   align-items: center; justify-content: center;
-  border: 1.5px dashed rgba(243, 238, 232, .28); background: none; color: var(--purple, #9C8CC8);
+  border: 1.5px dashed var(--cmp-dash); background: none; color: var(--purple, #9C8CC8);
 }
 /* Un seul volet restant (règle Q1) : la barre ne montre que le « + », même cercle pointillé gris, calé à droite. */
 .tabbar.barSolo .tabbarPill { display: none; }
@@ -80,12 +80,12 @@
 :root[data-theme] .tabbar.barEdit .tabBtn,
 :root[data-theme] .tabbar.barEdit .tabBtn.active {
   flex: 0 0 52px; width: auto; height: 52px; border-radius: 50%; background: none; box-shadow: none;
-  border: 1.5px solid var(--cmp-dash, rgba(243, 238, 232, .28));
+  border: 1.5px solid var(--cmp-dash);
   -webkit-backdrop-filter: none; backdrop-filter: none;
 }
 /* L'ovale du volet actif rétrécit et se referme en rond : il devient lui-même le cercle de ce volet. */
 :root[data-theme] .tabbar.barEdit .tabBtn.active { border-color: transparent; }
-:root[data-theme] .tabbar.barEdit .tabBtn.active::before { top: 0; bottom: 0; background-color: transparent; border: 1.5px solid var(--cmp-dash, rgba(243, 238, 232, .28)); }
+:root[data-theme] .tabbar.barEdit .tabBtn.active::before { top: 0; bottom: 0; background-color: transparent; border: 1.5px solid var(--cmp-dash); }
 :root[data-theme] .tabbar.barEdit .tabBtn.active::after { display: none; }
 .tabbar.barEdit .tabBtn { transform: rotate(2deg); animation: tabJiggle .26s ease-in-out infinite alternate; }
 .tabbar.barEdit .tabBtn:nth-child(even) { transform: rotate(-2deg); animation-delay: -.13s; }
