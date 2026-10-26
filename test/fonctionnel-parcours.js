@@ -8,7 +8,7 @@ const iso = (ms) => new Date(Date.now() + ms).toISOString();
   try {
     // ---- Création de profil
     const c = client(s.base);
-    const ok = { name: 'Parc', lastName: 'Ours', phone: '5145550111', email: 'parc@exemple.test', pin: '1234', termsAccepted: true };
+    const ok = { name: 'Parc', lastName: 'Ours', phone: '5145550111', email: 'parc@exemple.test', pin: 'Xk9#Longue-2026!', termsAccepted: true };
     assert((await c.post('/api/profile', Object.assign({}, ok, { name: '' }))).status === 400, 'profil : prénom vide refusé');
     assert((await c.post('/api/profile', Object.assign({}, ok, { email: 'pasuncourriel' }))).status === 400, 'profil : courriel invalide refusé');
     assert((await c.post('/api/profile', Object.assign({}, ok, { pin: '12' }))).status === 400, 'profil : code trop court refusé');
@@ -26,10 +26,10 @@ const iso = (ms) => new Date(Date.now() + ms).toISOString();
     const d2 = client(s.base);
     assert((await d2.post(`/api/profile/${id}/verify-pin`, { pin: '0000' })).status === 401, 'reconnexion : mauvais code = 401');
     assert((await d2.get('/api/activities')).status === 401, 'mauvais code : pas de session');
-    assert((await d2.post(`/api/profile/${id}/verify-pin`, { pin: '1234' })).status === 200, 'reconnexion : bon code = 200');
+    assert((await d2.post(`/api/profile/${id}/verify-pin`, { pin: 'Xk9#Longue-2026!' })).status === 200, 'reconnexion : bon code = 200');
     assert((await d2.get('/api/activities')).status === 200, 'bon code : session ouverte');
     assert((await c.post('/api/session/logout', {})).status === 200 && (await c.get('/api/activities')).status === 401, 'déconnexion : session fermée');
-    assert((await c.post(`/api/profile/${id}/verify-pin`, { pin: '1234' })).status === 200, 'reconnexion après déconnexion');
+    assert((await c.post(`/api/profile/${id}/verify-pin`, { pin: 'Xk9#Longue-2026!' })).status === 200, 'reconnexion après déconnexion');
 
     // ---- Création d'activité
     assert((await c.post('/api/activities', { name: '  ' })).status === 400, 'activité : nom vide refusé');
@@ -45,7 +45,7 @@ const iso = (ms) => new Date(Date.now() + ms).toISOString();
     list = (await c.get('/api/activities')).body;
     assert(list[0].id === b.body.id, 'ordre personnel appliqué');
     const other = client(s.base);
-    await other.post('/api/profile', { name: 'Voisin', lastName: 'Autre', phone: '5145550122', email: 'v@exemple.test', pin: '4321', termsAccepted: true });
+    await other.post('/api/profile', { name: 'Voisin', lastName: 'Autre', phone: '5145550122', email: 'v@exemple.test', pin: 'Xk9#Longue-2026!', termsAccepted: true });
     assert((await other.get('/api/activities')).body.length === 0, "activités d'un autre compte invisibles");
     assert((await other.put('/api/activities/' + A, { name: 'Piratage' })).status >= 400, "renommage par un non-membre refusé");
 

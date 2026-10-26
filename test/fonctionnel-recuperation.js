@@ -10,7 +10,7 @@ const T = makeCounter(); const assert = T.assert;
   try {
     // --- Appareil 1 : création -> consentement -> activité -> premier chrono ---
     const d1 = client(s.base);
-    const body = { name: 'Camille', lastName: 'Recup', phone: '5145550150', email: 'camille.recup@exemple.test', pin: '4321', termsAccepted: true, directoryConsent: true };
+    const body = { name: 'Camille', lastName: 'Recup', phone: '5145550150', email: 'camille.recup@exemple.test', pin: 'Xk9#Longue-2026!', termsAccepted: true, directoryConsent: true };
     const cr = await d1.post('/api/profile', body);
     assert(cr.status === 201 && cr.body.id, 'création du profil (consentement conditions + 16 ans)');
     const uid = cr.body.id;
@@ -34,7 +34,7 @@ const T = makeCounter(); const assert = T.assert;
     assert(!/5145550150|camille\.recup|pin|hash/i.test(leak.replace('hasPin', '')), 'la recherche ne révèle ni téléphone, ni courriel, ni code');
     assert((await d2.post('/api/profile/' + uid + '/verify-pin', { pin: '0000' })).status === 401, 'mauvais code : 401');
     assert((await d2.get('/api/session/me')).body.userId === null, 'mauvais code : toujours aucune session');
-    const ok = await d2.post('/api/profile/' + uid + '/verify-pin', { pin: '4321' });
+    const ok = await d2.post('/api/profile/' + uid + '/verify-pin', { pin: 'Xk9#Longue-2026!' });
     assert(ok.status === 200 && ok.body.id === uid && ok.body.name === 'Camille', 'bon code : profil récupéré');
     assert(!('pin' in ok.body) && !('termsAcceptedAt' in ok.body), 'réponse de récupération sans code ni donnée interne');
     assert((await d2.get('/api/session/me')).body.userId === uid, 'bon code : session posée sur l\'appareil 2');
@@ -48,13 +48,13 @@ const T = makeCounter(); const assert = T.assert;
     // --- Blocage après 3 essais (même avec le bon code ensuite) ---
     const d3 = client(s.base);
     for (let i = 0; i < 3; i++) await d3.post('/api/profile/' + uid + '/verify-pin', { pin: '1111' });
-    const locked = await d3.post('/api/profile/' + uid + '/verify-pin', { pin: '4321' });
+    const locked = await d3.post('/api/profile/' + uid + '/verify-pin', { pin: 'Xk9#Longue-2026!' });
     assert(locked.status === 429 && /30 minutes/.test(locked.body.error), '3 mauvais codes : blocage 30 min, même le bon code est refusé');
     assert((await d3.get('/api/session/me')).body.userId === null, 'bloqué : aucune session');
 
     // --- Profil créé avec les réglages par défaut : « Être trouvable » non coché -> introuvable à la récupération ---
     const d4 = client(s.base);
-    const c4 = await d4.post('/api/profile', { name: 'Discret', lastName: 'Recup', phone: '5145550151', email: 'discret.recup@exemple.test', pin: '2468', termsAccepted: true });
+    const c4 = await d4.post('/api/profile', { name: 'Discret', lastName: 'Recup', phone: '5145550151', email: 'discret.recup@exemple.test', pin: 'Xk9#Longue-2026!', termsAccepted: true });
     assert(c4.status === 201 && c4.body.directoryConsent === false, 'profil par défaut : annuaire de connexion décoché');
     const d5 = client(s.base);
     const nf = await d5.get('/api/users?q=' + encodeURIComponent('Discret Recup'));
@@ -68,14 +68,14 @@ const T = makeCounter(); const assert = T.assert;
     // --- Ancien profil sans code (créé avant la protection) : pas de session -> set-pin refusé ---
     const db = new DatabaseSync(path.join(s.dir, 'noesis.db'));
     const d6 = client(s.base);
-    const c6 = await d6.post('/api/profile', { name: 'Ancien', lastName: 'Recup', phone: '5145550152', email: 'ancien.recup@exemple.test', pin: '1357', termsAccepted: true, directoryConsent: true });
+    const c6 = await d6.post('/api/profile', { name: 'Ancien', lastName: 'Recup', phone: '5145550152', email: 'ancien.recup@exemple.test', pin: 'Xk9#Longue-2026!', termsAccepted: true, directoryConsent: true });
     db.prepare('UPDATE users SET pin = NULL WHERE id = ?').run(c6.body.id);
     db.close();
     const d7 = client(s.base);
     const f7 = await d7.get('/api/users?q=Ancien Recup');
     assert(f7.body.length === 1 && f7.body[0].hasPin === false, 'profil sans code : trouvé, hasPin = false');
-    assert((await d7.post('/api/profile/' + c6.body.id + '/verify-pin', { pin: '1357' })).status === 409, 'profil sans code : verify-pin répond 409 needsPin');
-    const sp = await d7.post('/api/profile/' + c6.body.id + '/set-pin', { pin: '9999' });
+    assert((await d7.post('/api/profile/' + c6.body.id + '/verify-pin', { pin: 'Xk9#Longue-2026!' })).status === 409, 'profil sans code : verify-pin répond 409 needsPin');
+    const sp = await d7.post('/api/profile/' + c6.body.id + '/set-pin', { pin: 'Zr7#Autre-Mot-2026!' });
     assert(sp.status === 401 && sp.body.needsLogin === true, 'CONSTAT : profil sans code sur un nouvel appareil : définir un code refusé (session requise)');
 
     // --- Premier lancement : première tâche sur une activité neuve ---

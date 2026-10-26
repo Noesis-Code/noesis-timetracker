@@ -743,6 +743,7 @@
       return r.json().catch(function () { var badErr = new Error(t(r.status === 502 || r.status === 503 || r.status === 504 ? 'Connexion impossible. Réessaie.' : 'Erreur serveur')); badErr.status = r.status; throw badErr; }).then(function (data) {
         if (!r.ok) {
           if (data.needsLogin) handleSessionLost();
+          if (data.mustChangePassword) showForcePassword();
           // Code technique (« offer1_required ») renvoyé par une route réservée : jamais montré tel quel.
           var apiErr = new Error(t(!data.error ? 'Erreur serveur' : /^[a-z0-9_]+$/.test(data.error) ? 'Accès refusé.' : data.error));
           apiErr.status = r.status;
@@ -1883,8 +1884,9 @@
     if (!ONB_EMAIL_RE.test(email)) { $('onbMsg').textContent = t('Indique une adresse email valide.'); return; }
     var pin = $('onbPin').value.trim();
     var pinConfirm = $('onbPinConfirm').value.trim();
-    if (!/^[0-9]{4,6}$/.test(pin)) { $('onbMsg').textContent = t('Choisis un code de 4 à 6 chiffres.'); return; }
-    if (pin !== pinConfirm) { $('onbMsg').textContent = t('Les deux codes ne correspondent pas.'); return; }
+    var pinProblem = passwordProblem(pin);
+    if (pinProblem) { $('onbMsg').textContent = pinProblem; return; }
+    if (pin !== pinConfirm) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
     $('onbCreateBtn').disabled = true;
     api('POST', '/api/profile', { name: name, lastName: lastName, phone: phone, email: email, pin: pin, termsAccepted: true, marketingConsent: $('onbMarketingCheckbox').checked, directoryConsent: $('onbDirectoryCheckbox').checked })
       .then(function (p) {
@@ -1974,6 +1976,43 @@
   // un s'il n'en a pas encore — comptes créés avant cette protection) -----
   var pendingPinUser = null;
 
+  // Mot de passe fort (26 oct. 2026) : mêmes règles que le serveur (server/lib/auth.js, checkPasswordStrength), qui reste l'autorité.
+  function passwordProblem(pw) {
+    if (!pw) return t('Choisis un mot de passe.');
+    if (pw.length < 10) return t('Le mot de passe doit comporter au moins 10 caractères.');
+    if (!/[a-zà-ÿ]/.test(pw) || !/[A-ZÀ-Ý]/.test(pw) || !/[0-9]/.test(pw) || !/[^A-Za-z0-9À-ÿ]/.test(pw)) return t('Le mot de passe doit contenir une minuscule, une majuscule, un chiffre et un caractère spécial.');
+    return '';
+  }
+  // Les comptes qui ont encore l'ancien code à 4 chiffres choisissent un mot de passe fort avant d'aller plus loin (le serveur bloque le reste : lib/session.js).
+  var forceKnownPin = '', forceAfter = null;
+  function showForcePassword(knownPin, after) {
+    forceKnownPin = knownPin || '';
+    forceAfter = after || null;
+    $('forcePwdCurrent').classList.toggle('hidden', !!forceKnownPin);
+    $('forcePwdCurrent').value = ''; $('forcePwdNew').value = ''; $('forcePwdConfirm').value = ''; $('forcePwdMsg').textContent = '';
+    $('forcePwd').classList.remove('hidden');
+  }
+  $('forcePwdSave').addEventListener('click', function () {
+    var cur = forceKnownPin || $('forcePwdCurrent').value.trim();
+    var pw = $('forcePwdNew').value.trim();
+    var problem = passwordProblem(pw);
+    if (problem) { $('forcePwdMsg').textContent = problem; return; }
+    if (pw !== $('forcePwdConfirm').value.trim()) { $('forcePwdMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
+    var p = profile || loadProfile();
+    if (!p) return;
+    $('forcePwdSave').disabled = true;
+    api('POST', '/api/profile/' + p.id + '/set-pin', { pin: pw, currentPin: cur })
+      .then(function () {
+        $('forcePwd').classList.add('hidden');
+        if (forceAfter) forceAfter(); else window.location.reload();
+      })
+      .catch(function (err) { $('forcePwdMsg').textContent = err.message; })
+      .finally(function () { $('forcePwdSave').disabled = false; });
+  });
+  $('forcePwdLogout').addEventListener('click', function () {
+    api('POST', '/api/session/logout').catch(function () {}).then(function () { $('forcePwd').classList.add('hidden'); handleSessionLost(); });
+  });
+
   function showOnbPinStep(user) {
     // Garde-fou : cette fonction est aussi appelée directement (hors clic
     // sur une carte de résultat de recherche) par le flux de
@@ -1998,12 +2037,12 @@
     // qui fournit un objet `user` sans `displayName`.
     var displayName = user.displayName || (user.lastName ? (user.name + ' ' + user.lastName) : user.name);
     if (user.hasPin) {
-      $('onbPinStepTitle').textContent = t('Code de {name}', { name: displayName });
+      $('onbPinStepTitle').textContent = t('Mot de passe de {name}', { name: displayName });
       $('onbPinStepHint').classList.add('hidden');
       $('onbPinConfirmInput').classList.add('hidden');
     } else {
-      $('onbPinStepTitle').textContent = t('Définis un code pour {name}', { name: displayName });
-      $('onbPinStepHint').textContent = t('Ce profil n\'a pas encore de code (créé avant l\'ajout de cette protection). Définis-en un maintenant.');
+      $('onbPinStepTitle').textContent = t('Définis un mot de passe pour {name}', { name: displayName });
+      $('onbPinStepHint').textContent = t('Ce profil n\'a pas encore de mot de passe (créé avant l\'ajout de cette protection). Définis-en un maintenant.');
       $('onbPinStepHint').classList.remove('hidden');
       $('onbPinConfirmInput').classList.remove('hidden');
     }
@@ -2024,8 +2063,9 @@
 
     if (!pendingPinUser.hasPin) {
       var confirmPin = $('onbPinConfirmInput').value.trim();
-      if (!/^[0-9]{4,6}$/.test(pin)) { $('onbMsg').textContent = t('Le code doit comporter 4 à 6 chiffres.'); return; }
-      if (pin !== confirmPin) { $('onbMsg').textContent = t('Les deux codes ne correspondent pas.'); return; }
+      var setProblem = passwordProblem(pin);
+      if (setProblem) { $('onbMsg').textContent = setProblem; return; }
+      if (pin !== confirmPin) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
       $('onbPinSubmit').disabled = true;
       api('POST', '/api/profile/' + pendingPinUser.id + '/set-pin', { pin: pin })
         .then(function () {
@@ -2041,7 +2081,8 @@
         .then(function (p) {
           saveProfile(p);
           pendingPinUser = null;
-          proceedAfterProfile();
+          if (p.mustChangePassword) showForcePassword(pin, proceedAfterProfile); // ancien code à 4 chiffres : mot de passe fort exigé
+          else proceedAfterProfile();
         })
         .catch(function (err) { $('onbMsg').textContent = err.message; })
         .finally(function () { $('onbPinSubmit').disabled = false; });
@@ -11841,12 +11882,13 @@
     var currentPin = $('settingsCurrentPin').value.trim();
     var newPin = $('settingsNewPin').value.trim();
     var newPinConfirm = $('settingsNewPinConfirm').value.trim();
-    if (!/^[0-9]{4,6}$/.test(newPin)) { $('settingsPinMsg').textContent = t('Le nouveau code doit comporter 4 à 6 chiffres.'); return; }
-    if (newPin !== newPinConfirm) { $('settingsPinMsg').textContent = t('Les deux codes ne correspondent pas.'); return; }
+    var newProblem = passwordProblem(newPin);
+    if (newProblem) { $('settingsPinMsg').textContent = newProblem; return; }
+    if (newPin !== newPinConfirm) { $('settingsPinMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
     $('settingsPinSaveBtn').disabled = true;
     api('POST', '/api/profile/' + profile.id + '/set-pin', { pin: newPin, currentPin: currentPin })
       .then(function () {
-        $('settingsPinMsg').textContent = t('Code mis à jour.');
+        $('settingsPinMsg').textContent = t('Mot de passe mis à jour.');
         $('settingsCurrentPin').value = '';
         $('settingsNewPin').value = '';
         $('settingsNewPinConfirm').value = '';

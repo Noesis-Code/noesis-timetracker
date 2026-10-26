@@ -33,16 +33,16 @@ const pub = (f) => fs.readFileSync(path.join(__dirname, '..', 'public', f), 'utf
     // --- #1284 vérification de l'âge : case 16 ans+ obligatoire à la création, déclaration d'âge à l'achat ---
     assert(/j'ai 16 ans ou plus/.test(html), 'case « 16 ans ou plus » à l\'inscription');
     const raw = client(s.base);
-    const sansCase = await raw.post('/api/profile', { name: 'SansCase', lastName: 'X', phone: '5145550111', email: 'sc@exemple.test', pin: '1234' });
+    const sansCase = await raw.post('/api/profile', { name: 'SansCase', lastName: 'X', phone: '5145550111', email: 'sc@exemple.test', pin: 'Xk9#Longue-2026!' });
     assert(sansCase.status === 400, 'création sans acceptation (16 ans+) refusée');
 
     // --- #1291 consentement commercial distinct ---
     assert(home.includes('id="onbMarketingCheckbox"') && home.includes('id="settingsMarketingConsent"'), 'interrupteurs de consentement commercial présents');
     const m1 = client(s.base);
-    const c1 = await m1.post('/api/profile', { name: 'MarkOui', lastName: 'Fonc', phone: '5145550112', email: 'mo@exemple.test', pin: '1234', termsAccepted: true, marketingConsent: true });
+    const c1 = await m1.post('/api/profile', { name: 'MarkOui', lastName: 'Fonc', phone: '5145550112', email: 'mo@exemple.test', pin: 'Xk9#Longue-2026!', termsAccepted: true, marketingConsent: true });
     assert(c1.status === 201 && c1.body.marketingConsent === true, 'consentement commercial donné à la création');
     const m2 = client(s.base);
-    const c2 = await m2.post('/api/profile', { name: 'MarkNon', lastName: 'Fonc', phone: '5145550113', email: 'mn@exemple.test', pin: '1234', termsAccepted: true });
+    const c2 = await m2.post('/api/profile', { name: 'MarkNon', lastName: 'Fonc', phone: '5145550113', email: 'mn@exemple.test', pin: 'Xk9#Longue-2026!', termsAccepted: true });
     assert(c2.status === 201 && c2.body.marketingConsent === false, 'consentement commercial absent = faux (distinct des conditions)');
     assert((await client(s.base).put('/api/profile/marketing-consent', { consent: true })).status === 401, 'changement sans session = 401');
     assert((await m2.put('/api/profile/marketing-consent', { consent: 'oui' })).status === 400, 'valeur non booléenne refusée');
@@ -109,11 +109,11 @@ const pub = (f) => fs.readFileSync(path.join(__dirname, '..', 'public', f), 'utf
     // --- #1283 résiliation du compte depuis les paramètres ---
     assert(home.includes('id="deleteAccountBtn"') && home.includes('id="deleteAccountPin"'), 'zone de suppression du compte présente');
     const d = await newUser(s.base, 'del');
-    assert((await client(s.base).del('/api/profile/' + d.id, { pin: '1234' })).status === 401, 'suppression sans session = 401');
-    assert((await a.c.del('/api/profile/' + d.id, { pin: '1234' })).status === 403, "suppression du compte d'un autre = 403");
+    assert((await client(s.base).del('/api/profile/' + d.id, { pin: 'Xk9#Longue-2026!' })).status === 401, 'suppression sans session = 401');
+    assert((await a.c.del('/api/profile/' + d.id, { pin: 'Xk9#Longue-2026!' })).status === 403, "suppression du compte d'un autre = 403");
     assert((await d.c.del('/api/profile/' + d.id, { pin: '9999' })).status === 401, 'mauvais code refusé');
     assert((await d.c.get('/api/profile/' + d.id)).status === 200, 'compte intact après refus');
-    const del = await d.c.del('/api/profile/' + d.id, { pin: '1234' });
+    const del = await d.c.del('/api/profile/' + d.id, { pin: 'Xk9#Longue-2026!' });
     assert(del.status === 200, 'suppression avec le bon code');
     assert(dbc.prepare('SELECT COUNT(*) AS n FROM users WHERE id = ?').get(d.id).n === 0, 'compte retiré de la base');
     assert(dbc.prepare('SELECT COUNT(*) AS n FROM activity_members WHERE userId = ?').get(d.id).n === 0, 'appartenances retirées');

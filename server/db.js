@@ -1306,6 +1306,10 @@ db.exec('CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_name_lastname ON users(name
 if (!columnExists('users', 'pinFailCount')) {
   db.exec('ALTER TABLE users ADD COLUMN pinFailCount INTEGER NOT NULL DEFAULT 0');
 }
+// Mot de passe fort (26 oct. 2026) : 0 = ancien code à 4-6 chiffres (changement exigé à la prochaine connexion), 1 = mot de passe fort.
+if (!columnExists('users', 'passwordStrong')) {
+  db.exec('ALTER TABLE users ADD COLUMN passwordStrong INTEGER NOT NULL DEFAULT 0');
+}
 if (!columnExists('users', 'pinLockedUntil')) {
   db.exec('ALTER TABLE users ADD COLUMN pinLockedUntil TEXT');
 }

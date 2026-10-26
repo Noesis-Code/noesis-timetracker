@@ -1,7 +1,7 @@
 const express = require('express');
 const { randomUUID } = require('node:crypto');
 const db = require('../db');
-const { makePinRecord, verifyPinRecord, isValidPinFormat, checkPin, LOCK_MESSAGE } = require('../lib/auth');
+const { makePinRecord, verifyPinRecord, isValidPinFormat, checkPasswordStrength, checkPin, LOCK_MESSAGE } = require('../lib/auth');
 const { isInPalette, pairedColor } = require('../lib/theme');
 const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
 const { notifyCommunityPost } = require('../lib/push');
@@ -399,7 +399,8 @@ router.post('/profile', (req, res) => {
   if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Une adresse email valide est requise.' });
 
   const pin = (req.body.pin || '').trim();
-  if (!isValidPinFormat(pin)) return res.status(400).json({ error: 'Le code doit comporter 4 à 6 chiffres.' });
+  const strength = checkPasswordStrength(pin, { name, lastName, email });
+  if (!strength.ok) return res.status(400).json({ error: strength.error });
 
   // Unicité : la PAIRE prénom + nom de famille (8 septembre 2026, décision
   // d'Emilien — voir server/db.js, "usersNameStillGloballyUnique", pour le
@@ -441,6 +442,7 @@ router.post('/profile', (req, res) => {
   const directoryConsent = req.body.directoryConsent === true ? 1 : 0;
   db.prepare('INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang, marketingConsent, marketingConsentAt, marketingConsentVersion, directoryConsent, termsAcceptedAt, termsVersion, privacyVersion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)')
     .run(id, name, lastName, phone, email, color, createdAt, makePinRecord(pin), 'dark', lang, marketingConsent, createdAt, MARKETING_CONSENT_VERSION, directoryConsent, createdAt, TERMS_VERSION, PRIVACY_VERSION);
+  db.prepare('UPDATE users SET passwordStrong = 1 WHERE id = ?').run(id); // mot de passe fort dès la création
   db.prepare('UPDATE users SET modules = ?, modulesChosen = 0 WHERE id = ?').run(JSON.stringify(require('../lib/modules').defaults()), id); // défaut nouveau compte : NEW_ACCOUNT_DEFAULT_MODULES
   // Système de session (chantier 1) : la création d'un profil vaut
   // connexion — le témoin posé ici est ce qui authentifiera ensuite chaque
@@ -731,15 +733,16 @@ router.post('/profile/:id/verify-pin', (req, res) => {
   if (!user.pin) return res.status(409).json({ error: 'Ce profil n\'a pas encore de code.', needsPin: true });
 
   const pin = (req.body.pin || '').trim();
+  if (pin.length > 128) return res.status(401).json({ error: 'Mot de passe incorrect.' });
   const pinState = checkPin(user, pin);
   if (pinState === 'locked') return res.status(429).json({ error: LOCK_MESSAGE });
-  if (pinState === 'bad') return res.status(401).json({ error: 'Code incorrect.' });
+  if (pinState === 'bad') return res.status(401).json({ error: 'Mot de passe incorrect.' });
 
   // Système de session (chantier 1) : une récupération de profil réussie
   // (bon PIN) vaut connexion sur CET appareil, exactement comme la création
   // ci-dessus — c'est le seul autre point d'entrée qui doit poser le témoin.
   setSessionCookie(req, res, user.id);
-  res.json({ id: user.id, name: user.name, lastName: user.lastName || null, phone: user.phone || null, email: user.email || null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled });
+  res.json({ mustChangePassword: !user.passwordStrong, id: user.id, name: user.name, lastName: user.lastName || null, phone: user.phone || null, email: user.email || null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled });
 });
 
 // Définit le code d'un profil qui n'en a pas encore (comptes créés avant
@@ -750,7 +753,8 @@ router.post('/profile/:id/set-pin', (req, res) => {
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
   const newPin = (req.body.pin || '').trim();
-  if (!isValidPinFormat(newPin)) return res.status(400).json({ error: 'Le code doit comporter 4 à 6 chiffres.' });
+  const strength = checkPasswordStrength(newPin, user);
+  if (!strength.ok) return res.status(400).json({ error: strength.error });
 
   // Sécurité (chantier 1) : quand ce profil n'a PAS ENCORE de code (comptes
   // créés avant l'ajout de cette protection), rien d'autre que :id ne
@@ -766,10 +770,10 @@ router.post('/profile/:id/set-pin', (req, res) => {
     const currentPin = (req.body.currentPin || '').trim();
     const pinState = checkPin(user, currentPin);
     if (pinState === 'locked') return res.status(429).json({ error: LOCK_MESSAGE });
-    if (pinState === 'bad') return res.status(401).json({ error: 'Code actuel incorrect.' });
+    if (pinState === 'bad') return res.status(401).json({ error: 'Mot de passe actuel incorrect.' });
   }
 
-  db.prepare('UPDATE users SET pin = ? WHERE id = ?').run(makePinRecord(newPin), user.id);
+  db.prepare('UPDATE users SET pin = ?, passwordStrong = 1 WHERE id = ?').run(makePinRecord(newPin), user.id);
   res.json({ ok: true });
 });
 
@@ -827,7 +831,7 @@ router.delete('/profile/:id', (req, res) => {
   const pin = ((req.body && req.body.pin) || '').trim();
   const pinState = checkPin(user, pin);
   if (pinState === 'locked') return res.status(429).json({ error: LOCK_MESSAGE });
-  if (pinState === 'bad') return res.status(401).json({ error: 'Code incorrect.' });
+  if (pinState === 'bad') return res.status(401).json({ error: 'Mot de passe incorrect.' });
 
   deleteAccountData(user);
 

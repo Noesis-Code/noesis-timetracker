@@ -59,7 +59,7 @@ assert(/delete copy\.serverNow/.test(src), 'copie locale hors ligne : serverNow 
 
     // --- 3. Deux appareils : même compte, deux clients ---
     const d2 = client(s.base);
-    const v = await d2.post('/api/profile/' + u.id + '/verify-pin', { pin: '1234' });
+    const v = await d2.post('/api/profile/' + u.id + '/verify-pin', { pin: 'Xk9#Longue-2026!' });
     assert(v.status === 200, 'second appareil connecté (code)');
     const onB = (await d2.get('/api/timer/status')).body;
     assert(onB.running === true && onB.startTime === new Date(t0).toISOString(), 'appareil B voit le chrono démarré sur A');

@@ -493,8 +493,9 @@
       <input type="text" id="onbLastName" placeholder="Nom de famille" maxlength="60" autocomplete="off">
       <input type="tel" id="onbPhone" placeholder="Numéro de téléphone" maxlength="30" autocomplete="off">
       <input type="email" id="onbEmail" placeholder="Adresse email" maxlength="120" autocomplete="off">
-      <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPin" placeholder="Choisis un code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
-      <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPinConfirm" placeholder="Confirme le code" maxlength="6" autocomplete="off">
+      <input type="password" id="onbPin" placeholder="Choisis un mot de passe (10 caractères ou plus)" maxlength="128" autocomplete="new-password">
+      <input type="password" id="onbPinConfirm" placeholder="Confirme le mot de passe" maxlength="128" autocomplete="new-password">
+      <p class="hint pwdRules">10 caractères ou plus, avec une minuscule, une majuscule, un chiffre et un caractère spécial.</p>
       <p class="hint">Ce code te sera redemandé si tu récupères ce profil depuis un autre appareil — retiens-le bien.</p>
       <!-- 11 septembre 2026, demande directe d'Emilien : le simple lien de
            lecture des CGU (7 septembre 2026, voir plus bas dans ce fichier)
@@ -577,8 +578,8 @@
     <div id="onbPinStep" class="hidden">
       <p class="lead" id="onbPinStepTitle"></p>
       <p id="onbPinStepHint" class="hint hidden"></p>
-      <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPinInput" placeholder="Code" maxlength="6" autocomplete="off">
-      <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPinConfirmInput" placeholder="Confirme le code" maxlength="6" autocomplete="off" class="hidden">
+      <input type="password" id="onbPinInput" placeholder="Mot de passe" maxlength="128" autocomplete="current-password">
+      <input type="password" id="onbPinConfirmInput" placeholder="Confirme le mot de passe" maxlength="128" autocomplete="new-password" class="hidden">
       <button class="btn btn-primary btnBrique" id="onbPinSubmit">Valider</button>
     </div>
 
@@ -2895,11 +2896,12 @@
                 </button>
                 <div class="settingsSectionBody hidden">
               <div class="settingsCard settingsFieldList">
-                <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsCurrentPin" placeholder="Code actuel" maxlength="6" autocomplete="off">
-                <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPin" placeholder="Nouveau code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
-                <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPinConfirm" placeholder="Confirme le nouveau code" maxlength="6" autocomplete="off">
+                <input type="password" id="settingsCurrentPin" placeholder="Mot de passe actuel" maxlength="128" autocomplete="current-password">
+                <input type="password" id="settingsNewPin" placeholder="Nouveau mot de passe" maxlength="128" autocomplete="new-password">
+                <input type="password" id="settingsNewPinConfirm" placeholder="Confirme le nouveau mot de passe" maxlength="128" autocomplete="new-password">
+                <p class="hint pwdRules">10 caractères ou plus, avec une minuscule, une majuscule, un chiffre et un caractère spécial.</p>
               </div>
-              <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon code</button>
+              <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon mot de passe</button>
               <p id="settingsPinMsg" class="msg"></p>
               <!-- "Se déconnecter de tous les appareils" (7 septembre 2026,
                    discussion "Sécurité — Réglages utilisateur") : le système de
@@ -3619,6 +3621,19 @@
      Design) : pose window.NOESIS_THEME_PALETTES, lu par app.js juste après.
      Doit être chargé avant app.js, comme i18n.js. Voir public/theme-palette.js
      et server/lib/theme.js (même source, consommée côté serveur via require). -->
+<!-- Mot de passe fort : écran bloquant (hors de toute zone cachée) pour les comptes qui ont encore l'ancien code à 4 chiffres. -->
+<div id="forcePwd" class="forcePwd hidden" role="dialog" aria-modal="true" aria-labelledby="forcePwdTitle">
+  <div class="forcePwdCard cmpGlass">
+    <p class="sectionTitle" id="forcePwdTitle">Choisis un nouveau mot de passe</p>
+    <p class="hint">Pour protéger ton compte et tes données, ton ancien code à 4 chiffres est remplacé par un mot de passe solide : 10 caractères ou plus, avec une minuscule, une majuscule, un chiffre et un caractère spécial.</p>
+    <input type="password" id="forcePwdCurrent" placeholder="Ancien code" maxlength="128" autocomplete="current-password" class="hidden">
+    <input type="password" id="forcePwdNew" placeholder="Nouveau mot de passe" maxlength="128" autocomplete="new-password">
+    <input type="password" id="forcePwdConfirm" placeholder="Confirme le nouveau mot de passe" maxlength="128" autocomplete="new-password">
+    <button type="button" class="cmpBtn" id="forcePwdSave">Enregistrer</button>
+    <p id="forcePwdMsg" class="msg"></p>
+    <button type="button" class="activityEditCancel" id="forcePwdLogout">Se déconnecter</button>
+  </div>
+</div>
 <script src="/theme-palette.js"></script>
 <script src="/i18n.js"></script>
 <!-- 25 oct. 2026 (maquette Réglages) : « Supprimer mon compte » est un bouton rouge tout en bas de Réglages qui ouvre cette pop-up (mêmes ids qu'avant). -->
@@ -3629,7 +3644,7 @@
       <button type="button" class="cmpClose" id="deleteAccountClose" aria-label="Fermer">✕</button>
     </div>
     <p class="hint">Cette action est définitive : ton profil, ton historique, tes notes, tes invitations et tes abonnements sont supprimés. Les activités que tu partages avec d'autres personnes continuent d'exister pour elles.</p>
-    <input type="password" inputmode="numeric" pattern="[0-9]*" id="deleteAccountPin" placeholder="Saisis ton code pour confirmer" maxlength="6" autocomplete="off">
+    <input type="password" id="deleteAccountPin" placeholder="Saisis ton mot de passe pour confirmer" maxlength="128" autocomplete="current-password">
     <button id="deleteAccountBtn" class="iconBtn danger">Supprimer définitivement mon compte</button>
     <p id="deleteAccountMsg" class="msg"></p>
     <button type="button" id="deleteAccountCancel" class="settingsCancelLink">Annuler</button>

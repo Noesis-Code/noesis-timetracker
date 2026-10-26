@@ -42,6 +42,33 @@ function isValidPinFormat(pin) {
   return typeof pin === 'string' && /^[0-9]{4,6}$/.test(pin);
 }
 
+// ===== Mot de passe fort (demande d'Émilien, 26 oct. 2026) =====
+// Remplace le code à 4-6 chiffres : au moins 10 caractères avec une minuscule, une majuscule, un chiffre et un caractère spécial,
+// pas un mot de passe courant, sans le nom ni le courriel de la personne. 128 caractères au plus (le hachage scrypt coûte cher).
+// Les comptes créés avec l'ancien code (users.passwordStrong = 0) s'y connectent une dernière fois puis DOIVENT en choisir un nouveau
+// (garde dans lib/session.js). isValidPinFormat ne sert plus qu'à reconnaître un ancien code.
+const PASSWORD_MIN = 10;
+const PASSWORD_MAX = 128;
+const COMMON_PARTS = ['password', 'motdepasse', 'azerty', 'qwerty', '123456', 'abc123', 'noesis', 'timetracker', 'bienvenue', 'welcome', 'admin', 'letmein', 'iloveyou', 'soleil'];
+function checkPasswordStrength(pw, who) {
+  if (typeof pw !== 'string') return { ok: false, error: 'Choisis un mot de passe.' };
+  if (pw.length > PASSWORD_MAX) return { ok: false, error: 'Le mot de passe est trop long (128 caractères au plus).' };
+  if (pw.length < PASSWORD_MIN) return { ok: false, error: 'Le mot de passe doit comporter au moins 10 caractères.' };
+  if (!/[a-zà-ÿ]/.test(pw) || !/[A-ZÀ-Ý]/.test(pw) || !/[0-9]/.test(pw) || !/[^A-Za-z0-9À-ÿ]/.test(pw)) {
+    return { ok: false, error: 'Le mot de passe doit contenir une minuscule, une majuscule, un chiffre et un caractère spécial.' };
+  }
+  const low = pw.toLowerCase();
+  if (COMMON_PARTS.some((c) => low.includes(c))) return { ok: false, error: 'Ce mot de passe est trop courant. Choisis-en un autre.' };
+  const bits = [];
+  if (who) {
+    [who.name, who.lastName].forEach((n) => { if (n && String(n).trim().length >= 3) bits.push(String(n).trim().toLowerCase()); });
+    const local = String(who.email || '').split('@')[0].trim().toLowerCase();
+    if (local.length >= 4) bits.push(local);
+  }
+  if (bits.some((b) => low.includes(b))) return { ok: false, error: 'Le mot de passe ne doit pas contenir ton nom ni ton adresse courriel.' };
+  return { ok: true };
+}
+
 // ===== Blocage persistant du code PIN =====
 // 3 échecs consécutifs sur un compte => blocage de 30 minutes. Le compteur
 // vit en base (users.pinFailCount / users.pinLockedUntil) pour survivre aux
@@ -89,4 +116,4 @@ function checkPin(user, pin, now = Date.now()) {
   return 'bad';
 }
 
-module.exports = { makePinRecord, verifyPinRecord, isValidPinFormat, isLocked, registerFailure, registerSuccess, checkPin, LOCK_MESSAGE };
+module.exports = { makePinRecord, verifyPinRecord, isValidPinFormat, checkPasswordStrength, PASSWORD_MIN, PASSWORD_MAX, isLocked, registerFailure, registerSuccess, checkPin, LOCK_MESSAGE };

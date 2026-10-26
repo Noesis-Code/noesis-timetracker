@@ -15,7 +15,7 @@ def api(path, data, cookie=None, method='POST'):
     r = urllib.request.urlopen(req)
     return json.loads(r.read()), '; '.join(c.split(';')[0] for c in r.headers.get_all('Set-Cookie') or [])
 
-prof, cookie = api('/api/profile', {'name': 'Zoe', 'lastName': 'Lang', 'phone': '5145550111', 'email': 'zoe@exemple.test', 'pin': '1234', 'termsAccepted': True})
+prof, cookie = api('/api/profile', {'name': 'Zoe', 'lastName': 'Lang', 'phone': '5145550111', 'email': 'zoe@exemple.test', 'pin': 'Xk9#Longue-2026!', 'termsAccepted': True})
 uid = prof['id']
 work, _ = api('/api/activities', {'name': 'Work'}, cookie)
 api('/api/activities', {'name': 'Study'}, cookie)
@@ -38,7 +38,7 @@ with sync_playwright() as p:
     b = p.chromium.launch(executable_path=chromium)
     c = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, base_url=base)
     c.add_init_script("Object.defineProperty(navigator,'standalone',{get:()=>true});")
-    pj = c.request.post('/api/profile/%s/verify-pin' % uid, data={'pin': '1234'}).json()
+    pj = c.request.post('/api/profile/%s/verify-pin' % uid, data={'pin': 'Xk9#Longue-2026!'}).json()
     pg = c.new_page()
     pg.on('dialog', lambda d: d.accept())
     pg.goto('/')

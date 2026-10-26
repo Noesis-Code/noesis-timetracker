@@ -13,7 +13,7 @@ const T = makeCounter(); const assert = T.assert;
     const u = await newUser(s.base, 'deux');
     const phoneA = u.c;
     const phoneB = client(s.base);
-    assert((await phoneB.post('/api/profile/' + u.id + '/verify-pin', { pin: '1234' })).status === 200, 'second téléphone connecté au même profil');
+    assert((await phoneB.post('/api/profile/' + u.id + '/verify-pin', { pin: 'Xk9#Longue-2026!' })).status === 200, 'second téléphone connecté au même profil');
     const A1 = u.activityId;
     const A2 = (await phoneA.post('/api/activities', { name: 'Seconde' })).body.id;
     const running = () => dbr.prepare('SELECT COUNT(*) n FROM running_timers WHERE userId = ?').get(u.id).n;
