@@ -79,6 +79,7 @@
 <link rel="stylesheet" href="/css/activite-stats-taches.css">
 <link rel="stylesheet" href="/css/connexion-ia.css">
 <link rel="stylesheet" href="/css/trade.css">
+<link rel="stylesheet" href="/css/horaire.css">
 <link rel="stylesheet" href="/css/verre-calme.css">
 <link rel="stylesheet" href="/css/barre-volets.css">
 <link rel="stylesheet" href="/css/reglages.css">
@@ -1555,9 +1556,8 @@
     <section id="tab-goals" class="tab hidden">
     </section>
 
-    <!-- ---------- ONGLET HORAIRE (26 oct. 2026) : écran vide, les écrans viendront après maquette validée ---------- -->
+    <!-- ---------- ONGLET HORAIRE (26 oct. 2026) : contenu construit par public/js/horaire.js (css/horaire.css) ---------- -->
     <section id="tab-horaire" class="tab hidden">
-      <p class="lead">Horaire</p>
     </section>
 
     <!-- ---------- ONGLET PROFIL ---------- -->
@@ -3278,7 +3278,7 @@
       </span>
       <span class="tabLabel">Trade</span>
     </button>
-    <!-- 26 oct. 2026 : volet Horaire (module « horaire ») ; écran vide en attendant la maquette validée. -->
+    <!-- 26 oct. 2026 : volet Horaire (module « horaire »), écran public/js/horaire.js. -->
     <button class="tabBtn" data-tab="horaire" aria-label="Horaire">
       <span class="tabIcon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3805,6 +3805,7 @@
 <script src="/js/modules.js"></script>
 <script src="/app.js"></script>
 <script src="/js/trade.js"></script>
+<script src="/js/horaire.js"></script>
 <script src="/js/barre-volets.js"></script>
 <script src="/js/axis-lock.js"></script>
 <script src="/js/objectifs-page1.js"></script>

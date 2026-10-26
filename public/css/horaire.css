@@ -1,0 +1,72 @@
+/* Module « Horaire » (26 oct. 2026) : écran du gestionnaire, public/js/horaire.js. Composants partagés de css/composants.css (.cmpBtn, .cmpAdd,
+   .cmpRemove, .cmpEdit, .cmpChev, .cmpGlass, .cmpList) ; ici seulement la mise en page. Jetons seulement, aucune couleur en dur. Espacements 8/12/16/24. */
+#tab-horaire { display: flex; flex-direction: column; gap: 12px; padding-bottom: 96px; }
+#tab-horaire.hidden { display: none; }
+
+/* Semaine : ‹ libellé › */
+.horaireWeek { display: flex; align-items: center; gap: 8px; }
+.horaireWeekLabel { flex: 1; margin: 0; text-align: center; font-size: 18px; font-weight: 700; color: var(--text); }
+.horaireNav { width: 44px; height: 44px; padding: 0; font-size: 24px; line-height: 1; color: var(--text-light); cursor: pointer; border-radius: var(--radius-md); }
+
+.horaireMsg { margin: 0; font-size: 13px; color: var(--text-light); text-align: center; }
+.horaireEmpty { margin: 0; padding: 12px 0; font-size: 13px; color: var(--text-light); text-align: center; }
+.horaireHint { margin: 0; font-size: 13px; color: var(--text-light); }
+
+/* Alertes : trous et dépassements, liste simple dans une carte de verre */
+.horaireAlerts { border-radius: var(--radius-lg); padding: 12px 16px; }
+.horaireAlertsTitle { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: var(--text); }
+.horaireAlertList { margin: 0; padding: 0 0 0 16px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text); }
+
+/* Horaire de la semaine : une carte par jour, une ligne par quart (heures · poste · employé) */
+.horaireDays { display: flex; flex-direction: column; gap: 12px; }
+.horaireDay { border-radius: var(--radius-lg); overflow: hidden; }
+.horaireDayTitle { margin: 0; padding: 12px 16px 8px; font-size: 15px; font-weight: 700; color: var(--text); }
+.horaireShift { display: grid; grid-template-columns: 96px 1fr 1fr; gap: 8px; align-items: center; min-height: 44px; padding: 0 16px; font-size: 14px; }
+.horaireShiftTime { color: var(--text-light); font-variant-numeric: tabular-nums; }
+.horaireShiftPos { color: var(--text-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.horaireShiftEmp { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+
+/* Action secondaire : export, discret (R1 : seule « Générer » est violette) */
+.horaireExport { min-height: 48px; padding: 12px 16px; border-radius: var(--radius-lg); font: inherit; font-size: 15px; color: var(--text); cursor: pointer; }
+
+/* Paramètres : sections repliables fermées par défaut, flèche à droite (R21), séparateurs pleine largeur (.cmpList, R22) */
+.horaireSettingsTitle { margin: 12px 0 0; }
+.horaireSettings { border-radius: var(--radius-lg); overflow: hidden; }
+.horaireSecHead { gap: 8px; min-height: 48px; padding: 0 16px; background: none; border: 0; font: inherit; font-size: 15px; color: var(--text); cursor: pointer; }
+.horaireSecHead > span:first-child { flex: 1; min-width: 0; }
+.horaireCount { font-size: 13px; color: var(--text-light); }
+.horaireSecBody { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 16px; }
+.horaireList { display: flex; flex-direction: column; gap: 8px; }
+
+/* Ligne de liste et son formulaire déroulé sur place (R36) */
+.horaireItem { border-radius: var(--radius-md); } /* ligne à plat : jamais de carte dans une carte (R6) */
+.horaireItem.dragging { position: relative; z-index: 2; background: var(--pop-bg); }
+.horaireRow { display: flex; align-items: center; gap: 8px; min-height: 48px; }
+.horaireRowText { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.horaireRowTitle { font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.horaireRowMeta { font-size: 13px; color: var(--text-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.horaireRow .cmpEdit, .horaireRowBtn { width: 44px; height: 44px; }
+.horaireRowBtn { display: inline-flex; align-items: center; justify-content: center; padding: 0; background: none; border: 0; cursor: pointer; }
+.horaireRowBtn .cmpChev { margin-left: 0; }
+.horaireHandle { touch-action: none; min-height: 44px; display: inline-flex; align-items: center; }
+.horaireForm { display: flex; flex-direction: column; gap: 12px; padding: 0 0 16px; }
+.horaireSecBody > .horaireForm { padding: 0; }
+.horaireField { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1; }
+.horaireFieldLabel { font-size: 13px; color: var(--text-light); }
+#tab-horaire .horaireInput { color-scheme: dark; box-shadow: none; box-sizing: border-box; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--sep); border-radius: var(--radius-sm); font: inherit; font-size: 14px; background: var(--glass-bg); color: var(--text); }
+#tab-horaire .horaireInput:focus { outline: none; border-color: var(--purple); }
+#tab-horaire .horaireInput option { background: var(--pop-bg); color: var(--text); }
+.horairePair { display: flex; gap: 8px; }
+.horaireTrio { display: grid; grid-template-columns: 1fr 1fr 64px; gap: 8px; }
+.horaireRanks { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.horaireLines { display: flex; flex-direction: column; gap: 16px; } /* groupes séparés par l'espace, pas par des traits (R3) */
+/* Plage de disponibilité : jour + ✕ sur la 1re rangée, début et fin sur la 2e (lisible à 360 px) */
+.horaireLine { display: grid; grid-template-columns: 1fr 1fr 24px; gap: 8px; align-items: center; }
+.horaireLine > select { grid-column: 1 / 3; }
+.horaireLine > .cmpRemove { grid-column: 3; grid-row: 1; }
+#tab-horaire .horaireLine .horaireInput { padding: 8px; }
+.horaireLine .cmpRemove, .horaireNeedRemove { justify-self: center; }
+.horaireEventNeed { position: relative; display: flex; flex-direction: column; gap: 8px; }
+.horaireNeedRemove { position: absolute; top: 0; right: 0; }
+.horaireEventNeed > .horairePair { padding-right: 24px; }
+.horaireDelete { align-self: flex-start; min-height: 44px; margin-top: 12px; padding: 0; background: none; border: 0; font: inherit; font-size: 14px; color: var(--danger); cursor: pointer; }
