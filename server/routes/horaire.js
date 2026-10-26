@@ -100,6 +100,12 @@ function positionInput(res, body, partial) {
     out.dayforceCode = dayforceCode(body.dayforceCode);
     if (out.dayforceCode === undefined) { bad(res, 'Code de poste Dayforce invalide (64 caractères au plus).'); return null; }
   }
+  // OpenTable : couverts par service qui justifient une personne de plus à ce poste (null = non renseigné). Pas encore lu par la génération.
+  if (body.openTableCovers !== undefined) {
+    const v = body.openTableCovers;
+    if (!(v === null || (Number.isInteger(v) && v >= 1 && v <= 1000))) { bad(res, 'Nombre de couverts invalide (1 à 1 000).'); return null; }
+    out.openTableCovers = v;
+  }
   return out;
 }
 router.get('/horaire/positions', (req, res) => res.json({ positions: h.listPositions(req.userId) }));
@@ -197,14 +203,58 @@ router.post('/horaire/weeks/:weekStart/generate', (req, res) => {
   res.json({ schedule: h.generate(req.userId, w) });
 });
 
-// ---------- export Dayforce (CSV, format : server/lib/horaire-dayforce.js) ----------
+// ---------- réglages du compte (code d'unité Dayforce + configuration guidée) ----------
+// Texte court facultatif : '' ou null = effacé ; undefined = invalide.
+function shortText(v, max) {
+  if (v === null || v === '') return null;
+  if (typeof v !== 'string') return undefined;
+  const s = v.trim().replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '');
+  return s.length <= max ? (s || null) : undefined;
+}
 router.get('/horaire/settings', (req, res) => res.json({ settings: h.getSettings(req.userId) }));
 router.put('/horaire/settings', (req, res) => {
   const b = req.body || {};
-  const loc = b.dayforceLocation === undefined ? undefined : dayforceCode(b.dayforceLocation);
-  if (b.dayforceLocation !== undefined && loc === undefined) return bad(res, 'Code d\'unité Dayforce invalide (64 caractères au plus).');
-  res.json({ settings: h.setSettings(req.userId, { dayforceLocation: loc }) });
+  const v = {};
+  if (b.dayforceLocation !== undefined) {
+    v.dayforceLocation = dayforceCode(b.dayforceLocation);
+    if (v.dayforceLocation === undefined) return bad(res, 'Code d\'unité Dayforce invalide (64 caractères au plus).');
+  }
+  if (b.configured !== undefined) {
+    if (typeof b.configured !== 'boolean') return bad(res, 'Valeur « configured » invalide.');
+    v.configured = b.configured;
+  }
+  if (b.setupStep !== undefined) {
+    if (!(Number.isInteger(b.setupStep) && b.setupStep >= 0 && b.setupStep <= 7)) return bad(res, 'Étape invalide (0 à 7).');
+    v.setupStep = b.setupStep;
+  }
+  for (const [k, max] of [['eventsSource', 200], ['eventsStaffRule', 500]]) {
+    if (b[k] === undefined) continue;
+    v[k] = shortText(b[k], max);
+    if (v[k] === undefined) return bad(res, 'Texte trop long (' + max + ' caractères au plus).');
+  }
+  if (b.eventsNoticeDays !== undefined) {
+    if (!(b.eventsNoticeDays === null || (Number.isInteger(b.eventsNoticeDays) && b.eventsNoticeDays >= 0 && b.eventsNoticeDays <= 365))) return bad(res, 'Délai invalide (0 à 365 jours).');
+    v.eventsNoticeDays = b.eventsNoticeDays;
+  }
+  if (b.dataInCanada !== undefined) {
+    if (![null, 'oui', 'non', 'nsp'].includes(b.dataInCanada)) return bad(res, 'Réponse invalide (oui, non ou nsp).');
+    v.dataInCanada = b.dataInCanada;
+  }
+  // Fichier modèle d'import Dayforce : texte (CSV), gardé pour fixer le format de l'export ; null = retiré.
+  if (b.dayforceTemplate !== undefined) {
+    const t = b.dayforceTemplate;
+    if (t === null) v.dayforceTemplate = null;
+    else {
+      const name = t && shortText(t.name, 120);
+      if (!name || typeof t.content !== 'string' || !t.content.trim()) return bad(res, 'Fichier modèle invalide.');
+      if (t.content.length > h.LIMITS.csvChars) return res.status(413).json({ error: 'Fichier modèle trop volumineux.' });
+      v.dayforceTemplate = { name, content: t.content };
+    }
+  }
+  res.json({ settings: h.setSettings(req.userId, v) });
 });
+
+// ---------- export Dayforce (CSV, format : server/lib/horaire-dayforce.js) ----------
 router.get('/horaire/weeks/:weekStart/export/dayforce', (req, res) => {
   const w = weekParam(req, res); if (!w) return;
   const out = h.exportDayforce(req.userId, w);

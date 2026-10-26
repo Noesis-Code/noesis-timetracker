@@ -71,7 +71,7 @@ function deleteEmployee(u, id) {
 
 // ---------- postes (ordre de comblement = fillOrder croissant) ----------
 function listPositions(u) {
-  return db.prepare('SELECT id, name, fillOrder, dayforceCode, createdAt FROM horaire_positions WHERE userId = ? ORDER BY fillOrder, id').all(u);
+  return db.prepare('SELECT id, name, fillOrder, dayforceCode, openTableCovers, createdAt FROM horaire_positions WHERE userId = ? ORDER BY fillOrder, id').all(u);
 }
 function countPositions(u) { return db.prepare('SELECT COUNT(*) AS n FROM horaire_positions WHERE userId = ?').get(u).n; }
 function createPosition(u, { name, fillOrder, dayforceCode }) {
@@ -83,9 +83,10 @@ function createPosition(u, { name, fillOrder, dayforceCode }) {
 function updatePosition(u, id, f) {
   const p = ownPosition(u, id);
   if (!p) return null;
-  db.prepare('UPDATE horaire_positions SET name = ?, fillOrder = ?, dayforceCode = ? WHERE id = ? AND userId = ?')
+  db.prepare('UPDATE horaire_positions SET name = ?, fillOrder = ?, dayforceCode = ?, openTableCovers = ? WHERE id = ? AND userId = ?')
     .run(f.name !== undefined ? f.name : p.name, f.fillOrder !== undefined ? f.fillOrder : p.fillOrder,
-      f.dayforceCode !== undefined ? (f.dayforceCode || null) : p.dayforceCode, p.id, u);
+      f.dayforceCode !== undefined ? (f.dayforceCode || null) : p.dayforceCode,
+      f.openTableCovers !== undefined ? f.openTableCovers : p.openTableCovers, p.id, u);
   return listPositions(u).find((x) => x.id === p.id);
 }
 function deletePosition(u, id) {
@@ -226,13 +227,34 @@ function generate(u, weekStart) {
 }
 
 // ---------- export Dayforce (format centralisé dans ./horaire-dayforce.js) ----------
-// Code d'unité (lieu) Dayforce : un par compte (colonne users.horaireDayforceLocation).
+// Code d'unité (lieu) Dayforce : un par compte (colonne users.horaireDayforceLocation). Réglages de la configuration guidée
+// (table horaire_settings, une ligne par compte) : drapeau configured, étape courante (reprise après ✕), événements, hébergement
+// au Canada, fichier modèle d'import Dayforce (texte, seulement le nom est renvoyé). Aucun n'agit encore sur la génération.
+const SETTING_COLS = ['configured', 'setupStep', 'eventsSource', 'eventsNoticeDays', 'eventsStaffRule', 'dataInCanada'];
 function getSettings(u) {
   const r = db.prepare('SELECT horaireDayforceLocation AS dayforceLocation FROM users WHERE id = ?').get(u);
-  return { dayforceLocation: (r && r.dayforceLocation) || null };
+  const s = db.prepare('SELECT ' + SETTING_COLS.join(', ') + ', dayforceTemplateName FROM horaire_settings WHERE userId = ?').get(u) || {};
+  return {
+    dayforceLocation: (r && r.dayforceLocation) || null,
+    configured: !!s.configured, setupStep: s.setupStep || 0,
+    eventsSource: s.eventsSource || null, eventsNoticeDays: s.eventsNoticeDays == null ? null : s.eventsNoticeDays,
+    eventsStaffRule: s.eventsStaffRule || null, dataInCanada: s.dataInCanada || null,
+    dayforceTemplateName: s.dayforceTemplateName || null,
+  };
 }
-function setSettings(u, { dayforceLocation }) {
-  if (dayforceLocation !== undefined) db.prepare('UPDATE users SET horaireDayforceLocation = ? WHERE id = ?').run(dayforceLocation || null, u);
+// f : champs déjà validés par la route ; undefined = inchangé. dayforceTemplate : { name, content } ou null (retiré).
+function setSettings(u, f) {
+  if (f.dayforceLocation !== undefined) db.prepare('UPDATE users SET horaireDayforceLocation = ? WHERE id = ?').run(f.dayforceLocation || null, u);
+  const sets = [], args = [];
+  SETTING_COLS.forEach((c) => { if (f[c] !== undefined) { sets.push(c + ' = ?'); args.push(typeof f[c] === 'boolean' ? (f[c] ? 1 : 0) : f[c]); } });
+  if (f.dayforceTemplate !== undefined) {
+    sets.push('dayforceTemplateName = ?', 'dayforceTemplate = ?');
+    args.push(f.dayforceTemplate ? f.dayforceTemplate.name : null, f.dayforceTemplate ? f.dayforceTemplate.content : null);
+  }
+  if (sets.length) {
+    db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
+    db.prepare('UPDATE horaire_settings SET ' + sets.join(', ') + ', updatedAt = ? WHERE userId = ?').run(...args, nowIso(), u);
+  }
   return getSettings(u);
 }
 // CSV de l'horaire enregistré de la semaine ; null si aucun horaire. Seuls les quarts sont exportés (jamais les trous).

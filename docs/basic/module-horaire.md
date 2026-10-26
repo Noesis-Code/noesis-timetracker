@@ -47,7 +47,7 @@ rang) ; horaires (brouillon par semaine + alertes) et quarts. Un quart dont la f
 | POST | `import/employees` | CSV `{csv}` |
 | POST | `weeks/:lundi/import/availabilities` | CSV `{csv}` |
 | GET | `weeks/:lundi/export/dayforce` | CSV pour l'import Dayforce (voir plus bas) |
-| GET, PUT | `settings` | code d'unité Dayforce du compte `{dayforceLocation}` |
+| GET, PUT | `settings` | réglages du compte : `{dayforceLocation, configured, setupStep, eventsSource, eventsNoticeDays, eventsStaffRule, dataInCanada, dayforceTemplate}` (voir Configuration guidée) |
 
 ## Import CSV (format souple, en attendant l'échantillon du maître d'hôtel)
 Séparateur `;`, `,` ou tabulation (détecté) ; guillemets acceptés ; en-tête facultatif (sinon ordre ci-dessous).
@@ -72,10 +72,35 @@ l'horaire enregistré de la semaine (404 si aucun), prêt pour l'import des hora
 - Réservé au compte propriétaire (session) et au module `horaire` actif ; rien n'est journalisé. Test :
   `test/horaire-dayforce-test.js`.
 
+## Configuration guidée (26 oct. 2026, demande d'Émilien)
+Pour ne jamais solliciter le restaurant à part, la première ouverture du volet par un compte non configuré
+(`settings.configured = false`) montre une étape par écran, dans cet ordre : 1. Postes et ordre de comblement ; 2. Employés
+(ou import CSV) ; 3. Besoins normaux ; 4. Disponibilités de la semaine en cours (ou import CSV) ; 5. Événements ; 6. OpenTable ;
+7. Dayforce ; 8. Hébergement des données. Chaque étape réutilise la section correspondante des Paramètres (`public/js/horaire.js`,
+mêmes fonctions de rendu) ; « Suivant » enregistre le formulaire de l'étape (5 à 8) et avance, « Passer » avance sans enregistrer,
+« Terminer » pose `configured = true`. ✕ = reprise plus tard : l'étape courante est mémorisée côté serveur (`setupStep`, 0 à 7)
+et la configuration revient à la prochaine ouverture du volet. Les comptes qui avaient déjà des postes au moment de la migration
+sont réputés configurés.
+
+Nouveaux réglages (table `horaire_settings`, une ligne par compte, migration douce, NULL = non renseigné), ensuite modifiables
+dans les Paramètres (une seule place par fonction) :
+- Événements (section « Événements spéciaux ») : `eventsSource` (où ils sont notés en plus d'OpenTable, 200 car.),
+  `eventsNoticeDays` (délai d'annonce habituel, 0 à 365 j), `eventsStaffRule` (personnel selon le prix et les services, 500 car.).
+- OpenTable (section « OpenTable ») : `openTableCovers` par poste (`horaire_positions`, 1 à 1 000) = couverts par service qui
+  justifient une personne de plus.
+- Dayforce (section « Dayforce ») : code de lieu, code de chaque poste (déplacé du formulaire de poste vers cette section) et
+  fichier modèle d'import (texte CSV, 200 000 car. au plus, `dayforceTemplate: {name, content}` ou `null` ; seul le nom est
+  renvoyé par GET). Le format de l'export n'en est pas encore déduit.
+- Hébergement (section « Hébergement des données ») : `dataInCanada` = `oui` | `non` | `nsp` (je ne sais pas).
+
+**Aucun de ces réglages ne change la génération pour l'instant** (OpenTable sera branché plus tard). Les imports CSV vivent
+désormais dans les sections Employés et Disponibilités (ancienne section « Import et Dayforce » répartie). Test :
+`test/horaire-config-test.js`.
+
 ## Loi 25
-Données confidentielles du personnel : jamais envoyées à l'IA, à la Communauté, au partage ni aux journaux. Incluses dans
+Données confidentielles du personnel (réglages et fichier modèle compris) : jamais envoyées à l'IA, à la Communauté, au partage ni aux journaux. Incluses dans
 l'export du compte (clé `horaire`), effacées à la suppression du compte (cascade + `accountdeletion.js`).
 
 ## Reste à faire
 Écrans (après maquette validée) ; ajustement de l'import à l'échantillon réel ; colonnes de l'export Dayforce à fixer sur
-le fichier modèle d'import du restaurant.
+le fichier modèle d'import du restaurant ; brancher OpenTable (seuils de couverts) et les règles d'événements sur la génération.

@@ -2672,5 +2672,28 @@ CREATE INDEX IF NOT EXISTS idx_horaire_assign_schedule ON horaire_assignments(sc
 for (const [t, col] of [['horaire_employees', 'dayforceId'], ['horaire_positions', 'dayforceCode'], ['users', 'horaireDayforceLocation']]) {
   if (!db.prepare('PRAGMA table_info(' + t + ')').all().some((c) => c.name === col)) db.exec('ALTER TABLE ' + t + ' ADD COLUMN ' + col + ' TEXT');
 }
+// Configuration guidée (26 oct. 2026) : réglages propres au restaurant recueillis à la première ouverture du volet
+// (server/lib/horaire.js getSettings/setSettings). Migration douce : NULL = non renseigné. Sans effet sur la génération pour l'instant.
+if (!db.prepare('PRAGMA table_info(horaire_positions)').all().some((c) => c.name === 'openTableCovers')) {
+  db.exec('ALTER TABLE horaire_positions ADD COLUMN openTableCovers INTEGER'); // couverts par service qui justifient une personne de plus
+}
+if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'horaire_settings'").get()) {
+  db.exec(`
+CREATE TABLE horaire_settings (
+  userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  configured INTEGER NOT NULL DEFAULT 0,
+  setupStep INTEGER NOT NULL DEFAULT 0,
+  eventsSource TEXT,
+  eventsNoticeDays INTEGER,
+  eventsStaffRule TEXT,
+  dataInCanada TEXT,
+  dayforceTemplateName TEXT,
+  dayforceTemplate TEXT,
+  updatedAt TEXT
+);
+-- Comptes qui utilisaient déjà le module (postes saisis) : réputés configurés, la configuration guidée ne s'impose pas à eux.
+INSERT OR IGNORE INTO horaire_settings (userId, configured) SELECT DISTINCT userId, 1 FROM horaire_positions;
+`);
+}
 
 module.exports = db;

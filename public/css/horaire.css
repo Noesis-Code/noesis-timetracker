@@ -70,3 +70,15 @@
 .horaireNeedRemove { position: absolute; top: 0; right: 0; }
 .horaireEventNeed > .horairePair { padding-right: 24px; }
 .horaireDelete { align-self: flex-start; min-height: 44px; margin-top: 12px; padding: 0; background: none; border: 0; font: inherit; font-size: 14px; color: var(--danger); cursor: pointer; }
+/* Configuration guidée (première ouverture) : titre + ✕ (R13), la section dépliée dans un cadre de verre, « Suivant » (violet, R1),
+   « Passer » discret, points de pagination (même rendu que les autres points de l'app). */
+#tab-horaire .horaireOff { display: none; }
+.horaireSetup { display: flex; flex-direction: column; gap: 16px; }
+.horaireSetupHead { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.horaireSetupTitle { flex: 1; min-width: 0; margin: 0; font-size: 18px; font-weight: 700; color: var(--text); }
+.horaireSetupBody { padding-top: 16px; border-radius: var(--radius-lg); }
+#tab-horaire textarea.horaireInput { resize: vertical; min-height: 88px; }
+.horaireSkip { align-self: center; min-height: 44px; padding: 0 16px; background: none; border: 0; font: inherit; font-size: 14px; color: var(--text-light); cursor: pointer; }
+.horaireSetupDots { display: flex; justify-content: center; }
+.horaireSetupDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; }
+.horaireSetupDots .goalsDotBtn.on .goalsDot { opacity: 1; }

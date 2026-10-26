@@ -1,7 +1,10 @@
 /* Module « Horaire » (26 oct. 2026, demande d'Émilien) : écran du gestionnaire (maître d'hôtel) qui prépare l'horaire hebdo de son personnel.
  * Routes : server/routes/horaire.js (doc docs/basic/module-horaire.md). Page unique #tab-horaire, page principale = horaire de la semaine :
  * semaine ‹ › , « Générer » (action principale), alertes, quarts par jour, « Exporter vers Dayforce » ; puis « Paramètres » en sections
- * repliables fermées par défaut (R2) : Employés, Postes, Besoins, Disponibilités, Événements, Import et Dayforce.
+ * repliables fermées par défaut (R2) : Employés, Postes, Besoins, Disponibilités, Événements, OpenTable, Dayforce, Hébergement.
+ * Configuration guidée (26 oct. 2026) : tant que le compte n'est pas « configured », l'ouverture du volet montre une étape par écran
+ * (les mêmes sections, dépliées dans un cadre d'étape), « Suivant » / « Passer », points de pagination ; ✕ = reprise plus tard
+ * à l'étape mémorisée côté serveur (settings.setupStep). Doc : docs/basic/module-horaire.md.
  * Modifier = la ligne se déroule sur place (R36) ; réordonner les postes = glisser-déposer (poignée ≡, même mécanique que les activités, R27) ;
  * supprimer = TMT.ui.confirm rouge (R28). Données du personnel confidentielles (Loi 25) : appels fetch directs, aucune copie hors ligne, rien en console. */
 (function () {
@@ -29,7 +32,7 @@
 
   var S = {
     week: mondayOf(new Date()), employees: [], positions: [], quals: [], needs: [], events: [], avail: [], schedule: null, settings: {},
-    open: {}, editing: null, msg: '', busy: false,
+    open: {}, editing: null, msg: '', busy: false, loaded: false, setupOff: false,
   };
 
   // ---------- réseau ----------
@@ -52,7 +55,7 @@
     return Promise.all([req('GET', 'employees'), req('GET', 'positions'), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek()])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
-        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {};
+        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.loaded = true;
       });
   }
   function refresh() { return loadAll().then(render, fail); }
@@ -129,7 +132,7 @@
   function emptyHint(list, text) { list.appendChild(el('p', 'horaireEmpty', text)); }
 
   // ---------- page principale ----------
-  var weekLabel, msgBox, alertsBox, daysBox, exportBtn, settingsBox, genBtn;
+  var weekLabel, msgBox, alertsBox, daysBox, exportBtn, settingsBox, genBtn, mainNodes, setupBox, setupMsg;
   function build() {
     root.textContent = '';
     var nav = el('div', 'horaireWeek');
@@ -148,7 +151,10 @@
     exportBtn.addEventListener('click', exportDayforce);
     var title = el('p', 'sectionTitle horaireSettingsTitle', tr('Paramètres'));
     settingsBox = el('div', 'horaireSettings cmpGlass cmpList');
-    [nav, genBtn, msgBox, alertsBox, daysBox, exportBtn, title, settingsBox].forEach(function (n) { root.appendChild(n); });
+    mainNodes = [nav, genBtn, msgBox, alertsBox, daysBox, exportBtn, title, settingsBox];
+    setupBox = el('div', 'horaireSetup hidden');
+    setupMsg = el('p', 'horaireMsg hidden'); setupMsg.setAttribute('aria-live', 'polite');
+    mainNodes.concat([setupBox]).forEach(function (n) { root.appendChild(n); });
   }
   function changeWeek(n) {
     S.week = addDays(S.week, n); S.msg = '';
@@ -179,8 +185,13 @@
       });
     }).catch(fail);
   }
-  function renderMsg() { msgBox.textContent = S.msg; msgBox.classList.toggle('hidden', !S.msg); }
+  function renderMsg() { [msgBox, setupMsg].forEach(function (m) { m.textContent = S.msg; m.classList.toggle('hidden', !S.msg); }); }
+  function inSetup() { return S.loaded && !S.settings.configured && !S.setupOff; }
   function render() {
+    var setup = inSetup();
+    mainNodes.forEach(function (n) { n.classList.toggle('horaireOff', setup); });
+    setupBox.classList.toggle('hidden', !setup);
+    if (setup) { renderSetup(); renderMsg(); return; }
     weekLabel.textContent = tr('Semaine du') + ' ' + dayLabel(S.week).replace(/^\S+ /, '');
     renderMsg();
     renderSchedule();
@@ -230,14 +241,18 @@
 
   // ---------- paramètres (sections repliables, fermées par défaut) ----------
   var SECTIONS = [
-    ['employees', 'Employés', function () { return S.employees.length; }, renderEmployees],
+    ['employees', 'Employés', function () { return S.employees.length; }, function (b) { renderEmployees(b); importEmployees(b); }],
     ['positions', 'Postes', function () { return S.positions.length; }, renderPositions],
     ['needs', 'Besoins normaux', function () { return S.needs.length; }, renderNeeds],
-    ['avail', 'Disponibilités', function () { return null; }, renderAvail],
-    ['events', 'Événements spéciaux', function () { return S.events.length; }, renderEvents],
-    ['import', 'Import et Dayforce', function () { return null; }, renderImport],
+    ['avail', 'Disponibilités', function () { return null; }, function (b) { renderAvail(b); importAvail(b); }],
+    ['events', 'Événements spéciaux', function () { return S.events.length; }, function (b) { renderEventRules(b); renderEvents(b); }],
+    ['opentable', 'OpenTable', function () { return null; }, renderOpenTable],
+    ['dayforce', 'Dayforce', function () { return null; }, renderDayforce],
+    ['hosting', 'Hébergement des données', function () { return null; }, renderHosting],
   ];
+  function section(key) { return SECTIONS.find(function (s) { return s[0] === key; }); }
   function renderSettings() {
+    if (inSetup()) { renderSetup(); return; }
     settingsBox.textContent = '';
     SECTIONS.forEach(function (s) {
       var sec = el('div', 'horaireSec');
@@ -319,12 +334,9 @@
   }
   function positionForm(f, p) {
     var name = input('text', p ? p.name : '', tr('Nom du poste'));
-    var code = input('text', p ? p.dayforceCode : '', tr('Code Dayforce'));
-    var pair = el('div', 'horairePair');
-    pair.appendChild(field(tr('Nom'), name)); pair.appendChild(field(tr('Code Dayforce'), code));
-    f.appendChild(pair);
+    f.appendChild(field(tr('Nom'), name)); // code Dayforce du poste : section Dayforce (une seule place, F2)
     f.appendChild(saveBtn(f, function () {
-      var body = { name: name.value, dayforceCode: code.value.trim() };
+      var body = { name: name.value };
       return p ? req('PUT', 'positions/' + p.id, body) : req('POST', 'positions', body);
     }));
     if (p) f.appendChild(deleteBtn(tr('Supprimer ce poste, ses besoins et ses quarts ?'), function () { return req('DELETE', 'positions/' + p.id); }));
@@ -477,38 +489,160 @@
     if (ev) f.appendChild(deleteBtn(tr('Supprimer cet événement ?'), function () { return req('DELETE', 'events/' + ev.id); }));
   }
 
-  // Import CSV (employés ; disponibilités de la semaine choisie) et code de lieu Dayforce.
-  function renderImport(box) {
-    var res = el('p', 'horaireHint'); res.setAttribute('aria-live', 'polite');
-    function picker(label, hint, url, describe) {
-      var file = el('input'); file.type = 'file'; file.accept = '.csv,text/csv,text/plain'; file.className = 'hidden';
-      var b = TMT.ui.addBtn(tr(label), function () { file.click(); });
-      file.addEventListener('change', function () {
-        var fl = file.files && file.files[0]; if (!fl) return;
-        fl.text().then(function (csv) { return req('POST', url(), { csv: csv }); }).then(function (d) {
-          res.textContent = describe(d); return loadAll().then(function () { renderSchedule(); renderSettings(); });
-        }).catch(function (e) { res.textContent = (e && e.message) || tr('Erreur serveur'); }).then(function () { file.value = ''; });
-      });
-      box.appendChild(b); box.appendChild(el('p', 'horaireHint', tr(hint))); box.appendChild(file);
-    }
-    picker('Importer les employés (CSV)', 'Colonnes : nom ; max d’heures ; postes (Serveur:1 | Hôte:2).', function () { return 'import/employees'; }, function (d) {
+  // Import CSV : un sélecteur de fichier ; le résultat s'affiche dans la ligne de message (elle survit au nouveau rendu).
+  function picker(box, label, hint, url, describe) {
+    var file = el('input'); file.type = 'file'; file.accept = '.csv,text/csv,text/plain'; file.className = 'hidden';
+    file.addEventListener('change', function () {
+      var fl = file.files && file.files[0]; if (!fl) return;
+      fl.text().then(function (csv) { return req('POST', url(), { csv: csv }); }).then(function (d) {
+        S.msg = describe(d); return loadAll().then(function () { renderSchedule(); renderSettings(); renderMsg(); });
+      }).catch(fail).then(function () { file.value = ''; });
+    });
+    box.appendChild(TMT.ui.addBtn(tr(label), function () { file.click(); }));
+    box.appendChild(el('p', 'horaireHint', tr(hint))); box.appendChild(file);
+  }
+  function importEmployees(box) {
+    picker(box, 'Importer les employés (CSV)', 'Colonnes : nom ; max d’heures ; postes (Serveur:1 | Hôte:2).', function () { return 'import/employees'; }, function (d) {
       return d.created + ' ' + tr('créé(s)') + ', ' + d.updated + ' ' + tr('mis à jour') + (d.skipped && d.skipped.length ? ', ' + d.skipped.length + ' ' + tr('ligne(s) ignorée(s)') : '') + '.';
     });
-    picker('Importer les disponibilités (CSV)', 'Semaine choisie. Colonnes : nom ; jour ; début ; fin.', function () { return 'weeks/' + S.week + '/import/availabilities'; }, function (d) {
+  }
+  function importAvail(box) {
+    picker(box, 'Importer les disponibilités (CSV)', 'Semaine choisie. Colonnes : nom ; jour ; début ; fin.', function () { return 'weeks/' + S.week + '/import/availabilities'; }, function (d) {
       return d.employees + ' ' + tr('employé(s)') + ', ' + d.intervals + ' ' + tr('plage(s)') + (d.unknown && d.unknown.length ? '. ' + tr('Inconnus :') + ' ' + d.unknown.join(', ') : '') + '.';
     });
-    box.appendChild(res);
+  }
+
+  // Réglages d'un seul formulaire (événements, OpenTable, Dayforce, hébergement) : chaque fonction rend le formulaire et renvoie
+  // son enregistrement. Dans Paramètres : bouton Enregistrer (R35) ; dans la configuration guidée, « Suivant » enregistre.
+  function settingsForm(box, inStep, save) {
     var form = el('div', 'horaireForm');
-    var loc = input('text', S.settings.dayforceLocation || '', tr('Code de lieu Dayforce'));
-    form.appendChild(field(tr('Code de lieu Dayforce'), loc));
-    form.appendChild(saveBtn(form, function () { return req('PUT', 'settings', { dayforceLocation: loc.value.trim() }); }));
     box.appendChild(form);
+    return { form: form, done: function () { if (!inStep) form.appendChild(saveBtn(form, save)); return save; } };
+  }
+  function intOrNull(v) { v = String(v).trim(); return v === '' ? null : Math.round(Number(v.replace(',', '.'))); }
+  // Événements : où ils sont notés en plus d'OpenTable, délai d'annonce habituel, règle de personnel selon le prix et les services.
+  function renderEventRules(box, inStep) {
+    var st = S.settings;
+    var src = input('text', st.eventsSource || '', tr('Notés aussi dans')); src.maxLength = 200;
+    var days = input('number', st.eventsNoticeDays, tr('Annoncés combien de jours avant')); days.min = '0'; days.max = '365'; days.inputMode = 'numeric';
+    var rule = el('textarea', 'horaireInput'); rule.rows = 3; rule.maxLength = 500; rule.value = st.eventsStaffRule || ''; rule.setAttribute('aria-label', tr('Personnel selon le prix et les services'));
+    var f = settingsForm(box, inStep, function () {
+      return req('PUT', 'settings', { eventsSource: src.value.trim(), eventsNoticeDays: intOrNull(days.value), eventsStaffRule: rule.value.trim() });
+    });
+    f.form.appendChild(field(tr('Notés aussi dans (en plus d’OpenTable)'), src));
+    f.form.appendChild(field(tr('Annoncés combien de jours avant'), days));
+    f.form.appendChild(field(tr('Personnel selon le prix et les services'), rule));
+    return f.done();
+  }
+  // Grille « un champ par poste » (OpenTable, codes Dayforce) : enregistre seulement les postes changés.
+  function perPosition(form, key, type, label) {
+    var grid = el('div', 'horaireRanks'), ins = {};
+    S.positions.forEach(function (p) {
+      var i = input(type, p[key], p.name);
+      if (type === 'number') { i.min = '1'; i.max = '1000'; i.inputMode = 'numeric'; } else i.maxLength = 64;
+      ins[p.id] = { el: i, cur: p[key] == null ? null : p[key] };
+      grid.appendChild(field(p.name, i));
+    });
+    form.appendChild(el('span', 'horaireFieldLabel', label));
+    form.appendChild(grid);
+    return function () {
+      return Promise.all(Object.keys(ins).map(function (id) {
+        var raw = ins[id].el.value.trim();
+        var v = type === 'number' ? intOrNull(raw) : (raw || null);
+        if (v === ins[id].cur) return null;
+        var body = {}; body[key] = v;
+        return req('PUT', 'positions/' + id, body);
+      }));
+    };
+  }
+  // OpenTable : par poste, nombre de couverts par service qui justifie une personne de plus (pas encore lu par la génération).
+  function renderOpenTable(box, inStep) {
+    if (!S.positions.length) { emptyHint(box, tr('Ajoute d’abord un poste.')); return null; }
+    var save;
+    var f = settingsForm(box, inStep, function () { return save(); });
+    save = perPosition(f.form, 'openTableCovers', 'number', tr('Couverts par service pour une personne de plus'));
+    return f.done();
+  }
+  // Dayforce : code de lieu du restaurant, code de chaque poste, fichier modèle d'import (facultatif, gardé pour fixer le format).
+  function renderDayforce(box, inStep) {
+    var loc = input('text', S.settings.dayforceLocation || '', tr('Code de lieu Dayforce')); loc.maxLength = 64;
+    var codes = null;
+    var f = settingsForm(box, inStep, function () {
+      return Promise.all([req('PUT', 'settings', { dayforceLocation: loc.value.trim() }), codes && codes()]);
+    });
+    f.form.appendChild(field(tr('Code de lieu Dayforce'), loc));
+    if (S.positions.length) codes = perPosition(f.form, 'dayforceCode', 'text', tr('Code Dayforce de chaque poste'));
+    var save = f.done();
+    var file = el('input'); file.type = 'file'; file.accept = '.csv,text/csv,text/plain'; file.className = 'hidden';
+    var hint = el('p', 'horaireHint');
+    var paint = function () { hint.textContent = S.settings.dayforceTemplateName ? tr('Fichier modèle :') + ' ' + S.settings.dayforceTemplateName : tr('Fichier modèle d’import (facultatif).'); };
+    file.addEventListener('change', function () {
+      var fl = file.files && file.files[0]; if (!fl) return;
+      fl.text().then(function (txt) { return req('PUT', 'settings', { dayforceTemplate: { name: fl.name, content: txt } }); })
+        .then(function (d) { S.settings = d.settings; paint(); }, fail).then(function () { file.value = ''; });
+    });
+    paint();
+    box.appendChild(TMT.ui.addBtn(tr('Joindre le fichier modèle'), function () { file.click(); }));
+    box.appendChild(hint); box.appendChild(file);
+    return save;
+  }
+  // Hébergement des données au Canada exigé : oui / non / je ne sais pas.
+  function renderHosting(box, inStep) {
+    var s = select([['', '—'], ['oui', tr('Oui')], ['non', tr('Non')], ['nsp', tr('Je ne sais pas')]], S.settings.dataInCanada || '', tr('Hébergement au Canada exigé ?'));
+    var f = settingsForm(box, inStep, function () { return req('PUT', 'settings', { dataInCanada: s.value || null }); });
+    f.form.appendChild(field(tr('Hébergement au Canada exigé ?'), s));
+    return f.done();
+  }
+
+  // ---------- configuration guidée (première ouverture d'un compte non configuré) ----------
+  // Une étape = une section des paramètres, dépliée dans le cadre d'étape (R27 : mêmes formulaires). Ordre demandé par Émilien.
+  var STEPS = [
+    ['positions', 'Postes'], ['employees', 'Employés'], ['needs', 'Besoins normaux'], ['avail', 'Disponibilités'],
+    ['events', 'Événements', renderEventRules], ['opentable', 'OpenTable'], ['dayforce', 'Dayforce'], ['hosting', 'Hébergement des données'],
+  ];
+  function setupStep() { return Math.min(Math.max(S.settings.setupStep || 0, 0), STEPS.length - 1); }
+  function goStep(n) {
+    if (S.busy) return;
+    S.busy = true; S.editing = null; S.msg = '';
+    var done = n >= STEPS.length;
+    req('PUT', 'settings', done ? { configured: true } : { setupStep: n }).then(function (d) {
+      S.settings = d.settings;
+      return done ? loadAll().then(render) : render();
+    }).catch(fail).then(function () { S.busy = false; });
+  }
+  function renderSetup() {
+    setupBox.textContent = '';
+    var i = setupStep(), st = STEPS[i], last = i === STEPS.length - 1;
+    var head = el('div', 'horaireSetupHead');
+    head.appendChild(el('h2', 'horaireSetupTitle', tr(st[1]) + (st[0] === 'avail' ? ' · ' + tr('semaine du') + ' ' + dayLabel(S.week).replace(/^\S+ /, '') : '')));
+    head.appendChild(TMT.ui.closeBtn(function () { S.setupOff = true; S.editing = null; S.msg = ''; render(); }, tr('Fermer')));
+    var body = el('div', 'horaireSetupBody horaireSecBody cmpGlass');
+    var save = (st[2] || section(st[0])[3])(body, true);
+    var next = el('button', 'cmpBtn', tr(last ? 'Terminer' : 'Suivant')); next.type = 'button';
+    next.addEventListener('click', function () {
+      if (S.busy) return;
+      S.busy = true; next.disabled = true;
+      Promise.resolve().then(function () { return typeof save === 'function' ? save() : null; }).then(function () {
+        S.busy = false; goStep(i + 1);
+      }, function (e) { S.busy = false; next.disabled = false; fail(e); });
+    });
+    var skip = el('button', 'horaireSkip', tr('Passer')); skip.type = 'button';
+    skip.addEventListener('click', function () { goStep(i + 1); });
+    var dots = el('div', 'horaireSetupDots'); dots.setAttribute('role', 'group');
+    STEPS.forEach(function (s, k) {
+      var d = el('button', 'goalsDotBtn' + (k === i ? ' on' : '')); d.type = 'button'; d.setAttribute('aria-label', tr(s[1]));
+      d.appendChild(el('span', 'goalsDot'));
+      d.addEventListener('click', function () { if (k !== i) goStep(k); });
+      dots.appendChild(d);
+    });
+    [head, setupMsg, body, next, skip, dots].forEach(function (n) { setupBox.appendChild(n); });
   }
 
   // ---------- ouverture de l'onglet (aucun changement d'app.js : on suit la classe .hidden de la section) ----------
-  var built = false;
+  var built = false, wasHidden = true;
   function onShow() {
-    if (root.classList.contains('hidden')) return;
+    if (root.classList.contains('hidden')) { wasHidden = true; return; }
+    if (wasHidden) { S.setupOff = false; wasHidden = false; }
     if (!built) { build(); built = true; }
     refresh();
   }
