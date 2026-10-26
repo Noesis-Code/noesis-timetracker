@@ -399,7 +399,73 @@ function importAvailabilitiesCsv(u, weekStart, text) {
   return res;
 }
 
+// Réservations OpenTable (rapport « Réservations » de GuestCenter, export CSV) : date, heure et taille du groupe (+ statut facultatif).
+// Format souple (en-têtes français ou anglais, séparateur ; , ou tabulation). Seuls ces champs sont lus : jamais le nom du client ni ses notes.
+// Une réservation annulée ou « no show » ne compte pas. Les totaux des jours présents dans le fichier REMPLACENT les anciens (réimporter est sans danger).
+const CANCELLED = ['annule', 'annulee', 'cancelled', 'canceled', 'cancel', 'no show', 'no-show', 'noshow', 'absent', 'absente'];
+// 'AAAA-MM-JJ' ou 'JJ/MM/AAAA' (jour d'abord, comme au Québec) ou 'AAAA/MM/JJ' ; null si illisible.
+function normDate(s) {
+  const v = String(s || '').trim().split(/[ T]/)[0];
+  let m = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/.exec(v);
+  let y, mo, d;
+  if (m) { y = +m[1]; mo = +m[2]; d = +m[3]; } else {
+    m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec(v);
+    if (!m) return null;
+    d = +m[1]; mo = +m[2]; y = +m[3];
+    if (mo > 12 && d <= 12) { const t = d; d = mo; mo = t; } // JJ/MM impossible : c'était MM/JJ
+  }
+  const out = String(y) + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+  return isDate(out) ? out : null;
+}
+function importReservationsCsv(u, text) {
+  const rows = parseCsv(text);
+  const res = { days: 0, covers: 0, reservations: 0, skipped: [], error: null };
+  if (!rows.length) return res;
+  const head = rows[0].map(fold);
+  const spec = {
+    date: ['date', 'reservation date', 'date de reservation', 'date de la reservation', 'jour', 'day'],
+    time: ['heure', 'time', 'reservation time', 'heure de reservation', 'heure de la reservation'],
+    size: ['taille du groupe', 'taille', 'party size', 'size', 'couverts', 'covers', 'nombre de personnes', 'personnes', 'convives', 'guests'],
+    status: ['statut', 'status', 'etat'],
+  };
+  const idx = {};
+  for (const [k, names] of Object.entries(spec)) { const i = head.findIndex((x) => names.includes(x)); if (i >= 0) idx[k] = i; }
+  if (idx.date === undefined || idx.time === undefined || idx.size === undefined) {
+    res.error = 'Colonnes non reconnues : il faut une date, une heure et la taille du groupe dans la première ligne.';
+    return res;
+  }
+  const totals = new Map(); // 'jour|service' -> couverts
+  rows.slice(1).forEach((cells, n) => {
+    if (idx.status !== undefined && CANCELLED.includes(fold(cells[idx.status]))) return;
+    const day = normDate(cells[idx.date]);
+    const time = normTime(String(cells[idx.time] || '').replace(/^(\d{1,2}:\d{2}):\d{2}/, '$1'));
+    const size = Number(String(cells[idx.size] || '').trim());
+    if (!day || !time || !Number.isInteger(size) || size < 1 || size > 500) { res.skipped.push({ line: n + 2, reason: 'date, heure ou taille illisible' }); return; }
+    const key = day + '|' + (gen.toMin(time) >= 16 * 60 ? 'soir' : 'jour');
+    totals.set(key, (totals.get(key) || 0) + size);
+    res.reservations += 1;
+  });
+  const days = [...new Set([...totals.keys()].map((k) => k.split('|')[0]))];
+  db.exec('BEGIN');
+  try {
+    const del = db.prepare('DELETE FROM horaire_covers WHERE userId = ? AND day = ?');
+    const ins = db.prepare('INSERT INTO horaire_covers (userId, day, service, covers, updatedAt) VALUES (?, ?, ?, ?, ?)');
+    days.forEach((d) => del.run(u, d));
+    const now = nowIso();
+    for (const [key, covers] of totals) { const [d, svc] = key.split('|'); ins.run(u, d, svc, covers, now); res.covers += covers; }
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  res.days = days.length;
+  return res;
+}
+// Totaux de la semaine : [{ day, service: 'jour'|'soir', covers }].
+function weekCovers(u, weekStart) {
+  return db.prepare('SELECT day, service, covers FROM horaire_covers WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, service')
+    .all(u, weekStart, gen.addDays(weekStart, 6));
+}
+
 module.exports = {
+  importReservationsCsv, weekCovers, normDate,
   LIMITS, isDate, isMonday, isTime, cleanName, maxMinutes, ownEmployee, ownPosition, ownEvent,
   listEmployees, countEmployees, createEmployee, updateEmployee, deleteEmployee,
   listPositions, countPositions, createPosition, updatePosition, deletePosition,

@@ -2674,6 +2674,18 @@ for (const [t, col] of [['horaire_employees', 'dayforceId'], ['horaire_positions
 }
 // Configuration guidée (26 oct. 2026) : réglages propres au restaurant recueillis à la première ouverture du volet
 // (server/lib/horaire.js getSettings/setSettings). Migration douce : NULL = non renseigné. Sans effet sur la génération pour l'instant.
+// Réservations OpenTable (import CSV, 26 oct. 2026) : seulement des TOTAUX de couverts par jour et par service ('jour' = avant 16 h, 'soir' = 16 h ou plus) ;
+// ni nom de client, ni téléphone, ni note : ces colonnes du fichier ne sont jamais lues.
+db.exec(`
+CREATE TABLE IF NOT EXISTS horaire_covers (
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day TEXT NOT NULL,
+  service TEXT NOT NULL,
+  covers INTEGER NOT NULL,
+  updatedAt TEXT NOT NULL,
+  PRIMARY KEY (userId, day, service)
+);
+`);
 if (!db.prepare('PRAGMA table_info(horaire_positions)').all().some((c) => c.name === 'openTableCovers')) {
   db.exec('ALTER TABLE horaire_positions ADD COLUMN openTableCovers INTEGER'); // couverts par service qui justifient une personne de plus
 }

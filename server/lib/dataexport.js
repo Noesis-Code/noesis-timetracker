@@ -298,6 +298,7 @@ function buildUserExport(userId) {
     events: rows('SELECT id, day, label FROM horaire_events WHERE userId = ? ORDER BY day', userId),
     needs: rows('SELECT id, positionId, weekday, eventId, start, end, count FROM horaire_needs WHERE userId = ? ORDER BY id', userId),
     rotation: rows('SELECT positionId, rank, lastEmployeeId FROM horaire_rotation WHERE userId = ?', userId),
+    covers: has('horaire_covers') ? rows('SELECT day, service, covers FROM horaire_covers WHERE userId = ? ORDER BY day, service', userId) : [],
     schedules: rows('SELECT id, weekStart, status, alerts, generatedAt FROM horaire_schedules WHERE userId = ? ORDER BY weekStart', userId)
       .map((s) => { let alerts = []; try { alerts = JSON.parse(s.alerts || '[]'); } catch (e) { /* illisible : vide */ } return { ...s, alerts }; }),
     assignments: rows('SELECT scheduleId, employeeId, positionId, day, start, end FROM horaire_assignments WHERE userId = ? ORDER BY day, start', userId),

@@ -49,6 +49,7 @@
   function loadWeek() {
     return Promise.all([req('GET', 'weeks/' + S.week), req('GET', 'weeks/' + S.week + '/availabilities')]).then(function (r) {
       S.schedule = r[0].schedule; S.avail = r[1].availabilities || [];
+      return req('GET', 'weeks/' + S.week + '/covers').then(function (c) { S.covers = c.covers || []; }, function () { S.covers = []; });
     });
   }
   function loadAll() {
@@ -556,7 +557,28 @@
     };
   }
   // OpenTable : par poste, nombre de couverts par service qui justifie une personne de plus (pas encore lu par la génération).
+  // Réservations OpenTable : export CSV du rapport « Réservations » de GuestCenter ; l'app ne garde que les totaux de couverts par jour et service.
+  function importReservations(box) {
+    picker(box, 'Importer les réservations (CSV)', 'Rapport « Réservations » de GuestCenter. Colonnes : date ; heure ; taille du groupe (+ statut). Aucun nom de client n’est gardé.', function () { return 'import/reservations'; }, function (d) {
+      return d.reservations + ' ' + tr('réservation(s)') + ', ' + d.covers + ' ' + tr('couverts') + ', ' + d.days + ' ' + tr('jour(s)') + (d.skipped && d.skipped.length ? ', ' + d.skipped.length + ' ' + tr('ligne(s) ignorée(s)') : '') + '.';
+    });
+    var cov = S.covers || [];
+    if (!cov.length) return;
+    var list = el('div', 'cmpList');
+    for (var i = 0; i < 7; i++) {
+      var day = addDays(S.week, i);
+      var jour = 0, soir = 0;
+      cov.forEach(function (c) { if (c.day === day) { if (c.service === 'soir') soir = c.covers; else jour = c.covers; } });
+      if (!jour && !soir) continue;
+      var r = el('div', 'horaireShift');
+      r.appendChild(el('span', 'horaireShiftPos', dayLabel(day)));
+      r.appendChild(el('span', 'horaireShiftEmp', tr('Jour') + ' ' + jour + ' · ' + tr('Soir') + ' ' + soir));
+      list.appendChild(r);
+    }
+    box.appendChild(list);
+  }
   function renderOpenTable(box, inStep) {
+    importReservations(box);
     if (!S.positions.length) { emptyHint(box, tr('Ajoute d’abord un poste.')); return null; }
     var save;
     var f = settingsForm(box, inStep, function () { return save(); });

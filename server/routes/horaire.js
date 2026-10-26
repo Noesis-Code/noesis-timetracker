@@ -282,5 +282,16 @@ router.post('/horaire/weeks/:weekStart/import/availabilities', (req, res) => {
   const t = csvText(req, res); if (t === null) return;
   res.json(h.importAvailabilitiesCsv(req.userId, w, t));
 });
+router.post('/horaire/import/reservations', (req, res) => {
+  const t = csvText(req, res); if (t === null) return;
+  const out = h.importReservationsCsv(req.userId, t);
+  if (out.error) return bad(res, out.error);
+  res.json(out);
+});
+router.get('/horaire/weeks/:weekStart/covers', (req, res) => {
+  const w = weekParam(req, res); if (!w) return;
+  res.set('Cache-Control', 'no-store');
+  res.json({ covers: h.weekCovers(req.userId, w) });
+});
 
 module.exports = router;
