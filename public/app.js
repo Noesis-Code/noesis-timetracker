@@ -2132,7 +2132,7 @@
   });
 
   // Même bloc sur l'écran du mot de passe (suffixe vide) et sur la recherche de profil (suffixe « S »).
-  ['', 'S'].forEach(function (sfx) {
+  ['', 'S'].filter(function (sfx) { return $('onbForgotLink' + sfx); }).forEach(function (sfx) {
     $('onbForgotLink' + sfx).addEventListener('click', function (e) {
       e.preventDefault();
       $('onbForgot' + sfx).classList.toggle('hidden');
