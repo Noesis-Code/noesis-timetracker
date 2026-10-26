@@ -1416,7 +1416,7 @@ body.scrollLock { overflow: hidden; }
 /* Bouton "Rechercher" DANS la zone de texte : repris tel quel du gabarit .chatComposerRow/.iconBtn (déjà défini plus haut, voir sa note) plutôt qu'une variante … */
 .communitySearchRow { margin-bottom: 8px; }
 /* Barre de recherche de l'onglet Communauté (maquette v2) : loupe à l'intérieur, à gauche ; plus de bouton « Rechercher » (la recherche part avec Entrée). */
-#communitySearchBar .communitySearchRow input[type="text"] { padding-left: 46px; padding-right: 16px; }
+#communitySearchBar .communitySearchRow input[type="text"] { display: block; padding-left: 46px; padding-right: 16px; } /* display: block : sans la marge de descente d'une ligne de texte, la loupe (top: 50 %) est au milieu exact du champ */
 .communitySearchIcon {
   position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
   width: 18px; height: 18px; color: var(--text-light); pointer-events: none; z-index: 1;

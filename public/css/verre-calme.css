@@ -222,7 +222,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 :root #communitySearchBar { background: transparent; border: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-radius: 0; padding: 0; }
 :root #communitySearchBar #communitySearchInput#communitySearchInput {
   background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; box-shadow: var(--glass-shadow) !important;
-  -webkit-backdrop-filter: var(--glass-blur-sheet) !important; backdrop-filter: var(--glass-blur-sheet) !important; border-radius: 22px !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important; backdrop-filter: var(--glass-blur) !important; border-radius: 22px !important;
 }
 
 /* Fenêtre membres : barre de recherche identique à celle de Communauté. */
@@ -234,7 +234,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 /* Communauté — pastilles Partenaires/Clients/Financement : même verre que la barre de recherche (hors état actif). */
 :root #communitySearchBar #communitySeekingFilters .seekingTagBtn:not(.active):not(.active) {
   background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; box-shadow: var(--glass-shadow) !important;
-  -webkit-backdrop-filter: var(--glass-blur-sheet) !important; backdrop-filter: var(--glass-blur-sheet) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important; backdrop-filter: var(--glass-blur) !important;
 }
 
 /* Fenêtre membres : membres présents en lignes simples (filets fins, sans section), comme les enregistrements de l'historique. */
