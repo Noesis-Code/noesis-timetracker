@@ -3,7 +3,7 @@
 
 /* ----- Écran principal ----- */
 #profileSettingsScroll { scroll-snap-type: none; padding-top: 12px; }
-#profileSettingsPanel .settingsBlockLabel { padding: 0 0 8px; font-weight: 600; color: var(--text); }
+#profileSettingsPanel .settingsBlockLabel { padding: 0 0 8px; font-weight: 600; color: var(--text); } /* = .cmpBlockTitle (R41, composants.css) */
 #settingsActivitiesBlock { gap: 12px; margin-bottom: 16px; }
 
 /* Activités : UNE carte, une ligne par activité, ✎ à droite (R19, R21, R22) */

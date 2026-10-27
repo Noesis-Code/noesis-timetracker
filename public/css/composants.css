@@ -162,6 +162,9 @@
   background-color: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 
+/* R41 (27 oct. 2026) : titre de bloc ou de tableau = style des titres de Paramètres. UNE définition. */
+.cmpBlockTitle { margin: 0; padding: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--text); text-align: left; }
+
 /* Bouton d'envoi à l'IA (27 oct. 2026, demande d'Émilien) : rond violet avec une flèche ↑, STANDARD pour écrire à l'IA (zone de saisie libre de la Feuille de route, pop-up des tâches du jour, zone de l'extension Expansion).
    Les autres boutons d'envoi (discussions, messages) ne sont pas concernés. Zone de toucher de 44 px. */
 .cmpSend {
