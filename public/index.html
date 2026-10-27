@@ -2683,7 +2683,99 @@
               <button id="addActivityBtn" class="cmpAdd" type="button" aria-label="Ajouter une activité"><b>+</b>Ajouter une activité</button>
             </div>
             <p class="settingsBlockLabel">Paramètres</p>
-            <div id="settingsParamsCard" class="settingsParamsCard cmpList cmpGlass">
+            <div id="settingsParamsCard" class="settingsParamsWrap">
+            <!-- 27 oct. 2026 (Émilien) : Réglages retriés en trois cartes — Mon IA ; Préférences, Compte, Mes données ; Partager l'app, Aide et suggestions. -->
+            <div class="settingsParamsCard cmpList cmpGlass">
+
+<div class="settingsSection settingsSectionBig" data-module="ai">
+              <button type="button" class="settingsSectionHeader" id="aiConnectHeader" aria-expanded="false">
+                <span class="sectionTitle">Mon IA</span>
+                <span class="settingsRowValue" id="settingsAiValue"></span>
+                <span class="cmpChev" aria-hidden="true"></span>
+              </button>
+              <div class="settingsSectionBody hidden">
+                <div class="settingsCard">
+                  <div id="aiModeOptions" class="aiModeOptions"></div>
+                  <p id="aiModeMsg" class="msg"></p>
+                </div>
+                <div class="settingsCard"><div id="aiConnectBox"></div></div>
+              </div>
+            </div>
+            </div>
+            <div class="settingsParamsCard cmpList cmpGlass">
+<div class="settingsGroup">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Préférences</span>
+                <span class="settingsRowValue">Langue, notifications, modules</span>
+                <span class="cmpChev" aria-hidden="true"></span>
+              </button>
+              <div class="settingsGroupBody hidden">
+
+<div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Langue</span>
+                <span class="cmpChev" aria-hidden="true"></span>
+              </button>
+              <div class="settingsSectionBody hidden">
+              <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
+                   Réglage par profil, comme le thème : anglais par défaut pour
+                   tout nouveau compte, français pour les profils qui existaient
+                   déjà (voir la migration dans server/db.js). Réutilise les
+                   classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
+                   (composants génériques appartenant à la discussion Design :
+                   utilisés tels quels, aucune définition CSS modifiée). -->
+              <div class="settingsFlat">
+                <div class="themeSwitch" id="langSwitch">
+                  <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
+                  <button type="button" data-lang-choice="en" class="themeBtn">English</button>
+                </div>
+                <p id="langMsg" class="msg"></p>
+              </div>
+              </div>
+            </div>
+
+<div class="settingsSection" data-module="notifications">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Notifications</span>
+                <span class="cmpChev" aria-hidden="true"></span>
+              </button>
+              <div class="settingsSectionBody hidden">
+            <div class="settingsCard">
+              <div class="notifRow">
+                <span class="notifRowLabel">Communauté</span>
+                <label class="toggleSwitch">
+                  <input type="checkbox" id="notifCommunityToggle" role="switch" aria-label="Communauté">
+                  <span class="toggleSwitchTrack"></span>
+                </label>
+              </div>
+              <div id="notifActivityList"></div>
+            </div>
+            <p id="pushMsg" class="msg settingsHintBelow"></p>
+              </div>
+            </div>
+
+<div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" id="modulesHeader" aria-expanded="false">
+                <span class="sectionTitle">Modules</span>
+                <span class="cmpChev" aria-hidden="true"></span>
+              </button>
+              <div class="settingsSectionBody hidden">
+                <div class="settingsCard">
+                  <div id="modulesList"></div>
+                  <p id="modulesMsg" class="msg"></p>
+                </div>
+              </div>
+            </div>
+              </div>
+            </div>
+<div class="settingsGroup">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Compte</span>
+                <span class="settingsRowValue">Identité, sécurité</span>
+                <span class="cmpChev" aria-hidden="true"></span>
+              </button>
+              <div class="settingsGroupBody hidden">
+
 <div class="settingsSection">
               <button type="button" class="settingsSectionHeader" aria-expanded="false">
                 <span class="sectionTitle">Identité</span>
@@ -2741,6 +2833,7 @@
                      app.js n'a jamais bougé, quel que soit l'emplacement. -->
               </div>
             </div>
+
 <div class="settingsSection">
                 <button type="button" class="settingsSectionHeader" aria-expanded="false">
                   <span class="sectionTitle">Sécurité</span>
@@ -2846,78 +2939,16 @@
               </div>
                 </div>
               </div>
-<div class="settingsGroup">
-              <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                <span class="sectionTitle">Langue</span>
-                <span class="cmpChev" aria-hidden="true"></span>
-              </button>
-              <div class="settingsGroupBody hidden">
-              <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
-                   Réglage par profil, comme le thème : anglais par défaut pour
-                   tout nouveau compte, français pour les profils qui existaient
-                   déjà (voir la migration dans server/db.js). Réutilise les
-                   classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
-                   (composants génériques appartenant à la discussion Design :
-                   utilisés tels quels, aucune définition CSS modifiée). -->
-              <div class="settingsFlat">
-                <div class="themeSwitch" id="langSwitch">
-                  <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
-                  <button type="button" data-lang-choice="en" class="themeBtn">English</button>
-                </div>
-                <p id="langMsg" class="msg"></p>
-              </div>
               </div>
             </div>
-<div class="settingsSection">
-              <button type="button" class="settingsSectionHeader" id="modulesHeader" aria-expanded="false">
-                <span class="sectionTitle">Modules</span>
-                <span class="cmpChev" aria-hidden="true"></span>
-              </button>
-              <div class="settingsSectionBody hidden">
-                <div class="settingsCard">
-                  <div id="modulesList"></div>
-                  <p id="modulesMsg" class="msg"></p>
-                </div>
-              </div>
-            </div>
-<div class="settingsSection" data-module="notifications">
-              <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                <span class="sectionTitle">Notifications</span>
-                <span class="cmpChev" aria-hidden="true"></span>
-              </button>
-              <div class="settingsSectionBody hidden">
-            <div class="settingsCard">
-              <div class="notifRow">
-                <span class="notifRowLabel">Communauté</span>
-                <label class="toggleSwitch">
-                  <input type="checkbox" id="notifCommunityToggle" role="switch" aria-label="Communauté">
-                  <span class="toggleSwitchTrack"></span>
-                </label>
-              </div>
-              <div id="notifActivityList"></div>
-            </div>
-            <p id="pushMsg" class="msg settingsHintBelow"></p>
-              </div>
-            </div>
-<div class="settingsSection" data-module="ai">
-              <button type="button" class="settingsSectionHeader" id="aiConnectHeader" aria-expanded="false">
-                <span class="sectionTitle">Mon IA</span>
-                <span class="cmpChev" aria-hidden="true"></span>
-              </button>
-              <div class="settingsSectionBody hidden">
-                <div class="settingsCard">
-                  <div id="aiModeOptions" class="aiModeOptions"></div>
-                  <p id="aiModeMsg" class="msg"></p>
-                </div>
-                <div class="settingsCard"><div id="aiConnectBox"></div></div>
-              </div>
-            </div>
+
 
 
             <!-- 19 oct. 2026 : trace discrète quand le module « Assistant IA » est désactivé (les blocs IA ci-dessus sont alors masqués). -->
 <div class="settingsGroup">
               <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                <span class="sectionTitle">Calendrier et export</span>
+                <span class="sectionTitle">Mes données</span>
+                <span class="settingsRowValue">Calendrier, export</span>
                 <span class="cmpChev" aria-hidden="true"></span>
               </button>
               <div class="settingsGroupBody hidden">
@@ -3000,9 +3031,12 @@
               </div>
               </div>
             </div>
+            </div>
+            <div class="settingsParamsCard cmpList cmpGlass">
+
 <div class="settingsSection">
               <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                <span class="sectionTitle">Partage</span>
+                <span class="sectionTitle">Partager l'app</span>
                 <span class="cmpChev" aria-hidden="true"></span>
               </button>
               <div class="settingsSectionBody hidden">
@@ -3017,6 +3051,7 @@
             </div>
               </div>
             </div>
+
 <div class="settingsSection">
               <button type="button" class="settingsSectionHeader" aria-expanded="false">
                 <span class="sectionTitle">Aide et suggestions</span>
@@ -3046,6 +3081,8 @@
                 </div>
               </div>
             </div>
+            </div>
+            
             </div>
             <button type="button" id="logoutBtn" class="settingsLogoutLink">Déconnexion</button>
             <button type="button" id="deleteAccountOpenBtn" class="settingsDeleteBtn">Supprimer mon compte</button>

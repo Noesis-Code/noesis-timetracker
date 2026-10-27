@@ -10677,7 +10677,8 @@
   // le commentaire de #profileSettingsScroll dans styles.css.
   function closeAllSettingsSections() {
     $('profileSettingsPanel').classList.remove('settingsDrill'); // maquette 25 oct. 2026 : retour à la liste
-    document.querySelectorAll('#settingsParamsCard > .settingsSection, #settingsParamsCard > .settingsGroup').forEach(function (top) {
+    if (TMT.paintAiModeValue) TMT.paintAiModeValue(); // la valeur de « Mon IA » suit le mode choisi
+    document.querySelectorAll('#settingsParamsCard .settingsParamsCard > .settingsSection, #settingsParamsCard .settingsParamsCard > .settingsGroup').forEach(function (top) {
       closeSettingsContainer(top);
       if (top.classList.contains('settingsGroup')) {
         top.querySelectorAll('.settingsSection').forEach(closeSettingsContainer);
@@ -11161,6 +11162,7 @@
   });
 
   function showProfileSettings() {
+    if (TMT.paintAiModeValue) TMT.paintAiModeValue();
     closeNotifPanel();
     closeFollowsPanel();
     // Quatrième panneau flottant de la barre supérieure depuis le 4 septembre

@@ -1409,6 +1409,15 @@
     return loadAiMode().then(function (mode) { return mode || askAiModeModal(); });
   }
   TMT.ensureAiMode = ensureAiMode;
+  // Valeur affichée à droite de « Mon IA » dans la liste des Réglages (mode choisi, vide s'il n'est pas encore choisi).
+  TMT.paintAiModeValue = function () {
+    var v = document.getElementById('settingsAiValue');
+    if (!v || !TMT.getProfile()) return;
+    loadAiMode().then(function () {
+      var m = AI_MODES.filter(function (x) { return x.key === TMT.aiMode; })[0];
+      v.textContent = m ? t(m.label) : '';
+    }).catch(function () {});
+  };
   // Envoi d'une tâche libre vers des activités déjà choisies (pop-up du bouton flottant) : MÊME chaîne que « Ajouter » de la page 1 —
   // mode de l'IA, puis pop-up de choix (sans IA), de placement (partiel) ou de confirmation (autonome). Résout { results } ou null (annulé).
   TMT.captureTaskFlow = function (label, ids, forcedCategory) {

@@ -36,8 +36,9 @@
 #profileSettingsPanel.settingsDrill > .settingsPanelCard > .subpageHeader,
 #profileSettingsPanel.settingsDrill #settingsActivitiesBlock,
 #profileSettingsPanel.settingsDrill #profileSettingsScroll > .settingsBlockLabel,
-#profileSettingsPanel.settingsDrill #settingsParamsCard > :not(.open),
-#profileSettingsPanel.settingsDrill #settingsParamsCard > .open > .settingsSectionHeader,
+#profileSettingsPanel.settingsDrill #settingsParamsCard > .settingsParamsCard:not(:has(> .open)),
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsParamsCard > :not(.open),
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsParamsCard > .open > .settingsSectionHeader,
 #profileSettingsPanel.settingsDrill .settingsLogoutLink,
 #profileSettingsPanel.settingsDrill .settingsDeleteBtn { display: none; }
 #profileSettingsPanel.settingsDrill .settingsSubHead { display: block; margin-bottom: 16px; }
@@ -54,7 +55,7 @@
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
   padding: 12px 16px; margin: 0 0 12px; overflow: hidden; box-sizing: border-box;
 }
-#profileSettingsPanel.settingsDrill #settingsParamsCard > .open { border-top: 0; }
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsParamsCard > .open { border-top: 0; }
 #profileSettingsScroll #settingsParamsCard .settingsCard:has(> .notifRow, > #modulesList, > #notifActivityList, > .consentItem),
 #profileSettingsScroll #settingsParamsCard .settingsFieldList,
 #profileSettingsScroll #settingsParamsCard .settingsFlat:has(#langSwitch) { padding: 0; }
@@ -172,3 +173,13 @@
 #onbTypeStep .onbTypeAsk { margin: 0 0 8px; text-align: left; }
 #onbTypeStep .onbTypeExisting { margin: 24px 0 8px; text-align: left; }
 #onbTypeStep #onbSwitchToExisting { width: 100%; }
+
+/* Réglages retriés (27 oct. 2026) : trois cartes ; une ligne = titre à gauche, valeur grise à droite, chevron (R21). Mon IA : titre plus grand. */
+.settingsParamsWrap { display: flex; flex-direction: column; }
+.settingsRowValue { flex: 1 1 auto; margin: 0 8px 0 12px; min-width: 0; font-size: 13px; color: var(--text-light); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#profileSettingsPanel .settingsParamsCard .settingsSectionHeader .sectionTitle { flex: 0 0 auto; }
+#profileSettingsPanel .settingsParamsCard .settingsSectionBig > .settingsSectionHeader .sectionTitle { font-size: 17px; font-weight: 700; }
+/* Sous-sections d'un groupe (Préférences, Compte) : chacune est une carte de verre à ligne repliable, pas un titre en retrait. */
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsSection { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); margin: 0 0 12px; overflow: hidden; }
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsSection > .settingsSectionHeader { padding: 14px 16px; }
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsSection > .settingsSectionBody { padding: 0 16px 12px; }
