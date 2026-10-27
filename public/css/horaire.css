@@ -1,33 +1,107 @@
 /* Module « Horaire » (26 oct. 2026) : écran du gestionnaire, public/js/horaire.js. Composants partagés de css/composants.css (.cmpBtn, .cmpAdd,
    .cmpRemove, .cmpEdit, .cmpChev, .cmpGlass, .cmpList) ; ici seulement la mise en page. Jetons seulement, aucune couleur en dur. Espacements 8/12/16/24. */
-#tab-horaire { display: flex; flex-direction: column; gap: 12px; padding-bottom: 96px; }
+#tab-horaire { display: flex; flex-direction: column; gap: 24px; padding-bottom: 96px; font-size: 14px; color: var(--text); }
 #tab-horaire.hidden { display: none; }
+#tab-horaire .hidden { display: none; }
 
-/* Semaine : ‹ libellé › */
+/* En-tête (maquette du 27 oct. 2026) : titre, semaine ‹ libellé ›, « Générer l'horaire » (secondaire), « Prompt pour l'IA » (violet, R1) */
+.horaireHead { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.horaireTitle { flex-grow: 1; margin: 0; font-size: 24px; font-weight: 600; color: var(--text); }
 .horaireWeek { display: flex; align-items: center; gap: 8px; }
-.horaireWeekLabel { flex: 1; margin: 0; text-align: center; font-size: 18px; font-weight: 700; color: var(--text); }
-.horaireNav { width: 44px; height: 44px; padding: 0; font-size: 24px; line-height: 1; color: var(--text-light); cursor: pointer; border-radius: var(--radius-md); }
+.horaireWeekLabel { min-width: 240px; text-align: center; font-size: 16px; font-weight: 500; color: var(--text); }
+.horaireNav, .horaireBtn { height: 44px; border-radius: var(--radius-md); font: inherit; color: var(--text); cursor: pointer; }
+.horaireNav { width: 44px; padding: 0; font-size: 20px; line-height: 1; }
+.horaireBtn { padding: 0 16px; }
+.horaireBtnMain { width: auto; min-height: 44px; height: 44px; padding: 0 24px; border-radius: var(--radius-md); }
+#tab-horaire > .horaireMsg { margin: -12px 0 0; text-align: right; color: var(--violet-soft); }
 
-.horaireMsg { margin: 0; font-size: 13px; color: var(--text-light); text-align: center; }
-.horaireEmpty { margin: 0; padding: 12px 0; font-size: 13px; color: var(--text-light); text-align: center; }
+.horaireMsg { margin: 0; font-size: 13px; color: var(--text-light); }
+.horaireEmpty { margin: 0; padding: 12px 16px; font-size: 13px; color: var(--text-light); text-align: center; }
 .horaireHint { margin: 0; font-size: 13px; color: var(--text-light); }
+.horaireMuted { color: var(--text-light); }
+.horaireLight { font-weight: 400; }
+.horaireGrow { flex-grow: 1; }
 
-/* Alertes : trous et dépassements, liste simple dans une carte de verre */
-.horaireAlerts { border-radius: var(--radius-lg); padding: 12px 16px; }
-.horaireAlertsTitle { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: var(--text); }
-.horaireAlertList { margin: 0; padding: 0 0 0 16px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text); }
+/* Blocs numérotés : titre + phrase grise (+ boutons), puis un cadre de verre ; sur téléphone le tableau défile dans son cadre */
+.horaireBlock { display: flex; flex-direction: column; gap: 12px; }
+.horaireBlockHead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; }
+.horaireBlockTitle { margin: 0; font-size: 17px; font-weight: 600; color: var(--text); }
+.horaireBlockHint { color: var(--text-light); }
+.horaireFrame { overflow-x: auto; border-radius: var(--radius-lg); }
 
-/* Horaire de la semaine : une carte par jour, une ligne par quart (heures · poste · employé) */
-.horaireDays { display: flex; flex-direction: column; gap: 12px; }
-.horaireDay { border-radius: var(--radius-lg); overflow: hidden; }
-.horaireDayTitle { margin: 0; padding: 12px 16px 8px; font-size: 15px; font-weight: 700; color: var(--text); }
+/* Tableau jours × services (Besoins, Horaire de la semaine) */
+.horaireGrid { display: grid; }
+.horaireGridNeeds { grid-template-columns: 96px repeat(7, minmax(132px, 1fr)); min-width: 1020px; }
+.horaireGridPlan { grid-template-columns: 96px repeat(7, minmax(150px, 1fr)); min-width: 1150px; }
+.horaireCell { padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.horaireCellTop { border-top: 1px solid var(--sep); }
+.horaireCellSide { border-left: 1px solid var(--sep); }
+.horaireCellPlan { padding: 8px; }
+.horaireRowLabel { color: var(--text-light); font-weight: 500; }
+.horaireDayName { font-weight: 600; }
+.horaireDayDate { font-size: 13px; color: var(--text-light); }
+.horaireNeed { display: flex; justify-content: space-between; gap: 8px; }
+.horaireNeedN { font-weight: 600; color: var(--violet-soft); }
+.horaireTag { margin-top: 4px; align-self: flex-start; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(var(--purple-rgb), .55); color: var(--violet-soft); font-size: 13px; }
+
+/* 2. Serveurs : nom, quarts, 7 × (matin, soir), note permanente */
+.horaireStaff { min-width: 1180px; display: flex; flex-direction: column; }
+.horaireStaffRow { display: grid; grid-template-columns: 200px 88px repeat(7, 92px) minmax(220px, 1fr); align-items: center; padding: 4px 16px; }
+.horaireStaffHead { padding: 12px 16px 4px; font-size: 13px; font-weight: 500; color: var(--text-light); }
+.horaireStaffSub { padding: 0 16px 8px; font-size: 13px; color: var(--text-light); }
+.horaireStaffDay { text-align: center; color: var(--text); }
+.horaireStaffNote { padding-left: 16px; font-size: 13px; }
+.horaireStaffHead .horaireStaffNote { font-size: 13px; }
+.horaireStaffName { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.horaireStaffCover { padding: 12px 16px; margin-top: 8px; border-top: 1px solid var(--sep); }
+.horaireStaffCover .horaireStaffName { font-weight: 600; }
+.horairePair2 { display: flex; justify-content: center; gap: 4px; }
+.horairePair2 > span { width: 40px; text-align: center; }
+.horaireGroup { padding: 12px 16px 8px; border-top: 1px solid var(--sep); font-weight: 600; color: var(--violet-soft); }
+.horaireAv { width: 40px; height: 32px; padding: 0; border-radius: var(--radius-sm); border: 1px solid var(--sep); background: transparent; color: var(--text-light); font: inherit; font-size: 13px; cursor: pointer; }
+.horaireAv:hover { border-color: rgba(var(--purple-rgb), .9); }
+.horaireAv.on { border-color: rgba(var(--purple-rgb), .55); background: rgba(var(--purple-rgb), .28); color: var(--text); }
+.horaireAv.vac { border-style: dashed; border-color: var(--cmp-dash); }
+.horaireCover { font-size: 13px; color: var(--text-light); }
+.horaireCover.short { color: var(--violet-soft); font-weight: 700; text-decoration: underline; }
+.horaireBlock > .horaireMsg { color: var(--violet-soft); }
+/* Coller les disponibilités : zone de texte ouverte seulement si le presse-papiers est refusé ; bouton d'envoi DANS la zone (R13) */
+.horairePaste { position: relative; }
+#tab-horaire .horairePaste textarea.horaireInput { padding-bottom: 56px; }
+.horairePasteSend { position: absolute; right: 8px; bottom: 8px; width: auto; min-height: 44px; padding: 0 16px; border-radius: var(--radius-md); }
+/* Prompts (Paramètres) : grandes zones de texte, lien discret « Revenir à la version de base » */
+#tab-horaire textarea.horairePromptArea { min-height: 160px; font-size: 13px; }
+.horaireLink { align-self: flex-start; min-height: 44px; margin-top: -8px; padding: 0; border: 0; background: none; font: inherit; font-size: 13px; color: var(--violet-soft); text-decoration: underline; cursor: pointer; }
+
+/* 3. Changements de la semaine : nature | texte ; un événement se déroule sur place (R36) ; « + » pointillé (.cmpAdd, R33) */
+.horaireChanges { border-radius: var(--radius-lg); padding: 8px 16px; display: flex; flex-direction: column; }
+.horaireChange { display: grid; grid-template-columns: 160px 1fr; gap: 16px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--sep); background: none; font: inherit; color: var(--text); text-align: left; }
+button.horaireChange { cursor: pointer; }
+.horaireChangeForm { padding: 12px 0 16px; border-bottom: 1px solid var(--sep); }
+.horaireChanges > .cmpAdd { margin: 12px 0 8px; min-height: 44px; padding: 0; border-radius: var(--radius-md); font-size: 14px; }
+
+/* 4. Horaire de la semaine : un bouton par quart (heure, nom, ▾) ; trou = pointillé violet « À combler » */
+.horaireSlot { display: flex; gap: 8px; align-items: center; min-height: 32px; padding: 4px 8px; border: 1px solid var(--sep); border-radius: var(--radius-sm); background: transparent; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; box-sizing: border-box; }
+.horaireHole { border: 1px dashed rgba(var(--purple-rgb), .7); color: var(--violet-soft); cursor: default; }
+.horaireAlerts { display: flex; flex-direction: column; gap: 4px; color: var(--violet-soft); }
+.horaireAlerts:empty { display: none; }
+/* Liste déroulante unie (R31 : les menus déroulants restent unis) */
+.horaireMenu { position: fixed; z-index: 400; min-width: 200px; max-height: 320px; overflow-y: auto; padding: 4px 0; background: var(--pop-bg); border: 1px solid var(--sep); border-radius: var(--radius-md); box-shadow: var(--shadow-elevated); }
+.horaireMenuItem { display: block; width: 100%; min-height: 44px; padding: 0 16px; border: 0; background: none; font: inherit; font-size: 14px; color: var(--text); text-align: left; cursor: pointer; }
+.horaireMenuItem:hover, .horaireMenuItem.on { background: var(--hover-bg); }
+.horaireMenuRemove { border-top: 1px solid var(--sep); color: var(--text-light); }
+
+/* 5. Règles du restaurant : repliées par défaut, flèche à droite (R21), 3 colonnes */
+.horaireRulesHead { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0; border: 0; background: transparent; font: inherit; color: var(--text); text-align: left; cursor: pointer; }
+.horaireRules { border-radius: var(--radius-lg); padding: 16px 24px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.horaireRulesCol { display: flex; flex-direction: column; gap: 8px; line-height: 1.45; }
+.horaireRulesTitle { font-weight: 600; color: var(--violet-soft); }
+@media (max-width: 720px) { .horaireRules { grid-template-columns: 1fr; padding: 16px; } .horaireWeekLabel { min-width: 0; flex: 1; } .horaireWeek { width: 100%; } }
+
+/* Lignes de quart (réservations de la configuration guidée) */
 .horaireShift { display: grid; grid-template-columns: 96px 1fr 1fr; gap: 8px; align-items: center; min-height: 44px; padding: 0 16px; font-size: 14px; }
-.horaireShiftTime { color: var(--text-light); font-variant-numeric: tabular-nums; }
 .horaireShiftPos { color: var(--text-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .horaireShiftEmp { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
-
-/* Action secondaire : export, discret (R1 : seule « Générer » est violette) */
-.horaireExport { min-height: 48px; padding: 12px 16px; border-radius: var(--radius-lg); font: inherit; font-size: 15px; color: var(--text); cursor: pointer; }
 
 /* Paramètres : sections repliables fermées par défaut, flèche à droite (R21), séparateurs pleine largeur (.cmpList, R22) */
 .horaireSettingsTitle { margin: 12px 0 0; }

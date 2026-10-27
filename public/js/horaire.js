@@ -1,8 +1,8 @@
 /* Module « Horaire » (26 oct. 2026, demande d'Émilien) : écran du gestionnaire (maître d'hôtel) qui prépare l'horaire hebdo de son personnel.
  * Routes : server/routes/horaire.js (doc docs/basic/module-horaire.md). Page unique #tab-horaire, page principale = horaire de la semaine :
- * semaine ‹ › , « Générer » (action principale), « Prompt pour l'IA » (copie le prompt de la semaine, à coller dans sa propre IA),
- * alertes, quarts par jour, « Exporter vers Dayforce » ; puis « Paramètres » en sections
- * repliables fermées par défaut (R2) : Employés, Postes, Besoins, Disponibilités, Événements, OpenTable, Dayforce, Hébergement.
+ * semaine ‹ › , « Générer l'horaire », « Prompt pour l'IA » (action principale : copie le prompt de la semaine, à coller dans sa propre IA),
+ * puis les 5 blocs de la maquette du 27 oct. 2026 (Besoins, Serveurs, Changements, Horaire de la semaine, Règles) ; puis « Paramètres » en sections
+ * repliables fermées par défaut (R2) : Employés, Postes, Besoins (les autres réglages restent dans la configuration guidée).
  * Configuration guidée (26 oct. 2026) : tant que le compte n'est pas « configured », l'ouverture du volet montre une étape par écran
  * (les mêmes sections, dépliées dans un cadre d'étape), « Suivant » / « Passer », points de pagination, balayage gauche/droite
  * entre les étapes ; pas de ✕ (on sort par « Suivant », « Passer » ou « Terminer ») ; app fermée = reprise à l'étape mémorisée
@@ -18,6 +18,7 @@
   var DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   var DAYS_SHORT = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
   var MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  var MONTHS_LONG = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   var MAX_RANK = 5;
 
   // ---------- dates (AAAA-MM-JJ, calculs en UTC : aucune dépendance au fuseau) ----------
@@ -33,8 +34,8 @@
   function hours(min) { var h = Math.floor(min / 60), m = min % 60; return h + ' h' + (m ? ' ' + pad(m) : ''); }
 
   var S = {
-    week: mondayOf(new Date()), employees: [], positions: [], quals: [], needs: [], events: [], avail: [], schedule: null, settings: {},
-    open: {}, editing: null, msg: '', busy: false, loaded: false,
+    week: mondayOf(new Date()), employees: [], positions: [], quals: [], needs: [], events: [], avail: [], timeoff: [], schedule: null, settings: {},
+    open: {}, editing: null, msg: '', importMsg: '', rulesOpen: false, busy: false, loaded: false,
   };
 
   // ---------- réseau ----------
@@ -50,15 +51,15 @@
   }
   function loadWeek() {
     return Promise.all([req('GET', 'weeks/' + S.week), req('GET', 'weeks/' + S.week + '/availabilities')]).then(function (r) {
-      S.schedule = r[0].schedule; S.avail = r[1].availabilities || [];
+      S.schedule = r[0].schedule; S.avail = r[1].availabilities || []; S.timeoff = r[1].timeoff || [];
       return req('GET', 'weeks/' + S.week + '/covers').then(function (c) { S.covers = c.covers || []; }, function () { S.covers = []; });
     });
   }
   function loadAll() {
-    return Promise.all([req('GET', 'employees'), req('GET', 'positions'), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek()])
+    return Promise.all([req('GET', 'employees'), req('GET', 'positions'), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'prompts').catch(function () { return null; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
-        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.loaded = true;
+        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.prompts = r[7] && r[7].importPrompt ? r[7] : null; S.loaded = true;
       });
   }
   function refresh() { return loadAll().then(render, fail); }
@@ -134,36 +135,80 @@
   }
   function emptyHint(list, text) { list.appendChild(el('p', 'horaireEmpty', text)); }
 
-  // ---------- page principale ----------
-  var weekLabel, msgBox, alertsBox, daysBox, exportBtn, settingsBox, genBtn, promptBtn, mainNodes, setupBox, setupMsg;
+  // ---------- page principale (maquette « Horaire — semaine », 27 oct. 2026) ----------
+  // En-tête (semaine, « Générer l'horaire », « Prompt pour l'IA »), puis 5 blocs : 1. Besoins, 2. Serveurs (disponibilités de la semaine),
+  // 3. Changements de la semaine (événements, congés), 4. Horaire de la semaine, 5. Règles du restaurant (repliées) ; Paramètres dessous.
+  // Sur téléphone, chaque tableau défile horizontalement dans son cadre.
+  var EVE = 16 * 60; // soir = à partir de 16 h
+  var SLOT = { matin: ['10:00', '16:00'], soir: ['16:00', '23:59'] };
+  var pasteBox, pasteArea, weekLabel, msgBox, needsBox, staffBox, importMsg, changesBox, planBox, alertsBox, rulesBox, rulesHead, settingsBox, genBtn, promptBtn, mainNodes, setupBox, setupMsg;
+  function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
+  function toTime(m) { return m >= 1440 ? '23:59' : pad(Math.floor(m / 60)) + ':' + pad(m % 60); }
+  function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
+  function block(title, hint, extra) {
+    var sec = el('section', 'horaireBlock');
+    var head = el('div', 'horaireBlockHead');
+    head.appendChild(el('h2', 'horaireBlockTitle', tr(title)));
+    if (hint) head.appendChild(el('span', 'horaireBlockHint', tr(hint)));
+    (extra || []).forEach(function (n) { head.appendChild(n); });
+    sec.appendChild(head);
+    return sec;
+  }
+  function btn(cls, label, onClick) { var b = el('button', cls, tr(label)); b.type = 'button'; b.addEventListener('click', onClick); return b; }
   function build() {
     root.textContent = '';
+    var head = el('header', 'horaireHead');
+    head.appendChild(el('h1', 'horaireTitle', tr('Horaire')));
     var nav = el('div', 'horaireWeek');
-    var prev = el('button', 'cmpSymbol horaireNav', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Semaine précédente'));
-    var next = el('button', 'cmpSymbol horaireNav', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Semaine suivante'));
-    weekLabel = el('h2', 'horaireWeekLabel');
-    prev.addEventListener('click', function () { changeWeek(-7); });
-    next.addEventListener('click', function () { changeWeek(7); });
+    var prev = btn('cmpGlass horaireNav', '‹', function () { changeWeek(-7); }); prev.setAttribute('aria-label', tr('Semaine précédente'));
+    var next = btn('cmpGlass horaireNav', '›', function () { changeWeek(7); }); next.setAttribute('aria-label', tr('Semaine suivante'));
+    weekLabel = el('span', 'horaireWeekLabel');
     nav.appendChild(prev); nav.appendChild(weekLabel); nav.appendChild(next);
-    genBtn = el('button', 'cmpBtn', tr('Générer')); genBtn.type = 'button';
-    genBtn.addEventListener('click', generate);
-    promptBtn = el('button', 'horaireExport cmpGlass', tr('Prompt pour l’IA')); promptBtn.type = 'button';
-    promptBtn.addEventListener('click', copyPrompt);
-    msgBox = el('p', 'horaireMsg'); msgBox.setAttribute('aria-live', 'polite');
-    alertsBox = el('div', 'horaireAlerts cmpGlass');
-    daysBox = el('div', 'horaireDays');
-    exportBtn = el('button', 'horaireExport cmpGlass', tr('Exporter vers Dayforce')); exportBtn.type = 'button';
-    exportBtn.addEventListener('click', exportDayforce);
+    genBtn = btn('cmpGlass horaireBtn', 'Générer l’horaire', generate);
+    promptBtn = btn('cmpBtn horaireBtnMain', 'Prompt pour l’IA', function () { copyText('weeks/' + S.week + '/prompt', 'Prompt copié : colle-le dans ton IA.', msgBox); });
+    [nav, genBtn, promptBtn].forEach(function (n) { head.appendChild(n); });
+    msgBox = el('p', 'horaireMsg hidden'); msgBox.setAttribute('aria-live', 'polite');
+
+    var b1 = block('1. Besoins', 'Nombre de serveurs par heure d’arrivée. Soir = à partir de 16 h.');
+    needsBox = el('div', 'horaireFrame cmpGlass'); b1.appendChild(needsBox);
+
+    pasteBox = el('div', 'horairePaste hidden');
+    pasteArea = el('textarea', 'horaireInput'); pasteArea.rows = 4; pasteArea.setAttribute('aria-label', tr('Coller les disponibilités'));
+    var pasteSend = btn('cmpBtn horairePasteSend', 'Envoyer', function () { sendAvail(pasteArea.value); });
+    pasteBox.appendChild(pasteArea); pasteBox.appendChild(pasteSend);
+    importMsg = el('p', 'horaireMsg hidden'); importMsg.setAttribute('aria-live', 'polite');
+    var b2 = block('2. Serveurs', 'Remplies par le texte rendu par ton IA. Un clic corrige une case : disponible → indisponible → vacances.', [
+      btn('cmpGlass horaireBtn', 'Prompt de récupération', function () { copyText('import-prompt', 'Prompt copié : colle-le dans ton IA.', importMsg); }),
+      btn('cmpGlass horaireBtn', 'Coller les disponibilités', pasteAvail)]);
+    b2.querySelector('.horaireBlockHint').classList.add('horaireGrow');
+    staffBox = el('div', 'horaireFrame cmpGlass');
+    b2.appendChild(pasteBox); b2.appendChild(importMsg); b2.appendChild(staffBox);
+
+    var b3 = block('3. Changements de la semaine', 'Congés, événements, groupes, remplacements.');
+    changesBox = el('div', 'horaireChanges cmpGlass'); b3.appendChild(changesBox);
+
+    var b4 = block('4. Horaire de la semaine', 'Généré par l’app. Clique un nom pour le changer.');
+    planBox = el('div', 'horaireFrame cmpGlass');
+    alertsBox = el('div', 'horaireAlerts');
+    b4.appendChild(planBox); b4.appendChild(alertsBox);
+
+    var b5 = el('section', 'horaireBlock');
+    rulesHead = el('button', 'horaireRulesHead'); rulesHead.type = 'button';
+    rulesHead.addEventListener('click', function () { S.rulesOpen = !S.rulesOpen; renderRules(); });
+    rulesBox = el('div', 'horaireRules cmpGlass');
+    b5.appendChild(rulesHead); b5.appendChild(rulesBox);
+
     var title = el('p', 'sectionTitle horaireSettingsTitle', tr('Paramètres'));
     settingsBox = el('div', 'horaireSettings cmpGlass cmpList');
-    mainNodes = [nav, genBtn, promptBtn, msgBox, alertsBox, daysBox, exportBtn, title, settingsBox];
+    mainNodes = [head, msgBox, b1, b2, b3, b4, b5, title, settingsBox];
     setupBox = el('div', 'horaireSetup hidden');
     setupMsg = el('p', 'horaireMsg hidden'); setupMsg.setAttribute('aria-live', 'polite');
     mainNodes.concat([setupBox]).forEach(function (n) { root.appendChild(n); });
   }
   function changeWeek(n) {
-    S.week = addDays(S.week, n); S.msg = '';
-    if (S.editing && /^avail:/.test(S.editing)) S.editing = null;
+    S.week = addDays(S.week, n); S.msg = ''; S.importMsg = '';
+    if (S.editing && /^changes:/.test(S.editing)) S.editing = null;
+    closeMenu();
     loadWeek().then(render, fail);
   }
   function generate() {
@@ -172,10 +217,11 @@
     req('POST', 'weeks/' + S.week + '/generate').then(function (d) { S.schedule = d.schedule; render(); }, fail)
       .then(function () { S.busy = false; genBtn.disabled = false; });
   }
-  // Prompt de la semaine (texte assemblé côté serveur) copié dans le presse-papiers. ClipboardItem avec promesse quand il existe :
-  // la copie reste liée au toucher même si le texte arrive après (Safari iOS).
-  function copyPrompt() {
-    var text = fetch('/api/horaire/weeks/' + S.week + '/prompt', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) {
+  // Texte assemblé côté serveur copié dans le presse-papiers. ClipboardItem avec promesse quand il existe :
+  // la copie reste liée au toucher même si le texte arrive après (Safari iOS). Une erreur (ex. 409) affiche le message renvoyé.
+  function copyText(url, done, box) {
+    var show = function (m) { if (box === importMsg) S.importMsg = m; else S.msg = m; renderMsg(); };
+    var text = fetch('/api/horaire/' + url, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) {
       if (!r.ok) return r.json().catch(function () { return {}; }).then(function (d) { throw new Error(d.error ? tr(d.error) : tr('Erreur serveur')); });
       return r.text();
     }, function () { throw new Error(tr('Connexion impossible. Réessaie.')); });
@@ -184,80 +230,323 @@
       ? cb.write([new window.ClipboardItem({ 'text/plain': text.then(function (t) { return new Blob([t], { type: 'text/plain' }); }) })])
         .catch(function (e) { return text.then(function (t) { if (!cb.writeText) throw e; return cb.writeText(t); }); })
       : text.then(function (t) { if (!cb || !cb.writeText) throw new Error(tr('Copie impossible.')); return cb.writeText(t); });
-    copy.then(function () { S.msg = tr('Prompt copié : colle-le dans ton IA.'); renderMsg(); }, function () {
-      text.then(function () { S.msg = tr('Copie impossible.'); renderMsg(); }, fail);
+    copy.then(function () { show(tr(done)); }, function () {
+      text.then(function () { show(tr('Copie impossible.')); }, function (e) { show((e && e.message) || tr('Erreur serveur')); });
     });
   }
-  function exportDayforce() {
-    fetch('/api/horaire/weeks/' + S.week + '/export/dayforce', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) {
-      if (!r.ok) return r.json().catch(function () { return {}; }).then(function (d) { throw new Error(d.error ? tr(d.error) : tr('Erreur serveur')); });
-      var miss = {};
-      String(r.headers.get('X-Dayforce-Missing') || '').split(';').forEach(function (p) { var kv = p.split('='); if (kv[1]) miss[kv[0]] = Number(kv[1]); });
-      return r.blob().then(function (blob) {
-        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'horaire-dayforce-' + S.week + '.csv';
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
-        var gaps = [];
-        if (miss.employees) gaps.push(miss.employees + ' ' + tr('matricule(s)'));
-        if (miss.positions) gaps.push(miss.positions + ' ' + tr('code(s) de poste'));
-        if (miss.location) gaps.push(tr('code de lieu'));
-        S.msg = gaps.length ? tr('Fichier exporté. Codes Dayforce manquants :') + ' ' + gaps.join(', ') + '.' : tr('Fichier exporté.');
-        renderMsg();
-      });
-    }).catch(fail);
+  // « Coller les disponibilités » : lit le presse-papiers (texte rendu par l'IA du gérant, même corps que l'import CSV) ; si la lecture
+  // est refusée, une zone de texte s'ouvre, bouton d'envoi dans la zone (R13). Compte rendu court : employés lus, noms inconnus.
+  function pasteAvail() {
+    var cb = navigator.clipboard;
+    var open = function () { pasteBox.classList.remove('hidden'); pasteArea.focus(); };
+    if (!cb || !cb.readText) { open(); return; }
+    cb.readText().then(function (t) { if (String(t || '').trim()) sendAvail(t); else open(); }, open);
   }
-  function renderMsg() { [msgBox, setupMsg].forEach(function (m) { m.textContent = S.msg; m.classList.toggle('hidden', !S.msg); }); }
+  function sendAvail(text) {
+    if (!String(text || '').trim() || S.busy) return;
+    S.busy = true;
+    req('POST', 'weeks/' + S.week + '/import/availabilities', { csv: text }).then(function (d) {
+      S.importMsg = (d.employees || 0) + ' ' + tr('employé(s) lu(s)') + (d.unknown && d.unknown.length ? '. ' + tr('Inconnus :') + ' ' + d.unknown.join(', ') : '') + '.';
+      pasteArea.value = ''; pasteBox.classList.add('hidden');
+      return loadWeek().then(render);
+    }).catch(function (e) { S.importMsg = (e && e.message) || tr('Erreur serveur'); renderMsg(); }).then(function () { S.busy = false; });
+  }
+  function renderMsg() {
+    [msgBox, setupMsg].forEach(function (m) { m.textContent = S.msg; m.classList.toggle('hidden', !S.msg); });
+    if (importMsg) { importMsg.textContent = S.importMsg || ''; importMsg.classList.toggle('hidden', !S.importMsg); }
+  }
   function inSetup() { return S.loaded && !S.settings.configured; }
+  function weekTitle() {
+    var a = new Date(S.week + 'T00:00:00Z'), b = new Date(addDays(S.week, 6) + 'T00:00:00Z');
+    var same = a.getUTCMonth() === b.getUTCMonth();
+    return tr('Semaine du') + ' ' + a.getUTCDate() + (same ? '' : ' ' + tr(MONTHS_LONG[a.getUTCMonth()])) + ' ' + tr('au') + ' ' + b.getUTCDate() + ' ' + tr(MONTHS_LONG[b.getUTCMonth()]) + ' ' + b.getUTCFullYear();
+  }
   function render() {
     var setup = inSetup();
     mainNodes.forEach(function (n) { n.classList.toggle('horaireOff', setup); });
     setupBox.classList.toggle('hidden', !setup);
     if (setup) { renderSetup(); renderMsg(); return; }
-    weekLabel.textContent = tr('Semaine du') + ' ' + dayLabel(S.week).replace(/^\S+ /, '');
+    weekLabel.textContent = weekTitle();
     renderMsg();
+    renderNeedsTable();
+    renderStaff();
+    renderChanges();
     renderSchedule();
+    renderRules();
     renderSettings();
   }
-  function renderSchedule() {
-    var sc = S.schedule;
-    alertsBox.textContent = ''; daysBox.textContent = '';
-    var alerts = (sc && sc.alerts) || [];
-    alertsBox.classList.toggle('hidden', !alerts.length);
-    exportBtn.classList.toggle('hidden', !sc || !sc.assignments.length);
-    if (alerts.length) {
-      alertsBox.appendChild(el('p', 'horaireAlertsTitle', tr('À vérifier') + ' (' + alerts.length + ')'));
-      var ul = el('ul', 'horaireAlertList');
-      alerts.forEach(function (a) {
-        var txt = a.type === 'trou'
-          ? (a.positionName || '?') + ' · ' + dayLabel(a.day) + ' ' + a.start + '–' + a.end + ' : ' + a.missing + ' ' + tr(a.missing > 1 ? 'personnes manquantes' : 'personne manquante')
-          : (a.employeeName || '?') + ' : ' + hours(a.minutes) + ' / ' + hours(a.maxWeekMinutes) + ' ' + tr('max');
-        ul.appendChild(el('li', null, txt));
-      });
-      alertsBox.appendChild(ul);
+  // Tableau jours × colonnes : en-tête (jour + date), puis une rangée par service. cells(i) = contenu de la case du jour i.
+  function grid(cls, withDate, rows) {
+    var g = el('div', 'horaireGrid ' + cls);
+    g.appendChild(el('div', 'horaireCell'));
+    for (var i = 0; i < 7; i++) {
+      var d = addDays(S.week, i), h = el('div', 'horaireCell horaireCellSide');
+      h.appendChild(el('div', 'horaireDayName', tr(DAYS[i])));
+      if (withDate) { var dt = new Date(d + 'T00:00:00Z'); h.appendChild(el('div', 'horaireDayDate', dt.getUTCDate() + ' ' + tr(MONTHS[dt.getUTCMonth()]))); }
+      g.appendChild(h);
     }
+    rows.forEach(function (r) {
+      g.appendChild(el('div', 'horaireCell horaireCellTop horaireRowLabel', tr(r[0])));
+      for (var j = 0; j < 7; j++) { var c = el('div', 'horaireCell horaireCellTop horaireCellSide ' + (r[2] || '')); r[1](j, c); g.appendChild(c); }
+    });
+    return g;
+  }
+  // Besoins d'un jour : ceux des événements du jour remplacent le modèle normal (même règle que la génération).
+  function dayNeeds(i) {
+    var day = addDays(S.week, i);
+    var evs = S.events.filter(function (e) { return e.day === day; });
+    var src = evs.length ? [].concat.apply([], evs.map(function (e) { return e.needs || []; })) : S.needs.filter(function (n) { return Number(n.weekday) === i; });
+    var out = { matin: {}, soir: {}, event: evs.length > 0, eventSvc: {} };
+    src.forEach(function (n) { var s = serviceOf(n.start); out[s][n.start] = (out[s][n.start] || 0) + (Number(n.count) || 0); if (evs.length) out.eventSvc[s] = true; });
+    return out;
+  }
+  function needTotal(map) { return Object.keys(map).reduce(function (t, k) { return t + map[k]; }, 0); }
+  function renderNeedsTable() {
+    needsBox.textContent = '';
+    var N = [0, 1, 2, 3, 4, 5, 6].map(dayNeeds);
+    var list = function (svc) {
+      return function (i, c) {
+        Object.keys(N[i][svc]).sort().forEach(function (h) {
+          var r = el('div', 'horaireNeed'); r.appendChild(el('span', null, h)); r.appendChild(el('span', 'horaireNeedN', '× ' + N[i][svc][h])); c.appendChild(r);
+        });
+        if (N[i].eventSvc[svc]) c.appendChild(el('span', 'horaireTag', tr('Événement')));
+      };
+    };
+    needsBox.appendChild(grid('horaireGridNeeds', true, [
+      ['Matin', list('matin')], ['Soir', list('soir')],
+      ['Total', function (i, c) { c.textContent = needTotal(N[i].matin) + ' ' + tr('matin') + ' · ' + needTotal(N[i].soir) + ' ' + tr('soir'); }, 'horaireMuted'],
+    ]));
+  }
+
+  // ---------- 2. Serveurs : disponibilités de la semaine en cases matin/soir ----------
+  // État d'une case : O disponible (une plage recoupe 10:00–16:00 ou 16:00–23:59), V vacances (jour de congé : toute la journée), sinon N.
+  function myIntervals(id) { return S.avail.filter(function (a) { return a.employeeId === id; }); }
+  function myTimeoff(id) { return (S.timeoff || []).filter(function (t) { return t.employeeId === id; }).map(function (t) { return t.day; }); }
+  function svcRange(svc) { return [toMin(SLOT[svc][0]), svc === 'soir' ? 1440 : toMin(SLOT[svc][1])]; }
+  function ivRange(a) { var s = toMin(a.start), e = toMin(a.end); if (e <= s || a.end === '23:59') e = 1440; return [s, e]; }
+  function cellState(id, day, svc) {
+    if (myTimeoff(id).indexOf(day) >= 0) return 'V';
+    var w = svcRange(svc);
+    return myIntervals(id).some(function (a) { if (a.day !== day) return false; var r = ivRange(a); return r[0] < w[1] && r[1] > w[0]; }) ? 'O' : 'N';
+  }
+  // Nouvelle valeur d'une case (PUT intervals + timeoff) : disponible = on ajoute la plage du service ; indisponible = on retire seulement la partie
+  // qui recoupe le service (les autres plages restent) ; vacances = le jour entier passe en congé (le serveur retire ses plages).
+  function setCell(e, day, svc, state) {
+    var w = svcRange(svc), out = [];
+    myIntervals(e.id).forEach(function (a) {
+      if (a.day !== day) { out.push({ day: a.day, start: a.start, end: a.end }); return; }
+      if (state === 'V') return;
+      var r = ivRange(a);
+      if (state === 'O' || r[1] <= w[0] || r[0] >= w[1]) { out.push({ day: a.day, start: a.start, end: a.end }); return; }
+      if (r[0] < w[0]) out.push({ day: day, start: toTime(r[0]), end: toTime(w[0]) });
+      if (r[1] > w[1]) out.push({ day: day, start: toTime(w[1]), end: toTime(r[1]) });
+    });
+    if (state === 'O' && cellState(e.id, day, svc) !== 'O') out.push({ day: day, start: SLOT[svc][0], end: SLOT[svc][1] });
+    var off = myTimeoff(e.id).filter(function (d) { return d !== day; });
+    if (state === 'V') off.push(day);
+    var keep = { avail: S.avail, timeoff: S.timeoff };
+    S.avail = S.avail.filter(function (a) { return a.employeeId !== e.id; }).concat(out.map(function (a) { return Object.assign({ employeeId: e.id }, a); }));
+    S.timeoff = (S.timeoff || []).filter(function (t) { return t.employeeId !== e.id; }).concat(off.map(function (d) { return { employeeId: e.id, day: d }; }));
+    renderStaff(); renderChanges();
+    req('PUT', 'weeks/' + S.week + '/availabilities/' + e.id, { intervals: out, timeoff: off }).catch(function (err) {
+      S.avail = keep.avail; S.timeoff = keep.timeoff; renderStaff(); renderChanges(); fail(err);
+    });
+  }
+  var NEXT = { O: 'N', N: 'V', V: 'O' };
+  var WORD = { O: 'disponible', N: 'indisponible', V: 'vacances' };
+  function bestRank(id) {
+    var r = S.quals.filter(function (q) { return q.employeeId === id; }).map(function (q) { return q.rank; });
+    return r.length ? Math.min.apply(null, r) : null;
+  }
+  function wanted(e) {
+    var a = e.wantShiftsMin, b = e.wantShiftsMax;
+    if (a == null && b == null) return '';
+    if (a == null || b == null || a === b) return String(a == null ? b : a);
+    return a + ' ' + tr('à') + ' ' + b;
+  }
+  function staffRow(cls) { return el('div', 'horaireStaffRow ' + (cls || '')); }
+  function renderStaff() {
+    staffBox.textContent = '';
+    var t = el('div', 'horaireStaff');
+    var h1 = staffRow('horaireStaffHead');
+    h1.appendChild(el('span', null, tr('Nom'))); h1.appendChild(el('span', null, tr('Quarts')));
+    for (var i = 0; i < 7; i++) h1.appendChild(el('span', 'horaireStaffDay', tr(DAYS[i])));
+    var nh = el('span', 'horaireStaffNote', tr('Note permanente') + ' '); nh.appendChild(el('span', 'horaireLight', '· ' + tr('gardée à chaque import'))); h1.appendChild(nh);
+    t.appendChild(h1);
+    var h2 = staffRow('horaireStaffSub');
+    h2.appendChild(el('span')); h2.appendChild(el('span'));
+    for (i = 0; i < 7; i++) { var p = el('span', 'horairePair2'); p.appendChild(el('span', null, tr('matin'))); p.appendChild(el('span', null, tr('soir'))); h2.appendChild(p); }
+    h2.appendChild(el('span')); t.appendChild(h2);
+    var emps = S.employees.filter(function (e) { return e.active !== false; }).map(function (e) { return { e: e, g: bestRank(e.id) }; });
+    emps.sort(function (a, b) { return (a.g == null ? 99 : a.g) - (b.g == null ? 99 : b.g); });
+    if (!emps.length) t.appendChild(el('p', 'horaireEmpty', tr('Aucun employé.')));
+    var g = -1;
+    emps.forEach(function (x) {
+      if (x.g !== g) {
+        g = x.g;
+        t.appendChild(el('div', 'horaireGroup', g == null ? tr('Sans groupe') : tr('Groupe') + ' ' + g + (g === 1 ? ' · ' + tr('priorité la plus haute') : '')));
+      }
+      var r = staffRow();
+      r.appendChild(el('span', 'horaireStaffName', x.e.name));
+      r.appendChild(el('span', 'horaireMuted', wanted(x.e)));
+      [0, 1, 2, 3, 4, 5, 6].forEach(function (d) {
+        var day = addDays(S.week, d), pair = el('span', 'horairePair2');
+        ['matin', 'soir'].forEach(function (svc) {
+          var st = cellState(x.e.id, day, svc);
+          var b = el('button', 'horaireAv' + (st === 'O' ? ' on' : st === 'V' ? ' vac' : ''), st === 'O' ? '✓' : st === 'V' ? tr('Vac') : '');
+          b.type = 'button';
+          b.setAttribute('aria-label', x.e.name + ', ' + tr(DAYS[d]) + ' ' + tr(svc) + ' : ' + tr(WORD[st]));
+          b.addEventListener('click', function () { setCell(x.e, day, svc, NEXT[st]); });
+          pair.appendChild(b);
+        });
+        r.appendChild(pair);
+      });
+      r.appendChild(el('span', 'horaireStaffNote horaireMuted', x.e.constraintNote || ''));
+      t.appendChild(r);
+    });
+    var c = staffRow('horaireStaffCover');
+    c.appendChild(el('span', 'horaireStaffName', tr('Disponibles / besoin'))); c.appendChild(el('span'));
+    for (var k = 0; k < 7; k++) {
+      var dd = addDays(S.week, k), N = dayNeeds(k), pc = el('span', 'horairePair2');
+      ['matin', 'soir'].forEach(function (svc) {
+        var n = emps.filter(function (x) { return cellState(x.e.id, dd, svc) === 'O'; }).length, need = needTotal(N[svc]);
+        pc.appendChild(el('span', 'horaireCover' + (n < need ? ' short' : ''), n + '/' + need));
+      });
+      c.appendChild(pc);
+    }
+    c.appendChild(el('span')); t.appendChild(c);
+    staffBox.appendChild(t);
+  }
+
+  // ---------- 3. Changements de la semaine : événements (modifiables sur place, R36) et congés ----------
+  function renderChanges() {
+    changesBox.textContent = '';
+    var end = addDays(S.week, 6);
+    var offBy = {};
+    (S.timeoff || []).forEach(function (t) { (offBy[t.employeeId] = offBy[t.employeeId] || []).push(t); });
+    Object.keys(offBy).forEach(function (id) {
+      var e = S.employees.find(function (x) { return String(x.id) === String(id); }); if (!e) return;
+      var days = {};
+      offBy[id].forEach(function (t) { (days[t.day] = days[t.day] || {})[t.service || 'matin'] = 1; if (!t.service) days[t.day].soir = 1; });
+      var parts = Object.keys(days).sort().map(function (d) {
+        var s = days[d]; return tr(DAYS[weekdayOf(d)]).toLowerCase() + ' (' + (s.matin && s.soir ? tr('matin et soir') : tr(s.matin ? 'matin' : 'soir')) + ')';
+      });
+      changesBox.appendChild(changeLine('Congé', e.name + ' : ' + tr('congé') + ' ' + parts.join(', ') + '.'));
+    });
+    S.events.filter(function (ev) { return ev.day >= S.week && ev.day <= end; }).forEach(function (ev) {
+      var key = 'changes:' + ev.id, open = S.editing === key;
+      var svc = {}; (ev.needs || []).forEach(function (n) { svc[serviceOf(n.start)] = 1; });
+      var when = tr(DAYS[weekdayOf(ev.day)]) + (svc.matin && !svc.soir ? ' ' + tr('matin') : svc.soir && !svc.matin ? ' ' + tr('soir') : '');
+      var line = changeLine('Événement', when + ' : ' + (ev.label || tr('événement')) + '.', function () { S.editing = open ? null : key; render(); });
+      line.setAttribute('aria-expanded', open ? 'true' : 'false');
+      changesBox.appendChild(line);
+      if (open) { var f = el('div', 'horaireForm horaireChangeForm'); eventForm(f, ev); changesBox.appendChild(f); }
+    });
+    if (S.editing === 'changes:new') {
+      var f = el('div', 'horaireForm horaireChangeForm');
+      if (S.positions.length) eventForm(f, null); else f.appendChild(el('p', 'horaireEmpty', tr('Ajoute d’abord un poste.')));
+      changesBox.appendChild(f);
+    } else {
+      changesBox.appendChild(TMT.ui.addBtn(tr('Ajouter un changement'), function () { S.editing = 'changes:new'; render(); }));
+    }
+  }
+  function changeLine(kind, text, onClick) {
+    var r = el(onClick ? 'button' : 'div', 'horaireChange');
+    if (onClick) { r.type = 'button'; r.addEventListener('click', onClick); }
+    r.appendChild(el('span', 'horaireMuted', tr(kind))); r.appendChild(el('span', null, text));
+    return r;
+  }
+
+  // ---------- 4. Horaire de la semaine : un bouton par quart, liste déroulante unie pour changer la personne ----------
+  var menu = null;
+  function closeMenu() { if (menu) { menu.remove(); menu = null; document.removeEventListener('pointerdown', outside, true); window.removeEventListener('scroll', closeMenu, true); } }
+  function outside(ev) { if (menu && !menu.contains(ev.target)) closeMenu(); }
+  function openMenu(anchor, a) {
+    var same = menu && menu._for === a.id; closeMenu(); if (same) return;
+    menu = el('div', 'horaireMenu'); menu._for = a.id; menu.setAttribute('role', 'menu');
+    var pick = function (id) {
+      closeMenu();
+      (id == null ? req('DELETE', 'weeks/' + S.week + '/assignments/' + a.id) : req('PUT', 'weeks/' + S.week + '/assignments/' + a.id, { employeeId: id })).then(function (d) {
+        if (d && d.schedule) { S.schedule = d.schedule; render(); } else loadWeek().then(render);
+      }, fail);
+    };
+    S.employees.filter(function (e) { return e.active !== false; }).forEach(function (e) {
+      var it = btn('horaireMenuItem' + (e.id === a.employeeId ? ' on' : ''), e.name, function () { if (e.id !== a.employeeId) pick(e.id); else closeMenu(); });
+      it.setAttribute('role', 'menuitem'); menu.appendChild(it);
+    });
+    var rm = btn('horaireMenuItem horaireMenuRemove', 'Retirer le quart', function () { pick(null); }); rm.setAttribute('role', 'menuitem');
+    menu.appendChild(rm);
+    document.body.appendChild(menu);
+    var r = anchor.getBoundingClientRect(), mh = menu.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+    menu.style.left = Math.max(8, Math.min(r.left, vw - menu.offsetWidth - 8)) + 'px';
+    menu.style.top = (r.bottom + 4 + mh > vh - 8 ? Math.max(8, r.top - 4 - mh) : r.bottom + 4) + 'px';
+    setTimeout(function () { document.addEventListener('pointerdown', outside, true); window.addEventListener('scroll', closeMenu, true); }, 0);
+  }
+  function shiftBtn(a) {
+    var b = el('button', 'horaireSlot'); b.type = 'button';
+    b.appendChild(el('span', 'horaireMuted', a.start)); b.appendChild(el('span', 'horaireGrow', a.employeeName)); b.appendChild(el('span', 'horaireMuted', '▾'));
+    b.setAttribute('aria-haspopup', 'menu');
+    b.addEventListener('click', function () { openMenu(b, a); });
+    return b;
+  }
+  function hole(start) {
+    var h = el('span', 'horaireSlot horaireHole');
+    h.appendChild(el('span', null, start)); h.appendChild(el('span', 'horaireGrow', tr('À combler'))); return h;
+  }
+  function renderSchedule() {
+    closeMenu();
+    var sc = S.schedule;
+    planBox.textContent = ''; alertsBox.textContent = '';
     if (!sc) {
       var ready = S.employees.length && S.positions.length && S.needs.length;
-      daysBox.appendChild(el('p', 'horaireEmpty', ready ? tr('Aucun horaire pour cette semaine. Touche « Générer ».') : tr('Ajoute tes postes, employés et besoins dans les paramètres.')));
+      planBox.appendChild(el('p', 'horaireEmpty', ready ? tr('Aucun horaire pour cette semaine. Touche « Générer l’horaire ».') : tr('Ajoute tes postes, employés et besoins dans les paramètres.')));
       return;
     }
-    for (var i = 0; i < 7; i++) {
-      var day = addDays(S.week, i);
-      var list = sc.assignments.filter(function (a) { return a.day === day; });
-      if (!list.length) continue;
-      var card = el('section', 'horaireDay cmpGlass');
-      card.appendChild(el('h3', 'horaireDayTitle', dayLabel(day, true)));
-      var body = el('div', 'cmpList');
-      list.forEach(function (a) {
-        var r = el('div', 'horaireShift');
-        r.appendChild(el('span', 'horaireShiftTime', a.start + '–' + a.end));
-        r.appendChild(el('span', 'horaireShiftPos', a.positionName));
-        r.appendChild(el('span', 'horaireShiftEmp', a.employeeName));
-        body.appendChild(r);
-      });
-      card.appendChild(body);
-      daysBox.appendChild(card);
+    var holes = (sc.alerts || []).filter(function (a) { return a.type === 'trou'; });
+    var cell = function (svc) {
+      return function (i, c) {
+        var day = addDays(S.week, i), items = [];
+        sc.assignments.forEach(function (a) { if (a.day === day && serviceOf(a.start) === svc) items.push([a.start, 0, a]); });
+        holes.forEach(function (h) { if (h.day === day && serviceOf(h.start) === svc) for (var k = 0; k < (h.missing || 1); k++) items.push([h.start, 1, null]); });
+        items.sort(function (x, y) { return x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : x[1] - y[1]; });
+        items.forEach(function (x) { c.appendChild(x[2] ? shiftBtn(x[2]) : hole(x[0])); });
+      };
+    };
+    planBox.appendChild(grid('horaireGridPlan', false, [['Matin', cell('matin'), 'horaireCellPlan'], ['Soir', cell('soir'), 'horaireCellPlan']]));
+    var key = function (a) { return a.type === 'trou' ? '0' + a.day + a.start : '1'; };
+    (sc.alerts || []).slice().sort(function (x, y) { return key(x) < key(y) ? -1 : key(x) > key(y) ? 1 : 0; }).forEach(function (a) { alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + alertText(a))); });
+  }
+  function alertText(a) {
+    if (a.type === 'trou') {
+      var n = a.missing || 1, pos = String(a.positionName || tr('personne')).toLowerCase();
+      return tr(DAYS[weekdayOf(a.day)]).toLowerCase() + ' ' + tr(serviceOf(a.start)) + ', ' + n + ' ' + pos + ' ' + tr(n > 1 ? 'manquants' : 'manquant') + ' ' + tr('à') + ' ' + a.start + '.';
     }
-    if (!sc.assignments.length) daysBox.appendChild(el('p', 'horaireEmpty', tr('Aucun quart comblé cette semaine.')));
+    if (a.type === 'sixieme_quart') return (a.employeeName || '?') + ' ' + tr('fait') + ' ' + a.shifts + ' ' + tr('quarts') + ' (' + a.wantShiftsMax + ' ' + tr('souhaités, dernier recours') + ').';
+    if (a.text || a.message) return String(a.text || a.message);
+    return (a.employeeName || '?') + ' : ' + hours(a.minutes) + ' / ' + hours(a.maxWeekMinutes) + ' ' + tr('max') + '.';
+  }
+
+  // ---------- 5. Règles du restaurant (fixes, reprises dans le prompt) : repliées par défaut, flèche à droite (R21) ----------
+  var RULES = [
+    ['Règles strictes', ['1. Jamais sur un service où le serveur est indisponible.', '2. Jamais plus que ses quarts souhaités (moins est permis, dans l’ordre des groupes).',
+      '3. Contraintes particulières toujours respectées.', '4. Exactement le nombre demandé à chaque heure d’arrivée.']],
+    ['Préférences', ['5. Le plus de soirs au groupe 1, puis 2, 3 et 4.', '6. Éviter les doubles (matin et soir le même jour).', '7. Éviter fermeture puis ouverture le lendemain.']],
+    ['Dernier recours, à signaler', ['8. Un 6e quart pour qui en souhaite 5, groupe 1 d’abord.', '9. Demander à un serveur indisponible (« à demander »).']],
+  ];
+  function renderRules() {
+    rulesHead.textContent = '';
+    rulesHead.setAttribute('aria-expanded', S.rulesOpen ? 'true' : 'false');
+    rulesHead.appendChild(el('span', 'horaireBlockTitle', tr('5. Règles du restaurant')));
+    rulesHead.appendChild(el('span', 'horaireBlockHint horaireGrow', tr('Fixes, reprises chaque semaine dans le prompt.')));
+    rulesHead.appendChild(TMT.ui.chev(!!S.rulesOpen));
+    rulesBox.classList.toggle('hidden', !S.rulesOpen);
+    if (!S.rulesOpen || rulesBox.firstChild) return;
+    RULES.forEach(function (g) {
+      var col = el('div', 'horaireRulesCol');
+      col.appendChild(el('span', 'horaireRulesTitle', tr(g[0])));
+      g[1].forEach(function (t) { col.appendChild(el('span', null, tr(t))); });
+      rulesBox.appendChild(col);
+    });
   }
 
   // ---------- paramètres (sections repliables, fermées par défaut) ----------
@@ -266,16 +555,18 @@
     ['positions', 'Postes', function () { return S.positions.length; }, renderPositions],
     ['needs', 'Besoins normaux', function () { return S.needs.length; }, renderNeeds],
     ['avail', 'Disponibilités', function () { return null; }, function (b) { renderAvail(b); importAvail(b); }],
-    ['events', 'Événements spéciaux', function () { return S.events.length; }, function (b) { renderEventRules(b); renderEvents(b); }],
-    ['opentable', 'OpenTable', function () { return null; }, renderOpenTable],
-    ['dayforce', 'Dayforce', function () { return null; }, renderDayforce],
+    ['opentable', 'Réservations', function () { return null; }, renderOpenTable],
+    ['dayforce', 'Codes de paie', function () { return null; }, renderDayforce],
     ['hosting', 'Hébergement des données', function () { return null; }, renderHosting],
+    ['prompts', 'Prompts', function () { return null; }, renderPrompts],
   ];
   function section(key) { return SECTIONS.find(function (s) { return s[0] === key; }); }
   function renderSettings() {
     if (inSetup()) { renderSetup(); return; }
     settingsBox.textContent = '';
-    SECTIONS.forEach(function (s) {
+    // Vue principale : Employés, Postes, Besoins ; disponibilités et événements vivent dans les blocs 2 et 3 (F2), le reste dans la configuration guidée.
+    // « Prompts » seulement si le serveur les sert (GET /api/horaire/prompts).
+    SECTIONS.filter(function (s) { return ['employees', 'positions', 'needs'].indexOf(s[0]) >= 0 || (s[0] === 'prompts' && S.prompts); }).forEach(function (s) {
       var sec = el('div', 'horaireSec');
       var open = !!S.open[s[0]];
       var head = el('button', 'horaireSecHead'); head.type = 'button'; head.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -306,7 +597,7 @@
   function employeeForm(f, e) {
     var name = input('text', e ? e.name : '', tr('Nom'));
     var max = input('number', e && e.maxWeekMinutes != null ? String(Math.round(e.maxWeekMinutes / 6) / 10) : '', tr('Max d’heures par semaine')); max.min = '0'; max.max = '168'; max.step = '0.5'; max.inputMode = 'decimal';
-    var dfid = input('text', e ? e.dayforceId : '', tr('Matricule Dayforce'));
+    var dfid = input('text', e ? e.dayforceId : '', tr('Matricule'));
     var shifts = ['wantShiftsMin', 'wantShiftsMax'].map(function (k, i) {
       var s = input('number', e && e[k] != null ? String(e[k]) : '', tr(i ? 'Quarts souhaités max' : 'Quarts souhaités min'));
       s.min = '0'; s.max = '14'; s.step = '1'; s.inputMode = 'numeric';
@@ -315,7 +606,7 @@
     var note = input('text', e ? e.constraintNote : '', tr('Contrainte particulière')); note.maxLength = 200;
     f.appendChild(field(tr('Nom'), name));
     var pair = el('div', 'horairePair');
-    pair.appendChild(field(tr('Max h / semaine'), max)); pair.appendChild(field(tr('Matricule Dayforce'), dfid));
+    pair.appendChild(field(tr('Max h / semaine'), max)); pair.appendChild(field(tr('Matricule'), dfid));
     f.appendChild(pair);
     var pair2 = el('div', 'horairePair');
     pair2.appendChild(field(tr('Quarts souhaités min'), shifts[0])); pair2.appendChild(field(tr('Quarts souhaités max'), shifts[1]));
@@ -482,18 +773,7 @@
     }));
   }
 
-  // Événements spéciaux : date, nom, besoins qui remplacent le modèle normal ce jour-là.
-  function renderEvents(box) {
-    var list = el('div', 'horaireList');
-    if (!S.positions.length) { emptyHint(list, tr('Ajoute d’abord un poste.')); box.appendChild(list); return; }
-    if (!S.events.length && S.editing !== 'events:new') emptyHint(list, tr('Aucun événement.'));
-    S.events.forEach(function (ev) {
-      var title = dayLabel(ev.day) + (ev.label ? ' · ' + ev.label : '');
-      list.appendChild(row('events:' + ev.id, title, ev.needs.length + ' ' + tr(ev.needs.length > 1 ? 'besoins' : 'besoin'), function (f) { eventForm(f, ev); }));
-    });
-    addRow(list, 'events:new', 'Ajouter un événement', tr('Nouvel événement'), function (f) { eventForm(f, null); });
-    box.appendChild(list);
-  }
+  // Événements spéciaux (bloc 3) : date, nom, besoins qui remplacent le modèle normal ce jour-là.
   function eventForm(f, ev) {
     var date = input('date', ev ? ev.day : S.week, tr('Date'));
     var label = input('text', ev ? ev.label : '', tr('Nom'));
@@ -562,7 +842,7 @@
     var f = settingsForm(box, inStep, function () {
       return req('PUT', 'settings', { eventsSource: src.value.trim(), eventsNoticeDays: intOrNull(days.value), eventsStaffRule: rule.value.trim() });
     });
-    f.form.appendChild(field(tr('Notés aussi dans (en plus d’OpenTable)'), src));
+    f.form.appendChild(field(tr('Notés aussi dans (en plus des réservations)'), src));
     f.form.appendChild(field(tr('Annoncés combien de jours avant'), days));
     f.form.appendChild(field(tr('Personnel selon le prix et les services'), rule));
     return f.done();
@@ -591,7 +871,7 @@
   // OpenTable : par poste, nombre de couverts par service qui justifie une personne de plus (pas encore lu par la génération).
   // Réservations OpenTable : export CSV du rapport « Réservations » de GuestCenter ; l'app ne garde que les totaux de couverts par jour et service.
   function importReservations(box) {
-    picker(box, 'Importer les réservations (CSV)', 'Rapport « Réservations » de GuestCenter. Colonnes : date ; heure ; taille du groupe (+ statut). Aucun nom de client n’est gardé.', function () { return 'import/reservations'; }, function (d) {
+    picker(box, 'Importer les réservations (CSV)', 'Rapport des réservations. Colonnes : date ; heure ; taille du groupe (+ statut). Aucun nom de client n’est gardé.', function () { return 'import/reservations'; }, function (d) {
       return d.reservations + ' ' + tr('réservation(s)') + ', ' + d.covers + ' ' + tr('couverts') + ', ' + d.days + ' ' + tr('jour(s)') + (d.skipped && d.skipped.length ? ', ' + d.skipped.length + ' ' + tr('ligne(s) ignorée(s)') : '') + '.';
     });
     var cov = S.covers || [];
@@ -619,13 +899,13 @@
   }
   // Dayforce : code de lieu du restaurant, code de chaque poste, fichier modèle d'import (facultatif, gardé pour fixer le format).
   function renderDayforce(box, inStep) {
-    var loc = input('text', S.settings.dayforceLocation || '', tr('Code de lieu Dayforce')); loc.maxLength = 64;
+    var loc = input('text', S.settings.dayforceLocation || '', tr('Code de lieu')); loc.maxLength = 64;
     var codes = null;
     var f = settingsForm(box, inStep, function () {
       return Promise.all([req('PUT', 'settings', { dayforceLocation: loc.value.trim() }), codes && codes()]);
     });
-    f.form.appendChild(field(tr('Code de lieu Dayforce'), loc));
-    if (S.positions.length) codes = perPosition(f.form, 'dayforceCode', 'text', tr('Code Dayforce de chaque poste'));
+    f.form.appendChild(field(tr('Code de lieu'), loc));
+    if (S.positions.length) codes = perPosition(f.form, 'dayforceCode', 'text', tr('Code de chaque poste'));
     var save = f.done();
     var file = el('input'); file.type = 'file'; file.accept = '.csv,text/csv,text/plain'; file.className = 'hidden';
     var hint = el('p', 'horaireHint');
@@ -641,6 +921,33 @@
     return save;
   }
   // Hébergement des données au Canada exigé : oui / non / je ne sais pas.
+  // Prompts modifiables (la liste des quarts est ajoutée par le serveur et ne s'affiche pas ici). Enregistrer (R35) ; sous une zone modifiée,
+  // « Revenir à la version de base » (TMT.ui.confirm violet : rien n'est perdu), qui envoie null.
+  function renderPrompts(box) {
+    var P = S.prompts, form = el('div', 'horaireForm'), areas = {};
+    [['importPrompt', 'Prompt de récupération'], ['entryPrompt', 'Prompt pour l’IA (consignes)']].forEach(function (k) {
+      var cur = P[k[0]] || {}, a = el('textarea', 'horaireInput horairePromptArea'); a.rows = 8; a.value = cur.text || ''; a.setAttribute('aria-label', tr(k[1]));
+      areas[k[0]] = { el: a, text: cur.text || '' };
+      var f = field(tr(k[1]), a);
+      form.appendChild(f);
+      if (cur.isDefault === false) {
+        var back = btn('horaireLink', 'Revenir à la version de base', function () {
+          TMT.ui.confirm(tr('Revenir à la version de base de ce prompt ?'), { ok: tr('Revenir') }).then(function (yes) {
+            if (!yes) return;
+            var body = {}; body[k[0]] = null;
+            req('PUT', 'prompts', body).then(refresh, fail);
+          });
+        });
+        form.appendChild(back);
+      }
+    });
+    form.appendChild(saveBtn(form, function () {
+      var body = {};
+      Object.keys(areas).forEach(function (k) { if (areas[k].el.value !== areas[k].text) body[k] = areas[k].el.value; });
+      return Object.keys(body).length ? req('PUT', 'prompts', body) : null;
+    }));
+    box.appendChild(form);
+  }
   function renderHosting(box, inStep) {
     var s = select([['', '—'], ['oui', tr('Oui')], ['non', tr('Non')], ['nsp', tr('Je ne sais pas')]], S.settings.dataInCanada || '', tr('Hébergement au Canada exigé ?'));
     var f = settingsForm(box, inStep, function () { return req('PUT', 'settings', { dataInCanada: s.value || null }); });
@@ -652,7 +959,7 @@
   // Une étape = une section des paramètres, dépliée dans le cadre d'étape (R27 : mêmes formulaires). Ordre demandé par Émilien.
   var STEPS = [
     ['positions', 'Postes'], ['employees', 'Employés'], ['needs', 'Besoins normaux'], ['avail', 'Disponibilités'],
-    ['events', 'Événements', renderEventRules], ['opentable', 'OpenTable'], ['dayforce', 'Dayforce'], ['hosting', 'Hébergement des données'],
+    ['events', 'Événements', renderEventRules], ['opentable', 'Réservations'], ['dayforce', 'Codes de paie'], ['hosting', 'Hébergement des données'],
   ];
   function setupStep() { return Math.min(Math.max(S.settings.setupStep || 0, 0), STEPS.length - 1); }
   function goStep(n) {
