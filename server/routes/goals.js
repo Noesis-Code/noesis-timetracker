@@ -772,6 +772,15 @@ router.put('/goals/tasks/:itemId/reassign', (req, res) => {
 // la lib (qui ne fait aucune vérification de droits elle-même) — une
 // activité refusée n'empêche jamais les autres de réussir, même principe
 // « jamais bloquant » que le reste de ce fichier.
+// Proposition « Activité › Pôle » pour une tâche libre (pop-up du bouton flottant) : ne crée rien.
+router.post('/goals/capture/propose', async (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const label = typeof req.body.label === 'string' ? req.body.label.trim() : '';
+  if (!label) return res.status(400).json({ error: 'Écris une tâche.' });
+  try { res.json(await goalstaskclassify.proposePlacement(userId, label)); } catch (err) { handleGoalsError(res, err); }
+});
+
 router.post('/goals/capture', async (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });

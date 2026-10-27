@@ -2661,6 +2661,7 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .activityGoalsCategoryAutoTaskBubble textarea,
 .activityGoalsCategoryAutoTaskBubble .iconBtn,
+.activityGoalsCategoryAutoTaskBubble .cmpSend,
 .activityGoalsCategoryAutoTaskBubble .msg,
 .activityGoalsCategoryAutoTaskBubble .activityGoalsCategoryAutoTaskOffline {
   position: relative; z-index: 1;
@@ -2677,6 +2678,7 @@ button { -webkit-user-select: none; user-select: none; }
   position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
   padding: 6px 12px;
 }
+.activityGoalsCategoryAutoTaskBubble .cmpSend { position: absolute; right: 8px; top: 50%; margin-top: -18px; }
 .activityGoalsCategoryAutoTaskBubble .msg { padding: 0 10px 8px; margin: 0; }
 .activityGoalsCategoryAutoTaskBubble .msg:empty { display: none; padding: 0; }
 /* 22 septembre 2026, demande directe d'Emilien : « je ne souhaite pas que le message de validation ou d'erreur soit affiché dans la bulle d'écriture [...] un message juste en dessous. */
@@ -3139,6 +3141,7 @@ button { -webkit-user-select: none; user-select: none; }
 /* 1er oct. 2026 : icônes de la fenêtre du profil à la taille standard des fenêtres (.menuBtn : 32 px, ✕ 18 px). */
 #profilePage .profileSquareBtn { width: 32px; height: 32px; border-radius: var(--radius-sm); }
 #profilePage .profileSquareBtn svg { width: 18px; height: 18px; }
+#profilePage #profileFollowsBtn svg { width: 22px; height: 22px; } /* bonhomme + plus : un peu plus grand pour valoir les autres icônes (demande d'Émilien, 27 oct. 2026) */
 /* Fenêtre Membres : barre de recherche toujours en haut, au-dessus des membres. */
 .activityMembersSearchWrap { padding: 12px 16px 4px; }
 .activityMembersSearchWrap .communitySearchRow { margin-bottom: 8px; }

@@ -1438,8 +1438,8 @@
 
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'iconBtn btnBrique';
-    btn.textContent = t('Ajouter');
+    btn.className = 'cmpSend'; // flèche d'envoi standard vers l'IA (R29)
+    btn.setAttribute('aria-label', t('Ajouter'));
 
     // Pièces jointes (documents texte/PDF/docx ou images), DANS la zone d'écriture. Rien n'est stocké :
     // le fichier part une seule fois vers la proposition de tâches (l'utilisateur coche ce qui est ajouté).
@@ -1480,6 +1480,7 @@
         img.src = url;
       });
     }
+    TMT.shrinkImage = shrinkImage; // réutilisé par le pop-up du bouton flottant
     fileInput.addEventListener('change', function () {
       var picked = Array.prototype.slice.call(fileInput.files || []);
       fileInput.value = '';

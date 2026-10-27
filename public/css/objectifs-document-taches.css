@@ -19,8 +19,8 @@
 .docTasksDriveOff { opacity: 0.6; cursor: default; }
 /* Zone libre = bulle de la Page 1 (.activityGoalsCategoryAutoTaskBubble + contour animé) ; trombone .chatAttachBtn ; envoi .btnBrique. */
 #docTasksBubble textarea { padding: 14px 12px 60px 12px; text-align: left; }
-#docTasksBubble #docTasksSend { top: auto; bottom: 8px; right: 8px; transform: none; height: 36px; padding: 0 18px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font: inherit; font-size: 15px; font-weight: 600; line-height: 1; }
-#docTasksBubble .chatAttachBtn { z-index: 1; left: auto; right: 104px; top: auto; bottom: 13px; transform: none; }
+#docTasksBubble #docTasksSend { top: auto; bottom: 8px; right: 8px; margin-top: 0; }
+#docTasksBubble .chatAttachBtn { z-index: 1; left: auto; right: 54px; top: auto; bottom: 13px; transform: none; }
 #docTasksBubble .iconBtn:disabled { opacity: 0.45; cursor: default; }
 .docTasksFilesBox { display: flex; flex-wrap: wrap; gap: 6px; }
 .docTasksChip { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(156, 140, 200, .18); margin-top: 6px; }

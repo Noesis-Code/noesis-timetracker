@@ -1,25 +1,27 @@
 /* Bouton flottant des tâches du jour et son pop-up (27 oct. 2026, js/bouton-flottant.js). Jetons seulement, verre commun (.cmpGlass), espacements 8/12/16/24. */
 :root:root .tasksFab { /* :root:root : passe devant le « position: relative » du composant .cmpSymbol */
   position: fixed; z-index: 48; width: 52px; height: 52px; padding: 0; box-sizing: border-box; border-radius: 50%; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; color: var(--purple);
-  background: none; border: 0; box-shadow: none; /* R37 : l'icône seule, sans cadre ni fond */
+  display: flex; align-items: center; justify-content: center;
+  background: var(--good); color: var(--on-action); border: 0; box-shadow: none; /* vert opaque (demande d'Émilien), coche fine qui l'occupe en entier */
   touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
 }
 .tasksFab.hidden { display: none; }
-.tasksFab svg { width: 100%; height: 100%; display: block; } /* l'icône occupe tout le bouton */
-.tasksFab.dragging { scale: 1.08; }
+.tasksFab svg { width: 100%; height: 100%; display: block; }
+.tasksFab.dragging { animation: tabJiggle .26s ease-in-out infinite alternate; } /* il tremble : prêt à bouger (même secousse que la barre des volets) */
 
-.tasksPopVeil { position: fixed; inset: 0; z-index: 120; display: flex; align-items: center; justify-content: center; padding: 16px; background: color-mix(in srgb, var(--black) 82%, transparent); }
+.tasksPopVeil { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; background: color-mix(in srgb, var(--black) 82%, transparent); }
 .tasksPopVeil.hidden { display: none; }
 .tasksPop { display: flex; flex-direction: column; width: 100%; max-width: 480px; max-height: min(88vh, 720px); max-height: min(88dvh, 720px); border-radius: var(--radius-xl); overflow: hidden; color: var(--text); }
-.tasksPopHead { display: flex; align-items: center; gap: 8px; padding: 16px 16px 8px; }
-.tasksPopTitle { flex: 1; font-size: 16px; }
+.tasksPopHead { display: flex; align-items: flex-start; gap: 8px; padding: 16px 16px 8px; }
+.tasksPopTitleBox { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.tasksPopTitle { font-size: 22px; }
+.tasksPopDate { font-size: 13px; color: var(--text-light); }
 .tasksPopSum { display: flex; justify-content: space-between; gap: 8px; padding: 0 16px 12px; font-size: 13px; color: var(--text-light); border-bottom: 1px solid var(--sep); }
 .tasksPopSum b { color: var(--text); }
 .tasksPopList { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .tasksPopEmpty { margin: 0; padding: 16px; font-size: 13px; color: var(--text-light); text-align: center; }
 .tasksPopRow { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--sep); }
-.tasksPopCheck { flex: none; width: 28px; height: 28px; padding: 0; border-radius: 50%; border: 1.6px solid var(--text-light); background: none; color: var(--on-action); cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative; }
+.tasksPopCheck { flex: none; width: 28px; height: 28px; padding: 0; border-radius: 50%; border: 1px solid var(--text-light); background: none; color: var(--on-action); cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative; }
 .tasksPopCheck::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .tasksPopCheck svg { width: 18px; height: 18px; }
 .tasksPopRow.done .tasksPopCheck { background: var(--purple); border-color: var(--purple); }
@@ -27,8 +29,24 @@
 .tasksPopText b { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
 .tasksPopText small { font-size: 13px; color: var(--text-light); }
 .tasksPopRow.done .tasksPopText b { color: var(--text-light); font-weight: 500; text-decoration: line-through; }
-.tasksPopDot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--text-light); }
-.tasksPopAdd { flex: 0 0 auto; padding: 12px 16px 16px; border-top: 1px solid var(--sep); overflow-y: auto; max-height: 45%; }
-.tasksPopAdd .goalsCaptureBubbleWrap { margin: 0; }
-.tasksPopAdd .goalsCaptureActivities { margin-top: 12px; }
-.tasksPopAdd textarea { min-height: 0; height: 56px; }
+.tasksPopDot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--purple); }
+
+/* Barre d'ajout : proposition de Noèsis, puis [trombone à gauche] [texte] [↑] */
+.tasksPopAdd { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 16px; overflow-y: auto; max-height: 55%; }
+.tasksPropose { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: var(--radius-lg); border: 1px solid var(--glass-border); background: var(--glass-bg); }
+.tasksPropose.hidden, .tasksChooser.hidden, .tasksProposeHint.hidden { display: none; }
+.tasksProposeKicker { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-light); }
+.tasksProposeRow { display: flex; align-items: center; gap: 8px; }
+.tasksProposeWhere { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.tasksProposeChange { min-height: 44px; padding: 0 8px; border: 0; background: none; color: var(--purple); font: inherit; font-size: 14px; cursor: pointer; }
+.tasksProposeHint { margin: 0; font-size: 13px; color: var(--text-light); }
+.tasksChooser { display: flex; flex-direction: column; max-height: 180px; overflow-y: auto; border-top: 1px solid var(--sep); }
+.tasksChoice { min-height: 44px; padding: 0 4px; border: 0; border-bottom: 1px solid var(--sep); background: none; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.tasksComposer { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 8px; border-radius: 999px; border: 1px solid var(--glass-border); background: var(--glass-bg); }
+.tasksClip { flex: none; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-light); cursor: pointer; }
+.tasksClip svg { width: 20px; height: 20px; }
+.tasksComposer .tasksText { flex: 1; min-width: 0; height: 36px; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; min-height: 0; padding: 8px 0; box-sizing: border-box; resize: none; overflow: hidden; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: 16px; line-height: 20px; border-radius: 0; }
+.tasksText::placeholder { color: var(--text-light); }
+.tasksChips:empty, .tasksMsg:empty { display: none; }
+.tasksMsg { margin: 0; font-size: 13px; color: var(--text-light); }
+:root:root .tasksFab:hover:not(:disabled) { color: var(--on-action); }

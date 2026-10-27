@@ -542,7 +542,32 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
   return results;
 }
 
-module.exports = {  callModel,
+// Proposition de rangement d'une tâche libre, TOUTES activités confondues (pop-up du bouton flottant, 27 oct. 2026) : « Activité › Pôle ».
+// Informe sans décider : rien n'est créé ici ; le client montre la proposition, l'utilisateur l'accepte ou la change (options = tous les choix).
+async function proposePlacement(userId, label) {
+  const acts = db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1 ORDER BY a.name').all(userId);
+  const options = [];
+  acts.forEach((a) => buildClassificationCandidates(a.id).forEach((c) => options.push({
+    key: 'a' + a.id + ':' + c.key, activityId: a.id, activityName: a.name, categoryKey: c.key, categoryLabel: c.label,
+    label: a.name + ' → ' + c.label, description: c.description || '', poleDescription: c.poleDescription || '',
+  })));
+  const strip = (o) => ({ activityId: o.activityId, activityName: o.activityName, categoryKey: o.categoryKey, categoryLabel: o.categoryLabel });
+  const all = options.map(strip);
+  if (!options.length) return { proposal: null, options: all };
+  if (options.length === 1) return { proposal: all[0], options: all };
+  if (!configured()) return { proposal: null, options: all };
+  try {
+    const text = await callTiered(String(label || '').slice(0, 300), options, [], false, MAX_OUTPUT_TOKENS);
+    const key = extractKey(text, options);
+    const hit = key && options.find((o) => o.key === key);
+    return { proposal: hit ? strip(hit) : null, options: all };
+  } catch (err) {
+    return { proposal: null, options: all };
+  }
+}
+
+module.exports = {  proposePlacement,
+  callModel,
   configured,
   modelName,
   classifyCategory,

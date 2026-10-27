@@ -26,7 +26,7 @@
   }
   // Une page ou une fenêtre ouverte AU-DESSUS (Profil, Réglages, Activité, Trade…) masque les flèches des pages qui restent derrière elle.
   function coveredBy(g) {
-    var tops = document.querySelectorAll('.communityMembersModal:not(.hidden), #profileSettingsPanel:not(.hidden), #tradePage:not(.hidden)');
+    var tops = document.querySelectorAll('.communityMembersModal:not(.hidden), #profileSettingsPanel:not(.hidden), #tradePage:not(.hidden), .tasksPopVeil:not(.hidden)');
     for (var k = 0; k < tops.length; k++) if (tops[k].getClientRects().length && !tops[k].contains(g)) return true;
     return false;
   }

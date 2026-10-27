@@ -336,6 +336,6 @@
 .offer1SoonBadge{display:inline-block;margin-bottom:10px;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text);background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
 .offer1PromoBtn:disabled{background:var(--purple);color: var(--on-action);opacity:.5;box-shadow:none;cursor:not-allowed}
 /* Zone libre IA : trombone (document ou image) DANS la zone d'écriture, à gauche d'Ajouter. */
-.activityGoalsCategoryAutoTaskBubble .goalsCaptureAttach { z-index: 3; left: auto; right: 96px; }
-.activityGoalsCategoryAutoTaskBubble:has(.goalsCaptureAttach) textarea { padding-right: 130px; }
+.activityGoalsCategoryAutoTaskBubble .goalsCaptureAttach { z-index: 3; left: auto; right: 54px; }
+.activityGoalsCategoryAutoTaskBubble:has(.goalsCaptureAttach) textarea { padding-right: 96px; }
 .goalsCaptureFiles:empty { display: none; }

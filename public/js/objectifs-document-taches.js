@@ -41,7 +41,7 @@
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
             </label>
             <input type="file" id="docTasksFile" class="hidden" multiple accept=".txt,.md,.markdown,.csv,.docx,.pdf,text/*">
-            <button type="button" id="docTasksSend" class="iconBtn btnBrique" aria-label="Proposer des tâches">Ajouter</button>
+            <button type="button" id="docTasksSend" class="cmpSend" aria-label="Proposer des tâches"></button>
           </div>
           <div id="docTasksFiles" class="docTasksFilesBox"></div>
         </div>
