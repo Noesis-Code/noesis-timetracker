@@ -200,29 +200,30 @@
   // Glisser-déposer horizontal (même principe que bindActivityDrag : on translate, on ne réordonne le DOM qu'au relâchement).
   function startDrag(btn, e) {
     e.preventDefault();
-    var btns = Array.prototype.slice.call(pill.querySelectorAll('.tabBtn:not(.barOut)'));
+    var btns = Array.prototype.slice.call(pill.querySelectorAll('.tabBtn:not(.barOut):not(.barGhost)'));
     var from = btns.indexOf(btn);
     if (from < 0) return;
     var mids = btns.map(function (el) { var r = el.getBoundingClientRect(); return r.left + r.width / 2; });
-    var step = btn.getBoundingClientRect().width + 4;
     var startX = e.clientX, target = from, moved = false;
     try { btn.setPointerCapture(e.pointerId); } catch (err) { /* capture indisponible */ }
     btn.classList.add('dragging');
+    // Les autres volets s'échangent : chacun glisse vers l'emplacement voisin (positions réelles des emplacements, jamais superposés).
     function layout() {
       btns.forEach(function (el, i) {
         if (i === from) return;
-        var shift = 0;
-        if (target > from && i > from && i <= target) shift = -step;
-        else if (target < from && i >= target && i < from) shift = step;
-        el.style.transform = shift ? 'translateX(' + shift + 'px)' : '';
+        var slot = i;
+        if (target > from && i > from && i <= target) slot = i - 1;
+        else if (target < from && i >= target && i < from) slot = i + 1;
+        el.style.animation = 'none'; el.style.transition = 'transform .18s ease';
+        el.style.transform = slot !== i ? 'translateX(' + (mids[slot] - mids[i]) + 'px)' : 'rotate(0deg)';
       });
     }
     function onMove(ev) {
-      var dx = ev.clientX - startX;
-      if (Math.abs(dx) > 3) moved = true;
+      var dx = Math.max(mids[0] - mids[from], Math.min(mids[mids.length - 1] - mids[from], ev.clientX - startX)); // le volet ne sort jamais de la barre
+      if (Math.abs(ev.clientX - startX) > 3) moved = true;
       btn.style.transform = 'translateX(' + dx + 'px)';
-      var idx = 0;
-      for (var i = 0; i < mids.length; i++) if (ev.clientX > mids[i]) idx = i;
+      var c = mids[from] + dx, idx = 0;
+      for (var i = 1; i < mids.length; i++) if (Math.abs(c - mids[i]) < Math.abs(c - mids[idx])) idx = i;
       if (idx !== target) { target = idx; layout(); }
     }
     function onUp() {
@@ -230,7 +231,7 @@
       btn.removeEventListener('pointerup', onUp);
       btn.removeEventListener('pointercancel', onUp);
       btn.classList.remove('dragging');
-      btns.forEach(function (el) { el.style.transform = ''; });
+      btns.forEach(function (el) { el.style.transform = ''; el.style.animation = ''; el.style.transition = ''; });
       if (moved) justEdited = true;
       if (target !== from) {
         var ordered = btns.slice(); ordered.splice(from, 1); ordered.splice(target, 0, btn);
