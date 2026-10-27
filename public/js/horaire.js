@@ -135,13 +135,18 @@
   }
   function emptyHint(list, text) { list.appendChild(el('p', 'horaireEmpty', text)); }
 
-  // ---------- page principale (maquette « Horaire — semaine », version 6 du 28 oct. 2026) ----------
-  // En-tête (semaine), rangée de 4 boutons dans l'ordre d'usage + ligne d'état des disponibilités, puis : Horaire de la semaine,
-  // Besoins et événements, Classification des employés, Règles du restaurant (repliées) ; Paramètres dessous.
+  // ---------- page principale : parcours en 4 pages, une par étape (28 oct. 2026, demande d'Émilien) ----------
+  // En-tête (semaine), puis 4 boutons d'étape pleine largeur (bascule commune .periodSwitch/.periodBtn, celle de « Tâches | Objectifs »,
+  // R27/R29), puis les pages qui défilent de droite à gauche (TMT.slidePager, points de pagination communs .goalsDotBtn) :
+  // 1. Récupération : réglages durables (classification, besoins et événements, règles, paramètres) + « Copier le prompt de récupération » ;
+  // 2. Disponibilités : zone de collage (envoi dans la zone), ligne d'état, compte rendu ; 3. Horaire : « Générer l'horaire », horaire de la
+  // semaine, « À vérifier » ; 4. Envoi : résumé + « Copier le prompt pour l'IA ». Une seule action violette par page (R1).
   // Sur téléphone, chaque tableau défile horizontalement dans son cadre.
   var EVE = 16 * 60; // soir = à partir de 16 h
   var SLOT = { matin: ['10:00', '16:00'], soir: ['16:00', '23:59'] };
-  var pasteBox, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, rulesHead, settingsBox, genBtn, mainNodes, setupBox, setupMsg;
+  var STEP_LABELS = ['1. Récupération', '2. Disponibilités', '3. Horaire', '4. Envoi'];
+  var pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, rulesHead, settingsBox, genBtn, summaryBox, mainNodes, setupBox, setupMsg;
+  var pagesHost, pages = [], stepBtns = [], dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
   function block(title, hint) {
@@ -164,48 +169,98 @@
     nav.appendChild(prev); nav.appendChild(weekLabel); nav.appendChild(next);
     head.appendChild(nav);
 
-    // Les 4 étapes de la semaine, dans l'ordre d'usage ; seule la 4e (inscription par l'IA) est violette (R1).
-    var steps = el('div', 'horaireSteps');
-    genBtn = btn('cmpGlass horaireBtn', '3. Générer l’horaire', generate);
-    [btn('cmpGlass horaireBtn', '1. Prompt de récupération', function () { copyText('import-prompt', 'Prompt copié : colle-le dans ton IA.'); }),
-      btn('cmpGlass horaireBtn', '2. Coller les disponibilités', pasteAvail), genBtn,
-      btn('cmpBtn horaireBtnMain', '4. Prompt pour l’IA', function () { copyText('weeks/' + S.week + '/prompt', 'Prompt copié : colle-le dans ton IA.'); })]
-      .forEach(function (b) { steps.appendChild(b); });
-    statusLine = el('span', 'horaireStatus'); steps.appendChild(statusLine);
+    var steps = el('div', 'periodSwitch horaireSteps'); steps.setAttribute('role', 'tablist');
+    stepBtns = STEP_LABELS.map(function (l, i) {
+      var b = btn('periodBtn', l, function () { goPage(i); }); b.setAttribute('role', 'tab');
+      steps.appendChild(b); return b;
+    });
     msgBox = el('p', 'horaireMsg hidden'); msgBox.setAttribute('aria-live', 'polite');
-    pasteBox = el('div', 'horairePaste hidden');
-    pasteArea = el('textarea', 'horaireInput'); pasteArea.rows = 4; pasteArea.setAttribute('aria-label', tr('Coller les disponibilités'));
-    pasteBox.appendChild(pasteArea); pasteBox.appendChild(btn('cmpBtn horairePasteSend', 'Envoyer', function () { sendAvail(pasteArea.value); }));
 
-    var bPlan = block('Horaire de la semaine', 'Tel qu’il sera inscrit. Clique un nom pour le changer.');
-    planBox = el('div', 'horaireFrame cmpGlass');
-    alertsBox = el('div', 'horaireAlerts');
-    bPlan.appendChild(planBox); bPlan.appendChild(alertsBox);
-
-    var bNeeds = block('Besoins et événements', 'Nombre de serveurs par heure d’arrivée. Soir = à partir de 16 h. Un événement remplace les besoins de son service.');
-    needsBox = el('div', 'horaireFrame cmpGlass'); bNeeds.appendChild(needsBox);
-
+    // Page 1 : Récupération
+    var p1 = el('div', 'horairePage');
     var bCats = block('Classification des employés', 'Catégorie 1 = priorité la plus haute. Glisse un nom pour le changer de catégorie.');
     catsBox = el('div', 'horaireFrame cmpGlass'); bCats.appendChild(catsBox);
-
+    var bNeeds = block('Besoins et événements', 'Nombre de serveurs par heure d’arrivée. Soir = à partir de 16 h. Un événement remplace les besoins de son service.');
+    needsBox = el('div', 'horaireFrame cmpGlass'); bNeeds.appendChild(needsBox);
     var bRules = el('section', 'horaireBlock');
     rulesHead = el('button', 'horaireRulesHead'); rulesHead.type = 'button';
     rulesHead.addEventListener('click', function () { S.rulesOpen = !S.rulesOpen; renderRules(); });
     rulesBox = el('div', 'horaireRules cmpGlass');
     bRules.appendChild(rulesHead); bRules.appendChild(rulesBox);
+    var settings = el('section', 'horaireBlock');
+    settings.appendChild(el('p', 'sectionTitle horaireSettingsTitle', tr('Paramètres')));
+    settingsBox = el('div', 'horaireSettings cmpGlass cmpList'); settings.appendChild(settingsBox);
+    [bCats, bNeeds, bRules, settings, btn('cmpBtn', 'Copier le prompt de récupération', function () { copyText('import-prompt', 'Prompt copié : colle-le dans ton IA.'); })]
+      .forEach(function (n) { p1.appendChild(n); });
 
-    var title = el('p', 'sectionTitle horaireSettingsTitle', tr('Paramètres'));
-    settingsBox = el('div', 'horaireSettings cmpGlass cmpList');
-    mainNodes = [head, steps, msgBox, pasteBox, bPlan, bNeeds, bCats, bRules, title, settingsBox];
+    // Page 2 : Disponibilités (zone de collage toujours visible, envoi dans la zone, R13)
+    var p2 = el('div', 'horairePage');
+    var paste = el('div', 'horairePaste');
+    pasteArea = el('textarea', 'horaireInput horairePasteArea'); pasteArea.rows = 12; pasteArea.setAttribute('aria-label', tr('Coller les disponibilités'));
+    pasteArea.placeholder = tr('Colle ici le texte rendu par ton IA.');
+    paste.appendChild(pasteArea); paste.appendChild(btn('cmpBtn horairePasteSend', 'Envoyer', function () { sendAvail(pasteArea.value); }));
+    statusLine = el('p', 'horaireStatus');
+    p2.appendChild(paste); p2.appendChild(statusLine);
+
+    // Page 3 : Horaire
+    var p3 = el('div', 'horairePage');
+    genBtn = btn('cmpBtn', 'Générer l’horaire', generate);
+    var bPlan = block('Horaire de la semaine', 'Tel qu’il sera inscrit. Clique un nom pour le changer.');
+    planBox = el('div', 'horaireFrame cmpGlass');
+    alertsBox = el('div', 'horaireAlerts');
+    bPlan.appendChild(planBox); bPlan.appendChild(alertsBox);
+    p3.appendChild(genBtn); p3.appendChild(bPlan);
+
+    // Page 4 : Envoi
+    var p4 = el('div', 'horairePage');
+    summaryBox = el('div', 'horaireSummary cmpGlass cmpList');
+    p4.appendChild(summaryBox);
+    p4.appendChild(btn('cmpBtn', 'Copier le prompt pour l’IA', function () { copyText('weeks/' + S.week + '/prompt', 'Prompt copié : colle-le dans ton IA.'); }));
+
+    pages = [p1, p2, p3, p4];
+    pagesHost = el('div', 'horairePages');
+    pages.forEach(function (p, i) { if (i) p.classList.add('hidden'); pagesHost.appendChild(p); });
+    var dots = el('div', 'horaireSetupDots horairePageDots'); dots.setAttribute('role', 'group');
+    dotBtns = STEP_LABELS.map(function (l, i) {
+      var d = el('button', 'goalsDotBtn'); d.type = 'button'; d.setAttribute('aria-label', tr(l));
+      d.appendChild(el('span', 'goalsDot'));
+      d.addEventListener('click', function () { goPage(i); });
+      dots.appendChild(d); return d;
+    });
+
+    mainNodes = [head, steps, dots, pagesHost];
     setupBox = el('div', 'horaireSetup hidden');
     setupMsg = el('p', 'horaireMsg hidden'); setupMsg.setAttribute('aria-live', 'polite');
     mainNodes.concat([setupBox]).forEach(function (n) { root.appendChild(n); });
   }
+  // Page courante : bouton d'étape actif, point actif, message de la page (il suit la page affichée).
+  function showPage(i) {
+    S.page = i;
+    pages.forEach(function (p, k) { p.classList.toggle('hidden', k !== i); });
+    stepBtns.forEach(function (b, k) { b.classList.toggle('active', k === i); b.setAttribute('aria-selected', k === i ? 'true' : 'false'); });
+    dotBtns.forEach(function (d, k) { d.classList.toggle('on', k === i); });
+    pages[i].appendChild(msgBox);
+  }
+  function goPage(i) { if (i === S.page) return; closeMenu(); S.msg = ''; renderMsg(); showPage(i); }
+  // Balayage entre les pages : technique commune (TMT.slidePager, stats-avance.js) ; gauche = étape suivante, droite = précédente.
+  function bindPager() {
+    if (pagerBound || !(window.TMT && TMT.slidePager)) return; pagerBound = true;
+    TMT.slidePager({
+      zone: pagesHost,
+      neighbor: function (dir) {
+        var t = S.page + dir;
+        if (t < 0 || t >= pages.length) return null;
+        return { cur: pages[S.page], nb: pages[t], host: pagesHost, commit: function () { closeMenu(); S.msg = ''; renderMsg(); showPage(t); } };
+      },
+    });
+  }
+  // Étape logique de la semaine : 3 (Horaire) si des disponibilités sont collées, sinon 2 (Disponibilités).
+  function logicalPage() { return S.summary && S.summary.employees ? 2 : 1; }
   function changeWeek(n) {
     S.week = addDays(S.week, n); S.msg = '';
     if (S.editing && /^ev/.test(S.editing)) S.editing = null;
     closeMenu();
-    loadWeek().then(render, fail);
+    loadWeek().then(function () { S.page = null; render(); }, fail);
   }
   function generate() {
     if (S.busy) return;
@@ -230,20 +285,15 @@
       text.then(function () { show(tr('Copie impossible.')); }, function (e) { show((e && e.message) || tr('Erreur serveur')); });
     });
   }
-  // « Coller les disponibilités » : lit le presse-papiers (texte rendu par l'IA du gérant, même corps que l'import CSV) ; si la lecture
-  // est refusée, une zone de texte s'ouvre, bouton d'envoi dans la zone (R13). Compte rendu court : employés lus, noms inconnus.
-  function pasteAvail() {
-    var cb = navigator.clipboard;
-    var open = function () { pasteBox.classList.remove('hidden'); pasteArea.focus(); };
-    if (!cb || !cb.readText) { open(); return; }
-    cb.readText().then(function (t) { if (String(t || '').trim()) sendAvail(t); else open(); }, open);
-  }
+  // Envoi du texte collé (texte rendu par l'IA du gérant, même corps que l'import CSV). Compte rendu : lus, inconnus, ignorés.
   function sendAvail(text) {
     if (!String(text || '').trim() || S.busy) return;
     S.busy = true;
     req('POST', 'weeks/' + S.week + '/import/availabilities', { csv: text }).then(function (d) {
-      S.msg = (d.employees || 0) + ' ' + tr('employé(s) lu(s)') + (d.unknown && d.unknown.length ? '. ' + tr('Inconnus :') + ' ' + d.unknown.join(', ') : '') + '.';
-      pasteArea.value = ''; pasteBox.classList.add('hidden');
+      var sk = (d.skipped || []).length;
+      S.msg = (d.employees || 0) + ' ' + tr('employé(s) lu(s)') + (d.unknown && d.unknown.length ? '. ' + tr('Inconnus :') + ' ' + d.unknown.join(', ') : '')
+        + (sk ? '. ' + sk + ' ' + tr('ligne(s) ignorée(s)') : '') + '.';
+      pasteArea.value = '';
       return loadWeek().then(render);
     }).catch(fail).then(function () { S.busy = false; });
   }
@@ -258,6 +308,18 @@
     statusLine.textContent = tr('Disponibilités :') + ' ' + s.employees + ' ' + tr(s.employees > 1 ? 'employés lus' : 'employé lu')
       + (d ? ' ' + tr('le') + ' ' + d.getDate() + ' ' + tr(MONTHS[d.getMonth()]) : '');
   }
+  // Page 4 : résumé court (semaine, quarts, trous restants, alertes).
+  function renderSummary() {
+    summaryBox.textContent = '';
+    var sc = S.schedule, holes = sc ? computeHoles(sc).reduce(function (t, h) { return t + h.missing; }, 0) : 0;
+    var alerts = sc ? (sc.alerts || []).filter(function (a) { return a.type !== 'trou'; }).length : 0;
+    [['Semaine', weekTitle().replace(/^\S+ \S+ /, '')], ['Quarts', sc ? String(sc.assignments.length) : tr('Horaire pas encore généré')],
+      ['Trous restants', String(holes)], ['Alertes', String(alerts)]].forEach(function (r) {
+      var row = el('div', 'horaireSummaryRow');
+      row.appendChild(el('span', 'horaireMuted', tr(r[0]))); row.appendChild(el('span', null, r[1]));
+      summaryBox.appendChild(row);
+    });
+  }
   function inSetup() { return S.loaded && !S.settings.configured; }
   function weekTitle() {
     var a = new Date(S.week + 'T00:00:00Z'), b = new Date(addDays(S.week, 6) + 'T00:00:00Z');
@@ -269,10 +331,13 @@
     mainNodes.forEach(function (n) { n.classList.toggle('horaireOff', setup); });
     setupBox.classList.toggle('hidden', !setup);
     if (setup) { renderSetup(); renderMsg(); return; }
+    bindPager();
+    showPage(S.page == null ? logicalPage() : S.page);
     weekLabel.textContent = weekTitle();
     renderMsg();
     renderStatus();
     renderSchedule();
+    renderSummary();
     renderNeedsTable();
     renderCats();
     renderRules();
@@ -631,6 +696,18 @@
     b.addEventListener('click', function () { openHoleMenu(b, h); });
     return b;
   }
+  // Trous recalculés ici (besoins − quarts placés, par jour, poste et heure d'arrivée) : un quart ajouté à la main comble son trou
+  // aussitôt, même si les alertes du serveur ne sont pas recalculées.
+  function computeHoles(sc) {
+    var holes = [];
+    for (var i = 0; i < 7; i++) {
+      var day = addDays(S.week, i), want = {};
+      daySource(i).forEach(function (n) { var k = n.positionId + '|' + n.start; if (!want[k]) want[k] = { positionId: n.positionId, day: day, start: n.start, end: n.end, missing: 0 }; want[k].missing += Number(n.count) || 0; });
+      sc.assignments.forEach(function (a) { var k = a.positionId + '|' + a.start; if (a.day === day && want[k]) want[k].missing -= 1; });
+      Object.keys(want).forEach(function (k) { if (want[k].missing > 0) holes.push(want[k]); });
+    }
+    return holes;
+  }
   function renderSchedule() {
     closeMenu();
     var sc = S.schedule;
@@ -640,15 +717,7 @@
       planBox.appendChild(el('p', 'horaireEmpty', ready ? tr('Aucun horaire pour cette semaine. Touche « Générer l’horaire ».') : tr('Ajoute tes postes, employés et besoins dans les paramètres.')));
       return;
     }
-    // Trous recalculés ici (besoins − quarts placés, par jour, poste et heure d'arrivée) : un quart ajouté à la main comble son trou
-    // aussitôt, même si les alertes du serveur ne sont pas recalculées.
-    var holes = [];
-    for (var i = 0; i < 7; i++) {
-      var day = addDays(S.week, i), want = {};
-      daySource(i).forEach(function (n) { var k = n.positionId + '|' + n.start; if (!want[k]) want[k] = { positionId: n.positionId, day: day, start: n.start, end: n.end, missing: 0 }; want[k].missing += Number(n.count) || 0; });
-      sc.assignments.forEach(function (a) { var k = a.positionId + '|' + a.start; if (a.day === day && want[k]) want[k].missing -= 1; });
-      Object.keys(want).forEach(function (k) { if (want[k].missing > 0) holes.push(want[k]); });
-    }
+    var holes = computeHoles(sc);
     var cell = function (svc) {
       return function (i, c) {
         var day = addDays(S.week, i), items = [];
