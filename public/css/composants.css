@@ -155,6 +155,13 @@
   :root :is(.menuBtn, .profileSquareBtn, .cmpSymbol, .historyNav > .iconBtn, .timesheetNav > .iconBtn):hover:not(:disabled) { color: var(--text); } /* R37 : l'icône seule change de teinte, jamais de fond */
 }
 
+/* R40 (27 oct. 2026, demande d'Émilien) : TOUTES les zones d'écriture (champs, zones de texte, listes déroulantes) ont la même opacité, celle de la barre des volets :
+   fond --glass-bg (blanc 5 %) + flou --glass-blur. UNE seule définition, ici. Une zone d'écriture qui vit dans une bulle de verre (bulle IA, barre d'ajout) laisse son
+   champ transparent : c'est la bulle qui porte le verre, jamais deux verres superposés. */
+:root :is(input, textarea, select):not([type=checkbox], [type=radio], [type=range], [type=file], [type=hidden], [type=color], [type=button], [type=submit], [type=image]) {
+  background-color: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+}
+
 /* Bouton d'envoi à l'IA (27 oct. 2026, demande d'Émilien) : rond violet avec une flèche ↑, STANDARD pour écrire à l'IA (zone de saisie libre de la Feuille de route, pop-up des tâches du jour, zone de l'extension Expansion).
    Les autres boutons d'envoi (discussions, messages) ne sont pas concernés. Zone de toucher de 44 px. */
 .cmpSend {

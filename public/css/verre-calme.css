@@ -167,7 +167,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
    Tout élément de verre (bouton, champ, menu déroulant, case, rangée) situé DANS une zone de verre n'a plus de fond ni de flou propres :
    seul son liseré fin le distingue. La zone parente fournit seule la teinte. */
 :root :is(.statsSection, .activityRow, .settingsCard, .goalCard, .goalsActivityHeader, .historyEntry, .discussionMsg, .pollFormAdvanced, .entryCard,
-          .activityProgressCard, .goalsTasksGroup, .dailyPriorityItem, .goalWeeklyCard, .goalsCalendarRow, .onboarding-card,
+          .activityProgressCard, .goalsTasksGroup, .dailyPriorityItem, .goalWeeklyCard, .goalsCalendarRow,
           .activityGoalsCategoryAutoTaskBubble, #chronoRunning)
   :is(.iconBtn, .menuBtn, .topIconBtn, input, select, textarea, .categoryDropdownTrigger, .categoryPickerBtn, .subProjectSelect,
       .attachmentRow, .historyRowIconBtn, .periodBtn, .themeBtn, .seekingTagBtn, .goalAssigneeChip):not(.btnBrique):not(.btn-primary):not([type="checkbox"]):not([type="radio"]) {

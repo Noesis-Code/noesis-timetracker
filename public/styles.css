@@ -2628,7 +2628,7 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsCategoryAutoTaskBubble {
   position: relative;
   border-radius: var(--radius-lg, var(--radius-md));
-  background: var(--card);
+  background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); /* R40 : le verre de la bulle */
   /* 26 septembre 2026, demande directe d'Emilien (page 1) : plus de `border` CSS ici — Emilien a signalé que le contour fixe (alors 1.5px, une bordure CSS séparée) … */
 }
 /* 22 septembre 2026, demande directe d'Emilien : « garder uniquement un fuseau [...] enlever l'ombre du fuseau qui se déplace indépendamment [...] plus brillant et augmente légèrement sa vitesse. */
@@ -2666,7 +2666,8 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsCategoryAutoTaskBubble .activityGoalsCategoryAutoTaskOffline {
   position: relative; z-index: 1;
 }
-.activityGoalsCategoryAutoTaskBubble textarea {
+:root .activityGoalsCategoryAutoTaskBubble textarea {
+  -webkit-backdrop-filter: none; backdrop-filter: none;
   display: block; width: 100%; box-sizing: border-box;
   resize: none; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; line-height: 1.35;
   border: none; outline: none; background: transparent; color: var(--text);
@@ -3009,12 +3010,12 @@ button { -webkit-user-select: none; user-select: none; }
 #onboarding .userList { max-height: 200px; margin-bottom: 4px; }
 #onboarding input[type=text], #onboarding input[type=password], #onboarding input[type=tel], #onboarding input[type=email] {
   padding: 10px 14px; margin-bottom: 8px; color: var(--text);
-  background: transparent; border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+  background: var(--glass-bg); border: 1px solid rgba(255, 255, 255, 0.14); /* R40 : l'opacité des zones d'écriture est celle de la barre des volets */
+  box-shadow: none; -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 /* 1er oct. 2026 : champs de #onboarding = fond TRANSPARENT (aucune différence de teinte avec la carte), seul un liseré 1px les délimite ; focus = liseré plus clair, sans halo. */
 #onboarding input[type=text]:focus, #onboarding input[type=password]:focus, #onboarding input[type=tel]:focus, #onboarding input[type=email]:focus {
-  background: transparent; border-color: rgba(255, 255, 255, 0.38); box-shadow: none;
+  background: var(--glass-bg); border-color: rgba(255, 255, 255, 0.38); box-shadow: none;
 }
 /* 1er oct. 2026 : carte du gate PWA (Safari) réellement centrée. Hors mode installé, #onboarding est calé sur le viewport visuel (fixed, inset 0)
    plutôt que sur 100dvh en flux (Safari iOS : barres d'outils/défilement de page décalent la carte), et le titre du gate est centré comme le reste de la carte. */
