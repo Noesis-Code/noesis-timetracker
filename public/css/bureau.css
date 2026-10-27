@@ -36,4 +36,7 @@
   .bureauArrow.hidden { display: none; }
   .bureauArrow-prev { left: 16px; }
   .bureauArrow-next { right: 16px; }
+
+  /* Communauté : la bande de recherche a la largeur des informations de la page (colonne #content moins ses marges), pas celle de l'écran. */
+  #communitySearchBar { left: 0; right: 0; margin-left: auto; margin-right: auto; width: min(896px, calc(100% - 64px)); }
 }
