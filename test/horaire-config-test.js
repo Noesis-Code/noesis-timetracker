@@ -88,6 +88,13 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
   r = await call('GET', 'employee-rules', undefined, 'uC');
   assert(r.body.rules.length === 2, 'GET employee-rules');
   assert((await call('DELETE', 'employee-rules/' + free.id, undefined, 'uC')).status === 200 && h.listEmployeeRules('uC').length === 1, 'règle retirée');
+  // ---- Groupe : service + serveurs en plus, libellé « Groupe » ----
+  r = await call('POST', 'events', { day: '2026-11-07', service: 'soir', extra: 2 }, 'uC');
+  assert(r.status === 201 && r.body.event.label === 'Groupe' && r.body.event.service === 'soir' && r.body.event.extra === 2 && r.body.event.needs.length === 0, 'groupe créé (soir, +2)');
+  r = await call('PUT', 'events/' + r.body.event.id, { extra: 3 }, 'uC');
+  assert(r.status === 200 && r.body.event.extra === 3 && r.body.event.service === 'soir', 'groupe modifié (+3)');
+  assert((await call('POST', 'events', { day: '2026-11-07', service: 'nuit', extra: 1 }, 'uC')).status === 400, 'service inconnu refusé');
+  assert((await call('POST', 'events', { day: '2026-11-07', service: 'matin', extra: 0 }, 'uC')).status === 400, 'groupe à 0 refusé (0 = on le retire)');
   r = await call('PUT', 'category-rules', { rank: 2, rule: 'noDouble' });
   assert(r.status === 200 && r.body.rules.some((x) => x.rank === 2 && x.rule === 'noDouble'), 'PUT category-rules : règle ajoutée');
   assert((await call('PUT', 'category-rules', { rank: 2, rule: 'inventee' })).status === 400, 'règle hors liste refusée');

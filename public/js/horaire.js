@@ -181,7 +181,7 @@
     var p1 = el('div', 'horairePage');
     var bCats = block('Classification des employés', 'Catégorie 1 = priorité la plus haute. Glisse un nom pour le changer de catégorie.');
     catsBox = el('div', 'horaireFrame cmpGlass'); bCats.appendChild(catsBox);
-    var bNeeds = block('Besoins et événements', 'Nombre de serveurs par heure d’arrivée. Soir = à partir de 16 h. Un événement remplace les besoins de son service.');
+    var bNeeds = block('Besoins et événements', 'Clique une case pour la changer. Un groupe ajoute des serveurs à son service.');
     needsBox = el('div', 'horaireFrame cmpGlass'); bNeeds.appendChild(needsBox);
     var bRules = el('section', 'horaireBlock');
     rulesHead = el('button', 'horaireRulesHead'); rulesHead.type = 'button';
@@ -356,42 +356,64 @@
     });
     return g;
   }
-  // Besoins d'un jour (même règle que la génération) : un événement remplace les besoins normaux de SON service (matin ou soir).
+  // Besoins d'un jour (même règle que la génération) : un ancien événement (avec ses besoins) remplace les besoins normaux de SON
+  // service ; un groupe (service + serveurs en plus) AJOUTE ses serveurs à la première heure d'arrivée de son service (à défaut 10:30 / 16:00).
   function dayEvents(i) { var day = addDays(S.week, i); return S.events.filter(function (e) { return e.day === day; }); }
   function daySource(i) {
-    var ev = [].concat.apply([], dayEvents(i).map(function (e) { return e.needs || []; }));
+    var evs = dayEvents(i);
+    var ev = [].concat.apply([], evs.filter(function (e) { return !e.service; }).map(function (e) { return e.needs || []; }));
     var replaced = {}; ev.forEach(function (n) { replaced[serviceOf(n.start)] = 1; });
-    return ev.concat(S.needs.filter(function (n) { return Number(n.weekday) === i && !replaced[serviceOf(n.start)]; }));
+    var src = ev.concat(S.needs.filter(function (n) { return Number(n.weekday) === i && !replaced[serviceOf(n.start)]; }));
+    evs.filter(function (e) { return e.service && e.extra > 0; }).forEach(function (g) {
+      var first = src.filter(function (n) { return serviceOf(n.start) === g.service; }).sort(function (a, b) { return toMin(a.start) - toMin(b.start); })[0];
+      if (first) src.push({ positionId: first.positionId, start: first.start, end: first.end, count: g.extra });
+      else if (S.positions[0]) src.push({ positionId: S.positions[0].id, start: g.service === 'soir' ? '16:00' : '10:30', end: SLOT[g.service][1], count: g.extra });
+    });
+    return src;
   }
-  function dayNeeds(i) {
-    var out = { matin: {}, soir: {} };
-    daySource(i).forEach(function (n) { var s = serviceOf(n.start); out[s][n.start] = (out[s][n.start] || 0) + (Number(n.count) || 0); });
-    return out;
-  }
-  function eventService(ev) { var n = (ev.needs || [])[0]; return n ? serviceOf(n.start) : 'soir'; }
+  function eventService(ev) { if (ev.service) return ev.service; var n = (ev.needs || [])[0]; return n ? serviceOf(n.start) : 'soir'; }
+  function eventLabel(ev) { return ev.service ? tr('Groupe') + ' · ' + tr(ev.service) + ' · +' + ev.extra : (ev.label || tr('Événement')) + ' · ' + tr(eventService(ev)); }
+  // Besoins normaux (modèle de la semaine) saisis dans les cases : chaque ligne « heure × nombre » se modifie au clic, enregistrement
+  // automatique (Entrée ou sortie du champ), 0 retire la ligne ; un petit « + » par case ajoute une ligne (10:30 le matin, 16:00 le soir, × 1).
   function renderNeedsTable() {
     needsBox.textContent = '';
-    var N = [0, 1, 2, 3, 4, 5, 6].map(dayNeeds);
     var list = function (svc) {
       return function (i, c) {
-        Object.keys(N[i][svc]).sort().forEach(function (h) {
-          var r = el('div', 'horaireNeed'); r.appendChild(el('span', null, h)); r.appendChild(el('span', 'horaireNeedN', '× ' + N[i][svc][h])); c.appendChild(r);
+        S.needs.filter(function (n) { return Number(n.weekday) === i && serviceOf(n.start) === svc; })
+          .sort(function (a, b) { return toMin(a.start) - toMin(b.start); }).forEach(function (n) {
+            var r = el('div', 'horaireNeed horaireSheetEdit');
+            editCell(r, '', [['start', n.start, 'Heure d’arrivée', 'time'], ['count', n.count, 'Nombre', 'number', '×']], function (v) {
+              var count = Number(v.count);
+              if (!/^\d{1,2}:\d{2}$/.test(v.start) || !(Number.isInteger(count) && count >= 0 && count <= 50)) return false;
+              if (count === 0) { req('DELETE', 'needs/' + n.id).then(refresh, fail); return; }
+              if (v.start === n.start && count === n.count) { renderNeedsTable(); return; }
+              req('PUT', 'needs/' + n.id, { start: v.start, count: count }).then(refresh, function (err) { fail(err); renderNeedsTable(); });
+            }, function (cell) { cell.appendChild(el('span', null, n.start)); cell.appendChild(el('span', 'horaireNeedN', '× ' + n.count)); });
+            c.appendChild(r);
+          });
+        var add = el('button', 'cmpAdd cmpAddSquare horaireNeedAdd'); add.type = 'button'; add.setAttribute('aria-label', tr('Ajouter un besoin'));
+        add.appendChild(el('b', null, '+'));
+        add.addEventListener('click', function () {
+          mainPosition().then(function (pos) {
+            return req('POST', 'needs', { positionId: pos.id, weekday: i, start: svc === 'soir' ? '16:00' : '10:30', end: SLOT[svc][1], count: 1 });
+          }).then(refresh, fail);
         });
+        c.appendChild(add);
       };
     };
-    // Ligne « Événement » : le bouton de l'événement du jour (un clic le déroule sur place, R36) ou un « + » pointillé (R33).
+    // Ligne « Événement » : le bouton du groupe du jour (un clic le déroule sur place, R36) ou un « + » pointillé (R33).
     var evCell = function (i, c) {
       var evs = dayEvents(i);
       evs.forEach(function (ev) {
         var key = 'ev:' + ev.id;
-        var b = btn('horaireEvent' + (S.editing === key ? ' on' : ''), (ev.label || tr('Événement')) + ' · ' + tr(eventService(ev)), function () { S.editing = S.editing === key ? null : key; renderNeedsTable(); });
+        var b = btn('horaireEvent' + (S.editing === key ? ' on' : ''), eventLabel(ev), function () { S.editing = S.editing === key ? null : key; renderNeedsTable(); });
         b.setAttribute('aria-expanded', S.editing === key ? 'true' : 'false');
         c.appendChild(b);
       });
       if (!evs.length) {
         var key = 'evnew:' + addDays(S.week, i);
         var a = TMT.ui.addBtn('', function () { S.editing = S.editing === key ? null : key; renderNeedsTable(); });
-        a.classList.add('horaireEvAdd'); a.setAttribute('aria-label', tr('Ajouter un événement'));
+        a.classList.add('horaireEvAdd'); a.setAttribute('aria-label', tr('Ajouter un groupe'));
         c.appendChild(a);
       }
     };
@@ -403,42 +425,43 @@
       if (day && day >= S.week && day <= addDays(S.week, 6)) {
         var f = el('div', 'horaireForm horaireCellFull');
         f.appendChild(el('span', 'horaireFieldLabel', dayLabel(day, true)));
-        if (S.positions.length) eventForm(f, ev, day); else f.appendChild(el('p', 'horaireEmpty', tr('Ajoute d’abord un poste.')));
+        eventForm(f, ev, day);
         g.appendChild(f);
       }
     }
     needsBox.appendChild(g);
   }
-  // Formulaire d'un événement, déroulé sous le tableau (R36) : libellé, service, besoins (heure d'arrivée × nombre).
-  // Il remplace les besoins de son service ce jour-là (routes /api/horaire/events). Poste : celui de la ligne, sinon le premier poste.
+  // Groupe, déroulé sous le tableau (R36) : Service (Matin | Soir, bascule commune .periodSwitch) et « Serveurs en plus ».
+  // Enregistrement automatique à chaque changement ; 0 retire le groupe. Un ancien événement devient un groupe à sa première modification.
   function eventForm(f, ev, day) {
-    var label = input('text', ev ? ev.label : '', tr('Libellé')); label.maxLength = 120;
-    var svc = select([['matin', tr('Matin')], ['soir', tr('Soir')]], ev ? eventService(ev) : 'soir', tr('Service'));
+    var cur = { service: ev ? eventService(ev) : 'soir', extra: ev && ev.service ? ev.extra : (ev ? 1 : 0) };
+    var sw = el('div', 'periodSwitch horaireEvSwitch');
+    var svcBtns = ['matin', 'soir'].map(function (s) {
+      var b = btn('periodBtn' + (cur.service === s ? ' active' : ''), s === 'matin' ? 'Matin' : 'Soir', function () {
+        if (cur.service === s) return;
+        cur.service = s; svcBtns.forEach(function (x, k) { x.classList.toggle('active', ['matin', 'soir'][k] === s); });
+        save();
+      });
+      sw.appendChild(b); return b;
+    });
+    var n = input('number', cur.extra, tr('Serveurs en plus')); n.min = '0'; n.max = '50'; n.inputMode = 'numeric';
     var pair = el('div', 'horairePair');
-    pair.appendChild(field(tr('Libellé'), label)); pair.appendChild(field(tr('Service'), svc));
+    pair.appendChild(field(tr('Service'), sw)); pair.appendChild(field(tr('Serveurs en plus'), n));
     f.appendChild(pair);
-    var lines = el('div', 'horaireLines'), getters = [];
-    function addLine(n) {
-      var line = el('div', 'horaireEvLine');
-      var start = input('time', n ? n.start : (svc.value === 'soir' ? '17:00' : '10:30'), tr('Heure d’arrivée'));
-      var count = input('number', n ? n.count : 1, tr('Nombre')); count.min = '1'; count.max = '50'; count.inputMode = 'numeric';
-      var g = function () { return { positionId: n ? n.positionId : S.positions[0].id, start: start.value, count: Number(count.value) || 1 }; };
-      getters.push(g);
-      line.appendChild(field(tr('Heure d’arrivée'), start)); line.appendChild(el('span', 'horaireTimes', '×')); line.appendChild(field(tr('Nombre'), count));
-      line.appendChild(TMT.ui.removeBtn(function () { getters.splice(getters.indexOf(g), 1); line.remove(); lines.dispatchEvent(new Event('input', { bubbles: true })); }, tr('Retirer le besoin')));
-      lines.appendChild(line);
+    var busy = false;
+    function save() {
+      var extra = Number(n.value);
+      if (!(Number.isInteger(extra) && extra >= 0 && extra <= 50) || busy) return;
+      if (!ev && extra === 0) return;
+      busy = true;
+      var p = extra === 0 ? req('DELETE', 'events/' + ev.id).then(function () { S.editing = null; })
+        : (ev ? req('PUT', 'events/' + ev.id, { service: cur.service, extra: extra }) : req('POST', 'events', { day: day, service: cur.service, extra: extra }))
+          .then(function (d) { if (d && d.event) S.editing = 'ev:' + d.event.id; });
+      p.then(refresh, fail).then(function () { busy = false; });
     }
-    (ev ? ev.needs : [null]).forEach(addLine);
-    f.appendChild(lines);
-    f.appendChild(TMT.ui.addBtn(tr('Ajouter un besoin'), function () { addLine(null); lines.dispatchEvent(new Event('input', { bubbles: true })); }));
-    f.appendChild(saveBtn(f, function () {
-      var s = svc.value;
-      var needs = getters.map(function (g) { return g(); });
-      if (needs.some(function (n) { return serviceOf(n.start) !== s; })) throw new Error(tr('Une heure d’arrivée est hors du service choisi.'));
-      var body = { day: day, label: label.value, needs: needs.map(function (n) { return { positionId: n.positionId, start: n.start, end: SLOT[s][1], count: n.count }; }) };
-      return ev ? req('PUT', 'events/' + ev.id, body) : req('POST', 'events', body);
-    }));
-    if (ev) f.appendChild(deleteBtn(tr('Supprimer cet événement ?'), function () { return req('DELETE', 'events/' + ev.id); }));
+    n.addEventListener('change', save);
+    n.addEventListener('keydown', function (k) { if (k.key === 'Enter') { k.preventDefault(); save(); } });
+    setTimeout(function () { n.focus(); }, 0);
   }
 
   // ---------- disponibilités de la semaine (lues pour la liste d'un trou) ----------
@@ -479,8 +502,10 @@
     return req('POST', 'main-position', {}).then(function (d) { S.positions = [d.position]; return d.position; });
   }
   // Cellule modifiable : fields = [[clé, valeur, libellé, type]] ; save(valeurs) renvoie false si invalide (rien n'est envoyé).
-  function editCell(cell, text, fields, save) {
-    cell.textContent = text;
+  // show(cell) : affichage personnalisé de la cellule au repos (sinon le texte) ; fields[i][4] : séparateur avant le champ i (sinon « – »).
+  function editCell(cell, text, fields, save, show) {
+    var paint = function () { cell.textContent = ''; if (show) show(cell); else cell.textContent = text; };
+    paint();
     cell.tabIndex = 0;
     var open = function () {
       if (cell.classList.contains('editing')) return;
@@ -488,14 +513,14 @@
       var ins = fields.map(function (f, i) {
         var x = el('input', 'horaireSheetInput'); x.type = f[3] || 'text'; x.value = f[1] == null ? '' : f[1]; x.setAttribute('aria-label', tr(f[2]));
         if (f[3] === 'hours') { x.type = 'text'; x.inputMode = 'decimal'; x.value = hoursText(f[1]); }
-        if (i) cell.appendChild(el('span', 'horaireMuted', '–'));
+        if (i) cell.appendChild(el('span', 'horaireMuted', f[4] || '–'));
         cell.appendChild(x);
         return x;
       });
       var done = false;
       var finish = function (keep) {
         if (done) return;
-        if (!keep) { done = true; cell.classList.remove('editing', 'invalid'); cell.textContent = text; return; }
+        if (!keep) { done = true; cell.classList.remove('editing', 'invalid'); paint(); return; }
         var vals = {}; fields.forEach(function (f, i) { vals[f[0]] = ins[i].value; });
         if (save(vals) === false) { cell.classList.add('invalid'); return; }
         done = true;

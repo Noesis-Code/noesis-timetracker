@@ -51,6 +51,15 @@
 .horaireDayDate { font-size: 13px; color: var(--text-light); }
 .horaireNeed { display: flex; justify-content: space-between; gap: 8px; }
 .horaireNeedN { font-weight: 600; color: var(--violet-soft); }
+/* Ligne de besoin modifiable sur place (heure × nombre) et petit « + » discret par case (R33) */
+.horaireNeed.horaireSheetEdit { min-height: 32px; align-items: center; margin: 0 -4px; padding: 0 4px; border-radius: var(--radius-sm); }
+.horaireNeed.editing { gap: 4px; }
+.horaireNeed .horaireSheetInput { padding: 0 4px; }
+.horaireNeed .horaireSheetInput[type="time"] { flex: 1 1 auto; min-width: 84px; }
+.horaireNeed .horaireSheetInput[type="number"] { flex: 0 0 44px; width: 44px; }
+.cmpAdd.horaireNeedAdd { flex: 0 0 28px; width: 28px; height: 28px; align-self: flex-start; }
+#tab-horaire .horaireEvSwitch { margin: 0; }
+.horaireEvSwitch .periodBtn { min-height: 44px; }
 /* Ligne « Événement » : bouton de l'événement du jour, ou « + » pointillé (R33) ; le formulaire se déroule sous le tableau (R36) */
 .horaireEvent { width: 100%; min-height: 44px; padding: 8px; border: 1px solid rgba(var(--purple-rgb), .55); border-radius: var(--radius-sm); background: rgba(var(--purple-rgb), .12); font: inherit; font-size: 13px; color: var(--text); text-align: left; cursor: pointer; }
 .horaireEvent.on { border-color: var(--purple); }

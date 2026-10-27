@@ -2739,6 +2739,10 @@ CREATE INDEX IF NOT EXISTS idx_horaire_timeoff_week ON horaire_timeoff(userId, w
 for (const t of ['horaire_availabilities', 'horaire_timeoff']) {
   if (!db.prepare('PRAGMA table_info(' + t + ')').all().some((c) => c.name === 'createdAt')) db.exec('ALTER TABLE ' + t + ' ADD COLUMN createdAt TEXT');
 }
+// Événement « Groupe » (28 oct. 2026) : service (matin | soir) et serveurs en plus ; NULL = ancien événement (ses besoins remplacent).
+for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER']]) {
+  if (!db.prepare('PRAGMA table_info(horaire_events)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_events ADD COLUMN ' + col + ' ' + type);
+}
 // Règles de catégorie (28 oct. 2026) : catégorie = rang de qualification (1 = priorité la plus haute) ; chaque règle s'applique
 // à tous les employés de la catégorie, comme leurs propres cases (server/lib/horaire-generation.js).
 // Heures visées par semaine (28 oct. 2026, décision d'Émilien) : min, cible, max en HEURES (remplacent les quarts dans la génération).

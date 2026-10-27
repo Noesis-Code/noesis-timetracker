@@ -248,6 +248,14 @@ router.delete('/horaire/needs/:id', (req, res) => (h.deleteNeed(req.userId, req.
 function eventInput(req, res, body, partial, current) {
   const day = body.day !== undefined ? body.day : current && current.day;
   if (!h.isDate(day)) { bad(res, 'Date invalide (AAAA-MM-JJ).'); return null; }
+  // Groupe (28 oct. 2026) : { day, service: 'matin' | 'soir', extra: 1..50 } ; libellé « Groupe », aucun besoin propre.
+  if (body.service !== undefined || body.extra !== undefined) {
+    const service = body.service !== undefined ? body.service : current && current.service;
+    const extra = body.extra !== undefined ? body.extra : current && current.extra;
+    if (service !== 'matin' && service !== 'soir') { bad(res, 'Service invalide (matin ou soir).'); return null; }
+    if (!(Number.isInteger(extra) && extra >= 1 && extra <= 50)) { bad(res, 'Serveurs en plus invalides (1 à 50).'); return null; }
+    return { day, label: 'Groupe', needs: [], service, extra };
+  }
   const label = body.label !== undefined ? h.cleanName(body.label, h.LIMITS.label) : (current ? current.label : '');
   let needs = null;
   if (body.needs !== undefined || !partial) {

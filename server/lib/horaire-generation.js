@@ -55,18 +55,25 @@ function criticality(weekday, startMin, isEvent) {
   return WEEKEND.includes(weekday) ? 1 : 0;
 }
 
-// Créneaux à combler pour la semaine : un événement spécial d'une date REMPLACE le modèle normal de son SERVICE
+// Créneaux à combler pour la semaine. Groupe (événement avec service et extra, 28 oct. 2026) : AJOUTE extra serveurs à la première heure
+// d'arrivée de son service ce jour-là (à défaut 10:30–16:00 le matin, 16:00–23:59 le soir, au poste mainPositionId).
+// Ancien événement (avec ses besoins) : REMPLACE le modèle normal de son SERVICE
 // (matin ou soir, d'après l'heure d'arrivée de ses besoins ; pour tous les postes) ; l'autre service garde ses besoins normaux
 // (maquette du 28 oct. 2026 : « Un événement remplace les besoins de son service »).
 const serviceOf = (start) => (toMin(start) >= EVENING_FROM ? 'soir' : 'matin');
-function buildSlots(weekStart, needs, events) {
+function buildSlots(weekStart, needs, events, mainPositionId) {
   const days = weekDays(weekStart);
   const slots = [];
   days.forEach((day, weekday) => {
     const dayEvents = (events || []).filter((e) => e.day === day);
-    const fromEvents = dayEvents.flatMap((e) => (e.needs || []).map((n) => Object.assign({ eventId: e.id }, n)));
+    const fromEvents = dayEvents.filter((e) => !e.service).flatMap((e) => (e.needs || []).map((n) => Object.assign({ eventId: e.id }, n)));
     const replaced = new Set(fromEvents.map((n) => serviceOf(n.start)));
     const source = fromEvents.concat((needs || []).filter((n) => Number(n.weekday) === weekday && !replaced.has(serviceOf(n.start))));
+    for (const g of dayEvents.filter((e) => e.service && Number(e.extra) > 0)) {
+      const first = source.filter((n) => serviceOf(n.start) === g.service).sort((a, b) => toMin(a.start) - toMin(b.start))[0];
+      if (first) source.push({ positionId: first.positionId, start: first.start, end: first.end, count: Number(g.extra), eventId: g.id });
+      else if (mainPositionId != null) source.push({ positionId: mainPositionId, start: g.service === 'soir' ? '16:00' : '10:30', end: g.service === 'soir' ? '23:59' : '16:00', count: Number(g.extra), eventId: g.id });
+    }
     for (const n of source) {
       const r = range(n.start, n.end);
       const count = Math.max(0, Math.floor(Number(n.count) || 0));
@@ -133,7 +140,7 @@ function generateSchedule(input) {
   // congés : jour entier, l'employé est indisponible ce jour-là
   const off = new Set((input.timeoff || []).map((t) => t.employeeId + '|' + t.day));
 
-  const slots = buildSlots(input.weekStart, input.needs, input.events);
+  const slots = buildSlots(input.weekStart, input.needs, input.events, positions.length ? positions[0].id : null);
   const posRank = new Map(positions.map((p, i) => [p.id, i]));
   // Ordre de traitement : poste (ordre de comblement), puis criticité décroissante, puis jour et heure.
   const ordered = slots.filter((s) => posRank.has(s.positionId)).sort((a, b) =>

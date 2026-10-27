@@ -233,17 +233,17 @@ function deleteNeed(u, id) {
 // ---------- événements spéciaux (remplacent le modèle normal pour leur date) ----------
 function listEvents(u, from, to) {
   const evs = (from && to)
-    ? db.prepare('SELECT id, day, label FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
-    : db.prepare('SELECT id, day, label FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
+    ? db.prepare('SELECT id, day, label, service, extra FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
+    : db.prepare('SELECT id, day, label, service, extra FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
   const needs = db.prepare('SELECT eventId, positionId, start, end, count FROM horaire_needs WHERE userId = ? AND eventId IS NOT NULL ORDER BY start').all(u);
   return evs.map((e) => ({ ...e, needs: needs.filter((n) => n.eventId === e.id).map(({ eventId, ...n }) => n) }));
 }
-function writeEvent(u, id, { day, label, needs }) {
+function writeEvent(u, id, { day, label, needs, service, extra }) {
   db.exec('BEGIN');
   try {
     let eventId = id;
-    if (eventId) db.prepare('UPDATE horaire_events SET day = ?, label = ? WHERE id = ? AND userId = ?').run(day, label, eventId, u);
-    else eventId = Number(db.prepare('INSERT INTO horaire_events (userId, day, label) VALUES (?, ?, ?)').run(u, day, label).lastInsertRowid);
+    if (eventId) db.prepare('UPDATE horaire_events SET day = ?, label = ?, service = ?, extra = ? WHERE id = ? AND userId = ?').run(day, label, service || null, extra == null ? null : extra, eventId, u);
+    else eventId = Number(db.prepare('INSERT INTO horaire_events (userId, day, label, service, extra) VALUES (?, ?, ?, ?, ?)').run(u, day, label, service || null, extra == null ? null : extra).lastInsertRowid);
     if (needs) {
       db.prepare('DELETE FROM horaire_needs WHERE userId = ? AND eventId = ?').run(u, eventId);
       const ins = db.prepare('INSERT INTO horaire_needs (userId, positionId, weekday, eventId, start, end, count) VALUES (?, ?, NULL, ?, ?, ?, ?)');
