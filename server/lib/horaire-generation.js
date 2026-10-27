@@ -13,9 +13,10 @@
 //   quarts que wantShiftsMax, noDouble (jamais matin et soir le même jour), restAfterShift (aucun quart la veille ni le
 //   lendemain d'un quart) ; préférences = éviter les doubles, éviter soir puis matin du lendemain ; les soirs, traités en
 //   premier, vont au meilleur groupe (rang) ;
-// - passes successives sur les seuls créneaux restés vides : 1. tout respecté ; 2. préférences assouplies ; 3. max d'heures
-//   hebdo assoupli (dépassement signalé) ; 4. dernier recours : 6e quart pour qui en souhaite 5, groupe 1 d'abord (signalé).
-//   L'horaire est toujours produit, avec la liste des alertes (trous, dépassements, 6e quarts).
+// - remplissage en 3 passes sur les seuls créneaux restés vides (28 oct. 2026) : 1. chacun atteint son MIN de quarts, à tout prix
+//   (préférences puis max d'heures assouplis), meilleur rang d'abord ; 2. jusqu'à sa CIBLE, rang par rang ; 3. au-delà de la cible
+//   jusqu'au MAX, meilleur rang d'abord. Le max de quarts est strict : un créneau sans personne reste un trou. L'horaire est toujours
+//   produit, avec la liste des alertes (trous, dépassements d'heures, minimum non atteint).
 
 const WEEKEND = [5, 6]; // samedi, dimanche (lundi = 0)
 const EVENING_FROM = 16 * 60; // un quart qui commence à 16 h ou plus tard est « de soir »
@@ -83,7 +84,7 @@ function overlaps(a, b) { return a.from < b.to && b.from < a.to; }
 /**
  * @param {object} input
  *   weekStart 'YYYY-MM-DD' (lundi) ; positions [{id, fillOrder}] ;
- *   employees [{id, maxWeekMinutes|null, wantShiftsMax|null, noDouble, restAfterShift}] ;
+ *   employees [{id, maxWeekMinutes|null, wantShiftsMin|null, wantShiftsTarget|null, wantShiftsMax|null, noDouble, restAfterShift}] ;
  *   qualifications [{employeeId, positionId, rank}] ; availabilities [{employeeId, day, start, end}] ; timeoff [{employeeId, day}] ;
  *   needs [{positionId, weekday 0..6, start, end, count}] ; events [{id, day, needs:[{positionId, start, end, count}]}] ;
  *   rotation { '<positionId>:<rank>': dernierEmployeeId } ;
@@ -145,8 +146,16 @@ function generateSchedule(input) {
   const evening = (s) => s.from >= EVENING_FROM;
   const has = (n) => n !== null && n !== undefined;
 
-  // level : 0 = tout respecté ; 1 = préférences assouplies ; 2 = + max d'heures assoupli ; 3 = + 6e quart pour qui en souhaite 5.
-  function eligible(empId, slot, level) {
+  // Plafond de quarts d'une passe : min (0 si absent), cible (sinon le max), max (sans limite si absent) ; jamais au-delà du max.
+  function capOf(e, phase) {
+    const max = has(e.wantShiftsMax) ? e.wantShiftsMax : Infinity;
+    const min = has(e.wantShiftsMin) ? e.wantShiftsMin : 0;
+    if (phase === 'min') return Math.min(min, max);
+    if (phase === 'target') return Math.min(max, Math.max(min, has(e.wantShiftsTarget) ? e.wantShiftsTarget : max));
+    return max;
+  }
+  // level : 0 = tout respecté ; 1 = préférences assouplies ; 2 = + max d'heures assoupli (signalé).
+  function eligible(empId, slot, level, phase) {
     const e = empById.get(empId);
     const k = empId + '|' + slot.day;
     if (off.has(k)) return false;
@@ -160,8 +169,7 @@ function generateSchedule(input) {
     if ((e.restAfterShift || rule(empId, 'restAfterShift')) && (before.length || after.length)) return false;
     const double = same.some((s) => evening(s) !== evening(slot));
     if ((e.noDouble || rule(empId, 'noDouble')) && double) return false;
-    const want = e.wantShiftsMax;
-    if (has(want) && shiftsOf.get(empId) >= want && !(level >= 3 && want === 5 && shiftsOf.get(empId) === 5)) return false;
+    if (shiftsOf.get(empId) >= capOf(e, phase)) return false; // plafond de la passe (min, cible ou max : le max n'est jamais dépassé)
     if (level < 1) {
       if (double) return false;
       // préférence de catégorie : « Soirs d'abord » évite les matins, « Matins d'abord » évite les soirs (assoupli dès la 2e passe)
@@ -174,7 +182,7 @@ function generateSchedule(input) {
     return true;
   }
 
-  function pick(slot, level) {
+  function pick(slot, level, phase) {
     const q = qual.get(slot.positionId);
     if (!q) return null;
     const ranks = [...new Set(q.values())].sort((a, b) => a - b);
@@ -190,7 +198,7 @@ function generateSchedule(input) {
       const tier = (id) => (rule(id, want) ? 0 : rule(id, other) ? 2 : 1);
       turn.sort((a, b) => tier(a) - tier(b)); // tri stable : le tourniquet est gardé dans chaque niveau
       for (const id of turn) {
-        if (eligible(id, slot, level)) { rotation[key] = id; return id; }
+        if (eligible(id, slot, level, phase)) { rotation[key] = id; return id; }
       }
     }
     return null;
@@ -207,13 +215,17 @@ function generateSchedule(input) {
   }
 
   let holes = ordered;
-  for (let level = 0; level <= 3 && holes.length; level++) { // chaque passe ne reprend que les créneaux restés vides
-    const left = [];
-    for (const slot of holes) {
-      const id = pick(slot, level);
-      if (id === null) left.push(slot); else assign(slot, id);
+  const PASSES = [['min', [0, 1, 2]], ['target', [0, 1]], ['max', [0, 1, 2]]];
+  for (const [phase, levels] of PASSES) {
+    for (const level of levels) { // chaque passe ne reprend que les créneaux restés vides
+      if (!holes.length) break;
+      const left = [];
+      for (const slot of holes) {
+        const id = pick(slot, level, phase);
+        if (id === null) left.push(slot); else assign(slot, id);
+      }
+      holes = left;
     }
-    holes = left;
   }
 
   const alerts = [];
@@ -228,8 +240,8 @@ function generateSchedule(input) {
     if (max !== null && max !== undefined && minutesOf.get(e.id) > max) {
       alerts.push({ type: 'depassement', employeeId: e.id, minutes: minutesOf.get(e.id), maxWeekMinutes: max });
     }
-    if (has(e.wantShiftsMax) && shiftsOf.get(e.id) > e.wantShiftsMax) {
-      alerts.push({ type: 'sixieme_quart', employeeId: e.id, shifts: shiftsOf.get(e.id), wantShiftsMax: e.wantShiftsMax });
+    if (has(e.wantShiftsMin) && shiftsOf.get(e.id) < e.wantShiftsMin) {
+      alerts.push({ type: 'minimum', employeeId: e.id, shifts: shiftsOf.get(e.id), wantShiftsMin: e.wantShiftsMin });
     }
   }
   assignments.sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0) || (toMin(a.start) - toMin(b.start)) || (posRank.get(a.positionId) - posRank.get(b.positionId)));

@@ -76,6 +76,8 @@ assert(r1.created === 2 && alice.wantShiftsMin === 5 && alice.wantShiftsMax === 
 assert(bruno.wantShiftsMin === 3 && bruno.wantShiftsMax === 4 && bruno.constraintNote === null && h.listQualifications('uA').filter((q) => q.employeeId === bruno.id).length === 2, 'import CSV : postes bornés avant les colonnes suivantes');
 const r2 = h.importEmployeesCsv('uA', 'nom;quarts min;quarts max\nAlice;6;4\n');
 assert(r2.skipped.length === 1 && h.ownEmployee('uA', alice.id).wantShiftsMin === 5, 'import CSV : min > max refusé');
+const r3c = h.importEmployeesCsv('uA', 'nom;quarts min;quarts max;cible\nBruno;3;4;4\nAlice;5;5;2\n');
+assert(r3c.updated === 1 && r3c.skipped.length === 1 && h.ownEmployee('uA', bruno.id).wantShiftsTarget === 4 && h.ownEmployee('uA', alice.id).wantShiftsTarget === null, 'import CSV : colonne « cible » lue, cible hors du min et du max refusée');
 const ex = require('../server/lib/dataexport').buildUserExport('uA');
 assert(ex.horaire.employees.some((e) => e.wantShiftsMax === 5 && e.constraintNote === 'Jamais de double'), 'export du compte : nouveaux champs inclus');
 
@@ -217,6 +219,12 @@ function call(method, path, body, user) {
   assert(r.status === 400, 'PUT : contrainte trop longue refusée');
   r = await call('PUT', 'employees/' + alice.id, { wantShiftsMin: 4, wantShiftsMax: 5, constraintNote: '' }, 'uA');
   assert(r.status === 200 && r.body.employee.wantShiftsMin === 4 && r.body.employee.constraintNote === null, 'PUT : quarts modifiés, contrainte effacée');
+  r = await call('PUT', 'employees/' + alice.id, { wantShiftsTarget: 6 }, 'uA');
+  assert(r.status === 400, 'PUT : cible au-dessus du max refusée');
+  r = await call('PUT', 'employees/' + alice.id, { wantShiftsTarget: 3 }, 'uA');
+  assert(r.status === 400, 'PUT : cible sous le min refusée');
+  r = await call('PUT', 'employees/' + alice.id, { wantShiftsTarget: 5 }, 'uA');
+  assert(r.status === 200 && r.body.employee.wantShiftsTarget === 5, 'PUT : cible entre le min et le max enregistrée');
   r = await call('POST', 'employees', { name: 'Chloé', wantShiftsMin: 2, wantShiftsMax: 3, constraintNote: 'Pas le dimanche' }, 'uA');
   assert(r.status === 201 && r.body.employee.wantShiftsMax === 3 && r.body.employee.constraintNote === 'Pas le dimanche', 'POST : nouveaux champs à la création');
   r = await call('PUT', 'employees/' + alice.id, { wantShiftsMin: 1 }, 'uB');

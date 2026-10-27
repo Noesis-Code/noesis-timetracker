@@ -71,7 +71,7 @@ function employeeInput(res, body, partial) {
     if (out.dayforceId === undefined) { bad(res, 'Matricule Dayforce invalide (64 caractères au plus).'); return null; }
   }
   // Quarts souhaités par semaine (min, max) et contrainte particulière : lus par le prompt pour l'IA seulement.
-  for (const k of ['wantShiftsMin', 'wantShiftsMax']) {
+  for (const k of ['wantShiftsMin', 'wantShiftsMax', 'wantShiftsTarget']) {
     if (body[k] === undefined) continue;
     out[k] = h.shiftCount(body[k]);
     if (out[k] === undefined) { bad(res, 'Quarts souhaités invalides (entier, 0 à ' + h.LIMITS.shifts + ').'); return null; }
@@ -88,11 +88,13 @@ function employeeInput(res, body, partial) {
   }
   return out;
 }
-// Min > max refusé (valeurs fusionnées avec l'employé existant pour une modification).
+// Min ≤ cible ≤ max, sinon refusé (valeurs fusionnées avec l'employé existant pour une modification).
 function shiftsOrdered(res, v, cur) {
   const lo = v.wantShiftsMin !== undefined ? v.wantShiftsMin : (cur ? cur.wantShiftsMin : null);
   const hi = v.wantShiftsMax !== undefined ? v.wantShiftsMax : (cur ? cur.wantShiftsMax : null);
   if (lo != null && hi != null && lo > hi) { bad(res, 'Quarts souhaités : le minimum dépasse le maximum.'); return false; }
+  const tg = v.wantShiftsTarget !== undefined ? v.wantShiftsTarget : (cur ? cur.wantShiftsTarget : null);
+  if (tg != null && ((lo != null && tg < lo) || (hi != null && tg > hi))) { bad(res, 'Cible : entre le minimum et le maximum.'); return false; }
   return true;
 }
 router.get('/horaire/employees', (req, res) => res.json({ employees: h.listEmployees(req.userId) }));

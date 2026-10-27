@@ -44,14 +44,14 @@ const ownEvent = (u, id) => db.prepare('SELECT * FROM horaire_events WHERE id = 
 // noDouble (jamais matin et soir le même jour) et restAfterShift (un jour de repos après chaque quart) : contraintes strictes
 // de la génération. constraintNote : note libre permanente, jamais lue par la génération ni touchée par un import de disponibilités.
 function listEmployees(u) {
-  return db.prepare('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, noDouble, restAfterShift, createdAt FROM horaire_employees WHERE userId = ? ORDER BY name COLLATE NOCASE, id').all(u)
+  return db.prepare('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, constraintNote, noDouble, restAfterShift, createdAt FROM horaire_employees WHERE userId = ? ORDER BY name COLLATE NOCASE, id').all(u)
     .map((e) => ({ ...e, active: !!e.active, noDouble: !!e.noDouble, restAfterShift: !!e.restAfterShift }));
 }
 function countEmployees(u) { return db.prepare('SELECT COUNT(*) AS n FROM horaire_employees WHERE userId = ?').get(u).n; }
 const orNull = (v) => (v === undefined ? null : v);
-function createEmployee(u, { name, maxWeekMinutes, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, noDouble, restAfterShift }) {
-  const r = db.prepare('INSERT INTO horaire_employees (userId, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, noDouble, restAfterShift, createdAt) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)')
-    .run(u, name, orNull(maxWeekMinutes), dayforceId || null, orNull(wantShiftsMin), orNull(wantShiftsMax), constraintNote || null, noDouble ? 1 : 0, restAfterShift ? 1 : 0, nowIso());
+function createEmployee(u, { name, maxWeekMinutes, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, constraintNote, noDouble, restAfterShift }) {
+  const r = db.prepare('INSERT INTO horaire_employees (userId, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, constraintNote, noDouble, restAfterShift, createdAt) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(u, name, orNull(maxWeekMinutes), dayforceId || null, orNull(wantShiftsMin), orNull(wantShiftsMax), orNull(wantShiftsTarget), constraintNote || null, noDouble ? 1 : 0, restAfterShift ? 1 : 0, nowIso());
   return listEmployees(u).find((e) => e.id === Number(r.lastInsertRowid));
 }
 function updateEmployee(u, id, f) {
@@ -59,11 +59,11 @@ function updateEmployee(u, id, f) {
   if (!e) return null;
   const pick = (k) => (f[k] !== undefined ? f[k] : e[k]);
   const flag = (k) => (f[k] !== undefined ? (f[k] ? 1 : 0) : (e[k] ? 1 : 0));
-  db.prepare('UPDATE horaire_employees SET name = ?, maxWeekMinutes = ?, active = ?, dayforceId = ?, wantShiftsMin = ?, wantShiftsMax = ?, constraintNote = ?, noDouble = ?, restAfterShift = ? WHERE id = ? AND userId = ?').run(
+  db.prepare('UPDATE horaire_employees SET name = ?, maxWeekMinutes = ?, active = ?, dayforceId = ?, wantShiftsMin = ?, wantShiftsMax = ?, wantShiftsTarget = ?, constraintNote = ?, noDouble = ?, restAfterShift = ? WHERE id = ? AND userId = ?').run(
     pick('name'), pick('maxWeekMinutes'),
     f.active !== undefined ? (f.active ? 1 : 0) : e.active,
     f.dayforceId !== undefined ? (f.dayforceId || null) : e.dayforceId,
-    pick('wantShiftsMin'), pick('wantShiftsMax'),
+    pick('wantShiftsMin'), pick('wantShiftsMax'), pick('wantShiftsTarget'),
     f.constraintNote !== undefined ? (f.constraintNote || null) : e.constraintNote,
     flag('noDouble'), flag('restAfterShift'), e.id, u);
   return listEmployees(u).find((x) => x.id === e.id);
@@ -254,7 +254,7 @@ function getSchedule(u, weekStart) {
 // seulement quand le gestionnaire relance « Générer »). Chaque génération fait avancer la rotation.
 function generate(u, weekStart) {
   const days = gen.weekDays(weekStart);
-  const employees = db.prepare('SELECT id, maxWeekMinutes, wantShiftsMax, noDouble, restAfterShift FROM horaire_employees WHERE userId = ? AND active = 1').all(u)
+  const employees = db.prepare('SELECT id, maxWeekMinutes, wantShiftsMin, wantShiftsMax, wantShiftsTarget, noDouble, restAfterShift FROM horaire_employees WHERE userId = ? AND active = 1').all(u)
     .map((e) => ({ ...e, noDouble: !!e.noDouble, restAfterShift: !!e.restAfterShift }));
   const rot = {};
   db.prepare('SELECT positionId, rank, lastEmployeeId FROM horaire_rotation WHERE userId = ?').all(u)
@@ -469,6 +469,7 @@ const findEmployeeByName = (u, name) => db.prepare('SELECT * FROM horaire_employ
 const EXTRA_EMPLOYEE_COLS = {
   wantShiftsMin: ['quarts min', 'quarts souhaites min', 'min quarts', 'shifts min', 'min shifts'],
   wantShiftsMax: ['quarts max', 'quarts souhaites max', 'max quarts', 'shifts max', 'max shifts'],
+  wantShiftsTarget: ['cible', 'quarts cible', 'cible quarts', 'target', 'shifts target'],
   constraintNote: ['contrainte', 'contrainte particuliere', 'constraint'],
   noDouble: ['jamais de double', 'pas de double', 'no double'],
   restAfterShift: ['repos apres un quart', 'repos apres chaque quart', 'rest after shift'],
@@ -518,6 +519,8 @@ function importEmployeesCsv(u, text) {
       const lo = more.wantShiftsMin !== undefined ? more.wantShiftsMin : (emp ? emp.wantShiftsMin : null);
       const hi = more.wantShiftsMax !== undefined ? more.wantShiftsMax : (emp ? emp.wantShiftsMax : null);
       if (lo != null && hi != null && lo > hi) { res.skipped.push({ line: n + 1, reason: 'quarts min supérieur au max' }); return; }
+      const tg = more.wantShiftsTarget !== undefined ? more.wantShiftsTarget : (emp ? emp.wantShiftsTarget : null);
+      if (tg != null && ((lo != null && tg < lo) || (hi != null && tg > hi))) { res.skipped.push({ line: n + 1, reason: 'cible hors du min et du max' }); return; }
       if (emp) { updateEmployee(u, emp.id, { maxWeekMinutes: maxH === '' ? undefined : maxM, ...more }); res.updated += 1; }
       else {
         if (countEmployees(u) >= LIMITS.employees) { res.skipped.push({ line: n + 1, reason: 'limite d\'employés atteinte' }); return; }

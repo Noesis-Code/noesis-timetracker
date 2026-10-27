@@ -61,13 +61,13 @@ const CONSIGNE = 'Tu es l\'assistant du maître d\'hôtel d\'un restaurant. Pré
 const REGLES = [
   '5. RÈGLES (dans l\'ordre d\'importance)',
   '1. (Stricte) Ne jamais placer un serveur en dehors de ses disponibilités.',
-  '2. (Stricte) Ne jamais donner à un serveur plus de quarts que son maximum souhaité. Lui en donner moins est possible, en suivant l\'ordre des groupes (groupe 1 servi en premier).',
+  '2. (Stricte) Ne jamais donner à un serveur plus de quarts que son maximum. Chacun atteint d\'abord son minimum, puis sa cible, groupe 1 servi en premier.',
   '3. (Stricte) Respecter la contrainte particulière de chaque serveur.',
   '4. (Stricte) Placer exactement le nombre de serveurs demandé à chaque heure d\'arrivée.',
   '5. (Préférence) Donner le plus de soirs au groupe 1, puis au groupe 2, puis 3, puis 4.',
   '6. (Préférence) Éviter les doubles (matin et soir le même jour).',
   '7. (Préférence) Éviter les fermetures suivies d\'une ouverture (soir puis matin du lendemain).',
-  '8. (Dernier recours) Un serveur qui souhaite 5 quarts peut en faire 6, en priorité dans le groupe 1.',
+  '8. (Dernier recours) Au-delà de sa cible, donner des quarts jusqu\'à son maximum, groupe 1 d\'abord.',
   '9. (Dernier recours) Proposer un service où le serveur est indisponible, en l\'indiquant « à demander ».',
 ];
 

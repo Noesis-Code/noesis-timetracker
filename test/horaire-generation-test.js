@@ -157,24 +157,37 @@ r = generateSchedule(one([{ id: 10, maxWeekMinutes: null }], {
   timeoff: [{ employeeId: 10, day: D[0] }],
 }));
 assert(r.assignments.length === 0 && r.alerts.some((a) => a.type === 'trou'), 'congé : jamais placé ce jour-là (trou signalé)');
-// Quarts max souhaités : strict (sauf 6e quart pour qui en souhaite 5).
+// Quarts max : strict, jamais dépassé (un trou plutôt) ; plus de 6e quart.
 r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantShiftsMax: 2 }], {
   needs: [0, 1, 2].map((wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 1 })),
 }));
-assert(r.assignments.length === 2 && r.alerts.filter((a) => a.type === 'trou').length === 1, 'quarts max souhaités : jamais dépassés (un trou plutôt)');
+assert(r.assignments.length === 2 && r.alerts.filter((a) => a.type === 'trou').length === 1, 'max de quarts strict : jamais dépassé (un trou plutôt)');
 r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantShiftsMax: 5 }], {
   needs: [0, 1, 2, 3, 4, 5].map((wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 1 })),
 }));
-assert(r.assignments.length === 6 && r.alerts.some((a) => a.type === 'sixieme_quart' && a.employeeId === 10 && a.shifts === 6), 'dernier recours : 6e quart pour qui en souhaite 5, signalé');
-r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantShiftsMax: 5, rank: 1 }, { id: 11, maxWeekMinutes: null, wantShiftsMax: 5, rank: 2 }], {
-  needs: [0, 1, 2, 3, 4].map((wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 2 }))
-    .concat([{ positionId: 1, weekday: 5, start: '17:00', end: '23:00', count: 1 }]),
+assert(r.assignments.length === 5 && r.alerts.some((a) => a.type === 'trou') && !r.alerts.some((a) => a.type === 'sixieme_quart'), 'plus de 6e quart : max 5 = 5 quarts, le 6e reste un trou');
+// Passe 1 : chacun atteint son MIN, même un rang moins bon, avant que le meilleur rang aille à sa cible.
+const evenings = (n) => Array.from({ length: n }, (_, wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 1 }));
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantShiftsMin: 1, wantShiftsTarget: 4, wantShiftsMax: 4 },
+  { id: 11, maxWeekMinutes: null, wantShiftsMin: 2, wantShiftsTarget: 2, wantShiftsMax: 4, rank: 2 }], { needs: evenings(4) }));
+assert(r.assignments.filter((a) => a.employeeId === 11).length === 2 && r.assignments.filter((a) => a.employeeId === 10).length === 2,
+  'passe 1 : la catégorie 2 atteint son min (2) même si la catégorie 1 visait 4');
+// Passe 2 : jusqu'à la CIBLE, catégorie par catégorie ; passe 3 : au-delà de la cible jusqu'au MAX, catégorie 1 d'abord.
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantShiftsMin: 0, wantShiftsTarget: 2, wantShiftsMax: 4 },
+  { id: 11, maxWeekMinutes: null, wantShiftsMin: 0, wantShiftsTarget: 2, wantShiftsMax: 4, rank: 2 }], { needs: evenings(5) }));
+const n10 = r.assignments.filter((a) => a.employeeId === 10).length, n11 = r.assignments.filter((a) => a.employeeId === 11).length;
+assert(n10 === 3 && n11 === 2, 'passes 2 et 3 : chacun à sa cible (2), puis le 5e quart à la catégorie 1 (jusqu\'à son max)');
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantShiftsMin: 0, wantShiftsTarget: 1, wantShiftsMax: 3 },
+  { id: 11, maxWeekMinutes: null, wantShiftsMin: 0, wantShiftsTarget: 3, wantShiftsMax: 3, rank: 2 }], { needs: evenings(4) }));
+assert(r.assignments.filter((a) => a.employeeId === 11).length === 3 && r.assignments.filter((a) => a.employeeId === 10).length === 1,
+  'passe 2 : la cible de la catégorie 2 passe avant le dépassement de cible de la catégorie 1');
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantShiftsMin: 0, wantShiftsTarget: 1, wantShiftsMax: 3 }], { needs: evenings(3) }));
+assert(r.assignments.length === 3 && !r.alerts.some((a) => a.type === 'trou'), 'passe 3 : cible basse, mais on a besoin de lui : jusqu\'à son max');
+// Min non atteint faute de disponibilités : alerte « minimum ».
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantShiftsMin: 3, wantShiftsMax: 5 }], {
+  needs: evenings(3), availabilities: [{ employeeId: 10, day: D[0], start: '00:00', end: '23:59' }],
 }));
-assert(r.alerts.filter((a) => a.type === 'sixieme_quart').map((a) => a.employeeId).join() === '10' && find(r, 1, D[5])[0].employeeId === 10, '6e quart : groupe 1 en premier');
-r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantShiftsMax: 4 }], {
-  needs: [0, 1, 2, 3, 4].map((wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 1 })),
-}));
-assert(r.assignments.length === 4 && !r.alerts.some((a) => a.type === 'sixieme_quart'), 'pas de quart en plus pour qui en souhaite 4');
+assert(r.alerts.some((a) => a.type === 'minimum' && a.employeeId === 10 && a.shifts === 1 && a.wantShiftsMin === 3), 'min non atteint (une seule disponibilité) : alerte « minimum »');
 // Jamais de double (strict) et repos après un quart (strict).
 const dbl = { needs: [{ positionId: 1, weekday: 0, start: '10:00', end: '14:00', count: 1 }, { positionId: 1, weekday: 0, start: '17:00', end: '23:00', count: 1 }] };
 r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, noDouble: true }], dbl));
@@ -238,7 +251,7 @@ for (let run = 0; run < 200; run++) {
     const f = flags.get(e.id);
     const mine = out2.assignments.filter((a) => a.employeeId === e.id);
     if (mine.some((a) => a.day === f.off)) violations++;
-    if (f.want !== null && mine.length > (f.want === 5 ? 6 : f.want)) violations++;
+    if (f.want !== null && mine.length > f.want) violations++;
     if (f.noDouble && D.some((d) => { const s = mine.filter((a) => a.day === d).map((a) => toM(a.start) >= 16 * 60); return s.includes(true) && s.includes(false); })) violations++;
     if (f.rest && mine.some((a) => mine.some((b) => b.day === D[D.indexOf(a.day) + 1]))) violations++;
   }
@@ -247,7 +260,7 @@ for (let run = 0; run < 200; run++) {
   if (out.assignments.length + holes !== slots) violations++;
   if (out2.assignments.length + out2.alerts.filter((a) => a.type === 'trou').reduce((s, a) => s + a.missing, 0) !== slots) violations++;
 }
-assert(violations === 0, '200 cas aléatoires : jamais hors qualification, hors disponibilité, deux postes un même jour ni chevauchement, jamais un jour de congé, au-delà des quarts souhaités (6e quart seulement pour qui en souhaite 5), en double ni sans repos si interdit ; chaque créneau comblé ou signalé');
+assert(violations === 0, '200 cas aléatoires : jamais hors qualification, hors disponibilité, deux postes un même jour ni chevauchement, jamais un jour de congé, au-delà du max de quarts, en double ni sans repos si interdit ; chaque créneau comblé ou signalé');
 
 if (failed) { console.log(failed + ' échec(s)'); process.exit(1); }
 console.log('horaire-generation : tout passe');
