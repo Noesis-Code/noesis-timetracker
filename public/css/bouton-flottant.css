@@ -2,12 +2,13 @@
 :root:root .tasksFab { /* :root:root : passe devant le « position: relative » du composant .cmpSymbol */
   position: fixed; z-index: 48; width: 52px; height: 52px; padding: 0; box-sizing: border-box; border-radius: 50%; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  background: var(--good); color: var(--on-action); border: 0; box-shadow: none; /* vert opaque (demande d'Émilien), coche fine qui l'occupe en entier */
+  background: none; color: var(--purple); border: 0; box-shadow: none; /* violet, sans remplissage : anneau + coche fins qui occupent tout le bouton */
   touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
 }
 .tasksFab.hidden { display: none; }
 .tasksFab svg { width: 100%; height: 100%; display: block; }
-.tasksFab.dragging { animation: tabJiggle .26s ease-in-out infinite alternate; } /* il tremble : prêt à bouger (même secousse que la barre des volets) */
+.tasksFab.dragging { scale: 1.12; animation: tasksFabWiggle .6s ease-out; } /* appui long, comme sur l'écran d'accueil d'un iPhone : l'icône tremble vite puis se stabilise, prête à bouger */
+@keyframes tasksFabWiggle { 0%, 100% { rotate: 0deg; } 12% { rotate: -7deg; } 27% { rotate: 7deg; } 42% { rotate: -6deg; } 57% { rotate: 5deg; } 72% { rotate: -3deg; } 86% { rotate: 1.5deg; } }
 
 .tasksPopVeil { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; background: color-mix(in srgb, var(--black) 82%, transparent); }
 .tasksPopVeil.hidden { display: none; }
@@ -49,4 +50,4 @@
 .tasksText::placeholder { color: var(--text-light); }
 .tasksChips:empty, .tasksMsg:empty { display: none; }
 .tasksMsg { margin: 0; font-size: 13px; color: var(--text-light); }
-:root:root .tasksFab:hover:not(:disabled) { color: var(--on-action); }
+:root:root .tasksFab:hover:not(:disabled) { color: var(--purple); }

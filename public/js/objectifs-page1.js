@@ -678,8 +678,8 @@
     return api('POST', '/api/goals/capture', body).then(function (data) { return (data && data.results) || []; });
   }
 
-  function captureWithConfirmations(label, ids) {
-    return captureRequest(label, ids, null).then(function (first) {
+  function captureWithConfirmations(label, ids, firstExtra) {
+    return captureRequest(label, ids, firstExtra || null).then(function (first) {
       var finals = first.filter(function (r) { return !r.needs; });
       var queue = first.filter(function (r) { return r.needs; }).map(function (r) { return { r: r, allowDuplicate: false }; });
       var cancelled = false;
@@ -1401,6 +1401,28 @@
     return loadAiMode().then(function (mode) { return mode || askAiModeModal(); });
   }
   TMT.ensureAiMode = ensureAiMode;
+  // Envoi d'une tâche libre vers des activités déjà choisies (pop-up du bouton flottant) : MÊME chaîne que « Ajouter » de la page 1 —
+  // mode de l'IA, puis pop-up de choix (sans IA), de placement (partiel) ou de confirmation (autonome). Résout { results } ou null (annulé).
+  TMT.captureTaskFlow = function (label, ids, forcedCategory) {
+    return ensureAiMode().then(function (mode) {
+      if (!mode) return null;
+      return captureWithConfirmations(label, ids, forcedCategory ? { forcedCategory: forcedCategory } : null);
+    }).then(function (outcome) {
+      if (!outcome || outcome.cancelled) return null;
+      var results = outcome.results, okResults = results.filter(function (r) { return r.ok; });
+      function finish() { loadGoalsCaptureBadges(); return { results: results }; }
+      function undo() {
+        return Promise.all(okResults.map(function (r) {
+          return api('DELETE', '/api/sub-project-items/' + r.id + '?userId=' + TMT.getProfile().id).catch(function () {});
+        })).then(function () { loadGoalsCaptureBadges(); return null; });
+      }
+      return new Promise(function (resolve) {
+        if (TMT.aiMode === 'partiel' && okResults.length) showCapturePlacementModal(label, okResults, { onSave: function () { resolve(finish()); }, onCancel: function () { undo().then(resolve); } });
+        else if (TMT.aiMode === 'autonome' && okResults.length) showCaptureConfirmModal(label, okResults, { onConfirm: function () { resolve(finish()); }, onCancel: function () { undo().then(resolve); } });
+        else resolve(finish());
+      });
+    });
+  };
   TMT.renderAiModeSection = function () {
     var box = $('aiModeOptions');
     if (!box || !TMT.getProfile()) return;

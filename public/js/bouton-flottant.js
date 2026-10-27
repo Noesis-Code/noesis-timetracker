@@ -15,11 +15,12 @@
   var MAX_FILES = 3, MAX_BYTES = 5 * 1024 * 1024;
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-  function svg(d, sw) {
+  function svg(d, sw, ring) {
     var s = document.createElementNS(SVGNS, 'svg');
     s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor');
     s.setAttribute('stroke-width', String(sw || 1.8)); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round');
     s.setAttribute('aria-hidden', 'true'); s.setAttribute('focusable', 'false');
+    if (ring) { var c = document.createElementNS(SVGNS, 'circle'); c.setAttribute('cx', '12'); c.setAttribute('cy', '12'); c.setAttribute('r', '11'); s.appendChild(c); }
     var p = document.createElementNS(SVGNS, 'path'); p.setAttribute('d', d); s.appendChild(p);
     return s;
   }
@@ -35,10 +36,10 @@
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
-  // ---------- Bouton : rond vert opaque, coche fine qui l'occupe en entier ----------
+  // ---------- Bouton : icône « validé » (anneau + coche) violette, traits fins, sans remplissage ----------
   var fab = el('button', 'tasksFab cmpSymbol hidden');
   fab.type = 'button'; fab.id = 'tasksFab'; fab.setAttribute('aria-label', tr('Tâches du jour'));
-  fab.appendChild(svg('M5.5 12.8l4.2 4.2 8.8-9.6', 1.4));
+  fab.appendChild(svg('M7.6 12.6l3 3 5.8-6.6', 1.2, true)); // anneau fin + coche : l'icône occupe tout le bouton, violette, sans remplissage
   document.body.appendChild(fab);
 
   function loadPos() { try { var p = JSON.parse(localStorage.getItem(POS_KEY) || 'null'); if (p && isFinite(p.x) && isFinite(p.y)) return p; } catch (e) { /* ignoré */ } return null; }
@@ -178,7 +179,7 @@
   function propose(text) {
     if (state.proposedFor === text) return Promise.resolve();
     var seq = ++state.seq;
-    return TMT.api('POST', '/api/goals/capture/propose', { label: text }).then(function (r) {
+    return TMT.api('POST', '/api/goals/capture/propose', { label: text, skipAi: TMT.aiMode === 'absence' }).then(function (r) {
       if (seq !== state.seq) return;
       state.proposedFor = text; state.proposal = r.proposal || null; state.options = r.options || []; state.choice = null;
       paintProposal();
@@ -215,18 +216,6 @@
     ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
     ui.proposal.classList.add('hidden'); ui.chooser.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
   }
-  function create(label, t, allowDuplicate) {
-    var body = { userId: TMT.getProfile().id, label: label, activityIds: [t.activityId], forcedCategory: t.categoryKey };
-    if (allowDuplicate) body.allowDuplicate = true;
-    return TMT.api('POST', '/api/goals/capture', body).then(function (d) {
-      var r = ((d && d.results) || [])[0] || {};
-      if (r.needs === 'duplicate') {
-        return TMT.ui.confirm(tr('Une tâche identique existe déjà. L’ajouter quand même ?'), { ok: tr('Ajouter'), closeLabel: tr('Fermer') }).then(function (yes) { return yes ? create(label, t, true) : null; });
-      }
-      if (!r.ok) throw new Error(r.error ? tr(r.error) : tr('non ajoutée'));
-      return r;
-    });
-  }
   function send() {
     if (state.busy) return;
     var label = ui.text.value.trim();
@@ -241,15 +230,15 @@
         if (TMT.docTasksPrefill) TMT.docTasksPrefill(t.activityId, label, files);
         return null;
       }
-      return (TMT.ensureAiMode ? TMT.ensureAiMode() : Promise.resolve('partiel')).then(function (mode) {
-        if (!mode) return null;
-        return create(label, t, false).then(function (r) {
-          if (!r) return null;
+      // Même chaîne que « Ajouter » de la page 1 : selon le mode de l'IA, pop-up de choix (sans IA), de placement (partiel) ou de confirmation (autonome).
+      return TMT.captureTaskFlow(label, [t.activityId], t.categoryKey).then(function (flow) {
+        if (!flow) return null;
+        var ok = (flow.results || []).filter(function (x) { return x.ok; })[0];
+        if (!ok) { var bad = (flow.results || [])[0]; ui.msg.textContent = bad && bad.error ? tr(bad.error) : tr('non ajoutée'); return null; }
+        var r = ok;
           // Montrée tout de suite dans la liste, même si Noèsis l'a placée un autre jour (« demain »…), le temps du pop-up.
           state.added.unshift({ id: r.id, label: label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
           reset(); refresh();
-          if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges();
-        });
       });
     }).catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Erreur.'); })
       .then(function () { state.busy = false; ui.send.disabled = false; });
@@ -271,7 +260,7 @@
       if (t.done) cb.appendChild(svg('M6.5 12.5l3.5 3.5 7.5-8', 2));
       cb.addEventListener('click', function () {
         cb.disabled = true;
-        TMT.api('PUT', '/api/sub-project-items/' + t.id, { userId: TMT.getProfile().id, done: !t.done }).catch(function () {}).then(refresh);
+        TMT.api('PUT', '/api/sub-project-items/' + t.id, { userId: TMT.getProfile().id, done: !t.done }).catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Impossible de modifier cette tâche.'); }).then(refresh);
       });
       var txt = el('div', 'tasksPopText');
       txt.appendChild(el('b', null, t.label));

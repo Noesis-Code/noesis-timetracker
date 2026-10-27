@@ -544,7 +544,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
 
 // Proposition de rangement d'une tâche libre, TOUTES activités confondues (pop-up du bouton flottant, 27 oct. 2026) : « Activité › Pôle ».
 // Informe sans décider : rien n'est créé ici ; le client montre la proposition, l'utilisateur l'accepte ou la change (options = tous les choix).
-async function proposePlacement(userId, label) {
+async function proposePlacement(userId, label, opts) {
   const acts = db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1 ORDER BY a.name').all(userId);
   const options = [];
   acts.forEach((a) => buildClassificationCandidates(a.id).forEach((c) => options.push({
@@ -555,7 +555,7 @@ async function proposePlacement(userId, label) {
   const all = options.map(strip);
   if (!options.length) return { proposal: null, options: all };
   if (options.length === 1) return { proposal: all[0], options: all };
-  if (!configured()) return { proposal: null, options: all };
+  if (!configured() || (opts && opts.skipAi)) return { proposal: null, options: all };
   try {
     const text = await callTiered(String(label || '').slice(0, 300), options, [], false, MAX_OUTPUT_TOKENS);
     const key = extractKey(text, options);

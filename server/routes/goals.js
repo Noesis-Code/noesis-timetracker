@@ -778,7 +778,7 @@ router.post('/goals/capture/propose', async (req, res) => {
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   const label = typeof req.body.label === 'string' ? req.body.label.trim() : '';
   if (!label) return res.status(400).json({ error: 'Écris une tâche.' });
-  try { res.json(await goalstaskclassify.proposePlacement(userId, label)); } catch (err) { handleGoalsError(res, err); }
+  try { res.json(await goalstaskclassify.proposePlacement(userId, label, { skipAi: req.body.skipAi === true })); } catch (err) { handleGoalsError(res, err); }
 });
 
 router.post('/goals/capture', async (req, res) => {
