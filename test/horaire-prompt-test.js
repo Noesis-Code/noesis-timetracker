@@ -165,8 +165,8 @@ function call(method, path, body, user) {
   assert(r.status === 200 && /^text\/plain/.test(r.type) && r.cache === 'no-store'
     && pl.includes('- Marc Imaginaire ; 2026-11-03 ; mardi ; 12:00 ; 15:00 ; Serveur') && pl.includes('- Élodie Fictive ; 2026-11-02 ; lundi ; 17:00 ; 23:00 ; Serveur')
     && pl.includes('QUARTS À INSCRIRE (2)'), 'prompt d\'inscription : un quart par ligne (nom ; date ; jour ; début ; fin ; poste), modifications comprises');
-  assert(!/dayforce|chatgpt|copilot/i.test(r.text) && !r.text.includes('Note fictive') && r.text.includes('brouillon') && r.text.includes('Déconnecte-toi')
-    && r.text.includes('mode agent') && r.text.includes('Échecs'), 'prompt d\'inscription : rien de nommé, aucune note, brouillon, déconnexion, compte rendu');
+  assert(!/dayforce|chatgpt|copilot/i.test(r.text) && r.text.includes('- Élodie Fictive : Note fictive permanente') && r.text.includes('brouillon') && r.text.includes('Déconnecte-toi')
+    && r.text.includes('mode agent') && r.text.includes('Échecs'), 'prompt d\'inscription : rien de nommé, note de l’employé placé reprise, brouillon, déconnexion, compte rendu');
   r = await call('DELETE', 'weeks/' + W + '/assignments/' + added.id, undefined, 'uA');
   assert(r.status === 200 && (await call('GET', 'weeks/' + W, undefined, 'uA')).body.schedule.assignments.length === 1, 'DELETE : quart retiré');
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uB');
@@ -227,7 +227,7 @@ function call(method, path, body, user) {
   assert(r.status === 400, 'PUT : min > max existant refusé');
   r = await call('PUT', 'employees/' + alice.id, { wantShiftsMax: 15 }, 'uA');
   assert(r.status === 400, 'PUT : quarts hors bornes refusés');
-  r = await call('PUT', 'employees/' + alice.id, { wantShiftsMin: 4, constraintNote: 'x'.repeat(201) }, 'uA');
+  r = await call('PUT', 'employees/' + alice.id, { wantShiftsMin: 4, constraintNote: 'x'.repeat(501) }, 'uA');
   assert(r.status === 400, 'PUT : contrainte trop longue refusée');
   r = await call('PUT', 'employees/' + alice.id, { wantShiftsMin: 4, wantShiftsMax: 5, constraintNote: '' }, 'uA');
   assert(r.status === 200 && r.body.employee.wantShiftsMin === 4 && r.body.employee.constraintNote === null, 'PUT : quarts modifiés, contrainte effacée');

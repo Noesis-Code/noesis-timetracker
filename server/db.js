@@ -2782,6 +2782,37 @@ CREATE INDEX IF NOT EXISTS idx_horaire_emp_rules ON horaire_employee_rules(userI
   });
   db.exec('UPDATE horaire_employees SET noDouble = 0, restAfterShift = 0, constraintNote = NULL');
 }
+// Note d'employé (28 oct. 2026, demande d'Émilien) : une seule case de texte libre (constraintNote) remplace les pastilles de règles.
+// Migration unique (marquée dans horaire_migrations) : chaque employé reçoit dans sa note le texte de ses règles actuelles, fermées puis
+// libres, séparées par « ; », ajouté APRÈS une note existante (rien n'est effacé ; les règles restent aussi en base, non lues).
+db.exec('CREATE TABLE IF NOT EXISTS horaire_migrations (name TEXT PRIMARY KEY, doneAt TEXT)');
+if (!db.prepare("SELECT 1 FROM horaire_migrations WHERE name = 'rules-to-note'").get()
+  && db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'horaire_employee_rules'").get()) {
+  const LABEL = { noDouble: 'Jamais de double', restAfterShift: 'Repos après un quart', noMorning: 'Pas de matin', noEvening: 'Pas de soir', eveningsFirst: 'Soirs d’abord', morningsFirst: 'Matins d’abord' };
+  db.exec('BEGIN');
+  try {
+    const rules = db.prepare('SELECT userId, employeeId, rule, text FROM horaire_employee_rules ORDER BY employeeId, (rule = \'free\'), id').all();
+    const byEmp = new Map();
+    rules.forEach((r) => {
+      const t = r.rule === 'free' ? r.text : LABEL[r.rule];
+      if (!t) return;
+      const k = r.userId + '|' + r.employeeId;
+      if (!byEmp.has(k)) byEmp.set(k, []);
+      if (!byEmp.get(k).includes(t)) byEmp.get(k).push(t);
+    });
+    const get = db.prepare('SELECT constraintNote FROM horaire_employees WHERE id = ? AND userId = ?');
+    const set = db.prepare('UPDATE horaire_employees SET constraintNote = ? WHERE id = ? AND userId = ?');
+    byEmp.forEach((parts, k) => {
+      const [u, id] = [k.slice(0, k.lastIndexOf('|')), Number(k.slice(k.lastIndexOf('|') + 1))];
+      const cur = get.get(id, u);
+      if (!cur) return;
+      const note = [cur.constraintNote].concat(parts).filter(Boolean).join(' ; ');
+      set.run(note, id, u);
+    });
+    db.prepare("INSERT INTO horaire_migrations (name, doneAt) VALUES ('rules-to-note', ?)").run(new Date().toISOString());
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+}
 db.exec(`
 CREATE TABLE IF NOT EXISTS horaire_category_rules (
   userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

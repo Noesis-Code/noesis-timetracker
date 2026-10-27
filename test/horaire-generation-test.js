@@ -104,14 +104,15 @@ r = generateSchedule({
 assert(!find(r, 1, D[5], '17:00').length && find(r, 1, D[5], '18:00').length === 2 && find(r, 1, D[5], '10:00').length === 1,
   'événement du soir : le 17:00 normal disparaît, le 10:00 du matin reste');
 
-// ---- Règles de catégorie (catégorie = meilleur rang) : appliquées à chaque employé de la catégorie ----
+// ---- Note de l'employé : ses expressions reconnues s'appliquent comme des règles (note des employés de rang 1 et 2) ----
+const LBL = { noDouble: 'Jamais de double', restAfterShift: 'Repos après un quart', noMorning: 'pas de matin', noEvening: 'PAS DE SOIR', eveningsFirst: 'Soirs d’abord', morningsFirst: "matins d'abord" };
+const noteOf = (rules, rank) => rules.filter((x) => x.rank === rank).map((x) => LBL[x.rule]).join(' ; ');
 const cat = (rules, extra) => generateSchedule(Object.assign({
   weekStart: W,
   positions: [{ id: 1, fillOrder: 0 }],
-  employees: [{ id: 10, maxWeekMinutes: null }, { id: 11, maxWeekMinutes: null }],
+  employees: [{ id: 10, maxWeekMinutes: null, note: noteOf(rules, 1) }, { id: 11, maxWeekMinutes: null, note: noteOf(rules, 2) }],
   qualifications: [{ employeeId: 10, positionId: 1, rank: 1 }, { employeeId: 11, positionId: 1, rank: 2 }],
   availabilities: allDay([10, 11], D),
-  categoryRules: rules,
 }, extra));
 r = cat([{ rank: 1, rule: 'noMorning' }], { needs: [{ positionId: 1, weekday: 0, start: '10:00', end: '15:00', count: 1 }] });
 assert(find(r, 1, D[0])[0].employeeId === 11, '« Pas de matin » (catégorie 1) : le matin va à la catégorie 2');
@@ -205,8 +206,8 @@ r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMax: 10 }], {
 }));
 assert(r.assignments.length === 2 && r.alerts.filter((a) => a.type === 'trou').length === 1, 'heures comptées par quart (6 h + 4 h = 10 h, le 3e quart reste un trou)');
 // Règle par employé (liste fermée) : appliquée comme une règle de catégorie.
-r = generateSchedule(one([{ id: 10, maxWeekMinutes: null }, { id: 11, maxWeekMinutes: null, rank: 2 }], {
-  needs: [{ positionId: 1, weekday: 0, start: '10:00', end: '14:00', count: 1 }], employeeRules: [{ employeeId: 10, rule: 'noMorning' }],
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, note: 'Pas de matin.' }, { id: 11, maxWeekMinutes: null, rank: 2 }], {
+  needs: [{ positionId: 1, weekday: 0, start: '10:00', end: '14:00', count: 1 }],
 }));
 assert(find(r, 1, D[0])[0].employeeId === 11, 'règle de l\'employé « Pas de matin » : le matin va au suivant');
 // Jamais de double (strict) et repos après un quart (strict).
@@ -240,6 +241,13 @@ assert(find(r, 1, D[2])[0].employeeId === 10 && find(r, 1, D[0])[0].employeeId =
 r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMax: 6 }], { needs: [0, 1, 2].map((wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 1 })), restaurantRules: { off: ['r2'] } }));
 assert(r.assignments.length === 1, 'ancien réglage « r2 désactivée » ignoré : le max d’heures s’applique toujours');
 
+// ---- Lecture de la note : expressions reconnues (casse, accents), reste = texte libre ----
+const { parseNote } = require('../server/lib/horaire-note');
+let pn = parseNote('Jamais de double ; REPOS APRES UN QUART ; Pas le dimanche ; Pas de matin sauf samedi');
+assert(pn.rules.has('noDouble') && pn.rules.has('restAfterShift') && pn.rules.has('noMorning') && pn.rest === 'Pas le dimanche ; Pas de matin sauf samedi', 'note : règles reconnues (casse et accents ignorés), le reste reste en texte libre');
+pn = parseNote('');
+assert(pn.rules.size === 0 && pn.rest === '', 'note vide : rien');
+
 // ---- Règle 9 : candidats « à demander » pour un trou ----
 const askIn = (extra) => generateSchedule(Object.assign({
   weekStart: W, positions: [{ id: 1, fillOrder: 0 }],
@@ -247,13 +255,12 @@ const askIn = (extra) => generateSchedule(Object.assign({
   qualifications: [10, 11, 12, 13, 14].map((id) => ({ employeeId: id, positionId: 1, rank: id === 12 ? 2 : 1 })),
   availabilities: [], timeoff: [{ employeeId: 14, day: D[0] }],
   needs: [{ positionId: 1, weekday: 0, start: '17:00', end: '23:00', count: 1 }],
-  employeeRules: [],
 }, extra || {}));
 r = askIn();
 const ask = r.alerts.find((a) => a.type === 'trou').ask;
 assert(r.assignments.length === 0 && ask.join() === '11,10,12', 'règle 9 : candidats triés par catégorie puis heures restantes avant la cible ; jamais placés');
 assert(!ask.includes(13) && !ask.includes(14) && !ask.includes(15), 'règle 9 : exclus si au max (13), en congé (14) ou non qualifié (15)');
-r = askIn({ employeeRules: [{ employeeId: 11, rule: 'noEvening' }] });
+r = askIn({ employees: [{ id: 10, wantHoursTarget: 12 }, { id: 11, wantHoursTarget: 30, note: 'Pas de soir' }, { id: 12 }, { id: 13, wantHoursMax: 0 }, { id: 14 }, { id: 15 }] });
 assert(!r.alerts.find((a) => a.type === 'trou').ask.includes(11), 'règle 9 : exclu si une règle stricte l’interdit (pas de soir)');
 
 // ---- Propriétés sur entrées aléatoires (graine fixe) ----

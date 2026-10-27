@@ -60,6 +60,19 @@ h.addCategoryRule('uA', 1, 'noMorning'); h.addCategoryRule('uA', 1, 'noMorning')
 assert(JSON.stringify(h.listCategoryRules('uA')) === JSON.stringify([{ rank: 1, rule: 'noMorning' }, { rank: 3, rule: 'eveningsFirst' }]), 'règles ajoutées, sans doublon');
 assert(h.removeCategoryRule('uA', 1, 'noMorning') && !h.removeCategoryRule('uA', 1, 'noMorning'), 'règle retirée une seule fois');
 assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les règles');
+// ---- Migration unique « règles -> note » : relancée dans un second processus sur la même base, après avoir retiré la marque ----
+{
+  const pearce = h.createEmployee('uA', { name: 'Pearce Fictif', constraintNote: 'Note déjà là' });
+  const zed = h.createEmployee('uA', { name: 'Zed Fictif' });
+  h.addEmployeeRule('uA', pearce.id, 'noDouble'); h.addEmployeeRule('uA', pearce.id, 'restAfterShift'); h.addEmployeeRule('uA', pearce.id, 'free', 'Pas le dimanche');
+  db.prepare("DELETE FROM horaire_migrations WHERE name = 'rules-to-note'").run();
+  const out = require('child_process').spawnSync(process.execPath, ['-e', "require('./server/db')"], { cwd: require('path').join(__dirname, '..'), env: process.env, encoding: 'utf8' });
+  assert(out.status === 0, 'migration rejouée sans erreur');
+  assert(h.ownEmployee('uA', pearce.id).constraintNote === 'Note déjà là ; Jamais de double ; Repos après un quart ; Pas le dimanche', 'migration : règles fermées puis libres ajoutées à la note existante, séparées par « ; »');
+  assert(h.ownEmployee('uA', zed.id).constraintNote === null && h.listEmployeeRules('uA').length >= 3, 'migration : employé sans règle intact ; règles gardées en base');
+  const again = require('child_process').spawnSync(process.execPath, ['-e', "require('./server/db')"], { cwd: require('path').join(__dirname, '..'), env: process.env, encoding: 'utf8' });
+  assert(again.status === 0 && h.ownEmployee('uA', pearce.id).constraintNote === 'Note déjà là ; Jamais de double ; Repos après un quart ; Pas le dimanche', 'migration : jamais rejouée deux fois');
+}
 (async () => {
   let r = await call('GET', 'settings');
   assert(r.status === 200 && r.body.settings.configured === false, 'GET settings : non configuré');

@@ -6,7 +6,7 @@ const db = require('../db');
 const gen = require('./horaire-generation');
 
 const nowIso = () => new Date().toISOString();
-const LIMITS = { name: 80, label: 120, employees: 500, positions: 50, csvChars: 200000, csvRows: 5000, shifts: 14, constraint: 200 };
+const LIMITS = { name: 80, label: 120, employees: 500, positions: 50, csvChars: 200000, csvRows: 5000, shifts: 14, constraint: 500 };
 
 // ---------- validation (utilisée par server/routes/horaire.js) ----------
 const isDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s + 'T00:00:00Z'))
@@ -305,7 +305,7 @@ function getSchedule(u, weekStart) {
 // seulement quand le gestionnaire relance « Générer »). Chaque génération fait avancer la rotation.
 function generate(u, weekStart) {
   const days = gen.weekDays(weekStart);
-  const employees = db.prepare('SELECT id, wantHoursMin, wantHoursTarget, wantHoursMax, noDouble, restAfterShift FROM horaire_employees WHERE userId = ? AND active = 1').all(u)
+  const employees = db.prepare('SELECT id, wantHoursMin, wantHoursTarget, wantHoursMax, noDouble, restAfterShift, constraintNote AS note FROM horaire_employees WHERE userId = ? AND active = 1').all(u)
     .map((e) => ({ ...e, noDouble: !!e.noDouble, restAfterShift: !!e.restAfterShift }));
   const rot = {};
   db.prepare('SELECT positionId, rank, lastEmployeeId FROM horaire_rotation WHERE userId = ?').all(u)
@@ -320,8 +320,6 @@ function generate(u, weekStart) {
     needs: listNeeds(u),
     events: listEvents(u, days[0], days[6]),
     rotation: rot,
-    categoryRules: listCategoryRules(u),
-    employeeRules: listEmployeeRules(u).filter((r) => r.rule !== 'free'),
   });
   db.exec('BEGIN');
   try {
@@ -429,7 +427,8 @@ function weekPrompt(u, weekStart) {
   // employés placés cette semaine : l'IA les lit, la génération non.
   const placed = new Set(s.assignments.map((a) => a.employeeId));
   const names = new Map(listEmployees(u).map((e) => [e.id, e.name]));
-  const freeRules = listEmployeeRules(u).filter((r) => r.rule === 'free' && placed.has(r.employeeId)).map((r) => ({ employeeName: names.get(r.employeeId), text: r.text }));
+  const { parseNote } = require('./horaire-note');
+  const freeRules = listEmployees(u).filter((e) => placed.has(e.id)).map((e) => ({ employeeName: e.name, text: parseNote(e.constraintNote).rest })).filter((r) => r.text);
   return require('./horaire-prompt').buildRegistrationPrompt({ weekStart, assignments: s.assignments, freeRules, restaurantRules: getRestaurantRules(u).list });
 }
 

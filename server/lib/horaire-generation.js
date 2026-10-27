@@ -91,13 +91,12 @@ function overlaps(a, b) { return a.from < b.to && b.from < a.to; }
 /**
  * @param {object} input
  *   weekStart 'YYYY-MM-DD' (lundi) ; positions [{id, fillOrder}] ;
- *   employees [{id, wantHoursMin|null, wantHoursTarget|null, wantHoursMax|null (heures/semaine), noDouble, restAfterShift}] ;
- *   employeeRules [{employeeId, rule}] (liste fermée, comme les règles de catégorie) ;
+ *   employees [{id, wantHoursMin|null, wantHoursTarget|null, wantHoursMax|null (heures/semaine), noDouble, restAfterShift, note}] ;
+ *   note : texte libre ; ses expressions reconnues (server/lib/horaire-note.js) s'appliquent : noDouble, restAfterShift, noMorning,
+ *   noEvening (strictes) ; eveningsFirst, morningsFirst (préférences) ;
  *   qualifications [{employeeId, positionId, rank}] ; availabilities [{employeeId, day, start, end}] ; timeoff [{employeeId, day}] ;
  *   needs [{positionId, weekday 0..6, start, end, count}] ; events [{id, day, needs:[{positionId, start, end, count}]}] ;
- *   rotation { '<positionId>:<rank>': dernierEmployeeId } ;
- *   categoryRules [{rank, rule}] : règles de catégorie (catégorie = meilleur rang de l'employé) appliquées comme ses propres cases :
- *   noDouble, restAfterShift, noMorning, noEvening (strictes) ; eveningsFirst, morningsFirst (préférences d'ordre dans son rang).
+ *   rotation { '<positionId>:<rank>': dernierEmployeeId }.
  * @returns {{assignments: Array, alerts: Array, rotation: object}}
  */
 function generateSchedule(input) {
@@ -124,23 +123,17 @@ function generateSchedule(input) {
     if (!avail.has(k)) avail.set(k, []);
     avail.get(k).push(r);
   }
-  // règles de catégorie : catégorie = meilleur rang (1 = priorité la plus haute) de l'employé, tous postes confondus
+  // catégorie = meilleur rang (1 = priorité la plus haute) de l'employé, tous postes confondus
   const best = new Map();
   for (const m of qual.values()) for (const [id, rank] of m) if (!best.has(id) || rank < best.get(id)) best.set(id, rank);
-  const catRules = new Map();
-  for (const c of input.categoryRules || []) {
-    const rank = Number(c.rank);
-    if (!catRules.has(rank)) catRules.set(rank, new Set());
-    catRules.get(rank).add(c.rule);
-  }
   // Logique interne fixe (28 oct. 2026 : les règles du restaurant ne sont plus qu'un texte pour l'IA) : toutes les règles s'appliquent ;
   // les préférences (éviter les doubles, éviter fermeture puis ouverture) cèdent ensemble au niveau 1.
   const active = () => true;
   const prefOn = (k, level) => level < 1;
-  // règles par employé (liste fermée) : appliquées comme celles de sa catégorie
-  const empRules = new Map();
-  for (const r of input.employeeRules || []) { if (!empRules.has(r.employeeId)) empRules.set(r.employeeId, new Set()); empRules.get(r.employeeId).add(r.rule); }
-  const rule = (empId, name) => { if (!active('r3')) return false; const s = catRules.get(best.get(empId)), p = empRules.get(empId); return !!((s && s.has(name)) || (p && p.has(name))); };
+  // Note de l'employé : les expressions reconnues (server/lib/horaire-note.js) s'appliquent comme des règles ; plus de règles de catégorie.
+  const { parseNote } = require('./horaire-note');
+  const noteRules = new Map(employees.map((e) => [e.id, parseNote(e.note).rules]));
+  const rule = (empId, name) => { const p = noteRules.get(empId); return !!(p && p.has(name)); };
   // congés : jour entier, l'employé est indisponible ce jour-là
   const off = new Set((input.timeoff || []).map((t) => t.employeeId + '|' + t.day));
 
