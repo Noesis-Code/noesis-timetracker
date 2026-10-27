@@ -578,9 +578,49 @@
         bindCatDrag(handle, row, e);
         group.appendChild(row);
       });
+      if (rank != null) group.appendChild(addEmployeeRow(rank));
       sheet.appendChild(group);
     });
     catsBox.appendChild(sheet);
+    var open = catsBox.querySelector('.horaireSheetNew input');
+    if (open) open.focus();
+  }
+  // Dernière ligne d'une catégorie : « + Ajouter un employé » en pointillé (R33). Un clic ouvre la saisie du nom ; Entrée crée l'employé
+  // dans cette catégorie (qualification au poste principal, rang = catégorie) et rouvre aussitôt une ligne vide pour enchaîner ;
+  // Échap ou sortie sans nom annule. Le retrait d'un employé reste dans Paramètres > Employés.
+  function addEmployeeRow(rank) {
+    var row = sheetRow('horaireSheetAddRow');
+    if (S.addingRank !== rank) {
+      var add = TMT.ui.addBtn(tr('Ajouter un employé'), function () { S.addingRank = rank; renderCats(); });
+      row.appendChild(add);
+      return row;
+    }
+    row.classList.add('horaireSheetNew');
+    row.appendChild(el('span', 'horaireSheetCell'));
+    var cell = el('span', 'horaireSheetCell editing');
+    var x = el('input', 'horaireSheetInput'); x.type = 'text'; x.maxLength = 80; x.placeholder = tr('Nom'); x.setAttribute('aria-label', tr('Nouvel employé'));
+    cell.appendChild(x); row.appendChild(cell);
+    row.appendChild(el('span', 'horaireSheetCell')); row.appendChild(el('span', 'horaireSheetCell'));
+    var busy = false, closed = false;
+    var stop = function () { closed = true; S.addingRank = null; renderCats(); };
+    var create = function (again) {
+      var name = x.value.trim();
+      if (!name) { stop(); return; }
+      if (busy || closed) return; busy = true;
+      if (!S.positions[0]) { S.msg = tr('Ajoute d’abord un poste.'); renderMsg(); stop(); return; }
+      req('POST', 'employees', { name: name }).then(function (d) {
+        return req('PUT', 'qualifications', { employeeId: d.employee.id, positionId: S.positions[0].id, rank: rank }).then(function (q) {
+          S.employees.push(d.employee);
+          if (q && q.qualification) S.quals.push(q.qualification); else S.quals.push({ employeeId: d.employee.id, positionId: S.positions[0].id, rank: rank });
+        });
+      }).then(function () { S.addingRank = again ? rank : null; renderCats(); }, function (err) { busy = false; fail(err); });
+    };
+    x.addEventListener('keydown', function (k) {
+      if (k.key === 'Enter') { k.preventDefault(); create(true); }
+      else if (k.key === 'Escape') { k.preventDefault(); stop(); }
+    });
+    x.addEventListener('blur', function () { if (!busy && !closed) create(false); });
+    return row;
   }
   // « + Ajouter une règle » : liste fermée, dans la même liste déroulante unie que les quarts (R31).
   function openRuleMenu(anchor, rank) {
