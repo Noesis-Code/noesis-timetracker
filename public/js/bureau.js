@@ -1,4 +1,4 @@
-/* Ordinateur (27 oct. 2026, demande d'Émilien) : à partir de 1024 px, les points de pagination sont masqués (css/bureau.css) et deux flèches, à gauche et à droite
+/* Ordinateur (27 oct. 2026, demande d'Émilien) : à partir de 1024 px, les points restent (décision d'Émilien) et deux flèches, à gauche et à droite
  * de l'écran, changent de page. Aucune logique de page ici : une flèche clique le point voisin du point actif du jeu de points visible, donc suit exactement
  * le même chemin que le glissement et les points (Chrono, statistiques, Feuille de route, Activité, profil d'un membre, tâches proposées). */
 (function () {
