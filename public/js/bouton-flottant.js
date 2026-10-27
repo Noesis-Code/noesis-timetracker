@@ -253,14 +253,24 @@
     var have = {}; d.tasks.forEach(function (t) { have[t.id] = true; });
     d.tasks = state.added.filter(function (a) { return !have[a.id]; }).concat(d.tasks);
     if (!d.tasks.length) listBox.appendChild(el('p', 'tasksPopEmpty', tr('Rien pour aujourd’hui.')));
+    var doneShown = false;
     d.tasks.forEach(function (t) {
+      if (t.done && !doneShown) { doneShown = true; listBox.appendChild(el('p', 'tasksPopSection', tr('Faites aujourd’hui'))); }
       var row = el('div', 'tasksPopRow' + (t.done ? ' done' : ''));
       var cb = el('button', 'tasksPopCheck'); cb.type = 'button';
       cb.setAttribute('aria-label', tr(t.done ? 'Remettre à faire' : 'Marquer comme faite')); cb.setAttribute('aria-pressed', t.done ? 'true' : 'false');
       if (t.done) cb.appendChild(svg('M6.5 12.5l3.5 3.5 7.5-8', 2));
       cb.addEventListener('click', function () {
+        if (cb.disabled) return;
         cb.disabled = true;
-        TMT.api('PUT', '/api/sub-project-items/' + t.id, { userId: TMT.getProfile().id, done: !t.done }).catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Impossible de modifier cette tâche.'); }).then(refresh);
+        // Effet immédiat : le cercle se remplit d'une coche, le texte est barré et grisé ; la tâche descend ensuite dans « Faites aujourd'hui » (et remonte si on la décoche).
+        var nowDone = !t.done;
+        row.classList.toggle('done', nowDone);
+        cb.textContent = ''; if (nowDone) cb.appendChild(svg('M6.5 12.5l3.5 3.5 7.5-8', 2));
+        cb.setAttribute('aria-pressed', nowDone ? 'true' : 'false');
+        TMT.api('PUT', '/api/sub-project-items/' + t.id, { userId: TMT.getProfile().id, done: nowDone })
+          .catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Impossible de modifier cette tâche.'); })
+          .then(function () { setTimeout(refresh, 450); });
       });
       var txt = el('div', 'tasksPopText');
       txt.appendChild(el('b', null, t.label));
