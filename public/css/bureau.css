@@ -1,0 +1,8 @@
+/* Mise en page ordinateur (27 oct. 2026, demande d'Émilien, pour l'Horaire de Jacopo) : à partir de 1024 px de large seulement ; le téléphone et la tablette ne changent pas.
+   Le contenu s'élargit (au lieu d'une colonne de 640 px) ; l'Horaire prend toute la largeur (la forme de ses tableaux relève de la discussion module Horaire). Jetons seulement, espacements 8/12/16/24. */
+@media (min-width: 1024px) {
+  #content { max-width: 960px; padding-left: 32px; padding-right: 32px; }
+  #content:has(#tab-horaire:not(.hidden)) { max-width: 1440px; }
+  .topbar { padding-left: 32px; padding-right: 32px; }
+
+}
