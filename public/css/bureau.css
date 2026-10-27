@@ -11,4 +11,18 @@
   .tabbarPill { flex: 0 1 720px; margin-left: auto; margin-right: auto; }
   .tabbar .tabBtnAdd { margin-left: 0; }
   .tabbar.barSolo .tabBtnAdd { margin-left: auto; }
+
+  /* Pages complètes (Réglages, Profil, Activité) : cartes élargies au lieu de la colonne de 480 px du téléphone. */
+  #profileSettingsPanel.settingsPanel > .settingsPanelCard,
+  #activityPage .communityMembersModalCard,
+  #profilePage .communityMembersModalCard { max-width: 960px; width: 100%; margin-left: auto; margin-right: auto; }
+
+  /* Pages complètes : retour par une flèche à gauche de l'écran, à la place de la croix (demande d'Émilien, 27 oct. 2026 ; la croix ✕ reste pour les pop-up et sur téléphone). */
+  .activityPageHeader .cmpClose, .tradePageHeader .cmpClose { order: -1; margin-left: 0; }
+  #profileSettingsPanel.settingsPanel #settingsCloseBtn { margin-left: 0; }
+  .activityPageHeader .cmpClose::before, .tradePageHeader .cmpClose::before {
+    width: 20px; height: 20px;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M12.5 3.5L6 10l6.5 6.5M6.5 10H17' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M12.5 3.5L6 10l6.5 6.5M6.5 10H17' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
 }
