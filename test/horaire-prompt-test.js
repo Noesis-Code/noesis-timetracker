@@ -190,6 +190,7 @@ function call(method, path, body, user) {
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uA');
   assert(r.text.startsWith(P.ENTRY_PROMPT.trimEnd() + '\n\nSEMAINE : du lundi ' + W) && r.text.includes('QUARTS À INSCRIRE ('), 'prompt d\'inscription : consignes de base puis quarts');
   assert(buildRegistrationPrompt({ weekStart: W, assignments: [], freeRules: [{ employeeName: 'Alice', text: 'Toujours en salle principale' }] }).includes('RÈGLES PARTICULIÈRES À VÉRIFIER\n- Alice : Toujours en salle principale'), 'prompt d’inscription : règles libres des employés placés');
+  assert(buildRegistrationPrompt({ weekStart: W, assignments: [], restaurantRules: ['Un serveur au bar le vendredi'] }).includes('RÈGLES DU RESTAURANT À VÉRIFIER\n- Un serveur au bar le vendredi'), 'prompt d’inscription : règles libres du restaurant');
   r = await call('GET', 'prompts', undefined, 'uB');
   assert(r.body.importPrompt.isDefault && r.body.entryPrompt.isDefault && (await call('GET', 'import-prompt', undefined, 'uB')).text === P.IMPORT_PROMPT, 'autre compte : garde les versions de base');
   assert((await call('PUT', 'prompts', { entryPrompt: 'x'.repeat(8001) }, 'uA')).status === 400, 'PUT prompts : plus de 8 000 caractères refusé');

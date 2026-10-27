@@ -130,6 +130,18 @@
 .horaireRules { border-radius: var(--radius-lg); padding: 16px 24px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
 .horaireRulesCol { display: flex; flex-direction: column; gap: 8px; line-height: 1.45; }
 .horaireRulesTitle { font-weight: 600; color: var(--violet-soft); }
+/* Règles modifiables : case active ou non, poignée ≡ des préférences, règles libres en bas (pleine largeur) */
+.horaireRules { position: relative; }
+.horaireRuleRow { display: flex; align-items: center; gap: 8px; }
+.horaireRuleRow.dragging { position: relative; z-index: 6; background: var(--pop-bg); border-radius: var(--radius-sm); }
+.horaireRuleRow .horaireCheck { flex: 1; min-width: 0; align-items: flex-start; }
+.horaireRuleRow .horaireCheck input { margin-top: 2px; flex: 0 0 20px; }
+.horaireRuleRow .horaireCheck input:disabled { opacity: .5; }
+.horaireRuleRow { align-items: flex-start; }
+.horaireRuleRow .horaireHandle { cursor: grab; min-height: 0; align-self: flex-start; }
+.horaireRulesFree { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; }
+.horaireRuleFree { min-height: 44px; display: flex; align-items: center; padding: 0 8px; border-radius: var(--radius-sm); }
+.horaireRulesFree > .cmpAdd { min-height: 44px; padding: 0; border-radius: var(--radius-md); font-size: 14px; }
 @media (max-width: 720px) { .horaireRules { grid-template-columns: 1fr; padding: 16px; } .horaireWeekLabel { min-width: 0; flex: 1; } .horaireWeek { width: 100%; } }
 
 /* Lignes de quart (réservations de la configuration guidée) */

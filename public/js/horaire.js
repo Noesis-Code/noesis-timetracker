@@ -56,10 +56,10 @@
     });
   }
   function loadAll() {
-    return Promise.all([req('GET', 'employees'), req('GET', 'positions'), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'employee-rules').catch(function () { return { rules: [] }; }), req('GET', 'category-rules').catch(function () { return { rules: [] }; })])
+    return Promise.all([req('GET', 'employees'), req('GET', 'positions'), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'employee-rules').catch(function () { return { rules: [] }; }), req('GET', 'category-rules').catch(function () { return { rules: [] }; }), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
-        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.empRules = r[7].rules || []; S.catRules = r[8].rules || []; S.loaded = true;
+        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.empRules = r[7].rules || []; S.catRules = r[8].rules || []; S.rr = r[9].rules || null; S.loaded = true;
       });
   }
   // Construit la page si besoin : refresh() peut être appelé (TMT.horaire.refresh) avant la première ouverture du volet.
@@ -859,7 +859,8 @@
       };
     };
     planBox.appendChild(grid('horaireGridPlan', true, [['Matin', cell('matin'), 'horaireCellPlan'], ['Soir', cell('soir'), 'horaireCellPlan']]));
-    // Règles libres des employés placés cette semaine : la génération ne les lit pas, on les rappelle ici.
+    // Règles libres du restaurant puis des employés placés : la génération ne les lit pas, on les rappelle ici (en tête).
+    (rrState().free || []).forEach(function (x) { alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + tr('Règle du restaurant') + ' : “' + x.text + '”')); });
     var placed = {}; sc.assignments.forEach(function (a) { placed[a.employeeId] = a.employeeName; });
     (S.empRules || []).filter(function (x) { return x.rule === 'free' && placed[x.employeeId]; }).forEach(function (x) {
       alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + tr('règle libre de') + ' ' + placed[x.employeeId] + ' : “' + x.text + '”'));
@@ -878,13 +879,36 @@
     return (a.employeeName || '?') + ' : ' + hours(a.minutes) + ' / ' + hours(a.maxWeekMinutes) + ' ' + tr('max') + '.';
   }
 
-  // ---------- Règles du restaurant (valent pour tous) : repliées par défaut, flèche à droite (R21) ----------
-  var RULES = [
-    ['Règles strictes', ['1. Jamais sur un service où l’employé est indisponible.', '2. Jamais plus que ses quarts souhaités.',
-      '3. Règles de catégorie et de fiche toujours respectées.', '4. Exactement le nombre demandé à chaque heure d’arrivée.']],
-    ['Préférences', ['5. Le plus de soirs à la catégorie 1, puis 2, 3 et 4.', '6. Éviter les doubles (matin et soir le même jour).', '7. Éviter fermeture puis ouverture le lendemain.']],
-    ['Dernier recours, à signaler', ['8. Au-delà de sa cible, jusqu’à son maximum, catégorie 1 d’abord.', '9. Demander à un employé indisponible (« à demander »).']],
-  ];
+  // ---------- Règles du restaurant : repliées par défaut, flèche à droite (R21) ; modifiables (28 oct. 2026) ----------
+  // Chaque règle a une case : le générateur ne l'applique que si elle est active (1 et 4 toujours actives, case grisée). Les préférences se
+  // réordonnent au glisser ≡ (TMT.ui.groupDrag, R27) : leur ordre fixe leur priorité. En bas, règles libres (texte, modifiables au clic,
+  // vidées = retirées après confirmation) : lues par l'IA seulement, rappelées en tête des « À vérifier ». Enregistrement automatique.
+  var RULE_TEXT = {
+    r1: 'Jamais sur un service où l’employé est indisponible.', r2: 'Jamais plus que son maximum d’heures.',
+    r3: 'Règles de catégorie et de fiche toujours respectées.', r4: 'Exactement le nombre demandé à chaque heure d’arrivée.',
+    r5: 'Le plus de soirs à la catégorie 1, puis 2, 3 et 4.', r6: 'Éviter les doubles (matin et soir le même jour).', r7: 'Éviter fermeture puis ouverture le lendemain.',
+    r8: 'Au-delà de sa cible, jusqu’à son maximum, catégorie 1 d’abord.', r9: 'Demander à un employé indisponible (« à demander »).',
+  };
+  function rrState() { return S.rr || { off: [], prefOrder: ['r5', 'r6', 'r7'], free: [] }; }
+  function saveRR(next) {
+    var cur = rrState();
+    var body = { off: next.off || cur.off, prefOrder: next.prefOrder || cur.prefOrder, free: next.free || cur.free };
+    S.rr = body; renderRules();
+    req('PUT', 'restaurant-rules', body).then(function (d) { S.rr = d.rules; renderRules(); renderSchedule(); }, function (err) { fail(err); refresh(); });
+  }
+  function ruleRow(key, num) {
+    var cur = rrState(), always = key === 'r1' || key === 'r4';
+    var row = el('div', 'horaireRuleRow'); row.dataset.rule = key;
+    var lab = el('label', 'horaireCheck');
+    var c = el('input'); c.type = 'checkbox'; c.checked = always || cur.off.indexOf(key) < 0; c.disabled = always;
+    c.addEventListener('change', function () {
+      var off = cur.off.filter(function (k) { return k !== key; }); if (!c.checked) off.push(key);
+      saveRR({ off: off });
+    });
+    lab.appendChild(c); lab.appendChild(el('span', null, num + '. ' + tr(RULE_TEXT[key])));
+    row.appendChild(lab);
+    return row;
+  }
   function renderRules() {
     rulesHead.textContent = '';
     rulesHead.setAttribute('aria-expanded', S.rulesOpen ? 'true' : 'false');
@@ -892,13 +916,63 @@
     rulesHead.appendChild(el('span', 'horaireBlockHint horaireGrow', tr('Valent pour tous, chaque semaine.')));
     rulesHead.appendChild(TMT.ui.chev(!!S.rulesOpen));
     rulesBox.classList.toggle('hidden', !S.rulesOpen);
-    if (!S.rulesOpen || rulesBox.firstChild) return;
-    RULES.forEach(function (g) {
-      var col = el('div', 'horaireRulesCol');
-      col.appendChild(el('span', 'horaireRulesTitle', tr(g[0])));
-      g[1].forEach(function (t) { col.appendChild(el('span', null, tr(t))); });
-      rulesBox.appendChild(col);
+    rulesBox.textContent = '';
+    if (!S.rulesOpen) return;
+    var cur = rrState(), n = 0;
+    var col = function (title, keys, drag) {
+      var c = el('div', 'horaireRulesCol' + (drag ? ' horaireRulesPrefs' : ''));
+      c.appendChild(el('span', 'horaireRulesTitle', tr(title)));
+      keys.forEach(function (k) {
+        var row = ruleRow(k, ++n);
+        if (drag) {
+          var h = el('span', 'activityDragHandle horaireHandle', '≡'); h.setAttribute('aria-hidden', 'true');
+          row.insertBefore(h, row.firstChild);
+          TMT.ui.groupDrag(h, row, {
+            list: rulesBox, groupSel: '.horaireRulesPrefs', rowsWrap: function (g) { return g; }, rowSel: '.horaireRuleRow', wrap: c,
+            lineClass: 'catDropLine', targetClass: 'catDropTarget',
+            onReorder: function (rows) { saveRR({ prefOrder: rows.map(function (r) { return r.dataset.rule; }) }); },
+            onMoveTo: function () { renderRules(); },
+          });
+        }
+        c.appendChild(row);
+      });
+      rulesBox.appendChild(c);
+    };
+    col('Règles strictes', ['r1', 'r2', 'r3', 'r4']);
+    col('Préférences', cur.prefOrder, true);
+    col('Dernier recours, à signaler', ['r8', 'r9']);
+    // Règles libres, puis « + Ajouter une règle » en pointillé (R33)
+    var free = el('div', 'horaireRulesFree');
+    cur.free.forEach(function (x) {
+      var cell = el('div', 'horaireRuleFree horaireSheetEdit');
+      editCell(cell, '“' + x.text + '”', [['text', x.text, 'Règle']], function (v) {
+        var t = String(v.text).trim();
+        if (!t) {
+          TMT.ui.confirm(tr('Retirer la règle') + ' “' + x.text + '” ?', { ok: tr('Retirer'), danger: true }).then(function (yes) {
+            if (yes) saveRR({ free: cur.free.filter(function (y) { return y.id !== x.id; }) }); else renderRules();
+          });
+          return;
+        }
+        if (t !== x.text) saveRR({ free: cur.free.map(function (y) { return y.id === x.id ? { id: y.id, text: t } : y; }) }); else renderRules();
+      });
+      free.appendChild(cell);
     });
+    if (S.addingRule) {
+      var x = el('input', 'horaireSheetInput'); x.type = 'text'; x.maxLength = 300; x.placeholder = tr('Règle'); x.setAttribute('aria-label', tr('Ajouter une règle'));
+      var closed = false;
+      var done = function () {
+        if (closed) return; closed = true; S.addingRule = false;
+        var t = x.value.trim();
+        if (t) saveRR({ free: cur.free.concat([{ id: Date.now().toString(36), text: t }]) }); else renderRules();
+      };
+      x.addEventListener('keydown', function (k) { if (k.key === 'Enter') { k.preventDefault(); done(); } else if (k.key === 'Escape') { k.preventDefault(); x.value = ''; done(); } });
+      x.addEventListener('blur', done);
+      free.appendChild(x);
+      setTimeout(function () { x.focus(); }, 0);
+    } else {
+      free.appendChild(TMT.ui.addBtn(tr('Ajouter une règle'), function () { S.addingRule = true; renderRules(); }));
+    }
+    rulesBox.appendChild(free);
   }
 
   // ---------- paramètres (sections repliables, fermées par défaut) ----------

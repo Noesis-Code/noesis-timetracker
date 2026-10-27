@@ -236,6 +236,30 @@ r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMax: 6 }, { i
 }));
 assert(find(r, 1, D[2])[0].employeeId === 10 && find(r, 1, D[0])[0].employeeId === 11, 'soirs d\'abord au groupe 1');
 
+// ---- Règles du restaurant : désactivées, ordre des préférences ----
+const evenings2 = (n) => Array.from({ length: n }, (_, wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 1 }));
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursTarget: 6, wantHoursMax: 18 }], { needs: evenings2(3), restaurantRules: { off: ['r8'] } }));
+assert(r.assignments.length === 1, 'r8 désactivée : jamais au-delà de la cible (6 h), les autres soirs restent des trous');
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMax: 6 }], { needs: evenings2(3), restaurantRules: { off: ['r2'] } }));
+assert(r.assignments.length === 3, 'r2 désactivée : le max d\'heures n\'est plus appliqué');
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null }, { id: 11, maxWeekMinutes: null, rank: 2 }], Object.assign({}, dbl, { restaurantRules: { off: ['r6'] } })));
+assert(find(r, 1, D[0], '10:00')[0].employeeId === 10 && find(r, 1, D[0], '17:00')[0].employeeId === 10, 'r6 désactivée : le double n\'est plus évité (le meilleur rang prend matin et soir)');
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, noDouble: true }], Object.assign({}, dbl, { restaurantRules: { off: ['r3'] } })));
+assert(r.assignments.length === 2, 'r3 désactivée : les règles de fiche ne s\'appliquent plus');
+// Ordre : mardi matin, 10 ferait un double (r6), 11 une fermeture puis ouverture (r7) ; la préférence la moins prioritaire cède d'abord.
+const prio = (order) => generateSchedule({
+  weekStart: W, positions: [{ id: 1, fillOrder: 0 }], employees: [{ id: 10 }, { id: 11 }],
+  qualifications: [{ employeeId: 10, positionId: 1, rank: 1 }, { employeeId: 11, positionId: 1, rank: 1 }],
+  availabilities: [{ employeeId: 10, day: D[1], start: '00:00', end: '23:59' }, { employeeId: 11, day: D[0], start: '00:00', end: '23:59' }, { employeeId: 11, day: D[1], start: '08:00', end: '15:00' }],
+  needs: [{ positionId: 1, weekday: 0, start: '17:00', end: '23:00', count: 1 }, { positionId: 1, weekday: 1, start: '17:00', end: '23:00', count: 1 }, { positionId: 1, weekday: 1, start: '10:00', end: '14:00', count: 1 }],
+  restaurantRules: { prefOrder: order },
+});
+assert(find(prio(['r6', 'r7', 'r5']), 1, D[1], '10:00')[0].employeeId === 11 && find(prio(['r7', 'r6', 'r5']), 1, D[1], '10:00')[0].employeeId === 10, 'ordre des préférences : la moins prioritaire (r7 puis r6) cède d’abord');
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null }, { id: 11, maxWeekMinutes: null, rank: 2 }], {
+  needs: [{ positionId: 1, weekday: 0, start: '17:00', end: '23:00', count: 1 }], restaurantRules: { off: ['r5'] }, rotation: { '1:0': 10 },
+}));
+assert(find(r, 1, D[0])[0].employeeId === 11, 'r5 désactivée : un soir ne va plus d\'abord à la catégorie 1 (tourniquet commun)');
+
 // ---- Propriétés sur entrées aléatoires (graine fixe) ----
 let seed = 42;
 const rnd = (n) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n; };

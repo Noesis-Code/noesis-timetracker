@@ -2743,6 +2743,8 @@ for (const t of ['horaire_availabilities', 'horaire_timeoff']) {
 for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER']]) {
   if (!db.prepare('PRAGMA table_info(horaire_events)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_events ADD COLUMN ' + col + ' ' + type);
 }
+// Règles du restaurant (28 oct. 2026) : JSON { off: ['r2'...], prefOrder: ['r5','r6','r7'], free: [{ id, text }] } ; NULL = toutes actives.
+if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === 'restaurantRules')) db.exec('ALTER TABLE horaire_settings ADD COLUMN restaurantRules TEXT');
 // Règles de catégorie (28 oct. 2026) : catégorie = rang de qualification (1 = priorité la plus haute) ; chaque règle s'applique
 // à tous les employés de la catégorie, comme leurs propres cases (server/lib/horaire-generation.js).
 // Heures visées par semaine (28 oct. 2026, décision d'Émilien) : min, cible, max en HEURES (remplacent les quarts dans la génération).

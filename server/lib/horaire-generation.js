@@ -133,10 +133,18 @@ function generateSchedule(input) {
     if (!catRules.has(rank)) catRules.set(rank, new Set());
     catRules.get(rank).add(c.rule);
   }
+  // Règles du restaurant (28 oct. 2026) : r2 max d'heures, r3 règles de catégorie et de fiche, r5 soirs à la meilleure catégorie, r6 éviter
+  // les doubles, r7 éviter fermeture puis ouverture, r8 au-delà de la cible ; une règle désactivée n'est pas appliquée. r6 et r7 sont des
+  // préférences assouplies une à une, la moins prioritaire d'abord (ordre prefOrder) ; r1 et r4 toujours actives.
+  const rr = input.restaurantRules || {};
+  const rOff = new Set(rr.off || []);
+  const active = (k) => !rOff.has(k);
+  const prefs = (rr.prefOrder || ['r5', 'r6', 'r7']).filter((k) => (k === 'r6' || k === 'r7') && active(k));
+  const prefOn = (k, level) => { const i = prefs.indexOf(k); return i >= 0 && i < prefs.length - level; };
   // règles par employé (liste fermée) : appliquées comme celles de sa catégorie
   const empRules = new Map();
   for (const r of input.employeeRules || []) { if (!empRules.has(r.employeeId)) empRules.set(r.employeeId, new Set()); empRules.get(r.employeeId).add(r.rule); }
-  const rule = (empId, name) => { const s = catRules.get(best.get(empId)), p = empRules.get(empId); return !!((s && s.has(name)) || (p && p.has(name))); };
+  const rule = (empId, name) => { if (!active('r3')) return false; const s = catRules.get(best.get(empId)), p = empRules.get(empId); return !!((s && s.has(name)) || (p && p.has(name))); };
   // congés : jour entier, l'employé est indisponible ce jour-là
   const off = new Set((input.timeoff || []).map((t) => t.employeeId + '|' + t.day));
 
@@ -161,7 +169,7 @@ function generateSchedule(input) {
   // Plafond d'une passe, en MINUTES (heures visées × 60) : min (0 si absent), cible (sinon le max), max (sans limite si absent).
   const mins = (h) => (has(h) ? Math.round(h * 60) : null);
   function capOf(e, phase) {
-    const max = has(e.wantHoursMax) ? mins(e.wantHoursMax) : Infinity;
+    const max = active('r2') && has(e.wantHoursMax) ? mins(e.wantHoursMax) : Infinity;
     const min = has(e.wantHoursMin) ? mins(e.wantHoursMin) : 0;
     if (phase === 'min') return Math.min(min, max);
     if (phase === 'target') return Math.min(max, Math.max(min, has(e.wantHoursTarget) ? mins(e.wantHoursTarget) : max));
@@ -179,30 +187,30 @@ function generateSchedule(input) {
     const before = busy.get(empId + '|' + addDays(slot.day, -1)) || [];
     const after = busy.get(empId + '|' + addDays(slot.day, 1)) || [];
     if (rule(empId, evening(slot) ? 'noEvening' : 'noMorning')) return false;
-    if ((e.restAfterShift || rule(empId, 'restAfterShift')) && (before.length || after.length)) return false;
+    if (((e.restAfterShift && active('r3')) || rule(empId, 'restAfterShift')) && (before.length || after.length)) return false;
     const double = same.some((s) => evening(s) !== evening(slot));
-    if ((e.noDouble || rule(empId, 'noDouble')) && double) return false;
+    if (((e.noDouble && active('r3')) || rule(empId, 'noDouble')) && double) return false;
     // Heures : le max n'est jamais dépassé ; passe « min » tant que le min n'est pas atteint ; passes « cible » et « max » sans dépasser leur plafond.
     const done = minutesOf.get(empId);
     if (done + slot.minutes > capOf(e, 'max')) return false;
     if (phase === 'min' ? done >= capOf(e, 'min') : done + slot.minutes > capOf(e, phase)) return false;
-    if (level < 1) {
-      if (double) return false;
-      // préférence de catégorie : « Soirs d'abord » évite les matins, « Matins d'abord » évite les soirs (assoupli dès la 2e passe)
-      if (rule(empId, evening(slot) ? 'morningsFirst' : 'eveningsFirst')) return false;
-      // fermeture suivie d'une ouverture : soir la veille puis matin, ou soir puis matin le lendemain
-      if (evening(slot) ? after.some((s) => !evening(s)) : before.some(evening)) return false;
-    }
+    // préférence de catégorie : « Soirs d'abord » évite les matins, « Matins d'abord » évite les soirs (assoupli dès la 2e passe)
+    if (level < 1 && rule(empId, evening(slot) ? 'morningsFirst' : 'eveningsFirst')) return false;
+    // r6 : éviter les doubles ; r7 : fermeture suivie d'une ouverture (soir la veille puis matin, ou soir puis matin le lendemain)
+    if (prefOn('r6', level) && double) return false;
+    if (prefOn('r7', level) && (evening(slot) ? after.some((s) => !evening(s)) : before.some(evening))) return false;
     return true;
   }
 
   function pick(slot, level, phase) {
     const q = qual.get(slot.positionId);
     if (!q) return null;
-    const ranks = [...new Set(q.values())].sort((a, b) => a - b);
+    // r5 désactivée : un soir ne va plus d'abord à la meilleure catégorie (tous les qualifiés dans un seul tourniquet).
+    const flat = evening(slot) && !active('r5');
+    const ranks = flat ? [0] : [...new Set(q.values())].sort((a, b) => a - b);
     for (const rank of ranks) {
-      const group = employees.filter((e) => q.get(e.id) === rank).map((e) => e.id); // ordre stable (id)
-      const key = slot.positionId + ':' + rank;
+      const group = employees.filter((e) => q.has(e.id) && (flat || q.get(e.id) === rank)).map((e) => e.id); // ordre stable (id)
+      const key = slot.positionId + ':' + (flat ? 0 : rank);
       const last = group.indexOf(rotation[key]);
       // Tourniquet : on commence juste après le dernier employé servi dans ce groupe ; préférence de catégorie
       // (« Soirs d'abord », « Matins d'abord ») : ceux qui préfèrent ce service d'abord, ceux qui préfèrent l'autre en dernier.
@@ -229,7 +237,8 @@ function generateSchedule(input) {
   }
 
   let holes = ordered;
-  const PASSES = [['min', [0, 1]], ['target', [0, 1]], ['max', [0, 1]]];
+  const levels = Array.from({ length: Math.max(1, prefs.length) + 1 }, (_, i) => i); // 0 = tout ; puis une préférence assouplie de plus à chaque niveau
+  const PASSES = [['min', levels], ['target', levels]].concat(active('r8') ? [['max', levels]] : []);
   for (const [phase, levels] of PASSES) {
     for (const level of levels) { // chaque passe ne reprend que les créneaux restés vides
       if (!holes.length) break;
