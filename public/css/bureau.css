@@ -27,4 +27,14 @@
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M12.5 3.5L6 10l6.5 6.5M6.5 10H17' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M12.5 3.5L6 10l6.5 6.5M6.5 10H17' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
   }
+
+  /* Pages à points : plus de points, deux flèches sur les côtés de l'écran (js/bureau.js). */
+  #statsPageDots, #goalsPage2Dots, #caStatsDots, #viewProfileStatsDots, #docTasksPDots { visibility: hidden; }
+  .bureauArrow {
+    position: fixed; top: 50%; z-index: 60; width: 44px; height: 44px; margin-top: -22px; padding: 0;
+    display: flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--text); cursor: pointer;
+  }
+  .bureauArrow.hidden { display: none; }
+  .bureauArrow-prev { left: 16px; }
+  .bureauArrow-next { right: 16px; }
 }
