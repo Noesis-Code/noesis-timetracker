@@ -289,7 +289,7 @@ function buildUserExport(userId) {
   ) : [];
   // Module « Horaire » (données du personnel saisies par le gestionnaire, Loi 25) : tout ce que le compte a saisi ou généré.
   const horaire = has('horaire_employees') ? {
-    employees: rows('SELECT id, name, maxWeekMinutes, active, dayforceId, createdAt FROM horaire_employees WHERE userId = ? ORDER BY id', userId),
+    employees: rows('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, createdAt FROM horaire_employees WHERE userId = ? ORDER BY id', userId),
     positions: rows('SELECT id, name, fillOrder, dayforceCode, openTableCovers, createdAt FROM horaire_positions WHERE userId = ? ORDER BY fillOrder, id', userId),
     dayforceLocation: (rows('SELECT horaireDayforceLocation AS v FROM users WHERE id = ?', userId)[0] || {}).v || null,
     settings: has('horaire_settings') ? (rows('SELECT configured, setupStep, eventsSource, eventsNoticeDays, eventsStaffRule, dataInCanada, dayforceTemplateName, dayforceTemplate, updatedAt FROM horaire_settings WHERE userId = ?', userId)[0] || null) : null,

@@ -199,6 +199,8 @@
     'Événements spéciaux': 'Special events', 'Import et Dayforce': 'Import and Dayforce',
     'Aucun employé.': 'No employee.', 'Nouvel employé': 'New employee', 'Ajouter un employé': 'Add an employee',
     'Max d’heures par semaine': 'Max hours per week', 'Max h / semaine': 'Max h / week', 'Matricule Dayforce': 'Dayforce employee ID',
+    'Quarts souhaités min': 'Wanted shifts min', 'Quarts souhaités max': 'Wanted shifts max', 'Contrainte particulière': 'Special constraint',
+    'Prompt pour l’IA': 'Prompt for AI', 'Prompt copié : colle-le dans ton IA.': 'Prompt copied: paste it into your AI.', 'Copie impossible.': 'Copy failed.',
     'Postes (rang 1 = meilleur)': 'Positions (rank 1 = best)', 'Supprimer cet employé et ses quarts ?': 'Delete this employee and their shifts?',
     'Aucun poste.': 'No position.', 'Nouveau poste': 'New position', 'Ajouter un poste': 'Add a position', 'Nom du poste': 'Position name',
     'Ordre de comblement : glisse ≡ pour changer.': 'Filling order: drag ≡ to change.', 'Code Dayforce': 'Dayforce code',

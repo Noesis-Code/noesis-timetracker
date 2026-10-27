@@ -1,6 +1,7 @@
 /* Module « Horaire » (26 oct. 2026, demande d'Émilien) : écran du gestionnaire (maître d'hôtel) qui prépare l'horaire hebdo de son personnel.
  * Routes : server/routes/horaire.js (doc docs/basic/module-horaire.md). Page unique #tab-horaire, page principale = horaire de la semaine :
- * semaine ‹ › , « Générer » (action principale), alertes, quarts par jour, « Exporter vers Dayforce » ; puis « Paramètres » en sections
+ * semaine ‹ › , « Générer » (action principale), « Prompt pour l'IA » (copie le prompt de la semaine, à coller dans sa propre IA),
+ * alertes, quarts par jour, « Exporter vers Dayforce » ; puis « Paramètres » en sections
  * repliables fermées par défaut (R2) : Employés, Postes, Besoins, Disponibilités, Événements, OpenTable, Dayforce, Hébergement.
  * Configuration guidée (26 oct. 2026) : tant que le compte n'est pas « configured », l'ouverture du volet montre une étape par écran
  * (les mêmes sections, dépliées dans un cadre d'étape), « Suivant » / « Passer », points de pagination, balayage gauche/droite
@@ -134,7 +135,7 @@
   function emptyHint(list, text) { list.appendChild(el('p', 'horaireEmpty', text)); }
 
   // ---------- page principale ----------
-  var weekLabel, msgBox, alertsBox, daysBox, exportBtn, settingsBox, genBtn, mainNodes, setupBox, setupMsg;
+  var weekLabel, msgBox, alertsBox, daysBox, exportBtn, settingsBox, genBtn, promptBtn, mainNodes, setupBox, setupMsg;
   function build() {
     root.textContent = '';
     var nav = el('div', 'horaireWeek');
@@ -146,6 +147,8 @@
     nav.appendChild(prev); nav.appendChild(weekLabel); nav.appendChild(next);
     genBtn = el('button', 'cmpBtn', tr('Générer')); genBtn.type = 'button';
     genBtn.addEventListener('click', generate);
+    promptBtn = el('button', 'horaireExport cmpGlass', tr('Prompt pour l’IA')); promptBtn.type = 'button';
+    promptBtn.addEventListener('click', copyPrompt);
     msgBox = el('p', 'horaireMsg'); msgBox.setAttribute('aria-live', 'polite');
     alertsBox = el('div', 'horaireAlerts cmpGlass');
     daysBox = el('div', 'horaireDays');
@@ -153,7 +156,7 @@
     exportBtn.addEventListener('click', exportDayforce);
     var title = el('p', 'sectionTitle horaireSettingsTitle', tr('Paramètres'));
     settingsBox = el('div', 'horaireSettings cmpGlass cmpList');
-    mainNodes = [nav, genBtn, msgBox, alertsBox, daysBox, exportBtn, title, settingsBox];
+    mainNodes = [nav, genBtn, promptBtn, msgBox, alertsBox, daysBox, exportBtn, title, settingsBox];
     setupBox = el('div', 'horaireSetup hidden');
     setupMsg = el('p', 'horaireMsg hidden'); setupMsg.setAttribute('aria-live', 'polite');
     mainNodes.concat([setupBox]).forEach(function (n) { root.appendChild(n); });
@@ -168,6 +171,22 @@
     S.busy = true; genBtn.disabled = true; S.msg = '';
     req('POST', 'weeks/' + S.week + '/generate').then(function (d) { S.schedule = d.schedule; render(); }, fail)
       .then(function () { S.busy = false; genBtn.disabled = false; });
+  }
+  // Prompt de la semaine (texte assemblé côté serveur) copié dans le presse-papiers. ClipboardItem avec promesse quand il existe :
+  // la copie reste liée au toucher même si le texte arrive après (Safari iOS).
+  function copyPrompt() {
+    var text = fetch('/api/horaire/weeks/' + S.week + '/prompt', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) {
+      if (!r.ok) return r.json().catch(function () { return {}; }).then(function (d) { throw new Error(d.error ? tr(d.error) : tr('Erreur serveur')); });
+      return r.text();
+    }, function () { throw new Error(tr('Connexion impossible. Réessaie.')); });
+    var cb = navigator.clipboard;
+    var copy = cb && cb.write && window.ClipboardItem
+      ? cb.write([new window.ClipboardItem({ 'text/plain': text.then(function (t) { return new Blob([t], { type: 'text/plain' }); }) })])
+        .catch(function (e) { return text.then(function (t) { if (!cb.writeText) throw e; return cb.writeText(t); }); })
+      : text.then(function (t) { if (!cb || !cb.writeText) throw new Error(tr('Copie impossible.')); return cb.writeText(t); });
+    copy.then(function () { S.msg = tr('Prompt copié : colle-le dans ton IA.'); renderMsg(); }, function () {
+      text.then(function () { S.msg = tr('Copie impossible.'); renderMsg(); }, fail);
+    });
   }
   function exportDayforce() {
     fetch('/api/horaire/weeks/' + S.week + '/export/dayforce', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) {
@@ -288,10 +307,20 @@
     var name = input('text', e ? e.name : '', tr('Nom'));
     var max = input('number', e && e.maxWeekMinutes != null ? String(Math.round(e.maxWeekMinutes / 6) / 10) : '', tr('Max d’heures par semaine')); max.min = '0'; max.max = '168'; max.step = '0.5'; max.inputMode = 'decimal';
     var dfid = input('text', e ? e.dayforceId : '', tr('Matricule Dayforce'));
+    var shifts = ['wantShiftsMin', 'wantShiftsMax'].map(function (k, i) {
+      var s = input('number', e && e[k] != null ? String(e[k]) : '', tr(i ? 'Quarts souhaités max' : 'Quarts souhaités min'));
+      s.min = '0'; s.max = '14'; s.step = '1'; s.inputMode = 'numeric';
+      return s;
+    });
+    var note = input('text', e ? e.constraintNote : '', tr('Contrainte particulière')); note.maxLength = 200;
     f.appendChild(field(tr('Nom'), name));
     var pair = el('div', 'horairePair');
     pair.appendChild(field(tr('Max h / semaine'), max)); pair.appendChild(field(tr('Matricule Dayforce'), dfid));
     f.appendChild(pair);
+    var pair2 = el('div', 'horairePair');
+    pair2.appendChild(field(tr('Quarts souhaités min'), shifts[0])); pair2.appendChild(field(tr('Quarts souhaités max'), shifts[1]));
+    f.appendChild(pair2);
+    f.appendChild(field(tr('Contrainte particulière'), note));
     var ranks = {};
     if (S.positions.length) {
       f.appendChild(el('span', 'horaireFieldLabel', tr('Postes (rang 1 = meilleur)')));
@@ -306,7 +335,9 @@
       f.appendChild(grid);
     }
     f.appendChild(saveBtn(f, function () {
-      var body = { name: name.value, maxWeekMinutes: max.value.trim() === '' ? null : Math.round(Number(max.value.replace(',', '.')) * 60), dayforceId: dfid.value.trim() };
+      var body = { name: name.value, maxWeekMinutes: max.value.trim() === '' ? null : Math.round(Number(max.value.replace(',', '.')) * 60), dayforceId: dfid.value.trim(),
+        wantShiftsMin: shifts[0].value.trim() === '' ? null : Number(shifts[0].value), wantShiftsMax: shifts[1].value.trim() === '' ? null : Number(shifts[1].value),
+        constraintNote: note.value.trim() };
       return (e ? req('PUT', 'employees/' + e.id, body) : req('POST', 'employees', body)).then(function (d) {
         var id = d.employee.id;
         return Promise.all(Object.keys(ranks).map(function (pid) {

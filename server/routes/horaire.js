@@ -70,16 +70,37 @@ function employeeInput(res, body, partial) {
     out.dayforceId = dayforceCode(body.dayforceId);
     if (out.dayforceId === undefined) { bad(res, 'Matricule Dayforce invalide (64 caractères au plus).'); return null; }
   }
+  // Quarts souhaités par semaine (min, max) et contrainte particulière : lus par le prompt pour l'IA seulement.
+  for (const k of ['wantShiftsMin', 'wantShiftsMax']) {
+    if (body[k] === undefined) continue;
+    out[k] = h.shiftCount(body[k]);
+    if (out[k] === undefined) { bad(res, 'Quarts souhaités invalides (entier, 0 à ' + h.LIMITS.shifts + ').'); return null; }
+  }
+  if (body.constraintNote !== undefined) {
+    out.constraintNote = h.constraintText(body.constraintNote);
+    if (out.constraintNote === undefined) { bad(res, 'Contrainte trop longue (' + h.LIMITS.constraint + ' caractères au plus).'); return null; }
+  }
   return out;
+}
+// Min > max refusé (valeurs fusionnées avec l'employé existant pour une modification).
+function shiftsOrdered(res, v, cur) {
+  const lo = v.wantShiftsMin !== undefined ? v.wantShiftsMin : (cur ? cur.wantShiftsMin : null);
+  const hi = v.wantShiftsMax !== undefined ? v.wantShiftsMax : (cur ? cur.wantShiftsMax : null);
+  if (lo != null && hi != null && lo > hi) { bad(res, 'Quarts souhaités : le minimum dépasse le maximum.'); return false; }
+  return true;
 }
 router.get('/horaire/employees', (req, res) => res.json({ employees: h.listEmployees(req.userId) }));
 router.post('/horaire/employees', (req, res) => {
   const v = employeeInput(res, req.body || {}, false); if (!v) return;
+  if (!shiftsOrdered(res, v, null)) return;
   if (h.countEmployees(req.userId) >= h.LIMITS.employees) return res.status(409).json({ error: 'Limite d\'employés atteinte.' });
   res.status(201).json({ employee: h.createEmployee(req.userId, v) });
 });
 router.put('/horaire/employees/:id', (req, res) => {
   const v = employeeInput(res, req.body || {}, true); if (!v) return;
+  const cur = h.ownEmployee(req.userId, req.params.id);
+  if (!cur) return notFound(res, 'Employé');
+  if (!shiftsOrdered(res, v, cur)) return;
   const e = h.updateEmployee(req.userId, req.params.id, v);
   return e ? res.json({ employee: e }) : notFound(res, 'Employé');
 });
@@ -201,6 +222,13 @@ router.get('/horaire/weeks/:weekStart', (req, res) => {
 router.post('/horaire/weeks/:weekStart/generate', (req, res) => {
   const w = weekParam(req, res); if (!w) return;
   res.json({ schedule: h.generate(req.userId, w) });
+});
+
+// Prompt pour l'IA du gestionnaire (texte brut à coller dans sa propre IA ; assemblé par server/lib/horaire-prompt.js).
+router.get('/horaire/weeks/:weekStart/prompt', (req, res) => {
+  const w = weekParam(req, res); if (!w) return;
+  res.set('Cache-Control', 'no-store');
+  res.type('text/plain; charset=utf-8').send(h.weekPrompt(req.userId, w));
 });
 
 // ---------- réglages du compte (code d'unité Dayforce + configuration guidée) ----------

@@ -13,7 +13,8 @@ non fusionnée), réduit à la forme minimale.
   `module_off` (règle dans `server/lib/modulegate.js`).
 
 ## Données (toutes rattachées au propriétaire)
-Employés (nom, max d'heures hebdo en minutes, tous postes confondus, actif) ; postes (ordre de comblement) ;
+Employés (nom, max d'heures hebdo en minutes, tous postes confondus, actif ; quarts souhaités par semaine min et max,
+entiers 0 à 14, min ≤ max ; contrainte particulière, texte libre de 200 caractères au plus) ; postes (ordre de comblement) ;
 qualifications (rang par employé ET par poste, 1 = meilleur ; plusieurs postes par employé) ; disponibilités par semaine
 (plages jour + heures) ; besoins du modèle normal (poste, jour 0 = lundi … 6 = dimanche, heures, nombre) ; événements
 spéciaux (date + besoins qui remplacent le modèle normal ce jour-là) ; état de rotation (dernier servi par poste et par
@@ -32,8 +33,8 @@ rang) ; horaires (brouillon par semaine + alertes) et quarts. Un quart dont la f
 ## Routes (`/api/horaire/...`, session requise)
 | Méthode | Chemin | Rôle |
 |---|---|---|
-| GET, POST | `employees` | lister, créer `{name, maxWeekMinutes?}` |
-| PUT, DELETE | `employees/:id` | modifier `{name?, maxWeekMinutes?, active?}`, supprimer (avec ses quarts) |
+| GET, POST | `employees` | lister, créer `{name, maxWeekMinutes?, wantShiftsMin?, wantShiftsMax?, constraintNote?}` |
+| PUT, DELETE | `employees/:id` | modifier `{name?, maxWeekMinutes?, active?, wantShiftsMin?, wantShiftsMax?, constraintNote?}`, supprimer (avec ses quarts) |
 | GET, POST | `positions` | lister, créer `{name, fillOrder?}` |
 | PUT, DELETE | `positions/:id` | modifier, supprimer |
 | GET, PUT | `qualifications` | lister, poser `{employeeId, positionId, rank}` |
@@ -47,12 +48,18 @@ rang) ; horaires (brouillon par semaine + alertes) et quarts. Un quart dont la f
 | POST | `import/employees` | CSV `{csv}` |
 | POST | `weeks/:lundi/import/availabilities` | CSV `{csv}` |
 | GET | `weeks/:lundi/export/dayforce` | CSV pour l'import Dayforce (voir plus bas) |
+| GET | `weeks/:lundi/prompt` | prompt de la semaine pour l'IA du gestionnaire, texte brut (voir plus bas) |
 | GET, PUT | `settings` | réglages du compte : `{dayforceLocation, configured, setupStep, eventsSource, eventsNoticeDays, eventsStaffRule, dataInCanada, dayforceTemplate}` (voir Configuration guidée) |
 
 ## Import CSV (format souple, en attendant l'échantillon du maître d'hôtel)
 Séparateur `;`, `,` ou tabulation (détecté) ; guillemets acceptés ; en-tête facultatif (sinon ordre ci-dessous).
 - Employés : `nom ; max (heures, « 30 », « 37,5 », « 40h ») ; postes`. Postes : `Serveur:1 | Hôte:2` (rang 1 par
   défaut), ou une colonne par poste. Nom déjà connu = mise à jour ; poste inconnu = créé en fin d'ordre.
+  Colonnes facultatives (27 oct. 2026), reconnues seulement avec un en-tête, à n'importe quelle place : `quarts min`,
+  `quarts max` (quarts souhaités par semaine, entiers 0 à 14 ; aussi `quarts souhaités min/max`) et `contrainte` (texte,
+  200 caractères au plus ; aussi `contrainte particulière`). Cellule vide = inchangé ; min > max = ligne écartée. Exemple :
+  `nom;max;postes;quarts min;quarts max;contrainte` puis `Alice;30;Serveur:1;5;5;Jamais de double`. Une colonne par poste
+  s'arrête à la colonne reconnue suivante.
 - Disponibilités : `nom ; jour ; début ; fin`, une ligne par plage. Jour = date de la semaine ou nom (lundi, lun, monday…).
   Heures : `17:00`, `17h`, `17h30`, `5 pm`. Remplace la semaine des seuls employés présents ; noms inconnus listés.
 
@@ -71,6 +78,20 @@ l'horaire enregistré de la semaine (404 si aucun), prêt pour l'import des hora
   `X-Dayforce-Missing: employees=N;positions=N;location=0|1` le signale (nombres seuls, aucun nom).
 - Réservé au compte propriétaire (session) et au module `horaire` actif ; rien n'est journalisé. Test :
   `test/horaire-dayforce-test.js`.
+
+## Prompt pour l'IA (27 oct. 2026, demande d'Émilien)
+Le maître d'hôtel faisait son horaire en collant un prompt dans ChatGPT. Le bouton « Prompt pour l'IA » (page principale,
+sous « Générer », bouton secondaire) copie dans le presse-papiers le prompt de la semaine affichée, puis affiche « Prompt copié :
+colle-le dans ton IA. » ; il le colle dans SA propre IA. Le serveur ne l'envoie à aucune IA.
+- Route `GET /api/horaire/weeks/:lundi/prompt` : texte brut, `Cache-Control: no-store`, compte propriétaire (session) et
+  module `horaire` actif ; rien n'est journalisé.
+- Assemblage : fonction pure `buildPrompt` de `server/lib/horaire-prompt.js` (test : `test/horaire-prompt-test.js`). Ordre :
+  consigne ; 1. Semaine ; 2. Besoins par service (événements de la semaine appliqués comme dans la génération, préfixe du
+  poste s'il y a plusieurs postes) ; 3. Personnel (groupe = meilleur rang, poste(s), disponibilités de la semaine en
+  matin/soir, quarts souhaités, contrainte) ; 4. Changements de cette semaine (événements) ; 5. Règles 1 à 9 (fixes) ;
+  6. Format de la réponse (A à E). Matin = quart qui commence avant 16 h, soir = 16 h ou après.
+- Les quarts souhaités et la contrainte se saisissent dans la fiche employé (Paramètres > Employés, et étape 2 de la
+  configuration guidée, même formulaire) ; ils ne changent pas la génération.
 
 ## Configuration guidée (26 oct. 2026, demande d'Émilien)
 Pour ne jamais solliciter le restaurant à part, la première ouverture du volet par un compte non configuré
@@ -101,7 +122,8 @@ désormais dans les sections Employés et Disponibilités (ancienne section « I
 `test/horaire-config-test.js`.
 
 ## Loi 25
-Données confidentielles du personnel (réglages et fichier modèle compris) : jamais envoyées à l'IA, à la Communauté, au partage ni aux journaux. Incluses dans
+Données confidentielles du personnel (réglages et fichier modèle compris) : jamais envoyées à l'IA, à la Communauté, au partage ni aux journaux
+(le prompt pour l'IA est copié par le gestionnaire lui-même dans l'outil de son choix). Incluses dans
 l'export du compte (clé `horaire`), effacées à la suppression du compte (cascade + `accountdeletion.js`).
 
 ## Reste à faire

@@ -6,7 +6,7 @@ const db = require('../db');
 const gen = require('./horaire-generation');
 
 const nowIso = () => new Date().toISOString();
-const LIMITS = { name: 80, label: 120, employees: 500, positions: 50, csvChars: 200000, csvRows: 5000 };
+const LIMITS = { name: 80, label: 120, employees: 500, positions: 50, csvChars: 200000, csvRows: 5000, shifts: 14, constraint: 200 };
 
 // ---------- validation (utilisée par server/routes/horaire.js) ----------
 const isDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s + 'T00:00:00Z'))
@@ -20,6 +20,19 @@ function maxMinutes(v) {
   const n = Number(String(v).replace(',', '.'));
   return Number.isFinite(n) && n >= 0 && n <= 168 * 60 ? Math.round(n) : undefined;
 }
+// Quarts souhaités par semaine (min ou max) : entier 0 à 14 ; null = non renseigné ; undefined = invalide.
+function shiftCount(v) {
+  if (v === null || v === '' || v === undefined) return null;
+  const n = Number(String(v).trim());
+  return Number.isInteger(n) && n >= 0 && n <= LIMITS.shifts ? n : undefined;
+}
+// Contrainte particulière : texte court libre (une ligne) ; '' ou null = effacée ; undefined = invalide.
+function constraintText(v) {
+  if (v === null) return null;
+  if (typeof v !== 'string') return undefined;
+  const s = v.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().replace(/\s+/g, ' ');
+  return s.length <= LIMITS.constraint ? (s || null) : undefined;
+}
 
 // ---------- propriété ----------
 const ownEmployee = (u, id) => db.prepare('SELECT * FROM horaire_employees WHERE id = ? AND userId = ?').get(Number(id), u) || null;
@@ -27,24 +40,28 @@ const ownPosition = (u, id) => db.prepare('SELECT * FROM horaire_positions WHERE
 const ownEvent = (u, id) => db.prepare('SELECT * FROM horaire_events WHERE id = ? AND userId = ?').get(Number(id), u) || null;
 
 // ---------- employés (le max hebdo, en minutes, est un champ de l'employé) ----------
+// Quarts souhaités (wantShiftsMin, wantShiftsMax, par semaine) et contrainte particulière (constraintNote) : lus par le prompt pour l'IA seulement.
 function listEmployees(u) {
-  return db.prepare('SELECT id, name, maxWeekMinutes, active, dayforceId, createdAt FROM horaire_employees WHERE userId = ? ORDER BY name COLLATE NOCASE, id').all(u)
+  return db.prepare('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, createdAt FROM horaire_employees WHERE userId = ? ORDER BY name COLLATE NOCASE, id').all(u)
     .map((e) => ({ ...e, active: !!e.active }));
 }
 function countEmployees(u) { return db.prepare('SELECT COUNT(*) AS n FROM horaire_employees WHERE userId = ?').get(u).n; }
-function createEmployee(u, { name, maxWeekMinutes, dayforceId }) {
-  const r = db.prepare('INSERT INTO horaire_employees (userId, name, maxWeekMinutes, active, dayforceId, createdAt) VALUES (?, ?, ?, 1, ?, ?)')
-    .run(u, name, maxWeekMinutes === undefined ? null : maxWeekMinutes, dayforceId || null, nowIso());
+const orNull = (v) => (v === undefined ? null : v);
+function createEmployee(u, { name, maxWeekMinutes, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote }) {
+  const r = db.prepare('INSERT INTO horaire_employees (userId, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, createdAt) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)')
+    .run(u, name, orNull(maxWeekMinutes), dayforceId || null, orNull(wantShiftsMin), orNull(wantShiftsMax), constraintNote || null, nowIso());
   return listEmployees(u).find((e) => e.id === Number(r.lastInsertRowid));
 }
 function updateEmployee(u, id, f) {
   const e = ownEmployee(u, id);
   if (!e) return null;
-  db.prepare('UPDATE horaire_employees SET name = ?, maxWeekMinutes = ?, active = ?, dayforceId = ? WHERE id = ? AND userId = ?').run(
-    f.name !== undefined ? f.name : e.name,
-    f.maxWeekMinutes !== undefined ? f.maxWeekMinutes : e.maxWeekMinutes,
+  const pick = (k) => (f[k] !== undefined ? f[k] : e[k]);
+  db.prepare('UPDATE horaire_employees SET name = ?, maxWeekMinutes = ?, active = ?, dayforceId = ?, wantShiftsMin = ?, wantShiftsMax = ?, constraintNote = ? WHERE id = ? AND userId = ?').run(
+    pick('name'), pick('maxWeekMinutes'),
     f.active !== undefined ? (f.active ? 1 : 0) : e.active,
-    f.dayforceId !== undefined ? (f.dayforceId || null) : e.dayforceId, e.id, u);
+    f.dayforceId !== undefined ? (f.dayforceId || null) : e.dayforceId,
+    pick('wantShiftsMin'), pick('wantShiftsMax'),
+    f.constraintNote !== undefined ? (f.constraintNote || null) : e.constraintNote, e.id, u);
   return listEmployees(u).find((x) => x.id === e.id);
 }
 // Suppression en cascade, toujours bornée au compte (pas de clé étrangère entre tables du module : chaque DELETE filtre userId).
@@ -268,6 +285,20 @@ function exportDayforce(u, weekStart) {
   return require('./horaire-dayforce').buildDayforceCsv(assignments, getSettings(u).dayforceLocation);
 }
 
+// ---------- prompt pour l'IA du gestionnaire (texte assemblé par ./horaire-prompt.js ; le serveur ne l'envoie à aucune IA) ----------
+function weekPrompt(u, weekStart) {
+  const days = gen.weekDays(weekStart);
+  return require('./horaire-prompt').buildPrompt({
+    weekStart,
+    positions: listPositions(u),
+    employees: listEmployees(u).filter((e) => e.active),
+    qualifications: listQualifications(u),
+    availabilities: getAvailabilities(u, weekStart),
+    needs: listNeeds(u),
+    events: listEvents(u, days[0], days[6]),
+  });
+}
+
 // ---------- import CSV (format souple, documenté dans docs/basic/module-horaire.md) ----------
 const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
@@ -331,7 +362,13 @@ function normDay(s, weekStart) {
 const findEmployeeByName = (u, name) => db.prepare('SELECT * FROM horaire_employees WHERE userId = ? AND name = ? COLLATE NOCASE').get(u, name) || null;
 
 // Employés : nom ; max d'heures hebdo (facultatif) ; postes (facultatif, « Serveur:1 | Hôte:2 » ou une colonne par poste).
-// Un nom déjà connu met l'employé à jour (pas de doublon) ; un poste inconnu est créé à la fin de l'ordre de comblement.
+// Avec en-tête seulement (27 oct. 2026) : quarts min, quarts max (souhaités par semaine) et contrainte, à n'importe quelle place.
+// Un nom déjà connu met l'employé à jour (pas de doublon ; cellule vide = inchangé) ; un poste inconnu est créé à la fin de l'ordre de comblement.
+const EXTRA_EMPLOYEE_COLS = {
+  wantShiftsMin: ['quarts min', 'quarts souhaites min', 'min quarts', 'shifts min', 'min shifts'],
+  wantShiftsMax: ['quarts max', 'quarts souhaites max', 'max quarts', 'shifts max', 'max shifts'],
+  constraintNote: ['contrainte', 'contrainte particuliere', 'constraint'],
+};
 function importEmployeesCsv(u, text) {
   const rows = parseCsv(text);
   if (!rows.length) return { created: 0, updated: 0, skipped: [] };
@@ -340,6 +377,15 @@ function importEmployeesCsv(u, text) {
     max: ['max', 'max heures', 'max_heures', 'heures max', 'heures', 'max hours', 'hours'],
     positions: ['postes', 'poste', 'positions', 'position', 'role', 'roles'],
   });
+  // Colonnes facultatives : reconnues par l'en-tête seulement (un fichier sans en-tête garde l'ordre nom ; max ; postes...).
+  const head = rows[0].map(fold);
+  const extra = {};
+  if (data.length < rows.length) {
+    Object.entries(EXTRA_EMPLOYEE_COLS).forEach(([k, names]) => { const i = head.findIndex((x) => names.includes(x)); if (i >= 0) extra[k] = i; });
+  }
+  // Les postes s'étendent jusqu'à la colonne reconnue suivante (une colonne par poste possible).
+  const posEnd = idx.positions === undefined ? 0
+    : Math.min(...Object.values(idx).concat(Object.values(extra)).filter((i) => i > idx.positions), Infinity);
   const res = { created: 0, updated: 0, skipped: [] };
   db.exec('BEGIN');
   try {
@@ -349,13 +395,23 @@ function importEmployeesCsv(u, text) {
       const maxH = idx.max !== undefined ? String(cells[idx.max] || '').replace(/h$/i, '').trim() : '';
       const maxM = maxH === '' ? null : maxMinutes(Number(maxH.replace(',', '.')) * 60);
       if (maxM === undefined) { res.skipped.push({ line: n + 1, reason: 'max d\'heures illisible' }); return; }
+      const more = {};
+      for (const [k, i] of Object.entries(extra)) {
+        const raw = String(cells[i] || '').trim();
+        if (raw === '') continue;
+        more[k] = k === 'constraintNote' ? constraintText(raw) : shiftCount(raw);
+        if (more[k] === undefined) { res.skipped.push({ line: n + 1, reason: k === 'constraintNote' ? 'contrainte trop longue' : 'quarts souhaités illisibles (0 à ' + LIMITS.shifts + ')' }); return; }
+      }
       let emp = findEmployeeByName(u, name);
-      if (emp) { updateEmployee(u, emp.id, { maxWeekMinutes: maxH === '' ? undefined : maxM }); res.updated += 1; }
+      const lo = more.wantShiftsMin !== undefined ? more.wantShiftsMin : (emp ? emp.wantShiftsMin : null);
+      const hi = more.wantShiftsMax !== undefined ? more.wantShiftsMax : (emp ? emp.wantShiftsMax : null);
+      if (lo != null && hi != null && lo > hi) { res.skipped.push({ line: n + 1, reason: 'quarts min supérieur au max' }); return; }
+      if (emp) { updateEmployee(u, emp.id, { maxWeekMinutes: maxH === '' ? undefined : maxM, ...more }); res.updated += 1; }
       else {
         if (countEmployees(u) >= LIMITS.employees) { res.skipped.push({ line: n + 1, reason: 'limite d\'employés atteinte' }); return; }
-        emp = createEmployee(u, { name, maxWeekMinutes: maxM }); res.created += 1;
+        emp = createEmployee(u, { name, maxWeekMinutes: maxM, ...more }); res.created += 1;
       }
-      const posCells = idx.positions !== undefined ? cells.slice(idx.positions) : [];
+      const posCells = idx.positions !== undefined ? cells.slice(idx.positions, posEnd) : [];
       posCells.join('|').split(/[|/]/).map((s) => s.trim()).filter(Boolean).forEach((tok) => {
         const m = /^(.*?)\s*[:=]\s*(\d+)$/.exec(tok);
         const pname = cleanName(m ? m[1] : tok);
@@ -466,7 +522,7 @@ function weekCovers(u, weekStart) {
 
 module.exports = {
   importReservationsCsv, weekCovers, normDate,
-  LIMITS, isDate, isMonday, isTime, cleanName, maxMinutes, ownEmployee, ownPosition, ownEvent,
+  LIMITS, isDate, isMonday, isTime, cleanName, maxMinutes, shiftCount, constraintText, ownEmployee, ownPosition, ownEvent, weekPrompt,
   listEmployees, countEmployees, createEmployee, updateEmployee, deleteEmployee,
   listPositions, countPositions, createPosition, updatePosition, deletePosition,
   listQualifications, setQualification, removeQualification,

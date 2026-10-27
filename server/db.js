@@ -2689,6 +2689,11 @@ CREATE TABLE IF NOT EXISTS horaire_covers (
 if (!db.prepare('PRAGMA table_info(horaire_positions)').all().some((c) => c.name === 'openTableCovers')) {
   db.exec('ALTER TABLE horaire_positions ADD COLUMN openTableCovers INTEGER'); // couverts par service qui justifient une personne de plus
 }
+// Prompt pour l'IA (27 oct. 2026) : quarts souhaités par semaine (min, max) et contrainte particulière de chaque employé
+// (server/lib/horaire-prompt.js). Migration douce : NULL = non renseigné. Sans effet sur la génération.
+for (const [col, type] of [['wantShiftsMin', 'INTEGER'], ['wantShiftsMax', 'INTEGER'], ['constraintNote', 'TEXT']]) {
+  if (!db.prepare('PRAGMA table_info(horaire_employees)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_employees ADD COLUMN ' + col + ' ' + type);
+}
 if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'horaire_settings'").get()) {
   db.exec(`
 CREATE TABLE horaire_settings (
