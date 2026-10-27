@@ -45,7 +45,7 @@
 .tasksToday .tasksPopSum { padding: 0 4px 12px; }
 .tasksToday .tasksPopRow { padding-left: 4px; padding-right: 4px; }
 .tasksToday .tasksPopSection { padding-left: 4px; padding-right: 4px; }
-.tasksToday .tasksPopAdd { position: sticky; bottom: calc(var(--tabbar-h, 64px) + 16px); max-height: none; padding: 12px 0 0; background: transparent; }
+.tasksToday .tasksPopAdd { position: sticky; bottom: calc(var(--tabbar-h, 64px) + 40px); max-height: none; padding: 12px 0 0; background: transparent; }
 .tasksToday .tasksPopAdd .tasksComposer { background: var(--bg-raised); }
 /* La bulle d'écriture libre de l'ancienne page 1 est remplacée par la barre « Ajouter une tâche » de la vue Aujourd'hui. */
 #goalsActivitiesView .goalsCaptureBubbleWrap, #goalsActivitiesView .goalsCaptureActivityPrompt { display: none; }
