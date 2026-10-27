@@ -45,7 +45,7 @@
     head.appendChild(el('span', 'tasksPopDate', todayLabel()));
     var sum = el('div', 'tasksPopSum'); sumL = el('span'); sumR = el('span'); sum.appendChild(sumL); sum.appendChild(sumR);
     listBox = el('div', 'tasksPopList');
-    root.appendChild(head); root.appendChild(sum); root.appendChild(buildAdd()); root.appendChild(listBox); // la barre d'ajout défile avec la page (jamais collée ni masquée), au-dessus de la liste
+    root.appendChild(head); root.appendChild(sum); root.appendChild(listBox); root.appendChild(buildAdd()); // la barre d'ajout reste en bas de la page et défile avec elle (jamais collée ni masquée)
     container.appendChild(root);
   }
 
