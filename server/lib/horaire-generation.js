@@ -133,14 +133,10 @@ function generateSchedule(input) {
     if (!catRules.has(rank)) catRules.set(rank, new Set());
     catRules.get(rank).add(c.rule);
   }
-  // Règles du restaurant (28 oct. 2026) : r2 max d'heures, r3 règles de catégorie et de fiche, r5 soirs à la meilleure catégorie, r6 éviter
-  // les doubles, r7 éviter fermeture puis ouverture, r8 au-delà de la cible ; une règle désactivée n'est pas appliquée. r6 et r7 sont des
-  // préférences assouplies une à une, la moins prioritaire d'abord (ordre prefOrder) ; r1 et r4 toujours actives.
-  const rr = input.restaurantRules || {};
-  const rOff = new Set(rr.off || []);
-  const active = (k) => !rOff.has(k);
-  const prefs = (rr.prefOrder || ['r5', 'r6', 'r7']).filter((k) => (k === 'r6' || k === 'r7') && active(k));
-  const prefOn = (k, level) => { const i = prefs.indexOf(k); return i >= 0 && i < prefs.length - level; };
+  // Logique interne fixe (28 oct. 2026 : les règles du restaurant ne sont plus qu'un texte pour l'IA) : toutes les règles s'appliquent ;
+  // les préférences (éviter les doubles, éviter fermeture puis ouverture) cèdent ensemble au niveau 1.
+  const active = () => true;
+  const prefOn = (k, level) => level < 1;
   // règles par employé (liste fermée) : appliquées comme celles de sa catégorie
   const empRules = new Map();
   for (const r of input.employeeRules || []) { if (!empRules.has(r.employeeId)) empRules.set(r.employeeId, new Set()); empRules.get(r.employeeId).add(r.rule); }
@@ -238,8 +234,8 @@ function generateSchedule(input) {
   }
 
   let holes = ordered;
-  const levels = Array.from({ length: Math.max(1, prefs.length) + 1 }, (_, i) => i); // 0 = tout ; puis une préférence assouplie de plus à chaque niveau
-  const PASSES = [['min', levels], ['target', levels]].concat(active('r8') ? [['max', levels]] : []);
+  const levels = [0, 1]; // 0 = tout respecté ; 1 = préférences assouplies
+  const PASSES = [['min', levels], ['target', levels], ['max', levels]];
   for (const [phase, levels] of PASSES) {
     for (const level of levels) { // chaque passe ne reprend que les créneaux restés vides
       if (!holes.length) break;

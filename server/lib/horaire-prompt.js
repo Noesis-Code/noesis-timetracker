@@ -248,7 +248,7 @@ function buildRegistrationPrompt(input) {
     'Une ligne par quart : Prénom Nom ; date AAAA-MM-JJ ; jour ; début ; fin ; poste. Heures sur 24 h ; une fin plus petite que le début finit le lendemain.',
     ...shifts,
     // Règles libres des employés placés (28 oct. 2026) : à vérifier par l'IA avant d'inscrire.
-    ...((input.restaurantRules || []).length ? ['', 'RÈGLES DU RESTAURANT À VÉRIFIER', ...input.restaurantRules.map((t) => '- ' + t)] : []),
+    ...((input.restaurantRules || []).length ? ['', 'RÈGLES DU RESTAURANT', ...input.restaurantRules.map((t, i) => (i + 1) + '. ' + t)] : []),
     ...((input.freeRules || []).length ? ['', 'RÈGLES PARTICULIÈRES À VÉRIFIER', ...input.freeRules.map((r) => '- ' + r.employeeName + ' : ' + r.text)] : []),
   ].join('\n') + '\n';
 }

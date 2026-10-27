@@ -95,14 +95,13 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
   assert(r.status === 200 && r.body.event.extra === 3 && r.body.event.service === 'soir', 'groupe modifié (+3)');
   assert((await call('POST', 'events', { day: '2026-11-07', service: 'nuit', extra: 1 }, 'uC')).status === 400, 'service inconnu refusé');
   assert((await call('POST', 'events', { day: '2026-11-07', service: 'matin', extra: 0 }, 'uC')).status === 400, 'groupe à 0 refusé (0 = on le retire)');
-  // ---- Règles du restaurant ----
+  // ---- Règles du restaurant : une liste de textes ----
   r = await call('GET', 'restaurant-rules', undefined, 'uC');
-  assert(r.status === 200 && r.body.rules.off.length === 0 && r.body.rules.prefOrder.join() === 'r5,r6,r7' && r.body.rules.free.length === 0, 'règles du restaurant : toutes actives par défaut');
-  r = await call('PUT', 'restaurant-rules', { off: ['r6'], prefOrder: ['r7', 'r5', 'r6'], free: [{ text: '  Un serveur au bar le vendredi  ' }] }, 'uC');
-  assert(r.status === 200 && r.body.rules.off.join() === 'r6' && r.body.rules.prefOrder.join() === 'r7,r5,r6' && r.body.rules.free[0].text === 'Un serveur au bar le vendredi', 'règles du restaurant enregistrées (désactivée, ordre, libre)');
-  assert((await call('PUT', 'restaurant-rules', { off: ['r1'], prefOrder: ['r5', 'r6', 'r7'], free: [] }, 'uC')).status === 400, 'règle 1 jamais désactivable');
-  assert((await call('PUT', 'restaurant-rules', { off: [], prefOrder: ['r5', 'r6'], free: [] }, 'uC')).status === 400, 'ordre incomplet refusé');
-  assert(h.getRestaurantRules('uB').free.length === 0, 'règles du restaurant : propres au compte');
+  assert(r.status === 200 && r.body.rules.list.length === 9 && r.body.rules.list[0] === h.DEFAULT_RESTAURANT_RULES[0], 'règles du restaurant : les 9 règles de départ');
+  r = await call('PUT', 'restaurant-rules', { list: ['  Un serveur au bar le vendredi  ', '', 'Deux le samedi'] }, 'uC');
+  assert(r.status === 200 && r.body.rules.list.join('|') === 'Un serveur au bar le vendredi|Deux le samedi', 'liste enregistrée, ligne vide retirée');
+  assert((await call('PUT', 'restaurant-rules', { list: 'x' }, 'uC')).status === 400, 'liste invalide refusée');
+  assert(h.getRestaurantRules('uB').list.length === 9, 'règles du restaurant : propres au compte');
   r = await call('PUT', 'category-rules', { rank: 2, rule: 'noDouble' });
   assert(r.status === 200 && r.body.rules.some((x) => x.rank === 2 && x.rule === 'noDouble'), 'PUT category-rules : règle ajoutée');
   assert((await call('PUT', 'category-rules', { rank: 2, rule: 'inventee' })).status === 400, 'règle hors liste refusée');

@@ -186,21 +186,13 @@ router.post('/horaire/employee-rules', (req, res) => {
   res.status(201).json({ rule: h.addEmployeeRule(req.userId, Number(b.employeeId), b.rule, text) });
 });
 router.delete('/horaire/employee-rules/:id', (req, res) => (h.removeEmployeeRule(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Règle')));
-// Règles du restaurant : { off: [clés], prefOrder: [r5, r6, r7 dans l'ordre], free: [{ id, text }] } (remplace l'ensemble).
+// Règles du restaurant : { list: [textes] } (remplace la liste ; une ligne vide est retirée).
 router.get('/horaire/restaurant-rules', (req, res) => res.json({ rules: h.getRestaurantRules(req.userId) }));
 router.put('/horaire/restaurant-rules', (req, res) => {
   const b = req.body || {};
-  if (!Array.isArray(b.off) || b.off.some((k) => !h.RESTAURANT_RULES.includes(k))) return bad(res, 'Règles désactivées invalides.');
-  if (b.off.includes('r1') || b.off.includes('r4')) return bad(res, 'Les règles 1 et 4 restent toujours actives.');
-  if (!Array.isArray(b.prefOrder) || b.prefOrder.length !== h.PREF_RULES.length || !h.PREF_RULES.every((k) => b.prefOrder.includes(k))) return bad(res, 'Ordre des préférences invalide.');
-  if (!Array.isArray(b.free) || b.free.length > 30) return bad(res, 'Règles libres invalides (30 au plus).');
-  const free = [];
-  for (const x of b.free) {
-    const text = h.cleanName(x && x.text, h.RULE_TEXT_MAX);
-    if (!text) return bad(res, 'Texte de la règle requis.');
-    free.push({ id: String((x && x.id) || Date.now().toString(36) + free.length), text });
-  }
-  res.json({ rules: h.setRestaurantRules(req.userId, { off: b.off, prefOrder: b.prefOrder, free }) });
+  if (!Array.isArray(b.list) || b.list.length > h.RESTAURANT_RULES_MAX) return bad(res, 'Liste de règles invalide (' + h.RESTAURANT_RULES_MAX + ' au plus).');
+  const list = b.list.map((t) => h.cleanName(t, h.RULE_TEXT_MAX)).filter(Boolean);
+  res.json({ rules: h.setRestaurantRules(req.userId, list) });
 });
 // Poste principal (créé « Serveur » s'il manque) : sert à l'ajout d'un employé et aux besoins.
 router.post('/horaire/main-position', (req, res) => res.json({ position: h.mainPosition(req.userId) }));

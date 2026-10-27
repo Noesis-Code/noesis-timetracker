@@ -190,7 +190,7 @@ function call(method, path, body, user) {
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uA');
   assert(r.text.startsWith(P.ENTRY_PROMPT.trimEnd() + '\n\nSEMAINE : du lundi ' + W) && r.text.includes('QUARTS À INSCRIRE ('), 'prompt d\'inscription : consignes de base puis quarts');
   assert(buildRegistrationPrompt({ weekStart: W, assignments: [], freeRules: [{ employeeName: 'Alice', text: 'Toujours en salle principale' }] }).includes('RÈGLES PARTICULIÈRES À VÉRIFIER\n- Alice : Toujours en salle principale'), 'prompt d’inscription : règles libres des employés placés');
-  assert(buildRegistrationPrompt({ weekStart: W, assignments: [], restaurantRules: ['Un serveur au bar le vendredi'] }).includes('RÈGLES DU RESTAURANT À VÉRIFIER\n- Un serveur au bar le vendredi'), 'prompt d’inscription : règles libres du restaurant');
+  assert(buildRegistrationPrompt({ weekStart: W, assignments: [], restaurantRules: ['Un serveur au bar le vendredi'] }).includes('RÈGLES DU RESTAURANT\n1. Un serveur au bar le vendredi'), 'prompt d’inscription : liste des règles du restaurant, numérotée');
   // Quart placé « à demander » : alerte « demander » enregistrée avec le nom
   {
     const sch = (await call('GET', 'weeks/' + W, undefined, 'uA')).body.schedule;

@@ -190,23 +190,30 @@ function addEmployeeRule(u, employeeId, rule, text) {
 function removeEmployeeRule(u, id) {
   return db.prepare('DELETE FROM horaire_employee_rules WHERE id = ? AND userId = ?').run(Number(id), u).changes > 0;
 }
-// ---------- règles du restaurant ----------
-// r1 (disponibilités) et r4 (nombre demandé) toujours actives ; r2 max d'heures ; r3 règles de catégorie et de fiche ; préférences r5 (soirs
-// à la meilleure catégorie), r6 (éviter les doubles), r7 (éviter fermeture puis ouverture), réordonnables (ordre = priorité) ; r8 au-delà de
-// la cible jusqu'au max ; r9 demander à un indisponible (pour l'IA). free : textes libres, lus par l'IA seulement.
-const RESTAURANT_RULES = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9'];
-const PREF_RULES = ['r5', 'r6', 'r7'];
-function getRestaurantRules(u) {
+// ---------- règles du restaurant : une liste de textes (28 oct. 2026, simplification d'Émilien) ----------
+// Affichée à la page 1 et reprise telle quelle dans le prompt pour l'IA ; le générateur ne la lit pas (logique interne fixe).
+// Liste de départ : les 9 règles d'origine, puis les anciennes règles libres. Les anciens réglages (off, prefOrder, free) restent en base, ignorés.
+const DEFAULT_RESTAURANT_RULES = [
+  'Jamais sur un service où l’employé est indisponible.', 'Jamais plus que son maximum d’heures.',
+  'Règles de catégorie et de fiche toujours respectées.', 'Exactement le nombre demandé à chaque heure d’arrivée.',
+  'Le plus de soirs à la catégorie 1, puis 2, 3 et 4.', 'Éviter les doubles (matin et soir le même jour).', 'Éviter fermeture puis ouverture le lendemain.',
+  'Au-delà de sa cible, jusqu’à son maximum, catégorie 1 d’abord.', 'Demander à un employé indisponible (« à demander »).',
+];
+const RESTAURANT_RULES_MAX = 50;
+function readRestaurantRules(u) {
   const row = db.prepare('SELECT restaurantRules FROM horaire_settings WHERE userId = ?').get(u);
   let v = {};
   try { v = JSON.parse((row && row.restaurantRules) || '{}') || {}; } catch (e) { v = {}; }
-  const off = (Array.isArray(v.off) ? v.off : []).filter((k) => RESTAURANT_RULES.includes(k) && k !== 'r1' && k !== 'r4');
-  const order = (Array.isArray(v.prefOrder) ? v.prefOrder : []).filter((k) => PREF_RULES.includes(k));
-  PREF_RULES.forEach((k) => { if (!order.includes(k)) order.push(k); });
-  const free = (Array.isArray(v.free) ? v.free : []).filter((x) => x && typeof x.text === 'string' && x.text.trim()).map((x) => ({ id: String(x.id), text: x.text }));
-  return { off: [...new Set(off)], prefOrder: [...new Set(order)], free };
+  return v;
 }
-function setRestaurantRules(u, v) {
+function getRestaurantRules(u) {
+  const v = readRestaurantRules(u);
+  if (Array.isArray(v.list)) return { list: v.list.filter((t) => typeof t === 'string' && t.trim()) };
+  const free = (Array.isArray(v.free) ? v.free : []).map((x) => x && x.text).filter((t) => typeof t === 'string' && t.trim());
+  return { list: DEFAULT_RESTAURANT_RULES.concat(free) };
+}
+function setRestaurantRules(u, list) {
+  const v = Object.assign(readRestaurantRules(u), { list });
   db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
   db.prepare('UPDATE horaire_settings SET restaurantRules = ?, updatedAt = ? WHERE userId = ?').run(JSON.stringify(v), nowIso(), u);
   return getRestaurantRules(u);
@@ -315,7 +322,6 @@ function generate(u, weekStart) {
     rotation: rot,
     categoryRules: listCategoryRules(u),
     employeeRules: listEmployeeRules(u).filter((r) => r.rule !== 'free'),
-    restaurantRules: getRestaurantRules(u),
   });
   db.exec('BEGIN');
   try {
@@ -424,7 +430,7 @@ function weekPrompt(u, weekStart) {
   const placed = new Set(s.assignments.map((a) => a.employeeId));
   const names = new Map(listEmployees(u).map((e) => [e.id, e.name]));
   const freeRules = listEmployeeRules(u).filter((r) => r.rule === 'free' && placed.has(r.employeeId)).map((r) => ({ employeeName: names.get(r.employeeId), text: r.text }));
-  return require('./horaire-prompt').buildRegistrationPrompt({ weekStart, assignments: s.assignments, freeRules, restaurantRules: getRestaurantRules(u).free.map((x) => x.text) });
+  return require('./horaire-prompt').buildRegistrationPrompt({ weekStart, assignments: s.assignments, freeRules, restaurantRules: getRestaurantRules(u).list });
 }
 
 // ---------- prompts modifiables par le gérant (NULL = version de base) ----------
@@ -762,7 +768,7 @@ module.exports = {
   getAvailabilities, setAvailabilities, getTimeoff, availSummary,
   CATEGORY_RULES, listCategoryRules, addCategoryRule, removeCategoryRule,
   listEmployeeRules, addEmployeeRule, removeEmployeeRule, RULE_TEXT_MAX, mainPosition,
-  RESTAURANT_RULES, PREF_RULES, getRestaurantRules, setRestaurantRules,
+  DEFAULT_RESTAURANT_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
   generate, getSchedule, getSettings, setSettings, exportDayforce,
