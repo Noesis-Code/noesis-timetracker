@@ -5,4 +5,10 @@
   #content:has(#tab-horaire:not(.hidden)) { max-width: 1440px; }
   .topbar { padding-left: 32px; padding-right: 32px; }
 
+
+  /* Barre des volets : sur toute la largeur, pilule plus large centrée, « + » tout à droite de la page. */
+  .tabbar { left: 0; right: 0; margin-left: 0; max-width: none; padding-left: 32px; padding-right: 32px; }
+  .tabbarPill { flex: 0 1 720px; margin-left: auto; margin-right: auto; }
+  .tabbar .tabBtnAdd { margin-left: 0; }
+  .tabbar.barSolo .tabBtnAdd { margin-left: auto; }
 }
