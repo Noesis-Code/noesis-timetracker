@@ -56,7 +56,7 @@
     if (!hasCommunity) { var pp = document.getElementById('profilePage'), pc = document.getElementById('profilePageClose'); if (pp && pc && !pp.classList.contains('hidden')) pc.click(); }
     var solo = visibleOrder().length <= 1 && avail.length > 0; // un seul volet : la barre ne montre que le « + » perceptible
     nav.classList.toggle('barSolo', solo);
-    if (solo && editMode) { editMode = false; nav.classList.remove('barEdit'); hint.classList.add('hidden'); }
+    if (solo && editMode && !adding) { editMode = false; nav.classList.remove('barEdit'); hint.classList.add('hidden'); }
     Array.prototype.forEach.call(pill.querySelectorAll('.tabBtn'), function (b) {
       var on = list.indexOf(b.dataset.tab) !== -1 && tabAllowed(b.dataset.tab);
       var ghost = adding && !on && avail.indexOf(b.dataset.tab) !== -1; // volet pas encore installé, proposé dans la barre
