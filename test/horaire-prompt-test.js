@@ -225,6 +225,9 @@ function call(method, path, body, user) {
   assert(r.status === 400, 'PUT : cible sous le min refusée');
   r = await call('PUT', 'employees/' + alice.id, { wantShiftsTarget: 5 }, 'uA');
   assert(r.status === 200 && r.body.employee.wantShiftsTarget === 5, 'PUT : cible entre le min et le max enregistrée');
+  r = await call('PUT', 'employees/' + alice.id, { sortOrder: 3 }, 'uA');
+  assert(r.status === 200 && r.body.employee.sortOrder === 3, 'PUT : ordre dans la catégorie enregistré');
+  assert((await call('PUT', 'employees/' + alice.id, { sortOrder: -1 }, 'uA')).status === 400, 'PUT : ordre négatif refusé');
   r = await call('POST', 'employees', { name: 'Chloé', wantShiftsMin: 2, wantShiftsMax: 3, constraintNote: 'Pas le dimanche' }, 'uA');
   assert(r.status === 201 && r.body.employee.wantShiftsMax === 3 && r.body.employee.constraintNote === 'Pas le dimanche', 'POST : nouveaux champs à la création');
   r = await call('PUT', 'employees/' + alice.id, { wantShiftsMin: 1 }, 'uB');

@@ -44,7 +44,7 @@ const ownEvent = (u, id) => db.prepare('SELECT * FROM horaire_events WHERE id = 
 // noDouble (jamais matin et soir le même jour) et restAfterShift (un jour de repos après chaque quart) : contraintes strictes
 // de la génération. constraintNote : note libre permanente, jamais lue par la génération ni touchée par un import de disponibilités.
 function listEmployees(u) {
-  return db.prepare('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, constraintNote, noDouble, restAfterShift, createdAt FROM horaire_employees WHERE userId = ? ORDER BY name COLLATE NOCASE, id').all(u)
+  return db.prepare('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, constraintNote, noDouble, restAfterShift, sortOrder, createdAt FROM horaire_employees WHERE userId = ? ORDER BY name COLLATE NOCASE, id').all(u)
     .map((e) => ({ ...e, active: !!e.active, noDouble: !!e.noDouble, restAfterShift: !!e.restAfterShift }));
 }
 function countEmployees(u) { return db.prepare('SELECT COUNT(*) AS n FROM horaire_employees WHERE userId = ?').get(u).n; }
@@ -59,13 +59,13 @@ function updateEmployee(u, id, f) {
   if (!e) return null;
   const pick = (k) => (f[k] !== undefined ? f[k] : e[k]);
   const flag = (k) => (f[k] !== undefined ? (f[k] ? 1 : 0) : (e[k] ? 1 : 0));
-  db.prepare('UPDATE horaire_employees SET name = ?, maxWeekMinutes = ?, active = ?, dayforceId = ?, wantShiftsMin = ?, wantShiftsMax = ?, wantShiftsTarget = ?, constraintNote = ?, noDouble = ?, restAfterShift = ? WHERE id = ? AND userId = ?').run(
+  db.prepare('UPDATE horaire_employees SET name = ?, maxWeekMinutes = ?, active = ?, dayforceId = ?, wantShiftsMin = ?, wantShiftsMax = ?, wantShiftsTarget = ?, constraintNote = ?, noDouble = ?, restAfterShift = ?, sortOrder = ? WHERE id = ? AND userId = ?').run(
     pick('name'), pick('maxWeekMinutes'),
     f.active !== undefined ? (f.active ? 1 : 0) : e.active,
     f.dayforceId !== undefined ? (f.dayforceId || null) : e.dayforceId,
     pick('wantShiftsMin'), pick('wantShiftsMax'), pick('wantShiftsTarget'),
     f.constraintNote !== undefined ? (f.constraintNote || null) : e.constraintNote,
-    flag('noDouble'), flag('restAfterShift'), e.id, u);
+    flag('noDouble'), flag('restAfterShift'), pick('sortOrder'), e.id, u);
   return listEmployees(u).find((x) => x.id === e.id);
 }
 // Suppression en cascade, toujours bornée au compte (pas de clé étrangère entre tables du module : chaque DELETE filtre userId).

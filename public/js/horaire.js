@@ -551,8 +551,8 @@
         gh.appendChild(rulesArea);
       }
       group.appendChild(gh);
-      emps.filter(function (e) { return bestRank(e.id) === rank; }).forEach(function (e) {
-        var row = sheetRow();
+      catEmployees(emps, rank).forEach(function (e) {
+        var row = sheetRow('horaireSheetEmp'); row.dataset.employeeId = String(e.id);
         var hc = el('span', 'horaireSheetCell horaireSheetHandle');
         var handle = el('span', 'activityDragHandle horaireHandle', '≡'); handle.setAttribute('aria-hidden', 'true');
         hc.appendChild(handle); row.appendChild(hc);
@@ -575,7 +575,7 @@
         });
         if (!shiftsValid(e.wantShiftsMin, e.wantShiftsMax, e.wantShiftsTarget)) { mm.classList.add('invalid'); tg.classList.add('invalid'); }
         row.appendChild(name); row.appendChild(mm); row.appendChild(tg);
-        bindCatDrag(handle, row, e);
+        bindCatDrag(handle, row, group);
         group.appendChild(row);
       });
       if (rank != null) group.appendChild(addEmployeeRow(rank));
@@ -636,30 +636,37 @@
     if (!menu.firstChild) { closeMenu(); return; }
     placeMenu(anchor);
   }
-  // Glisser-déposer d'un nom vers une autre catégorie (poignée ≡, même mécanique que les activités et les postes, R27) : la ligne suit
-  // le doigt pendant le geste ; au relâchement, la catégorie sous le doigt donne le nouveau rang (qualifications de meilleur rang).
-  function bindCatDrag(handle, item, e) {
-    handle.addEventListener('pointerdown', function (ev) {
-      ev.preventDefault(); ev.stopPropagation();
-      var x0 = ev.clientX, y0 = ev.clientY;
-      handle.setPointerCapture(ev.pointerId);
-      item.classList.add('dragging');
-      function move(m) { item.style.transform = 'translate(' + (m.clientX - x0) + 'px,' + (m.clientY - y0) + 'px)'; }
-      function up(u) {
-        handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); handle.removeEventListener('pointercancel', up);
-        item.style.visibility = 'hidden';
-        var under = document.elementFromPoint(u.clientX, u.clientY);
-        item.style.visibility = ''; item.style.transform = ''; item.classList.remove('dragging');
-        var target = under && under.closest && under.closest('.horaireSheetGroup');
-        var to = target && target.dataset.rank ? Number(target.dataset.rank) : null;
-        var from = bestRank(e.id);
-        if (u.type === 'pointercancel' || !to || to === from) return;
-        var mine = S.quals.filter(function (q) { return q.employeeId === e.id && q.rank === from; });
-        var calls = mine.length ? mine.map(function (q) { return { employeeId: e.id, positionId: q.positionId, rank: to }; })
-          : (S.positions[0] ? [{ employeeId: e.id, positionId: S.positions[0].id, rank: to }] : []);
-        Promise.all(calls.map(function (b) { return req('PUT', 'qualifications', b); })).then(refresh, fail);
-      }
-      handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', up); handle.addEventListener('pointercancel', up);
+  // Employés d'une catégorie, dans l'ordre enregistré (sortOrder), puis par nom.
+  function catEmployees(emps, rank) {
+    return emps.filter(function (e) { return bestRank(e.id) === rank; }).sort(function (a, b) {
+      var x = a.sortOrder == null ? Infinity : a.sortOrder, y = b.sortOrder == null ? Infinity : b.sortOrder;
+      return x - y || String(a.name).localeCompare(String(b.name), 'fr');
+    });
+  }
+  // Glisser-déposer à la poignée ≡, active en tout temps : mécanique commune TMT.ui.groupDrag (celle des secteurs, R27/R29), trait
+  // d'insertion compris. Même catégorie = nouvel ordre ; autre catégorie = nouveau rang (qualifications de meilleur rang) + place.
+  function saveCatOrder(ids) {
+    return Promise.all(ids.map(function (id, i) {
+      var e = S.employees.find(function (x) { return x.id === id; });
+      return e && e.sortOrder === i ? null : req('PUT', 'employees/' + id, { sortOrder: i });
+    }));
+  }
+  function bindCatDrag(handle, row, group) {
+    var id = Number(row.dataset.employeeId);
+    TMT.ui.groupDrag(handle, row, {
+      list: function () { return catsBox.querySelector('.horaireSheet'); }, groupSel: '.horaireSheetGroup[data-rank]:not([data-rank=""])',
+      rowsWrap: function (g) { return g; }, rowSel: '.horaireSheetEmp', wrap: group,
+      lineClass: 'catDropLine', targetClass: 'catDropTarget',
+      onReorder: function (rows) { saveCatOrder(rows.map(function (r) { return Number(r.dataset.employeeId); })).then(refresh, fail); },
+      onMoveTo: function (wrap, index) {
+        var to = Number(wrap.dataset.rank), from = bestRank(id);
+        var ids = Array.prototype.map.call(wrap.querySelectorAll('.horaireSheetEmp'), function (r) { return Number(r.dataset.employeeId); });
+        ids.splice(index, 0, id);
+        var mine = S.quals.filter(function (q) { return q.employeeId === id && q.rank === from; });
+        var calls = mine.length ? mine.map(function (q) { return { employeeId: id, positionId: q.positionId, rank: to }; })
+          : (S.positions[0] ? [{ employeeId: id, positionId: S.positions[0].id, rank: to }] : []);
+        Promise.all(calls.map(function (b) { return req('PUT', 'qualifications', b); })).then(function () { return saveCatOrder(ids); }).then(refresh, fail);
+      },
     });
   }
 

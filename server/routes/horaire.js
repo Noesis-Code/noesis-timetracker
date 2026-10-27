@@ -80,6 +80,11 @@ function employeeInput(res, body, partial) {
     out.constraintNote = h.constraintText(body.constraintNote);
     if (out.constraintNote === undefined) { bad(res, 'Contrainte trop longue (' + h.LIMITS.constraint + ' caractères au plus).'); return null; }
   }
+  // Ordre dans la catégorie (grille Horaire) : entier de 0 à 100 000.
+  if (body.sortOrder !== undefined) {
+    if (!(Number.isInteger(body.sortOrder) && body.sortOrder >= 0 && body.sortOrder <= 100000)) { bad(res, 'Ordre invalide.'); return null; }
+    out.sortOrder = body.sortOrder;
+  }
   // Contraintes strictes de la génération : jamais de double, repos après un quart.
   for (const k of ['noDouble', 'restAfterShift']) {
     if (body[k] === undefined) continue;

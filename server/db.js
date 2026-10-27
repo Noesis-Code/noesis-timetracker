@@ -2692,7 +2692,8 @@ if (!db.prepare('PRAGMA table_info(horaire_positions)').all().some((c) => c.name
 // Prompt pour l'IA (27 oct. 2026) : quarts souhaités par semaine (min, max) et contrainte particulière de chaque employé
 // (server/lib/horaire-prompt.js). Migration douce : NULL = non renseigné. Sans effet sur la génération.
 // Cible (28 oct. 2026) : quarts visés par semaine, entre le min et le max (remplissage en 3 passes, server/lib/horaire-generation.js).
-for (const [col, type] of [['wantShiftsMin', 'INTEGER'], ['wantShiftsMax', 'INTEGER'], ['wantShiftsTarget', 'INTEGER'], ['constraintNote', 'TEXT']]) {
+// Ordre d'un employé dans sa catégorie (28 oct. 2026, glisser-déposer de la grille Horaire) : NULL = après les autres, par nom.
+for (const [col, type] of [['wantShiftsMin', 'INTEGER'], ['wantShiftsMax', 'INTEGER'], ['wantShiftsTarget', 'INTEGER'], ['constraintNote', 'TEXT'], ['sortOrder', 'INTEGER']]) {
   if (!db.prepare('PRAGMA table_info(horaire_employees)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_employees ADD COLUMN ' + col + ' ' + type);
 }
 if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'horaire_settings'").get()) {
