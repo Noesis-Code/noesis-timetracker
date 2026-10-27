@@ -2712,5 +2712,21 @@ CREATE TABLE horaire_settings (
 INSERT OR IGNORE INTO horaire_settings (userId, configured) SELECT DISTINCT userId, 1 FROM horaire_positions;
 `);
 }
+// Génération sans IA (27 oct. 2026) : contraintes strictes par employé (noDouble = jamais matin et soir le même jour ;
+// restAfterShift = un jour de repos après chaque quart), 0/NULL = non. Congés de la semaine (vacances, maladie, absence :
+// jour entier, l'employé est indisponible ce jour-là), importés avec les disponibilités. Migration douce, idempotente.
+for (const col of ['noDouble', 'restAfterShift']) {
+  if (!db.prepare('PRAGMA table_info(horaire_employees)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_employees ADD COLUMN ' + col + ' INTEGER');
+}
+db.exec(`
+CREATE TABLE IF NOT EXISTS horaire_timeoff (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  employeeId INTEGER NOT NULL,
+  weekStart TEXT NOT NULL,
+  day TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_horaire_timeoff_week ON horaire_timeoff(userId, weekStart);
+`);
 
 module.exports = db;

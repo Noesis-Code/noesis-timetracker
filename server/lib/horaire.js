@@ -40,28 +40,32 @@ const ownPosition = (u, id) => db.prepare('SELECT * FROM horaire_positions WHERE
 const ownEvent = (u, id) => db.prepare('SELECT * FROM horaire_events WHERE id = ? AND userId = ?').get(Number(id), u) || null;
 
 // ---------- employés (le max hebdo, en minutes, est un champ de l'employé) ----------
-// Quarts souhaités (wantShiftsMin, wantShiftsMax, par semaine) et contrainte particulière (constraintNote) : lus par le prompt pour l'IA seulement.
+// Quarts souhaités (wantShiftsMin, wantShiftsMax, par semaine) : wantShiftsMax est une limite stricte de la génération.
+// noDouble (jamais matin et soir le même jour) et restAfterShift (un jour de repos après chaque quart) : contraintes strictes
+// de la génération. constraintNote : note libre permanente, jamais lue par la génération ni touchée par un import de disponibilités.
 function listEmployees(u) {
-  return db.prepare('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, createdAt FROM horaire_employees WHERE userId = ? ORDER BY name COLLATE NOCASE, id').all(u)
-    .map((e) => ({ ...e, active: !!e.active }));
+  return db.prepare('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, noDouble, restAfterShift, createdAt FROM horaire_employees WHERE userId = ? ORDER BY name COLLATE NOCASE, id').all(u)
+    .map((e) => ({ ...e, active: !!e.active, noDouble: !!e.noDouble, restAfterShift: !!e.restAfterShift }));
 }
 function countEmployees(u) { return db.prepare('SELECT COUNT(*) AS n FROM horaire_employees WHERE userId = ?').get(u).n; }
 const orNull = (v) => (v === undefined ? null : v);
-function createEmployee(u, { name, maxWeekMinutes, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote }) {
-  const r = db.prepare('INSERT INTO horaire_employees (userId, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, createdAt) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)')
-    .run(u, name, orNull(maxWeekMinutes), dayforceId || null, orNull(wantShiftsMin), orNull(wantShiftsMax), constraintNote || null, nowIso());
+function createEmployee(u, { name, maxWeekMinutes, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, noDouble, restAfterShift }) {
+  const r = db.prepare('INSERT INTO horaire_employees (userId, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, noDouble, restAfterShift, createdAt) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)')
+    .run(u, name, orNull(maxWeekMinutes), dayforceId || null, orNull(wantShiftsMin), orNull(wantShiftsMax), constraintNote || null, noDouble ? 1 : 0, restAfterShift ? 1 : 0, nowIso());
   return listEmployees(u).find((e) => e.id === Number(r.lastInsertRowid));
 }
 function updateEmployee(u, id, f) {
   const e = ownEmployee(u, id);
   if (!e) return null;
   const pick = (k) => (f[k] !== undefined ? f[k] : e[k]);
-  db.prepare('UPDATE horaire_employees SET name = ?, maxWeekMinutes = ?, active = ?, dayforceId = ?, wantShiftsMin = ?, wantShiftsMax = ?, constraintNote = ? WHERE id = ? AND userId = ?').run(
+  const flag = (k) => (f[k] !== undefined ? (f[k] ? 1 : 0) : (e[k] ? 1 : 0));
+  db.prepare('UPDATE horaire_employees SET name = ?, maxWeekMinutes = ?, active = ?, dayforceId = ?, wantShiftsMin = ?, wantShiftsMax = ?, constraintNote = ?, noDouble = ?, restAfterShift = ? WHERE id = ? AND userId = ?').run(
     pick('name'), pick('maxWeekMinutes'),
     f.active !== undefined ? (f.active ? 1 : 0) : e.active,
     f.dayforceId !== undefined ? (f.dayforceId || null) : e.dayforceId,
     pick('wantShiftsMin'), pick('wantShiftsMax'),
-    f.constraintNote !== undefined ? (f.constraintNote || null) : e.constraintNote, e.id, u);
+    f.constraintNote !== undefined ? (f.constraintNote || null) : e.constraintNote,
+    flag('noDouble'), flag('restAfterShift'), e.id, u);
   return listEmployees(u).find((x) => x.id === e.id);
 }
 // Suppression en cascade, toujours bornée au compte (pas de clé étrangère entre tables du module : chaque DELETE filtre userId).
@@ -74,12 +78,13 @@ function cascade(u, steps) {
     return n > 0;
   } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
-// Effacement réel (droit à l'effacement de l'employé) : ses qualifications, disponibilités et quarts partent avec lui.
+// Effacement réel (droit à l'effacement de l'employé) : ses qualifications, disponibilités, congés et quarts partent avec lui.
 function deleteEmployee(u, id) {
   const i = Number(id);
   return cascade(u, [
     ['DELETE FROM horaire_qualifications WHERE employeeId = ? AND userId = ?', i],
     ['DELETE FROM horaire_availabilities WHERE employeeId = ? AND userId = ?', i],
+    ['DELETE FROM horaire_timeoff WHERE employeeId = ? AND userId = ?', i],
     ['DELETE FROM horaire_assignments WHERE employeeId = ? AND userId = ?', i],
     ['UPDATE horaire_rotation SET lastEmployeeId = NULL WHERE lastEmployeeId = ? AND userId = ?', i],
     ['DELETE FROM horaire_employees WHERE id = ? AND userId = ?', i],
@@ -131,16 +136,30 @@ function removeQualification(u, employeeId, positionId) {
 function getAvailabilities(u, weekStart) {
   return db.prepare('SELECT employeeId, day, start, end FROM horaire_availabilities WHERE userId = ? AND weekStart = ? ORDER BY employeeId, day, start').all(u, weekStart);
 }
-// Remplace les disponibilités d'UN employé pour la semaine. intervals déjà validés : [{day, start, end}].
-function setAvailabilities(u, weekStart, employeeId, intervals) {
+// Congés de la semaine (jour entier : vacances, maladie, absence) : [{employeeId, day}].
+function getTimeoff(u, weekStart) {
+  return db.prepare('SELECT employeeId, day FROM horaire_timeoff WHERE userId = ? AND weekStart = ? ORDER BY employeeId, day').all(u, weekStart);
+}
+// Remplace les disponibilités et/ou les congés d'UN employé pour la semaine (undefined = inchangé). Valeurs déjà validées :
+// intervals [{day, start, end}], timeoff ['AAAA-MM-JJ']. Un jour de congé n'a aucune plage (une case = un seul état).
+function setAvailabilities(u, weekStart, employeeId, intervals, timeoff) {
+  const emp = Number(employeeId);
   db.exec('BEGIN');
   try {
-    db.prepare('DELETE FROM horaire_availabilities WHERE userId = ? AND weekStart = ? AND employeeId = ?').run(u, weekStart, Number(employeeId));
-    const ins = db.prepare('INSERT INTO horaire_availabilities (userId, employeeId, weekStart, day, start, end) VALUES (?, ?, ?, ?, ?, ?)');
-    intervals.forEach((i) => ins.run(u, Number(employeeId), weekStart, i.day, i.start, i.end));
+    if (intervals !== undefined) {
+      db.prepare('DELETE FROM horaire_availabilities WHERE userId = ? AND weekStart = ? AND employeeId = ?').run(u, weekStart, emp);
+      const ins = db.prepare('INSERT INTO horaire_availabilities (userId, employeeId, weekStart, day, start, end) VALUES (?, ?, ?, ?, ?, ?)');
+      intervals.filter((i) => !(timeoff || []).includes(i.day)).forEach((i) => ins.run(u, emp, weekStart, i.day, i.start, i.end));
+    }
+    if (timeoff !== undefined) {
+      db.prepare('DELETE FROM horaire_timeoff WHERE userId = ? AND weekStart = ? AND employeeId = ?').run(u, weekStart, emp);
+      const ins = db.prepare('INSERT INTO horaire_timeoff (userId, employeeId, weekStart, day) VALUES (?, ?, ?, ?)');
+      const delDay = db.prepare('DELETE FROM horaire_availabilities WHERE userId = ? AND weekStart = ? AND employeeId = ? AND day = ?');
+      [...new Set(timeoff)].forEach((d) => { ins.run(u, emp, weekStart, d); delDay.run(u, weekStart, emp, d); });
+    }
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
-  return getAvailabilities(u, weekStart).filter((a) => a.employeeId === Number(employeeId));
+  return getAvailabilities(u, weekStart).filter((a) => a.employeeId === emp);
 }
 
 // ---------- besoins (modèle normal : weekday 0 = lundi ... 6 = dimanche) ----------
@@ -208,10 +227,12 @@ function getSchedule(u, weekStart) {
   return { weekStart: s.weekStart, status: s.status, generatedAt: s.generatedAt, assignments, alerts };
 }
 
-// Génère et ENREGISTRE le brouillon de la semaine (remplace le brouillon précédent). Chaque génération fait avancer la rotation.
+// Génère et ENREGISTRE le brouillon de la semaine (remplace le brouillon précédent, modifications manuelles comprises :
+// seulement quand le gestionnaire relance « Générer »). Chaque génération fait avancer la rotation.
 function generate(u, weekStart) {
   const days = gen.weekDays(weekStart);
-  const employees = db.prepare('SELECT id, maxWeekMinutes FROM horaire_employees WHERE userId = ? AND active = 1').all(u);
+  const employees = db.prepare('SELECT id, maxWeekMinutes, wantShiftsMax, noDouble, restAfterShift FROM horaire_employees WHERE userId = ? AND active = 1').all(u)
+    .map((e) => ({ ...e, noDouble: !!e.noDouble, restAfterShift: !!e.restAfterShift }));
   const rot = {};
   db.prepare('SELECT positionId, rank, lastEmployeeId FROM horaire_rotation WHERE userId = ?').all(u)
     .forEach((r) => { rot[r.positionId + ':' + r.rank] = r.lastEmployeeId; });
@@ -221,6 +242,7 @@ function generate(u, weekStart) {
     employees,
     qualifications: listQualifications(u),
     availabilities: getAvailabilities(u, weekStart),
+    timeoff: getTimeoff(u, weekStart),
     needs: listNeeds(u),
     events: listEvents(u, days[0], days[6]),
     rotation: rot,
@@ -241,6 +263,35 @@ function generate(u, weekStart) {
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   return getSchedule(u, weekStart);
+}
+
+// ---------- modification manuelle de l'horaire généré (jamais écrasée sauf par une nouvelle génération demandée) ----------
+const scheduleId = (u, weekStart) => (db.prepare('SELECT id FROM horaire_schedules WHERE userId = ? AND weekStart = ?').get(u, weekStart) || {}).id || null;
+// Quart du compte ET de la semaine ; null sinon.
+function ownAssignment(u, weekStart, id) {
+  const sid = scheduleId(u, weekStart);
+  return sid ? (db.prepare('SELECT * FROM horaire_assignments WHERE id = ? AND userId = ? AND scheduleId = ?').get(Number(id), u, sid) || null) : null;
+}
+const oneAssignment = (u, weekStart, id) => (getSchedule(u, weekStart) || { assignments: [] }).assignments.find((a) => a.id === Number(id)) || null;
+// a : { employeeId, positionId, day, start, end } déjà validés (appartenance comprise). null si la semaine n'a pas d'horaire.
+function addAssignment(u, weekStart, a) {
+  const sid = scheduleId(u, weekStart);
+  if (!sid) return null;
+  const r = db.prepare('INSERT INTO horaire_assignments (userId, scheduleId, employeeId, positionId, day, start, end) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(u, sid, Number(a.employeeId), Number(a.positionId), a.day, a.start, a.end);
+  return oneAssignment(u, weekStart, r.lastInsertRowid);
+}
+// f : { employeeId?, start?, end? } déjà validés ; undefined = inchangé.
+function updateAssignment(u, weekStart, id, f) {
+  const cur = ownAssignment(u, weekStart, id);
+  if (!cur) return null;
+  db.prepare('UPDATE horaire_assignments SET employeeId = ?, start = ?, end = ? WHERE id = ? AND userId = ?')
+    .run(f.employeeId !== undefined ? Number(f.employeeId) : cur.employeeId, f.start !== undefined ? f.start : cur.start, f.end !== undefined ? f.end : cur.end, cur.id, u);
+  return oneAssignment(u, weekStart, cur.id);
+}
+function deleteAssignment(u, weekStart, id) {
+  const cur = ownAssignment(u, weekStart, id);
+  return cur ? db.prepare('DELETE FROM horaire_assignments WHERE id = ? AND userId = ?').run(cur.id, u).changes > 0 : false;
 }
 
 // ---------- export Dayforce (format centralisé dans ./horaire-dayforce.js) ----------
@@ -285,18 +336,12 @@ function exportDayforce(u, weekStart) {
   return require('./horaire-dayforce').buildDayforceCsv(assignments, getSettings(u).dayforceLocation);
 }
 
-// ---------- prompt pour l'IA du gestionnaire (texte assemblé par ./horaire-prompt.js ; le serveur ne l'envoie à aucune IA) ----------
+// ---------- prompt d'inscription pour l'IA du gestionnaire (texte assemblé par ./horaire-prompt.js ; le serveur ne l'envoie à aucune IA) ----------
+// Inscrit l'horaire ENREGISTRÉ de la semaine tel quel ; null si la semaine n'a pas encore d'horaire.
 function weekPrompt(u, weekStart) {
-  const days = gen.weekDays(weekStart);
-  return require('./horaire-prompt').buildPrompt({
-    weekStart,
-    positions: listPositions(u),
-    employees: listEmployees(u).filter((e) => e.active),
-    qualifications: listQualifications(u),
-    availabilities: getAvailabilities(u, weekStart),
-    needs: listNeeds(u),
-    events: listEvents(u, days[0], days[6]),
-  });
+  const s = getSchedule(u, weekStart);
+  if (!s) return null;
+  return require('./horaire-prompt').buildRegistrationPrompt({ weekStart, assignments: s.assignments });
 }
 
 // ---------- import CSV (format souple, documenté dans docs/basic/module-horaire.md) ----------
@@ -362,13 +407,24 @@ function normDay(s, weekStart) {
 const findEmployeeByName = (u, name) => db.prepare('SELECT * FROM horaire_employees WHERE userId = ? AND name = ? COLLATE NOCASE').get(u, name) || null;
 
 // Employés : nom ; max d'heures hebdo (facultatif) ; postes (facultatif, « Serveur:1 | Hôte:2 » ou une colonne par poste).
-// Avec en-tête seulement (27 oct. 2026) : quarts min, quarts max (souhaités par semaine) et contrainte, à n'importe quelle place.
+// Avec en-tête seulement (27 oct. 2026) : quarts min, quarts max (souhaités par semaine), contrainte, « jamais de double » et
+// « repos après un quart » (oui/non), à n'importe quelle place.
 // Un nom déjà connu met l'employé à jour (pas de doublon ; cellule vide = inchangé) ; un poste inconnu est créé à la fin de l'ordre de comblement.
 const EXTRA_EMPLOYEE_COLS = {
   wantShiftsMin: ['quarts min', 'quarts souhaites min', 'min quarts', 'shifts min', 'min shifts'],
   wantShiftsMax: ['quarts max', 'quarts souhaites max', 'max quarts', 'shifts max', 'max shifts'],
   constraintNote: ['contrainte', 'contrainte particuliere', 'constraint'],
+  noDouble: ['jamais de double', 'pas de double', 'no double'],
+  restAfterShift: ['repos apres un quart', 'repos apres chaque quart', 'rest after shift'],
 };
+// oui/non (aussi yes/no, 1/0, vrai/faux) -> booléen ; undefined = illisible.
+function yesNo(v) {
+  const s = fold(v);
+  if (['oui', 'o', 'yes', 'y', '1', 'vrai', 'true', 'x'].includes(s)) return true;
+  if (['non', 'n', 'no', '0', 'faux', 'false'].includes(s)) return false;
+  return undefined;
+}
+const EXTRA_ERRORS = { constraintNote: 'contrainte trop longue', noDouble: 'jamais de double : oui ou non', restAfterShift: 'repos après un quart : oui ou non' };
 function importEmployeesCsv(u, text) {
   const rows = parseCsv(text);
   if (!rows.length) return { created: 0, updated: 0, skipped: [] };
@@ -399,8 +455,8 @@ function importEmployeesCsv(u, text) {
       for (const [k, i] of Object.entries(extra)) {
         const raw = String(cells[i] || '').trim();
         if (raw === '') continue;
-        more[k] = k === 'constraintNote' ? constraintText(raw) : shiftCount(raw);
-        if (more[k] === undefined) { res.skipped.push({ line: n + 1, reason: k === 'constraintNote' ? 'contrainte trop longue' : 'quarts souhaités illisibles (0 à ' + LIMITS.shifts + ')' }); return; }
+        more[k] = k === 'constraintNote' ? constraintText(raw) : (k === 'noDouble' || k === 'restAfterShift') ? yesNo(raw) : shiftCount(raw);
+        if (more[k] === undefined) { res.skipped.push({ line: n + 1, reason: EXTRA_ERRORS[k] || 'quarts souhaités illisibles (0 à ' + LIMITS.shifts + ')' }); return; }
       }
       let emp = findEmployeeByName(u, name);
       const lo = more.wantShiftsMin !== undefined ? more.wantShiftsMin : (emp ? emp.wantShiftsMin : null);
@@ -427,31 +483,61 @@ function importEmployeesCsv(u, text) {
   return res;
 }
 
-// Disponibilités d'une semaine : nom ; jour (date ou nom du jour) ; début ; fin. Une ligne par plage.
-// Remplace les disponibilités de la semaine des seuls employés présents dans le fichier.
+// Correspondance tolérante d'un nom (import des disponibilités) : casse, accents, espaces et ordre des mots ignorés,
+// « Nom, Prénom » = « Prénom Nom ». Deux employés de même clé : ambigu, aucun n'est choisi.
+const nameKey = (s) => fold(s).replace(/,/g, ' ').split(/\s+/).filter(Boolean).sort().join(' ');
+function employeeMatcher(u) {
+  const byKey = new Map();
+  db.prepare('SELECT id, name FROM horaire_employees WHERE userId = ?').all(u).forEach((e) => {
+    const k = nameKey(e.name);
+    byKey.set(k, byKey.has(k) ? null : e);
+  });
+  return (name) => byKey.get(nameKey(name)) || null;
+}
+
+// Disponibilités d'une semaine : nom ; jour (date ou nom du jour) ; début ; fin ; type (facultatif). Une ligne par plage.
+// type « vacances », « congé », « maladie » ou « absence » = jour de congé entier (début et fin ignorés). Format rendu par
+// le prompt fixe de lecture (./horaire-prompt.js IMPORT_PROMPT). Remplace les disponibilités ET les congés de la semaine des
+// seuls employés présents dans le fichier ; un employé avec seulement des congés est valide. La note libre de l'employé
+// (constraintNote) n'est jamais touchée.
+const TIMEOFF_TYPES = ['vacances', 'conge', 'conges', 'maladie', 'absence'];
 function importAvailabilitiesCsv(u, weekStart, text) {
   const rows = parseCsv(text);
-  const res = { employees: 0, intervals: 0, unknown: [], skipped: [] };
+  const res = { employees: 0, intervals: 0, timeoff: 0, unknown: [], skipped: [] };
   if (!rows.length) return res;
   const { idx, data } = columns(rows, {
     name: ['nom', 'name', 'employe', 'employee'],
     day: ['jour', 'date', 'day'],
     start: ['debut', 'de', 'start', 'from', 'heure debut'],
     end: ['fin', 'a', 'end', 'to', 'heure fin'],
+    type: ['type'],
   });
+  const match = employeeMatcher(u);
   const byEmp = new Map();
   data.forEach((cells, n) => {
     const name = cleanName(cells[idx.name]);
-    const emp = name && findEmployeeByName(u, name);
+    const emp = name && match(name);
     if (!emp) { if (name && !res.unknown.includes(name)) res.unknown.push(name); return; }
     const day = normDay(cells[idx.day], weekStart);
+    const type = idx.type !== undefined ? fold(cells[idx.type]) : '';
+    if (!byEmp.has(emp.id)) byEmp.set(emp.id, { intervals: [], timeoff: [] });
+    if (type && TIMEOFF_TYPES.includes(type)) {
+      if (!day) { res.skipped.push({ line: n + 1, reason: 'jour illisible' }); return; }
+      byEmp.get(emp.id).timeoff.push(day);
+      return;
+    }
     const start = normTime(cells[idx.start]);
     const end = normTime(cells[idx.end]);
-    if (!day || !start || !end || start === end) { res.skipped.push({ line: n + 1, reason: 'jour ou heures illisibles' }); return; }
-    if (!byEmp.has(emp.id)) byEmp.set(emp.id, []);
-    byEmp.get(emp.id).push({ day, start, end });
+    if (!day || !start || !end || start === end) { res.skipped.push({ line: n + 1, reason: type ? 'type inconnu' : 'jour ou heures illisibles' }); return; }
+    byEmp.get(emp.id).intervals.push({ day, start, end });
   });
-  for (const [empId, list] of byEmp) { setAvailabilities(u, weekStart, empId, list); res.employees += 1; res.intervals += list.length; }
+  for (const [empId, v] of byEmp) {
+    if (!v.intervals.length && !v.timeoff.length) continue; // aucune ligne lisible : on ne vide pas sa semaine
+    const timeoff = [...new Set(v.timeoff)];
+    const intervals = v.intervals.filter((i) => !timeoff.includes(i.day));
+    setAvailabilities(u, weekStart, empId, intervals, timeoff);
+    res.employees += 1; res.intervals += intervals.length; res.timeoff += timeoff.length;
+  }
   return res;
 }
 
@@ -526,9 +612,10 @@ module.exports = {
   listEmployees, countEmployees, createEmployee, updateEmployee, deleteEmployee,
   listPositions, countPositions, createPosition, updatePosition, deletePosition,
   listQualifications, setQualification, removeQualification,
-  getAvailabilities, setAvailabilities,
+  getAvailabilities, setAvailabilities, getTimeoff,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
   generate, getSchedule, getSettings, setSettings, exportDayforce,
+  ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv,
 };

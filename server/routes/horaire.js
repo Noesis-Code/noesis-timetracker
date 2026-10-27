@@ -80,6 +80,12 @@ function employeeInput(res, body, partial) {
     out.constraintNote = h.constraintText(body.constraintNote);
     if (out.constraintNote === undefined) { bad(res, 'Contrainte trop longue (' + h.LIMITS.constraint + ' caractères au plus).'); return null; }
   }
+  // Contraintes strictes de la génération : jamais de double, repos après un quart.
+  for (const k of ['noDouble', 'restAfterShift']) {
+    if (body[k] === undefined) continue;
+    if (typeof body[k] !== 'boolean') { bad(res, 'Valeur « ' + k + ' » invalide (oui ou non).'); return null; }
+    out[k] = body[k];
+  }
   return out;
 }
 // Min > max refusé (valeurs fusionnées avec l'employé existant pour une modification).
@@ -157,18 +163,25 @@ router.delete('/horaire/qualifications/:employeeId/:positionId', (req, res) =>
 // ---------- disponibilités (par semaine) ----------
 router.get('/horaire/weeks/:weekStart/availabilities', (req, res) => {
   const w = weekParam(req, res); if (!w) return;
-  res.json({ weekStart: w, availabilities: h.getAvailabilities(req.userId, w) });
+  res.json({ weekStart: w, availabilities: h.getAvailabilities(req.userId, w), timeoff: h.getTimeoff(req.userId, w) });
 });
+// Correction manuelle : { intervals?: [{day, start, end}], timeoff?: ['AAAA-MM-JJ'] } (au moins l'un des deux ; absent = inchangé).
+// Une case du tableau : disponible (plage), indisponible (rien) ou vacances (jour dans timeoff, ses plages sont retirées).
 router.put('/horaire/weeks/:weekStart/availabilities/:employeeId', (req, res) => {
   const w = weekParam(req, res); if (!w) return;
   if (!h.ownEmployee(req.userId, req.params.employeeId)) return notFound(res, 'Employé');
-  const list = (req.body || {}).intervals;
-  if (!Array.isArray(list) || list.length > 50) return bad(res, 'Liste de plages invalide (50 au plus).');
+  const { intervals: list, timeoff } = req.body || {};
+  if (list === undefined && timeoff === undefined) return bad(res, 'Plages ou congés attendus.');
+  if (list !== undefined && (!Array.isArray(list) || list.length > 50)) return bad(res, 'Liste de plages invalide (50 au plus).');
   const days = require('../lib/horaire-generation').weekDays(w);
-  for (const i of list) {
+  for (const i of list || []) {
     if (!i || !days.includes(i.day) || !h.isTime(i.start) || !h.isTime(i.end) || i.start === i.end) return bad(res, 'Plage invalide : jour de la semaine et heures HH:MM attendus.');
   }
-  res.json({ availabilities: h.setAvailabilities(req.userId, w, req.params.employeeId, list.map((i) => ({ day: i.day, start: i.start, end: i.end }))) });
+  if (timeoff !== undefined && (!Array.isArray(timeoff) || timeoff.length > 7 || !timeoff.every((d) => days.includes(d)))) return bad(res, 'Congés invalides : jours de la semaine attendus.');
+  const availabilities = h.setAvailabilities(req.userId, w, req.params.employeeId,
+    list === undefined ? undefined : list.map((i) => ({ day: i.day, start: i.start, end: i.end })), timeoff);
+  const emp = Number(req.params.employeeId);
+  res.json({ availabilities, timeoff: h.getTimeoff(req.userId, w).filter((t) => t.employeeId === emp) });
 });
 
 // ---------- besoins (modèle normal) ----------
@@ -224,11 +237,62 @@ router.post('/horaire/weeks/:weekStart/generate', (req, res) => {
   res.json({ schedule: h.generate(req.userId, w) });
 });
 
-// Prompt pour l'IA du gestionnaire (texte brut à coller dans sa propre IA ; assemblé par server/lib/horaire-prompt.js).
+// ---------- modification manuelle de l'horaire généré (jamais écrasée, sauf par « Générer » relancé par le gestionnaire) ----------
+// Quart : { employeeId, positionId, day, start, end } ; employé et poste du compte, jour de la semaine. Réponse : { assignment }.
+function assignmentInput(req, res, body, w, partial) {
+  const out = {};
+  if (body.employeeId !== undefined || !partial) {
+    if (!h.ownEmployee(req.userId, body.employeeId)) { notFound(res, 'Employé'); return null; }
+    out.employeeId = Number(body.employeeId);
+  }
+  if (!partial) {
+    if (!h.ownPosition(req.userId, body.positionId)) { notFound(res, 'Poste'); return null; }
+    out.positionId = Number(body.positionId);
+    if (!require('../lib/horaire-generation').weekDays(w).includes(body.day)) { bad(res, 'Jour invalide : date de la semaine attendue (AAAA-MM-JJ).'); return null; }
+    out.day = body.day;
+  }
+  for (const k of ['start', 'end']) {
+    if (body[k] === undefined && partial) continue;
+    if (!h.isTime(body[k])) { bad(res, 'Heure invalide (HH:MM).'); return null; }
+    out[k] = body[k];
+  }
+  if (partial && !Object.keys(out).length) { bad(res, 'Rien à modifier.'); return null; }
+  return out;
+}
+const noSchedule = (res) => res.status(409).json({ error: 'Génère d\'abord l\'horaire.' });
+router.post('/horaire/weeks/:weekStart/assignments', (req, res) => {
+  const w = weekParam(req, res); if (!w) return;
+  if (!h.getSchedule(req.userId, w)) return noSchedule(res);
+  const v = assignmentInput(req, res, req.body || {}, w, false); if (!v) return;
+  if (v.start === v.end) return bad(res, 'Début et fin identiques.');
+  res.status(201).json({ assignment: h.addAssignment(req.userId, w, v) });
+});
+router.put('/horaire/weeks/:weekStart/assignments/:id', (req, res) => {
+  const w = weekParam(req, res); if (!w) return;
+  const cur = h.ownAssignment(req.userId, w, req.params.id);
+  if (!cur) return notFound(res, 'Quart');
+  const v = assignmentInput(req, res, req.body || {}, w, true); if (!v) return;
+  if ((v.start || cur.start) === (v.end || cur.end)) return bad(res, 'Début et fin identiques.');
+  res.json({ assignment: h.updateAssignment(req.userId, w, cur.id, v) });
+});
+router.delete('/horaire/weeks/:weekStart/assignments/:id', (req, res) => {
+  const w = weekParam(req, res); if (!w) return;
+  return h.deleteAssignment(req.userId, w, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Quart');
+});
+
+// Prompt fixe de LECTURE (texte brut, sans aucune donnée) : le gestionnaire le colle dans son IA, qui rend le CSV des
+// disponibilités et congés de la semaine à importer (POST weeks/:lundi/import/availabilities).
+router.get('/horaire/import-prompt', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.type('text/plain; charset=utf-8').send(require('../lib/horaire-prompt').IMPORT_PROMPT);
+});
+// Prompt d'INSCRIPTION de l'horaire enregistré de la semaine (texte brut à coller dans sa propre IA ; server/lib/horaire-prompt.js).
 router.get('/horaire/weeks/:weekStart/prompt', (req, res) => {
   const w = weekParam(req, res); if (!w) return;
+  const text = h.weekPrompt(req.userId, w);
+  if (text === null) return noSchedule(res);
   res.set('Cache-Control', 'no-store');
-  res.type('text/plain; charset=utf-8').send(h.weekPrompt(req.userId, w));
+  res.type('text/plain; charset=utf-8').send(text);
 });
 
 // ---------- réglages du compte (code d'unité Dayforce + configuration guidée) ----------

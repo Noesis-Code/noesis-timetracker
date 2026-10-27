@@ -51,6 +51,16 @@ assert(lines.includes('6. FORMAT DE TA RÉPONSE') && lines.some((l) => l.startsW
 const multi = buildPrompt(Object.assign({}, input, { positions: [{ id: 1, name: 'Serveur' }, { id: 2, name: 'Hôte' }], events: [] }));
 assert(multi.includes('- Samedi soir : Serveur : 2 personnes à 17 h 00') && multi.includes('4. CHANGEMENTS DE CETTE SEMAINE\nAucun\n'), 'plusieurs postes : préfixe du poste ; sans événement : « Aucun »');
 
+// ---- Prompt d'inscription (fonction pure) ----
+const { buildRegistrationPrompt } = require('../server/lib/horaire-prompt');
+const reg = buildRegistrationPrompt({ weekStart: W, assignments: [
+  { employeeName: 'Bruno', positionName: 'Serveur', day: '2026-11-08', start: '17:00', end: '01:00' },
+  { employeeName: 'Fictif, Albert', positionName: 'Hôte', day: '2026-11-02', start: '11:00', end: '15:00' },
+] }).split('\n');
+assert(reg.indexOf('- Albert Fictif ; 2026-11-02 ; lundi ; 11:00 ; 15:00 ; Hôte') >= 0 && reg.indexOf('- Bruno ; 2026-11-08 ; dimanche ; 17:00 ; 01:00 ; Serveur') > reg.indexOf('- Albert Fictif ; 2026-11-02 ; lundi ; 11:00 ; 15:00 ; Hôte'),
+  'inscription : quarts triés par jour, « Nom, Prénom » écrit « Prénom Nom »');
+assert(reg[0].includes('du lundi 2026-11-02 au dimanche 2026-11-08') && buildRegistrationPrompt({ weekStart: W, assignments: [] }).includes('- Aucun quart.'), 'inscription : semaine en tête ; sans quart : « Aucun quart. »');
+
 // ---- Données, import CSV, export ----
 const db = require('../server/db');
 const h = require('../server/lib/horaire');
@@ -93,11 +103,82 @@ function call(method, path, body, user) {
   let r = await call('GET', 'weeks/' + W + '/prompt');
   assert(r.status === 401, 'prompt sans session : 401');
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uA');
-  assert(r.status === 200 && /^text\/plain/.test(r.type) && r.cache === 'no-store' && r.text.includes('| Alice |') && r.text.includes('quarts souhaités : 5 |'), 'prompt du propriétaire : texte brut, non mis en cache');
+  assert(r.status === 409 && r.body.error === 'Génère d\'abord l\'horaire.', 'prompt d\'inscription sans horaire enregistré : 409');
   r = await call('GET', 'weeks/2026-11-03/prompt', undefined, 'uA');
   assert(r.status === 400, 'semaine qui ne commence pas un lundi : 400');
+
+  // ---- Prompt fixe de lecture ----
+  r = await call('GET', 'import-prompt', undefined, 'uA');
+  assert(r.status === 200 && /^text\/plain/.test(r.type) && r.cache === 'no-store' && r.text === require('../server/lib/horaire-prompt').IMPORT_PROMPT
+    && r.text.startsWith('Tu aides le gestionnaire d\'un restaurant.') && r.text.includes('\n- Première ligne exactement : nom;jour;début;fin;type\n') && r.text.endsWith('\n'), 'prompt de lecture : texte fixe, brut, non mis en cache');
+  assert(!/dayforce|chatgpt|copilot/i.test(r.text), 'prompt de lecture : ni le logiciel ni l\'IA ne sont nommés');
+  assert((await call('GET', 'import-prompt')).status === 401, 'prompt de lecture sans session : 401');
+
+  // ---- Import des disponibilités avec congés, noms tolérants (noms fictifs) ----
+  const elo = h.createEmployee('uA', { name: 'Élodie Fictive', constraintNote: 'Note fictive permanente' });
+  const marc = h.createEmployee('uA', { name: 'Marc Imaginaire' });
+  const serveur = h.listPositions('uA').find((p) => p.name === 'Serveur');
+  [elo, marc].forEach((e) => h.setQualification('uA', e.id, serveur.id, 1));
+  h.setAvailabilities('uA', W, marc.id, [{ day: W, start: '10:00', end: '23:00' }]);
+  r = await call('POST', 'weeks/' + W + '/import/availabilities', { csv: 'nom;jour;début;fin;type\n"FICTIVE, elodie";2026-11-02;17:00;23:59;\n  marc   IMAGINAIRE ;2026-11-02;;;vacances\nmarc imaginaire;2026-11-03;;;Maladie\nPersonne Inconnue;2026-11-02;10:00;12:00;\n' }, 'uA');
+  assert(r.status === 200 && r.body.employees === 2 && r.body.intervals === 1 && r.body.timeoff === 2 && r.body.unknown.join() === 'Personne Inconnue', 'import : congés lus, « Nom, Prénom », casse, accents et espaces tolérés');
+  r = await call('GET', 'weeks/' + W + '/availabilities', undefined, 'uA');
+  assert(r.body.timeoff.filter((t) => t.employeeId === marc.id).map((t) => t.day).join() === '2026-11-02,2026-11-03'
+    && !r.body.availabilities.some((a) => a.employeeId === marc.id), 'GET : congés renvoyés ; un employé avec seulement des congés remplace sa semaine');
+  assert(h.ownEmployee('uA', elo.id).constraintNote === 'Note fictive permanente', 'import des disponibilités : la note libre n\'est jamais touchée');
+  r = await call('PUT', 'weeks/' + W + '/availabilities/' + elo.id, { timeoff: ['2026-11-04'] }, 'uA');
+  assert(r.status === 200 && r.body.timeoff.length === 1 && r.body.availabilities.length === 1, 'PUT : case « vacances » ajoutée, plages des autres jours gardées');
+  r = await call('PUT', 'weeks/' + W + '/availabilities/' + elo.id, { timeoff: ['2026-11-02'] }, 'uA');
+  assert(r.status === 200 && r.body.availabilities.length === 0, 'PUT : un jour en vacances perd ses plages (une case = un état)');
+  r = await call('PUT', 'weeks/' + W + '/availabilities/' + elo.id, { intervals: [{ day: W, start: '17:00', end: '23:59' }], timeoff: [] }, 'uA');
+  assert(r.status === 200 && r.body.availabilities.length === 1 && r.body.timeoff.length === 0, 'PUT : case remise à « disponible »');
+  assert((await call('PUT', 'weeks/' + W + '/availabilities/' + elo.id, { timeoff: ['2026-11-10'] }, 'uA')).status === 400, 'PUT : congé hors semaine refusé');
+  assert((await call('PUT', 'weeks/' + W + '/availabilities/' + elo.id, {}, 'uA')).status === 400, 'PUT : ni plages ni congés refusé');
+  assert((await call('PUT', 'weeks/' + W + '/availabilities/' + elo.id, { timeoff: [] }, 'uB')).status === 404, 'PUT : employé d\'un autre compte introuvable');
+
+  // ---- Génération (congé respecté), modification manuelle, prompt d'inscription ----
+  h.createNeed('uA', { positionId: serveur.id, weekday: 0, start: '17:00', end: '23:00', count: 2 });
+  r = await call('POST', 'weeks/' + W + '/generate', undefined, 'uA');
+  const gen1 = r.body.schedule;
+  assert(gen1.assignments.length === 1 && gen1.assignments[0].employeeId === elo.id && gen1.alerts.some((a) => a.type === 'trou' && a.missing === 1), 'génération : l\'employé en vacances n\'est pas placé, trou signalé');
+  r = await call('POST', 'weeks/2026-11-09/assignments', { employeeId: marc.id, positionId: serveur.id, day: '2026-11-09', start: '11:00', end: '15:00' }, 'uA');
+  assert(r.status === 409, 'ajout d\'un quart dans une semaine sans horaire : 409');
+  r = await call('POST', 'weeks/' + W + '/assignments', { employeeId: bruno.id, positionId: serveur.id, day: '2026-11-03', start: '11:00', end: '15:00' }, 'uA');
+  const added = r.body.assignment;
+  assert(r.status === 201 && added.employeeName === 'Bruno' && added.positionName === 'Serveur' && added.day === '2026-11-03', 'POST : quart ajouté à la main');
+  assert((await call('POST', 'weeks/' + W + '/assignments', { employeeId: bruno.id, positionId: serveur.id, day: '2026-11-10', start: '11:00', end: '15:00' }, 'uA')).status === 400, 'POST : jour hors semaine refusé');
+  assert((await call('POST', 'weeks/' + W + '/assignments', { employeeId: bruno.id, positionId: serveur.id, day: W, start: '11:00', end: '11:00' }, 'uA')).status === 400, 'POST : début = fin refusé');
+  r = await call('PUT', 'weeks/' + W + '/assignments/' + added.id, { employeeId: marc.id, start: '12:00' }, 'uA');
+  assert(r.status === 200 && r.body.assignment.employeeId === marc.id && r.body.assignment.start === '12:00' && r.body.assignment.end === '15:00', 'PUT : employé et début modifiés');
+  assert((await call('PUT', 'weeks/' + W + '/assignments/' + added.id, { start: '25:00' }, 'uA')).status === 400, 'PUT : heure invalide refusée');
+  assert((await call('PUT', 'weeks/' + W + '/assignments/' + added.id, { start: '13:00' }, 'uB')).status === 404, 'PUT : quart d\'un autre compte introuvable');
+  assert((await call('PUT', 'weeks/2026-11-09/assignments/' + added.id, { start: '13:00' }, 'uA')).status === 404, 'PUT : quart d\'une autre semaine introuvable');
+  assert((await call('DELETE', 'weeks/' + W + '/assignments/' + added.id, undefined, 'uB')).status === 404, 'DELETE : autre compte refusé');
+  const g = (await call('GET', 'weeks/' + W, undefined, 'uA')).body.schedule;
+  assert(g.assignments.length === 2 && g.assignments.some((a) => a.id === added.id && a.employeeId === marc.id), 'modification manuelle conservée (aucune régénération)');
+  r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uA');
+  const pl = r.text.split('\n');
+  assert(r.status === 200 && /^text\/plain/.test(r.type) && r.cache === 'no-store'
+    && pl.includes('- Marc Imaginaire ; 2026-11-03 ; mardi ; 12:00 ; 15:00 ; Serveur') && pl.includes('- Élodie Fictive ; 2026-11-02 ; lundi ; 17:00 ; 23:00 ; Serveur')
+    && pl.includes('QUARTS À INSCRIRE (2)'), 'prompt d\'inscription : un quart par ligne (nom ; date ; jour ; début ; fin ; poste), modifications comprises');
+  assert(!/dayforce|chatgpt|copilot/i.test(r.text) && !r.text.includes('Note fictive') && r.text.includes('brouillon') && r.text.includes('Déconnecte-toi')
+    && r.text.includes('mode agent') && r.text.includes('Échecs'), 'prompt d\'inscription : rien de nommé, aucune note, brouillon, déconnexion, compte rendu');
+  r = await call('DELETE', 'weeks/' + W + '/assignments/' + added.id, undefined, 'uA');
+  assert(r.status === 200 && (await call('GET', 'weeks/' + W, undefined, 'uA')).body.schedule.assignments.length === 1, 'DELETE : quart retiré');
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uB');
-  assert(r.status === 200 && !r.text.includes('Alice') && r.text.includes('Aucun serveur saisi.'), 'autre compte : ne voit jamais les employés du propriétaire');
+  assert(r.status === 409, 'autre compte : ne voit jamais l\'horaire du propriétaire (409, aucun horaire)');
+
+  // ---- Contraintes strictes de l'employé : jamais de double, repos après un quart ----
+  r = await call('POST', 'employees', { name: 'Zoé Exemple', noDouble: true }, 'uA');
+  assert(r.status === 201 && r.body.employee.noDouble === true && r.body.employee.restAfterShift === false, 'POST : jamais de double');
+  r = await call('PUT', 'employees/' + r.body.employee.id, { restAfterShift: true, noDouble: false }, 'uA');
+  assert(r.status === 200 && r.body.employee.noDouble === false && r.body.employee.restAfterShift === true, 'PUT : repos après un quart');
+  assert((await call('PUT', 'employees/' + r.body.employee.id, { noDouble: 'oui' }, 'uA')).status === 400, 'PUT : valeur non booléenne refusée');
+  const r3 = h.importEmployeesCsv('uA', 'nom;jamais de double;repos après un quart\nZoé Exemple;oui;non\nYves Modèle;non;oui\nXavier Test;peut-être;\n');
+  const zoe = h.listEmployees('uA').find((e) => e.name === 'Zoé Exemple'), yves = h.listEmployees('uA').find((e) => e.name === 'Yves Modèle');
+  assert(r3.updated === 1 && r3.created === 1 && r3.skipped.length === 1 && zoe.noDouble === true && zoe.restAfterShift === false && yves.restAfterShift === true, 'import CSV : colonnes oui/non, valeur illisible écartée');
+  const ex2 = require('../server/lib/dataexport').buildUserExport('uA');
+  assert(ex2.horaire.timeoff.length >= 2 && ex2.horaire.employees.some((e) => e.noDouble === 1), 'export du compte : congés et contraintes inclus');
   M.setModules('uB', { horaire: false, stats: true });
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uB');
   assert(r.status === 403 && r.body.code === 'module_off', 'module Horaire éteint : 403');

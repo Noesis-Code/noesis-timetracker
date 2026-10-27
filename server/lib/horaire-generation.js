@@ -9,8 +9,13 @@
 // - contraintes strictes : un employé = un seul poste par jour (plusieurs quarts du même poste possibles s'ils ne se
 //   chevauchent pas) ; jamais hors disponibilité ; jamais sans qualification pour le poste ;
 // - meilleur rang d'abord (1 = meilleur) ; à rang égal, rotation (tourniquet par poste et par rang) ;
-// - 1re passe : max d'heures hebdo respecté ; 2e passe sur les seuls créneaux restés vides : SEUL le max hebdo est
-//   assoupli (dépassement signalé). L'horaire est toujours produit, avec la liste des alertes (trous, dépassements).
+// - règles du prompt (27 oct. 2026, REGLES de ./horaire-prompt.js) : strictes = jamais un jour de congé, jamais plus de
+//   quarts que wantShiftsMax, noDouble (jamais matin et soir le même jour), restAfterShift (aucun quart la veille ni le
+//   lendemain d'un quart) ; préférences = éviter les doubles, éviter soir puis matin du lendemain ; les soirs, traités en
+//   premier, vont au meilleur groupe (rang) ;
+// - passes successives sur les seuls créneaux restés vides : 1. tout respecté ; 2. préférences assouplies ; 3. max d'heures
+//   hebdo assoupli (dépassement signalé) ; 4. dernier recours : 6e quart pour qui en souhaite 5, groupe 1 d'abord (signalé).
+//   L'horaire est toujours produit, avec la liste des alertes (trous, dépassements, 6e quarts).
 
 const WEEKEND = [5, 6]; // samedi, dimanche (lundi = 0)
 const EVENING_FROM = 16 * 60; // un quart qui commence à 16 h ou plus tard est « de soir »
@@ -75,8 +80,9 @@ function overlaps(a, b) { return a.from < b.to && b.from < a.to; }
 
 /**
  * @param {object} input
- *   weekStart 'YYYY-MM-DD' (lundi) ; positions [{id, fillOrder}] ; employees [{id, maxWeekMinutes|null}] ;
- *   qualifications [{employeeId, positionId, rank}] ; availabilities [{employeeId, day, start, end}] ;
+ *   weekStart 'YYYY-MM-DD' (lundi) ; positions [{id, fillOrder}] ;
+ *   employees [{id, maxWeekMinutes|null, wantShiftsMax|null, noDouble, restAfterShift}] ;
+ *   qualifications [{employeeId, positionId, rank}] ; availabilities [{employeeId, day, start, end}] ; timeoff [{employeeId, day}] ;
  *   needs [{positionId, weekday 0..6, start, end, count}] ; events [{id, day, needs:[{positionId, start, end, count}]}] ;
  *   rotation { '<positionId>:<rank>': dernierEmployeeId }.
  * @returns {{assignments: Array, alerts: Array, rotation: object}}
@@ -105,6 +111,8 @@ function generateSchedule(input) {
     if (!avail.has(k)) avail.set(k, []);
     avail.get(k).push(r);
   }
+  // congés : jour entier, l'employé est indisponible ce jour-là
+  const off = new Set((input.timeoff || []).map((t) => t.employeeId + '|' + t.day));
 
   const slots = buildSlots(input.weekStart, input.needs, input.events);
   const posRank = new Map(positions.map((p, i) => [p.id, i]));
@@ -116,21 +124,40 @@ function generateSchedule(input) {
     || (a.from - b.from));
 
   const minutesOf = new Map(employees.map((e) => [e.id, 0]));
+  const shiftsOf = new Map(employees.map((e) => [e.id, 0]));
   const dayPost = new Map(); // 'employeeId|day' -> positionId (un seul poste par jour)
   const busy = new Map(); // 'employeeId|day' -> [slot]
   const assignments = [];
+  const evening = (s) => s.from >= EVENING_FROM;
+  const has = (n) => n !== null && n !== undefined;
 
-  function eligible(empId, slot, relaxMax) {
+  // level : 0 = tout respecté ; 1 = préférences assouplies ; 2 = + max d'heures assoupli ; 3 = + 6e quart pour qui en souhaite 5.
+  function eligible(empId, slot, level) {
+    const e = empById.get(empId);
     const k = empId + '|' + slot.day;
+    if (off.has(k)) return false;
     if (dayPost.has(k) && dayPost.get(k) !== slot.positionId) return false;
-    if ((busy.get(k) || []).some((s) => overlaps(s, slot))) return false;
+    const same = busy.get(k) || [];
+    if (same.some((s) => overlaps(s, slot))) return false;
     if (!(avail.get(k) || []).some(([f, t]) => f <= slot.from && slot.to <= t)) return false;
-    const max = empById.get(empId).maxWeekMinutes;
-    if (!relaxMax && max !== null && max !== undefined && minutesOf.get(empId) + slot.minutes > max) return false;
+    const before = busy.get(empId + '|' + addDays(slot.day, -1)) || [];
+    const after = busy.get(empId + '|' + addDays(slot.day, 1)) || [];
+    if (e.restAfterShift && (before.length || after.length)) return false;
+    const double = same.some((s) => evening(s) !== evening(slot));
+    if (e.noDouble && double) return false;
+    const want = e.wantShiftsMax;
+    if (has(want) && shiftsOf.get(empId) >= want && !(level >= 3 && want === 5 && shiftsOf.get(empId) === 5)) return false;
+    if (level < 1) {
+      if (double) return false;
+      // fermeture suivie d'une ouverture : soir la veille puis matin, ou soir puis matin le lendemain
+      if (evening(slot) ? after.some((s) => !evening(s)) : before.some(evening)) return false;
+    }
+    const max = e.maxWeekMinutes;
+    if (level < 2 && has(max) && minutesOf.get(empId) + slot.minutes > max) return false;
     return true;
   }
 
-  function pick(slot, relaxMax) {
+  function pick(slot, level) {
     const q = qual.get(slot.positionId);
     if (!q) return null;
     const ranks = [...new Set(q.values())].sort((a, b) => a - b);
@@ -141,7 +168,7 @@ function generateSchedule(input) {
       // Tourniquet : on commence juste après le dernier employé servi dans ce groupe.
       for (let i = 1; i <= group.length; i++) {
         const id = group[(last + i + group.length) % group.length];
-        if (eligible(id, slot, relaxMax)) { rotation[key] = id; return id; }
+        if (eligible(id, slot, level)) { rotation[key] = id; return id; }
       }
     }
     return null;
@@ -153,18 +180,18 @@ function generateSchedule(input) {
     if (!busy.has(k)) busy.set(k, []);
     busy.get(k).push(slot);
     minutesOf.set(empId, minutesOf.get(empId) + slot.minutes);
+    shiftsOf.set(empId, shiftsOf.get(empId) + 1);
     assignments.push({ employeeId: empId, positionId: slot.positionId, day: slot.day, start: slot.start, end: slot.end, eventId: slot.eventId });
   }
 
-  const pending = [];
-  for (const slot of ordered) {
-    const id = pick(slot, false);
-    if (id === null) pending.push(slot); else assign(slot, id);
-  }
-  const holes = [];
-  for (const slot of pending) { // 2e passe : seul le max hebdo est assoupli
-    const id = pick(slot, true);
-    if (id === null) holes.push(slot); else assign(slot, id);
+  let holes = ordered;
+  for (let level = 0; level <= 3 && holes.length; level++) { // chaque passe ne reprend que les créneaux restés vides
+    const left = [];
+    for (const slot of holes) {
+      const id = pick(slot, level);
+      if (id === null) left.push(slot); else assign(slot, id);
+    }
+    holes = left;
   }
 
   const alerts = [];
@@ -178,6 +205,9 @@ function generateSchedule(input) {
     const max = e.maxWeekMinutes;
     if (max !== null && max !== undefined && minutesOf.get(e.id) > max) {
       alerts.push({ type: 'depassement', employeeId: e.id, minutes: minutesOf.get(e.id), maxWeekMinutes: max });
+    }
+    if (has(e.wantShiftsMax) && shiftsOf.get(e.id) > e.wantShiftsMax) {
+      alerts.push({ type: 'sixieme_quart', employeeId: e.id, shifts: shiftsOf.get(e.id), wantShiftsMax: e.wantShiftsMax });
     }
   }
   assignments.sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0) || (toMin(a.start) - toMin(b.start)) || (posRank.get(a.positionId) - posRank.get(b.positionId)));

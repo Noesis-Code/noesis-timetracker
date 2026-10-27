@@ -289,12 +289,13 @@ function buildUserExport(userId) {
   ) : [];
   // Module « Horaire » (données du personnel saisies par le gestionnaire, Loi 25) : tout ce que le compte a saisi ou généré.
   const horaire = has('horaire_employees') ? {
-    employees: rows('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, createdAt FROM horaire_employees WHERE userId = ? ORDER BY id', userId),
+    employees: rows('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, noDouble, restAfterShift, createdAt FROM horaire_employees WHERE userId = ? ORDER BY id', userId),
     positions: rows('SELECT id, name, fillOrder, dayforceCode, openTableCovers, createdAt FROM horaire_positions WHERE userId = ? ORDER BY fillOrder, id', userId),
     dayforceLocation: (rows('SELECT horaireDayforceLocation AS v FROM users WHERE id = ?', userId)[0] || {}).v || null,
     settings: has('horaire_settings') ? (rows('SELECT configured, setupStep, eventsSource, eventsNoticeDays, eventsStaffRule, dataInCanada, dayforceTemplateName, dayforceTemplate, updatedAt FROM horaire_settings WHERE userId = ?', userId)[0] || null) : null,
     qualifications: rows('SELECT employeeId, positionId, rank FROM horaire_qualifications WHERE userId = ?', userId),
     availabilities: rows('SELECT employeeId, weekStart, day, start, end FROM horaire_availabilities WHERE userId = ? ORDER BY day, start', userId),
+    timeoff: has('horaire_timeoff') ? rows('SELECT employeeId, weekStart, day FROM horaire_timeoff WHERE userId = ? ORDER BY day', userId) : [],
     events: rows('SELECT id, day, label FROM horaire_events WHERE userId = ? ORDER BY day', userId),
     needs: rows('SELECT id, positionId, weekday, eventId, start, end, count FROM horaire_needs WHERE userId = ? ORDER BY id', userId),
     rotation: rows('SELECT positionId, rank, lastEmployeeId FROM horaire_rotation WHERE userId = ?', userId),

@@ -1,6 +1,9 @@
-// Module « Horaire » : prompt pour l'IA du gestionnaire (27 oct. 2026, demande d'Émilien). Le maître d'hôtel copie ce texte
-// et le colle dans SA propre IA (ChatGPT ou autre) ; le serveur ne l'envoie à aucune IA. Fonction PURE (aucune base, aucun
-// réseau), testée par test/horaire-prompt-test.js. Données confidentielles du personnel (Loi 25) : rien n'est journalisé.
+// Module « Horaire » : prompts pour l'IA du gestionnaire (27 oct. 2026, demande d'Émilien). Le maître d'hôtel copie ces textes
+// et les colle dans SA propre IA ; le serveur ne les envoie à aucune IA. Fonctions PURES (aucune base, aucun réseau), testées
+// par test/horaire-prompt-test.js. Données confidentielles du personnel (Loi 25) : rien n'est journalisé.
+// Flux : IMPORT_PROMPT (lecture des disponibilités et congés -> CSV importé) ; l'app génère l'horaire (./horaire-generation.js,
+// qui applique les REGLES ci-dessous) ; buildRegistrationPrompt (inscription de cet horaire dans le logiciel d'horaire).
+// buildPrompt (préparation de l'horaire par l'IA) n'est plus servi par la route ; ses REGLES restent la référence de la génération.
 // Matin = quart qui commence avant 16 h ; soir = 16 h ou après (même seuil que horaire-generation.js).
 const gen = require('./horaire-generation');
 
@@ -12,6 +15,43 @@ const dmy = (iso) => { const [y, m, d] = iso.split('-').map(Number); return d + 
 // 'HH:MM' -> '17 h 00'
 const hm = (s) => { const m = gen.toMin(s); return Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0'); };
 const service = (start) => (gen.toMin(start) >= EVENING_FROM ? 'soir' : 'matin');
+
+// Prompt FIXE de lecture (27 oct. 2026, texte d'Émilien) : le gestionnaire le colle dans son IA, qui lit les disponibilités et les
+// congés de la semaine dans le logiciel d'horaire et rend un CSV (nom;jour;début;fin;type) importé par importAvailabilitiesCsv
+// (server/lib/horaire.js). Aucune donnée du personnel. Servi tel quel par GET /api/horaire/import-prompt.
+const IMPORT_PROMPT = [
+  "Tu aides le gestionnaire d'un restaurant. Ta seule mission : lire dans le logiciel d'horaire du restaurant les disponibilités et les congés du personnel pour la semaine qui commence le lundi suivant la date d'aujourd'hui (si aujourd'hui est lundi, prends le lundi suivant), puis me rendre un fichier CSV. Tu ne modifies rien dans ce logiciel.",
+  "",
+  "ACCÈS",
+  "1. Si tu peux naviguer toi-même : ouvre le logiciel d'horaire. À l'écran de connexion, arrête-toi et laisse-moi prendre la main ; je tape moi-même mon identifiant et mon mot de passe. Ne les lis pas, ne les écris nulle part.",
+  "2. Si tu ne peux pas naviguer toi-même : lis la page que j'ai ouverte, puis dis-moi en une ligne quelle page ouvrir ensuite, jusqu'à avoir tout lu.",
+  "3. Ne clique jamais sur Enregistrer, Approuver, Publier ou Supprimer, et ne change aucun réglage.",
+  "",
+  "CE QUE TU AS LE DROIT DE LIRE",
+  "- Seulement la vue des disponibilités et la vue des congés ou absences approuvés de mon restaurant, pour cette semaine-là.",
+  "- Jamais une fiche d'employé, la paie, les coordonnées ni aucune autre page. Si une vue n'est pas accessible, dis-le et continue avec le reste.",
+  "",
+  "POUR CHAQUE EMPLOYÉ AFFICHÉ, CHAQUE JOUR DU LUNDI AU DIMANCHE",
+  "- Ses plages de disponibilité (heure de début et heure de fin).",
+  "- Ses congés approuvés (vacances, congé, maladie ou autre absence approuvée). Une demande non approuvée ne compte pas.",
+  "- Disponible toute la journée : 00:00 à 23:59.",
+  "- Jour sans disponibilité ni congé : aucune ligne pour ce jour.",
+  "",
+  "LE FICHIER À ME RENDRE",
+  "- Un fichier téléchargeable nommé disponibilites-AAAA-MM-JJ.csv (la date du lundi), UTF-8, séparateur point-virgule. Si tu ne peux pas créer de fichier, donne le même contenu dans un seul bloc de texte à copier.",
+  "- Première ligne exactement : nom;jour;début;fin;type",
+  "- Une ligne par plage de disponibilité : nom;AAAA-MM-JJ;HH:MM;HH:MM;",
+  "- Une ligne par jour de congé : nom;AAAA-MM-JJ;;;vacances",
+  "- nom = prénom puis nom de famille, avec les accents, comme dans le logiciel (« Nom, Prénom » devient « Prénom Nom »).",
+  "- Heures sur 24 h (17:30, jamais 5:30 PM). Une plage qui finit après minuit finit à 23:59.",
+  "- Rien d'autre dans le fichier : pas de titre, pas de total, pas de commentaire.",
+  "",
+  "AVANT DE ME RENDRE LE FICHIER",
+  "- Chaque employé affiché apparaît au moins une fois, sauf s'il n'a ni disponibilité ni congé cette semaine.",
+  "- Toutes les dates sont entre le lundi et le dimanche de la semaine.",
+  "- Si tu t'es connecté toi-même, déconnecte-toi.",
+  "- Puis écris-moi en 3 lignes au plus : la semaine lue, le nombre d'employés, et ce que tu n'as pas pu lire (sinon « Rien »).",
+].join('\n') + '\n';
 
 const CONSIGNE = 'Tu es l\'assistant du maître d\'hôtel d\'un restaurant. Prépare l\'horaire des serveurs pour la semaine décrite '
   + 'ci-dessous, en respectant strictement les règles. Avant de répondre, vérifie toi-même chaque règle serveur par serveur, '
@@ -154,4 +194,51 @@ function buildPrompt(input) {
   ].join('\n') + '\n';
 }
 
-module.exports = { buildPrompt };
+// Prompt d'INSCRIPTION (27 oct. 2026, demande d'Émilien) : l'IA du gestionnaire, en mode agent, inscrit dans le logiciel
+// d'horaire du restaurant EXACTEMENT les quarts de l'horaire généré par l'app (puis modifié par le gestionnaire), sans
+// rien changer d'autre et sans publier. Aucune note de santé (constraintNote n'y figure jamais) ; ni le logiciel ni l'IA
+// ne sont nommés. Fonction PURE.
+/**
+ * @param {object} input weekStart (lundi 'AAAA-MM-JJ') ; assignments [{employeeName, positionName, day, start, end}]
+ *   (« Nom, Prénom » est écrit « Prénom Nom »).
+ * @returns {string} prompt en texte brut (fins de ligne \n).
+ */
+function buildRegistrationPrompt(input) {
+  const { weekStart } = input;
+  const sunday = gen.addDays(weekStart, 6);
+  const list = (input.assignments || []).slice().sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0)
+    || gen.toMin(a.start) - gen.toMin(b.start) || String(a.positionName).localeCompare(String(b.positionName), 'fr')
+    || String(a.employeeName).localeCompare(String(b.employeeName), 'fr'));
+  const wd = (iso) => DAYS[(new Date(iso + 'T00:00:00Z').getUTCDay() + 6) % 7];
+  const shifts = list.length
+    ? list.map((a) => '- ' + [String(a.employeeName || '').replace(/^\s*([^,]+?)\s*,\s*(.+?)\s*$/, '$2 $1'), a.day, wd(a.day), a.start, a.end, a.positionName || ''].join(' ; '))
+    : ['- Aucun quart.'];
+  return [
+    'Tu aides le gestionnaire d\'un restaurant. Ta seule mission : inscrire dans le logiciel d\'horaire du restaurant, tels quels, '
+      + 'les quarts listés plus bas pour la semaine du lundi ' + weekStart + ' au dimanche ' + sunday + '. Tu ne changes rien d\'autre.',
+    '',
+    'ACCÈS',
+    '1. Travaille en mode agent : ouvre toi-même le logiciel d\'horaire du restaurant. À l\'écran de connexion, arrête-toi et laisse-moi prendre la main ; je tape moi-même mon identifiant et mon mot de passe. Ne les lis pas, ne les écris nulle part.',
+    '2. Va seulement sur la page de l\'horaire de cette semaine-là.',
+    '3. Ne clique jamais sur Publier, Approuver ou Supprimer, et ne change aucun réglage.',
+    '',
+    'CE QUE TU AS LE DROIT DE FAIRE',
+    '- Seulement ajouter, sur la page de l\'horaire de cette semaine, les quarts listés plus bas, exactement comme écrits (employé, date, heures, poste).',
+    '- Ne modifie, ne déplace et ne supprime aucun autre quart.',
+    '- Jamais une fiche d\'employé, la paie, les coordonnées ni aucune autre page.',
+    '- Laisse l\'horaire non publié (brouillon) : enregistre les quarts, ne publie pas.',
+    '',
+    'QUARTS À INSCRIRE (' + list.length + ')',
+    'Une ligne par quart : Prénom Nom ; date AAAA-MM-JJ ; jour ; début ; fin ; poste. Heures sur 24 h ; une fin plus petite que le début finit le lendemain.',
+    ...shifts,
+    '',
+    'SI UN QUART NE PEUT PAS ÊTRE INSCRIT',
+    '- Employé ou poste introuvable, ou refus du logiciel : n\'invente rien, ne le remplace pas, note-le et passe au quart suivant.',
+    '',
+    'À LA FIN',
+    '- Déconnecte-toi.',
+    '- Puis réponds-moi avec deux listes : « Inscrits » (chaque quart inscrit, une ligne chacun) et « Échecs » (chaque quart non inscrit avec la raison en quelques mots, sinon « Aucun »).',
+  ].join('\n') + '\n';
+}
+
+module.exports = { buildPrompt, buildRegistrationPrompt, IMPORT_PROMPT };

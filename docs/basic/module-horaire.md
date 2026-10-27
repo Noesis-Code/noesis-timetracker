@@ -14,9 +14,10 @@ non fusionnée), réduit à la forme minimale.
 
 ## Données (toutes rattachées au propriétaire)
 Employés (nom, max d'heures hebdo en minutes, tous postes confondus, actif ; quarts souhaités par semaine min et max,
-entiers 0 à 14, min ≤ max ; contrainte particulière, texte libre de 200 caractères au plus) ; postes (ordre de comblement) ;
+entiers 0 à 14, min ≤ max ; contrainte particulière, texte libre de 200 caractères au plus, note permanente jamais lue par
+la génération ; `noDouble` jamais de double et `restAfterShift` repos après un quart, booléens) ; postes (ordre de comblement) ;
 qualifications (rang par employé ET par poste, 1 = meilleur ; plusieurs postes par employé) ; disponibilités par semaine
-(plages jour + heures) ; besoins du modèle normal (poste, jour 0 = lundi … 6 = dimanche, heures, nombre) ; événements
+(plages jour + heures) ; congés par semaine (table `horaire_timeoff`, jour entier : vacances, maladie, absence) ; besoins du modèle normal (poste, jour 0 = lundi … 6 = dimanche, heures, nombre) ; événements
 spéciaux (date + besoins qui remplacent le modèle normal ce jour-là) ; état de rotation (dernier servi par poste et par
 rang) ; horaires (brouillon par semaine + alertes) et quarts. Un quart dont la fin est avant le début traverse minuit.
 
@@ -25,30 +26,42 @@ rang) ; horaires (brouillon par semaine + alertes) et quarts. Un quart dont la f
    autres soirs (début à 16 h ou plus, à égalité, ordre chronologique), puis jour de fin de semaine (brunch), puis jour
    de semaine (lunch) — décision d'Émilien, 26 oct. 2026.
 2. Contraintes strictes : un employé = un seul poste par jour (plusieurs quarts du même poste s'ils ne se chevauchent
-   pas) ; jamais hors disponibilité ; jamais sans qualification.
-3. Meilleur rang d'abord ; à rang égal, tourniquet (repris d'une génération à l'autre).
-4. 1re passe avec le max hebdo ; 2e passe sur les seuls créneaux vides : seul le max est assoupli.
-5. Sortie : quarts + alertes `trou` (poste, jour, heures, nombre manquant) et `depassement` (employé, minutes, max).
+   pas) ; jamais hors disponibilité ni un jour de congé ; jamais sans qualification ; jamais plus de quarts que
+   `wantShiftsMax` (si renseigné) ; `noDouble` = jamais matin et soir le même jour ; `restAfterShift` = aucun quart la
+   veille ni le lendemain d'un quart. Nombre exact par heure d'arrivée : chaque créneau est comblé ou devient un trou.
+3. Meilleur rang (groupe) d'abord ; à rang égal, tourniquet (repris d'une génération à l'autre). Les soirs étant traités
+   en premier, ils vont d'abord au groupe 1, puis 2, 3, 4.
+4. Passes successives sur les seuls créneaux restés vides (règles du prompt, 27 oct. 2026) : 1. tout respecté, en évitant
+   les doubles (matin et soir le même jour) et les fermetures suivies d'une ouverture (soir puis matin du lendemain) ;
+   2. ces deux préférences assouplies ; 3. max d'heures hebdo assoupli ; 4. dernier recours : 6e quart pour qui en
+   souhaite 5, groupe 1 d'abord.
+5. Sortie : quarts + alertes `trou` (poste, jour, heures, nombre manquant), `depassement` (employé, minutes, max) et
+   `sixieme_quart` (employé, `shifts`, `wantShiftsMax`).
+6. L'horaire généré se modifie à la main (routes `assignments`) ; une modification n'est remplacée que si le gestionnaire
+   relance « Générer ». Les alertes restent celles de la dernière génération.
 
 ## Routes (`/api/horaire/...`, session requise)
 | Méthode | Chemin | Rôle |
 |---|---|---|
-| GET, POST | `employees` | lister, créer `{name, maxWeekMinutes?, wantShiftsMin?, wantShiftsMax?, constraintNote?}` |
-| PUT, DELETE | `employees/:id` | modifier `{name?, maxWeekMinutes?, active?, wantShiftsMin?, wantShiftsMax?, constraintNote?}`, supprimer (avec ses quarts) |
+| GET, POST | `employees` | lister, créer `{name, maxWeekMinutes?, wantShiftsMin?, wantShiftsMax?, constraintNote?, noDouble?, restAfterShift?}` |
+| PUT, DELETE | `employees/:id` | modifier `{name?, maxWeekMinutes?, active?, wantShiftsMin?, wantShiftsMax?, constraintNote?, noDouble?, restAfterShift?}`, supprimer (avec ses quarts et congés) |
 | GET, POST | `positions` | lister, créer `{name, fillOrder?}` |
 | PUT, DELETE | `positions/:id` | modifier, supprimer |
 | GET, PUT | `qualifications` | lister, poser `{employeeId, positionId, rank}` |
 | DELETE | `qualifications/:employeeId/:positionId` | retirer |
-| GET | `weeks/:lundi/availabilities` | disponibilités de la semaine |
-| PUT | `weeks/:lundi/availabilities/:employeeId` | remplacer `{intervals:[{day, start, end}]}` |
+| GET | `weeks/:lundi/availabilities` | `{weekStart, availabilities:[{employeeId, day, start, end}], timeoff:[{employeeId, day}]}` |
+| PUT | `weeks/:lundi/availabilities/:employeeId` | remplacer `{intervals?:[{day, start, end}], timeoff?:['AAAA-MM-JJ']}` (au moins un ; absent = inchangé ; un jour de congé perd ses plages) → `{availabilities, timeoff}` |
 | GET, POST / PUT, DELETE | `needs` / `needs/:id` | besoins normaux `{positionId, weekday, start, end, count}` |
 | GET, POST / PUT, DELETE | `events` / `events/:id` | événements `{day, label, needs:[{positionId, start, end, count}]}` |
 | POST | `weeks/:lundi/generate` | générer et enregistrer le brouillon |
 | GET | `weeks/:lundi` | horaire enregistré (quarts + alertes, `null` si aucun) |
+| POST | `weeks/:lundi/assignments` | ajouter un quart `{employeeId, positionId, day, start, end}` → 201 `{assignment}` ; 409 sans horaire |
+| PUT, DELETE | `weeks/:lundi/assignments/:id` | modifier `{employeeId?, start?, end?}` → `{assignment}`, retirer ; 404 si le quart n'est pas du compte ET de la semaine |
+| GET | `import-prompt` | prompt fixe de lecture des disponibilités et congés, texte brut |
 | POST | `import/employees` | CSV `{csv}` |
 | POST | `weeks/:lundi/import/availabilities` | CSV `{csv}` |
 | GET | `weeks/:lundi/export/dayforce` | CSV pour l'import Dayforce (voir plus bas) |
-| GET | `weeks/:lundi/prompt` | prompt de la semaine pour l'IA du gestionnaire, texte brut (voir plus bas) |
+| GET | `weeks/:lundi/prompt` | prompt d'inscription de l'horaire enregistré, texte brut ; 409 `Génère d'abord l'horaire.` (voir plus bas) |
 | GET, PUT | `settings` | réglages du compte : `{dayforceLocation, configured, setupStep, eventsSource, eventsNoticeDays, eventsStaffRule, dataInCanada, dayforceTemplate}` (voir Configuration guidée) |
 
 ## Import CSV (format souple, en attendant l'échantillon du maître d'hôtel)
@@ -59,9 +72,12 @@ Séparateur `;`, `,` ou tabulation (détecté) ; guillemets acceptés ; en-tête
   `quarts max` (quarts souhaités par semaine, entiers 0 à 14 ; aussi `quarts souhaités min/max`) et `contrainte` (texte,
   200 caractères au plus ; aussi `contrainte particulière`). Cellule vide = inchangé ; min > max = ligne écartée. Exemple :
   `nom;max;postes;quarts min;quarts max;contrainte` puis `Alice;30;Serveur:1;5;5;Jamais de double`. Une colonne par poste
-  s'arrête à la colonne reconnue suivante.
-- Disponibilités : `nom ; jour ; début ; fin`, une ligne par plage. Jour = date de la semaine ou nom (lundi, lun, monday…).
-  Heures : `17:00`, `17h`, `17h30`, `5 pm`. Remplace la semaine des seuls employés présents ; noms inconnus listés.
+  s'arrête à la colonne reconnue suivante. Aussi `jamais de double` et `repos après un quart` (oui/non, 27 oct. 2026).
+- Disponibilités : `nom ; jour ; début ; fin ; type`, une ligne par plage. Jour = date de la semaine ou nom (lundi, lun, monday…).
+  Heures : `17:00`, `17h`, `17h30`, `5 pm`. `type` facultatif : `vacances`, `congé`, `maladie` ou `absence` = jour de congé
+  entier (début et fin vides). Remplace les disponibilités ET les congés de la semaine des seuls employés présents (un employé
+  avec seulement des congés est valide) ; noms inconnus listés. Noms tolérants : casse, accents, espaces, ordre des mots et
+  « Nom, Prénom ». Réponse `{employees, intervals, timeoff, unknown, skipped}`. La note libre de l'employé n'est jamais touchée.
 
 ## Export Dayforce (26 oct. 2026)
 Le restaurant gère sa paie dans Dayforce (Ceridian). `GET /api/horaire/weeks/:lundi/export/dayforce` renvoie le CSV de
@@ -85,13 +101,29 @@ sous « Générer », bouton secondaire) copie dans le presse-papiers le prompt 
 colle-le dans ton IA. » ; il le colle dans SA propre IA. Le serveur ne l'envoie à aucune IA.
 - Route `GET /api/horaire/weeks/:lundi/prompt` : texte brut, `Cache-Control: no-store`, compte propriétaire (session) et
   module `horaire` actif ; rien n'est journalisé.
-- Assemblage : fonction pure `buildPrompt` de `server/lib/horaire-prompt.js` (test : `test/horaire-prompt-test.js`). Ordre :
+- Ancien assemblage (plus servi par la route depuis le 27 oct., voir Nouveau flux) : fonction pure `buildPrompt` de `server/lib/horaire-prompt.js` (test : `test/horaire-prompt-test.js`). Ordre :
   consigne ; 1. Semaine ; 2. Besoins par service (événements de la semaine appliqués comme dans la génération, préfixe du
   poste s'il y a plusieurs postes) ; 3. Personnel (groupe = meilleur rang, poste(s), disponibilités de la semaine en
   matin/soir, quarts souhaités, contrainte) ; 4. Changements de cette semaine (événements) ; 5. Règles 1 à 9 (fixes) ;
   6. Format de la réponse (A à E). Matin = quart qui commence avant 16 h, soir = 16 h ou après.
 - Les quarts souhaités et la contrainte se saisissent dans la fiche employé (Paramètres > Employés, et étape 2 de la
-  configuration guidée, même formulaire) ; ils ne changent pas la génération.
+  configuration guidée, même formulaire).
+
+### Nouveau flux (27 oct. 2026, demande d'Émilien) : l'IA lit et inscrit, l'app génère
+1. **Lecture** : `GET import-prompt` renvoie un prompt FIXE (constante `IMPORT_PROMPT` de `horaire-prompt.js`, aucune donnée du
+   personnel). Le gestionnaire le colle dans son IA, qui lit dans le logiciel d'horaire du restaurant les disponibilités et
+   congés approuvés de la semaine et rend un CSV `nom;jour;début;fin;type`.
+2. **Import** : `POST weeks/:lundi/import/availabilities` (congés compris, voir Import CSV).
+3. **Génération sans IA** : `POST weeks/:lundi/generate` applique les règles du prompt (voir Algorithme) ; le gestionnaire
+   voit l'horaire et le modifie (`assignments`).
+4. **Inscription** : `GET weeks/:lundi/prompt` (bouton « Prompt pour l'IA ») renvoie le prompt d'inscription
+   (`buildRegistrationPrompt`) : en mode agent, l'IA ouvre le logiciel d'horaire, laisse le gestionnaire taper ses
+   identifiants, va seulement sur la page de l'horaire de la semaine, inscrit EXACTEMENT les quarts listés (une ligne par
+   quart : `Prénom Nom ; AAAA-MM-JJ ; jour ; début ; fin ; poste`), ne change rien d'autre, laisse l'horaire non publié
+   (brouillon), se déconnecte et répond avec les quarts inscrits et ceux en échec. Jamais de fiche employé, de paie ni de
+   coordonnées ; aucune note (`constraintNote` n'y figure pas). Sans horaire enregistré : 409 `Génère d'abord l'horaire.`
+   Ni le logiciel ni l'IA ne sont nommés dans les prompts. `buildPrompt` (préparation de l'horaire par l'IA) n'est plus
+   servi ; ses règles restent la référence de la génération.
 
 ## Configuration guidée (26 oct. 2026, demande d'Émilien)
 Pour ne jamais solliciter le restaurant à part, la première ouverture du volet par un compte non configuré
