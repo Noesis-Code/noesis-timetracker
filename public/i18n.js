@@ -156,7 +156,6 @@
     "Mot de passe actuel incorrect.": "Wrong current password.",
     "Choisis un nouveau mot de passe pour continuer.": "Choose a new password to continue.",
     "Saisis ton mot de passe pour confirmer la suppression.": "Enter your password to confirm the deletion.",
-    'Ce code te sera redemandé si tu récupères ce profil depuis un autre appareil — retiens-le bien.': "You'll be asked for this PIN if you restore this profile on another device — keep it safe.",
     'Créer mon profil': 'Create my profile',
     "J'ai déjà un profil sur cette app": 'I already have a profile on this app',
     'Retrouve ton profil': 'Find your profile',

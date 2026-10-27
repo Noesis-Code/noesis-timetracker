@@ -1849,6 +1849,11 @@
       .catch(function (err) { $('onbMsg').textContent = err.message; $('onbNewActivitySave').disabled = false; });
   });
 
+  // Règles du mot de passe (création individu ou entreprise) : visibles seulement pendant la saisie d'un des deux champs.
+  ['onbPin', 'onbPinConfirm'].forEach(function (id) {
+    $(id).addEventListener('focus', function () { $('onbPwdRules').classList.remove('hidden'); });
+    $(id).addEventListener('blur', function () { $('onbPwdRules').classList.add('hidden'); });
+  });
   $('onbSwitchToExisting').addEventListener('click', function (e) {
     e.preventDefault();
     $('onbCreate').classList.add('hidden');
