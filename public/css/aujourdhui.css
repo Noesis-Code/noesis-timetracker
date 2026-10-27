@@ -45,9 +45,9 @@
 .tasksToday .tasksPopSum { padding: 0 4px 12px; }
 .tasksToday .tasksPopRow { padding-left: 4px; padding-right: 4px; }
 .tasksToday .tasksPopSection { padding-left: 4px; padding-right: 4px; }
-/* La barre « Ajouter une tâche » est au premier plan, comme la barre des volets : fixée au-dessus d'elle, même verre, même largeur de gouttière ; les tâches défilent EN DESSOUS (demande d'Émilien, 27 oct. 2026). */
-.tasksToday .tasksPopAdd { position: fixed; left: 0; right: 0; margin: 0 auto; width: min(896px, calc(100% - 32px)); z-index: 49; bottom: calc(var(--tabbar-h, 76px) + 32px); max-height: 50vh; padding: 0; background: transparent; }
-.tasksToday { padding-bottom: 120px; } /* la dernière tâche reste lisible au-dessus de la barre fixe */
+/* La barre « Ajouter une tâche » garde l'aspect de la barre des volets (verre calme, pastille) mais fait partie de la page : elle défile avec le reste (demande d'Émilien, 27 oct. 2026). */
+.tasksToday .tasksPopAdd { position: static; max-height: none; margin: 0; width: auto; padding: 8px 0 16px; background: transparent; }
+.tasksToday { padding-bottom: calc(var(--tabbar-h, 76px) + 32px); }
 .tasksToday .tasksPopAdd .tasksComposer { background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); } /* R40 */
 /* La bulle d'écriture libre de l'ancienne page 1 est remplacée par la barre « Ajouter une tâche » de la vue Aujourd'hui. */
 #goalsActivitiesView .goalsCaptureBubbleWrap, #goalsActivitiesView .goalsCaptureActivityPrompt { display: none; }
