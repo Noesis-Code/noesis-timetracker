@@ -862,6 +862,13 @@ router.get('/goals/capture/badges', (req, res) => {
 // capturées par la bulle IA (autoCaptured=1 uniquement). Pas scopée à une
 // activité dans son URL, même raisonnement que /goals/capture/badges
 // ci-dessus.
+// Tâches du jour, toutes activités (bouton flottant) : à faire (échéance aujourd'hui ou avant) puis faites aujourd'hui.
+router.get('/goals/today', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  try { res.json(require('../lib/goalstoday').tasksToday(userId, req.query.today)); } catch (err) { handleGoalsError(res, err); }
+});
+
 router.get('/goals/tasks/history', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });

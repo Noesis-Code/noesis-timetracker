@@ -1765,6 +1765,7 @@
   TMT.openGoalsPeriodFromNotification = openGoalsPeriodFromNotification;
   TMT.renderGoalsCaptureActivities = renderGoalsCaptureActivities;
   TMT.showGoalsCapturePage = showGoalsCapturePage;
+  TMT.renderGoalsCaptureBubble = renderGoalsCaptureBubble; // réutilisé par le pop-up du bouton flottant des tâches du jour
   $('offer1CheckoutOpenBtn').addEventListener('click', TMT.openOffer1CheckoutModal);
   // Résiliation : ouvre le portail client Stripe (POST /api/offer/portal) ; visible seulement avec un abonnement (voir loadOffer1SubscribedSection).
   $('offer1CancelBtn').addEventListener('click', function () {
