@@ -17,7 +17,7 @@
   var arrows = {};
   function make(dir) {
     var b = document.createElement('button');
-    b.type = 'button'; b.className = 'bureauArrow bureauArrow-' + dir + ' cmpGlass hidden';
+    b.type = 'button'; b.className = 'bureauArrow bureauArrow-' + dir + ' cmpSymbol hidden';
     b.setAttribute('aria-label', dir === 'prev' ? 'Page précédente' : 'Page suivante');
     b.appendChild(icon(dir));
     b.addEventListener('click', function () { var t = b._target; if (t) t.click(); });

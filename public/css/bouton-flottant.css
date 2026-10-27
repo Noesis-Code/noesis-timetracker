@@ -1,8 +1,8 @@
 /* Bouton flottant des tâches du jour et son pop-up (27 oct. 2026, js/bouton-flottant.js). Jetons seulement, verre commun (.cmpGlass), espacements 8/12/16/24. */
-.tasksFab {
+:root:root .tasksFab { /* :root:root : passe devant le « position: relative » du composant .cmpSymbol */
   position: fixed; z-index: 48; width: 52px; height: 52px; padding: 0; box-sizing: border-box; border-radius: 50%; cursor: pointer;
   display: flex; align-items: center; justify-content: center; color: var(--purple);
-  background: var(--bg-raised); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); /* verre opaque : le contenu ne transparaît pas derrière */
+  background: none; border: 0; box-shadow: none; /* R37 : l'icône seule, sans cadre ni fond */
   touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
 }
 .tasksFab.hidden { display: none; }

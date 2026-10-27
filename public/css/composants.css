@@ -114,7 +114,7 @@
   color: var(--text-light); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: background-color var(--transition-fast), color var(--transition-fast);
 }
-.cmpEdit:hover { background: var(--hover-bg); color: var(--text); }
+.cmpEdit:hover { color: var(--text); } /* R37 : aucun fond, même au survol */
 
 /* Séparateur (R22) : trait pleine largeur d'un bord à l'autre de la cellule, jamais de marges. Sur la liste : entre deux enfants ; sur une ligne : au-dessus. */
 .cmpList > * + *, .cmpSep { border-top: 1px solid var(--sep); }
@@ -152,7 +152,7 @@
 :root :is(.menuBtn, .topIconBtn, .profileSquareBtn, .cmpSymbol, .historyNav > .iconBtn, .timesheetNav > .iconBtn):focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
 :root :is(.menuBtn, .historyNav > .iconBtn, .timesheetNav > .iconBtn):disabled { opacity: 0.35; }
 @media (hover: hover) {
-  :root :is(.menuBtn, .profileSquareBtn, .cmpSymbol, .historyNav > .iconBtn, .timesheetNav > .iconBtn):hover:not(:disabled) { background: var(--hover-bg); }
+  :root :is(.menuBtn, .profileSquareBtn, .cmpSymbol, .historyNav > .iconBtn, .timesheetNav > .iconBtn):hover:not(:disabled) { color: var(--text); } /* R37 : l'icône seule change de teinte, jamais de fond */
 }
 
 /* Œil « voir / masquer le mot de passe » (26 oct. 2026) : défini une seule fois (R29), posé par app.js sur chaque champ mot de passe ; zone de toucher de 44 px. */

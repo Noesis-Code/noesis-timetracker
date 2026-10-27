@@ -30,7 +30,7 @@
   function localIso() { var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
 
   // ---------- Bouton ----------
-  var fab = el('button', 'tasksFab hidden');
+  var fab = el('button', 'tasksFab cmpSymbol hidden');
   fab.type = 'button'; fab.id = 'tasksFab'; fab.setAttribute('aria-label', tr('Tâches du jour'));
   fab.appendChild(svg(true, 'M7.5 12.5l3.2 3.2 6-6.8')); // l'icône occupe tout le bouton (anneau contre le bord)
   document.body.appendChild(fab);
