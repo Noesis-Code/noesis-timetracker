@@ -328,7 +328,6 @@ input[type=time]:focus, select:focus, textarea:focus {
 }
 #profileFollowsPanel #followsPanelTitle { flex: 0 0 auto; margin: 0 0 8px; }
 /* Les trois boutons se partagent la largeur à parts égales et tolèrent un libellé plus long (« Abonnements ») sans pousser les deux autres hors du panneau, qui ne fait que 320px au plus. */
-#followsSwitch .periodBtn { flex: 1 1 0; min-width: 0; padding-left: 4px; padding-right: 4px; font-size: 12px; }
 /* #avatarMsg (message d'erreur du changement de photo) est vide dans l'immense majorité des cas, mais réservait quand même sa ligne — 28px de noir en bas d'une barre qui vient de gagner une troisième ligne. */
 .topbarProfile #avatarMsg:empty { display: none; }
 #content { flex: 1; padding: 18px 5%; max-width: 640px; margin: 0 auto; width: 100%; }
@@ -1014,7 +1013,6 @@ body.scrollLock { overflow: hidden; }
 /* Aide et suggestions (8 septembre 2026) : bascule Suggestion/Signaler un bug,
    deux .themeBtn génériques (Design) côte à côte — cette règle ne fait que
    les positionner, elle ne redéfinit rien de générique. */
-.feedbackCategorySwitch { display: flex; gap: 8px; margin-bottom: 12px; }
 /* Page "Réglages" (Apparence / Sécurité / Import) : remplace #profileMain au
    clic sur le bouton "⚙️", plutôt qu'un panneau replié dans la même page. */
 .subpageHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
@@ -2944,7 +2942,6 @@ button { -webkit-user-select: none; user-select: none; }
   padding-top: 8px; padding-bottom: 0;
   pointer-events: none; background: transparent;
 }
-#activityPageSectionSwitch .periodBtn { pointer-events: auto; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 10px 30px rgba(0, 0, 0, 0.25); }
 #activityPageSectionSwitch:not(.hidden) + #activityPageScroll #activityPageBody::before {
   content: ''; display: block; height: calc(var(--activity-switch-h) - 8px);
 }
@@ -3280,10 +3277,7 @@ html.kbOpen #onboarding .onboarding-card { margin: 0 auto; }
 .extCalRuleBox { margin-bottom: 10px; padding: 10px 12px; border-radius: var(--radius-lg); background: rgba(255,255,255,.05); border: 1px solid var(--glass-border); }
 .extCalLbl { display: block; font-size: 12px; opacity: .75; margin-bottom: 6px; }
 .extCalLine { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-.extCalSeg { display: flex; flex: 1 1 auto; gap: 4px; padding: 3px; border-radius: 999px; border: 1px solid var(--glass-border); }
-.extCalSeg button { flex: 1; white-space: nowrap; border: 0; border-radius: 999px; padding: 7px 6px; background: transparent; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
-.extCalSeg button.on { background: var(--purple); color: var(--on-action); }
-.extCalRule[data-mode="none"] .extCalSeg button.on { background: var(--brique); }
+.extCalSeg { flex: 1 1 auto; width: auto; margin: 0; }
 .extCalHrs { width: 64px; flex: 0 0 64px; }
 
 /* 18 oct. 2026 : champs de « Répartition selon mon agenda » = transparents comme le reste ; champ des mots plus long, bords très arrondis. */

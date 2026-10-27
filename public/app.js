@@ -10966,7 +10966,7 @@
       var line = document.createElement('div');
       line.className = 'extCalLine';
       var seg = document.createElement('div');
-      seg.className = 'extCalSeg';
+      seg.className = 'extCalSeg cmpSeg';
       var hrs = document.createElement('input');
       hrs.type = 'number'; hrs.className = 'calendarFeedUrl extCalHrs'; hrs.min = '0'; hrs.max = '24'; hrs.step = '0.5';
       hrs.setAttribute('inputmode', 'decimal'); hrs.placeholder = t('max. h');

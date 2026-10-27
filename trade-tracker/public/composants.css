@@ -162,6 +162,23 @@
   background-color: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 
+/* Sélecteur .cmpSeg (R42, décision d'Émilien du 27 oct. 2026) : UN composant pour tout choix entre quelques options (Aujourd'hui | Activités, Catégories | Statistiques, langues, catégories d'un message…).
+   Aucun conteneur (ni fond, ni liseré). Options pleine largeur à parts égales, texte 13 px centré. Option active = pastille de 28 px (rayon 8, --seg-active-bg), texte plein en 600, aucun contour ;
+   inactive = texte gris en 500, sans fond. Filet vertical 1×14 px entre les options. Zone de toucher de 44 px (hauteur de l'option). L'option active se marque par .active, .on, aria-pressed ou aria-selected.
+   La triple pseudo-classe :root passe devant les anciens styles de boutons de période/thème ; ne jamais redéfinir ce rendu écran par écran. */
+:root { --seg-active-bg: rgba(var(--purple-rgb), .16); --seg-sep: rgba(243, 238, 232, .07); }
+:root:root:root .cmpSeg { display: flex; align-items: stretch; flex-wrap: nowrap; width: 100%; box-sizing: border-box; gap: 0; margin: 0 0 16px; padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root:root:root .cmpSeg > * {
+  position: relative; flex: 1 1 0; min-width: 0; height: 44px; margin: 0; padding: 0 6px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; isolation: isolate;
+  color: var(--text-light); font: inherit; font-size: 13px; font-weight: 500; line-height: 1.2; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+:root:root:root .cmpSeg > *::before { content: ''; position: absolute; left: 4px; right: 4px; top: 8px; bottom: 8px; z-index: -1; border-radius: 8px; background: none; border: 0; box-shadow: none; }
+:root:root:root .cmpSeg > :is(.active, .on, [aria-pressed="true"], [aria-selected="true"]) { color: var(--text); font-weight: 600; }
+:root:root:root .cmpSeg > :is(.active, .on, [aria-pressed="true"], [aria-selected="true"])::before { background: var(--seg-active-bg); }
+:root:root:root .cmpSeg > * + *::after { content: ''; position: absolute; left: 0; top: 15px; width: 1px; height: 14px; border: 0; border-radius: 0; background: var(--seg-sep); }
+.cmpSeg > *:focus-visible { outline: 2px solid var(--purple); outline-offset: -2px; border-radius: 8px; }
+
 /* R41 (27 oct. 2026) : titre de bloc ou de tableau = style des titres de Paramètres. UNE définition. */
 .cmpBlockTitle { margin: 0; padding: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--text); text-align: left; }
 

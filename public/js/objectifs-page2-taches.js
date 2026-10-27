@@ -100,7 +100,7 @@
              entier par setGoalsPage2Mode() (plus bas dans ce fichier) selon
              le segment actif. #goalsTasksView est le nouvel écran par
              défaut, voir plus bas. -->
-        <div class="periodSwitch" id="goalsPage2ModeSwitch">
+        <div class="periodSwitch cmpSeg" id="goalsPage2ModeSwitch">
           <button type="button" class="periodBtn active" id="goalsPage2ModeTasksBtn" data-mode="tasks">Tâches</button>
           <button type="button" class="periodBtn" id="goalsPage2ModeGoalsBtn" data-mode="goals">Objectifs</button>
           <!-- (Emilien) : le bouton Discussion est retiré de l'interface (routes et messages conservés). Remplacé par « Ajouter », réservé aux activités Essor (GET /api/activities/:id/offer1). -->

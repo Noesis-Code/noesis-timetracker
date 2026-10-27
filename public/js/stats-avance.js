@@ -152,7 +152,7 @@
     bodies.t = el('div', 'saBody'); bodies.o = el('div', 'saBody hidden'); els.body = bodies.t;
     // Sélecteur Tâches | Objectifs (27 oct. 2026) : une seule page de statistiques ; le profil visité garde son propre glissement.
     if (!visitor) {
-      els.sel = el('div', 'periodSwitch saSel');
+      els.sel = el('div', 'periodSwitch cmpSeg saSel');
       [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (k) {
         var b = el('button', 'periodBtn' + (tab === k[0] ? ' active' : ''), tr(k[1])); b.type = 'button'; b.dataset.tab = k[0];
         b.addEventListener('click', function () { goTab(k[0]); });

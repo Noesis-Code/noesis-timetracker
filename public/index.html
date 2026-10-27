@@ -1903,7 +1903,7 @@
              sélecteur de période d'une activité partagée (#communityActivity
              PeriodSwitch) — aucune nouvelle règle CSS. La section "Projets"
              au-dessus n'est PAS concernée : elle reste toujours visible. -->
-        <div class="periodSwitch" id="viewProfileSectionSwitch">
+        <div class="periodSwitch cmpSeg" id="viewProfileSectionSwitch">
           <button type="button" class="periodBtn active" id="viewProfileTabStats">Statistiques</button>
           <button type="button" class="periodBtn" id="viewProfileTabMessages">Publications</button>
         </div>
@@ -2127,7 +2127,7 @@
              plus bas). id/data-section restent "sub" (inchangés, pour ne
              pas casser les liens profonds existants type
              setActivityPageSection('sub')). -->
-        <div class="periodSwitch" id="activityPageSectionSwitch" data-module="stats">
+        <div class="periodSwitch cmpSeg" id="activityPageSectionSwitch" data-module="stats">
           <button type="button" class="periodBtn active" data-section="sub">Catégories</button>
           <button type="button" class="periodBtn" id="activityPageTabStats" data-section="stats">Statistiques</button>
           <!-- 30 septembre 2026 : l'onglet Discussion a déménagé dans la Page 2 du volet Feuille de route (#goalsPage2ModeDiscBtn). -->
@@ -2454,7 +2454,7 @@
           <p class="sectionTitle" id="followsPanelTitle">Abonnés</p>
           <button type="button" id="followsPanelClose" class="cmpClose" aria-label="Fermer">✕</button>
         </div>
-        <div class="periodSwitch" id="followsSwitch">
+        <div class="periodSwitch cmpSeg" id="followsSwitch">
         <button type="button" class="periodBtn active" id="followsTabFollowers">Abonnés</button>
         <button type="button" class="periodBtn" id="followsTabFollowing">Abonnements</button>
         <button type="button" class="periodBtn" id="followsTabBlocked">Bloqués</button>
@@ -2706,7 +2706,7 @@
                    (composants génériques appartenant à la discussion Design :
                    utilisés tels quels, aucune définition CSS modifiée). -->
               <div class="settingsFlat">
-                <div class="themeSwitch" id="langSwitch">
+                <div class="themeSwitch cmpSeg" id="langSwitch">
                   <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
                   <button type="button" data-lang-choice="en" class="themeBtn">English</button>
                 </div>
@@ -3022,7 +3022,7 @@
               </button>
               <div class="settingsSectionBody hidden">
             <div class="settingsCard">
-              <div class="feedbackCategorySwitch">
+              <div class="feedbackCategorySwitch cmpSeg">
                 <button id="shareAppBtn" type="button" class="themeBtn">Partager l'app</button>
                 <button id="shareProfileBtn" type="button" class="themeBtn" data-module="community">Partager mon profil</button>
               </div>
@@ -3040,7 +3040,7 @@
               </button>
               <div class="settingsSectionBody hidden">
                 <div class="settingsCard">
-                  <div id="feedbackCategorySwitch" class="feedbackCategorySwitch">
+                  <div id="feedbackCategorySwitch" class="feedbackCategorySwitch cmpSeg">
                     <button type="button" class="themeBtn active" data-feedback-category="suggestion">Suggestion</button>
                     <button type="button" class="themeBtn" data-feedback-category="bug">Signaler un bug</button>
                   </div>

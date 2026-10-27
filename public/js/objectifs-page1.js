@@ -16,7 +16,7 @@
            de cette activité. Badge violet = tâches capturées pas encore vues (jamais un compteur cumulatif). -->
       <div id="goalsCapturePage" class="goalsCapturePage">
         <!-- 27 oct. 2026 (Émilien) : deux boutons en haut ; « Aujourd'hui » = tâches du jour + barre d'ajout (js/aujourdhui.js), « Activités » = choix de l'activité pour organiser ses tâches. -->
-        <div id="goalsPage1Switch" class="periodSwitch goalsPage1Switch">
+        <div id="goalsPage1Switch" class="periodSwitch cmpSeg goalsPage1Switch">
           <button type="button" class="periodBtn active" data-view="today">Aujourd'hui</button>
           <button type="button" class="periodBtn" data-view="activities">Activités</button>
         </div>
