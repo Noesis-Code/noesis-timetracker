@@ -137,7 +137,7 @@
   function emptyHint(list, text) { list.appendChild(el('p', 'horaireEmpty', text)); }
 
   // ---------- page principale : parcours en 4 pages, une par étape (28 oct. 2026, demande d'Émilien) ----------
-  // En-tête (semaine), puis 4 boutons d'étape pleine largeur (bascule commune .periodSwitch/.periodBtn, celle de « Tâches | Objectifs »,
+  // En-tête (semaine), puis 4 boutons d'étape pleine largeur (sélecteur commun .cmpSeg, R42,
   // R27/R29), puis les pages qui défilent de droite à gauche (TMT.slidePager, points de pagination communs .goalsDotBtn) :
   // 1. Récupération : réglages durables (classification, besoins et événements, règles, paramètres) + « Copier le prompt de récupération » ;
   // 2. Disponibilités : zone de collage (envoi dans la zone), ligne d'état, compte rendu ; 3. Horaire : « Générer l'horaire », horaire de la
@@ -169,9 +169,10 @@
     nav.appendChild(prev); nav.appendChild(weekLabel); nav.appendChild(next);
     head.appendChild(nav);
 
-    var steps = el('div', 'periodSwitch horaireSteps'); steps.setAttribute('role', 'tablist');
+    var steps = el('div', 'cmpSeg horaireSteps'); steps.setAttribute('role', 'tablist');
     stepBtns = STEP_LABELS.map(function (l, i) {
-      var b = btn('periodBtn', l, function () { goPage(i); }); b.setAttribute('role', 'tab');
+      // Libellé dans un span : l'option .cmpSeg est un conteneur flex, où le texte nu ne se tronque pas (« … ») sur téléphone.
+      var b = btn('', '', function () { goPage(i); }); b.textContent = ''; b.appendChild(el('span', 'horaireStepLabel', tr(l))); b.setAttribute('role', 'tab'); b.setAttribute('aria-label', tr(l));
       steps.appendChild(b); return b;
     });
     msgBox = el('p', 'horaireMsg hidden'); msgBox.setAttribute('aria-live', 'polite');
@@ -448,13 +449,13 @@
     }
     needsBox.appendChild(g);
   }
-  // Groupe, déroulé sous le tableau (R36) : Service (Matin | Soir, bascule commune .periodSwitch) et « Serveurs en plus ».
+  // Groupe, déroulé sous le tableau (R36) : Service (Matin | Soir, sélecteur commun .cmpSeg, R42) et « Serveurs en plus ».
   // Enregistrement automatique à chaque changement ; 0 retire le groupe. Un ancien événement devient un groupe à sa première modification.
   function eventForm(f, ev, day) {
     var cur = { service: ev ? eventService(ev) : 'soir', extra: ev && ev.service ? ev.extra : (ev ? 1 : 0) };
-    var sw = el('div', 'periodSwitch horaireEvSwitch');
+    var sw = el('div', 'cmpSeg');
     var svcBtns = ['matin', 'soir'].map(function (s) {
-      var b = btn('periodBtn' + (cur.service === s ? ' active' : ''), s === 'matin' ? 'Matin' : 'Soir', function () {
+      var b = btn(cur.service === s ? 'active' : '', s === 'matin' ? 'Matin' : 'Soir', function () {
         if (cur.service === s) return;
         cur.service = s; svcBtns.forEach(function (x, k) { x.classList.toggle('active', ['matin', 'soir'][k] === s); });
         save();

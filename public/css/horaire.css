@@ -10,11 +10,8 @@
 .horaireWeekLabel { min-width: 240px; text-align: center; font-size: 16px; font-weight: 500; color: var(--text); }
 /* R37 : flèche de semaine seule, sans carré, cadre ni fond ; zone de toucher de 44 px (R25) */
 .horaireNav { width: 44px; height: 44px; padding: 0; border: 0; background: none; box-shadow: none; font: inherit; font-size: 24px; line-height: 1; color: var(--text); cursor: pointer; }
-/* Parcours en 4 pages : boutons d'étape pleine largeur (bascule commune .periodSwitch/.periodBtn), points, pages (TMT.slidePager) */
-#tab-horaire .horaireSteps { margin: 0; }
-.horaireSteps .periodBtn { min-width: 0; min-height: 44px; padding: 8px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Téléphone : les 4 libellés ne tiennent pas sur une ligne ; 2 × 2, toujours pleine largeur */
-@media (max-width: 480px) { #tab-horaire .horaireSteps { display: grid; grid-template-columns: 1fr 1fr; } }
+/* Parcours en 4 pages : boutons d'étape pleine largeur (sélecteur commun .cmpSeg, R42), points, pages (TMT.slidePager) */
+.horaireStepLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .horairePages { position: relative; }
 .horairePage { display: flex; flex-direction: column; gap: 24px; }
 .horairePage > .horaireMsg { color: var(--violet-soft); }
@@ -57,8 +54,6 @@
 .horaireNeed .horaireSheetInput[type="time"] { flex: 1 1 auto; min-width: 84px; }
 .horaireNeed .horaireSheetInput[type="number"] { flex: 0 0 44px; width: 44px; }
 .cmpAdd.horaireNeedAdd { flex: 0 0 28px; width: 28px; height: 28px; align-self: flex-start; }
-#tab-horaire .horaireEvSwitch { margin: 0; }
-.horaireEvSwitch .periodBtn { min-height: 44px; }
 /* Ligne « Événement » : bouton de l'événement du jour, ou « + » pointillé (R33) ; le formulaire se déroule sous le tableau (R36) */
 .horaireEvent { width: 100%; min-height: 44px; padding: 8px; border: 1px solid rgba(var(--purple-rgb), .55); border-radius: var(--radius-sm); background: rgba(var(--purple-rgb), .12); font: inherit; font-size: 13px; color: var(--text); text-align: left; cursor: pointer; }
 .horaireEvent.on { border-color: var(--purple); }
