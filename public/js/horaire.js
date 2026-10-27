@@ -162,7 +162,6 @@
   function build() {
     root.textContent = '';
     var head = el('header', 'horaireHead');
-    head.appendChild(el('h1', 'horaireTitle', tr('Horaire')));
     var nav = el('div', 'horaireWeek');
     var prev = btn('horaireNav', '‹', function () { changeWeek(-7); }); prev.setAttribute('aria-label', tr('Semaine précédente'));
     var next = btn('horaireNav', '›', function () { changeWeek(7); }); next.setAttribute('aria-label', tr('Semaine suivante'));

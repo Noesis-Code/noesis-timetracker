@@ -5,8 +5,7 @@
 #tab-horaire .hidden { display: none; }
 
 /* En-tête (maquette du 27 oct. 2026) : titre, semaine ‹ libellé ›, « Générer l'horaire » (secondaire), « Prompt pour l'IA » (violet, R1) */
-.horaireHead { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
-.horaireTitle { flex-grow: 1; margin: 0; font-size: 24px; font-weight: 600; color: var(--text); }
+.horaireHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; }
 .horaireWeek { display: flex; align-items: center; gap: 8px; }
 .horaireWeekLabel { min-width: 240px; text-align: center; font-size: 16px; font-weight: 500; color: var(--text); }
 /* R37 : flèche de semaine seule, sans carré, cadre ni fond ; zone de toucher de 44 px (R25) */
