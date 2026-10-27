@@ -195,7 +195,11 @@
     var paste = el('div', 'horairePaste');
     pasteArea = el('textarea', 'horaireInput horairePasteArea'); pasteArea.rows = 12; pasteArea.setAttribute('aria-label', tr('Coller les disponibilités'));
     pasteArea.placeholder = tr('Colle ici le texte rendu par ton IA.');
-    paste.appendChild(pasteArea); paste.appendChild(btn('cmpBtn horairePasteSend', 'Envoyer', function () { sendAvail(pasteArea.value); }));
+    // En bas à droite DANS la zone : l'épingle commune (TMT.ui.attachBtn, R39) puis Envoyer (R13).
+    var pasteActions = el('div', 'horairePasteActions');
+    pasteActions.appendChild(TMT.ui.attachBtn(readAvailFile, { label: tr('Joindre un fichier') }));
+    pasteActions.appendChild(btn('cmpBtn horairePasteSend', 'Envoyer', function () { sendAvail(pasteArea.value); }));
+    paste.appendChild(pasteArea); paste.appendChild(pasteActions);
     statusLine = el('p', 'horaireStatus');
     p2.appendChild(paste); p2.appendChild(statusLine);
 
@@ -283,6 +287,19 @@
     copy.then(function () { show(tr(done)); }, function () {
       text.then(function () { show(tr('Copie impossible.')); }, function (e) { show((e && e.message) || tr('Erreur serveur')); });
     });
+  }
+  // Fichier joint, lu LOCALEMENT (rien n'est envoyé à une IA) : texte (.csv, .tsv, .txt…) placé dans la zone puis envoyé comme un collage ;
+  // tableur (.xlsx) : aucune bibliothèque dans le dépôt -> demander un CSV ; photo ou PDF : à donner à son IA avec le prompt de récupération.
+  function readAvailFile(files) {
+    var f = files[0], name = String(f.name || '').toLowerCase(), type = String(f.type || '');
+    if (/\.(csv|tsv|txt|md|markdown)$/.test(name) || /^text\//.test(type)) {
+      f.text().then(function (t) { pasteArea.value = t; sendAvail(t); }, fail);
+      return;
+    }
+    S.msg = /^image\//.test(type) || /\.pdf$/.test(name) || type === 'application/pdf'
+      ? tr('Donne cette image à ton IA avec le prompt de récupération, puis colle sa réponse ici.')
+      : tr('Exporte-le en CSV ou colle le texte.');
+    renderMsg();
   }
   // Envoi du texte collé (texte rendu par l'IA du gérant, même corps que l'import CSV). Compte rendu : lus, inconnus, ignorés.
   function sendAvail(text) {

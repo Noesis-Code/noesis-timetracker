@@ -108,7 +108,10 @@
 /* Coller les disponibilités : zone de texte ouverte seulement si le presse-papiers est refusé ; bouton d'envoi DANS la zone (R13) */
 .horairePaste { position: relative; }
 #tab-horaire .horairePaste textarea.horaireInput { padding-bottom: 56px; }
-.horairePasteSend { position: absolute; right: 8px; bottom: 8px; width: auto; min-height: 44px; padding: 0 16px; border-radius: var(--radius-md); }
+.horairePasteActions { position: absolute; right: 8px; bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.horairePasteSend { width: auto; min-height: 44px; padding: 0 16px; border-radius: var(--radius-md); }
+/* Épingle commune dans la zone (R39) : sans cadre (R37), zone de toucher 44 px */
+.horairePasteActions .chatAttachBtn { position: static; transform: none; width: 44px; height: 44px; }
 /* Prompts (Paramètres) : grandes zones de texte, lien discret « Revenir à la version de base » */
 #tab-horaire textarea.horairePromptArea { min-height: 160px; font-size: 13px; }
 .horaireLink { align-self: flex-start; min-height: 44px; margin-top: -8px; padding: 0; border: 0; background: none; font: inherit; font-size: 13px; color: var(--violet-soft); text-decoration: underline; cursor: pointer; }

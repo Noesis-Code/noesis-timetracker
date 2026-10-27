@@ -180,6 +180,29 @@
       handle.addEventListener('pointercancel', onCancel);
     });
   }
+  // Épingle (trombone) commune (R39, 28 oct. 2026) : même icône que les discussions (.chatAttachBtn), sans cadre (R37), zone de toucher
+  // 44 px ; ouvre le sélecteur du système (ordinateur ; téléphone : fichiers, photos, appareil photo) avec les mêmes types partout.
+  // onFiles(Array<File>) reçoit le choix ; opts.multiple, opts.label.
+  var ATTACH_ACCEPT = '.txt,.md,.markdown,.csv,.tsv,.xlsx,.docx,.pdf,text/*,image/*';
+  var CLIP_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+  function attachBtn(onFiles, opts) {
+    opts = opts || {};
+    var lab = document.createElement('label');
+    lab.className = 'chatAttachBtn';
+    lab.setAttribute('aria-label', opts.label || 'Joindre un fichier'); lab.title = opts.label || 'Joindre un fichier';
+    lab.innerHTML = CLIP_SVG;
+    var input = document.createElement('input');
+    input.type = 'file'; input.className = 'hidden'; input.accept = ATTACH_ACCEPT; input.multiple = !!opts.multiple;
+    input.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(input.files || []);
+      input.value = '';
+      if (files.length) onFiles(files);
+    });
+    lab.appendChild(input);
+    return lab;
+  }
+  ui.attachBtn = attachBtn;
+  ui.ATTACH_ACCEPT = ATTACH_ACCEPT;
   ui.groupDrag = groupDrag;
   root.TMT.ui = Object.assign(root.TMT.ui || {}, ui);
 })();
