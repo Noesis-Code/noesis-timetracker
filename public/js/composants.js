@@ -46,6 +46,22 @@
     if (onClick) b.addEventListener('click', onClick);
     return b;
   }
+  var ui = {
+    editIcon: function () { return EDIT_SVG; },
+    closeBtn: function (onClick, label) { var b = btn('cmpClose', label || 'Fermer', onClick); b.textContent = '✕'; return b; },
+    removeBtn: function (onClick, label) { return btn('cmpRemove', label || 'Retirer', onClick); },
+    editBtn: function (onClick, label) { var b = btn('cmpEdit', label || 'Modifier', onClick); b.innerHTML = EDIT_SVG; return b; },
+    addBtn: function (label, onClick) {
+      var b = btn('cmpAdd', '', onClick);
+      var p = document.createElement('b'); p.textContent = '+';
+      b.appendChild(p); b.appendChild(document.createTextNode(label));
+      return b;
+    },
+    chev: function (open) { var s = document.createElement('span'); s.className = 'cmpChev' + (open ? ' open' : ''); s.setAttribute('aria-hidden', 'true'); return s; },
+    toggleLabel: function (btn, label, open) { btn.textContent = ''; btn.classList.add('cmpToggle'); var s = document.createElement('span'); s.textContent = label; btn.appendChild(s); btn.appendChild(ui.chev(open)); },
+    setChev: function (el, open) { if (el) el.classList.toggle('open', !!open); },
+    confirm: confirmBox
+  };
   // Glisser-déposer d'une ligne dans son groupe OU vers un autre groupe (R27/R29 ; extrait de bindCatSecteurDrag d'app.js, 28 oct. 2026).
   // Pointer events + setPointerCapture sur la poignée ; la ligne tirée n'est jamais déplacée dans le DOM pendant le geste (transform
   // seulement) ; chaque groupe est une zone de dépôt ; un trait (o.lineClass) montre où la ligne sera insérée ; le groupe visé reçoit
@@ -164,22 +180,6 @@
       handle.addEventListener('pointercancel', onCancel);
     });
   }
-  var ui = {
-    groupDrag: groupDrag,
-    editIcon: function () { return EDIT_SVG; },
-    closeBtn: function (onClick, label) { var b = btn('cmpClose', label || 'Fermer', onClick); b.textContent = '✕'; return b; },
-    removeBtn: function (onClick, label) { return btn('cmpRemove', label || 'Retirer', onClick); },
-    editBtn: function (onClick, label) { var b = btn('cmpEdit', label || 'Modifier', onClick); b.innerHTML = EDIT_SVG; return b; },
-    addBtn: function (label, onClick) {
-      var b = btn('cmpAdd', '', onClick);
-      var p = document.createElement('b'); p.textContent = '+';
-      b.appendChild(p); b.appendChild(document.createTextNode(label));
-      return b;
-    },
-    chev: function (open) { var s = document.createElement('span'); s.className = 'cmpChev' + (open ? ' open' : ''); s.setAttribute('aria-hidden', 'true'); return s; },
-    toggleLabel: function (btn, label, open) { btn.textContent = ''; btn.classList.add('cmpToggle'); var s = document.createElement('span'); s.textContent = label; btn.appendChild(s); btn.appendChild(ui.chev(open)); },
-    setChev: function (el, open) { if (el) el.classList.toggle('open', !!open); },
-    confirm: confirmBox
-  };
+  ui.groupDrag = groupDrag;
   root.TMT.ui = Object.assign(root.TMT.ui || {}, ui);
 })();
