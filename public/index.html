@@ -2663,25 +2663,6 @@
             </div>
             <!-- Chantier B (20 oct. 2026) : l'onglet Activité n'existe plus ; ses fonctions (liste, couleur, ✎ modifier, fusion, suppression,
                  catégories) vivent ici, carte « Activités » au-dessus des sections « Paramètres ». Mêmes ids qu'avant. -->
-            <div class="settingsActivities" id="settingsActivitiesBlock">
-              <p class="settingsBlockLabel">Activités</p>
-      <div id="activitiesList" class="activitiesList"></div>
-      <div class="activityRow hidden" id="newActivityCard">
-        <div class="activityRowHeader">
-          <span class="dot" id="newActivityDot"></span>
-          <span class="activityRowName">Nouvelle activité</span>
-        </div>
-        <div class="activitySettingsPanel">
-          <input type="text" id="newActivityName" placeholder="Nom de l'activité">
-          <div id="newActivitySwatches" class="colorSwatches"></div>
-          <p class="meta"></p>
-          <div class="rowActions">
-            <button id="newActivitySave" class="iconBtn btnBrique">Ajouter l'activité</button>
-          </div>
-        </div>
-      </div>
-              <button id="addActivityBtn" class="cmpAdd" type="button" aria-label="Ajouter une activité"><b>+</b>Ajouter une activité</button>
-            </div>
             <p class="settingsBlockLabel">Paramètres</p>
             <div id="settingsParamsCard" class="settingsParamsWrap">
             <!-- 27 oct. 2026 (Émilien) : Réglages retriés en trois cartes — Mon IA ; Préférences, Compte, Mes données ; Partager l'app, Aide et suggestions. -->
@@ -3083,6 +3064,26 @@
             </div>
             </div>
             
+            </div>
+            <!-- 27 oct. 2026 (Émilien) : Paramètres au-dessus, Activités en dessous. -->
+            <div class="settingsActivities" id="settingsActivitiesBlock">
+              <p class="settingsBlockLabel">Activités</p>
+      <div id="activitiesList" class="activitiesList"></div>
+      <div class="activityRow hidden" id="newActivityCard">
+        <div class="activityRowHeader">
+          <span class="dot" id="newActivityDot"></span>
+          <span class="activityRowName">Nouvelle activité</span>
+        </div>
+        <div class="activitySettingsPanel">
+          <input type="text" id="newActivityName" placeholder="Nom de l'activité">
+          <div id="newActivitySwatches" class="colorSwatches"></div>
+          <p class="meta"></p>
+          <div class="rowActions">
+            <button id="newActivitySave" class="iconBtn btnBrique">Ajouter l'activité</button>
+          </div>
+        </div>
+      </div>
+              <button id="addActivityBtn" class="cmpAdd" type="button" aria-label="Ajouter une activité"><b>+</b>Ajouter une activité</button>
             </div>
             <button type="button" id="logoutBtn" class="settingsLogoutLink">Déconnexion</button>
             <button type="button" id="deleteAccountOpenBtn" class="settingsDeleteBtn">Supprimer mon compte</button>

@@ -189,3 +189,14 @@
 #profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody :is(input, textarea, select):not([type=checkbox], [type=radio], [type=range], [type=file]) { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
 #profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody .themeBtn { background: transparent; }
 #profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsSection { margin: 0; padding: 0; border-left: 0; }
+/* Mes données : deux blocs dans UNE carte, chacun avec ses marges (16 px), séparés par un trait pleine largeur ; rien ne déborde du cadre (R2, R6, R7, R22). */
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody { overflow-wrap: anywhere; }
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsFlat { padding: 14px 16px; margin: 0; min-width: 0; }
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsFlat + .settingsFlat,
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsFlat:not(.hidden) ~ .settingsFlat { border-top: 1px solid var(--sep); }
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsFlat .settingsFlatTitle { margin: 0 0 12px; }
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsFlat input[type=text] { display: block; width: 100%; max-width: 100%; box-sizing: border-box; margin: 0 0 12px; }
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsFlat .shareActions { display: flex; flex-wrap: wrap; gap: 8px; }
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsFlat .iconBtn { min-height: 44px; max-width: 100%; white-space: normal; }
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsFlat .msg { margin: 8px 0 0; }
+#profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsFlat input[type=text] { border: 1px solid var(--glass-border); border-radius: var(--radius-sm); padding: 10px 12px; min-height: 44px; font-size: 14px; color: var(--text); }
