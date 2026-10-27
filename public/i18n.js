@@ -232,6 +232,7 @@
     'Réservations': 'Reservations', 'Codes de paie': 'Payroll codes',
     'Prompts': 'Prompts', 'Prompt pour l’IA (consignes)': 'Prompt for AI (instructions)', 'Revenir à la version de base': 'Back to the default version',
     'Revenir à la version de base de ce prompt ?': 'Go back to the default version of this prompt?', 'Revenir': 'Revert',
+    'Jamais de double': 'Never a double', 'Repos après un quart': 'Rest after a shift',
     'fait': 'works', 'quarts': 'shifts', 'souhaités, dernier recours': 'wanted, last resort',
     'janvier': 'January', 'février': 'February', 'avril': 'April', 'juillet': 'July', 'septembre': 'September', 'octobre': 'October', 'novembre': 'November', 'décembre': 'December',
     'Règles strictes': 'Strict rules', 'Préférences': 'Preferences', 'Dernier recours, à signaler': 'Last resort, to flag',

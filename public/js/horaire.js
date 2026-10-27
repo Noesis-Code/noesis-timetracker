@@ -612,6 +612,12 @@
     pair2.appendChild(field(tr('Quarts souhaités min'), shifts[0])); pair2.appendChild(field(tr('Quarts souhaités max'), shifts[1]));
     f.appendChild(pair2);
     f.appendChild(field(tr('Contrainte particulière'), note));
+    // Contraintes strictes de la génération (cases à cocher, lues telles quelles par le serveur)
+    var checks = [['noDouble', 'Jamais de double'], ['restAfterShift', 'Repos après un quart']].map(function (k) {
+      var c = el('label', 'horaireCheck'), i = el('input'); i.type = 'checkbox'; i.checked = !!(e && e[k[0]]);
+      c.appendChild(i); c.appendChild(el('span', null, tr(k[1]))); f.appendChild(c);
+      return [k[0], i];
+    });
     var ranks = {};
     if (S.positions.length) {
       f.appendChild(el('span', 'horaireFieldLabel', tr('Postes (rang 1 = meilleur)')));
@@ -629,6 +635,7 @@
       var body = { name: name.value, maxWeekMinutes: max.value.trim() === '' ? null : Math.round(Number(max.value.replace(',', '.')) * 60), dayforceId: dfid.value.trim(),
         wantShiftsMin: shifts[0].value.trim() === '' ? null : Number(shifts[0].value), wantShiftsMax: shifts[1].value.trim() === '' ? null : Number(shifts[1].value),
         constraintNote: note.value.trim() };
+      checks.forEach(function (c) { body[c[0]] = c[1].checked; });
       return (e ? req('PUT', 'employees/' + e.id, body) : req('POST', 'employees', body)).then(function (d) {
         var id = d.employee.id;
         return Promise.all(Object.keys(ranks).map(function (pid) {

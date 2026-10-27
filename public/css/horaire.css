@@ -131,6 +131,8 @@ button.horaireChange { cursor: pointer; }
 #tab-horaire .horaireInput:focus { outline: none; border-color: var(--purple); }
 #tab-horaire .horaireInput option { background: var(--pop-bg); color: var(--text); }
 .horairePair { display: flex; gap: 8px; }
+.horaireCheck { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 14px; color: var(--text); cursor: pointer; }
+.horaireCheck input { width: 20px; height: 20px; margin: 0; accent-color: var(--purple); }
 .horaireTrio { display: grid; grid-template-columns: 1fr 1fr 64px; gap: 8px; }
 .horaireRanks { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
 .horaireLines { display: flex; flex-direction: column; gap: 16px; } /* groupes séparés par l'espace, pas par des traits (R3) */
