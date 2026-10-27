@@ -150,7 +150,16 @@
     els.msg = el('p', 'hint hidden');
     // Une page par onglet (Tâches | Objectifs) : les deux voisines coexistent pendant le glissement (slidePager).
     bodies.t = el('div', 'saBody'); bodies.o = el('div', 'saBody hidden'); els.body = bodies.t;
-    [els.chips, els.yearRow, els.msg, bodies.t, bodies.o].forEach(function (e) { page2.appendChild(e); });
+    // Sélecteur Tâches | Objectifs (27 oct. 2026) : une seule page de statistiques ; le profil visité garde son propre glissement.
+    if (!visitor) {
+      els.sel = el('div', 'periodSwitch saSel');
+      [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (k) {
+        var b = el('button', 'periodBtn' + (tab === k[0] ? ' active' : ''), tr(k[1])); b.type = 'button'; b.dataset.tab = k[0];
+        b.addEventListener('click', function () { goTab(k[0]); });
+        els.sel.appendChild(b);
+      });
+    }
+    [els.chips, els.sel, els.yearRow, els.msg, bodies.t, bodies.o].forEach(function (e) { if (e) page2.appendChild(e); });
     if (visitor) { bodies.t.classList.add('saVisitor'); bodies.o.classList.add('saVisitor'); }
     // Feuille du bas (charge restante par secteur) : même fenêtre qu'avant (communityMembersModal), fermeture ✕.
     var m = el('div', 'communityMembersModal hidden'); if (!visitor) m.id = 'statsAvanceModal';
@@ -699,6 +708,7 @@
   function setTab(t) { // change d'onglet sans recharger (les points globaux suivent via cfg.onTab)
     if (tab === t) return;
     tab = t; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null;
+    if (els.sel) Array.prototype.forEach.call(els.sel.children, function (b) { b.classList.toggle('active', b.dataset.tab === t); });
     if (cfg.onTab) cfg.onTab(tab);
   }
   function goTab(t) {
@@ -959,10 +969,10 @@
   };
 
   // ---------- Points de pagination (un seul jeu, #statsPageDots, posé hors des onglets) ----------
-  var DOT_LABELS = { chrono: ['Chrono', 'Statistiques', 'Activités partagées'], goals: ['Feuille de route', 'Tâches', 'Objectifs', 'Groupe'] };
+  var DOT_LABELS = { chrono: ['Chrono', 'Statistiques', 'Activités partagées'], goals: ['Feuille de route', 'Statistiques', 'Groupe'] }; // 27 oct. 2026 : Tâches et Objectifs ne font plus qu'une page (sélecteur Tâches | Objectifs dans la page)
   var dotsKey = '', dotsTimer = 0;
   function place() {
-    if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (groupOn ? 3 : (inst.getTab() === 'o' ? 2 : 1)) : (sharedOn ? 2 : 1) };
+    if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (groupOn ? 2 : 1) : (sharedOn ? 2 : 1) };
     if (showing('tab-chrono')) return { ctx: 'chrono', idx: 0 };
     if (showing('tab-goals') && showing('goalsCapturePage')) return { ctx: 'goals', idx: 0 };
     return null;
@@ -973,7 +983,7 @@
     var pl = place();
     if (!pl || (pl.ctx === 'goals' && !modOnId('stats-tasks')) || (pl.ctx === 'chrono' && !modOnId('stats'))) { dots.classList.add('hidden'); return; }
     dots.classList.remove('hidden');
-    var labels = DOT_LABELS[pl.ctx].slice(0, pl.ctx === 'chrono' ? (sharedAvailable() ? 3 : 2) : (groupAvailable() ? 4 : 3)); // sans partage : une page de moins
+    var labels = DOT_LABELS[pl.ctx].slice(0, pl.ctx === 'chrono' ? (sharedAvailable() ? 3 : 2) : (groupAvailable() ? 3 : 2)); // sans partage : une page de moins
     if (dotsKey !== pl.ctx + labels.length) {
       dotsKey = pl.ctx + labels.length; dots.innerHTML = '';
       labels.forEach(function (lab) {
@@ -995,8 +1005,8 @@
       return;
     }
     if (i === 0) { TMT.switchTab('goals'); return; }
-    if (i === 3) { if (showing('tab-stats')) setGroupPage(true); else TMT.openStats('goals', 4); return; }
-    if (showing('tab-stats')) { if (groupOn) setGroupPage(false); setStatsPage(i + 1); } else TMT.openStats('goals', i + 1);
+    if (i === 2) { if (showing('tab-stats')) setGroupPage(true); else TMT.openStats('goals', 4); return; }
+    if (showing('tab-stats')) { if (groupOn) setGroupPage(false); } else TMT.openStats('goals', 2);
   });
   // Les points suivent les onglets et l'écran de capture (ouvrir/fermer une page, glissement, notification…).
   (function () {
@@ -1148,10 +1158,10 @@
       cancel: done
     };
   }
-  function curIdx() { return ctx === 'goals' ? (groupOn ? 2 : (inst.getTab() === 'o' ? 1 : 0)) : 0; }
+  function curIdx() { return ctx === 'goals' ? (groupOn ? 1 : 0) : 0; }
   slidePager({
     zone: zone,
-    swallow: function (dir) { return ctx === 'chrono' ? (sharedOn && dir > 0) : (dir > 0 && curIdx() === (groupAvailable() ? 2 : 1)); },
+    swallow: function (dir) { return ctx === 'chrono' ? (sharedOn && dir > 0) : (dir > 0 && curIdx() === (groupAvailable() ? 1 : 0)); },
     neighbor: function (dir) {
       var i = curIdx(), t = i + dir;
       if (ctx === 'chrono') {
@@ -1160,12 +1170,9 @@
         return external(zone, document.getElementById('tab-chrono'), null, 'chrono'); // glisser de gauche à droite : retour au Chrono
       }
       if (t < 0) return external(zone, document.getElementById('tab-goals'), function () { if (TMT.showGoalsCapturePage) TMT.showGoalsCapturePage(); }, 'goals'); // retour à la page 1, à gauche
-      if (t > 2) return null;
-      if (t === 2) return groupAvailable() ? groupNeighbor(true) : null; // page Groupe, tout à droite
-      if (i === 2) return groupNeighbor(false); // de Groupe vers Objectifs
-      if (!inst.otherReady()) return null;
-      var nt = t === 1 ? 'o' : 't';
-      return { cur: inst.bodyOf(nt === 'o' ? 't' : 'o'), nb: inst.bodyOf(nt), host: page2, commit: function () { inst.commitTab(nt); } };
+      if (t > 1) return null;
+      if (t === 1) return groupAvailable() ? groupNeighbor(true) : null; // page Groupe, tout à droite
+      return groupNeighbor(false); // de Groupe vers Statistiques (Tâches | Objectifs : sélecteur dans la page)
     }
   });
   // Arrivée sur la page de statistiques depuis Chrono ou depuis la page 1 de la Feuille de route (glisser vers la gauche dans les deux cas).

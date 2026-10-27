@@ -5,14 +5,21 @@
   'use strict';
   var mq = window.matchMedia('(min-width: 1024px)');
   var IDS = ['docTasksPDots', 'viewProfileStatsDots', 'caStatsDots', 'goalsPage2Dots', 'statsPageDots']; // le plus au-dessus d'abord
-  var ICON = { prev: '<svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 3.5L6 10l6.5 6.5"/></svg>',
-               next: '<svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 3.5L14 10l-6.5 6.5"/></svg>' };
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function icon(dir) {
+    var svg = document.createElementNS(SVGNS, 'svg'), p = document.createElementNS(SVGNS, 'path');
+    svg.setAttribute('viewBox', '0 0 20 20'); svg.setAttribute('width', '20'); svg.setAttribute('height', '20');
+    svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '1.8');
+    svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+    p.setAttribute('d', dir === 'prev' ? 'M12.5 3.5L6 10l6.5 6.5' : 'M7.5 3.5L14 10l-6.5 6.5');
+    svg.appendChild(p); return svg;
+  }
   var arrows = {};
   function make(dir) {
     var b = document.createElement('button');
     b.type = 'button'; b.className = 'bureauArrow bureauArrow-' + dir + ' cmpGlass hidden';
     b.setAttribute('aria-label', dir === 'prev' ? 'Page précédente' : 'Page suivante');
-    b.innerHTML = ICON[dir];
+    b.appendChild(icon(dir));
     b.addEventListener('click', function () { var t = b._target; if (t) t.click(); });
     document.body.appendChild(b);
     return b;
