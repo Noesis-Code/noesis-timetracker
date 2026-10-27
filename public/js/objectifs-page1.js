@@ -15,6 +15,13 @@
            la tâche est répertoriée dans toutes les activités choisies ; texte vide + clic sur une puce = ouvre la page 2
            de cette activité. Badge violet = tâches capturées pas encore vues (jamais un compteur cumulatif). -->
       <div id="goalsCapturePage" class="goalsCapturePage">
+        <!-- 27 oct. 2026 (Émilien) : deux boutons en haut ; « Aujourd'hui » = tâches du jour + barre d'ajout (js/aujourdhui.js), « Activités » = choix de l'activité pour organiser ses tâches. -->
+        <div id="goalsPage1Switch" class="periodSwitch goalsPage1Switch">
+          <button type="button" class="periodBtn active" data-view="today">Aujourd'hui</button>
+          <button type="button" class="periodBtn" data-view="activities">Activités</button>
+        </div>
+        <div id="goalsTodayView"></div>
+        <div id="goalsActivitiesView" class="hidden">
         <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
         <p id="goalsCaptureActivityPrompt" class="hint goalsCaptureActivityPrompt hidden">Quelle activité pour cette tâche ?</p>
         <div id="goalsCaptureActivities" class="goalsCaptureActivities"></div>
@@ -52,6 +59,7 @@
             <div id="goalsTasksHistoryList"></div>
             <p id="goalsTasksHistoryEmptyHint" class="hint hidden">Aucune tâche capturée cette semaine.</p>
           </div>
+        </div>
         </div>
       </div>
 
@@ -1679,6 +1687,25 @@
   // semaine courante mais n'est PAS rechargé ici (chargement paresseux,
   // seulement à l'ouverture — voir le câblage de #goalsTasksHistoryHeader) :
   // pas besoin d'une requête réseau tant que l'utilisateur ne l'a pas ouvert.
+  // Page 1 : vue « Aujourd'hui » (par défaut) ou « Activités ».
+  var goalsPage1View = 'today';
+  function setGoalsPage1View(v) {
+    goalsPage1View = v === 'activities' ? 'activities' : 'today';
+    var today = goalsPage1View === 'today';
+    $('goalsTodayView').classList.toggle('hidden', !today);
+    $('goalsActivitiesView').classList.toggle('hidden', today);
+    Array.prototype.forEach.call(document.querySelectorAll('#goalsPage1Switch .periodBtn'), function (b) { b.classList.toggle('active', b.getAttribute('data-view') === goalsPage1View); });
+    if (TMT.todayView) {
+      if (today) { TMT.todayView.mount($('goalsTodayView')); TMT.todayView.show(); } else TMT.todayView.hide();
+    }
+    if (!today) renderGoalsCaptureActivities();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#goalsPage1Switch .periodBtn'), function (b) {
+    b.addEventListener('click', function () { setGoalsPage1View(b.getAttribute('data-view')); });
+  });
+  TMT.setGoalsPage1View = setGoalsPage1View;
+  window.addEventListener('load', function () { if (goalsPage1View === 'today' && TMT.todayView) setGoalsPage1View('today'); }); // aujourdhui.js se charge après cette page
+
   function showGoalsCapturePage() {
     if (TMT.collapseGoalsArchives) TMT.collapseGoalsArchives();
     if (TMT.collapseGoalsHistory) TMT.collapseGoalsHistory();
@@ -1713,6 +1740,7 @@
     if (histPanel) histPanel.classList.add('hidden');
     if (TMT.loadOffer1SubscribedSection) TMT.loadOffer1SubscribedSection();
     loadOffer1Availability();
+    setGoalsPage1View(goalsPage1View);
   }
 
 

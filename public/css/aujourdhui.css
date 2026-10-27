@@ -1,21 +1,5 @@
-/* Bouton flottant des tâches du jour et son pop-up (27 oct. 2026, js/bouton-flottant.js). Jetons seulement, verre commun (.cmpGlass), espacements 8/12/16/24. */
-:root:root .tasksFab { /* :root:root : passe devant le « position: relative » du composant .cmpSymbol */
-  position: fixed; z-index: 48; width: 52px; height: 52px; padding: 0; box-sizing: border-box; border-radius: 50%; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  background: none; color: var(--purple); border: 0; box-shadow: none; /* violet, sans remplissage : anneau + coche fins qui occupent tout le bouton */
-  touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
-}
-.tasksFab.hidden { display: none; }
-.tasksFab svg { width: 100%; height: 100%; display: block; }
-.tasksFab.dragging { scale: 1.12; animation: tasksFabWiggle .6s ease-out; } /* appui long, comme sur l'écran d'accueil d'un iPhone : l'icône tremble vite puis se stabilise, prête à bouger */
-@keyframes tasksFabWiggle { 0%, 100% { rotate: 0deg; } 12% { rotate: -7deg; } 27% { rotate: 7deg; } 42% { rotate: -6deg; } 57% { rotate: 5deg; } 72% { rotate: -3deg; } 86% { rotate: 1.5deg; } }
+/* Page 1 de la Feuille de route, vue « Aujourd'hui » (27 oct. 2026, js/aujourdhui.js). Jetons seulement, espacements 8/12/16/24. */
 
-.tasksPopVeil { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; background: color-mix(in srgb, var(--black) 82%, transparent); }
-.tasksPopVeil.hidden { display: none; }
-.tasksPop { display: flex; flex-direction: column; width: 100%; max-width: 480px; max-height: min(88vh, 720px); max-height: min(88dvh, 720px); border-radius: var(--radius-xl); overflow: hidden; color: var(--text); }
-.tasksPopHead { display: flex; align-items: flex-start; gap: 8px; padding: 16px 16px 8px; }
-.tasksPopTitleBox { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.tasksPopTitle { font-size: 22px; }
 .tasksPopDate { font-size: 13px; color: var(--text-light); }
 .tasksPopSum { display: flex; justify-content: space-between; gap: 8px; padding: 0 16px 12px; font-size: 13px; color: var(--text-light); border-bottom: 1px solid var(--sep); }
 .tasksPopSum b { color: var(--text); }
@@ -53,4 +37,15 @@
 .tasksText::placeholder { color: var(--text-light); }
 .tasksChips:empty, .tasksMsg:empty { display: none; }
 .tasksMsg { margin: 0; font-size: 13px; color: var(--text-light); }
-:root:root .tasksFab:hover:not(:disabled) { color: var(--purple); }
+
+.goalsPage1Switch { margin-bottom: 0; }
+#goalsTodayView.hidden, #goalsActivitiesView.hidden { display: none; }
+.tasksToday { display: flex; flex-direction: column; gap: 8px; }
+.tasksTodayHead { padding: 0 4px; }
+.tasksToday .tasksPopSum { padding: 0 4px 12px; }
+.tasksToday .tasksPopRow { padding-left: 4px; padding-right: 4px; }
+.tasksToday .tasksPopSection { padding-left: 4px; padding-right: 4px; }
+.tasksToday .tasksPopAdd { position: sticky; bottom: calc(var(--tabbar-h, 64px) + 16px); max-height: none; padding: 12px 0 0; background: transparent; }
+.tasksToday .tasksPopAdd .tasksComposer { background: var(--bg-raised); }
+/* La bulle d'écriture libre de l'ancienne page 1 est remplacée par la barre « Ajouter une tâche » de la vue Aujourd'hui. */
+#goalsActivitiesView .goalsCaptureBubbleWrap, #goalsActivitiesView .goalsCaptureActivityPrompt { display: none; }

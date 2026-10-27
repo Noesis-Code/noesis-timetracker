@@ -46,7 +46,11 @@
 // demande d'Emilien) : v6 → v7 ; objectifs-page2.js/.css remplacés par
 // objectifs-page2-taches.js/.css et objectifs-page2-objectif.js/.css.
 // 2 oct. 2026 : v9 → v10, ajout de stats-avance.js/.css (Statistiques, page 2).
-const CACHE_VERSION = 'noesis-v676';
+<<<<<<< HEAD
+const CACHE_VERSION = 'noesis-v677';
+=======
+const CACHE_VERSION = 'noesis-v678';
+>>>>>>> 9e744b5 (Feuille de route page 1 : boutons Aujourd'hui | Activités (tâches du jour + barre d'ajout dans Aujourd'hui) ; bouton flottant supprimé ; R38 pas de titre de module)
 
 // File d'attente des tâches capturées hors ligne (voir l'en-tête de
 // public/offline-queue.js). Chargée ici pour que Background Sync puisse la
@@ -75,7 +79,7 @@ const SHELL = [
   '/js/a11y-popups.js',
   '/js/stats-avance.js',
   '/js/bureau.js',
-  '/js/bouton-flottant.js',
+  '/js/aujourdhui.js',
   '/js/activite-stats-taches.js',
   '/js/connexion-ia.js',
   '/js/modules.js',
@@ -92,7 +96,7 @@ const SHELL = [
   '/js/trade.js',
   '/css/horaire.css',
   '/css/bureau.css',
-  '/css/bouton-flottant.css',
+  '/css/aujourdhui.css',
   '/js/horaire.js',
   '/css/composants.css',
   '/js/composants.js',

@@ -20,7 +20,7 @@
 /* Zone libre = bulle de la Page 1 (.activityGoalsCategoryAutoTaskBubble + contour animé) ; trombone .chatAttachBtn ; envoi .btnBrique. */
 #docTasksBubble textarea { padding: 14px 12px 60px 12px; text-align: left; }
 #docTasksBubble #docTasksSend { top: auto; bottom: 8px; right: 8px; margin-top: 0; }
-#docTasksBubble .chatAttachBtn { z-index: 1; left: auto; right: 54px; top: auto; bottom: 13px; transform: none; }
+#docTasksBubble .chatAttachBtn { z-index: 1; left: 8px; right: auto; top: auto; bottom: 10px; transform: none; }
 #docTasksBubble .iconBtn:disabled { opacity: 0.45; cursor: default; }
 .docTasksFilesBox { display: flex; flex-wrap: wrap; gap: 6px; }
 .docTasksChip { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(156, 140, 200, .18); margin-top: 6px; }

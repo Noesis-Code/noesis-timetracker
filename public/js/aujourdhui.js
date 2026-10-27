@@ -1,18 +1,15 @@
-/* Bouton flottant des tâches du jour (27 oct. 2026, demande d'Émilien). Visible partout dans l'app tant que le volet Feuille de route est dans la barre
- * des volets, sauf pendant les Réglages et les pages complètes. Appui long (500 ms) : il tremble (prêt à bouger) et on le déplace où l'on veut ;
- * clic court : pop-up « Aujourd'hui » = tâches du jour de toutes les activités (à cocher) + barre « Ajouter une tâche ».
- * Ajout : Noèsis PROPOSE « Activité › Pôle » (POST /api/goals/capture/propose, ne crée rien) ; la flèche ↑ accepte, « Changer » choisit ailleurs.
- * Données : GET /api/goals/today ; création : POST /api/goals/capture (comme la zone de la page 1, avec le rangement déjà confirmé).
- * Hors de l'app (écran d'accueil du téléphone) : app native, plus tard. */
+/* Page 1 de la Feuille de route, vue « Aujourd'hui » (27 oct. 2026, demande d'Émilien ; remplace le bouton flottant) : tâches du jour de toutes les
+ * activités (à cocher : cercle rempli + coche, barrée et grisée, puis descend dans « Faites aujourd'hui »), puis la barre « Ajouter une tâche ».
+ * Ajout : Noèsis PROPOSE « Activité › Pôle » (POST /api/goals/capture/propose, ne crée rien) ; la flèche ↑ accepte, « Changer » choisit ailleurs ;
+ * l'envoi suit la même chaîne que l'ancienne bulle de la page 1 (TMT.captureTaskFlow : pop-up selon le mode de l'IA).
+ * Données : GET /api/goals/today. Monté par objectifs-page1.js (TMT.todayView.mount / show / hide). */
 (function () {
   'use strict';
   var TMT = window.TMT;
   if (!TMT) return;
   var tr = function (s, v) { return typeof window.t === 'function' ? window.t(s, v) : s; };
-  var POS_KEY = 'noesis-fab-pos', LONG_MS = 500, MOVE_PX = 10, SIZE = 52, MARGIN = 8, PROPOSE_MS = 900;
-  var OVERLAYS = ['profileSettingsPanel', 'profilePage', 'activityPage', 'goalsActivitySwitcher', 'goalsDetailPage', 'tradePage'];
+  var PROPOSE_MS = 900, MAX_FILES = 3, MAX_BYTES = 5 * 1024 * 1024;
   var SVGNS = 'http://www.w3.org/2000/svg';
-  var MAX_FILES = 3, MAX_BYTES = 5 * 1024 * 1024;
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function svg(d, sw, ring) {
@@ -36,85 +33,20 @@
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
-  // ---------- Bouton : icône « validé » (anneau + coche) violette, traits fins, sans remplissage ----------
-  var fab = el('button', 'tasksFab cmpSymbol hidden');
-  fab.type = 'button'; fab.id = 'tasksFab'; fab.setAttribute('aria-label', tr('Tâches du jour'));
-  fab.appendChild(svg('M7.6 12.6l3 3 5.8-6.6', 1.2, true)); // anneau fin + coche : l'icône occupe tout le bouton, violette, sans remplissage
-  document.body.appendChild(fab);
-
-  function loadPos() { try { var p = JSON.parse(localStorage.getItem(POS_KEY) || 'null'); if (p && isFinite(p.x) && isFinite(p.y)) return p; } catch (e) { /* ignoré */ } return null; }
-  function savePos(p) { try { localStorage.setItem(POS_KEY, JSON.stringify(p)); } catch (e) { /* ignoré */ } }
-  function clamp(p) {
-    return { x: Math.max(MARGIN, Math.min(window.innerWidth - SIZE - MARGIN, p.x)), y: Math.max(MARGIN, Math.min(window.innerHeight - SIZE - MARGIN, p.y)) };
-  }
-  // Ordinateur (≥ 1024 px, 27 oct. 2026) : le bouton n'est plus flottant ; il se pose juste au-dessus du « + » de la barre des volets (ou, sans « + », à sa place à droite).
-  var desk = window.matchMedia('(min-width: 1024px)');
-  function dock() {
-    var add = document.getElementById('tabbarAdd'), bar = document.querySelector('.tabbar');
-    var ar = add && add.getClientRects().length ? add.getBoundingClientRect() : null;
-    var br = bar ? bar.getBoundingClientRect() : null;
-    var x = ar ? ar.left + (ar.width - SIZE) / 2 : window.innerWidth - SIZE - 32;
-    var y = (ar ? ar.top : (br ? br.top + (br.height - SIZE) : window.innerHeight - SIZE - 16)) - SIZE - 8;
-    return { x: x, y: y };
-  }
-  function place(p) {
-    if (desk.matches) { var d = dock(); fab.style.left = d.x + 'px'; fab.style.top = d.y + 'px'; return d; }
-    var q = clamp(p || loadPos() || { x: window.innerWidth - SIZE - 16, y: window.innerHeight - SIZE - 92 }); // par défaut : à droite, au-dessus de la barre des volets
-    fab.style.left = q.x + 'px'; fab.style.top = q.y + 'px';
-    return q;
-  }
-
-  // Appui long : le bouton tremble (prêt à bouger) puis suit le doigt ; clic court : pop-up (jamais à la fin d'un déplacement).
-  var press = null;
-  fab.addEventListener('pointerdown', function (e) {
-    if (e.button != null && e.button > 0) return;
-    var r = fab.getBoundingClientRect();
-    press = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: e.clientX - r.left, dy: e.clientY - r.top, drag: false, cancelled: false, timer: null };
-    press.timer = setTimeout(function () {
-      if (!press || desk.matches) return; // sur ordinateur : pas de déplacement
-      press.drag = true; fab.classList.add('dragging');
-      try { fab.setPointerCapture(press.id); } catch (err) { /* capture indisponible */ }
-      try { if (navigator.vibrate) navigator.vibrate([20, 30, 20]); } catch (err2) { /* vibration indisponible */ }
-    }, LONG_MS);
-  });
-  fab.addEventListener('pointermove', function (e) {
-    if (!press || e.pointerId !== press.id) return;
-    if (press.drag) { e.preventDefault(); place({ x: e.clientX - press.dx, y: e.clientY - press.dy }); return; }
-    if (Math.abs(e.clientX - press.x) > MOVE_PX || Math.abs(e.clientY - press.y) > MOVE_PX) { clearTimeout(press.timer); press.cancelled = true; }
-  });
-  function end(e, cancel) {
-    if (!press || (e && e.pointerId !== press.id)) return;
-    var p = press; press = null; clearTimeout(p.timer); fab.classList.remove('dragging');
-    if (p.drag) { savePos(place({ x: parseFloat(fab.style.left) || 0, y: parseFloat(fab.style.top) || 0 })); return; }
-    if (!cancel && !p.cancelled) openPop();
-  }
-  fab.addEventListener('pointerup', function (e) { end(e, false); });
-  fab.addEventListener('pointercancel', function (e) { end(e, true); });
-  fab.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-  window.addEventListener('resize', function () { place(); });
-
   // ---------- Pop-up ----------
-  var veil = null, listBox = null, sumL = null, sumR = null, timer = null, loadSeq = 0;
+  var listBox = null, sumL = null, sumR = null, timer = null, loadSeq = 0;
   var ui = {}; // éléments de la barre d'ajout
   var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null };
 
-  function build() {
-    veil = el('div', 'tasksPopVeil hidden');
-    var card = el('div', 'tasksPop cmpGlass');
-    card.setAttribute('role', 'dialog'); card.setAttribute('aria-label', tr('Aujourd’hui'));
-    var head = el('div', 'tasksPopHead');
-    var ttl = el('div', 'tasksPopTitleBox');
-    ttl.appendChild(el('b', 'tasksPopTitle', tr('Aujourd’hui')));
-    ttl.appendChild(el('span', 'tasksPopDate', todayLabel()));
-    head.appendChild(ttl);
-    head.appendChild(TMT.ui.closeBtn(closePop, tr('Fermer')));
+  var root = null, shown = false;
+  function build(container) {
+    root = el('div', 'tasksToday');
+    var head = el('div', 'tasksTodayHead');
+    head.appendChild(el('span', 'tasksPopDate', todayLabel()));
     var sum = el('div', 'tasksPopSum'); sumL = el('span'); sumR = el('span'); sum.appendChild(sumL); sum.appendChild(sumR);
     listBox = el('div', 'tasksPopList');
-    card.appendChild(head); card.appendChild(sum); card.appendChild(listBox); card.appendChild(buildAdd());
-    veil.appendChild(card);
-    veil.addEventListener('click', function (e) { if (e.target === veil) closePop(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !veil.classList.contains('hidden')) closePop(); });
-    document.body.appendChild(veil);
+    root.appendChild(head); root.appendChild(sum); root.appendChild(listBox); root.appendChild(buildAdd());
+    container.appendChild(root);
   }
 
   // Barre d'ajout : [📎 à gauche] [texte] [↑ flèche d'envoi] ; au-dessus, la proposition de Noèsis.
@@ -226,7 +158,7 @@
       var t = target();
       if (!t) { paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Choisis où ranger la tâche.'); if (state.options.length) toggleChooser(); return null; }
       if (state.files.length) {
-        var files = state.files.slice(); closePop();
+        var files = state.files.slice();
         if (TMT.docTasksPrefill) TMT.docTasksPrefill(t.activityId, label, files);
         return null;
       }
@@ -236,7 +168,7 @@
         var ok = (flow.results || []).filter(function (x) { return x.ok; })[0];
         if (!ok) { var bad = (flow.results || [])[0]; ui.msg.textContent = bad && bad.error ? tr(bad.error) : tr('non ajoutée'); return null; }
         var r = ok;
-          // Montrée tout de suite dans la liste, même si Noèsis l'a placée un autre jour (« demain »…), le temps du pop-up.
+          // Montrée tout de suite dans la liste, même si Noèsis l'a placée un autre jour (« demain »…), tant que la vue reste ouverte.
           state.added.unshift({ id: r.id, label: label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
           reset(); refresh();
       });
@@ -283,35 +215,15 @@
     });
   }
   function refresh() {
+    if (!root || !root.getClientRects().length) return; // vue masquée (autre volet, autre page) : rien à charger
     var seq = ++loadSeq;
-    TMT.api('GET', '/api/goals/today?today=' + localIso()).then(function (d) { if (seq === loadSeq && veil && !veil.classList.contains('hidden')) render(d); }).catch(function () {});
-  }
-  function openPop() {
-    if (!veil) build();
-    veil.classList.remove('hidden');
-    refresh();
-    clearInterval(timer); timer = setInterval(refresh, 6000);
-    update();
-  }
-  function closePop() {
-    if (!veil) return;
-    veil.classList.add('hidden'); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = [];
-    update();
+    TMT.api('GET', '/api/goals/today?today=' + localIso()).then(function (d) { if (seq === loadSeq && shown) render(d); }).catch(function () {});
   }
 
-  // ---------- Visibilité ----------
-  function shown(id) { var n = document.getElementById(id); return !!n && !n.classList.contains('hidden') && n.getClientRects().length > 0; }
-  function update() {
-    var inBar = !!(TMT.navBar && TMT.navBar.order && TMT.navBar.order().indexOf('goals') !== -1);
-    var bar = document.querySelector('.tabbar'), appOn = !!bar && bar.getClientRects().length > 0 && !!TMT.getProfile && !!TMT.getProfile();
-    var blocked = OVERLAYS.some(shown);
-    var popOpen = !!veil && !veil.classList.contains('hidden');
-    if (popOpen && (blocked || !inBar)) { closePop(); popOpen = false; }
-    var visible = inBar && appOn && !blocked;
-    fab.classList.toggle('hidden', !visible || popOpen);
-    if (visible && (desk.matches || !fab.style.left)) place();
-  }
-  setInterval(update, 400);
-  document.addEventListener('tmt:modules', update);
-  update();
+  var mounted = false;
+  TMT.todayView = {
+    mount: function (container) { if (mounted) return; mounted = true; build(container); },
+    show: function () { shown = true; refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
+    hide: function () { shown = false; clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
+  };
 })();

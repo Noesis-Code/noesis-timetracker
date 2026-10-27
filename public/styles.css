@@ -1269,7 +1269,7 @@ body.scrollLock { overflow: hidden; }
 #communityDiscussionInput { min-height: 0; padding-left: 40px; }
 /* Trombone : tout à gauche, DANS la zone d'écriture (centré verticalement comme Envoyer). */
 .chatAttachBtn {
-  position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+  position: absolute; left: 6px; bottom: 8px;
   width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center;
   background: transparent; border: none; color: var(--text-light); cursor: pointer;
 }
@@ -1279,7 +1279,7 @@ body.scrollLock { overflow: hidden; }
 .discussionMsgFiles a { color: inherit; text-decoration: underline; }
 /* ⚠️ Bouton centré verticalement dans la zone de saisie (demande d'Emilien : « le bouton envoyer [...] centré entre le haut et le bas de la zone texte »). */
 .chatComposerRow .iconBtn {
-  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  position: absolute; right: 8px; bottom: 8px;
   padding: 6px 12px;
 }
 .chatComposerRow .iconBtn,
@@ -2678,7 +2678,7 @@ button { -webkit-user-select: none; user-select: none; }
   position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
   padding: 6px 12px;
 }
-.activityGoalsCategoryAutoTaskBubble .cmpSend { position: absolute; right: 8px; top: 50%; margin-top: -18px; }
+.activityGoalsCategoryAutoTaskBubble .cmpSend { position: absolute; right: 8px; bottom: 8px; }
 .activityGoalsCategoryAutoTaskBubble .msg { padding: 0 10px 8px; margin: 0; }
 .activityGoalsCategoryAutoTaskBubble .msg:empty { display: none; padding: 0; }
 /* 22 septembre 2026, demande directe d'Emilien : « je ne souhaite pas que le message de validation ou d'erreur soit affiché dans la bulle d'écriture [...] un message juste en dessous. */
