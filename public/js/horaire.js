@@ -567,6 +567,12 @@
       req('DELETE', 'employees/' + e.id).then(refresh, function (err) { fail(err); renderCats(); });
     });
   }
+  // Après chaque ajout ou retrait de règle (employé ou catégorie) : relire les deux listes du serveur, puis redessiner la grille.
+  function reloadRules() {
+    return Promise.all([req('GET', 'employee-rules'), req('GET', 'category-rules')]).then(function (r) {
+      S.empRules = r[0].rules || []; S.catRules = r[1].rules || []; renderCats();
+    }, fail);
+  }
   function sheetRow(cls) { return el('div', 'horaireSheetRow ' + (cls || '')); }
   function rulePill(label, ask, onYes) {
     var pill = btn('horairePill', label, function () {
@@ -594,7 +600,7 @@
         (S.catRules || []).filter(function (x) { return x.rank === rank; }).forEach(function (x) {
           var label = tr(CAT_RULES[x.rule] || x.rule);
           rulesArea.appendChild(rulePill(label, tr('Retirer la règle') + ' « ' + label + ' » ' + tr('de la catégorie') + ' ' + rank + ' ?', function () {
-            req('DELETE', 'category-rules/' + rank + '/' + encodeURIComponent(x.rule)).then(function (d) { S.catRules = d.rules || []; renderCats(); }, fail);
+            req('DELETE', 'category-rules/' + rank + '/' + encodeURIComponent(x.rule)).then(reloadRules, fail);
           }));
         });
         var add = TMT.ui.addBtn(tr('Ajouter une règle'), function () { openRuleMenu(add, rank); });
@@ -643,7 +649,7 @@
     (S.empRules || []).filter(function (x) { return x.employeeId === e.id; }).forEach(function (x) {
       var label = x.rule === 'free' ? '“' + x.text + '”' : tr(CAT_RULES[x.rule] || x.rule);
       cell.appendChild(rulePill(label, tr('Retirer la règle') + ' ' + label + ' ?', function () {
-        req('DELETE', 'employee-rules/' + x.id).then(function () { S.empRules = S.empRules.filter(function (y) { return y.id !== x.id; }); renderCats(); }, fail);
+        req('DELETE', 'employee-rules/' + x.id).then(reloadRules, fail);
       }));
     });
     if (S.freeRuleFor === e.id) {
@@ -655,7 +661,7 @@
         if (closed) return;
         if (!t) { stop(); return; }
         closed = true;
-        req('POST', 'employee-rules', { employeeId: e.id, rule: 'free', text: t }).then(function (d) { S.empRules.push(d.rule); S.freeRuleFor = null; renderCats(); }, function (err) { fail(err); S.freeRuleFor = null; renderCats(); });
+        req('POST', 'employee-rules', { employeeId: e.id, rule: 'free', text: t }).then(function () { S.freeRuleFor = null; return reloadRules(); }, function (err) { fail(err); S.freeRuleFor = null; renderCats(); });
       };
       x.addEventListener('keydown', function (k) { if (k.key === 'Enter') { k.preventDefault(); save(); } else if (k.key === 'Escape') { k.preventDefault(); stop(); } });
       x.addEventListener('blur', save);
@@ -675,7 +681,7 @@
     Object.keys(CAT_RULES).filter(function (k) { return !have[k]; }).forEach(function (k) {
       var it = btn('horaireMenuItem', CAT_RULES[k], function () {
         closeMenu();
-        req('POST', 'employee-rules', { employeeId: e.id, rule: k }).then(function (d) { S.empRules.push(d.rule); renderCats(); }, fail);
+        req('POST', 'employee-rules', { employeeId: e.id, rule: k }).then(reloadRules, fail);
       });
       it.setAttribute('role', 'menuitem'); menu.appendChild(it);
     });
@@ -730,7 +736,7 @@
     Object.keys(CAT_RULES).filter(function (k) { return !have[k]; }).forEach(function (k) {
       var it = btn('horaireMenuItem', CAT_RULES[k], function () {
         closeMenu();
-        req('PUT', 'category-rules', { rank: rank, rule: k }).then(function (d) { S.catRules = d.rules || []; renderCats(); }, fail);
+        req('PUT', 'category-rules', { rank: rank, rule: k }).then(reloadRules, fail);
       });
       it.setAttribute('role', 'menuitem'); menu.appendChild(it);
     });
