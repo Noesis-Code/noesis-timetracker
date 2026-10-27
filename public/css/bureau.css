@@ -12,10 +12,12 @@
   .tabbar .tabBtnAdd { margin-left: 0; }
   .tabbar.barSolo .tabBtnAdd { margin-left: auto; }
 
-  /* Pages complètes (Réglages, Profil, Activité) : cartes élargies au lieu de la colonne de 480 px du téléphone. */
+  /* Pages complètes (Réglages, Profil, Activité, Feuille de route pages 2 et 3) : cartes élargies au lieu de la colonne de 480 px du téléphone. */
   #profileSettingsPanel.settingsPanel > .settingsPanelCard,
   #activityPage .communityMembersModalCard,
-  #profilePage .communityMembersModalCard { max-width: 960px; width: 100%; margin-left: auto; margin-right: auto; }
+  #profilePage .communityMembersModalCard,
+  #goalsActivitySwitcher .communityMembersModalCard,
+  #goalsDetailPage .communityMembersModalCard { max-width: 960px; width: 100%; margin-left: auto; margin-right: auto; }
 
   /* Pages complètes : retour par une flèche à gauche de l'écran, à la place de la croix (demande d'Émilien, 27 oct. 2026 ; la croix ✕ reste pour les pop-up et sur téléphone). */
   .activityPageHeader .cmpClose, .tradePageHeader .cmpClose { order: -1; margin-left: 0; }
