@@ -38,14 +38,24 @@
   var ui = {}; // éléments de la barre d'ajout
   var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null };
 
-  var root = null, shown = false;
+  var root = null, shown = false, dock = null;
+  // La barre n'existe à l'écran que si la vue Aujourd'hui est réellement visible (autre volet, autre vue ou page par-dessus : masquée).
+  function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length)); }
   function build(container) {
     root = el('div', 'tasksToday');
     var head = el('div', 'tasksTodayHead');
     head.appendChild(el('span', 'tasksPopDate', todayLabel()));
     var sum = el('div', 'tasksPopSum'); sumL = el('span'); sumR = el('span'); sum.appendChild(sumL); sum.appendChild(sumR);
     listBox = el('div', 'tasksPopList');
-    root.appendChild(head); root.appendChild(sum); root.appendChild(listBox); root.appendChild(buildAdd()); // la barre d'ajout reste en bas de la page et défile avec elle (jamais collée ni masquée)
+    root.appendChild(head); root.appendChild(sum); root.appendChild(listBox);
+    // La barre d'ajout est AU PREMIER PLAN, fixée au-dessus de la barre des volets (comme elle). Défilé = glissement latéral entre les pages :
+    // elle prend le même décalage que la page (#tab-goals) pendant le glissement, puis disparaît avec elle.
+    dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock);
+    var tab = document.getElementById('tab-goals');
+    if (tab && window.MutationObserver) {
+      new MutationObserver(function () { dock.style.transform = tab.style.transform || ''; dock.style.transition = tab.style.transition || ''; }).observe(tab, { attributes: true, attributeFilter: ['style'] });
+    }
+    setInterval(syncDock, 300);
     container.appendChild(root);
   }
 
@@ -223,7 +233,7 @@
   var mounted = false;
   TMT.todayView = {
     mount: function (container) { if (mounted) return; mounted = true; build(container); },
-    show: function () { shown = true; refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
-    hide: function () { shown = false; clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
+    show: function () { shown = true; syncDock(); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
+    hide: function () { shown = false; syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();
