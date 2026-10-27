@@ -2351,8 +2351,7 @@
           ne change rien à la hauteur intrinsèque réservée par
           rows="2" pour un contenu vide, d'où le même écart de
           positionnement du curseur au repos. -->
-          <textarea id="profileDiscussionCommunityInput" class="pollAutoGrow" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
-          <div id="profileDiscussionPendingList" class="attachmentList hidden"></div>
+          <div class="composerBubble"><textarea id="profileDiscussionCommunityInput" class="pollAutoGrow" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
           <div class="rowActions">
           <!-- "+" des sondages, à gauche du trombone — même déplacement que
           dans le composeur jumeau de #tab-community (3 septembre
@@ -2366,7 +2365,8 @@
           <input type="file" id="profileDiscussionAttachInput" class="hidden">
           </div>
           <button type="button" id="profileDiscussionCommunitySendBtn" class="iconBtn btnBrique">Envoyer</button>
-          </div>
+          </div></div>
+          <div id="profileDiscussionPendingList" class="attachmentList hidden"></div>
           <p id="profileDiscussionCommunityMsg" class="msg"></p>
           </div>
           <!-- Sondages — bloc JUMEAU de #communityPollsBlock (#tab-community) :
@@ -3045,9 +3045,7 @@
                     <button type="button" class="themeBtn" data-feedback-category="bug">Signaler un bug</button>
                   </div>
                   <div class="discussionComposer">
-                    <textarea id="feedbackMessageInput" class="pollAutoGrow" rows="3" placeholder="Ton message..." maxlength="4000"></textarea>
-                    <p class="hint">N'écris pas de mot de passe, de NIP, de numéro de carte ni d'autre renseignement sensible dans ce message ou dans une pièce jointe.</p>
-                    <div id="feedbackPendingList" class="attachmentList hidden"></div>
+                    <div class="composerBubble"><textarea id="feedbackMessageInput" class="pollAutoGrow" rows="3" placeholder="Ton message..." maxlength="4000"></textarea>
                     <div class="rowActions">
                       <div class="attachmentMenuWrap">
                         <button type="button" class="menuBtn attachMenuIconBtn" id="feedbackAttachBtn" aria-label="Joindre une photo ou un document">
@@ -3056,7 +3054,9 @@
                         <input type="file" id="feedbackAttachInput" class="hidden">
                       </div>
                       <button type="button" id="feedbackSendBtn" class="btn btn-primary btn-small btnBrique">Envoyer</button>
-                    </div>
+                    </div></div>
+                    <p class="hint">N'écris pas de mot de passe, de NIP, de numéro de carte ni d'autre renseignement sensible dans ce message ou dans une pièce jointe.</p>
+                    <div id="feedbackPendingList" class="attachmentList hidden"></div>
                   </div>
                   <p id="feedbackMsg" class="msg"></p>
                 </div>

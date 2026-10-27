@@ -3368,3 +3368,9 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
   background: transparent;
   border-bottom-color: var(--glass-border);
 }
+
+/* Zones d'écriture à pièce jointe (27 oct. 2026, règles fixes d'Émilien) : le trombone est en bas à GAUCHE de la bulle, l'envoi en bas à DROITE, dans la bulle. */
+.composerBubble { position: relative; }
+.composerBubble > textarea { display: block; width: 100%; box-sizing: border-box; padding-bottom: 56px; margin: 0; }
+.composerBubble > .rowActions { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; align-items: center; justify-content: flex-start; flex-wrap: nowrap; gap: 8px; }
+.composerBubble > .rowActions > .iconBtn, .composerBubble > .rowActions > .btn { margin-left: auto; margin-top: 0; }
