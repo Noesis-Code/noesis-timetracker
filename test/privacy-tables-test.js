@@ -83,7 +83,7 @@ for (const t of ['drive_ai_usage', 'drive_attempts', 'drive_batches', 'drive_con
 for (const t of ['external_calendar_settings', 'external_calendar_subscriptions', 'external_calendar_urls']) P[t] = { cols: ['userId'], erase: 'explicit', exp: 'NON: adresses de calendrier secrètes et réglages d\'import' };
 // Module « Horaire » : données du personnel saisies par le gestionnaire, exportées sous la clé « horaire ».
 for (const t of ['horaire_employees', 'horaire_positions', 'horaire_qualifications', 'horaire_availabilities', 'horaire_events', 'horaire_needs',
-  'horaire_rotation', 'horaire_schedules', 'horaire_assignments', 'horaire_settings', 'horaire_covers', 'horaire_timeoff', 'horaire_category_rules']) P[t] = { cols: ['userId'], erase: 'cascade', exp: 'horaire' };
+  'horaire_rotation', 'horaire_schedules', 'horaire_assignments', 'horaire_settings', 'horaire_covers', 'horaire_timeoff', 'horaire_category_rules', 'horaire_employee_rules']) P[t] = { cols: ['userId'], erase: 'cascade', exp: 'horaire' };
 // Tables sans aucune colonne qui désigne un compte (contenu d'activité, journaux globaux, jetons de webhooks...).
 const NON_PERSONAL = new Set(['activities_rebuild', 'activity_billing_cycles', 'activity_goal_categories', 'activity_goal_plans', 'activity_offre1',
   'announcements', 'generation_quality_log', 'goal_cross_sector_suggestions', 'goal_periods', 'goal_year_goals', 'goal_years', 'inactive_account_runs',

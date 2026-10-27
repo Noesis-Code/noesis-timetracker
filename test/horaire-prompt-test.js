@@ -72,14 +72,14 @@ const now = new Date().toISOString();
 const r1 = h.importEmployeesCsv('uA', 'nom;max;postes;quarts min;quarts max;contrainte\nAlice;30;Serveur:1;5;5;Jamais de double\nBruno;;Serveur:2 | Hôte:1;3;4;\n');
 const emps = h.listEmployees('uA');
 const alice = emps.find((e) => e.name === 'Alice'), bruno = emps.find((e) => e.name === 'Bruno');
-assert(r1.created === 2 && alice.wantShiftsMin === 5 && alice.wantShiftsMax === 5 && alice.constraintNote === 'Jamais de double', 'import CSV : quarts min/max et contrainte');
+assert(r1.created === 2 && alice.wantShiftsMin === 5 && alice.wantShiftsMax === 5 && h.listEmployeeRules('uA').some((x) => x.employeeId === alice.id && x.rule === 'free' && x.text === 'Jamais de double'), 'import CSV : quarts min/max, contrainte devenue règle libre');
 assert(bruno.wantShiftsMin === 3 && bruno.wantShiftsMax === 4 && bruno.constraintNote === null && h.listQualifications('uA').filter((q) => q.employeeId === bruno.id).length === 2, 'import CSV : postes bornés avant les colonnes suivantes');
 const r2 = h.importEmployeesCsv('uA', 'nom;quarts min;quarts max\nAlice;6;4\n');
 assert(r2.skipped.length === 1 && h.ownEmployee('uA', alice.id).wantShiftsMin === 5, 'import CSV : min > max refusé');
-const r3c = h.importEmployeesCsv('uA', 'nom;quarts min;quarts max;cible\nBruno;3;4;4\nAlice;5;5;2\n');
-assert(r3c.updated === 1 && r3c.skipped.length === 1 && h.ownEmployee('uA', bruno.id).wantShiftsTarget === 4 && h.ownEmployee('uA', alice.id).wantShiftsTarget === null, 'import CSV : colonne « cible » lue, cible hors du min et du max refusée');
+const r3c = h.importEmployeesCsv('uA', 'nom;heures min;heures max;cible\nBruno;18;24;20\nAlice;30;30;12\n');
+assert(r3c.updated === 1 && r3c.skipped.length === 1 && h.ownEmployee('uA', bruno.id).wantHoursTarget === 20 && h.ownEmployee('uA', alice.id).wantHoursTarget === null, 'import CSV : heures min, max et « cible » lues, cible hors du min et du max refusée');
 const ex = require('../server/lib/dataexport').buildUserExport('uA');
-assert(ex.horaire.employees.some((e) => e.wantShiftsMax === 5 && e.constraintNote === 'Jamais de double'), 'export du compte : nouveaux champs inclus');
+assert(ex.horaire.employees.some((e) => e.wantShiftsMax === 5) && ex.horaire.employeeRules.some((x) => x.text === 'Jamais de double'), 'export du compte : nouveaux champs et règles inclus');
 
 // ---- Routes ----
 const app = express();
@@ -185,10 +185,11 @@ function call(method, path, body, user) {
     && r.body.entryPrompt.text === P.ENTRY_PROMPT && !r.body.entryPrompt.text.includes('QUARTS À INSCRIRE'), 'GET prompts : versions de base (consignes d\'inscription sans les quarts)');
   r = await call('PUT', 'prompts', { importPrompt: 'Lis mes dispos.\u0007\r\nMerci.', entryPrompt: 'Inscris ces quarts.' }, 'uA');
   assert(r.status === 200 && r.body.importPrompt.text === 'Lis mes dispos.\nMerci.' && !r.body.importPrompt.isDefault && r.body.entryPrompt.text === 'Inscris ces quarts.', 'PUT prompts : enregistrés, caractères de contrôle retirés');
-  assert((await call('GET', 'import-prompt', undefined, 'uA')).text === 'Lis mes dispos.\nMerci.', 'GET import-prompt : version personnalisée');
+  assert((await call('GET', 'import-prompt', undefined, 'uA')).text === P.IMPORT_PROMPT, 'GET import-prompt : toujours la version de base (texte personnalisé gardé en base, sans servir)');
   await call('POST', 'weeks/' + W + '/generate', undefined, 'uA');
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uA');
-  assert(r.text.startsWith('Inscris ces quarts.\n\nSEMAINE : du lundi ' + W) && r.text.includes('QUARTS À INSCRIRE ('), 'prompt d\'inscription : consignes personnalisées puis quarts non modifiables');
+  assert(r.text.startsWith(P.ENTRY_PROMPT.trimEnd() + '\n\nSEMAINE : du lundi ' + W) && r.text.includes('QUARTS À INSCRIRE ('), 'prompt d\'inscription : consignes de base puis quarts');
+  assert(buildRegistrationPrompt({ weekStart: W, assignments: [], freeRules: [{ employeeName: 'Alice', text: 'Toujours en salle principale' }] }).includes('RÈGLES PARTICULIÈRES À VÉRIFIER\n- Alice : Toujours en salle principale'), 'prompt d’inscription : règles libres des employés placés');
   r = await call('GET', 'prompts', undefined, 'uB');
   assert(r.body.importPrompt.isDefault && r.body.entryPrompt.isDefault && (await call('GET', 'import-prompt', undefined, 'uB')).text === P.IMPORT_PROMPT, 'autre compte : garde les versions de base');
   assert((await call('PUT', 'prompts', { entryPrompt: 'x'.repeat(8001) }, 'uA')).status === 400, 'PUT prompts : plus de 8 000 caractères refusé');
@@ -205,9 +206,9 @@ function call(method, path, body, user) {
   assert((await call('PUT', 'employees/' + r.body.employee.id, { noDouble: 'oui' }, 'uA')).status === 400, 'PUT : valeur non booléenne refusée');
   const r3 = h.importEmployeesCsv('uA', 'nom;jamais de double;repos après un quart\nZoé Exemple;oui;non\nYves Modèle;non;oui\nXavier Test;peut-être;\n');
   const zoe = h.listEmployees('uA').find((e) => e.name === 'Zoé Exemple'), yves = h.listEmployees('uA').find((e) => e.name === 'Yves Modèle');
-  assert(r3.updated === 1 && r3.created === 1 && r3.skipped.length === 1 && zoe.noDouble === true && zoe.restAfterShift === false && yves.restAfterShift === true, 'import CSV : colonnes oui/non, valeur illisible écartée');
+  assert(r3.updated === 1 && r3.created === 1 && r3.skipped.length === 1 && (() => { const rs = h.listEmployeeRules('uA'); const has = (e, k) => rs.some((x) => x.employeeId === e.id && x.rule === k); return has(zoe, 'noDouble') && !has(zoe, 'restAfterShift') && has(yves, 'restAfterShift'); })(), 'import CSV : colonnes oui/non devenues règles de l’employé, valeur illisible écartée');
   const ex2 = require('../server/lib/dataexport').buildUserExport('uA');
-  assert(ex2.horaire.timeoff.length >= 1 && ex2.horaire.employees.some((e) => e.noDouble === 1), 'export du compte : congés et contraintes inclus');
+  assert(ex2.horaire.timeoff.length >= 1 && ex2.horaire.employeeRules.some((x) => x.rule === 'noDouble'), 'export du compte : congés et règles inclus');
   M.setModules('uB', { horaire: false, stats: true });
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uB');
   assert(r.status === 403 && r.body.code === 'module_off', 'module Horaire éteint : 403');

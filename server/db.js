@@ -2741,6 +2741,41 @@ for (const t of ['horaire_availabilities', 'horaire_timeoff']) {
 }
 // Règles de catégorie (28 oct. 2026) : catégorie = rang de qualification (1 = priorité la plus haute) ; chaque règle s'applique
 // à tous les employés de la catégorie, comme leurs propres cases (server/lib/horaire-generation.js).
+// Heures visées par semaine (28 oct. 2026, décision d'Émilien) : min, cible, max en HEURES (remplacent les quarts dans la génération).
+// Reprise une seule fois des anciennes valeurs : quarts × 6 h ; à défaut, le max d'heures hebdo (maxWeekMinutes / 60) pour le max.
+{
+  const cols = db.prepare('PRAGMA table_info(horaire_employees)').all().map((c) => c.name);
+  if (!cols.includes('wantHoursMin')) {
+    ['wantHoursMin', 'wantHoursTarget', 'wantHoursMax'].forEach((c) => db.exec('ALTER TABLE horaire_employees ADD COLUMN ' + c + ' REAL'));
+    db.exec(`UPDATE horaire_employees SET
+      wantHoursMin = CASE WHEN wantShiftsMin IS NOT NULL THEN wantShiftsMin * 6 END,
+      wantHoursTarget = CASE WHEN wantShiftsTarget IS NOT NULL THEN wantShiftsTarget * 6 END,
+      wantHoursMax = CASE WHEN wantShiftsMax IS NOT NULL THEN wantShiftsMax * 6 WHEN maxWeekMinutes IS NOT NULL THEN maxWeekMinutes / 60.0 END`);
+  }
+}
+// Règles par employé (28 oct. 2026) : liste fermée (appliquée par la génération) ou texte libre (rule = 'free', lu par l'IA seulement).
+// Reprise une seule fois : cases « jamais de double » / « repos après un quart » et note permanente deviennent des règles.
+if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'horaire_employee_rules'").get()) {
+  db.exec(`
+CREATE TABLE horaire_employee_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  employeeId INTEGER NOT NULL,
+  rule TEXT NOT NULL,
+  text TEXT,
+  createdAt TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_horaire_emp_rules ON horaire_employee_rules(userId, employeeId);
+`);
+  const now = new Date().toISOString();
+  const ins = db.prepare('INSERT INTO horaire_employee_rules (userId, employeeId, rule, text, createdAt) VALUES (?, ?, ?, ?, ?)');
+  db.prepare('SELECT id, userId, noDouble, restAfterShift, constraintNote FROM horaire_employees').all().forEach((e) => {
+    if (e.noDouble) ins.run(e.userId, e.id, 'noDouble', null, now);
+    if (e.restAfterShift) ins.run(e.userId, e.id, 'restAfterShift', null, now);
+    if (e.constraintNote) ins.run(e.userId, e.id, 'free', e.constraintNote, now);
+  });
+  db.exec('UPDATE horaire_employees SET noDouble = 0, restAfterShift = 0, constraintNote = NULL');
+}
 db.exec(`
 CREATE TABLE IF NOT EXISTS horaire_category_rules (
   userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

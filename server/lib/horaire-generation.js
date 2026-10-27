@@ -84,7 +84,8 @@ function overlaps(a, b) { return a.from < b.to && b.from < a.to; }
 /**
  * @param {object} input
  *   weekStart 'YYYY-MM-DD' (lundi) ; positions [{id, fillOrder}] ;
- *   employees [{id, maxWeekMinutes|null, wantShiftsMin|null, wantShiftsTarget|null, wantShiftsMax|null, noDouble, restAfterShift}] ;
+ *   employees [{id, wantHoursMin|null, wantHoursTarget|null, wantHoursMax|null (heures/semaine), noDouble, restAfterShift}] ;
+ *   employeeRules [{employeeId, rule}] (liste fermée, comme les règles de catégorie) ;
  *   qualifications [{employeeId, positionId, rank}] ; availabilities [{employeeId, day, start, end}] ; timeoff [{employeeId, day}] ;
  *   needs [{positionId, weekday 0..6, start, end, count}] ; events [{id, day, needs:[{positionId, start, end, count}]}] ;
  *   rotation { '<positionId>:<rank>': dernierEmployeeId } ;
@@ -125,7 +126,10 @@ function generateSchedule(input) {
     if (!catRules.has(rank)) catRules.set(rank, new Set());
     catRules.get(rank).add(c.rule);
   }
-  const rule = (empId, name) => { const s = catRules.get(best.get(empId)); return !!(s && s.has(name)); };
+  // règles par employé (liste fermée) : appliquées comme celles de sa catégorie
+  const empRules = new Map();
+  for (const r of input.employeeRules || []) { if (!empRules.has(r.employeeId)) empRules.set(r.employeeId, new Set()); empRules.get(r.employeeId).add(r.rule); }
+  const rule = (empId, name) => { const s = catRules.get(best.get(empId)), p = empRules.get(empId); return !!((s && s.has(name)) || (p && p.has(name))); };
   // congés : jour entier, l'employé est indisponible ce jour-là
   const off = new Set((input.timeoff || []).map((t) => t.employeeId + '|' + t.day));
 
@@ -147,14 +151,16 @@ function generateSchedule(input) {
   const has = (n) => n !== null && n !== undefined;
 
   // Plafond de quarts d'une passe : min (0 si absent), cible (sinon le max), max (sans limite si absent) ; jamais au-delà du max.
+  // Plafond d'une passe, en MINUTES (heures visées × 60) : min (0 si absent), cible (sinon le max), max (sans limite si absent).
+  const mins = (h) => (has(h) ? Math.round(h * 60) : null);
   function capOf(e, phase) {
-    const max = has(e.wantShiftsMax) ? e.wantShiftsMax : Infinity;
-    const min = has(e.wantShiftsMin) ? e.wantShiftsMin : 0;
+    const max = has(e.wantHoursMax) ? mins(e.wantHoursMax) : Infinity;
+    const min = has(e.wantHoursMin) ? mins(e.wantHoursMin) : 0;
     if (phase === 'min') return Math.min(min, max);
-    if (phase === 'target') return Math.min(max, Math.max(min, has(e.wantShiftsTarget) ? e.wantShiftsTarget : max));
+    if (phase === 'target') return Math.min(max, Math.max(min, has(e.wantHoursTarget) ? mins(e.wantHoursTarget) : max));
     return max;
   }
-  // level : 0 = tout respecté ; 1 = préférences assouplies ; 2 = + max d'heures assoupli (signalé).
+  // level : 0 = tout respecté ; 1 = préférences assouplies.
   function eligible(empId, slot, level, phase) {
     const e = empById.get(empId);
     const k = empId + '|' + slot.day;
@@ -169,7 +175,10 @@ function generateSchedule(input) {
     if ((e.restAfterShift || rule(empId, 'restAfterShift')) && (before.length || after.length)) return false;
     const double = same.some((s) => evening(s) !== evening(slot));
     if ((e.noDouble || rule(empId, 'noDouble')) && double) return false;
-    if (shiftsOf.get(empId) >= capOf(e, phase)) return false; // plafond de la passe (min, cible ou max : le max n'est jamais dépassé)
+    // Heures : le max n'est jamais dépassé ; passe « min » tant que le min n'est pas atteint ; passes « cible » et « max » sans dépasser leur plafond.
+    const done = minutesOf.get(empId);
+    if (done + slot.minutes > capOf(e, 'max')) return false;
+    if (phase === 'min' ? done >= capOf(e, 'min') : done + slot.minutes > capOf(e, phase)) return false;
     if (level < 1) {
       if (double) return false;
       // préférence de catégorie : « Soirs d'abord » évite les matins, « Matins d'abord » évite les soirs (assoupli dès la 2e passe)
@@ -177,8 +186,6 @@ function generateSchedule(input) {
       // fermeture suivie d'une ouverture : soir la veille puis matin, ou soir puis matin le lendemain
       if (evening(slot) ? after.some((s) => !evening(s)) : before.some(evening)) return false;
     }
-    const max = e.maxWeekMinutes;
-    if (level < 2 && has(max) && minutesOf.get(empId) + slot.minutes > max) return false;
     return true;
   }
 
@@ -215,7 +222,7 @@ function generateSchedule(input) {
   }
 
   let holes = ordered;
-  const PASSES = [['min', [0, 1, 2]], ['target', [0, 1]], ['max', [0, 1, 2]]];
+  const PASSES = [['min', [0, 1]], ['target', [0, 1]], ['max', [0, 1]]];
   for (const [phase, levels] of PASSES) {
     for (const level of levels) { // chaque passe ne reprend que les créneaux restés vides
       if (!holes.length) break;
@@ -236,12 +243,8 @@ function generateSchedule(input) {
     else { const a = { type: 'trou', positionId: s.positionId, day: s.day, start: s.start, end: s.end, missing: 1 }; holeKey.set(k, a); alerts.push(a); }
   }
   for (const e of employees) {
-    const max = e.maxWeekMinutes;
-    if (max !== null && max !== undefined && minutesOf.get(e.id) > max) {
-      alerts.push({ type: 'depassement', employeeId: e.id, minutes: minutesOf.get(e.id), maxWeekMinutes: max });
-    }
-    if (has(e.wantShiftsMin) && shiftsOf.get(e.id) < e.wantShiftsMin) {
-      alerts.push({ type: 'minimum', employeeId: e.id, shifts: shiftsOf.get(e.id), wantShiftsMin: e.wantShiftsMin });
+    if (has(e.wantHoursMin) && minutesOf.get(e.id) < mins(e.wantHoursMin)) {
+      alerts.push({ type: 'minimum', employeeId: e.id, minutes: minutesOf.get(e.id), wantHoursMin: e.wantHoursMin });
     }
   }
   assignments.sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0) || (toMin(a.start) - toMin(b.start)) || (posRank.get(a.positionId) - posRank.get(b.positionId)));

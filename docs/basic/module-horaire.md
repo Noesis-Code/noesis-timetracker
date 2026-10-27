@@ -132,6 +132,13 @@ colle-le dans ton IA. » ; il le colle dans SA propre IA. Le serveur ne l'envoie
    contrôle retirés) ; `null` ou `""` rétablit la version de base (`IMPORT_PROMPT`, `ENTRY_PROMPT`). Le prompt d'inscription
    = consignes (personnalisées ou de base), puis la semaine et la liste des quarts, toujours ajoutées par l'app.
 
+## Heures, règles par employé et page sans Paramètres (28 oct. 2026, demandes d'Émilien)
+
+- Grille « Classification des employés » : Nom | Heures min | Heures cible | Heures max | Règles. Champs `wantHoursMin`, `wantHoursTarget`, `wantHoursMax` (heures par semaine). Reprise unique des anciennes valeurs : quarts × 6 h ; à défaut de max en quarts, `maxWeekMinutes / 60`. Les colonnes en quarts restent en base, non lues.
+- Générateur : heures d'un quart = fin − début ; 3 passes en heures (min, puis cible, puis max strict, jamais dépassé). Alerte « minimum » en heures. `maxWeekMinutes` n'est plus lu (plus d'alerte de dépassement).
+- Règles par employé (`horaire_employee_rules`) : liste fermée appliquée par le générateur (comme les règles de catégorie) ou texte libre (`rule = 'free'`), lu seulement par l'IA (prompt d'inscription, « RÈGLES PARTICULIÈRES À VÉRIFIER ») et rappelé dans « À vérifier » à la page 3. Reprise unique : cases `noDouble` / `restAfterShift` et note permanente devenues règles (colonnes remises à vide).
+- Plus de section « Paramètres » sur la page : poste principal unique (`POST /api/horaire/main-position`, créé « Serveur » s'il manque) ; un employé se retire en vidant son nom (confirmation). Les prompts ne s'éditent plus : les routes servent toujours la version de base ; les textes personnalisés restent en base (`horaire_settings.importPrompt`, `entryPrompt`) sans servir.
+
 ## Configuration guidée (26 oct. 2026, demande d'Émilien)
 Pour ne jamais solliciter le restaurant à part, la première ouverture du volet par un compte non configuré
 (`settings.configured = false`) montre une étape par écran, dans cet ordre : 1. Postes et ordre de comblement ; 2. Employés

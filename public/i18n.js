@@ -238,7 +238,7 @@
     'Revenir à la version de base de ce prompt ?': 'Go back to the default version of this prompt?', 'Revenir': 'Revert',
     'Jamais de double': 'Never a double', 'Repos après un quart': 'Rest after a shift',
     'déjà placé': 'already placed',
-    'a': 'has', 'quarts': 'shifts', 'minimum': 'minimum', 'Min–Max': 'Min–Max', 'Min': 'Min', 'Max': 'Max', 'priorité la plus haute': 'highest priority',
+    'a': 'has', 'quarts': 'shifts', 'minimum': 'minimum', 'Règles': 'Rules', 'Règle': 'Rule', 'Heures min': 'Min hours', 'Heures cible': 'Target hours', 'Heures max': 'Max hours', 'Autre (texte libre)': 'Other (free text)', 'de l’horaire ?': 'from the schedule?', 'règle libre de': 'free rule of', 'Ajoute tes employés et tes besoins à l’étape 1.': 'Add your employees and needs in step 1.', 'priorité la plus haute': 'highest priority',
     'janvier': 'January', 'février': 'February', 'avril': 'April', 'juillet': 'July', 'septembre': 'September', 'octobre': 'October', 'novembre': 'November', 'décembre': 'December',
     'Règles du restaurant': 'Restaurant rules', 'Valent pour tous, chaque semaine.': 'Apply to everyone, every week.',
     'Règles strictes': 'Strict rules', 'Préférences': 'Preferences', 'Dernier recours, à signaler': 'Last resort, to flag',

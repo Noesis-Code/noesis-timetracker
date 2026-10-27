@@ -44,14 +44,14 @@ const ownEvent = (u, id) => db.prepare('SELECT * FROM horaire_events WHERE id = 
 // noDouble (jamais matin et soir le même jour) et restAfterShift (un jour de repos après chaque quart) : contraintes strictes
 // de la génération. constraintNote : note libre permanente, jamais lue par la génération ni touchée par un import de disponibilités.
 function listEmployees(u) {
-  return db.prepare('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, constraintNote, noDouble, restAfterShift, sortOrder, createdAt FROM horaire_employees WHERE userId = ? ORDER BY name COLLATE NOCASE, id').all(u)
+  return db.prepare('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, wantHoursMin, wantHoursTarget, wantHoursMax, constraintNote, noDouble, restAfterShift, sortOrder, createdAt FROM horaire_employees WHERE userId = ? ORDER BY name COLLATE NOCASE, id').all(u)
     .map((e) => ({ ...e, active: !!e.active, noDouble: !!e.noDouble, restAfterShift: !!e.restAfterShift }));
 }
 function countEmployees(u) { return db.prepare('SELECT COUNT(*) AS n FROM horaire_employees WHERE userId = ?').get(u).n; }
 const orNull = (v) => (v === undefined ? null : v);
-function createEmployee(u, { name, maxWeekMinutes, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, constraintNote, noDouble, restAfterShift }) {
-  const r = db.prepare('INSERT INTO horaire_employees (userId, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, constraintNote, noDouble, restAfterShift, createdAt) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(u, name, orNull(maxWeekMinutes), dayforceId || null, orNull(wantShiftsMin), orNull(wantShiftsMax), orNull(wantShiftsTarget), constraintNote || null, noDouble ? 1 : 0, restAfterShift ? 1 : 0, nowIso());
+function createEmployee(u, { name, maxWeekMinutes, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, wantHoursMin, wantHoursTarget, wantHoursMax, constraintNote, noDouble, restAfterShift }) {
+  const r = db.prepare('INSERT INTO horaire_employees (userId, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, wantHoursMin, wantHoursTarget, wantHoursMax, constraintNote, noDouble, restAfterShift, createdAt) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(u, name, orNull(maxWeekMinutes), dayforceId || null, orNull(wantShiftsMin), orNull(wantShiftsMax), orNull(wantShiftsTarget), orNull(wantHoursMin), orNull(wantHoursTarget), orNull(wantHoursMax), constraintNote || null, noDouble ? 1 : 0, restAfterShift ? 1 : 0, nowIso());
   return listEmployees(u).find((e) => e.id === Number(r.lastInsertRowid));
 }
 function updateEmployee(u, id, f) {
@@ -59,11 +59,11 @@ function updateEmployee(u, id, f) {
   if (!e) return null;
   const pick = (k) => (f[k] !== undefined ? f[k] : e[k]);
   const flag = (k) => (f[k] !== undefined ? (f[k] ? 1 : 0) : (e[k] ? 1 : 0));
-  db.prepare('UPDATE horaire_employees SET name = ?, maxWeekMinutes = ?, active = ?, dayforceId = ?, wantShiftsMin = ?, wantShiftsMax = ?, wantShiftsTarget = ?, constraintNote = ?, noDouble = ?, restAfterShift = ?, sortOrder = ? WHERE id = ? AND userId = ?').run(
+  db.prepare('UPDATE horaire_employees SET name = ?, maxWeekMinutes = ?, active = ?, dayforceId = ?, wantShiftsMin = ?, wantShiftsMax = ?, wantShiftsTarget = ?, wantHoursMin = ?, wantHoursTarget = ?, wantHoursMax = ?, constraintNote = ?, noDouble = ?, restAfterShift = ?, sortOrder = ? WHERE id = ? AND userId = ?').run(
     pick('name'), pick('maxWeekMinutes'),
     f.active !== undefined ? (f.active ? 1 : 0) : e.active,
     f.dayforceId !== undefined ? (f.dayforceId || null) : e.dayforceId,
-    pick('wantShiftsMin'), pick('wantShiftsMax'), pick('wantShiftsTarget'),
+    pick('wantShiftsMin'), pick('wantShiftsMax'), pick('wantShiftsTarget'), pick('wantHoursMin'), pick('wantHoursTarget'), pick('wantHoursMax'),
     f.constraintNote !== undefined ? (f.constraintNote || null) : e.constraintNote,
     flag('noDouble'), flag('restAfterShift'), pick('sortOrder'), e.id, u);
   return listEmployees(u).find((x) => x.id === e.id);
@@ -85,6 +85,7 @@ function deleteEmployee(u, id) {
     ['DELETE FROM horaire_qualifications WHERE employeeId = ? AND userId = ?', i],
     ['DELETE FROM horaire_availabilities WHERE employeeId = ? AND userId = ?', i],
     ['DELETE FROM horaire_timeoff WHERE employeeId = ? AND userId = ?', i],
+    ['DELETE FROM horaire_employee_rules WHERE employeeId = ? AND userId = ?', i],
     ['DELETE FROM horaire_assignments WHERE employeeId = ? AND userId = ?', i],
     ['UPDATE horaire_rotation SET lastEmployeeId = NULL WHERE lastEmployeeId = ? AND userId = ?', i],
     ['DELETE FROM horaire_employees WHERE id = ? AND userId = ?', i],
@@ -172,6 +173,28 @@ function availSummary(u, weekStart) {
   return { employees: r.n || 0, at: r.at || null };
 }
 
+// ---------- règles par employé : liste fermée (CATEGORY_RULES, appliquée par la génération) ou 'free' (texte libre, lu par l'IA) ----------
+const RULE_TEXT_MAX = 300;
+function listEmployeeRules(u) {
+  return db.prepare('SELECT id, employeeId, rule, text FROM horaire_employee_rules WHERE userId = ? ORDER BY employeeId, id').all(u);
+}
+function addEmployeeRule(u, employeeId, rule, text) {
+  if (rule !== 'free') {
+    const dup = db.prepare('SELECT id FROM horaire_employee_rules WHERE userId = ? AND employeeId = ? AND rule = ?').get(u, employeeId, rule);
+    if (dup) return listEmployeeRules(u).find((r) => r.id === dup.id);
+  }
+  const r = db.prepare('INSERT INTO horaire_employee_rules (userId, employeeId, rule, text, createdAt) VALUES (?, ?, ?, ?, ?)')
+    .run(u, Number(employeeId), rule, rule === 'free' ? text : null, nowIso());
+  return listEmployeeRules(u).find((x) => x.id === Number(r.lastInsertRowid));
+}
+function removeEmployeeRule(u, id) {
+  return db.prepare('DELETE FROM horaire_employee_rules WHERE id = ? AND userId = ?').run(Number(id), u).changes > 0;
+}
+// Poste principal du compte (28 oct. 2026 : plus d'interface de postes) : le premier par ordre de comblement, créé (« Serveur ») s'il manque.
+function mainPosition(u) {
+  return listPositions(u)[0] || createPosition(u, { name: 'Serveur' });
+}
+
 // ---------- règles de catégorie (catégorie = rang de qualification) ----------
 const CATEGORY_RULES = ['noDouble', 'restAfterShift', 'noMorning', 'noEvening', 'eveningsFirst', 'morningsFirst'];
 function listCategoryRules(u) {
@@ -254,7 +277,7 @@ function getSchedule(u, weekStart) {
 // seulement quand le gestionnaire relance « Générer »). Chaque génération fait avancer la rotation.
 function generate(u, weekStart) {
   const days = gen.weekDays(weekStart);
-  const employees = db.prepare('SELECT id, maxWeekMinutes, wantShiftsMin, wantShiftsMax, wantShiftsTarget, noDouble, restAfterShift FROM horaire_employees WHERE userId = ? AND active = 1').all(u)
+  const employees = db.prepare('SELECT id, wantHoursMin, wantHoursTarget, wantHoursMax, noDouble, restAfterShift FROM horaire_employees WHERE userId = ? AND active = 1').all(u)
     .map((e) => ({ ...e, noDouble: !!e.noDouble, restAfterShift: !!e.restAfterShift }));
   const rot = {};
   db.prepare('SELECT positionId, rank, lastEmployeeId FROM horaire_rotation WHERE userId = ?').all(u)
@@ -270,6 +293,7 @@ function generate(u, weekStart) {
     events: listEvents(u, days[0], days[6]),
     rotation: rot,
     categoryRules: listCategoryRules(u),
+    employeeRules: listEmployeeRules(u).filter((r) => r.rule !== 'free'),
   });
   db.exec('BEGIN');
   try {
@@ -366,7 +390,12 @@ function exportDayforce(u, weekStart) {
 function weekPrompt(u, weekStart) {
   const s = getSchedule(u, weekStart);
   if (!s) return null;
-  return require('./horaire-prompt').buildRegistrationPrompt({ weekStart, assignments: s.assignments, instructions: getPrompts(u).entryPrompt.text });
+  // Consignes : version de base (28 oct. 2026, plus d'édition ; les textes personnalisés restent en base sans servir). Règles libres des
+  // employés placés cette semaine : l'IA les lit, la génération non.
+  const placed = new Set(s.assignments.map((a) => a.employeeId));
+  const names = new Map(listEmployees(u).map((e) => [e.id, e.name]));
+  const freeRules = listEmployeeRules(u).filter((r) => r.rule === 'free' && placed.has(r.employeeId)).map((r) => ({ employeeName: names.get(r.employeeId), text: r.text }));
+  return require('./horaire-prompt').buildRegistrationPrompt({ weekStart, assignments: s.assignments, freeRules });
 }
 
 // ---------- prompts modifiables par le gérant (NULL = version de base) ----------
@@ -469,7 +498,10 @@ const findEmployeeByName = (u, name) => db.prepare('SELECT * FROM horaire_employ
 const EXTRA_EMPLOYEE_COLS = {
   wantShiftsMin: ['quarts min', 'quarts souhaites min', 'min quarts', 'shifts min', 'min shifts'],
   wantShiftsMax: ['quarts max', 'quarts souhaites max', 'max quarts', 'shifts max', 'max shifts'],
-  wantShiftsTarget: ['cible', 'quarts cible', 'cible quarts', 'target', 'shifts target'],
+  wantShiftsTarget: ['quarts cible', 'cible quarts', 'shifts target'],
+  wantHoursMin: ['heures min', 'min heures', 'hours min'],
+  wantHoursTarget: ['cible', 'heures cible', 'cible heures', 'target', 'hours target'],
+  wantHoursMax: ['heures max', 'max heures', 'hours max'],
   constraintNote: ['contrainte', 'contrainte particuliere', 'constraint'],
   noDouble: ['jamais de double', 'pas de double', 'no double'],
   restAfterShift: ['repos apres un quart', 'repos apres chaque quart', 'rest after shift'],
@@ -482,6 +514,27 @@ function yesNo(v) {
   return undefined;
 }
 const EXTRA_ERRORS = { constraintNote: 'contrainte trop longue', noDouble: 'jamais de double : oui ou non', restAfterShift: 'repos après un quart : oui ou non' };
+// Heures d'une semaine : nombre de 0 à 168 (virgule acceptée), au demi-heure près ; '' ou null = effacé ; undefined = invalide.
+function hoursValue(v) {
+  if (v === null || v === '') return null;
+  const n = typeof v === 'number' ? v : Number(String(v).replace(',', '.').replace(/\s*h$/i, '').trim());
+  if (!Number.isFinite(n) || n < 0 || n > 168) return undefined;
+  return Math.round(n * 2) / 2;
+}
+function hoursOrdered(lo, tg, hi) {
+  if (lo != null && hi != null && lo > hi) return false;
+  return !(tg != null && ((lo != null && tg < lo) || (hi != null && tg > hi)));
+}
+function setRulesFromImport(u, empId, f) {
+  ['noDouble', 'restAfterShift'].forEach((k) => {
+    if (f[k] === true) addEmployeeRule(u, empId, k);
+    else if (f[k] === false) db.prepare('DELETE FROM horaire_employee_rules WHERE userId = ? AND employeeId = ? AND rule = ?').run(u, empId, k);
+  });
+  if (f.constraintNote) {
+    const has = db.prepare("SELECT 1 FROM horaire_employee_rules WHERE userId = ? AND employeeId = ? AND rule = 'free' AND text = ?").get(u, empId, f.constraintNote);
+    if (!has) addEmployeeRule(u, empId, 'free', f.constraintNote);
+  }
+}
 function importEmployeesCsv(u, text) {
   const rows = parseCsv(text);
   if (!rows.length) return { created: 0, updated: 0, skipped: [] };
@@ -512,7 +565,7 @@ function importEmployeesCsv(u, text) {
       for (const [k, i] of Object.entries(extra)) {
         const raw = String(cells[i] || '').trim();
         if (raw === '') continue;
-        more[k] = k === 'constraintNote' ? constraintText(raw) : (k === 'noDouble' || k === 'restAfterShift') ? yesNo(raw) : shiftCount(raw);
+        more[k] = k === 'constraintNote' ? constraintText(raw) : (k === 'noDouble' || k === 'restAfterShift') ? yesNo(raw) : /^wantHours/.test(k) ? hoursValue(raw) : shiftCount(raw);
         if (more[k] === undefined) { res.skipped.push({ line: n + 1, reason: EXTRA_ERRORS[k] || 'quarts souhaités illisibles (0 à ' + LIMITS.shifts + ')' }); return; }
       }
       let emp = findEmployeeByName(u, name);
@@ -521,11 +574,17 @@ function importEmployeesCsv(u, text) {
       if (lo != null && hi != null && lo > hi) { res.skipped.push({ line: n + 1, reason: 'quarts min supérieur au max' }); return; }
       const tg = more.wantShiftsTarget !== undefined ? more.wantShiftsTarget : (emp ? emp.wantShiftsTarget : null);
       if (tg != null && ((lo != null && tg < lo) || (hi != null && tg > hi))) { res.skipped.push({ line: n + 1, reason: 'cible hors du min et du max' }); return; }
+      const hv = (k) => (more[k] !== undefined ? more[k] : (emp ? emp[k] : null));
+      if (!hoursOrdered(hv('wantHoursMin'), hv('wantHoursTarget'), hv('wantHoursMax'))) { res.skipped.push({ line: n + 1, reason: 'heures : min ≤ cible ≤ max' }); return; }
+      // Cases et note de l'import : deviennent des règles de l'employé (28 oct. 2026).
+      const asRules = { noDouble: more.noDouble, restAfterShift: more.restAfterShift, constraintNote: more.constraintNote };
+      delete more.noDouble; delete more.restAfterShift; delete more.constraintNote;
       if (emp) { updateEmployee(u, emp.id, { maxWeekMinutes: maxH === '' ? undefined : maxM, ...more }); res.updated += 1; }
       else {
         if (countEmployees(u) >= LIMITS.employees) { res.skipped.push({ line: n + 1, reason: 'limite d\'employés atteinte' }); return; }
         emp = createEmployee(u, { name, maxWeekMinutes: maxM, ...more }); res.created += 1;
       }
+      setRulesFromImport(u, emp.id, asRules);
       const posCells = idx.positions !== undefined ? cells.slice(idx.positions, posEnd) : [];
       posCells.join('|').split(/[|/]/).map((s) => s.trim()).filter(Boolean).forEach((tok) => {
         const m = /^(.*?)\s*[:=]\s*(\d+)$/.exec(tok);
@@ -673,10 +732,11 @@ module.exports = {
   listQualifications, setQualification, removeQualification,
   getAvailabilities, setAvailabilities, getTimeoff, availSummary,
   CATEGORY_RULES, listCategoryRules, addCategoryRule, removeCategoryRule,
+  listEmployeeRules, addEmployeeRule, removeEmployeeRule, RULE_TEXT_MAX, mainPosition,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
   generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
-  parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv,
+  parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,
 };

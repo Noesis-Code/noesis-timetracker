@@ -289,7 +289,7 @@ function buildUserExport(userId) {
   ) : [];
   // Module « Horaire » (données du personnel saisies par le gestionnaire, Loi 25) : tout ce que le compte a saisi ou généré.
   const horaire = has('horaire_employees') ? {
-    employees: rows('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, constraintNote, noDouble, restAfterShift, createdAt FROM horaire_employees WHERE userId = ? ORDER BY id', userId),
+    employees: rows('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, wantHoursMin, wantHoursTarget, wantHoursMax, sortOrder, constraintNote, noDouble, restAfterShift, createdAt FROM horaire_employees WHERE userId = ? ORDER BY id', userId),
     positions: rows('SELECT id, name, fillOrder, dayforceCode, openTableCovers, createdAt FROM horaire_positions WHERE userId = ? ORDER BY fillOrder, id', userId),
     dayforceLocation: (rows('SELECT horaireDayforceLocation AS v FROM users WHERE id = ?', userId)[0] || {}).v || null,
     settings: has('horaire_settings') ? (rows('SELECT configured, setupStep, eventsSource, eventsNoticeDays, eventsStaffRule, dataInCanada, dayforceTemplateName, dayforceTemplate, importPrompt, entryPrompt, updatedAt FROM horaire_settings WHERE userId = ?', userId)[0] || null) : null,
@@ -299,6 +299,7 @@ function buildUserExport(userId) {
     events: rows('SELECT id, day, label FROM horaire_events WHERE userId = ? ORDER BY day', userId),
     needs: rows('SELECT id, positionId, weekday, eventId, start, end, count FROM horaire_needs WHERE userId = ? ORDER BY id', userId),
     rotation: rows('SELECT positionId, rank, lastEmployeeId FROM horaire_rotation WHERE userId = ?', userId),
+    employeeRules: has('horaire_employee_rules') ? rows('SELECT employeeId, rule, text, createdAt FROM horaire_employee_rules WHERE userId = ? ORDER BY employeeId, id', userId) : [],
     categoryRules: has('horaire_category_rules') ? rows('SELECT rank, rule FROM horaire_category_rules WHERE userId = ? ORDER BY rank, rule', userId) : [],
     covers: has('horaire_covers') ? rows('SELECT day, service, covers FROM horaire_covers WHERE userId = ? ORDER BY day, service', userId) : [],
     schedules: rows('SELECT id, weekStart, status, alerts, generatedAt FROM horaire_schedules WHERE userId = ? ORDER BY weekStart', userId)

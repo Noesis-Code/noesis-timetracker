@@ -80,6 +80,12 @@ function employeeInput(res, body, partial) {
     out.constraintNote = h.constraintText(body.constraintNote);
     if (out.constraintNote === undefined) { bad(res, 'Contrainte trop longue (' + h.LIMITS.constraint + ' caractères au plus).'); return null; }
   }
+  // Heures visées par semaine (grille Horaire) : min, cible, max.
+  for (const k of ['wantHoursMin', 'wantHoursTarget', 'wantHoursMax']) {
+    if (body[k] === undefined) continue;
+    out[k] = h.hoursValue(body[k]);
+    if (out[k] === undefined) { bad(res, 'Heures invalides (0 à 168).'); return null; }
+  }
   // Ordre dans la catégorie (grille Horaire) : entier de 0 à 100 000.
   if (body.sortOrder !== undefined) {
     if (!(Number.isInteger(body.sortOrder) && body.sortOrder >= 0 && body.sortOrder <= 100000)) { bad(res, 'Ordre invalide.'); return null; }
@@ -100,6 +106,8 @@ function shiftsOrdered(res, v, cur) {
   if (lo != null && hi != null && lo > hi) { bad(res, 'Quarts souhaités : le minimum dépasse le maximum.'); return false; }
   const tg = v.wantShiftsTarget !== undefined ? v.wantShiftsTarget : (cur ? cur.wantShiftsTarget : null);
   if (tg != null && ((lo != null && tg < lo) || (hi != null && tg > hi))) { bad(res, 'Cible : entre le minimum et le maximum.'); return false; }
+  const hv = (k) => (v[k] !== undefined ? v[k] : (cur ? cur[k] : null));
+  if (!h.hoursOrdered(hv('wantHoursMin'), hv('wantHoursTarget'), hv('wantHoursMax'))) { bad(res, 'Heures : min ≤ cible ≤ max.'); return false; }
   return true;
 }
 router.get('/horaire/employees', (req, res) => res.json({ employees: h.listEmployees(req.userId) }));
@@ -166,6 +174,20 @@ router.put('/horaire/qualifications', (req, res) => {
 });
 router.delete('/horaire/qualifications/:employeeId/:positionId', (req, res) =>
   (h.removeQualification(req.userId, req.params.employeeId, req.params.positionId) ? res.json({ ok: true }) : notFound(res, 'Qualification')));
+
+// ---------- règles par employé : { employeeId, rule (liste fermée ou 'free'), text (si 'free') } ----------
+router.get('/horaire/employee-rules', (req, res) => res.json({ rules: h.listEmployeeRules(req.userId) }));
+router.post('/horaire/employee-rules', (req, res) => {
+  const b = req.body || {};
+  if (!h.ownEmployee(req.userId, b.employeeId)) return notFound(res, 'Employé');
+  if (b.rule !== 'free' && !h.CATEGORY_RULES.includes(b.rule)) return bad(res, 'Règle inconnue.');
+  const text = b.rule === 'free' ? h.cleanName(b.text, h.RULE_TEXT_MAX) : null;
+  if (b.rule === 'free' && !text) return bad(res, 'Texte de la règle requis.');
+  res.status(201).json({ rule: h.addEmployeeRule(req.userId, Number(b.employeeId), b.rule, text) });
+});
+router.delete('/horaire/employee-rules/:id', (req, res) => (h.removeEmployeeRule(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Règle')));
+// Poste principal (créé « Serveur » s'il manque) : sert à l'ajout d'un employé et aux besoins.
+router.post('/horaire/main-position', (req, res) => res.json({ position: h.mainPosition(req.userId) }));
 
 // ---------- règles de catégorie : { rank 1..5, rule } (liste fermée h.CATEGORY_RULES) ----------
 function categoryRuleInput(res, b) {
@@ -308,7 +330,7 @@ router.delete('/horaire/weeks/:weekStart/assignments/:id', (req, res) => {
 // disponibilités et congés de la semaine à importer (POST weeks/:lundi/import/availabilities).
 router.get('/horaire/import-prompt', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.type('text/plain; charset=utf-8').send(h.getPrompts(req.userId).importPrompt.text);
+  res.type('text/plain; charset=utf-8').send(require('../lib/horaire-prompt').IMPORT_PROMPT); // version de base (plus d'édition)
 });
 // Prompts modifiables par le gérant : { importPrompt: {text, isDefault}, entryPrompt: {text, isDefault} } (entryPrompt = consignes
 // seules, sans la semaine ni les quarts). PUT { importPrompt?, entryPrompt? } : null ou "" rétablit la version de base.

@@ -247,6 +247,8 @@ function buildRegistrationPrompt(input) {
     'QUARTS À INSCRIRE (' + list.length + ')',
     'Une ligne par quart : Prénom Nom ; date AAAA-MM-JJ ; jour ; début ; fin ; poste. Heures sur 24 h ; une fin plus petite que le début finit le lendemain.',
     ...shifts,
+    // Règles libres des employés placés (28 oct. 2026) : à vérifier par l'IA avant d'inscrire.
+    ...((input.freeRules || []).length ? ['', 'RÈGLES PARTICULIÈRES À VÉRIFIER', ...input.freeRules.map((r) => '- ' + r.employeeName + ' : ' + r.text)] : []),
   ].join('\n') + '\n';
 }
 

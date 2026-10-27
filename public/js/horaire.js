@@ -56,13 +56,14 @@
     });
   }
   function loadAll() {
-    return Promise.all([req('GET', 'employees'), req('GET', 'positions'), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'prompts').catch(function () { return null; }), req('GET', 'category-rules').catch(function () { return { rules: [] }; })])
+    return Promise.all([req('GET', 'employees'), req('GET', 'positions'), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'employee-rules').catch(function () { return { rules: [] }; }), req('GET', 'category-rules').catch(function () { return { rules: [] }; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
-        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.prompts = r[7] && r[7].importPrompt ? r[7] : null; S.catRules = r[8].rules || []; S.loaded = true;
+        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.empRules = r[7].rules || []; S.catRules = r[8].rules || []; S.loaded = true;
       });
   }
-  function refresh() { return loadAll().then(render, fail); }
+  // Construit la page si besoin : refresh() peut être appelé (TMT.horaire.refresh) avant la première ouverture du volet.
+  function refresh() { return loadAll().then(function () { if (!built) { build(); built = true; } render(); }, fail); }
   function fail(e) { S.msg = (e && e.message) || tr('Erreur serveur'); renderMsg(); }
 
   // ---------- petits constructeurs ----------
@@ -145,7 +146,7 @@
   var EVE = 16 * 60; // soir = à partir de 16 h
   var SLOT = { matin: ['10:00', '16:00'], soir: ['16:00', '23:59'] };
   var STEP_LABELS = ['1. Récupération', '2. Disponibilités', '3. Horaire', '4. Envoi'];
-  var pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, rulesHead, settingsBox, genBtn, summaryBox, mainNodes, setupBox, setupMsg;
+  var pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, rulesHead, genBtn, summaryBox, mainNodes, setupBox, setupMsg;
   var pagesHost, pages = [], stepBtns = [], dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
@@ -187,10 +188,7 @@
     rulesHead.addEventListener('click', function () { S.rulesOpen = !S.rulesOpen; renderRules(); });
     rulesBox = el('div', 'horaireRules cmpGlass');
     bRules.appendChild(rulesHead); bRules.appendChild(rulesBox);
-    var settings = el('section', 'horaireBlock');
-    settings.appendChild(el('p', 'sectionTitle horaireSettingsTitle', tr('Paramètres')));
-    settingsBox = el('div', 'horaireSettings cmpGlass cmpList'); settings.appendChild(settingsBox);
-    [bCats, bNeeds, bRules, settings, btn('cmpBtn', 'Copier le prompt de récupération', function () { copyText('import-prompt', 'Prompt copié : colle-le dans ton IA.'); })]
+    [bCats, bNeeds, bRules, btn('cmpBtn', 'Copier le prompt de récupération', function () { copyText('import-prompt', 'Prompt copié : colle-le dans ton IA.'); })]
       .forEach(function (n) { p1.appendChild(n); });
 
     // Page 2 : Disponibilités (zone de collage toujours visible, envoi dans la zone, R13)
@@ -341,7 +339,6 @@
     renderNeedsTable();
     renderCats();
     renderRules();
-    renderSettings();
   }
   // Tableau jours × colonnes : en-tête (jour, + date si demandé), puis une rangée par ligne. r[1](i, case) remplit la case du jour i.
   function grid(cls, withDate, rows) {
@@ -457,27 +454,31 @@
   }
 
   // ---------- Classification des employés : UN tableau de type tableur (catégorie = meilleur rang de qualification) ----------
-  // Colonnes : ≡ | Nom | Min–Max | Cible. Une ligne d'en-tête par catégorie, avec ses règles en pastilles et « + Ajouter une règle ».
-  // Chaque cellule se modifie sur place au clic : Entrée ou sortie du champ enregistre (PUT employé), Échap annule ;
-  // min ≤ cible ≤ max, sinon la cellule est soulignée en violet clair et rien n'est enregistré.
+  // Colonnes : ≡ | Nom | Heures min | Heures cible | Heures max | Règles. Une ligne d'en-tête par catégorie (libellé dans la colonne Nom),
+  // avec ses règles en pastilles et « + Ajouter une règle ». Chaque cellule se modifie sur place au clic : Entrée ou sortie du champ
+  // enregistre (PUT employé), Échap annule ; min ≤ cible ≤ max, sinon la cellule est soulignée en violet clair et rien n'est enregistré.
+  // Nom vidé puis validé = retirer l'employé (TMT.ui.confirm rouge, R28). Règles par employé : pastilles + petit « + » (liste fermée
+  // appliquée par la génération, ou texte libre lu par l'IA seulement).
   var CAT_RULES = { noDouble: 'Jamais de double', restAfterShift: 'Repos après un quart', noMorning: 'Pas de matin', noEvening: 'Pas de soir', eveningsFirst: 'Soirs d’abord', morningsFirst: 'Matins d’abord' };
+  var HOURS = [['wantHoursMin', 'Heures min'], ['wantHoursTarget', 'Heures cible'], ['wantHoursMax', 'Heures max']];
   function bestRank(id) {
     var r = S.quals.filter(function (q) { return q.employeeId === id; }).map(function (q) { return q.rank; });
     return r.length ? Math.min.apply(null, r) : null;
   }
-  function nOrNull(v) { v = String(v == null ? '' : v).trim(); return v === '' ? null : Number(v); }
-  function shiftsValid(lo, hi, tg) {
-    var ok = function (n) { return n == null || (Number.isInteger(n) && n >= 0 && n <= 14); };
-    if (!ok(lo) || !ok(hi) || !ok(tg)) return false;
+  function hOrNull(v) { v = String(v == null ? '' : v).trim().replace(',', '.'); return v === '' ? null : Number(v); }
+  function hoursValid(lo, tg, hi) {
+    var ok = function (n) { return n == null || (isFinite(n) && n >= 0 && n <= 168); };
+    if (!ok(lo) || !ok(tg) || !ok(hi)) return false;
     if (lo != null && hi != null && lo > hi) return false;
     return !(tg != null && ((lo != null && tg < lo) || (hi != null && tg > hi)));
   }
-  function minMaxText(e) {
-    var a = e.wantShiftsMin, b = e.wantShiftsMax;
-    if (a == null && b == null) return '';
-    return (a == null ? '' : a) + '–' + (b == null ? '' : b);
+  function hoursText(v) { return v == null ? '' : String(v).replace('.', ','); }
+  // Poste principal du compte (créé « Serveur » côté serveur s'il manque) : ajout d'un employé, besoins.
+  function mainPosition() {
+    if (S.positions[0]) return Promise.resolve(S.positions[0]);
+    return req('POST', 'main-position', {}).then(function (d) { S.positions = [d.position]; return d.position; });
   }
-  // Cellule modifiable : fields = [[clé, valeur, libellé]] ; save(valeurs) renvoie false si invalide (rien n'est envoyé).
+  // Cellule modifiable : fields = [[clé, valeur, libellé, type]] ; save(valeurs) renvoie false si invalide (rien n'est envoyé).
   function editCell(cell, text, fields, save) {
     cell.textContent = text;
     cell.tabIndex = 0;
@@ -485,8 +486,8 @@
       if (cell.classList.contains('editing')) return;
       cell.classList.add('editing'); cell.textContent = '';
       var ins = fields.map(function (f, i) {
-        var x = el('input', 'horaireSheetInput'); x.type = f[3] || 'number'; x.value = f[1] == null ? '' : f[1]; x.setAttribute('aria-label', tr(f[2]));
-        if (x.type === 'number') { x.min = '0'; x.max = '14'; x.inputMode = 'numeric'; }
+        var x = el('input', 'horaireSheetInput'); x.type = f[3] || 'text'; x.value = f[1] == null ? '' : f[1]; x.setAttribute('aria-label', tr(f[2]));
+        if (f[3] === 'hours') { x.type = 'text'; x.inputMode = 'decimal'; x.value = hoursText(f[1]); }
         if (i) cell.appendChild(el('span', 'horaireMuted', '–'));
         cell.appendChild(x);
         return x;
@@ -494,12 +495,11 @@
       var done = false;
       var finish = function (keep) {
         if (done) return;
-        if (!keep) { done = true; cell.classList.remove('editing', 'invalid'); render0(); return; }
+        if (!keep) { done = true; cell.classList.remove('editing', 'invalid'); cell.textContent = text; return; }
         var vals = {}; fields.forEach(function (f, i) { vals[f[0]] = ins[i].value; });
         if (save(vals) === false) { cell.classList.add('invalid'); return; }
         done = true;
       };
-      var render0 = function () { cell.textContent = text; };
       ins.forEach(function (x) {
         x.addEventListener('keydown', function (k) {
           if (k.key === 'Enter') { k.preventDefault(); finish(true); }
@@ -507,7 +507,7 @@
         });
       });
       cell.addEventListener('focusout', function (fo) { if (!done && !cell.contains(fo.relatedTarget)) finish(true); });
-      ins[0].focus(); ins[0].select && ins[0].select();
+      ins[0].focus(); if (ins[0].select) ins[0].select();
     };
     cell.addEventListener('click', open);
     cell.addEventListener('keydown', function (k) { if (k.key === 'Enter' && !cell.classList.contains('editing')) open(); });
@@ -519,12 +519,25 @@
       renderCats();
     }, function (err) { fail(err); renderCats(); });
   }
+  function removeEmployee(e) {
+    TMT.ui.confirm(tr('Retirer') + ' ' + e.name + ' ' + tr('de l’horaire ?'), { ok: tr('Retirer'), danger: true }).then(function (yes) {
+      if (!yes) { renderCats(); return; }
+      req('DELETE', 'employees/' + e.id).then(refresh, function (err) { fail(err); renderCats(); });
+    });
+  }
   function sheetRow(cls) { return el('div', 'horaireSheetRow ' + (cls || '')); }
+  function rulePill(label, ask, onYes) {
+    var pill = btn('horairePill', label, function () {
+      TMT.ui.confirm(ask, { ok: tr('Retirer'), danger: true }).then(function (yes) { if (yes) onYes(); });
+    });
+    pill.setAttribute('aria-label', tr('Retirer la règle') + ' ' + label);
+    return pill;
+  }
   function renderCats() {
     catsBox.textContent = '';
     var sheet = el('div', 'horaireSheet');
     var head = sheetRow('horaireSheetHead');
-    ['', 'Nom', 'Min–Max', 'Cible'].forEach(function (t) { head.appendChild(el('span', 'horaireSheetCell', tr(t))); });
+    ['', 'Nom'].concat(HOURS.map(function (h) { return h[1]; }), ['Règles']).forEach(function (t, i) { head.appendChild(el('span', 'horaireSheetCell' + (i > 1 && i < 5 ? ' horaireSheetNum' : ''), tr(t))); });
     sheet.appendChild(head);
     var emps = S.employees.filter(function (e) { return e.active !== false; });
     var top = 4; emps.forEach(function (e) { var r = bestRank(e.id); if (r && r > top) top = Math.min(r, MAX_RANK); });
@@ -537,14 +550,10 @@
       if (rank != null) {
         var rulesArea = el('div', 'horaireCatRules');
         (S.catRules || []).filter(function (x) { return x.rank === rank; }).forEach(function (x) {
-          var pill = btn('horairePill', CAT_RULES[x.rule] || x.rule, function () {
-            TMT.ui.confirm(tr('Retirer la règle') + ' « ' + tr(CAT_RULES[x.rule] || x.rule) + ' » ' + tr('de la catégorie') + ' ' + rank + ' ?', { ok: tr('Retirer'), danger: true }).then(function (yes) {
-              if (!yes) return;
-              req('DELETE', 'category-rules/' + rank + '/' + encodeURIComponent(x.rule)).then(function (d) { S.catRules = d.rules || []; renderCats(); }, fail);
-            });
-          });
-          pill.setAttribute('aria-label', tr('Retirer la règle') + ' ' + tr(CAT_RULES[x.rule] || x.rule));
-          rulesArea.appendChild(pill);
+          var label = tr(CAT_RULES[x.rule] || x.rule);
+          rulesArea.appendChild(rulePill(label, tr('Retirer la règle') + ' « ' + label + ' » ' + tr('de la catégorie') + ' ' + rank + ' ?', function () {
+            req('DELETE', 'category-rules/' + rank + '/' + encodeURIComponent(x.rule)).then(function (d) { S.catRules = d.rules || []; renderCats(); }, fail);
+          }));
         });
         var add = TMT.ui.addBtn(tr('Ajouter une règle'), function () { openRuleMenu(add, rank); });
         rulesArea.appendChild(add);
@@ -557,24 +566,25 @@
         var handle = el('span', 'activityDragHandle horaireHandle', '≡'); handle.setAttribute('aria-hidden', 'true');
         hc.appendChild(handle); row.appendChild(hc);
         var name = el('span', 'horaireSheetCell horaireSheetEdit');
-        editCell(name, e.name, [['name', e.name, 'Nom', 'text']], function (v) {
-          if (!String(v.name).trim()) return false;
-          if (v.name.trim() !== e.name) putEmployee(e, { name: v.name.trim() }); else renderCats();
+        editCell(name, e.name, [['name', e.name, 'Nom']], function (v) {
+          var n = String(v.name).trim();
+          if (!n) { removeEmployee(e); return; }
+          if (n !== e.name) putEmployee(e, { name: n }); else renderCats();
         });
-        var mm = el('span', 'horaireSheetCell horaireSheetEdit horaireSheetNum');
-        editCell(mm, minMaxText(e), [['lo', e.wantShiftsMin, 'Min'], ['hi', e.wantShiftsMax, 'Max']], function (v) {
-          var lo = nOrNull(v.lo), hi = nOrNull(v.hi);
-          if (!shiftsValid(lo, hi, e.wantShiftsTarget)) return false;
-          if (lo !== e.wantShiftsMin || hi !== e.wantShiftsMax) putEmployee(e, { wantShiftsMin: lo, wantShiftsMax: hi }); else renderCats();
+        row.appendChild(name);
+        HOURS.forEach(function (hk) {
+          var c = el('span', 'horaireSheetCell horaireSheetEdit horaireSheetNum');
+          editCell(c, hoursText(e[hk[0]]), [[hk[0], e[hk[0]], hk[1], 'hours']], function (v) {
+            var val = hOrNull(v[hk[0]]);
+            var next = { wantHoursMin: e.wantHoursMin, wantHoursTarget: e.wantHoursTarget, wantHoursMax: e.wantHoursMax }; next[hk[0]] = val;
+            if (!hoursValid(next.wantHoursMin, next.wantHoursTarget, next.wantHoursMax)) return false;
+            var body = {}; body[hk[0]] = val;
+            if (val !== e[hk[0]]) putEmployee(e, body); else renderCats();
+          });
+          if (!hoursValid(e.wantHoursMin, e.wantHoursTarget, e.wantHoursMax)) c.classList.add('invalid');
+          row.appendChild(c);
         });
-        var tg = el('span', 'horaireSheetCell horaireSheetEdit horaireSheetNum');
-        editCell(tg, e.wantShiftsTarget == null ? '' : String(e.wantShiftsTarget), [['tg', e.wantShiftsTarget, 'Cible']], function (v) {
-          var t = nOrNull(v.tg);
-          if (!shiftsValid(e.wantShiftsMin, e.wantShiftsMax, t)) return false;
-          if (t !== e.wantShiftsTarget) putEmployee(e, { wantShiftsTarget: t }); else renderCats();
-        });
-        if (!shiftsValid(e.wantShiftsMin, e.wantShiftsMax, e.wantShiftsTarget)) { mm.classList.add('invalid'); tg.classList.add('invalid'); }
-        row.appendChild(name); row.appendChild(mm); row.appendChild(tg);
+        row.appendChild(employeeRulesCell(e));
         bindCatDrag(handle, row, group);
         group.appendChild(row);
       });
@@ -585,9 +595,55 @@
     var open = catsBox.querySelector('.horaireSheetNew input');
     if (open) open.focus();
   }
+  // Colonne Règles d'un employé : pastilles (un clic retire, après confirmation) et petit « + » (liste fermée + « Autre (texte libre) »).
+  function employeeRulesCell(e) {
+    var cell = el('span', 'horaireSheetCell horaireSheetRules');
+    (S.empRules || []).filter(function (x) { return x.employeeId === e.id; }).forEach(function (x) {
+      var label = x.rule === 'free' ? '“' + x.text + '”' : tr(CAT_RULES[x.rule] || x.rule);
+      cell.appendChild(rulePill(label, tr('Retirer la règle') + ' ' + label + ' ?', function () {
+        req('DELETE', 'employee-rules/' + x.id).then(function () { S.empRules = S.empRules.filter(function (y) { return y.id !== x.id; }); renderCats(); }, fail);
+      }));
+    });
+    if (S.freeRuleFor === e.id) {
+      var x = el('input', 'horaireSheetInput horaireRuleInput'); x.type = 'text'; x.maxLength = 300; x.placeholder = tr('Règle'); x.setAttribute('aria-label', tr('Autre (texte libre)'));
+      var closed = false;
+      var stop = function () { closed = true; S.freeRuleFor = null; renderCats(); };
+      var save = function () {
+        var t = x.value.trim();
+        if (closed) return;
+        if (!t) { stop(); return; }
+        closed = true;
+        req('POST', 'employee-rules', { employeeId: e.id, rule: 'free', text: t }).then(function (d) { S.empRules.push(d.rule); S.freeRuleFor = null; renderCats(); }, function (err) { fail(err); S.freeRuleFor = null; renderCats(); });
+      };
+      x.addEventListener('keydown', function (k) { if (k.key === 'Enter') { k.preventDefault(); save(); } else if (k.key === 'Escape') { k.preventDefault(); stop(); } });
+      x.addEventListener('blur', save);
+      cell.appendChild(x);
+      setTimeout(function () { x.focus(); }, 0);
+    } else {
+      var add = el('button', 'cmpAdd cmpAddSquare horaireRuleAdd'); add.type = 'button'; add.setAttribute('aria-label', tr('Ajouter une règle'));
+      var plus = el('b', null, '+'); add.appendChild(plus);
+      add.addEventListener('click', function () { openEmployeeRuleMenu(add, e); });
+      cell.appendChild(add);
+    }
+    return cell;
+  }
+  function openEmployeeRuleMenu(anchor, e) {
+    if (!newMenu(anchor)) return;
+    var have = {}; (S.empRules || []).forEach(function (x) { if (x.employeeId === e.id) have[x.rule] = 1; });
+    Object.keys(CAT_RULES).filter(function (k) { return !have[k]; }).forEach(function (k) {
+      var it = btn('horaireMenuItem', CAT_RULES[k], function () {
+        closeMenu();
+        req('POST', 'employee-rules', { employeeId: e.id, rule: k }).then(function (d) { S.empRules.push(d.rule); renderCats(); }, fail);
+      });
+      it.setAttribute('role', 'menuitem'); menu.appendChild(it);
+    });
+    var free = btn('horaireMenuItem', 'Autre (texte libre)', function () { closeMenu(); S.freeRuleFor = e.id; renderCats(); });
+    free.setAttribute('role', 'menuitem'); menu.appendChild(free);
+    placeMenu(anchor);
+  }
   // Dernière ligne d'une catégorie : « + Ajouter un employé » en pointillé (R33). Un clic ouvre la saisie du nom ; Entrée crée l'employé
-  // dans cette catégorie (qualification au poste principal, rang = catégorie) et rouvre aussitôt une ligne vide pour enchaîner ;
-  // Échap ou sortie sans nom annule. Le retrait d'un employé reste dans Paramètres > Employés.
+  // dans cette catégorie (qualification au poste principal, créé s'il manque ; rang = catégorie) et rouvre aussitôt une ligne vide ;
+  // Échap ou sortie sans nom annule.
   function addEmployeeRow(rank) {
     var row = sheetRow('horaireSheetAddRow');
     if (S.addingRank !== rank) {
@@ -600,18 +656,21 @@
     var cell = el('span', 'horaireSheetCell editing');
     var x = el('input', 'horaireSheetInput'); x.type = 'text'; x.maxLength = 80; x.placeholder = tr('Nom'); x.setAttribute('aria-label', tr('Nouvel employé'));
     cell.appendChild(x); row.appendChild(cell);
-    row.appendChild(el('span', 'horaireSheetCell')); row.appendChild(el('span', 'horaireSheetCell'));
+    for (var i = 0; i < 4; i++) row.appendChild(el('span', 'horaireSheetCell'));
     var busy = false, closed = false;
     var stop = function () { closed = true; S.addingRank = null; renderCats(); };
     var create = function (again) {
       var name = x.value.trim();
       if (!name) { stop(); return; }
       if (busy || closed) return; busy = true;
-      if (!S.positions[0]) { S.msg = tr('Ajoute d’abord un poste.'); renderMsg(); stop(); return; }
-      req('POST', 'employees', { name: name }).then(function (d) {
-        return req('PUT', 'qualifications', { employeeId: d.employee.id, positionId: S.positions[0].id, rank: rank }).then(function (q) {
-          S.employees.push(d.employee);
-          if (q && q.qualification) S.quals.push(q.qualification); else S.quals.push({ employeeId: d.employee.id, positionId: S.positions[0].id, rank: rank });
+      var emp;
+      mainPosition().then(function (pos) {
+        return req('POST', 'employees', { name: name }).then(function (d) {
+          emp = d.employee;
+          return req('PUT', 'qualifications', { employeeId: emp.id, positionId: pos.id, rank: rank });
+        }).then(function (q) {
+          S.employees.push(emp);
+          S.quals.push(q && q.qualification ? q.qualification : { employeeId: emp.id, positionId: pos.id, rank: rank });
         });
       }).then(function () { S.addingRank = again ? rank : null; renderCats(); }, function (err) { busy = false; fail(err); });
     };
@@ -622,7 +681,7 @@
     x.addEventListener('blur', function () { if (!busy && !closed) create(false); });
     return row;
   }
-  // « + Ajouter une règle » : liste fermée, dans la même liste déroulante unie que les quarts (R31).
+  // « + Ajouter une règle » d'une catégorie : liste fermée, dans la même liste déroulante unie que les quarts (R31).
   function openRuleMenu(anchor, rank) {
     if (!newMenu(anchor)) return;
     var have = {}; (S.catRules || []).forEach(function (x) { if (x.rank === rank) have[x.rule] = 1; });
@@ -761,7 +820,7 @@
     planBox.textContent = ''; alertsBox.textContent = '';
     if (!sc) {
       var ready = S.employees.length && S.positions.length && S.needs.length;
-      planBox.appendChild(el('p', 'horaireEmpty', ready ? tr('Aucun horaire pour cette semaine. Touche « Générer l’horaire ».') : tr('Ajoute tes postes, employés et besoins dans les paramètres.')));
+      planBox.appendChild(el('p', 'horaireEmpty', ready ? tr('Aucun horaire pour cette semaine. Touche « Générer l’horaire ».') : tr('Ajoute tes employés et tes besoins à l’étape 1.')));
       return;
     }
     var holes = computeHoles(sc);
@@ -775,6 +834,11 @@
       };
     };
     planBox.appendChild(grid('horaireGridPlan', true, [['Matin', cell('matin'), 'horaireCellPlan'], ['Soir', cell('soir'), 'horaireCellPlan']]));
+    // Règles libres des employés placés cette semaine : la génération ne les lit pas, on les rappelle ici.
+    var placed = {}; sc.assignments.forEach(function (a) { placed[a.employeeId] = a.employeeName; });
+    (S.empRules || []).filter(function (x) { return x.rule === 'free' && placed[x.employeeId]; }).forEach(function (x) {
+      alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + tr('règle libre de') + ' ' + placed[x.employeeId] + ' : “' + x.text + '”'));
+    });
     var key = function (a) { return a.type === 'trou' ? '0' + a.day + a.start : '1'; };
     (sc.alerts || []).slice().sort(function (x, y) { return key(x) < key(y) ? -1 : key(x) > key(y) ? 1 : 0; }).forEach(function (a) { alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + alertText(a))); });
   }
@@ -784,7 +848,7 @@
       if (n > 1 && !/[sx]$/.test(pos)) pos += 's';
       return tr(DAYS[weekdayOf(a.day)]).toLowerCase() + ' ' + tr(serviceOf(a.start)) + ', ' + n + ' ' + pos + ' ' + tr(n > 1 ? 'manquants' : 'manquant') + ' ' + tr('à') + ' ' + a.start + '.';
     }
-    if (a.type === 'minimum') return (a.employeeName || '?') + ' ' + tr('a') + ' ' + a.shifts + ' ' + tr(a.shifts > 1 ? 'quarts' : 'quart') + ', ' + tr('minimum') + ' ' + a.wantShiftsMin + '.';
+    if (a.type === 'minimum') return (a.employeeName || '?') + ' ' + tr('a') + ' ' + hoursText(Math.round((a.minutes || 0) / 30) / 2) + ' h, ' + tr('minimum') + ' ' + hoursText(a.wantHoursMin) + ' h.';
     if (a.text || a.message) return String(a.text || a.message);
     return (a.employeeName || '?') + ' : ' + hours(a.minutes) + ' / ' + hours(a.maxWeekMinutes) + ' ' + tr('max') + '.';
   }
@@ -821,28 +885,11 @@
     ['opentable', 'Réservations', function () { return null; }, renderOpenTable],
     ['dayforce', 'Codes de paie', function () { return null; }, renderDayforce],
     ['hosting', 'Hébergement des données', function () { return null; }, renderHosting],
-    ['prompts', 'Prompts', function () { return null; }, renderPrompts],
   ];
   function section(key) { return SECTIONS.find(function (s) { return s[0] === key; }); }
-  function renderSettings() {
-    if (inSetup()) { renderSetup(); return; }
-    settingsBox.textContent = '';
-    // Vue principale : Employés, Postes, Besoins ; disponibilités et événements vivent dans les blocs 2 et 3 (F2), le reste dans la configuration guidée.
-    // « Prompts » seulement si le serveur les sert (GET /api/horaire/prompts).
-    SECTIONS.filter(function (s) { return ['employees', 'positions', 'needs'].indexOf(s[0]) >= 0 || (s[0] === 'prompts' && S.prompts); }).forEach(function (s) {
-      var sec = el('div', 'horaireSec');
-      var open = !!S.open[s[0]];
-      var head = el('button', 'horaireSecHead'); head.type = 'button'; head.setAttribute('aria-expanded', open ? 'true' : 'false');
-      var n = s[2]();
-      var label = tr(s[1]) + (s[0] === 'avail' ? ' · ' + tr('semaine du') + ' ' + dayLabel(S.week).replace(/^\S+ /, '') : '');
-      TMT.ui.toggleLabel(head, label, open);
-      if (n) { var c = el('span', 'horaireCount', String(n)); head.insertBefore(c, head.lastChild); }
-      head.addEventListener('click', function () { S.open[s[0]] = !open; if (!S.open[s[0]] && S.editing && S.editing.indexOf(s[0]) === 0) S.editing = null; renderSettings(); });
-      sec.appendChild(head);
-      if (open) { var body = el('div', 'horaireSecBody'); s[3](body); sec.appendChild(body); }
-      settingsBox.appendChild(sec);
-    });
-  }
+  // Plus de section « Paramètres » sur la page (28 oct. 2026) : tout se règle dans les tableaux ; les sections ne servent plus qu'à la
+  // configuration guidée. Rendu après une modification dans une étape.
+  function renderSettings() { if (inSetup()) renderSetup(); else render(); }
 
   // Employés : nom, matricule Dayforce, max d'heures par semaine, postes avec rang (1 = meilleur).
   function renderEmployees(box) {
@@ -1162,33 +1209,6 @@
     return save;
   }
   // Hébergement des données au Canada exigé : oui / non / je ne sais pas.
-  // Prompts modifiables (la liste des quarts est ajoutée par le serveur et ne s'affiche pas ici). Enregistrer (R35) ; sous une zone modifiée,
-  // « Revenir à la version de base » (TMT.ui.confirm violet : rien n'est perdu), qui envoie null.
-  function renderPrompts(box) {
-    var P = S.prompts, form = el('div', 'horaireForm'), areas = {};
-    [['importPrompt', 'Prompt de récupération'], ['entryPrompt', 'Prompt pour l’IA (consignes)']].forEach(function (k) {
-      var cur = P[k[0]] || {}, a = el('textarea', 'horaireInput horairePromptArea'); a.rows = 8; a.value = cur.text || ''; a.setAttribute('aria-label', tr(k[1]));
-      areas[k[0]] = { el: a, text: cur.text || '' };
-      var f = field(tr(k[1]), a);
-      form.appendChild(f);
-      if (cur.isDefault === false) {
-        var back = btn('horaireLink', 'Revenir à la version de base', function () {
-          TMT.ui.confirm(tr('Revenir à la version de base de ce prompt ?'), { ok: tr('Revenir') }).then(function (yes) {
-            if (!yes) return;
-            var body = {}; body[k[0]] = null;
-            req('PUT', 'prompts', body).then(refresh, fail);
-          });
-        });
-        form.appendChild(back);
-      }
-    });
-    form.appendChild(saveBtn(form, function () {
-      var body = {};
-      Object.keys(areas).forEach(function (k) { if (areas[k].el.value !== areas[k].text) body[k] = areas[k].el.value; });
-      return Object.keys(body).length ? req('PUT', 'prompts', body) : null;
-    }));
-    box.appendChild(form);
-  }
   function renderHosting(box, inStep) {
     var s = select([['', '—'], ['oui', tr('Oui')], ['non', tr('Non')], ['nsp', tr('Je ne sais pas')]], S.settings.dataInCanada || '', tr('Hébergement au Canada exigé ?'));
     var f = settingsForm(box, inStep, function () { return req('PUT', 'settings', { dataInCanada: s.value || null }); });

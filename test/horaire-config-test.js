@@ -12,7 +12,7 @@ const db = require('../server/db');
 const h = require('../server/lib/horaire');
 const now = new Date().toISOString();
 const mkUser = (id) => db.prepare('INSERT INTO users (id, name, createdAt) VALUES (?, ?, ?)').run(id, id, now);
-mkUser('uA'); mkUser('uB');
+mkUser('uA'); mkUser('uB'); mkUser('uC');
 
 // ---- Données ----
 let s = h.getSettings('uA');
@@ -63,6 +63,31 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
 (async () => {
   let r = await call('GET', 'settings');
   assert(r.status === 200 && r.body.settings.configured === false, 'GET settings : non configuré');
+  // ---- Premier employé d'un compte sans poste : poste principal « Serveur » créé une seule fois, puis employé + catégorie ----
+  r = await call('POST', 'main-position', {}, 'uC');
+  const mainPos = r.body.position;
+  assert(r.status === 200 && mainPos && mainPos.name === 'Serveur', 'compte sans poste : poste principal « Serveur » créé');
+  assert((await call('POST', 'main-position', {}, 'uC')).body.position.id === mainPos.id && h.listPositions('uC').length === 1, 'poste principal : jamais créé deux fois');
+  const first = (await call('POST', 'employees', { name: 'Premier Test' }, 'uC')).body.employee;
+  r = await call('PUT', 'qualifications', { employeeId: first.id, positionId: mainPos.id, rank: 2 }, 'uC');
+  assert(r.status === 200 && h.listQualifications('uC').some((q) => q.employeeId === first.id && q.rank === 2), 'premier employé ajouté dans sa catégorie (rang 2)');
+  // ---- Heures : min ≤ cible ≤ max ----
+  r = await call('PUT', 'employees/' + first.id, { wantHoursMin: 12, wantHoursTarget: 20, wantHoursMax: 24 }, 'uC');
+  assert(r.status === 200 && r.body.employee.wantHoursTarget === 20, 'heures min, cible, max enregistrées');
+  assert((await call('PUT', 'employees/' + first.id, { wantHoursTarget: 30 }, 'uC')).status === 400, 'cible au-dessus du max refusée');
+  assert((await call('PUT', 'employees/' + first.id, { wantHoursMin: 200 }, 'uC')).status === 400, 'heures hors bornes refusées');
+  // ---- Règles par employé : liste fermée (sans doublon) et texte libre ----
+  r = await call('POST', 'employee-rules', { employeeId: first.id, rule: 'noMorning' }, 'uC');
+  assert(r.status === 201 && r.body.rule.rule === 'noMorning', 'règle fermée ajoutée');
+  assert((await call('POST', 'employee-rules', { employeeId: first.id, rule: 'noMorning' }, 'uC')).body.rule.id === r.body.rule.id, 'règle fermée : pas de doublon');
+  const free = (await call('POST', 'employee-rules', { employeeId: first.id, rule: 'free', text: '  Pas le dimanche  ' }, 'uC')).body.rule;
+  assert(free && free.text === 'Pas le dimanche', 'règle libre enregistrée (texte nettoyé)');
+  assert((await call('POST', 'employee-rules', { employeeId: first.id, rule: 'free', text: ' ' }, 'uC')).status === 400, 'règle libre vide refusée');
+  assert((await call('POST', 'employee-rules', { employeeId: first.id, rule: 'inventee' }, 'uC')).status === 400, 'règle inconnue refusée');
+  assert((await call('POST', 'employee-rules', { employeeId: first.id, rule: 'noEvening' }, 'uB')).status === 404, 'employé d\'un autre compte : 404');
+  r = await call('GET', 'employee-rules', undefined, 'uC');
+  assert(r.body.rules.length === 2, 'GET employee-rules');
+  assert((await call('DELETE', 'employee-rules/' + free.id, undefined, 'uC')).status === 200 && h.listEmployeeRules('uC').length === 1, 'règle retirée');
   r = await call('PUT', 'category-rules', { rank: 2, rule: 'noDouble' });
   assert(r.status === 200 && r.body.rules.some((x) => x.rank === 2 && x.rule === 'noDouble'), 'PUT category-rules : règle ajoutée');
   assert((await call('PUT', 'category-rules', { rank: 2, rule: 'inventee' })).status === 400, 'règle hors liste refusée');
