@@ -195,11 +195,10 @@
     var paste = el('div', 'horairePaste');
     pasteArea = el('textarea', 'horaireInput horairePasteArea'); pasteArea.rows = 12; pasteArea.setAttribute('aria-label', tr('Coller les disponibilités'));
     pasteArea.placeholder = tr('Colle ici le texte rendu par ton IA.');
-    // En bas à droite DANS la zone : l'épingle commune (TMT.ui.attachBtn, R39) puis Envoyer (R13).
+    // DANS la zone : l'épingle commune (TMT.ui.attachBtn) en bas à gauche, Envoyer en bas à droite (R39, R13).
     var pasteActions = el('div', 'horairePasteActions');
-    pasteActions.appendChild(TMT.ui.attachBtn(readAvailFile, { label: tr('Joindre un fichier') }));
     pasteActions.appendChild(btn('cmpBtn horairePasteSend', 'Envoyer', function () { sendAvail(pasteArea.value); }));
-    paste.appendChild(pasteArea); paste.appendChild(pasteActions);
+    paste.appendChild(pasteArea); paste.appendChild(TMT.ui.attachBtn(readAvailFile, { label: tr('Joindre un fichier') })); paste.appendChild(pasteActions);
     statusLine = el('p', 'horaireStatus');
     p2.appendChild(paste); p2.appendChild(statusLine);
 
