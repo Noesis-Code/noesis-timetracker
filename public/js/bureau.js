@@ -4,7 +4,7 @@
 (function () {
   'use strict';
   var mq = window.matchMedia('(min-width: 1024px)');
-  var IDS = ['docTasksPDots', 'viewProfileStatsDots', 'caStatsDots', 'goalsPage2Dots', 'statsPageDots']; // le plus au-dessus d'abord
+  var IDS = ['docTasksPDots', 'viewProfileStatsDots', 'caStatsDots', 'goalsPage2Dots', 'statsPageDots', 'horairePageDots']; // le plus au-dessus d'abord
   var SVGNS = 'http://www.w3.org/2000/svg';
   function icon(dir) {
     var svg = document.createElementNS(SVGNS, 'svg'), p = document.createElementNS(SVGNS, 'path');

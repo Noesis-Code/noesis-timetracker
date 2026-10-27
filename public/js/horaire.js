@@ -218,7 +218,9 @@
     pages = [p1, p2, p3, p4];
     pagesHost = el('div', 'horairePages');
     pages.forEach(function (p, i) { if (i) p.classList.add('hidden'); pagesHost.appendChild(p); });
-    var dots = el('div', 'horaireSetupDots horairePageDots'); dots.setAttribute('role', 'group');
+    // Points de pagination en bas, juste au-dessus de la barre des volets (même place que Chrono et Feuille de route) ; sur ordinateur,
+    // js/bureau.js ajoute les flèches gauche et droite (id horairePageDots dans sa liste).
+    var dots = el('div', 'horairePageDots'); dots.id = 'horairePageDots'; dots.setAttribute('role', 'group');
     dotBtns = STEP_LABELS.map(function (l, i) {
       var d = el('button', 'goalsDotBtn'); d.type = 'button'; d.setAttribute('aria-label', tr(l));
       d.appendChild(el('span', 'goalsDot'));
