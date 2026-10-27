@@ -24,10 +24,16 @@
     document.body.appendChild(b);
     return b;
   }
+  // Une page ou une fenêtre ouverte AU-DESSUS (Profil, Réglages, Activité, Trade…) masque les flèches des pages qui restent derrière elle.
+  function coveredBy(g) {
+    var tops = document.querySelectorAll('.communityMembersModal:not(.hidden), #profileSettingsPanel:not(.hidden), #tradePage:not(.hidden)');
+    for (var k = 0; k < tops.length; k++) if (tops[k].getClientRects().length && !tops[k].contains(g)) return true;
+    return false;
+  }
   function visibleGroup() {
     for (var i = 0; i < IDS.length; i++) {
       var g = document.getElementById(IDS[i]);
-      if (g && !g.closest('.hidden') && g.getClientRects().length && g.querySelector('.goalsDotBtn, button')) return g;
+      if (g && !g.closest('.hidden') && g.getClientRects().length && g.querySelector('.goalsDotBtn, button') && !coveredBy(g)) return g;
     }
     return null;
   }
