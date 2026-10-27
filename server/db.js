@@ -2733,5 +2733,19 @@ CREATE TABLE IF NOT EXISTS horaire_timeoff (
 );
 CREATE INDEX IF NOT EXISTS idx_horaire_timeoff_week ON horaire_timeoff(userId, weekStart);
 `);
+// Date de lecture des disponibilités (28 oct. 2026) : ligne d'état « Disponibilités : N employés lus le … » de la page Horaire.
+for (const t of ['horaire_availabilities', 'horaire_timeoff']) {
+  if (!db.prepare('PRAGMA table_info(' + t + ')').all().some((c) => c.name === 'createdAt')) db.exec('ALTER TABLE ' + t + ' ADD COLUMN createdAt TEXT');
+}
+// Règles de catégorie (28 oct. 2026) : catégorie = rang de qualification (1 = priorité la plus haute) ; chaque règle s'applique
+// à tous les employés de la catégorie, comme leurs propres cases (server/lib/horaire-generation.js).
+db.exec(`
+CREATE TABLE IF NOT EXISTS horaire_category_rules (
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  rank INTEGER NOT NULL,
+  rule TEXT NOT NULL,
+  PRIMARY KEY (userId, rank, rule)
+);
+`);
 
 module.exports = db;

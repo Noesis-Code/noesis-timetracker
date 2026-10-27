@@ -160,10 +160,27 @@ router.put('/horaire/qualifications', (req, res) => {
 router.delete('/horaire/qualifications/:employeeId/:positionId', (req, res) =>
   (h.removeQualification(req.userId, req.params.employeeId, req.params.positionId) ? res.json({ ok: true }) : notFound(res, 'Qualification')));
 
+// ---------- règles de catégorie : { rank 1..5, rule } (liste fermée h.CATEGORY_RULES) ----------
+function categoryRuleInput(res, b) {
+  const rank = Number(b && b.rank), rule = b && b.rule;
+  if (!(Number.isInteger(rank) && rank >= 1 && rank <= 5)) { bad(res, 'Catégorie invalide (1 à 5).'); return null; }
+  if (!h.CATEGORY_RULES.includes(rule)) { bad(res, 'Règle inconnue.'); return null; }
+  return { rank, rule };
+}
+router.get('/horaire/category-rules', (req, res) => res.json({ rules: h.listCategoryRules(req.userId) }));
+router.put('/horaire/category-rules', (req, res) => {
+  const v = categoryRuleInput(res, req.body || {}); if (!v) return;
+  res.json({ rules: h.addCategoryRule(req.userId, v.rank, v.rule) });
+});
+router.delete('/horaire/category-rules/:rank/:rule', (req, res) => {
+  const v = categoryRuleInput(res, { rank: Number(req.params.rank), rule: req.params.rule }); if (!v) return;
+  return h.removeCategoryRule(req.userId, v.rank, v.rule) ? res.json({ rules: h.listCategoryRules(req.userId) }) : notFound(res, 'Règle');
+});
+
 // ---------- disponibilités (par semaine) ----------
 router.get('/horaire/weeks/:weekStart/availabilities', (req, res) => {
   const w = weekParam(req, res); if (!w) return;
-  res.json({ weekStart: w, availabilities: h.getAvailabilities(req.userId, w), timeoff: h.getTimeoff(req.userId, w) });
+  res.json({ weekStart: w, availabilities: h.getAvailabilities(req.userId, w), timeoff: h.getTimeoff(req.userId, w), summary: h.availSummary(req.userId, w) });
 });
 // Correction manuelle : { intervals?: [{day, start, end}], timeoff?: ['AAAA-MM-JJ'] } (au moins l'un des deux ; absent = inchangé).
 // Une case du tableau : disponible (plage), indisponible (rien) ou vacances (jour dans timeoff, ses plages sont retirées).

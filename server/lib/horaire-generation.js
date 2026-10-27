@@ -54,16 +54,18 @@ function criticality(weekday, startMin, isEvent) {
   return WEEKEND.includes(weekday) ? 1 : 0;
 }
 
-// Créneaux à combler pour la semaine : un événement spécial d'une date REMPLACE le modèle normal de ce jour
-// (pour tous les postes) ; sinon on prend les besoins normaux du jour de semaine.
+// Créneaux à combler pour la semaine : un événement spécial d'une date REMPLACE le modèle normal de son SERVICE
+// (matin ou soir, d'après l'heure d'arrivée de ses besoins ; pour tous les postes) ; l'autre service garde ses besoins normaux
+// (maquette du 28 oct. 2026 : « Un événement remplace les besoins de son service »).
+const serviceOf = (start) => (toMin(start) >= EVENING_FROM ? 'soir' : 'matin');
 function buildSlots(weekStart, needs, events) {
   const days = weekDays(weekStart);
   const slots = [];
   days.forEach((day, weekday) => {
     const dayEvents = (events || []).filter((e) => e.day === day);
-    const source = dayEvents.length
-      ? dayEvents.flatMap((e) => (e.needs || []).map((n) => Object.assign({ eventId: e.id }, n)))
-      : (needs || []).filter((n) => Number(n.weekday) === weekday);
+    const fromEvents = dayEvents.flatMap((e) => (e.needs || []).map((n) => Object.assign({ eventId: e.id }, n)));
+    const replaced = new Set(fromEvents.map((n) => serviceOf(n.start)));
+    const source = fromEvents.concat((needs || []).filter((n) => Number(n.weekday) === weekday && !replaced.has(serviceOf(n.start))));
     for (const n of source) {
       const r = range(n.start, n.end);
       const count = Math.max(0, Math.floor(Number(n.count) || 0));
@@ -84,7 +86,9 @@ function overlaps(a, b) { return a.from < b.to && b.from < a.to; }
  *   employees [{id, maxWeekMinutes|null, wantShiftsMax|null, noDouble, restAfterShift}] ;
  *   qualifications [{employeeId, positionId, rank}] ; availabilities [{employeeId, day, start, end}] ; timeoff [{employeeId, day}] ;
  *   needs [{positionId, weekday 0..6, start, end, count}] ; events [{id, day, needs:[{positionId, start, end, count}]}] ;
- *   rotation { '<positionId>:<rank>': dernierEmployeeId }.
+ *   rotation { '<positionId>:<rank>': dernierEmployeeId } ;
+ *   categoryRules [{rank, rule}] : règles de catégorie (catégorie = meilleur rang de l'employé) appliquées comme ses propres cases :
+ *   noDouble, restAfterShift, noMorning, noEvening (strictes) ; eveningsFirst, morningsFirst (préférences d'ordre dans son rang).
  * @returns {{assignments: Array, alerts: Array, rotation: object}}
  */
 function generateSchedule(input) {
@@ -111,6 +115,16 @@ function generateSchedule(input) {
     if (!avail.has(k)) avail.set(k, []);
     avail.get(k).push(r);
   }
+  // règles de catégorie : catégorie = meilleur rang (1 = priorité la plus haute) de l'employé, tous postes confondus
+  const best = new Map();
+  for (const m of qual.values()) for (const [id, rank] of m) if (!best.has(id) || rank < best.get(id)) best.set(id, rank);
+  const catRules = new Map();
+  for (const c of input.categoryRules || []) {
+    const rank = Number(c.rank);
+    if (!catRules.has(rank)) catRules.set(rank, new Set());
+    catRules.get(rank).add(c.rule);
+  }
+  const rule = (empId, name) => { const s = catRules.get(best.get(empId)); return !!(s && s.has(name)); };
   // congés : jour entier, l'employé est indisponible ce jour-là
   const off = new Set((input.timeoff || []).map((t) => t.employeeId + '|' + t.day));
 
@@ -142,13 +156,16 @@ function generateSchedule(input) {
     if (!(avail.get(k) || []).some(([f, t]) => f <= slot.from && slot.to <= t)) return false;
     const before = busy.get(empId + '|' + addDays(slot.day, -1)) || [];
     const after = busy.get(empId + '|' + addDays(slot.day, 1)) || [];
-    if (e.restAfterShift && (before.length || after.length)) return false;
+    if (rule(empId, evening(slot) ? 'noEvening' : 'noMorning')) return false;
+    if ((e.restAfterShift || rule(empId, 'restAfterShift')) && (before.length || after.length)) return false;
     const double = same.some((s) => evening(s) !== evening(slot));
-    if (e.noDouble && double) return false;
+    if ((e.noDouble || rule(empId, 'noDouble')) && double) return false;
     const want = e.wantShiftsMax;
     if (has(want) && shiftsOf.get(empId) >= want && !(level >= 3 && want === 5 && shiftsOf.get(empId) === 5)) return false;
     if (level < 1) {
       if (double) return false;
+      // préférence de catégorie : « Soirs d'abord » évite les matins, « Matins d'abord » évite les soirs (assoupli dès la 2e passe)
+      if (rule(empId, evening(slot) ? 'morningsFirst' : 'eveningsFirst')) return false;
       // fermeture suivie d'une ouverture : soir la veille puis matin, ou soir puis matin le lendemain
       if (evening(slot) ? after.some((s) => !evening(s)) : before.some(evening)) return false;
     }
@@ -165,9 +182,14 @@ function generateSchedule(input) {
       const group = employees.filter((e) => q.get(e.id) === rank).map((e) => e.id); // ordre stable (id)
       const key = slot.positionId + ':' + rank;
       const last = group.indexOf(rotation[key]);
-      // Tourniquet : on commence juste après le dernier employé servi dans ce groupe.
-      for (let i = 1; i <= group.length; i++) {
-        const id = group[(last + i + group.length) % group.length];
+      // Tourniquet : on commence juste après le dernier employé servi dans ce groupe ; préférence de catégorie
+      // (« Soirs d'abord », « Matins d'abord ») : ceux qui préfèrent ce service d'abord, ceux qui préfèrent l'autre en dernier.
+      const turn = [];
+      for (let i = 1; i <= group.length; i++) turn.push(group[(last + i + group.length) % group.length]);
+      const want = evening(slot) ? 'eveningsFirst' : 'morningsFirst', other = evening(slot) ? 'morningsFirst' : 'eveningsFirst';
+      const tier = (id) => (rule(id, want) ? 0 : rule(id, other) ? 2 : 1);
+      turn.sort((a, b) => tier(a) - tier(b)); // tri stable : le tourniquet est gardé dans chaque niveau
+      for (const id of turn) {
         if (eligible(id, slot, level)) { rotation[key] = id; return id; }
       }
     }

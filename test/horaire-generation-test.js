@@ -83,7 +83,7 @@ assert(r.rotation['1:1'] === 12, 'état de rotation rendu (dernier servi du grou
 r = generateSchedule(Object.assign({}, rotIn, { rotation: { '1:1': 11 } }));
 assert(find(r, 1, D[0])[0].employeeId === 12, 'rotation reprise d\'une semaine à l\'autre (après 11 vient 12)');
 
-// ---- Événement spécial : remplace le modèle normal pour sa date ----
+// ---- Événement spécial : remplace le modèle normal de son service (ici le soir) ; le matin garde ses besoins ----
 r = generateSchedule({
   weekStart: W,
   positions: [{ id: 1, fillOrder: 0 }],
@@ -93,7 +93,44 @@ r = generateSchedule({
   needs: [{ positionId: 1, weekday: 5, start: '09:00', end: '12:00', count: 1 }],
   events: [{ id: 7, day: D[5], needs: [{ positionId: 1, start: '18:00', end: '23:00', count: 2 }] }],
 });
-assert(find(r, 1, D[5]).length === 2 && find(r, 1, D[5]).every((a) => a.start === '18:00'), 'événement du samedi : ses besoins remplacent le modèle normal');
+assert(find(r, 1, D[5], '18:00').length === 2 && find(r, 1, D[5], '09:00').length === 1, 'événement du samedi soir : besoins du soir remplacés, matin gardé');
+r = generateSchedule({
+  weekStart: W,
+  positions: [{ id: 1, fillOrder: 0 }],
+  employees: [{ id: 10, maxWeekMinutes: null }, { id: 11, maxWeekMinutes: null }, { id: 12, maxWeekMinutes: null }],
+  qualifications: [10, 11, 12].map((id) => ({ employeeId: id, positionId: 1, rank: 1 })),
+  availabilities: allDay([10, 11, 12], D),
+  needs: [{ positionId: 1, weekday: 5, start: '17:00', end: '23:00', count: 1 }, { positionId: 1, weekday: 5, start: '10:00', end: '15:00', count: 1 }],
+  events: [{ id: 8, day: D[5], needs: [{ positionId: 1, start: '18:00', end: '23:00', count: 2 }] }],
+});
+assert(!find(r, 1, D[5], '17:00').length && find(r, 1, D[5], '18:00').length === 2 && find(r, 1, D[5], '10:00').length === 1,
+  'événement du soir : le 17:00 normal disparaît, le 10:00 du matin reste');
+
+// ---- Règles de catégorie (catégorie = meilleur rang) : appliquées à chaque employé de la catégorie ----
+const cat = (rules, extra) => generateSchedule(Object.assign({
+  weekStart: W,
+  positions: [{ id: 1, fillOrder: 0 }],
+  employees: [{ id: 10, maxWeekMinutes: null }, { id: 11, maxWeekMinutes: null }],
+  qualifications: [{ employeeId: 10, positionId: 1, rank: 1 }, { employeeId: 11, positionId: 1, rank: 2 }],
+  availabilities: allDay([10, 11], D),
+  categoryRules: rules,
+}, extra));
+r = cat([{ rank: 1, rule: 'noMorning' }], { needs: [{ positionId: 1, weekday: 0, start: '10:00', end: '15:00', count: 1 }] });
+assert(find(r, 1, D[0])[0].employeeId === 11, '« Pas de matin » (catégorie 1) : le matin va à la catégorie 2');
+r = cat([{ rank: 1, rule: 'noEvening' }, { rank: 2, rule: 'noEvening' }], { needs: [{ positionId: 1, weekday: 0, start: '17:00', end: '23:00', count: 1 }] });
+assert(!r.assignments.length && r.alerts.some((a) => a.type === 'trou'), '« Pas de soir » est stricte : trou plutôt que de l’enfreindre');
+r = cat([{ rank: 1, rule: 'noDouble' }], { needs: [{ positionId: 1, weekday: 0, start: '10:00', end: '15:00', count: 1 }, { positionId: 1, weekday: 0, start: '17:00', end: '23:00', count: 1 }],
+  qualifications: [{ employeeId: 10, positionId: 1, rank: 1 }] });
+assert(r.assignments.length === 1 && r.alerts.some((a) => a.type === 'trou'), '« Jamais de double » de catégorie : jamais matin et soir le même jour, même en dernier recours');
+r = cat([{ rank: 1, rule: 'restAfterShift' }], { needs: [0, 1].map((d) => ({ positionId: 1, weekday: d, start: '17:00', end: '23:00', count: 1 })),
+  qualifications: [{ employeeId: 10, positionId: 1, rank: 1 }] });
+assert(r.assignments.length === 1, '« Repos après un quart » de catégorie : pas deux jours de suite');
+r = cat([{ rank: 1, rule: 'eveningsFirst' }], { needs: [{ positionId: 1, weekday: 0, start: '10:00', end: '15:00', count: 1 }] });
+assert(find(r, 1, D[0])[0].employeeId === 11, '« Soirs d’abord » (catégorie 1) : le matin va d’abord à la catégorie 2');
+r = cat([{ rank: 1, rule: 'eveningsFirst' }], { needs: [{ positionId: 1, weekday: 0, start: '10:00', end: '15:00', count: 1 }], qualifications: [{ employeeId: 10, positionId: 1, rank: 1 }] });
+assert(r.assignments.length === 1 && find(r, 1, D[0])[0].employeeId === 10, '« Soirs d’abord » est une préférence : seul disponible, il prend le matin');
+r = cat([{ rank: 1, rule: 'morningsFirst' }], { needs: [{ positionId: 1, weekday: 0, start: '17:00', end: '23:00', count: 1 }] });
+assert(find(r, 1, D[0])[0].employeeId === 11, '« Matins d’abord » (catégorie 1) : le soir va d’abord à la catégorie 2');
 
 // ---- Quart qui traverse minuit ----
 r = generateSchedule({

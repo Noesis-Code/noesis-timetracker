@@ -1,8 +1,8 @@
 /* Module « Horaire » (26 oct. 2026, demande d'Émilien) : écran du gestionnaire (maître d'hôtel) qui prépare l'horaire hebdo de son personnel.
  * Routes : server/routes/horaire.js (doc docs/basic/module-horaire.md). Page unique #tab-horaire, page principale = horaire de la semaine :
- * semaine ‹ › , « Générer l'horaire », « Prompt pour l'IA » (action principale : copie le prompt de la semaine, à coller dans sa propre IA),
- * puis les 5 blocs de la maquette du 27 oct. 2026 (Besoins, Serveurs, Changements, Horaire de la semaine, Règles) ; puis « Paramètres » en sections
- * repliables fermées par défaut (R2) : Employés, Postes, Besoins (les autres réglages restent dans la configuration guidée).
+ * semaine ‹ ›, 4 étapes numérotées (prompt de récupération, coller les disponibilités, générer, prompt pour l'IA en violet) et l'état
+ * des disponibilités ; puis (maquette version 6 du 28 oct. 2026) Horaire de la semaine, Besoins et événements, Classification des employés,
+ * Règles du restaurant ; puis « Paramètres » en sections repliables fermées par défaut (R2) : Employés, Postes, Besoins, Prompts.
  * Configuration guidée (26 oct. 2026) : tant que le compte n'est pas « configured », l'ouverture du volet montre une étape par écran
  * (les mêmes sections, dépliées dans un cadre d'étape), « Suivant » / « Passer », points de pagination, balayage gauche/droite
  * entre les étapes ; pas de ✕ (on sort par « Suivant », « Passer » ou « Terminer ») ; app fermée = reprise à l'étape mémorisée
@@ -34,8 +34,8 @@
   function hours(min) { var h = Math.floor(min / 60), m = min % 60; return h + ' h' + (m ? ' ' + pad(m) : ''); }
 
   var S = {
-    week: mondayOf(new Date()), employees: [], positions: [], quals: [], needs: [], events: [], avail: [], timeoff: [], schedule: null, settings: {},
-    open: {}, editing: null, msg: '', importMsg: '', rulesOpen: false, busy: false, loaded: false,
+    week: mondayOf(new Date()), employees: [], positions: [], quals: [], needs: [], events: [], avail: [], timeoff: [], summary: null, catRules: [], schedule: null, settings: {},
+    open: {}, editing: null, msg: '', rulesOpen: false, busy: false, loaded: false,
   };
 
   // ---------- réseau ----------
@@ -51,15 +51,15 @@
   }
   function loadWeek() {
     return Promise.all([req('GET', 'weeks/' + S.week), req('GET', 'weeks/' + S.week + '/availabilities')]).then(function (r) {
-      S.schedule = r[0].schedule; S.avail = r[1].availabilities || []; S.timeoff = r[1].timeoff || [];
+      S.schedule = r[0].schedule; S.avail = r[1].availabilities || []; S.timeoff = r[1].timeoff || []; S.summary = r[1].summary || null;
       return req('GET', 'weeks/' + S.week + '/covers').then(function (c) { S.covers = c.covers || []; }, function () { S.covers = []; });
     });
   }
   function loadAll() {
-    return Promise.all([req('GET', 'employees'), req('GET', 'positions'), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'prompts').catch(function () { return null; })])
+    return Promise.all([req('GET', 'employees'), req('GET', 'positions'), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'prompts').catch(function () { return null; }), req('GET', 'category-rules').catch(function () { return { rules: [] }; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
-        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.prompts = r[7] && r[7].importPrompt ? r[7] : null; S.loaded = true;
+        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.prompts = r[7] && r[7].importPrompt ? r[7] : null; S.catRules = r[8].rules || []; S.loaded = true;
       });
   }
   function refresh() { return loadAll().then(render, fail); }
@@ -135,22 +135,20 @@
   }
   function emptyHint(list, text) { list.appendChild(el('p', 'horaireEmpty', text)); }
 
-  // ---------- page principale (maquette « Horaire — semaine », 27 oct. 2026) ----------
-  // En-tête (semaine, « Générer l'horaire », « Prompt pour l'IA »), puis 5 blocs : 1. Besoins, 2. Serveurs (disponibilités de la semaine),
-  // 3. Changements de la semaine (événements, congés), 4. Horaire de la semaine, 5. Règles du restaurant (repliées) ; Paramètres dessous.
+  // ---------- page principale (maquette « Horaire — semaine », version 6 du 28 oct. 2026) ----------
+  // En-tête (semaine), rangée de 4 boutons dans l'ordre d'usage + ligne d'état des disponibilités, puis : Horaire de la semaine,
+  // Besoins et événements, Classification des employés, Règles du restaurant (repliées) ; Paramètres dessous.
   // Sur téléphone, chaque tableau défile horizontalement dans son cadre.
   var EVE = 16 * 60; // soir = à partir de 16 h
   var SLOT = { matin: ['10:00', '16:00'], soir: ['16:00', '23:59'] };
-  var pasteBox, pasteArea, weekLabel, msgBox, needsBox, staffBox, importMsg, changesBox, planBox, alertsBox, rulesBox, rulesHead, settingsBox, genBtn, promptBtn, mainNodes, setupBox, setupMsg;
+  var pasteBox, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, rulesHead, settingsBox, genBtn, mainNodes, setupBox, setupMsg;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
-  function toTime(m) { return m >= 1440 ? '23:59' : pad(Math.floor(m / 60)) + ':' + pad(m % 60); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
-  function block(title, hint, extra) {
+  function block(title, hint) {
     var sec = el('section', 'horaireBlock');
     var head = el('div', 'horaireBlockHead');
     head.appendChild(el('h2', 'horaireBlockTitle', tr(title)));
     if (hint) head.appendChild(el('span', 'horaireBlockHint', tr(hint)));
-    (extra || []).forEach(function (n) { head.appendChild(n); });
     sec.appendChild(head);
     return sec;
   }
@@ -160,54 +158,52 @@
     var head = el('header', 'horaireHead');
     head.appendChild(el('h1', 'horaireTitle', tr('Horaire')));
     var nav = el('div', 'horaireWeek');
-    var prev = btn('cmpGlass horaireNav', '‹', function () { changeWeek(-7); }); prev.setAttribute('aria-label', tr('Semaine précédente'));
-    var next = btn('cmpGlass horaireNav', '›', function () { changeWeek(7); }); next.setAttribute('aria-label', tr('Semaine suivante'));
+    var prev = btn('horaireNav', '‹', function () { changeWeek(-7); }); prev.setAttribute('aria-label', tr('Semaine précédente'));
+    var next = btn('horaireNav', '›', function () { changeWeek(7); }); next.setAttribute('aria-label', tr('Semaine suivante'));
     weekLabel = el('span', 'horaireWeekLabel');
     nav.appendChild(prev); nav.appendChild(weekLabel); nav.appendChild(next);
-    genBtn = btn('cmpGlass horaireBtn', 'Générer l’horaire', generate);
-    promptBtn = btn('cmpBtn horaireBtnMain', 'Prompt pour l’IA', function () { copyText('weeks/' + S.week + '/prompt', 'Prompt copié : colle-le dans ton IA.', msgBox); });
-    [nav, genBtn, promptBtn].forEach(function (n) { head.appendChild(n); });
+    head.appendChild(nav);
+
+    // Les 4 étapes de la semaine, dans l'ordre d'usage ; seule la 4e (inscription par l'IA) est violette (R1).
+    var steps = el('div', 'horaireSteps');
+    genBtn = btn('cmpGlass horaireBtn', '3. Générer l’horaire', generate);
+    [btn('cmpGlass horaireBtn', '1. Prompt de récupération', function () { copyText('import-prompt', 'Prompt copié : colle-le dans ton IA.'); }),
+      btn('cmpGlass horaireBtn', '2. Coller les disponibilités', pasteAvail), genBtn,
+      btn('cmpBtn horaireBtnMain', '4. Prompt pour l’IA', function () { copyText('weeks/' + S.week + '/prompt', 'Prompt copié : colle-le dans ton IA.'); })]
+      .forEach(function (b) { steps.appendChild(b); });
+    statusLine = el('span', 'horaireStatus'); steps.appendChild(statusLine);
     msgBox = el('p', 'horaireMsg hidden'); msgBox.setAttribute('aria-live', 'polite');
-
-    var b1 = block('1. Besoins', 'Nombre de serveurs par heure d’arrivée. Soir = à partir de 16 h.');
-    needsBox = el('div', 'horaireFrame cmpGlass'); b1.appendChild(needsBox);
-
     pasteBox = el('div', 'horairePaste hidden');
     pasteArea = el('textarea', 'horaireInput'); pasteArea.rows = 4; pasteArea.setAttribute('aria-label', tr('Coller les disponibilités'));
-    var pasteSend = btn('cmpBtn horairePasteSend', 'Envoyer', function () { sendAvail(pasteArea.value); });
-    pasteBox.appendChild(pasteArea); pasteBox.appendChild(pasteSend);
-    importMsg = el('p', 'horaireMsg hidden'); importMsg.setAttribute('aria-live', 'polite');
-    var b2 = block('2. Serveurs', 'Remplies par le texte rendu par ton IA. Un clic corrige une case : disponible → indisponible → vacances.', [
-      btn('cmpGlass horaireBtn', 'Prompt de récupération', function () { copyText('import-prompt', 'Prompt copié : colle-le dans ton IA.', importMsg); }),
-      btn('cmpGlass horaireBtn', 'Coller les disponibilités', pasteAvail)]);
-    b2.querySelector('.horaireBlockHint').classList.add('horaireGrow');
-    staffBox = el('div', 'horaireFrame cmpGlass');
-    b2.appendChild(pasteBox); b2.appendChild(importMsg); b2.appendChild(staffBox);
+    pasteBox.appendChild(pasteArea); pasteBox.appendChild(btn('cmpBtn horairePasteSend', 'Envoyer', function () { sendAvail(pasteArea.value); }));
 
-    var b3 = block('3. Changements de la semaine', 'Congés, événements, groupes, remplacements.');
-    changesBox = el('div', 'horaireChanges cmpGlass'); b3.appendChild(changesBox);
-
-    var b4 = block('4. Horaire de la semaine', 'Généré par l’app. Clique un nom pour le changer.');
+    var bPlan = block('Horaire de la semaine', 'Tel qu’il sera inscrit. Clique un nom pour le changer.');
     planBox = el('div', 'horaireFrame cmpGlass');
     alertsBox = el('div', 'horaireAlerts');
-    b4.appendChild(planBox); b4.appendChild(alertsBox);
+    bPlan.appendChild(planBox); bPlan.appendChild(alertsBox);
 
-    var b5 = el('section', 'horaireBlock');
+    var bNeeds = block('Besoins et événements', 'Nombre de serveurs par heure d’arrivée. Soir = à partir de 16 h. Un événement remplace les besoins de son service.');
+    needsBox = el('div', 'horaireFrame cmpGlass'); bNeeds.appendChild(needsBox);
+
+    var bCats = block('Classification des employés', 'Catégorie 1 = priorité la plus haute. Glisse un nom pour le changer de catégorie.');
+    catsBox = el('div', 'horaireCats'); bCats.appendChild(catsBox);
+
+    var bRules = el('section', 'horaireBlock');
     rulesHead = el('button', 'horaireRulesHead'); rulesHead.type = 'button';
     rulesHead.addEventListener('click', function () { S.rulesOpen = !S.rulesOpen; renderRules(); });
     rulesBox = el('div', 'horaireRules cmpGlass');
-    b5.appendChild(rulesHead); b5.appendChild(rulesBox);
+    bRules.appendChild(rulesHead); bRules.appendChild(rulesBox);
 
     var title = el('p', 'sectionTitle horaireSettingsTitle', tr('Paramètres'));
     settingsBox = el('div', 'horaireSettings cmpGlass cmpList');
-    mainNodes = [head, msgBox, b1, b2, b3, b4, b5, title, settingsBox];
+    mainNodes = [head, steps, msgBox, pasteBox, bPlan, bNeeds, bCats, bRules, title, settingsBox];
     setupBox = el('div', 'horaireSetup hidden');
     setupMsg = el('p', 'horaireMsg hidden'); setupMsg.setAttribute('aria-live', 'polite');
     mainNodes.concat([setupBox]).forEach(function (n) { root.appendChild(n); });
   }
   function changeWeek(n) {
-    S.week = addDays(S.week, n); S.msg = ''; S.importMsg = '';
-    if (S.editing && /^changes:/.test(S.editing)) S.editing = null;
+    S.week = addDays(S.week, n); S.msg = '';
+    if (S.editing && /^ev/.test(S.editing)) S.editing = null;
     closeMenu();
     loadWeek().then(render, fail);
   }
@@ -217,10 +213,10 @@
     req('POST', 'weeks/' + S.week + '/generate').then(function (d) { S.schedule = d.schedule; render(); }, fail)
       .then(function () { S.busy = false; genBtn.disabled = false; });
   }
-  // Texte assemblé côté serveur copié dans le presse-papiers. ClipboardItem avec promesse quand il existe :
-  // la copie reste liée au toucher même si le texte arrive après (Safari iOS). Une erreur (ex. 409) affiche le message renvoyé.
-  function copyText(url, done, box) {
-    var show = function (m) { if (box === importMsg) S.importMsg = m; else S.msg = m; renderMsg(); };
+  // Texte assemblé côté serveur (version en vigueur des prompts) copié dans le presse-papiers. ClipboardItem avec promesse quand il
+  // existe : la copie reste liée au toucher même si le texte arrive après (Safari iOS). Une erreur (ex. 409) affiche le message renvoyé.
+  function copyText(url, done) {
+    var show = function (m) { S.msg = m; renderMsg(); };
     var text = fetch('/api/horaire/' + url, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) {
       if (!r.ok) return r.json().catch(function () { return {}; }).then(function (d) { throw new Error(d.error ? tr(d.error) : tr('Erreur serveur')); });
       return r.text();
@@ -246,14 +242,21 @@
     if (!String(text || '').trim() || S.busy) return;
     S.busy = true;
     req('POST', 'weeks/' + S.week + '/import/availabilities', { csv: text }).then(function (d) {
-      S.importMsg = (d.employees || 0) + ' ' + tr('employé(s) lu(s)') + (d.unknown && d.unknown.length ? '. ' + tr('Inconnus :') + ' ' + d.unknown.join(', ') : '') + '.';
+      S.msg = (d.employees || 0) + ' ' + tr('employé(s) lu(s)') + (d.unknown && d.unknown.length ? '. ' + tr('Inconnus :') + ' ' + d.unknown.join(', ') : '') + '.';
       pasteArea.value = ''; pasteBox.classList.add('hidden');
       return loadWeek().then(render);
-    }).catch(function (e) { S.importMsg = (e && e.message) || tr('Erreur serveur'); renderMsg(); }).then(function () { S.busy = false; });
+    }).catch(fail).then(function () { S.busy = false; });
   }
   function renderMsg() {
     [msgBox, setupMsg].forEach(function (m) { m.textContent = S.msg; m.classList.toggle('hidden', !S.msg); });
-    if (importMsg) { importMsg.textContent = S.importMsg || ''; importMsg.classList.toggle('hidden', !S.importMsg); }
+  }
+  // Ligne d'état : « Disponibilités : N employés lus le … » ou « pas encore collées ».
+  function renderStatus() {
+    var s = S.summary || {};
+    if (!s.employees) { statusLine.textContent = tr('Disponibilités : pas encore collées'); return; }
+    var d = s.at ? new Date(s.at) : null;
+    statusLine.textContent = tr('Disponibilités :') + ' ' + s.employees + ' ' + tr(s.employees > 1 ? 'employés lus' : 'employé lu')
+      + (d ? ' ' + tr('le') + ' ' + d.getDate() + ' ' + tr(MONTHS[d.getMonth()]) : '');
   }
   function inSetup() { return S.loaded && !S.settings.configured; }
   function weekTitle() {
@@ -268,14 +271,14 @@
     if (setup) { renderSetup(); renderMsg(); return; }
     weekLabel.textContent = weekTitle();
     renderMsg();
-    renderNeedsTable();
-    renderStaff();
-    renderChanges();
+    renderStatus();
     renderSchedule();
+    renderNeedsTable();
+    renderCats();
     renderRules();
     renderSettings();
   }
-  // Tableau jours × colonnes : en-tête (jour + date), puis une rangée par service. cells(i) = contenu de la case du jour i.
+  // Tableau jours × colonnes : en-tête (jour, + date si demandé), puis une rangée par ligne. r[1](i, case) remplit la case du jour i.
   function grid(cls, withDate, rows) {
     var g = el('div', 'horaireGrid ' + cls);
     g.appendChild(el('div', 'horaireCell'));
@@ -291,16 +294,19 @@
     });
     return g;
   }
-  // Besoins d'un jour : ceux des événements du jour remplacent le modèle normal (même règle que la génération).
+  // Besoins d'un jour (même règle que la génération) : un événement remplace les besoins normaux de SON service (matin ou soir).
+  function dayEvents(i) { var day = addDays(S.week, i); return S.events.filter(function (e) { return e.day === day; }); }
+  function daySource(i) {
+    var ev = [].concat.apply([], dayEvents(i).map(function (e) { return e.needs || []; }));
+    var replaced = {}; ev.forEach(function (n) { replaced[serviceOf(n.start)] = 1; });
+    return ev.concat(S.needs.filter(function (n) { return Number(n.weekday) === i && !replaced[serviceOf(n.start)]; }));
+  }
   function dayNeeds(i) {
-    var day = addDays(S.week, i);
-    var evs = S.events.filter(function (e) { return e.day === day; });
-    var src = evs.length ? [].concat.apply([], evs.map(function (e) { return e.needs || []; })) : S.needs.filter(function (n) { return Number(n.weekday) === i; });
-    var out = { matin: {}, soir: {}, event: evs.length > 0, eventSvc: {} };
-    src.forEach(function (n) { var s = serviceOf(n.start); out[s][n.start] = (out[s][n.start] || 0) + (Number(n.count) || 0); if (evs.length) out.eventSvc[s] = true; });
+    var out = { matin: {}, soir: {} };
+    daySource(i).forEach(function (n) { var s = serviceOf(n.start); out[s][n.start] = (out[s][n.start] || 0) + (Number(n.count) || 0); });
     return out;
   }
-  function needTotal(map) { return Object.keys(map).reduce(function (t, k) { return t + map[k]; }, 0); }
+  function eventService(ev) { var n = (ev.needs || [])[0]; return n ? serviceOf(n.start) : 'soir'; }
   function renderNeedsTable() {
     needsBox.textContent = '';
     var N = [0, 1, 2, 3, 4, 5, 6].map(dayNeeds);
@@ -309,17 +315,72 @@
         Object.keys(N[i][svc]).sort().forEach(function (h) {
           var r = el('div', 'horaireNeed'); r.appendChild(el('span', null, h)); r.appendChild(el('span', 'horaireNeedN', '× ' + N[i][svc][h])); c.appendChild(r);
         });
-        if (N[i].eventSvc[svc]) c.appendChild(el('span', 'horaireTag', tr('Événement')));
       };
     };
-    needsBox.appendChild(grid('horaireGridNeeds', true, [
-      ['Matin', list('matin')], ['Soir', list('soir')],
-      ['Total', function (i, c) { c.textContent = needTotal(N[i].matin) + ' ' + tr('matin') + ' · ' + needTotal(N[i].soir) + ' ' + tr('soir'); }, 'horaireMuted'],
-    ]));
+    // Ligne « Événement » : le bouton de l'événement du jour (un clic le déroule sur place, R36) ou un « + » pointillé (R33).
+    var evCell = function (i, c) {
+      var evs = dayEvents(i);
+      evs.forEach(function (ev) {
+        var key = 'ev:' + ev.id;
+        var b = btn('horaireEvent' + (S.editing === key ? ' on' : ''), (ev.label || tr('Événement')) + ' · ' + tr(eventService(ev)), function () { S.editing = S.editing === key ? null : key; renderNeedsTable(); });
+        b.setAttribute('aria-expanded', S.editing === key ? 'true' : 'false');
+        c.appendChild(b);
+      });
+      if (!evs.length) {
+        var key = 'evnew:' + addDays(S.week, i);
+        var a = TMT.ui.addBtn('', function () { S.editing = S.editing === key ? null : key; renderNeedsTable(); });
+        a.classList.add('horaireEvAdd'); a.setAttribute('aria-label', tr('Ajouter un événement'));
+        c.appendChild(a);
+      }
+    };
+    var g = grid('horaireGridNeeds', false, [['Matin', list('matin')], ['Soir', list('soir')], ['Événement', evCell, 'horaireCellPlan']]);
+    var m = /^ev(new)?:(.+)$/.exec(S.editing || '');
+    if (m) {
+      var ev = m[1] ? null : S.events.find(function (e) { return String(e.id) === m[2]; });
+      var day = m[1] ? m[2] : ev && ev.day;
+      if (day && day >= S.week && day <= addDays(S.week, 6)) {
+        var f = el('div', 'horaireForm horaireCellFull');
+        f.appendChild(el('span', 'horaireFieldLabel', dayLabel(day, true)));
+        if (S.positions.length) eventForm(f, ev, day); else f.appendChild(el('p', 'horaireEmpty', tr('Ajoute d’abord un poste.')));
+        g.appendChild(f);
+      }
+    }
+    needsBox.appendChild(g);
+  }
+  // Formulaire d'un événement, déroulé sous le tableau (R36) : libellé, service, besoins (heure d'arrivée × nombre).
+  // Il remplace les besoins de son service ce jour-là (routes /api/horaire/events). Poste : celui de la ligne, sinon le premier poste.
+  function eventForm(f, ev, day) {
+    var label = input('text', ev ? ev.label : '', tr('Libellé')); label.maxLength = 120;
+    var svc = select([['matin', tr('Matin')], ['soir', tr('Soir')]], ev ? eventService(ev) : 'soir', tr('Service'));
+    var pair = el('div', 'horairePair');
+    pair.appendChild(field(tr('Libellé'), label)); pair.appendChild(field(tr('Service'), svc));
+    f.appendChild(pair);
+    var lines = el('div', 'horaireLines'), getters = [];
+    function addLine(n) {
+      var line = el('div', 'horaireEvLine');
+      var start = input('time', n ? n.start : (svc.value === 'soir' ? '17:00' : '10:30'), tr('Heure d’arrivée'));
+      var count = input('number', n ? n.count : 1, tr('Nombre')); count.min = '1'; count.max = '50'; count.inputMode = 'numeric';
+      var g = function () { return { positionId: n ? n.positionId : S.positions[0].id, start: start.value, count: Number(count.value) || 1 }; };
+      getters.push(g);
+      line.appendChild(field(tr('Heure d’arrivée'), start)); line.appendChild(el('span', 'horaireTimes', '×')); line.appendChild(field(tr('Nombre'), count));
+      line.appendChild(TMT.ui.removeBtn(function () { getters.splice(getters.indexOf(g), 1); line.remove(); lines.dispatchEvent(new Event('input', { bubbles: true })); }, tr('Retirer le besoin')));
+      lines.appendChild(line);
+    }
+    (ev ? ev.needs : [null]).forEach(addLine);
+    f.appendChild(lines);
+    f.appendChild(TMT.ui.addBtn(tr('Ajouter un besoin'), function () { addLine(null); lines.dispatchEvent(new Event('input', { bubbles: true })); }));
+    f.appendChild(saveBtn(f, function () {
+      var s = svc.value;
+      var needs = getters.map(function (g) { return g(); });
+      if (needs.some(function (n) { return serviceOf(n.start) !== s; })) throw new Error(tr('Une heure d’arrivée est hors du service choisi.'));
+      var body = { day: day, label: label.value, needs: needs.map(function (n) { return { positionId: n.positionId, start: n.start, end: SLOT[s][1], count: n.count }; }) };
+      return ev ? req('PUT', 'events/' + ev.id, body) : req('POST', 'events', body);
+    }));
+    if (ev) f.appendChild(deleteBtn(tr('Supprimer cet événement ?'), function () { return req('DELETE', 'events/' + ev.id); }));
   }
 
-  // ---------- 2. Serveurs : disponibilités de la semaine en cases matin/soir ----------
-  // État d'une case : O disponible (une plage recoupe 10:00–16:00 ou 16:00–23:59), V vacances (jour de congé : toute la journée), sinon N.
+  // ---------- disponibilités de la semaine (lues pour la liste d'un trou) ----------
+  // État d'un service : O disponible (une plage recoupe 10:00–16:00 ou 16:00–23:59), V congé (journée entière), sinon N.
   function myIntervals(id) { return S.avail.filter(function (a) { return a.employeeId === id; }); }
   function myTimeoff(id) { return (S.timeoff || []).filter(function (t) { return t.employeeId === id; }).map(function (t) { return t.day; }); }
   function svcRange(svc) { return [toMin(SLOT[svc][0]), svc === 'soir' ? 1440 : toMin(SLOT[svc][1])]; }
@@ -329,31 +390,9 @@
     var w = svcRange(svc);
     return myIntervals(id).some(function (a) { if (a.day !== day) return false; var r = ivRange(a); return r[0] < w[1] && r[1] > w[0]; }) ? 'O' : 'N';
   }
-  // Nouvelle valeur d'une case (PUT intervals + timeoff) : disponible = on ajoute la plage du service ; indisponible = on retire seulement la partie
-  // qui recoupe le service (les autres plages restent) ; vacances = le jour entier passe en congé (le serveur retire ses plages).
-  function setCell(e, day, svc, state) {
-    var w = svcRange(svc), out = [];
-    myIntervals(e.id).forEach(function (a) {
-      if (a.day !== day) { out.push({ day: a.day, start: a.start, end: a.end }); return; }
-      if (state === 'V') return;
-      var r = ivRange(a);
-      if (state === 'O' || r[1] <= w[0] || r[0] >= w[1]) { out.push({ day: a.day, start: a.start, end: a.end }); return; }
-      if (r[0] < w[0]) out.push({ day: day, start: toTime(r[0]), end: toTime(w[0]) });
-      if (r[1] > w[1]) out.push({ day: day, start: toTime(w[1]), end: toTime(r[1]) });
-    });
-    if (state === 'O' && cellState(e.id, day, svc) !== 'O') out.push({ day: day, start: SLOT[svc][0], end: SLOT[svc][1] });
-    var off = myTimeoff(e.id).filter(function (d) { return d !== day; });
-    if (state === 'V') off.push(day);
-    var keep = { avail: S.avail, timeoff: S.timeoff };
-    S.avail = S.avail.filter(function (a) { return a.employeeId !== e.id; }).concat(out.map(function (a) { return Object.assign({ employeeId: e.id }, a); }));
-    S.timeoff = (S.timeoff || []).filter(function (t) { return t.employeeId !== e.id; }).concat(off.map(function (d) { return { employeeId: e.id, day: d }; }));
-    renderStaff(); renderChanges();
-    req('PUT', 'weeks/' + S.week + '/availabilities/' + e.id, { intervals: out, timeoff: off }).catch(function (err) {
-      S.avail = keep.avail; S.timeoff = keep.timeoff; renderStaff(); renderChanges(); fail(err);
-    });
-  }
-  var NEXT = { O: 'N', N: 'V', V: 'O' };
-  var WORD = { O: 'disponible', N: 'indisponible', V: 'vacances' };
+
+  // ---------- Classification des employés : une carte par catégorie (catégorie = meilleur rang de qualification) ----------
+  var CAT_RULES = { noDouble: 'Jamais de double', restAfterShift: 'Repos après un quart', noMorning: 'Pas de matin', noEvening: 'Pas de soir', eveningsFirst: 'Soirs d’abord', morningsFirst: 'Matins d’abord' };
   function bestRank(id) {
     var r = S.quals.filter(function (q) { return q.employeeId === id; }).map(function (q) { return q.rank; });
     return r.length ? Math.min.apply(null, r) : null;
@@ -361,103 +400,89 @@
   function wanted(e) {
     var a = e.wantShiftsMin, b = e.wantShiftsMax;
     if (a == null && b == null) return '';
-    if (a == null || b == null || a === b) return String(a == null ? b : a);
+    if (a == null || b == null || a === b) { var n = a == null ? b : a; return n + ' ' + tr(n > 1 ? 'quarts' : 'quart'); }
     return a + ' ' + tr('à') + ' ' + b;
   }
-  function staffRow(cls) { return el('div', 'horaireStaffRow ' + (cls || '')); }
-  function renderStaff() {
-    staffBox.textContent = '';
-    var t = el('div', 'horaireStaff');
-    var h1 = staffRow('horaireStaffHead');
-    h1.appendChild(el('span', null, tr('Nom'))); h1.appendChild(el('span', null, tr('Quarts')));
-    for (var i = 0; i < 7; i++) h1.appendChild(el('span', 'horaireStaffDay', tr(DAYS[i])));
-    var nh = el('span', 'horaireStaffNote', tr('Note permanente') + ' '); nh.appendChild(el('span', 'horaireLight', '· ' + tr('gardée à chaque import'))); h1.appendChild(nh);
-    t.appendChild(h1);
-    var h2 = staffRow('horaireStaffSub');
-    h2.appendChild(el('span')); h2.appendChild(el('span'));
-    for (i = 0; i < 7; i++) { var p = el('span', 'horairePair2'); p.appendChild(el('span', null, tr('matin'))); p.appendChild(el('span', null, tr('soir'))); h2.appendChild(p); }
-    h2.appendChild(el('span')); t.appendChild(h2);
-    var emps = S.employees.filter(function (e) { return e.active !== false; }).map(function (e) { return { e: e, g: bestRank(e.id) }; });
-    emps.sort(function (a, b) { return (a.g == null ? 99 : a.g) - (b.g == null ? 99 : b.g); });
-    if (!emps.length) t.appendChild(el('p', 'horaireEmpty', tr('Aucun employé.')));
-    var g = -1;
-    emps.forEach(function (x) {
-      if (x.g !== g) {
-        g = x.g;
-        t.appendChild(el('div', 'horaireGroup', g == null ? tr('Sans groupe') : tr('Groupe') + ' ' + g + (g === 1 ? ' · ' + tr('priorité la plus haute') : '')));
-      }
-      var r = staffRow();
-      r.appendChild(el('span', 'horaireStaffName', x.e.name));
-      r.appendChild(el('span', 'horaireMuted', wanted(x.e)));
-      [0, 1, 2, 3, 4, 5, 6].forEach(function (d) {
-        var day = addDays(S.week, d), pair = el('span', 'horairePair2');
-        ['matin', 'soir'].forEach(function (svc) {
-          var st = cellState(x.e.id, day, svc);
-          var b = el('button', 'horaireAv' + (st === 'O' ? ' on' : st === 'V' ? ' vac' : ''), st === 'O' ? '✓' : st === 'V' ? tr('Vac') : '');
-          b.type = 'button';
-          b.setAttribute('aria-label', x.e.name + ', ' + tr(DAYS[d]) + ' ' + tr(svc) + ' : ' + tr(WORD[st]));
-          b.addEventListener('click', function () { setCell(x.e, day, svc, NEXT[st]); });
-          pair.appendChild(b);
+  function renderCats() {
+    catsBox.textContent = '';
+    var emps = S.employees.filter(function (e) { return e.active !== false; });
+    var top = 4; emps.forEach(function (e) { var r = bestRank(e.id); if (r && r > top) top = Math.min(r, MAX_RANK); });
+    var ranks = []; for (var r = 1; r <= top; r++) ranks.push(r);
+    if (emps.some(function (e) { return bestRank(e.id) == null; })) ranks.push(null);
+    ranks.forEach(function (rank) {
+      var card = el('div', 'horaireCat cmpGlass'); card.dataset.rank = rank == null ? '' : String(rank);
+      card.appendChild(el('span', 'horaireCatTitle', rank == null ? tr('Sans catégorie') : tr('Catégorie') + ' ' + rank));
+      var people = el('div', 'horaireCatPeople');
+      emps.filter(function (e) { return bestRank(e.id) === rank; }).forEach(function (e) {
+        var p = el('div', 'horaireCatPerson');
+        var handle = el('span', 'activityDragHandle horaireHandle', '≡'); handle.setAttribute('aria-hidden', 'true');
+        p.appendChild(handle); p.appendChild(el('span', 'horaireGrow', e.name)); p.appendChild(el('span', 'horaireMuted horaireSmall', wanted(e)));
+        bindCatDrag(handle, p, e);
+        people.appendChild(p);
+      });
+      card.appendChild(people);
+      if (rank != null) {
+        var rulesArea = el('div', 'horaireCatRules');
+        rulesArea.appendChild(el('span', 'horaireMuted horaireSmall', tr('Règles de la catégorie')));
+        (S.catRules || []).filter(function (x) { return x.rank === rank; }).forEach(function (x) {
+          var pill = btn('horairePill', CAT_RULES[x.rule] || x.rule, function () {
+            TMT.ui.confirm(tr('Retirer la règle') + ' « ' + tr(CAT_RULES[x.rule] || x.rule) + ' » ' + tr('de la catégorie') + ' ' + rank + ' ?', { ok: tr('Retirer'), danger: true }).then(function (yes) {
+              if (!yes) return;
+              req('DELETE', 'category-rules/' + rank + '/' + encodeURIComponent(x.rule)).then(function (d) { S.catRules = d.rules || []; renderCats(); }, fail);
+            });
+          });
+          pill.setAttribute('aria-label', tr('Retirer la règle') + ' ' + tr(CAT_RULES[x.rule] || x.rule));
+          rulesArea.appendChild(pill);
         });
-        r.appendChild(pair);
-      });
-      r.appendChild(el('span', 'horaireStaffNote horaireMuted', x.e.constraintNote || ''));
-      t.appendChild(r);
+        var add = TMT.ui.addBtn(tr('Ajouter une règle'), function () { openRuleMenu(add, rank); });
+        rulesArea.appendChild(add);
+        card.appendChild(rulesArea);
+      }
+      catsBox.appendChild(card);
     });
-    var c = staffRow('horaireStaffCover');
-    c.appendChild(el('span', 'horaireStaffName', tr('Disponibles / besoin'))); c.appendChild(el('span'));
-    for (var k = 0; k < 7; k++) {
-      var dd = addDays(S.week, k), N = dayNeeds(k), pc = el('span', 'horairePair2');
-      ['matin', 'soir'].forEach(function (svc) {
-        var n = emps.filter(function (x) { return cellState(x.e.id, dd, svc) === 'O'; }).length, need = needTotal(N[svc]);
-        pc.appendChild(el('span', 'horaireCover' + (n < need ? ' short' : ''), n + '/' + need));
+  }
+  // « + Ajouter une règle » : liste fermée, dans la même liste déroulante unie que les quarts (R31).
+  function openRuleMenu(anchor, rank) {
+    if (!newMenu(anchor)) return;
+    var have = {}; (S.catRules || []).forEach(function (x) { if (x.rank === rank) have[x.rule] = 1; });
+    Object.keys(CAT_RULES).filter(function (k) { return !have[k]; }).forEach(function (k) {
+      var it = btn('horaireMenuItem', CAT_RULES[k], function () {
+        closeMenu();
+        req('PUT', 'category-rules', { rank: rank, rule: k }).then(function (d) { S.catRules = d.rules || []; renderCats(); }, fail);
       });
-      c.appendChild(pc);
-    }
-    c.appendChild(el('span')); t.appendChild(c);
-    staffBox.appendChild(t);
+      it.setAttribute('role', 'menuitem'); menu.appendChild(it);
+    });
+    if (!menu.firstChild) { closeMenu(); return; }
+    placeMenu(anchor);
+  }
+  // Glisser-déposer d'un nom vers une autre carte (poignée ≡, même mécanique que les activités et les postes, R27) : la ligne suit le
+  // doigt pendant le geste ; au relâchement, la carte sous le doigt donne la nouvelle catégorie (rang des qualifications de meilleur rang).
+  function bindCatDrag(handle, item, e) {
+    handle.addEventListener('pointerdown', function (ev) {
+      ev.preventDefault(); ev.stopPropagation();
+      var x0 = ev.clientX, y0 = ev.clientY, card = item.closest('.horaireCat');
+      handle.setPointerCapture(ev.pointerId);
+      item.classList.add('dragging'); card.classList.add('dragFrom');
+      function move(m) { item.style.transform = 'translate(' + (m.clientX - x0) + 'px,' + (m.clientY - y0) + 'px)'; }
+      function up(u) {
+        handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); handle.removeEventListener('pointercancel', up);
+        item.style.visibility = 'hidden';
+        var under = document.elementFromPoint(u.clientX, u.clientY);
+        item.style.visibility = ''; item.style.transform = ''; item.classList.remove('dragging'); card.classList.remove('dragFrom');
+        var target = under && under.closest && under.closest('.horaireCat');
+        var to = target && target.dataset.rank ? Number(target.dataset.rank) : null;
+        var from = bestRank(e.id);
+        if (u.type === 'pointercancel' || !to || to === from) return;
+        var mine = S.quals.filter(function (q) { return q.employeeId === e.id && q.rank === from; });
+        var calls = mine.length ? mine.map(function (q) { return { employeeId: e.id, positionId: q.positionId, rank: to }; })
+          : (S.positions[0] ? [{ employeeId: e.id, positionId: S.positions[0].id, rank: to }] : []);
+        Promise.all(calls.map(function (b) { return req('PUT', 'qualifications', b); })).then(refresh, fail);
+      }
+      handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', up); handle.addEventListener('pointercancel', up);
+    });
   }
 
-  // ---------- 3. Changements de la semaine : événements (modifiables sur place, R36) et congés ----------
-  function renderChanges() {
-    changesBox.textContent = '';
-    var end = addDays(S.week, 6);
-    var offBy = {};
-    (S.timeoff || []).forEach(function (t) { (offBy[t.employeeId] = offBy[t.employeeId] || []).push(t); });
-    Object.keys(offBy).forEach(function (id) {
-      var e = S.employees.find(function (x) { return String(x.id) === String(id); }); if (!e) return;
-      var days = {};
-      offBy[id].forEach(function (t) { (days[t.day] = days[t.day] || {})[t.service || 'matin'] = 1; if (!t.service) days[t.day].soir = 1; });
-      var parts = Object.keys(days).sort().map(function (d) {
-        var s = days[d]; return tr(DAYS[weekdayOf(d)]).toLowerCase() + ' (' + (s.matin && s.soir ? tr('matin et soir') : tr(s.matin ? 'matin' : 'soir')) + ')';
-      });
-      changesBox.appendChild(changeLine('Congé', e.name + ' : ' + tr('congé') + ' ' + parts.join(', ') + '.'));
-    });
-    S.events.filter(function (ev) { return ev.day >= S.week && ev.day <= end; }).forEach(function (ev) {
-      var key = 'changes:' + ev.id, open = S.editing === key;
-      var svc = {}; (ev.needs || []).forEach(function (n) { svc[serviceOf(n.start)] = 1; });
-      var when = tr(DAYS[weekdayOf(ev.day)]) + (svc.matin && !svc.soir ? ' ' + tr('matin') : svc.soir && !svc.matin ? ' ' + tr('soir') : '');
-      var line = changeLine('Événement', when + ' : ' + (ev.label || tr('événement')) + '.', function () { S.editing = open ? null : key; render(); });
-      line.setAttribute('aria-expanded', open ? 'true' : 'false');
-      changesBox.appendChild(line);
-      if (open) { var f = el('div', 'horaireForm horaireChangeForm'); eventForm(f, ev); changesBox.appendChild(f); }
-    });
-    if (S.editing === 'changes:new') {
-      var f = el('div', 'horaireForm horaireChangeForm');
-      if (S.positions.length) eventForm(f, null); else f.appendChild(el('p', 'horaireEmpty', tr('Ajoute d’abord un poste.')));
-      changesBox.appendChild(f);
-    } else {
-      changesBox.appendChild(TMT.ui.addBtn(tr('Ajouter un changement'), function () { S.editing = 'changes:new'; render(); }));
-    }
-  }
-  function changeLine(kind, text, onClick) {
-    var r = el(onClick ? 'button' : 'div', 'horaireChange');
-    if (onClick) { r.type = 'button'; r.addEventListener('click', onClick); }
-    r.appendChild(el('span', 'horaireMuted', tr(kind))); r.appendChild(el('span', null, text));
-    return r;
-  }
-
-  // ---------- 4. Horaire de la semaine : un bouton par quart, liste déroulante unie pour changer la personne ----------
+  // ---------- Horaire de la semaine : un bouton par quart, liste déroulante unie pour changer la personne ----------
   var menu = null;
   function closeMenu() { if (menu) { menu.remove(); menu = null; document.removeEventListener('pointerdown', outside, true); window.removeEventListener('scroll', closeMenu, true); } }
   function outside(ev) { if (menu && !menu.contains(ev.target)) closeMenu(); }
@@ -489,13 +514,11 @@
     menu.appendChild(rm);
     placeMenu(anchor);
   }
-  // Fin d'un trou : celle de l'alerte, sinon celle du besoin correspondant (événement du jour ou modèle normal), sinon 16:00 / 23:59.
+  // Fin d'un trou : celle du besoin correspondant (événement ou modèle normal), sinon 16:00 / 23:59.
   function holeEnd(h) {
     if (h.end) return h.end;
-    var evs = S.events.filter(function (e) { return e.day === h.day; });
-    var src = evs.length ? [].concat.apply([], evs.map(function (e) { return e.needs || []; })) : S.needs.filter(function (n) { return Number(n.weekday) === weekdayOf(h.day); });
-    var n = src.find(function (x) { return x.positionId === h.positionId && x.start === h.start; });
-    return n ? n.end : (serviceOf(h.start) === 'soir' ? '23:59' : '16:00');
+    var n = daySource(weekdayOf(h.day)).find(function (x) { return x.positionId === h.positionId && x.start === h.start; });
+    return n ? n.end : SLOT[serviceOf(h.start)][1];
   }
   // Trou « À combler » : même liste unie, employés seulement ; en tête les disponibles ce jour et ce service et pas encore placés ce jour-là.
   function openHoleMenu(anchor, h) {
@@ -545,10 +568,8 @@
     // aussitôt, même si les alertes du serveur ne sont pas recalculées.
     var holes = [];
     for (var i = 0; i < 7; i++) {
-      var day = addDays(S.week, i), evs = S.events.filter(function (e) { return e.day === day; });
-      var src = evs.length ? [].concat.apply([], evs.map(function (e) { return e.needs || []; })) : S.needs.filter(function (n) { return Number(n.weekday) === i; });
-      var want = {};
-      src.forEach(function (n) { var k = n.positionId + '|' + n.start; if (!want[k]) want[k] = { positionId: n.positionId, day: day, start: n.start, end: n.end, missing: 0 }; want[k].missing += Number(n.count) || 0; });
+      var day = addDays(S.week, i), want = {};
+      daySource(i).forEach(function (n) { var k = n.positionId + '|' + n.start; if (!want[k]) want[k] = { positionId: n.positionId, day: day, start: n.start, end: n.end, missing: 0 }; want[k].missing += Number(n.count) || 0; });
       sc.assignments.forEach(function (a) { var k = a.positionId + '|' + a.start; if (a.day === day && want[k]) want[k].missing -= 1; });
       Object.keys(want).forEach(function (k) { if (want[k].missing > 0) holes.push(want[k]); });
     }
@@ -561,7 +582,7 @@
         items.forEach(function (x) { c.appendChild(x[2] ? shiftBtn(x[2]) : hole(x[3])); });
       };
     };
-    planBox.appendChild(grid('horaireGridPlan', false, [['Matin', cell('matin'), 'horaireCellPlan'], ['Soir', cell('soir'), 'horaireCellPlan']]));
+    planBox.appendChild(grid('horaireGridPlan', true, [['Matin', cell('matin'), 'horaireCellPlan'], ['Soir', cell('soir'), 'horaireCellPlan']]));
     var key = function (a) { return a.type === 'trou' ? '0' + a.day + a.start : '1'; };
     (sc.alerts || []).slice().sort(function (x, y) { return key(x) < key(y) ? -1 : key(x) > key(y) ? 1 : 0; }).forEach(function (a) { alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + alertText(a))); });
   }
@@ -575,18 +596,18 @@
     return (a.employeeName || '?') + ' : ' + hours(a.minutes) + ' / ' + hours(a.maxWeekMinutes) + ' ' + tr('max') + '.';
   }
 
-  // ---------- 5. Règles du restaurant (fixes, reprises dans le prompt) : repliées par défaut, flèche à droite (R21) ----------
+  // ---------- Règles du restaurant (valent pour tous) : repliées par défaut, flèche à droite (R21) ----------
   var RULES = [
-    ['Règles strictes', ['1. Jamais sur un service où le serveur est indisponible.', '2. Jamais plus que ses quarts souhaités (moins est permis, dans l’ordre des groupes).',
-      '3. Contraintes particulières toujours respectées.', '4. Exactement le nombre demandé à chaque heure d’arrivée.']],
-    ['Préférences', ['5. Le plus de soirs au groupe 1, puis 2, 3 et 4.', '6. Éviter les doubles (matin et soir le même jour).', '7. Éviter fermeture puis ouverture le lendemain.']],
-    ['Dernier recours, à signaler', ['8. Un 6e quart pour qui en souhaite 5, groupe 1 d’abord.', '9. Demander à un serveur indisponible (« à demander »).']],
+    ['Règles strictes', ['1. Jamais sur un service où l’employé est indisponible.', '2. Jamais plus que ses quarts souhaités.',
+      '3. Règles de catégorie et de fiche toujours respectées.', '4. Exactement le nombre demandé à chaque heure d’arrivée.']],
+    ['Préférences', ['5. Le plus de soirs à la catégorie 1, puis 2, 3 et 4.', '6. Éviter les doubles (matin et soir le même jour).', '7. Éviter fermeture puis ouverture le lendemain.']],
+    ['Dernier recours, à signaler', ['8. Un 6e quart pour qui en souhaite 5, catégorie 1 d’abord.', '9. Demander à un employé indisponible (« à demander »).']],
   ];
   function renderRules() {
     rulesHead.textContent = '';
     rulesHead.setAttribute('aria-expanded', S.rulesOpen ? 'true' : 'false');
-    rulesHead.appendChild(el('span', 'horaireBlockTitle', tr('5. Règles du restaurant')));
-    rulesHead.appendChild(el('span', 'horaireBlockHint horaireGrow', tr('Fixes, reprises chaque semaine dans le prompt.')));
+    rulesHead.appendChild(el('span', 'horaireBlockTitle', tr('Règles du restaurant')));
+    rulesHead.appendChild(el('span', 'horaireBlockHint horaireGrow', tr('Valent pour tous, chaque semaine.')));
     rulesHead.appendChild(TMT.ui.chev(!!S.rulesOpen));
     rulesBox.classList.toggle('hidden', !S.rulesOpen);
     if (!S.rulesOpen || rulesBox.firstChild) return;
@@ -827,35 +848,6 @@
     f.appendChild(saveBtn(f, function () {
       return req('PUT', 'weeks/' + S.week + '/availabilities/' + e.id, { intervals: getters.map(function (g) { return g(); }) });
     }));
-  }
-
-  // Événements spéciaux (bloc 3) : date, nom, besoins qui remplacent le modèle normal ce jour-là.
-  function eventForm(f, ev) {
-    var date = input('date', ev ? ev.day : S.week, tr('Date'));
-    var label = input('text', ev ? ev.label : '', tr('Nom'));
-    var pair = el('div', 'horairePair');
-    pair.appendChild(field(tr('Date'), date)); pair.appendChild(field(tr('Nom'), label));
-    f.appendChild(pair);
-    var lines = el('div', 'horaireLines');
-    var getters = [];
-    function addNeed(n) {
-      var line = el('div', 'horaireEventNeed');
-      var g = needFields(line, n, false);
-      getters.push(g);
-      var x = TMT.ui.removeBtn(function () { getters.splice(getters.indexOf(g), 1); line.remove(); lines.dispatchEvent(new Event('input', { bubbles: true })); }, tr('Retirer le besoin'));
-      x.classList.add('horaireNeedRemove');
-      line.appendChild(x);
-      lines.appendChild(line);
-    }
-    (ev ? ev.needs : []).forEach(addNeed);
-    f.appendChild(el('span', 'horaireFieldLabel', tr('Besoins de ce jour (remplacent le modèle normal)')));
-    f.appendChild(lines);
-    f.appendChild(TMT.ui.addBtn(tr('Ajouter un besoin'), function () { addNeed(null); lines.dispatchEvent(new Event('input', { bubbles: true })); }));
-    f.appendChild(saveBtn(f, function () {
-      var body = { day: date.value, label: label.value, needs: getters.map(function (g) { return g(); }) };
-      return ev ? req('PUT', 'events/' + ev.id, body) : req('POST', 'events', body);
-    }));
-    if (ev) f.appendChild(deleteBtn(tr('Supprimer cet événement ?'), function () { return req('DELETE', 'events/' + ev.id); }));
   }
 
   // Import CSV : un sélecteur de fichier ; le résultat s'affiche dans la ligne de message (elle survit au nouveau rendu).

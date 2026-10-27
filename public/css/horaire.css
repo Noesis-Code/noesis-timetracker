@@ -9,11 +9,15 @@
 .horaireTitle { flex-grow: 1; margin: 0; font-size: 24px; font-weight: 600; color: var(--text); }
 .horaireWeek { display: flex; align-items: center; gap: 8px; }
 .horaireWeekLabel { min-width: 240px; text-align: center; font-size: 16px; font-weight: 500; color: var(--text); }
-.horaireNav, .horaireBtn { height: 44px; border-radius: var(--radius-md); font: inherit; color: var(--text); cursor: pointer; }
-.horaireNav { width: 44px; padding: 0; font-size: 20px; line-height: 1; }
+.horaireBtn { height: 44px; border-radius: var(--radius-md); font: inherit; color: var(--text); cursor: pointer; }
+/* R37 : flèche de semaine seule, sans carré, cadre ni fond ; zone de toucher de 44 px (R25) */
+.horaireNav { width: 44px; height: 44px; padding: 0; border: 0; background: none; box-shadow: none; font: inherit; font-size: 24px; line-height: 1; color: var(--text); cursor: pointer; }
+/* Les 4 étapes de la semaine, puis la ligne d'état grise des disponibilités */
+.horaireSteps { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.horaireStatus { margin-left: 8px; color: var(--text-light); }
 .horaireBtn { padding: 0 16px; }
 .horaireBtnMain { width: auto; min-height: 44px; height: 44px; padding: 0 24px; border-radius: var(--radius-md); }
-#tab-horaire > .horaireMsg { margin: -12px 0 0; text-align: right; color: var(--violet-soft); }
+#tab-horaire > .horaireMsg { margin: -12px 0 0; color: var(--violet-soft); }
 
 .horaireMsg { margin: 0; font-size: 13px; color: var(--text-light); }
 .horaireEmpty { margin: 0; padding: 12px 16px; font-size: 13px; color: var(--text-light); text-align: center; }
@@ -42,29 +46,29 @@
 .horaireDayDate { font-size: 13px; color: var(--text-light); }
 .horaireNeed { display: flex; justify-content: space-between; gap: 8px; }
 .horaireNeedN { font-weight: 600; color: var(--violet-soft); }
-.horaireTag { margin-top: 4px; align-self: flex-start; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(var(--purple-rgb), .55); color: var(--violet-soft); font-size: 13px; }
+/* Ligne « Événement » : bouton de l'événement du jour, ou « + » pointillé (R33) ; le formulaire se déroule sous le tableau (R36) */
+.horaireEvent { width: 100%; min-height: 44px; padding: 8px; border: 1px solid rgba(var(--purple-rgb), .55); border-radius: var(--radius-sm); background: rgba(var(--purple-rgb), .12); font: inherit; font-size: 13px; color: var(--text); text-align: left; cursor: pointer; }
+.horaireEvent.on { border-color: var(--purple); }
+.cmpAdd.horaireEvAdd { min-height: 44px; padding: 0; border-radius: var(--radius-sm); }
+.horaireForm.horaireCellFull { grid-column: 1 / -1; padding: 16px; border-top: 1px solid var(--sep); }
+.horaireEvLine { display: grid; grid-template-columns: 1fr 16px 1fr 24px; gap: 8px; align-items: end; }
+.horaireEvLine > .cmpRemove { justify-self: center; align-self: center; margin-top: 24px; }
+.horaireTimes { padding-bottom: 12px; text-align: center; color: var(--text-light); }
 
-/* 2. Serveurs : nom, quarts, 7 × (matin, soir), note permanente */
-.horaireStaff { min-width: 1180px; display: flex; flex-direction: column; }
-.horaireStaffRow { display: grid; grid-template-columns: 200px 88px repeat(7, 92px) minmax(220px, 1fr); align-items: center; padding: 4px 16px; }
-.horaireStaffHead { padding: 12px 16px 4px; font-size: 13px; font-weight: 500; color: var(--text-light); }
-.horaireStaffSub { padding: 0 16px 8px; font-size: 13px; color: var(--text-light); }
-.horaireStaffDay { text-align: center; color: var(--text); }
-.horaireStaffNote { padding-left: 16px; font-size: 13px; }
-.horaireStaffHead .horaireStaffNote { font-size: 13px; }
-.horaireStaffName { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.horaireStaffCover { padding: 12px 16px; margin-top: 8px; border-top: 1px solid var(--sep); }
-.horaireStaffCover .horaireStaffName { font-weight: 600; }
-.horairePair2 { display: flex; justify-content: center; gap: 4px; }
-.horairePair2 > span { width: 40px; text-align: center; }
-.horaireGroup { padding: 12px 16px 8px; border-top: 1px solid var(--sep); font-weight: 600; color: var(--violet-soft); }
-.horaireAv { width: 40px; height: 32px; padding: 0; border-radius: var(--radius-sm); border: 1px solid var(--sep); background: transparent; color: var(--text-light); font: inherit; font-size: 13px; cursor: pointer; }
-.horaireAv:hover { border-color: rgba(var(--purple-rgb), .9); }
-.horaireAv.on { border-color: rgba(var(--purple-rgb), .55); background: rgba(var(--purple-rgb), .28); color: var(--text); }
-.horaireAv.vac { border-style: dashed; border-color: var(--cmp-dash); }
-.horaireCover { font-size: 13px; color: var(--text-light); }
-.horaireCover.short { color: var(--violet-soft); font-weight: 700; text-decoration: underline; }
-.horaireBlock > .horaireMsg { color: var(--violet-soft); }
+/* Classification des employés : une carte par catégorie, noms (poignée ≡, glisser-déposer R27), règles en pastilles */
+.horaireCats { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.horaireCat { position: relative; border-radius: var(--radius-lg); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.horaireCat.dragFrom { z-index: 5; }
+.horaireCatTitle { font-weight: 600; color: var(--violet-soft); }
+.horaireCatPeople { display: flex; flex-direction: column; gap: 4px; min-height: 32px; }
+.horaireCatPerson { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.horaireCatPerson.dragging { position: relative; z-index: 6; background: var(--pop-bg); border-radius: var(--radius-sm); }
+.horaireCatPerson .horaireHandle { min-height: 32px; cursor: grab; }
+.horaireSmall { font-size: 13px; }
+.horaireCatRules { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--sep); }
+.horairePill { align-self: flex-start; min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 1px solid rgba(var(--purple-rgb), .55); background: none; font: inherit; font-size: 13px; color: var(--text); cursor: pointer; }
+.horaireCatRules > .cmpAdd { min-height: 44px; padding: 0; border-radius: var(--radius-md); font-size: 14px; }
+
 /* Coller les disponibilités : zone de texte ouverte seulement si le presse-papiers est refusé ; bouton d'envoi DANS la zone (R13) */
 .horairePaste { position: relative; }
 #tab-horaire .horairePaste textarea.horaireInput { padding-bottom: 56px; }
@@ -73,14 +77,7 @@
 #tab-horaire textarea.horairePromptArea { min-height: 160px; font-size: 13px; }
 .horaireLink { align-self: flex-start; min-height: 44px; margin-top: -8px; padding: 0; border: 0; background: none; font: inherit; font-size: 13px; color: var(--violet-soft); text-decoration: underline; cursor: pointer; }
 
-/* 3. Changements de la semaine : nature | texte ; un événement se déroule sur place (R36) ; « + » pointillé (.cmpAdd, R33) */
-.horaireChanges { border-radius: var(--radius-lg); padding: 8px 16px; display: flex; flex-direction: column; }
-.horaireChange { display: grid; grid-template-columns: 160px 1fr; gap: 16px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--sep); background: none; font: inherit; color: var(--text); text-align: left; }
-button.horaireChange { cursor: pointer; }
-.horaireChangeForm { padding: 12px 0 16px; border-bottom: 1px solid var(--sep); }
-.horaireChanges > .cmpAdd { margin: 12px 0 8px; min-height: 44px; padding: 0; border-radius: var(--radius-md); font-size: 14px; }
-
-/* 4. Horaire de la semaine : un bouton par quart (heure, nom, ▾) ; trou = pointillé violet « À combler » */
+/* Horaire de la semaine : un bouton par quart (heure, nom, ▾) ; trou = pointillé violet « À combler » */
 .horaireSlot { display: flex; gap: 8px; align-items: center; min-height: 32px; padding: 4px 8px; border: 1px solid var(--sep); border-radius: var(--radius-sm); background: transparent; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; box-sizing: border-box; }
 .horaireHole { border: 1px dashed rgba(var(--purple-rgb), .7); color: var(--violet-soft); }
 .horaireAlerts { display: flex; flex-direction: column; gap: 4px; color: var(--violet-soft); }
@@ -91,7 +88,7 @@ button.horaireChange { cursor: pointer; }
 .horaireMenuItem:hover, .horaireMenuItem.on { background: var(--hover-bg); }
 .horaireMenuRemove { border-top: 1px solid var(--sep); color: var(--text-light); }
 
-/* 5. Règles du restaurant : repliées par défaut, flèche à droite (R21), 3 colonnes */
+/* Règles du restaurant : repliées par défaut, flèche à droite (R21), 3 colonnes */
 .horaireRulesHead { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0; border: 0; background: transparent; font: inherit; color: var(--text); text-align: left; cursor: pointer; }
 .horaireRules { border-radius: var(--radius-lg); padding: 16px 24px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
 .horaireRulesCol { display: flex; flex-direction: column; gap: 8px; line-height: 1.45; }

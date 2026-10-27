@@ -54,9 +54,24 @@ function call(method, path, body, user) {
     r.on('error', reject); if (data) r.write(data); r.end();
   });
 }
+// ---- Règles de catégorie : couche données ----
+assert(h.listCategoryRules('uA').length === 0, 'aucune règle de catégorie au départ');
+h.addCategoryRule('uA', 1, 'noMorning'); h.addCategoryRule('uA', 1, 'noMorning'); h.addCategoryRule('uA', 3, 'eveningsFirst');
+assert(JSON.stringify(h.listCategoryRules('uA')) === JSON.stringify([{ rank: 1, rule: 'noMorning' }, { rank: 3, rule: 'eveningsFirst' }]), 'règles ajoutées, sans doublon');
+assert(h.removeCategoryRule('uA', 1, 'noMorning') && !h.removeCategoryRule('uA', 1, 'noMorning'), 'règle retirée une seule fois');
+assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les règles');
 (async () => {
   let r = await call('GET', 'settings');
   assert(r.status === 200 && r.body.settings.configured === false, 'GET settings : non configuré');
+  r = await call('PUT', 'category-rules', { rank: 2, rule: 'noDouble' });
+  assert(r.status === 200 && r.body.rules.some((x) => x.rank === 2 && x.rule === 'noDouble'), 'PUT category-rules : règle ajoutée');
+  assert((await call('PUT', 'category-rules', { rank: 2, rule: 'inventee' })).status === 400, 'règle hors liste refusée');
+  assert((await call('PUT', 'category-rules', { rank: 9, rule: 'noDouble' })).status === 400, 'catégorie hors bornes refusée');
+  r = await call('GET', 'category-rules');
+  assert(r.status === 200 && r.body.rules.length === 1, 'GET category-rules');
+  r = await call('DELETE', 'category-rules/2/noDouble');
+  assert(r.status === 200 && r.body.rules.length === 0, 'DELETE category-rules');
+  assert((await call('DELETE', 'category-rules/2/noDouble')).status === 404, 'DELETE d\'une règle absente : 404');
   r = await call('PUT', 'settings', { setupStep: 3 });
   assert(r.status === 200 && r.body.settings.setupStep === 3, 'PUT setupStep');
   // Volet retiré puis rajouté (barre-volets.js → TMT.horaire.restartSetup) : étape remise à 0, données saisies conservées.

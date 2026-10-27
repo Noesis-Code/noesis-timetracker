@@ -148,18 +148,41 @@ function setAvailabilities(u, weekStart, employeeId, intervals, timeoff) {
   try {
     if (intervals !== undefined) {
       db.prepare('DELETE FROM horaire_availabilities WHERE userId = ? AND weekStart = ? AND employeeId = ?').run(u, weekStart, emp);
-      const ins = db.prepare('INSERT INTO horaire_availabilities (userId, employeeId, weekStart, day, start, end) VALUES (?, ?, ?, ?, ?, ?)');
-      intervals.filter((i) => !(timeoff || []).includes(i.day)).forEach((i) => ins.run(u, emp, weekStart, i.day, i.start, i.end));
+      const ins = db.prepare('INSERT INTO horaire_availabilities (userId, employeeId, weekStart, day, start, end, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      const at = nowIso();
+      intervals.filter((i) => !(timeoff || []).includes(i.day)).forEach((i) => ins.run(u, emp, weekStart, i.day, i.start, i.end, at));
     }
     if (timeoff !== undefined) {
       db.prepare('DELETE FROM horaire_timeoff WHERE userId = ? AND weekStart = ? AND employeeId = ?').run(u, weekStart, emp);
-      const ins = db.prepare('INSERT INTO horaire_timeoff (userId, employeeId, weekStart, day) VALUES (?, ?, ?, ?)');
+      const ins = db.prepare('INSERT INTO horaire_timeoff (userId, employeeId, weekStart, day, createdAt) VALUES (?, ?, ?, ?, ?)');
       const delDay = db.prepare('DELETE FROM horaire_availabilities WHERE userId = ? AND weekStart = ? AND employeeId = ? AND day = ?');
-      [...new Set(timeoff)].forEach((d) => { ins.run(u, emp, weekStart, d); delDay.run(u, weekStart, emp, d); });
+      const at = nowIso();
+      [...new Set(timeoff)].forEach((d) => { ins.run(u, emp, weekStart, d, at); delDay.run(u, weekStart, emp, d); });
     }
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   return getAvailabilities(u, weekStart).filter((a) => a.employeeId === emp);
+}
+
+// Ligne d'état de la page : nombre d'employés ayant des disponibilités ou des congés cette semaine, et date de la dernière lecture.
+function availSummary(u, weekStart) {
+  const r = db.prepare(`SELECT COUNT(DISTINCT employeeId) AS n, MAX(createdAt) AS at FROM (
+    SELECT employeeId, createdAt FROM horaire_availabilities WHERE userId = ? AND weekStart = ?
+    UNION ALL SELECT employeeId, createdAt FROM horaire_timeoff WHERE userId = ? AND weekStart = ?)`).get(u, weekStart, u, weekStart);
+  return { employees: r.n || 0, at: r.at || null };
+}
+
+// ---------- règles de catégorie (catégorie = rang de qualification) ----------
+const CATEGORY_RULES = ['noDouble', 'restAfterShift', 'noMorning', 'noEvening', 'eveningsFirst', 'morningsFirst'];
+function listCategoryRules(u) {
+  return db.prepare('SELECT rank, rule FROM horaire_category_rules WHERE userId = ? ORDER BY rank, rule').all(u);
+}
+function addCategoryRule(u, rank, rule) {
+  db.prepare('INSERT OR IGNORE INTO horaire_category_rules (userId, rank, rule) VALUES (?, ?, ?)').run(u, rank, rule);
+  return listCategoryRules(u);
+}
+function removeCategoryRule(u, rank, rule) {
+  return db.prepare('DELETE FROM horaire_category_rules WHERE userId = ? AND rank = ? AND rule = ?').run(u, rank, rule).changes > 0;
 }
 
 // ---------- besoins (modèle normal : weekday 0 = lundi ... 6 = dimanche) ----------
@@ -246,6 +269,7 @@ function generate(u, weekStart) {
     needs: listNeeds(u),
     events: listEvents(u, days[0], days[6]),
     rotation: rot,
+    categoryRules: listCategoryRules(u),
   });
   db.exec('BEGIN');
   try {
@@ -644,7 +668,8 @@ module.exports = {
   listEmployees, countEmployees, createEmployee, updateEmployee, deleteEmployee,
   listPositions, countPositions, createPosition, updatePosition, deletePosition,
   listQualifications, setQualification, removeQualification,
-  getAvailabilities, setAvailabilities, getTimeoff,
+  getAvailabilities, setAvailabilities, getTimeoff, availSummary,
+  CATEGORY_RULES, listCategoryRules, addCategoryRule, removeCategoryRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
   generate, getSchedule, getSettings, setSettings, exportDayforce,

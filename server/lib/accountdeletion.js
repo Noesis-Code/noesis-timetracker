@@ -131,7 +131,7 @@ function deleteAccountData(user) {
     });
     if (tableExists('activity_strategies')) db.prepare('UPDATE activity_strategies SET updatedBy = NULL WHERE updatedBy = ?').run(user.id);
     // Module « Horaire » (données du personnel, Loi 25) : cascade vers users, effacement explicite en plus (enfants d'abord).
-    ['horaire_covers', 'horaire_settings', 'horaire_assignments', 'horaire_schedules', 'horaire_rotation', 'horaire_needs', 'horaire_events', 'horaire_availabilities', 'horaire_timeoff',
+    ['horaire_covers', 'horaire_settings', 'horaire_assignments', 'horaire_schedules', 'horaire_rotation', 'horaire_needs', 'horaire_events', 'horaire_availabilities', 'horaire_timeoff', 'horaire_category_rules',
       'horaire_qualifications', 'horaire_positions', 'horaire_employees'].forEach((t) => {
       if (tableExists(t)) db.prepare('DELETE FROM ' + t + ' WHERE userId = ?').run(user.id);
     });
