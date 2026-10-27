@@ -461,9 +461,20 @@
   var menu = null;
   function closeMenu() { if (menu) { menu.remove(); menu = null; document.removeEventListener('pointerdown', outside, true); window.removeEventListener('scroll', closeMenu, true); } }
   function outside(ev) { if (menu && !menu.contains(ev.target)) closeMenu(); }
+  function placeMenu(anchor) {
+    document.body.appendChild(menu);
+    var r = anchor.getBoundingClientRect(), mh = menu.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+    menu.style.left = Math.max(8, Math.min(r.left, vw - menu.offsetWidth - 8)) + 'px';
+    menu.style.top = (r.bottom + 4 + mh > vh - 8 ? Math.max(8, r.top - 4 - mh) : r.bottom + 4) + 'px';
+    setTimeout(function () { document.addEventListener('pointerdown', outside, true); window.addEventListener('scroll', closeMenu, true); }, 0);
+  }
+  function newMenu(anchor) {
+    var same = menu && menu._for === anchor; closeMenu(); if (same) return false;
+    menu = el('div', 'horaireMenu'); menu._for = anchor; menu.setAttribute('role', 'menu');
+    return true;
+  }
   function openMenu(anchor, a) {
-    var same = menu && menu._for === a.id; closeMenu(); if (same) return;
-    menu = el('div', 'horaireMenu'); menu._for = a.id; menu.setAttribute('role', 'menu');
+    if (!newMenu(anchor)) return;
     var pick = function (id) {
       closeMenu();
       (id == null ? req('DELETE', 'weeks/' + S.week + '/assignments/' + a.id) : req('PUT', 'weeks/' + S.week + '/assignments/' + a.id, { employeeId: id })).then(function (d) {
@@ -476,11 +487,36 @@
     });
     var rm = btn('horaireMenuItem horaireMenuRemove', 'Retirer le quart', function () { pick(null); }); rm.setAttribute('role', 'menuitem');
     menu.appendChild(rm);
-    document.body.appendChild(menu);
-    var r = anchor.getBoundingClientRect(), mh = menu.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
-    menu.style.left = Math.max(8, Math.min(r.left, vw - menu.offsetWidth - 8)) + 'px';
-    menu.style.top = (r.bottom + 4 + mh > vh - 8 ? Math.max(8, r.top - 4 - mh) : r.bottom + 4) + 'px';
-    setTimeout(function () { document.addEventListener('pointerdown', outside, true); window.addEventListener('scroll', closeMenu, true); }, 0);
+    placeMenu(anchor);
+  }
+  // Fin d'un trou : celle de l'alerte, sinon celle du besoin correspondant (événement du jour ou modèle normal), sinon 16:00 / 23:59.
+  function holeEnd(h) {
+    if (h.end) return h.end;
+    var evs = S.events.filter(function (e) { return e.day === h.day; });
+    var src = evs.length ? [].concat.apply([], evs.map(function (e) { return e.needs || []; })) : S.needs.filter(function (n) { return Number(n.weekday) === weekdayOf(h.day); });
+    var n = src.find(function (x) { return x.positionId === h.positionId && x.start === h.start; });
+    return n ? n.end : (serviceOf(h.start) === 'soir' ? '23:59' : '16:00');
+  }
+  // Trou « À combler » : même liste unie, employés seulement ; en tête les disponibles ce jour et ce service et pas encore placés ce jour-là.
+  function openHoleMenu(anchor, h) {
+    if (!newMenu(anchor)) return;
+    var svc = serviceOf(h.start);
+    var placed = {}; (S.schedule ? S.schedule.assignments : []).forEach(function (a) { if (a.day === h.day) placed[a.employeeId] = 1; });
+    var rows = S.employees.filter(function (e) { return e.active !== false; }).map(function (e) {
+      var why = placed[e.id] ? 'déjà placé' : cellState(e.id, h.day, svc) !== 'O' ? 'indisponible' : '';
+      return { e: e, why: why };
+    });
+    rows.sort(function (x, y) { return (x.why ? 1 : 0) - (y.why ? 1 : 0); });
+    rows.forEach(function (x) {
+      var it = btn('horaireMenuItem', x.e.name, function () {
+        closeMenu();
+        req('POST', 'weeks/' + S.week + '/assignments', { employeeId: x.e.id, positionId: h.positionId, day: h.day, start: h.start, end: holeEnd(h) })
+          .then(function () { return loadWeek().then(render); }, fail);
+      });
+      if (x.why) it.appendChild(el('span', 'horaireMuted', ' (' + tr(x.why) + ')'));
+      it.setAttribute('role', 'menuitem'); menu.appendChild(it);
+    });
+    placeMenu(anchor);
   }
   function shiftBtn(a) {
     var b = el('button', 'horaireSlot'); b.type = 'button';
@@ -489,9 +525,12 @@
     b.addEventListener('click', function () { openMenu(b, a); });
     return b;
   }
-  function hole(start) {
-    var h = el('span', 'horaireSlot horaireHole');
-    h.appendChild(el('span', null, start)); h.appendChild(el('span', 'horaireGrow', tr('À combler'))); return h;
+  function hole(h) {
+    var b = el('button', 'horaireSlot horaireHole'); b.type = 'button';
+    b.appendChild(el('span', null, h.start)); b.appendChild(el('span', 'horaireGrow', tr('À combler'))); b.appendChild(el('span', null, '▾'));
+    b.setAttribute('aria-haspopup', 'menu');
+    b.addEventListener('click', function () { openHoleMenu(b, h); });
+    return b;
   }
   function renderSchedule() {
     closeMenu();
@@ -502,14 +541,24 @@
       planBox.appendChild(el('p', 'horaireEmpty', ready ? tr('Aucun horaire pour cette semaine. Touche « Générer l’horaire ».') : tr('Ajoute tes postes, employés et besoins dans les paramètres.')));
       return;
     }
-    var holes = (sc.alerts || []).filter(function (a) { return a.type === 'trou'; });
+    // Trous recalculés ici (besoins − quarts placés, par jour, poste et heure d'arrivée) : un quart ajouté à la main comble son trou
+    // aussitôt, même si les alertes du serveur ne sont pas recalculées.
+    var holes = [];
+    for (var i = 0; i < 7; i++) {
+      var day = addDays(S.week, i), evs = S.events.filter(function (e) { return e.day === day; });
+      var src = evs.length ? [].concat.apply([], evs.map(function (e) { return e.needs || []; })) : S.needs.filter(function (n) { return Number(n.weekday) === i; });
+      var want = {};
+      src.forEach(function (n) { var k = n.positionId + '|' + n.start; if (!want[k]) want[k] = { positionId: n.positionId, day: day, start: n.start, end: n.end, missing: 0 }; want[k].missing += Number(n.count) || 0; });
+      sc.assignments.forEach(function (a) { var k = a.positionId + '|' + a.start; if (a.day === day && want[k]) want[k].missing -= 1; });
+      Object.keys(want).forEach(function (k) { if (want[k].missing > 0) holes.push(want[k]); });
+    }
     var cell = function (svc) {
       return function (i, c) {
         var day = addDays(S.week, i), items = [];
         sc.assignments.forEach(function (a) { if (a.day === day && serviceOf(a.start) === svc) items.push([a.start, 0, a]); });
-        holes.forEach(function (h) { if (h.day === day && serviceOf(h.start) === svc) for (var k = 0; k < (h.missing || 1); k++) items.push([h.start, 1, null]); });
+        holes.forEach(function (h) { if (h.day === day && serviceOf(h.start) === svc) for (var k = 0; k < (h.missing || 1); k++) items.push([h.start, 1, null, h]); });
         items.sort(function (x, y) { return x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : x[1] - y[1]; });
-        items.forEach(function (x) { c.appendChild(x[2] ? shiftBtn(x[2]) : hole(x[0])); });
+        items.forEach(function (x) { c.appendChild(x[2] ? shiftBtn(x[2]) : hole(x[3])); });
       };
     };
     planBox.appendChild(grid('horaireGridPlan', false, [['Matin', cell('matin'), 'horaireCellPlan'], ['Soir', cell('soir'), 'horaireCellPlan']]));

@@ -82,7 +82,7 @@ button.horaireChange { cursor: pointer; }
 
 /* 4. Horaire de la semaine : un bouton par quart (heure, nom, ▾) ; trou = pointillé violet « À combler » */
 .horaireSlot { display: flex; gap: 8px; align-items: center; min-height: 32px; padding: 4px 8px; border: 1px solid var(--sep); border-radius: var(--radius-sm); background: transparent; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; box-sizing: border-box; }
-.horaireHole { border: 1px dashed rgba(var(--purple-rgb), .7); color: var(--violet-soft); cursor: default; }
+.horaireHole { border: 1px dashed rgba(var(--purple-rgb), .7); color: var(--violet-soft); }
 .horaireAlerts { display: flex; flex-direction: column; gap: 4px; color: var(--violet-soft); }
 .horaireAlerts:empty { display: none; }
 /* Liste déroulante unie (R31 : les menus déroulants restent unis) */
