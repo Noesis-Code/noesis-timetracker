@@ -59,7 +59,9 @@ const reg = buildRegistrationPrompt({ weekStart: W, assignments: [
 ] }).split('\n');
 assert(reg.indexOf('- Albert Fictif ; 2026-11-02 ; lundi ; 11:00 ; 15:00 ; Hôte') >= 0 && reg.indexOf('- Bruno ; 2026-11-08 ; dimanche ; 17:00 ; 01:00 ; Serveur') > reg.indexOf('- Albert Fictif ; 2026-11-02 ; lundi ; 11:00 ; 15:00 ; Hôte'),
   'inscription : quarts triés par jour, « Nom, Prénom » écrit « Prénom Nom »');
-assert(reg[0].includes('du lundi 2026-11-02 au dimanche 2026-11-08') && buildRegistrationPrompt({ weekStart: W, assignments: [] }).includes('- Aucun quart.'), 'inscription : semaine en tête ; sans quart : « Aucun quart. »');
+assert(reg.includes('SEMAINE : du lundi 2026-11-02 au dimanche 2026-11-08.') && buildRegistrationPrompt({ weekStart: W, assignments: [] }).includes('- Aucun quart.'), 'inscription : semaine après les consignes ; sans quart : « Aucun quart. »');
+const custom = buildRegistrationPrompt({ weekStart: W, instructions: 'Consignes à moi.\n', assignments: [{ employeeName: 'Bruno', positionName: 'Serveur', day: W, start: '17:00', end: '23:00' }] });
+assert(custom.startsWith('Consignes à moi.\n\nSEMAINE : ') && custom.includes('- Bruno ; 2026-11-02 ; lundi ; 17:00 ; 23:00 ; Serveur'), 'inscription : consignes personnalisées, puis semaine et quarts toujours ajoutés');
 
 // ---- Données, import CSV, export ----
 const db = require('../server/db');
@@ -110,7 +112,7 @@ function call(method, path, body, user) {
   // ---- Prompt fixe de lecture ----
   r = await call('GET', 'import-prompt', undefined, 'uA');
   assert(r.status === 200 && /^text\/plain/.test(r.type) && r.cache === 'no-store' && r.text === require('../server/lib/horaire-prompt').IMPORT_PROMPT
-    && r.text.startsWith('Tu aides le gestionnaire d\'un restaurant.') && r.text.includes('\n- Première ligne exactement : nom;jour;début;fin;type\n') && r.text.endsWith('\n'), 'prompt de lecture : texte fixe, brut, non mis en cache');
+    && r.text.startsWith('Tu aides le gestionnaire d\'un restaurant.') && r.text.includes('Première ligne exactement : nom;jour;début;fin;type\n') && r.text.includes('Un seul bloc de code') && r.text.endsWith('\n'), 'prompt de lecture : texte fixe, brut, non mis en cache');
   assert(!/dayforce|chatgpt|copilot/i.test(r.text), 'prompt de lecture : ni le logiciel ni l\'IA ne sont nommés');
   assert((await call('GET', 'import-prompt')).status === 401, 'prompt de lecture sans session : 401');
 
@@ -168,6 +170,31 @@ function call(method, path, body, user) {
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uB');
   assert(r.status === 409, 'autre compte : ne voit jamais l\'horaire du propriétaire (409, aucun horaire)');
 
+  // ---- Bloc collé depuis l'IA : ``` autour, espaces, séparateur virgule ou tabulation ----
+  r = await call('POST', 'weeks/' + W + '/import/availabilities', { csv: '\n  ```csv\nnom,jour,début,fin,type\nElodie Fictive,2026-11-05,10:00,15:00,\n```  \n' }, 'uA');
+  assert(r.status === 200 && r.body.employees === 1 && r.body.intervals === 1 && !r.body.skipped.length, 'import : bloc de code collé (```), virgules');
+  r = await call('POST', 'weeks/' + W + '/import/availabilities', { csv: '```\nnom\tjour\tdébut\tfin\ttype\nMarc Imaginaire\t2026-11-06\t\t\tabsence\n```' }, 'uA');
+  assert(r.status === 200 && r.body.timeoff === 1, 'import : bloc collé, tabulations');
+
+  // ---- Prompts modifiables par le gérant, retour à la base ----
+  const P = require('../server/lib/horaire-prompt');
+  r = await call('GET', 'prompts', undefined, 'uA');
+  assert(r.status === 200 && r.body.importPrompt.isDefault && r.body.importPrompt.text === P.IMPORT_PROMPT && r.body.entryPrompt.isDefault
+    && r.body.entryPrompt.text === P.ENTRY_PROMPT && !r.body.entryPrompt.text.includes('QUARTS À INSCRIRE'), 'GET prompts : versions de base (consignes d\'inscription sans les quarts)');
+  r = await call('PUT', 'prompts', { importPrompt: 'Lis mes dispos.\u0007\r\nMerci.', entryPrompt: 'Inscris ces quarts.' }, 'uA');
+  assert(r.status === 200 && r.body.importPrompt.text === 'Lis mes dispos.\nMerci.' && !r.body.importPrompt.isDefault && r.body.entryPrompt.text === 'Inscris ces quarts.', 'PUT prompts : enregistrés, caractères de contrôle retirés');
+  assert((await call('GET', 'import-prompt', undefined, 'uA')).text === 'Lis mes dispos.\nMerci.', 'GET import-prompt : version personnalisée');
+  await call('POST', 'weeks/' + W + '/generate', undefined, 'uA');
+  r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uA');
+  assert(r.text.startsWith('Inscris ces quarts.\n\nSEMAINE : du lundi ' + W) && r.text.includes('QUARTS À INSCRIRE ('), 'prompt d\'inscription : consignes personnalisées puis quarts non modifiables');
+  r = await call('GET', 'prompts', undefined, 'uB');
+  assert(r.body.importPrompt.isDefault && r.body.entryPrompt.isDefault && (await call('GET', 'import-prompt', undefined, 'uB')).text === P.IMPORT_PROMPT, 'autre compte : garde les versions de base');
+  assert((await call('PUT', 'prompts', { entryPrompt: 'x'.repeat(8001) }, 'uA')).status === 400, 'PUT prompts : plus de 8 000 caractères refusé');
+  assert((await call('PUT', 'prompts', { entryPrompt: 42 }, 'uA')).status === 400 && (await call('PUT', 'prompts', {}, 'uA')).status === 400, 'PUT prompts : valeur non texte ou vide refusée');
+  r = await call('PUT', 'prompts', { importPrompt: null, entryPrompt: '' }, 'uA');
+  assert(r.status === 200 && r.body.importPrompt.isDefault && r.body.importPrompt.text === P.IMPORT_PROMPT && r.body.entryPrompt.isDefault, 'PUT prompts : null ou "" rétablit la version de base');
+  assert((await call('GET', 'weeks/' + W + '/prompt', undefined, 'uA')).text.startsWith(P.ENTRY_PROMPT.trimEnd() + '\n\nSEMAINE'), 'prompt d\'inscription : consignes de base rétablies');
+
   // ---- Contraintes strictes de l'employé : jamais de double, repos après un quart ----
   r = await call('POST', 'employees', { name: 'Zoé Exemple', noDouble: true }, 'uA');
   assert(r.status === 201 && r.body.employee.noDouble === true && r.body.employee.restAfterShift === false, 'POST : jamais de double');
@@ -178,7 +205,7 @@ function call(method, path, body, user) {
   const zoe = h.listEmployees('uA').find((e) => e.name === 'Zoé Exemple'), yves = h.listEmployees('uA').find((e) => e.name === 'Yves Modèle');
   assert(r3.updated === 1 && r3.created === 1 && r3.skipped.length === 1 && zoe.noDouble === true && zoe.restAfterShift === false && yves.restAfterShift === true, 'import CSV : colonnes oui/non, valeur illisible écartée');
   const ex2 = require('../server/lib/dataexport').buildUserExport('uA');
-  assert(ex2.horaire.timeoff.length >= 2 && ex2.horaire.employees.some((e) => e.noDouble === 1), 'export du compte : congés et contraintes inclus');
+  assert(ex2.horaire.timeoff.length >= 1 && ex2.horaire.employees.some((e) => e.noDouble === 1), 'export du compte : congés et contraintes inclus');
   M.setModules('uB', { horaire: false, stats: true });
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uB');
   assert(r.status === 403 && r.body.code === 'module_off', 'module Horaire éteint : 403');

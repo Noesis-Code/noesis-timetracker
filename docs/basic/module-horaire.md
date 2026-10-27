@@ -57,7 +57,8 @@ rang) ; horaires (brouillon par semaine + alertes) et quarts. Un quart dont la f
 | GET | `weeks/:lundi` | horaire enregistré (quarts + alertes, `null` si aucun) |
 | POST | `weeks/:lundi/assignments` | ajouter un quart `{employeeId, positionId, day, start, end}` → 201 `{assignment}` ; 409 sans horaire |
 | PUT, DELETE | `weeks/:lundi/assignments/:id` | modifier `{employeeId?, start?, end?}` → `{assignment}`, retirer ; 404 si le quart n'est pas du compte ET de la semaine |
-| GET | `import-prompt` | prompt fixe de lecture des disponibilités et congés, texte brut |
+| GET | `import-prompt` | prompt de lecture des disponibilités et congés (personnalisé ou de base), texte brut |
+| GET, PUT | `prompts` | prompts modifiables `{importPrompt, entryPrompt}` ; `null`/`""` = version de base |
 | POST | `import/employees` | CSV `{csv}` |
 | POST | `weeks/:lundi/import/availabilities` | CSV `{csv}` |
 | GET | `weeks/:lundi/export/dayforce` | CSV pour l'import Dayforce (voir plus bas) |
@@ -110,10 +111,11 @@ colle-le dans ton IA. » ; il le colle dans SA propre IA. Le serveur ne l'envoie
   configuration guidée, même formulaire).
 
 ### Nouveau flux (27 oct. 2026, demande d'Émilien) : l'IA lit et inscrit, l'app génère
-1. **Lecture** : `GET import-prompt` renvoie un prompt FIXE (constante `IMPORT_PROMPT` de `horaire-prompt.js`, aucune donnée du
-   personnel). Le gestionnaire le colle dans son IA, qui lit dans le logiciel d'horaire du restaurant les disponibilités et
-   congés approuvés de la semaine et rend un CSV `nom;jour;début;fin;type`.
-2. **Import** : `POST weeks/:lundi/import/availabilities` (congés compris, voir Import CSV).
+1. **Lecture** : `GET import-prompt` renvoie le prompt de lecture (base : constante `IMPORT_PROMPT` de `horaire-prompt.js`,
+   aucune donnée du personnel). Le gestionnaire le colle dans son IA, qui lit dans le logiciel d'horaire du restaurant les
+   disponibilités et congés approuvés de la semaine et rend UN bloc de code à copier, au format `nom;jour;début;fin;type`.
+2. **Import** : `POST weeks/:lundi/import/availabilities` avec le texte collé (congés compris, voir Import CSV ; les lignes
+   ``` du bloc et les espaces autour sont ignorés, séparateur `;`, `,` ou tabulation).
 3. **Génération sans IA** : `POST weeks/:lundi/generate` applique les règles du prompt (voir Algorithme) ; le gestionnaire
    voit l'horaire et le modifie (`assignments`).
 4. **Inscription** : `GET weeks/:lundi/prompt` (bouton « Prompt pour l'IA ») renvoie le prompt d'inscription
@@ -124,6 +126,11 @@ colle-le dans ton IA. » ; il le colle dans SA propre IA. Le serveur ne l'envoie
    coordonnées ; aucune note (`constraintNote` n'y figure pas). Sans horaire enregistré : 409 `Génère d'abord l'horaire.`
    Ni le logiciel ni l'IA ne sont nommés dans les prompts. `buildPrompt` (préparation de l'horaire par l'IA) n'est plus
    servi ; ses règles restent la référence de la génération.
+5. **Prompts modifiables** (demande d'Émilien) : `GET prompts` → `{importPrompt: {text, isDefault}, entryPrompt: {text,
+   isDefault}}` (`entryPrompt.text` = consignes seules, sans la semaine ni les quarts) ; `PUT prompts {importPrompt?,
+   entryPrompt?}` enregistre (colonnes `horaire_settings.importPrompt`/`entryPrompt`, 8 000 caractères au plus, caractères de
+   contrôle retirés) ; `null` ou `""` rétablit la version de base (`IMPORT_PROMPT`, `ENTRY_PROMPT`). Le prompt d'inscription
+   = consignes (personnalisées ou de base), puis la semaine et la liste des quarts, toujours ajoutées par l'app.
 
 ## Configuration guidée (26 oct. 2026, demande d'Émilien)
 Pour ne jamais solliciter le restaurant à part, la première ouverture du volet par un compte non configuré

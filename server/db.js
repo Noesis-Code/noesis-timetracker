@@ -2718,6 +2718,11 @@ INSERT OR IGNORE INTO horaire_settings (userId, configured) SELECT DISTINCT user
 for (const col of ['noDouble', 'restAfterShift']) {
   if (!db.prepare('PRAGMA table_info(horaire_employees)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_employees ADD COLUMN ' + col + ' INTEGER');
 }
+// Prompts modifiables par le gérant (27 oct. 2026) : lecture (importPrompt) et consignes d'inscription (entryPrompt) ;
+// NULL = version de base (server/lib/horaire-prompt.js).
+for (const col of ['importPrompt', 'entryPrompt']) {
+  if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_settings ADD COLUMN ' + col + ' TEXT');
+}
 db.exec(`
 CREATE TABLE IF NOT EXISTS horaire_timeoff (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

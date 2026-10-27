@@ -338,18 +338,50 @@ function exportDayforce(u, weekStart) {
 
 // ---------- prompt d'inscription pour l'IA du gestionnaire (texte assemblé par ./horaire-prompt.js ; le serveur ne l'envoie à aucune IA) ----------
 // Inscrit l'horaire ENREGISTRÉ de la semaine tel quel ; null si la semaine n'a pas encore d'horaire.
+// Consignes personnalisées par le gérant si elles existent ; la semaine et les quarts sont toujours ajoutés par l'app.
 function weekPrompt(u, weekStart) {
   const s = getSchedule(u, weekStart);
   if (!s) return null;
-  return require('./horaire-prompt').buildRegistrationPrompt({ weekStart, assignments: s.assignments });
+  return require('./horaire-prompt').buildRegistrationPrompt({ weekStart, assignments: s.assignments, instructions: getPrompts(u).entryPrompt.text });
+}
+
+// ---------- prompts modifiables par le gérant (NULL = version de base) ----------
+const PROMPT_MAX = 8000;
+// Texte de prompt : caractères de contrôle retirés (sauf retour à la ligne et tabulation), fins de ligne \n ;
+// null ou '' = version de base (null) ; undefined = invalide (pas une chaîne ou plus de PROMPT_MAX caractères).
+function promptText(v) {
+  if (v === null || v === '') return null;
+  if (typeof v !== 'string') return undefined;
+  const s = v.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '');
+  if (s.length > PROMPT_MAX) return undefined;
+  return s.trim() ? s : null;
+}
+function getPrompts(u) {
+  const P = require('./horaire-prompt');
+  const r = db.prepare('SELECT importPrompt, entryPrompt FROM horaire_settings WHERE userId = ?').get(u) || {};
+  return {
+    importPrompt: { text: r.importPrompt || P.IMPORT_PROMPT, isDefault: !r.importPrompt },
+    entryPrompt: { text: r.entryPrompt || P.ENTRY_PROMPT, isDefault: !r.entryPrompt },
+  };
+}
+// f : { importPrompt?, entryPrompt? } déjà passés par promptText ; undefined = inchangé, null = version de base.
+function setPrompts(u, f) {
+  const sets = [], args = [];
+  ['importPrompt', 'entryPrompt'].forEach((k) => { if (f[k] !== undefined) { sets.push(k + ' = ?'); args.push(f[k]); } });
+  if (sets.length) {
+    db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
+    db.prepare('UPDATE horaire_settings SET ' + sets.join(', ') + ', updatedAt = ? WHERE userId = ?').run(...args, nowIso(), u);
+  }
+  return getPrompts(u);
 }
 
 // ---------- import CSV (format souple, documenté dans docs/basic/module-horaire.md) ----------
 const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
-// Séparateur détecté sur la 1re ligne (; , ou tabulation) ; guillemets "..." gérés ; lignes vides ignorées.
+// Séparateur détecté sur la 1re ligne (; , ou tabulation) ; guillemets "..." gérés ; lignes vides ignorées. Texte collé
+// accepté (27 oct. 2026) : bloc de code entouré de ``` (avec ou sans langue) et espaces autour ignorés.
 function parseCsv(text) {
-  const lines = String(text || '').replace(/^﻿/, '').split(/\r?\n/).filter((l) => l.trim());
+  const lines = String(text || '').replace(/^﻿/, '').split(/\r?\n/).filter((l) => l.trim() && !/^\s*```/.test(l));
   if (!lines.length) return [];
   const first = lines[0];
   const sep = [';', '\t', ','].map((c) => [c, first.split(c).length]).sort((a, b) => b[1] - a[1])[0][0];
@@ -617,5 +649,6 @@ module.exports = {
   listEvents, writeEvent, deleteEvent,
   generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
+  getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv,
 };

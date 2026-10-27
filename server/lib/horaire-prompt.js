@@ -17,10 +17,10 @@ const hm = (s) => { const m = gen.toMin(s); return Math.floor(m / 60) + ' h ' + 
 const service = (start) => (gen.toMin(start) >= EVENING_FROM ? 'soir' : 'matin');
 
 // Prompt FIXE de lecture (27 oct. 2026, texte d'Émilien) : le gestionnaire le colle dans son IA, qui lit les disponibilités et les
-// congés de la semaine dans le logiciel d'horaire et rend un CSV (nom;jour;début;fin;type) importé par importAvailabilitiesCsv
+// congés de la semaine dans le logiciel d'horaire et rend un bloc CSV à copier-coller (nom;jour;début;fin;type) importé par importAvailabilitiesCsv
 // (server/lib/horaire.js). Aucune donnée du personnel. Servi tel quel par GET /api/horaire/import-prompt.
 const IMPORT_PROMPT = [
-  "Tu aides le gestionnaire d'un restaurant. Ta seule mission : lire dans le logiciel d'horaire du restaurant les disponibilités et les congés du personnel pour la semaine qui commence le lundi suivant la date d'aujourd'hui (si aujourd'hui est lundi, prends le lundi suivant), puis me rendre un fichier CSV. Tu ne modifies rien dans ce logiciel.",
+  "Tu aides le gestionnaire d'un restaurant. Ta seule mission : lire dans le logiciel d'horaire du restaurant les disponibilités et les congés du personnel pour la semaine qui commence le lundi suivant la date d'aujourd'hui (si aujourd'hui est lundi, prends le lundi suivant), puis me rendre un seul bloc de texte que je copie d'un clic et que je colle dans mon application. Tu ne modifies rien dans ce logiciel.",
   "",
   "ACCÈS",
   "1. Si tu peux naviguer toi-même : ouvre le logiciel d'horaire. À l'écran de connexion, arrête-toi et laisse-moi prendre la main ; je tape moi-même mon identifiant et mon mot de passe. Ne les lis pas, ne les écris nulle part.",
@@ -37,20 +37,20 @@ const IMPORT_PROMPT = [
   "- Disponible toute la journée : 00:00 à 23:59.",
   "- Jour sans disponibilité ni congé : aucune ligne pour ce jour.",
   "",
-  "LE FICHIER À ME RENDRE",
-  "- Un fichier téléchargeable nommé disponibilites-AAAA-MM-JJ.csv (la date du lundi), UTF-8, séparateur point-virgule. Si tu ne peux pas créer de fichier, donne le même contenu dans un seul bloc de texte à copier.",
-  "- Première ligne exactement : nom;jour;début;fin;type",
+  "LE BLOC À ME RENDRE",
+  "- Un seul bloc de code (entre ``` et ```), pour que je le copie d'un clic. Pas de fichier, pas de tableau mis en forme.",
+  "- Séparateur point-virgule. Première ligne exactement : nom;jour;début;fin;type",
   "- Une ligne par plage de disponibilité : nom;AAAA-MM-JJ;HH:MM;HH:MM;",
   "- Une ligne par jour de congé : nom;AAAA-MM-JJ;;;vacances",
   "- nom = prénom puis nom de famille, avec les accents, comme dans le logiciel (« Nom, Prénom » devient « Prénom Nom »).",
   "- Heures sur 24 h (17:30, jamais 5:30 PM). Une plage qui finit après minuit finit à 23:59.",
-  "- Rien d'autre dans le fichier : pas de titre, pas de total, pas de commentaire.",
+  "- Rien d'autre dans le bloc : pas de titre, pas de total, pas de commentaire.",
   "",
-  "AVANT DE ME RENDRE LE FICHIER",
+  "AVANT DE ME RENDRE LE BLOC",
   "- Chaque employé affiché apparaît au moins une fois, sauf s'il n'a ni disponibilité ni congé cette semaine.",
   "- Toutes les dates sont entre le lundi et le dimanche de la semaine.",
   "- Si tu t'es connecté toi-même, déconnecte-toi.",
-  "- Puis écris-moi en 3 lignes au plus : la semaine lue, le nombre d'employés, et ce que tu n'as pas pu lire (sinon « Rien »).",
+  "- Sous le bloc, écris-moi en 3 lignes au plus : la semaine lue, le nombre d'employés, et ce que tu n'as pas pu lire (sinon « Rien »).",
 ].join('\n') + '\n';
 
 const CONSIGNE = 'Tu es l\'assistant du maître d\'hôtel d\'un restaurant. Prépare l\'horaire des serveurs pour la semaine décrite '
@@ -198,10 +198,35 @@ function buildPrompt(input) {
 // d'horaire du restaurant EXACTEMENT les quarts de l'horaire généré par l'app (puis modifié par le gestionnaire), sans
 // rien changer d'autre et sans publier. Aucune note de santé (constraintNote n'y figure jamais) ; ni le logiciel ni l'IA
 // ne sont nommés. Fonction PURE.
+// Consignes de base (version rétablie par « revenir à la base ») : modifiables par le gérant (horaire_settings.entryPrompt) ;
+// la semaine et la liste des quarts sont toujours ajoutées après, jamais modifiables.
+const ENTRY_PROMPT = [
+  'Tu aides le gestionnaire d\'un restaurant. Ta seule mission : inscrire dans le logiciel d\'horaire du restaurant, tels quels, '
+    + 'les quarts listés à la fin de ce message, pour la semaine indiquée à la fin. Tu ne changes rien d\'autre.',
+  '',
+  'ACCÈS',
+  '1. Travaille en mode agent : ouvre toi-même le logiciel d\'horaire du restaurant. À l\'écran de connexion, arrête-toi et laisse-moi prendre la main ; je tape moi-même mon identifiant et mon mot de passe. Ne les lis pas, ne les écris nulle part.',
+  '2. Va seulement sur la page de l\'horaire de cette semaine-là.',
+  '3. Ne clique jamais sur Publier, Approuver ou Supprimer, et ne change aucun réglage.',
+  '',
+  'CE QUE TU AS LE DROIT DE FAIRE',
+  '- Seulement ajouter, sur la page de l\'horaire de cette semaine, les quarts listés à la fin, exactement comme écrits (employé, date, heures, poste).',
+  '- Ne modifie, ne déplace et ne supprime aucun autre quart.',
+  '- Jamais une fiche d\'employé, la paie, les coordonnées ni aucune autre page.',
+  '- Laisse l\'horaire non publié (brouillon) : enregistre les quarts, ne publie pas.',
+  '',
+  'SI UN QUART NE PEUT PAS ÊTRE INSCRIT',
+  '- Employé ou poste introuvable, ou refus du logiciel : n\'invente rien, ne le remplace pas, note-le et passe au quart suivant.',
+  '',
+  'À LA FIN',
+  '- Déconnecte-toi.',
+  '- Puis réponds-moi avec deux listes : « Inscrits » (chaque quart inscrit, une ligne chacun) et « Échecs » (chaque quart non inscrit avec la raison en quelques mots, sinon « Aucun »).',
+].join('\n') + '\n';
+
 /**
  * @param {object} input weekStart (lundi 'AAAA-MM-JJ') ; assignments [{employeeName, positionName, day, start, end}]
- *   (« Nom, Prénom » est écrit « Prénom Nom »).
- * @returns {string} prompt en texte brut (fins de ligne \n).
+ *   (« Nom, Prénom » est écrit « Prénom Nom ») ; instructions (consignes personnalisées ; absentes = ENTRY_PROMPT).
+ * @returns {string} prompt en texte brut (fins de ligne \n) : consignes, puis semaine et quarts.
  */
 function buildRegistrationPrompt(input) {
   const { weekStart } = input;
@@ -213,32 +238,16 @@ function buildRegistrationPrompt(input) {
   const shifts = list.length
     ? list.map((a) => '- ' + [String(a.employeeName || '').replace(/^\s*([^,]+?)\s*,\s*(.+?)\s*$/, '$2 $1'), a.day, wd(a.day), a.start, a.end, a.positionName || ''].join(' ; '))
     : ['- Aucun quart.'];
+  const consignes = String(input.instructions || ENTRY_PROMPT).replace(/\s+$/, '');
   return [
-    'Tu aides le gestionnaire d\'un restaurant. Ta seule mission : inscrire dans le logiciel d\'horaire du restaurant, tels quels, '
-      + 'les quarts listés plus bas pour la semaine du lundi ' + weekStart + ' au dimanche ' + sunday + '. Tu ne changes rien d\'autre.',
+    consignes,
     '',
-    'ACCÈS',
-    '1. Travaille en mode agent : ouvre toi-même le logiciel d\'horaire du restaurant. À l\'écran de connexion, arrête-toi et laisse-moi prendre la main ; je tape moi-même mon identifiant et mon mot de passe. Ne les lis pas, ne les écris nulle part.',
-    '2. Va seulement sur la page de l\'horaire de cette semaine-là.',
-    '3. Ne clique jamais sur Publier, Approuver ou Supprimer, et ne change aucun réglage.',
-    '',
-    'CE QUE TU AS LE DROIT DE FAIRE',
-    '- Seulement ajouter, sur la page de l\'horaire de cette semaine, les quarts listés plus bas, exactement comme écrits (employé, date, heures, poste).',
-    '- Ne modifie, ne déplace et ne supprime aucun autre quart.',
-    '- Jamais une fiche d\'employé, la paie, les coordonnées ni aucune autre page.',
-    '- Laisse l\'horaire non publié (brouillon) : enregistre les quarts, ne publie pas.',
+    'SEMAINE : du lundi ' + weekStart + ' au dimanche ' + sunday + '.',
     '',
     'QUARTS À INSCRIRE (' + list.length + ')',
     'Une ligne par quart : Prénom Nom ; date AAAA-MM-JJ ; jour ; début ; fin ; poste. Heures sur 24 h ; une fin plus petite que le début finit le lendemain.',
     ...shifts,
-    '',
-    'SI UN QUART NE PEUT PAS ÊTRE INSCRIT',
-    '- Employé ou poste introuvable, ou refus du logiciel : n\'invente rien, ne le remplace pas, note-le et passe au quart suivant.',
-    '',
-    'À LA FIN',
-    '- Déconnecte-toi.',
-    '- Puis réponds-moi avec deux listes : « Inscrits » (chaque quart inscrit, une ligne chacun) et « Échecs » (chaque quart non inscrit avec la raison en quelques mots, sinon « Aucun »).',
   ].join('\n') + '\n';
 }
 
-module.exports = { buildPrompt, buildRegistrationPrompt, IMPORT_PROMPT };
+module.exports = { buildPrompt, buildRegistrationPrompt, IMPORT_PROMPT, ENTRY_PROMPT };

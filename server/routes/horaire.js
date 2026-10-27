@@ -284,7 +284,24 @@ router.delete('/horaire/weeks/:weekStart/assignments/:id', (req, res) => {
 // disponibilités et congés de la semaine à importer (POST weeks/:lundi/import/availabilities).
 router.get('/horaire/import-prompt', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.type('text/plain; charset=utf-8').send(require('../lib/horaire-prompt').IMPORT_PROMPT);
+  res.type('text/plain; charset=utf-8').send(h.getPrompts(req.userId).importPrompt.text);
+});
+// Prompts modifiables par le gérant : { importPrompt: {text, isDefault}, entryPrompt: {text, isDefault} } (entryPrompt = consignes
+// seules, sans la semaine ni les quarts). PUT { importPrompt?, entryPrompt? } : null ou "" rétablit la version de base.
+router.get('/horaire/prompts', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(h.getPrompts(req.userId));
+});
+router.put('/horaire/prompts', (req, res) => {
+  const b = req.body || {};
+  const v = {};
+  for (const k of ['importPrompt', 'entryPrompt']) {
+    if (b[k] === undefined) continue;
+    v[k] = h.promptText(b[k]);
+    if (v[k] === undefined) return bad(res, 'Prompt invalide (texte, ' + h.PROMPT_MAX + ' caractères au plus).');
+  }
+  if (!Object.keys(v).length) return bad(res, 'Rien à enregistrer.');
+  res.json(h.setPrompts(req.userId, v));
 });
 // Prompt d'INSCRIPTION de l'horaire enregistré de la semaine (texte brut à coller dans sa propre IA ; server/lib/horaire-prompt.js).
 router.get('/horaire/weeks/:weekStart/prompt', (req, res) => {

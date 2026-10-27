@@ -292,7 +292,7 @@ function buildUserExport(userId) {
     employees: rows('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, constraintNote, noDouble, restAfterShift, createdAt FROM horaire_employees WHERE userId = ? ORDER BY id', userId),
     positions: rows('SELECT id, name, fillOrder, dayforceCode, openTableCovers, createdAt FROM horaire_positions WHERE userId = ? ORDER BY fillOrder, id', userId),
     dayforceLocation: (rows('SELECT horaireDayforceLocation AS v FROM users WHERE id = ?', userId)[0] || {}).v || null,
-    settings: has('horaire_settings') ? (rows('SELECT configured, setupStep, eventsSource, eventsNoticeDays, eventsStaffRule, dataInCanada, dayforceTemplateName, dayforceTemplate, updatedAt FROM horaire_settings WHERE userId = ?', userId)[0] || null) : null,
+    settings: has('horaire_settings') ? (rows('SELECT configured, setupStep, eventsSource, eventsNoticeDays, eventsStaffRule, dataInCanada, dayforceTemplateName, dayforceTemplate, importPrompt, entryPrompt, updatedAt FROM horaire_settings WHERE userId = ?', userId)[0] || null) : null,
     qualifications: rows('SELECT employeeId, positionId, rank FROM horaire_qualifications WHERE userId = ?', userId),
     availabilities: rows('SELECT employeeId, weekStart, day, start, end FROM horaire_availabilities WHERE userId = ? ORDER BY day, start', userId),
     timeoff: has('horaire_timeoff') ? rows('SELECT employeeId, weekStart, day FROM horaire_timeoff WHERE userId = ? ORDER BY day', userId) : [],
