@@ -260,6 +260,24 @@ r = generateSchedule(one([{ id: 10, maxWeekMinutes: null }, { id: 11, maxWeekMin
 }));
 assert(find(r, 1, D[0])[0].employeeId === 11, 'r5 désactivée : un soir ne va plus d\'abord à la catégorie 1 (tourniquet commun)');
 
+// ---- Règle 9 : candidats « à demander » pour un trou ----
+const askIn = (extra) => generateSchedule(Object.assign({
+  weekStart: W, positions: [{ id: 1, fillOrder: 0 }],
+  employees: [{ id: 10, wantHoursTarget: 12 }, { id: 11, wantHoursTarget: 30 }, { id: 12 }, { id: 13, wantHoursMax: 0 }, { id: 14 }, { id: 15 }],
+  qualifications: [10, 11, 12, 13, 14].map((id) => ({ employeeId: id, positionId: 1, rank: id === 12 ? 2 : 1 })),
+  availabilities: [], timeoff: [{ employeeId: 14, day: D[0] }],
+  needs: [{ positionId: 1, weekday: 0, start: '17:00', end: '23:00', count: 1 }],
+  employeeRules: [],
+}, extra || {}));
+r = askIn();
+const ask = r.alerts.find((a) => a.type === 'trou').ask;
+assert(r.assignments.length === 0 && ask.join() === '11,10,12', 'règle 9 : candidats triés par catégorie puis heures restantes avant la cible ; jamais placés');
+assert(!ask.includes(13) && !ask.includes(14) && !ask.includes(15), 'règle 9 : exclus si au max (13), en congé (14) ou non qualifié (15)');
+r = askIn({ employeeRules: [{ employeeId: 11, rule: 'noEvening' }] });
+assert(!r.alerts.find((a) => a.type === 'trou').ask.includes(11), 'règle 9 : exclu si une règle stricte l’interdit (pas de soir)');
+r = askIn({ restaurantRules: { off: ['r9'] } });
+assert(r.alerts.find((a) => a.type === 'trou').ask.length === 0, 'règle 9 désactivée : aucun candidat');
+
 // ---- Propriétés sur entrées aléatoires (graine fixe) ----
 let seed = 42;
 const rnd = (n) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n; };

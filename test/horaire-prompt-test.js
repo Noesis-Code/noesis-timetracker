@@ -191,6 +191,16 @@ function call(method, path, body, user) {
   assert(r.text.startsWith(P.ENTRY_PROMPT.trimEnd() + '\n\nSEMAINE : du lundi ' + W) && r.text.includes('QUARTS À INSCRIRE ('), 'prompt d\'inscription : consignes de base puis quarts');
   assert(buildRegistrationPrompt({ weekStart: W, assignments: [], freeRules: [{ employeeName: 'Alice', text: 'Toujours en salle principale' }] }).includes('RÈGLES PARTICULIÈRES À VÉRIFIER\n- Alice : Toujours en salle principale'), 'prompt d’inscription : règles libres des employés placés');
   assert(buildRegistrationPrompt({ weekStart: W, assignments: [], restaurantRules: ['Un serveur au bar le vendredi'] }).includes('RÈGLES DU RESTAURANT À VÉRIFIER\n- Un serveur au bar le vendredi'), 'prompt d’inscription : règles libres du restaurant');
+  // Quart placé « à demander » : alerte « demander » enregistrée avec le nom
+  {
+    const sch = (await call('GET', 'weeks/' + W, undefined, 'uA')).body.schedule;
+    const emp = h.listEmployees('uA')[0], pos = h.listPositions('uA')[0];
+    if (sch && emp && pos) {
+      r = await call('POST', 'weeks/' + W + '/assignments', { employeeId: emp.id, positionId: pos.id, day: W, start: '10:00', end: '14:00', ask: true }, 'uA');
+      const al = (await call('GET', 'weeks/' + W, undefined, 'uA')).body.schedule.alerts;
+      assert(r.status === 201 && al.some((a) => a.type === 'demander' && a.employeeId === emp.id && a.employeeName === emp.name && a.day === W), 'quart « à demander » : alerte « demander à X » enregistrée');
+    }
+  }
   r = await call('GET', 'prompts', undefined, 'uB');
   assert(r.body.importPrompt.isDefault && r.body.entryPrompt.isDefault && (await call('GET', 'import-prompt', undefined, 'uB')).text === P.IMPORT_PROMPT, 'autre compte : garde les versions de base');
   assert((await call('PUT', 'prompts', { entryPrompt: 'x'.repeat(8001) }, 'uA')).status === 400, 'PUT prompts : plus de 8 000 caractères refusé');

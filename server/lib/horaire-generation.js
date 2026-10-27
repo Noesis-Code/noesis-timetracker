@@ -176,14 +176,15 @@ function generateSchedule(input) {
     return max;
   }
   // level : 0 = tout respecté ; 1 = préférences assouplies.
-  function eligible(empId, slot, level, phase) {
+  // ignoreAvail : candidats « à demander » (règle 9) — seules les disponibilités sont ignorées ; congé, max et règles strictes restent.
+  function eligible(empId, slot, level, phase, ignoreAvail) {
     const e = empById.get(empId);
     const k = empId + '|' + slot.day;
     if (off.has(k)) return false;
     if (dayPost.has(k) && dayPost.get(k) !== slot.positionId) return false;
     const same = busy.get(k) || [];
     if (same.some((s) => overlaps(s, slot))) return false;
-    if (!(avail.get(k) || []).some(([f, t]) => f <= slot.from && slot.to <= t)) return false;
+    if (!ignoreAvail && !(avail.get(k) || []).some(([f, t]) => f <= slot.from && slot.to <= t)) return false;
     const before = busy.get(empId + '|' + addDays(slot.day, -1)) || [];
     const after = busy.get(empId + '|' + addDays(slot.day, 1)) || [];
     if (rule(empId, evening(slot) ? 'noEvening' : 'noMorning')) return false;
@@ -251,12 +252,24 @@ function generateSchedule(input) {
     }
   }
 
+  // Règle 9 (active par défaut) : pour chaque trou, les employés qui ne sont empêchés QUE par leurs disponibilités (qualifiés, pas en congé,
+  // sous leur max, sans règle stricte violée), triés par catégorie puis par heures restantes avant leur cible. Jamais placés d'office.
+  const isAvail = (id, slot) => (avail.get(id + '|' + slot.day) || []).some(([f, t]) => f <= slot.from && slot.to <= t);
+  function askFor(slot) {
+    if (!active('r9')) return [];
+    const q = qual.get(slot.positionId);
+    if (!q) return [];
+    const left = (e) => { const tg = capOf(e, 'target'); return (tg === Infinity ? 1e9 : tg) - minutesOf.get(e.id); };
+    return employees.filter((e) => q.has(e.id) && !isAvail(e.id, slot) && eligible(e.id, slot, 99, 'max', true))
+      .sort((a, b) => ((best.get(a.id) || 99) - (best.get(b.id) || 99)) || (left(b) - left(a)) || (a.id - b.id))
+      .map((e) => e.id);
+  }
   const alerts = [];
   const holeKey = new Map();
   for (const s of holes) {
     const k = [s.positionId, s.day, s.start, s.end].join('|');
     if (holeKey.has(k)) holeKey.get(k).missing += 1;
-    else { const a = { type: 'trou', positionId: s.positionId, day: s.day, start: s.start, end: s.end, missing: 1 }; holeKey.set(k, a); alerts.push(a); }
+    else { const a = { type: 'trou', positionId: s.positionId, day: s.day, start: s.start, end: s.end, missing: 1, ask: askFor(s) }; holeKey.set(k, a); alerts.push(a); }
   }
   for (const e of employees) {
     if (has(e.wantHoursMin) && minutesOf.get(e.id) < mins(e.wantHoursMin)) {

@@ -290,7 +290,7 @@ function getSchedule(u, weekStart) {
   try { alerts = JSON.parse(s.alerts || '[]'); } catch (e) { /* illisible : vide */ }
   const emp = new Map(listEmployees(u).map((e) => [e.id, e.name]));
   const pos = new Map(listPositions(u).map((p) => [p.id, p.name]));
-  alerts = alerts.map((a) => (a.type === 'trou' ? { ...a, positionName: pos.get(a.positionId) || null } : { ...a, employeeName: emp.get(a.employeeId) || null }));
+  alerts = alerts.map((a) => (a.type === 'trou' ? { ...a, positionName: pos.get(a.positionId) || null, askNames: (a.ask || []).map((id) => emp.get(id)).filter(Boolean) } : { ...a, employeeName: emp.get(a.employeeId) || null }));
   return { weekStart: s.weekStart, status: s.status, generatedAt: s.generatedAt, assignments, alerts };
 }
 
@@ -344,9 +344,16 @@ function ownAssignment(u, weekStart, id) {
 }
 const oneAssignment = (u, weekStart, id) => (getSchedule(u, weekStart) || { assignments: [] }).assignments.find((a) => a.id === Number(id)) || null;
 // a : { employeeId, positionId, day, start, end } déjà validés (appartenance comprise). null si la semaine n'a pas d'horaire.
+// a.ask : employé « à demander » (règle 9) placé à la main : une alerte « demander à X » est ajoutée à la semaine.
 function addAssignment(u, weekStart, a) {
   const sid = scheduleId(u, weekStart);
   if (!sid) return null;
+  if (a.ask) {
+    const s = db.prepare('SELECT alerts FROM horaire_schedules WHERE id = ?').get(sid);
+    let list = []; try { list = JSON.parse((s && s.alerts) || '[]'); } catch (e) { list = []; }
+    list.push({ type: 'demander', employeeId: Number(a.employeeId), day: a.day, start: a.start });
+    db.prepare('UPDATE horaire_schedules SET alerts = ? WHERE id = ?').run(JSON.stringify(list), sid);
+  }
   const r = db.prepare('INSERT INTO horaire_assignments (userId, scheduleId, employeeId, positionId, day, start, end) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(u, sid, Number(a.employeeId), Number(a.positionId), a.day, a.start, a.end);
   return oneAssignment(u, weekStart, r.lastInsertRowid);

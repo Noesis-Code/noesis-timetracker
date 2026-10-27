@@ -815,15 +815,18 @@
     if (!newMenu(anchor)) return;
     var svc = serviceOf(h.start);
     var placed = {}; (S.schedule ? S.schedule.assignments : []).forEach(function (a) { if (a.day === h.day) placed[a.employeeId] = 1; });
+    // En tête : les candidats « à demander » (règle 9), dans l'ordre de la génération ; puis les disponibles ; puis les autres.
+    var ask = (h.ask || []).filter(function (id) { return !placed[id]; });
     var rows = S.employees.filter(function (e) { return e.active !== false; }).map(function (e) {
-      var why = placed[e.id] ? 'déjà placé' : cellState(e.id, h.day, svc) !== 'O' ? 'indisponible' : '';
-      return { e: e, why: why };
+      var k = ask.indexOf(e.id);
+      var why = k >= 0 ? 'à demander' : placed[e.id] ? 'déjà placé' : cellState(e.id, h.day, svc) !== 'O' ? 'indisponible' : '';
+      return { e: e, why: why, ask: k >= 0, order: k >= 0 ? k : 100 + (why ? 1 : 0) };
     });
-    rows.sort(function (x, y) { return (x.why ? 1 : 0) - (y.why ? 1 : 0); });
+    rows.sort(function (x, y) { return x.order - y.order; });
     rows.forEach(function (x) {
       var it = btn('horaireMenuItem', x.e.name, function () {
         closeMenu();
-        req('POST', 'weeks/' + S.week + '/assignments', { employeeId: x.e.id, positionId: h.positionId, day: h.day, start: h.start, end: holeEnd(h) })
+        req('POST', 'weeks/' + S.week + '/assignments', { employeeId: x.e.id, positionId: h.positionId, day: h.day, start: h.start, end: holeEnd(h), ask: x.ask })
           .then(function () { return loadWeek().then(render); }, fail);
       });
       if (x.why) it.appendChild(el('span', 'horaireMuted', ' (' + tr(x.why) + ')'));
@@ -855,6 +858,11 @@
       sc.assignments.forEach(function (a) { var k = a.positionId + '|' + a.start; if (a.day === day && want[k]) want[k].missing -= 1; });
       Object.keys(want).forEach(function (k) { if (want[k].missing > 0) holes.push(want[k]); });
     }
+    // Candidats « à demander » (règle 9) calculés par la génération pour le même trou (poste, jour, heure d'arrivée).
+    holes.forEach(function (h) {
+      var a = (sc.alerts || []).find(function (x) { return x.type === 'trou' && x.positionId === h.positionId && x.day === h.day && x.start === h.start; });
+      h.ask = (a && a.ask) || [];
+    });
     return holes;
   }
   function renderSchedule() {
@@ -873,7 +881,13 @@
         sc.assignments.forEach(function (a) { if (a.day === day && serviceOf(a.start) === svc) items.push([a.start, 0, a]); });
         holes.forEach(function (h) { if (h.day === day && serviceOf(h.start) === svc) for (var k = 0; k < (h.missing || 1); k++) items.push([h.start, 1, null, h]); });
         items.sort(function (x, y) { return x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : x[1] - y[1]; });
-        items.forEach(function (x) { c.appendChild(x[2] ? shiftBtn(x[2]) : hole(x[3])); });
+        items.forEach(function (x) {
+          if (x[2]) { c.appendChild(shiftBtn(x[2])); return; }
+          c.appendChild(hole(x[3]));
+          // Ligne grise sous le trou : jusqu'à 3 noms « à demander » (règle 9).
+          var names = (x[3].ask || []).map(function (id) { var e = S.employees.find(function (y) { return y.id === id; }); return e && e.name; }).filter(Boolean).slice(0, 3);
+          if (names.length) c.appendChild(el('span', 'horaireAsk', tr('À demander :') + ' ' + names.join(', ')));
+        });
       };
     };
     planBox.appendChild(grid('horaireGridPlan', true, [['Matin', cell('matin'), 'horaireCellPlan'], ['Soir', cell('soir'), 'horaireCellPlan']]));
@@ -892,6 +906,7 @@
       if (n > 1 && !/[sx]$/.test(pos)) pos += 's';
       return tr(DAYS[weekdayOf(a.day)]).toLowerCase() + ' ' + tr(serviceOf(a.start)) + ', ' + n + ' ' + pos + ' ' + tr(n > 1 ? 'manquants' : 'manquant') + ' ' + tr('à') + ' ' + a.start + '.';
     }
+    if (a.type === 'demander') return tr('demander à') + ' ' + (a.employeeName || '?') + ' ' + tr('s’il peut travailler') + ' ' + tr(DAYS[weekdayOf(a.day)]).toLowerCase() + ' ' + tr(serviceOf(a.start)) + '.';
     if (a.type === 'minimum') return (a.employeeName || '?') + ' ' + tr('a') + ' ' + hoursText(Math.round((a.minutes || 0) / 30) / 2) + ' h, ' + tr('minimum') + ' ' + hoursText(a.wantHoursMin) + ' h.';
     if (a.text || a.message) return String(a.text || a.message);
     return (a.employeeName || '?') + ' : ' + hours(a.minutes) + ' / ' + hours(a.maxWeekMinutes) + ' ' + tr('max') + '.';

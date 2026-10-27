@@ -335,7 +335,7 @@ router.post('/horaire/weeks/:weekStart/assignments', (req, res) => {
   if (!h.getSchedule(req.userId, w)) return noSchedule(res);
   const v = assignmentInput(req, res, req.body || {}, w, false); if (!v) return;
   if (v.start === v.end) return bad(res, 'Début et fin identiques.');
-  res.status(201).json({ assignment: h.addAssignment(req.userId, w, v) });
+  res.status(201).json({ assignment: h.addAssignment(req.userId, w, Object.assign({}, v, { ask: (req.body || {}).ask === true })) });
 });
 router.put('/horaire/weeks/:weekStart/assignments/:id', (req, res) => {
   const w = weekParam(req, res); if (!w) return;
