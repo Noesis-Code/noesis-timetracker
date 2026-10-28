@@ -25,7 +25,7 @@
         <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
         <p id="goalsCaptureActivityPrompt" class="hint goalsCaptureActivityPrompt hidden">Quelle activité pour cette tâche ?</p>
         <div id="goalsCaptureActivities" class="goalsCaptureActivities"></div>
-        <!-- Offre 1 : affichée ici, entre les activités et « Historique ». Logique dans app.js (loadOffer1SubscribedSection /
+        <!-- Offre 1 : affichée ici, sous les activités. Logique dans app.js (loadOffer1SubscribedSection /
              openOffer1CheckoutModal, exposés via TMT) ; la modale #offer1CheckoutModal reste dans index.html. -->
         <div id="offer1Section">
           <div class="offer1Promo offer1PromoSoon">
@@ -1684,7 +1684,12 @@
     $('goalsActivitiesView').classList.toggle('hidden', today);
     Array.prototype.forEach.call(document.querySelectorAll('#goalsPage1Switch .periodBtn'), function (b) { b.classList.toggle('active', b.getAttribute('data-view') === goalsPage1View); });
     if (TMT.todayView) {
-      if (today) { TMT.todayView.mount($('goalsTodayView')); TMT.todayView.show(); } else TMT.todayView.hide();
+      if (today) {
+        TMT.todayView.mount($('goalsTodayView')); TMT.todayView.show();
+        // « Historique » : à la fin de l'onglet Aujourd'hui, sous les tâches faites aujourd'hui.
+        var hs = $('goalsTasksHistorySection'), tt = document.querySelector('#goalsTodayView .tasksToday');
+        if (hs && tt && hs.parentNode !== tt) tt.appendChild(hs);
+      } else TMT.todayView.hide();
     }
     if (!today) renderGoalsCaptureActivities();
   }

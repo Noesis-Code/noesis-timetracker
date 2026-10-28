@@ -41,11 +41,13 @@
 }
 
 /* Médaillon : zone de couleur de l'activité (donnée, R16) portant le nom entier, léger dégradé. */
-.goalsCaptureActivityChip { gap: 12px; min-height: 60px; padding: 8px; border-radius: 16px; }
+/* 28 oct. 2026 (Émilien) : liste d'activités compacte. Plus de ligne en verre autour : la zone de couleur EST la ligne (44 px), le compteur à sa droite. */
+.goalsCaptureActivities { gap: 8px; }
+.goalsCaptureActivityChip { gap: 12px; min-height: 44px; padding: 0; border: 0; border-radius: 12px; background: none; }
 .goalsCaptureZone {
-  flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; box-sizing: border-box; padding: 8px 16px; border-radius: 12px;
+  flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; box-sizing: border-box; padding: 4px 16px; border-radius: 12px;
   background: linear-gradient(145deg, color-mix(in srgb, var(--c) 84%, var(--text) 16%), var(--c));
-  color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.25;
+  color: var(--text); font-size: 14px; font-weight: 600; line-height: 1.25;
 }
 .goalsCaptureActivityChip.dim .goalsCaptureZone { opacity: .45; }
 
@@ -61,7 +63,7 @@
  * neutre plus marqué (var(--text) au lieu de var(--border)), volontairement
  * SANS teinte, cohérent avec l'esprit « seulement le point coloré » de
  * l'état au repos. */
-.goalsCaptureActivityChip.selected { border-color: var(--text); }
+.goalsCaptureActivityChip.selected .goalsCaptureZone { box-shadow: 0 0 0 2px var(--text); }
 /* message de discussion non lu = point rouge sur la puce. */
 .goalsCaptureUnreadDot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--unread); flex-shrink: 0; }
 
@@ -115,7 +117,9 @@
    net vise maintenant EXACTEMENT 4px, la vraie valeur de Chrono aujourd'hui.
    margin-top: -10px (au lieu de -4px) donne 14 - 10 = 4px, même mécanique de
    calcul, valeur ajustée. */
-#goalsTasksHistorySection { margin-top: -10px; padding-bottom: 72px; } /* espace vide permanent sous « Historique », au-dessus des 3 points */
+/* Historique : en fin de l'onglet Aujourd'hui, sous « Faites aujourd'hui », à 24 px des tâches. L'offre Expansion est à 24 px des activités. */
+#goalsTasksHistorySection { margin-top: 24px; padding-bottom: 0; }
+#offer1Section { margin: 24px 0 72px; }
 #goalsTasksHistoryPanel { margin-top: 10px; }
 
 /* (réaffectation activité/pôle/secteur/période/semaine/

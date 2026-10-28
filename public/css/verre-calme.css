@@ -29,7 +29,6 @@
 .goalsCalendarRow,
 .goalsCalendarTaskCheck,
 .goalsCalendarTaskRow,
-.goalsCaptureActivityChip,
 .goalsGridCell--filled,
 .goalsWeeklyList .goalWeeklyCard,
 .historyEditFields input[type=datetime-local],
@@ -81,15 +80,12 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 /* ---- Volet 3 : champs « ajouter une tâche », puces d'activité de la capture, bulle d'écriture IA ---- */
 :root .subProjectItemAdd input,
 :root .subProjectItemAdd textarea,
-:root .goalsCaptureActivityChip,
 :root .activityGoalsCategoryAutoTaskBubble,
 :root .activityGoalsCategoryAutoTaskBubble textarea,
 :root .activityGoalsCategoryAutoTaskBubble input {
   background: var(--glass-calm-bg); border-color: var(--glass-calm-line); -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
 }
 :root .activityGoalsCategoryAutoTaskBubble textarea, :root .activityGoalsCategoryAutoTaskBubble input { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
-/* Les puces de capture posent leur fond en style inline (JS) : !important nécessaire. */
-:root .goalsCaptureActivityChip { background: var(--glass-calm-bg) !important; }
 
 /* ---- Volet 4 : modification des enregistrements Chrono (date/heure, pôle) et confirmation d'arrêt ---- */
 :root .historyEditFields input[type=datetime-local], :root .historyEditFields select, :root .historyEditCategory,
