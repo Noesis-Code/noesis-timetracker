@@ -133,14 +133,28 @@ function fallbackName(day) {
 }
 
 // Un courriel -> champs extraits (rien d'autre). today : AAAA-MM-JJ ; floors : [{ id, name }].
-function extract({ subject, text }, today, floors) {
+// Type d'événement cité : nom du type ou synonyme simple (casse et accents ignorés, mots entiers) ; le premier dans le texte.
+const TYPE_SYNONYMS = { 'family style': ['family'], canapes: ['canape', 'canapes', 'bouchees'], 'bar ouvert': ['open bar', 'bar ouvert'] };
+function findType(text, types) {
+  const t = ' ' + fold(text).replace(/[^a-z0-9']+/g, ' ') + ' ';
+  let best = null;
+  (types || []).forEach((ty) => {
+    const name = fold(ty.name).replace(/[^a-z0-9']+/g, ' ').trim();
+    [name].concat(TYPE_SYNONYMS[name] || []).forEach((k) => {
+      const i = k ? t.indexOf(' ' + k + ' ') : -1;
+      if (i >= 0 && (!best || i < best.i)) best = { i, id: ty.id };
+    });
+  });
+  return best ? best.id : null;
+}
+function extract({ subject, text }, today, floors, types) {
   const own = cleanSubject(subject) + '\n' + ownText(text);
   const day = bestDate(findDates(own, today));
   const time = findTime(own);
   const fl = findFloors(own, floors);
   return {
     day, time, service: time ? (Number(time.slice(0, 2)) >= 16 ? 'soir' : 'matin') : null,
-    covers: findCovers(own), floorIds: fl.map((f) => f.id), confirm: confirmHint(own),
+    covers: findCovers(own), floorIds: fl.map((f) => f.id), confirm: confirmHint(own), typeId: findType(own, types),
   };
 }
 
@@ -164,4 +178,4 @@ function normalizeMail(b) {
   };
 }
 
-module.exports = { fold, cleanSubject, ownText, findDates, bestDate, findTime, findCovers, findFloors, confirmHint, anonymousSubject, fallbackName, extract, normalizeMail };
+module.exports = { findType, fold, cleanSubject, ownText, findDates, bestDate, findTime, findCovers, findFloors, confirmHint, anonymousSubject, fallbackName, extract, normalizeMail };

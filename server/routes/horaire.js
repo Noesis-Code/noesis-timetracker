@@ -432,7 +432,42 @@ router.put('/horaire/events/:id', (req, res) => {
   const touched = ['name', 'lines', 'floorId', 'day', 'covers'].filter((x) => b[x] !== undefined);
   const out = v.serviceEvent ? h.writeServiceEvent(req.userId, cur.id, v) : h.writeEvent(req.userId, cur.id, v);
   if (touched.length) h.markManual(req.userId, cur.id, touched); // retouche à la main : jamais écrasée par un courriel suivant
+  if (Array.isArray(b.lines)) h.markManualLines(req.userId, cur.id, b.lines); // ligne d'un type modifiée à la main : plus recalculée
   res.json({ event: h.listEvents(req.userId).find((e) => e.id === cur.id) || out });
+});
+// ---------- types d'événements ----------
+router.get('/horaire/event-types', (req, res) => res.json({ types: h.listEventTypes(req.userId) }));
+router.post('/horaire/event-types', (req, res) => {
+  const name = h.cleanName(String((req.body || {}).name || ''), 80);
+  if (!name) return bad(res, 'Nom requis.');
+  if (h.listEventTypes(req.userId).length >= 50) return res.status(409).json({ error: 'Limite de types atteinte.' });
+  res.status(201).json({ type: h.createEventType(req.userId, name) });
+});
+router.put('/horaire/event-types/:id', (req, res) => {
+  const name = h.cleanName(String((req.body || {}).name || ''), 80);
+  if (!name) return bad(res, 'Nom requis.');
+  const t = h.renameEventType(req.userId, req.params.id, name);
+  return t ? res.json({ type: t }) : notFound(res, 'Type');
+});
+router.delete('/horaire/event-types/:id', (req, res) => (h.deleteEventType(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Type')));
+// { positionId, perClients : entier 1..1000, ou null (vide = aucun personnel de ce poste) }
+router.put('/horaire/event-types/:id/ratio', (req, res) => {
+  const b = req.body || {};
+  if (!h.ownEventType(req.userId, req.params.id)) return notFound(res, 'Type');
+  if (!h.ownPosition(req.userId, b.positionId)) return notFound(res, 'Poste');
+  if (!(b.perClients === null || (Number.isInteger(b.perClients) && b.perClients >= 1 && b.perClients <= 1000))) return bad(res, 'Nombre de clients invalide (1 à 1 000, ou vide).');
+  res.json({ types: h.setEventTypeRatio(req.userId, req.params.id, b.positionId, b.perClients) });
+});
+// Type et clients d'un événement : { typeId (ou null = « Aucun »), clients (entier ≥ 1 ou null) } ; les lignes se recalculent.
+router.put('/horaire/events/:id/type', (req, res) => {
+  const b = req.body || {};
+  if (!h.ownEvent(req.userId, req.params.id)) return notFound(res, 'Événement');
+  const f = {};
+  if (b.typeId !== undefined) { if (b.typeId !== null && !h.ownEventType(req.userId, b.typeId)) return notFound(res, 'Type'); f.typeId = b.typeId === null ? null : Number(b.typeId); }
+  if (b.clients !== undefined) { if (!(b.clients === null || (Number.isInteger(b.clients) && b.clients >= 1 && b.clients <= 5000))) return bad(res, 'Clients invalides (1 à 5 000).'); f.clients = b.clients; }
+  h.setEventTypeClients(req.userId, req.params.id, f);
+  h.markManual(req.userId, req.params.id, Object.keys(f));
+  res.json({ event: h.listEvents(req.userId).find((e) => e.id === Number(req.params.id)) });
 });
 // Valider un événement reçu par courriel : il entre dans l'horaire.
 router.post('/horaire/events/:id/validate', (req, res) => (h.validateEvent(req.userId, req.params.id) ? res.json({ event: h.listEvents(req.userId).find((e) => e.id === Number(req.params.id)) }) : notFound(res, 'Événement')));

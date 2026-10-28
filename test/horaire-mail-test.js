@@ -69,6 +69,36 @@ assert(!/Julie|Tremblay/.test(M.ownText('Merci !\n> Julie Tremblay a demandé\nL
   const rb2 = h.receiveMail('uE', { subject: 'RE: Banquet', 'body-plain': 'Contrat signé, 35 personnes.', 'Message-Id': '<b2@client.test>', 'In-Reply-To': '<b1@client.test>', Date: 'Sat, 07 Nov 2026 09:00:00 -0500' });
   assert(rb2.ignored && !h.listEvents('uE').some((e) => e.day === '2026-12-12'), 'fil refusé : le courriel suivant est ignoré');
 
+  // ---- Types d'événements : « 1 [poste] pour N clients » ; lignes calculées ; valeur manuelle préservée ----
+  {
+    const types = h.listEventTypes('uE');
+    assert(types.map((t) => t.name).join() === 'Family style,Canapés,Bar ouvert' && types.every((t) => !Object.keys(t.ratios).length), 'types par défaut, sans aucun ratio inventé');
+    const fam = types[0];
+    const bar = h.listPositions('uE').find((p) => p.name === 'Barman');
+    h.setEventTypeRatio('uE', fam.id, srv.id, 15);
+    const e = h.writeServiceEvent('uE', null, { day: '2026-12-05', service: 'soir', lines: [] });
+    h.setEventTypeClients('uE', e.id, { typeId: fam.id, clients: 40 });
+    let x = h.listEvents('uE').find((y) => y.id === e.id);
+    assert(x.lines.length === 1 && x.lines[0].positionId === srv.id && x.lines[0].count === 3, '40 clients en Family style, 1 serveur pour 15 : Serveur · 3 (arrondi supérieur)');
+    assert(!x.lines.some((l) => l.positionId === bar.id), 'poste sans ratio pour ce type : aucune ligne');
+    h.setEventTypeClients('uE', e.id, { clients: 30 });
+    assert(h.listEvents('uE').find((y) => y.id === e.id).lines[0].count === 2, '30 clients : Serveur · 2');
+    h.writeServiceEvent('uE', e.id, { day: '2026-12-05', service: 'soir', lines: [{ positionId: srv.id, count: 5 }] });
+    h.markManualLines('uE', e.id, [{ positionId: srv.id, count: 5 }]);
+    h.setEventTypeClients('uE', e.id, { clients: 90 });
+    x = h.listEvents('uE').find((y) => y.id === e.id);
+    assert(x.lines[0].count === 5 && x.manualPositions.includes(srv.id), 'ligne modifiée à la main : plus recalculée (marquée manuelle)');
+    h.setEventTypeRatio('uE', fam.id, bar.id, 30);
+    x = h.listEvents('uE').find((y) => y.id === e.id);
+    assert(x.lines.find((l) => l.positionId === bar.id).count === 3 && x.lines.find((l) => l.positionId === srv.id).count === 5, 'nouveau ratio (Barman 1 pour 30) : Barman · 3 calculé, Serveur manuel gardé');
+    assert(h.deleteEventType('uE', fam.id) && h.listEvents('uE').find((y) => y.id === e.id).typeId === null && h.listEvents('uE').find((y) => y.id === e.id).lines.length === 2, 'type supprimé : l’événement passe à « Aucun » et garde ses lignes');
+    // Courriel : type reconnu par mot-clé, Type et Clients remplis, lignes par le ratio du type
+    const can = h.listEventTypes('uE').find((t) => t.name === 'Canapés');
+    h.setEventTypeRatio('uE', can.id, srv.id, 25);
+    const rc = h.receiveMail('uE', { subject: 'Cocktail', 'body-plain': 'Cocktail avec canapés le 10 décembre à 17h, 60 personnes.', 'Message-Id': '<d1@client.test>' });
+    x = h.listEvents('uE').find((y) => y.id === rc.eventId);
+    assert(x.typeId === can.id && x.clients === 60 && x.lines[0].positionId === srv.id && x.lines[0].count === 3, 'courriel : « canapés » reconnu, 60 clients, Serveur · 3 (1 pour 25, et non l’ancien 1 pour 20)');
+  }
   // ---- Route d'entrée : jeton, compte non entreprise ----
   const app = express(); app.use(express.json({ limit: '2mb' }));
   app.use('/api', require('../server/routes/horaire'));

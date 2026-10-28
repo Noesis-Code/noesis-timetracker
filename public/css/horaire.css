@@ -82,6 +82,17 @@
 .horaireEvName .horaireSheetInput { width: 100%; }
 .horaireEvFloor { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-light); }
 #tab-horaire .horaireEvFloor select.horaireInput { min-height: 36px; padding: 4px; }
+/* Types d'événements : Type | postes | ✕ ; carte : Type et Clients côte à côte ; ligne « manuel » */
+.horaireSheet.horaireTypes { min-width: 760px; }
+.horaireTypes .horaireSheetCell:first-child { justify-content: flex-start; padding: 0 12px; }
+.horaireTypes .horaireSheetEdit.editing:first-child { padding: 0 4px; }
+.horaireTypeCell { font-size: 13px; }
+.horaireTypeCell .horaireSheetInput { width: 64px; }
+.horaireEvTypeRow { display: flex; gap: 8px; }
+.horaireEvTypeRow > .horaireEvFloor { flex: 1 1 0; min-width: 0; }
+.horaireEvClients { flex: 0 0 88px; }
+#tab-horaire .horaireEvClients input.horaireInput { min-height: 36px; padding: 4px; }
+.horaireManual { font-size: 13px; }
 /* Événement reçu par courriel : pastille grise « à valider », indice, bouton « Valider » (secondaire violet) */
 .horaireBadge { flex: 0 0 auto; padding: 2px 8px; border-radius: 999px; background: var(--hover-bg); font-size: 13px; color: var(--text-light); }
 .horaireEvHint { font-size: 13px; }
