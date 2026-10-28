@@ -298,6 +298,7 @@ function buildUserExport(userId) {
     timeoff: has('horaire_timeoff') ? rows('SELECT employeeId, weekStart, day FROM horaire_timeoff WHERE userId = ? ORDER BY day', userId) : [],
     events: rows('SELECT id, day, label, service, extra, positionId, covers, zoneId, zoneRead, sourceKey FROM horaire_events WHERE userId = ? ORDER BY day', userId),
     zones: has('horaire_zones') ? rows('SELECT id, name, morning, evening, createdAt FROM horaire_zones WHERE userId = ? ORDER BY id', userId) : [],
+    floorCounts: has('horaire_floor_counts') ? rows('SELECT floorId, positionId, weekday, service, count FROM horaire_floor_counts WHERE userId = ? ORDER BY floorId, positionId, weekday, service', userId) : [],
     needs: rows('SELECT id, positionId, weekday, eventId, start, end, count FROM horaire_needs WHERE userId = ? ORDER BY id', userId),
     rotation: rows('SELECT positionId, rank, lastEmployeeId FROM horaire_rotation WHERE userId = ?', userId),
     employeeRules: has('horaire_employee_rules') ? rows('SELECT employeeId, rule, text, createdAt FROM horaire_employee_rules WHERE userId = ? ORDER BY employeeId, id', userId) : [],

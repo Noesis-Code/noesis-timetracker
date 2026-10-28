@@ -89,6 +89,14 @@
 .horaireInbound { display: flex; align-items: center; gap: 12px; font-size: 13px; }
 .horaireInboundText { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .horaireInbound > .cmpBtn { width: auto; min-height: 44px; padding: 0 16px; }
+/* Planchers (Paramètres > Général) : Plancher | lundi … dimanche | ✕ ; chaque case « M n · S n » */
+.horaireSheet.horaireFloors { min-width: 820px; grid-template-columns: minmax(140px, 1fr) repeat(7, minmax(84px, 1fr)) 44px; }
+.horaireFloors .horaireSheetCell:first-child { justify-content: flex-start; padding: 0 12px; }
+.horaireFloors .horaireSheetEdit.editing:first-child { padding: 0 4px; }
+.horaireFloorDay { justify-content: center; gap: 4px; padding: 0 4px; font-variant-numeric: tabular-nums; }
+.horaireFloorVal { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 4px; border-radius: var(--radius-sm); }
+.horaireFloorVal .horaireSheetInput { width: 40px; padding: 0 2px; }
+.cmpAdd.horaireFloorAdd { margin: 8px; width: calc(100% - 16px); }
 /* Ratio de l'étape 2 : « 1 serveur de plus pour [20] couverts », sur une ligne */
 .horaireRatio { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: var(--text); }
 #tab-horaire .horaireRatio input.horaireInput { width: 72px; min-height: 44px; padding: 0 8px; text-align: center; }

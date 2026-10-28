@@ -370,6 +370,27 @@ router.put('/horaire/service-ends', (req, res) => {
   if (!/^\d{2}:\d{2}$/.test(String(end)) || !h.isTime(end)) return bad(res, 'Heure invalide (HH:MM).');
   res.json({ ends: h.setServiceEnd(req.userId, b.positionId, b.weekday, b.service, end) });
 });
+// ---------- planchers : liste commune ; nombre de personnes par poste (Serveur, Barman, Commis), jour et service ----------
+router.get('/horaire/floors', (req, res) => res.json({ floors: h.listFloors(req.userId), counts: h.listFloorCounts(req.userId) }));
+router.post('/horaire/floors', (req, res) => {
+  if (h.listFloors(req.userId).length >= 50) return res.status(409).json({ error: 'Limite de planchers atteinte.' });
+  res.status(201).json({ floor: h.createFloor(req.userId, h.cleanName((req.body || {}).name || '', h.LIMITS.name)) });
+});
+router.put('/horaire/floors/:id', (req, res) => {
+  const f = h.renameFloor(req.userId, req.params.id, h.cleanName((req.body || {}).name || '', h.LIMITS.name));
+  return f ? res.json({ floor: f }) : notFound(res, 'Plancher');
+});
+router.delete('/horaire/floors/:id', (req, res) => (h.deleteFloor(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Plancher')));
+router.put('/horaire/floor-counts', (req, res) => {
+  const b = req.body || {};
+  if (!h.ownFloor(req.userId, b.floorId)) return notFound(res, 'Plancher');
+  const p = h.ownPosition(req.userId, b.positionId);
+  if (!h.isFloorPosition(p)) return bad(res, 'Poste sans plancher (Serveur, Barman ou Commis seulement).');
+  if (!(Number.isInteger(b.weekday) && b.weekday >= 0 && b.weekday <= 6)) return bad(res, 'Jour invalide (0 à 6).');
+  if (b.service !== 'matin' && b.service !== 'soir') return bad(res, 'Service invalide (matin ou soir).');
+  if (!(Number.isInteger(b.count) && b.count >= 0 && b.count <= 50)) return bad(res, 'Nombre invalide (0 à 50).');
+  res.json({ counts: h.setFloorCount(req.userId, b.floorId, p.id, b.weekday, b.service, b.count) });
+});
 router.get('/horaire/events', (req, res) => res.json({ events: h.listEvents(req.userId) }));
 router.post('/horaire/events', (req, res) => {
   const v = eventInput(req, res, req.body || {}, false, null); if (!v) return;

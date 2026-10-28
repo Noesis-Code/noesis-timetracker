@@ -402,6 +402,35 @@ function setServiceEnd(u, positionId, weekday, service, end) {
   return o;
 }
 
+// ---------- planchers (liste commune : table horaire_zones ; nombres par poste : horaire_floor_counts) ----------
+// Postes concernés : Serveur, Barman, Commis (casse et accents ignorés). Saisie seule (la génération ne s'en sert pas encore).
+const FLOOR_POSITIONS = ['serveur', 'barman', 'commis'];
+function listFloors(u) { return db.prepare('SELECT id, name FROM horaire_zones WHERE userId = ? ORDER BY id').all(u); }
+const ownFloor = (u, id) => db.prepare('SELECT id, name FROM horaire_zones WHERE id = ? AND userId = ?').get(Number(id), u) || null;
+function listFloorCounts(u) { return db.prepare('SELECT floorId, positionId, weekday, service, count FROM horaire_floor_counts WHERE userId = ?').all(u); }
+function createFloor(u, name) {
+  const r = db.prepare('INSERT INTO horaire_zones (userId, name, createdAt) VALUES (?, ?, ?)').run(u, name || '', nowIso());
+  return ownFloor(u, r.lastInsertRowid);
+}
+function renameFloor(u, id, name) {
+  const f = ownFloor(u, id);
+  if (!f) return null;
+  db.prepare('UPDATE horaire_zones SET name = ? WHERE id = ? AND userId = ?').run(name, f.id, u);
+  return ownFloor(u, f.id);
+}
+// Supprimer un plancher (pour les trois postes) : ses nombres partent avec lui.
+function deleteFloor(u, id) {
+  const f = ownFloor(u, id);
+  if (!f) return false;
+  return cascade(u, [['DELETE FROM horaire_floor_counts WHERE floorId = ? AND userId = ?', f.id], ['UPDATE horaire_events SET zoneId = NULL WHERE zoneId = ? AND userId = ?', f.id], ['DELETE FROM horaire_zones WHERE id = ? AND userId = ?', f.id]]);
+}
+function isFloorPosition(p) { return !!p && FLOOR_POSITIONS.includes(fold(p.name)); }
+function setFloorCount(u, floorId, positionId, weekday, service, count) {
+  db.prepare(`INSERT INTO horaire_floor_counts (userId, floorId, positionId, weekday, service, count) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(userId, floorId, positionId, weekday, service) DO UPDATE SET count = excluded.count`).run(u, Number(floorId), Number(positionId), weekday, service, count);
+  return listFloorCounts(u);
+}
+
 // ---------- génération et lecture d'une semaine ----------
 function getSchedule(u, weekStart) {
   const s = db.prepare('SELECT id, weekStart, status, alerts, generatedAt FROM horaire_schedules WHERE userId = ? AND weekStart = ?').get(u, weekStart);
@@ -1021,7 +1050,7 @@ module.exports = {
   DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  nameTaken, candidates, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, userForInboundToken, receiveReservations, GROUP_MIN, importEventsCsv, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
+  listFloors, ownFloor, listFloorCounts, createFloor, renameFloor, deleteFloor, isFloorPosition, setFloorCount, nameTaken, candidates, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, userForInboundToken, receiveReservations, GROUP_MIN, importEventsCsv, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,

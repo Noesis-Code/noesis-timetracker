@@ -191,6 +191,24 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     const txt = P.buildRegistrationPrompt({ weekStart: '2026-11-02', assignments: [{ employeeName: 'Ana Fictive', day: '2026-11-06', start: '16:00', end: '00:00', positionName: 'Serveur' }] });
     assert(txt.includes('16:00 ; 00:00 (minuit)'), 'prompt d’inscription : minuit écrit « 00:00 (minuit) »');
   }
+  // ---- Planchers : liste commune aux postes Serveur, Barman, Commis ; nombres propres à chacun ; saisie seule ----
+  {
+    await call('POST', 'positions/defaults', {}, 'uC');
+    const ps = h.listPositions('uC');
+    const srv = ps.find((p) => p.name === 'Serveur'), bar = ps.find((p) => p.name === 'Barman'), hote = ps.find((p) => /^H/.test(p.name));
+    const f1 = (await call('POST', 'floors', { name: 'Haut' }, 'uC')).body.floor;
+    const f2 = (await call('POST', 'floors', { name: 'Terrasse' }, 'uC')).body.floor;
+    assert(f1 && f2 && (await call('GET', 'floors', undefined, 'uC')).body.floors.length >= 2, 'planchers : ajoutés (liste commune)');
+    r = await call('PUT', 'floor-counts', { floorId: f1.id, positionId: srv.id, weekday: 4, service: 'soir', count: 3 }, 'uC');
+    await call('PUT', 'floor-counts', { floorId: f1.id, positionId: bar.id, weekday: 4, service: 'soir', count: 1 }, 'uC');
+    await call('PUT', 'floor-counts', { floorId: f1.id, positionId: srv.id, weekday: 4, service: 'soir', count: 4 }, 'uC');
+    const counts = (await call('GET', 'floors', undefined, 'uC')).body.counts;
+    assert(counts.find((c) => c.floorId === f1.id && c.positionId === srv.id && c.weekday === 4 && c.service === 'soir').count === 4 && counts.find((c) => c.positionId === bar.id).count === 1, 'planchers : nombres propres à chaque poste, modifiés sur place');
+    assert((await call('PUT', 'floor-counts', { floorId: f1.id, positionId: hote.id, weekday: 4, service: 'soir', count: 1 }, 'uC')).status === 400, 'planchers : Hôte/Hôtesse refusé (Serveur, Barman, Commis seulement)');
+    assert((await call('PUT', 'floor-counts', { floorId: f1.id, positionId: srv.id, weekday: 4, service: 'soir', count: -1 }, 'uC')).status === 400 && (await call('PUT', 'floor-counts', { floorId: f1.id, positionId: srv.id, weekday: 7, service: 'soir', count: 1 }, 'uC')).status === 400, 'planchers : nombre négatif ou jour invalide refusés');
+    assert((await call('PUT', 'floors/' + f2.id, { name: 'Terrasse nord' }, 'uC')).body.floor.name === 'Terrasse nord' && (await call('PUT', 'floors/' + f2.id, { name: 'X' }, 'uB')).status === 404, 'planchers : renommés ; autre compte refusé');
+    assert((await call('DELETE', 'floors/' + f1.id, undefined, 'uC')).status === 200 && !h.listFloorCounts('uC').some((c) => c.floorId === f1.id), 'planchers : supprimé pour les trois postes, avec ses nombres');
+  }
   // ---- Réception automatique du rapport de réservations (courriel entrant) ----
   {
     delete process.env.HORAIRE_INBOUND_DOMAIN;

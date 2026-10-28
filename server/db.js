@@ -2762,6 +2762,20 @@ CREATE TABLE IF NOT EXISTS horaire_zones (
 );
 CREATE INDEX IF NOT EXISTS idx_horaire_zones_user ON horaire_zones(userId);
 `);
+// Planchers (28 oct. 2026, demande d'Émilien) : horaire_zones sert de liste des planchers (nom ; morning/evening inutilisés) ;
+// nombre de personnes par plancher, poste (Serveur, Barman, Commis), jour (0..6) et service. Saisie seule : la génération ne le lit pas encore.
+db.exec(`
+CREATE TABLE IF NOT EXISTS horaire_floor_counts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  floorId INTEGER NOT NULL,
+  positionId INTEGER NOT NULL,
+  weekday INTEGER NOT NULL,
+  service TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (userId, floorId, positionId, weekday, service)
+);
+`);
 // Règles du restaurant (28 oct. 2026) : JSON { off: ['r2'...], prefOrder: ['r5','r6','r7'], free: [{ id, text }] } ; NULL = toutes actives.
 // Heures de fin des services (28 oct. 2026, demande d'Émilien) : JSON { '<posteId>|<jour 0..6>|<matin|soir>': 'HH:MM' } ; absent = défaut
 // (matin 17:00 ; soir 23:00, vendredi 00:00 = minuit). NULL = tous les défauts (comptes existants compris, sans rien demander).
