@@ -384,6 +384,19 @@ function deleteEvent(u, id) {
   return cascade(u, [['DELETE FROM horaire_needs WHERE eventId = ? AND userId = ?', i], ['DELETE FROM horaire_events WHERE id = ? AND userId = ?', i]]);
 }
 
+// ---------- heures de fin des services, par poste, jour et service (défauts : ./horaire-generation.js defaultServiceEnd) ----------
+function getServiceEnds(u) {
+  const r = db.prepare('SELECT serviceEnds FROM horaire_settings WHERE userId = ?').get(u);
+  try { const o = JSON.parse((r && r.serviceEnds) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; }
+}
+function setServiceEnd(u, positionId, weekday, service, end) {
+  const o = getServiceEnds(u);
+  o[Number(positionId) + '|' + Number(weekday) + '|' + service] = end;
+  db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
+  db.prepare('UPDATE horaire_settings SET serviceEnds = ? WHERE userId = ?').run(JSON.stringify(o), u);
+  return o;
+}
+
 // ---------- génération et lecture d'une semaine ----------
 function getSchedule(u, weekStart) {
   const s = db.prepare('SELECT id, weekStart, status, alerts, generatedAt FROM horaire_schedules WHERE userId = ? AND weekStart = ?').get(u, weekStart);
@@ -419,6 +432,7 @@ function generate(u, weekStart) {
     events: listEvents(u, days[0], days[6]),
     rotation: rot,
     arrivalPositions: arrivalPositionIds(u),
+    serviceEnds: getServiceEnds(u),
   });
   db.exec('BEGIN');
   try {
@@ -989,7 +1003,7 @@ module.exports = {
   DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, userForInboundToken, receiveReservations, GROUP_MIN, importEventsCsv, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
+  getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, userForInboundToken, receiveReservations, GROUP_MIN, importEventsCsv, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,

@@ -356,6 +356,18 @@ router.put('/horaire/inbound', (req, res) => {
   res.json(h.setGroupMin(req.userId, n));
 });
 router.post('/horaire/inbound/revoke', (req, res) => res.json(h.revokeInbound(req.userId)));
+// Heures de fin des services : GET { ends: { '<posteId>|<jour>|<service>': 'HH:MM' } } (absent = défaut) ;
+// PUT { positionId, weekday 0..6, service 'matin'|'soir', end 'HH:MM' } (00:00 = minuit ; 24:00 accepté et rangé en 00:00).
+router.get('/horaire/service-ends', (req, res) => res.json({ ends: h.getServiceEnds(req.userId) }));
+router.put('/horaire/service-ends', (req, res) => {
+  const b = req.body || {};
+  if (!h.ownPosition(req.userId, b.positionId)) return notFound(res, 'Poste');
+  if (!(Number.isInteger(b.weekday) && b.weekday >= 0 && b.weekday <= 6)) return bad(res, 'Jour invalide (0 à 6).');
+  if (b.service !== 'matin' && b.service !== 'soir') return bad(res, 'Service invalide (matin ou soir).');
+  const end = b.end === '24:00' ? '00:00' : b.end;
+  if (!/^\d{2}:\d{2}$/.test(String(end)) || !h.isTime(end)) return bad(res, 'Heure invalide (HH:MM).');
+  res.json({ ends: h.setServiceEnd(req.userId, b.positionId, b.weekday, b.service, end) });
+});
 router.get('/horaire/events', (req, res) => res.json({ events: h.listEvents(req.userId) }));
 router.post('/horaire/events', (req, res) => {
   const v = eventInput(req, res, req.body || {}, false, null); if (!v) return;

@@ -170,6 +170,16 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     assert(h.purgePastEvents() >= 1 && !h.listEvents('uC').some((e) => e.day === '2027-03-15'), 'purge quotidienne : le lendemain de l’événement, il est supprimé');
     process.env.HORAIRE_TODAY = '2026-10-28';
   }
+  // ---- Heures de fin des services : modifiables par poste, jour et service ; minuit accepté ----
+  {
+    const [p1] = h.listPositions('uC');
+    assert((await call('PUT', 'service-ends', { positionId: p1.id, weekday: 5, service: 'soir', end: '24:00' }, 'uC')).body.ends[p1.id + '|5|soir'] === '00:00', 'fin : 24:00 rangé en 00:00 (minuit)');
+    assert((await call('PUT', 'service-ends', { positionId: p1.id, weekday: 7, service: 'soir', end: '23:00' }, 'uC')).status === 400 && (await call('PUT', 'service-ends', { positionId: p1.id, weekday: 1, service: 'soir', end: '25:00' }, 'uC')).status === 400, 'fin : jour ou heure invalide refusés');
+    assert((await call('PUT', 'service-ends', { positionId: p1.id, weekday: 1, service: 'soir', end: '22:30' }, 'uB')).status === 404, 'fin : poste d’un autre compte refusé');
+    const P = require('../server/lib/horaire-prompt');
+    const txt = P.buildRegistrationPrompt({ weekStart: '2026-11-02', assignments: [{ employeeName: 'Ana Fictive', day: '2026-11-06', start: '16:00', end: '00:00', positionName: 'Serveur' }] });
+    assert(txt.includes('16:00 ; 00:00 (minuit)'), 'prompt d’inscription : minuit écrit « 00:00 (minuit) »');
+  }
   // ---- Réception automatique du rapport de réservations (courriel entrant) ----
   {
     delete process.env.HORAIRE_INBOUND_DOMAIN;

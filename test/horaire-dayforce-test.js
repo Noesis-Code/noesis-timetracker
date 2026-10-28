@@ -46,7 +46,7 @@ assert(h.exportDayforce('uA', W) === null, 'aucun horaire enregistré : null (40
 const sched = h.generate('uA', W);
 assert(sched.alerts.some((a) => a.type === 'trou'), 'un trou existe dans l\'horaire');
 const dbOut = h.exportDayforce('uA', W);
-assert(dbOut.rows === 1 && dbOut.csv.includes('E001,2026-10-26,09:00,2026-10-26,15:00,SERV,MTL-01'), 'seul le quart comblé est exporté, codes de la base');
+assert(dbOut.rows === 1 && dbOut.csv.includes('E001,2026-10-26,09:00,2026-10-26,17:00,SERV,MTL-01'), 'seul le quart comblé est exporté, codes de la base ; fin = fin du service (matin 17:00)');
 assert(h.exportDayforce('uB', W) === null, 'un autre compte ne voit pas l\'horaire');
 h.updateEmployee('uA', e1.id, { dayforceId: null });
 assert(h.listEmployees('uA')[0].dayforceId === null && h.exportDayforce('uA', W).missing.employees === 1, 'matricule effaçable, signalé manquant');

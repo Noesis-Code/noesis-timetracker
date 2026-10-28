@@ -236,7 +236,7 @@ function buildRegistrationPrompt(input) {
     || String(a.employeeName).localeCompare(String(b.employeeName), 'fr'));
   const wd = (iso) => DAYS[(new Date(iso + 'T00:00:00Z').getUTCDay() + 6) % 7];
   const shifts = list.length
-    ? list.map((a) => '- ' + [String(a.employeeName || '').replace(/^\s*([^,]+?)\s*,\s*(.+?)\s*$/, '$2 $1'), a.day, wd(a.day), a.start, a.end, a.positionName || ''].join(' ; '))
+    ? list.map((a) => '- ' + [String(a.employeeName || '').replace(/^\s*([^,]+?)\s*,\s*(.+?)\s*$/, '$2 $1'), a.day, wd(a.day), a.start, a.end === '00:00' ? '00:00 (minuit)' : a.end, a.positionName || ''].join(' ; '))
     : ['- Aucun quart.'];
   const consignes = String(input.instructions || ENTRY_PROMPT).replace(/\s+$/, '');
   return [

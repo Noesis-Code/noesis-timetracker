@@ -244,6 +244,20 @@ r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMax: 30 }], {
 assert(r.assignments.length === 5 && r.alerts.some((a) => a.type === 'trou') && !r.alerts.some((a) => a.type === 'sixieme_quart'), 'plus de 6e quart : max 5 = 5 quarts, le 6e reste un trou');
 // Passe 1 : chacun atteint son MIN, même un rang moins bon, avant que le meilleur rang aille à sa cible.
 const evenings = (n) => Array.from({ length: n }, (_, wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 1 }));
+// ---- Heures de fin des services (28 oct. 2026) : matin 17:00, soir 23:00, vendredi minuit ; valeur du compte prise en compte ----
+{
+  const { range, defaultServiceEnd } = require('../server/lib/horaire-generation');
+  const base = { weekStart: W, positions: [{ id: 1, fillOrder: 0 }], employees: [{ id: 10, wantHoursMax: 8 }], qualifications: [{ employeeId: 10, positionId: 1, rank: 1 }], availabilities: allDay([10], D) };
+  r = generateSchedule(Object.assign({}, base, { needs: [{ positionId: 1, weekday: 4, start: '16:00', end: '23:59', count: 1 }], serviceEnds: {} }));
+  const fri = r.assignments.find((a) => a.day === D[4]);
+  assert(fri && fri.end === '00:00' && range(fri.start, fri.end)[1] - range(fri.start, fri.end)[0] === 480, 'vendredi soir : fin à minuit, 8 h depuis 16:00 (max 8 h atteint, pas dépassé)');
+  r = generateSchedule(Object.assign({}, base, { needs: [{ positionId: 1, weekday: 0, start: '10:30', end: '16:00', count: 1 }], serviceEnds: {} }));
+  const mon = r.assignments.find((a) => a.day === D[0]);
+  assert(mon && mon.end === '17:00' && range(mon.start, mon.end)[1] - range(mon.start, mon.end)[0] === 390, 'matin 10:30 → 17:00 = 6,5 h');
+  r = generateSchedule(Object.assign({}, base, { employees: [{ id: 10, wantHoursMax: 6 }], needs: [{ positionId: 1, weekday: 0, start: '10:30', end: '16:00', count: 1 }], serviceEnds: { '1|0|matin': '16:00' } }));
+  assert(r.assignments.length === 1 && r.assignments[0].end === '16:00', 'fin modifiée (16:00) prise en compte : 5,5 h, sous le max de 6 h');
+  assert(defaultServiceEnd(5, 'soir') === '23:00' && defaultServiceEnd(6, 'soir') === '23:00' && defaultServiceEnd(2, 'matin') === '17:00', 'défauts : samedi et dimanche soir 23:00, matin 17:00');
+}
 // ---- Cible libre (28 oct. 2026) : au-dessus du max, le max reste un plafond strict ; sous le min, le min s'applique ----
 {
   const six = [0, 1, 2, 3, 4, 5].map((wd) => ({ positionId: 1, weekday: wd, start: '09:00', end: '15:00', count: 1 }));

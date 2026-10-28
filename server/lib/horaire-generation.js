@@ -61,7 +61,13 @@ function criticality(weekday, startMin, isEvent) {
 // (matin ou soir, d'après l'heure d'arrivée de ses besoins ; pour tous les postes) ; l'autre service garde ses besoins normaux
 // (maquette du 28 oct. 2026 : « Un événement remplace les besoins de son service »).
 const serviceOf = (start) => (toMin(start) >= EVENING_FROM ? 'soir' : 'matin');
-function buildSlots(weekStart, needs, events, mainPositionId) {
+// Fin d'un service (28 oct. 2026, demande d'Émilien) : matin 17:00 ; soir 23:00, vendredi minuit (00:00 = 24:00 le jour même).
+function defaultServiceEnd(weekday, service) { return service === 'matin' ? '17:00' : (Number(weekday) === 4 ? '00:00' : '23:00'); }
+// opts.serviceEnds (objet, même vide) : chaque quart finit à la fin de son service ce jour-là (valeur du compte, sinon le défaut) ;
+// sans opts.serviceEnds (tests anciens) : la fin écrite dans le besoin.
+function buildSlots(weekStart, needs, events, mainPositionId, opts) {
+  const ends = opts && opts.serviceEnds;
+  const endOf = (pid, weekday, start, fallback) => (ends ? (ends[pid + '|' + weekday + '|' + serviceOf(start)] || defaultServiceEnd(weekday, serviceOf(start))) : fallback);
   const days = weekDays(weekStart);
   const slots = [];
   days.forEach((day, weekday) => {
@@ -79,9 +85,10 @@ function buildSlots(weekStart, needs, events, mainPositionId) {
       // Ligne d'un poste : la première arrivée de ce poste dans le service ; ancien groupe (sans poste) : tous postes confondus.
       const first = base.filter((n) => serviceOf(n.start) === g.service && (pid == null || Number(n.positionId) === pid)).sort((a, b) => toMin(a.start) - toMin(b.start))[0];
       if (first) source.push({ positionId: first.positionId, start: first.start, end: first.end, count, eventId: g.id });
-      else if ((pid != null ? pid : mainPositionId) != null) source.push({ positionId: pid != null ? pid : mainPositionId, start: g.service === 'soir' ? '16:00' : '10:30', end: g.service === 'soir' ? '23:59' : '16:00', count, eventId: g.id });
+      else if ((pid != null ? pid : mainPositionId) != null) source.push({ positionId: pid != null ? pid : mainPositionId, start: g.service === 'soir' ? '16:00' : '10:30', end: g.service === 'soir' ? '23:59' : '17:00', count, eventId: g.id });
     }
-    for (const n of source) {
+    for (const n0 of source) {
+      const n = Object.assign({}, n0, { end: endOf(n0.positionId, weekday, n0.start, n0.end) });
       const r = range(n.start, n.end);
       const count = Math.max(0, Math.floor(Number(n.count) || 0));
       if (!r || !count) continue;
@@ -125,7 +132,8 @@ function generateSchedule(input) {
   // disponibilités : 'employeeId|day' -> [[de, à]]
   const avail = new Map();
   for (const a of input.availabilities || []) {
-    const r = range(a.start, a.end);
+    // Une disponibilité qui finit à 23:59 (« toute la soirée ») couvre jusqu'à minuit : un quart du vendredi qui finit à 00:00 y tient.
+    const r = range(a.start, a.end === '23:59' ? '24:00' : a.end);
     if (!r) continue;
     const k = a.employeeId + '|' + a.day;
     if (!avail.has(k)) avail.set(k, []);
@@ -145,7 +153,7 @@ function generateSchedule(input) {
   // congés : jour entier, l'employé est indisponible ce jour-là
   const off = new Set((input.timeoff || []).map((t) => t.employeeId + '|' + t.day));
 
-  const slots = buildSlots(input.weekStart, input.needs, input.events, positions.length ? positions[0].id : null);
+  const slots = buildSlots(input.weekStart, input.needs, input.events, positions.length ? positions[0].id : null, { serviceEnds: input.serviceEnds });
   const posRank = new Map(positions.map((p, i) => [p.id, i]));
   // Ordre de traitement : poste (ordre de comblement), puis criticité décroissante, puis jour et heure.
   const ordered = slots.filter((s) => posRank.has(s.positionId)).sort((a, b) =>
@@ -283,4 +291,4 @@ function generateSchedule(input) {
   return { assignments, alerts, rotation };
 }
 
-module.exports = { generateSchedule, buildSlots, criticality, toMin, range, addDays, weekDays, WEEKEND, EVENING_FROM };
+module.exports = { defaultServiceEnd, generateSchedule, buildSlots, criticality, toMin, range, addDays, weekDays, WEEKEND, EVENING_FROM };

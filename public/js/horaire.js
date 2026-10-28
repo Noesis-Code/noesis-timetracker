@@ -66,10 +66,10 @@
     });
   }
   function loadAll() {
-    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), req('GET', 'inbound').catch(function () { return {}; })])
+    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), req('GET', 'inbound').catch(function () { return {}; }), req('GET', 'service-ends').catch(function () { return { ends: {} }; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
-        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.inbound = r[8] || {}; S.loaded = true;
+        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.inbound = r[8] || {}; S.ends = r[9].ends || {}; S.loaded = true;
       });
   }
   // Construit la page si besoin : refresh() peut être appelé (TMT.horaire.refresh) avant la première ouverture du volet.
@@ -467,11 +467,15 @@
     var ev = [].concat.apply([], evs.filter(function (e) { return !e.service; }).map(function (e) { return e.needs || []; }));
     var replaced = {}; ev.forEach(function (n) { replaced[serviceOf(n.start)] = 1; });
     var src = ev.concat(S.needs.filter(function (n) { return Number(n.weekday) === i && !replaced[serviceOf(n.start)]; }));
-    evs.filter(function (e) { return e.service && e.extra > 0; }).forEach(function (g) {
-      var pid = g.positionId == null ? null : Number(g.positionId);
-      var first = src.filter(function (n) { return serviceOf(n.start) === g.service && (pid == null || Number(n.positionId) === pid); }).sort(function (a, b) { return toMin(a.start) - toMin(b.start); })[0];
-      if (first) src.push({ positionId: first.positionId, start: first.start, end: first.end, count: g.extra });
-      else if (pid != null || S.positions[0]) src.push({ positionId: pid != null ? pid : S.positions[0].id, start: g.service === 'soir' ? '16:00' : '10:30', end: SLOT[g.service][1], count: g.extra });
+    // Lignes des événements d'un service (même calcul que la génération) : à la première arrivée du poste, sinon 10:30 / 16:00.
+    var base = src.slice();
+    evs.filter(function (e) { return e.service; }).forEach(function (g) {
+      (g.lines || []).forEach(function (l) {
+        var pid = l.positionId == null ? null : Number(l.positionId);
+        var first = base.filter(function (n) { return serviceOf(n.start) === g.service && (pid == null || Number(n.positionId) === pid); }).sort(function (a, b) { return toMin(a.start) - toMin(b.start); })[0];
+        if (first) src.push({ positionId: first.positionId, start: first.start, end: first.end, count: l.count });
+        else if (pid != null || S.positions[0]) src.push({ positionId: pid != null ? pid : S.positions[0].id, start: g.service === 'soir' ? '16:00' : '10:30', end: endFor(pid != null ? pid : S.positions[0].id, i, g.service), count: l.count });
+      });
     });
     return src;
   }
@@ -479,6 +483,8 @@
   // Chaque ligne « heure × nombre » se modifie au clic, enregistrement automatique (Entrée ou sortie du champ), 0 retire la ligne ;
   // « + Ajouter » (case pointillée pleine largeur, R33) ajoute une ligne (10:30 le matin, 16:00 le soir, × 1). En haut à droite de la case,
   // le total des « × N » de la case (besoins seulement, sans les événements), en violet gras.
+  // Fin d'un service (poste, jour 0..6, service) : valeur du compte, sinon matin 17:00 ; soir 23:00, vendredi 00:00 (minuit).
+  function endFor(pid, wd, svc) { return (S.ends || {})[pid + '|' + wd + '|' + svc] || (svc === 'matin' ? '17:00' : (wd === 4 ? '00:00' : '23:00')); }
   function renderNeedsTable() {
     needsBox.textContent = '';
     var list = function (svc) {
@@ -507,6 +513,16 @@
         });
         add.classList.add('horaireEvAdd');
         c.appendChild(add);
+        // En bas de la case : « Fin 17:00 », modifiable sur place (champ heure, enregistrement automatique ; 00:00 = minuit).
+        var endCell = el('div', 'horaireNeed horaireNeedEnd horaireSheetEdit');
+        var end = endFor(posId(), i, svc);
+        editCell(endCell, '', [['end', end, 'Fin', 'time']], function (v) {
+          if (!/^\d{1,2}:\d{2}$/.test(v.end)) return false;
+          if (v.end === end) { renderNeedsTable(); return; }
+          S.ends = S.ends || {}; S.ends[posId() + '|' + i + '|' + svc] = v.end;
+          req('PUT', 'service-ends', { positionId: posId(), weekday: i, service: svc, end: v.end }).then(function (d) { S.ends = d.ends || S.ends; renderNeedsTable(); }, function (err) { fail(err); refresh(); });
+        }, function (cell) { cell.appendChild(el('span', 'horaireMuted', tr('Fin'))); cell.appendChild(el('span', null, end)); });
+        c.appendChild(endCell);
       };
     };
     needsBox.appendChild(grid('horaireGridNeeds', false, [['Matin', list('matin')], ['Soir', list('soir')]]));
@@ -1012,12 +1028,8 @@
     menu.appendChild(rm);
     placeMenu(anchor);
   }
-  // Fin d'un trou : celle du besoin correspondant (événement ou modèle normal), sinon 16:00 / 23:59.
-  function holeEnd(h) {
-    if (h.end) return h.end;
-    var n = daySource(weekdayOf(h.day)).find(function (x) { return x.positionId === h.positionId && x.start === h.start; });
-    return n ? n.end : SLOT[serviceOf(h.start)][1];
-  }
+  // Fin d'un trou : la fin de son service ce jour-là (comme tout quart).
+  function holeEnd(h) { return endFor(h.positionId, weekdayOf(h.day), serviceOf(h.start)); }
   // Trou « À combler » : même liste unie, employés seulement ; en tête les disponibles ce jour et ce service et pas encore placés ce jour-là.
   function openHoleMenu(anchor, h) {
     if (!newMenu(anchor)) return;

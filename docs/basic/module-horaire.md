@@ -167,6 +167,12 @@ dans les Paramètres (une seule place par fonction) :
 désormais dans les sections Employés et Disponibilités (ancienne section « Import et Dayforce » répartie). Test :
 `test/horaire-config-test.js`.
 
+## Heures de fin des services (28 oct. 2026, demande d'Émilien)
+Chaque quart finit à la fin de son service ce jour-là : matin 17:00 ; soir 23:00, vendredi minuit (00:00 = 24:00 le jour même, 8 h depuis
+16:00) ; samedi et dimanche soir 23:00. Modifiables à l'étape 1 (ligne « Fin » en bas de chaque case des Besoins), par compte, poste, jour et
+service (`horaire_settings.serviceEnds`, repli sur ces défauts). Les heures (min, cible, max) se comptent sur ces durées réelles ; une
+disponibilité qui finit à 23:59 couvre jusqu'à minuit. Prompt d'inscription : « 00:00 (minuit) ».
+
 ## Réception automatique du rapport de réservations par courriel (28 oct. 2026, option choisie par Émilien)
 Partie app seulement : AUCUN fournisseur n'est inscrit, aucun frais engagé ; le choix revient à Émilien.
 - Chaque compte a une adresse secrète `horaire-<jeton>@<HORAIRE_INBOUND_DOMAIN>` (jeton de 64 caractères hexadécimaux, révocable :
