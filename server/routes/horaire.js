@@ -100,12 +100,20 @@ function employeeInput(res, body, partial) {
   return out;
 }
 // Min ≤ cible ≤ max, sinon refusé (valeurs fusionnées avec l'employé existant pour une modification).
+// Seuls les champs envoyés sont contrôlés : une valeur ancienne incohérente ne bloque jamais l'enregistrement d'un autre champ.
 function shiftsOrdered(res, v, cur) {
+  const sent = (keys) => keys.some((k) => v[k] !== undefined);
+  if (!sent(['wantShiftsMin', 'wantShiftsMax', 'wantShiftsTarget', 'wantHoursMin', 'wantHoursTarget', 'wantHoursMax'])) return true;
+  if (!sent(['wantShiftsMin', 'wantShiftsMax', 'wantShiftsTarget'])) return hoursCheck(res, v, cur);
   const lo = v.wantShiftsMin !== undefined ? v.wantShiftsMin : (cur ? cur.wantShiftsMin : null);
   const hi = v.wantShiftsMax !== undefined ? v.wantShiftsMax : (cur ? cur.wantShiftsMax : null);
   if (lo != null && hi != null && lo > hi) { bad(res, 'Quarts souhaités : le minimum dépasse le maximum.'); return false; }
   const tg = v.wantShiftsTarget !== undefined ? v.wantShiftsTarget : (cur ? cur.wantShiftsTarget : null);
   if (tg != null && ((lo != null && tg < lo) || (hi != null && tg > hi))) { bad(res, 'Cible : entre le minimum et le maximum.'); return false; }
+  return hoursCheck(res, v, cur);
+}
+function hoursCheck(res, v, cur) {
+  if (!['wantHoursMin', 'wantHoursTarget', 'wantHoursMax'].some((k) => v[k] !== undefined)) return true;
   const hv = (k) => (v[k] !== undefined ? v[k] : (cur ? cur[k] : null));
   if (!h.hoursOrdered(hv('wantHoursMin'), hv('wantHoursTarget'), hv('wantHoursMax'))) { bad(res, 'Heures : min ≤ cible ≤ max.'); return false; }
   return true;

@@ -241,6 +241,16 @@ assert(find(r, 1, D[2])[0].employeeId === 10 && find(r, 1, D[0])[0].employeeId =
 r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMax: 6 }], { needs: [0, 1, 2].map((wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 1 })), restaurantRules: { off: ['r2'] } }));
 assert(r.assignments.length === 1, 'ancien réglage « r2 désactivée » ignoré : le max d’heures s’applique toujours');
 
+// ---- La note prime sur les heures, y compris sur le minimum ----
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMin: 18, wantHoursTarget: 24, note: 'Pas de soir' }], {
+  needs: [0, 1, 2, 3].map((wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 1 })),
+}));
+assert(r.assignments.length === 0 && r.alerts.some((a) => a.type === 'minimum' && a.employeeId === 10), 'note « pas de soir » : aucun soir, même sous le minimum (alerte minimum)');
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMin: 18, note: 'Repos après un quart ; jamais de double' }], {
+  needs: [0, 1, 2].map((wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 1 })),
+}));
+assert(r.assignments.length === 2 && r.assignments.map((a) => a.day).join() === D[0] + ',' + D[2], 'note « repos après un quart » : un jour sur deux, même sous le minimum de 18 h');
+
 // ---- Lecture de la note : expressions reconnues (casse, accents), reste = texte libre ----
 const { parseNote } = require('../server/lib/horaire-note');
 let pn = parseNote('Jamais de double ; REPOS APRES UN QUART ; Pas le dimanche ; Pas de matin sauf samedi');

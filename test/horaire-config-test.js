@@ -97,6 +97,17 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     assert(h.ownEmployee('uC', ret.id).active === 0 && h.listQualifications('uC').some((q) => q.employeeId === ret.id), 'retrait : employé inactif, rien d’autre effacé');
     assert((await call('POST', 'employees/' + ret.id + '/retire', {}, 'uB')).status === 404, 'retrait : autre compte refusé');
   }
+  // ---- PUT partiel : un champ envoyé ne touche jamais les autres ; une ancienne valeur incohérente ne bloque pas un autre champ ----
+  {
+    const p = (await call('POST', 'employees', { name: 'Partiel Fictif', wantHoursMin: 10, wantHoursTarget: 30, wantHoursMax: 35, constraintNote: 'Pas de soir' }, 'uC')).body.employee;
+    for (const b of [{ wantHoursMax: 32 }, { wantHoursMin: 12 }, { constraintNote: 'Pas de soir ; dimanche' }, { name: 'Partiel Fictif B' }]) await call('PUT', 'employees/' + p.id, b, 'uC');
+    const x = h.ownEmployee('uC', p.id);
+    assert(x.wantHoursTarget === 30 && x.wantHoursMin === 12 && x.wantHoursMax === 32 && x.constraintNote === 'Pas de soir ; dimanche' && x.name === 'Partiel Fictif B', 'PUT partiels successifs : la cible saisie reste, chaque champ garde sa valeur');
+    require('../server/db').prepare('UPDATE horaire_employees SET wantShiftsMin = 5, wantShiftsMax = 2 WHERE id = ?').run(p.id);
+    r = await call('PUT', 'employees/' + p.id, { wantHoursTarget: 31 }, 'uC');
+    assert(r.status === 200 && r.body.employee.wantHoursTarget === 31, 'une ancienne valeur incohérente (quarts) ne bloque plus la cible');
+    assert((await call('PUT', 'employees/' + p.id, { wantHoursTarget: 40 }, 'uC')).status === 400 && h.ownEmployee('uC', p.id).wantHoursTarget === 31, 'cible au-dessus du max : refusée, l’ancienne valeur reste');
+  }
   // ---- Heures : min ≤ cible ≤ max ----
   r = await call('PUT', 'employees/' + first.id, { wantHoursMin: 12, wantHoursTarget: 20, wantHoursMax: 24 }, 'uC');
   assert(r.status === 200 && r.body.employee.wantHoursTarget === 20, 'heures min, cible, max enregistrées');

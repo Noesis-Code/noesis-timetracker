@@ -146,7 +146,7 @@
   var EVE = 16 * 60; // soir = à partir de 16 h
   var SLOT = { matin: ['10:00', '16:00'], soir: ['16:00', '23:59'] };
   var STEP_LABELS = ['1. Récupération', '2. Disponibilités', '3. Horaire', '4. Envoi'];
-  var pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, rulesHead, genBtn, summaryBox, mainNodes, setupBox, setupMsg;
+  var catsMsg, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, rulesHead, genBtn, summaryBox, mainNodes, setupBox, setupMsg;
   var pagesHost, pages = [], stepBtns = [], dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
@@ -180,6 +180,7 @@
     // Page 1 : Récupération
     var p1 = el('div', 'horairePage');
     var bCats = block('Classification des employés', 'Catégorie 1 = priorité la plus haute. Glisse un nom pour le changer de catégorie.');
+    catsMsg = el('p', 'horaireMsg horaireCatsMsg hidden'); catsMsg.setAttribute('aria-live', 'polite'); bCats.appendChild(catsMsg);
     catsBox = el('div', 'horaireCatsBox'); bCats.appendChild(catsBox);
     var bNeeds = block('Besoins et événements', 'Clique une case pour la changer. Un groupe ajoute des serveurs à son service.');
     needsBox = el('div', 'horaireFrame cmpGlass'); bNeeds.appendChild(needsBox);
@@ -545,29 +546,47 @@
       var done = false;
       var finish = function (keep) {
         if (done) return;
-        if (!keep) { done = true; cell.classList.remove('editing', 'invalid'); paint(); return; }
+        if (!keep) { done = true; cell.classList.remove('editing', 'invalid'); paint(); setTimeout(flushCats, 0); return; }
         var vals = {}; fields.forEach(function (f, i) { vals[f[0]] = ins[i].value; });
-        if (save(vals) === false) { cell.classList.add('invalid'); return; }
-        done = true;
+        if (save(vals) === false) {
+          // Refus de validation : la saisie reste dans la cellule (soulignée) et le motif s'affiche ; rien n'est perdu ni envoyé.
+          cell.classList.add('invalid');
+          showCellMsg(cell, tr(cell.dataset.why || 'Valeur refusée : corrige-la ou appuie sur Échap.'));
+          return;
+        }
+        done = true; showCellMsg(cell, '');
+        // La valeur saisie reste affichée telle quelle jusqu'au prochain dessin de la grille.
+        cell.classList.remove('editing', 'invalid');
+        cell.textContent = fields.map(function (f, i) { return f[3] === 'hours' ? hoursText(hOrNull(ins[i].value)) : ins[i].value; }).join(fields.length > 1 ? ' ' + (fields[1][4] || '–') + ' ' : '');
+        setTimeout(flushCats, 0);
       };
       ins.forEach(function (x) {
         x.addEventListener('keydown', function (k) {
-          if (k.key === 'Enter') { k.preventDefault(); finish(true); }
-          else if (k.key === 'Escape') { k.preventDefault(); finish(false); }
+          if (k.key === 'Enter') { k.preventDefault(); k.stopPropagation(); finish(true); }
+          else if (k.key === 'Escape') { k.preventDefault(); k.stopPropagation(); finish(false); }
         });
       });
       cell.addEventListener('focusout', function (fo) { if (!done && !cell.contains(fo.relatedTarget)) finish(true); });
       ins[0].focus(); if (ins[0].select) ins[0].select();
     };
     cell.addEventListener('click', open);
-    cell.addEventListener('keydown', function (k) { if (k.key === 'Enter' && !cell.classList.contains('editing')) open(); });
+    cell.addEventListener('keydown', function (k) { if (k.key === 'Enter' && k.target === cell && !cell.classList.contains('editing')) open(); });
   }
+  // Motif d'un refus : juste au-dessus des tableaux de la classification (sinon dans le message de la page).
+  function showCellMsg(cell, text) {
+    if (catsMsg && catsBox.contains(cell)) { catsMsg.textContent = text; catsMsg.classList.toggle('hidden', !text); return; }
+    if (text) { S.msg = text; renderMsg(); }
+  }
+  // Enregistrement d'UN champ : appliqué tout de suite à l'état local (la saisie suivante se valide sur la valeur la plus récente),
+  // puis envoyé seul (PUT partiel) ; en cas d'erreur, l'état revient à la valeur du serveur.
   function putEmployee(e, body) {
+    var cur = S.employees.find(function (x) { return x.id === e.id; });
+    if (cur) Object.keys(body).forEach(function (k) { cur[k] = body[k]; });
     return req('PUT', 'employees/' + e.id, body).then(function (d) {
       var i = S.employees.findIndex(function (x) { return x.id === e.id; });
       if (i >= 0 && d.employee) S.employees[i] = d.employee;
       renderCats();
-    }, function (err) { fail(err); renderCats(); });
+    }, function (err) { fail(err); refresh(); });
   }
   function removeEmployee(e) {
     TMT.ui.confirm(tr('Retirer') + ' ' + e.name + ' ' + tr('de l’horaire ?'), { ok: tr('Retirer'), danger: true }).then(function (yes) {
@@ -577,7 +596,11 @@
     });
   }
   function sheetRow(cls) { return el('div', 'horaireSheetRow ' + (cls || '')); }
+  // Une saisie en cours n'est jamais effacée : si une cellule est ouverte, le redessin attend qu'elle soit fermée (flushCats).
+  function flushCats() { if (S.catsDirty) renderCats(); }
   function renderCats() {
+    if (catsBox.querySelector('.editing:not(.horaireSheetNew)')) { S.catsDirty = true; return; }
+    S.catsDirty = false;
     catsBox.textContent = '';
     var emps = S.employees.filter(function (e) { return e.active !== false; });
     var top = 4; emps.forEach(function (e) { var r = bestRank(e.id); if (r && r > top) top = Math.min(r, MAX_RANK); });
@@ -605,12 +628,14 @@
         row.appendChild(name);
         HOURS.forEach(function (hk) {
           var c = el('span', 'horaireSheetCell horaireSheetEdit horaireSheetNum');
+          c.dataset.why = 'Heures : il faut min ≤ cible ≤ max. Corrige la valeur ou appuie sur Échap.';
           editCell(c, hoursText(e[hk[0]]), [[hk[0], e[hk[0]], hk[1], 'hours']], function (v) {
             var val = hOrNull(v[hk[0]]);
-            var next = { wantHoursMin: e.wantHoursMin, wantHoursTarget: e.wantHoursTarget, wantHoursMax: e.wantHoursMax }; next[hk[0]] = val;
+            var cur = S.employees.find(function (x) { return x.id === e.id; }) || e; // valeurs les plus récentes (une autre case a pu changer)
+            var next = { wantHoursMin: cur.wantHoursMin, wantHoursTarget: cur.wantHoursTarget, wantHoursMax: cur.wantHoursMax }; next[hk[0]] = val;
             if (!hoursValid(next.wantHoursMin, next.wantHoursTarget, next.wantHoursMax)) return false;
             var body = {}; body[hk[0]] = val;
-            if (val !== e[hk[0]]) putEmployee(e, body); else renderCats();
+            if (val !== cur[hk[0]]) putEmployee(e, body); else renderCats();
           });
           if (!hoursValid(e.wantHoursMin, e.wantHoursTarget, e.wantHoursMax)) c.classList.add('invalid');
           row.appendChild(c);
