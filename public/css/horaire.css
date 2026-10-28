@@ -99,13 +99,14 @@
 .horairePasteActions { position: absolute; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 8px; }
 /* Prompt de récupération (étape 2) : Modifier (secondaire, à gauche), Copier (violet, à droite), éditeur déroulé dessous */
 .horairePromptRow { display: flex; gap: 12px; }
-.horairePromptRow > .cmpBtn { width: auto; flex: 1 1 0; }
-.horairePromptRow > .horairePromptEdit { flex: 0 1 auto; }
+/* Deux colonnes de 50 %, même hauteur de 44 px (le libellé passe sur deux lignes sur téléphone) */
+.horairePromptRow > .cmpBtn { width: auto; flex: 1 1 0; min-width: 0; min-height: 44px; height: 44px; padding: 4px 12px; line-height: 1.2; white-space: normal; text-align: center; }
 /* Épingle commune dans la zone (R39) : sans cadre (R37), zone de toucher 44 px */
 .horairePaste > .chatAttachBtn { left: 8px; top: auto; bottom: 8px; transform: none; width: 44px; height: 44px; }
 /* Prompts (Paramètres) : grandes zones de texte, lien discret « Revenir à la version de base » */
 #tab-horaire textarea.horairePromptArea { min-height: 160px; font-size: 13px; }
 .horaireLink { align-self: flex-start; min-height: 44px; margin-top: -8px; padding: 0; border: 0; background: none; font: inherit; font-size: 13px; color: var(--violet-soft); text-decoration: underline; cursor: pointer; }
+.horaireLink:disabled { color: var(--text-light); text-decoration: none; cursor: default; }
 
 /* Horaire de la semaine : un bouton par quart (heure, nom, ▾) ; trou = pointillé violet « À combler » */
 .horaireSlot { display: flex; gap: 8px; align-items: center; min-height: 32px; padding: 4px 8px; border: 1px solid var(--sep); border-radius: var(--radius-sm); background: transparent; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; box-sizing: border-box; }

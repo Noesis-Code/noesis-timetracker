@@ -44,12 +44,20 @@
   function req(method, url, body) {
     var o = { method: method, credentials: 'same-origin', cache: 'no-store', headers: {} };
     if (body !== undefined) { o.headers['Content-Type'] = 'application/json'; o.body = JSON.stringify(body); }
-    return fetch('/api/horaire/' + url, o).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (d) {
-        if (!r.ok) throw new Error(d.error && !/^[a-z0-9_]+$/.test(d.error) ? tr(d.error) : tr('Erreur serveur'));
-        return d;
-      });
-    }, function () { throw new Error(tr('Connexion impossible. Réessaie.')); });
+    // Réponse sans JSON (502/503 de l'hébergeur pendant un redéploiement de staging : le serveur redémarre quelques secondes) :
+    // une lecture (GET) est retentée jusqu'à 2 fois, 1,5 s d'écart ; sinon message clair au lieu de « Erreur serveur ».
+    var tries = method === 'GET' ? 2 : 0;
+    var go = function () {
+      return fetch('/api/horaire/' + url, o).then(function (r) {
+        return r.json().then(function (d) { return [true, d]; }, function () { return [false, {}]; }).then(function (x) {
+          var d = x[1];
+          if (!x[0] && !r.ok && tries-- > 0) return new Promise(function (res) { setTimeout(res, 1500); }).then(go);
+          if (!r.ok) throw new Error(d.error && !/^[a-z0-9_]+$/.test(d.error) ? tr(d.error) : tr(x[0] ? 'Erreur serveur' : 'Serveur en redémarrage. Réessaie dans un instant.'));
+          return d;
+        });
+      }, function () { throw new Error(tr('Connexion impossible. Réessaie.')); });
+    };
+    return go();
   }
   function loadWeek() {
     return Promise.all([req('GET', 'weeks/' + S.week), req('GET', 'weeks/' + S.week + '/availabilities')]).then(function (r) {
@@ -305,14 +313,15 @@
       var f = el('div', 'horaireForm');
       var a = el('textarea', 'horaireInput horairePromptArea'); a.rows = 14; a.value = cur.text; a.setAttribute('aria-label', tr('Prompt de récupération'));
       f.appendChild(a);
-      if (!cur.isDefault) {
-        f.appendChild(btn('horaireLink', 'Revenir à la version de base', function () {
-          TMT.ui.confirm(tr('Revenir à la version de base de ce prompt ?'), { ok: tr('Revenir') }).then(function (yes) {
-            if (yes) req('PUT', 'prompts', { importPrompt: null }).then(renderPromptEditor, fail);
-          });
-        }));
-      }
       f.appendChild(saveBtn(f, function () { return req('PUT', 'prompts', { importPrompt: a.value }).then(function () { setTimeout(renderPromptEditor, 0); }); }));
+      // Toujours visible en bas à gauche ; grisé et inactif tant que le prompt est celui de base.
+      var back = btn('horaireLink', 'Revenir à la version de base', function () {
+        TMT.ui.confirm(tr('Revenir à la version de base de ce prompt ?'), { ok: tr('Revenir') }).then(function (yes) {
+          if (yes) req('PUT', 'prompts', { importPrompt: null }).then(renderPromptEditor, fail);
+        });
+      });
+      back.disabled = !!cur.isDefault;
+      f.appendChild(back);
       promptBox.appendChild(f);
     }, fail);
   }

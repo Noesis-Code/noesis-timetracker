@@ -736,6 +736,7 @@
     // ---- Messages renvoyés par le serveur (texte fixe) ----
     'Erreur serveur': 'Server error',
     'Connexion impossible. Réessaie.': 'Connection failed. Try again.',
+    'Serveur en redémarrage. Réessaie dans un instant.': 'Server restarting. Try again in a moment.',
     'userId requis.': 'userId is required.',
     'userId et activityId requis.': 'userId and activityId are required.',
     'Profil introuvable.': 'Profile not found.',
