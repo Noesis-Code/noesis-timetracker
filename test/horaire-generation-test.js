@@ -207,29 +207,6 @@ r = generateSchedule({
     { id: 51, day: D[3], service: 'soir', needs: [{ positionId: 1, start: '16:00', end: '23:59', count: 1 }] }],
 });
 assert(find(r, 1, D[3], '16:00').length === 3 && find(r, 2, D[3], '16:00').length === 1, 'deux événements sur le même service additionnés ; deux postes dans un événement');
-// ---- Zones : les serveurs d'un événement qui occupe une zone REMPLACENT ceux de la zone (serveurs seulement) ----
-{
-  const emps = Array.from({ length: 16 }, (x, i) => 10 + i);
-  const zoneRun = (events) => generateSchedule({
-    weekStart: W, positions: [{ id: 1, fillOrder: 0 }, { id: 2, fillOrder: 1 }],
-    employees: emps.map((id) => ({ id })),
-    qualifications: emps.map((id) => ({ employeeId: id, positionId: id < 24 ? 1 : 2, rank: 1 })),
-    availabilities: allDay(emps, D),
-    needs: [{ positionId: 1, weekday: 4, start: '16:00', end: '23:59', count: 7 }],
-    zones: [{ id: 1, name: 'Haut', morning: 2, evening: 4 }],
-    serverPositionId: 1,
-    events,
-  });
-  const ln = (pid, count) => ({ positionId: pid, start: '16:00', end: '23:59', count });
-  r = zoneRun([{ id: 60, day: D[4], service: 'soir', zoneId: 1, needs: [ln(1, 4)] }]);
-  assert(find(r, 1, D[4], '16:00').length === 7, 'zone : un événement de 4 serveurs sur tout le haut (4 habituels) donne 7, et non 11');
-  r = zoneRun([{ id: 61, day: D[4], service: 'soir', zoneId: 1, needs: [ln(1, 6), ln(2, 1)] }]);
-  assert(find(r, 1, D[4], '16:00').length === 9 && find(r, 2, D[4], '16:00').length === 1, 'zone : remplacement partiel (6 − 4 = +2) ; les autres postes s’additionnent');
-  r = zoneRun([{ id: 62, day: D[4], service: 'soir', zoneId: 1, needs: [ln(1, 3)] }, { id: 63, day: D[4], service: 'soir', zoneId: 1, needs: [ln(1, 3)] }]);
-  assert(find(r, 1, D[4], '16:00').length === 9, 'zone : deux événements sur la même zone ne la retirent qu’une fois (3 + 3 − 4 = +2)');
-  r = zoneRun([{ id: 64, day: D[4], service: 'soir', needs: [ln(1, 4)] }]);
-  assert(find(r, 1, D[4], '16:00').length === 11, 'sans zone : les serveurs de l’événement s’ajoutent');
-}
 
 // ---- Quart qui traverse minuit ----
 r = generateSchedule({

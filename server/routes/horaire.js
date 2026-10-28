@@ -280,7 +280,7 @@ function eventInput(req, res, body, partial, current) {
   const day = body.day !== undefined ? body.day : current && current.day;
   if (!h.isDate(day)) { bad(res, 'Date invalide (AAAA-MM-JJ).'); return null; }
   // Événement d'un service (28 oct. 2026) : { day, service, covers?, lines: [{ positionId, count 1..50 }] } ; plusieurs par service.
-  if (body.lines !== undefined || body.covers !== undefined || body.zoneId !== undefined || (current && current.service && body.extra === undefined)) {
+  if (body.lines !== undefined || body.covers !== undefined || (current && current.service && body.extra === undefined)) {
     const service = body.service !== undefined ? body.service : current && current.service;
     if (service !== 'matin' && service !== 'soir') { bad(res, 'Service invalide (matin ou soir).'); return null; }
     const covers = body.covers !== undefined ? body.covers : (current ? current.covers : null);
@@ -291,14 +291,7 @@ function eventInput(req, res, body, partial, current) {
       if (!l || !h.ownPosition(req.userId, l.positionId)) { notFound(res, 'Poste'); return null; }
       if (!(Number.isInteger(l.count) && l.count >= 1 && l.count <= 50)) { bad(res, 'Nombre invalide (1 à 50).'); return null; }
     }
-    // Zone occupée : une zone du compte, ou null (« Aucune ») ; choisir une zone efface le texte lu à l'import.
-    let zoneId = current ? current.zoneId : null, zoneRead = current ? current.zoneRead : null;
-    if (body.zoneId !== undefined) {
-      if (body.zoneId !== null && !h.ownZone(req.userId, body.zoneId)) { notFound(res, 'Zone'); return null; }
-      zoneId = body.zoneId === null ? null : Number(body.zoneId);
-      if (zoneId != null) zoneRead = null;
-    }
-    return { serviceEvent: true, day, service, covers, zoneId, zoneRead, lines: lines.map((l) => ({ positionId: Number(l.positionId), count: l.count })) };
+    return { serviceEvent: true, day, service, covers, lines: lines.map((l) => ({ positionId: Number(l.positionId), count: l.count })) };
   }
   // Groupe (28 oct. 2026, ancienne forme) : { day, service: 'matin' | 'soir', extra: 1..50 } ; libellé « Groupe », aucun besoin propre.
   if (body.service !== undefined || body.extra !== undefined) {
@@ -322,29 +315,6 @@ function eventInput(req, res, body, partial, current) {
   }
   return { day, label, needs };
 }
-// ---------- zones de la salle : { name, morning, evening } (serveurs habituels, 0 à 50) ----------
-function zoneInput(res, b, partial) {
-  const out = {};
-  if (b.name !== undefined || !partial) out.name = h.cleanName(b.name || '', h.LIMITS.name);
-  for (const k of ['morning', 'evening']) {
-    if (b[k] === undefined) { if (!partial) out[k] = 0; continue; }
-    if (!(Number.isInteger(b[k]) && b[k] >= 0 && b[k] <= 50)) { bad(res, 'Nombre de serveurs invalide (0 à 50).'); return null; }
-    out[k] = b[k];
-  }
-  return out;
-}
-router.get('/horaire/zones', (req, res) => res.json({ zones: h.listZones(req.userId) }));
-router.post('/horaire/zones', (req, res) => {
-  const v = zoneInput(res, req.body || {}, false); if (!v) return;
-  if (h.listZones(req.userId).length >= 50) return res.status(409).json({ error: 'Limite de zones atteinte.' });
-  res.status(201).json({ zone: h.createZone(req.userId, v) });
-});
-router.put('/horaire/zones/:id', (req, res) => {
-  const v = zoneInput(res, req.body || {}, true); if (!v) return;
-  const z = h.updateZone(req.userId, req.params.id, v);
-  return z ? res.json({ zone: z }) : notFound(res, 'Zone');
-});
-router.delete('/horaire/zones/:id', (req, res) => (h.deleteZone(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Zone')));
 router.get('/horaire/events', (req, res) => res.json({ events: h.listEvents(req.userId) }));
 router.post('/horaire/events', (req, res) => {
   const v = eventInput(req, res, req.body || {}, false, null); if (!v) return;
