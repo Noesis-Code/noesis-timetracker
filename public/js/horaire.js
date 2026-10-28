@@ -299,8 +299,13 @@
         S.msg = tr('Ces disponibilités sont pour la semaine du') + ' ' + (ow.getUTCDate() === 1 ? '1er' : ow.getUTCDate()) + ' ' + tr(MONTHS_LONG[ow.getUTCMonth()]) + ' : ' + tr('va à cette semaine et colle-les à nouveau.');
         return loadWeek().then(render);
       }
-      S.msg = (d.employees || 0) + ' ' + tr('employé(s) lu(s)') + (d.unknown && d.unknown.length ? '. ' + tr('Inconnus :') + ' ' + d.unknown.join(', ') : '')
-        + (sk ? '. ' + sk + ' ' + tr('ligne(s) ignorée(s)') : '') + '.';
+      // G4 : « 14 employés lus, 3 congés, 1 nom inconnu : Zoé Inconnue. », accordé au singulier ou au pluriel (D1 : plus de « (s) »).
+      var n = d.employees || 0, off = d.timeoff || 0, unk = d.unknown || [];
+      var parts = [plural(n, 'employé lu', 'employés lus')];
+      if (off) parts.push(plural(off, 'congé', 'congés'));
+      if (unk.length) parts.push(plural(unk.length, 'nom inconnu', 'noms inconnus') + ' : ' + unk.join(', '));
+      if (sk) parts.push(plural(sk, 'ligne ignorée', 'lignes ignorées'));
+      S.msg = parts.join(', ') + '.';
       (area || pasteArea).value = '';
       return loadWeek().then(render);
     }).catch(fail).then(function () { S.busy = false; });
@@ -374,6 +379,8 @@
       return req('GET', 'events').then(function (e) { S.events = e.events || []; renderEventsTable(); });
     }).catch(fail).then(function () { S.busy = false; });
   }
+  // « 1 congé », « 3 congés » : nombre et mot accordé (jamais « (s) »).
+  function plural(n, one, many) { return n + ' ' + tr(n > 1 ? many : one); }
   function renderMsg() {
     [msgBox].forEach(function (m) { m.textContent = S.msg; m.classList.toggle('hidden', !S.msg); });
   }

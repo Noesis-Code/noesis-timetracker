@@ -213,7 +213,7 @@
     'Retirer l’événement': 'Remove the event', 'Ajouter un poste': 'Add a position', 'Prompt': 'Prompt', 'Serveur en redémarrage. Réessaie dans un instant.': 'Server restarting. Try again in a moment.', 'Générer l’horaire': 'Generate schedule',
     'Copier le prompt de récupération': 'Copy the retrieval prompt', 'Copier le prompt pour l’IA': 'Copy the prompt for AI', 'Colle ici le texte rendu par ton IA.': 'Paste here the text returned by your AI.',
     'Quarts': 'Shifts', 'Trous restants': 'Gaps left', 'Alertes': 'Alerts', 'Horaire pas encore généré': 'Schedule not generated yet',
-    'Prompt de récupération': 'Retrieval prompt', 'Coller les disponibilités': 'Paste availability', 'employé(s) lu(s)': 'employee(s) read',
+    'Prompt de récupération': 'Retrieval prompt', 'Coller les disponibilités': 'Paste availability', 'congé': 'day off', 'congés': 'days off', 'nom inconnu': 'unknown name', 'noms inconnus': 'unknown names', 'ligne ignorée': 'line skipped', 'lignes ignorées': 'lines skipped',
     'Disponibilités : pas encore collées': 'Availability: not pasted yet', 'Disponibilités :': 'Availability:', 'employés lus': 'employees read', 'employé lu': 'employee read', 'le': 'on',
     'Horaire de la semaine': 'Schedule of the week', 'Tel qu’il sera inscrit. Clique un nom pour le changer.': 'As it will be entered. Click a name to change it.',
     'Besoins et événements': 'Needs and events', 'Groupe': 'Group', 'Serveurs en plus': 'Extra servers', 'Ajouter un groupe': 'Add a group',
