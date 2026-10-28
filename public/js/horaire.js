@@ -467,7 +467,8 @@
             if (count === 0) { req('DELETE', 'needs/' + n.id).then(refresh, fail); return; }
             if (v.start === n.start && count === n.count) { renderNeedsTable(); return; }
             req('PUT', 'needs/' + n.id, { start: v.start, count: count }).then(refresh, function (err) { fail(err); renderNeedsTable(); });
-          }, function (cell) { cell.appendChild(el('span', null, n.start)); cell.appendChild(el('span', 'horaireNeedN', '× ' + n.count)); });
+          }, function (cell) { cell.appendChild(el('span', null, n.start)); cell.appendChild(el('span', 'horaireNeedN', '× ' + n.count)); },
+          function () { req('DELETE', 'needs/' + n.id).then(refresh, fail); });
           c.appendChild(r);
         });
         var add = TMT.ui.addBtn(tr('Ajouter'), function () {
@@ -521,6 +522,12 @@
       n.addEventListener('change', save);
       n.addEventListener('keydown', function (k) { if (k.key === 'Enter') { k.preventDefault(); S.editing = null; save(); } });
       ed.appendChild(pick); ed.appendChild(n);
+      ed.appendChild(keepFocus(TMT.ui.removeBtn(function () {
+        S.editing = null;
+        var lines = (ev.lines || []).map(function (x) { return { positionId: x.positionId == null ? posId() : x.positionId, count: x.count }; });
+        lines.splice(i, 1);
+        saveLines(ev, lines);
+      }, tr('Supprimer'))));
       setTimeout(function () { n.focus(); n.select(); }, 0);
       return ed;
     };
@@ -656,7 +663,10 @@
   }
   // Cellule modifiable : fields = [[clé, valeur, libellé, type]] ; save(valeurs) renvoie false si invalide (rien n'est envoyé).
   // show(cell) : affichage personnalisé de la cellule au repos (sinon le texte) ; fields[i][4] : séparateur avant le champ i (sinon « – »).
-  function editCell(cell, text, fields, save, show) {
+  // remove() : facultatif ; la croix officielle .cmpRemove (R43) apparaît en haut à droite de la cellule ouverte et supprime sans confirmation.
+  // La croix ne prend pas le focus : le champ ouvert ne se ferme pas (ni enregistrement ni redessin) avant le clic.
+  function keepFocus(b) { b.addEventListener('pointerdown', function (e) { e.preventDefault(); }); b.addEventListener('mousedown', function (e) { e.preventDefault(); }); return b; }
+  function editCell(cell, text, fields, save, show, remove) {
     var paint = function () { cell.textContent = ''; if (show) show(cell); else cell.textContent = text; };
     paint();
     cell.tabIndex = 0;
@@ -671,6 +681,12 @@
         return x;
       });
       var done = false;
+      if (remove) {
+        var rm = TMT.ui.removeBtn(function (ev) { ev.stopPropagation(); if (done) return; done = true; remove(); }, tr('Supprimer'));
+        rm.classList.add('horaireCellRemove');
+        keepFocus(rm);
+        cell.appendChild(rm);
+      }
       var finish = function (keep) {
         if (done) return;
         if (!keep) { done = true; cell.classList.remove('editing', 'invalid'); paint(); setTimeout(flushCats, 0); return; }
@@ -1040,6 +1056,7 @@
       var scope = btn('horaireRuleScope', scopeText(r), function () { openScopeMenu(scope, i); });
       scope.setAttribute('aria-haspopup', 'menu'); scope.setAttribute('aria-label', tr('Postes de la règle') + ' : ' + scopeText(r));
       line.appendChild(row); line.appendChild(scope);
+      line.appendChild(keepFocus(TMT.ui.removeBtn(function () { var next = list.slice(); next.splice(i, 1); saveRR(next); }, tr('Supprimer'))));
       rulesBox.appendChild(line);
     });
     if (S.addingRule) {

@@ -112,6 +112,14 @@
 /* Prompts (Paramètres) : grandes zones de texte, lien discret « Revenir à la version de base » */
 #tab-horaire textarea.horairePromptArea { min-height: 160px; font-size: 13px; }
 .horaireLink { align-self: flex-start; min-height: 44px; margin-top: -8px; padding: 0; border: 0; background: none; font: inherit; font-size: 13px; color: var(--violet-soft); text-decoration: underline; cursor: pointer; }
+/* Croix officielle (R43) : sur la cellule ouverte, en haut à droite ; au bout d'une règle, visible au survol ou ligne ouverte */
+.horaireSheetEdit.editing, .horaireNeed.editing { position: relative; }
+.horaireNeed.editing { padding-right: 20px; }
+.cmpRemove.horaireCellRemove { position: absolute; top: 50%; right: 2px; transform: translateY(-50%); }
+.horaireEvEdit > .cmpRemove { align-self: center; margin-left: 4px; }
+.horaireRuleRow > .cmpRemove { align-self: center; opacity: 0; }
+.horaireRuleRow:hover > .cmpRemove, .horaireRuleRow:focus-within > .cmpRemove { opacity: 1; }
+@media (hover: none) { .horaireRuleRow > .cmpRemove { opacity: 1; } }
 .horaireLink:disabled { color: var(--text-light); text-decoration: none; cursor: default; }
 
 /* Horaire de la semaine : un bouton par quart (heure, nom, ▾) ; trou = pointillé violet « À combler » */
