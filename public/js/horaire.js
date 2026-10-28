@@ -193,7 +193,7 @@
     var p4 = el('div', 'horairePage');
     summaryBox = el('div', 'horaireSummary cmpGlass cmpList');
     p4.appendChild(summaryBox);
-    p4.appendChild(btn('cmpBtn', 'Copier le prompt pour l’IA', function () { copyText('weeks/' + S.week + '/prompt', 'Prompt copié : colle-le dans ton IA.'); }));
+    p4.appendChild(btn('cmpBtn', 'Copier le prompt pour l’IA', function (e) { copyText('weeks/' + S.week + '/prompt', 'Prompt copié : colle-le dans ton IA.', e.currentTarget); }));
 
     pages = [p1, pEv, pGen, p2, p3, p4];
     pagesHost = el('div', 'horairePages');
@@ -206,7 +206,20 @@
     mainNodes.forEach(function (n) { root.appendChild(n); });
   }
   // Page courante : catégorie active, ses 3 sous-catégories (active soulignée), ses 3 points, message de la page.
+  // Après un succès, le libellé d'un bouton change (« Prompt copié », « Horaire généré ») puis revient à l'original après 1 s, ou au
+  // prochain changement de page ou de semaine. Seul le texte change (même couleur, même taille) ; un échec ne le change pas.
+  var flashed = [];
+  function flashLabel(b, text) {
+    if (b.dataset.label == null) b.dataset.label = b.textContent;
+    b.textContent = tr(text);
+    clearTimeout(b._flash);
+    b._flash = setTimeout(function () { unflash(b); }, 1000);
+    if (flashed.indexOf(b) < 0) flashed.push(b);
+  }
+  function unflash(b) { clearTimeout(b._flash); if (b.dataset.label != null) { b.textContent = b.dataset.label; delete b.dataset.label; } flashed = flashed.filter(function (x) { return x !== b; }); }
+  function unflashAll() { flashed.slice().forEach(unflash); }
   function showPage(i) {
+    if (i !== S.page) unflashAll();
     S.page = i;
     var cat = Math.floor(i / 3);
     if (weekNav) weekNav.classList.toggle('hidden', cat === 0); // semaine inutile dans Paramètres (fixes) ; le calendrier des événements a sa propre navigation
@@ -244,6 +257,7 @@
   // Ouverture : toujours Paramètres > Employés (décision d'Émilien : le dernier endroit visité n'est pas repris).
   function logicalPage() { return 0; }
   function changeWeek(n) {
+    unflashAll();
     S.week = addDays(S.week, n); S.msg = '';
     try { localStorage.setItem('horaireSemaine', S.week); } catch (e) { /* stockage indisponible */ }
     if (S.editing && /^ev/.test(S.editing)) S.editing = null;
@@ -260,12 +274,13 @@
       return;
     }
     S.busy = true; genBtn.disabled = true; S.msg = '';
-    req('POST', 'weeks/' + S.week + '/generate').then(function (d) { S.schedule = d.schedule; render(); }, fail)
+    req('POST', 'weeks/' + S.week + '/generate').then(function (d) { S.schedule = d.schedule; render(); flashLabel(genBtn, 'Horaire généré'); }, fail)
       .then(function () { S.busy = false; genBtn.disabled = false; });
   }
   // Texte assemblé côté serveur (version en vigueur des prompts) copié dans le presse-papiers. ClipboardItem avec promesse quand il
   // existe : la copie reste liée au toucher même si le texte arrive après (Safari iOS). Une erreur (ex. 409) affiche le message renvoyé.
-  function copyText(url, done) {
+  // b : bouton cliqué ; après une copie réussie, son libellé devient « Prompt copié » (flashLabel).
+  function copyText(url, done, b) {
     var show = function (m) { S.msg = m; renderMsg(); };
     var text = fetch('/api/horaire/' + url, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) {
       if (!r.ok) return r.json().catch(function () { return {}; }).then(function (d) { throw new Error(d.error ? tr(d.error) : tr('Erreur serveur')); });
@@ -276,7 +291,7 @@
       ? cb.write([new window.ClipboardItem({ 'text/plain': text.then(function (t) { return new Blob([t], { type: 'text/plain' }); }) })])
         .catch(function (e) { return text.then(function (t) { if (!cb.writeText) throw e; return cb.writeText(t); }); })
       : text.then(function (t) { if (!cb || !cb.writeText) throw new Error(tr('Copie impossible.')); return cb.writeText(t); });
-    copy.then(function () { show(tr(done)); }, function () {
+    copy.then(function () { show(tr(done)); if (b) flashLabel(b, 'Prompt copié'); }, function () {
       text.then(function () { show(tr('Copie impossible.')); }, function (e) { show((e && e.message) || tr('Erreur serveur')); });
     });
   }
@@ -321,7 +336,7 @@
   function promptPanel(o) {
     var row = el('div', 'horairePromptRow');
     row.appendChild(btn('cmpBtn cmpBtnIdle horairePromptEdit', 'Modifier le prompt', function () { S.promptOpen[o.key] = !S.promptOpen[o.key]; renderPromptEditor(o.key); }));
-    row.appendChild(btn('cmpBtn', o.copyLabel, function () { copyText(o.copyUrl(), 'Prompt copié : colle-le dans ton IA.'); }));
+    row.appendChild(btn('cmpBtn', o.copyLabel, function (e) { copyText(o.copyUrl(), 'Prompt copié : colle-le dans ton IA.', e.currentTarget); }));
     var box = el('div', 'horairePromptBox hidden');
     promptBoxes[o.key] = box;
     var paste = el('div', 'horairePaste');

@@ -212,6 +212,7 @@
     'remplace': 'replaces', 'du plancher': 'from floor', 'Nom de l’événement': 'Event name', 'Aucun': 'None',
     'dépasse son max': 'goes over their max', 'pour un max de': 'for a max of', 'cible': 'target', 'au-delà du max': 'beyond max',
     'reçoit plus que sa cible': 'gets more than their target', 'pour une cible de': 'for a target of', 'au-delà de la cible': 'beyond target',
+    'Prompt copié': 'Prompt copied', 'Horaire généré': 'Schedule generated',
     'Calendrier des événements': 'Events calendar', 'Date passée.': 'Past date.', 'Précédent': 'Previous', 'Suivant': 'Next',
     'Supprimer ce besoin': 'Delete this need', 'Supprimer cette ligne': 'Delete this line', 'Supprimer cet événement ?': 'Delete this event?', 'Supprimer cette règle ?': 'Delete this rule?', 'Supprimer ce quart': 'Delete this shift', 'Supprimer le quart': 'Delete the shift',
     'Retirer l’événement': 'Remove the event', 'Ajouter un poste': 'Add a position', 'Prompt': 'Prompt', 'Serveur en redémarrage. Réessaie dans un instant.': 'Server restarting. Try again in a moment.', 'Générer l’horaire': 'Generate schedule',
