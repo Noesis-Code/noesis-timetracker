@@ -234,6 +234,7 @@
     // Flèches de page sur ordinateur (bureau.js, liées à l'id horairePageDots) : seulement dans Création des horaires ; dans Paramètres,
     // on passe d'une sous-catégorie à l'autre par les sous-catégories soulignées (le glissement reste).
     dots.id = cat === 0 ? 'horaireParamDots' : 'horairePageDots';
+    dots.classList.toggle('hidden', cat === 0); // Paramètres : pas de points (les sous-catégories soulignées suffisent ; le glissement reste)
     CATS[cat][1].forEach(function (l, j) {
       var t = btn(cat * 3 + j === i ? 'active' : '', l, function () { goPage(cat * 3 + j); });
       if (cat === 1) t.textContent = (j + 1) + '. ' + tr(l); // Création des horaires : étapes numérotées (28 oct. 2026, demande d'Émilien)
