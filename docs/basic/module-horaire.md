@@ -172,6 +172,11 @@ Données confidentielles du personnel (réglages et fichier modèle compris) : j
 (le prompt pour l'IA est copié par le gestionnaire lui-même dans l'outil de son choix). Incluses dans
 l'export du compte (clé `horaire`), effacées à la suppression du compte (cascade + `accountdeletion.js`).
 
+Conservation minimale des événements (28 oct. 2026) : un événement (réservation de groupe ou saisie à la main) est SUPPRIMÉ de la base,
+avec ses lignes, dès le lendemain de sa date (jour civil de Montréal) : purge au démarrage du serveur, toutes les 6 h et à chaque lecture
+(`purgePastEvents`, server/lib/horaire.js). Aucun événement ne se crée dans le passé. Les quarts déjà générés ne sont jamais touchés :
+l'horaire d'une semaine passée reste, seule la donnée d'événement part.
+
 ## Reste à faire
 Écrans (après maquette validée) ; ajustement de l'import à l'échantillon réel ; colonnes de l'export Dayforce à fixer sur
 le fichier modèle d'import du restaurant ; brancher OpenTable (seuils de couverts) et les règles d'événements sur la génération.

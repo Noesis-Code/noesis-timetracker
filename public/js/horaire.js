@@ -167,8 +167,8 @@
     var evPanel = promptPanel({ key: 'eventsPrompt', copyLabel: 'Copier le prompt des événements', copyUrl: function () { return 'events-prompt?week=' + S.week; },
       areaLabel: 'Coller les événements', send: sendEvents });
     evReport = el('p', 'horaireStatus hidden');
-    var bEvents = block('Événements de la semaine');
-    eventsBox = el('div', 'horaireFrame cmpGlass'); bEvents.appendChild(eventsBox);
+    var bEvents = block('Calendrier des événements');
+    eventsBox = el('div', 'horaireCalBox'); bEvents.appendChild(eventsBox);
     [ratio, evPanel.row, evPanel.box, evPanel.paste, evReport, bEvents].forEach(function (n) { pEv.appendChild(n); });
 
     // Page 3 : Récupération (zone de collage toujours visible, envoi dans la zone, R13)
@@ -490,10 +490,15 @@
   // ses lignes « Poste · +N » se modifient sur place (poste dans un menu uni, nombre ; enregistrement automatique, 0 retire la ligne) ;
   // « + Ajouter un poste » ajoute une ligne ; la croix .cmpRemove (R32) retire l'événement entier après confirmation rouge.
   // « + Ajouter » sous les cartes crée un événement. La semaine suivante repart vide ; une semaine passée se lit sans se modifier.
-  function weekIsPast() { return addDays(S.week, 6) < isoLocal(new Date()); }
+  // ---------- Calendrier des événements (étape 2) : Jour | Mois | Année (.cmpSeg, R42), Mois par défaut ----------
+  // Mois : grille lundi → dimanche, pastilles « Soir · 3 » (employés en plus) ; un clic sur un jour ouvre la vue Jour. Jour : Matin et Soir
+  // avec leurs cartes (saisie à la main). Année : 12 mini-mois, point violet sur les jours qui ont des événements ; un clic ouvre le mois.
+  // Un jour passé n'a jamais d'événement (supprimés côté serveur) et ne se modifie pas.
+  function todayIso() { return isoLocal(new Date()); }
   function renderEventsTable() {
     eventsBox.textContent = '';
-    var past = weekIsPast();
+    var cal = S.cal || (S.cal = { view: 'month', date: S.week < todayIso() ? todayIso() : S.week });
+    var past = false;
     var names = S.positions.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'fr'); });
     var saveLines = function (ev, lines) {
       req('PUT', 'events/' + ev.id, { lines: lines }).then(function (d) {
@@ -538,9 +543,9 @@
       setTimeout(function () { n.focus(); n.select(); }, 0);
       return ed;
     };
-    var cell = function (svc) {
-      return function (i, c) {
-        var day = addDays(S.week, i);
+    var fillService = function (day, svc, c) {
+      {
+        past = day < todayIso();
         S.events.filter(function (e) { return e.day === day && e.service === svc; }).forEach(function (ev, k) {
           var card = el('div', 'horaireEvCard');
           var head = el('div', 'horaireEvHead');
@@ -568,9 +573,77 @@
         });
         add.classList.add('horaireEvAdd');
         c.appendChild(add);
-      };
+      }
     };
-    eventsBox.appendChild(grid('horaireGridNeeds', true, [['Matin', cell('matin'), 'horaireCellPlan'], ['Soir', cell('soir'), 'horaireCellPlan']]));
+    // Employés en plus d'un service (somme des lignes de ses événements).
+    var extraOf = function (day, svc) {
+      var n = 0;
+      S.events.forEach(function (ev) { if (ev.day === day && ev.service === svc) (ev.lines || []).forEach(function (l) { n += l.count; }); });
+      return n;
+    };
+    var hasEvents = function (day) { return S.events.some(function (e) { return e.day === day && e.service; }); };
+    var ymd = function (y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); };
+    var go = function (view, date) { cal.view = view; cal.date = date; S.editing = null; renderEventsTable(); };
+    var seg = el('div', 'cmpSeg horaireCalSeg'); seg.setAttribute('role', 'tablist');
+    [['day', 'Jour'], ['month', 'Mois'], ['year', 'Année']].forEach(function (v) {
+      var b = btn(cal.view === v[0] ? 'active' : '', v[1], function () { go(v[0], cal.date); });
+      b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', cal.view === v[0] ? 'true' : 'false');
+      seg.appendChild(b);
+    });
+    eventsBox.appendChild(seg);
+    var nav = function (label, prev, next) {
+      var n = el('div', 'horaireWeek horaireCalNav');
+      var p = btn('horaireNav', '‹', prev); p.setAttribute('aria-label', tr('Précédent'));
+      var x = btn('horaireNav', '›', next); x.setAttribute('aria-label', tr('Suivant'));
+      n.appendChild(p); n.appendChild(el('span', 'horaireWeekLabel', label)); n.appendChild(x);
+      return n;
+    };
+    var d0 = new Date(cal.date + 'T00:00:00Z'), y = d0.getUTCFullYear(), m = d0.getUTCMonth();
+    var daysIn = function (yy, mm) { return new Date(Date.UTC(yy, mm + 1, 0)).getUTCDate(); };
+    var monthGrid = function (yy, mm, mini) {
+      var g = el('div', mini ? 'horaireCalGrid horaireCalMini' : 'horaireCalGrid');
+      DAYS_SHORT.forEach(function (w) { g.appendChild(el('span', 'horaireCalHead', mini ? tr(w).charAt(0).toUpperCase() : tr(w))); });
+      var lead = weekdayOf(ymd(yy, mm, 1));
+      for (var k = 0; k < lead; k++) g.appendChild(el('span', 'horaireCalBlank'));
+      for (var dd = 1; dd <= daysIn(yy, mm); dd++) {
+        var day = ymd(yy, mm, dd), isPast = day < todayIso();
+        if (mini) { var s = el('span', 'horaireCalMiniDay' + (hasEvents(day) && !isPast ? ' on' : ''), String(dd)); g.appendChild(s); continue; }
+        var b = el('button', 'horaireCalDay' + (isPast ? ' past' : '') + (day === todayIso() ? ' today' : '')); b.type = 'button';
+        b.appendChild(el('span', 'horaireCalNum', String(dd)));
+        if (!isPast) ['matin', 'soir'].forEach(function (svc) { var n = extraOf(day, svc); if (n || S.events.some(function (e) { return e.day === day && e.service === svc; })) b.appendChild(el('span', 'horaireCalPill', tr(svc === 'soir' ? 'Soir' : 'Matin') + ' · ' + n)); });
+        if (isPast) b.disabled = true; else b.addEventListener('click', (function (dday) { return function () { go('day', dday); }; })(day));
+        g.appendChild(b);
+      }
+      return g;
+    };
+    if (cal.view === 'month') {
+      eventsBox.appendChild(nav(tr(MONTHS_LONG[m]).replace(/^./, function (c) { return c.toUpperCase(); }) + ' ' + y,
+        function () { go('month', ymd(m ? y : y - 1, (m + 11) % 12, 1)); }, function () { go('month', ymd(m === 11 ? y + 1 : y, (m + 1) % 12, 1)); }));
+      var frame = el('div', 'horaireFrame cmpGlass'); frame.appendChild(monthGrid(y, m, false)); eventsBox.appendChild(frame);
+    } else if (cal.view === 'year') {
+      eventsBox.appendChild(nav(String(y), function () { go('year', ymd(y - 1, 0, 1)); }, function () { go('year', ymd(y + 1, 0, 1)); }));
+      var yearBox = el('div', 'horaireCalYear');
+      for (var mm = 0; mm < 12; mm++) {
+        var mb = el('button', 'horaireCalMonth cmpGlass'); mb.type = 'button';
+        mb.appendChild(el('span', 'horaireCalMonthName', tr(MONTHS_LONG[mm]).replace(/^./, function (c) { return c.toUpperCase(); })));
+        mb.appendChild(monthGrid(y, mm, true));
+        mb.addEventListener('click', (function (k) { return function () { go('month', ymd(y, k, 1)); }; })(mm));
+        yearBox.appendChild(mb);
+      }
+      eventsBox.appendChild(yearBox);
+    } else {
+      var dday = cal.date;
+      eventsBox.appendChild(nav(dayLabel(dday, true), function () { go('day', addDays(dday, -1)); }, function () { go('day', addDays(dday, 1)); }));
+      var dayBox = el('div', 'horaireCalDayView');
+      [['matin', 'Matin'], ['soir', 'Soir']].forEach(function (v) {
+        var col = el('div', 'horaireCalSvc horaireFrame cmpGlass');
+        col.appendChild(el('p', 'horaireCalSvcName', tr(v[1])));
+        if (dday < todayIso()) col.appendChild(el('p', 'horaireMuted', tr('Date passée.')));
+        else fillService(dday, v[0], col);
+        dayBox.appendChild(col);
+      });
+      eventsBox.appendChild(dayBox);
+    }
   }
 
   // ---------- disponibilités de la semaine (lues pour la liste d'un trou) ----------

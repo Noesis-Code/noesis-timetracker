@@ -2,6 +2,7 @@
 // (événements, OpenTable par poste, fichier modèle Dayforce, hébergement au Canada). Couche données + routes (validation).
 // Usage : node test/horaire-config-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-horaire-config-');
+process.env.HORAIRE_TODAY = '2026-10-28'; // jour fixe : les dates des événements restent futures
 const http = require('http');
 const express = require('express');
 
@@ -151,6 +152,23 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     assert((await call('POST', 'events', { day: '2026-11-19', service: 'soir', lines: [{ positionId: p1.id, count: 0 }] }, 'uC')).status === 400, 'ligne à 0 refusée (le client la retire)');
     assert((await call('DELETE', 'events/' + a.id, undefined, 'uC')).status === 200 && !h.listEvents('uC').some((e) => e.id === a.id), 'événement retiré en entier');
     await call('DELETE', 'events/' + b.id, undefined, 'uC');
+  }
+  // ---- Calendrier : création à toute date future, refus dans le passé, purge des événements passés (quarts intacts) ----
+  {
+    const [p1] = h.listPositions('uC');
+    r = await call('POST', 'events', { day: '2027-03-15', service: 'soir', lines: [{ positionId: p1.id, count: 2 }] }, 'uC');
+    assert(r.status === 201 && r.body.event.day === '2027-03-15', 'événement créé à une date future lointaine');
+    assert((await call('POST', 'events', { day: '2026-10-27', service: 'soir', lines: [] }, 'uC')).status === 400, 'événement refusé dans le passé');
+    assert((await call('POST', 'events', { day: '2026-10-28', service: 'soir', lines: [] }, 'uC')).status === 201, 'événement accepté aujourd’hui');
+    const db0 = require('../server/db');
+    const old = Number(db0.prepare("INSERT INTO horaire_events (userId, day, label, service) VALUES ('uC', '2026-10-20', 'Événement', 'soir')").run().lastInsertRowid);
+    db0.prepare("INSERT INTO horaire_needs (userId, positionId, weekday, eventId, start, end, count) VALUES ('uC', ?, NULL, ?, '16:00', '23:59', 2)").run(p1.id, old);
+    const shifts = db0.prepare('SELECT COUNT(*) AS n FROM horaire_assignments').get().n;
+    assert(!h.listEvents('uC').some((e) => e.id === old) && !db0.prepare('SELECT 1 FROM horaire_needs WHERE eventId = ?').get(old), 'événement passé supprimé à la lecture, avec ses lignes');
+    assert(db0.prepare('SELECT COUNT(*) AS n FROM horaire_assignments').get().n === shifts, 'purge : quarts déjà générés intacts');
+    process.env.HORAIRE_TODAY = '2027-03-16';
+    assert(h.purgePastEvents() >= 1 && !h.listEvents('uC').some((e) => e.day === '2027-03-15'), 'purge quotidienne : le lendemain de l’événement, il est supprimé');
+    process.env.HORAIRE_TODAY = '2026-10-28';
   }
   // ---- Import des réservations de groupe : un événement par groupe, ratio, report additionné, hors semaine ----
   {

@@ -311,7 +311,29 @@ function deleteNeed(u, id) {
 }
 
 // ---------- événements spéciaux (remplacent le modèle normal pour leur date) ----------
+// Conservation minimale (Loi 25, 28 oct. 2026) : un événement dont la date est passée (jour civil de Montréal) est SUPPRIMÉ, avec ses
+// lignes. Purge au chargement du module, toutes les 6 h et à chaque lecture. Les quarts déjà générés ne sont jamais touchés.
+// HORAIRE_TODAY (AAAA-MM-JJ) : jour fixé pour les tests seulement (jamais posé en production).
+function montrealToday(d) {
+  if (!d && /^\d{4}-\d{2}-\d{2}$/.test(process.env.HORAIRE_TODAY || '')) return process.env.HORAIRE_TODAY;
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d || new Date());
+  const g = (t) => p.find((x) => x.type === t).value;
+  return g('year') + '-' + g('month') + '-' + g('day');
+}
+function purgePastEvents(today) {
+  const t = today || montrealToday();
+  const ids = db.prepare('SELECT id FROM horaire_events WHERE day < ?').all(t).map((r) => r.id);
+  if (!ids.length) return 0;
+  const delNeeds = db.prepare('DELETE FROM horaire_needs WHERE eventId = ?');
+  const delEv = db.prepare('DELETE FROM horaire_events WHERE id = ?');
+  db.exec('BEGIN');
+  try { ids.forEach((id) => { delNeeds.run(id); delEv.run(id); }); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
+  return ids.length;
+}
+try { purgePastEvents(); } catch (e) { /* base pas encore prête : la prochaine lecture purge */ }
+setInterval(() => { try { purgePastEvents(); } catch (e) { /* réessayé au prochain passage */ } }, 6 * 3600 * 1000).unref();
 function listEvents(u, from, to) {
+  purgePastEvents();
   const evs = (from && to)
     ? db.prepare('SELECT id, day, label, service, extra, positionId, covers FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
     : db.prepare('SELECT id, day, label, service, extra, positionId, covers FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
@@ -798,7 +820,7 @@ function importEventsCsv(u, weekStart, text) {
     let service = fold(cells[idx.service]);
     if (service !== 'matin' && service !== 'soir') service = time ? (gen.toMin(time) >= gen.EVENING_FROM ? 'soir' : 'matin') : '';
     const c = Number(String(cells[idx.covers] || '').replace(/[^\d]/g, ''));
-    if (!day || !service || !(c >= 1)) { res.skipped.push({ line: n + 1 }); return; }
+    if (!day || !service || !(c >= 1) || day < montrealToday()) { res.skipped.push({ line: n + 1 }); return; }
     groups.push([day, service, Math.min(5000, c)]);
     res.groups += 1;
   });
@@ -896,7 +918,7 @@ module.exports = {
   DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  importEventsCsv, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
+  purgePastEvents, montrealToday, importEventsCsv, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,

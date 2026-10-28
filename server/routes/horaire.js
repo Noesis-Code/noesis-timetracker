@@ -279,6 +279,8 @@ router.delete('/horaire/needs/:id', (req, res) => (h.deleteNeed(req.userId, req.
 function eventInput(req, res, body, partial, current) {
   const day = body.day !== undefined ? body.day : current && current.day;
   if (!h.isDate(day)) { bad(res, 'Date invalide (AAAA-MM-JJ).'); return null; }
+  // Jamais dans le passé (jour civil de Montréal) : un événement passé est supprimé (conservation minimale).
+  if (day < h.montrealToday()) { bad(res, 'Date passée : un événement se crée aujourd’hui ou plus tard.'); return null; }
   // Événement d'un service (28 oct. 2026) : { day, service, covers?, lines: [{ positionId, count 1..50 }] } ; plusieurs par service.
   if (body.lines !== undefined || body.covers !== undefined || (current && current.service && body.extra === undefined)) {
     const service = body.service !== undefined ? body.service : current && current.service;
