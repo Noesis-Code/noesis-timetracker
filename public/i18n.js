@@ -209,6 +209,7 @@
     'Groupe à partir de': 'Group from', 'Couverts minimum d’un groupe': 'Minimum covers for a group', 'Réception automatique : bientôt disponible.': 'Automatic reception: coming soon.', 'Réception automatique :': 'Automatic reception:', 'dernier rapport le': 'last report on', 'Copier l’adresse': 'Copy the address', 'Adresse copiée.': 'Address copied.',
     'Ce nom existe déjà.': 'This name already exists.',
     'Heures cible': 'Target hours', 'Reconnu : jamais de double, repos après un quart, pas de matin, pas de soir, soirs d’abord, matins d’abord.': 'Recognized: no double, rest after a shift, no morning, no evening, evenings first, mornings first.',
+    'Colle d’abord les disponibilités de la semaine (étape 3).': 'Paste this week’s availability first (step 3).',
     'Calendrier des événements': 'Events calendar', 'Date passée.': 'Past date.', 'Précédent': 'Previous', 'Suivant': 'Next',
     'Supprimer ce besoin': 'Delete this need', 'Supprimer cette ligne': 'Delete this line', 'Supprimer cet événement ?': 'Delete this event?', 'Supprimer cette règle ?': 'Delete this rule?', 'Supprimer ce quart': 'Delete this shift', 'Supprimer le quart': 'Delete the shift',
     'Retirer l’événement': 'Remove the event', 'Ajouter un poste': 'Add a position', 'Prompt': 'Prompt', 'Serveur en redémarrage. Réessaie dans un instant.': 'Server restarting. Try again in a moment.', 'Générer l’horaire': 'Generate schedule',

@@ -249,6 +249,8 @@
   }
   function generate() {
     if (S.busy) return;
+    // G6 : aucune disponibilité collée pour la semaine -> rien n'est généré.
+    if (!(S.summary && S.summary.employees)) { S.msg = tr('Colle d’abord les disponibilités de la semaine (étape 3).'); renderMsg(); return; }
     // B4 : un horaire existe déjà -> confirmation (bouton violet), car les modifications manuelles seront remplacées.
     if (S.schedule && !generate.ok) {
       TMT.ui.confirm(tr('Regénérer ? Tes modifications manuelles seront remplacées.'), { ok: tr('Regénérer') }).then(function (yes) { if (yes) { generate.ok = true; generate(); generate.ok = false; } });

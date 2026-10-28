@@ -90,7 +90,7 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     const w1 = '2026-10-19', w2 = '2026-11-02';
     const ret = (await call('POST', 'employees', { name: 'Retrait Fictif' }, 'uC')).body.employee;
     await call('PUT', 'qualifications', { employeeId: ret.id, positionId: mainPos.id, rank: 1 }, 'uC');
-    for (const w of [w1, w2]) { await call('POST', 'weeks/' + w + '/generate', undefined, 'uC'); await call('POST', 'weeks/' + w + '/assignments', { employeeId: ret.id, positionId: mainPos.id, day: w, start: '10:00', end: '14:00' }, 'uC'); }
+    for (const w of [w1, w2]) { h.setAvailabilities('uC', w, ret.id, [{ day: w, start: '10:00', end: '14:00' }], []); await call('POST', 'weeks/' + w + '/generate', undefined, 'uC'); await call('POST', 'weeks/' + w + '/assignments', { employeeId: ret.id, positionId: mainPos.id, day: w, start: '10:00', end: '14:00' }, 'uC'); }
     r = await call('POST', 'employees/' + ret.id + '/retire', { today: '2026-10-28' }, 'uC');
     const past = (await call('GET', 'weeks/' + w1, undefined, 'uC')).body.schedule.assignments.filter((a) => a.employeeId === ret.id);
     const fut = (await call('GET', 'weeks/' + w2, undefined, 'uC')).body.schedule.assignments.filter((a) => a.employeeId === ret.id);
@@ -98,6 +98,9 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     assert(h.ownEmployee('uC', ret.id).active === 0 && h.listQualifications('uC').some((q) => q.employeeId === ret.id), 'retrait : employé inactif, rien d’autre effacé');
     assert((await call('POST', 'employees/' + ret.id + '/retire', {}, 'uB')).status === 404, 'retrait : autre compte refusé');
   }
+  // ---- G6 : générer sans aucune disponibilité de la semaine est bloqué ----
+  r = await call('POST', 'weeks/2027-01-04/generate', {}, 'uC');
+  assert(r.status === 409 && /Colle d.abord les disponibilités/.test(r.body.error) && !h.getSchedule('uC', '2027-01-04'), 'G6 : sans disponibilités, rien n’est généré (message clair)');
   // ---- G3 : deux employés du même nom refusés (casse et accents ignorés) ----
   {
     const a = (await call('POST', 'employees', { name: 'Éloïse Fictive' }, 'uC')).body.employee;
