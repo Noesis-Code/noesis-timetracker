@@ -636,13 +636,11 @@
     var tt = document.createElement('span'); tt.className = 'goalsAlertTitle'; tt.textContent = title;
     var chev = TMT.ui.chev(false);
     tg.appendChild(ico); tg.appendChild(tt); tg.appendChild(chev);
-    var x = document.createElement('button'); x.type = 'button'; x.className = 'cmpClose'; x.textContent = '\u2715'; x.setAttribute('aria-label', t('Fermer pour aujourd\'hui'));
-    head.appendChild(tg); head.appendChild(x);
+    head.appendChild(tg);
     var body = document.createElement('div'); body.className = 'goalsAlertBody';
     var sk = alertDayKey(key);
     function sync() { var o = !!alertOpen[sk]; card.classList.toggle('open', o); TMT.ui.setChev(chev, o); body.hidden = !o; tg.setAttribute('aria-expanded', o ? 'true' : 'false'); }
     tg.addEventListener('click', function () { alertOpen[sk] = !alertOpen[sk]; if (!alertOpen[sk]) card.querySelectorAll('.goalsReportNote').forEach(function (n) { n.remove(); }); sync(); });
-    x.addEventListener('click', function () { try { localStorage.setItem(alertDayKey(key), localIso(new Date())); } catch (e) { /* stockage indisponible */ } card.classList.add('hidden'); });
     sync();
     card.appendChild(head); card.appendChild(body);
     return body;
