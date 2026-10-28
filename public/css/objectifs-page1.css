@@ -40,15 +40,14 @@
   cursor: pointer; position: relative;
 }
 
-/* Médaillon : zone de couleur de l'activité (donnée, R16) portant le nom entier, léger dégradé. */
-/* 28 oct. 2026 (Émilien) : liste d'activités compacte. Plus de ligne en verre autour : la zone de couleur EST la ligne (44 px), le compteur à sa droite. */
-.goalsCaptureActivities { gap: 8px; }
-.goalsCaptureActivityChip { gap: 12px; min-height: 44px; padding: 0; border: 0; border-radius: 12px; background: none; }
+/* 28 oct. 2026 (Émilien) : même modèle que l'onglet Aujourd'hui — une pastille de la couleur de l'activité (donnée, R16), le nom, le compteur du jour à droite ; une ligne simple sépare les activités. */
+.goalsCaptureActivities { gap: 0; }
+.goalsCaptureActivityChip { gap: 12px; min-height: 52px; padding: 4px 4px; border: 0; border-bottom: 1px solid var(--sep); border-radius: 0; background: none; }
 .goalsCaptureZone {
-  flex: 0 1 auto; min-width: 0; min-height: 44px; display: flex; align-items: center; box-sizing: border-box; padding: 4px 16px; border-radius: 12px;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--c) 84%, var(--text) 16%), var(--c));
-  color: var(--text); font-size: 14px; font-weight: 600; line-height: 1.25;
+  flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 12px; box-sizing: border-box; padding: 4px 0;
+  color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.25;
 }
+.goalsCaptureZone::before { content: ''; flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--c); }
 .goalsCaptureActivityChip.dim .goalsCaptureZone { opacity: .45; }
 
 /* « trop de couleurs [...]
@@ -63,11 +62,11 @@
  * neutre plus marqué (var(--text) au lieu de var(--border)), volontairement
  * SANS teinte, cohérent avec l'esprit « seulement le point coloré » de
  * l'état au repos. */
-.goalsCaptureActivityChip.selected .goalsCaptureZone { box-shadow: 0 0 0 2px var(--text); }
+.goalsCaptureActivityChip.selected .goalsCaptureZone { text-decoration: underline; text-underline-offset: 4px; }
 /* message de discussion non lu = point rouge sur la puce. */
 .goalsCaptureUnreadDot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--unread); flex-shrink: 0; }
 
-.goalsCaptureActivityChipName { flex: 0 1 auto; text-align: left; }
+.goalsCaptureActivityChipName { flex: 1 1 auto; min-width: 0; text-align: left; }
 
 .goalsCaptureActivityPrompt.hidden { display: none; }
 
