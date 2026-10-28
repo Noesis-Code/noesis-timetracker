@@ -103,9 +103,9 @@
         <div class="periodSwitch cmpSeg" id="goalsPage2ModeSwitch">
           <button type="button" class="periodBtn active" id="goalsPage2ModeTasksBtn" data-mode="tasks">Tâches</button>
           <button type="button" class="periodBtn" id="goalsPage2ModeGoalsBtn" data-mode="goals">Objectifs</button>
-          <!-- (Emilien) : le bouton Discussion est retiré de l'interface (routes et messages conservés). Remplacé par « Ajouter », réservé aux activités Essor (GET /api/activities/:id/offer1). -->
-          <button type="button" class="periodBtn hidden" id="goalsPage2AddBtn" aria-label="Ajouter" title="Ajouter"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
+        <!-- 28 oct. 2026 (Émilien) : le « + » est EXACTEMENT celui de la barre des volets (.barAddBtn, css/barre-volets.css) ; sans Expansion seulement (pointillé gris, découverte de l'extension). Avec Expansion il disparaît et la zone d'ajout prend toute la largeur. -->
+        <button type="button" class="barAddBtn hidden" id="goalsPage2AddBtn" aria-label="Découvrir Expansion" title="Découvrir Expansion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
 
         <!-- Écran « Tâches » — (création), refondu le 28
              septembre 2026 sur demande directe d'Emilien : « je souhaite que
@@ -510,7 +510,7 @@
       g0 = null;
       if (e.touches.length !== 1 || goalsPage2BaseMode !== currentGoalsPage2Mode) return;
       var tg = e.target;
-      if (tg.closest('#goalsActivityHeader, input, textarea, select, #goalsDiscView')) return;
+      if (tg.closest('#goalsActivityHeader, #goalsTaskDock, input, textarea, select, #goalsDiscView')) return;
       var sc = hScroller(tg);
       g0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), scroller: sc, startLeft: sc ? sc.scrollLeft : 0, drag: null, lock: TMT.axisLock.start(tg), tg: tg };
     }, { passive: true });
@@ -575,18 +575,71 @@
   })();
 
   var goalsAddReq = 0;
+  // 28 oct. 2026 (Émilien) : « Expansion ? » (GET /api/activities/:id/offer1 → essor) décide de tout l'onglet 1 :
+  //  - avec Expansion : zone d'ajout sur toute la largeur, pas de « + », et les zones Expansion (consigne, Nouvelles tâches,
+  //    Modifications proposées, Drive) s'affichent dans la page (objectifs-document-taches.js, TMT.docTasksZoneSet) ;
+  //  - sans Expansion : zone d'ajout à la place de la pilule de la barre, « + » pointillé à la place du « + » de la barre
+  //    (il ouvre la découverte d'Expansion), rien d'autre.
+  var goalsDock = null, goalsDockText = null, goalsDockMsg = null, goalsDockBusy = false, goalsDockTimer = null;
+  function buildGoalsTaskDock() {
+    goalsDock = document.createElement('div');
+    goalsDock.className = 'goalsTaskDock hidden';
+    goalsDock.id = 'goalsTaskDock';
+    goalsDockMsg = document.createElement('p'); goalsDockMsg.className = 'goalsTaskDockMsg';
+    var bar = document.createElement('div'); bar.className = 'tasksComposer';
+    var clip = TMT.ui && TMT.ui.attachBtn ? TMT.ui.attachBtn(function (list) { if (TMT.docTasksAddFiles) TMT.docTasksAddFiles(list); }, { multiple: true, label: t('Joindre un document ou une image') }) : null;
+    goalsDockText = document.createElement('textarea'); goalsDockText.className = 'tasksText'; goalsDockText.rows = 1; goalsDockText.maxLength = 300;
+    goalsDockText.placeholder = t('Ajouter une tâche');
+    goalsDockText.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGoalsDock(); } });
+    var send = document.createElement('button'); send.type = 'button'; send.className = 'cmpSend'; send.setAttribute('aria-label', t('Ajouter'));
+    send.addEventListener('mousedown', function (e) { e.preventDefault(); }); // garde le focus : le clavier reste ouvert
+    send.addEventListener('click', sendGoalsDock);
+    if (clip) { clip.classList.add('goalsDockClip'); bar.appendChild(clip); }
+    bar.appendChild(goalsDockText); bar.appendChild(send);
+    goalsDock.appendChild(goalsDockMsg); goalsDock.appendChild(bar);
+    $('goalsActivitySwitcher').appendChild(goalsDock);
+  }
+  function goalsDockSay(s) { goalsDockMsg.textContent = s || ''; clearTimeout(goalsDockTimer); if (s) goalsDockTimer = setTimeout(function () { goalsDockMsg.textContent = ''; }, 4000); }
+  // La tâche va UNIQUEMENT dans le pôle affiché : s'il n'a qu'un secteur (ou aucun), c'est lui ; sinon Noèsis choisit parmi les secteurs de l'activité (même chaîne que l'onglet Aujourd'hui).
+  function goalsDockTarget() {
+    var pole = TMT.currentGoalsSelectedPoleKey || '';
+    var groups = ((currentGoalsTasksOverview && currentGoalsTasksOverview.groups) || []).filter(function (g) { return !pole || g.poleKey === pole; });
+    return groups.length === 1 ? groups[0].key : null;
+  }
+  function sendGoalsDock() {
+    if (goalsDockBusy) return;
+    var label = goalsDockText.value.trim();
+    if (!label) { goalsDockSay(t('Écris une tâche avant d\'ajouter.')); return; }
+    var activityId = TMT.currentGoalsActivityId; if (!activityId || !TMT.captureTaskFlow) return;
+    goalsDockBusy = true; goalsDockSay('');
+    TMT.captureTaskFlow(label, [activityId], goalsDockTarget()).then(function (flow) {
+      if (!flow) return;
+      var ok = (flow.results || []).filter(function (x) { return x.ok; })[0];
+      if (!ok) { var bad = (flow.results || [])[0]; goalsDockSay(bad && bad.error ? t(bad.error) : t('non ajoutée')); return; }
+      goalsDockText.value = '';
+      loadGoalsTasksOverview();
+    }).catch(function (err) { goalsDockSay((err && err.message) || t('Erreur.')); })
+      .then(function () { goalsDockBusy = false; });
+  }
+  buildGoalsTaskDock();
+
   function syncGoalsAddBtn(activityId) {
     var btn = $('goalsPage2AddBtn'); if (!btn) return;
-    btn.classList.add('hidden');
+    btn.classList.add('hidden'); goalsDock.classList.add('hidden');
+    if (TMT.docTasksZoneSet) TMT.docTasksZoneSet(activityId, false);
     var req = ++goalsAddReq;
-    TMT.api('GET', '/api/activities/' + encodeURIComponent(activityId) + '/offer1').then(function (r) {
+    function apply(on) {
       if (req !== goalsAddReq) return;
-      var on = !!(r && r.essor === true);
-      btn.classList.toggle('hidden', !on);
-    }).catch(function () {});
+      btn.classList.toggle('hidden', on); // « + » seulement sans Expansion
+      goalsDock.classList.remove('hidden');
+      goalsDock.classList.toggle('hasExpansion', on); // le trombone (documents) n'existe qu'avec Expansion
+      if (TMT.docTasksZoneSet) TMT.docTasksZoneSet(activityId, on);
+    }
+    TMT.api('GET', '/api/activities/' + encodeURIComponent(activityId) + '/offer1').then(function (r) { apply(!!(r && r.essor === true)); })
+      .catch(function () { apply(false); });
   }
-  // Le bouton ＋ ouvre directement la page « Ajouter des tâches » (objectifs-document-taches.js).
-  $('goalsPage2AddBtn').addEventListener('click', function () { if (TMT.openDocTasks) TMT.openDocTasks(); });
+  // Sans Expansion, le « + » ouvre la même découverte d'Expansion que sur la Feuille de route (fenêtre d'offre).
+  $('goalsPage2AddBtn').addEventListener('click', function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); });
   function closeGoalsDiscSheet() { setGoalsPage2Mode(goalsPage2BaseMode); }
   $('goalsDiscSheetClose').addEventListener('click', closeGoalsDiscSheet);
   $('goalsDiscView').addEventListener('click', function (e) { if (e.target === this) closeGoalsDiscSheet(); });
@@ -1133,11 +1186,9 @@
       if (!g.tasks || !g.tasks.length) {
         var hint = document.createElement('p');
         hint.className = 'hint';
-        hint.textContent = t('Aucune tâche — ajoute la première ci-dessous.');
+        hint.textContent = t('Aucune tâche prévue pour aujourd’hui.');
         row.appendChild(hint);
       }
-
-      appendGoalsTaskAddRow(row, g.key);
     }
 
     return row;
@@ -1367,42 +1418,6 @@
     return row;
   }
 
-
-  function appendGoalsTaskAddRow(parent, groupKey) {
-    var add = document.createElement('div');
-    add.className = 'subProjectItemAdd';
-    var input = document.createElement('input');
-    input.type = 'text';
-    input.maxLength = 300;
-    input.placeholder = t('Ajouter une tâche...');
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'iconBtn btnBrique';
-    btn.textContent = t('Ajouter');
-    var msg = document.createElement('p');
-    msg.className = 'msg';
-
-    function submit() {
-      var label = input.value.trim();
-      if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
-      msg.textContent = '';
-      btn.disabled = true;
-      api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/categories/' + groupKey + '/tasks',
-        { userId: TMT.getProfile().id, label: label })
-        .then(function () { input.value = ''; loadGoalsTasksOverview(); })
-        .catch(function (err) { msg.textContent = err.message; })
-        .then(function () { btn.disabled = false; });
-    }
-    btn.addEventListener('click', submit);
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); submit(); }
-    });
-
-    add.appendChild(input);
-    add.appendChild(btn);
-    parent.appendChild(add);
-    parent.appendChild(msg);
-  }
 
   // Point d'entrée appelé depuis la page 1 (objectifs-page1.js : capture →
   // fenêtre d'une activité) — voir aussi objectifs-page2-objectif.js pour les

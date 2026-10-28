@@ -27,13 +27,11 @@
     return out + (t && t.moved ? ' · déplacée (semaine pleine)' : '');
   }
 
+  // 28 oct. 2026 (Émilien) : plus de fenêtre « Ajouter des tâches » — ces zones vivent DIRECTEMENT dans l'onglet 1 de la page d'une activité
+  // (#goalsTasksView), visibles seulement avec l'abonnement Expansion (TMT.docTasksZoneSet, appelé par objectifs-page2-taches.js).
   document.getElementById('content').insertAdjacentHTML('beforeend', `
-    <div id="docTasksPage" class="docTasksWin cmpHalo hidden">
-      <div class="activityPageHeader">
-        <span class="activityPageName">Ajouter des tâches <span id="docTasksBadge" class="essorBadge">Expansion</span></span>
-        <button type="button" class="cmpClose" id="docTasksClose" aria-label="Fermer">✕</button>
-      </div>
-      <div class="docTasksScroll">
+    <div id="docTasksPage" class="docTasksZone hidden">
+      <div class="docTasksBody">
         <div class="activityGoalsCategoryAutoTaskWrapOuter">
           <div id="docTasksBubble" class="activityGoalsCategoryAutoTaskBubble">
             <textarea id="docTasksText" rows="4" maxlength="1500" placeholder="Ta consigne, en langage libre…"></textarea>
@@ -82,6 +80,11 @@
       </div>
     </div>`);
 
+  (function () { // la zone se pose dans l'onglet 1, juste avant « Archives »
+    var zone = document.getElementById('docTasksPage'), arch = document.getElementById('goalsTasksArchiveSection');
+    if (zone && arch && arch.parentNode) arch.parentNode.insertBefore(zone, arch);
+  })();
+
   // Clic ailleurs : la liste des dossiers connectés se réenroule (phase de capture : avant tout re-rendu).
   document.addEventListener('click', function (e) {
     if (!foldersOpen || $('docTasksPage').classList.contains('hidden')) return;
@@ -89,19 +92,38 @@
     if (t.closest && t.closest('#docTasksFoldersBody, [data-d="openFolders"], #docTasksFolderSetPop')) return;
     foldersOpen = false; renderDrive();
   }, true);
-  function open() { $('docTasksPage').classList.remove('hidden'); loadDrive(); checkAdded(); loadChanges(); }
-  function close() { $('docTasksPage').classList.add('hidden'); }
+  // Zone de l'onglet 1 : montrée (et chargée) seulement pour une activité avec Expansion ; masquée sinon (rien ne s'affiche sans l'abonnement).
+  function zoneSet(activityId, essor) {
+    var z = $('docTasksPage'); if (!z) return;
+    var was = !z.classList.contains('hidden');
+    z.classList.toggle('hidden', !essor);
+    if (essor) { loadDrive(); checkAdded(); loadChanges(); }
+    else if (was) { files = []; proposals = []; renderFiles(); $('docTasksResults').innerHTML = ''; msg(''); }
+  }
+  TMT.docTasksZoneSet = zoneSet;
+  // Attend que la zone soit affichée (la réponse « Expansion ? » arrive après l'ouverture de la page de l'activité), puis appelle cb.
+  function whenZone(cb) {
+    var tries = 60;
+    (function wait() {
+      var z = $('docTasksPage');
+      if (z && !z.classList.contains('hidden')) { cb(z); return; }
+      if (tries-- > 0) setTimeout(wait, 100);
+    })();
+  }
+  function open() { whenZone(function (z) { z.scrollIntoView({ block: 'start', behavior: 'smooth' }); }); }
   TMT.openDocTasks = open;
-  // Zone libre IA (Page 1) : ouvre cette fenêtre pour l'activité choisie, joint les fichiers et lance la proposition
+  // Document joint depuis la zone d'ajout de l'onglet 1 (trombone) : rejoint la consigne de la zone Expansion.
+  TMT.docTasksAddFiles = function (list) { whenZone(function (z) { addFiles(list); z.scrollIntoView({ block: 'start', behavior: 'smooth' }); }); };
+  // Zone libre IA (onglet Aujourd'hui) : ouvre la page de l'activité choisie, joint les fichiers et lance la proposition
   // (l'IA propose, l'utilisateur coche ; rien n'est écrit avant « Ajouter les tâches cochées »).
   TMT.docTasksPrefill = function (activityId, text, list) {
     TMT.currentGoalsActivityId = String(activityId);
-    open();
-    $('docTasksText').value = String(text || '').slice(0, 1500);
-    files = (list || []).slice(); renderFiles();
-    $('docTasksSend').click();
+    openForActivity(String(activityId), function () {
+      $('docTasksText').value = String(text || '').slice(0, 1500);
+      files = (list || []).slice(); renderFiles();
+      $('docTasksSend').click();
+    });
   };
-  $('docTasksClose').addEventListener('click', close);
   function actId() { return TMT.currentGoalsActivityId; }
   function msg(t) { $('docTasksMsg').textContent = t || ''; }
 
@@ -116,8 +138,8 @@
     var b = e.target.closest('button[data-i]'); if (!b) return;
     files.splice(Number(b.getAttribute('data-i')), 1); renderFiles();
   });
-  $('docTasksFile').addEventListener('change', function (e) {
-    Array.prototype.forEach.call(e.target.files, function (f) {
+  function addFiles(list) {
+    Array.prototype.forEach.call(list, function (f) {
       if (files.length >= MAX_FILES) { msg(MAX_FILES + ' fichiers maximum.'); return; }
       if (f.size > MAX_BYTES) { msg('Fichier trop lourd (5 Mo max).'); return; }
       driveFile = null; renderDrive();
@@ -125,8 +147,8 @@
       r.onload = function () { files.push({ fileName: f.name, mimeType: f.type, dataUrl: r.result }); renderFiles(); };
       r.readAsDataURL(f);
     });
-    e.target.value = '';
-  });
+  }
+  $('docTasksFile').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
 
   $('docTasksSend').addEventListener('click', function () {
     if (busy) return;
@@ -426,7 +448,7 @@
 
   // Retour de Google (?drive=connected&activityId=N) : on rouvre la page Ajouter de cette activité.
   // Ouvre la page Ajouter de l'activité (retour de Google, ou notification ?notif=drivesync).
-  function openForActivity(aid) {
+  function openForActivity(aid, then) {
     aid = String(aid || '');
     if (!/^\d+$/.test(aid)) return;
     var tries = 120;
@@ -437,7 +459,7 @@
           TMT.openGoalsPeriodFromNotification(aid, null, null);
           var t2 = 60;
           (function wait() {
-            if (String(TMT.currentGoalsActivityId) === aid) { open(); return; }
+            if (String(TMT.currentGoalsActivityId) === aid) { if (then) whenZone(then); else open(); return; }
             if (t2-- > 0) setTimeout(wait, 100);
           })();
         }, 300);
@@ -446,7 +468,7 @@
       if (tries-- > 0) setTimeout(poll, 100);
     })();
   }
-  TMT.openDocTasksForActivity = openForActivity;
+  TMT.openDocTasksForActivity = function (aid) { openForActivity(aid); };
   (function () {
     var p; try { p = new URLSearchParams(location.search); } catch (e) { return; }
     if (p.get('drive') !== 'connected') return;
