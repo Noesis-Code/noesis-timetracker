@@ -900,6 +900,7 @@
     'Tâches': 'Tasks',
     'Aucune tâche — ajoute la première ci-dessous.': 'No task yet — add the first one below.',
     'Ajouter une tâche...': 'Add a task...',
+    'Ajouter une tâche': 'Add a task',
     'aucune tâche': 'no task',
     'Supprimer cette tâche': 'Delete this task',
     'Supprimer cette tâche ?': 'Delete this task?',
