@@ -37,13 +37,13 @@
              élément par son id, sans hypothèse sur son parent DOM — INCHANGÉ
              par le passage en fenêtre () : seul son ENVELOPPE
              (#goalsActivitySwitcher/#goalsActivitySwitcherScroll) a bougé. -->
-        <div class="activityPageHeader goalsActivityHeader" id="goalsActivityHeader">
-          <button type="button" class="menuBtn goalsSwipeBtn" id="goalsPrevPoleBtn" aria-label="Pôle précédent">‹</button>
-          <div class="goalsActivityNameWrap">
+        <div class="activityPageHeader goalsActivityHeader cmpNav" id="goalsActivityHeader">
+          <button type="button" class="cmpNavArrow" id="goalsPrevPoleBtn" aria-label="Pôle précédent">‹</button>
+          <div class="goalsActivityNameWrap cmpNavLabel">
             <span class="dot" id="goalsPoleDot"></span>
             <span class="goalsPoleTxt"><small class="goalsPoleSmall hidden" id="goalsPoleSmall"></small><span class="activityPageName" id="goalsPoleName"></span></span>
           </div>
-          <button type="button" class="menuBtn goalsSwipeBtn" id="goalsNextPoleBtn" aria-label="Pôle suivant">›</button>
+          <button type="button" class="cmpNavArrow" id="goalsNextPoleBtn" aria-label="Pôle suivant">›</button>
         </div>
 `);
 

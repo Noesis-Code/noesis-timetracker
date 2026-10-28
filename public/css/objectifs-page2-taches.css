@@ -353,7 +353,6 @@
 /* Sélecteur de pôle simplifié (28 oct. 2026) : texte seul « ‹ Entreprise › », sans cadre, fond, liseré ni pastille ; flèches discrètes aux extrémités (zone de toucher 44 px, R37). */
 :root #goalsActivitySwitcher #goalsActivityHeader { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; min-height: 44px; }
 #goalsActivityHeader #goalsPoleDot { display: none; }
-:root #goalsActivitySwitcher #goalsActivityHeader .goalsSwipeBtn { width: 44px; height: 44px; min-height: 44px; padding: 0; color: var(--text-light); }
 :root #goalsTasksView .activityProgressCard { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; margin: 16px 0 8px; justify-content: space-between; gap: 8px; }
 #goalsTasksView .activityProgressCard .activityProgressRing, #goalsTasksView .activityProgressCard .activityProgressPercent { display: none; }
 #goalsTasksView .activityProgressCard .activityProgressText { display: contents; }

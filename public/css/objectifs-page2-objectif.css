@@ -96,8 +96,6 @@
   flex: 0 1 auto; text-align: center;
 }
 
-.goalsSwipeBtn { flex-shrink: 0; }
-
 
 .goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
@@ -256,12 +254,6 @@
   background: var(--glass-bg); border: 1px solid var(--glass-border);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
-}
-
-/* flèches du cadre de pôle seules, sans zone carrée autour. */
-:root #goalsActivitySwitcher #goalsActivityHeader .goalsSwipeBtn {
-  background: transparent !important; border: none !important; box-shadow: none !important;
-  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 
 /* page du milieu — cadre = sélecteur de SECTEUR, teinte + contour de la couleur automatique du pôle. */
