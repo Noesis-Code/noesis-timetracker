@@ -497,7 +497,7 @@ function getPrompts(u) {
   const P = require('./horaire-prompt');
   const r = db.prepare('SELECT importPrompt, entryPrompt FROM horaire_settings WHERE userId = ?').get(u) || {};
   return {
-    importPrompt: { text: r.importPrompt || P.IMPORT_PROMPT, isDefault: !r.importPrompt },
+    importPrompt: { text: r.importPrompt || P.IMPORT_PROMPT.replace("pour la semaine qui commence le lundi suivant la date d'aujourd'hui (si aujourd'hui est lundi, prends le lundi suivant)", 'pour la semaine indiquée en tête de ce message'), isDefault: !r.importPrompt },
     entryPrompt: { text: r.entryPrompt || P.ENTRY_PROMPT, isDefault: !r.entryPrompt },
   };
 }

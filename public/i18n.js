@@ -219,7 +219,7 @@
     'lun.': 'Mon', 'mar.': 'Tue', 'mer.': 'Wed', 'jeu.': 'Thu', 'ven.': 'Fri', 'sam.': 'Sat', 'dim.': 'Sun',
     'janv.': 'Jan', 'févr.': 'Feb', 'mars': 'Mar', 'avr.': 'Apr', 'mai': 'May', 'juin': 'Jun', 'juil.': 'Jul', 'août': 'Aug', 'sept.': 'Sep', 'oct.': 'Oct', 'nov.': 'Nov', 'déc.': 'Dec',
     // ---- Horaire : page semaine (maquette version 6, 28 oct. 2026) ----
-    '1. Récupération': '1. Retrieval', '2. Disponibilités': '2. Availability', '3. Horaire': '3. Schedule', '4. Envoi': '4. Send', 'Générer l’horaire': 'Generate schedule',
+    '1. Paramètres': '1. Settings', '2. Récupération': '2. Retrieval', 'Modifier le prompt': 'Edit the prompt', '3. Horaire': '3. Schedule', '4. Envoi': '4. Send', 'Générer l’horaire': 'Generate schedule',
     'Copier le prompt de récupération': 'Copy the retrieval prompt', 'Copier le prompt pour l’IA': 'Copy the prompt for AI', 'Colle ici le texte rendu par ton IA.': 'Paste here the text returned by your AI.',
     'Quarts': 'Shifts', 'Trous restants': 'Gaps left', 'Alertes': 'Alerts', 'Horaire pas encore généré': 'Schedule not generated yet',
     'Prompt de récupération': 'Retrieval prompt', 'Coller les disponibilités': 'Paste availability', 'employé(s) lu(s)': 'employee(s) read',

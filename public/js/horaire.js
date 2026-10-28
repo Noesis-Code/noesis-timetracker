@@ -151,8 +151,8 @@
   // Sur téléphone, chaque tableau défile horizontalement dans son cadre.
   var EVE = 16 * 60; // soir = à partir de 16 h
   var SLOT = { matin: ['10:00', '16:00'], soir: ['16:00', '23:59'] };
-  var STEP_LABELS = ['1. Récupération', '2. Disponibilités', '3. Horaire', '4. Envoi'];
-  var catsMsg, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes, setupBox, setupMsg;
+  var STEP_LABELS = ['1. Paramètres', '2. Récupération', '3. Horaire', '4. Envoi'];
+  var promptBox, catsMsg, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes, setupBox, setupMsg;
   var pagesHost, pages = [], stepBtns = [], dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
@@ -195,7 +195,7 @@
     var bRules = block('Règles du restaurant');
     rulesBox = el('div', 'horaireRules cmpGlass');
     bRules.appendChild(rulesBox);
-    [bCats, bNeeds, bRules, btn('cmpBtn', 'Copier le prompt de récupération', function () { copyText('import-prompt?week=' + S.week, 'Prompt copié : colle-le dans ton IA.'); })]
+    [bCats, bNeeds, bRules]
       .forEach(function (n) { p1.appendChild(n); });
 
     // Page 2 : Disponibilités (zone de collage toujours visible, envoi dans la zone, R13)
@@ -205,10 +205,18 @@
     pasteArea.placeholder = tr('Colle ici le texte rendu par ton IA.');
     // DANS la zone : l'épingle commune (TMT.ui.attachBtn) en bas à gauche, Envoyer en bas à droite (R39, R13).
     var pasteActions = el('div', 'horairePasteActions');
-    pasteActions.appendChild(btn('cmpBtn horairePasteSend', 'Envoyer', function () { sendAvail(pasteArea.value); }));
+    var send = el('button', 'cmpSend'); send.type = 'button'; send.setAttribute('aria-label', tr('Envoyer')); // flèche d'envoi standard (R29)
+    send.addEventListener('click', function () { sendAvail(pasteArea.value); });
+    pasteActions.appendChild(send);
     paste.appendChild(pasteArea); paste.appendChild(TMT.ui.attachBtn(readAvailFile, { label: tr('Joindre un fichier') })); paste.appendChild(pasteActions);
     statusLine = el('p', 'horaireStatus');
-    p2.appendChild(paste); p2.appendChild(statusLine);
+    // Au-dessus de la zone : « Modifier le prompt » (secondaire, à gauche) et « Copier le prompt de récupération » (violet, à droite) ;
+    // l'éditeur se déroule sur place (R36) sous la rangée.
+    var promptRow = el('div', 'horairePromptRow');
+    promptRow.appendChild(btn('cmpBtn cmpBtnIdle horairePromptEdit', 'Modifier le prompt', function () { S.promptOpen = !S.promptOpen; renderPromptEditor(); }));
+    promptRow.appendChild(btn('cmpBtn', 'Copier le prompt de récupération', function () { copyText('import-prompt?week=' + S.week, 'Prompt copié : colle-le dans ton IA.'); }));
+    promptBox = el('div', 'horairePromptBox hidden');
+    p2.appendChild(promptRow); p2.appendChild(promptBox); p2.appendChild(paste); p2.appendChild(statusLine);
 
     // Page 3 : Horaire
     var p3 = el('div', 'horairePage');
@@ -333,6 +341,29 @@
   }
   function renderMsg() {
     [msgBox, setupMsg].forEach(function (m) { m.textContent = S.msg; m.classList.toggle('hidden', !S.msg); });
+  }
+  // Éditeur du prompt de récupération (étape 2) : texte en vigueur, « Revenir à la version de base » (confirmation violette),
+  // « Enregistrer » pleine largeur (R35). Les dates de la semaine sont ajoutées par l'app en tête du prompt copié, hors de ce texte.
+  function renderPromptEditor() {
+    promptBox.textContent = '';
+    promptBox.classList.toggle('hidden', !S.promptOpen);
+    if (!S.promptOpen) return;
+    req('GET', 'prompts').then(function (d) {
+      if (!S.promptOpen) return;
+      var cur = d.importPrompt || { text: '', isDefault: true };
+      var f = el('div', 'horaireForm');
+      var a = el('textarea', 'horaireInput horairePromptArea'); a.rows = 14; a.value = cur.text; a.setAttribute('aria-label', tr('Prompt de récupération'));
+      f.appendChild(a);
+      if (!cur.isDefault) {
+        f.appendChild(btn('horaireLink', 'Revenir à la version de base', function () {
+          TMT.ui.confirm(tr('Revenir à la version de base de ce prompt ?'), { ok: tr('Revenir') }).then(function (yes) {
+            if (yes) req('PUT', 'prompts', { importPrompt: null }).then(renderPromptEditor, fail);
+          });
+        }));
+      }
+      f.appendChild(saveBtn(f, function () { return req('PUT', 'prompts', { importPrompt: a.value }).then(function () { setTimeout(renderPromptEditor, 0); }); }));
+      promptBox.appendChild(f);
+    }, fail);
   }
   // Ligne d'état : « Disponibilités : N employés lus le … » ou « pas encore collées ».
   function renderStatus() {

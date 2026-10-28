@@ -181,11 +181,11 @@ function call(method, path, body, user) {
   // ---- Prompts modifiables par le gérant, retour à la base ----
   const P = require('../server/lib/horaire-prompt');
   r = await call('GET', 'prompts', undefined, 'uA');
-  assert(r.status === 200 && r.body.importPrompt.isDefault && r.body.importPrompt.text === P.IMPORT_PROMPT && r.body.entryPrompt.isDefault
+  assert(r.status === 200 && r.body.importPrompt.isDefault && r.body.importPrompt.text.startsWith(P.IMPORT_PROMPT.slice(0, 40)) && r.body.entryPrompt.isDefault
     && r.body.entryPrompt.text === P.ENTRY_PROMPT && !r.body.entryPrompt.text.includes('QUARTS À INSCRIRE'), 'GET prompts : versions de base (consignes d\'inscription sans les quarts)');
   r = await call('PUT', 'prompts', { importPrompt: 'Lis mes dispos.\u0007\r\nMerci.', entryPrompt: 'Inscris ces quarts.' }, 'uA');
   assert(r.status === 200 && r.body.importPrompt.text === 'Lis mes dispos.\nMerci.' && !r.body.importPrompt.isDefault && r.body.entryPrompt.text === 'Inscris ces quarts.', 'PUT prompts : enregistrés, caractères de contrôle retirés');
-  assert((await call('GET', 'import-prompt', undefined, 'uA')).text === P.IMPORT_PROMPT, 'GET import-prompt : toujours la version de base (texte personnalisé gardé en base, sans servir)');
+  assert((await call('GET', 'import-prompt', undefined, 'uA')).text === 'Lis mes dispos.\nMerci.', 'GET import-prompt : texte personnalisé du gérant (réactivé pour la récupération)');
   await call('POST', 'weeks/' + W + '/generate', undefined, 'uA');
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uA');
   assert(r.text.startsWith(P.ENTRY_PROMPT.trimEnd() + '\n\nSEMAINE : du lundi ' + W) && r.text.includes('QUARTS À INSCRIRE ('), 'prompt d\'inscription : consignes de base puis quarts');
@@ -199,15 +199,21 @@ function call(method, path, body, user) {
       assert(r.status === 201 && al.some((a) => a.type === 'demander' && a.employeeId === emp.id && a.employeeName === emp.name && a.day === W), 'quart « à demander » : alerte « demander à X » enregistrée');
     }
   }
-  r = await call('GET', 'import-prompt?week=2026-11-02', undefined, 'uA');
+  r = await call('GET', 'import-prompt?week=2026-11-02', undefined, 'uB');
   assert(r.text.includes('pour la semaine du lundi 2 novembre au dimanche 8 novembre 2026') && !r.text.includes('lundi suivant'), 'prompt de récupération : dates de la semaine affichée');
   assert(require('../server/lib/horaire-prompt').importPromptFor('2026-10-26').includes('du lundi 26 octobre au dimanche 1er novembre 2026'), 'prompt de récupération : « 1er »');
+  await call('PUT', 'prompts', { importPrompt: 'Lis mes dispos, merci.' }, 'uA');
+  r = await call('GET', 'import-prompt?week=2026-11-02', undefined, 'uA');
+  assert(r.text === 'SEMAINE À LIRE : du lundi 2 novembre au dimanche 8 novembre 2026.\n\nLis mes dispos, merci.', 'prompt de récupération modifié : texte du gérant, dates de la semaine toujours en tête');
+  await call('PUT', 'prompts', { importPrompt: null }, 'uA');
+  r = await call('GET', 'import-prompt?week=2026-11-02', undefined, 'uA');
+  assert(r.text.startsWith(P.IMPORT_PROMPT.slice(0, 40)) && r.text.includes('du lundi 2 novembre au dimanche 8 novembre 2026'), 'retour à la version de base : texte d’origine, dates présentes');
   r = await call('GET', 'prompts', undefined, 'uB');
   assert(r.body.importPrompt.isDefault && r.body.entryPrompt.isDefault && (await call('GET', 'import-prompt', undefined, 'uB')).text === P.IMPORT_PROMPT, 'autre compte : garde les versions de base');
   assert((await call('PUT', 'prompts', { entryPrompt: 'x'.repeat(8001) }, 'uA')).status === 400, 'PUT prompts : plus de 8 000 caractères refusé');
   assert((await call('PUT', 'prompts', { entryPrompt: 42 }, 'uA')).status === 400 && (await call('PUT', 'prompts', {}, 'uA')).status === 400, 'PUT prompts : valeur non texte ou vide refusée');
   r = await call('PUT', 'prompts', { importPrompt: null, entryPrompt: '' }, 'uA');
-  assert(r.status === 200 && r.body.importPrompt.isDefault && r.body.importPrompt.text === P.IMPORT_PROMPT && r.body.entryPrompt.isDefault, 'PUT prompts : null ou "" rétablit la version de base');
+  assert(r.status === 200 && r.body.importPrompt.isDefault && r.body.importPrompt.text.startsWith(P.IMPORT_PROMPT.slice(0, 40)) && r.body.entryPrompt.isDefault, 'PUT prompts : null ou "" rétablit la version de base');
   assert((await call('GET', 'weeks/' + W + '/prompt', undefined, 'uA')).text.startsWith(P.ENTRY_PROMPT.trimEnd() + '\n\nSEMAINE'), 'prompt d\'inscription : consignes de base rétablies');
 
   // ---- Contraintes strictes de l'employé : jamais de double, repos après un quart ----

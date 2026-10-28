@@ -373,9 +373,10 @@ router.delete('/horaire/weeks/:weekStart/assignments/:id', (req, res) => {
 // disponibilités et congés de la semaine à importer (POST weeks/:lundi/import/availabilities).
 router.get('/horaire/import-prompt', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  // Version de base (plus d'édition), datée de la semaine affichée (?week=AAAA-MM-JJ, un lundi) ; sans semaine : texte d'origine.
+  // Texte du gérant s'il l'a modifié (sinon la version de base), daté de la semaine affichée (?week=AAAA-MM-JJ, un lundi).
   const w = h.isMonday(req.query.week) ? req.query.week : null;
-  res.type('text/plain; charset=utf-8').send(require('../lib/horaire-prompt').importPromptFor(w));
+  const p = h.getPrompts(req.userId).importPrompt;
+  res.type('text/plain; charset=utf-8').send(require('../lib/horaire-prompt').importPromptFor(w, p.isDefault ? null : p.text));
 });
 // Prompts modifiables par le gérant : { importPrompt: {text, isDefault}, entryPrompt: {text, isDefault} } (entryPrompt = consignes
 // seules, sans la semaine ni les quarts). PUT { importPrompt?, entryPrompt? } : null ou "" rétablit la version de base.

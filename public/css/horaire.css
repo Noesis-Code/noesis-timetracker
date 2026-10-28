@@ -96,8 +96,11 @@
 /* Coller les disponibilités : zone de texte ouverte seulement si le presse-papiers est refusé ; bouton d'envoi DANS la zone (R13) */
 .horairePaste { position: relative; }
 #tab-horaire .horairePaste textarea.horaireInput { padding-bottom: 56px; }
-.horairePasteActions { position: absolute; right: 8px; bottom: 8px; display: flex; align-items: center; gap: 8px; }
-.horairePasteSend { width: auto; min-height: 44px; padding: 0 16px; border-radius: var(--radius-md); }
+.horairePasteActions { position: absolute; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 8px; }
+/* Prompt de récupération (étape 2) : Modifier (secondaire, à gauche), Copier (violet, à droite), éditeur déroulé dessous */
+.horairePromptRow { display: flex; gap: 12px; }
+.horairePromptRow > .cmpBtn { width: auto; flex: 1 1 0; }
+.horairePromptRow > .horairePromptEdit { flex: 0 1 auto; }
 /* Épingle commune dans la zone (R39) : sans cadre (R37), zone de toucher 44 px */
 .horairePaste > .chatAttachBtn { left: 8px; top: auto; bottom: 8px; transform: none; width: 44px; height: 44px; }
 /* Prompts (Paramètres) : grandes zones de texte, lien discret « Revenir à la version de base » */

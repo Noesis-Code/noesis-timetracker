@@ -258,7 +258,14 @@ function frDate(iso, withYear) {
   const [y, m, d] = iso.split('-').map(Number);
   return (d === 1 ? '1er' : String(d)) + ' ' + MONTHS[m - 1] + (withYear ? ' ' + y : '');
 }
-function importPromptFor(weekStart) {
+// custom : texte personnalisé du gérant (sinon la version de base). Les dates de la semaine sont toujours ajoutées EN TÊTE par l'app,
+// hors du texte modifiable : le gérant ne peut pas les casser.
+function importPromptFor(weekStart, custom) {
+  if (custom) {
+    if (!weekStart) return custom;
+    const sun = gen.addDays(weekStart, 6);
+    return 'SEMAINE À LIRE : du lundi ' + frDate(weekStart, weekStart.slice(0, 4) !== sun.slice(0, 4)) + ' au dimanche ' + frDate(sun, true) + '.\n\n' + custom;
+  }
   if (!weekStart) return IMPORT_PROMPT;
   const sunday = gen.addDays(weekStart, 6);
   const span = 'pour la semaine du lundi ' + frDate(weekStart, weekStart.slice(0, 4) !== sunday.slice(0, 4)) + ' au dimanche ' + frDate(sunday, true);
