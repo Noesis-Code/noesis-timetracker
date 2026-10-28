@@ -11,7 +11,6 @@
 /* R37 : flèche de semaine seule, sans carré, cadre ni fond ; zone de toucher de 44 px (R25) */
 .horaireNav { width: 44px; height: 44px; padding: 0; border: 0; background: none; box-shadow: none; font: inherit; font-size: 24px; line-height: 1; color: var(--text); cursor: pointer; }
 /* Parcours en 4 pages : boutons d'étape pleine largeur (sélecteur commun .cmpSeg, R42), points, pages (TMT.slidePager) */
-.horaireStepLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .horairePages { position: relative; }
 .horairePage { display: flex; flex-direction: column; gap: 24px; }
 .horairePage > .horaireMsg { color: var(--violet-soft); }

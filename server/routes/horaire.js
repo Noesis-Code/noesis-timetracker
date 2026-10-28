@@ -391,7 +391,7 @@ router.get('/horaire/weeks/:weekStart', (req, res) => {
 router.post('/horaire/weeks/:weekStart/generate', (req, res) => {
   const w = weekParam(req, res); if (!w) return;
   // G6 : jamais sans aucune disponibilité de la semaine (l'horaire serait vide ou faux).
-  if (!h.availSummary(req.userId, w).employees) return res.status(409).json({ error: 'Colle d’abord les disponibilités de la semaine (étape 3).' });
+  if (!h.availSummary(req.userId, w).employees) return res.status(409).json({ error: 'Colle d’abord les disponibilités de la semaine (Récupération).' });
   res.json({ schedule: h.generate(req.userId, w) });
 });
 

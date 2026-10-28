@@ -179,6 +179,13 @@
 :root:root:root .cmpSeg > * + *::after { content: ''; position: absolute; left: 0; top: 15px; width: 1px; height: 14px; border: 0; border-radius: 0; background: var(--seg-sep); }
 .cmpSeg > *:focus-visible { outline: 2px solid var(--purple); outline-offset: -2px; border-radius: 8px; }
 
+/* Sous-catégories d'un écran (.cmpSubTabs, R44, 28 oct. 2026) : texte simple ; la sous-catégorie active est soulignée en violet
+   (--purple), sans fond, sans cadre ni pastille ; les autres en gris sable. Zone de toucher de 44 px. */
+.cmpSubTabs { display: flex; flex-wrap: nowrap; gap: 24px; margin: 0 0 16px; overflow-x: auto; scrollbar-width: none; }
+.cmpSubTabs > * { flex: 0 0 auto; min-height: 44px; padding: 0; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; box-shadow: none; font: inherit; font-size: 15px; font-weight: 500; color: var(--text-light); white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.cmpSubTabs > :is(.active, [aria-selected="true"]) { color: var(--text); border-bottom-color: var(--purple); }
+.cmpSubTabs > *:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+
 /* R41 (27 oct. 2026) : titre de bloc ou de tableau = style des titres de Paramètres. UNE définition. */
 .cmpBlockTitle { margin: 0; padding: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--text); text-align: left; }
 

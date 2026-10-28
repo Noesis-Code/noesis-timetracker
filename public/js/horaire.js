@@ -111,9 +111,11 @@
   // Sur téléphone, chaque tableau défile horizontalement dans son cadre.
   var EVE = 16 * 60; // soir = à partir de 16 h
   var SLOT = { matin: ['10:00', '16:00'], soir: ['16:00', '23:59'] };
-  var STEP_LABELS = ['1. Paramètres', '2. Événements', '3. Récupération', '4. Horaire', '5. Envoi'];
+  // Deux catégories (grands boutons .cmpSeg, R42) et leurs sous-catégories (texte simple souligné, .cmpSubTabs) : demande d'Émilien,
+  // 28 oct. 2026. Pages à plat : 0-2 = Paramètres, 3-5 = Création des horaires.
+  var CATS = [['Paramètres', ['Employés', 'Événements', 'Paramètres généraux']], ['Création des horaires', ['Récupération', 'Horaire', 'Envoi']]];
   var groupMinInput, inboundLine, eventsBox, promptBoxes = {}, evReport, ratioInput, catsMsg, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
-  var pagesHost, pages = [], stepBtns = [], dotBtns = [], pagerBound = false;
+  var pagesHost, pages = [], catBtns = [], subTabs, dots, dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
   function block(title, hint) {
@@ -135,15 +137,15 @@
     nav.appendChild(prev); nav.appendChild(weekLabel); nav.appendChild(next);
     head.appendChild(nav);
 
-    var steps = el('div', 'cmpSeg horaireSteps'); steps.setAttribute('role', 'tablist');
-    stepBtns = STEP_LABELS.map(function (l, i) {
-      // Libellé dans un span : l'option .cmpSeg est un conteneur flex, où le texte nu ne se tronque pas (« … ») sur téléphone.
-      var b = btn('', '', function () { goPage(i); }); b.textContent = ''; b.appendChild(el('span', 'horaireStepLabel', tr(l))); b.setAttribute('role', 'tab'); b.setAttribute('aria-label', tr(l));
-      steps.appendChild(b); return b;
+    var cats = el('div', 'cmpSeg horaireCats'); cats.setAttribute('role', 'tablist');
+    catBtns = CATS.map(function (c, k) {
+      var b = btn('', c[0], function () { goPage(k * 3); }); b.setAttribute('role', 'tab');
+      cats.appendChild(b); return b;
     });
+    subTabs = el('div', 'cmpSubTabs horaireSubTabs'); subTabs.setAttribute('role', 'tablist');
     msgBox = el('p', 'horaireMsg hidden'); msgBox.setAttribute('aria-live', 'polite');
 
-    // Page 1 : Récupération
+    // Paramètres > Employés : menu Poste et les 4 tableaux de catégorie.
     var p1 = el('div', 'horairePage');
     p1.appendChild(posPicker());
     var bCats = el('section', 'horaireBlock'); bCats.appendChild(el('p', 'cmpBlockTitle', tr('Classification des employés')));
@@ -155,8 +157,10 @@
     var bRules = block('Règles du restaurant');
     rulesBox = el('div', 'horaireRules cmpGlass');
     bRules.appendChild(rulesBox);
-    [bCats, bNeeds, bRules]
-      .forEach(function (n) { p1.appendChild(n); });
+    p1.appendChild(bCats);
+    // Paramètres > Paramètres généraux : menu Poste, Besoins (avec les lignes « Fin »), Règles du restaurant.
+    var pGen = el('div', 'horairePage');
+    [posPicker(), bNeeds, bRules].forEach(function (n) { pGen.appendChild(n); });
 
     // Page 2 : Événements (réservations de groupe de la semaine) : ratio « 1 serveur de plus pour [20] couverts », prompt des
     // événements (même rangée et même zone de collage que la Récupération), compte rendu, puis le tableau « Événements de la semaine ».
@@ -203,28 +207,32 @@
     p4.appendChild(summaryBox);
     p4.appendChild(btn('cmpBtn', 'Copier le prompt pour l’IA', function () { copyText('weeks/' + S.week + '/prompt', 'Prompt copié : colle-le dans ton IA.'); }));
 
-    pages = [p1, pEv, p2, p3, p4];
+    pages = [p1, pEv, pGen, p2, p3, p4];
     pagesHost = el('div', 'horairePages');
     pages.forEach(function (p, i) { if (i) p.classList.add('hidden'); pagesHost.appendChild(p); });
-    // Points de pagination en bas, juste au-dessus de la barre des volets (même place que Chrono et Feuille de route) ; sur ordinateur,
-    // js/bureau.js ajoute les flèches gauche et droite (id horairePageDots dans sa liste).
-    var dots = el('div', 'horairePageDots'); dots.id = 'horairePageDots'; dots.setAttribute('role', 'group');
-    dotBtns = STEP_LABELS.map(function (l, i) {
-      var d = el('button', 'goalsDotBtn'); d.type = 'button'; d.setAttribute('aria-label', tr(l));
-      d.appendChild(el('span', 'goalsDot'));
-      d.addEventListener('click', function () { goPage(i); });
-      dots.appendChild(d); return d;
-    });
+    // Points de pagination en bas, juste au-dessus de la barre des volets : les 3 pages de la catégorie active ; sur ordinateur,
+    // js/bureau.js ajoute les flèches gauche et droite (id horairePageDots), qui restent donc dans la catégorie.
+    dots = el('div', 'horairePageDots'); dots.id = 'horairePageDots'; dots.setAttribute('role', 'group');
 
-    mainNodes = [head, steps, dots, pagesHost];
+    mainNodes = [head, cats, subTabs, dots, pagesHost];
     mainNodes.forEach(function (n) { root.appendChild(n); });
   }
-  // Page courante : bouton d'étape actif, point actif, message de la page (il suit la page affichée).
+  // Page courante : catégorie active, ses 3 sous-catégories (active soulignée), ses 3 points, message de la page.
   function showPage(i) {
     S.page = i;
+    var cat = Math.floor(i / 3);
     pages.forEach(function (p, k) { p.classList.toggle('hidden', k !== i); });
-    stepBtns.forEach(function (b, k) { b.classList.toggle('active', k === i); b.setAttribute('aria-selected', k === i ? 'true' : 'false'); });
-    dotBtns.forEach(function (d, k) { d.classList.toggle('on', k === i); });
+    catBtns.forEach(function (b, k) { b.classList.toggle('active', k === cat); b.setAttribute('aria-selected', k === cat ? 'true' : 'false'); });
+    subTabs.textContent = ''; dots.textContent = '';
+    CATS[cat][1].forEach(function (l, j) {
+      var t = btn(cat * 3 + j === i ? 'active' : '', l, function () { goPage(cat * 3 + j); });
+      t.setAttribute('role', 'tab'); t.setAttribute('aria-selected', cat * 3 + j === i ? 'true' : 'false');
+      subTabs.appendChild(t);
+      var d = el('button', 'goalsDotBtn' + (cat * 3 + j === i ? ' on' : '')); d.type = 'button'; d.setAttribute('aria-label', tr(l));
+      d.appendChild(el('span', 'goalsDot'));
+      d.addEventListener('click', function () { goPage(cat * 3 + j); });
+      dots.appendChild(d);
+    });
     pages[i].appendChild(msgBox);
   }
   function goPage(i) { if (i === S.page) return; closeMenu(); S.msg = ''; renderMsg(); showPage(i); }
@@ -235,24 +243,24 @@
       zone: pagesHost,
       neighbor: function (dir) {
         var t = S.page + dir;
-        if (t < 0 || t >= pages.length) return null;
+        if (t < 0 || t >= pages.length || Math.floor(t / 3) !== Math.floor(S.page / 3)) return null; // dans la catégorie seulement
         return { cur: pages[S.page], nb: pages[t], host: pagesHost, commit: function () { closeMenu(); S.msg = ''; renderMsg(); showPage(t); } };
       },
     });
   }
-  // Étape d'ouverture : 1 (Paramètres) tant qu'il n'y a pas de disponibilités pour la semaine, sinon 4 (Horaire).
-  function logicalPage() { return S.summary && S.summary.employees ? 3 : 0; }
+  // Ouverture : toujours Paramètres > Employés (décision d'Émilien : le dernier endroit visité n'est pas repris).
+  function logicalPage() { return 0; }
   function changeWeek(n) {
     S.week = addDays(S.week, n); S.msg = '';
     try { localStorage.setItem('horaireSemaine', S.week); } catch (e) { /* stockage indisponible */ }
     if (S.editing && /^ev/.test(S.editing)) S.editing = null;
     closeMenu();
-    loadWeek().then(function () { S.page = null; render(); }, fail);
+    loadWeek().then(render, fail);
   }
   function generate() {
     if (S.busy) return;
     // G6 : aucune disponibilité collée pour la semaine -> rien n'est généré.
-    if (!(S.summary && S.summary.employees)) { S.msg = tr('Colle d’abord les disponibilités de la semaine (étape 3).'); renderMsg(); return; }
+    if (!(S.summary && S.summary.employees)) { S.msg = tr('Colle d’abord les disponibilités de la semaine (Récupération).'); renderMsg(); return; }
     // B4 : un horaire existe déjà -> confirmation (bouton violet), car les modifications manuelles seront remplacées.
     if (S.schedule && !generate.ok) {
       TMT.ui.confirm(tr('Regénérer ? Tes modifications manuelles seront remplacées.'), { ok: tr('Regénérer') }).then(function (yes) { if (yes) { generate.ok = true; generate(); generate.ok = false; } });
@@ -1245,9 +1253,11 @@
 
   // ---------- ouverture de l'onglet (aucun changement d'app.js : on suit la classe .hidden de la section) ----------
   var built = false;
+  var shown = false;
   function onShow() {
-    if (root.classList.contains('hidden')) return;
+    if (root.classList.contains('hidden')) { shown = false; return; }
     if (!built) { build(); built = true; }
+    if (!shown) { shown = true; S.page = null; } // chaque ouverture du volet : Paramètres > Employés
     refresh();
   }
   new MutationObserver(onShow).observe(root, { attributes: true, attributeFilter: ['class'] });
