@@ -464,14 +464,17 @@
         c.appendChild(el('div', 'horaireNeedTotal', String(total)));
         rows.forEach(function (n) {
           var r = el('div', 'horaireNeed horaireSheetEdit');
+          var delNeed = function () {
+            confirmDelete(tr('Supprimer ce besoin') + ' (' + n.start + ' × ' + n.count + ') ?', function () { req('DELETE', 'needs/' + n.id).then(refresh, fail); }, renderNeedsTable);
+          };
           editCell(r, '', [['start', n.start, 'Heure d’arrivée', 'time'], ['count', n.count, 'Nombre', 'number', '×']], function (v) {
             var count = Number(v.count);
             if (!/^\d{1,2}:\d{2}$/.test(v.start) || !(Number.isInteger(count) && count >= 0 && count <= 50)) return false;
-            if (count === 0) { req('DELETE', 'needs/' + n.id).then(refresh, fail); return; }
+            if (count === 0) { delNeed(); return; }
             if (v.start === n.start && count === n.count) { renderNeedsTable(); return; }
             req('PUT', 'needs/' + n.id, { start: v.start, count: count }).then(refresh, function (err) { fail(err); renderNeedsTable(); });
           }, function (cell) { cell.appendChild(el('span', null, n.start)); cell.appendChild(el('span', 'horaireNeedN', '× ' + n.count)); },
-          function () { req('DELETE', 'needs/' + n.id).then(refresh, fail); });
+          delNeed);
           c.appendChild(r);
         });
         var add = TMT.ui.addBtn(tr('Ajouter'), function () {
@@ -517,9 +520,7 @@
       });
       var rm = el('span', 'horaireSheetCell horaireSheetRemove');
       rm.appendChild(TMT.ui.removeBtn(function () {
-        TMT.ui.confirm(tr('Retirer la zone') + ' « ' + (z.name || tr('Zone')) + ' » ?', { ok: tr('Retirer'), danger: true }).then(function (yes) {
-          if (yes) req('DELETE', 'zones/' + z.id).then(refresh, fail);
-        });
+        confirmDelete(tr('Supprimer la zone') + ' « ' + (z.name || tr('Zone')) + ' » ?', function () { req('DELETE', 'zones/' + z.id).then(refresh, fail); });
       }, tr('Retirer') + ' ' + z.name));
       row.appendChild(rm);
       sheet.appendChild(row);
@@ -567,6 +568,13 @@
         if (past) b.disabled = true;
         return b;
       }
+      var delLine = function () {
+        confirmDelete(tr('Supprimer cette ligne') + ' (' + (l.positionId == null ? '?' : posName(l.positionId)) + ' · +' + l.count + ') ?', function () {
+          var lines = (ev.lines || []).map(function (x) { return { positionId: x.positionId == null ? posId() : x.positionId, count: x.count }; });
+          lines.splice(i, 1);
+          saveLines(ev, lines);
+        }, renderEventsTable);
+      };
       var ed = el('div', 'horaireEvEdit');
       var pick = el('select', 'horaireInput'); pick.setAttribute('aria-label', tr('Poste'));
       names.forEach(function (p) { var o = el('option', null, p.name); o.value = String(p.id); pick.appendChild(o); });
@@ -576,19 +584,15 @@
         var c = Number(n.value);
         if (!(Number.isInteger(c) && c >= 0 && c <= 50)) return;
         var lines = (ev.lines || []).map(function (x) { return { positionId: x.positionId == null ? posId() : x.positionId, count: x.count }; });
-        if (c === 0) lines.splice(i, 1); else lines[i] = { positionId: Number(pick.value), count: c };
+        if (c === 0) { S.editing = null; delLine(); return; }
+        lines[i] = { positionId: Number(pick.value), count: c };
         saveLines(ev, lines);
       };
       pick.addEventListener('change', save);
       n.addEventListener('change', save);
       n.addEventListener('keydown', function (k) { if (k.key === 'Enter') { k.preventDefault(); S.editing = null; save(); } });
       ed.appendChild(pick); ed.appendChild(n);
-      ed.appendChild(keepFocus(TMT.ui.removeBtn(function () {
-        S.editing = null;
-        var lines = (ev.lines || []).map(function (x) { return { positionId: x.positionId == null ? posId() : x.positionId, count: x.count }; });
-        lines.splice(i, 1);
-        saveLines(ev, lines);
-      }, tr('Supprimer'))));
+      ed.appendChild(keepFocus(TMT.ui.removeBtn(function () { S.editing = null; delLine(); }, tr('Supprimer'))));
       setTimeout(function () { n.focus(); n.select(); }, 0);
       return ed;
     };
@@ -602,9 +606,7 @@
           head.appendChild(el('span', null, tr('Événement') + ' ' + (k + 1) + (ev.covers ? ' · ' + ev.covers + ' ' + tr('couverts') : '')));
           if (!past) {
             head.appendChild(TMT.ui.removeBtn(function () {
-              TMT.ui.confirm(tr('Retirer cet événement ?'), { ok: tr('Retirer'), danger: true }).then(function (yes) {
-                if (yes) req('DELETE', 'events/' + ev.id).then(refresh, fail);
-              });
+              confirmDelete(tr('Supprimer cet événement ?'), function () { req('DELETE', 'events/' + ev.id).then(refresh, fail); });
             }, tr('Retirer l’événement')));
           }
           card.appendChild(head);
@@ -744,6 +746,11 @@
   // show(cell) : affichage personnalisé de la cellule au repos (sinon le texte) ; fields[i][4] : séparateur avant le champ i (sinon « – »).
   // remove() : facultatif ; la croix officielle .cmpRemove (R43) apparaît en haut à droite de la cellule ouverte et supprime sans confirmation.
   // La croix ne prend pas le focus : le champ ouvert ne se ferme pas (ni enregistrement ni redessin) avant le clic.
+  // Toute suppression passe par cette confirmation (décision d'Émilien, 28 oct. 2026, R43) : bouton rouge « Supprimer » ; refus = rien
+  // n'est supprimé, l'ancienne valeur revient (back).
+  function confirmDelete(msg, done, back) {
+    TMT.ui.confirm(msg, { ok: tr('Supprimer'), danger: true }).then(function (yes) { if (yes) done(); else if (back) back(); });
+  }
   function keepFocus(b) { b.addEventListener('pointerdown', function (e) { e.preventDefault(); }); b.addEventListener('mousedown', function (e) { e.preventDefault(); }); return b; }
   function editCell(cell, text, fields, save, show, remove) {
     var paint = function () { cell.textContent = ''; if (show) show(cell); else cell.textContent = text; };
@@ -811,7 +818,7 @@
     }, function (err) { fail(err); refresh(); });
   }
   function removeEmployee(e) {
-    TMT.ui.confirm(tr('Retirer') + ' ' + e.name + ' ' + tr('de l’horaire ?'), { ok: tr('Retirer'), danger: true }).then(function (yes) {
+    TMT.ui.confirm(tr('Supprimer') + ' ' + e.name + ' ' + tr('de l’horaire ?'), { ok: tr('Supprimer'), danger: true }).then(function (yes) {
       if (!yes) { renderCats(); return; }
       // Retrait de l'horaire (pas une suppression) : inactif, quarts à venir retirés, semaines passées intactes.
       req('POST', 'employees/' + e.id + '/retire', { today: isoLocal(new Date()) }).then(refresh, function (err) { fail(err); renderCats(); });
@@ -973,7 +980,10 @@
       var it = btn('horaireMenuItem' + (e.id === a.employeeId ? ' on' : ''), e.name, function () { if (e.id !== a.employeeId) pick(e.id); else closeMenu(); });
       it.setAttribute('role', 'menuitem'); menu.appendChild(it);
     });
-    var rm = btn('horaireMenuItem horaireMenuRemove', 'Retirer le quart', function () { pick(null); }); rm.setAttribute('role', 'menuitem');
+    var rm = btn('horaireMenuItem horaireMenuRemove', 'Supprimer le quart', function () {
+      closeMenu();
+      confirmDelete(tr('Supprimer ce quart') + ' (' + tr(DAYS[weekdayOf(a.day)]).toLowerCase() + ' ' + a.start + ', ' + a.employeeName + ') ?', function () { pick(null); });
+    }); rm.setAttribute('role', 'menuitem');
     menu.appendChild(rm);
     placeMenu(anchor);
   }
@@ -1126,16 +1136,18 @@
     var list = rrList();
     list.forEach(function (r, i) {
       var line = el('div', 'horaireRuleRow');
+      var delRule = function () { confirmDelete(tr('Supprimer cette règle ?'), function () { var next = rrList(); next.splice(i, 1); saveRR(next); }, renderRules); };
       var row = el('div', 'horaireRuleLine horaireSheetEdit');
       editCell(row, '', [['text', r.text, 'Règle']], function (v) {
         var t = String(v.text).trim(), next = list.slice();
-        if (!t) next.splice(i, 1); else if (t !== r.text) next[i] = { text: t, positions: r.positions }; else { renderRules(); return; }
+        if (!t) { delRule(); return; }
+        if (t !== r.text) next[i] = { text: t, positions: r.positions }; else { renderRules(); return; }
         saveRR(next);
       }, function (cell) { cell.appendChild(el('span', 'horaireRuleNum', (i + 1) + '.')); cell.appendChild(el('span', null, r.text)); });
       var scope = btn('horaireRuleScope', scopeText(r), function () { openScopeMenu(scope, i); });
       scope.setAttribute('aria-haspopup', 'menu'); scope.setAttribute('aria-label', tr('Postes de la règle') + ' : ' + scopeText(r));
       line.appendChild(row); line.appendChild(scope);
-      line.appendChild(keepFocus(TMT.ui.removeBtn(function () { var next = list.slice(); next.splice(i, 1); saveRR(next); }, tr('Supprimer'))));
+      line.appendChild(keepFocus(TMT.ui.removeBtn(delRule, tr('Supprimer'))));
       rulesBox.appendChild(line);
     });
     if (S.addingRule) {
