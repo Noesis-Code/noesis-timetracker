@@ -226,6 +226,7 @@
     subTabs.textContent = ''; dots.textContent = '';
     CATS[cat][1].forEach(function (l, j) {
       var t = btn(cat * 3 + j === i ? 'active' : '', l, function () { goPage(cat * 3 + j); });
+      if (cat === 1) t.textContent = (j + 1) + '. ' + tr(l); // Création des horaires : étapes numérotées (28 oct. 2026, demande d'Émilien)
       t.setAttribute('role', 'tab'); t.setAttribute('aria-selected', cat * 3 + j === i ? 'true' : 'false');
       subTabs.appendChild(t);
       var d = el('button', 'goalsDotBtn' + (cat * 3 + j === i ? ' on' : '')); d.type = 'button'; d.setAttribute('aria-label', tr(l));
