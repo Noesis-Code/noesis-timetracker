@@ -62,7 +62,7 @@
   // Barre d'ajout : [📎 à gauche] [texte] [↑ flèche d'envoi] ; au-dessus, la proposition de Noèsis.
   function buildAdd() {
     var box = el('div', 'tasksPopAdd');
-    ui.proposal = el('div', 'tasksPropose hidden');
+    ui.proposal = el('div', 'tasksPropose cmpGlass hidden'); // verre commun (R31), comme la barre des volets
     ui.proposal.appendChild(el('span', 'tasksProposeKicker', tr('Noèsis propose')));
     var row = el('div', 'tasksProposeRow');
     ui.dot = el('span', 'tasksPopDot'); ui.where = el('b', 'tasksProposeWhere');
@@ -172,8 +172,8 @@
         if (TMT.docTasksPrefill) TMT.docTasksPrefill(t.activityId, label, files);
         return null;
       }
-      // Même chaîne que « Ajouter » de la page 1 : selon le mode de l'IA, pop-up de choix (sans IA), de placement (partiel) ou de confirmation (autonome).
-      return TMT.captureTaskFlow(label, [t.activityId], t.categoryKey).then(function (flow) {
+      // La proposition au-dessus de la barre EST la validation (28 oct. 2026) : plus de pop-up de placement ni de confirmation après l'envoi.
+      return TMT.captureTaskFlow(label, [t.activityId], t.categoryKey, { inline: true }).then(function (flow) {
         if (!flow) return null;
         var ok = (flow.results || []).filter(function (x) { return x.ok; })[0];
         if (!ok) { var bad = (flow.results || [])[0]; ui.msg.textContent = bad && bad.error ? tr(bad.error) : tr('non ajoutée'); return null; }

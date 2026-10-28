@@ -1399,7 +1399,7 @@
   };
   // Envoi d'une tâche libre vers des activités déjà choisies (pop-up du bouton flottant) : MÊME chaîne que « Ajouter » de la page 1 —
   // mode de l'IA, puis pop-up de choix (sans IA), de placement (partiel) ou de confirmation (autonome). Résout { results } ou null (annulé).
-  TMT.captureTaskFlow = function (label, ids, forcedCategory) {
+  TMT.captureTaskFlow = function (label, ids, forcedCategory, opts) {
     return ensureAiMode().then(function (mode) {
       if (!mode) return null;
       return captureWithConfirmations(label, ids, forcedCategory ? { forcedCategory: forcedCategory } : null);
@@ -1413,7 +1413,8 @@
         })).then(function () { loadGoalsCaptureBadges(); return null; });
       }
       return new Promise(function (resolve) {
-        if (TMT.aiMode === 'partiel' && okResults.length) showCapturePlacementModal(label, okResults, { onSave: function () { resolve(finish()); }, onCancel: function () { undo().then(resolve); } });
+        if (opts && opts.inline) resolve(finish()); // validation déjà faite dans la zone d'ajout : aucun pop-up
+        else if (TMT.aiMode === 'partiel' && okResults.length) showCapturePlacementModal(label, okResults, { onSave: function () { resolve(finish()); }, onCancel: function () { undo().then(resolve); } });
         else if (TMT.aiMode === 'autonome' && okResults.length) showCaptureConfirmModal(label, okResults, { onConfirm: function () { resolve(finish()); }, onCancel: function () { undo().then(resolve); } });
         else resolve(finish());
       });
