@@ -1252,7 +1252,5 @@
   }
   new MutationObserver(onShow).observe(root, { attributes: true, attributeFilter: ['class'] });
   onShow();
-  // Volet retiré de la barre (barre-volets.js l'appelle encore) : plus de configuration guidée, rien à relancer.
-  function restartSetup() { return Promise.resolve(); }
-  TMT.horaire = { refresh: refresh, restartSetup: restartSetup };
+  TMT.horaire = { refresh: refresh };
 })();
