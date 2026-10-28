@@ -77,7 +77,7 @@ assert(bruno.wantShiftsMin === 3 && bruno.wantShiftsMax === 4 && bruno.constrain
 const r2 = h.importEmployeesCsv('uA', 'nom;quarts min;quarts max\nAlice;6;4\n');
 assert(r2.skipped.length === 1 && h.ownEmployee('uA', alice.id).wantShiftsMin === 5, 'import CSV : min > max refusé');
 const r3c = h.importEmployeesCsv('uA', 'nom;heures min;heures max;cible\nBruno;18;24;20\nAlice;30;30;12\n');
-assert(r3c.updated === 1 && r3c.skipped.length === 1 && h.ownEmployee('uA', bruno.id).wantHoursTarget === 20 && h.ownEmployee('uA', alice.id).wantHoursTarget === null, 'import CSV : heures min, max et « cible » lues, cible hors du min et du max refusée');
+assert(r3c.updated === 2 && r3c.skipped.length === 0 && h.ownEmployee('uA', bruno.id).wantHoursTarget === 20 && h.ownEmployee('uA', alice.id).wantHoursTarget === 12, 'import CSV : heures min, max et « cible » lues, cible hors du min et du max acceptée');
 const ex = require('../server/lib/dataexport').buildUserExport('uA');
 assert(ex.horaire.employees.some((e) => e.wantShiftsMax === 5) && ex.horaire.employeeRules.some((x) => x.text === 'Jamais de double'), 'export du compte : nouveaux champs et règles inclus');
 
@@ -239,9 +239,9 @@ function call(method, path, body, user) {
   r = await call('PUT', 'employees/' + alice.id, { wantShiftsMin: 4, wantShiftsMax: 5, constraintNote: '' }, 'uA');
   assert(r.status === 200 && r.body.employee.wantShiftsMin === 4 && r.body.employee.constraintNote === null, 'PUT : quarts modifiés, contrainte effacée');
   r = await call('PUT', 'employees/' + alice.id, { wantShiftsTarget: 6 }, 'uA');
-  assert(r.status === 400, 'PUT : cible au-dessus du max refusée');
+  assert(r.status === 200 && r.body.employee.wantShiftsTarget === 6, 'PUT : cible (quarts) au-dessus du max acceptée');
   r = await call('PUT', 'employees/' + alice.id, { wantShiftsTarget: 3 }, 'uA');
-  assert(r.status === 400, 'PUT : cible sous le min refusée');
+  assert(r.status === 200 && r.body.employee.wantShiftsTarget === 3, 'PUT : cible (quarts) sous le min acceptée');
   r = await call('PUT', 'employees/' + alice.id, { wantShiftsTarget: 5 }, 'uA');
   assert(r.status === 200 && r.body.employee.wantShiftsTarget === 5, 'PUT : cible entre le min et le max enregistrée');
   r = await call('PUT', 'employees/' + alice.id, { sortOrder: 3 }, 'uA');

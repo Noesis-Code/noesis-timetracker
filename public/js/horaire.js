@@ -661,7 +661,7 @@
 
   // ---------- Classification des employés : un tableau par catégorie (catégorie = meilleur rang de qualification) ----------
   // Au-dessus de chaque tableau, son titre « Catégorie N » (.cmpBlockTitle, R41). Colonnes : ≡ | Nom | Heures min | Heures max | Cible | Note.
-  // Chaque case se modifie au clic, enregistrement automatique (Entrée ou sortie du champ), Échap annule ; min ≤ cible ≤ max, sinon la case
+  // Chaque case se modifie au clic, enregistrement automatique (Entrée ou sortie du champ), Échap annule ; min ≤ max (la cible est libre), sinon la case
   // est soulignée en violet clair et rien n'est enregistré ; nom vidé = retirer l'employé (confirmation). La note est une seule case de texte :
   // la génération y reconnaît « jamais de double », « repos après un quart », « pas de matin », « pas de soir », « soirs d'abord »,
   // « matins d'abord » ; le reste part dans le prompt et dans « À vérifier ». Le ≡ fait glisser un nom d'un tableau à l'autre (TMT.ui.groupDrag).
@@ -723,8 +723,8 @@
   function hoursValid(lo, tg, hi) {
     var ok = function (n) { return n == null || (isFinite(n) && n >= 0 && n <= 168); };
     if (!ok(lo) || !ok(tg) || !ok(hi)) return false;
-    if (lo != null && hi != null && lo > hi) return false;
-    return !(tg != null && ((lo != null && tg < lo) || (hi != null && tg > hi)));
+    // La cible est la volonté de l'employé (décision d'Émilien, 28 oct. 2026) : aucune contrainte avec le min ou le max.
+    return !(lo != null && hi != null && lo > hi);
   }
   function hoursText(v) { return v == null ? '' : String(v).replace('.', ','); }
   // Lecture de la note (même règle que server/lib/horaire-note.js) : le texte libre restant, sans les six expressions reconnues.
@@ -849,7 +849,7 @@
         row.appendChild(name);
         HOURS.forEach(function (hk) {
           var c = el('span', 'horaireSheetCell horaireSheetEdit horaireSheetNum');
-          c.dataset.why = 'Heures : il faut min ≤ cible ≤ max. Corrige la valeur ou appuie sur Échap.';
+          c.dataset.why = 'Heures : il faut min ≤ max. Corrige la valeur ou appuie sur Échap.';
           editCell(c, hoursText(e[hk[0]]), [[hk[0], e[hk[0]], hk[1], 'hours']], function (v) {
             var val = hOrNull(v[hk[0]]);
             var cur = S.employees.find(function (x) { return x.id === e.id; }) || e; // valeurs les plus récentes (une autre case a pu changer)

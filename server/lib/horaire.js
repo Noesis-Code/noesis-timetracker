@@ -659,9 +659,10 @@ function hoursValue(v) {
   if (!Number.isFinite(n) || n < 0 || n > 168) return undefined;
   return Math.round(n * 2) / 2;
 }
+// Seule contrainte : min ≤ max. La cible est la volonté de l'employé (décision d'Émilien, 28 oct. 2026) : elle peut dépasser le max
+// ou rester sous le min ; la génération ne dépasse jamais le max et applique toujours le min.
 function hoursOrdered(lo, tg, hi) {
-  if (lo != null && hi != null && lo > hi) return false;
-  return !(tg != null && ((lo != null && tg < lo) || (hi != null && tg > hi)));
+  return !(lo != null && hi != null && lo > hi);
 }
 function setRulesFromImport(u, empId, f) {
   ['noDouble', 'restAfterShift'].forEach((k) => {
@@ -713,7 +714,7 @@ function importEmployeesCsv(u, text) {
       const tg = more.wantShiftsTarget !== undefined ? more.wantShiftsTarget : (emp ? emp.wantShiftsTarget : null);
       if (tg != null && ((lo != null && tg < lo) || (hi != null && tg > hi))) { res.skipped.push({ line: n + 1, reason: 'cible hors du min et du max' }); return; }
       const hv = (k) => (more[k] !== undefined ? more[k] : (emp ? emp[k] : null));
-      if (!hoursOrdered(hv('wantHoursMin'), hv('wantHoursTarget'), hv('wantHoursMax'))) { res.skipped.push({ line: n + 1, reason: 'heures : min ≤ cible ≤ max' }); return; }
+      if (!hoursOrdered(hv('wantHoursMin'), hv('wantHoursTarget'), hv('wantHoursMax'))) { res.skipped.push({ line: n + 1, reason: 'heures : min ≤ max' }); return; }
       // Cases et note de l'import : deviennent des règles de l'employé (28 oct. 2026).
       const asRules = { noDouble: more.noDouble, restAfterShift: more.restAfterShift, constraintNote: more.constraintNote };
       delete more.noDouble; delete more.restAfterShift; delete more.constraintNote;

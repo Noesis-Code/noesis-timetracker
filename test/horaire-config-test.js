@@ -106,7 +106,9 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     require('../server/db').prepare('UPDATE horaire_employees SET wantShiftsMin = 5, wantShiftsMax = 2 WHERE id = ?').run(p.id);
     r = await call('PUT', 'employees/' + p.id, { wantHoursTarget: 31 }, 'uC');
     assert(r.status === 200 && r.body.employee.wantHoursTarget === 31, 'une ancienne valeur incohérente (quarts) ne bloque plus la cible');
-    assert((await call('PUT', 'employees/' + p.id, { wantHoursTarget: 40 }, 'uC')).status === 400 && h.ownEmployee('uC', p.id).wantHoursTarget === 31, 'cible au-dessus du max : refusée, l’ancienne valeur reste');
+    assert((await call('PUT', 'employees/' + p.id, { wantHoursTarget: 40 }, 'uC')).status === 200 && h.ownEmployee('uC', p.id).wantHoursTarget === 40, 'cible au-dessus du max : acceptée (volonté de l’employé)');
+    assert((await call('PUT', 'employees/' + p.id, { wantHoursTarget: 5 }, 'uC')).status === 200 && h.ownEmployee('uC', p.id).wantHoursTarget === 5, 'cible sous le min : acceptée');
+    assert((await call('PUT', 'employees/' + p.id, { wantHoursMin: 40 }, 'uC')).status === 400, 'min au-dessus du max : refusé (seule contrainte)');
   }
   // ---- Postes par défaut : créés s'ils manquent, « Serveur » existant intact ; postes neufs vierges ----
   {
@@ -177,10 +179,10 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     const prompt = require('../server/lib/horaire-prompt').eventsPromptFor(W, h.getPrompts('uC').eventsPrompt.isDefault ? null : 'x');
     assert(/^SEMAINE À LIRE : du lundi 2 novembre au dimanche 8 novembre 2026\./.test(prompt) && prompt.includes('date;service;heure;couverts;zone') && /JAMAIS le nom d'un client/.test(prompt), 'prompt des événements : daté, en-tête, aucune donnée de client');
   }
-  // ---- Heures : min ≤ cible ≤ max ----
+  // ---- Heures : min ≤ max ; la cible est libre ----
   r = await call('PUT', 'employees/' + first.id, { wantHoursMin: 12, wantHoursTarget: 20, wantHoursMax: 24 }, 'uC');
   assert(r.status === 200 && r.body.employee.wantHoursTarget === 20, 'heures min, cible, max enregistrées');
-  assert((await call('PUT', 'employees/' + first.id, { wantHoursTarget: 30 }, 'uC')).status === 400, 'cible au-dessus du max refusée');
+  assert((await call('PUT', 'employees/' + first.id, { wantHoursTarget: 30 }, 'uC')).status === 200, 'cible au-dessus du max acceptée');
   assert((await call('PUT', 'employees/' + first.id, { wantHoursMin: 200 }, 'uC')).status === 400, 'heures hors bornes refusées');
   // ---- Règles par employé : liste fermée (sans doublon) et texte libre ----
   r = await call('POST', 'employee-rules', { employeeId: first.id, rule: 'noMorning' }, 'uC');

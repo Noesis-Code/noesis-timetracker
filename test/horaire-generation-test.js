@@ -267,6 +267,15 @@ r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMax: 30 }], {
 assert(r.assignments.length === 5 && r.alerts.some((a) => a.type === 'trou') && !r.alerts.some((a) => a.type === 'sixieme_quart'), 'plus de 6e quart : max 5 = 5 quarts, le 6e reste un trou');
 // Passe 1 : chacun atteint son MIN, même un rang moins bon, avant que le meilleur rang aille à sa cible.
 const evenings = (n) => Array.from({ length: n }, (_, wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 1 }));
+// ---- Cible libre (28 oct. 2026) : au-dessus du max, le max reste un plafond strict ; sous le min, le min s'applique ----
+{
+  const six = [0, 1, 2, 3, 4, 5].map((wd) => ({ positionId: 1, weekday: wd, start: '09:00', end: '15:00', count: 1 }));
+  r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMin: 0, wantHoursTarget: 40, wantHoursMax: 18 }], { needs: six }));
+  assert(r.assignments.filter((a) => a.employeeId === 10).length === 3, 'cible (40 h) au-dessus du max (18 h) : jamais plus que le max');
+  r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMin: 18, wantHoursTarget: 6, wantHoursMax: 36 },
+    { id: 11, maxWeekMinutes: null, wantHoursMin: 0, wantHoursTarget: 36, wantHoursMax: 36, rank: 2 }], { needs: six }));
+  assert(r.assignments.filter((a) => a.employeeId === 10).length === 3, 'cible (6 h) sous le min (18 h) : le min s’applique');
+}
 r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMin: 6, wantHoursTarget: 24, wantHoursMax: 24 },
   { id: 11, maxWeekMinutes: null, wantHoursMin: 12, wantHoursTarget: 12, wantHoursMax: 24, rank: 2 }], { needs: [0, 1, 2, 3].map((wd) => ({ positionId: 1, weekday: wd, start: '09:00', end: '15:00', count: 1 })) }));
 assert(r.assignments.filter((a) => a.employeeId === 11).length === 2 && r.assignments.filter((a) => a.employeeId === 10).length === 2,
