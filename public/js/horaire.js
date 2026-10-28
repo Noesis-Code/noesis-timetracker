@@ -552,6 +552,11 @@
     return c ? c.count : 0;
   }
   function renderFloors() {
+    // Une case ouverte n'est jamais effacée : le redessin attend qu'elle soit fermée (comme les catégories, flushCats). Sans cela, passer
+    // d'un nombre à l'autre au clic redessinait le tableau entre la sortie de l'ancienne case et le clic sur la nouvelle : la case
+    // cliquée disparaissait et la saisie suivante (souvent un 0) était perdue.
+    if (floorsBox.querySelector('.editing')) { S.floorsDirty = true; return; }
+    S.floorsDirty = false;
     floorsBox.textContent = '';
     bFloors.classList.toggle('hidden', !floorPos());
     if (!floorPos()) return;
@@ -559,7 +564,7 @@
     var head = sheetRow('horaireSheetHead');
     ['Plancher'].concat(DAYS, ['']).forEach(function (t) { head.appendChild(el('span', 'horaireSheetCell', tr(t))); });
     sheet.appendChild(head);
-    var reload = function () { return req('GET', 'floors').then(function (d) { S.floors = d.floors || []; S.floorCounts = d.counts || []; renderFloors(); }); };
+    var reload = reloadFloors;
     (S.floors || []).forEach(function (f) {
       var row = sheetRow('horaireFloorRow');
       var name = el('span', 'horaireSheetCell horaireSheetEdit');
@@ -575,12 +580,20 @@
           if (k) cell.appendChild(el('span', 'horaireMuted', '·'));
           var n = floorCount(f.id, wd, svc), day = wd;
           var v = el('span', 'horaireFloorVal horaireSheetEdit');
-          editCell(v, '', [['count', n, svc === 'soir' ? 'Soir' : 'Matin', 'number']], function (x) {
+          var fld = ['count', n, svc === 'soir' ? 'Soir' : 'Matin', 'number']; // fld[1] suit la dernière valeur (réouverture de la case)
+          editCell(v, '', [fld], function (x) {
             var s = String(x.count).trim(), c = s === '' ? 0 : Number(s);
             if (!(Number.isInteger(c) && c >= 0 && c <= 50)) return false;
-            if (c === n) { renderFloors(); return; }
-            req('PUT', 'floor-counts', { floorId: f.id, positionId: posId(), weekday: day, service: svc, count: c }).then(function (d) { S.floorCounts = d.counts || S.floorCounts; renderFloors(); }, function (err) { fail(err); renderFloors(); });
-          }, function (c) { c.appendChild(el('span', 'horaireMuted', svc === 'soir' ? 'S' : 'M')); c.appendChild(el('span', null, String(n))); });
+            // 0 est une valeur normale (aucune confirmation, rien n'est supprimé). Seule cette case est redessinée (jamais tout le
+            // tableau) : un redessin complet entre la sortie d'une case et le clic sur la suivante faisait perdre ce clic, et la saisie.
+            var repaint = function () { setTimeout(function () { if (v.classList.contains('editing')) return; v.textContent = ''; showVal(v); }, 0); };
+            if (c === n) { repaint(); return; }
+            var mine = (S.floorCounts || []).find(function (q) { return q.floorId === f.id && q.positionId === posId() && q.weekday === day && q.service === svc; });
+            if (mine) mine.count = c; else (S.floorCounts = S.floorCounts || []).push({ floorId: f.id, positionId: posId(), weekday: day, service: svc, count: c });
+            n = c; fld[1] = c; repaint();
+            req('PUT', 'floor-counts', { floorId: f.id, positionId: posId(), weekday: day, service: svc, count: c }).then(function (d) { S.floorCounts = d.counts || S.floorCounts; }, function (err) { fail(err); reloadFloors(); });
+          }, showVal);
+          function showVal(c) { c.appendChild(el('span', 'horaireMuted', svc === 'soir' ? 'S' : 'M')); c.appendChild(el('span', null, String(n))); }
           cell.appendChild(v);
         });
         row.appendChild(cell);
@@ -938,7 +951,8 @@
   }
   function sheetRow(cls) { return el('div', 'horaireSheetRow ' + (cls || '')); }
   // Une saisie en cours n'est jamais effacée : si une cellule est ouverte, le redessin attend qu'elle soit fermée (flushCats).
-  function flushCats() { if (S.catsDirty) renderCats(); }
+  function flushCats() { if (S.catsDirty) renderCats(); if (S.floorsDirty && floorsBox) renderFloors(); }
+  function reloadFloors() { return req('GET', 'floors').then(function (d) { S.floors = d.floors || []; S.floorCounts = d.counts || []; renderFloors(); }); }
   function renderCats() {
     if (catsBox.querySelector('.editing:not(.horaireSheetNew)')) { S.catsDirty = true; return; }
     S.catsDirty = false;
