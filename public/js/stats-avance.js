@@ -49,6 +49,7 @@
       return null;
     }
     zone.addEventListener('touchstart', function (e) {
+      if (g && g.drag) finish(e, true); // geste précédent jamais terminé (touchend perdu) : on referme proprement, sinon les pages restent décalées au milieu
       g = null;
       if (e.touches.length !== 1) return;
       var tg = e.target;
@@ -78,6 +79,8 @@
         d.host.style.overflowX = 'hidden';
         d.dir = dir; d.w = cr.width + GAP; d.x = 0; g.drag = d;
         TMT.axisLock.hold(g.lock, g.tg);
+        g.fin = function (ev) { finish(ev, ev.type === 'touchcancel'); };
+        window.addEventListener('touchend', g.fin, true); window.addEventListener('touchcancel', g.fin, true);
       }
       var dd = g.drag;
       dd.x = dd.dir > 0 ? Math.max(-dd.w, Math.min(0, dx)) : Math.min(dd.w, Math.max(0, dx));
@@ -89,6 +92,7 @@
       var s0 = g; g = null;
       if (!s0) return;
       TMT.axisLock.release(s0.lock);
+      if (s0.fin) { window.removeEventListener('touchend', s0.fin, true); window.removeEventListener('touchcancel', s0.fin, true); }
       if (!s0.drag) { if (s0.swallow && e.stopPropagation) e.stopPropagation(); return; }
       if (e.stopPropagation) e.stopPropagation();
       var d = s0.drag, dt = Math.max(1, Date.now() - s0.t), mv = Math.abs(d.x);
@@ -715,7 +719,10 @@
   function goTab(t) {
     if (tab === t) return;
     slideDir = t === 'o' ? 1 : -1;
-    setTab(t); load();
+    if (datas[t] && activityId != null && !visitor) { var d0 = datas[t]; setTab(t); data = d0; render(); load(true); return; } // contenu déjà reçu : affiché tout de suite, rafraîchi ensuite sans reconstruire s'il est identique
+    setTab(t);
+    if (els.body && bodies[t]) { slideDir = 0; els.body = bodies[t]; bodies[t].classList.remove('hidden'); bodies[t === 't' ? 'o' : 't'].classList.add('hidden'); } // pas de cache : la page change aussitôt (vide), elle se remplit à l'arrivée des données
+    load();
   }
   function render() {
     if (!built) return;
@@ -804,7 +811,7 @@
     var o = tab === 't' ? 'o' : 't', seq = loadSeq;
     cfg.fetch(activityId, buildQs(o, 0, 0)).then(function (r) {
       if (seq !== loadSeq || tab === o || !r.data) return;
-      datas[o] = r.data; renderAs(o, r.data);
+      datas[o] = r.data; lastSig[o] = JSON.stringify(r.data || null); renderAs(o, r.data);
     }, function () {});
   }
   // Glissement abouti vers l'autre onglet : sa page préchargée devient la courante (état par onglet remis à zéro comme goTab).
@@ -814,7 +821,8 @@
     data = d; render(); // l'ancienne page reste glissable (rafraîchie en arrière-plan)
     loadSeq++; prefetchOther();
   }
-  function load() {
+  var lastSig = { t: '', o: '' };
+  function load(silent) {
     build();
     if (activityId == null && !visitor) { els.msg.textContent = tr('Aucune activité.'); els.msg.classList.remove('hidden'); return; }
     els.msg.classList.add('hidden');
@@ -823,7 +831,11 @@
     cfg.fetch(activityId, qs).then(function (r) {
       if (seq !== loadSeq) return;
       if (r.activityId !== undefined && r.activityId !== null) activityId = r.activityId;
-      data = r.data; datas[tab] = data;
+      var sig = JSON.stringify(r.data || null);
+      if (silent && sig === lastSig[tab] && data) { prefetchOther(); return; } // rien n'a changé : on ne reconstruit pas la page
+      if (silent && adding) return; // pas de reconstruction sous les doigts pendant « Ajouter une information »
+      lastSig[tab] = sig;
+      data = r.data; if (!dayOff && !wOff) datas[tab] = data;
       renderYear(data && data.years);
       if (visitor) renderChips();
       if (visitor && !data) { bodies.t.innerHTML = ''; bodies.o.innerHTML = ''; els.msg.textContent = tr('Aucune activité.'); els.msg.classList.remove('hidden'); return; }
@@ -844,7 +856,11 @@
     activityId = found ? found.id : (list[0] ? list[0].id : null);
   }
   return {
-    open: function () { build(); pickDefaultActivity(); renderChips(); load(); },
+    open: function () {
+      build(); pickDefaultActivity(); renderChips();
+      if (!visitor && data && datas[tab] && activityId != null) { if (!els.body.firstChild) { data = datas[tab]; render(); } load(true); return; } // déjà chargée : montrée telle quelle (le glissement n'attend plus le réseau), rafraîchie en arrière-plan
+      load();
+    },
     reset: resetTransient, hideSheet: hideSheet, isDirty: isDirty, getTab: function () { return tab; }, setTab: setTab, goTab: goTab, commitTab: commitTab,
     bodyOf: function (t) { build(); return bodies[t]; }, otherReady: function () { return !!datas[tab === 't' ? 'o' : 't']; },
     forget: function () { activityId = null; data = null; if (built) { els.chips.innerHTML = ''; els.yearRow.innerHTML = ''; els.yearRow.classList.add('hidden'); bodies.t.innerHTML = ''; bodies.o.innerHTML = ''; datas = { t: null, o: null }; } }
@@ -1185,6 +1201,12 @@
       return external(chronoZone, zone, function () { TMT.enterStats('chrono'); }, 'stats');
     }
   });
+  // Préchauffage : dès que le doigt se pose sur la page 1, la page Statistiques charge et se dessine (cachée) ; le glissement la trouve prête au lieu de la charger pendant le geste.
+  var lastWarm = 0;
+  if (goalsZone) goalsZone.addEventListener('touchstart', function () {
+    if (Date.now() - lastWarm < 30000 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsDetailPage')) return;
+    lastWarm = Date.now(); inst.open();
+  }, { passive: true });
   if (goalsZone) slidePager({
     zone: goalsZone,
     neighbor: function (dir) {
