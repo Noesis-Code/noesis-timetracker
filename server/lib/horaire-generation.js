@@ -61,7 +61,23 @@ function criticality(weekday, startMin, isEvent) {
 // (matin ou soir, d'après l'heure d'arrivée de ses besoins ; pour tous les postes) ; l'autre service garde ses besoins normaux
 // (maquette du 28 oct. 2026 : « Un événement remplace les besoins de son service »).
 const serviceOf = (start) => (toMin(start) >= EVENING_FROM ? 'soir' : 'matin');
-function buildSlots(weekStart, needs, events, mainPositionId) {
+// opts.zones [{id, morning, evening}] et opts.serverPositionId : pour les SERVEURS d'un événement qui occupe une zone (zoneId), seuls
+// max(0, serveurs de l'événement − serveurs habituels de la zone pour ce service) s'ajoutent ; plusieurs événements sur une même zone
+// ne la retirent qu'une fois (les premiers événements, par id, consomment les serveurs habituels). Les autres postes s'additionnent.
+function zoneExtra(lines, zones, serverPositionId) {
+  const usual = new Map((zones || []).map((z) => [Number(z.id), z]));
+  const left = new Map();
+  return lines.map((l) => {
+    const z = l.g.zoneId != null && usual.get(Number(l.g.zoneId));
+    if (!z || serverPositionId == null || l.pid !== Number(serverPositionId)) return l;
+    const key = z.id + '|' + l.g.service;
+    const rem = left.has(key) ? left.get(key) : Math.max(0, Number(l.g.service === 'soir' ? z.evening : z.morning) || 0);
+    const take = Math.min(rem, l.count);
+    left.set(key, rem - take);
+    return Object.assign({}, l, { count: l.count - take, replaced: take });
+  });
+}
+function buildSlots(weekStart, needs, events, mainPositionId, opts) {
   const days = weekDays(weekStart);
   const slots = [];
   days.forEach((day, weekday) => {
@@ -72,8 +88,9 @@ function buildSlots(weekStart, needs, events, mainPositionId) {
     // Événement d'un service (plusieurs par service possibles, tous additionnés) : ses lignes « poste · +N » (besoins de l'événement) ;
     // ancien groupe sans ligne : une seule ligne (positionId, extra).
     const base = source.slice();
-    const lines = dayEvents.filter((e) => e.service).flatMap((g) => ((g.needs && g.needs.length) ? g.needs : (Number(g.extra) > 0 ? [{ positionId: g.positionId, count: g.extra }] : []))
+    const lines0 = dayEvents.filter((e) => e.service).sort((a, b) => a.id - b.id).flatMap((g) => ((g.needs && g.needs.length) ? g.needs : (Number(g.extra) > 0 ? [{ positionId: g.positionId, count: g.extra }] : []))
       .map((l) => ({ g, pid: l.positionId == null ? null : Number(l.positionId), count: Number(l.count) })));
+    const lines = zoneExtra(lines0, opts && opts.zones, opts && opts.serverPositionId);
     for (const { g, pid, count } of lines) {
       if (!(count > 0)) continue;
       // Ligne d'un poste : la première arrivée de ce poste dans le service ; ancien groupe (sans poste) : tous postes confondus.
@@ -145,7 +162,7 @@ function generateSchedule(input) {
   // congés : jour entier, l'employé est indisponible ce jour-là
   const off = new Set((input.timeoff || []).map((t) => t.employeeId + '|' + t.day));
 
-  const slots = buildSlots(input.weekStart, input.needs, input.events, positions.length ? positions[0].id : null);
+  const slots = buildSlots(input.weekStart, input.needs, input.events, positions.length ? positions[0].id : null, { zones: input.zones, serverPositionId: input.serverPositionId });
   const posRank = new Map(positions.map((p, i) => [p.id, i]));
   // Ordre de traitement : poste (ordre de comblement), puis criticité décroissante, puis jour et heure.
   const ordered = slots.filter((s) => posRank.has(s.positionId)).sort((a, b) =>
@@ -283,4 +300,4 @@ function generateSchedule(input) {
   return { assignments, alerts, rotation };
 }
 
-module.exports = { generateSchedule, buildSlots, criticality, toMin, range, addDays, weekDays, WEEKEND, EVENING_FROM };
+module.exports = { generateSchedule, buildSlots, zoneExtra, criticality, toMin, range, addDays, weekDays, WEEKEND, EVENING_FROM };

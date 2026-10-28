@@ -66,10 +66,10 @@
     });
   }
   function loadAll() {
-    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; })])
+    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), req('GET', 'zones').catch(function () { return { zones: [] }; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
-        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.loaded = true;
+        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.zones = r[8].zones || []; S.loaded = true;
       });
   }
   // Construit la page si besoin : refresh() peut être appelé (TMT.horaire.refresh) avant la première ouverture du volet.
@@ -110,7 +110,7 @@
   var EVE = 16 * 60; // soir = à partir de 16 h
   var SLOT = { matin: ['10:00', '16:00'], soir: ['16:00', '23:59'] };
   var STEP_LABELS = ['1. Paramètres', '2. Événements', '3. Récupération', '4. Horaire', '5. Envoi'];
-  var eventsBox, promptBoxes = {}, evReport, ratioInput, catsMsg, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
+  var zonesBox, eventsBox, promptBoxes = {}, evReport, ratioInput, catsMsg, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
   var pagesHost, pages = [], stepBtns = [], dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
@@ -153,7 +153,9 @@
     var bRules = block('Règles du restaurant');
     rulesBox = el('div', 'horaireRules cmpGlass');
     bRules.appendChild(rulesBox);
-    [bCats, bNeeds, bRules]
+    var bZones = block('Zones');
+    zonesBox = el('div', 'horaireFrame cmpGlass'); bZones.appendChild(zonesBox);
+    [bCats, bNeeds, bZones, bRules]
       .forEach(function (n) { p1.appendChild(n); });
 
     // Page 2 : Événements (réservations de groupe de la semaine) : ratio « 1 serveur de plus pour [20] couverts », prompt des
@@ -411,6 +413,7 @@
     renderSchedule();
     renderSummary();
     renderNeedsTable();
+    renderZones();
     renderRatio();
     renderCats();
     renderRules();
@@ -487,11 +490,67 @@
   // ses lignes « Poste · +N » se modifient sur place (poste dans un menu uni, nombre ; enregistrement automatique, 0 retire la ligne) ;
   // « + Ajouter un poste » ajoute une ligne ; la croix .cmpRemove (R32) retire l'événement entier après confirmation rouge.
   // « + Ajouter » sous les cartes crée un événement. La semaine suivante repart vide ; une semaine passée se lit sans se modifier.
+  // ---------- Zones de la salle (étape 1) : Zone | Serveurs le matin | Serveurs le soir | ✕ ----------
+  // Serveurs qui couvrent habituellement chaque zone ; un événement qui occupe une zone les remplace (au lieu de s'y ajouter).
+  // Chaque case se modifie au clic (enregistrement automatique) ; « + Ajouter » crée une zone ; la croix la retire après confirmation.
+  function renderZones() {
+    zonesBox.textContent = '';
+    var sheet = el('div', 'horaireSheet horaireZones');
+    var head = sheetRow('horaireSheetHead');
+    ['Zone', 'Serveurs le matin', 'Serveurs le soir', ''].forEach(function (t, i) { head.appendChild(el('span', 'horaireSheetCell' + (i === 1 || i === 2 ? ' horaireSheetNum' : ''), tr(t))); });
+    sheet.appendChild(head);
+    var put = function (z, body) { req('PUT', 'zones/' + z.id, body).then(function () { return req('GET', 'zones'); }).then(function (d) { S.zones = d.zones || []; renderZones(); renderEventsTable(); }, function (err) { fail(err); refresh(); }); };
+    (S.zones || []).forEach(function (z) {
+      var row = sheetRow('horaireZoneRow');
+      var name = el('span', 'horaireSheetCell horaireSheetEdit');
+      editCell(name, z.name, [['name', z.name, 'Zone']], function (v) { var t = String(v.name).trim(); if (t !== z.name) put(z, { name: t }); else renderZones(); });
+      row.appendChild(name);
+      ['morning', 'evening'].forEach(function (k) {
+        var c = el('span', 'horaireSheetCell horaireSheetEdit horaireSheetNum');
+        editCell(c, String(z[k]), [[k, z[k], k === 'morning' ? 'Serveurs le matin' : 'Serveurs le soir', 'number']], function (v) {
+          var n = Number(v[k]);
+          if (!(Number.isInteger(n) && n >= 0 && n <= 50)) return false;
+          var b = {}; b[k] = n;
+          if (n !== z[k]) put(z, b); else renderZones();
+        });
+        row.appendChild(c);
+      });
+      var rm = el('span', 'horaireSheetCell horaireSheetRemove');
+      rm.appendChild(TMT.ui.removeBtn(function () {
+        TMT.ui.confirm(tr('Retirer la zone') + ' « ' + (z.name || tr('Zone')) + ' » ?', { ok: tr('Retirer'), danger: true }).then(function (yes) {
+          if (yes) req('DELETE', 'zones/' + z.id).then(refresh, fail);
+        });
+      }, tr('Retirer') + ' ' + z.name));
+      row.appendChild(rm);
+      sheet.appendChild(row);
+    });
+    zonesBox.appendChild(sheet);
+    var add = TMT.ui.addBtn(tr('Ajouter'), function () {
+      req('POST', 'zones', { name: tr('Zone') + ' ' + ((S.zones || []).length + 1) }).then(refresh, fail);
+    });
+    add.classList.add('horaireZoneAdd');
+    zonesBox.appendChild(add);
+  }
+  // Serveurs d'un événement qui occupe une zone : ceux de la zone (pour ce service) sont remplacés, une seule fois par zone et par
+  // service (les premiers événements, par id, les consomment) ; même calcul que la génération (zoneExtra de horaire-generation.js).
+  function zoneReplaced(day, svc) {
+    var srv = serverPos(), left = {}, out = {};
+    S.events.filter(function (e) { return e.day === day && e.service === svc; }).sort(function (a, b) { return a.id - b.id; }).forEach(function (ev) {
+      var z = ev.zoneId != null && (S.zones || []).find(function (x) { return x.id === ev.zoneId; });
+      (ev.lines || []).forEach(function (l, i) {
+        if (!z || !srv || l.positionId !== srv.id) return;
+        var k = z.id, rem = left[k] != null ? left[k] : (svc === 'soir' ? z.evening : z.morning) || 0, take = Math.min(rem, l.count);
+        left[k] = rem - take; out[ev.id + ':' + i] = { zone: z.name, take: take, extra: l.count - take };
+      });
+    });
+    return out;
+  }
   function weekIsPast() { return addDays(S.week, 6) < isoLocal(new Date()); }
   function renderEventsTable() {
     eventsBox.textContent = '';
     var past = weekIsPast();
     var names = S.positions.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'fr'); });
+    var repl = {};
     var saveLines = function (ev, lines) {
       req('PUT', 'events/' + ev.id, { lines: lines }).then(function (d) {
         var i = S.events.findIndex(function (x) { return x.id === ev.id; });
@@ -502,7 +561,9 @@
     var lineNode = function (ev, l, i) {
       var key = 'evl:' + ev.id + ':' + i;
       if (S.editing !== key) {
-        var b = btn('horaireEvent', (l.positionId == null ? '?' : posName(l.positionId)) + ' · +' + l.count, function () { if (!past) { S.editing = key; renderEventsTable(); } });
+        var rep = repl[ev.id + ':' + i];
+        var label = (l.positionId == null ? '?' : posName(l.positionId)) + ' · ' + (rep ? l.count + ' (' + tr('remplace') + ' ' + rep.take + ' ' + tr('de la zone') + ' ' + rep.zone + ') → +' + rep.extra : '+' + l.count);
+        var b = btn('horaireEvent', label, function () { if (!past) { S.editing = key; renderEventsTable(); } });
         if (past) b.disabled = true;
         return b;
       }
@@ -534,6 +595,7 @@
     var cell = function (svc) {
       return function (i, c) {
         var day = addDays(S.week, i);
+        repl = zoneReplaced(day, svc);
         S.events.filter(function (e) { return e.day === day && e.service === svc; }).forEach(function (ev, k) {
           var card = el('div', 'horaireEvCard');
           var head = el('div', 'horaireEvHead');
@@ -546,6 +608,23 @@
             }, tr('Retirer l’événement')));
           }
           card.appendChild(head);
+          // Zone occupée (facultatif) : menu uni avec « Aucune » et les zones ; texte lu à l'import non reconnu : « Zone lue : “…” ».
+          if ((S.zones || []).length) {
+            var zl = el('label', 'horaireEvZone');
+            zl.appendChild(el('span', null, tr('Zone occupée')));
+            var zs = el('select', 'horaireInput'); zs.setAttribute('aria-label', tr('Zone occupée'));
+            var none = el('option', null, tr('Aucune')); none.value = ''; zs.appendChild(none);
+            S.zones.forEach(function (z) { var o = el('option', null, z.name); o.value = String(z.id); zs.appendChild(o); });
+            zs.value = ev.zoneId == null ? '' : String(ev.zoneId);
+            zs.disabled = past;
+            zs.addEventListener('change', function () {
+              req('PUT', 'events/' + ev.id, { zoneId: zs.value ? Number(zs.value) : null }).then(function (d) {
+                var x = S.events.findIndex(function (y) { return y.id === ev.id; }); if (x >= 0 && d.event) S.events[x] = d.event; renderEventsTable();
+              }, fail);
+            });
+            zl.appendChild(zs); card.appendChild(zl);
+          }
+          if (ev.zoneId == null && ev.zoneRead) card.appendChild(el('span', 'horaireEvRead', tr('Zone lue :') + ' “' + ev.zoneRead + '”'));
           (ev.lines || []).forEach(function (l, j) { card.appendChild(lineNode(ev, l, j)); });
           if (!past) {
             card.appendChild(TMT.ui.addBtn(tr('Ajouter un poste'), function () {

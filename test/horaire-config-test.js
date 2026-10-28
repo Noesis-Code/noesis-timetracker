@@ -165,8 +165,17 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     r = await call('POST', 'weeks/' + W + '/import/events', { csv }, 'uC');
     evs = h.listEvents('uC', W, '2026-11-08').filter((e) => e.covers != null);
     assert(evs.length === 3 && evs.find((e) => e.covers === 40).lines[0].count === 4, 'réimport : remplace les événements importés (pas de double), ratio du compte (10)');
+    // Zones : la zone lue est choisie d'office si elle correspond (casse et accents ignorés), sinon gardée comme texte lu
+    const haut = (await call('POST', 'zones', { name: 'Étage Haut', evening: 4 }, 'uC')).body.zone;
+    r = await call('POST', 'weeks/' + W + '/import/events', { csv: 'date;service;heure;couverts;zone\n2026-11-06;soir;19:00;80;etage haut\n2026-11-06;soir;20:00;20;tables 20-28\n' }, 'uC');
+    const fri = h.listEvents('uC', '2026-11-06', '2026-11-06').filter((e) => e.covers != null);
+    assert(r.status === 200 && fri.find((e) => e.covers === 80).zoneId === haut.id && fri.find((e) => e.covers === 20).zoneId === null && fri.find((e) => e.covers === 20).zoneRead === 'tables 20-28', 'import : zone reconnue choisie d’office ; zone inconnue gardée comme « zone lue »');
+    r = await call('PUT', 'events/' + fri.find((e) => e.covers === 20).id, { zoneId: haut.id }, 'uC');
+    assert(r.status === 200 && r.body.event.zoneId === haut.id && r.body.event.zoneRead === null && r.body.event.lines.length === 1, 'zone associée à la main : texte lu effacé, lignes intactes');
+    assert((await call('POST', 'zones', { name: 'X', morning: 60 }, 'uC')).status === 400 && (await call('PUT', 'zones/' + haut.id, { evening: 3 }, 'uB')).status === 404, 'zones : bornes et autre compte refusés');
+    assert((await call('DELETE', 'zones/' + haut.id, undefined, 'uC')).status === 200 && h.listEvents('uC', '2026-11-06', '2026-11-06').every((e) => e.zoneId == null), 'zone retirée : les événements n’en ont plus, rien d’autre effacé');
     const prompt = require('../server/lib/horaire-prompt').eventsPromptFor(W, h.getPrompts('uC').eventsPrompt.isDefault ? null : 'x');
-    assert(/^SEMAINE À LIRE : du lundi 2 novembre au dimanche 8 novembre 2026\./.test(prompt) && prompt.includes('date;service;heure;couverts') && /JAMAIS le nom d'un client/.test(prompt), 'prompt des événements : daté, en-tête, aucune donnée de client');
+    assert(/^SEMAINE À LIRE : du lundi 2 novembre au dimanche 8 novembre 2026\./.test(prompt) && prompt.includes('date;service;heure;couverts;zone') && /JAMAIS le nom d'un client/.test(prompt), 'prompt des événements : daté, en-tête, aucune donnée de client');
   }
   // ---- Heures : min ≤ cible ≤ max ----
   r = await call('PUT', 'employees/' + first.id, { wantHoursMin: 12, wantHoursTarget: 20, wantHoursMax: 24 }, 'uC');

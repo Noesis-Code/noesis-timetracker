@@ -313,8 +313,8 @@ function deleteNeed(u, id) {
 // ---------- événements spéciaux (remplacent le modèle normal pour leur date) ----------
 function listEvents(u, from, to) {
   const evs = (from && to)
-    ? db.prepare('SELECT id, day, label, service, extra, positionId, covers FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
-    : db.prepare('SELECT id, day, label, service, extra, positionId, covers FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
+    ? db.prepare('SELECT id, day, label, service, extra, positionId, covers, zoneId, zoneRead FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
+    : db.prepare('SELECT id, day, label, service, extra, positionId, covers, zoneId, zoneRead FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
   const needs = db.prepare('SELECT eventId, positionId, start, end, count FROM horaire_needs WHERE userId = ? AND eventId IS NOT NULL ORDER BY start').all(u);
   // lines (événement d'un service) : ses lignes « poste · +N » ; ancienne ligne (positionId, extra) = un événement d'une seule ligne.
   return evs.map((e) => {
@@ -326,13 +326,14 @@ function listEvents(u, from, to) {
 // Événement d'un service (28 oct. 2026) : { day, service, covers (facultatif), lines: [{ positionId, count }] } ; ses lignes sont
 // enregistrées comme besoins de l'événement (heure du service ; la génération les place à la première arrivée du poste).
 const SERVICE_SPAN = { matin: ['10:30', '16:00'], soir: ['16:00', '23:59'] };
-function writeServiceEvent(u, id, { day, service, covers, lines }) {
+function writeServiceEvent(u, id, { day, service, covers, lines, zoneId, zoneRead }) {
   db.exec('BEGIN');
   try {
     let eventId = id;
     const c = covers == null ? null : covers;
-    if (eventId) db.prepare('UPDATE horaire_events SET day = ?, service = ?, covers = ?, extra = NULL, positionId = NULL WHERE id = ? AND userId = ?').run(day, service, c, eventId, u);
-    else eventId = Number(db.prepare('INSERT INTO horaire_events (userId, day, label, service, covers) VALUES (?, ?, ?, ?, ?)').run(u, day, 'Événement', service, c).lastInsertRowid);
+    const z = zoneId == null ? null : Number(zoneId), zr = zoneRead || null;
+    if (eventId) db.prepare('UPDATE horaire_events SET day = ?, service = ?, covers = ?, zoneId = ?, zoneRead = ?, extra = NULL, positionId = NULL WHERE id = ? AND userId = ?').run(day, service, c, z, zr, eventId, u);
+    else eventId = Number(db.prepare('INSERT INTO horaire_events (userId, day, label, service, covers, zoneId, zoneRead) VALUES (?, ?, ?, ?, ?, ?, ?)').run(u, day, 'Événement', service, c, z, zr).lastInsertRowid);
     db.prepare('DELETE FROM horaire_needs WHERE userId = ? AND eventId = ?').run(u, eventId);
     const ins = db.prepare('INSERT INTO horaire_needs (userId, positionId, weekday, eventId, start, end, count) VALUES (?, ?, NULL, ?, ?, ?, ?)');
     const [s, e] = SERVICE_SPAN[service];
@@ -360,6 +361,33 @@ function writeEvent(u, id, { day, label, needs, service, extra, positionId }) {
 function deleteEvent(u, id) {
   const i = Number(id);
   return cascade(u, [['DELETE FROM horaire_needs WHERE eventId = ? AND userId = ?', i], ['DELETE FROM horaire_events WHERE id = ? AND userId = ?', i]]);
+}
+
+// ---------- zones de la salle (serveurs habituels par zone, matin et soir) ----------
+function listZones(u) { return db.prepare('SELECT id, name, morning, evening FROM horaire_zones WHERE userId = ? ORDER BY id').all(u); }
+const ownZone = (u, id) => db.prepare('SELECT * FROM horaire_zones WHERE id = ? AND userId = ?').get(Number(id), u) || null;
+function createZone(u, f) {
+  const r = db.prepare('INSERT INTO horaire_zones (userId, name, morning, evening, createdAt) VALUES (?, ?, ?, ?, ?)').run(u, f.name || '', f.morning || 0, f.evening || 0, nowIso());
+  return ownZone(u, r.lastInsertRowid);
+}
+function updateZone(u, id, f) {
+  const z = ownZone(u, id);
+  if (!z) return null;
+  db.prepare('UPDATE horaire_zones SET name = ?, morning = ?, evening = ? WHERE id = ? AND userId = ?')
+    .run(f.name !== undefined ? f.name : z.name, f.morning !== undefined ? f.morning : z.morning, f.evening !== undefined ? f.evening : z.evening, z.id, u);
+  return ownZone(u, z.id);
+}
+// Retirer une zone : les événements qui l'occupaient n'en ont plus (aucune autre donnée touchée).
+function deleteZone(u, id) {
+  const z = ownZone(u, id);
+  if (!z) return false;
+  db.prepare('UPDATE horaire_events SET zoneId = NULL WHERE userId = ? AND zoneId = ?').run(u, z.id);
+  return db.prepare('DELETE FROM horaire_zones WHERE id = ? AND userId = ?').run(z.id, u).changes > 0;
+}
+// Zone lue à l'import (nom de section ou liste de tables) : la zone du tableau de même nom (casse et accents ignorés), sinon null.
+function matchZone(u, text) {
+  const t = fold(text);
+  return t ? (listZones(u).find((z) => fold(z.name) === t) || null) : null;
 }
 
 // ---------- génération et lecture d'une semaine ----------
@@ -397,6 +425,8 @@ function generate(u, weekStart) {
     events: listEvents(u, days[0], days[6]),
     rotation: rot,
     arrivalPositions: arrivalPositionIds(u),
+    zones: listZones(u),
+    serverPositionId: (serverPosition(u) || {}).id,
   });
   db.exec('BEGIN');
   try {
@@ -783,7 +813,7 @@ function importEventsCsv(u, weekStart, text) {
   const res = { groups: 0, lines: [], skipped: [], otherWeeks: {}, otherLines: 0, ratio: COVERS_RATIO };
   if (!rows.length) { res.otherWeeks = []; return res; }
   const { idx, data } = columns(rows, {
-    day: ['date', 'jour', 'day'], service: ['service'], time: ['heure', 'time', 'debut'], covers: ['couverts', 'covers', 'personnes', 'taille'],
+    day: ['date', 'jour', 'day'], service: ['service'], time: ['heure', 'time', 'debut'], covers: ['couverts', 'covers', 'personnes', 'taille'], zone: ['zone', 'section', 'tables'],
   });
   const pos = serverPosition(u);
   const ratio = (pos && pos.openTableCovers) || COVERS_RATIO;
@@ -798,7 +828,7 @@ function importEventsCsv(u, weekStart, text) {
     if (service !== 'matin' && service !== 'soir') service = time ? (gen.toMin(time) >= gen.EVENING_FROM ? 'soir' : 'matin') : '';
     const c = Number(String(cells[idx.covers] || '').replace(/[^\d]/g, ''));
     if (!day || !service || !(c >= 1)) { res.skipped.push({ line: n + 1 }); return; }
-    groups.push([day, service, Math.min(5000, c)]);
+    groups.push([day, service, Math.min(5000, c), cleanName(String(cells[idx.zone] || ''), LIMITS.label)]);
     res.groups += 1;
   });
   if (pos && groups.length) {
@@ -806,9 +836,11 @@ function importEventsCsv(u, weekStart, text) {
     const keys = new Set(groups.map(([d, s]) => d + '|' + s));
     listEvents(u, days[0], days[6]).filter((e) => e.covers != null && keys.has(e.day + '|' + e.service)).forEach((e) => deleteEvent(u, e.id));
     const sum = new Map();
-    groups.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[1] === 'matin' ? -1 : 1) - (b[1] === 'matin' ? -1 : 1))).forEach(([day, service, c]) => {
+    groups.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[1] === 'matin' ? -1 : 1) - (b[1] === 'matin' ? -1 : 1))).forEach(([day, service, c, zone]) => {
       const extra = Math.min(50, Math.ceil(c / ratio));
-      writeServiceEvent(u, null, { day, service, covers: c, lines: [{ positionId: pos.id, count: extra }] });
+      // Zone du tableau reconnue : choisie d'office ; sinon le texte lu est gardé (« Zone lue : … ») pour que le gérant l'associe.
+      const z = matchZone(u, zone);
+      writeServiceEvent(u, null, { day, service, covers: c, lines: [{ positionId: pos.id, count: extra }], zoneId: z ? z.id : null, zoneRead: z ? null : (zone || null) });
       const k = day + '|' + service;
       sum.set(k, (sum.get(k) || 0) + extra);
     });
@@ -895,7 +927,7 @@ module.exports = {
   DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  importEventsCsv, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
+  importEventsCsv, serverPosition, writeServiceEvent, listZones, ownZone, createZone, updateZone, deleteZone, matchZone, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,

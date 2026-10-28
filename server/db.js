@@ -2743,9 +2743,23 @@ for (const t of ['horaire_availabilities', 'horaire_timeoff']) {
 // Événement « Groupe » (28 oct. 2026) : service (matin | soir) et serveurs en plus ; NULL = ancien événement (ses besoins remplacent).
 // Poste d'un groupe (28 oct. 2026, plusieurs postes) : NULL = ancien groupe (première arrivée du service, tous postes confondus).
 // Couverts d'un événement importé (28 oct. 2026, réservation de groupe) : NULL = événement saisi à la main.
-for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER'], ['covers', 'INTEGER']]) {
+// Zone occupée par un événement (28 oct. 2026) : zoneId = zone du tableau Zones ; zoneRead = texte lu à l'import, non reconnu.
+for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER'], ['covers', 'INTEGER'], ['zoneId', 'INTEGER'], ['zoneRead', 'TEXT']]) {
   if (!db.prepare('PRAGMA table_info(horaire_events)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_events ADD COLUMN ' + col + ' ' + type);
 }
+// Zones de la salle (28 oct. 2026, demande d'Émilien) : serveurs qui couvrent habituellement chaque zone, le matin et le soir.
+// Un événement qui occupe une zone REMPLACE ces serveurs au lieu de s'y ajouter (server/lib/horaire-generation.js).
+db.exec(`
+CREATE TABLE IF NOT EXISTS horaire_zones (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL DEFAULT '',
+  morning INTEGER NOT NULL DEFAULT 0,
+  evening INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_horaire_zones_user ON horaire_zones(userId);
+`);
 // Règles du restaurant (28 oct. 2026) : JSON { off: ['r2'...], prefOrder: ['r5','r6','r7'], free: [{ id, text }] } ; NULL = toutes actives.
 if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === 'restaurantRules')) db.exec('ALTER TABLE horaire_settings ADD COLUMN restaurantRules TEXT');
 // Règles de catégorie (28 oct. 2026) : catégorie = rang de qualification (1 = priorité la plus haute) ; chaque règle s'applique
