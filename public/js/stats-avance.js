@@ -106,7 +106,8 @@
         (commit ? d.cur : d.nb).classList.add('hidden');
         if (commit) d.commit(); else if (d.cancel) d.cancel();
       }
-      d.cur.addEventListener('transitionend', end, { once: true });
+      // Seule la fin de la transition de la page elle-même compte : un transitionend remonté d'un enfant (barre de progression, bouton…) terminait le glissement à mi-course.
+      d.cur.addEventListener('transitionend', function (ev) { if (ev.target === d.cur) end(); });
       setTimeout(end, 320);
     }
     zone.addEventListener('touchend', function (e) { finish(e, false); }, { passive: true });
