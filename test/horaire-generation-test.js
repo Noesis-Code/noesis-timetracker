@@ -263,6 +263,19 @@ const evenings = (n) => Array.from({ length: n }, (_, wd) => ({ positionId: 1, w
   r = generateSchedule(Object.assign({}, base, { fixed: [{ employeeId: 10, positionId: 1, day: D[0], start: '10:00', end: '17:00' }] }));
   assert(r.reasonsFor(10, slot).includes('au max'), 'menus : au max (7 h + 6 h > 12 h)');
 }
+// ---- G2 : chaque double et chaque placement contraire à une note produit une ligne « À vérifier » ----
+{
+  r = generateSchedule({
+    weekStart: W, positions: [{ id: 1, fillOrder: 0 }],
+    employees: [{ id: 10, note: 'Soirs d’abord' }],
+    qualifications: [{ employeeId: 10, positionId: 1, rank: 1 }],
+    availabilities: allDay([10], D),
+    needs: [{ positionId: 1, weekday: 2, start: '10:00', end: '15:00', count: 1 }, { positionId: 1, weekday: 2, start: '17:00', end: '22:00', count: 1 }],
+  });
+  const v = r.alerts.filter((a) => a.type === 'verifier');
+  assert(r.assignments.length === 2 && v.some((a) => a.why === 'double' && a.day === D[2]), 'G2 : double (matin et soir le même jour) signalé');
+  assert(v.some((a) => a.why === 'note : soirs d’abord' && a.start === '10:00'), 'G2 : matin donné à « Soirs d’abord » signalé');
+}
 // ---- Heures de fin des services (28 oct. 2026) : matin 17:00, soir 23:00, vendredi minuit ; valeur du compte prise en compte ----
 {
   const { range, defaultServiceEnd } = require('../server/lib/horaire-generation');

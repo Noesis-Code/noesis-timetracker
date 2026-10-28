@@ -107,8 +107,8 @@ function slotOf(a) {
   if (!r) return null;
   return { positionId: Number(a.positionId), day: a.day, weekday: (new Date(a.day + 'T00:00:00Z').getUTCDay() + 6) % 7, start: a.start, end: a.end, from: r[0], to: r[1], minutes: r[1] - r[0], eventId: null };
 }
-// Raisons qui ne produisent pas (encore) de ligne « À vérifier » (G2 les ajoute).
-const ALERT_SKIP = ['double', 'soirs d’abord', 'matins d’abord'];
+// Raisons qui ne produisent pas de ligne « À vérifier » : aucune (G2 : chaque double et chaque placement contraire à une note en produit une).
+const ALERT_SKIP = [];
 
 /**
  * @param {object} input
