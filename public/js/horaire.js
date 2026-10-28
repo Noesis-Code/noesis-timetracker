@@ -1240,6 +1240,7 @@
     }
     if (a.type === 'demander') return tr('demander à') + ' ' + (a.employeeName || '?') + ' ' + tr('s’il peut travailler') + ' ' + tr(DAYS[weekdayOf(a.day)]).toLowerCase() + ' ' + tr(serviceOf(a.start)) + '.';
     if (a.type === 'maximum') return (a.employeeName || '?') + ' ' + tr('a') + ' ' + hoursText(Math.round((a.minutes || 0) / 30) / 2) + ' h, ' + tr('maximum') + ' ' + hoursText(a.wantHoursMax) + ' h.';
+    if (a.type === 'surcible') return (a.employeeName || '?') + ' ' + tr('reçoit plus que sa cible') + ' (' + hoursText(Math.round((a.minutes || 0) / 30) / 2) + ' h ' + tr('pour une cible de') + ' ' + hoursText(a.wantHoursTarget) + ' h).';
     if (a.type === 'depassement') return (a.employeeName || '?') + ' ' + tr('dépasse son max') + ' (' + hoursText(Math.round((a.minutes || 0) / 30) / 2) + ' h ' + tr('pour un max de') + ' ' + hoursText(a.wantHoursMax) + ' h, ' + tr('cible') + ' ' + hoursText(a.wantHoursTarget) + ' h).';
     if (a.type === 'verifier') return (a.employeeName || '?') + ', ' + tr(DAYS[weekdayOf(a.day)]).toLowerCase() + (a.start ? ' ' + tr(serviceOf(a.start)) : '') + ' : ' + tr(a.why) + '.';
     if (a.type === 'minimum') return (a.employeeName || '?') + ' ' + tr('a') + ' ' + hoursText(Math.round((a.minutes || 0) / 30) / 2) + ' h, ' + tr('minimum') + ' ' + hoursText(a.wantHoursMin) + ' h.';

@@ -302,14 +302,14 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
   assert((await call('POST', 'events', { day: '2026-11-07', service: 'matin', extra: 0 }, 'uC')).status === 400, 'groupe à 0 refusé (0 = on le retire)');
   // ---- Règles du restaurant : une liste de textes ----
   r = await call('GET', 'restaurant-rules', undefined, 'uC');
-  assert(r.status === 200 && r.body.rules.list.length === 11 && r.body.rules.list[0].text === h.DEFAULT_RESTAURANT_RULES[0] && !r.body.rules.list[0].positions, 'règles du restaurant : les 9 règles de départ (tous les postes) puis les 2 règles d’arrivée');
-  assert(r.body.rules.list[9].text === h.ARRIVAL_RULES[0] && r.body.rules.list[9].positions.join() === 'Serveur' && r.body.rules.list.some((x) => /priment sur toutes les règles/.test(x.text)), 'règles d’arrivée du soir : portée Serveur ; « les notes priment » dans la liste de départ');
+  assert(r.status === 200 && r.body.rules.list.length === h.DEFAULT_RESTAURANT_RULES.length + 2 && r.body.rules.list[0].text === h.DEFAULT_RESTAURANT_RULES[0] && !r.body.rules.list[0].positions, 'règles du restaurant : les règles de départ (tous les postes) puis les 2 règles d’arrivée');
+  assert(r.body.rules.list[h.DEFAULT_RESTAURANT_RULES.length].text === h.ARRIVAL_RULES[0] && r.body.rules.list[h.DEFAULT_RESTAURANT_RULES.length].positions.join() === 'Serveur' && r.body.rules.list.some((x) => /priment sur toutes les règles/.test(x.text)), 'règles d’arrivée du soir : portée Serveur ; « les notes priment » dans la liste de départ');
   r = await call('PUT', 'restaurant-rules', { list: ['  Un serveur au bar le vendredi  ', '', 'Deux le samedi'] }, 'uC');
   assert(r.status === 200 && r.body.rules.list.map((x) => x.text).join('|') === 'Un serveur au bar le vendredi|Deux le samedi', 'liste enregistrée, ligne vide retirée');
   r = await call('PUT', 'restaurant-rules', { list: [{ text: 'Au bar', positions: ['Barman', 'Inconnu'] }, { text: 'Pour tous', positions: [] }] }, 'uC');
   assert(r.status === 200 && r.body.rules.list[0].positions.join() === 'Barman' && r.body.rules.list[1].positions === null, 'portée : postes connus seulement ; liste vide = tous les postes');
   assert((await call('PUT', 'restaurant-rules', { list: 'x' }, 'uC')).status === 400, 'liste invalide refusée');
-  assert(h.getRestaurantRules('uB').list.length === 11, 'règles du restaurant : propres au compte');
+  assert(h.getRestaurantRules('uB').list.length === h.DEFAULT_RESTAURANT_RULES.length + 2, 'règles du restaurant : propres au compte');
   r = await call('PUT', 'category-rules', { rank: 2, rule: 'noDouble' });
   assert(r.status === 200 && r.body.rules.some((x) => x.rank === 2 && x.rule === 'noDouble'), 'PUT category-rules : règle ajoutée');
   assert((await call('PUT', 'category-rules', { rank: 2, rule: 'inventee' })).status === 400, 'règle hors liste refusée');

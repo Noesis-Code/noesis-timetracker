@@ -221,7 +221,7 @@ function removeEmployeeRule(u, id) {
 // Affichée à la page 1 et reprise telle quelle dans le prompt pour l'IA ; le générateur ne la lit pas (logique interne fixe).
 // Liste de départ : les 9 règles d'origine, puis les anciennes règles libres. Les anciens réglages (off, prefOrder, free) restent en base, ignorés.
 const DEFAULT_RESTAURANT_RULES = [
-  'Jamais sur un service où l’employé est indisponible.', 'Jamais plus que son maximum d’heures, sauf si sa cible le dépasse et qu’il reste des quarts (catégorie 1 d’abord).',
+  'Jamais sur un service où l’employé est indisponible.', 'Jamais plus que son maximum, sauf pour qui veut plus (cible au-dessus du max) et seulement s’il reste des quarts.', 'En dernier recours, jusqu’au maximum pour ceux dont la cible est plus basse.',
   'Les notes des employés priment sur toutes les règles.', 'Exactement le nombre demandé à chaque heure d’arrivée.',
   'Le plus de soirs à la catégorie 1, puis 2, 3 et 4.', 'Éviter les doubles (matin et soir le même jour).', 'Éviter fermeture puis ouverture le lendemain.',
   'Au-delà de son maximum, seulement jusqu’à sa cible, s’il reste des quarts, catégorie 1 d’abord.', 'En dernier recours, proposer un employé indisponible à qui demander.',
@@ -1011,6 +1011,28 @@ function weekCovers(u, weekStart) {
   return db.prepare('SELECT day, service, covers FROM horaire_covers WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, service')
     .all(u, weekStart, gen.addDays(weekStart, 6));
 }
+
+// Mise à jour ponctuelle demandée et acceptée par Émilien (29 oct. 2026) : dans SA liste de règles (compte staging), la règle exacte
+// « Jamais plus que son maximum d'heures. » est remplacée par les deux nouvelles (mêmes postes). Une seule fois (horaire_migrations) ;
+// aucun autre compte ni aucune autre règle n'est touché. Sans ce compte dans la base (production, autres environnements) : rien.
+(function updateEmilienMaxRule() {
+  const NAME = 'emilien-regle-max-2026-10-29', ID = 'b0632977-add9-401d-97de-f4311173f711', OLD = 'Jamais plus que son maximum d’heures.';
+  const NEW = ['Jamais plus que son maximum, sauf pour qui veut plus (cible au-dessus du max) et seulement s’il reste des quarts.', 'En dernier recours, jusqu’au maximum pour ceux dont la cible est plus basse.'];
+  try {
+    if (db.prepare('SELECT 1 FROM horaire_migrations WHERE name = ?').get(NAME)) return;
+    if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(ID)) return;
+    const v = readRestaurantRules(ID);
+    if (Array.isArray(v.list)) {
+      const i = v.list.findIndex((r) => (typeof r === 'string' ? r : r && r.text) === OLD);
+      if (i >= 0) {
+        const pos = typeof v.list[i] === 'string' ? null : (v.list[i].positions || null);
+        v.list.splice(i, 1, ...NEW.map((text) => ({ text, positions: pos })));
+        db.prepare('UPDATE horaire_settings SET restaurantRules = ? WHERE userId = ?').run(JSON.stringify(v), ID);
+      }
+    }
+    db.prepare('INSERT INTO horaire_migrations (name, doneAt) VALUES (?, ?)').run(NAME, nowIso());
+  } catch (e) { /* réessayé au prochain démarrage */ }
+})();
 
 module.exports = {
   importReservationsCsv, weekCovers, normDate,

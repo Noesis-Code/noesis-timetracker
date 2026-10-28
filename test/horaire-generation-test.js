@@ -317,6 +317,16 @@ const evenings = (n) => Array.from({ length: n }, (_, wd) => ({ positionId: 1, w
   r = generateSchedule(base(needs.slice(0, 4))); // 8 quarts = 40 h : A 20 h + B 20 h, tout est comblé
   assert(r.assignments.filter((a) => a.employeeId === 10).length * 5 <= 20 && !r.alerts.some((a) => a.type === 'depassement'), 'passe 4 seulement s’il reste des trous : aucun dépassement quand tout est comblé');
 }
+// ---- Ordre (29 oct. 2026) : ce que chacun veut d'abord ; qui veut plus (P3) avant le dernier recours jusqu'au max (P4) ----
+{
+  // 9 matins de 5 h. A (cat. 1) : cible 30 h, max 20 h (veut plus). B (cat. 2) : cible 10 h, max 25 h.
+  const needs = [0, 1, 2, 3, 4].map((wd) => ({ positionId: 1, weekday: wd, start: '10:00', end: '15:00', count: wd < 4 ? 2 : 1 }));
+  r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursTarget: 30, wantHoursMax: 20 },
+    { id: 11, maxWeekMinutes: null, wantHoursTarget: 10, wantHoursMax: 25, rank: 2 }], { needs }));
+  const hh = (id) => r.assignments.filter((a) => a.employeeId === id).length * 5;
+  assert(hh(10) === 25 && hh(11) === 20, 'ordre : la catégorie 1 qui veut plus (A, 25 h) est servie avant que B (cible 10 h) dépasse sa cible (20 h)');
+  assert(r.alerts.some((a) => a.type === 'surcible' && a.employeeId === 11 && a.minutes === 20 * 60) && r.alerts.some((a) => a.type === 'depassement' && a.employeeId === 10), 'ordre : « reçoit plus que sa cible » pour B, « dépasse son max » pour A');
+}
 // ---- Heures de fin des services (28 oct. 2026) : matin 17:00, soir 23:00, vendredi minuit ; valeur du compte prise en compte ----
 {
   const { range, defaultServiceEnd } = require('../server/lib/horaire-generation');
