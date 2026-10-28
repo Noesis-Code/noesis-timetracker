@@ -347,7 +347,10 @@ function listEvents(u, from, to) {
   return evs.map((e) => {
     e.floorId = e.zoneId == null ? null : e.zoneId; // plancher occupé (colonne zoneId)
     const own = needs.filter((n) => n.eventId === e.id).map(({ eventId, ...n }) => n);
-    const lines = e.service ? (own.length ? own.map((n) => ({ positionId: n.positionId, count: n.count })) : (e.extra > 0 ? [{ positionId: e.positionId, count: e.extra }] : [])) : undefined;
+    const lines = e.service ? (own.length ? own.map((n) => ({ positionId: n.positionId, count: n.count })) : (e.extra > 0 ? [{ positionId: e.positionId, count: e.extra }] : [])) : own.map((n) => ({ positionId: n.positionId, count: n.count }));
+    // Ancien événement sans service (ses besoins remplacent le modèle) : affiché dans le calendrier sous le service de ses besoins
+    // (shownService), pour qu'on puisse le voir, le modifier ou le supprimer ; la génération le traite toujours comme avant.
+    if (!e.service) e.shownService = own.length && gen.toMin(own[0].start) >= gen.EVENING_FROM ? 'soir' : 'matin';
     return { ...e, needs: own, lines };
   });
 }

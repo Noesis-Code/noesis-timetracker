@@ -246,6 +246,16 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     assert(r.status === 200 && r.body.event.floorId === fl.id, 'événement : plancher choisi');
     assert((await call('PUT', 'events/' + e1.id, { floorId: 999999 }, 'uC')).status === 404 && (await call('PUT', 'events/' + e1.id, { floorId: null }, 'uC')).body.event.floorId === null, 'événement : plancher inconnu refusé, « Aucun » accepté');
   }
+  // ---- Suppression : ancien événement converti (groupe poste + nombre) et ancien événement sans service (besoins) ----
+  {
+    const dbx = require('../server/db'); const [p1] = h.listPositions('uC');
+    const g = Number(dbx.prepare("INSERT INTO horaire_events (userId, day, label, service, extra, positionId) VALUES ('uC', '2027-03-02', 'Groupe', 'matin', 2, ?)").run(p1.id).lastInsertRowid);
+    const o = Number(dbx.prepare("INSERT INTO horaire_events (userId, day, label) VALUES ('uC', '2027-03-02', 'Ancien')").run().lastInsertRowid);
+    dbx.prepare("INSERT INTO horaire_needs (userId, positionId, weekday, eventId, start, end, count) VALUES ('uC', ?, NULL, ?, '10:30', '16:00', 2)").run(p1.id, o);
+    const old = h.listEvents('uC', '2027-03-02', '2027-03-02').find((e) => e.id === o);
+    assert(old && old.shownService === 'matin' && old.lines.length === 1 && old.lines[0].count === 2, 'ancien événement sans service : affiché le matin (service de ses besoins), avec ses lignes');
+    assert((await call('DELETE', 'events/' + g, undefined, 'uC')).status === 200 && (await call('DELETE', 'events/' + o, undefined, 'uC')).status === 200 && !h.listEvents('uC', '2027-03-02', '2027-03-02').some((e) => e.id === g || e.id === o) && !dbx.prepare('SELECT 1 FROM horaire_needs WHERE eventId = ?').get(o), 'suppression : événement converti et événement sans service supprimés (lignes comprises)');
+  }
   // ---- Réception automatique du rapport de réservations (courriel entrant) ----
   {
     delete process.env.HORAIRE_INBOUND_DOMAIN;

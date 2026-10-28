@@ -579,7 +579,7 @@
   function floorReplaced(day, svc) {
     var wd = weekdayOf(day), left = {}, out = {};
     var isFloorPos = function (pid) { var p = S.positions.find(function (x) { return x.id === pid; }); return !!p && ['serveur', 'barman', 'commis'].indexOf(foldNote(p.name)) >= 0; };
-    S.events.filter(function (e) { return e.day === day && e.service === svc; }).sort(function (a, b) { return a.id - b.id; }).forEach(function (ev) {
+    S.events.filter(function (e) { return e.day === day && evSvc(e) === svc; }).sort(function (a, b) { return a.id - b.id; }).forEach(function (ev) {
       var f = ev.floorId != null && (S.floors || []).find(function (x) { return x.id === ev.floorId; });
       (ev.lines || []).forEach(function (l, i) {
         if (!f || !isFloorPos(l.positionId)) return;
@@ -591,18 +591,23 @@
     });
     return out;
   }
+  // Service affiché d'un événement (ancien événement sans service : celui de ses besoins).
+  function evSvc(e) { return e.service || e.shownService || null; }
+  // Échec d'une action du calendrier : le message du serveur s'affiche en tête du calendrier (jamais ignoré, jamais hors de vue).
+  function failCal(err) { S.calMsg = (err && err.message) || tr('Erreur serveur'); renderEventsTable(); }
   function todayIso() { return isoLocal(new Date()); }
   function renderEventsTable() {
     eventsBox.textContent = '';
+    if (S.calMsg) eventsBox.appendChild(el('p', 'horaireMsg', S.calMsg));
     var cal = S.cal || (S.cal = { view: 'month', date: S.week < todayIso() ? todayIso() : S.week });
     var past = false;
     var names = S.positions.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'fr'); });
     var saveLines = function (ev, lines) {
-      req('PUT', 'events/' + ev.id, { lines: lines }).then(function (d) {
+      req('PUT', 'events/' + ev.id, { service: evSvc(ev), lines: lines }).then(function (d) {
         var i = S.events.findIndex(function (x) { return x.id === ev.id; });
         if (i >= 0 && d.event) S.events[i] = d.event;
         renderEventsTable();
-      }, function (err) { fail(err); refresh(); });
+      }, function (err) { failCal(err); refresh(); });
     };
     var lineNode = function (ev, l, i) {
       var key = 'evl:' + ev.id + ':' + i;
@@ -646,7 +651,7 @@
       {
         past = day < todayIso();
         repl = floorReplaced(day, svc);
-        S.events.filter(function (e) { return e.day === day && e.service === svc; }).forEach(function (ev, k) {
+        S.events.filter(function (e) { return e.day === day && evSvc(e) === svc; }).forEach(function (ev, k) {
           var card = el('div', 'horaireEvCard');
           var head = el('div', 'horaireEvHead');
           // Nom de l'événement, modifiable au clic (80 caractères au plus) ; anciens événements sans nom : « Événement N ».
@@ -656,12 +661,12 @@
           else editCell(nameCell, '', [['name', nm, 'Nom de l’événement']], function (v) {
             var t = String(v.name).trim().slice(0, 80);
             if (!t || t === nm) { renderEventsTable(); return; }
-            req('PUT', 'events/' + ev.id, { name: t }).then(function (d) { replaceEvent(d.event); }, fail);
+            req('PUT', 'events/' + ev.id, { service: evSvc(ev), name: t }).then(function (d) { replaceEvent(d.event); }, failCal);
           }, function (cell) { cell.appendChild(el('span', null, nm)); if (ev.covers) cell.appendChild(el('span', 'horaireMuted', ' · ' + ev.covers + ' ' + tr('couverts'))); });
           head.appendChild(nameCell);
           if (!past) {
             head.appendChild(TMT.ui.removeBtn(function () {
-              confirmDelete(tr('Supprimer cet événement ?'), function () { req('DELETE', 'events/' + ev.id).then(refresh, fail); });
+              confirmDelete(tr('Supprimer cet événement ?'), function () { req('DELETE', 'events/' + ev.id).then(function () { S.calMsg = ''; return refresh(); }, failCal); });
             }, tr('Retirer l’événement')));
           }
           card.appendChild(head);
@@ -675,7 +680,7 @@
             fs.value = ev.floorId == null ? '' : String(ev.floorId);
             fs.disabled = past;
             fs.addEventListener('change', function () {
-              req('PUT', 'events/' + ev.id, { floorId: fs.value ? Number(fs.value) : null }).then(function (d) { replaceEvent(d.event); }, fail);
+              req('PUT', 'events/' + ev.id, { service: evSvc(ev), floorId: fs.value ? Number(fs.value) : null }).then(function (d) { replaceEvent(d.event); }, failCal);
             });
             fl.appendChild(fs); card.appendChild(fl);
           }
@@ -692,18 +697,18 @@
         });
         if (past) return;
         var add = TMT.ui.addBtn(tr('Ajouter'), function () {
-          req('POST', 'events', { day: day, service: svc, lines: [] }).then(refresh, fail);
+          req('POST', 'events', { day: day, service: svc, lines: [] }).then(function () { S.calMsg = ''; return refresh(); }, failCal);
         });
         add.classList.add('horaireEvAdd');
         c.appendChild(add);
       }
     };
-    var hasEvents = function (day) { return S.events.some(function (e) { return e.day === day && e.service; }); };
+    var hasEvents = function (day) { return S.events.some(function (e) { return e.day === day && evSvc(e); }); };
     var ymd = function (y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); };
     // Bornes : jamais avant aujourd'hui (Jour), le mois en cours (Mois), l'année en cours (Année).
     var today = todayIso(), monthStart = today.slice(0, 8) + '01', yearStart = today.slice(0, 5) + '01-01';
     var floorOf = function (view) { return view === 'day' ? today : view === 'month' ? monthStart : yearStart; };
-    var go = function (view, date) { cal.view = view; cal.date = date < floorOf(view) ? (view === 'day' ? today : floorOf(view)) : date; S.editing = null; renderEventsTable(); };
+    var go = function (view, date) { S.calMsg = ''; cal.view = view; cal.date = date < floorOf(view) ? (view === 'day' ? today : floorOf(view)) : date; S.editing = null; renderEventsTable(); };
     if (cal.date < floorOf(cal.view)) cal.date = cal.view === 'day' ? today : floorOf(cal.view);
     var seg = el('div', 'cmpSeg horaireCalSeg'); seg.setAttribute('role', 'tablist');
     [['day', 'Jour'], ['month', 'Mois'], ['year', 'Année']].forEach(function (v) {
@@ -734,7 +739,7 @@
         b.appendChild(el('span', 'horaireCalNum', String(dd)));
         if (!isPast) ['matin', 'soir'].forEach(function (svc) {
           var rp = floorReplaced(day, svc);
-          S.events.filter(function (e) { return e.day === day && e.service === svc; }).forEach(function (ev, k) {
+          S.events.filter(function (e) { return e.day === day && evSvc(e) === svc; }).forEach(function (ev, k) {
             var n = 0; (ev.lines || []).forEach(function (l, i) { var r = rp[ev.id + ':' + i]; n += r ? r.extra : l.count; });
             var p = el('span', 'horaireCalPill', tr(svc === 'soir' ? 'Soir' : 'Matin') + ' · ' + evName(ev, k) + ' · ' + n); p.title = p.textContent;
             b.appendChild(p);
