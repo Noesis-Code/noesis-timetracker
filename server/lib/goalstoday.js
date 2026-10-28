@@ -11,8 +11,13 @@ function dayOf(d) {
 }
 function validToday(s) { return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : dayOf(new Date()); }
 
-function tasksToday(userId, todayParam) {
-  const today = validToday(todayParam);
+// dayParam (facultatif) : un autre jour à consulter (demain, après-demain, hier…). Jour courant : à faire = échéance aujourd'hui, en retard ou sans date.
+// Autre jour : à faire = échéance exactement ce jour-là ; faites = cochées ce jour-là, ou à l'échéance de ce jour (jour futur).
+function tasksToday(userId, todayParam, dayParam) {
+  const realToday = validToday(todayParam);
+  const day = typeof dayParam === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dayParam) ? dayParam : realToday;
+  const other = day !== realToday;
+  const today = day;
   const acts = db.prepare(`SELECT a.id, a.name, m.color FROM activities a JOIN activity_members m ON m.activityId = a.id
     WHERE m.userId = ? AND a.active = 1 ORDER BY a.name`).all(userId);
   const todo = [], done = [];
@@ -25,7 +30,10 @@ function tasksToday(userId, todayParam) {
         sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, dueDate: due,
         minutes: goalscapacity.taskMinutes(userId, a.id, t.poleKey, t.label),
       };
-      if (!t.done && due <= today) todo.push(row);
+      if (other) {
+        if (!t.done && t.dueDate === today) todo.push(row);
+        else if (t.done && ((t.doneAt && dayOf(new Date(t.doneAt)) === today) || (today > realToday && t.dueDate === today))) done.push(row);
+      } else if (!t.done && due <= today) todo.push(row);
       else if (t.done && t.doneAt && dayOf(new Date(t.doneAt)) === today) done.push(row);
     });
   });

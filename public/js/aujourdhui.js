@@ -28,8 +28,11 @@
     return r ? h + ' h ' + (r < 10 ? '0' : '') + r : h + ' h';
   }
   function localIso() { var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+  var dayOff = 0; // 0 = aujourd'hui, +1 = demain, -1 = hier…
+  function dayDate() { var d = new Date(); d.setDate(d.getDate() + dayOff); return d; }
+  function dayIso() { var d = dayDate(), p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
   function todayLabel() {
-    var s = new Date().toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+    var s = dayDate().toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'long', day: 'numeric', month: 'long' });
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
@@ -43,8 +46,14 @@
   function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length)); }
   function build(container) {
     root = el('div', 'tasksToday');
-    var head = el('div', 'tasksTodayHead');
-    head.appendChild(el('span', 'tasksPopDate', todayLabel()));
+    var head = el('div', 'tasksTodayHead cmpNav cmpNav--sm');
+    // Jour affiché au centre, flèches de part et d'autre (même modèle que le sélecteur de pôle, en plus petit) : demain, après-demain, hier…
+    var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Jour précédent'));
+    var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Jour suivant'));
+    ui.dayLabel = el('span', 'cmpNavLabel', todayLabel());
+    function go(n) { dayOff += n; ui.dayLabel.textContent = todayLabel(); state.added = []; refresh(); }
+    prev.addEventListener('click', function () { go(-1); }); next.addEventListener('click', function () { go(1); });
+    head.appendChild(prev); head.appendChild(ui.dayLabel); head.appendChild(next);
     var sum = el('div', 'tasksPopSum'); sumL = el('span'); sumR = el('span'); sum.appendChild(sumL); sum.appendChild(sumR);
     listBox = el('div', 'tasksPopList');
     root.appendChild(head); root.appendChild(sum); root.appendChild(listBox);
@@ -194,10 +203,10 @@
     listBox.textContent = '';
     var have = {}; d.tasks.forEach(function (t) { have[t.id] = true; });
     d.tasks = state.added.filter(function (a) { return !have[a.id]; }).concat(d.tasks);
-    if (!d.tasks.length) listBox.appendChild(el('p', 'tasksPopEmpty', tr('Rien pour aujourd’hui.')));
+    if (!d.tasks.length) listBox.appendChild(el('p', 'tasksPopEmpty', tr(dayOff === 0 ? 'Rien pour aujourd’hui.' : 'Rien ce jour-là.')));
     var doneShown = false;
     d.tasks.forEach(function (t) {
-      if (t.done && !doneShown) { doneShown = true; listBox.appendChild(el('p', 'tasksPopSection', tr('Faites aujourd’hui'))); }
+      if (t.done && !doneShown) { doneShown = true; listBox.appendChild(el('p', 'tasksPopSection', tr(dayOff === 0 ? 'Faites aujourd’hui' : 'Faites ce jour-là'))); }
       var row = el('div', 'tasksPopRow' + (t.done ? ' done' : ''));
       var cb = el('button', 'tasksPopCheck'); cb.type = 'button';
       cb.setAttribute('aria-label', tr(t.done ? 'Remettre à faire' : 'Marquer comme faite')); cb.setAttribute('aria-pressed', t.done ? 'true' : 'false');
@@ -237,13 +246,13 @@
   function refresh() {
     if (leaving > 0 || !root || !root.getClientRects().length) return; // vue masquée (autre volet, autre page) : rien à charger
     var seq = ++loadSeq;
-    TMT.api('GET', '/api/goals/today?today=' + localIso()).then(function (d) { if (seq === loadSeq && shown) render(d); }).catch(function () {});
+    TMT.api('GET', '/api/goals/today?today=' + localIso() + (dayOff ? '&day=' + dayIso() : '')).then(function (d) { if (seq === loadSeq && shown) render(d); }).catch(function () {});
   }
 
   var mounted = false;
   TMT.todayView = {
     mount: function (container) { if (mounted) return; mounted = true; build(container); },
     show: function () { shown = true; syncDock(); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
-    hide: function () { shown = false; syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
+    hide: function () { shown = false; dayOff = 0; if (ui.dayLabel) ui.dayLabel.textContent = todayLabel(); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();

@@ -1,6 +1,5 @@
 /* Page 1 de la Feuille de route, vue « Aujourd'hui » (27 oct. 2026, js/aujourdhui.js). Jetons seulement, espacements 8/12/16/24. */
 
-.tasksPopDate { font-size: 13px; color: var(--text-light); }
 .tasksPopSum { display: flex; justify-content: space-between; gap: 8px; padding: 0 16px 12px; font-size: 13px; color: var(--text-light); border-bottom: 1px solid var(--sep); }
 .tasksPopSum b { color: var(--text); }
 .tasksPopList { flex: 1 1 auto; min-height: 0; overflow-y: auto; }

@@ -4,7 +4,7 @@
    hors ligne, l'interface affiche l'état « Hors ligne » sans chiffres). Jamais en cache non plus : /link, toute requête non-GET.
    À l'activation, tout ancien cache de données (versions précédentes) est supprimé, ainsi qu'à la déconnexion.
    Pour forcer un renouvellement complet : incrémenter CACHE_VERSION. */
-var CACHE_VERSION = 'tt-v30';
+var CACHE_VERSION = 'tt-v31';
 var SHELL = CACHE_VERSION + '-shell';
 var SHELL_FILES = ['./', 'index.html', 'styles.css', 'tokens.css', 'composants.css', 'js/composants.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png',
   'js/i18n.js', 'js/format.js', 'js/demo-data.js', 'js/data.js', 'js/charts.js', 'js/screen-dashboard.js', 'js/screen-positions.js',

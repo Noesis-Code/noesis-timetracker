@@ -1649,6 +1649,10 @@
     "Choisis un pôle ou un secteur pour chaque activité.": "Choose a division or a sector for each activity.",
     "Pôle et secteur": "Division and sector",
     // ---- Page Objectifs (gabarits) ----
+    "Jour précédent": "Previous day",
+    "Jour suivant": "Next day",
+    "Faites ce jour-là": "Done that day",
+    "Rien ce jour-là.": "Nothing that day.",
     "Expansion — à venir.": "Expansion — coming soon.",
     "Elle n’est pas encore disponible.": "It is not available yet.",
     "Compris": "Got it",

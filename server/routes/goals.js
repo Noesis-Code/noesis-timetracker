@@ -875,7 +875,7 @@ router.get('/goals/capture/badges', (req, res) => {
 router.get('/goals/today', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  try { res.json(require('../lib/goalstoday').tasksToday(userId, req.query.today)); } catch (err) { handleGoalsError(res, err); }
+  try { res.json(require('../lib/goalstoday').tasksToday(userId, req.query.today, req.query.day)); } catch (err) { handleGoalsError(res, err); }
 });
 
 router.get('/goals/tasks/history', (req, res) => {
