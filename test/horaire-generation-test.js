@@ -186,6 +186,17 @@ assert(find(r, 1, D[0], '17:30')[0].employeeId !== 11 || find(r, 1, D[0], '16:00
   assert(ok(x), 'la note « ' + note + ' » prime sur les règles d’arrivée et sur le minimum');
 });
 
+// ---- Événements de la semaine : plusieurs postes dans le même service, chacun à sa première arrivée ----
+r = generateSchedule({
+  weekStart: W, positions: [{ id: 1, fillOrder: 0 }, { id: 2, fillOrder: 1 }],
+  employees: [10, 11, 12, 13].map((id) => ({ id })),
+  qualifications: [{ employeeId: 10, positionId: 1, rank: 1 }, { employeeId: 11, positionId: 1, rank: 1 }, { employeeId: 12, positionId: 2, rank: 1 }, { employeeId: 13, positionId: 2, rank: 1 }],
+  availabilities: allDay([10, 11, 12, 13], D),
+  needs: [{ positionId: 1, weekday: 2, start: '17:00', end: '23:00', count: 1 }],
+  events: [{ id: 40, day: D[2], service: 'soir', extra: 1, positionId: 1, needs: [] }, { id: 41, day: D[2], service: 'soir', extra: 2, positionId: 2, needs: [] }],
+});
+assert(find(r, 1, D[2], '17:00').length === 2 && find(r, 2, D[2], '16:00').length === 2, 'événements : +1 Serveur à sa première arrivée (17:00), +2 Barman à 16:00 (aucun besoin de ce poste)');
+
 // ---- Quart qui traverse minuit ----
 r = generateSchedule({
   weekStart: W,

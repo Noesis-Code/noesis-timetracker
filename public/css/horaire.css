@@ -51,7 +51,12 @@
 .horaireNeed .horaireSheetInput { padding: 0 4px; }
 .horaireNeed .horaireSheetInput[type="time"] { flex: 1 1 auto; min-width: 84px; }
 .horaireNeed .horaireSheetInput[type="number"] { flex: 0 0 44px; width: 44px; }
-.horaireNeedTotal { font-weight: 600; color: var(--text); }
+/* Total des « × N » de la case, en haut à droite, en violet gras (même style que les nombres, plus marqué) */
+.horaireNeedTotal { align-self: flex-end; font-weight: 700; color: var(--violet-soft); }
+/* Ligne d'événement déroulée : poste (menu) et nombre */
+.horaireEvEdit { display: flex; gap: 4px; }
+#tab-horaire .horaireEvEdit select.horaireInput { flex: 1 1 auto; min-width: 0; padding: 4px; }
+#tab-horaire .horaireEvEdit input.horaireInput { flex: 0 0 56px; width: 56px; padding: 4px; }
 /* Ligne « Événement » : bouton de l'événement du jour, ou « + » pointillé (R33) ; le formulaire se déroule sous le tableau (R36) */
 .horaireEvent { width: 100%; min-height: 44px; padding: 8px; border: 1px solid rgba(var(--purple-rgb), .55); border-radius: var(--radius-sm); background: rgba(var(--purple-rgb), .12); font: inherit; font-size: 13px; color: var(--text); text-align: left; cursor: pointer; }
 .horaireEvent.on { border-color: var(--purple); }

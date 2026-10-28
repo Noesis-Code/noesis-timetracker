@@ -128,6 +128,15 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     assert(out.employees === 0 && out.otherLines === 1 && out.otherWeeks.join() === '2026-11-09', 'import : lignes d’une autre semaine comptées et signalées (semaine du 9 novembre)');
     void e1;
   }
+  // ---- Événements de la semaine : datés, plusieurs postes ; la semaine suivante repart vide ----
+  {
+    const [p1, p2] = h.listPositions('uC');
+    await call('POST', 'events', { day: '2026-11-17', service: 'matin', extra: 2, positionId: p1.id }, 'uC');
+    await call('POST', 'events', { day: '2026-11-17', service: 'matin', extra: 1, positionId: p2.id }, 'uC');
+    const all = (await call('GET', 'events', undefined, 'uC')).body.events;
+    const wk = (from, to) => all.filter((e) => e.day >= from && e.day <= to && e.service);
+    assert(wk('2026-11-16', '2026-11-22').length === 2 && wk('2026-11-23', '2026-11-29').length === 0, 'événements : 2 lignes (2 postes) cette semaine, la suivante vide');
+  }
   // ---- Heures : min ≤ cible ≤ max ----
   r = await call('PUT', 'employees/' + first.id, { wantHoursMin: 12, wantHoursTarget: 20, wantHoursMax: 24 }, 'uC');
   assert(r.status === 200 && r.body.employee.wantHoursTarget === 20, 'heures min, cible, max enregistrées');
