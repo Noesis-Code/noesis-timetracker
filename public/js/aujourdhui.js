@@ -212,7 +212,16 @@
         cb.setAttribute('aria-pressed', nowDone ? 'true' : 'false');
         TMT.api('PUT', '/api/sub-project-items/' + t.id, { userId: TMT.getProfile().id, done: nowDone })
           .catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Impossible de modifier cette tâche.'); })
-          .then(function () { setTimeout(refresh, 450); });
+          .then(function () {
+            // Une seconde pour voir la coche et le texte barré, puis la ligne s'efface (fondu + repli) avant de passer dans l'autre section.
+            leaving++;
+            setTimeout(function () {
+              row.style.maxHeight = row.offsetHeight + 'px';
+              void row.offsetHeight;
+              row.classList.add('leaving'); row.style.maxHeight = '0px';
+              setTimeout(function () { leaving = Math.max(0, leaving - 1); refresh(); }, 360);
+            }, 1000);
+          });
       });
       var txt = el('div', 'tasksPopText');
       txt.appendChild(el('b', null, t.label));
@@ -224,8 +233,9 @@
       row.appendChild(cb); row.appendChild(txt); listBox.appendChild(row);
     });
   }
+  var leaving = 0; // lignes en train de s'effacer : on ne recharge pas la liste sous leurs pieds
   function refresh() {
-    if (!root || !root.getClientRects().length) return; // vue masquée (autre volet, autre page) : rien à charger
+    if (leaving > 0 || !root || !root.getClientRects().length) return; // vue masquée (autre volet, autre page) : rien à charger
     var seq = ++loadSeq;
     TMT.api('GET', '/api/goals/today?today=' + localIso()).then(function (d) { if (seq === loadSeq && shown) render(d); }).catch(function () {});
   }
