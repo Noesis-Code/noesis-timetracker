@@ -221,7 +221,7 @@ function removeEmployeeRule(u, id) {
 // Affichée à la page 1 et reprise telle quelle dans le prompt pour l'IA ; le générateur ne la lit pas (logique interne fixe).
 // Liste de départ : les 9 règles d'origine, puis les anciennes règles libres. Les anciens réglages (off, prefOrder, free) restent en base, ignorés.
 const DEFAULT_RESTAURANT_RULES = [
-  'Jamais sur un service où l’employé est indisponible.', 'Jamais plus que son maximum d’heures.',
+  'Jamais sur un service où l’employé est indisponible.', 'Jamais plus que son maximum d’heures, sauf si sa cible le dépasse et qu’il reste des quarts (catégorie 1 d’abord).',
   'Les notes des employés priment sur toutes les règles.', 'Exactement le nombre demandé à chaque heure d’arrivée.',
   'Le plus de soirs à la catégorie 1, puis 2, 3 et 4.', 'Éviter les doubles (matin et soir le même jour).', 'Éviter fermeture puis ouverture le lendemain.',
   'Au-delà de son maximum, seulement jusqu’à sa cible, s’il reste des quarts, catégorie 1 d’abord.', 'En dernier recours, proposer un employé indisponible à qui demander.',
