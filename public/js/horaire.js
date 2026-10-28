@@ -152,14 +152,14 @@
   var EVE = 16 * 60; // soir = à partir de 16 h
   var SLOT = { matin: ['10:00', '16:00'], soir: ['16:00', '23:59'] };
   var STEP_LABELS = ['1. Récupération', '2. Disponibilités', '3. Horaire', '4. Envoi'];
-  var catsMsg, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, rulesHead, genBtn, summaryBox, mainNodes, setupBox, setupMsg;
+  var catsMsg, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes, setupBox, setupMsg;
   var pagesHost, pages = [], stepBtns = [], dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
   function block(title, hint) {
     var sec = el('section', 'horaireBlock');
     var head = el('div', 'horaireBlockHead');
-    head.appendChild(el('h2', 'horaireBlockTitle', tr(title)));
+    head.appendChild(el('p', 'cmpBlockTitle', tr(title))); // R41 : titre de bloc commun
     if (hint) head.appendChild(el('span', 'horaireBlockHint', tr(hint)));
     sec.appendChild(head);
     return sec;
@@ -189,13 +189,12 @@
     var bCats = el('section', 'horaireBlock'); bCats.appendChild(el('p', 'cmpBlockTitle', tr('Classification des employés')));
     catsMsg = el('p', 'horaireMsg horaireCatsMsg hidden'); catsMsg.setAttribute('aria-live', 'polite'); bCats.appendChild(catsMsg);
     catsBox = el('div', 'horaireCatsBox'); bCats.appendChild(catsBox);
-    var bNeeds = block('Besoins et événements', 'Clique une case pour la changer. Un groupe ajoute des serveurs à son service.');
+    var bNeeds = block('Besoins et événements');
     needsBox = el('div', 'horaireFrame cmpGlass'); bNeeds.appendChild(needsBox);
-    var bRules = el('section', 'horaireBlock');
-    rulesHead = el('button', 'horaireRulesHead'); rulesHead.type = 'button';
-    rulesHead.addEventListener('click', function () { S.rulesOpen = !S.rulesOpen; renderRules(); });
+    // Règles du restaurant : toujours affichées (plus de repli), titre seul.
+    var bRules = block('Règles du restaurant');
     rulesBox = el('div', 'horaireRules cmpGlass');
-    bRules.appendChild(rulesHead); bRules.appendChild(rulesBox);
+    bRules.appendChild(rulesBox);
     [bCats, bNeeds, bRules, btn('cmpBtn', 'Copier le prompt de récupération', function () { copyText('import-prompt?week=' + S.week, 'Prompt copié : colle-le dans ton IA.'); })]
       .forEach(function (n) { p1.appendChild(n); });
 
@@ -418,6 +417,9 @@
     needsBox.textContent = '';
     var list = function (svc) {
       return function (i, c) {
+        // En tête : le total demandé pour ce service et ce poste (lignes + groupe éventuel).
+        var total = daySource(i).filter(function (n) { return n.positionId === posId() && serviceOf(n.start) === svc; }).reduce(function (t, n) { return t + (Number(n.count) || 0); }, 0);
+        c.appendChild(el('div', 'horaireNeedTotal', String(total)));
         S.needs.filter(function (n) { return Number(n.weekday) === i && serviceOf(n.start) === svc && n.positionId === posId(); })
           .sort(function (a, b) { return toMin(a.start) - toMin(b.start); }).forEach(function (n) {
             var r = el('div', 'horaireNeed horaireSheetEdit');
@@ -430,13 +432,13 @@
             }, function (cell) { cell.appendChild(el('span', null, n.start)); cell.appendChild(el('span', 'horaireNeedN', '× ' + n.count)); });
             c.appendChild(r);
           });
-        var add = el('button', 'cmpAdd cmpAddSquare horaireNeedAdd'); add.type = 'button'; add.setAttribute('aria-label', tr('Ajouter un besoin'));
-        add.appendChild(el('b', null, '+'));
-        add.addEventListener('click', function () {
+        // « + Ajouter un employé » : case pointillée pleine largeur (même format que la ligne Événement, R33) ; ajoute une ligne heure × nombre.
+        var add = TMT.ui.addBtn(tr('Ajouter un employé'), function () {
           Promise.resolve({ id: posId() }).then(function (pos) {
             return req('POST', 'needs', { positionId: pos.id, weekday: i, start: svc === 'soir' ? '16:00' : '10:30', end: SLOT[svc][1], count: 1 });
           }).then(refresh, fail);
         });
+        add.classList.add('horaireEvAdd');
         c.appendChild(add);
       };
     };
@@ -936,29 +938,53 @@
   // Une règle par ligne : un clic la modifie sur place, enregistrement automatique ; une ligne vidée est retirée (sans confirmation) et la
   // numérotation se refait ; la dernière ligne « + Ajouter une règle » en ajoute une. Texte pour l'IA (prompt de la page 4) ; le générateur
   // garde sa logique interne.
-  function rrList() { return (S.rr && S.rr.list) || []; }
+  // Une règle = { text, positions } : positions = null (tous les postes) ou noms de postes (portée, demande d'Émilien).
+  function rrList() { return ((S.rr && S.rr.list) || []).map(function (r) { return typeof r === 'string' ? { text: r, positions: null } : r; }); }
   function saveRR(list) {
     S.rr = { list: list }; renderRules();
     req('PUT', 'restaurant-rules', { list: list }).then(function (d) { S.rr = d.rules; renderRules(); }, function (err) { fail(err); refresh(); });
   }
+  function scopeText(r) { return r.positions && r.positions.length ? r.positions.join(', ') : tr('Tous'); }
+  // Portée d'une ligne : menu uni (R31) avec des cases « Tous » et chaque poste (ordre alphabétique) ; enregistrement à chaque case.
+  function openScopeMenu(anchor, i) {
+    if (!newMenu(anchor)) return;
+    var names = S.positions.map(function (p) { return p.name; }).sort(function (a, b) { return a.localeCompare(b, 'fr'); });
+    var paint = function () {
+      menu.textContent = '';
+      var r = rrList()[i];
+      [null].concat(names).forEach(function (name) {
+        var lab = el('label', 'horaireMenuItem horaireMenuCheck');
+        var c = el('input'); c.type = 'checkbox';
+        c.checked = name == null ? !r.positions : !!(r.positions && r.positions.indexOf(name) >= 0);
+        c.addEventListener('change', function () {
+          var list = rrList(), cur = list[i].positions ? list[i].positions.slice() : [];
+          if (name == null) cur = [];
+          else if (c.checked) cur.push(name); else cur = cur.filter(function (x) { return x !== name; });
+          list[i] = { text: list[i].text, positions: cur.length ? cur : null };
+          saveRR(list); paint();
+        });
+        lab.appendChild(c); lab.appendChild(el('span', null, name == null ? tr('Tous') : name));
+        menu.appendChild(lab);
+      });
+    };
+    paint();
+    placeMenu(anchor);
+  }
   function renderRules() {
-    rulesHead.textContent = '';
-    rulesHead.setAttribute('aria-expanded', S.rulesOpen ? 'true' : 'false');
-    rulesHead.appendChild(el('span', 'horaireBlockTitle', tr('Règles du restaurant')));
-    rulesHead.appendChild(el('span', 'horaireBlockHint horaireGrow', tr('Valent pour tous, chaque semaine.')));
-    rulesHead.appendChild(TMT.ui.chev(!!S.rulesOpen));
-    rulesBox.classList.toggle('hidden', !S.rulesOpen);
     rulesBox.textContent = '';
-    if (!S.rulesOpen) return;
     var list = rrList();
-    list.forEach(function (text, i) {
+    list.forEach(function (r, i) {
+      var line = el('div', 'horaireRuleRow');
       var row = el('div', 'horaireRuleLine horaireSheetEdit');
-      editCell(row, '', [['text', text, 'Règle']], function (v) {
+      editCell(row, '', [['text', r.text, 'Règle']], function (v) {
         var t = String(v.text).trim(), next = list.slice();
-        if (!t) next.splice(i, 1); else if (t !== text) next[i] = t; else { renderRules(); return; }
+        if (!t) next.splice(i, 1); else if (t !== r.text) next[i] = { text: t, positions: r.positions }; else { renderRules(); return; }
         saveRR(next);
-      }, function (cell) { cell.appendChild(el('span', 'horaireRuleNum', (i + 1) + '.')); cell.appendChild(el('span', null, text)); });
-      rulesBox.appendChild(row);
+      }, function (cell) { cell.appendChild(el('span', 'horaireRuleNum', (i + 1) + '.')); cell.appendChild(el('span', null, r.text)); });
+      var scope = btn('horaireRuleScope', scopeText(r), function () { openScopeMenu(scope, i); });
+      scope.setAttribute('aria-haspopup', 'menu'); scope.setAttribute('aria-label', tr('Postes de la règle') + ' : ' + scopeText(r));
+      line.appendChild(row); line.appendChild(scope);
+      rulesBox.appendChild(line);
     });
     if (S.addingRule) {
       var x = el('input', 'horaireSheetInput'); x.type = 'text'; x.maxLength = 300; x.placeholder = (list.length + 1) + '. ' + tr('Règle'); x.setAttribute('aria-label', tr('Ajouter une règle'));
@@ -966,7 +992,7 @@
       var done = function () {
         if (closed) return; closed = true; S.addingRule = false;
         var t = x.value.trim();
-        if (t) saveRR(list.concat([t])); else renderRules();
+        if (t) saveRR(list.concat([{ text: t, positions: null }])); else renderRules();
       };
       x.addEventListener('keydown', function (k) { if (k.key === 'Enter') { k.preventDefault(); done(); } else if (k.key === 'Escape') { k.preventDefault(); x.value = ''; done(); } });
       x.addEventListener('blur', done);

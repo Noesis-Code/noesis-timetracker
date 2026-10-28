@@ -217,9 +217,14 @@ function removeEmployeeRule(u, id) {
 // Liste de départ : les 9 règles d'origine, puis les anciennes règles libres. Les anciens réglages (off, prefOrder, free) restent en base, ignorés.
 const DEFAULT_RESTAURANT_RULES = [
   'Jamais sur un service où l’employé est indisponible.', 'Jamais plus que son maximum d’heures.',
-  'Règles de catégorie et de fiche toujours respectées.', 'Exactement le nombre demandé à chaque heure d’arrivée.',
+  'Les notes des employés priment sur toutes les règles.', 'Exactement le nombre demandé à chaque heure d’arrivée.',
   'Le plus de soirs à la catégorie 1, puis 2, 3 et 4.', 'Éviter les doubles (matin et soir le même jour).', 'Éviter fermeture puis ouverture le lendemain.',
-  'Au-delà de sa cible, jusqu’à son maximum, catégorie 1 d’abord.', 'Demander à un employé indisponible (« à demander »).',
+  'Au-delà de sa cible, jusqu’à son maximum, catégorie 1 d’abord.', 'En dernier recours, proposer un employé indisponible à qui demander.',
+];
+// Arrivées du soir (28 oct. 2026, demande d'Émilien) : appliquées par la génération aux postes de leur portée (Serveur par défaut).
+const ARRIVAL_RULES = [
+  'Le soir, la catégorie 1 commence toujours à 16:00 ; elle ne prend une arrivée plus tardive que s’il n’y a plus de place à 16:00.',
+  'La catégorie 2 a ensuite la priorité sur les arrivées après 16:00 et prend les places de 16:00 laissées libres ; les catégories 3 et 4 suivent, dans l’ordre.',
 ];
 const RESTAURANT_RULES_MAX = 50;
 function readRestaurantRules(u) {
@@ -228,11 +233,36 @@ function readRestaurantRules(u) {
   try { v = JSON.parse((row && row.restaurantRules) || '{}') || {}; } catch (e) { v = {}; }
   return v;
 }
+// Une règle = { text, positions } ; positions = null (tous les postes) ou liste de noms de postes. Une ancienne ligne en texte vaut pour tous.
+function normRule(x) {
+  if (typeof x === 'string') return x.trim() ? { text: x, positions: null } : null;
+  if (!x || typeof x.text !== 'string' || !x.text.trim()) return null;
+  const pos = Array.isArray(x.positions) ? [...new Set(x.positions.filter((p) => typeof p === 'string' && p.trim()))] : null;
+  return { text: x.text, positions: pos && pos.length ? pos : null };
+}
 function getRestaurantRules(u) {
   const v = readRestaurantRules(u);
-  if (Array.isArray(v.list)) return { list: v.list.filter((t) => typeof t === 'string' && t.trim()) };
-  const free = (Array.isArray(v.free) ? v.free : []).map((x) => x && x.text).filter((t) => typeof t === 'string' && t.trim());
-  return { list: DEFAULT_RESTAURANT_RULES.concat(free) };
+  let list;
+  if (Array.isArray(v.list)) list = v.list.map(normRule).filter(Boolean);
+  else list = DEFAULT_RESTAURANT_RULES.concat((Array.isArray(v.free) ? v.free : []).map((x) => x && x.text)).map(normRule).filter(Boolean);
+  // Règles d'arrivée du soir : ajoutées une seule fois en fin de liste (Serveur), seulement si elles n'y sont pas déjà.
+  if (!v.arrivalRulesAdded) {
+    ARRIVAL_RULES.forEach((t) => { if (!list.some((r) => r.text === t)) list.push({ text: t, positions: ['Serveur'] }); });
+    const next = Object.assign(v, { list, arrivalRulesAdded: true });
+    db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
+    db.prepare('UPDATE horaire_settings SET restaurantRules = ?, updatedAt = ? WHERE userId = ?').run(JSON.stringify(next), nowIso(), u);
+  }
+  return { list };
+}
+// Postes où s'appliquent les règles d'arrivée du soir : portée des lignes correspondantes ; ligne absente = Serveur.
+function arrivalPositionIds(u) {
+  const list = getRestaurantRules(u).list;
+  const lines = list.filter((r) => ARRIVAL_RULES.includes(r.text));
+  const all = listPositions(u);
+  if (!lines.length) return all.filter((p) => /^serveur$/i.test(p.name)).map((p) => p.id);
+  if (lines.some((r) => !r.positions)) return all.map((p) => p.id);
+  const names = new Set([].concat(...lines.map((r) => r.positions)));
+  return all.filter((p) => names.has(p.name)).map((p) => p.id);
 }
 function setRestaurantRules(u, list) {
   const v = Object.assign(readRestaurantRules(u), { list });
@@ -343,6 +373,7 @@ function generate(u, weekStart) {
     needs: listNeeds(u),
     events: listEvents(u, days[0], days[6]),
     rotation: rot,
+    arrivalPositions: arrivalPositionIds(u),
   });
   db.exec('BEGIN');
   try {
@@ -789,7 +820,7 @@ module.exports = {
   getAvailabilities, setAvailabilities, getTimeoff, availSummary,
   CATEGORY_RULES, listCategoryRules, addCategoryRule, removeCategoryRule,
   listEmployeeRules, addEmployeeRule, removeEmployeeRule, RULE_TEXT_MAX, mainPosition,
-  DEFAULT_RESTAURANT_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules,
+  DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
   generate, getSchedule, getSettings, setSettings, exportDayforce,

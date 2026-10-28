@@ -98,7 +98,8 @@ function overlaps(a, b) { return a.from < b.to && b.from < a.to; }
  *   noEvening (strictes) ; eveningsFirst, morningsFirst (préférences) ;
  *   qualifications [{employeeId, positionId, rank}] ; availabilities [{employeeId, day, start, end}] ; timeoff [{employeeId, day}] ;
  *   needs [{positionId, weekday 0..6, start, end, count}] ; events [{id, day, needs:[{positionId, start, end, count}]}] ;
- *   rotation { '<positionId>:<rank>': dernierEmployeeId }.
+ *   rotation { '<positionId>:<rank>': dernierEmployeeId } ;
+ *   arrivalPositions [positionId] : postes où valent les arrivées du soir (catégorie 1 d'abord à 16:00, catégorie 2 d'abord après 16:00).
  * @returns {{assignments: Array, alerts: Array, rotation: object}}
  */
 function generateSchedule(input) {
@@ -148,6 +149,7 @@ function generateSchedule(input) {
     || (a.day < b.day ? -1 : a.day > b.day ? 1 : 0)
     || (a.from - b.from));
 
+  const arrival = new Set((input.arrivalPositions || []).map(Number));
   const minutesOf = new Map(employees.map((e) => [e.id, 0]));
   const shiftsOf = new Map(employees.map((e) => [e.id, 0]));
   const dayPost = new Map(); // 'employeeId|day' -> positionId (un seul poste par jour)
@@ -199,7 +201,10 @@ function generateSchedule(input) {
     if (!q) return null;
     // r5 désactivée : un soir ne va plus d'abord à la meilleure catégorie (tous les qualifiés dans un seul tourniquet).
     const flat = evening(slot) && !active('r5');
-    const ranks = flat ? [0] : [...new Set(q.values())].sort((a, b) => a - b);
+    let ranks = flat ? [0] : [...new Set(q.values())].sort((a, b) => a - b);
+    // Arrivées du soir (postes de leur portée) : après 16:00, la catégorie 2 passe devant la catégorie 1 ; la catégorie 1 garde
+    // les arrivées de 16:00 (traitées avant, chaque soir) et ne vient plus tard que s'il reste de la place pour elle.
+    if (!flat && evening(slot) && slot.from > EVENING_FROM && arrival.has(slot.positionId) && ranks.includes(2)) ranks = [2].concat(ranks.filter((r) => r !== 2));
     for (const rank of ranks) {
       const group = employees.filter((e) => q.has(e.id) && (flat || q.get(e.id) === rank)).map((e) => e.id); // ordre stable (id)
       const key = slot.positionId + ':' + (flat ? 0 : rank);

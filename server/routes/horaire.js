@@ -209,7 +209,14 @@ router.get('/horaire/restaurant-rules', (req, res) => res.json({ rules: h.getRes
 router.put('/horaire/restaurant-rules', (req, res) => {
   const b = req.body || {};
   if (!Array.isArray(b.list) || b.list.length > h.RESTAURANT_RULES_MAX) return bad(res, 'Liste de règles invalide (' + h.RESTAURANT_RULES_MAX + ' au plus).');
-  const list = b.list.map((t) => h.cleanName(t, h.RULE_TEXT_MAX)).filter(Boolean);
+  // Ligne : texte, ou { text, positions: null | [noms de postes] } (null = tous les postes).
+  const names = new Set(h.listPositions(req.userId).map((p) => p.name));
+  const list = b.list.map((x) => {
+    const text = h.cleanName(typeof x === 'string' ? x : x && x.text, h.RULE_TEXT_MAX);
+    if (!text) return null;
+    const pos = x && typeof x === 'object' && Array.isArray(x.positions) ? x.positions.filter((p) => names.has(p)) : null;
+    return { text, positions: pos && pos.length ? pos : null };
+  }).filter(Boolean);
   res.json({ rules: h.setRestaurantRules(req.userId, list) });
 });
 // Poste principal (créé « Serveur » s'il manque) : sert à l'ajout d'un employé et aux besoins.

@@ -158,6 +158,34 @@ const mon = r.assignments.filter((a) => a.day === D[0]);
 assert(find(r, 1, D[0]).length + find(r, 2, D[0]).length === 3 && new Set(mon.map((a) => a.employeeId)).size === mon.length, 'deux postes le même soir : 3 placés sur 4, aucun employé dans deux postes');
 assert(find(r, 2, D[1], '16:00').length === 1 && find(r, 1, D[1]).length === 0, 'groupe du Barman (poste 2) : +1 à son poste seulement');
 
+// ---- Arrivées du soir (poste dans arrivalPositions) : catégorie 1 d'abord à 16:00, catégorie 2 d'abord après 16:00 ----
+const arr = (extra) => generateSchedule(Object.assign({
+  weekStart: W, positions: [{ id: 1, fillOrder: 0 }],
+  employees: [{ id: 10 }, { id: 11 }, { id: 12 }],
+  qualifications: [{ employeeId: 10, positionId: 1, rank: 1 }, { employeeId: 11, positionId: 1, rank: 2 }, { employeeId: 12, positionId: 1, rank: 3 }],
+  availabilities: allDay([10, 11, 12], D),
+  needs: [{ positionId: 1, weekday: 0, start: '16:00', end: '23:00', count: 1 }, { positionId: 1, weekday: 0, start: '17:30', end: '23:00', count: 1 }],
+  arrivalPositions: [1],
+}, extra || {}));
+r = arr();
+assert(find(r, 1, D[0], '16:00')[0].employeeId === 10 && find(r, 1, D[0], '17:30')[0].employeeId === 11, 'catégorie 1 à 16:00, catégorie 2 d’abord à 17:30');
+r = arr({ needs: [{ positionId: 1, weekday: 0, start: '17:30', end: '23:00', count: 2 }] });
+assert(find(r, 1, D[0], '17:30').map((a) => a.employeeId).sort().join() === '10,11', 'pas de 16:00 ce soir-là : la catégorie 2 d’abord, puis la catégorie 1');
+r = arr({ arrivalPositions: [] });
+assert(find(r, 1, D[0], '17:30')[0].employeeId !== 11 || find(r, 1, D[0], '16:00')[0].employeeId === 10, 'poste hors portée : ordre habituel des catégories');
+// La note prime sur ces règles et sur toutes les autres : chaque règle stricte de la note est respectée.
+[['Pas de soir', (x) => !x.assignments.some((a) => a.employeeId === 10 && a.start >= '16:00')],
+  ['Pas de matin', (x) => !x.assignments.some((a) => a.employeeId === 10 && a.start < '16:00')],
+  ['Jamais de double', (x) => !D.some((d) => { const s = x.assignments.filter((a) => a.employeeId === 10 && a.day === d); return s.some((a) => a.start < '16:00') && s.some((a) => a.start >= '16:00'); })],
+  ['Repos après un quart', (x) => { const ds = x.assignments.filter((a) => a.employeeId === 10).map((a) => D.indexOf(a.day)); return !ds.some((i) => ds.includes(i + 1)); }]].forEach(([note, ok]) => {
+  const x = generateSchedule({
+    weekStart: W, positions: [{ id: 1, fillOrder: 0 }], employees: [{ id: 10, wantHoursMin: 30, note }],
+    qualifications: [{ employeeId: 10, positionId: 1, rank: 1 }], availabilities: allDay([10], D), arrivalPositions: [1],
+    needs: [0, 1, 2].flatMap((wd) => [{ positionId: 1, weekday: wd, start: '10:00', end: '15:00', count: 1 }, { positionId: 1, weekday: wd, start: '16:00', end: '23:00', count: 1 }]),
+  });
+  assert(ok(x), 'la note « ' + note + ' » prime sur les règles d’arrivée et sur le minimum');
+});
+
 // ---- Quart qui traverse minuit ----
 r = generateSchedule({
   weekStart: W,
