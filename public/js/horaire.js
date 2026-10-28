@@ -354,7 +354,7 @@
       var a = el('textarea', 'horaireInput horairePromptArea'); a.rows = 14; a.value = cur.text; a.setAttribute('aria-label', tr('Prompt'));
       f.appendChild(a);
       f.appendChild(saveBtn(f, function () { return req('PUT', 'prompts', body(a.value)).then(function () { setTimeout(again, 0); }); }));
-      // Toujours visible en bas à gauche ; grisé et inactif tant que le prompt est celui de base.
+      // Toujours visible, centré sous « Enregistrer », souligné : gris et inactif tant que le prompt est celui de base, violet sinon.
       var back = btn('horaireLink', 'Revenir à la version de base', function () {
         TMT.ui.confirm(tr('Revenir à la version de base de ce prompt ?'), { ok: tr('Revenir') }).then(function (yes) {
           if (yes) req('PUT', 'prompts', body(null)).then(again, fail);
