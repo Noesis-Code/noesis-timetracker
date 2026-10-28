@@ -638,8 +638,15 @@
     TMT.api('GET', '/api/activities/' + encodeURIComponent(activityId) + '/offer1').then(function (r) { apply(!!(r && r.essor === true)); })
       .catch(function () { apply(false); });
   }
-  // Sans Expansion, le « + » ouvre la même découverte d'Expansion que sur la Feuille de route (fenêtre d'offre).
-  $('goalsPage2AddBtn').addEventListener('click', function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); });
+  // Sans Expansion, le « + » ouvre l'offre si le paiement est ouvert (GET /api/offer/available) ; sinon, tant que le paiement n'est pas prêt (production), un message explique Expansion et dit « à venir ».
+  $('goalsPage2AddBtn').addEventListener('click', function () {
+    function soon() {
+      TMT.ui.confirm(t('Expansion — à venir. Génère automatiquement tes objectifs et tâches tous les mois en passant à Expansion. Elle n’est pas encore disponible : on te prévient dès son ouverture.'), { ok: t('Compris') });
+    }
+    TMT.api('GET', '/api/offer/available').then(function (r) {
+      if (r && r.available && TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); else soon();
+    }).catch(soon);
+  });
   function closeGoalsDiscSheet() { setGoalsPage2Mode(goalsPage2BaseMode); }
   $('goalsDiscSheetClose').addEventListener('click', closeGoalsDiscSheet);
   $('goalsDiscView').addEventListener('click', function (e) { if (e.target === this) closeGoalsDiscSheet(); });
