@@ -413,13 +413,23 @@ function assignmentInput(req, res, body, w, partial) {
   if (partial && !Object.keys(out).length) { bad(res, 'Rien à modifier.'); return null; }
   return out;
 }
+// Employés possibles puis les autres avec leurs raisons, pour un créneau : ?positionId=&day=&start=&end=[&except=id du quart remplacé].
+router.get('/horaire/weeks/:weekStart/candidates', (req, res) => {
+  const w = weekParam(req, res); if (!w) return;
+  const q = req.query || {};
+  if (!h.ownPosition(req.userId, q.positionId)) return notFound(res, 'Poste');
+  if (!require('../lib/horaire-generation').weekDays(w).includes(q.day)) return bad(res, 'Jour invalide : date de la semaine attendue (AAAA-MM-JJ).');
+  if (!h.isTime(q.start) || !h.isTime(q.end)) return bad(res, 'Heure invalide (HH:MM).');
+  res.set('Cache-Control', 'no-store');
+  res.json({ candidates: h.candidates(req.userId, w, { positionId: Number(q.positionId), day: q.day, start: q.start, end: q.end }, q.except) });
+});
 const noSchedule = (res) => res.status(409).json({ error: 'Génère d\'abord l\'horaire.' });
 router.post('/horaire/weeks/:weekStart/assignments', (req, res) => {
   const w = weekParam(req, res); if (!w) return;
   if (!h.getSchedule(req.userId, w)) return noSchedule(res);
   const v = assignmentInput(req, res, req.body || {}, w, false); if (!v) return;
   if (v.start === v.end) return bad(res, 'Début et fin identiques.');
-  res.status(201).json({ assignment: h.addAssignment(req.userId, w, Object.assign({}, v, { ask: (req.body || {}).ask === true })) });
+  res.status(201).json({ assignment: h.addAssignment(req.userId, w, v) });
 });
 router.put('/horaire/weeks/:weekStart/assignments/:id', (req, res) => {
   const w = weekParam(req, res); if (!w) return;

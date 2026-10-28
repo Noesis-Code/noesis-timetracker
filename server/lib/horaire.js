@@ -404,24 +404,25 @@ function getSchedule(u, weekStart) {
   const assignments = db.prepare(`SELECT a.id, a.employeeId, e.name AS employeeName, a.positionId, p.name AS positionName, a.day, a.start, a.end
     FROM horaire_assignments a JOIN horaire_employees e ON e.id = a.employeeId JOIN horaire_positions p ON p.id = a.positionId
     WHERE a.userId = ? AND a.scheduleId = ? ORDER BY a.day, a.start, p.fillOrder`).all(u, s.id);
-  let alerts = [];
-  try { alerts = JSON.parse(s.alerts || '[]'); } catch (e) { /* illisible : vide */ }
+  // Alertes recalculées à chaque lecture (G1) à partir des quarts enregistrés : une modification manuelle met à jour « À vérifier »,
+  // « À demander » et le résumé sans regénérer l'horaire.
+  const alerts0 = checkWeek(u, weekStart, assignments).alerts;
   const emp = new Map(listEmployees(u).map((e) => [e.id, e.name]));
   const pos = new Map(listPositions(u).map((p) => [p.id, p.name]));
-  alerts = alerts.map((a) => (a.type === 'trou' ? { ...a, positionName: pos.get(a.positionId) || null, askNames: (a.ask || []).map((id) => emp.get(id)).filter(Boolean) } : { ...a, employeeName: emp.get(a.employeeId) || null }));
+  const alerts = alerts0.map((a) => (a.type === 'trou' ? { ...a, positionName: pos.get(a.positionId) || null, askNames: (a.ask || []).map((id) => emp.get(id)).filter(Boolean) } : { ...a, employeeName: emp.get(a.employeeId) || null }));
   return { weekStart: s.weekStart, status: s.status, generatedAt: s.generatedAt, assignments, alerts };
 }
 
 // Génère et ENREGISTRE le brouillon de la semaine (remplace le brouillon précédent, modifications manuelles comprises :
 // seulement quand le gestionnaire relance « Générer »). Chaque génération fait avancer la rotation.
-function generate(u, weekStart) {
+function weekInput(u, weekStart) {
   const days = gen.weekDays(weekStart);
   const employees = db.prepare('SELECT id, wantHoursMin, wantHoursTarget, wantHoursMax, noDouble, restAfterShift, constraintNote AS note FROM horaire_employees WHERE userId = ? AND active = 1').all(u)
     .map((e) => ({ ...e, noDouble: !!e.noDouble, restAfterShift: !!e.restAfterShift }));
   const rot = {};
   db.prepare('SELECT positionId, rank, lastEmployeeId FROM horaire_rotation WHERE userId = ?').all(u)
     .forEach((r) => { rot[r.positionId + ':' + r.rank] = r.lastEmployeeId; });
-  const out = gen.generateSchedule({
+  return {
     weekStart,
     positions: listPositions(u),
     employees,
@@ -433,7 +434,25 @@ function generate(u, weekStart) {
     rotation: rot,
     arrivalPositions: arrivalPositionIds(u),
     serviceEnds: getServiceEnds(u),
-  });
+  };
+}
+// Vérification d'un horaire enregistré (aucune écriture) : quarts posés tels quels, alertes et raisons recalculées.
+function checkWeek(u, weekStart, assignments) {
+  return gen.generateSchedule(Object.assign(weekInput(u, weekStart), { fixed: assignments.map((a) => ({ employeeId: a.employeeId, positionId: a.positionId, day: a.day, start: a.start, end: a.end })) }));
+}
+// Employés pour un créneau (menus de l'horaire, G1) : les qualifiés au poste (actifs), chacun avec ses raisons ; except = quart
+// à remplacer (il ne compte pas). En tête les possibles (aucune raison), puis les autres ; chaque groupe par catégorie puis nom.
+function candidates(u, weekStart, slot, except) {
+  const sid = scheduleId(u, weekStart);
+  const rows = sid ? db.prepare('SELECT id, employeeId, positionId, day, start, end FROM horaire_assignments WHERE userId = ? AND scheduleId = ?').all(u, sid) : [];
+  const check = checkWeek(u, weekStart, rows.filter((a) => a.id !== Number(except)));
+  const rank = new Map(listQualifications(u).filter((q) => q.positionId === Number(slot.positionId)).map((q) => [q.employeeId, q.rank]));
+  return listEmployees(u).filter((e) => e.active !== false && e.active !== 0 && rank.has(e.id))
+    .map((e) => ({ employeeId: e.id, name: e.name, rank: rank.get(e.id), why: check.reasonsFor(e.id, slot) }))
+    .sort((a, b) => (Math.sign(a.why.length) - Math.sign(b.why.length)) || (a.rank - b.rank) || a.name.localeCompare(b.name, 'fr'));
+}
+function generate(u, weekStart) {
+  const out = gen.generateSchedule(weekInput(u, weekStart));
   db.exec('BEGIN');
   try {
     const now = nowIso();
@@ -461,16 +480,10 @@ function ownAssignment(u, weekStart, id) {
 }
 const oneAssignment = (u, weekStart, id) => (getSchedule(u, weekStart) || { assignments: [] }).assignments.find((a) => a.id === Number(id)) || null;
 // a : { employeeId, positionId, day, start, end } déjà validés (appartenance comprise). null si la semaine n'a pas d'horaire.
-// a.ask : employé « à demander » (règle 9) placé à la main : une alerte « demander à X » est ajoutée à la semaine.
+// Un employé indisponible placé à la main produit « demander à X » au recalcul des alertes (getSchedule).
 function addAssignment(u, weekStart, a) {
   const sid = scheduleId(u, weekStart);
   if (!sid) return null;
-  if (a.ask) {
-    const s = db.prepare('SELECT alerts FROM horaire_schedules WHERE id = ?').get(sid);
-    let list = []; try { list = JSON.parse((s && s.alerts) || '[]'); } catch (e) { list = []; }
-    list.push({ type: 'demander', employeeId: Number(a.employeeId), day: a.day, start: a.start });
-    db.prepare('UPDATE horaire_schedules SET alerts = ? WHERE id = ?').run(JSON.stringify(list), sid);
-  }
   const r = db.prepare('INSERT INTO horaire_assignments (userId, scheduleId, employeeId, positionId, day, start, end) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(u, sid, Number(a.employeeId), Number(a.positionId), a.day, a.start, a.end);
   return oneAssignment(u, weekStart, r.lastInsertRowid);
@@ -1003,7 +1016,7 @@ module.exports = {
   DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, userForInboundToken, receiveReservations, GROUP_MIN, importEventsCsv, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
+  candidates, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, userForInboundToken, receiveReservations, GROUP_MIN, importEventsCsv, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,

@@ -244,6 +244,25 @@ r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMax: 30 }], {
 assert(r.assignments.length === 5 && r.alerts.some((a) => a.type === 'trou') && !r.alerts.some((a) => a.type === 'sixieme_quart'), 'plus de 6e quart : max 5 = 5 quarts, le 6e reste un trou');
 // Passe 1 : chacun atteint son MIN, même un rang moins bon, avant que le meilleur rang aille à sa cible.
 const evenings = (n) => Array.from({ length: n }, (_, wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 1 }));
+// ---- G1 : vérification d'un horaire enregistré (aucune génération) et raisons des menus ----
+{
+  const base = {
+    weekStart: W, positions: [{ id: 1, fillOrder: 0 }],
+    employees: [{ id: 10, wantHoursMax: 12 }, { id: 11 }, { id: 12 }, { id: 13, note: 'Pas de soir' }],
+    qualifications: [10, 11, 12, 13].map((id) => ({ employeeId: id, positionId: 1, rank: 1 })),
+    availabilities: allDay([10, 12, 13], D),
+    timeoff: [{ employeeId: 12, day: D[1] }],
+    needs: [{ positionId: 1, weekday: 1, start: '17:00', end: '23:00', count: 2 }],
+  };
+  r = generateSchedule(Object.assign({}, base, { fixed: [{ employeeId: 11, positionId: 1, day: D[1], start: '17:00', end: '23:00' }] }));
+  const hole = r.alerts.find((a) => a.type === 'trou');
+  assert(r.assignments.length === 1 && hole && hole.missing === 1 && hole.day === D[1], 'vérification : quart posé tel quel, le 2e besoin reste un trou (sans regénérer)');
+  assert(r.alerts.some((a) => a.type === 'demander' && a.employeeId === 11), 'vérification : employé indisponible placé à la main = « demander à X »');
+  const slot = { positionId: 1, day: D[1], start: '17:00', end: '23:00' };
+  assert(r.reasonsFor(10, slot).length === 0 && r.reasonsFor(12, slot)[0] === 'en congé' && r.reasonsFor(11, slot)[0] === 'déjà placé' && r.reasonsFor(13, slot)[0] === 'note : pas de soir', 'menus : possible, en congé, déjà placé, note');
+  r = generateSchedule(Object.assign({}, base, { fixed: [{ employeeId: 10, positionId: 1, day: D[0], start: '10:00', end: '17:00' }] }));
+  assert(r.reasonsFor(10, slot).includes('au max'), 'menus : au max (7 h + 6 h > 12 h)');
+}
 // ---- Heures de fin des services (28 oct. 2026) : matin 17:00, soir 23:00, vendredi minuit ; valeur du compte prise en compte ----
 {
   const { range, defaultServiceEnd } = require('../server/lib/horaire-generation');

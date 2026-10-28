@@ -1009,50 +1009,61 @@
     menu = el('div', 'horaireMenu'); menu._for = anchor; menu.setAttribute('role', 'menu');
     return true;
   }
+  // Employés d'un créneau (G1), calculés par le serveur avec les mêmes règles que la génération : en tête les possibles, puis, en
+  // gris, les autres avec leur raison (« (en congé) », « (indisponible) », « (au max) », « (repos) », « (double) », « (déjà placé) »,
+  // « (note : …) »). Un employé en gris reste possible : son placement ajoute une ligne « À vérifier ». order(list) : ordre des gris.
+  function candidateItems(slot, except, onPick, current, order) {
+    var q = 'weeks/' + S.week + '/candidates?positionId=' + slot.positionId + '&day=' + slot.day + '&start=' + encodeURIComponent(slot.start)
+      + '&end=' + encodeURIComponent(slot.end) + (except ? '&except=' + except : '');
+    return req('GET', q).then(function (d) {
+      var list = d.candidates || [];
+      if (order) list = order(list);
+      return list.map(function (c) {
+        var grey = c.why && c.why.length;
+        var it = btn('horaireMenuItem' + (grey ? ' horaireMenuGrey' : '') + (c.employeeId === current ? ' on' : ''), c.name, function () { onPick(c); });
+        if (grey) it.appendChild(el('span', null, ' (' + tr(c.why[0]) + ')'));
+        it.setAttribute('role', 'menuitem');
+        return it;
+      });
+    });
+  }
+  function afterEdit() { return loadWeek().then(render); }
   function openMenu(anchor, a) {
     if (!newMenu(anchor)) return;
+    var m = menu;
     var pick = function (id) {
       closeMenu();
-      (id == null ? req('DELETE', 'weeks/' + S.week + '/assignments/' + a.id) : req('PUT', 'weeks/' + S.week + '/assignments/' + a.id, { employeeId: id })).then(function (d) {
-        if (d && d.schedule) { S.schedule = d.schedule; render(); } else loadWeek().then(render);
-      }, fail);
+      (id == null ? req('DELETE', 'weeks/' + S.week + '/assignments/' + a.id) : req('PUT', 'weeks/' + S.week + '/assignments/' + a.id, { employeeId: id })).then(afterEdit, fail);
     };
-    S.employees.filter(function (e) { return e.active !== false && (bestRank(e.id) != null || e.id === a.employeeId); }).forEach(function (e) {
-      var it = btn('horaireMenuItem' + (e.id === a.employeeId ? ' on' : ''), e.name, function () { if (e.id !== a.employeeId) pick(e.id); else closeMenu(); });
-      it.setAttribute('role', 'menuitem'); menu.appendChild(it);
-    });
-    var rm = btn('horaireMenuItem horaireMenuRemove', 'Supprimer le quart', function () {
-      closeMenu();
-      confirmDelete(tr('Supprimer ce quart') + ' (' + tr(DAYS[weekdayOf(a.day)]).toLowerCase() + ' ' + a.start + ', ' + a.employeeName + ') ?', function () { pick(null); });
-    }); rm.setAttribute('role', 'menuitem');
-    menu.appendChild(rm);
-    placeMenu(anchor);
+    candidateItems(a, a.id, function (c) { if (c.employeeId !== a.employeeId) pick(c.employeeId); else closeMenu(); }, a.employeeId).then(function (items) {
+      if (menu !== m) return;
+      items.forEach(function (it) { m.appendChild(it); });
+      var rm = btn('horaireMenuItem horaireMenuRemove', 'Supprimer le quart', function () {
+        closeMenu();
+        confirmDelete(tr('Supprimer ce quart') + ' (' + tr(DAYS[weekdayOf(a.day)]).toLowerCase() + ' ' + a.start + ', ' + a.employeeName + ') ?', function () { pick(null); });
+      }); rm.setAttribute('role', 'menuitem');
+      m.appendChild(rm);
+      placeMenu(anchor);
+    }, function (err) { closeMenu(); fail(err); });
   }
   // Fin d'un trou : la fin de son service ce jour-là (comme tout quart).
   function holeEnd(h) { return endFor(h.positionId, weekdayOf(h.day), serviceOf(h.start)); }
-  // Trou « À combler » : même liste unie, employés seulement ; en tête les disponibles ce jour et ce service et pas encore placés ce jour-là.
+  // Trou « À combler » : même liste ; parmi les gris, les « à demander » (règle 9) d'abord, dans l'ordre de la génération.
   function openHoleMenu(anchor, h) {
     if (!newMenu(anchor)) return;
-    var svc = serviceOf(h.start);
-    var placed = {}; (S.schedule ? S.schedule.assignments : []).forEach(function (a) { if (a.day === h.day) placed[a.employeeId] = 1; });
-    // En tête : les candidats « à demander » (règle 9), dans l'ordre de la génération ; puis les disponibles ; puis les autres.
-    var ask = (h.ask || []).filter(function (id) { return !placed[id]; });
-    var rows = S.employees.filter(function (e) { return e.active !== false && bestRank(e.id) != null; }).map(function (e) {
-      var k = ask.indexOf(e.id);
-      var why = k >= 0 ? 'à demander' : placed[e.id] ? 'déjà placé' : cellState(e.id, h.day, svc) !== 'O' ? 'indisponible' : '';
-      return { e: e, why: why, ask: k >= 0, order: k >= 0 ? k : 100 + (why ? 1 : 0) };
-    });
-    rows.sort(function (x, y) { return x.order - y.order; });
-    rows.forEach(function (x) {
-      var it = btn('horaireMenuItem', x.e.name, function () {
-        closeMenu();
-        req('POST', 'weeks/' + S.week + '/assignments', { employeeId: x.e.id, positionId: h.positionId, day: h.day, start: h.start, end: holeEnd(h), ask: x.ask })
-          .then(function () { return loadWeek().then(render); }, fail);
-      });
-      if (x.why) it.appendChild(el('span', 'horaireMuted', ' (' + tr(x.why) + ')'));
-      it.setAttribute('role', 'menuitem'); menu.appendChild(it);
-    });
-    placeMenu(anchor);
+    var m = menu, end = holeEnd(h), ask = h.ask || [];
+    var order = function (list) {
+      var k = function (c) { var i = ask.indexOf(c.employeeId); return c.why.length ? (i >= 0 ? 1 + i / 1000 : 2) : 0; };
+      return list.map(function (c, i) { return [c, i]; }).sort(function (x, y) { return (k(x[0]) - k(y[0])) || (x[1] - y[1]); }).map(function (x) { return x[0]; });
+    };
+    candidateItems({ positionId: h.positionId, day: h.day, start: h.start, end: end }, null, function (c) {
+      closeMenu();
+      req('POST', 'weeks/' + S.week + '/assignments', { employeeId: c.employeeId, positionId: h.positionId, day: h.day, start: h.start, end: end }).then(afterEdit, fail);
+    }, null, order).then(function (items) {
+      if (menu !== m) return;
+      items.forEach(function (it) { m.appendChild(it); });
+      placeMenu(anchor);
+    }, function (err) { closeMenu(); fail(err); });
   }
   function shiftBtn(a) {
     var b = el('button', 'horaireSlot'); b.type = 'button';
@@ -1127,6 +1138,8 @@
       return tr(DAYS[weekdayOf(a.day)]).toLowerCase() + ' ' + tr(serviceOf(a.start)) + ', ' + n + ' ' + pos + ' ' + tr(n > 1 ? 'manquants' : 'manquant') + ' ' + tr('à') + ' ' + a.start + '.';
     }
     if (a.type === 'demander') return tr('demander à') + ' ' + (a.employeeName || '?') + ' ' + tr('s’il peut travailler') + ' ' + tr(DAYS[weekdayOf(a.day)]).toLowerCase() + ' ' + tr(serviceOf(a.start)) + '.';
+    if (a.type === 'maximum') return (a.employeeName || '?') + ' ' + tr('a') + ' ' + hoursText(Math.round((a.minutes || 0) / 30) / 2) + ' h, ' + tr('maximum') + ' ' + hoursText(a.wantHoursMax) + ' h.';
+    if (a.type === 'verifier') return (a.employeeName || '?') + ', ' + tr(DAYS[weekdayOf(a.day)]).toLowerCase() + (a.start ? ' ' + tr(serviceOf(a.start)) : '') + ' : ' + tr(a.why) + '.';
     if (a.type === 'minimum') return (a.employeeName || '?') + ' ' + tr('a') + ' ' + hoursText(Math.round((a.minutes || 0) / 30) / 2) + ' h, ' + tr('minimum') + ' ' + hoursText(a.wantHoursMin) + ' h.';
     if (a.text || a.message) return String(a.text || a.message);
     return (a.employeeName || '?') + ' : ' + hours(a.minutes) + ' / ' + hours(a.maxWeekMinutes) + ' ' + tr('max') + '.';

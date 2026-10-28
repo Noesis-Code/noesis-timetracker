@@ -146,6 +146,8 @@
 .horaireRuleRow > .cmpRemove { align-self: center; opacity: 0; }
 .horaireRuleRow:hover > .cmpRemove, .horaireRuleRow:focus-within > .cmpRemove { opacity: 1; }
 @media (hover: none) { .horaireRuleRow > .cmpRemove { opacity: 1; } }
+/* Menus de l'horaire : employés contraires à une règle, en gris avec leur raison (G1) */
+.horaireMenuItem.horaireMenuGrey { color: var(--text-light); }
 .horaireLink:disabled { color: var(--text-light); text-decoration: none; cursor: default; }
 
 /* Horaire de la semaine : un bouton par quart (heure, nom, ▾) ; trou = pointillé violet « À combler » */

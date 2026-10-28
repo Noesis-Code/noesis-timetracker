@@ -101,6 +101,14 @@ function buildSlots(weekStart, needs, events, mainPositionId, opts) {
 }
 
 function overlaps(a, b) { return a.from < b.to && b.from < a.to; }
+// Créneau d'un quart enregistré ({positionId, day, start, end}) ; null si les heures sont illisibles.
+function slotOf(a) {
+  const r = range(a.start, a.end);
+  if (!r) return null;
+  return { positionId: Number(a.positionId), day: a.day, weekday: (new Date(a.day + 'T00:00:00Z').getUTCDay() + 6) % 7, start: a.start, end: a.end, from: r[0], to: r[1], minutes: r[1] - r[0], eventId: null };
+}
+// Raisons qui ne produisent pas (encore) de ligne « À vérifier » (G2 les ajoute).
+const ALERT_SKIP = ['double', 'soirs d’abord', 'matins d’abord'];
 
 /**
  * @param {object} input
@@ -248,7 +256,21 @@ function generateSchedule(input) {
 
   let holes = ordered;
   const levels = [0, 1]; // 0 = tout respecté ; 1 = préférences assouplies
-  const PASSES = [['min', levels], ['target', levels], ['max', levels]];
+  // Vérification d'un horaire ENREGISTRÉ (G1, 28 oct. 2026) : input.fixed = quarts en place (modifications manuelles comprises).
+  // Rien n'est généré : les quarts sont posés tels quels, les trous sont les besoins restés sans quart (même poste, jour et heure
+  // d'arrivée), puis les alertes sont recalculées comme après une génération.
+  const fixed = Array.isArray(input.fixed) ? input.fixed : null;
+  const PASSES = fixed ? [] : [['min', levels], ['target', levels], ['max', levels]];
+  if (fixed) {
+    const open = holes.slice();
+    for (const a of fixed) {
+      const i = open.findIndex((s) => s.positionId === a.positionId && s.day === a.day && s.start === a.start);
+      if (i >= 0) open.splice(i, 1);
+      const slot = slotOf(a);
+      if (slot && empById.has(a.employeeId)) assign(slot, a.employeeId);
+    }
+    holes = open;
+  }
   for (const [phase, levels] of PASSES) {
     for (const level of levels) { // chaque passe ne reprend que les créneaux restés vides
       if (!holes.length) break;
@@ -275,6 +297,30 @@ function generateSchedule(input) {
       .sort((a, b) => ((best.get(a.id) || 99) - (best.get(b.id) || 99)) || (left(b) - left(a)) || (a.id - b.id))
       .map((e) => e.id);
   }
+  // Raisons pour lesquelles placer empId sur ce créneau est contraire à une règle (G1) ; self = le quart lui-même s'il est déjà posé
+  // (il ne compte pas contre lui). Liste vide = employé possible.
+  const NOTE_LABEL = Object.fromEntries(require('./horaire-note').RULES.map(([k, l]) => [k, l.toLowerCase()]));
+  function reasons(empId, slot, self) {
+    const e = empById.get(empId);
+    if (!e) return [];
+    const not = (s) => s !== self;
+    const k = empId + '|' + slot.day;
+    const same = (busy.get(k) || []).filter(not);
+    const before = (busy.get(empId + '|' + addDays(slot.day, -1)) || []).filter(not);
+    const after = (busy.get(empId + '|' + addDays(slot.day, 1)) || []).filter(not);
+    const out = [];
+    if (off.has(k)) out.push('en congé');
+    if (same.some((s) => overlaps(s, slot) || s.positionId !== slot.positionId)) out.push('déjà placé');
+    if (!off.has(k) && !isAvail(empId, slot)) out.push('indisponible');
+    const strict = evening(slot) ? 'noEvening' : 'noMorning';
+    if (rule(empId, strict)) out.push('note : ' + NOTE_LABEL[strict]);
+    if ((e.restAfterShift || rule(empId, 'restAfterShift')) && (before.length || after.length)) out.push('repos');
+    if (same.some((s) => evening(s) !== evening(slot))) out.push('double');
+    if (minutesOf.get(empId) - (self ? self.minutes : 0) + slot.minutes > capOf(e, 'max')) out.push('au max');
+    const pref = evening(slot) ? 'morningsFirst' : 'eveningsFirst';
+    if (rule(empId, pref)) out.push('note : ' + NOTE_LABEL[pref]);
+    return out;
+  }
   const alerts = [];
   const holeKey = new Map();
   for (const s of holes) {
@@ -287,8 +333,27 @@ function generateSchedule(input) {
       alerts.push({ type: 'minimum', employeeId: e.id, minutes: minutesOf.get(e.id), wantHoursMin: e.wantHoursMin });
     }
   }
+  // Chaque quart contraire à une règle produit une ligne « À vérifier » (G1) : indisponible = « demander à X » ; au-delà du max =
+  // une ligne par employé ; repos et déjà placé : une ligne par jour ; le reste, une ligne par quart.
+  const seen = new Set();
+  const once = (key, a) => { if (!seen.has(key)) { seen.add(key); alerts.push(a); } };
+  const SKIP = new Set(ALERT_SKIP);
+  for (const [k, list] of busy) {
+    const empId = Number(k.split('|')[0]);
+    for (const s of list) {
+      for (const why of reasons(empId, s, s)) {
+        if (SKIP.has(why) || why.startsWith('note : ') && SKIP.has(why.replace(/^note : /, ''))) continue;
+        if (why === 'indisponible') once(empId + '|ask|' + s.day + '|' + s.start, { type: 'demander', employeeId: empId, day: s.day, start: s.start });
+        else if (why === 'au max') once(empId + '|max', { type: 'maximum', employeeId: empId, minutes: minutesOf.get(empId), wantHoursMax: empById.get(empId).wantHoursMax });
+        else if (why === 'repos' || why === 'déjà placé' || why === 'double') once(empId + '|' + why + '|' + s.day, { type: 'verifier', employeeId: empId, day: s.day, start: why === 'double' ? null : s.start, why });
+        else once(empId + '|' + why + '|' + s.day + '|' + s.start, { type: 'verifier', employeeId: empId, day: s.day, start: s.start, why });
+      }
+    }
+  }
   assignments.sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0) || (toMin(a.start) - toMin(b.start)) || (posRank.get(a.positionId) - posRank.get(b.positionId)));
-  return { assignments, alerts, rotation };
+  // reasonsFor(employeeId, {positionId, day, start, end}) : raisons d'un placement envisagé (menus de l'horaire, G1).
+  const reasonsFor = (empId, a) => { const slot = slotOf(a); return slot ? reasons(Number(empId), slot, null) : []; };
+  return { assignments, alerts, rotation, reasonsFor };
 }
 
 module.exports = { defaultServiceEnd, generateSchedule, buildSlots, criticality, toMin, range, addDays, weekDays, WEEKEND, EVENING_FROM };
