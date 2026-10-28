@@ -108,6 +108,19 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     assert(r.status === 200 && r.body.employee.wantHoursTarget === 31, 'une ancienne valeur incohérente (quarts) ne bloque plus la cible');
     assert((await call('PUT', 'employees/' + p.id, { wantHoursTarget: 40 }, 'uC')).status === 400 && h.ownEmployee('uC', p.id).wantHoursTarget === 31, 'cible au-dessus du max : refusée, l’ancienne valeur reste');
   }
+  // ---- Postes par défaut : créés s'ils manquent, « Serveur » existant intact ; postes neufs vierges ----
+  {
+    const before = h.listPositions('uC').map((p) => p.id + ':' + p.name).join();
+    r = await call('POST', 'positions/defaults', {}, 'uC');
+    const names = r.body.positions.map((p) => p.name).sort();
+    assert(r.status === 200 && ['Barman', 'Commis', 'Hôte/Hôtesse', 'Serveur', 'Suiteur'].every((n) => names.includes(n)) && names.filter((n) => n === 'Serveur').length === 1, 'postes par défaut créés, un seul Serveur');
+    assert(h.listPositions('uC').map((p) => p.id + ':' + p.name).join().startsWith(before), 'postes existants intacts (mêmes ids, mêmes noms)');
+    assert((await call('POST', 'positions/defaults', {}, 'uC')).body.positions.length === r.body.positions.length, 'postes par défaut : jamais en double');
+    const barman = r.body.positions.find((p) => p.name === 'Barman');
+    assert(!h.listQualifications('uC').some((q) => q.positionId === barman.id) && !h.listNeeds('uC').some((n) => n.positionId === barman.id), 'poste neuf : aucun employé ni besoin (tableaux vierges)');
+    r = await call('POST', 'events', { day: '2026-11-08', service: 'soir', extra: 1, positionId: barman.id }, 'uC');
+    assert(r.status === 201 && r.body.event.positionId === barman.id, 'groupe rattaché au poste choisi');
+  }
   // ---- Heures : min ≤ cible ≤ max ----
   r = await call('PUT', 'employees/' + first.id, { wantHoursMin: 12, wantHoursTarget: 20, wantHoursMax: 24 }, 'uC');
   assert(r.status === 200 && r.body.employee.wantHoursTarget === 20, 'heures min, cible, max enregistrées');

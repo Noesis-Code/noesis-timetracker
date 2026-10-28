@@ -2740,7 +2740,8 @@ for (const t of ['horaire_availabilities', 'horaire_timeoff']) {
   if (!db.prepare('PRAGMA table_info(' + t + ')').all().some((c) => c.name === 'createdAt')) db.exec('ALTER TABLE ' + t + ' ADD COLUMN createdAt TEXT');
 }
 // Événement « Groupe » (28 oct. 2026) : service (matin | soir) et serveurs en plus ; NULL = ancien événement (ses besoins remplacent).
-for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER']]) {
+// Poste d'un groupe (28 oct. 2026, plusieurs postes) : NULL = ancien groupe (première arrivée du service, tous postes confondus).
+for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER']]) {
   if (!db.prepare('PRAGMA table_info(horaire_events)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_events ADD COLUMN ' + col + ' ' + type);
 }
 // Règles du restaurant (28 oct. 2026) : JSON { off: ['r2'...], prefOrder: ['r5','r6','r7'], free: [{ id, text }] } ; NULL = toutes actives.

@@ -56,7 +56,7 @@
     });
   }
   function loadAll() {
-    return Promise.all([req('GET', 'employees'), req('GET', 'positions'), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; })])
+    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
         S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.loaded = true;
@@ -179,6 +179,7 @@
 
     // Page 1 : Récupération
     var p1 = el('div', 'horairePage');
+    p1.appendChild(posPicker());
     var bCats = block('Classification des employés', 'Catégorie 1 = priorité la plus haute. Glisse un nom pour le changer de catégorie.');
     catsMsg = el('p', 'horaireMsg horaireCatsMsg hidden'); catsMsg.setAttribute('aria-live', 'polite'); bCats.appendChild(catsMsg);
     catsBox = el('div', 'horaireCatsBox'); bCats.appendChild(catsBox);
@@ -211,7 +212,7 @@
     planBox = el('div', 'horaireFrame cmpGlass');
     alertsBox = el('div', 'horaireAlerts');
     bPlan.appendChild(planBox); bPlan.appendChild(alertsBox);
-    p3.appendChild(genBtn); p3.appendChild(bPlan);
+    p3.appendChild(posPicker()); p3.appendChild(genBtn); p3.appendChild(bPlan);
 
     // Page 4 : Envoi
     var p4 = el('div', 'horairePage');
@@ -351,6 +352,7 @@
     bindPager();
     showPage(S.page == null ? logicalPage() : S.page);
     weekLabel.textContent = weekTitle();
+    renderPosPickers();
     renderMsg();
     renderStatus();
     renderSchedule();
@@ -384,9 +386,10 @@
     var replaced = {}; ev.forEach(function (n) { replaced[serviceOf(n.start)] = 1; });
     var src = ev.concat(S.needs.filter(function (n) { return Number(n.weekday) === i && !replaced[serviceOf(n.start)]; }));
     evs.filter(function (e) { return e.service && e.extra > 0; }).forEach(function (g) {
-      var first = src.filter(function (n) { return serviceOf(n.start) === g.service; }).sort(function (a, b) { return toMin(a.start) - toMin(b.start); })[0];
+      var pid = g.positionId == null ? null : Number(g.positionId);
+      var first = src.filter(function (n) { return serviceOf(n.start) === g.service && (pid == null || Number(n.positionId) === pid); }).sort(function (a, b) { return toMin(a.start) - toMin(b.start); })[0];
       if (first) src.push({ positionId: first.positionId, start: first.start, end: first.end, count: g.extra });
-      else if (S.positions[0]) src.push({ positionId: S.positions[0].id, start: g.service === 'soir' ? '16:00' : '10:30', end: SLOT[g.service][1], count: g.extra });
+      else if (pid != null || S.positions[0]) src.push({ positionId: pid != null ? pid : S.positions[0].id, start: g.service === 'soir' ? '16:00' : '10:30', end: SLOT[g.service][1], count: g.extra });
     });
     return src;
   }
@@ -398,7 +401,7 @@
     needsBox.textContent = '';
     var list = function (svc) {
       return function (i, c) {
-        S.needs.filter(function (n) { return Number(n.weekday) === i && serviceOf(n.start) === svc; })
+        S.needs.filter(function (n) { return Number(n.weekday) === i && serviceOf(n.start) === svc && n.positionId === posId(); })
           .sort(function (a, b) { return toMin(a.start) - toMin(b.start); }).forEach(function (n) {
             var r = el('div', 'horaireNeed horaireSheetEdit');
             editCell(r, '', [['start', n.start, 'Heure d’arrivée', 'time'], ['count', n.count, 'Nombre', 'number', '×']], function (v) {
@@ -413,7 +416,7 @@
         var add = el('button', 'cmpAdd cmpAddSquare horaireNeedAdd'); add.type = 'button'; add.setAttribute('aria-label', tr('Ajouter un besoin'));
         add.appendChild(el('b', null, '+'));
         add.addEventListener('click', function () {
-          mainPosition().then(function (pos) {
+          Promise.resolve({ id: posId() }).then(function (pos) {
             return req('POST', 'needs', { positionId: pos.id, weekday: i, start: svc === 'soir' ? '16:00' : '10:30', end: SLOT[svc][1], count: 1 });
           }).then(refresh, fail);
         });
@@ -422,7 +425,7 @@
     };
     // Ligne « Événement » : le bouton du groupe du jour (un clic le déroule sur place, R36) ou un « + » pointillé (R33).
     var evCell = function (i, c) {
-      var evs = dayEvents(i);
+      var evs = dayEvents(i).filter(function (ev) { return ev.positionId == null || ev.positionId === posId(); });
       evs.forEach(function (ev) {
         var key = 'ev:' + ev.id;
         var b = btn('horaireEvent' + (S.editing === key ? ' on' : ''), eventLabel(ev), function () { S.editing = S.editing === key ? null : key; renderNeedsTable(); });
@@ -474,7 +477,7 @@
       if (!ev && extra === 0) return;
       busy = true;
       var p = extra === 0 ? req('DELETE', 'events/' + ev.id).then(function () { S.editing = null; })
-        : (ev ? req('PUT', 'events/' + ev.id, { service: cur.service, extra: extra }) : req('POST', 'events', { day: day, service: cur.service, extra: extra }))
+        : (ev ? req('PUT', 'events/' + ev.id, { service: cur.service, extra: extra, positionId: posId() }) : req('POST', 'events', { day: day, service: cur.service, extra: extra, positionId: posId() }))
           .then(function (d) { if (d && d.event) S.editing = 'ev:' + d.event.id; });
       p.then(refresh, fail).then(function () { busy = false; });
     }
@@ -502,9 +505,58 @@
   // la génération y reconnaît « jamais de double », « repos après un quart », « pas de matin », « pas de soir », « soirs d'abord »,
   // « matins d'abord » ; le reste part dans le prompt et dans « À vérifier ». Le ≡ fait glisser un nom d'un tableau à l'autre (TMT.ui.groupDrag).
   var HOURS = [['wantHoursMin', 'Heures min'], ['wantHoursMax', 'Heures max'], ['wantHoursTarget', 'Cible']];
+  // Catégorie d'un employé = son rang au poste choisi (null s'il n'a pas ce poste).
   function bestRank(id) {
-    var r = S.quals.filter(function (q) { return q.employeeId === id; }).map(function (q) { return q.rank; });
-    return r.length ? Math.min.apply(null, r) : null;
+    var q = S.quals.find(function (x) { return x.employeeId === id && x.positionId === posId(); });
+    return q ? q.rank : null;
+  }
+  // Poste choisi (étapes 1 et 3) : mémorisé sur l'appareil ; par défaut Serveur.
+  function posId() {
+    var want = Number(S.posId || localStorage.getItem('horairePoste'));
+    if (S.positions.some(function (p) { return p.id === want; })) return want;
+    var srv = S.positions.find(function (p) { return /^serveur$/i.test(p.name); });
+    return srv ? srv.id : (S.positions[0] && S.positions[0].id);
+  }
+  // Menu déroulant du poste : même composant que le filtre Tous / Public / Confidentiel des Statistiques (.statsPeriodMenuWrap,
+  // .caSubProjectBtn, .statsPeriodMenu, menu uni R31 ; fermeture au clic dehors par app.js). Options dans l'ordre alphabétique.
+  var posPickers = [];
+  function posPicker() {
+    var wrap = el('div', 'statsPeriodMenuWrap caSubProjectFilter horairePosPicker');
+    var b = el('button', 'caSubProjectBtn'); b.type = 'button'; b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false');
+    var label = el('span'); b.appendChild(label);
+    var menuEl = el('div', 'statsPeriodMenu caSubProjectMenu hidden');
+    b.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = menuEl.classList.contains('hidden');
+      document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+      if (open) menuEl.classList.remove('hidden');
+      b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    menuEl.addEventListener('click', function (e) {
+      var it = e.target.closest('.statsPeriodMenuItem'); if (!it) return;
+      menuEl.classList.add('hidden'); b.setAttribute('aria-expanded', 'false');
+      var id = Number(it.dataset.pos);
+      if (id === posId()) return;
+      S.posId = id; try { localStorage.setItem('horairePoste', String(id)); } catch (err) { /* stockage indisponible : choix pour cette visite */ }
+      S.editing = null; S.addingRank = null; closeMenu();
+      renderPosPickers(); renderCats(); renderNeedsTable(); renderSchedule();
+    });
+    wrap.appendChild(b); wrap.appendChild(menuEl);
+    posPickers.push({ label: label, menu: menuEl });
+    return wrap;
+  }
+  function renderPosPickers() {
+    var list = S.positions.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'fr'); });
+    var cur = posId();
+    posPickers.forEach(function (p) {
+      var name = (S.positions.find(function (x) { return x.id === cur; }) || {}).name || '';
+      p.label.textContent = name;
+      p.menu.textContent = '';
+      list.forEach(function (x) {
+        var it = el('button', 'statsPeriodMenuItem' + (x.id === cur ? ' active' : ''), x.name); it.type = 'button'; it.dataset.pos = String(x.id);
+        p.menu.appendChild(it);
+      });
+    });
   }
   function hOrNull(v) { v = String(v == null ? '' : v).trim().replace(',', '.'); return v === '' ? null : Number(v); }
   function hoursValid(lo, tg, hi) {
@@ -602,10 +654,9 @@
     if (catsBox.querySelector('.editing:not(.horaireSheetNew)')) { S.catsDirty = true; return; }
     S.catsDirty = false;
     catsBox.textContent = '';
-    var emps = S.employees.filter(function (e) { return e.active !== false; });
+    var emps = S.employees.filter(function (e) { return e.active !== false && bestRank(e.id) != null; });
     var top = 4; emps.forEach(function (e) { var r = bestRank(e.id); if (r && r > top) top = Math.min(r, MAX_RANK); });
     var ranks = []; for (var r = 1; r <= top; r++) ranks.push(r);
-    if (emps.some(function (e) { return bestRank(e.id) == null; })) ranks.push(null);
     ranks.forEach(function (rank) {
       var block = el('div', 'horaireCatBlock');
       block.appendChild(el('p', 'cmpBlockTitle', rank == null ? tr('Sans catégorie') : tr('Catégorie') + ' ' + rank));
@@ -675,7 +726,7 @@
       if (!name) { stop(); return; }
       if (busy || closed) return; busy = true;
       var emp;
-      mainPosition().then(function (pos) {
+      Promise.resolve({ id: posId() }).then(function (pos) {
         return req('POST', 'employees', { name: name }).then(function (d) {
           emp = d.employee;
           return req('PUT', 'qualifications', { employeeId: emp.id, positionId: pos.id, rank: rank });
@@ -718,9 +769,7 @@
         var to = Number(wrap.dataset.rank), from = bestRank(id);
         var ids = Array.prototype.map.call(wrap.querySelectorAll('.horaireSheetEmp'), function (r) { return Number(r.dataset.employeeId); });
         ids.splice(index, 0, id);
-        var mine = S.quals.filter(function (q) { return q.employeeId === id && q.rank === from; });
-        var calls = mine.length ? mine.map(function (q) { return { employeeId: id, positionId: q.positionId, rank: to }; })
-          : (S.positions[0] ? [{ employeeId: id, positionId: S.positions[0].id, rank: to }] : []);
+        var calls = [{ employeeId: id, positionId: posId(), rank: to }]; // catégorie = rang au poste choisi
         Promise.all(calls.map(function (b) { return req('PUT', 'qualifications', b); })).then(function () { return saveCatOrder(ids); }).then(refresh, fail);
       },
     });
@@ -750,7 +799,7 @@
         if (d && d.schedule) { S.schedule = d.schedule; render(); } else loadWeek().then(render);
       }, fail);
     };
-    S.employees.filter(function (e) { return e.active !== false; }).forEach(function (e) {
+    S.employees.filter(function (e) { return e.active !== false && (bestRank(e.id) != null || e.id === a.employeeId); }).forEach(function (e) {
       var it = btn('horaireMenuItem' + (e.id === a.employeeId ? ' on' : ''), e.name, function () { if (e.id !== a.employeeId) pick(e.id); else closeMenu(); });
       it.setAttribute('role', 'menuitem'); menu.appendChild(it);
     });
@@ -771,7 +820,7 @@
     var placed = {}; (S.schedule ? S.schedule.assignments : []).forEach(function (a) { if (a.day === h.day) placed[a.employeeId] = 1; });
     // En tête : les candidats « à demander » (règle 9), dans l'ordre de la génération ; puis les disponibles ; puis les autres.
     var ask = (h.ask || []).filter(function (id) { return !placed[id]; });
-    var rows = S.employees.filter(function (e) { return e.active !== false; }).map(function (e) {
+    var rows = S.employees.filter(function (e) { return e.active !== false && bestRank(e.id) != null; }).map(function (e) {
       var k = ask.indexOf(e.id);
       var why = k >= 0 ? 'à demander' : placed[e.id] ? 'déjà placé' : cellState(e.id, h.day, svc) !== 'O' ? 'indisponible' : '';
       return { e: e, why: why, ask: k >= 0, order: k >= 0 ? k : 100 + (why ? 1 : 0) };
@@ -832,8 +881,8 @@
     var cell = function (svc) {
       return function (i, c) {
         var day = addDays(S.week, i), items = [];
-        sc.assignments.forEach(function (a) { if (a.day === day && serviceOf(a.start) === svc) items.push([a.start, 0, a]); });
-        holes.forEach(function (h) { if (h.day === day && serviceOf(h.start) === svc) for (var k = 0; k < (h.missing || 1); k++) items.push([h.start, 1, null, h]); });
+        sc.assignments.forEach(function (a) { if (a.positionId === posId() && a.day === day && serviceOf(a.start) === svc) items.push([a.start, 0, a]); });
+        holes.forEach(function (h) { if (h.positionId === posId() && h.day === day && serviceOf(h.start) === svc) for (var k = 0; k < (h.missing || 1); k++) items.push([h.start, 1, null, h]); });
         items.sort(function (x, y) { return x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : x[1] - y[1]; });
         items.forEach(function (x) {
           if (x[2]) { c.appendChild(shiftBtn(x[2])); return; }
@@ -846,13 +895,13 @@
     };
     planBox.appendChild(grid('horaireGridPlan', true, [['Matin', cell('matin'), 'horaireCellPlan'], ['Soir', cell('soir'), 'horaireCellPlan']]));
     // Note des employés placés, sans ses expressions reconnues : la génération ne la lit pas, on la rappelle ici (en tête).
-    var placed = {}; sc.assignments.forEach(function (a) { placed[a.employeeId] = a.employeeName; });
+    var placed = {}; sc.assignments.forEach(function (a) { if (a.positionId === posId()) placed[a.employeeId] = a.employeeName; });
     S.employees.filter(function (e) { return placed[e.id]; }).forEach(function (e) {
       var rest = noteRest(e.constraintNote);
       if (rest) alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + tr('note de') + ' ' + e.name + ' : “' + rest + '”'));
     });
     var key = function (a) { return a.type === 'trou' ? '0' + a.day + a.start : '1'; };
-    (sc.alerts || []).slice().sort(function (x, y) { return key(x) < key(y) ? -1 : key(x) > key(y) ? 1 : 0; }).forEach(function (a) { alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + alertText(a))); });
+    (sc.alerts || []).filter(function (a) { return a.type !== 'trou' || a.positionId === posId(); }).sort(function (x, y) { return key(x) < key(y) ? -1 : key(x) > key(y) ? 1 : 0; }).forEach(function (a) { alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + alertText(a))); });
   }
   function alertText(a) {
     if (a.type === 'trou') {

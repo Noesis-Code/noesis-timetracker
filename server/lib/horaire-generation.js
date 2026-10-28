@@ -70,9 +70,11 @@ function buildSlots(weekStart, needs, events, mainPositionId) {
     const replaced = new Set(fromEvents.map((n) => serviceOf(n.start)));
     const source = fromEvents.concat((needs || []).filter((n) => Number(n.weekday) === weekday && !replaced.has(serviceOf(n.start))));
     for (const g of dayEvents.filter((e) => e.service && Number(e.extra) > 0)) {
-      const first = source.filter((n) => serviceOf(n.start) === g.service).sort((a, b) => toMin(a.start) - toMin(b.start))[0];
+      // Groupe d'un poste : la première arrivée de ce poste dans le service ; ancien groupe (sans poste) : tous postes confondus.
+      const pid = g.positionId == null ? null : Number(g.positionId);
+      const first = source.filter((n) => serviceOf(n.start) === g.service && (pid == null || Number(n.positionId) === pid)).sort((a, b) => toMin(a.start) - toMin(b.start))[0];
       if (first) source.push({ positionId: first.positionId, start: first.start, end: first.end, count: Number(g.extra), eventId: g.id });
-      else if (mainPositionId != null) source.push({ positionId: mainPositionId, start: g.service === 'soir' ? '16:00' : '10:30', end: g.service === 'soir' ? '23:59' : '16:00', count: Number(g.extra), eventId: g.id });
+      else if ((pid != null ? pid : mainPositionId) != null) source.push({ positionId: pid != null ? pid : mainPositionId, start: g.service === 'soir' ? '16:00' : '10:30', end: g.service === 'soir' ? '23:59' : '16:00', count: Number(g.extra), eventId: g.id });
     }
     for (const n of source) {
       const r = range(n.start, n.end);

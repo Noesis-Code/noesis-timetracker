@@ -116,6 +116,15 @@ function createPosition(u, { name, fillOrder, dayforceCode }) {
   const r = db.prepare('INSERT INTO horaire_positions (userId, name, fillOrder, dayforceCode, createdAt) VALUES (?, ?, ?, ?, ?)').run(u, name, order, dayforceCode || null, nowIso());
   return listPositions(u).find((p) => p.id === Number(r.lastInsertRowid));
 }
+// Postes du volet (28 oct. 2026, demande d'Émilien) : créés s'ils manquent (comparaison sans casse ni accents), sans toucher aux postes
+// existants ni à leurs données. « Serveur » d'abord (poste principal d'un compte neuf), puis les autres.
+const DEFAULT_POSITIONS = ['Serveur', 'Barman', 'Commis', 'Hôte/Hôtesse', 'Suiteur'];
+function ensureDefaultPositions(u) {
+  const key = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const have = new Set(listPositions(u).map((p) => key(p.name)));
+  DEFAULT_POSITIONS.forEach((name) => { if (!have.has(key(name)) && countPositions(u) < LIMITS.positions) createPosition(u, { name }); });
+  return listPositions(u);
+}
 function updatePosition(u, id, f) {
   const p = ownPosition(u, id);
   if (!p) return null;
@@ -274,17 +283,18 @@ function deleteNeed(u, id) {
 // ---------- événements spéciaux (remplacent le modèle normal pour leur date) ----------
 function listEvents(u, from, to) {
   const evs = (from && to)
-    ? db.prepare('SELECT id, day, label, service, extra FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
-    : db.prepare('SELECT id, day, label, service, extra FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
+    ? db.prepare('SELECT id, day, label, service, extra, positionId FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
+    : db.prepare('SELECT id, day, label, service, extra, positionId FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
   const needs = db.prepare('SELECT eventId, positionId, start, end, count FROM horaire_needs WHERE userId = ? AND eventId IS NOT NULL ORDER BY start').all(u);
   return evs.map((e) => ({ ...e, needs: needs.filter((n) => n.eventId === e.id).map(({ eventId, ...n }) => n) }));
 }
-function writeEvent(u, id, { day, label, needs, service, extra }) {
+function writeEvent(u, id, { day, label, needs, service, extra, positionId }) {
   db.exec('BEGIN');
   try {
     let eventId = id;
-    if (eventId) db.prepare('UPDATE horaire_events SET day = ?, label = ?, service = ?, extra = ? WHERE id = ? AND userId = ?').run(day, label, service || null, extra == null ? null : extra, eventId, u);
-    else eventId = Number(db.prepare('INSERT INTO horaire_events (userId, day, label, service, extra) VALUES (?, ?, ?, ?, ?)').run(u, day, label, service || null, extra == null ? null : extra).lastInsertRowid);
+    const pid = positionId == null ? null : Number(positionId);
+    if (eventId) db.prepare('UPDATE horaire_events SET day = ?, label = ?, service = ?, extra = ?, positionId = ? WHERE id = ? AND userId = ?').run(day, label, service || null, extra == null ? null : extra, pid, eventId, u);
+    else eventId = Number(db.prepare('INSERT INTO horaire_events (userId, day, label, service, extra, positionId) VALUES (?, ?, ?, ?, ?, ?)').run(u, day, label, service || null, extra == null ? null : extra, pid).lastInsertRowid);
     if (needs) {
       db.prepare('DELETE FROM horaire_needs WHERE userId = ? AND eventId = ?').run(u, eventId);
       const ins = db.prepare('INSERT INTO horaire_needs (userId, positionId, weekday, eventId, start, end, count) VALUES (?, ?, NULL, ?, ?, ?, ?)');
@@ -775,7 +785,7 @@ module.exports = {
   importReservationsCsv, weekCovers, normDate,
   LIMITS, isDate, isMonday, isTime, cleanName, maxMinutes, shiftCount, constraintText, ownEmployee, ownPosition, ownEvent, weekPrompt,
   listEmployees, countEmployees, createEmployee, updateEmployee, deleteEmployee, retireEmployee,
-  listPositions, countPositions, createPosition, updatePosition, deletePosition,
+  listPositions, countPositions, createPosition, updatePosition, deletePosition, ensureDefaultPositions, DEFAULT_POSITIONS,
   listQualifications, setQualification, removeQualification,
   getAvailabilities, setAvailabilities, getTimeoff, availSummary,
   CATEGORY_RULES, listCategoryRules, addCategoryRule, removeCategoryRule,

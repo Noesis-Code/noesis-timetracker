@@ -144,6 +144,20 @@ r = generateSchedule({
 assert(find(r, 1, D[5], '17:00').length === 3 && find(r, 1, D[5], '18:00').length === 1 && find(r, 1, D[5], '10:00').length === 1, 'groupe du samedi soir : +2 à 17:00 (première arrivée du soir), le reste inchangé');
 assert(find(r, 1, D[6], '16:00').length === 1 && find(r, 1, D[6], '16:00')[0].end === '23:59', 'groupe sans besoin ce soir-là : +1 à 16:00');
 
+// ---- Plusieurs postes : chacun ses besoins, un employé jamais placé deux fois (un seul poste par jour) ; groupe d'un poste ----
+r = generateSchedule({
+  weekStart: W,
+  positions: [{ id: 1, fillOrder: 0 }, { id: 2, fillOrder: 1 }],
+  employees: [10, 11, 12].map((id) => ({ id })),
+  qualifications: [{ employeeId: 10, positionId: 1, rank: 1 }, { employeeId: 10, positionId: 2, rank: 1 }, { employeeId: 11, positionId: 1, rank: 1 }, { employeeId: 12, positionId: 2, rank: 1 }],
+  availabilities: allDay([10, 11, 12], D),
+  needs: [{ positionId: 1, weekday: 0, start: '17:00', end: '23:00', count: 2 }, { positionId: 2, weekday: 0, start: '17:00', end: '23:00', count: 2 }],
+  events: [{ id: 30, day: D[1], label: 'Groupe', service: 'soir', extra: 1, positionId: 2, needs: [] }],
+});
+const mon = r.assignments.filter((a) => a.day === D[0]);
+assert(find(r, 1, D[0]).length + find(r, 2, D[0]).length === 3 && new Set(mon.map((a) => a.employeeId)).size === mon.length, 'deux postes le même soir : 3 placés sur 4, aucun employé dans deux postes');
+assert(find(r, 2, D[1], '16:00').length === 1 && find(r, 1, D[1]).length === 0, 'groupe du Barman (poste 2) : +1 à son poste seulement');
+
 // ---- Quart qui traverse minuit ----
 r = generateSchedule({
   weekStart: W,

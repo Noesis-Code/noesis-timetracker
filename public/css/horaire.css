@@ -67,6 +67,8 @@
    avec ses règles en pastilles ; cellule modifiable sur place au clic ; valeur hors min ≤ cible ≤ max soulignée en violet clair. */
 /* UNE seule définition de colonnes pour l'en-tête, les catégories et les lignes (sous-grilles) : les traits tombent l'un sous l'autre */
 /* Un tableau par catégorie (titre .cmpBlockTitle au-dessus, R41) ; le conteneur des tableaux porte le trait d'insertion du glisser */
+/* Menu du poste (étapes 1 et 3) : composant du filtre des Statistiques, sans marge propre */
+#tab-horaire .horairePosPicker { margin: 0; align-self: flex-start; }
 .horaireCatsMsg { color: var(--violet-soft); }
 .horaireCatsBox { position: relative; display: flex; flex-direction: column; gap: 24px; }
 .horaireCatBlock { display: flex; flex-direction: column; gap: 8px; }

@@ -167,6 +167,8 @@ function positionInput(res, body, partial) {
   return out;
 }
 router.get('/horaire/positions', (req, res) => res.json({ positions: h.listPositions(req.userId) }));
+// Postes du volet créés s'ils manquent (Barman, Commis, Hôte/Hôtesse, Serveur, Suiteur) ; existants intacts.
+router.post('/horaire/positions/defaults', (req, res) => res.json({ positions: h.ensureDefaultPositions(req.userId) }));
 router.post('/horaire/positions', (req, res) => {
   const v = positionInput(res, req.body || {}, false); if (!v) return;
   if (h.countPositions(req.userId) >= h.LIMITS.positions) return res.status(409).json({ error: 'Limite de postes atteinte.' });
@@ -278,7 +280,9 @@ function eventInput(req, res, body, partial, current) {
     const extra = body.extra !== undefined ? body.extra : current && current.extra;
     if (service !== 'matin' && service !== 'soir') { bad(res, 'Service invalide (matin ou soir).'); return null; }
     if (!(Number.isInteger(extra) && extra >= 1 && extra <= 50)) { bad(res, 'Serveurs en plus invalides (1 à 50).'); return null; }
-    return { day, label: 'Groupe', needs: [], service, extra };
+    const positionId = body.positionId !== undefined ? body.positionId : current && current.positionId;
+    if (positionId != null && !h.ownPosition(req.userId, positionId)) { notFound(res, 'Poste'); return null; }
+    return { day, label: 'Groupe', needs: [], service, extra, positionId: positionId == null ? null : Number(positionId) };
   }
   const label = body.label !== undefined ? h.cleanName(body.label, h.LIMITS.label) : (current ? current.label : '');
   let needs = null;
