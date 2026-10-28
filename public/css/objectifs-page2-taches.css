@@ -131,12 +131,12 @@
    case grise (couleur de la section). */
 .goalsTasksGroup .subProjectItem .goalsTaskTrashBtn { display: inline-flex; align-items: center; justify-content: center; padding: 6px; color: var(--text-light); }
 .goalsTasksGroup .subProjectItem input[type="checkbox"] {
-  -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 6px;
-  background: var(--card); border: 1.5px solid color-mix(in srgb, var(--text-light) 55%, transparent);
+  -webkit-appearance: none; appearance: none; width: 28px; height: 28px; border-radius: 50%;
+  background: transparent; border: 2px solid var(--text-light);
   display: inline-grid; place-content: center; cursor: pointer;
 }
 .goalsTasksGroup .subProjectItem input[type="checkbox"]:checked { background: var(--purple); border-color: var(--purple); }
-.goalsTasksGroup .subProjectItem input[type="checkbox"]:checked::after { content: ""; width: 5px; height: 10px; border: solid var(--white); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
+.goalsTasksGroup .subProjectItem input[type="checkbox"]:checked::after { content: ""; width: 7px; height: 13px; border: solid var(--white); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
 .goalsTasksGroup .subProjectItem.dragging { position: relative; z-index: 5; opacity: .9; background: var(--bg-raised, var(--card)); box-shadow: 0 6px 18px rgba(0,0,0,.45); border-radius: var(--radius-md); }
 .goalsTasksGroup.catDropTarget { outline: 2px solid var(--purple); outline-offset: -2px; }
 
@@ -342,3 +342,26 @@
 
 /* bouton « Ajouter » (Essor) à la place de la bulle Discussion ; le ＋ ouvre directement la page « Ajouter des tâches ». */
 #goalsPage2AddBtn .notifDot { display: none; }
+
+/* LISTE PLATE de l'onglet Tâches (demande d'Émilien, 28 oct. 2026, d'après sa capture) : aucune carte ni cadre autour des secteurs et des tâches ;
+   titre de secteur en gras avec son nombre et sa flèche (R21), cercle à cocher à gauche, date à droite, traits d'un bord à l'autre (R22), 44 px min (R7).
+   Les secteurs ne portent jamais de couleur (R16) ; seul le nom du pôle prend la couleur du pôle. */
+.goalsTasksMode #goalsActivityHeader .activityPageName { color: var(--poleColor, var(--text)); }
+:root #goalsTasksView .activityProgressCard { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; margin: 16px 0 8px; justify-content: space-between; gap: 8px; }
+#goalsTasksView .activityProgressCard .activityProgressRing, #goalsTasksView .activityProgressCard .activityProgressPercent { display: none; }
+#goalsTasksView .activityProgressCard .activityProgressText { display: contents; }
+#goalsTasksView .activityProgressCard .activityProgressTitle, #goalsTasksView .activityProgressCard .meta { margin: 0; font-size: 13px; font-weight: 400; color: var(--text-light); }
+#goalsTasksView .goalsTasksGroups { gap: 0; }
+:root #goalsTasksGroups .goalsTasksGroup { background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; border-radius: 0; padding: 0; gap: 0; }
+#goalsTasksGroups .goalsTasksGroup.open { padding-top: 0; }
+#goalsTasksGroups .goalsTasksGroup .subProjectRowHeader { min-height: 48px; border-bottom: 1px solid var(--sep); }
+#goalsTasksGroups .goalsTasksGroup .activityRowName { font-size: 15px; font-weight: 600; }
+#goalsTasksGroups .goalsTasksGroup .subProjectBadge { font-size: 13px; color: var(--text-light); }
+#goalsTasksGroups .goalsTasksGroup .subProjectItems { gap: 0; }
+#goalsTasksGroups .goalsTasksGroup .subProjectItem { min-height: 52px; padding: 4px 0; gap: 16px; border-radius: 0; border-bottom: 1px solid var(--sep); }
+#goalsTasksGroups .goalsTasksGroup .subProjectItem input[type="checkbox"] { margin-left: 4px; }
+#goalsTasksGroups .goalsTasksGroup .subProjectItem.goalsTaskEditing { border-bottom: 0; }
+#goalsTasksGroups .goalsTasksGroup .subProjectItemAdd { margin: 8px 0; }
+:root #goalsTasksArchiveHeader { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; min-height: 44px; align-items: center; }
+#goalsTasksArchiveHeader:hover { filter: none; }
+#goalsTasksArchiveHeader .sectionTitle { font-size: 13px; font-weight: 400; color: var(--text-light); }

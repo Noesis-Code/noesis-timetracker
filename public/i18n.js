@@ -999,6 +999,7 @@
     'Avancement global': 'Overall progress',
     'Avancement quotidien': 'Daily progress',
     ' tâches complétées': ' tasks completed',
+    ' tâches': ' tasks',
     'Journée surchargée': 'Overloaded day',
     'Cible peut-être irréaliste : il faudrait ': 'Target may be unrealistic: you would need ',
     '/sem, tu en fais ': '/wk, you do ',

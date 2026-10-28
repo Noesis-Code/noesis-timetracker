@@ -143,7 +143,7 @@
             </svg>
             <span id="goalsTasksProgressPercent" class="activityProgressPercent">0%</span>
             <div class="activityProgressText">
-              <p class="activityProgressTitle">Avancement quotidien</p>
+              <p class="activityProgressTitle">Aujourd'hui</p>
               <p id="goalsTasksProgressCount" class="meta"></p>
             </div>
           </div>
@@ -377,6 +377,8 @@
     if (previousBase === 'tasks' && mode !== 'tasks') collapseGoalsArchives();
     goalsPage2BaseMode = mode;
     currentGoalsPage2Mode = mode;
+    var swEl = $('goalsActivitySwitcher');
+    if (swEl) swEl.classList.toggle('goalsTasksMode', mode === 'tasks'); // nom du pôle coloré sur cet onglet seulement
     var tasksBtn = $('goalsPage2ModeTasksBtn');
     var goalsBtn = $('goalsPage2ModeGoalsBtn');
     if (tasksBtn) tasksBtn.classList.toggle('active', mode === 'tasks');
@@ -923,8 +925,8 @@
       else wrap.style.setProperty('--progressEdge', TMT.subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, TMT.SUB_PROJECT_SHADE_COUNT));
       if (allDone) $('goalsTasksProgressPercent').innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><polyline points="4 12.5 9.5 18 20 6.5"/></svg>';
       else $('goalsTasksProgressPercent').textContent = data.percent + '%';
-      $('goalsTasksProgressCount').textContent =
-        data.done + ' / ' + data.total + t(' tâches complétées');
+      // liste plate (28 oct. 2026) : « 0 % · 4 tâches », en petit gris, à droite de « Aujourd'hui ».
+      $('goalsTasksProgressCount').textContent = data.percent + ' % · ' + data.total + t(' tâches');
     }
 
     var list = $('goalsTasksGroups');
@@ -1057,6 +1059,9 @@
 
   // Rappelé par le sélecteur de pôle (objectifs-page2-objectif.js) au changement de pôle.
   TMT.rerenderGoalsTasksOverview = function () {
+    // le nom du pôle prend la couleur du pôle (donnée, R16) ; jamais celle d'un secteur.
+    var hdr = $('goalsActivityHeader');
+    if (hdr && TMT.subProjectShade) hdr.style.setProperty('--poleColor', TMT.subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, TMT.SUB_PROJECT_SHADE_COUNT));
     if (currentGoalsTasksOverview) renderGoalsTasksOverview(currentGoalsTasksOverview);
     loadGoalsOverloadCard(); // une carte par pôle : suit le pôle affiché
     loadGoalsReportCard(); loadGoalsRecalcCard(); // idem : Non réalisées, cible irréaliste et recalcul sont par pôle
@@ -1097,9 +1102,7 @@
 
     var badge = document.createElement('span');
     badge.className = 'meta subProjectBadge';
-    badge.textContent = g.percent === null || g.percent === undefined
-      ? t('Aucune tâche')
-      : g.percent + '% · ' + g.done + '/' + g.total;
+    badge.textContent = String((g.tasks || []).length); // liste plate : seulement le nombre de tâches
     header.appendChild(badge);
     header.appendChild(chevron);
 
@@ -1120,14 +1123,6 @@
       desc.textContent = g.description;
       row.appendChild(desc);
     }
-
-    var track = document.createElement('div');
-    track.className = 'subProjectProgressTrack subProjectRowTrack';
-    var barFill = document.createElement('div');
-    barFill.className = 'subProjectProgressFill';
-    barFill.style.width = (g.percent || 0) + '%';
-    track.appendChild(barFill);
-    row.appendChild(track);
 
     if (isOpen) {
       var items = document.createElement('div');
@@ -1321,7 +1316,7 @@
     // peut directement cliquer » — déjà satisfaite par appendLinkified().
     appendLinkified(label, task.label);
     row.appendChild(label);
-    if (task.grey && task.dueDate) {
+    if (task.dueDate) { // la date s'affiche sur chaque tâche (liste plate)
       var when = document.createElement('span');
       when.className = 'meta goalsDailyWhen';
       when.textContent = TMT.calendarDayLabel(task.dueDate) || task.dueDate;
