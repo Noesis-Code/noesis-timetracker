@@ -6,10 +6,8 @@
 
 /* En-tête (maquette du 27 oct. 2026) : titre, semaine ‹ libellé ›, « Générer l'horaire » (secondaire), « Prompt pour l'IA » (violet, R1) */
 .horaireHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; }
-.horaireWeek { display: flex; align-items: center; gap: 8px; }
-.horaireWeekLabel { min-width: 240px; text-align: center; font-size: 16px; font-weight: 500; color: var(--text); }
-/* R37 : flèche de semaine seule, sans carré, cadre ni fond ; zone de toucher de 44 px (R25) */
-.horaireNav { width: 44px; height: 44px; padding: 0; border: 0; background: none; box-shadow: none; font: inherit; font-size: 24px; line-height: 1; color: var(--text); cursor: pointer; }
+/* Semaine ‹ libellé › : composant .cmpNav--sm (R45), sur toute la largeur de l'en-tête */
+.horaireHead > .horaireWeek { flex: 1 1 100%; }
 /* Parcours en 4 pages : boutons d'étape pleine largeur (sélecteur commun .cmpSeg, R42), points, pages (TMT.slidePager) */
 .horairePages { position: relative; }
 .horairePage { display: flex; flex-direction: column; gap: 24px; }
@@ -66,7 +64,6 @@
 /* Calendrier des événements (étape 2) : Jour | Mois | Année */
 .horaireCalBox { display: flex; flex-direction: column; gap: 12px; }
 .horaireCalBox > .cmpSeg { margin: 0; }
-.horaireCalNav { justify-content: center; }
 .horaireCalGrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .horaireCalHead { padding: 8px; font-size: 13px; color: var(--text-light); text-align: center; }
 .horaireCalDay { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-height: 88px; padding: 8px; border: 0; border-top: 1px solid var(--sep); border-left: 1px solid var(--sep); background: none; font: inherit; color: var(--text); text-align: left; cursor: pointer; }
@@ -203,7 +200,6 @@
 .horaireMenuCheck input { width: 18px; height: 18px; margin: 0; accent-color: var(--purple); }
 .horaireRuleNum { flex: 0 0 auto; min-width: 20px; color: var(--text-light); }
 .horaireRules > .cmpAdd { margin-top: 8px; min-height: 44px; padding: 0; border-radius: var(--radius-md); font-size: 14px; }
-@media (max-width: 720px) { .horaireWeekLabel { min-width: 0; flex: 1; } .horaireWeek { width: 100%; } }
 
 
 /* Formulaires déroulés sur place (R36) : groupe, éditeur du prompt */

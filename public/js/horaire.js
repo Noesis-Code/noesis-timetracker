@@ -130,10 +130,11 @@
   function build() {
     root.textContent = '';
     var head = el('header', 'horaireHead');
-    var nav = el('div', 'horaireWeek');
-    var prev = btn('horaireNav', '‹', function () { changeWeek(-7); }); prev.setAttribute('aria-label', tr('Semaine précédente'));
-    var next = btn('horaireNav', '›', function () { changeWeek(7); }); next.setAttribute('aria-label', tr('Semaine suivante'));
-    weekLabel = el('span', 'horaireWeekLabel');
+    // Navigation par flèches : composant unique .cmpNav--sm (R45, css/composants.css).
+    var nav = el('div', 'cmpNav cmpNav--sm horaireWeek');
+    var prev = btn('cmpNavArrow', '‹', function () { changeWeek(-7); }); prev.setAttribute('aria-label', tr('Semaine précédente'));
+    var next = btn('cmpNavArrow', '›', function () { changeWeek(7); }); next.setAttribute('aria-label', tr('Semaine suivante'));
+    weekLabel = el('span', 'cmpNavLabel');
     nav.appendChild(prev); nav.appendChild(weekLabel); nav.appendChild(next);
     head.appendChild(nav); weekNav = head; // sous les deux grands boutons, seulement dans Création des horaires
 
@@ -832,11 +833,11 @@
     });
     eventsBox.appendChild(seg);
     var nav = function (label, prev, next, atStart) {
-      var n = el('div', 'horaireWeek horaireCalNav');
-      var p = btn('horaireNav', '‹', prev); p.setAttribute('aria-label', tr('Précédent'));
+      var n = el('div', 'cmpNav cmpNav--sm horaireCalNav'); // R45
+      var p = btn('cmpNavArrow', '‹', prev); p.setAttribute('aria-label', tr('Précédent'));
       if (atStart) { p.style.visibility = 'hidden'; p.disabled = true; } // à la limite : la flèche ‹ est masquée (R37), sa place reste
-      var x = btn('horaireNav', '›', next); x.setAttribute('aria-label', tr('Suivant'));
-      n.appendChild(p); n.appendChild(el('span', 'horaireWeekLabel', label)); n.appendChild(x);
+      var x = btn('cmpNavArrow', '›', next); x.setAttribute('aria-label', tr('Suivant'));
+      n.appendChild(p); n.appendChild(el('span', 'cmpNavLabel', label)); n.appendChild(x);
       return n;
     };
     var d0 = new Date(cal.date + 'T00:00:00Z'), y = d0.getUTCFullYear(), m = d0.getUTCMonth();
