@@ -36,6 +36,24 @@ router.post('/horaire/inbound/reservations/:token', (req, res) => {
   res.json({ ok: !out.error, created: out.created, duplicates: out.duplicates, ignored: out.small });
 });
 
+// Courriel complet d'un fil d'événement (boîte info@ du restaurant) : POST /api/horaire/inbound/mail/:jeton, JSON des fournisseurs courants
+// (Mailgun, Postmark, CloudMailin : sujet, texte, Message-ID, In-Reply-To, References, date). Jeton inconnu : 404 ; compte non entreprise :
+// 403 ; 1 Mo de texte au plus ; 60 courriels par heure et par jeton. Le corps est lu en mémoire puis jeté (jamais gardé ni journalisé).
+router.post('/horaire/inbound/mail/:token', (req, res) => {
+  const u = h.userForInboundToken(req.params.token);
+  if (!u) return res.status(404).end();
+  if (!require('../lib/modules').isHoraireAllowed(u)) return res.status(403).json({ error: 'Réservé aux comptes entreprise.' });
+  const now = Date.now(), k = 'mail:' + req.params.token;
+  const hits = (inboundHits.get(k) || []).filter((t) => now - t < 3600 * 1000);
+  if (hits.length >= 60) return res.status(429).end();
+  hits.push(now); inboundHits.set(k, hits);
+  const b = req.body || {};
+  const size = JSON.stringify(b).length;
+  if (size > 1024 * 1024) return res.status(413).end();
+  const out = h.receiveMail(u, b);
+  res.json({ ok: true, eventId: out.eventId || null, ignored: !!out.ignored });
+});
+
 router.use('/horaire', requireAuth);
 // Horaire : comptes entreprise seulement (exception hors production : HORAIRE_ALLOW_USER_IDS, server/lib/modules.js).
 router.use('/horaire', (req, res, next) => (require('../lib/modules').isHoraireAllowed(req.userId) ? next() : res.status(403).json({ error: 'Réservé aux comptes entreprise.' })));
@@ -410,8 +428,14 @@ router.put('/horaire/events/:id', (req, res) => {
   const cur = h.ownEvent(req.userId, req.params.id);
   if (!cur) return notFound(res, 'Événement');
   const v = eventInput(req, res, req.body || {}, true, cur); if (!v) return;
-  res.json({ event: v.serviceEvent ? h.writeServiceEvent(req.userId, cur.id, v) : h.writeEvent(req.userId, cur.id, v) });
+  const b = req.body || {};
+  const touched = ['name', 'lines', 'floorId', 'day', 'covers'].filter((x) => b[x] !== undefined);
+  const out = v.serviceEvent ? h.writeServiceEvent(req.userId, cur.id, v) : h.writeEvent(req.userId, cur.id, v);
+  if (touched.length) h.markManual(req.userId, cur.id, touched); // retouche à la main : jamais écrasée par un courriel suivant
+  res.json({ event: h.listEvents(req.userId).find((e) => e.id === cur.id) || out });
 });
+// Valider un événement reçu par courriel : il entre dans l'horaire.
+router.post('/horaire/events/:id/validate', (req, res) => (h.validateEvent(req.userId, req.params.id) ? res.json({ event: h.listEvents(req.userId).find((e) => e.id === Number(req.params.id)) }) : notFound(res, 'Événement')));
 router.delete('/horaire/events/:id', (req, res) => (h.deleteEvent(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Événement')));
 
 // ---------- horaire d'une semaine ----------

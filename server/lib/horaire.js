@@ -340,12 +340,13 @@ setInterval(() => { try { purgePastEvents(); } catch (e) { /* réessayé au proc
 function listEvents(u, from, to) {
   purgePastEvents();
   const evs = (from && to)
-    ? db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
-    : db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
+    ? db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId, status, manual, mailHint FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
+    : db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId, status, manual, mailHint FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
   const needs = db.prepare('SELECT eventId, positionId, start, end, count FROM horaire_needs WHERE userId = ? AND eventId IS NOT NULL ORDER BY start').all(u);
   // lines (événement d'un service) : ses lignes « poste · +N » ; ancienne ligne (positionId, extra) = un événement d'une seule ligne.
   return evs.map((e) => {
     e.floorId = e.zoneId == null ? null : e.zoneId; // plancher occupé (colonne zoneId)
+    e.pending = e.status === 'pending'; // reçu par courriel, « à valider »
     const own = needs.filter((n) => n.eventId === e.id).map(({ eventId, ...n }) => n);
     const lines = e.service ? (own.length ? own.map((n) => ({ positionId: n.positionId, count: n.count })) : (e.extra > 0 ? [{ positionId: e.positionId, count: e.extra }] : [])) : own.map((n) => ({ positionId: n.positionId, count: n.count }));
     // Ancien événement sans service (ses besoins remplacent le modèle) : affiché dans le calendrier sous le service de ses besoins
@@ -403,6 +404,8 @@ function writeEvent(u, id, { day, label, needs, service, extra, positionId }) {
 }
 function deleteEvent(u, id) {
   const i = Number(id);
+  // Refus d'un événement reçu par courriel : son fil est ignoré par la suite (les courriels suivants ne recréent rien).
+  db.prepare('UPDATE horaire_inbound_threads SET refused = 1 WHERE userId = ? AND eventId = ?').run(u, i);
   return cascade(u, [['DELETE FROM horaire_needs WHERE eventId = ? AND userId = ?', i], ['DELETE FROM horaire_events WHERE id = ? AND userId = ?', i]]);
 }
 
@@ -481,7 +484,7 @@ function weekInput(u, weekStart) {
     availabilities: getAvailabilities(u, weekStart),
     timeoff: getTimeoff(u, weekStart),
     needs: listNeeds(u),
-    events: listEvents(u, days[0], days[6]),
+    events: listEvents(u, days[0], days[6]).filter((e) => !e.pending), // un événement « à valider » n'entre pas dans l'horaire
     rotation: rot,
     arrivalPositions: arrivalPositionIds(u),
     serviceEnds: getServiceEnds(u),
@@ -953,6 +956,75 @@ function setGroupMin(u, n) {
   db.prepare('UPDATE horaire_settings SET groupMin = ? WHERE userId = ?').run(n, u);
   return inboundInfo(u);
 }
+// ---------- événements reçus par COURRIEL (boîte info@ du restaurant ; fournisseur à brancher par Émilien) ----------
+// Un fil (References / In-Reply-To, sinon sujet sans « RE: ») = UN événement « à valider », mis à jour à chaque courriel du fil : ce qu'un
+// courriel plus récent dit remplace ce qu'un plus ancien disait. Extraction par règles (./horaire-mail.js). Loi 25 : le corps n'est
+// jamais gardé ; seuls les champs extraits, des identifiants HACHÉS et un sujet sans nom propre le sont.
+const M = require('./horaire-mail');
+// Une modification à la main d'un événement (nom, postes, plancher) n'est jamais écrasée par un courriel : on note les champs touchés.
+function markManual(u, id, keys) {
+  const e = db.prepare('SELECT manual FROM horaire_events WHERE id = ? AND userId = ?').get(Number(id), u);
+  if (!e) return;
+  let m = []; try { m = JSON.parse(e.manual || '[]'); } catch (x) { m = []; }
+  keys.forEach((k) => { if (!m.includes(k)) m.push(k); });
+  db.prepare('UPDATE horaire_events SET manual = ? WHERE id = ? AND userId = ?').run(JSON.stringify(m), Number(id), u);
+}
+function validateEvent(u, id) {
+  return db.prepare("UPDATE horaire_events SET status = NULL WHERE id = ? AND userId = ? AND status = 'pending'").run(Number(id), u).changes > 0;
+}
+function receiveMail(u, raw) {
+  const mail = M.normalizeMail(raw);
+  const hash = (v) => require('crypto').createHash('sha256').update(u + '|' + v).digest('hex').slice(0, 32);
+  const ids = [mail.messageId, mail.inReplyTo, ...mail.references].filter(Boolean).map(hash);
+  const subj = M.cleanSubject(mail.subject);
+  const subjectKey = subj ? hash('s:' + M.fold(subj).replace(/\s+/g, ' ').trim()) : null;
+  const threads = db.prepare('SELECT * FROM horaire_inbound_threads WHERE userId = ?').all(u);
+  let t = threads.find((x) => { let k = []; try { k = JSON.parse(x.msgIds); } catch (e) { k = []; } return ids.some((i) => k.includes(i)); })
+    || (subjectKey ? threads.find((x) => x.subjectKey === subjectKey) : null);
+  const now = nowIso();
+  if (!t) {
+    const id = Number(db.prepare('INSERT INTO horaire_inbound_threads (userId, msgIds, subjectKey, createdAt) VALUES (?, ?, ?, ?)').run(u, '[]', subjectKey, now).lastInsertRowid);
+    t = db.prepare('SELECT * FROM horaire_inbound_threads WHERE id = ?').get(id);
+  }
+  let known = []; try { known = JSON.parse(t.msgIds); } catch (e) { known = []; }
+  db.prepare('UPDATE horaire_inbound_threads SET msgIds = ? WHERE id = ?').run(JSON.stringify([...new Set(known.concat(ids))].slice(-200)), t.id);
+  if (t.refused) return { ignored: true, thread: t.id };
+  const floors = listFloors(u);
+  const ex = M.extract({ subject: mail.subject, text: mail.text }, montrealToday(), floors);
+  // Ordre des courriels : un courriel plus ancien que le dernier lu ne fait que compléter les champs vides.
+  const at = Date.parse(mail.date) ? new Date(Date.parse(mail.date)).toISOString() : now;
+  const newer = !t.lastAt || at >= t.lastAt;
+  let f = {}; try { f = JSON.parse(t.fields || '{}'); } catch (e) { f = {}; }
+  const put = (k, v) => { if (v == null || v === false) return; if (newer || f[k] == null) f[k] = v; };
+  put('day', ex.day); put('time', ex.time); put('service', ex.service); put('covers', ex.covers);
+  put('floorId', ex.floorIds[0] != null ? ex.floorIds[0] : null); if (ex.confirm) f.confirm = true;
+  db.prepare('UPDATE horaire_inbound_threads SET fields = ?, lastAt = ? WHERE id = ?').run(JSON.stringify(f), newer ? at : t.lastAt, t.id);
+  if (!f.day) return { thread: t.id, eventId: null }; // pas encore de date : rien dans le calendrier
+  const pos = serverPosition(u);
+  const ratio = (pos && pos.openTableCovers) || COVERS_RATIO;
+  const serverLine = f.covers && pos ? [{ positionId: pos.id, count: Math.min(50, Math.ceil(f.covers / ratio)) }] : [];
+  const hint = f.confirm ? 'confirmé probable' : null;
+  const ev = t.eventId ? db.prepare('SELECT * FROM horaire_events WHERE id = ? AND userId = ?').get(t.eventId, u) : null;
+  if (!ev) {
+    const name = M.anonymousSubject(mail.subject) || M.fallbackName(f.day);
+    const e = writeServiceEvent(u, null, { day: f.day, service: f.service || 'soir', covers: f.covers || null, lines: serverLine, name, floorId: f.floorId != null ? f.floorId : null });
+    db.prepare("UPDATE horaire_events SET status = 'pending', mailHint = ? WHERE id = ?").run(hint, e.id);
+    db.prepare('UPDATE horaire_inbound_threads SET eventId = ? WHERE id = ?').run(e.id, t.id);
+    return { thread: t.id, eventId: e.id, created: true };
+  }
+  let manual = []; try { manual = JSON.parse(ev.manual || '[]'); } catch (e) { manual = []; }
+  const cur = listEvents(u).find((x) => x.id === ev.id) || { lines: [] };
+  if (!manual.length) {
+    // Aucune retouche à la main : le fil fait foi (date, service, couverts, plancher, ligne Serveur).
+    writeServiceEvent(u, ev.id, { day: f.day, service: f.service || ev.service || 'soir', covers: f.covers || null, lines: serverLine.length ? serverLine : cur.lines, floorId: f.floorId != null ? f.floorId : null });
+  } else {
+    // Retouché à la main : seuls les champs encore vides se remplissent.
+    writeServiceEvent(u, ev.id, { day: ev.day, service: ev.service, covers: ev.covers != null ? ev.covers : (f.covers || null), lines: (cur.lines && cur.lines.length) || manual.includes('lines') ? cur.lines : serverLine, floorId: ev.zoneId != null || manual.includes('floorId') ? undefined : (f.floorId != null ? f.floorId : undefined) });
+  }
+  db.prepare('UPDATE horaire_events SET mailHint = ? WHERE id = ? AND userId = ?').run(hint, ev.id, u);
+  return { thread: t.id, eventId: ev.id, updated: true };
+}
+
 // Compte d'un jeton (comparaison exacte, jeton hexadécimal de 64 caractères) ; null si inconnu.
 function userForInboundToken(token) {
   if (!/^[0-9a-f]{64}$/.test(String(token || ''))) return null;
@@ -1049,7 +1121,7 @@ module.exports = {
   DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  listFloors, ownFloor, listFloorCounts, createFloor, renameFloor, deleteFloor, isFloorPosition, setFloorCount, nameTaken, candidates, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, userForInboundToken, receiveReservations, GROUP_MIN, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
+  listFloors, ownFloor, listFloorCounts, createFloor, renameFloor, deleteFloor, isFloorPosition, setFloorCount, nameTaken, candidates, receiveMail, markManual, validateEvent, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, userForInboundToken, receiveReservations, GROUP_MIN, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,

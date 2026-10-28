@@ -68,10 +68,10 @@
     });
   }
   function loadAll() {
-    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), Promise.resolve({}), req('GET', 'service-ends').catch(function () { return { ends: {} }; }), req('GET', 'floors').catch(function () { return { floors: [], counts: [] }; })])
+    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), req('GET', 'inbound').catch(function () { return {}; }), req('GET', 'service-ends').catch(function () { return { ends: {} }; }), req('GET', 'floors').catch(function () { return { floors: [], counts: [] }; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
-        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.ends = r[9].ends || {}; S.floors = r[10].floors || []; S.floorCounts = r[10].counts || []; S.loaded = true;
+        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.inbound = r[8] || {}; S.ends = r[9].ends || {}; S.floors = r[10].floors || []; S.floorCounts = r[10].counts || []; S.loaded = true;
       });
   }
   // Construit la page si besoin : refresh() peut être appelé (TMT.horaire.refresh) avant la première ouverture du volet.
@@ -114,7 +114,7 @@
   // Deux catégories (grands boutons .cmpSeg, R42) et leurs sous-catégories (texte simple souligné, .cmpSubTabs) : demande d'Émilien,
   // 28 oct. 2026. Pages à plat : 0-2 = Paramètres, 3-5 = Création des horaires.
   var CATS = [['Paramètres', ['Employés', 'Événements', 'Général']], ['Création des horaires', ['Récupération', 'Horaire', 'Envoi']]];
-  var bFloors, floorsBox, eventsBox, promptBoxes = {}, catsMsg, pasteArea, weekLabel, weekNav, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
+  var inboundLine, bFloors, floorsBox, eventsBox, promptBoxes = {}, catsMsg, pasteArea, weekLabel, weekNav, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
   var pagesHost, pages = [], catBtns = [], subTabs, dots, dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
@@ -162,7 +162,9 @@
     p1.appendChild(bCats);
     // Paramètres > Général : menu Poste, Besoins (avec les lignes « Fin »), Règles du restaurant.
     var pGen = el('div', 'horairePage');
-    [posPicker(), bNeeds, bFloors, bRules].forEach(function (n) { pGen.appendChild(n); });
+    // Adresse secrète de réception des courriels d'événements : seulement si la réception est configurée (HORAIRE_INBOUND_DOMAIN).
+    inboundLine = el('div', 'horaireInbound hidden');
+    [posPicker(), bNeeds, bFloors, bRules, inboundLine].forEach(function (n) { pGen.appendChild(n); });
 
     // Paramètres > Événements : le calendrier des événements seul, en saisie manuelle (demandes d'Émilien, 28 oct. 2026 : pas de prompt
     // pour lire OpenTable ; la voie automatique prévue est la réception du rapport par courriel, route à jeton côté serveur).
@@ -349,6 +351,17 @@
     paste.appendChild(area); paste.appendChild(TMT.ui.attachBtn(function (files) { readPasteFile(files, area, o.send); }, { label: tr('Joindre un fichier') })); paste.appendChild(actions);
     return { row: row, box: box, paste: paste, area: area };
   }
+  function renderInbound() {
+    var i = S.inbound || {};
+    inboundLine.textContent = '';
+    inboundLine.classList.toggle('hidden', !i.address);
+    if (!i.address) return;
+    inboundLine.appendChild(el('span', 'horaireMuted horaireInboundText', tr('Courriels des événements :') + ' ' + i.address));
+    inboundLine.appendChild(btn('cmpBtn cmpBtnIdle', 'Copier l’adresse', function () {
+      var cb = navigator.clipboard;
+      (cb && cb.writeText ? cb.writeText(i.address) : Promise.reject()).then(function () { S.msg = tr('Adresse copiée.'); renderMsg(); }, function () { S.msg = tr('Copie impossible.'); renderMsg(); });
+    }));
+  }
   // « 1 congé », « 3 congés » : nombre et mot accordé (jamais « (s) »).
   function plural(n, one, many) { return n + ' ' + tr(n > 1 ? many : one); }
   function renderMsg() {
@@ -416,6 +429,7 @@
     renderSummary();
     renderNeedsTable();
     renderFloors();
+    renderInbound();
     renderCats();
     renderRules();
   }
@@ -679,12 +693,20 @@
             req('PUT', 'events/' + ev.id, { service: evSvc(ev), name: t }).then(function (d) { replaceEvent(d.event); }, failCal);
           }, function (cell) { cell.appendChild(el('span', null, nm)); if (ev.covers) cell.appendChild(el('span', 'horaireMuted', ' · ' + ev.covers + ' ' + tr('couverts'))); });
           head.appendChild(nameCell);
+          if (ev.pending) head.appendChild(el('span', 'horaireBadge', tr('à valider'))); // reçu par courriel, pas encore dans l'horaire
           if (!past) {
             head.appendChild(TMT.ui.removeBtn(function () {
               confirmDelete(tr('Supprimer cet événement ?'), function () { req('DELETE', 'events/' + ev.id).then(function () { S.calMsg = ''; return refresh(); }, failCal); });
             }, tr('Retirer l’événement')));
           }
           card.appendChild(head);
+          if (ev.mailHint) card.appendChild(el('span', 'horaireMuted horaireEvHint', tr(ev.mailHint)));
+          // Événement reçu par courriel : « Valider » (secondaire violet) le fait entrer dans l'horaire ; la croix le refuse.
+          if (ev.pending && !past) {
+            card.appendChild(btn('cmpBtn horaireEvValidate', 'Valider', function () {
+              req('POST', 'events/' + ev.id + '/validate').then(function (d) { replaceEvent(d.event); }, failCal);
+            }));
+          }
           // Plancher occupé : menu uni (R31), « Aucun » par défaut ; enregistrement automatique.
           if ((S.floors || []).length) {
             var fl = el('label', 'horaireEvFloor');
@@ -756,7 +778,7 @@
           var rp = floorReplaced(day, svc);
           S.events.filter(function (e) { return e.day === day && evSvc(e) === svc; }).forEach(function (ev, k) {
             var n = 0; (ev.lines || []).forEach(function (l, i) { var r = rp[ev.id + ':' + i]; n += r ? r.extra : l.count; });
-            var p = el('span', 'horaireCalPill', tr(svc === 'soir' ? 'Soir' : 'Matin') + ' · ' + evName(ev, k) + ' · ' + n); p.title = p.textContent;
+            var p = el('span', 'horaireCalPill' + (ev.pending ? ' pending' : ''), tr(svc === 'soir' ? 'Soir' : 'Matin') + ' · ' + evName(ev, k) + ' · ' + n + (ev.pending ? ' · ' + tr('à valider') : '')); p.title = p.textContent;
             b.appendChild(p);
           });
         });
@@ -1243,6 +1265,13 @@
       };
     };
     planBox.appendChild(grid('horaireGridPlan', true, [['Matin', cell('matin'), 'horaireCellPlan'], ['Soir', cell('soir'), 'horaireCellPlan']]));
+    // Événements reçus par courriel et pas encore validés : hors de l'horaire, rappelés ici (« 1 événement à valider le 14 nov. »).
+    var pend = {};
+    S.events.forEach(function (e) { if (e.pending && e.day >= S.week && e.day <= addDays(S.week, 6)) pend[e.day] = (pend[e.day] || 0) + 1; });
+    Object.keys(pend).sort().forEach(function (d) {
+      var dt = new Date(d + 'T00:00:00Z');
+      alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + plural(pend[d], 'événement à valider', 'événements à valider') + ' ' + tr('le') + ' ' + dnum(dt.getUTCDate()) + ' ' + tr(MONTHS[dt.getUTCMonth()]) + '.'));
+    });
     // Note des employés placés, sans ses expressions reconnues : la génération ne la lit pas, on la rappelle ici (en tête).
     var placed = {}; sc.assignments.forEach(function (a) { if (a.positionId === posId()) placed[a.employeeId] = a.employeeName; });
     S.employees.filter(function (e) { return placed[e.id]; }).forEach(function (e) {

@@ -180,6 +180,35 @@ Paramètres > Événements = calendrier des événements (Jour | Mois | Année),
 (`horaire_settings.eventsPrompt`, S6). La voie automatique prévue est la réception du rapport par courriel ci-dessous ; ses réglages
 (ratio `openTableCovers` du poste Serveur, 20 par défaut ; seuil `groupMin`, 10 par défaut) restent en base, sans affichage.
 
+## Événements reçus par COURRIEL (29 oct. 2026, chantier validé par Émilien)
+Les courriels de la boîte info@ du restaurant arrivent (quand le fournisseur sera branché) sur `POST /api/horaire/inbound/mail/<jeton>`
+(sans session ; jeton secret du compte, 404 si inconnu, 403 si le compte n'est pas entreprise, 1 Mo et 60 courriels par heure au plus).
+Formats lus : Mailgun (`subject`, `body-plain`/`stripped-text`, `Message-Id`, `In-Reply-To`, `References`, `Date`, `message-headers`),
+Postmark (`Subject`, `TextBody`, `MessageID`, `Headers`), CloudMailin (`headers`, `plain`).
+- Un FIL (References / In-Reply-To, sinon sujet sans « RE: / TR: / Fwd: ») = UN événement « à valider », mis à jour à chaque courriel :
+  un courriel plus récent remplace ce qu'un plus ancien disait. Parties citées (« > », « Le … a écrit : ») ignorées.
+- Extraction sans IA (`server/lib/horaire-mail.js`) : date future la plus citée, heure (avant 16:00 = matin), couverts (« 40 personnes /
+  invités / pax / couverts / guests »), plancher (noms du tableau Planchers), indice « confirmé probable » (contrat, dépôt reçu, confirmé).
+  Ce qui n'est pas trouvé reste vide ; sans heure, l'événement est placé le soir.
+- Calendrier : pastille grise « à valider », bouton « Valider » ; tant qu'il n'est pas validé, l'événement N'ENTRE PAS dans l'horaire
+  (« À vérifier : 1 événement à valider le 14 nov. » à l'étape Horaire). Une retouche à la main n'est jamais écrasée (seuls les champs
+  vides se remplissent). La croix refuse l'événement et le fil est ignoré ensuite.
+- **Loi 25 : rien de personnel n'est gardé.** Le corps est lu en mémoire puis jeté ; ni nom, ni courriel, ni téléphone du client. On garde
+  les champs extraits, des identifiants de messages et un sujet HACHÉS (`horaire_inbound_threads`), et un sujet nettoyé des noms propres
+  (sinon « Événement du 14 nov. »). Effacé avec le compte, inclus dans l'export.
+
+### Brancher la réception sur un SOUS-DOMAINE (aucun fournisseur n'est inscrit ; choix d'Émilien)
+Principe : un sous-domaine dédié (ex. `horaire.<domaine>`) reçoit les courriels ; son enregistrement MX vise le fournisseur, SANS toucher aux
+MX du domaine principal (les courriels de `info@<domaine>` continuent d'arriver dans Outlook). Dans Outlook, une règle de transfert envoie
+une copie des courriels d'événements vers l'adresse secrète affichée dans Paramètres > Général.
+1. Mailgun (Inbound Routes) : ajouter le domaine `horaire.<domaine>` ; poser chez le registraire les MX du sous-domaine donnés par Mailgun
+   (`mxa.mailgun.org`, `mxb.mailgun.org`) ; créer une route « match_recipient('horaire-.*@horaire.<domaine>') » → forward vers
+   `https://<app>/api/horaire/inbound/mail/<jeton>` (le jeton = partie après « horaire- » de l'adresse ; un relais simple ou une route par
+   compte). Variable sur Railway : `HORAIRE_INBOUND_DOMAIN=horaire.<domaine>`.
+2. CloudMailin : créer une adresse pour `horaire.<domaine>`, format JSON (Normalized) ; MX du sous-domaine vers CloudMailin ; cible HTTP
+   `https://<app>/api/horaire/inbound/mail/<jeton>`. Variable : `HORAIRE_INBOUND_DOMAIN=horaire.<domaine>`.
+Sans `HORAIRE_INBOUND_DOMAIN`, aucune adresse n'est affichée.
+
 ## Réception automatique du rapport de réservations par courriel (28 oct. 2026, option choisie par Émilien)
 Partie app seulement : AUCUN fournisseur n'est inscrit, aucun frais engagé ; le choix revient à Émilien.
 - Chaque compte a une adresse secrète `horaire-<jeton>@<HORAIRE_INBOUND_DOMAIN>` (jeton de 64 caractères hexadécimaux, révocable :

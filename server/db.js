@@ -2746,7 +2746,7 @@ for (const t of ['horaire_availabilities', 'horaire_timeoff']) {
 // Couverts d'un événement importé (28 oct. 2026, réservation de groupe) : NULL = événement saisi à la main.
 // Zone occupée par un événement (28 oct. 2026) : zoneId = zone du tableau Zones ; zoneRead = texte lu à l'import, non reconnu.
 // sourceKey (28 oct. 2026) : clé d'une réservation reçue par courriel (date|heure|couverts|numéro) : jamais deux fois le même événement.
-for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER'], ['covers', 'INTEGER'], ['zoneId', 'INTEGER'], ['zoneRead', 'TEXT'], ['sourceKey', 'TEXT']]) {
+for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER'], ['covers', 'INTEGER'], ['zoneId', 'INTEGER'], ['zoneRead', 'TEXT'], ['sourceKey', 'TEXT'], ['status', 'TEXT'], ['manual', 'TEXT'], ['mailHint', 'TEXT']]) {
   if (!db.prepare('PRAGMA table_info(horaire_events)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_events ADD COLUMN ' + col + ' ' + type);
 }
 // Zones de la salle (28 oct. 2026, demande d'Émilien) : serveurs qui couvrent habituellement chaque zone, le matin et le soir.
@@ -2761,6 +2761,22 @@ CREATE TABLE IF NOT EXISTS horaire_zones (
   createdAt TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_horaire_zones_user ON horaire_zones(userId);
+`);
+// Événements reçus par courriel (29 oct. 2026) : un fil = un événement proposé (status 'pending' sur horaire_events, « à valider »).
+// Rien de personnel : identifiants de messages et sujet HACHÉS (msgIds, subjectKey), champs extraits seulement (fields), refus du fil.
+db.exec(`
+CREATE TABLE IF NOT EXISTS horaire_inbound_threads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  msgIds TEXT NOT NULL DEFAULT '[]',
+  subjectKey TEXT,
+  eventId INTEGER,
+  refused INTEGER NOT NULL DEFAULT 0,
+  fields TEXT NOT NULL DEFAULT '{}',
+  lastAt TEXT,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_horaire_threads_user ON horaire_inbound_threads(userId);
 `);
 // Planchers (28 oct. 2026, demande d'Émilien) : horaire_zones sert de liste des planchers (nom ; morning/evening inutilisés) ;
 // nombre de personnes par plancher, poste (Serveur, Barman, Commis), jour (0..6) et service. Saisie seule : la génération ne le lit pas encore.
