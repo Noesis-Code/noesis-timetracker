@@ -281,7 +281,21 @@ router.delete('/horaire/needs/:id', (req, res) => (h.deleteNeed(req.userId, req.
 function eventInput(req, res, body, partial, current) {
   const day = body.day !== undefined ? body.day : current && current.day;
   if (!h.isDate(day)) { bad(res, 'Date invalide (AAAA-MM-JJ).'); return null; }
-  // Groupe (28 oct. 2026) : { day, service: 'matin' | 'soir', extra: 1..50 } ; libellé « Groupe », aucun besoin propre.
+  // Événement d'un service (28 oct. 2026) : { day, service, covers?, lines: [{ positionId, count 1..50 }] } ; plusieurs par service.
+  if (body.lines !== undefined || body.covers !== undefined || (current && current.service && body.extra === undefined)) {
+    const service = body.service !== undefined ? body.service : current && current.service;
+    if (service !== 'matin' && service !== 'soir') { bad(res, 'Service invalide (matin ou soir).'); return null; }
+    const covers = body.covers !== undefined ? body.covers : (current ? current.covers : null);
+    if (!(covers == null || (Number.isInteger(covers) && covers >= 1 && covers <= 5000))) { bad(res, 'Couverts invalides (1 à 5 000).'); return null; }
+    const lines = body.lines !== undefined ? body.lines : (current ? (h.listEvents(req.userId).find((e) => e.id === current.id) || {}).lines || [] : []);
+    if (!Array.isArray(lines) || lines.length > 20) { bad(res, "Postes de l'événement invalides (20 au plus)."); return null; }
+    for (const l of lines) {
+      if (!l || !h.ownPosition(req.userId, l.positionId)) { notFound(res, 'Poste'); return null; }
+      if (!(Number.isInteger(l.count) && l.count >= 1 && l.count <= 50)) { bad(res, 'Nombre invalide (1 à 50).'); return null; }
+    }
+    return { serviceEvent: true, day, service, covers, lines: lines.map((l) => ({ positionId: Number(l.positionId), count: l.count })) };
+  }
+  // Groupe (28 oct. 2026, ancienne forme) : { day, service: 'matin' | 'soir', extra: 1..50 } ; libellé « Groupe », aucun besoin propre.
   if (body.service !== undefined || body.extra !== undefined) {
     const service = body.service !== undefined ? body.service : current && current.service;
     const extra = body.extra !== undefined ? body.extra : current && current.extra;
@@ -306,13 +320,13 @@ function eventInput(req, res, body, partial, current) {
 router.get('/horaire/events', (req, res) => res.json({ events: h.listEvents(req.userId) }));
 router.post('/horaire/events', (req, res) => {
   const v = eventInput(req, res, req.body || {}, false, null); if (!v) return;
-  res.status(201).json({ event: h.writeEvent(req.userId, null, v) });
+  res.status(201).json({ event: v.serviceEvent ? h.writeServiceEvent(req.userId, null, v) : h.writeEvent(req.userId, null, v) });
 });
 router.put('/horaire/events/:id', (req, res) => {
   const cur = h.ownEvent(req.userId, req.params.id);
   if (!cur) return notFound(res, 'Événement');
   const v = eventInput(req, res, req.body || {}, true, cur); if (!v) return;
-  res.json({ event: h.writeEvent(req.userId, cur.id, v) });
+  res.json({ event: v.serviceEvent ? h.writeServiceEvent(req.userId, cur.id, v) : h.writeEvent(req.userId, cur.id, v) });
 });
 router.delete('/horaire/events/:id', (req, res) => (h.deleteEvent(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Événement')));
 
@@ -378,6 +392,13 @@ router.get('/horaire/import-prompt', (req, res) => {
   const p = h.getPrompts(req.userId).importPrompt;
   res.type('text/plain; charset=utf-8').send(require('../lib/horaire-prompt').importPromptFor(w, p.isDefault ? null : p.text));
 });
+// Prompt des événements (réservations de groupe), daté de la semaine affichée (?week=) ; texte du gérant s'il l'a modifié.
+router.get('/horaire/events-prompt', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const w = h.isMonday(req.query.week) ? req.query.week : null;
+  const p = h.getPrompts(req.userId).eventsPrompt;
+  res.type('text/plain; charset=utf-8').send(require('../lib/horaire-prompt').eventsPromptFor(w, p.isDefault ? null : p.text));
+});
 // Prompts modifiables par le gérant : { importPrompt: {text, isDefault}, entryPrompt: {text, isDefault} } (entryPrompt = consignes
 // seules, sans la semaine ni les quarts). PUT { importPrompt?, entryPrompt? } : null ou "" rétablit la version de base.
 router.get('/horaire/prompts', (req, res) => {
@@ -387,7 +408,7 @@ router.get('/horaire/prompts', (req, res) => {
 router.put('/horaire/prompts', (req, res) => {
   const b = req.body || {};
   const v = {};
-  for (const k of ['importPrompt', 'entryPrompt']) {
+  for (const k of ['importPrompt', 'entryPrompt', 'eventsPrompt']) {
     if (b[k] === undefined) continue;
     v[k] = h.promptText(b[k]);
     if (v[k] === undefined) return bad(res, 'Prompt invalide (texte, ' + h.PROMPT_MAX + ' caractères au plus).');
@@ -482,6 +503,11 @@ router.post('/horaire/weeks/:weekStart/import/availabilities', (req, res) => {
   const w = weekParam(req, res); if (!w) return;
   const t = csvText(req, res); if (t === null) return;
   res.json(h.importAvailabilitiesCsv(req.userId, w, t));
+});
+router.post('/horaire/weeks/:weekStart/import/events', (req, res) => {
+  const w = weekParam(req, res); if (!w) return;
+  const t = csvText(req, res); if (t === null) return;
+  res.json(h.importEventsCsv(req.userId, w, t));
 });
 router.post('/horaire/import/reservations', (req, res) => {
   const t = csvText(req, res); if (t === null) return;

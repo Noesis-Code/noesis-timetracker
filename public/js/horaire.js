@@ -37,7 +37,7 @@
   }
   var S = {
     week: startWeek(), employees: [], positions: [], quals: [], needs: [], events: [], avail: [], timeoff: [], summary: null, catRules: [], schedule: null, settings: {},
-    open: {}, editing: null, msg: '', rulesOpen: false, busy: false, loaded: false,
+    open: {}, promptOpen: {}, editing: null, msg: '', rulesOpen: false, busy: false, loaded: false,
   };
 
   // ---------- réseau ----------
@@ -109,8 +109,8 @@
   // Sur téléphone, chaque tableau défile horizontalement dans son cadre.
   var EVE = 16 * 60; // soir = à partir de 16 h
   var SLOT = { matin: ['10:00', '16:00'], soir: ['16:00', '23:59'] };
-  var STEP_LABELS = ['1. Paramètres', '2. Récupération', '3. Horaire', '4. Envoi'];
-  var eventsBox, promptBox, catsMsg, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
+  var STEP_LABELS = ['1. Paramètres', '2. Événements', '3. Récupération', '4. Horaire', '5. Envoi'];
+  var eventsBox, promptBoxes = {}, evReport, ratioInput, catsMsg, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
   var pagesHost, pages = [], stepBtns = [], dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
@@ -149,34 +149,35 @@
     catsBox = el('div', 'horaireCatsBox'); bCats.appendChild(catsBox);
     var bNeeds = block('Besoins');
     needsBox = el('div', 'horaireFrame cmpGlass'); bNeeds.appendChild(needsBox);
-    var bEvents = block('Événements de la semaine');
-    eventsBox = el('div', 'horaireFrame cmpGlass'); bEvents.appendChild(eventsBox);
     // Règles du restaurant : toujours affichées (plus de repli), titre seul.
     var bRules = block('Règles du restaurant');
     rulesBox = el('div', 'horaireRules cmpGlass');
     bRules.appendChild(rulesBox);
-    [bCats, bNeeds, bEvents, bRules]
+    [bCats, bNeeds, bRules]
       .forEach(function (n) { p1.appendChild(n); });
 
-    // Page 2 : Disponibilités (zone de collage toujours visible, envoi dans la zone, R13)
+    // Page 2 : Événements (réservations de groupe de la semaine) : ratio « 1 serveur de plus pour [20] couverts », prompt des
+    // événements (même rangée et même zone de collage que la Récupération), compte rendu, puis le tableau « Événements de la semaine ».
+    var pEv = el('div', 'horairePage');
+    var ratio = el('p', 'horaireRatio');
+    ratioInput = el('input', 'horaireInput horaireRatioInput'); ratioInput.type = 'number'; ratioInput.min = '1'; ratioInput.max = '1000'; ratioInput.inputMode = 'numeric';
+    ratioInput.setAttribute('aria-label', tr('Couverts par serveur de plus'));
+    ratioInput.addEventListener('change', saveRatio);
+    ratio.appendChild(el('span', null, tr('1 serveur de plus pour'))); ratio.appendChild(ratioInput); ratio.appendChild(el('span', null, tr('couverts')));
+    var evPanel = promptPanel({ key: 'eventsPrompt', copyLabel: 'Copier le prompt des événements', copyUrl: function () { return 'events-prompt?week=' + S.week; },
+      areaLabel: 'Coller les événements', send: sendEvents });
+    evReport = el('p', 'horaireStatus hidden');
+    var bEvents = block('Événements de la semaine');
+    eventsBox = el('div', 'horaireFrame cmpGlass'); bEvents.appendChild(eventsBox);
+    [ratio, evPanel.row, evPanel.box, evPanel.paste, evReport, bEvents].forEach(function (n) { pEv.appendChild(n); });
+
+    // Page 3 : Récupération (zone de collage toujours visible, envoi dans la zone, R13)
     var p2 = el('div', 'horairePage');
-    var paste = el('div', 'horairePaste');
-    pasteArea = el('textarea', 'horaireInput horairePasteArea'); pasteArea.rows = 12; pasteArea.setAttribute('aria-label', tr('Coller les disponibilités'));
-    pasteArea.placeholder = tr('Colle ici le texte rendu par ton IA.');
-    // DANS la zone : l'épingle commune (TMT.ui.attachBtn) en bas à gauche, Envoyer en bas à droite (R39, R13).
-    var pasteActions = el('div', 'horairePasteActions');
-    var send = el('button', 'cmpSend'); send.type = 'button'; send.setAttribute('aria-label', tr('Envoyer')); // flèche d'envoi standard (R29)
-    send.addEventListener('click', function () { sendAvail(pasteArea.value); });
-    pasteActions.appendChild(send);
-    paste.appendChild(pasteArea); paste.appendChild(TMT.ui.attachBtn(readAvailFile, { label: tr('Joindre un fichier') })); paste.appendChild(pasteActions);
+    var avPanel = promptPanel({ key: 'importPrompt', copyLabel: 'Copier le prompt de récupération', copyUrl: function () { return 'import-prompt?week=' + S.week; },
+      areaLabel: 'Coller les disponibilités', send: sendAvail });
+    pasteArea = avPanel.area;
     statusLine = el('p', 'horaireStatus');
-    // Au-dessus de la zone : « Modifier le prompt » (secondaire, à gauche) et « Copier le prompt de récupération » (violet, à droite) ;
-    // l'éditeur se déroule sur place (R36) sous la rangée.
-    var promptRow = el('div', 'horairePromptRow');
-    promptRow.appendChild(btn('cmpBtn cmpBtnIdle horairePromptEdit', 'Modifier le prompt', function () { S.promptOpen = !S.promptOpen; renderPromptEditor(); }));
-    promptRow.appendChild(btn('cmpBtn', 'Copier le prompt de récupération', function () { copyText('import-prompt?week=' + S.week, 'Prompt copié : colle-le dans ton IA.'); }));
-    promptBox = el('div', 'horairePromptBox hidden');
-    p2.appendChild(promptRow); p2.appendChild(promptBox); p2.appendChild(paste); p2.appendChild(statusLine);
+    p2.appendChild(avPanel.row); p2.appendChild(avPanel.box); p2.appendChild(avPanel.paste); p2.appendChild(statusLine);
 
     // Page 3 : Horaire
     var p3 = el('div', 'horairePage');
@@ -193,7 +194,7 @@
     p4.appendChild(summaryBox);
     p4.appendChild(btn('cmpBtn', 'Copier le prompt pour l’IA', function () { copyText('weeks/' + S.week + '/prompt', 'Prompt copié : colle-le dans ton IA.'); }));
 
-    pages = [p1, p2, p3, p4];
+    pages = [p1, pEv, p2, p3, p4];
     pagesHost = el('div', 'horairePages');
     pages.forEach(function (p, i) { if (i) p.classList.add('hidden'); pagesHost.appendChild(p); });
     // Points de pagination en bas, juste au-dessus de la barre des volets (même place que Chrono et Feuille de route) ; sur ordinateur,
@@ -230,9 +231,8 @@
       },
     });
   }
-  // Étape logique de la semaine : 3 (Horaire) si des disponibilités sont collées, sinon 2 (Disponibilités).
-  // Étape d'ouverture : 1 (Paramètres) tant qu'il n'y a pas de disponibilités pour la semaine, sinon 3 (Horaire).
-  function logicalPage() { return S.summary && S.summary.employees ? 2 : 0; }
+  // Étape d'ouverture : 1 (Paramètres) tant qu'il n'y a pas de disponibilités pour la semaine, sinon 4 (Horaire).
+  function logicalPage() { return S.summary && S.summary.employees ? 3 : 0; }
   function changeWeek(n) {
     S.week = addDays(S.week, n); S.msg = '';
     try { localStorage.setItem('horaireSemaine', S.week); } catch (e) { /* stockage indisponible */ }
@@ -270,10 +270,10 @@
   }
   // Fichier joint, lu LOCALEMENT (rien n'est envoyé à une IA) : texte (.csv, .tsv, .txt…) placé dans la zone puis envoyé comme un collage ;
   // tableur (.xlsx) : aucune bibliothèque dans le dépôt -> demander un CSV ; photo ou PDF : à donner à son IA avec le prompt de récupération.
-  function readAvailFile(files) {
+  function readPasteFile(files, area, send) {
     var f = files[0], name = String(f.name || '').toLowerCase(), type = String(f.type || '');
     if (/\.(csv|tsv|txt|md|markdown)$/.test(name) || /^text\//.test(type)) {
-      f.text().then(function (t) { pasteArea.value = t; sendAvail(t); }, fail);
+      f.text().then(function (t) { area.value = t; send(t, area); }, fail);
       return;
     }
     S.msg = /^image\//.test(type) || /\.pdf$/.test(name) || type === 'application/pdf'
@@ -282,7 +282,7 @@
     renderMsg();
   }
   // Envoi du texte collé (texte rendu par l'IA du gérant, même corps que l'import CSV). Compte rendu : lus, inconnus, ignorés.
-  function sendAvail(text) {
+  function sendAvail(text, area) {
     if (!String(text || '').trim() || S.busy) return;
     S.busy = true;
     req('POST', 'weeks/' + S.week + '/import/availabilities', { csv: text }).then(function (d) {
@@ -294,8 +294,57 @@
       }
       S.msg = (d.employees || 0) + ' ' + tr('employé(s) lu(s)') + (d.unknown && d.unknown.length ? '. ' + tr('Inconnus :') + ' ' + d.unknown.join(', ') : '')
         + (sk ? '. ' + sk + ' ' + tr('ligne(s) ignorée(s)') : '') + '.';
-      pasteArea.value = '';
+      (area || pasteArea).value = '';
       return loadWeek().then(render);
+    }).catch(fail).then(function () { S.busy = false; });
+  }
+  // Rangée « Modifier le prompt » | « Copier le prompt … » (50/50), éditeur déroulé sur place (R36), puis zone de collage avec
+  // l'épingle commune (TMT.ui.attachBtn) en bas à gauche et la flèche d'envoi en bas à droite (R39, R13). Une seule définition,
+  // utilisée par les étapes Événements et Récupération. o : { key, copyLabel, copyUrl(), areaLabel, send(texte, zone) }.
+  function promptPanel(o) {
+    var row = el('div', 'horairePromptRow');
+    row.appendChild(btn('cmpBtn cmpBtnIdle horairePromptEdit', 'Modifier le prompt', function () { S.promptOpen[o.key] = !S.promptOpen[o.key]; renderPromptEditor(o.key); }));
+    row.appendChild(btn('cmpBtn', o.copyLabel, function () { copyText(o.copyUrl(), 'Prompt copié : colle-le dans ton IA.'); }));
+    var box = el('div', 'horairePromptBox hidden');
+    promptBoxes[o.key] = box;
+    var paste = el('div', 'horairePaste');
+    var area = el('textarea', 'horaireInput horairePasteArea'); area.rows = 12; area.setAttribute('aria-label', tr(o.areaLabel));
+    area.placeholder = tr('Colle ici le texte rendu par ton IA.');
+    var actions = el('div', 'horairePasteActions');
+    var send = el('button', 'cmpSend'); send.type = 'button'; send.setAttribute('aria-label', tr('Envoyer')); // flèche d'envoi standard (R29)
+    send.addEventListener('click', function () { o.send(area.value, area); });
+    actions.appendChild(send);
+    paste.appendChild(area); paste.appendChild(TMT.ui.attachBtn(function (files) { readPasteFile(files, area, o.send); }, { label: tr('Joindre un fichier') })); paste.appendChild(actions);
+    return { row: row, box: box, paste: paste, area: area };
+  }
+  // Poste « Serveur » (sinon le premier) : c'est lui que reçoivent les groupes importés ; son ratio de couverts (openTableCovers, 20 par défaut).
+  function serverPos() { return S.positions.find(function (p) { return /^serveur$/i.test(String(p.name).trim()); }) || S.positions[0] || null; }
+  function renderRatio() { var p = serverPos(); if (document.activeElement !== ratioInput) ratioInput.value = String((p && p.openTableCovers) || 20); }
+  function saveRatio() {
+    var p = serverPos(), n = Number(ratioInput.value);
+    if (!p || !(Number.isInteger(n) && n >= 1 && n <= 1000)) { renderRatio(); return; }
+    if (n === (p.openTableCovers || 20)) return;
+    p.openTableCovers = n;
+    req('PUT', 'positions/' + p.id, { openTableCovers: n }).catch(function (err) { fail(err); refresh(); });
+  }
+  // Envoi des réservations de groupe collées : compte rendu sous la zone (« 3 groupes lus : samedi soir +2, … »).
+  function sendEvents(text, area) {
+    if (!String(text || '').trim() || S.busy) return;
+    S.busy = true;
+    req('POST', 'weeks/' + S.week + '/import/events', { csv: text }).then(function (d) {
+      var n = d.groups || 0, out;
+      if (!n && d.otherWeeks && d.otherWeeks.length) {
+        var ow = new Date(d.otherWeeks[0] + 'T00:00:00Z');
+        out = tr('Ces réservations sont pour la semaine du') + ' ' + (ow.getUTCDate() === 1 ? '1er' : ow.getUTCDate()) + ' ' + tr(MONTHS_LONG[ow.getUTCMonth()]) + ' : ' + tr('va à cette semaine et colle-les à nouveau.');
+      } else {
+        out = n + ' ' + tr(n > 1 ? 'groupes lus' : 'groupe lu') + (d.lines && d.lines.length ? ' : ' + d.lines.map(function (l) {
+          return tr(DAYS[weekdayOf(l.day)]).toLowerCase() + ' ' + tr(l.service) + ' +' + l.extra;
+        }).join(', ') : '') + '.';
+        if (d.otherLines) out += ' ' + d.otherLines + ' ' + tr(d.otherLines > 1 ? 'groupes d’une autre semaine ignorés.' : 'groupe d’une autre semaine ignoré.');
+        area.value = '';
+      }
+      evReport.textContent = out; evReport.classList.remove('hidden');
+      return req('GET', 'events').then(function (e) { S.events = e.events || []; renderEventsTable(); });
     }).catch(fail).then(function () { S.busy = false; });
   }
   function renderMsg() {
@@ -303,21 +352,23 @@
   }
   // Éditeur du prompt de récupération (étape 2) : texte en vigueur, « Revenir à la version de base » (confirmation violette),
   // « Enregistrer » pleine largeur (R35). Les dates de la semaine sont ajoutées par l'app en tête du prompt copié, hors de ce texte.
-  function renderPromptEditor() {
+  function renderPromptEditor(key) {
+    var promptBox = promptBoxes[key], body = function (v) { var b = {}; b[key] = v; return b; };
     promptBox.textContent = '';
-    promptBox.classList.toggle('hidden', !S.promptOpen);
-    if (!S.promptOpen) return;
+    promptBox.classList.toggle('hidden', !S.promptOpen[key]);
+    if (!S.promptOpen[key]) return;
+    var again = function () { renderPromptEditor(key); };
     req('GET', 'prompts').then(function (d) {
-      if (!S.promptOpen) return;
-      var cur = d.importPrompt || { text: '', isDefault: true };
+      if (!S.promptOpen[key]) return;
+      var cur = d[key] || { text: '', isDefault: true };
       var f = el('div', 'horaireForm');
-      var a = el('textarea', 'horaireInput horairePromptArea'); a.rows = 14; a.value = cur.text; a.setAttribute('aria-label', tr('Prompt de récupération'));
+      var a = el('textarea', 'horaireInput horairePromptArea'); a.rows = 14; a.value = cur.text; a.setAttribute('aria-label', tr('Prompt'));
       f.appendChild(a);
-      f.appendChild(saveBtn(f, function () { return req('PUT', 'prompts', { importPrompt: a.value }).then(function () { setTimeout(renderPromptEditor, 0); }); }));
+      f.appendChild(saveBtn(f, function () { return req('PUT', 'prompts', body(a.value)).then(function () { setTimeout(again, 0); }); }));
       // Toujours visible en bas à gauche ; grisé et inactif tant que le prompt est celui de base.
       var back = btn('horaireLink', 'Revenir à la version de base', function () {
         TMT.ui.confirm(tr('Revenir à la version de base de ce prompt ?'), { ok: tr('Revenir') }).then(function (yes) {
-          if (yes) req('PUT', 'prompts', { importPrompt: null }).then(renderPromptEditor, fail);
+          if (yes) req('PUT', 'prompts', body(null)).then(again, fail);
         });
       });
       back.disabled = !!cur.isDefault;
@@ -360,6 +411,7 @@
     renderSchedule();
     renderSummary();
     renderNeedsTable();
+    renderRatio();
     renderCats();
     renderRules();
   }
@@ -429,49 +481,78 @@
     renderEventsTable();
   }
 
-  // ---------- Événements de la semaine (tous les postes) ----------
-  // Une ligne « Poste · +N » = un événement daté (horaire_events : jour, service, poste, nombre) : il ajoute N employés de ce poste à ce
-  // service, à la première heure d'arrivée de ce poste ce jour-là (à défaut 10:30 le matin, 16:00 le soir). Un clic déroule sur place le
-  // poste (menu uni) et le nombre ; enregistrement automatique ; 0 retire la ligne. La semaine suivante repart vide ; une semaine passée
-  // se lit sans se modifier.
+  // ---------- Événements de la semaine (étape 2, tous les postes) ----------
+  // Dans une case Matin ou Soir, chaque événement est une petite carte « Événement N » (« · 40 couverts » s'il vient de l'import) ;
+  // ses lignes « Poste · +N » se modifient sur place (poste dans un menu uni, nombre ; enregistrement automatique, 0 retire la ligne) ;
+  // « + Ajouter un poste » ajoute une ligne ; la croix .cmpRemove (R32) retire l'événement entier après confirmation rouge.
+  // « + Ajouter » sous les cartes crée un événement. La semaine suivante repart vide ; une semaine passée se lit sans se modifier.
   function weekIsPast() { return addDays(S.week, 6) < isoLocal(new Date()); }
   function renderEventsTable() {
     eventsBox.textContent = '';
     var past = weekIsPast();
     var names = S.positions.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'fr'); });
-    var posName = function (id) { var p = S.positions.find(function (x) { return x.id === id; }); return p ? p.name : '?'; };
+    var saveLines = function (ev, lines) {
+      req('PUT', 'events/' + ev.id, { lines: lines }).then(function (d) {
+        var i = S.events.findIndex(function (x) { return x.id === ev.id; });
+        if (i >= 0 && d.event) S.events[i] = d.event;
+        renderEventsTable();
+      }, function (err) { fail(err); refresh(); });
+    };
+    var lineNode = function (ev, l, i) {
+      var key = 'evl:' + ev.id + ':' + i;
+      if (S.editing !== key) {
+        var b = btn('horaireEvent', (l.positionId == null ? '?' : posName(l.positionId)) + ' · +' + l.count, function () { if (!past) { S.editing = key; renderEventsTable(); } });
+        if (past) b.disabled = true;
+        return b;
+      }
+      var ed = el('div', 'horaireEvEdit');
+      var pick = el('select', 'horaireInput'); pick.setAttribute('aria-label', tr('Poste'));
+      names.forEach(function (p) { var o = el('option', null, p.name); o.value = String(p.id); pick.appendChild(o); });
+      pick.value = String(l.positionId == null ? posId() : l.positionId);
+      var n = el('input', 'horaireInput'); n.type = 'number'; n.min = '0'; n.max = '50'; n.inputMode = 'numeric'; n.value = String(l.count); n.setAttribute('aria-label', tr('Nombre'));
+      var save = function () {
+        var c = Number(n.value);
+        if (!(Number.isInteger(c) && c >= 0 && c <= 50)) return;
+        var lines = (ev.lines || []).map(function (x) { return { positionId: x.positionId == null ? posId() : x.positionId, count: x.count }; });
+        if (c === 0) lines.splice(i, 1); else lines[i] = { positionId: Number(pick.value), count: c };
+        saveLines(ev, lines);
+      };
+      pick.addEventListener('change', save);
+      n.addEventListener('change', save);
+      n.addEventListener('keydown', function (k) { if (k.key === 'Enter') { k.preventDefault(); S.editing = null; save(); } });
+      ed.appendChild(pick); ed.appendChild(n);
+      setTimeout(function () { n.focus(); n.select(); }, 0);
+      return ed;
+    };
     var cell = function (svc) {
       return function (i, c) {
         var day = addDays(S.week, i);
-        S.events.filter(function (e) { return e.day === day && e.service === svc && e.extra > 0; }).forEach(function (ev) {
-          var key = 'evl:' + ev.id;
-          if (S.editing !== key) {
-            var b = btn('horaireEvent', posName(ev.positionId) + ' · +' + ev.extra, function () { if (!past) { S.editing = key; renderEventsTable(); } });
-            if (past) b.disabled = true;
-            c.appendChild(b);
-            return;
+        S.events.filter(function (e) { return e.day === day && e.service === svc; }).forEach(function (ev, k) {
+          var card = el('div', 'horaireEvCard');
+          var head = el('div', 'horaireEvHead');
+          head.appendChild(el('span', null, tr('Événement') + ' ' + (k + 1) + (ev.covers ? ' · ' + ev.covers + ' ' + tr('couverts') : '')));
+          if (!past) {
+            head.appendChild(TMT.ui.removeBtn(function () {
+              TMT.ui.confirm(tr('Retirer cet événement ?'), { ok: tr('Retirer'), danger: true }).then(function (yes) {
+                if (yes) req('DELETE', 'events/' + ev.id).then(refresh, fail);
+              });
+            }, tr('Retirer l’événement')));
           }
-          var ed = el('div', 'horaireEvEdit');
-          var pick = el('select', 'horaireInput'); pick.setAttribute('aria-label', tr('Poste'));
-          names.forEach(function (p) { var o = el('option', null, p.name); o.value = String(p.id); pick.appendChild(o); });
-          pick.value = String(ev.positionId);
-          var n = el('input', 'horaireInput'); n.type = 'number'; n.min = '0'; n.max = '50'; n.inputMode = 'numeric'; n.value = String(ev.extra); n.setAttribute('aria-label', tr('Nombre'));
-          var save = function () {
-            var extra = Number(n.value);
-            if (!(Number.isInteger(extra) && extra >= 0 && extra <= 50)) return;
-            var p = extra === 0 ? req('DELETE', 'events/' + ev.id) : req('PUT', 'events/' + ev.id, { service: svc, extra: extra, positionId: Number(pick.value) });
-            p.then(refresh, fail);
-          };
-          pick.addEventListener('change', save);
-          n.addEventListener('change', save);
-          n.addEventListener('keydown', function (k) { if (k.key === 'Enter') { k.preventDefault(); S.editing = null; save(); } });
-          ed.appendChild(pick); ed.appendChild(n);
-          c.appendChild(ed);
-          setTimeout(function () { n.focus(); n.select(); }, 0);
+          card.appendChild(head);
+          (ev.lines || []).forEach(function (l, j) { card.appendChild(lineNode(ev, l, j)); });
+          if (!past) {
+            card.appendChild(TMT.ui.addBtn(tr('Ajouter un poste'), function () {
+              var lines = (ev.lines || []).map(function (x) { return { positionId: x.positionId == null ? posId() : x.positionId, count: x.count }; });
+              lines.push({ positionId: posId(), count: 1 });
+              S.editing = 'evl:' + ev.id + ':' + (lines.length - 1);
+              saveLines(ev, lines);
+            }));
+          }
+          c.appendChild(card);
         });
         if (past) return;
         var add = TMT.ui.addBtn(tr('Ajouter'), function () {
-          req('POST', 'events', { day: day, service: svc, extra: 1, positionId: posId() }).then(function (d) { S.editing = 'evl:' + d.event.id; return refresh(); }, fail);
+          req('POST', 'events', { day: day, service: svc, lines: [] }).then(refresh, fail);
         });
         add.classList.add('horaireEvAdd');
         c.appendChild(add);

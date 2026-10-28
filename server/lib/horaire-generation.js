@@ -69,12 +69,17 @@ function buildSlots(weekStart, needs, events, mainPositionId) {
     const fromEvents = dayEvents.filter((e) => !e.service).flatMap((e) => (e.needs || []).map((n) => Object.assign({ eventId: e.id }, n)));
     const replaced = new Set(fromEvents.map((n) => serviceOf(n.start)));
     const source = fromEvents.concat((needs || []).filter((n) => Number(n.weekday) === weekday && !replaced.has(serviceOf(n.start))));
-    for (const g of dayEvents.filter((e) => e.service && Number(e.extra) > 0)) {
-      // Groupe d'un poste : la première arrivée de ce poste dans le service ; ancien groupe (sans poste) : tous postes confondus.
-      const pid = g.positionId == null ? null : Number(g.positionId);
-      const first = source.filter((n) => serviceOf(n.start) === g.service && (pid == null || Number(n.positionId) === pid)).sort((a, b) => toMin(a.start) - toMin(b.start))[0];
-      if (first) source.push({ positionId: first.positionId, start: first.start, end: first.end, count: Number(g.extra), eventId: g.id });
-      else if ((pid != null ? pid : mainPositionId) != null) source.push({ positionId: pid != null ? pid : mainPositionId, start: g.service === 'soir' ? '16:00' : '10:30', end: g.service === 'soir' ? '23:59' : '16:00', count: Number(g.extra), eventId: g.id });
+    // Événement d'un service (plusieurs par service possibles, tous additionnés) : ses lignes « poste · +N » (besoins de l'événement) ;
+    // ancien groupe sans ligne : une seule ligne (positionId, extra).
+    const base = source.slice();
+    const lines = dayEvents.filter((e) => e.service).flatMap((g) => ((g.needs && g.needs.length) ? g.needs : (Number(g.extra) > 0 ? [{ positionId: g.positionId, count: g.extra }] : []))
+      .map((l) => ({ g, pid: l.positionId == null ? null : Number(l.positionId), count: Number(l.count) })));
+    for (const { g, pid, count } of lines) {
+      if (!(count > 0)) continue;
+      // Ligne d'un poste : la première arrivée de ce poste dans le service ; ancien groupe (sans poste) : tous postes confondus.
+      const first = base.filter((n) => serviceOf(n.start) === g.service && (pid == null || Number(n.positionId) === pid)).sort((a, b) => toMin(a.start) - toMin(b.start))[0];
+      if (first) source.push({ positionId: first.positionId, start: first.start, end: first.end, count, eventId: g.id });
+      else if ((pid != null ? pid : mainPositionId) != null) source.push({ positionId: pid != null ? pid : mainPositionId, start: g.service === 'soir' ? '16:00' : '10:30', end: g.service === 'soir' ? '23:59' : '16:00', count, eventId: g.id });
     }
     for (const n of source) {
       const r = range(n.start, n.end);

@@ -272,4 +272,39 @@ function importPromptFor(weekStart, custom) {
   return IMPORT_PROMPT.replace("pour la semaine qui commence le lundi suivant la date d'aujourd'hui (si aujourd'hui est lundi, prends le lundi suivant)", span);
 }
 
-module.exports = { importPromptFor, frDate, buildPrompt, buildRegistrationPrompt, IMPORT_PROMPT, ENTRY_PROMPT };
+// Prompt des ÉVÉNEMENTS (28 oct. 2026, demande d'Émilien) : réservations de GROUPE de la semaine, lues dans le logiciel de réservation
+// du restaurant ; aucune donnée de client recopiée. Rendu : date;service;heure;couverts (import : POST weeks/:lundi/import/events).
+const EVENTS_PROMPT = [
+  "Tu aides le gestionnaire d'un restaurant. Ta seule mission : lire dans le logiciel de réservation du restaurant (par exemple OpenTable), ouvert sur cet ordinateur, les réservations de GROUPE pour la semaine indiquée en tête de ce message, puis me rendre un seul bloc de texte que je copie d'un clic et que je colle dans mon application. Tu ne modifies rien dans ce logiciel.",
+  "",
+  "ACCÈS",
+  "1. Si tu peux naviguer toi-même : ouvre le logiciel de réservation. À l'écran de connexion, arrête-toi et laisse-moi prendre la main ; je tape moi-même mon identifiant et mon mot de passe. Ne les lis pas, ne les écris nulle part.",
+  "2. Si tu ne peux pas naviguer toi-même : lis la page que j'ai ouverte, puis dis-moi en une ligne quelle page ouvrir ensuite, jusqu'à avoir tout lu.",
+  "3. Ne clique jamais sur Enregistrer, Confirmer, Annuler, Modifier ou Supprimer, et ne change aucun réglage.",
+  "",
+  "CE QUE TU AS LE DROIT DE LIRE",
+  "- Seulement les réservations de cette semaine-là, du lundi au dimanche.",
+  "- Seulement les réservations de groupe : groupes, événements privés et grandes tablées marquées comme groupe.",
+  "- Ne recopie JAMAIS le nom d'un client, son téléphone, son courriel ni ses notes.",
+  "",
+  "LE BLOC À ME RENDRE",
+  "- Un seul bloc de code (entre ``` et ```), pour que je le copie d'un clic. Pas de fichier, pas de tableau mis en forme.",
+  "- Séparateur point-virgule. Première ligne exactement : date;service;heure;couverts",
+  "- Une ligne par groupe : AAAA-MM-JJ;matin ou soir;HH:MM;nombre de couverts",
+  "- service : « matin » si le groupe arrive avant 16:00, sinon « soir ». Heures sur 24 h (19:30, jamais 7:30 PM).",
+  "- Rien d'autre dans le bloc : pas de titre, pas de total, pas de commentaire.",
+  "",
+  "AVANT DE ME RENDRE LE BLOC",
+  "- Toutes les dates sont entre le lundi et le dimanche de la semaine.",
+  "- Si tu t'es connecté toi-même, déconnecte-toi.",
+  "- Sous le bloc, écris-moi en 2 lignes au plus : la semaine lue et le nombre de groupes (sinon « Aucun groupe »).",
+].join('\n') + '\n';
+// Dates de la semaine affichée toujours ajoutées EN TÊTE (texte de base ou personnalisé), hors du texte modifiable.
+function eventsPromptFor(weekStart, custom) {
+  const text = custom || EVENTS_PROMPT;
+  if (!weekStart) return text;
+  const sun = gen.addDays(weekStart, 6);
+  return 'SEMAINE À LIRE : du lundi ' + frDate(weekStart, weekStart.slice(0, 4) !== sun.slice(0, 4)) + ' au dimanche ' + frDate(sun, true) + '.\n\n' + text;
+}
+
+module.exports = { eventsPromptFor, EVENTS_PROMPT, importPromptFor, frDate, buildPrompt, buildRegistrationPrompt, IMPORT_PROMPT, ENTRY_PROMPT };

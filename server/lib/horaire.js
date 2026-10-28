@@ -313,10 +313,33 @@ function deleteNeed(u, id) {
 // ---------- événements spéciaux (remplacent le modèle normal pour leur date) ----------
 function listEvents(u, from, to) {
   const evs = (from && to)
-    ? db.prepare('SELECT id, day, label, service, extra, positionId FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
-    : db.prepare('SELECT id, day, label, service, extra, positionId FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
+    ? db.prepare('SELECT id, day, label, service, extra, positionId, covers FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
+    : db.prepare('SELECT id, day, label, service, extra, positionId, covers FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
   const needs = db.prepare('SELECT eventId, positionId, start, end, count FROM horaire_needs WHERE userId = ? AND eventId IS NOT NULL ORDER BY start').all(u);
-  return evs.map((e) => ({ ...e, needs: needs.filter((n) => n.eventId === e.id).map(({ eventId, ...n }) => n) }));
+  // lines (événement d'un service) : ses lignes « poste · +N » ; ancienne ligne (positionId, extra) = un événement d'une seule ligne.
+  return evs.map((e) => {
+    const own = needs.filter((n) => n.eventId === e.id).map(({ eventId, ...n }) => n);
+    const lines = e.service ? (own.length ? own.map((n) => ({ positionId: n.positionId, count: n.count })) : (e.extra > 0 ? [{ positionId: e.positionId, count: e.extra }] : [])) : undefined;
+    return { ...e, needs: own, lines };
+  });
+}
+// Événement d'un service (28 oct. 2026) : { day, service, covers (facultatif), lines: [{ positionId, count }] } ; ses lignes sont
+// enregistrées comme besoins de l'événement (heure du service ; la génération les place à la première arrivée du poste).
+const SERVICE_SPAN = { matin: ['10:30', '16:00'], soir: ['16:00', '23:59'] };
+function writeServiceEvent(u, id, { day, service, covers, lines }) {
+  db.exec('BEGIN');
+  try {
+    let eventId = id;
+    const c = covers == null ? null : covers;
+    if (eventId) db.prepare('UPDATE horaire_events SET day = ?, service = ?, covers = ?, extra = NULL, positionId = NULL WHERE id = ? AND userId = ?').run(day, service, c, eventId, u);
+    else eventId = Number(db.prepare('INSERT INTO horaire_events (userId, day, label, service, covers) VALUES (?, ?, ?, ?, ?)').run(u, day, 'Événement', service, c).lastInsertRowid);
+    db.prepare('DELETE FROM horaire_needs WHERE userId = ? AND eventId = ?').run(u, eventId);
+    const ins = db.prepare('INSERT INTO horaire_needs (userId, positionId, weekday, eventId, start, end, count) VALUES (?, ?, NULL, ?, ?, ?, ?)');
+    const [s, e] = SERVICE_SPAN[service];
+    lines.forEach((l) => ins.run(u, Number(l.positionId), eventId, s, e, l.count));
+    db.exec('COMMIT');
+    return listEvents(u).find((x) => x.id === eventId);
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 function writeEvent(u, id, { day, label, needs, service, extra, positionId }) {
   db.exec('BEGIN');
@@ -495,16 +518,17 @@ function promptText(v) {
 }
 function getPrompts(u) {
   const P = require('./horaire-prompt');
-  const r = db.prepare('SELECT importPrompt, entryPrompt FROM horaire_settings WHERE userId = ?').get(u) || {};
+  const r = db.prepare('SELECT importPrompt, entryPrompt, eventsPrompt FROM horaire_settings WHERE userId = ?').get(u) || {};
   return {
     importPrompt: { text: r.importPrompt || P.IMPORT_PROMPT.replace("pour la semaine qui commence le lundi suivant la date d'aujourd'hui (si aujourd'hui est lundi, prends le lundi suivant)", 'pour la semaine indiquée en tête de ce message'), isDefault: !r.importPrompt },
     entryPrompt: { text: r.entryPrompt || P.ENTRY_PROMPT, isDefault: !r.entryPrompt },
+    eventsPrompt: { text: r.eventsPrompt || P.EVENTS_PROMPT, isDefault: !r.eventsPrompt },
   };
 }
 // f : { importPrompt?, entryPrompt? } déjà passés par promptText ; undefined = inchangé, null = version de base.
 function setPrompts(u, f) {
   const sets = [], args = [];
-  ['importPrompt', 'entryPrompt'].forEach((k) => { if (f[k] !== undefined) { sets.push(k + ' = ?'); args.push(f[k]); } });
+  ['importPrompt', 'entryPrompt', 'eventsPrompt'].forEach((k) => { if (f[k] !== undefined) { sets.push(k + ' = ?'); args.push(f[k]); } });
   if (sets.length) {
     db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
     db.prepare('UPDATE horaire_settings SET ' + sets.join(', ') + ', updatedAt = ? WHERE userId = ?').run(...args, nowIso(), u);
@@ -746,6 +770,54 @@ function importAvailabilitiesCsv(u, weekStart, text) {
   return res;
 }
 
+// Réservations de GROUPE de la semaine (texte rendu par l'IA du gérant, prompt des événements) : date;service;heure;couverts.
+// Chaque groupe devient UN événement (ses couverts notés) avec une ligne « Serveur · +N », N = arrondi au-dessus de (couverts ÷ ratio) ;
+// ratio = couverts par serveur de plus (openTableCovers du poste Serveur, 20 par défaut). Réimporter remplace les événements IMPORTÉS
+// (couverts notés) des jours et services du collage (jamais de double compte) ; événements saisis à la main et autres services : intacts.
+const COVERS_RATIO = 20;
+function serverPosition(u) {
+  return listPositions(u).find((p) => /^serveur$/i.test(String(p.name).trim())) || mainPosition(u);
+}
+function importEventsCsv(u, weekStart, text) {
+  const rows = parseCsv(text);
+  const res = { groups: 0, lines: [], skipped: [], otherWeeks: {}, otherLines: 0, ratio: COVERS_RATIO };
+  if (!rows.length) { res.otherWeeks = []; return res; }
+  const { idx, data } = columns(rows, {
+    day: ['date', 'jour', 'day'], service: ['service'], time: ['heure', 'time', 'debut'], covers: ['couverts', 'covers', 'personnes', 'taille'],
+  });
+  const pos = serverPosition(u);
+  const ratio = (pos && pos.openTableCovers) || COVERS_RATIO;
+  res.ratio = ratio;
+  const groups = []; // [jour, service, couverts]
+  data.forEach((cells, n) => {
+    const raw = String(cells[idx.day] || '').trim();
+    const day = normDay(raw, weekStart);
+    if (!day && isDate(raw)) { res.otherWeeks[gen.addDays(raw, -((new Date(raw + 'T00:00:00Z').getUTCDay() + 6) % 7))] = 1; res.otherLines += 1; return; }
+    const time = normTime(cells[idx.time]);
+    let service = fold(cells[idx.service]);
+    if (service !== 'matin' && service !== 'soir') service = time ? (gen.toMin(time) >= gen.EVENING_FROM ? 'soir' : 'matin') : '';
+    const c = Number(String(cells[idx.covers] || '').replace(/[^\d]/g, ''));
+    if (!day || !service || !(c >= 1)) { res.skipped.push({ line: n + 1 }); return; }
+    groups.push([day, service, Math.min(5000, c)]);
+    res.groups += 1;
+  });
+  if (pos && groups.length) {
+    const days = gen.weekDays(weekStart);
+    const keys = new Set(groups.map(([d, s]) => d + '|' + s));
+    listEvents(u, days[0], days[6]).filter((e) => e.covers != null && keys.has(e.day + '|' + e.service)).forEach((e) => deleteEvent(u, e.id));
+    const sum = new Map();
+    groups.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[1] === 'matin' ? -1 : 1) - (b[1] === 'matin' ? -1 : 1))).forEach(([day, service, c]) => {
+      const extra = Math.min(50, Math.ceil(c / ratio));
+      writeServiceEvent(u, null, { day, service, covers: c, lines: [{ positionId: pos.id, count: extra }] });
+      const k = day + '|' + service;
+      sum.set(k, (sum.get(k) || 0) + extra);
+    });
+    for (const [k, extra] of sum) { const [day, service] = k.split('|'); res.lines.push({ day, service, extra }); }
+  }
+  res.otherWeeks = Object.keys(res.otherWeeks).sort();
+  return res;
+}
+
 // Réservations OpenTable (rapport « Réservations » de GuestCenter, export CSV) : date, heure et taille du groupe (+ statut facultatif).
 // Format souple (en-têtes français ou anglais, séparateur ; , ou tabulation). Seuls ces champs sont lus : jamais le nom du client ni ses notes.
 // Une réservation annulée ou « no show » ne compte pas. Les totaux des jours présents dans le fichier REMPLACENT les anciens (réimporter est sans danger).
@@ -823,7 +895,7 @@ module.exports = {
   DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  generate, getSchedule, getSettings, setSettings, exportDayforce,
+  importEventsCsv, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,

@@ -203,7 +203,10 @@
     'lun.': 'Mon', 'mar.': 'Tue', 'mer.': 'Wed', 'jeu.': 'Thu', 'ven.': 'Fri', 'sam.': 'Sat', 'dim.': 'Sun',
     'janv.': 'Jan', 'févr.': 'Feb', 'mars': 'Mar', 'avr.': 'Apr', 'mai': 'May', 'juin': 'Jun', 'juil.': 'Jul', 'août': 'Aug', 'sept.': 'Sep', 'oct.': 'Oct', 'nov.': 'Nov', 'déc.': 'Dec',
     // ---- Horaire : page semaine (maquette version 6, 28 oct. 2026) ----
-    '1. Paramètres': '1. Settings', '2. Récupération': '2. Retrieval', 'Modifier le prompt': 'Edit the prompt', '3. Horaire': '3. Schedule', '4. Envoi': '4. Send', 'Générer l’horaire': 'Generate schedule',
+    '1. Paramètres': '1. Settings', '2. Événements': '2. Events', '3. Récupération': '3. Retrieval', 'Modifier le prompt': 'Edit the prompt', '4. Horaire': '4. Schedule', '5. Envoi': '5. Send',
+    'Copier le prompt des événements': 'Copy the events prompt', '1 serveur de plus pour': '1 more server per', 'couverts': 'covers', 'Coller les événements': 'Paste the events', 'Couverts par serveur de plus': 'Covers per extra server',
+    'groupes lus': 'groups read', 'groupe lu': 'group read', 'Ces réservations sont pour la semaine du': 'These bookings are for the week of', 'groupes d’une autre semaine ignorés.': 'groups from another week ignored.', 'groupe d’une autre semaine ignoré.': 'group from another week ignored.',
+    'Retirer cet événement ?': 'Remove this event?', 'Retirer l’événement': 'Remove the event', 'Ajouter un poste': 'Add a position', 'Prompt': 'Prompt', 'Serveur en redémarrage. Réessaie dans un instant.': 'Server restarting. Try again in a moment.', 'Générer l’horaire': 'Generate schedule',
     'Copier le prompt de récupération': 'Copy the retrieval prompt', 'Copier le prompt pour l’IA': 'Copy the prompt for AI', 'Colle ici le texte rendu par ton IA.': 'Paste here the text returned by your AI.',
     'Quarts': 'Shifts', 'Trous restants': 'Gaps left', 'Alertes': 'Alerts', 'Horaire pas encore généré': 'Schedule not generated yet',
     'Prompt de récupération': 'Retrieval prompt', 'Coller les disponibilités': 'Paste availability', 'employé(s) lu(s)': 'employee(s) read',
@@ -736,7 +739,6 @@
     // ---- Messages renvoyés par le serveur (texte fixe) ----
     'Erreur serveur': 'Server error',
     'Connexion impossible. Réessaie.': 'Connection failed. Try again.',
-    'Serveur en redémarrage. Réessaie dans un instant.': 'Server restarting. Try again in a moment.',
     'userId requis.': 'userId is required.',
     'userId et activityId requis.': 'userId and activityId are required.',
     'Profil introuvable.': 'Profile not found.',

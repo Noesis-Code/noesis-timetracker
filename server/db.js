@@ -2722,7 +2722,8 @@ for (const col of ['noDouble', 'restAfterShift']) {
 }
 // Prompts modifiables par le gérant (27 oct. 2026) : lecture (importPrompt) et consignes d'inscription (entryPrompt) ;
 // NULL = version de base (server/lib/horaire-prompt.js).
-for (const col of ['importPrompt', 'entryPrompt']) {
+// eventsPrompt (28 oct. 2026) : prompt des événements (réservations de groupe de la semaine).
+for (const col of ['importPrompt', 'entryPrompt', 'eventsPrompt']) {
   if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_settings ADD COLUMN ' + col + ' TEXT');
 }
 db.exec(`
@@ -2741,7 +2742,8 @@ for (const t of ['horaire_availabilities', 'horaire_timeoff']) {
 }
 // Événement « Groupe » (28 oct. 2026) : service (matin | soir) et serveurs en plus ; NULL = ancien événement (ses besoins remplacent).
 // Poste d'un groupe (28 oct. 2026, plusieurs postes) : NULL = ancien groupe (première arrivée du service, tous postes confondus).
-for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER']]) {
+// Couverts d'un événement importé (28 oct. 2026, réservation de groupe) : NULL = événement saisi à la main.
+for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER'], ['covers', 'INTEGER']]) {
   if (!db.prepare('PRAGMA table_info(horaire_events)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_events ADD COLUMN ' + col + ' ' + type);
 }
 // Règles du restaurant (28 oct. 2026) : JSON { off: ['r2'...], prefOrder: ['r5','r6','r7'], free: [{ id, text }] } ; NULL = toutes actives.

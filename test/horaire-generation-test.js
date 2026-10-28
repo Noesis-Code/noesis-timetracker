@@ -196,6 +196,17 @@ r = generateSchedule({
   events: [{ id: 40, day: D[2], service: 'soir', extra: 1, positionId: 1, needs: [] }, { id: 41, day: D[2], service: 'soir', extra: 2, positionId: 2, needs: [] }],
 });
 assert(find(r, 1, D[2], '17:00').length === 2 && find(r, 2, D[2], '16:00').length === 2, 'événements : +1 Serveur à sa première arrivée (17:00), +2 Barman à 16:00 (aucun besoin de ce poste)');
+// Plusieurs événements sur un service (additionnés), plusieurs postes dans un événement (lignes enregistrées comme besoins)
+r = generateSchedule({
+  weekStart: W, positions: [{ id: 1, fillOrder: 0 }, { id: 2, fillOrder: 1 }],
+  employees: [10, 11, 12, 13, 14].map((id) => ({ id })),
+  qualifications: [10, 11, 12].map((id) => ({ employeeId: id, positionId: 1, rank: 1 })).concat([13, 14].map((id) => ({ employeeId: id, positionId: 2, rank: 1 }))),
+  availabilities: allDay([10, 11, 12, 13, 14], D),
+  needs: [],
+  events: [{ id: 50, day: D[3], service: 'soir', needs: [{ positionId: 1, start: '16:00', end: '23:59', count: 2 }, { positionId: 2, start: '16:00', end: '23:59', count: 1 }] },
+    { id: 51, day: D[3], service: 'soir', needs: [{ positionId: 1, start: '16:00', end: '23:59', count: 1 }] }],
+});
+assert(find(r, 1, D[3], '16:00').length === 3 && find(r, 2, D[3], '16:00').length === 1, 'deux événements sur le même service additionnés ; deux postes dans un événement');
 
 // ---- Quart qui traverse minuit ----
 r = generateSchedule({
