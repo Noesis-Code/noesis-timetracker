@@ -33,8 +33,14 @@
   }
   function hours(min) { var h = Math.floor(min / 60), m = min % 60; return h + ' h' + (m ? ' ' + pad(m) : ''); }
 
+  // B1 : semaine affichée à l'ouverture = la dernière vue (mémorisée sur l'appareil), sinon le lundi qui vient (semaine suivante).
+  function startWeek() {
+    var saved = null; try { saved = localStorage.getItem('horaireSemaine'); } catch (e) { /* stockage indisponible */ }
+    if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved) && weekdayOf(saved) === 0) return saved;
+    return addDays(mondayOf(new Date()), 7);
+  }
   var S = {
-    week: mondayOf(new Date()), employees: [], positions: [], quals: [], needs: [], events: [], avail: [], timeoff: [], summary: null, catRules: [], schedule: null, settings: {},
+    week: startWeek(), employees: [], positions: [], quals: [], needs: [], events: [], avail: [], timeoff: [], summary: null, catRules: [], schedule: null, settings: {},
     open: {}, editing: null, msg: '', rulesOpen: false, busy: false, loaded: false,
   };
 
@@ -180,7 +186,7 @@
     // Page 1 : Récupération
     var p1 = el('div', 'horairePage');
     p1.appendChild(posPicker());
-    var bCats = block('Classification des employés', 'Catégorie 1 = priorité la plus haute. Glisse un nom pour le changer de catégorie.');
+    var bCats = el('section', 'horaireBlock'); bCats.appendChild(el('p', 'cmpBlockTitle', tr('Classification des employés')));
     catsMsg = el('p', 'horaireMsg horaireCatsMsg hidden'); catsMsg.setAttribute('aria-live', 'polite'); bCats.appendChild(catsMsg);
     catsBox = el('div', 'horaireCatsBox'); bCats.appendChild(catsBox);
     var bNeeds = block('Besoins et événements', 'Clique une case pour la changer. Un groupe ajoute des serveurs à son service.');
@@ -190,7 +196,7 @@
     rulesHead.addEventListener('click', function () { S.rulesOpen = !S.rulesOpen; renderRules(); });
     rulesBox = el('div', 'horaireRules cmpGlass');
     bRules.appendChild(rulesHead); bRules.appendChild(rulesBox);
-    [bCats, bNeeds, bRules, btn('cmpBtn', 'Copier le prompt de récupération', function () { copyText('import-prompt', 'Prompt copié : colle-le dans ton IA.'); })]
+    [bCats, bNeeds, bRules, btn('cmpBtn', 'Copier le prompt de récupération', function () { copyText('import-prompt?week=' + S.week, 'Prompt copié : colle-le dans ton IA.'); })]
       .forEach(function (n) { p1.appendChild(n); });
 
     // Page 2 : Disponibilités (zone de collage toujours visible, envoi dans la zone, R13)
@@ -263,12 +269,18 @@
   function logicalPage() { return S.summary && S.summary.employees ? 2 : 1; }
   function changeWeek(n) {
     S.week = addDays(S.week, n); S.msg = '';
+    try { localStorage.setItem('horaireSemaine', S.week); } catch (e) { /* stockage indisponible */ }
     if (S.editing && /^ev/.test(S.editing)) S.editing = null;
     closeMenu();
     loadWeek().then(function () { S.page = null; render(); }, fail);
   }
   function generate() {
     if (S.busy) return;
+    // B4 : un horaire existe déjà -> confirmation (bouton violet), car les modifications manuelles seront remplacées.
+    if (S.schedule && !generate.ok) {
+      TMT.ui.confirm(tr('Regénérer ? Tes modifications manuelles seront remplacées.'), { ok: tr('Regénérer') }).then(function (yes) { if (yes) { generate.ok = true; generate(); generate.ok = false; } });
+      return;
+    }
     S.busy = true; genBtn.disabled = true; S.msg = '';
     req('POST', 'weeks/' + S.week + '/generate').then(function (d) { S.schedule = d.schedule; render(); }, fail)
       .then(function () { S.busy = false; genBtn.disabled = false; });
@@ -309,6 +321,11 @@
     S.busy = true;
     req('POST', 'weeks/' + S.week + '/import/availabilities', { csv: text }).then(function (d) {
       var sk = (d.skipped || []).length;
+      if (!d.employees && d.otherWeeks && d.otherWeeks.length) {
+        var ow = new Date(d.otherWeeks[0] + 'T00:00:00Z');
+        S.msg = tr('Ces disponibilités sont pour la semaine du') + ' ' + (ow.getUTCDate() === 1 ? '1er' : ow.getUTCDate()) + ' ' + tr(MONTHS_LONG[ow.getUTCMonth()]) + ' : ' + tr('va à cette semaine et colle-les à nouveau.');
+        return loadWeek().then(render);
+      }
       S.msg = (d.employees || 0) + ' ' + tr('employé(s) lu(s)') + (d.unknown && d.unknown.length ? '. ' + tr('Inconnus :') + ' ' + d.unknown.join(', ') : '')
         + (sk ? '. ' + sk + ' ' + tr('ligne(s) ignorée(s)') : '') + '.';
       pasteArea.value = '';

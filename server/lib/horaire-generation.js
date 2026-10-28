@@ -236,7 +236,9 @@ function generateSchedule(input) {
       if (!holes.length) break;
       const left = [];
       for (const slot of holes) {
-        const id = pick(slot, level, phase);
+        // B3 : un soir n'est jamais donné par la passe « min » (elle volerait les meilleurs soirs aux catégories supérieures) ;
+        // les soirs vont d'abord à la catégorie 1, puis 2, 3 et 4, dans les passes « cible » et « max ».
+        const id = phase === 'min' && evening(slot) ? null : pick(slot, level, phase);
         if (id === null) left.push(slot); else assign(slot, id);
       }
       holes = left;

@@ -446,13 +446,9 @@ function exportDayforce(u, weekStart) {
 function weekPrompt(u, weekStart) {
   const s = getSchedule(u, weekStart);
   if (!s) return null;
-  // Consignes : version de base (28 oct. 2026, plus d'édition ; les textes personnalisés restent en base sans servir). Règles libres des
-  // employés placés cette semaine : l'IA les lit, la génération non.
-  const placed = new Set(s.assignments.map((a) => a.employeeId));
-  const names = new Map(listEmployees(u).map((e) => [e.id, e.name]));
-  const { parseNote } = require('./horaire-note');
-  const freeRules = listEmployees(u).filter((e) => placed.has(e.id)).map((e) => ({ employeeName: e.name, text: parseNote(e.constraintNote).rest })).filter((r) => r.text);
-  return require('./horaire-prompt').buildRegistrationPrompt({ weekStart, assignments: s.assignments, freeRules, restaurantRules: getRestaurantRules(u).list });
+  // Consignes de base et liste des quarts SEULEMENT (B2, 28 oct. 2026) : ni règles du restaurant, ni notes des employés (aucune note
+  // de santé ne part chez l'IA ; on ne lui demande pas de juger).
+  return require('./horaire-prompt').buildRegistrationPrompt({ weekStart, assignments: s.assignments });
 }
 
 // ---------- prompts modifiables par le gérant (NULL = version de base) ----------
@@ -678,7 +674,7 @@ function employeeMatcher(u) {
 const TIMEOFF_TYPES = ['vacances', 'conge', 'conges', 'maladie', 'absence'];
 function importAvailabilitiesCsv(u, weekStart, text) {
   const rows = parseCsv(text);
-  const res = { employees: 0, intervals: 0, timeoff: 0, unknown: [], skipped: [] };
+  const res = { employees: 0, intervals: 0, timeoff: 0, unknown: [], skipped: [], otherWeeks: {}, otherLines: 0 };
   if (!rows.length) return res;
   const { idx, data } = columns(rows, {
     name: ['nom', 'name', 'employe', 'employee'],
@@ -694,6 +690,8 @@ function importAvailabilitiesCsv(u, weekStart, text) {
     const emp = name && match(name);
     if (!emp) { if (name && !res.unknown.includes(name)) res.unknown.push(name); return; }
     const day = normDay(cells[idx.day], weekStart);
+    // Date d'une autre semaine : comptée pour le signaler (jamais ignorée en silence).
+    if (!day && isDate(String(cells[idx.day] || '').trim())) { const d = String(cells[idx.day]).trim(); res.otherWeeks[gen.addDays(d, -((new Date(d + 'T00:00:00Z').getUTCDay() + 6) % 7))] = 1; res.otherLines += 1; return; }
     const type = idx.type !== undefined ? fold(cells[idx.type]) : '';
     if (!byEmp.has(emp.id)) byEmp.set(emp.id, { intervals: [], timeoff: [] });
     if (type && TIMEOFF_TYPES.includes(type)) {
@@ -713,6 +711,7 @@ function importAvailabilitiesCsv(u, weekStart, text) {
     setAvailabilities(u, weekStart, empId, intervals, timeoff);
     res.employees += 1; res.intervals += intervals.length; res.timeoff += timeoff.length;
   }
+  res.otherWeeks = Object.keys(res.otherWeeks).sort();
   return res;
 }
 

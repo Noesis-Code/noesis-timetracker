@@ -195,9 +195,14 @@ assert(r.assignments.length === 5 && r.alerts.some((a) => a.type === 'trou') && 
 // Passe 1 : chacun atteint son MIN, même un rang moins bon, avant que le meilleur rang aille à sa cible.
 const evenings = (n) => Array.from({ length: n }, (_, wd) => ({ positionId: 1, weekday: wd, start: '17:00', end: '23:00', count: 1 }));
 r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMin: 6, wantHoursTarget: 24, wantHoursMax: 24 },
-  { id: 11, maxWeekMinutes: null, wantHoursMin: 12, wantHoursTarget: 12, wantHoursMax: 24, rank: 2 }], { needs: evenings(4) }));
+  { id: 11, maxWeekMinutes: null, wantHoursMin: 12, wantHoursTarget: 12, wantHoursMax: 24, rank: 2 }], { needs: [0, 1, 2, 3].map((wd) => ({ positionId: 1, weekday: wd, start: '09:00', end: '15:00', count: 1 })) }));
 assert(r.assignments.filter((a) => a.employeeId === 11).length === 2 && r.assignments.filter((a) => a.employeeId === 10).length === 2,
-  'passe 1 : la catégorie 2 atteint son min (2) même si la catégorie 1 visait 4');
+  'passe 1 (journées) : la catégorie 2 atteint son min (2) même si la catégorie 1 visait 4');
+// B3 : le samedi soir va à la catégorie 1 avant la catégorie 3, même si la 3 est sous son minimum.
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null }, { id: 12, maxWeekMinutes: null, wantHoursMin: 12, rank: 3 }], {
+  needs: [{ positionId: 1, weekday: 5, start: '17:00', end: '23:00', count: 1 }, { positionId: 1, weekday: 0, start: '17:00', end: '23:00', count: 1 }],
+}));
+assert(find(r, 1, D[5])[0].employeeId === 10 && find(r, 1, D[0])[0].employeeId === 10, 'samedi soir : la catégorie 1 passe avant la catégorie 3 sous son minimum (alerte minimum à la place)');
 // Passe 2 : jusqu'à la CIBLE, catégorie par catégorie ; passe 3 : au-delà de la cible jusqu'au MAX, catégorie 1 d'abord.
 r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMin: 0, wantHoursTarget: 12, wantHoursMax: 24 },
   { id: 11, maxWeekMinutes: null, wantHoursMin: 0, wantHoursTarget: 12, wantHoursMax: 24, rank: 2 }], { needs: evenings(5) }));

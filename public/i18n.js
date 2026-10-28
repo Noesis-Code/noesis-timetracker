@@ -226,7 +226,7 @@
     'Disponibilités : pas encore collées': 'Availability: not pasted yet', 'Disponibilités :': 'Availability:', 'employés lus': 'employees read', 'employé lu': 'employee read', 'le': 'on',
     'Horaire de la semaine': 'Schedule of the week', 'Tel qu’il sera inscrit. Clique un nom pour le changer.': 'As it will be entered. Click a name to change it.',
     'Besoins et événements': 'Needs and events', 'Clique une case pour la changer. Un groupe ajoute des serveurs à son service.': 'Click a cell to change it. A group adds servers to its service.', 'Groupe': 'Group', 'Serveurs en plus': 'Extra servers', 'Ajouter un groupe': 'Add a group',
-    'Classification des employés': 'Employee classification', 'Catégorie 1 = priorité la plus haute. Glisse un nom pour le changer de catégorie.': 'Category 1 = highest priority. Drag a name to change its category.',
+    'Classification des employés': 'Employee classification', 'Regénérer ? Tes modifications manuelles seront remplacées.': 'Regenerate? Your manual changes will be replaced.', 'Regénérer': 'Regenerate', 'Ces disponibilités sont pour la semaine du': 'This availability is for the week of', 'va à cette semaine et colle-les à nouveau.': 'go to that week and paste it again.',
     'Matin': 'Morning', 'matin': 'morning', 'soir': 'evening', 'Événement': 'Event', 'Service': 'Service', 'Heure d’arrivée': 'Arrival time',
     'Sans catégorie': 'No category', 'quart': 'shift', 'Règles de la catégorie': 'Category rules', 'Ajouter une règle': 'Add a rule', 'Retirer la règle': 'Remove the rule', 'de la catégorie': 'from category',
     'Pas de matin': 'No morning', 'Pas de soir': 'No evening', 'Soirs d’abord': 'Evenings first', 'Matins d’abord': 'Mornings first',

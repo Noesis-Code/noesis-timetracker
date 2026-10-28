@@ -121,6 +121,13 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     r = await call('POST', 'events', { day: '2026-11-08', service: 'soir', extra: 1, positionId: barman.id }, 'uC');
     assert(r.status === 201 && r.body.event.positionId === barman.id, 'groupe rattaché au poste choisi');
   }
+  // ---- B1 : import d'une autre semaine signalé, jamais ignoré en silence ----
+  {
+    const e1 = (await call('POST', 'employees', { name: 'Semaine Fictive' }, 'uC')).body.employee;
+    const out = h.importAvailabilitiesCsv('uC', '2026-11-02', 'nom;jour;début;fin\nSemaine Fictive;2026-11-10;10:00;16:00\n');
+    assert(out.employees === 0 && out.otherLines === 1 && out.otherWeeks.join() === '2026-11-09', 'import : lignes d’une autre semaine comptées et signalées (semaine du 9 novembre)');
+    void e1;
+  }
   // ---- Heures : min ≤ cible ≤ max ----
   r = await call('PUT', 'employees/' + first.id, { wantHoursMin: 12, wantHoursTarget: 20, wantHoursMax: 24 }, 'uC');
   assert(r.status === 200 && r.body.employee.wantHoursTarget === 20, 'heures min, cible, max enregistrées');

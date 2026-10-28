@@ -165,8 +165,8 @@ function call(method, path, body, user) {
   assert(r.status === 200 && /^text\/plain/.test(r.type) && r.cache === 'no-store'
     && pl.includes('- Marc Imaginaire ; 2026-11-03 ; mardi ; 12:00 ; 15:00 ; Serveur') && pl.includes('- Élodie Fictive ; 2026-11-02 ; lundi ; 17:00 ; 23:00 ; Serveur')
     && pl.includes('QUARTS À INSCRIRE (2)'), 'prompt d\'inscription : un quart par ligne (nom ; date ; jour ; début ; fin ; poste), modifications comprises');
-  assert(!/dayforce|chatgpt|copilot/i.test(r.text) && r.text.includes('- Élodie Fictive : Note fictive permanente') && r.text.includes('brouillon') && r.text.includes('Déconnecte-toi')
-    && r.text.includes('mode agent') && r.text.includes('Échecs'), 'prompt d\'inscription : rien de nommé, note de l’employé placé reprise, brouillon, déconnexion, compte rendu');
+  assert(!/dayforce|chatgpt|copilot/i.test(r.text) && !r.text.includes('Note fictive') && !r.text.includes('RÈGLES') && r.text.includes('brouillon') && r.text.includes('Déconnecte-toi')
+    && r.text.includes('mode agent') && r.text.includes('Échecs'), 'prompt d\'inscription : rien de nommé, aucune note ni règle, brouillon, déconnexion, compte rendu');
   r = await call('DELETE', 'weeks/' + W + '/assignments/' + added.id, undefined, 'uA');
   assert(r.status === 200 && (await call('GET', 'weeks/' + W, undefined, 'uA')).body.schedule.assignments.length === 1, 'DELETE : quart retiré');
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uB');
@@ -189,8 +189,6 @@ function call(method, path, body, user) {
   await call('POST', 'weeks/' + W + '/generate', undefined, 'uA');
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uA');
   assert(r.text.startsWith(P.ENTRY_PROMPT.trimEnd() + '\n\nSEMAINE : du lundi ' + W) && r.text.includes('QUARTS À INSCRIRE ('), 'prompt d\'inscription : consignes de base puis quarts');
-  assert(buildRegistrationPrompt({ weekStart: W, assignments: [], freeRules: [{ employeeName: 'Alice', text: 'Toujours en salle principale' }] }).includes('RÈGLES PARTICULIÈRES À VÉRIFIER\n- Alice : Toujours en salle principale'), 'prompt d’inscription : règles libres des employés placés');
-  assert(buildRegistrationPrompt({ weekStart: W, assignments: [], restaurantRules: ['Un serveur au bar le vendredi'] }).includes('RÈGLES DU RESTAURANT\n1. Un serveur au bar le vendredi'), 'prompt d’inscription : liste des règles du restaurant, numérotée');
   // Quart placé « à demander » : alerte « demander » enregistrée avec le nom
   {
     const sch = (await call('GET', 'weeks/' + W, undefined, 'uA')).body.schedule;
@@ -201,6 +199,9 @@ function call(method, path, body, user) {
       assert(r.status === 201 && al.some((a) => a.type === 'demander' && a.employeeId === emp.id && a.employeeName === emp.name && a.day === W), 'quart « à demander » : alerte « demander à X » enregistrée');
     }
   }
+  r = await call('GET', 'import-prompt?week=2026-11-02', undefined, 'uA');
+  assert(r.text.includes('pour la semaine du lundi 2 novembre au dimanche 8 novembre 2026') && !r.text.includes('lundi suivant'), 'prompt de récupération : dates de la semaine affichée');
+  assert(require('../server/lib/horaire-prompt').importPromptFor('2026-10-26').includes('du lundi 26 octobre au dimanche 1er novembre 2026'), 'prompt de récupération : « 1er »');
   r = await call('GET', 'prompts', undefined, 'uB');
   assert(r.body.importPrompt.isDefault && r.body.entryPrompt.isDefault && (await call('GET', 'import-prompt', undefined, 'uB')).text === P.IMPORT_PROMPT, 'autre compte : garde les versions de base');
   assert((await call('PUT', 'prompts', { entryPrompt: 'x'.repeat(8001) }, 'uA')).status === 400, 'PUT prompts : plus de 8 000 caractères refusé');

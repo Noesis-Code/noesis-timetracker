@@ -248,9 +248,21 @@ function buildRegistrationPrompt(input) {
     'Une ligne par quart : Prénom Nom ; date AAAA-MM-JJ ; jour ; début ; fin ; poste. Heures sur 24 h ; une fin plus petite que le début finit le lendemain.',
     ...shifts,
     // Règles libres des employés placés (28 oct. 2026) : à vérifier par l'IA avant d'inscrire.
-    ...((input.restaurantRules || []).length ? ['', 'RÈGLES DU RESTAURANT', ...input.restaurantRules.map((t, i) => (i + 1) + '. ' + t)] : []),
-    ...((input.freeRules || []).length ? ['', 'RÈGLES PARTICULIÈRES À VÉRIFIER', ...input.freeRules.map((r) => '- ' + r.employeeName + ' : ' + r.text)] : []),
   ].join('\n') + '\n';
 }
 
-module.exports = { buildPrompt, buildRegistrationPrompt, IMPORT_PROMPT, ENTRY_PROMPT };
+// Prompt de récupération pour la semaine affichée (B1) : la consigne « lundi suivant aujourd'hui » devient les dates de la semaine ;
+// le reste du texte ne change pas.
+const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+function frDate(iso, withYear) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return (d === 1 ? '1er' : String(d)) + ' ' + MONTHS[m - 1] + (withYear ? ' ' + y : '');
+}
+function importPromptFor(weekStart) {
+  if (!weekStart) return IMPORT_PROMPT;
+  const sunday = gen.addDays(weekStart, 6);
+  const span = 'pour la semaine du lundi ' + frDate(weekStart, weekStart.slice(0, 4) !== sunday.slice(0, 4)) + ' au dimanche ' + frDate(sunday, true);
+  return IMPORT_PROMPT.replace("pour la semaine qui commence le lundi suivant la date d'aujourd'hui (si aujourd'hui est lundi, prends le lundi suivant)", span);
+}
+
+module.exports = { importPromptFor, frDate, buildPrompt, buildRegistrationPrompt, IMPORT_PROMPT, ENTRY_PROMPT };
