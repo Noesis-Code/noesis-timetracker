@@ -2722,8 +2722,9 @@ for (const col of ['noDouble', 'restAfterShift']) {
 }
 // Prompts modifiables par le gérant (27 oct. 2026) : lecture (importPrompt) et consignes d'inscription (entryPrompt) ;
 // NULL = version de base (server/lib/horaire-prompt.js).
-// eventsPrompt (28 oct. 2026) : prompt des événements (réservations de groupe de la semaine).
-for (const col of ['importPrompt', 'entryPrompt', 'eventsPrompt']) {
+// eventsPrompt (28 oct. 2026) : prompt des événements (réservations de groupe de la semaine). Réception automatique du rapport de
+// réservations (28 oct. 2026) : inboundToken (jeton secret de l'adresse, révocable), inboundLastAt (dernier rapport reçu).
+for (const col of ['importPrompt', 'entryPrompt', 'eventsPrompt', 'inboundToken', 'inboundLastAt']) {
   if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_settings ADD COLUMN ' + col + ' TEXT');
 }
 db.exec(`
@@ -2744,7 +2745,8 @@ for (const t of ['horaire_availabilities', 'horaire_timeoff']) {
 // Poste d'un groupe (28 oct. 2026, plusieurs postes) : NULL = ancien groupe (première arrivée du service, tous postes confondus).
 // Couverts d'un événement importé (28 oct. 2026, réservation de groupe) : NULL = événement saisi à la main.
 // Zone occupée par un événement (28 oct. 2026) : zoneId = zone du tableau Zones ; zoneRead = texte lu à l'import, non reconnu.
-for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER'], ['covers', 'INTEGER'], ['zoneId', 'INTEGER'], ['zoneRead', 'TEXT']]) {
+// sourceKey (28 oct. 2026) : clé d'une réservation reçue par courriel (date|heure|couverts|numéro) : jamais deux fois le même événement.
+for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER'], ['covers', 'INTEGER'], ['zoneId', 'INTEGER'], ['zoneRead', 'TEXT'], ['sourceKey', 'TEXT']]) {
   if (!db.prepare('PRAGMA table_info(horaire_events)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_events ADD COLUMN ' + col + ' ' + type);
 }
 // Zones de la salle (28 oct. 2026, demande d'Émilien) : serveurs qui couvrent habituellement chaque zone, le matin et le soir.
@@ -2761,6 +2763,8 @@ CREATE TABLE IF NOT EXISTS horaire_zones (
 CREATE INDEX IF NOT EXISTS idx_horaire_zones_user ON horaire_zones(userId);
 `);
 // Règles du restaurant (28 oct. 2026) : JSON { off: ['r2'...], prefOrder: ['r5','r6','r7'], free: [{ id, text }] } ; NULL = toutes actives.
+// Seuil d'un groupe (couverts) pour la réception automatique ; NULL = 10.
+if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === 'groupMin')) db.exec('ALTER TABLE horaire_settings ADD COLUMN groupMin INTEGER');
 if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === 'restaurantRules')) db.exec('ALTER TABLE horaire_settings ADD COLUMN restaurantRules TEXT');
 // Règles de catégorie (28 oct. 2026) : catégorie = rang de qualification (1 = priorité la plus haute) ; chaque règle s'applique
 // à tous les employés de la catégorie, comme leurs propres cases (server/lib/horaire-generation.js).

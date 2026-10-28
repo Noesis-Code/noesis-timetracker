@@ -6,6 +6,36 @@ const { requireAuth } = require('../lib/session');
 const h = require('../lib/horaire');
 const router = express.Router();
 
+// ---------- réception automatique du rapport de réservations (courriel entrant, SANS session : le jeton secret fait foi) ----------
+// POST /api/horaire/inbound/reservations/:jeton : JSON générique des fournisseurs de courriel entrant (Postmark, Mailgun en JSON, Worker
+// Cloudflare) : pièce jointe CSV en base64 (attachments/Attachments : content|Content|data) ou texte du corps (text, TextBody,
+// body-plain, plain). Taille limitée (2 Mo de CSV), débit limité (30 rapports par heure et par jeton) ; jeton inconnu : 404 sans rien d'autre.
+const inboundHits = new Map();
+function inboundText(b) {
+  const atts = [].concat(b.attachments || b.Attachments || []).filter(Boolean);
+  for (const a of atts) {
+    const name = String(a.filename || a.Name || a.name || '').toLowerCase(), type = String(a.contentType || a.ContentType || a['content-type'] || '').toLowerCase();
+    const data = a.content || a.Content || a.data;
+    if (typeof data !== 'string' || !(name.endsWith('.csv') || type.includes('csv') || type.startsWith('text/'))) continue;
+    if (data.length > 3 * 1024 * 1024) return null;
+    return Buffer.from(data, 'base64').toString('utf8');
+  }
+  const t = b.text || b.TextBody || b['body-plain'] || b.plain;
+  return typeof t === 'string' ? t : '';
+}
+router.post('/horaire/inbound/reservations/:token', (req, res) => {
+  const u = h.userForInboundToken(req.params.token);
+  if (!u) return res.status(404).end();
+  const now = Date.now(), k = req.params.token;
+  const hits = (inboundHits.get(k) || []).filter((t) => now - t < 3600 * 1000);
+  if (hits.length >= 30) return res.status(429).end();
+  hits.push(now); inboundHits.set(k, hits);
+  const text = inboundText(req.body || {});
+  if (text === null || text.length > 2 * 1024 * 1024) return res.status(413).end();
+  const out = h.receiveReservations(u, text);
+  res.json({ ok: !out.error, created: out.created, duplicates: out.duplicates, ignored: out.small });
+});
+
 router.use('/horaire', requireAuth);
 
 const bad = (res, msg) => res.status(400).json({ error: msg });
@@ -317,6 +347,15 @@ function eventInput(req, res, body, partial, current) {
   }
   return { day, label, needs };
 }
+// Réception automatique : { address (null tant qu'aucun domaine n'est configuré), lastAt, groupMin } ; PUT { groupMin 1..500 } ;
+// POST revoke : nouveau jeton (l'ancienne adresse ne reçoit plus rien).
+router.get('/horaire/inbound', (req, res) => { res.set('Cache-Control', 'no-store'); res.json(h.inboundInfo(req.userId)); });
+router.put('/horaire/inbound', (req, res) => {
+  const n = (req.body || {}).groupMin;
+  if (!(Number.isInteger(n) && n >= 1 && n <= 500)) return bad(res, 'Seuil invalide (1 à 500 couverts).');
+  res.json(h.setGroupMin(req.userId, n));
+});
+router.post('/horaire/inbound/revoke', (req, res) => res.json(h.revokeInbound(req.userId)));
 router.get('/horaire/events', (req, res) => res.json({ events: h.listEvents(req.userId) }));
 router.post('/horaire/events', (req, res) => {
   const v = eventInput(req, res, req.body || {}, false, null); if (!v) return;

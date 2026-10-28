@@ -167,6 +167,29 @@ dans les Paramètres (une seule place par fonction) :
 désormais dans les sections Employés et Disponibilités (ancienne section « Import et Dayforce » répartie). Test :
 `test/horaire-config-test.js`.
 
+## Réception automatique du rapport de réservations par courriel (28 oct. 2026, option choisie par Émilien)
+Partie app seulement : AUCUN fournisseur n'est inscrit, aucun frais engagé ; le choix revient à Émilien.
+- Chaque compte a une adresse secrète `horaire-<jeton>@<HORAIRE_INBOUND_DOMAIN>` (jeton de 64 caractères hexadécimaux, révocable :
+  `POST /api/horaire/inbound/revoke`). Sans la variable `HORAIRE_INBOUND_DOMAIN`, l'étape 2 affiche « Réception automatique : bientôt disponible. ».
+- Route d'entrée, SANS session : `POST /api/horaire/inbound/reservations/<jeton>`, JSON générique : pièce jointe CSV en base64
+  (`attachments` ou `Attachments` : `content`/`Content`/`data`, nom en .csv ou type texte) ou texte du corps (`text`, `TextBody`,
+  `body-plain`, `plain`). 2 Mo de CSV au plus, 30 rapports par heure et par jeton ; jeton inconnu : 404 vide.
+- Lecture : même lecteur souple que l'import OpenTable (`readReservations` : date, heure, taille, statut, numéro de réservation ; annulées
+  et absentes ignorées ; jamais le nom du client ni ses notes). Chaque réservation de groupe (taille ≥ « Groupe à partir de [10] couverts »,
+  date d'aujourd'hui ou plus tard) devient un événement avec une ligne Serveur (+N = couverts ÷ ratio, arrondi au-dessus). Clé
+  date|heure|couverts|numéro : un rapport reçu deux fois ne crée rien de plus.
+
+Étapes de branchement (une seule à choisir) :
+1. Cloudflare Email Routing + Worker (gratuit) : domaine géré par Cloudflare ; règle « catch-all » `horaire-*@domaine` vers un Worker qui
+   lit la pièce jointe CSV et fait `POST https://<app>/api/horaire/inbound/reservations/<jeton>` avec
+   `{ "attachments": [{ "filename": "...csv", "content": "<base64>" }] }` (jeton = partie après « horaire- » de l'adresse).
+   Variable à poser sur Railway : `HORAIRE_INBOUND_DOMAIN=<domaine>`.
+2. Postmark (entrant) : serveur Postmark, « Inbound » avec un domaine dédié, webhook vers
+   `https://<app>/api/horaire/inbound/reservations/<jeton>` (une adresse par compte via le « MailboxHash » ou un relais) ; format natif
+   `Attachments[].Content` déjà lu. Variable : `HORAIRE_INBOUND_DOMAIN=<domaine entrant Postmark>`.
+3. Mailgun (routes entrantes) : route « match_recipient("horaire-.*@domaine") » qui transfère (forward) vers la même URL ; activer l'envoi
+   en JSON ou passer par un petit relais qui convertit en `{ text }` ou `{ attachments }`. Variable : `HORAIRE_INBOUND_DOMAIN=<domaine Mailgun>`.
+
 ## Loi 25
 Données confidentielles du personnel (réglages et fichier modèle compris) : jamais envoyées à l'IA, à la Communauté, au partage ni aux journaux
 (le prompt pour l'IA est copié par le gestionnaire lui-même dans l'outil de son choix). Incluses dans

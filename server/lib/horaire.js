@@ -335,8 +335,8 @@ setInterval(() => { try { purgePastEvents(); } catch (e) { /* réessayé au proc
 function listEvents(u, from, to) {
   purgePastEvents();
   const evs = (from && to)
-    ? db.prepare('SELECT id, day, label, service, extra, positionId, covers FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
-    : db.prepare('SELECT id, day, label, service, extra, positionId, covers FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
+    ? db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
+    : db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
   const needs = db.prepare('SELECT eventId, positionId, start, end, count FROM horaire_needs WHERE userId = ? AND eventId IS NOT NULL ORDER BY start').all(u);
   // lines (événement d'un service) : ses lignes « poste · +N » ; ancienne ligne (positionId, extra) = un événement d'une seule ligne.
   return evs.map((e) => {
@@ -859,30 +859,101 @@ function normDate(s) {
   const out = String(y) + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
   return isDate(out) ? out : null;
 }
-function importReservationsCsv(u, text) {
+// Lecture souple d'un rapport de réservations (CSV) : [{ day, time, size, number }] ; annulées et absentes ignorées ; jamais le nom
+// du client ni ses notes (colonnes non lues). number = numéro de réservation s'il existe (ni un nom ni une donnée personnelle).
+function readReservations(text) {
   const rows = parseCsv(text);
-  const res = { days: 0, covers: 0, reservations: 0, skipped: [], error: null };
-  if (!rows.length) return res;
+  const out = { rows: [], skipped: [], error: null };
+  if (!rows.length) return out;
   const head = rows[0].map(fold);
   const spec = {
     date: ['date', 'reservation date', 'date de reservation', 'date de la reservation', 'jour', 'day'],
     time: ['heure', 'time', 'reservation time', 'heure de reservation', 'heure de la reservation'],
     size: ['taille du groupe', 'taille', 'party size', 'size', 'couverts', 'covers', 'nombre de personnes', 'personnes', 'convives', 'guests'],
     status: ['statut', 'status', 'etat'],
+    number: ['numero', 'numero de reservation', 'numero de confirmation', 'no', 'confirmation', 'confirmation number', 'confirmation #', 'conf #', 'reservation id', 'reservation number', 'id'],
   };
   const idx = {};
   for (const [k, names] of Object.entries(spec)) { const i = head.findIndex((x) => names.includes(x)); if (i >= 0) idx[k] = i; }
   if (idx.date === undefined || idx.time === undefined || idx.size === undefined) {
-    res.error = 'Colonnes non reconnues : il faut une date, une heure et la taille du groupe dans la première ligne.';
-    return res;
+    out.error = 'Colonnes non reconnues : il faut une date, une heure et la taille du groupe dans la première ligne.';
+    return out;
   }
-  const totals = new Map(); // 'jour|service' -> couverts
   rows.slice(1).forEach((cells, n) => {
     if (idx.status !== undefined && CANCELLED.includes(fold(cells[idx.status]))) return;
     const day = normDate(cells[idx.date]);
     const time = normTime(String(cells[idx.time] || '').replace(/^(\d{1,2}:\d{2}):\d{2}/, '$1'));
     const size = Number(String(cells[idx.size] || '').trim());
-    if (!day || !time || !Number.isInteger(size) || size < 1 || size > 500) { res.skipped.push({ line: n + 2, reason: 'date, heure ou taille illisible' }); return; }
+    if (!day || !time || !Number.isInteger(size) || size < 1 || size > 500) { out.skipped.push({ line: n + 2, reason: 'date, heure ou taille illisible' }); return; }
+    const number = idx.number !== undefined ? String(cells[idx.number] || '').trim().replace(/[^\w-]/g, '').slice(0, 40) : '';
+    out.rows.push({ day, time, size, number });
+  });
+  return out;
+}
+
+// ---------- réception automatique du rapport de réservations (courriel entrant ; fournisseur à choisir par Émilien) ----------
+// Adresse secrète par compte : horaire-<jeton>@<HORAIRE_INBOUND_DOMAIN>. Le jeton (32 octets aléatoires) est créé à la première
+// lecture et se révoque (nouveau jeton). Sans HORAIRE_INBOUND_DOMAIN : « bientôt disponible » (aucune adresse affichée).
+const GROUP_MIN = 10;
+function inboundInfo(u) {
+  db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
+  let r = db.prepare('SELECT inboundToken, inboundLastAt, groupMin FROM horaire_settings WHERE userId = ?').get(u);
+  if (!r.inboundToken) {
+    db.prepare('UPDATE horaire_settings SET inboundToken = ? WHERE userId = ?').run(require('crypto').randomBytes(32).toString('hex'), u);
+    r = db.prepare('SELECT inboundToken, inboundLastAt, groupMin FROM horaire_settings WHERE userId = ?').get(u);
+  }
+  const domain = String(process.env.HORAIRE_INBOUND_DOMAIN || '').trim();
+  return { address: domain ? 'horaire-' + r.inboundToken + '@' + domain : null, lastAt: r.inboundLastAt || null, groupMin: r.groupMin || GROUP_MIN };
+}
+function revokeInbound(u) {
+  db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
+  db.prepare('UPDATE horaire_settings SET inboundToken = ? WHERE userId = ?').run(require('crypto').randomBytes(32).toString('hex'), u);
+  return inboundInfo(u);
+}
+function setGroupMin(u, n) {
+  db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
+  db.prepare('UPDATE horaire_settings SET groupMin = ? WHERE userId = ?').run(n, u);
+  return inboundInfo(u);
+}
+// Compte d'un jeton (comparaison exacte, jeton hexadécimal de 64 caractères) ; null si inconnu.
+function userForInboundToken(token) {
+  if (!/^[0-9a-f]{64}$/.test(String(token || ''))) return null;
+  const r = db.prepare('SELECT userId FROM horaire_settings WHERE inboundToken = ?').get(token);
+  return r ? r.userId : null;
+}
+// Rapport reçu : chaque réservation de GROUPE (couverts ≥ seuil), datée d'aujourd'hui ou plus tard, devient un événement (ligne Serveur,
+// +N = couverts ÷ ratio arrondi au-dessus) ; clé date|heure|couverts|numéro : un rapport reçu deux fois ne crée rien de plus.
+function receiveReservations(u, text) {
+  const read = readReservations(text);
+  const res = { groups: 0, created: 0, duplicates: 0, small: 0, past: 0, skipped: read.skipped.length, error: read.error };
+  if (read.error) return res;
+  const info = inboundInfo(u);
+  const pos = serverPosition(u);
+  const ratio = (pos && pos.openTableCovers) || COVERS_RATIO;
+  const today = montrealToday();
+  const seen = new Set(db.prepare('SELECT sourceKey FROM horaire_events WHERE userId = ? AND sourceKey IS NOT NULL').all(u).map((r) => r.sourceKey));
+  for (const r of read.rows) {
+    if (r.size < info.groupMin) { res.small += 1; continue; }
+    if (r.day < today) { res.past += 1; continue; }
+    res.groups += 1;
+    const key = [r.day, r.time, r.size, r.number].join('|');
+    if (seen.has(key)) { res.duplicates += 1; continue; }
+    seen.add(key);
+    const ev = writeServiceEvent(u, null, { day: r.day, service: gen.toMin(r.time) >= gen.EVENING_FROM ? 'soir' : 'matin', covers: r.size, lines: pos ? [{ positionId: pos.id, count: Math.min(50, Math.ceil(r.size / ratio)) }] : [] });
+    db.prepare('UPDATE horaire_events SET sourceKey = ? WHERE id = ? AND userId = ?').run(key, ev.id, u);
+    res.created += 1;
+  }
+  db.prepare('UPDATE horaire_settings SET inboundLastAt = ? WHERE userId = ?').run(nowIso(), u);
+  return res;
+}
+
+function importReservationsCsv(u, text) {
+  // Même lecteur souple que la réception automatique (readReservations).
+  const read = readReservations(text);
+  const res = { days: 0, covers: 0, reservations: 0, skipped: read.skipped, error: read.error };
+  if (read.error) return res;
+  const totals = new Map(); // 'jour|service' -> couverts
+  read.rows.forEach(({ day, time, size }) => {
     const key = day + '|' + (gen.toMin(time) >= 16 * 60 ? 'soir' : 'jour');
     totals.set(key, (totals.get(key) || 0) + size);
     res.reservations += 1;
@@ -918,7 +989,7 @@ module.exports = {
   DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  purgePastEvents, montrealToday, importEventsCsv, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
+  purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, userForInboundToken, receiveReservations, GROUP_MIN, importEventsCsv, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,

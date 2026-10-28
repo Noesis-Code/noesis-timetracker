@@ -66,10 +66,10 @@
     });
   }
   function loadAll() {
-    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; })])
+    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), req('GET', 'inbound').catch(function () { return {}; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
-        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.loaded = true;
+        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.inbound = r[8] || {}; S.loaded = true;
       });
   }
   // Construit la page si besoin : refresh() peut être appelé (TMT.horaire.refresh) avant la première ouverture du volet.
@@ -110,7 +110,7 @@
   var EVE = 16 * 60; // soir = à partir de 16 h
   var SLOT = { matin: ['10:00', '16:00'], soir: ['16:00', '23:59'] };
   var STEP_LABELS = ['1. Paramètres', '2. Événements', '3. Récupération', '4. Horaire', '5. Envoi'];
-  var eventsBox, promptBoxes = {}, evReport, ratioInput, catsMsg, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
+  var groupMinInput, inboundLine, eventsBox, promptBoxes = {}, evReport, ratioInput, catsMsg, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
   var pagesHost, pages = [], stepBtns = [], dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
@@ -169,7 +169,14 @@
     evReport = el('p', 'horaireStatus hidden');
     var bEvents = block('Calendrier des événements');
     eventsBox = el('div', 'horaireCalBox'); bEvents.appendChild(eventsBox);
-    [ratio, evPanel.row, evPanel.box, evPanel.paste, evReport, bEvents].forEach(function (n) { pEv.appendChild(n); });
+    // Seuil d'un groupe (réception automatique) : « Groupe à partir de [10] couverts » ; ligne grise de la réception automatique.
+    var gmin = el('p', 'horaireRatio');
+    groupMinInput = el('input', 'horaireInput horaireRatioInput'); groupMinInput.type = 'number'; groupMinInput.min = '1'; groupMinInput.max = '500'; groupMinInput.inputMode = 'numeric';
+    groupMinInput.setAttribute('aria-label', tr('Couverts minimum d’un groupe'));
+    groupMinInput.addEventListener('change', saveGroupMin);
+    gmin.appendChild(el('span', null, tr('Groupe à partir de'))); gmin.appendChild(groupMinInput); gmin.appendChild(el('span', null, tr('couverts')));
+    inboundLine = el('div', 'horaireInbound');
+    [ratio, gmin, inboundLine, evPanel.row, evPanel.box, evPanel.paste, evReport, bEvents].forEach(function (n) { pEv.appendChild(n); });
 
     // Page 3 : Récupération (zone de collage toujours visible, envoi dans la zone, R13)
     var p2 = el('div', 'horairePage');
@@ -319,6 +326,26 @@
   }
   // Poste « Serveur » (sinon le premier) : c'est lui que reçoivent les groupes importés ; son ratio de couverts (openTableCovers, 20 par défaut).
   function serverPos() { return S.positions.find(function (p) { return /^serveur$/i.test(String(p.name).trim()); }) || S.positions[0] || null; }
+  // Réception automatique du rapport de réservations : adresse secrète (copiable) et date du dernier rapport ; sans domaine configuré
+  // côté serveur : « bientôt disponible ».
+  function renderInbound() {
+    var i = S.inbound || {};
+    if (document.activeElement !== groupMinInput) groupMinInput.value = String(i.groupMin || 10);
+    inboundLine.textContent = '';
+    if (!i.address) { inboundLine.appendChild(el('span', 'horaireMuted', tr('Réception automatique : bientôt disponible.'))); return; }
+    var d = i.lastAt ? new Date(i.lastAt) : null;
+    inboundLine.appendChild(el('span', 'horaireMuted horaireInboundText', tr('Réception automatique :') + ' ' + i.address
+      + (d ? ' · ' + tr('dernier rapport le') + ' ' + (d.getDate() === 1 ? '1er' : d.getDate()) + ' ' + tr(MONTHS_LONG[d.getMonth()]) : '')));
+    inboundLine.appendChild(btn('cmpBtn cmpBtnIdle horaireInboundCopy', 'Copier l’adresse', function () {
+      var cb = navigator.clipboard;
+      (cb && cb.writeText ? cb.writeText(i.address) : Promise.reject()).then(function () { S.msg = tr('Adresse copiée.'); renderMsg(); }, function () { S.msg = tr('Copie impossible.'); renderMsg(); });
+    }));
+  }
+  function saveGroupMin() {
+    var n = Number(groupMinInput.value);
+    if (!(Number.isInteger(n) && n >= 1 && n <= 500)) { renderInbound(); return; }
+    req('PUT', 'inbound', { groupMin: n }).then(function (d) { S.inbound = d; renderInbound(); }, fail);
+  }
   function renderRatio() { var p = serverPos(); if (document.activeElement !== ratioInput) ratioInput.value = String((p && p.openTableCovers) || 20); }
   function saveRatio() {
     var p = serverPos(), n = Number(ratioInput.value);
@@ -412,6 +439,7 @@
     renderSummary();
     renderNeedsTable();
     renderRatio();
+    renderInbound();
     renderCats();
     renderRules();
   }

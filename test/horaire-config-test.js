@@ -170,6 +170,34 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     assert(h.purgePastEvents() >= 1 && !h.listEvents('uC').some((e) => e.day === '2027-03-15'), 'purge quotidienne : le lendemain de l’événement, il est supprimé');
     process.env.HORAIRE_TODAY = '2026-10-28';
   }
+  // ---- Réception automatique du rapport de réservations (courriel entrant) ----
+  {
+    delete process.env.HORAIRE_INBOUND_DOMAIN;
+    let info = (await call('GET', 'inbound', undefined, 'uC')).body;
+    assert(info.address === null && info.groupMin === 10, 'réception : sans domaine, pas d’adresse (« bientôt disponible ») ; seuil 10 par défaut');
+    process.env.HORAIRE_INBOUND_DOMAIN = 'exemple.test';
+    info = (await call('GET', 'inbound', undefined, 'uC')).body;
+    const token = /^horaire-([0-9a-f]{64})@exemple\.test$/.exec(info.address || '');
+    assert(!!token, 'réception : adresse secrète horaire-<jeton>@domaine');
+    const csv = 'Date;Heure;Taille du groupe;Statut;Nom du client;Notes;Confirmation #\n2026-11-20;19:00;24;Confirmée;Client Fictif;allergie;A123\n2026-11-20;19:30;4;Confirmée;Autre Fictif;;A124\n2026-11-21;12:00;30;Annulée;X;;A125\n2026-11-22;11:30;12;Confirmée;Y;;A126\n';
+    const post = (tok, body) => call('POST', 'inbound/reservations/' + tok, body, '');
+    r = await post(token[1], { attachments: [{ filename: 'reservations.csv', content: Buffer.from(csv).toString('base64') }] });
+    let mine = h.listEvents('uC', '2026-11-20', '2026-11-22').filter((e) => e.sourceKey);
+    assert(r.status === 200 && r.body.created === 2 && r.body.ignored === 1 && mine.length === 2, 'réception : 2 groupes créés (≥ 10 couverts), petit groupe et annulée ignorés');
+    assert(mine.find((e) => e.covers === 24).lines[0].count === Math.ceil(24 / (h.serverPosition('uC').openTableCovers || 20)) && mine.find((e) => e.covers === 12).service === 'matin', 'réception : ratio appliqué, service déduit de l’heure');
+    const dump = JSON.stringify(require('../server/db').prepare("SELECT * FROM horaire_events WHERE userId = 'uC'").all());
+    assert(!/Fictif|allergie/.test(dump), 'réception : aucun nom de client ni note stocké');
+    r = await post(token[1], { TextBody: csv });
+    assert(r.status === 200 && r.body.created === 0 && r.body.duplicates === 2 && h.listEvents('uC', '2026-11-20', '2026-11-22').filter((e) => e.sourceKey).length === 2, 'réception : même rapport deux fois, aucun doublon');
+    assert((await post('f'.repeat(64), { text: csv })).status === 404 && (await post('inconnu', { text: csv })).status === 404, 'réception : jeton inconnu refusé (404, rien d’autre)');
+    assert((await call('PUT', 'inbound', { groupMin: 0 }, 'uC')).status === 400 && (await call('PUT', 'inbound', { groupMin: 4 }, 'uC')).body.groupMin === 4, 'réception : seuil réglable (1 à 500)');
+    r = await post(token[1], { text: csv });
+    assert(r.body.created === 1, 'réception : seuil abaissé à 4, le groupe de 4 entre');
+    const rev = (await call('POST', 'inbound/revoke', {}, 'uC')).body;
+    assert(rev.address !== info.address && (await post(token[1], { text: csv })).status === 404, 'réception : jeton révoqué, ancienne adresse refusée');
+    assert(h.getSettings('uC') && (await call('GET', 'inbound', undefined, 'uC')).body.lastAt, 'réception : date du dernier rapport');
+    delete process.env.HORAIRE_INBOUND_DOMAIN;
+  }
   // ---- Import des réservations de groupe : un événement par groupe, ratio, report additionné, hors semaine ----
   {
     const W = '2026-11-02';
