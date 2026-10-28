@@ -113,8 +113,8 @@
   var SLOT = { matin: ['10:00', '16:00'], soir: ['16:00', '23:59'] };
   // Deux catégories (grands boutons .cmpSeg, R42) et leurs sous-catégories (texte simple souligné, .cmpSubTabs) : demande d'Émilien,
   // 28 oct. 2026. Pages à plat : 0-2 = Paramètres, 3-5 = Création des horaires.
-  var CATS = [['Paramètres', ['Employés', 'Événements', 'Paramètres généraux']], ['Création des horaires', ['Récupération', 'Horaire', 'Envoi']]];
-  var groupMinInput, inboundLine, eventsBox, promptBoxes = {}, evReport, ratioInput, catsMsg, pasteArea, weekLabel, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
+  var CATS = [['Paramètres', ['Employés', 'Événements', 'Général']], ['Création des horaires', ['Récupération', 'Horaire', 'Envoi']]];
+  var groupMinInput, inboundLine, eventsBox, promptBoxes = {}, evReport, ratioInput, catsMsg, pasteArea, weekLabel, weekNav, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
   var pagesHost, pages = [], catBtns = [], subTabs, dots, dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
@@ -135,7 +135,7 @@
     var next = btn('horaireNav', '›', function () { changeWeek(7); }); next.setAttribute('aria-label', tr('Semaine suivante'));
     weekLabel = el('span', 'horaireWeekLabel');
     nav.appendChild(prev); nav.appendChild(weekLabel); nav.appendChild(next);
-    head.appendChild(nav);
+    head.appendChild(nav); weekNav = nav;
 
     var cats = el('div', 'cmpSeg horaireCats'); cats.setAttribute('role', 'tablist');
     catBtns = CATS.map(function (c, k) {
@@ -158,7 +158,7 @@
     rulesBox = el('div', 'horaireRules cmpGlass');
     bRules.appendChild(rulesBox);
     p1.appendChild(bCats);
-    // Paramètres > Paramètres généraux : menu Poste, Besoins (avec les lignes « Fin »), Règles du restaurant.
+    // Paramètres > Général : menu Poste, Besoins (avec les lignes « Fin »), Règles du restaurant.
     var pGen = el('div', 'horairePage');
     [posPicker(), bNeeds, bRules].forEach(function (n) { pGen.appendChild(n); });
 
@@ -221,6 +221,7 @@
   function showPage(i) {
     S.page = i;
     var cat = Math.floor(i / 3);
+    if (weekNav) weekNav.classList.toggle('hidden', cat === 0); // semaine inutile dans Paramètres (fixes) ; le calendrier des événements a sa propre navigation
     pages.forEach(function (p, k) { p.classList.toggle('hidden', k !== i); });
     catBtns.forEach(function (b, k) { b.classList.toggle('active', k === cat); b.setAttribute('aria-selected', k === cat ? 'true' : 'false'); });
     subTabs.textContent = ''; dots.textContent = '';
@@ -905,7 +906,6 @@
       ['', 'Nom'].concat(HOURS.map(function (h) { return h[1]; }), ['Note', '']).forEach(function (t, i) {
         var hc = el('span', 'horaireSheetCell' + (i > 1 && i < 5 ? ' horaireSheetNum' : ''), tr(t));
         // Sous « Note » (premier tableau seulement) : les expressions que la génération reconnaît, en petite ligne grise.
-        if (t === 'Note' && rank === ranks[0]) { hc.classList.add('horaireNoteHead'); hc.appendChild(el('span', 'horaireNoteHint', tr('Reconnu : jamais de double, repos après un quart, pas de matin, pas de soir, soirs d’abord, matins d’abord.'))); }
         head.appendChild(hc);
       });
       sheet.appendChild(head);
