@@ -6,7 +6,7 @@
   'use strict';
   var TMT = window.TMT = window.TMT || {};
   var tr = function (s) { return typeof window.t === 'function' ? window.t(s) : s; };
-  var state = null, loadedFor = null, tradeAllowed = false;
+  var state = null, loadedFor = null, tradeAllowed = false, horaireAllowed = true;
   var CACHE_KEY = 'noesis_modules';
   // Dernier état connu (démarrage hors ligne / avant la réponse du serveur) : évite un flash d'interface masquée ou non.
   // Un état où ni Chrono (stats), ni Feuille de route (roadmap), ni Horaire n'est actif n'est jamais valide (le serveur le refuse) : traité comme « tout actif ».
@@ -87,19 +87,20 @@
     });
   }
 
-  function paint() { if (box && state) render(box, state, put, ROWS); }
+  function paint() { if (box && state) render(box, state, put, ROWS.filter(function (r) { return r.anchor !== 'horaire' || horaireAllowed; })); }
 
   // Création du compte (26 oct. 2026) : choix de Chrono, Feuille de route, Horaire, Communauté dans `target` (tout coché par défaut), au moins un des trois premiers ; `onChange(valide)` à chaque changement.
   // Monté avant que le profil existe (aucun appel serveur) ; save() enregistre via PUT une fois le profil créé et marque le choix fait.
   function mountChoice(target, onChange) {
-    var local = { stats: true, roadmap: true, 'stats-tasks': true, calendar: true, ai: true, horaire: true, community: true, profile: true }; // tout coché par défaut
+    var local = { stats: true, roadmap: true, 'stats-tasks': true, calendar: true, ai: true, horaire: false, community: true, profile: true }; // tout coché par défaut (Horaire : seulement pour une entreprise, setCompany)
+    var company = false; // Horaire n'apparaît que pour un compte Entreprise (setCompany, appelé au choix du type)
     function valid() { return BUNDLES.some(function (b) { return !!local[b.anchor]; }); }
     function draw() {
-      render(target, local, function (patch) { Object.assign(local, patch); draw(); }, ROWS);
+      render(target, local, function (patch) { Object.assign(local, patch); draw(); }, ROWS.filter(function (r) { return r.anchor !== 'horaire' || company; }));
       if (onChange) onChange(valid());
     }
     draw();
-    return { valid: valid, save: function () { return call('PUT', { modules: local }).then(function (r) { state = r.modules; loadedFor = pid(); remember(); apply(); return r; }); } };
+    return { valid: valid, setCompany: function (v) { company = !!v; local.horaire = company; draw(); }, save: function () { return call('PUT', { modules: local }).then(function (r) { state = r.modules; loadedFor = pid(); remember(); apply(); return r; }); } };
   }
 
   // Ouverture de l'app : on arrive sur le premier volet (le plus à gauche) de la barre, modules désactivés exclus. Une fois par chargement ; ?notif= garde la priorité.
@@ -118,7 +119,7 @@
     var id = pid();
     // Toujours rafraîchi depuis le serveur, même avec un cache. Réponse inutilisable (tout coupé) = tout actif ; échec = on garde le dernier état valide et on réessaie.
     return call('GET').then(function (d) {
-      state = usable(d.modules) ? d.modules : null; tradeAllowed = !!d.tradeAllowed; loadedFor = id; loadFails = 0; remember(); apply(); openFirstTab(); paint(); return state;
+      state = usable(d.modules) ? d.modules : null; tradeAllowed = !!d.tradeAllowed; horaireAllowed = d.horaireAllowed !== false; loadedFor = id; loadFails = 0; remember(); apply(); openFirstTab(); paint(); return state;
     }).catch(function () { if (loadFails++ < 5) setTimeout(function () { if (loadedFor !== pid()) load(); }, 2000 * loadFails); return null; });
   }
   var loadFails = 0;
@@ -136,6 +137,8 @@
     isOn: on,
     tabOn: tabOn,
     tradeAllowed: function () { return tradeAllowed; },
+    // Horaire : comptes entreprise seulement (réponse du serveur ; inconnu = permis jusqu'au chargement).
+    horaireAllowed: function () { return horaireAllowed; },
     tradeOn: function () { return !!state && state.trade === true; },
     // Connecte / déconnecte l'extension Trade Tracker (retrait : la page Trade se ferme, ses données sont conservées).
     // Renvoie { ok } ou { ok: false, message } (message clair : hors ligne, réseau, refus du serveur) ; l'appelant l'affiche, rien ne bloque.

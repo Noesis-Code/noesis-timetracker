@@ -48,10 +48,10 @@ function client(base, tz) {
 }
 
 // Crée un profil (connecte le client) puis une activité personnelle.
-async function newUser(base, tag, tz) {
+async function newUser(base, tag, tz, extra) {
   const c = client(base, tz);
   const r = await c.post('/api/profile', {
-    name: 'Test' + tag, lastName: 'Fonc' + tag, phone: '5145550100', email: `t${tag}@exemple.test`, pin: 'Xk9#Longue-2026!', termsAccepted: true,
+    name: 'Test' + tag, lastName: 'Fonc' + tag, phone: '5145550100', email: `t${tag}@exemple.test`, pin: 'Xk9#Longue-2026!', termsAccepted: true, ...(extra || {}),
   });
   if (r.status !== 201) throw new Error('création de profil échouée : ' + JSON.stringify(r.body));
   const a = await c.post('/api/activities', { name: 'Activité ' + tag });

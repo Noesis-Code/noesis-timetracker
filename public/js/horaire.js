@@ -613,7 +613,10 @@
     });
     floorsBox.appendChild(sheet);
     var add = TMT.ui.addBtn(tr('Ajouter'), function () {
-      req('POST', 'floors', { name: tr('Plancher') + ' ' + ((S.floors || []).length + 1) }).then(reload, fail);
+      // Nom par défaut : « Plancher N », N = premier numéro libre (les noms déjà saisis ne changent pas).
+      var taken = (S.floors || []).map(function (f) { return f.name; }), k = 1;
+      while (taken.indexOf(tr('Plancher') + ' ' + k) >= 0) k++;
+      req('POST', 'floors', { name: tr('Plancher') + ' ' + k }).then(reload, fail);
     });
     add.classList.add('horaireFloorAdd');
     floorsBox.appendChild(add);

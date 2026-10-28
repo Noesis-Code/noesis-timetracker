@@ -5,7 +5,7 @@ let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');
 const M = require('../server/lib/modules');
-db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u1', 'Test', '2026-01-01')").run();
+db.prepare("INSERT INTO users (id, name, createdAt, accountType) VALUES ('u1', 'Test', '2026-01-01', 'entreprise')").run(); // Horaire : comptes entreprise seulement
 
 let m = M.getModules('u1');
 assert(Object.keys(m).every((k) => (k === 'offer1' || k === 'trade' || k === 'horaire') ? !m[k] : m[k]), 'compte existant (NULL) : tout actif sauf offer1, trade et horaire');

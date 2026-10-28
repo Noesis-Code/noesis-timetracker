@@ -13,7 +13,8 @@ const db = require('../server/db');
 const h = require('../server/lib/horaire');
 const now = new Date().toISOString();
 const mkUser = (id) => db.prepare('INSERT INTO users (id, name, createdAt) VALUES (?, ?, ?)').run(id, id, now);
-mkUser('uA'); mkUser('uB'); mkUser('uC');
+mkUser('uA'); mkUser('uB'); mkUser('uC'); mkUser('uI');
+db.prepare("UPDATE users SET accountType = 'entreprise' WHERE id IN ('uA', 'uB', 'uC')").run(); // Horaire : comptes entreprise seulement ; uI = individu
 
 // ---- Données ----
 let s = h.getSettings('uA');
@@ -97,6 +98,27 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     assert(r.status === 200 && r.body.removed === 1 && past.length === 1 && past[0].employeeName === 'Retrait Fictif' && fut.length === 0, 'retrait : quart passé gardé (avec le nom), quart à venir retiré');
     assert(h.ownEmployee('uC', ret.id).active === 0 && h.listQualifications('uC').some((q) => q.employeeId === ret.id), 'retrait : employé inactif, rien d’autre effacé');
     assert((await call('POST', 'employees/' + ret.id + '/retire', {}, 'uB')).status === 404, 'retrait : autre compte refusé');
+  }
+  // ---- Horaire réservé aux comptes entreprise (exception HORAIRE_ALLOW_USER_IDS hors production seulement) ----
+  {
+    const M = require('../server/lib/modules');
+    delete process.env.HORAIRE_ALLOW_USER_IDS; delete process.env.RAILWAY_ENVIRONMENT_NAME;
+    r = await call('GET', 'employees', undefined, 'uI');
+    assert(r.status === 403 && r.body.error === 'Réservé aux comptes entreprise.', 'individu : 403 « Réservé aux comptes entreprise. »');
+    assert(!M.list('uI').some((m) => m.id === 'horaire') && M.list('uC').some((m) => m.id === 'horaire'), 'individu : Horaire absent de la liste des modules');
+    const s = M.setModules('uI', { horaire: true });
+    assert(!s.ok && s.status === 403 && !M.isEnabled('uI', 'horaire'), 'individu : Horaire jamais activé');
+    db.prepare('UPDATE users SET modules = ? WHERE id = ?').run(JSON.stringify({ stats: false, roadmap: false, 'stats-tasks': false, calendar: false, ai: false, horaire: true }), 'uI');
+    const m = M.getModules('uI');
+    assert(!m.horaire && m.stats && !m.roadmap && /"horaire":true/.test(db.prepare('SELECT modules FROM users WHERE id = ?').get('uI').modules), 'individu avec Horaire seul : Chrono le remplace, rien n’est effacé');
+    const v = M.setModules('uI', { stats: false });
+    assert(!v.ok && /« Chrono » ou « Feuille de route »\./.test(v.error), 'individu : au moins Chrono ou Feuille de route');
+    process.env.HORAIRE_ALLOW_USER_IDS = 'autre, uI';
+    assert((await call('GET', 'employees', undefined, 'uI')).status === 200 && M.list('uI').some((x) => x.id === 'horaire'), 'exception hors production : compte listé traité comme entreprise pour Horaire');
+    assert(db.prepare('SELECT accountType FROM users WHERE id = ?').get('uI').accountType === 'individu', 'exception : le type du compte ne change pas');
+    process.env.RAILWAY_ENVIRONMENT_NAME = 'production';
+    assert((await call('GET', 'employees', undefined, 'uI')).status === 403 && !M.isHoraireAllowed('uI'), 'exception ignorée en production');
+    delete process.env.HORAIRE_ALLOW_USER_IDS; delete process.env.RAILWAY_ENVIRONMENT_NAME;
   }
   // ---- G6 : générer sans aucune disponibilité de la semaine est bloqué ----
   r = await call('POST', 'weeks/2027-01-04/generate', {}, 'uC');

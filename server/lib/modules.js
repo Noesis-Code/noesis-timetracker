@@ -52,6 +52,20 @@ function tradeAllowedIds() {
 }
 function isTradeAllowed(userId) { return !!userId && tradeAllowedIds().includes(String(userId)); }
 
+// Horaire (28 oct. 2026, décision d'Émilien) : réservé aux comptes ENTREPRISE (users.accountType = 'entreprise'). Exception hors
+// production seulement : HORAIRE_ALLOW_USER_IDS (ids séparés par des virgules), lue à chaque appel, ignorée quand
+// RAILWAY_ENVIRONMENT_NAME vaut 'production'. Le type du compte ne change pas.
+function horaireAllowIds() {
+  if (process.env.RAILWAY_ENVIRONMENT_NAME === 'production') return [];
+  return String(process.env.HORAIRE_ALLOW_USER_IDS || '').split(',').map((x) => x.trim()).filter(Boolean);
+}
+function isHoraireAllowed(userId) {
+  if (!userId) return false;
+  if (horaireAllowIds().includes(String(userId))) return true;
+  const r = db.prepare('SELECT accountType FROM users WHERE id = ?').get(userId);
+  return !!r && r.accountType === 'entreprise';
+}
+
 function defaults() {
   const out = {};
   for (const id of Object.keys(MODULES)) out[id] = ALWAYS_ON.includes(id) || NEW_ACCOUNT_DEFAULT_MODULES.includes(id);
@@ -75,6 +89,11 @@ function normalize(raw, userId) {
   }
   // Repli : une valeur stockée où AUCUN ensemble n'est actif (état hérité d'une ancienne version) rendait Feuille de route et
   // Statistiques vides (403 module_off). Jamais d'état « tout coupé » : on rallume Chrono et Feuille de route (aucune donnée n'était perdue).
+  // Compte individu (hors exception) : jamais Horaire ; s'il était son seul ensemble, Chrono le remplace (rien n'est supprimé, S6).
+  if (userId && base.horaire && !isHoraireAllowed(userId)) {
+    base.horaire = false;
+    if (!Object.keys(BUNDLES).some((b) => base[BUNDLES[b].anchor])) BUNDLES.time.all.forEach((id) => { base[id] = true; });
+  }
   if (!Object.keys(BUNDLES).some((b) => base[BUNDLES[b].anchor])) FALLBACK_BUNDLES.forEach((b) => BUNDLES[b].all.forEach((id) => { base[id] = true; }));
   if (!isTradeAllowed(userId)) base.trade = false; // jamais actif pour un id non autorisé (même si la colonne dit vrai)
   return linkPair(base);
@@ -96,7 +115,7 @@ function isEnabled(userId, name) {
 }
 
 // Valide un état complet ; renvoie { ok, error? }.
-function validate(next) {
+function validate(next, userId) {
   for (const id of Object.keys(MODULES)) {
     if (!next[id]) continue;
     for (const dep of MODULES[id].requires) {
@@ -106,7 +125,7 @@ function validate(next) {
     }
   }
   if (!Object.keys(BUNDLES).some((b) => next[BUNDLES[b].anchor])) {
-    return { ok: false, error: 'Garde au moins un ensemble : « Chrono », « Feuille de route » ou « Horaire ».' };
+    return { ok: false, error: userId && !isHoraireAllowed(userId) ? 'Garde au moins un ensemble : « Chrono » ou « Feuille de route ».' : 'Garde au moins un ensemble : « Chrono », « Feuille de route » ou « Horaire ».' };
   }
   return { ok: true };
 }
@@ -121,6 +140,7 @@ function setModules(userId, patch) {
     if (!MODULES[id]) return { ok: false, status: 400, error: `Module inconnu : ${id}.` };
     if (typeof patch[id] !== 'boolean') return { ok: false, status: 400, error: 'Modules invalides.' };
     if (id === 'trade' && patch[id] && !isTradeAllowed(userId)) return { ok: false, status: 403, error: "Trade Tracker n'est pas disponible pour ce compte." };
+    if (id === 'horaire' && patch[id] && !isHoraireAllowed(userId)) return { ok: false, status: 403, error: 'Réservé aux comptes entreprise.' };
     if (NOT_TOGGLEABLE.includes(id)) {
       if (patch[id] !== current[id] && !(id === 'core' && patch[id] === true)) {
         return { ok: false, status: 400, error: id === 'core' ? 'Le noyau ne peut pas être désactivé.' : "L'offre payante ne s'active pas ici." };
@@ -142,7 +162,7 @@ function setModules(userId, patch) {
   // Au moins un des trois ensembles (Chrono, Feuille de route, Horaire) reste actif : un état sans aucun est refusé par validate() (26 oct. 2026).
   const linked = LINKED.find((k) => k in patch);
   if (linked) linkPair(next, patch[linked]);
-  const v = validate(next);
+  const v = validate(next, userId);
   if (!v.ok) return { ok: false, status: 409, error: v.error };
   db.prepare('UPDATE users SET modules = ? WHERE id = ?').run(JSON.stringify(next), userId);
   return { ok: true, modules: next };
@@ -150,7 +170,7 @@ function setModules(userId, patch) {
 
 // `trade` n'est listé que pour les ids autorisés (userId requis).
 function list(userId) {
-  return Object.keys(MODULES).filter((id) => id !== 'trade' || isTradeAllowed(userId)).map((id) => ({ id, bundle: Object.keys(BUNDLES).find((b) => BUNDLES[b].modules.includes(id)) || (OPTIONAL.includes(id) ? 'optional' : null), label: MODULES[id].label, requires: MODULES[id].requires, toggleable: !NOT_TOGGLEABLE.includes(id) }));
+  return Object.keys(MODULES).filter((id) => (id !== 'trade' || isTradeAllowed(userId)) && (id !== 'horaire' || isHoraireAllowed(userId))).map((id) => ({ id, bundle: Object.keys(BUNDLES).find((b) => BUNDLES[b].modules.includes(id)) || (OPTIONAL.includes(id) ? 'optional' : null), label: MODULES[id].label, requires: MODULES[id].requires, toggleable: !NOT_TOGGLEABLE.includes(id) }));
 }
 
-module.exports = { BUNDLES, OPTIONAL, MODULES, NEW_ACCOUNT_DEFAULT_MODULES, defaults, isTradeAllowed, getModules, isEnabled, setModules, validate, list };
+module.exports = { BUNDLES, OPTIONAL, MODULES, NEW_ACCOUNT_DEFAULT_MODULES, defaults, isTradeAllowed, isHoraireAllowed, getModules, isEnabled, setModules, validate, list };

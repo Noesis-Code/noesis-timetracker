@@ -53,10 +53,17 @@ const T = makeCounter(); const assert = T.assert;
     const on = await c.put(url, { modules: { roadmap: true } });
     assert(on.status === 200 && (await c.get(`/api/activities/${A}/goals/tasks/overview`)).status === 200, 'roadmap réactivée : accès rétabli');
     assert((await c.put(url, { modules: { community: true } })).body.modules.profile === true, 'Communauté et Profil liés');
-    const h = await c.put(url, { modules: { horaire: true } });
-    assert(h.status === 200 && h.body.modules.horaire === true && (await c.get(url)).body.list.some((m) => m.id === 'horaire'), 'module Horaire activable et listé');
-    const none = await c.put(url, { modules: { stats: false, roadmap: false, horaire: false } });
-    assert(none.status === 409 && (await c.get(url)).body.modules.horaire === true, 'PUT : aucun des trois (Chrono, Feuille de route, Horaire) refusé');
+    // Horaire : comptes entreprise seulement (28 oct. 2026)
+    const hi = await c.put(url, { modules: { horaire: true } });
+    const gi = await c.get(url);
+    assert(hi.status === 403 && !gi.body.modules.horaire && !gi.body.list.some((m) => m.id === 'horaire') && gi.body.horaireAllowed === false, 'individu : Horaire refusé, absent de la liste');
+    assert((await c.get('/api/horaire/employees')).status === 403, 'individu : routes Horaire 403');
+    const ent = await newUser(s.base, 'mod3', undefined, { accountType: 'entreprise' });
+    const eurl = `/api/profile/${ent.id}/modules`;
+    const h = await ent.c.put(eurl, { modules: { horaire: true } });
+    assert(h.status === 200 && h.body.modules.horaire === true && (await ent.c.get(eurl)).body.list.some((m) => m.id === 'horaire'), 'entreprise : module Horaire activable et listé');
+    const none = await ent.c.put(eurl, { modules: { stats: false, roadmap: false, horaire: false } });
+    assert(none.status === 409 && (await ent.c.get(eurl)).body.modules.horaire === true, 'PUT : aucun des trois (Chrono, Feuille de route, Horaire) refusé');
   } finally { s.stop(); }
   console.log(`\n${T.passed} ok, ${T.failed} échec(s)`);
   process.exit(T.failed ? 1 : 0);

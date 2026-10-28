@@ -1919,6 +1919,7 @@
     onbSwapText('onbMarketingText', company ? t("J'accepte que Noesis utilise les données saisies pour l'entreprise afin d'analyser l'usage, produire des statistiques, envoyer des communications commerciales à l'entreprise et cibler ses propres campagnes publicitaires. Les mots de passe et les messages privés ne sont jamais utilisés. L'entreprise peut retirer cet accord à tout moment dans Réglages, section Sécurité.") : null);
     onbSwapText('onbDirectoryText', company ? t("J'accepte que le nom de l'entreprise et celui de son responsable puissent être trouvés dans la recherche de membres de l'écran de connexion.") : null);
     onbSwapText('onbGovLink', company ? t("Gouvernance des renseignements de l'entreprise") : null);
+    if (onbModules && onbModules.setCompany) onbModules.setCompany(company); // Horaire : proposé (coché) pour une entreprise, masqué et décoché pour un individu
     onbShowStep('onbIdStep');
   }
   var onbSwapOrig = {};

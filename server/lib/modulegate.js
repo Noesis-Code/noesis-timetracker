@@ -23,7 +23,9 @@ const RULES = [
   ['sharing', /^\/api\/(invites(\/|$)|community\/(activity-[a-z-]+|unread-messages))/],
   ['community', /^\/api\/(community(\/(shared-feed|following-feed))?|follows|blocks|users\/search|polls)(\/|$)/],
   ['trade', /^\/api\/trade(\/|$)/],
-  ['horaire', /^\/api\/horaire(\/|$)/], // module « Horaire » (personnel d'un restaurant), voir server/routes/horaire.js
+  // module « Horaire » (personnel d'un restaurant), voir server/routes/horaire.js ; un compte non entreprise passe : la route répond elle-même
+  // « Réservé aux comptes entreprise. » (403).
+  ['horaire', /^\/api\/horaire(\/|$)/, (p, m, u) => !modules.isHoraireAllowed(u)],
   ['profile', /^\/api\/profile\/(posts|post-attachments|projects)(\/|$)/],
   ['profile', /^\/api\/profile\/[^/]+\/(public|projects|posts)$/],
 ];
@@ -31,7 +33,7 @@ const RULES = [
 function blockedModule(userId, path, method) {
   for (const [mod, re, exempt] of RULES) {
     if (!re.test(path)) continue;
-    if (exempt && exempt(path, method)) return null;
+    if (exempt && exempt(path, method, userId)) return null;
     return [].concat(mod).find((m) => !modules.isEnabled(userId, m)) || null;
   }
   return null;

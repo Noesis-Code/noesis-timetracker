@@ -715,7 +715,7 @@ router.get('/profile/:id/modules', (req, res) => {
   const state = modules.getModules(req.userId);
   if (!state) return res.status(404).json({ error: 'Profil introuvable.' });
   const mc = db.prepare('SELECT modulesChosen FROM users WHERE id = ?').get(req.userId);
-  res.json({ modules: state, list: modules.list(req.userId), tradeAllowed: modules.isTradeAllowed(req.userId), modulesChosen: !mc || mc.modulesChosen !== 0 });
+  res.json({ modules: state, list: modules.list(req.userId), tradeAllowed: modules.isTradeAllowed(req.userId), horaireAllowed: modules.isHoraireAllowed(req.userId), modulesChosen: !mc || mc.modulesChosen !== 0 });
 });
 router.put('/profile/:id/modules', (req, res) => {
   if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });

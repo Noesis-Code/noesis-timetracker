@@ -25,7 +25,7 @@ function inboundText(b) {
 }
 router.post('/horaire/inbound/reservations/:token', (req, res) => {
   const u = h.userForInboundToken(req.params.token);
-  if (!u) return res.status(404).end();
+  if (!u || !require('../lib/modules').isHoraireAllowed(u)) return res.status(404).end(); // jeton inconnu ou compte non entreprise
   const now = Date.now(), k = req.params.token;
   const hits = (inboundHits.get(k) || []).filter((t) => now - t < 3600 * 1000);
   if (hits.length >= 30) return res.status(429).end();
@@ -37,6 +37,8 @@ router.post('/horaire/inbound/reservations/:token', (req, res) => {
 });
 
 router.use('/horaire', requireAuth);
+// Horaire : comptes entreprise seulement (exception hors production : HORAIRE_ALLOW_USER_IDS, server/lib/modules.js).
+router.use('/horaire', (req, res, next) => (require('../lib/modules').isHoraireAllowed(req.userId) ? next() : res.status(403).json({ error: 'Réservé aux comptes entreprise.' })));
 
 const bad = (res, msg) => res.status(400).json({ error: msg });
 const notFound = (res, what) => res.status(404).json({ error: (what || 'Élément') + ' introuvable.' });

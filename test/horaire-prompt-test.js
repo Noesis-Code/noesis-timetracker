@@ -68,7 +68,7 @@ const db = require('../server/db');
 const h = require('../server/lib/horaire');
 const M = require('../server/lib/modules');
 const now = new Date().toISOString();
-['uA', 'uB'].forEach((id) => db.prepare('INSERT INTO users (id, name, createdAt) VALUES (?, ?, ?)').run(id, id, now));
+['uA', 'uB'].forEach((id) => db.prepare("INSERT INTO users (id, name, createdAt, accountType) VALUES (?, ?, ?, 'entreprise')").run(id, id, now));
 const r1 = h.importEmployeesCsv('uA', 'nom;max;postes;quarts min;quarts max;contrainte\nAlice;30;Serveur:1;5;5;Jamais de double\nBruno;;Serveur:2 | Hôte:1;3;4;\n');
 const emps = h.listEmployees('uA');
 const alice = emps.find((e) => e.name === 'Alice'), bruno = emps.find((e) => e.name === 'Bruno');

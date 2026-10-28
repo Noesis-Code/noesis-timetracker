@@ -253,6 +253,7 @@
     var shown = visibleOrder();
     return ALL.filter(function (tab) {
       if (shown.indexOf(tab) !== -1) return false;
+      if (tab === 'horaire') { var m = mods(); return !(m && m.horaireAllowed) || m.horaireAllowed(); } // Horaire : comptes entreprise seulement (28 oct. 2026)
       if (tab === 'trade') return tradeOn(); // Trade Tracker est en pause (26 oct. 2026, Émilien) : il n'est plus proposé par le « + » tant qu'il n'est pas connecté ; le « + » disparaît quand les autres volets sont tous là
       return true;
     });
