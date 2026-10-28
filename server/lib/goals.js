@@ -555,7 +555,22 @@ function shareMinutes(totalSeconds, weights) {
   return parts;
 }
 
+// Mémo À DURÉE DE REQUÊTE (synchrone) : les statistiques appellent estimateForGoal une fois par
+// tâche (~160) ; sans mémo, chaque appel relisait la base et recalculait toutes les semaines
+// passées (plusieurs secondes). Actif uniquement entre beginEstimateMemo() et endEstimateMemo()
+// (jamais entre deux requêtes : aucune donnée périmée possible).
+let estimateMemo = null;
+function beginEstimateMemo() { const prev = estimateMemo; estimateMemo = { samples: new Map(), est: new Map(), tokens: new WeakMap() }; return prev; }
+function endEstimateMemo(prev) { estimateMemo = prev || null; }
+
 function pastSamplesFor(activityId, category, scope) {
+  if (!estimateMemo) return pastSamplesCompute(activityId, category, scope);
+  const k = activityId + '|' + category + '|' + scope;
+  if (!estimateMemo.samples.has(k)) estimateMemo.samples.set(k, pastSamplesCompute(activityId, category, scope));
+  return estimateMemo.samples.get(k);
+}
+
+function pastSamplesCompute(activityId, category, scope) {
   const today = todayLocal();
   if (scope === 'main') {
     const rows = db.prepare(`
@@ -600,12 +615,25 @@ function pastSamplesFor(activityId, category, scope) {
 // `confidence` grandit avec le nombre de cas déjà vécus (idée d'Emilien au
 // cadrage initial), jamais au-delà de 1.
 function estimateForGoal(activityId, category, scope, text) {
+  if (!estimateMemo) return estimateCompute(activityId, category, scope, text);
+  const k = activityId + '|' + category + '|' + scope + '|' + text;
+  if (!estimateMemo.est.has(k)) estimateMemo.est.set(k, estimateCompute(activityId, category, scope, text));
+  return { ...estimateMemo.est.get(k) };
+}
+
+function estimateCompute(activityId, category, scope, text) {
   const samples = pastSamplesFor(activityId, category, scope);
   if (!samples.length) return { minutes: null, confidence: 0, basedOn: 0, source: 'none' };
 
   const targetTokens = new Set(tokenize(text));
+  const sampleTokens = (s) => {
+    if (!estimateMemo) return new Set(tokenize(s.text));
+    let t = estimateMemo.tokens.get(s);
+    if (!t) { t = new Set(tokenize(s.text)); estimateMemo.tokens.set(s, t); }
+    return t;
+  };
   const scored = samples
-    .map((s) => ({ ...s, score: jaccard(targetTokens, new Set(tokenize(s.text))) }))
+    .map((s) => ({ ...s, score: jaccard(targetTokens, sampleTokens(s)) }))
     .filter((s) => s.score > 0.15);
 
   if (scored.length) {
@@ -1310,6 +1338,8 @@ module.exports = {
   weekBounds,
   periodNumberForDate,
   estimateForGoal,
+  beginEstimateMemo,
+  endEstimateMemo,
   pastSamplesFor,
   shareMinutes,
   buildBilanText,

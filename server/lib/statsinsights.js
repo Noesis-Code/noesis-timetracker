@@ -584,6 +584,11 @@ function glisseDetail(activityId, periodStart, weekIndex) {
 function yearOf(d) { return d ? Number(String(d).slice(0, 4)) : null; }
 
 function insightsForActivity(activityId, userId, poleKey, yearParam, opts) {
+  const prevMemo = goals.beginEstimateMemo();
+  try { return insightsForActivityRaw(activityId, userId, poleKey, yearParam, opts); } finally { goals.endEstimateMemo(prevMemo); }
+}
+
+function insightsForActivityRaw(activityId, userId, poleKey, yearParam, opts) {
   opts = opts || {};
   const realToday = todayLocal();
   const cur = Number(realToday.slice(0, 4));

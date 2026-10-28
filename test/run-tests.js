@@ -58,6 +58,7 @@ const SUITE_FILES = [
   'chrono-reseau-lent-test.js',
   'isolation-comptes-test.js',
   'delai-requetes-test.js',
+  'stats-insights-memo-test.js',
   'langue-bascule-test.js',
   'chrono-deux-appareils-test.js',
   'offline-queue-test.js',
@@ -440,6 +441,8 @@ async function main() {
   catch (e) { assert(false, 'isolation entre deux comptes (test/isolation-comptes-test.js) échoue'); }
   try { await runChild('delai-requetes-test.js'); assert(true, 'délai maximal des requêtes client (test/delai-requetes-test.js) passe'); }
   catch (e) { assert(false, 'délai maximal des requêtes client (test/delai-requetes-test.js) échoue'); }
+  try { await runChild('stats-insights-memo-test.js'); assert(true, 'mémo d\'estimation des statistiques (test/stats-insights-memo-test.js) passe'); }
+  catch (e) { assert(false, 'mémo d\'estimation des statistiques (test/stats-insights-memo-test.js) échoue'); }
   try { await runChild('langue-bascule-test.js'); assert(true, 'bascule de langue FR/EN en session (test/langue-bascule-test.js) passe'); }
   catch (e) { assert(false, 'bascule de langue FR/EN en session (test/langue-bascule-test.js) échoue'); }
   try { await runChild('chrono-deux-appareils-test.js'); assert(true, 'chrono sur deux appareils (test/chrono-deux-appareils-test.js) passe'); }
