@@ -84,6 +84,19 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
   const first = (await call('POST', 'employees', { name: 'Premier Test' }, 'uC')).body.employee;
   r = await call('PUT', 'qualifications', { employeeId: first.id, positionId: mainPos.id, rank: 2 }, 'uC');
   assert(r.status === 200 && h.listQualifications('uC').some((q) => q.employeeId === first.id && q.rank === 2), 'premier employé ajouté dans sa catégorie (rang 2)');
+  // ---- Retirer un employé de l'horaire : inactif, quarts à venir retirés, semaines passées intactes ----
+  {
+    const w1 = '2026-10-19', w2 = '2026-11-02';
+    const ret = (await call('POST', 'employees', { name: 'Retrait Fictif' }, 'uC')).body.employee;
+    await call('PUT', 'qualifications', { employeeId: ret.id, positionId: mainPos.id, rank: 1 }, 'uC');
+    for (const w of [w1, w2]) { await call('POST', 'weeks/' + w + '/generate', undefined, 'uC'); await call('POST', 'weeks/' + w + '/assignments', { employeeId: ret.id, positionId: mainPos.id, day: w, start: '10:00', end: '14:00' }, 'uC'); }
+    r = await call('POST', 'employees/' + ret.id + '/retire', { today: '2026-10-28' }, 'uC');
+    const past = (await call('GET', 'weeks/' + w1, undefined, 'uC')).body.schedule.assignments.filter((a) => a.employeeId === ret.id);
+    const fut = (await call('GET', 'weeks/' + w2, undefined, 'uC')).body.schedule.assignments.filter((a) => a.employeeId === ret.id);
+    assert(r.status === 200 && r.body.removed === 1 && past.length === 1 && past[0].employeeName === 'Retrait Fictif' && fut.length === 0, 'retrait : quart passé gardé (avec le nom), quart à venir retiré');
+    assert(h.ownEmployee('uC', ret.id).active === 0 && h.listQualifications('uC').some((q) => q.employeeId === ret.id), 'retrait : employé inactif, rien d’autre effacé');
+    assert((await call('POST', 'employees/' + ret.id + '/retire', {}, 'uB')).status === 404, 'retrait : autre compte refusé');
+  }
   // ---- Heures : min ≤ cible ≤ max ----
   r = await call('PUT', 'employees/' + first.id, { wantHoursMin: 12, wantHoursTarget: 20, wantHoursMax: 24 }, 'uC');
   assert(r.status === 200 && r.body.employee.wantHoursTarget === 20, 'heures min, cible, max enregistrées');

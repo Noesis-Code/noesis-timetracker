@@ -125,6 +125,14 @@ router.put('/horaire/employees/:id', (req, res) => {
   const e = h.updateEmployee(req.userId, req.params.id, v);
   return e ? res.json({ employee: e }) : notFound(res, 'Employé');
 });
+// Retirer de l'horaire : { today: 'AAAA-MM-JJ' } (date du jour de l'écran ; à défaut celle du serveur) ; quarts passés gardés.
+router.post('/horaire/employees/:id/retire', (req, res) => {
+  const b = req.body || {};
+  const d = new Date();
+  const today = h.isDate(b.today) ? b.today : d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const r = h.retireEmployee(req.userId, req.params.id, today);
+  return r ? res.json({ ok: true, removed: r.removed }) : notFound(res, 'Employé');
+});
 router.delete('/horaire/employees/:id', (req, res) => (h.deleteEmployee(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Employé')));
 
 // ---------- postes ----------

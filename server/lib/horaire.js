@@ -79,6 +79,19 @@ function cascade(u, steps) {
   } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 // Effacement réel (droit à l'effacement de l'employé) : ses qualifications, disponibilités, congés et quarts partent avec lui.
+// Retrait depuis la grille (28 oct. 2026) : l'employé devient inactif (plus proposé ni placé) ; ses quarts à partir de today sont retirés ;
+// les semaines passées gardent leurs quarts et son nom. Aucune autre donnée n'est effacée (disponibilités, note, qualifications restent).
+function retireEmployee(u, id, today) {
+  const e = ownEmployee(u, id);
+  if (!e) return null;
+  db.exec('BEGIN');
+  try {
+    db.prepare('UPDATE horaire_employees SET active = 0 WHERE id = ? AND userId = ?').run(e.id, u);
+    const removed = db.prepare('DELETE FROM horaire_assignments WHERE employeeId = ? AND userId = ? AND day >= ?').run(e.id, u, today).changes;
+    db.exec('COMMIT');
+    return { removed };
+  } catch (err) { db.exec('ROLLBACK'); throw err; }
+}
 function deleteEmployee(u, id) {
   const i = Number(id);
   return cascade(u, [
@@ -761,7 +774,7 @@ function weekCovers(u, weekStart) {
 module.exports = {
   importReservationsCsv, weekCovers, normDate,
   LIMITS, isDate, isMonday, isTime, cleanName, maxMinutes, shiftCount, constraintText, ownEmployee, ownPosition, ownEvent, weekPrompt,
-  listEmployees, countEmployees, createEmployee, updateEmployee, deleteEmployee,
+  listEmployees, countEmployees, createEmployee, updateEmployee, deleteEmployee, retireEmployee,
   listPositions, countPositions, createPosition, updatePosition, deletePosition,
   listQualifications, setQualification, removeQualification,
   getAvailabilities, setAvailabilities, getTimeoff, availSummary,

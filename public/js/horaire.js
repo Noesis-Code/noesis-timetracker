@@ -572,7 +572,8 @@
   function removeEmployee(e) {
     TMT.ui.confirm(tr('Retirer') + ' ' + e.name + ' ' + tr('de l’horaire ?'), { ok: tr('Retirer'), danger: true }).then(function (yes) {
       if (!yes) { renderCats(); return; }
-      req('DELETE', 'employees/' + e.id).then(refresh, function (err) { fail(err); renderCats(); });
+      // Retrait de l'horaire (pas une suppression) : inactif, quarts à venir retirés, semaines passées intactes.
+      req('POST', 'employees/' + e.id + '/retire', { today: isoLocal(new Date()) }).then(refresh, function (err) { fail(err); renderCats(); });
     });
   }
   function sheetRow(cls) { return el('div', 'horaireSheetRow ' + (cls || '')); }
@@ -588,7 +589,7 @@
       var frame = el('div', 'horaireFrame cmpGlass');
       var sheet = el('div', 'horaireSheet horaireSheetGroup'); sheet.dataset.rank = rank == null ? '' : String(rank);
       var head = sheetRow('horaireSheetHead');
-      ['', 'Nom'].concat(HOURS.map(function (h) { return h[1]; }), ['Note']).forEach(function (t, i) { head.appendChild(el('span', 'horaireSheetCell' + (i > 1 && i < 5 ? ' horaireSheetNum' : ''), tr(t))); });
+      ['', 'Nom'].concat(HOURS.map(function (h) { return h[1]; }), ['Note', '']).forEach(function (t, i) { head.appendChild(el('span', 'horaireSheetCell' + (i > 1 && i < 5 ? ' horaireSheetNum' : ''), tr(t))); });
       sheet.appendChild(head);
       catEmployees(emps, rank).forEach(function (e) {
         var row = sheetRow('horaireSheetEmp'); row.dataset.employeeId = String(e.id);
@@ -620,6 +621,9 @@
           if (t !== (e.constraintNote || '')) putEmployee(e, { constraintNote: t }); else renderCats();
         });
         row.appendChild(note);
+        var rmCell = el('span', 'horaireSheetCell horaireSheetRemove');
+        rmCell.appendChild(TMT.ui.removeBtn(function () { removeEmployee(e); }, tr('Retirer') + ' ' + e.name));
+        row.appendChild(rmCell);
         bindCatDrag(handle, row, sheet);
         sheet.appendChild(row);
       });
