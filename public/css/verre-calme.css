@@ -151,7 +151,6 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 :root .pollChoice input[type="checkbox"], :root .pollChoice input[type="radio"] { accent-color: var(--purple); }
 
 /* ---- Volet 8 : boutons flèches, réglages, trombone et « Aujourd'hui » — fond beaucoup plus transparent, partout ---- */
-:root .historyNav .iconBtn, :root .historyNav .menuBtn,
 :root #tab-stats .sectionTitleRow .iconBtn, :root #tab-stats .sectionTitleRow .menuBtn,
 :root #goalsPrevPoleBtn, :root #goalsNextPoleBtn, :root #statsPieTodayBtn,
 :root .menuBtn.attachMenuIconBtn, :root #profileDiscussionAttachBtn, :root .communityComposerRow .attachMenuIconBtn {
@@ -169,7 +168,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
       .attachmentRow, .historyRowIconBtn, .periodBtn, .themeBtn, .seekingTagBtn, .goalAssigneeChip):not(.btnBrique):not(.btn-primary):not([type="checkbox"]):not([type="radio"]) {
   background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
-:root .historyNav .iconBtn, :root .historyNav .menuBtn, :root #tab-stats .sectionTitleRow .iconBtn, :root #tab-stats .sectionTitleRow .menuBtn,
+:root #tab-stats .sectionTitleRow .iconBtn, :root #tab-stats .sectionTitleRow .menuBtn,
 :root #statsPieTodayBtn, :root .menuBtn.attachMenuIconBtn { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: transparent !important; }
 
 

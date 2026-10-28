@@ -16,12 +16,7 @@
   padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
-.goalsPeriodNav {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; margin-bottom: 14px;
-}
-
-.goalsPeriodNavLabel { flex: 1; min-width: 0; text-align: center; }
+.goalsPeriodNav { margin-bottom: 14px; }
 
 .goalsPeriodNavLabel .sectionTitle { margin: 0; }
 

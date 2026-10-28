@@ -51,10 +51,10 @@
             <p class="sectionTitle">Historique</p>
           </div>
           <div id="goalsTasksHistoryPanel" class="hidden">
-            <div class="historyNav">
-              <button id="goalsTasksHistoryPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
-              <span id="goalsTasksHistoryWeekLabel" class="meta"></span>
-              <button id="goalsTasksHistoryNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
+            <div class="historyNav cmpNav cmpNav--sm">
+              <button id="goalsTasksHistoryPrevWeek" type="button" class="cmpNavArrow" aria-label="Semaine précédente">‹</button>
+              <span id="goalsTasksHistoryWeekLabel" class="cmpNavLabel"></span>
+              <button id="goalsTasksHistoryNextWeek" type="button" class="cmpNavArrow" aria-label="Semaine suivante">›</button>
             </div>
             <div id="goalsTasksHistoryList"></div>
             <p id="goalsTasksHistoryEmptyHint" class="hint hidden">Aucune tâche capturée cette semaine.</p>

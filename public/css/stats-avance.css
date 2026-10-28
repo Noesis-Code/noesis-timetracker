@@ -77,7 +77,7 @@
 :root .saGlass .menuBtn { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
 
 /* jours travaillés (période de 28 jours / semaine) avec flèches ‹ › comme la Feuille de temps. */
-.saDaysNav { justify-content: center; gap: 10px; margin-bottom: 4px; }
+.saDaysNav { margin-bottom: 4px; }
 .saDays28 { gap: 2px; }
 .saDl28 { gap: 2px; }
 .saDl28 span { font-size: 7px; }

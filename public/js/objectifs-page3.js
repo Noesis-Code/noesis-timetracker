@@ -21,13 +21,13 @@
         </div>
         <div id="goalsDetailScroll">
           <div id="activityGoalsBlock">
-            <div class="goalsPeriodNav">
-              <button type="button" class="menuBtn" id="activityGoalsPrevBtn" aria-label="Période précédente">‹</button>
-              <div class="goalsPeriodNavLabel">
+            <div class="goalsPeriodNav cmpNav">
+              <button type="button" class="cmpNavArrow" id="activityGoalsPrevBtn" aria-label="Période précédente">‹</button>
+              <div class="goalsPeriodNavLabel cmpNavLabel">
                 <p class="sectionTitle" id="activityGoalsPeriodTitle"></p>
                 <p class="goalsPeriodDates" id="activityGoalsPeriodDates"></p>
               </div>
-              <button type="button" class="menuBtn" id="activityGoalsNextBtn" aria-label="Période suivante">›</button>
+              <button type="button" class="cmpNavArrow" id="activityGoalsNextBtn" aria-label="Période suivante">›</button>
             </div>
 
             <!-- (discussion "Objectifs — D"), demande

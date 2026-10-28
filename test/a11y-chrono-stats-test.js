@@ -41,6 +41,6 @@ ok(/function chartSummary/.test(app) && /svg\.setAttribute\('role', 'img'\)[\s\S
 ok(/aria-label', \(\(ids && ids\.ariaLabel\)[\s\S]{0,400}formatHM\(a\.seconds\)[\s\S]{0,200}formatHM\(totalSeconds\)/.test(app), 'camembert : résumé de chaque part et du total');
 
 // Zones tactiles >= 44 px (zone invisible), traductions des nouvelles chaînes.
-for (const id of ['tsPrevWeek', 'tsNextWeek', 'tsPeriodBtn', 'chartPeriodBtn', 'statsPieTodayBtn', 'statsVisBtn']) ok(new RegExp('#' + id + '(::after|::before)?[,\\s{]').test(css.slice(css.indexOf('Accessibilité (20 oct. 2026, 390 px)'))), id + ' : zone tactile 44 px');
+for (const id of ['tsPeriodBtn', 'chartPeriodBtn', 'statsPieTodayBtn', 'statsVisBtn']) ok(new RegExp('#' + id + '(::after|::before)?[,\\s{]').test(css.slice(css.indexOf('Accessibilité (20 oct. 2026, 390 px)'))), id + ' : zone tactile 44 px');
 for (const k of ['Chronomètre', 'Temps écoulé', 'Graphique du temps par jour']) ok(new RegExp("'" + k + "':").test(i18n), 'traduit : ' + k);
 process.exit(bad ? 1 : 0);

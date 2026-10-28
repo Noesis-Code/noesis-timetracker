@@ -517,12 +517,12 @@
       { key: 'weekdays', def: true, title: 'Jours où tu travailles vraiment', body: function (d) {
         var a = d.tasks && d.tasks.weekdays; if (!a || !a.minutes || !a.minutes.length) return null;
         var mx = Math.max.apply(null, a.minutes.map(function (m) { return m || 0; })), w = document.createElement('div');
-        var nav = el('div', 'sectionTitleRow timesheetNav saDaysNav');
-        var prev = el('button', 'iconBtn', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Période précédente'));
-        var next = el('button', 'iconBtn', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Période suivante')); next.disabled = !a.canNext;
+        var nav = el('div', 'cmpNav cmpNav--sm saDaysNav');
+        var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Période précédente'));
+        var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Période suivante')); next.disabled = !a.canNext;
         prev.addEventListener('click', function () { dayOff = (a.offset || 0) - 1; load(); });
         next.addEventListener('click', function () { if (a.canNext) { dayOff = Math.min(0, (a.offset || 0) + 1); load(); } });
-        nav.appendChild(prev); nav.appendChild(el('span', 'meta', a.label)); nav.appendChild(next);
+        nav.appendChild(prev); nav.appendChild(el('span', 'cmpNavLabel', a.label)); nav.appendChild(next);
         w.appendChild(nav);
         var days = el('div', 'saDays' + (a.minutes.length > 7 ? ' saDays28' : '')), lab = el('div', 'saDl' + (a.minutes.length > 7 ? ' saDl28' : ''));
         var dn = a.doneDays || a.minutes, pl = a.plannedDays || [];
@@ -601,12 +601,12 @@
         var a = d.objectives && d.objectives.weeks; if (!a || !a.list || !a.list.length) return null;
         var w = document.createElement('div');
         if (a.mode === 'weekly') {
-          var nav = el('div', 'sectionTitleRow timesheetNav saDaysNav');
-          var prev = el('button', 'iconBtn', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Période précédente')); prev.disabled = !a.canPrev;
-          var next = el('button', 'iconBtn', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Période suivante')); next.disabled = !a.canNext;
+          var nav = el('div', 'cmpNav cmpNav--sm saDaysNav');
+          var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Période précédente')); prev.disabled = !a.canPrev;
+          var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Période suivante')); next.disabled = !a.canNext;
           prev.addEventListener('click', function () { if (a.canPrev) { wOff = (a.offset || 0) - 1; load(); } });
           next.addEventListener('click', function () { if (a.canNext) { wOff = Math.min(0, (a.offset || 0) + 1); load(); } });
-          nav.appendChild(prev); nav.appendChild(el('span', 'meta', a.label)); nav.appendChild(next);
+          nav.appendChild(prev); nav.appendChild(el('span', 'cmpNavLabel', a.label)); nav.appendChild(next);
           w.appendChild(nav);
         }
         var items = a.list;
@@ -616,12 +616,12 @@
           while (e >= 0) { var st = e - 3; if (st <= 0) { wins.push([0, Math.min(3, n - 1)]); break; } wins.push([st, e]); e = st - 1; }
           var np = wins.length, pg = Math.max(0, Math.min(np - 1, pPage || 0));
           items = vis.slice(wins[pg][0], wins[pg][1] + 1);
-          var pn = el('div', 'sectionTitleRow timesheetNav saDaysNav');
-          var pv = el('button', 'iconBtn', '‹'); pv.type = 'button'; pv.setAttribute('aria-label', tr('Période précédente')); pv.disabled = pg >= np - 1;
-          var nx = el('button', 'iconBtn', '›'); nx.type = 'button'; nx.setAttribute('aria-label', tr('Période suivante')); nx.disabled = pg <= 0;
+          var pn = el('div', 'cmpNav cmpNav--sm saDaysNav');
+          var pv = el('button', 'cmpNavArrow', '‹'); pv.type = 'button'; pv.setAttribute('aria-label', tr('Période précédente')); pv.disabled = pg >= np - 1;
+          var nx = el('button', 'cmpNavArrow', '›'); nx.type = 'button'; nx.setAttribute('aria-label', tr('Période suivante')); nx.disabled = pg <= 0;
           pv.addEventListener('click', function () { if (pg < np - 1) { pPage = pg + 1; load(); } });
           nx.addEventListener('click', function () { if (pg > 0) { pPage = pg - 1; load(); } });
-          pn.appendChild(pv); pn.appendChild(el('span', 'meta', items[0].label + (items.length > 1 ? ' – ' + items[items.length - 1].label : ''))); pn.appendChild(nx);
+          pn.appendChild(pv); pn.appendChild(el('span', 'cmpNavLabel', items[0].label + (items.length > 1 ? ' – ' + items[items.length - 1].label : ''))); pn.appendChild(nx);
           w.appendChild(pn);
         }
         var g = el('div', 'saTiles');

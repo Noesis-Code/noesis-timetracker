@@ -840,10 +840,10 @@
           <p class="sectionTitle">Historique</p>
         </div>
         <div id="chronoHistoryPanel" class="hidden">
-          <div class="historyNav">
-            <button id="historyPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
-            <span id="historyWeekLabel" class="meta" aria-live="polite"></span>
-            <button id="historyNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
+          <div class="historyNav cmpNav cmpNav--sm">
+            <button id="historyPrevWeek" type="button" class="cmpNavArrow" aria-label="Semaine précédente">‹</button>
+            <span id="historyWeekLabel" class="cmpNavLabel" aria-live="polite"></span>
+            <button id="historyNextWeek" type="button" class="cmpNavArrow" aria-label="Semaine suivante">›</button>
           </div>
           <div id="historyList"></div>
           <p id="historyEmptyHint" class="hint hidden">Aucun enregistrement sur cette semaine.</p>
@@ -884,9 +884,11 @@
         <div class="sectionTitleRow">
           <p class="sectionTitle">Feuille de temps</p>
           <div class="timesheetNav">
-            <button id="tsPrevWeek" type="button" class="iconBtn" aria-label="Période précédente">‹</button>
-            <span id="tsWeekLabel" class="meta" aria-live="polite"></span>
-            <button id="tsNextWeek" type="button" class="iconBtn" aria-label="Période suivante">›</button>
+            <div class="cmpNav cmpNav--sm">
+              <button id="tsPrevWeek" type="button" class="cmpNavArrow" aria-label="Période précédente">‹</button>
+              <span id="tsWeekLabel" class="cmpNavLabel" aria-live="polite"></span>
+              <button id="tsNextWeek" type="button" class="cmpNavArrow" aria-label="Période suivante">›</button>
+            </div>
             <div class="statsPeriodMenuWrap">
               <button type="button" class="menuBtn" id="tsPeriodBtn" aria-haspopup="true" aria-expanded="false" aria-label="Choisir la période">⋮</button>
               <div class="statsPeriodMenu hidden" id="tsPeriodMenu">
@@ -1653,9 +1655,11 @@
             <div class="sectionTitleRow">
               <p class="sectionTitle">Feuille de temps</p>
               <div class="timesheetNav">
-                <button type="button" class="iconBtn" id="csTsPrevWeek" aria-label="Période précédente">‹</button>
-                <span class="meta" id="csTsWeekLabel"></span>
-                <button type="button" class="iconBtn" id="csTsNextWeek" aria-label="Période suivante">›</button>
+                <div class="cmpNav cmpNav--sm">
+                  <button type="button" class="cmpNavArrow" id="csTsPrevWeek" aria-label="Période précédente">‹</button>
+                  <span class="cmpNavLabel" id="csTsWeekLabel"></span>
+                  <button type="button" class="cmpNavArrow" id="csTsNextWeek" aria-label="Période suivante">›</button>
+                </div>
                 <div class="statsPeriodMenuWrap">
                   <button type="button" class="menuBtn" id="csTsPeriodBtn" aria-label="Choisir la période">⋮</button>
                   <div class="statsPeriodMenu hidden" id="csTsPeriodMenu">
