@@ -20,12 +20,14 @@
   // ---------- dates (AAAA-MM-JJ, calculs en UTC : aucune dépendance au fuseau) ----------
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function isoLocal(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  // D1 : le premier du mois s'écrit « 1er » partout (« 1er novembre »).
+  function dnum(n) { return n === 1 ? '1er' : String(n); }
   function addDays(iso, n) { var d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
   function weekdayOf(iso) { return (new Date(iso + 'T00:00:00Z').getUTCDay() + 6) % 7; } // 0 = lundi
   function mondayOf(d) { var iso = isoLocal(d); return addDays(iso, -weekdayOf(iso)); }
   function dayLabel(iso, long) {
     var d = new Date(iso + 'T00:00:00Z');
-    return tr((long ? DAYS : DAYS_SHORT)[weekdayOf(iso)]) + ' ' + d.getUTCDate() + ' ' + tr(MONTHS[d.getUTCMonth()]);
+    return tr((long ? DAYS : DAYS_SHORT)[weekdayOf(iso)]) + ' ' + dnum(d.getUTCDate()) + ' ' + tr(MONTHS[d.getUTCMonth()]);
   }
   function hours(min) { var h = Math.floor(min / 60), m = min % 60; return h + ' h' + (m ? ' ' + pad(m) : ''); }
 
@@ -298,7 +300,7 @@
       var sk = (d.skipped || []).length;
       if (!d.employees && d.otherWeeks && d.otherWeeks.length) {
         var ow = new Date(d.otherWeeks[0] + 'T00:00:00Z');
-        S.msg = tr('Ces disponibilités sont pour la semaine du') + ' ' + (ow.getUTCDate() === 1 ? '1er' : ow.getUTCDate()) + ' ' + tr(MONTHS_LONG[ow.getUTCMonth()]) + ' : ' + tr('va à cette semaine et colle-les à nouveau.');
+        S.msg = tr('Ces disponibilités sont pour la semaine du') + ' ' + dnum(ow.getUTCDate()) + ' ' + tr(MONTHS_LONG[ow.getUTCMonth()]) + ' : ' + tr('va à cette semaine et colle-les à nouveau.');
         return loadWeek().then(render);
       }
       // G4 : « 14 employés lus, 3 congés, 1 nom inconnu : Zoé Inconnue. », accordé au singulier ou au pluriel (D1 : plus de « (s) »).
@@ -342,7 +344,7 @@
     if (!i.address) { inboundLine.appendChild(el('span', 'horaireMuted', tr('Réception automatique : bientôt disponible.'))); return; }
     var d = i.lastAt ? new Date(i.lastAt) : null;
     inboundLine.appendChild(el('span', 'horaireMuted horaireInboundText', tr('Réception automatique :') + ' ' + i.address
-      + (d ? ' · ' + tr('dernier rapport le') + ' ' + (d.getDate() === 1 ? '1er' : d.getDate()) + ' ' + tr(MONTHS_LONG[d.getMonth()]) : '')));
+      + (d ? ' · ' + tr('dernier rapport le') + ' ' + dnum(d.getDate()) + ' ' + tr(MONTHS_LONG[d.getMonth()]) : '')));
     inboundLine.appendChild(btn('cmpBtn cmpBtnIdle horaireInboundCopy', 'Copier l’adresse', function () {
       var cb = navigator.clipboard;
       (cb && cb.writeText ? cb.writeText(i.address) : Promise.reject()).then(function () { S.msg = tr('Adresse copiée.'); renderMsg(); }, function () { S.msg = tr('Copie impossible.'); renderMsg(); });
@@ -369,7 +371,7 @@
       var n = d.groups || 0, out;
       if (!n && d.otherWeeks && d.otherWeeks.length) {
         var ow = new Date(d.otherWeeks[0] + 'T00:00:00Z');
-        out = tr('Ces réservations sont pour la semaine du') + ' ' + (ow.getUTCDate() === 1 ? '1er' : ow.getUTCDate()) + ' ' + tr(MONTHS_LONG[ow.getUTCMonth()]) + ' : ' + tr('va à cette semaine et colle-les à nouveau.');
+        out = tr('Ces réservations sont pour la semaine du') + ' ' + dnum(ow.getUTCDate()) + ' ' + tr(MONTHS_LONG[ow.getUTCMonth()]) + ' : ' + tr('va à cette semaine et colle-les à nouveau.');
       } else {
         out = n + ' ' + tr(n > 1 ? 'groupes lus' : 'groupe lu') + (d.lines && d.lines.length ? ' : ' + d.lines.map(function (l) {
           return tr(DAYS[weekdayOf(l.day)]).toLowerCase() + ' ' + tr(l.service) + ' +' + l.extra;
@@ -418,7 +420,7 @@
     if (!s.employees) { statusLine.textContent = tr('Disponibilités : pas encore collées'); return; }
     var d = s.at ? new Date(s.at) : null;
     statusLine.textContent = tr('Disponibilités :') + ' ' + s.employees + ' ' + tr(s.employees > 1 ? 'employés lus' : 'employé lu')
-      + (d ? ' ' + tr('le') + ' ' + d.getDate() + ' ' + tr(MONTHS[d.getMonth()]) : '');
+      + (d ? ' ' + tr('le') + ' ' + dnum(d.getDate()) + ' ' + tr(MONTHS[d.getMonth()]) : '');
   }
   // Page 4 : résumé court (semaine, quarts, trous restants, alertes).
   function renderSummary() {
@@ -435,7 +437,7 @@
   function weekTitle() {
     var a = new Date(S.week + 'T00:00:00Z'), b = new Date(addDays(S.week, 6) + 'T00:00:00Z');
     var same = a.getUTCMonth() === b.getUTCMonth();
-    return tr('Semaine du') + ' ' + a.getUTCDate() + (same ? '' : ' ' + tr(MONTHS_LONG[a.getUTCMonth()])) + ' ' + tr('au') + ' ' + b.getUTCDate() + ' ' + tr(MONTHS_LONG[b.getUTCMonth()]) + ' ' + b.getUTCFullYear();
+    return tr('Semaine du') + ' ' + dnum(a.getUTCDate()) + (same ? '' : ' ' + tr(MONTHS_LONG[a.getUTCMonth()])) + ' ' + tr('au') + ' ' + dnum(b.getUTCDate()) + ' ' + tr(MONTHS_LONG[b.getUTCMonth()]) + ' ' + b.getUTCFullYear();
   }
   function render() {
     bindPager();
@@ -459,7 +461,7 @@
     for (var i = 0; i < 7; i++) {
       var d = addDays(S.week, i), h = el('div', 'horaireCell horaireCellSide');
       h.appendChild(el('div', 'horaireDayName', tr(DAYS[i])));
-      if (withDate) { var dt = new Date(d + 'T00:00:00Z'); h.appendChild(el('div', 'horaireDayDate', dt.getUTCDate() + ' ' + tr(MONTHS[dt.getUTCMonth()]))); }
+      if (withDate) { var dt = new Date(d + 'T00:00:00Z'); h.appendChild(el('div', 'horaireDayDate', dnum(dt.getUTCDate()) + ' ' + tr(MONTHS[dt.getUTCMonth()]))); }
       g.appendChild(h);
     }
     rows.forEach(function (r) {
