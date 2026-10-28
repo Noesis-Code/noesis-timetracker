@@ -151,6 +151,7 @@ router.post('/horaire/employees', (req, res) => {
   const v = employeeInput(res, req.body || {}, false); if (!v) return;
   if (!shiftsOrdered(res, v, null)) return;
   if (h.countEmployees(req.userId) >= h.LIMITS.employees) return res.status(409).json({ error: 'Limite d\'employés atteinte.' });
+  if (h.nameTaken(req.userId, v.name)) return res.status(409).json({ error: 'Ce nom existe déjà.' });
   res.status(201).json({ employee: h.createEmployee(req.userId, v) });
 });
 router.put('/horaire/employees/:id', (req, res) => {
@@ -158,6 +159,7 @@ router.put('/horaire/employees/:id', (req, res) => {
   const cur = h.ownEmployee(req.userId, req.params.id);
   if (!cur) return notFound(res, 'Employé');
   if (!shiftsOrdered(res, v, cur)) return;
+  if (v.name !== undefined && h.nameTaken(req.userId, v.name, cur.id)) return res.status(409).json({ error: 'Ce nom existe déjà.' });
   const e = h.updateEmployee(req.userId, req.params.id, v);
   return e ? res.json({ employee: e }) : notFound(res, 'Employé');
 });

@@ -98,6 +98,14 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     assert(h.ownEmployee('uC', ret.id).active === 0 && h.listQualifications('uC').some((q) => q.employeeId === ret.id), 'retrait : employé inactif, rien d’autre effacé');
     assert((await call('POST', 'employees/' + ret.id + '/retire', {}, 'uB')).status === 404, 'retrait : autre compte refusé');
   }
+  // ---- G3 : deux employés du même nom refusés (casse et accents ignorés) ----
+  {
+    const a = (await call('POST', 'employees', { name: 'Éloïse Fictive' }, 'uC')).body.employee;
+    r = await call('POST', 'employees', { name: 'eloise  FICTIVE' }, 'uC');
+    assert(r.status === 409 && r.body.error === 'Ce nom existe déjà.', 'G3 : même nom (casse, accents) refusé à la création');
+    const b2 = (await call('POST', 'employees', { name: 'Autre Fictive' }, 'uC')).body.employee;
+    assert((await call('PUT', 'employees/' + b2.id, { name: 'ÉLOÏSE fictive' }, 'uC')).status === 409 && (await call('PUT', 'employees/' + a.id, { name: 'Éloïse Fictive' }, 'uC')).status === 200, 'G3 : renommer vers un nom pris refusé ; garder son propre nom accepté');
+  }
   // ---- PUT partiel : un champ envoyé ne touche jamais les autres ; une ancienne valeur incohérente ne bloque pas un autre champ ----
   {
     const p = (await call('POST', 'employees', { name: 'Partiel Fictif', wantHoursMin: 10, wantHoursTarget: 30, wantHoursMax: 35, constraintNote: 'Pas de soir' }, 'uC')).body.employee;

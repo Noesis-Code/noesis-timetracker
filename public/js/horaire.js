@@ -889,9 +889,11 @@
         var handle = el('span', 'activityDragHandle horaireHandle', '≡'); handle.setAttribute('aria-hidden', 'true');
         hc.appendChild(handle); row.appendChild(hc);
         var name = el('span', 'horaireSheetCell horaireSheetEdit');
+        name.dataset.why = 'Ce nom existe déjà.';
         editCell(name, e.name, [['name', e.name, 'Nom']], function (v) {
           var n = String(v.name).trim();
           if (!n) { removeEmployee(e); return; }
+          if (nameTaken(n, e.id)) return false;
           if (n !== e.name) putEmployee(e, { name: n }); else renderCats();
         });
         row.appendChild(name);
@@ -942,7 +944,9 @@
     var create = function (again) {
       var name = x.value.trim();
       if (!name) { stop(); return; }
-      if (busy || closed) return; busy = true;
+      if (busy || closed) return;
+      if (nameTaken(name)) { catsMsg.textContent = tr('Ce nom existe déjà.'); catsMsg.classList.remove('hidden'); x.classList.add('invalid'); return; }
+      busy = true;
       var emp;
       Promise.resolve({ id: posId() }).then(function (pos) {
         return req('POST', 'employees', { name: name }).then(function (d) {
@@ -962,6 +966,11 @@
     return row;
   }
   // Employés d'une catégorie, dans l'ordre enregistré (sortOrder), puis par nom.
+  // G3 : même nom qu'un autre employé actif (casse et accents ignorés).
+  function nameTaken(n, exceptId) {
+    var k = foldNote(n);
+    return S.employees.some(function (x) { return x.active !== false && x.id !== exceptId && foldNote(x.name) === k; });
+  }
   function catEmployees(emps, rank) {
     return emps.filter(function (e) { return bestRank(e.id) === rank; }).sort(function (a, b) {
       var x = a.sortOrder == null ? Infinity : a.sortOrder, y = b.sortOrder == null ? Infinity : b.sortOrder;
