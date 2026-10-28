@@ -104,8 +104,8 @@
           <button type="button" class="periodBtn active" id="goalsPage2ModeTasksBtn" data-mode="tasks">Tâches</button>
           <button type="button" class="periodBtn" id="goalsPage2ModeGoalsBtn" data-mode="goals">Objectifs</button>
         </div>
-        <!-- 28 oct. 2026 (Émilien) : le « + » est EXACTEMENT celui de la barre des volets (.barAddBtn, css/barre-volets.css) ; sans Expansion seulement (pointillé gris, découverte de l'extension). Avec Expansion il disparaît et la zone d'ajout prend toute la largeur. -->
-        <button type="button" class="barAddBtn hidden" id="goalsPage2AddBtn" aria-label="Découvrir Expansion" title="Découvrir Expansion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+        <!-- 28 oct. 2026 (Émilien) : le « + » est EXACTEMENT celui de la barre des volets (.barAddBtn, css/barre-volets.css) ; pointillé gris sans Expansion (découverte de l'extension), verre avec Expansion (ouvre « Ajouter des tâches »). Déplacé dans #goalsTaskDock au chargement. -->
+        <button type="button" class="barAddBtn" id="goalsPage2AddBtn" aria-label="Découvrir Expansion" title="Découvrir Expansion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
 
         <!-- Écran « Tâches » — (création), refondu le 28
              septembre 2026 sur demande directe d'Emilien : « je souhaite que
@@ -576,10 +576,10 @@
 
   var goalsAddReq = 0;
   // 28 oct. 2026 (Émilien) : « Expansion ? » (GET /api/activities/:id/offer1 → essor) décide de tout l'onglet 1 :
-  //  - avec Expansion : zone d'ajout sur toute la largeur, pas de « + », et les zones Expansion (consigne, Nouvelles tâches,
-  //    Modifications proposées, Drive) s'affichent dans la page (objectifs-document-taches.js, TMT.docTasksZoneSet) ;
-  //  - sans Expansion : zone d'ajout à la place de la pilule de la barre, « + » pointillé à la place du « + » de la barre
-  //    (il ouvre la découverte d'Expansion), rien d'autre.
+  //  - UNE seule zone d'écriture et UN « + » pour tous les onglets de la page 2, à la place exacte de la pilule et du « + » de la barre ;
+  //  - avec Expansion : la zone est la consigne en langage libre de l'IA (TMT.docTasksSubmit) et le « + » (verre) ouvre la fenêtre
+  //    « Ajouter des tâches » (Modifications proposées, Nouvelles tâches, Drive : objectifs-document-taches.js) ;
+  //  - sans Expansion : la zone ajoute une tâche au pôle affiché, le « + » pointillé ouvre la découverte d'Expansion.
   var goalsDock = null, goalsDockText = null, goalsDockMsg = null, goalsDockBusy = false, goalsDockTimer = null;
   function buildGoalsTaskDock() {
     goalsDock = document.createElement('div');
@@ -597,6 +597,7 @@
     if (clip) { clip.classList.add('goalsDockClip'); bar.appendChild(clip); }
     bar.appendChild(goalsDockText); bar.appendChild(send);
     goalsDock.appendChild(goalsDockMsg); goalsDock.appendChild(bar);
+    goalsDock.appendChild($('goalsPage2AddBtn')); // le « + » à côté de la zone, à la place du « + » de la barre
     $('goalsActivitySwitcher').appendChild(goalsDock);
   }
   function goalsDockSay(s) { goalsDockMsg.textContent = s || ''; clearTimeout(goalsDockTimer); if (s) goalsDockTimer = setTimeout(function () { goalsDockMsg.textContent = ''; }, 4000); }
@@ -609,7 +610,9 @@
   function sendGoalsDock() {
     if (goalsDockBusy) return;
     var label = goalsDockText.value.trim();
-    if (!label) { goalsDockSay(t('Écris une tâche avant d\'ajouter.')); return; }
+    var expansion = goalsDock.classList.contains('hasExpansion');
+    if (!label) { goalsDockSay(expansion ? t('Écris une consigne.') : t('Écris une tâche avant d\'ajouter.')); return; }
+    if (expansion) { if (TMT.docTasksSubmit) TMT.docTasksSubmit(label.slice(0, 1500)); return; } // Expansion : la zone est la consigne en langage libre de l'IA
     var activityId = TMT.currentGoalsActivityId; if (!activityId || !TMT.captureTaskFlow) return;
     goalsDockBusy = true; goalsDockSay('');
     TMT.captureTaskFlow(label, [activityId], goalsDockTarget()).then(function (flow) {
@@ -625,21 +628,24 @@
 
   function syncGoalsAddBtn(activityId) {
     var btn = $('goalsPage2AddBtn'); if (!btn) return;
-    btn.classList.add('hidden'); goalsDock.classList.add('hidden');
-    if (TMT.docTasksZoneSet) TMT.docTasksZoneSet(activityId, false);
     var req = ++goalsAddReq;
     function apply(on) {
       if (req !== goalsAddReq) return;
-      btn.classList.toggle('hidden', on); // « + » seulement sans Expansion
       goalsDock.classList.remove('hidden');
       goalsDock.classList.toggle('hasExpansion', on); // le trombone (documents) n'existe qu'avec Expansion
+      btn.classList.toggle('barPaid', on); // « + » en verre avec Expansion (comme le « + » payé de la barre), pointillé gris sinon
+      btn.setAttribute('aria-label', on ? t('Modifications proposées, nouvelles tâches et Drive') : t('Découvrir Expansion')); btn.title = btn.getAttribute('aria-label');
+      goalsDockText.placeholder = on ? t('Ta consigne, en langage libre…') : t('Ajouter une tâche');
       if (TMT.docTasksZoneSet) TMT.docTasksZoneSet(activityId, on);
     }
     TMT.api('GET', '/api/activities/' + encodeURIComponent(activityId) + '/offer1').then(function (r) { apply(!!(r && r.essor === true)); })
       .catch(function () { apply(false); });
   }
   // Sans Expansion, le « + » ouvre l'offre si le paiement est ouvert (GET /api/offer/available) ; sinon, tant que le paiement n'est pas prêt (production), un message explique Expansion et dit « à venir ».
+  TMT.goalsDockClear = function () { if (goalsDockText) goalsDockText.value = ''; };
+  // Avec Expansion, le « + » (verre) ouvre la fenêtre « Ajouter des tâches » : Modifications proposées, Nouvelles tâches, Drive.
   $('goalsPage2AddBtn').addEventListener('click', function () {
+    if (goalsDock.classList.contains('hasExpansion')) { if (TMT.openDocTasks) TMT.openDocTasks(); return; }
     function soon() {
       TMT.ui.confirm(t('Expansion — à venir.') + ' ' + t('Génère automatiquement tes objectifs et tâches tous les mois en passant à Expansion.') + ' ' + t('Elle n’est pas encore disponible.'), { ok: t('Compris') });
     }

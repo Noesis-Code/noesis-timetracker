@@ -151,18 +151,19 @@
 
 /* la Discussion s'ouvre par une bulle ronde en bas à droite (même bouton, mêmes id et logique que l'ancien onglet).
    Masquée pendant que le fil est affiché (les onglets Tâches/Objectifs ramènent à la page). */
-/* 28 oct. 2026 : le « + » de la page occupe EXACTEMENT la place et le rendu du « + » de la barre des volets (52×52, 16 px du bord droit,
-   même bas) ; son rendu (.barAddBtn : pointillé gris + violet) est défini une seule fois dans css/barre-volets.css (R29). Sans Expansion seulement. */
-#goalsPage2AddBtn { position: fixed; margin: 0; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 120; display: flex; }
-#goalsPage2AddBtn.hidden, #goalsPage2AddBtn.active, #goalsActivitySwitcher:not(.goalsTasksMode) #goalsPage2AddBtn { display: none; }
-
-/* Zone d'écriture « Ajouter une tâche » fixée à la place de la barre des volets (pilule : x=16, 52 px de haut, bas max(16px, zone sûre)) ;
-   même modèle que celle de l'onglet Aujourd'hui (.tasksComposer : bulle de verre, trombone à gauche, flèche d'envoi DANS la bulle). Avec « + » :
-   elle s'arrête 8 px avant lui ; avec Expansion (pas de « + ») elle prend toute la largeur. */
-.goalsTaskDock { position: fixed; left: 16px; right: calc(16px + 52px + 8px); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 120; box-sizing: border-box; }
-.goalsTaskDock.hasExpansion { right: 16px; }
-.goalsTaskDock.hidden, #goalsActivitySwitcher:not(.goalsTasksMode) .goalsTaskDock, .goalsActivitySwitcher.goalsNoPole .goalsTaskDock { display: none; }
-.goalsTaskDock .tasksComposer { box-sizing: border-box; height: 52px; padding: 0 8px 0 16px; -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); } /* R40 : verre de la barre */
+/* 28 oct. 2026 : UNE zone d'écriture + UN « + » pour tous les onglets de la page 2, à la place EXACTE de la barre des volets (.tabbar : mêmes marges, même largeur,
+   même bas ; téléphone : pilule 298×52 à x=16, « + » 52×52 à x=322 sur 390 px ; ordinateur : mêmes règles que .tabbar dans css/bureau.css, une seule définition).
+   Le rendu du « + » (.barAddBtn : pointillé gris + violet ; .barPaid : verre) est défini une seule fois dans css/barre-volets.css (R29).
+   La zone suit le modèle de celle d'Aujourd'hui (.tasksComposer : bulle de verre, trombone à gauche, flèche d'envoi DANS la bulle). */
+.goalsTaskDock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 120; box-sizing: border-box; display: flex; align-items: flex-end; padding: 0 16px max(16px, env(safe-area-inset-bottom)); pointer-events: none; }
+:root[data-trade-on] .goalsTaskDock { padding-left: 17px; padding-right: 17px; }
+@media (min-width: 700px) { .goalsTaskDock { max-width: 460px; left: 50%; margin-left: -230px; } }
+.goalsTaskDock > * { pointer-events: auto; }
+.goalsTaskDock.hidden, .goalsActivitySwitcher.goalsNoPole .goalsTaskDock { display: none; }
+.goalsTaskDock .barAddBtn { display: flex; }
+.goalsTaskDock .tasksComposer { flex: 1 1 auto; min-width: 0; box-sizing: border-box; height: 52px; padding: 0 8px 0 16px; -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); } /* R40 : verre de la barre */
+.goalsTaskDock .tasksText::placeholder { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.goalsTaskDock .docTasksFilesBox { position: absolute; left: 16px; right: 16px; bottom: 100%; }
 .goalsTaskDock .tasksComposer .cmpSend { flex: none; }
 .goalsTaskDock .goalsDockClip { position: static; flex: none; width: 44px; height: 44px; margin-left: -8px; }
 .goalsTaskDock:not(.hasExpansion) .goalsDockClip { display: none; }
@@ -348,11 +349,11 @@
 /* LISTE PLATE de l'onglet Tâches (demande d'Émilien, 28 oct. 2026, d'après sa capture) : aucune carte ni cadre autour des secteurs et des tâches ;
    titre de secteur en gras avec son nombre et sa flèche (R21), cercle à cocher à gauche, date à droite, traits d'un bord à l'autre (R22), 44 px min (R7).
    Les secteurs ne portent jamais de couleur (R16) ; seul le nom du pôle prend la couleur du pôle. */
-.goalsTasksMode #goalsActivityHeader .activityPageName { color: var(--poleColor, var(--text)); }
+#goalsActivityHeader .activityPageName { color: var(--poleColor, var(--text)); }
 /* Sélecteur de pôle simplifié (28 oct. 2026) : texte seul « ‹ Entreprise › », sans cadre, fond, liseré ni pastille ; flèches discrètes aux extrémités (zone de toucher 44 px, R37). */
-:root #goalsActivitySwitcher.goalsTasksMode #goalsActivityHeader { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; min-height: 44px; }
-.goalsTasksMode #goalsActivityHeader #goalsPoleDot { display: none; }
-:root #goalsActivitySwitcher.goalsTasksMode #goalsActivityHeader .goalsSwipeBtn { width: 44px; height: 44px; min-height: 44px; padding: 0; color: var(--text-light); }
+:root #goalsActivitySwitcher #goalsActivityHeader { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; min-height: 44px; }
+#goalsActivityHeader #goalsPoleDot { display: none; }
+:root #goalsActivitySwitcher #goalsActivityHeader .goalsSwipeBtn { width: 44px; height: 44px; min-height: 44px; padding: 0; color: var(--text-light); }
 :root #goalsTasksView .activityProgressCard { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; margin: 16px 0 8px; justify-content: space-between; gap: 8px; }
 #goalsTasksView .activityProgressCard .activityProgressRing, #goalsTasksView .activityProgressCard .activityProgressPercent { display: none; }
 #goalsTasksView .activityProgressCard .activityProgressText { display: contents; }

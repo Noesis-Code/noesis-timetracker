@@ -7,9 +7,10 @@
 
 
   /* Barre des volets : sur toute la largeur, pilule plus large centrée, « + » tout à droite de la page. */
-  .tabbar { left: 0; right: 0; margin-left: 0; max-width: none; padding-left: 32px; padding-right: 32px; }
-  .tabbarPill { flex: 0 1 720px; margin-left: auto; margin-right: auto; }
-  .tabbar .tabBtnAdd { margin-left: 0; }
+  /* La zone d'écriture de la page 2 (.goalsTaskDock) et son « + » reprennent exactement la même géométrie (28 oct. 2026). */
+  .tabbar, .goalsTaskDock { left: 0; right: 0; margin-left: 0; max-width: none; padding-left: 32px; padding-right: 32px; }
+  .tabbarPill, .goalsTaskDock .tasksComposer { flex: 0 1 720px; margin-left: auto; margin-right: auto; }
+  .tabbar .tabBtnAdd, .goalsTaskDock .barAddBtn { margin-left: 0; }
   .tabbar.barSolo .tabBtnAdd { margin-left: auto; }
 
   /* Pages complètes (Réglages, Profil, Activité, Feuille de route pages 2 et 3) : cartes élargies au lieu de la colonne de 480 px du téléphone. */
