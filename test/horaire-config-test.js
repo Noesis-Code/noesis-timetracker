@@ -233,6 +233,19 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     assert((await call('PUT', 'floors/' + f2.id, { name: 'Terrasse nord' }, 'uC')).body.floor.name === 'Terrasse nord' && (await call('PUT', 'floors/' + f2.id, { name: 'X' }, 'uB')).status === 404, 'planchers : renommés ; autre compte refusé');
     assert((await call('DELETE', 'floors/' + f1.id, undefined, 'uC')).status === 200 && !h.listFloorCounts('uC').some((c) => c.floorId === f1.id), 'planchers : supprimé pour les trois postes, avec ses nombres');
   }
+  // ---- Événement : nom par défaut « Événement N » (premier numéro libre du service), modifiable ; plancher occupé ----
+  {
+    const [p1] = h.listPositions('uC');
+    const e1 = (await call('POST', 'events', { day: '2027-02-05', service: 'soir', lines: [{ positionId: p1.id, count: 2 }] }, 'uC')).body.event;
+    const e2 = (await call('POST', 'events', { day: '2027-02-05', service: 'soir', lines: [] }, 'uC')).body.event;
+    assert(e1.label === 'Événement 1' && e2.label === 'Événement 2', 'événement : noms par défaut « Événement 1 », « Événement 2 » dans le service');
+    r = await call('PUT', 'events/' + e1.id, { name: 'Mariage ' + 'x'.repeat(100) }, 'uC');
+    assert(r.status === 200 && r.body.event.label.length === 80 && r.body.event.label.startsWith('Mariage') && r.body.event.lines.length === 1, 'événement : nom modifié (80 caractères au plus), lignes intactes');
+    const fl = (await call('POST', 'floors', { name: 'Haut' }, 'uC')).body.floor;
+    r = await call('PUT', 'events/' + e1.id, { floorId: fl.id }, 'uC');
+    assert(r.status === 200 && r.body.event.floorId === fl.id, 'événement : plancher choisi');
+    assert((await call('PUT', 'events/' + e1.id, { floorId: 999999 }, 'uC')).status === 404 && (await call('PUT', 'events/' + e1.id, { floorId: null }, 'uC')).body.event.floorId === null, 'événement : plancher inconnu refusé, « Aucun » accepté');
+  }
   // ---- Réception automatique du rapport de réservations (courriel entrant) ----
   {
     delete process.env.HORAIRE_INBOUND_DOMAIN;

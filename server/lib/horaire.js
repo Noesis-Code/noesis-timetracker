@@ -340,11 +340,12 @@ setInterval(() => { try { purgePastEvents(); } catch (e) { /* réessayé au proc
 function listEvents(u, from, to) {
   purgePastEvents();
   const evs = (from && to)
-    ? db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
-    : db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
+    ? db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
+    : db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
   const needs = db.prepare('SELECT eventId, positionId, start, end, count FROM horaire_needs WHERE userId = ? AND eventId IS NOT NULL ORDER BY start').all(u);
   // lines (événement d'un service) : ses lignes « poste · +N » ; ancienne ligne (positionId, extra) = un événement d'une seule ligne.
   return evs.map((e) => {
+    e.floorId = e.zoneId == null ? null : e.zoneId; // plancher occupé (colonne zoneId)
     const own = needs.filter((n) => n.eventId === e.id).map(({ eventId, ...n }) => n);
     const lines = e.service ? (own.length ? own.map((n) => ({ positionId: n.positionId, count: n.count })) : (e.extra > 0 ? [{ positionId: e.positionId, count: e.extra }] : [])) : undefined;
     return { ...e, needs: own, lines };
@@ -353,13 +354,26 @@ function listEvents(u, from, to) {
 // Événement d'un service (28 oct. 2026) : { day, service, covers (facultatif), lines: [{ positionId, count }] } ; ses lignes sont
 // enregistrées comme besoins de l'événement (heure du service ; la génération les place à la première arrivée du poste).
 const SERVICE_SPAN = { matin: ['10:30', '16:00'], soir: ['16:00', '23:59'] };
-function writeServiceEvent(u, id, { day, service, covers, lines }) {
+// name : nom affiché (label) ; à la création, « Événement N » (premier numéro libre du service ce jour-là). floorId : plancher occupé
+// (colonne zoneId ; null = aucun). undefined = inchangé.
+function writeServiceEvent(u, id, { day, service, covers, lines, name, floorId }) {
   db.exec('BEGIN');
   try {
     let eventId = id;
     const c = covers == null ? null : covers;
-    if (eventId) db.prepare('UPDATE horaire_events SET day = ?, service = ?, covers = ?, extra = NULL, positionId = NULL WHERE id = ? AND userId = ?').run(day, service, c, eventId, u);
-    else eventId = Number(db.prepare('INSERT INTO horaire_events (userId, day, label, service, covers) VALUES (?, ?, ?, ?, ?)').run(u, day, 'Événement', service, c).lastInsertRowid);
+    if (eventId) {
+      db.prepare('UPDATE horaire_events SET day = ?, service = ?, covers = ?, extra = NULL, positionId = NULL WHERE id = ? AND userId = ?').run(day, service, c, eventId, u);
+      if (name !== undefined) db.prepare('UPDATE horaire_events SET label = ? WHERE id = ? AND userId = ?').run(name, eventId, u);
+      if (floorId !== undefined) db.prepare('UPDATE horaire_events SET zoneId = ? WHERE id = ? AND userId = ?').run(floorId, eventId, u);
+    } else {
+      let label = name;
+      if (!label) {
+        const taken = new Set(db.prepare('SELECT label FROM horaire_events WHERE userId = ? AND day = ? AND service = ?').all(u, day, service).map((r) => r.label));
+        let k = 1; while (taken.has('Événement ' + k)) k++;
+        label = 'Événement ' + k;
+      }
+      eventId = Number(db.prepare('INSERT INTO horaire_events (userId, day, label, service, covers, zoneId) VALUES (?, ?, ?, ?, ?, ?)').run(u, day, label, service, c, floorId == null ? null : floorId).lastInsertRowid);
+    }
     db.prepare('DELETE FROM horaire_needs WHERE userId = ? AND eventId = ?').run(u, eventId);
     const ins = db.prepare('INSERT INTO horaire_needs (userId, positionId, weekday, eventId, start, end, count) VALUES (?, ?, NULL, ?, ?, ?, ?)');
     const [s, e] = SERVICE_SPAN[service];
@@ -468,6 +482,8 @@ function weekInput(u, weekStart) {
     rotation: rot,
     arrivalPositions: arrivalPositionIds(u),
     serviceEnds: getServiceEnds(u),
+    floorCounts: listFloorCounts(u),
+    floorPositions: listPositions(u).filter(isFloorPosition).map((p) => p.id),
   };
 }
 // Vérification d'un horaire enregistré (aucune écriture) : quarts posés tels quels, alertes et raisons recalculées.

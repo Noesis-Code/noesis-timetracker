@@ -571,6 +571,26 @@
     add.classList.add('horaireFloorAdd');
     floorsBox.appendChild(add);
   }
+  // Nom affiché d'un événement : son nom ; ancien événement (libellé vide ou générique) : « Événement N » (rang dans le service).
+  function evName(ev, k) { var l = String(ev.label || '').trim(); return l && l !== 'Événement' && l !== 'Groupe' ? l : tr('Événement') + ' ' + (k + 1); }
+  function replaceEvent(e) { if (!e) return; var i = S.events.findIndex(function (x) { return x.id === e.id; }); if (i >= 0) S.events[i] = e; renderEventsTable(); }
+  // Plancher occupé (même calcul que la génération, floorExtra) : pour Serveur, Barman et Commis, les N de l'événement remplacent le
+  // personnel habituel de ce poste sur ce plancher (tableau Planchers), une seule fois par plancher et par service.
+  function floorReplaced(day, svc) {
+    var wd = weekdayOf(day), left = {}, out = {};
+    var isFloorPos = function (pid) { var p = S.positions.find(function (x) { return x.id === pid; }); return !!p && ['serveur', 'barman', 'commis'].indexOf(foldNote(p.name)) >= 0; };
+    S.events.filter(function (e) { return e.day === day && e.service === svc; }).sort(function (a, b) { return a.id - b.id; }).forEach(function (ev) {
+      var f = ev.floorId != null && (S.floors || []).find(function (x) { return x.id === ev.floorId; });
+      (ev.lines || []).forEach(function (l, i) {
+        if (!f || !isFloorPos(l.positionId)) return;
+        var key = f.id + '|' + l.positionId;
+        var usual = (S.floorCounts || []).find(function (c) { return c.floorId === f.id && c.positionId === l.positionId && c.weekday === wd && c.service === svc; });
+        var rem = left[key] != null ? left[key] : (usual ? usual.count : 0), take = Math.min(rem, l.count);
+        left[key] = rem - take; out[ev.id + ':' + i] = { floor: f.name, take: take, extra: l.count - take };
+      });
+    });
+    return out;
+  }
   function todayIso() { return isoLocal(new Date()); }
   function renderEventsTable() {
     eventsBox.textContent = '';
@@ -587,7 +607,8 @@
     var lineNode = function (ev, l, i) {
       var key = 'evl:' + ev.id + ':' + i;
       if (S.editing !== key) {
-        var label = (l.positionId == null ? '?' : posName(l.positionId)) + ' · +' + l.count;
+        var rep = repl[ev.id + ':' + i];
+        var label = (l.positionId == null ? '?' : posName(l.positionId)) + ' · ' + (rep ? l.count + ' (' + tr('remplace') + ' ' + rep.take + ' ' + tr('du plancher') + ' ' + rep.floor + ') → +' + rep.extra : '+' + l.count);
         var b = btn('horaireEvent', label, function () { if (!past) { S.editing = key; renderEventsTable(); } });
         if (past) b.disabled = true;
         return b;
@@ -620,19 +641,44 @@
       setTimeout(function () { n.focus(); n.select(); }, 0);
       return ed;
     };
+    var repl = {};
     var fillService = function (day, svc, c) {
       {
         past = day < todayIso();
+        repl = floorReplaced(day, svc);
         S.events.filter(function (e) { return e.day === day && e.service === svc; }).forEach(function (ev, k) {
           var card = el('div', 'horaireEvCard');
           var head = el('div', 'horaireEvHead');
-          head.appendChild(el('span', null, tr('Événement') + ' ' + (k + 1) + (ev.covers ? ' · ' + ev.covers + ' ' + tr('couverts') : '')));
+          // Nom de l'événement, modifiable au clic (80 caractères au plus) ; anciens événements sans nom : « Événement N ».
+          var nm = evName(ev, k);
+          var nameCell = el('span', 'horaireEvName horaireSheetEdit');
+          if (past) nameCell.textContent = nm + (ev.covers ? ' · ' + ev.covers + ' ' + tr('couverts') : '');
+          else editCell(nameCell, '', [['name', nm, 'Nom de l’événement']], function (v) {
+            var t = String(v.name).trim().slice(0, 80);
+            if (!t || t === nm) { renderEventsTable(); return; }
+            req('PUT', 'events/' + ev.id, { name: t }).then(function (d) { replaceEvent(d.event); }, fail);
+          }, function (cell) { cell.appendChild(el('span', null, nm)); if (ev.covers) cell.appendChild(el('span', 'horaireMuted', ' · ' + ev.covers + ' ' + tr('couverts'))); });
+          head.appendChild(nameCell);
           if (!past) {
             head.appendChild(TMT.ui.removeBtn(function () {
               confirmDelete(tr('Supprimer cet événement ?'), function () { req('DELETE', 'events/' + ev.id).then(refresh, fail); });
             }, tr('Retirer l’événement')));
           }
           card.appendChild(head);
+          // Plancher occupé : menu uni (R31), « Aucun » par défaut ; enregistrement automatique.
+          if ((S.floors || []).length) {
+            var fl = el('label', 'horaireEvFloor');
+            fl.appendChild(el('span', null, tr('Plancher')));
+            var fs = el('select', 'horaireInput'); fs.setAttribute('aria-label', tr('Plancher'));
+            var none = el('option', null, tr('Aucun')); none.value = ''; fs.appendChild(none);
+            S.floors.forEach(function (f) { var o = el('option', null, f.name); o.value = String(f.id); fs.appendChild(o); });
+            fs.value = ev.floorId == null ? '' : String(ev.floorId);
+            fs.disabled = past;
+            fs.addEventListener('change', function () {
+              req('PUT', 'events/' + ev.id, { floorId: fs.value ? Number(fs.value) : null }).then(function (d) { replaceEvent(d.event); }, fail);
+            });
+            fl.appendChild(fs); card.appendChild(fl);
+          }
           (ev.lines || []).forEach(function (l, j) { card.appendChild(lineNode(ev, l, j)); });
           if (!past) {
             card.appendChild(TMT.ui.addBtn(tr('Ajouter un poste'), function () {
@@ -651,12 +697,6 @@
         add.classList.add('horaireEvAdd');
         c.appendChild(add);
       }
-    };
-    // Employés en plus d'un service (somme des lignes de ses événements).
-    var extraOf = function (day, svc) {
-      var n = 0;
-      S.events.forEach(function (ev) { if (ev.day === day && ev.service === svc) (ev.lines || []).forEach(function (l) { n += l.count; }); });
-      return n;
     };
     var hasEvents = function (day) { return S.events.some(function (e) { return e.day === day && e.service; }); };
     var ymd = function (y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); };
@@ -692,7 +732,14 @@
         if (mini) { var s = el('span', 'horaireCalMiniDay' + (hasEvents(day) && !isPast ? ' on' : ''), String(dd)); g.appendChild(s); continue; }
         var b = el('button', 'horaireCalDay' + (isPast ? ' past' : '') + (day === todayIso() ? ' today' : '')); b.type = 'button';
         b.appendChild(el('span', 'horaireCalNum', String(dd)));
-        if (!isPast) ['matin', 'soir'].forEach(function (svc) { var n = extraOf(day, svc); if (n || S.events.some(function (e) { return e.day === day && e.service === svc; })) b.appendChild(el('span', 'horaireCalPill', tr(svc === 'soir' ? 'Soir' : 'Matin') + ' · ' + n)); });
+        if (!isPast) ['matin', 'soir'].forEach(function (svc) {
+          var rp = floorReplaced(day, svc);
+          S.events.filter(function (e) { return e.day === day && e.service === svc; }).forEach(function (ev, k) {
+            var n = 0; (ev.lines || []).forEach(function (l, i) { var r = rp[ev.id + ':' + i]; n += r ? r.extra : l.count; });
+            var p = el('span', 'horaireCalPill', tr(svc === 'soir' ? 'Soir' : 'Matin') + ' · ' + evName(ev, k) + ' · ' + n); p.title = p.textContent;
+            b.appendChild(p);
+          });
+        });
         if (isPast) b.disabled = true; else b.addEventListener('click', (function (dday) { return function () { go('day', dday); }; })(day));
         g.appendChild(b);
       }

@@ -276,6 +276,34 @@ const evenings = (n) => Array.from({ length: n }, (_, wd) => ({ positionId: 1, w
   assert(r.assignments.length === 2 && v.some((a) => a.why === 'double' && a.day === D[2]), 'G2 : double (matin et soir le même jour) signalé');
   assert(v.some((a) => a.why === 'note : soirs d’abord' && a.start === '10:00'), 'G2 : matin donné à « Soirs d’abord » signalé');
 }
+// ---- Plancher occupé par un événement : ses N remplacent le personnel habituel de ce poste sur ce plancher (Serveur, Barman, Commis) ----
+{
+  const emps = Array.from({ length: 16 }, (x, i) => 10 + i);
+  const run = (events, counts) => generateSchedule({
+    weekStart: W, positions: [{ id: 1, fillOrder: 0 }, { id: 3, fillOrder: 1 }],
+    employees: emps.map((id) => ({ id })),
+    qualifications: emps.map((id) => ({ employeeId: id, positionId: id < 24 ? 1 : 3, rank: 1 })),
+    availabilities: allDay(emps, D),
+    needs: [{ positionId: 1, weekday: 4, start: '16:00', end: '23:00', count: 7 }],
+    floorCounts: counts || [{ floorId: 5, positionId: 1, weekday: 4, service: 'soir', count: 4 }, { floorId: 5, positionId: 3, weekday: 4, service: 'soir', count: 2 }],
+    floorPositions: [1],
+    events,
+  });
+  const ln = (pid, count) => ({ positionId: pid, start: '16:00', end: '23:00', count });
+  const srv = (r) => find(r, 1, D[4], '16:00').length;
+  r = run([{ id: 70, day: D[4], service: 'soir', floorId: 5, needs: [ln(1, 4)] }]);
+  assert(srv(r) === 7, 'plancher : 4 serveurs sur un plancher de 4 habituels = remplacement complet (7, et non 11)');
+  r = run([{ id: 71, day: D[4], service: 'soir', floorId: 5, needs: [ln(1, 6)] }]);
+  assert(srv(r) === 9, 'plancher : remplacement partiel (6 − 4 = +2)');
+  r = run([{ id: 72, day: D[4], service: 'soir', floorId: 5, needs: [ln(1, 3)] }], []);
+  assert(srv(r) === 10, 'plancher à 0 (aucun habituel) : les 3 s’ajoutent');
+  r = run([{ id: 73, day: D[4], service: 'soir', floorId: 5, needs: [ln(1, 3)] }, { id: 74, day: D[4], service: 'soir', floorId: 5, needs: [ln(1, 3)] }]);
+  assert(srv(r) === 9, 'plancher : deux événements sur le même plancher ne le déduisent qu’une fois (3 + 3 − 4 = +2)');
+  r = run([{ id: 75, day: D[4], service: 'soir', floorId: 5, needs: [ln(3, 2)] }]);
+  assert(find(r, 3, D[4], '16:00').length === 2, 'poste hors planchers (Hôte) : N s’ajoute toujours');
+  r = run([{ id: 76, day: D[4], service: 'soir', needs: [ln(1, 4)] }]);
+  assert(srv(r) === 11, 'sans plancher : N s’ajoute');
+}
 // ---- Heures de fin des services (28 oct. 2026) : matin 17:00, soir 23:00, vendredi minuit ; valeur du compte prise en compte ----
 {
   const { range, defaultServiceEnd } = require('../server/lib/horaire-generation');

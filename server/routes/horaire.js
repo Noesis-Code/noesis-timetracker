@@ -316,7 +316,7 @@ function eventInput(req, res, body, partial, current) {
   // Jamais dans le passé (jour civil de Montréal) : un événement passé est supprimé (conservation minimale).
   if (day < h.montrealToday()) { bad(res, 'Date passée : un événement se crée aujourd’hui ou plus tard.'); return null; }
   // Événement d'un service (28 oct. 2026) : { day, service, covers?, lines: [{ positionId, count 1..50 }] } ; plusieurs par service.
-  if (body.lines !== undefined || body.covers !== undefined || (current && current.service && body.extra === undefined)) {
+  if (body.lines !== undefined || body.covers !== undefined || body.name !== undefined || body.floorId !== undefined || (current && current.service && body.extra === undefined)) {
     const service = body.service !== undefined ? body.service : current && current.service;
     if (service !== 'matin' && service !== 'soir') { bad(res, 'Service invalide (matin ou soir).'); return null; }
     const covers = body.covers !== undefined ? body.covers : (current ? current.covers : null);
@@ -327,7 +327,15 @@ function eventInput(req, res, body, partial, current) {
       if (!l || !h.ownPosition(req.userId, l.positionId)) { notFound(res, 'Poste'); return null; }
       if (!(Number.isInteger(l.count) && l.count >= 1 && l.count <= 50)) { bad(res, 'Nombre invalide (1 à 50).'); return null; }
     }
-    return { serviceEvent: true, day, service, covers, lines: lines.map((l) => ({ positionId: Number(l.positionId), count: l.count })) };
+    // Nom (80 caractères au plus ; vide = inchangé) et plancher occupé (un plancher du compte, ou null = « Aucun »).
+    let name;
+    if (body.name !== undefined) { name = h.cleanName(String(body.name || ''), 80); if (!name) name = undefined; }
+    let floorId;
+    if (body.floorId !== undefined) {
+      if (body.floorId !== null && !h.ownFloor(req.userId, body.floorId)) { notFound(res, 'Plancher'); return null; }
+      floorId = body.floorId === null ? null : Number(body.floorId);
+    }
+    return { serviceEvent: true, day, service, covers, name, floorId, lines: lines.map((l) => ({ positionId: Number(l.positionId), count: l.count })) };
   }
   // Groupe (28 oct. 2026, ancienne forme) : { day, service: 'matin' | 'soir', extra: 1..50 } ; libellé « Groupe », aucun besoin propre.
   if (body.service !== undefined || body.extra !== undefined) {

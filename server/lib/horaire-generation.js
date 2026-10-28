@@ -65,6 +65,25 @@ const serviceOf = (start) => (toMin(start) >= EVENING_FROM ? 'soir' : 'matin');
 function defaultServiceEnd(weekday, service) { return service === 'matin' ? '17:00' : (Number(weekday) === 4 ? '00:00' : '23:00'); }
 // opts.serviceEnds (objet, même vide) : chaque quart finit à la fin de son service ce jour-là (valeur du compte, sinon le défaut) ;
 // sans opts.serviceEnds (tests anciens) : la fin écrite dans le besoin.
+// Plancher occupé par un événement (28 oct. 2026, demande d'Émilien) : pour un poste Serveur, Barman ou Commis (opts.floorPositions),
+// le personnel EN PLUS = max(0, N de l'événement − nombre habituel de ce poste sur ce plancher, ce jour et ce service, opts.floorCounts).
+// Deux événements du même service sur le même plancher ne le déduisent qu'une fois (les premiers, par id, consomment l'habituel).
+// Autres postes, ou sans plancher : N s'ajoute.
+function floorExtra(lines, weekday, opts) {
+  const counts = (opts && opts.floorCounts) || [];
+  const fp = new Set(((opts && opts.floorPositions) || []).map(Number));
+  const left = new Map();
+  return lines.map((l) => {
+    const floor = l.g.floorId != null ? Number(l.g.floorId) : null;
+    if (floor == null || l.pid == null || !fp.has(l.pid)) return l;
+    const key = floor + '|' + l.pid + '|' + l.g.service;
+    const usual = counts.find((c) => Number(c.floorId) === floor && Number(c.positionId) === l.pid && Number(c.weekday) === weekday && c.service === l.g.service);
+    const rem = left.has(key) ? left.get(key) : (usual ? Number(usual.count) || 0 : 0);
+    const take = Math.min(rem, l.count);
+    left.set(key, rem - take);
+    return Object.assign({}, l, { count: l.count - take, replaced: take });
+  });
+}
 function buildSlots(weekStart, needs, events, mainPositionId, opts) {
   const ends = opts && opts.serviceEnds;
   const endOf = (pid, weekday, start, fallback) => (ends ? (ends[pid + '|' + weekday + '|' + serviceOf(start)] || defaultServiceEnd(weekday, serviceOf(start))) : fallback);
@@ -78,8 +97,9 @@ function buildSlots(weekStart, needs, events, mainPositionId, opts) {
     // Événement d'un service (plusieurs par service possibles, tous additionnés) : ses lignes « poste · +N » (besoins de l'événement) ;
     // ancien groupe sans ligne : une seule ligne (positionId, extra).
     const base = source.slice();
-    const lines = dayEvents.filter((e) => e.service).flatMap((g) => ((g.needs && g.needs.length) ? g.needs : (Number(g.extra) > 0 ? [{ positionId: g.positionId, count: g.extra }] : []))
+    const lines0 = dayEvents.filter((e) => e.service).sort((a, b) => a.id - b.id).flatMap((g) => ((g.needs && g.needs.length) ? g.needs : (Number(g.extra) > 0 ? [{ positionId: g.positionId, count: g.extra }] : []))
       .map((l) => ({ g, pid: l.positionId == null ? null : Number(l.positionId), count: Number(l.count) })));
+    const lines = floorExtra(lines0, weekday, opts);
     for (const { g, pid, count } of lines) {
       if (!(count > 0)) continue;
       // Ligne d'un poste : la première arrivée de ce poste dans le service ; ancien groupe (sans poste) : tous postes confondus.
@@ -161,7 +181,7 @@ function generateSchedule(input) {
   // congés : jour entier, l'employé est indisponible ce jour-là
   const off = new Set((input.timeoff || []).map((t) => t.employeeId + '|' + t.day));
 
-  const slots = buildSlots(input.weekStart, input.needs, input.events, positions.length ? positions[0].id : null, { serviceEnds: input.serviceEnds });
+  const slots = buildSlots(input.weekStart, input.needs, input.events, positions.length ? positions[0].id : null, { serviceEnds: input.serviceEnds, floorCounts: input.floorCounts, floorPositions: input.floorPositions });
   const posRank = new Map(positions.map((p, i) => [p.id, i]));
   // Ordre de traitement : poste (ordre de comblement), puis criticité décroissante, puis jour et heure.
   const ordered = slots.filter((s) => posRank.has(s.positionId)).sort((a, b) =>
@@ -356,4 +376,4 @@ function generateSchedule(input) {
   return { assignments, alerts, rotation, reasonsFor };
 }
 
-module.exports = { defaultServiceEnd, generateSchedule, buildSlots, criticality, toMin, range, addDays, weekDays, WEEKEND, EVENING_FROM };
+module.exports = { floorExtra, defaultServiceEnd, generateSchedule, buildSlots, criticality, toMin, range, addDays, weekDays, WEEKEND, EVENING_FROM };

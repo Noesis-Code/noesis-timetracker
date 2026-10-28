@@ -77,6 +77,11 @@
 .horaireCalPill { padding: 2px 8px; border-radius: 999px; background: rgba(var(--purple-rgb), .18); font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .horaireCalYear { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .horaireCalMonth { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 0; border-radius: var(--radius-md); font: inherit; color: var(--text); text-align: left; cursor: pointer; }
+/* Carte d'événement : nom modifiable, plancher occupé (menu uni) */
+.horaireEvName { min-width: 0; flex: 1; min-height: 24px; border-radius: var(--radius-sm); }
+.horaireEvName .horaireSheetInput { width: 100%; }
+.horaireEvFloor { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-light); }
+#tab-horaire .horaireEvFloor select.horaireInput { min-height: 36px; padding: 4px; }
 .horaireCalMonth.past { opacity: .5; cursor: default; }
 .horaireCalMonthName { font-size: 13px; font-weight: 600; }
 .horaireCalMini .horaireCalHead { padding: 2px; font-size: 13px; }
