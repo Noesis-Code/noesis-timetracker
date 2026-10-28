@@ -715,7 +715,8 @@
   // est soulignée en violet clair et rien n'est enregistré ; nom vidé = retirer l'employé (confirmation). La note est une seule case de texte :
   // la génération y reconnaît « jamais de double », « repos après un quart », « pas de matin », « pas de soir », « soirs d'abord »,
   // « matins d'abord » ; le reste part dans le prompt et dans « À vérifier ». Le ≡ fait glisser un nom d'un tableau à l'autre (TMT.ui.groupDrag).
-  var HOURS = [['wantHoursMin', 'Heures min'], ['wantHoursMax', 'Heures max'], ['wantHoursTarget', 'Cible']];
+  // G5 : colonnes Nom | Heures min | Heures cible | Heures max | Note.
+  var HOURS = [['wantHoursMin', 'Heures min'], ['wantHoursTarget', 'Heures cible'], ['wantHoursMax', 'Heures max']];
   // Catégorie d'un employé = son rang au poste choisi (null s'il n'a pas ce poste).
   function bestRank(id) {
     var q = S.quals.find(function (x) { return x.employeeId === id && x.positionId === posId(); });
@@ -888,7 +889,12 @@
       var frame = el('div', 'horaireFrame cmpGlass');
       var sheet = el('div', 'horaireSheet horaireSheetGroup'); sheet.dataset.rank = rank == null ? '' : String(rank);
       var head = sheetRow('horaireSheetHead');
-      ['', 'Nom'].concat(HOURS.map(function (h) { return h[1]; }), ['Note', '']).forEach(function (t, i) { head.appendChild(el('span', 'horaireSheetCell' + (i > 1 && i < 5 ? ' horaireSheetNum' : ''), tr(t))); });
+      ['', 'Nom'].concat(HOURS.map(function (h) { return h[1]; }), ['Note', '']).forEach(function (t, i) {
+        var hc = el('span', 'horaireSheetCell' + (i > 1 && i < 5 ? ' horaireSheetNum' : ''), tr(t));
+        // Sous « Note » (premier tableau seulement) : les expressions que la génération reconnaît, en petite ligne grise.
+        if (t === 'Note' && rank === ranks[0]) { hc.classList.add('horaireNoteHead'); hc.appendChild(el('span', 'horaireNoteHint', tr('Reconnu : jamais de double, repos après un quart, pas de matin, pas de soir, soirs d’abord, matins d’abord.'))); }
+        head.appendChild(hc);
+      });
       sheet.appendChild(head);
       catEmployees(emps, rank).forEach(function (e) {
         var row = sheetRow('horaireSheetEmp'); row.dataset.employeeId = String(e.id);
