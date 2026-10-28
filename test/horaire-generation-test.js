@@ -304,6 +304,19 @@ const evenings = (n) => Array.from({ length: n }, (_, wd) => ({ positionId: 1, w
   r = run([{ id: 76, day: D[4], service: 'soir', needs: [ln(1, 4)] }]);
   assert(srv(r) === 11, 'sans plancher : N s’ajoute');
 }
+// ---- Règle d'Émilien (29 oct. 2026) : catégorie 1 au max puis les autres à leur demande, puis la catégorie 1 au-delà du max jusqu'à sa cible ----
+{
+  // 10 matins de 5 h (lundi à vendredi, 2 par jour). A (cat. 1) : max 20 h, cible 30 h. B (cat. 2) : cible 20 h, max 20 h.
+  const needs = [0, 1, 2, 3, 4].map((wd) => ({ positionId: 1, weekday: wd, start: '10:00', end: '15:00', count: 2 }));
+  const base = (n) => one([{ id: 10, maxWeekMinutes: null, wantHoursMin: 0, wantHoursTarget: 30, wantHoursMax: 20 },
+    { id: 11, maxWeekMinutes: null, wantHoursMin: 0, wantHoursTarget: 20, wantHoursMax: 20, rank: 2 }], { needs: n });
+  r = generateSchedule(base(needs));
+  const h = (id) => r.assignments.filter((a) => a.employeeId === id).length * 5;
+  assert(h(10) === 25 && h(11) === 20, 'exemple d’Émilien : A reçoit ses 20 h, B ses 20 h, puis A dépasse son max avec ce qui reste (25 h ≤ cible 30 h)');
+  // Moins de quarts : pas de trou après P3 -> aucun dépassement
+  r = generateSchedule(base(needs.slice(0, 4))); // 8 quarts = 40 h : A 20 h + B 20 h, tout est comblé
+  assert(r.assignments.filter((a) => a.employeeId === 10).length * 5 <= 20 && !r.alerts.some((a) => a.type === 'depassement'), 'passe 4 seulement s’il reste des trous : aucun dépassement quand tout est comblé');
+}
 // ---- Heures de fin des services (28 oct. 2026) : matin 17:00, soir 23:00, vendredi minuit ; valeur du compte prise en compte ----
 {
   const { range, defaultServiceEnd } = require('../server/lib/horaire-generation');
@@ -322,7 +335,11 @@ const evenings = (n) => Array.from({ length: n }, (_, wd) => ({ positionId: 1, w
 {
   const six = [0, 1, 2, 3, 4, 5].map((wd) => ({ positionId: 1, weekday: wd, start: '09:00', end: '15:00', count: 1 }));
   r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMin: 0, wantHoursTarget: 40, wantHoursMax: 18 }], { needs: six }));
-  assert(r.assignments.filter((a) => a.employeeId === 10).length === 3, 'cible (40 h) au-dessus du max (18 h) : jamais plus que le max');
+  assert(r.assignments.filter((a) => a.employeeId === 10).length === 6 && r.alerts.some((a) => a.type === 'depassement' && a.employeeId === 10 && a.minutes === 36 * 60), 'cible (40 h) au-dessus du max (18 h), trous restants : passe 4 au-delà du max jusqu’à la cible, signalé « dépasse son max »');
+  r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMin: 0, wantHoursTarget: 18, wantHoursMax: 18 }], { needs: six }));
+  assert(r.assignments.filter((a) => a.employeeId === 10).length === 3 && !r.alerts.some((a) => a.type === 'depassement'), 'cible égale au max : aucun dépassement (max strict)');
+  r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMin: 0, wantHoursMax: 18 }], { needs: six }));
+  assert(r.assignments.filter((a) => a.employeeId === 10).length === 3, 'cible absente : max strict');
   r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, wantHoursMin: 18, wantHoursTarget: 6, wantHoursMax: 36 },
     { id: 11, maxWeekMinutes: null, wantHoursMin: 0, wantHoursTarget: 36, wantHoursMax: 36, rank: 2 }], { needs: six }));
   assert(r.assignments.filter((a) => a.employeeId === 10).length === 3, 'cible (6 h) sous le min (18 h) : le min s’applique');

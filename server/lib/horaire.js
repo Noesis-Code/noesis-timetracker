@@ -224,7 +224,7 @@ const DEFAULT_RESTAURANT_RULES = [
   'Jamais sur un service où l’employé est indisponible.', 'Jamais plus que son maximum d’heures.',
   'Les notes des employés priment sur toutes les règles.', 'Exactement le nombre demandé à chaque heure d’arrivée.',
   'Le plus de soirs à la catégorie 1, puis 2, 3 et 4.', 'Éviter les doubles (matin et soir le même jour).', 'Éviter fermeture puis ouverture le lendemain.',
-  'Au-delà de sa cible, jusqu’à son maximum, catégorie 1 d’abord.', 'En dernier recours, proposer un employé indisponible à qui demander.',
+  'Au-delà de son maximum, seulement jusqu’à sa cible, s’il reste des quarts, catégorie 1 d’abord.', 'En dernier recours, proposer un employé indisponible à qui demander.',
 ];
 // Arrivées du soir (28 oct. 2026, demande d'Émilien) : appliquées par la génération aux postes de leur portée (Serveur par défaut).
 const ARRIVAL_RULES = [

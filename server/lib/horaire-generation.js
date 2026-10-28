@@ -207,7 +207,15 @@ function generateSchedule(input) {
     const min = has(e.wantHoursMin) ? mins(e.wantHoursMin) : 0;
     if (phase === 'min') return Math.min(min, max);
     if (phase === 'target') return Math.min(max, Math.max(min, has(e.wantHoursTarget) ? mins(e.wantHoursTarget) : max));
+    if (phase === 'over') return hardCap(e);
     return max;
+  }
+  // Plafond absolu (29 oct. 2026, règle d'Émilien) : le max, sauf si la cible le dépasse : alors la cible (passe 4 seulement, s'il reste
+  // des trous). Cible absente, inférieure ou égale au max : le max reste strict.
+  function hardCap(e) {
+    const max = active('r2') && has(e.wantHoursMax) ? mins(e.wantHoursMax) : Infinity;
+    const tg = has(e.wantHoursTarget) ? mins(e.wantHoursTarget) : null;
+    return tg != null && tg > max ? tg : max;
   }
   // level : 0 = tout respecté ; 1 = préférences assouplies.
   // ignoreAvail : candidats « à demander » (règle 9) — seules les disponibilités sont ignorées ; congé, max et règles strictes restent.
@@ -227,7 +235,7 @@ function generateSchedule(input) {
     if (((e.noDouble && active('r3')) || rule(empId, 'noDouble')) && double) return false;
     // Heures : le max n'est jamais dépassé ; passe « min » tant que le min n'est pas atteint ; passes « cible » et « max » sans dépasser leur plafond.
     const done = minutesOf.get(empId);
-    if (done + slot.minutes > capOf(e, 'max')) return false;
+    if (done + slot.minutes > capOf(e, phase === 'over' ? 'over' : 'max')) return false;
     if (phase === 'min' ? done >= capOf(e, 'min') : done + slot.minutes > capOf(e, phase)) return false;
     // préférence de catégorie : « Soirs d'abord » évite les matins, « Matins d'abord » évite les soirs (assoupli dès la 2e passe)
     if (level < 1 && rule(empId, evening(slot) ? 'morningsFirst' : 'eveningsFirst')) return false;
@@ -280,7 +288,9 @@ function generateSchedule(input) {
   // Rien n'est généré : les quarts sont posés tels quels, les trous sont les besoins restés sans quart (même poste, jour et heure
   // d'arrivée), puis les alertes sont recalculées comme après une génération.
   const fixed = Array.isArray(input.fixed) ? input.fixed : null;
-  const PASSES = fixed ? [] : [['min', levels], ['target', levels], ['max', levels]];
+  // P1 min ; P2 jusqu'à min(cible, max) ; P3 jusqu'au max ; P4 (29 oct. 2026) : seulement s'il reste des trous, ceux dont la cible dépasse
+  // le max montent au-delà du max jusqu'à leur cible (catégorie 1 d'abord, comme chaque passe).
+  const PASSES = fixed ? [] : [['min', levels], ['target', levels], ['max', levels], ['over', levels]];
   if (fixed) {
     const open = holes.slice();
     for (const a of fixed) {
@@ -336,7 +346,9 @@ function generateSchedule(input) {
     if (rule(empId, strict)) out.push('note : ' + NOTE_LABEL[strict]);
     if ((e.restAfterShift || rule(empId, 'restAfterShift')) && (before.length || after.length)) out.push('repos');
     if (same.some((s) => evening(s) !== evening(slot))) out.push('double');
-    if (minutesOf.get(empId) - (self ? self.minutes : 0) + slot.minutes > capOf(e, 'max')) out.push('au max');
+    const total = minutesOf.get(empId) - (self ? self.minutes : 0) + slot.minutes;
+    if (total > hardCap(e)) out.push('au max');
+    else if (total > capOf(e, 'max')) out.push('au-delà du max'); // cible au-dessus du max : possible, mais signalé
     const pref = evening(slot) ? 'morningsFirst' : 'eveningsFirst';
     if (rule(empId, pref)) out.push('note : ' + NOTE_LABEL[pref]);
     return out;
@@ -364,6 +376,7 @@ function generateSchedule(input) {
       for (const why of reasons(empId, s, s)) {
         if (SKIP.has(why) || why.startsWith('note : ') && SKIP.has(why.replace(/^note : /, ''))) continue;
         if (why === 'indisponible') once(empId + '|ask|' + s.day + '|' + s.start, { type: 'demander', employeeId: empId, day: s.day, start: s.start });
+        else if (why === 'au-delà du max') once(empId + '|over', { type: 'depassement', employeeId: empId, minutes: minutesOf.get(empId), wantHoursMax: empById.get(empId).wantHoursMax, wantHoursTarget: empById.get(empId).wantHoursTarget });
         else if (why === 'au max') once(empId + '|max', { type: 'maximum', employeeId: empId, minutes: minutesOf.get(empId), wantHoursMax: empById.get(empId).wantHoursMax });
         else if (why === 'repos' || why === 'déjà placé' || why === 'double') once(empId + '|' + why + '|' + s.day, { type: 'verifier', employeeId: empId, day: s.day, start: why === 'double' ? null : s.start, why });
         else once(empId + '|' + why + '|' + s.day + '|' + s.start, { type: 'verifier', employeeId: empId, day: s.day, start: s.start, why });
