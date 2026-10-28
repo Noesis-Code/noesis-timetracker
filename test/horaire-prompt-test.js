@@ -200,14 +200,18 @@ function call(method, path, body, user) {
     }
   }
   r = await call('GET', 'import-prompt?week=2026-11-02', undefined, 'uB');
-  assert(r.text.includes('pour la semaine du lundi 2 novembre au dimanche 8 novembre 2026') && !r.text.includes('lundi suivant'), 'prompt de récupération : dates de la semaine affichée');
+  assert(r.text.startsWith('SEMAINE À LIRE : du lundi 2 novembre au dimanche 8 novembre 2026.') && r.text.includes('pour la semaine indiquée en tête de ce message') && !r.text.includes('lundi suivant'), 'prompt de récupération : semaine affichée en tête, plus de « lundi suivant »');
+  await call('PUT', 'prompts', { importPrompt: "Lis les dispos pour la semaine qui commence le lundi suivant la date d'aujourd'hui (si aujourd'hui est lundi, prends le lundi suivant)." }, 'uA');
+  r = await call('GET', 'import-prompt?week=2026-11-02', undefined, 'uA');
+  const ed = (await call('GET', 'prompts', undefined, 'uA')).body.importPrompt.text;
+  assert(r.text.startsWith('SEMAINE À LIRE : du lundi 2 novembre') && !r.text.includes('lundi suivant') && !ed.includes('lundi suivant') && ed.includes('indiquée en tête'), 'ancien texte personnalisé : ancienne tournure remplacée à la lecture');
   assert(require('../server/lib/horaire-prompt').importPromptFor('2026-10-26').includes('du lundi 26 octobre au dimanche 1er novembre 2026'), 'prompt de récupération : « 1er »');
   await call('PUT', 'prompts', { importPrompt: 'Lis mes dispos, merci.' }, 'uA');
   r = await call('GET', 'import-prompt?week=2026-11-02', undefined, 'uA');
   assert(r.text === 'SEMAINE À LIRE : du lundi 2 novembre au dimanche 8 novembre 2026.\n\nLis mes dispos, merci.', 'prompt de récupération modifié : texte du gérant, dates de la semaine toujours en tête');
   await call('PUT', 'prompts', { importPrompt: null }, 'uA');
   r = await call('GET', 'import-prompt?week=2026-11-02', undefined, 'uA');
-  assert(r.text.startsWith(P.IMPORT_PROMPT.slice(0, 40)) && r.text.includes('du lundi 2 novembre au dimanche 8 novembre 2026'), 'retour à la version de base : texte d’origine, dates présentes');
+  assert(r.text.includes(P.IMPORT_PROMPT.slice(0, 40)) && r.text.includes('du lundi 2 novembre au dimanche 8 novembre 2026'), 'retour à la version de base : texte d’origine, dates présentes');
   r = await call('GET', 'prompts', undefined, 'uB');
   assert(r.body.importPrompt.isDefault && r.body.entryPrompt.isDefault && (await call('GET', 'import-prompt', undefined, 'uB')).text === P.IMPORT_PROMPT, 'autre compte : garde les versions de base');
   assert((await call('PUT', 'prompts', { entryPrompt: 'x'.repeat(8001) }, 'uA')).status === 400, 'PUT prompts : plus de 8 000 caractères refusé');

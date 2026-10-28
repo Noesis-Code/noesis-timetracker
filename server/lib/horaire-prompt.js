@@ -20,7 +20,7 @@ const service = (start) => (gen.toMin(start) >= EVENING_FROM ? 'soir' : 'matin')
 // congés de la semaine dans le logiciel d'horaire et rend un bloc CSV à copier-coller (nom;jour;début;fin;type) importé par importAvailabilitiesCsv
 // (server/lib/horaire.js). Aucune donnée du personnel. Servi tel quel par GET /api/horaire/import-prompt.
 const IMPORT_PROMPT = [
-  "Tu aides le gestionnaire d'un restaurant. Ta seule mission : lire dans le logiciel d'horaire du restaurant les disponibilités et les congés du personnel pour la semaine qui commence le lundi suivant la date d'aujourd'hui (si aujourd'hui est lundi, prends le lundi suivant), puis me rendre un seul bloc de texte que je copie d'un clic et que je colle dans mon application. Tu ne modifies rien dans ce logiciel.",
+  "Tu aides le gestionnaire d'un restaurant. Ta seule mission : lire dans le logiciel d'horaire du restaurant les disponibilités et les congés du personnel pour la semaine indiquée en tête de ce message, puis me rendre un seul bloc de texte que je copie d'un clic et que je colle dans mon application. Tu ne modifies rien dans ce logiciel.",
   "",
   "ACCÈS",
   "1. Si tu peux naviguer toi-même : ouvre le logiciel d'horaire. À l'écran de connexion, arrête-toi et laisse-moi prendre la main ; je tape moi-même mon identifiant et mon mot de passe. Ne les lis pas, ne les écris nulle part.",
@@ -260,16 +260,15 @@ function frDate(iso, withYear) {
 }
 // custom : texte personnalisé du gérant (sinon la version de base). Les dates de la semaine sont toujours ajoutées EN TÊTE par l'app,
 // hors du texte modifiable : le gérant ne peut pas les casser.
+// Ancienne tournure (avant le 28 oct. 2026) : remplacée à la lecture dans un texte personnalisé déjà enregistré.
+const OLD_WEEK = "pour la semaine qui commence le lundi suivant la date d'aujourd'hui (si aujourd'hui est lundi, prends le lundi suivant)";
+const NEW_WEEK = 'pour la semaine indiquée en tête de ce message';
+function modernWeek(text) { return String(text || '').split(OLD_WEEK).join(NEW_WEEK); }
 function importPromptFor(weekStart, custom) {
-  if (custom) {
-    if (!weekStart) return custom;
-    const sun = gen.addDays(weekStart, 6);
-    return 'SEMAINE À LIRE : du lundi ' + frDate(weekStart, weekStart.slice(0, 4) !== sun.slice(0, 4)) + ' au dimanche ' + frDate(sun, true) + '.\n\n' + custom;
-  }
-  if (!weekStart) return IMPORT_PROMPT;
-  const sunday = gen.addDays(weekStart, 6);
-  const span = 'pour la semaine du lundi ' + frDate(weekStart, weekStart.slice(0, 4) !== sunday.slice(0, 4)) + ' au dimanche ' + frDate(sunday, true);
-  return IMPORT_PROMPT.replace("pour la semaine qui commence le lundi suivant la date d'aujourd'hui (si aujourd'hui est lundi, prends le lundi suivant)", span);
+  const text = custom ? modernWeek(custom) : IMPORT_PROMPT;
+  if (!weekStart) return text;
+  const sun = gen.addDays(weekStart, 6);
+  return 'SEMAINE À LIRE : du lundi ' + frDate(weekStart, weekStart.slice(0, 4) !== sun.slice(0, 4)) + ' au dimanche ' + frDate(sun, true) + '.\n\n' + text;
 }
 
 // Prompt des ÉVÉNEMENTS (28 oct. 2026, demande d'Émilien) : réservations de GROUPE de la semaine, lues dans le logiciel de réservation
@@ -307,4 +306,4 @@ function eventsPromptFor(weekStart, custom) {
   return 'SEMAINE À LIRE : du lundi ' + frDate(weekStart, weekStart.slice(0, 4) !== sun.slice(0, 4)) + ' au dimanche ' + frDate(sun, true) + '.\n\n' + text;
 }
 
-module.exports = { eventsPromptFor, EVENTS_PROMPT, importPromptFor, frDate, buildPrompt, buildRegistrationPrompt, IMPORT_PROMPT, ENTRY_PROMPT };
+module.exports = { modernWeek, eventsPromptFor, EVENTS_PROMPT, importPromptFor, frDate, buildPrompt, buildRegistrationPrompt, IMPORT_PROMPT, ENTRY_PROMPT };
