@@ -114,7 +114,7 @@
   // Deux catégories (grands boutons .cmpSeg, R42) et leurs sous-catégories (texte simple souligné, .cmpSubTabs) : demande d'Émilien,
   // 28 oct. 2026. Pages à plat : 0-2 = Paramètres, 3-5 = Création des horaires.
   var CATS = [['Paramètres', ['Employés', 'Événements', 'Général']], ['Création des horaires', ['Récupération', 'Horaire', 'Envoi']]];
-  var bFloors, floorsBox, groupMinInput, inboundLine, eventsBox, promptBoxes = {}, evReport, ratioInput, catsMsg, pasteArea, weekLabel, weekNav, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
+  var bFloors, floorsBox, inboundLine, eventsBox, promptBoxes = {}, evReport, catsMsg, pasteArea, weekLabel, weekNav, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
   var pagesHost, pages = [], catBtns = [], subTabs, dots, dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
@@ -164,27 +164,18 @@
     var pGen = el('div', 'horairePage');
     [posPicker(), bNeeds, bFloors, bRules].forEach(function (n) { pGen.appendChild(n); });
 
-    // Page 2 : Événements (réservations de groupe de la semaine) : ratio « 1 serveur de plus pour [20] couverts », prompt des
-    // événements (même rangée et même zone de collage que la Récupération), compte rendu, puis le tableau « Événements de la semaine ».
+    // Paramètres > Événements : le calendrier des événements seul (demande d'Émilien, 28 oct. 2026). La récupération des événements
+    // (prompt, collage, compte rendu) est dans Création des horaires > Récupération ; les réglages « 1 serveur de plus pour N couverts » et
+    // « Groupe à partir de N couverts » ne s'affichent plus (valeurs enregistrées, 20 et 10 par défaut, toujours utilisées à l'import).
     var pEv = el('div', 'horairePage');
-    var ratio = el('p', 'horaireRatio');
-    ratioInput = el('input', 'horaireInput horaireRatioInput'); ratioInput.type = 'number'; ratioInput.min = '1'; ratioInput.max = '1000'; ratioInput.inputMode = 'numeric';
-    ratioInput.setAttribute('aria-label', tr('Couverts par serveur de plus'));
-    ratioInput.addEventListener('change', saveRatio);
-    ratio.appendChild(el('span', null, tr('1 serveur de plus pour'))); ratio.appendChild(ratioInput); ratio.appendChild(el('span', null, tr('couverts')));
     var evPanel = promptPanel({ key: 'eventsPrompt', copyLabel: 'Copier le prompt des événements', copyUrl: function () { return 'events-prompt?week=' + S.week; },
       areaLabel: 'Coller les événements', send: sendEvents });
     evReport = el('p', 'horaireStatus hidden');
     var bEvents = block('Calendrier des événements');
     eventsBox = el('div', 'horaireCalBox'); bEvents.appendChild(eventsBox);
-    // Seuil d'un groupe (réception automatique) : « Groupe à partir de [10] couverts » ; ligne grise de la réception automatique.
-    var gmin = el('p', 'horaireRatio');
-    groupMinInput = el('input', 'horaireInput horaireRatioInput'); groupMinInput.type = 'number'; groupMinInput.min = '1'; groupMinInput.max = '500'; groupMinInput.inputMode = 'numeric';
-    groupMinInput.setAttribute('aria-label', tr('Couverts minimum d’un groupe'));
-    groupMinInput.addEventListener('change', saveGroupMin);
-    gmin.appendChild(el('span', null, tr('Groupe à partir de'))); gmin.appendChild(groupMinInput); gmin.appendChild(el('span', null, tr('couverts')));
-    inboundLine = el('div', 'horaireInbound');
-    [ratio, gmin, inboundLine, evPanel.row, evPanel.box, evPanel.paste, evReport, bEvents].forEach(function (n) { pEv.appendChild(n); });
+    // Ligne grise de la réception automatique : seulement si elle est configurée (HORAIRE_INBOUND_DOMAIN côté serveur).
+    inboundLine = el('div', 'horaireInbound hidden');
+    pEv.appendChild(bEvents);
 
     // Page 3 : Récupération (zone de collage toujours visible, envoi dans la zone, R13)
     var p2 = el('div', 'horairePage');
@@ -193,6 +184,10 @@
     pasteArea = avPanel.area;
     statusLine = el('p', 'horaireStatus');
     p2.appendChild(avPanel.row); p2.appendChild(avPanel.box); p2.appendChild(avPanel.paste); p2.appendChild(statusLine);
+    // Seconde section « Événements » : prompt des événements (50/50), zone de collage, compte rendu, réception automatique.
+    var bEvGet = block('Événements');
+    [evPanel.row, evPanel.box, evPanel.paste, evReport, inboundLine].forEach(function (n) { bEvGet.appendChild(n); });
+    p2.appendChild(bEvGet);
 
     // Page 3 : Horaire
     var p3 = el('div', 'horairePage');
@@ -351,9 +346,9 @@
   // côté serveur : « bientôt disponible ».
   function renderInbound() {
     var i = S.inbound || {};
-    if (document.activeElement !== groupMinInput) groupMinInput.value = String(i.groupMin || 10);
     inboundLine.textContent = '';
-    if (!i.address) { inboundLine.appendChild(el('span', 'horaireMuted', tr('Réception automatique : bientôt disponible.'))); return; }
+    inboundLine.classList.toggle('hidden', !i.address);
+    if (!i.address) return; // réception non configurée : rien ne s'affiche
     var d = i.lastAt ? new Date(i.lastAt) : null;
     inboundLine.appendChild(el('span', 'horaireMuted horaireInboundText', tr('Réception automatique :') + ' ' + i.address
       + (d ? ' · ' + tr('dernier rapport le') + ' ' + dnum(d.getDate()) + ' ' + tr(MONTHS_LONG[d.getMonth()]) : '')));
@@ -361,19 +356,6 @@
       var cb = navigator.clipboard;
       (cb && cb.writeText ? cb.writeText(i.address) : Promise.reject()).then(function () { S.msg = tr('Adresse copiée.'); renderMsg(); }, function () { S.msg = tr('Copie impossible.'); renderMsg(); });
     }));
-  }
-  function saveGroupMin() {
-    var n = Number(groupMinInput.value);
-    if (!(Number.isInteger(n) && n >= 1 && n <= 500)) { renderInbound(); return; }
-    req('PUT', 'inbound', { groupMin: n }).then(function (d) { S.inbound = d; renderInbound(); }, fail);
-  }
-  function renderRatio() { var p = serverPos(); if (document.activeElement !== ratioInput) ratioInput.value = String((p && p.openTableCovers) || 20); }
-  function saveRatio() {
-    var p = serverPos(), n = Number(ratioInput.value);
-    if (!p || !(Number.isInteger(n) && n >= 1 && n <= 1000)) { renderRatio(); return; }
-    if (n === (p.openTableCovers || 20)) return;
-    p.openTableCovers = n;
-    req('PUT', 'positions/' + p.id, { openTableCovers: n }).catch(function (err) { fail(err); refresh(); });
   }
   // Envoi des réservations de groupe collées : compte rendu sous la zone (« 3 groupes lus : samedi soir +2, … »).
   function sendEvents(text, area) {
@@ -462,7 +444,6 @@
     renderSummary();
     renderNeedsTable();
     renderFloors();
-    renderRatio();
     renderInbound();
     renderCats();
     renderRules();
@@ -710,7 +691,11 @@
     };
     var hasEvents = function (day) { return S.events.some(function (e) { return e.day === day && e.service; }); };
     var ymd = function (y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); };
-    var go = function (view, date) { cal.view = view; cal.date = date; S.editing = null; renderEventsTable(); };
+    // Bornes : jamais avant aujourd'hui (Jour), le mois en cours (Mois), l'année en cours (Année).
+    var today = todayIso(), monthStart = today.slice(0, 8) + '01', yearStart = today.slice(0, 5) + '01-01';
+    var floorOf = function (view) { return view === 'day' ? today : view === 'month' ? monthStart : yearStart; };
+    var go = function (view, date) { cal.view = view; cal.date = date < floorOf(view) ? (view === 'day' ? today : floorOf(view)) : date; S.editing = null; renderEventsTable(); };
+    if (cal.date < floorOf(cal.view)) cal.date = cal.view === 'day' ? today : floorOf(cal.view);
     var seg = el('div', 'cmpSeg horaireCalSeg'); seg.setAttribute('role', 'tablist');
     [['day', 'Jour'], ['month', 'Mois'], ['year', 'Année']].forEach(function (v) {
       var b = btn(cal.view === v[0] ? 'active' : '', v[1], function () { go(v[0], cal.date); });
@@ -718,9 +703,10 @@
       seg.appendChild(b);
     });
     eventsBox.appendChild(seg);
-    var nav = function (label, prev, next) {
+    var nav = function (label, prev, next, atStart) {
       var n = el('div', 'horaireWeek horaireCalNav');
       var p = btn('horaireNav', '‹', prev); p.setAttribute('aria-label', tr('Précédent'));
+      if (atStart) { p.style.visibility = 'hidden'; p.disabled = true; } // à la limite : la flèche ‹ est masquée (R37), sa place reste
       var x = btn('horaireNav', '›', next); x.setAttribute('aria-label', tr('Suivant'));
       n.appendChild(p); n.appendChild(el('span', 'horaireWeekLabel', label)); n.appendChild(x);
       return n;
@@ -745,22 +731,23 @@
     };
     if (cal.view === 'month') {
       eventsBox.appendChild(nav(tr(MONTHS_LONG[m]).replace(/^./, function (c) { return c.toUpperCase(); }) + ' ' + y,
-        function () { go('month', ymd(m ? y : y - 1, (m + 11) % 12, 1)); }, function () { go('month', ymd(m === 11 ? y + 1 : y, (m + 1) % 12, 1)); }));
+        function () { go('month', ymd(m ? y : y - 1, (m + 11) % 12, 1)); }, function () { go('month', ymd(m === 11 ? y + 1 : y, (m + 1) % 12, 1)); }, ymd(y, m, 1) <= monthStart));
       var frame = el('div', 'horaireFrame cmpGlass'); frame.appendChild(monthGrid(y, m, false)); eventsBox.appendChild(frame);
     } else if (cal.view === 'year') {
-      eventsBox.appendChild(nav(String(y), function () { go('year', ymd(y - 1, 0, 1)); }, function () { go('year', ymd(y + 1, 0, 1)); }));
+      eventsBox.appendChild(nav(String(y), function () { go('year', ymd(y - 1, 0, 1)); }, function () { go('year', ymd(y + 1, 0, 1)); }, ymd(y, 0, 1) <= yearStart));
       var yearBox = el('div', 'horaireCalYear');
       for (var mm = 0; mm < 12; mm++) {
         var mb = el('button', 'horaireCalMonth cmpGlass'); mb.type = 'button';
         mb.appendChild(el('span', 'horaireCalMonthName', tr(MONTHS_LONG[mm]).replace(/^./, function (c) { return c.toUpperCase(); })));
         mb.appendChild(monthGrid(y, mm, true));
-        mb.addEventListener('click', (function (k) { return function () { go('month', ymd(y, k, 1)); }; })(mm));
+        if (ymd(y, mm, 1) < monthStart) { mb.disabled = true; mb.classList.add('past'); } // mois passés : grisés, sans ouverture
+        else mb.addEventListener('click', (function (k) { return function () { go('month', ymd(y, k, 1)); }; })(mm));
         yearBox.appendChild(mb);
       }
       eventsBox.appendChild(yearBox);
     } else {
       var dday = cal.date;
-      eventsBox.appendChild(nav(dayLabel(dday, true), function () { go('day', addDays(dday, -1)); }, function () { go('day', addDays(dday, 1)); }));
+      eventsBox.appendChild(nav(dayLabel(dday, true), function () { go('day', addDays(dday, -1)); }, function () { go('day', addDays(dday, 1)); }, dday <= today));
       var dayBox = el('div', 'horaireCalDayView');
       [['matin', 'Matin'], ['soir', 'Soir']].forEach(function (v) {
         var col = el('div', 'horaireCalSvc horaireFrame cmpGlass');
