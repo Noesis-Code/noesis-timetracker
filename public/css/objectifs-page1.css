@@ -45,7 +45,7 @@
 .goalsCaptureActivities { gap: 8px; }
 .goalsCaptureActivityChip { gap: 12px; min-height: 44px; padding: 0; border: 0; border-radius: 12px; background: none; }
 .goalsCaptureZone {
-  flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; box-sizing: border-box; padding: 4px 16px; border-radius: 12px;
+  flex: 0 1 auto; min-width: 0; min-height: 44px; display: flex; align-items: center; box-sizing: border-box; padding: 4px 16px; border-radius: 12px;
   background: linear-gradient(145deg, color-mix(in srgb, var(--c) 84%, var(--text) 16%), var(--c));
   color: var(--text); font-size: 14px; font-weight: 600; line-height: 1.25;
 }
@@ -67,7 +67,7 @@
 /* message de discussion non lu = point rouge sur la puce. */
 .goalsCaptureUnreadDot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--unread); flex-shrink: 0; }
 
-.goalsCaptureActivityChipName { flex: 1; text-align: left; }
+.goalsCaptureActivityChipName { flex: 0 1 auto; text-align: left; }
 
 .goalsCaptureActivityPrompt.hidden { display: none; }
 
