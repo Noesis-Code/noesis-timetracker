@@ -589,38 +589,17 @@
       btn.type = 'button';
       btn.className = 'goalsCaptureActivityChip' + (isSelected ? ' selected' : '');
 
-      var dot = document.createElement('span');
-      dot.className = 'dot';
-
+      // Médaillon (28 oct. 2026, Émilien) : le nom ENTIER dans la zone de couleur de l'activité, puis le compteur du jour. Plus de point,
+      // plus de flèche ni de contour de couleur : le toucher ouvre la page de l'activité. En train d'écrire, une activité non choisie s'atténue.
+      var zone = document.createElement('span');
+      zone.className = 'goalsCaptureZone';
+      zone.style.setProperty('--c', a.color);
       var name = document.createElement('span');
       name.className = 'goalsCaptureActivityChipName';
       name.textContent = a.name;
-
-      if (goalsCaptureAwaitingActivityChoice || (typing && !isSelected)) {
-        // En train d'écrire, pas sélectionnée — inchangé : anneau creux.
-        btn.style.background = 'var(--card)';
-        btn.style.borderColor = 'var(--border)';
-        btn.style.color = 'var(--text)';
-        dot.style.background = 'var(--card)';
-        dot.style.border = '2px solid ' + a.color;
-      } else if (typing && isSelected) {
-        // En train d'écrire, sélectionnée — inchangé : contour + point
-        // pleins dans la couleur de l'activité.
-        btn.style.background = 'var(--card)';
-        btn.style.borderColor = a.color;
-        btn.style.color = 'var(--text)';
-        dot.style.background = a.color;
-        dot.style.border = 'none';
-      } else {
-        // Au repos (pas en train d'écrire) — SEUL état touché par la
-        // demande du 29 septembre : bulle neutre (base CSS), point toujours
-        // plein.
-        dot.style.background = a.color;
-        dot.style.border = 'none';
-      }
-
-      btn.appendChild(dot);
-      btn.appendChild(name);
+      zone.appendChild(name);
+      if (goalsCaptureAwaitingActivityChoice || (typing && !isSelected)) btn.classList.add('dim');
+      btn.appendChild(zone);
 
       // Badge violet « non vu » — jamais un compteur cumulatif, voir
       // server/lib/goalstasks.js#unseenCountsForActivity.

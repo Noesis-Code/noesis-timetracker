@@ -40,9 +40,14 @@
   cursor: pointer; position: relative;
 }
 
-.goalsCaptureActivityChip .dot {
-  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box;
+/* Médaillon : zone de couleur de l'activité (donnée, R16) portant le nom entier, léger dégradé. */
+.goalsCaptureActivityChip { gap: 12px; min-height: 60px; padding: 8px; border-radius: 16px; }
+.goalsCaptureZone {
+  flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; box-sizing: border-box; padding: 8px 16px; border-radius: 12px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--c) 84%, var(--text) 16%), var(--c));
+  color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.25;
 }
+.goalsCaptureActivityChip.dim .goalsCaptureZone { opacity: .45; }
 
 /* « trop de couleurs [...]
  * bulle grise avec seulement le point coloré ». ⚠️ MÊME JOUR, correction :
@@ -71,7 +76,7 @@
   font-size: 11px; font-weight: 700; line-height: 1;
 }
 
-.goalsCaptureDailyCount { font-size: 12px; font-weight: 600; color: var(--text-light); margin-left: 6px; white-space: nowrap; }
+.goalsCaptureDailyCount { font-size: 12px; font-weight: 600; color: var(--text-light); margin-left: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 .goalsCaptureBubbleWrap { display: flex; flex-direction: column; }
 
