@@ -641,7 +641,7 @@
   // Sans Expansion, le « + » ouvre l'offre si le paiement est ouvert (GET /api/offer/available) ; sinon, tant que le paiement n'est pas prêt (production), un message explique Expansion et dit « à venir ».
   $('goalsPage2AddBtn').addEventListener('click', function () {
     function soon() {
-      TMT.ui.confirm(t('Expansion — à venir. Génère automatiquement tes objectifs et tâches tous les mois en passant à Expansion. Elle n’est pas encore disponible : on te prévient dès son ouverture.'), { ok: t('Compris') });
+      TMT.ui.confirm(t('Expansion — à venir.') + ' ' + t('Génère automatiquement tes objectifs et tâches tous les mois en passant à Expansion.') + ' ' + t('Elle n’est pas encore disponible.'), { ok: t('Compris') });
     }
     TMT.api('GET', '/api/offer/available').then(function (r) {
       if (r && r.available && TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); else soon();

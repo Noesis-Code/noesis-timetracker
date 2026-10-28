@@ -1646,6 +1646,9 @@
     "Choisis un pôle ou un secteur pour chaque activité.": "Choose a division or a sector for each activity.",
     "Pôle et secteur": "Division and sector",
     // ---- Page Objectifs (gabarits) ----
+    "Expansion — à venir.": "Expansion — coming soon.",
+    "Elle n’est pas encore disponible.": "It is not available yet.",
+    "Compris": "Got it",
     "Génère automatiquement tes objectifs et tâches tous les mois en passant à Expansion.": "Automatically generate your goals and tasks every month by moving to Expansion.",
     "20 $/mois par activité · résiliable à tout moment": "$20/month per activity · cancel anytime",
     "Découvrir Expansion": "Discover Expansion",
