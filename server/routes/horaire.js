@@ -480,13 +480,6 @@ router.get('/horaire/import-prompt', (req, res) => {
   const p = h.getPrompts(req.userId).importPrompt;
   res.type('text/plain; charset=utf-8').send(require('../lib/horaire-prompt').importPromptFor(w, p.isDefault ? null : p.text));
 });
-// Prompt des événements (réservations de groupe), daté de la semaine affichée (?week=) ; texte du gérant s'il l'a modifié.
-router.get('/horaire/events-prompt', (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  const w = h.isMonday(req.query.week) ? req.query.week : null;
-  const p = h.getPrompts(req.userId).eventsPrompt;
-  res.type('text/plain; charset=utf-8').send(require('../lib/horaire-prompt').eventsPromptFor(w, p.isDefault ? null : p.text));
-});
 // Prompts modifiables par le gérant : { importPrompt: {text, isDefault}, entryPrompt: {text, isDefault} } (entryPrompt = consignes
 // seules, sans la semaine ni les quarts). PUT { importPrompt?, entryPrompt? } : null ou "" rétablit la version de base.
 router.get('/horaire/prompts', (req, res) => {
@@ -496,7 +489,7 @@ router.get('/horaire/prompts', (req, res) => {
 router.put('/horaire/prompts', (req, res) => {
   const b = req.body || {};
   const v = {};
-  for (const k of ['importPrompt', 'entryPrompt', 'eventsPrompt']) {
+  for (const k of ['importPrompt', 'entryPrompt']) {
     if (b[k] === undefined) continue;
     v[k] = h.promptText(b[k]);
     if (v[k] === undefined) return bad(res, 'Prompt invalide (texte, ' + h.PROMPT_MAX + ' caractères au plus).');
@@ -591,11 +584,6 @@ router.post('/horaire/weeks/:weekStart/import/availabilities', (req, res) => {
   const w = weekParam(req, res); if (!w) return;
   const t = csvText(req, res); if (t === null) return;
   res.json(h.importAvailabilitiesCsv(req.userId, w, t));
-});
-router.post('/horaire/weeks/:weekStart/import/events', (req, res) => {
-  const w = weekParam(req, res); if (!w) return;
-  const t = csvText(req, res); if (t === null) return;
-  res.json(h.importEventsCsv(req.userId, w, t));
 });
 router.post('/horaire/import/reservations', (req, res) => {
   const t = csvText(req, res); if (t === null) return;

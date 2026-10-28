@@ -86,10 +86,6 @@
 .horaireCalDayView { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .horaireCalSvc { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
 .horaireCalSvcName { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-light); }
-/* Réception automatique (étape 2) : ligne grise, bouton « Copier l'adresse » */
-.horaireInbound { display: flex; align-items: center; gap: 12px; font-size: 13px; }
-.horaireInboundText { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.horaireInbound > .cmpBtn { width: auto; min-height: 44px; padding: 0 16px; }
 /* Planchers (Paramètres > Général) : Plancher | lundi … dimanche | ✕ ; chaque case « M n · S n » */
 .horaireSheet.horaireFloors { min-width: 820px; grid-template-columns: minmax(140px, 1fr) repeat(7, minmax(84px, 1fr)) 44px; }
 .horaireFloors .horaireSheetCell:first-child { justify-content: flex-start; padding: 0 12px; }
@@ -98,9 +94,6 @@
 .horaireFloorVal { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 4px; border-radius: var(--radius-sm); }
 .horaireFloorVal .horaireSheetInput { width: 40px; padding: 0 2px; }
 .cmpAdd.horaireFloorAdd { margin: 8px; width: calc(100% - 16px); }
-/* Ratio de l'étape 2 : « 1 serveur de plus pour [20] couverts », sur une ligne */
-.horaireRatio { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: var(--text); }
-#tab-horaire .horaireRatio input.horaireInput { width: 72px; min-height: 44px; padding: 0 8px; text-align: center; }
 .horaireForm.horaireCellFull { grid-column: 1 / -1; padding: 16px; border-top: 1px solid var(--sep); }
 
 /* Classification des employés : UN tableau de type tableur (≡ | Nom | Min–Max | Cible), traits fins ; une ligne d'en-tête par catégorie
@@ -198,8 +191,8 @@
 .horairePair { display: flex; gap: 8px; }
 #tab-horaire textarea.horaireInput { resize: vertical; min-height: 88px; }
 /* Points de pagination des 4 pages : en bas, au-dessus de la barre des volets (même place et même rendu que #statsPageDots du Chrono) */
-#horairePageDots { position: fixed; left: 50%; transform: translateX(-50%); z-index: 20; bottom: var(--tabbar-h, 64px); display: flex; gap: 0; }
-#horairePageDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px var(--veil); }
-#horairePageDots .goalsDotBtn.on .goalsDot { opacity: 1; }
+#horairePageDots, #horaireParamDots { position: fixed; left: 50%; transform: translateX(-50%); z-index: 20; bottom: var(--tabbar-h, 64px); display: flex; gap: 0; }
+#horairePageDots .goalsDot, #horaireParamDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px var(--veil); }
+#horairePageDots .goalsDotBtn.on .goalsDot, #horaireParamDots .goalsDotBtn.on .goalsDot { opacity: 1; }
 /* Marge sous chaque page : la hauteur des points de pagination, qui ne recouvrent plus le bas des tableaux (D5) */
 #tab-horaire .horairePages { padding-bottom: 64px; }

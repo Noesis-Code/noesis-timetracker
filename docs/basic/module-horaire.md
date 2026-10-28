@@ -173,10 +173,17 @@ Chaque quart finit à la fin de son service ce jour-là : matin 17:00 ; soir 23:
 service (`horaire_settings.serviceEnds`, repli sur ces défauts). Les heures (min, cible, max) se comptent sur ces durées réelles ; une
 disponibilité qui finit à 23:59 couvre jusqu'à minuit. Prompt d'inscription : « 00:00 (minuit) ».
 
+## Événements (28 oct. 2026, décisions d'Émilien)
+Paramètres > Événements = calendrier des événements (Jour | Mois | Année), en saisie manuelle : plusieurs événements par service, lignes
+« Poste · +N ». PAS de prompt pour lire OpenTable : le prompt des événements, son éditeur et l'import par collage
+(`POST weeks/:lundi/import/events`, `GET events-prompt`) sont retirés ; un texte personnalisé déjà enregistré reste en base sans usage
+(`horaire_settings.eventsPrompt`, S6). La voie automatique prévue est la réception du rapport par courriel ci-dessous ; ses réglages
+(ratio `openTableCovers` du poste Serveur, 20 par défaut ; seuil `groupMin`, 10 par défaut) restent en base, sans affichage.
+
 ## Réception automatique du rapport de réservations par courriel (28 oct. 2026, option choisie par Émilien)
 Partie app seulement : AUCUN fournisseur n'est inscrit, aucun frais engagé ; le choix revient à Émilien.
 - Chaque compte a une adresse secrète `horaire-<jeton>@<HORAIRE_INBOUND_DOMAIN>` (jeton de 64 caractères hexadécimaux, révocable :
-  `POST /api/horaire/inbound/revoke`). Sans la variable `HORAIRE_INBOUND_DOMAIN`, l'étape 2 affiche « Réception automatique : bientôt disponible. ».
+  `POST /api/horaire/inbound/revoke`). L'adresse n'est pas encore affichée dans l'interface (`GET /api/horaire/inbound` la renvoie quand `HORAIRE_INBOUND_DOMAIN` est posé).
 - Route d'entrée, SANS session : `POST /api/horaire/inbound/reservations/<jeton>`, JSON générique : pièce jointe CSV en base64
   (`attachments` ou `Attachments` : `content`/`Content`/`data`, nom en .csv ou type texte) ou texte du corps (`text`, `TextBody`,
   `body-plain`, `plain`). 2 Mo de CSV au plus, 30 rapports par heure et par jeton ; jeton inconnu : 404 vide.

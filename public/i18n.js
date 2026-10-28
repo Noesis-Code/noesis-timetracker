@@ -204,9 +204,7 @@
     'janv.': 'Jan', 'févr.': 'Feb', 'mars': 'Mar', 'avr.': 'Apr', 'mai': 'May', 'juin': 'Jun', 'juil.': 'Jul', 'août': 'Aug', 'sept.': 'Sep', 'oct.': 'Oct', 'nov.': 'Nov', 'déc.': 'Dec',
     // ---- Horaire : page semaine (maquette version 6, 28 oct. 2026) ----
     'Modifier le prompt': 'Edit the prompt',
-    'Copier le prompt des événements': 'Copy the events prompt', 'couverts': 'covers', 'Coller les événements': 'Paste the events', 
-    'groupes lus': 'groups read', 'groupe lu': 'group read', 'Ces réservations sont pour la semaine du': 'These bookings are for the week of', 'groupes d’une autre semaine ignorés.': 'groups from another week ignored.', 'groupe d’une autre semaine ignoré.': 'group from another week ignored.',
-    'Réception automatique :': 'Automatic reception:', 'dernier rapport le': 'last report on', 'Copier l’adresse': 'Copy the address', 'Adresse copiée.': 'Address copied.',
+    'couverts': 'covers', 
     'Ce nom existe déjà.': 'This name already exists.',
     'Heures cible': 'Target hours',
     'Création des horaires': 'Schedule creation', 'Général': 'General', 'Récupération': 'Retrieval', 'Envoi': 'Send', 'Colle d’abord les disponibilités de la semaine (Récupération).': 'Paste this week’s availability first (Retrieval).',

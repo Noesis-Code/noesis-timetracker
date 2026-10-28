@@ -261,27 +261,8 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     assert(h.getSettings('uC') && (await call('GET', 'inbound', undefined, 'uC')).body.lastAt, 'réception : date du dernier rapport');
     delete process.env.HORAIRE_INBOUND_DOMAIN;
   }
-  // ---- Import des réservations de groupe : un événement par groupe, ratio, report additionné, hors semaine ----
-  {
-    const W = '2026-11-02';
-    const srv = h.serverPosition('uC');
-    const csv = '```\ndate;service;heure;couverts\n2026-11-07;soir;19:00;40\n2026-11-07;soir;20:00;12\n2026-11-08;;11:30;25\n2026-11-15;soir;19:00;30\n```';
-    r = await call('POST', 'weeks/' + W + '/import/events', { csv }, 'uC');
-    let evs = h.listEvents('uC', W, '2026-11-08').filter((e) => e.covers != null);
-    assert(r.status === 200 && r.body.groups === 3 && r.body.otherLines === 1 && r.body.otherWeeks.join() === '2026-11-09', 'import : 3 groupes lus, 1 hors de la semaine signalé');
-    assert(evs.length === 3 && evs.every((e) => e.lines.length === 1 && e.lines[0].positionId === srv.id), 'import : un événement par groupe, ligne Serveur');
-    assert(evs.find((e) => e.covers === 40).lines[0].count === 2 && evs.find((e) => e.covers === 12).lines[0].count === 1 && evs.find((e) => e.covers === 25).service === 'matin', 'import : +N = couverts ÷ 20 arrondi au-dessus ; service déduit de l’heure');
-    assert(r.body.lines.find((l) => l.day === '2026-11-07' && l.service === 'soir').extra === 3, 'import : groupes du même service additionnés dans le compte rendu');
-    await call('PUT', 'positions/' + srv.id, { openTableCovers: 10 }, 'uC');
-    r = await call('POST', 'weeks/' + W + '/import/events', { csv }, 'uC');
-    evs = h.listEvents('uC', W, '2026-11-08').filter((e) => e.covers != null);
-    assert(evs.length === 3 && evs.find((e) => e.covers === 40).lines[0].count === 4, 'réimport : remplace les événements importés (pas de double), ratio du compte (10)');
-    // Colonne « zone » éventuelle : ignorée (tableau Zones retiré, décision d'Émilien)
-    r = await call('POST', 'weeks/' + W + '/import/events', { csv: 'date;service;heure;couverts;zone\n2026-11-06;soir;19:00;80;etage haut\n' }, 'uC');
-    assert(r.status === 200 && r.body.groups === 1 && h.listEvents('uC', '2026-11-06', '2026-11-06').some((e) => e.covers === 80 && e.lines[0].count === 8), 'import : colonne zone ignorée, groupe importé');
-    const prompt = require('../server/lib/horaire-prompt').eventsPromptFor(W, h.getPrompts('uC').eventsPrompt.isDefault ? null : 'x');
-    assert(/^SEMAINE À LIRE : du lundi 2 novembre au dimanche 8 novembre 2026\./.test(prompt) && prompt.includes('date;service;heure;couverts\n') && !/zone/i.test(prompt.split('LE BLOC')[1] || '') && /JAMAIS le nom d'un client/.test(prompt), 'prompt des événements : daté, en-tête, aucune donnée de client');
-  }
+  // ---- Pas de prompt pour lire OpenTable (décision d'Émilien) : import par collage et prompt des événements retirés ----
+  assert((await call('POST', 'weeks/2026-11-02/import/events', { csv: 'date;service;heure;couverts\n2026-11-07;soir;19:00;40\n' }, 'uC')).status === 404 && (await call('GET', 'events-prompt?week=2026-11-02', undefined, 'uC')).status === 404 && !('eventsPrompt' in h.getPrompts('uC')), 'événements : plus d’import par collage ni de prompt (calendrier manuel et réception par courriel seulement)');
   // ---- Heures : min ≤ max ; la cible est libre ----
   r = await call('PUT', 'employees/' + first.id, { wantHoursMin: 12, wantHoursTarget: 20, wantHoursMax: 24 }, 'uC');
   assert(r.status === 200 && r.body.employee.wantHoursTarget === 20, 'heures min, cible, max enregistrées');

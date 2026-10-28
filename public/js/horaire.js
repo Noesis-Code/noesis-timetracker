@@ -68,10 +68,10 @@
     });
   }
   function loadAll() {
-    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), req('GET', 'inbound').catch(function () { return {}; }), req('GET', 'service-ends').catch(function () { return { ends: {} }; }), req('GET', 'floors').catch(function () { return { floors: [], counts: [] }; })])
+    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), Promise.resolve({}), req('GET', 'service-ends').catch(function () { return { ends: {} }; }), req('GET', 'floors').catch(function () { return { floors: [], counts: [] }; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
-        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.inbound = r[8] || {}; S.ends = r[9].ends || {}; S.floors = r[10].floors || []; S.floorCounts = r[10].counts || []; S.loaded = true;
+        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.ends = r[9].ends || {}; S.floors = r[10].floors || []; S.floorCounts = r[10].counts || []; S.loaded = true;
       });
   }
   // Construit la page si besoin : refresh() peut être appelé (TMT.horaire.refresh) avant la première ouverture du volet.
@@ -114,7 +114,7 @@
   // Deux catégories (grands boutons .cmpSeg, R42) et leurs sous-catégories (texte simple souligné, .cmpSubTabs) : demande d'Émilien,
   // 28 oct. 2026. Pages à plat : 0-2 = Paramètres, 3-5 = Création des horaires.
   var CATS = [['Paramètres', ['Employés', 'Événements', 'Général']], ['Création des horaires', ['Récupération', 'Horaire', 'Envoi']]];
-  var bFloors, floorsBox, inboundLine, eventsBox, promptBoxes = {}, evReport, catsMsg, pasteArea, weekLabel, weekNav, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
+  var bFloors, floorsBox, eventsBox, promptBoxes = {}, catsMsg, pasteArea, weekLabel, weekNav, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
   var pagesHost, pages = [], catBtns = [], subTabs, dots, dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
@@ -164,17 +164,11 @@
     var pGen = el('div', 'horairePage');
     [posPicker(), bNeeds, bFloors, bRules].forEach(function (n) { pGen.appendChild(n); });
 
-    // Paramètres > Événements : le calendrier des événements seul (demande d'Émilien, 28 oct. 2026). La récupération des événements
-    // (prompt, collage, compte rendu) est dans Création des horaires > Récupération ; les réglages « 1 serveur de plus pour N couverts » et
-    // « Groupe à partir de N couverts » ne s'affichent plus (valeurs enregistrées, 20 et 10 par défaut, toujours utilisées à l'import).
+    // Paramètres > Événements : le calendrier des événements seul, en saisie manuelle (demandes d'Émilien, 28 oct. 2026 : pas de prompt
+    // pour lire OpenTable ; la voie automatique prévue est la réception du rapport par courriel, route à jeton côté serveur).
     var pEv = el('div', 'horairePage');
-    var evPanel = promptPanel({ key: 'eventsPrompt', copyLabel: 'Copier le prompt des événements', copyUrl: function () { return 'events-prompt?week=' + S.week; },
-      areaLabel: 'Coller les événements', send: sendEvents });
-    evReport = el('p', 'horaireStatus hidden');
     var bEvents = block('Calendrier des événements');
     eventsBox = el('div', 'horaireCalBox'); bEvents.appendChild(eventsBox);
-    // Ligne grise de la réception automatique : seulement si elle est configurée (HORAIRE_INBOUND_DOMAIN côté serveur).
-    inboundLine = el('div', 'horaireInbound hidden');
     pEv.appendChild(bEvents);
 
     // Page 3 : Récupération (zone de collage toujours visible, envoi dans la zone, R13)
@@ -184,10 +178,6 @@
     pasteArea = avPanel.area;
     statusLine = el('p', 'horaireStatus');
     p2.appendChild(avPanel.row); p2.appendChild(avPanel.box); p2.appendChild(avPanel.paste); p2.appendChild(statusLine);
-    // Seconde section « Événements » : prompt des événements (50/50), zone de collage, compte rendu, réception automatique.
-    var bEvGet = block('Événements');
-    [evPanel.row, evPanel.box, evPanel.paste, evReport, inboundLine].forEach(function (n) { bEvGet.appendChild(n); });
-    p2.appendChild(bEvGet);
 
     // Page 3 : Horaire
     var p3 = el('div', 'horairePage');
@@ -196,7 +186,8 @@
     planBox = el('div', 'horaireFrame cmpGlass');
     alertsBox = el('div', 'horaireAlerts');
     bPlan.appendChild(planBox); bPlan.appendChild(alertsBox);
-    p3.appendChild(posPicker()); p3.appendChild(genBtn); p3.appendChild(bPlan);
+    // « Générer l’horaire » d'abord : il génère tous les postes à la fois ; le menu Poste, dessous, ne choisit que le poste affiché.
+    p3.appendChild(genBtn); p3.appendChild(posPicker()); p3.appendChild(bPlan);
 
     // Page 4 : Envoi
     var p4 = el('div', 'horairePage');
@@ -222,6 +213,9 @@
     pages.forEach(function (p, k) { p.classList.toggle('hidden', k !== i); });
     catBtns.forEach(function (b, k) { b.classList.toggle('active', k === cat); b.setAttribute('aria-selected', k === cat ? 'true' : 'false'); });
     subTabs.textContent = ''; dots.textContent = '';
+    // Flèches de page sur ordinateur (bureau.js, liées à l'id horairePageDots) : seulement dans Création des horaires ; dans Paramètres,
+    // on passe d'une sous-catégorie à l'autre par les sous-catégories soulignées (le glissement reste).
+    dots.id = cat === 0 ? 'horaireParamDots' : 'horairePageDots';
     CATS[cat][1].forEach(function (l, j) {
       var t = btn(cat * 3 + j === i ? 'active' : '', l, function () { goPage(cat * 3 + j); });
       if (cat === 1) t.textContent = (j + 1) + '. ' + tr(l); // Création des horaires : étapes numérotées (28 oct. 2026, demande d'Émilien)
@@ -340,43 +334,6 @@
     paste.appendChild(area); paste.appendChild(TMT.ui.attachBtn(function (files) { readPasteFile(files, area, o.send); }, { label: tr('Joindre un fichier') })); paste.appendChild(actions);
     return { row: row, box: box, paste: paste, area: area };
   }
-  // Poste « Serveur » (sinon le premier) : c'est lui que reçoivent les groupes importés ; son ratio de couverts (openTableCovers, 20 par défaut).
-  function serverPos() { return S.positions.find(function (p) { return /^serveur$/i.test(String(p.name).trim()); }) || S.positions[0] || null; }
-  // Réception automatique du rapport de réservations : adresse secrète (copiable) et date du dernier rapport ; sans domaine configuré
-  // côté serveur : « bientôt disponible ».
-  function renderInbound() {
-    var i = S.inbound || {};
-    inboundLine.textContent = '';
-    inboundLine.classList.toggle('hidden', !i.address);
-    if (!i.address) return; // réception non configurée : rien ne s'affiche
-    var d = i.lastAt ? new Date(i.lastAt) : null;
-    inboundLine.appendChild(el('span', 'horaireMuted horaireInboundText', tr('Réception automatique :') + ' ' + i.address
-      + (d ? ' · ' + tr('dernier rapport le') + ' ' + dnum(d.getDate()) + ' ' + tr(MONTHS_LONG[d.getMonth()]) : '')));
-    inboundLine.appendChild(btn('cmpBtn cmpBtnIdle horaireInboundCopy', 'Copier l’adresse', function () {
-      var cb = navigator.clipboard;
-      (cb && cb.writeText ? cb.writeText(i.address) : Promise.reject()).then(function () { S.msg = tr('Adresse copiée.'); renderMsg(); }, function () { S.msg = tr('Copie impossible.'); renderMsg(); });
-    }));
-  }
-  // Envoi des réservations de groupe collées : compte rendu sous la zone (« 3 groupes lus : samedi soir +2, … »).
-  function sendEvents(text, area) {
-    if (!String(text || '').trim() || S.busy) return;
-    S.busy = true;
-    req('POST', 'weeks/' + S.week + '/import/events', { csv: text }).then(function (d) {
-      var n = d.groups || 0, out;
-      if (!n && d.otherWeeks && d.otherWeeks.length) {
-        var ow = new Date(d.otherWeeks[0] + 'T00:00:00Z');
-        out = tr('Ces réservations sont pour la semaine du') + ' ' + dnum(ow.getUTCDate()) + ' ' + tr(MONTHS_LONG[ow.getUTCMonth()]) + ' : ' + tr('va à cette semaine et colle-les à nouveau.');
-      } else {
-        out = n + ' ' + tr(n > 1 ? 'groupes lus' : 'groupe lu') + (d.lines && d.lines.length ? ' : ' + d.lines.map(function (l) {
-          return tr(DAYS[weekdayOf(l.day)]).toLowerCase() + ' ' + tr(l.service) + ' +' + l.extra;
-        }).join(', ') : '') + '.';
-        if (d.otherLines) out += ' ' + d.otherLines + ' ' + tr(d.otherLines > 1 ? 'groupes d’une autre semaine ignorés.' : 'groupe d’une autre semaine ignoré.');
-        area.value = '';
-      }
-      evReport.textContent = out; evReport.classList.remove('hidden');
-      return req('GET', 'events').then(function (e) { S.events = e.events || []; renderEventsTable(); });
-    }).catch(fail).then(function () { S.busy = false; });
-  }
   // « 1 congé », « 3 congés » : nombre et mot accordé (jamais « (s) »).
   function plural(n, one, many) { return n + ' ' + tr(n > 1 ? many : one); }
   function renderMsg() {
@@ -444,7 +401,6 @@
     renderSummary();
     renderNeedsTable();
     renderFloors();
-    renderInbound();
     renderCats();
     renderRules();
   }
