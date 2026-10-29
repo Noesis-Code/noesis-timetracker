@@ -359,6 +359,15 @@ router.get('/users', (req, res) => {
       "WHERE directoryConsent = 1 AND (name || ' ' || COALESCE(lastName, '')) LIKE '%' || ? || '%' ESCAPE '\\' " +
       "LIMIT ?"
     ).all(escapeSqliteLike(q), USERS_SEARCH_MAX_RESULTS);
+    // Un profil qui n'a PAS accepté d'être listé reste trouvable par son nom complet EXACT (prénom puis nom de famille, majuscules ignorées) :
+    // sans cela il ne pourrait pas se connecter. Jamais par une saisie partielle, jamais dans une liste (29 oct. 2026, décision d'Émilien).
+    const words = q.split(/\s+/).filter(Boolean);
+    for (let i = 1; i <= words.length && rows.length < USERS_SEARCH_MAX_RESULTS; i++) {
+      const first = words.slice(0, i).join(' '), last = words.slice(i).join(' ');
+      db.prepare("SELECT id, name, lastName, color, pin FROM users WHERE COALESCE(directoryConsent, 0) <> 1 AND name = ? COLLATE NOCASE AND COALESCE(lastName, '') = ? COLLATE NOCASE LIMIT 2")
+        .all(first, last).forEach((u) => { if (!rows.some((r) => r.id === u.id)) rows.push(u); });
+    }
+    rows.length = Math.min(rows.length, USERS_SEARCH_MAX_RESULTS);
     return res.json(rows.map((u) => ({
       id: u.id,
       name: u.name,
@@ -371,7 +380,7 @@ router.get('/users', (req, res) => {
   const lastName = (req.query.lastName || '').trim();
   if (!name) return res.json([]);
   const rows = db.prepare(
-    "SELECT id, name, lastName, color, pin FROM users WHERE directoryConsent = 1 AND name = ? COLLATE NOCASE AND COALESCE(lastName, '') = ? COLLATE NOCASE LIMIT 2"
+    "SELECT id, name, lastName, color, pin FROM users WHERE name = ? COLLATE NOCASE AND COALESCE(lastName, '') = ? COLLATE NOCASE LIMIT 2"
   ).all(name, lastName);
   res.json(rows.map((u) => ({ id: u.id, name: u.name, lastName: u.lastName || '', color: u.color, hasPin: !!u.pin })));
 });

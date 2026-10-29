@@ -58,12 +58,15 @@ const T = makeCounter(); const assert = T.assert;
     assert(c4.status === 201 && c4.body.directoryConsent === false, 'profil par défaut : annuaire de connexion décoché');
     const d5 = client(s.base);
     const nf = await d5.get('/api/users?q=' + encodeURIComponent('Discret Recup'));
-    assert(nf.status === 200 && nf.body.length === 0, 'CONSTAT : profil non trouvable à la connexion (annuaire décoché) -> récupération impossible depuis l\'appareil 2');
+    assert(nf.status === 200 && nf.body.length === 1 && nf.body[0].name === 'Discret', 'annuaire décoché : retrouvable par son nom complet EXACT (sinon la récupération est impossible depuis l\'appareil 2)');
     const nf2 = await d5.get('/api/users?name=Discret&lastName=Recup');
-    assert(nf2.body.length === 0, 'CONSTAT : même la recherche exacte prénom + nom échoue');
-    // Réactivable depuis Réglages (appareil 1 encore en main) puis retrouvable
+    assert(nf2.body.length === 1, 'annuaire décoché : la recherche exacte prénom + nom trouve le profil (revérification du profil mémorisé)');
+    const nfPartial = await d5.get('/api/users?q=' + encodeURIComponent('Discret'));
+    assert(nfPartial.status === 200 && nfPartial.body.length === 0, 'annuaire décoché : jamais montré dans une recherche partielle (« Discret »)');
+    // Coché : aussi trouvable par saisie partielle
     assert((await d4.put('/api/profile/directory-consent', { consent: true })).status === 200, 'depuis l\'appareil 1 : « Être trouvable » activable');
     assert((await d5.get('/api/users?q=' + encodeURIComponent('Discret Recup'))).body.length === 1, 'une fois activé : retrouvable');
+    assert((await d5.get('/api/users?q=' + encodeURIComponent('Discret'))).body.length === 1, 'une fois activé : aussi par saisie partielle');
 
     // --- Ancien profil sans code (créé avant la protection) : pas de session -> set-pin refusé ---
     const db = new DatabaseSync(path.join(s.dir, 'noesis.db'));
