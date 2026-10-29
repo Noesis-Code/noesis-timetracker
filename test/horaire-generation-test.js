@@ -432,8 +432,15 @@ assert(r.assignments.length === 2 && r.assignments.map((a) => a.day).join() === 
 
 // ---- Lecture de la note : expressions reconnues (casse, accents), reste = texte libre ----
 const { parseNote } = require('../server/lib/horaire-note');
+// Règles EXACTES seulement (29 oct. 2026) : « Pas de matin sauf samedi » n'est plus appliqué, il reste en note libre.
 let pn = parseNote('Jamais de double ; REPOS APRES UN QUART ; Pas le dimanche ; Pas de matin sauf samedi');
-assert(pn.rules.has('noDouble') && pn.rules.has('restAfterShift') && pn.rules.has('noMorning') && pn.rest === 'Pas le dimanche ; Pas de matin sauf samedi', 'note : règles reconnues (casse et accents ignorés), le reste reste en texte libre');
+assert(pn.rules.has('noDouble') && pn.rules.has('restAfterShift') && !pn.rules.has('noMorning') && pn.rules.size === 2 && pn.rest === 'Pas le dimanche ; Pas de matin sauf samedi', 'note : formules exactes reconnues (casse et accents ignorés), une phrase qui en contient une reste en texte libre');
+pn = parseNote('  pas   de MATIN!  ; Soirs d\'abord.');
+assert(pn.rules.has('noMorning') && pn.rules.has('eveningsFirst') && pn.rest === '', 'note : formule exacte avec espaces, casse et ponctuation finale : appliquée');
+r = generateSchedule(one([{ id: 10, maxWeekMinutes: null, note: 'Pas de matin sauf samedi' }, { id: 11, maxWeekMinutes: null, rank: 2 }], {
+  needs: [{ positionId: 1, weekday: 0, start: '10:00', end: '14:00', count: 1 }],
+}));
+assert(find(r, 1, D[0])[0].employeeId === 10, '« Pas de matin sauf samedi » (pas une formule exacte) : non appliqué, le matin va au premier');
 pn = parseNote('');
 assert(pn.rules.size === 0 && pn.rest === '', 'note vide : rien');
 
