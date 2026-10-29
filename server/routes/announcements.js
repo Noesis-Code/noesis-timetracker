@@ -8,15 +8,19 @@ const db = require('../db');
 
 const router = express.Router();
 
+// Une annonce n'est visible que par les comptes déjà créés quand elle a été envoyée (29 oct. 2026, Émilien) : un nouveau compte ne voit pas les anciennes.
 // ?latest=1 : renvoie la derniere annonce meme si deja vue (lien ?notif=announcement).
 router.get('/announcements/pending', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   const row = req.query.latest
-    ? db.prepare('SELECT id, title, body, createdAt FROM announcements ORDER BY id DESC LIMIT 1').get()
+    ? db.prepare(`SELECT id, title, body, createdAt FROM announcements a
+        WHERE a.createdAt >= COALESCE((SELECT createdAt FROM users WHERE id = ?), '')
+        ORDER BY id DESC LIMIT 1`).get(userId)
     : db.prepare(`SELECT id, title, body, createdAt FROM announcements a
         WHERE NOT EXISTS (SELECT 1 FROM announcement_seen s WHERE s.announcementId = a.id AND s.userId = ?)
-        ORDER BY id DESC LIMIT 1`).get(userId);
+          AND a.createdAt >= COALESCE((SELECT createdAt FROM users WHERE id = ?), '')
+        ORDER BY id DESC LIMIT 1`).get(userId, userId);
   res.json({ announcement: row || null });
 });
 

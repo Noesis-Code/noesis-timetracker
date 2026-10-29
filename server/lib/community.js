@@ -169,7 +169,8 @@ function followingFeedForUser(userId, limit) {
   // 5 oct. 2026 (Emilien) : les annonces Noèsis (table announcements, envoyées à la main par
   // scripts/send-announcement.js) défilent dans le fil comme une publication normale, visible
   // par TOUS les profils, abonnements ou non. Auteur « Noèsis », jamais supprimable depuis le fil.
-  const announcements = db.prepare('SELECT id, body, createdAt FROM announcements ORDER BY id DESC LIMIT 20').all()
+  // 29 oct. 2026 (Émilien) : seulement les annonces envoyées APRÈS la création du compte du lecteur (un nouveau compte ne voit pas les anciennes).
+  const announcements = db.prepare("SELECT id, body, createdAt FROM announcements WHERE createdAt >= COALESCE((SELECT createdAt FROM users WHERE id = ?), '') ORDER BY id DESC LIMIT 20").all(userId)
     .map((a) => ({
       type: 'post', id: 'announcement-' + a.id, userId: null, userName: 'Noèsis', userLastName: null,
       userColor: '#7c5cff', userAvatar: null, body: a.body, createdAt: a.createdAt,
