@@ -665,6 +665,20 @@ router.post('/horaire/weeks/:weekStart/import/availabilities', (req, res) => {
   const t = csvText(req, res); if (t === null) return;
   res.json(h.importAvailabilitiesCsv(req.userId, w, t));
 });
+// Rapport Dayforce joint par l'épingle (étape 1) : { file: { fileName, mimeType, dataUrl } } -> { text, employees, lines, ignored, otherWeek }.
+// Conversion SANS IA en bloc « nom;jour;début;fin;type » ; rien n'est écrit (le bloc va dans la zone de collage, l'envoi reste au gérant).
+// Le fichier n'est ni stocké ni journalisé (server/lib/horaire-dispo-import.js).
+router.post('/horaire/weeks/:weekStart/import/availabilities-doc', async (req, res) => {
+  const w = weekParam(req, res); if (!w) return;
+  const b = req.body || {};
+  if (!b.file || typeof b.file !== 'object') return bad(res, 'Fichier manquant.');
+  try {
+    res.json(await require('../lib/horaire-dispo-import').fromFile(b.file, w));
+  } catch (e) {
+    if (e && e.statusCode === 400) return bad(res, e.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
 router.post('/horaire/import/reservations', (req, res) => {
   const t = csvText(req, res); if (t === null) return;
   const out = h.importReservationsCsv(req.userId, t);

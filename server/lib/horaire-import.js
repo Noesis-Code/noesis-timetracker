@@ -268,4 +268,4 @@ async function apply(u, att, defaultPositionId) {
   return { ...out, applied: true };
 }
 
-module.exports = { preview, apply, textRows, xlsxRows, header, posTokens };
+module.exports = { preview, apply, textRows, xlsxRows, fileRows, header, posTokens };

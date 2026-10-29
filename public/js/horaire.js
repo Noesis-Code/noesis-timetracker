@@ -308,8 +308,10 @@
   }
   // Fichier joint, lu LOCALEMENT (rien n'est envoyé à une IA) : texte (.csv, .tsv, .txt…) placé dans la zone puis envoyé comme un collage ;
   // tableur (.xlsx) : aucune bibliothèque dans le dépôt -> demander un CSV ; photo ou PDF : à donner à son IA avec le prompt de récupération.
+  // Étape Récupération : tout fichier sauf une photo passe par la conversion du rapport Dayforce (importAvailDoc).
   function readPasteFile(files, area, send) {
     var f = files[0], name = String(f.name || '').toLowerCase(), type = String(f.type || '');
+    if (send === sendAvail && !/^image\//.test(type)) { importAvailDoc(f, area); return; }
     if (/\.(csv|tsv|txt|md|markdown)$/.test(name) || /^text\//.test(type)) {
       f.text().then(function (t) { area.value = t; send(t, area); }, fail);
       return;
@@ -318,6 +320,22 @@
       ? tr('Donne cette image à ton IA avec le prompt de récupération, puis colle sa réponse ici.')
       : tr('Exporte-le en CSV ou colle le texte.');
     renderMsg();
+  }
+  // Récupération : rapport Dayforce joint par l'épingle (29 oct. 2026, demande d'Émilien), converti SANS IA par le serveur en bloc
+  // « nom;jour;début;fin;type » de la semaine affichée (server/lib/horaire-dispo-import.js). Le bloc remplit la zone ; rien n'est
+  // envoyé tant que le gérant n'a pas touché la flèche. Ligne d'état brève (« N employés lus, M lignes ignorées »), puis texte de base.
+  function importAvailDoc(f, area) {
+    if (S.busy) return;
+    var rd = new FileReader();
+    rd.onerror = function () { fail(new Error(tr('Lecture du fichier impossible.'))); };
+    rd.onload = function () {
+      S.busy = true;
+      req('POST', 'weeks/' + S.week + '/import/availabilities-doc', { file: { fileName: f.name, mimeType: f.type || '', dataUrl: String(rd.result) } }).then(function (d) {
+        if (d.text) area.value = d.text;
+        flashLabel(statusLine, plural(d.employees || 0, 'employé lu', 'employés lus') + ', ' + plural((d.ignored || 0) + (d.otherWeek || 0), 'ligne ignorée', 'lignes ignorées'));
+      }).catch(fail).then(function () { S.busy = false; });
+    };
+    rd.readAsDataURL(f);
   }
   // Envoi du texte collé (texte rendu par l'IA du gérant, même corps que l'import CSV). Compte rendu : lus, inconnus, ignorés.
   function sendAvail(text, area) {
