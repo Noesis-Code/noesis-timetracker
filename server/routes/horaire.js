@@ -420,6 +420,11 @@ router.put('/horaire/service-ends', (req, res) => {
 // ---------- planchers : liste commune ; nombre de personnes par poste (Serveur, Barman, Commis), jour et service ----------
 // Notes du compte : liste (les six formules restent en tête côté écran) et ajout { text } (500 caractères).
 router.get('/horaire/notes', (req, res) => res.json({ notes: h.listNotes(req.userId) }));
+// Supprimer une note du compte : retirée de la liste et des employés qui l'utilisent ; 404 si elle n'est pas à ce compte.
+router.delete('/horaire/notes/:id', (req, res) => {
+  const r = h.deleteNote(req.userId, req.params.id);
+  return r ? res.json({ ok: true, removedFrom: r.removedFrom, notes: h.listNotes(req.userId) }) : notFound(res, 'Note');
+});
 router.post('/horaire/notes', (req, res) => {
   const n = h.createNote(req.userId, (req.body || {}).text);
   if (n === null) return bad(res, 'Note vide.');

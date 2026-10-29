@@ -468,6 +468,28 @@ function createNote(u, text) {
   const id = Number(db.prepare('INSERT INTO horaire_notes (userId, text, createdAt) VALUES (?, ?, ?)').run(u, t, nowIso()).lastInsertRowid);
   return { id, text: t };
 }
+// Supprimer une note du compte (propriétaire seul ; null sinon) : elle quitte la liste ET la note de chaque employé qui l'utilise
+// (les autres morceaux de sa note restent tels quels). Les six formules ne sont jamais des notes du compte. -> { removedFrom }.
+function deleteNote(u, id) {
+  const note = db.prepare('SELECT id, text FROM horaire_notes WHERE id = ? AND userId = ?').get(Number(id), u);
+  if (!note) return null;
+  const nf = require('./horaire-note').fold;
+  const k = nf(note.text).replace(/[.!]+$/, '').trim();
+  let removedFrom = 0;
+  db.exec('BEGIN');
+  try {
+    db.prepare("SELECT id, constraintNote FROM horaire_employees WHERE userId = ? AND constraintNote IS NOT NULL AND constraintNote != ''").all(u).forEach((e) => {
+      const parts = String(e.constraintNote).split(/[;\n]/).map((p) => p.trim()).filter(Boolean);
+      const kept = parts.filter((p) => nf(p).replace(/[.!]+$/, '').trim() !== k);
+      if (kept.length === parts.length) return;
+      removedFrom += 1;
+      db.prepare('UPDATE horaire_employees SET constraintNote = ? WHERE id = ? AND userId = ?').run(kept.length ? kept.join('; ') : null, e.id, u);
+    });
+    db.prepare('DELETE FROM horaire_notes WHERE id = ? AND userId = ?').run(note.id, u);
+    db.exec('COMMIT');
+  } catch (err) { db.exec('ROLLBACK'); throw err; }
+  return { removedFrom };
+}
 function listFloors(u) { return db.prepare('SELECT id, name FROM horaire_zones WHERE userId = ? ORDER BY id').all(u); }
 const ownFloor = (u, id) => db.prepare('SELECT id, name FROM horaire_zones WHERE id = ? AND userId = ?').get(Number(id), u) || null;
 function listFloorCounts(u) { return db.prepare('SELECT floorId, positionId, weekday, service, count FROM horaire_floor_counts WHERE userId = ?').all(u); }
@@ -1334,7 +1356,7 @@ module.exports = {
   DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  listNotes, createNote, listFloors, ownFloor, listFloorCounts, createFloor, renameFloor, deleteFloor, isFloorPosition, setFloorCount, nameTaken, candidates, listEventTypes, ownEventType, createEventType, renameEventType, setEventTypeFamily, deleteEventType, setEventTypeRatio, computedLines, recomputeEventLines, markManualLines, setEventTypeClients, receiveMail, markManual, validateEvent, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, setForwardFrom, userForInboundToken, receiveReservations, GROUP_MIN, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
+  listNotes, createNote, deleteNote, listFloors, ownFloor, listFloorCounts, createFloor, renameFloor, deleteFloor, isFloorPosition, setFloorCount, nameTaken, candidates, listEventTypes, ownEventType, createEventType, renameEventType, setEventTypeFamily, deleteEventType, setEventTypeRatio, computedLines, recomputeEventLines, markManualLines, setEventTypeClients, receiveMail, markManual, validateEvent, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, setForwardFrom, userForInboundToken, receiveReservations, GROUP_MIN, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,

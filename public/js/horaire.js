@@ -1207,12 +1207,16 @@
     var add = function (text) { var next = noteAdd(cur(), text); if (next !== cur()) putEmployee(e, { constraintNote: next }); };
     var have = noteParts(cur()).map(function (p) { return foldNote(p); });
     NOTE_LABELS.map(function (l) { return { text: l, label: tr(l) }; })
-      .concat((S.notes || []).map(function (n) { return { text: n.text, label: n.text }; }))
+      .concat((S.notes || []).map(function (n) { return { id: n.id, text: n.text, label: n.text }; }))
       .forEach(function (n) {
         var on = have.indexOf(foldNote(n.text)) >= 0;
         var b = btn('horaireMenuItem' + (on ? ' on' : ''), '', function () { closeMenu(); if (!on) add(n.text); });
         b.textContent = n.label; b.setAttribute('role', 'menuitem');
-        menu.appendChild(b);
+        if (!n.id) { menu.appendChild(b); return; } // les six règles connues : jamais supprimées
+        // Note créée par le gérant : croix officielle (R32) ; confirmation rouge qui dit combien d'employés l'utilisent.
+        var row = el('div', 'horaireNoteRow'); row.appendChild(b);
+        row.appendChild(TMT.ui.removeBtn(function (ev) { ev.stopPropagation(); closeMenu(); removeNote(n); }, tr('Supprimer') + ' ' + n.text));
+        menu.appendChild(row);
       });
     var plus = TMT.ui.addBtn(tr('Ajouter une note'), function () {
       closeMenu();
@@ -1224,6 +1228,14 @@
     plus.classList.add('horaireNoteAdd');
     menu.appendChild(plus);
     placeMenu(anchor);
+  }
+  function removeNote(n) {
+    var k = foldNote(n.text).replace(/[.!]+$/, '');
+    var used = S.employees.filter(function (x) { return noteParts(x.constraintNote).some(function (p) { return foldNote(p).replace(/[.!]+$/, '') === k; }); }).length;
+    var msg = tr('Supprimer la note') + ' « ' + n.text + ' » ?\n' + (used ? used + ' ' + tr(used > 1 ? 'employés l’utilisent : elle leur sera retirée.' : 'employé l’utilise : elle lui sera retirée.') : tr('Aucun employé ne l’utilise.'));
+    confirmDelete(msg, function () {
+      req('DELETE', 'notes/' + n.id).then(function (d) { S.notes = d.notes || S.notes.filter(function (x) { return x.id !== n.id; }); return refresh(); }, fail);
+    });
   }
   // Poste principal du compte (créé « Serveur » côté serveur s'il manque) : ajout d'un employé, besoins.
   function mainPosition() {
