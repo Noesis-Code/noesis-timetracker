@@ -1124,6 +1124,56 @@
       return p && NOTE_RULES.indexOf(foldNote(p).replace(/[.!]+$/, '')) < 0;
     }).join(' ; ');
   }
+  // Formules exactes lues par la génération (server/lib/horaire-note.js, RULES), dans l'ordre de NOTE_RULES.
+  var NOTE_LABELS = ['Jamais de double', 'Repos après un quart', 'Pas de matin', 'Pas de soir', 'Soirs d’abord', 'Matins d’abord'];
+  // Règles cochées d'une note : un morceau (séparé par « ; ») égal à une formule, casse et accents ignorés (texte importé compris).
+  function noteChecked(note) {
+    var parts = String(note || '').split(/[;\n]/).map(function (p) { return foldNote(p).replace(/[.!]+$/, ''); });
+    return NOTE_RULES.map(function (r) { return parts.indexOf(r) >= 0; });
+  }
+  // Note écrite seulement à l'action de l'utilisateur : formules cochées (forme exacte, « ; ») puis le texte libre, tel quel.
+  function noteJoin(checked, free) {
+    var out = NOTE_LABELS.filter(function (l, i) { return checked[i]; });
+    if (String(free || '').trim()) out.push(String(free).trim());
+    return out.join('; ');
+  }
+  // Menu de la note d'un employé (menu uni et cases, comme la portée des règles) : six règles connues, puis le texte libre
+  // (« + Ajouter une note », 500 caractères) ; ce texte n'est jamais appliqué par la génération, il revient dans « À vérifier ».
+  function openNoteMenu(anchor, e) {
+    if (!newMenu(anchor)) return;
+    var cur = (S.employees.find(function (x) { return x.id === e.id; }) || e).constraintNote || '';
+    var checked = noteChecked(cur), free = noteRest(cur), writing = false;
+    var save = function () {
+      var next = noteJoin(checked, free);
+      if (next === cur) return;
+      cur = next; putEmployee(e, { constraintNote: next || null });
+    };
+    var paint = function () {
+      menu.textContent = '';
+      NOTE_LABELS.forEach(function (label, i) {
+        var lab = el('label', 'horaireMenuItem horaireMenuCheck');
+        var c = el('input'); c.type = 'checkbox'; c.checked = checked[i];
+        c.addEventListener('change', function () { checked[i] = c.checked; save(); });
+        lab.appendChild(c); lab.appendChild(el('span', null, tr(label)));
+        menu.appendChild(lab);
+      });
+      if (free || writing) {
+        var x = el('input', 'horaireSheetInput horaireNoteFree'); x.type = 'text'; x.maxLength = 500; x.value = free;
+        x.placeholder = tr('Note'); x.setAttribute('aria-label', tr('Note libre'));
+        var done = function () { var v = x.value.trim(); if (v !== free) { free = v; save(); } writing = false; };
+        x.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); done(); paint(); } });
+        x.addEventListener('blur', done);
+        menu.appendChild(x);
+        if (writing) setTimeout(function () { x.focus(); }, 0);
+      } else {
+        var add = TMT.ui.addBtn(tr('Ajouter une note'), function () { writing = true; paint(); });
+        add.classList.add('horaireNoteAdd');
+        menu.appendChild(add);
+      }
+    };
+    paint();
+    placeMenu(anchor);
+  }
   // Poste principal du compte (créé « Serveur » côté serveur s'il manque) : ajout d'un employé, besoins.
   function mainPosition() {
     if (S.positions[0]) return Promise.resolve(S.positions[0]);
@@ -1296,11 +1346,9 @@
           if (!hoursValid(e.wantHoursMin, e.wantHoursTarget, e.wantHoursMax)) c.classList.add('invalid');
           row.appendChild(c);
         });
-        var note = el('span', 'horaireSheetCell horaireSheetEdit horaireSheetNote');
-        editCell(note, e.constraintNote || '', [['note', e.constraintNote, 'Note']], function (v) {
-          var t = String(v.note).trim();
-          if (t !== (e.constraintNote || '')) putEmployee(e, { constraintNote: t }); else renderCats();
-        });
+        // Note (29 oct. 2026, décision d'Émilien) : cases des six règles connues + « + Ajouter une note » (texte libre) ; voir openNoteMenu.
+        var note = btn('horaireSheetCell horaireSheetEdit horaireSheetNote', '', function () { openNoteMenu(note, e); });
+        note.textContent = e.constraintNote || ''; note.setAttribute('aria-haspopup', 'menu'); note.setAttribute('aria-label', tr('Note') + ' ' + e.name);
         row.appendChild(note);
         var rmCell = el('span', 'horaireSheetCell horaireSheetRemove');
         rmCell.appendChild(TMT.ui.removeBtn(function () { removeEmployee(e); }, tr('Retirer') + ' ' + e.name));
@@ -1525,9 +1573,10 @@
     });
     // Note des employés placés, sans ses expressions reconnues : la génération ne la lit pas, on la rappelle ici (en tête).
     var placed = {}; sc.assignments.forEach(function (a) { if (a.positionId === posId()) placed[a.employeeId] = a.employeeName; });
+    var wk = new Date(S.week + 'T00:00:00Z'), wkText = tr('semaine du') + ' ' + dnum(wk.getUTCDate()) + ' ' + tr(MONTHS[wk.getUTCMonth()]);
     S.employees.filter(function (e) { return placed[e.id]; }).forEach(function (e) {
       var rest = noteRest(e.constraintNote);
-      if (rest) alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + tr('note de') + ' ' + e.name + ' : “' + rest + '”'));
+      if (rest) alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + tr('note de') + ' ' + e.name + ' (' + wkText + ') : “' + rest + '”'));
     });
     var key = function (a) { return a.type === 'trou' ? '0' + a.day + a.start : '1'; };
     (sc.alerts || []).filter(function (a) { return a.type !== 'trou' || a.positionId === posId(); }).sort(function (x, y) { return key(x) < key(y) ? -1 : key(x) > key(y) ? 1 : 0; }).forEach(function (a) { alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + alertText(a))); });

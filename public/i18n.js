@@ -268,7 +268,7 @@
     // 10 septembre 2026 (audit des traductions manquantes signalé par
     // Emilien).
     "Aucune activité pour l'instant — ajoutes-en une dans Réglages.": 'No activities yet — add one in Settings.',
-    'Note': 'Note',
+    'Note': 'Note', 'Ajouter une note': 'Add a note', 'Note libre': 'Free note', 'semaine du': 'week of',
     'Envoyer à la communauté': 'Send to community',
     "Confirmer l'arrêt": 'Confirm stop',
     'Heure de début': 'Start time',

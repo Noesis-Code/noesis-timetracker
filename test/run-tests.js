@@ -68,7 +68,7 @@ const SUITE_FILES = [
   'weekplanner-test.js',
   'horaire-generation-test.js',
   'horaire-dayforce-test.js',
-  'horaire-config-test.js', 'horaire-opentable-test.js', 'horaire-prompt-test.js', 'horaire-mail-test.js', 'horaire-types-test.js', 'horaire-prix-test.js', 'horaire-postes-test.js', 'horaire-import-test.js', 'horaire-dispo-import-test.js',
+  'horaire-config-test.js', 'horaire-opentable-test.js', 'horaire-prompt-test.js', 'horaire-mail-test.js', 'horaire-types-test.js', 'horaire-prix-test.js', 'horaire-postes-test.js', 'horaire-notes-test.js', 'horaire-import-test.js', 'horaire-dispo-import-test.js',
   'capturedate-test.js',
   'documenttasks-test.js',
   'categorie-inconnue-test.js',
