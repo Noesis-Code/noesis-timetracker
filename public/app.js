@@ -1188,6 +1188,11 @@
   // raccourci, en masquant toutes les autres étapes (création de profil,
   // recherche d'un profil existant, code PIN, activités) — voir
   // isStandaloneMode() ci-dessus pour le contexte de cette demande.
+  // 29 oct. 2026 (demande d'Émilien) : sur ordinateur, on entre directement, sans installer ; le gate ne vaut que pour téléphone et tablette.
+  function installGateApplies() {
+    return !isStandaloneMode() && detectInstallPlatform() !== 'desktop';
+  }
+
   function showOnbInstallPwa() {
     $('onbCreate').classList.add('hidden');
     $('onbExisting').classList.add('hidden');
@@ -1200,7 +1205,7 @@
   function showOnboarding() {
     $('onboarding').classList.remove('hidden');
     $('app').classList.add('hidden');
-    if (!isStandaloneMode()) {
+    if (installGateApplies()) {
       showOnbInstallPwa();
       dismissBootSplash();
       return;
@@ -2203,7 +2208,7 @@
       api('POST', '/api/password/reset', { token: tok, password: pw })
         .then(function (r) {
           // Tous les autres appareils sont déconnectés ; celui-ci est connecté (dans l'app installée, on entre directement).
-          if (isStandaloneMode()) {
+          if (!installGateApplies()) {
             return api('GET', '/api/profile/' + r.id).then(function (p) { saveProfile(p); leave(); });
           }
           $('resetPwdMsg').textContent = t('Mot de passe changé. Ouvre l’app depuis ton écran d’accueil et connecte-toi avec ton nouveau mot de passe.');
@@ -2228,7 +2233,7 @@
     // `showOnboarding(); showOnbPinStep(match);`. Si l'app n'est pas
     // encore en mode autonome (raccourci), l'écran d'installation doit
     // rester affiché plutôt que de laisser passer l'étape code PIN.
-    if (!isStandaloneMode()) { showOnbInstallPwa(); return; }
+    if (installGateApplies()) { showOnbInstallPwa(); return; }
     pendingPinUser = user;
     $('onbCreate').classList.add('hidden');
     $('onbExisting').classList.add('hidden');
