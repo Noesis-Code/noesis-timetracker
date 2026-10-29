@@ -44,6 +44,7 @@ assert(!/Julie|Tremblay/.test(M.ownText('Merci !\n> Julie Tremblay a demandé\nL
   const ev = evs[0];
   assert(r1.eventId === null && r2.created && r3.updated && evs.length === 1 && r2.eventId === r3.eventId, 'fil : un seul événement, créé quand la date arrive, puis mis à jour');
   assert(ev.day === '2026-11-14' && ev.service === 'soir' && ev.covers === 40 && ev.floorId === rouge.id && ev.lines[0].positionId === srv.id && ev.lines[0].count === 2, 'événement : date, soir, 40 couverts, Salon Rouge, Serveur +2 (ratio 20)');
+  assert(ev.time === '18:00', 'événement : heure du groupe lue dans le courriel (18h -> 18:00) et conservée');
   assert(ev.pending && ev.mailHint === 'confirmé probable' && !/Julie|Tremblay/.test(ev.label) && /Événement/.test(ev.label), 'à valider, « confirmé probable » ; nom sans nom propre');
   const dump = JSON.stringify(db.prepare("SELECT * FROM horaire_events WHERE userId = 'uE'").all()) + JSON.stringify(db.prepare("SELECT * FROM horaire_inbound_threads WHERE userId = 'uE'").all());
   assert(!/Julie|Tremblay|514|exemple\.test|resto\.test|client\.test|Bonjour|Terrasse et/.test(dump), 'aucun nom, courriel, téléphone ni corps gardé (identifiants hachés)');

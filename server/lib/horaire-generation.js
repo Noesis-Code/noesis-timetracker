@@ -69,6 +69,14 @@ function defaultServiceEnd(weekday, service) { return service === 'matin' ? '17:
 // le personnel EN PLUS = max(0, N de l'événement − nombre habituel de ce poste sur ce plancher, ce jour et ce service, opts.floorCounts).
 // Deux événements du même service sur le même plancher ne le déduisent qu'une fois (les premiers, par id, consomment l'habituel).
 // Autres postes, ou sans plancher : N s'ajoute.
+// Groupe avec heure (29 oct. 2026, règle d'Émilien) : ligne Serveur (opts.groupPositionId) d'un événement du soir qui a une heure :
+// ses N serveurs sont des créneaux indépendants (arrivée = heure − 60 min) et REMPLACENT les M serveurs habituels du plancher :
+// les M habituels sont retirés (remove = M), les N du groupe gardent leur nombre (net : N − M, négatif si M > N).
+const fromMin = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+function isTimedGroup(l, opts) {
+  const gp = opts && opts.groupPositionId != null ? Number(opts.groupPositionId) : null;
+  return gp != null && l.pid === gp && l.g.service === 'soir' && toMin(l.g.time) !== null && toMin(l.g.time) >= 60;
+}
 function floorExtra(lines, weekday, opts) {
   const counts = (opts && opts.floorCounts) || [];
   const fp = new Set(((opts && opts.floorPositions) || []).map(Number));
@@ -79,6 +87,7 @@ function floorExtra(lines, weekday, opts) {
     const key = floor + '|' + l.pid + '|' + l.g.service;
     const usual = counts.find((c) => Number(c.floorId) === floor && Number(c.positionId) === l.pid && Number(c.weekday) === weekday && c.service === l.g.service);
     const rem = left.has(key) ? left.get(key) : (usual ? Number(usual.count) || 0 : 0);
+    if (isTimedGroup(l, opts)) { left.set(key, 0); return Object.assign({}, l, { replaced: rem, remove: rem }); }
     const take = Math.min(rem, l.count);
     left.set(key, rem - take);
     return Object.assign({}, l, { count: l.count - take, replaced: take });
@@ -93,27 +102,38 @@ function buildSlots(weekStart, needs, events, mainPositionId, opts) {
     const dayEvents = (events || []).filter((e) => e.day === day);
     const fromEvents = dayEvents.filter((e) => !e.service).flatMap((e) => (e.needs || []).map((n) => Object.assign({ eventId: e.id }, n)));
     const replaced = new Set(fromEvents.map((n) => serviceOf(n.start)));
-    const source = fromEvents.concat((needs || []).filter((n) => Number(n.weekday) === weekday && !replaced.has(serviceOf(n.start))));
+    const source = fromEvents.concat((needs || []).filter((n) => Number(n.weekday) === weekday && !replaced.has(serviceOf(n.start)))).map((n) => Object.assign({}, n));
     // Événement d'un service (plusieurs par service possibles, tous additionnés) : ses lignes « poste · +N » (besoins de l'événement) ;
     // ancien groupe sans ligne : une seule ligne (positionId, extra).
     const base = source.slice();
     const lines0 = dayEvents.filter((e) => e.service).sort((a, b) => a.id - b.id).flatMap((g) => ((g.needs && g.needs.length) ? g.needs : (Number(g.extra) > 0 ? [{ positionId: g.positionId, count: g.extra }] : []))
       .map((l) => ({ g, pid: l.positionId == null ? null : Number(l.positionId), count: Number(l.count) })));
     const lines = floorExtra(lines0, weekday, opts);
-    for (const { g, pid, count } of lines) {
+    for (const l of lines) {
+      const { g, pid, count } = l;
+      // Groupe avec heure : retire d'abord les habituels du plancher (ceux qui arrivent le plus tard ; à égalité, les derniers de la liste).
+      for (let k = 0; k < (l.remove || 0); k++) {
+        const victim = source.map((n, i) => ({ n, i })).filter(({ n }) => !n.eventId && Number(n.positionId) === pid && serviceOf(n.start) === g.service && Number(n.count) > 0)
+          .sort((a, b) => (toMin(b.n.start) - toMin(a.n.start)) || (b.i - a.i))[0];
+        if (victim) victim.n.count = Number(victim.n.count) - 1;
+      }
       if (!(count > 0)) continue;
       // Ligne d'un poste : la première arrivée de ce poste dans le service ; ancien groupe (sans poste) : tous postes confondus.
       const first = base.filter((n) => serviceOf(n.start) === g.service && (pid == null || Number(n.positionId) === pid)).sort((a, b) => toMin(a.start) - toMin(b.start))[0];
-      if (first) source.push({ positionId: first.positionId, start: first.start, end: first.end, count, eventId: g.id });
+      // Groupe avec heure : ses serveurs arrivent une heure avant (16:00 -> 15:00), finissent avec le service du soir ; créneaux à part.
+      if (isTimedGroup(l, opts)) {
+        const end = ends ? (ends[pid + '|' + weekday + '|soir'] || defaultServiceEnd(weekday, 'soir')) : (first ? first.end : '23:59');
+        source.push({ positionId: pid, start: fromMin(toMin(g.time) - 60), end, count, eventId: g.id, group: true });
+      } else if (first) source.push({ positionId: first.positionId, start: first.start, end: first.end, count, eventId: g.id });
       else if ((pid != null ? pid : mainPositionId) != null) source.push({ positionId: pid != null ? pid : mainPositionId, start: g.service === 'soir' ? '16:00' : '10:30', end: g.service === 'soir' ? '23:59' : '17:00', count, eventId: g.id });
     }
     for (const n0 of source) {
-      const n = Object.assign({}, n0, { end: endOf(n0.positionId, weekday, n0.start, n0.end) });
+      const n = n0.group ? n0 : Object.assign({}, n0, { end: endOf(n0.positionId, weekday, n0.start, n0.end) });
       const r = range(n.start, n.end);
       const count = Math.max(0, Math.floor(Number(n.count) || 0));
       if (!r || !count) continue;
       for (let k = 0; k < count; k++) {
-        slots.push({ positionId: n.positionId, day, weekday, start: n.start, end: n.end, from: r[0], to: r[1], minutes: r[1] - r[0], eventId: n.eventId || null });
+        slots.push({ positionId: n.positionId, day, weekday, start: n.start, end: n.end, from: r[0], to: r[1], minutes: r[1] - r[0], eventId: n.eventId || null, ...(n.group ? { group: true } : {}) });
       }
     }
   });
@@ -139,6 +159,7 @@ const ALERT_SKIP = [];
  *   qualifications [{employeeId, positionId, rank}] ; availabilities [{employeeId, day, start, end}] ; timeoff [{employeeId, day}] ;
  *   needs [{positionId, weekday 0..6, start, end, count}] ; events [{id, day, needs:[{positionId, start, end, count}]}] ;
  *   rotation { '<positionId>:<rank>': dernierEmployeeId } ;
+ *   groupPositionId : poste Serveur ; un événement du soir avec heure (events[].time 'HH:MM') y fait arriver ses N serveurs à heure − 60 min ;
  *   arrivalPositions [positionId] : postes où valent les arrivées du soir (catégorie 1 d'abord à 16:00, catégorie 2 d'abord après 16:00).
  * @returns {{assignments: Array, alerts: Array, rotation: object}}
  */
@@ -181,12 +202,15 @@ function generateSchedule(input) {
   // congés : jour entier, l'employé est indisponible ce jour-là
   const off = new Set((input.timeoff || []).map((t) => t.employeeId + '|' + t.day));
 
-  const slots = buildSlots(input.weekStart, input.needs, input.events, positions.length ? positions[0].id : null, { serviceEnds: input.serviceEnds, floorCounts: input.floorCounts, floorPositions: input.floorPositions });
+  const slots = buildSlots(input.weekStart, input.needs, input.events, positions.length ? positions[0].id : null, { serviceEnds: input.serviceEnds, floorCounts: input.floorCounts, floorPositions: input.floorPositions, groupPositionId: input.groupPositionId });
+  // Quart enregistré sur un créneau de groupe (arrivée avant 16:00, mais quart du soir) : lu comme un soir.
+  const groupKeys = new Set(slots.filter((s) => s.group).map((s) => s.positionId + '|' + s.day + '|' + s.start));
+  const slotAt = (a) => { const s = slotOf(a); if (s && groupKeys.has(s.positionId + '|' + s.day + '|' + s.start)) s.group = true; return s; };
   const posRank = new Map(positions.map((p, i) => [p.id, i]));
   // Ordre de traitement : poste (ordre de comblement), puis criticité décroissante, puis jour et heure.
   const ordered = slots.filter((s) => posRank.has(s.positionId)).sort((a, b) =>
     (posRank.get(a.positionId) - posRank.get(b.positionId))
-    || (criticality(b.weekday, b.from, !!b.eventId) - criticality(a.weekday, a.from, !!a.eventId))
+    || (criticality(b.weekday, b.group ? EVENING_FROM : b.from, !!b.eventId) - criticality(a.weekday, a.group ? EVENING_FROM : a.from, !!a.eventId))
     || (a.day < b.day ? -1 : a.day > b.day ? 1 : 0)
     || (a.from - b.from));
 
@@ -196,7 +220,7 @@ function generateSchedule(input) {
   const dayPost = new Map(); // 'employeeId|day' -> positionId (un seul poste par jour)
   const busy = new Map(); // 'employeeId|day' -> [slot]
   const assignments = [];
-  const evening = (s) => s.from >= EVENING_FROM;
+  const evening = (s) => !!s.group || s.from >= EVENING_FROM; // créneau d'un groupe (arrivée 15:00) : quart du soir
   const has = (n) => n !== null && n !== undefined;
 
   // Plafond de quarts d'une passe : min (0 si absent), cible (sinon le max), max (sans limite si absent) ; jamais au-delà du max.
@@ -298,7 +322,7 @@ function generateSchedule(input) {
     for (const a of fixed) {
       const i = open.findIndex((s) => s.positionId === a.positionId && s.day === a.day && s.start === a.start);
       if (i >= 0) open.splice(i, 1);
-      const slot = slotOf(a);
+      const slot = slotAt(a);
       if (slot && empById.has(a.employeeId)) assign(slot, a.employeeId);
     }
     holes = open;
@@ -389,7 +413,7 @@ function generateSchedule(input) {
   }
   assignments.sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0) || (toMin(a.start) - toMin(b.start)) || (posRank.get(a.positionId) - posRank.get(b.positionId)));
   // reasonsFor(employeeId, {positionId, day, start, end}) : raisons d'un placement envisagé (menus de l'horaire, G1).
-  const reasonsFor = (empId, a) => { const slot = slotOf(a); return slot ? reasons(Number(empId), slot, null) : []; };
+  const reasonsFor = (empId, a) => { const slot = slotAt(a); return slot ? reasons(Number(empId), slot, null) : []; };
   return { assignments, alerts, rotation, reasonsFor };
 }
 

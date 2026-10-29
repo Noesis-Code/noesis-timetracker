@@ -210,7 +210,7 @@
     'Ce nom existe déjà.': 'This name already exists.',
     'Heures cible': 'Target hours',
     'Création des horaires': 'Schedule creation', 'Général': 'General', 'Récupération': 'Retrieval', 'Envoi': 'Send', 'Colle d’abord les disponibilités de la semaine (Récupération).': 'Paste this week’s availability first (Retrieval).',
-    'Planchers': 'Floors', 'Plancher': 'Floor', 'Supprimer le plancher': 'Delete the floor',
+    'Planchers': 'Floors', 'Plancher': 'Floor', 'Supprimer le plancher': 'Delete the floor', 'Heure': 'Time',
     'remplace': 'replaces', 'du plancher': 'from floor', 'Nom de l’événement': 'Event name', 'Aucun': 'None',
     'dépasse son max': 'goes over their max', 'pour un max de': 'for a max of', 'cible': 'target', 'au-delà du max': 'beyond max',
     'reçoit plus que sa cible': 'gets more than their target', 'pour une cible de': 'for a target of', 'au-delà de la cible': 'beyond target',

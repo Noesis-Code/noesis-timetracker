@@ -118,6 +118,11 @@
   var pagesHost, pages = [], catBtns = [], subTabs, dots, dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
+  // Quart d'un groupe du soir avec heure (arrivée une heure avant, ex. 15:00) : affiché au soir.
+  function shiftService(day, start) {
+    var s = serviceOf(start);
+    return s === 'matin' && (S.events || []).some(function (e) { return e.day === day && e.service === 'soir' && e.time && toMin(e.time) - 60 === toMin(start); }) ? 'soir' : s;
+  }
   function block(title, hint) {
     var sec = el('section', 'horaireBlock');
     var head = el('div', 'horaireBlockHead');
@@ -806,6 +811,14 @@
             req('PUT', 'events/' + ev.id + '/type', { clients: n }).then(function (d) { replaceEvent(d.event); }, failCal);
           });
           cl.appendChild(ci); tr2.appendChild(cl);
+          // Heure du groupe (facultative) : ses serveurs arrivent une heure avant (groupe à 16:00 -> 15:00).
+          var hl = el('label', 'horaireEvFloor horaireEvClients'); hl.appendChild(el('span', null, tr('Heure')));
+          var hi = el('input', 'horaireInput'); hi.type = 'time'; hi.setAttribute('aria-label', tr('Heure'));
+          hi.value = ev.time || ''; hi.disabled = past;
+          hi.addEventListener('change', function () {
+            req('PUT', 'events/' + ev.id, { service: evSvc(ev), time: hi.value || null }).then(function (d) { replaceEvent(d.event); }, failCal);
+          });
+          hl.appendChild(hi); tr2.appendChild(hl);
           card.appendChild(tr2);
           // Plancher occupé : menu uni (R31), « Aucun » par défaut ; enregistrement automatique.
           if ((S.floors || []).length) {
@@ -1324,7 +1337,7 @@
     }, function (err) { closeMenu(); fail(err); });
   }
   // Fin d'un trou : la fin de son service ce jour-là (comme tout quart).
-  function holeEnd(h) { return endFor(h.positionId, weekdayOf(h.day), serviceOf(h.start)); }
+  function holeEnd(h) { return endFor(h.positionId, weekdayOf(h.day), shiftService(h.day, h.start)); }
   // Trou « À combler » : même liste ; parmi les gris, les « à demander » (règle 9) d'abord, dans l'ordre de la génération.
   function openHoleMenu(anchor, h) {
     if (!newMenu(anchor)) return;
@@ -1386,8 +1399,8 @@
     var cell = function (svc) {
       return function (i, c) {
         var day = addDays(S.week, i), items = [];
-        sc.assignments.forEach(function (a) { if (a.positionId === posId() && a.day === day && serviceOf(a.start) === svc) items.push([a.start, 0, a]); });
-        holes.forEach(function (h) { if (h.positionId === posId() && h.day === day && serviceOf(h.start) === svc) for (var k = 0; k < (h.missing || 1); k++) items.push([h.start, 1, null, h]); });
+        sc.assignments.forEach(function (a) { if (a.positionId === posId() && a.day === day && shiftService(a.day, a.start) === svc) items.push([a.start, 0, a]); });
+        holes.forEach(function (h) { if (h.positionId === posId() && h.day === day && shiftService(h.day, h.start) === svc) for (var k = 0; k < (h.missing || 1); k++) items.push([h.start, 1, null, h]); });
         items.sort(function (x, y) { return x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : x[1] - y[1]; });
         items.forEach(function (x) {
           if (x[2]) { c.appendChild(shiftBtn(x[2])); return; }
