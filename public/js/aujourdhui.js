@@ -62,7 +62,7 @@
     dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock);
     var tab = document.getElementById('tab-goals');
     if (tab && window.MutationObserver) {
-      new MutationObserver(function () { dock.style.transform = tab.style.transform || ''; dock.style.transition = tab.style.transition || ''; }).observe(tab, { attributes: true, attributeFilter: ['style'] });
+      new MutationObserver(function () { dock.style.transform = tab.style.transform || ''; dock.style.transition = tab.style.transition || ''; syncDock(); }).observe(tab, { attributes: true, attributeFilter: ['style', 'class'] }); // fin de glissement vers les statistiques : l'onglet se masque, la barre se masque dans la même image (sans attendre le balayage de 300 ms)
     }
     setInterval(syncDock, 300);
     container.appendChild(root);
