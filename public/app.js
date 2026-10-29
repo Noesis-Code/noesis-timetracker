@@ -5786,9 +5786,9 @@
     $(I.frozen).classList.remove('hidden');
     $(I.frozen).classList.remove('tsFrozenCal');
 
-    // 29 oct. 2026 (Émilien) : la semaine s'écrit « Du 26/10 au 01/11 », sans le mot « Semaine » ; les dates ne se coupent jamais (espaces insécables).
+    // 29 oct. 2026 (Émilien) : la semaine s'écrit « Du 26/10 au 01/11 » (sans le mot « Semaine ») et la semaine en cours « En cours » (sans dates) ; les dates ne se coupent jamais (espaces insécables).
     var wm = /^Semaine du (\S+) au (\S+)$/.exec(data.label || '');
-    $(I.weekLabel).textContent = (wm ? t('Du') + ' ' + wm[1] + ' ' + t('au') + ' ' + wm[2] : t(data.label)) + (data.isCurrentWeek ? t(' (en cours)') : '');
+    $(I.weekLabel).textContent = (wm && data.isCurrentWeek) ? t('En cours') : (wm ? t('Du') + ' ' + wm[1] + ' ' + t('au') + ' ' + wm[2] : t(data.label)) + (data.isCurrentWeek ? t(' (en cours)') : '');
     $(I.nextBtn).disabled = data.isCurrentWeek;
     $(I.prevBtn).disabled = !data.hasMoreBefore;
 
