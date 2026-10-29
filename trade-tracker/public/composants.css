@@ -139,6 +139,9 @@
 }
 .cmpConfirmHead { display: flex; justify-content: flex-end; }
 .cmpConfirmText { margin: 0; font-size: 15px; line-height: 1.45; color: var(--text); word-break: break-word; }
+/* Champ facultatif de TMT.ui.confirm (opts.input, 29 oct. 2026) : une zone d'écriture, verre de R40 */
+.cmpConfirmInput { width: 100%; min-height: 44px; box-sizing: border-box; padding: 8px 12px; border: 1px solid var(--sep); border-radius: var(--radius-sm); font: inherit; font-size: 15px; color: var(--text); }
+.cmpConfirmInput:focus { outline: none; border-color: var(--purple); }
 /* Bouton-symbole (R29, 25 oct. 2026, demande d'Émilien) : un bouton qui ne contient qu'un symbole ou une icône (‹ › ⋮ d'une période ou d'une semaine, engrenage, abonnés, invitations, membres, flèches de pôle)
    n'a AUCUN carré autour : ni fond, ni liseré, ni ombre, ni flou. Restent : la taille et la couleur de l'icône, l'alignement, la zone de toucher invisible de 44 px (R7), le contour violet au clavier.
    Les boutons avec un mot, les avatars, les cases et interrupteurs, les « + » pointillés et les croix rouges ne sont pas concernés. */

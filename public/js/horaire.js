@@ -711,58 +711,59 @@
     var pos = S.positions.filter(function (p) { return ORDER.indexOf(foldNote(p.name)) >= 0; })
       .sort(function (a, b) { return ORDER.indexOf(foldNote(a.name)) - ORDER.indexOf(foldNote(b.name)); });
     var sheet = el('div', 'horaireSheet horaireTypes');
-    sheet.style.gridTemplateColumns = 'minmax(140px, 1fr) minmax(140px, 1fr) minmax(96px, 1fr) repeat(' + pos.length + ', minmax(140px, 1fr)) 44px';
+    sheet.style.gridTemplateColumns = 'minmax(160px, 1fr) repeat(' + pos.length + ', minmax(150px, 1fr)) 44px';
     var head = sheetRow('horaireSheetHead');
-    ['Type', 'Famille', 'Seuil de prix'].concat(pos.map(function (p) { return p.name; }), ['']).forEach(function (t) { head.appendChild(el('span', 'horaireSheetCell', tr(t))); });
+    ['Type'].concat(pos.map(function (p) { return p.name; }), ['']).forEach(function (t) { head.appendChild(el('span', 'horaireSheetCell', tr(t))); });
     sheet.appendChild(head);
     var reload = function () { return req('GET', 'event-types').then(function (d) { S.types = d.types || []; renderTypes(); renderEventsTable(); }); };
+    var reloadAll = function () { return req('GET', 'events').then(function (e) { S.events = e.events || S.events; return reload(); }, function (err) { fail(err); renderTypes(); }); };
+    // Petit choix à deux valeurs (.cmpSeg, R42) : famille du type, unité d'un poste.
+    var seg2 = function (cls, opts, cur, pick) {
+      var s = el('div', 'cmpSeg ' + cls); s.setAttribute('role', 'tablist');
+      opts.forEach(function (v) {
+        var on = cur === v[0];
+        var b = btn(on ? 'active' : '', v[1], function (ev) { ev.stopPropagation(); if (!on) pick(v[0]); });
+        b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', on ? 'true' : 'false');
+        s.appendChild(b);
+      });
+      return s;
+    };
     (S.types || []).forEach(function (ty) {
       var row = sheetRow('horaireTypeRow');
-      var nm = el('span', 'horaireSheetCell horaireSheetEdit');
+      // Type : son nom, et dessous sa famille (Service = Serveur et Commis ; Bar = Barman).
+      var tc = el('span', 'horaireSheetCell horaireTypeName');
+      var nm = el('span', 'horaireSheetEdit');
       editCell(nm, ty.name, [['name', ty.name, 'Type']], function (v) {
         var t = String(v.name).trim().slice(0, 80);
         if (!t || t === ty.name) { renderTypes(); return; }
         req('PUT', 'event-types/' + ty.id, { name: t }).then(reload, function (err) { fail(err); renderTypes(); });
       });
-      row.appendChild(nm);
-      var fc = el('span', 'horaireSheetCell'), seg = el('div', 'cmpSeg horaireTypeFam'); seg.setAttribute('role', 'tablist');
-      [['service', 'Service'], ['bar', 'Bar']].forEach(function (v) {
-        var on = (ty.family || 'service') === v[0];
-        var b = btn(on ? 'active' : '', v[1], function () {
-          if (on) return;
-          req('PUT', 'event-types/' + ty.id, { family: v[0] }).then(function () { return req('GET', 'events'); })
-            .then(function (e) { S.events = e.events || S.events; return reload(); }, function (err) { fail(err); renderTypes(); });
-        });
-        b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', on ? 'true' : 'false');
-        seg.appendChild(b);
-      });
-      fc.appendChild(seg); row.appendChild(fc);
-      // Seuil de prix du type ($ par personne, vide = aucun) : au-delà, chaque poste prend son second nombre « ≥ seuil ».
-      var pm = el('span', 'horaireSheetCell horaireSheetEdit horaireTypeCell');
-      editCell(pm, '', [['p', ty.priceMin == null ? '' : ty.priceMin, 'Seuil de prix', 'number']], function (v) {
-        var s = String(v.p).trim().replace(',', '.'), k = s === '' ? null : Number(s);
-        if (k !== null && !(k >= 1 && k <= 10000)) return false;
-        if (k === (ty.priceMin == null ? null : ty.priceMin)) { renderTypes(); return; }
-        req('PUT', 'event-types/' + ty.id, { priceMin: k }).then(function () { return req('GET', 'events'); })
-          .then(function (e) { S.events = e.events || S.events; return reload(); }, function (err) { fail(err); renderTypes(); });
-      }, function (cell) { cell.appendChild(ty.priceMin == null ? el('span', 'horaireMuted', '—') : el('span', null, ty.priceMin + ' $')); });
-      row.appendChild(pm);
+      tc.appendChild(nm);
+      tc.appendChild(seg2('horaireTypeFam', [['service', 'Service'], ['bar', 'Bar']], ty.family || 'service', function (f) {
+        req('PUT', 'event-types/' + ty.id, { family: f }).then(reloadAll, function (err) { fail(err); renderTypes(); });
+      }));
+      row.appendChild(tc);
       pos.forEach(function (p) {
-        var n = ty.ratios[p.id], hi = (ty.ratiosHigh || {})[p.id];
+        var n = ty.ratios[p.id], unit = (ty.units || {})[p.id] || 'clients';
         if (FAM[ty.family || 'service'].indexOf(foldNote(p.name)) < 0) { row.appendChild(el('span', 'horaireSheetCell')); return; } // hors famille : vide
-        var c = el('span', 'horaireSheetCell horaireSheetEdit horaireTypeCell');
-        // Deux nombres : « 1 pour N clients », puis « si prix ≥ seuil : 1 pour N » (vide = le même).
-        editCell(c, '', [['n', n == null ? '' : n, 'Clients par ' + p.name, 'number'], ['hi', hi == null ? '' : hi, 'Si prix ≥ seuil', 'number', '≥ ' + tr('seuil')]], function (v) {
-          var num = function (x) { var s = String(x).trim(); return s === '' ? null : Number(s); };
-          var k = num(v.n), kh = num(v.hi);
-          if ((k !== null && !(Number.isInteger(k) && k >= 1 && k <= 1000)) || (kh !== null && !(Number.isInteger(kh) && kh >= 1 && kh <= 1000))) return false;
-          if (k === (n == null ? null : n) && kh === (hi == null ? null : hi)) { renderTypes(); return; }
-          req('PUT', 'event-types/' + ty.id + '/ratio', { positionId: p.id, perClients: k, perClientsHigh: kh }).then(function (d) { S.types = d.types || S.types; return req('GET', 'events'); }).then(function (e) { S.events = e.events || S.events; renderTypes(); renderEventsTable(); }, function (err) { fail(err); renderTypes(); });
+        // « 1 pour [N] », puis l'unité : clients (clients ÷ N) ou $ (prix par personne × clients ÷ N).
+        var c = el('span', 'horaireSheetCell horaireTypeCell');
+        var v = el('span', 'horaireSheetEdit');
+        editCell(v, '', [['n', n == null ? '' : n, (unit === 'dollars' ? 'Dollars par ' : 'Clients par ') + p.name, 'number']], function (x) {
+          var s = String(x.n).trim(), k = s === '' ? null : Number(s);
+          if (k !== null && !(Number.isInteger(k) && k >= 1 && k <= (unit === 'dollars' ? 1000000 : 1000))) return false;
+          if (k === (n == null ? null : n)) { renderTypes(); return; }
+          req('PUT', 'event-types/' + ty.id + '/ratio', { positionId: p.id, perClients: k }).then(function (d) { S.types = d.types || S.types; return reloadAll(); }, function (err) { fail(err); renderTypes(); });
         }, function (cell) {
           if (n == null) { cell.appendChild(el('span', 'horaireMuted', '—')); return; }
-          cell.appendChild(el('span', null, tr('1 pour') + ' ' + n));
-          if (hi != null) cell.appendChild(el('span', 'horaireMuted', ' · ≥ ' + tr('seuil') + ' : 1 ' + tr('pour') + ' ' + hi));
+          cell.appendChild(el('span', null, tr('1 pour') + ' ' + n + (unit === 'dollars' ? ' $' : '')));
         });
+        c.appendChild(v);
+        if (n != null) {
+          c.appendChild(seg2('horaireTypeUnit', [['clients', 'clients'], ['dollars', '$']], unit, function (u) {
+            req('PUT', 'event-types/' + ty.id + '/ratio', { positionId: p.id, perClients: unit === 'clients' && u === 'dollars' ? Math.max(1, n) : n, unit: u }).then(function (d) { S.types = d.types || S.types; return reloadAll(); }, function (err) { fail(err); renderTypes(); });
+          }));
+        }
         row.appendChild(c);
       });
       var rm = el('span', 'horaireSheetCell horaireSheetRemove');
@@ -863,6 +864,8 @@
           }
           card.appendChild(head);
           if (ev.mailHint) card.appendChild(el('span', 'horaireMuted horaireEvHint', tr(ev.mailHint)));
+          // Un poste de ses types se compte en dollars et le prix par personne manque : aucune ligne calculée pour ce poste.
+          if (ev.priceMissing) card.appendChild(el('span', 'horaireMuted horaireEvHint', tr('prix manquant')));
           // Événement reçu par courriel : « Valider » (secondaire violet) le fait entrer dans l'horaire ; la croix le refuse.
           if (ev.pending && !past) {
             card.appendChild(btn('cmpBtn horaireEvValidate', 'Valider', function () {
@@ -905,7 +908,7 @@
             req('PUT', 'events/' + ev.id + '/type', { clients: n }).then(function (d) { replaceEvent(d.event); }, failCal);
           });
           cl.appendChild(ci); tr2.appendChild(cl);
-          // Prix par personne ($, facultatif) : au seuil d'un type, ses postes prennent le second nombre (Types d'événements).
+          // Prix par personne ($, facultatif) : sert aux postes comptés en dollars dans Types d'événements (prix × clients ÷ N).
           var pl = el('label', 'horaireEvFloor horaireEvClients'); pl.appendChild(el('span', null, tr('Prix $')));
           var pi = el('input', 'horaireInput'); pi.type = 'number'; pi.min = '1'; pi.max = '10000'; pi.step = 'any'; pi.inputMode = 'decimal'; pi.setAttribute('aria-label', tr('Prix par personne'));
           pi.value = ev.price == null ? '' : String(ev.price); pi.disabled = past;

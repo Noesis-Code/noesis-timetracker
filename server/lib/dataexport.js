@@ -300,7 +300,7 @@ function buildUserExport(userId) {
     notes: has('horaire_notes') ? rows('SELECT id, text, createdAt FROM horaire_notes WHERE userId = ? ORDER BY id', userId) : [],
     zones: has('horaire_zones') ? rows('SELECT id, name, morning, evening, createdAt FROM horaire_zones WHERE userId = ? ORDER BY id', userId) : [],
     eventTypes: has('horaire_event_types') ? rows('SELECT id, name, family, priceMin, createdAt FROM horaire_event_types WHERE userId = ? ORDER BY id', userId) : [],
-    eventTypeRatios: has('horaire_event_type_ratios') ? rows('SELECT typeId, positionId, perClients, perClientsHigh FROM horaire_event_type_ratios WHERE userId = ? ORDER BY typeId, positionId', userId) : [],
+    eventTypeRatios: has('horaire_event_type_ratios') ? rows('SELECT typeId, positionId, perClients, perClientsHigh, unit FROM horaire_event_type_ratios WHERE userId = ? ORDER BY typeId, positionId', userId) : [],
     inboundThreads: has('horaire_inbound_threads') ? rows('SELECT id, eventId, refused, fields, lastAt, createdAt FROM horaire_inbound_threads WHERE userId = ? ORDER BY id', userId) : [],
     floorCounts: has('horaire_floor_counts') ? rows('SELECT floorId, positionId, weekday, service, count FROM horaire_floor_counts WHERE userId = ? ORDER BY floorId, positionId, weekday, service', userId) : [],
     needs: rows('SELECT id, positionId, weekday, eventId, start, end, count FROM horaire_needs WHERE userId = ? ORDER BY id', userId),
