@@ -1698,6 +1698,7 @@
     b.addEventListener('click', function () { setGoalsPage1View(b.getAttribute('data-view')); });
   });
   TMT.setGoalsPage1View = setGoalsPage1View;
+  TMT.resetGoalsPage1View = function () { goalsPage1View = 'today'; };
   window.addEventListener('load', function () { if (goalsPage1View === 'today' && TMT.todayView) setGoalsPage1View('today'); }); // aujourdhui.js se charge après cette page
 
   function showGoalsCapturePage() {

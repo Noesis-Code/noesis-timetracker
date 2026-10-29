@@ -2420,7 +2420,7 @@
     }
     else {
       if (tab === 'community') loadCommunity();
-      else if (tab === 'goals') { TMT.loadGoalsTab(); maybeShowAiNotice(); }
+      else if (tab === 'goals') { if (TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(); TMT.loadGoalsTab(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
         $('chronoHistoryPanel').classList.add('hidden');
