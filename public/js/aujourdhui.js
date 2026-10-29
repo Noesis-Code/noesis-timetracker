@@ -29,6 +29,20 @@
   }
   function localIso() { var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
   var dayOff = 0; // 0 = aujourd'hui, +1 = demain, -1 = hier…
+  // Affichage instantané (29 oct. 2026, demande d'Émilien) : la dernière réponse de chaque jour est gardée (mémoire ; aujourd'hui aussi en stockage local,
+  // pour le premier affichage après ouverture de l'app) et dessinée tout de suite ; la réponse du serveur la remplace ensuite.
+  var cacheByDay = {}, CACHE_KEY = 'noesis_today_v1';
+  function cacheUser() { try { var p = TMT.getProfile && TMT.getProfile(); return p && p.id ? String(p.id) : ''; } catch (e) { return ''; } }
+  function cacheGet(day) {
+    if (cacheByDay[day]) return cacheByDay[day];
+    if (day !== localIso()) return null;
+    try { var s = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); if (s && s.u && s.u === cacheUser() && s.d === day && s.data) return (cacheByDay[day] = s.data); } catch (e) {}
+    return null;
+  }
+  function cachePut(day, d) {
+    cacheByDay[day] = d;
+    if (day === localIso() && cacheUser()) { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ u: cacheUser(), d: day, data: d })); } catch (e) {} }
+  }
   function dayDate() { var d = new Date(); d.setDate(d.getDate() + dayOff); return d; }
   function dayIso() { var d = dayDate(), p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
   function todayLabel() {
@@ -51,7 +65,7 @@
     var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Jour précédent'));
     var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Jour suivant'));
     ui.dayLabel = el('span', 'cmpNavLabel', todayLabel());
-    function go(n) { dayOff += n; ui.dayLabel.textContent = todayLabel(); state.added = []; refresh(); }
+    function go(n) { dayOff += n; ui.dayLabel.textContent = todayLabel(); state.added = []; var c = cacheGet(dayOff ? dayIso() : localIso()); if (c) render(c); refresh(); }
     prev.addEventListener('click', function () { go(-1); }); next.addEventListener('click', function () { go(1); });
     head.appendChild(prev); head.appendChild(ui.dayLabel); head.appendChild(next);
     var sum = el('div', 'tasksPopSum'); sumL = el('span'); sumR = el('span'); sum.appendChild(sumL); sum.appendChild(sumR);
@@ -246,13 +260,19 @@
   function refresh() {
     if (leaving > 0 || !root || !root.getClientRects().length) return; // vue masquée (autre volet, autre page) : rien à charger
     var seq = ++loadSeq;
-    TMT.api('GET', '/api/goals/today?today=' + localIso() + (dayOff ? '&day=' + dayIso() : '')).then(function (d) { if (seq === loadSeq && shown) render(d); }).catch(function () {});
+    var day = dayOff ? dayIso() : localIso();
+    TMT.api('GET', '/api/goals/today?today=' + localIso() + (dayOff ? '&day=' + dayIso() : '')).then(function (d) { if (d && d.tasks) cachePut(day, d); if (seq === loadSeq && shown) render(d); }).catch(function () {});
   }
+
+  // Préchargement : les tâches du jour sont demandées dès l'ouverture de l'app (et au retour au premier plan), avant même d'ouvrir la Feuille de route.
+  function prefetch() { if (!cacheUser()) return; var day = localIso(); TMT.api('GET', '/api/goals/today?today=' + day).then(function (d) { if (d && d.tasks) cachePut(day, d); }).catch(function () {}); }
+  window.addEventListener('load', function () { setTimeout(prefetch, 800); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) prefetch(); });
 
   var mounted = false;
   TMT.todayView = {
     mount: function (container) { if (mounted) return; mounted = true; build(container); },
-    show: function () { shown = true; syncDock(); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
+    show: function () { shown = true; syncDock(); var c = cacheGet(localIso()); if (c && !dayOff) render(c); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
     hide: function () { shown = false; dayOff = 0; if (ui.dayLabel) ui.dayLabel.textContent = todayLabel(); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();
