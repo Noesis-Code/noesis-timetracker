@@ -352,6 +352,7 @@
     'Feuille de temps': 'Timesheet',
     'Semaine précédente': 'Previous week',
     'Semaine suivante': 'Next week',
+    'Recharger': 'Reload',
     // Feuille de temps / Graphique (Statistiques) uniquement : plus de
     // rotation forcée en paysage depuis le 1er septembre 2026 (demande
     // d'Emilien) — la Communauté (activité partagée) garde encore l'ancien

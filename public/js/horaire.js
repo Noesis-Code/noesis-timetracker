@@ -217,7 +217,15 @@
     // js/bureau.js ajoute les flèches gauche et droite (id horairePageDots), qui restent donc dans la catégorie.
     dots = el('div', 'horairePageDots'); dots.id = 'horairePageDots'; dots.setAttribute('role', 'group');
 
-    mainNodes = [cats, head, subTabs, dots, pagesHost];
+    // Recharger (29 oct. 2026, demande d'Émilien) : relit événements, employés et semaine sans recharger la page (icône seule, R37, .cmpNavArrow).
+    var top = el('div', 'horaireTop'); top.appendChild(cats);
+    var reload = btn('cmpNavArrow horaireReload', '↻', function () {
+      if (S.busy) return;
+      S.busy = true; reload.disabled = true;
+      refresh().then(function () { S.busy = false; reload.disabled = false; });
+    });
+    reload.setAttribute('aria-label', tr('Recharger')); top.appendChild(reload);
+    mainNodes = [top, head, subTabs, dots, pagesHost];
     mainNodes.forEach(function (n) { root.appendChild(n); });
   }
   // Page courante : catégorie active, ses 3 sous-catégories (active soulignée), ses 3 points, message de la page.
