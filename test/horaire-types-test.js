@@ -110,6 +110,16 @@ assert(x.typeIds.join() === [fam.id, open.id].join() && x.clients === 60 && coun
   h.setEventTypeRatio('uT', fam.id, com.id, 40);
   assert(count(ev(ev2.id), com) === 2 && h.listEventTypes('uT').find((t) => t.id === fam.id).ratios[com.id] === 40, 'retaper 40 : Commis 2 revient');
 }
+// Écran (demande d'Émilien, 29 oct. 2026) : la famille n'est plus écrite sous le nom ; plus aucune phrase d'explication (« Service =
+// … ») nulle part, même à la création ; un type sur deux d'une autre teinte (nom et postes ensemble).
+{
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../public/js/horaire.js'), 'utf8');
+  const a = src.indexOf('  function renderTypes() {'), b = src.indexOf('  function evSvc(e)', a);
+  const body = src.slice(a, b);
+  assert(a > 0 && !/horaireTypeFamText|tr\(fam === 'bar'/.test(body), 'tableau : plus de « Service » / « Bar » sous le nom du type');
+  assert(!/Service = personnel|Nouveau type : son nom/.test(src + require('fs').readFileSync(require('path').join(__dirname, '../public/i18n.js'), 'utf8')), 'plus aucune phrase « Service = … » ni d’explication, même à la création (clés i18n retirées)');
+  assert(/horaireTypeAlt/.test(body) && /'horaireTypePosRow' \+ zebra/.test(body), 'un type sur deux d’une autre teinte, postes compris');
+}
 // Export du compte : types de chaque événement et famille de chaque type.
 const out = exp.buildUserExport('uT');
 const xe = out.horaire.events.find((e) => e.id === e1.id);

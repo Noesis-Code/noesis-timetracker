@@ -739,10 +739,12 @@
       });
       return c;
     };
-    (S.types || []).forEach(function (ty) {
+    (S.types || []).forEach(function (ty, ti) {
       var fam = ty.family === 'bar' ? 'bar' : 'service';
-      var row = sheetRow('horaireTypeRow');
-      // Nom (modifiable) et, dessous, la famille en lecture seule.
+      // Un type sur deux d'une autre teinte (demande d'Émilien) : la ligne du nom et ses lignes de postes ensemble.
+      var zebra = ti % 2 ? ' horaireTypeAlt' : ' horaireTypeEven';
+      var row = sheetRow('horaireTypeRow' + zebra);
+      // Nom (modifiable) ; la famille n'est plus écrite : seuls les postes de sa famille apparaissent.
       var tc = el('span', 'horaireSheetCell horaireTypeName');
       var nm = el('span', 'horaireSheetEdit');
       editCell(nm, ty.name, [['name', ty.name, 'Type']], function (v) {
@@ -751,7 +753,6 @@
         req('PUT', 'event-types/' + ty.id, { name: t }).then(reload, function (err) { fail(err); renderTypes(); });
       });
       tc.appendChild(nm);
-      tc.appendChild(el('span', 'horaireMuted horaireTypeFamText', tr(fam === 'bar' ? 'Bar' : 'Service')));
       row.appendChild(tc);
       row.appendChild(el('span', 'horaireSheetCell')); row.appendChild(el('span', 'horaireSheetCell'));
       // Croix tout à droite : fenêtre à trois choix (Vider les cases, Supprimer le type, Annuler).
@@ -772,7 +773,7 @@
       S.positions.filter(function (p) { return FAM[fam].indexOf(foldNote(p.name)) >= 0; })
         .sort(function (a, b) { return FAM[fam].indexOf(foldNote(a.name)) - FAM[fam].indexOf(foldNote(b.name)); })
         .forEach(function (p) {
-          var pr = sheetRow('horaireTypePosRow');
+          var pr = sheetRow('horaireTypePosRow' + zebra);
           pr.appendChild(el('span', 'horaireSheetCell horaireTypePos', p.name));
           pr.appendChild(cellFor(ty, p, 'perClients', 1000, tr('clients')));
           pr.appendChild(cellFor(ty, p, 'perDollars', 1000000, '$'));
@@ -781,10 +782,9 @@
         });
     });
     typesBox.appendChild(sheet);
-    typesBox.appendChild(el('p', 'horaireMuted', tr('Service = personnel de salle : serveurs et commis')));
-    // Ajout : nom, puis la famille (Service ou Bar), choisie une fois pour toutes.
+    // Ajout : nom, puis la famille (Service ou Bar), choisie une fois pour toutes ; aucune phrase d'explication (demande d'Émilien).
     var add = TMT.ui.addBtn(tr('Ajouter'), function () {
-      TMT.ui.confirm(tr('Nouveau type : son nom, puis sa famille (elle ne changera plus).'), { closeLabel: tr('Fermer'), input: { maxLength: 80, placeholder: tr('Nom du type'), label: tr('Nom du type') }, choices: [
+      TMT.ui.confirm('', { closeLabel: tr('Fermer'), input: { maxLength: 80, placeholder: tr('Nom du type'), label: tr('Nom du type') }, choices: [
         { value: 'service', label: tr('Service') }, { value: 'bar', label: tr('Bar') },
       ] }).then(function (v) {
         if (!v || !String(v.text || '').trim()) return;
