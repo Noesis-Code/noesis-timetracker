@@ -40,7 +40,7 @@ const PUBLIC_KEY = process.env.NOESIS_VAPID_PUBLIC_KEY || '';
 const PRIVATE_KEY = process.env.NOESIS_VAPID_PRIVATE_KEY || '';
 // Adresse de contact exigée par la spec VAPID (les services de push s'en
 // servent pour signaler un problème). N'importe quel mailto: valide convient.
-const SUBJECT = process.env.NOESIS_VAPID_SUBJECT || 'mailto:morelobaton.emilien@gmail.com';
+const SUBJECT = process.env.NOESIS_VAPID_SUBJECT || 'mailto:confidentialite.noesis@gmail.com';
 
 let webpush = null;
 let configured = false;
