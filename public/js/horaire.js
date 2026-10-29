@@ -675,9 +675,9 @@
     var pos = S.positions.filter(function (p) { return ORDER.indexOf(foldNote(p.name)) >= 0; })
       .sort(function (a, b) { return ORDER.indexOf(foldNote(a.name)) - ORDER.indexOf(foldNote(b.name)); });
     var sheet = el('div', 'horaireSheet horaireTypes');
-    sheet.style.gridTemplateColumns = 'minmax(140px, 1fr) minmax(140px, 1fr) repeat(' + pos.length + ', minmax(120px, 1fr)) 44px';
+    sheet.style.gridTemplateColumns = 'minmax(140px, 1fr) minmax(140px, 1fr) minmax(96px, 1fr) repeat(' + pos.length + ', minmax(140px, 1fr)) 44px';
     var head = sheetRow('horaireSheetHead');
-    ['Type', 'Famille'].concat(pos.map(function (p) { return p.name; }), ['']).forEach(function (t) { head.appendChild(el('span', 'horaireSheetCell', tr(t))); });
+    ['Type', 'Famille', 'Seuil de prix'].concat(pos.map(function (p) { return p.name; }), ['']).forEach(function (t) { head.appendChild(el('span', 'horaireSheetCell', tr(t))); });
     sheet.appendChild(head);
     var reload = function () { return req('GET', 'event-types').then(function (d) { S.types = d.types || []; renderTypes(); renderEventsTable(); }); };
     (S.types || []).forEach(function (ty) {
@@ -701,18 +701,31 @@
         seg.appendChild(b);
       });
       fc.appendChild(seg); row.appendChild(fc);
+      // Seuil de prix du type ($ par personne, vide = aucun) : au-delà, chaque poste prend son second nombre « ≥ seuil ».
+      var pm = el('span', 'horaireSheetCell horaireSheetEdit horaireTypeCell');
+      editCell(pm, '', [['p', ty.priceMin == null ? '' : ty.priceMin, 'Seuil de prix', 'number']], function (v) {
+        var s = String(v.p).trim().replace(',', '.'), k = s === '' ? null : Number(s);
+        if (k !== null && !(k >= 1 && k <= 10000)) return false;
+        if (k === (ty.priceMin == null ? null : ty.priceMin)) { renderTypes(); return; }
+        req('PUT', 'event-types/' + ty.id, { priceMin: k }).then(function () { return req('GET', 'events'); })
+          .then(function (e) { S.events = e.events || S.events; return reload(); }, function (err) { fail(err); renderTypes(); });
+      }, function (cell) { cell.appendChild(ty.priceMin == null ? el('span', 'horaireMuted', '—') : el('span', null, ty.priceMin + ' $')); });
+      row.appendChild(pm);
       pos.forEach(function (p) {
-        var n = ty.ratios[p.id];
+        var n = ty.ratios[p.id], hi = (ty.ratiosHigh || {})[p.id];
         if (FAM[ty.family || 'service'].indexOf(foldNote(p.name)) < 0) { row.appendChild(el('span', 'horaireSheetCell')); return; } // hors famille : vide
         var c = el('span', 'horaireSheetCell horaireSheetEdit horaireTypeCell');
-        editCell(c, '', [['n', n == null ? '' : n, 'Clients par ' + p.name, 'number']], function (v) {
-          var s = String(v.n).trim(), k = s === '' ? null : Number(s);
-          if (k !== null && !(Number.isInteger(k) && k >= 1 && k <= 1000)) return false;
-          if (k === (n == null ? null : n)) { renderTypes(); return; }
-          req('PUT', 'event-types/' + ty.id + '/ratio', { positionId: p.id, perClients: k }).then(function (d) { S.types = d.types || S.types; return req('GET', 'events'); }).then(function (e) { S.events = e.events || S.events; renderTypes(); renderEventsTable(); }, function (err) { fail(err); renderTypes(); });
+        // Deux nombres : « 1 pour N clients », puis « si prix ≥ seuil : 1 pour N » (vide = le même).
+        editCell(c, '', [['n', n == null ? '' : n, 'Clients par ' + p.name, 'number'], ['hi', hi == null ? '' : hi, 'Si prix ≥ seuil', 'number', '≥ ' + tr('seuil')]], function (v) {
+          var num = function (x) { var s = String(x).trim(); return s === '' ? null : Number(s); };
+          var k = num(v.n), kh = num(v.hi);
+          if ((k !== null && !(Number.isInteger(k) && k >= 1 && k <= 1000)) || (kh !== null && !(Number.isInteger(kh) && kh >= 1 && kh <= 1000))) return false;
+          if (k === (n == null ? null : n) && kh === (hi == null ? null : hi)) { renderTypes(); return; }
+          req('PUT', 'event-types/' + ty.id + '/ratio', { positionId: p.id, perClients: k, perClientsHigh: kh }).then(function (d) { S.types = d.types || S.types; return req('GET', 'events'); }).then(function (e) { S.events = e.events || S.events; renderTypes(); renderEventsTable(); }, function (err) { fail(err); renderTypes(); });
         }, function (cell) {
           if (n == null) { cell.appendChild(el('span', 'horaireMuted', '—')); return; }
-          cell.appendChild(el('span', null, tr('1 pour') + ' ' + n + ' ' + tr('clients')));
+          cell.appendChild(el('span', null, tr('1 pour') + ' ' + n));
+          if (hi != null) cell.appendChild(el('span', 'horaireMuted', ' · ≥ ' + tr('seuil') + ' : 1 ' + tr('pour') + ' ' + hi));
         });
         row.appendChild(c);
       });
@@ -856,6 +869,16 @@
             req('PUT', 'events/' + ev.id + '/type', { clients: n }).then(function (d) { replaceEvent(d.event); }, failCal);
           });
           cl.appendChild(ci); tr2.appendChild(cl);
+          // Prix par personne ($, facultatif) : au seuil d'un type, ses postes prennent le second nombre (Types d'événements).
+          var pl = el('label', 'horaireEvFloor horaireEvClients'); pl.appendChild(el('span', null, tr('Prix $')));
+          var pi = el('input', 'horaireInput'); pi.type = 'number'; pi.min = '1'; pi.max = '10000'; pi.step = 'any'; pi.inputMode = 'decimal'; pi.setAttribute('aria-label', tr('Prix par personne'));
+          pi.value = ev.price == null ? '' : String(ev.price); pi.disabled = past;
+          pi.addEventListener('change', function () {
+            var s = pi.value.trim().replace(',', '.'), n = s === '' ? null : Number(s);
+            if (n !== null && !(n >= 1 && n <= 10000)) { pi.value = ev.price == null ? '' : String(ev.price); return; }
+            req('PUT', 'events/' + ev.id + '/type', { price: n }).then(function (d) { replaceEvent(d.event); }, failCal);
+          });
+          pl.appendChild(pi); tr2.appendChild(pl);
           // Heure du groupe (facultative) : ses serveurs arrivent une heure avant (groupe à 16:00 -> 15:00).
           var hl = el('label', 'horaireEvFloor horaireEvClients'); hl.appendChild(el('span', null, tr('Heure')));
           var hi = el('input', 'horaireInput'); hi.type = 'time'; hi.setAttribute('aria-label', tr('Heure'));

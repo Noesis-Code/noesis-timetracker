@@ -451,13 +451,15 @@ router.post('/horaire/event-types', (req, res) => {
   if (family !== undefined && family !== 'service' && family !== 'bar') return bad(res, 'Famille invalide (service ou bar).');
   res.status(201).json({ type: h.createEventType(req.userId, name, family) });
 });
-// { name } et/ou { family : 'service' (Serveur, Commis) | 'bar' (Barman) }
+// { name } et/ou { family : 'service' (Serveur, Commis) | 'bar' (Barman) } et/ou { priceMin : seuil $ par personne, 1..10 000, ou null }
 router.put('/horaire/event-types/:id', (req, res) => {
   const b = req.body || {};
   if (!h.ownEventType(req.userId, req.params.id)) return notFound(res, 'Type');
   if (b.family !== undefined && b.family !== 'service' && b.family !== 'bar') return bad(res, 'Famille invalide (service ou bar).');
+  if (b.priceMin !== undefined && !(b.priceMin === null || (typeof b.priceMin === 'number' && b.priceMin >= 1 && b.priceMin <= 10000))) return bad(res, 'Seuil de prix invalide (1 à 10 000 $, ou vide).');
   let t = null;
-  if (b.name !== undefined || b.family === undefined) {
+  if (b.priceMin !== undefined) t = h.setEventTypePriceMin(req.userId, req.params.id, b.priceMin === null ? null : Math.round(b.priceMin * 100) / 100);
+  if (b.name !== undefined || (b.family === undefined && b.priceMin === undefined)) {
     const name = h.cleanName(String(b.name || ''), 80);
     if (!name) return bad(res, 'Nom requis.');
     t = h.renameEventType(req.userId, req.params.id, name);
@@ -466,16 +468,19 @@ router.put('/horaire/event-types/:id', (req, res) => {
   return t ? res.json({ type: t }) : notFound(res, 'Type');
 });
 router.delete('/horaire/event-types/:id', (req, res) => (h.deleteEventType(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Type')));
-// { positionId, perClients : entier 1..1000, ou null (vide = aucun personnel de ce poste) }
+// { positionId, perClients : entier 1..1000, ou null (vide = aucun personnel de ce poste),
+//   perClientsHigh (facultatif) : « si prix ≥ seuil : 1 pour N », entier 1..1000, ou null }
 router.put('/horaire/event-types/:id/ratio', (req, res) => {
   const b = req.body || {};
   if (!h.ownEventType(req.userId, req.params.id)) return notFound(res, 'Type');
   if (!h.ownPosition(req.userId, b.positionId)) return notFound(res, 'Poste');
-  if (!(b.perClients === null || (Number.isInteger(b.perClients) && b.perClients >= 1 && b.perClients <= 1000))) return bad(res, 'Nombre de clients invalide (1 à 1 000, ou vide).');
-  res.json({ types: h.setEventTypeRatio(req.userId, req.params.id, b.positionId, b.perClients) });
+  const okN = (v) => v === null || (Number.isInteger(v) && v >= 1 && v <= 1000);
+  if (!okN(b.perClients)) return bad(res, 'Nombre de clients invalide (1 à 1 000, ou vide).');
+  if (b.perClientsHigh !== undefined && !okN(b.perClientsHigh)) return bad(res, 'Nombre de clients invalide (1 à 1 000, ou vide).');
+  res.json({ types: h.setEventTypeRatio(req.userId, req.params.id, b.positionId, b.perClients, b.perClientsHigh) });
 });
 // Types et clients d'un événement : { typeIds ([] = « Aucun » ; ancien champ typeId : un type ou null), clients (entier ≥ 1 ou null) } ;
-// les lignes se recalculent (nombres de chaque type additionnés par poste).
+// les lignes se recalculent (par famille Service | Bar, le plus gros type ; familles additionnées ; palier de prix).
 router.put('/horaire/events/:id/type', (req, res) => {
   const b = req.body || {};
   if (!h.ownEvent(req.userId, req.params.id)) return notFound(res, 'Événement');
@@ -487,6 +492,8 @@ router.put('/horaire/events/:id/type', (req, res) => {
     f.typeIds = [...new Set(ids.map(Number))];
   }
   if (b.clients !== undefined) { if (!(b.clients === null || (Number.isInteger(b.clients) && b.clients >= 1 && b.clients <= 5000))) return bad(res, 'Clients invalides (1 à 5 000).'); f.clients = b.clients; }
+  // price : prix par personne ($, facultatif), 1..10 000 ou null.
+  if (b.price !== undefined) { if (!(b.price === null || (typeof b.price === 'number' && b.price >= 1 && b.price <= 10000))) return bad(res, 'Prix invalide (1 à 10 000 $, ou vide).'); f.price = b.price === null ? null : Math.round(b.price * 100) / 100; }
   h.setEventTypeClients(req.userId, req.params.id, f);
   h.markManual(req.userId, req.params.id, Object.keys(f));
   res.json({ event: h.listEvents(req.userId).find((e) => e.id === Number(req.params.id)) });

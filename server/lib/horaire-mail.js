@@ -98,6 +98,16 @@ function findCovers(text) {
   return last;
 }
 
+// Prix PAR PERSONNE (« 85 $ par personne », « 85$/pers », « 85 $ par convive », « $85 per person ») ; un montant total n'est jamais
+// divisé (null). Dernière mention, 1 à 10 000 $.
+function findPrice(text) {
+  const t = fold(text);
+  const re = /(?:(\d{1,5}(?:[.,]\d{1,2})?)\s*\$|\$\s*(\d{1,5}(?:[.,]\d{1,2})?))\s*(?:\/|par|per|a)\s*(?:personnes?|pers\b\.?|convives?|invites?|tete|people|persons?|guests?|pp\b)/g;
+  let m, last = null;
+  while ((m = re.exec(t))) { const n = Number(String(m[1] || m[2]).replace(',', '.')); if (n >= 1 && n <= 10000) last = n; }
+  return last;
+}
+
 // Planchers cités (noms du tableau Planchers, casse et accents ignorés, mots entiers) ; ordre d'apparition.
 function findFloors(text, floors) {
   const t = ' ' + fold(text).replace(/[^a-z0-9']+/g, ' ') + ' ';
@@ -159,7 +169,7 @@ function extract({ subject, text }, today, floors, types) {
   const tids = findTypes(own, types);
   return {
     day, time, service: time ? (Number(time.slice(0, 2)) >= 16 ? 'soir' : 'matin') : null,
-    covers: findCovers(own), floorIds: fl.map((f) => f.id), confirm: confirmHint(own), typeIds: tids, typeId: tids.length ? tids[0] : null,
+    covers: findCovers(own), price: findPrice(own), floorIds: fl.map((f) => f.id), confirm: confirmHint(own), typeIds: tids, typeId: tids.length ? tids[0] : null,
   };
 }
 
@@ -183,4 +193,4 @@ function normalizeMail(b) {
   };
 }
 
-module.exports = { findType, findTypes, fold, cleanSubject, ownText, findDates, bestDate, findTime, findCovers, findFloors, confirmHint, anonymousSubject, fallbackName, extract, normalizeMail };
+module.exports = { findType, findTypes, findPrice, fold, cleanSubject, ownText, findDates, bestDate, findTime, findCovers, findFloors, confirmHint, anonymousSubject, fallbackName, extract, normalizeMail };

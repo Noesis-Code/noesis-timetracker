@@ -340,8 +340,8 @@ setInterval(() => { try { purgePastEvents(); } catch (e) { /* réessayé au proc
 function listEvents(u, from, to) {
   purgePastEvents();
   const evs = (from && to)
-    ? db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId, status, manual, mailHint, typeId, typeIds, clients, lineManual, time FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
-    : db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId, status, manual, mailHint, typeId, typeIds, clients, lineManual, time FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
+    ? db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId, status, manual, mailHint, typeId, typeIds, clients, price, lineManual, time FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
+    : db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId, status, manual, mailHint, typeId, typeIds, clients, price, lineManual, time FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
   const needs = db.prepare('SELECT eventId, positionId, start, end, count FROM horaire_needs WHERE userId = ? AND eventId IS NOT NULL ORDER BY start').all(u);
   // lines (événement d'un service) : ses lignes « poste · +N » ; ancienne ligne (positionId, extra) = un événement d'une seule ligne.
   return evs.map((e) => {
@@ -973,9 +973,13 @@ function listEventTypes(u) {
     DEFAULT_EVENT_TYPES.forEach((n) => ins.run(u, n, n === 'Bar ouvert' ? 'bar' : 'service', nowIso()));
     db.prepare('UPDATE horaire_settings SET eventTypesInit = 1 WHERE userId = ?').run(u);
   }
-  const ratios = db.prepare('SELECT typeId, positionId, perClients FROM horaire_event_type_ratios WHERE userId = ?').all(u);
-  return db.prepare('SELECT id, name, family FROM horaire_event_types WHERE userId = ? ORDER BY id').all(u)
-    .map((t) => ({ ...t, family: typeFamily(t), ratios: Object.fromEntries(ratios.filter((r) => r.typeId === t.id).map((r) => [r.positionId, r.perClients])) }));
+  const ratios = db.prepare('SELECT typeId, positionId, perClients, perClientsHigh FROM horaire_event_type_ratios WHERE userId = ?').all(u);
+  // ratios : { poste: N } ; priceMin : seuil de prix du type ($ par personne, null = aucun) ; ratiosHigh : { poste: N si prix ≥ seuil }.
+  return db.prepare('SELECT id, name, family, priceMin FROM horaire_event_types WHERE userId = ? ORDER BY id').all(u)
+    .map((t) => {
+      const own = ratios.filter((r) => r.typeId === t.id);
+      return { ...t, family: typeFamily(t), ratios: Object.fromEntries(own.map((r) => [r.positionId, r.perClients])), ratiosHigh: Object.fromEntries(own.filter((r) => r.perClientsHigh != null).map((r) => [r.positionId, r.perClientsHigh])) };
+    });
 }
 // Famille d'un type (29 oct. 2026, règle d'Émilien) : « service » (personnel de salle : Serveur, Commis) ou « bar » (Barman). Ancien type
 // sans famille : « bar » si son nom commence par « bar » (Bar ouvert), sinon « service » (Family style, Canapés).
@@ -991,6 +995,13 @@ function createEventType(u, name, family) {
 function setEventTypeFamily(u, id, family) {
   if (!ownEventType(u, id) || !TYPE_FAMILIES[family]) return null;
   db.prepare('UPDATE horaire_event_types SET family = ? WHERE id = ? AND userId = ?').run(family, Number(id), u);
+  listEvents(u).filter((e) => e.typeIds.includes(Number(id)) && e.clients && e.service).forEach((e) => recomputeEventLines(u, e.id));
+  return listEventTypes(u).find((t) => t.id === Number(id));
+}
+// Seuil de prix d'un type ($ par personne, null = aucun) : les événements à venir qui l'ont sont recalculés.
+function setEventTypePriceMin(u, id, priceMin) {
+  if (!ownEventType(u, id)) return null;
+  db.prepare('UPDATE horaire_event_types SET priceMin = ? WHERE id = ? AND userId = ?').run(priceMin, Number(id), u);
   listEvents(u).filter((e) => e.typeIds.includes(Number(id)) && e.clients && e.service).forEach((e) => recomputeEventLines(u, e.id));
   return listEventTypes(u).find((t) => t.id === Number(id));
 }
@@ -1016,19 +1027,25 @@ function deleteEventType(u, id) {
     .filter((e) => evTypeIds(e).includes(Number(id))).forEach((e) => writeTypeIds(u, e.id, evTypeIds(e).filter((t) => t !== Number(id))));
   return cascade(u, [['DELETE FROM horaire_event_type_ratios WHERE typeId = ? AND userId = ?', Number(id)], ['UPDATE horaire_events SET typeId = NULL WHERE typeId = ? AND userId = ?', Number(id)], ['DELETE FROM horaire_event_types WHERE id = ? AND userId = ?', Number(id)]]);
 }
-// perClients : entier ≥ 1, ou null (vide = aucun personnel de ce poste) ; les événements à venir de ce type sont recalculés.
-function setEventTypeRatio(u, typeId, positionId, perClients) {
+// perClients : entier ≥ 1, ou null (vide = aucun personnel de ce poste) ; perClientsHigh (« si prix ≥ seuil : 1 pour N ») : entier ≥ 1,
+// null (aucun) ou undefined (inchangé). Les événements à venir de ce type sont recalculés.
+function setEventTypeRatio(u, typeId, positionId, perClients, perClientsHigh) {
   if (perClients == null) db.prepare('DELETE FROM horaire_event_type_ratios WHERE userId = ? AND typeId = ? AND positionId = ?').run(u, Number(typeId), Number(positionId));
-  else db.prepare(`INSERT INTO horaire_event_type_ratios (userId, typeId, positionId, perClients) VALUES (?, ?, ?, ?)
+  else {
+    db.prepare(`INSERT INTO horaire_event_type_ratios (userId, typeId, positionId, perClients) VALUES (?, ?, ?, ?)
     ON CONFLICT(userId, typeId, positionId) DO UPDATE SET perClients = excluded.perClients`).run(u, Number(typeId), Number(positionId), perClients);
+    if (perClientsHigh !== undefined) db.prepare('UPDATE horaire_event_type_ratios SET perClientsHigh = ? WHERE userId = ? AND typeId = ? AND positionId = ?').run(perClientsHigh, u, Number(typeId), Number(positionId));
+  }
   listEvents(u).filter((e) => e.typeIds.includes(Number(typeId)) && e.clients && e.service).forEach((e) => recomputeEventLines(u, e.id));
   return listEventTypes(u);
 }
 // Lignes calculées d'un événement typé : par type, pour chaque poste de SA famille (Service : Serveur, Commis ; Bar : Barman), arrondi
 // supérieur de clients ÷ N. Plusieurs types (liste typeIds, ou un seul typeId) : dans une même famille, seul le plus gros l'emporte
 // (personnel total le plus élevé ; à égalité, le premier coché), jamais d'addition ; puis les familles s'ADDITIONNENT (plafond 50 par
-// poste). Une ligne modifiée à la main (manualPositions) garde sa valeur ; une ligne d'un autre poste, ajoutée à la main, reste.
-function computedLines(u, typeIds, clients) {
+// poste). Prix par personne (price) : un type dont le seuil est atteint (price ≥ priceMin) prend, pour chaque poste qui en a un, le N
+// « si prix ≥ seuil » ; sans prix ou sans seuil : le N habituel. Le palier s'applique AVANT la comparaison des types d'une famille.
+// Une ligne modifiée à la main (manualPositions) garde sa valeur ; une ligne d'un autre poste, ajoutée à la main, reste.
+function computedLines(u, typeIds, clients, price) {
   const ids = (Array.isArray(typeIds) ? typeIds : (typeIds == null ? [] : [typeIds])).map(Number);
   const all = listEventTypes(u);
   const ts = ids.map((i) => all.find((x) => x.id === i)).filter(Boolean);
@@ -1036,7 +1053,8 @@ function computedLines(u, typeIds, clients) {
   const posName = new Map(listPositions(u).map((p) => [p.id, fold(p.name)]));
   const best = {};
   ts.forEach((t) => {
-    const lines = Object.entries(t.ratios).map(([pid, n]) => ({ positionId: Number(pid), count: Math.ceil(clients / n) }))
+    const high = price != null && t.priceMin != null && price >= t.priceMin;
+    const lines = Object.entries(t.ratios).map(([pid, n]) => ({ positionId: Number(pid), count: Math.ceil(clients / (high && t.ratiosHigh[pid] ? t.ratiosHigh[pid] : n)) }))
       .filter((l) => l.count > 0 && TYPE_FAMILIES[t.family].includes(posName.get(l.positionId)));
     const total = lines.reduce((s, l) => s + l.count, 0);
     if (!best[t.family] || total > best[t.family].total) best[t.family] = { total, lines };
@@ -1048,7 +1066,7 @@ function computedLines(u, typeIds, clients) {
 function recomputeEventLines(u, id) {
   const e = listEvents(u).find((x) => x.id === Number(id));
   if (!e || !e.service) return null;
-  const calc = computedLines(u, e.typeIds, e.clients);
+  const calc = computedLines(u, e.typeIds, e.clients, e.price);
   if (!calc) return e;
   const manual = new Set(e.manualPositions);
   const lines = calc.filter((l) => !manual.has(l.positionId));
@@ -1059,7 +1077,7 @@ function recomputeEventLines(u, id) {
 function markManualLines(u, id, lines) {
   const e = listEvents(u).find((x) => x.id === Number(id));
   if (!e) return;
-  const calc = computedLines(u, e.typeIds, e.clients) || [];
+  const calc = computedLines(u, e.typeIds, e.clients, e.price) || [];
   const m = new Set(e.manualPositions);
   lines.forEach((l) => { const c = calc.find((x) => x.positionId === Number(l.positionId)); if (!c || c.count !== l.count) m.add(Number(l.positionId)); });
   calc.forEach((c) => { if (!lines.some((l) => Number(l.positionId) === c.positionId)) m.add(c.positionId); }); // ligne retirée à la main
@@ -1070,6 +1088,7 @@ function setEventTypeClients(u, id, f) {
   const ids = f.typeIds !== undefined ? f.typeIds : (f.typeId !== undefined ? (f.typeId == null ? [] : [f.typeId]) : undefined);
   if (ids !== undefined) writeTypeIds(u, id, ids);
   if (f.clients !== undefined) db.prepare('UPDATE horaire_events SET clients = ? WHERE id = ? AND userId = ?').run(f.clients, Number(id), u);
+  if (f.price !== undefined) db.prepare('UPDATE horaire_events SET price = ? WHERE id = ? AND userId = ?').run(f.price, Number(id), u);
   return recomputeEventLines(u, id);
 }
 
@@ -1115,7 +1134,7 @@ function receiveMail(u, raw) {
   let f = {}; try { f = JSON.parse(t.fields || '{}'); } catch (e) { f = {}; }
   const put = (k, v) => { if (v == null || v === false) return; if (newer || f[k] == null) f[k] = v; };
   put('day', ex.day); put('time', ex.time); put('service', ex.service); put('covers', ex.covers);
-  put('floorId', ex.floorIds[0] != null ? ex.floorIds[0] : null); put('typeIds', ex.typeIds && ex.typeIds.length ? ex.typeIds : null); if (ex.confirm) f.confirm = true;
+  put('floorId', ex.floorIds[0] != null ? ex.floorIds[0] : null); put('typeIds', ex.typeIds && ex.typeIds.length ? ex.typeIds : null); put('price', ex.price); if (ex.confirm) f.confirm = true;
   db.prepare('UPDATE horaire_inbound_threads SET fields = ?, lastAt = ? WHERE id = ?').run(JSON.stringify(f), newer ? at : t.lastAt, t.id);
   if (!f.day) return { thread: t.id, eventId: null }; // pas encore de date : rien dans le calendrier
   const pos = serverPosition(u);
@@ -1123,7 +1142,7 @@ function receiveMail(u, raw) {
   // Types reconnus (tous ceux cités ; ancien fil : typeId) : lignes calculées par leurs ratios additionnés ; sinon l'ancien ratio
   // « 1 serveur pour 20 couverts » (seulement sans type).
   const fTypes = f.typeIds || (f.typeId ? [f.typeId] : []);
-  const typed = fTypes.length && f.covers ? computedLines(u, fTypes, f.covers) : null;
+  const typed = fTypes.length && f.covers ? computedLines(u, fTypes, f.covers, f.price != null ? f.price : null) : null;
   const serverLine = typed || (f.covers && pos && !fTypes.length ?[{ positionId: pos.id, count: Math.min(50, Math.ceil(f.covers / ratio)) }] : []);
   const hint = f.confirm ? 'confirmé probable' : null;
   const ev = t.eventId ? db.prepare('SELECT * FROM horaire_events WHERE id = ? AND userId = ?').get(t.eventId, u) : null;
@@ -1132,6 +1151,7 @@ function receiveMail(u, raw) {
     const e = writeServiceEvent(u, null, { day: f.day, service: f.service || 'soir', covers: f.covers || null, lines: serverLine, name, floorId: f.floorId != null ? f.floorId : null, time: f.time || null });
     db.prepare("UPDATE horaire_events SET status = 'pending', mailHint = ?, clients = ? WHERE id = ?").run(hint, fTypes.length ? (f.covers || null) : null, e.id);
     writeTypeIds(u, e.id, fTypes);
+    if (f.price != null) db.prepare('UPDATE horaire_events SET price = ? WHERE id = ?').run(f.price, e.id);
     db.prepare('UPDATE horaire_inbound_threads SET eventId = ? WHERE id = ?').run(e.id, t.id);
     return { thread: t.id, eventId: e.id, created: true };
   }
@@ -1147,6 +1167,7 @@ function receiveMail(u, raw) {
   db.prepare('UPDATE horaire_events SET mailHint = ? WHERE id = ? AND userId = ?').run(hint, ev.id, u);
   // Type et clients : remplis s'ils sont vides (ou si l'événement n'a jamais été retouché à la main).
   if (fTypes.length && (!manual.length || !evTypeIds(ev).length)) writeTypeIds(u, ev.id, fTypes);
+  if (f.price != null && (!manual.length || ev.price == null)) db.prepare('UPDATE horaire_events SET price = ? WHERE id = ? AND userId = ?').run(f.price, ev.id, u);
   if (fTypes.length && f.covers && (!manual.length || ev.clients == null)) db.prepare('UPDATE horaire_events SET clients = ? WHERE id = ? AND userId = ?').run(f.covers, ev.id, u);
   return { thread: t.id, eventId: ev.id, updated: true };
 }
@@ -1247,7 +1268,7 @@ module.exports = {
   DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  listFloors, ownFloor, listFloorCounts, createFloor, renameFloor, deleteFloor, isFloorPosition, setFloorCount, nameTaken, candidates, listEventTypes, ownEventType, createEventType, renameEventType, setEventTypeFamily, deleteEventType, setEventTypeRatio, computedLines, recomputeEventLines, markManualLines, setEventTypeClients, receiveMail, markManual, validateEvent, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, userForInboundToken, receiveReservations, GROUP_MIN, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
+  listFloors, ownFloor, listFloorCounts, createFloor, renameFloor, deleteFloor, isFloorPosition, setFloorCount, nameTaken, candidates, listEventTypes, ownEventType, createEventType, renameEventType, setEventTypeFamily, setEventTypePriceMin, deleteEventType, setEventTypeRatio, computedLines, recomputeEventLines, markManualLines, setEventTypeClients, receiveMail, markManual, validateEvent, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, userForInboundToken, receiveReservations, GROUP_MIN, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,
