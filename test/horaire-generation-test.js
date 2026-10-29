@@ -534,8 +534,10 @@ assert(grp.every((a) => a.employeeId <= 22), 'les créneaux du groupe à 15:00 v
 assert(find(r, 1, D[5], '16:00').length === 3 && !find(r, 1, D[5], '17:00').length && !find(r, 1, D[5], '18:00').length, 'habituels retirés : ceux qui arrivent le plus tard (18:00, puis 17:00)');
 r = groupCase('16:00', 2);
 assert(total(r) === 8 && find(r, 1, D[5], '15:00').length === 3 && !find(r, 1, D[5], '18:00').length && find(r, 1, D[5], '17:00').length === 2, 'habituel 2 ≤ groupe 3 : les 2 derniers arrivés retirés, 3 du groupe à 15:00 (1 en plus)');
+// Sans heure (réponse d'Émilien, 29 oct. 2026) : la règle du plancher s'applique aussi ; les 3 du groupe remplacent les 4 habituels
+// d'en haut (1 retiré, le dernier arrivé), aucun créneau à 15:00.
 r = groupCase(null, 4);
-assert(total(r) === 7 && !find(r, 1, D[5], '15:00').length && find(r, 1, D[5], '18:00').length === 2, 'sans heure : comportement inchangé (7 serveurs, aucun à 15:00)');
+assert(total(r) === 6 && !find(r, 1, D[5], '15:00').length && find(r, 1, D[5], '18:00').length === 1 && find(r, 1, D[5], '16:00').length === 3, 'sans heure : 3 du groupe remplacent les 4 habituels d’en haut (6 serveurs, aucun à 15:00, un 18:00 retiré)');
 
 if (failed) { console.log(failed + ' échec(s)'); process.exit(1); }
 console.log('horaire-generation : tout passe');

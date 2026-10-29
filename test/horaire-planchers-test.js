@@ -37,6 +37,10 @@ assert(find(r, SRV, D[4], '18:00').length === 2 && find(r, SRV, D[4], '18:00').e
 assert(find(r, SRV, D[4], '16:00').length === 3, 'les 3 habituels de Main restent (les derniers arrivés sont retirés)');
 r = friday([AMARO], 2, '19:00');
 assert(find(r, SRV, D[4]).length === 7, 'un seul plancher (Amaro, 2 habituels), groupe de 2 : comportement actuel (7 − 2 + 2 = 7)');
+r = friday([AMARO, VERANDA], 2, null);
+assert(find(r, SRV, D[4]).length === 5 && find(r, SRV, D[4], '16:00').length === 3 && !find(r, SRV, D[4], '18:00').length, 'sans heure, Amaro + Véranda, groupe de 2 : 7 − 4 + 2 = 5 (les 2 de 18:00 retirés, arrivées habituelles)');
+r = friday([AMARO], 1, null);
+assert(find(r, SRV, D[4]).length === 6, 'sans heure, un plancher (2 habituels), groupe de 1 : 7 − 2 + 1 = 6');
 r = friday([AMARO, VERANDA], 6, '19:00');
 assert(find(r, SRV, D[4]).length === 9, 'groupe de 6 sur Amaro + Véranda : 7 − 4 + 6 = 9');
 

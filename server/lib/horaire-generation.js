@@ -66,8 +66,8 @@ function defaultServiceEnd(weekday, service) { return service === 'matin' ? '17:
 // opts.serviceEnds (objet, même vide) : chaque quart finit à la fin de son service ce jour-là (valeur du compte, sinon le défaut) ;
 // sans opts.serviceEnds (tests anciens) : la fin écrite dans le besoin.
 // Plancher occupé par un événement (28 oct. 2026, demande d'Émilien) : pour un poste Serveur, Barman ou Commis (opts.floorPositions),
-// le personnel EN PLUS = max(0, N de l'événement − nombre habituel de ce poste sur ce plancher, ce jour et ce service, opts.floorCounts).
-// Deux événements du même service sur le même plancher ne le déduisent qu'une fois (les premiers, par id, consomment l'habituel).
+// les N de l'événement REMPLACENT le nombre habituel M de ce poste sur ce plancher, ce jour et ce service (opts.floorCounts) : M − N
+// habituels retirés si N < M, N − M en plus si N > M (avec ou sans heure, 29 oct. 2026). Un plancher n'est déduit qu'une fois par service.
 // Autres postes, ou sans plancher : N s'ajoute.
 // Groupe avec heure (29 oct. 2026, règle d'Émilien) : ligne Serveur (opts.groupPositionId) d'un événement du soir qui a une heure :
 // ses N serveurs sont des créneaux indépendants (arrivée = heure − 60 min) et REMPLACENT les M serveurs habituels du plancher :
@@ -94,10 +94,12 @@ function floorExtra(lines, weekday, opts) {
     };
     const rem = floors.reduce((s, f) => s + remOf(f), 0);
     if (isTimedGroup(l, opts)) { floors.forEach((f) => left.set(keyOf(f), 0)); return Object.assign({}, l, { replaced: rem, remove: rem }); }
-    let take = Math.min(rem, l.count);
-    const took = take;
-    floors.forEach((f) => { const r = remOf(f), t = Math.min(r, take); left.set(keyOf(f), r - t); take -= t; });
-    return Object.assign({}, l, { count: l.count - took, replaced: took });
+    // Sans heure (réponse d'Émilien, 29 oct. 2026 : la règle du plancher ne dépend pas de l'heure) : les N REMPLACENT les habituels de
+    // ces planchers ; N < somme -> (somme − N) habituels retirés (les derniers arrivés) ; N > somme -> N − somme en plus, à la première
+    // arrivée habituelle. Les planchers sont alors pris : un 2e événement du service sur les mêmes planchers s'ajoute entièrement.
+    const took = Math.min(rem, l.count);
+    floors.forEach((f) => left.set(keyOf(f), 0));
+    return Object.assign({}, l, { count: l.count - took, replaced: took, remove: rem - took });
   });
 }
 function buildSlots(weekStart, needs, events, mainPositionId, opts) {
