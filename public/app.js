@@ -2091,6 +2091,8 @@
   // Les comptes qui ont encore l'ancien code à 4 chiffres choisissent un mot de passe fort avant d'aller plus loin (le serveur bloque le reste : lib/session.js).
   var forceKnownPin = '', forceAfter = null;
   function showForcePassword(knownPin, after) {
+    // Écran déjà ouvert et appel venu d'une requête de fond (le serveur répond « mot de passe à changer » à chacune) : on ne vide pas ce que la personne est en train de taper (29 oct. 2026).
+    if (!$('forcePwd').classList.contains('hidden') && !knownPin && !after) return;
     forceKnownPin = knownPin || '';
     forceAfter = after || null;
     $('forcePwdCurrent').classList.toggle('hidden', !!forceKnownPin);
