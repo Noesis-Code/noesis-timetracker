@@ -398,11 +398,36 @@
     inboundLine.textContent = '';
     inboundLine.classList.toggle('hidden', !i.address);
     if (!i.address) return;
-    inboundLine.appendChild(el('span', 'horaireMuted horaireInboundText', tr('Courriels des événements :') + ' ' + i.address));
-    inboundLine.appendChild(btn('cmpBtn cmpBtnIdle', 'Copier l’adresse', function () {
+    var row = el('div', 'horaireInboundRow');
+    row.appendChild(el('span', 'horaireMuted horaireInboundText', tr('Courriels des événements :') + ' ' + i.address));
+    row.appendChild(btn('cmpBtn cmpBtnIdle', 'Copier l’adresse', function () {
       var cb = navigator.clipboard;
       (cb && cb.writeText ? cb.writeText(i.address) : Promise.reject()).then(function () { S.msg = tr('Adresse copiée.'); renderMsg(); }, function () { S.msg = tr('Copie impossible.'); renderMsg(); });
     }));
+    inboundLine.appendChild(row);
+    // Mise en place guidée (29 oct. 2026, demande d'Émilien) : l'adresse à relier (défaut : courriel du profil) sert seulement à
+    // choisir les étapes Gmail ou Outlook ; la réception ne la lit jamais (seul le jeton de l'adresse du compte fait foi).
+    var mine = input('email', i.forwardFrom || '', tr('Mon adresse courriel'));
+    mine.autocomplete = 'email';
+    mine.addEventListener('change', function () {
+      req('PUT', 'inbound', { forwardFrom: mine.value.trim() }).then(function (d) { S.inbound = d; renderInbound(); }, fail);
+    });
+    inboundLine.appendChild(field(tr('Mon adresse courriel'), mine));
+    var guess = /@(outlook|hotmail|live|msn)\./i.test(i.forwardFrom || '') ? 'outlook' : 'gmail';
+    var client = S.mailClient || guess;
+    var seg = el('div', 'cmpSeg horaireInboundSeg'); seg.setAttribute('role', 'tablist');
+    [['gmail', 'Gmail'], ['outlook', 'Outlook']].forEach(function (c) {
+      var b = btn(client === c[0] ? 'active' : '', c[1], function () { S.mailClient = c[0]; renderInbound(); });
+      b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', client === c[0] ? 'true' : 'false');
+      seg.appendChild(b);
+    });
+    inboundLine.appendChild(seg);
+    var steps = client === 'outlook'
+      ? ['Outlook : Paramètres > Courrier > Règles > Ajouter une règle.', 'Condition : les courriels d’événements. Action : Transférer à l’adresse ci-dessus.']
+      : ['Gmail : Paramètres > Transfert et POP/IMAP > Ajouter une adresse de transfert : l’adresse ci-dessus.', 'Puis un filtre sur les courriels d’événements : Transférer à cette adresse.'];
+    var ol = el('ol', 'horaireMuted horaireInboundSteps');
+    steps.forEach(function (s) { ol.appendChild(el('li', null, tr(s))); });
+    inboundLine.appendChild(ol);
   }
   // « 1 congé », « 3 congés » : nombre et mot accordé (jamais « (s) »).
   function plural(n, one, many) { return n + ' ' + tr(n > 1 ? many : one); }

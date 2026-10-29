@@ -389,10 +389,17 @@ function eventInput(req, res, body, partial, current) {
   }
   return { day, label, needs };
 }
-// Réception automatique : { address (null tant qu'aucun domaine n'est configuré), lastAt, groupMin } ; PUT { groupMin 1..500 } ;
+// Réception automatique : { address (null tant qu'aucun domaine n'est configuré), lastAt, groupMin, forwardFrom } ;
+// PUT { groupMin 1..500 } ou { forwardFrom : adresse à relier, '' = courriel du profil ; indication seulement, jamais un filtre } ;
 // POST revoke : nouveau jeton (l'ancienne adresse ne reçoit plus rien).
 router.get('/horaire/inbound', (req, res) => { res.set('Cache-Control', 'no-store'); res.json(h.inboundInfo(req.userId)); });
 router.put('/horaire/inbound', (req, res) => {
+  const f = (req.body || {}).forwardFrom;
+  if (f !== undefined) {
+    const v = typeof f === 'string' ? f.trim() : null;
+    if (v === null || v.length > 254 || (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))) return bad(res, 'Adresse courriel invalide.');
+    return res.json(h.setForwardFrom(req.userId, v));
+  }
   const n = (req.body || {}).groupMin;
   if (!(Number.isInteger(n) && n >= 1 && n <= 500)) return bad(res, 'Seuil invalide (1 à 500 couverts).');
   res.json(h.setGroupMin(req.userId, n));

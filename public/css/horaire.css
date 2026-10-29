@@ -100,10 +100,12 @@
 .cmpBtn.horaireEvValidate { min-height: 44px; padding: 0 12px; background: none; color: var(--purple); box-shadow: inset 0 0 0 1px var(--purple); }
 .horaireCalPill.pending { background: var(--hover-bg); color: var(--text-light); }
 /* Adresse de réception des courriels d'événements (Paramètres > Général) */
-.horaireInbound { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.horaireInbound { display: flex; flex-direction: column; gap: 12px; font-size: 13px; }
+.horaireInboundRow { display: flex; align-items: center; gap: 12px; }
 .horaireInboundText { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.horaireInbound > .cmpBtn { width: auto; min-height: 44px; padding: 0 16px; }
-.horaireCalMonth.past { opacity: .5; cursor: default; }
+.horaireInboundRow > .cmpBtn { width: auto; min-height: 44px; padding: 0 16px; }
+/* Étapes du transfert (Gmail ou Outlook) : texte simple numéroté */
+.horaireInboundSteps { margin: 0; padding-left: 24px; display: flex; flex-direction: column; gap: 8px; }.horaireCalMonth.past { opacity: .5; cursor: default; }
 .horaireCalMonthName { font-size: 13px; font-weight: 600; }
 .horaireCalMini .horaireCalHead { padding: 2px; font-size: 13px; }
 .horaireCalMiniDay { position: relative; padding: 2px 0 6px; font-size: 13px; text-align: center; color: var(--text-light); }

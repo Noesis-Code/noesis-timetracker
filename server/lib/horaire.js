@@ -956,15 +956,26 @@ function readReservations(text) {
 // Adresse secrète par compte : horaire-<jeton>@<HORAIRE_INBOUND_DOMAIN>. Le jeton (32 octets aléatoires) est créé à la première
 // lecture et se révoque (nouveau jeton). Sans HORAIRE_INBOUND_DOMAIN : « bientôt disponible » (aucune adresse affichée).
 const GROUP_MIN = 10;
+// Adresse de l'utilisateur à relier (forwardFrom) : indication pour la mise en place du transfert seulement (défaut : courriel du profil).
+// JAMAIS utilisée pour authentifier ni filtrer la réception : seul le jeton fait foi (userForInboundToken).
+if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === 'forwardFrom')) db.exec('ALTER TABLE horaire_settings ADD COLUMN forwardFrom TEXT');
 function inboundInfo(u) {
   db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
-  let r = db.prepare('SELECT inboundToken, inboundLastAt, groupMin FROM horaire_settings WHERE userId = ?').get(u);
+  let r = db.prepare('SELECT inboundToken, inboundLastAt, groupMin, forwardFrom FROM horaire_settings WHERE userId = ?').get(u);
   if (!r.inboundToken) {
     db.prepare('UPDATE horaire_settings SET inboundToken = ? WHERE userId = ?').run(require('crypto').randomBytes(32).toString('hex'), u);
-    r = db.prepare('SELECT inboundToken, inboundLastAt, groupMin FROM horaire_settings WHERE userId = ?').get(u);
+    r = db.prepare('SELECT inboundToken, inboundLastAt, groupMin, forwardFrom FROM horaire_settings WHERE userId = ?').get(u);
   }
   const domain = String(process.env.HORAIRE_INBOUND_DOMAIN || '').trim();
-  return { address: domain ? 'horaire-' + r.inboundToken + '@' + domain : null, lastAt: r.inboundLastAt || null, groupMin: r.groupMin || GROUP_MIN };
+  const me = db.prepare('SELECT email FROM users WHERE id = ?').get(u);
+  return { address: domain ? 'horaire-' + r.inboundToken + '@' + domain : null, lastAt: r.inboundLastAt || null, groupMin: r.groupMin || GROUP_MIN,
+    forwardFrom: r.forwardFrom || (me && me.email) || '' };
+}
+// v : adresse déjà validée par la route ; '' = revenir au courriel du profil.
+function setForwardFrom(u, v) {
+  db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
+  db.prepare('UPDATE horaire_settings SET forwardFrom = ? WHERE userId = ?').run(v || null, u);
+  return inboundInfo(u);
 }
 function revokeInbound(u) {
   db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
@@ -1282,7 +1293,7 @@ module.exports = {
   DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  listFloors, ownFloor, listFloorCounts, createFloor, renameFloor, deleteFloor, isFloorPosition, setFloorCount, nameTaken, candidates, listEventTypes, ownEventType, createEventType, renameEventType, setEventTypeFamily, setEventTypePriceMin, deleteEventType, setEventTypeRatio, computedLines, recomputeEventLines, markManualLines, setEventTypeClients, receiveMail, markManual, validateEvent, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, userForInboundToken, receiveReservations, GROUP_MIN, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
+  listFloors, ownFloor, listFloorCounts, createFloor, renameFloor, deleteFloor, isFloorPosition, setFloorCount, nameTaken, candidates, listEventTypes, ownEventType, createEventType, renameEventType, setEventTypeFamily, setEventTypePriceMin, deleteEventType, setEventTypeRatio, computedLines, recomputeEventLines, markManualLines, setEventTypeClients, receiveMail, markManual, validateEvent, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, setForwardFrom, userForInboundToken, receiveReservations, GROUP_MIN, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,
