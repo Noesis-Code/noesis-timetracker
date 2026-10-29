@@ -2747,7 +2747,8 @@ for (const t of ['horaire_availabilities', 'horaire_timeoff']) {
 // Zone occupée par un événement (28 oct. 2026) : zoneId = zone du tableau Zones ; zoneRead = texte lu à l'import, non reconnu.
 // time (29 oct. 2026) : heure du groupe (HH:MM, facultative) ; ses serveurs arrivent une heure avant (horaire-generation.js).
 // sourceKey (28 oct. 2026) : clé d'une réservation reçue par courriel (date|heure|couverts|numéro) : jamais deux fois le même événement.
-for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER'], ['covers', 'INTEGER'], ['zoneId', 'INTEGER'], ['zoneRead', 'TEXT'], ['sourceKey', 'TEXT'], ['status', 'TEXT'], ['manual', 'TEXT'], ['mailHint', 'TEXT'], ['typeId', 'INTEGER'], ['clients', 'INTEGER'], ['lineManual', 'TEXT'], ['time', 'TEXT']]) {
+// typeIds (29 oct. 2026) : types de l'événement (JSON [id, …], plusieurs possibles) ; NULL = ancien événement, son typeId fait foi.
+for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER'], ['covers', 'INTEGER'], ['zoneId', 'INTEGER'], ['zoneRead', 'TEXT'], ['sourceKey', 'TEXT'], ['status', 'TEXT'], ['manual', 'TEXT'], ['mailHint', 'TEXT'], ['typeId', 'INTEGER'], ['clients', 'INTEGER'], ['lineManual', 'TEXT'], ['time', 'TEXT'], ['typeIds', 'TEXT']]) {
   if (!db.prepare('PRAGMA table_info(horaire_events)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_events ADD COLUMN ' + col + ' ' + type);
 }
 // Zones de la salle (28 oct. 2026, demande d'Émilien) : serveurs qui couvrent habituellement chaque zone, le matin et le soir.
@@ -2781,6 +2782,8 @@ CREATE TABLE IF NOT EXISTS horaire_event_type_ratios (
 );
 `);
 if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === 'eventTypesInit')) db.exec('ALTER TABLE horaire_settings ADD COLUMN eventTypesInit INTEGER');
+// Famille d'un type d'événement (29 oct. 2026, règle d'Émilien) : 'service' (Serveur, Commis) ou 'bar' (Barman) ; NULL = déduite du nom.
+if (!db.prepare('PRAGMA table_info(horaire_event_types)').all().some((c) => c.name === 'family')) db.exec('ALTER TABLE horaire_event_types ADD COLUMN family TEXT');
 // Événements reçus par courriel (29 oct. 2026) : un fil = un événement proposé (status 'pending' sur horaire_events, « à valider »).
 // Rien de personnel : identifiants de messages et sujet HACHÉS (msgIds, subjectKey), champs extraits seulement (fields), refus du fil.
 db.exec(`

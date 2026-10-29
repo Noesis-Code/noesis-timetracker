@@ -80,9 +80,11 @@
 .horaireEvName { min-width: 0; flex: 1; min-height: 24px; border-radius: var(--radius-sm); }
 .horaireEvName .horaireSheetInput { width: 100%; }
 .horaireEvFloor { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-light); }
-#tab-horaire .horaireEvFloor select.horaireInput { min-height: 36px; padding: 4px; }
+#tab-horaire .horaireEvFloor select.horaireInput, #tab-horaire .horaireEvFloor button.horaireInput { min-height: 36px; padding: 4px; }
+#tab-horaire .horaireEvFloor button.horaireInput { padding: 4px 8px; text-align: left; cursor: pointer; }
 /* Types d'événements : Type | postes | ✕ ; carte : Type et Clients côte à côte ; ligne « manuel » */
 .horaireSheet.horaireTypes { min-width: 760px; }
+#tab-horaire .horaireTypes .horaireTypeFam { margin: 0; }
 .horaireTypes .horaireSheetCell:first-child { justify-content: flex-start; padding: 0 12px; }
 .horaireTypes .horaireSheetEdit.editing:first-child { padding: 0 4px; }
 .horaireTypeCell { font-size: 13px; }

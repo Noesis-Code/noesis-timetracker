@@ -447,12 +447,22 @@ router.post('/horaire/event-types', (req, res) => {
   const name = h.cleanName(String((req.body || {}).name || ''), 80);
   if (!name) return bad(res, 'Nom requis.');
   if (h.listEventTypes(req.userId).length >= 50) return res.status(409).json({ error: 'Limite de types atteinte.' });
-  res.status(201).json({ type: h.createEventType(req.userId, name) });
+  const family = (req.body || {}).family;
+  if (family !== undefined && family !== 'service' && family !== 'bar') return bad(res, 'Famille invalide (service ou bar).');
+  res.status(201).json({ type: h.createEventType(req.userId, name, family) });
 });
+// { name } et/ou { family : 'service' (Serveur, Commis) | 'bar' (Barman) }
 router.put('/horaire/event-types/:id', (req, res) => {
-  const name = h.cleanName(String((req.body || {}).name || ''), 80);
-  if (!name) return bad(res, 'Nom requis.');
-  const t = h.renameEventType(req.userId, req.params.id, name);
+  const b = req.body || {};
+  if (!h.ownEventType(req.userId, req.params.id)) return notFound(res, 'Type');
+  if (b.family !== undefined && b.family !== 'service' && b.family !== 'bar') return bad(res, 'Famille invalide (service ou bar).');
+  let t = null;
+  if (b.name !== undefined || b.family === undefined) {
+    const name = h.cleanName(String(b.name || ''), 80);
+    if (!name) return bad(res, 'Nom requis.');
+    t = h.renameEventType(req.userId, req.params.id, name);
+  }
+  if (b.family !== undefined) t = h.setEventTypeFamily(req.userId, req.params.id, b.family);
   return t ? res.json({ type: t }) : notFound(res, 'Type');
 });
 router.delete('/horaire/event-types/:id', (req, res) => (h.deleteEventType(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Type')));
@@ -464,12 +474,18 @@ router.put('/horaire/event-types/:id/ratio', (req, res) => {
   if (!(b.perClients === null || (Number.isInteger(b.perClients) && b.perClients >= 1 && b.perClients <= 1000))) return bad(res, 'Nombre de clients invalide (1 à 1 000, ou vide).');
   res.json({ types: h.setEventTypeRatio(req.userId, req.params.id, b.positionId, b.perClients) });
 });
-// Type et clients d'un événement : { typeId (ou null = « Aucun »), clients (entier ≥ 1 ou null) } ; les lignes se recalculent.
+// Types et clients d'un événement : { typeIds ([] = « Aucun » ; ancien champ typeId : un type ou null), clients (entier ≥ 1 ou null) } ;
+// les lignes se recalculent (nombres de chaque type additionnés par poste).
 router.put('/horaire/events/:id/type', (req, res) => {
   const b = req.body || {};
   if (!h.ownEvent(req.userId, req.params.id)) return notFound(res, 'Événement');
   const f = {};
-  if (b.typeId !== undefined) { if (b.typeId !== null && !h.ownEventType(req.userId, b.typeId)) return notFound(res, 'Type'); f.typeId = b.typeId === null ? null : Number(b.typeId); }
+  const ids = b.typeIds !== undefined ? b.typeIds : (b.typeId !== undefined ? (b.typeId === null ? [] : [b.typeId]) : undefined);
+  if (ids !== undefined) {
+    if (!Array.isArray(ids) || ids.length > 50) return bad(res, 'Types invalides.');
+    if (ids.some((t) => !h.ownEventType(req.userId, t))) return notFound(res, 'Type');
+    f.typeIds = [...new Set(ids.map(Number))];
+  }
   if (b.clients !== undefined) { if (!(b.clients === null || (Number.isInteger(b.clients) && b.clients >= 1 && b.clients <= 5000))) return bad(res, 'Clients invalides (1 à 5 000).'); f.clients = b.clients; }
   h.setEventTypeClients(req.userId, req.params.id, f);
   h.markManual(req.userId, req.params.id, Object.keys(f));

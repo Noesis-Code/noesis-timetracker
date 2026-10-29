@@ -75,7 +75,7 @@ assert(!/Julie|Tremblay/.test(M.ownText('Merci !\n> Julie Tremblay a demandé\nL
     const types = h.listEventTypes('uE');
     assert(types.map((t) => t.name).join() === 'Family style,Canapés,Bar ouvert' && types.every((t) => !Object.keys(t.ratios).length), 'types par défaut, sans aucun ratio inventé');
     const fam = types[0];
-    const bar = h.listPositions('uE').find((p) => p.name === 'Barman');
+    const bar = h.listPositions('uE').find((p) => p.name === 'Commis'); // poste de la famille Service (comme Serveur)
     h.setEventTypeRatio('uE', fam.id, srv.id, 15);
     const e = h.writeServiceEvent('uE', null, { day: '2026-12-05', service: 'soir', lines: [] });
     h.setEventTypeClients('uE', e.id, { typeId: fam.id, clients: 40 });
@@ -91,7 +91,7 @@ assert(!/Julie|Tremblay/.test(M.ownText('Merci !\n> Julie Tremblay a demandé\nL
     assert(x.lines[0].count === 5 && x.manualPositions.includes(srv.id), 'ligne modifiée à la main : plus recalculée (marquée manuelle)');
     h.setEventTypeRatio('uE', fam.id, bar.id, 30);
     x = h.listEvents('uE').find((y) => y.id === e.id);
-    assert(x.lines.find((l) => l.positionId === bar.id).count === 3 && x.lines.find((l) => l.positionId === srv.id).count === 5, 'nouveau ratio (Barman 1 pour 30) : Barman · 3 calculé, Serveur manuel gardé');
+    assert(x.lines.find((l) => l.positionId === bar.id).count === 3 && x.lines.find((l) => l.positionId === srv.id).count === 5, 'nouveau ratio (Commis 1 pour 30) : Commis · 3 calculé, Serveur manuel gardé');
     assert(h.deleteEventType('uE', fam.id) && h.listEvents('uE').find((y) => y.id === e.id).typeId === null && h.listEvents('uE').find((y) => y.id === e.id).lines.length === 2, 'type supprimé : l’événement passe à « Aucun » et garde ses lignes');
     // Courriel : type reconnu par mot-clé, Type et Clients remplis, lignes par le ratio du type
     const can = h.listEventTypes('uE').find((t) => t.name === 'Canapés');

@@ -211,7 +211,7 @@
     'Heures cible': 'Target hours',
     'Création des horaires': 'Schedule creation', 'Général': 'General', 'Récupération': 'Retrieval', 'Envoi': 'Send', 'Colle d’abord les disponibilités de la semaine (Récupération).': 'Paste this week’s availability first (Retrieval).',
     'Planchers': 'Floors', 'Plancher': 'Floor', 'Supprimer le plancher': 'Delete the floor', 'Heure': 'Time',
-    'remplace': 'replaces', 'du plancher': 'from floor', 'Nom de l’événement': 'Event name', 'Aucun': 'None',
+    'remplace': 'replaces', 'du plancher': 'from floor', 'Nom de l’événement': 'Event name', 'Aucun': 'None', 'Famille': 'Family', 'Bar': 'Bar', 'Service = personnel de salle : serveurs et commis': 'Service = floor staff: servers and bus staff',
     'dépasse son max': 'goes over their max', 'pour un max de': 'for a max of', 'cible': 'target', 'au-delà du max': 'beyond max',
     'reçoit plus que sa cible': 'gets more than their target', 'pour une cible de': 'for a target of', 'au-delà de la cible': 'beyond target',
     'Prompt copié': 'Prompt copied', 'Horaire généré': 'Schedule generated',

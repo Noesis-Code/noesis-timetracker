@@ -670,11 +670,14 @@
     if (typesBox.querySelector('.editing')) { S.typesDirty = true; return; }
     S.typesDirty = false;
     typesBox.textContent = '';
-    var pos = S.positions.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'fr'); });
+    // Famille du type (règle d'Émilien, 29 oct. 2026) : Service = Serveur et Commis ; Bar = Barman. Seuls ces postes ont une colonne.
+    var FAM = { service: ['serveur', 'commis'], bar: ['barman'] }, ORDER = ['serveur', 'commis', 'barman'];
+    var pos = S.positions.filter(function (p) { return ORDER.indexOf(foldNote(p.name)) >= 0; })
+      .sort(function (a, b) { return ORDER.indexOf(foldNote(a.name)) - ORDER.indexOf(foldNote(b.name)); });
     var sheet = el('div', 'horaireSheet horaireTypes');
-    sheet.style.gridTemplateColumns = 'minmax(140px, 1fr) repeat(' + pos.length + ', minmax(120px, 1fr)) 44px';
+    sheet.style.gridTemplateColumns = 'minmax(140px, 1fr) minmax(140px, 1fr) repeat(' + pos.length + ', minmax(120px, 1fr)) 44px';
     var head = sheetRow('horaireSheetHead');
-    ['Type'].concat(pos.map(function (p) { return p.name; }), ['']).forEach(function (t) { head.appendChild(el('span', 'horaireSheetCell', tr(t))); });
+    ['Type', 'Famille'].concat(pos.map(function (p) { return p.name; }), ['']).forEach(function (t) { head.appendChild(el('span', 'horaireSheetCell', tr(t))); });
     sheet.appendChild(head);
     var reload = function () { return req('GET', 'event-types').then(function (d) { S.types = d.types || []; renderTypes(); renderEventsTable(); }); };
     (S.types || []).forEach(function (ty) {
@@ -686,8 +689,21 @@
         req('PUT', 'event-types/' + ty.id, { name: t }).then(reload, function (err) { fail(err); renderTypes(); });
       });
       row.appendChild(nm);
+      var fc = el('span', 'horaireSheetCell'), seg = el('div', 'cmpSeg horaireTypeFam'); seg.setAttribute('role', 'tablist');
+      [['service', 'Service'], ['bar', 'Bar']].forEach(function (v) {
+        var on = (ty.family || 'service') === v[0];
+        var b = btn(on ? 'active' : '', v[1], function () {
+          if (on) return;
+          req('PUT', 'event-types/' + ty.id, { family: v[0] }).then(function () { return req('GET', 'events'); })
+            .then(function (e) { S.events = e.events || S.events; return reload(); }, function (err) { fail(err); renderTypes(); });
+        });
+        b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', on ? 'true' : 'false');
+        seg.appendChild(b);
+      });
+      fc.appendChild(seg); row.appendChild(fc);
       pos.forEach(function (p) {
         var n = ty.ratios[p.id];
+        if (FAM[ty.family || 'service'].indexOf(foldNote(p.name)) < 0) { row.appendChild(el('span', 'horaireSheetCell')); return; } // hors famille : vide
         var c = el('span', 'horaireSheetCell horaireSheetEdit horaireTypeCell');
         editCell(c, '', [['n', n == null ? '' : n, 'Clients par ' + p.name, 'number']], function (v) {
           var s = String(v.n).trim(), k = s === '' ? null : Number(s);
@@ -708,6 +724,7 @@
       sheet.appendChild(row);
     });
     typesBox.appendChild(sheet);
+    typesBox.appendChild(el('p', 'horaireMuted', tr('Service = personnel de salle : serveurs et commis')));
     var add = TMT.ui.addBtn(tr('Ajouter'), function () {
       var taken = (S.types || []).map(function (t) { return t.name; }), k = 1;
       while (taken.indexOf(tr('Type') + ' ' + k) >= 0) k++;
@@ -739,7 +756,7 @@
         var rep = repl[ev.id + ':' + i];
         var label = (l.positionId == null ? '?' : posName(l.positionId)) + ' · ' + (rep && rep.take > 0 ? l.count + ' (' + tr('remplace') + ' ' + rep.take + ' ' + tr('du plancher') + ' ' + rep.floor + ') → +' + rep.extra : '+' + l.count);
         var b = btn('horaireEvent', label, function () { if (!past) { S.editing = key; renderEventsTable(); } });
-        if (ev.typeId && (ev.manualPositions || []).indexOf(l.positionId) >= 0) b.appendChild(el('span', 'horaireMuted horaireManual', ' ' + tr('manuel')));
+        if ((ev.typeIds || []).length && (ev.manualPositions || []).indexOf(l.positionId) >= 0) b.appendChild(el('span', 'horaireMuted horaireManual', ' ' + tr('manuel')));
         if (past) b.disabled = true;
         return b;
       }
@@ -803,15 +820,33 @@
               req('POST', 'events/' + ev.id + '/validate').then(function (d) { replaceEvent(d.event); }, failCal);
             }));
           }
-          // Type (menu uni, « Aucun ») et Clients : les lignes de poste se calculent (arrondi supérieur de clients ÷ N par poste).
+          // Types (plusieurs possibles, ex. Family style + Bar ouvert ; aucun coché = « Aucun ») et Clients : les lignes de poste se
+          // calculent (par famille Service | Bar, le plus gros type ; familles additionnées). Cases du menu uni, comme la portée des règles.
           var tr2 = el('div', 'horaireEvTypeRow');
-          var tl = el('label', 'horaireEvFloor'); tl.appendChild(el('span', null, tr('Type')));
-          var ts = el('select', 'horaireInput'); ts.setAttribute('aria-label', tr('Type'));
-          var tnone = el('option', null, tr('Aucun')); tnone.value = ''; ts.appendChild(tnone);
-          (S.types || []).forEach(function (ty) { var o = el('option', null, ty.name); o.value = String(ty.id); ts.appendChild(o); });
-          ts.value = ev.typeId == null ? '' : String(ev.typeId); ts.disabled = past;
-          ts.addEventListener('change', function () { req('PUT', 'events/' + ev.id + '/type', { typeId: ts.value ? Number(ts.value) : null }).then(function (d) { replaceEvent(d.event); }, failCal); });
-          tl.appendChild(ts); tr2.appendChild(tl);
+          var tl = el('div', 'horaireEvFloor'); tl.appendChild(el('span', null, tr('Type')));
+          (function (ev) {
+            var tsel = (ev.typeIds || []).slice();
+            var typeText = function () { var n = (S.types || []).filter(function (t) { return tsel.indexOf(t.id) >= 0; }).map(function (t) { return t.name; }); return n.length ? n.join(', ') : tr('Aucun'); };
+            var ts = btn('horaireInput', '', function () {
+              if (past || !newMenu(ts)) return;
+              (S.types || []).forEach(function (ty) {
+                var lab = el('label', 'horaireMenuItem horaireMenuCheck');
+                var c = el('input'); c.type = 'checkbox'; c.checked = tsel.indexOf(ty.id) >= 0;
+                c.addEventListener('change', function () {
+                  tsel = c.checked ? tsel.concat([ty.id]) : tsel.filter(function (x) { return x !== ty.id; });
+                  ts.textContent = typeText();
+                  req('PUT', 'events/' + ev.id + '/type', { typeIds: tsel }).then(function (d) { replaceEvent(d.event); }, failCal);
+                });
+                lab.appendChild(c); lab.appendChild(el('span', null, ty.name));
+                menu.appendChild(lab);
+              });
+              placeMenu(ts);
+            });
+            ts.textContent = typeText(); ts.disabled = past;
+            ts.setAttribute('aria-haspopup', 'menu'); ts.setAttribute('aria-label', tr('Type') + ' : ' + typeText());
+            tl.appendChild(ts);
+          })(ev);
+          tr2.appendChild(tl);
           var cl = el('label', 'horaireEvFloor horaireEvClients'); cl.appendChild(el('span', null, tr('Clients')));
           var ci = el('input', 'horaireInput'); ci.type = 'number'; ci.min = '1'; ci.max = '5000'; ci.inputMode = 'numeric'; ci.setAttribute('aria-label', tr('Clients'));
           ci.value = ev.clients == null ? '' : String(ev.clients); ci.disabled = past;
