@@ -92,7 +92,8 @@
 .horaireTypeName > .horaireSheetEdit, .horaireTypeCell > .horaireSheetEdit { display: flex; align-items: center; min-height: 32px; }
 .horaireTypes .horaireTypeName { align-items: stretch; }
 .horaireTypeName > .horaireSheetEdit { justify-content: flex-start; }
-.horaireTypeCell { font-size: 13px; }
+.horaireTypeCell { font-size: 13px; position: relative; }
+.cmpRemove.horaireTypeClear { position: absolute; top: 4px; right: 4px; }
 .horaireTypeCell .horaireSheetInput { width: 64px; }
 .horaireEvTypeRow { display: flex; gap: 8px; }
 .horaireEvTypeRow > .horaireEvFloor { flex: 1 1 0; min-width: 0; }

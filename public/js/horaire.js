@@ -683,18 +683,25 @@
   function evName(ev, k) { var l = String(ev.label || '').trim(); return l && l !== 'Événement' && l !== 'Groupe' ? l : tr('Événement') + ' ' + (k + 1); }
   function replaceEvent(e) { if (!e) return; var i = S.events.findIndex(function (x) { return x.id === e.id; }); if (i >= 0) S.events[i] = e; renderEventsTable(); }
   // Plancher occupé (même calcul que la génération, floorExtra) : pour Serveur, Barman et Commis, les N de l'événement remplacent le
-  // personnel habituel de ce poste sur ce plancher (tableau Planchers), une seule fois par plancher et par service.
+  // personnel habituel de ce poste sur ces planchers (tableau Planchers ; plusieurs planchers : la SOMME de leurs habituels), une seule
+  // fois par plancher et par service.
   function floorReplaced(day, svc) {
     var wd = weekdayOf(day), left = {}, out = {};
     var isFloorPos = function (pid) { var p = S.positions.find(function (x) { return x.id === pid; }); return !!p && ['serveur', 'barman', 'commis'].indexOf(foldNote(p.name)) >= 0; };
     S.events.filter(function (e) { return e.day === day && evSvc(e) === svc; }).sort(function (a, b) { return a.id - b.id; }).forEach(function (ev) {
-      var f = ev.floorId != null && (S.floors || []).find(function (x) { return x.id === ev.floorId; });
+      var fl = (ev.floorIds && ev.floorIds.length ? ev.floorIds : (ev.floorId != null ? [ev.floorId] : []))
+        .map(function (id) { return (S.floors || []).find(function (x) { return x.id === id; }); }).filter(Boolean);
       (ev.lines || []).forEach(function (l, i) {
-        if (!f || !isFloorPos(l.positionId)) return;
-        var key = f.id + '|' + l.positionId;
-        var usual = (S.floorCounts || []).find(function (c) { return c.floorId === f.id && c.positionId === l.positionId && c.weekday === wd && c.service === svc; });
-        var rem = left[key] != null ? left[key] : (usual ? usual.count : 0), take = Math.min(rem, l.count);
-        left[key] = rem - take; out[ev.id + ':' + i] = { floor: f.name, take: take, extra: l.count - take };
+        if (!fl.length || !isFloorPos(l.positionId)) return;
+        var remOf = function (f) {
+          var key = f.id + '|' + l.positionId;
+          if (left[key] != null) return left[key];
+          var usual = (S.floorCounts || []).find(function (c) { return c.floorId === f.id && c.positionId === l.positionId && c.weekday === wd && c.service === svc; });
+          return usual ? usual.count : 0;
+        };
+        var rem = fl.reduce(function (s, f) { return s + remOf(f); }, 0), take = Math.min(rem, l.count), t = take;
+        fl.forEach(function (f) { var r = remOf(f), k = Math.min(r, t); left[f.id + '|' + l.positionId] = r - k; t -= k; });
+        out[ev.id + ':' + i] = { floor: fl.map(function (f) { return f.name; }).join(', '), take: take, extra: l.count - take };
       });
     });
     return out;
@@ -759,6 +766,14 @@
           cell.appendChild(el('span', null, tr('1 pour') + ' ' + n + (unit === 'dollars' ? ' $' : '')));
         });
         c.appendChild(v);
+        // Vider la case (29 oct. 2026) : petite croix officielle (R25), sans confirmation, réversible en retapant ; la ligne du type reste.
+        if (n != null) {
+          var clr = TMT.ui.removeBtn(function (ev) {
+            ev.stopPropagation();
+            req('PUT', 'event-types/' + ty.id + '/ratio', { positionId: p.id, perClients: null }).then(function (d) { S.types = d.types || S.types; return reloadAll(); }, function (err) { fail(err); renderTypes(); });
+          }, tr('Vider') + ' ' + p.name + ' · ' + ty.name);
+          clr.classList.add('horaireTypeClear'); c.appendChild(clr);
+        }
         if (n != null) {
           c.appendChild(seg2('horaireTypeUnit', [['clients', 'clients'], ['dollars', '$']], unit, function (u) {
             req('PUT', 'event-types/' + ty.id + '/ratio', { positionId: p.id, perClients: unit === 'clients' && u === 'dollars' ? Math.max(1, n) : n, unit: u }).then(function (d) { S.types = d.types || S.types; return reloadAll(); }, function (err) { fail(err); renderTypes(); });
@@ -927,19 +942,33 @@
           });
           hl.appendChild(hi); tr2.appendChild(hl);
           card.appendChild(tr2);
-          // Plancher occupé : menu uni (R31), « Aucun » par défaut ; enregistrement automatique.
+          // Planchers occupés (plusieurs possibles ; aucun coché = « Aucun ») : cases du menu uni, comme les types ; enregistrement automatique.
           if ((S.floors || []).length) {
-            var fl = el('label', 'horaireEvFloor');
+            var fl = el('div', 'horaireEvFloor');
             fl.appendChild(el('span', null, tr('Plancher')));
-            var fs = el('select', 'horaireInput'); fs.setAttribute('aria-label', tr('Plancher'));
-            var none = el('option', null, tr('Aucun')); none.value = ''; fs.appendChild(none);
-            S.floors.forEach(function (f) { var o = el('option', null, f.name); o.value = String(f.id); fs.appendChild(o); });
-            fs.value = ev.floorId == null ? '' : String(ev.floorId);
-            fs.disabled = past;
-            fs.addEventListener('change', function () {
-              req('PUT', 'events/' + ev.id, { service: evSvc(ev), floorId: fs.value ? Number(fs.value) : null }).then(function (d) { replaceEvent(d.event); }, failCal);
-            });
-            fl.appendChild(fs); card.appendChild(fl);
+            (function (ev) {
+              var fsel = (ev.floorIds && ev.floorIds.length ? ev.floorIds : (ev.floorId != null ? [ev.floorId] : [])).slice();
+              var floorText = function () { var n = S.floors.filter(function (f) { return fsel.indexOf(f.id) >= 0; }).map(function (f) { return f.name; }); return n.length ? n.join(', ') : tr('Aucun'); };
+              var fs = btn('horaireInput', '', function () {
+                if (past || !newMenu(fs)) return;
+                S.floors.forEach(function (f) {
+                  var lab = el('label', 'horaireMenuItem horaireMenuCheck');
+                  var c = el('input'); c.type = 'checkbox'; c.checked = fsel.indexOf(f.id) >= 0;
+                  c.addEventListener('change', function () {
+                    fsel = c.checked ? fsel.concat([f.id]) : fsel.filter(function (x) { return x !== f.id; });
+                    fs.textContent = floorText();
+                    req('PUT', 'events/' + ev.id, { service: evSvc(ev), floorIds: fsel }).then(function (d) { replaceEvent(d.event); }, failCal);
+                  });
+                  lab.appendChild(c); lab.appendChild(el('span', null, f.name));
+                  menu.appendChild(lab);
+                });
+                placeMenu(fs);
+              });
+              fs.textContent = floorText(); fs.disabled = past;
+              fs.setAttribute('aria-haspopup', 'menu'); fs.setAttribute('aria-label', tr('Plancher') + ' : ' + floorText());
+              fl.appendChild(fs);
+            })(ev);
+            card.appendChild(fl);
           }
           (ev.lines || []).forEach(function (l, j) { card.appendChild(lineNode(ev, l, j)); });
           if (!past) {
@@ -995,9 +1024,8 @@
         var b = el('button', 'horaireCalDay' + (isPast ? ' past' : '') + (day === todayIso() ? ' today' : '')); b.type = 'button';
         b.appendChild(el('span', 'horaireCalNum', String(dd)));
         if (!isPast) ['matin', 'soir'].forEach(function (svc) {
-          var rp = floorReplaced(day, svc);
           S.events.filter(function (e) { return e.day === day && evSvc(e) === svc; }).forEach(function (ev, k) {
-            var n = 0; (ev.lines || []).forEach(function (l, i) { var r = rp[ev.id + ':' + i]; n += r ? r.extra : l.count; });
+            var n = 0; (ev.lines || []).forEach(function (l) { n += l.count; }); // N de l'événement (et non N − habituels du plancher)
             var p = el('span', 'horaireCalPill' + (ev.pending ? ' pending' : ''), tr(svc === 'soir' ? 'Soir' : 'Matin') + ' · ' + evName(ev, k) + ' · ' + n + (ev.pending ? ' · ' + tr('à valider') : '')); p.title = p.textContent;
             b.appendChild(p);
           });

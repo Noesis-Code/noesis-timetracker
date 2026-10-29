@@ -340,7 +340,7 @@ function eventInput(req, res, body, partial, current) {
   // Jamais dans le passé (jour civil de Montréal) : un événement passé est supprimé (conservation minimale).
   if (day < h.montrealToday()) { bad(res, 'Date passée : un événement se crée aujourd’hui ou plus tard.'); return null; }
   // Événement d'un service (28 oct. 2026) : { day, service, covers?, lines: [{ positionId, count 1..50 }] } ; plusieurs par service.
-  if (body.lines !== undefined || body.covers !== undefined || body.name !== undefined || body.floorId !== undefined || body.time !== undefined || (current && current.service && body.extra === undefined)) {
+  if (body.lines !== undefined || body.covers !== undefined || body.name !== undefined || body.floorId !== undefined || body.floorIds !== undefined || body.time !== undefined || (current && current.service && body.extra === undefined)) {
     const service = body.service !== undefined ? body.service : current && current.service;
     if (service !== 'matin' && service !== 'soir') { bad(res, 'Service invalide (matin ou soir).'); return null; }
     const covers = body.covers !== undefined ? body.covers : (current ? current.covers : null);
@@ -359,13 +359,20 @@ function eventInput(req, res, body, partial, current) {
       if (body.floorId !== null && !h.ownFloor(req.userId, body.floorId)) { notFound(res, 'Plancher'); return null; }
       floorId = body.floorId === null ? null : Number(body.floorId);
     }
+    // Planchers occupés (29 oct. 2026, plusieurs) : liste de planchers du compte ([] = aucun).
+    let floorIds;
+    if (body.floorIds !== undefined) {
+      if (!Array.isArray(body.floorIds) || body.floorIds.length > 50) { bad(res, 'Planchers invalides.'); return null; }
+      if (body.floorIds.some((x) => !h.ownFloor(req.userId, x))) { notFound(res, 'Plancher'); return null; }
+      floorIds = [...new Set(body.floorIds.map(Number))];
+    }
     // Heure du groupe (29 oct. 2026) : HH:MM, ou null / vide = aucune ; undefined = inchangée.
     let time;
     if (body.time !== undefined) {
       time = body.time === null || body.time === '' ? null : String(body.time);
       if (time !== null && (!/^\d{2}:\d{2}$/.test(time) || !h.isTime(time))) { bad(res, 'Heure invalide (HH:MM).'); return null; }
     }
-    return { serviceEvent: true, day, service, covers, name, floorId, time, lines: lines.map((l) => ({ positionId: Number(l.positionId), count: l.count })) };
+    return { serviceEvent: true, day, service, covers, name, floorId, floorIds, time, lines: lines.map((l) => ({ positionId: Number(l.positionId), count: l.count })) };
   }
   // Groupe (28 oct. 2026, ancienne forme) : { day, service: 'matin' | 'soir', extra: 1..50 } ; libellé « Groupe », aucun besoin propre.
   if (body.service !== undefined || body.extra !== undefined) {
@@ -461,7 +468,7 @@ router.put('/horaire/events/:id', (req, res) => {
   if (!cur) return notFound(res, 'Événement');
   const v = eventInput(req, res, req.body || {}, true, cur); if (!v) return;
   const b = req.body || {};
-  const touched = ['name', 'lines', 'floorId', 'day', 'covers', 'time'].filter((x) => b[x] !== undefined);
+  const touched = ['name', 'lines', 'floorId', 'floorIds', 'day', 'covers', 'time'].filter((x) => b[x] !== undefined);
   const out = v.serviceEvent ? h.writeServiceEvent(req.userId, cur.id, v) : h.writeEvent(req.userId, cur.id, v);
   if (touched.length) h.markManual(req.userId, cur.id, touched); // retouche à la main : jamais écrasée par un courriel suivant
   if (Array.isArray(b.lines)) h.markManualLines(req.userId, cur.id, b.lines); // ligne d'un type modifiée à la main : plus recalculée

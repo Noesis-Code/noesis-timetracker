@@ -354,8 +354,8 @@ setInterval(() => { try { purgePastEvents(); } catch (e) { /* réessayé au proc
 function listEvents(u, from, to) {
   purgePastEvents();
   const evs = (from && to)
-    ? db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId, status, manual, mailHint, typeId, typeIds, clients, price, lineManual, time FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
-    : db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId, status, manual, mailHint, typeId, typeIds, clients, price, lineManual, time FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
+    ? db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId, status, manual, mailHint, typeId, typeIds, clients, price, lineManual, time, floorIds FROM horaire_events WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, id').all(u, from, to)
+    : db.prepare('SELECT id, day, label, service, extra, positionId, covers, sourceKey, zoneId, status, manual, mailHint, typeId, typeIds, clients, price, lineManual, time, floorIds FROM horaire_events WHERE userId = ? ORDER BY day, id').all(u);
   const needs = db.prepare('SELECT eventId, positionId, start, end, count FROM horaire_needs WHERE userId = ? AND eventId IS NOT NULL ORDER BY start').all(u);
   // lines (événement d'un service) : ses lignes « poste · +N » ; ancienne ligne (positionId, extra) = un événement d'une seule ligne.
   let dt = null; // types qui comptent au moins un poste de leur famille en dollars (lus une fois)
@@ -364,7 +364,7 @@ function listEvents(u, from, to) {
     return listEventTypes(u).filter((t) => Object.keys(t.ratios).some((pid) => t.units[pid] === 'dollars' && TYPE_FAMILIES[t.family].includes(pn.get(Number(pid))))).map((t) => t.id);
   })());
   return evs.map((e) => {
-    e.floorId = e.zoneId == null ? null : e.zoneId; // plancher occupé (colonne zoneId)
+    e.floorIds = evFloorIds(e); e.floorId = e.floorIds.length ? e.floorIds[0] : null; // planchers occupés ; floorId = le premier (ancien champ)
     e.pending = e.status === 'pending'; // reçu par courriel, « à valider »
     let lm = []; try { lm = JSON.parse(e.lineManual || '[]'); } catch (x) { lm = []; }
     e.manualPositions = lm; // postes dont la ligne a été modifiée à la main (jamais recalculée)
@@ -382,10 +382,19 @@ function listEvents(u, from, to) {
 // Événement d'un service (28 oct. 2026) : { day, service, covers (facultatif), lines: [{ positionId, count }] } ; ses lignes sont
 // enregistrées comme besoins de l'événement (heure du service ; la génération les place à la première arrivée du poste).
 const SERVICE_SPAN = { matin: ['10:30', '16:00'], soir: ['16:00', '23:59'] };
-// name : nom affiché (label) ; à la création, « Événement N » (premier numéro libre du service ce jour-là). floorId : plancher occupé
-// (colonne zoneId ; null = aucun). undefined = inchangé.
+// name : nom affiché (label) ; à la création, « Événement N » (premier numéro libre du service ce jour-là). floorIds / floorId :
+// planchers occupés (voir evFloorIds ; [] ou null = aucun). undefined = inchangé.
 // time : heure du groupe (HH:MM ou null) ; undefined = inchangée.
-function writeServiceEvent(u, id, { day, service, covers, lines, name, floorId, time }) {
+// Planchers d'un événement (29 oct. 2026, plusieurs planchers) : colonne floorIds (JSON) ; un ancien événement garde son zoneId.
+function evFloorIds(e) {
+  let a = null; try { a = JSON.parse(e.floorIds || 'null'); } catch (x) { a = null; }
+  if (Array.isArray(a)) return [...new Set(a.map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+  return e.zoneId != null ? [Number(e.zoneId)] : [];
+}
+const cleanIds = (ids) => [...new Set((ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+// floorIds : liste des planchers occupés ([] = aucun) ; floorId (ancien champ) : un plancher ou null. undefined = inchangé.
+function writeServiceEvent(u, id, { day, service, covers, lines, name, floorId, floorIds, time }) {
+  const fl = floorIds !== undefined ? cleanIds(floorIds) : (floorId !== undefined ? (floorId == null ? [] : [Number(floorId)]) : undefined);
   db.exec('BEGIN');
   try {
     let eventId = id;
@@ -393,7 +402,7 @@ function writeServiceEvent(u, id, { day, service, covers, lines, name, floorId, 
     if (eventId) {
       db.prepare('UPDATE horaire_events SET day = ?, service = ?, covers = ?, extra = NULL, positionId = NULL WHERE id = ? AND userId = ?').run(day, service, c, eventId, u);
       if (name !== undefined) db.prepare('UPDATE horaire_events SET label = ? WHERE id = ? AND userId = ?').run(name, eventId, u);
-      if (floorId !== undefined) db.prepare('UPDATE horaire_events SET zoneId = ? WHERE id = ? AND userId = ?').run(floorId, eventId, u);
+      if (fl !== undefined) db.prepare('UPDATE horaire_events SET zoneId = ?, floorIds = ? WHERE id = ? AND userId = ?').run(fl.length ? fl[0] : null, JSON.stringify(fl), eventId, u);
       if (time !== undefined) db.prepare('UPDATE horaire_events SET time = ? WHERE id = ? AND userId = ?').run(time, eventId, u);
     } else {
       let label = name;
@@ -402,7 +411,8 @@ function writeServiceEvent(u, id, { day, service, covers, lines, name, floorId, 
         let k = 1; while (taken.has('Événement ' + k)) k++;
         label = 'Événement ' + k;
       }
-      eventId = Number(db.prepare('INSERT INTO horaire_events (userId, day, label, service, covers, zoneId, time) VALUES (?, ?, ?, ?, ?, ?, ?)').run(u, day, label, service, c, floorId == null ? null : floorId, time || null).lastInsertRowid);
+      const f0 = fl || [];
+      eventId = Number(db.prepare('INSERT INTO horaire_events (userId, day, label, service, covers, zoneId, floorIds, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(u, day, label, service, c, f0.length ? f0[0] : null, JSON.stringify(f0), time || null).lastInsertRowid);
     }
     db.prepare('DELETE FROM horaire_needs WHERE userId = ? AND eventId = ?').run(u, eventId);
     const ins = db.prepare('INSERT INTO horaire_needs (userId, positionId, weekday, eventId, start, end, count) VALUES (?, ?, NULL, ?, ?, ?, ?)');
@@ -507,6 +517,11 @@ function renameFloor(u, id, name) {
 function deleteFloor(u, id) {
   const f = ownFloor(u, id);
   if (!f) return false;
+  // Il quitte les événements qui l'occupaient (les autres planchers de l'événement restent).
+  db.prepare('SELECT id, zoneId, floorIds FROM horaire_events WHERE userId = ?').all(u).filter((e) => evFloorIds(e).includes(f.id)).forEach((e) => {
+    const rest = evFloorIds(e).filter((x) => x !== f.id);
+    db.prepare('UPDATE horaire_events SET zoneId = ?, floorIds = ? WHERE id = ? AND userId = ?').run(rest.length ? rest[0] : null, JSON.stringify(rest), e.id, u);
+  });
   return cascade(u, [['DELETE FROM horaire_floor_counts WHERE floorId = ? AND userId = ?', f.id], ['UPDATE horaire_events SET zoneId = NULL WHERE zoneId = ? AND userId = ?', f.id], ['DELETE FROM horaire_zones WHERE id = ? AND userId = ?', f.id]]);
 }
 function isFloorPosition(p) { return !!p && FLOOR_POSITIONS.includes(fold(p.name)); }
@@ -1222,9 +1237,10 @@ function receiveMail(u, raw) {
   let f = {}; try { f = JSON.parse(t.fields || '{}'); } catch (e) { f = {}; }
   const put = (k, v) => { if (v == null || v === false) return; if (newer || f[k] == null) f[k] = v; };
   put('day', ex.day); put('time', ex.time); put('service', ex.service); put('covers', ex.covers);
-  put('floorId', ex.floorIds[0] != null ? ex.floorIds[0] : null); put('typeIds', ex.typeIds && ex.typeIds.length ? ex.typeIds : null); put('price', ex.price); if (ex.confirm) f.confirm = true;
+  put('floorIds', ex.floorIds && ex.floorIds.length ? ex.floorIds : null); put('typeIds', ex.typeIds && ex.typeIds.length ? ex.typeIds : null); put('price', ex.price); if (ex.confirm) f.confirm = true;
   db.prepare('UPDATE horaire_inbound_threads SET fields = ?, lastAt = ? WHERE id = ?').run(JSON.stringify(f), newer ? at : t.lastAt, t.id);
   if (!f.day) return { thread: t.id, eventId: null }; // pas encore de date : rien dans le calendrier
+  const fFloors = f.floorIds || (f.floorId != null ? [f.floorId] : []); // planchers cités (ancien fil : un seul)
   const pos = serverPosition(u);
   const ratio = (pos && pos.openTableCovers) || COVERS_RATIO;
   // Types reconnus (tous ceux cités ; ancien fil : typeId) : lignes calculées par leurs ratios additionnés ; sinon l'ancien ratio
@@ -1236,7 +1252,7 @@ function receiveMail(u, raw) {
   const ev = t.eventId ? db.prepare('SELECT * FROM horaire_events WHERE id = ? AND userId = ?').get(t.eventId, u) : null;
   if (!ev) {
     const name = M.anonymousSubject(mail.subject) || M.fallbackName(f.day);
-    const e = writeServiceEvent(u, null, { day: f.day, service: f.service || 'soir', covers: f.covers || null, lines: serverLine, name, floorId: f.floorId != null ? f.floorId : null, time: f.time || null });
+    const e = writeServiceEvent(u, null, { day: f.day, service: f.service || 'soir', covers: f.covers || null, lines: serverLine, name, floorIds: fFloors, time: f.time || null });
     db.prepare("UPDATE horaire_events SET status = 'pending', mailHint = ?, clients = ? WHERE id = ?").run(hint, fTypes.length ? (f.covers || null) : null, e.id);
     writeTypeIds(u, e.id, fTypes);
     if (f.price != null) db.prepare('UPDATE horaire_events SET price = ? WHERE id = ?').run(f.price, e.id);
@@ -1247,10 +1263,10 @@ function receiveMail(u, raw) {
   const cur = listEvents(u).find((x) => x.id === ev.id) || { lines: [] };
   if (!manual.length) {
     // Aucune retouche à la main : le fil fait foi (date, service, couverts, plancher, ligne Serveur).
-    writeServiceEvent(u, ev.id, { day: f.day, service: f.service || ev.service || 'soir', covers: f.covers || null, lines: serverLine.length ? serverLine : cur.lines, floorId: f.floorId != null ? f.floorId : null, time: f.time || null });
+    writeServiceEvent(u, ev.id, { day: f.day, service: f.service || ev.service || 'soir', covers: f.covers || null, lines: serverLine.length ? serverLine : cur.lines, floorIds: fFloors, time: f.time || null });
   } else {
     // Retouché à la main : seuls les champs encore vides se remplissent.
-    writeServiceEvent(u, ev.id, { day: ev.day, service: ev.service, covers: ev.covers != null ? ev.covers : (f.covers || null), lines: (cur.lines && cur.lines.length) || manual.includes('lines') ? cur.lines : serverLine, floorId: ev.zoneId != null || manual.includes('floorId') ? undefined : (f.floorId != null ? f.floorId : undefined), time: ev.time || manual.includes('time') ? undefined : (f.time || undefined) });
+    writeServiceEvent(u, ev.id, { day: ev.day, service: ev.service, covers: ev.covers != null ? ev.covers : (f.covers || null), lines: (cur.lines && cur.lines.length) || manual.includes('lines') ? cur.lines : serverLine, floorIds: evFloorIds(ev).length || manual.includes('floorId') || manual.includes('floorIds') || !fFloors.length ? undefined : fFloors, time: ev.time || manual.includes('time') ? undefined : (f.time || undefined) });
   }
   db.prepare('UPDATE horaire_events SET mailHint = ? WHERE id = ? AND userId = ?').run(hint, ev.id, u);
   // Type et clients : remplis s'ils sont vides (ou si l'événement n'a jamais été retouché à la main).

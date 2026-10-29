@@ -77,20 +77,27 @@ function isTimedGroup(l, opts) {
   const gp = opts && opts.groupPositionId != null ? Number(opts.groupPositionId) : null;
   return gp != null && l.pid === gp && l.g.service === 'soir' && toMin(l.g.time) !== null && toMin(l.g.time) >= 60;
 }
+// Plusieurs planchers (29 oct. 2026, demande d'Émilien) : l'habituel concerné est la SOMME des habituels des planchers occupés
+// (g.floorIds, sinon g.floorId) ; chaque plancher n'est déduit qu'une fois par service (le reste passe aux événements suivants).
 function floorExtra(lines, weekday, opts) {
   const counts = (opts && opts.floorCounts) || [];
   const fp = new Set(((opts && opts.floorPositions) || []).map(Number));
   const left = new Map();
   return lines.map((l) => {
-    const floor = l.g.floorId != null ? Number(l.g.floorId) : null;
-    if (floor == null || l.pid == null || !fp.has(l.pid)) return l;
-    const key = floor + '|' + l.pid + '|' + l.g.service;
-    const usual = counts.find((c) => Number(c.floorId) === floor && Number(c.positionId) === l.pid && Number(c.weekday) === weekday && c.service === l.g.service);
-    const rem = left.has(key) ? left.get(key) : (usual ? Number(usual.count) || 0 : 0);
-    if (isTimedGroup(l, opts)) { left.set(key, 0); return Object.assign({}, l, { replaced: rem, remove: rem }); }
-    const take = Math.min(rem, l.count);
-    left.set(key, rem - take);
-    return Object.assign({}, l, { count: l.count - take, replaced: take });
+    const floors = Array.isArray(l.g.floorIds) && l.g.floorIds.length ? l.g.floorIds.map(Number) : (l.g.floorId != null ? [Number(l.g.floorId)] : []);
+    if (!floors.length || l.pid == null || !fp.has(l.pid)) return l;
+    const keyOf = (f) => f + '|' + l.pid + '|' + l.g.service;
+    const remOf = (f) => {
+      if (left.has(keyOf(f))) return left.get(keyOf(f));
+      const usual = counts.find((c) => Number(c.floorId) === f && Number(c.positionId) === l.pid && Number(c.weekday) === weekday && c.service === l.g.service);
+      return usual ? Number(usual.count) || 0 : 0;
+    };
+    const rem = floors.reduce((s, f) => s + remOf(f), 0);
+    if (isTimedGroup(l, opts)) { floors.forEach((f) => left.set(keyOf(f), 0)); return Object.assign({}, l, { replaced: rem, remove: rem }); }
+    let take = Math.min(rem, l.count);
+    const took = take;
+    floors.forEach((f) => { const r = remOf(f), t = Math.min(r, take); left.set(keyOf(f), r - t); take -= t; });
+    return Object.assign({}, l, { count: l.count - took, replaced: took });
   });
 }
 function buildSlots(weekStart, needs, events, mainPositionId, opts) {

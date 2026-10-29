@@ -94,6 +94,19 @@ const r = h.receiveMail('uT', { subject: 'Souper de groupe', 'body-plain': 'Soup
 x = ev(r.eventId);
 assert(x.typeIds.join() === [fam.id, open.id].join() && x.clients === 60 && count(x, srv) === 3 && count(x, com) === 2 && count(x, bar) === 2, 'courriel : deux types cochés, Serveur 3, Commis 2, Barman 2');
 
+// Vider UNE case du tableau (croix de la case, sans confirmation) : la ligne du type reste, les autres cases intactes ; un événement
+// du type perd la ligne calculée de ce poste (sauf retouche à la main).
+{
+  const ev2 = h.writeServiceEvent('uT', null, { day: '2026-12-09', service: 'soir', lines: [] });
+  h.setEventTypeClients('uT', ev2.id, { typeIds: [fam.id], clients: 60 });
+  assert(count(ev(ev2.id), srv) === 3 && count(ev(ev2.id), com) === 2, 'avant : Serveur 3, Commis 2');
+  h.setEventTypeRatio('uT', fam.id, com.id, null);
+  const t2 = h.listEventTypes('uT').find((t) => t.id === fam.id);
+  assert(t2 && t2.ratios[com.id] === undefined && t2.ratios[srv.id] === 20, 'case Commis vidée : la case Serveur et le type restent');
+  assert(count(ev(ev2.id), srv) === 3 && !count(ev(ev2.id), com), 'l’événement du type perd la ligne Commis, garde Serveur 3');
+  h.setEventTypeRatio('uT', fam.id, com.id, 40);
+  assert(count(ev(ev2.id), com) === 2 && h.listEventTypes('uT').find((t) => t.id === fam.id).units[com.id] === 'clients', 'retaper 40 : Commis 2 revient, unité clients');
+}
 // Export du compte : types de chaque événement et famille de chaque type.
 const out = exp.buildUserExport('uT');
 const xe = out.horaire.events.find((e) => e.id === e1.id);

@@ -2748,7 +2748,8 @@ for (const t of ['horaire_availabilities', 'horaire_timeoff']) {
 // time (29 oct. 2026) : heure du groupe (HH:MM, facultative) ; ses serveurs arrivent une heure avant (horaire-generation.js).
 // sourceKey (28 oct. 2026) : clé d'une réservation reçue par courriel (date|heure|couverts|numéro) : jamais deux fois le même événement.
 // typeIds (29 oct. 2026) : types de l'événement (JSON [id, …], plusieurs possibles) ; NULL = ancien événement, son typeId fait foi.
-for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER'], ['covers', 'INTEGER'], ['zoneId', 'INTEGER'], ['zoneRead', 'TEXT'], ['sourceKey', 'TEXT'], ['status', 'TEXT'], ['manual', 'TEXT'], ['mailHint', 'TEXT'], ['typeId', 'INTEGER'], ['clients', 'INTEGER'], ['lineManual', 'TEXT'], ['time', 'TEXT'], ['typeIds', 'TEXT']]) {
+// floorIds (29 oct. 2026) : planchers occupés (JSON [id, …], plusieurs possibles) ; NULL = ancien événement, son zoneId fait foi.
+for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER'], ['covers', 'INTEGER'], ['zoneId', 'INTEGER'], ['zoneRead', 'TEXT'], ['sourceKey', 'TEXT'], ['status', 'TEXT'], ['manual', 'TEXT'], ['mailHint', 'TEXT'], ['typeId', 'INTEGER'], ['clients', 'INTEGER'], ['lineManual', 'TEXT'], ['time', 'TEXT'], ['typeIds', 'TEXT'], ['floorIds', 'TEXT']]) {
   if (!db.prepare('PRAGMA table_info(horaire_events)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_events ADD COLUMN ' + col + ' ' + type);
 }
 // Zones de la salle (28 oct. 2026, demande d'Émilien) : serveurs qui couvrent habituellement chaque zone, le matin et le soir.
