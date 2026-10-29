@@ -2045,7 +2045,7 @@
     if (users.length === 0) {
       // Un profil qui n'a pas coché « Être trouvable à la connexion » n'apparaît jamais dans cette recherche (voir GET /api/users) : on indique la voie qui marche, la connexion par courriel (29 oct. 2026).
       var none = document.createElement('p');
-      none.className = 'hint';
+      none.className = 'hint switchLink'; // switchLink : le lien prend la couleur des autres liens de l'écran
       none.appendChild(document.createTextNode(t('Aucun profil trouvé.') + ' ' + t('Tu as choisi de ne pas être trouvable ?') + ' '));
       var viaMail = document.createElement('a');
       viaMail.href = '#';
