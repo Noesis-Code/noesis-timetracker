@@ -246,7 +246,7 @@
     'Le plus de soirs à la catégorie 1, puis 2, 3 et 4.': 'Most evenings to category 1, then 2, 3 and 4.', 'Éviter les doubles (matin et soir le même jour).': 'Avoid doubles (morning and evening the same day).',
     'Éviter fermeture puis ouverture le lendemain.': 'Avoid closing then opening the next day.', 'Au-delà de sa cible, jusqu’à son maximum, catégorie 1 d’abord.': 'Beyond their target, up to their maximum, category 1 first.',
     'Continuer': 'Continue',
-    'Aucun profil trouvé.': 'No profile found.',
+    'Aucun profil trouvé.': 'No profile found.', 'Tu as choisi de ne pas être trouvable ?': 'Did you choose not to be found?', 'Connecte-toi avec ton courriel.': 'Sign in with your email.',
     "Aucune activité ajoutée pour l'instant.": 'No activity added yet.',
     'Mon activité': 'My activity',
     "Aucune activité pour l'instant. Touche « + » pour ajouter ta première activité.": 'No activity yet. Tap "+" to add your first one.',

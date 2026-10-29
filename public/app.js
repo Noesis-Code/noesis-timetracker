@@ -2043,7 +2043,16 @@
       return;
     }
     if (users.length === 0) {
-      box.innerHTML = '<p class="hint">' + t('Aucun profil trouvé.') + '</p>';
+      // Un profil qui n'a pas coché « Être trouvable à la connexion » n'apparaît jamais dans cette recherche (voir GET /api/users) : on indique la voie qui marche, la connexion par courriel (29 oct. 2026).
+      var none = document.createElement('p');
+      none.className = 'hint';
+      none.appendChild(document.createTextNode(t('Aucun profil trouvé.') + ' ' + t('Tu as choisi de ne pas être trouvable ?') + ' '));
+      var viaMail = document.createElement('a');
+      viaMail.href = '#';
+      viaMail.textContent = t('Connecte-toi avec ton courriel.');
+      viaMail.addEventListener('click', function (ev) { ev.preventDefault(); var l = $('onbEmailLoginLink'); if (l) l.click(); });
+      none.appendChild(viaMail);
+      box.appendChild(none);
       return;
     }
     users.forEach(function (u) {
