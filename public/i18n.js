@@ -191,6 +191,8 @@
     'Aucun horaire pour cette semaine. Touche « Générer l’horaire ».': 'No schedule for this week. Tap “Generate schedule”.',
     'Employés': 'Employees', 'Postes': 'Positions', 'Besoins normaux': 'Usual needs', 'Disponibilités': 'Availability',
  'Nouvel employé': 'New employee', 'Ajouter un employé': 'Add an employee',
+ 'Importer un document': 'Import a document', 'Importer': 'Import', 'Ajoutés': 'Added', 'Ignorées': 'Skipped', 'ligne': 'line', 'lignes de plus': 'more lines',
+ 'ajouté': 'added', 'ajoutés': 'added', 'modifié': 'updated', 'modifiés': 'updated', 'Lecture du fichier impossible.': 'Could not read the file.',
  'Matricule': 'Employee ID',
  'Contrainte particulière': 'Special constraint',
     'Prompt pour l’IA': 'Prompt for AI', 'Prompt copié : colle-le dans ton IA.': 'Prompt copied: paste it into your AI.', 'Copie impossible.': 'Copy failed.',

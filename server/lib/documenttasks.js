@@ -591,4 +591,4 @@ function apply(userId, activityId, tasks) {
   return { addedCount: added.length, addedIds: added, skipped };
 }
 
-module.exports = { norm, propose, prepareProposal, finishProposal, buildContext, MAX_DOC_CHARS, apply, setCaller, resetRate, parseProposals, textFromFile, capacityWarnings, dayWarnings, balanceDays, docMentionsDate, parseDetailed, SYSTEM, buildUser, buildUserParts, weeksContext, RATE_MAX };
+module.exports = { norm, propose, prepareProposal, finishProposal, buildContext, MAX_DOC_CHARS, apply, setCaller, resetRate, parseProposals, textFromFile, unzipEntry, capacityWarnings, dayWarnings, balanceDays, docMentionsDate, parseDetailed, SYSTEM, buildUser, buildUserParts, weeksContext, RATE_MAX };

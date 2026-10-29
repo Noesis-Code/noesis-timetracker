@@ -647,6 +647,19 @@ router.post('/horaire/import/employees', (req, res) => {
   const t = csvText(req, res); if (t === null) return;
   res.json(h.importEmployeesCsv(req.userId, t));
 });
+// Import depuis un document (Paramètres > Employés) : { file: { fileName, mimeType, dataUrl }, positionId, apply }. Sans apply : aperçu
+// seul (rien n'est écrit) ; apply: true après « Importer ». Le fichier n'est ni stocké ni journalisé (server/lib/horaire-import.js).
+router.post('/horaire/import/employees-doc', async (req, res) => {
+  const b = req.body || {};
+  if (!b.file || typeof b.file !== 'object') return bad(res, 'Fichier manquant.');
+  try {
+    const imp = require('../lib/horaire-import');
+    res.json(await (b.apply === true ? imp.apply : imp.preview)(req.userId, b.file, b.positionId));
+  } catch (e) {
+    if (e && e.statusCode === 400) return bad(res, e.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
 router.post('/horaire/weeks/:weekStart/import/availabilities', (req, res) => {
   const w = weekParam(req, res); if (!w) return;
   const t = csvText(req, res); if (t === null) return;

@@ -124,6 +124,9 @@
 /* Un tableau par catégorie (titre .cmpBlockTitle au-dessus, R41) ; le conteneur des tableaux porte le trait d'insertion du glisser */
 /* Menu du poste (étapes 1 et 3) : composant du filtre des Statistiques, sans marge propre */
 #tab-horaire .horairePosPicker { margin: 0; align-self: flex-start; }
+/* Employés : menu du poste à gauche, trombone commun (R39, import d'un document) à droite, sur la même ligne */
+.horaireEmpTop { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.horaireEmpTop > .chatAttachBtn { position: static; width: 44px; height: 44px; }
 .horaireCatsMsg { color: var(--violet-soft); }
 .horaireCatsBox { position: relative; display: flex; flex-direction: column; gap: 24px; }
 .horaireCatBlock { display: flex; flex-direction: column; gap: 8px; }

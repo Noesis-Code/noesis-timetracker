@@ -148,7 +148,11 @@
 
     // Paramètres > Employés : menu Poste et les 4 tableaux de catégorie.
     var p1 = el('div', 'horairePage');
-    p1.appendChild(posPicker());
+    // Import depuis un document (29 oct. 2026, demande d'Émilien) : le trombone commun (R39), à droite du menu Poste.
+    var empTop = el('div', 'horaireEmpTop');
+    empTop.appendChild(posPicker());
+    empTop.appendChild(TMT.ui.attachBtn(importEmployees, { label: tr('Importer un document') }));
+    p1.appendChild(empTop);
     var bCats = el('section', 'horaireBlock'); bCats.appendChild(el('p', 'cmpBlockTitle', tr('Classification des employés')));
     catsMsg = el('p', 'horaireMsg horaireCatsMsg hidden'); catsMsg.setAttribute('aria-live', 'polite'); bCats.appendChild(catsMsg);
     catsBox = el('div', 'horaireCatsBox'); bCats.appendChild(catsBox);
@@ -1071,6 +1075,40 @@
       // Retrait de l'horaire (pas une suppression) : inactif, quarts à venir retirés, semaines passées intactes.
       req('POST', 'employees/' + e.id + '/retire', { today: isoLocal(new Date()) }).then(refresh, function (err) { fail(err); renderCats(); });
     });
+  }
+  // Import des employés depuis un document (server/lib/horaire-import.js, sans IA) : le serveur rend d'abord un aperçu ; la confirmation
+  // commune résume ajoutés, modifiés (avant → après par champ) et lignes ignorées ; seul « Importer » applique (rien de silencieux).
+  function importSummary(d) {
+    var cut = function (s) { s = String(s); return s.length > 40 ? s.slice(0, 39) + '…' : s; };
+    var lines = [plural(d.added.length, 'ajouté', 'ajoutés') + ', ' + plural(d.updated.length, 'modifié', 'modifiés') + '.'];
+    if (d.added.length) lines.push(tr('Ajoutés') + ' : ' + d.added.map(function (a) { return a.name; }).join(', '));
+    d.updated.forEach(function (u) {
+      lines.push(u.name);
+      u.changes.forEach(function (c) { lines.push('· ' + tr(c.label) + ' : ' + cut(c.before) + ' → ' + cut(c.after)); });
+    });
+    if (d.ignored.length) lines.push(tr('Ignorées') + ' : ' + d.ignored.map(function (x) { return tr('ligne') + ' ' + x.line + ' (' + tr(x.reason) + ')'; }).join(', '));
+    (d.notes || []).forEach(function (n) { lines.push(tr(n)); });
+    var MAX = 16;
+    return lines.length > MAX ? lines.slice(0, MAX - 1).concat(['… ' + (lines.length - MAX + 1) + ' ' + tr('lignes de plus')]).join('\n') : lines.join('\n');
+  }
+  function importEmployees(files) {
+    var f = files[0];
+    if (!f || S.busy) return;
+    var rd = new FileReader();
+    rd.onerror = function () { fail(new Error(tr('Lecture du fichier impossible.'))); };
+    rd.onload = function () {
+      var body = { file: { fileName: f.name, mimeType: f.type || '', dataUrl: String(rd.result) }, positionId: posId() };
+      S.busy = true;
+      req('POST', 'import/employees-doc', body).then(function (d) {
+        if (!d.added.length && !d.updated.length) { catsMsg.textContent = importSummary(d).replace(/\n/g, ' '); catsMsg.classList.remove('hidden'); return; }
+        return TMT.ui.confirm(importSummary(d), { ok: tr('Importer') }).then(function (yes) {
+          if (!yes) return;
+          body.apply = true;
+          return req('POST', 'import/employees-doc', body).then(refresh);
+        });
+      }).catch(fail).then(function () { S.busy = false; });
+    };
+    rd.readAsDataURL(f);
   }
   function sheetRow(cls) { return el('div', 'horaireSheetRow ' + (cls || '')); }
   // Une saisie en cours n'est jamais effacée : si une cellule est ouverte, le redessin attend qu'elle soit fermée (flushCats).
