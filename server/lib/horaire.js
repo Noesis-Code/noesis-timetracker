@@ -444,6 +444,23 @@ function setServiceEnd(u, positionId, weekday, service, end) {
 // ---------- planchers (liste commune : table horaire_zones ; nombres par poste : horaire_floor_counts) ----------
 // Postes concernés : Serveur, Barman, Commis (casse et accents ignorés). Saisie seule (la génération ne s'en sert pas encore).
 const FLOOR_POSITIONS = ['serveur', 'barman', 'commis'];
+// ---------- notes du compte (liste réutilisable pour tous les employés ; jamais appliquées par la génération) ----------
+function listNotes(u) { return db.prepare('SELECT id, text FROM horaire_notes WHERE userId = ? ORDER BY id').all(u); }
+// Nouvelle note : texte d'une ligne (« ; » remplacé par « , » : il sépare les notes d'un employé), 500 caractères. Une note déjà là
+// (casse, accents et espaces ignorés) ou égale à une des six formules n'est pas recréée : on rend celle qui existe ({ text }).
+function createNote(u, text) {
+  const t = String(text || '').replace(/[;\r\n]+/g, ', ').replace(/\s+/g, ' ').trim().replace(/^,\s*|,\s*$/g, '').slice(0, LIMITS.constraint);
+  if (!t) return null;
+  const { RULES, fold: nf } = require('./horaire-note'); // même lecture que la génération (apostrophes comprises)
+  const k = nf(t).replace(/[.!]+$/, '').trim();
+  const rule = RULES.find(([, l]) => nf(l) === k);
+  if (rule) return { id: null, text: rule[1] };
+  const same = listNotes(u).find((n) => nf(n.text).replace(/[.!]+$/, '').trim() === k);
+  if (same) return same;
+  if (listNotes(u).length >= 200) return undefined;
+  const id = Number(db.prepare('INSERT INTO horaire_notes (userId, text, createdAt) VALUES (?, ?, ?)').run(u, t, nowIso()).lastInsertRowid);
+  return { id, text: t };
+}
 function listFloors(u) { return db.prepare('SELECT id, name FROM horaire_zones WHERE userId = ? ORDER BY id').all(u); }
 const ownFloor = (u, id) => db.prepare('SELECT id, name FROM horaire_zones WHERE id = ? AND userId = ?').get(Number(id), u) || null;
 function listFloorCounts(u) { return db.prepare('SELECT floorId, positionId, weekday, service, count FROM horaire_floor_counts WHERE userId = ?').all(u); }
@@ -1319,7 +1336,7 @@ module.exports = {
   DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  listFloors, ownFloor, listFloorCounts, createFloor, renameFloor, deleteFloor, isFloorPosition, setFloorCount, nameTaken, candidates, listEventTypes, ownEventType, createEventType, renameEventType, setEventTypeFamily, setEventTypePriceMin, deleteEventType, setEventTypeRatio, computedLines, recomputeEventLines, markManualLines, setEventTypeClients, receiveMail, markManual, validateEvent, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, setForwardFrom, userForInboundToken, receiveReservations, GROUP_MIN, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
+  listNotes, createNote, listFloors, ownFloor, listFloorCounts, createFloor, renameFloor, deleteFloor, isFloorPosition, setFloorCount, nameTaken, candidates, listEventTypes, ownEventType, createEventType, renameEventType, setEventTypeFamily, setEventTypePriceMin, deleteEventType, setEventTypeRatio, computedLines, recomputeEventLines, markManualLines, setEventTypeClients, receiveMail, markManual, validateEvent, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, setForwardFrom, userForInboundToken, receiveReservations, GROUP_MIN, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,

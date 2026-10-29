@@ -1,6 +1,8 @@
-// Module « Horaire » : note d'un employé = cases des six formules exactes (lues par la génération) + texte libre (jamais appliqué,
-// rappelé dans « À vérifier »). Teste les fonctions de l'écran (public/js/horaire.js) avec la lecture du serveur
-// (server/lib/horaire-note.js). Données FICTIVES. Usage : node test/horaire-notes-test.js
+// Module « Horaire » : notes d'un employé = pastilles ; la liste propose les six formules exactes (seules lues par la génération) puis
+// les notes du compte (créées par « + Ajouter une note », réutilisables pour tous, jamais appliquées, rappelées dans « À vérifier »).
+// Teste les fonctions de l'écran (public/js/horaire.js), la lecture de la génération (server/lib/horaire-note.js) et la liste du
+// compte (server/lib/horaire.js). Données FICTIVES. Usage : node test/horaire-notes-test.js
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-horaire-notes-');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -9,48 +11,55 @@ const { parseNote, RULES } = require('../server/lib/horaire-note');
 let failed = 0;
 function assert(c, l) { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } }
 
-// Fonctions de l'écran, extraites telles quelles (de « var NOTE_RULES » à « function openNoteMenu »).
+// Fonctions de l'écran, extraites telles quelles (de « var NOTE_RULES » à la cellule Note, qui touche au DOM).
 const src = fs.readFileSync(path.join(__dirname, '../public/js/horaire.js'), 'utf8');
-const a = src.indexOf('  var NOTE_RULES'), b = src.indexOf('  function openNoteMenu');
+const a = src.indexOf('  var NOTE_RULES'), b = src.indexOf('  // Cellule Note d\'un employé');
 assert(a > 0 && b > a, 'fonctions de la note trouvées dans public/js/horaire.js');
 const ctx = {};
-vm.runInNewContext(src.slice(a, b) + '\nthis.noteChecked = noteChecked; this.noteJoin = noteJoin; this.noteRest = noteRest; this.NOTE_LABELS = NOTE_LABELS;', ctx);
-const { noteChecked, noteJoin, noteRest, NOTE_LABELS } = ctx;
+vm.runInNewContext(src.slice(a, b) + '\nthis.f = { noteParts, noteAdd, noteRemove, noteRest, NOTE_LABELS };', ctx);
+const { noteParts, noteAdd, noteRemove, noteRest, NOTE_LABELS } = ctx.f;
 
-// Les formules de l'écran sont exactement celles du serveur.
 assert(NOTE_LABELS.join('|') === RULES.map((r) => r[1]).join('|'), 'formules de l’écran = RULES du serveur (même texte, même ordre)');
 
-// Cocher / décocher écrit la formule exacte, lue par la génération.
-const none = [false, false, false, false, false, false];
-const two = none.slice(); two[0] = true; two[1] = true;
-const n1 = noteJoin(two, '');
-assert(n1 === 'Jamais de double; Repos après un quart', 'cocher deux règles : « Jamais de double; Repos après un quart »');
-const p1 = parseNote(n1);
-assert(p1.rules.has('noDouble') && p1.rules.has('restAfterShift') && p1.rules.size === 2 && p1.rest === '', 'la génération lit les deux règles, aucun reste');
-const one = none.slice(); one[1] = true;
-assert(noteJoin(one, '') === 'Repos après un quart', 'décocher « Jamais de double » : il ne reste que « Repos après un quart »');
-assert(noteJoin(none, '') === '', 'tout décoché : note vide');
-const all = none.map(() => true);
-const pAll = parseNote(noteJoin(all, ''));
-assert(pAll.rules.size === 6 && pAll.rest === '', 'les six cases cochées : six règles lues par la génération');
+// Ajout et retrait par clic : forme exacte, « ; », jamais en double.
+let n = noteAdd('', 'Jamais de double');
+n = noteAdd(n, 'Repos après un quart');
+assert(n === 'Jamais de double; Repos après un quart', 'clic sur deux règles : « Jamais de double; Repos après un quart »');
+assert(noteAdd(n, 'jamais de DOUBLE') === n, 'règle déjà là : pas ajoutée deux fois');
+const p1 = parseNote(n);
+assert(p1.rules.has('noDouble') && p1.rules.has('restAfterShift') && p1.rest === '', 'la génération applique les deux règles');
+assert(noteRemove(n, 0) === 'Repos après un quart', 'clic sur la pastille « Jamais de double » : retirée');
+assert(noteRemove('Repos après un quart', 0) === '', 'dernière pastille retirée : note vide');
 
-// Note libre : ajoutée après les règles, jamais appliquée, rappelée dans « À vérifier » (noteRest).
-const n2 = noteJoin(two, 'Préfère la terrasse le samedi');
-assert(n2 === 'Jamais de double; Repos après un quart; Préfère la terrasse le samedi', 'note libre ajoutée après les règles');
+// Note existante écrite autrement : formule rendue sous sa forme exacte, texte libre gardé tel quel (rien de perdu).
+const old = 'JAMAIS DE DOUBLE. ; Arrive en vélo ; Pas de matin sauf samedi';
+assert(noteParts(old).join('|') === 'Jamais de double|Arrive en vélo|Pas de matin sauf samedi', 'note existante : trois pastilles, texte libre intact');
+
+// Notes du compte : créées une fois, réutilisables pour un autre employé, jamais appliquées, dans « À vérifier ».
+const db = require('../server/db');
+const h = require('../server/lib/horaire');
+db.prepare("INSERT INTO users (id, name, createdAt, accountType) VALUES ('uN', 'uN', ?, 'entreprise')").run(new Date().toISOString());
+const c1 = h.createNote('uN', 'Préfère la terrasse');
+assert(c1 && c1.id && h.listNotes('uN').length === 1, 'nouvelle note ajoutée à la liste du compte');
+assert(h.createNote('uN', '  préfère   la TERRASSE. ').id === c1.id && h.listNotes('uN').length === 1, 'même note (casse, espaces, point) : pas de doublon');
+assert(h.createNote('uN', "soirs d'abord").text === 'Soirs d’abord' && h.listNotes('uN').length === 1, 'texte égal à une formule : la formule est utilisée, pas de note créée');
+assert(h.createNote('uN', 'Pas le lundi; ni le mardi').text === 'Pas le lundi, ni le mardi', '« ; » remplacé (il sépare les notes)');
+const e1 = h.createEmployee('uN', { name: 'Alex Fictif' }), e2 = h.createEmployee('uN', { name: 'Brook Fictif' });
+h.updateEmployee('uN', e1.id, { constraintNote: noteAdd('', c1.text) });
+h.updateEmployee('uN', e2.id, { constraintNote: noteAdd(noteAdd('', 'Pas de soir'), c1.text) });
+const n2 = h.listEmployees('uN').find((x) => x.id === e2.id).constraintNote;
+assert(h.listEmployees('uN').find((x) => x.id === e1.id).constraintNote === 'Préfère la terrasse' && n2 === 'Pas de soir; Préfère la terrasse', 'note du compte réutilisée par un autre employé');
 const p2 = parseNote(n2);
-assert(p2.rules.size === 2 && p2.rest === 'Préfère la terrasse le samedi', 'note libre : jamais une règle pour la génération');
-assert(noteRest(n2) === 'Préfère la terrasse le samedi', '« À vérifier » : seule la note libre est rappelée');
-assert(noteJoin(none, 'x'.repeat(500)).length === 500, 'note libre de 500 caractères gardée entière');
+assert(p2.rules.size === 1 && p2.rules.has('noEvening') && p2.rest === 'Préfère la terrasse', 'note du compte : jamais appliquée par la génération');
+assert(noteRest(n2) === 'Préfère la terrasse', '« À vérifier » : la note du compte est rappelée (avec l’employé et la semaine à l’écran)');
+// Phrase qui contient une formule : jamais appliquée (règles exactes seulement), rappelée dans « À vérifier ».
+assert(parseNote('Pas de matin sauf samedi').rules.size === 0 && noteRest('Pas de matin sauf samedi') === 'Pas de matin sauf samedi', '« Pas de matin sauf samedi » : non appliqué, dans « À vérifier »');
 
-// Texte importé (ou écrit par l'IA) : formule exacte cochée (casse, accents, point final ignorés) ; texte inconnu conservé.
-const imported = 'JAMAIS DE DOUBLE. ; pas de soir\nSoirs d\'abord; Arrive en vélo';
-const c = noteChecked(imported);
-assert(c[0] && c[3] && c[4] && !c[1] && !c[2] && !c[5], 'import : « JAMAIS DE DOUBLE. », « pas de soir », « Soirs d\'abord » cochées');
-assert(noteRest(imported) === 'Arrive en vélo', 'import : texte inconnu conservé comme note libre');
-const unknown = 'Pas de soir le lundi seulement';
-assert(noteChecked(unknown).every((x) => !x) && noteRest(unknown) === unknown, 'phrase non reconnue : aucune case cochée, texte gardé tel quel');
-// Réécrite seulement si l'utilisateur agit : rien coché, même texte libre -> même note.
-assert(noteJoin(noteChecked(unknown), noteRest(unknown)) === unknown, 'sans action de l’utilisateur, la note ne change pas');
+// Export et suppression du compte.
+const out = require('../server/lib/dataexport').buildUserExport('uN');
+assert(out.horaire.notes.length === 2 && out.horaire.notes[0].text === 'Préfère la terrasse', 'export du compte : notes du compte');
+require('../server/lib/accountdeletion').deleteAccountData(db.prepare("SELECT * FROM users WHERE id = 'uN'").get());
+assert(!db.prepare("SELECT 1 FROM horaire_notes WHERE userId = 'uN'").get(), 'suppression du compte : notes du compte parties');
 
 console.log(failed ? '\n' + failed + ' échec(s)' : '\nTout est vert.');
 process.exit(failed ? 1 : 0);

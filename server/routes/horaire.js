@@ -418,6 +418,14 @@ router.put('/horaire/service-ends', (req, res) => {
   res.json({ ends: h.setServiceEnd(req.userId, b.positionId, b.weekday, b.service, end) });
 });
 // ---------- planchers : liste commune ; nombre de personnes par poste (Serveur, Barman, Commis), jour et service ----------
+// Notes du compte : liste (les six formules restent en tête côté écran) et ajout { text } (500 caractères).
+router.get('/horaire/notes', (req, res) => res.json({ notes: h.listNotes(req.userId) }));
+router.post('/horaire/notes', (req, res) => {
+  const n = h.createNote(req.userId, (req.body || {}).text);
+  if (n === null) return bad(res, 'Note vide.');
+  if (n === undefined) return res.status(409).json({ error: 'Limite de notes atteinte.' });
+  res.status(201).json({ note: n, notes: h.listNotes(req.userId) });
+});
 router.get('/horaire/floors', (req, res) => res.json({ floors: h.listFloors(req.userId), counts: h.listFloorCounts(req.userId) }));
 router.post('/horaire/floors', (req, res) => {
   if (h.listFloors(req.userId).length >= 50) return res.status(409).json({ error: 'Limite de planchers atteinte.' });

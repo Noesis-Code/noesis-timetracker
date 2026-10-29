@@ -149,10 +149,9 @@
 /* Croix officielle de retrait en bout de ligne (R32, .cmpRemove ; zone de toucher 44 px, R25) */
 .horaireSheetRemove { justify-content: center; padding: 0; }
 /* G5 : ligne grise des expressions reconnues, sous le titre « Note » */
-.horaireSheetNote { white-space: normal; padding-top: 8px; padding-bottom: 8px; line-height: 1.35; }
-/* Note d'un employé (29 oct. 2026) : la cellule ouvre le menu des règles (bouton sans fond, liseré de cellule gardé) */
-button.horaireSheetNote { border-top: 0; border-right: 0; border-bottom: 0; background: none; font: inherit; color: var(--text); text-align: left; cursor: pointer; }
-.horaireMenu .horaireNoteFree { display: block; width: calc(100% - 24px); margin: 8px 12px; box-sizing: border-box; }
+.horaireSheetNote { white-space: normal; padding-top: 8px; padding-bottom: 8px; line-height: 1.35; flex-wrap: wrap; gap: 4px; cursor: pointer; }
+/* Note d'un employé (29 oct. 2026) : une pastille par note (un clic la retire) ; la cellule ouvre la liste des notes */
+.horaireNotePill { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .horaireMenu .horaireNoteAdd { margin: 8px 12px; width: calc(100% - 24px); }
 .horaireSheetRow { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; border-top: 1px solid var(--sep); }
 .horaireSheetNew { display: flex; }
@@ -203,7 +202,7 @@ button.horaireSheetNote { border-top: 0; border-right: 0; border-bottom: 0; back
 .horaireAlerts { display: flex; flex-direction: column; gap: 4px; color: var(--violet-soft); }
 .horaireAlerts:empty { display: none; }
 /* Liste déroulante unie (R31 : les menus déroulants restent unis) */
-.horaireMenu { position: fixed; z-index: 400; min-width: 200px; max-height: 320px; overflow-y: auto; padding: 4px 0; background: var(--pop-bg); border: 1px solid var(--sep); border-radius: var(--radius-md); box-shadow: var(--shadow-elevated); }
+.horaireMenu { position: fixed; z-index: 400; min-width: 200px; max-height: min(320px, 60vh); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 4px 0; background: var(--pop-bg); border: 1px solid var(--sep); border-radius: var(--radius-md); box-shadow: var(--shadow-elevated); }
 .horaireMenuItem { display: block; width: 100%; min-height: 44px; padding: 0 16px; border: 0; background: none; font: inherit; font-size: 14px; color: var(--text); text-align: left; cursor: pointer; }
 .horaireMenuItem:hover, .horaireMenuItem.on { background: var(--hover-bg); }
 .horaireMenuRemove { border-top: 1px solid var(--sep); color: var(--text-light); }

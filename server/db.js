@@ -2788,6 +2788,17 @@ if (!db.prepare('PRAGMA table_info(horaire_event_types)').all().some((c) => c.na
 // d'un compte sans aucun poste (positionsInit = 1 ensuite) ; un poste retiré n'est jamais recréé. Compte ayant déjà des postes :
 // marqué initialisé à sa prochaine lecture (server/lib/horaire.js, ensureDefaultPositions).
 if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === 'positionsInit')) db.exec('ALTER TABLE horaire_settings ADD COLUMN positionsInit INTEGER');
+// Notes du compte (29 oct. 2026, demande d'Émilien) : textes libres créés par « + Ajouter une note », réutilisables pour tous les
+// employés ; jamais appliqués par la génération (seules les six formules exactes le sont), rappelés dans « À vérifier ».
+db.exec(`
+CREATE TABLE IF NOT EXISTS horaire_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_horaire_notes_user ON horaire_notes(userId);
+`);
 // Prix par personne (29 oct. 2026, demande d'Émilien) : price sur l'événement ($, facultatif) ; par type, un seuil de prix (priceMin) et,
 // par poste, un second ratio (perClientsHigh : « si prix ≥ seuil : 1 pour N clients »). NULL = comportement sans prix.
 if (!db.prepare('PRAGMA table_info(horaire_events)').all().some((c) => c.name === 'price')) db.exec('ALTER TABLE horaire_events ADD COLUMN price REAL');

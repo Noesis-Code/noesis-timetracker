@@ -68,10 +68,10 @@
     });
   }
   function loadAll() {
-    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), req('GET', 'inbound').catch(function () { return {}; }), req('GET', 'service-ends').catch(function () { return { ends: {} }; }), req('GET', 'floors').catch(function () { return { floors: [], counts: [] }; }), req('GET', 'event-types').catch(function () { return { types: [] }; })])
+    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), req('GET', 'inbound').catch(function () { return {}; }), req('GET', 'service-ends').catch(function () { return { ends: {} }; }), req('GET', 'floors').catch(function () { return { floors: [], counts: [] }; }), req('GET', 'event-types').catch(function () { return { types: [] }; }), req('GET', 'notes').catch(function () { return { notes: [] }; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
-        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.inbound = r[8] || {}; S.ends = r[9].ends || {}; S.types = (r[11] && r[11].types) || []; S.floors = r[10].floors || []; S.floorCounts = r[10].counts || []; S.loaded = true;
+        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.inbound = r[8] || {}; S.ends = r[9].ends || {}; S.types = (r[11] && r[11].types) || []; S.notes = (r[12] && r[12].notes) || []; S.floors = r[10].floors || []; S.floorCounts = r[10].counts || []; S.loaded = true;
       });
   }
   // Construit la page si besoin : refresh() peut être appelé (TMT.horaire.refresh) avant la première ouverture du volet.
@@ -1162,52 +1162,64 @@
   }
   // Formules exactes lues par la génération (server/lib/horaire-note.js, RULES), dans l'ordre de NOTE_RULES.
   var NOTE_LABELS = ['Jamais de double', 'Repos après un quart', 'Pas de matin', 'Pas de soir', 'Soirs d’abord', 'Matins d’abord'];
-  // Règles cochées d'une note : un morceau (séparé par « ; ») égal à une formule, casse et accents ignorés (texte importé compris).
-  function noteChecked(note) {
-    var parts = String(note || '').split(/[;\n]/).map(function (p) { return foldNote(p).replace(/[.!]+$/, ''); });
-    return NOTE_RULES.map(function (r) { return parts.indexOf(r) >= 0; });
+  // Morceaux d'une note (séparés par « ; ») ; une formule écrite autrement (casse, accents, « . » final) est rendue sous sa forme exacte.
+  function noteParts(note) {
+    return String(note || '').split(/[;\n]/).map(function (p) { return p.trim(); }).filter(Boolean).map(function (p) {
+      var i = NOTE_RULES.indexOf(foldNote(p).replace(/[.!]+$/, ''));
+      return i >= 0 ? NOTE_LABELS[i] : p;
+    });
   }
-  // Note écrite seulement à l'action de l'utilisateur : formules cochées (forme exacte, « ; ») puis le texte libre, tel quel.
-  function noteJoin(checked, free) {
-    var out = NOTE_LABELS.filter(function (l, i) { return checked[i]; });
-    if (String(free || '').trim()) out.push(String(free).trim());
-    return out.join('; ');
+  // Ajouter (si absente, casse et accents ignorés) ou retirer une note ; écrit sous la forme « A; B; C » (formes exactes).
+  function noteAdd(note, text) {
+    var parts = noteParts(note), k = foldNote(text).replace(/[.!]+$/, '');
+    if (!parts.some(function (p) { return foldNote(p).replace(/[.!]+$/, '') === k; })) parts.push(noteParts(text)[0] || String(text).trim());
+    return parts.join('; ');
   }
-  // Menu de la note d'un employé (menu uni et cases, comme la portée des règles) : six règles connues, puis le texte libre
-  // (« + Ajouter une note », 500 caractères) ; ce texte n'est jamais appliqué par la génération, il revient dans « À vérifier ».
+  function noteRemove(note, i) { var parts = noteParts(note); parts.splice(i, 1); return parts.join('; '); }
+  // Cellule Note d'un employé : une pastille par note ; un clic sur la pastille (ou sa croix) la retire ; un clic ailleurs ouvre la liste.
+  function noteCell(e) {
+    var cell = el('span', 'horaireSheetCell horaireSheetEdit horaireSheetNote');
+    cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-haspopup', 'menu'); cell.setAttribute('aria-label', tr('Note') + ' ' + e.name);
+    noteParts(e.constraintNote).forEach(function (p, i) {
+      var pill = el('span', 'horaireBadge horaireNotePill');
+      pill.appendChild(el('span', null, NOTE_LABELS.indexOf(p) >= 0 ? tr(p) : p));
+      var x = TMT.ui.removeBtn(null, tr('Retirer') + ' ' + p);
+      pill.appendChild(x);
+      pill.addEventListener('click', function (ev) {
+        ev.stopPropagation(); closeMenu();
+        putEmployee(e, { constraintNote: noteRemove(e.constraintNote, i) || null });
+      });
+      cell.appendChild(pill);
+    });
+    cell.addEventListener('click', function () { openNoteMenu(cell, e); });
+    cell.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openNoteMenu(cell, e); } });
+    return cell;
+  }
+  // Liste des notes (menu uni qui défile) : les six formules en tête, puis les notes du compte (S.notes, réutilisables pour tous) ;
+  // un clic ajoute la note à l'employé ; « + Ajouter une note » ouvre une fenêtre (TMT.ui.confirm avec un champ) et l'ajoute à la liste.
+  // Une note du compte n'est jamais appliquée par la génération : elle revient dans « À vérifier ».
   function openNoteMenu(anchor, e) {
     if (!newMenu(anchor)) return;
-    var cur = (S.employees.find(function (x) { return x.id === e.id; }) || e).constraintNote || '';
-    var checked = noteChecked(cur), free = noteRest(cur), writing = false;
-    var save = function () {
-      var next = noteJoin(checked, free);
-      if (next === cur) return;
-      cur = next; putEmployee(e, { constraintNote: next || null });
-    };
-    var paint = function () {
-      menu.textContent = '';
-      NOTE_LABELS.forEach(function (label, i) {
-        var lab = el('label', 'horaireMenuItem horaireMenuCheck');
-        var c = el('input'); c.type = 'checkbox'; c.checked = checked[i];
-        c.addEventListener('change', function () { checked[i] = c.checked; save(); });
-        lab.appendChild(c); lab.appendChild(el('span', null, tr(label)));
-        menu.appendChild(lab);
+    var cur = function () { return (S.employees.find(function (x) { return x.id === e.id; }) || e).constraintNote || ''; };
+    var add = function (text) { var next = noteAdd(cur(), text); if (next !== cur()) putEmployee(e, { constraintNote: next }); };
+    var have = noteParts(cur()).map(function (p) { return foldNote(p); });
+    NOTE_LABELS.map(function (l) { return { text: l, label: tr(l) }; })
+      .concat((S.notes || []).map(function (n) { return { text: n.text, label: n.text }; }))
+      .forEach(function (n) {
+        var on = have.indexOf(foldNote(n.text)) >= 0;
+        var b = btn('horaireMenuItem' + (on ? ' on' : ''), '', function () { closeMenu(); if (!on) add(n.text); });
+        b.textContent = n.label; b.setAttribute('role', 'menuitem');
+        menu.appendChild(b);
       });
-      if (free || writing) {
-        var x = el('input', 'horaireSheetInput horaireNoteFree'); x.type = 'text'; x.maxLength = 500; x.value = free;
-        x.placeholder = tr('Note'); x.setAttribute('aria-label', tr('Note libre'));
-        var done = function () { var v = x.value.trim(); if (v !== free) { free = v; save(); } writing = false; };
-        x.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); done(); paint(); } });
-        x.addEventListener('blur', done);
-        menu.appendChild(x);
-        if (writing) setTimeout(function () { x.focus(); }, 0);
-      } else {
-        var add = TMT.ui.addBtn(tr('Ajouter une note'), function () { writing = true; paint(); });
-        add.classList.add('horaireNoteAdd');
-        menu.appendChild(add);
-      }
-    };
-    paint();
+    var plus = TMT.ui.addBtn(tr('Ajouter une note'), function () {
+      closeMenu();
+      TMT.ui.confirm('', { ok: tr('Ajouter'), closeLabel: tr('Fermer'), input: { maxLength: 500, placeholder: tr('Nouvelle note'), label: tr('Nouvelle note') } }).then(function (v) {
+        if (typeof v !== 'string' || !v.trim()) return;
+        req('POST', 'notes', { text: v }).then(function (d) { S.notes = d.notes || S.notes; add(d.note.text); }, fail);
+      });
+    });
+    plus.classList.add('horaireNoteAdd');
+    menu.appendChild(plus);
     placeMenu(anchor);
   }
   // Poste principal du compte (créé « Serveur » côté serveur s'il manque) : ajout d'un employé, besoins.
@@ -1382,10 +1394,8 @@
           if (!hoursValid(e.wantHoursMin, e.wantHoursTarget, e.wantHoursMax)) c.classList.add('invalid');
           row.appendChild(c);
         });
-        // Note (29 oct. 2026, décision d'Émilien) : cases des six règles connues + « + Ajouter une note » (texte libre) ; voir openNoteMenu.
-        var note = btn('horaireSheetCell horaireSheetEdit horaireSheetNote', '', function () { openNoteMenu(note, e); });
-        note.textContent = e.constraintNote || ''; note.setAttribute('aria-haspopup', 'menu'); note.setAttribute('aria-label', tr('Note') + ' ' + e.name);
-        row.appendChild(note);
+        // Note (29 oct. 2026, décision d'Émilien) : pastilles des notes de l'employé ; la liste s'ouvre au clic (voir noteCell, openNoteMenu).
+        row.appendChild(noteCell(e));
         var rmCell = el('span', 'horaireSheetCell horaireSheetRemove');
         rmCell.appendChild(TMT.ui.removeBtn(function () { removeEmployee(e); }, tr('Retirer') + ' ' + e.name));
         row.appendChild(rmCell);
@@ -1473,14 +1483,16 @@
 
   // ---------- Horaire de la semaine : un bouton par quart, liste déroulante unie pour changer la personne ----------
   var menu = null;
-  function closeMenu() { if (menu) { menu.remove(); menu = null; document.removeEventListener('pointerdown', outside, true); window.removeEventListener('scroll', closeMenu, true); } }
+  function closeMenu() { if (menu) { menu.remove(); menu = null; document.removeEventListener('pointerdown', outside, true); window.removeEventListener('scroll', onMenuScroll, true); } }
+  // Défiler DANS le menu (liste longue) ne le ferme pas ; défiler la page, si.
+  function onMenuScroll(ev) { if (menu && ev.target && ev.target.nodeType === 1 && menu.contains(ev.target)) return; closeMenu(); }
   function outside(ev) { if (menu && !menu.contains(ev.target)) closeMenu(); }
   function placeMenu(anchor) {
     document.body.appendChild(menu);
     var r = anchor.getBoundingClientRect(), mh = menu.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
     menu.style.left = Math.max(8, Math.min(r.left, vw - menu.offsetWidth - 8)) + 'px';
     menu.style.top = (r.bottom + 4 + mh > vh - 8 ? Math.max(8, r.top - 4 - mh) : r.bottom + 4) + 'px';
-    setTimeout(function () { document.addEventListener('pointerdown', outside, true); window.addEventListener('scroll', closeMenu, true); }, 0);
+    setTimeout(function () { document.addEventListener('pointerdown', outside, true); window.addEventListener('scroll', onMenuScroll, true); }, 0);
   }
   function newMenu(anchor) {
     var same = menu && menu._for === anchor; closeMenu(); if (same) return false;

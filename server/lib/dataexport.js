@@ -297,6 +297,7 @@ function buildUserExport(userId) {
     availabilities: rows('SELECT employeeId, weekStart, day, start, end FROM horaire_availabilities WHERE userId = ? ORDER BY day, start', userId),
     timeoff: has('horaire_timeoff') ? rows('SELECT employeeId, weekStart, day FROM horaire_timeoff WHERE userId = ? ORDER BY day', userId) : [],
     events: rows('SELECT id, day, label, service, extra, positionId, covers, zoneId, zoneRead, sourceKey, status, typeId, typeIds, clients, price FROM horaire_events WHERE userId = ? ORDER BY day', userId),
+    notes: has('horaire_notes') ? rows('SELECT id, text, createdAt FROM horaire_notes WHERE userId = ? ORDER BY id', userId) : [],
     zones: has('horaire_zones') ? rows('SELECT id, name, morning, evening, createdAt FROM horaire_zones WHERE userId = ? ORDER BY id', userId) : [],
     eventTypes: has('horaire_event_types') ? rows('SELECT id, name, family, priceMin, createdAt FROM horaire_event_types WHERE userId = ? ORDER BY id', userId) : [],
     eventTypeRatios: has('horaire_event_type_ratios') ? rows('SELECT typeId, positionId, perClients, perClientsHigh FROM horaire_event_type_ratios WHERE userId = ? ORDER BY typeId, positionId', userId) : [],
