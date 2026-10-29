@@ -82,18 +82,16 @@
 .horaireEvFloor { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-light); }
 #tab-horaire .horaireEvFloor select.horaireInput, #tab-horaire .horaireEvFloor button.horaireInput { min-height: 36px; padding: 4px; }
 #tab-horaire .horaireEvFloor button.horaireInput { padding: 4px 8px; text-align: left; cursor: pointer; }
-/* Types d'événements : Type | postes | ✕ ; carte : Type et Clients côte à côte ; ligne « manuel » */
-.horaireSheet.horaireTypes { min-width: 660px; }
-/* Cellule Type : nom puis famille dessous ; cellule de poste : « 1 pour N » puis l'unité dessous (29 oct. 2026) */
-#tab-horaire .horaireTypes :is(.horaireTypeFam, .horaireTypeUnit) { margin: 0; }
+/* Types d'événements (29 oct. 2026) : Type | Clients | Dollars | ✕ ; une ligne par type (nom, famille dessous), une ligne par poste */
+.horaireSheet.horaireTypes { min-width: 0; }
+.horaireTypes .horaireSheetCell { white-space: normal; padding-left: 8px; padding-right: 8px; }
 .horaireTypes .horaireSheetCell:first-child { justify-content: flex-start; padding: 0 12px; }
 .horaireTypes .horaireSheetEdit.editing { padding: 0 4px; }
-.horaireTypeName, .horaireTypeCell { flex-direction: column; align-items: stretch; justify-content: center; gap: 4px; padding-top: 8px; padding-bottom: 8px; }
-.horaireTypeName > .horaireSheetEdit, .horaireTypeCell > .horaireSheetEdit { display: flex; align-items: center; min-height: 32px; }
-.horaireTypes .horaireTypeName { align-items: stretch; }
-.horaireTypeName > .horaireSheetEdit { justify-content: flex-start; }
-.horaireTypeCell { font-size: 13px; position: relative; }
-.cmpRemove.horaireTypeClear { position: absolute; top: 4px; right: 4px; }
+.horaireTypes .horaireTypeName { flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding-top: 8px; padding-bottom: 8px; }
+.horaireTypeName > .horaireSheetEdit { display: flex; align-items: center; min-height: 28px; font-weight: 600; }
+.horaireTypeFamText { font-size: 13px; }
+.horaireTypes .horaireSheetCell.horaireTypePos { padding-left: 24px; font-size: 13px; color: var(--text-light); }
+.horaireTypeCell { font-size: 13px; }
 .horaireTypeCell .horaireSheetInput { width: 64px; }
 .horaireEvTypeRow { display: flex; gap: 8px; }
 .horaireEvTypeRow > .horaireEvFloor { flex: 1 1 0; min-width: 0; }

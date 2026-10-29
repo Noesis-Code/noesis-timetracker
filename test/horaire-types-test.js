@@ -56,12 +56,15 @@ x = ev(e3.id);
 assert(!count(x, bar) && (!host || !count(x, host)), 'postes hors de la famille (Hôte, Barman sur Service) : aucune ligne');
 h.setEventTypeRatio('uT', fam.id, bar.id, null);
 
-// Changer la famille d'un type : recalculé (Bar ouvert passé en Service : ses Barman ne comptent plus).
-h.setEventTypeFamily('uT', open.id, 'service');
+// « Vider les cases » d'un type (spécification finale d'Émilien) : ses chiffres partent, le type et sa famille restent ; ses événements
+// se recalculent (Bar ouvert vidé : plus de Barman calculé). La famille ne se change plus (refus serveur : test/horaire-prix-test.js).
+assert(typeof h.setEventTypeFamily === 'undefined', 'plus de changement de famille côté serveur');
+const cl = h.clearEventType('uT', open.id);
 x = ev(e1.id);
-assert(!count(x, bar) && count(x, srv) === 3, 'famille changée (Bar ouvert -> Service) : plus de Barman calculé');
-h.setEventTypeFamily('uT', open.id, 'bar');
-assert(count(ev(e1.id), bar) === 2, 'famille rétablie (Bar) : Barman 2');
+assert(cl && cl.family === 'bar' && !Object.keys(cl.ratios).length && h.listEventTypes('uT').some((t) => t.id === open.id), 'Bar ouvert vidé : type et famille gardés, aucun chiffre');
+assert(!count(x, bar) && count(x, srv) === 3, 'événement de Bar ouvert : plus de Barman calculé, Serveur 3 (Family style) gardé');
+h.setEventTypeRatio('uT', open.id, bar.id, 40);
+assert(count(ev(e1.id), bar) === 2, 'chiffre retapé : Barman 2');
 
 // Ancien événement (typeId seul, typeIds NULL) : lu comme un type.
 const e4 = h.writeServiceEvent('uT', null, { day: '2026-12-08', service: 'soir', lines: [] });
@@ -105,7 +108,7 @@ assert(x.typeIds.join() === [fam.id, open.id].join() && x.clients === 60 && coun
   assert(t2 && t2.ratios[com.id] === undefined && t2.ratios[srv.id] === 20, 'case Commis vidée : la case Serveur et le type restent');
   assert(count(ev(ev2.id), srv) === 3 && !count(ev(ev2.id), com), 'l’événement du type perd la ligne Commis, garde Serveur 3');
   h.setEventTypeRatio('uT', fam.id, com.id, 40);
-  assert(count(ev(ev2.id), com) === 2 && h.listEventTypes('uT').find((t) => t.id === fam.id).units[com.id] === 'clients', 'retaper 40 : Commis 2 revient, unité clients');
+  assert(count(ev(ev2.id), com) === 2 && h.listEventTypes('uT').find((t) => t.id === fam.id).ratios[com.id] === 40, 'retaper 40 : Commis 2 revient');
 }
 // Export du compte : types de chaque événement et famille de chaque type.
 const out = exp.buildUserExport('uT');

@@ -109,10 +109,11 @@ function findPrice(text) {
 }
 
 // Planchers cités (noms du tableau Planchers, casse et accents ignorés, mots entiers) ; ordre d'apparition.
+// L'apostrophe (' ou ’) sépare les mots, dans le texte comme dans le nom : « l'Amaro », « d'Amaro » -> amaro ; « Salle d'honneur » reste reconnue.
 function findFloors(text, floors) {
-  const t = ' ' + fold(text).replace(/[^a-z0-9']+/g, ' ') + ' ';
+  const t = ' ' + fold(text).replace(/[^a-z0-9]+/g, ' ') + ' ';
   return (floors || []).map((f) => {
-    const k = ' ' + fold(f.name).replace(/[^a-z0-9']+/g, ' ').trim() + ' ';
+    const k = ' ' + fold(f.name).replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
     return { f, i: k.trim() ? t.indexOf(k) : -1 };
   }).filter((x) => x.i >= 0).sort((a, b) => a.i - b.i).map((x) => x.f);
 }
@@ -147,10 +148,10 @@ function fallbackName(day) {
 // (« family style » et « bar ouvert » : les deux). findType : le premier (ancien usage).
 const TYPE_SYNONYMS = { 'family style': ['family'], canapes: ['canape', 'canapes', 'bouchees'], 'bar ouvert': ['open bar', 'bar ouvert'] };
 function findTypes(text, types) {
-  const t = ' ' + fold(text).replace(/[^a-z0-9']+/g, ' ') + ' ';
+  const t = ' ' + fold(text).replace(/[^a-z0-9]+/g, ' ') + ' ';
   const found = [];
   (types || []).forEach((ty) => {
-    const name = fold(ty.name).replace(/[^a-z0-9']+/g, ' ').trim();
+    const name = fold(ty.name).replace(/[^a-z0-9]+/g, ' ').trim();
     let at = -1;
     [name].concat(TYPE_SYNONYMS[name] || []).forEach((k) => {
       const i = k ? t.indexOf(' ' + k + ' ') : -1;

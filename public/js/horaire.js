@@ -707,37 +707,42 @@
     return out;
   }
   // Service affiché d'un événement (ancien événement sans service : celui de ses besoins).
-  // ---------- Types d'événements (Paramètres > Événements) : Type | un poste par colonne (« 1 pour [N] clients ») | ✕ ----------
+  // ---------- Types d'événements (Paramètres > Événements ; spécification finale d'Émilien, 29 oct. 2026) ----------
+  // Un tableau simple : pour chaque type, une ligne « nom · famille » (famille en lecture seule) avec la croix tout à droite, puis une
+  // ligne par poste de sa famille (Service : Serveur, Commis ; Bar : Barman) et deux colonnes : « Clients » (1 pour N clients) et
+  // « Dollars » (1 pour M $). On remplit l'une, l'autre ou les deux (la plus grande des deux compte).
   function renderTypes() {
     if (!typesBox) return;
     if (typesBox.querySelector('.editing')) { S.typesDirty = true; return; }
     S.typesDirty = false;
     typesBox.textContent = '';
-    // Famille du type (règle d'Émilien, 29 oct. 2026) : Service = Serveur et Commis ; Bar = Barman. Seuls ces postes ont une colonne.
-    var FAM = { service: ['serveur', 'commis'], bar: ['barman'] }, ORDER = ['serveur', 'commis', 'barman'];
-    var pos = S.positions.filter(function (p) { return ORDER.indexOf(foldNote(p.name)) >= 0; })
-      .sort(function (a, b) { return ORDER.indexOf(foldNote(a.name)) - ORDER.indexOf(foldNote(b.name)); });
+    var FAM = { service: ['serveur', 'commis'], bar: ['barman'] };
     var sheet = el('div', 'horaireSheet horaireTypes');
-    sheet.style.gridTemplateColumns = 'minmax(160px, 1fr) repeat(' + pos.length + ', minmax(150px, 1fr)) 44px';
+    sheet.style.gridTemplateColumns = 'minmax(96px, 1.2fr) minmax(96px, 1fr) minmax(96px, 1fr) 44px';
     var head = sheetRow('horaireSheetHead');
-    ['Type'].concat(pos.map(function (p) { return p.name; }), ['']).forEach(function (t) { head.appendChild(el('span', 'horaireSheetCell', tr(t))); });
+    ['Type', 'Clients', 'Dollars', ''].forEach(function (t) { head.appendChild(el('span', 'horaireSheetCell', tr(t))); });
     sheet.appendChild(head);
     var reload = function () { return req('GET', 'event-types').then(function (d) { S.types = d.types || []; renderTypes(); renderEventsTable(); }); };
     var reloadAll = function () { return req('GET', 'events').then(function (e) { S.events = e.events || S.events; return reload(); }, function (err) { fail(err); renderTypes(); }); };
-    // Petit choix à deux valeurs (.cmpSeg, R42) : famille du type, unité d'un poste.
-    var seg2 = function (cls, opts, cur, pick) {
-      var s = el('div', 'cmpSeg ' + cls); s.setAttribute('role', 'tablist');
-      opts.forEach(function (v) {
-        var on = cur === v[0];
-        var b = btn(on ? 'active' : '', v[1], function (ev) { ev.stopPropagation(); if (!on) pick(v[0]); });
-        b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', on ? 'true' : 'false');
-        s.appendChild(b);
+    var cellFor = function (ty, p, key, max, unitText) {
+      var cur = key === 'perClients' ? ty.ratios[p.id] : (ty.dollars || {})[p.id];
+      var c = el('span', 'horaireSheetCell horaireSheetEdit horaireTypeCell');
+      editCell(c, '', [['n', cur == null ? '' : cur, (key === 'perClients' ? 'Clients par ' : 'Dollars par ') + p.name, 'number']], function (x) {
+        var s = String(x.n).trim(), k = s === '' ? null : Number(s);
+        if (k !== null && !(Number.isInteger(k) && k >= 1 && k <= max)) return false;
+        if (k === (cur == null ? null : cur)) { renderTypes(); return; }
+        var body = { positionId: p.id }; body[key] = k;
+        req('PUT', 'event-types/' + ty.id + '/ratio', body).then(function (d) { S.types = d.types || S.types; return reloadAll(); }, function (err) { fail(err); renderTypes(); });
+      }, function (cell) {
+        if (cur == null) { cell.appendChild(el('span', 'horaireMuted', '—')); return; }
+        cell.appendChild(el('span', null, tr('1 pour') + ' ' + cur + ' ' + unitText));
       });
-      return s;
+      return c;
     };
     (S.types || []).forEach(function (ty) {
+      var fam = ty.family === 'bar' ? 'bar' : 'service';
       var row = sheetRow('horaireTypeRow');
-      // Type : son nom, et dessous sa famille (Service = Serveur et Commis ; Bar = Barman).
+      // Nom (modifiable) et, dessous, la famille en lecture seule.
       var tc = el('span', 'horaireSheetCell horaireTypeName');
       var nm = el('span', 'horaireSheetEdit');
       editCell(nm, ty.name, [['name', ty.name, 'Type']], function (v) {
@@ -746,54 +751,45 @@
         req('PUT', 'event-types/' + ty.id, { name: t }).then(reload, function (err) { fail(err); renderTypes(); });
       });
       tc.appendChild(nm);
-      tc.appendChild(seg2('horaireTypeFam', [['service', 'Service'], ['bar', 'Bar']], ty.family || 'service', function (f) {
-        req('PUT', 'event-types/' + ty.id, { family: f }).then(reloadAll, function (err) { fail(err); renderTypes(); });
-      }));
+      tc.appendChild(el('span', 'horaireMuted horaireTypeFamText', tr(fam === 'bar' ? 'Bar' : 'Service')));
       row.appendChild(tc);
-      pos.forEach(function (p) {
-        var n = ty.ratios[p.id], unit = (ty.units || {})[p.id] || 'clients';
-        if (FAM[ty.family || 'service'].indexOf(foldNote(p.name)) < 0) { row.appendChild(el('span', 'horaireSheetCell')); return; } // hors famille : vide
-        // « 1 pour [N] », puis l'unité : clients (clients ÷ N) ou $ (prix par personne × clients ÷ N).
-        var c = el('span', 'horaireSheetCell horaireTypeCell');
-        var v = el('span', 'horaireSheetEdit');
-        editCell(v, '', [['n', n == null ? '' : n, (unit === 'dollars' ? 'Dollars par ' : 'Clients par ') + p.name, 'number']], function (x) {
-          var s = String(x.n).trim(), k = s === '' ? null : Number(s);
-          if (k !== null && !(Number.isInteger(k) && k >= 1 && k <= (unit === 'dollars' ? 1000000 : 1000))) return false;
-          if (k === (n == null ? null : n)) { renderTypes(); return; }
-          req('PUT', 'event-types/' + ty.id + '/ratio', { positionId: p.id, perClients: k }).then(function (d) { S.types = d.types || S.types; return reloadAll(); }, function (err) { fail(err); renderTypes(); });
-        }, function (cell) {
-          if (n == null) { cell.appendChild(el('span', 'horaireMuted', '—')); return; }
-          cell.appendChild(el('span', null, tr('1 pour') + ' ' + n + (unit === 'dollars' ? ' $' : '')));
-        });
-        c.appendChild(v);
-        // Vider la case (29 oct. 2026) : petite croix officielle (R25), sans confirmation, réversible en retapant ; la ligne du type reste.
-        if (n != null) {
-          var clr = TMT.ui.removeBtn(function (ev) {
-            ev.stopPropagation();
-            req('PUT', 'event-types/' + ty.id + '/ratio', { positionId: p.id, perClients: null }).then(function (d) { S.types = d.types || S.types; return reloadAll(); }, function (err) { fail(err); renderTypes(); });
-          }, tr('Vider') + ' ' + p.name + ' · ' + ty.name);
-          clr.classList.add('horaireTypeClear'); c.appendChild(clr);
-        }
-        if (n != null) {
-          c.appendChild(seg2('horaireTypeUnit', [['clients', 'clients'], ['dollars', '$']], unit, function (u) {
-            req('PUT', 'event-types/' + ty.id + '/ratio', { positionId: p.id, perClients: unit === 'clients' && u === 'dollars' ? Math.max(1, n) : n, unit: u }).then(function (d) { S.types = d.types || S.types; return reloadAll(); }, function (err) { fail(err); renderTypes(); });
-          }));
-        }
-        row.appendChild(c);
-      });
+      row.appendChild(el('span', 'horaireSheetCell')); row.appendChild(el('span', 'horaireSheetCell'));
+      // Croix tout à droite : fenêtre à trois choix (Vider les cases, Supprimer le type, Annuler).
       var rm = el('span', 'horaireSheetCell horaireSheetRemove');
       rm.appendChild(TMT.ui.removeBtn(function () {
-        confirmDelete(tr('Supprimer le type') + ' « ' + ty.name + ' » ?', function () { req('DELETE', 'event-types/' + ty.id).then(function () { return refresh(); }, fail); });
-      }, tr('Supprimer') + ' ' + ty.name));
+        TMT.ui.confirm('« ' + ty.name + ' »', { closeLabel: tr('Fermer'), choices: [
+          { value: 'clear', label: tr('Vider les cases') },
+          { value: 'delete', label: tr('Supprimer le type'), danger: true },
+          { value: false, label: tr('Annuler'), quiet: true },
+        ] }).then(function (v) {
+          if (v === 'clear') req('POST', 'event-types/' + ty.id + '/clear').then(function (d) { S.types = d.types || S.types; return reloadAll(); }, fail);
+          else if (v === 'delete') confirmDelete(tr('Supprimer le type') + ' « ' + ty.name + ' » ?\n' + tr('Ses chiffres partent avec lui ; les événements qui l’avaient le perdent et gardent leurs lignes.'), function () { req('DELETE', 'event-types/' + ty.id).then(function () { return refresh(); }, fail); });
+        });
+      }, tr('Vider ou supprimer') + ' ' + ty.name));
       row.appendChild(rm);
       sheet.appendChild(row);
+      // Une ligne par poste de la famille.
+      S.positions.filter(function (p) { return FAM[fam].indexOf(foldNote(p.name)) >= 0; })
+        .sort(function (a, b) { return FAM[fam].indexOf(foldNote(a.name)) - FAM[fam].indexOf(foldNote(b.name)); })
+        .forEach(function (p) {
+          var pr = sheetRow('horaireTypePosRow');
+          pr.appendChild(el('span', 'horaireSheetCell horaireTypePos', p.name));
+          pr.appendChild(cellFor(ty, p, 'perClients', 1000, tr('clients')));
+          pr.appendChild(cellFor(ty, p, 'perDollars', 1000000, '$'));
+          pr.appendChild(el('span', 'horaireSheetCell'));
+          sheet.appendChild(pr);
+        });
     });
     typesBox.appendChild(sheet);
     typesBox.appendChild(el('p', 'horaireMuted', tr('Service = personnel de salle : serveurs et commis')));
+    // Ajout : nom, puis la famille (Service ou Bar), choisie une fois pour toutes.
     var add = TMT.ui.addBtn(tr('Ajouter'), function () {
-      var taken = (S.types || []).map(function (t) { return t.name; }), k = 1;
-      while (taken.indexOf(tr('Type') + ' ' + k) >= 0) k++;
-      req('POST', 'event-types', { name: tr('Type') + ' ' + k }).then(reload, fail);
+      TMT.ui.confirm(tr('Nouveau type : son nom, puis sa famille (elle ne changera plus).'), { closeLabel: tr('Fermer'), input: { maxLength: 80, placeholder: tr('Nom du type'), label: tr('Nom du type') }, choices: [
+        { value: 'service', label: tr('Service') }, { value: 'bar', label: tr('Bar') },
+      ] }).then(function (v) {
+        if (!v || !String(v.text || '').trim()) return;
+        req('POST', 'event-types', { name: String(v.text).trim(), family: v.value }).then(reload, fail);
+      });
     });
     add.classList.add('horaireFloorAdd');
     typesBox.appendChild(add);

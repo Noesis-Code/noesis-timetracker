@@ -2792,6 +2792,12 @@ if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name 
 // Unité d'un ratio de type d'événement (29 oct. 2026, demande d'Émilien) : « 1 pour N clients » (NULL ou 'clients') ou « 1 pour N $ »
 // ('dollars' : prix par personne × clients ÷ N). Le seuil de prix (priceMin) et le second ratio (perClientsHigh) restent en base sans servir.
 if (!db.prepare('PRAGMA table_info(horaire_event_type_ratios)').all().some((c) => c.name === 'unit')) db.exec('ALTER TABLE horaire_event_type_ratios ADD COLUMN unit TEXT');
+// Spécification finale d'Émilien (29 oct. 2026) : deux colonnes par poste, « Clients » (perClients ; 0 = case vide, la colonne
+// est NOT NULL) et « Dollars » (perDollars, NULL = vide). Migration douce, une seule fois : un ratio en dollars passe dans Dollars.
+if (!db.prepare('PRAGMA table_info(horaire_event_type_ratios)').all().some((c) => c.name === 'perDollars')) {
+  db.exec('ALTER TABLE horaire_event_type_ratios ADD COLUMN perDollars INTEGER');
+  db.exec("UPDATE horaire_event_type_ratios SET perDollars = perClients, perClients = 0 WHERE unit = 'dollars'");
+}
 // Notes du compte (29 oct. 2026, demande d'Émilien) : textes libres créés par « + Ajouter une note », réutilisables pour tous les
 // employés ; jamais appliqués par la génération (seules les six formules exactes le sont), rappelés dans « À vérifier ».
 db.exec(`

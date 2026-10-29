@@ -480,39 +480,40 @@ router.post('/horaire/event-types', (req, res) => {
   const name = h.cleanName(String((req.body || {}).name || ''), 80);
   if (!name) return bad(res, 'Nom requis.');
   if (h.listEventTypes(req.userId).length >= 50) return res.status(409).json({ error: 'Limite de types atteinte.' });
+  // Famille demandée à la création (Service : Serveur et Commis ; Bar : Barman), plus modifiable ensuite.
   const family = (req.body || {}).family;
-  if (family !== undefined && family !== 'service' && family !== 'bar') return bad(res, 'Famille invalide (service ou bar).');
+  if (family !== 'service' && family !== 'bar') return bad(res, 'Famille requise (service ou bar).');
   res.status(201).json({ type: h.createEventType(req.userId, name, family) });
 });
-// { name } et/ou { family : 'service' (Serveur, Commis) | 'bar' (Barman) }
+// { name } : renommer. La famille d'un type existant ne change pas (refusée).
 router.put('/horaire/event-types/:id', (req, res) => {
   const b = req.body || {};
   if (!h.ownEventType(req.userId, req.params.id)) return notFound(res, 'Type');
-  if (b.family !== undefined && b.family !== 'service' && b.family !== 'bar') return bad(res, 'Famille invalide (service ou bar).');
-  let t = null;
-  if (b.name !== undefined || b.family === undefined) {
-    const name = h.cleanName(String(b.name || ''), 80);
-    if (!name) return bad(res, 'Nom requis.');
-    t = h.renameEventType(req.userId, req.params.id, name);
-  }
-  if (b.family !== undefined) t = h.setEventTypeFamily(req.userId, req.params.id, b.family);
+  if (b.family !== undefined) return res.status(409).json({ error: 'La famille d’un type ne change pas : crée un autre type.' });
+  const name = h.cleanName(String(b.name || ''), 80);
+  if (!name) return bad(res, 'Nom requis.');
+  const t = h.renameEventType(req.userId, req.params.id, name);
   return t ? res.json({ type: t }) : notFound(res, 'Type');
 });
+// Vider les cases d'un type (le type et sa famille restent).
+router.post('/horaire/event-types/:id/clear', (req, res) => {
+  const t = h.clearEventType(req.userId, req.params.id);
+  return t ? res.json({ type: t, types: h.listEventTypes(req.userId) }) : notFound(res, 'Type');
+});
 router.delete('/horaire/event-types/:id', (req, res) => (h.deleteEventType(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Type')));
-// { positionId, perClients : entier 1..1000, ou null (vide = aucun personnel de ce poste),
-//   unit (facultatif) : 'clients' (1 pour N clients, N 1..1 000) | 'dollars' (1 pour N $, N 1..1 000 000) }
+// { positionId, perClients : « 1 pour N clients » (1..1 000, null = vide), perDollars : « 1 pour M $ » (1..1 000 000, null = vide) } ;
+// un champ absent reste inchangé.
 router.put('/horaire/event-types/:id/ratio', (req, res) => {
   const b = req.body || {};
   if (!h.ownEventType(req.userId, req.params.id)) return notFound(res, 'Type');
   if (!h.ownPosition(req.userId, b.positionId)) return notFound(res, 'Poste');
-  if (b.unit !== undefined && b.unit !== 'clients' && b.unit !== 'dollars') return bad(res, 'Unité invalide (clients ou dollars).');
-  const unit = b.unit || ((h.listEventTypes(req.userId).find((t) => t.id === Number(req.params.id)) || { units: {} }).units[b.positionId] || 'clients');
-  const max = unit === 'dollars' ? 1000000 : 1000;
-  if (!(b.perClients === null || (Number.isInteger(b.perClients) && b.perClients >= 1 && b.perClients <= max))) return bad(res, unit === 'dollars' ? 'Montant invalide (1 à 1 000 000 $, ou vide).' : 'Nombre de clients invalide (1 à 1 000, ou vide).');
-  res.json({ types: h.setEventTypeRatio(req.userId, req.params.id, b.positionId, b.perClients, b.unit) });
+  const ok = (v, max) => v === undefined || v === null || (Number.isInteger(v) && v >= 1 && v <= max);
+  if (!ok(b.perClients, 1000)) return bad(res, 'Nombre de clients invalide (1 à 1 000, ou vide).');
+  if (!ok(b.perDollars, 1000000)) return bad(res, 'Montant invalide (1 à 1 000 000 $, ou vide).');
+  res.json({ types: h.setEventTypeRatio(req.userId, req.params.id, b.positionId, b.perClients, b.perDollars) });
 });
 // Types et clients d'un événement : { typeIds ([] = « Aucun » ; ancien champ typeId : un type ou null), clients (entier ≥ 1 ou null) } ;
-// les lignes se recalculent (par famille Service | Bar, le plus gros type ; familles additionnées ; palier de prix).
+// les lignes se recalculent (par famille Service | Bar, le plus gros type ; familles additionnées ; clients ou dollars, le plus grand).
 router.put('/horaire/events/:id/type', (req, res) => {
   const b = req.body || {};
   if (!h.ownEvent(req.userId, req.params.id)) return notFound(res, 'Événement');

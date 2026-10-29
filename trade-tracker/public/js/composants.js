@@ -7,6 +7,8 @@
   // Fenêtre de confirmation maison (remplace window.confirm) : fond #16141A opaque, ✕ en haut à droite (R13),
   // UN bouton principal violet ; rouge (opts.danger) seulement pour supprimer/retirer (R28). Promesse : true si confirmé.
   // opts.input (29 oct. 2026) : { placeholder, maxLength, label } ajoute UN champ texte ; la promesse rend alors le texte saisi (ou false).
+  // opts.choices (29 oct. 2026) : [{ value, label, danger, quiet }] remplace le bouton principal par plusieurs boutons, l'un sous l'autre
+  // (danger : rouge ; quiet : gris, ex. « Annuler » qui rend false) ; la promesse rend la valeur choisie (avec un champ : { value, text }).
   function confirmBox(message, opts) {
     opts = opts || {};
     return new Promise(function (resolve) {
@@ -23,9 +25,15 @@
       if (opts.input) {
         field = document.createElement('input'); field.className = 'cmpConfirmInput'; field.type = 'text'; field.maxLength = opts.input.maxLength || 500;
         field.placeholder = opts.input.placeholder || ''; field.setAttribute('aria-label', opts.input.label || opts.input.placeholder || '');
-        field.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); finish(field.value); } });
+        field.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !(opts.choices || []).length) { e.preventDefault(); finish(field.value); } });
       }
-      card.appendChild(head); if (String(message)) card.appendChild(p); if (field) card.appendChild(field); card.appendChild(ok);
+      var picks = (opts.choices || []).map(function (c) {
+        var b = btn('cmpBtn' + (c.danger ? ' cmpBtnDanger' : c.quiet ? ' cmpBtnIdle' : ''), '', null); b.textContent = c.label;
+        b.addEventListener('click', function () { finish(c.value === false ? false : (field ? { value: c.value, text: field.value } : c.value)); });
+        return b;
+      });
+      card.appendChild(head); if (String(message)) card.appendChild(p); if (field) card.appendChild(field);
+      if (picks.length) picks.forEach(function (b) { card.appendChild(b); }); else card.appendChild(ok);
       veil.appendChild(card);
       var from = document.activeElement, done = false;
       function finish(v) {
@@ -36,14 +44,14 @@
       }
       function onKey(e) {
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
-        else if (e.key === 'Tab') { e.preventDefault(); var ring = field ? [field, ok, x] : [ok, x]; ring[(ring.indexOf(document.activeElement) + 1) % ring.length].focus(); }
+        else if (e.key === 'Tab') { e.preventDefault(); var ring = (field ? [field] : []).concat(picks.length ? picks : [ok], [x]); ring[(ring.indexOf(document.activeElement) + 1) % ring.length].focus(); }
       }
       x.addEventListener('click', function () { finish(false); });
       ok.addEventListener('click', function () { finish(field ? field.value : true); });
       veil.addEventListener('click', function (e) { if (e.target === veil) finish(false); });
       document.addEventListener('keydown', onKey, true);
       document.body.appendChild(veil);
-      try { (field || ok).focus({ preventScroll: true }); } catch (e) {}
+      try { (field || picks[0] || ok).focus({ preventScroll: true }); } catch (e) {}
     });
   }
   function btn(cls, label, onClick) {
