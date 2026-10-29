@@ -432,6 +432,13 @@ router.delete('/horaire/notes/:id', (req, res) => {
   const r = h.deleteNote(req.userId, req.params.id);
   return r ? res.json({ ok: true, removedFrom: r.removedFrom, notes: h.listNotes(req.userId) }) : notFound(res, 'Note');
 });
+// Modifier le texte d'une note du compte (les employés qui l'utilisent suivent) : { text }.
+router.put('/horaire/notes/:id', (req, res) => {
+  const r = h.updateNote(req.userId, req.params.id, (req.body || {}).text);
+  if (r === null) return notFound(res, 'Note');
+  if (r === undefined) return bad(res, 'Note vide ou déjà existante.');
+  res.json({ note: r.note, changed: r.changed, notes: h.listNotes(req.userId) });
+});
 router.post('/horaire/notes', (req, res) => {
   const n = h.createNote(req.userId, (req.body || {}).text);
   if (n === null) return bad(res, 'Note vide.');

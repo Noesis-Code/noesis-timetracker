@@ -500,6 +500,34 @@ function deleteNote(u, id) {
   } catch (err) { db.exec('ROLLBACK'); throw err; }
   return { removedFrom };
 }
+// Modifier le texte d'une note du compte (mêmes nettoyages que la création) ; chaque employé qui l'utilisait reçoit le nouveau texte.
+// -> { note, changed } ; null si la note n'est pas à ce compte ; undefined si le texte est vide ou déjà pris (autre note ou formule).
+function updateNote(u, id, text) {
+  const note = db.prepare('SELECT id, text FROM horaire_notes WHERE id = ? AND userId = ?').get(Number(id), u);
+  if (!note) return null;
+  const t = String(text || '').replace(/[;\r\n]+/g, ', ').replace(/\s+/g, ' ').trim().replace(/^,\s*|,\s*$/g, '').slice(0, LIMITS.constraint);
+  if (!t) return undefined;
+  const { RULES, fold: nf } = require('./horaire-note');
+  const key = (x) => nf(x).replace(/[.!]+$/, '').trim();
+  const k = key(t), old = key(note.text);
+  if (RULES.some(([, l]) => nf(l) === k)) return undefined;
+  if (k !== old && listNotes(u).some((n) => n.id !== note.id && key(n.text) === k)) return undefined;
+  let changed = 0;
+  db.exec('BEGIN');
+  try {
+    db.prepare("SELECT id, constraintNote FROM horaire_employees WHERE userId = ? AND constraintNote IS NOT NULL AND constraintNote != ''").all(u).forEach((e) => {
+      const parts = String(e.constraintNote).split(/[;\n]/).map((p) => p.trim()).filter(Boolean);
+      if (!parts.some((p) => key(p) === old)) return;
+      const out = [];
+      parts.forEach((p) => { const v = key(p) === old ? t : p; if (!out.some((o) => key(o) === key(v))) out.push(v); });
+      changed += 1;
+      db.prepare('UPDATE horaire_employees SET constraintNote = ? WHERE id = ? AND userId = ?').run(out.join('; '), e.id, u);
+    });
+    db.prepare('UPDATE horaire_notes SET text = ? WHERE id = ? AND userId = ?').run(t, note.id, u);
+    db.exec('COMMIT');
+  } catch (err) { db.exec('ROLLBACK'); throw err; }
+  return { note: { id: note.id, text: t }, changed };
+}
 function listFloors(u) { return db.prepare('SELECT id, name FROM horaire_zones WHERE userId = ? ORDER BY id').all(u); }
 const ownFloor = (u, id) => db.prepare('SELECT id, name FROM horaire_zones WHERE id = ? AND userId = ?').get(Number(id), u) || null;
 function listFloorCounts(u) { return db.prepare('SELECT floorId, positionId, weekday, service, count FROM horaire_floor_counts WHERE userId = ?').all(u); }
@@ -1378,7 +1406,7 @@ module.exports = {
   DEFAULT_RESTAURANT_RULES, ARRIVAL_RULES, RESTAURANT_RULES_MAX, getRestaurantRules, setRestaurantRules, normRule,
   listNeeds, createNeed, updateNeed, deleteNeed,
   listEvents, writeEvent, deleteEvent,
-  listNotes, createNote, deleteNote, listFloors, ownFloor, listFloorCounts, createFloor, renameFloor, deleteFloor, isFloorPosition, setFloorCount, nameTaken, candidates, listEventTypes, ownEventType, createEventType, renameEventType, clearEventType, deleteEventType, setEventTypeRatio, computedLines, recomputeEventLines, markManualLines, setEventTypeClients, receiveMail, markManual, validateEvent, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, setForwardFrom, userForInboundToken, receiveReservations, GROUP_MIN, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
+  listNotes, createNote, updateNote, deleteNote, listFloors, ownFloor, listFloorCounts, createFloor, renameFloor, deleteFloor, isFloorPosition, setFloorCount, nameTaken, candidates, listEventTypes, ownEventType, createEventType, renameEventType, clearEventType, deleteEventType, setEventTypeRatio, computedLines, recomputeEventLines, markManualLines, setEventTypeClients, receiveMail, markManual, validateEvent, getServiceEnds, setServiceEnd, purgePastEvents, montrealToday, readReservations, inboundInfo, revokeInbound, setGroupMin, setForwardFrom, userForInboundToken, receiveReservations, GROUP_MIN, serverPosition, writeServiceEvent, COVERS_RATIO, generate, getSchedule, getSettings, setSettings, exportDayforce,
   ownAssignment, addAssignment, updateAssignment, deleteAssignment,
   getPrompts, setPrompts, promptText, PROMPT_MAX,
   parseCsv, normTime, normDay, importEmployeesCsv, importAvailabilitiesCsv, hoursValue, hoursOrdered,

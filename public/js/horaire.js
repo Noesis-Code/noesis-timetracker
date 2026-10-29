@@ -1129,15 +1129,12 @@
       var name = (S.positions.find(function (x) { return x.id === cur; }) || {}).name || '';
       p.label.textContent = name;
       p.menu.textContent = '';
-      // Postes gérés par le gestionnaire (29 oct. 2026) : chaque ligne = choisir | ✎ renommer (la ligne se déroule sur place, R36) |
-      // ✕ retirer (confirmation rouge, R43 ; absente s'il ne reste qu'un poste) ; en bas « + Ajouter un poste ».
+      // Postes : chaque ligne = choisir ; en bas « + Ajouter un poste » (ni renommer ni retirer : demande d'Émilien, 29 oct. 2026).
       list.forEach(function (x) {
         var row = el('div', 'horairePosRow');
         if (S.posEdit === x.id) { row.appendChild(posNameInput(x)); p.menu.appendChild(row); return; }
         var it = el('button', 'statsPeriodMenuItem' + (x.id === cur ? ' active' : ''), x.name); it.type = 'button'; it.dataset.pos = String(x.id);
         row.appendChild(it);
-        row.appendChild(TMT.ui.editBtn(function (e) { e.stopPropagation(); S.posEdit = x.id; renderPosPickers(); }, tr('Renommer') + ' ' + x.name));
-        if (list.length > 1) row.appendChild(TMT.ui.removeBtn(function (e) { e.stopPropagation(); removePosition(x); }, tr('Retirer') + ' ' + x.name));
         p.menu.appendChild(row);
       });
       if (S.posEdit === 'new') { var nr = el('div', 'horairePosRow'); nr.appendChild(posNameInput(null)); p.menu.appendChild(nr); }
@@ -1165,11 +1162,6 @@
     inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); finish(true); } else if (e.key === 'Escape') { e.preventDefault(); finish(false); } });
     inp.addEventListener('blur', function () { finish(true); });
     return inp;
-  }
-  function removePosition(x) {
-    confirmDelete(tr('Retirer le poste') + ' « ' + x.name + ' » ?\n' + tr('Ses besoins, qualifications et quarts partent avec lui.'), function () {
-      req('DELETE', 'positions/' + x.id).then(function () { if (S.posId === x.id) S.posId = null; return refresh(); }, fail);
-    });
   }
   function hOrNull(v) { v = String(v == null ? '' : v).trim().replace(',', '.'); return v === '' ? null : Number(v); }
   function hoursValid(lo, tg, hi) {
@@ -1238,7 +1230,10 @@
         b.textContent = n.label; b.setAttribute('role', 'menuitem');
         if (!n.id) { menu.appendChild(b); return; } // les six règles connues : jamais supprimées
         // Note créée par le gérant : croix officielle (R32) ; confirmation rouge qui dit combien d'employés l'utilisent.
-        var row = el('div', 'horaireNoteRow'); row.appendChild(b);
+        var row = el('div', 'horaireNoteRow');
+        if (S.noteEdit === n.id) { row.appendChild(noteNameInput(n, anchor, e)); menu.appendChild(row); return; }
+        row.appendChild(b);
+        row.appendChild(TMT.ui.editBtn(function (ev) { ev.stopPropagation(); S.noteEdit = n.id; closeMenu(); openNoteMenu(anchor, e); }, tr('Modifier') + ' ' + n.text));
         row.appendChild(TMT.ui.removeBtn(function (ev) { ev.stopPropagation(); closeMenu(); removeNote(n); }, tr('Supprimer') + ' ' + n.text));
         menu.appendChild(row);
       });
@@ -1252,6 +1247,24 @@
     plus.classList.add('horaireNoteAdd');
     menu.appendChild(plus);
     placeMenu(anchor);
+  }
+  // Modifier une note du compte : la ligne se déroule sur place (R36) ; Entrée ou sortie du champ enregistre, Échap annule.
+  // Les employés qui l'utilisent reçoivent le nouveau texte.
+  function noteNameInput(n, anchor, e) {
+    var inp = el('input', 'horaireSheetInput'); inp.type = 'text'; inp.maxLength = 500; inp.value = n.text; inp.setAttribute('aria-label', tr('Note'));
+    var done = false;
+    var finish = function (keep) {
+      if (done) return; done = true;
+      var v = inp.value.trim();
+      S.noteEdit = null;
+      if (!keep || !v || v === n.text) { closeMenu(); openNoteMenu(anchor, e); return; }
+      req('PUT', 'notes/' + n.id, { text: v }).then(function (d) { S.notes = d.notes || S.notes; closeMenu(); return refresh(); }, function (err) { done = false; fail(err); });
+    };
+    inp.addEventListener('click', function (ev) { ev.stopPropagation(); });
+    inp.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); finish(true); } else if (ev.key === 'Escape') { ev.preventDefault(); finish(false); } });
+    inp.addEventListener('blur', function () { finish(true); });
+    setTimeout(function () { inp.focus(); inp.select(); }, 0);
+    return inp;
   }
   function removeNote(n) {
     var k = foldNote(n.text).replace(/[.!]+$/, '');
