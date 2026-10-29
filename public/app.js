@@ -5867,6 +5867,13 @@
   // mécanisme que .tsDayLabel dans renderTimesheetWeek ci-dessus (traduction
   // cohérente avec le reste de l'app). -----
   var TS_CAL_WEEKDAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  // Mois abrégé pour tenir sur une ligne (Émilien, 29 oct. 2026) : « Septembre 2026 » -> « Sept. 2026 » ; en anglais, les trois premières lettres.
+  var MONTH_SHORT_FR = { 'Janvier': 'Janv.', 'Février': 'Févr.', 'Mars': 'Mars', 'Avril': 'Avr.', 'Mai': 'Mai', 'Juin': 'Juin', 'Juillet': 'Juil.', 'Août': 'Août', 'Septembre': 'Sept.', 'Octobre': 'Oct.', 'Novembre': 'Nov.', 'Décembre': 'Déc.' };
+  function monthShortLabel(txt) {
+    var m = /^(\S+) (\d{4})$/.exec(txt || '');
+    if (!m) return txt;
+    return (MONTH_SHORT_FR[m[1]] || m[1].slice(0, 3)) + ' ' + m[2];
+  }
   function renderTimesheetMonth(data, idsIn) {
     var I = tsIds(idsIn);
     $(I.calendar).classList.remove('hidden');
@@ -5884,7 +5891,7 @@
     $(I.frozen).classList.remove('hidden');
     $(I.frozen).classList.add('tsFrozenCal');
 
-    $(I.weekLabel).textContent = data.isCurrentMonth ? t('En cours') : t(data.label); // la période en cours s'écrit « En cours », sans date (Émilien, 29 oct. 2026)
+    $(I.weekLabel).textContent = data.isCurrentMonth ? t('En cours') : monthShortLabel(t(data.label)); // la période en cours s'écrit « En cours », sans date (Émilien, 29 oct. 2026)
     $(I.nextBtn).disabled = data.isCurrentMonth;
     $(I.prevBtn).disabled = !data.hasMoreBefore;
 
