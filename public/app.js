@@ -5891,7 +5891,7 @@
     $(I.frozen).classList.remove('hidden');
     $(I.frozen).classList.add('tsFrozenCal');
 
-    $(I.weekLabel).textContent = data.isCurrentMonth ? t('En cours') : monthShortLabel(t(data.label)); // la période en cours s'écrit « En cours », sans date (Émilien, 29 oct. 2026)
+    $(I.weekLabel).textContent = monthShortLabel(t(data.label)); // seule la semaine en cours s'écrit « En cours » ; le mois et l'année gardent leur nom, sans « en cours » (Émilien, 29 oct. 2026)
     $(I.nextBtn).disabled = data.isCurrentMonth;
     $(I.prevBtn).disabled = !data.hasMoreBefore;
 
@@ -5959,7 +5959,7 @@
     $(I.frozen).classList.add('tsFrozenCal');
     if ($(I.calendar).closest('.timesheetBlock')) $(I.calendar).closest('.timesheetBlock').classList.add('tsYearView'); // lignes plus hautes (points par jour)
 
-    $(I.weekLabel).textContent = data.isCurrentYear ? t('En cours') : data.label;
+    $(I.weekLabel).textContent = data.label;
     $(I.nextBtn).disabled = data.isCurrentYear;
     $(I.prevBtn).disabled = !data.hasMoreBefore;
     $(I.emptyHint).classList.toggle('hidden', data.rows.length > 0);
