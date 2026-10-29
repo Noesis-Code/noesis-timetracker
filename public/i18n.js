@@ -217,6 +217,7 @@
     'Prompt copié': 'Prompt copied', 'Horaire généré': 'Schedule generated',
     'à valider': 'to validate', 'confirmé probable': 'likely confirmed', 'événement à valider': 'event to validate', 'événements à valider': 'events to validate', 'Courriels des événements :': 'Event emails:', 'Copier l’adresse': 'Copy the address', 'Adresse copiée.': 'Address copied.',
     'Mon adresse courriel': 'My email address', 'Adresse courriel invalide.': 'Invalid email address.',
+    'Code de confirmation Gmail': 'Gmail confirmation code', 'Confirmer le transfert': 'Confirm forwarding', 'valable 1 h': 'valid for 1 h',
     'Outlook : Paramètres > Courrier > Règles > Ajouter une règle.': 'Outlook: Settings > Mail > Rules > Add new rule.',
     'Condition : les courriels d’événements. Action : Transférer à l’adresse ci-dessus.': 'Condition: the event emails. Action: Forward to the address above.',
     'Gmail : Paramètres > Transfert et POP/IMAP > Ajouter une adresse de transfert : l’adresse ci-dessus.': 'Gmail: Settings > Forwarding and POP/IMAP > Add a forwarding address: the address above.',

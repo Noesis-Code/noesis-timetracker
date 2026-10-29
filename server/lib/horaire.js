@@ -959,6 +959,25 @@ const GROUP_MIN = 10;
 // Adresse de l'utilisateur à relier (forwardFrom) : indication pour la mise en place du transfert seulement (défaut : courriel du profil).
 // JAMAIS utilisée pour authentifier ni filtrer la réception : seul le jeton fait foi (userForInboundToken).
 if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === 'forwardFrom')) db.exec('ALTER TABLE horaire_settings ADD COLUMN forwardFrom TEXT');
+// Dernier code (ou lien) de confirmation de transfert Gmail reçu à l'adresse du compte : un seul, gardé 1 heure (purge à la lecture et
+// au démarrage), visible du seul propriétaire (GET /horaire/inbound, avec session), effacé avec le compte, jamais exporté ni journalisé.
+for (const col of ['gmailConfirm', 'gmailConfirmAt']) {
+  if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_settings ADD COLUMN ' + col + ' TEXT');
+}
+const GMAIL_CONFIRM_MS = 3600 * 1000;
+function purgeGmailConfirm(u) {
+  const limit = new Date(Date.now() - GMAIL_CONFIRM_MS).toISOString();
+  if (u) db.prepare('UPDATE horaire_settings SET gmailConfirm = NULL, gmailConfirmAt = NULL WHERE userId = ? AND gmailConfirmAt IS NOT NULL AND gmailConfirmAt < ?').run(u, limit);
+  else db.prepare('UPDATE horaire_settings SET gmailConfirm = NULL, gmailConfirmAt = NULL WHERE gmailConfirmAt IS NOT NULL AND gmailConfirmAt < ?').run(limit);
+}
+purgeGmailConfirm();
+function gmailConfirmOf(u) {
+  purgeGmailConfirm(u);
+  const r = db.prepare('SELECT gmailConfirm, gmailConfirmAt FROM horaire_settings WHERE userId = ?').get(u);
+  if (!r || !r.gmailConfirm) return null;
+  let v = null; try { v = JSON.parse(r.gmailConfirm); } catch (e) { v = null; }
+  return v && v.value ? { kind: v.kind, value: v.value, until: new Date(Date.parse(r.gmailConfirmAt) + GMAIL_CONFIRM_MS).toISOString() } : null;
+}
 function inboundInfo(u) {
   db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
   let r = db.prepare('SELECT inboundToken, inboundLastAt, groupMin, forwardFrom FROM horaire_settings WHERE userId = ?').get(u);
@@ -969,7 +988,7 @@ function inboundInfo(u) {
   const domain = String(process.env.HORAIRE_INBOUND_DOMAIN || '').trim();
   const me = db.prepare('SELECT email FROM users WHERE id = ?').get(u);
   return { address: domain ? 'horaire-' + r.inboundToken + '@' + domain : null, lastAt: r.inboundLastAt || null, groupMin: r.groupMin || GROUP_MIN,
-    forwardFrom: r.forwardFrom || (me && me.email) || '' };
+    forwardFrom: r.forwardFrom || (me && me.email) || '', gmailConfirm: gmailConfirmOf(u) };
 }
 // v : adresse déjà validée par la route ; '' = revenir au courriel du profil.
 function setForwardFrom(u, v) {
@@ -1135,6 +1154,13 @@ function validateEvent(u, id) {
 }
 function receiveMail(u, raw) {
   const mail = M.normalizeMail(raw);
+  // Confirmation de transfert Gmail : seul le code (ou le lien) est gardé, 1 heure ; jamais d'événement ni de fil.
+  const gc = M.gmailForwardConfirm(mail);
+  if (gc) {
+    db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
+    db.prepare('UPDATE horaire_settings SET gmailConfirm = ?, gmailConfirmAt = ? WHERE userId = ?').run(JSON.stringify(gc), nowIso(), u);
+    return { ignored: true, gmailConfirm: true };
+  }
   const hash = (v) => require('crypto').createHash('sha256').update(u + '|' + v).digest('hex').slice(0, 32);
   const ids = [mail.messageId, mail.inReplyTo, ...mail.references].filter(Boolean).map(hash);
   const subj = M.cleanSubject(mail.subject);

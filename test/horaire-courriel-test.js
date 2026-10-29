@@ -62,9 +62,38 @@ function call(method, path, body, user) {
   assert(same.status === 404 && !h.listEvents('uE').some((e) => e.day === '2026-12-19'), 'expéditeur = adresse enregistrée mais jeton inconnu : 404, rien créé');
   assert(h.userForInboundToken(tok) === 'uE' && h.userForInboundToken('info@resto.test') === null, 'reconnaissance par le jeton seulement');
 
+  // ---- Confirmation de transfert Gmail : seul le code est gardé, 1 h, jamais d'événement, visible du seul propriétaire ----
+  const M = require('../server/lib/horaire-mail');
+  assert(M.gmailForwardConfirm(M.normalizeMail({ from: 'quelqu.un@gmail.com', subject: '(#123456789) Gmail Forwarding Confirmation', 'body-plain': 'Confirmation code: 123456789' })) === null, 'expéditeur autre que forwarding-noreply@google.com : non reconnu');
+  assert(M.gmailForwardConfirm(M.normalizeMail({ from: 'Gmail Team <forwarding-noreply@google.com>', subject: 'Bonjour', 'body-plain': 'code 123456789' })) === null, 'sujet inconnu : non reconnu');
+  const nEvents = h.listEvents('uE').length;
+  const nThreads = () => db.prepare("SELECT COUNT(*) AS n FROM horaire_inbound_threads WHERE userId = 'uE'").get().n;
+  const threads0 = nThreads();
+  const conf = await post(tok, { from: 'Gmail Team <forwarding-noreply@google.com>', subject: '(n° 987654321) Confirmation de transfert Gmail - Recevoir des messages de info@resto.test',
+    'body-plain': 'info@resto.test a demandé à transférer automatiquement ses messages vers votre adresse.\nCode de confirmation : 987654321\nhttps://mail-settings.google.com/mail/vf-abc\nle 14 décembre à 19h, 30 personnes', 'Message-Id': '<g1@google.com>' });
+  let info = h.inboundInfo('uE');
+  assert(conf.status === 200 && info.gmailConfirm && info.gmailConfirm.kind === 'code' && info.gmailConfirm.value === '987654321', 'confirmation Gmail reconnue : code gardé');
+  const stored = db.prepare('SELECT gmailConfirm FROM horaire_settings WHERE userId = ?').get('uE').gmailConfirm;
+  assert(!/resto|transf|personnes|google/.test(stored), 'rien d’autre du courriel n’est gardé');
+  assert(h.listEvents('uE').length === nEvents && nThreads() === threads0, 'aucun événement ni fil créé par la confirmation');
+  assert((await call('GET', 'inbound', undefined, 'uE')).body.gmailConfirm.value === '987654321', 'visible du propriétaire (route avec session)');
+  assert((await call('GET', 'inbound', undefined, 'uF')).body.gmailConfirm === null, 'un autre compte ne le voit pas');
+  assert(!/987654321/.test(conf.body), 'la route à jeton ne renvoie jamais le code');
+  await post(tok, { from: 'forwarding-noreply@google.com', subject: 'Gmail Forwarding Confirmation - Receive Mail from x@y.test', 'body-plain': 'Click the link: https://mail.google.com/mail/vf-abc' });
+  info = h.inboundInfo('uE');
+  assert(info.gmailConfirm.kind === 'link' && info.gmailConfirm.value === 'https://mail.google.com/mail/vf-abc', 'un seul à la fois : le dernier (lien si aucun code)');
+  const ev2 = await post(tok, { from: 'client@exemple.test', subject: 'Souper', 'body-plain': 'Souper le 18 décembre à 19h, 40 personnes.', 'Message-Id': '<k3@exemple.test>' });
+  assert(ev2.status === 200 && h.listEvents('uE').some((e) => e.day === '2026-12-18') && h.inboundInfo('uE').gmailConfirm.value === 'https://mail.google.com/mail/vf-abc', 'autre courriel : traité comme avant (événement), code inchangé');
+  db.prepare('UPDATE horaire_settings SET gmailConfirmAt = ? WHERE userId = ?').run(new Date(Date.now() - 3601 * 1000).toISOString(), 'uE');
+  assert(h.inboundInfo('uE').gmailConfirm === null && db.prepare('SELECT gmailConfirm FROM horaire_settings WHERE userId = ?').get('uE').gmailConfirm === null, 'après 1 h : supprimé (purge à la lecture)');
+  assert(!/gmailConfirm/.test(require('fs').readFileSync(require.resolve('../server/lib/dataexport'), 'utf8')), 'jamais dans l’export');
+  await post(tok, { from: 'forwarding-noreply@google.com', subject: 'Gmail Forwarding Confirmation', 'body-plain': 'Confirmation code: 111222333' });
+  require('../server/lib/accountdeletion').deleteAccountData(db.prepare('SELECT * FROM users WHERE id = ?').get('uE'));
+  assert(!db.prepare("SELECT 1 FROM horaire_settings WHERE userId = 'uE'").get(), 'suppression du compte : code effacé avec les réglages');
+
   // ---- Sans HORAIRE_INBOUND_DOMAIN : pas d'adresse affichée (comportement actuel) ----
   delete process.env.HORAIRE_INBOUND_DOMAIN;
-  assert((await call('GET', 'inbound', undefined, 'uE')).body.address === null, 'sans domaine : aucune adresse (page inchangée)');
+  assert((await call('GET', 'inbound', undefined, 'uF')).body.address === null, 'sans domaine : aucune adresse (page inchangée)');
 
   server.close();
   db.close();

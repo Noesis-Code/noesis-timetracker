@@ -190,7 +190,21 @@ function normalizeMail(b) {
     inReplyTo: ids(pick('In-Reply-To', 'in_reply_to', 'inReplyTo'))[0] || '',
     references: ids(pick('References', 'references')),
     date: pick('Date', 'date'),
+    from: pick('from', 'From', 'sender', 'Sender'),
+    fullText: pick('body-plain', 'TextBody', 'plain', 'text', 'stripped-text'),
   };
 }
 
-module.exports = { findType, findTypes, findPrice, fold, cleanSubject, ownText, findDates, bestDate, findTime, findCovers, findFloors, confirmHint, anonymousSubject, fallbackName, extract, normalizeMail };
+// Courriel de confirmation de transfert de Gmail (expéditeur forwarding-noreply@google.com et sujet connu, FR ou EN) :
+// renvoie SEULEMENT le code (chiffres) ou, à défaut, le lien de confirmation Google ; null pour tout autre courriel.
+function gmailForwardConfirm(mail) {
+  if (!/(^|[<\s])forwarding-noreply@google\.com(>|\s|$)/i.test(String(mail.from || ''))) return null;
+  if (!/gmail forwarding confirmation|confirmation de transfert gmail/i.test(fold(mail.subject || ''))) return null;
+  const all = String(mail.subject || '') + '\n' + String(mail.fullText || mail.text || '');
+  const code = /(?:code|n[°o]|#)\D{0,30}?(\d{6,12})\b/i.exec(all);
+  if (code) return { kind: 'code', value: code[1] };
+  const link = /https:\/\/(?:mail|mail-settings)\.google\.com\/[^\s<>"')]+/i.exec(all);
+  return link && link[0].length <= 500 ? { kind: 'link', value: link[0] } : null;
+}
+
+module.exports = { findType, findTypes, findPrice, fold, cleanSubject, ownText, findDates, bestDate, findTime, findCovers, findFloors, confirmHint, anonymousSubject, fallbackName, extract, normalizeMail, gmailForwardConfirm };

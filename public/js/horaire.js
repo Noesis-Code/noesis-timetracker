@@ -428,6 +428,17 @@
     var ol = el('ol', 'horaireMuted horaireInboundSteps');
     steps.forEach(function (s) { ol.appendChild(el('li', null, tr(s))); });
     inboundLine.appendChild(ol);
+    // Dernier code (ou lien) de confirmation de transfert Gmail reçu, gardé 1 h par le serveur : seulement s'il existe.
+    var gc = i.gmailConfirm;
+    if (gc && gc.value) {
+      var p = el('p', 'horaireInboundConfirm', tr('Code de confirmation Gmail') + ' : ');
+      if (gc.kind === 'link' && /^https:\/\/(mail|mail-settings)\.google\.com\//.test(gc.value)) {
+        var a = el('a', 'horaireLink', tr('Confirmer le transfert')); a.href = gc.value; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        p.appendChild(a);
+      } else p.appendChild(el('strong', null, gc.value));
+      p.appendChild(el('span', 'horaireMuted', ' · ' + tr('valable 1 h')));
+      inboundLine.appendChild(p);
+    }
   }
   // « 1 congé », « 3 congés » : nombre et mot accordé (jamais « (s) »).
   function plural(n, one, many) { return n + ' ' + tr(n > 1 ? many : one); }
