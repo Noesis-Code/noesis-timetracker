@@ -187,7 +187,7 @@
     'Garde au moins un ensemble : « Chrono », « Feuille de route » ou « Horaire ».': 'Keep at least one: “Chrono”, “Roadmap” or “Schedule”.',
     // ---- Module Horaire (26 oct. 2026, public/js/horaire.js) ----
     'Générer': 'Generate', 'Paramètres': 'Settings',
-    'Semaine du': 'Week of', 'À vérifier': 'To check', 'max': 'max',
+    'Semaine du': 'Week of', 'Du': 'From', 'À vérifier': 'To check', 'max': 'max',
     'Aucun horaire pour cette semaine. Touche « Générer l’horaire ».': 'No schedule for this week. Tap “Generate schedule”.',
     'Employés': 'Employees', 'Postes': 'Positions', 'Besoins normaux': 'Usual needs', 'Disponibilités': 'Availability',
  'Nouvel employé': 'New employee', 'Ajouter un employé': 'Add an employee',
