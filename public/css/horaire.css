@@ -8,9 +8,6 @@
 .horaireHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; }
 /* Semaine ‹ libellé › : composant .cmpNav--sm (R45), sur toute la largeur de l'en-tête */
 .horaireHead > .horaireWeek { flex: 1 1 100%; }
-/* Grands boutons + Recharger ↻ (icône seule, .cmpNavArrow) sur une ligne ; pendant le chargement, l'icône s'estompe (:disabled commun) */
-.horaireTop { display: flex; align-items: center; gap: 8px; }
-.horaireTop > .horaireCats { flex: 1 1 auto; min-width: 0; }
 /* Parcours en 4 pages : boutons d'étape pleine largeur (sélecteur commun .cmpSeg, R42), points, pages (TMT.slidePager) */
 .horairePages { position: relative; }
 .horairePage { display: flex; flex-direction: column; gap: 24px; }
@@ -29,6 +26,8 @@
 .horaireBlock { display: flex; flex-direction: column; gap: 12px; }
 .horaireBlockHead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; }
 .horaireBlockHead > .cmpBlockTitle { padding: 0; }
+/* Recharger (Paramètres > Événements) : à droite de la ligne de titre « Types d'événements », juste au-dessus du tableau */
+.horaireBlockHead > .horaireReload { margin-left: auto; align-self: center; display: inline-flex; align-items: center; justify-content: center; }
 .horaireBlockHint { color: var(--text-light); }
 .horaireFrame { overflow-x: auto; border-radius: var(--radius-lg); }
 

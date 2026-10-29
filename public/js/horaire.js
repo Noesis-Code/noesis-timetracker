@@ -181,6 +181,16 @@
     var pEv = el('div', 'horairePage');
     // Types d'événements (au-dessus du calendrier) : « 1 [poste] pour N clients » par type ; vide = aucun personnel de ce poste.
     bTypes = block('Types d’événements');
+    // Recharger (29 oct. 2026, demande d'Émilien) : seulement ici, au-dessus des types, à droite ; relit les données sans recharger la page.
+    // Icône SVG au trait uniforme comme l'épingle commune (stroke 2, currentColor), sans cadre (R37, .cmpNavArrow).
+    var reload = btn('cmpNavArrow horaireReload', '', function () {
+      if (S.busy) return;
+      S.busy = true; reload.disabled = true;
+      refresh().then(function () { S.busy = false; reload.disabled = false; });
+    });
+    reload.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+    reload.setAttribute('aria-label', tr('Recharger')); reload.title = tr('Recharger');
+    bTypes.firstChild.appendChild(reload);
     typesBox = el('div', 'horaireFrame cmpGlass'); bTypes.appendChild(typesBox);
     var bEvents = block('Calendrier des événements');
     eventsBox = el('div', 'horaireCalBox'); bEvents.appendChild(eventsBox);
@@ -217,15 +227,7 @@
     // js/bureau.js ajoute les flèches gauche et droite (id horairePageDots), qui restent donc dans la catégorie.
     dots = el('div', 'horairePageDots'); dots.id = 'horairePageDots'; dots.setAttribute('role', 'group');
 
-    // Recharger (29 oct. 2026, demande d'Émilien) : relit événements, employés et semaine sans recharger la page (icône seule, R37, .cmpNavArrow).
-    var top = el('div', 'horaireTop'); top.appendChild(cats);
-    var reload = btn('cmpNavArrow horaireReload', '↻', function () {
-      if (S.busy) return;
-      S.busy = true; reload.disabled = true;
-      refresh().then(function () { S.busy = false; reload.disabled = false; });
-    });
-    reload.setAttribute('aria-label', tr('Recharger')); top.appendChild(reload);
-    mainNodes = [top, head, subTabs, dots, pagesHost];
+    mainNodes = [cats, head, subTabs, dots, pagesHost];
     mainNodes.forEach(function (n) { root.appendChild(n); });
   }
   // Page courante : catégorie active, ses 3 sous-catégories (active soulignée), ses 3 points, message de la page.
