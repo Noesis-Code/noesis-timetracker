@@ -217,19 +217,25 @@ function positionInput(res, body, partial) {
   return out;
 }
 router.get('/horaire/positions', (req, res) => res.json({ positions: h.listPositions(req.userId) }));
-// Postes du volet créés s'ils manquent (Barman, Commis, Hôte/Hôtesse, Serveur, Suiteur) ; existants intacts.
+// Postes du volet (Serveur, Barman, Commis, Hôte/Hôtesse, Suiteur) créés au tout premier chargement d'un compte sans poste, jamais après.
 router.post('/horaire/positions/defaults', (req, res) => res.json({ positions: h.ensureDefaultPositions(req.userId) }));
 router.post('/horaire/positions', (req, res) => {
   const v = positionInput(res, req.body || {}, false); if (!v) return;
   if (h.countPositions(req.userId) >= h.LIMITS.positions) return res.status(409).json({ error: 'Limite de postes atteinte.' });
+  if (h.positionTaken(req.userId, v.name)) return res.status(409).json({ error: 'Ce poste existe déjà.' });
   res.status(201).json({ position: h.createPosition(req.userId, v) });
 });
 router.put('/horaire/positions/:id', (req, res) => {
   const v = positionInput(res, req.body || {}, true); if (!v) return;
+  if (v.name !== undefined && h.positionTaken(req.userId, v.name, req.params.id)) return res.status(409).json({ error: 'Ce poste existe déjà.' });
   const p = h.updatePosition(req.userId, req.params.id, v);
   return p ? res.json({ position: p }) : notFound(res, 'Poste');
 });
-router.delete('/horaire/positions/:id', (req, res) => (h.deletePosition(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Poste')));
+router.delete('/horaire/positions/:id', (req, res) => {
+  const r = h.deletePosition(req.userId, req.params.id);
+  if (r === null) return res.status(409).json({ error: 'Il faut garder au moins un poste.' });
+  return r ? res.json({ ok: true }) : notFound(res, 'Poste');
+});
 
 // ---------- qualifications ----------
 router.get('/horaire/qualifications', (req, res) => res.json({ qualifications: h.listQualifications(req.userId) }));

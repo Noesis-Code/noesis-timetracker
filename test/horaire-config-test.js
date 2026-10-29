@@ -144,15 +144,14 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     assert((await call('PUT', 'employees/' + p.id, { wantHoursTarget: 5 }, 'uC')).status === 200 && h.ownEmployee('uC', p.id).wantHoursTarget === 5, 'cible sous le min : acceptée');
     assert((await call('PUT', 'employees/' + p.id, { wantHoursMin: 40 }, 'uC')).status === 400, 'min au-dessus du max : refusé (seule contrainte)');
   }
-  // ---- Postes par défaut : créés s'ils manquent, « Serveur » existant intact ; postes neufs vierges ----
+  // ---- Postes par défaut (29 oct. 2026) : seulement pour un compte SANS poste ; un compte qui en a déjà les garde tels quels ----
   {
     const before = h.listPositions('uC').map((p) => p.id + ':' + p.name).join();
     r = await call('POST', 'positions/defaults', {}, 'uC');
-    const names = r.body.positions.map((p) => p.name).sort();
-    assert(r.status === 200 && ['Barman', 'Commis', 'Hôte/Hôtesse', 'Serveur', 'Suiteur'].every((n) => names.includes(n)) && names.filter((n) => n === 'Serveur').length === 1, 'postes par défaut créés, un seul Serveur');
-    assert(h.listPositions('uC').map((p) => p.id + ':' + p.name).join().startsWith(before), 'postes existants intacts (mêmes ids, mêmes noms)');
+    assert(r.status === 200 && r.body.positions.map((p) => p.id + ':' + p.name).join() === before, 'compte ayant déjà des postes : rien d’ajouté, postes existants intacts');
     assert((await call('POST', 'positions/defaults', {}, 'uC')).body.positions.length === r.body.positions.length, 'postes par défaut : jamais en double');
-    const barman = r.body.positions.find((p) => p.name === 'Barman');
+    r = await call('POST', 'positions', { name: 'Barman' }, 'uC');
+    const barman = r.body.position;
     assert(!h.listQualifications('uC').some((q) => q.positionId === barman.id) && !h.listNeeds('uC').some((n) => n.positionId === barman.id), 'poste neuf : aucun employé ni besoin (tableaux vierges)');
     r = await call('POST', 'events', { day: '2026-11-08', service: 'soir', extra: 1, positionId: barman.id }, 'uC');
     assert(r.status === 201 && r.body.event.positionId === barman.id, 'groupe rattaché au poste choisi');
@@ -215,7 +214,7 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
   }
   // ---- Planchers : liste commune aux postes Serveur, Barman, Commis ; nombres propres à chacun ; saisie seule ----
   {
-    await call('POST', 'positions/defaults', {}, 'uC');
+    await call('POST', 'positions', { name: 'Hôte/Hôtesse' }, 'uC'); // ajouté par le gestionnaire (plus de postes par défaut ici)
     const ps = h.listPositions('uC');
     const srv = ps.find((p) => p.name === 'Serveur'), bar = ps.find((p) => p.name === 'Barman'), hote = ps.find((p) => /^H/.test(p.name));
     const f1 = (await call('POST', 'floors', { name: 'Haut' }, 'uC')).body.floor;

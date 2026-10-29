@@ -128,6 +128,12 @@
 /* Un tableau par catégorie (titre .cmpBlockTitle au-dessus, R41) ; le conteneur des tableaux porte le trait d'insertion du glisser */
 /* Menu du poste (étapes 1 et 3) : composant du filtre des Statistiques, sans marge propre */
 #tab-horaire .horairePosPicker { margin: 0; align-self: flex-start; }
+/* Postes gérés dans le menu Poste : nom | ✎ | ✕, puis « + Ajouter un poste » (composants .cmpEdit, .cmpRemove, .cmpAdd) */
+#tab-horaire .horairePosPicker .statsPeriodMenu { min-width: 240px; }
+.horairePosRow { display: flex; align-items: center; gap: 8px; padding-right: 8px; }
+.horairePosRow .statsPeriodMenuItem { flex: 1 1 auto; min-width: 0; }
+.horairePosRow .horaireSheetInput { flex: 1 1 auto; min-width: 0; margin: 8px 0 8px 12px; }
+#tab-horaire .horairePosPicker .cmpAdd { margin: 8px; width: calc(100% - 16px); }
 /* Employés : menu du poste à gauche, trombone commun (R39, import d'un document) à droite, sur la même ligne */
 .horaireEmpTop { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .horaireEmpTop > .chatAttachBtn { position: static; width: 44px; height: 44px; }

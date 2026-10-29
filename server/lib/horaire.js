@@ -124,11 +124,21 @@ function createPosition(u, { name, fillOrder, dayforceCode }) {
 // Postes du volet (28 oct. 2026, demande d'Émilien) : créés s'ils manquent (comparaison sans casse ni accents), sans toucher aux postes
 // existants ni à leurs données. « Serveur » d'abord (poste principal d'un compte neuf), puis les autres.
 const DEFAULT_POSITIONS = ['Serveur', 'Barman', 'Commis', 'Hôte/Hôtesse', 'Suiteur'];
+// 29 oct. 2026 : le gestionnaire ajoute, renomme et retire lui-même ses postes. Les postes par défaut ne sont créés qu'une fois, au tout
+// premier chargement d'un compte SANS aucun poste ; ensuite (positionsInit), plus jamais (un poste retiré ne revient pas).
 function ensureDefaultPositions(u) {
-  const key = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-  const have = new Set(listPositions(u).map((p) => key(p.name)));
-  DEFAULT_POSITIONS.forEach((name) => { if (!have.has(key(name)) && countPositions(u) < LIMITS.positions) createPosition(u, { name }); });
+  db.prepare('INSERT OR IGNORE INTO horaire_settings (userId) VALUES (?)').run(u);
+  const s = db.prepare('SELECT positionsInit FROM horaire_settings WHERE userId = ?').get(u);
+  if (!s.positionsInit) {
+    if (!countPositions(u)) DEFAULT_POSITIONS.forEach((name) => { if (countPositions(u) < LIMITS.positions) createPosition(u, { name }); });
+    db.prepare('UPDATE horaire_settings SET positionsInit = 1 WHERE userId = ?').run(u);
+  }
   return listPositions(u);
+}
+// Nom de poste déjà pris (casse, accents et espaces ignorés) ; exceptId : le poste renommé.
+function positionTaken(u, name, exceptId) {
+  const k = fold(name).replace(/\s+/g, ' ');
+  return listPositions(u).some((p) => p.id !== Number(exceptId) && fold(p.name).replace(/\s+/g, ' ') === k);
 }
 function updatePosition(u, id, f) {
   const p = ownPosition(u, id);
@@ -139,11 +149,15 @@ function updatePosition(u, id, f) {
       f.openTableCovers !== undefined ? f.openTableCovers : p.openTableCovers, p.id, u);
   return listPositions(u).find((x) => x.id === p.id);
 }
+// Retirer un poste : ses besoins, qualifications, quarts (et rotation), ses règles de types d'événements et ses nombres de planchers
+// partent avec lui ; un ancien événement d'une ligne sur ce poste perd son poste. Au moins un poste reste toujours (null sinon).
 function deletePosition(u, id) {
   const i = Number(id);
-  return cascade(u, ['horaire_qualifications', 'horaire_needs', 'horaire_rotation', 'horaire_assignments']
+  if (!ownPosition(u, i)) return false;
+  if (countPositions(u) <= 1) return null;
+  return cascade(u, ['horaire_qualifications', 'horaire_needs', 'horaire_rotation', 'horaire_assignments', 'horaire_event_type_ratios', 'horaire_floor_counts']
     .map((t) => ['DELETE FROM ' + t + ' WHERE positionId = ? AND userId = ?', i])
-    .concat([['DELETE FROM horaire_positions WHERE id = ? AND userId = ?', i]]));
+    .concat([['UPDATE horaire_events SET positionId = NULL WHERE positionId = ? AND userId = ?', i], ['DELETE FROM horaire_positions WHERE id = ? AND userId = ?', i]]));
 }
 
 // ---------- qualifications (rang par employé ET par poste ; 1 = meilleur) ----------
@@ -1260,7 +1274,7 @@ module.exports = {
   importReservationsCsv, weekCovers, normDate,
   LIMITS, isDate, isMonday, isTime, cleanName, maxMinutes, shiftCount, constraintText, ownEmployee, ownPosition, ownEvent, weekPrompt,
   listEmployees, countEmployees, createEmployee, updateEmployee, deleteEmployee, retireEmployee,
-  listPositions, countPositions, createPosition, updatePosition, deletePosition, ensureDefaultPositions, DEFAULT_POSITIONS,
+  listPositions, countPositions, createPosition, updatePosition, deletePosition, ensureDefaultPositions, positionTaken, DEFAULT_POSITIONS,
   listQualifications, setQualification, removeQualification,
   getAvailabilities, setAvailabilities, getTimeoff, availSummary,
   CATEGORY_RULES, listCategoryRules, addCategoryRule, removeCategoryRule,

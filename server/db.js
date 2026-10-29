@@ -2784,6 +2784,10 @@ CREATE TABLE IF NOT EXISTS horaire_event_type_ratios (
 if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === 'eventTypesInit')) db.exec('ALTER TABLE horaire_settings ADD COLUMN eventTypesInit INTEGER');
 // Famille d'un type d'événement (29 oct. 2026, règle d'Émilien) : 'service' (Serveur, Commis) ou 'bar' (Barman) ; NULL = déduite du nom.
 if (!db.prepare('PRAGMA table_info(horaire_event_types)').all().some((c) => c.name === 'family')) db.exec('ALTER TABLE horaire_event_types ADD COLUMN family TEXT');
+// Postes gérés par le gestionnaire (29 oct. 2026, demande d'Émilien) : les postes par défaut ne sont créés qu'au tout premier chargement
+// d'un compte sans aucun poste (positionsInit = 1 ensuite) ; un poste retiré n'est jamais recréé. Compte ayant déjà des postes :
+// marqué initialisé à sa prochaine lecture (server/lib/horaire.js, ensureDefaultPositions).
+if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === 'positionsInit')) db.exec('ALTER TABLE horaire_settings ADD COLUMN positionsInit INTEGER');
 // Prix par personne (29 oct. 2026, demande d'Émilien) : price sur l'événement ($, facultatif) ; par type, un seuil de prix (priceMin) et,
 // par poste, un second ratio (perClientsHigh : « si prix ≥ seuil : 1 pour N clients »). NULL = comportement sans prix.
 if (!db.prepare('PRAGMA table_info(horaire_events)').all().some((c) => c.name === 'price')) db.exec('ALTER TABLE horaire_events ADD COLUMN price REAL');

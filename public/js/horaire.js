@@ -1066,10 +1066,46 @@
       var name = (S.positions.find(function (x) { return x.id === cur; }) || {}).name || '';
       p.label.textContent = name;
       p.menu.textContent = '';
+      // Postes gérés par le gestionnaire (29 oct. 2026) : chaque ligne = choisir | ✎ renommer (la ligne se déroule sur place, R36) |
+      // ✕ retirer (confirmation rouge, R43 ; absente s'il ne reste qu'un poste) ; en bas « + Ajouter un poste ».
       list.forEach(function (x) {
+        var row = el('div', 'horairePosRow');
+        if (S.posEdit === x.id) { row.appendChild(posNameInput(x)); p.menu.appendChild(row); return; }
         var it = el('button', 'statsPeriodMenuItem' + (x.id === cur ? ' active' : ''), x.name); it.type = 'button'; it.dataset.pos = String(x.id);
-        p.menu.appendChild(it);
+        row.appendChild(it);
+        row.appendChild(TMT.ui.editBtn(function (e) { e.stopPropagation(); S.posEdit = x.id; renderPosPickers(); }, tr('Renommer') + ' ' + x.name));
+        if (list.length > 1) row.appendChild(TMT.ui.removeBtn(function (e) { e.stopPropagation(); removePosition(x); }, tr('Retirer') + ' ' + x.name));
+        p.menu.appendChild(row);
       });
+      if (S.posEdit === 'new') { var nr = el('div', 'horairePosRow'); nr.appendChild(posNameInput(null)); p.menu.appendChild(nr); }
+      else p.menu.appendChild(TMT.ui.addBtn(tr('Ajouter un poste'), function (e) { e.stopPropagation(); S.posEdit = 'new'; renderPosPickers(); }));
+    });
+    var inp = document.querySelector('.statsPeriodMenu:not(.hidden) .horairePosRow input'); if (inp) inp.focus();
+  }
+  // Nom d'un poste (ajout : x = null ; renommage : x) : Entrée ou sortie du champ enregistre, Échap annule ; vide = rien.
+  // Doublon refusé par le serveur (casse et accents ignorés) : le message s'affiche, la saisie reste.
+  function posNameInput(x) {
+    var inp = el('input', 'horaireSheetInput'); inp.type = 'text'; inp.maxLength = 80; inp.value = x ? x.name : '';
+    inp.placeholder = tr('Nom du poste'); inp.setAttribute('aria-label', tr('Nom du poste'));
+    var done = false;
+    var finish = function (keep) {
+      if (done) return; done = true;
+      var v = inp.value.trim().replace(/\s+/g, ' ');
+      if (!keep || !v || (x && v === x.name)) { S.posEdit = null; renderPosPickers(); return; }
+      (x ? req('PUT', 'positions/' + x.id, { name: v }) : req('POST', 'positions', { name: v })).then(function (d) {
+        S.posEdit = null;
+        if (!x && d.position) { S.posId = d.position.id; try { localStorage.setItem('horairePoste', String(d.position.id)); } catch (err) { /* choix pour cette visite */ } }
+        return refresh();
+      }, function (err) { done = false; fail(err); inp.focus(); });
+    };
+    inp.addEventListener('click', function (e) { e.stopPropagation(); });
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); finish(true); } else if (e.key === 'Escape') { e.preventDefault(); finish(false); } });
+    inp.addEventListener('blur', function () { finish(true); });
+    return inp;
+  }
+  function removePosition(x) {
+    confirmDelete(tr('Retirer le poste') + ' « ' + x.name + ' » ?\n' + tr('Ses besoins, qualifications et quarts partent avec lui.'), function () {
+      req('DELETE', 'positions/' + x.id).then(function () { if (S.posId === x.id) S.posId = null; return refresh(); }, fail);
     });
   }
   function hOrNull(v) { v = String(v == null ? '' : v).trim().replace(',', '.'); return v === '' ? null : Number(v); }
