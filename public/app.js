@@ -8926,7 +8926,7 @@
   // (activity_message_reads). Jamais affichée quand le fil est à l'écran.
   function setDiscTabDot(count) {
     var dot = $('goalsPage2DiscDot');
-    if (dot) dot.classList.toggle('hidden', !count || discussionVisible);
+    if (dot) dot.classList.add('hidden'); // pas de point sans numéro (demande d'Émilien, 30 oct. 2026)
   }
 
   // Point rouge sur les puces d'activité de la Feuille de route (Page 1).
@@ -8955,9 +8955,7 @@
       if (discussionActivityId) setDiscTabDot(data.byActivity[discussionActivityId] || 0);
       TMT.unreadByActivity = data.byActivity || {};
       syncUnreadChipDots();
-      // Point rouge sur l'icône « Feuille de route » de la barre d'onglets.
-      var tabDot = $('goalsTabUnreadDot');
-      if (tabDot) tabDot.classList.add('hidden'); // plus de point sur l'icône Feuille de route (demande d'Émilien, 30 oct. 2026)
+      // Aucun point sur les icônes de la barre d'onglets (demande d'Émilien, 30 oct. 2026).
     }).catch(function () { /* sans conséquence : la pastille reste telle quelle */ });
   }
 

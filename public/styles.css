@@ -398,14 +398,6 @@ input[type=time]:focus, select:focus, textarea:focus {
   color: var(--white);
 }
 .tabBtn.active { color: var(--white); }
-/* Point de notification sur l'icône d'un onglet — motif générique (Design),
-   introduit le 30 août 2026 pour l'onglet Activité (invitations en attente).
-   Repositionné le 29 septembre 2026 dans l'angle du carré de verre (54px). */
-.tabBtnDot {
-  position: absolute; top: 8px; right: 8px;
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--unread); border: none; box-shadow: 0 0 0 1px rgba(156, 140, 200, 0.28);
-}
 /* Nom de la section sous le carré, dans la barre d'onglets. */
 .tabLabel {
   font-size: 10px; font-weight: 400; line-height: 1; color: var(--text-light);
