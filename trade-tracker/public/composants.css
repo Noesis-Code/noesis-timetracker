@@ -182,16 +182,16 @@
    inactive = texte gris en 500, sans fond. Filet vertical 1×14 px entre les options. Zone de toucher de 44 px (hauteur de l'option). L'option active se marque par .active, .on, aria-pressed ou aria-selected.
    La triple pseudo-classe :root passe devant les anciens styles de boutons de période/thème ; ne jamais redéfinir ce rendu écran par écran. */
 :root { --seg-active-bg: rgba(var(--purple-rgb), .16); --seg-sep: rgba(243, 238, 232, .07); --glass-gray: rgba(165, 158, 150, .18); }
-/* Mode clair « perle lavande » (essai d'Émilien, 30 oct. 2026) : posé par composants.js (classe modeClair sur <html>) quand, sur un écran à DEUX pages, l'option de droite est active.
+/* Mode clair « presque sombre » (gris-prune #6F6574, choisi par Émilien le 30 oct. 2026) (essai d'Émilien, 30 oct. 2026) : posé par composants.js (classe modeClair sur <html>) quand, sur un écran à DEUX pages, l'option de droite est active.
    Seuls le noir et ses gris changent ; le violet, le rouge, le vert et le halo restent exactement les mêmes. */
 :root.modeClair {
-  color-scheme: light;
-  --bg: #CFC4CF; --black: #CFC4CF; --bg-raised: #D9CFD8; --card: #D9CFD8; --pop-bg: #D9CFD8; --surface-dim: #D9CFD8;
-  --text: #241E29; --text-light: #5E566A; --white: #241E29; --violet-promo: #6F5FA3;
-  --sep: rgba(36, 30, 41, .14); --track-bg: rgba(36, 30, 41, .09); --hover-bg: rgba(36, 30, 41, .07); --cmp-dash: rgba(36, 30, 41, .32);
-  --glass-bg: rgba(36, 30, 41, .045); --glass-shadow: inset 0 0 0 1px rgba(36, 30, 41, .1); --seg-sep: rgba(36, 30, 41, .14);
-  --shadow-card: 0 2px 8px rgba(36, 30, 41, .07); --shadow-elevated: 0 14px 34px rgba(36, 30, 41, .14); --shadow-topbar: 0 2px 10px rgba(36, 30, 41, .07);
-  --veil: rgba(36, 30, 41, .3); --violet-soft: #6F5FA3;
+  color-scheme: dark;
+  --bg: #6F6574; --black: #6F6574; --bg-raised: #7A707F; --card: #7A707F; --pop-bg: #7A707F; --surface-dim: #7A707F;
+  --text: #F3EEE8; --text-light: #D6CFDA;
+  --sep: rgba(243, 238, 232, .18); --track-bg: rgba(243, 238, 232, .12); --hover-bg: rgba(243, 238, 232, .1); --cmp-dash: rgba(243, 238, 232, .34);
+  --glass-bg: rgba(243, 238, 232, .07); --glass-shadow: inset 0 0 0 1px rgba(243, 238, 232, .16); --seg-sep: rgba(243, 238, 232, .14);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, .18); --shadow-elevated: 0 14px 34px rgba(0, 0, 0, .3); --shadow-topbar: 0 2px 10px rgba(0, 0, 0, .18);
+  --veil: rgba(0, 0, 0, .4);
 }
 :root.modeClair body { background: var(--bg); color: var(--text); }
 :root:root:root .cmpSeg { display: flex; align-items: stretch; flex-wrap: nowrap; width: 100%; box-sizing: border-box; gap: 0; margin: 0 0 16px; padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
