@@ -171,7 +171,15 @@
   // Chargement au démarrage : dès que le profil est connu (réessaie brièvement), puis à l'ouverture de la section.
   apply();
   var tries = 0;
-  (function boot() { if (pid()) { load(); } else if (tries++ < 40) { setTimeout(boot, 500); } })();
+  // Surveillance continue du profil (avant : 40 essais en 20 s, puis plus rien) : une connexion faite après 20 s sur l'écran de connexion, ou après une déconnexion,
+  // ne chargeait jamais les modules (barre sans « + » ni Horaire). Dès qu'un profil est connu et différent du dernier chargé, on charge ; à la déconnexion on oublie l'état.
+  var loading = false;
+  setInterval(function () {
+    var p = pid();
+    if (!p) { if (loadedFor) { loadedFor = null; state = null; horaireAllowed = false; tradeAllowed = false; openedFirst = false; apply(); } return; }
+    if (loadedFor === p || loading) return;
+    loading = true; load().then(function () { loading = false; }, function () { loading = false; });
+  }, 1000);
   if (head) head.addEventListener('click', function () { if (loadedFor !== pid()) load(); else paint(); });
   // Traces « désactivé dans Modules » (Réglages) : un appui ouvre la section Modules.
   document.addEventListener('click', function (e) {
