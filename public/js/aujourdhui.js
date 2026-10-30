@@ -109,7 +109,9 @@
     ui.text.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
     ui.send = el('button', 'cmpSend'); ui.send.type = 'button'; ui.send.setAttribute('aria-label', tr('Ajouter'));
     ui.send.addEventListener('mousedown', function (e) { e.preventDefault(); }); // garde le focus : le clavier reste ouvert
-    ui.send.addEventListener('click', send);
+    ui.send.addEventListener('click', function () { if (state.longFired) { state.longFired = false; return; } send(); });
+    bindLongPress(ui.send);
+    ui.send.title = tr('Appui long : demande Expansion');
     bar.appendChild(clip); bar.appendChild(ui.text); bar.appendChild(ui.send);
     ui.chips = el('div', 'tasksChips'); ui.msg = el('p', 'tasksMsg');
     ui.toast = el('p', 'tasksToast hidden'); ui.toast.setAttribute('role', 'status');
@@ -199,12 +201,29 @@
   // Elles ne valent QUE pour les activités où Expansion est actif (GET /api/activities/:id/offer1). Les tâches proposées s'affichent dans le panneau,
   // cochées ; ↑ ou ✕ ajoute les cochées (POST document-tasks/apply). Objectifs et Drive ouvrent le panneau Expansion de l'activité choisie.
   function fold(x) { return String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
-  function expIntent(label) {
+  // Appui long (500 ms) sur ↑ = demande Expansion ; le sujet décide du type : « drive » → Drive, « objectif » → objectifs, sinon des tâches.
+  function expKind(label) {
     var x = fold(label);
     if (/\bdrive\b/.test(x)) return 'drive';
     if (/\bobjectifs?\b/.test(x)) return 'goals';
-    if (/\b(taches|todo|to-do)\b/.test(x) && /\b(fais|fait|faire|cree|creer|genere|generer|propose|proposer|prepare|preparer|ajoute|ajouter|donne|planifie|planifier|trouve)\b/.test(x)) return 'tasks';
-    return '';
+    return 'tasks';
+  }
+  function expansionAsked() {
+    if (state.busy) return;
+    var label = ui.text.value.trim();
+    if (!label) { ui.msg.textContent = tr('Écris ta demande, puis appuie longuement sur ↑ pour Expansion.'); return; }
+    startExpansion(expKind(label), label);
+  }
+  var LONG_MS = 500, LONG_MOVE = 10;
+  function bindLongPress(btn) {
+    var timer = null, x0 = 0, y0 = 0;
+    btn.addEventListener('pointerdown', function (e) {
+      state.longFired = false; x0 = e.clientX; y0 = e.clientY; clearTimeout(timer);
+      timer = setTimeout(function () { timer = null; state.longFired = true; btn.classList.add('long'); if (navigator.vibrate) try { navigator.vibrate(15); } catch (er) { /* sans vibration */ } expansionAsked(); }, LONG_MS);
+    });
+    btn.addEventListener('pointermove', function (e) { if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > LONG_MOVE) { clearTimeout(timer); timer = null; } });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { btn.addEventListener(ev, function () { clearTimeout(timer); timer = null; btn.classList.remove('long'); }); });
+    btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   }
   function essorActivities() {
     if (state.essor && Date.now() - state.essor.at < 60000) return Promise.resolve(state.essor.list);
@@ -378,8 +397,6 @@
     var label = ui.text.value.trim();
     if (!label) { ui.msg.textContent = tr('Écris une tâche avant d’ajouter.'); return; }
     if (state.exp) { runExpansion(); return; }
-    var kind = expIntent(label);
-    if (kind) { startExpansion(kind, label); return; }
     state.busy = true; ui.send.disabled = true; ui.msg.textContent = '';
     var shown = !!target(); // la proposition était déjà affichée AVANT l'envoi : ↑ la valide
     var go = shown ? Promise.resolve() : propose(label); // rien d'affiché encore : on demande d'abord la proposition

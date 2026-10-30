@@ -65,6 +65,8 @@
 .tasksComposer .tasksText { min-width: 120px; white-space: nowrap; text-overflow: ellipsis; }
 .tasksComposer .tasksClip, .tasksComposer .cmpSend { flex: none; }
 .tasksChips:empty, .tasksMsg:empty { display: none; }
+.tasksDock .cmpSend { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+.tasksDock .cmpSend.long { box-shadow: 0 0 0 4px rgba(var(--purple-rgb), .35); }
 .tasksToast { margin: 0; text-align: center; font-size: 13px; color: var(--text-light); }
 .tasksToast.hidden { display: none; }
 .tasksMsg { margin: 0; font-size: 13px; color: var(--text-light); }
