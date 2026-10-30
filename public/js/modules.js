@@ -14,7 +14,7 @@
   try {
     var cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
     var lp = JSON.parse(localStorage.getItem('noesis_profile') || 'null');
-    if (cached && cached.state && lp && cached.id === lp.id && usable(cached.state)) state = cached.state;
+    if (cached && cached.state && lp && cached.id === lp.id && usable(cached.state)) { state = cached.state; horaireAllowed = cached.ha === true; }
     else if (cached) localStorage.removeItem(CACHE_KEY); // autre profil ou état invalide : cache vidé
   } catch (e) { /* cache illisible : tout actif */ }
   var box = document.getElementById('modulesList');
@@ -48,7 +48,7 @@
     try { document.dispatchEvent(new CustomEvent('tmt:modules')); } catch (e) { /* vieux navigateur */ }
   }
   function remember() {
-    try { if (usable(state) && pid()) localStorage.setItem(CACHE_KEY, JSON.stringify({ id: pid(), state: state })); } catch (e) { /* stockage plein */ }
+    try { if (usable(state) && pid()) localStorage.setItem(CACHE_KEY, JSON.stringify({ id: pid(), state: state, ha: horaireAllowed })); } catch (e) { /* stockage plein */ }
   }
   function setMsg(t) { if (msg) msg.textContent = t || ''; }
 
@@ -120,7 +120,7 @@
     // Toujours rafraîchi depuis le serveur, même avec un cache. Réponse inutilisable (tout coupé) = tout actif ; échec = on garde le dernier état valide et on réessaie.
     return call('GET').then(function (d) {
       state = usable(d.modules) ? d.modules : null; tradeAllowed = !!d.tradeAllowed; horaireAllowed = d.horaireAllowed === true; loadedFor = id; loadFails = 0; remember(); apply(); openFirstTab(); paint(); return state;
-    }).catch(function () { if (loadFails++ < 5) setTimeout(function () { if (loadedFor !== pid()) load(); }, 2000 * loadFails); return null; });
+    }).catch(function () { if (loadFails++ < 30) setTimeout(function () { if (loadedFor !== pid()) load(); }, Math.min(2000 * loadFails, 6000)); return null; }); // serveur indisponible (déploiement) : on réessaie pendant ~3 min, la barre se complète dès la réponse
   }
   var loadFails = 0;
   // Retour au premier plan / du réseau : nouvel état serveur (un changement fait ailleurs, ou un GET manqué au démarrage).
