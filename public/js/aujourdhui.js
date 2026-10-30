@@ -288,7 +288,7 @@
     e.loading = true; paintExpansion();
     return TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/apply', { tasks: picked.map(function (t) { return { title: t.title, key: t.key, day: t.day, week: t.week, minutes: t.minutes }; }) }).then(function (r) {
       var n = (r && r.addedCount) || 0; reset(); refresh();
-      ui.msg.textContent = n + ' ' + tr(n > 1 ? 'tâches ajoutées' : 'tâche ajoutée');
+      showToast(n + ' ' + tr(n > 1 ? 'tâches enregistrées' : 'tâche enregistrée'));
     }).catch(function (err) { e.loading = false; ui.msg.textContent = (err && err.message) || tr('Erreur.'); paintExpansion(); });
   }
 
@@ -407,7 +407,7 @@
           if (snap.who) { extra.plannedUserId = snap.who.id; extra.notifyAssignee = true; }
           var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }) : Promise.resolve();
           return after.then(function () {
-            reset(); refresh();
+            reset(); refresh(); showToast(tr('Tâche enregistrée'));
             if (TMT.aiMode === 'autonome') flashAdded(snap); // autonome : les choix s'affichent 5 s, puis le panneau disparaît
           });
       });
