@@ -127,9 +127,10 @@
     bindLongPress(ui.send);
     ui.send.title = tr('Appui long : demande Expansion');
     bar.appendChild(clip); bar.appendChild(ui.text); bar.appendChild(ui.send);
+    ui.exHint = el('p', 'tasksExHint hidden', tr('Appuie longtemps sur ↑ pour utiliser Expansion')); // sous la barre, seulement si le texte parle de générer et qu'une activité a Expansion
     ui.chips = el('div', 'tasksChips'); ui.msg = el('p', 'tasksMsg');
     ui.toast = el('p', 'tasksToast hidden'); ui.toast.setAttribute('role', 'status');
-    box.appendChild(ui.toast); box.appendChild(ui.proposal); box.appendChild(bar); box.appendChild(ui.chips); box.appendChild(ui.msg);
+    box.appendChild(ui.toast); box.appendChild(ui.proposal); box.appendChild(bar); box.appendChild(ui.exHint); box.appendChild(ui.chips); box.appendChild(ui.msg);
     return box;
   }
 
@@ -215,6 +216,20 @@
   // Elles ne valent QUE pour les activités où Expansion est actif (GET /api/activities/:id/offer1). Les tâches proposées s'affichent dans le panneau,
   // cochées ; ↑ ou ✕ ajoute les cochées (POST document-tasks/apply). Objectifs et Drive ouvrent le panneau Expansion de l'activité choisie.
   function fold(x) { return String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+  // Mots qui annoncent une génération (« fais-moi des tâches », « objectif », « Drive ») : le petit message sous la barre apparaît, SEULEMENT si une activité a Expansion.
+  function expTrigger(label) {
+    var x = fold(label);
+    return /\bdrive\b/.test(x) || /\bobjectifs?\b/.test(x)
+      || (/\b(taches|todo|to-do)\b/.test(x) && /\b(fais|fait|faire|cree|creer|genere|generer|propose|proposer|prepare|preparer|ajoute|ajouter|donne|planifie|planifier|trouve|trouver)\b/.test(x));
+  }
+  var hintSeq = 0;
+  function updateExHint() {
+    var label = ui.text.value.trim(), seq = ++hintSeq;
+    if (!expTrigger(label)) { ui.exHint.classList.add('hidden'); return; }
+    essorActivities().then(function (list) { if (seq === hintSeq) ui.exHint.classList.toggle('hidden', !list.length); }).catch(function () {});
+  }
+  // Mode blanc (même fondu que l'Horaire) pendant une demande Expansion ; il reste jusqu'à l'envoi (↑ ou ✕) ou l'abandon.
+  function setExpMode(on) { document.documentElement.classList.toggle('modeExpansion', !!on); }
   // Appui long (500 ms) sur ↑ = demande Expansion ; le sujet décide du type : « drive » → Drive, « objectif » → objectifs, sinon des tâches.
   function expKind(label) {
     var x = fold(label);
@@ -233,7 +248,7 @@
     var timer = null, x0 = 0, y0 = 0;
     btn.addEventListener('pointerdown', function (e) {
       state.longFired = false; x0 = e.clientX; y0 = e.clientY; clearTimeout(timer);
-      timer = setTimeout(function () { timer = null; state.longFired = true; btn.classList.add('long'); if (navigator.vibrate) try { navigator.vibrate(15); } catch (er) { /* sans vibration */ } expansionAsked(); }, LONG_MS);
+      timer = setTimeout(function () { timer = null; state.longFired = true; btn.classList.add('long'); setExpMode(true); if (navigator.vibrate) try { navigator.vibrate(15); } catch (er) { /* sans vibration */ } expansionAsked(); }, LONG_MS);
     });
     btn.addEventListener('pointermove', function (e) { if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > LONG_MOVE) { clearTimeout(timer); timer = null; } });
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { btn.addEventListener(ev, function () { clearTimeout(timer); timer = null; btn.classList.remove('long'); }); });
@@ -251,6 +266,7 @@
     essorActivities().then(function (list) {
       ui.msg.textContent = '';
       if (!list.length) {
+        setExpMode(false);
         ui.msg.textContent = tr('Expansion n’est actif sur aucune de tes activités : cette demande ne marche que sur celles qui l’ont.') + ' ';
         var lk = el('button', 'tasksMsgLink', tr('Découvrir Expansion')); lk.type = 'button';
         lk.addEventListener('click', function () {
@@ -330,7 +346,8 @@
     var text = ui.text.value.trim();
     clearTimeout(state.debounce);
     clearTimeout(state.flash);
-    if (state.exp) { state.exp = null; ui.proposal.classList.add('hidden'); }
+    if (state.exp) { state.exp = null; setExpMode(false); ui.proposal.classList.add('hidden'); }
+    clearTimeout(state.hintT); state.hintT = setTimeout(updateExHint, 250);
     if (text.length < 3) { state.proposal = null; state.choice = null; state.proposedFor = ''; ui.proposal.classList.add('hidden'); return; }
     state.debounce = setTimeout(function () { propose(text); }, PROPOSE_MS);
   }
@@ -378,7 +395,7 @@
     window.requestAnimationFrame(function () { if (!c) return; c.style.display = 'none'; void c.offsetHeight; c.style.display = ''; });
   }
   function reset() {
-    clearTimeout(state.flash); state.exp = null; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
+    clearTimeout(state.flash); state.exp = null; setExpMode(false); ui.exHint.classList.add('hidden'); ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
     state.date = null; state.who = null; state.poleId = null; closeChooser();
     ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
     repaintText(); // iPhone : le texte d'invite (placeholder) ne se redessinait qu'en partie (« Ajou ») après l'envoi

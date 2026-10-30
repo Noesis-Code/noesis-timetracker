@@ -236,5 +236,19 @@
     var start = function () { new MutationObserver(schedule).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'aria-pressed', 'aria-selected', 'hidden'] }); schedule(); };
     if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
   }
+  // Fenêtres Expansion (achat #offer1CheckoutModal, utilisation #docTasksPage) : tant que l'une est ouverte, la page passe au blanc rosé (classe modeExpansionWin) avec le même fondu.
+  if (typeof MutationObserver === 'function' && root.document) {
+    var WIN_IDS = ['offer1CheckoutModal', 'docTasksPage'], watched = {}, tries = 0;
+    var syncWin = function () {
+      var open = WIN_IDS.some(function (id) { var e = document.getElementById(id); return e && !e.classList.contains('hidden'); });
+      document.documentElement.classList.toggle('modeExpansionWin', open);
+    };
+    var watchWin = function () {
+      WIN_IDS.forEach(function (id) { var e = document.getElementById(id); if (e && !watched[id]) { watched[id] = true; new MutationObserver(syncWin).observe(e, { attributes: true, attributeFilter: ['class'] }); } });
+      syncWin();
+      if (++tries < 20 && WIN_IDS.some(function (id) { return !watched[id]; })) setTimeout(watchWin, 500);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchWin); else watchWin();
+  }
   root.TMT.ui = Object.assign(root.TMT.ui || {}, ui);
 })();
