@@ -66,7 +66,8 @@
 .tasksComposer .tasksClip, .tasksComposer .cmpSend { flex: none; }
 .tasksChips:empty, .tasksMsg:empty { display: none; }
 .tasksDock .cmpSend { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
-.tasksDock .cmpSend.long { box-shadow: 0 0 0 4px rgba(var(--purple-rgb), .35); }
+.tasksDock .cmpSend { transition: transform .15s ease-out; }
+.tasksDock .cmpSend.pressing { transform: scale(1.7); transition: transform 1s linear; } /* grossit pendant la seconde d'appui, reprend sa taille en .15 s */
 .tasksExHint { margin: 0; padding: 0 12px; font-size: 12.5px; color: var(--text-light); text-align: center; }
 .tasksExHint.hidden { display: none; }
 .tasksToast { margin: 0; text-align: center; font-size: 13px; color: var(--text-light); }

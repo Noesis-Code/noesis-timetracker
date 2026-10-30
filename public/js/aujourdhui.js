@@ -237,36 +237,47 @@
     if (/\bobjectifs?\b/.test(x)) return 'goals';
     return 'tasks';
   }
+  // Pendant une demande Expansion, tout message passe par la ligne unique, centrée, sous la barre (la même que « Appuie longtemps… »).
+  var EXHINT_DEF = tr('Appuie longtemps sur ↑ pour utiliser Expansion');
+  function say(text) {
+    if (state.exp || document.documentElement.classList.contains('modeExpansion')) { ui.exHint.textContent = text || ''; ui.exHint.classList.toggle('hidden', !text); ui.msg.textContent = ''; }
+    else ui.msg.textContent = text || '';
+  }
   function expansionAsked() {
     if (state.busy) return;
     var label = ui.text.value.trim();
-    if (!label) { ui.msg.textContent = tr('Écris ta demande, puis appuie longuement sur ↑ pour Expansion.'); return; }
+    if (!label) { say(tr('Écris ta demande, puis appuie longuement sur ↑ pour Expansion.')); return; }
     startExpansion(expKind(label), label);
   }
-  var LONG_MS = 500, LONG_MOVE = 10;
+  var LONG_MS = 1000, LONG_MOVE = 10;
+  // Appui sur ↑ possible seulement si le message « Appuie longtemps… » est affiché (texte qui annonce une génération ET Expansion payé sur une activité).
+  function pressEligible() { return !!ui.text.value.trim() && !ui.exHint.classList.contains('hidden') && !state.exp; }
+  // Pendant l'appui (1 s) : la page fond vers le blanc rosé et le bouton grossit ; à la seconde, il reprend vite sa taille (en blanc) et la demande part.
+  // Relâché avant : tout revient (fondu inverse).
   function bindLongPress(btn) {
     var timer = null, x0 = 0, y0 = 0;
+    function cancel() { if (!timer) return; clearTimeout(timer); timer = null; btn.classList.remove('pressing'); setExpMode(false); }
     btn.addEventListener('pointerdown', function (e) {
-      state.longFired = false; x0 = e.clientX; y0 = e.clientY; clearTimeout(timer);
-      timer = setTimeout(function () { timer = null; state.longFired = true; btn.classList.add('long'); setExpMode(true); if (navigator.vibrate) try { navigator.vibrate(15); } catch (er) { /* sans vibration */ } expansionAsked(); }, LONG_MS);
+      state.longFired = false; if (!pressEligible()) return;
+      x0 = e.clientX; y0 = e.clientY; clearTimeout(timer);
+      setExpMode(true); btn.classList.add('pressing');
+      timer = setTimeout(function () {
+        timer = null; state.longFired = true; btn.classList.remove('pressing'); // retour rapide à la taille standard
+        if (navigator.vibrate) try { navigator.vibrate(15); } catch (er) { /* sans vibration */ }
+        ui.exHint.textContent = tr('Touche la croix ou la flèche pour valider.'); ui.exHint.classList.remove('hidden');
+        expansionAsked();
+      }, LONG_MS);
     });
-    btn.addEventListener('pointermove', function (e) { if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > LONG_MOVE) { clearTimeout(timer); timer = null; } });
-    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { btn.addEventListener(ev, function () { clearTimeout(timer); timer = null; btn.classList.remove('long'); }); });
+    btn.addEventListener('pointermove', function (e) { if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > LONG_MOVE) cancel(); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { btn.addEventListener(ev, cancel); });
     btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   }
-  function essorActivities() {
-    if (state.essor && Date.now() - state.essor.at < 60000) return Promise.resolve(state.essor.list);
-    var acts = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a && a.id != null; });
-    return Promise.all(acts.map(function (a) {
-      return TMT.api('GET', '/api/activities/' + a.id + '/offer1').then(function (r) { return { id: a.id, name: a.name, essor: !!(r && r.essor) }; }).catch(function () { return { id: a.id, name: a.name, essor: false }; });
-    })).then(function (l) { var list = l.filter(function (x) { return x.essor; }); state.essor = { at: Date.now(), list: list, others: l.filter(function (x) { return !x.essor; }) }; return list; });
-  }
   function startExpansion(kind, label) {
-    state.busy = true; ui.send.disabled = true; ui.msg.textContent = tr('Je regarde où Expansion est actif…');
+    state.busy = true; ui.send.disabled = true; say(tr('Je regarde où Expansion est actif…'));
     essorActivities().then(function (list) {
-      ui.msg.textContent = '';
+      say('');
       if (!list.length) {
-        setExpMode(false);
+        setExpMode(false); ui.exHint.classList.add('hidden');
         ui.msg.textContent = tr('Expansion n’est actif sur aucune de tes activités : cette demande ne marche que sur celles qui l’ont.') + ' ';
         var lk = el('button', 'tasksMsgLink', tr('Découvrir Expansion')); lk.type = 'button';
         lk.addEventListener('click', function () {
@@ -279,9 +290,9 @@
       state.exp = { kind: kind, label: label, acts: list, actId: list.length === 1 ? list[0].id : null, tasks: null, checked: [], loading: false };
       closeChooser(); paintExpansion();
       if (state.exp.actId) return runExpansion();
-      ui.msg.textContent = tr('Choisis l’activité, puis touche ↑.');
+      say(tr('Choisis l’activité, puis touche la flèche (ou la croix pour fermer).'));
       return null;
-    }).catch(function (e) { ui.msg.textContent = (e && e.message) || tr('Erreur.'); })
+    }).catch(function (e) { say((e && e.message) || tr('Erreur.')); })
       .then(function () { state.busy = false; ui.send.disabled = false; });
   }
   function expActName() { var e = state.exp, a = e && e.acts.filter(function (x) { return x.id === e.actId; })[0]; return a ? a.name : ''; }
@@ -317,19 +328,20 @@
         lab.appendChild(cb); lab.appendChild(txt); ui.fields.appendChild(lab);
       });
     }
-    ui.hint.textContent = e.tasks && e.tasks.length ? tr('↑ ou ✕ ajoute les tâches cochées.') : (e.kind === 'tasks' ? tr('Touche ↑ pour que Noèsis prépare les tâches.') : tr('Touche ↑ pour ouvrir Expansion sur cette activité.'));
+    ui.hint.classList.add('hidden'); // un seul message, centré sous la barre
+    say(e.loading ? tr('Noèsis prépare les tâches…') : e.tasks && e.tasks.length ? tr('Touche la croix ou la flèche pour valider.') : tr('Touche la flèche pour envoyer, ou la croix pour fermer.'));
   }
   function runExpansion() {
     var e = state.exp; if (!e) return Promise.resolve();
-    if (!e.actId) { ui.msg.textContent = tr('Choisis l’activité d’abord.'); state.open = 'exp'; paintExpansion(); return Promise.resolve(); }
+    if (!e.actId) { say(tr('Choisis l’activité d’abord.')); state.open = 'exp'; paintExpansion(); return Promise.resolve(); }
     if (e.loading) return Promise.resolve();
-    ui.msg.textContent = '';
+    say('');
     if (e.kind !== 'tasks') { var id = e.actId; reset(); if (TMT.openDocTasksForActivity) TMT.openDocTasksForActivity(id); return Promise.resolve(); }
     if (!e.tasks) {
       e.loading = true; paintExpansion();
       return TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/propose', { instruction: e.label.slice(0, 1500) }).then(function (r) {
         e.tasks = (r && r.tasks) || []; e.checked = e.tasks.map(function () { return true; });
-      }).catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Erreur.'); })
+      }).catch(function (err) { say((err && err.message) || tr('Erreur.')); })
         .then(function () { e.loading = false; if (state.exp === e) paintExpansion(); });
     }
     var picked = e.tasks.filter(function (t, i) { return e.checked[i] !== false; });
@@ -338,7 +350,7 @@
     return TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/apply', { tasks: picked.map(function (t) { return { title: t.title, key: t.key, day: t.day, week: t.week, minutes: t.minutes }; }) }).then(function (r) {
       var n = (r && r.addedCount) || 0; reset(); refresh();
       showToast(n + ' ' + tr(n > 1 ? 'tâches enregistrées' : 'tâche enregistrée'));
-    }).catch(function (err) { e.loading = false; ui.msg.textContent = (err && err.message) || tr('Erreur.'); paintExpansion(); });
+    }).catch(function (err) { e.loading = false; say((err && err.message) || tr('Erreur.')); paintExpansion(); });
   }
 
   function onType() {
@@ -395,7 +407,7 @@
     window.requestAnimationFrame(function () { if (!c) return; c.style.display = 'none'; void c.offsetHeight; c.style.display = ''; });
   }
   function reset() {
-    clearTimeout(state.flash); state.exp = null; setExpMode(false); ui.exHint.classList.add('hidden'); ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
+    clearTimeout(state.flash); state.exp = null; setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
     state.date = null; state.who = null; state.poleId = null; closeChooser();
     ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
     repaintText(); // iPhone : le texte d'invite (placeholder) ne se redessinait qu'en partie (« Ajou ») après l'envoi
