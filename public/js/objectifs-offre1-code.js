@@ -9,7 +9,7 @@
 
   // Lien « J'ai un code » : seulement si le serveur confirme que l'accès n'est pas encore acquis.
   TMT.api('GET', '/api/offer1/access').then(function (r) {
-    if (!r || r.hasAccess === true) return;
+    if (!r || r.hasAccess === true || r.available === false) return; // Expansion non lancée : pas de lien « J'ai un code »
     var link = $('offer1CodeLink');
     if (!link) return;
     link.classList.remove('hidden');

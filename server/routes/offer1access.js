@@ -1,11 +1,11 @@
 // GET /api/offer1/access -> { hasAccess } pour l'utilisateur connecté (le front masque les entrées).
 const express = require('express');
 const { requireAuth } = require('../lib/session');
-const { hasOffer1Access, hasActiveGrant, isValidFreeCode, grantAccess, activityHasEssor } = require('../lib/offer1access');
+const { hasOffer1Access, hasActiveGrant, isValidFreeCode, grantAccess, activityHasEssor, launched, expansionOpenFor } = require('../lib/offer1access');
 const router = express.Router();
 
 router.get('/offer1/access', requireAuth, (req, res) => {
-  res.json({ hasAccess: hasOffer1Access(req.userId) });
+  res.json({ hasAccess: hasOffer1Access(req.userId), available: expansionOpenFor(req.userId) }); // available : faux en production tant qu'Expansion n'est pas lancée (le lien « J'ai un code » reste caché)
 });
 
 // GET /api/activities/:id/offer1 -> { essor } : « Essor » = Offre 1 de base sur CETTE activité.
@@ -31,6 +31,7 @@ function recent(key) {
   return l;
 }
 router.post('/offer1/redeem', requireAuth, (req, res) => {
+  if (!expansionOpenFor(req.userId)) return res.status(403).json({ error: 'Expansion n’est pas encore disponible.' }); // aucun code n'ouvre Expansion avant son lancement
   const keys = ['u:' + req.userId, 'ip:' + (req.ip || 'inconnu')];
   if (keys.some((k) => recent(k).length >= FAIL_MAX)) return res.status(429).json({ error: 'Trop d\u2019essais. Réessaie dans quelques minutes.' });
   if (hasOffer1Access(req.userId)) return res.json({ hasAccess: true });
