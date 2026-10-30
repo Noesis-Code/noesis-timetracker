@@ -3298,8 +3298,6 @@ html[data-modules-off~="calendar"] [data-module~="calendar"],
 html[data-modules-off~="ai"] [data-module~="ai"],
 html.noRoadmapBar [data-module~="ai"],
 html[data-modules-off~="notifications"] [data-module~="notifications"],
-html[data-modules-off~="stats"] #statsPageDots,
-html[data-modules-off~="stats-tasks"] #statsPageDots,
 html[data-modules-off~="sharing"] #goalsPage2ModeDiscBtn,
 html[data-modules-off~="sharing"] #activitiesList .unreadBadge { display: none !important; }
 
