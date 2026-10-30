@@ -8934,7 +8934,7 @@
     var by = TMT.unreadByActivity || {};
     document.querySelectorAll('.goalsCaptureActivityChip[data-activity-id]').forEach(function (chip) {
       var dot = chip.querySelector('.goalsCaptureUnreadDot');
-      var n = (by[chip.dataset.activityId] || 0) && !chip.querySelector('.goalsCaptureBadge'); // un seul repère : la pastille avec le nombre de tâches remplace le point (demande d'Émilien, 30 oct. 2026)
+      var n = 0; // plus de point sur les puces d'activité (demande d'Émilien, 30 oct. 2026) : seule la pastille avec le nombre de tâches reste
       if (n && !dot) {
         dot = document.createElement('span');
         dot.className = 'goalsCaptureUnreadDot';
@@ -8957,7 +8957,7 @@
       syncUnreadChipDots();
       // Point rouge sur l'icône « Feuille de route » de la barre d'onglets.
       var tabDot = $('goalsTabUnreadDot');
-      if (tabDot) tabDot.classList.toggle('hidden', !data.total);
+      if (tabDot) tabDot.classList.add('hidden'); // plus de point sur l'icône Feuille de route (demande d'Émilien, 30 oct. 2026)
     }).catch(function () { /* sans conséquence : la pastille reste telle quelle */ });
   }
 
