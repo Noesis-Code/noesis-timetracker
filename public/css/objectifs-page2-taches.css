@@ -126,7 +126,7 @@
 /* Déplacer une tâche vers un autre pôle/secteur : bouton discret (même
    gabarit que la croix de suppression de tâche) + liste sous la tâche. */
 
-/* poignée ≡ à gauche de la case, corbeille du Chrono,
+/* poignée ≡ à gauche de la case, bouton modifier (crayon),
    case grise (couleur de la section). */
 .goalsTasksGroup .subProjectItem .goalsTaskTrashBtn { display: inline-flex; align-items: center; justify-content: center; padding: 6px; color: var(--text-light); }
 .goalsTasksGroup .subProjectItem input[type="checkbox"] {
@@ -279,7 +279,7 @@
 /* en modification, le texte de la tâche est éditable sur place (pas de doublon),
    plus de case à cocher ; champs de date arrondis sans contour (aussi dans les historiques) ; Responsable à gauche. */
 .goalsTasksGroup .goalsTaskEditing > input[type="checkbox"], .goalsTasksGroup .goalsTaskEditing > .subProjectItemLabel, .goalsTasksGroup .goalsTaskEditing > .goalsDailyWhen { display: none !important; }
-.goalsTaskEditPanel { padding-top: 0; }
+.goalsTaskEditPanel { padding-top: 20px; position: relative; }
 :root .goalsTaskEditPanel textarea.goalsTaskEditText { resize: none; overflow: hidden; font-family: inherit; line-height: 1.35;} :root .goalsTaskEditPanel textarea.goalsTaskEditText { max-width: none; width: 100%; text-align: left; border: 0 !important; background: transparent !important; padding: 6px 0; font-size: inherit; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 :root .goalsTaskEditPanel select { border-radius: 999px; border: 0 !important; padding-left: 14px; }
 :root .goalsTaskEditPanel input[type="date"],

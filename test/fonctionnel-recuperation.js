@@ -58,12 +58,27 @@ const T = makeCounter(); const assert = T.assert;
     assert(c4.status === 201 && c4.body.directoryConsent === false, 'profil par défaut : annuaire de connexion décoché');
     const d5 = client(s.base);
     const nf = await d5.get('/api/users?q=' + encodeURIComponent('Discret Recup'));
-    assert(nf.status === 200 && nf.body.length === 0, 'CONSTAT : profil non trouvable à la connexion (annuaire décoché) -> récupération impossible depuis l\'appareil 2');
+    assert(nf.status === 200 && nf.body.length === 1 && nf.body[0].name === 'Discret', 'annuaire décoché : retrouvable par son nom complet EXACT (sinon la récupération est impossible depuis l\'appareil 2)');
     const nf2 = await d5.get('/api/users?name=Discret&lastName=Recup');
-    assert(nf2.body.length === 0, 'CONSTAT : même la recherche exacte prénom + nom échoue');
-    // Réactivable depuis Réglages (appareil 1 encore en main) puis retrouvable
+    assert(nf2.body.length === 1, 'annuaire décoché : la recherche exacte prénom + nom trouve le profil (revérification du profil mémorisé)');
+    const nfPartial = await d5.get('/api/users?q=' + encodeURIComponent('Discret'));
+    assert(nfPartial.status === 200 && nfPartial.body.length === 0, 'annuaire décoché : jamais montré dans une recherche partielle (« Discret »)');
+    // Coché : aussi trouvable par saisie partielle
     assert((await d4.put('/api/profile/directory-consent', { consent: true })).status === 200, 'depuis l\'appareil 1 : « Être trouvable » activable');
     assert((await d5.get('/api/users?q=' + encodeURIComponent('Discret Recup'))).body.length === 1, 'une fois activé : retrouvable');
+    assert((await d5.get('/api/users?q=' + encodeURIComponent('Discret'))).body.length === 1, 'une fois activé : aussi par saisie partielle');
+
+    // --- Compte entreprise (annuaire décoché) : l'entreprise OU le responsable suffit pour le retrouver ---
+    const dE = client(s.base);
+    const cE = await dE.post('/api/profile', { name: 'Brasserie Zéphyr', lastName: 'Ouellet', phone: '5145550153', email: 'zephyr.recup@exemple.test', pin: 'Xk9#Longue-2026!', termsAccepted: true, accountType: 'entreprise' });
+    assert(cE.status === 201, 'compte entreprise créé');
+    const dF = client(s.base);
+    const byName = (await dF.get('/api/users?q=' + encodeURIComponent('Brasserie Zéphyr'))).body;
+    assert(byName.length === 1 && byName[0].name === 'Brasserie Zéphyr' && byName[0].lastName === '', "entreprise : retrouvée par le nom de l'entreprise seul, qui s'affiche seul");
+    const byLast = (await dF.get('/api/users?q=' + encodeURIComponent('Ouellet'))).body;
+    assert(byLast.length === 1 && byLast[0].name === 'Ouellet' && byLast[0].lastName === '', "entreprise : retrouvée par le nom du responsable seul, qui s'affiche seul");
+    assert((await dF.get('/api/users?q=' + encodeURIComponent('Brasserie Zéphyr Ouellet'))).body.length === 1, 'entreprise : retrouvée par les deux');
+    assert((await dF.get('/api/users?q=' + encodeURIComponent('Bras'))).body.length === 0, 'entreprise : jamais par une saisie partielle');
 
     // --- Ancien profil sans code (créé avant la protection) : pas de session -> set-pin refusé ---
     const db = new DatabaseSync(path.join(s.dir, 'noesis.db'));
@@ -81,7 +96,7 @@ const T = makeCounter(); const assert = T.assert;
     // --- Premier lancement : première tâche sur une activité neuve ---
     const cap = await d1.post('/api/goals/capture', { userId: uid, label: 'Appeler le client', activityIds: [act.body.id] });
     assert(cap.status === 409 && cap.body.needsAiMode === true, 'première tâche : le mode IA doit d\'abord être choisi (fenêtre « Comment Noèsis gère tes tâches ? »)');
-    for (const mode of ['absence', 'partiel', 'autonome']) {
+    for (const mode of ['absence', 'partiel']) {
       assert((await d1.put('/api/profile/' + uid + '/ai-mode', { mode })).status === 200, 'mode IA « ' + mode + ' » enregistré');
       const r = await d1.post('/api/goals/capture', { userId: uid, label: 'Appeler le client', activityIds: [act.body.id] });
       assert(r.status === 400 && /pas encore de pôle.*touche son nom/.test(r.body.error), 'première tâche, activité sans pôle, mode ' + mode + ' : message qui dit quoi faire (pas d\'impasse)');

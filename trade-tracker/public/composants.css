@@ -7,7 +7,8 @@
   --danger: #E0626B;                        /* R12/R28 : UN seul rouge, réservé au retrait/suppression */
   /* Jetons communs à TimeTracker, Expansion et Trade Tracker (S1) : définis ICI une seule fois. */
   --purple: #9C8CC8;
-  --purple-rgb: 156, 140, 200;
+  --pr: 156; --pg: 140; --pb: 200;           /* composantes du violet : nombres enregistrés (@property), pour fondre vers le blanc rosé en 1 s */
+  --purple-rgb: var(--pr), var(--pg), var(--pb);
   --on-action: #15111C;
   --white: #ffffff;
   --black: #0B0A0A;
@@ -72,7 +73,10 @@
 .cmpClose:active { transform: scale(0.92); }
 /* ✕ dessiné (14 px), identique sur tous les appareils : la police du glyphe ✕ le rendait plus petit sur téléphone (demande d'Émilien, 25 oct. 2026) */
 .cmpClose::before { content: ''; width: 14px; height: 14px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 2l10 10M12 2L2 12' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 2l10 10M12 2L2 12' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; }
-.cmpClose:focus-visible, .cmpRemove:focus-visible, .cmpAdd:focus-visible, .cmpEdit:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+.cmpAdd:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+/* Jamais de carré autour d'une croix ni d'une icône, même au focus (30 oct. 2026, Émilien) : ✕, croix de retrait, crayon, flèche d'envoi, trombone et boutons-icônes. */
+.cmpClose:focus, .cmpClose:focus-visible, .cmpRemove:focus, .cmpRemove:focus-visible, .cmpEdit:focus, .cmpEdit:focus-visible, .cmpSend:focus, .cmpSend:focus-visible,
+.chatAttachBtn:focus, .chatAttachBtn:focus-visible, .menuBtn:focus, .menuBtn:focus-visible, .historyRowIconBtn:focus, .historyRowIconBtn:focus-visible, .cmpNavArrow:focus, .cmpNavArrow:focus-visible { outline: none; box-shadow: none; }
 .cmpClose::after, .cmpRemove::after, .cmpEdit::after {
   content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--cmp-hit)); height: max(100%, var(--cmp-hit)); transform: translate(-50%, -50%);
 }
@@ -85,6 +89,8 @@
   background-size: 100% 100%;
 }
 .cmpRemove:disabled { opacity: .5; }
+/* Croix de retrait dans l'angle haut droit de sa cellule (R32, 30 oct. 2026) : la cellule parente est en position: relative. Remplace toute icône de corbeille. */
+.cmpRemove--corner { position: absolute; top: 8px; right: 8px; margin: 0; z-index: 1; }
 
 /* « + » pointillé large (R19/R23) : bas des listes (pôles, secteurs, activités, règles…) */
 .cmpAdd {
@@ -139,6 +145,9 @@
 }
 .cmpConfirmHead { display: flex; justify-content: flex-end; }
 .cmpConfirmText { margin: 0; font-size: 15px; line-height: 1.45; color: var(--text); word-break: break-word; }
+/* Champ facultatif de TMT.ui.confirm (opts.input, 29 oct. 2026) : une zone d'écriture, verre de R40 */
+.cmpConfirmInput { width: 100%; min-height: 44px; box-sizing: border-box; padding: 8px 12px; border: 1px solid var(--sep); border-radius: var(--radius-sm); font: inherit; font-size: 15px; color: var(--text); }
+.cmpConfirmInput:focus { outline: none; border-color: var(--purple); }
 /* Bouton-symbole (R29, 25 oct. 2026, demande d'Émilien) : un bouton qui ne contient qu'un symbole ou une icône (‹ › ⋮ d'une période ou d'une semaine, engrenage, abonnés, invitations, membres, flèches de pôle)
    n'a AUCUN carré autour : ni fond, ni liseré, ni ombre, ni flou. Restent : la taille et la couleur de l'icône, l'alignement, la zone de toucher invisible de 44 px (R7), le contour violet au clavier.
    Les boutons avec un mot, les avatars, les cases et interrupteurs, les « + » pointillés et les croix rouges ne sont pas concernés. */
@@ -176,7 +185,49 @@
    Aucun conteneur (ni fond, ni liseré). Options pleine largeur à parts égales, texte 13 px centré. Option active = pastille de 28 px (rayon 8, --seg-active-bg), texte plein en 600, aucun contour ;
    inactive = texte gris en 500, sans fond. Filet vertical 1×14 px entre les options. Zone de toucher de 44 px (hauteur de l'option). L'option active se marque par .active, .on, aria-pressed ou aria-selected.
    La triple pseudo-classe :root passe devant les anciens styles de boutons de période/thème ; ne jamais redéfinir ce rendu écran par écran. */
-:root { --seg-active-bg: rgba(var(--purple-rgb), .16); --seg-sep: rgba(243, 238, 232, .07); }
+:root { --seg-active-bg: rgba(var(--purple-rgb), .16); --seg-sep: rgba(243, 238, 232, .07); --glass-gray: rgba(165, 158, 150, .18); }
+/* Fondu de 1 s entre le violet et la couleur de repère (bleu de Création des horaires, blanc rosé d’Expansion), dans les deux sens : les jetons de couleur sont enregistrés pour pouvoir s’animer. Rétabli le 30 oct. 2026 (retiré par erreur dans f936daa). */
+@property --pr { syntax: '<number>'; inherits: true; initial-value: 156; }
+@property --pg { syntax: '<number>'; inherits: true; initial-value: 140; }
+@property --pb { syntax: '<number>'; inherits: true; initial-value: 200; }
+@property --purple { syntax: '<color>'; inherits: true; initial-value: #9C8CC8; }
+@property --purple-dark { syntax: '<color>'; inherits: true; initial-value: #9C8CC8; }
+@property --brique { syntax: '<color>'; inherits: true; initial-value: #9C8CC8; }
+@property --violet-soft { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
+@property --violet-promo { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
+@property --blue { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
+@property --unread { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
+@property --halo { syntax: '<color>'; inherits: true; initial-value: rgba(156, 140, 200, .28); }
+:root { --brique-rgb: var(--pr), var(--pg), var(--pb);
+  transition: --pr 1s ease, --pg 1s ease, --pb 1s ease, --purple 1s ease, --purple-dark 1s ease, --brique 1s ease, --violet-soft 1s ease, --violet-promo 1s ease, --blue 1s ease, --unread 1s ease, --halo 1s ease; }
+@media (prefers-reduced-motion: reduce) { :root { transition: none; } }
+/* Repères de couleur (30 oct. 2026, choix d'Émilien). Seule la couleur change ; fondu de 1 s dans les deux sens (jetons enregistrés ci-dessus).
+   - Module Horaire, Création des horaires (modeCreation, posée par composants.js) : blanc bleuté #DDE0F8 (bleu roi violacé n° 2 #7583E1 mêlé à 75 % de blanc).
+   - Expansion (modeExpansion pendant une demande de la barre d'ajout ; modeExpansionWin tant qu'une fenêtre Expansion est ouverte) : blanc rosé #F0DDE0, réservé à Expansion. */
+/* Fondu de 1 s entre les couleurs de repère (violet, bleu de l'Horaire, blanc rosé d'Expansion), dans les deux sens : les jetons de couleur sont ENREGISTRÉS (@property) pour pouvoir s'animer.
+   ⚠️ Ne pas retirer ce bloc : sans lui, les couleurs changent d'un coup (perdu par erreur entre v841 et v851). */
+@property --pr { syntax: '<number>'; inherits: true; initial-value: 156; }
+@property --pg { syntax: '<number>'; inherits: true; initial-value: 140; }
+@property --pb { syntax: '<number>'; inherits: true; initial-value: 200; }
+@property --purple { syntax: '<color>'; inherits: true; initial-value: #9C8CC8; }
+@property --purple-dark { syntax: '<color>'; inherits: true; initial-value: #9C8CC8; }
+@property --brique { syntax: '<color>'; inherits: true; initial-value: #9C8CC8; }
+@property --violet-soft { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
+@property --violet-promo { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
+@property --blue { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
+@property --unread { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
+@property --halo { syntax: '<color>'; inherits: true; initial-value: rgba(156, 140, 200, .28); }
+:root { --brique-rgb: var(--pr), var(--pg), var(--pb);
+  transition: --pr 1s ease, --pg 1s ease, --pb 1s ease, --purple 1s ease, --purple-dark 1s ease, --brique 1s ease, --violet-soft 1s ease, --violet-promo 1s ease, --blue 1s ease, --unread 1s ease, --halo 1s ease; }
+@media (prefers-reduced-motion: reduce) { :root { transition: none; } }
+:root.modeCreation {
+  --purple: #DDE0F8; --pr: 221; --pg: 224; --pb: 248; --purple-dark: #DDE0F8; --brique: #DDE0F8;
+  --violet-soft: #DDE0F8; --violet-promo: #DDE0F8; --blue: #DDE0F8; --unread: #DDE0F8; --halo: rgba(221, 224, 248, .16);
+}
+:root.modeExpansion, :root.modeExpansionWin {
+  --purple: #F0DDE0; --pr: 240; --pg: 221; --pb: 224; --purple-dark: #F0DDE0; --brique: #F0DDE0;
+  --violet-soft: #F0DDE0; --violet-promo: #F0DDE0; --blue: #F0DDE0; --unread: #F0DDE0; --halo: rgba(240, 221, 224, .16);
+}
 :root:root:root .cmpSeg { display: flex; align-items: stretch; flex-wrap: nowrap; width: 100%; box-sizing: border-box; gap: 0; margin: 0 0 16px; padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 :root:root:root .cmpSeg > * {
   position: relative; flex: 1 1 0; min-width: 0; max-width: 100%; height: 44px; margin: 0; padding: 0 6px; box-sizing: border-box; display: block; /* bloc (pas flex) : text-overflow ne s'applique qu'aux blocs */

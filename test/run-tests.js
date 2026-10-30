@@ -57,6 +57,7 @@ const SUITE_FILES = [
   'innerhtml-statique-test.js',
   'chrono-reseau-lent-test.js',
   'isolation-comptes-test.js',
+  'confid-acces-test.js',
   'delai-requetes-test.js',
   'stats-insights-memo-test.js',
   'langue-bascule-test.js',
@@ -67,8 +68,9 @@ const SUITE_FILES = [
   'stats-equivalence-test.js',
   'weekplanner-test.js',
   'horaire-generation-test.js',
+  'journaux-confidentialite-test.js',
   'horaire-dayforce-test.js',
-  'horaire-config-test.js', 'horaire-opentable-test.js', 'horaire-prompt-test.js', 'horaire-mail-test.js', 'horaire-types-test.js', 'horaire-prix-test.js', 'horaire-import-test.js', 'horaire-dispo-import-test.js',
+  'horaire-config-test.js', 'horaire-opentable-test.js', 'horaire-prompt-test.js', 'horaire-mail-test.js', 'horaire-courriel-test.js', 'horaire-types-test.js', 'horaire-prix-test.js', 'horaire-postes-test.js', 'horaire-notes-test.js', 'horaire-planchers-test.js', 'horaire-import-test.js', 'horaire-dispo-import-test.js', 'horaire-ephemere-test.js',
   'capturedate-test.js',
   'documenttasks-test.js',
   'categorie-inconnue-test.js',
@@ -439,6 +441,8 @@ async function main() {
   catch (e) { assert(false, 'chrono sur réseau lent (test/chrono-reseau-lent-test.js) échoue'); }
   try { await runChild('isolation-comptes-test.js'); assert(true, 'isolation entre deux comptes (test/isolation-comptes-test.js) passe'); }
   catch (e) { assert(false, 'isolation entre deux comptes (test/isolation-comptes-test.js) échoue'); }
+  try { await runChild('confid-acces-test.js'); assert(true, 'export après revérification, inactivité entreprise 30 min (test/confid-acces-test.js) passe'); }
+  catch (e) { assert(false, 'export après revérification, inactivité entreprise 30 min (test/confid-acces-test.js) échoue'); }
   try { await runChild('delai-requetes-test.js'); assert(true, 'délai maximal des requêtes client (test/delai-requetes-test.js) passe'); }
   catch (e) { assert(false, 'délai maximal des requêtes client (test/delai-requetes-test.js) échoue'); }
   try { await runChild('stats-insights-memo-test.js'); assert(true, 'mémo d\'estimation des statistiques (test/stats-insights-memo-test.js) passe'); }
@@ -587,7 +591,7 @@ async function main() {
   catch (e) { assert(false, 'signalement de messages et mots bloqués (test/signalement-test.js) échoue'); }
   try { await runChild('guard-integrity.js'); assert(true, 'intégrité des fichiers : aucun vide/tronqué (test/guard-integrity.js) passe'); }
   catch (e) { assert(false, 'intégrité des fichiers (test/guard-integrity.js) échoue : ' + String(e.stdout || e.message).trim().split('\n').slice(0, 5).join(' | ')); }
-  for (const f of ['cal-externe-capacite-test.js', 'capture-objectifs-horizon-test.js', 'categories-visibility-test.js', 'category-delete-carry-test.js', 'asset-version-test.js', 'sw-bump-test.js', 'garde-sources-test.js', 'composants-garde-test.js', 'regles-rangement-test.js', 'pas-de-titre-perso-test.js', 'compression-test.js', 'export-test.js', 'privacy-tables-test.js', 'horaire-generation-test.js', 'suppression-3-comptes-test.js', 'rappels-fuseau-test.js', 'communaute-confidentialite-test.js', 'fiabilite-basic-test.js', 'feuille-mois-css-test.js', 'goalstatus-test.js', 'healthz-test.js', 'importance-test.js', 'inactive-accounts-test.js', 'member-series-test.js', 'modules-gating-test.js', 'notif-liens-test.js', 'pin-lock-test.js', 'mot-de-passe-test.js', 'face-id-test.js', 'silentspellfix-test.js', 'stats-profile-insights-test.js', 'stripe-webhook-idempotence-test.js', 'expansion-webhook-evenements-test.js', 'expansion-webhook-robustesse-test.js', 'expansion-remboursement-multi-test.js', 'expansion-securite-test.js', 'expansion-code-statut-test.js', 'expansion-i18n-test.js', 'expansion-achat-staging-test.js', 'expansion-repli-test.js', 'expansion-retour-checkout-test.js', 'structure-migration-test.js', 'subproject-migration-test.js', 'task-lock-test.js', 'year-anchor-test.js', 'fuseaux-invariance-test.js', 'year-bound-test.js', 'zone-ia-secteur-periode-test.js', 'doublons-similarites-test.js', 'expansion-acces-test.js', 'expansion-checkout-securite-test.js', 'expansion-cycle-complet-test.js', 'expansion-cron-dst-test.js', 'migration-lasteventat-test.js', 'subscription-mails-refund-test.js', 'tests-orphelins-test.js', 'expansion-plan-course-test.js', 'migration-cancelatperiodend-test.js']) {
+  for (const f of ['cal-externe-capacite-test.js', 'capture-objectifs-horizon-test.js', 'categories-visibility-test.js', 'category-delete-carry-test.js', 'asset-version-test.js', 'sw-bump-test.js', 'garde-sources-test.js', 'composants-garde-test.js', 'regles-rangement-test.js', 'pas-de-titre-perso-test.js', 'compression-test.js', 'export-test.js', 'privacy-tables-test.js', 'journaux-confidentialite-test.js', 'horaire-generation-test.js', 'horaire-courriel-test.js','suppression-3-comptes-test.js', 'rappels-fuseau-test.js', 'communaute-confidentialite-test.js', 'fiabilite-basic-test.js', 'feuille-mois-css-test.js', 'goalstatus-test.js', 'healthz-test.js', 'importance-test.js', 'inactive-accounts-test.js', 'member-series-test.js', 'modules-gating-test.js', 'notif-liens-test.js', 'pin-lock-test.js', 'mot-de-passe-test.js', 'face-id-test.js', 'silentspellfix-test.js', 'stats-profile-insights-test.js', 'stripe-webhook-idempotence-test.js', 'expansion-webhook-evenements-test.js', 'expansion-webhook-robustesse-test.js', 'expansion-remboursement-multi-test.js', 'expansion-securite-test.js', 'expansion-code-statut-test.js', 'expansion-i18n-test.js', 'expansion-achat-staging-test.js', 'expansion-repli-test.js', 'expansion-retour-checkout-test.js', 'structure-migration-test.js', 'subproject-migration-test.js', 'task-lock-test.js', 'year-anchor-test.js', 'fuseaux-invariance-test.js', 'year-bound-test.js', 'zone-ia-secteur-periode-test.js', 'doublons-similarites-test.js', 'expansion-acces-test.js', 'expansion-checkout-securite-test.js', 'expansion-cycle-complet-test.js', 'expansion-cron-dst-test.js', 'migration-lasteventat-test.js', 'subscription-mails-refund-test.js', 'tests-orphelins-test.js', 'expansion-plan-course-test.js', 'migration-cancelatperiodend-test.js']) {
     try { await runChild(f); assert(true, 'test/' + f + ' passe'); }
     catch (e) { assert(false, 'test/' + f + ' échoue'); }
   }

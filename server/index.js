@@ -305,6 +305,10 @@ app.get('/*splat', (req, res) => {
   sendIndex(req, res);
 });
 
+// Gestionnaire d'erreurs (Loi 25, 30 oct. 2026) : journalise route, code et emplacement seulement, jamais le message ni le
+// corps (une erreur d'analyse JSON recopie un extrait du corps dans son message). Voir server/lib/errorlog.js.
+app.use(require('./lib/errorlog').errorHandler);
+
 // HOST : en local on reste sur localhost ; sur un hébergeur il faut écouter
 // sur toutes les interfaces (0.0.0.0), sinon le routeur du service ne voit
 // jamais l'application. Mettre NOESIS_HOST=0.0.0.0 permet aussi de tester

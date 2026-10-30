@@ -11,6 +11,11 @@ const router = express.Router();
 // Cloudflare) : pièce jointe CSV en base64 (attachments/Attachments : content|Content|data) ou texte du corps (text, TextBody,
 // body-plain, plain). Taille limitée (2 Mo de CSV), débit limité (30 rapports par heure et par jeton) ; jeton inconnu : 404 sans rien d'autre.
 const inboundHits = new Map();
+// Interrupteur unique de la réception automatique (30 oct. 2026, décision d'Émilien : « pour le moment », le gérant saisit les événements
+// à la main chaque semaine). Désactivée par défaut : les routes à jeton ci-dessous répondent 404 sans rien lire ni stocker. Le code reste
+// pour revenir plus tard : HORAIRE_INBOUND_ENABLED=1 la rallume (lue à chaque appel).
+function inboundEnabled() { return /^(1|true|oui)$/i.test(String(process.env.HORAIRE_INBOUND_ENABLED || '').trim()); }
+router.post('/horaire/inbound/:kind/:token', (req, res, next) => (inboundEnabled() ? next() : res.status(404).end()));
 function inboundText(b) {
   const atts = [].concat(b.attachments || b.Attachments || []).filter(Boolean);
   for (const a of atts) {
@@ -57,6 +62,10 @@ router.post('/horaire/inbound/mail/:token', (req, res) => {
 router.use('/horaire', requireAuth);
 // Horaire : comptes entreprise seulement (exception hors production : HORAIRE_ALLOW_USER_IDS, server/lib/modules.js).
 router.use('/horaire', (req, res, next) => (require('../lib/modules').isHoraireAllowed(req.userId) ? next() : res.status(403).json({ error: 'Réservé aux comptes entreprise.' })));
+
+// Retour dans le volet (premier chargement de la page) : les données de la semaine en mémoire (horaire généré, disponibilités, congés,
+// couverts, rotation) sont effacées pour ce compte. Rien de tout cela n'est jamais écrit en base (server/lib/horaire-ephemere.js).
+router.post('/horaire/ephemeral/clear', (req, res) => { require('../lib/horaire-ephemere').clear(req.userId); res.json({ ok: true }); });
 
 const bad = (res, msg) => res.status(400).json({ error: msg });
 const notFound = (res, what) => res.status(404).json({ error: (what || 'Élément') + ' introuvable.' });
@@ -217,19 +226,25 @@ function positionInput(res, body, partial) {
   return out;
 }
 router.get('/horaire/positions', (req, res) => res.json({ positions: h.listPositions(req.userId) }));
-// Postes du volet créés s'ils manquent (Barman, Commis, Hôte/Hôtesse, Serveur, Suiteur) ; existants intacts.
+// Postes du volet (Serveur, Barman, Commis, Hôte/Hôtesse, Suiteur) créés au tout premier chargement d'un compte sans poste, jamais après.
 router.post('/horaire/positions/defaults', (req, res) => res.json({ positions: h.ensureDefaultPositions(req.userId) }));
 router.post('/horaire/positions', (req, res) => {
   const v = positionInput(res, req.body || {}, false); if (!v) return;
   if (h.countPositions(req.userId) >= h.LIMITS.positions) return res.status(409).json({ error: 'Limite de postes atteinte.' });
+  if (h.positionTaken(req.userId, v.name)) return res.status(409).json({ error: 'Ce poste existe déjà.' });
   res.status(201).json({ position: h.createPosition(req.userId, v) });
 });
 router.put('/horaire/positions/:id', (req, res) => {
   const v = positionInput(res, req.body || {}, true); if (!v) return;
+  if (v.name !== undefined && h.positionTaken(req.userId, v.name, req.params.id)) return res.status(409).json({ error: 'Ce poste existe déjà.' });
   const p = h.updatePosition(req.userId, req.params.id, v);
   return p ? res.json({ position: p }) : notFound(res, 'Poste');
 });
-router.delete('/horaire/positions/:id', (req, res) => (h.deletePosition(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Poste')));
+router.delete('/horaire/positions/:id', (req, res) => {
+  const r = h.deletePosition(req.userId, req.params.id);
+  if (r === null) return res.status(409).json({ error: 'Il faut garder au moins un poste.' });
+  return r ? res.json({ ok: true }) : notFound(res, 'Poste');
+});
 
 // ---------- qualifications ----------
 router.get('/horaire/qualifications', (req, res) => res.json({ qualifications: h.listQualifications(req.userId) }));
@@ -334,7 +349,7 @@ function eventInput(req, res, body, partial, current) {
   // Jamais dans le passé (jour civil de Montréal) : un événement passé est supprimé (conservation minimale).
   if (day < h.montrealToday()) { bad(res, 'Date passée : un événement se crée aujourd’hui ou plus tard.'); return null; }
   // Événement d'un service (28 oct. 2026) : { day, service, covers?, lines: [{ positionId, count 1..50 }] } ; plusieurs par service.
-  if (body.lines !== undefined || body.covers !== undefined || body.name !== undefined || body.floorId !== undefined || body.time !== undefined || (current && current.service && body.extra === undefined)) {
+  if (body.lines !== undefined || body.covers !== undefined || body.name !== undefined || body.floorId !== undefined || body.floorIds !== undefined || body.time !== undefined || (current && current.service && body.extra === undefined)) {
     const service = body.service !== undefined ? body.service : current && current.service;
     if (service !== 'matin' && service !== 'soir') { bad(res, 'Service invalide (matin ou soir).'); return null; }
     const covers = body.covers !== undefined ? body.covers : (current ? current.covers : null);
@@ -353,13 +368,20 @@ function eventInput(req, res, body, partial, current) {
       if (body.floorId !== null && !h.ownFloor(req.userId, body.floorId)) { notFound(res, 'Plancher'); return null; }
       floorId = body.floorId === null ? null : Number(body.floorId);
     }
+    // Planchers occupés (29 oct. 2026, plusieurs) : liste de planchers du compte ([] = aucun).
+    let floorIds;
+    if (body.floorIds !== undefined) {
+      if (!Array.isArray(body.floorIds) || body.floorIds.length > 50) { bad(res, 'Planchers invalides.'); return null; }
+      if (body.floorIds.some((x) => !h.ownFloor(req.userId, x))) { notFound(res, 'Plancher'); return null; }
+      floorIds = [...new Set(body.floorIds.map(Number))];
+    }
     // Heure du groupe (29 oct. 2026) : HH:MM, ou null / vide = aucune ; undefined = inchangée.
     let time;
     if (body.time !== undefined) {
       time = body.time === null || body.time === '' ? null : String(body.time);
       if (time !== null && (!/^\d{2}:\d{2}$/.test(time) || !h.isTime(time))) { bad(res, 'Heure invalide (HH:MM).'); return null; }
     }
-    return { serviceEvent: true, day, service, covers, name, floorId, time, lines: lines.map((l) => ({ positionId: Number(l.positionId), count: l.count })) };
+    return { serviceEvent: true, day, service, covers, name, floorId, floorIds, time, lines: lines.map((l) => ({ positionId: Number(l.positionId), count: l.count })) };
   }
   // Groupe (28 oct. 2026, ancienne forme) : { day, service: 'matin' | 'soir', extra: 1..50 } ; libellé « Groupe », aucun besoin propre.
   if (body.service !== undefined || body.extra !== undefined) {
@@ -383,10 +405,17 @@ function eventInput(req, res, body, partial, current) {
   }
   return { day, label, needs };
 }
-// Réception automatique : { address (null tant qu'aucun domaine n'est configuré), lastAt, groupMin } ; PUT { groupMin 1..500 } ;
+// Réception automatique : { address (null tant qu'aucun domaine n'est configuré), lastAt, groupMin, forwardFrom } ;
+// PUT { groupMin 1..500 } ou { forwardFrom : adresse à relier, '' = courriel du profil ; indication seulement, jamais un filtre } ;
 // POST revoke : nouveau jeton (l'ancienne adresse ne reçoit plus rien).
 router.get('/horaire/inbound', (req, res) => { res.set('Cache-Control', 'no-store'); res.json(h.inboundInfo(req.userId)); });
 router.put('/horaire/inbound', (req, res) => {
+  const f = (req.body || {}).forwardFrom;
+  if (f !== undefined) {
+    const v = typeof f === 'string' ? f.trim() : null;
+    if (v === null || v.length > 254 || (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))) return bad(res, 'Adresse courriel invalide.');
+    return res.json(h.setForwardFrom(req.userId, v));
+  }
   const n = (req.body || {}).groupMin;
   if (!(Number.isInteger(n) && n >= 1 && n <= 500)) return bad(res, 'Seuil invalide (1 à 500 couverts).');
   res.json(h.setGroupMin(req.userId, n));
@@ -405,6 +434,26 @@ router.put('/horaire/service-ends', (req, res) => {
   res.json({ ends: h.setServiceEnd(req.userId, b.positionId, b.weekday, b.service, end) });
 });
 // ---------- planchers : liste commune ; nombre de personnes par poste (Serveur, Barman, Commis), jour et service ----------
+// Notes du compte : liste (les six formules restent en tête côté écran) et ajout { text } (500 caractères).
+router.get('/horaire/notes', (req, res) => res.json({ notes: h.listNotes(req.userId) }));
+// Supprimer une note du compte : retirée de la liste et des employés qui l'utilisent ; 404 si elle n'est pas à ce compte.
+router.delete('/horaire/notes/:id', (req, res) => {
+  const r = h.deleteNote(req.userId, req.params.id);
+  return r ? res.json({ ok: true, removedFrom: r.removedFrom, notes: h.listNotes(req.userId) }) : notFound(res, 'Note');
+});
+// Modifier le texte d'une note du compte (les employés qui l'utilisent suivent) : { text }.
+router.put('/horaire/notes/:id', (req, res) => {
+  const r = h.updateNote(req.userId, req.params.id, (req.body || {}).text);
+  if (r === null) return notFound(res, 'Note');
+  if (r === undefined) return bad(res, 'Note vide ou déjà existante.');
+  res.json({ note: r.note, changed: r.changed, notes: h.listNotes(req.userId) });
+});
+router.post('/horaire/notes', (req, res) => {
+  const n = h.createNote(req.userId, (req.body || {}).text);
+  if (n === null) return bad(res, 'Note vide.');
+  if (n === undefined) return res.status(409).json({ error: 'Limite de notes atteinte.' });
+  res.status(201).json({ note: n, notes: h.listNotes(req.userId) });
+});
 router.get('/horaire/floors', (req, res) => res.json({ floors: h.listFloors(req.userId), counts: h.listFloorCounts(req.userId) }));
 router.post('/horaire/floors', (req, res) => {
   if (h.listFloors(req.userId).length >= 50) return res.status(409).json({ error: 'Limite de planchers atteinte.' });
@@ -435,7 +484,7 @@ router.put('/horaire/events/:id', (req, res) => {
   if (!cur) return notFound(res, 'Événement');
   const v = eventInput(req, res, req.body || {}, true, cur); if (!v) return;
   const b = req.body || {};
-  const touched = ['name', 'lines', 'floorId', 'day', 'covers', 'time'].filter((x) => b[x] !== undefined);
+  const touched = ['name', 'lines', 'floorId', 'floorIds', 'day', 'covers', 'time'].filter((x) => b[x] !== undefined);
   const out = v.serviceEvent ? h.writeServiceEvent(req.userId, cur.id, v) : h.writeEvent(req.userId, cur.id, v);
   if (touched.length) h.markManual(req.userId, cur.id, touched); // retouche à la main : jamais écrasée par un courriel suivant
   if (Array.isArray(b.lines)) h.markManualLines(req.userId, cur.id, b.lines); // ligne d'un type modifiée à la main : plus recalculée
@@ -447,40 +496,40 @@ router.post('/horaire/event-types', (req, res) => {
   const name = h.cleanName(String((req.body || {}).name || ''), 80);
   if (!name) return bad(res, 'Nom requis.');
   if (h.listEventTypes(req.userId).length >= 50) return res.status(409).json({ error: 'Limite de types atteinte.' });
+  // Famille demandée à la création (Service : Serveur et Commis ; Bar : Barman), plus modifiable ensuite.
   const family = (req.body || {}).family;
-  if (family !== undefined && family !== 'service' && family !== 'bar') return bad(res, 'Famille invalide (service ou bar).');
+  if (family !== 'service' && family !== 'bar') return bad(res, 'Famille requise (service ou bar).');
   res.status(201).json({ type: h.createEventType(req.userId, name, family) });
 });
-// { name } et/ou { family : 'service' (Serveur, Commis) | 'bar' (Barman) } et/ou { priceMin : seuil $ par personne, 1..10 000, ou null }
+// { name } : renommer. La famille d'un type existant ne change pas (refusée).
 router.put('/horaire/event-types/:id', (req, res) => {
   const b = req.body || {};
   if (!h.ownEventType(req.userId, req.params.id)) return notFound(res, 'Type');
-  if (b.family !== undefined && b.family !== 'service' && b.family !== 'bar') return bad(res, 'Famille invalide (service ou bar).');
-  if (b.priceMin !== undefined && !(b.priceMin === null || (typeof b.priceMin === 'number' && b.priceMin >= 1 && b.priceMin <= 10000))) return bad(res, 'Seuil de prix invalide (1 à 10 000 $, ou vide).');
-  let t = null;
-  if (b.priceMin !== undefined) t = h.setEventTypePriceMin(req.userId, req.params.id, b.priceMin === null ? null : Math.round(b.priceMin * 100) / 100);
-  if (b.name !== undefined || (b.family === undefined && b.priceMin === undefined)) {
-    const name = h.cleanName(String(b.name || ''), 80);
-    if (!name) return bad(res, 'Nom requis.');
-    t = h.renameEventType(req.userId, req.params.id, name);
-  }
-  if (b.family !== undefined) t = h.setEventTypeFamily(req.userId, req.params.id, b.family);
+  if (b.family !== undefined) return res.status(409).json({ error: 'La famille d’un type ne change pas : crée un autre type.' });
+  const name = h.cleanName(String(b.name || ''), 80);
+  if (!name) return bad(res, 'Nom requis.');
+  const t = h.renameEventType(req.userId, req.params.id, name);
   return t ? res.json({ type: t }) : notFound(res, 'Type');
 });
+// Vider les cases d'un type (le type et sa famille restent).
+router.post('/horaire/event-types/:id/clear', (req, res) => {
+  const t = h.clearEventType(req.userId, req.params.id);
+  return t ? res.json({ type: t, types: h.listEventTypes(req.userId) }) : notFound(res, 'Type');
+});
 router.delete('/horaire/event-types/:id', (req, res) => (h.deleteEventType(req.userId, req.params.id) ? res.json({ ok: true }) : notFound(res, 'Type')));
-// { positionId, perClients : entier 1..1000, ou null (vide = aucun personnel de ce poste),
-//   perClientsHigh (facultatif) : « si prix ≥ seuil : 1 pour N », entier 1..1000, ou null }
+// { positionId, perClients : « 1 pour N clients » (1..1 000, null = vide), perDollars : « 1 pour M $ » (1..1 000 000, null = vide) } ;
+// un champ absent reste inchangé.
 router.put('/horaire/event-types/:id/ratio', (req, res) => {
   const b = req.body || {};
   if (!h.ownEventType(req.userId, req.params.id)) return notFound(res, 'Type');
   if (!h.ownPosition(req.userId, b.positionId)) return notFound(res, 'Poste');
-  const okN = (v) => v === null || (Number.isInteger(v) && v >= 1 && v <= 1000);
-  if (!okN(b.perClients)) return bad(res, 'Nombre de clients invalide (1 à 1 000, ou vide).');
-  if (b.perClientsHigh !== undefined && !okN(b.perClientsHigh)) return bad(res, 'Nombre de clients invalide (1 à 1 000, ou vide).');
-  res.json({ types: h.setEventTypeRatio(req.userId, req.params.id, b.positionId, b.perClients, b.perClientsHigh) });
+  const ok = (v, max) => v === undefined || v === null || (Number.isInteger(v) && v >= 1 && v <= max);
+  if (!ok(b.perClients, 1000)) return bad(res, 'Nombre de clients invalide (1 à 1 000, ou vide).');
+  if (!ok(b.perDollars, 1000000)) return bad(res, 'Montant invalide (1 à 1 000 000 $, ou vide).');
+  res.json({ types: h.setEventTypeRatio(req.userId, req.params.id, b.positionId, b.perClients, b.perDollars) });
 });
 // Types et clients d'un événement : { typeIds ([] = « Aucun » ; ancien champ typeId : un type ou null), clients (entier ≥ 1 ou null) } ;
-// les lignes se recalculent (par famille Service | Bar, le plus gros type ; familles additionnées ; palier de prix).
+// les lignes se recalculent (par famille Service | Bar, le plus gros type ; familles additionnées ; clients ou dollars, le plus grand).
 router.put('/horaire/events/:id/type', (req, res) => {
   const b = req.body || {};
   if (!h.ownEvent(req.userId, req.params.id)) return notFound(res, 'Événement');
@@ -703,6 +752,21 @@ router.post('/horaire/weeks/:weekStart/import/availabilities-doc', async (req, r
   if (!b.file || typeof b.file !== 'object') return bad(res, 'Fichier manquant.');
   try {
     res.json(await require('../lib/horaire-dispo-import').fromFile(b.file, w));
+  } catch (e) {
+    if (e && e.statusCode === 400) return bad(res, e.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+// Document joint à l'étape Événements (Excel, Word, PDF texte, CSV) : { file } -> { text } (cellules séparées par « ; », une ligne par rangée).
+// Rien n'est écrit ni stocké : le texte remplit la zone de collage, l'envoi reste au gérant.
+router.post('/horaire/import/document-text', async (req, res) => {
+  const b = req.body || {};
+  if (!b.file || typeof b.file !== 'object') return bad(res, 'Fichier manquant.');
+  try {
+    const rows = await require('../lib/horaire-import').fileRows(b.file);
+    const text = rows.map((r) => r.map((c) => String(c == null ? '' : c).replace(/[;\r\n]+/g, ' ').trim()).join(';').replace(/;+$/, '')).filter(Boolean).join('\n');
+    if (!text) return bad(res, 'Aucun texte lisible dans ce fichier.');
+    res.json({ text: text.slice(0, h.LIMITS.csvChars) });
   } catch (e) {
     if (e && e.statusCode === 400) return bad(res, e.message);
     res.status(500).json({ error: 'Erreur serveur' });

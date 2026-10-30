@@ -67,11 +67,21 @@
       return req('GET', 'weeks/' + S.week + '/covers').then(function (c) { S.covers = c.covers || []; }, function () { S.covers = []; });
     });
   }
+  // Confidentialité (30 oct. 2026, demande d'Émilien) : aucun horaire ne s'enregistre. Au premier chargement du volet dans cette page
+  // (retour dans l'app, rechargement), le serveur efface d'abord les données de la semaine gardées en mémoire pour ce compte.
+  var cleared = null;
+  function clearOnce() {
+    if (!cleared) cleared = req('POST', 'ephemeral/clear', {}).catch(function () { cleared = null; });
+    return cleared;
+  }
   function loadAll() {
-    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), req('GET', 'inbound').catch(function () { return {}; }), req('GET', 'service-ends').catch(function () { return { ends: {} }; }), req('GET', 'floors').catch(function () { return { floors: [], counts: [] }; }), req('GET', 'event-types').catch(function () { return { types: [] }; })])
+    return clearOnce().then(function () { return loadAllNow(); });
+  }
+  function loadAllNow() {
+    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), req('GET', 'service-ends').catch(function () { return { ends: {} }; }), req('GET', 'floors').catch(function () { return { floors: [], counts: [] }; }), req('GET', 'event-types').catch(function () { return { types: [] }; }), req('GET', 'notes').catch(function () { return { notes: [] }; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
-        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.inbound = r[8] || {}; S.ends = r[9].ends || {}; S.types = (r[11] && r[11].types) || []; S.floors = r[10].floors || []; S.floorCounts = r[10].counts || []; S.loaded = true;
+        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.ends = r[8].ends || {}; S.types = (r[10] && r[10].types) || []; S.notes = (r[11] && r[11].notes) || []; S.floors = r[9].floors || []; S.floorCounts = r[9].counts || []; S.loaded = true;
       });
   }
   // Construit la page si besoin : refresh() peut être appelé (TMT.horaire.refresh) avant la première ouverture du volet.
@@ -114,7 +124,7 @@
   // Deux catégories (grands boutons .cmpSeg, R42) et leurs sous-catégories (texte simple souligné, .cmpSubTabs) : demande d'Émilien,
   // 28 oct. 2026. Pages à plat : 0-2 = Paramètres, 3-5 = Création des horaires.
   var CATS = [['Paramètres', ['Employés', 'Événements', 'Général']], ['Création des horaires', ['Récupération', 'Horaire', 'Envoi']]];
-  var bTypes, typesBox, inboundLine, bFloors, floorsBox, eventsBox, promptBoxes = {}, catsMsg, pasteArea, weekLabel, weekNav, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
+  var bTypes, typesBox, bFloors, floorsBox, eventsBox, promptBoxes = {}, catsMsg, pasteArea, weekLabel, weekNav, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
   var pagesHost, pages = [], catBtns = [], subTabs, dots, dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
@@ -172,12 +182,11 @@
     p1.appendChild(bCats);
     // Paramètres > Général : menu Poste, Besoins (avec les lignes « Fin »), Règles du restaurant.
     var pGen = el('div', 'horairePage');
-    // Adresse secrète de réception des courriels d'événements : seulement si la réception est configurée (HORAIRE_INBOUND_DOMAIN).
-    inboundLine = el('div', 'horaireInbound hidden');
-    [posPicker(), bNeeds, bFloors, bRules, inboundLine].forEach(function (n) { pGen.appendChild(n); });
+    // Réception des événements par courriel retirée (30 oct. 2026, décision d'Émilien) : le gérant saisit les événements à la main.
+    [posPicker(), bNeeds, bFloors, bRules].forEach(function (n) { pGen.appendChild(n); });
 
     // Paramètres > Événements : le calendrier des événements seul, en saisie manuelle (demandes d'Émilien, 28 oct. 2026 : pas de prompt
-    // pour lire OpenTable ; la voie automatique prévue est la réception du rapport par courriel, route à jeton côté serveur).
+    // pour lire OpenTable ; 30 oct. 2026 : plus de réception automatique, saisie manuelle chaque semaine).
     var pEv = el('div', 'horairePage');
     // Types d'événements (au-dessus du calendrier) : « 1 [poste] pour N clients » par type ; vide = aucun personnel de ce poste.
     bTypes = block('Types d’événements');
@@ -331,10 +340,22 @@
       f.text().then(function (t) { area.value = t; send(t, area); }, fail);
       return;
     }
-    S.msg = /^image\//.test(type) || /\.pdf$/.test(name) || type === 'application/pdf'
-      ? tr('Donne cette image à ton IA avec le prompt de récupération, puis colle sa réponse ici.')
-      : tr('Exporte-le en CSV ou colle le texte.');
+    if (!/^image\//.test(type)) { importDocText(f, area); return; }
+    S.msg = tr('Donne cette image à ton IA avec le prompt de récupération, puis colle sa réponse ici.');
     renderMsg();
+  }
+  // Étape Événements : Excel, Word ou PDF joint par l'épingle, converti en texte par le serveur (sans IA) et placé dans la zone ;
+  // rien n'est envoyé tant que le gérant n'a pas touché la flèche.
+  function importDocText(f, area) {
+    if (S.busy) return;
+    var rd = new FileReader();
+    rd.onerror = function () { fail(new Error(tr('Lecture du fichier impossible.'))); };
+    rd.onload = function () {
+      S.busy = true;
+      req('POST', 'import/document-text', { file: { fileName: f.name, mimeType: f.type || '', dataUrl: String(rd.result) } })
+        .then(function (d) { if (d.text) area.value = d.text; }).catch(fail).then(function () { S.busy = false; });
+    };
+    rd.readAsDataURL(f);
   }
   // Récupération : rapport Dayforce joint par l'épingle (29 oct. 2026, demande d'Émilien), converti SANS IA par le serveur en bloc
   // « nom;jour;début;fin;type » de la semaine affichée (server/lib/horaire-dispo-import.js). Le bloc remplit la zone ; rien n'est
@@ -392,17 +413,6 @@
     actions.appendChild(send);
     paste.appendChild(area); paste.appendChild(TMT.ui.attachBtn(function (files) { readPasteFile(files, area, o.send); }, { label: tr('Joindre un fichier') })); paste.appendChild(actions);
     return { row: row, box: box, paste: paste, area: area };
-  }
-  function renderInbound() {
-    var i = S.inbound || {};
-    inboundLine.textContent = '';
-    inboundLine.classList.toggle('hidden', !i.address);
-    if (!i.address) return;
-    inboundLine.appendChild(el('span', 'horaireMuted horaireInboundText', tr('Courriels des événements :') + ' ' + i.address));
-    inboundLine.appendChild(btn('cmpBtn cmpBtnIdle', 'Copier l’adresse', function () {
-      var cb = navigator.clipboard;
-      (cb && cb.writeText ? cb.writeText(i.address) : Promise.reject()).then(function () { S.msg = tr('Adresse copiée.'); renderMsg(); }, function () { S.msg = tr('Copie impossible.'); renderMsg(); });
-    }));
   }
   // « 1 congé », « 3 congés » : nombre et mot accordé (jamais « (s) »).
   function plural(n, one, many) { return n + ' ' + tr(n > 1 ? many : one); }
@@ -472,7 +482,6 @@
     renderNeedsTable();
     renderTypes();
     renderFloors();
-    renderInbound();
     renderCats();
     renderRules();
   }
@@ -647,101 +656,113 @@
   function evName(ev, k) { var l = String(ev.label || '').trim(); return l && l !== 'Événement' && l !== 'Groupe' ? l : tr('Événement') + ' ' + (k + 1); }
   function replaceEvent(e) { if (!e) return; var i = S.events.findIndex(function (x) { return x.id === e.id; }); if (i >= 0) S.events[i] = e; renderEventsTable(); }
   // Plancher occupé (même calcul que la génération, floorExtra) : pour Serveur, Barman et Commis, les N de l'événement remplacent le
-  // personnel habituel de ce poste sur ce plancher (tableau Planchers), une seule fois par plancher et par service.
+  // personnel habituel de ce poste sur ces planchers (tableau Planchers ; plusieurs planchers : la SOMME de leurs habituels), une seule
+  // fois par plancher et par service.
   function floorReplaced(day, svc) {
     var wd = weekdayOf(day), left = {}, out = {};
     var isFloorPos = function (pid) { var p = S.positions.find(function (x) { return x.id === pid; }); return !!p && ['serveur', 'barman', 'commis'].indexOf(foldNote(p.name)) >= 0; };
     S.events.filter(function (e) { return e.day === day && evSvc(e) === svc; }).sort(function (a, b) { return a.id - b.id; }).forEach(function (ev) {
-      var f = ev.floorId != null && (S.floors || []).find(function (x) { return x.id === ev.floorId; });
+      var fl = (ev.floorIds && ev.floorIds.length ? ev.floorIds : (ev.floorId != null ? [ev.floorId] : []))
+        .map(function (id) { return (S.floors || []).find(function (x) { return x.id === id; }); }).filter(Boolean);
       (ev.lines || []).forEach(function (l, i) {
-        if (!f || !isFloorPos(l.positionId)) return;
-        var key = f.id + '|' + l.positionId;
-        var usual = (S.floorCounts || []).find(function (c) { return c.floorId === f.id && c.positionId === l.positionId && c.weekday === wd && c.service === svc; });
-        var rem = left[key] != null ? left[key] : (usual ? usual.count : 0), take = Math.min(rem, l.count);
-        left[key] = rem - take; out[ev.id + ':' + i] = { floor: f.name, take: take, extra: l.count - take };
+        if (!fl.length || !isFloorPos(l.positionId)) return;
+        var remOf = function (f) {
+          var key = f.id + '|' + l.positionId;
+          if (left[key] != null) return left[key];
+          var usual = (S.floorCounts || []).find(function (c) { return c.floorId === f.id && c.positionId === l.positionId && c.weekday === wd && c.service === svc; });
+          return usual ? usual.count : 0;
+        };
+        var rem = fl.reduce(function (s, f) { return s + remOf(f); }, 0), take = Math.min(rem, l.count), t = take;
+        fl.forEach(function (f) { var r = remOf(f), k = Math.min(r, t); left[f.id + '|' + l.positionId] = r - k; t -= k; });
+        out[ev.id + ':' + i] = { floor: fl.map(function (f) { return f.name; }).join(', '), take: take, extra: l.count - take };
       });
     });
     return out;
   }
   // Service affiché d'un événement (ancien événement sans service : celui de ses besoins).
-  // ---------- Types d'événements (Paramètres > Événements) : Type | un poste par colonne (« 1 pour [N] clients ») | ✕ ----------
+  // ---------- Types d'événements (Paramètres > Événements ; spécification finale d'Émilien, 29 oct. 2026) ----------
+  // Un tableau simple : pour chaque type, une ligne « nom · famille » (famille en lecture seule) avec la croix tout à droite, puis une
+  // ligne par poste de sa famille (Service : Serveur, Commis ; Bar : Barman) et deux colonnes : « Clients » (1 pour N clients) et
+  // « Dollars » (1 pour M $). On remplit l'une, l'autre ou les deux (la plus grande des deux compte).
   function renderTypes() {
     if (!typesBox) return;
     if (typesBox.querySelector('.editing')) { S.typesDirty = true; return; }
     S.typesDirty = false;
     typesBox.textContent = '';
-    // Famille du type (règle d'Émilien, 29 oct. 2026) : Service = Serveur et Commis ; Bar = Barman. Seuls ces postes ont une colonne.
-    var FAM = { service: ['serveur', 'commis'], bar: ['barman'] }, ORDER = ['serveur', 'commis', 'barman'];
-    var pos = S.positions.filter(function (p) { return ORDER.indexOf(foldNote(p.name)) >= 0; })
-      .sort(function (a, b) { return ORDER.indexOf(foldNote(a.name)) - ORDER.indexOf(foldNote(b.name)); });
+    var FAM = { service: ['serveur', 'commis'], bar: ['barman'] };
     var sheet = el('div', 'horaireSheet horaireTypes');
-    sheet.style.gridTemplateColumns = 'minmax(140px, 1fr) minmax(140px, 1fr) minmax(96px, 1fr) repeat(' + pos.length + ', minmax(140px, 1fr)) 44px';
+    sheet.style.gridTemplateColumns = 'minmax(96px, 1.2fr) minmax(96px, 1fr) minmax(96px, 1fr) 44px';
     var head = sheetRow('horaireSheetHead');
-    ['Type', 'Famille', 'Seuil de prix'].concat(pos.map(function (p) { return p.name; }), ['']).forEach(function (t) { head.appendChild(el('span', 'horaireSheetCell', tr(t))); });
+    ['Type', 'Clients', 'Dollars', ''].forEach(function (t) { head.appendChild(el('span', 'horaireSheetCell', tr(t))); });
     sheet.appendChild(head);
     var reload = function () { return req('GET', 'event-types').then(function (d) { S.types = d.types || []; renderTypes(); renderEventsTable(); }); };
-    (S.types || []).forEach(function (ty) {
-      var row = sheetRow('horaireTypeRow');
-      var nm = el('span', 'horaireSheetCell horaireSheetEdit');
+    var reloadAll = function () { return req('GET', 'events').then(function (e) { S.events = e.events || S.events; return reload(); }, function (err) { fail(err); renderTypes(); }); };
+    var cellFor = function (ty, p, key, max, unitText) {
+      var cur = key === 'perClients' ? ty.ratios[p.id] : (ty.dollars || {})[p.id];
+      var c = el('span', 'horaireSheetCell horaireSheetEdit horaireTypeCell');
+      editCell(c, '', [['n', cur == null ? '' : cur, (key === 'perClients' ? 'Clients par ' : 'Dollars par ') + p.name, 'number']], function (x) {
+        var s = String(x.n).trim(), k = s === '' ? null : Number(s);
+        if (k !== null && !(Number.isInteger(k) && k >= 1 && k <= max)) return false;
+        if (k === (cur == null ? null : cur)) { renderTypes(); return; }
+        var body = { positionId: p.id }; body[key] = k;
+        req('PUT', 'event-types/' + ty.id + '/ratio', body).then(function (d) { S.types = d.types || S.types; return reloadAll(); }, function (err) { fail(err); renderTypes(); });
+      }, function (cell) {
+        if (cur == null) { cell.appendChild(el('span', 'horaireMuted', '—')); return; }
+        cell.appendChild(el('span', null, tr('1 pour') + ' ' + cur + ' ' + unitText));
+      });
+      return c;
+    };
+    (S.types || []).forEach(function (ty, ti) {
+      var fam = ty.family === 'bar' ? 'bar' : 'service';
+      // Un type sur deux d'une autre teinte (demande d'Émilien) : la ligne du nom et ses lignes de postes ensemble.
+      var zebra = ti % 2 ? ' horaireTypeAlt' : ' horaireTypeEven';
+      var row = sheetRow('horaireTypeRow' + zebra);
+      // Nom (modifiable) ; la famille n'est plus écrite : seuls les postes de sa famille apparaissent.
+      var tc = el('span', 'horaireSheetCell horaireTypeName');
+      var nm = el('span', 'horaireSheetEdit');
       editCell(nm, ty.name, [['name', ty.name, 'Type']], function (v) {
         var t = String(v.name).trim().slice(0, 80);
         if (!t || t === ty.name) { renderTypes(); return; }
         req('PUT', 'event-types/' + ty.id, { name: t }).then(reload, function (err) { fail(err); renderTypes(); });
       });
-      row.appendChild(nm);
-      var fc = el('span', 'horaireSheetCell'), seg = el('div', 'cmpSeg horaireTypeFam'); seg.setAttribute('role', 'tablist');
-      [['service', 'Service'], ['bar', 'Bar']].forEach(function (v) {
-        var on = (ty.family || 'service') === v[0];
-        var b = btn(on ? 'active' : '', v[1], function () {
-          if (on) return;
-          req('PUT', 'event-types/' + ty.id, { family: v[0] }).then(function () { return req('GET', 'events'); })
-            .then(function (e) { S.events = e.events || S.events; return reload(); }, function (err) { fail(err); renderTypes(); });
-        });
-        b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', on ? 'true' : 'false');
-        seg.appendChild(b);
-      });
-      fc.appendChild(seg); row.appendChild(fc);
-      // Seuil de prix du type ($ par personne, vide = aucun) : au-delà, chaque poste prend son second nombre « ≥ seuil ».
-      var pm = el('span', 'horaireSheetCell horaireSheetEdit horaireTypeCell');
-      editCell(pm, '', [['p', ty.priceMin == null ? '' : ty.priceMin, 'Seuil de prix', 'number']], function (v) {
-        var s = String(v.p).trim().replace(',', '.'), k = s === '' ? null : Number(s);
-        if (k !== null && !(k >= 1 && k <= 10000)) return false;
-        if (k === (ty.priceMin == null ? null : ty.priceMin)) { renderTypes(); return; }
-        req('PUT', 'event-types/' + ty.id, { priceMin: k }).then(function () { return req('GET', 'events'); })
-          .then(function (e) { S.events = e.events || S.events; return reload(); }, function (err) { fail(err); renderTypes(); });
-      }, function (cell) { cell.appendChild(ty.priceMin == null ? el('span', 'horaireMuted', '—') : el('span', null, ty.priceMin + ' $')); });
-      row.appendChild(pm);
-      pos.forEach(function (p) {
-        var n = ty.ratios[p.id], hi = (ty.ratiosHigh || {})[p.id];
-        if (FAM[ty.family || 'service'].indexOf(foldNote(p.name)) < 0) { row.appendChild(el('span', 'horaireSheetCell')); return; } // hors famille : vide
-        var c = el('span', 'horaireSheetCell horaireSheetEdit horaireTypeCell');
-        // Deux nombres : « 1 pour N clients », puis « si prix ≥ seuil : 1 pour N » (vide = le même).
-        editCell(c, '', [['n', n == null ? '' : n, 'Clients par ' + p.name, 'number'], ['hi', hi == null ? '' : hi, 'Si prix ≥ seuil', 'number', '≥ ' + tr('seuil')]], function (v) {
-          var num = function (x) { var s = String(x).trim(); return s === '' ? null : Number(s); };
-          var k = num(v.n), kh = num(v.hi);
-          if ((k !== null && !(Number.isInteger(k) && k >= 1 && k <= 1000)) || (kh !== null && !(Number.isInteger(kh) && kh >= 1 && kh <= 1000))) return false;
-          if (k === (n == null ? null : n) && kh === (hi == null ? null : hi)) { renderTypes(); return; }
-          req('PUT', 'event-types/' + ty.id + '/ratio', { positionId: p.id, perClients: k, perClientsHigh: kh }).then(function (d) { S.types = d.types || S.types; return req('GET', 'events'); }).then(function (e) { S.events = e.events || S.events; renderTypes(); renderEventsTable(); }, function (err) { fail(err); renderTypes(); });
-        }, function (cell) {
-          if (n == null) { cell.appendChild(el('span', 'horaireMuted', '—')); return; }
-          cell.appendChild(el('span', null, tr('1 pour') + ' ' + n));
-          if (hi != null) cell.appendChild(el('span', 'horaireMuted', ' · ≥ ' + tr('seuil') + ' : 1 ' + tr('pour') + ' ' + hi));
-        });
-        row.appendChild(c);
-      });
+      tc.appendChild(nm);
+      row.appendChild(tc);
+      row.appendChild(el('span', 'horaireSheetCell')); row.appendChild(el('span', 'horaireSheetCell'));
+      // Croix tout à droite : fenêtre à trois choix (Vider les cases, Supprimer le type, Annuler).
       var rm = el('span', 'horaireSheetCell horaireSheetRemove');
       rm.appendChild(TMT.ui.removeBtn(function () {
-        confirmDelete(tr('Supprimer le type') + ' « ' + ty.name + ' » ?', function () { req('DELETE', 'event-types/' + ty.id).then(function () { return refresh(); }, fail); });
-      }, tr('Supprimer') + ' ' + ty.name));
+        TMT.ui.confirm('« ' + ty.name + ' »', { closeLabel: tr('Fermer'), choices: [
+          { value: 'clear', label: tr('Vider les cases') },
+          { value: 'delete', label: tr('Supprimer le type'), danger: true },
+          { value: false, label: tr('Annuler'), quiet: true },
+        ] }).then(function (v) {
+          if (v === 'clear') req('POST', 'event-types/' + ty.id + '/clear').then(function (d) { S.types = d.types || S.types; return reloadAll(); }, fail);
+          else if (v === 'delete') confirmDelete(tr('Supprimer le type') + ' « ' + ty.name + ' » ?\n' + tr('Ses chiffres partent avec lui ; les événements qui l’avaient le perdent et gardent leurs lignes.'), function () { req('DELETE', 'event-types/' + ty.id).then(function () { return refresh(); }, fail); });
+        });
+      }, tr('Vider ou supprimer') + ' ' + ty.name));
       row.appendChild(rm);
       sheet.appendChild(row);
+      // Une ligne par poste de la famille.
+      S.positions.filter(function (p) { return FAM[fam].indexOf(foldNote(p.name)) >= 0; })
+        .sort(function (a, b) { return FAM[fam].indexOf(foldNote(a.name)) - FAM[fam].indexOf(foldNote(b.name)); })
+        .forEach(function (p) {
+          var pr = sheetRow('horaireTypePosRow' + zebra);
+          pr.appendChild(el('span', 'horaireSheetCell horaireTypePos', p.name));
+          pr.appendChild(cellFor(ty, p, 'perClients', 1000, tr('clients')));
+          pr.appendChild(cellFor(ty, p, 'perDollars', 1000000, '$'));
+          pr.appendChild(el('span', 'horaireSheetCell'));
+          sheet.appendChild(pr);
+        });
     });
     typesBox.appendChild(sheet);
-    typesBox.appendChild(el('p', 'horaireMuted', tr('Service = personnel de salle : serveurs et commis')));
+    // Ajout : nom, puis la famille (Service ou Bar), choisie une fois pour toutes ; aucune phrase d'explication (demande d'Émilien).
     var add = TMT.ui.addBtn(tr('Ajouter'), function () {
-      var taken = (S.types || []).map(function (t) { return t.name; }), k = 1;
-      while (taken.indexOf(tr('Type') + ' ' + k) >= 0) k++;
-      req('POST', 'event-types', { name: tr('Type') + ' ' + k }).then(reload, fail);
+      TMT.ui.confirm('', { closeLabel: tr('Fermer'), input: { maxLength: 80, placeholder: tr('Nom du type'), label: tr('Nom du type') }, choices: [
+        { value: 'service', label: tr('Service') }, { value: 'bar', label: tr('Bar') },
+      ] }).then(function (v) {
+        if (!v || !String(v.text || '').trim()) return;
+        req('POST', 'event-types', { name: String(v.text).trim(), family: v.value }).then(reload, fail);
+      });
     });
     add.classList.add('horaireFloorAdd');
     typesBox.appendChild(add);
@@ -827,6 +848,8 @@
           }
           card.appendChild(head);
           if (ev.mailHint) card.appendChild(el('span', 'horaireMuted horaireEvHint', tr(ev.mailHint)));
+          // Un poste de ses types se compte en dollars et le prix par personne manque : aucune ligne calculée pour ce poste.
+          if (ev.priceMissing) card.appendChild(el('span', 'horaireMuted horaireEvHint', tr('prix manquant')));
           // Événement reçu par courriel : « Valider » (secondaire violet) le fait entrer dans l'horaire ; la croix le refuse.
           if (ev.pending && !past) {
             card.appendChild(btn('cmpBtn horaireEvValidate', 'Valider', function () {
@@ -869,7 +892,7 @@
             req('PUT', 'events/' + ev.id + '/type', { clients: n }).then(function (d) { replaceEvent(d.event); }, failCal);
           });
           cl.appendChild(ci); tr2.appendChild(cl);
-          // Prix par personne ($, facultatif) : au seuil d'un type, ses postes prennent le second nombre (Types d'événements).
+          // Prix par personne ($, facultatif) : sert aux postes comptés en dollars dans Types d'événements (prix × clients ÷ N).
           var pl = el('label', 'horaireEvFloor horaireEvClients'); pl.appendChild(el('span', null, tr('Prix $')));
           var pi = el('input', 'horaireInput'); pi.type = 'number'; pi.min = '1'; pi.max = '10000'; pi.step = 'any'; pi.inputMode = 'decimal'; pi.setAttribute('aria-label', tr('Prix par personne'));
           pi.value = ev.price == null ? '' : String(ev.price); pi.disabled = past;
@@ -888,19 +911,33 @@
           });
           hl.appendChild(hi); tr2.appendChild(hl);
           card.appendChild(tr2);
-          // Plancher occupé : menu uni (R31), « Aucun » par défaut ; enregistrement automatique.
+          // Planchers occupés (plusieurs possibles ; aucun coché = « Aucun ») : cases du menu uni, comme les types ; enregistrement automatique.
           if ((S.floors || []).length) {
-            var fl = el('label', 'horaireEvFloor');
+            var fl = el('div', 'horaireEvFloor');
             fl.appendChild(el('span', null, tr('Plancher')));
-            var fs = el('select', 'horaireInput'); fs.setAttribute('aria-label', tr('Plancher'));
-            var none = el('option', null, tr('Aucun')); none.value = ''; fs.appendChild(none);
-            S.floors.forEach(function (f) { var o = el('option', null, f.name); o.value = String(f.id); fs.appendChild(o); });
-            fs.value = ev.floorId == null ? '' : String(ev.floorId);
-            fs.disabled = past;
-            fs.addEventListener('change', function () {
-              req('PUT', 'events/' + ev.id, { service: evSvc(ev), floorId: fs.value ? Number(fs.value) : null }).then(function (d) { replaceEvent(d.event); }, failCal);
-            });
-            fl.appendChild(fs); card.appendChild(fl);
+            (function (ev) {
+              var fsel = (ev.floorIds && ev.floorIds.length ? ev.floorIds : (ev.floorId != null ? [ev.floorId] : [])).slice();
+              var floorText = function () { var n = S.floors.filter(function (f) { return fsel.indexOf(f.id) >= 0; }).map(function (f) { return f.name; }); return n.length ? n.join(', ') : tr('Aucun'); };
+              var fs = btn('horaireInput', '', function () {
+                if (past || !newMenu(fs)) return;
+                S.floors.forEach(function (f) {
+                  var lab = el('label', 'horaireMenuItem horaireMenuCheck');
+                  var c = el('input'); c.type = 'checkbox'; c.checked = fsel.indexOf(f.id) >= 0;
+                  c.addEventListener('change', function () {
+                    fsel = c.checked ? fsel.concat([f.id]) : fsel.filter(function (x) { return x !== f.id; });
+                    fs.textContent = floorText();
+                    req('PUT', 'events/' + ev.id, { service: evSvc(ev), floorIds: fsel }).then(function (d) { replaceEvent(d.event); }, failCal);
+                  });
+                  lab.appendChild(c); lab.appendChild(el('span', null, f.name));
+                  menu.appendChild(lab);
+                });
+                placeMenu(fs);
+              });
+              fs.textContent = floorText(); fs.disabled = past;
+              fs.setAttribute('aria-haspopup', 'menu'); fs.setAttribute('aria-label', tr('Plancher') + ' : ' + floorText());
+              fl.appendChild(fs);
+            })(ev);
+            card.appendChild(fl);
           }
           (ev.lines || []).forEach(function (l, j) { card.appendChild(lineNode(ev, l, j)); });
           if (!past) {
@@ -956,9 +993,8 @@
         var b = el('button', 'horaireCalDay' + (isPast ? ' past' : '') + (day === todayIso() ? ' today' : '')); b.type = 'button';
         b.appendChild(el('span', 'horaireCalNum', String(dd)));
         if (!isPast) ['matin', 'soir'].forEach(function (svc) {
-          var rp = floorReplaced(day, svc);
           S.events.filter(function (e) { return e.day === day && evSvc(e) === svc; }).forEach(function (ev, k) {
-            var n = 0; (ev.lines || []).forEach(function (l, i) { var r = rp[ev.id + ':' + i]; n += r ? r.extra : l.count; });
+            var n = 0; (ev.lines || []).forEach(function (l) { n += l.count; }); // N de l'événement (et non N − habituels du plancher)
             var p = el('span', 'horaireCalPill' + (ev.pending ? ' pending' : ''), tr(svc === 'soir' ? 'Soir' : 'Matin') + ' · ' + evName(ev, k) + ' · ' + n + (ev.pending ? ' · ' + tr('à valider') : '')); p.title = p.textContent;
             b.appendChild(p);
           });
@@ -1066,10 +1102,49 @@
       var name = (S.positions.find(function (x) { return x.id === cur; }) || {}).name || '';
       p.label.textContent = name;
       p.menu.textContent = '';
+      // Postes : chaque ligne = choisir | ✎ modifier ; la ligne se déroule sur place (R36) avec le champ du nom et la croix rouge pour retirer
+      // (confirmation, R43 ; absente s'il ne reste qu'un poste) ; en bas « + Ajouter un poste » (demande d'Émilien, 30 oct. 2026).
       list.forEach(function (x) {
+        var row = el('div', 'horairePosRow');
+        if (S.posEdit === x.id) {
+          row.appendChild(posNameInput(x));
+          if (list.length > 1) row.appendChild(keepFocus(TMT.ui.removeBtn(function (e) { e.stopPropagation(); removePosition(x); }, tr('Retirer') + ' ' + x.name)));
+          p.menu.appendChild(row); return;
+        }
         var it = el('button', 'statsPeriodMenuItem' + (x.id === cur ? ' active' : ''), x.name); it.type = 'button'; it.dataset.pos = String(x.id);
-        p.menu.appendChild(it);
+        row.appendChild(it);
+        row.appendChild(TMT.ui.editBtn(function (e) { e.stopPropagation(); S.posEdit = x.id; renderPosPickers(); }, tr('Modifier') + ' ' + x.name));
+        p.menu.appendChild(row);
       });
+      if (S.posEdit === 'new') { var nr = el('div', 'horairePosRow'); nr.appendChild(posNameInput(null)); p.menu.appendChild(nr); }
+      else p.menu.appendChild(TMT.ui.addBtn(tr('Ajouter un poste'), function (e) { e.stopPropagation(); S.posEdit = 'new'; renderPosPickers(); }));
+    });
+    var inp = document.querySelector('.statsPeriodMenu:not(.hidden) .horairePosRow input'); if (inp) inp.focus();
+  }
+  // Nom d'un poste (ajout : x = null ; renommage : x) : Entrée ou sortie du champ enregistre, Échap annule ; vide = rien.
+  // Doublon refusé par le serveur (casse et accents ignorés) : le message s'affiche, la saisie reste.
+  function posNameInput(x) {
+    var inp = el('input', 'horaireSheetInput'); inp.type = 'text'; inp.maxLength = 80; inp.value = x ? x.name : '';
+    inp.placeholder = tr('Nom du poste'); inp.setAttribute('aria-label', tr('Nom du poste'));
+    var done = false;
+    var finish = function (keep) {
+      if (done) return; done = true;
+      var v = inp.value.trim().replace(/\s+/g, ' ');
+      if (!keep || !v || (x && v === x.name)) { S.posEdit = null; renderPosPickers(); return; }
+      (x ? req('PUT', 'positions/' + x.id, { name: v }) : req('POST', 'positions', { name: v })).then(function (d) {
+        S.posEdit = null;
+        if (!x && d.position) { S.posId = d.position.id; try { localStorage.setItem('horairePoste', String(d.position.id)); } catch (err) { /* choix pour cette visite */ } }
+        return refresh();
+      }, function (err) { done = false; fail(err); inp.focus(); });
+    };
+    inp.addEventListener('click', function (e) { e.stopPropagation(); });
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); finish(true); } else if (e.key === 'Escape') { e.preventDefault(); finish(false); } });
+    inp.addEventListener('blur', function () { finish(true); });
+    return inp;
+  }
+  function removePosition(x) {
+    confirmDelete(tr('Retirer le poste') + ' « ' + x.name + ' » ?\n' + tr('Ses besoins, qualifications et quarts partent avec lui.'), function () {
+      req('DELETE', 'positions/' + x.id).then(function () { if (S.posId === x.id) S.posId = null; S.posEdit = null; return refresh(); }, fail);
     });
   }
   function hOrNull(v) { v = String(v == null ? '' : v).trim().replace(',', '.'); return v === '' ? null : Number(v); }
@@ -1087,6 +1162,105 @@
     return String(note || '').split(/[;\n]/).map(function (p) { return p.trim(); }).filter(function (p) {
       return p && NOTE_RULES.indexOf(foldNote(p).replace(/[.!]+$/, '')) < 0;
     }).join(' ; ');
+  }
+  // Formules exactes lues par la génération (server/lib/horaire-note.js, RULES), dans l'ordre de NOTE_RULES.
+  var NOTE_LABELS = ['Jamais de double', 'Repos après un quart', 'Pas de matin', 'Pas de soir', 'Soirs d’abord', 'Matins d’abord'];
+  // Morceaux d'une note (séparés par « ; ») ; une formule écrite autrement (casse, accents, « . » final) est rendue sous sa forme exacte.
+  function noteParts(note) {
+    return String(note || '').split(/[;\n]/).map(function (p) { return p.trim(); }).filter(Boolean).map(function (p) {
+      var i = NOTE_RULES.indexOf(foldNote(p).replace(/[.!]+$/, ''));
+      return i >= 0 ? NOTE_LABELS[i] : p;
+    });
+  }
+  // Ajouter (si absente, casse et accents ignorés) ou retirer une note ; écrit sous la forme « A; B; C » (formes exactes).
+  function noteAdd(note, text) {
+    var parts = noteParts(note), k = foldNote(text).replace(/[.!]+$/, '');
+    if (!parts.some(function (p) { return foldNote(p).replace(/[.!]+$/, '') === k; })) parts.push(noteParts(text)[0] || String(text).trim());
+    return parts.join('; ');
+  }
+  function noteRemove(note, i) { var parts = noteParts(note); parts.splice(i, 1); return parts.join('; '); }
+  // Cellule Note d'un employé : une pastille par note ; un clic sur la pastille (ou sa croix) la retire ; un clic ailleurs ouvre la liste.
+  function noteCell(e) {
+    var cell = el('span', 'horaireSheetCell horaireSheetEdit horaireSheetNote');
+    cell.tabIndex = 0; cell.setAttribute('role', 'button'); cell.setAttribute('aria-haspopup', 'menu'); cell.setAttribute('aria-label', tr('Note') + ' ' + e.name);
+    noteParts(e.constraintNote).forEach(function (p, i) {
+      var pill = el('span', 'horaireBadge horaireNotePill');
+      pill.appendChild(el('span', null, NOTE_LABELS.indexOf(p) >= 0 ? tr(p) : p));
+      var x = TMT.ui.removeBtn(null, tr('Retirer') + ' ' + p);
+      pill.appendChild(x);
+      pill.addEventListener('click', function (ev) {
+        ev.stopPropagation(); closeMenu();
+        putEmployee(e, { constraintNote: noteRemove(e.constraintNote, i) || null });
+      });
+      cell.appendChild(pill);
+    });
+    cell.addEventListener('click', function () { openNoteMenu(cell, e); });
+    cell.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openNoteMenu(cell, e); } });
+    return cell;
+  }
+  // Liste des notes (menu uni qui défile) : les six formules en tête, puis les notes du compte (S.notes, réutilisables pour tous) ;
+  // un clic ajoute la note à l'employé ; « + Ajouter une note » ouvre une fenêtre (TMT.ui.confirm avec un champ) et l'ajoute à la liste.
+  // Une note du compte n'est jamais appliquée par la génération : elle revient dans « À vérifier ».
+  function openNoteMenu(anchor, e) {
+    if (!newMenu(anchor)) return;
+    var cur = function () { return (S.employees.find(function (x) { return x.id === e.id; }) || e).constraintNote || ''; };
+    var add = function (text) { var next = noteAdd(cur(), text); if (next !== cur()) putEmployee(e, { constraintNote: next }); };
+    var have = noteParts(cur()).map(function (p) { return foldNote(p); });
+    NOTE_LABELS.map(function (l) { return { text: l, label: tr(l) }; })
+      .concat((S.notes || []).map(function (n) { return { id: n.id, text: n.text, label: n.text }; }))
+      .forEach(function (n) {
+        var on = have.indexOf(foldNote(n.text)) >= 0;
+        var b = btn('horaireMenuItem' + (on ? ' on' : ''), '', function () { closeMenu(); if (!on) add(n.text); });
+        b.textContent = n.label; b.setAttribute('role', 'menuitem');
+        if (!n.id) { menu.appendChild(b); return; } // les six règles connues : jamais supprimées
+        // Note créée par le gérant : croix officielle (R32) ; confirmation rouge qui dit combien d'employés l'utilisent.
+        var row = el('div', 'horaireNoteRow');
+        if (S.noteEdit === n.id) {
+          row.appendChild(noteNameInput(n, anchor, e));
+          row.appendChild(keepFocus(TMT.ui.removeBtn(function (ev) { ev.stopPropagation(); S.noteEdit = null; closeMenu(); removeNote(n); }, tr('Supprimer') + ' ' + n.text)));
+          menu.appendChild(row); return;
+        }
+        row.appendChild(b);
+        row.appendChild(TMT.ui.editBtn(function (ev) { ev.stopPropagation(); S.noteEdit = n.id; closeMenu(); openNoteMenu(anchor, e); }, tr('Modifier') + ' ' + n.text));
+        row.appendChild(TMT.ui.removeBtn(function (ev) { ev.stopPropagation(); closeMenu(); removeNote(n); }, tr('Supprimer') + ' ' + n.text));
+        menu.appendChild(row);
+      });
+    var plus = TMT.ui.addBtn(tr('Ajouter une note'), function () {
+      closeMenu();
+      TMT.ui.confirm('', { ok: tr('Ajouter'), closeLabel: tr('Fermer'), input: { maxLength: 500, placeholder: tr('Nouvelle note'), label: tr('Nouvelle note') } }).then(function (v) {
+        if (typeof v !== 'string' || !v.trim()) return;
+        req('POST', 'notes', { text: v }).then(function (d) { S.notes = d.notes || S.notes; add(d.note.text); }, fail);
+      });
+    });
+    plus.classList.add('horaireNoteAdd');
+    menu.appendChild(plus);
+    placeMenu(anchor);
+  }
+  // Modifier une note du compte : la ligne se déroule sur place (R36) ; Entrée ou sortie du champ enregistre, Échap annule.
+  // Les employés qui l'utilisent reçoivent le nouveau texte.
+  function noteNameInput(n, anchor, e) {
+    var inp = el('input', 'horaireSheetInput'); inp.type = 'text'; inp.maxLength = 500; inp.value = n.text; inp.setAttribute('aria-label', tr('Note'));
+    var done = false;
+    var finish = function (keep) {
+      if (done) return; done = true;
+      var v = inp.value.trim();
+      S.noteEdit = null;
+      if (!keep || !v || v === n.text) { closeMenu(); openNoteMenu(anchor, e); return; }
+      req('PUT', 'notes/' + n.id, { text: v }).then(function (d) { S.notes = d.notes || S.notes; closeMenu(); return refresh(); }, function (err) { done = false; fail(err); });
+    };
+    inp.addEventListener('click', function (ev) { ev.stopPropagation(); });
+    inp.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); finish(true); } else if (ev.key === 'Escape') { ev.preventDefault(); finish(false); } });
+    inp.addEventListener('blur', function () { finish(true); });
+    setTimeout(function () { inp.focus(); inp.select(); }, 0);
+    return inp;
+  }
+  function removeNote(n) {
+    var k = foldNote(n.text).replace(/[.!]+$/, '');
+    var used = S.employees.filter(function (x) { return noteParts(x.constraintNote).some(function (p) { return foldNote(p).replace(/[.!]+$/, '') === k; }); }).length;
+    var msg = tr('Supprimer la note') + ' « ' + n.text + ' » ?\n' + (used ? used + ' ' + tr(used > 1 ? 'employés l’utilisent : elle leur sera retirée.' : 'employé l’utilise : elle lui sera retirée.') : tr('Aucun employé ne l’utilise.'));
+    confirmDelete(msg, function () {
+      req('DELETE', 'notes/' + n.id).then(function (d) { S.notes = d.notes || S.notes.filter(function (x) { return x.id !== n.id; }); return refresh(); }, fail);
+    });
   }
   // Poste principal du compte (créé « Serveur » côté serveur s'il manque) : ajout d'un employé, besoins.
   function mainPosition() {
@@ -1260,12 +1434,8 @@
           if (!hoursValid(e.wantHoursMin, e.wantHoursTarget, e.wantHoursMax)) c.classList.add('invalid');
           row.appendChild(c);
         });
-        var note = el('span', 'horaireSheetCell horaireSheetEdit horaireSheetNote');
-        editCell(note, e.constraintNote || '', [['note', e.constraintNote, 'Note']], function (v) {
-          var t = String(v.note).trim();
-          if (t !== (e.constraintNote || '')) putEmployee(e, { constraintNote: t }); else renderCats();
-        });
-        row.appendChild(note);
+        // Note (29 oct. 2026, décision d'Émilien) : pastilles des notes de l'employé ; la liste s'ouvre au clic (voir noteCell, openNoteMenu).
+        row.appendChild(noteCell(e));
         var rmCell = el('span', 'horaireSheetCell horaireSheetRemove');
         rmCell.appendChild(TMT.ui.removeBtn(function () { removeEmployee(e); }, tr('Retirer') + ' ' + e.name));
         row.appendChild(rmCell);
@@ -1353,14 +1523,16 @@
 
   // ---------- Horaire de la semaine : un bouton par quart, liste déroulante unie pour changer la personne ----------
   var menu = null;
-  function closeMenu() { if (menu) { menu.remove(); menu = null; document.removeEventListener('pointerdown', outside, true); window.removeEventListener('scroll', closeMenu, true); } }
+  function closeMenu() { if (menu) { menu.remove(); menu = null; document.removeEventListener('pointerdown', outside, true); window.removeEventListener('scroll', onMenuScroll, true); } }
+  // Défiler DANS le menu (liste longue) ne le ferme pas ; défiler la page, si.
+  function onMenuScroll(ev) { if (menu && ev.target && ev.target.nodeType === 1 && menu.contains(ev.target)) return; closeMenu(); }
   function outside(ev) { if (menu && !menu.contains(ev.target)) closeMenu(); }
   function placeMenu(anchor) {
     document.body.appendChild(menu);
     var r = anchor.getBoundingClientRect(), mh = menu.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
     menu.style.left = Math.max(8, Math.min(r.left, vw - menu.offsetWidth - 8)) + 'px';
     menu.style.top = (r.bottom + 4 + mh > vh - 8 ? Math.max(8, r.top - 4 - mh) : r.bottom + 4) + 'px';
-    setTimeout(function () { document.addEventListener('pointerdown', outside, true); window.addEventListener('scroll', closeMenu, true); }, 0);
+    setTimeout(function () { document.addEventListener('pointerdown', outside, true); window.addEventListener('scroll', onMenuScroll, true); }, 0);
   }
   function newMenu(anchor) {
     var same = menu && menu._for === anchor; closeMenu(); if (same) return false;
@@ -1489,9 +1661,10 @@
     });
     // Note des employés placés, sans ses expressions reconnues : la génération ne la lit pas, on la rappelle ici (en tête).
     var placed = {}; sc.assignments.forEach(function (a) { if (a.positionId === posId()) placed[a.employeeId] = a.employeeName; });
+    var wk = new Date(S.week + 'T00:00:00Z'), wkText = tr('semaine du') + ' ' + dnum(wk.getUTCDate()) + ' ' + tr(MONTHS[wk.getUTCMonth()]);
     S.employees.filter(function (e) { return placed[e.id]; }).forEach(function (e) {
       var rest = noteRest(e.constraintNote);
-      if (rest) alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + tr('note de') + ' ' + e.name + ' : “' + rest + '”'));
+      if (rest) alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + tr('note de') + ' ' + e.name + ' (' + wkText + ') : “' + rest + '”'));
     });
     var key = function (a) { return a.type === 'trou' ? '0' + a.day + a.start : '1'; };
     (sc.alerts || []).filter(function (a) { return a.type !== 'trou' || a.positionId === posId(); }).sort(function (x, y) { return key(x) < key(y) ? -1 : key(x) > key(y) ? 1 : 0; }).forEach(function (a) { alertsBox.appendChild(el('span', null, tr('À vérifier :') + ' ' + alertText(a))); });

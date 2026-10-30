@@ -6,6 +6,9 @@
   var EDIT_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
   // Fenêtre de confirmation maison (remplace window.confirm) : fond #16141A opaque, ✕ en haut à droite (R13),
   // UN bouton principal violet ; rouge (opts.danger) seulement pour supprimer/retirer (R28). Promesse : true si confirmé.
+  // opts.input (29 oct. 2026) : { placeholder, maxLength, label } ajoute UN champ texte ; la promesse rend alors le texte saisi (ou false).
+  // opts.choices (29 oct. 2026) : [{ value, label, danger, quiet }] remplace le bouton principal par plusieurs boutons, l'un sous l'autre
+  // (danger : rouge ; quiet : gris, ex. « Annuler » qui rend false) ; la promesse rend la valeur choisie (avec un champ : { value, text }).
   function confirmBox(message, opts) {
     opts = opts || {};
     return new Promise(function (resolve) {
@@ -18,7 +21,19 @@
       var p = document.createElement('p'); p.className = 'cmpConfirmText';
       String(message).split('\n').forEach(function (line, i) { if (i) p.appendChild(document.createElement('br')); p.appendChild(document.createTextNode(line)); });
       var ok = btn('cmpBtn' + (opts.danger ? ' cmpBtnDanger' : ''), '', null); ok.textContent = opts.ok || 'Confirmer';
-      card.appendChild(head); card.appendChild(p); card.appendChild(ok);
+      var field = null;
+      if (opts.input) {
+        field = document.createElement('input'); field.className = 'cmpConfirmInput'; field.type = opts.input.type === 'password' ? 'password' : 'text'; field.maxLength = opts.input.maxLength || 500;
+        field.placeholder = opts.input.placeholder || ''; field.setAttribute('aria-label', opts.input.label || opts.input.placeholder || '');
+        field.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !(opts.choices || []).length) { e.preventDefault(); finish(field.value); } });
+      }
+      var picks = (opts.choices || []).map(function (c) {
+        var b = btn('cmpBtn' + (c.danger ? ' cmpBtnDanger' : c.quiet ? ' cmpBtnIdle' : ''), '', null); b.textContent = c.label;
+        b.addEventListener('click', function () { finish(c.value === false ? false : (field ? { value: c.value, text: field.value } : c.value)); });
+        return b;
+      });
+      card.appendChild(head); if (String(message)) card.appendChild(p); if (field) card.appendChild(field);
+      if (picks.length) picks.forEach(function (b) { card.appendChild(b); }); else card.appendChild(ok);
       veil.appendChild(card);
       var from = document.activeElement, done = false;
       function finish(v) {
@@ -29,14 +44,14 @@
       }
       function onKey(e) {
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
-        else if (e.key === 'Tab') { e.preventDefault(); (document.activeElement === ok ? x : ok).focus(); }
+        else if (e.key === 'Tab') { e.preventDefault(); var ring = (field ? [field] : []).concat(picks.length ? picks : [ok], [x]); ring[(ring.indexOf(document.activeElement) + 1) % ring.length].focus(); }
       }
       x.addEventListener('click', function () { finish(false); });
-      ok.addEventListener('click', function () { finish(true); });
+      ok.addEventListener('click', function () { finish(field ? field.value : true); });
       veil.addEventListener('click', function (e) { if (e.target === veil) finish(false); });
       document.addEventListener('keydown', onKey, true);
       document.body.appendChild(veil);
-      try { ok.focus({ preventScroll: true }); } catch (e) {}
+      try { (field || picks[0] || ok).focus({ preventScroll: true }); } catch (e) {}
     });
   }
   function btn(cls, label, onClick) {
@@ -204,5 +219,33 @@
   ui.attachBtn = attachBtn;
   ui.ATTACH_ACCEPT = ATTACH_ACCEPT;
   ui.groupDrag = groupDrag;
+  // Repère de couleur du module Horaire (30 oct. 2026) : dans Paramètres | Création des horaires (.horaireCats), l'option de droite
+  // active passe le violet et le halo au bleu roi (classe modeCreation sur <html>, jetons dans composants.css) ; l'option de gauche les remet en violet.
+  function syncModeClair() {
+    var de = document.documentElement, on = false;
+    document.querySelectorAll('.cmpSeg.horaireCats').forEach(function (s) {
+      if (on || s.children.length !== 2 || !s.offsetParent) return;
+      var r = s.children[1];
+      on = r.classList.contains('active') || r.classList.contains('on') || r.getAttribute('aria-pressed') === 'true' || r.getAttribute('aria-selected') === 'true';
+    });
+    de.classList.toggle('modeCreation', on);
+  }
+  if (typeof MutationObserver === 'function' && root.document) {
+    var pending = 0;
+    var schedule = function () { if (pending) return; pending = setTimeout(function () { pending = 0; syncModeClair(); }, 30); };
+    var start = function () { new MutationObserver(schedule).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'aria-pressed', 'aria-selected', 'hidden'] }); schedule(); };
+    if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+  }
+  // Fenêtres Expansion (achat #offer1CheckoutModal, utilisation #docTasksPage) : tant que l'une est ouverte, la page passe au blanc rosé (classe modeExpansionWin) avec le même fondu.
+  if (typeof MutationObserver === 'function' && root.document) {
+    var WIN_IDS = ['offer1CheckoutModal', 'docTasksPage'], winTimer = null;
+    var syncWin = function () {
+      var open = WIN_IDS.some(function (id) { var e = document.getElementById(id); return e && !e.classList.contains('hidden'); });
+      document.documentElement.classList.toggle('modeExpansionWin', open);
+    };
+    // Un seul observateur sur toute la page (les fenêtres peuvent être créées après le chargement) : toute ouverture ou fermeture de l'une d'elles est vue.
+    var startWin = function () { new MutationObserver(function () { clearTimeout(winTimer); winTimer = setTimeout(syncWin, 30); }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] }); syncWin(); };
+    if (document.body) startWin(); else document.addEventListener('DOMContentLoaded', startWin);
+  }
   root.TMT.ui = Object.assign(root.TMT.ui || {}, ui);
 })();

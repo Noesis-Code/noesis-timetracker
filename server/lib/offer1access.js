@@ -74,7 +74,20 @@ function sansPaiementStaging() {
   return ['1', 'true', 'on'].includes(String(v).trim().toLowerCase());
 }
 
+// Expansion NON LANCÉE (30 oct. 2026, Émilien) : tant que l'offre n'est pas ouverte, personne n'y accède en PRODUCTION, ni par code gratuit, ni par abonnement ;
+// seuls les comptes listés dans EXPANSION_ALLOW_USER_IDS (ids séparés par des virgules) y accèdent. Pour la lancer : EXPANSION_LAUNCHED = 1 (ou true, on).
+// Hors production (staging, tests, développement) : inchangé.
+function launched() {
+  if (process.env.RAILWAY_ENVIRONMENT_NAME !== 'production') return true;
+  return ['1', 'true', 'on'].includes(String(process.env.EXPANSION_LAUNCHED || '').trim().toLowerCase());
+}
+function allowedUser(userId) {
+  return !!userId && String(process.env.EXPANSION_ALLOW_USER_IDS || '').split(',').map((x) => x.trim()).filter(Boolean).includes(String(userId));
+}
+function expansionOpenFor(userId) { return launched() || allowedUser(userId); }
+
 function hasOffer1Access(userId) {
+  if (!expansionOpenFor(userId)) return false;
   if (sansPaiementStaging() && userId) return true;
   return hasActiveGrant(userId) || hasActiveOffer1Subscription(userId);
 }
@@ -86,6 +99,7 @@ function activityHasEssor(activityId, userId) {
   try {
     const db = require('../db');
     if (!userId || !db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId)) return false;
+    if (!expansionOpenFor(userId)) return false;
     if (sansPaiementStaging() || hasActiveGrant(userId)) return true;
     return !!db.prepare("SELECT 1 FROM activity_subscriptions WHERE activityId = ? AND userId = ? AND status = 'active' LIMIT 1").get(activityId, userId);
   } catch (e) { return false; }
@@ -96,4 +110,4 @@ function requireOffer1Access(req, res, next) {
   res.status(403).json({ error: 'offer1_required' });
 }
 
-module.exports = { hasOffer1Access, hasActiveGrant, isValidFreeCode, grantAccess, revokeAccess, sha256Hex, hasActiveOffer1Subscription, requireOffer1Access, activityHasEssor };
+module.exports = { launched, expansionOpenFor, hasOffer1Access, hasActiveGrant, isValidFreeCode, grantAccess, revokeAccess, sha256Hex, hasActiveOffer1Subscription, requireOffer1Access, activityHasEssor };

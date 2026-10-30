@@ -86,7 +86,7 @@ const pub = (f) => fs.readFileSync(path.join(__dirname, '..', 'public', f), 'utf
 
     // --- #1263 bouton d'export ---
     assert(home.includes('id="exportDataBtn"') && app.includes("api('GET', '/api/profile/export')"), "bouton d'export présent et câblé");
-    const ex = await u.c.get('/api/profile/export');
+    const ex = (await u.c.post('/api/session/reauth', { password: 'Xk9#Longue-2026!' }), await u.c.get('/api/profile/export'));
     assert(ex.status === 200 && ex.body.user && ex.body.user.id === u.id, "export renvoie les données du compte");
 
     // --- #1280 signalement de message privé (fil d'activité partagée) ---

@@ -112,7 +112,7 @@
                    sans code supplémentaire ici. -->
               <p class="goalMainEmptyHint" id="activityGoalsMainEmptyHint">Les objectifs hebdomadaires te seront ensuite proposés automatiquement.</p>
               <div class="goalMainSaveRow">
-                <button type="button" class="historyRowIconBtn danger hidden" id="activityGoalsMainDeleteBtn" aria-label="Supprimer cet objectif"></button>
+                <button type="button" class="cmpRemove cmpRemove--corner hidden" id="activityGoalsMainDeleteBtn" aria-label="Supprimer cet objectif"></button>
                 <button type="button" class="goalMainSaveBtn hidden" id="activityGoalsMainCancelBtn">Annuler</button>
                 <button type="button" class="goalMainSaveBtn" id="activityGoalsMainSaveBtn">Enregistrer</button>
               </div>
@@ -643,7 +643,6 @@
 
   // Section d'édition d'un objectif hebdomadaire, directement dans la carte :
   // titre, description, « Gérer mon temps » (moyenne / cible).
-  var GOAL_TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
 
   function buildWeeklyEditor(period, weekIndex, w, wKey, draftKey, focusTitle, rerender, extTitle) {
     var d = goalsWeekDrafts[draftKey];
@@ -710,8 +709,8 @@
         .catch(function (err) { save.disabled = false; msg.textContent = err.message; });
     });
     if (w && w.text) {
-      var trash = document.createElement('button'); trash.type = 'button'; trash.className = 'historyRowIconBtn danger';
-      trash.innerHTML = GOAL_TRASH_ICON; trash.setAttribute('aria-label', t('Supprimer cet objectif')); trash.title = t('Supprimer cet objectif');
+      var trash = document.createElement('button'); trash.type = 'button'; trash.className = 'cmpRemove cmpRemove--corner';
+      trash.setAttribute('aria-label', t('Supprimer cet objectif')); trash.title = t('Supprimer cet objectif');
       trash.addEventListener('click', function () {
         TMT.confirmDelete({
           title: t('Supprimer cet objectif hebdomadaire ?'),
@@ -722,7 +721,7 @@
           },
         });
       });
-      actions.appendChild(trash);
+      box.appendChild(trash);
     }
     actions.appendChild(cancel); actions.appendChild(save);
     box.appendChild(actions); box.appendChild(msg);
@@ -1066,7 +1065,6 @@
     descIn.classList.toggle('hidden', !editing);
     cancelBtn.classList.toggle('hidden', !editing || !hasMainNow);
     if (mainDelBtn) {
-      mainDelBtn.innerHTML = GOAL_TRASH_ICON;
       mainDelBtn.title = t('Supprimer cet objectif');
       mainDelBtn.classList.toggle('hidden', !editing || !hasMainNow);
       mainDelBtn.onclick = function () {

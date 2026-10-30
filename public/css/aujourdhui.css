@@ -22,22 +22,66 @@
 .tasksPopDot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--purple); }
 
 /* Barre d'ajout : proposition de Noèsis, puis [trombone à gauche] [texte] [↑] */
-.tasksPopAdd { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 16px; overflow-y: auto; max-height: 55%; }
-.tasksPropose { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: var(--radius-lg); }
+.tasksPopAdd { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 16px; }
+.tasksPopAdd > * { flex-shrink: 0; }
+.tasksPopAdd > .tasksPropose { flex-shrink: 1; } /* seul le panneau cède de la place : la zone d'écriture garde toujours sa taille */
+.tasksPropose { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: var(--radius-lg); min-height: 0; max-height: min(55vh, 440px); overflow: hidden; }
+/* Le panneau grandit vers le haut (la barre est fixée en bas) ; trop grand, seul son corps défile, sous la ✕, sans jamais toucher la zone d'écriture. */
+.tasksProposeBody { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .tasksPropose.hidden, .tasksChooser.hidden, .tasksProposeHint.hidden { display: none; }
 .tasksProposeKicker { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-light); }
-.tasksProposeRow { display: flex; align-items: center; gap: 8px; }
-.tasksProposeWhere { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
-.tasksProposeChange { min-height: 44px; padding: 0 8px; border: 0; background: none; color: var(--purple); font: inherit; font-size: 14px; cursor: pointer; }
+.tasksProposeHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tasksProposeHead .cmpClose.hidden { display: none; }
+.tasksFields { display: flex; flex-direction: column; }
+.tasksFieldWrap { border-top: 1px solid var(--sep); }
+.tasksFieldWrap:first-child { border-top: 0; }
+.tasksField { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
+.tasksFieldLabel { font-size: 13px; color: var(--text-light); flex: none; }
+.tasksFieldValue { flex: 1; min-width: 0; min-height: 44px; padding: 0 0 0 8px; border: 0; background: none; color: var(--text); font: inherit; font-size: 15px; font-weight: 600; text-align: right; overflow-wrap: anywhere; cursor: pointer; }
+.tasksFieldValue:not(:disabled) { color: var(--violet-soft); }
+.tasksFieldValue:disabled { cursor: default; opacity: .85; }
+.tasksDateInput { min-height: 44px; padding: 0 8px; border: 0; border-bottom: 1px solid var(--sep); background: none; color: var(--text); font: inherit; font-size: 14px; color-scheme: dark; }
 .tasksProposeHint { margin: 0; font-size: 13px; color: var(--text-light); }
-.tasksChooser { display: flex; flex-direction: column; max-height: 180px; overflow-y: auto; border-top: 1px solid var(--sep); }
+/* Choix déroulés SOUS leur champ : décalés à droite et reliés au champ par un trait violet, pour montrer qu'ils en font partie. */
+.tasksChooser { display: flex; flex-direction: column; margin: 0 0 8px 12px; padding-left: 12px; border-left: 2px solid var(--purple); }
+.tasksFieldWrap.open > .tasksField .tasksFieldLabel { color: var(--text); }
+.tasksFieldText { min-width: 0; }
+.tasksDateInline { flex: 1; min-width: 0; text-align: right; border-bottom: 0; color: var(--violet-soft); font-weight: 600; font-size: 15px; }
+.tasksFieldValue { display: inline-flex; align-items: center; justify-content: flex-end; }
+.tasksExpRow { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 8px 0; border-top: 1px solid var(--sep); cursor: pointer; }
+.tasksExpRow input { flex: none; margin-top: 3px; accent-color: var(--purple); }
+.tasksExpText { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 14px; overflow-wrap: anywhere; }
+.tasksExpText small { font-size: 12px; color: var(--text-light); }
+.tasksChoice.off { display: flex; flex-direction: column; justify-content: center; color: var(--text-light); cursor: default; }
+.tasksChoice.off small { font-size: 11.5px; }
+.tasksMsgLink { border: 0; background: none; padding: 0; font: inherit; color: var(--violet-soft); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .tasksChoice { min-height: 44px; padding: 0 4px; border: 0; border-bottom: 1px solid var(--sep); background: none; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
-.tasksComposer { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 8px; border-radius: 999px; border: 1px solid var(--glass-border); background: var(--glass-bg); }
+.tasksComposer { flex: none; min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 8px; border-radius: 999px; border: 1px solid var(--glass-border); background: var(--glass-bg); }
 .tasksClip { flex: none; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-light); cursor: pointer; }
 .tasksClip svg { width: 20px; height: 20px; }
 :root .tasksComposer .tasksText { flex: 1; min-width: 0; height: 36px; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; min-height: 0; padding: 8px 0; box-sizing: border-box; resize: none; overflow: hidden; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: 16px; line-height: 20px; border-radius: 0; }
-.tasksText::placeholder { color: var(--text-light); }
+.tasksText::placeholder { color: var(--text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tasksComposer { width: 100%; box-sizing: border-box; }
+.tasksComposer .tasksText { min-width: 120px; white-space: nowrap; text-overflow: ellipsis; }
+.tasksComposer .tasksClip, .tasksComposer .cmpSend { flex: none; }
 .tasksChips:empty, .tasksMsg:empty { display: none; }
+.tasksDock .cmpSend { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+.tasksDock .cmpSend { transition: transform .15s ease-out; }
+.tasksDock .cmpSend.pressing { transform: scale(1.7); transition: transform 1s linear; } /* grossit pendant la seconde d'appui, reprend sa taille en .15 s */
+.tasksExHint, .tasksMsg { margin: 0; padding: 0 12px; font-size: 12.5px; color: var(--text-light); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* une seule ligne, centrée, sous la barre */
+.tasksMsg:not(:empty) ~ .tasksExHint { display: none; } /* un message d'erreur prime sur l'invite : jamais deux lignes */
+.tasksExHint.hidden { display: none; }
+.tasksSaveBtn { display: none; flex: none; width: 100%; box-sizing: border-box; height: 50px; min-height: 0; padding: 0 16px; border: 1px solid transparent; border-radius: 999px; background: var(--purple); color: var(--on-action); font: inherit; font-size: 16px; font-weight: 600; align-items: center; justify-content: center; cursor: pointer; } /* exactement la forme et la taille de la zone d'écriture (50 px, bords arrondis) : il la remplace sur place */
+.tasksDock.expSave .tasksSaveBtn { display: flex; } /* étape 2 d'Expansion : la zone d'écriture devient le bouton Enregistrer */
+.tasksDock.expSave .tasksComposer { display: none; }
+.tasksPages { overflow: hidden; touch-action: pan-y; }
+.tasksTrack { display: flex; width: 200%; transition: transform .28s ease; }
+.tasksPage { flex: 0 0 50%; min-width: 0; box-sizing: border-box; }
+.tasksPage.off { height: 0; overflow: hidden; visibility: hidden; }
+.tasksPages.locked .tasksPageA { pointer-events: none; opacity: .6; } /* choix validés : on les revoit en balayant, sans les modifier */
+.tasksPageHead { margin: 0 0 4px; font-size: 13px; color: var(--text-light); }
+.tasksToast { margin: 0; text-align: center; font-size: 13px; color: var(--text-light); }
+.tasksToast.hidden { display: none; }
 .tasksMsg { margin: 0; font-size: 13px; color: var(--text-light); }
 
 .goalsPage1Switch { margin-bottom: 0; }
@@ -48,9 +92,12 @@
 .tasksToday .tasksPopRow { padding-left: 4px; padding-right: 4px; }
 .tasksToday .tasksPopSection { padding-left: 4px; padding-right: 4px; }
 /* La barre « Ajouter une tâche » est au premier plan, fixée au-dessus de la barre des volets (même verre) ; les tâches défilent en dessous ; au glissement latéral elle suit la page. */
-.tasksDock { position: fixed; left: 0; right: 0; margin: 0 auto; width: min(896px, calc(100% - 32px)); box-sizing: border-box; z-index: 49; bottom: calc(var(--tabbar-h, 76px) + 32px); max-height: 50vh; padding: 0; background: transparent; }
+.tasksDock { position: fixed; left: 0; right: 0; margin: 0 auto; width: min(896px, calc(100% - 32px)); box-sizing: border-box; z-index: 49; bottom: calc(var(--tabbar-h, 76px) + 32px); padding: 0; background: transparent; }
 .tasksDock.hidden { display: none; }
 .tasksToday { padding-bottom: calc(var(--tabbar-h, 76px) + 120px); } /* la dernière tâche reste lisible au-dessus de la barre fixe */
 .tasksDock .tasksComposer { background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); } /* R40 */
 /* La bulle d'écriture libre de l'ancienne page 1 est remplacée par la barre « Ajouter une tâche » de la vue Aujourd'hui. */
 #goalsActivitiesView .goalsCaptureBubbleWrap, #goalsActivitiesView .goalsCaptureActivityPrompt { display: none; }
+
+/* Clavier ouvert : la barre est juste au-dessus du clavier, sans les trois points de pagination (30 oct. 2026, Émilien). */
+:root.kbOpen #statsPageDots { display: none !important; }

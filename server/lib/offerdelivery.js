@@ -209,7 +209,7 @@ async function activatePendingActivity(activityId, userId) {
   if (inFlight.has(activityId)) return inFlight.get(activityId);
   if (db.prepare('SELECT 1 FROM sub_projects WHERE activityId = ? AND slot IS NOT NULL LIMIT 1').get(activityId)) return { activityId, alreadyActivated: true };
   const day = require('./aifeaturecaps').dayKey();
-  if (!aibudget.check(userId).ok) { // budget IA atteint : aucun appel, aucun essai décompté, état lisible ; reprise dès que le budget revient
+  if (!aibudget.check(aibudget.keyFor(userId, activityId)).ok) { // budget IA atteint : aucun appel, aucun essai décompté, état lisible ; reprise dès que le budget revient
     db.prepare("INSERT INTO plan_activation_attempts (activityId, day, n, lastError, lastAt) VALUES (?, ?, 0, 'budget IA atteint', ?) ON CONFLICT(activityId, day) DO UPDATE SET lastError = 'budget IA atteint', lastAt = excluded.lastAt")
       .run(activityId, day, new Date().toISOString());
     return { activityId, skipped: 'budget' };
@@ -232,7 +232,7 @@ async function activateOnce(activityId, userId) {
   const already = db.prepare('SELECT 1 FROM sub_projects WHERE activityId = ? AND slot IS NOT NULL LIMIT 1').get(activityId);
   if (already) return { activityId, alreadyActivated: true };
 
-  const plan = await aibudget.runAs(userId, () => generateSubProjectsPlan(loadFormsPayload(activityId, userId)));
+  const plan = await aibudget.runAs(aibudget.keyFor(userId, activityId), () => generateSubProjectsPlan(loadFormsPayload(activityId, userId)));
 
   const created = [];
   db.exec('BEGIN');
@@ -292,7 +292,7 @@ async function regenerateActivityRoadmap(activityId, userId) {
     return activateActivitySubscription(activityId, userId);
   }
 
-  const plan = await aibudget.runAs(userId, () => generateSubProjectsPlan(loadFormsPayload(activityId, userId)));
+  const plan = await aibudget.runAs(aibudget.keyFor(userId, activityId), () => generateSubProjectsPlan(loadFormsPayload(activityId, userId)));
   const bySlot = new Map(existingSlots.map((row) => [row.slot, row.id]));
 
   db.exec('BEGIN');

@@ -34,9 +34,9 @@
 .docTasksPop.hidden { display: none; }
 .docTasksPopCard { width: 100%; max-width: 440px; max-height: 80vh; display: flex; flex-direction: column; padding: 14px; border-radius: 18px; color: var(--text); }
 .docTasksPopList { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 8px 0; }
-.docTasksPopRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--sep); font-size: 14px; }
+.docTasksPopRow { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 28px 8px 4px; border-bottom: 1px solid var(--sep); font-size: 14px; }
 .docTasksPopToast { min-height: 18px; font-size: 13px; }
-/* Modifications proposées : avant -> après, case cochée par défaut, corbeille à droite. Même verre/halo. */
+/* Modifications proposées : avant -> après, case cochée par défaut, croix rouge en haut à droite. Même verre/halo. */
 .docTasksChangeDiff { font-size: 14px; overflow-wrap: anywhere; }
 .docTasksChangeOld { opacity: .6; text-decoration: line-through; }
 .docTasksChangeNew { font-weight: 600; }
@@ -60,11 +60,11 @@
 .docTasksRowWrap:last-of-type .docTasksRow, .docTasksRowWrap:last-child .docTasksRow { border-bottom: 0; }
 .docTasksCancelRow { text-align: center; margin: 6px 0 20px; }
 .docTasksPickOn { background: rgba(var(--purple-rgb), .22); border-color: var(--purple); opacity: 1; }
-/* Dossiers surveillés (liste repliable, corbeille de l'app à droite). */
+/* Dossiers surveillés (liste repliable). */
 .docTasksFolderList { margin-bottom: 6px; }
 .docTasksFolderRow { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; font-size: 14px; }
 .docTasksFolderName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* rangée du bas (dossiers connectés orange + Déconnecter gris) ; crayon/corbeille à cible tactile 44 px. */
+/* rangée du bas (dossiers connectés orange + Déconnecter gris) ; crayon à cible tactile 44 px. */
 .docTasksBottomRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; margin-top: 4px; }
 .docTasksBottomRow .docTasksFoldersLink { align-self: center; display: inline-flex; align-items: center; }
 .docTasksBottomRow .docTasksDiscLink { margin-left: auto; align-self: center; color: var(--text-light); }
@@ -151,11 +151,10 @@
 .ptWeekTasks { display: flex; flex-direction: column; gap: 10px; padding: 2px 0 8px 22px; }
 .ptClamp { display: block; width: calc(100% - 30px); box-sizing: border-box; margin-right: 0; text-align: left; background: none; border: 0; color: inherit; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ptClamp.open { white-space: normal; overflow: visible; }
-.ptTask { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.ptTask { position: relative; padding-right: 28px; display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
 .ptTask > input[type="checkbox"] { margin-top: 1px; }
 .ptTask.ptNo { cursor: default; }
 .ptTask .ptBody { cursor: inherit; }
-.ptTask .historyRowIconBtn { flex: none; }
 .ptPane input[type="checkbox"]:indeterminate { background: var(--purple); border-color: var(--purple); }
 .ptPane input[type="checkbox"]:indeterminate::after { content: ""; width: 10px; height: 2px; background: var(--white); border: 0; transform: none; }
 .ptPane input[type="checkbox"]:disabled { opacity: .35; cursor: default; }
@@ -176,3 +175,10 @@
 .docTasksDelAll[data-armed] { color: var(--danger); font-weight: 600; }
 
 .docTasksPauseRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; font-size: 13px; }
+
+/* Réglages d'un dossier Drive : interrupteur « Mettre en pause » blanc ; croix rouge de retrait dans l'angle de la cellule (dossier déjà enregistré) ; Annuler à gauche d'Enregistrer au premier enregistrement. */
+#docTasksFsBody { position: relative; }
+#docTasksFsBody .toggleSwitch input:checked + .toggleSwitchTrack { background: var(--text); }
+.docTasksFsActions { justify-content: flex-end; }
+.docTasksFsActions .docTasksCancelBtn { flex: none; margin-right: auto; padding: 8px 12px; border: 0; background: none; color: var(--text-light); font: inherit; font-size: 14px; cursor: pointer; }
+#docTasksFsBody:has(.cmpRemove--corner) { padding-top: 26px; } /* la croix rouge ne recouvre pas l'interrupteur */

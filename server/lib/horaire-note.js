@@ -1,5 +1,5 @@
 // Module « Horaire » : lecture de la NOTE d'un employé (28 oct. 2026, demande d'Émilien). Une seule case de texte libre par employé ;
-// la génération y reconnaît six expressions (casse et accents ignorés) et les applique comme des règles ; le reste de la note est un
+// la génération y reconnaît six formules EXACTES (casse et accents ignorés) et les applique comme des règles ; le reste de la note est un
 // texte libre, repris dans le prompt pour l'IA et dans « À vérifier ». Même lecture côté écran : public/js/horaire.js (noteParts).
 const RULES = [
   ['noDouble', 'Jamais de double'], ['restAfterShift', 'Repos après un quart'], ['noMorning', 'Pas de matin'],
@@ -13,10 +13,11 @@ function parseNote(note) {
   const rules = new Set();
   const rest = [];
   String(note || '').split(/[;\n]/).map((p) => p.trim()).filter(Boolean).forEach((part) => {
-    const f = fold(part).replace(/[.!]+$/, '');
-    let found = null;
-    KEYS.forEach(([k, label]) => { if (f.includes(label)) { rules.add(k); if (f === label) found = k; } });
-    if (!found) rest.push(part);
+    // Règle EXACTE seulement (29 oct. 2026, décision d'Émilien) : le morceau, normalisé (casse, accents, espaces, « . » ou « ! » final),
+    // doit être égal à une formule ; « Pas de matin sauf samedi » n'est pas appliqué : c'est une note libre (« À vérifier »).
+    const f = fold(part).replace(/[.!]+$/, '').trim();
+    const hit = KEYS.find(([, label]) => f === label);
+    if (hit) rules.add(hit[0]); else rest.push(part);
   });
   return { rules, rest: rest.join(' ; ') };
 }

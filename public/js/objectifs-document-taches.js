@@ -182,7 +182,7 @@
   function loadDrive() {
     driveView = 'main'; driveFile = null; driveErr = '';
     dApi('GET', '/api/drive/status').then(function (s) { driveSt = s; renderDrive(); if (s.connected && s.folderChosen) { loadSync(); } else { syncSt = null; renderSync(); } })
-      .catch(function () { driveSt = { configured: false }; renderDrive(); });
+      .catch(function (e) { driveSt = /Module désactivé/i.test((e && e.message) || '') ? { moduleOff: true } : { configured: false }; renderDrive(); });
   }
   function loadFiles() {
     dApi('GET', '/api/drive/files').then(function (r) { driveList = r.files || []; renderDrive(); })
@@ -255,23 +255,25 @@
     $('docTasksFsTitle').innerHTML = FOLDER_ICON + esc(f.name || 'Dossier');
     $('docTasksFsBody').innerHTML = '<div class="docTasksPauseRow"><span>Mettre en pause</span><label class="toggleSwitch"><input type="checkbox" id="docTasksFsPause" aria-label="Mettre en pause"' + (f.paused ? ' checked' : '') + '><span class="toggleSwitchTrack"></span></label></div>'
       + (f.paused ? '<p class="docTasksMeta">Surveillance en pause : ce dossier n’est plus analysé.</p>' : '')
-      + '<label class="docTasksCheck"><input type="checkbox" id="docTasksFsAuto"' + (f.mode === 'auto' ? ' checked' : '') + '> Ajouter automatiquement les nouvelles tâches (sinon elles te sont proposées pour validation)</label>'
       + '<label class="docTasksMeta" for="docTasksFsInstr">Consigne permanente (facultative)</label>'
       + '<textarea id="docTasksFsInstr" class="docTasksInstr" rows="2" maxlength="1500" placeholder="' + esc(dflt.replace(/[\s.…]+$/, '') + '…') + '">' + esc(f.instruction) + '</textarea>'
       + (fsConfirm
         ? '<div class="docTasksConfirm">Ne plus surveiller ce dossier ? <button type="button" class="docTasksLink" data-f="removeYes">Retirer</button> <button type="button" class="docTasksLink" data-f="removeNo">Annuler</button></div>'
-        : '<div class="docTasksFsActions"><button type="button" class="historyRowIconBtn danger docTasksFolderIconBtn" data-f="remove" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller">' + TRASH_ICON + '</button><button type="button" class="docTasksApplyBtn" data-f="save">Enregistrer</button></div>')
+        : '<div class="docTasksFsActions">' + (fsNew ? '<button type="button" class="docTasksCancelBtn" data-f="cancelNew">Annuler</button>' : '') + '<button type="button" class="docTasksApplyBtn" data-f="save">Enregistrer</button></div>')
+      + (!fsNew && !fsConfirm ? '<button type="button" class="cmpRemove cmpRemove--corner" data-f="remove" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller"></button>' : '')
       + '<div class="docTasksCancelRow"><button type="button" class="docTasksLink" data-f="run">Synchroniser maintenant</button></div>'
       + (fsMsg ? '<p class="msg">' + esc(fsMsg) + '</p>' : '');
   }
-  function openFolderSet(id) { fsId = id; fsMsg = ''; fsConfirm = false; renderFolderSet(); $('docTasksFolderSetPop').classList.remove('hidden'); }
+  var fsNew = false; // vrai juste après le choix du dossier (premier enregistrement)
+  function openFolderSet(id, isNew) { fsId = id; fsNew = !!isNew; fsMsg = ''; fsConfirm = false; renderFolderSet(); $('docTasksFolderSetPop').classList.remove('hidden'); }
   function closeFolderSet() { $('docTasksFolderSetPop').classList.add('hidden'); fsId = null; }
   $('docTasksFsClose').addEventListener('click', closeFolderSet);
   $('docTasksFsBody').addEventListener('click', function (e) {
     var b = e.target.closest('[data-f]'); if (!b || !fsId) return;
     var a = b.getAttribute('data-f');
     function fail(err) { fsMsg = (err && err.message) || 'Erreur.'; renderFolderSet(); }
-    if (a === 'remove') { fsConfirm = true; renderFolderSet();
+    if (a === 'cancelNew') { closeFolderSet();
+    } else if (a === 'remove') { fsConfirm = true; renderFolderSet();
     } else if (a === 'removeNo') { fsConfirm = false; renderFolderSet();
     } else if (a === 'removeYes') {
       dApi('POST', '/api/drive/folder/remove', { folderId: fsId }).then(function (r) {
@@ -280,7 +282,7 @@
         if (driveSt.folderChosen) { loadSync(); } else { syncSt = null; renderSync(); }
       }).catch(fail);
     } else if (a === 'save') {
-      dApi('POST', '/api/drive/folder/settings', { folderId: fsId, mode: $('docTasksFsAuto').checked ? 'auto' : 'propose', instruction: $('docTasksFsInstr').value, paused: $('docTasksFsPause').checked })
+      dApi('POST', '/api/drive/folder/settings', { folderId: fsId, mode: 'propose', instruction: $('docTasksFsInstr').value, paused: $('docTasksFsPause').checked })
         .then(function (r) { driveSt.folders = r.folders || driveSt.folders; syncSt = r; renderSync(); renderFoldersPop(); closeFolderSet(); }).catch(fail);
     } else if (a === 'run') {
       fsMsg = 'Synchronisation…'; renderFolderSet();
@@ -297,7 +299,10 @@
   function renderDriveMain() {
     var h = $('docTasksDrive'), s = driveSt, html = '';
     if (!s) { h.innerHTML = ''; return; }
-    if (s.configured && s.isOwner === false) { h.innerHTML = ''; return; }
+    if (s.moduleOff) { // Drive passe par l'« Assistant IA » : désactivé dans Réglages > Modules, on le dit et on propose de le réactiver (au lieu de cacher Drive)
+      h.innerHTML = '<div class="docTasksDriveRow"><button type="button" class="docTasksDriveBtn" data-d="connect">Connecter Drive</button><p class="docTasksConsent">Drive utilise l’Assistant IA, désactivé dans Réglages &gt; Modules : il sera réactivé en connectant Drive.</p></div>' + (driveErr ? '<p class="msg">' + esc(driveErr) + '</p>' : ''); return;
+    }
+    if (s.configured && s.isOwner === false) { h.innerHTML = '<div class="docTasksDriveRow docTasksDriveOff" aria-disabled="true">Drive : seul le propriétaire de l’activité le connecte et le gère.</div>'; return; } // message au lieu d’un vide
     if (!s.configured) {
       h.innerHTML = '<div class="docTasksDriveRow docTasksDriveOff" aria-disabled="true">Connecter Drive <span class="goalsAddSoon">Bientôt</span></div>'; return;
     }
@@ -325,7 +330,11 @@
     var d = b.getAttribute('data-d'), id = b.getAttribute('data-id');
     driveErr = '';
     function fail(err) { driveErr = (err && err.message) || 'Erreur Drive.'; if (/reconnecte Drive/i.test(driveErr) && driveSt) driveSt.needsReconnect = true; renderDrive(); }
-    if (d === 'connect') {
+    if (d === 'enableAi') {
+      TMT.api('PUT', '/api/profile/' + TMT.getProfile().id + '/modules', { modules: { ai: true } }).then(function () { document.dispatchEvent(new Event('visibilitychange')); loadDrive(); }).catch(fail);
+    } else if (d === 'connect' && driveSt && driveSt.moduleOff) { // l'Assistant IA est coupé : on le réactive, puis on connecte Drive
+      TMT.api('PUT', '/api/profile/' + TMT.getProfile().id + '/modules', { modules: { ai: true } }).then(function () { document.dispatchEvent(new Event('visibilitychange')); return dApi('GET', '/api/drive/connect'); }).then(function (r) { if (r && r.url) window.location.href = r.url; }).catch(fail);
+    } else if (d === 'connect') {
       dApi('GET', '/api/drive/connect').then(function (r) { if (r && r.url) window.location.href = r.url; }).catch(fail);
     } else if (d === 'pickFolder') {
       foldersOpen = false; driveView = 'folders'; folderList = []; folderQuery = ''; folderSel = null; folderSeq++; clearTimeout(folderTimer); renderDrive();
@@ -338,7 +347,7 @@
       folderSel = null; var qc = $('docTasksFolderQ'); if (qc) { qc.focus(); } renderFolderSug();
     } else if (d === 'folderOk' && folderSel) {
       dApi('POST', '/api/drive/folder', { folderId: folderSel.id }).then(function (r) {
-        driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveSt.folders = r.folders || driveSt.folders; driveView = 'main'; driveFile = null; driveList = []; folderList = []; folderQuery = ''; folderSel = null; renderDrive(); loadFiles(); loadSync(); openFolderSet(r.folderId);
+        driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveSt.folders = r.folders || driveSt.folders; driveView = 'main'; driveFile = null; driveList = []; folderList = []; folderQuery = ''; folderSel = null; renderDrive(); loadFiles(); loadSync(); openFolderSet(r.folderId, true);
       }).catch(fail);
     } else if (d === 'openFolders') { folderRemoveId = null; foldersOpen = !foldersOpen; filesErr = ''; renderDrive(); if (foldersOpen) loadFiles();
     } else if (d === 'folderToggle') { folderExpanded[id] = !folderExpanded[id]; renderDrive();
@@ -392,13 +401,12 @@
   }
 
   // ---------- Pop-up « tâches ajoutées » (suppression directe d'une ligne, annulable) ----------
-  var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>'; // même SVG/classe que la corbeille de l'app (.historyRowIconBtn.danger)
   var popItems = [], popTimer = null;
   function popRender() {
     $('docTasksPopList').innerHTML = popItems.map(function (t, i) {
       var meta = [t.categoryLabel, dayOrWeekLabel(t)].filter(Boolean).join(' · ');
       return '<div class="docTasksPopRow"><span>' + esc(t.title) + '<div class="docTasksMeta">' + esc(meta) + '</div></span>'
-        + '<button type="button" class="historyRowIconBtn danger" data-p="' + i + '" aria-label="Supprimer cette tâche" title="Supprimer">' + TRASH_ICON + '</button></div>';
+        + '<button type="button" class="cmpRemove cmpRemove--corner" data-p="' + i + '" aria-label="Supprimer cette tâche" title="Supprimer"></button></div>';
     }).join('') || '<p class="hint">Plus aucune tâche dans cette liste.</p>';
   }
   function popOpen(list) { popItems = list; popRender(); $('docTasksPopToast').innerHTML = ''; $('docTasksAddedPop').classList.remove('hidden'); }
@@ -681,14 +689,14 @@
   function cbx(n) { return '<input type="checkbox" data-gid="' + esc(n.id) + '" aria-label="Sélectionner"' + (n.sleaves.length ? '' : ' disabled') + '>'; }
   function totalTxt(n) { return nTasks(n.leaves.length) + (isCh() ? '' : ' · ' + fmtH(n.mins)); }
   function allRow(n, txt) { return '<label class="ptAllRow" data-t="' + esc(txt) + '">' + cbx(n) + '<span class="ptAllTxt">' + txt + '</span></label>'; }
-  function changeHtml(l) { // une modification : « Pour toi / Pour X », titre, ancien → nouveau, raison, corbeille « Refuser »
+  function changeHtml(l) { // une modification : « Pour toi / Pour X », titre, ancien → nouveau, raison, croix rouge « Refuser »
     var c = l.task;
     return '<div class="ptTask docTasksChangeItem' + (c.mine ? '' : ' docTasksOther') + '" data-tid="' + c.id + '"><input type="checkbox" data-tid="' + c.id + '" aria-label="Appliquer"><div class="ptBody">'
       + (c.forName ? '<div class="docTasksChangeWhen"><span class="docTasksFor' + (c.mine ? ' me' : '') + '">' + (c.mine ? 'Pour toi' : 'Pour ' + esc(c.forName)) + '</span></div>' : '')
       + '<div class="ptLabel ptTaskTitle">' + esc(c.label) + ' · ' + esc(typeof window.t === 'function' ? window.t(c.fieldLabel) : c.fieldLabel) + '</div>'
       + '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>'
       + (c.reason ? '<div class="ptSub">' + esc(c.reason) + '</div>' : '')
-      + '</div><button type="button" class="historyRowIconBtn danger" data-pd="' + c.id + '" aria-label="Refuser" title="Refuser">' + TRASH_ICON + '</button></div>';
+      + '</div><button type="button" class="cmpRemove cmpRemove--corner" data-pd="' + c.id + '" aria-label="Refuser" title="Refuser"></button></div>';
   }
   function taskHtml(l) {
     if (isCh()) return changeHtml(l);
@@ -702,7 +710,7 @@
       h += '<div class="docTasksMeta">Choisis une catégorie : <select class="docTasksCat" data-pc="' + l.i + '"><option value="">—</option>'
         + pcats.map(function (c) { return '<option value="' + esc(c.key) + '">' + esc(c.label) + '</option>'; }).join('') + '</select></div>';
     }
-    return h + '</div><button type="button" class="historyRowIconBtn danger" data-pd="' + t.id + '" aria-label="Supprimer cette tâche" title="Supprimer">' + TRASH_ICON + '</button></div>';
+    return h + '</div><button type="button" class="cmpRemove cmpRemove--corner" data-pd="' + t.id + '" aria-label="Supprimer cette tâche" title="Supprimer"></button></div>';
   }
   function weeksHtml(g) {
     if (!g.wlist.length) return g.flat.map(taskHtml).join('');

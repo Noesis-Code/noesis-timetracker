@@ -1,6 +1,7 @@
 // Module « Horaire » : événements reçus par COURRIEL (fil de la boîte info@ du restaurant), extraction par règles, sans IA,
 // rien de personnel gardé. Données entièrement FICTIVES. Usage : node test/horaire-mail-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-horaire-mail-');
+process.env.HORAIRE_INBOUND_ENABLED = '1'; // réception désactivée par défaut (30 oct. 2026) : la logique reste testée interrupteur allumé
 process.env.HORAIRE_TODAY = '2026-10-29';
 const http = require('http');
 const express = require('express');
@@ -24,6 +25,14 @@ assert(M.findCovers('environ 40 personnes, puis 45 invités') === 45 && M.findCo
 assert(M.confirmHint('Voici le contrat signé') && !M.confirmHint('Voici nos options'), 'indice « confirmé probable »');
 assert(M.anonymousSubject('Mariage de Julie Tremblay') === 'Mariage' && M.anonymousSubject('Julie Tremblay') === null, 'sujet : noms propres retirés');
 assert(!/Julie|Tremblay/.test(M.ownText('Merci !\n> Julie Tremblay a demandé\nLe 2 nov. 2026, Julie Tremblay a écrit :\nancien texte')), 'texte cité ignoré');
+// Apostrophe (29 oct. 2026) : séparateur de mots dans le texte et dans le nom (« l'Amaro », « d'Amaro », « Salle d'honneur »).
+{
+  const fl = [{ id: 1, name: 'Véranda' }, { id: 2, name: 'Amaro' }, { id: 3, name: "Salle d'honneur" }];
+  const names = (t) => M.findFloors(t, fl).map((x) => x.name).join(',');
+  assert(names("à l'Amaro et à la véranda") === 'Amaro,Véranda' && names("…la véranda et l'Amaro") === 'Véranda,Amaro', 'planchers : « à l’Amaro et à la véranda » = deux planchers');
+  assert(names("près d'Amaro") === 'Amaro' && names('l’Amaro') === 'Amaro', 'planchers : « d’Amaro », « l’Amaro » seul');
+  assert(names('dans la Salle d’honneur') === "Salle d'honneur" && names("la salle d'honneur") === "Salle d'honneur", 'planchers : « Salle d’honneur » (nom avec apostrophe) reconnue');
+}
 
 (async () => {
   // ---- Mise en place : planchers, poste Serveur, un employé fictif disponible ----

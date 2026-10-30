@@ -429,7 +429,7 @@ async function collectBatches(userId, activityId, st, folderCfg, out) {
           if (r.type === 'errored' || r.type === 'canceled' || r.type === 'expired') return /credit balance/i.test(msg) || er.type !== 'invalid_request_error' ? { infra: true } : { infra: true, det: true };
           return { fail: true };
         }
-        aibudget.record(userId, r.message.model, r.message.usage, 'surveillance-drive-batch', undefined, 0.5); // lot = 50 % du prix, enregistré à la relève
+        aibudget.record(aibudget.keyFor(userId, activityId), r.message.model, r.message.usage, 'surveillance-drive-batch', undefined, 0.5); // lot = 50 % du prix, enregistré à la relève
         if (!cfg) return { infra: true }; // dossier retiré depuis la soumission : fichier non marqué
         try {
           const block = Array.isArray(r.message.content) ? r.message.content.find((b) => b.type === 'text') : null;
@@ -538,7 +538,7 @@ async function syncConnection(userId, activityId, opts) {
       const plan = drivechunks.plan(body0, f.name, isNew ? null : drivechunks.loadHashes(userId, activityId, f.id));
       if (plan.mode === 'none') { st.putFile.run(userId, activityId, f.id, f.modifiedTime, hash); drivechunks.saveHashes(userId, activityId, f.id, plan.hashes); out.unchangedBlocks = (out.unchangedBlocks || 0) + 1; continue; } // rien de nouveau (suppression / réordonnancement)
       if (plan.mode === 'partial') out.partialReads = (out.partialReads || 0) + 1;
-      const bud = aibudget.check(userId);
+      const bud = aibudget.check(aibudget.keyFor(userId, activityId));
       if (!bud.ok) { out.aiBlocked = true; out.aiResumesOn = bud.resumesOn; break; } // budget IA hebdomadaire : fichier non marqué, reprise à la tranche suivante
       if (!takeCall(userId)) { out.capReached = true; break; } // retentera demain (fichier non marqué comme vu)
       out.aiCalls++;
@@ -555,13 +555,13 @@ async function syncConnection(userId, activityId, opts) {
       // Les « modifications proposées » sortent du même appel que les tâches (1er segment du fichier seulement), sauf à la première lecture du fichier (rien à comparer).
       const poptsOf = (i) => ({ skipRate: true, callTaken: true, skipChanges: isNew || i > 0, model: DRIVE_MODEL });
       if (batch) {
-        try { const preps = await aibudget.runAs(userId, async () => { const a = []; for (const x of take) a.push(await prepOf(userId, activityId, bodyOf(x.t), poptsOf(x.i))); return a; }); queue.push({ f, meta, first: isNew, cfg, preps, segs: take }); }
+        try { const preps = await aibudget.runAs(aibudget.keyFor(userId, activityId), async () => { const a = []; for (const x of take) a.push(await prepOf(userId, activityId, bodyOf(x.t), poptsOf(x.i))); return a; }); queue.push({ f, meta, first: isNew, cfg, preps, segs: take }); }
         catch (e) { const o = errOutcome(e); if (o.det) (out.suspects = out.suspects || []).push(meta); if (!(o.det && out.aiOk) && ++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; }
         continue;
       }
       const outcomes = [];
       for (const x of take) {
-        try { const prop = await aibudget.runAs(userId, async () => callPrep(userId, activityId, await prepOf(userId, activityId, bodyOf(x.t), poptsOf(x.i)))); outcomes.push({ tasks: prop.tasks, truncated: isCut(prop), segHash: x.h }); }
+        try { const prop = await aibudget.runAs(aibudget.keyFor(userId, activityId), async () => callPrep(userId, activityId, await prepOf(userId, activityId, bodyOf(x.t), poptsOf(x.i)))); outcomes.push({ tasks: prop.tasks, truncated: isCut(prop), segHash: x.h }); }
         catch (e) { outcomes.push(errOutcome(e)); break; } // panne IA : le fichier n'est pas marqué, nouvel essai au prochain passage
       }
       settleFile(userId, activityId, meta, cfg, outcomes, existing, st, out);
@@ -598,9 +598,9 @@ function maxCostOf(params) {
 // un fichier à plusieurs segments dont seuls les premiers tiennent part par morceaux (la suite au passage suivant) ; le reste attend (non marqué vu).
 // Le coût réel est enregistré à la relève du lot. Soumission impossible : appels directs.
 async function submitQueue(userId, activityId, queue, st, existing, out) {
-  const bud = aibudget.check(userId);
+  const bud = aibudget.check(aibudget.keyFor(userId, activityId));
   if (!bud.ok) { out.aiBlocked = true; out.aiResumesOn = bud.resumesOn; return; }
-  const s0 = aibudget.status(userId);
+  const s0 = aibudget.status(aibudget.keyFor(userId, activityId));
   let remaining = s0.remaining; // déjà net des lots en vol et du plafond du jour
   const admitted = [];
   let estTotal = 0;
@@ -639,7 +639,7 @@ async function submitQueue(userId, activityId, queue, st, existing, out) {
     const outcomes = [];
     for (let n = 0; n < q.preps.length; n++) {
       try {
-        const prop = await aibudget.runAs(userId, async () => callPrep(userId, activityId, q.preps[n]));
+        const prop = await aibudget.runAs(aibudget.keyFor(userId, activityId), async () => callPrep(userId, activityId, q.preps[n]));
         outcomes.push({ tasks: prop.tasks, truncated: isCut(prop), segHash: q.segs[n].h });
       } catch (e) { outcomes.push(errOutcome(e)); break; }
     }

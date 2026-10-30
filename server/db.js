@@ -2352,6 +2352,8 @@ if (!columnExists('activity_members', 'confidential')) {
 if (!columnExists('users', 'aiMode')) {
   db.exec('ALTER TABLE users ADD COLUMN aiMode TEXT');
 }
+// Mode « autonome » supprimé (30 oct. 2026, Émilien) : seuls « partiel » et « absence » restent ; un compte « autonome » passe à « partiel » (il valide désormais chaque rangement). Idempotent.
+db.exec("UPDATE users SET aiMode = 'partiel' WHERE aiMode = 'autonome'");
 // Colonne conservée (réglage retiré le 19 oct. 2026 : la confirmation IA est toujours active) ; ne pas supprimer de données.
 if (!columnExists('users', 'aiConfirmEach')) {
   db.exec('ALTER TABLE users ADD COLUMN aiConfirmEach INTEGER NOT NULL DEFAULT 1');
@@ -2748,7 +2750,8 @@ for (const t of ['horaire_availabilities', 'horaire_timeoff']) {
 // time (29 oct. 2026) : heure du groupe (HH:MM, facultative) ; ses serveurs arrivent une heure avant (horaire-generation.js).
 // sourceKey (28 oct. 2026) : clé d'une réservation reçue par courriel (date|heure|couverts|numéro) : jamais deux fois le même événement.
 // typeIds (29 oct. 2026) : types de l'événement (JSON [id, …], plusieurs possibles) ; NULL = ancien événement, son typeId fait foi.
-for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER'], ['covers', 'INTEGER'], ['zoneId', 'INTEGER'], ['zoneRead', 'TEXT'], ['sourceKey', 'TEXT'], ['status', 'TEXT'], ['manual', 'TEXT'], ['mailHint', 'TEXT'], ['typeId', 'INTEGER'], ['clients', 'INTEGER'], ['lineManual', 'TEXT'], ['time', 'TEXT'], ['typeIds', 'TEXT']]) {
+// floorIds (29 oct. 2026) : planchers occupés (JSON [id, …], plusieurs possibles) ; NULL = ancien événement, son zoneId fait foi.
+for (const [col, type] of [['service', 'TEXT'], ['extra', 'INTEGER'], ['positionId', 'INTEGER'], ['covers', 'INTEGER'], ['zoneId', 'INTEGER'], ['zoneRead', 'TEXT'], ['sourceKey', 'TEXT'], ['status', 'TEXT'], ['manual', 'TEXT'], ['mailHint', 'TEXT'], ['typeId', 'INTEGER'], ['clients', 'INTEGER'], ['lineManual', 'TEXT'], ['time', 'TEXT'], ['typeIds', 'TEXT'], ['floorIds', 'TEXT']]) {
   if (!db.prepare('PRAGMA table_info(horaire_events)').all().some((c) => c.name === col)) db.exec('ALTER TABLE horaire_events ADD COLUMN ' + col + ' ' + type);
 }
 // Zones de la salle (28 oct. 2026, demande d'Émilien) : serveurs qui couvrent habituellement chaque zone, le matin et le soir.
@@ -2784,6 +2787,30 @@ CREATE TABLE IF NOT EXISTS horaire_event_type_ratios (
 if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === 'eventTypesInit')) db.exec('ALTER TABLE horaire_settings ADD COLUMN eventTypesInit INTEGER');
 // Famille d'un type d'événement (29 oct. 2026, règle d'Émilien) : 'service' (Serveur, Commis) ou 'bar' (Barman) ; NULL = déduite du nom.
 if (!db.prepare('PRAGMA table_info(horaire_event_types)').all().some((c) => c.name === 'family')) db.exec('ALTER TABLE horaire_event_types ADD COLUMN family TEXT');
+// Postes gérés par le gestionnaire (29 oct. 2026, demande d'Émilien) : les postes par défaut ne sont créés qu'au tout premier chargement
+// d'un compte sans aucun poste (positionsInit = 1 ensuite) ; un poste retiré n'est jamais recréé. Compte ayant déjà des postes :
+// marqué initialisé à sa prochaine lecture (server/lib/horaire.js, ensureDefaultPositions).
+if (!db.prepare('PRAGMA table_info(horaire_settings)').all().some((c) => c.name === 'positionsInit')) db.exec('ALTER TABLE horaire_settings ADD COLUMN positionsInit INTEGER');
+// Unité d'un ratio de type d'événement (29 oct. 2026, demande d'Émilien) : « 1 pour N clients » (NULL ou 'clients') ou « 1 pour N $ »
+// ('dollars' : prix par personne × clients ÷ N). Le seuil de prix (priceMin) et le second ratio (perClientsHigh) restent en base sans servir.
+if (!db.prepare('PRAGMA table_info(horaire_event_type_ratios)').all().some((c) => c.name === 'unit')) db.exec('ALTER TABLE horaire_event_type_ratios ADD COLUMN unit TEXT');
+// Spécification finale d'Émilien (29 oct. 2026) : deux colonnes par poste, « Clients » (perClients ; 0 = case vide, la colonne
+// est NOT NULL) et « Dollars » (perDollars, NULL = vide). Migration douce, une seule fois : un ratio en dollars passe dans Dollars.
+if (!db.prepare('PRAGMA table_info(horaire_event_type_ratios)').all().some((c) => c.name === 'perDollars')) {
+  db.exec('ALTER TABLE horaire_event_type_ratios ADD COLUMN perDollars INTEGER');
+  db.exec("UPDATE horaire_event_type_ratios SET perDollars = perClients, perClients = 0 WHERE unit = 'dollars'");
+}
+// Notes du compte (29 oct. 2026, demande d'Émilien) : textes libres créés par « + Ajouter une note », réutilisables pour tous les
+// employés ; jamais appliqués par la génération (seules les six formules exactes le sont), rappelés dans « À vérifier ».
+db.exec(`
+CREATE TABLE IF NOT EXISTS horaire_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_horaire_notes_user ON horaire_notes(userId);
+`);
 // Prix par personne (29 oct. 2026, demande d'Émilien) : price sur l'événement ($, facultatif) ; par type, un seuil de prix (priceMin) et,
 // par poste, un second ratio (perClientsHigh : « si prix ≥ seuil : 1 pour N clients »). NULL = comportement sans prix.
 if (!db.prepare('PRAGMA table_info(horaire_events)').all().some((c) => c.name === 'price')) db.exec('ALTER TABLE horaire_events ADD COLUMN price REAL');
@@ -2900,6 +2927,35 @@ CREATE TABLE IF NOT EXISTS horaire_category_rules (
   rank INTEGER NOT NULL,
   rule TEXT NOT NULL,
   PRIMARY KEY (userId, rank, rule)
+);
+`);
+// Horaire éphémère (30 oct. 2026, décision d'Émilien : « aucun horaire ne se stocke dans l'app ») : horaire généré, quarts, rotation,
+// disponibilités, congés et couverts vivent seulement en mémoire (server/lib/horaire-ephemere.js). Les lignes déjà stockées sont
+// SUPPRIMÉES ; les tables restent vides (plus jamais écrites). Vidées à chaque démarrage : idempotent.
+db.exec(`
+DELETE FROM horaire_assignments;
+DELETE FROM horaire_schedules;
+DELETE FROM horaire_rotation;
+DELETE FROM horaire_availabilities;
+DELETE FROM horaire_timeoff;
+DELETE FROM horaire_covers;
+`);
+// Une seule fois (horaire_migrations) : VACUUM après cette suppression, pour que les données effacées ne restent pas dans les pages
+// libres du fichier SQLite. Base de taille modeste : quelques centaines de ms au démarrage ; réessayé au démarrage suivant en cas d'échec.
+if (!db.prepare("SELECT 1 FROM horaire_migrations WHERE name = 'ephemere-vacuum'").get()) {
+  try {
+    db.exec('VACUUM');
+    db.prepare("INSERT INTO horaire_migrations (name, doneAt) VALUES ('ephemere-vacuum', ?)").run(new Date().toISOString());
+  } catch (e) { /* réessayé au prochain démarrage */ }
+}
+// Refus d'un fil de courriel (30 oct. 2026) : quand le fil est purgé, seule une EMPREINTE reste (SHA-256 de userId + sujet déjà haché),
+// avec sa date, 90 jours ; aucun autre contenu. Un nouveau courriel dont l'empreinte est refusée ne recrée pas d'événement.
+db.exec(`
+CREATE TABLE IF NOT EXISTS horaire_refused_threads (
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  fingerprint TEXT NOT NULL,
+  refusedAt TEXT NOT NULL,
+  PRIMARY KEY (userId, fingerprint)
 );
 `);
 

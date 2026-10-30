@@ -66,8 +66,8 @@ function defaultServiceEnd(weekday, service) { return service === 'matin' ? '17:
 // opts.serviceEnds (objet, même vide) : chaque quart finit à la fin de son service ce jour-là (valeur du compte, sinon le défaut) ;
 // sans opts.serviceEnds (tests anciens) : la fin écrite dans le besoin.
 // Plancher occupé par un événement (28 oct. 2026, demande d'Émilien) : pour un poste Serveur, Barman ou Commis (opts.floorPositions),
-// le personnel EN PLUS = max(0, N de l'événement − nombre habituel de ce poste sur ce plancher, ce jour et ce service, opts.floorCounts).
-// Deux événements du même service sur le même plancher ne le déduisent qu'une fois (les premiers, par id, consomment l'habituel).
+// les N de l'événement REMPLACENT le nombre habituel M de ce poste sur ce plancher, ce jour et ce service (opts.floorCounts) : M − N
+// habituels retirés si N < M, N − M en plus si N > M (avec ou sans heure, 29 oct. 2026). Un plancher n'est déduit qu'une fois par service.
 // Autres postes, ou sans plancher : N s'ajoute.
 // Groupe avec heure (29 oct. 2026, règle d'Émilien) : ligne Serveur (opts.groupPositionId) d'un événement du soir qui a une heure :
 // ses N serveurs sont des créneaux indépendants (arrivée = heure − 60 min) et REMPLACENT les M serveurs habituels du plancher :
@@ -77,20 +77,29 @@ function isTimedGroup(l, opts) {
   const gp = opts && opts.groupPositionId != null ? Number(opts.groupPositionId) : null;
   return gp != null && l.pid === gp && l.g.service === 'soir' && toMin(l.g.time) !== null && toMin(l.g.time) >= 60;
 }
+// Plusieurs planchers (29 oct. 2026, demande d'Émilien) : l'habituel concerné est la SOMME des habituels des planchers occupés
+// (g.floorIds, sinon g.floorId) ; chaque plancher n'est déduit qu'une fois par service (le reste passe aux événements suivants).
 function floorExtra(lines, weekday, opts) {
   const counts = (opts && opts.floorCounts) || [];
   const fp = new Set(((opts && opts.floorPositions) || []).map(Number));
   const left = new Map();
   return lines.map((l) => {
-    const floor = l.g.floorId != null ? Number(l.g.floorId) : null;
-    if (floor == null || l.pid == null || !fp.has(l.pid)) return l;
-    const key = floor + '|' + l.pid + '|' + l.g.service;
-    const usual = counts.find((c) => Number(c.floorId) === floor && Number(c.positionId) === l.pid && Number(c.weekday) === weekday && c.service === l.g.service);
-    const rem = left.has(key) ? left.get(key) : (usual ? Number(usual.count) || 0 : 0);
-    if (isTimedGroup(l, opts)) { left.set(key, 0); return Object.assign({}, l, { replaced: rem, remove: rem }); }
-    const take = Math.min(rem, l.count);
-    left.set(key, rem - take);
-    return Object.assign({}, l, { count: l.count - take, replaced: take });
+    const floors = Array.isArray(l.g.floorIds) && l.g.floorIds.length ? l.g.floorIds.map(Number) : (l.g.floorId != null ? [Number(l.g.floorId)] : []);
+    if (!floors.length || l.pid == null || !fp.has(l.pid)) return l;
+    const keyOf = (f) => f + '|' + l.pid + '|' + l.g.service;
+    const remOf = (f) => {
+      if (left.has(keyOf(f))) return left.get(keyOf(f));
+      const usual = counts.find((c) => Number(c.floorId) === f && Number(c.positionId) === l.pid && Number(c.weekday) === weekday && c.service === l.g.service);
+      return usual ? Number(usual.count) || 0 : 0;
+    };
+    const rem = floors.reduce((s, f) => s + remOf(f), 0);
+    if (isTimedGroup(l, opts)) { floors.forEach((f) => left.set(keyOf(f), 0)); return Object.assign({}, l, { replaced: rem, remove: rem }); }
+    // Sans heure (réponse d'Émilien, 29 oct. 2026 : la règle du plancher ne dépend pas de l'heure) : les N REMPLACENT les habituels de
+    // ces planchers ; N < somme -> (somme − N) habituels retirés (les derniers arrivés) ; N > somme -> N − somme en plus, à la première
+    // arrivée habituelle. Les planchers sont alors pris : un 2e événement du service sur les mêmes planchers s'ajoute entièrement.
+    const took = Math.min(rem, l.count);
+    floors.forEach((f) => left.set(keyOf(f), 0));
+    return Object.assign({}, l, { count: l.count - took, replaced: took, remove: rem - took });
   });
 }
 function buildSlots(weekStart, needs, events, mainPositionId, opts) {

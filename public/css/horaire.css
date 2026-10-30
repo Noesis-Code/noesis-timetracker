@@ -82,11 +82,17 @@
 .horaireEvFloor { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-light); }
 #tab-horaire .horaireEvFloor select.horaireInput, #tab-horaire .horaireEvFloor button.horaireInput { min-height: 36px; padding: 4px; }
 #tab-horaire .horaireEvFloor button.horaireInput { padding: 4px 8px; text-align: left; cursor: pointer; }
-/* Types d'événements : Type | postes | ✕ ; carte : Type et Clients côte à côte ; ligne « manuel » */
-.horaireSheet.horaireTypes { min-width: 760px; }
-#tab-horaire .horaireTypes .horaireTypeFam { margin: 0; }
+/* Types d'événements (29 oct. 2026) : Type | Clients | Dollars | ✕ ; une ligne par type (nom), une ligne par poste de sa famille.
+   Un type sur deux d'une autre teinte, nom et postes ensemble : verre calme, puis violet translucide (R11/R14) */
+.horaireSheet.horaireTypes { min-width: 0; }
+.horaireTypes .horaireSheetRow.horaireTypeEven { background: var(--glass-bg); }
+.horaireTypes .horaireSheetRow.horaireTypeAlt { background: var(--glass-gray); }
+.horaireTypes .horaireSheetCell { white-space: normal; padding-left: 8px; padding-right: 8px; }
 .horaireTypes .horaireSheetCell:first-child { justify-content: flex-start; padding: 0 12px; }
-.horaireTypes .horaireSheetEdit.editing:first-child { padding: 0 4px; }
+.horaireTypes .horaireSheetEdit.editing { padding: 0 4px; }
+.horaireTypes .horaireTypeName { flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding-top: 8px; padding-bottom: 8px; }
+.horaireTypeName > .horaireSheetEdit { display: flex; align-items: center; min-height: 28px; font-weight: 600; }
+.horaireTypes .horaireSheetCell.horaireTypePos { padding-left: 24px; font-size: 13px; color: var(--text-light); }
 .horaireTypeCell { font-size: 13px; }
 .horaireTypeCell .horaireSheetInput { width: 64px; }
 .horaireEvTypeRow { display: flex; gap: 8px; }
@@ -99,10 +105,6 @@
 .horaireEvHint { font-size: 13px; }
 .cmpBtn.horaireEvValidate { min-height: 44px; padding: 0 12px; background: none; color: var(--purple); box-shadow: inset 0 0 0 1px var(--purple); }
 .horaireCalPill.pending { background: var(--hover-bg); color: var(--text-light); }
-/* Adresse de réception des courriels d'événements (Paramètres > Général) */
-.horaireInbound { display: flex; align-items: center; gap: 12px; font-size: 13px; }
-.horaireInboundText { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.horaireInbound > .cmpBtn { width: auto; min-height: 44px; padding: 0 16px; }
 .horaireCalMonth.past { opacity: .5; cursor: default; }
 .horaireCalMonthName { font-size: 13px; font-weight: 600; }
 .horaireCalMini .horaireCalHead { padding: 2px; font-size: 13px; }
@@ -128,6 +130,12 @@
 /* Un tableau par catégorie (titre .cmpBlockTitle au-dessus, R41) ; le conteneur des tableaux porte le trait d'insertion du glisser */
 /* Menu du poste (étapes 1 et 3) : composant du filtre des Statistiques, sans marge propre */
 #tab-horaire .horairePosPicker { margin: 0; align-self: flex-start; }
+/* Postes gérés dans le menu Poste : nom | ✎ | ✕, puis « + Ajouter un poste » (composants .cmpEdit, .cmpRemove, .cmpAdd) */
+#tab-horaire .horairePosPicker .statsPeriodMenu { min-width: 240px; }
+.horairePosRow { display: flex; align-items: center; gap: 8px; padding-right: 8px; }
+.horairePosRow .statsPeriodMenuItem { flex: 1 1 auto; min-width: 0; }
+.horairePosRow .horaireSheetInput { flex: 1 1 auto; min-width: 0; margin: 8px 0 8px 12px; }
+#tab-horaire .horairePosPicker .cmpAdd { margin: 8px; width: calc(100% - 16px); }
 /* Employés : menu du poste à gauche, trombone commun (R39, import d'un document) à droite, sur la même ligne */
 .horaireEmpTop { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .horaireEmpTop > .chatAttachBtn { position: static; width: 44px; height: 44px; }
@@ -139,7 +147,12 @@
 /* Croix officielle de retrait en bout de ligne (R32, .cmpRemove ; zone de toucher 44 px, R25) */
 .horaireSheetRemove { justify-content: center; padding: 0; }
 /* G5 : ligne grise des expressions reconnues, sous le titre « Note » */
-.horaireSheetNote { white-space: normal; padding-top: 8px; padding-bottom: 8px; line-height: 1.35; }
+.horaireSheetNote { white-space: normal; padding-top: 8px; padding-bottom: 8px; line-height: 1.35; flex-wrap: wrap; gap: 4px; cursor: pointer; }
+/* Note d'un employé (29 oct. 2026) : une pastille par note (un clic la retire) ; la cellule ouvre la liste des notes */
+.horaireNotePill { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.horaireNoteRow { display: flex; align-items: center; padding-right: 8px; }
+.horaireNoteRow .horaireMenuItem { flex: 1 1 auto; min-width: 0; }
+.horaireMenu .horaireNoteAdd { margin: 8px 12px; width: calc(100% - 24px); }
 .horaireSheetRow { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; border-top: 1px solid var(--sep); }
 .horaireSheetNew { display: flex; }
 .horaireSheetRow.dragging { position: relative; z-index: 6; opacity: .9; background: var(--pop-bg); box-shadow: var(--shadow-elevated); }
@@ -189,7 +202,7 @@
 .horaireAlerts { display: flex; flex-direction: column; gap: 4px; color: var(--violet-soft); }
 .horaireAlerts:empty { display: none; }
 /* Liste déroulante unie (R31 : les menus déroulants restent unis) */
-.horaireMenu { position: fixed; z-index: 400; min-width: 200px; max-height: 320px; overflow-y: auto; padding: 4px 0; background: var(--pop-bg); border: 1px solid var(--sep); border-radius: var(--radius-md); box-shadow: var(--shadow-elevated); }
+.horaireMenu { position: fixed; z-index: 400; min-width: 200px; max-height: min(320px, 60vh); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 4px 0; background: var(--pop-bg); border: 1px solid var(--sep); border-radius: var(--radius-md); box-shadow: var(--shadow-elevated); }
 .horaireMenuItem { display: block; width: 100%; min-height: 44px; padding: 0 16px; border: 0; background: none; font: inherit; font-size: 14px; color: var(--text); text-align: left; cursor: pointer; }
 .horaireMenuItem:hover, .horaireMenuItem.on { background: var(--hover-bg); }
 .horaireMenuRemove { border-top: 1px solid var(--sep); color: var(--text-light); }

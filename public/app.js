@@ -2045,7 +2045,7 @@
     if (users.length === 0) {
       // Un profil qui n'a pas coché « Être trouvable à la connexion » n'apparaît jamais dans cette recherche (voir GET /api/users) : on indique la voie qui marche, la connexion par courriel (29 oct. 2026).
       var none = document.createElement('p');
-      none.className = 'hint';
+      none.className = 'hint switchLink'; // switchLink : le lien prend la couleur des autres liens de l'écran
       none.appendChild(document.createTextNode(t('Aucun profil trouvé.') + ' ' + t('Tu as choisi de ne pas être trouvable ?') + ' '));
       var viaMail = document.createElement('a');
       viaMail.href = '#';
@@ -3479,7 +3479,6 @@
   // cette classe, mais elle reste utilisée telle quelle par le flux "En ce
   // moment" de Communauté (voir styles.css, ~ligne 886) — un autre
   // appelant, un autre territoire.
-  var CHRONO_HISTORY_DELETE_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
 
   function buildChronoHistoryEntry(entry, onChanged) {
     var row = document.createElement('div');
@@ -3527,9 +3526,8 @@
     editBtn.innerHTML = TMT.ui.editIcon();
     var delBtn = document.createElement('button');
     delBtn.type = 'button';
-    delBtn.className = 'historyRowIconBtn danger';
+    delBtn.className = 'cmpRemove cmpRemove--corner';
     delBtn.setAttribute('aria-label', t('Supprimer'));
-    delBtn.innerHTML = CHRONO_HISTORY_DELETE_ICON;
     top.appendChild(editBtn);
     display.appendChild(top);
 
@@ -3596,10 +3594,8 @@
         '<button type="button" class="iconBtn historyEditSave">' + t('Enregistrer') + '</button>' +
       '</div>';
     row.appendChild(editFields);
-    // 5 oct. 2026 (Emilien) : la corbeille quitte la ligne (à côté de ✎) ; elle est tout à gauche
-    // de la zone d'édition, à gauche du bouton Annuler.
-    delBtn.classList.add('historyEditDelete');
-    editFields.querySelector('.rowActions').insertBefore(delBtn, editFields.querySelector('.rowActions').firstChild);
+    // R32 : croix rouge officielle en haut à droite de la zone d'édition (plus de corbeille).
+    editFields.appendChild(delBtn);
 
     var startInput = editFields.querySelector('.historyEditStart');
     var endInput = editFields.querySelector('.historyEditEnd');
@@ -8698,14 +8694,14 @@
         return '<label class="reportReason"><input type="radio" name="reportReason" value="' + r[0] + '"' + (i === 0 ? ' checked' : '') + '> ' + escapeHtml(t(r[1])) + '</label>';
       }).join('') +
       '<div class="chatComposerRow"><textarea rows="2" maxlength="300" placeholder="' + escapeHtml(t('Précision (facultatif)')) + '"></textarea>' +
-      '<button type="button" class="iconBtn btnBrique">' + escapeHtml(t('Envoyer')) + '</button></div>' +
+      '<button type="button" class="cmpSend" aria-label="' + escapeHtml(t('Envoyer')) + '"></button></div>' +
       '<p class="msg"></p>';
     ov.appendChild(card);
     document.body.appendChild(ov);
     function close() { ov.remove(); }
     card.querySelector('.reportClose').addEventListener('click', close);
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
-    var send = card.querySelector('.iconBtn'), msgEl = card.querySelector('.msg');
+    var send = card.querySelector('.cmpSend'), msgEl = card.querySelector('.msg');
     send.addEventListener('click', function () {
       send.disabled = true; msgEl.textContent = '';
       api('POST', '/api/community/activity-messages/' + messageId + '/report', {
@@ -8926,7 +8922,7 @@
   // (activity_message_reads). Jamais affichée quand le fil est à l'écran.
   function setDiscTabDot(count) {
     var dot = $('goalsPage2DiscDot');
-    if (dot) dot.classList.toggle('hidden', !count || discussionVisible);
+    if (dot) dot.classList.add('hidden'); // pas de point sans numéro (demande d'Émilien, 30 oct. 2026)
   }
 
   // Point rouge sur les puces d'activité de la Feuille de route (Page 1).
@@ -8934,7 +8930,7 @@
     var by = TMT.unreadByActivity || {};
     document.querySelectorAll('.goalsCaptureActivityChip[data-activity-id]').forEach(function (chip) {
       var dot = chip.querySelector('.goalsCaptureUnreadDot');
-      var n = by[chip.dataset.activityId] || 0;
+      var n = 0; // plus de point sur les puces d'activité (demande d'Émilien, 30 oct. 2026) : seule la pastille avec le nombre de tâches reste
       if (n && !dot) {
         dot = document.createElement('span');
         dot.className = 'goalsCaptureUnreadDot';
@@ -8955,9 +8951,7 @@
       if (discussionActivityId) setDiscTabDot(data.byActivity[discussionActivityId] || 0);
       TMT.unreadByActivity = data.byActivity || {};
       syncUnreadChipDots();
-      // Point rouge sur l'icône « Feuille de route » de la barre d'onglets.
-      var tabDot = $('goalsTabUnreadDot');
-      if (tabDot) tabDot.classList.toggle('hidden', !data.total);
+      // Aucun point sur les icônes de la barre d'onglets (demande d'Émilien, 30 oct. 2026).
     }).catch(function () { /* sans conséquence : la pastille reste telle quelle */ });
   }
 
@@ -10938,8 +10932,7 @@
       txt.title = u.icsUrl;
       var del = document.createElement('button');
       del.type = 'button';
-      del.className = 'historyRowIconBtn danger';
-      del.innerHTML = typeof CHRONO_HISTORY_DELETE_ICON !== 'undefined' ? CHRONO_HISTORY_DELETE_ICON : '🗑';
+      del.className = 'cmpRemove cmpRemove--corner';
       del.setAttribute('aria-label', t('Supprimer cette adresse'));
       del.addEventListener('click', function () {
         TMT.confirmDelete({
@@ -11014,16 +11007,15 @@
       setMode(row.dataset.mode);
       var del = document.createElement('button');
       del.type = 'button';
-      del.className = 'historyRowIconBtn danger';
-      del.innerHTML = typeof CHRONO_HISTORY_DELETE_ICON !== 'undefined' ? CHRONO_HISTORY_DELETE_ICON : '\ud83d\uddd1';
+      del.className = 'cmpRemove cmpRemove--corner';
       del.setAttribute('aria-label', t('Supprimer cette règle'));
       del.addEventListener('click', function () {
         extCalRules = extCalRulesFromDom();
         extCalRules.splice(idx, 1);
         renderExtCalRules();
       });
-      line.appendChild(seg); line.appendChild(hrs); line.appendChild(del);
-      row.appendChild(lab); row.appendChild(words); row.appendChild(line);
+      line.appendChild(seg); line.appendChild(hrs);
+      row.appendChild(del); row.appendChild(lab); row.appendChild(words); row.appendChild(line);
       box.appendChild(row);
     });
     var rb = $('extCalRulesBlock');
@@ -12163,10 +12155,14 @@
   // que le reste de l'app (gère needsLogin/erreurs de façon cohérente)
   // plutôt qu'un fetch dédié, puis on reconstruit un fichier téléchargeable
   // à partir de l'objet reçu — pas besoin d'un second aller-retour réseau.
+  // 30 oct. 2026 (confidentialité) : l'export contient des noms de tiers ; il redemande d'abord le mot de passe (fenêtre commune).
   $('exportDataBtn').addEventListener('click', function () {
-    $('exportDataBtn').disabled = true;
     $('exportDataMsg').textContent = '';
-    api('GET', '/api/profile/export')
+    TMT.ui.confirm(t('Saisis ton mot de passe pour exporter tes données.'), { ok: t('Exporter mes données'), closeLabel: t('Fermer'), input: { type: 'password', maxLength: 128, label: t('Mot de passe'), placeholder: t('Mot de passe') } }).then(function (pwd) {
+    if (pwd === false) return;
+    $('exportDataBtn').disabled = true;
+    api('POST', '/api/session/reauth', { password: pwd })
+      .then(function () { return api('GET', '/api/profile/export'); })
       .then(function (data) {
         var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         var url = URL.createObjectURL(blob);
@@ -12185,6 +12181,7 @@
       .finally(function () {
         $('exportDataBtn').disabled = false;
       });
+    });
   });
 
   // ===================== AIDE ET SUGGESTIONS (8 septembre 2026, demande d'Emilien) =====================

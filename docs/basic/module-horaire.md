@@ -177,10 +177,18 @@ disponibilité qui finit à 23:59 couvre jusqu'à minuit. Prompt d'inscription :
 Paramètres > Événements = calendrier des événements (Jour | Mois | Année), en saisie manuelle : plusieurs événements par service, lignes
 « Poste · +N ». PAS de prompt pour lire OpenTable : le prompt des événements, son éditeur et l'import par collage
 (`POST weeks/:lundi/import/events`, `GET events-prompt`) sont retirés ; un texte personnalisé déjà enregistré reste en base sans usage
-(`horaire_settings.eventsPrompt`, S6). La voie automatique prévue est la réception du rapport par courriel ci-dessous ; ses réglages
+(`horaire_settings.eventsPrompt`, S6). **30 oct. 2026 (décision d'Émilien) : pas de synchronisation, « pour le moment »** : le gérant saisit
+les événements à la main chaque semaine. La réception par courriel ci-dessous est désactivée (voir l'interrupteur) ; ses réglages
 (ratio `openTableCovers` du poste Serveur, 20 par défaut ; seuil `groupMin`, 10 par défaut) restent en base, sans affichage.
 
-## Événements reçus par COURRIEL (29 oct. 2026, chantier validé par Émilien)
+## Événements reçus par COURRIEL (29 oct. 2026 ; DÉSACTIVÉ le 30 oct. 2026)
+**État actuel : éteint.** Décision d'Émilien du 30 oct. 2026 : on laisse tomber la synchronisation « pour le moment ». Un seul interrupteur,
+`HORAIRE_INBOUND_ENABLED` (absent par défaut ; `1` le rallume), dans `server/routes/horaire.js` : éteint, `POST /api/horaire/inbound/mail/<jeton>`
+et `POST /api/horaire/inbound/reservations/<jeton>` répondent 404 sans rien lire ni stocker. L'interface (adresse du compte, « Copier
+l'adresse », « Mon adresse courriel », Gmail | Outlook, étapes de transfert, code de confirmation Gmail) est retirée de Paramètres > Général
+(R26). Le code serveur, les tables et les routes avec session (`GET/PUT /horaire/inbound`, `revoke`) restent pour revenir plus tard (S6).
+Les événements déjà reçus « à valider » restent visibles, validables et supprimables à la main. Ce qui suit décrit le fonctionnement allumé.
+
 Les courriels de la boîte info@ du restaurant arrivent (quand le fournisseur sera branché) sur `POST /api/horaire/inbound/mail/<jeton>`
 (sans session ; jeton secret du compte, 404 si inconnu, 403 si le compte n'est pas entreprise, 1 Mo et 60 courriels par heure au plus).
 Formats lus : Mailgun (`subject`, `body-plain`/`stripped-text`, `Message-Id`, `In-Reply-To`, `References`, `Date`, `message-headers`),
@@ -209,7 +217,8 @@ une copie des courriels d'événements vers l'adresse secrète affichée dans Pa
    `https://<app>/api/horaire/inbound/mail/<jeton>`. Variable : `HORAIRE_INBOUND_DOMAIN=horaire.<domaine>`.
 Sans `HORAIRE_INBOUND_DOMAIN`, aucune adresse n'est affichée.
 
-## Réception automatique du rapport de réservations par courriel (28 oct. 2026, option choisie par Émilien)
+## Réception automatique du rapport de réservations par courriel (28 oct. 2026 ; DÉSACTIVÉE le 30 oct. 2026)
+**État actuel : éteint** par le même interrupteur `HORAIRE_INBOUND_ENABLED` (404 sans rien lire ni stocker). Ce qui suit décrit le fonctionnement allumé.
 Partie app seulement : AUCUN fournisseur n'est inscrit, aucun frais engagé ; le choix revient à Émilien.
 - Chaque compte a une adresse secrète `horaire-<jeton>@<HORAIRE_INBOUND_DOMAIN>` (jeton de 64 caractères hexadécimaux, révocable :
   `POST /api/horaire/inbound/revoke`). L'adresse n'est pas encore affichée dans l'interface (`GET /api/horaire/inbound` la renvoie quand `HORAIRE_INBOUND_DOMAIN` est posé).

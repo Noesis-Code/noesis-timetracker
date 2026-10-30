@@ -1343,7 +1343,7 @@
               <button type="button" id="communityDiscussionAttachBtn" class="chatAttachBtn" aria-label="Joindre un fichier" title="Joindre une image ou un PDF">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
               </button>
-              <button type="button" id="communityDiscussionSendBtn" class="iconBtn btnBrique">Envoyer</button>
+              <button type="button" id="communityDiscussionSendBtn" class="cmpSend" aria-label="Envoyer"></button>
             </div>
             <div id="communityDiscussionPending" class="chatPendingFile hidden"></div>
             <p id="communityDiscussionMsg" class="msg"></p>
@@ -2368,7 +2368,7 @@
           </button>
           <input type="file" id="profileDiscussionAttachInput" class="hidden">
           </div>
-          <button type="button" id="profileDiscussionCommunitySendBtn" class="iconBtn btnBrique">Envoyer</button>
+          <button type="button" id="profileDiscussionCommunitySendBtn" class="cmpSend" aria-label="Envoyer"></button>
           </div></div>
           <div id="profileDiscussionPendingList" class="attachmentList hidden"></div>
           <p id="profileDiscussionCommunityMsg" class="msg"></p>
@@ -3057,7 +3057,7 @@
                         </button>
                         <input type="file" id="feedbackAttachInput" class="hidden">
                       </div>
-                      <button type="button" id="feedbackSendBtn" class="btn btn-primary btn-small btnBrique">Envoyer</button>
+                      <button type="button" id="feedbackSendBtn" class="cmpSend" aria-label="Envoyer"></button>
                     </div></div>
                     <p class="hint">N'écris pas de mot de passe, de NIP, de numéro de carte ni d'autre renseignement sensible dans ce message ou dans une pièce jointe.</p>
                     <div id="feedbackPendingList" class="attachmentList hidden"></div>
@@ -3175,7 +3175,7 @@
 
 
             <!-- 19 oct. 2026 (Emilien) : « Gestion de l'IA » et « Connecter mon IA » fusionnées en une seule section « Mon IA ».
-                 Mode Autonome / Partiel / Absence : TMT.renderAiModeSection() (public/js/objectifs-page1.js).
+                 Mode Partiel / Absence : TMT.renderAiModeSection() (public/js/objectifs-page1.js).
                  Connexion MCP simplifiée : public/js/connexion-ia.js. -->
             
 
@@ -3318,7 +3318,6 @@
           <polygon points="729,151 612,186 635,253 708,287"/>
         </svg>
       </span>
-      <span class="tabBtnDot hidden" id="goalsTabUnreadDot" aria-hidden="true"></span>
       <span class="tabLabel">Feuille de route</span>
     </button>
     <button class="tabBtn" data-tab="community" aria-label="Communauté">
@@ -3447,7 +3446,7 @@
       <p>L'accès aux Services est réservé aux personnes âgées de 16 ans ou plus. La Société peut suspendre ou résilier tout Compte créé par une personne n'ayant pas atteint cet âge.</p>
       <p>Le mécanisme de consentement parental pour un mineur de 16-17 ans, décrit ci-dessous, ne s'applique qu'à la souscription de l'Expansion — non pertinent tant que celle-ci n'existe pas.</p>
       <p>L'abonnement payant à l'Expansion, le jour où elle existera, constituerait un engagement financier récurrent excédant les besoins ordinaires et usuels d'un mineur au sens de l'article 157 du Code civil du Québec. La souscription à l'Expansion serait alors réservée aux personnes majeures (18 ans ou plus) ou, pour un mineur de 16 ou 17 ans, subordonnée au consentement exprès de son représentant légal, recueilli au moment de la souscription au moyen d'une case à cocher distincte.</p>
-      <p>L'écran de connexion permet de retrouver un Compte existant en tapant au moins 3 caractères d'un nom : le prénom et le nom de famille complets des personnes correspondantes (jusqu'à 5 résultats) s'affichent alors avant toute connexion, et le nombre de recherches possibles est limité. L'Utilisateur y consent par une case distincte, cochée à l'inscription. Le détail de cette fonction figure dans la politique de confidentialité (section 4.1).</p>
+      <p>L'écran de connexion permet de retrouver un Compte existant en tapant au moins 3 caractères d'un nom : le prénom et le nom de famille complets des personnes correspondantes (jusqu'à 5 résultats) s'affichent alors avant toute connexion, et le nombre de recherches possibles est limité. L'Utilisateur y consent par une case distincte, cochée à l'inscription. Sans cette case, le profil n'apparaît dans aucune liste ni recherche partielle : il reste retrouvable seulement en tapant son prénom et son nom complets exacts, ce qui est nécessaire pour se connecter. Le détail de cette fonction figure dans la politique de confidentialité (section 4.1).</p>
 
       <h3>6. Prix, facturation et taxes — non applicable tant que l'Expansion n'existe pas</h3>
       <p>Les frais d'abonnement à l'Expansion, le jour où elle existera, seraient facturés avant le début de chaque mois de service, via Stripe. En cas d'échec de paiement, l'accès à l'Expansion pourrait être suspendu jusqu'à régularisation.</p>
@@ -3572,7 +3571,7 @@
       <p>Vous gardez la main à tout moment, depuis Profil → Réglages → Calendrier : régénérer l'adresse, désactiver le calendrier, ou supprimer votre compte (l'adresse est alors détruite avec le reste).</p>
       <p><strong>4.4 Personne d'autre.</strong> Nous ne vendons pas vos renseignements. Nous ne les louons pas. Nous ne les communiquons à aucun annonceur, courtier de données ou partenaire commercial. Nous ne les communiquerions à une autorité publique que si la loi nous y obligeait, et nous vous en informerions dans la mesure où la loi nous le permet.</p>
       <p><strong>4.5 Notre service d'envoi de courriels, si vous utilisez « Aide et suggestions ».</strong> Le formulaire « Aide et suggestions » du panneau Réglages vous permet d'envoyer un message libre à l'équipe de Noèsis, avec jusqu'à deux pièces jointes optionnelles (photo ou document, sans distinction entre les deux). Ce message — accompagné de votre prénom (ou pseudonyme) déjà associé à votre profil — est transmis par courriel, à l'aide de Resend, un sous-traitant américain d'envoi de courriels, à l'adresse compagnie.noesis@gmail.com, une boîte de réception Gmail (service de Google) : le message est donc aussi conservé dans cette boîte. Ce transfert vers les États-Unis est encadré par une entente écrite de traitement des données (DPA) signée avec Resend, qui lui impose des obligations de confidentialité et de sécurité. Resend conserve le contenu de ce courriel et les journaux d'envoi tant que notre compte y reste actif, et les supprime au plus tard 90 jours après sa fermeture. Comme pour les notes (section 2.2), évitez d'y inscrire des renseignements sensibles que vous ne voudriez pas voir transiter par ce canal, ni conserver, même temporairement, chez ces sous-traitants.</p>
-      <p><strong>4.6 Notre assistant d'intelligence artificielle, fourni par Anthropic.</strong> Dans l'Offre Gratuite, lorsque vous créez une tâche dans une activité, une intelligence artificielle fournie par Anthropic, un sous-traitant américain, vous propose un pôle et une section pour la ranger. Vous gardez la décision finale : à la première utilisation de cette fonction, vous choisissez le mode que vous préférez, et vous pouvez le changer à tout moment dans Réglages (section Mon IA), où trois options sont proposées : Partiel (la proposition vous est présentée dans une fenêtre que vous devez valider avant qu'elle ne s'applique), Autonome (le classement s'applique directement, sans validation de votre part ; vous pouvez ensuite déplacer vous-même la tâche) ou Absent (aucune suggestion, vous classez vous-même vos tâches). Vous pouvez nous demander quels renseignements ont servi à proposer un classement et pourquoi, à l'adresse de la section 1.</p>
+      <p><strong>4.6 Notre assistant d'intelligence artificielle, fourni par Anthropic.</strong> Dans l'Offre Gratuite, lorsque vous créez une tâche dans une activité, une intelligence artificielle fournie par Anthropic, un sous-traitant américain, vous propose un pôle et une section pour la ranger. Vous gardez la décision finale : à la première utilisation de cette fonction, vous choisissez le mode que vous préférez, et vous pouvez le changer à tout moment dans Réglages (section Mon IA), où deux options sont proposées : Partiel (la proposition vous est présentée dans une fenêtre que vous devez valider avant qu'elle ne s'applique) ou Absent (aucune suggestion, vous classez vous-même vos tâches). Aucun classement ne s'applique sans votre validation. Vous pouvez nous demander quels renseignements ont servi à proposer un classement et pourquoi, à l'adresse de la section 1.</p>
       <p>Dans l'Expansion (payante), qui n'existe pas encore dans l'application, si vous choisissez de remplir les formulaires prévus à cet effet, les données que vous y indiquerez — temps consacré à vos activités par semaine, jours les plus productifs, tâches déjà notées — seront transmises à Anthropic pour générer automatiquement une feuille de route quotidienne, qui s'adaptera chaque semaine à votre disponibilité de la semaine précédente. Une notification, accompagnée d'une fenêtre présentant les tâches proposées pour la journée, vous sera envoyée chaque jour.</p>
       <p>Ce qui peut être transmis à Anthropic : ce que vous saisissez dans l'application pour l'organiser, à savoir vos activités, vos pôles et sections, vos sessions chronométrées, vos tâches, vos notes, vos pièces jointes, vos préférences et, le jour où l'Expansion existera, vos réponses aux formulaires utilisés pour la feuille de route. Ne sont jamais transmis : votre prénom, votre nom de famille, votre numéro de téléphone, votre adresse courriel, votre photo, votre code PIN (nous n'en conservons qu'une version chiffrée), vos conversations (messages privés et discussions d'activité) et vos publications dans la Communauté. Dans le classement actuel des tâches, l'assistant reçoit le texte de la tâche et les noms des pôles et secteurs de l'activité. Ces renseignements peuvent être utilisés par l'assistant dès maintenant ou dans de nouvelles fonctions ; avant qu'une nouvelle fonction n'utilise vos renseignements à une fin nouvelle, nous vous en informons par courriel et dans l'application (section 9). Anthropic peut traiter ces renseignements partout dans le monde, dans le cadre du contrat de traitement des données conclu avec nous (conditions commerciales et addenda de traitement des données d'Anthropic). Anthropic fait appel à des sous-traitants dont la liste à jour est publique : anthropic.com/subprocessors. Selon les conditions commerciales d'Anthropic, celle-ci ne peut pas utiliser le contenu transmis par l'intermédiaire de l'API pour entraîner ses modèles. À la fin du contrat avec Anthropic, ces renseignements sont supprimés de ses systèmes dans un délai de 30 jours, sauf obligation légale, litige entre les parties ou nécessité de lutter contre un usage nuisible du service. Pendant le contrat, Anthropic supprime automatiquement de ses serveurs les renseignements transmis et les réponses de l'assistant dans les 30 jours suivant leur réception ou leur génération ; un contenu signalé par ses systèmes comme contraire à sa politique d'utilisation peut être conservé jusqu'à 2 ans. Les propositions de l'assistant peuvent être inexactes, incomplètes ou trompeuses : vérifiez-les avant de les accepter.</p>
       <p><strong>4.7 Notre support de stockage chiffré, si vous avez consenti à l'usage de la section 2.4.</strong> Les renseignements concernés peuvent être copiés, pour être analysés, sur un support de stockage chiffré détenu par Noèsis (ordinateur ou support amovible), sans passer par un service tiers. Seuls les dirigeants de Noèsis Inc. y ont accès. Nous n'y plaçons ni votre code PIN ni vos messages privés. Si vous retirez votre consentement ou supprimez votre compte, nous supprimons de ce support la copie qui vous concerne.</p>
@@ -3671,7 +3670,7 @@
     </div>
     <div class="legalTermsBody">
       <p>Noèsis recueille le minimum de renseignements, ne les vend pas, les héberge chez des fournisseurs liés par contrat et vous permet de les consulter, corriger ou supprimer. Pour joindre le responsable de la protection des renseignements personnels, faire une demande ou une plainte, écrivez à compagnie.noesis@gmail.com. Nous visons une réponse dans les 15 jours; la loi nous donne 30 jours. Si vous n'êtes pas satisfait de la réponse, vous pouvez vous adresser à la Commission d'accès à l'information du Québec.</p>
-      <p class="hint">Dernière mise à jour : 10 octobre 2026</p>
+      <p class="hint">Dernière mise à jour : 30 octobre 2026</p>
     </div>
   </div>
 </div>
@@ -3824,7 +3823,7 @@
       <p><strong>Ce qui n'est jamais transmis :</strong> votre prénom, votre nom, votre courriel, votre numéro de téléphone, votre photo, votre code PIN, vos messages privés, vos discussions d'activité et vos publications dans la Communauté.</p>
       <p>Évitez d'écrire des renseignements sensibles (santé, finances, vie privée) dans vos tâches, notes et pièces jointes si vous ne voulez pas qu'ils soient transmis.</p>
       <p>Anthropic peut traiter ces renseignements partout dans le monde, selon le contrat de traitement des données conclu avec Noèsis. Elle ne peut pas s'en servir pour entraîner ses modèles. Elle les supprime de ses serveurs dans les 30 jours. La liste de ses sous-traitants est publique : anthropic.com/subprocessors. Les propositions de Noèsis peuvent être inexactes : vérifiez-les.</p>
-      <p>Vous gardez la décision. Dans Réglages, section Mon IA, vous pouvez modifier ou désactiver l'aide de Noèsis à tout moment : « Autonome », « Partiel » ou « Absent » (aucune donnée transmise à Anthropic).</p>
+      <p>Vous gardez la décision. Dans Réglages, section Mon IA, vous pouvez modifier ou désactiver l'aide de Noèsis à tout moment : « Partiel » ou « Absent » (aucune donnée transmise à Anthropic).</p>
       <p>Questions ou demande sur vos renseignements : compagnie.noesis@gmail.com. Le détail est dans la section 4.6 de notre <a href="#" class="policy24Link">Politique de confidentialité</a>.</p>
     </div>
     <div class="marketingInviteActions">

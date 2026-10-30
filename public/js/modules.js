@@ -6,7 +6,7 @@
   'use strict';
   var TMT = window.TMT = window.TMT || {};
   var tr = function (s) { return typeof window.t === 'function' ? window.t(s) : s; };
-  var state = null, loadedFor = null, tradeAllowed = false, horaireAllowed = true;
+  var state = null, loadedFor = null, tradeAllowed = false, horaireAllowed = false; // Horaire : refusé tant que le serveur n'a pas répondu (jamais proposé par défaut à un compte individuel)
   var CACHE_KEY = 'noesis_modules';
   // Dernier état connu (démarrage hors ligne / avant la réponse du serveur) : évite un flash d'interface masquée ou non.
   // Un état où ni Chrono (stats), ni Feuille de route (roadmap), ni Horaire n'est actif n'est jamais valide (le serveur le refuse) : traité comme « tout actif ».
@@ -14,7 +14,7 @@
   try {
     var cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
     var lp = JSON.parse(localStorage.getItem('noesis_profile') || 'null');
-    if (cached && cached.state && lp && cached.id === lp.id && usable(cached.state)) state = cached.state;
+    if (cached && cached.state && lp && cached.id === lp.id && usable(cached.state)) { state = cached.state; horaireAllowed = cached.ha === true; }
     else if (cached) localStorage.removeItem(CACHE_KEY); // autre profil ou état invalide : cache vidé
   } catch (e) { /* cache illisible : tout actif */ }
   var box = document.getElementById('modulesList');
@@ -48,7 +48,7 @@
     try { document.dispatchEvent(new CustomEvent('tmt:modules')); } catch (e) { /* vieux navigateur */ }
   }
   function remember() {
-    try { if (usable(state) && pid()) localStorage.setItem(CACHE_KEY, JSON.stringify({ id: pid(), state: state })); } catch (e) { /* stockage plein */ }
+    try { if (usable(state) && pid()) localStorage.setItem(CACHE_KEY, JSON.stringify({ id: pid(), state: state, ha: horaireAllowed })); } catch (e) { /* stockage plein */ }
   }
   function setMsg(t) { if (msg) msg.textContent = t || ''; }
 
@@ -119,8 +119,8 @@
     var id = pid();
     // Toujours rafraîchi depuis le serveur, même avec un cache. Réponse inutilisable (tout coupé) = tout actif ; échec = on garde le dernier état valide et on réessaie.
     return call('GET').then(function (d) {
-      state = usable(d.modules) ? d.modules : null; tradeAllowed = !!d.tradeAllowed; horaireAllowed = d.horaireAllowed !== false; loadedFor = id; loadFails = 0; remember(); apply(); openFirstTab(); paint(); return state;
-    }).catch(function () { if (loadFails++ < 5) setTimeout(function () { if (loadedFor !== pid()) load(); }, 2000 * loadFails); return null; });
+      state = usable(d.modules) ? d.modules : null; tradeAllowed = !!d.tradeAllowed; horaireAllowed = d.horaireAllowed === true; loadedFor = id; loadFails = 0; remember(); apply(); openFirstTab(); paint(); return state;
+    }).catch(function () { if (loadFails++ < 30) setTimeout(function () { if (loadedFor !== pid()) load(); }, Math.min(2000 * loadFails, 6000)); return null; }); // serveur indisponible (déploiement) : on réessaie pendant ~3 min, la barre se complète dès la réponse
   }
   var loadFails = 0;
   // Retour au premier plan / du réseau : nouvel état serveur (un changement fait ailleurs, ou un GET manqué au démarrage).
@@ -171,7 +171,15 @@
   // Chargement au démarrage : dès que le profil est connu (réessaie brièvement), puis à l'ouverture de la section.
   apply();
   var tries = 0;
-  (function boot() { if (pid()) { load(); } else if (tries++ < 40) { setTimeout(boot, 500); } })();
+  // Surveillance continue du profil (avant : 40 essais en 20 s, puis plus rien) : une connexion faite après 20 s sur l'écran de connexion, ou après une déconnexion,
+  // ne chargeait jamais les modules (barre sans « + » ni Horaire). Dès qu'un profil est connu et différent du dernier chargé, on charge ; à la déconnexion on oublie l'état.
+  var loading = false;
+  setInterval(function () {
+    var p = pid();
+    if (!p) { if (loadedFor) { loadedFor = null; state = null; horaireAllowed = false; tradeAllowed = false; openedFirst = false; apply(); } return; }
+    if (loadedFor === p || loading) return;
+    loading = true; load().then(function () { loading = false; }, function () { loading = false; });
+  }, 1000);
   if (head) head.addEventListener('click', function () { if (loadedFor !== pid()) load(); else paint(); });
   // Traces « désactivé dans Modules » (Réglages) : un appui ouvre la section Modules.
   document.addEventListener('click', function (e) {

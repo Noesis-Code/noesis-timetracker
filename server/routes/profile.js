@@ -359,10 +359,29 @@ router.get('/users', (req, res) => {
       "WHERE directoryConsent = 1 AND (name || ' ' || COALESCE(lastName, '')) LIKE '%' || ? || '%' ESCAPE '\\' " +
       "LIMIT ?"
     ).all(escapeSqliteLike(q), USERS_SEARCH_MAX_RESULTS);
+    // Un profil qui n'a PAS accepté d'être listé reste trouvable par son nom complet EXACT (prénom puis nom de famille, majuscules ignorées) :
+    // sans cela il ne pourrait pas se connecter. Jamais par une saisie partielle, jamais dans une liste (29 oct. 2026, décision d'Émilien).
+    const words = q.split(/\s+/).filter(Boolean);
+    for (let i = 1; i <= words.length && rows.length < USERS_SEARCH_MAX_RESULTS; i++) {
+      const first = words.slice(0, i).join(' '), last = words.slice(i).join(' ');
+      db.prepare("SELECT id, name, lastName, color, pin FROM users WHERE COALESCE(directoryConsent, 0) <> 1 AND name = ? COLLATE NOCASE AND COALESCE(lastName, '') = ? COLLATE NOCASE LIMIT 2")
+        .all(first, last).forEach((u) => { if (!rows.some((r) => r.id === u.id)) rows.push(u); });
+    }
+    // Compte entreprise : le nom de l'entreprise OU celui du responsable suffit (exact, majuscules ignorées), ou les deux (30 oct. 2026, Émilien).
+    if (rows.length < USERS_SEARCH_MAX_RESULTS) {
+      db.prepare("SELECT id, name, lastName, color, pin FROM users WHERE accountType = 'entreprise' AND COALESCE(directoryConsent, 0) <> 1 AND (name = ? COLLATE NOCASE OR COALESCE(lastName, '') = ? COLLATE NOCASE) LIMIT 2")
+        .all(q, q).forEach((u) => {
+          if (rows.some((r) => r.id === u.id)) return;
+          // On n'affiche que ce que la personne a écrit : le nom de l'entreprise seul, ou celui du responsable seul (jamais l'autre moitié).
+          const isName = String(u.name || '').toLowerCase() === q.toLowerCase();
+          rows.push({ ...u, _only: isName ? 'name' : 'last' });
+        });
+    }
+    rows.length = Math.min(rows.length, USERS_SEARCH_MAX_RESULTS);
     return res.json(rows.map((u) => ({
       id: u.id,
-      name: u.name,
-      lastName: u.lastName || '',
+      name: u._only === 'last' ? u.lastName : u.name,
+      lastName: u._only ? '' : (u.lastName || ''),
       color: u.color,
       hasPin: !!u.pin,
     })));
@@ -371,7 +390,7 @@ router.get('/users', (req, res) => {
   const lastName = (req.query.lastName || '').trim();
   if (!name) return res.json([]);
   const rows = db.prepare(
-    "SELECT id, name, lastName, color, pin FROM users WHERE directoryConsent = 1 AND name = ? COLLATE NOCASE AND COALESCE(lastName, '') = ? COLLATE NOCASE LIMIT 2"
+    "SELECT id, name, lastName, color, pin FROM users WHERE name = ? COLLATE NOCASE AND COALESCE(lastName, '') = ? COLLATE NOCASE LIMIT 2"
   ).all(name, lastName);
   res.json(rows.map((u) => ({ id: u.id, name: u.name, lastName: u.lastName || '', color: u.color, hasPin: !!u.pin })));
 });
@@ -502,6 +521,9 @@ router.get('/profile/posts', (req, res) => {
 // qu'appartenant à un tiers) est documenté dans server/lib/dataexport.js.
 router.get('/profile/export', (req, res) => {
   if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  // Confidentialité (30 oct. 2026) : l'export contient des noms de tiers (employés du module Horaire) ; servi seulement
+  // après une revérification du mot de passe sur cette session (POST /api/session/reauth, moins de 5 min).
+  if (!require('../lib/session').hasRecentReauth(req)) return res.status(403).json({ error: 'Confirme ton mot de passe pour exporter tes données.', needsReauth: true });
   const data = buildUserExport(req.userId);
   if (!data) return res.status(404).json({ error: 'Profil introuvable.' });
   const fileDate = new Date().toISOString().slice(0, 10);
@@ -689,7 +711,7 @@ router.put('/profile/:id/notify-community', (req, res) => {
 });
 
 // 5 oct. 2026 (Emilien) : « Gestion de l'IA » — mode choisi par l'utilisateur (null tant que non choisi).
-const AI_MODES = ['autonome', 'partiel', 'absence'];
+const AI_MODES = ['partiel', 'absence']; // le mode « autonome » est supprimé (30 oct. 2026, Émilien) ; les comptes qui l'avaient sont passés à « partiel » (db.js)
 router.get('/profile/:id/ai-mode', (req, res) => {
   if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
   if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux lire que ton propre profil.' });

@@ -328,4 +328,36 @@ function seedStagingData(db) {
   }
 }
 
-module.exports = { seedStagingData, shouldSeed };
+// Recrée SEUL le compte d'Emilien (supprimé par erreur, 30 oct. 2026) : même nom, même NIP, abonnement mutuel accepté avec les profils fictifs, et
+// retour dans les activités partagées d'origine (« Développement Noèsis », « Réunions clients », « Formation ») avec leur historique de temps.
+// Ne touche à aucun autre compte ; ne fait rien si le compte existe déjà. Lancé par scripts/recreate-emilien-staging.js.
+function recreateEmilienAccount(db) {
+  const exists = db.prepare('SELECT id FROM users WHERE name = ? AND lastName = ?').get(EMILIEN_SEED_ACCOUNT.name, EMILIEN_SEED_ACCOUNT.lastName);
+  if (exists) return { created: false, id: exists.id };
+  const nowIso = new Date().toISOString();
+  const emilienId = randomUUID();
+  const color = DARK_PALETTE[0];
+  db.prepare("INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang, passwordStrong) VALUES (?, ?, ?, '', 'seed@exemple.test', ?, ?, ?, 'dark', 1, 'fr', 1)")
+    .run(emilienId, EMILIEN_SEED_ACCOUNT.name, EMILIEN_SEED_ACCOUNT.lastName, color, nowIso, makePinRecord(EMILIEN_SEED_ACCOUNT.pin));
+  const insertEntry = db.prepare('INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+  const insertMember = db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)');
+  const insertFollow = db.prepare("INSERT OR IGNORE INTO follows (followerId, followeeId, status, createdAt, respondedAt) VALUES (?, ?, 'accepted', ?, ?)");
+  let follows = 0, joined = 0;
+  FAKE_USERS.forEach((u) => {
+    const f = db.prepare('SELECT id FROM users WHERE name = ? AND lastName = ?').get(u.name, u.lastName);
+    if (!f) return;
+    insertFollow.run(emilienId, f.id, nowIso, nowIso); insertFollow.run(f.id, emilienId, nowIso, nowIso); follows += 1;
+  });
+  SHARED_WITH_EMILIEN.forEach((def) => {
+    const act = db.prepare('SELECT id FROM activities WHERE name = ? ORDER BY id LIMIT 1').get(def.name);
+    let id = act && act.id;
+    if (!id) id = Number(db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, shareToken, createdAt) VALUES (?, 0, 1, ?, ?, ?)').run(def.name, emilienId, randomUUID(), nowIso).lastInsertRowid);
+    insertMember.run(id, emilienId, color, nowIso);
+    db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(emilienId, id); // propriétaire d'origine (la suppression du compte avait passé la propriété à un autre membre) : Drive n'est géré que par le propriétaire
+    addTimeEntries(insertEntry, emilienId, id, 10);
+    joined += 1;
+  });
+  return { created: true, id: emilienId, follows, activities: joined };
+}
+
+module.exports = { seedStagingData, shouldSeed, recreateEmilienAccount };

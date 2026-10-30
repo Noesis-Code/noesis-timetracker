@@ -177,9 +177,8 @@
     return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate());
   }
 
-  // Icônes crayon/corbeille, inline (pas d'emoji, pas de dépendance externe)
+  // Icône crayon, inline (pas d'emoji, pas de dépendance externe)
   // — mêmes tracés que la maquette Design validée par Emilien.
-  var HISTORY_DELETE_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
 
   // Un seul champ date : la période et la semaine en découlent (server/lib/goals.js#periodNumberForDate) et sont
   // affichées en lecture (goalsPreview). Activité et pôle/secteur restent deux sélecteurs sous « Où ». Route PUT
@@ -221,9 +220,8 @@
     editBtn.innerHTML = TMT.ui.editIcon();
     var delBtn = document.createElement('button');
     delBtn.type = 'button';
-    delBtn.className = 'historyRowIconBtn danger';
-    delBtn.setAttribute('aria-label', t('Supprimer'));
-    delBtn.innerHTML = HISTORY_DELETE_ICON;
+    delBtn.className = 'cmpRemove cmpRemove--corner';
+    delBtn.setAttribute('aria-label', t('Supprimer')); delBtn.title = t('Supprimer');
     top.appendChild(editBtn);
     display.appendChild(top);
 
@@ -265,9 +263,8 @@
         '<button type="button" class="iconBtn historyEditSave">' + t('Enregistrer') + '</button>' +
       '</div>';
     row.appendChild(editFields);
-    // La corbeille est tout à gauche de la zone d'édition, à gauche du bouton Annuler.
-    delBtn.classList.add('historyEditDelete');
-    editFields.querySelector('.rowActions').insertBefore(delBtn, editFields.querySelector('.rowActions').firstChild);
+    // Croix rouge officielle (R32) en haut à droite de la zone d'édition.
+    editFields.appendChild(delBtn);
 
     var labelInput = editFields.querySelector('.historyEditTaskLabel');
     var editMsg = editFields.querySelector('.historyEditMsg');
@@ -1317,10 +1314,9 @@
     forms.forEach(function (f) { var ta = f.labelIn; ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; });
   }
 
-  // ===== Gestion de l'IA — Autonome / Partiel / Absence =====
+  // ===== Gestion de l'IA — Partiel / Absence (le mode Autonome est supprimé, 30 oct. 2026) =====
   // Choix obligatoire à la première capture (pop-up), modifiable ensuite dans Réglages.
   var AI_MODES = [
-    { key: 'autonome', label: 'Autonome', desc: 'Noèsis range tes tâches seul, sans te demander ton avis.' },
     { key: 'partiel', label: 'Partiel', desc: 'Noèsis propose un rangement ; tu le reconfirmes et tu peux le modifier.' },
     { key: 'absence', label: 'Absent', desc: 'Noèsis ne range rien : tu choisis toi-même où va chaque tâche.' }
   ];
@@ -1415,7 +1411,6 @@
       return new Promise(function (resolve) {
         if (opts && opts.inline) resolve(finish()); // validation déjà faite dans la zone d'ajout : aucun pop-up
         else if (TMT.aiMode === 'partiel' && okResults.length) showCapturePlacementModal(label, okResults, { onSave: function () { resolve(finish()); }, onCancel: function () { undo().then(resolve); } });
-        else if (TMT.aiMode === 'autonome' && okResults.length) showCaptureConfirmModal(label, okResults, { onConfirm: function () { resolve(finish()); }, onCancel: function () { undo().then(resolve); } });
         else resolve(finish());
       });
     });
@@ -1608,15 +1603,6 @@
             // Fermer le pop-up sans Enregistrer = rien n'est envoyé : les tâches créées sont retirées, le texte et les activités restent.
             showCapturePlacementModal(label, okResults, {
               onSave: finalize,
-              onCancel: function () {
-                Promise.all(okResults.map(function (r) {
-                  return api('DELETE', '/api/sub-project-items/' + r.id + '?userId=' + TMT.getProfile().id).catch(function () {});
-                })).then(function () { loadGoalsCaptureBadges(); renderGoalsCaptureActivities(); });
-              }
-            });
-          } else if (TMT.aiMode === 'autonome' && okResults.length) {
-            showCaptureConfirmModal(label, okResults, {
-              onConfirm: finalize,
               onCancel: function () {
                 Promise.all(okResults.map(function (r) {
                   return api('DELETE', '/api/sub-project-items/' + r.id + '?userId=' + TMT.getProfile().id).catch(function () {});

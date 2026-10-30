@@ -111,14 +111,16 @@ function base64url(input) {
 // bumpSessionEpoch(userId) fait mécaniquement diverger tout témoin déjà
 // émis de l'epoch courante en base — c'est ce qui les révoque tous d'un
 // coup, sans registre de sessions individuelles.
-function sign(userId, epoch) {
-  const payload = JSON.stringify({ userId, epoch: epoch || 0, exp: Date.now() + MAX_AGE_MS });
+// `act` = dernière activité (inactivité des comptes entreprise) ; `ra` = dernière revérification du mot de passe (export), 30 oct. 2026.
+function sign(userId, epoch, extra) {
+  const now = Date.now();
+  const payload = JSON.stringify({ userId, epoch: epoch || 0, exp: now + MAX_AGE_MS, act: now, ...(extra && extra.ra ? { ra: extra.ra } : {}) });
   const b64 = base64url(payload);
   const sig = crypto.createHmac('sha256', getSecret()).update(b64).digest('base64url');
   return b64 + '.' + sig;
 }
 
-// Renvoie {userId, epoch} (jamais juste une chaîne) — voir readSessionUserId
+// Renvoie {userId, epoch} (jamais juste une chaîne) — voir readSessionClaims
 // pour la comparaison avec l'epoch courante en base.
 function verify(token) {
   if (!token || typeof token !== 'string') return null;
@@ -143,7 +145,7 @@ function verify(token) {
   // personne au moment de ce déploiement (la colonne sessionEpoch démarre
   // elle aussi à 0 pour tout le monde, voir server/db.js).
   const epoch = typeof payload.epoch === 'number' ? payload.epoch : 0;
-  return { userId: payload.userId, epoch };
+  return { userId: payload.userId, epoch, act: Number(payload.act) || 0, ra: Number(payload.ra) || 0 };
 }
 
 // Parseur minimal, suffisant pour un seul cookie de valeur : pas besoin
@@ -161,7 +163,12 @@ function parseCookieHeader(header) {
   return out;
 }
 
-function readSessionUserId(req) {
+// Comptes entreprise (30 oct. 2026, confidentialité) : session expirée après 30 min sans appel ; comptes individuels inchangés.
+const IDLE_ENTREPRISE_MS = 30 * 60 * 1000;
+// Export du compte : servi seulement après une revérification du mot de passe de moins de 5 min (sur CETTE session).
+const REAUTH_MS = 5 * 60 * 1000;
+
+function readSessionClaims(req) {
   const cookies = parseCookieHeader(req.headers.cookie);
   const token = cookies[COOKIE_NAME];
   if (!token) return null;
@@ -173,10 +180,28 @@ function readSessionUserId(req) {
   // témoin expiré ou mal signé (silencieux, jamais une erreur qui ferait
   // planter la requête : c'est requireAuth, plus bas, qui décide si
   // l'absence de session doit refuser la requête).
-  const row = db.prepare('SELECT sessionEpoch FROM users WHERE id = ?').get(claims.userId);
+  const row = db.prepare('SELECT sessionEpoch, accountType FROM users WHERE id = ?').get(claims.userId);
   if (!row) return null; // profil supprimé entre-temps
   if (claims.epoch !== (row.sessionEpoch || 0)) return null;
-  return claims.userId;
+  claims.entreprise = row.accountType === 'entreprise';
+  if (claims.entreprise && !(Date.now() - claims.act <= IDLE_ENTREPRISE_MS)) {
+    require('./horaire-ephemere').clear(claims.userId); // session expirée : mémoire Horaire effacée
+    return null;
+  }
+  return claims;
+}
+
+// Revérification du mot de passe (export) : re-signe le témoin de CETTE session avec l'heure de la vérification.
+function markReauth(req, res) {
+  const claims = req.sessionClaims;
+  if (!claims) return;
+  const token = sign(claims.userId, claims.epoch, { ra: Date.now() });
+  res.append('Set-Cookie', `${COOKIE_NAME}=${encodeURIComponent(token)}; ${cookieAttributes(req, Math.floor(MAX_AGE_MS / 1000)).join('; ')}`);
+}
+
+function hasRecentReauth(req) {
+  const ra = req.sessionClaims && req.sessionClaims.ra;
+  return !!ra && Date.now() - ra < REAUTH_MS;
 }
 
 // `req.secure` reflète déjà X-Forwarded-Proto grâce à `app.set('trust
@@ -211,7 +236,7 @@ function clearSessionCookie(req, res) {
 // Section Sécurité du panneau Réglages, côté UTILISATEUR (7 septembre 2026)
 // — "se déconnecter de tous les appareils". Révoque INSTANTANÉMENT tous les
 // témoins déjà émis pour cet utilisateur, quel que soit l'appareil qui les
-// présente (voir verify/readSessionUserId ci-dessus) : aucun registre de
+// présente (voir verify/readSessionClaims ci-dessus) : aucun registre de
 // sessions individuelles n'existe (le témoin est auto-suffisant, voir
 // l'en-tête de ce fichier), donc pas de révocation ciblée par appareil
 // possible sans un chantier plus lourd (table `sessions`) — hors périmètre
@@ -266,8 +291,16 @@ const EMAIL_VALID = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const EMAIL_FREE = (req) => req.method === 'PUT' && /^\/api\/profile\/[^/]+$/.test(req.path);
 
 function middleware(req, res, next) {
-  req.userId = readSessionUserId(req);
+  req.sessionClaims = readSessionClaims(req);
+  req.userId = req.sessionClaims ? req.sessionClaims.userId : null;
   if (req.userId) touchLastSeen(req.userId);
+  // Entreprise : chaque appel repousse l'expiration (témoin re-signé au plus une fois par minute, revérification conservée).
+  const sc = req.sessionClaims;
+  // Mémoire Horaire éphémère : effacée quand cette session expire (30 min sans appel, server/lib/horaire-ephemere.js).
+  if (sc && sc.entreprise) require('./horaire-ephemere').sessionSeen(sc.userId);
+  if (sc && sc.entreprise && Date.now() - sc.act > 60 * 1000) {
+    res.append('Set-Cookie', `${COOKIE_NAME}=${encodeURIComponent(sign(sc.userId, sc.epoch, { ra: sc.ra }))}; ${cookieAttributes(req, Math.floor(MAX_AGE_MS / 1000)).join('; ')}`);
+  }
   if (req.userId && req.path.indexOf('/api/') === 0 && !PASSWORD_FREE.test(req.path)) {
     const row = db.prepare('SELECT passwordStrong, email FROM users WHERE id = ?').get(req.userId);
     if (row && !row.passwordStrong) return res.status(403).json({ error: 'Choisis un nouveau mot de passe pour continuer.', mustChangePassword: true });
@@ -300,4 +333,8 @@ module.exports = {  middleware,
   setSessionCookie,
   clearSessionCookie,
   bumpSessionEpoch,
+  markReauth,
+  hasRecentReauth,
+  IDLE_ENTREPRISE_MS,
+  REAUTH_MS,
 };

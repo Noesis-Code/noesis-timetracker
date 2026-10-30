@@ -230,7 +230,7 @@ function call(method, path, body, user) {
   const zoe = h.listEmployees('uA').find((e) => e.name === 'Zoé Exemple'), yves = h.listEmployees('uA').find((e) => e.name === 'Yves Modèle');
   assert(r3.updated === 1 && r3.created === 1 && r3.skipped.length === 1 && (() => { const rs = h.listEmployeeRules('uA'); const has = (e, k) => rs.some((x) => x.employeeId === e.id && x.rule === k); return has(zoe, 'noDouble') && !has(zoe, 'restAfterShift') && has(yves, 'restAfterShift'); })(), 'import CSV : colonnes oui/non devenues règles de l’employé, valeur illisible écartée');
   const ex2 = require('../server/lib/dataexport').buildUserExport('uA');
-  assert(ex2.horaire.timeoff.length >= 1 && ex2.horaire.employeeRules.some((x) => x.rule === 'noDouble'), 'export du compte : congés et règles inclus');
+  assert(!('timeoff' in ex2.horaire) && ex2.horaire.employeeRules.some((x) => x.rule === 'noDouble'), 'export du compte : règles incluses, congés jamais (mémoire seule)');
   M.setModules('uB', { horaire: false, stats: true });
   r = await call('GET', 'weeks/' + W + '/prompt', undefined, 'uB');
   assert(r.status === 403 && r.body.code === 'module_off', 'module Horaire éteint : 403');

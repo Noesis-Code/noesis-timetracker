@@ -37,3 +37,7 @@ Aucune route Expansion non protégée trouvée ; aucune correction de code néce
 
 ## Migration `lastEventAt`
 Base dev-seed (staging) + 3 abonnements : 3 démarrages successifs sur une copie (colonne unique, mêmes données, `integrity_check` ok) ; base « sauvegarde ancienne » sans la colonne : colonne ajoutée au démarrage, lignes conservées avec `lastEventAt` NULL, premier événement appliqué normalement.
+
+## Expansion non lancée (30 oct. 2026, décision d'Émilien)
+
+En **production**, tant que `EXPANSION_LAUNCHED` n'est pas à `1`, personne n'accède à Expansion : ni code gratuit (`/offer1/redeem` répond 403), ni abonnement, ni lien « J'ai un code » (`/offer1/access` renvoie `available: false`). Seuls les ids listés dans `EXPANSION_ALLOW_USER_IDS` y accèdent. Staging et le développement sont inchangés. Les CGU (art. 4.2 et 6) restent exactes : l'offre y est décrite comme non applicable.

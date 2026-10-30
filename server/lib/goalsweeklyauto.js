@@ -208,7 +208,7 @@ async function callAiOnce(payload, requestedWeeks, model, feature, extraSystem) 
     if (extraSystem) { try { const rp = require('./jsonrepair').parse(text, { truncated: body.stop_reason === 'max_tokens' }); confidence = Number(rp && rp.value && rp.value.confidence); } catch (e) { /* confiance absente */ } }
     return { goals: goalsOut, confidence };
   } catch (err) {
-    console.error('[objectifs][remplissage IA hebdomadaire] réponse illisible — arrêt : ' + body.stop_reason + ', début : ' + JSON.stringify(String(text).slice(0, 200)));
+    console.error('[objectifs][remplissage IA hebdomadaire] réponse illisible — arrêt : ' + body.stop_reason + ', longueur : ' + String(text).length); // jamais le texte (contenu des objectifs de l'utilisateur, Loi 25)
     throw err;
   }
 }

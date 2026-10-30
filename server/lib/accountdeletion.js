@@ -129,9 +129,10 @@ function deleteAccountData(user) {
     PERSONAL_NO_FK.forEach(([table, col]) => {
       if (tableExists(table)) db.prepare('DELETE FROM ' + table + ' WHERE ' + col + ' = ?').run(user.id);
     });
+    if (tableExists('ai_usage_log')) db.prepare('DELETE FROM ai_usage_log WHERE userId LIKE ?').run(user.id + '#a%'); // dépenses IA par activité (clé utilisateur#aActivité, aibudget.keyFor)
     if (tableExists('activity_strategies')) db.prepare('UPDATE activity_strategies SET updatedBy = NULL WHERE updatedBy = ?').run(user.id);
     // Module « Horaire » (données du personnel, Loi 25) : cascade vers users, effacement explicite en plus (enfants d'abord).
-    ['horaire_event_type_ratios', 'horaire_event_types', 'horaire_inbound_threads', 'horaire_floor_counts', 'horaire_zones', 'horaire_covers', 'horaire_settings', 'horaire_assignments', 'horaire_schedules', 'horaire_rotation', 'horaire_needs', 'horaire_events', 'horaire_availabilities', 'horaire_timeoff', 'horaire_category_rules', 'horaire_employee_rules',
+    ['horaire_notes', 'horaire_event_type_ratios', 'horaire_event_types', 'horaire_inbound_threads', 'horaire_floor_counts', 'horaire_zones', 'horaire_covers', 'horaire_settings', 'horaire_assignments', 'horaire_schedules', 'horaire_rotation', 'horaire_needs', 'horaire_events', 'horaire_availabilities', 'horaire_timeoff', 'horaire_category_rules', 'horaire_employee_rules',
       'horaire_qualifications', 'horaire_positions', 'horaire_employees'].forEach((t) => {
       if (tableExists(t)) db.prepare('DELETE FROM ' + t + ' WHERE userId = ?').run(user.id);
     });
