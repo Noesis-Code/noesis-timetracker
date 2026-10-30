@@ -445,7 +445,6 @@
   function fastCommit(c) {
     var t = c.t;
     reset(); showToast(tr('Tâche enregistrée'));
-    if (TMT.aiMode === 'autonome') flashAdded({ t: t, date: c.date, who: c.who });
     function fail(msg) { ui.toast.classList.add('hidden'); ui.text.value = c.label; ui.msg.textContent = msg || tr('non ajoutée'); }
     TMT.captureTaskFlow(c.label, [t.activityId], t.categoryKey, { inline: true }).then(function (flow) {
       var ok = flow && (flow.results || []).filter(function (x) { return x.ok; })[0];
@@ -467,7 +466,7 @@
     go.then(function () {
       var t = target();
       // IA partielle ou absente : une proposition qui vient d'arriver s'AFFICHE pour que tu la revoies, elle n'est jamais appliquée dans la foulée (30 oct. 2026, Émilien).
-      if (t && !shown && TMT.aiMode !== 'autonome') { paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Vérifie le rangement, puis touche ↑.'); return null; }
+      if (t && !shown && true) { paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Vérifie le rangement, puis touche ↑.'); return null; }
       if (!t) { paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Choisis où ranger la tâche.'); if (state.options.length) toggleChooser(state.poleId ? 'secteur' : 'pole'); return null; }
       if (state.files.length) {
         var files = state.files.slice();
@@ -476,7 +475,6 @@
       }
       // Proposition déjà affichée : validation INSTANTANÉE (↑ ou ✕). Le panneau se ferme tout de suite, « Tâche enregistrée » s'affiche en haut de la barre, l'enregistrement se termine en arrière-plan.
       if (shown) { fastCommit({ t: t, label: label, date: state.date || dayIso(), who: state.who }); return null; }
-      // Proposition arrivée à l'envoi (IA autonome) : même chaîne, sans panneau.
       return TMT.captureTaskFlow(label, [t.activityId], t.categoryKey, { inline: true }).then(function (flow) {
         if (!flow) return null;
         var ok = (flow.results || []).filter(function (x) { return x.ok; })[0];
@@ -489,7 +487,6 @@
           var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }) : Promise.resolve();
           return after.then(function () {
             reset(); refresh(); showToast(tr('Tâche enregistrée'));
-            if (TMT.aiMode === 'autonome') flashAdded(snap); // autonome : les choix s'affichent 5 s, puis le panneau disparaît
           });
       });
     }).catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Erreur.'); })

@@ -1314,10 +1314,9 @@
     forms.forEach(function (f) { var ta = f.labelIn; ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; });
   }
 
-  // ===== Gestion de l'IA — Autonome / Partiel / Absence =====
+  // ===== Gestion de l'IA — Partiel / Absence (le mode Autonome est supprimé, 30 oct. 2026) =====
   // Choix obligatoire à la première capture (pop-up), modifiable ensuite dans Réglages.
   var AI_MODES = [
-    { key: 'autonome', label: 'Autonome', desc: 'Noèsis range tes tâches seul, sans te demander ton avis.' },
     { key: 'partiel', label: 'Partiel', desc: 'Noèsis propose un rangement ; tu le reconfirmes et tu peux le modifier.' },
     { key: 'absence', label: 'Absent', desc: 'Noèsis ne range rien : tu choisis toi-même où va chaque tâche.' }
   ];
@@ -1412,7 +1411,6 @@
       return new Promise(function (resolve) {
         if (opts && opts.inline) resolve(finish()); // validation déjà faite dans la zone d'ajout : aucun pop-up
         else if (TMT.aiMode === 'partiel' && okResults.length) showCapturePlacementModal(label, okResults, { onSave: function () { resolve(finish()); }, onCancel: function () { undo().then(resolve); } });
-        else if (TMT.aiMode === 'autonome' && okResults.length) showCaptureConfirmModal(label, okResults, { onConfirm: function () { resolve(finish()); }, onCancel: function () { undo().then(resolve); } });
         else resolve(finish());
       });
     });
@@ -1605,15 +1603,6 @@
             // Fermer le pop-up sans Enregistrer = rien n'est envoyé : les tâches créées sont retirées, le texte et les activités restent.
             showCapturePlacementModal(label, okResults, {
               onSave: finalize,
-              onCancel: function () {
-                Promise.all(okResults.map(function (r) {
-                  return api('DELETE', '/api/sub-project-items/' + r.id + '?userId=' + TMT.getProfile().id).catch(function () {});
-                })).then(function () { loadGoalsCaptureBadges(); renderGoalsCaptureActivities(); });
-              }
-            });
-          } else if (TMT.aiMode === 'autonome' && okResults.length) {
-            showCaptureConfirmModal(label, okResults, {
-              onConfirm: finalize,
               onCancel: function () {
                 Promise.all(okResults.map(function (r) {
                   return api('DELETE', '/api/sub-project-items/' + r.id + '?userId=' + TMT.getProfile().id).catch(function () {});

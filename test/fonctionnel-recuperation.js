@@ -96,7 +96,7 @@ const T = makeCounter(); const assert = T.assert;
     // --- Premier lancement : première tâche sur une activité neuve ---
     const cap = await d1.post('/api/goals/capture', { userId: uid, label: 'Appeler le client', activityIds: [act.body.id] });
     assert(cap.status === 409 && cap.body.needsAiMode === true, 'première tâche : le mode IA doit d\'abord être choisi (fenêtre « Comment Noèsis gère tes tâches ? »)');
-    for (const mode of ['absence', 'partiel', 'autonome']) {
+    for (const mode of ['absence', 'partiel']) {
       assert((await d1.put('/api/profile/' + uid + '/ai-mode', { mode })).status === 200, 'mode IA « ' + mode + ' » enregistré');
       const r = await d1.post('/api/goals/capture', { userId: uid, label: 'Appeler le client', activityIds: [act.body.id] });
       assert(r.status === 400 && /pas encore de pôle.*touche son nom/.test(r.body.error), 'première tâche, activité sans pôle, mode ' + mode + ' : message qui dit quoi faire (pas d\'impasse)');

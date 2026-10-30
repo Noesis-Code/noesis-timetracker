@@ -711,7 +711,7 @@ router.put('/profile/:id/notify-community', (req, res) => {
 });
 
 // 5 oct. 2026 (Emilien) : « Gestion de l'IA » — mode choisi par l'utilisateur (null tant que non choisi).
-const AI_MODES = ['autonome', 'partiel', 'absence'];
+const AI_MODES = ['partiel', 'absence']; // le mode « autonome » est supprimé (30 oct. 2026, Émilien) ; les comptes qui l'avaient sont passés à « partiel » (db.js)
 router.get('/profile/:id/ai-mode', (req, res) => {
   if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
   if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux lire que ton propre profil.' });

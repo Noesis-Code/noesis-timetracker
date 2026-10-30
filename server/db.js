@@ -2352,6 +2352,8 @@ if (!columnExists('activity_members', 'confidential')) {
 if (!columnExists('users', 'aiMode')) {
   db.exec('ALTER TABLE users ADD COLUMN aiMode TEXT');
 }
+// Mode « autonome » supprimé (30 oct. 2026, Émilien) : seuls « partiel » et « absence » restent ; un compte « autonome » passe à « partiel » (il valide désormais chaque rangement). Idempotent.
+db.exec("UPDATE users SET aiMode = 'partiel' WHERE aiMode = 'autonome'");
 // Colonne conservée (réglage retiré le 19 oct. 2026 : la confirmation IA est toujours active) ; ne pas supprimer de données.
 if (!columnExists('users', 'aiConfirmEach')) {
   db.exec('ALTER TABLE users ADD COLUMN aiConfirmEach INTEGER NOT NULL DEFAULT 1');
