@@ -1272,6 +1272,9 @@ body.scrollLock { overflow: hidden; }
   position: absolute; right: 8px; bottom: 8px;
   padding: 6px 12px;
 }
+/* Flèche d'envoi standard (.cmpSend, R29) : la même partout, dans l'angle bas droit de la zone d'écriture (30 oct. 2026, Émilien). */
+.chatComposerRow .cmpSend { position: absolute; right: 8px; bottom: 8px; }
+.chatComposerRow:has(.cmpSend) textarea { padding-right: 52px; }
 .chatComposerRow .iconBtn,
 .btnBrique.btnBrique {
   /* 30 sept. 2026 (demande d'Emilien) : TOUS les boutons Ajouter/Rechercher/Envoyer (zones d'écriture, IA,

@@ -8694,14 +8694,14 @@
         return '<label class="reportReason"><input type="radio" name="reportReason" value="' + r[0] + '"' + (i === 0 ? ' checked' : '') + '> ' + escapeHtml(t(r[1])) + '</label>';
       }).join('') +
       '<div class="chatComposerRow"><textarea rows="2" maxlength="300" placeholder="' + escapeHtml(t('Précision (facultatif)')) + '"></textarea>' +
-      '<button type="button" class="iconBtn btnBrique">' + escapeHtml(t('Envoyer')) + '</button></div>' +
+      '<button type="button" class="cmpSend" aria-label="' + escapeHtml(t('Envoyer')) + '"></button></div>' +
       '<p class="msg"></p>';
     ov.appendChild(card);
     document.body.appendChild(ov);
     function close() { ov.remove(); }
     card.querySelector('.reportClose').addEventListener('click', close);
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
-    var send = card.querySelector('.iconBtn'), msgEl = card.querySelector('.msg');
+    var send = card.querySelector('.cmpSend'), msgEl = card.querySelector('.msg');
     send.addEventListener('click', function () {
       send.disabled = true; msgEl.textContent = '';
       api('POST', '/api/community/activity-messages/' + messageId + '/report', {
