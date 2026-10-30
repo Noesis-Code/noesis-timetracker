@@ -33,15 +33,21 @@
 .tasksProposeHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .tasksProposeHead .cmpClose.hidden { display: none; }
 .tasksFields { display: flex; flex-direction: column; }
-.tasksField { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; border-top: 1px solid var(--sep); }
-.tasksField:first-child { border-top: 0; }
+.tasksFieldWrap { border-top: 1px solid var(--sep); }
+.tasksFieldWrap:first-child { border-top: 0; }
+.tasksField { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
 .tasksFieldLabel { font-size: 13px; color: var(--text-light); flex: none; }
 .tasksFieldValue { flex: 1; min-width: 0; min-height: 44px; padding: 0 0 0 8px; border: 0; background: none; color: var(--text); font: inherit; font-size: 15px; font-weight: 600; text-align: right; overflow-wrap: anywhere; cursor: pointer; }
 .tasksFieldValue:not(:disabled) { color: var(--violet-soft); }
 .tasksFieldValue:disabled { cursor: default; opacity: .85; }
 .tasksDateInput { min-height: 44px; padding: 0 8px; border: 0; border-bottom: 1px solid var(--sep); background: none; color: var(--text); font: inherit; font-size: 14px; color-scheme: dark; }
 .tasksProposeHint { margin: 0; font-size: 13px; color: var(--text-light); }
-.tasksChooser { display: flex; flex-direction: column; border-top: 1px solid var(--sep); }
+/* Choix déroulés SOUS leur champ : décalés à droite et reliés au champ par un trait violet, pour montrer qu'ils en font partie. */
+.tasksChooser { display: flex; flex-direction: column; margin: 0 0 8px 12px; padding-left: 12px; border-left: 2px solid var(--purple); }
+.tasksFieldWrap.open > .tasksField .tasksFieldLabel { color: var(--text); }
+.tasksFieldText { min-width: 0; }
+.tasksFieldChev { flex: none; margin-left: 8px; font-size: 12px; color: var(--text-light); }
+.tasksFieldValue { display: inline-flex; align-items: center; justify-content: flex-end; }
 .tasksChoice { min-height: 44px; padding: 0 4px; border: 0; border-bottom: 1px solid var(--sep); background: none; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
 .tasksComposer { flex: none; min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 8px; border-radius: 999px; border: 1px solid var(--glass-border); background: var(--glass-bg); }
 .tasksClip { flex: none; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-light); cursor: pointer; }

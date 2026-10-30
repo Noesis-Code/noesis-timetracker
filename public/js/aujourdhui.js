@@ -93,8 +93,7 @@
     ui.body = el('div', 'tasksProposeBody'); // la seule zone qui défile, sous le titre et la ✕ qui restent en place
     ui.fields = el('div', 'tasksFields');
     ui.hint = el('p', 'tasksProposeHint', tr('Rien n’est rangé sans toi : ↑ ou ✕ enregistre ce rangement.'));
-    ui.chooser = el('div', 'tasksChooser hidden');
-    ui.body.appendChild(ui.fields); ui.body.appendChild(ui.chooser); ui.body.appendChild(ui.hint);
+    ui.body.appendChild(ui.fields); ui.body.appendChild(ui.hint);
     ui.proposal.appendChild(kick); ui.proposal.appendChild(ui.body);
 
     var bar = el('div', 'tasksComposer');
@@ -124,14 +123,17 @@
     var d = new Date(iso + 'T12:00:00'); var s = d.toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'short', day: 'numeric', month: 'short' });
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
-  // Un champ = libellé + valeur ; un toucher ouvre sa liste (pôle, secteur, date, responsable), sur place sous les champs.
+  // Un champ = libellé + valeur + flèche ▾ (à droite, R21) ; un toucher déroule SES choix juste dessous, décalés et reliés au champ par un trait (R36 : la ligne se déroule sur place).
   function fieldRow(key, label, value, locked) {
+    var wrap = el('div', 'tasksFieldWrap' + (state.open === key && !locked ? ' open' : ''));
     var row = el('div', 'tasksField');
     row.appendChild(el('span', 'tasksFieldLabel', tr(label)));
-    var b = el('button', 'tasksFieldValue', value); b.type = 'button'; b.disabled = !!locked;
-    if (!locked) b.addEventListener('click', function () { toggleChooser(key); });
-    row.appendChild(b);
-    return row;
+    var b = el('button', 'tasksFieldValue'); b.type = 'button'; b.disabled = !!locked;
+    b.appendChild(el('span', 'tasksFieldText', value));
+    if (!locked) { b.appendChild(el('span', 'tasksFieldChev', state.open === key ? '▴' : '▾')); b.setAttribute('aria-expanded', state.open === key ? 'true' : 'false'); b.addEventListener('click', function () { toggleChooser(key); }); }
+    row.appendChild(b); wrap.appendChild(row);
+    if (state.open === key && !locked) wrap.appendChild(chooserFor(key));
+    return wrap;
   }
   function membersOf(activityId) {
     if (state.members[activityId]) return Promise.resolve(state.members[activityId]);
@@ -143,6 +145,7 @@
     ui.proposal.classList.toggle('hidden', !t && !state.options.length && !readOnly);
     ui.kicker.textContent = readOnly ? '✓ ' + tr('Ajoutée') : tr(TMT.aiMode === 'absence' || !t ? 'À ranger' : 'Noèsis propose');
     ui.close.classList.toggle('hidden', !!readOnly);
+    if (readOnly) state.open = '';
     ui.fields.textContent = '';
     ui.fields.appendChild(fieldRow('pole', 'Pôle', poleName || tr('Choisir'), readOnly));
     ui.fields.appendChild(fieldRow('secteur', 'Secteur', t ? sectorOf(t) : tr('Choisir'), readOnly || !poleId));
@@ -151,17 +154,18 @@
     ui.hint.classList.toggle('hidden', !t || !!readOnly);
     if (poleId && !state.members[poleId]) membersOf(poleId).then(function () { if (!readOnly && (target() ? target().activityId : state.poleId) === poleId) paintProposal(); });
   }
-  function closeChooser() { state.open = ''; ui.chooser.classList.add('hidden'); ui.chooser.textContent = ''; }
-  function choose(label, fn) { var b = el('button', 'tasksChoice', label); b.type = 'button'; b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); }); ui.chooser.appendChild(b); }
-  function toggleChooser(key) {
-    if (state.open === key && !ui.chooser.classList.contains('hidden')) { closeChooser(); return; }
-    closeChooser(); state.open = key; ui.chooser.classList.remove('hidden');
+  function closeChooser() { state.open = ''; }
+  function choice(box, label, fn) { var b = el('button', 'tasksChoice', label); b.type = 'button'; b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); }); box.appendChild(b); }
+  function toggleChooser(key) { state.open = state.open === key ? '' : key; paintProposal(); }
+  // Les choix du champ ouvert (construits sous lui par fieldRow).
+  function chooserFor(key) {
+    var box = el('div', 'tasksChooser');
     var t = target(), poleId = t ? t.activityId : state.poleId;
     if (key === 'pole') {
       var seen = {};
       state.options.forEach(function (o) {
         if (seen[o.activityId]) return; seen[o.activityId] = true;
-        choose(o.activityName, function () {
+        choice(box, o.activityName, function () {
           var mine = state.options.filter(function (x) { return x.activityId === o.activityId; });
           var same = t && mine.filter(function (x) { return x.categoryKey === t.categoryKey; })[0];
           state.poleId = o.activityId; state.who = null;
@@ -170,17 +174,18 @@
         });
       });
     } else if (key === 'secteur') {
-      state.options.filter(function (o) { return o.activityId === poleId; }).forEach(function (o) { choose(sectorOf(o), function () { state.choice = o; }); });
+      state.options.filter(function (o) { return o.activityId === poleId; }).forEach(function (o) { choice(box, sectorOf(o), function () { state.choice = o; }); });
     } else if (key === 'date') {
       var inp = el('input', 'tasksDateInput'); inp.type = 'date'; inp.value = state.date || ''; inp.min = localIso();
       inp.setAttribute('aria-label', tr('Date'));
       inp.addEventListener('change', function () { state.date = inp.value || null; closeChooser(); paintProposal(); });
-      ui.chooser.appendChild(inp);
-      choose(tr('Auto'), function () { state.date = null; });
+      box.appendChild(inp);
+      choice(box, tr('Auto'), function () { state.date = null; });
     } else if (key === 'who') {
-      choose('—', function () { state.who = null; });
-      (state.members[poleId] || []).forEach(function (m) { choose(m.name, function () { state.who = { id: m.id, name: m.name }; }); });
+      choice(box, '—', function () { state.who = null; });
+      (state.members[poleId] || []).forEach(function (m) { choice(box, m.name, function () { state.who = { id: m.id, name: m.name }; }); });
     }
+    return box;
   }
   function onType() {
     ui.msg.textContent = '';
