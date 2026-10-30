@@ -199,7 +199,7 @@
   transition: --pr 1s ease, --pg 1s ease, --pb 1s ease, --purple 1s ease, --purple-dark 1s ease, --brique 1s ease, --violet-soft 1s ease, --violet-promo 1s ease, --blue 1s ease, --unread 1s ease, --halo 1s ease; }
 @media (prefers-reduced-motion: reduce) { :root { transition: none; } }
 /* Repères de couleur (30 oct. 2026, choix d'Émilien). Seule la couleur change ; fondu de 1 s dans les deux sens (jetons enregistrés ci-dessus).
-   - Module Horaire, Création des horaires (modeCreation, posée par composants.js) : bleu #7583E1 (nuance 2, plus violacée).
+   - Module Horaire, Création des horaires (modeCreation, posée par composants.js) : bleu pervenche #8282DE (nuance 4).
    - Expansion (modeExpansion pendant une demande de la barre d'ajout ; modeExpansionWin tant qu'une fenêtre Expansion est ouverte) : blanc rosé #F0DDE0, réservé à Expansion. */
 /* Fondu de 1 s entre les couleurs de repère (violet, bleu de l'Horaire, blanc rosé d'Expansion), dans les deux sens : les jetons de couleur sont ENREGISTRÉS (@property) pour pouvoir s'animer.
    ⚠️ Ne pas retirer ce bloc : sans lui, les couleurs changent d'un coup (perdu par erreur entre v841 et v851). */
@@ -218,8 +218,8 @@
   transition: --pr 1s ease, --pg 1s ease, --pb 1s ease, --purple 1s ease, --purple-dark 1s ease, --brique 1s ease, --violet-soft 1s ease, --violet-promo 1s ease, --blue 1s ease, --unread 1s ease, --halo 1s ease; }
 @media (prefers-reduced-motion: reduce) { :root { transition: none; } }
 :root.modeCreation {
-  --purple: #7583E1; --pr: 117; --pg: 131; --pb: 225; --purple-dark: #7583E1; --brique: #7583E1;
-  --violet-soft: #B0B8F2; --violet-promo: #B0B8F2; --blue: #B0B8F2; --unread: #B0B8F2; --halo: rgba(117, 131, 225, .28);
+  --purple: #8282DE; --pr: 130; --pg: 130; --pb: 222; --purple-dark: #8282DE; --brique: #8282DE;
+  --violet-soft: #B9B9F0; --violet-promo: #B9B9F0; --blue: #B9B9F0; --unread: #B9B9F0; --halo: rgba(130, 130, 222, .28);
 }
 :root.modeExpansion, :root.modeExpansionWin {
   --purple: #F0DDE0; --pr: 240; --pg: 221; --pb: 224; --purple-dark: #F0DDE0; --brique: #F0DDE0;
