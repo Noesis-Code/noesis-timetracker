@@ -18,9 +18,9 @@ function get(u) {
   return s;
 }
 function clear(u) { sessions.delete(u); return u ? store.delete(u) : false; }
-// Session expirée (comptes entreprise, 30 min sans appel : server/lib/session.js) : la mémoire part avec elle. Dernier appel vu par
+// Session expirée (comptes entreprise, 1 heure sans appel : server/lib/session.js) : la mémoire part avec elle. Dernier appel vu par
 // le middleware de session (sessionSeen) ; une session expirée détectée au retour du témoin appelle clear directement.
-const SESSION_IDLE_MS = 30 * 60 * 1000;
+const SESSION_IDLE_MS = 60 * 60 * 1000;
 const sessions = new Map(); // userId -> dernier appel d'une session entreprise
 function sessionSeen(u) { if (u) sessions.set(u, Date.now()); }
 // Comptes sans activité Horaire depuis plus de 2 h, ou dont la session entreprise a expiré : effacés.

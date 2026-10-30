@@ -177,7 +177,7 @@ async function setupWeek(u) {
   assert(!db2.prepare("SELECT 1 FROM horaire_refused_threads WHERE userId = 'uA'").get(), 'empreinte de plus de 90 jours : effacée');
   assert(h.receiveMail('uA', mail('r4')).created, 'après 90 jours : le courriel propose de nouveau un événement');
 
-  // ---- Expiration de la session entreprise (30 min sans appel, server/lib/session.js) : mémoire effacée ----
+  // ---- Expiration de la session entreprise (1 heure sans appel, server/lib/session.js) : mémoire effacée ----
   const sess = require('../server/lib/session');
   const cookieAt = (u, ago) => {
     const real = Date.now; Date.now = () => real() - ago;
@@ -194,7 +194,7 @@ async function setupWeek(u) {
   let q = await runMw(cookieAt('uA', 60 * 1000));
   assert(q.userId === 'uA' && mem.has('uA') && mem._sessions.has('uA'), 'session entreprise active : mémoire gardée, activité notée');
   q = await runMw(cookieAt('uA', sess.IDLE_ENTREPRISE_MS + 60 * 1000));
-  assert(q.userId === null && !mem.has('uA'), 'session expirée (témoin revenu après 30 min) : mémoire Horaire effacée');
+  assert(q.userId === null && !mem.has('uA'), 'session expirée (témoin revenu après 1 heure) : mémoire Horaire effacée');
   await setupWeek('uA');
   await runMw(cookieAt('uA', 60 * 1000));
   mem._sessions.set('uA', Date.now() - mem.SESSION_IDLE_MS - 1000);

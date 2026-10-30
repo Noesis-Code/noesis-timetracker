@@ -1,5 +1,5 @@
 // Confidentialité (30 oct. 2026) : export du compte après revérification du mot de passe (< 5 min, sur cette session),
-// et déconnexion des comptes ENTREPRISE après 30 min d'inactivité (comptes individuels inchangés).
+// et déconnexion des comptes ENTREPRISE après 1 heure d'inactivité (comptes individuels inchangés).
 // Usage : node test/confid-acces-test.js
 const { startServer, makeCounter, newUser } = require('./fonctionnel-lib');
 const T = makeCounter(); const assert = T.assert;
@@ -56,14 +56,14 @@ function sessionPart() {
   }
   try {
     const ent = login('ent'); const ind = login('ind');
-    clock += 29 * 60 * 1000;
+    clock += 59 * 60 * 1000;
     let e = who(ent);
-    assert(e.userId === 'ent', 'entreprise : session valide à 29 min');
+    assert(e.userId === 'ent', 'entreprise : session valide à 59 min');
     clock += 29 * 60 * 1000;
     assert(who(e.cookie).userId === 'ent', "entreprise : chaque appel repousse l'expiration");
-    clock += 31 * 60 * 1000;
-    assert(who(e.cookie).userId === null, 'entreprise : session expirée après 30 min sans appel');
-    assert(who(ind).userId === 'ind', 'individuel : toujours connecté après 1 h 29 sans appel');
+    clock += 61 * 60 * 1000;
+    assert(who(e.cookie).userId === null, 'entreprise : session expirée après 1 heure sans appel');
+    assert(who(ind).userId === 'ind', 'individuel : toujours connecté après 2 h sans appel');
     clock += 30 * 24 * 3600 * 1000;
     assert(who(ind).userId === 'ind', 'individuel : inchangé après 30 jours');
     // Revérification : valable 5 min seulement.

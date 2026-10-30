@@ -89,7 +89,7 @@
     "J'accepte que Noesis utilise les données saisies pour l'entreprise afin d'analyser l'usage, produire des statistiques, envoyer des communications commerciales à l'entreprise et cibler ses propres campagnes publicitaires. Les mots de passe et les messages privés ne sont jamais utilisés. L'entreprise peut retirer cet accord à tout moment dans Réglages, section Sécurité.": "I agree that Noesis may use the data entered for the company to analyse usage, produce statistics, send commercial communications to the company and target its own advertising campaigns. Passwords and private messages are never used. The company can withdraw this consent at any time in Settings, Security section.",
     "J'accepte que le nom de l'entreprise et celui de son responsable puissent être trouvés dans la recherche de membres de l'écran de connexion.": "I agree that the company name and the name of the person in charge may be found in the member search on the sign-in screen.",
     "Gouvernance des renseignements de l'entreprise": "Company information governance",
-    ", et je suis autorisé à engager l'entreprise.": ", and I am authorised to commit the company.",
+    ", et j'utilise ce compte pour l'entreprise.": ", and I use this account for the company.",
     "J'ai déjà un compte": "I already have an account",
     "Créer un compte": "Create an account",
     "Tu crées un compte pour…": "You are creating an account for…",
