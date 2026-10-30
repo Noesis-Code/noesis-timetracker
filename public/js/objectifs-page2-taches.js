@@ -1208,8 +1208,6 @@
   }
 
 
-  // Même icône corbeille que l'historique du Chrono (CHRONO_HISTORY_DELETE_ICON, app.js).
-  var GOALS_TASK_TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
 
 
   // Tâche récurrente : champ « Répéter » partagé (onglet 1 capture, onglet 2 édition).
@@ -1307,8 +1305,8 @@
     var actions = document.createElement('div');
     actions.className = 'rowActions';
     var delBtn = document.createElement('button');
-    delBtn.type = 'button'; delBtn.className = 'historyRowIconBtn danger historyEditDelete'; delBtn.innerHTML = GOALS_TASK_TRASH_ICON;
-    delBtn.setAttribute('aria-label', t('Supprimer cette tâche'));
+    delBtn.type = 'button'; delBtn.className = 'cmpRemove cmpRemove--corner';
+    delBtn.setAttribute('aria-label', t('Supprimer cette tâche')); delBtn.title = t('Supprimer cette tâche');
     delBtn.addEventListener('click', function () {
       TMT.ui.confirm(t('Supprimer cette tâche ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
       api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + uid)
@@ -1333,7 +1331,7 @@
         .then(function () { refresh(); })
         .catch(function (err) { save.disabled = false; alert(err.message); });
     });
-    actions.appendChild(delBtn); actions.appendChild(cancel); actions.appendChild(save);
+    panel.appendChild(delBtn); actions.appendChild(cancel); actions.appendChild(save);
     panel.appendChild(actions);
     panel.addEventListener('click', function (e) { e.stopPropagation(); });
     row.appendChild(panel);

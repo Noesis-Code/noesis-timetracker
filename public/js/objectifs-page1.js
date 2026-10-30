@@ -177,9 +177,8 @@
     return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate());
   }
 
-  // Icônes crayon/corbeille, inline (pas d'emoji, pas de dépendance externe)
+  // Icône crayon, inline (pas d'emoji, pas de dépendance externe)
   // — mêmes tracés que la maquette Design validée par Emilien.
-  var HISTORY_DELETE_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
 
   // Un seul champ date : la période et la semaine en découlent (server/lib/goals.js#periodNumberForDate) et sont
   // affichées en lecture (goalsPreview). Activité et pôle/secteur restent deux sélecteurs sous « Où ». Route PUT
@@ -221,9 +220,8 @@
     editBtn.innerHTML = TMT.ui.editIcon();
     var delBtn = document.createElement('button');
     delBtn.type = 'button';
-    delBtn.className = 'historyRowIconBtn danger';
-    delBtn.setAttribute('aria-label', t('Supprimer'));
-    delBtn.innerHTML = HISTORY_DELETE_ICON;
+    delBtn.className = 'cmpRemove cmpRemove--corner';
+    delBtn.setAttribute('aria-label', t('Supprimer')); delBtn.title = t('Supprimer');
     top.appendChild(editBtn);
     display.appendChild(top);
 
@@ -265,9 +263,8 @@
         '<button type="button" class="iconBtn historyEditSave">' + t('Enregistrer') + '</button>' +
       '</div>';
     row.appendChild(editFields);
-    // La corbeille est tout à gauche de la zone d'édition, à gauche du bouton Annuler.
-    delBtn.classList.add('historyEditDelete');
-    editFields.querySelector('.rowActions').insertBefore(delBtn, editFields.querySelector('.rowActions').firstChild);
+    // Croix rouge officielle (R32) en haut à droite de la zone d'édition.
+    editFields.appendChild(delBtn);
 
     var labelInput = editFields.querySelector('.historyEditTaskLabel');
     var editMsg = editFields.querySelector('.historyEditMsg');

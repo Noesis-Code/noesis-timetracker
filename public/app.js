@@ -3479,7 +3479,6 @@
   // cette classe, mais elle reste utilisée telle quelle par le flux "En ce
   // moment" de Communauté (voir styles.css, ~ligne 886) — un autre
   // appelant, un autre territoire.
-  var CHRONO_HISTORY_DELETE_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
 
   function buildChronoHistoryEntry(entry, onChanged) {
     var row = document.createElement('div');
@@ -3527,9 +3526,8 @@
     editBtn.innerHTML = TMT.ui.editIcon();
     var delBtn = document.createElement('button');
     delBtn.type = 'button';
-    delBtn.className = 'historyRowIconBtn danger';
+    delBtn.className = 'cmpRemove cmpRemove--corner';
     delBtn.setAttribute('aria-label', t('Supprimer'));
-    delBtn.innerHTML = CHRONO_HISTORY_DELETE_ICON;
     top.appendChild(editBtn);
     display.appendChild(top);
 
@@ -3596,10 +3594,8 @@
         '<button type="button" class="iconBtn historyEditSave">' + t('Enregistrer') + '</button>' +
       '</div>';
     row.appendChild(editFields);
-    // 5 oct. 2026 (Emilien) : la corbeille quitte la ligne (à côté de ✎) ; elle est tout à gauche
-    // de la zone d'édition, à gauche du bouton Annuler.
-    delBtn.classList.add('historyEditDelete');
-    editFields.querySelector('.rowActions').insertBefore(delBtn, editFields.querySelector('.rowActions').firstChild);
+    // R32 : croix rouge officielle en haut à droite de la zone d'édition (plus de corbeille).
+    editFields.appendChild(delBtn);
 
     var startInput = editFields.querySelector('.historyEditStart');
     var endInput = editFields.querySelector('.historyEditEnd');
@@ -10936,8 +10932,7 @@
       txt.title = u.icsUrl;
       var del = document.createElement('button');
       del.type = 'button';
-      del.className = 'historyRowIconBtn danger';
-      del.innerHTML = typeof CHRONO_HISTORY_DELETE_ICON !== 'undefined' ? CHRONO_HISTORY_DELETE_ICON : '🗑';
+      del.className = 'cmpRemove cmpRemove--corner';
       del.setAttribute('aria-label', t('Supprimer cette adresse'));
       del.addEventListener('click', function () {
         TMT.confirmDelete({
@@ -11012,16 +11007,15 @@
       setMode(row.dataset.mode);
       var del = document.createElement('button');
       del.type = 'button';
-      del.className = 'historyRowIconBtn danger';
-      del.innerHTML = typeof CHRONO_HISTORY_DELETE_ICON !== 'undefined' ? CHRONO_HISTORY_DELETE_ICON : '\ud83d\uddd1';
+      del.className = 'cmpRemove cmpRemove--corner';
       del.setAttribute('aria-label', t('Supprimer cette règle'));
       del.addEventListener('click', function () {
         extCalRules = extCalRulesFromDom();
         extCalRules.splice(idx, 1);
         renderExtCalRules();
       });
-      line.appendChild(seg); line.appendChild(hrs); line.appendChild(del);
-      row.appendChild(lab); row.appendChild(words); row.appendChild(line);
+      line.appendChild(seg); line.appendChild(hrs);
+      row.appendChild(del); row.appendChild(lab); row.appendChild(words); row.appendChild(line);
       box.appendChild(row);
     });
     var rb = $('extCalRulesBlock');

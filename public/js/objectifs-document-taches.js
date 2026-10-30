@@ -260,7 +260,7 @@
       + '<textarea id="docTasksFsInstr" class="docTasksInstr" rows="2" maxlength="1500" placeholder="' + esc(dflt.replace(/[\s.…]+$/, '') + '…') + '">' + esc(f.instruction) + '</textarea>'
       + (fsConfirm
         ? '<div class="docTasksConfirm">Ne plus surveiller ce dossier ? <button type="button" class="docTasksLink" data-f="removeYes">Retirer</button> <button type="button" class="docTasksLink" data-f="removeNo">Annuler</button></div>'
-        : '<div class="docTasksFsActions"><button type="button" class="historyRowIconBtn danger docTasksFolderIconBtn" data-f="remove" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller">' + TRASH_ICON + '</button><button type="button" class="docTasksApplyBtn" data-f="save">Enregistrer</button></div>')
+        : '<div class="docTasksFsActions"><button type="button" class="cmpRemove" data-f="remove" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller"></button><button type="button" class="docTasksApplyBtn" data-f="save">Enregistrer</button></div>')
       + '<div class="docTasksCancelRow"><button type="button" class="docTasksLink" data-f="run">Synchroniser maintenant</button></div>'
       + (fsMsg ? '<p class="msg">' + esc(fsMsg) + '</p>' : '');
   }
@@ -392,13 +392,12 @@
   }
 
   // ---------- Pop-up « tâches ajoutées » (suppression directe d'une ligne, annulable) ----------
-  var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>'; // même SVG/classe que la corbeille de l'app (.historyRowIconBtn.danger)
   var popItems = [], popTimer = null;
   function popRender() {
     $('docTasksPopList').innerHTML = popItems.map(function (t, i) {
       var meta = [t.categoryLabel, dayOrWeekLabel(t)].filter(Boolean).join(' · ');
       return '<div class="docTasksPopRow"><span>' + esc(t.title) + '<div class="docTasksMeta">' + esc(meta) + '</div></span>'
-        + '<button type="button" class="historyRowIconBtn danger" data-p="' + i + '" aria-label="Supprimer cette tâche" title="Supprimer">' + TRASH_ICON + '</button></div>';
+        + '<button type="button" class="cmpRemove cmpRemove--corner" data-p="' + i + '" aria-label="Supprimer cette tâche" title="Supprimer"></button></div>';
     }).join('') || '<p class="hint">Plus aucune tâche dans cette liste.</p>';
   }
   function popOpen(list) { popItems = list; popRender(); $('docTasksPopToast').innerHTML = ''; $('docTasksAddedPop').classList.remove('hidden'); }
@@ -681,14 +680,14 @@
   function cbx(n) { return '<input type="checkbox" data-gid="' + esc(n.id) + '" aria-label="Sélectionner"' + (n.sleaves.length ? '' : ' disabled') + '>'; }
   function totalTxt(n) { return nTasks(n.leaves.length) + (isCh() ? '' : ' · ' + fmtH(n.mins)); }
   function allRow(n, txt) { return '<label class="ptAllRow" data-t="' + esc(txt) + '">' + cbx(n) + '<span class="ptAllTxt">' + txt + '</span></label>'; }
-  function changeHtml(l) { // une modification : « Pour toi / Pour X », titre, ancien → nouveau, raison, corbeille « Refuser »
+  function changeHtml(l) { // une modification : « Pour toi / Pour X », titre, ancien → nouveau, raison, croix rouge « Refuser »
     var c = l.task;
     return '<div class="ptTask docTasksChangeItem' + (c.mine ? '' : ' docTasksOther') + '" data-tid="' + c.id + '"><input type="checkbox" data-tid="' + c.id + '" aria-label="Appliquer"><div class="ptBody">'
       + (c.forName ? '<div class="docTasksChangeWhen"><span class="docTasksFor' + (c.mine ? ' me' : '') + '">' + (c.mine ? 'Pour toi' : 'Pour ' + esc(c.forName)) + '</span></div>' : '')
       + '<div class="ptLabel ptTaskTitle">' + esc(c.label) + ' · ' + esc(typeof window.t === 'function' ? window.t(c.fieldLabel) : c.fieldLabel) + '</div>'
       + '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>'
       + (c.reason ? '<div class="ptSub">' + esc(c.reason) + '</div>' : '')
-      + '</div><button type="button" class="historyRowIconBtn danger" data-pd="' + c.id + '" aria-label="Refuser" title="Refuser">' + TRASH_ICON + '</button></div>';
+      + '</div><button type="button" class="cmpRemove cmpRemove--corner" data-pd="' + c.id + '" aria-label="Refuser" title="Refuser"></button></div>';
   }
   function taskHtml(l) {
     if (isCh()) return changeHtml(l);
@@ -702,7 +701,7 @@
       h += '<div class="docTasksMeta">Choisis une catégorie : <select class="docTasksCat" data-pc="' + l.i + '"><option value="">—</option>'
         + pcats.map(function (c) { return '<option value="' + esc(c.key) + '">' + esc(c.label) + '</option>'; }).join('') + '</select></div>';
     }
-    return h + '</div><button type="button" class="historyRowIconBtn danger" data-pd="' + t.id + '" aria-label="Supprimer cette tâche" title="Supprimer">' + TRASH_ICON + '</button></div>';
+    return h + '</div><button type="button" class="cmpRemove cmpRemove--corner" data-pd="' + t.id + '" aria-label="Supprimer cette tâche" title="Supprimer"></button></div>';
   }
   function weeksHtml(g) {
     if (!g.wlist.length) return g.flat.map(taskHtml).join('');

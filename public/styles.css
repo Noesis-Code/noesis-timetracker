@@ -588,7 +588,7 @@ textarea {
   text-align: center;
 }
 .historyEditFields .rowActions { margin-top: 10px; display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-.historyEditFields .historyEditDelete { margin-right: auto; } /* 5 oct. 2026 : corbeille tout à gauche, à gauche d'Annuler */
+.historyEditFields { position: relative; }
 .historyEditMsg { margin: 8px 0 0; }
 @media (max-width: 380px) {
   .historyEditFields input[type=datetime-local] { font-size: 12px; padding: 7px 4px; }
@@ -3215,7 +3215,7 @@ button { -webkit-user-select: none; user-select: none; }
 /* Agenda externe (9 oct. 2026) : bouton « URL enregistrées » (même style que « Gérer mon temps ») et liste à corbeilles. */
 .externalCalendarListBtn { align-self: flex-start; background: none; border: 0; padding: 0; margin-top: 8px; color: var(--purple); text-decoration: underline; font: inherit; font-size: 14px; cursor: pointer; }
 .externalCalendarList { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-.externalCalendarRow { display: flex; align-items: center; gap: 10px; }
+.externalCalendarRow { position: relative; padding-right: 28px; display: flex; align-items: center; gap: 10px; }
 .externalCalendarRowUrl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text); }
 
 /* 10 oct. 2026 : consentements des Réglages (Sécurité) — deux lignes rapprochées, séparées par une simple barre. */
@@ -3266,7 +3266,7 @@ html.kbOpen #onboarding .onboarding-card { margin: 0 auto; }
 .extCalRulesBlock { margin-top: 14px; }
 .extCalRulesBlock.hidden { display: none; }
 .extCalSubTitle { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-weight: 600; }
-.extCalRuleBox { margin-bottom: 10px; padding: 10px 12px; border-radius: var(--radius-lg); background: rgba(255,255,255,.05); border: 1px solid var(--glass-border); }
+.extCalRuleBox { position: relative; margin-bottom: 10px; padding: 10px 12px; border-radius: var(--radius-lg); background: rgba(255,255,255,.05); border: 1px solid var(--glass-border); }
 .extCalLbl { display: block; font-size: 12px; opacity: .75; margin-bottom: 6px; }
 .extCalLine { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .extCalSeg { flex: 1 1 auto; width: auto; margin: 0; }

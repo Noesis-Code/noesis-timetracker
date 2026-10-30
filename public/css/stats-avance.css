@@ -22,12 +22,12 @@
 .saGlass { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: var(--glass-shadow, none); }
 /* même verre que les sections de l'onglet 1 (.statsSection, verre-calme.css) : fond --glass-calm-bg, liseré intérieur, flou. */
 :root .saGlass { background: var(--glass-calm-bg); border: 0; box-shadow: inset 0 0 0 1px var(--glass-calm-line); -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur); }
-.saCard { padding: 12px; }
+.saCard { padding: 12px; position: relative; }
+.saInfo .saHd2 h3 { padding-right: 20px; }
 .saHd { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
 .saHd .sectionTitle { margin: 0; }
 .saHd2 { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
 .saHd2 h3 { margin: 0; font-size: 14px; font-weight: 600; }
-.saRm { color: var(--text-light); }
 .saCard svg { display: block; width: 100%; height: auto; }
 .saGrid { stroke: var(--glass-border); stroke-width: 1; }
 .saTick { fill: var(--text); opacity: .65; font-size: 8px; }

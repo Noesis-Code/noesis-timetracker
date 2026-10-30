@@ -27,7 +27,6 @@
     return e;
   }
   var GREEN = '#4CAF50', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
-  var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
 
   // ---------- Glissement continu (une technique pour les pages Temps | Tâches | Objectifs, propre page ET profil visité) ----------
   // Même technique que la Page 2 de la feuille de route (bindPage2ModeSwipe) : la page voisine est posée en absolu à côté de la courante
@@ -677,7 +676,7 @@
     var hd = el('div', 'saHd2');
     hd.appendChild(el('h3', null, tr(def.title)));
     if (removable) {
-      var x = el('button', 'historyRowIconBtn danger saRm'); x.type = 'button'; x.innerHTML = TRASH_ICON; x.setAttribute('aria-label', tr('Retirer'));
+      var x = el('button', 'cmpRemove cmpRemove--corner'); x.type = 'button'; x.setAttribute('aria-label', tr('Retirer'));
       x.addEventListener('click', function () { askRemove(def); });
       hd.appendChild(x);
     }
