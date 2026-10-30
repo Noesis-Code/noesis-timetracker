@@ -46,7 +46,6 @@
 '\n' +
 '<h3>5. Account creation and management</h3>\n' +
 '<p>The User warrants the accuracy of the information provided when creating the Account and undertakes to keep it up to date. An Account is strictly personal; it may not be shared among several people, even within the same business or organization.</p>\n' +
-'<p>When an Account is opened in the name of a business or organization, the “manager” named at sign-up is the person who uses the Account for the business; they accept these Terms in their own name.</p>\n' +
 '<p>Access to the Services is reserved for persons aged 16 or older. The Company may suspend or terminate any Account created by a person who has not reached that age.</p>\n' +
 '<p>The parental consent mechanism for a minor aged 16-17, described below, applies only to the subscription to Offer 1 — not relevant for as long as it does not exist.</p>\n' +
 '<p>A paid subscription to Offer 1, on the day it exists, would constitute a recurring financial commitment exceeding the ordinary and usual needs of a minor within the meaning of article 157 of the Civil Code of Québec. Subscribing to Offer 1 would then be reserved for adults (18 or older) or, for a minor aged 16 or 17, subject to the express consent of their legal representative, obtained at the time of subscription by means of a separate checkbox.</p>\n' +

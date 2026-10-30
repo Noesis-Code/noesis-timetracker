@@ -11,10 +11,8 @@ Rien de ce qui suit n'est de l'avis juridique.
 
 ## Ce qui n'est PAS à jour
 
-### 1. CGU art. 5 — compte entreprise (APPLIQUÉ le 30 oct. 2026, sans déclaration d'autorité)
-Décision d'Émilien : les gestionnaires (MD) ne sont pas forcément autorisés par l'entreprise ; aucun texte ne dit « je suis autorisé à engager l'entreprise ». La case d'inscription dit désormais « et j'utilise ce compte pour l'entreprise ».
-Texte appliqué (art. 5) :
-> Lorsqu'un Compte est ouvert au nom d'une entreprise ou d'une organisation, le « responsable » indiqué lors de l'inscription est la personne qui utilise le Compte pour l'entreprise ; elle accepte les présentes CGU en son nom propre.
+### 1. CGU art. 5 — clause sur le responsable d'un compte entreprise : SUPPRIMÉE (30 oct. 2026)
+Décision d'Émilien : aucune clause sur qui accepte les CGU pour une entreprise (les gestionnaires ne sont pas forcément autorisés par l'entreprise). Raison : la clause relève du droit des contrats, pas de la Loi 25 ; l'article 3 (Utilisateur = personne physique ou entreprise/organisation) et l'article 5 (compte strictement personnel) restent. La case d'inscription dit « et j'utilise ce compte pour l'entreprise ». À faire valider par un juriste.
 
 ### 2. CGU art. 5 + politique 4.1 — retrouver un profil entreprise (décision du 30 oct. 2026)
 Texte actuel : un profil non listé est retrouvable « seulement en tapant son prénom et son nom complets exacts ».
