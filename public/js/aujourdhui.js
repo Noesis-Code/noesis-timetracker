@@ -53,7 +53,7 @@
   // ---------- Pop-up ----------
   var listBox = null, sumL = null, sumR = null, timer = null, loadSeq = 0;
   var ui = {}; // éléments de la barre d'ajout
-  var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null, date: null, who: null, poleId: null, open: '', members: {}, flash: null };
+  var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null, date: null, who: null, poleId: null, open: '', members: {}, flash: null, exp: null, essor: null };
 
   var root = null, shown = false, dock = null;
   // La barre n'existe à l'écran que si la vue Aujourd'hui est réellement visible (autre volet, autre vue ou page par-dessus : masquée).
@@ -112,7 +112,8 @@
     ui.send.addEventListener('click', send);
     bar.appendChild(clip); bar.appendChild(ui.text); bar.appendChild(ui.send);
     ui.chips = el('div', 'tasksChips'); ui.msg = el('p', 'tasksMsg');
-    box.appendChild(ui.proposal); box.appendChild(bar); box.appendChild(ui.chips); box.appendChild(ui.msg);
+    ui.toast = el('p', 'tasksToast hidden'); ui.toast.setAttribute('role', 'status');
+    box.appendChild(ui.toast); box.appendChild(ui.proposal); box.appendChild(bar); box.appendChild(ui.chips); box.appendChild(ui.msg);
     return box;
   }
 
@@ -152,6 +153,7 @@
     return TMT.api('GET', '/api/activities/' + activityId + '/goals/members').then(function (d) { return (state.members[activityId] = (d && d.members) || []); }).catch(function () { return []; });
   }
   function paintProposal(readOnly) {
+    if (state.exp) { paintExpansion(); return; }
     var t = target(), poleId = t ? t.activityId : state.poleId;
     var poleName = t ? t.activityName : ((state.options.filter(function (o) { return o.activityId === poleId; })[0] || {}).activityName || '');
     ui.proposal.classList.toggle('hidden', !t && !state.options.length && !readOnly);
@@ -193,11 +195,97 @@
     }
     return box;
   }
+  // ---------- Expansion : la même barre comprend les demandes « fais-moi des tâches », « objectif », « Drive » ----------
+  // Elles ne valent QUE pour les activités où Expansion est actif (GET /api/activities/:id/offer1). Les tâches proposées s'affichent dans le panneau,
+  // cochées ; ↑ ou ✕ ajoute les cochées (POST document-tasks/apply). Objectifs et Drive ouvrent le panneau Expansion de l'activité choisie.
+  function fold(x) { return String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+  function expIntent(label) {
+    var x = fold(label);
+    if (/\bdrive\b/.test(x)) return 'drive';
+    if (/\bobjectifs?\b/.test(x)) return 'goals';
+    if (/\b(taches?|todo|to-do)\b/.test(x) && /\b(fais|fait|faire|cree|creer|genere|generer|propose|proposer|prepare|preparer|ajoute|ajouter|donne|planifie|planifier|trouve)\b/.test(x)) return 'tasks';
+    return '';
+  }
+  function essorActivities() {
+    if (state.essor && Date.now() - state.essor.at < 60000) return Promise.resolve(state.essor.list);
+    var acts = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a && a.id != null; });
+    return Promise.all(acts.map(function (a) {
+      return TMT.api('GET', '/api/activities/' + a.id + '/offer1').then(function (r) { return r && r.essor ? { id: a.id, name: a.name } : null; }).catch(function () { return null; });
+    })).then(function (l) { var list = l.filter(Boolean); state.essor = { at: Date.now(), list: list }; return list; });
+  }
+  function startExpansion(kind, label) {
+    state.busy = true; ui.send.disabled = true; ui.msg.textContent = tr('Je regarde où Expansion est actif…');
+    essorActivities().then(function (list) {
+      ui.msg.textContent = '';
+      if (!list.length) { ui.msg.textContent = tr('Expansion n’est actif sur aucune de tes activités : cette demande ne marche que sur celles qui l’ont.'); return null; }
+      state.exp = { kind: kind, label: label, acts: list, actId: list.length === 1 ? list[0].id : null, tasks: null, checked: [], loading: false };
+      closeChooser(); paintExpansion();
+      if (state.exp.actId) return runExpansion();
+      ui.msg.textContent = tr('Choisis l’activité, puis touche ↑.');
+      return null;
+    }).catch(function (e) { ui.msg.textContent = (e && e.message) || tr('Erreur.'); })
+      .then(function () { state.busy = false; ui.send.disabled = false; });
+  }
+  function expActName() { var e = state.exp, a = e && e.acts.filter(function (x) { return x.id === e.actId; })[0]; return a ? a.name : ''; }
+  function paintExpansion() {
+    var e = state.exp; if (!e) return;
+    ui.proposal.classList.remove('hidden'); ui.close.classList.remove('hidden'); ui.hint.classList.remove('hidden');
+    ui.kicker.textContent = tr('Expansion') + (e.kind === 'tasks' ? ' · ' + tr('Nouvelles tâches') : e.kind === 'goals' ? ' · ' + tr('Objectifs') : ' · Drive');
+    ui.fields.textContent = '';
+    var wrap = el('div', 'tasksFieldWrap' + (state.open === 'exp' ? ' open' : '')), row = el('div', 'tasksField');
+    row.appendChild(el('span', 'tasksFieldLabel', tr('Pôle')));
+    var b = el('button', 'tasksFieldValue'); b.type = 'button'; b.disabled = e.acts.length < 2 || e.loading;
+    b.appendChild(el('span', 'tasksFieldText', expActName() || tr('Choisir')));
+    if (!b.disabled) b.addEventListener('click', function () { state.open = state.open === 'exp' ? '' : 'exp'; paintExpansion(); });
+    row.appendChild(b); wrap.appendChild(row);
+    if (state.open === 'exp' && !b.disabled) {
+      var box = el('div', 'tasksChooser');
+      e.acts.forEach(function (a) { choice(box, a.name, function () { e.actId = a.id; e.tasks = null; }); });
+      wrap.appendChild(box);
+    }
+    ui.fields.appendChild(wrap);
+    if (e.loading) ui.fields.appendChild(el('p', 'tasksProposeHint', tr('Noèsis prépare les tâches…')));
+    if (e.tasks) {
+      if (!e.tasks.length) ui.fields.appendChild(el('p', 'tasksProposeHint', tr('Aucune tâche proposée. Précise ta demande.')));
+      e.tasks.forEach(function (t, i) {
+        var lab = el('label', 'tasksExpRow'), cb = el('input'); cb.type = 'checkbox'; cb.checked = e.checked[i] !== false;
+        cb.addEventListener('change', function () { e.checked[i] = cb.checked; });
+        var txt = el('span', 'tasksExpText'); txt.appendChild(el('b', null, t.title));
+        var meta = [t.categoryLabel, t.day ? dateText(t.day) : '', t.minutes ? minutesLabel(t.minutes) : ''].filter(Boolean).join(' · ');
+        if (meta) txt.appendChild(el('small', null, meta));
+        lab.appendChild(cb); lab.appendChild(txt); ui.fields.appendChild(lab);
+      });
+    }
+    ui.hint.textContent = e.tasks && e.tasks.length ? tr('↑ ou ✕ ajoute les tâches cochées.') : (e.kind === 'tasks' ? tr('Touche ↑ pour que Noèsis prépare les tâches.') : tr('Touche ↑ pour ouvrir Expansion sur cette activité.'));
+  }
+  function runExpansion() {
+    var e = state.exp; if (!e) return Promise.resolve();
+    if (!e.actId) { ui.msg.textContent = tr('Choisis l’activité d’abord.'); state.open = 'exp'; paintExpansion(); return Promise.resolve(); }
+    if (e.loading) return Promise.resolve();
+    ui.msg.textContent = '';
+    if (e.kind !== 'tasks') { var id = e.actId; reset(); if (TMT.openDocTasksForActivity) TMT.openDocTasksForActivity(id); return Promise.resolve(); }
+    if (!e.tasks) {
+      e.loading = true; paintExpansion();
+      return TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/propose', { instruction: e.label.slice(0, 1500) }).then(function (r) {
+        e.tasks = (r && r.tasks) || []; e.checked = e.tasks.map(function () { return true; });
+      }).catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Erreur.'); })
+        .then(function () { e.loading = false; if (state.exp === e) paintExpansion(); });
+    }
+    var picked = e.tasks.filter(function (t, i) { return e.checked[i] !== false; });
+    if (!picked.length) { reset(); return Promise.resolve(); }
+    e.loading = true; paintExpansion();
+    return TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/apply', { tasks: picked.map(function (t) { return { title: t.title, key: t.key, day: t.day, week: t.week, minutes: t.minutes }; }) }).then(function (r) {
+      var n = (r && r.addedCount) || 0; reset(); refresh();
+      ui.msg.textContent = n + ' ' + tr(n > 1 ? 'tâches ajoutées' : 'tâche ajoutée');
+    }).catch(function (err) { e.loading = false; ui.msg.textContent = (err && err.message) || tr('Erreur.'); paintExpansion(); });
+  }
+
   function onType() {
     ui.msg.textContent = '';
     var text = ui.text.value.trim();
     clearTimeout(state.debounce);
     clearTimeout(state.flash);
+    if (state.exp) { state.exp = null; ui.proposal.classList.add('hidden'); }
     if (text.length < 3) { state.proposal = null; state.choice = null; state.proposedFor = ''; ui.proposal.classList.add('hidden'); return; }
     state.debounce = setTimeout(function () { propose(text); }, PROPOSE_MS);
   }
@@ -239,7 +327,7 @@
   }
 
   function reset() {
-    clearTimeout(state.flash); ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
+    clearTimeout(state.flash); state.exp = null; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
     state.date = null; state.who = null; state.poleId = null; closeChooser();
     ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
   }
@@ -248,10 +336,31 @@
     paintProposal(true);
     state.flash = setTimeout(function () { state.proposal = null; state.date = null; state.who = null; state.options = []; state.poleId = null; ui.proposal.classList.add('hidden'); }, 5000);
   }
+  function showToast(text) {
+    clearTimeout(state.toastT); ui.toast.textContent = text; ui.toast.classList.remove('hidden');
+    state.toastT = setTimeout(function () { ui.toast.classList.add('hidden'); }, 2500);
+  }
+  function fastCommit(c) {
+    var t = c.t;
+    reset(); showToast(tr('Tâche enregistrée'));
+    if (TMT.aiMode === 'autonome') flashAdded({ t: t, date: c.date, who: c.who });
+    function fail(msg) { ui.toast.classList.add('hidden'); ui.text.value = c.label; ui.msg.textContent = msg || tr('non ajoutée'); }
+    TMT.captureTaskFlow(c.label, [t.activityId], t.categoryKey, { inline: true }).then(function (flow) {
+      var ok = flow && (flow.results || []).filter(function (x) { return x.ok; })[0];
+      if (!ok) { var bad = flow && (flow.results || [])[0]; fail(bad && bad.error ? tr(bad.error) : ''); return null; }
+      state.added.unshift({ id: ok.id, label: c.label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
+      var extra = { userId: TMT.getProfile().id, dueDate: c.date };
+      if (c.who) { extra.plannedUserId = c.who.id; extra.notifyAssignee = true; }
+      return TMT.api('PUT', '/api/sub-project-items/' + ok.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }).then(function () { refresh(); });
+    }).catch(function (err) { fail(err && err.message); });
+  }
   function send() {
     if (state.busy) return;
     var label = ui.text.value.trim();
     if (!label) { ui.msg.textContent = tr('Écris une tâche avant d’ajouter.'); return; }
+    if (state.exp) { runExpansion(); return; }
+    var kind = expIntent(label);
+    if (kind) { startExpansion(kind, label); return; }
     state.busy = true; ui.send.disabled = true; ui.msg.textContent = '';
     var shown = !!target(); // la proposition était déjà affichée AVANT l'envoi : ↑ la valide
     var go = shown ? Promise.resolve() : propose(label); // rien d'affiché encore : on demande d'abord la proposition
@@ -265,7 +374,9 @@
         if (TMT.docTasksPrefill) TMT.docTasksPrefill(t.activityId, label, files);
         return null;
       }
-      // La proposition au-dessus de la barre EST la validation (28 oct. 2026) : plus de pop-up de placement ni de confirmation après l'envoi.
+      // Proposition déjà affichée : validation INSTANTANÉE (↑ ou ✕). Le panneau se ferme tout de suite, « Tâche enregistrée » s'affiche en haut de la barre, l'enregistrement se termine en arrière-plan.
+      if (shown) { fastCommit({ t: t, label: label, date: state.date || dayIso(), who: state.who }); return null; }
+      // Proposition arrivée à l'envoi (IA autonome) : même chaîne, sans panneau.
       return TMT.captureTaskFlow(label, [t.activityId], t.categoryKey, { inline: true }).then(function (flow) {
         if (!flow) return null;
         var ok = (flow.results || []).filter(function (x) { return x.ok; })[0];
