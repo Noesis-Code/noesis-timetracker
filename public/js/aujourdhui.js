@@ -102,12 +102,18 @@
     ui.proposal = el('div', 'tasksPropose cmpGlass hidden'); // verre commun (R31), comme la barre des volets
     var kick = el('div', 'tasksProposeHead');
     ui.kicker = el('span', 'tasksProposeKicker', tr('Noèsis propose'));
-    ui.close = TMT.ui.closeBtn(function () { if (state.exp || state.expStep) reset(); else if (state.review && target() && ui.text.value.trim()) send(); else reset(); }, tr('Fermer')); // ✕ en haut à droite (R13) : enregistre le rangement affiché et l'applique (demande d'Émilien, 30 oct. 2026) ; sans rangement complet, ferme seulement
+    ui.close = TMT.ui.closeBtn(function () {
+      if (state.exp && state.exp.tasks && state.exp.tasks.length) { TMT.ui.confirm(tr('Êtes-vous sûr de vouloir effacer les tâches générées ?'), { ok: tr('Effacer'), danger: true }).then(function (yes) { if (yes) reset(); }); return; }
+      if (state.exp || state.expStep) reset(); else if (state.review && target() && ui.text.value.trim()) send(); else reset(); }, tr('Fermer')); // ✕ en haut à droite (R13) : enregistre le rangement affiché et l'applique (demande d'Émilien, 30 oct. 2026) ; sans rangement complet, ferme seulement
     kick.appendChild(ui.kicker); kick.appendChild(ui.close);
     ui.body = el('div', 'tasksProposeBody'); // la seule zone qui défile, sous le titre et la ✕ qui restent en place
     ui.fields = el('div', 'tasksFields');
     ui.hint = el('p', 'tasksProposeHint', tr('Rien n’est rangé sans toi : ↑ ou ✕ enregistre ce rangement.'));
-    ui.body.appendChild(ui.fields); ui.body.appendChild(ui.hint);
+    ui.pages = el('div', 'tasksPages'); ui.track = el('div', 'tasksTrack');
+    var pageA = el('div', 'tasksPage tasksPageA'); pageA.appendChild(ui.fields); pageA.appendChild(ui.hint);
+    ui.tasksBox = el('div', 'tasksPage tasksPageB off');
+    ui.track.appendChild(pageA); ui.track.appendChild(ui.tasksBox); ui.pages.appendChild(ui.track); ui.body.appendChild(ui.pages);
+    bindSwipe(ui.pages);
     ui.proposal.appendChild(kick); ui.proposal.appendChild(ui.body);
 
     var bar = el('div', 'tasksComposer');
@@ -264,7 +270,7 @@
   }
   var LONG_MS = 1000, LONG_MOVE = 10;
   // Appui sur ↑ possible seulement si le message « Appuie longtemps… » est affiché (texte qui annonce une génération ET Expansion payé sur une activité).
-  function pressEligible() { return !!ui.text.value.trim() && !ui.exHint.classList.contains('hidden') && !state.exp; }
+  function pressEligible() { return !!ui.text.value.trim() && !ui.exHint.classList.contains('hidden') && !state.exp && !state.expStep && !document.documentElement.classList.contains('modeExpansion'); } // pas pendant une demande déjà lancée : un appui court sur ↑ la valide sans toucher au mode blanc
   // Pendant l'appui (1 s) : la page fond vers le blanc rosé et le bouton grossit ; à la seconde, il reprend vite sa taille (en blanc) et la demande part.
   // Relâché avant : tout revient (fondu inverse).
   function bindLongPress(btn) {
@@ -352,8 +358,52 @@
     state.expStep = 0; closeChooser(); runExpansion();
   }
   function expActName() { var e = state.exp, a = e && e.acts.filter(function (x) { return x.id === e.actId; })[0]; return a ? a.name : ''; }
+  // Pages du panneau Expansion : on les parcourt en balayant DANS le panneau seulement (gauche : les tâches arrivent à droite ; droite : retour aux choix).
+  function goPage(n, instant) {
+    var A = ui.track.children[0], B = ui.track.children[1];
+    state.expPage = n;
+    (n === 2 ? B : A).classList.remove('off');
+    ui.track.style.transition = instant ? 'none' : '';
+    ui.track.style.transform = n === 2 ? 'translateX(-50%)' : 'translateX(0)';
+    clearTimeout(state.pgT);
+    if (instant) (n === 2 ? A : B).classList.add('off'); else state.pgT = setTimeout(function () { (n === 2 ? A : B).classList.add('off'); }, 280);
+    dock.classList.toggle('expSave', n === 2 && !!(state.exp && state.exp.tasks && state.exp.tasks.length) && !state.exp.loading); // page des tâches : la zone d'écriture devient « Enregistrer »
+  }
+  function bindSwipe(node) {
+    var x0 = 0, y0 = 0, on = false;
+    node.addEventListener('pointerdown', function (e) { x0 = e.clientX; y0 = e.clientY; on = true; });
+    node.addEventListener('pointercancel', function () { on = false; });
+    node.addEventListener('pointerup', function (e) {
+      if (!on) return; on = false;
+      var dx = e.clientX - x0, dy = e.clientY - y0, x = state.exp;
+      if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.6 || !x || x.kind !== 'tasks') return;
+      if (dx < 0 && (x.tasks || x.loading)) goPage(2); else if (dx > 0) goPage(1);
+    });
+    ['touchstart', 'touchmove'].forEach(function (ev) { node.addEventListener(ev, function (e) { e.stopPropagation(); }, { passive: true }); }); // le balayage de la page (Aujourd'hui / Activités…) ne le voit pas
+  }
+  function paintTasksPage(e) {
+    ui.proposal.classList.remove('hidden'); ui.close.classList.remove('hidden');
+    ui.kicker.textContent = tr('Expansion') + ' · ' + tr('Nouvelles tâches');
+    ui.pages.classList.add('locked'); // les choix de la page 1 sont figés une fois validés
+    ui.tasksBox.textContent = '';
+    ui.tasksBox.appendChild(el('p', 'tasksPageHead', tr('Dans') + ' ' + e.acts[0].name + (e.categoryLabel ? ' › ' + e.categoryLabel.replace(' → ', ' › ') : '')));
+    if (e.loading) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Noèsis prépare les tâches…')));
+    if (e.tasks && !e.tasks.length) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Aucune tâche proposée. Précise ta demande.')));
+    (e.tasks || []).forEach(function (t, i) {
+      var lab = el('label', 'tasksExpRow'), cb = el('input'); cb.type = 'checkbox'; cb.checked = e.checked[i] !== false;
+      cb.addEventListener('change', function () { e.checked[i] = cb.checked; });
+      var txt = el('span', 'tasksExpText'); txt.appendChild(el('b', null, t.title));
+      var meta = [t.day ? dateText(t.day) : '', t.minutes ? minutesLabel(t.minutes) : ''].filter(Boolean).join(' · ');
+      if (meta) txt.appendChild(el('small', null, meta));
+      lab.appendChild(cb); lab.appendChild(txt); ui.tasksBox.appendChild(lab);
+    });
+    ui.hint.classList.add('hidden');
+    goPage(2);
+    say(e.loading ? tr('Noèsis prépare les tâches…') : e.tasks && e.tasks.length ? tr('Touche Enregistrer pour les ajouter, ou balaie pour revenir aux choix.') : tr('Balaie vers la droite pour changer le rangement.'));
+  }
   function paintExpansion() {
     var e = state.exp; if (!e) return;
+    if (e.kind === 'tasks') { paintTasksPage(e); return; }
     ui.proposal.classList.remove('hidden'); ui.close.classList.remove('hidden'); ui.hint.classList.remove('hidden');
     ui.kicker.textContent = tr('Expansion') + (e.kind === 'tasks' ? ' · ' + tr('Nouvelles tâches') : e.kind === 'goals' ? ' · ' + tr('Objectifs') : ' · Drive');
     ui.fields.textContent = '';
@@ -398,8 +448,11 @@
       e.loading = true; paintExpansion();
       return TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/propose', { instruction: e.label.slice(0, 1500) }).then(function (r) {
         e.tasks = (r && r.tasks) || []; e.checked = e.tasks.map(function () { return true; });
-      }).catch(function (err) { say((err && err.message) || tr('Erreur.')); })
-        .then(function () { e.loading = false; if (state.exp === e) paintExpansion(); });
+      }).catch(function (err) {
+        var m = (err && err.message) || tr('Erreur.');
+        if (/Module désactivé/i.test(m)) { showAbove(tr('Expansion utilise l’Assistant IA, désactivé dans Réglages > Modules.'), tr('Activer l’Assistant IA'), function () { TMT.api('PUT', '/api/profile/' + TMT.getProfile().id + '/modules', { modules: { ai: true } }).then(function () { document.dispatchEvent(new Event('visibilitychange')); e.tasks = null; runExpansion(); }).catch(function (er) { showAbove((er && er.message) || tr('Erreur.')); }); }); }
+        else showAbove(m);
+      }).then(function () { e.loading = false; if (state.exp === e) paintExpansion(); });
     }
     var picked = e.tasks.filter(function (t, i) { return e.checked[i] !== false; });
     if (!picked.length) { reset(); return Promise.resolve(); }
@@ -415,7 +468,7 @@
     var text = ui.text.value.trim();
     clearTimeout(state.debounce);
     clearTimeout(state.flash);
-    if (state.exp || state.expStep) { state.exp = null; state.expStep = 0; dock.classList.remove('expSave'); setExpMode(false); ui.proposal.classList.add('hidden'); }
+    if (state.exp || state.expStep) { state.exp = null; state.expStep = 0; ui.pages.classList.remove('locked'); goPage(1, true); setExpMode(false); ui.proposal.classList.add('hidden'); }
     if (state.review) { state.review = false; ui.proposal.classList.add('hidden'); closeChooser(); } // le texte a changé : on recommence la revue au prochain ↑
     clearTimeout(state.hintT); state.hintT = setTimeout(updateExHint, 250);
     if (text.length < 3) { state.proposal = null; state.choice = null; state.proposedFor = ''; ui.proposal.classList.add('hidden'); return; }
@@ -465,7 +518,7 @@
     window.requestAnimationFrame(function () { if (!c) return; c.style.display = 'none'; void c.offsetHeight; c.style.display = ''; });
   }
   function reset() {
-    clearTimeout(state.flash); state.exp = null; state.expStep = 0; state.review = false; dock.classList.remove('expSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
+    clearTimeout(state.flash); state.exp = null; state.expStep = 0; state.review = false; ui.pages.classList.remove('locked'); goPage(1, true); dock.classList.remove('expSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
     state.date = null; state.who = null; state.poleId = null; closeChooser();
     ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
     repaintText(); // iPhone : le texte d'invite (placeholder) ne se redessinait qu'en partie (« Ajou ») après l'envoi
