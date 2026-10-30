@@ -202,7 +202,7 @@
 @media (prefers-reduced-motion: reduce) { :root { transition: none; } }
 :root.modeCreation {
   --purple: #F0DDE0; --pr: 240; --pg: 221; --pb: 224; --purple-dark: #F0DDE0; --brique: #F0DDE0;
-  --violet-soft: #F0DDE0; --violet-promo: #F0DDE0; --blue: #F0DDE0; --unread: #F0DDE0; --halo: rgba(240, 221, 224, .28);
+  --violet-soft: #F0DDE0; --violet-promo: #F0DDE0; --blue: #F0DDE0; --unread: #F0DDE0; --halo: rgba(240, 221, 224, .16);
 }
 :root:root:root .cmpSeg { display: flex; align-items: stretch; flex-wrap: nowrap; width: 100%; box-sizing: border-box; gap: 0; margin: 0 0 16px; padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 :root:root:root .cmpSeg > * {
