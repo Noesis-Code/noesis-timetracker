@@ -78,10 +78,10 @@
     return clearOnce().then(function () { return loadAllNow(); });
   }
   function loadAllNow() {
-    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), req('GET', 'inbound').catch(function () { return {}; }), req('GET', 'service-ends').catch(function () { return { ends: {} }; }), req('GET', 'floors').catch(function () { return { floors: [], counts: [] }; }), req('GET', 'event-types').catch(function () { return { types: [] }; }), req('GET', 'notes').catch(function () { return { notes: [] }; })])
+    return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), req('GET', 'service-ends').catch(function () { return { ends: {} }; }), req('GET', 'floors').catch(function () { return { floors: [], counts: [] }; }), req('GET', 'event-types').catch(function () { return { types: [] }; }), req('GET', 'notes').catch(function () { return { notes: [] }; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];
-        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.inbound = r[8] || {}; S.ends = r[9].ends || {}; S.types = (r[11] && r[11].types) || []; S.notes = (r[12] && r[12].notes) || []; S.floors = r[10].floors || []; S.floorCounts = r[10].counts || []; S.loaded = true;
+        S.needs = r[3].needs || []; S.events = r[4].events || []; S.settings = r[5].settings || {}; S.rr = r[7].rules || null; S.ends = r[8].ends || {}; S.types = (r[10] && r[10].types) || []; S.notes = (r[11] && r[11].notes) || []; S.floors = r[9].floors || []; S.floorCounts = r[9].counts || []; S.loaded = true;
       });
   }
   // Construit la page si besoin : refresh() peut être appelé (TMT.horaire.refresh) avant la première ouverture du volet.
@@ -124,7 +124,7 @@
   // Deux catégories (grands boutons .cmpSeg, R42) et leurs sous-catégories (texte simple souligné, .cmpSubTabs) : demande d'Émilien,
   // 28 oct. 2026. Pages à plat : 0-2 = Paramètres, 3-5 = Création des horaires.
   var CATS = [['Paramètres', ['Employés', 'Événements', 'Général']], ['Création des horaires', ['Récupération', 'Horaire', 'Envoi']]];
-  var bTypes, typesBox, inboundLine, bFloors, floorsBox, eventsBox, promptBoxes = {}, catsMsg, pasteArea, weekLabel, weekNav, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
+  var bTypes, typesBox, bFloors, floorsBox, eventsBox, promptBoxes = {}, catsMsg, pasteArea, weekLabel, weekNav, msgBox, statusLine, needsBox, catsBox, planBox, alertsBox, rulesBox, genBtn, summaryBox, mainNodes;
   var pagesHost, pages = [], catBtns = [], subTabs, dots, dotBtns = [], pagerBound = false;
   function toMin(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); }
   function serviceOf(start) { return toMin(start) >= EVE ? 'soir' : 'matin'; }
@@ -182,12 +182,11 @@
     p1.appendChild(bCats);
     // Paramètres > Général : menu Poste, Besoins (avec les lignes « Fin »), Règles du restaurant.
     var pGen = el('div', 'horairePage');
-    // Adresse secrète de réception des courriels d'événements : seulement si la réception est configurée (HORAIRE_INBOUND_DOMAIN).
-    inboundLine = el('div', 'horaireInbound hidden');
-    [posPicker(), bNeeds, bFloors, bRules, inboundLine].forEach(function (n) { pGen.appendChild(n); });
+    // Réception des événements par courriel retirée (30 oct. 2026, décision d'Émilien) : le gérant saisit les événements à la main.
+    [posPicker(), bNeeds, bFloors, bRules].forEach(function (n) { pGen.appendChild(n); });
 
     // Paramètres > Événements : le calendrier des événements seul, en saisie manuelle (demandes d'Émilien, 28 oct. 2026 : pas de prompt
-    // pour lire OpenTable ; la voie automatique prévue est la réception du rapport par courriel, route à jeton côté serveur).
+    // pour lire OpenTable ; 30 oct. 2026 : plus de réception automatique, saisie manuelle chaque semaine).
     var pEv = el('div', 'horairePage');
     // Types d'événements (au-dessus du calendrier) : « 1 [poste] pour N clients » par type ; vide = aucun personnel de ce poste.
     bTypes = block('Types d’événements');
@@ -415,53 +414,6 @@
     paste.appendChild(area); paste.appendChild(TMT.ui.attachBtn(function (files) { readPasteFile(files, area, o.send); }, { label: tr('Joindre un fichier') })); paste.appendChild(actions);
     return { row: row, box: box, paste: paste, area: area };
   }
-  function renderInbound() {
-    var i = S.inbound || {};
-    inboundLine.textContent = '';
-    inboundLine.classList.toggle('hidden', !i.address);
-    if (!i.address) return;
-    var row = el('div', 'horaireInboundRow');
-    row.appendChild(el('span', 'horaireMuted horaireInboundText', tr('Courriels des événements :') + ' ' + i.address));
-    row.appendChild(btn('cmpBtn cmpBtnIdle', 'Copier l’adresse', function () {
-      var cb = navigator.clipboard;
-      (cb && cb.writeText ? cb.writeText(i.address) : Promise.reject()).then(function () { S.msg = tr('Adresse copiée.'); renderMsg(); }, function () { S.msg = tr('Copie impossible.'); renderMsg(); });
-    }));
-    inboundLine.appendChild(row);
-    // Mise en place guidée (29 oct. 2026, demande d'Émilien) : l'adresse à relier (défaut : courriel du profil) sert seulement à
-    // choisir les étapes Gmail ou Outlook ; la réception ne la lit jamais (seul le jeton de l'adresse du compte fait foi).
-    var mine = input('email', i.forwardFrom || '', tr('Mon adresse courriel'));
-    mine.autocomplete = 'email';
-    mine.addEventListener('change', function () {
-      req('PUT', 'inbound', { forwardFrom: mine.value.trim() }).then(function (d) { S.inbound = d; renderInbound(); }, fail);
-    });
-    inboundLine.appendChild(field(tr('Mon adresse courriel'), mine));
-    var guess = /@(outlook|hotmail|live|msn)\./i.test(i.forwardFrom || '') ? 'outlook' : 'gmail';
-    var client = S.mailClient || guess;
-    var seg = el('div', 'cmpSeg horaireInboundSeg'); seg.setAttribute('role', 'tablist');
-    [['gmail', 'Gmail'], ['outlook', 'Outlook']].forEach(function (c) {
-      var b = btn(client === c[0] ? 'active' : '', c[1], function () { S.mailClient = c[0]; renderInbound(); });
-      b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', client === c[0] ? 'true' : 'false');
-      seg.appendChild(b);
-    });
-    inboundLine.appendChild(seg);
-    var steps = client === 'outlook'
-      ? ['Outlook : Paramètres > Courrier > Règles > Ajouter une règle.', 'Condition : les courriels d’événements. Action : Transférer à l’adresse ci-dessus.']
-      : ['Gmail : Paramètres > Transfert et POP/IMAP > Ajouter une adresse de transfert : l’adresse ci-dessus.', 'Puis un filtre sur les courriels d’événements : Transférer à cette adresse.'];
-    var ol = el('ol', 'horaireMuted horaireInboundSteps');
-    steps.forEach(function (s) { ol.appendChild(el('li', null, tr(s))); });
-    inboundLine.appendChild(ol);
-    // Dernier code (ou lien) de confirmation de transfert Gmail reçu, gardé 1 h par le serveur : seulement s'il existe.
-    var gc = i.gmailConfirm;
-    if (gc && gc.value) {
-      var p = el('p', 'horaireInboundConfirm', tr('Code de confirmation Gmail') + ' : ');
-      if (gc.kind === 'link' && /^https:\/\/(mail|mail-settings)\.google\.com\//.test(gc.value)) {
-        var a = el('a', 'horaireLink', tr('Confirmer le transfert')); a.href = gc.value; a.target = '_blank'; a.rel = 'noopener noreferrer';
-        p.appendChild(a);
-      } else p.appendChild(el('strong', null, gc.value));
-      p.appendChild(el('span', 'horaireMuted', ' · ' + tr('valable 1 h')));
-      inboundLine.appendChild(p);
-    }
-  }
   // « 1 congé », « 3 congés » : nombre et mot accordé (jamais « (s) »).
   function plural(n, one, many) { return n + ' ' + tr(n > 1 ? many : one); }
   function renderMsg() {
@@ -530,7 +482,6 @@
     renderNeedsTable();
     renderTypes();
     renderFloors();
-    renderInbound();
     renderCats();
     renderRules();
   }

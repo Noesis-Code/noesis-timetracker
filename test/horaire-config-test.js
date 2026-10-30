@@ -2,6 +2,7 @@
 // (événements, OpenTable par poste, fichier modèle Dayforce, hébergement au Canada). Couche données + routes (validation).
 // Usage : node test/horaire-config-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-horaire-config-');
+process.env.HORAIRE_INBOUND_ENABLED = '1'; // réception désactivée par défaut (30 oct. 2026) : la logique reste testée interrupteur allumé
 process.env.HORAIRE_TODAY = '2026-10-28'; // jour fixe : les dates des événements restent futures
 const http = require('http');
 const express = require('express');

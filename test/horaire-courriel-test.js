@@ -2,6 +2,7 @@
 // (défaut : courriel du profil) mais JAMAIS utilisée pour accepter un courriel : seul le jeton de l'adresse du compte fait foi.
 // Données entièrement FICTIVES. Usage : node test/horaire-courriel-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-horaire-courriel-');
+process.env.HORAIRE_INBOUND_ENABLED = '1'; // réception désactivée par défaut (30 oct. 2026) : la logique reste testée interrupteur allumé
 process.env.HORAIRE_TODAY = '2026-10-29';
 process.env.HORAIRE_INBOUND_DOMAIN = 'exemple.test';
 const http = require('http');
@@ -90,6 +91,18 @@ function call(method, path, body, user) {
   await post(tok, { from: 'forwarding-noreply@google.com', subject: 'Gmail Forwarding Confirmation', 'body-plain': 'Confirmation code: 111222333' });
   require('../server/lib/accountdeletion').deleteAccountData(db.prepare('SELECT * FROM users WHERE id = ?').get('uE'));
   assert(!db.prepare("SELECT 1 FROM horaire_settings WHERE userId = 'uE'").get(), 'suppression du compte : code effacé avec les réglages');
+
+  // ---- Interrupteur éteint (défaut) : les routes à jeton répondent 404, rien n'est lu ni stocké ----
+  for (const off of [undefined, '0', '']) {
+    if (off === undefined) delete process.env.HORAIRE_INBOUND_ENABLED; else process.env.HORAIRE_INBOUND_ENABLED = off;
+    const tokF = /^horaire-([0-9a-f]{64})@/.exec(h.inboundInfo('uF').address)[1];
+    const n0 = h.listEvents('uF').length, last0 = db.prepare("SELECT inboundLastAt FROM horaire_settings WHERE userId = 'uF'").get().inboundLastAt;
+    const m = await post(tokF, { from: 'info@resto.test', subject: 'Gala', 'body-plain': 'Gala le 20 décembre à 19h, 40 personnes.', 'Message-Id': '<off@resto.test>' });
+    const rr = await new Promise((res) => { const d = JSON.stringify({ text: 'Nom;2026-12-21;19:00;8' }); const q = http.request({ port, method: 'POST', path: '/api/horaire/inbound/reservations/' + tokF, headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(d) } }, (x) => { x.resume(); x.on('end', () => res(x.statusCode)); }); q.write(d); q.end(); });
+    assert(m.status === 404 && rr === 404, 'interrupteur éteint (' + JSON.stringify(off) + ') : courriel et rapport 404');
+    assert(h.listEvents('uF').length === n0 && db.prepare("SELECT inboundLastAt FROM horaire_settings WHERE userId = 'uF'").get().inboundLastAt === last0, 'interrupteur éteint : rien de créé ni de noté');
+  }
+  process.env.HORAIRE_INBOUND_ENABLED = '1';
 
   // ---- Sans HORAIRE_INBOUND_DOMAIN : pas d'adresse affichée (comportement actuel) ----
   delete process.env.HORAIRE_INBOUND_DOMAIN;

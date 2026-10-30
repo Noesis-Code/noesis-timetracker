@@ -1,6 +1,7 @@
 // Module « Horaire » : événements reçus par COURRIEL (fil de la boîte info@ du restaurant), extraction par règles, sans IA,
 // rien de personnel gardé. Données entièrement FICTIVES. Usage : node test/horaire-mail-test.js
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-horaire-mail-');
+process.env.HORAIRE_INBOUND_ENABLED = '1'; // réception désactivée par défaut (30 oct. 2026) : la logique reste testée interrupteur allumé
 process.env.HORAIRE_TODAY = '2026-10-29';
 const http = require('http');
 const express = require('express');

@@ -22,8 +22,7 @@ Statut : projet. À valider et signer par Émilien pour Noèsis Inc.
 | Disponibilités et congés | plages par jour ; congé (vacances, maladie, absence) | mémoire du serveur seulement, jamais en base (voir 2.1) |
 | Horaire | quarts par employé, alertes, rotation, couverts | mémoire du serveur seulement, jamais en base (voir 2.1) |
 | Événements | date, heure, couverts, type, prix ; aucun nom de client | supprimés le lendemain de leur date |
-| Courriels transférés | corps lu en mémoire puis jeté ; on garde les champs extraits, des identifiants et un sujet hachés | fil purgé avec son événement (passé ou supprimé) ; sans événement : 30 jours ; refus : empreinte 90 jours |
-| Code de confirmation Gmail | un seul code | 1 heure |
+| Courriels reçus | **aucun** depuis le 30 oct. 2026 : la réception automatique est désactivée, le gérant saisit les événements à la main. Les fils déjà reçus restent purgés comme avant (avec leur événement ; sans événement : 30 jours ; refus : empreinte 90 jours) | — |
 
 **Sensibilité.** Le motif d'un congé (maladie) touche la santé. Les notes et règles en texte libre peuvent en contenir aussi. Le reste est modéré (nom, heures de travail).
 
@@ -47,9 +46,9 @@ Statut : projet. À valider et signer par Émilien pour Noèsis Inc.
 
 1. Chiffrement en transit (HTTPS fourni par Railway ; **à confirmer** : certificat et redirection forcée).
 2. Accès au propriétaire seul : chaque requête est filtrée par l'identifiant de session ; module `horaire` actif requis.
-3. Réception des courriels : sans session, mais par jeton secret de 64 caractères, révocable, avec limite de débit.
+3. Réception des courriels : désactivée (30 oct. 2026, décision d'Émilien). Les routes à jeton répondent 404 sans rien lire ni stocker ; le code reste, éteint par un seul interrupteur (`HORAIRE_INBOUND_ENABLED`, absent par défaut). La rallumer exige de mettre cette EFVP à jour.
 4. Données jamais envoyées à l'IA de Noèsis, à la Communauté, au partage ni aux journaux. Les en-têtes d'export ne donnent que des nombres, aucun nom.
-5. Purges : événements passés, fils de courriel, corps des courriels, code Gmail, empreintes de refus après 90 jours ; horaire et disponibilités jamais stockés (voir 2.1).
+5. Purges : événements passés, fils de courriel déjà reçus, empreintes de refus après 90 jours ; horaire et disponibilités jamais stockés (voir 2.1).
 6. Export Dayforce : revérifié avant export (horaire enregistré requis, trous exclus, codes manquants signalés) ; rien n'est journalisé.
 7. Droits : données incluses dans l'export du compte ; effacées à la suppression du compte (cascade).
 8. Sauvegardes chiffrées avant envoi.
@@ -60,7 +59,6 @@ Statut : projet. À valider et signer par Émilien pour Noèsis Inc.
 |---|---|---|
 | Accès non autorisé au compte du gestionnaire | moyen | sécurité de connexion du compte (à confirmer) |
 | Santé révélée par un congé maladie ou un texte libre | moyen | conseiller au restaurant de saisir « absence » et de ne pas écrire de motif |
-| Fuite du jeton de réception | faible | révocation en un geste ; aucune donnée personnelle reçue gardée |
 | Prompt copié dans une IA tierce par le gestionnaire | moyen | hors du contrôle de Noèsis ; à couvrir dans l'entente |
 | Sauvegarde hors UE si R2 hors UE | à évaluer | confirmer la région R2 |
 | Anciens horaires et disponibilités dans les sauvegardes R2 d'avant le 30 oct. 2026 | faible | disparaissent avec la rotation des sauvegardes ; durée de rétention R2 à confirmer |
@@ -77,4 +75,4 @@ Signé : ____________________ Émilien, pour Noèsis Inc.    Date : ____________
 2. Confirmer la région du compartiment R2 et le HTTPS forcé.
 3. Mettre à jour cette EFVP quand le passage « en mémoire seulement » est livré.
 4. Signer cette EFVP.
-5. La réviser chaque année, et à chaque nouveau sous-traitant (ex. fournisseur de réception des courriels, non choisi).
+5. La réviser chaque année, et à chaque nouveau sous-traitant (ex. fournisseur de réception des courriels, si la réception est rallumée).

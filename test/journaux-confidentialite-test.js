@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const tmp = require('./lib/tmpdir').mkTmp('tmt-journaux-');
 process.env.NOESIS_DATA_DIR = tmp;
+process.env.HORAIRE_INBOUND_ENABLED = '1'; // réception désactivée par défaut (30 oct. 2026) : la logique reste testée interrupteur allumé
 process.env.HORAIRE_TODAY = '2026-10-29';
 process.env.HORAIRE_INBOUND_DOMAIN = 'exemple.test';
 const http = require('http');

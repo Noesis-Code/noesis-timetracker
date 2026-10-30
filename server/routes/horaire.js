@@ -11,6 +11,11 @@ const router = express.Router();
 // Cloudflare) : pièce jointe CSV en base64 (attachments/Attachments : content|Content|data) ou texte du corps (text, TextBody,
 // body-plain, plain). Taille limitée (2 Mo de CSV), débit limité (30 rapports par heure et par jeton) ; jeton inconnu : 404 sans rien d'autre.
 const inboundHits = new Map();
+// Interrupteur unique de la réception automatique (30 oct. 2026, décision d'Émilien : « pour le moment », le gérant saisit les événements
+// à la main chaque semaine). Désactivée par défaut : les routes à jeton ci-dessous répondent 404 sans rien lire ni stocker. Le code reste
+// pour revenir plus tard : HORAIRE_INBOUND_ENABLED=1 la rallume (lue à chaque appel).
+function inboundEnabled() { return /^(1|true|oui)$/i.test(String(process.env.HORAIRE_INBOUND_ENABLED || '').trim()); }
+router.post('/horaire/inbound/:kind/:token', (req, res, next) => (inboundEnabled() ? next() : res.status(404).end()));
 function inboundText(b) {
   const atts = [].concat(b.attachments || b.Attachments || []).filter(Boolean);
   for (const a of atts) {
