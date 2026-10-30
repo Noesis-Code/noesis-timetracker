@@ -53,7 +53,7 @@
   // ---------- Pop-up ----------
   var listBox = null, sumL = null, sumR = null, timer = null, loadSeq = 0;
   var ui = {}; // éléments de la barre d'ajout
-  var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null };
+  var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null, date: null, who: null, poleId: null, open: '', members: {}, flash: null };
 
   var root = null, shown = false, dock = null;
   // La barre n'existe à l'écran que si la vue Aujourd'hui est réellement visible (autre volet, autre vue ou page par-dessus : masquée).
@@ -86,15 +86,14 @@
   function buildAdd() {
     var box = el('div', 'tasksPopAdd');
     ui.proposal = el('div', 'tasksPropose cmpGlass hidden'); // verre commun (R31), comme la barre des volets
-    ui.proposal.appendChild(el('span', 'tasksProposeKicker', tr('Noèsis propose')));
-    var row = el('div', 'tasksProposeRow');
-    ui.dot = el('span', 'tasksPopDot'); ui.where = el('b', 'tasksProposeWhere');
-    ui.change = el('button', 'tasksProposeChange', tr('Changer')); ui.change.type = 'button';
-    ui.change.addEventListener('click', toggleChooser);
-    row.appendChild(ui.dot); row.appendChild(ui.where); row.appendChild(ui.change);
+    var kick = el('div', 'tasksProposeHead');
+    ui.kicker = el('span', 'tasksProposeKicker', tr('Noèsis propose'));
+    ui.close = TMT.ui.closeBtn(function () { reset(); }, tr('Fermer')); // ✕ en haut à droite (R13) : ferme sans rien créer
+    kick.appendChild(ui.kicker); kick.appendChild(ui.close);
+    ui.fields = el('div', 'tasksFields');
     ui.hint = el('p', 'tasksProposeHint', tr('Rien n’est rangé sans toi : ↑ accepte cette proposition.'));
     ui.chooser = el('div', 'tasksChooser hidden');
-    ui.proposal.appendChild(row); ui.proposal.appendChild(ui.hint); ui.proposal.appendChild(ui.chooser);
+    ui.proposal.appendChild(kick); ui.proposal.appendChild(ui.fields); ui.proposal.appendChild(ui.chooser); ui.proposal.appendChild(ui.hint);
 
     var bar = el('div', 'tasksComposer');
     var clip = el('label', 'tasksClip cmpSymbol');
@@ -117,27 +116,75 @@
   }
 
   function target() { return state.choice || state.proposal; }
-  function paintProposal() {
-    var t = target();
-    ui.proposal.classList.toggle('hidden', !t && !state.options.length);
-    if (!t) { ui.where.textContent = tr('Choisis où ranger'); ui.hint.classList.add('hidden'); return; }
-    ui.where.textContent = t.activityName + ' › ' + t.categoryLabel.replace(' → ', ' › ');
-    ui.hint.classList.remove('hidden');
+  function sectorOf(o) { return String(o.categoryLabel || '').split(' → ').pop(); }
+  function dateText(iso) {
+    if (!iso) return tr('Auto');
+    var d = new Date(iso + 'T12:00:00'); var s = d.toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
   }
-  function toggleChooser() {
-    if (!ui.chooser.classList.contains('hidden')) { ui.chooser.classList.add('hidden'); return; }
-    ui.chooser.textContent = '';
-    state.options.forEach(function (o) {
-      var b = el('button', 'tasksChoice', o.activityName + ' › ' + o.categoryLabel.replace(' → ', ' › ')); b.type = 'button';
-      b.addEventListener('click', function () { state.choice = o; ui.chooser.classList.add('hidden'); paintProposal(); });
-      ui.chooser.appendChild(b);
-    });
-    ui.chooser.classList.remove('hidden');
+  // Un champ = libellé + valeur ; un toucher ouvre sa liste (pôle, secteur, date, responsable), sur place sous les champs.
+  function fieldRow(key, label, value, locked) {
+    var row = el('div', 'tasksField');
+    row.appendChild(el('span', 'tasksFieldLabel', tr(label)));
+    var b = el('button', 'tasksFieldValue', value); b.type = 'button'; b.disabled = !!locked;
+    if (!locked) b.addEventListener('click', function () { toggleChooser(key); });
+    row.appendChild(b);
+    return row;
+  }
+  function membersOf(activityId) {
+    if (state.members[activityId]) return Promise.resolve(state.members[activityId]);
+    return TMT.api('GET', '/api/activities/' + activityId + '/goals/members').then(function (d) { return (state.members[activityId] = (d && d.members) || []); }).catch(function () { return []; });
+  }
+  function paintProposal(readOnly) {
+    var t = target(), poleId = t ? t.activityId : state.poleId;
+    var poleName = t ? t.activityName : ((state.options.filter(function (o) { return o.activityId === poleId; })[0] || {}).activityName || '');
+    ui.proposal.classList.toggle('hidden', !t && !state.options.length && !readOnly);
+    ui.kicker.textContent = readOnly ? '✓ ' + tr('Ajoutée') : tr(TMT.aiMode === 'absence' || !t ? 'À ranger' : 'Noèsis propose');
+    ui.close.classList.toggle('hidden', !!readOnly);
+    ui.fields.textContent = '';
+    ui.fields.appendChild(fieldRow('pole', 'Pôle', poleName || tr('Choisir'), readOnly));
+    ui.fields.appendChild(fieldRow('secteur', 'Secteur', t ? sectorOf(t) : tr('Choisir'), readOnly || !poleId));
+    ui.fields.appendChild(fieldRow('date', 'Date', dateText(state.date), readOnly));
+    if (poleId && state.members[poleId] && state.members[poleId].length > 1) ui.fields.appendChild(fieldRow('who', 'Responsable', state.who ? state.who.name : '—', readOnly));
+    ui.hint.classList.toggle('hidden', !t || !!readOnly);
+    if (poleId && !state.members[poleId]) membersOf(poleId).then(function () { if (!readOnly && (target() ? target().activityId : state.poleId) === poleId) paintProposal(); });
+  }
+  function closeChooser() { state.open = ''; ui.chooser.classList.add('hidden'); ui.chooser.textContent = ''; }
+  function choose(label, fn) { var b = el('button', 'tasksChoice', label); b.type = 'button'; b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); }); ui.chooser.appendChild(b); }
+  function toggleChooser(key) {
+    if (state.open === key && !ui.chooser.classList.contains('hidden')) { closeChooser(); return; }
+    closeChooser(); state.open = key; ui.chooser.classList.remove('hidden');
+    var t = target(), poleId = t ? t.activityId : state.poleId;
+    if (key === 'pole') {
+      var seen = {};
+      state.options.forEach(function (o) {
+        if (seen[o.activityId]) return; seen[o.activityId] = true;
+        choose(o.activityName, function () {
+          var mine = state.options.filter(function (x) { return x.activityId === o.activityId; });
+          var same = t && mine.filter(function (x) { return x.categoryKey === t.categoryKey; })[0];
+          state.poleId = o.activityId; state.who = null;
+          state.choice = same || (mine.length === 1 ? mine[0] : null);
+          if (!state.choice && state.proposal && state.proposal.activityId !== o.activityId) state.proposal = null;
+        });
+      });
+    } else if (key === 'secteur') {
+      state.options.filter(function (o) { return o.activityId === poleId; }).forEach(function (o) { choose(sectorOf(o), function () { state.choice = o; }); });
+    } else if (key === 'date') {
+      var inp = el('input', 'tasksDateInput'); inp.type = 'date'; inp.value = state.date || ''; inp.min = localIso();
+      inp.setAttribute('aria-label', tr('Date'));
+      inp.addEventListener('change', function () { state.date = inp.value || null; closeChooser(); paintProposal(); });
+      ui.chooser.appendChild(inp);
+      choose(tr('Auto'), function () { state.date = null; });
+    } else if (key === 'who') {
+      choose('—', function () { state.who = null; });
+      (state.members[poleId] || []).forEach(function (m) { choose(m.name, function () { state.who = { id: m.id, name: m.name }; }); });
+    }
   }
   function onType() {
     ui.msg.textContent = '';
     var text = ui.text.value.trim();
     clearTimeout(state.debounce);
+    clearTimeout(state.flash);
     if (text.length < 3) { state.proposal = null; state.choice = null; state.proposedFor = ''; ui.proposal.classList.add('hidden'); return; }
     state.debounce = setTimeout(function () { propose(text); }, PROPOSE_MS);
   }
@@ -146,7 +193,8 @@
     var seq = ++state.seq;
     return TMT.api('POST', '/api/goals/capture/propose', { label: text, skipAi: TMT.aiMode === 'absence' }).then(function (r) {
       if (seq !== state.seq) return;
-      state.proposedFor = text; state.proposal = r.proposal || null; state.options = r.options || []; state.choice = null;
+      state.proposedFor = text; state.proposal = r.proposal || null; state.options = r.options || [];
+      if (state.choice && !state.options.some(function (o) { return o.activityId === state.choice.activityId && o.categoryKey === state.choice.categoryKey; })) state.choice = null; // un choix de l'utilisateur prime sur la proposition
       paintProposal();
     }).catch(function () { /* pas de proposition : « Changer » reste possible */ });
   }
@@ -178,8 +226,14 @@
   }
 
   function reset() {
-    ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
-    ui.proposal.classList.add('hidden'); ui.chooser.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
+    clearTimeout(state.flash); ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
+    state.date = null; state.who = null; state.poleId = null; closeChooser();
+    ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
+  }
+  function flashAdded(snap) {
+    state.proposal = snap.t; state.choice = null; state.date = snap.date; state.who = snap.who; state.options = [snap.t]; state.poleId = snap.t.activityId;
+    paintProposal(true);
+    state.flash = setTimeout(function () { state.proposal = null; state.date = null; state.who = null; state.options = []; state.poleId = null; ui.proposal.classList.add('hidden'); }, 3000);
   }
   function send() {
     if (state.busy) return;
@@ -189,7 +243,7 @@
     var go = target() ? Promise.resolve() : propose(label); // rien d'accepté encore : on demande d'abord la proposition
     go.then(function () {
       var t = target();
-      if (!t) { paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Choisis où ranger la tâche.'); if (state.options.length) toggleChooser(); return null; }
+      if (!t) { paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Choisis où ranger la tâche.'); if (state.options.length) toggleChooser(state.poleId ? 'secteur' : 'pole'); return null; }
       if (state.files.length) {
         var files = state.files.slice();
         if (TMT.docTasksPrefill) TMT.docTasksPrefill(t.activityId, label, files);
@@ -203,7 +257,14 @@
         var r = ok;
           // Montrée tout de suite dans la liste, même si Noèsis l'a placée un autre jour (« demain »…), tant que la vue reste ouverte.
           state.added.unshift({ id: r.id, label: label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
-          reset(); refresh();
+          var snap = { t: t, date: state.date, who: state.who }, extra = { userId: TMT.getProfile().id };
+          if (snap.date) extra.dueDate = snap.date;
+          if (snap.who) { extra.plannedUserId = snap.who.id; extra.notifyAssignee = true; }
+          var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }) : Promise.resolve();
+          return after.then(function () {
+            reset(); refresh();
+            if (TMT.aiMode === 'autonome') flashAdded(snap); // autonome : les choix s'affichent 3 s, puis le panneau disparaît
+          });
       });
     }).catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Erreur.'); })
       .then(function () { state.busy = false; ui.send.disabled = false; });

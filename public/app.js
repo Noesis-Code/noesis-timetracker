@@ -8934,7 +8934,7 @@
     var by = TMT.unreadByActivity || {};
     document.querySelectorAll('.goalsCaptureActivityChip[data-activity-id]').forEach(function (chip) {
       var dot = chip.querySelector('.goalsCaptureUnreadDot');
-      var n = by[chip.dataset.activityId] || 0;
+      var n = (by[chip.dataset.activityId] || 0) && !chip.querySelector('.goalsCaptureBadge'); // un seul repère : la pastille avec le nombre de tâches remplace le point (demande d'Émilien, 30 oct. 2026)
       if (n && !dot) {
         dot = document.createElement('span');
         dot.className = 'goalsCaptureUnreadDot';
