@@ -219,12 +219,12 @@
   ui.attachBtn = attachBtn;
   ui.ATTACH_ACCEPT = ATTACH_ACCEPT;
   ui.groupDrag = groupDrag;
-  // Mode clair (essai d'Émilien, 30 oct. 2026) : sur tout écran à DEUX pages (.cmpSeg de deux options), l'option de droite active passe la page
-  // au clair (classe modeClair sur <html>, jetons dans composants.css) ; l'option de gauche la remet au sombre.
+  // Mode clair (essai d'Émilien, 30 oct. 2026), réservé au module Horaire : dans Paramètres | Création des horaires (.horaireCats), l'option de droite
+  // active passe la page au clair (classe modeClair sur <html>, jetons dans composants.css) ; l'option de gauche la remet au sombre.
   function syncModeClair() {
     var de = document.documentElement, on = false;
-    document.querySelectorAll('.cmpSeg').forEach(function (s) {
-      if (on || s.children.length !== 2 || !s.offsetParent || s.matches('.themeSwitch, .feedbackCategorySwitch, .extCalSeg, .saSel')) return; // choix de langue, de catégorie ou de période : pas des pages
+    document.querySelectorAll('.cmpSeg.horaireCats').forEach(function (s) {
+      if (on || s.children.length !== 2 || !s.offsetParent) return;
       var r = s.children[1];
       on = r.classList.contains('active') || r.classList.contains('on') || r.getAttribute('aria-pressed') === 'true' || r.getAttribute('aria-selected') === 'true';
     });
