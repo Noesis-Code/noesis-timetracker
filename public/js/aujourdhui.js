@@ -119,21 +119,33 @@
   function target() { return state.choice || state.proposal; }
   function sectorOf(o) { return String(o.categoryLabel || '').split(' → ').pop(); }
   function dateText(iso) {
-    if (!iso) return tr('Auto');
+    if (!iso) iso = dayIso();
     var d = new Date(iso + 'T12:00:00'); var s = d.toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'short', day: 'numeric', month: 'short' });
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
-  // Un champ = libellé + valeur + flèche ▾ (à droite, R21) ; un toucher déroule SES choix juste dessous, décalés et reliés au champ par un trait (R36 : la ligne se déroule sur place).
+  // Un champ = libellé + valeur ; un toucher déroule SES choix juste dessous, décalés et reliés au champ par un trait (R36 : la ligne se déroule sur place).
   function fieldRow(key, label, value, locked) {
     var wrap = el('div', 'tasksFieldWrap' + (state.open === key && !locked ? ' open' : ''));
     var row = el('div', 'tasksField');
     row.appendChild(el('span', 'tasksFieldLabel', tr(label)));
     var b = el('button', 'tasksFieldValue'); b.type = 'button'; b.disabled = !!locked;
     b.appendChild(el('span', 'tasksFieldText', value));
-    if (!locked) { b.appendChild(el('span', 'tasksFieldChev', state.open === key ? '▴' : '▾')); b.setAttribute('aria-expanded', state.open === key ? 'true' : 'false'); b.addEventListener('click', function () { toggleChooser(key); }); }
+    if (!locked) { b.setAttribute('aria-expanded', state.open === key ? 'true' : 'false'); b.addEventListener('click', function () { toggleChooser(key); }); }
     row.appendChild(b); wrap.appendChild(row);
     if (state.open === key && !locked) wrap.appendChild(chooserFor(key));
     return wrap;
+  }
+  // Date : le jour affiché est celui de la tâche (par défaut le jour de la vue) ; on le change dans le champ même, comme l'heure d'un enregistrement du Chrono.
+  function dateRow(readOnly) {
+    var wrap = el('div', 'tasksFieldWrap'), row = el('div', 'tasksField');
+    row.appendChild(el('span', 'tasksFieldLabel', tr('Date')));
+    if (readOnly) { var v = el('button', 'tasksFieldValue'); v.type = 'button'; v.disabled = true; v.appendChild(el('span', 'tasksFieldText', dateText(state.date))); row.appendChild(v); }
+    else {
+      var inp = el('input', 'tasksDateInput tasksDateInline'); inp.type = 'date'; inp.value = state.date || dayIso(); inp.setAttribute('aria-label', tr('Date'));
+      inp.addEventListener('change', function () { state.date = inp.value || null; });
+      row.appendChild(inp);
+    }
+    wrap.appendChild(row); return wrap;
   }
   function membersOf(activityId) {
     if (state.members[activityId]) return Promise.resolve(state.members[activityId]);
@@ -149,7 +161,7 @@
     ui.fields.textContent = '';
     ui.fields.appendChild(fieldRow('pole', 'Pôle', poleName || tr('Choisir'), readOnly));
     ui.fields.appendChild(fieldRow('secteur', 'Secteur', t ? sectorOf(t) : tr('Choisir'), readOnly || !poleId));
-    ui.fields.appendChild(fieldRow('date', 'Date', dateText(state.date), readOnly));
+    ui.fields.appendChild(dateRow(readOnly));
     if (poleId && state.members[poleId] && state.members[poleId].length > 1) ui.fields.appendChild(fieldRow('who', 'Responsable', state.who ? state.who.name : '—', readOnly));
     ui.hint.classList.toggle('hidden', !t || !!readOnly);
     if (poleId && !state.members[poleId]) membersOf(poleId).then(function () { if (!readOnly && (target() ? target().activityId : state.poleId) === poleId) paintProposal(); });
@@ -175,12 +187,6 @@
       });
     } else if (key === 'secteur') {
       state.options.filter(function (o) { return o.activityId === poleId; }).forEach(function (o) { choice(box, sectorOf(o), function () { state.choice = o; }); });
-    } else if (key === 'date') {
-      var inp = el('input', 'tasksDateInput'); inp.type = 'date'; inp.value = state.date || ''; inp.min = localIso();
-      inp.setAttribute('aria-label', tr('Date'));
-      inp.addEventListener('change', function () { state.date = inp.value || null; closeChooser(); paintProposal(); });
-      box.appendChild(inp);
-      choice(box, tr('Auto'), function () { state.date = null; });
     } else if (key === 'who') {
       choice(box, '—', function () { state.who = null; });
       (state.members[poleId] || []).forEach(function (m) { choice(box, m.name, function () { state.who = { id: m.id, name: m.name }; }); });
@@ -267,8 +273,7 @@
         var r = ok;
           // Montrée tout de suite dans la liste, même si Noèsis l'a placée un autre jour (« demain »…), tant que la vue reste ouverte.
           state.added.unshift({ id: r.id, label: label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
-          var snap = { t: t, date: state.date, who: state.who }, extra = { userId: TMT.getProfile().id };
-          if (snap.date) extra.dueDate = snap.date;
+          var snap = { t: t, date: state.date || dayIso(), who: state.who }, extra = { userId: TMT.getProfile().id, dueDate: snap.date };
           if (snap.who) { extra.plannedUserId = snap.who.id; extra.notifyAssignee = true; }
           var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }) : Promise.resolve();
           return after.then(function () {
