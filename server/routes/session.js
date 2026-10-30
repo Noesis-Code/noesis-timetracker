@@ -16,6 +16,8 @@ router.get('/session/me', (req, res) => {
 });
 
 router.post('/session/logout', (req, res) => {
+  // Horaire : la déconnexion efface les données de la semaine gardées en mémoire (jamais stockées).
+  if (req.userId) require('../lib/horaire-ephemere').clear(req.userId);
   clearSessionCookie(req, res);
   res.json({ ok: true });
 });
@@ -31,6 +33,7 @@ router.post('/session/logout', (req, res) => {
 // sur le PIN lui-même).
 router.post('/session/logout-all', requireAuth, (req, res) => {
   bumpSessionEpoch(req.userId);
+  require('../lib/horaire-ephemere').clear(req.userId);
   clearSessionCookie(req, res);
   res.json({ ok: true });
 });

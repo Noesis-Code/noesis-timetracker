@@ -195,9 +195,11 @@ assert(h.listCategoryRules('uB').length === 0, 'un autre compte ne voit pas les 
     const db0 = require('../server/db');
     const old = Number(db0.prepare("INSERT INTO horaire_events (userId, day, label, service) VALUES ('uC', '2026-10-20', 'Événement', 'soir')").run().lastInsertRowid);
     db0.prepare("INSERT INTO horaire_needs (userId, positionId, weekday, eventId, start, end, count) VALUES ('uC', ?, NULL, ?, '16:00', '23:59', 2)").run(p1.id, old);
-    const shifts = db0.prepare('SELECT COUNT(*) AS n FROM horaire_assignments').get().n;
+    // Quarts : en mémoire seulement (server/lib/horaire-ephemere.js).
+    const memShifts = () => [...require('../server/lib/horaire-ephemere')._store.values()].reduce((n, s) => n + s.assignments.length, 0);
+    const shifts = memShifts();
     assert(!h.listEvents('uC').some((e) => e.id === old) && !db0.prepare('SELECT 1 FROM horaire_needs WHERE eventId = ?').get(old), 'événement passé supprimé à la lecture, avec ses lignes');
-    assert(db0.prepare('SELECT COUNT(*) AS n FROM horaire_assignments').get().n === shifts, 'purge : quarts déjà générés intacts');
+    assert(memShifts() === shifts, 'purge : quarts déjà générés intacts');
     process.env.HORAIRE_TODAY = '2027-03-16';
     assert(h.purgePastEvents() >= 1 && !h.listEvents('uC').some((e) => e.day === '2027-03-15'), 'purge quotidienne : le lendemain de l’événement, il est supprimé');
     process.env.HORAIRE_TODAY = '2026-10-28';

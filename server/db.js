@@ -2927,5 +2927,16 @@ CREATE TABLE IF NOT EXISTS horaire_category_rules (
   PRIMARY KEY (userId, rank, rule)
 );
 `);
+// Horaire éphémère (30 oct. 2026, décision d'Émilien : « aucun horaire ne se stocke dans l'app ») : horaire généré, quarts, rotation,
+// disponibilités, congés et couverts vivent seulement en mémoire (server/lib/horaire-ephemere.js). Les lignes déjà stockées sont
+// SUPPRIMÉES ; les tables restent vides (plus jamais écrites). Vidées à chaque démarrage : idempotent.
+db.exec(`
+DELETE FROM horaire_assignments;
+DELETE FROM horaire_schedules;
+DELETE FROM horaire_rotation;
+DELETE FROM horaire_availabilities;
+DELETE FROM horaire_timeoff;
+DELETE FROM horaire_covers;
+`);
 
 module.exports = db;

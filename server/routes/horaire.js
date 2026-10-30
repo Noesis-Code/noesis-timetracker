@@ -58,6 +58,10 @@ router.use('/horaire', requireAuth);
 // Horaire : comptes entreprise seulement (exception hors production : HORAIRE_ALLOW_USER_IDS, server/lib/modules.js).
 router.use('/horaire', (req, res, next) => (require('../lib/modules').isHoraireAllowed(req.userId) ? next() : res.status(403).json({ error: 'Réservé aux comptes entreprise.' })));
 
+// Retour dans le volet (premier chargement de la page) : les données de la semaine en mémoire (horaire généré, disponibilités, congés,
+// couverts, rotation) sont effacées pour ce compte. Rien de tout cela n'est jamais écrit en base (server/lib/horaire-ephemere.js).
+router.post('/horaire/ephemeral/clear', (req, res) => { require('../lib/horaire-ephemere').clear(req.userId); res.json({ ok: true }); });
+
 const bad = (res, msg) => res.status(400).json({ error: msg });
 const notFound = (res, what) => res.status(404).json({ error: (what || 'Élément') + ' introuvable.' });
 const intOr = (v, d) => (v === undefined ? d : (Number.isInteger(v) ? v : NaN));

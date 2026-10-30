@@ -67,7 +67,17 @@
       return req('GET', 'weeks/' + S.week + '/covers').then(function (c) { S.covers = c.covers || []; }, function () { S.covers = []; });
     });
   }
+  // Confidentialité (30 oct. 2026, demande d'Émilien) : aucun horaire ne s'enregistre. Au premier chargement du volet dans cette page
+  // (retour dans l'app, rechargement), le serveur efface d'abord les données de la semaine gardées en mémoire pour ce compte.
+  var cleared = null;
+  function clearOnce() {
+    if (!cleared) cleared = req('POST', 'ephemeral/clear', {}).catch(function () { cleared = null; });
+    return cleared;
+  }
   function loadAll() {
+    return clearOnce().then(function () { return loadAllNow(); });
+  }
+  function loadAllNow() {
     return Promise.all([req('GET', 'employees'), req('POST', 'positions/defaults', {}).catch(function () { return req('GET', 'positions'); }), req('GET', 'qualifications'), req('GET', 'needs'), req('GET', 'events'), req('GET', 'settings'), loadWeek(), req('GET', 'restaurant-rules').catch(function () { return { rules: null }; }), req('GET', 'inbound').catch(function () { return {}; }), req('GET', 'service-ends').catch(function () { return { ends: {} }; }), req('GET', 'floors').catch(function () { return { floors: [], counts: [] }; }), req('GET', 'event-types').catch(function () { return { types: [] }; }), req('GET', 'notes').catch(function () { return { notes: [] }; })])
       .then(function (r) {
         S.employees = r[0].employees || []; S.positions = r[1].positions || []; S.quals = r[2].qualifications || [];

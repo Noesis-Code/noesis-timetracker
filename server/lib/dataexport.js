@@ -287,15 +287,14 @@ function buildUserExport(userId) {
      FROM activity_subscriptions s LEFT JOIN activities a ON a.id = s.activityId WHERE s.userId = ?`,
     userId
   ) : [];
-  // Module « Horaire » (données du personnel saisies par le gestionnaire, Loi 25) : tout ce que le compte a saisi ou généré.
+  // Module « Horaire » (données du personnel saisies par le gestionnaire, Loi 25) : réglages durables seulement. Horaire généré, quarts,
+  // rotation, disponibilités, congés et couverts ne sont jamais stockés (mémoire seule, server/lib/horaire-ephemere.js) ni exportés.
   const horaire = has('horaire_employees') ? {
     employees: rows('SELECT id, name, maxWeekMinutes, active, dayforceId, wantShiftsMin, wantShiftsMax, wantShiftsTarget, wantHoursMin, wantHoursTarget, wantHoursMax, sortOrder, constraintNote, noDouble, restAfterShift, createdAt FROM horaire_employees WHERE userId = ? ORDER BY id', userId),
     positions: rows('SELECT id, name, fillOrder, dayforceCode, openTableCovers, createdAt FROM horaire_positions WHERE userId = ? ORDER BY fillOrder, id', userId),
     dayforceLocation: (rows('SELECT horaireDayforceLocation AS v FROM users WHERE id = ?', userId)[0] || {}).v || null,
     settings: has('horaire_settings') ? (rows('SELECT configured, setupStep, eventsSource, eventsNoticeDays, eventsStaffRule, dataInCanada, dayforceTemplateName, dayforceTemplate, importPrompt, entryPrompt, eventsPrompt, groupMin, inboundLastAt, updatedAt FROM horaire_settings WHERE userId = ?', userId)[0] || null) : null,
     qualifications: rows('SELECT employeeId, positionId, rank FROM horaire_qualifications WHERE userId = ?', userId),
-    availabilities: rows('SELECT employeeId, weekStart, day, start, end FROM horaire_availabilities WHERE userId = ? ORDER BY day, start', userId),
-    timeoff: has('horaire_timeoff') ? rows('SELECT employeeId, weekStart, day FROM horaire_timeoff WHERE userId = ? ORDER BY day', userId) : [],
     events: rows('SELECT id, day, label, service, extra, positionId, covers, zoneId, zoneRead, sourceKey, status, typeId, typeIds, clients, price, floorIds FROM horaire_events WHERE userId = ? ORDER BY day', userId),
     notes: has('horaire_notes') ? rows('SELECT id, text, createdAt FROM horaire_notes WHERE userId = ? ORDER BY id', userId) : [],
     zones: has('horaire_zones') ? rows('SELECT id, name, morning, evening, createdAt FROM horaire_zones WHERE userId = ? ORDER BY id', userId) : [],
@@ -304,13 +303,8 @@ function buildUserExport(userId) {
     inboundThreads: has('horaire_inbound_threads') ? rows('SELECT id, eventId, refused, fields, lastAt, createdAt FROM horaire_inbound_threads WHERE userId = ? ORDER BY id', userId) : [],
     floorCounts: has('horaire_floor_counts') ? rows('SELECT floorId, positionId, weekday, service, count FROM horaire_floor_counts WHERE userId = ? ORDER BY floorId, positionId, weekday, service', userId) : [],
     needs: rows('SELECT id, positionId, weekday, eventId, start, end, count FROM horaire_needs WHERE userId = ? ORDER BY id', userId),
-    rotation: rows('SELECT positionId, rank, lastEmployeeId FROM horaire_rotation WHERE userId = ?', userId),
     employeeRules: has('horaire_employee_rules') ? rows('SELECT employeeId, rule, text, createdAt FROM horaire_employee_rules WHERE userId = ? ORDER BY employeeId, id', userId) : [],
     categoryRules: has('horaire_category_rules') ? rows('SELECT rank, rule FROM horaire_category_rules WHERE userId = ? ORDER BY rank, rule', userId) : [],
-    covers: has('horaire_covers') ? rows('SELECT day, service, covers FROM horaire_covers WHERE userId = ? ORDER BY day, service', userId) : [],
-    schedules: rows('SELECT id, weekStart, status, alerts, generatedAt FROM horaire_schedules WHERE userId = ? ORDER BY weekStart', userId)
-      .map((s) => { let alerts = []; try { alerts = JSON.parse(s.alerts || '[]'); } catch (e) { /* illisible : vide */ } return { ...s, alerts }; }),
-    assignments: rows('SELECT scheduleId, employeeId, positionId, day, start, end FROM horaire_assignments WHERE userId = ? ORDER BY day, start', userId),
   } : null;
 
   // ---- Objectifs et tâches (ajout 10 oct. 2026, décision d'Emilien) ----

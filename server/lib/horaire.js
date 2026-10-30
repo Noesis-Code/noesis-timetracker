@@ -4,6 +4,8 @@
 // exportées par server/lib/dataexport.js, effacées par server/lib/accountdeletion.js. Génération : ./horaire-generation.js.
 const db = require('../db');
 const gen = require('./horaire-generation');
+// Données de la semaine (quarts, disponibilités, congés, couverts, rotation) : mémoire seule, jamais en base (./horaire-ephemere.js).
+const mem = require('./horaire-ephemere');
 
 const nowIso = () => new Date().toISOString();
 const LIMITS = { name: 80, label: 120, employees: 500, positions: 50, csvChars: 200000, csvRows: 5000, shifts: 14, constraint: 500 };
@@ -89,25 +91,26 @@ function cascade(u, steps) {
 function retireEmployee(u, id, today) {
   const e = ownEmployee(u, id);
   if (!e) return null;
-  db.exec('BEGIN');
-  try {
-    db.prepare('UPDATE horaire_employees SET active = 0 WHERE id = ? AND userId = ?').run(e.id, u);
-    const removed = db.prepare('DELETE FROM horaire_assignments WHERE employeeId = ? AND userId = ? AND day >= ?').run(e.id, u, today).changes;
-    db.exec('COMMIT');
-    return { removed };
-  } catch (err) { db.exec('ROLLBACK'); throw err; }
+  db.prepare('UPDATE horaire_employees SET active = 0 WHERE id = ? AND userId = ?').run(e.id, u);
+  const m = mem.get(u);
+  const before = m.assignments.length;
+  m.assignments = m.assignments.filter((a) => !(a.employeeId === e.id && a.day >= today));
+  return { removed: before - m.assignments.length };
 }
 function deleteEmployee(u, id) {
   const i = Number(id);
-  return cascade(u, [
+  const ok = cascade(u, [
     ['DELETE FROM horaire_qualifications WHERE employeeId = ? AND userId = ?', i],
-    ['DELETE FROM horaire_availabilities WHERE employeeId = ? AND userId = ?', i],
-    ['DELETE FROM horaire_timeoff WHERE employeeId = ? AND userId = ?', i],
     ['DELETE FROM horaire_employee_rules WHERE employeeId = ? AND userId = ?', i],
-    ['DELETE FROM horaire_assignments WHERE employeeId = ? AND userId = ?', i],
-    ['UPDATE horaire_rotation SET lastEmployeeId = NULL WHERE lastEmployeeId = ? AND userId = ?', i],
     ['DELETE FROM horaire_employees WHERE id = ? AND userId = ?', i],
   ]);
+  if (ok) {
+    const m = mem.get(u);
+    const other = (r) => r.employeeId !== i;
+    m.avail = m.avail.filter(other); m.timeoff = m.timeoff.filter(other); m.assignments = m.assignments.filter(other);
+    Object.keys(m.rotation).forEach((k) => { if (m.rotation[k] === i) m.rotation[k] = null; });
+  }
+  return ok;
 }
 
 // ---------- postes (ordre de comblement = fillOrder croissant) ----------
@@ -155,9 +158,15 @@ function deletePosition(u, id) {
   const i = Number(id);
   if (!ownPosition(u, i)) return false;
   if (countPositions(u) <= 1) return null;
-  return cascade(u, ['horaire_qualifications', 'horaire_needs', 'horaire_rotation', 'horaire_assignments', 'horaire_event_type_ratios', 'horaire_floor_counts']
+  const ok = cascade(u, ['horaire_qualifications', 'horaire_needs', 'horaire_event_type_ratios', 'horaire_floor_counts']
     .map((t) => ['DELETE FROM ' + t + ' WHERE positionId = ? AND userId = ?', i])
     .concat([['UPDATE horaire_events SET positionId = NULL WHERE positionId = ? AND userId = ?', i], ['DELETE FROM horaire_positions WHERE id = ? AND userId = ?', i]]));
+  if (ok) {
+    const m = mem.get(u);
+    m.assignments = m.assignments.filter((a) => a.positionId !== i);
+    Object.keys(m.rotation).forEach((k) => { if (Number(k.split(':')[0]) === i) delete m.rotation[k]; });
+  }
+  return ok;
 }
 
 // ---------- qualifications (rang par employé ET par poste ; 1 = meilleur) ----------
@@ -175,43 +184,40 @@ function removeQualification(u, employeeId, positionId) {
 }
 
 // ---------- disponibilités (saisies par semaine) ----------
+// Mémoire seule (./horaire-ephemere.js) : jamais en base.
+const byTimes = (a, b) => (a.employeeId - b.employeeId) || (a.day < b.day ? -1 : a.day > b.day ? 1 : 0) || (a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
 function getAvailabilities(u, weekStart) {
-  return db.prepare('SELECT employeeId, day, start, end FROM horaire_availabilities WHERE userId = ? AND weekStart = ? ORDER BY employeeId, day, start').all(u, weekStart);
+  return mem.get(u).avail.filter((a) => a.weekStart === weekStart).sort(byTimes).map((a) => ({ employeeId: a.employeeId, day: a.day, start: a.start, end: a.end }));
 }
 // Congés de la semaine (jour entier : vacances, maladie, absence) : [{employeeId, day}].
 function getTimeoff(u, weekStart) {
-  return db.prepare('SELECT employeeId, day FROM horaire_timeoff WHERE userId = ? AND weekStart = ? ORDER BY employeeId, day').all(u, weekStart);
+  return mem.get(u).timeoff.filter((t) => t.weekStart === weekStart).sort(byTimes).map((t) => ({ employeeId: t.employeeId, day: t.day }));
 }
 // Remplace les disponibilités et/ou les congés d'UN employé pour la semaine (undefined = inchangé). Valeurs déjà validées :
 // intervals [{day, start, end}], timeoff ['AAAA-MM-JJ']. Un jour de congé n'a aucune plage (une case = un seul état).
 function setAvailabilities(u, weekStart, employeeId, intervals, timeoff) {
   const emp = Number(employeeId);
-  db.exec('BEGIN');
-  try {
-    if (intervals !== undefined) {
-      db.prepare('DELETE FROM horaire_availabilities WHERE userId = ? AND weekStart = ? AND employeeId = ?').run(u, weekStart, emp);
-      const ins = db.prepare('INSERT INTO horaire_availabilities (userId, employeeId, weekStart, day, start, end, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)');
-      const at = nowIso();
-      intervals.filter((i) => !(timeoff || []).includes(i.day)).forEach((i) => ins.run(u, emp, weekStart, i.day, i.start, i.end, at));
-    }
-    if (timeoff !== undefined) {
-      db.prepare('DELETE FROM horaire_timeoff WHERE userId = ? AND weekStart = ? AND employeeId = ?').run(u, weekStart, emp);
-      const ins = db.prepare('INSERT INTO horaire_timeoff (userId, employeeId, weekStart, day, createdAt) VALUES (?, ?, ?, ?, ?)');
-      const delDay = db.prepare('DELETE FROM horaire_availabilities WHERE userId = ? AND weekStart = ? AND employeeId = ? AND day = ?');
-      const at = nowIso();
-      [...new Set(timeoff)].forEach((d) => { ins.run(u, emp, weekStart, d, at); delDay.run(u, weekStart, emp, d); });
-    }
-    db.exec('COMMIT');
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  const m = mem.get(u);
+  const mine = (r) => r.weekStart === weekStart && r.employeeId === emp;
+  const at = nowIso();
+  if (intervals !== undefined) {
+    m.avail = m.avail.filter((r) => !mine(r))
+      .concat(intervals.filter((i) => !(timeoff || []).includes(i.day)).map((i) => ({ employeeId: emp, weekStart, day: i.day, start: i.start, end: i.end, createdAt: at })));
+  }
+  if (timeoff !== undefined) {
+    const days = [...new Set(timeoff)];
+    m.timeoff = m.timeoff.filter((r) => !mine(r)).concat(days.map((d) => ({ employeeId: emp, weekStart, day: d, createdAt: at })));
+    m.avail = m.avail.filter((r) => !(mine(r) && days.includes(r.day)));
+  }
   return getAvailabilities(u, weekStart).filter((a) => a.employeeId === emp);
 }
 
 // Ligne d'état de la page : nombre d'employés ayant des disponibilités ou des congés cette semaine, et date de la dernière lecture.
 function availSummary(u, weekStart) {
-  const r = db.prepare(`SELECT COUNT(DISTINCT employeeId) AS n, MAX(createdAt) AS at FROM (
-    SELECT employeeId, createdAt FROM horaire_availabilities WHERE userId = ? AND weekStart = ?
-    UNION ALL SELECT employeeId, createdAt FROM horaire_timeoff WHERE userId = ? AND weekStart = ?)`).get(u, weekStart, u, weekStart);
-  return { employees: r.n || 0, at: r.at || null };
+  const m = mem.get(u);
+  const rows = m.avail.concat(m.timeoff).filter((r) => r.weekStart === weekStart);
+  const at = rows.reduce((x, r) => (!x || r.createdAt > x ? r.createdAt : x), null);
+  return { employees: new Set(rows.map((r) => r.employeeId)).size, at };
 }
 
 // ---------- règles par employé : liste fermée (CATEGORY_RULES, appliquée par la génération) ou 'free' (texte libre, lu par l'IA) ----------
@@ -339,14 +345,23 @@ function montrealToday(d) {
   const g = (t) => p.find((x) => x.type === t).value;
   return g('year') + '-' + g('month') + '-' + g('day');
 }
+// Au même passage (30 oct. 2026) : les besoins d'un événement disparu partent, et chaque fil de courriel (sujet haché, champs extraits)
+// dont l'événement est passé ou supprimé est effacé, ainsi que les fils sans événement de plus de 30 jours.
+const THREAD_MAX_DAYS = 30;
 function purgePastEvents(today) {
   const t = today || montrealToday();
   const ids = db.prepare('SELECT id FROM horaire_events WHERE day < ?').all(t).map((r) => r.id);
-  if (!ids.length) return 0;
   const delNeeds = db.prepare('DELETE FROM horaire_needs WHERE eventId = ?');
   const delEv = db.prepare('DELETE FROM horaire_events WHERE id = ?');
+  const old = new Date(Date.now() - THREAD_MAX_DAYS * 86400000).toISOString();
   db.exec('BEGIN');
-  try { ids.forEach((id) => { delNeeds.run(id); delEv.run(id); }); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
+  try {
+    ids.forEach((id) => { delNeeds.run(id); delEv.run(id); });
+    db.exec('DELETE FROM horaire_needs WHERE eventId IS NOT NULL AND eventId NOT IN (SELECT id FROM horaire_events)');
+    db.exec('DELETE FROM horaire_inbound_threads WHERE eventId IS NOT NULL AND eventId NOT IN (SELECT id FROM horaire_events)');
+    db.prepare('DELETE FROM horaire_inbound_threads WHERE eventId IS NULL AND createdAt < ?').run(old);
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
   return ids.length;
 }
 try { purgePastEvents(); } catch (e) { /* base pas encore prête : la prochaine lecture purge */ }
@@ -560,12 +575,21 @@ function setFloorCount(u, floorId, positionId, weekday, service, count) {
 }
 
 // ---------- génération et lecture d'une semaine ----------
+// Horaire de la semaine en mémoire (./horaire-ephemere.js) : { id, weekStart, status, alerts, generatedAt } ou null. Jamais en base.
+const memSchedule = (u, weekStart) => mem.get(u).schedules.get(weekStart) || null;
+// Quarts d'un horaire en mémoire, joints aux employés et postes du compte (quart d'un employé ou d'un poste disparu : ignoré).
+function memAssignments(u, sid) {
+  const emp = new Map(db.prepare('SELECT id, name, dayforceId FROM horaire_employees WHERE userId = ?').all(u).map((e) => [e.id, e]));
+  const pos = new Map(listPositions(u).map((p) => [p.id, p]));
+  const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  return mem.get(u).assignments.filter((a) => a.scheduleId === sid && emp.has(a.employeeId) && pos.has(a.positionId))
+    .map((a) => ({ a, e: emp.get(a.employeeId), p: pos.get(a.positionId) }))
+    .sort((x, y) => cmp(x.a.day, y.a.day) || cmp(x.a.start, y.a.start) || (x.p.fillOrder - y.p.fillOrder) || (x.a.id - y.a.id));
+}
 function getSchedule(u, weekStart) {
-  const s = db.prepare('SELECT id, weekStart, status, alerts, generatedAt FROM horaire_schedules WHERE userId = ? AND weekStart = ?').get(u, weekStart);
+  const s = memSchedule(u, weekStart);
   if (!s) return null;
-  const assignments = db.prepare(`SELECT a.id, a.employeeId, e.name AS employeeName, a.positionId, p.name AS positionName, a.day, a.start, a.end
-    FROM horaire_assignments a JOIN horaire_employees e ON e.id = a.employeeId JOIN horaire_positions p ON p.id = a.positionId
-    WHERE a.userId = ? AND a.scheduleId = ? ORDER BY a.day, a.start, p.fillOrder`).all(u, s.id);
+  const assignments = memAssignments(u, s.id).map(({ a, e, p }) => ({ id: a.id, employeeId: a.employeeId, employeeName: e.name, positionId: a.positionId, positionName: p.name, day: a.day, start: a.start, end: a.end }));
   // Alertes recalculées à chaque lecture (G1) à partir des quarts enregistrés : une modification manuelle met à jour « À vérifier »,
   // « À demander » et le résumé sans regénérer l'horaire.
   const alerts0 = checkWeek(u, weekStart, assignments).alerts;
@@ -575,15 +599,13 @@ function getSchedule(u, weekStart) {
   return { weekStart: s.weekStart, status: s.status, generatedAt: s.generatedAt, assignments, alerts };
 }
 
-// Génère et ENREGISTRE le brouillon de la semaine (remplace le brouillon précédent, modifications manuelles comprises :
+// Génère le brouillon de la semaine, gardé en mémoire seulement (remplace le brouillon précédent, modifications manuelles comprises :
 // seulement quand le gestionnaire relance « Générer »). Chaque génération fait avancer la rotation.
 function weekInput(u, weekStart) {
   const days = gen.weekDays(weekStart);
   const employees = db.prepare('SELECT id, wantHoursMin, wantHoursTarget, wantHoursMax, noDouble, restAfterShift, constraintNote AS note FROM horaire_employees WHERE userId = ? AND active = 1').all(u)
     .map((e) => ({ ...e, noDouble: !!e.noDouble, restAfterShift: !!e.restAfterShift }));
-  const rot = {};
-  db.prepare('SELECT positionId, rank, lastEmployeeId FROM horaire_rotation WHERE userId = ?').all(u)
-    .forEach((r) => { rot[r.positionId + ':' + r.rank] = r.lastEmployeeId; });
+  const rot = Object.assign({}, mem.get(u).rotation); // rotation : mémoire seule, repart de zéro à chaque visite
   return {
     weekStart,
     positions: listPositions(u),
@@ -609,7 +631,7 @@ function checkWeek(u, weekStart, assignments) {
 // à remplacer (il ne compte pas). En tête les possibles (aucune raison), puis les autres ; chaque groupe par catégorie puis nom.
 function candidates(u, weekStart, slot, except) {
   const sid = scheduleId(u, weekStart);
-  const rows = sid ? db.prepare('SELECT id, employeeId, positionId, day, start, end FROM horaire_assignments WHERE userId = ? AND scheduleId = ?').all(u, sid) : [];
+  const rows = sid ? mem.get(u).assignments.filter((a) => a.scheduleId === sid) : [];
   const check = checkWeek(u, weekStart, rows.filter((a) => a.id !== Number(except)));
   const rank = new Map(listQualifications(u).filter((q) => q.positionId === Number(slot.positionId)).map((q) => [q.employeeId, q.rank]));
   return listEmployees(u).filter((e) => e.active !== false && e.active !== 0 && rank.has(e.id))
@@ -618,30 +640,23 @@ function candidates(u, weekStart, slot, except) {
 }
 function generate(u, weekStart) {
   const out = gen.generateSchedule(weekInput(u, weekStart));
-  db.exec('BEGIN');
-  try {
-    const now = nowIso();
-    db.prepare(`INSERT INTO horaire_schedules (userId, weekStart, status, alerts, generatedAt) VALUES (?, ?, 'draft', ?, ?)
-      ON CONFLICT(userId, weekStart) DO UPDATE SET status = 'draft', alerts = excluded.alerts, generatedAt = excluded.generatedAt`)
-      .run(u, weekStart, JSON.stringify(out.alerts), now);
-    const sid = db.prepare('SELECT id FROM horaire_schedules WHERE userId = ? AND weekStart = ?').get(u, weekStart).id;
-    db.prepare('DELETE FROM horaire_assignments WHERE userId = ? AND scheduleId = ?').run(u, sid);
-    const ins = db.prepare('INSERT INTO horaire_assignments (userId, scheduleId, employeeId, positionId, day, start, end) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    out.assignments.forEach((a) => ins.run(u, sid, a.employeeId, a.positionId, a.day, a.start, a.end));
-    const up = db.prepare(`INSERT INTO horaire_rotation (userId, positionId, rank, lastEmployeeId) VALUES (?, ?, ?, ?)
-      ON CONFLICT(userId, positionId, rank) DO UPDATE SET lastEmployeeId = excluded.lastEmployeeId`);
-    Object.entries(out.rotation).forEach(([k, empId]) => { const [p, r] = k.split(':').map(Number); if (ownPosition(u, p)) up.run(u, p, r, empId); });
-    db.exec('COMMIT');
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  // Mémoire seule (./horaire-ephemere.js) : l'horaire généré n'est jamais écrit en base.
+  const m = mem.get(u);
+  const prev = m.schedules.get(weekStart);
+  const sid = prev ? prev.id : mem.nextId();
+  m.schedules.set(weekStart, { id: sid, weekStart, status: 'draft', alerts: out.alerts, generatedAt: nowIso() });
+  m.assignments = m.assignments.filter((a) => a.scheduleId !== sid)
+    .concat(out.assignments.map((a) => ({ id: mem.nextId(), userId: u, scheduleId: sid, employeeId: a.employeeId, positionId: a.positionId, day: a.day, start: a.start, end: a.end })));
+  Object.entries(out.rotation).forEach(([k, empId]) => { if (ownPosition(u, Number(k.split(':')[0]))) m.rotation[k] = empId; });
   return getSchedule(u, weekStart);
 }
 
 // ---------- modification manuelle de l'horaire généré (jamais écrasée sauf par une nouvelle génération demandée) ----------
-const scheduleId = (u, weekStart) => (db.prepare('SELECT id FROM horaire_schedules WHERE userId = ? AND weekStart = ?').get(u, weekStart) || {}).id || null;
+const scheduleId = (u, weekStart) => (memSchedule(u, weekStart) || {}).id || null;
 // Quart du compte ET de la semaine ; null sinon.
 function ownAssignment(u, weekStart, id) {
   const sid = scheduleId(u, weekStart);
-  return sid ? (db.prepare('SELECT * FROM horaire_assignments WHERE id = ? AND userId = ? AND scheduleId = ?').get(Number(id), u, sid) || null) : null;
+  return sid ? (mem.get(u).assignments.find((a) => a.id === Number(id) && a.scheduleId === sid) || null) : null;
 }
 const oneAssignment = (u, weekStart, id) => (getSchedule(u, weekStart) || { assignments: [] }).assignments.find((a) => a.id === Number(id)) || null;
 // a : { employeeId, positionId, day, start, end } déjà validés (appartenance comprise). null si la semaine n'a pas d'horaire.
@@ -649,21 +664,25 @@ const oneAssignment = (u, weekStart, id) => (getSchedule(u, weekStart) || { assi
 function addAssignment(u, weekStart, a) {
   const sid = scheduleId(u, weekStart);
   if (!sid) return null;
-  const r = db.prepare('INSERT INTO horaire_assignments (userId, scheduleId, employeeId, positionId, day, start, end) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .run(u, sid, Number(a.employeeId), Number(a.positionId), a.day, a.start, a.end);
-  return oneAssignment(u, weekStart, r.lastInsertRowid);
+  const id = mem.nextId();
+  mem.get(u).assignments.push({ id, userId: u, scheduleId: sid, employeeId: Number(a.employeeId), positionId: Number(a.positionId), day: a.day, start: a.start, end: a.end });
+  return oneAssignment(u, weekStart, id);
 }
 // f : { employeeId?, start?, end? } déjà validés ; undefined = inchangé.
 function updateAssignment(u, weekStart, id, f) {
   const cur = ownAssignment(u, weekStart, id);
   if (!cur) return null;
-  db.prepare('UPDATE horaire_assignments SET employeeId = ?, start = ?, end = ? WHERE id = ? AND userId = ?')
-    .run(f.employeeId !== undefined ? Number(f.employeeId) : cur.employeeId, f.start !== undefined ? f.start : cur.start, f.end !== undefined ? f.end : cur.end, cur.id, u);
+  if (f.employeeId !== undefined) cur.employeeId = Number(f.employeeId);
+  if (f.start !== undefined) cur.start = f.start;
+  if (f.end !== undefined) cur.end = f.end;
   return oneAssignment(u, weekStart, cur.id);
 }
 function deleteAssignment(u, weekStart, id) {
   const cur = ownAssignment(u, weekStart, id);
-  return cur ? db.prepare('DELETE FROM horaire_assignments WHERE id = ? AND userId = ?').run(cur.id, u).changes > 0 : false;
+  if (!cur) return false;
+  const m = mem.get(u);
+  m.assignments = m.assignments.filter((a) => a !== cur);
+  return true;
 }
 
 // ---------- export Dayforce (format centralisé dans ./horaire-dayforce.js) ----------
@@ -699,12 +718,9 @@ function setSettings(u, f) {
 }
 // CSV de l'horaire enregistré de la semaine ; null si aucun horaire. Seuls les quarts sont exportés (jamais les trous).
 function exportDayforce(u, weekStart) {
-  const s = db.prepare('SELECT id FROM horaire_schedules WHERE userId = ? AND weekStart = ?').get(u, weekStart);
+  const s = memSchedule(u, weekStart);
   if (!s) return null;
-  const assignments = db.prepare(`SELECT a.employeeId, e.dayforceId, a.positionId, p.dayforceCode, p.fillOrder, a.day, a.start, a.end
-    FROM horaire_assignments a JOIN horaire_employees e ON e.id = a.employeeId AND e.userId = a.userId
-    JOIN horaire_positions p ON p.id = a.positionId AND p.userId = a.userId
-    WHERE a.userId = ? AND a.scheduleId = ?`).all(u, s.id);
+  const assignments = memAssignments(u, s.id).map(({ a, e, p }) => ({ employeeId: a.employeeId, dayforceId: e.dayforceId, positionId: a.positionId, dayforceCode: p.dayforceCode, fillOrder: p.fillOrder, day: a.day, start: a.start, end: a.end }));
   return require('./horaire-dayforce').buildDayforceCsv(assignments, getSettings(u).dayforceLocation);
 }
 
@@ -1354,22 +1370,20 @@ function importReservationsCsv(u, text) {
     res.reservations += 1;
   });
   const days = [...new Set([...totals.keys()].map((k) => k.split('|')[0]))];
-  db.exec('BEGIN');
-  try {
-    const del = db.prepare('DELETE FROM horaire_covers WHERE userId = ? AND day = ?');
-    const ins = db.prepare('INSERT INTO horaire_covers (userId, day, service, covers, updatedAt) VALUES (?, ?, ?, ?, ?)');
-    days.forEach((d) => del.run(u, d));
-    const now = nowIso();
-    for (const [key, covers] of totals) { const [d, svc] = key.split('|'); ins.run(u, d, svc, covers, now); res.covers += covers; }
-    db.exec('COMMIT');
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  // Mémoire seule (./horaire-ephemere.js) : les couverts ne sont jamais écrits en base.
+  const m = mem.get(u);
+  m.covers = m.covers.filter((c) => !days.includes(c.day));
+  const now = nowIso();
+  for (const [key, covers] of totals) { const [d, svc] = key.split('|'); m.covers.push({ day: d, service: svc, covers, updatedAt: now }); res.covers += covers; }
   res.days = days.length;
   return res;
 }
 // Totaux de la semaine : [{ day, service: 'jour'|'soir', covers }].
 function weekCovers(u, weekStart) {
-  return db.prepare('SELECT day, service, covers FROM horaire_covers WHERE userId = ? AND day >= ? AND day <= ? ORDER BY day, service')
-    .all(u, weekStart, gen.addDays(weekStart, 6));
+  const end = gen.addDays(weekStart, 6);
+  return mem.get(u).covers.filter((c) => c.day >= weekStart && c.day <= end)
+    .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : (a.service < b.service ? -1 : a.service > b.service ? 1 : 0)))
+    .map((c) => ({ day: c.day, service: c.service, covers: c.covers }));
 }
 
 // Mise à jour ponctuelle demandée et acceptée par Émilien (29 oct. 2026) : dans SA liste de règles (compte staging), la règle exacte
