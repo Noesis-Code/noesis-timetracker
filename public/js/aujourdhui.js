@@ -203,7 +203,7 @@
     var x = fold(label);
     if (/\bdrive\b/.test(x)) return 'drive';
     if (/\bobjectifs?\b/.test(x)) return 'goals';
-    if (/\b(taches?|todo|to-do)\b/.test(x) && /\b(fais|fait|faire|cree|creer|genere|generer|propose|proposer|prepare|preparer|ajoute|ajouter|donne|planifie|planifier|trouve)\b/.test(x)) return 'tasks';
+    if (/\b(taches|todo|to-do)\b/.test(x) && /\b(fais|fait|faire|cree|creer|genere|generer|propose|proposer|prepare|preparer|ajoute|ajouter|donne|planifie|planifier|trouve)\b/.test(x)) return 'tasks';
     return '';
   }
   function essorActivities() {
