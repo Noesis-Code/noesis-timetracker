@@ -88,11 +88,11 @@
     ui.proposal = el('div', 'tasksPropose cmpGlass hidden'); // verre commun (R31), comme la barre des volets
     var kick = el('div', 'tasksProposeHead');
     ui.kicker = el('span', 'tasksProposeKicker', tr('Noèsis propose'));
-    ui.close = TMT.ui.closeBtn(function () { reset(); }, tr('Fermer')); // ✕ en haut à droite (R13) : ferme sans rien créer
+    ui.close = TMT.ui.closeBtn(function () { if (target() && ui.text.value.trim()) send(); else reset(); }, tr('Fermer')); // ✕ en haut à droite (R13) : enregistre le rangement affiché et l'applique (demande d'Émilien, 30 oct. 2026) ; sans rangement complet, ferme seulement
     kick.appendChild(ui.kicker); kick.appendChild(ui.close);
     ui.body = el('div', 'tasksProposeBody'); // la seule zone qui défile, sous le titre et la ✕ qui restent en place
     ui.fields = el('div', 'tasksFields');
-    ui.hint = el('p', 'tasksProposeHint', tr('Rien n’est rangé sans toi : ↑ accepte cette proposition.'));
+    ui.hint = el('p', 'tasksProposeHint', tr('Rien n’est rangé sans toi : ↑ ou ✕ enregistre ce rangement.'));
     ui.chooser = el('div', 'tasksChooser hidden');
     ui.body.appendChild(ui.fields); ui.body.appendChild(ui.chooser); ui.body.appendChild(ui.hint);
     ui.proposal.appendChild(kick); ui.proposal.appendChild(ui.body);
