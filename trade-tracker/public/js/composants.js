@@ -219,8 +219,8 @@
   ui.attachBtn = attachBtn;
   ui.ATTACH_ACCEPT = ATTACH_ACCEPT;
   ui.groupDrag = groupDrag;
-  // Mode clair (essai d'Émilien, 30 oct. 2026), réservé au module Horaire : dans Paramètres | Création des horaires (.horaireCats), l'option de droite
-  // active passe la page au clair (classe modeClair sur <html>, jetons dans composants.css) ; l'option de gauche la remet au sombre.
+  // Repère de couleur du module Horaire (30 oct. 2026) : dans Paramètres | Création des horaires (.horaireCats), l'option de droite
+  // active passe le violet et le halo au rouge (classe modeCreation sur <html>, jetons dans composants.css) ; l'option de gauche les remet en violet.
   function syncModeClair() {
     var de = document.documentElement, on = false;
     document.querySelectorAll('.cmpSeg.horaireCats').forEach(function (s) {
@@ -228,7 +228,7 @@
       var r = s.children[1];
       on = r.classList.contains('active') || r.classList.contains('on') || r.getAttribute('aria-pressed') === 'true' || r.getAttribute('aria-selected') === 'true';
     });
-    de.classList.toggle('modeClair', on);
+    de.classList.toggle('modeCreation', on);
   }
   if (typeof MutationObserver === 'function' && root.document) {
     var pending = 0;
