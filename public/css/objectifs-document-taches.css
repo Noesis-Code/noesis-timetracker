@@ -175,3 +175,10 @@
 .docTasksDelAll[data-armed] { color: var(--danger); font-weight: 600; }
 
 .docTasksPauseRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; font-size: 13px; }
+
+/* Réglages d'un dossier Drive : interrupteur « Mettre en pause » blanc ; croix rouge de retrait dans l'angle de la cellule (dossier déjà enregistré) ; Annuler à gauche d'Enregistrer au premier enregistrement. */
+#docTasksFsBody { position: relative; }
+#docTasksFsBody .toggleSwitch input:checked + .toggleSwitchTrack { background: var(--text); }
+.docTasksFsActions { justify-content: flex-end; }
+.docTasksFsActions .docTasksCancelBtn { flex: none; margin-right: auto; padding: 8px 12px; border: 0; background: none; color: var(--text-light); font: inherit; font-size: 14px; cursor: pointer; }
+#docTasksFsBody:has(.cmpRemove--corner) { padding-top: 26px; } /* la croix rouge ne recouvre pas l'interrupteur */

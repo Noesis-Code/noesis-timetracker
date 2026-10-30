@@ -255,23 +255,25 @@
     $('docTasksFsTitle').innerHTML = FOLDER_ICON + esc(f.name || 'Dossier');
     $('docTasksFsBody').innerHTML = '<div class="docTasksPauseRow"><span>Mettre en pause</span><label class="toggleSwitch"><input type="checkbox" id="docTasksFsPause" aria-label="Mettre en pause"' + (f.paused ? ' checked' : '') + '><span class="toggleSwitchTrack"></span></label></div>'
       + (f.paused ? '<p class="docTasksMeta">Surveillance en pause : ce dossier n’est plus analysé.</p>' : '')
-      + '<label class="docTasksCheck"><input type="checkbox" id="docTasksFsAuto"' + (f.mode === 'auto' ? ' checked' : '') + '> Ajouter automatiquement les nouvelles tâches (sinon elles te sont proposées pour validation)</label>'
       + '<label class="docTasksMeta" for="docTasksFsInstr">Consigne permanente (facultative)</label>'
       + '<textarea id="docTasksFsInstr" class="docTasksInstr" rows="2" maxlength="1500" placeholder="' + esc(dflt.replace(/[\s.…]+$/, '') + '…') + '">' + esc(f.instruction) + '</textarea>'
       + (fsConfirm
         ? '<div class="docTasksConfirm">Ne plus surveiller ce dossier ? <button type="button" class="docTasksLink" data-f="removeYes">Retirer</button> <button type="button" class="docTasksLink" data-f="removeNo">Annuler</button></div>'
-        : '<div class="docTasksFsActions"><button type="button" class="cmpRemove" data-f="remove" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller"></button><button type="button" class="docTasksApplyBtn" data-f="save">Enregistrer</button></div>')
+        : '<div class="docTasksFsActions">' + (fsNew ? '<button type="button" class="docTasksCancelBtn" data-f="cancelNew">Annuler</button>' : '') + '<button type="button" class="docTasksApplyBtn" data-f="save">Enregistrer</button></div>')
+      + (!fsNew && !fsConfirm ? '<button type="button" class="cmpRemove cmpRemove--corner" data-f="remove" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller"></button>' : '')
       + '<div class="docTasksCancelRow"><button type="button" class="docTasksLink" data-f="run">Synchroniser maintenant</button></div>'
       + (fsMsg ? '<p class="msg">' + esc(fsMsg) + '</p>' : '');
   }
-  function openFolderSet(id) { fsId = id; fsMsg = ''; fsConfirm = false; renderFolderSet(); $('docTasksFolderSetPop').classList.remove('hidden'); }
+  var fsNew = false; // vrai juste après le choix du dossier (premier enregistrement)
+  function openFolderSet(id, isNew) { fsId = id; fsNew = !!isNew; fsMsg = ''; fsConfirm = false; renderFolderSet(); $('docTasksFolderSetPop').classList.remove('hidden'); }
   function closeFolderSet() { $('docTasksFolderSetPop').classList.add('hidden'); fsId = null; }
   $('docTasksFsClose').addEventListener('click', closeFolderSet);
   $('docTasksFsBody').addEventListener('click', function (e) {
     var b = e.target.closest('[data-f]'); if (!b || !fsId) return;
     var a = b.getAttribute('data-f');
     function fail(err) { fsMsg = (err && err.message) || 'Erreur.'; renderFolderSet(); }
-    if (a === 'remove') { fsConfirm = true; renderFolderSet();
+    if (a === 'cancelNew') { closeFolderSet();
+    } else if (a === 'remove') { fsConfirm = true; renderFolderSet();
     } else if (a === 'removeNo') { fsConfirm = false; renderFolderSet();
     } else if (a === 'removeYes') {
       dApi('POST', '/api/drive/folder/remove', { folderId: fsId }).then(function (r) {
@@ -280,7 +282,7 @@
         if (driveSt.folderChosen) { loadSync(); } else { syncSt = null; renderSync(); }
       }).catch(fail);
     } else if (a === 'save') {
-      dApi('POST', '/api/drive/folder/settings', { folderId: fsId, mode: $('docTasksFsAuto').checked ? 'auto' : 'propose', instruction: $('docTasksFsInstr').value, paused: $('docTasksFsPause').checked })
+      dApi('POST', '/api/drive/folder/settings', { folderId: fsId, mode: 'propose', instruction: $('docTasksFsInstr').value, paused: $('docTasksFsPause').checked })
         .then(function (r) { driveSt.folders = r.folders || driveSt.folders; syncSt = r; renderSync(); renderFoldersPop(); closeFolderSet(); }).catch(fail);
     } else if (a === 'run') {
       fsMsg = 'Synchronisation…'; renderFolderSet();
@@ -345,7 +347,7 @@
       folderSel = null; var qc = $('docTasksFolderQ'); if (qc) { qc.focus(); } renderFolderSug();
     } else if (d === 'folderOk' && folderSel) {
       dApi('POST', '/api/drive/folder', { folderId: folderSel.id }).then(function (r) {
-        driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveSt.folders = r.folders || driveSt.folders; driveView = 'main'; driveFile = null; driveList = []; folderList = []; folderQuery = ''; folderSel = null; renderDrive(); loadFiles(); loadSync(); openFolderSet(r.folderId);
+        driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveSt.folders = r.folders || driveSt.folders; driveView = 'main'; driveFile = null; driveList = []; folderList = []; folderQuery = ''; folderSel = null; renderDrive(); loadFiles(); loadSync(); openFolderSet(r.folderId, true);
       }).catch(fail);
     } else if (d === 'openFolders') { folderRemoveId = null; foldersOpen = !foldersOpen; filesErr = ''; renderDrive(); if (foldersOpen) loadFiles();
     } else if (d === 'folderToggle') { folderExpanded[id] = !folderExpanded[id]; renderDrive();
