@@ -163,8 +163,8 @@ function parseCookieHeader(header) {
   return out;
 }
 
-// Comptes entreprise (30 oct. 2026, confidentialité) : session expirée après 30 min sans appel ; comptes individuels inchangés.
-const IDLE_ENTREPRISE_MS = 30 * 60 * 1000;
+// Comptes entreprise (30 oct. 2026, confidentialité) : session expirée après 1 heure sans appel ; comptes individuels inchangés.
+const IDLE_ENTREPRISE_MS = 60 * 60 * 1000;
 // Export du compte : servi seulement après une revérification du mot de passe de moins de 5 min (sur CETTE session).
 const REAUTH_MS = 5 * 60 * 1000;
 
@@ -296,7 +296,7 @@ function middleware(req, res, next) {
   if (req.userId) touchLastSeen(req.userId);
   // Entreprise : chaque appel repousse l'expiration (témoin re-signé au plus une fois par minute, revérification conservée).
   const sc = req.sessionClaims;
-  // Mémoire Horaire éphémère : effacée quand cette session expire (30 min sans appel, server/lib/horaire-ephemere.js).
+  // Mémoire Horaire éphémère : effacée quand cette session expire (1 heure sans appel, server/lib/horaire-ephemere.js).
   if (sc && sc.entreprise) require('./horaire-ephemere').sessionSeen(sc.userId);
   if (sc && sc.entreprise && Date.now() - sc.act > 60 * 1000) {
     res.append('Set-Cookie', `${COOKIE_NAME}=${encodeURIComponent(sign(sc.userId, sc.epoch, { ra: sc.ra }))}; ${cookieAttributes(req, Math.floor(MAX_AGE_MS / 1000)).join('; ')}`);

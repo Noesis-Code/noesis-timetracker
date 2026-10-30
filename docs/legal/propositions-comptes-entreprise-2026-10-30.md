@@ -11,10 +11,10 @@ Rien de ce qui suit n'est de l'avis juridique.
 
 ## Ce qui n'est PAS à jour
 
-### 1. CGU art. 5 — compte entreprise et autorité de la personne qui l'ouvre
-À l'inscription, l'entreprise coche « je suis autorisé à engager l'entreprise », mais les CGU ne le disent pas.
-Proposition d'ajout à l'art. 5 :
-> Lorsqu'un Compte est ouvert au nom d'une entreprise ou d'une organisation, la personne qui l'ouvre déclare avoir le pouvoir d'engager cette entreprise ou organisation et accepte les présentes CGU en son nom. Le « responsable » indiqué lors de l'inscription est la personne qui utilise le Compte pour l'entreprise ; le Compte reste, pour le reste, soumis à la règle ci-dessus (un Compte n'est pas partagé entre plusieurs personnes).
+### 1. CGU art. 5 — compte entreprise (APPLIQUÉ le 30 oct. 2026, sans déclaration d'autorité)
+Décision d'Émilien : les gestionnaires (MD) ne sont pas forcément autorisés par l'entreprise ; aucun texte ne dit « je suis autorisé à engager l'entreprise ». La case d'inscription dit désormais « et j'utilise ce compte pour l'entreprise ».
+Texte appliqué (art. 5) :
+> Lorsqu'un Compte est ouvert au nom d'une entreprise ou d'une organisation, le « responsable » indiqué lors de l'inscription est la personne qui utilise le Compte pour l'entreprise ; elle accepte les présentes CGU en son nom propre.
 
 ### 2. CGU art. 5 + politique 4.1 — retrouver un profil entreprise (décision du 30 oct. 2026)
 Texte actuel : un profil non listé est retrouvable « seulement en tapant son prénom et son nom complets exacts ».
@@ -27,7 +27,7 @@ Proposition (politique 4.1) : même phrase, avec la précision « l'écran n'aff
 Ajouter que le service s'adresse aussi aux entreprises et organisations établies au Canada (comptes entreprise), pour leurs gestionnaires et leur personnel saisi dans le module Horaire.
 
 ### 4. Session d'un compte entreprise
-Les comptes entreprise se déconnectent après 30 minutes sans activité (et les données du module Horaire, en mémoire, sont alors effacées). Déjà dit dans la politique du module Horaire ; à confirmer avec le juriste que la durée y figure.
+Les comptes entreprise se déconnectent après 1 heure (décision du 30 oct. 2026, avant : 30 minutes) sans activité (et les données du module Horaire, en mémoire, sont alors effacées). Déjà dit dans la politique du module Horaire ; à confirmer avec le juriste que la durée y figure.
 
 ## Hors sujet pour les CGU tant qu'Expansion n'est pas lancée
 Art. 4.2 et 6 (Expansion, prix, facturation) : restent exacts (« non applicable »). À réécrire **au lancement** d'Expansion (IA intégrée, génération de tâches, Drive, plafond d'usage de l'IA par activité).

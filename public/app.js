@@ -1919,7 +1919,7 @@
     $('onbName').placeholder = t(company ? "Nom de l'entreprise" : 'Prénom');
     $('onbLastName').placeholder = t(company ? 'Nom du responsable' : 'Nom de famille');
     // Textes de consentement adaptés aux entreprises (26 oct. 2026) ; les nœuds d'origine (liens et leurs écouteurs) sont gardés puis remis tels quels.
-    onbSwapText('onbLegalTermsText', company ? t(", et je suis autorisé à engager l'entreprise.") : null, true);
+    onbSwapText('onbLegalTermsText', company ? t(", et j'utilise ce compte pour l'entreprise.") : null, true);
     onbSwapText('onbMarketingTitle', company ? t("Utilisation commerciale des données de l'entreprise") : null);
     onbSwapText('onbMarketingText', company ? t("J'accepte que Noesis utilise les données saisies pour l'entreprise afin d'analyser l'usage, produire des statistiques, envoyer des communications commerciales à l'entreprise et cibler ses propres campagnes publicitaires. Les mots de passe et les messages privés ne sont jamais utilisés. L'entreprise peut retirer cet accord à tout moment dans Réglages, section Sécurité.") : null);
     onbSwapText('onbDirectoryText', company ? t("J'accepte que le nom de l'entreprise et celui de son responsable puissent être trouvés dans la recherche de membres de l'écran de connexion.") : null);
