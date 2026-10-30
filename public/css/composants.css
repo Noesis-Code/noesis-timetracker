@@ -7,7 +7,8 @@
   --danger: #E0626B;                        /* R12/R28 : UN seul rouge, réservé au retrait/suppression */
   /* Jetons communs à TimeTracker, Expansion et Trade Tracker (S1) : définis ICI une seule fois. */
   --purple: #9C8CC8;
-  --purple-rgb: 156, 140, 200;
+  --pr: 156; --pg: 140; --pb: 200;           /* composantes du violet : nombres enregistrés (@property), pour fondre vers le blanc rosé en 3 s */
+  --purple-rgb: var(--pr), var(--pg), var(--pb);
   --on-action: #15111C;
   --white: #ffffff;
   --black: #0B0A0A;
@@ -184,8 +185,23 @@
 :root { --seg-active-bg: rgba(var(--purple-rgb), .16); --seg-sep: rgba(243, 238, 232, .07); --glass-gray: rgba(165, 158, 150, .18); }
 /* Repère de couleur du module Horaire (30 oct. 2026, choix d'Émilien) : dans Création des horaires, le violet et le halo passent au blanc rosé (#F0DDE0, choisi par Émilien) ; Paramètres garde le violet.
    Seule la couleur change (classe modeCreation sur <html>, posée par composants.js). Remplace l'essai du mode clair. */
+/* Fondu de 3 s entre le violet (Paramètres) et le blanc rosé (Création des horaires), dans les deux sens : les jetons de couleur sont enregistrés pour pouvoir s'animer. */
+@property --pr { syntax: '<number>'; inherits: true; initial-value: 156; }
+@property --pg { syntax: '<number>'; inherits: true; initial-value: 140; }
+@property --pb { syntax: '<number>'; inherits: true; initial-value: 200; }
+@property --purple { syntax: '<color>'; inherits: true; initial-value: #9C8CC8; }
+@property --purple-dark { syntax: '<color>'; inherits: true; initial-value: #9C8CC8; }
+@property --brique { syntax: '<color>'; inherits: true; initial-value: #9C8CC8; }
+@property --violet-soft { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
+@property --violet-promo { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
+@property --blue { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
+@property --unread { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
+@property --halo { syntax: '<color>'; inherits: true; initial-value: rgba(156, 140, 200, .28); }
+:root { --brique-rgb: var(--pr), var(--pg), var(--pb);
+  transition: --pr 3s ease, --pg 3s ease, --pb 3s ease, --purple 3s ease, --purple-dark 3s ease, --brique 3s ease, --violet-soft 3s ease, --violet-promo 3s ease, --blue 3s ease, --unread 3s ease, --halo 3s ease; }
+@media (prefers-reduced-motion: reduce) { :root { transition: none; } }
 :root.modeCreation {
-  --purple: #F0DDE0; --purple-rgb: 240, 221, 224; --purple-dark: #F0DDE0; --brique: #F0DDE0; --brique-rgb: 240, 221, 224;
+  --purple: #F0DDE0; --pr: 240; --pg: 221; --pb: 224; --purple-dark: #F0DDE0; --brique: #F0DDE0;
   --violet-soft: #F0DDE0; --violet-promo: #F0DDE0; --blue: #F0DDE0; --unread: #F0DDE0; --halo: rgba(240, 221, 224, .28);
 }
 :root:root:root .cmpSeg { display: flex; align-items: stretch; flex-wrap: nowrap; width: 100%; box-sizing: border-box; gap: 0; margin: 0 0 16px; padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
