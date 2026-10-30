@@ -370,13 +370,18 @@ router.get('/users', (req, res) => {
     // Compte entreprise : le nom de l'entreprise OU celui du responsable suffit (exact, majuscules ignorées), ou les deux (30 oct. 2026, Émilien).
     if (rows.length < USERS_SEARCH_MAX_RESULTS) {
       db.prepare("SELECT id, name, lastName, color, pin FROM users WHERE accountType = 'entreprise' AND COALESCE(directoryConsent, 0) <> 1 AND (name = ? COLLATE NOCASE OR COALESCE(lastName, '') = ? COLLATE NOCASE) LIMIT 2")
-        .all(q, q).forEach((u) => { if (!rows.some((r) => r.id === u.id)) rows.push(u); });
+        .all(q, q).forEach((u) => {
+          if (rows.some((r) => r.id === u.id)) return;
+          // On n'affiche que ce que la personne a écrit : le nom de l'entreprise seul, ou celui du responsable seul (jamais l'autre moitié).
+          const isName = String(u.name || '').toLowerCase() === q.toLowerCase();
+          rows.push({ ...u, _only: isName ? 'name' : 'last' });
+        });
     }
     rows.length = Math.min(rows.length, USERS_SEARCH_MAX_RESULTS);
     return res.json(rows.map((u) => ({
       id: u.id,
-      name: u.name,
-      lastName: u.lastName || '',
+      name: u._only === 'last' ? u.lastName : u.name,
+      lastName: u._only ? '' : (u.lastName || ''),
       color: u.color,
       hasPin: !!u.pin,
     })));

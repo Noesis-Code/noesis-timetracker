@@ -73,8 +73,10 @@ const T = makeCounter(); const assert = T.assert;
     const cE = await dE.post('/api/profile', { name: 'Brasserie Zéphyr', lastName: 'Ouellet', phone: '5145550153', email: 'zephyr.recup@exemple.test', pin: 'Xk9#Longue-2026!', termsAccepted: true, accountType: 'entreprise' });
     assert(cE.status === 201, 'compte entreprise créé');
     const dF = client(s.base);
-    assert((await dF.get('/api/users?q=' + encodeURIComponent('Brasserie Zéphyr'))).body.length === 1, "entreprise : retrouvée par le nom de l'entreprise seul");
-    assert((await dF.get('/api/users?q=' + encodeURIComponent('Ouellet'))).body.length === 1, 'entreprise : retrouvée par le nom du responsable seul');
+    const byName = (await dF.get('/api/users?q=' + encodeURIComponent('Brasserie Zéphyr'))).body;
+    assert(byName.length === 1 && byName[0].name === 'Brasserie Zéphyr' && byName[0].lastName === '', "entreprise : retrouvée par le nom de l'entreprise seul, qui s'affiche seul");
+    const byLast = (await dF.get('/api/users?q=' + encodeURIComponent('Ouellet'))).body;
+    assert(byLast.length === 1 && byLast[0].name === 'Ouellet' && byLast[0].lastName === '', "entreprise : retrouvée par le nom du responsable seul, qui s'affiche seul");
     assert((await dF.get('/api/users?q=' + encodeURIComponent('Brasserie Zéphyr Ouellet'))).body.length === 1, 'entreprise : retrouvée par les deux');
     assert((await dF.get('/api/users?q=' + encodeURIComponent('Bras'))).body.length === 0, 'entreprise : jamais par une saisie partielle');
 
