@@ -353,6 +353,7 @@ function recreateEmilienAccount(db) {
     let id = act && act.id;
     if (!id) id = Number(db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, shareToken, createdAt) VALUES (?, 0, 1, ?, ?, ?)').run(def.name, emilienId, randomUUID(), nowIso).lastInsertRowid);
     insertMember.run(id, emilienId, color, nowIso);
+    db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(emilienId, id); // propriétaire d'origine (la suppression du compte avait passé la propriété à un autre membre) : Drive n'est géré que par le propriétaire
     addTimeEntries(insertEntry, emilienId, id, 10);
     joined += 1;
   });

@@ -300,7 +300,7 @@
     if (s.moduleOff) { // Drive passe par l'« Assistant IA » : désactivé dans Réglages > Modules, on le dit et on propose de le réactiver (au lieu de cacher Drive)
       h.innerHTML = '<div class="docTasksDriveRow"><button type="button" class="docTasksDriveBtn" data-d="connect">Connecter Drive</button><p class="docTasksConsent">Drive utilise l’Assistant IA, désactivé dans Réglages &gt; Modules : il sera réactivé en connectant Drive.</p></div>' + (driveErr ? '<p class="msg">' + esc(driveErr) + '</p>' : ''); return;
     }
-    if (s.configured && s.isOwner === false) { h.innerHTML = ''; return; }
+    if (s.configured && s.isOwner === false) { h.innerHTML = '<div class="docTasksDriveRow docTasksDriveOff" aria-disabled="true">Drive : seul le propriétaire de l’activité le connecte et le gère.</div>'; return; } // message au lieu d’un vide
     if (!s.configured) {
       h.innerHTML = '<div class="docTasksDriveRow docTasksDriveOff" aria-disabled="true">Connecter Drive <span class="goalsAddSoon">Bientôt</span></div>'; return;
     }
