@@ -53,7 +53,7 @@
   // ---------- Pop-up ----------
   var listBox = null, sumL = null, sumR = null, timer = null, loadSeq = 0;
   var ui = {}; // éléments de la barre d'ajout
-  var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null, date: null, who: null, poleId: null, open: '', members: {}, flash: null, exp: null, essor: null };
+  var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null, date: null, who: null, poleId: null, open: '', members: {}, flash: null, exp: null, essor: null, expStep: 0 };
 
   var root = null, shown = false, dock = null;
   // La barre n'existe à l'écran que si la vue Aujourd'hui est réellement visible (autre volet, autre vue ou page par-dessus : masquée).
@@ -102,7 +102,7 @@
     ui.proposal = el('div', 'tasksPropose cmpGlass hidden'); // verre commun (R31), comme la barre des volets
     var kick = el('div', 'tasksProposeHead');
     ui.kicker = el('span', 'tasksProposeKicker', tr('Noèsis propose'));
-    ui.close = TMT.ui.closeBtn(function () { if (target() && ui.text.value.trim()) send(); else reset(); }, tr('Fermer')); // ✕ en haut à droite (R13) : enregistre le rangement affiché et l'applique (demande d'Émilien, 30 oct. 2026) ; sans rangement complet, ferme seulement
+    ui.close = TMT.ui.closeBtn(function () { if (state.exp || state.expStep) reset(); else if (target() && ui.text.value.trim()) send(); else reset(); }, tr('Fermer')); // ✕ en haut à droite (R13) : enregistre le rangement affiché et l'applique (demande d'Émilien, 30 oct. 2026) ; sans rangement complet, ferme seulement
     kick.appendChild(ui.kicker); kick.appendChild(ui.close);
     ui.body = el('div', 'tasksProposeBody'); // la seule zone qui défile, sous le titre et la ✕ qui restent en place
     ui.fields = el('div', 'tasksFields');
@@ -130,7 +130,9 @@
     ui.exHint = el('p', 'tasksExHint hidden', tr('Appuie longtemps sur ↑ pour utiliser Expansion')); // sous la barre, seulement si le texte parle de générer et qu'une activité a Expansion
     ui.chips = el('div', 'tasksChips'); ui.msg = el('p', 'tasksMsg');
     ui.toast = el('p', 'tasksToast hidden'); ui.toast.setAttribute('role', 'status');
-    box.appendChild(ui.toast); box.appendChild(ui.proposal); box.appendChild(bar); box.appendChild(ui.chips); box.appendChild(ui.msg); box.appendChild(ui.exHint);
+    ui.save = el('button', 'tasksSaveBtn', tr('Enregistrer')); ui.save.type = 'button'; // remplace la zone d'écriture à l'étape 2 d'Expansion (liste des tâches à valider)
+    ui.save.addEventListener('click', function () { if (state.exp && !state.exp.loading) runExpansion(); });
+    box.appendChild(ui.toast); box.appendChild(ui.proposal); box.appendChild(ui.save); box.appendChild(bar); box.appendChild(ui.chips); box.appendChild(ui.msg); box.appendChild(ui.exHint);
     return box;
   }
 
@@ -174,14 +176,14 @@
     var t = target(), poleId = t ? t.activityId : state.poleId;
     var poleName = t ? t.activityName : ((state.options.filter(function (o) { return o.activityId === poleId; })[0] || {}).activityName || '');
     ui.proposal.classList.toggle('hidden', !t && !state.options.length && !readOnly);
-    ui.kicker.textContent = readOnly ? '✓ ' + tr('Ajoutée') : tr(TMT.aiMode === 'absence' || !t ? 'À ranger' : 'Noèsis propose');
+    ui.kicker.textContent = readOnly ? '✓ ' + tr('Ajoutée') : state.expStep ? tr('Expansion') + ' · ' + tr('Où ranger les tâches') : tr(TMT.aiMode === 'absence' || !t ? 'À ranger' : 'Noèsis propose');
     ui.close.classList.toggle('hidden', !!readOnly);
     if (readOnly) state.open = '';
     ui.fields.textContent = '';
     ui.fields.appendChild(fieldRow('pole', 'Pôle', poleName || tr('Choisir'), readOnly));
     ui.fields.appendChild(fieldRow('secteur', 'Secteur', t ? sectorOf(t) : tr('Choisir'), readOnly || !poleId));
-    ui.fields.appendChild(dateRow(readOnly));
-    if (poleId && state.members[poleId] && state.members[poleId].length > 1) ui.fields.appendChild(fieldRow('who', 'Responsable', state.who ? state.who.name : '—', readOnly));
+    if (!state.expStep) ui.fields.appendChild(dateRow(readOnly)); // étape 1 d'Expansion : seulement le pôle et le secteur
+    if (!state.expStep && poleId && state.members[poleId] && state.members[poleId].length > 1) ui.fields.appendChild(fieldRow('who', 'Responsable', state.who ? state.who.name : '—', readOnly));
     ui.hint.classList.toggle('hidden', !t || !!readOnly);
     if (poleId && !state.members[poleId]) membersOf(poleId).then(function () { if (!readOnly && (target() ? target().activityId : state.poleId) === poleId) paintProposal(); });
   }
@@ -308,6 +310,7 @@
         });
         return null;
       }
+      if (kind === 'tasks') return expSuggest(list, label);
       state.exp = { kind: kind, label: label, acts: list, actId: list.length === 1 ? list[0].id : null, tasks: null, checked: [], loading: false };
       closeChooser(); paintExpansion();
       if (state.exp.actId) return runExpansion();
@@ -315,6 +318,27 @@
       return null;
     }).catch(function (e) { say((e && e.message) || tr('Erreur.')); })
       .then(function () { state.busy = false; ui.send.disabled = false; });
+  }
+  // Étape 1 : Noèsis suggère le pôle et le secteur (parmi les activités avec Expansion), je valide ou je change (↑ ou ✕).
+  function expSuggest(list, label) {
+    var ids = {}; list.forEach(function (a) { ids[a.id] = true; });
+    return TMT.api('POST', '/api/goals/capture/propose', { label: label, skipAi: TMT.aiMode === 'absence' }).then(function (r) {
+      var opts = ((r && r.options) || []).filter(function (o) { return ids[o.activityId]; });
+      var prop = r && r.proposal && ids[r.proposal.activityId] ? r.proposal : null;
+      if (!opts.length) { setExpMode(false); showAbove(tr('Ces activités n’ont pas encore de pôle ni de secteur où ranger des tâches.')); return null; }
+      state.options = opts; state.proposal = prop; state.choice = null; state.proposedFor = label;
+      state.poleId = list.length === 1 ? list[0].id : null; state.date = null; state.who = null; state.exp = null; state.expStep = 1;
+      closeChooser(); paintProposal(); ui.proposal.classList.remove('hidden');
+      say(tr('Vérifie le rangement, puis touche ↑ (ou ✕) pour que Noèsis prépare les tâches.'));
+      return null;
+    });
+  }
+  function expValidateStep1() {
+    var t = target();
+    if (!t) { say(tr('Choisis le pôle et le secteur, puis touche ↑.')); toggleChooser(state.poleId ? 'secteur' : 'pole'); return; }
+    var label = ui.text.value.trim();
+    state.exp = { kind: 'tasks', label: label, acts: [{ id: t.activityId, name: t.activityName }], actId: t.activityId, categoryKey: t.categoryKey, categoryLabel: t.categoryLabel, tasks: null, checked: [], loading: false };
+    state.expStep = 0; closeChooser(); runExpansion();
   }
   function expActName() { var e = state.exp, a = e && e.acts.filter(function (x) { return x.id === e.actId; })[0]; return a ? a.name : ''; }
   function paintExpansion() {
@@ -350,6 +374,7 @@
       });
     }
     ui.hint.classList.add('hidden'); // un seul message, centré sous la barre
+    dock.classList.toggle('expSave', !!(e.tasks && e.tasks.length) && !e.loading);
     say(e.loading ? tr('Noèsis prépare les tâches…') : e.tasks && e.tasks.length ? tr('Touche ✕ ou ↑ pour valider.') : tr('Touche ↑ pour envoyer, ou ✕ pour fermer.'));
   }
   function runExpansion() {
@@ -368,7 +393,7 @@
     var picked = e.tasks.filter(function (t, i) { return e.checked[i] !== false; });
     if (!picked.length) { reset(); return Promise.resolve(); }
     e.loading = true; paintExpansion();
-    return TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/apply', { tasks: picked.map(function (t) { return { title: t.title, key: t.key, day: t.day, week: t.week, minutes: t.minutes }; }) }).then(function (r) {
+    return TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/apply', { tasks: picked.map(function (t) { return { title: t.title, key: e.categoryKey || t.key, day: t.day, week: t.week, minutes: t.minutes }; }) }).then(function (r) {
       var n = (r && r.addedCount) || 0; reset(); refresh();
       showToast(n + ' ' + tr(n > 1 ? 'tâches enregistrées' : 'tâche enregistrée'));
     }).catch(function (err) { e.loading = false; say((err && err.message) || tr('Erreur.')); paintExpansion(); });
@@ -379,7 +404,7 @@
     var text = ui.text.value.trim();
     clearTimeout(state.debounce);
     clearTimeout(state.flash);
-    if (state.exp) { state.exp = null; setExpMode(false); ui.proposal.classList.add('hidden'); }
+    if (state.exp || state.expStep) { state.exp = null; state.expStep = 0; dock.classList.remove('expSave'); setExpMode(false); ui.proposal.classList.add('hidden'); }
     clearTimeout(state.hintT); state.hintT = setTimeout(updateExHint, 250);
     if (text.length < 3) { state.proposal = null; state.choice = null; state.proposedFor = ''; ui.proposal.classList.add('hidden'); return; }
     state.debounce = setTimeout(function () { propose(text); }, PROPOSE_MS);
@@ -428,7 +453,7 @@
     window.requestAnimationFrame(function () { if (!c) return; c.style.display = 'none'; void c.offsetHeight; c.style.display = ''; });
   }
   function reset() {
-    clearTimeout(state.flash); state.exp = null; setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
+    clearTimeout(state.flash); state.exp = null; state.expStep = 0; dock.classList.remove('expSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
     state.date = null; state.who = null; state.poleId = null; closeChooser();
     ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
     repaintText(); // iPhone : le texte d'invite (placeholder) ne se redessinait qu'en partie (« Ajou ») après l'envoi
@@ -459,6 +484,7 @@
     if (state.busy) return;
     var label = ui.text.value.trim();
     if (!label) { ui.msg.textContent = tr('Écris une tâche avant d’ajouter.'); return; }
+    if (state.expStep === 1) { expValidateStep1(); return; }
     if (state.exp) { runExpansion(); return; }
     state.busy = true; ui.send.disabled = true; ui.msg.textContent = '';
     var shown = !!target(); // la proposition était déjà affichée AVANT l'envoi : ↑ la valide
