@@ -326,10 +326,17 @@
     });
   }
 
+  // Force le redessin complet de la zone d'écriture (Safari iOS : verre flou + transform laissaient l'invite coupée).
+  function repaintText() {
+    var ph = ui.text.placeholder; ui.text.placeholder = ''; void ui.text.offsetWidth; ui.text.placeholder = ph;
+    var c = ui.text.closest('.tasksComposer');
+    window.requestAnimationFrame(function () { if (!c) return; c.style.display = 'none'; void c.offsetHeight; c.style.display = ''; });
+  }
   function reset() {
     clearTimeout(state.flash); state.exp = null; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
     state.date = null; state.who = null; state.poleId = null; closeChooser();
     ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
+    repaintText(); // iPhone : le texte d'invite (placeholder) ne se redessinait qu'en partie (« Ajou ») après l'envoi
   }
   function flashAdded(snap) {
     state.proposal = snap.t; state.choice = null; state.date = snap.date; state.who = snap.who; state.options = [snap.t]; state.poleId = snap.t.activityId;
