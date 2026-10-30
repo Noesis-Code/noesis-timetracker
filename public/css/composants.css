@@ -199,7 +199,7 @@
   transition: --pr 1s ease, --pg 1s ease, --pb 1s ease, --purple 1s ease, --purple-dark 1s ease, --brique 1s ease, --violet-soft 1s ease, --violet-promo 1s ease, --blue 1s ease, --unread 1s ease, --halo 1s ease; }
 @media (prefers-reduced-motion: reduce) { :root { transition: none; } }
 /* Repères de couleur (30 oct. 2026, choix d'Émilien). Seule la couleur change ; fondu de 1 s dans les deux sens (jetons enregistrés ci-dessus).
-   - Module Horaire, Création des horaires (modeCreation, posée par composants.js) : bleu pervenche #8282DE (nuance 4).
+   - Module Horaire, Création des horaires (modeCreation, posée par composants.js) : blanc bleuté #DEDEF5 (même teinte que le pervenche #8282DE, aussi clair que le blanc rosé d’Expansion).
    - Expansion (modeExpansion pendant une demande de la barre d'ajout ; modeExpansionWin tant qu'une fenêtre Expansion est ouverte) : blanc rosé #F0DDE0, réservé à Expansion. */
 /* Fondu de 1 s entre les couleurs de repère (violet, bleu de l'Horaire, blanc rosé d'Expansion), dans les deux sens : les jetons de couleur sont ENREGISTRÉS (@property) pour pouvoir s'animer.
    ⚠️ Ne pas retirer ce bloc : sans lui, les couleurs changent d'un coup (perdu par erreur entre v841 et v851). */
@@ -218,8 +218,8 @@
   transition: --pr 1s ease, --pg 1s ease, --pb 1s ease, --purple 1s ease, --purple-dark 1s ease, --brique 1s ease, --violet-soft 1s ease, --violet-promo 1s ease, --blue 1s ease, --unread 1s ease, --halo 1s ease; }
 @media (prefers-reduced-motion: reduce) { :root { transition: none; } }
 :root.modeCreation {
-  --purple: #8282DE; --pr: 130; --pg: 130; --pb: 222; --purple-dark: #8282DE; --brique: #8282DE;
-  --violet-soft: #B9B9F0; --violet-promo: #B9B9F0; --blue: #B9B9F0; --unread: #B9B9F0; --halo: rgba(130, 130, 222, .28);
+  --purple: #DEDEF5; --pr: 222; --pg: 222; --pb: 245; --purple-dark: #DEDEF5; --brique: #DEDEF5;
+  --violet-soft: #DEDEF5; --violet-promo: #DEDEF5; --blue: #DEDEF5; --unread: #DEDEF5; --halo: rgba(222, 222, 245, .16);
 }
 :root.modeExpansion, :root.modeExpansionWin {
   --purple: #F0DDE0; --pr: 240; --pg: 221; --pb: 224; --purple-dark: #F0DDE0; --brique: #F0DDE0;
