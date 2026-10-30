@@ -220,7 +220,7 @@
   ui.ATTACH_ACCEPT = ATTACH_ACCEPT;
   ui.groupDrag = groupDrag;
   // Repère de couleur du module Horaire (30 oct. 2026) : dans Paramètres | Création des horaires (.horaireCats), l'option de droite
-  // active passe le violet et le halo au rouge (classe modeCreation sur <html>, jetons dans composants.css) ; l'option de gauche les remet en violet.
+  // active passe le violet et le halo au bleu roi (classe modeCreation sur <html>, jetons dans composants.css) ; l'option de gauche les remet en violet.
   function syncModeClair() {
     var de = document.documentElement, on = false;
     document.querySelectorAll('.cmpSeg.horaireCats').forEach(function (s) {
