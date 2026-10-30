@@ -103,7 +103,7 @@
     var kick = el('div', 'tasksProposeHead');
     ui.kicker = el('span', 'tasksProposeKicker', tr('Noèsis propose'));
     ui.close = TMT.ui.closeBtn(function () {
-      if (state.exp && state.exp.tasks && state.exp.tasks.length) { TMT.ui.confirm(tr('Êtes-vous sûr de vouloir effacer les tâches générées ?'), { ok: tr('Effacer'), danger: true }).then(function (yes) { if (yes) reset(); }); return; }
+      if (state.gen && state.gen.tasks && state.gen.tasks.length) { TMT.ui.confirm(tr('Êtes-vous sûr de vouloir effacer les tâches générées ?'), { ok: tr('Effacer'), danger: true }).then(function (yes) { if (yes) reset(); }); return; }
       if (state.exp || state.expStep) reset(); else if (state.review && target() && ui.text.value.trim()) send(); else reset(); }, tr('Fermer')); // ✕ en haut à droite (R13) : enregistre le rangement affiché et l'applique (demande d'Émilien, 30 oct. 2026) ; sans rangement complet, ferme seulement
     kick.appendChild(ui.kicker); kick.appendChild(ui.close);
     ui.body = el('div', 'tasksProposeBody'); // la seule zone qui défile, sous le titre et la ✕ qui restent en place
@@ -137,7 +137,7 @@
     ui.chips = el('div', 'tasksChips'); ui.msg = el('p', 'tasksMsg');
     ui.toast = el('p', 'tasksToast hidden'); ui.toast.setAttribute('role', 'status');
     ui.save = el('button', 'tasksSaveBtn', tr('Enregistrer')); ui.save.type = 'button'; // remplace la zone d'écriture à l'étape 2 d'Expansion (liste des tâches à valider)
-    ui.save.addEventListener('click', function () { if (state.exp && !state.exp.loading) runExpansion(); });
+    ui.save.addEventListener('click', function () { expSave(); });
     box.appendChild(ui.toast); box.appendChild(ui.proposal); box.appendChild(ui.save); box.appendChild(bar); box.appendChild(ui.chips); box.appendChild(ui.msg); box.appendChild(ui.exHint);
     return box;
   }
@@ -195,11 +195,12 @@
     if (!t || sectorsOfPole(t).length) ui.fields.appendChild(fieldRow('secteur', 'Secteur', t && sectorOf(t) ? sectorOf(t) : tr('Choisir'), readOnly || !t));
     if (!state.expStep) ui.fields.appendChild(dateRow(readOnly)); // étape 1 d'Expansion : seulement le pôle et le secteur
     if (!state.expStep && poleId && state.members[poleId] && state.members[poleId].length > 1) ui.fields.appendChild(fieldRow('who', 'Responsable', state.who ? state.who.name : '—', readOnly));
-    ui.hint.classList.toggle('hidden', !t || !!readOnly);
+    if (state.expStep) { ui.hint.textContent = tr('Balaie vers la gauche pour voir les tâches générées.'); ui.hint.classList.remove('hidden'); }
+    else { ui.hint.textContent = tr('Rien n’est rangé sans toi : ↑ ou ✕ enregistre ce rangement.'); ui.hint.classList.toggle('hidden', !t || !!readOnly); }
     if (poleId && !state.members[poleId]) membersOf(poleId).then(function () { if (!readOnly && (target() ? target().activityId : state.poleId) === poleId) paintProposal(); });
   }
   function closeChooser() { state.open = ''; }
-  function choice(box, label, fn) { var b = el('button', 'tasksChoice', label); b.type = 'button'; b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); }); box.appendChild(b); }
+  function choice(box, label, fn) { var b = el('button', 'tasksChoice', label); b.type = 'button'; b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); if (state.expStep) genEnsure(); }); box.appendChild(b); }
   function toggleChooser(key) { state.open = state.open === key ? '' : key; paintProposal(); }
   // Les choix du champ ouvert (construits sous lui par fieldRow).
   function chooserFor(key) {
@@ -345,17 +346,68 @@
       if (!opts.length) { setExpMode(false); showAbove(tr('Ces activités n’ont pas encore de pôle ni de secteur où ranger des tâches.')); return null; }
       state.options = opts; state.proposal = prop; state.choice = null; state.proposedFor = label;
       state.poleId = list.length === 1 ? list[0].id : null; state.date = null; state.who = null; state.exp = null; state.expStep = 1;
-      closeChooser(); paintProposal(); ui.proposal.classList.remove('hidden');
-      say(tr('Vérifie le rangement, puis touche ↑ (ou ✕) pour que Noèsis prépare les tâches.'));
+      state.expLabel = label; state.gen = null; closeChooser(); paintProposal(); ui.proposal.classList.remove('hidden');
+      say(''); genEnsure();
       return null;
     });
   }
-  function expValidateStep1() {
-    var t = target();
-    if (!t) { say(tr('Choisis l’activité, le pôle et le secteur, puis touche ↑.')); toggleChooser(state.poleId ? 'pole' : 'activity'); return; }
-    var label = ui.text.value.trim();
-    state.exp = { kind: 'tasks', label: label, acts: [{ id: t.activityId, name: t.activityName }], actId: t.activityId, categoryKey: t.categoryKey, categoryLabel: t.categoryLabel, tasks: null, checked: [], loading: false };
-    state.expStep = 0; closeChooser(); runExpansion();
+  // Règle (30 oct. 2026, Émilien) : au plus 5 tâches générées à la fois, sauf si la demande précise le nombre.
+  var MAX_GENERATED = 5;
+  function explicitCount(label) { return /\b(\d+|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|douze|quinze|vingt)\s+(?:nouvelles?\s+|petites?\s+)?taches?\b/.test(fold(label)); }
+  function genInstruction(label) { return (label + '\nNombre de tâches : si la demande précise un nombre de tâches, génère exactement ce nombre ; sinon génère au maximum ' + MAX_GENERATED + ' tâches.').slice(0, 1500); }
+  function genKey() { var t = target(); return t ? t.activityId : (state.poleId || null); }
+  // Génère les tâches de l'activité choisie (une fois par activité) ; la page 2 les montre, à droite.
+  function genEnsure() {
+    var actId = genKey(); if (!actId) { paintGenPage(); return; }
+    var g = state.gen; if (g && g.actId === actId && (g.loading || g.tasks)) { paintGenPage(); return; }
+    var mine = state.gen = { actId: actId, tasks: null, checked: [], loading: true };
+    paintGenPage();
+    TMT.api('POST', '/api/activities/' + actId + '/document-tasks/propose', { instruction: genInstruction(state.expLabel || '') }).then(function (r) {
+      var list = (r && r.tasks) || [];
+      if (!explicitCount(state.expLabel || '')) list = list.slice(0, MAX_GENERATED);
+      mine.tasks = list; mine.checked = list.map(function () { return true; });
+    }).catch(function (err) {
+      var m = (err && err.message) || tr('Erreur.');
+      mine.tasks = []; mine.error = m;
+      if (/Module désactivé/i.test(m)) { showAbove(tr('Expansion utilise l’Assistant IA, désactivé dans Réglages > Modules.'), tr('Activer l’Assistant IA'), function () { TMT.api('PUT', '/api/profile/' + TMT.getProfile().id + '/modules', { modules: { ai: true } }).then(function () { document.dispatchEvent(new Event('visibilitychange')); state.gen = null; genEnsure(); }).catch(function (er) { showAbove((er && er.message) || tr('Erreur.')); }); }); }
+      else showAbove(m);
+    }).then(function () { mine.loading = false; if (state.gen === mine) paintGenPage(); });
+  }
+  function paintGenPage() {
+    var g = state.gen, t = target();
+    ui.tasksBox.textContent = '';
+    ui.tasksBox.appendChild(el('p', 'tasksPageHead', tr('Dans') + ' ' + (t ? t.activityName + ' › ' + String(t.categoryLabel || '').replace(' → ', ' › ') : '…')));
+    if (!g) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Choisis d’abord l’activité.')));
+    else {
+      if (g.loading) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Noèsis prépare les tâches…')));
+      if (!g.loading && g.tasks && !g.tasks.length) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', g.error ? g.error : tr('Aucune tâche proposée. Précise ta demande.')));
+      (g.tasks || []).forEach(function (task, i) {
+        var lab = el('label', 'tasksExpRow'), cb = el('input'); cb.type = 'checkbox'; cb.checked = g.checked[i] !== false;
+        cb.addEventListener('change', function () { g.checked[i] = cb.checked; });
+        var txt = el('span', 'tasksExpText'); txt.appendChild(el('b', null, task.title));
+        var meta = [task.day ? dateText(task.day) : '', task.minutes ? minutesLabel(task.minutes) : ''].filter(Boolean).join(' · ');
+        if (meta) txt.appendChild(el('small', null, meta));
+        lab.appendChild(cb); lab.appendChild(txt); ui.tasksBox.appendChild(lab);
+      });
+    }
+    dock.classList.toggle('expSave', state.expPage === 2 && !!(g && g.tasks && g.tasks.length) && !g.loading); // page des tâches : la zone d'écriture devient « Enregistrer »
+  }
+  function expNext() {
+    if (!genKey()) { say(tr('Choisis d’abord l’activité.')); toggleChooser('activity'); return; }
+    genEnsure(); goPage(2); paintGenPage(); say('');
+  }
+  function expSave() {
+    var g = state.gen, t = target();
+    if (!g || g.loading || !g.tasks) return;
+    if (!t) { say(tr('Choisis le pôle et le secteur d’abord.')); goPage(1); return; }
+    if (g.actId !== t.activityId) { genEnsure(); say(tr('Le rangement a changé : Noèsis prépare de nouvelles tâches.')); return; }
+    var picked = g.tasks.filter(function (x, i) { return g.checked[i] !== false; });
+    if (!picked.length) { reset(); return; }
+    ui.save.disabled = true;
+    TMT.api('POST', '/api/activities/' + t.activityId + '/document-tasks/apply', { tasks: picked.map(function (x) { return { title: x.title, key: t.categoryKey, day: x.day, week: x.week, minutes: x.minutes }; }) }).then(function (r) {
+      var n = (r && r.addedCount) || 0; reset(); refresh();
+      showToast(n + ' ' + tr(n > 1 ? 'tâches enregistrées' : 'tâche enregistrée'));
+    }).catch(function (err) { say((err && err.message) || tr('Erreur.')); }).then(function () { ui.save.disabled = false; });
   }
   function expActName() { var e = state.exp, a = e && e.acts.filter(function (x) { return x.id === e.actId; })[0]; return a ? a.name : ''; }
   // Pages du panneau Expansion : on les parcourt en balayant DANS le panneau seulement (gauche : les tâches arrivent à droite ; droite : retour aux choix).
@@ -367,19 +419,21 @@
     ui.track.style.transform = n === 2 ? 'translateX(-50%)' : 'translateX(0)';
     clearTimeout(state.pgT);
     if (instant) (n === 2 ? A : B).classList.add('off'); else state.pgT = setTimeout(function () { (n === 2 ? A : B).classList.add('off'); }, 280);
-    dock.classList.toggle('expSave', n === 2 && !!(state.exp && state.exp.tasks && state.exp.tasks.length) && !state.exp.loading); // page des tâches : la zone d'écriture devient « Enregistrer »
+    dock.classList.toggle('expSave', n === 2 && !!(state.gen && state.gen.tasks && state.gen.tasks.length) && !state.gen.loading); // page des tâches : la zone d'écriture devient « Enregistrer »
   }
+  // Balayage DANS le panneau : au doigt (touchstart/touchend, fiable sur iPhone) et à la souris (pointeur) ; il ne fait pas défiler la page derrière.
   function bindSwipe(node) {
     var x0 = 0, y0 = 0, on = false;
-    node.addEventListener('pointerdown', function (e) { x0 = e.clientX; y0 = e.clientY; on = true; });
+    function done(dx, dy) {
+      if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx) * 0.8 || !state.expStep) return;
+      if (dx < 0) expNext(); else goPage(1); // gauche : les tâches arrivent à droite ; droite : retour aux choix
+    }
+    node.addEventListener('touchstart', function (e) { e.stopPropagation(); var t = e.changedTouches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
+    node.addEventListener('touchmove', function (e) { e.stopPropagation(); }, { passive: true });
+    node.addEventListener('touchend', function (e) { var t = e.changedTouches[0]; done(t.clientX - x0, t.clientY - y0); }, { passive: true });
+    node.addEventListener('pointerdown', function (e) { if (e.pointerType !== 'mouse') return; x0 = e.clientX; y0 = e.clientY; on = true; });
+    node.addEventListener('pointerup', function (e) { if (e.pointerType !== 'mouse' || !on) return; on = false; done(e.clientX - x0, e.clientY - y0); });
     node.addEventListener('pointercancel', function () { on = false; });
-    node.addEventListener('pointerup', function (e) {
-      if (!on) return; on = false;
-      var dx = e.clientX - x0, dy = e.clientY - y0, x = state.exp;
-      if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.6 || !x || x.kind !== 'tasks') return;
-      if (dx < 0 && (x.tasks || x.loading)) goPage(2); else if (dx > 0) goPage(1);
-    });
-    ['touchstart', 'touchmove'].forEach(function (ev) { node.addEventListener(ev, function (e) { e.stopPropagation(); }, { passive: true }); }); // le balayage de la page (Aujourd'hui / Activités…) ne le voit pas
   }
   function paintTasksPage(e) {
     ui.proposal.classList.remove('hidden'); ui.close.classList.remove('hidden');
@@ -468,7 +522,7 @@
     var text = ui.text.value.trim();
     clearTimeout(state.debounce);
     clearTimeout(state.flash);
-    if (state.exp || state.expStep) { state.exp = null; state.expStep = 0; ui.pages.classList.remove('locked'); goPage(1, true); setExpMode(false); ui.proposal.classList.add('hidden'); }
+    if (state.exp || state.expStep) { state.exp = null; state.gen = null; state.expStep = 0; ui.pages.classList.remove('locked'); goPage(1, true); setExpMode(false); ui.proposal.classList.add('hidden'); }
     if (state.review) { state.review = false; ui.proposal.classList.add('hidden'); closeChooser(); } // le texte a changé : on recommence la revue au prochain ↑
     clearTimeout(state.hintT); state.hintT = setTimeout(updateExHint, 250);
     if (text.length < 3) { state.proposal = null; state.choice = null; state.proposedFor = ''; ui.proposal.classList.add('hidden'); return; }
@@ -518,7 +572,7 @@
     window.requestAnimationFrame(function () { if (!c) return; c.style.display = 'none'; void c.offsetHeight; c.style.display = ''; });
   }
   function reset() {
-    clearTimeout(state.flash); state.exp = null; state.expStep = 0; state.review = false; ui.pages.classList.remove('locked'); goPage(1, true); dock.classList.remove('expSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
+    clearTimeout(state.flash); state.exp = null; state.gen = null; state.expStep = 0; state.review = false; ui.pages.classList.remove('locked'); goPage(1, true); dock.classList.remove('expSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
     state.date = null; state.who = null; state.poleId = null; closeChooser();
     ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
     repaintText(); // iPhone : le texte d'invite (placeholder) ne se redessinait qu'en partie (« Ajou ») après l'envoi
@@ -549,7 +603,7 @@
     if (state.busy) return;
     var label = ui.text.value.trim();
     if (!label) { ui.msg.textContent = tr('Écris une tâche avant d’ajouter.'); return; }
-    if (state.expStep === 1) { expValidateStep1(); return; }
+    if (state.expStep === 1) { expNext(); return; }
     if (state.exp) { runExpansion(); return; }
     state.busy = true; ui.send.disabled = true; ui.msg.textContent = '';
     var shown = state.review; // le panneau de revue était déjà affiché AVANT cet appui : ↑ (ou ✕) valide
