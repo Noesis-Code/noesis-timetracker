@@ -79,6 +79,20 @@
       new MutationObserver(function () { dock.style.transform = tab.style.transform || ''; dock.style.transition = tab.style.transition || ''; syncDock(); }).observe(tab, { attributes: true, attributeFilter: ['style', 'class'] }); // fin de glissement vers les statistiques : l'onglet se masque, la barre se masque dans la même image (sans attendre le balayage de 300 ms)
     }
     setInterval(syncDock, 300);
+    // Clavier ouvert : la barre se pose juste au-dessus du clavier, en tout temps (et revient à sa place normale, au-dessus des volets, à la fermeture).
+    var kbRaf = null, kbStop = 0;
+    function syncDockKeyboard() {
+      var vv = window.visualViewport;
+      if (!dock || !vv) return;
+      if (document.documentElement.classList.contains('kbOpen')) {
+        var gap = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height));
+        dock.style.bottom = (gap + 8) + 'px';
+      } else dock.style.bottom = '';
+    }
+    function kbLoop() { syncDockKeyboard(); if (Date.now() < kbStop || document.activeElement === ui.text) kbRaf = window.requestAnimationFrame(kbLoop); else kbRaf = null; }
+    function kbWatch() { kbStop = Date.now() + 800; if (!kbRaf) kbRaf = window.requestAnimationFrame(kbLoop); }
+    if (window.visualViewport) { window.visualViewport.addEventListener('resize', kbWatch); window.visualViewport.addEventListener('scroll', kbWatch); }
+    ui.text.addEventListener('focus', kbWatch); ui.text.addEventListener('blur', kbWatch);
     container.appendChild(root);
   }
 
