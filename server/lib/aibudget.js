@@ -141,6 +141,12 @@ function spentWeek(userId, now) {
     .get(String(userId), weekStart(now), todayLocal(now)).s || 0;
 }
 
+// Plafond PAR ACTIVITÉ (décision d'Émilien, 30 oct. 2026) : Expansion coûte 20 $ par activité, l'IA d'une activité est plafonnée à 15 $ par mois (marge de 5 $ minimum
+// par abonnement). Une dépense liée à une activité est enregistrée sous la clé « utilisateur#aActivité » : tout le reste de ce fichier (statut, plafonds, reprise)
+// travaille sur cette clé comme sur un compte. Sans activité (rangement d'une tâche, etc.), la clé reste l'utilisateur.
+function keyFor(userId, activityId) { return activityId != null && activityId !== '' ? String(userId) + '#a' + Number(activityId) : String(userId); }
+function splitKey(key) { const m = /^(.*)#a(\d+)$/.exec(String(key)); return m ? { userId: m[1], activityId: Number(m[2]) } : { userId: String(key), activityId: null }; }
+
 // Appels directs en vol : coût maximal estimé, réservé avant l'envoi, libéré quand le coût réel est enregistré.
 const reserved = new Map();
 const reservedOf = (u) => reserved.get(String(u)) || 0;
@@ -148,7 +154,12 @@ function reserve(u, amount) { reserved.set(String(u), reservedOf(u) + amount); }
 function release(u, amount) { const v = reservedOf(u) - amount; if (v > 1e-12) reserved.set(String(u), v); else reserved.delete(String(u)); }
 // Lots Anthropic soumis non relevés (table de drivesync.js ; absente => 0).
 function batchesInFlight(userId) {
-  try { return db.prepare("SELECT COALESCE(SUM(estCost), 0) AS c FROM drive_batches WHERE userId = ? AND status = 'submitted'").get(String(userId)).c || 0; }
+  try {
+    const k = splitKey(userId);
+    return (k.activityId == null
+      ? db.prepare("SELECT COALESCE(SUM(estCost), 0) AS c FROM drive_batches WHERE userId = ? AND status = 'submitted'").get(k.userId)
+      : db.prepare("SELECT COALESCE(SUM(estCost), 0) AS c FROM drive_batches WHERE userId = ? AND activityId = ? AND status = 'submitted'").get(k.userId, k.activityId)).c || 0;
+  }
   catch (e) { return 0; }
 }
 // Coût maximal d'un corps /v1/messages : entrée (caractères/4, x1,25 : écriture de cache au pire) + max_tokens de sortie ; factor 0,5 pour un lot.
@@ -200,7 +211,8 @@ function check(userId, now, estimate) {
     period = monthTight ? 'mois' : 'semaine';
     resumesOn = monthTight ? nextMonthStart(now) : weekStart(now, 7);
   }
-  return { ok: false, resumesOn, period, message: blockedMessage(resumesOn, period) };
+  const msg = blockedMessage(resumesOn, period);
+  return { ok: false, resumesOn, period, message: splitKey(userId).activityId != null ? msg.replace(' atteinte pour ', ' atteinte pour cette activité, ') : msg };
 }
 
 // record(userId, model, usage, feature, now, factor) : enregistre le coût réel d'un appel (factor 0,5 pour un lot Anthropic). Ne lève jamais.
@@ -362,4 +374,4 @@ async function fetchAnthropic(feature, url, init, userId) {
   } finally { release(uid, est); }
 }
 
-module.exports = { recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
+module.exports = { keyFor, splitKey, recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };

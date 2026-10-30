@@ -94,9 +94,9 @@ async function generate(userId, activityId) {
     if (!docanalysis.hasCaller() && !classify.configured()) return { added: 0, configured: false };
     const ctx = buildContext(activityId);
     if (!ctx.weeklies.length) return { added: 0, nothing: true };
-    if (!aibudget.check(userId).ok) return { added: 0, aiBlocked: true };
+    if (!aibudget.check(aibudget.keyFor(userId, activityId)).ok) return { added: 0, aiBlocked: true };
     if (!require('./drivesync').takeCall(userId)) return { added: 0, capReached: true };
-    const out = await aibudget.runAs(userId, () => docanalysis.call({ parts: buildParts(ctx), want: { t: false, c: true, cMax: MAX_TOTAL }, feature: 'modifications-proposees' }));
+    const out = await aibudget.runAs(aibudget.keyFor(userId, activityId), () => docanalysis.call({ parts: buildParts(ctx), want: { t: false, c: true, cMax: MAX_TOTAL }, feature: 'modifications-proposees' }));
     const rows = validate(out && out.text, ctx);
     if (!rows) return { added: 0, failed: true };
     const changes = rows.map((r) => ({ target: 'weekly', targetId: r.weekly.id, field: 'newtask', before: '', after: r.after, reason: r.reason }));
