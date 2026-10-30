@@ -298,7 +298,7 @@
     var h = $('docTasksDrive'), s = driveSt, html = '';
     if (!s) { h.innerHTML = ''; return; }
     if (s.moduleOff) { // Drive passe par l'« Assistant IA » : désactivé dans Réglages > Modules, on le dit et on propose de le réactiver (au lieu de cacher Drive)
-      h.innerHTML = '<div class="docTasksDriveRow"><p class="docTasksConsent">Drive utilise l’Assistant IA, qui est désactivé dans Réglages &gt; Modules.</p><button type="button" class="docTasksDriveBtn" data-d="enableAi">Activer l’Assistant IA</button></div>'; return;
+      h.innerHTML = '<div class="docTasksDriveRow"><button type="button" class="docTasksDriveBtn" data-d="connect">Connecter Drive</button><p class="docTasksConsent">Drive utilise l’Assistant IA, désactivé dans Réglages &gt; Modules : il sera réactivé en connectant Drive.</p></div>' + (driveErr ? '<p class="msg">' + esc(driveErr) + '</p>' : ''); return;
     }
     if (s.configured && s.isOwner === false) { h.innerHTML = ''; return; }
     if (!s.configured) {
@@ -330,6 +330,8 @@
     function fail(err) { driveErr = (err && err.message) || 'Erreur Drive.'; if (/reconnecte Drive/i.test(driveErr) && driveSt) driveSt.needsReconnect = true; renderDrive(); }
     if (d === 'enableAi') {
       TMT.api('PUT', '/api/profile/' + TMT.getProfile().id + '/modules', { modules: { ai: true } }).then(function () { document.dispatchEvent(new Event('visibilitychange')); loadDrive(); }).catch(fail);
+    } else if (d === 'connect' && driveSt && driveSt.moduleOff) { // l'Assistant IA est coupé : on le réactive, puis on connecte Drive
+      TMT.api('PUT', '/api/profile/' + TMT.getProfile().id + '/modules', { modules: { ai: true } }).then(function () { document.dispatchEvent(new Event('visibilitychange')); return dApi('GET', '/api/drive/connect'); }).then(function (r) { if (r && r.url) window.location.href = r.url; }).catch(fail);
     } else if (d === 'connect') {
       dApi('GET', '/api/drive/connect').then(function (r) { if (r && r.url) window.location.href = r.url; }).catch(fail);
     } else if (d === 'pickFolder') {
