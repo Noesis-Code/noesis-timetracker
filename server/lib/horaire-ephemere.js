@@ -17,12 +17,18 @@ function get(u) {
   s.at = Date.now();
   return s;
 }
-function clear(u) { return u ? store.delete(u) : false; }
-// Comptes sans activité Horaire depuis plus de 2 h : effacés.
+function clear(u) { sessions.delete(u); return u ? store.delete(u) : false; }
+// Session expirée (comptes entreprise, 30 min sans appel : server/lib/session.js) : la mémoire part avec elle. Dernier appel vu par
+// le middleware de session (sessionSeen) ; une session expirée détectée au retour du témoin appelle clear directement.
+const SESSION_IDLE_MS = 30 * 60 * 1000;
+const sessions = new Map(); // userId -> dernier appel d'une session entreprise
+function sessionSeen(u) { if (u) sessions.set(u, Date.now()); }
+// Comptes sans activité Horaire depuis plus de 2 h, ou dont la session entreprise a expiré : effacés.
 function purgeIdle(now) {
   const t = now || Date.now();
   for (const [u, s] of store) if (t - s.at > IDLE_MS) store.delete(u);
+  for (const [u, at] of sessions) if (t - at > SESSION_IDLE_MS) { store.delete(u); sessions.delete(u); }
 }
-setInterval(purgeIdle, 10 * 60 * 1000).unref();
+setInterval(purgeIdle, 60 * 1000).unref();
 
-module.exports = { get, clear, purgeIdle, nextId, IDLE_MS, has: (u) => store.has(u), _store: store };
+module.exports = { get, clear, purgeIdle, nextId, sessionSeen, IDLE_MS, SESSION_IDLE_MS, has: (u) => store.has(u), _store: store, _sessions: sessions };

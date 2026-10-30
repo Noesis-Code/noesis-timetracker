@@ -20,10 +20,13 @@ db.prepare("INSERT INTO horaire_availabilities (userId, employeeId, weekStart, d
 const TABLES = ['horaire_schedules', 'horaire_assignments', 'horaire_rotation', 'horaire_availabilities', 'horaire_timeoff', 'horaire_covers'];
 const stored = () => TABLES.reduce((n, t) => n + require('../server/db').prepare('SELECT COUNT(*) AS n FROM ' + t).get().n, 0);
 // Nouvelle ouverture de la base (comme un redémarrage) : la migration vide les tables.
+db.prepare("DELETE FROM horaire_migrations WHERE name = 'ephemere-vacuum'").run(); // base d'avant le changement : VACUUM jamais fait
 delete require.cache[require.resolve('../server/db')];
 db.close();
 const db2 = require('../server/db');
 assert(TABLES.every((t) => db2.prepare('SELECT COUNT(*) AS n FROM ' + t).get().n === 0), 'migration : lignes déjà stockées supprimées');
+assert(!!db2.prepare("SELECT 1 FROM horaire_migrations WHERE name = 'ephemere-vacuum'").get() && db2.prepare('PRAGMA freelist_count').get().freelist_count === 0,
+  'VACUUM fait une seule fois après la suppression (aucune page libre)');
 
 const h = require('../server/lib/horaire');
 const mem = require('../server/lib/horaire-ephemere');
@@ -153,6 +156,50 @@ async function setupWeek(u) {
   assert(!left(tPast) && !left(tDel), 'fil de courriel d’un événement passé ou supprimé : effacé');
   assert(left(tToday) && left(tRecent), 'fil d’un événement à venir ou fil récent sans événement : gardé');
   assert(!left(tOld), 'fil sans événement de plus de 30 jours : effacé');
+
+  // ---- Refus d'un fil : gardé en empreinte (90 jours) quand le fil est purgé ----
+  const mail = (id) => ({ subject: 'Banquet de fin d’année', 'body-plain': 'Banquet le 20 novembre à 19h, 40 personnes.', 'Message-Id': '<' + id + '@client.test>' });
+  const r1 = h.receiveMail('uA', mail('r1'));
+  assert(r1.created && r1.eventId, 'courriel : événement proposé');
+  h.deleteEvent('uA', r1.eventId); // refus
+  h.purgePastEvents();
+  const prints = db2.prepare("SELECT * FROM horaire_refused_threads WHERE userId = 'uA'").all();
+  assert(!left(r1.thread) && prints.length === 2 && prints.every((p) => Object.keys(p).sort().join() === 'fingerprint,refusedAt,userId' && /^[0-9a-f]{64}$/.test(p.fingerprint)), // fil « cle » refusé plus haut + celui-ci
+    'fil refusé purgé : seule une empreinte SHA-256 et sa date restent');
+  assert(!/Banquet|novembre|40/.test(JSON.stringify(prints)), 'empreinte : aucun contenu du courriel');
+  const nEv = h.listEvents('uA').length;
+  const r2 = h.receiveMail('uA', mail('r2'));
+  assert(r2.ignored && h.listEvents('uA').length === nEv && !db2.prepare("SELECT 1 FROM horaire_inbound_threads WHERE userId = 'uA' AND subjectKey IS NOT NULL AND subjectKey != 'cle'").get(),
+    'nouveau courriel d’un fil refusé : ignoré, ni fil ni événement recréé');
+  assert(!h.receiveMail('uB', mail('r3')).ignored, 'empreinte propre au compte : un autre compte reçoit normalement');
+  db2.prepare("UPDATE horaire_refused_threads SET refusedAt = ? WHERE userId = 'uA'").run(new Date(Date.now() - 91 * 86400000).toISOString());
+  h.purgePastEvents();
+  assert(!db2.prepare("SELECT 1 FROM horaire_refused_threads WHERE userId = 'uA'").get(), 'empreinte de plus de 90 jours : effacée');
+  assert(h.receiveMail('uA', mail('r4')).created, 'après 90 jours : le courriel propose de nouveau un événement');
+
+  // ---- Expiration de la session entreprise (30 min sans appel, server/lib/session.js) : mémoire effacée ----
+  const sess = require('../server/lib/session');
+  const cookieAt = (u, ago) => {
+    const real = Date.now; Date.now = () => real() - ago;
+    const hdr = [];
+    try { sess.setSessionCookie({ headers: {}, secure: false, protocol: 'http' }, { append: (k, v) => hdr.push(v) }, u); } finally { Date.now = real; }
+    return hdr[0].split(';')[0];
+  };
+  const runMw = (cookie) => new Promise((resolve) => {
+    const req = { headers: { cookie }, path: '/api/horaire/employees', method: 'GET', get: (k) => ({ cookie })[String(k).toLowerCase()] };
+    const res = { statusCode: 200, append() {}, status(c) { this.statusCode = c; return this; }, json() { resolve(req); return this; } };
+    sess.middleware(req, res, () => resolve(req));
+  });
+  await setupWeek('uA');
+  let q = await runMw(cookieAt('uA', 60 * 1000));
+  assert(q.userId === 'uA' && mem.has('uA') && mem._sessions.has('uA'), 'session entreprise active : mémoire gardée, activité notée');
+  q = await runMw(cookieAt('uA', sess.IDLE_ENTREPRISE_MS + 60 * 1000));
+  assert(q.userId === null && !mem.has('uA'), 'session expirée (témoin revenu après 30 min) : mémoire Horaire effacée');
+  await setupWeek('uA');
+  await runMw(cookieAt('uA', 60 * 1000));
+  mem._sessions.set('uA', Date.now() - mem.SESSION_IDLE_MS - 1000);
+  mem.purgeIdle();
+  assert(!mem.has('uA') && h.getAvailabilities('uA', W).length === 0, 'session expirée sans retour du témoin : mémoire effacée au passage suivant (chaque minute)');
 
   // ---- Jamais dans les journaux : aucun console.* dans le module ----
   const fs = require('fs');

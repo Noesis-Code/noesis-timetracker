@@ -184,7 +184,10 @@ function readSessionClaims(req) {
   if (!row) return null; // profil supprimé entre-temps
   if (claims.epoch !== (row.sessionEpoch || 0)) return null;
   claims.entreprise = row.accountType === 'entreprise';
-  if (claims.entreprise && !(Date.now() - claims.act <= IDLE_ENTREPRISE_MS)) return null;
+  if (claims.entreprise && !(Date.now() - claims.act <= IDLE_ENTREPRISE_MS)) {
+    require('./horaire-ephemere').clear(claims.userId); // session expirée : mémoire Horaire effacée
+    return null;
+  }
   return claims;
 }
 
@@ -293,6 +296,8 @@ function middleware(req, res, next) {
   if (req.userId) touchLastSeen(req.userId);
   // Entreprise : chaque appel repousse l'expiration (témoin re-signé au plus une fois par minute, revérification conservée).
   const sc = req.sessionClaims;
+  // Mémoire Horaire éphémère : effacée quand cette session expire (30 min sans appel, server/lib/horaire-ephemere.js).
+  if (sc && sc.entreprise) require('./horaire-ephemere').sessionSeen(sc.userId);
   if (sc && sc.entreprise && Date.now() - sc.act > 60 * 1000) {
     res.append('Set-Cookie', `${COOKIE_NAME}=${encodeURIComponent(sign(sc.userId, sc.epoch, { ra: sc.ra }))}; ${cookieAttributes(req, Math.floor(MAX_AGE_MS / 1000)).join('; ')}`);
   }

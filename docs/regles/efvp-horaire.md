@@ -19,10 +19,10 @@ Statut : projet. À valider et signer par Émilien pour Noèsis Inc.
 | Employés | nom, matricule Dayforce (facultatif), catégorie (rang par poste), heures min, cible et max | jusqu'au retrait de l'employé ou du compte |
 | Règles par employé | liste fermée ou texte libre (200 car.) | idem |
 | Notes du gestionnaire | texte libre (`horaire_notes`) | jusqu'à suppression |
-| Disponibilités et congés | plages par jour ; congé (vacances, maladie, absence) | par semaine (voir 2.1) |
-| Horaire | quarts par employé, alertes | par semaine (voir 2.1) |
+| Disponibilités et congés | plages par jour ; congé (vacances, maladie, absence) | mémoire du serveur seulement, jamais en base (voir 2.1) |
+| Horaire | quarts par employé, alertes, rotation, couverts | mémoire du serveur seulement, jamais en base (voir 2.1) |
 | Événements | date, heure, couverts, type, prix ; aucun nom de client | supprimés le lendemain de leur date |
-| Courriels transférés | corps lu en mémoire puis jeté ; on garde les champs extraits, des identifiants et un sujet hachés | fil gardé avec le compte |
+| Courriels transférés | corps lu en mémoire puis jeté ; on garde les champs extraits, des identifiants et un sujet hachés | fil purgé avec son événement (passé ou supprimé) ; sans événement : 30 jours ; refus : empreinte 90 jours |
 | Code de confirmation Gmail | un seul code | 1 heure |
 
 **Sensibilité.** Le motif d'un congé (maladie) touche la santé. Les notes et règles en texte libre peuvent en contenir aussi. Le reste est modéré (nom, heures de travail).
@@ -30,7 +30,10 @@ Statut : projet. À valider et signer par Émilien pour Noèsis Inc.
 ### 2.1 Éphémère et purges
 - Événements : purge automatique au démarrage, toutes les 6 h et à chaque lecture, dès le lendemain de leur date (jour de Montréal).
 - Courriels : aucun nom, courriel ni téléphone de client gardé.
-- Horaire et disponibilités : **sur staging aujourd'hui, ils sont enregistrés en base** (`horaire_availabilities`, `horaire_timeoff`, `horaire_schedules`, `horaire_assignments`). Un changement est en cours sur staging pour les garder **en mémoire seulement**. À confirmer une fois livré ; ce tableau sera alors mis à jour.
+- Horaire, quarts, rotation, disponibilités, congés et couverts : **en mémoire du serveur seulement** depuis le commit 1fe05c2 (30 oct. 2026). Jamais écrits en base, jamais dans l'export, jamais dans les journaux. Effacés au retour dans le volet (rechargement de la page), à la déconnexion (manuelle ou expiration de la session entreprise après 30 min sans appel), après 2 h sans activité Horaire et à chaque redémarrage du serveur.
+- Lignes déjà stockées (`horaire_availabilities`, `horaire_timeoff`, `horaire_schedules`, `horaire_assignments`, `horaire_rotation`, `horaire_covers`) : supprimées ; les tables restent vides. Un `VACUUM` unique (marqué dans `horaire_migrations`) retire ces données des pages libres du fichier SQLite.
+- Fils de courriel : purgés avec leur événement (passé ou supprimé), et ceux sans événement après 30 jours. Les besoins d'un événement disparu partent aussi.
+- Refus d'un fil : seule une empreinte reste (SHA-256 du compte et du sujet déjà haché) avec sa date, 90 jours, sans aucun autre contenu. Un nouveau courriel dont l'empreinte est refusée ne recrée pas d'événement.
 
 ## 3. Lieu d'hébergement (communication hors Québec)
 
@@ -46,7 +49,7 @@ Statut : projet. À valider et signer par Émilien pour Noèsis Inc.
 2. Accès au propriétaire seul : chaque requête est filtrée par l'identifiant de session ; module `horaire` actif requis.
 3. Réception des courriels : sans session, mais par jeton secret de 64 caractères, révocable, avec limite de débit.
 4. Données jamais envoyées à l'IA de Noèsis, à la Communauté, au partage ni aux journaux. Les en-têtes d'export ne donnent que des nombres, aucun nom.
-5. Purges : événements passés, corps des courriels, code Gmail (voir 2.1).
+5. Purges : événements passés, fils de courriel, corps des courriels, code Gmail, empreintes de refus après 90 jours ; horaire et disponibilités jamais stockés (voir 2.1).
 6. Export Dayforce : revérifié avant export (horaire enregistré requis, trous exclus, codes manquants signalés) ; rien n'est journalisé.
 7. Droits : données incluses dans l'export du compte ; effacées à la suppression du compte (cascade).
 8. Sauvegardes chiffrées avant envoi.
@@ -60,7 +63,7 @@ Statut : projet. À valider et signer par Émilien pour Noèsis Inc.
 | Fuite du jeton de réception | faible | révocation en un geste ; aucune donnée personnelle reçue gardée |
 | Prompt copié dans une IA tierce par le gestionnaire | moyen | hors du contrôle de Noèsis ; à couvrir dans l'entente |
 | Sauvegarde hors UE si R2 hors UE | à évaluer | confirmer la région R2 |
-| Horaire et disponibilités encore en base | faible | changement en cours (2.1) |
+| Anciens horaires et disponibilités dans les sauvegardes R2 d'avant le 30 oct. 2026 | faible | disparaissent avec la rotation des sauvegardes ; durée de rétention R2 à confirmer |
 
 ## 6. Conclusion (à signer)
 

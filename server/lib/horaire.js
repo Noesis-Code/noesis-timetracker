@@ -348,6 +348,14 @@ function montrealToday(d) {
 // Au même passage (30 oct. 2026) : les besoins d'un événement disparu partent, et chaque fil de courriel (sujet haché, champs extraits)
 // dont l'événement est passé ou supprimé est effacé, ainsi que les fils sans événement de plus de 30 jours.
 const THREAD_MAX_DAYS = 30;
+// Empreinte d'un fil refusé : SHA-256 de userId + sujet déjà haché (subjectKey), gardée 90 jours, aucun autre contenu.
+const REFUSAL_DAYS = 90;
+const refusalPrint = (u, subjectKey) => require('crypto').createHash('sha256').update(u + '|' + subjectKey).digest('hex');
+function refusedPrint(u, subjectKey) {
+  if (!subjectKey) return false;
+  const r = db.prepare('SELECT refusedAt FROM horaire_refused_threads WHERE userId = ? AND fingerprint = ?').get(u, refusalPrint(u, subjectKey));
+  return !!r && Date.parse(r.refusedAt) >= Date.now() - REFUSAL_DAYS * 86400000;
+}
 function purgePastEvents(today) {
   const t = today || montrealToday();
   const ids = db.prepare('SELECT id FROM horaire_events WHERE day < ?').all(t).map((r) => r.id);
@@ -358,8 +366,14 @@ function purgePastEvents(today) {
   try {
     ids.forEach((id) => { delNeeds.run(id); delEv.run(id); });
     db.exec('DELETE FROM horaire_needs WHERE eventId IS NOT NULL AND eventId NOT IN (SELECT id FROM horaire_events)');
-    db.exec('DELETE FROM horaire_inbound_threads WHERE eventId IS NOT NULL AND eventId NOT IN (SELECT id FROM horaire_events)');
-    db.prepare('DELETE FROM horaire_inbound_threads WHERE eventId IS NULL AND createdAt < ?').run(old);
+    // Un fil refusé qui part laisse son empreinte (90 jours) : le refus n'est pas perdu.
+    const gone = "(eventId IS NOT NULL AND eventId NOT IN (SELECT id FROM horaire_events)) OR (eventId IS NULL AND createdAt < ?)";
+    const keep = db.prepare('INSERT OR REPLACE INTO horaire_refused_threads (userId, fingerprint, refusedAt) VALUES (?, ?, ?)');
+    const at = nowIso();
+    db.prepare('SELECT userId, subjectKey FROM horaire_inbound_threads WHERE refused = 1 AND subjectKey IS NOT NULL AND (' + gone + ')').all(old)
+      .forEach((r) => keep.run(r.userId, refusalPrint(r.userId, r.subjectKey), at));
+    db.prepare('DELETE FROM horaire_inbound_threads WHERE ' + gone).run(old);
+    db.prepare('DELETE FROM horaire_refused_threads WHERE refusedAt < ?').run(new Date(Date.now() - REFUSAL_DAYS * 86400000).toISOString());
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   return ids.length;
@@ -1271,6 +1285,8 @@ function receiveMail(u, raw) {
   let t = threads.find((x) => { let k = []; try { k = JSON.parse(x.msgIds); } catch (e) { k = []; } return ids.some((i) => k.includes(i)); })
     || (subjectKey ? threads.find((x) => x.subjectKey === subjectKey) : null);
   const now = nowIso();
+  // Fil refusé puis purgé : son empreinte (90 jours) suffit à ignorer le courriel, sans recréer ni fil ni événement.
+  if (!t && refusedPrint(u, subjectKey)) return { ignored: true, refused: true };
   if (!t) {
     const id = Number(db.prepare('INSERT INTO horaire_inbound_threads (userId, msgIds, subjectKey, createdAt) VALUES (?, ?, ?, ?)').run(u, '[]', subjectKey, now).lastInsertRowid);
     t = db.prepare('SELECT * FROM horaire_inbound_threads WHERE id = ?').get(id);

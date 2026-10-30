@@ -86,6 +86,7 @@ for (const t of ['horaire_employees', 'horaire_positions', 'horaire_qualificatio
   'horaire_settings', 'horaire_category_rules', 'horaire_employee_rules', 'horaire_zones', 'horaire_floor_counts', 'horaire_inbound_threads', 'horaire_event_types', 'horaire_event_type_ratios', 'horaire_notes']) P[t] = { cols: ['userId'], erase: 'cascade', exp: 'horaire' };
 // Horaire éphémère (30 oct. 2026) : tables toujours vides, données de la semaine en mémoire seule (server/lib/horaire-ephemere.js).
 for (const t of ['horaire_availabilities', 'horaire_rotation', 'horaire_schedules', 'horaire_assignments', 'horaire_covers', 'horaire_timeoff']) P[t] = { cols: ['userId'], erase: 'cascade', exp: 'NON: horaire éphémère, table toujours vide (mémoire seule, jamais stockée)' };
+P.horaire_refused_threads = { cols: ['userId'], erase: 'cascade', exp: 'NON: empreinte SHA-256 d\'un fil de courriel refusé (90 jours), aucun contenu lisible' };
 // Tables sans aucune colonne qui désigne un compte (contenu d'activité, journaux globaux, jetons de webhooks...).
 const NON_PERSONAL = new Set(['activities_rebuild', 'activity_billing_cycles', 'activity_goal_categories', 'activity_goal_plans', 'activity_offre1',
   'announcements', 'generation_quality_log', 'goal_cross_sector_suggestions', 'goal_periods', 'goal_year_goals', 'goal_years', 'inactive_account_runs',

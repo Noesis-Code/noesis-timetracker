@@ -2938,5 +2938,23 @@ DELETE FROM horaire_availabilities;
 DELETE FROM horaire_timeoff;
 DELETE FROM horaire_covers;
 `);
+// Une seule fois (horaire_migrations) : VACUUM après cette suppression, pour que les données effacées ne restent pas dans les pages
+// libres du fichier SQLite. Base de taille modeste : quelques centaines de ms au démarrage ; réessayé au démarrage suivant en cas d'échec.
+if (!db.prepare("SELECT 1 FROM horaire_migrations WHERE name = 'ephemere-vacuum'").get()) {
+  try {
+    db.exec('VACUUM');
+    db.prepare("INSERT INTO horaire_migrations (name, doneAt) VALUES ('ephemere-vacuum', ?)").run(new Date().toISOString());
+  } catch (e) { /* réessayé au prochain démarrage */ }
+}
+// Refus d'un fil de courriel (30 oct. 2026) : quand le fil est purgé, seule une EMPREINTE reste (SHA-256 de userId + sujet déjà haché),
+// avec sa date, 90 jours ; aucun autre contenu. Un nouveau courriel dont l'empreinte est refusée ne recrée pas d'événement.
+db.exec(`
+CREATE TABLE IF NOT EXISTS horaire_refused_threads (
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  fingerprint TEXT NOT NULL,
+  refusedAt TEXT NOT NULL,
+  PRIMARY KEY (userId, fingerprint)
+);
+`);
 
 module.exports = db;
