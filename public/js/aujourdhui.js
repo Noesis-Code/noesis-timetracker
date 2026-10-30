@@ -130,7 +130,7 @@
     ui.exHint = el('p', 'tasksExHint hidden', tr('Appuie longtemps sur ↑ pour utiliser Expansion')); // sous la barre, seulement si le texte parle de générer et qu'une activité a Expansion
     ui.chips = el('div', 'tasksChips'); ui.msg = el('p', 'tasksMsg');
     ui.toast = el('p', 'tasksToast hidden'); ui.toast.setAttribute('role', 'status');
-    box.appendChild(ui.toast); box.appendChild(ui.proposal); box.appendChild(bar); box.appendChild(ui.exHint); box.appendChild(ui.chips); box.appendChild(ui.msg);
+    box.appendChild(ui.toast); box.appendChild(ui.proposal); box.appendChild(bar); box.appendChild(ui.chips); box.appendChild(ui.msg); box.appendChild(ui.exHint);
     return box;
   }
 
@@ -264,7 +264,7 @@
       timer = setTimeout(function () {
         timer = null; state.longFired = true; btn.classList.remove('pressing'); // retour rapide à la taille standard
         if (navigator.vibrate) try { navigator.vibrate(15); } catch (er) { /* sans vibration */ }
-        ui.exHint.textContent = tr('Touche la croix ou la flèche pour valider.'); ui.exHint.classList.remove('hidden');
+        ui.exHint.textContent = tr('Touche ✕ ou ↑ pour valider.'); ui.exHint.classList.remove('hidden');
         expansionAsked();
       }, LONG_MS);
     });
@@ -272,25 +272,46 @@
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { btn.addEventListener(ev, cancel); });
     btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   }
+  function essorActivities() {
+    if (state.essor && Date.now() - state.essor.at < 60000) return Promise.resolve(state.essor.list);
+    var cache = (TMT.getActivitiesCache && TMT.getActivitiesCache()) || [];
+    var source = cache.length ? Promise.resolve(cache) : TMT.api('GET', '/api/activities?all=1&userId=' + TMT.getProfile().id).catch(function () { return []; });
+    return source.then(function (acts) {
+      acts = (acts || []).filter(function (a) { return a && a.id != null; });
+      return Promise.all(acts.map(function (a) {
+        return TMT.api('GET', '/api/activities/' + a.id + '/offer1').then(function (r) { return { id: a.id, name: a.name, essor: !!(r && r.essor) }; }).catch(function () { return { id: a.id, name: a.name, essor: false, err: true }; });
+      }));
+    }).then(function (l) {
+      var list = l.filter(function (x) { return x.essor; });
+      state.essor = { at: Date.now(), list: list, others: l.filter(function (x) { return !x.essor && !x.err; }), failed: l.some(function (x) { return x.err; }) };
+      if (!list.length && state.essor.failed) state.essor.at = 0; // vérification incomplète : on réessaiera
+      return list;
+    });
+  }
+  // Message d'explication AU-DESSUS de la barre, centré (jamais plus d'une ligne sous la barre).
+  function showAbove(text, linkLabel, onLink) {
+    clearTimeout(state.toastT); ui.toast.textContent = text + ' ';
+    if (linkLabel) { var lk = el('button', 'tasksMsgLink', linkLabel); lk.type = 'button'; lk.addEventListener('click', onLink); ui.toast.appendChild(lk); }
+    ui.toast.classList.remove('hidden');
+    state.toastT = setTimeout(function () { ui.toast.classList.add('hidden'); }, 12000);
+  }
   function startExpansion(kind, label) {
     state.busy = true; ui.send.disabled = true; say(tr('Je regarde où Expansion est actif…'));
     essorActivities().then(function (list) {
       say('');
       if (!list.length) {
         setExpMode(false); ui.exHint.classList.add('hidden');
-        ui.msg.textContent = tr('Expansion n’est actif sur aucune de tes activités : cette demande ne marche que sur celles qui l’ont.') + ' ';
-        var lk = el('button', 'tasksMsgLink', tr('Découvrir Expansion')); lk.type = 'button';
-        lk.addEventListener('click', function () {
-          TMT.api('GET', '/api/offer/available').then(function (r) { if (r && r.available && TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); else ui.msg.textContent = tr('Expansion — à venir. Elle n’est pas encore disponible.'); })
-            .catch(function () { ui.msg.textContent = tr('Expansion — à venir. Elle n’est pas encore disponible.'); });
+        if (state.essor && state.essor.failed) { showAbove(tr('Impossible de vérifier Expansion pour le moment. Réessaie dans un instant.')); return null; }
+        showAbove(tr('Expansion n’est actif sur aucune de tes activités : cette demande ne marche que sur celles qui l’ont.'), tr('Découvrir Expansion'), function () {
+          TMT.api('GET', '/api/offer/available').then(function (r) { if (r && r.available && TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); else showAbove(tr('Expansion — à venir. Elle n’est pas encore disponible.')); })
+            .catch(function () { showAbove(tr('Expansion — à venir. Elle n’est pas encore disponible.')); });
         });
-        ui.msg.appendChild(lk);
         return null;
       }
       state.exp = { kind: kind, label: label, acts: list, actId: list.length === 1 ? list[0].id : null, tasks: null, checked: [], loading: false };
       closeChooser(); paintExpansion();
       if (state.exp.actId) return runExpansion();
-      say(tr('Choisis l’activité, puis touche la flèche (ou la croix pour fermer).'));
+      say(tr('Choisis l’activité, puis touche ↑ (ou ✕ pour fermer).'));
       return null;
     }).catch(function (e) { say((e && e.message) || tr('Erreur.')); })
       .then(function () { state.busy = false; ui.send.disabled = false; });
@@ -329,7 +350,7 @@
       });
     }
     ui.hint.classList.add('hidden'); // un seul message, centré sous la barre
-    say(e.loading ? tr('Noèsis prépare les tâches…') : e.tasks && e.tasks.length ? tr('Touche la croix ou la flèche pour valider.') : tr('Touche la flèche pour envoyer, ou la croix pour fermer.'));
+    say(e.loading ? tr('Noèsis prépare les tâches…') : e.tasks && e.tasks.length ? tr('Touche ✕ ou ↑ pour valider.') : tr('Touche ↑ pour envoyer, ou ✕ pour fermer.'));
   }
   function runExpansion() {
     var e = state.exp; if (!e) return Promise.resolve();

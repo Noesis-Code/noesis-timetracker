@@ -182,7 +182,7 @@
   function loadDrive() {
     driveView = 'main'; driveFile = null; driveErr = '';
     dApi('GET', '/api/drive/status').then(function (s) { driveSt = s; renderDrive(); if (s.connected && s.folderChosen) { loadSync(); } else { syncSt = null; renderSync(); } })
-      .catch(function () { driveSt = { configured: false }; renderDrive(); });
+      .catch(function (e) { driveSt = /Module désactivé/i.test((e && e.message) || '') ? { moduleOff: true } : { configured: false }; renderDrive(); });
   }
   function loadFiles() {
     dApi('GET', '/api/drive/files').then(function (r) { driveList = r.files || []; renderDrive(); })
@@ -297,6 +297,9 @@
   function renderDriveMain() {
     var h = $('docTasksDrive'), s = driveSt, html = '';
     if (!s) { h.innerHTML = ''; return; }
+    if (s.moduleOff) { // Drive passe par l'« Assistant IA » : désactivé dans Réglages > Modules, on le dit et on propose de le réactiver (au lieu de cacher Drive)
+      h.innerHTML = '<div class="docTasksDriveRow"><p class="docTasksConsent">Drive utilise l’Assistant IA, qui est désactivé dans Réglages &gt; Modules.</p><button type="button" class="docTasksDriveBtn" data-d="enableAi">Activer l’Assistant IA</button></div>'; return;
+    }
     if (s.configured && s.isOwner === false) { h.innerHTML = ''; return; }
     if (!s.configured) {
       h.innerHTML = '<div class="docTasksDriveRow docTasksDriveOff" aria-disabled="true">Connecter Drive <span class="goalsAddSoon">Bientôt</span></div>'; return;
@@ -325,7 +328,9 @@
     var d = b.getAttribute('data-d'), id = b.getAttribute('data-id');
     driveErr = '';
     function fail(err) { driveErr = (err && err.message) || 'Erreur Drive.'; if (/reconnecte Drive/i.test(driveErr) && driveSt) driveSt.needsReconnect = true; renderDrive(); }
-    if (d === 'connect') {
+    if (d === 'enableAi') {
+      TMT.api('PUT', '/api/profile/' + TMT.getProfile().id + '/modules', { modules: { ai: true } }).then(function () { document.dispatchEvent(new Event('visibilitychange')); loadDrive(); }).catch(fail);
+    } else if (d === 'connect') {
       dApi('GET', '/api/drive/connect').then(function (r) { if (r && r.url) window.location.href = r.url; }).catch(fail);
     } else if (d === 'pickFolder') {
       foldersOpen = false; driveView = 'folders'; folderList = []; folderQuery = ''; folderSel = null; folderSeq++; clearTimeout(folderTimer); renderDrive();
