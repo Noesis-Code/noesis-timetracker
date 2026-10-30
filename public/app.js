@@ -392,7 +392,8 @@
   }
 
   function clearOfflineData() {
-    try { indexedDB.deleteDatabase(OFFLINE_CACHE_DB); } catch (e) { /* ignore */ }
+    try { indexedDB.deleteDatabase(OFFLINE_CACHE_DB); indexedDB.deleteDatabase('noesis-offline'); } catch (e) { /* ignore */ }
+    try { localStorage.removeItem('noesis_today_v1'); localStorage.removeItem('noesis_modules'); } catch (e) { /* ignore */ }
     try {
       Object.keys(localStorage).forEach(function (k) { if (k.indexOf('noesis-offline:') === 0) localStorage.removeItem(k); });
     } catch (e) { /* ignore */ }
@@ -9726,6 +9727,8 @@
     return api('GET', '/api/profile/' + profile.id).then(function (p) {
       $('settingsMarketingConsent').checked = !!p.marketingConsent;
       $('settingsDirectoryConsent').checked = p.directoryConsent !== false;
+      $('settingsHideCompanyRow').classList.toggle('hidden', p.accountType !== 'entreprise'); // option réservée aux comptes entreprise
+      $('settingsHideCompany').checked = !!p.hideCompany;
       if (maybeInvite && p.marketingConsentAsked === false && $('chronoRunning').classList.contains('hidden')) {
         $('marketingInviteModal').classList.remove('hidden');
       }
@@ -9767,6 +9770,10 @@
       box.checked = !consent;
       msg.textContent = err.message || '';
     });
+  });
+  $('settingsHideCompany').addEventListener('change', function () {
+    var box = this, hidden = box.checked;
+    api('PUT', '/api/profile/hide-company', { hidden: hidden }).catch(function () { box.checked = !hidden; });
   });
   $('settingsDirectoryConsent').addEventListener('change', function () {
     var box = this;

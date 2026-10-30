@@ -553,6 +553,7 @@
     "N'écris pas de mot de passe, de NIP, de numéro de carte ni d'autre renseignement sensible dans ce message ou dans une pièce jointe.": 'Do not write a password, PIN, card number or any other sensitive information in this message or in an attachment.',
     'Utilisation commerciale de mes données': 'Commercial use of my data',
     "Être trouvable dans la recherche de l'écran de connexion": 'Be findable in the sign-in screen search',
+    'Afficher seulement le nom du responsable': 'Show only the manager’s name',
     'Joindre une photo ou un document': 'Attach a photo or document',
     'Message envoyé. Merci !': 'Message sent. Thank you!',
     // 'Écrire aux membres' : placeholder du composeur de Communauté

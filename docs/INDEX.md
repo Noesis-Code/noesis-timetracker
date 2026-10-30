@@ -24,3 +24,4 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 - `fonctionnalites/` : `chantiers-planifies.md`, les 5 tâches planifiées qui font avancer les chantiers (rythme, exécution, rapports, rotation), `captures-chantiers.md` (une capture 390 px par chantier).
 - `img/`, `maquettes/` : images et maquettes.
 - [legal/propositions-comptes-entreprise-2026-10-30.md](legal/propositions-comptes-entreprise-2026-10-30.md) : propositions de mise à jour des CGU et de la politique pour les comptes entreprise (à faire relire par un juriste)
+- [legal/audit-conformite-2026-10-30.md](legal/audit-conformite-2026-10-30.md) : audit des documents légaux contre le code (corrigé, à faire par Émilien, limites)

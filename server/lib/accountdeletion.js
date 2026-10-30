@@ -129,6 +129,7 @@ function deleteAccountData(user) {
     PERSONAL_NO_FK.forEach(([table, col]) => {
       if (tableExists(table)) db.prepare('DELETE FROM ' + table + ' WHERE ' + col + ' = ?').run(user.id);
     });
+    if (tableExists('improvement_notes')) db.prepare('DELETE FROM improvement_notes WHERE userId = ?').run(user.id); // suggestions « Aide et suggestions » (table créée par routes/feedback.js)
     if (tableExists('ai_usage_log')) db.prepare('DELETE FROM ai_usage_log WHERE userId LIKE ?').run(user.id + '#a%'); // dépenses IA par activité (clé utilisateur#aActivité, aibudget.keyFor)
     if (tableExists('activity_strategies')) db.prepare('UPDATE activity_strategies SET updatedBy = NULL WHERE updatedBy = ?').run(user.id);
     // Module « Horaire » (données du personnel, Loi 25) : cascade vers users, effacement explicite en plus (enfants d'abord).
