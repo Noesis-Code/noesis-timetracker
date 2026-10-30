@@ -85,6 +85,8 @@
   background-size: 100% 100%;
 }
 .cmpRemove:disabled { opacity: .5; }
+/* Croix de retrait dans l'angle haut droit de sa cellule (R32, 30 oct. 2026) : la cellule parente est en position: relative. Remplace toute icône de corbeille. */
+.cmpRemove--corner { position: absolute; top: 8px; right: 8px; margin: 0; z-index: 1; }
 
 /* « + » pointillé large (R19/R23) : bas des listes (pôles, secteurs, activités, règles…) */
 .cmpAdd {
