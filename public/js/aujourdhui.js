@@ -233,7 +233,7 @@
   function flashAdded(snap) {
     state.proposal = snap.t; state.choice = null; state.date = snap.date; state.who = snap.who; state.options = [snap.t]; state.poleId = snap.t.activityId;
     paintProposal(true);
-    state.flash = setTimeout(function () { state.proposal = null; state.date = null; state.who = null; state.options = []; state.poleId = null; ui.proposal.classList.add('hidden'); }, 3000);
+    state.flash = setTimeout(function () { state.proposal = null; state.date = null; state.who = null; state.options = []; state.poleId = null; ui.proposal.classList.add('hidden'); }, 5000);
   }
   function send() {
     if (state.busy) return;
@@ -263,7 +263,7 @@
           var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }) : Promise.resolve();
           return after.then(function () {
             reset(); refresh();
-            if (TMT.aiMode === 'autonome') flashAdded(snap); // autonome : les choix s'affichent 3 s, puis le panneau disparaît
+            if (TMT.aiMode === 'autonome') flashAdded(snap); // autonome : les choix s'affichent 5 s, puis le panneau disparaît
           });
       });
     }).catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Erreur.'); })
