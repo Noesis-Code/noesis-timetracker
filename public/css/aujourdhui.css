@@ -92,3 +92,6 @@
 .tasksDock .tasksComposer { background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); } /* R40 */
 /* La bulle d'écriture libre de l'ancienne page 1 est remplacée par la barre « Ajouter une tâche » de la vue Aujourd'hui. */
 #goalsActivitiesView .goalsCaptureBubbleWrap, #goalsActivitiesView .goalsCaptureActivityPrompt { display: none; }
+
+/* Clavier ouvert : la barre est juste au-dessus du clavier, sans les trois points de pagination (30 oct. 2026, Émilien). */
+:root.kbOpen #statsPageDots { display: none !important; }

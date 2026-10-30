@@ -53,7 +53,7 @@
   // ---------- Pop-up ----------
   var listBox = null, sumL = null, sumR = null, timer = null, loadSeq = 0;
   var ui = {}; // éléments de la barre d'ajout
-  var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null, date: null, who: null, poleId: null, open: '', members: {}, flash: null, exp: null, essor: null, expStep: 0 };
+  var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null, date: null, who: null, poleId: null, open: '', members: {}, flash: null, exp: null, essor: null, expStep: 0, review: false };
 
   var root = null, shown = false, dock = null;
   // La barre n'existe à l'écran que si la vue Aujourd'hui est réellement visible (autre volet, autre vue ou page par-dessus : masquée).
@@ -102,7 +102,7 @@
     ui.proposal = el('div', 'tasksPropose cmpGlass hidden'); // verre commun (R31), comme la barre des volets
     var kick = el('div', 'tasksProposeHead');
     ui.kicker = el('span', 'tasksProposeKicker', tr('Noèsis propose'));
-    ui.close = TMT.ui.closeBtn(function () { if (state.exp || state.expStep) reset(); else if (target() && ui.text.value.trim()) send(); else reset(); }, tr('Fermer')); // ✕ en haut à droite (R13) : enregistre le rangement affiché et l'applique (demande d'Émilien, 30 oct. 2026) ; sans rangement complet, ferme seulement
+    ui.close = TMT.ui.closeBtn(function () { if (state.exp || state.expStep) reset(); else if (state.review && target() && ui.text.value.trim()) send(); else reset(); }, tr('Fermer')); // ✕ en haut à droite (R13) : enregistre le rangement affiché et l'applique (demande d'Émilien, 30 oct. 2026) ; sans rangement complet, ferme seulement
     kick.appendChild(ui.kicker); kick.appendChild(ui.close);
     ui.body = el('div', 'tasksProposeBody'); // la seule zone qui défile, sous le titre et la ✕ qui restent en place
     ui.fields = el('div', 'tasksFields');
@@ -179,7 +179,7 @@
     if (state.exp) { paintExpansion(); return; }
     var t = target(), poleId = t ? t.activityId : state.poleId;
     var poleName = t ? t.activityName : ((state.options.filter(function (o) { return o.activityId === poleId; })[0] || {}).activityName || '');
-    ui.proposal.classList.toggle('hidden', !t && !state.options.length && !readOnly);
+    ui.proposal.classList.toggle('hidden', !(state.review || state.expStep || readOnly) || (!t && !state.options.length && !readOnly)); // jamais visible pendant l'écriture : seulement après ↑
     ui.kicker.textContent = readOnly ? '✓ ' + tr('Ajoutée') : state.expStep ? tr('Expansion') + ' · ' + tr('Où ranger les tâches') : tr(TMT.aiMode === 'absence' || !t ? 'À ranger' : 'Noèsis propose');
     ui.close.classList.toggle('hidden', !!readOnly);
     if (readOnly) state.open = '';
@@ -416,6 +416,7 @@
     clearTimeout(state.debounce);
     clearTimeout(state.flash);
     if (state.exp || state.expStep) { state.exp = null; state.expStep = 0; dock.classList.remove('expSave'); setExpMode(false); ui.proposal.classList.add('hidden'); }
+    if (state.review) { state.review = false; ui.proposal.classList.add('hidden'); closeChooser(); } // le texte a changé : on recommence la revue au prochain ↑
     clearTimeout(state.hintT); state.hintT = setTimeout(updateExHint, 250);
     if (text.length < 3) { state.proposal = null; state.choice = null; state.proposedFor = ''; ui.proposal.classList.add('hidden'); return; }
     state.debounce = setTimeout(function () { propose(text); }, PROPOSE_MS);
@@ -464,7 +465,7 @@
     window.requestAnimationFrame(function () { if (!c) return; c.style.display = 'none'; void c.offsetHeight; c.style.display = ''; });
   }
   function reset() {
-    clearTimeout(state.flash); state.exp = null; state.expStep = 0; dock.classList.remove('expSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
+    clearTimeout(state.flash); state.exp = null; state.expStep = 0; state.review = false; dock.classList.remove('expSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
     state.date = null; state.who = null; state.poleId = null; closeChooser();
     ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
     repaintText(); // iPhone : le texte d'invite (placeholder) ne se redessinait qu'en partie (« Ajou ») après l'envoi
@@ -498,13 +499,18 @@
     if (state.expStep === 1) { expValidateStep1(); return; }
     if (state.exp) { runExpansion(); return; }
     state.busy = true; ui.send.disabled = true; ui.msg.textContent = '';
-    var shown = !!target(); // la proposition était déjà affichée AVANT l'envoi : ↑ la valide
+    var shown = state.review; // le panneau de revue était déjà affiché AVANT cet appui : ↑ (ou ✕) valide
     var go = shown ? Promise.resolve() : propose(label); // rien d'affiché encore : on demande d'abord la proposition
     go.then(function () {
       var t = target();
       // IA partielle ou absente : une proposition qui vient d'arriver s'AFFICHE pour que tu la revoies, elle n'est jamais appliquée dans la foulée (30 oct. 2026, Émilien).
-      if (t && !shown && true) { paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Vérifie le rangement, puis touche ↑.'); return null; }
-      if (!t) { paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Choisis où ranger la tâche.'); if (state.options.length) toggleChooser(state.poleId ? 'pole' : 'activity'); return null; }
+      if (!shown) {
+        state.review = true; paintProposal(); ui.proposal.classList.remove('hidden');
+        ui.msg.textContent = t ? tr('Vérifie le rangement, puis touche ↑ (ou ✕).') : tr('Choisis où ranger la tâche.');
+        if (!t && state.options.length) toggleChooser(state.poleId ? 'pole' : 'activity');
+        return null;
+      }
+      if (!t) { state.review = true; paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Choisis où ranger la tâche.'); if (state.options.length) toggleChooser(state.poleId ? 'pole' : 'activity'); return null; }
       if (state.files.length) {
         var files = state.files.slice();
         if (TMT.docTasksPrefill) TMT.docTasksPrefill(t.activityId, label, files);
