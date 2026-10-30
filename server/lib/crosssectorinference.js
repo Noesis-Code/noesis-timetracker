@@ -191,7 +191,7 @@ async function callAiOnce(payload, allowedKeys, model, feature, system, fastMode
   try {
     return parseSuggestions(text, allowedKeys, body.stop_reason === 'max_tokens');
   } catch (err) {
-    console.error('[objectifs][cross-secteur] réponse illisible — arrêt : ' + body.stop_reason + ', début : ' + JSON.stringify(String(text).slice(0, 200)));
+    console.error('[objectifs][cross-secteur] réponse illisible — arrêt : ' + body.stop_reason + ', longueur : ' + String(text).length); // jamais le texte (contenu des objectifs de l'utilisateur, Loi 25)
     throw err;
   }
 }

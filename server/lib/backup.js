@@ -191,6 +191,32 @@ async function snapshotDatabase(destPath) {
   }
 }
 
+// --- Tables Horaire exclues des sauvegardes (Loi 25, 30 oct. 2026) ----------
+// Les tables horaire_* (noms d'employés, notes, événements, courriels reçus) ne doivent pas survivre des mois dans les
+// copies R2 après leur suppression dans l'app. Elles sont VIDÉES dans l'instantané temporaire (jamais dans la base
+// vivante), schéma conservé : une base restaurée démarre normalement avec un module Horaire vide (réglages à ressaisir).
+// horaire_migrations (marqueurs techniques, aucune donnée personnelle) est gardée pour ne pas rejouer de migration.
+// secure_delete + VACUUM : aucune page libérée ne garde l'ancien contenu dans le fichier envoyé. En cas d'échec, la
+// sauvegarde est abandonnée (jamais d'envoi d'une copie non nettoyée).
+const BACKUP_KEEP_HORAIRE = new Set(['horaire_migrations']);
+function scrubHoraireTables(snapshotPath) {
+  const db = new DatabaseSync(snapshotPath);
+  try {
+    db.exec('PRAGMA foreign_keys = OFF; PRAGMA secure_delete = ON;');
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name GLOB 'horaire_*'").all()
+      .map((r) => r.name).filter((n) => !BACKUP_KEEP_HORAIRE.has(n));
+    db.exec('BEGIN');
+    try {
+      for (const t of tables) db.exec('DELETE FROM "' + t.replace(/"/g, '""') + '"');
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+    db.exec('VACUUM');
+    return tables.length;
+  } finally {
+    db.close();
+  }
+}
+
 // --- Un cycle complet de sauvegarde ---------------------------------------
 async function runBackupOnce(logger = console) {
   const cfg = readConfig();
@@ -206,6 +232,7 @@ async function runBackupOnce(logger = console) {
   const tmpSnapshot = path.join(os.tmpdir(), `noesis-backup-${Date.now()}.db`);
   try {
     await snapshotDatabase(tmpSnapshot);
+    scrubHoraireTables(tmpSnapshot);
 
     const rawSnapshot = fs.readFileSync(tmpSnapshot);
     const compressed = zlib.gzipSync(rawSnapshot);
@@ -281,5 +308,6 @@ module.exports = {
   startBackupSchedule,
   decryptBuffer,
   snapshotDatabase,
+  scrubHoraireTables,
   dbPath,
 };
