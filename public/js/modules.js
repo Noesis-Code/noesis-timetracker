@@ -6,7 +6,7 @@
   'use strict';
   var TMT = window.TMT = window.TMT || {};
   var tr = function (s) { return typeof window.t === 'function' ? window.t(s) : s; };
-  var state = null, loadedFor = null, tradeAllowed = false, horaireAllowed = true;
+  var state = null, loadedFor = null, tradeAllowed = false, horaireAllowed = false; // Horaire : refusé tant que le serveur n'a pas répondu (jamais proposé par défaut à un compte individuel)
   var CACHE_KEY = 'noesis_modules';
   // Dernier état connu (démarrage hors ligne / avant la réponse du serveur) : évite un flash d'interface masquée ou non.
   // Un état où ni Chrono (stats), ni Feuille de route (roadmap), ni Horaire n'est actif n'est jamais valide (le serveur le refuse) : traité comme « tout actif ».
@@ -119,7 +119,7 @@
     var id = pid();
     // Toujours rafraîchi depuis le serveur, même avec un cache. Réponse inutilisable (tout coupé) = tout actif ; échec = on garde le dernier état valide et on réessaie.
     return call('GET').then(function (d) {
-      state = usable(d.modules) ? d.modules : null; tradeAllowed = !!d.tradeAllowed; horaireAllowed = d.horaireAllowed !== false; loadedFor = id; loadFails = 0; remember(); apply(); openFirstTab(); paint(); return state;
+      state = usable(d.modules) ? d.modules : null; tradeAllowed = !!d.tradeAllowed; horaireAllowed = d.horaireAllowed === true; loadedFor = id; loadFails = 0; remember(); apply(); openFirstTab(); paint(); return state;
     }).catch(function () { if (loadFails++ < 5) setTimeout(function () { if (loadedFor !== pid()) load(); }, 2000 * loadFails); return null; });
   }
   var loadFails = 0;
