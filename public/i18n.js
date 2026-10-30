@@ -156,6 +156,8 @@
     "Mot de passe actuel incorrect.": "Wrong current password.",
     "Choisis un nouveau mot de passe pour continuer.": "Choose a new password to continue.",
     "Saisis ton mot de passe pour confirmer la suppression.": "Enter your password to confirm the deletion.",
+    "Saisis ton mot de passe pour exporter tes données.": "Enter your password to export your data.",
+    "Confirme ton mot de passe pour exporter tes données.": "Confirm your password to export your data.",
     'Créer mon profil': 'Create my profile',
     "J'ai déjà un profil sur cette app": 'I already have a profile on this app',
     'Retrouve ton profil': 'Find your profile',

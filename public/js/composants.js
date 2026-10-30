@@ -23,7 +23,7 @@
       var ok = btn('cmpBtn' + (opts.danger ? ' cmpBtnDanger' : ''), '', null); ok.textContent = opts.ok || 'Confirmer';
       var field = null;
       if (opts.input) {
-        field = document.createElement('input'); field.className = 'cmpConfirmInput'; field.type = 'text'; field.maxLength = opts.input.maxLength || 500;
+        field = document.createElement('input'); field.className = 'cmpConfirmInput'; field.type = opts.input.type === 'password' ? 'password' : 'text'; field.maxLength = opts.input.maxLength || 500;
         field.placeholder = opts.input.placeholder || ''; field.setAttribute('aria-label', opts.input.label || opts.input.placeholder || '');
         field.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !(opts.choices || []).length) { e.preventDefault(); finish(field.value); } });
       }

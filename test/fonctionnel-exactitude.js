@@ -205,7 +205,7 @@ const ymd = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
     assert(minutesToday >= 30, `Cartes d'activité : le temps du secteur supprimé reste compté dans son pôle (${minutesToday} min >= 30)`);
 
     // ===== Partage / export : mêmes totaux que l'écran =====
-    const ex = (await c.get('/api/profile/export')).body;
+    const ex = ((await c.post('/api/session/reauth', { password: 'Xk9#Longue-2026!' }), await c.get('/api/profile/export'))).body;
     const exTotal = ex.timeEntries.filter((t) => Number(t.activityId) === A).reduce((n, t) => n + t.durationSeconds, 0);
     assert(exTotal === gross, `Export JSON : somme des durées = temps brut des écrans (${gross} s)`);
     assert(!ex.timeEntries.some((t) => t.id === delId), 'Export JSON : l\'entrée supprimée est absente');

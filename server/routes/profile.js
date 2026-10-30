@@ -516,6 +516,9 @@ router.get('/profile/posts', (req, res) => {
 // qu'appartenant à un tiers) est documenté dans server/lib/dataexport.js.
 router.get('/profile/export', (req, res) => {
   if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  // Confidentialité (30 oct. 2026) : l'export contient des noms de tiers (employés du module Horaire) ; servi seulement
+  // après une revérification du mot de passe sur cette session (POST /api/session/reauth, moins de 5 min).
+  if (!require('../lib/session').hasRecentReauth(req)) return res.status(403).json({ error: 'Confirme ton mot de passe pour exporter tes données.', needsReauth: true });
   const data = buildUserExport(req.userId);
   if (!data) return res.status(404).json({ error: 'Profil introuvable.' });
   const fileDate = new Date().toISOString().slice(0, 10);

@@ -17,7 +17,7 @@ const T = makeCounter(); const assert = T.assert;
     await other.c.post(`/api/activities/${other.activityId}/goals/categories/${op}/tasks`, { label: 'SECRET_TACHE_AUTRE' });
 
     assert((await client(s.base).get('/api/profile/export')).status === 401, 'sans session = 401');
-    const r = await c.get('/api/profile/export');
+    const r = (await c.post('/api/session/reauth', { password: 'Xk9#Longue-2026!' }), await c.get('/api/profile/export'));
     assert(r.status === 200, 'export répond 200');
     assert(/attachment; filename="noesis-export-\d{4}-\d{2}-\d{2}\.json"/.test(r.headers.get('content-disposition') || ''), 'en-tête de téléchargement');
     const ex = r.body, json = JSON.stringify(ex);

@@ -30,6 +30,7 @@ function cpuMs(pid) {
     // ===== (1) Gros volume =====
     const u = await newUser(s.base, 'vol');
     const other = await newUser(s.base, 'vol2');
+    await u.c.post('/api/session/reauth', { password: 'Xk9#Longue-2026!' }); // export : revérification exigée (30 oct. 2026)
     const c = u.c;
     const acts = [u.activityId];
     for (let i = 0; i < 5; i++) acts.push((await c.post('/api/activities', { name: 'Vol' + i })).body.id);
@@ -85,7 +86,7 @@ function cpuMs(pid) {
       const chart = (await v.c.get('/api/stats?granularity=month')).body.dailyBreakdown;
       const yr = (await v.c.get(`/api/stats/timesheet?period=year&yearOffset=1`)).body;
       const catStats = (await v.c.get(`/api/category-stats?activityId=${A2}&from=${ymd(Y, 1, 1)}&to=${ymd(Y, 12, 31)}`)).body;
-      const ex = (await v.c.get('/api/profile/export')).body;
+      const ex = ((await v.c.post('/api/session/reauth', { password: 'Xk9#Longue-2026!' }), await v.c.get('/api/profile/export'))).body;
       const com = (await v.c.get(`/api/community/activity-stats?activityId=${A2}&period=year&date=${Y}-06-15`)).body;
       const sum = (arr, f) => arr.reduce((n, x) => n + f(x), 0);
       return {
@@ -135,7 +136,7 @@ function cpuMs(pid) {
       const totals = async () => {
         const hist = (await x.c.get(`/api/history?period=year&date=${Y}-06-15`)).body.reduce((n, h) => n + h.durationSeconds, 0);
         const yr = (await x.c.get('/api/stats/timesheet?period=year&yearOffset=1')).body;
-        const ex = (await x.c.get('/api/profile/export')).body.timeEntries.reduce((n, t) => n + t.durationSeconds, 0);
+        const ex = ((await x.c.post('/api/session/reauth', { password: 'Xk9#Longue-2026!' }), await x.c.get('/api/profile/export'))).body.timeEntries.reduce((n, t) => n + t.durationSeconds, 0);
         const chart = (await x.c.get('/api/stats?granularity=month')).body.dailyBreakdown.reduce((n, p) => n + p.totalSeconds, 0);
         const theirs = (await y.c.get('/api/stats/timesheet?period=year&yearOffset=1')).body.breakdown.totalSeconds;
         return { hist, feuille: yr.breakdown.totalSeconds, ex, chart, theirs };

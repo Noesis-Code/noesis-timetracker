@@ -12163,10 +12163,14 @@
   // que le reste de l'app (gère needsLogin/erreurs de façon cohérente)
   // plutôt qu'un fetch dédié, puis on reconstruit un fichier téléchargeable
   // à partir de l'objet reçu — pas besoin d'un second aller-retour réseau.
+  // 30 oct. 2026 (confidentialité) : l'export contient des noms de tiers ; il redemande d'abord le mot de passe (fenêtre commune).
   $('exportDataBtn').addEventListener('click', function () {
-    $('exportDataBtn').disabled = true;
     $('exportDataMsg').textContent = '';
-    api('GET', '/api/profile/export')
+    TMT.ui.confirm(t('Saisis ton mot de passe pour exporter tes données.'), { ok: t('Exporter mes données'), closeLabel: t('Fermer'), input: { type: 'password', maxLength: 128, label: t('Mot de passe'), placeholder: t('Mot de passe') } }).then(function (pwd) {
+    if (pwd === false) return;
+    $('exportDataBtn').disabled = true;
+    api('POST', '/api/session/reauth', { password: pwd })
+      .then(function () { return api('GET', '/api/profile/export'); })
       .then(function (data) {
         var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         var url = URL.createObjectURL(blob);
@@ -12185,6 +12189,7 @@
       .finally(function () {
         $('exportDataBtn').disabled = false;
       });
+    });
   });
 
   // ===================== AIDE ET SUGGESTIONS (8 septembre 2026, demande d'Emilien) =====================

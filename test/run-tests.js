@@ -57,6 +57,7 @@ const SUITE_FILES = [
   'innerhtml-statique-test.js',
   'chrono-reseau-lent-test.js',
   'isolation-comptes-test.js',
+  'confid-acces-test.js',
   'delai-requetes-test.js',
   'stats-insights-memo-test.js',
   'langue-bascule-test.js',
@@ -440,6 +441,8 @@ async function main() {
   catch (e) { assert(false, 'chrono sur réseau lent (test/chrono-reseau-lent-test.js) échoue'); }
   try { await runChild('isolation-comptes-test.js'); assert(true, 'isolation entre deux comptes (test/isolation-comptes-test.js) passe'); }
   catch (e) { assert(false, 'isolation entre deux comptes (test/isolation-comptes-test.js) échoue'); }
+  try { await runChild('confid-acces-test.js'); assert(true, 'export après revérification, inactivité entreprise 30 min (test/confid-acces-test.js) passe'); }
+  catch (e) { assert(false, 'export après revérification, inactivité entreprise 30 min (test/confid-acces-test.js) échoue'); }
   try { await runChild('delai-requetes-test.js'); assert(true, 'délai maximal des requêtes client (test/delai-requetes-test.js) passe'); }
   catch (e) { assert(false, 'délai maximal des requêtes client (test/delai-requetes-test.js) échoue'); }
   try { await runChild('stats-insights-memo-test.js'); assert(true, 'mémo d\'estimation des statistiques (test/stats-insights-memo-test.js) passe'); }

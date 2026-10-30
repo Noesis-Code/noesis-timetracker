@@ -150,7 +150,7 @@ const WORD = 'W'.repeat(250);
     assert(got.status === 200 && got.body.messages.some((m) => m.body === '😀'.repeat(2000)), "l'autre membre relit le message de 2 000 emoji intact");
 
     // --- Export Loi 25 : tout ressort tel quel, JSON valide ---
-    const ex = await c.get('/api/profile/export');
+    const ex = (await c.post('/api/session/reauth', { password: 'Xk9#Longue-2026!' }), await c.get('/api/profile/export'));
     assert(ex.status === 200 && ex.body && ex.body.user, 'export : 200 avec ces textes');
     const exTxt = JSON.stringify(ex.body);
     assert(exTxt.includes(FAMILY.repeat(40)) && exTxt.includes('<script>alert(1)</script>') && exTxt.includes(RTL), 'export : ZWJ, RTL et HTML présents intacts');
