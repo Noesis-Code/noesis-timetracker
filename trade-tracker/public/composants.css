@@ -184,7 +184,7 @@
    Seuls le noir et ses gris changent ; le violet, le rouge, le vert et le halo restent exactement les mêmes. */
 :root.modeClair {
   color-scheme: light;
-  --bg: #E6DCE4; --black: #E6DCE4; --bg-raised: #EEE5EC; --card: #EEE5EC; --pop-bg: #EEE5EC; --surface-dim: #EEE5EC;
+  --bg: #CFC4CF; --black: #CFC4CF; --bg-raised: #D9CFD8; --card: #D9CFD8; --pop-bg: #D9CFD8; --surface-dim: #D9CFD8;
   --text: #241E29; --text-light: #5E566A; --white: #241E29; --violet-promo: #6F5FA3;
   --sep: rgba(36, 30, 41, .14); --track-bg: rgba(36, 30, 41, .09); --hover-bg: rgba(36, 30, 41, .07); --cmp-dash: rgba(36, 30, 41, .32);
   --glass-bg: rgba(36, 30, 41, .045); --glass-shadow: inset 0 0 0 1px rgba(36, 30, 41, .1); --seg-sep: rgba(36, 30, 41, .14);
