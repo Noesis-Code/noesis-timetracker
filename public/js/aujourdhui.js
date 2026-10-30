@@ -240,9 +240,12 @@
     var label = ui.text.value.trim();
     if (!label) { ui.msg.textContent = tr('Écris une tâche avant d’ajouter.'); return; }
     state.busy = true; ui.send.disabled = true; ui.msg.textContent = '';
-    var go = target() ? Promise.resolve() : propose(label); // rien d'accepté encore : on demande d'abord la proposition
+    var shown = !!target(); // la proposition était déjà affichée AVANT l'envoi : ↑ la valide
+    var go = shown ? Promise.resolve() : propose(label); // rien d'affiché encore : on demande d'abord la proposition
     go.then(function () {
       var t = target();
+      // IA partielle ou absente : une proposition qui vient d'arriver s'AFFICHE pour que tu la revoies, elle n'est jamais appliquée dans la foulée (30 oct. 2026, Émilien).
+      if (t && !shown && TMT.aiMode !== 'autonome') { paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Vérifie le rangement, puis touche ↑.'); return null; }
       if (!t) { paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Choisis où ranger la tâche.'); if (state.options.length) toggleChooser(state.poleId ? 'secteur' : 'pole'); return null; }
       if (state.files.length) {
         var files = state.files.slice();
