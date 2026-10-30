@@ -86,7 +86,7 @@ function buildMail(kind, name, dateMs) {
   }
   return {
     subject: 'Votre compte Noèsis TimeTracker a été supprimé',
-    text: `${hello}votre compte Noèsis TimeTracker et toutes ses données ont été supprimés aujourd'hui, le ${when}, parce qu'il n'avait pas été utilisé depuis près de 24 mois. Une copie chiffrée peut subsister jusqu'à 30 jours dans nos sauvegardes, puis elle est détruite. Votre adresse courriel n'est conservée nulle part : ce message est le dernier.\n\nPour toute question : compagnie.noesis@gmail.com.${SIGNATURE}`,
+    text: `${hello}votre compte Noèsis TimeTracker et toutes ses données ont été supprimés aujourd'hui, le ${when}, parce qu'il n'avait pas été utilisé depuis près de 24 mois. Une copie chiffrée peut subsister jusqu'à 12 mois dans nos sauvegardes, puis elle est détruite. Votre adresse courriel n'est conservée nulle part : ce message est le dernier.\n\nPour toute question : compagnie.noesis@gmail.com.${SIGNATURE}`,
   };
 }
 

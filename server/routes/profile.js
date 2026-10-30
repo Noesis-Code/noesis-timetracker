@@ -542,10 +542,11 @@ router.get('/profile/export', (req, res) => {
 // (comme /public) : elle sert aussi à afficher l'identité publique d'un
 // tiers, seuls les trois champs sensibles sont gated.
 router.get('/profile/:id', (req, res) => {
-  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar, contactShareEmail, contactSharePhone, communityNotifyEnabled, marketingConsent, marketingConsentAt, directoryConsent, aiNoticeVersion FROM users WHERE id = ?').get(req.params.id);
+  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar, contactShareEmail, contactSharePhone, communityNotifyEnabled, marketingConsent, marketingConsentAt, directoryConsent, aiNoticeVersion, accountType, hideCompany, companyName, managerName FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
   const isOwner = req.userId === user.id;
-  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled, ...(isOwner ? { marketingConsent: !!user.marketingConsent, marketingConsentAt: user.marketingConsentAt || null, marketingConsentAsked: !!user.marketingConsentAt, directoryConsent: !!user.directoryConsent, aiNoticeVersion: user.aiNoticeVersion || null, aiNoticeCurrentVersion: AI_NOTICE_VERSION } : {}) });
+  if (isOwner && user.hideCompany) { user.name = user.companyName || user.name; user.lastName = user.managerName || user.lastName; } // le titulaire voit le vrai nom de son entreprise ; les autres, seulement le responsable
+  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled, ...(isOwner ? { accountType: user.accountType, hideCompany: !!user.hideCompany, marketingConsent: !!user.marketingConsent, marketingConsentAt: user.marketingConsentAt || null, marketingConsentAsked: !!user.marketingConsentAt, directoryConsent: !!user.directoryConsent, aiNoticeVersion: user.aiNoticeVersion || null, aiNoticeCurrentVersion: AI_NOTICE_VERSION } : {}) });
 });
 
 // 10 oct. 2026 (trames 2 et 4) : consentement commercial et annuaire de connexion, utilisateur connecté seulement.
@@ -566,6 +567,20 @@ router.put('/profile/ai-notice-ack', (req, res) => {
   const r = db.prepare('UPDATE users SET aiNoticeAckAt = ?, aiNoticeVersion = ? WHERE id = ?').run(at, AI_NOTICE_VERSION, req.userId);
   if (!r.changes) return res.status(404).json({ error: 'Profil introuvable.' });
   res.json({ ok: true, aiNoticeAckAt: at, aiNoticeVersion: AI_NOTICE_VERSION });
+});
+// Compte entreprise : n'afficher que le nom du responsable (30 oct. 2026, Émilien). Principe de confidentialité : hors de son compte, personne ne voit le nom de l'entreprise.
+router.put('/profile/hide-company', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (typeof req.body.hidden !== 'boolean') return res.status(400).json({ error: 'Valeur invalide.' });
+  const u = db.prepare('SELECT id, name, lastName, accountType, hideCompany, companyName, managerName FROM users WHERE id = ?').get(req.userId);
+  if (!u) return res.status(404).json({ error: 'Profil introuvable.' });
+  if (u.accountType !== 'entreprise') return res.status(400).json({ error: 'Réservé aux comptes entreprise.' });
+  if (!!u.hideCompany === req.body.hidden) return res.json({ ok: true, hideCompany: req.body.hidden });
+  try {
+    if (req.body.hidden) db.prepare('UPDATE users SET companyName = ?, managerName = ?, name = ?, lastName = NULL, hideCompany = 1 WHERE id = ?').run(u.name, u.lastName || '', u.lastName || u.name, u.id);
+    else db.prepare('UPDATE users SET name = ?, lastName = ?, hideCompany = 0, companyName = NULL, managerName = NULL WHERE id = ?').run(u.companyName || u.name, u.managerName || null, u.id);
+  } catch (e) { return res.status(409).json({ error: 'Ce nom est déjà pris par un autre profil.' }); }
+  res.json({ ok: true, hideCompany: req.body.hidden });
 });
 router.put('/profile/directory-consent', (req, res) => {
   if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
@@ -672,11 +687,13 @@ router.put('/profile/:id', (req, res) => {
 
   // Adresse déjà associée à un autre profil : message clair (sans cela, l'index unique faisait une erreur serveur 500).
   if (email && db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id != ?').get(email, user.id)) return res.status(409).json({ error: 'Cette adresse courriel est déjà associée à un autre profil.' });
-  const clash = db.prepare('SELECT id FROM users WHERE name = ? COLLATE NOCASE AND id != ?').get(name, user.id);
-  if (clash) return res.status(409).json({ error: `"${name}" est déjà pris par un autre profil.` });
+  const shownName = user.hideCompany ? lastName : name; // option active : les autres ne voient que le responsable
+  const clash = db.prepare('SELECT id FROM users WHERE name = ? COLLATE NOCASE AND id != ?').get(shownName, user.id);
+  if (clash) return res.status(409).json({ error: `"${shownName}" est déjà pris par un autre profil.` });
+  if (user.hideCompany) db.prepare('UPDATE users SET companyName = ?, managerName = ? WHERE id = ?').run(name, lastName, user.id);
 
   db.prepare('UPDATE users SET name = ?, lastName = ?, phone = ?, email = ?, color = ?, theme = ?, lang = ?, shareProfile = ?, avatar = ?, contactShareEmail = ?, contactSharePhone = ?, communityNotifyEnabled = ? WHERE id = ?')
-    .run(name, lastName || null, phone || null, email || null, color, theme, lang, shareProfile, avatar, contactShareEmail ? 1 : 0, contactSharePhone ? 1 : 0, communityNotifyEnabled ? 1 : 0, user.id);
+    .run(shownName, user.hideCompany ? null : (lastName || null), phone || null, email || null, color, theme, lang, shareProfile, avatar, contactShareEmail ? 1 : 0, contactSharePhone ? 1 : 0, communityNotifyEnabled ? 1 : 0, user.id);
 
   if (theme !== user.theme) {
     const memberships = db.prepare('SELECT activityId, color FROM activity_members WHERE userId = ?').all(user.id);

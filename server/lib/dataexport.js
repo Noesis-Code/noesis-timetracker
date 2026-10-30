@@ -68,6 +68,7 @@ function buildUserExport(userId) {
     `SELECT id, name, lastName, phone, email, color, theme, lang, shareProfile, avatar, createdAt,
             termsAcceptedAt, termsVersion, privacyVersion,
             marketingConsent, marketingConsentAt, marketingConsentVersion, directoryConsent,
+            accountType, hideCompany, companyName, managerName,
             aiMode, aiNoticeAckAt, aiNoticeVersion
      FROM users WHERE id = ?`,
     userId

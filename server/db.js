@@ -1311,6 +1311,13 @@ if (!columnExists('users', 'pinFailCount')) {
 if (!columnExists('users', 'accountType')) {
   db.exec("ALTER TABLE users ADD COLUMN accountType TEXT NOT NULL DEFAULT 'individu'");
 }
+// Compte entreprise : « n'afficher que le nom du responsable » (30 oct. 2026). Tant que l'option est active, `name` porte le nom du responsable
+// (ce que voient tous les autres) ; le vrai nom de l'entreprise (companyName) et celui du responsable (managerName) ne sont lus que par le titulaire.
+if (!columnExists('users', 'hideCompany')) {
+  db.exec('ALTER TABLE users ADD COLUMN hideCompany INTEGER NOT NULL DEFAULT 0');
+  db.exec('ALTER TABLE users ADD COLUMN companyName TEXT');
+  db.exec('ALTER TABLE users ADD COLUMN managerName TEXT');
+}
 if (!columnExists('users', 'passwordStrong')) {
   db.exec('ALTER TABLE users ADD COLUMN passwordStrong INTEGER NOT NULL DEFAULT 0');
 }
