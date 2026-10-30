@@ -184,11 +184,11 @@
    La triple pseudo-classe :root passe devant les anciens styles de boutons de période/thème ; ne jamais redéfinir ce rendu écran par écran. */
 :root { --seg-active-bg: rgba(var(--purple-rgb), .16); --seg-sep: rgba(243, 238, 232, .07); --glass-gray: rgba(165, 158, 150, .18); }
 /* Repères de couleur (30 oct. 2026, choix d'Émilien). Seule la couleur change ; fondu de 1 s dans les deux sens (jetons enregistrés ci-dessus).
-   - Module Horaire, Création des horaires (modeCreation, posée par composants.js) : bleu roi #6C8CE0.
+   - Module Horaire, Création des horaires (modeCreation, posée par composants.js) : bleu #7583E1 (nuance 2, plus violacée).
    - Expansion (modeExpansion pendant une demande de la barre d'ajout ; modeExpansionWin tant qu'une fenêtre Expansion est ouverte) : blanc rosé #F0DDE0, réservé à Expansion. */
 :root.modeCreation {
-  --purple: #6C8CE0; --pr: 108; --pg: 140; --pb: 224; --purple-dark: #6C8CE0; --brique: #6C8CE0;
-  --violet-soft: #A9BCF0; --violet-promo: #A9BCF0; --blue: #A9BCF0; --unread: #A9BCF0; --halo: rgba(108, 140, 224, .28);
+  --purple: #7583E1; --pr: 117; --pg: 131; --pb: 225; --purple-dark: #7583E1; --brique: #7583E1;
+  --violet-soft: #B0B8F2; --violet-promo: #B0B8F2; --blue: #B0B8F2; --unread: #B0B8F2; --halo: rgba(117, 131, 225, .28);
 }
 :root.modeExpansion, :root.modeExpansionWin {
   --purple: #F0DDE0; --pr: 240; --pg: 221; --pb: 224; --purple-dark: #F0DDE0; --brique: #F0DDE0;
