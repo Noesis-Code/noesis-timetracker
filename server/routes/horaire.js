@@ -752,6 +752,21 @@ router.post('/horaire/weeks/:weekStart/import/availabilities-doc', async (req, r
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
+// Document joint à l'étape Événements (Excel, Word, PDF texte, CSV) : { file } -> { text } (cellules séparées par « ; », une ligne par rangée).
+// Rien n'est écrit ni stocké : le texte remplit la zone de collage, l'envoi reste au gérant.
+router.post('/horaire/import/document-text', async (req, res) => {
+  const b = req.body || {};
+  if (!b.file || typeof b.file !== 'object') return bad(res, 'Fichier manquant.');
+  try {
+    const rows = await require('../lib/horaire-import').fileRows(b.file);
+    const text = rows.map((r) => r.map((c) => String(c == null ? '' : c).replace(/[;\r\n]+/g, ' ').trim()).join(';').replace(/;+$/, '')).filter(Boolean).join('\n');
+    if (!text) return bad(res, 'Aucun texte lisible dans ce fichier.');
+    res.json({ text: text.slice(0, h.LIMITS.csvChars) });
+  } catch (e) {
+    if (e && e.statusCode === 400) return bad(res, e.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
 router.post('/horaire/import/reservations', (req, res) => {
   const t = csvText(req, res); if (t === null) return;
   const out = h.importReservationsCsv(req.userId, t);

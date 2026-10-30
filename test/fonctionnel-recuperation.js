@@ -68,6 +68,16 @@ const T = makeCounter(); const assert = T.assert;
     assert((await d5.get('/api/users?q=' + encodeURIComponent('Discret Recup'))).body.length === 1, 'une fois activé : retrouvable');
     assert((await d5.get('/api/users?q=' + encodeURIComponent('Discret'))).body.length === 1, 'une fois activé : aussi par saisie partielle');
 
+    // --- Compte entreprise (annuaire décoché) : l'entreprise OU le responsable suffit pour le retrouver ---
+    const dE = client(s.base);
+    const cE = await dE.post('/api/profile', { name: 'Brasserie Zéphyr', lastName: 'Ouellet', phone: '5145550153', email: 'zephyr.recup@exemple.test', pin: 'Xk9#Longue-2026!', termsAccepted: true, accountType: 'entreprise' });
+    assert(cE.status === 201, 'compte entreprise créé');
+    const dF = client(s.base);
+    assert((await dF.get('/api/users?q=' + encodeURIComponent('Brasserie Zéphyr'))).body.length === 1, "entreprise : retrouvée par le nom de l'entreprise seul");
+    assert((await dF.get('/api/users?q=' + encodeURIComponent('Ouellet'))).body.length === 1, 'entreprise : retrouvée par le nom du responsable seul');
+    assert((await dF.get('/api/users?q=' + encodeURIComponent('Brasserie Zéphyr Ouellet'))).body.length === 1, 'entreprise : retrouvée par les deux');
+    assert((await dF.get('/api/users?q=' + encodeURIComponent('Bras'))).body.length === 0, 'entreprise : jamais par une saisie partielle');
+
     // --- Ancien profil sans code (créé avant la protection) : pas de session -> set-pin refusé ---
     const db = new DatabaseSync(path.join(s.dir, 'noesis.db'));
     const d6 = client(s.base);

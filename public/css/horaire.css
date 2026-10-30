@@ -86,7 +86,7 @@
    Un type sur deux d'une autre teinte, nom et postes ensemble : verre calme, puis violet translucide (R11/R14) */
 .horaireSheet.horaireTypes { min-width: 0; }
 .horaireTypes .horaireSheetRow.horaireTypeEven { background: var(--glass-bg); }
-.horaireTypes .horaireSheetRow.horaireTypeAlt { background: rgba(var(--purple-rgb), .2); }
+.horaireTypes .horaireSheetRow.horaireTypeAlt { background: var(--glass-gray); }
 .horaireTypes .horaireSheetCell { white-space: normal; padding-left: 8px; padding-right: 8px; }
 .horaireTypes .horaireSheetCell:first-child { justify-content: flex-start; padding: 0 12px; }
 .horaireTypes .horaireSheetEdit.editing { padding: 0 4px; }

@@ -341,10 +341,22 @@
       f.text().then(function (t) { area.value = t; send(t, area); }, fail);
       return;
     }
-    S.msg = /^image\//.test(type) || /\.pdf$/.test(name) || type === 'application/pdf'
-      ? tr('Donne cette image à ton IA avec le prompt de récupération, puis colle sa réponse ici.')
-      : tr('Exporte-le en CSV ou colle le texte.');
+    if (!/^image\//.test(type)) { importDocText(f, area); return; }
+    S.msg = tr('Donne cette image à ton IA avec le prompt de récupération, puis colle sa réponse ici.');
     renderMsg();
+  }
+  // Étape Événements : Excel, Word ou PDF joint par l'épingle, converti en texte par le serveur (sans IA) et placé dans la zone ;
+  // rien n'est envoyé tant que le gérant n'a pas touché la flèche.
+  function importDocText(f, area) {
+    if (S.busy) return;
+    var rd = new FileReader();
+    rd.onerror = function () { fail(new Error(tr('Lecture du fichier impossible.'))); };
+    rd.onload = function () {
+      S.busy = true;
+      req('POST', 'import/document-text', { file: { fileName: f.name, mimeType: f.type || '', dataUrl: String(rd.result) } })
+        .then(function (d) { if (d.text) area.value = d.text; }).catch(fail).then(function () { S.busy = false; });
+    };
+    rd.readAsDataURL(f);
   }
   // Récupération : rapport Dayforce joint par l'épingle (29 oct. 2026, demande d'Émilien), converti SANS IA par le serveur en bloc
   // « nom;jour;début;fin;type » de la semaine affichée (server/lib/horaire-dispo-import.js). Le bloc remplit la zone ; rien n'est
@@ -1139,12 +1151,18 @@
       var name = (S.positions.find(function (x) { return x.id === cur; }) || {}).name || '';
       p.label.textContent = name;
       p.menu.textContent = '';
-      // Postes : chaque ligne = choisir ; en bas « + Ajouter un poste » (ni renommer ni retirer : demande d'Émilien, 29 oct. 2026).
+      // Postes : chaque ligne = choisir | ✎ modifier ; la ligne se déroule sur place (R36) avec le champ du nom et la croix rouge pour retirer
+      // (confirmation, R43 ; absente s'il ne reste qu'un poste) ; en bas « + Ajouter un poste » (demande d'Émilien, 30 oct. 2026).
       list.forEach(function (x) {
         var row = el('div', 'horairePosRow');
-        if (S.posEdit === x.id) { row.appendChild(posNameInput(x)); p.menu.appendChild(row); return; }
+        if (S.posEdit === x.id) {
+          row.appendChild(posNameInput(x));
+          if (list.length > 1) row.appendChild(keepFocus(TMT.ui.removeBtn(function (e) { e.stopPropagation(); removePosition(x); }, tr('Retirer') + ' ' + x.name)));
+          p.menu.appendChild(row); return;
+        }
         var it = el('button', 'statsPeriodMenuItem' + (x.id === cur ? ' active' : ''), x.name); it.type = 'button'; it.dataset.pos = String(x.id);
         row.appendChild(it);
+        row.appendChild(TMT.ui.editBtn(function (e) { e.stopPropagation(); S.posEdit = x.id; renderPosPickers(); }, tr('Modifier') + ' ' + x.name));
         p.menu.appendChild(row);
       });
       if (S.posEdit === 'new') { var nr = el('div', 'horairePosRow'); nr.appendChild(posNameInput(null)); p.menu.appendChild(nr); }
@@ -1172,6 +1190,11 @@
     inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); finish(true); } else if (e.key === 'Escape') { e.preventDefault(); finish(false); } });
     inp.addEventListener('blur', function () { finish(true); });
     return inp;
+  }
+  function removePosition(x) {
+    confirmDelete(tr('Retirer le poste') + ' « ' + x.name + ' » ?\n' + tr('Ses besoins, qualifications et quarts partent avec lui.'), function () {
+      req('DELETE', 'positions/' + x.id).then(function () { if (S.posId === x.id) S.posId = null; S.posEdit = null; return refresh(); }, fail);
+    });
   }
   function hOrNull(v) { v = String(v == null ? '' : v).trim().replace(',', '.'); return v === '' ? null : Number(v); }
   function hoursValid(lo, tg, hi) {
@@ -1241,7 +1264,11 @@
         if (!n.id) { menu.appendChild(b); return; } // les six règles connues : jamais supprimées
         // Note créée par le gérant : croix officielle (R32) ; confirmation rouge qui dit combien d'employés l'utilisent.
         var row = el('div', 'horaireNoteRow');
-        if (S.noteEdit === n.id) { row.appendChild(noteNameInput(n, anchor, e)); menu.appendChild(row); return; }
+        if (S.noteEdit === n.id) {
+          row.appendChild(noteNameInput(n, anchor, e));
+          row.appendChild(keepFocus(TMT.ui.removeBtn(function (ev) { ev.stopPropagation(); S.noteEdit = null; closeMenu(); removeNote(n); }, tr('Supprimer') + ' ' + n.text)));
+          menu.appendChild(row); return;
+        }
         row.appendChild(b);
         row.appendChild(TMT.ui.editBtn(function (ev) { ev.stopPropagation(); S.noteEdit = n.id; closeMenu(); openNoteMenu(anchor, e); }, tr('Modifier') + ' ' + n.text));
         row.appendChild(TMT.ui.removeBtn(function (ev) { ev.stopPropagation(); closeMenu(); removeNote(n); }, tr('Supprimer') + ' ' + n.text));

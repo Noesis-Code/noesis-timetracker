@@ -367,6 +367,11 @@ router.get('/users', (req, res) => {
       db.prepare("SELECT id, name, lastName, color, pin FROM users WHERE COALESCE(directoryConsent, 0) <> 1 AND name = ? COLLATE NOCASE AND COALESCE(lastName, '') = ? COLLATE NOCASE LIMIT 2")
         .all(first, last).forEach((u) => { if (!rows.some((r) => r.id === u.id)) rows.push(u); });
     }
+    // Compte entreprise : le nom de l'entreprise OU celui du responsable suffit (exact, majuscules ignorées), ou les deux (30 oct. 2026, Émilien).
+    if (rows.length < USERS_SEARCH_MAX_RESULTS) {
+      db.prepare("SELECT id, name, lastName, color, pin FROM users WHERE accountType = 'entreprise' AND COALESCE(directoryConsent, 0) <> 1 AND (name = ? COLLATE NOCASE OR COALESCE(lastName, '') = ? COLLATE NOCASE) LIMIT 2")
+        .all(q, q).forEach((u) => { if (!rows.some((r) => r.id === u.id)) rows.push(u); });
+    }
     rows.length = Math.min(rows.length, USERS_SEARCH_MAX_RESULTS);
     return res.json(rows.map((u) => ({
       id: u.id,
