@@ -137,7 +137,11 @@
   }
 
   function target() { return state.choice || state.proposal; }
-  function sectorOf(o) { return String(o.categoryLabel || '').split(' → ').pop(); }
+  // « Produit → Interface » : pôle « Produit », secteur « Interface » ; « Privé » : un pôle sans secteur.
+  function poleOf(o) { return String(o.categoryLabel || '').split(' → ')[0]; }
+  function sectorOf(o) { var p = String(o.categoryLabel || '').split(' → '); return p.length > 1 ? p[1] : ''; }
+  function actCount() { var seen = {}, n = 0; state.options.forEach(function (o) { if (!seen[o.activityId]) { seen[o.activityId] = true; n++; } }); return n; }
+  function sectorsOfPole(t) { return state.options.filter(function (o) { return t && o.activityId === t.activityId && poleOf(o) === poleOf(t) && sectorOf(o); }); }
   function dateText(iso) {
     if (!iso) iso = dayIso();
     var d = new Date(iso + 'T12:00:00'); var s = d.toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'short', day: 'numeric', month: 'short' });
@@ -180,8 +184,9 @@
     ui.close.classList.toggle('hidden', !!readOnly);
     if (readOnly) state.open = '';
     ui.fields.textContent = '';
-    ui.fields.appendChild(fieldRow('pole', 'Pôle', poleName || tr('Choisir'), readOnly));
-    ui.fields.appendChild(fieldRow('secteur', 'Secteur', t ? sectorOf(t) : tr('Choisir'), readOnly || !poleId));
+    ui.fields.appendChild(fieldRow('activity', 'Activité', poleName || tr('Choisir'), readOnly || actCount() < 2));
+    ui.fields.appendChild(fieldRow('pole', 'Pôle', t ? poleOf(t) : tr('Choisir'), readOnly || !poleId));
+    if (!t || sectorsOfPole(t).length) ui.fields.appendChild(fieldRow('secteur', 'Secteur', t && sectorOf(t) ? sectorOf(t) : tr('Choisir'), readOnly || !t));
     if (!state.expStep) ui.fields.appendChild(dateRow(readOnly)); // étape 1 d'Expansion : seulement le pôle et le secteur
     if (!state.expStep && poleId && state.members[poleId] && state.members[poleId].length > 1) ui.fields.appendChild(fieldRow('who', 'Responsable', state.who ? state.who.name : '—', readOnly));
     ui.hint.classList.toggle('hidden', !t || !!readOnly);
@@ -194,7 +199,7 @@
   function chooserFor(key) {
     var box = el('div', 'tasksChooser');
     var t = target(), poleId = t ? t.activityId : state.poleId;
-    if (key === 'pole') {
+    if (key === 'activity') {
       var seen = {};
       state.options.forEach(function (o) {
         if (seen[o.activityId]) return; seen[o.activityId] = true;
@@ -206,8 +211,14 @@
           if (!state.choice && state.proposal && state.proposal.activityId !== o.activityId) state.proposal = null;
         });
       });
+    } else if (key === 'pole') {
+      var seenP = {};
+      state.options.filter(function (o) { return o.activityId === poleId; }).forEach(function (o) {
+        var pl = poleOf(o); if (seenP[pl]) return; seenP[pl] = true;
+        choice(box, pl, function () { state.choice = o; });
+      });
     } else if (key === 'secteur') {
-      state.options.filter(function (o) { return o.activityId === poleId; }).forEach(function (o) { choice(box, sectorOf(o), function () { state.choice = o; }); });
+      sectorsOfPole(t).forEach(function (o) { choice(box, sectorOf(o), function () { state.choice = o; }); });
     } else if (key === 'who') {
       choice(box, '—', function () { state.who = null; });
       (state.members[poleId] || []).forEach(function (m) { choice(box, m.name, function () { state.who = { id: m.id, name: m.name }; }); });
@@ -335,7 +346,7 @@
   }
   function expValidateStep1() {
     var t = target();
-    if (!t) { say(tr('Choisis le pôle et le secteur, puis touche ↑.')); toggleChooser(state.poleId ? 'secteur' : 'pole'); return; }
+    if (!t) { say(tr('Choisis l’activité, le pôle et le secteur, puis touche ↑.')); toggleChooser(state.poleId ? 'pole' : 'activity'); return; }
     var label = ui.text.value.trim();
     state.exp = { kind: 'tasks', label: label, acts: [{ id: t.activityId, name: t.activityName }], actId: t.activityId, categoryKey: t.categoryKey, categoryLabel: t.categoryLabel, tasks: null, checked: [], loading: false };
     state.expStep = 0; closeChooser(); runExpansion();
@@ -347,7 +358,7 @@
     ui.kicker.textContent = tr('Expansion') + (e.kind === 'tasks' ? ' · ' + tr('Nouvelles tâches') : e.kind === 'goals' ? ' · ' + tr('Objectifs') : ' · Drive');
     ui.fields.textContent = '';
     var wrap = el('div', 'tasksFieldWrap' + (state.open === 'exp' ? ' open' : '')), row = el('div', 'tasksField');
-    row.appendChild(el('span', 'tasksFieldLabel', tr('Pôle')));
+    row.appendChild(el('span', 'tasksFieldLabel', tr('Activité')));
     var b = el('button', 'tasksFieldValue'); b.type = 'button'; b.disabled = e.acts.length < 2 || e.loading;
     b.appendChild(el('span', 'tasksFieldText', expActName() || tr('Choisir')));
     if (!b.disabled) b.addEventListener('click', function () { state.open = state.open === 'exp' ? '' : 'exp'; paintExpansion(); });
@@ -493,7 +504,7 @@
       var t = target();
       // IA partielle ou absente : une proposition qui vient d'arriver s'AFFICHE pour que tu la revoies, elle n'est jamais appliquée dans la foulée (30 oct. 2026, Émilien).
       if (t && !shown && true) { paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Vérifie le rangement, puis touche ↑.'); return null; }
-      if (!t) { paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Choisis où ranger la tâche.'); if (state.options.length) toggleChooser(state.poleId ? 'secteur' : 'pole'); return null; }
+      if (!t) { paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Choisis où ranger la tâche.'); if (state.options.length) toggleChooser(state.poleId ? 'pole' : 'activity'); return null; }
       if (state.files.length) {
         var files = state.files.slice();
         if (TMT.docTasksPrefill) TMT.docTasksPrefill(t.activityId, label, files);
