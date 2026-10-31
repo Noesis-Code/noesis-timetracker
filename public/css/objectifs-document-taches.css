@@ -182,3 +182,7 @@
 .docTasksFsActions { justify-content: flex-end; }
 .docTasksFsActions .docTasksCancelBtn { flex: none; margin-right: auto; padding: 8px 12px; border: 0; background: none; color: var(--text-light); font: inherit; font-size: 14px; cursor: pointer; }
 #docTasksFsBody:has(.cmpRemove--corner) { padding-top: 26px; } /* la croix rouge ne recouvre pas l'interrupteur */
+/* Flèche près du nom (dossier connecté, liste des dossiers) ; corbeille d'origine en bas à gauche du réglage d'un dossier (exception demandée, 31 oct. 2026). */
+:root .docTasksFolderToggle { flex: 0 1 auto; }
+:root .docTasksFolderToggle .cmpChev, :root .docTasksFoldersLink .cmpChev { margin-left: 2px; }
+:root .docTasksFsActions .docTasksTrashLeft { margin-right: auto; color: var(--brique-text, #E08A69); }

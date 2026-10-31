@@ -230,6 +230,7 @@
         + (s.isOwner === false ? '' : '<button type="button" class="docTasksLink docTasksDiscLink" data-d="disconnect">Déconnecter Drive</button>') + '</div>'
         + (foldersOpen && n ? '<div id="docTasksFoldersBody" class="docTasksFoldersInline"></div>' : '');
   }
+  var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>'; // exception demandée par Émilien (31 oct. 2026) : corbeille d'origine, en bas à gauche, pour ce seul écran
   var FOLDER_ICON = '<svg class="docTasksFolderIco" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>';
   var folderExpanded = {};
   function folderFilesHtml(f) {
@@ -254,13 +255,11 @@
     var dflt = (syncSt && syncSt.defaultInstruction) || 'Extrais toutes les tâches écrites dans le document';
     $('docTasksFsTitle').innerHTML = FOLDER_ICON + esc(f.name || 'Dossier');
     $('docTasksFsBody').innerHTML = '<div class="docTasksPauseRow"><span>Mettre en pause</span><label class="toggleSwitch"><input type="checkbox" id="docTasksFsPause" aria-label="Mettre en pause"' + (f.paused ? ' checked' : '') + '><span class="toggleSwitchTrack"></span></label></div>'
-      + (f.paused ? '<p class="docTasksMeta">Surveillance en pause : ce dossier n’est plus analysé.</p>' : '')
       + '<label class="docTasksMeta" for="docTasksFsInstr">Consigne permanente (facultative)</label>'
       + '<textarea id="docTasksFsInstr" class="docTasksInstr" rows="2" maxlength="1500" placeholder="' + esc(dflt.replace(/[\s.…]+$/, '') + '…') + '">' + esc(f.instruction) + '</textarea>'
       + (fsConfirm
         ? '<div class="docTasksConfirm">Ne plus surveiller ce dossier ? <button type="button" class="docTasksLink" data-f="removeYes">Retirer</button> <button type="button" class="docTasksLink" data-f="removeNo">Annuler</button></div>'
-        : '<div class="docTasksFsActions">' + (fsNew ? '<button type="button" class="docTasksCancelBtn" data-f="cancelNew">Annuler</button>' : '') + '<button type="button" class="docTasksApplyBtn" data-f="save">Enregistrer</button></div>')
-      + (!fsNew && !fsConfirm ? '<button type="button" class="cmpRemove cmpRemove--corner" data-f="remove" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller"></button>' : '')
+        : '<div class="docTasksFsActions">' + (fsNew ? '' : '<button type="button" class="historyRowIconBtn danger docTasksFolderIconBtn docTasksTrashLeft" data-f="remove" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller">' + TRASH_ICON + '</button>') + (fsNew ? '<button type="button" class="docTasksCancelBtn" data-f="cancelNew">Annuler</button>' : '') + '<button type="button" class="docTasksApplyBtn" data-f="save">Enregistrer</button></div>')
       + '<div class="docTasksCancelRow"><button type="button" class="docTasksLink" data-f="run">Synchroniser maintenant</button></div>'
       + (fsMsg ? '<p class="msg">' + esc(fsMsg) + '</p>' : '');
   }
@@ -393,7 +392,6 @@
     var html = '<div class="docTasksSyncRow">';
     html += '<div class="docTasksMeta">Dernière vérification : ' + esc(ago(s.lastCheckedAt)) + '</div>';
     var fl = (driveSt && driveSt.folders) || [];
-    if (fl.length && fl.every(function (x) { return x.paused; })) html += '<div class="docTasksWarn">Surveillance en pause : aucun dossier n’est analysé.</div>';
     if (s.aiBlocked && s.aiResumesOn) html += '<div class="docTasksWarn">' + esc(s.aiMessage) + '</div>';
     else if (s.capReached) html += '<div class="docTasksWarn">Plafond de ' + s.maxCallsPerDay + ' analyses IA par jour atteint : la surveillance reprendra demain.</div>';
     if (syncMsg) html += '<p class="msg">' + esc(syncMsg) + '</p>';
