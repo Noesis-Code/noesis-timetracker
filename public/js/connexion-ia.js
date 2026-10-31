@@ -67,7 +67,7 @@
     box.appendChild(el('p', 'hint', tr("Branche TimeTracker à ton IA (Claude, ChatGPT…) : elle lit tes tâches et tes objectifs ; en écriture (case ci-dessous), elle peut aussi les organiser.")));
 
     if (shown) {
-      var full = (data.origin || location.origin) + '/mcp/t/' + shown.token;
+      var full = (data.origin || window.TMT_SERVER_ORIGIN || location.origin) + '/mcp/t/' + shown.token;
       box.appendChild(el('p', 'aiConnectWarn', tr("Copie cette adresse maintenant : elle ne sera plus affichée.")));
       box.appendChild(copyLine(full));
       box.appendChild(el('p', 'hint', tr("Colle-la dans claude.ai > Paramètres > Connecteurs > Ajouter un connecteur personnalisé. Elle contient ton accès : ne la partage pas.")));

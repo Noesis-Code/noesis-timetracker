@@ -1,0 +1,33 @@
+# Application iOS (coque Capacitor) : vérifie que le projet compile pour le simulateur, sans signature (pas encore de compte Apple Developer).
+# Les fichiers de public/ sont copiés dans le paquet (scripts/prepare-ios.js) ; l'app appelle le serveur de production par son API.
+name: iOS
+on:
+  workflow_dispatch:
+  push:
+    paths: ['mobile/**', 'scripts/prepare-ios.js', 'public/js/native-shell.js', '.github/workflows/ios.yml']
+jobs:
+  build:
+    runs-on: macos-latest
+    env:
+      CAP_TARGET: ios
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+        working-directory: mobile
+      - run: node scripts/prepare-ios.js
+      - run: npx cap sync ios
+        working-directory: mobile
+      - name: Compilation simulateur sans signature
+        working-directory: mobile/ios/App
+        run: |
+          set -o pipefail
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build | tail -40
+      - name: Le paquet contient le site
+        run: test -f mobile/ios/App/build/Build/Products/Debug-iphonesimulator/App.app/public/index.html

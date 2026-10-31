@@ -5,20 +5,20 @@ on:
   workflow_dispatch:
   push:
     branches: [staging]
-    paths: ['android-app/**', '.github/workflows/android.yml']
+    paths: ['mobile/**', '.github/workflows/android.yml']
 jobs:
   apk:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: android-app
+        working-directory: mobile
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: android-app/package-lock.json
+          cache-dependency-path: mobile/package-lock.json
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -29,5 +29,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: noesis-debug-apk
-          path: android-app/android/app/build/outputs/apk/debug/app-debug.apk
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

@@ -15124,7 +15124,7 @@
   // n'y a plus qu'UNE seule adresse possible, celle sur laquelle on se
   // trouve.
   function currentShareUrl() {
-    return (location.origin || '').replace(/\/+$/, '');
+    return (window.TMT_SERVER_ORIGIN || location.origin || '').replace(/\/+$/, '');
   }
 
   // Une adresse locale (localhost, 127.0.0.1, réseau privé) reste utile entre
