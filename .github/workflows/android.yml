@@ -1,0 +1,33 @@
+# Application Android (coque Capacitor) : construit un APK de test téléchargeable (onglet Actions > exécution > Artifacts).
+# Aucune clé de signature ici : la version de la boutique (AAB signé) se fera avec la clé d'envoi de Noèsis, ajoutée plus tard en secret GitHub.
+name: Android
+on:
+  workflow_dispatch:
+  push:
+    branches: [staging]
+    paths: ['android-app/**', '.github/workflows/android.yml']
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: android-app/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npx cap sync android
+      - run: chmod +x android/gradlew && cd android && ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noesis-debug-apk
+          path: android-app/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
