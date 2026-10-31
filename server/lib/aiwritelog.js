@@ -26,6 +26,10 @@ const KEEP_DAYS = 90;
 const minute = new Map(); // tokenId -> horodatages
 
 // true si l'écriture est permise (par minute et par 24 h, par jeton).
+// Comptes sans plafond d'écritures (31 oct. 2026, demande d'Émilien : « lever la limite pour mon compte uniquement ») : ids séparés par des virgules dans MCP_SANS_LIMITE_USER_IDS.
+function unlimited(userId) {
+  return !!userId && String(process.env.MCP_SANS_LIMITE_USER_IDS || '').split(',').map((x) => x.trim()).filter(Boolean).includes(String(userId));
+}
 function takeWriteSlot(tokenId, now) {
   const t = now || Date.now();
   const arr = (minute.get(tokenId) || []).filter((x) => t - x < 60000);
@@ -54,4 +58,4 @@ function undoable(userId, id) {
 }
 function markUndone(id) { db.prepare('UPDATE ai_write_log SET undoneAt = ? WHERE id = ?').run(new Date().toISOString(), Number(id)); }
 
-module.exports = { WRITES_PER_MINUTE, WRITES_PER_DAY, UNDO_DAYS, takeWriteSlot, record, undoable, markUndone };
+module.exports = { WRITES_PER_MINUTE, WRITES_PER_DAY, UNDO_DAYS, takeWriteSlot, unlimited, record, undoable, markUndone };

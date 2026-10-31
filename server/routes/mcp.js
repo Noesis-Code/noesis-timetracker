@@ -497,7 +497,7 @@ function handleRpc(msg, ctx) {
       if (!tool) return isNotification ? null : rpcError(msg.id, -32602, 'Outil inconnu : ' + p.name);
       if (!toolOn(userId, p.name)) return isNotification ? null : ok({ isError: true, content: [{ type: 'text', text: 'Module désactivé dans TimeTracker pour cet outil.' }] });
       if (tool.write && !ctx.canWrite) { const e = new Error("Ce jeton est en lecture seule."); e.forbidden = true; throw e; }
-      if (tool.journal && !wlog.takeWriteSlot(ctx.tokenId)) return ok({ isError: true, content: [{ type: 'text', text: 'Limite atteinte : ' + wlog.WRITES_PER_MINUTE + ' écritures par minute et ' + wlog.WRITES_PER_DAY + ' par 24 h.' }] });
+      if (tool.journal && !wlog.unlimited(userId) && !wlog.takeWriteSlot(ctx.tokenId)) return ok({ isError: true, content: [{ type: 'text', text: 'Limite atteinte : ' + wlog.WRITES_PER_MINUTE + ' écritures par minute et ' + wlog.WRITES_PER_DAY + ' par 24 h.' }] });
       try {
         const data = tool.run(userId, p.arguments && typeof p.arguments === 'object' ? p.arguments : {}, ctx);
         return ok({ content: [{ type: 'text', text: JSON.stringify(data, null, 1) }] });
