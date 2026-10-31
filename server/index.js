@@ -57,6 +57,14 @@ app.use(require('compression')({ filter: (req, res) => !/text\/event-stream/.tes
 // req.ip reflètent le proxy et non le visiteur tant qu'on ne fait pas
 // confiance aux en-têtes X-Forwarded-*. Sans effet en local.
 app.set('trust proxy', 1);
+// Site de la compagnie (31 oct. 2026) : compagnienoesis.com et www.compagnienoesis.com servent une page de présentation (site/index.html), jamais l'application.
+const SITE_HOSTS = ['compagnienoesis.com', 'www.compagnienoesis.com'];
+app.use((req, res, next) => {
+  if (!SITE_HOSTS.includes(req.hostname)) return next();
+  if ((req.path !== '/' && req.path !== '/index.html') || (req.method !== 'GET' && req.method !== 'HEAD')) return res.status(404).type('text/plain').send('Introuvable');
+  res.set('Cache-Control', 'public, max-age=300');
+  res.sendFile(require('path').join(__dirname, '..', 'site', 'index.html'));
+});
 
 // En-têtes de sécurité HTTP (audit Sécurité, 7-8 septembre 2026 —
 // noesis-timetracker-securite.md) : confirmés absents en production par un
