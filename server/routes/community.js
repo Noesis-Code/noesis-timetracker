@@ -21,6 +21,7 @@ const { periodRange } = require('../lib/period');
 // filtre de comparaison entre membres devient ?category=, validée contre les
 // catégories RÉELLES de l'activité — voir GET /community/activity-stats.
 const goals = require('../lib/goals');
+const { computeTrustScore } = require('../lib/trustscore');
 
 // Longueur maximale d'un message du fil de discussion : généreuse pour une
 // conversation, mais bornée — le corps de requête d'Express est certes déjà
@@ -65,6 +66,12 @@ router.get('/community', (req, res) => {
 
   const period = ['day', 'week', 'month', 'year'].includes(req.query.period) ? req.query.period : 'week';
   res.json(sharedActivitiesForUser(userId, period, req.query.date || null, req.timezone));
+});
+
+// Mon score d'exécution (calcul serveur, voir lib/trustscore.js). Le score des AUTRES membres n'est pas exposé tant
+// que le partage choisi par le membre n'existe pas.
+router.get('/community/my-score', (req, res) => {
+  res.json(computeTrustScore(req.userId, undefined, req.timezone));
 });
 
 // Détail d'UNE activité partagée précise (section Membres > sélecteur

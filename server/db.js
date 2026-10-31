@@ -2436,6 +2436,11 @@ if (!columnExists('sub_project_items', 'dueDateAuto')) {
 if (!columnExists('sub_project_items', 'seenAt')) {
   db.exec('ALTER TABLE sub_project_items ADD COLUMN seenAt TEXT');
 }
+// 31 oct. 2026 (score de confiance, Communauté) : origine d'une entrée de temps — 'manuel' (ajout à la main),
+// 'import' (CSV, jamais compté dans le score), NULL = chrono (toutes les entrées existantes).
+if (!columnExists('time_entries', 'source')) {
+  db.exec('ALTER TABLE time_entries ADD COLUMN source TEXT');
+}
 
 // ===================== ANNONCES DIFFUSEES A TOUS =====================
 // 30 septembre 2026 : annonce envoyee a la main par scripts/send-announcement.js.

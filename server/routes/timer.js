@@ -7,6 +7,7 @@ const { isoDateOf, dayNameOf, formatElapsed } = require('../lib/dates');
 // sous-projet du 4 septembre 2026, retiré). Toute la validation vit dans
 // ce module partagé avec server/routes/history.js — voir son en-tête.
 const { resolveCategoryKey, categorySummary } = require('../lib/entrycategory');
+const { checkEntryTimes } = require('../lib/entryguard');
 
 const router = express.Router();
 
@@ -191,6 +192,10 @@ router.post('/timer/stop', (req, res) => {
   if (stopTime <= startTime) {
     return res.status(400).json({ error: "L'heure de fin doit être après l'heure de début." });
   }
+  // Anti-triche : mêmes règles que l'historique (pas de chevauchement, 24 h au plus, pas de futur). Un début
+  // corrigé à l'arrêt est une saisie manuelle : plafonné à 48 h dans le passé. Le chrono reste en cours si refusé.
+  const guardMsg = checkEntryTimes(user.id, startTime, stopTime, 0, undefined, { manual: req.body.startTime !== undefined, overlapToleranceMs: 60 * 1000 });
+  if (guardMsg) return res.status(400).json({ error: guardMsg });
 
   const durationSeconds = Math.max(0, Math.round((stopTime - startTime) / 1000));
   const noteChk = textlimits.clean(req.body.note !== undefined ? req.body.note : running.note, { max: textlimits.LIMITS.SESSION_NOTE, word: 'Note', fem: true, kind: 'text' });

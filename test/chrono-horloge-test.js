@@ -78,11 +78,12 @@ assert(/delete copy\.serverNow/.test(src), 'copie locale hors ligne : serverNow 
     await c.post('/api/timer/stop', {});
     // --- 4. Changement d'heure / horloge changée pendant une session ---
     // Retour à l'heure normale (1er nov. 2026, Montréal) : 01:30 EDT -> 01:10 EST = 40 min réelles, envoyées en instants exacts (UTC).
-    const dstStart = new Date('2026-11-01T05:30:00Z'), dstEnd = new Date('2026-11-01T06:10:00Z');
+    // Instants relatifs à maintenant (la garde anti-triche refuse le futur et plus de 48 h dans le passé) : 40 min réelles.
+    const dstStart = new Date(Date.now() - 2 * 3600e3), dstEnd = new Date(dstStart.getTime() + 40 * 60e3);
     await c.post('/api/timer/start', { activityId: A, startTime: new Date(Date.now() - 3600e3).toISOString() });
     const dstStop = await c.post('/api/timer/stop', { startTime: dstStart.toISOString(), endTime: dstEnd.toISOString() });
     assert(dstStop.status === 200, 'retour à l\'heure normale : arrêt accepté avec instants exacts');
-    const dstRow = (await c.get('/api/history?period=year&date=2026-11-01')).body.filter((x) => x.id === dstStop.body.entryId);
+    const dstRow = (await c.get('/api/history?period=year')).body.filter((x) => x.id === dstStop.body.entryId);
     assert(dstRow.length === 1 && dstRow[0].durationSeconds === 2400, 'retour à l\'heure normale : 2400 s (jamais négatif), une seule entrée');
     // Heure de fin avant le départ (horloge reculée) : refus clair, aucune entrée, le chrono reste en cours.
     await c.post('/api/timer/start', { activityId: A, startTime: new Date(Date.now() - 600e3).toISOString() });

@@ -82,7 +82,7 @@ const iso = (ms) => new Date(Date.now() + ms).toISOString();
     const cat = await c.post('/api/timer/category', { category: pk });
     assert(cat.status === 200 && cat.body.category && cat.body.category.key === pk, 'catégorie rattachée en cours de chrono');
     assert((await c.post('/api/timer/category', { category: 'zzz' })).status >= 400, 'catégorie invalide refusée');
-    const stop2 = await c.post('/api/timer/stop', { startTime: iso(-1800e3) });
+    const stop2 = await c.post('/api/timer/stop', {});
     assert(stop2.body.category && stop2.body.category.key === pk, "l'arrêt garde la catégorie");
 
     // Horloge du téléphone décalée (repli 18) : le serveur donne son heure (serverNow) pour que le client mesure l'écart.

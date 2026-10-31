@@ -138,6 +138,7 @@ const SUITE_FILES = [
   'zone-fichier-test.js',
   'fonctionnel-chrono.js',
   'chrono-horloge-test.js',
+  'trustscore-test.js',
   'fonctionnel-taches.js',
   'fonctionnel-modules.js',
   'fonctionnel-secteurs.js',

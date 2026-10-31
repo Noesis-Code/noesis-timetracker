@@ -110,7 +110,7 @@ router.post('/history', (req, res) => {
     return res.status(400).json({ error: 'Heures invalides (fin doit être après le début).' });
   }
   // Mêmes contrôles que la modification (PUT ci-dessous) : plus de 24 h, heure future, chevauchement.
-  const guardMsg = checkEntryTimes(userId, startTime, endTime, 0);
+  const guardMsg = checkEntryTimes(userId, startTime, endTime, 0, undefined, { manual: true });
   if (guardMsg) return res.status(400).json({ error: guardMsg });
   const durationSeconds = Math.round((endTime - startTime) / 1000);
   const noteChk = textlimits.clean(req.body.note, { max: textlimits.LIMITS.SESSION_NOTE, word: 'Note', fem: true, kind: 'text' });
@@ -121,8 +121,8 @@ router.post('/history', (req, res) => {
 
   // isoDate/dayOfWeek dans le fuseau du téléphone de la personne (voir
   // server/routes/timer.js pour le même changement et son raisonnement).
-  const info = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+  const info = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory, source)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'manuel')`)
     .run(userId, activity.id, noteChk.text, startTime.toISOString(), endTime.toISOString(),
       durationSeconds, isoDateOf(startTime, req.timezone), dayNameOf(startTime, req.timezone), resolved.categoryKey);
 
@@ -148,7 +148,9 @@ router.put('/history/:id', (req, res) => {
   if (isNaN(startTime) || isNaN(endTime) || endTime <= startTime) {
     return res.status(400).json({ error: 'Heures invalides (fin doit être après le début).' });
   }
-  const guardMsg = checkEntryTimes(entry.userId, startTime, endTime, entry.id);
+  // Les heures ne sont « manuelles » que si elles changent : changer la catégorie d'une vieille entrée reste permis.
+  const timesChanged = startTime.toISOString() !== entry.startTime || endTime.toISOString() !== entry.endTime;
+  const guardMsg = checkEntryTimes(entry.userId, startTime, endTime, entry.id, undefined, { manual: timesChanged });
   if (guardMsg) return res.status(400).json({ error: guardMsg });
   const durationSeconds = Math.round((endTime - startTime) / 1000);
   let note = entry.note;
