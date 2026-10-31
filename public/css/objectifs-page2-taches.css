@@ -304,6 +304,9 @@
 /* bulle de modification plus transparente. */
 :root .goalsTasksGroup .subProjectItem.goalsTaskEditing { background: color-mix(in srgb, var(--glass-calm-bg) 40%, transparent); }
 :root .goalsTaskEditPanel textarea.goalsTaskEditText { min-height: 0 !important; }
+/* modification d'une tâche : toutes les bulles (date, répétition, responsable) ont la même largeur, et le texte part de leur bord gauche. */
+:root .goalsTaskEditPanel .recurField, :root .goalsTaskEditPanel textarea.goalsTaskEditText { width: 100%; max-width: 320px; box-sizing: border-box; }
+:root .goalsTaskEditPanel .recurField .recurMode { max-width: 100%; }
 
 /* report entre périodes, cible irréaliste, indicateur de retard (discret, violet). */
 .goalsReportBlock + .goalsReportBlock { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--sep); }
