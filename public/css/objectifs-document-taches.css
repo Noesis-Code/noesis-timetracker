@@ -185,4 +185,4 @@
 /* Flèche près du nom (dossier connecté, liste des dossiers) ; corbeille d'origine en bas à gauche du réglage d'un dossier (exception demandée, 31 oct. 2026). */
 :root .docTasksFolderToggle { flex: 0 1 auto; }
 :root .docTasksFolderToggle .cmpChev, :root .docTasksFoldersLink .cmpChev { margin-left: 2px; }
-:root .docTasksFsActions .docTasksTrashLeft { margin-right: auto; color: var(--brique-text, #E08A69); }
+:root .docTasksFsActions .docTasksTrashLeft, :root .docTasksFsActions .docTasksTrashLeft:hover { margin-right: auto; color: var(--text); }
