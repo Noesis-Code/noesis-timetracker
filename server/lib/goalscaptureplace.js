@@ -606,11 +606,9 @@ function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel,
       return first && first.length >= 2 && text.indexOf(' ' + first + ' ') !== -1;
     });
     if (hits.length === 1) who = hits[0].id;
-    // Sinon : historique des tâches similaires (Autonome : attribué ; Partiel : proposé, confirmé dans le pop-up).
+    // Sinon : historique des tâches similaires (Partiel : proposé, confirmé dans le pop-up).
     if (!who) { try { who = suggestAssigneeFromHistory(activityId, taskLabel, members); } catch (e) { who = null; } }
   }
-  // Mode Autonome : un responsable est toujours attribué (à défaut, celui qui capture).
-  if (!who && !noAssign && opts && opts.fallbackWho) who = opts.fallbackWho;
   db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = CASE WHEN ? THEN dueDateAuto ELSE 2 END, plannedUserId = COALESCE(plannedUserId, ?) WHERE id = ?').run(date, manual ? 1 : 0, who, itemId);
   try { goalsauto.onSubProjectItemChanged(activityId, categoryKey); } catch (e) { /* non bloquant */ }
   return date;

@@ -325,13 +325,8 @@ router.put('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
     // parallèle, pour ne jamais avoir deux appels IA concurrents sur le même
     // événement.
     // Les objectifs hebdomadaires suivent le mode « gestion de l'IA ».
-    // Autonome : remplissage automatique (comme avant). Partiel : le client demande la proposition
-    // (POST …/weekly-proposals) et l'utilisateur valide. Absence ou mode jamais choisi : rien.
-    const modeRow = db.prepare('SELECT aiMode FROM users WHERE id = ?').get(userId);
-    const fill = modeRow && modeRow.aiMode === 'autonome'
-      ? goalsweeklyauto.generateForPeriod(activityId, userId, category, periodNumber)
-      : Promise.resolve();
-    fill
+    // Partiel : le client demande la proposition (POST …/weekly-proposals) et l'utilisateur valide. Absence ou mode jamais choisi : rien.
+    Promise.resolve()
       .then(() => crosssectorinference.evaluateCrossSectorLinks(activityId, category, { type: 'main_goal', text, periodNumber }))
       .catch(() => {});
   } catch (err) {

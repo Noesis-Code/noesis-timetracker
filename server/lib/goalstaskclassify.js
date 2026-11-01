@@ -457,15 +457,11 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
   const forcedCategory = opts && opts.forcedCategory ? String(opts.forcedCategory) : null;
   const absence = !!(opts && opts.aiMode === 'absence');
 
-  // Récurrence : Autonome = seulement si le mot « récurrente » est écrit ; Partiel = Noèsis propose
-  // (champ recurrenceSuggestion, l'utilisateur confirme dans le pop-up) ; Absent = rien.
+  // Récurrence : Partiel = Noèsis propose (champ recurrenceSuggestion, l'utilisateur confirme dans le pop-up) ; Absent = rien.
   const taskrecurrence = require('./taskrecurrence');
   let recurrence = null;
   let recurrenceSuggestion = null;
-  if (opts && opts.aiMode === 'autonome') {
-    const p = taskrecurrence.parseExplicit(label);
-    if (p && p.label) { label = p.label; recurrence = { every: p.every, unit: p.unit }; }
-  } else if (opts && opts.aiMode === 'partiel') {
+  if (opts && opts.aiMode === 'partiel') {
     const sug = await taskrecurrence.suggest(label);
     if (sug) { recurrenceSuggestion = { every: sug.every, unit: sug.unit }; if (sug.label) label = sug.label; }
   }
@@ -483,7 +479,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
       }
       let item = await addTaskWithAutoCategory(activityId, userId, label, { strict: true, forcedKey: forcedCategory, skipAi: absence, recurrence });
       // Mode Partiel — tri introuvable => Noèsis propose le secteur LE PLUS UTILISÉ ;
-      // le pop-up de rangement permet ensuite de rectifier. (Autonome/Absence : on redemande à l'utilisateur.)
+      // le pop-up de rangement permet ensuite de rectifier. (Absence : on redemande à l'utilisateur.)
       if (item.unresolved && opts && opts.aiMode === 'partiel' && item.candidates && item.candidates.length) {
         let bestKey = item.candidates[0].key;
         let bestCount = -1;
@@ -505,17 +501,13 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
       if (!skipAutoPlace) {
         try {
           const pre = await goalscaptureplace.precomputeObjectiveMatch(userId, activityId, item.categoryKey, label);
-          placedDate = goalscaptureplace.placeCaptureDefault(userId, activityId, item.categoryKey, item.id, label, { out: placeOut, pre, noAssign: absence, fallbackWho: opts && opts.aiMode === 'autonome' ? userId : null });
+          placedDate = goalscaptureplace.placeCaptureDefault(userId, activityId, item.categoryKey, item.id, label, { out: placeOut, pre, noAssign: absence });
         } catch (e) {
           // Jamais bloquant pour la capture elle-même — la tâche reste
           // simplement non datée, visible dans sa catégorie comme toute
           // tâche sans dueDate.
           placedDate = null;
         }
-      }
-      // Mode Autonome (aucun pop-up) : responsable désigné par le texte, autre que l'auteur → notification.
-      if (opts && opts.aiMode === 'autonome') {
-        try { require('./taskassignnotif').notifyAssigned(item.id, userId); } catch (e) { /* non bloquant */ }
       }
       // Détail du rangement pour le pop-up de la page 1.
       let placement = {};

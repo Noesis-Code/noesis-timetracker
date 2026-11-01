@@ -59,7 +59,7 @@ function anchorDayFromLabel(label) {
 const WORD = '(?:r[ée]current(?:e|s|es)?)';
 const NUM = { un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, dix: 10 };
 
-// Texte libre (mode Autonome) : la récurrence n'est créée QUE si le mot « récurrente » est écrit.
+// Texte libre : détecte le mot « récurrente » écrit (première étape de suggest() en mode Partiel).
 // Retourne { label (sans le mot ni la fréquence), every, unit } ou null. Sans fréquence : chaque semaine.
 function parseExplicit(text) {
   let label = String(text || '');

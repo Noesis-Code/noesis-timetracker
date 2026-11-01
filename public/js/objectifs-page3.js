@@ -298,59 +298,6 @@
   // la vue compacte ; l'avancement agrégé reste visible sur le bandeau de
   // l'objectif périodique ci-dessus.
 
-  // (discussion "B. Objectifs — Calendrier & intégrations"),
-  // bug signalé par Emilien (relayé, puis confirmé sans reproduction côté
-  // serveur à l'encart 72 du journal de chantiers — le déclenchement IA est
-  // bien câblé et s'exécute) : « les objectifs hebdomadaires ne se sont pas
-  // mis par défaut [...] il a fallu marquer un premier objectif hebdomadaire
-  // pour que les autres se génèrent ». Cause réelle : PUT .../periods/:n/main
-  // (server/routes/goals.js) répond IMMÉDIATEMENT, et ne lance le remplissage
-  // IA (server/lib/goalsweeklyauto.js) qu'EN FIRE-AND-FORGET juste après —
-  // donc quelques secondes plus tard, hors de la réponse HTTP. Le
-  // `reloadGoalsAll()` déclenché ci-dessous par `saveMainGoalText()` arrive
-  // donc systématiquement trop tôt pour les voir ; saisir un premier
-  // objectif hebdomadaire à la main déclenchait son propre rechargement
-  // (saveWeeklyText → reloadGoalsAll) qui, lui, arrivait après coup — d'où
-  // l'impression trompeuse que cette saisie manuelle était nécessaire pour
-  // « débloquer » les autres. Corrigé en relançant quelques rechargements
-  // espacés le temps que le serveur ait fini, SANS JAMAIS écraser une saisie
-  // hebdomadaire en cours (garde sur document.activeElement ci-dessous) — si
-  // Emilien est en train d'écrire dans une des 4 zones au moment d'une
-  // relance, ce tour est sauté (aucun rendu, aucune donnée touchée) et
-  // reporté à la tentative suivante plutôt que d'annuler le suivi.
-  var GOALS_WEEKLY_AUTOFILL_POLL_DELAYS_MS = [2500, 4000, 6000, 8000]; // ~20 s au total, 4 tentatives
-
-
-  function goalsWeeklyHasAnyText(period) {
-    return !!(period && period.weeklies && period.weeklies.some(function (w) { return w.text && w.text.trim(); }));
-  }
-
-
-  function maybeScheduleGoalsWeeklyAutoFillPoll(activityId, category, periodNumber, attemptIndex) {
-    if (attemptIndex >= GOALS_WEEKLY_AUTOFILL_POLL_DELAYS_MS.length) return;
-    // Contexte encore valide (activité/catégorie toujours celles visées) et
-    // rien à attendre si une semaine a déjà du texte (remplissage IA déjà
-    // arrivé, ou saisie manuelle entre-temps) — mêmes gardes que
-    // reloadGoalsAll()/reloadGoalsGridForPole() plus bas dans ce fichier.
-    if (activityId !== TMT.currentGoalsActivityId || category !== TMT.currentGoalsCategory) return;
-    var period = TMT.currentGoalsPlanning && goalPeriodByNumber(TMT.currentGoalsPlanning, periodNumber);
-    if (goalsWeeklyHasAnyText(period)) return;
-
-    setTimeout(function () {
-      if (activityId !== TMT.currentGoalsActivityId || category !== TMT.currentGoalsCategory) return;
-
-      var weeklyListBox = $('activityGoalsWeeklyList');
-      var active = document.activeElement;
-      if (active && weeklyListBox && weeklyListBox.contains(active)) {
-        maybeScheduleGoalsWeeklyAutoFillPoll(activityId, category, periodNumber, attemptIndex + 1);
-        return;
-      }
-
-      reloadGoalsAll().then(function () {
-        maybeScheduleGoalsWeeklyAutoFillPoll(activityId, category, periodNumber, attemptIndex + 1);
-      });
-    }, GOALS_WEEKLY_AUTOFILL_POLL_DELAYS_MS[attemptIndex]);
-  }
 
 
   // description détaillée d'un objectif (titre = quelques mots).
@@ -434,7 +381,6 @@
     return api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main', body)
       .then(reloadGoalsAll)
       .then(function () {
-        if (title && title.trim() && TMT.aiMode === 'autonome') maybeScheduleGoalsWeeklyAutoFillPoll(pollActivityId, pollCategory, periodNumber, 0);
         afterMainSavedPartiel(periodNumber, title);
       });
   }
@@ -453,7 +399,6 @@
         // remplissage IA ne se déclenche que sur un texte non vide
         // (server/lib/goalsweeklyauto.js, repli silencieux "no-main-goal").
         if (!text || !text.trim()) return;
-        if (TMT.aiMode === 'autonome') maybeScheduleGoalsWeeklyAutoFillPoll(pollActivityId, pollCategory, periodNumber, 0);
         afterMainSavedPartiel(periodNumber, text);
       })
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
@@ -625,7 +570,7 @@
   // à travers les re-rendus complets de cette liste (renderGoalsWeeklyList()
   // est rappelée à chaque renderActivityGoals(), y compris par le
   // rafraîchissement auto-hebdomadaire silencieux — voir
-  // maybeScheduleGoalsWeeklyAutoFillPoll() plus haut dans ce fichier) : sans
+  // l'ancien suivi du remplissage auto, supprimé) : sans
   // ça, ce rafraîchissement replierait une semaine qu'Emilien vient d'ouvrir.
   var goalsOpenWeekIndexes = {};
   // État déplié PAR (période, semaine) et seulement pour le secteur/pôle affiché : changer de période le garde,

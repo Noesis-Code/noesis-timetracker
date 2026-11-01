@@ -1,5 +1,5 @@
 // Récurrences proposées par l'IA (cap RECURRENCE) et rapprochement tâche -> objectif (cap MATCH) : faux client IA, aucun réseau.
-// Règles : l'IA PROPOSE (Partiel) et ne crée rien ; Autonome ne crée une récurrence que si le mot « récurrente » est écrit ; dates = jours (liste, jamais un créneau).
+// Règles : l'IA PROPOSE (Partiel) et ne crée rien  ; dates = jours (liste, jamais un créneau).
 process.env.TZ = 'America/Montreal';
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-recia-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
@@ -34,7 +34,7 @@ assert(rec.nextDueDate('2026-01-31', 1, 'month', '2026-01-31', 31) === '2026-02-
 assert(rec.nextDueDate('2026-02-28', 1, 'month', '2026-02-28') === '2026-03-28', 'sans ancrage : comportement inchangé');
 assert(/^\d{4}-\d{2}-\d{2}$/.test(ai('2026-10-19', 1, 'day')), 'la date générée est un JOUR (AAAA-MM-JJ), jamais une heure');
 
-// ---- Détection explicite (Autonome) ----
+// ---- Détection explicite ----
 const px = (s) => { const r = rec.parseExplicit(s); return r ? r.every + ' ' + r.unit : null; };
 assert(px('Payer le loyer récurrente tous les mois') === '1 month', 'mot « récurrente » + tous les mois');
 assert(px('Rapport récurrente aux deux semaines') === '2 week', 'aux deux semaines');
@@ -79,7 +79,7 @@ fake = {
   assert(await sg('Faire la paie tous les lundis') === null, 'IA en panne -> aucune proposition, jamais d\'erreur');
   classify.callModel = async (prompt, max, feature) => { calls += 1; if (feature === 'recurrence-tache') { const t = String(prompt.split('Tâche : ')[1] || ''); const k = Object.keys(fake).find((x) => t.includes(x)); return k ? fake[k] : 'NON'; } if (feature === 'rapprochement-objectif') return fake.__match ? fake.__match(prompt) : '{"index":null}'; return 'NON'; };
 
-  // ---- Chemin réel : capture en mode Partiel / Autonome / Absent ----
+  // ---- Chemin réel : capture en mode Partiel / Absent ----
   const mkUser = (id) => db.prepare("INSERT INTO users (id, name, createdAt) VALUES (?, ?, datetime('now'))").run(id, id);
   const mkAct = (name, owner) => { const id = db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES (?,?,'')").run(name, owner).lastInsertRowid; db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?,?,'#fff','')").run(id, owner); return id; };
   mkUser('ua'); mkUser('ub');
@@ -93,17 +93,13 @@ fake = {
   assert(r.ok && r.recurrenceSuggestion && r.recurrenceSuggestion.unit === 'week' && !recOf(r.id).recurEvery, 'Partiel : récurrence PROPOSÉE (recurrenceSuggestion), rien d\'enregistré sans validation');
   r = await cap('Rapport récurrente aux deux semaines', 'partiel');
   assert(r.ok && r.recurrenceSuggestion && !recOf(r.id).recurEvery, 'Partiel + mot explicite : toujours une proposition, pas une création');
-  r = await cap('Faire la paie tous les lundis', 'autonome');
-  assert(r.ok && !r.recurrenceSuggestion && !recOf(r.id).recurEvery, 'Autonome sans le mot « récurrente » : aucune récurrence créée');
-  r = await cap('Faire la paie récurrente toutes les 2 semaines', 'autonome');
-  assert(r.ok && recOf(r.id).recurEvery === 2 && recOf(r.id).recurUnit === 'week', 'Autonome avec le mot écrit par l\'utilisateur : créée (c\'est sa demande)');
   r = await cap('Faire la paie tous les lundis', 'absence');
   assert(r.ok && !r.recurrenceSuggestion && !recOf(r.id).recurEvery, 'Absence : aucune proposition ni création');
   r = await cap('Appeler le client une fois', 'partiel');
   assert(r.ok && !r.recurrenceSuggestion, 'Partiel : « une fois » ne propose rien');
   // Types supportés = jour / semaine / mois (UNITS). Expression non exprimable : la tâche est quand même créée, simple, sans récurrence ni perte du texte.
   assert(JSON.stringify(rec.UNITS) === '["day","week","month"]', 'types de récurrence réellement supportés : jour, semaine, mois (tous les N)');
-  for (const [label, mode] of [['Rapport chaque jour ouvrable', 'partiel'], ['Courir 3 fois par semaine', 'partiel'], ['Rapport récurrente chaque jour ouvrable', 'autonome'], ['Courir récurrente 3 fois par semaine', 'autonome']]) {
+  for (const [label, mode] of [['Rapport chaque jour ouvrable', 'partiel'], ['Courir 3 fois par semaine', 'partiel'], ['Rapport récurrente chaque jour ouvrable', 'partiel'], ['Courir récurrente 3 fois par semaine', 'partiel']]) {
     r = await cap(label, mode);
     const row = db.prepare('SELECT label, recurEvery FROM sub_project_items WHERE id = ?').get(r.id);
     assert(r.ok && !r.recurrenceSuggestion && !row.recurEvery && /jour ouvrable|3 fois par semaine/.test(row.label), 'non exprimable (' + mode + ') « ' + label.slice(0, 22) + ' » : tâche normale créée, titre gardé, sans récurrence');
@@ -111,7 +107,8 @@ fake = {
 
   // Cochée : la suivante naît avec un JOUR (liste, pas de créneau), une seule ouverte à la fois
   const sub = require('../server/lib/subprojects');
-  r = await cap('Rapport mensuel récurrente le 1er de chaque mois', 'autonome');
+  r = await cap('Rapport le 1er de chaque mois', 'absence');
+  sub.updateItem(r.id, { recurrence: { every: 1, unit: 'month' }, dueDate: '2026-10-01' }, 'ua');
   sub.updateItem(r.id, { done: true }, 'ua');
   const open = db.prepare("SELECT dueDate, recurEvery, recurUnit FROM sub_project_items WHERE label = ? AND done = 0").all('Rapport le 1er de chaque mois');
   assert(open.length === 1 && /^\d{4}-\d{2}-\d{2}$/.test(open[0].dueDate) && open[0].recurUnit === 'month', 'cochée : une seule suivante ouverte, date = jour AAAA-MM-JJ');
