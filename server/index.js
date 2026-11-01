@@ -60,6 +60,7 @@ app.set('trust proxy', 1);
 // Site de la compagnie (31 oct. 2026) : compagnienoesis.com et www.compagnienoesis.com servent une page de présentation (site/index.html), jamais l'application.
 const SITE_HOSTS = ['compagnienoesis.com', 'www.compagnienoesis.com'];
 app.use((req, res, next) => {
+  if (require('./lib/legalpages').serve(req, res)) return; // pages légales publiques (tous les hôtes, GET seulement)
   if (!SITE_HOSTS.includes(req.hostname)) return next();
   if ((req.path !== '/' && req.path !== '/index.html') || (req.method !== 'GET' && req.method !== 'HEAD')) return res.status(404).type('text/plain').send('Introuvable');
   res.set('Cache-Control', 'public, max-age=300');

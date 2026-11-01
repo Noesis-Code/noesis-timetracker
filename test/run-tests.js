@@ -154,6 +154,7 @@ const SUITE_FILES = [
   'categories-visibility-test.js',
   'category-delete-carry-test.js',
   'asset-version-test.js',
+  'pages-legales-test.js',
   'sw-bump-test.js',
   'apprentissage-e2e-test.js',
   'expansion-achat-staging-test.js',
