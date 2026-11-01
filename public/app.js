@@ -1123,6 +1123,7 @@
   // message d'installation reste tant que l'app n'a pas été relancée
   // depuis son icône, et disparaît définitivement dès que c'est le cas.
   function isStandaloneMode() {
+    try { if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) return true; } catch (e) { /* hors coque native */ } // application des boutiques (Android/iOS) : déjà installée
     return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
       window.navigator.standalone === true;
   }
