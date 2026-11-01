@@ -64,7 +64,7 @@
     top.appendChild(el('span', 'notifRowLabel', tr('Connecter mon IA')));
     top.appendChild(el('span', 'hint', connected ? tr('Connectée') : tr('Non connectée')));
     box.appendChild(top);
-    box.appendChild(el('p', 'hint', tr("Branche TimeTracker à ton IA (Claude, ChatGPT…) : elle lit tes tâches et tes objectifs ; en écriture (case ci-dessous), elle peut aussi les organiser.")));
+    box.appendChild(el('p', 'hint', tr("Branche Noèsis à ton IA (Claude, ChatGPT…) : elle lit tes tâches et tes objectifs ; en écriture (case ci-dessous), elle peut aussi les organiser.")));
 
     if (shown) {
       var full = (data.origin || window.TMT_SERVER_ORIGIN || location.origin) + '/mcp/t/' + shown.token;

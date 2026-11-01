@@ -25,4 +25,5 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 - `img/`, `maquettes/` : images et maquettes.
 - [legal/propositions-comptes-entreprise-2026-10-30.md](legal/propositions-comptes-entreprise-2026-10-30.md) : propositions de mise à jour des CGU et de la politique pour les comptes entreprise (à faire relire par un juriste)
 - [legal/adresses-publiques.md](legal/adresses-publiques.md) : adresses web publiques de la politique, des CGU et des mentions légales (App Store, Google Play), générées sans dupliquer le texte
+- [legal/renommage-noesis-2026-11-01.md](legal/renommage-noesis-2026-11-01.md) : le nom du produit est « Noèsis » seul depuis le 1er novembre 2026, sans changement de fond
 - [legal/audit-conformite-2026-10-30.md](legal/audit-conformite-2026-10-30.md) : audit des documents légaux contre le code (corrigé, à faire par Émilien, limites)

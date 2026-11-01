@@ -28,7 +28,7 @@ function page({ title, body }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(title)} — Noèsis TimeTracker</title>
+<title>${escapeHtml(title)} — Noèsis</title>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 3rem auto; padding: 0 1.25rem; line-height: 1.5; color: #1a1a1a; }
   button { font: inherit; padding: 0.6rem 1.2rem; border: none; border-radius: 6px; background: #2563eb; color: #fff; cursor: pointer; }
@@ -63,7 +63,7 @@ router.get('/offer/parental-consent/:token', (req, res) => {
     title: 'Consentement parental',
     body: `
       <h1>Consentement à un abonnement Expansion</h1>
-      <p><strong>${escapeHtml(request.guardianName)}</strong>, tu es indiqué·e comme représentant légal d'un utilisateur de Noèsis TimeTracker âgé de 16 ou 17 ans qui souhaite souscrire à Expansion (${OFFER1_PRICE_LABEL}, résiliable à tout moment).</p>
+      <p><strong>${escapeHtml(request.guardianName)}</strong>, tu es indiqué·e comme représentant légal d'un utilisateur de Noèsis âgé de 16 ou 17 ans qui souhaite souscrire à Expansion (${OFFER1_PRICE_LABEL}, résiliable à tout moment).</p>
       <p>En vertu de l'article 157 du Code civil du Québec, cet engagement financier récurrent nécessite ton consentement exprès avant d'être activé.</p>
       <form method="post" action="/api/offer/parental-consent/${encodeURIComponent(request.token)}">
         <button type="submit">Je consens à cet abonnement</button>

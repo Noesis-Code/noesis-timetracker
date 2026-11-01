@@ -325,7 +325,7 @@ app.use(require('./lib/errorlog').errorHandler);
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.NOESIS_HOST || (process.env.PORT ? '0.0.0.0' : 'localhost');
 app.listen(PORT, HOST, () => {
-  console.log(`Noèsis TimeTracker en écoute sur http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+  console.log(`Noèsis en écoute sur http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   console.log(`Version de l'app servie : ${APP_VERSION}`);
   require('./lib/envcheck').logAtStartup();
 

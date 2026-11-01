@@ -74,19 +74,19 @@ function buildMail(kind, name, dateMs) {
   const when = fmtDate(dateMs);
   if (kind === 'notice') {
     return {
-      subject: 'Votre compte Noèsis TimeTracker sera supprimé',
-      text: `${hello}votre compte Noèsis TimeTracker n'a pas été utilisé depuis plus de 23 mois. Sans connexion de votre part d'ici le ${when}, il sera supprimé avec ses données.\n\nPour le conserver, il suffit d'ouvrir l'application et de vous connecter.${SIGNATURE}`,
+      subject: 'Votre compte Noèsis sera supprimé',
+      text: `${hello}votre compte Noèsis n'a pas été utilisé depuis plus de 23 mois. Sans connexion de votre part d'ici le ${when}, il sera supprimé avec ses données.\n\nPour le conserver, il suffit d'ouvrir l'application et de vous connecter.${SIGNATURE}`,
     };
   }
   if (kind === 'reminder') {
     return {
-      subject: 'Votre compte Noèsis TimeTracker sera supprimé demain',
-      text: `${hello}rappel : votre compte Noèsis TimeTracker sera supprimé demain, le ${when}, avec toutes ses données, faute de connexion depuis plus de 23 mois.\n\nPour le conserver, ouvrez l'application et connectez-vous avant cette date.${SIGNATURE}`,
+      subject: 'Votre compte Noèsis sera supprimé demain',
+      text: `${hello}rappel : votre compte Noèsis sera supprimé demain, le ${when}, avec toutes ses données, faute de connexion depuis plus de 23 mois.\n\nPour le conserver, ouvrez l'application et connectez-vous avant cette date.${SIGNATURE}`,
     };
   }
   return {
-    subject: 'Votre compte Noèsis TimeTracker a été supprimé',
-    text: `${hello}votre compte Noèsis TimeTracker et toutes ses données ont été supprimés aujourd'hui, le ${when}, parce qu'il n'avait pas été utilisé depuis près de 24 mois. Une copie chiffrée peut subsister jusqu'à 12 mois dans nos sauvegardes, puis elle est détruite. Votre adresse courriel n'est conservée nulle part : ce message est le dernier.\n\nPour toute question : compagnie.noesis@gmail.com.${SIGNATURE}`,
+    subject: 'Votre compte Noèsis a été supprimé',
+    text: `${hello}votre compte Noèsis et toutes ses données ont été supprimés aujourd'hui, le ${when}, parce qu'il n'avait pas été utilisé depuis près de 24 mois. Une copie chiffrée peut subsister jusqu'à 12 mois dans nos sauvegardes, puis elle est détruite. Votre adresse courriel n'est conservée nulle part : ce message est le dernier.\n\nPour toute question : compagnie.noesis@gmail.com.${SIGNATURE}`,
   };
 }
 

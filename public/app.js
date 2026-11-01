@@ -15222,11 +15222,11 @@
   }
 
   $('shareAppBtn').addEventListener('click', function () {
-    shareOrCopy(t('Noèsis — le TimeTracker partagé. Rejoins-nous ici : {url}', { url: currentShareUrl() }));
+    shareOrCopy(t('Noèsis, l’application partagée. Rejoins-nous ici : {url}', { url: currentShareUrl() }));
   });
 
   $('shareProfileBtn').addEventListener('click', function () {
-    shareOrCopy(t("Rejoins-moi sur Noèsis, mon TimeTracker partagé : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.", { url: currentShareUrl(), pseudo: profile.name }));
+    shareOrCopy(t("Rejoins-moi sur Noèsis : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.", { url: currentShareUrl(), pseudo: profile.name }));
   });
 
   // ----- Supprimer mon compte (zone "danger" tout en bas de Réglages) -----

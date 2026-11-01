@@ -2,7 +2,7 @@
   "name": "noesis-android",
   "version": "1.0.0",
   "private": true,
-  "description": "Coque Android de Noèsis TimeTracker (Capacitor). Le contenu vient du serveur de production.",
+  "description": "Coque Android de Noèsis (Capacitor). Le contenu vient du serveur de production.",
   "scripts": {
     "sync": "cap sync android",
     "build:debug": "cap sync android && cd android && ./gradlew assembleDebug",

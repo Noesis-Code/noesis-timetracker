@@ -1,4 +1,4 @@
-// Noèsis TimeTracker — traduction de l'interface (français / anglais)
+// Noèsis — traduction de l'interface (français / anglais)
 //
 // Principe volontairement simple, pour ne rien casser dans le reste de
 // l'app : la CLÉ de traduction est la phrase française elle-même, telle
@@ -36,7 +36,6 @@
   // ------------------- Dictionnaire français -> anglais -------------------
   var DICT = {
     // ---- Onboarding ----
-    'TimeTracker partagé': 'Shared TimeTracker',
     // 11 septembre 2026 (écran "ajoute Noèsis à ton écran d'accueil",
     // affiché tant que l'app n'est pas ouverte en mode autonome).
     "Ajoute Noèsis à ton écran d'accueil": 'Add Noèsis to your home screen',
@@ -527,7 +526,7 @@
     // sous-section déroulante regroupant politique de confidentialité,
     // mentions légales et conditions d'utilisation (auparavant seule, à part).
     'Documents légaux': 'Legal documents',
-    "Comment Noèsis TimeTracker fonctionne, ce qu'il fait de tes renseignements, et les règles d'utilisation du service.": 'How Noèsis TimeTracker works, what it does with your information, and the rules for using the service.',
+    "Comment Noèsis fonctionne, ce qu'il fait de tes renseignements, et les règles d'utilisation du service.": 'How Noèsis works, what it does with your information, and the rules for using the service.',
     'Lire la politique de confidentialité': 'Read the privacy policy',
     'Politique de confidentialité': 'Privacy policy',
     'Lire les mentions légales': 'Read the legal notices',
@@ -708,7 +707,7 @@
     'Partagé.': 'Shared.',
     'Copié — tu peux le coller où tu veux.': 'Copied — paste it wherever you like.',
     'Impossible de copier automatiquement — sélectionne le texte à la main.': 'Could not copy automatically — select the text by hand.',
-    'Noèsis — le TimeTracker partagé. Rejoins-nous ici : {url}': 'Noèsis — the shared TimeTracker. Join us here: {url}',
+    'Noèsis, l’application partagée. Rejoins-nous ici : {url}': 'Noèsis, the shared app. Join us here: {url}',
     "Le serveur n'a pas pris en compte le changement de langue : il tourne encore sur la version d'avant la mise à jour. Arrête-le (Ctrl+C) et relance `npm start`, puis réessaie.": 'The server did not apply the language change: it is still running the version from before the update. Stop it (Ctrl+C), start it again with `npm start`, then try once more.',
 
     // ---- Notifications push (1er septembre 2026, volet Communauté ; refonte
@@ -1630,7 +1629,7 @@
     "Connecter mon IA": "Connect my AI",
     "Connectée": "Connected",
     "Non connectée": "Not connected",
-    "Branche TimeTracker à ton IA (Claude, ChatGPT…) : elle lit tes tâches et tes objectifs ; en écriture (case ci-dessous), elle peut aussi les organiser.": "Connect TimeTracker to your AI (Claude, ChatGPT…): it reads your tasks and goals; with writing on (box below), it can also organize them.",
+    "Branche Noèsis à ton IA (Claude, ChatGPT…) : elle lit tes tâches et tes objectifs ; en écriture (case ci-dessous), elle peut aussi les organiser.": "Connect Noèsis to your AI (Claude, ChatGPT…): it reads your tasks and goals; with writing on (box below), it can also organize them.",
     "Copie cette adresse maintenant : elle ne sera plus affichée.": "Copy this address now: it will not be shown again.",
     "Colle-la dans claude.ai > Paramètres > Connecteurs > Ajouter un connecteur personnalisé. Elle contient ton accès : ne la partage pas.": "Paste it in claude.ai > Settings > Connectors > Add custom connector. It contains your access: do not share it.",
     "J'ai copié": "I copied it",
@@ -1878,7 +1877,7 @@
     "Nouvel achat :": "New purchase:",
     // 20 oct. 2026 (Basic n°19, bascule de langue) : chaînes passées à t() sans traduction.
     "Colle d\u2019abord l\u2019adresse de ton agenda.": "Paste your calendar address first.",
-    "Rejoins-moi sur Noèsis, mon TimeTracker partagé : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.": "Join me on Noèsis, my shared TimeTracker: {url}\nMy username is “{pseudo}” — find me in Community > Find members to follow me."
+    "Rejoins-moi sur Noèsis : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.": "Join me on Noèsis: {url}\nMy username is “{pseudo}” — find me in Community > Find members to follow me."
   });
 
   function translateNameText(raw) {

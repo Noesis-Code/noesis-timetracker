@@ -307,7 +307,7 @@
     }
     if (!s.connected) {
       html = '<div class="docTasksDriveRow"><button type="button" class="docTasksDriveBtn" data-d="connect">Connecter Drive</button>'
-        + '<p class="docTasksConsent">En connectant Drive, tu autorises TiMeTracker à lire (lecture seule) les fichiers des dossiers que tu choisis (10 au maximum), uniquement pour que l’IA te propose des tâches. Rien n’est modifié ni conservé. Une fois les dossiers choisis, TiMeTracker les surveille en continu pour y repérer les nouvelles tâches ; tu règles le mode (ajout automatique ou validation) et tu peux te déconnecter à tout moment, ce qui arrête et efface toute la surveillance.</p></div>';
+        + '<p class="docTasksConsent">En connectant Drive, tu autorises Noèsis à lire (lecture seule) les fichiers des dossiers que tu choisis (10 au maximum), uniquement pour que l’IA te propose des tâches. Rien n’est modifié ni conservé. Une fois les dossiers choisis, TiMeTracker les surveille en continu pour y repérer les nouvelles tâches ; tu règles le mode (ajout automatique ou validation) et tu peux te déconnecter à tout moment, ce qui arrête et efface toute la surveillance.</p></div>';
     } else if (driveView === 'folders') {
       html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Choisis un dossier</span><button type="button" class="cmpClose" data-d="closeFolders" aria-label="Fermer">✕</button></div>'
         + '<input type="text" id="docTasksFolderQ" class="docTasksInstr" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Écris le nom du dossier…" value="' + esc(folderQuery) + '">'

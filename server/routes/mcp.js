@@ -482,7 +482,7 @@ function handleRpc(msg, ctx) {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: {} },
         serverInfo: { name: 'timetracker', version: '1.1.0' },
-        instructions: "TimeTracker : les tâches et objectifs de l'utilisateur. Commence par lister_activites. Avec un jeton en écriture, tu peux organiser (créer, modifier, ordonner, planifier, objectifs) mais seulement à la demande de l'utilisateur, jamais de ta propre initiative ; chaque écriture renvoie un numéro de journal pour annuler_modification.",
+        instructions: "Noèsis : les tâches et objectifs de l'utilisateur. Commence par lister_activites. Avec un jeton en écriture, tu peux organiser (créer, modifier, ordonner, planifier, objectifs) mais seulement à la demande de l'utilisateur, jamais de ta propre initiative ; chaque écriture renvoie un numéro de journal pour annuler_modification.",
       });
     case 'notifications/initialized':
     case 'notifications/cancelled':
@@ -495,7 +495,7 @@ function handleRpc(msg, ctx) {
       const p = msg.params || {};
       const tool = Object.prototype.hasOwnProperty.call(tools, p.name) ? tools[p.name] : null;
       if (!tool) return isNotification ? null : rpcError(msg.id, -32602, 'Outil inconnu : ' + p.name);
-      if (!toolOn(userId, p.name)) return isNotification ? null : ok({ isError: true, content: [{ type: 'text', text: 'Module désactivé dans TimeTracker pour cet outil.' }] });
+      if (!toolOn(userId, p.name)) return isNotification ? null : ok({ isError: true, content: [{ type: 'text', text: 'Module désactivé dans Noèsis pour cet outil.' }] });
       if (tool.write && !ctx.canWrite) { const e = new Error("Ce jeton est en lecture seule."); e.forbidden = true; throw e; }
       if (tool.journal && !wlog.unlimited(userId) && !wlog.takeWriteSlot(ctx.tokenId)) return ok({ isError: true, content: [{ type: 'text', text: 'Limite atteinte : ' + wlog.WRITES_PER_MINUTE + ' écritures par minute et ' + wlog.WRITES_PER_DAY + ' par 24 h.' }] });
       try {
@@ -517,7 +517,7 @@ function handleMcpPost(req, res, token) {
     res.set('WWW-Authenticate', 'Bearer realm="timetracker"');
     return res.status(401).json({ jsonrpc: '2.0', id: null, error: { code: -32001, message: 'Jeton invalide ou révoqué.' } });
   }
-  if (!modules.isEnabled(auth.userId, 'ai')) return res.status(403).json(rpcError(null, -32004, 'Module « Assistant IA » désactivé dans TimeTracker.'));
+  if (!modules.isEnabled(auth.userId, 'ai')) return res.status(403).json(rpcError(null, -32004, 'Module « Assistant IA » désactivé dans Noèsis.'));
   if (!aitokens.rateOk(auth.tokenId)) {
     res.set('Retry-After', '60');
     return res.status(429).json(rpcError(null, -32002, 'Trop d\'appels : 60 par minute maximum.'));
