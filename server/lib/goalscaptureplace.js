@@ -43,6 +43,7 @@
 const db = require('../db');
 const goals = require('./goals');
 const goalsauto = require('./goalsauto');
+const efficiency = require('./efficiencyprofile');
 
 // Fenêtre de recherche d'un jour disponible — au-delà, la pertinence d'un
 // placement s'effondre de toute façon (même raisonnement que
@@ -192,7 +193,7 @@ function activityMinutesByDay(userId, activityId, days, excludeId) {
 // durée de ses tâches déjà planifiées laisse de la place ; dans cette semaine,
 // premier jour (à partir d'aujourd'hui) sous le budget quotidien, sinon le
 // moins chargé. null si aucune semaine n'a de place.
-function chooseByActivityWeek(userId, activityId, ownMinutes, today, excludeId) {
+function chooseByActivityWeek(userId, activityId, ownMinutes, today, excludeId, categoryKey) {
   const WEEKS = 3;
   const monday = goals.mostRecentMonday(today);
   const days = [];
@@ -206,7 +207,8 @@ function chooseByActivityWeek(userId, activityId, ownMinutes, today, excludeId) 
     if (used + ownMinutes > weekly) continue;
     const cand = week.filter((d) => d >= today);
     if (!cand.length) continue;
-    return cand.find((d) => load[d] + ownMinutes <= budget)
+    const w = efficiency.weightsFor(activityId, categoryKey);
+    return efficiency.bestDay(cand.filter((d) => load[d] + ownMinutes <= budget), w)
       || cand.reduce((b, d) => (load[d] < load[b] ? d : b), cand[0]);
   }
   return null;
@@ -246,7 +248,7 @@ function chooseAutoPlacementDate(userId, activityId, categoryKey, taskLabel, exc
   }
 
   if (!span) {
-    const byWeek = chooseByActivityWeek(userId, activityId, ownMinutes, today, excludeId);
+    const byWeek = chooseByActivityWeek(userId, activityId, ownMinutes, today, excludeId, categoryKey);
     if (byWeek) return byWeek;
   }
 
@@ -342,20 +344,20 @@ function suggestAssigneeFromHistory(activityId, taskLabel, members) {
 // La date n'est plus « aujourd'hui » par défaut. Indice dans le texte
 // (jour / semaine / échéance) => jour cohérent, choisi selon la capacité ; sans indice => répartition
 // par capacité (semaines de l'activité, ordre logique). Suggestion modifiable (dueDateAuto=2).
-function pickDayInRange(userId, activityId, days, ownMinutes, itemId) {
+function pickDayInRange(userId, activityId, days, ownMinutes, itemId, categoryKey) {
   const load = activityMinutesByDay(userId, activityId, days, itemId);
   const budget = capacityFor(userId, activityId);
   const weekly = activityWeeklyCapacityMinutes(userId, activityId);
   const used = days.reduce((s, d) => s + (load[d] || 0), 0);
   if (used + ownMinutes > weekly * Math.max(1, days.length / 7)) return null;
-  return days.find((d) => (load[d] || 0) + ownMinutes <= budget)
+  return efficiency.bestDay(days.filter((d) => (load[d] || 0) + ownMinutes <= budget), efficiency.weightsFor(activityId, categoryKey))
     || days.reduce((b, d) => ((load[d] || 0) < (load[b] || 0) ? d : b), days[0]);
 }
-function weekHasRoom(userId, activityId, mon, today, own, itemId) {
+function weekHasRoom(userId, activityId, mon, today, own, itemId, categoryKey) {
   const days = [];
   for (let i = 0; i < 7; i += 1) { const d = goals.addDays(mon, i); if (d >= today) days.push(d); }
   if (!days.length) return null;
-  const day = pickDayInRange(userId, activityId, days, own, itemId);
+  const day = pickDayInRange(userId, activityId, days, own, itemId, categoryKey);
   if (!day) return null;
   try {
     const cap = require('./weekplanner').getWeeklyCapacity(userId);
@@ -523,14 +525,14 @@ function placeInObjective(userId, activityId, m, today, own, itemId) {
   if (c.kind === 'weekly') {
     for (let k = 0; k < 4; k += 1) {
       const mon = goals.addDays(c.weekStart, 7 * k);
-      const d = weekHasRoom(userId, activityId, mon, today, own, itemId);
+      const d = weekHasRoom(userId, activityId, mon, today, own, itemId, c.poleKey);
       if (d) return done(mon, d);
     }
     return null;
   }
   const first = goals.mostRecentMonday(today) > c.weekStart ? goals.mostRecentMonday(today) : c.weekStart;
   for (let mon = first; mon <= c.period.endDate; mon = goals.addDays(mon, 7)) {
-    const d = weekHasRoom(userId, activityId, mon, today, own, itemId);
+    const d = weekHasRoom(userId, activityId, mon, today, own, itemId, c.poleKey);
     if (d) return done(mon, d);
   }
   return null;
@@ -561,7 +563,7 @@ function dateForCapture(userId, activityId, categoryKey, itemId, taskLabel, out,
         const days = [];
         for (let i = 0; i < 7; i += 1) { const d = goals.addDays(mon, i); if (d >= today) days.push(d); }
         if (!days.length) continue;
-        const d = pickDayInRange(userId, activityId, days, own, itemId);
+        const d = pickDayInRange(userId, activityId, days, own, itemId, categoryKey);
         if (d) return d;
       }
       return hint.date >= today ? hint.date : today;
@@ -569,7 +571,7 @@ function dateForCapture(userId, activityId, categoryKey, itemId, taskLabel, out,
     if (hint && hint.kind === 'deadline') {
       const days = [];
       for (let d = today; d <= hint.date && days.length < 60; d = goals.addDays(d, 1)) days.push(d);
-      const d = days.length ? pickDayInRange(userId, activityId, days, own, itemId) : null;
+      const d = days.length ? pickDayInRange(userId, activityId, days, own, itemId, categoryKey) : null;
       return d || hint.date;
     }
   } catch (e) { /* repli ci-dessous */ }
@@ -626,6 +628,7 @@ module.exports = {  placeCaptureDefault,
   LOOKAHEAD_DAYS,
   DEFAULT_TASK_MINUTES,
   autoPlaceTask,
+  pickDayInRange,
   longSpan,
   taskMinutes,
 };
