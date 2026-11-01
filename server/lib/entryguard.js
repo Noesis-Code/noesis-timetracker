@@ -8,19 +8,23 @@ const FUTURE_TOLERANCE_MS = 60 * 1000; // tolérance d'horloge
 const MAX_BACKDATE_MS = 48 * 3600 * 1000;
 
 // opts.manual : heures saisies à la main (ajout, modification d'heures, début corrigé à l'arrêt du chrono).
+// opts.noMaxDuration : chrono oublié, arrêté sans correction — sa durée réelle est conservée (corrigeable ensuite).
+// opts.noOverlapCheck : arrêt simple d'un chrono (aucune heure saisie) — jamais bloqué, sinon un chrono oublié resterait coincé.
 // opts.overlapToleranceMs : chevauchement toléré (arrêt du chrono : une fin avancée par l'horloge du téléphone
 // peut frôler l'entrée suivante de quelques secondes).
 function checkEntryTimes(userId, startTime, endTime, excludeId, nowMs, opts) {
   const now = nowMs === undefined ? Date.now() : nowMs;
   if (isNaN(startTime) || isNaN(endTime)) return 'Heures invalides.';
   if (endTime <= startTime) return "L'heure de fin doit être après l'heure de début.";
-  if (endTime - startTime > MAX_DURATION_MS) return 'Une entrée ne peut pas durer plus de 24 h.';
+  if (!(opts && opts.noMaxDuration) && endTime - startTime > MAX_DURATION_MS) return 'Une entrée ne peut pas durer plus de 24 h.';
   if (startTime.getTime() > now + FUTURE_TOLERANCE_MS || endTime.getTime() > now + FUTURE_TOLERANCE_MS) {
     return 'Les heures ne peuvent pas être dans le futur.';
   }
-  if (opts && opts.manual && startTime.getTime() < now - MAX_BACKDATE_MS) {
+  // NOESIS_BACKDATE_LIMIT_OFF=1 : réservé au banc de test (fixtures datées dans le passé), jamais posé en production.
+  if (opts && opts.manual && process.env.NOESIS_BACKDATE_LIMIT_OFF !== '1' && startTime.getTime() < now - MAX_BACKDATE_MS) {
     return 'Une entrée ne peut pas commencer plus de 48 h dans le passé.';
   }
+  if (opts && opts.noOverlapCheck) return null;
   const tol = (opts && opts.overlapToleranceMs) || 0;
   const clash = db.prepare(
     'SELECT id FROM time_entries WHERE userId = ? AND id != ? AND startTime < ? AND endTime > ? LIMIT 1'

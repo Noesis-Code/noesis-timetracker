@@ -21,6 +21,7 @@ const { buildUserExport } = require('../lib/dataexport');
 // noesis-timetracker-chantiers-en-cours.md).
 const { breakdownForRange, chartBreakdownForUser } = require('../lib/stats');
 const { periodRange } = require('../lib/period');
+const { computeTrustScore } = require('../lib/trustscore');
 
 const router = express.Router();
 
@@ -542,11 +543,11 @@ router.get('/profile/export', (req, res) => {
 // (comme /public) : elle sert aussi à afficher l'identité publique d'un
 // tiers, seuls les trois champs sensibles sont gated.
 router.get('/profile/:id', (req, res) => {
-  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar, contactShareEmail, contactSharePhone, communityNotifyEnabled, marketingConsent, marketingConsentAt, directoryConsent, aiNoticeVersion, accountType, hideCompany, companyName, managerName FROM users WHERE id = ?').get(req.params.id);
+  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar, contactShareEmail, contactSharePhone, communityNotifyEnabled, marketingConsent, marketingConsentAt, directoryConsent, aiNoticeVersion, accountType, hideCompany, companyName, managerName, scoreShared FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
   const isOwner = req.userId === user.id;
   if (isOwner && user.hideCompany) { user.name = user.companyName || user.name; user.lastName = user.managerName || user.lastName; } // le titulaire voit le vrai nom de son entreprise ; les autres, seulement le responsable
-  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled, ...(isOwner ? { accountType: user.accountType, hideCompany: !!user.hideCompany, marketingConsent: !!user.marketingConsent, marketingConsentAt: user.marketingConsentAt || null, marketingConsentAsked: !!user.marketingConsentAt, directoryConsent: !!user.directoryConsent, aiNoticeVersion: user.aiNoticeVersion || null, aiNoticeCurrentVersion: AI_NOTICE_VERSION } : {}) });
+  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled, ...(isOwner ? { scoreShared: !!user.scoreShared, accountType: user.accountType, hideCompany: !!user.hideCompany, marketingConsent: !!user.marketingConsent, marketingConsentAt: user.marketingConsentAt || null, marketingConsentAsked: !!user.marketingConsentAt, directoryConsent: !!user.directoryConsent, aiNoticeVersion: user.aiNoticeVersion || null, aiNoticeCurrentVersion: AI_NOTICE_VERSION } : {}) });
 });
 
 // 10 oct. 2026 (trames 2 et 4) : consentement commercial et annuaire de connexion, utilisateur connecté seulement.
@@ -569,6 +570,14 @@ router.put('/profile/ai-notice-ack', (req, res) => {
   res.json({ ok: true, aiNoticeAckAt: at, aiNoticeVersion: AI_NOTICE_VERSION });
 });
 // Compte entreprise : n'afficher que le nom du responsable (30 oct. 2026, Émilien). Principe de confidentialité : hors de son compte, personne ne voit le nom de l'entreprise.
+// Afficher mon score d'exécution sur mon profil (1er nov. 2026) : privé tant que le membre ne l'active pas.
+router.put('/profile/score-sharing', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (typeof req.body.shared !== 'boolean') return res.status(400).json({ error: 'Valeur invalide.' });
+  db.prepare('UPDATE users SET scoreShared = ? WHERE id = ?').run(req.body.shared ? 1 : 0, req.userId);
+  res.json({ ok: true, scoreShared: req.body.shared });
+});
+
 router.put('/profile/hide-company', (req, res) => {
   if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
   if (typeof req.body.hidden !== 'boolean') return res.status(400).json({ error: 'Valeur invalide.' });
@@ -1033,8 +1042,14 @@ router.get('/profile/:userId/projects', (req, res) => {
 // `canSeePosts` évite au client d'appeler la route des messages juste pour
 // se prendre un 403 : il sait d'avance s'il doit afficher le fil ou
 // l'invitation à suivre.
+function scoreForProfile(owner) {
+  if (!owner.scoreShared) return null;
+  const s = computeTrustScore(owner.id);
+  return s.score === null ? null : { score: s.score, poles: s.poles };
+}
+
 router.get('/profile/:userId/public', (req, res) => {
-  const owner = db.prepare('SELECT id, name, lastName, color, avatar, createdAt, email, phone, contactShareEmail, contactSharePhone FROM users WHERE id = ?').get(req.params.userId);
+  const owner = db.prepare('SELECT id, name, lastName, color, avatar, createdAt, email, phone, contactShareEmail, contactSharePhone, scoreShared FROM users WHERE id = ?').get(req.params.userId);
   if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
 
   // Sécurité (chantier 1) : viewerId vient de req.userId, jamais de la
@@ -1093,6 +1108,8 @@ router.get('/profile/:userId/public', (req, res) => {
     // aujourd'hui la même : voir canViewTrackedContent plus haut.
     canSeeContent: canViewTrackedContent(viewerId, owner.id),
     chronoRunning: !!running,
+    // Score d'exécution : seulement si le membre a choisi de l'afficher (et si le chrono suffit pour en calculer un).
+    score: scoreForProfile(owner),
     contactEmail,
     contactPhone,
     // followId/followStatus (7 septembre 2026, bouton Suivre directement sur

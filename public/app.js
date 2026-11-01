@@ -1761,6 +1761,7 @@
     // commentaire sur #settingsContactShareEmail dans index.html.
     $('settingsContactShareEmail').checked = !!profile.contactShareEmail;
     $('settingsContactSharePhone').checked = !!profile.contactSharePhone;
+    $('settingsScoreShared').checked = !!profile.scoreShared;
     syncIdentitySaveState(true);
     renderIdentityHeader();
     // Vérifie tout de suite s'il y a des invitations/demandes de suivi en
@@ -6036,6 +6037,7 @@
     collapseCommunitySearchBarRow();
     $('communitySearchResults').innerHTML = '';
     loadCommunityDiscovery();
+    loadCommunityGroups();
     loadFollowingFeed();
   }
 
@@ -11975,6 +11977,14 @@
     $('settingsSaveBtn').disabled = !dirty;
     $('settingsSaveBtn').classList.toggle('cmpBtnIdle', !dirty);
   }
+  // Partage du score : enregistré à l'instant (route à part), pas par « Enregistrer ».
+  $('settingsScoreShared').addEventListener('change', function () {
+    var box = $('settingsScoreShared'); var shared = box.checked;
+    api('PUT', '/api/profile/score-sharing', { shared: shared })
+      .then(function () { profile.scoreShared = shared; })
+      .catch(function () { box.checked = !shared; });
+  });
+
   ['settingsName', 'settingsLastName', 'settingsPhone', 'settingsEmail', 'settingsContactShareEmail', 'settingsContactSharePhone'].forEach(function (id) {
     $(id).addEventListener('input', function () { syncIdentitySaveState(false); });
     $(id).addEventListener('change', function () { syncIdentitySaveState(false); });
@@ -13278,6 +13288,7 @@
     // renderViewProfileFollowRow plus bas, appelée une fois cette réponse
     // arrivée.
     $('viewProfileActionsRow').classList.add('hidden');
+    renderViewProfileScore(null);
     $('viewProfileFollowSlot').innerHTML = '';
     $('viewProfileContactSlot').innerHTML = '';
     $('viewProfileContactSlot').classList.add('hidden');
@@ -13341,6 +13352,7 @@
         // ou rouverte sur quelqu'un d'autre pendant la requête.
         if (viewProfileUserId !== userId) return;
         renderViewProfileIdentity(card2);
+        renderViewProfileScore(card2);
         renderViewProfileFollowRow(card2);
         viewProfileCanSeePosts = !!card2.canSeePosts;
         // 7 septembre 2026 : statistiques et détail des projets ne partent
@@ -13369,6 +13381,29 @@
     // réservés aux abonnés acceptés. mountPolls porte sa propre garde
     // anti-réponse-en-vol, sur le même principe que viewProfileUserId.
     viewProfilePollsMount.load();
+  }
+
+  // Score d'exécution du profil visité : le serveur ne l'envoie que si le membre a choisi de l'afficher.
+  function renderViewProfileScore(card) {
+    var s = card && card.score;
+    $('viewProfileScoreBlock').classList.toggle('hidden', !s);
+    $('viewProfileScorePoles').innerHTML = '';
+    if (!s) return;
+    $('viewProfileScoreValue').textContent = String(s.score);
+    (s.poles || []).forEach(function (p) {
+      var row = document.createElement('div');
+      row.className = 'viewProfileScoreRow';
+      var top = document.createElement('div');
+      top.className = 'viewProfileScoreRowTop';
+      var name = document.createElement('span'); name.textContent = p.label;
+      var val = document.createElement('span'); val.textContent = String(p.score);
+      top.appendChild(name); top.appendChild(val);
+      var bar = document.createElement('div'); bar.className = 'viewProfileScoreBar';
+      var fill = document.createElement('i'); fill.style.width = Math.max(0, Math.min(100, p.score)) + '%';
+      bar.appendChild(fill);
+      row.appendChild(top); row.appendChild(bar);
+      $('viewProfileScorePoles').appendChild(row);
+    });
   }
 
   function renderViewProfileIdentity(card) {
@@ -16166,6 +16201,128 @@
   $('mergeActivityModalClose').addEventListener('click', closeMergeActivityModal);
   $('mergeActivityModal').addEventListener('click', function (e) {
     if (e.target === this) closeMergeActivityModal();
+  });
+
+  // ===================== COMMUNAUTÉS GRATUITES (1er nov. 2026) =====================
+  // Liste dans l'onglet Communauté, fenêtre de création, fenêtre d'une communauté (fiche + fil réservé aux membres).
+  // Le tarif est choisi par le créateur et seulement affiché : aucun encaissement (server/lib/communities.js).
+  var openCommunityGroupId = null;
+
+  function groupPriceLabel(g) {
+    return g.priceCents > 0 ? (g.priceCents / 100).toLocaleString(dateLocale(), { maximumFractionDigits: 2 }) + ' $' : t('Gratuit');
+  }
+  function groupMetaLabel(g) {
+    return g.owner.name + ' · ' + g.members + ' ' + t(g.members > 1 ? 'membres' : 'membre') + ' · ' + groupPriceLabel(g);
+  }
+
+  function loadCommunityGroups() {
+    if (!profile) return;
+    api('GET', '/api/community/groups').then(function (data) {
+      var box = $('communityGroupsList');
+      box.innerHTML = '';
+      $('communityGroupsEmptyHint').classList.toggle('hidden', data.groups.length > 0);
+      data.groups.forEach(function (g) {
+        var row = document.createElement('div');
+        row.className = 'activityRow';
+        row.style.cursor = 'pointer';
+        row.innerHTML = '<div><strong>' + escapeHtml(g.name) + '</strong></div>' +
+          (g.topic ? '<div>' + escapeHtml(g.topic) + '</div>' : '') +
+          '<div class="meta">' + escapeHtml(groupMetaLabel(g)) + (g.joined ? ' · ' + escapeHtml(t('Membre')) : '') + '</div>';
+        row.addEventListener('click', function () { openCommunityGroup(g.id); });
+        box.appendChild(row);
+      });
+    }).catch(function () { /* la liste reste telle quelle */ });
+  }
+
+  function renderCommunityGroup(g) {
+    $('communityGroupTitle').textContent = g.name;
+    $('communityGroupTopicText').textContent = g.topic || '';
+    var meta = groupMetaLabel(g);
+    if (typeof g.ownerScore === 'number') meta += ' · ' + t("Score d'exécution du créateur") + ' ' + g.ownerScore;
+    $('communityGroupMeta').textContent = meta;
+    var join = $('communityGroupJoinBtn');
+    join.classList.toggle('hidden', g.isOwner);
+    join.textContent = g.joined ? t('Quitter') : t('Rejoindre');
+    $('communityGroupThreadPart').classList.toggle('hidden', !g.joined);
+    $('communityGroupDeleteBtn').classList.toggle('hidden', !g.isOwner);
+    var box = $('communityGroupPosts');
+    box.innerHTML = '';
+    var posts = g.posts || [];
+    $('communityGroupPostsEmpty').classList.toggle('hidden', posts.length > 0 || !g.joined);
+    posts.forEach(function (m) {
+      var mine = profile && m.userId === profile.id;
+      var when = new Date(m.createdAt);
+      var dateLabel = when.toLocaleDateString(dateLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
+      var timeLabel = pad(when.getHours()) + ':' + pad(when.getMinutes());
+      var msg = document.createElement('div');
+      msg.className = 'discussionMsg' + (mine ? ' mine' : '');
+      msg.innerHTML =
+        '<div class="discussionMsgTop"><span class="discussionMsgAuthor"><span class="dot" style="background:' + escapeHtml(m.userColor) + '"></span>' +
+        escapeHtml(m.userLastName ? m.userName + ' ' + m.userLastName : m.userName) + (mine ? t(' (toi)') : '') + '</span>' +
+        '<span class="meta">' + dateLabel + ' · ' + timeLabel + '</span></div>' +
+        '<div class="discussionMsgBody">' + escapeHtml(m.body) + '</div>';
+      box.appendChild(msg);
+    });
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function openCommunityGroup(id) {
+    openCommunityGroupId = id;
+    $('communityGroupMsg').textContent = '';
+    api('GET', '/api/community/groups/' + id).then(function (g) {
+      renderCommunityGroup(g);
+      $('communityGroupModal').classList.remove('hidden');
+    }).catch(function (e) { $('communityGroupMsg').textContent = e.message; });
+  }
+
+  function closeCommunityGroup() {
+    openCommunityGroupId = null;
+    $('communityGroupModal').classList.add('hidden');
+    loadCommunityGroups();
+  }
+
+  $('communityGroupClose').addEventListener('click', closeCommunityGroup);
+  $('communityGroupModal').addEventListener('click', function (e) { if (e.target === this) closeCommunityGroup(); });
+
+  $('communityGroupJoinBtn').addEventListener('click', function () {
+    var id = openCommunityGroupId; if (!id) return;
+    var joined = $('communityGroupJoinBtn').textContent === t('Quitter');
+    api(joined ? 'DELETE' : 'POST', '/api/community/groups/' + id + '/join').then(function () { openCommunityGroup(id); })
+      .catch(function (e) { $('communityGroupMsg').textContent = e.message; });
+  });
+
+  function sendCommunityGroupPost() {
+    var id = openCommunityGroupId; var input = $('communityGroupInput');
+    var body = input.value.trim(); if (!id || !body) return;
+    api('POST', '/api/community/groups/' + id + '/posts', { body: body }).then(function () {
+      input.value = '';
+      openCommunityGroup(id);
+    }).catch(function (e) { $('communityGroupMsg').textContent = e.message; });
+  }
+  $('communityGroupSendBtn').addEventListener('click', sendCommunityGroupPost);
+
+  $('communityGroupDeleteBtn').addEventListener('click', function () {
+    var id = openCommunityGroupId; if (!id) return;
+    if (!window.confirm(t('Supprimer cette communauté et ses messages ?'))) return;
+    api('DELETE', '/api/community/groups/' + id).then(closeCommunityGroup)
+      .catch(function (e) { $('communityGroupMsg').textContent = e.message; });
+  });
+
+  function closeCommunityGroupCreate() { $('communityGroupCreateModal').classList.add('hidden'); }
+  $('communityGroupCreateBtn').addEventListener('click', function () {
+    ['communityGroupName', 'communityGroupTopic', 'communityGroupPrice'].forEach(function (i) { $(i).value = ''; });
+    $('communityGroupCreateMsg').textContent = '';
+    $('communityGroupCreateModal').classList.remove('hidden');
+  });
+  $('communityGroupCreateClose').addEventListener('click', closeCommunityGroupCreate);
+  $('communityGroupCreateModal').addEventListener('click', function (e) { if (e.target === this) closeCommunityGroupCreate(); });
+  $('communityGroupCreateSubmit').addEventListener('click', function () {
+    var price = $('communityGroupPrice').value.trim();
+    api('POST', '/api/community/groups', {
+      name: $('communityGroupName').value, topic: $('communityGroupTopic').value,
+      priceCents: price === '' ? 0 : Math.round(Number(price) * 100),
+    }).then(function (g) { closeCommunityGroupCreate(); loadCommunityGroups(); openCommunityGroup(g.id); })
+      .catch(function (e) { $('communityGroupCreateMsg').textContent = e.message; });
   });
 
   // ===================== OFFRE 1 : SOUSCRIPTION =====================

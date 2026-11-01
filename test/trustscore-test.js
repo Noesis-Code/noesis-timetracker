@@ -58,6 +58,24 @@ r = computeTrustScore('u', NOW, 'UTC');
 assert(r.components.taches && r.components.taches.sample === 3 && r.components.taches.score === 33, 'tâches : 1 à temps sur 3 échues = 33 (tâche future ignorée)');
 assert(r.score === Math.round((0.4 * 1 + 0.3 * 0.5 + 0.3 * (1 / 3)) * 100), 'score = 40 % régularité + 30 % objectifs + 30 % tâches');
 
+// --- Par pôle : même formule restreinte au pôle (les secteurs remontent au pôle) ---
+const goals = require('../server/lib/goals');
+goals.addCategory(act, 'Rédaction'); goals.addCategory(act, 'Prospection');
+const cats = goals.categoriesForActivity(act);
+const polA = cats.find((c) => c.label === 'Rédaction').key, polB = cats.find((c) => c.label === 'Prospection').key;
+db.prepare('DELETE FROM time_entries').run();
+for (let w = 0; w < 12; w++) for (let d = 0; d < 3; d++) ins.run('u', act, day(w * 7 + d) + 'T14:00:00.000Z', day(w * 7 + d) + 'T15:00:00.000Z', 3600, day(w * 7 + d), 'x', null);
+db.prepare('UPDATE time_entries SET goalCategory = ?').run(polA);
+for (let w = 0; w < 12; w++) ins.run('u', act, day(w * 7 + 4) + 'T14:00:00.000Z', day(w * 7 + 4) + 'T15:00:00.000Z', 3600, day(w * 7 + 4), 'x', null);
+db.prepare('UPDATE time_entries SET goalCategory = ? WHERE goalCategory IS NULL').run(polB);
+r = computeTrustScore('u', NOW, 'UTC');
+const pa = r.poles.find((p) => p.label === 'Rédaction'), pb = r.poles.find((p) => p.label === 'Prospection');
+assert(pa && pa.score >= pb.score, 'pôle utilisé 3 jours par semaine : score plus élevé que celui utilisé 1 jour');
+assert(r.poles.length === 2, 'un pôle par nom de pôle présent dans le temps du membre (' + r.poles.length + ')');
+db.prepare('DELETE FROM time_entries').run();
+db.prepare("DELETE FROM goal_weekly").run();
+db.prepare("DELETE FROM sub_project_items").run();
+
 // --- Anti-triche : garde-fou des heures ---
 const iso = (ms) => new Date(ms);
 db.prepare('DELETE FROM time_entries').run();

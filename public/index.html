@@ -1243,6 +1243,15 @@
            flux en dessous. -->
       <div id="communitySearchResults" class="activitiesList"></div>
 
+      <!-- Communautés gratuites (1er nov. 2026, demande d'Emilien) : quelqu'un ouvre une communauté autour d'un sujet précis,
+           d'autres la rejoignent et y échangent. Le tarif est affiché, jamais encaissé (voir server/lib/communities.js). -->
+      <div id="communityGroupsBlock" class="communitySection">
+        <p class="sectionTitle">Communautés</p>
+        <div id="communityGroupsList" class="activitiesList"></div>
+        <p id="communityGroupsEmptyHint" class="hint hidden">Aucune communauté pour l'instant.</p>
+        <button type="button" id="communityGroupCreateBtn" class="iconBtn">Créer une communauté</button>
+      </div>
+
       <!-- ⚠️ 29 septembre 2026 : le composeur "Publier" (#communityMyPostsBlock,
            qui vivait ici avant le 5 septembre) et le bloc Sondages Communauté
            (#communityPollsBlock, formulaire de création) ont disparu avec le
@@ -1512,6 +1521,47 @@
            (#mergeActivityConfirm) — le sens n'est pas toujours celui par
            lequel on est parti : une activité partagée ne disparaît jamais,
            c'est elle qui recueille les enregistrements de l'autre. -->
+      <div id="communityGroupCreateModal" class="communityMembersModal hidden">
+        <div class="communityMembersModalCard cmpGlass">
+          <div class="communityMembersModalHeader">
+            <p class="sectionTitle">Créer une communauté</p>
+            <button type="button" class="cmpClose" id="communityGroupCreateClose" aria-label="Fermer">✕</button>
+          </div>
+          <div class="settingsFieldList">
+            <input type="text" id="communityGroupName" placeholder="Nom" maxlength="60">
+            <input type="text" id="communityGroupTopic" placeholder="Sujet précis" maxlength="300">
+            <input type="number" id="communityGroupPrice" placeholder="Tarif choisi, en $ (0 = gratuit)" min="0" max="10000" step="1" inputmode="numeric">
+          </div>
+          <p class="hint">Le tarif est affiché aux membres. Aucun paiement n'est encaissé pour l'instant.</p>
+          <button type="button" id="communityGroupCreateSubmit" class="iconBtn">Créer</button>
+          <p id="communityGroupCreateMsg" class="msg"></p>
+        </div>
+      </div>
+
+      <div id="communityGroupModal" class="communityMembersModal hidden">
+        <div class="communityMembersModalCard cmpGlass">
+          <div class="communityMembersModalHeader">
+            <p class="sectionTitle" id="communityGroupTitle"></p>
+            <button type="button" class="cmpClose" id="communityGroupClose" aria-label="Fermer">✕</button>
+          </div>
+          <p id="communityGroupTopicText"></p>
+          <p class="hint" id="communityGroupMeta"></p>
+          <button type="button" id="communityGroupJoinBtn" class="iconBtn">Rejoindre</button>
+          <div id="communityGroupThreadPart" class="hidden">
+            <div id="communityGroupPosts" class="discussionList chatThread"></div>
+            <p id="communityGroupPostsEmpty" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
+            <div class="discussionComposer chatComposer">
+              <div class="chatComposerRow">
+                <textarea id="communityGroupInput" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
+                <button type="button" id="communityGroupSendBtn" class="cmpSend" aria-label="Envoyer"></button>
+              </div>
+            </div>
+          </div>
+          <button type="button" id="communityGroupDeleteBtn" class="iconBtn hidden">Supprimer la communauté</button>
+          <p id="communityGroupMsg" class="msg"></p>
+        </div>
+      </div>
+
       <div id="mergeActivityModal" class="communityMembersModal hidden">
         <div class="communityMembersModalCard cmpGlass">
           <div class="communityMembersModalHeader">
@@ -1850,6 +1900,15 @@
           <div id="viewProfileContactSlot" class="viewProfileContactSlot hidden"></div>
         </div>
         <p id="viewProfileProjectsMsg" class="msg"></p>
+
+        <!-- Score d'exécution (1er nov. 2026, demande d'Emilien) : affiché seulement si le membre a choisi de le
+             montrer (Réglages > Identité). Calculé côté serveur (server/lib/trustscore.js) à partir du chrono, des
+             objectifs et des tâches. Un pôle par ligne, sans couleur de secteur. -->
+        <div id="viewProfileScoreBlock" class="activityRow viewProfileScore hidden">
+          <div class="viewProfileScoreHead"><span>Score d'exécution</span><span id="viewProfileScoreValue" class="viewProfileScoreValue"></span></div>
+          <p class="hint">Calculé sur 12 semaines à partir du chrono, des objectifs et des tâches.</p>
+          <div id="viewProfileScorePoles"></div>
+        </div>
 
         <p class="sectionTitle">Projets</p>
         <!-- 5 septembre 2026, demande d'Emilien : « je souhaite que les
@@ -2803,6 +2862,14 @@
                   <span class="notifRowLabel">Autoriser mes abonnés à me contacter par téléphone</span>
                   <label class="toggleSwitch">
                     <input type="checkbox" id="settingsContactSharePhone" role="switch" aria-label="Autoriser mes abonnés à me contacter par téléphone">
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
+                <!-- Enregistré tout de suite (route à part), hors du bouton « Enregistrer ». -->
+                <div class="notifRow">
+                  <span class="notifRowLabel">Afficher mon score d'exécution sur mon profil</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsScoreShared" role="switch" aria-label="Afficher mon score d'exécution sur mon profil">
                     <span class="toggleSwitchTrack"></span>
                   </label>
                 </div>

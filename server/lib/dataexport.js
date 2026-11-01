@@ -267,6 +267,14 @@ function buildUserExport(userId) {
      FROM blocks b JOIN users u ON u.id = b.blockedId WHERE b.blockerId = ? ORDER BY b.createdAt`,
     userId
   ) : [];
+  // Communautés (1er nov. 2026) : celles que la personne a créées, celles qu'elle a rejointes, et ses messages.
+  const communitiesOut = has('communities') ? {
+    created: rows('SELECT id, name, topic, priceCents, createdAt FROM communities WHERE ownerId = ? ORDER BY id', userId),
+    joined: rows(`SELECT c.id, c.name, m.joinedAt FROM community_members m JOIN communities c ON c.id = m.communityId
+      WHERE m.userId = ? ORDER BY m.joinedAt`, userId),
+  } : { created: [], joined: [] };
+  const communityPostsOut = has('community_posts') ? rows(
+    'SELECT id, communityId, body, createdAt FROM community_posts WHERE userId = ? ORDER BY id', userId) : [];
   const clientProfileForm = has('client_profile_forms')
     ? row('SELECT answers, updatedAt FROM client_profile_forms WHERE userId = ?', userId) || null : null;
   const goalTimeCaps = has('goal_time_caps') ? rows(
@@ -416,6 +424,8 @@ function buildUserExport(userId) {
     goalCategories,
     tasks,
     blockedUsers: blocked,
+    communities: communitiesOut,
+    communityPosts: communityPostsOut,
     clientProfileForm,
     goalTimeCaps,
     goalCapacityOverrides,

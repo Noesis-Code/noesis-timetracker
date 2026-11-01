@@ -2438,6 +2438,37 @@ if (!columnExists('sub_project_items', 'seenAt')) {
 }
 // 31 oct. 2026 (score de confiance, Communauté) : origine d'une entrée de temps — 'manuel' (ajout à la main),
 // 'import' (CSV, jamais compté dans le score), NULL = chrono (toutes les entrées existantes).
+// 1er nov. 2026 : le membre choisit d'afficher son score d'exécution sur son profil (0 = privé, par défaut).
+if (!columnExists('users', 'scoreShared')) {
+  db.exec('ALTER TABLE users ADD COLUMN scoreShared INTEGER NOT NULL DEFAULT 0');
+}
+// 1er nov. 2026 : communautés gratuites (Communauté). Un créateur ouvre une communauté autour d'un sujet précis, des
+// membres la rejoignent et y échangent. priceCents = tarif CHOISI par le créateur, affiché seulement : aucun
+// encaissement tant que l'avis juridique (coaching, partage de revenu) n'est pas rendu.
+db.exec(`
+CREATE TABLE IF NOT EXISTS communities (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ownerId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  topic TEXT NOT NULL DEFAULT '',
+  priceCents INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS community_members (
+  communityId INTEGER NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  joinedAt TEXT NOT NULL,
+  PRIMARY KEY (communityId, userId)
+);
+CREATE TABLE IF NOT EXISTS community_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  communityId INTEGER NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_community_posts ON community_posts(communityId, id);
+`);
 if (!columnExists('time_entries', 'source')) {
   db.exec('ALTER TABLE time_entries ADD COLUMN source TEXT');
 }

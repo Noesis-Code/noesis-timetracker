@@ -1849,6 +1849,18 @@ button { -webkit-user-select: none; user-select: none; }
 .viewProfileProjectCase .seekingBadges { margin: 0; }
 /* Panneau de détail UNIQUE, sous la bande — pas un par case, pour que la bande elle-même ne grandisse jamais. */
 .viewProfileProjectDetail { margin-top: 4px; }
+/* Communautés gratuites (1er nov. 2026) : espace de 16 px autour du bouton de création. */
+#communityGroupsBlock { margin-bottom: 24px; }
+#communityGroupCreateBtn { margin-top: 16px; }
+/* Score d'exécution d'un profil (1er nov. 2026) : violet seulement, espacements 8/12/16. */
+.viewProfileScore { margin-top: 16px; gap: 12px; }
+.viewProfileScoreHead { display: flex; justify-content: space-between; align-items: baseline; font-weight: bold; }
+.viewProfileScoreValue { font-size: 24px; color: var(--purple); }
+.viewProfileScore .hint { margin: 0; }
+.viewProfileScoreRow { margin-top: 12px; }
+.viewProfileScoreRowTop { display: flex; justify-content: space-between; font-size: 14px; }
+.viewProfileScoreBar { height: 6px; margin-top: 8px; border-radius: 3px; background: var(--border); }
+.viewProfileScoreBar i { display: block; height: 6px; border-radius: 3px; background: var(--purple); }
 /* Espace entre la liste de projets et le sélecteur Statistiques/Publications (5 septembre 2026, demande d'Emilien : « je souhaite que les projets des … */
 #viewProfileSectionSwitch { margin-top: 16px; }
 

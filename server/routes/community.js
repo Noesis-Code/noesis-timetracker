@@ -22,6 +22,7 @@ const { periodRange } = require('../lib/period');
 // catégories RÉELLES de l'activité — voir GET /community/activity-stats.
 const goals = require('../lib/goals');
 const { computeTrustScore } = require('../lib/trustscore');
+const communities = require('../lib/communities');
 
 // Longueur maximale d'un message du fil de discussion : généreuse pour une
 // conversation, mais bornée — le corps de requête d'Express est certes déjà
@@ -78,6 +79,61 @@ router.get('/community/my-score', (req, res) => {
 // d'activité) : sessions + notes des AUTRES membres de cette activité
 // uniquement, jamais de toutes les activités partagées mélangées — voir
 // sharedFeedForUser(userId, activityId) dans lib/community.js.
+// ----- Communautés gratuites (1er nov. 2026) : voir lib/communities.js. Le tarif est affiché, jamais encaissé. -----
+router.get('/community/groups', (req, res) => {
+  res.json({ groups: communities.listFor(req.userId, req.query.q) });
+});
+
+router.post('/community/groups', (req, res) => {
+  const nameChk = textlimits.clean(req.body.name, { max: 60, word: 'Nom', kind: 'text' });
+  if (nameChk.error) return res.status(400).json({ error: nameChk.error });
+  if (!nameChk.text) return res.status(400).json({ error: 'Donne un nom à ta communauté.' });
+  const topicChk = textlimits.clean(req.body.topic, { max: 300, word: 'Sujet', kind: 'text' });
+  if (topicChk.error) return res.status(400).json({ error: topicChk.error });
+  const price = req.body.priceCents === undefined ? 0 : Number(req.body.priceCents);
+  if (!Number.isInteger(price) || price < 0 || price > communities.MAX_PRICE_CENTS) return res.status(400).json({ error: 'Tarif invalide.' });
+  if (containsBlockedWord(nameChk.text + ' ' + topicChk.text)) return res.status(422).json({ error: BLOCKED_MESSAGE, blocked: true });
+  const r = communities.create(req.userId, nameChk.text, topicChk.text, price);
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.status(201).json(communities.get(req.userId, r.id));
+});
+
+router.get('/community/groups/:id', (req, res) => {
+  const g = communities.get(req.userId, Number(req.params.id));
+  if (!g) return res.status(404).json({ error: 'Communauté introuvable.' });
+  // Le fil n'est lisible que par les membres : jamais d'aperçu pour un visiteur.
+  res.json(Object.assign({}, g, { posts: g.joined ? communities.posts(g.id) : [] }));
+});
+
+router.post('/community/groups/:id/join', (req, res) => {
+  if (!communities.join(req.userId, Number(req.params.id))) return res.status(404).json({ error: 'Communauté introuvable.' });
+  res.json(communities.get(req.userId, Number(req.params.id)));
+});
+
+router.delete('/community/groups/:id/join', (req, res) => {
+  const g = communities.get(req.userId, Number(req.params.id));
+  if (!g) return res.status(404).json({ error: 'Communauté introuvable.' });
+  if (g.isOwner) return res.status(400).json({ error: 'Le créateur ne peut pas quitter sa communauté.' });
+  communities.leave(req.userId, g.id);
+  res.json({ ok: true });
+});
+
+router.delete('/community/groups/:id', (req, res) => {
+  if (!communities.remove(req.userId, Number(req.params.id))) return res.status(404).json({ error: 'Communauté introuvable.' });
+  res.json({ ok: true });
+});
+
+router.post('/community/groups/:id/posts', (req, res) => {
+  const id = Number(req.params.id);
+  if (!communities.get(req.userId, id)) return res.status(404).json({ error: 'Communauté introuvable.' });
+  if (!communities.isMember(req.userId, id)) return res.status(403).json({ error: 'Rejoins la communauté pour écrire.' });
+  const bodyChk = textlimits.clean(req.body.body, { max: communities.MAX_POST_LENGTH, word: 'Message', kind: 'text' });
+  if (bodyChk.error) return res.status(400).json({ error: bodyChk.error });
+  if (!bodyChk.text) return res.status(400).json({ error: 'Message vide.' });
+  if (containsBlockedWord(bodyChk.text)) return res.status(422).json({ error: BLOCKED_MESSAGE, blocked: true });
+  res.status(201).json(communities.addPost(id, req.userId, bodyChk.text));
+});
+
 router.get('/community/activity-feed', (req, res) => {
   const userId = req.userId;
   const activityId = req.query.activityId;

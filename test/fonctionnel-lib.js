@@ -15,7 +15,7 @@ async function startServer() {
   const port = require('./lib/freeport')();
   const env = Object.assign({}, process.env, {
     NOESIS_DATA_DIR: dir, PORT: String(port), NOESIS_HOST: '127.0.0.1',
-    ANTHROPIC_API_KEY: '', RAILWAY_ENVIRONMENT_NAME: '', NODE_ENV: 'test',
+    ANTHROPIC_API_KEY: '', RAILWAY_ENVIRONMENT_NAME: '', NODE_ENV: 'test', NOESIS_BACKDATE_LIMIT_OFF: '1',
   });
   const child = spawn('node', [path.join(__dirname, '..', 'server', 'index.js')], { env, stdio: ['ignore', 'pipe', 'pipe'] });
   let out = '';

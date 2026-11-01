@@ -192,9 +192,10 @@ router.post('/timer/stop', (req, res) => {
   if (stopTime <= startTime) {
     return res.status(400).json({ error: "L'heure de fin doit être après l'heure de début." });
   }
-  // Anti-triche : mêmes règles que l'historique (pas de chevauchement, 24 h au plus, pas de futur). Un début
-  // corrigé à l'arrêt est une saisie manuelle : plafonné à 48 h dans le passé. Le chrono reste en cours si refusé.
-  const guardMsg = checkEntryTimes(user.id, startTime, stopTime, 0, undefined, { manual: req.body.startTime !== undefined, overlapToleranceMs: 60 * 1000 });
+  // Anti-triche : un arrêt simple (aucune heure saisie) garde sa durée réelle, même d'un chrono oublié. Dès que le début
+  // est corrigé à la main : mêmes règles que l'historique (pas de chevauchement, 24 h au plus, 48 h en arrière).
+  // Le chrono reste en cours si l'arrêt est refusé.
+  const guardMsg = checkEntryTimes(user.id, startTime, stopTime, 0, undefined, { manual: req.body.startTime !== undefined, overlapToleranceMs: 60 * 1000, noMaxDuration: req.body.startTime === undefined, noOverlapCheck: req.body.startTime === undefined });
   if (guardMsg) return res.status(400).json({ error: guardMsg });
 
   const durationSeconds = Math.max(0, Math.round((stopTime - startTime) / 1000));

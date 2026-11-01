@@ -43,6 +43,9 @@ const P = {
   ai_usage_log: { cols: ['userId'], erase: 'explicit', exp: 'NON: compteurs de coût IA, aucun contenu' },
   announcement_seen: { cols: ['userId'], erase: 'cascade', exp: 'NON: marqueur de lecture technique' },
   blocks: { cols: ['blockerId', 'blockedId'], erase: 'cascade', exp: 'blockedUsers' },
+  communities: { cols: ['ownerId'], erase: 'cascade', exp: 'communities' },
+  community_members: { cols: ['userId'], erase: 'cascade', exp: 'communities' },
+  community_posts: { cols: ['userId'], erase: 'cascade', exp: 'communityPosts' },
   calendar_export_excluded: { cols: ['userId'], erase: 'cascade', exp: 'NON: réglage d\'affichage du calendrier' },
   calendar_feed_tokens: { cols: ['userId'], erase: 'cascade', exp: 'calendarFeed' },
   change_proposals: { cols: ['userId'], erase: 'explicit', exp: 'NON: propositions IA transitoires' },
@@ -165,6 +168,8 @@ for (const [t, d] of Object.entries(P)) {
     try { insertFor(t, d.cols, id, tag); } catch (e) { assert(false, `semis ${t} : ${e.message}`); }
   }
 }
+// Communautés : les lignes de B visent la communauté de B (celle de A disparaît avec A, ses membres avec elle : voulu).
+for (const t of ['community_members', 'community_posts']) db.prepare(`UPDATE ${t} SET communityId = (SELECT id FROM communities WHERE ownerId = ?) WHERE userId = ?`).run(B.id, B.id);
 // pièce jointe de discussion de A avec un vrai fichier sur disque
 const filesDir = path.join(process.env.NOESIS_DATA_DIR, 'discussion-files');
 fs.mkdirSync(filesDir, { recursive: true });
