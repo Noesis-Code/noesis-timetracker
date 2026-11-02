@@ -1872,6 +1872,8 @@ button { -webkit-user-select: none; user-select: none; }
 .netSvg .netDot { fill: rgba(var(--purple-rgb), .22); stroke: var(--purple); stroke-width: 1; }
 .netSvg .netNode.joined .netDot { fill: var(--purple); }
 .netSvg .netNode.sel .netDot { stroke-width: 3; }
+.netSvg .netLink.netSpoke { opacity: .6; }
+.netSvg .netCenter .netCount { fill: var(--on-action); }
 .netSvg .netNode.netHidden .netDot { fill: none; stroke: var(--text-light); stroke-dasharray: 3 3; }
 .netSvg .netNode.netHidden .netCount { fill: var(--text-light); }
 .netSvg .netNode.netHere .netDot, .netSvg .netCenter .netDot { fill: var(--purple); }

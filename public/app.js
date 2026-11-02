@@ -16270,24 +16270,26 @@
     zones.forEach(function (z) {
       var k = z.items.length, pts = [], R = 0, i;
       if (k > 1 && k <= ringMax) {
-        R = sp / (2 * Math.sin(Math.PI / k));
+        R = Math.max(sp / (2 * Math.sin(Math.PI / k)), zones.length === 1 ? 62 : 0);
         for (i = 0; i < k; i++) pts.push([R * Math.cos(-Math.PI / 2 + i * 2 * Math.PI / k), R * Math.sin(-Math.PI / 2 + i * 2 * Math.PI / k)]);
       } else if (k > ringMax) {
         for (i = 0; i < k; i++) {
-          var rr = sp * 0.62 * Math.sqrt(i + 0.5), an = i * 2.39996;
+          var rr = sp * 0.62 * Math.sqrt(i + 3), an = i * 2.39996;
           pts.push([rr * Math.cos(an), rr * Math.sin(an)]); R = Math.max(R, rr);
         }
-      } else pts.push([0, 0]);
+      } else { pts.push([0, zones.length === 1 ? -62 : 0]); R = zones.length === 1 ? 62 : 0; }
       z.pts = pts; z.rad = R + 54;
     });
     var order = zones.slice().sort(function (a, b) { return b.items.length - a.items.length; });
-    order[0].cx = 0; order[0].cy = 0;
-    var rest = order.slice(1), d = rest.length ? order[0].rad + 30 : 0;
+    // « Toi » est au centre (rayon 28) : un seul groupe l'entoure, plusieurs groupes forment une couronne autour de lui.
+    var single = zones.length === 1;
+    if (single) { order[0].cx = 0; order[0].cy = 0; }
+    var rest = single ? [] : order, d = 48;
     function fits() {
       return rest.every(function (z, i) {
         var a = -Math.PI / 2 + i * 2 * Math.PI / rest.length, b = -Math.PI / 2 + ((i + 1) % rest.length) * 2 * Math.PI / rest.length;
         var nz = rest[(i + 1) % rest.length];
-        if (d < order[0].rad + z.rad + 36) return false;
+        if (d < 28 + z.rad + 20) return false;
         if (rest.length < 2) return true;
         return Math.hypot(d * Math.cos(a) - d * Math.cos(b), d * Math.sin(a) - d * Math.sin(b)) >= z.rad + nz.rad + 36;
       });
@@ -16353,6 +16355,13 @@
       o.line.classList.toggle('on', hit);
       o.lbl.setAttribute('visibility', hit && o.l.shared >= thr ? 'visible' : 'hidden');
     });
+    // Toi au centre, relié aux communautés rejointes.
+    netData.groups.forEach(function (g) {
+      if (g.joined) svgEl('line', { class: 'netLink netSpoke', x1: 0, y1: 0, x2: pos[g.id].x, y2: pos[g.id].y }, gLinks);
+    });
+    var me = svgEl('g', { class: 'netCenter' }, gNodes);
+    netDot(me, 0, 0, 22);
+    svgEl('text', { class: 'netCount', x: 0, y: 0 }, me).textContent = t('Toi');
     var pick = $('communityNetPick');
     pick.innerHTML = '';
     var sel = netData.groups.filter(function (g) { return g.id === netSel; })[0];
