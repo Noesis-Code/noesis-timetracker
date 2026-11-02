@@ -1290,9 +1290,69 @@
         </div>
         <button type="button" id="communityGroupCreateBtn" class="iconBtn">Créer une communauté</button>
       </div><!-- /#communityPage2 -->
+
+      <!-- Page 3 : Réseau personnel PRIVÉ (2 nov. 2026, d'après le document « Personal Network Intelligence Platform ») :
+           un carnet de contacts riche et une toile d'araignée visibles de toi seul. Rien n'est partagé (server/lib/networkcrm.js). -->
+      <div id="communityPage3" class="hidden">
+        <div class="periodSwitch cmpSeg" id="netCrmSeg">
+          <button type="button" class="periodBtn active" data-part="home">Accueil</button>
+          <button type="button" class="periodBtn" data-part="web">Toile</button>
+          <button type="button" class="periodBtn" data-part="ideas">Pistes</button>
+        </div>
+        <div id="netCrmHome">
+          <div class="communitySection">
+            <p class="cmpBlockTitle" id="netCrmListTitle">Contacts récents</p>
+            <div id="netCrmRecent" class="activitiesList"></div>
+            <p id="netCrmEmpty" class="hint hidden">Aucun contact pour l'instant.</p>
+          </div>
+          <div class="communitySection" id="netCrmOverviewBlock">
+            <p class="cmpBlockTitle">Aperçu du réseau</p>
+            <div class="activityRow" id="netCrmOverview">
+              <svg id="netCrmMini" role="img" aria-label="Aperçu du réseau" viewBox="0 0 150 110"></svg>
+              <div class="netStats">
+                <div class="meta">Contacts</div><div class="netBig" id="netStatTotal">0</div><div class="meta" id="netStatMonth"></div>
+                <div class="meta">Liens forts</div><div class="netBig" id="netStatStrong">0</div>
+              </div>
+            </div>
+            <button type="button" id="netCrmSeeWeb" class="iconBtn">Voir tout le réseau</button>
+          </div>
+          <div class="notifRow">
+            <span class="notifRowLabel">Mode événement</span>
+            <label class="toggleSwitch">
+              <input type="checkbox" id="netEventMode" role="switch" aria-label="Mode événement">
+              <span class="toggleSwitchTrack"></span>
+            </label>
+          </div>
+          <input type="text" id="netEventName" class="hidden" placeholder="Nom de l'événement" maxlength="80">
+          <button type="button" id="netCrmAddBtn" class="cmpAdd" title="Ajouter un contact"><b>+</b>Ajouter un contact</button>
+        </div>
+        <div id="netCrmWeb" class="hidden">
+          <div class="periodSwitch cmpSeg" id="netCrmBy">
+            <button type="button" class="periodBtn active" data-by="interest">Intérêt</button>
+            <button type="button" class="periodBtn" data-by="strength">Force</button>
+            <button type="button" class="periodBtn" data-by="company">Entreprise</button>
+          </div>
+          <div class="netFilters">
+            <select id="netFInterest" aria-label="Intérêt"><option value="">Intérêt</option></select>
+            <select id="netFSkill" aria-label="Compétence"><option value="">Compétence</option></select>
+            <select id="netFCity" aria-label="Ville"><option value="">Ville</option></select>
+            <select id="netFStrength" aria-label="Force"><option value="">Force</option><option value="4">Forte (4 et 5)</option><option value="3">Moyenne et plus (3 à 5)</option><option value="1">Toutes</option></select>
+            <select id="netFIdle" aria-label="Dernier contact"><option value="">Dernier contact</option><option value="30">Plus de 30 jours</option><option value="90">Plus de 90 jours</option><option value="180">Plus de 6 mois</option></select>
+          </div>
+          <svg id="netCrmGraph" class="netSvg" role="img" aria-label="Toile du réseau personnel"></svg>
+          <div id="netCrmPick" class="hint"></div>
+        </div>
+        <div id="netCrmIdeas" class="hidden">
+          <div class="communitySection"><p class="cmpBlockTitle">Présentations possibles</p><div id="netIdeaIntros" class="activitiesList"></div></div>
+          <div class="communitySection"><p class="cmpBlockTitle">À relancer</p><div id="netIdeaFollow" class="activitiesList"></div></div>
+          <div class="communitySection"><p class="cmpBlockTitle">Ponts entre groupes</p><div id="netIdeaBridges" class="activitiesList"></div></div>
+          <div class="communitySection"><p class="cmpBlockTitle">À mieux connecter</p><div id="netIdeaUnder" class="activitiesList"></div></div>
+          <p id="netIdeasEmpty" class="hint hidden">Rien à signaler pour l'instant.</p>
+        </div>
+      </div><!-- /#communityPage3 -->
       </div><!-- /#communityPagesHost -->
       <div id="communityPageDots" role="group">
-        <button type="button" class="goalsDotBtn on" aria-label="Membres"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" aria-label="Communautés"><span class="goalsDot"></span></button>
+        <button type="button" class="goalsDotBtn on" aria-label="Membres"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" aria-label="Communautés"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" aria-label="Réseau personnel"><span class="goalsDot"></span></button>
       </div>
 
     </section>
@@ -1543,6 +1603,46 @@
            (#mergeActivityConfirm) — le sens n'est pas toujours celui par
            lequel on est parti : une activité partagée ne disparaît jamais,
            c'est elle qui recueille les enregistrements de l'autre. -->
+      <div id="netContactModal" class="communityMembersModal hidden">
+        <div class="communityMembersModalCard cmpGlass">
+          <div class="communityMembersModalHeader">
+            <p class="sectionTitle" id="netcTitle">Contact</p>
+            <button type="button" class="cmpClose" id="netContactClose" aria-label="Fermer">✕</button>
+          </div>
+          <div class="settingsFieldList">
+            <input type="text" id="netcName" placeholder="Nom" maxlength="80">
+            <input type="text" id="netcCompany" placeholder="Entreprise" maxlength="80">
+            <input type="text" id="netcRole" placeholder="Rôle" maxlength="80">
+            <input type="text" id="netcMet" placeholder="Rencontré à" maxlength="80">
+            <input type="text" id="netcCity" placeholder="Ville" maxlength="80">
+            <input type="text" id="netcInterests" placeholder="Intérêts, séparés par des virgules">
+            <input type="text" id="netcSkills" placeholder="Compétences, séparées par des virgules">
+          </div>
+          <p class="cmpBlockTitle">Force du lien</p>
+          <div class="periodSwitch cmpSeg" id="netcStrength">
+            <button type="button" class="periodBtn" data-s="1" aria-label="Force 1">1</button><button type="button" class="periodBtn" data-s="2" aria-label="Force 2">2</button><button type="button" class="periodBtn active" data-s="3" aria-label="Force 3">3</button><button type="button" class="periodBtn" data-s="4" aria-label="Force 4">4</button><button type="button" class="periodBtn" data-s="5" aria-label="Force 5">5</button>
+          </div>
+          <p class="cmpBlockTitle">Relance</p>
+          <input type="date" id="netcFollow" aria-label="Date de relance">
+          <button type="button" id="netcSave" class="iconBtn">Enregistrer</button>
+          <div id="netcExtra" class="hidden">
+            <p class="cmpBlockTitle">Connexions</p>
+            <div id="netcConn" class="netConnList"></div>
+            <select id="netcConnAdd" aria-label="Ajouter une connexion"><option value="">Ajouter une connexion</option></select>
+            <p class="cmpBlockTitle">Notes</p>
+            <div id="netcNotes" class="discussionList"></div>
+            <div class="discussionComposer chatComposer">
+              <div class="chatComposerRow">
+                <textarea id="netcNoteInput" rows="1" maxlength="2000" placeholder="Ajouter une note..."></textarea>
+                <button type="button" id="netcNoteSend" class="cmpSend" aria-label="Envoyer"></button>
+              </div>
+            </div>
+            <button type="button" id="netcDelete" class="iconBtn danger">Supprimer le contact</button>
+          </div>
+          <p id="netcMsg" class="msg"></p>
+        </div>
+      </div>
+
       <div id="communityGroupCreateModal" class="communityMembersModal hidden">
         <div class="communityMembersModalCard cmpGlass">
           <div class="communityMembersModalHeader">

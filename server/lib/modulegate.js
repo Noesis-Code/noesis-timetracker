@@ -21,7 +21,7 @@ const RULES = [
   ['ai', /^\/api\/ai-tokens(\/|$)/, (p, m) => m !== 'POST'],
   ['roadmap', /^\/api\/activities\/[^/]+\/goals(\/|$)/, (p) => CATEGORY_CRUD.test(p) && !CATEGORY_TASK.test(p)],
   ['sharing', /^\/api\/(invites(\/|$)|community\/(activity-[a-z-]+|unread-messages))/],
-  ['community', /^\/api\/(community(\/(shared-feed|following-feed))?|follows|blocks|users\/search|polls)(\/|$)/],
+  ['community', /^\/api\/(community(\/(shared-feed|following-feed))?|network|follows|blocks|users\/search|polls)(\/|$)/],
   ['trade', /^\/api\/trade(\/|$)/],
   // module « Horaire » (personnel d'un restaurant), voir server/routes/horaire.js ; un compte non entreprise passe : la route répond elle-même
   // « Réservé aux comptes entreprise. » (403).

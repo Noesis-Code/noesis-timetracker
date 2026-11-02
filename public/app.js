@@ -9840,7 +9840,7 @@
 
   $('communitySearchInput').addEventListener('input', function () {
     clearTimeout(communitySearchDebounce);
-    communitySearchDebounce = setTimeout(communityPage === 1 ? loadCommunityGroups : loadCommunityDiscovery, 250);
+    communitySearchDebounce = setTimeout(communityPage === 1 ? loadCommunityGroups : (communityPage === 2 ? loadNetCrm : loadCommunityDiscovery), 250);
   });
 
   // Petite pastille d'identité : la photo de profil si elle existe, sinon
@@ -16401,13 +16401,14 @@
     communityPage = i;
     $('communityPage1').classList.toggle('hidden', i !== 0);
     $('communityPage2').classList.toggle('hidden', i !== 1);
-    $('tab-community').classList.toggle('communityOnPage2', i === 1);
+    $('communityPage3').classList.toggle('hidden', i !== 2);
+    $('tab-community').classList.toggle('communityOnPage2', i >= 1);
     var input = $('communitySearchInput');
     input.value = '';
-    input.placeholder = t(i === 1 ? 'Sujet précis, créateur' : 'Pseudo, projet, secteur');
+    input.placeholder = t(i === 2 ? 'Contacts, entreprises, intérêts' : (i === 1 ? 'Sujet précis, créateur' : 'Pseudo, projet, secteur'));
     Array.prototype.forEach.call($('communityPageDots').querySelectorAll('.goalsDotBtn'), function (b, k) { b.classList.toggle('on', k === i); });
     if (noLoad) return;
-    if (i === 1) loadCommunityGroups(); else loadCommunityDiscovery();
+    if (i === 1) loadCommunityGroups(); else if (i === 2) loadNetCrm(); else loadCommunityDiscovery();
   }
   Array.prototype.forEach.call($('communityPageDots').querySelectorAll('.goalsDotBtn'), function (b, k) {
     b.addEventListener('click', function () { if (k !== communityPage) setCommunityPage(k); });
@@ -16417,13 +16418,14 @@
   function bindCommunityPager() {
     if (communityPagerBound || !(window.TMT && TMT.slidePager)) return;
     communityPagerBound = true;
-    var host = $('communityPagesHost'), p1 = $('communityPage1'), p2 = $('communityPage2');
+    var host = $('communityPagesHost'), pages = [$('communityPage1'), $('communityPage2'), $('communityPage3')];
     TMT.slidePager({
       zone: host,
       neighbor: function (dir) {
-        if (dir > 0 && communityPage === 0) return { cur: p1, nb: p2, host: host, start: function () { p2.classList.remove('hidden'); }, commit: function () { setCommunityPage(1); } };
-        if (dir < 0 && communityPage === 1) return { cur: p2, nb: p1, host: host, commit: function () { setCommunityPage(0); } };
-        return null;
+        var k = communityPage + (dir > 0 ? 1 : -1);
+        if (k < 0 || k > 2) return null;
+        var to = pages[k];
+        return { cur: pages[communityPage], nb: to, host: host, start: function () { to.classList.remove('hidden'); }, commit: function () { setCommunityPage(k); } };
       },
     });
   }
@@ -16620,6 +16622,391 @@
       priceCents: price === '' ? 0 : Math.round(Number(price) * 100),
     }).then(function (g) { closeCommunityGroupCreate(); loadCommunityGroups(); openCommunityGroup(g.id); })
       .catch(function (e) { $('communityGroupCreateMsg').textContent = e.message; });
+  });
+
+  // ===================== RÉSEAU PERSONNEL PRIVÉ (page 3 de Communauté, 2 nov. 2026) =====================
+  // D'après le document « Personal Network Intelligence Platform » : carnet de contacts riche, toile d'araignée (toi au centre,
+  // traits entre contacts), présentations possibles, relances. Tout est visible de toi seul (server/lib/networkcrm.js).
+  var net = { part: 'home', by: 'interest', graph: null, layout: null, tags: null, sel: null, selB: null, contactId: null };
+
+  function netTagList(v) { return String(v || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 10); }
+  function netAgo(iso) {
+    if (!iso) return '';
+    var d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+    return d <= 0 ? t("Aujourd'hui") : d + ' ' + t(d > 1 ? 'jours' : 'jour');
+  }
+  function netColorOf(key) {
+    var p = NOESIS_THEME_PALETTES.DARK_PALETTE, h = 0, s = String(key || '');
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return p[h % p.length];
+  }
+  function netRow(c, extra) {
+    var row = document.createElement('div');
+    row.className = 'activityRow';
+    row.style.cursor = 'pointer';
+    var top = document.createElement('div');
+    var nm = document.createElement('strong'); nm.textContent = c.name; top.appendChild(nm);
+    var when = document.createElement('span'); when.className = 'meta netWhen'; when.textContent = ' ' + netAgo(c.lastTouchAt || c.createdAt); top.appendChild(when);
+    row.appendChild(top);
+    var sub = [c.role, c.company].filter(Boolean).join(' · ');
+    if (sub) { var m = document.createElement('div'); m.className = 'meta'; m.textContent = sub; row.appendChild(m); }
+    if (extra) { var x = document.createElement('div'); x.className = 'meta'; x.textContent = extra; row.appendChild(x); }
+    var tags = (c.interests || []).slice(0, 3);
+    if (tags.length) {
+      var tg = document.createElement('div');
+      tags.forEach(function (x2) { var s = document.createElement('span'); s.className = 'netTag'; s.textContent = x2; tg.appendChild(s); });
+      row.appendChild(tg);
+    }
+    row.addEventListener('click', function () { openNetContact(c.id); });
+    return row;
+  }
+  function netFill(box, list, extraOf) {
+    box.innerHTML = '';
+    list.forEach(function (c) { box.appendChild(netRow(c, extraOf ? extraOf(c) : '')); });
+  }
+
+  // Disposition « toile » : toi fixe au centre, les contacts s'écartent entre eux (répulsion), les liens les rapprochent,
+  // et plus le lien est fort, plus le contact est près de toi.
+  function netForce(nodes, edges) {
+    var n = nodes.length, idx = {}, i, j;
+    nodes.forEach(function (nd, k) { idx[nd.id] = k; var a = k * 2.39996, r = 30 + 8 * Math.sqrt(k); nd.x = r * Math.cos(a); nd.y = r * Math.sin(a); nd.vx = 0; nd.vy = 0; });
+    var iters = n > 200 ? 60 : 220;
+    for (var it = 0; it < iters; it++) {
+      for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) {
+        var dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y, d2 = dx * dx + dy * dy;
+        if (d2 < 1) { dx = 1; dy = 0; d2 = 1; }
+        if (d2 > 60000) continue;
+        var f = 3200 / d2, d = Math.sqrt(d2);
+        nodes[i].vx += dx / d * f; nodes[i].vy += dy / d * f; nodes[j].vx -= dx / d * f; nodes[j].vy -= dy / d * f;
+      }
+      edges.forEach(function (e) {
+        var a = nodes[idx[e.a]], b = nodes[idx[e.b]]; if (!a || !b) return;
+        var dx2 = b.x - a.x, dy2 = b.y - a.y, d3 = Math.sqrt(dx2 * dx2 + dy2 * dy2) || 1, k = (d3 - 70) * 0.03;
+        a.vx += dx2 / d3 * k; a.vy += dy2 / d3 * k; b.vx -= dx2 / d3 * k; b.vy -= dy2 / d3 * k;
+      });
+      nodes.forEach(function (nd) {
+        var dr = Math.sqrt(nd.x * nd.x + nd.y * nd.y) || 1, target = 200 - (nd.strength || 3) * 24, k2 = (dr - target) * 0.03;
+        nd.vx -= nd.x / dr * k2; nd.vy -= nd.y / dr * k2;
+        nd.x += Math.max(-8, Math.min(8, nd.vx)); nd.y += Math.max(-8, Math.min(8, nd.vy)); nd.vx *= 0.55; nd.vy *= 0.55;
+      });
+    }
+  }
+
+  function netKey(nd) {
+    if (net.by === 'strength') return 's' + nd.strength;
+    if (net.by === 'company') return nd.company || '';
+    return (nd.interests && nd.interests[0]) || '';
+  }
+  function netNodeFill(nd) {
+    if (net.by === 'strength') return null;
+    var k = netKey(nd);
+    return k ? netColorOf(k.toLowerCase()) : null;
+  }
+  function netMatches(nd) {
+    var f = net.filters || {}, low = function (a) { return (a || []).map(function (x) { return x.toLowerCase(); }); };
+    if (f.interest && low(nd.interests).indexOf(f.interest.toLowerCase()) < 0) return false;
+    if (f.skill && low(nd.skills).indexOf(f.skill.toLowerCase()) < 0) return false;
+    if (f.city && (nd.city || '').toLowerCase() !== f.city.toLowerCase()) return false;
+    if (f.strength && nd.strength < Number(f.strength)) return false;
+    if (f.idle && (Date.now() - new Date(nd.lastTouchAt || nd.createdAt || Date.now()).getTime()) / 86400000 < Number(f.idle)) return false;
+    return true;
+  }
+  function netPath(a, b) {
+    var adj = {}; net.graph.edges.forEach(function (e) { (adj[e.a] = adj[e.a] || []).push(e.b); (adj[e.b] = adj[e.b] || []).push(e.a); });
+    var prev = {}, q = [a]; prev[a] = null;
+    while (q.length) {
+      var cur = q.shift(); if (cur === b) break;
+      (adj[cur] || []).forEach(function (nx) { if (!(nx in prev)) { prev[nx] = cur; q.push(nx); } });
+    }
+    if (!(b in prev)) return null;
+    var path = []; for (var c = b; c !== null; c = prev[c]) path.unshift(c);
+    return path;
+  }
+
+  // Dessine une toile dans un svg ; mini = aperçu sans noms ni interaction.
+  function drawNetGraph(svg, mini) {
+    svg.innerHTML = '';
+    var g = net.graph;
+    if (!g || !g.nodes.length) return;
+    var byId = {}; g.nodes.forEach(function (nd) { byId[nd.id] = nd; });
+    var x0 = -30, x1 = 30, y0 = -30, y1 = 30;
+    g.nodes.forEach(function (nd) { x0 = Math.min(x0, nd.x); x1 = Math.max(x1, nd.x); y0 = Math.min(y0, nd.y); y1 = Math.max(y1, nd.y); });
+    var pad = mini ? 10 : 34, w = x1 - x0 + 2 * pad, h = y1 - y0 + 2 * pad;
+    svg.setAttribute('viewBox', (x0 - pad) + ' ' + (y0 - pad) + ' ' + w + ' ' + h);
+    if (!mini) svg.style.setProperty('--netfs', (13 * w / Math.max(1, svg.getBoundingClientRect().width || w)) + 'px');
+    var gl = svgEl('g', {}, svg), gn = svgEl('g', {}, svg);
+    var path = net.sel && net.selB ? netPath(net.sel, net.selB) : null;
+    var onPath = {}; (path || []).forEach(function (id, i) { if (i) onPath[path[i - 1] + '_' + id] = onPath[id + '_' + path[i - 1]] = true; });
+    var near = {}; if (net.sel) g.edges.forEach(function (e) { if (e.a === net.sel) near[e.b] = true; if (e.b === net.sel) near[e.a] = true; });
+    g.nodes.forEach(function (nd) {
+      svgEl('line', { class: 'netLink netSpoke', x1: 0, y1: 0, x2: nd.x, y2: nd.y, style: 'opacity:' + (mini ? 0.25 : (net.sel ? 0.1 : 0.2)) }, gl);
+    });
+    g.edges.forEach(function (e) {
+      var a = byId[e.a], b = byId[e.b]; if (!a || !b) return;
+      var hit = net.sel && !net.selB ? (e.a === net.sel || e.b === net.sel) : !!onPath[e.a + '_' + e.b];
+      var ln = svgEl('line', { class: 'netLink' + (hit ? ' on' : ''), x1: a.x, y1: a.y, x2: b.x, y2: b.y }, gl);
+      if (!hit) ln.style.opacity = net.sel ? 0.12 : (mini ? 0.5 : 0.4);
+    });
+    var r0 = mini ? 4 : 9;
+    g.nodes.forEach(function (nd) {
+      var fill = netNodeFill(nd), n = svgEl('g', { class: 'netNode' + (nd.id === net.sel || nd.id === net.selB ? ' sel' : '') }, gn);
+      var dim = !mini && (!netMatches(nd) || (net.sel && nd.id !== net.sel && nd.id !== net.selB && !near[nd.id] && !(path && path.indexOf(nd.id) > -1)));
+      if (dim) n.classList.add('dim');
+      var r = mini ? 3 + (nd.degree > 3 ? 1.5 : 0) : r0 + Math.min(4, (nd.degree || 0) * 0.6);
+      if (!mini) svgEl('circle', { cx: nd.x, cy: nd.y, r: r, style: 'fill: var(--bg)' }, n);
+      var dot = svgEl('circle', { class: 'netDot', cx: nd.x, cy: nd.y, r: r }, n);
+      if (fill) { dot.style.fill = fill; dot.style.fillOpacity = 0.85; dot.style.stroke = fill; }
+      else { dot.style.fillOpacity = 1; dot.style.fill = 'rgba(156,140,200,' + (0.18 + 0.16 * (nd.strength || 3)) + ')'; }
+      if (!mini) {
+        svgEl('circle', { cx: nd.x, cy: nd.y, r: Math.max(r, 22), fill: 'transparent' }, n);
+        if (g.nodes.length <= 14 || nd.id === net.sel || nd.id === net.selB || (net.sel && near[nd.id])) svgEl('text', { class: 'netName', x: nd.x, y: nd.y + r + 15 }, n).textContent = nd.name.split(' ')[0];
+        n.addEventListener('click', function () { netPick(nd.id); });
+      }
+    });
+    var me = svgEl('g', { class: 'netCenter' }, gn);
+    netDot(me, 0, 0, mini ? 8 : 20);
+    if (!mini) svgEl('text', { class: 'netCount', x: 0, y: 0 }, me).textContent = t('Toi');
+  }
+
+  function netPick(id) {
+    if (net.sel === null || id === net.sel) net.sel = net.sel === id ? null : id;
+    else if (net.selB === id) net.selB = null;
+    else if (net.selB === null) net.selB = id;
+    else { net.sel = id; net.selB = null; }
+    if (net.sel === null) net.selB = null;
+    drawNetGraph($('netCrmGraph'), false);
+    var pick = $('netCrmPick'), byId = {};
+    net.graph.nodes.forEach(function (nd) { byId[nd.id] = nd; });
+    pick.innerHTML = '';
+    if (net.sel === null) { pick.textContent = t('Touche un contact : ses liens s\'allument. Touches-en un second pour voir le chemin entre eux.'); return; }
+    var a = byId[net.sel];
+    var friends = net.graph.edges.filter(function (e) { return e.a === a.id || e.b === a.id; }).map(function (e) { return byId[e.a === a.id ? e.b : e.a].name; });
+    if (net.selB !== null) {
+      var path = netPath(net.sel, net.selB);
+      var line = document.createElement('div');
+      line.textContent = path ? t('Chemin') + ' : ' + path.map(function (p) { return byId[p].name; }).join(' → ') : t('Aucun chemin entre eux dans ton réseau.');
+      pick.appendChild(line);
+    } else {
+      var l2 = document.createElement('div');
+      l2.textContent = friends.length ? t('Connaît') + ' : ' + friends.join(', ') : t('Aucun lien avec un autre contact.');
+      pick.appendChild(l2);
+    }
+    pick.appendChild(netRow(a));
+  }
+
+  function loadNetGraph() {
+    return api('GET', '/api/network/graph').then(function (g) {
+      net.graph = g;
+      netForce(g.nodes, g.edges);
+      return g;
+    });
+  }
+
+  function loadNetCrm() {
+    if (!profile) return;
+    var q = $('communitySearchInput').value.trim();
+    var calls = [api('GET', '/api/network/overview'), loadNetGraph()];
+    if (q) calls.push(api('GET', '/api/network/contacts?q=' + encodeURIComponent(q)));
+    Promise.all(calls).then(function (r) {
+      var ov = r[0], list = q ? r[2].contacts : ov.recent;
+      $('netCrmListTitle').textContent = t(q ? 'Résultats' : 'Contacts récents');
+      netFill($('netCrmRecent'), list);
+      var empty = $('netCrmEmpty');
+      empty.textContent = t(q ? 'Aucun résultat.' : "Aucun contact pour l'instant.");
+      empty.classList.toggle('hidden', list.length > 0);
+      $('netCrmOverviewBlock').classList.toggle('hidden', !!q || ov.contacts === 0);
+      $('netStatTotal').textContent = ov.contacts;
+      $('netStatStrong').textContent = ov.strong;
+      $('netStatMonth').textContent = ov.addedThisMonth ? '+' + ov.addedThisMonth + ' ' + t('ce mois') : '';
+      drawNetGraph($('netCrmMini'), true);
+      if (net.part === 'web') showNetWeb();
+      if (net.part === 'ideas') loadNetIdeas();
+    }).catch(function () { /* l'écran reste tel quel */ });
+  }
+
+  function fillNetSelect(sel, items, label) {
+    var cur = sel.value;
+    sel.innerHTML = '';
+    var o0 = document.createElement('option'); o0.value = ''; o0.textContent = label; sel.appendChild(o0);
+    items.forEach(function (x) { var o = document.createElement('option'); o.value = x.tag || x; o.textContent = (x.tag || x) + (x.count ? ' (' + x.count + ')' : ''); sel.appendChild(o); });
+    sel.value = cur;
+  }
+  function showNetWeb() {
+    if (!net.filters) net.filters = {};
+    api('GET', '/api/network/tags').then(function (tg) {
+      fillNetSelect($('netFInterest'), tg.interests, t('Intérêt'));
+      fillNetSelect($('netFSkill'), tg.skills, t('Compétence'));
+      fillNetSelect($('netFCity'), tg.cities, t('Ville'));
+    }).catch(function () { /* filtres non remplis */ });
+    drawNetGraph($('netCrmGraph'), false);
+    if (!net.graph || !net.graph.nodes.length) $('netCrmPick').textContent = t("Aucun contact pour l'instant.");
+    else if (net.sel === null) $('netCrmPick').textContent = t("Touche un contact : ses liens s'allument. Touches-en un second pour voir le chemin entre eux.");
+  }
+  [['netFInterest', 'interest'], ['netFSkill', 'skill'], ['netFCity', 'city'], ['netFStrength', 'strength'], ['netFIdle', 'idle']].forEach(function (p) {
+    $(p[0]).addEventListener('change', function () { net.filters = net.filters || {}; net.filters[p[1]] = $(p[0]).value; drawNetGraph($('netCrmGraph'), false); });
+  });
+  Array.prototype.forEach.call($('netCrmBy').querySelectorAll('button'), function (b) {
+    b.addEventListener('click', function () {
+      net.by = b.getAttribute('data-by');
+      Array.prototype.forEach.call($('netCrmBy').querySelectorAll('button'), function (x) { x.classList.toggle('active', x === b); });
+      drawNetGraph($('netCrmGraph'), false);
+    });
+  });
+
+  function loadNetIdeas() {
+    api('GET', '/api/network/insights').then(function (d) {
+      var intros = $('netIdeaIntros'); intros.innerHTML = '';
+      d.intros.forEach(function (p) {
+        var row = document.createElement('div'); row.className = 'activityRow'; row.style.cursor = 'pointer';
+        var s = document.createElement('strong'); s.textContent = p.a.name + ' ↔ ' + p.b.name; row.appendChild(s);
+        var why = [];
+        if (p.via && p.via.length) why.push(t('Connaissent') + ' ' + p.via.map(function (v) { return v.name; }).join(', '));
+        if (p.shared && p.shared.length) why.push(t('En commun') + ' : ' + p.shared.join(', '));
+        var m = document.createElement('div'); m.className = 'meta'; m.textContent = why.join(' · '); row.appendChild(m);
+        row.addEventListener('click', function () { openNetContact(p.a.id); });
+        intros.appendChild(row);
+      });
+      netFill($('netIdeaFollow'), d.followUps.map(function (f) { return Object.assign({}, f.contact, { _why: f.reason === 'echeance' ? t('Relance prévue') : t('Sans contact depuis') + ' ' + f.sinceDays + ' ' + t('jours') }); }), function (c) { return c._why; });
+      var br = $('netIdeaBridges'); br.innerHTML = '';
+      d.bridges.forEach(function (b) {
+        var row = document.createElement('div'); row.className = 'activityRow'; row.style.cursor = 'pointer';
+        var s = document.createElement('strong'); s.textContent = b.name; row.appendChild(s);
+        var m = document.createElement('div'); m.className = 'meta'; m.textContent = b.degree + ' ' + t('liens'); row.appendChild(m);
+        row.addEventListener('click', function () { openNetContact(b.id); });
+        br.appendChild(row);
+      });
+      netFill($('netIdeaUnder'), d.underConnected);
+      [['netIdeaIntros', d.intros], ['netIdeaFollow', d.followUps], ['netIdeaBridges', d.bridges], ['netIdeaUnder', d.underConnected]].forEach(function (p) {
+        $(p[0]).parentNode.classList.toggle('hidden', !p[1].length);
+      });
+      $('netIdeasEmpty').classList.toggle('hidden', !!(d.intros.length || d.followUps.length || d.bridges.length || d.underConnected.length));
+    }).catch(function () { /* page inchangée */ });
+  }
+
+  function setNetPart(part) {
+    net.part = part;
+    Array.prototype.forEach.call($('netCrmSeg').querySelectorAll('button'), function (b) { b.classList.toggle('active', b.getAttribute('data-part') === part); });
+    $('netCrmHome').classList.toggle('hidden', part !== 'home');
+    $('netCrmWeb').classList.toggle('hidden', part !== 'web');
+    $('netCrmIdeas').classList.toggle('hidden', part !== 'ideas');
+    if (part === 'web') showNetWeb();
+    if (part === 'ideas') loadNetIdeas();
+  }
+  Array.prototype.forEach.call($('netCrmSeg').querySelectorAll('button'), function (b) {
+    b.addEventListener('click', function () { setNetPart(b.getAttribute('data-part')); });
+  });
+  $('netCrmSeeWeb').addEventListener('click', function () { setNetPart('web'); });
+
+  // Mode événement : le nom de l'événement est repris dans « Rencontré à » de chaque nouveau contact.
+  $('netEventMode').addEventListener('change', function () {
+    $('netEventName').classList.toggle('hidden', !$('netEventMode').checked);
+    if (!$('netEventMode').checked) $('netEventName').value = '';
+  });
+
+  // ----- Fiche d'un contact (création et modification) -----
+  function netcStrengthSet(s) {
+    Array.prototype.forEach.call($('netcStrength').querySelectorAll('button'), function (b) { b.classList.toggle('active', Number(b.getAttribute('data-s')) === s); });
+  }
+  function netcStrengthGet() {
+    var on = $('netcStrength').querySelector('button.active');
+    return on ? Number(on.getAttribute('data-s')) : 3;
+  }
+  Array.prototype.forEach.call($('netcStrength').querySelectorAll('button'), function (b) {
+    b.addEventListener('click', function () { netcStrengthSet(Number(b.getAttribute('data-s'))); });
+  });
+  function netcFill(c) {
+    $('netcName').value = c ? c.name : '';
+    $('netcCompany').value = c ? c.company : '';
+    $('netcRole').value = c ? c.role : '';
+    $('netcMet').value = c ? c.whereMet : ($('netEventMode').checked ? $('netEventName').value.trim() : '');
+    $('netcCity').value = c ? c.city : '';
+    $('netcInterests').value = c ? c.interests.join(', ') : '';
+    $('netcSkills').value = c ? c.skills.join(', ') : '';
+    $('netcFollow').value = c && c.followUpAt ? c.followUpAt.slice(0, 10) : '';
+    netcStrengthSet(c ? c.strength : 3);
+    $('netcTitle').textContent = c ? c.name : t('Nouveau contact');
+    $('netcExtra').classList.toggle('hidden', !c);
+    $('netcMsg').textContent = '';
+  }
+  function netcRenderExtra(c) {
+    var conn = $('netcConn'); conn.innerHTML = '';
+    c.connections.forEach(function (o) {
+      var row = document.createElement('div'); row.className = 'netConnRow';
+      var nm = document.createElement('span'); nm.textContent = o.name; row.appendChild(nm);
+      row.appendChild(TMT.ui.removeBtn(function () {
+        TMT.ui.confirm(t('Retirer cette connexion ?'), { ok: t('Retirer'), danger: true }).then(function (ok) {
+          if (!ok) return;
+          api('PUT', '/api/network/edges', { a: c.id, b: o.id, linked: false }).then(function () { openNetContact(c.id); });
+        });
+      }, t('Retirer')));
+      conn.appendChild(row);
+    });
+    var sel = $('netcConnAdd');
+    sel.innerHTML = '';
+    var o0 = document.createElement('option'); o0.value = ''; o0.textContent = t('Ajouter une connexion'); sel.appendChild(o0);
+    var linked = {}; c.connections.forEach(function (o) { linked[o.id] = true; });
+    (net.graph ? net.graph.nodes : []).forEach(function (nd) {
+      if (nd.id === c.id || linked[nd.id]) return;
+      var o = document.createElement('option'); o.value = nd.id; o.textContent = nd.name; sel.appendChild(o);
+    });
+    var notes = $('netcNotes'); notes.innerHTML = '';
+    c.notes.forEach(function (nt) {
+      var box = document.createElement('div'); box.className = 'discussionMsg mine';
+      var top = document.createElement('div'); top.className = 'discussionMsgTop';
+      var when = document.createElement('span'); when.className = 'meta';
+      var d = new Date(nt.createdAt);
+      when.textContent = d.toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+      top.appendChild(when);
+      top.appendChild(TMT.ui.removeBtn(function () {
+        TMT.ui.confirm(t('Supprimer cette note ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) {
+          if (!ok) return;
+          api('DELETE', '/api/network/notes/' + nt.id).then(function () { openNetContact(c.id); });
+        });
+      }, t('Supprimer')));
+      var body = document.createElement('div'); body.className = 'discussionMsgBody'; body.textContent = nt.body;
+      box.appendChild(top); box.appendChild(body); notes.appendChild(box);
+    });
+  }
+  function openNetContact(id) {
+    $('netcMsg').textContent = '';
+    if (!id) { net.contactId = null; netcFill(null); $('netContactModal').classList.remove('hidden'); return; }
+    api('GET', '/api/network/contacts/' + id).then(function (c) {
+      net.contactId = c.id;
+      netcFill(c);
+      netcRenderExtra(c);
+      $('netContactModal').classList.remove('hidden');
+    }).catch(function (e) { $('netcMsg').textContent = e.message; });
+  }
+  function closeNetContact() { $('netContactModal').classList.add('hidden'); loadNetCrm(); }
+  $('netContactClose').addEventListener('click', closeNetContact);
+  $('netContactModal').addEventListener('click', function (e) { if (e.target === this) closeNetContact(); });
+  $('netCrmAddBtn').addEventListener('click', function () { openNetContact(0); });
+  $('netcSave').addEventListener('click', function () {
+    var body = {
+      name: $('netcName').value, company: $('netcCompany').value, role: $('netcRole').value, whereMet: $('netcMet').value, city: $('netcCity').value,
+      interests: netTagList($('netcInterests').value), skills: netTagList($('netcSkills').value), strength: netcStrengthGet(),
+      followUpAt: $('netcFollow').value ? new Date($('netcFollow').value + 'T12:00:00').toISOString() : null,
+    };
+    var p = net.contactId ? api('PUT', '/api/network/contacts/' + net.contactId, body) : api('POST', '/api/network/contacts', body);
+    p.then(function (c) { return loadNetGraph().then(function () { openNetContact(c.id); }); })
+      .catch(function (e) { $('netcMsg').textContent = e.message; });
+  });
+  $('netcConnAdd').addEventListener('change', function () {
+    var other = Number($('netcConnAdd').value); if (!other || !net.contactId) return;
+    api('PUT', '/api/network/edges', { a: net.contactId, b: other, linked: true }).then(function () { openNetContact(net.contactId); })
+      .catch(function (e) { $('netcMsg').textContent = e.message; });
+  });
+  $('netcNoteSend').addEventListener('click', function () {
+    var input = $('netcNoteInput'), body = input.value.trim(); if (!body || !net.contactId) return;
+    api('POST', '/api/network/contacts/' + net.contactId + '/notes', { body: body }).then(function () { input.value = ''; openNetContact(net.contactId); })
+      .catch(function (e) { $('netcMsg').textContent = e.message; });
+  });
+  $('netcDelete').addEventListener('click', function () {
+    if (!net.contactId) return;
+    TMT.ui.confirm(t('Supprimer ce contact et ses notes ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) {
+      if (!ok) return;
+      api('DELETE', '/api/network/contacts/' + net.contactId).then(function () { net.contactId = null; closeNetContact(); });
+    });
   });
 
   // ===================== OFFRE 1 : SOUSCRIPTION =====================

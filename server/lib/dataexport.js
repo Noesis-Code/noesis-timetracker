@@ -275,6 +275,12 @@ function buildUserExport(userId) {
   } : { created: [], joined: [] };
   const communityPostsOut = has('community_posts') ? rows(
     'SELECT id, communityId, body, createdAt FROM community_posts WHERE userId = ? ORDER BY id', userId) : [];
+  // Réseau personnel privé (2 nov. 2026) : contacts, notes et liens saisis par la personne.
+  const networkContactsOut = has('network_contacts') ? rows(
+    'SELECT id, name, company, role, whereMet, city, interests, skills, strength, lastTouchAt, followUpAt, createdAt FROM network_contacts WHERE ownerId = ? ORDER BY id', userId) : [];
+  const networkNotesOut = has('network_notes') ? rows(
+    'SELECT id, contactId, body, createdAt FROM network_notes WHERE ownerId = ? ORDER BY id', userId) : [];
+  const networkEdgesOut = has('network_edges') ? rows('SELECT a, b FROM network_edges WHERE ownerId = ? ORDER BY a, b', userId) : [];
   const clientProfileForm = has('client_profile_forms')
     ? row('SELECT answers, updatedAt FROM client_profile_forms WHERE userId = ?', userId) || null : null;
   const goalTimeCaps = has('goal_time_caps') ? rows(
@@ -426,6 +432,9 @@ function buildUserExport(userId) {
     blockedUsers: blocked,
     communities: communitiesOut,
     communityPosts: communityPostsOut,
+    networkContacts: networkContactsOut,
+    networkNotes: networkNotesOut,
+    networkEdges: networkEdgesOut,
     clientProfileForm,
     goalTimeCaps,
     goalCapacityOverrides,

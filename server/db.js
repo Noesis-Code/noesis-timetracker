@@ -2468,6 +2468,38 @@ CREATE TABLE IF NOT EXISTS community_posts (
   createdAt TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_community_posts ON community_posts(communityId, id);
+-- Réseau personnel privé (2 nov. 2026) : contacts, liens entre contacts et notes, visibles du seul propriétaire (voir lib/networkcrm.js).
+CREATE TABLE IF NOT EXISTS network_contacts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ownerId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  company TEXT NOT NULL DEFAULT '',
+  role TEXT NOT NULL DEFAULT '',
+  whereMet TEXT NOT NULL DEFAULT '',
+  city TEXT NOT NULL DEFAULT '',
+  interests TEXT NOT NULL DEFAULT '[]',
+  skills TEXT NOT NULL DEFAULT '[]',
+  strength INTEGER NOT NULL DEFAULT 3,
+  lastTouchAt TEXT,
+  followUpAt TEXT,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_network_contacts_owner ON network_contacts(ownerId);
+CREATE TABLE IF NOT EXISTS network_edges (
+  ownerId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  a INTEGER NOT NULL REFERENCES network_contacts(id) ON DELETE CASCADE,
+  b INTEGER NOT NULL REFERENCES network_contacts(id) ON DELETE CASCADE,
+  PRIMARY KEY (ownerId, a, b),
+  CHECK (a < b)
+);
+CREATE TABLE IF NOT EXISTS network_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  contactId INTEGER NOT NULL REFERENCES network_contacts(id) ON DELETE CASCADE,
+  ownerId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_network_notes_contact ON network_notes(contactId);
 `);
 // Montrer mes autres communautés aux membres de mes communautés (1er nov. 2026) : visible par défaut, le membre peut le cacher.
 if (!columnExists('users', 'communitiesShown')) {

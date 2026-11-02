@@ -145,6 +145,7 @@ const SUITE_FILES = [
   'trustscore-test.js',
   'communautes-test.js',
   'communautes-demo-test.js',
+  'reseau-perso-test.js',
   'fonctionnel-taches.js',
   'fonctionnel-modules.js',
   'fonctionnel-secteurs.js',

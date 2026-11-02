@@ -1879,6 +1879,24 @@ button { -webkit-user-select: none; user-select: none; }
 .netSvg .netNode.netHere .netDot, .netSvg .netCenter .netDot { fill: var(--purple); }
 .netSvg .netNode.netHere .netCount { fill: var(--on-action); }
 #communityMemberPick { min-height: 48px; margin-top: 8px; }
+/* Réseau personnel (page 3) : violet seulement ; les couleurs de la toile sont des couleurs de DONNÉE (palette des pôles, R16). */
+#communityPage3 { padding-bottom: 24px; }
+.netTag { display: inline-block; margin: 4px 4px 0 0; padding: 2px 10px; border: 1px solid var(--glass-calm-line); border-radius: 999px; font-size: 13px; color: var(--link-blue, var(--text)); }
+#netCrmOverview { display: flex; gap: 16px; align-items: center; cursor: default; }
+#netCrmMini { flex: 0 0 150px; width: 150px; height: 110px; }
+.netStats .netBig { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+.netFilters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
+.netFilters select { min-width: 0; }
+#netCrmPick { margin-top: 8px; min-height: 48px; }
+#netCrmPick .activityRow { margin-top: 8px; }
+.netConnRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; }
+#netCrmSeg, #netCrmBy { margin-bottom: 12px; }
+#netEventName { margin: 0 0 12px; }
+#netCrmAddBtn { margin: 12px 0 0; }
+.netWhen { margin-left: 4px; }
+#netContactModal .settingsFieldList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+#netContactModal input, #netContactModal select { width: 100%; box-sizing: border-box; }
+#netcSave { margin: 12px 0 0; }
 .netSvg .netCount { fill: var(--text); font-size: var(--netfs, 13px); font-weight: 600; text-anchor: middle; dominant-baseline: central; }
 .netSvg .netNode.joined .netCount { fill: var(--on-action); }
 .netSvg .netName { fill: var(--text); font-size: var(--netfs, 13px); text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
