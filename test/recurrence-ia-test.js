@@ -38,10 +38,10 @@ assert(/^\d{4}-\d{2}-\d{2}$/.test(ai('2026-10-19', 1, 'day')), 'la date génér�
 const px = (s) => { const r = rec.parseExplicit(s); return r ? r.every + ' ' + r.unit : null; };
 assert(px('Payer le loyer récurrente tous les mois') === '1 month', 'mot « récurrente » + tous les mois');
 assert(px('Rapport récurrente aux deux semaines') === '2 week', 'aux deux semaines');
-  assert(px('Rapport récurrente chaque jour ouvrable') === null && px('Courir récurrente 3 fois par semaine') === null, 'jour ouvrable / 3 fois par semaine : non exprimables, aucune récurrence fausse');
+  assert(px('Rapport récurrente chaque jour ouvrable') === '1 workday' && px('Courir récurrente 3 fois par semaine') === '3 perweek', 'jour ouvrable / 3 fois par semaine : exprimables (jours ouvrables, X fois par période)');
 assert(px('Rapport récurrente toutes les 2 semaines') === '2 week', 'toutes les 2 semaines');
 assert(px('Appeler tous les lundis') === null && px('Payer le loyer le 1er de chaque mois') === null, 'sans le mot « récurrente » : jamais de récurrence');
-assert(rec.unsupportedFrequency('Courir 3 fois par semaine') && rec.unsupportedFrequency('Rapport chaque jour ouvrable') && rec.unsupportedFrequency('Appeler le client une fois'), 'fréquences non exprimables repérées');
+assert(!rec.unsupportedFrequency('Courir 3 fois par semaine') && !rec.unsupportedFrequency('Rapport chaque jour ouvrable') && rec.unsupportedFrequency('Courir 3 fois') && rec.unsupportedFrequency('Appeler le client une fois'), 'fréquences non exprimables repérées (sans période : non)');
 assert(!rec.unsupportedFrequency('Appeler le client une fois par semaine') && !rec.unsupportedFrequency('Faire la paie tous les lundis') && !rec.unsupportedFrequency('Payer le loyer le 1er de chaque mois'), 'fréquences exprimables non bloquées');
 
 // ---- Faux client IA : ce que répondrait un modèle (y compris des réponses fausses à contenir) ----
@@ -69,8 +69,8 @@ fake = {
   assert(await sg('Rapport aux deux semaines') === '2 week', 'IA : « aux deux semaines » -> 2 semaines');
   assert(await sg('Payer le loyer le 1er de chaque mois') === '1 month', 'IA : « le 1er de chaque mois » -> chaque mois');
   const before = calls;
-  assert(await sg('Rapport chaque jour ouvrable') === null, 'IA : « chaque jour ouvrable » -> aucune proposition (pas de chaque jour approximatif)');
-  assert(await sg('Courir 3 fois par semaine') === null, 'IA : « 3 fois par semaine » -> aucune proposition (≠ toutes les 3 semaines)');
+  assert(await sg('Rapport chaque jour ouvrable') === '1 workday', '« chaque jour ouvrable » écrit dans le titre : jours ouvrables, sans appel IA');
+  assert(await sg('Courir 3 fois par semaine') === '3 perweek', '« 3 fois par semaine » : X fois par période, sans appel IA');
   assert(await sg('Appeler le client une fois') === null, 'IA : « une fois » -> aucune récurrence');
   assert(calls === before, 'ces trois cas ne coûtent aucun appel IA');
   assert(await sg('Bilan tous les trimestres') === null && await sg('Bilan une demi-fois') === null && await sg('Bilan chaque année') === null, 'IA : unité inconnue / non entière -> aucune proposition');
@@ -99,10 +99,10 @@ fake = {
   assert(r.ok && !r.recurrenceSuggestion, 'Partiel : « une fois » ne propose rien');
   // Types supportés = jour / semaine / mois (UNITS). Expression non exprimable : la tâche est quand même créée, simple, sans récurrence ni perte du texte.
   assert(JSON.stringify(rec.UNITS) === '["day","week","month"]', 'types de récurrence réellement supportés : jour, semaine, mois (tous les N)');
-  for (const [label, mode] of [['Rapport chaque jour ouvrable', 'partiel'], ['Courir 3 fois par semaine', 'partiel'], ['Rapport récurrente chaque jour ouvrable', 'partiel'], ['Courir récurrente 3 fois par semaine', 'partiel']]) {
-    r = await cap(label, mode);
+  for (const [label, expLabel, expUnit] of [['Rapport chaque jour ouvrable', 'Rapport', 'workday'], ['Courir 3 fois par semaine', 'Courir', 'perweek'], ['Rapport récurrente chaque jour ouvrable', 'Rapport', 'workday'], ['Courir récurrente 3 fois par semaine', 'Courir', 'perweek']]) {
+    r = await cap(label, 'partiel');
     const row = db.prepare('SELECT label, recurEvery FROM sub_project_items WHERE id = ?').get(r.id);
-    assert(r.ok && !r.recurrenceSuggestion && !row.recurEvery && /jour ouvrable|3 fois par semaine/.test(row.label), 'non exprimable (' + mode + ') « ' + label.slice(0, 22) + ' » : tâche normale créée, titre gardé, sans récurrence');
+    assert(r.ok && r.recurrenceSuggestion && r.recurrenceSuggestion.unit === expUnit && !row.recurEvery && row.label === expLabel, 'écrit dans le titre « ' + label.slice(0, 22) + ' » : proposée (' + expUnit + '), titre nettoyé, rien enregistré sans validation');
   }
 
   // Cochée : la suivante naît avec un JOUR (liste, pas de créneau), une seule ouverte à la fois

@@ -1222,15 +1222,34 @@
     });
     var row = document.createElement('div');
     row.className = 'recurRow hidden';
-    var lead = document.createElement('span'); lead.className = 'meta'; lead.textContent = t('Tous les');
+    // « Tous les N jours/semaines/mois » ou « N fois par semaine/mois/année » (répartis régulièrement) ; « jours ouvrables » n'apparaît
+    // que sur une tâche qui l'a déjà (écrit dans son titre), jamais en choix.
+    var kind = document.createElement('select');
+    kind.className = 'recurKind';
+    [['every', t('Tous les')], ['times', t('Fois par')]].forEach(function (o) {
+      var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; kind.appendChild(op);
+    });
     var num = document.createElement('input');
     num.type = 'number'; num.min = '1'; num.max = '365'; num.value = '1'; num.inputMode = 'numeric'; num.className = 'recurNum';
     var unit = document.createElement('select');
     unit.className = 'recurUnit';
-    [['day', t('jours')], ['week', t('semaines')], ['month', t('mois')]].forEach(function (o) {
-      var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; unit.appendChild(op);
-    });
-    row.appendChild(lead); row.appendChild(num); row.appendChild(unit);
+    var UNIT_SETS = {
+      every: [['day', t('jours')], ['week', t('semaines')], ['month', t('mois')]],
+      times: [['perweek', t('semaine')], ['permonth', t('mois')], ['peryear', t('année')]]
+    };
+    var TIMES_MAX = { perweek: 7, permonth: 31, peryear: 365 };
+    var hasWorkday = false;
+    function fillUnits(k, keep) {
+      unit.innerHTML = '';
+      var set = UNIT_SETS[k].slice();
+      if (k === 'every' && hasWorkday) set.push(['workday', t('jours ouvrables')]);
+      set.forEach(function (o) {
+        var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; unit.appendChild(op);
+      });
+      if (keep && set.some(function (o) { return o[0] === keep; })) unit.value = keep;
+    }
+    fillUnits('every');
+    row.appendChild(kind); row.appendChild(num); row.appendChild(unit);
     var stop = document.createElement('button');
     stop.type = 'button'; stop.className = 'iconBtn recurStop hidden'; stop.textContent = t('Arrêter la récurrence');
     function sync() {
@@ -1240,10 +1259,16 @@
     }
     var hadInitial = !!(initial && initial.every && initial.unit);
     function set(rec) {
-      if (rec && rec.every && rec.unit) { mode.value = 'on'; num.value = String(rec.every); unit.value = rec.unit; }
-      else mode.value = '';
+      if (rec && rec.every && rec.unit) {
+        mode.value = 'on'; num.value = String(rec.every);
+        var isTimes = /^per(week|month|year)$/.test(rec.unit);
+        hasWorkday = rec.unit === 'workday';
+        kind.value = isTimes ? 'times' : 'every';
+        fillUnits(kind.value, rec.unit);
+      } else mode.value = '';
       sync();
     }
+    kind.addEventListener('change', function () { fillUnits(kind.value); });
     mode.addEventListener('change', sync);
     stop.addEventListener('click', function () { mode.value = ''; sync(); });
     wrap.appendChild(mode); wrap.appendChild(row); wrap.appendChild(stop);
@@ -1253,7 +1278,8 @@
       set: function (rec) { hadInitial = !!(rec && rec.every); set(rec); },
       get: function () {
         if (mode.value !== 'on') return null;
-        var n = Math.max(1, Math.min(365, parseInt(num.value, 10) || 1));
+        var max = kind.value === 'times' ? TIMES_MAX[unit.value] : (unit.value === 'workday' ? 30 : 365);
+        var n = Math.max(1, Math.min(max, parseInt(num.value, 10) || 1));
         return { every: n, unit: unit.value };
       }
     };

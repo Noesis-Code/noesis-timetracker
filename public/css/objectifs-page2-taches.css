@@ -373,3 +373,4 @@
 :root #goalsTasksArchiveHeader { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; min-height: 44px; align-items: center; }
 #goalsTasksArchiveHeader:hover { filter: none; }
 #goalsTasksArchiveHeader .sectionTitle { font-size: 13px; font-weight: 400; color: var(--text-light); }
+.recurRow .recurKind { flex: 0 0 auto; min-width: 0; }
