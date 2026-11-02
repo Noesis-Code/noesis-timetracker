@@ -6024,6 +6024,7 @@
     // vide. La saisie et les filtres sont remis à zéro (comme avant pour la
     // saisie), puis la liste d'exploration est chargée — voir
     // loadCommunityDiscovery plus haut.
+    setCommunityPage(0, true); // l'onglet s'ouvre toujours sur la page 1 (membres)
     $('communitySearchInput').value = '';
     communitySeekingFilter.length = 0;
     buildCommunitySeekingFilters();
@@ -6038,7 +6039,6 @@
     collapseCommunitySearchBarRow();
     $('communitySearchResults').innerHTML = '';
     loadCommunityDiscovery();
-    loadCommunityGroups();
     loadFollowingFeed();
   }
 
@@ -9799,7 +9799,7 @@
   var communitySeekingFilter = []; // clés de SEEKING_TAGS, modifiées en place par le sélecteur
 
   function loadCommunityDiscovery() {
-    if (!profile) return;
+    if (!profile || communityPage === 1) return; // page 2 (communautés) : la recherche de membres ne tourne pas
     var q = $('communitySearchInput').value.trim();
     var url = '/api/users/search?userId=' + profile.id +
       '&q=' + encodeURIComponent(q) +
@@ -9839,7 +9839,7 @@
 
   $('communitySearchInput').addEventListener('input', function () {
     clearTimeout(communitySearchDebounce);
-    communitySearchDebounce = setTimeout(loadCommunityDiscovery, 250);
+    communitySearchDebounce = setTimeout(communityPage === 1 ? loadCommunityGroups : loadCommunityDiscovery, 250);
   });
 
   // Petite pastille d'identité : la photo de profil si elle existe, sinon
@@ -16216,24 +16216,71 @@
     return g.owner.name + ' · ' + g.members + ' ' + t(g.members > 1 ? 'membres' : 'membre') + ' · ' + groupPriceLabel(g);
   }
 
+  // Page 2 de l'onglet Communauté : « Mes communautés » (celles qu'on a rejointes) puis « Communautés » à découvrir.
+  // Pendant une recherche, une seule liste de résultats.
+  var communityPage = 0; // 0 = membres (page 1), 1 = communautés (page 2)
+
+  function fillGroupRows(box, groups) {
+    box.innerHTML = '';
+    groups.forEach(function (g) {
+      var row = document.createElement('div');
+      row.className = 'activityRow';
+      row.style.cursor = 'pointer';
+      row.innerHTML = '<div><strong>' + escapeHtml(g.name) + '</strong></div>' +
+        (g.topic ? '<div>' + escapeHtml(g.topic) + '</div>' : '') +
+        '<div class="meta">' + escapeHtml(groupMetaLabel(g)) + '</div>';
+      row.addEventListener('click', function () { openCommunityGroup(g.id); });
+      box.appendChild(row);
+    });
+  }
+
   function loadCommunityGroups() {
     if (!profile) return;
-    api('GET', '/api/community/groups').then(function (data) {
-      var box = $('communityGroupsList');
-      box.innerHTML = '';
-      $('communityGroupsEmptyHint').classList.toggle('hidden', data.groups.length > 0);
-      data.groups.forEach(function (g) {
-        var row = document.createElement('div');
-        row.className = 'activityRow';
-        row.style.cursor = 'pointer';
-        row.innerHTML = '<div><strong>' + escapeHtml(g.name) + '</strong></div>' +
-          (g.topic ? '<div>' + escapeHtml(g.topic) + '</div>' : '') +
-          '<div class="meta">' + escapeHtml(groupMetaLabel(g)) + (g.joined ? ' · ' + escapeHtml(t('Membre')) : '') + '</div>';
-        row.addEventListener('click', function () { openCommunityGroup(g.id); });
-        box.appendChild(row);
-      });
+    var q = $('communitySearchInput').value.trim();
+    api('GET', '/api/community/groups' + (q ? '?q=' + encodeURIComponent(q) : '')).then(function (data) {
+      var mine = q ? [] : data.groups.filter(function (g) { return g.joined; });
+      var others = q ? data.groups : data.groups.filter(function (g) { return !g.joined; });
+      $('communityMyGroupsBlock').classList.toggle('hidden', mine.length === 0);
+      fillGroupRows($('communityMyGroupsList'), mine);
+      fillGroupRows($('communityGroupsList'), others);
+      $('communityGroupsBlock').classList.toggle('hidden', others.length === 0 && mine.length > 0);
+      $('communityGroupsEmptyHint').classList.toggle('hidden', others.length > 0 || mine.length > 0);
     }).catch(function () { /* la liste reste telle quelle */ });
   }
+
+  // Bascule page 1 <-> page 2. noLoad : remise à zéro seulement (ouverture de l'onglet, déjà chargée par loadCommunity).
+  function setCommunityPage(i, noLoad) {
+    communityPage = i;
+    $('communityPage1').classList.toggle('hidden', i !== 0);
+    $('communityPage2').classList.toggle('hidden', i !== 1);
+    $('tab-community').classList.toggle('communityOnPage2', i === 1);
+    var input = $('communitySearchInput');
+    input.value = '';
+    input.placeholder = t(i === 1 ? 'Sujet précis, créateur' : 'Pseudo, projet, secteur');
+    Array.prototype.forEach.call($('communityPageDots').querySelectorAll('.goalsDotBtn'), function (b, k) { b.classList.toggle('on', k === i); });
+    if (noLoad) return;
+    if (i === 1) loadCommunityGroups(); else loadCommunityDiscovery();
+  }
+  Array.prototype.forEach.call($('communityPageDots').querySelectorAll('.goalsDotBtn'), function (b, k) {
+    b.addEventListener('click', function () { if (k !== communityPage) setCommunityPage(k); });
+  });
+  // Balayage entre les deux pages : technique commune (TMT.slidePager, stats-avance.js, chargé après app.js : liaison au premier besoin).
+  var communityPagerBound = false;
+  function bindCommunityPager() {
+    if (communityPagerBound || !(window.TMT && TMT.slidePager)) return;
+    communityPagerBound = true;
+    var host = $('communityPagesHost'), p1 = $('communityPage1'), p2 = $('communityPage2');
+    TMT.slidePager({
+      zone: host,
+      neighbor: function (dir) {
+        if (dir > 0 && communityPage === 0) return { cur: p1, nb: p2, host: host, start: function () { p2.classList.remove('hidden'); }, commit: function () { setCommunityPage(1); } };
+        if (dir < 0 && communityPage === 1) return { cur: p2, nb: p1, host: host, commit: function () { setCommunityPage(0); } };
+        return null;
+      },
+    });
+  }
+  document.addEventListener('touchstart', bindCommunityPager, { passive: true, once: true });
+  setTimeout(bindCommunityPager, 1500);
 
   function renderCommunityGroup(g) {
     $('communityGroupTitle').textContent = g.name;

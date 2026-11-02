@@ -1849,8 +1849,14 @@ button { -webkit-user-select: none; user-select: none; }
 .viewProfileProjectCase .seekingBadges { margin: 0; }
 /* Panneau de détail UNIQUE, sous la bande — pas un par case, pour que la bande elle-même ne grandisse jamais. */
 .viewProfileProjectDetail { margin-top: 4px; }
-/* Communautés gratuites (1er nov. 2026) : espace de 16 px autour du bouton de création. */
-#communityGroupsBlock { margin-bottom: 24px; }
+/* Communauté en deux pages (1er nov. 2026) : hôte du glissement, points de pagination au même endroit que ceux du Chrono. */
+#communityPagesHost { position: relative; min-height: calc(100vh - 220px); }
+#communityPageDots { position: fixed; left: 50%; transform: translateX(-50%); z-index: 20; bottom: var(--tabbar-h, 64px); display: flex; gap: 0; }
+#communityPageDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+#communityPageDots .goalsDotBtn.on .goalsDot { opacity: 1; }
+#communityPageDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
+#tab-community.communityOnPage2 #communitySeekingFilters { display: none; }
+#communityGroupsBlock, #communityMyGroupsBlock { margin-bottom: 24px; }
 #communityGroupCreateBtn { margin-top: 16px; }
 /* Score d'exécution d'un profil (1er nov. 2026) : violet seulement, espacements 8/12/16. */
 .viewProfileScore { margin-top: 16px; gap: 12px; }

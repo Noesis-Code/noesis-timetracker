@@ -840,7 +840,7 @@
     'Suis ce profil pour voir ses projets.': 'Follow this profile to see its projects.',
     "Score d'exécution": 'Execution score',
     'Communautés': 'Communities', 'Créer une communauté': 'Create a community', "Aucune communauté pour l'instant.": 'No community yet.',
-    'Nom': 'Name', 'Sujet précis': 'Specific topic', 'Tarif choisi, en $ (0 = gratuit)': 'Price you choose, in $ (0 = free)',
+    'Nom': 'Name', 'Sujet précis': 'Specific topic', 'Sujet précis, créateur': 'Specific topic, creator', 'Mes communautés': 'My communities', 'Tarif choisi, en $ (0 = gratuit)': 'Price you choose, in $ (0 = free)',
     "Le tarif est affiché aux membres. Aucun paiement n'est encaissé pour l'instant.": 'The price is shown to members. No payment is collected for now.',
     'Créer': 'Create', 'Gratuit': 'Free', 'membre': 'member', 'membres': 'members', 'Quitter': 'Leave', 'Rejoindre': 'Join',
     "Score d'exécution du créateur": "Creator's execution score", 'Supprimer la communauté': 'Delete the community',

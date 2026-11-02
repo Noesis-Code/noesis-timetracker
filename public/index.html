@@ -1197,6 +1197,11 @@
         </div>
         <div class="seekingTagPicker" id="communitySeekingFilters"></div>
       </div>
+      <!-- Deux pages (1er nov. 2026, demande d'Emilien) : page 1 = membres et abonnements (aucune communauté ici),
+           page 2 = communautés (recherche, celles qu'on a rejointes), accessible en glissant vers la droite
+           (TMT.slidePager). La barre de recherche reste en haut et change de placeholder selon la page. -->
+      <div id="communityPagesHost">
+      <div id="communityPage1">
       <!-- Découverte de membres (2 septembre 2026, demande d'Emilien :
            « perfectionner la découverte [...] des profils des autres
            utilisateurs »). Trois changements dans ce même bloc :
@@ -1243,14 +1248,6 @@
            flux en dessous. -->
       <div id="communitySearchResults" class="activitiesList"></div>
 
-      <!-- Communautés gratuites (1er nov. 2026, demande d'Emilien) : quelqu'un ouvre une communauté autour d'un sujet précis,
-           d'autres la rejoignent et y échangent. Le tarif est affiché, jamais encaissé (voir server/lib/communities.js). -->
-      <div id="communityGroupsBlock" class="communitySection">
-        <p class="sectionTitle">Communautés</p>
-        <div id="communityGroupsList" class="activitiesList"></div>
-        <p id="communityGroupsEmptyHint" class="hint hidden">Aucune communauté pour l'instant.</p>
-        <button type="button" id="communityGroupCreateBtn" class="iconBtn">Créer une communauté</button>
-      </div>
 
       <!-- ⚠️ 29 septembre 2026 : le composeur "Publier" (#communityMyPostsBlock,
            qui vivait ici avant le 5 septembre) et le bloc Sondages Communauté
@@ -1271,6 +1268,26 @@
       <div id="communitySectionFeed" class="communitySection">
         <div id="followingFeed"></div>
         <p id="followingFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit personne n'a encore écrit.</p>
+      </div>
+      </div><!-- /#communityPage1 -->
+
+      <!-- Page 2 : Communautés. Un créateur ouvre une communauté autour d'un sujet précis, des membres la rejoignent et y
+           échangent. Le tarif est affiché, jamais encaissé (voir server/lib/communities.js). -->
+      <div id="communityPage2" class="hidden">
+        <div id="communityMyGroupsBlock" class="communitySection hidden">
+          <p class="sectionTitle">Mes communautés</p>
+          <div id="communityMyGroupsList" class="activitiesList"></div>
+        </div>
+        <div id="communityGroupsBlock" class="communitySection">
+          <p class="sectionTitle" id="communityGroupsTitle">Communautés</p>
+          <div id="communityGroupsList" class="activitiesList"></div>
+          <p id="communityGroupsEmptyHint" class="hint hidden">Aucune communauté pour l'instant.</p>
+        </div>
+        <button type="button" id="communityGroupCreateBtn" class="iconBtn">Créer une communauté</button>
+      </div><!-- /#communityPage2 -->
+      </div><!-- /#communityPagesHost -->
+      <div id="communityPageDots" role="group">
+        <button type="button" class="goalsDotBtn on" aria-label="Membres"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" aria-label="Communautés"><span class="goalsDot"></span></button>
       </div>
 
     </section>
