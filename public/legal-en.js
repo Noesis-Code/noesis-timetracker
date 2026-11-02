@@ -30,7 +30,7 @@
 '<h3>2. Identification of the Company</h3>\n' +
 '<p>Noèsis Inc. (legal name: Compagnie Noèsis inc.) is a business corporation incorporated in Québec on September 8, 2026, registered under Québec enterprise number (NEQ) 1182542432.</p>\n' +
 '<p>These Terms bind the Company itself. Its founders, directors and officers are not personally parties to them and cannot be held personally liable for the obligations described herein.</p>\n' +
-'<p>For any question regarding these Terms: compagnie.noesis@gmail.com.</p>\n' +
+'<p>For any question regarding these Terms: admin@compagnienoesis.com.</p>\n' +
 '\n' +
 '<h3>3. Definitions</h3>\n' +
 '<p>“Services”: all the features offered by Noèsis, including the Free Offer (and, once built and launched, Offer 1 — see article 4.2).</p>\n' +
@@ -70,7 +70,7 @@
 '<p>The Community allows the User to exchange private messages, visible only to their recipient, and public messages, visible only to other subscribers, and to publish polls. The User remains solely responsible for the Content they publish and warrants that it does not violate any applicable law or the rights of any third party.</p>\n' +
 '<p>By publishing Content in connection with the Services, the User grants the Company a non-exclusive, royalty-free, worldwide licence to host, reproduce, display and transmit this Content solely to the extent necessary for the operation of the Services, in particular its display to the relevant recipients or subscribers. This licence ends when the Content is deleted, subject to copies retained for backup or legal compliance purposes.</p>\n' +
 '<p>The Company applies proactive moderation of the public messages in the Community, without necessarily waiting for a report. This reading, carried out manually by an officer of the Company, is solely intended to detect Content contrary to these Terms or to the law; it involves no assessment of the opinion, value or quality of the Content, and the Company does not select, rank or highlight any Content according to its interest or point of view. Content so detected may be removed and its author’s Account suspended.</p>\n' +
-'<p>Private messages exchanged between Users are not subject to any proactive monitoring or reading by the Company. They are examined only following a report, sent by email to compagnie.noesis@gmail.com or by any other reporting means made available in the application.</p>\n' +
+'<p>Private messages exchanged between Users are not subject to any proactive monitoring or reading by the Company. They are examined only following a report, sent by email to admin@compagnienoesis.com or by any other reporting means made available in the application.</p>\n' +
 '<p>With respect to the Content published by its Users, the Company acts as a host. Its liability for such Content can be engaged only if, having been informed by a sufficiently precise report of its unlawful nature, it fails to act promptly to remove it or block access to it.</p>\n' +
 '\n' +
 '<h3>11. No holding of third-party funds</h3>\n' +
@@ -85,14 +85,14 @@
 '<p><strong>Users residing in France or the European Union (in anticipation, not operative).</strong> No clause hereof shall remove or reduce the right to compensation of a User residing in France or the European Union in the event of a breach by the Company of any of its obligations.</p>\n' +
 '\n' +
 '<h3>13. Termination</h3>\n' +
-'<p>The User may terminate their Account at any time, directly from their Account settings or by making a request to compagnie.noesis@gmail.com. The Company may suspend or terminate an Account in the event of a serious or repeated breach of these Terms, subject to prior notice except in cases of urgency.</p>\n' +
+'<p>The User may terminate their Account at any time, directly from their Account settings or by making a request to admin@compagnienoesis.com. The Company may suspend or terminate an Account in the event of a serious or repeated breach of these Terms, subject to prior notice except in cases of urgency.</p>\n' +
 '\n' +
 '<h3>14. Language of the contract</h3>\n' +
 '<p>In accordance with the Charter of the French language (as amended by Law 96), the French version of these Terms is the one that prevails. Any version in another language is offered for convenience only and binds the User only if they expressly consent to it after having received the French version.</p>\n' +
 '\n' +
 '<h3>15. Governing law and remedies</h3>\n' +
 '<p>These Terms are governed by the law applicable in the province of Québec. Subject to the consumer User’s right to bring an action before the court of their own domicile where the law allows it, any dispute falls within the jurisdiction of the competent courts of the judicial district of Montréal. No clause hereof has the effect of depriving the consumer User of their right to bring an action before the competent courts, including a class action, or of compelling them to mandatory arbitration, in accordance with section 11.1 of the Consumer Protection Act.</p>\n' +
-'<p>Before any legal action, the parties undertake to attempt in good faith to resolve amicably any dispute arising from these Terms, by means of a written communication sent to compagnie.noesis@gmail.com describing the dispute, followed by a negotiation period of at least thirty (30) days. This amicable attempt in no way deprives the consumer User of their right to bring an action before the competent courts at any time, nor does it affect the limitation periods applicable to them.</p>\n' +
+'<p>Before any legal action, the parties undertake to attempt in good faith to resolve amicably any dispute arising from these Terms, by means of a written communication sent to admin@compagnienoesis.com describing the dispute, followed by a negotiation period of at least thirty (30) days. This amicable attempt in no way deprives the consumer User of their right to bring an action before the competent courts at any time, nor does it affect the limitation periods applicable to them.</p>\n' +
 '\n' +
 '<h3>16. Miscellaneous provisions</h3>\n' +
 '<p><strong>Severability —</strong> If a provision of these Terms is held to be invalid, illegal or unenforceable, that provision is deemed severed from these Terms, without affecting the validity or enforceability of the other provisions.</p>\n' +
@@ -102,7 +102,7 @@
 '<p><strong>Force majeure —</strong> The Company cannot be held liable for a delay or failure in performance resulting from a cause beyond its reasonable control, in particular a failure of a hosting provider, a natural disaster or a government decision.</p>\n' +
 '\n' +
 '<h3>17. Contact details</h3>\n' +
-'<p>For any question regarding these Terms: compagnie.noesis@gmail.com.</p>\n'
+'<p>For any question regarding these Terms: admin@compagnienoesis.com.</p>\n'
   };
 
   /* ------------------------------------------------------------------
@@ -123,7 +123,7 @@
 '\n' +
 '<h3>1. Who is responsible for your information</h3>\n' +
 '<p>The Noèsis application is operated by Noèsis Inc. (legal name: Compagnie Noèsis inc., NEQ 1182542432), a business corporation incorporated in Québec, whose head office is located in Montréal, Québec.</p>\n' +
-'<p>In accordance with the Act respecting the protection of personal information in the private sector (Québec), the person in charge of the protection of personal information is Émilien Morel-Obaton, Vice-President of Noèsis Inc., to whom this function has been delegated in writing — compagnie.noesis@gmail.com. For persons residing in another province or territory of Canada, the Personal Information Protection and Electronic Documents Act (PIPEDA), or the applicable provincial law, also applies.</p>\n' +
+'<p>In accordance with the Act respecting the protection of personal information in the private sector (Québec), the person in charge of the protection of personal information is Émilien Morel-Obaton, Vice-President of Noèsis Inc., to whom this function has been delegated in writing — admin@compagnienoesis.com. For persons residing in another province or territory of Canada, the Personal Information Protection and Electronic Documents Act (PIPEDA), or the applicable provincial law, also applies.</p>\n' +
 '<p>This is the address to write to for any question about this policy, to exercise your rights, or to report a problem.</p>\n' +
 '\n' +
 '<h3>2. What we collect, and why</h3>\n' +
@@ -229,7 +229,7 @@
 '<h3>10. Contact us</h3>\n' +
 '<p>For any question, request or complaint regarding your personal information:</p>\n' +
 '<p>Émilien Morel-Obaton, Vice-President of Noèsis Inc. — Person in charge of the protection of personal information</p>\n' +
-'<p>compagnie.noesis@gmail.com</p>\n' +
+'<p>admin@compagnienoesis.com</p>\n' +
 '<p>You may also contact the Commission d’accès à l’information du Québec directly — cai.gouv.qc.ca — or, if you reside outside Québec, the Office of the Privacy Commissioner of Canada — priv.gc.ca.</p>\n'
   };
 
@@ -245,10 +245,10 @@
 '<p>The Noèsis application is operated by <strong>Noèsis Inc.</strong> (legal name: Compagnie Noèsis inc.), a business corporation incorporated in Québec on September 8, 2026, whose head office is located in Montréal, Québec, Canada.</p>\n' +
 '<p>Québec enterprise number (NEQ): <strong>1182542432</strong>.</p>\n' +
 '<p>Noèsis Inc. is a business corporation incorporated in Québec. The founders, Gaspard and Émilien Morel-Obaton, are its officers and shareholders and no longer personally assume, in an individual capacity, the responsibilities relating to the application.</p>\n' +
-'<p>Contact: compagnie.noesis@gmail.com</p>\n' +
+'<p>Contact: admin@compagnienoesis.com</p>\n' +
 '\n' +
 '<h3>Person in charge of the protection of personal information</h3>\n' +
-'<p>In accordance with section 3.1 of the <em>Act respecting the protection of personal information in the private sector</em>, the person in charge of the protection of personal information is <strong>Émilien Morel-Obaton</strong>, Vice-President of Noèsis Inc., to whom this function has been delegated in writing — compagnie.noesis@gmail.com.</p>\n' +
+'<p>In accordance with section 3.1 of the <em>Act respecting the protection of personal information in the private sector</em>, the person in charge of the protection of personal information is <strong>Émilien Morel-Obaton</strong>, Vice-President of Noèsis Inc., to whom this function has been delegated in writing — admin@compagnienoesis.com.</p>\n' +
 '<p>This person is responsible for ensuring compliance with the law, responding to requests for access, rectification and deletion, and handling confidentiality incidents.</p>\n' +
 '\n' +
 '<h3>Hosting</h3>\n' +
@@ -264,8 +264,8 @@
   EN.governanceModal = {
     title: 'Governance of personal information',
     body:
-'<p>Noèsis collects the minimum of information, does not sell it, hosts it with contractually bound providers and lets you view, correct or delete it. To reach the person in charge of the protection of personal information, make a request or file a complaint, write to compagnie.noesis@gmail.com. We aim to respond within 15 days; the law gives us 30 days. If you are not satisfied with the response, you may contact the Commission d’accès à l’information du Québec.</p>\n' +
-'<p class="hint">Last updated: November 1, 2026</p>\n'
+'<p>Noèsis collects the minimum of information, does not sell it, hosts it with contractually bound providers and lets you view, correct or delete it. To reach the person in charge of the protection of personal information, make a request or file a complaint, write to admin@compagnienoesis.com. We aim to respond within 15 days; the law gives us 30 days. If you are not satisfied with the response, you may contact the Commission d’accès à l’information du Québec.</p>\n' +
+'<p class="hint">Last updated: November 2, 2026</p>\n'
   };
 
   var DOC_IDS = ['legalTermsModal', 'privacyPolicyModal', 'legalNoticesModal', 'governanceModal'];
@@ -313,7 +313,7 @@
         'Avoid writing sensitive information (health, finances, private life) in your tasks, notes and attachments if you do not want it to be transmitted.',
         'Anthropic may process this information anywhere in the world, under the data processing contract concluded with Noèsis. It may not use it to train its models. It deletes it from its servers within 30 days. The list of its subprocessors is public: anthropic.com/subprocessors. Noèsis’s proposals may be inaccurate: verify them.',
         'You keep the decision. In Settings, AI management tab, you can change or turn off Noèsis’s help at any time: “Partial” or “Off” (no data transmitted to Anthropic).',
-        'Questions or requests about your information: compagnie.noesis@gmail.com. The details are in section 4.6 of our ', 'Privacy Policy', '.'
+        'Questions or requests about your information: admin@compagnienoesis.com. The details are in section 4.6 of our ', 'Privacy Policy', '.'
       ] },
     { pick: '#aiNoticeAck', en: ['I understand'] }
   ];

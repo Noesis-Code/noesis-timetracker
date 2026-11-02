@@ -67,7 +67,7 @@ function fmtDate(ms) {
   return new Date(ms).toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Montreal' });
 }
 
-const SIGNATURE = '\n\nCordialement.\n\nGaspard & Émilien MOREL--OBATON\nCOMPAGNIE NOÈSIS Inc.\nMail : compagnie.noesis@gmail.com';
+const SIGNATURE = '\n\nCordialement.\n\nGaspard & Émilien MOREL--OBATON\nCOMPAGNIE NOÈSIS Inc.\nMail : admin@compagnienoesis.com';
 
 function buildMail(kind, name, dateMs) {
   const hello = `Bonjour ${name || ''},\n`;

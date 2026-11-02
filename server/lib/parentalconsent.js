@@ -74,7 +74,7 @@ async function createOrReuse({ req, activityId, userId, guardianName, guardianEm
     '',
     `Ce lien expire le ${new Date(expiresAt).toLocaleDateString('fr-CA')}. Si tu ne reconnais pas cette demande, tu peux simplement l'ignorer : aucun abonnement ne sera créé sans ta confirmation.`,
     '',
-    'Noèsis Inc. — confidentialite.noesis@gmail.com',
+    'Noèsis Inc. — admin@compagnienoesis.com',
   ].join('\n');
 
   await mail.sendMail({

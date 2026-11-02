@@ -9,6 +9,33 @@ const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 const INDEX = path.join(PUBLIC_DIR, 'index.html');
 const LEGAL_EN = path.join(PUBLIC_DIR, 'legal-en.js');
 
+// Pages de suppression du compte (exigées par Google Play) : texte propre, faits repris de la politique (sections 5 et 6bis).
+const MAIL = 'admin@compagnienoesis.com';
+const DELETE_FR = [
+  '<h3>Supprimer votre compte dans l’application</h3>',
+  '<p>Ouvrez Noèsis, allez dans Profil → Réglages, puis touchez le bouton « Supprimer mon compte » tout en bas et confirmez. L’effet est immédiat.</p>',
+  '<h3>Ou par courriel</h3>',
+  '<p>Écrivez à <a href="mailto:' + MAIL + '">' + MAIL + '</a> depuis l’adresse courriel de votre compte. Nous répondons dans un délai maximal de 30 jours.</p>',
+  '<h3>Ce qui est effacé</h3>',
+  '<p>Dès que vous supprimez votre compte, tout est effacé immédiatement et définitivement de la base de données vivante : votre profil, vos activités, votre historique, vos notes, vos pièces jointes, vos messages, vos liens avec d’autres personnes et votre adresse de calendrier. Il n’y a pas de période de grâce et pas de corbeille : la suppression est irréversible.</p>',
+  '<h3>Ce qui peut subsister</h3>',
+  '<p>Les sauvegardes chiffrées : une copie de vos renseignements, déjà chiffrée, peut subsister jusqu’à 12 mois dans ces sauvegardes avant d’être définitivement purgée par rotation automatique, même après la suppression de votre compte. Personne ne peut lire cette copie sans la clé de déchiffrement, qui n’est jamais transmise à notre fournisseur de sauvegarde.</p>',
+  '<p>Une activité partagée dont d’autres personnes restent membres continue d’exister, avec sa propriété transférée au membre restant le plus ancien ; les sessions chronométrées et messages des autres membres restent inchangés, seuls les vôtres sont retirés.</p>',
+  '<p class="hint">Détails : <a href="/confidentialite">Politique de confidentialité</a>, sections 5 et 6bis.</p>',
+].join('\n');
+const DELETE_EN = [
+  '<h3>Delete your account in the app</h3>',
+  '<p>Open Noèsis, go to Profile → Settings, then tap the “Delete my account” button at the very bottom and confirm. The effect is immediate.</p>',
+  '<h3>Or by email</h3>',
+  '<p>Write to <a href="mailto:' + MAIL + '">' + MAIL + '</a> from your account’s email address. We reply within 30 days at most.</p>',
+  '<h3>What is erased</h3>',
+  '<p>As soon as you delete your account, everything is erased immediately and permanently from the live database: your profile, your activities, your history, your notes, your attachments, your messages, your links with other people and your calendar address. There is no grace period and no trash: deletion is irreversible.</p>',
+  '<h3>What may remain</h3>',
+  '<p>Encrypted backups: a copy of your information, already encrypted, may remain for up to 12 months in these backups before being permanently purged by automatic rotation, even after your account is deleted. No one can read this copy without the decryption key, which is never sent to our backup provider.</p>',
+  '<p>A shared activity of which other people remain members continues to exist, with its ownership transferred to the oldest remaining member; the timed sessions and messages of the other members remain unchanged, only yours are removed.</p>',
+  '<p class="hint">Details: <a href="/en/privacy">Privacy Policy</a>, sections 5 and 6bis.</p>',
+].join('\n');
+
 // chemin -> modale source, langue, titre de la page
 const PAGES = {
   '/confidentialite': { id: 'privacyPolicyModal', lang: 'fr', title: 'Politique de confidentialité' },
@@ -17,6 +44,8 @@ const PAGES = {
   '/en/privacy': { id: 'privacyPolicyModal', lang: 'en', title: 'Privacy Policy' },
   '/en/terms': { id: 'legalTermsModal', lang: 'en', title: 'Terms of Use' },
   '/en/legal-notice': { id: 'legalNoticesModal', lang: 'en', title: 'Legal Notice' },
+  '/suppression-compte': { lang: 'fr', title: 'Suppression du compte', body: DELETE_FR },
+  '/en/delete-account': { lang: 'en', title: 'Account deletion', body: DELETE_EN },
 };
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -58,7 +87,7 @@ function build() {
   const en = englishDocs(fs.readFileSync(LEGAL_EN, 'utf8'));
   const pages = {};
   for (const [p, d] of Object.entries(PAGES)) {
-    const body = d.lang === 'en' ? (en[d.id] && en[d.id].body) : frenchBody(html, d.id);
+    const body = d.body || (d.lang === 'en' ? (en[d.id] && en[d.id].body) : frenchBody(html, d.id));
     if (body) pages[p] = PAGE(d.lang, d.title, body);
   }
   cache = { key, pages };

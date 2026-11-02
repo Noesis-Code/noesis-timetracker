@@ -22,6 +22,8 @@ const child = spawn('node', [path.join(__dirname, '..', 'server', 'index.js')], 
     ['/en/privacy', 'Privacy Policy', 'Who is responsible'],
     ['/en/terms', 'Terms of Use', 'Purpose and acceptance'],
     ['/en/legal-notice', 'Legal Notice', 'Identification'],
+    ['/suppression-compte', 'Suppression du compte', 'Supprimer mon compte'],
+    ['/en/delete-account', 'Account deletion', 'Delete my account'],
   ];
   for (const [p, titre, section] of attendu) {
     const r = await get(p);
