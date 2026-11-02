@@ -20,7 +20,8 @@ function tasksToday(userId, todayParam, dayParam) {
   const other = day !== realToday;
   const today = day;
   const acts = db.prepare(`SELECT a.id, a.name, m.color FROM activities a JOIN activity_members m ON m.activityId = a.id
-    WHERE m.userId = ? AND a.active = 1 ORDER BY a.name`).all(userId);
+    WHERE m.userId = ? AND a.active = 1 ORDER BY m.position, a.id`).all(userId); // ordre des activités dans l'application (même ordre que la liste des activités)
+  const actIndex = new Map(acts.map((a, i) => [a.id, i]));
   const todo = [], done = [];
   // Les durées estimées ne se calculent que pour les tâches affichées (et un calcul par catégorie : mémo le temps de la requête).
   const memo = goals.beginEstimateMemo();
@@ -44,7 +45,23 @@ function tasksToday(userId, todayParam, dayParam) {
       });
     });
   } finally { goals.endEstimateMemo(memo); }
-  todo.sort((x, y) => (x.dueDate < y.dueDate ? -1 : x.dueDate > y.dueDate ? 1 : x.id - y.id));
+  // Ordre : activité par activité (ordre de l'application), puis dans chaque activité les paliers maintenance/développement
+  // (taskkind.compareTasks), puis l'échéance et l'ordre de création comme avant. Sans type calculé, une tâche reste au palier 3 : ordre d'avant.
+  const taskkind = require('./taskkind');
+  const kinds = taskkind.readMany(todo.map((t) => t.id));
+  const weekly = {};
+  if (todo.length) db.prepare('SELECT id, goalWeeklyId FROM sub_project_items WHERE id IN (' + todo.map(() => '?').join(',') + ')').all(...todo.map((t) => t.id)).forEach((r) => { weekly[r.id] = r.goalWeeklyId; });
+  const capacity = {};
+  todo.forEach((t) => {
+    if (!(t.activityId in capacity)) { try { capacity[t.activityId] = require('./goalsoverload').budgetFor(t.activityId, userId); } catch (e) { capacity[t.activityId] = 0; } }
+    const k = kinds[t.id] || {};
+    t.rank = { taskKind: k.kind, maintType: k.maintType, maintUrgent: k.urgent, estimatedMinutes: t.minutes || 0, hasObjective: weekly[t.id] != null };
+    t.rank.tier = taskkind.tierOf(t.rank, capacity[t.activityId]);
+  });
+  const dayWork = (a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.id - b.id);
+  todo.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || taskkind.compareTasks(x.rank, y.rank) || dayWork(x, y));
+  todo.forEach((t) => { delete t.rank; });
+  done.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || x.id - y.id);
   const sum = (l) => l.reduce((s, t) => s + (t.minutes || 0), 0);
   return { today, doneCount: done.length, todoCount: todo.length, doneMinutes: sum(done), todoMinutes: sum(todo), tasks: todo.concat(done) };
 }

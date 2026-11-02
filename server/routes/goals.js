@@ -21,9 +21,6 @@ const goalsweeklyauto = require('../lib/goalsweeklyauto');
 // server/lib/crosssectorinference.js pour le cadrage complet) : chaîné après
 // goalsweeklyauto ci-dessous, jamais un hook indépendant.
 const crosssectorinference = require('../lib/crosssectorinference');
-// Brief B (22 septembre 2026, Aiguillage) — liste quotidienne de tâches
-// priorisées, voir server/lib/goalsdailypriority.js.
-const goalsdailypriority = require('../lib/goalsdailypriority');
 // Chantier Objectifs — C (fusion sous-projet → catégorie, section Tâches,
 // 17 septembre 2026) — voir server/lib/goalstasks.js.
 const goalstasks = require('../lib/goalstasks');
@@ -940,31 +937,6 @@ router.post('/activities/:id/goals/tasks/:itemId/mark-seen', (req, res) => {
       return res.status(400).json({ error: "Cette tâche n'appartient pas à cette activité." });
     }
     res.json(subprojects.markItemSeen(item.id));
-  } catch (err) {
-    handleGoalsError(res, err);
-  }
-});
-
-// Brief B (22 septembre 2026, Aiguillage) — liste quotidienne de tâches
-// priorisées, voir server/lib/goalsdailypriority.js. Toujours une
-// PROPOSITION à valider par l'utilisateur (règle verrouillée) — cette route
-// ne fait que CALCULER, jamais n'applique ni n'écrit quoi que ce soit ;
-// aucune persistance ce chantier-ci (la surface de validation/ajustement
-// revient à Objectifs — Planification IA, voir le commentaire de tête de
-// goalsdailypriority.js). Couvre toute l'activité, tous pôles/secteurs
-// confondus (le planning reste propre à l'activité, jamais global à la
-// personne — règle 1 de goals.js).
-router.get('/activities/:id/goals/daily-priority', async (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  const activityId = Number(req.params.id);
-
-  const check = requireMembership(userId, activityId);
-  if (check.error) return res.status(check.error.status).json(check.error.body);
-
-  try {
-    await require('../lib/externalcalendar').refreshBusy(userId, goalsdailypriority.todayLocal());
-    res.json(goalsdailypriority.computeDailyPriorityList(activityId, userId));
   } catch (err) {
     handleGoalsError(res, err);
   }

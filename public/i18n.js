@@ -1470,7 +1470,6 @@
     "par Noèsis": "by Noèsis",
     "Afficher/masquer les jours de cette semaine": "Show/hide this week's days",
     "semaine": "week",
-    "Rien de proposé pour aujourd’hui.": "Nothing suggested for today.",
     "Ajouter une tâche ce jour": "Add a task this day",
     "Marquer non faite": "Mark as not done",
     "Marquer faite": "Mark as done",

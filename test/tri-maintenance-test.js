@@ -1,5 +1,5 @@
 // Tri des tâches de l'offre gratuite : type (maintenance / développement) calculé en silence, récurrence silencieuse (texte, historique, IA),
-// doublon à zone grise, placement de la maintenance, ordre de la liste du jour. Faux client IA, aucun réseau.
+// doublon à zone grise, placement de la maintenance, rang par paliers (taskkind.tierOf / compareTasks). Faux client IA, aucun réseau.
 process.env.TZ = 'America/Montreal';
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-tri-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
@@ -13,7 +13,6 @@ const classify = require('../server/lib/goalstaskclassify');
 const rec = require('../server/lib/taskrecurrence');
 const tk = require('../server/lib/taskkind');
 const cp = require('../server/lib/goalscaptureplace');
-const dp = require('../server/lib/goalsdailypriority');
 const today = require('../server/lib/dates').userToday();
 require('../server/lib/silentspellfix').setCaller(async (t) => t);
 
@@ -153,40 +152,27 @@ const col = (id) => db.prepare('SELECT taskKind, maintType, maintUrgent, goalWee
   const dr = (await classify.captureTaskForActivities([actD], 'u3', 'Rappeler plombier fuite', { aiMode: 'partiel', forcedCategory: keyD })).pop();
   assert(!dr.ok && dr.needs === 'duplicate', 'S4 : la capture demande confirmation quand l\'IA voit un doublon');
 
-  // ---- S6 : liste du jour ----
-  mkUser('u4'); const actE = mkAct('E', 'u4'); const keyE = mkPole(actE);
-  const wkE = mkWeekly(actE, keyE, 9301, 'Objectif de développement');
-  const mk = (label, kind, extra) => {
-    const it = goalstasks.addCategoryTask(actE, 'u4', keyE, label, {});
-    db.prepare('UPDATE sub_project_items SET taskKind = ?, maintType = ?, maintUrgent = ?, goalWeeklyId = ? WHERE id = ?')
-      .run(kind, (extra && extra.type) || null, (extra && extra.urgent) ? 1 : 0, (extra && extra.weekly) || null, it.id);
-    return it.id;
+  // ---- S6 : rang par paliers (taskkind.tierOf / compareTasks) ----
+  const CAP = 120;
+  const mkT = (id, kind, o) => { const t = Object.assign({ id, taskKind: kind, maintUrgent: false, hasObjective: false, estimatedMinutes: 30, maintType: null }, o || {}); t.tier = tk.tierOf(t, CAP); return t; };
+  const T = {
+    rangement: mkT('rangement', 'maintenance', { maintType: 'rangement' }),
+    finances: mkT('finances', 'maintenance', { maintType: 'finances' }),
+    neutre: mkT('neutre', null),
+    devObj: mkT('devObj', 'developpement', { hasObjective: true }),
+    devSans: mkT('devSans', 'developpement'),
+    urgFin: mkT('urgFin', 'maintenance', { maintType: 'finances', maintUrgent: true }),
+    urgLegal: mkT('urgLegal', 'maintenance', { maintType: 'legal', maintUrgent: true }),
   };
-  const ids = {
-    rangement: mk('M courte rangement', 'maintenance', { type: 'rangement' }),
-    finances: mk('M courte finances', 'maintenance', { type: 'finances' }),
-    neutre: mk('N neutre', null),
-    devObj: mk('D avec objectif', 'developpement', { weekly: wkE }),
-    devSans: mk('D sans objectif', 'developpement'),
-    urgFin: mk('U urgente finances', 'maintenance', { type: 'finances', urgent: true }),
-    urgLegal: mk('U urgente legal', 'maintenance', { type: 'legal', urgent: true }),
-  };
-  const list = dp.computeDailyPriorityList(actE, 'u4');
-  const order = list.items.map((i) => i.id);
-  const pos = (k) => order.indexOf(ids[k]);
+  const order = Object.keys(T).map((k) => T[k]).sort(tk.compareTasks).map((t) => t.id);
+  const pos = (k) => order.indexOf(k);
   assert(pos('urgLegal') === 0 && pos('urgFin') === 1, 'S6 : maintenance urgente en tête, départagée par rang d\'essentiel (legal avant finances)');
   assert(pos('devSans') === 2, 'S6 : développement sans objectif juste après');
   assert(pos('devObj') > 2 && pos('neutre') > 2 && pos('devObj') < pos('finances') && pos('neutre') < pos('finances'), 'S6 : développement avec objectif et tâche sans type avant la maintenance courte');
   assert(pos('finances') === 5 && pos('rangement') === 6, 'S6 : maintenance courte en dernier, par rang d\'essentiel à durée égale');
-  const it = (k) => list.items.find((i) => i.id === ids[k]);
-  assert(it('urgLegal').taskKind === 'maintenance' && it('urgLegal').maintUrgent === true && it('neutre').taskKind === null, 'S6 : taskKind / maintUrgent exposés');
-  assert(dp.tierOf({ taskKind: 'maintenance', maintUrgent: false, estimatedMinutes: 500 }, 120) === 1 && dp.tierOf({ taskKind: 'maintenance', maintUrgent: false, estimatedMinutes: 30 }, 120) === 4 && dp.tierOf({ taskKind: null, hasObjective: false, estimatedMinutes: 30 }, 120) === 3, 'S6 : paliers (longue = 1, courte = 4, sans type = 3)');
-  // Sans aucun type : ordre d'avant (importance, puis score)
-  mkUser('u5'); const actF = mkAct('F', 'u5'); const keyF = mkPole(actF);
-  ['Aa', 'Bb', 'Cc'].forEach((l) => goalstasks.addCategoryTask(actF, 'u5', keyF, l, {}));
-  const lf = dp.computeDailyPriorityList(actF, 'u5').items;
-  const sorted = lf.slice().sort((a, b) => (b.importance.score - a.importance.score) || (b.score - a.score));
-  assert(lf.every((i) => i.tier === 3) && lf.map((i) => i.id).join() === sorted.map((i) => i.id).join(), 'S6 : tâches sans taskKind : tri inchangé (palier 3)');
+  assert(tk.tierOf({ taskKind: 'maintenance', maintUrgent: false, estimatedMinutes: 500 }, 120) === 1 && tk.tierOf({ taskKind: 'maintenance', maintUrgent: false, estimatedMinutes: 30 }, 120) === 4 && tk.tierOf({ taskKind: null, hasObjective: false, estimatedMinutes: 30 }, 120) === 3, 'S6 : paliers (longue = 1, courte = 4, sans type = 3)');
+  assert(tk.compareTasks(T.devObj, T.neutre) === 0 && tk.compareTasks(mkT('a', 'maintenance', { maintType: 'rangement', estimatedMinutes: 10 }), T.rangement) < 0, 'S6 : palier 3 à égalité (l\'appelant départage) ; palier 4 : la plus courte en premier');
+
 
   console.log(failed ? '\ntri-maintenance-test : ' + failed + ' échec(s)' : '\ntri-maintenance-test : OK');
   process.exit(failed ? 1 : 0);

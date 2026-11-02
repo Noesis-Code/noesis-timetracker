@@ -126,30 +126,6 @@
               </div>
             </div>
 
-            <!-- (discussion "Objectifs — Logique métier") :
-                 liste quotidienne de tâches priorisées, consomme GET
-                 /activities/:id/goals/daily-priority
-                 (server/lib/goalsdailypriority.js) — toujours une
-                 proposition en lecture seule, jamais appliquée
-                 automatiquement. Contenu entièrement construit par
-                 renderGoalsDailyPriority() (app.js) — vide au chargement.
-                 demande directe d'Emilien (restructuration
-                 du volet Objectifs en 3 pages) : « s'il veut voir tous les
-                 détails, cette liste est véritablement présente de manière
-                 fixe longtemps à l'avance, UNIQUEMENT dans la section
-                 calendrier » — ce résumé du jour, ici, dans le détail de
-                 période, fait doublon avec la vue calendrier désormais
-                 responsable de la liste complète (page 3) et avec Chrono/la
-                 notification du matin (inchangés, déjà en place). MASQUÉ,
-                 pas retiré (renderGoalsDailyPriority() reste intacte côté
-                 app.js, plus jamais appelée depuis renderActivityGoals() —
-                 voir son commentaire) : la route GET .../daily-priority elle-
-                 même reste utilisée telle quelle par Chrono. -->
-            <div class="goalCard dailyPriorityCard hidden" id="activityGoalsDailyPriorityCard">
-              <p class="goalCardLabel">Aujourd'hui</p>
-              <div class="dailyPriorityList" id="activityGoalsDailyPriorityList"></div>
-            </div>
-
             <!-- (discussion "Objectifs — D", 7e passage) —
                  retour à l'affichage PERMANENT des 4 cartes hebdomadaires
                  entre l'objectif périodique et le calendrier, sur demande
@@ -1170,17 +1146,6 @@
     // plus bas.
     renderGoalsCapacity();
 
-    // liste
-    // quotidienne de tâches priorisées — voir renderGoalsDailyPriority()
-    // plus bas.
-    // demande directe d'Emilien (restructuration du
-    // volet Objectifs en 3 pages) : ce résumé du jour dans le détail de
-    // période fait désormais doublon avec la page 3 (calendrier, seule
-    // responsable de la liste complète et détaillée à présent) — appel
-    // retiré, carte masquée dans index.html (#activityGoalsDailyPriorityCard),
-    // fonction laissée intacte (masque, ne supprime pas).
-    // renderGoalsDailyPriority();
-
     // retour à
     // un affichage PERMANENT des 4 cartes hebdomadaires (défait la fusion du
     // soir, qui les masquait derrière une bulle ouverte depuis
@@ -1282,82 +1247,6 @@
     var total = plan && plan.periodNumber === period.periodNumber && plan.periodTotal != null ? plan.periodTotal : period.mainGoalEstimateMinutes;
     var line = total != null ? '≈ ' + formatGoalHours(total) + ' ' + t('estimées pour la période') : t('Temps estimé : à définir');
     el.textContent = line;
-  }
-
-
-  // ===================== OBJECTIFS — PAGE 2 : LISTE QUOTIDIENNE =====================
-  // liste
-  // quotidienne de tâches priorisées, calcul fait côté serveur
-  // (server/lib/goalsdailypriority.js) — GET
-  // /activities/:id/goals/daily-priority, toujours une PROPOSITION en
-  // lecture seule, jamais appliquée automatiquement (voir renderGoalsCapacity()
-  // ci-dessus pour le même principe côté capacité). Coche une tâche =
-  // sub_project_items.done (PUT /api/sub-project-items/:id, endpoint déjà
-  // existant, aucun ajout serveur nécessaire) ; la liste se recalcule et la
-  // tâche suivante prend automatiquement la place libérée, jamais de cache
-  // côté client. Report/swipe volontairement PAS inclus ici — pas de
-  // persistance décidée à ce stade (nécessiterait une table dans
-  // server/db.js, à cadrer séparément), voir
-  // noesis-timetracker-chantiers-en-cours.md (encart 48).
-  var goalsDailyPriorityRequestId = 0;
-
-
-  function renderGoalsDailyPriority() {
-    var box = $('activityGoalsDailyPriorityList');
-    if (!box) return;
-    var activityId = TMT.currentGoalsActivityId;
-    if (!activityId) { box.innerHTML = ''; return; }
-    var requestId = ++goalsDailyPriorityRequestId;
-    api('GET', '/api/activities/' + activityId + '/goals/daily-priority')
-      .then(function (data) {
-        if (requestId !== goalsDailyPriorityRequestId) return;
-        renderGoalsDailyPriorityList(box, data.items || []);
-      })
-      .catch(function () {
-        if (requestId !== goalsDailyPriorityRequestId) return;
-        box.innerHTML = '';
-      });
-  }
-
-
-  function renderGoalsDailyPriorityList(box, items) {
-    box.innerHTML = '';
-    var today = items.filter(function (it) { return it.selected; });
-    if (!today.length) {
-      var empty = document.createElement('p');
-      empty.className = 'dailyPriorityEmpty';
-      empty.textContent = t('Rien de proposé pour aujourd’hui.');
-      box.appendChild(empty);
-      return;
-    }
-    today.forEach(function (task) {
-      var row = document.createElement('label');
-      row.className = 'dailyPriorityItem';
-      var check = document.createElement('input');
-      check.type = 'checkbox';
-      check.className = 'dailyPriorityCheck';
-      check.addEventListener('change', function () {
-        if (!check.checked) return;
-        check.disabled = true;
-        api('PUT', '/api/sub-project-items/' + task.id, { done: true })
-          .then(renderGoalsDailyPriority)
-          .catch(function (err) {
-            check.disabled = false;
-            check.checked = false;
-            $('activityGoalsMsg').textContent = err.message;
-          });
-      });
-      var text = document.createElement('span');
-      text.className = 'dailyPriorityLabel';
-      text.textContent = task.label;
-      var meta = document.createElement('span');
-      meta.className = 'dailyPriorityMeta';
-      meta.textContent = t(goalsCategoryLabel(task.poleKey)) + ' · ' + formatGoalHours(task.estimatedMinutes);
-      row.appendChild(check);
-      row.appendChild(text);
-      row.appendChild(meta);
-      box.appendChild(row);
-    });
   }
 
 

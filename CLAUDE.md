@@ -90,7 +90,7 @@ Fichiers très partagés (un seul agent à la fois dessus, sinon conflits de mer
 | Communauté | onglet Communauté, `server/lib/community.js`, `routes/community.js` | ne pas renommer `.barList/.barRow/...` |
 | Paramètres & Profil | Réglages, page Profil, onboarding, consentement légal, `server/routes/profile.js` | |
 | Notifications | `server/lib/push.js`, `routes/push.js`, adressage `?notif=type&...` (`focusWhenReady`, `.notifHighlight`) | le contenu de chaque notif reste au domaine propriétaire |
-| Objectifs — Page 1 (capture, logique métier) | `public/js/objectifs-page1.js`, `css/objectifs-page1.css`, `server/lib/goalscaptureplace.js`, `goalsdailypriority.js`, `dailysuggestioncron.js`, `crosssectorinference.js`, `goalsweeklyauto.js`, planification pure de `goals.js` | |
+| Objectifs — Page 1 (capture, logique métier) | `public/js/objectifs-page1.js`, `css/objectifs-page1.css`, `server/lib/goalscaptureplace.js`, `crosssectorinference.js`, `goalsweeklyauto.js`, planification pure de `goals.js` | |
 | Objectifs — Page 2 Arbre périodique | `public/js/objectifs-page2-objectif.js`, `css/objectifs-page2-objectif.css` | |
 | Objectifs — Page 2 Tâches quotidiennes | `public/js/objectifs-page2-taches.js`, `css/objectifs-page2-taches.css` | pas de réordonnancement manuel des tâches du jour |
 | Objectifs — Page 3 Calendrier | `public/js/objectifs-page3.js`, `css/objectifs-page3.css`, `server/lib/calendarfeed.js`, `goalreminders.js`, `externalcalendar.js`, `routes/calendar.js` | `#goalsDetailPage` z-index 101 (au-dessus de la Page 2) |

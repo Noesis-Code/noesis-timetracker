@@ -244,11 +244,6 @@ app.use('/api', require('./routes/calendar'));
 app.use('/api', require('./routes/documenttasks'));
 app.use('/api', require('./routes/changeproposals'));
 app.use('/api', require('./routes/drive'));
-// Suggestion quotidienne (21 septembre 2026) — capacité du jour + sélection
-// de tâches, notification matinale déclenchée par
-// server/lib/dailysuggestioncron.js (démarré plus bas). Segment neuf et
-// indépendant, voir server/lib/dailysuggestion.js.
-app.use('/api', require('./routes/dailysuggestion'));
 app.use('/api', require('./routes/horaire')); // module « Horaire » (gestionnaire seul, refusé si le module est inactif : modulegate.js)
 
 // Le service worker ne doit JAMAIS être servi depuis le cache du navigateur :
@@ -366,11 +361,6 @@ app.listen(PORT, HOST, () => {
 
   // Surveillance du dossier Drive (16 oct. 2026) : DRIVE_SYNC_INTERVAL_MIN (défaut 30, 0 = désactivé).
   require('./lib/drivesync').startDriveSync();
-
-  // Suggestion quotidienne (21 septembre 2026) : notification matinale à
-  // heure fixe, démarrée après l'écoute comme les autres tâches planifiées
-  // ci-dessus. Voir server/lib/dailysuggestioncron.js.
-  require('./lib/dailysuggestioncron').startDailySuggestionCron();
 
   // Recalcul des objectifs d'après le temps réel (7 oct. 2026) : PROPOSITIONS seulement, une fois par nuit
   // (heure de Montréal). Désactivable : GOALS_RECALC_CRON=off. Voir server/lib/goalsrecalc.js.

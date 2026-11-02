@@ -76,17 +76,8 @@ const flush = () => new Promise((r) => setTimeout(r, 20));
   assert(sent.length === 1 && sent[0] === 'ep-u2', 'notifications off : rien pour u1');
 
   console.log('Crons sautés');
-  const dsc = require('../server/lib/dailysuggestioncron');
-  const gdp = require('../server/lib/goalsdailypriority');
   const aid = db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('A', 'u1', '2026')").run().lastInsertRowid;
   for (const u of ['u1', 'u2']) db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#fff', '2026')").run(aid, u);
-  let calls = [];
-  gdp.mostUrgentTaskForUser = (u) => { calls.push(u); return { activityId: aid, taskId: 1 }; };
-  M.setModules('u1', { notifications: true });
-  assert(dsc.runDailySuggestionSweep() === 1 && calls.join() === 'u2', 'suggestion quotidienne : u1 (roadmap off) sauté sans aucun calcul');
-  M.setModules('u1', { roadmap: true, calendar: true, ai: true, 'stats-tasks': true });
-  calls = [];
-  assert(dsc.runDailySuggestionSweep() === 2, 'tout actif : les deux traités');
   M.setModules('u1', { calendar: false, ai: false, 'stats-tasks': false, roadmap: false });
   const goals = require('../server/lib/goals');
   const res = goals.runGoalsSweepAll();

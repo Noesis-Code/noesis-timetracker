@@ -1,6 +1,6 @@
 // Type d'une tâche, calculé EN SILENCE (jamais montré ni proposé) : « développement » (fait avancer un objectif) ou
-// « maintenance » (entretien, sans objectif). Sert seulement au rangement (goalscaptureplace.js) et à l'ordre de la liste du jour
-// (goalsdailypriority.js). Sans signal assez net : null = neutre (aucun effet, comportement d'avant). Aucune IA, aucun réseau.
+// « maintenance » (entretien, sans objectif). Sert seulement au rangement (goalscaptureplace.js) et à l'ordre des tâches
+// (tierOf / compareTasks ci-dessous, prêts pour la page « Aujourd'hui »). Sans signal assez net : null = neutre (aucun effet, comportement d'avant). Aucune IA, aucun réseau.
 // Mode IA « Partiel » seulement (l'appelant ne calcule rien en mode « Absent »).
 const db = require('../db');
 
@@ -149,6 +149,26 @@ function compute(p) {
 
 function rankOf(maintType) { return ESSENTIAL_RANK[maintType] || DEFAULT_RANK; }
 
+// Palier de tri (avant l'importance) : 0 maintenance urgente ; 1 maintenance longue non urgente ; 2 développement sans objectif ;
+// 3 développement avec objectif ou tâche sans type (comportement d'avant) ; 4 maintenance courte non urgente.
+// t : { taskKind, maintUrgent, hasObjective, estimatedMinutes } ; capacityMinutes : temps disponible du jour.
+function tierOf(t, capacityMinutes) {
+  if (t.taskKind === 'maintenance') {
+    if (t.maintUrgent) return 0;
+    return t.estimatedMinutes > capacityMinutes ? 1 : 4;
+  }
+  if (t.taskKind === 'developpement' && !t.hasObjective) return 2;
+  return 3;
+}
+
+// Comparateur de rang par paliers (pur) : à appeler sur des tâches qui portent déjà .tier (tierOf), .maintType, .estimatedMinutes.
+// Renvoie 0 à égalité : l'appelant départage ensuite (importance, score, etc.).
+function compareTasks(a, b) {
+  return (a.tier - b.tier)
+    || (a.tier <= 1 ? rankOf(a.maintType) - rankOf(b.maintType) : 0)
+    || (a.tier === 4 ? (a.estimatedMinutes - b.estimatedMinutes) || (rankOf(a.maintType) - rankOf(b.maintType)) : 0);
+}
+
 function write(itemId, res) {
   const r = res || {};
   db.prepare('UPDATE sub_project_items SET taskKind = ?, maintType = ?, maintUrgent = ? WHERE id = ?')
@@ -166,4 +186,4 @@ function readMany(ids) {
   return out;
 }
 
-module.exports = { KINDS, ESSENTIAL_RANK, MIN_HISTORY, compute, rankOf, maintTypeOf, isUrgentText, doneDatesForTitle, sectorDevShare, write, read, readMany };
+module.exports = { KINDS, ESSENTIAL_RANK, MIN_HISTORY, compute, rankOf, tierOf, compareTasks, maintTypeOf, isUrgentText, doneDatesForTitle, sectorDevShare, write, read, readMany };

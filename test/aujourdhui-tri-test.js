@@ -1,0 +1,46 @@
+// Page « Aujourd'hui » : tâches du jour classées activité par activité (ordre des activités de l'application), puis par paliers
+// maintenance / développement (taskkind.compareTasks) dans chaque activité. Sans type calculé : ordre d'avant (échéance, création).
+process.env.TZ = 'America/Montreal';
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-aujtri-');
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
+let failed = 0;
+const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const db = require('../server/db');
+const goals = require('../server/lib/goals');
+const goalstasks = require('../server/lib/goalstasks');
+const goalstoday = require('../server/lib/goalstoday');
+const tk = require('../server/lib/taskkind');
+const today = require('../server/lib/dates').userToday();
+
+db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u1', 'u1', datetime('now'))").run();
+const mkAct = (name, pos) => {
+  const id = db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES (?, 'u1', '')").run(name).lastInsertRowid;
+  db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt, position) VALUES (?, 'u1', '#fff', '', ?)").run(id, pos);
+  const g = goals.addCategory(id, 'Production');
+  return { id, key: (g && g.key) || goals.categoriesForActivity(id)[0].key };
+};
+// « Zèbre » vient en premier dans l'application (position 0), « Alpha » en second : l'ordre alphabétique d'avant ne doit plus décider.
+const zebre = mkAct('Zèbre', 0); const alpha = mkAct('Alpha', 1);
+const add = (a, label, kind, extra) => {
+  const it = goalstasks.addCategoryTask(a.id, 'u1', a.key, label, {});
+  db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?').run(today, it.id);
+  if (kind) tk.write(it.id, Object.assign({ kind }, extra || {}));
+  return it.id;
+};
+const a1 = add(alpha, 'Tâche neutre Alpha');
+const z1 = add(zebre, 'Tâche neutre Zèbre 1');
+const z2 = add(zebre, 'Réparer la panne du serveur', 'maintenance', { maintType: 'depannage', urgent: true });
+const z3 = add(zebre, 'Idée de développement', 'developpement');
+const z4 = add(zebre, 'Ranger les archives', 'maintenance', { maintType: 'rangement', urgent: false });
+
+const r = goalstoday.tasksToday('u1', today);
+const ids = r.tasks.filter((t) => !t.done).map((t) => t.id);
+assert(ids.indexOf(z1) < ids.indexOf(a1) && ids.indexOf(z4) < ids.indexOf(a1), 'activités dans l\'ordre de l\'application (Zèbre avant Alpha), pas l\'ordre alphabétique');
+const zIds = ids.filter((i) => [z1, z2, z3, z4].includes(i));
+assert(zIds[0] === z2, 'dans l\'activité : la maintenance urgente passe en premier');
+assert(zIds.indexOf(z3) < zIds.indexOf(z4), 'le développement sans objectif passe avant la maintenance courte non urgente');
+assert(zIds.indexOf(z1) < zIds.indexOf(z4), 'une tâche sans type (palier d\'avant) passe avant la maintenance courte non urgente');
+assert(r.tasks.every((t) => t.rank === undefined), 'aucun champ interne exposé');
+
+if (failed) { console.log('\naujourdhui-tri-test : ' + failed + ' échec(s)'); process.exit(1); }
+console.log('\naujourdhui-tri-test : OK');

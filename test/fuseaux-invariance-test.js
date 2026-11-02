@@ -19,7 +19,6 @@ const dates = require('../server/lib/dates');
 const goals = require('../server/lib/goals');
 const sub = require('../server/lib/subprojects');
 const carry = require('../server/lib/goalscarryover');
-const prio = require('../server/lib/goalsdailypriority');
 const stats = require('../server/lib/stats');
 
 db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u1','T',datetime('now'))").run();
@@ -68,14 +67,12 @@ for (const [tz, y, m, d, h, mi, label] of cases) {
     r.capture = sub.createItem(section, 'capture').dueDate; // tâche capturée maintenant, sans date : jour de la personne
     const late = sub.createItem(section, 'hier', { dueDate: yesterday });
     const fut = sub.createItem(section, 'demain', { dueDate: tomorrow });
-    r.priorite = prio.todayLocal();
     const u = carry.unfinished('u1', A);
     r.nonRealisees = u.today;
     r.lateIds = u.tasks.map((t) => t.id);
     r.lateId = late.id; r.futId = fut.id; r.capId = null;
     r.feuille = stats.timesheetForUser('u1', 0, { tz }).end;
   });
-  assert(r.priorite === want, `${tag} : priorité du jour = ${want} (reçu ${r.priorite})`);
   assert(r.nonRealisees === want, `${tag} : tâches non réalisées = ${want} (reçu ${r.nonRealisees})`);
   assert(r.feuille === want, `${tag} : Feuille de temps, dernier jour = ${want} (reçu ${r.feuille})`);
   assert(r.capture === want, `${tag} : tâche capturée sans date = ${want} (reçu ${r.capture})`);

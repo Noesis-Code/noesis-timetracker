@@ -114,7 +114,6 @@ const TABLES = ['users', 'activities', 'activity_members', 'time_entries', 'runn
       ['PUT', `/api/activities/${A1}/goals/tasks/${taskA.id}/category`, { categoryKey: poleA }],
       ['POST', `/api/activities/${A1}/goals/categories/mark-seen`, {}], ['POST', `/api/activities/${A1}/goals/categories/${poleA}/mark-seen`, {}],
       ['POST', `/api/activities/${A1}/goals/tasks/${taskA.id}/mark-seen`, {}],
-      ['GET', `/api/activities/${A1}/goals/daily-priority`],
       // Catégories (pôles / secteurs)
       ['GET', `/api/activities/${A1}/goals/categories`], ['POST', `/api/activities/${A1}/goals/categories`, { label: 'intrus' }],
       ['PUT', `/api/activities/${A1}/goals/categories/${poleA}`, { label: 'piraté' }], ['GET', `/api/activities/${A1}/goals/categories/${poleA}/removal-preview`],

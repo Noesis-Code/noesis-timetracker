@@ -18,7 +18,7 @@ Seul document IA du dépôt. Tailles = estimations (jetons ~ caractères/4), à 
 
 Appels secondaires (journalisés sous leur propre `feature`) : `taskrecurrence.js` (`recurrence-tache`, 80 sortie, réponse avec `confidence`, ignorée sous le seuil du classement ; texte puis historique avant l'IA) ; `goalscaptureplace.js` (`rapprochement-objectif`, 120 sortie, au plus 2 appels par tâche, 60 candidats au plus) ; `aibatch.js` (lots Drive à -50 %, coût enregistré à la relève par `drivesync.js`, `surveillance-drive-batch`) ; `documenttasks.js` et `changeproposals.js` passent par `docanalysis.js`.
 
-Pas d'appel IA : planification quotidienne (`goalsdailypriority`, `dailysuggestioncron`), `goalsauto.js`, `subprojects.js`. Aucune fonction n'est appelée à l'ouverture d'un écran (audit 21 oct.) ; seule route GET à appeler l'IA : redistribution d'un secteur retiré (geste explicite).
+Pas d'appel IA : `goalsauto.js`, `subprojects.js`. Aucune fonction n'est appelée à l'ouverture d'un écran (audit 21 oct.) ; seule route GET à appeler l'IA : redistribution d'un secteur retiré (geste explicite).
 
 Garde-fou : `test/ia-appels-doc-test.js` échoue si un fichier de `server/` appelle Anthropic (`api.anthropic.com`, `callModel(`, `docanalysis.call(`) sans être nommé ici, ou si un appel échappe à `ai_usage_log` (URL hors `aibudget.fetchAnthropic`/`record`, `callModel` sans `feature`). Ajouter une ligne en créant un appel.
 

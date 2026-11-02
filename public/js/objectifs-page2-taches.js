@@ -1370,8 +1370,8 @@
     row.className = 'subProjectItem' + (task.done ? ' done' : '') + (task.grey ? ' goalsDailyGrey' : '');
     // demande de Notifications (coordination, voir
     // noesis-timetracker-notifications-deep-link.md) : repère cette ligne
-    // pour le halo de la notification « Tâches quotidiennes »
-    // (?notif=dailypriority&activityId=X&taskId=T) — Notifications réutilise
+    // pour le halo d'une notification qui cible une tâche
+    // (?notif=…&activityId=X&taskId=T) — Notifications réutilise
     // le mécanisme déjà en place ailleurs dans l'app (focusWhenReady() +
     // .notifHighlight, app.js), qui cible un élément par sélecteur CSS.
     // ⚠️ Signalé dans le journal (chantiers-en-cours.md) mais PAS encore

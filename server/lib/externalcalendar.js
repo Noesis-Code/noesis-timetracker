@@ -112,9 +112,9 @@ function busyMinutesForTexts(texts, isoDate) {
 
 // Va chercher le flux ICS de l'utilisateur et calcule ses minutes occupées
 // pour isoDate. Retourne null si aucun abonnement n'est configuré (signal
-// ABSENT, jamais zéro — pour que goalsdailypriority.js sache distinguer
+// ABSENT, jamais zéro — pour que l'appelant sache distinguer
 // « pas de calendrier externe » de « journée libre »). Lève une erreur si le
-// flux est injoignable — laissée à l'appelant (goalsdailypriority.js) de
+// flux est injoignable — laissée à l'appelant de
 // décider comment se replier (jamais bloquant pour le reste du calcul).
 async function busyMinutesTodayForUser(userId, isoDate) {
   const urls = listUrls(userId);

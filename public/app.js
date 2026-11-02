@@ -699,7 +699,7 @@
   // les mécanismes de rejeu existants s'appliquent (file hors ligne, chrono hors ligne, détection des doublons).
   // Appels lents par nature (IA, Drive, fichiers) : délai long, sinon une réponse en cours de calcul serait coupée puis redemandée.
   var API_TIMEOUT_MS = 20000, API_SLOW_TIMEOUT_MS = 120000;
-  var API_SLOW_RE = /\/(auto-task|rewrite|weekly-proposals|document-tasks|change-proposals|drive|goals\/capture|import|attachments|activity-messages|daily-suggestion|feedback|offer|strategy|recalc|overload|unfinished|realism)(\/|\?|$)/;
+  var API_SLOW_RE = /\/(auto-task|rewrite|weekly-proposals|document-tasks|change-proposals|drive|goals\/capture|import|attachments|activity-messages|feedback|offer|strategy|recalc|overload|unfinished|realism)(\/|\?|$)/;
   function apiTimeoutFor(url, body) {
     if (API_SLOW_RE.test(String(url).split('?')[0])) return API_SLOW_TIMEOUT_MS;
     return body !== undefined && JSON.stringify(body).length > 200000 ? API_SLOW_TIMEOUT_MS : API_TIMEOUT_MS;
@@ -11725,7 +11725,7 @@
 
     // Module désactivé (Réglages > Modules) : la notification est ignorée sans erreur.
     var NOTIF_MODULES = { activity: ['roadmap', 'sharing'], post: ['community'], follow: ['community'], community: ['community'], profile: ['community'],
-      invite: ['sharing'], dailypriority: ['roadmap'], drivesync: ['roadmap', 'ai'], taskassigned: ['roadmap'], goalperiod: ['roadmap'], trade: ['trade'] };
+      invite: ['sharing'], drivesync: ['roadmap', 'ai'], taskassigned: ['roadmap'], goalperiod: ['roadmap'], trade: ['trade'] };
     if ((NOTIF_MODULES[target] || []).some(function (m) { return !modOn(m); })) return;
 
     // Nouvel achat Trade Tracker (POST /api/trade-events -> push.js#notifyTradePurchase) : ouvre la page plein écran Trade Tracker.
@@ -11804,25 +11804,6 @@
       loadFollowRequests();
       if (followId) focusWhenReadyOr('#followRequestsList [data-follow-id="' + followId + '"]', '#followRequestsList');
       else focusWhenReady('#followRequestsList');
-      return;
-    }
-
-    // Tâches quotidiennes — rappel de 6 h (28 septembre 2026, décision
-    // d'Emilien). Jusqu'ici ?notif=dailypriority n'était pas géré : le clic
-    // ouvrait l'app sans rien faire. Destination : Objectifs, Page 2 de
-    // l'activité qui contient la tâche la plus urgente (activityId/taskId
-    // ajoutés à l'adresse par server/lib/dailysuggestioncron.js — C.
-    // Objectifs — PAGE 1), écran Tâches (vue par défaut de la Page 2),
-    // tâche surlignée. Même chemin que 'goalperiod' pour ouvrir l'activité
-    // (openGoalsActivityFromNotification, sans période → reste sur Tâches).
-    // Sans activityId : onglet Objectifs, Page 1 (liste des activités).
-    if (target === 'dailypriority') {
-      var dailyActivityId = notifIdParam(params, 'activityId');
-      var dailyTaskId = notifIdParam(params, 'taskId');
-      switchTab('goals');
-      if (!dailyActivityId) return;
-      openGoalsActivityFromNotification(dailyActivityId, null, null);
-      if (dailyTaskId) focusGoalsTaskFromNotification(dailyActivityId, dailyTaskId);
       return;
     }
 

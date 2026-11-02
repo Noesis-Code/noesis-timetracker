@@ -52,8 +52,8 @@ const LOOKAHEAD_DAYS = 14;
 // Repli quand aucune estimation historique n'existe pour une tâche déjà
 // placée croisée dans le calcul de charge (goals.estimateForGoal renvoie
 // minutes: null tant qu'aucun historique de la catégorie n'existe) — un
-// tiers d'heure, même ordre de grandeur que le repli déjà choisi côté
-// goalsdailypriority.js pour un besoin voisin (signal « temps estimé »).
+// tiers d'heure, même ordre de grandeur que le repli déjà choisi pour
+// un besoin voisin (signal « temps estimé »).
 const DEFAULT_TASK_MINUTES = 30;
 
 function todayLocal() {
@@ -116,7 +116,7 @@ function longSpan(minutes, capacity) {
 
 // Charge déjà engagée, PAR JOUR, toutes activités confondues — chaque tâche
 // déjà datée et non cochée compte pour son estimation (goals.estimateForGoal,
-// même moteur que le signal « temps estimé » de goalsdailypriority.js) ou
+// même moteur que le signal « temps estimé ») ou
 // DEFAULT_TASK_MINUTES à défaut d'historique. Une tâche longue compte sa PART
 // du jour (jours intermédiaires fermés). `excludeId` : tâche à ignorer.
 function committedMinutesByDay(userId, days, excludeId) {

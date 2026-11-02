@@ -2566,8 +2566,6 @@ button { -webkit-user-select: none; user-select: none; }
   .goalMainSaveBtn:hover { background: rgba(var(--purple-rgb), 0.26); }
 }
 
-/* 22 septembre 2026 (discussion "Objectifs — Logique métier") — liste quotidienne, voir renderGoalsDailyPriority() dans app.js. */
-
 /* 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien : « bandeau plein largeur » — .goalStatusRow/.goalStatusBtn (3 boutons de statut texte par … */
 
 /* 16 septembre 2026 (discussion "Objectifs — D") — REMPLACE la grille 2x2 de 4 cartes élevées (bordure + ombre, même poids visuel que l'objectif périodique) par … */
