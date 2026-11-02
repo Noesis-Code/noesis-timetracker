@@ -67,7 +67,10 @@ function membersGraph(userId, id) {
   });
   // Au plus MAX_GRAPH_MEMBERS membres dessinés : d'abord ceux qui ont le plus de liens.
   out.sort((a, b) => ((b.others || []).length - (a.others || []).length) || Number(b.me) - Number(a.me));
-  const shownMembers = out.slice(0, MAX_GRAPH_MEMBERS);
+  // Jusqu'à 2 places gardées pour les membres qui cachent leurs communautés (ils restent visibles, sans lien).
+  const hidden = out.filter((m) => !m.others), open = out.filter((m) => m.others);
+  const keepHidden = Math.min(hidden.length, 2);
+  const shownMembers = open.slice(0, MAX_GRAPH_MEMBERS - keepHidden).concat(hidden.slice(0, keepHidden));
   const ids = [...new Set(shownMembers.flatMap((m) => m.others || []))];
   const communitiesOut = ids.map((c) => ({ id: c, name: visible.get(c).name })).slice(0, 8);
   const keep = new Set(communitiesOut.map((c) => c.id));

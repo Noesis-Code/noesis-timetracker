@@ -32,6 +32,8 @@ try { require('./lib/profilecolors-staging').applyProfileColorsOnStaging(); } ca
 try { require('./lib/scenarios-staging').seedScenariosOnStaging(); } catch (e) { console.error('[scenarios-staging]', e.message); }
 // Staging seulement (sauf SEED_STATS_DEMO=0) : (re)crée l'activité « Exemple statistiques (test) » (+ une confidentielle).
 try { require('./lib/stats-demo-staging').seedStatsDemoOnStaging(); } catch (e) { console.error('[stats-demo-staging]', e.message); }
+// Staging seulement (sauf SEED_COMMUNITIES_DEMO=0) : (re)crée des communautés et membres fictifs pour voir le réseau.
+try { require('./lib/communities-demo-staging').seedCommunitiesDemoOnStaging(); } catch (e) { console.error('[communities-demo-staging]', e.message); }
 // Cale les plans sur la grille de l'année (période 1 = semaine du 1er janvier). Idempotent.
 try { const r = require('./lib/goals').migratePlansToYearGrid(); if (r.length) console.log('[year-grid] ' + r.length + ' plan(s) recalé(s)'); } catch (e) { console.error('[year-grid]', e.message); }
 try { const r = require('./lib/subprojectmigration').migrateSubProjectsToPoles(); if (r.length) console.log('[subproject-migration] ' + r.length + ' activité(s) migrée(s)'); } catch (e) { console.error('[subproject-migration]', e.message); }

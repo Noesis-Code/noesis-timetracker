@@ -142,6 +142,7 @@ const SUITE_FILES = [
   'chrono-horloge-test.js',
   'trustscore-test.js',
   'communautes-test.js',
+  'communautes-demo-test.js',
   'fonctionnel-taches.js',
   'fonctionnel-modules.js',
   'fonctionnel-secteurs.js',

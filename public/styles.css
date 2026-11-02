@@ -1865,6 +1865,7 @@ button { -webkit-user-select: none; user-select: none; }
 .netSvg .netZoneLabel { text-anchor: middle; }
 .netSvg .netShared { text-anchor: middle; fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
 .netSvg .netLink { stroke: var(--purple); stroke-width: 1.5; opacity: .45; }
+.netSvg .netLink.weak { opacity: 0; }
 .netSvg .netLink.on { stroke: var(--purple); stroke-width: 2; opacity: 1; }
 .netSvg .netNode { cursor: pointer; transition: opacity var(--transition-fast); }
 .netSvg .netNode.dim { opacity: .25; }

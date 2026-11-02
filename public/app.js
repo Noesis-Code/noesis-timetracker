@@ -16261,7 +16261,7 @@
     svgEl('circle', { cx: x, cy: y, r: r, style: 'fill: var(--bg)' }, parent);
     return svgEl('circle', { class: 'netDot', cx: x, cy: y, r: r }, parent);
   }
-  function netRadius(g) { return 20 + Math.min(12, Math.sqrt(g.members) * 1.4); }
+  function netRadius(g, many) { return many ? 16 + Math.min(10, Math.sqrt(g.members) * 1.2) : 20 + Math.min(12, Math.sqrt(g.members) * 1.4); }
   function netShort(s) { return s.length > 12 ? s.slice(0, 11) + '…' : s; }
 
   function netZones() {
@@ -16284,16 +16284,16 @@
 
   // Disposition « sphère » : chaque groupe (secteur ou propriétaire) est une bulle ronde ; ses communautés s'y rangent en
   // anneau (6 au plus) ou en spirale ; les bulles se placent en couronne autour de la plus grande. Remplit pos et zones[].
-  function netLayout(zones, pos) {
+  function netLayout(zones, pos, sp) {
     var ringMax = zones.length === 1 ? 10 : 6;
     zones.forEach(function (z) {
       var k = z.items.length, pts = [], R = 0, i;
       if (k > 1 && k <= ringMax) {
-        R = NET_SP / (2 * Math.sin(Math.PI / k));
+        R = sp / (2 * Math.sin(Math.PI / k));
         for (i = 0; i < k; i++) pts.push([R * Math.cos(-Math.PI / 2 + i * 2 * Math.PI / k), R * Math.sin(-Math.PI / 2 + i * 2 * Math.PI / k)]);
       } else if (k > ringMax) {
         for (i = 0; i < k; i++) {
-          var rr = NET_SP * 0.62 * Math.sqrt(i + 0.5), an = i * 2.39996;
+          var rr = sp * 0.62 * Math.sqrt(i + 0.5), an = i * 2.39996;
           pts.push([rr * Math.cos(an), rr * Math.sin(an)]); R = Math.max(R, rr);
         }
       } else pts.push([0, 0]);
@@ -16332,7 +16332,9 @@
     var q = $('communitySearchInput').value.trim().toLowerCase();
     var zones = netZones(), pos = {};
     var gZones = svgEl('g', {}, svg), gLinks = svgEl('g', {}, svg), gNodes = svgEl('g', {}, svg);
-    var box = netLayout(zones, pos);
+    // Plus de 8 communautés : cercles serrés, noms cachés (le nom de la communauté touchée s'affiche dans la fiche dessous).
+    var many = netData.groups.length > 8;
+    var box = netLayout(zones, pos, many ? 74 : NET_SP);
     svg.setAttribute('viewBox', box.x + ' ' + box.y + ' ' + box.w + ' ' + box.h);
     svg.style.setProperty('--netfs', (13 * box.w / Math.max(1, svg.getBoundingClientRect().width || box.w)) + 'px');
     zones.forEach(function (z) {
@@ -16340,21 +16342,23 @@
       if (z.label) svgEl('text', { class: 'netZoneLabel', x: z.cx, y: z.cy - z.rad - 6 }, gZones).textContent = z.label;
     });
     var links = netData.links.filter(function (l) { return pos[l.a] && pos[l.b]; });
+    // Au repos, seuls les liens forts se dessinent (sinon un enchevêtrement) ; toucher une communauté montre tous les siens.
+    var maxShared = links.reduce(function (m, l) { return Math.max(m, l.shared); }, 0), thr = Math.max(2, Math.ceil(maxShared * 0.4));
     var lineEls = links.map(function (l) {
-      var line = svgEl('line', { class: 'netLink', x1: pos[l.a].x, y1: pos[l.a].y, x2: pos[l.b].x, y2: pos[l.b].y }, gLinks);
+      var line = svgEl('line', { class: 'netLink' + (l.shared < thr ? ' weak' : ''), x1: pos[l.a].x, y1: pos[l.a].y, x2: pos[l.b].x, y2: pos[l.b].y }, gLinks);
       var lbl = svgEl('text', { class: 'netShared', x: (pos[l.a].x + pos[l.b].x) / 2, y: (pos[l.a].y + pos[l.b].y) / 2 + 4, visibility: 'hidden' }, gLinks);
       lbl.textContent = l.shared;
       return { l: l, line: line, lbl: lbl };
     });
     function near(id) { return links.some(function (l) { return (l.a === netSel && l.b === id) || (l.b === netSel && l.a === id); }); }
     var nodeEls = netData.groups.map(function (g) {
-      var p = pos[g.id], r = netRadius(g);
+      var p = pos[g.id], r = netRadius(g, many);
       var match = !q || (g.name + ' ' + g.topic + ' ' + g.owner.name + ' ' + g.sector).toLowerCase().indexOf(q) > -1;
       var n = svgEl('g', { class: 'netNode' + (g.joined ? ' joined' : '') }, gNodes);
       netDot(n, p.x, p.y, r);
       svgEl('circle', { cx: p.x, cy: p.y, r: Math.max(r, 22), fill: 'transparent' }, n);
       svgEl('text', { class: 'netCount', x: p.x, y: p.y }, n).textContent = g.members;
-      svgEl('text', { class: 'netName', x: p.x, y: p.y + r + 16 }, n).textContent = netShort(g.name);
+      if (!many) svgEl('text', { class: 'netName', x: p.x, y: p.y + r + 16 }, n).textContent = netShort(g.name);
       n.addEventListener('click', function () { netSel = netSel === g.id ? null : g.id; renderCommunityNet(); });
       return { g: g, n: n, match: match };
     });
@@ -16366,7 +16370,7 @@
     lineEls.forEach(function (o) {
       var hit = netSel !== null && (o.l.a === netSel || o.l.b === netSel);
       o.line.classList.toggle('on', hit);
-      o.lbl.setAttribute('visibility', hit ? 'visible' : 'hidden');
+      o.lbl.setAttribute('visibility', hit && o.l.shared >= thr ? 'visible' : 'hidden');
     });
     var pick = $('communityNetPick');
     pick.innerHTML = '';
@@ -16506,7 +16510,7 @@
       cp[c.id] = { x: cx + 118 * Math.cos(a), y: cy + 150 * Math.sin(a) };
     });
     var spokes = data.members.map(function (m) {
-      return svgEl('line', { class: 'netLink', x1: cx, y1: cy, x2: mp[m.id].x, y2: mp[m.id].y, opacity: 0.2 }, gl);
+      return svgEl('line', { class: 'netLink', x1: cx, y1: cy, x2: mp[m.id].x, y2: mp[m.id].y, style: 'opacity: 0.2' }, gl);
     });
     var links = [];
     data.members.forEach(function (m) {
@@ -16541,7 +16545,7 @@
       var s = memSel, pick = $('communityMemberPick');
       links.forEach(function (l) {
         var on = !s || (s.kind === 'm' ? l.m === s.id : l.c === s.id);
-        l.el.setAttribute('opacity', on ? (s ? 1 : 0.45) : 0.08);
+        l.el.style.opacity = on ? (s ? 1 : 0.45) : 0.08;
         l.el.setAttribute('stroke-width', s && on ? 2.5 : 1.5);
       });
       var selM = s && s.kind === 'm' ? data.members.filter(function (m) { return m.id === s.id; })[0] : null;
