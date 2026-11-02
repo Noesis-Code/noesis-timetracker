@@ -269,7 +269,7 @@ function buildUserExport(userId) {
   ) : [];
   // Communautés (1er nov. 2026) : celles que la personne a créées, celles qu'elle a rejointes, et ses messages.
   const communitiesOut = has('communities') ? {
-    created: rows('SELECT id, name, topic, priceCents, createdAt FROM communities WHERE ownerId = ? ORDER BY id', userId),
+    created: rows('SELECT id, name, topic, sector, priceCents, createdAt FROM communities WHERE ownerId = ? ORDER BY id', userId),
     joined: rows(`SELECT c.id, c.name, m.joinedAt FROM community_members m JOIN communities c ON c.id = m.communityId
       WHERE m.userId = ? ORDER BY m.joinedAt`, userId),
   } : { created: [], joined: [] };

@@ -844,7 +844,7 @@
     'Suis ce profil pour voir ses projets.': 'Follow this profile to see its projects.',
     "Score d'exécution": 'Execution score',
     'Communautés': 'Communities', 'Créer une communauté': 'Create a community', "Aucune communauté pour l'instant.": 'No community yet.',
-    'Nom': 'Name', 'Sujet précis': 'Specific topic', 'Sujet précis, créateur': 'Specific topic, creator', 'Mes communautés': 'My communities', 'Tarif choisi, en $ (0 = gratuit)': 'Price you choose, in $ (0 = free)',
+    'Nom': 'Name', 'Secteur': 'Sector', 'Propriétaire': 'Owner', 'Sans secteur': 'No sector', 'Liée à': 'Linked to', 'Réseau des communautés': 'Community network', 'Sujet précis': 'Specific topic', 'Sujet précis, créateur': 'Specific topic, creator', 'Mes communautés': 'My communities', 'Tarif choisi, en $ (0 = gratuit)': 'Price you choose, in $ (0 = free)',
     "Le tarif est affiché aux membres. Aucun paiement n'est encaissé pour l'instant.": 'The price is shown to members. No payment is collected for now.',
     'Créer': 'Create', 'Gratuit': 'Free', 'membre': 'member', 'membres': 'members', 'Quitter': 'Leave', 'Rejoindre': 'Join',
     "Score d'exécution du créateur": "Creator's execution score", 'Supprimer la communauté': 'Delete the community',
@@ -1813,7 +1813,7 @@
     "Profil introuvable. Réinitialise ton profil dans Paramètres.": "Profile not found. Reset your profile in Settings.",
   });
   PATTERNS.push(
-    [/^(Nom|Texte|Description|Titre|Intitulé|Message|Question|Réponse) trop (?:long|longue) \((\d+) caractères maximum\)\.$/, function (m) { return ({ 'Nom': 'Name', 'Texte': 'Text', 'Description': 'Description', 'Titre': 'Title', 'Intitulé': 'Title', 'Message': 'Message', 'Question': 'Question', 'Réponse': 'Answer' })[m[1]] + ' too long (' + m[2] + ' characters maximum).'; }],
+    [/^(Nom|Secteur|Texte|Description|Titre|Intitulé|Message|Question|Réponse) trop (?:long|longue) \((\d+) caractères maximum\)\.$/, function (m) { return ({ 'Nom': 'Name', 'Secteur': 'Sector', 'Texte': 'Text', 'Description': 'Description', 'Titre': 'Title', 'Intitulé': 'Title', 'Message': 'Message', 'Question': 'Question', 'Réponse': 'Answer' })[m[1]] + ' too long (' + m[2] + ' characters maximum).'; }],
     [/^(\d+) secteurs maximum par pôle\.$/, '$1 sectors maximum per division.'],
     [/^Maximum (\d+) pôles par activité\.$/, 'Maximum $1 divisions per activity.'],
     [/^Tu peux enregistrer (\d+) adresses au maximum\.$/, 'You can save $1 addresses at most.'],

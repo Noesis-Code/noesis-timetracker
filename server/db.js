@@ -2469,6 +2469,9 @@ CREATE TABLE IF NOT EXISTS community_posts (
 );
 CREATE INDEX IF NOT EXISTS idx_community_posts ON community_posts(communityId, id);
 `);
+if (!columnExists('communities', 'sector')) {
+  db.exec("ALTER TABLE communities ADD COLUMN sector TEXT NOT NULL DEFAULT ''");
+}
 if (!columnExists('time_entries', 'source')) {
   db.exec('ALTER TABLE time_entries ADD COLUMN source TEXT');
 }

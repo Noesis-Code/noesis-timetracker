@@ -17,13 +17,13 @@ function isBlockedBetween(a, b) {
 
 function rowOut(r, userId) {
   return {
-    id: r.id, name: r.name, topic: r.topic, priceCents: r.priceCents,
+    id: r.id, name: r.name, topic: r.topic, sector: r.sector, priceCents: r.priceCents,
     owner: { id: r.ownerId, name: ownerName(r) },
     members: r.members, joined: !!r.joined, isOwner: r.ownerId === userId,
   };
 }
 
-const SELECT = `SELECT c.id, c.name, c.topic, c.priceCents, c.ownerId, u.name AS ownerName, u.lastName AS ownerLastName,
+const SELECT = `SELECT c.id, c.name, c.topic, c.sector, c.priceCents, c.ownerId, u.name AS ownerName, u.lastName AS ownerLastName,
   (SELECT COUNT(*) FROM community_members m WHERE m.communityId = c.id) AS members,
   EXISTS(SELECT 1 FROM community_members m WHERE m.communityId = c.id AND m.userId = ?) AS joined
   FROM communities c JOIN users u ON u.id = c.ownerId`;
@@ -37,12 +37,23 @@ function listFor(userId, q) {
     .map((r) => rowOut(r, userId));
 }
 
-function create(userId, name, topic, priceCents) {
+// Réseau des communautés (page 2) : les communautés visibles et, pour chaque paire, le nombre de membres en commun.
+// Aucun nom de membre ici : seulement des comptes.
+function network(userId) {
+  const groups = listFor(userId, '');
+  const ids = new Set(groups.map((g) => g.id));
+  const links = db.prepare(`SELECT a.communityId AS a, b.communityId AS b, COUNT(*) AS shared
+    FROM community_members a JOIN community_members b ON a.userId = b.userId AND a.communityId < b.communityId
+    GROUP BY a.communityId, b.communityId`).all().filter((l) => ids.has(l.a) && ids.has(l.b));
+  return { groups, links };
+}
+
+function create(userId, name, topic, priceCents, sector) {
   const n = db.prepare('SELECT COUNT(*) AS n FROM communities WHERE ownerId = ?').get(userId).n;
   if (n >= MAX_PER_OWNER) return { error: 'Tu as déjà ' + MAX_PER_OWNER + ' communautés.' };
   const now = new Date().toISOString();
-  const id = db.prepare('INSERT INTO communities (ownerId, name, topic, priceCents, createdAt) VALUES (?, ?, ?, ?, ?)')
-    .run(userId, name, topic, priceCents, now).lastInsertRowid;
+  const id = db.prepare('INSERT INTO communities (ownerId, name, topic, sector, priceCents, createdAt) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(userId, name, topic, sector || '', priceCents, now).lastInsertRowid;
   db.prepare('INSERT INTO community_members (communityId, userId, joinedAt) VALUES (?, ?, ?)').run(id, userId, now);
   return { id: Number(id) };
 }
@@ -90,4 +101,4 @@ function remove(userId, id) {
   return db.prepare('DELETE FROM communities WHERE id = ? AND ownerId = ?').run(id, userId).changes > 0;
 }
 
-module.exports = { listFor, create, get, isMember, join, leave, posts, addPost, remove, MAX_PRICE_CENTS, MAX_POST_LENGTH };
+module.exports = { listFor, network, create, get, isMember, join, leave, posts, addPost, remove, MAX_PRICE_CENTS, MAX_POST_LENGTH };

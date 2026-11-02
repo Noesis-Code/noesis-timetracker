@@ -1274,14 +1274,19 @@
       <!-- Page 2 : Communautés. Un créateur ouvre une communauté autour d'un sujet précis, des membres la rejoignent et y
            échangent. Le tarif est affiché, jamais encaissé (voir server/lib/communities.js). -->
       <div id="communityPage2" class="hidden">
+        <div id="communityGroupsBlock" class="communitySection">
+          <div class="periodSwitch cmpSeg" id="communityNetSort">
+            <button type="button" class="periodBtn active" data-sort="sector">Secteur</button>
+            <button type="button" class="periodBtn" data-sort="name">Nom</button>
+            <button type="button" class="periodBtn" data-sort="owner">Propriétaire</button>
+          </div>
+          <svg id="communityNet" width="100%" role="img" aria-label="Réseau des communautés"></svg>
+          <div id="communityNetPick" class="activitiesList"></div>
+          <p id="communityGroupsEmptyHint" class="hint hidden">Aucune communauté pour l'instant.</p>
+        </div>
         <div id="communityMyGroupsBlock" class="communitySection hidden">
           <p class="sectionTitle">Mes communautés</p>
           <div id="communityMyGroupsList" class="activitiesList"></div>
-        </div>
-        <div id="communityGroupsBlock" class="communitySection">
-          <p class="sectionTitle" id="communityGroupsTitle">Communautés</p>
-          <div id="communityGroupsList" class="activitiesList"></div>
-          <p id="communityGroupsEmptyHint" class="hint hidden">Aucune communauté pour l'instant.</p>
         </div>
         <button type="button" id="communityGroupCreateBtn" class="iconBtn">Créer une communauté</button>
       </div><!-- /#communityPage2 -->
@@ -1547,6 +1552,7 @@
           <div class="settingsFieldList">
             <input type="text" id="communityGroupName" placeholder="Nom" maxlength="60">
             <input type="text" id="communityGroupTopic" placeholder="Sujet précis" maxlength="300">
+            <input type="text" id="communityGroupSector" placeholder="Secteur" maxlength="30">
             <input type="number" id="communityGroupPrice" placeholder="Tarif choisi, en $ (0 = gratuit)" min="0" max="10000" step="1" inputmode="numeric">
           </div>
           <p class="hint">Le tarif est affiché aux membres. Aucun paiement n'est encaissé pour l'instant.</p>

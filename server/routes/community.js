@@ -84,16 +84,22 @@ router.get('/community/groups', (req, res) => {
   res.json({ groups: communities.listFor(req.userId, req.query.q) });
 });
 
+router.get('/community/network', (req, res) => {
+  res.json(communities.network(req.userId));
+});
+
 router.post('/community/groups', (req, res) => {
   const nameChk = textlimits.clean(req.body.name, { max: 60, word: 'Nom', kind: 'text' });
   if (nameChk.error) return res.status(400).json({ error: nameChk.error });
   if (!nameChk.text) return res.status(400).json({ error: 'Donne un nom à ta communauté.' });
   const topicChk = textlimits.clean(req.body.topic, { max: 300, word: 'Sujet', kind: 'text' });
   if (topicChk.error) return res.status(400).json({ error: topicChk.error });
+  const sectorChk = textlimits.clean(req.body.sector, { max: 30, word: 'Secteur', kind: 'title' });
+  if (sectorChk.error) return res.status(400).json({ error: sectorChk.error });
   const price = req.body.priceCents === undefined ? 0 : Number(req.body.priceCents);
   if (!Number.isInteger(price) || price < 0 || price > communities.MAX_PRICE_CENTS) return res.status(400).json({ error: 'Tarif invalide.' });
-  if (containsBlockedWord(nameChk.text + ' ' + topicChk.text)) return res.status(422).json({ error: BLOCKED_MESSAGE, blocked: true });
-  const r = communities.create(req.userId, nameChk.text, topicChk.text, price);
+  if (containsBlockedWord(nameChk.text + ' ' + topicChk.text + ' ' + sectorChk.text)) return res.status(422).json({ error: BLOCKED_MESSAGE, blocked: true });
+  const r = communities.create(req.userId, nameChk.text, topicChk.text, price, sectorChk.text);
   if (r.error) return res.status(400).json({ error: r.error });
   res.status(201).json(communities.get(req.userId, r.id));
 });

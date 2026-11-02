@@ -16220,32 +16220,134 @@
   // Pendant une recherche, une seule liste de résultats.
   var communityPage = 0; // 0 = membres (page 1), 1 = communautés (page 2)
 
+  function groupRow(g, extra) {
+    var row = document.createElement('div');
+    row.className = 'activityRow';
+    row.style.cursor = 'pointer';
+    row.innerHTML = '<div><strong>' + escapeHtml(g.name) + '</strong></div>' +
+      (g.topic ? '<div>' + escapeHtml(g.topic) + '</div>' : '') +
+      '<div class="meta">' + escapeHtml(groupMetaLabel(g)) + '</div>' + (extra ? '<div class="meta">' + escapeHtml(extra) + '</div>' : '');
+    row.addEventListener('click', function () { openCommunityGroup(g.id); });
+    return row;
+  }
   function fillGroupRows(box, groups) {
     box.innerHTML = '';
-    groups.forEach(function (g) {
-      var row = document.createElement('div');
-      row.className = 'activityRow';
-      row.style.cursor = 'pointer';
-      row.innerHTML = '<div><strong>' + escapeHtml(g.name) + '</strong></div>' +
-        (g.topic ? '<div>' + escapeHtml(g.topic) + '</div>' : '') +
-        '<div class="meta">' + escapeHtml(groupMetaLabel(g)) + '</div>';
-      row.addEventListener('click', function () { openCommunityGroup(g.id); });
-      box.appendChild(row);
-    });
+    groups.forEach(function (g) { box.appendChild(groupRow(g)); });
   }
+
+  // Réseau des communautés (page 2). Chaque communauté = un cercle (taille = membres, plein = rejointe) ; un trait relie
+  // deux communautés qui ont des membres en commun (le nombre s'affiche sur le trait de la communauté touchée).
+  // Tri : Secteur, Nom ou Propriétaire. Violet seulement ; aucune couleur de secteur.
+  var NET_W = 320, NET_COLS = 3, NET_ROW = 96, NET_HEAD = 28;
+  var netData = null, netSort = 'sector', netSel = null;
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs, parent) {
+    var e = document.createElementNS(SVGNS, tag);
+    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function netRadius(g) { return 20 + Math.min(12, Math.sqrt(g.members) * 1.4); }
+  function netShort(s) { return s.length > 14 ? s.slice(0, 13) + '…' : s; }
+
+  function netZones() {
+    var gs = netData.groups.slice();
+    if (netSort === 'name') {
+      gs.sort(function (a, b) { return a.name.localeCompare(b.name, dateLocale()); });
+      return [{ label: '', items: gs }];
+    }
+    var map = {}, order = [];
+    gs.forEach(function (g) {
+      var key = netSort === 'owner' ? 'o' + g.owner.id : 's' + g.sector.toLowerCase();
+      if (!map[key]) { map[key] = { label: netSort === 'owner' ? g.owner.name : (g.sector || t('Sans secteur')), items: [], empty: netSort === 'sector' && !g.sector }; order.push(key); }
+      map[key].items.push(g);
+    });
+    var zones = order.map(function (k) { return map[k]; });
+    zones.forEach(function (z) { z.items.sort(function (a, b) { return b.members - a.members; }); });
+    zones.sort(function (a, b) { return (a.empty ? 1 : 0) - (b.empty ? 1 : 0) || a.label.localeCompare(b.label, dateLocale()); });
+    return zones;
+  }
+
+  function renderCommunityNet() {
+    var svg = $('communityNet');
+    svg.innerHTML = '';
+    if (!netData) return;
+    var q = $('communitySearchInput').value.trim().toLowerCase();
+    var zones = netZones(), y = 0, pos = {};
+    var gZones = svgEl('g', {}, svg), gLinks = svgEl('g', {}, svg), gNodes = svgEl('g', {}, svg);
+    zones.forEach(function (z) {
+      var rows = Math.ceil(z.items.length / NET_COLS), head = z.label ? NET_HEAD : 0, h = head + rows * NET_ROW + 8;
+      svgEl('rect', { class: 'netZone', x: 0, y: y, width: NET_W, height: h, rx: 14 }, gZones);
+      if (z.label) svgEl('text', { class: 'netZoneLabel', x: 12, y: y + 20 }, gZones).textContent = z.label;
+      z.items.forEach(function (g, i) {
+        var col = i % NET_COLS, rowN = Math.floor(i / NET_COLS), inRow = Math.min(NET_COLS, z.items.length - rowN * NET_COLS);
+        var pitch = NET_W / NET_COLS;
+        pos[g.id] = { x: pitch * (col + 0.5) + (NET_COLS - inRow) * pitch / 2, y: y + head + rowN * NET_ROW + 38 };
+      });
+      y += h + 12;
+    });
+    svg.setAttribute('viewBox', '0 0 ' + NET_W + ' ' + Math.max(0, y - 12));
+    var links = netData.links.filter(function (l) { return pos[l.a] && pos[l.b]; });
+    var lineEls = links.map(function (l) {
+      var line = svgEl('line', { class: 'netLink', x1: pos[l.a].x, y1: pos[l.a].y, x2: pos[l.b].x, y2: pos[l.b].y }, gLinks);
+      var lbl = svgEl('text', { class: 'netShared', x: (pos[l.a].x + pos[l.b].x) / 2, y: (pos[l.a].y + pos[l.b].y) / 2 + 4, visibility: 'hidden' }, gLinks);
+      lbl.textContent = l.shared;
+      return { l: l, line: line, lbl: lbl };
+    });
+    function near(id) { return links.some(function (l) { return (l.a === netSel && l.b === id) || (l.b === netSel && l.a === id); }); }
+    var nodeEls = netData.groups.map(function (g) {
+      var p = pos[g.id], r = netRadius(g);
+      var match = !q || (g.name + ' ' + g.topic + ' ' + g.owner.name + ' ' + g.sector).toLowerCase().indexOf(q) > -1;
+      var n = svgEl('g', { class: 'netNode' + (g.joined ? ' joined' : '') }, gNodes);
+      svgEl('circle', { class: 'netDot', cx: p.x, cy: p.y, r: r }, n);
+      svgEl('circle', { cx: p.x, cy: p.y, r: Math.max(r, 22), fill: 'transparent' }, n);
+      svgEl('text', { class: 'netCount', x: p.x, y: p.y }, n).textContent = g.members;
+      svgEl('text', { class: 'netName', x: p.x, y: p.y + r + 16 }, n).textContent = netShort(g.name);
+      n.addEventListener('click', function () { netSel = netSel === g.id ? null : g.id; renderCommunityNet(); });
+      return { g: g, n: n, match: match };
+    });
+    nodeEls.forEach(function (o) {
+      var on = netSel === null || o.g.id === netSel || near(o.g.id);
+      o.n.classList.toggle('dim', !o.match || !on);
+      o.n.classList.toggle('sel', o.g.id === netSel);
+    });
+    lineEls.forEach(function (o) {
+      var hit = netSel !== null && (o.l.a === netSel || o.l.b === netSel);
+      o.line.classList.toggle('on', hit);
+      o.lbl.setAttribute('visibility', hit ? 'visible' : 'hidden');
+    });
+    var pick = $('communityNetPick');
+    pick.innerHTML = '';
+    var sel = netData.groups.filter(function (g) { return g.id === netSel; })[0];
+    if (sel) {
+      var rel = links.filter(function (l) { return l.a === sel.id || l.b === sel.id; }).map(function (l) {
+        var other = netData.groups.filter(function (g) { return g.id === (l.a === sel.id ? l.b : l.a); })[0];
+        return other.name + ' (' + l.shared + ')';
+      });
+      pick.appendChild(groupRow(sel, rel.length ? t('Liée à') + ' : ' + rel.join(', ') : ''));
+    }
+  }
+  Array.prototype.forEach.call($('communityNetSort').querySelectorAll('button'), function (b) {
+    b.addEventListener('click', function () {
+      netSort = b.getAttribute('data-sort');
+      Array.prototype.forEach.call($('communityNetSort').querySelectorAll('button'), function (x) { x.classList.toggle('active', x === b); });
+      renderCommunityNet();
+    });
+  });
 
   function loadCommunityGroups() {
     if (!profile) return;
     var q = $('communitySearchInput').value.trim();
-    api('GET', '/api/community/groups' + (q ? '?q=' + encodeURIComponent(q) : '')).then(function (data) {
+    api('GET', '/api/community/network').then(function (data) {
+      netData = data;
       var mine = q ? [] : data.groups.filter(function (g) { return g.joined; });
-      var others = q ? data.groups : data.groups.filter(function (g) { return !g.joined; });
       $('communityMyGroupsBlock').classList.toggle('hidden', mine.length === 0);
       fillGroupRows($('communityMyGroupsList'), mine);
-      fillGroupRows($('communityGroupsList'), others);
-      $('communityGroupsBlock').classList.toggle('hidden', others.length === 0 && mine.length > 0);
-      $('communityGroupsEmptyHint').classList.toggle('hidden', others.length > 0 || mine.length > 0);
-    }).catch(function () { /* la liste reste telle quelle */ });
+      $('communityGroupsEmptyHint').classList.toggle('hidden', data.groups.length > 0);
+      $('communityNet').classList.toggle('hidden', data.groups.length === 0);
+      $('communityNetSort').classList.toggle('hidden', data.groups.length === 0);
+      renderCommunityNet();
+    }).catch(function () { /* le réseau reste tel quel */ });
   }
 
   // Bascule page 1 <-> page 2. noLoad : remise à zéro seulement (ouverture de l'onglet, déjà chargée par loadCommunity).
@@ -16358,7 +16460,7 @@
 
   function closeCommunityGroupCreate() { $('communityGroupCreateModal').classList.add('hidden'); }
   $('communityGroupCreateBtn').addEventListener('click', function () {
-    ['communityGroupName', 'communityGroupTopic', 'communityGroupPrice'].forEach(function (i) { $(i).value = ''; });
+    ['communityGroupName', 'communityGroupTopic', 'communityGroupSector', 'communityGroupPrice'].forEach(function (i) { $(i).value = ''; });
     $('communityGroupCreateMsg').textContent = '';
     $('communityGroupCreateModal').classList.remove('hidden');
   });
@@ -16367,7 +16469,7 @@
   $('communityGroupCreateSubmit').addEventListener('click', function () {
     var price = $('communityGroupPrice').value.trim();
     api('POST', '/api/community/groups', {
-      name: $('communityGroupName').value, topic: $('communityGroupTopic').value,
+      name: $('communityGroupName').value, topic: $('communityGroupTopic').value, sector: $('communityGroupSector').value,
       priceCents: price === '' ? 0 : Math.round(Number(price) * 100),
     }).then(function (g) { closeCommunityGroupCreate(); loadCommunityGroups(); openCommunityGroup(g.id); })
       .catch(function (e) { $('communityGroupCreateMsg').textContent = e.message; });

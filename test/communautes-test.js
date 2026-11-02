@@ -36,6 +36,17 @@ T.failed = 0;
     assert(lst.body.groups.length === 1 && lst.body.groups[0].joined === true, 'recherche par nom ou sujet');
     assert((await B.c.get('/api/community/groups?q=zzz')).body.groups.length === 0, 'recherche sans résultat');
 
+    // --- Réseau : secteur, membres en commun (aucun nom de membre) ---
+    const g2 = await B.c.post('/api/community/groups', { name: 'Sommeil', sector: 'Santé' });
+    assert(g2.status === 201 && g2.body.sector === 'Santé', 'secteur enregistré à la création');
+    assert((await B.c.post('/api/community/groups', { name: 'Y', sector: 'x'.repeat(31) })).status === 400, 'secteur trop long refusé');
+    await A.c.post(`/api/community/groups/${g2.body.id}/join`);
+    const net = await B.c.get('/api/community/network');
+    const link = net.body.links.find((l) => (l.a === gid && l.b === g2.body.id) || (l.b === gid && l.a === g2.body.id));
+    assert(net.status === 200 && link && link.shared === 2, 'réseau : 2 membres en commun entre les deux communautés');
+    assert(!JSON.stringify(net.body).includes('"members":[') && net.body.groups.every((g) => typeof g.members === 'number'), 'réseau : seulement des comptes, aucun nom de membre');
+    await A.c.del(`/api/community/groups/${g2.body.id}/join`);
+
     // --- Quitter, supprimer ---
     assert((await A.c.del(`/api/community/groups/${gid}/join`)).status === 400, 'le créateur ne peut pas quitter');
     assert((await B.c.del(`/api/community/groups/${gid}/join`)).status === 200, 'B quitte');
