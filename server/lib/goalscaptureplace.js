@@ -222,6 +222,47 @@ function chooseByActivityWeek(userId, activityId, ownMinutes, today, excludeId, 
 // goalsdailyauto.js#deterministicAssignments : toujours une date, jamais de
 // blocage). Tâche longue : premier jour de départ libre dont les jours
 // suivants sont libres (le dernier peut porter déjà son reste de capacité).
+// Premier jour de la fenêtre dont les jours suivants (tâche longue) sont libres ; le dernier peut porter déjà son reste de capacité.
+function freeRunStart(days, window, load, span, cap) {
+  return window.find((d) => {
+    const i = days.indexOf(d);
+    for (let k = 0; k < span.days; k += 1) {
+      const l = load[days[i + k]] || 0;
+      if ((k < span.days - 1 ? l > 0 : l + span.rest > cap)) return false;
+    }
+    return true;
+  }) || null;
+}
+
+// Tâche de MAINTENANCE (type calculé en silence, voir taskkind.js) : toujours un JOUR, jamais une heure.
+//  urgente => aujourd'hui (si longue : jours libres de suite à partir d'aujourd'hui) ; longue non urgente => premiers jours entiers
+//  libres dans les 14 jours (elle prend alors la journée entière : le développement attend) ; récurrente => première échéance de la
+//  fréquence ; courte non urgente => premier jour avec de la place de la semaine en cours (lundi-dimanche, jours >= aujourd'hui), sinon la suivante.
+// info : { urgent, long, recurrence: { every, unit } | null }.
+function maintenanceDate(userId, activityId, categoryKey, itemId, taskLabel, info) {
+  const today = todayLocal();
+  const own = (info && info.minutes > 0) ? info.minutes : taskMinutes(activityId, categoryKey, taskLabel);
+  const cap = capacityFor(userId, activityId);
+  const span = longSpan(own, cap);
+  const longStart = () => {
+    const days = [];
+    for (let i = 0; i < LOOKAHEAD_DAYS + span.days; i += 1) days.push(goals.addDays(today, i));
+    return freeRunStart(days, days.slice(0, LOOKAHEAD_DAYS), committedMinutesByDay(userId, days, itemId), span, cap);
+  };
+  if (info && info.urgent) return span ? (longStart() || today) : today;
+  if (span) return longStart() || chooseAutoPlacementDate(userId, activityId, categoryKey, taskLabel, itemId);
+  const rec = info && info.recurrence;
+  if (rec && rec.every && rec.unit) {
+    try { return require('./taskrecurrence').nextDueDate(today, rec.every, rec.unit, today); } catch (e) { /* repli ci-dessous */ }
+  }
+  const mon = goals.mostRecentMonday(today);
+  for (let w = 0; w < 2; w += 1) {
+    const d = weekHasRoom(userId, activityId, goals.addDays(mon, 7 * w), today, own, itemId, categoryKey);
+    if (d) return d;
+  }
+  return chooseAutoPlacementDate(userId, activityId, categoryKey, taskLabel, itemId);
+}
+
 function chooseAutoPlacementDate(userId, activityId, categoryKey, taskLabel, excludeId) {
   const today = todayLocal();
   const ownMinutes = taskMinutes(activityId, categoryKey, taskLabel);
@@ -235,15 +276,7 @@ function chooseAutoPlacementDate(userId, activityId, categoryKey, taskLabel, exc
   const window = days.slice(0, LOOKAHEAD_DAYS);
 
   if (span) {
-    const cap = capacityFor(userId, activityId);
-    const start = window.find((d) => {
-      const i = days.indexOf(d);
-      for (let k = 0; k < span.days; k += 1) {
-        const l = load[days[i + k]] || 0;
-        if ((k < span.days - 1 ? l > 0 : l + span.rest > cap)) return false;
-      }
-      return true;
-    });
+    const start = freeRunStart(days, window, load, span, capacityFor(userId, activityId));
     if (start) return start;
   }
 
@@ -421,7 +454,7 @@ function listObjectiveCandidates(activityId, poleKeys, today) {
         if (!String(w.text || '').trim() || w.status === 'atteint') return;
         const b = goals.weekBounds(p.startDate, w.weekIndex);
         if (b.end < today) return;
-        out.push({ kind: 'weekly', text: String(w.text), description: String(w.description || ''), period: p, poleKey: pole, weekStart: goals.mostRecentMonday(b.start) });
+        out.push({ kind: 'weekly', weeklyId: w.id, text: String(w.text), description: String(w.description || ''), period: p, poleKey: pole, weekStart: goals.mostRecentMonday(b.start) });
       });
       if (String(p.mainGoalText || '').trim() && p.mainGoalStatus !== 'atteint') {
         out.push({ kind: 'period', text: String(p.mainGoalText), description: '', period: p, poleKey: pole, weekStart: goals.mostRecentMonday(p.startDate) });
@@ -551,7 +584,7 @@ function objectiveTarget(userId, activityId, categoryKey, taskLabel, today, own,
   }
   return m ? placeInObjective(userId, activityId, m, today, own, itemId) : null;
 }
-function dateForCapture(userId, activityId, categoryKey, itemId, taskLabel, out, pre) {
+function dateForCapture(userId, activityId, categoryKey, itemId, taskLabel, out, pre, kindInfo) {
   const today = todayLocal();
   const hint = require('./capturedatehint').parseDateHint(taskLabel, today);
   const own = taskMinutes(activityId, categoryKey, taskLabel);
@@ -575,6 +608,9 @@ function dateForCapture(userId, activityId, categoryKey, itemId, taskLabel, out,
       return d || hint.date;
     }
   } catch (e) { /* repli ci-dessous */ }
+  if (!hint && kindInfo && kindInfo.kind === 'maintenance') {
+    try { return maintenanceDate(userId, activityId, categoryKey, itemId, taskLabel, kindInfo); } catch (e) { /* repli ci-dessous */ }
+  }
   if (!hint) {
     try {
       const t = objectiveTarget(userId, activityId, categoryKey, taskLabel, today, own, itemId, pre);
@@ -595,7 +631,7 @@ function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel,
   // Une date déjà saisie par l'utilisateur (dueDateAuto=0) prime toujours.
   const cur = db.prepare('SELECT dueDate, dueDateAuto FROM sub_project_items WHERE id = ?').get(itemId);
   const manual = !!(cur && cur.dueDate && !cur.dueDateAuto);
-  const date = manual ? cur.dueDate : dateForCapture(userId, activityId, categoryKey, itemId, taskLabel, opts && opts.out, opts && opts.pre);
+  const date = manual ? cur.dueDate : dateForCapture(userId, activityId, categoryKey, itemId, taskLabel, opts && opts.out, opts && opts.pre, opts && opts.kindInfo);
   const members = goals.membersForActivity(activityId);
   let who = null;
   const noAssign = !!(opts && opts.noAssign);
@@ -619,6 +655,7 @@ function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel,
 module.exports = {  placeCaptureDefault,
   buildMatchPrompt,
   dateForCapture,
+  maintenanceDate,
   objectiveTarget,
   matchObjective,
   precomputeObjectiveMatch,

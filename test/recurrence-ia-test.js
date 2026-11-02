@@ -53,15 +53,15 @@ classify.callModel = async (prompt, max, feature) => {
   return 'NON';
 };
 fake = {
-  'tous les lundis': '{"every":1,"unit":"week"}',
-  'aux deux semaines': '{"every":2,"unit":"week"}',
-  'le 1er de chaque mois': '{"every":1,"unit":"month"}',
-  'chaque jour ouvrable': '{"every":1,"unit":"day"}',        // faux : inclurait samedi/dimanche
-  '3 fois par semaine': '{"every":3,"unit":"week"}',          // faux : toutes les 3 semaines
-  'une fois': '{"every":1,"unit":"week"}',                     // faux : ponctuelle
-  'tous les trimestres': '{"every":3,"unit":"quarter"}',       // unité inconnue
-  'une demi-fois': '{"every":1.5,"unit":"week"}',
-  'chaque année': '{"every":1,"unit":"year"}',
+  'tous les lundis': '{"every":1,"unit":"week","confidence":95}',
+  'aux deux semaines': '{"every":2,"unit":"week","confidence":95}',
+  'le 1er de chaque mois': '{"every":1,"unit":"month","confidence":95}',
+  'chaque jour ouvrable': '{"every":1,"unit":"day","confidence":95}',        // faux : inclurait samedi/dimanche
+  '3 fois par semaine': '{"every":3,"unit":"week","confidence":95}',          // faux : toutes les 3 semaines
+  'une fois': '{"every":1,"unit":"week","confidence":95}',                     // faux : ponctuelle
+  'tous les trimestres': '{"every":3,"unit":"quarter","confidence":95}',       // unité inconnue
+  'une demi-fois': '{"every":1.5,"unit":"week","confidence":95}',
+  'chaque année': '{"every":1,"unit":"year","confidence":95}',
 };
 (async () => {
   const sg = async (s) => { const r = await rec.suggest(s); return r ? r.every + ' ' + r.unit : null; };

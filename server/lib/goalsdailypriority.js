@@ -19,6 +19,7 @@ const goals = require('./goals');
 const goalsauto = require('./goalsauto');
 const goalstasks = require('./goalstasks');
 const goalsimportance = require('./goalsimportance');
+const taskkind = require('./taskkind');
 
 const WEIGHT_TEMPS = 0.25;
 const WEIGHT_SECTEUR = 0.20;
@@ -145,6 +146,17 @@ function historicalAverageMinutesPerDayForActivity(userId, activityId, days) {
   return row.seconds / 60 / days;
 }
 
+// Palier de tri (avant l'importance) : 0 maintenance urgente ; 1 maintenance longue non urgente ; 2 développement sans objectif ;
+// 3 développement avec objectif ou tâche sans type (comportement d'avant) ; 4 maintenance courte non urgente.
+function tierOf(t, capacityMinutes) {
+  if (t.taskKind === 'maintenance') {
+    if (t.maintUrgent) return 0;
+    return t.estimatedMinutes > capacityMinutes ? 1 : 4;
+  }
+  if (t.taskKind === 'developpement' && !t.hasObjective) return 2;
+  return 3;
+}
+
 function computeDailyPriorityList(activityId, userId) {
   const poles = goals.categoriesForActivity(activityId);
   const today = todayLocal();
@@ -173,6 +185,7 @@ function computeDailyPriorityList(activityId, userId) {
   const syncScore = Math.min(1, activityAvgMinutes / capacityMinutes);
 
   const goalCtx = goalsimportance.loadGoalContexts(rawTasks.map((t) => t.id));
+  const kinds = taskkind.readMany(rawTasks.map((t) => t.id));
   const tasks = rawTasks
     .map((t) => {
       const estimate = estimateTaskMinutes(activityId, t.category, t.label);
@@ -195,6 +208,8 @@ function computeDailyPriorityList(activityId, userId) {
       });
       return {
         importance,
+        taskKind: (kinds[t.id] || {}).kind || null, maintUrgent: !!(kinds[t.id] || {}).urgent, maintType: (kinds[t.id] || {}).maintType || null,
+        hasObjective: !!goalCtx[t.id],
         id: t.id, subProjectId: t.subProjectId, label: t.label, category: t.category, poleKey: t.poleKey,
         estimatedMinutes, estimateSource: estimate.source, estimateConfidence: estimate.confidence,
         dueDate: t.dueDate,
@@ -202,7 +217,11 @@ function computeDailyPriorityList(activityId, userId) {
         score,
       };
     })
-    .sort((a, b) => (goalsimportance.LEVEL_RANK[b.importance.level] - goalsimportance.LEVEL_RANK[a.importance.level])
+    .map((t) => { t.tier = tierOf(t, capacityMinutes); return t; })
+    .sort((a, b) => (a.tier - b.tier)
+      || (a.tier <= 1 ? taskkind.rankOf(a.maintType) - taskkind.rankOf(b.maintType) : 0)
+      || (a.tier === 4 ? (a.estimatedMinutes - b.estimatedMinutes) || (taskkind.rankOf(a.maintType) - taskkind.rankOf(b.maintType)) : 0)
+      || (goalsimportance.LEVEL_RANK[b.importance.level] - goalsimportance.LEVEL_RANK[a.importance.level])
       || (b.importance.score - a.importance.score) || (b.score - a.score));
 
   let remaining = capacityMinutes;
@@ -259,5 +278,5 @@ module.exports = {
   pendingTasksForActivity, recentDailyMinutesForCategory, goalPressureForPole,
   deadlineScoreForTask, positionScoreForTask, historicalAverageMinutesPerDayForActivity,
   todayLocal, computeDailyPriorityList, activeActivitiesForUser,
-  mostUrgentTaskForUser,
+  mostUrgentTaskForUser, tierOf,
 };

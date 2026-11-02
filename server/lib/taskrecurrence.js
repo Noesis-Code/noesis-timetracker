@@ -181,25 +181,55 @@ function unsupportedFrequency(label) {
   return false;
 }
 
-async function suggest(label) {
+// Fréquence déduite de l'historique : même tâche (titre normalisé) terminée au moins 3 fois dans l'activité, écarts réguliers
+// (chacun à +-20 % de la médiane) proches d'une fréquence usuelle. null au moindre doute (on préfère ne rien proposer).
+const USUAL = [[1, 1, 'day'], [7, 1, 'week'], [14, 2, 'week'], [30, 1, 'month'], [91, 3, 'month'], [365, 12, 'month']];
+function frequencyFromDates(dates) {
+  const d = Array.from(dates || []).sort().slice(-6);
+  if (d.length < 3) return null;
+  const gaps = [];
+  for (let i = 1; i < d.length; i += 1) gaps.push(Math.round((isoMs(d[i]) - isoMs(d[i - 1])) / 86400000));
+  if (gaps.some((g) => g <= 0)) return null;
+  const sorted = gaps.slice().sort((a, b) => a - b);
+  const mid = sorted.length / 2;
+  const median = sorted.length % 2 ? sorted[Math.floor(mid)] : (sorted[mid - 1] + sorted[mid]) / 2;
+  if (gaps.some((g) => Math.abs(g - median) > 0.2 * median)) return null;
+  const hit = USUAL.find(([days]) => Math.abs(median - days) <= 0.2 * days);
+  return hit ? { every: hit[1], unit: hit[2] } : null;
+}
+function historySuggestion(label, activityIds) {
+  const tk = require('./taskkind');
+  const ids = Array.isArray(activityIds) ? activityIds : (activityIds == null ? [] : [activityIds]);
+  for (const id of ids) {
+    try { const f = frequencyFromDates(tk.doneDatesForTitle(id, label)); if (f) return f; } catch (e) { /* activité suivante */ }
+  }
+  return null;
+}
+// Ordre : (1) le texte ; (2) l'historique ; (3) l'IA, ignorée sous le seuil de confiance du classement (classify.minConfidence()). `activityId` : un id ou une liste.
+async function suggest(label, activityId) {
   const wt = parseWorkOrTimes(label);
   if (wt) return { every: wt.every, unit: wt.unit, label: wt.label };
   const explicit = parseExplicit(label);
   if (explicit) return { every: explicit.every, unit: explicit.unit, label: explicit.label };
   if (unsupportedFrequency(label)) return null;
+  const hist = historySuggestion(label, activityId);
+  if (hist) return hist;
   const classify = require('./goalstaskclassify');
   if (!classify.configured()) return null;
   try {
     const text = await classify.callModel(
       'Cette tâche est-elle de nature récurrente (à refaire régulièrement, ex. « payer le loyer », « faire la paie ») ? '
-      + 'Réponds UNIQUEMENT par un JSON {"every":nombre,"unit":"day"|"week"|"month"} si oui et si la fréquence est évidente, sinon par le mot NON.\n'
-      + 'Tâche : ' + String(label).slice(0, 300), 60, 'recurrence-tache');
+      + 'Réponds UNIQUEMENT par un JSON {"every":nombre,"unit":"day"|"week"|"month","confidence":0 à 100} si oui et si la fréquence est évidente '
+      + '(confidence = ta certitude en pourcentage), sinon par le mot NON.\n'
+      + 'Tâche : ' + String(label).slice(0, 300), 80, 'recurrence-tache');
     const m = String(text || '').match(/\{[^}]*\}/);
     if (!m) return null;
     const j = JSON.parse(m[0]);
     if (!Number.isInteger(Number(j.every))) return null; // « 1,5 » ou texte : pas de proposition approximative
+    const conf = Number(j.confidence);
+    if (!Number.isFinite(conf) || conf < classify.minConfidence()) return null; // doute : aucune proposition
     return normalize(j);
   } catch (e) { return null; }
 }
 
-module.exports = { UNITS, PERIOD_UNITS, MAX_TIMES, parseWorkOrTimes, normalize, addInterval, nextDueDate, anchorDayFromLabel, parseExplicit, suggest, unsupportedFrequency };
+module.exports = { UNITS, PERIOD_UNITS, MAX_TIMES, parseWorkOrTimes, normalize, addInterval, nextDueDate, anchorDayFromLabel, parseExplicit, suggest, unsupportedFrequency, frequencyFromDates };
