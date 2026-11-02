@@ -1280,7 +1280,7 @@
             <button type="button" class="periodBtn" data-sort="name">Nom</button>
             <button type="button" class="periodBtn" data-sort="owner">Propriétaire</button>
           </div>
-          <svg id="communityNet" width="100%" role="img" aria-label="Réseau des communautés"></svg>
+          <svg id="communityNet" class="netSvg" width="100%" role="img" aria-label="Réseau des communautés"></svg>
           <div id="communityNetPick" class="activitiesList"></div>
           <p id="communityGroupsEmptyHint" class="hint hidden">Aucune communauté pour l'instant.</p>
         </div>
@@ -1571,6 +1571,15 @@
           <p class="hint" id="communityGroupMeta"></p>
           <button type="button" id="communityGroupJoinBtn" class="iconBtn">Rejoindre</button>
           <div id="communityGroupThreadPart" class="hidden">
+            <div class="periodSwitch cmpSeg" id="communityGroupSeg">
+              <button type="button" class="periodBtn active" data-part="thread">Discussion</button>
+              <button type="button" class="periodBtn" data-part="members">Membres</button>
+            </div>
+            <div id="communityGroupMembersBody" class="hidden">
+              <svg id="communityMemberNet" class="netSvg" width="100%" role="img" aria-label="Membres de la communauté"></svg>
+              <div id="communityMemberPick" class="hint"></div>
+            </div>
+            <div id="communityGroupThreadBody">
             <div id="communityGroupPosts" class="discussionList chatThread"></div>
             <p id="communityGroupPostsEmpty" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
             <div class="discussionComposer chatComposer">
@@ -1578,6 +1587,7 @@
                 <textarea id="communityGroupInput" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
                 <button type="button" id="communityGroupSendBtn" class="cmpSend" aria-label="Envoyer"></button>
               </div>
+            </div>
             </div>
           </div>
           <button type="button" id="communityGroupDeleteBtn" class="iconBtn hidden">Supprimer la communauté</button>
@@ -2893,6 +2903,13 @@
                   <span class="notifRowLabel">Afficher mon score d'exécution sur mon profil</span>
                   <label class="toggleSwitch">
                     <input type="checkbox" id="settingsScoreShared" role="switch" aria-label="Afficher mon score d'exécution sur mon profil">
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
+                <div class="notifRow">
+                  <span class="notifRowLabel">Montrer mes autres communautés aux membres</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsCommunitiesShown" role="switch" aria-label="Montrer mes autres communautés aux membres">
                     <span class="toggleSwitchTrack"></span>
                   </label>
                 </div>

@@ -1859,21 +1859,26 @@ button { -webkit-user-select: none; user-select: none; }
 #communityGroupsBlock, #communityMyGroupsBlock { margin-bottom: 24px; }
 #communityGroupCreateBtn { margin-top: 16px; }
 /* Réseau des communautés (page 2) : violet seulement (R11), aucune couleur de secteur (R16), verre calme. */
-#communityNet { display: block; margin: 0 0 12px; overflow: visible; }
-#communityNet .netZone { fill: var(--glass-calm-bg); stroke: var(--glass-calm-line); stroke-width: 1; }
-#communityNet .netZoneLabel, #communityNet .netShared { fill: var(--text-light); font-size: 13px; }
-#communityNet .netZoneLabel { text-anchor: start; }
-#communityNet .netShared { text-anchor: middle; fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
-#communityNet .netLink { stroke: var(--text-light); stroke-width: 1; opacity: .3; }
-#communityNet .netLink.on { stroke: var(--purple); stroke-width: 2; opacity: 1; }
-#communityNet .netNode { cursor: pointer; transition: opacity var(--transition-fast); }
-#communityNet .netNode.dim { opacity: .25; }
-#communityNet .netDot { fill: rgba(var(--purple-rgb), .22); stroke: var(--purple); stroke-width: 1; }
-#communityNet .netNode.joined .netDot { fill: var(--purple); }
-#communityNet .netNode.sel .netDot { stroke-width: 3; }
-#communityNet .netCount { fill: var(--text); font-size: 13px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
-#communityNet .netNode.joined .netCount { fill: var(--on-action); }
-#communityNet .netName { fill: var(--text); font-size: 13px; text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+.netSvg { display: block; margin: 0 0 12px; overflow: visible; }
+.netSvg .netZone { fill: var(--glass-calm-bg); stroke: var(--glass-calm-line); stroke-width: 1; }
+.netSvg .netZoneLabel, .netSvg .netShared { fill: var(--text-light); font-size: var(--netfs, 13px); }
+.netSvg .netZoneLabel { text-anchor: middle; }
+.netSvg .netShared { text-anchor: middle; fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+.netSvg .netLink { stroke: var(--purple); stroke-width: 1.5; opacity: .45; }
+.netSvg .netLink.on { stroke: var(--purple); stroke-width: 2; opacity: 1; }
+.netSvg .netNode { cursor: pointer; transition: opacity var(--transition-fast); }
+.netSvg .netNode.dim { opacity: .25; }
+.netSvg .netDot { fill: rgba(var(--purple-rgb), .22); stroke: var(--purple); stroke-width: 1; }
+.netSvg .netNode.joined .netDot { fill: var(--purple); }
+.netSvg .netNode.sel .netDot { stroke-width: 3; }
+.netSvg .netNode.netHidden .netDot { fill: none; stroke: var(--text-light); stroke-dasharray: 3 3; }
+.netSvg .netNode.netHidden .netCount { fill: var(--text-light); }
+.netSvg .netNode.netHere .netDot, .netSvg .netCenter .netDot { fill: var(--purple); }
+.netSvg .netNode.netHere .netCount { fill: var(--on-action); }
+#communityMemberPick { min-height: 48px; margin-top: 8px; }
+.netSvg .netCount { fill: var(--text); font-size: var(--netfs, 13px); font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+.netSvg .netNode.joined .netCount { fill: var(--on-action); }
+.netSvg .netName { fill: var(--text); font-size: var(--netfs, 13px); text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
 /* Score d'exécution d'un profil (1er nov. 2026) : violet seulement, espacements 8/12/16. */
 .viewProfileScore { margin-top: 16px; gap: 12px; }
 .viewProfileScoreHead { display: flex; justify-content: space-between; align-items: baseline; font-weight: bold; }

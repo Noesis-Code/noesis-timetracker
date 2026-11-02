@@ -2469,6 +2469,10 @@ CREATE TABLE IF NOT EXISTS community_posts (
 );
 CREATE INDEX IF NOT EXISTS idx_community_posts ON community_posts(communityId, id);
 `);
+// Montrer mes autres communautés aux membres de mes communautés (1er nov. 2026) : visible par défaut, le membre peut le cacher.
+if (!columnExists('users', 'communitiesShown')) {
+  db.exec('ALTER TABLE users ADD COLUMN communitiesShown INTEGER NOT NULL DEFAULT 1');
+}
 if (!columnExists('communities', 'sector')) {
   db.exec("ALTER TABLE communities ADD COLUMN sector TEXT NOT NULL DEFAULT ''");
 }

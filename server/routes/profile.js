@@ -543,11 +543,11 @@ router.get('/profile/export', (req, res) => {
 // (comme /public) : elle sert aussi à afficher l'identité publique d'un
 // tiers, seuls les trois champs sensibles sont gated.
 router.get('/profile/:id', (req, res) => {
-  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar, contactShareEmail, contactSharePhone, communityNotifyEnabled, marketingConsent, marketingConsentAt, directoryConsent, aiNoticeVersion, accountType, hideCompany, companyName, managerName, scoreShared FROM users WHERE id = ?').get(req.params.id);
+  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar, contactShareEmail, contactSharePhone, communityNotifyEnabled, marketingConsent, marketingConsentAt, directoryConsent, aiNoticeVersion, accountType, hideCompany, companyName, managerName, scoreShared, communitiesShown FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
   const isOwner = req.userId === user.id;
   if (isOwner && user.hideCompany) { user.name = user.companyName || user.name; user.lastName = user.managerName || user.lastName; } // le titulaire voit le vrai nom de son entreprise ; les autres, seulement le responsable
-  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled, ...(isOwner ? { scoreShared: !!user.scoreShared, accountType: user.accountType, hideCompany: !!user.hideCompany, marketingConsent: !!user.marketingConsent, marketingConsentAt: user.marketingConsentAt || null, marketingConsentAsked: !!user.marketingConsentAt, directoryConsent: !!user.directoryConsent, aiNoticeVersion: user.aiNoticeVersion || null, aiNoticeCurrentVersion: AI_NOTICE_VERSION } : {}) });
+  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled, ...(isOwner ? { scoreShared: !!user.scoreShared, communitiesShown: !!user.communitiesShown, accountType: user.accountType, hideCompany: !!user.hideCompany, marketingConsent: !!user.marketingConsent, marketingConsentAt: user.marketingConsentAt || null, marketingConsentAsked: !!user.marketingConsentAt, directoryConsent: !!user.directoryConsent, aiNoticeVersion: user.aiNoticeVersion || null, aiNoticeCurrentVersion: AI_NOTICE_VERSION } : {}) });
 });
 
 // 10 oct. 2026 (trames 2 et 4) : consentement commercial et annuaire de connexion, utilisateur connecté seulement.
@@ -571,6 +571,12 @@ router.put('/profile/ai-notice-ack', (req, res) => {
 });
 // Compte entreprise : n'afficher que le nom du responsable (30 oct. 2026, Émilien). Principe de confidentialité : hors de son compte, personne ne voit le nom de l'entreprise.
 // Afficher mon score d'exécution sur mon profil (1er nov. 2026) : privé tant que le membre ne l'active pas.
+router.put('/profile/communities-sharing', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (typeof req.body.shared !== 'boolean') return res.status(400).json({ error: 'Valeur invalide.' });
+  db.prepare('UPDATE users SET communitiesShown = ? WHERE id = ?').run(req.body.shared ? 1 : 0, req.userId);
+  res.json({ ok: true, communitiesShown: req.body.shared });
+});
 router.put('/profile/score-sharing', (req, res) => {
   if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
   if (typeof req.body.shared !== 'boolean') return res.status(400).json({ error: 'Valeur invalide.' });

@@ -1763,6 +1763,7 @@
     $('settingsContactShareEmail').checked = !!profile.contactShareEmail;
     $('settingsContactSharePhone').checked = !!profile.contactSharePhone;
     $('settingsScoreShared').checked = !!profile.scoreShared;
+    $('settingsCommunitiesShown').checked = profile.communitiesShown !== false;
     syncIdentitySaveState(true);
     renderIdentityHeader();
     // Vérifie tout de suite s'il y a des invitations/demandes de suivi en
@@ -11986,6 +11987,14 @@
       .catch(function () { box.checked = !shared; });
   });
 
+  // Montrer mes autres communautés aux membres : enregistré à l'instant, comme le score.
+  $('settingsCommunitiesShown').addEventListener('change', function () {
+    var box = $('settingsCommunitiesShown'); var shared = box.checked;
+    api('PUT', '/api/profile/communities-sharing', { shared: shared })
+      .then(function () { profile.communitiesShown = shared; })
+      .catch(function () { box.checked = !shared; });
+  });
+
   ['settingsName', 'settingsLastName', 'settingsPhone', 'settingsEmail', 'settingsContactShareEmail', 'settingsContactSharePhone'].forEach(function (id) {
     $(id).addEventListener('input', function () { syncIdentitySaveState(false); });
     $(id).addEventListener('change', function () { syncIdentitySaveState(false); });
@@ -16238,7 +16247,7 @@
   // Réseau des communautés (page 2). Chaque communauté = un cercle (taille = membres, plein = rejointe) ; un trait relie
   // deux communautés qui ont des membres en commun (le nombre s'affiche sur le trait de la communauté touchée).
   // Tri : Secteur, Nom ou Propriétaire. Violet seulement ; aucune couleur de secteur.
-  var NET_W = 320, NET_COLS = 3, NET_ROW = 96, NET_HEAD = 28;
+  var NET_W = 320, NET_SP = 126; // largeur de repère, écart entre deux cercles voisins
   var netData = null, netSort = 'sector', netSel = null;
   var SVGNS = 'http://www.w3.org/2000/svg';
   function svgEl(tag, attrs, parent) {
@@ -16247,8 +16256,13 @@
     if (parent) parent.appendChild(e);
     return e;
   }
+  // Cercle de communauté ou de membre : un fond opaque cache les traits qui passent dessous.
+  function netDot(parent, x, y, r) {
+    svgEl('circle', { cx: x, cy: y, r: r, style: 'fill: var(--bg)' }, parent);
+    return svgEl('circle', { class: 'netDot', cx: x, cy: y, r: r }, parent);
+  }
   function netRadius(g) { return 20 + Math.min(12, Math.sqrt(g.members) * 1.4); }
-  function netShort(s) { return s.length > 14 ? s.slice(0, 13) + '…' : s; }
+  function netShort(s) { return s.length > 12 ? s.slice(0, 11) + '…' : s; }
 
   function netZones() {
     var gs = netData.groups.slice();
@@ -16268,25 +16282,63 @@
     return zones;
   }
 
+  // Disposition « sphère » : chaque groupe (secteur ou propriétaire) est une bulle ronde ; ses communautés s'y rangent en
+  // anneau (6 au plus) ou en spirale ; les bulles se placent en couronne autour de la plus grande. Remplit pos et zones[].
+  function netLayout(zones, pos) {
+    var ringMax = zones.length === 1 ? 10 : 6;
+    zones.forEach(function (z) {
+      var k = z.items.length, pts = [], R = 0, i;
+      if (k > 1 && k <= ringMax) {
+        R = NET_SP / (2 * Math.sin(Math.PI / k));
+        for (i = 0; i < k; i++) pts.push([R * Math.cos(-Math.PI / 2 + i * 2 * Math.PI / k), R * Math.sin(-Math.PI / 2 + i * 2 * Math.PI / k)]);
+      } else if (k > ringMax) {
+        for (i = 0; i < k; i++) {
+          var rr = NET_SP * 0.62 * Math.sqrt(i + 0.5), an = i * 2.39996;
+          pts.push([rr * Math.cos(an), rr * Math.sin(an)]); R = Math.max(R, rr);
+        }
+      } else pts.push([0, 0]);
+      z.pts = pts; z.rad = R + 54;
+    });
+    var order = zones.slice().sort(function (a, b) { return b.items.length - a.items.length; });
+    order[0].cx = 0; order[0].cy = 0;
+    var rest = order.slice(1), d = rest.length ? order[0].rad + 30 : 0;
+    function fits() {
+      return rest.every(function (z, i) {
+        var a = -Math.PI / 2 + i * 2 * Math.PI / rest.length, b = -Math.PI / 2 + ((i + 1) % rest.length) * 2 * Math.PI / rest.length;
+        var nz = rest[(i + 1) % rest.length];
+        if (d < order[0].rad + z.rad + 36) return false;
+        if (rest.length < 2) return true;
+        return Math.hypot(d * Math.cos(a) - d * Math.cos(b), d * Math.sin(a) - d * Math.sin(b)) >= z.rad + nz.rad + 36;
+      });
+    }
+    while (rest.length && !fits()) d += 4;
+    rest.forEach(function (z, i) {
+      var a = -Math.PI / 2 + i * 2 * Math.PI / rest.length; z.cx = d * Math.cos(a); z.cy = d * Math.sin(a);
+    });
+    var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    zones.forEach(function (z) {
+      z.items.forEach(function (g, i) { pos[g.id] = { x: z.cx + z.pts[i][0], y: z.cy + z.pts[i][1] }; });
+      x0 = Math.min(x0, z.cx - z.rad); x1 = Math.max(x1, z.cx + z.rad);
+      y0 = Math.min(y0, z.cy - z.rad - (z.label ? 24 : 0)); y1 = Math.max(y1, z.cy + z.rad);
+    });
+    var w = Math.max(NET_W, x1 - x0 + 8);
+    return { x: (x0 + x1) / 2 - w / 2, y: y0 - 4, w: w, h: y1 - y0 + 8 };
+  }
+
   function renderCommunityNet() {
     var svg = $('communityNet');
     svg.innerHTML = '';
     if (!netData) return;
     var q = $('communitySearchInput').value.trim().toLowerCase();
-    var zones = netZones(), y = 0, pos = {};
+    var zones = netZones(), pos = {};
     var gZones = svgEl('g', {}, svg), gLinks = svgEl('g', {}, svg), gNodes = svgEl('g', {}, svg);
+    var box = netLayout(zones, pos);
+    svg.setAttribute('viewBox', box.x + ' ' + box.y + ' ' + box.w + ' ' + box.h);
+    svg.style.setProperty('--netfs', (13 * box.w / Math.max(1, svg.getBoundingClientRect().width || box.w)) + 'px');
     zones.forEach(function (z) {
-      var rows = Math.ceil(z.items.length / NET_COLS), head = z.label ? NET_HEAD : 0, h = head + rows * NET_ROW + 8;
-      svgEl('rect', { class: 'netZone', x: 0, y: y, width: NET_W, height: h, rx: 14 }, gZones);
-      if (z.label) svgEl('text', { class: 'netZoneLabel', x: 12, y: y + 20 }, gZones).textContent = z.label;
-      z.items.forEach(function (g, i) {
-        var col = i % NET_COLS, rowN = Math.floor(i / NET_COLS), inRow = Math.min(NET_COLS, z.items.length - rowN * NET_COLS);
-        var pitch = NET_W / NET_COLS;
-        pos[g.id] = { x: pitch * (col + 0.5) + (NET_COLS - inRow) * pitch / 2, y: y + head + rowN * NET_ROW + 38 };
-      });
-      y += h + 12;
+      svgEl('circle', { class: 'netZone', cx: z.cx, cy: z.cy, r: z.rad }, gZones);
+      if (z.label) svgEl('text', { class: 'netZoneLabel', x: z.cx, y: z.cy - z.rad - 6 }, gZones).textContent = z.label;
     });
-    svg.setAttribute('viewBox', '0 0 ' + NET_W + ' ' + Math.max(0, y - 12));
     var links = netData.links.filter(function (l) { return pos[l.a] && pos[l.b]; });
     var lineEls = links.map(function (l) {
       var line = svgEl('line', { class: 'netLink', x1: pos[l.a].x, y1: pos[l.a].y, x2: pos[l.b].x, y2: pos[l.b].y }, gLinks);
@@ -16299,7 +16351,7 @@
       var p = pos[g.id], r = netRadius(g);
       var match = !q || (g.name + ' ' + g.topic + ' ' + g.owner.name + ' ' + g.sector).toLowerCase().indexOf(q) > -1;
       var n = svgEl('g', { class: 'netNode' + (g.joined ? ' joined' : '') }, gNodes);
-      svgEl('circle', { class: 'netDot', cx: p.x, cy: p.y, r: r }, n);
+      netDot(n, p.x, p.y, r);
       svgEl('circle', { cx: p.x, cy: p.y, r: Math.max(r, 22), fill: 'transparent' }, n);
       svgEl('text', { class: 'netCount', x: p.x, y: p.y }, n).textContent = g.members;
       svgEl('text', { class: 'netName', x: p.x, y: p.y + r + 16 }, n).textContent = netShort(g.name);
@@ -16394,6 +16446,8 @@
     join.classList.toggle('hidden', g.isOwner);
     join.textContent = g.joined ? t('Quitter') : t('Rejoindre');
     $('communityGroupThreadPart').classList.toggle('hidden', !g.joined);
+    communityGroupName = g.name;
+    setGroupPart('thread');
     $('communityGroupDeleteBtn').classList.toggle('hidden', !g.isOwner);
     var box = $('communityGroupPosts');
     box.innerHTML = '';
@@ -16414,6 +16468,105 @@
       box.appendChild(msg);
     });
     box.scrollTop = box.scrollHeight;
+  }
+
+  // Fiche d'une communauté rejointe : Discussion | Membres. Membres = schéma des membres et de leurs autres communautés
+  // (un membre qui les cache apparaît en pointillé, sans lien). Violet seulement.
+  var communityGroupName = '';
+  var memSel = null; // { kind: 'm' | 'c', id }
+  function setGroupPart(part) {
+    Array.prototype.forEach.call($('communityGroupSeg').querySelectorAll('button'), function (b) { b.classList.toggle('active', b.getAttribute('data-part') === part); });
+    $('communityGroupThreadBody').classList.toggle('hidden', part !== 'thread');
+    $('communityGroupMembersBody').classList.toggle('hidden', part !== 'members');
+    if (part === 'members' && openCommunityGroupId) {
+      memSel = null;
+      api('GET', '/api/community/groups/' + openCommunityGroupId + '/members').then(renderMemberNet)
+        .catch(function (e) { $('communityGroupMsg').textContent = e.message; });
+    }
+  }
+  Array.prototype.forEach.call($('communityGroupSeg').querySelectorAll('button'), function (b) {
+    b.addEventListener('click', function () { setGroupPart(b.getAttribute('data-part')); });
+  });
+  function initials(name) { return name.split(' ').map(function (p) { return p.charAt(0); }).join('').slice(0, 2).toUpperCase(); }
+
+  function renderMemberNet(data) {
+    var svg = $('communityMemberNet');
+    svg.innerHTML = '';
+    var W = 320, H = 380, cx = 160, cy = 190;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.style.setProperty('--netfs', (13 * W / Math.max(1, svg.getBoundingClientRect().width || W)) + 'px');
+    var gl = svgEl('g', {}, svg), gn = svgEl('g', {}, svg);
+    var mp = {}, cp = {};
+    data.members.forEach(function (m, i) {
+      var a = -Math.PI / 2 + i * 2 * Math.PI / data.members.length;
+      mp[m.id] = { x: cx + 74 * Math.cos(a), y: cy + 74 * Math.sin(a) };
+    });
+    data.communities.forEach(function (c, i) {
+      var a = -Math.PI / 2 + i * 2 * Math.PI / data.communities.length;
+      cp[c.id] = { x: cx + 118 * Math.cos(a), y: cy + 150 * Math.sin(a) };
+    });
+    var spokes = data.members.map(function (m) {
+      return svgEl('line', { class: 'netLink', x1: cx, y1: cy, x2: mp[m.id].x, y2: mp[m.id].y, opacity: 0.2 }, gl);
+    });
+    var links = [];
+    data.members.forEach(function (m) {
+      (m.others || []).forEach(function (c) {
+        links.push({ m: m.id, c: c, el: svgEl('line', { class: 'netLink', x1: mp[m.id].x, y1: mp[m.id].y, x2: cp[c].x, y2: cp[c].y }, gl) });
+      });
+    });
+    netDot(svgEl('g', { class: 'netCenter' }, gn), cx, cy, 30);
+    svgEl('text', { class: 'netName', x: cx, y: cy + 48 }, gn).textContent = netShort(communityGroupName);
+    var memEls = data.members.map(function (m) {
+      var n = svgEl('g', { class: 'netNode' + (m.others ? '' : ' netHidden') + (m.me ? ' netHere' : '') }, gn);
+      netDot(n, mp[m.id].x, mp[m.id].y, 17);
+      svgEl('circle', { cx: mp[m.id].x, cy: mp[m.id].y, r: 22, fill: 'transparent' }, n);
+      svgEl('text', { class: 'netCount', x: mp[m.id].x, y: mp[m.id].y }, n).textContent = m.others ? initials(m.name) : '?';
+      n.addEventListener('click', function () { pickMem('m', m.id); });
+      return { m: m, n: n };
+    });
+    var comEls = data.communities.map(function (c) {
+      var n = svgEl('g', { class: 'netNode' }, gn);
+      netDot(n, cp[c.id].x, cp[c.id].y, 17);
+      svgEl('circle', { cx: cp[c.id].x, cy: cp[c.id].y, r: 22, fill: 'transparent' }, n);
+      svgEl('text', { class: 'netName', x: cp[c.id].x, y: cp[c.id].y + 34 }, n).textContent = netShort(c.name);
+      n.addEventListener('click', function () { pickMem('c', c.id); });
+      return { c: c, n: n };
+    });
+    function inC(m, c) { return !!m.others && m.others.indexOf(c) > -1; }
+    function pickMem(kind, id) {
+      memSel = memSel && memSel.kind === kind && memSel.id === id ? null : { kind: kind, id: id };
+      paint();
+    }
+    function paint() {
+      var s = memSel, pick = $('communityMemberPick');
+      links.forEach(function (l) {
+        var on = !s || (s.kind === 'm' ? l.m === s.id : l.c === s.id);
+        l.el.setAttribute('opacity', on ? (s ? 1 : 0.45) : 0.08);
+        l.el.setAttribute('stroke-width', s && on ? 2.5 : 1.5);
+      });
+      var selM = s && s.kind === 'm' ? data.members.filter(function (m) { return m.id === s.id; })[0] : null;
+      memEls.forEach(function (o) {
+        var on = !s || (s.kind === 'm' ? o.m.id === s.id : inC(o.m, s.id));
+        o.n.classList.toggle('dim', !on);
+        o.n.classList.toggle('sel', !!s && s.kind === 'm' && o.m.id === s.id);
+      });
+      comEls.forEach(function (o) {
+        var on = !s || (s.kind === 'c' ? o.c.id === s.id : inC(selM, o.c.id));
+        o.n.classList.toggle('dim', !on);
+        o.n.classList.toggle('sel', !!s && s.kind === 'c' && o.c.id === s.id);
+      });
+      if (!s) {
+        pick.textContent = t('Touche un membre ou une communauté.') + (data.total > data.members.length ? ' +' + (data.total - data.members.length) + ' ' + t('autres membres') : '');
+      } else if (selM) {
+        var names = selM.others ? selM.others.map(function (c) { return data.communities.filter(function (x) { return x.id === c; })[0].name; }) : [];
+        pick.textContent = selM.name + ' — ' + (selM.others ? (names.length ? t('Aussi dans') + ' : ' + names.join(', ') : '') : t('Ce membre ne montre pas ses autres communautés.'));
+      } else {
+        var who = data.members.filter(function (m) { return inC(m, s.id); }).map(function (m) { return m.name; });
+        var cn = data.communities.filter(function (x) { return x.id === s.id; })[0].name;
+        pick.textContent = cn + ' — ' + (who.length ? t("Membres d'ici présents") + ' : ' + who.join(', ') : t("Aucun membre d'ici")) + '. ' + t('Les membres qui cachent leurs communautés ne sont pas comptés.');
+      }
+    }
+    paint();
   }
 
   function openCommunityGroup(id) {

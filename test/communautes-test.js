@@ -47,6 +47,19 @@ T.failed = 0;
     assert(!JSON.stringify(net.body).includes('"members":[') && net.body.groups.every((g) => typeof g.members === 'number'), 'réseau : seulement des comptes, aucun nom de membre');
     await A.c.del(`/api/community/groups/${g2.body.id}/join`);
 
+    // --- Schéma des membres : réservé aux membres, vie privée respectée ---
+    assert((await C.c.get(`/api/community/groups/${gid}/members`)).status === 404, 'schéma des membres : refusé à un non-membre');
+    await A.c.post(`/api/community/groups/${g2.body.id}/join`);
+    const mg = await A.c.get(`/api/community/groups/${gid}/members`);
+    const mb = mg.body.members.find((m) => m.name.startsWith('TestcbFonccb') || m.id === B.id);
+    assert(mg.status === 200 && mb && mb.others.includes(g2.body.id), 'schéma : B est aussi dans la 2e communauté');
+    assert((await B.c.put('/api/profile/communities-sharing', { shared: 'non' })).status === 400, 'réglage : valeur non booléenne refusée');
+    await B.c.put('/api/profile/communities-sharing', { shared: false });
+    const mg2 = await A.c.get(`/api/community/groups/${gid}/members`);
+    assert(mg2.body.members.find((m) => m.id === B.id).others === null, 'membre qui cache ses communautés : aucun lien');
+    await B.c.put('/api/profile/communities-sharing', { shared: true });
+    await A.c.del(`/api/community/groups/${g2.body.id}/join`);
+
     // --- Quitter, supprimer ---
     assert((await A.c.del(`/api/community/groups/${gid}/join`)).status === 400, 'le créateur ne peut pas quitter');
     assert((await B.c.del(`/api/community/groups/${gid}/join`)).status === 200, 'B quitte');

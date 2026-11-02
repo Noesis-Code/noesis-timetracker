@@ -48,6 +48,33 @@ function network(userId) {
   return { groups, links };
 }
 
+// Schéma des membres d'une communauté REJOINTE : chaque membre et ses autres communautés (visibles par le demandeur).
+// Un membre qui a choisi de cacher ses communautés (users.communitiesShown = 0) apparaît sans liens (others = null).
+const MAX_GRAPH_MEMBERS = 12;
+function membersGraph(userId, id) {
+  const g = db.prepare('SELECT ownerId FROM communities WHERE id = ?').get(id);
+  if (!g || isBlockedBetween(userId, g.ownerId) || !isMember(userId, id)) return null;
+  const rows = db.prepare(`SELECT u.id, u.name, u.lastName, u.communitiesShown FROM community_members m JOIN users u ON u.id = m.userId
+    WHERE m.communityId = ? ORDER BY m.joinedAt`).all(id).filter((r) => r.id === userId || !isBlockedBetween(userId, r.id));
+  const visible = new Map(listFor(userId, '').map((c) => [c.id, c]));
+  const out = rows.map((r) => {
+    const shown = r.id === userId || r.communitiesShown;
+    const others = shown
+      ? db.prepare('SELECT communityId FROM community_members WHERE userId = ? AND communityId != ?').all(r.id, id)
+        .map((x) => x.communityId).filter((c) => visible.has(c))
+      : null;
+    return { id: r.id, name: r.lastName ? r.name + ' ' + r.lastName : r.name, others, me: r.id === userId };
+  });
+  // Au plus MAX_GRAPH_MEMBERS membres dessinés : d'abord ceux qui ont le plus de liens.
+  out.sort((a, b) => ((b.others || []).length - (a.others || []).length) || Number(b.me) - Number(a.me));
+  const shownMembers = out.slice(0, MAX_GRAPH_MEMBERS);
+  const ids = [...new Set(shownMembers.flatMap((m) => m.others || []))];
+  const communitiesOut = ids.map((c) => ({ id: c, name: visible.get(c).name })).slice(0, 8);
+  const keep = new Set(communitiesOut.map((c) => c.id));
+  shownMembers.forEach((m) => { if (m.others) m.others = m.others.filter((c) => keep.has(c)); });
+  return { members: shownMembers, total: out.length, communities: communitiesOut };
+}
+
 function create(userId, name, topic, priceCents, sector) {
   const n = db.prepare('SELECT COUNT(*) AS n FROM communities WHERE ownerId = ?').get(userId).n;
   if (n >= MAX_PER_OWNER) return { error: 'Tu as déjà ' + MAX_PER_OWNER + ' communautés.' };
@@ -101,4 +128,4 @@ function remove(userId, id) {
   return db.prepare('DELETE FROM communities WHERE id = ? AND ownerId = ?').run(id, userId).changes > 0;
 }
 
-module.exports = { listFor, network, create, get, isMember, join, leave, posts, addPost, remove, MAX_PRICE_CENTS, MAX_POST_LENGTH };
+module.exports = { listFor, network, membersGraph, create, get, isMember, join, leave, posts, addPost, remove, MAX_PRICE_CENTS, MAX_POST_LENGTH };

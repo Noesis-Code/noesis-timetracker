@@ -111,6 +111,12 @@ router.get('/community/groups/:id', (req, res) => {
   res.json(Object.assign({}, g, { posts: g.joined ? communities.posts(g.id) : [] }));
 });
 
+router.get('/community/groups/:id/members', (req, res) => {
+  const out = communities.membersGraph(req.userId, Number(req.params.id));
+  if (!out) return res.status(404).json({ error: 'Communauté introuvable.' });
+  res.json(out);
+});
+
 router.post('/community/groups/:id/join', (req, res) => {
   if (!communities.join(req.userId, Number(req.params.id))) return res.status(404).json({ error: 'Communauté introuvable.' });
   res.json(communities.get(req.userId, Number(req.params.id)));
