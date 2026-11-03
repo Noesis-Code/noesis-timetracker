@@ -361,15 +361,15 @@
 #goalsTasksView .activityProgressCard .activityProgressText { display: contents; }
 #goalsTasksView .activityProgressCard .activityProgressTitle, #goalsTasksView .activityProgressCard .meta { margin: 0; font-size: 13px; font-weight: 400; color: var(--text-light); }
 #goalsTasksView .goalsTasksGroups { gap: 0; }
-:root #goalsTasksGroups .goalsTasksGroup { background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; border-radius: 0; padding: 0; gap: 0; }
-#goalsTasksGroups .goalsTasksGroup.open { padding-top: 0; }
-#goalsTasksGroups .goalsTasksGroup .subProjectRowHeader { min-height: 48px; border-bottom: 1px solid var(--sep); }
-#goalsTasksGroups .goalsTasksGroup .activityRowName { font-size: 15px; font-weight: 600; }
-#goalsTasksGroups .goalsTasksGroup .subProjectBadge { font-size: 13px; color: var(--text-light); }
-#goalsTasksGroups .goalsTasksGroup .subProjectItems { gap: 0; }
-#goalsTasksGroups .goalsTasksGroup .subProjectItem { min-height: 52px; padding: 4px 0; gap: 16px; border-radius: 0; border-bottom: 1px solid var(--sep); }
-#goalsTasksGroups .goalsTasksGroup .subProjectItem input[type="checkbox"] { margin-left: 4px; }
-#goalsTasksGroups .goalsTasksGroup .subProjectItem.goalsTaskEditing { border-bottom: 0; }
+:root :is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup { background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; border-radius: 0; padding: 0; gap: 0; }
+:is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup.open { padding-top: 0; }
+:is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup .subProjectRowHeader { min-height: 48px; border-bottom: 1px solid var(--sep); }
+:is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup .activityRowName { font-size: 15px; font-weight: 600; }
+:is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup .subProjectBadge { font-size: 13px; color: var(--text-light); }
+:is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup .subProjectItems { gap: 0; }
+:is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup .subProjectItem { min-height: 52px; padding: 4px 0; gap: 16px; border-radius: 0; border-bottom: 1px solid var(--sep); }
+:is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup .subProjectItem input[type="checkbox"] { margin-left: 4px; }
+:is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup .subProjectItem.goalsTaskEditing { border-bottom: 0; }
 :root #goalsTasksArchiveHeader { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; min-height: 44px; align-items: center; }
 #goalsTasksArchiveHeader:hover { filter: none; }
 #goalsTasksArchiveHeader .sectionTitle { font-size: 13px; font-weight: 400; color: var(--text-light); }

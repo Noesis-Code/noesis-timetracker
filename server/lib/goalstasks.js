@@ -676,6 +676,8 @@ function archivesForActivity(activityId) {
 
 module.exports = {
   allTasksWithGroup,
+  dailyListForActivity,
+  DAILY_MIN_LINES,
   archivesForActivity,
   subProjectsForCategory,
   ensureHomeSubProject,

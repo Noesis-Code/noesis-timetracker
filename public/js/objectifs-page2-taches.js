@@ -1007,7 +1007,7 @@
     var who = respFilter[pole || ''] || '';
     var byWho = function (x) { return !who || x.plannedUserId === who; };
     var todayTasks = allToday.filter(byPole).filter(byWho);
-    var upcoming = allUpcoming.filter(byPole).filter(byWho).slice(0, Math.max(0, ((daily && daily.minLines) || 5) - todayTasks.length));
+    var upcoming = goalsUpcomingFill(allUpcoming.filter(byPole).filter(byWho), todayTasks.length, daily && daily.minLines);
     // les tâches restent RANGÉES PAR SECTEUR (accordéon replié par défaut, croix de
     // suppression, glisser entre secteurs du pôle, ajout en ligne) ; seul le contenu de chaque
     // secteur change : tâches du jour (blanc) puis tâches à venir (gris, avec leur date).
@@ -1120,6 +1120,10 @@
     archiveScrollBack = null;
   }
   TMT.collapseGoalsArchives = collapseGoalsArchives;
+  // Règle des « 5 lignes minimum » (une seule définition, partagée avec la vue Aujourd'hui) : on montre toutes les tâches du jour ; s'il y en a moins que minLines, les prochaines tâches datées complètent.
+  function goalsUpcomingFill(upcomingList, todayCount, minLines) { return upcomingList.slice(0, Math.max(0, (minLines || 5) - todayCount)); }
+  TMT.goalsUpcomingFill = goalsUpcomingFill;
+  TMT.buildGoalsTaskRow = function (task, groupKey, onChanged) { return buildGoalsTaskRow(task, groupKey, onChanged); }; // ligne de tâche de l'onglet Tâches, réutilisée par Aujourd'hui
   TMT.openGoalsTaskEditPanel = openGoalsTaskEditPanel; // réutilisé par les jours du calendrier (page 2, onglet 2)
   TMT.goalsTaskEditIcon = function () { return TMT.ui.editIcon(); };
 
@@ -1147,37 +1151,35 @@
   // comportement replié/chevron pour ces groupes-là aussi — g.isPole ne sert
   // donc plus qu'à distinguer la ligne dans le contrat de données, plus à
   // choisir son rendu ici.
-  function buildGoalsTasksGroup(g) {
+  // Ligne repliable (nom, nombre, chevron à droite) : UNE seule définition, aussi utilisée par la vue Aujourd'hui pour ses niveaux activité et pôle (TMT.buildGoalsGroupRow).
+  function buildGoalsGroupRow(label, count, isOpen, onToggle) {
     var row = document.createElement('div');
-    row.className = 'activityRow subProjectRow goalsTasksGroup'
-      + (currentGoalsTasksOpenGroups[g.key] ? ' open' : '');
-    row.dataset.groupKey = g.key;
-    row.dataset.poleKey = g.poleKey || '';
-
-    var isOpen = !!currentGoalsTasksOpenGroups[g.key];
-
+    row.className = 'activityRow subProjectRow goalsTasksGroup' + (isOpen ? ' open' : '');
     var header = document.createElement('div');
     header.className = 'activityRowHeader subProjectRowHeader';
-
     var chevron = TMT.ui.chev(isOpen);
-
     var name = document.createElement('span');
     name.className = 'activityRowName';
-    name.textContent = g.label;
+    name.textContent = label;
     header.appendChild(name);
-
     var badge = document.createElement('span');
     badge.className = 'meta subProjectBadge';
-    badge.textContent = String((g.tasks || []).length); // liste plate : seulement le nombre de tâches
+    badge.textContent = String(count); // liste plate : seulement le nombre de tâches
     header.appendChild(badge);
     header.appendChild(chevron);
-
     row.appendChild(header);
-
-    header.addEventListener('click', function () {
+    header.addEventListener('click', onToggle);
+    return row;
+  }
+  TMT.buildGoalsGroupRow = buildGoalsGroupRow;
+  function buildGoalsTasksGroup(g) {
+    var isOpen = !!currentGoalsTasksOpenGroups[g.key];
+    var row = buildGoalsGroupRow(g.label, (g.tasks || []).length, isOpen, function () {
       currentGoalsTasksOpenGroups[g.key] = !currentGoalsTasksOpenGroups[g.key];
       renderGoalsTasksOverview(currentGoalsTasksOverview);
     });
+    row.dataset.groupKey = g.key;
+    row.dataset.poleKey = g.poleKey || '';
 
     // Description du pôle/secteur (attribuée via la fenêtre d'activité,
     // section Catégories) — demande explicite d'Emilien, affichée seulement
@@ -1314,12 +1316,12 @@
     }).catch(function () {});
 
     var assignSel = null;
-    if (TMT.currentGoalsActivityIsShared) {
+    if (task.activityId != null ? task.shared : TMT.currentGoalsActivityIsShared) { // vue Aujourd'hui : la tâche porte son activité
       assignSel = document.createElement('select');
       var none = document.createElement('option'); none.value = ''; none.textContent = t('Responsable') + ' : —';
       assignSel.appendChild(none);
       panel.appendChild(assignSel);
-      api('GET', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/members').then(function (d) {
+      api('GET', '/api/activities/' + (task.activityId != null ? task.activityId : TMT.currentGoalsActivityId) + '/goals/members').then(function (d) {
         ((d && d.members) || []).forEach(function (m) {
           var o = document.createElement('option'); o.value = m.id; o.textContent = m.name;
           if (task.plannedUserId === m.id) o.selected = true;
@@ -1365,7 +1367,7 @@
     txt.focus();
   }
 
-  function buildGoalsTaskRow(task, groupKey) {
+  function buildGoalsTaskRow(task, groupKey, onChanged) { // onChanged (facultatif) : rechargement après coche ou modification ; par défaut, la liste de l'onglet Tâches
     var row = document.createElement('div');
     row.className = 'subProjectItem' + (task.done ? ' done' : '') + (task.grey ? ' goalsDailyGrey' : '');
     // demande de Notifications (coordination, voir
@@ -1390,7 +1392,7 @@
     cb.addEventListener('change', function () {
       cb.disabled = true;
       api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: cb.checked })
-        .then(function () { loadGoalsTasksOverview(); })
+        .then(function () { (onChanged || loadGoalsTasksOverview)(); })
         .catch(function (err) { cb.checked = !cb.checked; alert(err.message); })
         .then(function () { cb.disabled = false; });
     });
@@ -1448,7 +1450,7 @@
       var existing = row.querySelector('.goalsTaskEditPanel');
       if (existing) { existing.remove(); edit.style.display = ''; return; }
       edit.style.display = 'none';
-      openGoalsTaskEditPanel(row, task);
+      openGoalsTaskEditPanel(row, task, onChanged);
     });
     row.appendChild(edit);
 

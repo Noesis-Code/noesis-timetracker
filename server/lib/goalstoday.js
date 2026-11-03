@@ -21,12 +21,12 @@ function tasksToday(userId, todayParam, dayParam) {
   const today = day;
   const acts = db.prepare(`SELECT a.id, a.name, m.color FROM activities a JOIN activity_members m ON m.activityId = a.id
     WHERE m.userId = ? AND a.active = 1 ORDER BY m.position, a.id`).all(userId); // ordre des activités dans l'application (même ordre que la liste des activités)
-  const actIndex = new Map(acts.map((a, i) => [a.id, i]));
+  const actIndex = new Map(acts.map((a, i) => [a.id, i])); const sharedActs = new Set(acts.filter((a) => db.prepare('SELECT COUNT(*) AS c FROM activity_members WHERE activityId = ?').get(a.id).c > 1).map((a) => a.id)); // activités partagées : le panneau de modification propose alors « Responsable »
   const todo = [], done = [];
   // Les durées estimées ne se calculent que pour les tâches affichées (et un calcul par catégorie : mémo le temps de la requête).
   const memo = goals.beginEstimateMemo();
   try {
-    acts.forEach((a) => {
+    acts.forEach((a) => { const poleLabels = {}; goals.categoriesForActivity(a.id).forEach((p) => { poleLabels[p.key] = p.label; });
       goalstasks.allTasksWithGroup(a.id).forEach((t) => {
         if (t.plannedUserId && t.plannedUserId !== userId) return;
         const due = t.dueDate || today;
@@ -40,11 +40,23 @@ function tasksToday(userId, todayParam, dayParam) {
         list.push({
           id: t.id, label: t.label, done: !!t.done, activityId: a.id, activityName: a.name, activityColor: a.color || null,
           sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, catKey: t.key, dueDate: due,
-          minutes: goalscapacity.taskMinutes(userId, a.id, t.poleKey, t.label),
+          minutes: goalscapacity.taskMinutes(userId, a.id, t.poleKey, t.label), plannedUserId: t.plannedUserId || null, shared: sharedActs.has(a.id), poleName: poleLabels[t.poleKey] || t.poleKey,
         });
       });
     });
   } finally { goals.endEstimateMemo(memo); }
+  // Tâches À VENIR (vue « Activité » repliée) : même complément que l'onglet Tâches de la page 2 (goalstasks.dailyListForActivity) : au moins 5 tâches par pôle,
+  // les prochaines tâches datées du même pôle (échéance croissante) complètent. Marquées upcoming : jamais comptées, jamais dans « Faites aujourd'hui ».
+  const upc = [];
+  if (!other) acts.forEach((a) => {
+    const daily = goalstasks.dailyListForActivity(a.id, today);
+    const names = {}; goals.categoriesForActivity(a.id).forEach((p) => { names[p.key] = p.label; });
+    new Set(daily.upcoming.map((u) => u.poleKey)).forEach((pk) => {
+      daily.upcoming.filter((u) => u.poleKey === pk && !(u.plannedUserId && u.plannedUserId !== userId)).forEach((u) => { // le complément à 5 est fait côté client par TMT.goalsUpcomingFill (la même fonction que l'onglet Tâches)
+        upc.push({ id: u.id, label: u.label, done: false, upcoming: true, activityId: a.id, activityName: a.name, activityColor: a.color || null, sector: u.key === u.poleKey ? null : u.groupLabel, pole: pk, poleName: names[pk] || pk, dueDate: u.dueDate, minutes: 0, plannedUserId: u.plannedUserId || null, shared: sharedActs.has(a.id) });
+      });
+    });
+  });
   // Ordre : activité par activité (ordre de l'application), puis dans chaque activité les paliers maintenance/développement
   // (taskkind.compareTasks), puis l'échéance et l'ordre de création comme avant. Sans type calculé, une tâche reste au palier 3 : ordre d'avant.
   const taskkind = require('./taskkind');
@@ -69,10 +81,12 @@ function tasksToday(userId, todayParam, dayParam) {
   // Réformes (reform.js) : en tête de leur pôle/secteur, ou de l'activité si elles en touchent au moins deux.
   const ordered = require('./reform').placeReforms(todo);
   todo.length = 0; ordered.forEach((t) => todo.push(t));
+  todo.forEach((t) => { t.objectiveEnd = t.rank.periodEnd || null; t.objectiveNumber = t.rank.periodNumber || 0; t.objectiveWeek = t.rank.weekIndex || 0; }); // tri « Objectif » côté client (même logique que compareContinuity) : fin de période, puis semaine ; sans objectif : null
+  todo.forEach((t) => { t.priority = t.rank.reform ? 0.5 : t.rank.tier; }); // palier interne pour le tri « Priorité » côté client : 0 maintenance urgente, 0,5 réforme, 1 à 4 paliers suivants
   todo.concat(done).forEach((t) => { delete t.rank; delete t.catKey; });
   done.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || x.id - y.id);
   const sum = (l) => l.reduce((s, t) => s + (t.minutes || 0), 0);
-  return { today, doneCount: done.length, todoCount: todo.length, doneMinutes: sum(done), todoMinutes: sum(todo), tasks: todo.concat(done) };
+  return { today, doneCount: done.length, todoCount: todo.length, doneMinutes: sum(done), todoMinutes: sum(todo), minLines: goalstasks.DAILY_MIN_LINES, tasks: todo.concat(upc, done) };
 }
 
 module.exports = { tasksToday };

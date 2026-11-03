@@ -69,8 +69,8 @@
     prev.addEventListener('click', function () { go(-1); }); next.addEventListener('click', function () { go(1); });
     head.appendChild(prev); head.appendChild(ui.dayLabel); head.appendChild(next);
     var sum = el('div', 'tasksPopSum'); sumL = el('span'); sumR = el('span'); sum.appendChild(sumL); sum.appendChild(sumR);
-    listBox = el('div', 'tasksPopList');
-    root.appendChild(head); root.appendChild(sum); root.appendChild(listBox);
+    listBox = el('div', 'tasksPopList tasksTree');
+    root.appendChild(head); root.appendChild(buildSort()); root.appendChild(sum); root.appendChild(listBox);
     // La barre d'ajout est AU PREMIER PLAN, fixée au-dessus de la barre des volets (comme elle). Défilé = glissement latéral entre les pages :
     // elle prend le même décalage que la page (#tab-goals) pendant le glissement, puis disparaît avec elle.
     dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock);
@@ -94,6 +94,34 @@
     if (window.visualViewport) { window.visualViewport.addEventListener('resize', kbWatch); window.visualViewport.addEventListener('scroll', kbWatch); }
     ui.text.addEventListener('focus', kbWatch); ui.text.addEventListener('blur', kbWatch);
     container.appendChild(root);
+  }
+
+  // Icône de tri (nue, sans cadre : R37), à gauche sous le titre ; menu = le panneau déroulant commun .statsPeriodMenu (fermé au toucher ailleurs par app.js), sans icône devant les choix.
+  function buildSort() {
+    var wrap = el('div', 'statsPeriodMenuWrap tasksSortWrap');
+    var btn = el('button', 'cmpEdit tasksSortBtn'); btn.type = 'button'; btn.setAttribute('aria-haspopup', 'true'); btn.setAttribute('aria-expanded', 'false');
+    btn.title = tr('Trier'); btn.setAttribute('aria-label', tr('Trier'));
+    btn.appendChild(svg('M4 7h16M7 12h10M10 17h4', 2));
+    var menu = el('div', 'statsPeriodMenu hidden');
+    SORTS.forEach(function (k) {
+      var it = el('button', 'statsPeriodMenuItem' + (k === sortMode ? ' active' : ''), tr(SORT_LABELS[k])); it.type = 'button';
+      it.addEventListener('click', function () {
+        menu.classList.add('hidden'); btn.setAttribute('aria-expanded', 'false');
+        sortMode = k; try { localStorage.setItem(SORT_KEY, k); } catch (e) {}
+        menu.querySelectorAll('.statsPeriodMenuItem').forEach(function (b) { b.classList.toggle('active', b === it); });
+        if (lastData) render(lastData);
+      });
+      menu.appendChild(it);
+    });
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var willOpen = menu.classList.contains('hidden');
+      document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+      if (willOpen) menu.classList.remove('hidden');
+      btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+    wrap.appendChild(btn); wrap.appendChild(menu);
+    return wrap;
   }
 
   // Barre d'ajout : [📎 à gauche] [texte] [↑ flèche d'envoi] ; au-dessus, la proposition de Noèsis.
@@ -644,7 +672,9 @@
   }
 
   function strong(text, rest) { var s = el('span'); s.appendChild(el('b', null, text)); s.appendChild(document.createTextNode(rest)); return s; }
+  var lastData = null;
   function render(d) {
+    lastData = d;
     sumL.textContent = ''; sumR.textContent = '';
     sumL.appendChild(strong(d.doneCount + ' ' + tr(d.doneCount > 1 ? 'faites' : 'faite'), ' · ' + d.todoCount + ' ' + tr('à faire')));
     sumR.appendChild(strong(minutesLabel(d.doneMinutes) + ' ' + tr('faites'), ' · ' + minutesLabel(d.todoMinutes) + ' ' + tr('à faire')));
@@ -653,8 +683,7 @@
     d.tasks = state.added.filter(function (a) { return !have[a.id]; }).concat(d.tasks);
     if (!d.tasks.length) listBox.appendChild(el('p', 'tasksPopEmpty', tr(dayOff === 0 ? 'Rien pour aujourd’hui.' : 'Rien ce jour-là.')));
     var doneShown = false;
-    d.tasks.forEach(function (t) {
-      if (t.done && !doneShown) { doneShown = true; listBox.appendChild(el('p', 'tasksPopSection', tr(dayOff === 0 ? 'Faites aujourd’hui' : 'Faites ce jour-là'))); }
+    function addRow(t, parent) {
       var row = el('div', 'tasksPopRow' + (t.done ? ' done' : ''));
       var cb = el('button', 'tasksPopCheck'); cb.type = 'button';
       cb.setAttribute('aria-label', tr(t.done ? 'Remettre à faire' : 'Marquer comme faite')); cb.setAttribute('aria-pressed', t.done ? 'true' : 'false');
@@ -687,12 +716,90 @@
       meta.appendChild(dot);
       meta.appendChild(document.createTextNode([t.activityName, t.sector].filter(Boolean).join(' · ') + ' · ' + (t.done ? tr('terminé') : (t.justAdded ? tr('ajoutée à l’instant') : minutesLabel(t.minutes)))));
       txt.appendChild(meta);
-      row.appendChild(cb); row.appendChild(txt); listBox.appendChild(row);
+      row.appendChild(cb); row.appendChild(txt);
+      // Même icône et même panneau de modification que l'onglet Tâches de la page 2 (TMT.openGoalsTaskEditPanel) ; après enregistrement, la liste se recharge.
+      if (TMT.openGoalsTaskEditPanel && !t.justAdded) {
+        var edit = el('button', 'cmpEdit goalsTaskEditBtn'); edit.type = 'button'; edit.innerHTML = TMT.goalsTaskEditIcon ? TMT.goalsTaskEditIcon() : '';
+        edit.title = tr('Modifier cette tâche'); edit.setAttribute('aria-label', tr('Modifier cette tâche'));
+        edit.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var existing = row.querySelector('.goalsTaskEditPanel');
+          if (existing) { existing.remove(); row.classList.remove('goalsTaskEditing'); edit.style.display = ''; return; }
+          edit.style.display = 'none';
+          TMT.openGoalsTaskEditPanel(row, { id: t.id, label: t.label, dueDate: t.dueDate, activityId: t.activityId, shared: t.shared, plannedUserId: t.plannedUserId }, function () { var p = row.querySelector('.goalsTaskEditPanel'); if (p) p.remove(); refresh(); });
+        });
+        row.appendChild(edit);
+      }
+      parent.appendChild(row);
+    }
+    paintTodo(d.tasks.filter(function (t) { return !t.done; }), addRow);
+    d.tasks.forEach(function (t) {
+      if (!t.done) return;
+      if (!doneShown) { doneShown = true; listBox.appendChild(el('p', 'tasksPopSection', tr(dayOff === 0 ? 'Faites aujourd’hui' : 'Faites ce jour-là'))); }
+      addRow(t, listBox);
+    });
+  }
+  // ---------- Tri (demande d'Émilien, 3 nov. 2026) : « Activité » (défaut, arbre replié), « Priorité », « Objectif », « Durée » ----------
+  var SORT_KEY = 'noesis_today_sort_v1', SORTS = ['activity', 'priority', 'objective', 'duration'];
+  var SORT_LABELS = { activity: 'Activité', priority: 'Priorité', objective: 'Objectif', duration: 'Durée' };
+  var sortMode = 'activity', openNodes = {}; // openNodes : branches dépliées de l'arbre, gardées le temps de la session de la vue
+  try { var savedSort = localStorage.getItem(SORT_KEY); if (SORTS.indexOf(savedSort) >= 0) sortMode = savedSort; } catch (e) {}
+  function cmpNum(a, b) { return a < b ? -1 : a > b ? 1 : 0; }
+  function sortedFlat(list) {
+    var out = list.map(function (t, i) { return { t: t, i: i }; });
+    out.sort(function (x, y) {
+      var a = x.t, b = y.t, r = 0;
+      if (sortMode === 'priority') r = cmpNum(a.priority == null ? 3 : a.priority, b.priority == null ? 3 : b.priority);
+      else if (sortMode === 'duration') r = cmpNum(a.minutes || 0, b.minutes || 0);
+      else if (sortMode === 'objective') { // même logique que taskkind.compareContinuity : fin de période, numéro, semaine ; sans objectif à la fin
+        var oa = a.objectiveEnd ? 0 : 1, ob = b.objectiveEnd ? 0 : 1;
+        r = cmpNum(oa, ob) || (oa === 0 ? cmpNum(a.objectiveEnd, b.objectiveEnd) || cmpNum(a.objectiveNumber || 0, b.objectiveNumber || 0) || cmpNum(a.objectiveWeek || 0, b.objectiveWeek || 0) : 0);
+      }
+      return r || x.i - y.i;
+    });
+    return out.map(function (x) { return x.t; });
+  }
+  // Une branche repliable : ligne (nom + chevron à droite, R21) puis son contenu, visible seulement si dépliée.
+  // Ligne repliable = celle de l'onglet Tâches (TMT.buildGoalsGroupRow : mêmes classes, chevron, comportement : on redessine la liste) ; ici pour les niveaux activité et pôle.
+  function branch(parent, id, label, count, depth, fill) {
+    var open = !!openNodes[id];
+    var row = TMT.buildGoalsGroupRow(label, count, open, function () { if (open) delete openNodes[id]; else openNodes[id] = true; if (lastData) render(lastData); });
+    if (open) { var body = el('div', 'subProjectItems tasksTreeBody'); row.appendChild(body); fill(body); }
+    parent.appendChild(row);
+  }
+  // Ligne de tâche de l'onglet Tâches (case, texte, date, icône de modification) ; après coche ou enregistrement, la liste d'Aujourd'hui se recharge.
+  function treeRow(t, parent) {
+    parent.appendChild(TMT.buildGoalsTaskRow(Object.assign({}, t, { grey: !!t.upcoming }), t.catKey || t.pole, function () { var p = listBox.querySelector('.goalsTaskEditPanel'); if (p) p.remove(); refresh(); }));
+  }
+  function group(list, keyOf) { var order = [], map = {}; list.forEach(function (t) { var k = keyOf(t); if (!map[k]) { map[k] = []; order.push(k); } map[k].push(t); }); return order.map(function (k) { return { key: k, items: map[k] }; }); }
+  function paintTodo(list, addRow) {
+    var upc = list.filter(function (t) { return t.upcoming; }); list = list.filter(function (t) { return !t.upcoming; }); // tâches à venir (complément à 5 par pôle) : seulement dans l'arbre, en grisé, jamais dans les tris à plat
+    var fresh = list.filter(function (t) { return t.justAdded; }); list = list.filter(function (t) { return !t.justAdded; }); // tâche ajoutée à l'instant : en tête, avant le tri
+    fresh.forEach(function (t) { addRow(t, listBox); });
+    if (sortMode !== 'activity') { sortedFlat(list).forEach(function (t) { addRow(t, listBox); }); return; }
+    var real = function (items) { return items.filter(function (t) { return !t.upcoming; }).length; };
+    var minLines = lastData && lastData.minLines;
+    group(list.concat(upc), function (t) { return t.activityId; }).forEach(function (a) {
+      var inAct = function (aBody) {
+        group(a.items, function (t) { return t.pole || ''; }).forEach(function (p) {
+          // Règle de l'onglet Tâches (TMT.goalsUpcomingFill) : toutes les tâches du jour du pôle, complétées par les prochaines tâches datées jusqu'à 5.
+          var today = p.items.filter(function (t) { return !t.upcoming; });
+          var items = today.concat(TMT.goalsUpcomingFill(p.items.filter(function (t) { return t.upcoming; }), today.length, minLines));
+          var inPole = function (pBody) {
+            group(items, function (t) { return t.sector || ''; }).forEach(function (s) {
+              if (!s.key) s.items.forEach(function (t) { treeRow(t, pBody); }); // tâches directement dans le pôle : visibles à l'ouverture du pôle
+              else branch(pBody, 'a' + a.key + '/' + p.key + '/' + s.key, s.key, s.items.length, 2, function (sBody) { s.items.forEach(function (t) { treeRow(t, sBody); }); });
+            });
+          };
+          branch(aBody, 'a' + a.key + '/' + p.key, p.items[0].poleName || p.key, items.length, 1, inPole);
+        });
+      };
+      branch(listBox, 'a' + a.key, a.items[0].activityName, real(a.items), 0, inAct);
     });
   }
   var leaving = 0; // lignes en train de s'effacer : on ne recharge pas la liste sous leurs pieds
   function refresh() {
-    if (leaving > 0 || !root || !root.getClientRects().length) return; // vue masquée (autre volet, autre page) : rien à charger
+    if (leaving > 0 || !root || !root.getClientRects().length || listBox.querySelector('.goalsTaskEditPanel')) return; // une tâche en cours de modification : la liste ne se redessine pas sous elle // vue masquée (autre volet, autre page) : rien à charger
     var seq = ++loadSeq;
     var day = dayOff ? dayIso() : localIso();
     TMT.api('GET', '/api/goals/today?today=' + localIso() + (dayOff ? '&day=' + dayIso() : '')).then(function (d) { if (d && d.tasks) cachePut(day, d); if (seq === loadSeq && shown) render(d); }).catch(function () {});
@@ -707,6 +814,6 @@
   TMT.todayView = {
     mount: function (container) { if (mounted) return; mounted = true; build(container); },
     show: function () { shown = true; syncDock(); var c = cacheGet(localIso()); if (c && !dayOff) render(c); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
-    hide: function () { shown = false; dayOff = 0; if (ui.dayLabel) ui.dayLabel.textContent = todayLabel(); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
+    hide: function () { shown = false; dayOff = 0; openNodes = {}; if (ui.dayLabel) ui.dayLabel.textContent = todayLabel(); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();
