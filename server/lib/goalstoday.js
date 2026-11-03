@@ -96,11 +96,16 @@ function tasksToday(userId, todayParam, dayParam) {
 // Archive de la vue Aujourd'hui : tâches faites des 7 derniers jours, TOUTES les activités de l'utilisateur (la liste de l'onglet Tâches, goalstasks.archivesForActivity, pour chaque activité),
 // la plus récente d'abord. Passé 7 jours, une tâche n'apparaît plus (verrouillée) mais reste en base : export des données, outil MCP lister_taches (statut terminees/toutes).
 function archiveAll(userId) {
-  const acts = db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1 ORDER BY m.position, a.id').all(userId);
+  const acts = db.prepare('SELECT a.id, a.name, m.color FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1 ORDER BY m.position, a.id').all(userId);
   const out = [];
   acts.forEach((a) => {
+    const shared = db.prepare('SELECT COUNT(*) AS c FROM activity_members WHERE activityId = ?').get(a.id).c > 1;
+    const names = {}; goals.categoriesForActivity(a.id).forEach((p) => { names[p.key] = p.label; });
     goalstasks.archivesForActivity(a.id).tasks.forEach((t) => {
-      if (!t.plannedUserId || t.plannedUserId === userId) out.push(Object.assign({}, t, { activityId: a.id, activityName: a.name }));
+      if (t.plannedUserId && t.plannedUserId !== userId) return;
+      // Mêmes champs que les tâches faites de GET /api/goals/today : la ligne d'Archive est celle de la liste du jour.
+      out.push({ id: t.id, label: t.label, done: true, doneAt: t.doneAt, dueDate: t.dueDate, activityId: a.id, activityName: a.name, activityColor: a.color || null,
+        sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, poleName: names[t.poleKey] || t.poleKey, minutes: 0, plannedUserId: t.plannedUserId || null, shared, locked: !!t.locked });
     });
   });
   out.sort((x, y) => (x.doneAt < y.doneAt ? 1 : x.doneAt > y.doneAt ? -1 : y.id - x.id));

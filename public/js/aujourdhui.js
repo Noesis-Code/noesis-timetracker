@@ -96,14 +96,15 @@
     container.appendChild(root);
   }
 
-  // « Archive » (fin de l'onglet, sous les tâches faites aujourd'hui) : même gabarit que « Archives » de l'onglet Tâches (mêmes classes, CSS partagé, TMT.buildGoalsArchiveRow),
+  // « Archive » (fin de l'onglet) : même gabarit que « Archives » de l'onglet Tâches (mêmes classes, CSS partagé) ; les lignes sont celles de la liste du jour,
   // mais pour toutes les activités (GET /api/goals/archive). Tâches faites des 7 derniers jours ; passé ce délai elles n'apparaissent plus, mais restent en base.
+  var rowBuilder = null; // fonction de rendu d'une ligne de tâche d'Aujourd'hui (définie dans render)
   function archiveOpen() { var p = document.getElementById('goalsTodayArchivePanel'); return !!p && !p.classList.contains('hidden'); }
   function loadArchive() {
     TMT.api('GET', '/api/goals/archive').then(function (d) {
       var box = ui.archList, tasks = (d && d.tasks) || [];
       box.textContent = '';
-      tasks.forEach(function (task) { box.appendChild(TMT.buildGoalsArchiveRow(task, function () { loadArchive(); refresh(); })); });
+      if (rowBuilder) tasks.forEach(function (task) { rowBuilder(task, box); }); // même ligne que dans la liste du jour (cocher/décocher : la tâche repart dans la liste)
       ui.archEmpty.classList.toggle('hidden', tasks.length > 0);
     }).catch(function () {});
   }
@@ -706,8 +707,7 @@
     listBox.textContent = '';
     var have = {}; d.tasks.forEach(function (t) { have[t.id] = true; });
     d.tasks = state.added.filter(function (a) { return !have[a.id]; }).concat(d.tasks);
-    if (!d.tasks.length) listBox.appendChild(el('p', 'tasksPopEmpty', tr(dayOff === 0 ? 'Rien pour aujourd’hui.' : 'Rien ce jour-là.')));
-    var doneShown = false;
+    if (!d.tasks.some(function (t) { return !t.done; })) listBox.appendChild(el('p', 'tasksPopEmpty', tr(dayOff === 0 ? 'Rien pour aujourd’hui.' : 'Rien ce jour-là.')));
     function addRow(t, parent) {
       var row = el('div', 'tasksPopRow' + (t.done ? ' done' : ''));
       var cb = el('button', 'tasksPopCheck'); cb.type = 'button';
@@ -757,13 +757,9 @@
       }
       parent.appendChild(row);
     }
+    rowBuilder = addRow; // la même ligne sert à « Archive » (tâches faites : rond coché, titre barré, « terminé », icône de modification)
+    paintTodo(d.tasks.filter(function (t) { return !t.done; }), addRow); // les tâches faites ne restent plus dans la liste du jour : elles sont dans « Archive »
     if (archiveOpen()) loadArchive();
-    paintTodo(d.tasks.filter(function (t) { return !t.done; }), addRow);
-    d.tasks.forEach(function (t) {
-      if (!t.done) return;
-      if (!doneShown) { doneShown = true; listBox.appendChild(el('p', 'tasksPopSection', tr(dayOff === 0 ? 'Faites aujourd’hui' : 'Faites ce jour-là'))); }
-      addRow(t, listBox);
-    });
   }
   // ---------- Tri (demande d'Émilien, 3 nov. 2026) : « Activité » (défaut, arbre replié), « Priorité », « Objectif », « Durée » ----------
   var SORT_KEY = 'noesis_today_sort_v1', SORTS = ['activity', 'priority', 'objective', 'duration'];

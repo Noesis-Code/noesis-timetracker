@@ -63,6 +63,7 @@ const doneAgo = (id, days) => db.prepare('UPDATE sub_project_items SET done = 1,
 const recent = addDue(gamma, 'Faite hier', today), old = addDue(delta, 'Faite il y a 10 jours', today);
 doneAgo(recent, 1); doneAgo(old, 10);
 const arch = goalstoday.archiveAll('u1').tasks;
+assert(arch.filter((t) => t.id === recent).every((t) => t.done && t.activityName === 'Gamma' && t.activityColor !== undefined && t.sector === null), 'Archive : mêmes champs que les tâches faites du jour (activité, couleur, secteur)');
 assert(arch.some((t) => t.id === recent) && !arch.some((t) => t.id === old), 'Archive : la tâche faite hier y est, celle faite il y a 10 jours n\'y est plus');
 assert(!goalstasks.allTasksWithGroup(delta.id).some((t) => t.id === old) && goalstasks.allTasksWithGroup(delta.id, true).some((t) => t.id === old), 'passé 7 jours : absente des listes, mais retrouvable (jamais supprimée de la base)');
 assert(!!db.prepare('SELECT id FROM sub_project_items WHERE id = ?').get(old), 'la tâche faite il y a 10 jours reste en base');

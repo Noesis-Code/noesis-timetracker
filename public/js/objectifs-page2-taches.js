@@ -1026,7 +1026,7 @@
     if (!$('goalsTasksArchivePanel').classList.contains('hidden')) loadGoalsTasksArchives();
   }
 
-  // Ligne d'archive (case cochée, texte, date de réalisation) : une seule définition, aussi utilisée par « Archive » de la vue Aujourd'hui (TMT.buildGoalsArchiveRow) ; décocher = retour dans la liste, puis onChanged().
+  // Ligne d'archive (case cochée, texte, date de réalisation) ; décocher = retour dans la liste, puis onChanged().
   function buildGoalsArchiveRow(task, onChanged) {
     var row = document.createElement('div');
     row.className = 'subProjectItem done goalsArchiveItem';
@@ -1053,7 +1053,6 @@
     row.appendChild(when);
     return row;
   }
-  TMT.buildGoalsArchiveRow = buildGoalsArchiveRow;
   // Archives : tâches cochées (7 derniers jours), la plus récente d'abord ; décocher = retour dans la liste.
   function loadGoalsTasksArchives() {
     var activityId = TMT.currentGoalsActivityId;
