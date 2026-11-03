@@ -777,14 +777,10 @@
     var fresh = list.filter(function (t) { return t.justAdded; }); list = list.filter(function (t) { return !t.justAdded; }); // tâche ajoutée à l'instant : en tête, avant le tri
     fresh.forEach(function (t) { addRow(t, listBox); });
     if (sortMode !== 'activity') { sortedFlat(list).forEach(function (t) { addRow(t, listBox); }); return; }
-    var real = function (items) { return items.filter(function (t) { return !t.upcoming; }).length; };
-    var minLines = lastData && lastData.minLines;
     group(list.concat(upc), function (t) { return t.activityId; }).forEach(function (a) {
       var inAct = function (aBody) {
         group(a.items, function (t) { return t.pole || ''; }).forEach(function (p) {
-          // Règle de l'onglet Tâches (TMT.goalsUpcomingFill) : toutes les tâches du jour du pôle, complétées par les prochaines tâches datées jusqu'à 5.
-          var today = p.items.filter(function (t) { return !t.upcoming; });
-          var items = today.concat(TMT.goalsUpcomingFill(p.items.filter(function (t) { return t.upcoming; }), today.length, minLines));
+          var items = p.items; // le serveur a déjà appliqué la règle des 5 par secteur (goalstoday.js) : base entière, complétée par les tâches à venir si moins de 5
           var inPole = function (pBody) {
             group(items, function (t) { return t.sector || ''; }).forEach(function (s) {
               if (!s.key) s.items.forEach(function (t) { treeRow(t, pBody); }); // tâches directement dans le pôle : visibles à l'ouverture du pôle
@@ -794,7 +790,7 @@
           branch(aBody, 'a' + a.key + '/' + p.key, p.items[0].poleName || p.key, items.length, 1, inPole);
         });
       };
-      branch(listBox, 'a' + a.key, a.items[0].activityName, real(a.items), 0, inAct);
+      branch(listBox, 'a' + a.key, a.items[0].activityName, a.items.length, 0, inAct);
     });
   }
   var leaving = 0; // lignes en train de s'effacer : on ne recharge pas la liste sous leurs pieds

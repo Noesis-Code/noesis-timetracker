@@ -51,10 +51,14 @@ function tasksToday(userId, todayParam, dayParam) {
   if (!other) acts.forEach((a) => {
     const daily = goalstasks.dailyListForActivity(a.id, today);
     const names = {}; goals.categoriesForActivity(a.id).forEach((p) => { names[p.key] = p.label; });
-    new Set(daily.upcoming.map((u) => u.poleKey)).forEach((pk) => {
-      daily.upcoming.filter((u) => u.poleKey === pk && !(u.plannedUserId && u.plannedUserId !== userId)).forEach((u) => { // le complément à 5 est fait côté client par TMT.goalsUpcomingFill (la même fonction que l'onglet Tâches)
-        upc.push({ id: u.id, label: u.label, done: false, upcoming: true, activityId: a.id, activityName: a.name, activityColor: a.color || null, sector: u.key === u.poleKey ? null : u.groupLabel, pole: pk, poleName: names[pk] || pk, dueDate: u.dueDate, minutes: 0, plannedUserId: u.plannedUserId || null, shared: sharedActs.has(a.id) });
-      });
+    // Règle d'Émilien, par secteur (ou par pôle sans secteur) : la base (à faire aujourd'hui, en retard, sans date) est montrée en entier ; si elle compte moins de
+    // minLines tâches, les prochaines tâches À VENIR du même secteur (échéance croissante) complètent jusqu'à minLines au total, jamais plus.
+    const room = {};
+    daily.upcoming.filter((u) => !(u.plannedUserId && u.plannedUserId !== userId)).forEach((u) => {
+      if (!(u.key in room)) room[u.key] = Math.max(0, goalstasks.DAILY_MIN_LINES - todo.filter((t) => t.activityId === a.id && t.catKey === u.key).length);
+      if (room[u.key] <= 0) return;
+      room[u.key] -= 1;
+      upc.push({ id: u.id, label: u.label, done: false, upcoming: true, activityId: a.id, activityName: a.name, activityColor: a.color || null, sector: u.key === u.poleKey ? null : u.groupLabel, pole: u.poleKey, poleName: names[u.poleKey] || u.poleKey, dueDate: u.dueDate, minutes: 0, plannedUserId: u.plannedUserId || null, shared: sharedActs.has(a.id) });
     });
   });
   // Ordre : activité par activité (ordre de l'application), puis dans chaque activité les paliers maintenance/développement

@@ -42,5 +42,21 @@ assert(zIds.indexOf(z3) < zIds.indexOf(z4), 'le développement sans objectif pas
 assert(zIds.indexOf(z1) < zIds.indexOf(z4), 'une tâche sans type (palier d\'avant) passe avant la maintenance courte non urgente');
 assert(r.tasks.every((t) => t.rank === undefined), 'aucun champ interne exposé');
 
+// Règle des 5 par secteur (arbre « Activité ») : base >= 5 = toute la base et AUCUNE tâche à venir ; base < 5 = complétée par les à-venir du même secteur (échéance croissante) jusqu'à 5 au total.
+const inDays = (n) => { const d = new Date(today + 'T12:00:00'); d.setDate(d.getDate() + n); const p = (x) => String(x).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); };
+const addDue = (a, label, due) => { const it = goalstasks.addCategoryTask(a.id, 'u1', a.key, label, {}); db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?').run(due, it.id); return it.id; };
+const gamma = mkAct('Gamma', 2), delta = mkAct('Delta', 3);
+for (let i = 0; i < 5; i++) addDue(gamma, 'Base Gamma ' + i, i === 0 ? inDays(-3) : today); // 5 en base (dont un retard)
+addDue(gamma, 'À venir Gamma 1', inDays(2)); addDue(gamma, 'À venir Gamma 2', inDays(3));
+addDue(delta, 'Base Delta 0', today); addDue(delta, 'Base Delta 1', inDays(-1));
+const d4 = addDue(delta, 'À venir Delta 4', inDays(4)), d2 = addDue(delta, 'À venir Delta 2', inDays(2)), d3 = addDue(delta, 'À venir Delta 3', inDays(3)), d9 = addDue(delta, 'À venir Delta 9', inDays(9)), d5 = addDue(delta, 'À venir Delta 5', inDays(5));
+const rr = goalstoday.tasksToday('u1', today);
+const forAct = (a) => rr.tasks.filter((t) => t.activityId === a.id && !t.done);
+assert(forAct(gamma).length === 5 && forAct(gamma).every((t) => !t.upcoming), 'base de 5 ou plus : toute la base, aucune tâche à venir');
+const dl = forAct(delta);
+assert(dl.filter((t) => !t.upcoming).length === 2 && dl.filter((t) => t.upcoming).map((t) => t.id).join() === [d2, d3, d4].join(), 'base de moins de 5 : complétée par les à-venir du même secteur, échéance croissante, jusqu\'à 5');
+assert(dl.length === 5 && ![d5, d9].some((id) => dl.some((t) => t.id === id)), 'jamais plus de 5 au total');
+assert(rr.todoCount === rr.tasks.filter((t) => !t.done && !t.upcoming).length, 'les tâches à venir ne comptent pas dans « à faire »');
+
 if (failed) { console.log('\naujourdhui-tri-test : ' + failed + ' échec(s)'); process.exit(1); }
 console.log('\naujourdhui-tri-test : OK');
