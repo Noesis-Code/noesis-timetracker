@@ -14,6 +14,7 @@ Seul document IA du dépôt. Tailles = estimations (jetons ~ caractères/4), à 
 | 6 | Classement de tâche (`classement-tache`, `:repli`) — `goalstaskclassify.js` | Haiku puis fort, 32-92 sortie | 0,5-0,9 k | mémo 24 h | chaque tâche ajoutée sans catégorie |
 | 7 | Reformulation (`reformulation`) — `goalsrewrite.js` | Haiku puis fort, 312 sortie | ~0,3 k | mémo 24 h | clic explicite |
 | 9 | Doublon (`doublon-tache`) — `goalstaskclassify.js` (`hasOpenDuplicateAsync`) | Haiku seul, 8 sortie, 15 titres au plus | ~0,3 k (~0,001 $) | mémo 24 h | tâche ajoutée dont un titre ouvert ressemble à moitié (zone grise ; comparaison locale d'abord) |
+| 10 | Réforme (`reforme-tache`) — `reform.js` | Haiku seul, 20 sortie | ~0,5 k (~0,001 $) | mémo 24 h | développement sans objectif ou à mots de réforme/décision (sinon aucun appel) |
 | 8 | Orthographe (`correction-orthographe`) — `silentspellfix.js` | Haiku seul, 200 sortie | ~110 jetons | mémo par titre (borné 500) | chaque création/modification de titre (la plus fréquente, ~0,0002 $/appel) |
 
 Appels secondaires (journalisés sous leur propre `feature`) : `taskrecurrence.js` (`recurrence-tache`, 80 sortie, réponse avec `confidence`, ignorée sous le seuil du classement ; texte puis historique avant l'IA) ; `goalscaptureplace.js` (`rapprochement-objectif`, 120 sortie, au plus 2 appels par tâche, 60 candidats au plus) ; `aibatch.js` (lots Drive à -50 %, coût enregistré à la relève par `drivesync.js`, `surveillance-drive-batch`) ; `documenttasks.js` et `changeproposals.js` passent par `docanalysis.js`.

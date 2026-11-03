@@ -89,6 +89,7 @@ const SUITE_FILES = [
   'efficacite-rangement-test.js',
   'tri-maintenance-test.js',
   'aujourdhui-tri-test.js',
+  'reforme-test.js',
   'recurrence-frequence-test.js',
   'saisie-manuelle-proposition-test.js',
   'apprentissage-usage-test.js',
@@ -522,7 +523,7 @@ async function main() {
   let prOk = true;
   try { await runChild('precision-taches-test.js'); } catch (e) { prOk = false; }
   assert(prOk, 'précision des tâches (test/precision-taches-test.js) passe');
-  for (const [f, label] of [['precision-generees-test.js', 'validateur des tâches générées + saisie manuelle intacte'], ['precision-objectifs-test.js', 'tâches générées à partir d\'objectifs (titres vagues, objectif recopié, durées)'], ['saisie-manuelle-proposition-test.js', 'saisie manuelle : modifiée seulement par proposition validée'], ['precision-repli-29-test.js', 'rapport d\'acceptation (statuts mixtes), partage du temps (propriété 200 configs), estimation hebdomadaire = plan IA'], ['recurrence-ia-test.js', 'récurrences proposées par l\'IA et rapprochement objectif (faux client)'], ['efficacite-rangement-test.js', 'rangement selon le jour où le pôle avance et celui où il reporte'], ['tri-maintenance-test.js', 'tri des tâches : maintenance / développement, récurrence silencieuse, doublon, liste du jour'], ['aujourdhui-tri-test.js', 'page Aujourd\x27hui : activités dans l\x27ordre de l\x27application, paliers maintenance/développement'], ['recurrence-frequence-test.js', 'récurrences X fois par période et jours ouvrables']]) {
+  for (const [f, label] of [['precision-generees-test.js', 'validateur des tâches générées + saisie manuelle intacte'], ['precision-objectifs-test.js', 'tâches générées à partir d\'objectifs (titres vagues, objectif recopié, durées)'], ['saisie-manuelle-proposition-test.js', 'saisie manuelle : modifiée seulement par proposition validée'], ['precision-repli-29-test.js', 'rapport d\'acceptation (statuts mixtes), partage du temps (propriété 200 configs), estimation hebdomadaire = plan IA'], ['recurrence-ia-test.js', 'récurrences proposées par l\'IA et rapprochement objectif (faux client)'], ['efficacite-rangement-test.js', 'rangement selon le jour où le pôle avance et celui où il reporte'], ['tri-maintenance-test.js', 'tri des tâches : maintenance / développement, récurrence silencieuse, doublon, liste du jour'], ['aujourdhui-tri-test.js', 'page Aujourd\x27hui : activités dans l\x27ordre de l\x27application, paliers maintenance/développement'], ['reforme-test.js', 'tâches de réforme : critères, portée, ordre'], ['recurrence-frequence-test.js', 'récurrences X fois par période et jours ouvrables']]) {
     let ok = true;
     try { await runChild(f); } catch (e) { ok = false; }
     assert(ok, label + ' (test/' + f + ') passe');

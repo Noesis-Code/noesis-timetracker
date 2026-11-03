@@ -552,6 +552,11 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
               db.prepare('UPDATE sub_project_items SET goalWeeklyId = ? WHERE id = ?').run(objMatch.cand.weeklyId, item.id);
               goals.recomputeForWeeklies([objMatch.cand.weeklyId]);
             } else if (!objMatch) devIdea = true;
+            // Réforme (silencieuse) : un développement qui remet en cause le projet passe en priorité (reform.js).
+            try {
+              const ref = await require('./reform').detect({ label, activityId, categoryKey: item.categoryKey, kind: kind.kind, objectiveMatched: !!(objMatch && objMatch.cand) });
+              require('./reform').write(item.id, ref);
+            } catch (e) { /* jamais bloquant */ }
           }
         } catch (e) { kindInfo = null; }
       }
@@ -623,6 +628,7 @@ async function proposePlacement(userId, label, opts) {
 module.exports = {  proposePlacement,
   callModel,
   configured,
+  fastModel,
   modelName,
   classifyCategory,
   buildPrompt,

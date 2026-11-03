@@ -163,8 +163,17 @@ function tierOf(t, capacityMinutes) {
 
 // Comparateur de rang par paliers (pur) : à appeler sur des tâches qui portent déjà .tier (tierOf), .maintType, .estimatedMinutes.
 // Renvoie 0 à égalité : l'appelant départage ensuite (importance, score, etc.).
+// Palier 3, développement de continuité (lié à un objectif) : d'abord l'objectif PÉRIODIQUE (fin de période la plus proche, puis son numéro),
+// puis l'objectif HEBDOMADAIRE (semaine la plus proche). Les tâches sans objectif viennent après (ordre d'avant). Décision d'Émilien, 3 nov. 2026.
+function compareContinuity(a, b) {
+  const oa = a.hasObjective && a.periodEnd ? 0 : 1; const ob = b.hasObjective && b.periodEnd ? 0 : 1;
+  if (oa !== ob) return oa - ob;
+  if (oa === 0) return (a.periodEnd < b.periodEnd ? -1 : a.periodEnd > b.periodEnd ? 1 : 0) || ((a.periodNumber || 0) - (b.periodNumber || 0)) || ((a.weekIndex || 0) - (b.weekIndex || 0));
+  return 0;
+}
 function compareTasks(a, b) {
   return (a.tier - b.tier)
+    || (a.tier === 3 ? compareContinuity(a, b) : 0)
     || (a.tier <= 1 ? rankOf(a.maintType) - rankOf(b.maintType) : 0)
     || (a.tier === 4 ? (a.estimatedMinutes - b.estimatedMinutes) || (rankOf(a.maintType) - rankOf(b.maintType)) : 0);
 }

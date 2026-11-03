@@ -39,7 +39,7 @@ function tasksToday(userId, todayParam, dayParam) {
         if (!list) return;
         list.push({
           id: t.id, label: t.label, done: !!t.done, activityId: a.id, activityName: a.name, activityColor: a.color || null,
-          sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, dueDate: due,
+          sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, catKey: t.key, dueDate: due,
           minutes: goalscapacity.taskMinutes(userId, a.id, t.poleKey, t.label),
         });
       });
@@ -51,16 +51,25 @@ function tasksToday(userId, todayParam, dayParam) {
   const kinds = taskkind.readMany(todo.map((t) => t.id));
   const weekly = {};
   if (todo.length) db.prepare('SELECT id, goalWeeklyId FROM sub_project_items WHERE id IN (' + todo.map(() => '?').join(',') + ')').all(...todo.map((t) => t.id)).forEach((r) => { weekly[r.id] = r.goalWeeklyId; });
+  const reforms = require('./reform').readMany(todo.map((t) => t.id));
+  // Objectif périodique (fin, numéro) puis hebdomadaire (semaine) de chaque tâche liée : tri de la continuité.
+  const objInfo = {};
+  const wids = Array.from(new Set(Object.values(weekly).filter((w) => w != null)));
+  if (wids.length) db.prepare('SELECT w.id, w.weekIndex, p.endDate, p.periodNumber FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE w.id IN (' + wids.map(() => '?').join(',') + ')').all(...wids).forEach((r) => { objInfo[r.id] = r; });
   const capacity = {};
   todo.forEach((t) => {
     if (!(t.activityId in capacity)) { try { capacity[t.activityId] = require('./goalsoverload').budgetFor(t.activityId, userId); } catch (e) { capacity[t.activityId] = 0; } }
     const k = kinds[t.id] || {};
-    t.rank = { taskKind: k.kind, maintType: k.maintType, maintUrgent: k.urgent, estimatedMinutes: t.minutes || 0, hasObjective: weekly[t.id] != null };
+    t.rank = { taskKind: k.kind, maintType: k.maintType, maintUrgent: k.urgent, estimatedMinutes: t.minutes || 0, hasObjective: weekly[t.id] != null, reform: reforms[t.id],
+      periodEnd: (objInfo[weekly[t.id]] || {}).endDate, periodNumber: (objInfo[weekly[t.id]] || {}).periodNumber, weekIndex: (objInfo[weekly[t.id]] || {}).weekIndex };
     t.rank.tier = taskkind.tierOf(t.rank, capacity[t.activityId]);
   });
   const dayWork = (a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.id - b.id);
   todo.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || taskkind.compareTasks(x.rank, y.rank) || dayWork(x, y));
-  todo.forEach((t) => { delete t.rank; });
+  // Réformes (reform.js) : en tête de leur pôle/secteur, ou de l'activité si elles en touchent au moins deux.
+  const ordered = require('./reform').placeReforms(todo);
+  todo.length = 0; ordered.forEach((t) => todo.push(t));
+  todo.concat(done).forEach((t) => { delete t.rank; delete t.catKey; });
   done.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || x.id - y.id);
   const sum = (l) => l.reduce((s, t) => s + (t.minutes || 0), 0);
   return { today, doneCount: done.length, todoCount: todo.length, doneMinutes: sum(done), todoMinutes: sum(todo), tasks: todo.concat(done) };
