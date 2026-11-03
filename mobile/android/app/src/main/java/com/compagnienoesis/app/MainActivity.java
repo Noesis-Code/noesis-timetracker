@@ -1,4 +1,4 @@
-package com.compagnienoesis.timetracker;
+package com.compagnienoesis.app;
 
 import com.getcapacitor.BridgeActivity;
 

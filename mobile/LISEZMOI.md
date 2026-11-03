@@ -4,7 +4,7 @@ Coque native : icône, plein écran, sans barre d'adresse. Le contenu vient du s
 
 - Test : onglet Actions de GitHub > « Android » > dernière exécution > Artifacts > `noesis-debug-apk`, à installer sur un téléphone Android (autoriser les sources inconnues).
 - Boutique (Google Play) : il faudra la clé d'envoi (secret GitHub), puis `./gradlew bundleRelease` pour l'AAB.
-- Identifiant de l'application : `com.compagnienoesis.timetracker` (à confirmer avant la première publication : il ne change plus après).
+- Identifiant de l'application : `com.compagnienoesis.app`.
 - À faire ensuite (Android) : notifications natives (Firebase), Face ID, écran d'erreur hors ligne.
 
 ## iOS

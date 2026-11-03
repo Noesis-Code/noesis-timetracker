@@ -1,5 +1,5 @@
 # Application Android (coque Capacitor) : construit un APK de test téléchargeable (onglet Actions > exécution > Artifacts).
-# Aucune clé de signature ici : la version de la boutique (AAB signé) se fera avec la clé d'envoi de Noèsis, ajoutée plus tard en secret GitHub.
+# Job apk : APK de test (debug, sans clé). Job aab : paquet Google Play signé avec la clé d'envoi lue des secrets GitHub (Settings > Secrets).
 name: Android
 on:
   workflow_dispatch:
@@ -30,4 +30,41 @@ jobs:
         with:
           name: noesis-debug-apk
           path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+  aab:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      CAP_SERVER: https://web-production-15a4a.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npx cap sync android
+      - name: Clé d'envoi
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64" || { echo "Secret ANDROID_KEYSTORE_BASE64 absent"; exit 1; }
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.keystore"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload.keystore" >> "$GITHUB_ENV"
+      - run: chmod +x android/gradlew && cd android && ./gradlew bundleRelease --no-daemon
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noesis-release-aab
+          path: mobile/android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
