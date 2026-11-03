@@ -73,7 +73,7 @@ jobs:
           set -o pipefail
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO DEVELOPMENT_TEAM="$TEAM_ID" CURRENT_PROJECT_VERSION=$((GITHUB_RUN_NUMBER + 100)) 
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO DEVELOPMENT_TEAM="$TEAM_ID" CURRENT_PROJECT_VERSION=$((GITHUB_RUN_NUMBER + 100)) \
             archive | tail -40
       - name: Export de l'ipa
         working-directory: mobile/ios/App
