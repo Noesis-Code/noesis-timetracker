@@ -16884,6 +16884,47 @@
     var l = (lon - globe.lon) * RAD, p = lat * RAD, p0 = globe.lat * RAD;
     return { x: Math.cos(p) * Math.sin(l), y: Math.cos(p0) * Math.sin(p) - Math.sin(p0) * Math.cos(p) * Math.cos(l), z: Math.sin(p0) * Math.sin(p) + Math.cos(p0) * Math.cos(p) * Math.cos(l) };
   }
+  // Découpe un contour (points {x, y, z} en repère de la vue) à l'horizon z = 0. Chaque morceau visible va d'une entrée à une sortie ;
+  // on referme le long du cercle du globe vers la PROCHAINE entrée dans le sens du contour (ccw : sens trigonométrique).
+  function globeClip(ring, ccw) {
+    var N = ring.length, TAU = 2 * Math.PI, vis = ring.map(function (r) { return r.z > 0; }), start = -1, i, k;
+    for (i = 0; i < N; i++) if (vis[i] && !vis[(i + N - 1) % N]) { start = i; break; }
+    if (start < 0) return vis[0] ? [ring.map(function (r) { return [r.x, r.y]; })] : [];
+    var cross = function (A, B) {
+      var t = A.z / (A.z - B.z), ix = A.x + (B.x - A.x) * t, iy = A.y + (B.y - A.y) * t, m = Math.sqrt(ix * ix + iy * iy) || 1;
+      return { x: ix / m, y: iy / m, ang: Math.atan2(iy, ix) };
+    };
+    var mod = function (v) { return ((v % TAU) + TAU) % TAU; };
+    var e0 = cross(ring[(start + N - 1) % N], ring[start]), runs = [], cur = { enter: e0.ang, pts: [[e0.x, e0.y]] };
+    for (k = 0; k < N; k++) {
+      i = (start + k) % N;
+      var j = (i + 1) % N;
+      if (vis[i]) cur.pts.push([ring[i].x, ring[i].y]);
+      if (vis[i] && !vis[j]) { var ex = cross(ring[i], ring[j]); cur.pts.push([ex.x, ex.y]); cur.exit = ex.ang; runs.push(cur); cur = null; }
+      else if (!vis[i] && vis[j] && k < N - 1) { var en = cross(ring[i], ring[j]); cur = { enter: en.ang, pts: [[en.x, en.y]] }; }
+    }
+    var dir = ccw ? 1 : -1;
+    runs.forEach(function (r) {
+      var best = 0, bd = 1e9;
+      runs.forEach(function (q, qi) { var dd = dir > 0 ? mod(q.enter - r.exit) : mod(r.exit - q.enter); if (dd < bd) { bd = dd; best = qi; } });
+      r.next = best; r.gap = bd;
+    });
+    var seen = {}, loops = [];
+    runs.forEach(function (r0, ri) {
+      if (seen[ri]) return;
+      var loop = [], idx = ri;
+      while (!seen[idx]) {
+        seen[idx] = true;
+        var r = runs[idx];
+        r.pts.forEach(function (q) { loop.push(q); });
+        var steps = Math.max(1, Math.ceil(r.gap / 0.1));
+        for (k = 1; k < steps; k++) { var an = r.exit + dir * r.gap * k / steps; loop.push([Math.cos(an), Math.sin(an)]); }
+        idx = r.next;
+      }
+      loops.push(loop);
+    });
+    return loops;
+  }
   function globeLand(svg) {
     var R = globe.GR * globe.zoom, cx = globe.W / 2, cy = globe.H / 2, step = globe.zoom > 6 ? 1 : (globe.zoom > 2 ? 2 : 3), d = '';
     var pt = function (x, y) { return (cx + x * R).toFixed(1) + ' ' + (cy - y * R).toFixed(1); };
@@ -16903,26 +16944,9 @@
         if (c) d += 'M' + pt(1, 0) + 'A' + R.toFixed(1) + ' ' + R.toFixed(1) + ' 0 1 0 ' + pt(-1, 0) + 'A' + R.toFixed(1) + ' ' + R.toFixed(1) + ' 0 1 0 ' + pt(1, 0) + 'Z';
         return;
       }
-      var out = [], exitAng = null, N = ring.length;
-      for (i = 0; i < N; i++) {
-        var P0 = ring[(first + i) % N], P1 = ring[(first + i + 1) % N];
-        if (P0.z > 0) out.push([P0.x, P0.y]);
-        if ((P0.z > 0) !== (P1.z > 0)) {
-          var t = P0.z / (P0.z - P1.z), ix = P0.x + (P1.x - P0.x) * t, iy = P0.y + (P1.y - P0.y) * t, m = Math.sqrt(ix * ix + iy * iy) || 1;
-          ix /= m; iy /= m;
-          var ang = Math.atan2(iy, ix);
-          if (P0.z > 0) { out.push([ix, iy]); exitAng = ang; }
-          else {
-            if (exitAng !== null) {
-              var delta = ccw ? ((ang - exitAng) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) : -(((exitAng - ang) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI));
-              var m2 = Math.max(1, Math.ceil(Math.abs(delta) / 0.1));
-              for (k = 1; k < m2; k++) out.push([Math.cos(exitAng + delta * k / m2), Math.sin(exitAng + delta * k / m2)]);
-            }
-            out.push([ix, iy]);
-          }
-        }
-      }
-      d += out.map(function (q, j) { return (j ? 'L' : 'M') + pt(q[0], q[1]); }).join('') + 'Z';
+      globeClip(ring, ccw).forEach(function (loop) {
+        d += loop.map(function (q, j) { return (j ? 'L' : 'M') + pt(q[0], q[1]); }).join('') + 'Z';
+      });
     });
     svgEl('path', { class: 'gLand', d: d }, svg);
   }
