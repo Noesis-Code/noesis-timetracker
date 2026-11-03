@@ -117,7 +117,7 @@ const DAY = 86400000;
     const wg = (await A.c.get('/api/network/graph')).body.nodes.find((n) => n.name === 'Globe Test');
     assert(wg && wg.city === 'Longueuil' && wg.workCity === 'Montréal', 'le graphe expose habitation et travail');
     assert((await A.c.get('/api/network/contacts?city=montreal')).body.contacts.some((c) => c.name === 'Globe Test'), 'filtre ville : trouve aussi par la ville de travail');
-    if (wcId) await A.c.delete('/api/network/contacts/' + wcId);
+    if (wcId) await A.c.del('/api/network/contacts/' + wcId);
 
     // --- Limite de 500 contacts ---
     const total = (await A.c.get('/api/network/overview')).body.contacts;
