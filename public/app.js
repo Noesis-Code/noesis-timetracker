@@ -16879,14 +16879,52 @@
     });
     if (d) svgEl('path', { class: cls, d: d }, svg);
   }
+  // Continents pleins : chaque contour est découpé à l'horizon (points visibles seulement), et le bord est refermé le long du cercle du globe.
+  function globeView(lon, lat) {
+    var l = (lon - globe.lon) * RAD, p = lat * RAD, p0 = globe.lat * RAD;
+    return { x: Math.cos(p) * Math.sin(l), y: Math.cos(p0) * Math.sin(p) - Math.sin(p0) * Math.cos(p) * Math.cos(l), z: Math.sin(p0) * Math.sin(p) + Math.cos(p0) * Math.cos(p) * Math.cos(l) };
+  }
   function globeLand(svg) {
-    var R = globe.GR * globe.zoom, d = '', skip = globe.zoom < 1.6 ? 2 : 1, pts = TMT.geo.landDots();
-    for (var i = 0; i < pts.length; i += skip) {
-      var p = globeProject(pts[i][0], pts[i][1]);
-      if (p.vis && p.x > -10 && p.x < globe.W + 10 && p.y > -10 && p.y < globe.H + 10) d += 'M' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + 'h0';
-    }
-    var el = svgEl('path', { class: 'gLand', d: d }, svg);
-    el.style.strokeWidth = Math.max(1.8, Math.min(7, R * 0.011));
+    var R = globe.GR * globe.zoom, cx = globe.W / 2, cy = globe.H / 2, step = globe.zoom > 6 ? 1 : (globe.zoom > 2 ? 2 : 3), d = '';
+    var pt = function (x, y) { return (cx + x * R).toFixed(1) + ' ' + (cy - y * R).toFixed(1); };
+    TMT.geo.land.forEach(function (poly) {
+      var ring = [], i, k;
+      for (i = 0; i < poly.length; i++) {
+        var A = poly[i], B = poly[(i + 1) % poly.length], n = Math.max(1, Math.ceil(Math.max(Math.abs(B[0] - A[0]), Math.abs(B[1] - A[1])) / step));
+        for (k = 0; k < n; k++) ring.push(globeView(A[0] + (B[0] - A[0]) * k / n, A[1] + (B[1] - A[1]) * k / n));
+      }
+      var area = 0; for (i = 0; i < poly.length; i++) { var P = poly[i], Q = poly[(i + 1) % poly.length]; area += P[0] * Q[1] - Q[0] * P[1]; }
+      var ccw = area > 0, first = -1;
+      for (i = 0; i < ring.length; i++) if (ring[i].z > 0) { first = i; break; }
+      if (first < 0) {
+        // Rien de visible : le globe est entièrement dans le contour seulement si le centre de la vue y est.
+        var c = false, lo0 = globe.lon, la0 = globe.lat;
+        for (i = 0, k = poly.length - 1; i < poly.length; k = i++) if ((poly[i][1] > la0) !== (poly[k][1] > la0) && lo0 < (poly[k][0] - poly[i][0]) * (la0 - poly[i][1]) / (poly[k][1] - poly[i][1]) + poly[i][0]) c = !c;
+        if (c) d += 'M' + pt(1, 0) + 'A' + R.toFixed(1) + ' ' + R.toFixed(1) + ' 0 1 0 ' + pt(-1, 0) + 'A' + R.toFixed(1) + ' ' + R.toFixed(1) + ' 0 1 0 ' + pt(1, 0) + 'Z';
+        return;
+      }
+      var out = [], exitAng = null, N = ring.length;
+      for (i = 0; i < N; i++) {
+        var P0 = ring[(first + i) % N], P1 = ring[(first + i + 1) % N];
+        if (P0.z > 0) out.push([P0.x, P0.y]);
+        if ((P0.z > 0) !== (P1.z > 0)) {
+          var t = P0.z / (P0.z - P1.z), ix = P0.x + (P1.x - P0.x) * t, iy = P0.y + (P1.y - P0.y) * t, m = Math.sqrt(ix * ix + iy * iy) || 1;
+          ix /= m; iy /= m;
+          var ang = Math.atan2(iy, ix);
+          if (P0.z > 0) { out.push([ix, iy]); exitAng = ang; }
+          else {
+            if (exitAng !== null) {
+              var delta = ccw ? ((ang - exitAng) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) : -(((exitAng - ang) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI));
+              var m2 = Math.max(1, Math.ceil(Math.abs(delta) / 0.1));
+              for (k = 1; k < m2; k++) out.push([Math.cos(exitAng + delta * k / m2), Math.sin(exitAng + delta * k / m2)]);
+            }
+            out.push([ix, iy]);
+          }
+        }
+      }
+      d += out.map(function (q, j) { return (j ? 'L' : 'M') + pt(q[0], q[1]); }).join('') + 'Z';
+    });
+    svgEl('path', { class: 'gLand', d: d }, svg);
   }
   // Arc de grand cercle entre deux points géographiques ; o1 et o2 (décalages en pixels) glissent d'un bout à l'autre pour atteindre le point d'une personne.
   function globeArc(a, b, o1, o2, cls, op, sw, svg) {
@@ -16936,6 +16974,22 @@
     cls.forEach(function (c) { c.nodes.forEach(function (nd) { nd.cl = c; }); });
     globe.clusters = cls;
   }
+  // Places des personnes d'une ville : une personne au centre, puis des anneaux de 6, 12, 18... également espacés (on ne vise pas leur maison).
+  function globeRings(n) {
+    var out = [], i, rings = 1;
+    while (n > 1 + 3 * rings * (rings + 1)) rings++;
+    var S = Math.max(44, Math.min(62, (globe.W - 90) / (2 * rings)));
+    if (n === 1) return [{ x: 0, y: 0 }];
+    if (n <= 6) { var rr = S / (2 * Math.sin(Math.PI / n)); for (i = 0; i < n; i++) out.push({ x: rr * Math.cos(2 * Math.PI * i / n - Math.PI / 2), y: rr * Math.sin(2 * Math.PI * i / n - Math.PI / 2) }); return out; }
+    out.push({ x: 0, y: 0 });
+    var left = n - 1, k = 1;
+    while (left > 0) {
+      var cnt = Math.min(left, 6 * k), rad = cnt < 2 ? k * S : Math.max(k * S, S / (2 * Math.sin(Math.PI / cnt)));
+      for (i = 0; i < cnt; i++) out.push({ x: rad * Math.cos(2 * Math.PI * i / cnt + k * 0.5 - Math.PI / 2), y: rad * Math.sin(2 * Math.PI * i / cnt + k * 0.5 - Math.PI / 2) });
+      left -= cnt; k++;
+    }
+    return out;
+  }
   function globeFirst(nd) { return (nd.name || '').split(' ')[0]; }
   function drawGlobe() {
     var svg = $('netGlobe'); svg.innerHTML = '';
@@ -16953,10 +17007,9 @@
     globe.nodes = {};
     globe.clusters.forEach(function (c) {
       c.open = people && c.nodes.length <= 80;
-      var sorted = c.nodes.slice().sort(function (a, b) { return (a.geo.key < b.geo.key ? -1 : 1) || a.id - b.id; });
+      var sorted = c.nodes.slice().sort(function (a, b) { return a.geo.key < b.geo.key ? -1 : (a.geo.key > b.geo.key ? 1 : a.id - b.id); }), slots = c.open ? globeRings(c.nodes.length) : null;
       sorted.forEach(function (nd, i) {
-        var a = i * 2.39996, r = c.open ? (c.nodes.length === 1 ? 0 : 40 * Math.sqrt(i + 0.35)) : 0;
-        nd.off = { x: r * Math.cos(a), y: r * Math.sin(a) }; nd.open = c.open;
+        nd.off = slots ? slots[i] : { x: 0, y: 0 }; nd.open = c.open;
         globe.nodes[nd.id] = nd;
         if (c.open) shown.push(nd);
       });
