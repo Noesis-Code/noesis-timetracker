@@ -7,7 +7,7 @@ android {
         applicationId "com.compagnienoesis.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode (System.getenv("VERSION_CODE") ?: "2") as int
+        versionCode Integer.parseInt(System.getenv("VERSION_CODE") ?: "2")
         versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
