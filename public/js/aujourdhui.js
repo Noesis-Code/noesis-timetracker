@@ -70,7 +70,7 @@
     head.appendChild(prev); head.appendChild(ui.dayLabel); head.appendChild(next);
     var sum = el('div', 'tasksPopSum'); sumL = el('span'); sumR = el('span'); sum.appendChild(sumL); sum.appendChild(sumR);
     listBox = el('div', 'tasksPopList tasksTree');
-    root.appendChild(head); root.appendChild(buildSort()); root.appendChild(sum); root.appendChild(listBox);
+    root.appendChild(head); root.appendChild(buildSort()); root.appendChild(sum); root.appendChild(listBox); root.appendChild(buildArchive());
     // La barre d'ajout est AU PREMIER PLAN, fixée au-dessus de la barre des volets (comme elle). Défilé = glissement latéral entre les pages :
     // elle prend le même décalage que la page (#tab-goals) pendant le glissement, puis disparaît avec elle.
     dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock);
@@ -96,6 +96,31 @@
     container.appendChild(root);
   }
 
+  // « Archive » (fin de l'onglet, sous les tâches faites aujourd'hui) : même gabarit que « Archives » de l'onglet Tâches (mêmes classes, CSS partagé, TMT.buildGoalsArchiveRow),
+  // mais pour toutes les activités (GET /api/goals/archive). Tâches faites des 7 derniers jours ; passé ce délai elles n'apparaissent plus, mais restent en base.
+  function archiveOpen() { var p = document.getElementById('goalsTodayArchivePanel'); return !!p && !p.classList.contains('hidden'); }
+  function loadArchive() {
+    TMT.api('GET', '/api/goals/archive').then(function (d) {
+      var box = ui.archList, tasks = (d && d.tasks) || [];
+      box.textContent = '';
+      tasks.forEach(function (task) { box.appendChild(TMT.buildGoalsArchiveRow(task, function () { loadArchive(); refresh(); })); });
+      ui.archEmpty.classList.toggle('hidden', tasks.length > 0);
+    }).catch(function () {});
+  }
+  function buildArchive() {
+    var sec = el('div'); sec.id = 'goalsTodayArchiveSection';
+    var head = el('div', 'sectionTitleRow historyHeaderClickable'); head.id = 'goalsTodayArchiveHeader'; head.appendChild(el('p', 'sectionTitle', tr('Archive')));
+    var panel = el('div', 'hidden'); panel.id = 'goalsTodayArchivePanel';
+    ui.archList = el('div'); ui.archEmpty = el('p', 'hint hidden', tr('Aucune tâche terminée ces 7 derniers jours.'));
+    panel.appendChild(ui.archList); panel.appendChild(ui.archEmpty);
+    head.addEventListener('click', function () {
+      var opening = !archiveOpen();
+      panel.classList.toggle('hidden', !opening);
+      if (opening) { loadArchive(); window.requestAnimationFrame(function () { head.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); }
+    });
+    sec.appendChild(head); sec.appendChild(panel);
+    return sec;
+  }
   // Icône de tri (nue, sans cadre : R37), à gauche sous le titre ; menu = le panneau déroulant commun .statsPeriodMenu (fermé au toucher ailleurs par app.js), sans icône devant les choix.
   function buildSort() {
     var wrap = el('div', 'statsPeriodMenuWrap tasksSortWrap');
@@ -732,6 +757,7 @@
       }
       parent.appendChild(row);
     }
+    if (archiveOpen()) loadArchive();
     paintTodo(d.tasks.filter(function (t) { return !t.done; }), addRow);
     d.tasks.forEach(function (t) {
       if (!t.done) return;
@@ -810,6 +836,6 @@
   TMT.todayView = {
     mount: function (container) { if (mounted) return; mounted = true; build(container); },
     show: function () { shown = true; syncDock(); var c = cacheGet(localIso()); if (c && !dayOff) render(c); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
-    hide: function () { shown = false; dayOff = 0; openNodes = {}; if (ui.dayLabel) ui.dayLabel.textContent = todayLabel(); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
+    hide: function () { shown = false; dayOff = 0; openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); if (ui.dayLabel) ui.dayLabel.textContent = todayLabel(); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();

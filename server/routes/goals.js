@@ -884,6 +884,12 @@ router.get('/goals/today', (req, res) => {
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   try { res.json(require('../lib/goalstoday').tasksToday(userId, req.query.today, req.query.day)); } catch (err) { handleGoalsError(res, err); }
 });
+// Archive d'Aujourd'hui : tâches faites des 7 derniers jours, toutes activités (jamais supprimées de la base).
+router.get('/goals/archive', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  try { res.json(require('../lib/goalstoday').archiveAll(userId)); } catch (err) { handleGoalsError(res, err); }
+});
 
 router.get('/goals/tasks/history', (req, res) => {
   const userId = req.userId;

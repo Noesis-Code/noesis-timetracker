@@ -3,7 +3,6 @@
    RETOUR ARRIÈRE : supprimer la ligne <link ... verre-calme.css> d'index.html (ou git revert du commit « Verre calme »).
    Les éléments qui doivent rester lisibles/opaques (menus, infobulles, colonnes figées, interrupteurs) sont exclus. */
 #chronoRunning,
-#goalsTasksHistoryHeader,
 #profileSettingsPanel .settingsSectionHeader,
 #settingsPinSaveBtn,
 .activityGoalsCategoryAutoTaskBubble,

@@ -93,7 +93,7 @@ const tools = {
       if (args.au != null && !isDay(args.au)) throw toolError('au : format AAAA-MM-JJ attendu.');
       const labels = poleLabels(a.id);
       const pole = poleMatches(a.id, args.pole);
-      const list = goalstasks.allTasksWithGroup(a.id).filter((t) => mine(t, userId))
+      const list = goalstasks.allTasksWithGroup(a.id, statut !== 'a_faire').filter((t) => mine(t, userId)) // terminées/toutes : inclut les tâches faites depuis plus de 7 jours (archivées, jamais supprimées)
         .filter((t) => statut === 'toutes' || (statut === 'terminees' ? t.done : !t.done))
         .filter((t) => !pole || t.poleKey === pole)
         .filter((t) => !args.du || (t.dueDate && t.dueDate >= args.du))

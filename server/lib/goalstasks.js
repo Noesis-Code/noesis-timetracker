@@ -100,7 +100,7 @@ function ensureCategoryTaskSection(activityId, userId, categoryKey) {
 
 // Tâches agrégées, pour L'AFFICHAGE, de tous les sous-projets rattachés à
 // cette catégorie — jamais d'écriture ici.
-function tasksForCategory(activityId, categoryKey) {
+function tasksForCategory(activityId, categoryKey, includeLocked) { // includeLocked : retrouver aussi les tâches faites depuis plus de 7 jours (jamais supprimées de la base ; utilisé par l'outil MCP lister_taches)
   const subs = subProjectsForCategory(activityId, categoryKey);
   const out = [];
   subs.forEach((sp) => {
@@ -110,7 +110,7 @@ function tasksForCategory(activityId, categoryKey) {
         (s.items || []).forEach((item) => {
           // Historique conservé en base (statistiques) mais jamais affiché : seules les tâches
           // terminées des 7 derniers jours (ou non terminées) apparaissent dans les listes.
-          if (subprojects.isItemLocked(item)) return;
+          if (!includeLocked && subprojects.isItemLocked(item)) return;
           out.push(Object.assign({}, item, {
             subProjectId: sp.id,
             subProjectName: sp.name,
@@ -620,13 +620,13 @@ function validToday(s) {
 }
 
 // Toutes les tâches de l'activité (secteurs, ou pôles sans secteur), avec leur pôle/secteur.
-function allTasksWithGroup(activityId) {
+function allTasksWithGroup(activityId, includeLocked) {
   const out = [];
   goals.categoriesForActivity(activityId).forEach((pole) => {
     const secteurs = goals.secteursForPole(activityId, pole.key) || [];
     const targets = secteurs.length ? secteurs : [pole];
     targets.forEach((target) => {
-      tasksForCategory(activityId, target.key).forEach((task) => {
+      tasksForCategory(activityId, target.key, includeLocked).forEach((task) => {
         out.push({
           id: task.id,
           label: task.label,
@@ -670,7 +670,7 @@ function archivesForActivity(activityId) {
   const tasks = allTasksWithGroup(activityId)
     .filter((t) => t.done && t.doneAt)
     .sort((a, b) => (a.doneAt < b.doneAt ? 1 : a.doneAt > b.doneAt ? -1 : b.id - a.id))
-    .map((t) => ({ id: t.id, label: t.label, locked: subprojects.isItemLocked(t), doneAt: t.doneAt, dueDate: t.dueDate, key: t.key, groupLabel: t.groupLabel, poleKey: t.poleKey }));
+    .map((t) => ({ id: t.id, label: t.label, locked: subprojects.isItemLocked(t), doneAt: t.doneAt, dueDate: t.dueDate, plannedUserId: t.plannedUserId || null, key: t.key, groupLabel: t.groupLabel, poleKey: t.poleKey }));
   return { retentionDays: ARCHIVE_RETENTION_DAYS, tasks };
 }
 

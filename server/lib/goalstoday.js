@@ -93,4 +93,18 @@ function tasksToday(userId, todayParam, dayParam) {
   return { today, doneCount: done.length, todoCount: todo.length, doneMinutes: sum(done), todoMinutes: sum(todo), minLines: goalstasks.DAILY_MIN_LINES, tasks: todo.concat(upc, done) };
 }
 
-module.exports = { tasksToday };
+// Archive de la vue Aujourd'hui : tâches faites des 7 derniers jours, TOUTES les activités de l'utilisateur (la liste de l'onglet Tâches, goalstasks.archivesForActivity, pour chaque activité),
+// la plus récente d'abord. Passé 7 jours, une tâche n'apparaît plus (verrouillée) mais reste en base : export des données, outil MCP lister_taches (statut terminees/toutes).
+function archiveAll(userId) {
+  const acts = db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1 ORDER BY m.position, a.id').all(userId);
+  const out = [];
+  acts.forEach((a) => {
+    goalstasks.archivesForActivity(a.id).tasks.forEach((t) => {
+      if (!t.plannedUserId || t.plannedUserId === userId) out.push(Object.assign({}, t, { activityId: a.id, activityName: a.name }));
+    });
+  });
+  out.sort((x, y) => (x.doneAt < y.doneAt ? 1 : x.doneAt > y.doneAt ? -1 : y.id - x.id));
+  return { tasks: out };
+}
+
+module.exports = { tasksToday, archiveAll };

@@ -1026,6 +1026,34 @@
     if (!$('goalsTasksArchivePanel').classList.contains('hidden')) loadGoalsTasksArchives();
   }
 
+  // Ligne d'archive (case cochée, texte, date de réalisation) : une seule définition, aussi utilisée par « Archive » de la vue Aujourd'hui (TMT.buildGoalsArchiveRow) ; décocher = retour dans la liste, puis onChanged().
+  function buildGoalsArchiveRow(task, onChanged) {
+    var row = document.createElement('div');
+    row.className = 'subProjectItem done goalsArchiveItem';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    if (task.locked) { cb.disabled = true; row.classList.add('taskLocked'); row.title = t('Tâche verrouillée : terminée depuis plus de 7 jours.'); }
+    cb.addEventListener('change', function () {
+      cb.disabled = true;
+      api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: false })
+        .then(function () { onChanged(); })
+        .catch(function (err) { cb.checked = true; alert(err.message); })
+        .then(function () { cb.disabled = false; });
+    });
+    row.appendChild(cb);
+    var label = document.createElement('span');
+    label.className = 'subProjectItemLabel';
+    appendLinkified(label, task.label);
+    row.appendChild(label);
+    var d = new Date(task.doneAt);
+    var when = document.createElement('span');
+    when.className = 'meta goalsDailyWhen';
+    when.textContent = isNaN(d) ? '' : (TMT.calendarDayLabel(localIso(d)) || localIso(d));
+    row.appendChild(when);
+    return row;
+  }
+  TMT.buildGoalsArchiveRow = buildGoalsArchiveRow;
   // Archives : tâches cochées (7 derniers jours), la plus récente d'abord ; décocher = retour dans la liste.
   function loadGoalsTasksArchives() {
     var activityId = TMT.currentGoalsActivityId;
@@ -1036,32 +1064,7 @@
       box.innerHTML = '';
       var pole = TMT.currentGoalsSelectedPoleKey;
       var tasks = ((data && data.tasks) || []).filter(function (x) { return !pole || x.poleKey === pole; });
-      tasks.forEach(function (task) {
-        var row = document.createElement('div');
-        row.className = 'subProjectItem done goalsArchiveItem';
-        var cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = true;
-        if (task.locked) { cb.disabled = true; row.classList.add('taskLocked'); row.title = t('Tâche verrouillée : terminée depuis plus de 7 jours.'); }
-        cb.addEventListener('change', function () {
-          cb.disabled = true;
-          api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: false })
-            .then(function () { loadGoalsTasksOverview(); })
-            .catch(function (err) { cb.checked = true; alert(err.message); })
-            .then(function () { cb.disabled = false; });
-        });
-        row.appendChild(cb);
-        var label = document.createElement('span');
-        label.className = 'subProjectItemLabel';
-        appendLinkified(label, task.label);
-        row.appendChild(label);
-        var d = new Date(task.doneAt);
-        var when = document.createElement('span');
-        when.className = 'meta goalsDailyWhen';
-        when.textContent = isNaN(d) ? '' : (TMT.calendarDayLabel(localIso(d)) || localIso(d));
-        row.appendChild(when);
-        box.appendChild(row);
-      });
+      tasks.forEach(function (task) { box.appendChild(buildGoalsArchiveRow(task, loadGoalsTasksOverview)); });
       $('goalsTasksArchiveEmptyHint').classList.toggle('hidden', tasks.length > 0);
     }).catch(function () {});
   }

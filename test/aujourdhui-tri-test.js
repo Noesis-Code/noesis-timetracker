@@ -58,5 +58,14 @@ assert(dl.filter((t) => !t.upcoming).length === 2 && dl.filter((t) => t.upcoming
 assert(dl.length === 5 && ![d5, d9].some((id) => dl.some((t) => t.id === id)), 'jamais plus de 5 au total');
 assert(rr.todoCount === rr.tasks.filter((t) => !t.done && !t.upcoming).length, 'les tâches à venir ne comptent pas dans « à faire »');
 
+// Archive : tâches faites des 7 derniers jours (toutes activités) ; passé 7 jours elles disparaissent de l'application mais restent en base et retrouvables (includeLocked).
+const doneAgo = (id, days) => db.prepare('UPDATE sub_project_items SET done = 1, doneAt = ? WHERE id = ?').run(new Date(Date.now() - days * 86400000).toISOString(), id);
+const recent = addDue(gamma, 'Faite hier', today), old = addDue(delta, 'Faite il y a 10 jours', today);
+doneAgo(recent, 1); doneAgo(old, 10);
+const arch = goalstoday.archiveAll('u1').tasks;
+assert(arch.some((t) => t.id === recent) && !arch.some((t) => t.id === old), 'Archive : la tâche faite hier y est, celle faite il y a 10 jours n\'y est plus');
+assert(!goalstasks.allTasksWithGroup(delta.id).some((t) => t.id === old) && goalstasks.allTasksWithGroup(delta.id, true).some((t) => t.id === old), 'passé 7 jours : absente des listes, mais retrouvable (jamais supprimée de la base)');
+assert(!!db.prepare('SELECT id FROM sub_project_items WHERE id = ?').get(old), 'la tâche faite il y a 10 jours reste en base');
+
 if (failed) { console.log('\naujourdhui-tri-test : ' + failed + ' échec(s)'); process.exit(1); }
 console.log('\naujourdhui-tri-test : OK');

@@ -89,15 +89,6 @@
    commentaire "Historique modifiable (Chrono)") — jamais une redéfinition
    de .sectionTitleRow/.sectionTitle/.historyHeaderClickable elles-mêmes
    (propriété de Design, partagées avec tout le reste de l'app). */
-#goalsTasksHistoryHeader {
-  margin-top: 4px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--card); padding: 10px 20px;
-  display: flex; justify-content: center; width: fit-content;
-  margin-left: auto; margin-right: auto;
-  transition: background-color var(--transition-fast);
-}
-#goalsTasksHistoryHeader:hover { background: var(--hover-bg); }
-#goalsTasksHistoryHeader .sectionTitle { margin: 0; }
 /* 3e retour d'Emilien : « décoller légèrement le bouton
    historique des activités [...] même espace que dans le chrono ». Chrono
    lui-même est passé par CE MÊME palier avant d'arriver à son 4px actuel —
@@ -116,10 +107,7 @@
    net vise maintenant EXACTEMENT 4px, la vraie valeur de Chrono aujourd'hui.
    margin-top: -10px (au lieu de -4px) donne 14 - 10 = 4px, même mécanique de
    calcul, valeur ajustée. */
-/* Historique : en fin de l'onglet Aujourd'hui, sous « Faites aujourd'hui », à 24 px des tâches. L'offre Expansion est à 24 px des activités. */
-#goalsTasksHistorySection { margin-top: 24px; padding-bottom: 0; }
 #offer1Section { margin: 24px 0 72px; }
-#goalsTasksHistoryPanel { margin-top: 10px; }
 
 /* (réaffectation activité/pôle/secteur/période/semaine/
    jour depuis l'Historique, demande d'Emilien) — les 5 sélecteurs héritent
