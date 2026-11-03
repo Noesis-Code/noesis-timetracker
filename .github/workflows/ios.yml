@@ -64,7 +64,7 @@ jobs:
           chmod 600 "$KEY"
           if ! openssl pkey -in "$KEY" -noout 2>/dev/null; then echo "clé illisible ($(wc -l < "$KEY") lignes)"; exit 1; fi
           echo "ASC_KEY_PATH=$HOME/.private_keys/AuthKey_${ASC_KEY_ID}.p8" >> "$GITHUB_ENV"
-      - name: Archive signée
+      - name: Archive (signée à l'export)
         working-directory: mobile/ios/App
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -73,9 +73,7 @@ jobs:
           set -o pipefail
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CURRENT_PROJECT_VERSION=$((GITHUB_RUN_NUMBER + 100)) \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO DEVELOPMENT_TEAM="$TEAM_ID" CURRENT_PROJECT_VERSION=$((GITHUB_RUN_NUMBER + 100)) 
             archive | tail -40
       - name: Export de l'ipa
         working-directory: mobile/ios/App
