@@ -650,6 +650,24 @@
     return box;
   }
 
+  // Périodes libres : début et fin choisis (grille de 13 périodes = valeurs par défaut). Un changement valide est
+  // enregistré aussitôt ; un refus (chevauchement, objectifs hors des nouvelles semaines) remet les dates d'origine.
+  function renderGoalsPeriodDates(period) {
+    var host = $('activityGoalsPeriodDates');
+    host.textContent = '';
+    var start = document.createElement('input'); start.type = 'date'; start.className = 'goalsPeriodDateInput'; start.value = period.startDate; start.setAttribute('aria-label', t('Début de la période'));
+    var end = document.createElement('input'); end.type = 'date'; end.className = 'goalsPeriodDateInput'; end.value = period.endDate; end.setAttribute('aria-label', t('Fin de la période'));
+    var sep = document.createTextNode(' – ');
+    function save() {
+      if (!start.value || !end.value || (start.value === period.startDate && end.value === period.endDate)) return;
+      api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + period.periodNumber + '/dates', { startDate: start.value, endDate: end.value, category: TMT.currentGoalsCategory })
+        .then(function () { return reloadGoalsAll(); })
+        .catch(function (err) { start.value = period.startDate; end.value = period.endDate; var m = document.createElement('span'); m.className = 'msg'; m.textContent = ' ' + ((err && err.message) || t('Dates refusées.')); host.appendChild(m); setTimeout(function () { if (m.parentNode) m.parentNode.removeChild(m); }, 5000); });
+    }
+    start.addEventListener('change', save); end.addEventListener('change', save);
+    host.appendChild(start); host.appendChild(sep); host.appendChild(end);
+  }
+
   function renderGoalsWeeklyList(period) {
     var box = $('activityGoalsWeeklyList');
     box.innerHTML = '';
@@ -660,7 +678,7 @@
     // les 4 semaines (.goalsWeeklyList), inchangé par ce passage.
     box.style.borderColor = currentGoalsCategoryColor();
     // ordre DESCENDANT, S4 (le plus futur) en haut.
-    for (var weekIndex = 4; weekIndex >= 1; weekIndex -= 1) {
+    for (var weekIndex = (period.weeksCount || 4); weekIndex >= 1; weekIndex -= 1) {
       (function (weekIndex) {
         var w = null;
         for (var i = 0; i < period.weeklies.length; i++) {
@@ -861,7 +879,7 @@
     if (periodYear && periodYear !== new Date().getFullYear()) title += ' · ' + periodYear;
     if (period.isCurrent) title += ' · ' + t('En cours');
     $('activityGoalsPeriodTitle').textContent = title;
-    $('activityGoalsPeriodDates').textContent = formatGoalPeriodDates(period.startDate, period.endDate);
+    renderGoalsPeriodDates(period);
 
     // le nom de la catégorie se place désormais ici (en dessous de la
     // période, au-dessus du titre de l'objectif périodique) — il a déménagé
@@ -1283,10 +1301,7 @@
         // plus une seule liste à plat
         // (#activityGoalsCalendarList, retirée) mais 4 panneaux par semaine
         // (goalWeekDaysPanel1-4) — vidés individuellement en cas d'échec.
-        for (var wi = 1; wi <= 4; wi++) {
-          var panel = $('goalWeekDaysPanel' + wi);
-          if (panel) panel.innerHTML = '';
-        }
+        document.querySelectorAll('[id^="goalWeekDaysPanel"]').forEach(function (panel) { panel.innerHTML = ''; });
       });
   }
 

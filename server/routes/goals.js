@@ -382,6 +382,21 @@ router.post('/activities/:id/goals/periods/:periodNumber/weekly-proposals', asyn
   }
 });
 
+// Dates d'une période (périodes libres) : début et fin choisis ; la grille de 13 périodes reste le défaut proposé.
+router.put('/activities/:id/goals/periods/:periodNumber/dates', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const periodNumber = Number(req.params.periodNumber);
+  if (!periodNumber || periodNumber < 1) return res.status(400).json({ error: 'Période invalide.' });
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    const r = goals.setPeriodDates(activityId, resolveCategory(activityId, req.body.category), periodNumber, String(req.body.startDate || ''), String(req.body.endDate || ''));
+    res.json({ ok: true, startDate: r.startDate, endDate: r.endDate, kind: r.kind, weeksCount: r.weeks });
+  } catch (err) { handleGoalsError(res, err); }
+});
+
 // Suppression d'un objectif périodique / hebdomadaire (corbeille du formulaire de modification).
 router.delete('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
   const userId = req.userId;
@@ -403,7 +418,7 @@ router.delete('/activities/:id/goals/periods/:periodNumber/weekly/:weekIndex', (
   const activityId = Number(req.params.id);
   const periodNumber = Number(req.params.periodNumber);
   const weekIndex = Number(req.params.weekIndex);
-  if (!periodNumber || periodNumber < 1 || !weekIndex || weekIndex < 1 || weekIndex > 4) return res.status(400).json({ error: 'Période ou semaine invalide.' });
+  if (!periodNumber || periodNumber < 1 || !weekIndex || weekIndex < 1 || weekIndex > 53) return res.status(400).json({ error: 'Période ou semaine invalide.' });
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
   try {
@@ -419,7 +434,7 @@ router.put('/activities/:id/goals/periods/:periodNumber/weekly/:weekIndex', (req
   const periodNumber = Number(req.params.periodNumber);
   const weekIndex = Number(req.params.weekIndex);
   if (!periodNumber || periodNumber < 1) return res.status(400).json({ error: 'Période invalide.' });
-  if (!weekIndex || weekIndex < 1 || weekIndex > 4) return res.status(400).json({ error: 'Semaine invalide (1 à 4).' });
+  if (!weekIndex || weekIndex < 1 || weekIndex > 53) return res.status(400).json({ error: 'Semaine invalide.' });
 
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);

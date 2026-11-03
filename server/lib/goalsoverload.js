@@ -155,7 +155,7 @@ function loadTasks(activityId, budget, today, poleKey) {
 function goalsAt(activityId, category, day) {
   const plan = db.prepare('SELECT startDate FROM activity_goal_plans WHERE activityId = ? AND category = ?').get(activityId, category);
   if (!plan) return null;
-  const n = goals.periodNumberForDate(plan.startDate, day);
+  const n = goals.periodNumberFor(activityId, category, plan.startDate, day);
   const period = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, n);
   if (!period) return null;
   const weekIndex = Math.floor(goals.daysBetween(period.startDate, day) / 7) + 1;

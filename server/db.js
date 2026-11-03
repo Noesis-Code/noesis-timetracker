@@ -1746,6 +1746,10 @@ if (tableExists('goal_periods') && !columnExists('goal_periods', 'carriedOverFro
 if (tableExists('goal_periods') && !columnExists('goal_periods', 'mainGoalDescription')) {
   db.exec("ALTER TABLE goal_periods ADD COLUMN mainGoalDescription TEXT NOT NULL DEFAULT ''");
 }
+// ----- Périodes libres (3 nov. 2026) : 'grille' (défaut recommandé) ou 'libre' (dates choisies). Additive. -----
+if (tableExists('goal_periods') && !columnExists('goal_periods', 'kind')) {
+  db.exec("ALTER TABLE goal_periods ADD COLUMN kind TEXT NOT NULL DEFAULT 'grille'");
+}
 if (tableExists('goal_weekly') && !columnExists('goal_weekly', 'description')) {
   db.exec("ALTER TABLE goal_weekly ADD COLUMN description TEXT NOT NULL DEFAULT ''");
 }

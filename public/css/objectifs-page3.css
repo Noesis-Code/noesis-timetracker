@@ -21,6 +21,7 @@
 .goalsPeriodNavLabel .sectionTitle { margin: 0; }
 
 .goalsPeriodDates { margin: 2px 0 0; font-size: 12px; color: var(--text-light); }
+.goalsPeriodDateInput { font: inherit; color: inherit; background: transparent; border: 0; padding: 0; width: 7.6em; text-align: center; }
 
 .goalsCategoryLabel {
   text-align: center; font-size: 12px; font-weight: 700;

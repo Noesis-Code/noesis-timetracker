@@ -40,13 +40,14 @@ function planFor(userId, activityId, category, periodNumber) {
 
   const cap = timecaps.weeklyCapFor(userId, activityId, category);
   const avg = timecaps.periodAverage(userId, activityId, category);
-  const avgWeekly = avg != null ? Math.round(avg / goals.WEEKS_PER_PERIOD) : null;
+  const nWeeks = goals.weeksInPeriod(period);
+  const avgWeekly = avg != null ? Math.round(avg / nWeeks) : null;
   const baseWeekly = cap != null ? cap : avgWeekly;
   const baseSource = cap != null ? 'activities' : (avgWeekly != null ? 'history' : null);
   const periodManual = period.mainGoalEstimateSource === 'manual' && period.mainGoalEstimateMinutes > 0 ? period.mainGoalEstimateMinutes : null;
 
   const idx = [];
-  for (let i = 1; i <= goals.WEEKS_PER_PERIOD; i += 1) idx.push(i);
+  for (let i = 1; i <= nWeeks; i += 1) idx.push(i);
   const own = {};
   idx.forEach((i) => { const w = byWeek[i]; if (w && w.estimateSource === 'manual' && w.estimateMinutes > 0) own[i] = w.estimateMinutes; });
   const rest = idx.filter((i) => own[i] == null);
@@ -56,7 +57,7 @@ function planFor(userId, activityId, category, periodNumber) {
   else if (baseWeekly != null) restVal = baseWeekly;
 
   const weeks = idx.map((i) => {
-    const b = goals.weekBounds(period.startDate, i);
+    const b = goals.weekBoundsIn(period, i);
     const past = b.end < now;
     const target = own[i] != null ? own[i] : restVal;
     let done = null; let extra = 0; let short = 0; let saved = 0; let effTarget = target;
@@ -93,10 +94,10 @@ function addMinutesToWeekOf(userId, activityId, category, day, minutes) {
   if (!(minutes > 0)) return false;
   const plan = db.prepare('SELECT startDate FROM activity_goal_plans WHERE activityId = ? AND category = ?').get(activityId, category);
   if (!plan) return false;
-  const n = goals.periodNumberForDate(plan.startDate, day);
+  const n = goals.periodNumberFor(activityId, category, plan.startDate, day);
   const period = goals.ensurePeriodRow(activityId, category, n, plan.startDate);
   const weekIndex = Math.floor(goals.daysBetween(period.startDate, day) / 7) + 1;
-  if (weekIndex < 1 || weekIndex > goals.WEEKS_PER_PERIOD) return false;
+  if (weekIndex < 1 || weekIndex > goals.weeksInPeriod(period)) return false;
   const before = planFor(userId, activityId, category, n);
   if (!before || before.baseTotal == null) return false;
   const wk = before.weeks.find((w) => w.weekIndex === weekIndex);

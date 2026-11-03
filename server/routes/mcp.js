@@ -375,7 +375,7 @@ Object.assign(tools, {
   definir_objectif_periodique: {
     write: true, journal: true,
     description: "Écrit l'objectif d'une période (1 à 39, voir objectifs) pour un pôle ou secteur. Texte 300 caractères max, description 1000 max. Remplace le texte actuel, qui reste au journal (annuler_modification).",
-    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, pole: { type: 'string' }, periode: { type: 'integer' }, texte: { type: 'string' }, description: { type: 'string' } }, required: ['activityId', 'pole', 'periode', 'texte'], additionalProperties: false },
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, pole: { type: 'string' }, periode: { type: 'integer' }, texte: { type: 'string' }, description: { type: 'string' }, debut: { type: 'string', description: 'Début AAAA-MM-JJ (optionnel ; défaut : période de la grille)' }, fin: { type: 'string', description: 'Fin AAAA-MM-JJ = vraie échéance (optionnel)' } }, required: ['activityId', 'pole', 'periode', 'texte'], additionalProperties: false },
     run(userId, args, ctx) {
       const a = memberActivity(userId, args.activityId);
       const t = resolveTarget(a.id, args.pole);
@@ -384,22 +384,29 @@ Object.assign(tools, {
       if (!texte) throw toolError('texte requis (un objectif ne se supprime pas par ce connecteur).');
       const description = args.description === undefined ? undefined : checkText(args.description, MAX_DESC, 'Description');
       const old = periodRow(a.id, t.key, n);
-      const before = old ? { text: old.mainGoalText || '', description: old.mainGoalDescription || '', minutes: old.mainGoalEstimateSource === 'manual' ? old.mainGoalEstimateMinutes : null } : { text: '', description: '', minutes: null };
-      try { goals.setMainGoal(a.id, t.key, n, texte, description); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible d\'écrire cet objectif.'); }
+      const before = old ? { text: old.mainGoalText || '', description: old.mainGoalDescription || '', minutes: old.mainGoalEstimateSource === 'manual' ? old.mainGoalEstimateMinutes : null, debut: old.startDate, fin: old.endDate } : { text: '', description: '', minutes: null };
+      try {
+        goals.setMainGoal(a.id, t.key, n, texte, description);
+        if (args.debut || args.fin) {
+          const cur = periodRow(a.id, t.key, n);
+          before.debut = cur.startDate; before.fin = cur.endDate;
+          goals.setPeriodDates(a.id, t.key, n, args.debut || cur.startDate, args.fin || cur.endDate);
+        }
+      } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible d\'écrire cet objectif.'); }
       const logId = wlog.record(ctx, 'definir_objectif_periodique', a.id, null, Object.assign({ key: t.key, periode: n }, before), { text: texte });
       return done({ activityId: a.id, pole: t.key, periode: n, objectif: texte }, logId);
     },
   },
   definir_objectif_hebdomadaire: {
     write: true, journal: true,
-    description: "Écrit l'objectif d'une semaine (1 à 4) d'une période pour un pôle ou secteur. Texte 300 caractères max. Un objectif confié à un autre membre est refusé. Réversible (annuler_modification).",
+    description: "Écrit l'objectif d'une semaine (1 = première semaine de la période) d'une période pour un pôle ou secteur. Texte 300 caractères max. Un objectif confié à un autre membre est refusé. Réversible (annuler_modification).",
     inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, pole: { type: 'string' }, periode: { type: 'integer' }, semaine: { type: 'integer' }, texte: { type: 'string' }, description: { type: 'string' } }, required: ['activityId', 'pole', 'periode', 'semaine', 'texte'], additionalProperties: false },
     run(userId, args, ctx) {
       const a = memberActivity(userId, args.activityId);
       const t = resolveTarget(a.id, args.pole);
       const n = periodNumber(args.periode);
       const w = Number(args.semaine);
-      if (!Number.isInteger(w) || w < 1 || w > 4) throw toolError('semaine : entier de 1 à 4.');
+      if (!Number.isInteger(w) || w < 1 || w > 53) throw toolError('semaine : entier positif (dans les semaines de la période).');
       const texte = checkText(args.texte, MAX_GOAL, 'Objectif');
       if (!texte) throw toolError('texte requis (un objectif ne se supprime pas par ce connecteur).');
       const description = args.description === undefined ? undefined : checkText(args.description, MAX_DESC, 'Description');
@@ -449,7 +456,9 @@ Object.assign(tools, {
             db.prepare('INSERT INTO sub_project_items (' + cols.join(',') + ') VALUES (' + cols.map(() => '?').join(',') + ')').run(...cols.map((c) => before[c])); break;
           }
           case 'definir_objectif_periodique':
-            goals.setMainGoal(act, before.key, before.periode, before.text, before.description, before.minutes == null ? undefined : before.minutes); break;
+            goals.setMainGoal(act, before.key, before.periode, before.text, before.description, before.minutes == null ? undefined : before.minutes);
+            if (before.debut && before.fin) goals.setPeriodDates(act, before.key, before.periode, before.debut, before.fin);
+            break;
           case 'definir_objectif_hebdomadaire':
             if (before.existait) goals.setWeekly(act, before.key, before.periode, before.semaine, before.text, before.description);
             else goals.deleteWeekly(act, before.key, before.periode, before.semaine);

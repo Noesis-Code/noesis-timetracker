@@ -11828,7 +11828,7 @@
       if (!taActivityId) return;
       if (taCategory && taPeriod) {
         openGoalsActivityFromNotification(taActivityId, taCategory, taPeriod);
-        if (taWeek >= 1 && taWeek <= 4) focusWhenReady('#goalWeekCard' + taWeek, 60);
+        if (taWeek >= 1 && taWeek <= 53) focusWhenReady('#goalWeekCard' + taWeek, 60);
       } else {
         openGoalsActivityFromNotification(taActivityId, null, null);
         var taTask = notifIdParam(params, 'taskId');

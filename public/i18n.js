@@ -1159,6 +1159,9 @@
     // encore (#goalsNoActivityHint dans index.html).
     'Ajoute une activité pour commencer à te fixer des objectifs.': 'Add an activity to start setting yourself goals.',
     'Période précédente': 'Previous period',
+    'Début de la période': 'Period start',
+    'Fin de la période': 'Period end',
+    'Dates refusées.': 'Dates refused.',
     'Période suivante': 'Next period',
     'Non atteint': 'Not met',
     'Partiel': 'Partial',

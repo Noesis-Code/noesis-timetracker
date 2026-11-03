@@ -29,8 +29,8 @@ function planStartOf(activityId, category) {
 
 // Grands objectifs de périodes terminées, non atteints, pas encore reportés.
 // Période cible : la suivante, ou la période en cours si la suivante est déjà passée.
-function targetNumberFor(plan, periodNumber, today) {
-  return Math.max(periodNumber + 1, goals.periodNumberForDate(plan, today));
+function targetNumberFor(plan, periodNumber, today, activityId, category) {
+  return Math.max(periodNumber + 1, goals.periodNumberFor(activityId, category, plan, today));
 }
 
 function unmetPeriods(activityId, today) {
@@ -42,10 +42,10 @@ function unmetPeriods(activityId, today) {
   `).all(activityId, today);
   return rows.map((p) => {
     const start = planStartOf(activityId, p.category);
-    const tn = start ? targetNumberFor(start, p.periodNumber, today) : p.periodNumber + 1;
+    const tn = start ? targetNumberFor(start, p.periodNumber, today, activityId, p.category) : p.periodNumber + 1;
     const target = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?')
       .get(activityId, p.category, tn);
-    const b = start ? goals.periodBounds(start, tn) : null;
+    const b = target ? { start: target.startDate } : (start ? goals.periodBounds(start, tn) : null);
     return {
       periodId: p.id, category: p.category, poleKey: goals.resolveToPole(activityId, p.category),
       periodNumber: p.periodNumber, text: p.mainGoalText, endDate: p.endDate,
@@ -143,7 +143,7 @@ function applyCarry(userId, activityId, body, poleFilter) {
     periods.forEach((p) => {
       const start = planStartOf(activityId, p.category);
       if (!start) return;
-      const target = goals.ensurePeriodRow(activityId, p.category, targetNumberFor(start, p.periodNumber, today), start);
+      const target = goals.ensurePeriodRow(activityId, p.category, targetNumberFor(start, p.periodNumber, today, activityId, p.category), start);
       if (target.mainGoalText) return; // jamais d'écrasement d'une saisie existante
       db.prepare(`UPDATE goal_periods SET mainGoalText = ?, mainGoalDescription = ?, mainGoalEstimateMinutes = ?,
         mainGoalEstimateSource = ?, mainGoalEstimateConfidence = ?, carriedOverFromId = ? WHERE id = ?`)
@@ -166,7 +166,7 @@ function realism(userId, activityId, category) {
   const today = todayLocal();
   const plan = planStartOf(activityId, category);
   if (!plan) return null;
-  const n = goals.periodNumberForDate(plan, today);
+  const n = goals.periodNumberFor(activityId, category, plan, today);
   const p = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, n);
   if (!p || !p.mainGoalText) return null;
   const weeklySum = db.prepare("SELECT COALESCE(SUM(estimateMinutes), 0) AS s FROM goal_weekly WHERE periodId = ? AND carriedToId IS NULL").get(p.id).s;
@@ -229,7 +229,7 @@ function decoratePlanning(planning, userId, activityId) {
   (planning.periods || []).forEach((p) => {
     (p.weeklies || []).forEach((w) => {
       if (!w.text || w.status === 'atteint' || w.carriedToId) return;
-      const end = goals.weekBounds(p.startDate, w.weekIndex).end;
+      const end = goals.weekBoundsIn(p, w.weekIndex).end;
       if (end < today) w.lateDays = goals.daysBetween(end, today);
     });
   });

@@ -163,7 +163,7 @@ function weeklyObjectiveForWeek(activityId, categoryKey, weekOffset) {
   const offset = Number(weekOffset) || 0;
   const monday = goals.addDays(goals.mostRecentMonday(todayLocal()), offset * 7);
   const plan = goals.ensurePlan(activityId, categoryKey);
-  const periodNumber = goals.periodNumberForDate(plan.startDate, monday);
+  const periodNumber = goals.periodNumberFor(activityId, categoryKey, plan.startDate, monday);
   const period = goals.ensurePeriodRow(activityId, categoryKey, periodNumber, plan.startDate);
   const weekIndex = Math.floor(daysBetween(period.startDate, monday) / 7) + 1;
   // Même requête que goals.js#setWeekly (ignore les entrées reportées
@@ -498,7 +498,7 @@ function tasksHistoryForWeek(userId, weekOffset) {
     let weeklyGoalText = '';
     if (r.dueDate) {
       const plan = goals.ensurePlan(r.activityId, r.category);
-      const periodNumber = goals.periodNumberForDate(plan.startDate, r.dueDate);
+      const periodNumber = goals.periodNumberFor(r.activityId, r.category, plan.startDate, r.dueDate);
       const period = goals.ensurePeriodRow(r.activityId, r.category, periodNumber, plan.startDate);
       periodGoalText = period.mainGoalText || '';
       const weekIndex = Math.floor(daysBetween(period.startDate, r.dueDate) / 7) + 1;

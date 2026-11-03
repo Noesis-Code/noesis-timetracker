@@ -154,10 +154,10 @@ function getCapacityOverrideRow(activityId, category, userId) {
 function periodDerivedWeeklyMinutes(activityId, category) {
   const plan = goals.getPlan(activityId, category);
   if (!plan) return null;
-  const n = goals.periodNumberForDate(plan.startDate, todayLocal());
-  const row = db.prepare('SELECT mainGoalEstimateMinutes AS m FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?')
+  const n = goals.periodNumberFor(activityId, category, plan.startDate, todayLocal());
+  const row = db.prepare('SELECT mainGoalEstimateMinutes AS m, startDate, endDate FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?')
     .get(activityId, category, n);
-  return row && row.m > 0 ? Math.max(1, Math.round(row.m / goals.WEEKS_PER_PERIOD)) : null;
+  return row && row.m > 0 ? Math.max(1, Math.round(row.m / goals.weeksInPeriod(row))) : null;
 }
 
 // Plafonné par le max hebdomadaire (facultatif) du pôle/secteur, s'il existe.
@@ -256,7 +256,7 @@ function nextFreeSlot(activityId, category, planStartDate, periodNumber, weekInd
     const occupied = db.prepare('SELECT 1 FROM goal_weekly WHERE periodId = ? AND weekIndex = ?').get(period.id, wi);
     if (!occupied) return { period, weekIndex: wi };
     wi += 1;
-    if (wi > goals.WEEKS_PER_PERIOD) {
+    if (wi > goals.weeksInPeriod(period)) {
       pn += 1;
       wi = 1;
     }
@@ -280,7 +280,7 @@ function reorganizeForMember(activityId, category, userId, items) {
     };
   });
 
-  let periodNumber = goals.periodNumberForDate(plan.startDate, todayLocal());
+  let periodNumber = goals.periodNumberFor(activityId, category, plan.startDate, todayLocal());
   let weekIndex = 1;
   let placedCount = 0;
   let bucket = [];
@@ -311,7 +311,7 @@ function reorganizeForMember(activityId, category, userId, items) {
 
     periodNumber = slot.period.periodNumber;
     weekIndex = slot.weekIndex + 1;
-    if (weekIndex > goals.WEEKS_PER_PERIOD) {
+    if (weekIndex > goals.weeksInPeriod(slot.period)) {
       periodNumber += 1;
       weekIndex = 1;
     }
