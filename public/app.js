@@ -16880,19 +16880,13 @@
     if (d) svgEl('path', { class: cls, d: d }, svg);
   }
   function globeLand(svg) {
-    var R = globe.GR * globe.zoom, step = globe.zoom > 6 ? 1 : 4;
-    TMT.geo.land.forEach(function (poly) {
-      var d = '';
-      for (var i = 0; i < poly.length; i++) {
-        var a = poly[i], b = poly[(i + 1) % poly.length], n = Math.max(1, Math.ceil(Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])) / step));
-        for (var k = 0; k < n; k++) {
-          var p = globeProject(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n), x = p.ux, y = p.uy;
-          if (!p.vis) { var m = Math.sqrt(x * x + y * y) || 1; x /= m; y /= m; }
-          d += (d ? 'L' : 'M') + (globe.W / 2 + x * R).toFixed(1) + ' ' + (globe.H / 2 - y * R).toFixed(1);
-        }
-      }
-      svgEl('path', { class: 'gLand', d: d + 'Z' }, svg);
-    });
+    var R = globe.GR * globe.zoom, d = '', skip = globe.zoom < 1.6 ? 2 : 1, pts = TMT.geo.landDots();
+    for (var i = 0; i < pts.length; i += skip) {
+      var p = globeProject(pts[i][0], pts[i][1]);
+      if (p.vis && p.x > -10 && p.x < globe.W + 10 && p.y > -10 && p.y < globe.H + 10) d += 'M' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + 'h0';
+    }
+    var el = svgEl('path', { class: 'gLand', d: d }, svg);
+    el.style.strokeWidth = Math.max(1.8, Math.min(7, R * 0.011));
   }
   // Arc de grand cercle entre deux points géographiques ; o1 et o2 (décalages en pixels) glissent d'un bout à l'autre pour atteindre le point d'une personne.
   function globeArc(a, b, o1, o2, cls, op, sw, svg) {

@@ -49,5 +49,25 @@
     [[130, 31], [135, 34], [140, 36], [142, 40], [141, 45], [145, 44], [140, 41], [137, 37], [132, 34]],
     [[-24, 65], [-14, 66], [-14, 64], [-22, 63]],
   ];
-  TMT.geo = { find: find, land: LAND, norm: norm };
+  // Terres en points (grille régulière dans les contours) : pas de remplissage, donc aucun voile ni découpe à l'horizon.
+  var dots = null;
+  function inside(poly, x, y) {
+    var c = false;
+    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      if ((poly[i][1] > y) !== (poly[j][1] > y) && x < (poly[j][0] - poly[i][0]) * (y - poly[i][1]) / (poly[j][1] - poly[i][1]) + poly[i][0]) c = !c;
+    }
+    return c;
+  }
+  function landDots() {
+    if (dots) return dots;
+    dots = [];
+    for (var lat = -60; lat <= 82; lat += 2) {
+      var stepLon = 2 / Math.max(0.2, Math.cos(lat * Math.PI / 180));
+      for (var lon = -180; lon < 180; lon += stepLon) {
+        for (var k = 0; k < LAND.length; k++) if (inside(LAND[k], lon, lat)) { dots.push([lon, lat]); break; }
+      }
+    }
+    return dots;
+  }
+  TMT.geo = { find: find, land: LAND, landDots: landDots, norm: norm };
 })();
