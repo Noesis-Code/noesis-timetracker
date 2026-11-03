@@ -1457,32 +1457,7 @@
   });
 
 
-  // Balayage horizontal sur le sélecteur de pôle — mêmes seuils que le
-  // geste de retour tactile de Réglages (≥60px, plus
-  // horizontal que vertical) pour rester cohérent dans toute l'app.
-  (function bindGoalsSwipe() {
-    var header = $('goalsActivityHeader');
-    if (!header) return;
-    var startX = null;
-    var startY = null;
-    header.addEventListener('touchstart', function (e) {
-      if (e.touches.length !== 1) return;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-    }, { passive: true });
-    header.addEventListener('touchend', function (e) {
-      if (startX == null) return;
-      var touch = e.changedTouches[0];
-      var dx = touch.clientX - startX;
-      var dy = touch.clientY - startY;
-      startX = null;
-      startY = null;
-      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
-      // Droite → gauche (dx négatif) : pôle SUIVANT.
-      // Gauche → droite (dx positif) : pôle PRÉCÉDENT.
-      openGoalsForPole(TMT.currentGoalsPoleIndex + (dx < 0 ? 1 : -1));
-    }, { passive: true });
-  })();
+  // Balayage du sélecteur de pôle : composant commun .cmpNav (R46, composants.js), qui actionne les flèches ci-dessus.
 
 
   // Remise à zéro de l'état de la grille à chaque ouverture/changement

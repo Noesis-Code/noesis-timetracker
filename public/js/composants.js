@@ -247,5 +247,25 @@
     var startWin = function () { new MutationObserver(function () { clearTimeout(winTimer); winTimer = setTimeout(syncWin, 30); }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] }); syncWin(); };
     if (document.body) startWin(); else document.addEventListener('DOMContentLoaded', startWin);
   }
+  // Balayage des navigations par flèches (R46) : un balayage horizontal d'un .cmpNav (≥ 60 px, plus horizontal que vertical) actionne sa flèche › (vers la gauche)
+  // ou ‹ (vers la droite), donc la MÊME fonction que le clic ; une flèche désactivée ne fait rien. Un seul écouteur pour tous les .cmpNav, présents ou futurs.
+  if (root.document && !root.TMT.cmpNavSwipe) {
+    root.TMT.cmpNavSwipe = true;
+    var sx = null, sy = null, snav = null;
+    document.addEventListener('touchstart', function (e) {
+      snav = e.touches.length === 1 && e.target.closest ? e.target.closest('.cmpNav') : null;
+      if (snav) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }
+    }, { passive: true, capture: true });
+    document.addEventListener('touchend', function (e) {
+      var nav = snav; snav = null;
+      if (!nav || sx == null) return;
+      var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+      sx = sy = null;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
+      var arrows = nav.querySelectorAll('.cmpNavArrow');
+      if (arrows.length < 2) return;
+      arrows[dx < 0 ? arrows.length - 1 : 0].click();
+    }, { passive: true, capture: true });
+  }
   root.TMT.ui = Object.assign(root.TMT.ui || {}, ui);
 })();
