@@ -58,7 +58,11 @@ jobs:
         run: |
           test -n "$ASC_KEY_ID" -a -n "$ASC_KEY_P8" -a -n "${{ secrets.ASC_ISSUER_ID }}" || { echo "Secrets ASC_KEY_ID, ASC_ISSUER_ID ou ASC_KEY_P8 absents"; exit 1; }
           mkdir -p "$HOME/.private_keys"
-          printf '%s\n' "$ASC_KEY_P8" > "$HOME/.private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          KEY="$HOME/.private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          BODY=$(printf '%s' "$ASC_KEY_P8" | tr -d '\r' | sed -E 's/-----(BEGIN|END)[A-Z ]*-----//g' | tr -d ' \n\t')
+          { echo "-----BEGIN PRIVATE KEY-----"; printf '%s' "$BODY" | fold -w 64; echo; echo "-----END PRIVATE KEY-----"; } > "$KEY"
+          chmod 600 "$KEY"
+          if ! openssl pkey -in "$KEY" -noout 2>/dev/null; then echo "clé illisible ($(wc -l < "$KEY") lignes)"; exit 1; fi
           echo "ASC_KEY_PATH=$HOME/.private_keys/AuthKey_${ASC_KEY_ID}.p8" >> "$GITHUB_ENV"
       - name: Archive signée
         working-directory: mobile/ios/App
