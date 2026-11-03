@@ -16854,14 +16854,21 @@
     });
   });
 
-  // ----- Globe : un seul point par contact (ville d'habitation, sinon ville de travail) ; on tourne et on zoome -----
-  var globe = { lon: -40, lat: 25, zoom: 1, sel: null, pins: [], unplaced: 0, moved: false, centered: false };
-  var GR = 100, GC = 120, RAD = Math.PI / 180;
+  // ----- Globe : un seul point par contact (ville d'habitation, sinon ville de travail). Fond de page ; on tourne et on pince.
+  // De loin : des villes (regroupées si proches). De près (zoom >= GLOBE_PEOPLE) : les personnes, avec leur nom. Les liens entre villes restent tracés. -----
+  var GLOBE_PEOPLE = 8, GLOBE_MAXZ = 60;
+  var globe = { lon: -40, lat: 25, zoom: 1, selCl: null, selP: null, pins: [], clusters: [], unplaced: 0, moved: false, centered: false, W: 360, H: 440, GR: 150, tween: null };
+  var RAD = Math.PI / 180;
+  function globeSize() {
+    var svg = $('netGlobe'), w = svg.clientWidth || 360, h = svg.clientHeight || 440;
+    globe.W = w; globe.H = h; globe.GR = Math.min(w, h) * 0.42;
+    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+  }
   function globeProject(lon, lat) {
-    var l = (lon - globe.lon) * RAD, p = lat * RAD, p0 = globe.lat * RAD;
+    var l = (lon - globe.lon) * RAD, p = lat * RAD, p0 = globe.lat * RAD, R = globe.GR * globe.zoom;
     var x = Math.cos(p) * Math.sin(l), y = Math.cos(p0) * Math.sin(p) - Math.sin(p0) * Math.cos(p) * Math.cos(l);
     var z = Math.sin(p0) * Math.sin(p) + Math.cos(p0) * Math.cos(p) * Math.cos(l);
-    return { x: GC + x * GR * globe.zoom, y: GC - y * GR * globe.zoom, vis: z > 0, ux: x, uy: y };
+    return { x: globe.W / 2 + x * R, y: globe.H / 2 - y * R, vis: z > 0, ux: x, uy: y };
   }
   function globeLine(pts, cls, svg) {
     var d = '', pen = false;
@@ -16873,30 +16880,33 @@
     if (d) svgEl('path', { class: cls, d: d }, svg);
   }
   function globeLand(svg) {
+    var R = globe.GR * globe.zoom, step = globe.zoom > 6 ? 1 : 4;
     TMT.geo.land.forEach(function (poly) {
       var d = '';
       for (var i = 0; i < poly.length; i++) {
-        var a = poly[i], b = poly[(i + 1) % poly.length], n = Math.max(1, Math.ceil(Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])) / 4));
+        var a = poly[i], b = poly[(i + 1) % poly.length], n = Math.max(1, Math.ceil(Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])) / step));
         for (var k = 0; k < n; k++) {
           var p = globeProject(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n), x = p.ux, y = p.uy;
           if (!p.vis) { var m = Math.sqrt(x * x + y * y) || 1; x /= m; y /= m; }
-          d += (d ? 'L' : 'M') + (GC + x * GR * globe.zoom).toFixed(1) + ' ' + (GC - y * GR * globe.zoom).toFixed(1);
+          d += (d ? 'L' : 'M') + (globe.W / 2 + x * R).toFixed(1) + ' ' + (globe.H / 2 - y * R).toFixed(1);
         }
       }
       svgEl('path', { class: 'gLand', d: d + 'Z' }, svg);
     });
   }
-  function globeArc(a, b, svg) {
+  // Arc de grand cercle entre deux points géographiques ; o1 et o2 (décalages en pixels) glissent d'un bout à l'autre pour atteindre le point d'une personne.
+  function globeArc(a, b, o1, o2, cls, op, sw, svg) {
     var A = [Math.cos(a.lat * RAD) * Math.cos(a.lon * RAD), Math.cos(a.lat * RAD) * Math.sin(a.lon * RAD), Math.sin(a.lat * RAD)];
     var B = [Math.cos(b.lat * RAD) * Math.cos(b.lon * RAD), Math.cos(b.lat * RAD) * Math.sin(b.lon * RAD), Math.sin(b.lat * RAD)];
-    var dot = Math.max(-1, Math.min(1, A[0] * B[0] + A[1] * B[1] + A[2] * B[2])), om = Math.acos(dot), pts = [];
-    if (om < 1e-4) return;
-    for (var i = 0; i <= 14; i++) {
-      var f = i / 14, s0 = Math.sin((1 - f) * om) / Math.sin(om), s1 = Math.sin(f * om) / Math.sin(om);
+    var dot = Math.max(-1, Math.min(1, A[0] * B[0] + A[1] * B[1] + A[2] * B[2])), om = Math.acos(dot), d = '', pen = false, N = om < 1e-4 ? 1 : 16;
+    for (var i = 0; i <= N; i++) {
+      var f = i / N, s0 = om < 1e-4 ? 1 - f : Math.sin((1 - f) * om) / Math.sin(om), s1 = om < 1e-4 ? f : Math.sin(f * om) / Math.sin(om);
       var x = s0 * A[0] + s1 * B[0], y = s0 * A[1] + s1 * B[1], z = s0 * A[2] + s1 * B[2];
-      pts.push([Math.atan2(y, x) / RAD, Math.asin(z) / RAD]);
+      var p = globeProject(Math.atan2(y, x) / RAD, Math.asin(z) / RAD);
+      if (!p.vis) { pen = false; continue; }
+      d += (pen ? 'L' : 'M') + (p.x + o1.x * (1 - f) + o2.x * f).toFixed(1) + ' ' + (p.y + o1.y * (1 - f) + o2.y * f).toFixed(1); pen = true;
     }
-    globeLine(pts, 'gLink', svg);
+    if (d) { var ln = svgEl('path', { class: cls, d: d }, svg); ln.style.opacity = op; if (sw) ln.style.strokeWidth = sw; }
   }
   function globePins() {
     var g = net.graph, map = {};
@@ -16907,9 +16917,10 @@
       if (!loc) { nd.geo = null; globe.unplaced++; return; }
       nd.geo = loc;
       var pin = map[loc.key];
-      if (!pin) { pin = map[loc.key] = { key: loc.key, label: (nd.city && TMT.geo.find(nd.city) ? nd.city : nd.workCity), lat: loc.lat, lon: loc.lon, nodes: [] }; globe.pins.push(pin); }
+      if (!pin) { pin = map[loc.key] = { key: loc.key, label: loc.label, lat: loc.lat, lon: loc.lon, nodes: [] }; globe.pins.push(pin); }
       pin.nodes.push(nd);
     });
+    globe.pins.forEach(function (p) { p.label = (p.nodes[0].city && TMT.geo.find(p.nodes[0].city) ? p.nodes[0].city : p.nodes[0].workCity); });
     if (!globe.centered && globe.pins.length) {
       var sx = 0, sy = 0, sz = 0;
       globe.pins.forEach(function (p) { var w = p.nodes.length; sx += w * Math.cos(p.lat * RAD) * Math.cos(p.lon * RAD); sy += w * Math.cos(p.lat * RAD) * Math.sin(p.lon * RAD); sz += w * Math.sin(p.lat * RAD); });
@@ -16917,42 +16928,126 @@
       globe.centered = true;
     }
   }
+  // Regroupe les villes qui se touchent à l'écran (moins de 20 px) : de loin une bulle, de près elles se séparent.
+  function globeCluster() {
+    var list = globe.pins.map(function (p) { return { p: p, q: globeProject(p.lon, p.lat) }; }).filter(function (e) { return e.q.vis; });
+    list.sort(function (a, b) { return b.p.nodes.length - a.p.nodes.length; });
+    var cls = [];
+    list.forEach(function (e) {
+      var hit = null;
+      cls.forEach(function (c) { if (!hit && Math.hypot(c.x - e.q.x, c.y - e.q.y) < 20) hit = c; });
+      if (!hit) { hit = { id: e.p.key, label: e.p.label, lat: e.p.lat, lon: e.p.lon, x: e.q.x, y: e.q.y, nodes: [], places: 0 }; cls.push(hit); }
+      hit.nodes = hit.nodes.concat(e.p.nodes); hit.places++;
+    });
+    cls.forEach(function (c) { c.nodes.forEach(function (nd) { nd.cl = c; }); });
+    globe.clusters = cls;
+  }
+  function globeFirst(nd) { return (nd.name || '').split(' ')[0]; }
   function drawGlobe() {
     var svg = $('netGlobe'); svg.innerHTML = '';
-    svgEl('circle', { class: 'gOcean', cx: GC, cy: GC, r: GR * globe.zoom }, svg);
-    var lat, lon, pts;
+    globeSize();
+    var R = globe.GR * globe.zoom, cx = globe.W / 2, cy = globe.H / 2;
+    svgEl('circle', { class: 'gOcean', cx: cx, cy: cy, r: R }, svg);
+    var lat, lon, pts, step = globe.zoom > 6 ? 2 : 6;
     for (lat = -60; lat <= 60; lat += 30) { pts = []; for (lon = -180; lon <= 180; lon += 6) pts.push([lon, lat]); globeLine(pts, 'gGrat', svg); }
-    for (lon = -180; lon < 180; lon += 30) { pts = []; for (lat = -90; lat <= 90; lat += 6) pts.push([lon, lat]); globeLine(pts, 'gGrat', svg); }
+    for (lon = -180; lon < 180; lon += 30) { pts = []; for (lat = -90; lat <= 90; lat += step * 3) pts.push([lon, lat]); globeLine(pts, 'gGrat', svg); }
     globeLand(svg);
-    var geoOf = {}; net.graph.nodes.forEach(function (nd) { geoOf[nd.id] = nd.geo; });
-    var seen = {};
+    globeCluster();
+    var people = globe.zoom >= GLOBE_PEOPLE;
+    // Personnes dépliées autour de leur ville (spirale), seulement pour les villes de 80 personnes ou moins.
+    var shown = [];
+    globe.nodes = {};
+    globe.clusters.forEach(function (c) {
+      c.open = people && c.nodes.length <= 80;
+      var sorted = c.nodes.slice().sort(function (a, b) { return (a.geo.key < b.geo.key ? -1 : 1) || a.id - b.id; });
+      sorted.forEach(function (nd, i) {
+        var a = i * 2.39996, r = c.open ? (c.nodes.length === 1 ? 0 : 40 * Math.sqrt(i + 0.35)) : 0;
+        nd.off = { x: r * Math.cos(a), y: r * Math.sin(a) }; nd.open = c.open;
+        globe.nodes[nd.id] = nd;
+        if (c.open) shown.push(nd);
+      });
+    });
+    var selNode = globe.selP !== null ? globe.nodes[globe.selP] : null, near = {};
+    if (selNode) net.graph.edges.forEach(function (e) { if (e.a === selNode.id) near[e.b] = true; if (e.b === selNode.id) near[e.a] = true; });
+    var selCl = globe.selCl ? globe.clusters.filter(function (c) { return c.id === globe.selCl; })[0] : null;
+    // Liens : entre personnes si dépliées, sinon entre villes (épaisseur = nombre de liens)
+    var pairs = {};
     net.graph.edges.forEach(function (e) {
-      var a = geoOf[e.a], b = geoOf[e.b];
-      if (!a || !b || a.key === b.key || seen[a.key + '|' + b.key] || seen[b.key + '|' + a.key]) return;
-      seen[a.key + '|' + b.key] = true; globeArc(a, b, svg);
+      var a = globe.nodes[e.a], b = globe.nodes[e.b];
+      if (!a || !b) return;
+      if (a.open || b.open) {
+        var on = selNode && (e.a === selNode.id || e.b === selNode.id);
+        globeArc(a.geo, b.geo, a.off, b.off, 'gLink' + (on ? ' on' : ''), selNode ? (on ? 0.95 : 0.1) : (a.cl === b.cl ? 0.45 : 0.16), on ? 2 : 1.2, svg);
+      } else if (a.cl !== b.cl) {
+        var k = a.cl.id < b.cl.id ? a.cl.id + '|' + b.cl.id : b.cl.id + '|' + a.cl.id;
+        pairs[k] = pairs[k] || { a: a.cl, b: b.cl, n: 0 }; pairs[k].n++;
+      }
     });
-    globe.pins.forEach(function (p) {
-      var q = globeProject(p.lon, p.lat); if (!q.vis) return;
-      var n = p.nodes.length, r = 3 + Math.min(6, Math.sqrt(n) * 1.3), grp = svgEl('g', {}, svg);
-      svgEl('circle', { class: 'gPin' + (globe.sel === p.key ? ' sel' : ''), cx: q.x, cy: q.y, r: r }, grp);
-      svgEl('circle', { cx: q.x, cy: q.y, r: Math.max(r, 12), fill: 'transparent' }, grp);
-      if (n > 1) svgEl('text', { class: 'gCount', x: q.x, y: q.y + 3 }, grp).textContent = n;
-      if (globe.sel === p.key || globe.zoom >= 3.5) svgEl('text', { class: 'gName', x: q.x, y: q.y - r - 4 }, grp).textContent = p.label;
-      grp.addEventListener('click', function () { if (!globe.moved) { globe.sel = globe.sel === p.key ? null : p.key; drawGlobe(); fillGlobePick(); } });
+    Object.keys(pairs).forEach(function (k) {
+      var p = pairs[k], on = selCl && (p.a === selCl || p.b === selCl), zero = { x: 0, y: 0 };
+      globeArc(p.a, p.b, zero, zero, 'gLink' + (on ? ' on' : ''), selCl ? (on ? 0.9 : 0.1) : 0.3, Math.min(4, 1 + p.n * 0.4), svg);
     });
+    globe.clusters.forEach(function (c) {
+      var q = globeProject(c.lon, c.lat);
+      if (c.open) {
+        c.nodes.forEach(function (nd) {
+          var x = q.x + nd.off.x, y = q.y + nd.off.y, grp = svgEl('g', { class: 'netNode' + (selNode && nd.id !== selNode.id && !near[nd.id] ? ' dim' : '') }, svg);
+          var col = nd.interests && nd.interests[0] ? netColorOf(nd.interests[0].toLowerCase()) : null;
+          var dot = svgEl('circle', { class: 'gPin' + (selNode && nd.id === selNode.id ? ' sel' : ''), cx: x, cy: y, r: 7 }, grp);
+          if (col) dot.style.fill = col;
+          svgEl('circle', { cx: x, cy: y, r: 20, fill: 'transparent' }, grp);
+          svgEl('text', { class: 'gName', x: x, y: y + 20 }, grp).textContent = globeFirst(nd);
+          grp.addEventListener('click', function () { if (globe.moved) return; globe.selP = globe.selP === nd.id ? null : nd.id; globe.selCl = null; drawGlobe(); fillGlobePick(); });
+        });
+      } else {
+        var n = c.nodes.length, r = 4 + Math.min(10, Math.sqrt(n) * 1.5), grp2 = svgEl('g', {}, svg);
+        svgEl('circle', { class: 'gPin' + (globe.selCl === c.id ? ' sel' : ''), cx: q.x, cy: q.y, r: r }, grp2);
+        svgEl('circle', { cx: q.x, cy: q.y, r: Math.max(r, 14), fill: 'transparent' }, grp2);
+        if (n > 1) svgEl('text', { class: 'gCount', x: q.x, y: q.y + 3 }, grp2).textContent = n;
+        if (globe.zoom >= 1.6 || globe.selCl === c.id) svgEl('text', { class: 'gName', x: q.x, y: q.y - r - 5 }, grp2).textContent = c.label;
+        grp2.addEventListener('click', function () { if (!globe.moved) globeEnter(c); });
+      }
+    });
+  }
+  // Toucher une ville : on s'y rapproche (et sa liste s'affiche en dessous).
+  function globeEnter(c) {
+    globe.selCl = c.id; globe.selP = null;
+    globeTween(c.lon, c.lat, Math.min(GLOBE_MAXZ, Math.max(globe.zoom * 2.6, 2.5)));
+    fillGlobePick();
+  }
+  // Un pincement pendant le déplacement l'arrête là où il doit finir (ville au centre).
+  function globeStopTween() {
+    if (!globe.tween) return;
+    cancelAnimationFrame(globe.tween.id); globe.lon = globe.tween.lon; globe.lat = globe.tween.lat; globe.zoom = Math.max(globe.zoom, globe.tween.z * 0.9); globe.tween = null;
+  }
+  function globeTween(lon, lat, zoom) {
+    var from = { lon: globe.lon, lat: globe.lat, z: globe.zoom }, n = 0, N = 12;
+    globeStopTween();
+    var dl = ((lon - from.lon + 540) % 360) - 180;
+    (function step() {
+      n++; var f = 1 - Math.pow(1 - n / N, 3);
+      globe.lon = from.lon + dl * f; globe.lat = from.lat + (lat - from.lat) * f; globe.zoom = from.z * Math.pow(zoom / from.z, f);
+      drawGlobe();
+      if (n < N) globe.tween = { id: requestAnimationFrame(step), lon: lon, lat: lat, z: zoom }; else { globe.tween = null; }
+    })();
   }
   function fillGlobePick() {
     var box = $('netGlobePick'); box.innerHTML = '';
-    var pin = globe.pins.filter(function (p) { return p.key === globe.sel; })[0];
-    if (pin) {
-      var h = document.createElement('p'); h.className = 'cmpBlockTitle'; h.textContent = pin.label + ' · ' + pin.nodes.length; box.appendChild(h);
-      pin.nodes.slice(0, 20).forEach(function (nd) { box.appendChild(netRow(nd)); });
+    var cl = globe.selCl ? globe.clusters.filter(function (c) { return c.id === globe.selCl; })[0] : null;
+    var person = globe.selP !== null ? globe.nodes[globe.selP] : null;
+    if (person) {
+      var friends = net.graph.edges.filter(function (e) { return e.a === person.id || e.b === person.id; }).map(function (e) { var o = globe.nodes[e.a === person.id ? e.b : e.a]; return o ? o.name : null; }).filter(Boolean);
+      var l = document.createElement('div'); l.className = 'meta'; l.textContent = friends.length ? t('Connaît') + ' : ' + friends.join(', ') : t('Aucun lien avec un autre contact.'); box.appendChild(l);
+      box.appendChild(netRow(person));
+    } else if (cl) {
+      var h = document.createElement('p'); h.className = 'cmpBlockTitle'; h.textContent = cl.label + ' · ' + cl.nodes.length; box.appendChild(h);
+      cl.nodes.slice(0, 20).forEach(function (nd) { box.appendChild(netRow(nd)); });
     } else if (!globe.pins.length) box.textContent = t("Aucun contact pour l'instant.");
-    else box.textContent = t('Touche un point pour voir les contacts de cette ville.');
+    else box.textContent = t('Pince pour zoomer, glisse pour tourner. Touche un point.');
     if (globe.unplaced) { var u = document.createElement('div'); u.className = 'meta'; u.textContent = globe.unplaced + ' ' + t('sans ville reconnue'); box.appendChild(u); }
   }
   function showNetGlobe() { globePins(); drawGlobe(); fillGlobePick(); }
-  function globeZoom(f) { globe.zoom = Math.max(0.8, Math.min(6, globe.zoom * f)); drawGlobe(); }
+  function globeZoom(f) { globeStopTween(); globe.zoom = Math.max(0.8, Math.min(GLOBE_MAXZ, globe.zoom * f)); drawGlobe(); }
   (function () {
     var svg = $('netGlobe'), ptrs = {}, pinch = 0, start = null;
     svg.addEventListener('pointerdown', function (e) {
@@ -16961,7 +17056,7 @@
     });
     svg.addEventListener('pointermove', function (e) {
       var p = ptrs[e.pointerId]; if (!p) return;
-      var keys = Object.keys(ptrs), w = svg.getBoundingClientRect().width || 240, scale = 240 / w;
+      var keys = Object.keys(ptrs);
       if (keys.length === 2) {
         ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
         var d = Math.hypot(ptrs[keys[0]].x - ptrs[keys[1]].x, ptrs[keys[0]].y - ptrs[keys[1]].y);
@@ -16970,16 +17065,19 @@
       }
       if (!globe.moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 5) return;
       globe.moved = true;
-      var k2 = 57.3 / (GR * globe.zoom);
-      globe.lon -= (e.clientX - p.x) * scale * k2;
-      globe.lat = Math.max(-85, Math.min(85, globe.lat + (e.clientY - p.y) * scale * k2));
+      var k2 = 57.3 / (globe.GR * globe.zoom);
+      globe.lon -= (e.clientX - p.x) * k2;
+      globe.lat = Math.max(-85, Math.min(85, globe.lat + (e.clientY - p.y) * k2));
       ptrs[e.pointerId] = { x: e.clientX, y: e.clientY }; drawGlobe();
     });
-    function up(e) { delete ptrs[e.pointerId]; pinch = 0; setTimeout(function () { globe.moved = false; }, 0); }
+    function up(e) {
+      var wasTap = ptrs[e.pointerId] && !globe.moved && e.type === 'pointerup' && (e.target === svg || (e.target.classList && (e.target.classList.contains('gOcean') || e.target.classList.contains('gLand'))));
+      delete ptrs[e.pointerId]; pinch = 0;
+      if (wasTap && (globe.selCl || globe.selP !== null)) { globe.selCl = null; globe.selP = null; drawGlobe(); fillGlobePick(); }
+      setTimeout(function () { globe.moved = false; }, 0);
+    }
     svg.addEventListener('pointerup', up); svg.addEventListener('pointercancel', up); svg.addEventListener('pointerleave', up);
-    svg.addEventListener('wheel', function (e) { e.preventDefault(); globeZoom(e.deltaY < 0 ? 1.15 : 1 / 1.15); }, { passive: false });
-    $('netGlobeIn').addEventListener('click', function () { globeZoom(1.4); });
-    $('netGlobeOut').addEventListener('click', function () { globeZoom(1 / 1.4); });
+    svg.addEventListener('wheel', function (e) { e.preventDefault(); globeZoom(e.deltaY < 0 ? 1.2 : 1 / 1.2); }, { passive: false });
   })();
 
   function loadNetIdeas() {
