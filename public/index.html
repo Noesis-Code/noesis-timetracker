@@ -1298,6 +1298,7 @@
           <button type="button" class="periodBtn active" data-part="home">Accueil</button>
           <button type="button" class="periodBtn" data-part="web">Toile</button>
           <button type="button" class="periodBtn" data-part="ideas">Pistes</button>
+          <button type="button" class="periodBtn" data-part="globe">Globe</button>
         </div>
         <div id="netCrmHome">
           <div class="communitySection">
@@ -1341,6 +1342,14 @@
           </div>
           <svg id="netCrmGraph" class="netSvg" role="img" aria-label="Toile du réseau personnel"></svg>
           <div id="netCrmPick" class="hint"></div>
+        </div>
+        <div id="netCrmGlobe" class="hidden">
+          <svg id="netGlobe" class="netGlobe" role="img" aria-label="Globe du réseau" viewBox="0 0 240 240"></svg>
+          <div class="periodSwitch cmpSeg" id="netGlobeZoom">
+            <button type="button" class="periodBtn" id="netGlobeOut" aria-label="Dézoomer">−</button>
+            <button type="button" class="periodBtn" id="netGlobeIn" aria-label="Zoomer">+</button>
+          </div>
+          <div id="netGlobePick" class="hint"></div>
         </div>
         <div id="netCrmIdeas" class="hidden">
           <div class="communitySection"><p class="cmpBlockTitle">Présentations possibles</p><div id="netIdeaIntros" class="activitiesList"></div></div>
@@ -1614,7 +1623,8 @@
             <input type="text" id="netcCompany" placeholder="Entreprise" maxlength="80">
             <input type="text" id="netcRole" placeholder="Rôle" maxlength="80">
             <input type="text" id="netcMet" placeholder="Rencontré à" maxlength="80">
-            <input type="text" id="netcCity" placeholder="Ville" maxlength="80">
+            <input type="text" id="netcCity" placeholder="Habite à" maxlength="80">
+            <input type="text" id="netcWork" placeholder="Travaille à" maxlength="80">
             <input type="text" id="netcInterests" placeholder="Intérêts, séparés par des virgules">
             <input type="text" id="netcSkills" placeholder="Compétences, séparées par des virgules">
           </div>
@@ -4110,6 +4120,7 @@
 <script src="/js/objectifs-page2-objectif.js"></script>
 <script src="/js/objectifs-offre1-code.js"></script>
 <script src="/js/strategie.js"></script>
+<script src="/js/geo-villes.js"></script>
 <script src="/js/objectifs-document-taches.js"></script>
 <script src="/js/objectifs-page3.js"></script>
 <!-- 2 oct. 2026 : Statistiques, page 2 (avancement par activité) -->

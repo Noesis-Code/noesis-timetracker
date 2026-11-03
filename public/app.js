@@ -16706,7 +16706,7 @@
     var f = net.filters || {}, low = function (a) { return (a || []).map(function (x) { return x.toLowerCase(); }); };
     if (f.interest && low(nd.interests).indexOf(f.interest.toLowerCase()) < 0) return false;
     if (f.skill && low(nd.skills).indexOf(f.skill.toLowerCase()) < 0) return false;
-    if (f.city && (nd.city || '').toLowerCase() !== f.city.toLowerCase()) return false;
+    if (f.city && (nd.city || nd.workCity || '').toLowerCase() !== f.city.toLowerCase()) return false;
     if (f.strength && nd.strength < Number(f.strength)) return false;
     if (f.idle && (Date.now() - new Date(nd.lastTouchAt || nd.createdAt || Date.now()).getTime()) / 86400000 < Number(f.idle)) return false;
     return true;
@@ -16821,6 +16821,7 @@
       drawNetGraph($('netCrmMini'), true);
       if (net.part === 'web') showNetWeb();
       if (net.part === 'ideas') loadNetIdeas();
+      if (net.part === 'globe') showNetGlobe();
     }).catch(function () { /* l'écran reste tel quel */ });
   }
 
@@ -16852,6 +16853,134 @@
       drawNetGraph($('netCrmGraph'), false);
     });
   });
+
+  // ----- Globe : un seul point par contact (ville d'habitation, sinon ville de travail) ; on tourne et on zoome -----
+  var globe = { lon: -40, lat: 25, zoom: 1, sel: null, pins: [], unplaced: 0, moved: false, centered: false };
+  var GR = 100, GC = 120, RAD = Math.PI / 180;
+  function globeProject(lon, lat) {
+    var l = (lon - globe.lon) * RAD, p = lat * RAD, p0 = globe.lat * RAD;
+    var x = Math.cos(p) * Math.sin(l), y = Math.cos(p0) * Math.sin(p) - Math.sin(p0) * Math.cos(p) * Math.cos(l);
+    var z = Math.sin(p0) * Math.sin(p) + Math.cos(p0) * Math.cos(p) * Math.cos(l);
+    return { x: GC + x * GR * globe.zoom, y: GC - y * GR * globe.zoom, vis: z > 0, ux: x, uy: y };
+  }
+  function globeLine(pts, cls, svg) {
+    var d = '', pen = false;
+    pts.forEach(function (q) {
+      var p = globeProject(q[0], q[1]);
+      if (!p.vis) { pen = false; return; }
+      d += (pen ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); pen = true;
+    });
+    if (d) svgEl('path', { class: cls, d: d }, svg);
+  }
+  function globeLand(svg) {
+    TMT.geo.land.forEach(function (poly) {
+      var d = '';
+      for (var i = 0; i < poly.length; i++) {
+        var a = poly[i], b = poly[(i + 1) % poly.length], n = Math.max(1, Math.ceil(Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])) / 4));
+        for (var k = 0; k < n; k++) {
+          var p = globeProject(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n), x = p.ux, y = p.uy;
+          if (!p.vis) { var m = Math.sqrt(x * x + y * y) || 1; x /= m; y /= m; }
+          d += (d ? 'L' : 'M') + (GC + x * GR * globe.zoom).toFixed(1) + ' ' + (GC - y * GR * globe.zoom).toFixed(1);
+        }
+      }
+      svgEl('path', { class: 'gLand', d: d + 'Z' }, svg);
+    });
+  }
+  function globeArc(a, b, svg) {
+    var A = [Math.cos(a.lat * RAD) * Math.cos(a.lon * RAD), Math.cos(a.lat * RAD) * Math.sin(a.lon * RAD), Math.sin(a.lat * RAD)];
+    var B = [Math.cos(b.lat * RAD) * Math.cos(b.lon * RAD), Math.cos(b.lat * RAD) * Math.sin(b.lon * RAD), Math.sin(b.lat * RAD)];
+    var dot = Math.max(-1, Math.min(1, A[0] * B[0] + A[1] * B[1] + A[2] * B[2])), om = Math.acos(dot), pts = [];
+    if (om < 1e-4) return;
+    for (var i = 0; i <= 14; i++) {
+      var f = i / 14, s0 = Math.sin((1 - f) * om) / Math.sin(om), s1 = Math.sin(f * om) / Math.sin(om);
+      var x = s0 * A[0] + s1 * B[0], y = s0 * A[1] + s1 * B[1], z = s0 * A[2] + s1 * B[2];
+      pts.push([Math.atan2(y, x) / RAD, Math.asin(z) / RAD]);
+    }
+    globeLine(pts, 'gLink', svg);
+  }
+  function globePins() {
+    var g = net.graph, map = {};
+    globe.pins = []; globe.unplaced = 0;
+    if (!g) return;
+    g.nodes.forEach(function (nd) {
+      var loc = TMT.geo.find(nd.city) || TMT.geo.find(nd.workCity);
+      if (!loc) { nd.geo = null; globe.unplaced++; return; }
+      nd.geo = loc;
+      var pin = map[loc.key];
+      if (!pin) { pin = map[loc.key] = { key: loc.key, label: (nd.city && TMT.geo.find(nd.city) ? nd.city : nd.workCity), lat: loc.lat, lon: loc.lon, nodes: [] }; globe.pins.push(pin); }
+      pin.nodes.push(nd);
+    });
+    if (!globe.centered && globe.pins.length) {
+      var sx = 0, sy = 0, sz = 0;
+      globe.pins.forEach(function (p) { var w = p.nodes.length; sx += w * Math.cos(p.lat * RAD) * Math.cos(p.lon * RAD); sy += w * Math.cos(p.lat * RAD) * Math.sin(p.lon * RAD); sz += w * Math.sin(p.lat * RAD); });
+      globe.lon = Math.atan2(sy, sx) / RAD; globe.lat = Math.max(-60, Math.min(60, Math.atan2(sz, Math.sqrt(sx * sx + sy * sy)) / RAD));
+      globe.centered = true;
+    }
+  }
+  function drawGlobe() {
+    var svg = $('netGlobe'); svg.innerHTML = '';
+    svgEl('circle', { class: 'gOcean', cx: GC, cy: GC, r: GR * globe.zoom }, svg);
+    var lat, lon, pts;
+    for (lat = -60; lat <= 60; lat += 30) { pts = []; for (lon = -180; lon <= 180; lon += 6) pts.push([lon, lat]); globeLine(pts, 'gGrat', svg); }
+    for (lon = -180; lon < 180; lon += 30) { pts = []; for (lat = -90; lat <= 90; lat += 6) pts.push([lon, lat]); globeLine(pts, 'gGrat', svg); }
+    globeLand(svg);
+    var geoOf = {}; net.graph.nodes.forEach(function (nd) { geoOf[nd.id] = nd.geo; });
+    var seen = {};
+    net.graph.edges.forEach(function (e) {
+      var a = geoOf[e.a], b = geoOf[e.b];
+      if (!a || !b || a.key === b.key || seen[a.key + '|' + b.key] || seen[b.key + '|' + a.key]) return;
+      seen[a.key + '|' + b.key] = true; globeArc(a, b, svg);
+    });
+    globe.pins.forEach(function (p) {
+      var q = globeProject(p.lon, p.lat); if (!q.vis) return;
+      var n = p.nodes.length, r = 3 + Math.min(6, Math.sqrt(n) * 1.3), grp = svgEl('g', {}, svg);
+      svgEl('circle', { class: 'gPin' + (globe.sel === p.key ? ' sel' : ''), cx: q.x, cy: q.y, r: r }, grp);
+      svgEl('circle', { cx: q.x, cy: q.y, r: Math.max(r, 12), fill: 'transparent' }, grp);
+      if (n > 1) svgEl('text', { class: 'gCount', x: q.x, y: q.y + 3 }, grp).textContent = n;
+      if (globe.sel === p.key || globe.zoom >= 3.5) svgEl('text', { class: 'gName', x: q.x, y: q.y - r - 4 }, grp).textContent = p.label;
+      grp.addEventListener('click', function () { if (!globe.moved) { globe.sel = globe.sel === p.key ? null : p.key; drawGlobe(); fillGlobePick(); } });
+    });
+  }
+  function fillGlobePick() {
+    var box = $('netGlobePick'); box.innerHTML = '';
+    var pin = globe.pins.filter(function (p) { return p.key === globe.sel; })[0];
+    if (pin) {
+      var h = document.createElement('p'); h.className = 'cmpBlockTitle'; h.textContent = pin.label + ' · ' + pin.nodes.length; box.appendChild(h);
+      pin.nodes.slice(0, 20).forEach(function (nd) { box.appendChild(netRow(nd)); });
+    } else if (!globe.pins.length) box.textContent = t("Aucun contact pour l'instant.");
+    else box.textContent = t('Touche un point pour voir les contacts de cette ville.');
+    if (globe.unplaced) { var u = document.createElement('div'); u.className = 'meta'; u.textContent = globe.unplaced + ' ' + t('sans ville reconnue'); box.appendChild(u); }
+  }
+  function showNetGlobe() { globePins(); drawGlobe(); fillGlobePick(); }
+  function globeZoom(f) { globe.zoom = Math.max(0.8, Math.min(6, globe.zoom * f)); drawGlobe(); }
+  (function () {
+    var svg = $('netGlobe'), ptrs = {}, pinch = 0, start = null;
+    svg.addEventListener('pointerdown', function (e) {
+      ptrs[e.pointerId] = { x: e.clientX, y: e.clientY }; start = { x: e.clientX, y: e.clientY }; globe.moved = false;
+      if (Object.keys(ptrs).length === 2) { var k = Object.keys(ptrs); pinch = Math.hypot(ptrs[k[0]].x - ptrs[k[1]].x, ptrs[k[0]].y - ptrs[k[1]].y); }
+    });
+    svg.addEventListener('pointermove', function (e) {
+      var p = ptrs[e.pointerId]; if (!p) return;
+      var keys = Object.keys(ptrs), w = svg.getBoundingClientRect().width || 240, scale = 240 / w;
+      if (keys.length === 2) {
+        ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+        var d = Math.hypot(ptrs[keys[0]].x - ptrs[keys[1]].x, ptrs[keys[0]].y - ptrs[keys[1]].y);
+        if (pinch) globeZoom(d / pinch);
+        pinch = d; globe.moved = true; return;
+      }
+      if (!globe.moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 5) return;
+      globe.moved = true;
+      var k2 = 57.3 / (GR * globe.zoom);
+      globe.lon -= (e.clientX - p.x) * scale * k2;
+      globe.lat = Math.max(-85, Math.min(85, globe.lat + (e.clientY - p.y) * scale * k2));
+      ptrs[e.pointerId] = { x: e.clientX, y: e.clientY }; drawGlobe();
+    });
+    function up(e) { delete ptrs[e.pointerId]; pinch = 0; setTimeout(function () { globe.moved = false; }, 0); }
+    svg.addEventListener('pointerup', up); svg.addEventListener('pointercancel', up); svg.addEventListener('pointerleave', up);
+    svg.addEventListener('wheel', function (e) { e.preventDefault(); globeZoom(e.deltaY < 0 ? 1.15 : 1 / 1.15); }, { passive: false });
+    $('netGlobeIn').addEventListener('click', function () { globeZoom(1.4); });
+    $('netGlobeOut').addEventListener('click', function () { globeZoom(1 / 1.4); });
+  })();
 
   function loadNetIdeas() {
     api('GET', '/api/network/insights').then(function (d) {
@@ -16889,6 +17018,8 @@
     $('netCrmHome').classList.toggle('hidden', part !== 'home');
     $('netCrmWeb').classList.toggle('hidden', part !== 'web');
     $('netCrmIdeas').classList.toggle('hidden', part !== 'ideas');
+    $('netCrmGlobe').classList.toggle('hidden', part !== 'globe');
+    if (part === 'globe') { if (net.graph) showNetGlobe(); else loadNetGraph().then(showNetGlobe); }
     if (part === 'web') showNetWeb();
     if (part === 'ideas') loadNetIdeas();
   }
@@ -16920,6 +17051,7 @@
     $('netcRole').value = c ? c.role : '';
     $('netcMet').value = c ? c.whereMet : ($('netEventMode').checked ? $('netEventName').value.trim() : '');
     $('netcCity').value = c ? c.city : '';
+    $('netcWork').value = c ? (c.workCity || '') : '';
     $('netcInterests').value = c ? c.interests.join(', ') : '';
     $('netcSkills').value = c ? c.skills.join(', ') : '';
     $('netcFollow').value = c && c.followUpAt ? c.followUpAt.slice(0, 10) : '';
@@ -16983,7 +17115,7 @@
   $('netCrmAddBtn').addEventListener('click', function () { openNetContact(0); });
   $('netcSave').addEventListener('click', function () {
     var body = {
-      name: $('netcName').value, company: $('netcCompany').value, role: $('netcRole').value, whereMet: $('netcMet').value, city: $('netcCity').value,
+      name: $('netcName').value, company: $('netcCompany').value, role: $('netcRole').value, whereMet: $('netcMet').value, city: $('netcCity').value, workCity: $('netcWork').value,
       interests: netTagList($('netcInterests').value), skills: netTagList($('netcSkills').value), strength: netcStrengthGet(),
       followUpAt: $('netcFollow').value ? new Date($('netcFollow').value + 'T12:00:00').toISOString() : null,
     };

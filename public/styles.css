@@ -1894,6 +1894,20 @@ button { -webkit-user-select: none; user-select: none; }
 #netEventName { margin: 0 0 12px; }
 #netCrmAddBtn { margin: 12px 0 0; }
 .netWhen { margin-left: 4px; }
+/* Globe du réseau : violet seulement, un point par contact. */
+.netGlobe { display: block; width: 100%; max-width: 420px; margin: 0 auto 12px; overflow: hidden; touch-action: none; cursor: grab; user-select: none; }
+.netGlobe:active { cursor: grabbing; }
+.netGlobe .gOcean { fill: rgba(var(--purple-rgb), .06); stroke: var(--glass-calm-line); stroke-width: 1; }
+.netGlobe .gLand { fill: rgba(var(--purple-rgb), .22); stroke: none; }
+.netGlobe .gGrat { fill: none; stroke: var(--glass-calm-line); stroke-width: .5; opacity: .6; }
+.netGlobe .gLink { fill: none; stroke: var(--purple); stroke-width: 1; opacity: .22; }
+.netGlobe .gPin { fill: var(--purple); stroke: var(--bg); stroke-width: 1.5; cursor: pointer; }
+.netGlobe .gPin.sel { stroke: var(--text); stroke-width: 2; }
+.netGlobe .gCount { fill: var(--on-action); font-size: 9px; text-anchor: middle; pointer-events: none; }
+.netGlobe .gName { fill: var(--text); font-size: 10px; text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+#netGlobeZoom { max-width: 160px; margin: 0 auto 12px; }
+#netGlobePick { min-height: 48px; }
+#netGlobePick .activityRow { margin-top: 8px; }
 #netContactModal .settingsFieldList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 #netContactModal input, #netContactModal select { width: 100%; box-sizing: border-box; }
 #netcSave { margin: 12px 0 0; }

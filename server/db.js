@@ -2508,6 +2508,10 @@ if (!columnExists('users', 'communitiesShown')) {
 if (!columnExists('communities', 'sector')) {
   db.exec("ALTER TABLE communities ADD COLUMN sector TEXT NOT NULL DEFAULT ''");
 }
+// Réseau personnel : ville de travail (3 nov. 2026) ; le globe place un contact à sa ville d'habitation, sinon à celle de travail.
+if (!columnExists('network_contacts', 'workCity')) {
+  db.exec("ALTER TABLE network_contacts ADD COLUMN workCity TEXT NOT NULL DEFAULT ''");
+}
 if (!columnExists('time_entries', 'source')) {
   db.exec('ALTER TABLE time_entries ADD COLUMN source TEXT');
 }

@@ -40,6 +40,8 @@ const C = [
   ['Amélie Ouellet', 'Cercle des fondateurs', 'Animatrice de communauté', 'Montreal AI meetup', MINE, ['Community Building', 'AI'], ['Community Building'], 4, 28, null],
   ['Karim Zidane', 'Zidane Sponsors', 'Courtier en commandites', 'VRIC', MINE, ['Event Planning', 'Mining'], ['Sales', 'Capital Raising'], 3, 160, 10],
 ];
+// Ville de travail (indice de C -> [habite, travaille]) : le globe place le contact à l'habitation, sinon au travail.
+const WHERE = { 3: ['Longueuil', MINE], 6: ['Laval', MINE], 13: ['', 'Paris'], 16: ['Lyon', 'Genève'], 20: ['', 'Londres'], 25: ['Lévis', 'Québec'], 2: ['', 'Vancouver'], 9: ['Brossard', MINE] };
 // Pas de lien pour ces contacts sauf un seul (contacts forts à peu relier, vus dans « à mieux relier ») : indices de C.
 const LOOSE = { 9: 7, 12: 13, 24: 22 };
 // Ponts entre grappes : mines <-> événements, événements <-> IA, mines <-> IA (par un seul contact).
@@ -78,15 +80,16 @@ function seedNetworkDemo() {
   db.prepare('DELETE FROM network_contacts WHERE ownerId = ?').run(owner);
   const now = Date.now();
   const iso = (d) => new Date(now + d * 86400000).toISOString();
-  const insC = db.prepare(`INSERT INTO network_contacts (ownerId, name, company, role, whereMet, city, interests, skills, strength, lastTouchAt, followUpAt, createdAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const insC = db.prepare(`INSERT INTO network_contacts (ownerId, name, company, role, whereMet, city, workCity, interests, skills, strength, lastTouchAt, followUpAt, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const insN = db.prepare('INSERT INTO network_notes (contactId, ownerId, body, createdAt) VALUES (?, ?, ?, ?)');
   const insE = db.prepare('INSERT OR IGNORE INTO network_edges (ownerId, a, b) VALUES (?, ?, ?)');
   db.exec('BEGIN');
   try {
     const ids = C.map((c, i) => {
       const created = iso(-(c[8] + 20 + (i * 7) % 120));
-      return Number(insC.run(owner, c[0], c[1], c[2], c[3], c[4], JSON.stringify(c[5]), JSON.stringify(c[6]), c[7], iso(-c[8]), c[9] === null ? null : iso(c[9]), created).lastInsertRowid);
+      const w = WHERE[i] || [c[4], ''];
+      return Number(insC.run(owner, c[0], c[1], c[2], c[3], w[0], w[1], JSON.stringify(c[5]), JSON.stringify(c[6]), c[7], iso(-c[8]), c[9] === null ? null : iso(c[9]), created).lastInsertRowid);
     });
     edgePairs().forEach(([x, y]) => insE.run(owner, Math.min(ids[x], ids[y]), Math.max(ids[x], ids[y])));
     Object.entries(NOTES).forEach(([i, list]) => list.forEach((body, k) => insN.run(ids[i], owner, body, iso(-C[i][8] - k))));

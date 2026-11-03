@@ -23,7 +23,7 @@ function loadAll(ownerId) {
   rows.forEach((r) => adj.set(r.id, new Set()));
   edges.forEach((e) => { if (adj.has(e.a) && adj.has(e.b)) { adj.get(e.a).add(e.b); adj.get(e.b).add(e.a); } });
   const contacts = rows.map((r) => ({
-    id: r.id, name: r.name, company: r.company, role: r.role, whereMet: r.whereMet, city: r.city,
+    id: r.id, name: r.name, company: r.company, role: r.role, whereMet: r.whereMet, city: r.city, workCity: r.workCity || '',
     interests: parseTags(r.interests), skills: parseTags(r.skills), strength: r.strength,
     lastTouchAt: r.lastTouchAt || null, followUpAt: r.followUpAt || null,
     notesCount: notes[r.id] || 0, degree: adj.get(r.id).size, createdAt: r.createdAt,
@@ -52,7 +52,7 @@ function validate(body, partial) {
     if (!r.text) return { error: 'Le nom est obligatoire.' };
     f.name = r.text;
   }
-  for (const [k, word] of [['company', 'Entreprise'], ['role', 'Rôle'], ['whereMet', 'Lieu de rencontre'], ['city', 'Ville']]) {
+  for (const [k, word] of [['company', 'Entreprise'], ['role', 'Rôle'], ['whereMet', 'Lieu de rencontre'], ['city', 'Ville'], ['workCity', 'Ville de travail']]) {
     if (b[k] === undefined) continue;
     const r = textlimits.clean(b[k], { max: 80, word, kind: 'title' });
     if (r.error) return { error: r.error };
@@ -87,8 +87,8 @@ function create(ownerId, fields) {
   const n = db.prepare('SELECT COUNT(*) AS n FROM network_contacts WHERE ownerId = ?').get(ownerId).n;
   if (n >= MAX_CONTACTS) return { error: 'Limite de ' + MAX_CONTACTS + ' contacts atteinte.' };
   const now = new Date().toISOString();
-  const r = db.prepare(`INSERT INTO network_contacts (ownerId, name, company, role, whereMet, city, interests, skills, strength, lastTouchAt, followUpAt, createdAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`).run(ownerId, fields.name, fields.company || '', fields.role || '', fields.whereMet || '', fields.city || '',
+  const r = db.prepare(`INSERT INTO network_contacts (ownerId, name, company, role, whereMet, city, workCity, interests, skills, strength, lastTouchAt, followUpAt, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`).run(ownerId, fields.name, fields.company || '', fields.role || '', fields.whereMet || '', fields.city || '', fields.workCity || '',
     fields.interests || '[]', fields.skills || '[]', fields.strength || 3, fields.followUpAt || null, now);
   return { id: Number(r.lastInsertRowid) };
 }
@@ -158,7 +158,7 @@ function list(ownerId, q) {
     if (!wantI.every((t) => ci.includes(t))) return false;
     if (!wantS.every((t) => cs.includes(t))) return false;
     if (company !== null && norm(c.company) !== company) return false;
-    if (city !== null && norm(c.city) !== city) return false;
+    if (city !== null && norm(c.city) !== city && norm(c.workCity) !== city) return false;
     if (met !== null && norm(c.whereMet) !== met) return false;
     if (strength !== null && c.strength !== strength) return false;
     if (minStrength !== null && c.strength < minStrength) return false;
@@ -188,7 +188,7 @@ function graph(ownerId) {
   const { contacts, edges } = loadAll(ownerId);
   const ids = new Set(contacts.map((c) => c.id));
   return {
-    nodes: contacts.map((c) => ({ id: c.id, name: c.name, company: c.company, role: c.role, city: c.city, whereMet: c.whereMet,
+    nodes: contacts.map((c) => ({ id: c.id, name: c.name, company: c.company, role: c.role, city: c.city, workCity: c.workCity, whereMet: c.whereMet,
       interests: c.interests, skills: c.skills, strength: c.strength, lastTouchAt: c.lastTouchAt, degree: c.degree })),
     edges: edges.filter((e) => ids.has(e.a) && ids.has(e.b)).map((e) => ({ a: e.a, b: e.b })),
   };
@@ -206,7 +206,7 @@ function tags(ownerId) {
     interests: freq(contacts.flatMap((c) => c.interests)),
     skills: freq(contacts.flatMap((c) => c.skills)),
     companies: freq(contacts.map((c) => c.company)),
-    cities: freq(contacts.map((c) => c.city)),
+    cities: freq(contacts.map((c) => c.city || c.workCity)),
     events: freq(contacts.map((c) => c.whereMet)),
   };
 }

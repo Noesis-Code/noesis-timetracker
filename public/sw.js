@@ -68,6 +68,7 @@ const SHELL = [
   '/js/objectifs-page2-objectif.js',
   '/js/objectifs-offre1-code.js',
   '/js/strategie.js',
+  '/js/geo-villes.js',
   '/css/strategie.css',
   '/js/objectifs-document-taches.js',
   '/js/objectifs-page3.js',

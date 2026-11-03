@@ -277,7 +277,7 @@ function buildUserExport(userId) {
     'SELECT id, communityId, body, createdAt FROM community_posts WHERE userId = ? ORDER BY id', userId) : [];
   // Réseau personnel privé (2 nov. 2026) : contacts, notes et liens saisis par la personne.
   const networkContactsOut = has('network_contacts') ? rows(
-    'SELECT id, name, company, role, whereMet, city, interests, skills, strength, lastTouchAt, followUpAt, createdAt FROM network_contacts WHERE ownerId = ? ORDER BY id', userId) : [];
+    'SELECT id, name, company, role, whereMet, city, workCity, interests, skills, strength, lastTouchAt, followUpAt, createdAt FROM network_contacts WHERE ownerId = ? ORDER BY id', userId) : [];
   const networkNotesOut = has('network_notes') ? rows(
     'SELECT id, contactId, body, createdAt FROM network_notes WHERE ownerId = ? ORDER BY id', userId) : [];
   const networkEdgesOut = has('network_edges') ? rows('SELECT a, b FROM network_edges WHERE ownerId = ? ORDER BY a, b', userId) : [];
