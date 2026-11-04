@@ -125,7 +125,6 @@
              #goalsObjectifsView — le cadre de pôle juste au-dessus, lui,
              reste visible mais n'est pas une navigation propre à cet écran). -->
         <div id="goalsTasksView" class="goalsTasksView hidden">
-          <div id="goalsOverloadCard" class="goalsOverloadCard hidden"></div>
           <!-- (Émilien) : tri des tâches par responsable, même gabarit que le filtre Public/Confidentiel des Statistiques. -->
           <div id="goalsRespFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
             <button type="button" class="caSubProjectBtn" id="goalsRespBtn" aria-haspopup="true"><span id="goalsRespBtnLabel">Tous</span></button>
@@ -665,221 +664,13 @@
   // existe, selon l'ordre de chargement des <script> dans index.html.
 
 
-  // design commun des cartes d'alerte (Journée surchargée, Non réalisées,
-  // cible irréaliste, recalcul) : orange, repliées par défaut, croix = masquée pour AUJOURD'HUI
-  // seulement (localStorage, clé carte+activité+jour local ; revient d'elle-même le lendemain).
-  var alertOpen = {};
-  // Clé carte + activité + PÔLE affiché (fermer dans un pôle ne masque pas la carte d'un autre).
-  function alertDayKey(key) { return 'tmt_alert_hide_' + key + '_' + (TMT.currentGoalsActivityId || '') + '_' + (TMT.currentGoalsSelectedPoleKey || ''); }
-  function alertHiddenToday(key) { try { return localStorage.getItem(alertDayKey(key)) === localIso(new Date()); } catch (e) { return false; } }
-  // Prépare la carte (déjà vidée) et renvoie le conteneur du contenu, ou null si masquée aujourd'hui.
-  // les cartes d'alerte reviennent enroulées à chaque changement d'onglet (appelé par switchTab).
-  TMT.collapseGoalsAlerts = function () {
-    alertOpen = {};
-    if (typeof resetRespFilter === 'function') resetRespFilter();
-    document.querySelectorAll('.goalsReportNote').forEach(function (n) { n.remove(); });
-    document.querySelectorAll('.goalsAlertCard.open').forEach(function (c) {
-      c.classList.remove('open');
-      var bd = c.querySelector('.goalsAlertBody'); if (bd) bd.hidden = true;
-      var tg = c.querySelector('.goalsAlertToggle'); if (tg) tg.setAttribute('aria-expanded', 'false');
-    });
-  };
-  // Quitter l'app (autre application, écran verrouillé) puis revenir : cartes enroulées aussi.
-  document.addEventListener('visibilitychange', function () { if (document.hidden && TMT.collapseGoalsAlerts) TMT.collapseGoalsAlerts(); });
-
-  function buildAlertShell(card, key, title) {
-    card.classList.add('goalsAlertCard');
-    if (alertHiddenToday(key)) { card.classList.add('hidden'); return null; }
-    var ns = 'http://www.w3.org/2000/svg';
-    var head = document.createElement('div'); head.className = 'goalsAlertHead';
-    var tg = document.createElement('button'); tg.type = 'button'; tg.className = 'goalsAlertToggle';
-    var ico = document.createElementNS(ns, 'svg'); ico.setAttribute('class', 'goalsAlertIcon'); ico.setAttribute('viewBox', '0 0 24 24'); ico.setAttribute('aria-hidden', 'true');
-    ['M12 3.5 2.5 20h19L12 3.5z', 'M12 10v4.5', 'M12 17.6v.1'].forEach(function (d) { var pa = document.createElementNS(ns, 'path'); pa.setAttribute('d', d); ico.appendChild(pa); });
-    var tt = document.createElement('span'); tt.className = 'goalsAlertTitle'; tt.textContent = title;
-    var chev = TMT.ui.chev(false);
-    tg.appendChild(ico); tg.appendChild(tt); tg.appendChild(chev);
-    head.appendChild(tg);
-    var body = document.createElement('div'); body.className = 'goalsAlertBody';
-    var sk = alertDayKey(key);
-    function sync() { var o = !!alertOpen[sk]; card.classList.toggle('open', o); TMT.ui.setChev(chev, o); body.hidden = !o; tg.setAttribute('aria-expanded', o ? 'true' : 'false'); }
-    tg.addEventListener('click', function () { alertOpen[sk] = !alertOpen[sk]; if (!alertOpen[sk]) card.querySelectorAll('.goalsReportNote').forEach(function (n) { n.remove(); }); sync(); });
-    sync();
-    card.appendChild(head); card.appendChild(body);
-    return body;
-  }
-
-  // carte « surcharge » — plan PROPOSÉ, rien n'est
-  // modifié avant « Valider ». Serveur : server/lib/goalsoverload.js.
-  function loadGoalsOverloadCard() {
-    var activityId = TMT.currentGoalsActivityId;
-    var card = $('goalsOverloadCard');
-    if (!activityId || !card) return;
-    var base = '/api/activities/' + activityId + '/goals/overload';
-    var pole = TMT.currentGoalsSelectedPoleKey || '';
-    card.classList.add('hidden'); card.innerHTML = '';
-    api('GET', base + (pole ? '?pole=' + encodeURIComponent(pole) : '')).then(function (p) {
-      if (String(activityId) !== String(TMT.currentGoalsActivityId) || pole !== (TMT.currentGoalsSelectedPoleKey || '')) return;
-      card.innerHTML = '';
-      if (!p || !p.overloaded) { card.classList.add('hidden'); return; }
-      function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-      function fmt(m) { return m >= 60 ? (Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) : '')) : (m + ' min'); }
-      var ob = buildAlertShell(card, 'overload', p.capLabel ? t('Plafond atteint') + ' \u00b7 ' + p.capLabel : t('Journée surchargée'));
-      if (!ob) return;
-      ob.appendChild(el('p', 'meta', p.capLabel ? t('Ce plafond serait dépassé. Nouveau plan proposé (rien n\'est modifié sans ta validation).') : t('Charge du jour : ') + fmt(p.loadMinutes) + t(' pour une capacité moyenne de ') + fmt(p.budgetMinutes) + t('. Nouveau plan proposé (rien n\'est modifié sans ta validation).')));
-      var ul = el('ul', 'goalsOverloadList');
-      p.moves.slice(0, 6).forEach(function (m) { var li = el('li', null, m.label + ' : ' + (TMT.calendarDayLabel(m.from) || m.from) + ' \u2192 ' + (TMT.calendarDayLabel(m.to) || m.to) + (m.importance ? ' (' + t('importance') + ' ' + t(m.importance) + ')' : '')); if (m.reasons && m.reasons.length) li.title = m.reasons.map(function (r) { return t(r); }).join(' \u00b7 '); ul.appendChild(li); });
-      if (p.moves.length > 6) ul.appendChild(el('li', null, t('… et ') + (p.moves.length - 6) + t(' autres tâches déplacées')));
-      (p.objectives.weekly || []).forEach(function (o) { ul.appendChild(el('li', null, t('Objectif hebdo') + ' « ' + (o.text || '').slice(0, 40) + ' » : ' + fmt(o.before) + ' \u2192 ' + fmt(o.after))); });
-      (p.objectives.period || []).forEach(function (o) { ul.appendChild(el('li', null, t('Objectif de période') + ' « ' + (o.text || '').slice(0, 40) + ' » : ' + fmt(o.before) + ' \u2192 ' + fmt(o.after))); });
-      ob.appendChild(ul);
-      var row = el('div', 'goalsOverloadActions');
-      var ok = el('button', 'goalsOverloadOk', t('Valider'));
-      var no = el('button', 'goalsOverloadNo', p.capLabel ? t('Garder aujourd\'hui') : t('Ignorer'));
-      ok.type = 'button'; no.type = 'button';
-      function done() { loadGoalsOverloadCard(); loadGoalsTasksOverview(); }
-      ok.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/apply', { signature: p.signature, poleKey: pole || undefined }).then(done).catch(done); });
-      no.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/dismiss', { poleKey: pole || undefined }).then(done).catch(done); });
-      row.appendChild(ok); row.appendChild(no); ob.appendChild(row);
-      card.classList.remove('hidden');
-    }).catch(function () { card.classList.add('hidden'); });
-  }
-
-  // « Non réalisées » (report tâche par tâche ou tout d'un coup) et « cible peut-être
-  // irréaliste » (3 options). Tout est PROPOSÉ : rien ne bouge sans clic. Serveur : server/lib/goalscarryover.js.
-  function loadGoalsReportCard() {
-    var activityId = TMT.currentGoalsActivityId;
-    var over = $('goalsOverloadCard');
-    if (!activityId || !over) return;
-    var card = $('goalsReportCard');
-    if (!card) { card = document.createElement('div'); card.id = 'goalsReportCard'; card.className = 'goalsOverloadCard goalsAlertCard goalsReportCard hidden'; over.parentNode.insertBefore(card, over.nextSibling); }
-    var base = '/api/activities/' + activityId + '/goals/';
-    var pole = TMT.currentGoalsSelectedPoleKey || '';
-    api('GET', base + 'unfinished' + (pole ? '?pole=' + encodeURIComponent(pole) : '')).then(function (d) {
-      if (String(activityId) !== String(TMT.currentGoalsActivityId) || pole !== (TMT.currentGoalsSelectedPoleKey || '')) return;
-      card.innerHTML = '';
-      function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-      function hw(m) { return (Math.round(m / 6) / 10) + ' h'; }
-      function inPole(x) { return !pole || x.poleKey === pole; }
-      var tasks = (d.tasks || []).filter(inPole), periods = (d.periods || []).filter(inPole), real = (d.realism || []).filter(inPole);
-      if (!tasks.length && !periods.length && !real.length) { card.classList.add('hidden'); return; }
-      var rb = buildAlertShell(card, 'report', tasks.length || periods.length ? t('Non réalisées') : t('Cible peut-être irréaliste'));
-      if (!rb) return;
-      function refresh() { loadGoalsReportCard(); loadGoalsTasksOverview(); if (TMT.reloadGoalsAll) TMT.reloadGoalsAll(); }
-      function post(path, body) { if (path === 'unfinished/apply' && pole) body = Object.assign({ poleKey: pole }, body); return api('POST', base + path, body).then(refresh).catch(function (e) { alert(e.message); refresh(); }); }
-      real.forEach(function (r) {
-        var box = el('div', 'goalsReportBlock');
-        box.appendChild(el('p', 'goalsOverloadTitle', t('Cible peut-être irréaliste : il faudrait ') + hw(r.needPerWeekMinutes) + t('/sem, tu en fais ') + hw(r.havePerWeekMinutes)));
-        box.appendChild(el('p', 'meta', '« ' + r.text.slice(0, 60) + ' »'));
-        var row = el('div', 'goalsOverloadActions');
-        [['reduce', 'Réduire la cible'], ['spread', 'Étaler sur la période suivante'], ['keep', 'Garder tel quel']].forEach(function (o) {
-          var b = el('button', (o[0] === 'keep' ? 'goalsOverloadNo ' : '') + 'goalsRealismBtn', t(o[1])); b.type = 'button';
-          b.addEventListener('click', function () { row.querySelectorAll('button').forEach(function (x) { x.disabled = true; }); post('realism', { category: r.category, choice: o[0] }); });
-          row.appendChild(b);
-        });
-        box.appendChild(row); rb.appendChild(box);
-      });
-      if (tasks.length || periods.length) {
-        var box2 = el('div', 'goalsReportBlock');
-        box2.appendChild(el('p', 'meta', t('Jour proposé selon ta capacité et tes plafonds. Rien ne bouge sans ton clic.')));
-        var ul = el('ul', 'goalsOverloadList goalsReportList');
-        function line(text, late, btnLabel, onClick, onDelete) {
-          var li = el('li', 'goalsReportItem');
-          li.appendChild(el('span', 'goalsReportText', text));
-          li.appendChild(el('span', 'goalsLateBadge', t('en retard de ') + late + ' j'));
-          var b = el('button', 'goalsReportBtn', btnLabel); b.type = 'button';
-          b.addEventListener('click', function () { if (!b.classList.contains('goalsReportBtn--blocked')) b.disabled = true; onClick(); });
-          li.appendChild(b);
-          if (onDelete) {
-            var d = el('button', 'cmpRemove goalsReportDel'); d.type = 'button'; d.setAttribute('aria-label', t('Supprimer la tâche'));
-            d.addEventListener('click', function () { TMT.ui.confirm(t('Supprimer cette tâche ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return; d.disabled = b.disabled = true; onDelete();
-});});
-            li.appendChild(d);
-          }
-          ul.appendChild(li);
-          return li;
-        }
-        tasks.forEach(function (x) {
-          var day = TMT.calendarDayLabel(x.proposedTo) || x.proposedTo;
-          line(x.label + ' → ' + day + (x.fixed ? ' (' + t('date fixée') + ')' : '') + (x.capLabel ? ' · ' + x.capLabel : ''), x.lateDays, t('Reporter'),
-            function () { post('unfinished/apply', { tasks: [{ id: x.id, to: x.proposedTo }] }); },
-            function () { api('DELETE', '/api/sub-project-items/' + x.id + '?userId=' + TMT.getProfile().id).then(refresh).catch(function (e) { alert(e.message); refresh(); }); });
-        });
-        periods.forEach(function (x) {
-          var pli = line(t('Objectif de période') + ' « ' + x.text.slice(0, 40) + ' »' + (x.targetFree ? '' : ' (' + t('période suivante déjà remplie') + ')'), x.lateDays, t('Reporter'),
-            function () {
-              if (x.targetFree) { post('unfinished/apply', { periods: [x.periodId] }); return; }
-              var li = pli;
-              // Bouton grisé mais cliquable : explique pourquoi le report est impossible.
-              var note = li.nextSibling && li.nextSibling.className === 'goalsReportNote' ? li.nextSibling : null;
-              // Reclic : le message disparaît puis revient aussitôt (fondu), pour montrer qu'il répond au clic.
-              var hadNote = !!note;
-              if (note) note.remove();
-              if (li._noteTimer) clearTimeout(li._noteTimer);
-              li._noteTimer = setTimeout(function () {
-                if (!li.parentNode) return;
-                var n2 = el('li', 'goalsReportNote', t('Erreur : la période suivante a déjà son propre objectif. Pour y reporter celui-ci sans l’écraser, modifie ou vide d’abord l’objectif de la période suivante.'));
-                li.parentNode.insertBefore(n2, li.nextSibling);
-              }, hadNote ? 140 : 0);
-            });
-          if (!x.targetFree) pli.querySelector('button').classList.add('goalsReportBtn--blocked');
-        });
-        box2.appendChild(ul);
-        var auto = tasks.filter(function (x) { return !x.fixed; });
-        var perOk = periods.filter(function (x) { return x.targetFree; });
-        if (auto.length + perOk.length > 1) {
-          var all = el('button', 'goalsReportAll', t('Tout reporter')); all.type = 'button';
-          all.addEventListener('click', function () { all.disabled = true; post('unfinished/apply', { tasks: auto.map(function (x) { return { id: x.id, to: x.proposedTo }; }), periods: perOk.map(function (x) { return x.periodId; }) }); });
-          box2.appendChild(all);
-        }
-        rb.appendChild(box2);
-      }
-      card.classList.remove('hidden');
-    }).catch(function () { card.classList.add('hidden'); });
-  }
-
-  // recalcul d'après le temps réel. Proposition créée par le job nocturne (serveur :
-  // server/lib/goalsrecalc.js) ; rien ne change sans « Appliquer ».
-  function loadGoalsRecalcCard() {
-    var activityId = TMT.currentGoalsActivityId;
-    var anchor = $('goalsReportCard') || $('goalsOverloadCard');
-    if (!activityId || !anchor) return;
-    var card = $('goalsRecalcCard');
-    if (!card) { card = document.createElement('div'); card.id = 'goalsRecalcCard'; card.className = 'goalsOverloadCard goalsAlertCard goalsRecalcCard hidden'; anchor.parentNode.insertBefore(card, anchor.nextSibling); }
-    var base = '/api/activities/' + activityId + '/goals/recalc';
-    var pole = TMT.currentGoalsSelectedPoleKey || '';
-    api('GET', base + (pole ? '?pole=' + encodeURIComponent(pole) : '')).then(function (d) {
-      if (String(activityId) !== String(TMT.currentGoalsActivityId) || pole !== (TMT.currentGoalsSelectedPoleKey || '')) return;
-      card.innerHTML = '';
-      var list = (d.proposals || []).filter(function (x) { return !pole || x.poleKey === pole; });
-      if (!list.length) { card.classList.add('hidden'); return; }
-      function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-      function hw(m) { return (Math.round(m / 6) / 10) + ' h'; }
-      var cb = buildAlertShell(card, 'recalc', t('Noèsis propose de recalculer tes objectifs'));
-      if (!cb) return;
-      function refresh() { loadGoalsRecalcCard(); if (TMT.reloadGoalsAll) TMT.reloadGoalsAll(); }
-      list.forEach(function (x) {
-        var box = el('div', 'goalsReportBlock');
-        box.appendChild(el('p', 'goalsOverloadTitle', x.label + ' : ' + t('ton rythme réel') + ' ' + hw(x.actualPerWeekMinutes) + t('/sem au lieu de ') + hw(x.needPerWeekMinutes)));
-        box.appendChild(el('p', 'meta', t('Nouvelle estimation proposée') + ' : ' + hw(x.currentTargetMinutes) + ' \u2192 ' + hw(x.proposedTargetMinutes) + '. ' + t('Tes textes saisis ne changent pas.')));
-        var row = el('div', 'goalsOverloadActions');
-        var ok = el('button', 'goalsOverloadOk', t('Appliquer'));
-        var no = el('button', 'goalsOverloadNo', t('Plus tard'));
-        ok.type = 'button'; no.type = 'button';
-        ok.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/' + x.id + '/apply', {}).then(refresh).catch(function (e) { alert(e.message); refresh(); }); });
-        // « Plus tard » ne règle rien : pas de refus serveur (qui masquait 7 jours), la carte est masquée pour aujourd'hui et revient demain.
-        no.addEventListener('click', function () { try { localStorage.setItem(alertDayKey('recalc'), localIso(new Date())); } catch (e) { /* stockage indisponible */ } card.classList.add('hidden'); });
-        row.appendChild(ok); row.appendChild(no); box.appendChild(row); cb.appendChild(box);
-      });
-      card.classList.remove('hidden');
-    }).catch(function () { card.classList.add('hidden'); });
-  }
+  // Plus de cartes d'alerte (surcharge, retards, cible irréaliste, recalcul) : tout se règle en silence côté serveur (goalsoverload.rebalance, goalsrecalc).
+  // Appelé par switchTab / changement de page : remet seulement le filtre de responsable à zéro.
+  TMT.collapseGoalsAlerts = function () { if (typeof resetRespFilter === 'function') resetRespFilter(); };
 
   function loadGoalsTasksOverview() {
     var activityId = TMT.currentGoalsActivityId;
     if (!activityId) return;
-    loadGoalsOverloadCard();
-    loadGoalsReportCard();
-    loadGoalsRecalcCard();
     api('GET', '/api/activities/' + activityId + '/goals/tasks/overview?today=' + localIso(new Date()))
       .then(function (data) {
         // L'utilisateur a pu changer d'activité ou de pôle pendant l'aller-
@@ -1129,8 +920,6 @@
     var hdr = $('goalsActivityHeader');
     if (hdr && TMT.subProjectShade) hdr.style.setProperty('--poleColor', TMT.subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, TMT.SUB_PROJECT_SHADE_COUNT));
     if (currentGoalsTasksOverview) renderGoalsTasksOverview(currentGoalsTasksOverview);
-    loadGoalsOverloadCard(); // une carte par pôle : suit le pôle affiché
-    loadGoalsReportCard(); loadGoalsRecalcCard(); // idem : Non réalisées, cible irréaliste et recalcul sont par pôle
   };
 
 

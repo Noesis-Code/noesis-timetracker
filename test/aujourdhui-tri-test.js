@@ -80,6 +80,10 @@ assert(fx && fx.plannedUserId === 'u2' && fx.plannedUserName === 'Zoé' && fx.sh
 assert(rf.todoCount === rf.tasks.filter((t) => !t.done && !t.upcoming && (!t.plannedUserId || t.plannedUserId === 'u1')).length, 'la tâche d\'un autre membre ne compte pas dans « à faire »');
 assert(goalstoday.tasksToday('u2', today).tasks.some((t) => t.id === f1 && !t.upcoming), 'et elle reste dans la liste de son responsable');
 
+// Nuance des pôles : le rang (poleIndex) est celui de la liste des pôles que l'écran Objectifs reçoit (goals.categoriesForActivity), donc le MÊME pôle a la MÊME nuance dans les deux écrans.
+const rk = goalstoday.tasksToday('u1', today).tasks;
+assert(rk.filter((t) => t.pole).every((t) => t.poleIndex === goals.categoriesForActivity(t.activityId).findIndex((c) => c.key === t.pole)), 'poleIndex = rang du pôle dans la liste des pôles actifs (même source que l\'écran Objectifs)');
+
 // Archive : tâches faites des 7 derniers jours (toutes activités) ; passé 7 jours elles disparaissent de l'application mais restent en base et retrouvables (includeLocked).
 const doneAgo = (id, days) => db.prepare('UPDATE sub_project_items SET done = 1, doneAt = ? WHERE id = ?').run(new Date(Date.now() - days * 86400000).toISOString(), id);
 const recent = addDue(gamma, 'Faite hier', today), old = addDue(delta, 'Faite il y a 10 jours', today);

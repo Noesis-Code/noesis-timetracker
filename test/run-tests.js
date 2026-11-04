@@ -89,6 +89,7 @@ const SUITE_FILES = [
   'efficacite-rangement-test.js',
   'tri-maintenance-test.js',
   'aujourdhui-tri-test.js',
+  'rebalance-silencieux-test.js',
   'feuille-balayage-test.js',
   'reforme-test.js',
   'recurrence-frequence-test.js',

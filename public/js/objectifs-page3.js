@@ -21,23 +21,9 @@
         </div>
         <div id="goalsDetailScroll">
           <div id="activityGoalsBlock">
-            <div id="goalsMonthCal" class="goalsMonthCal">
-              <div class="goalsCalNav cmpNav">
-                <button type="button" class="cmpNavArrow" id="goalsCalPrev" aria-label="Mois précédent">‹</button>
-                <span class="cmpNavLabel" id="goalsCalTitle"></span>
-                <button type="button" class="cmpNavArrow" id="goalsCalNext" aria-label="Mois suivant">›</button>
-              </div>
-              <p class="goalsCalPole" id="goalsCalPole"></p>
-              <div class="goalsCalHead" id="goalsCalHead"></div>
-              <div class="goalsCalGrid" id="goalsCalGrid"></div>
-            </div>
-            <div class="goalsPeriodNav cmpNav">
-              <button type="button" class="cmpNavArrow" id="activityGoalsPrevBtn" aria-label="Période précédente">‹</button>
-              <div class="goalsPeriodNavLabel cmpNavLabel">
-                <p class="sectionTitle" id="activityGoalsPeriodTitle"></p>
-                <p class="goalsPeriodDates" id="activityGoalsPeriodDates"></p>
-              </div>
-              <button type="button" class="cmpNavArrow" id="activityGoalsNextBtn" aria-label="Période suivante">›</button>
+            <div class="goalsPeriodNavLabel">
+              <p class="sectionTitle" id="activityGoalsPeriodTitle"></p>
+              <p class="goalsPeriodDates" id="activityGoalsPeriodDates"></p>
             </div>
 
             <!-- (discussion "Objectifs — D"), demande
@@ -48,7 +34,6 @@
                  périodique), objectif périodique en dernier. Rempli par
                  renderActivityGoals() (app.js) à partir de
                  currentGoalsCategory. -->
-            <p class="goalsCategoryLabel" id="activityGoalsCategoryLabel"></p>
 
             <!-- (discussion "Objectifs — D"), demande
                  d'Emilien : « réduire la section de l'objectif périodique au
@@ -176,9 +161,15 @@
                  cliquable par jour (ancien mécanisme de renvoi vers la carte
                  hebdomadaire) disparaît avec elle : redondant maintenant que
                  le jour est déjà affiché sous sa propre semaine. -->
-            <div id="activityGoalsPeriodBody">
-              <p class="goalCardLabel goalsWeeklyLabel">Objectifs hebdomadaires</p>
-              <div id="activityGoalsWeeklyList" class="goalsWeeklyList"></div>
+            <div id="goalsMonthCal" class="goalsMonthCal">
+              <div class="goalsCalNav cmpNav">
+                <button type="button" class="cmpNavArrow" id="goalsCalPrev" aria-label="Mois précédent">‹</button>
+                <span class="cmpNavLabel" id="goalsCalTitle"></span>
+                <button type="button" class="cmpNavArrow" id="goalsCalNext" aria-label="Mois suivant">›</button>
+              </div>
+              <p class="goalsCalPole" id="goalsCalPole"></p>
+              <div class="goalsCalHead" id="goalsCalHead"></div>
+              <div class="goalsCalGrid" id="goalsCalGrid"></div>
             </div>
 
             <p class="goalBilanHint hidden" id="activityGoalsBilan"></p>
@@ -678,18 +669,14 @@
     host.appendChild(start); host.appendChild(sep); host.appendChild(end);
   }
 
+  // Ligne d'objectif hebdomadaire (existante : texte, statut, éditeur, jours) de chaque semaine de la période AFFICHÉE, posée juste au-dessus de sa rangée du calendrier de mois
+  // (conteneur .goalsCalObj créé par renderGoalsMonthCal ; une semaine hors du mois affiché n'a pas de conteneur).
   function renderGoalsWeeklyList(period) {
-    var box = $('activityGoalsWeeklyList');
-    box.innerHTML = '';
-    // « les objectifs
-    // hebdomadaires [...] entourés par la même nuance de couleur attribuée à
-    // la catégorie » — même source que mainCardEl plus haut
-    // (currentGoalsCategoryColor()), posée sur le cadre UNIQUE qui entoure
-    // les 4 semaines (.goalsWeeklyList), inchangé par ce passage.
-    box.style.borderColor = currentGoalsCategoryColor();
-    // ordre DESCENDANT, S4 (le plus futur) en haut.
-    for (var weekIndex = (period.weeksCount || 4); weekIndex >= 1; weekIndex -= 1) {
+    for (var weekIndex = 1; weekIndex <= (period.weeksCount || 4); weekIndex += 1) {
       (function (weekIndex) {
+        var box = document.querySelector('.goalsCalObj[data-period="' + period.periodNumber + '"][data-week="' + weekIndex + '"]');
+        if (!box) return;
+        var un = box.classList.contains('unrealistic'); box.textContent = ''; box.className = 'goalsCalObj goalsWeeklyList' + (un ? ' unrealistic' : ''); box.style.borderColor = currentGoalsCategoryColor();
         var w = null;
         for (var i = 0; i < period.weeklies.length; i++) {
           if (period.weeklies[i].weekIndex === weekIndex) { w = period.weeklies[i]; break; }
@@ -905,22 +892,38 @@
     var first = calMonth.y + '-' + pad(calMonth.m + 1) + '-01', lastDay = new Date(Date.UTC(calMonth.y, calMonth.m + 1, 0)).getUTCDate();
     var dow = (new Date(Date.UTC(calMonth.y, calMonth.m, 1)).getUTCDay() + 6) % 7; // lundi = 0
     var start = isoAddDays(first, -dow), rows = Math.ceil((dow + lastDay) / 7);
-    var weeks = [], ends = [];
+    var slots = [], ends = [];
     periods.forEach(function (p) {
-      (p.weeklies || []).forEach(function (w) {
-        if (!w.text) return;
-        var ws = isoAddDays(p.startDate, (w.weekIndex - 1) * 7), we = isoAddDays(ws, 6);
+      for (var wi = 1; wi <= (p.weeksCount || 4); wi++) {
+        var ws = isoAddDays(p.startDate, (wi - 1) * 7), we = isoAddDays(ws, 6);
         if (we > p.endDate) we = p.endDate;
-        weeks.push({ p: p, w: w, s: ws, e: we });
-      });
+        var w = null; (p.weeklies || []).forEach(function (x) { if (x.weekIndex === wi) w = x; });
+        slots.push({ p: p, wi: wi, w: w, s: ws, e: we });
+      }
       if (p.mainGoalText && p.endDate) ends.push({ p: p, d: p.endDate });
     });
-    var color = currentGoalsCategoryColor(), today = isoToday(), endDays = {};
+    var color = currentGoalsCategoryColor(), today = isoToday(), endDays = {}, real = planning.realism && planning.realism.unrealistic ? planning.realism : null;
     ends.forEach(function (x) { endDays[x.d] = true; });
     grid.textContent = '';
     for (var r = 0; r < rows; r++) {
       var rs = isoAddDays(start, r * 7), re = isoAddDays(rs, 6);
       var row = document.createElement('div'); row.className = 'goalsCalWeek';
+      // Objectif HEBDOMADAIRE de la semaine, au-dessus de sa rangée : la ligne existante (texte, statut, éditeur, + pour ajouter) pour la période affichée (posée par renderGoalsWeeklyList),
+      // une ligne compacte pour une semaine d'une autre période (un toucher bascule sur cette période et ouvre l'éditeur).
+      var slot = null; slots.forEach(function (x) { if (!slot && x.s <= re && x.e >= rs) slot = x; });
+      if (slot) {
+        var obj = document.createElement('div'); obj.className = 'goalsCalObj'; obj.dataset.period = String(slot.p.periodNumber); obj.dataset.week = String(slot.wi);
+        if (!view || slot.p.periodNumber !== view.periodNumber) {
+          var line = document.createElement('button'); line.type = 'button'; line.className = 'goalsCalObjLine' + (slot.w && slot.w.status === 'atteint' ? ' done' : '');
+          line.style.background = color; line.style.color = readableTextOn(color);
+          line.textContent = (slot.w && slot.w.text) || ('+ ' + t('Ajouter'));
+          line.addEventListener('click', function () { openGoalsCalPeriod(slot.p, function () { openGoalsWeekEditor(slot.p, slot.wi); }); });
+          obj.appendChild(line);
+        } else if (real && real.periodNumber === slot.p.periodNumber && slot.s <= today && slot.e >= today) {
+          obj.classList.add('unrealistic'); obj.title = t('Cible peut-être irréaliste'); // marque sur l'objectif de la semaine en cours
+        }
+        row.appendChild(obj);
+      }
       var days = document.createElement('div'); days.className = 'goalsCalDays';
       for (var c = 0; c < 7; c++) {
         var di = isoAddDays(rs, c), cell = document.createElement('span');
@@ -929,36 +932,31 @@
         days.appendChild(cell);
       }
       row.appendChild(days);
-      weeks.filter(function (x) { return x.s <= re && x.e >= rs; }).forEach(function (x) {
-        var s0 = x.s < rs ? rs : x.s, e0 = x.e > re ? re : x.e;
-        var c0 = Math.round((Date.parse(s0) - Date.parse(rs)) / 86400000), c1 = Math.round((Date.parse(e0) - Date.parse(rs)) / 86400000);
-        var bar = document.createElement('button'); bar.type = 'button';
-        bar.className = 'goalsCalBar' + (x.w.status === 'atteint' ? ' done' : '');
-        bar.style.gridColumn = (c0 + 1) + ' / ' + (c1 + 2);
-        bar.style.background = color; bar.style.color = readableTextOn(color);
-        bar.textContent = x.w.text; bar.title = x.w.text;
-        bar.addEventListener('click', function () { openGoalsCalPeriod(x.p, function () { openGoalsWeekEditor(x.p, x.w.weekIndex); }); });
-        var line = document.createElement('div'); line.className = 'goalsCalBars'; line.appendChild(bar); row.appendChild(line);
-      });
       ends.filter(function (x) { return x.d >= rs && x.d <= re; }).forEach(function (x) {
-        var e = document.createElement('button'); e.type = 'button'; e.className = 'goalsCalEnd';
-        e.textContent = t('Échéance') + ' · ' + x.p.mainGoalText; e.title = x.p.mainGoalText;
-        e.addEventListener('click', function () { openGoalsCalPeriod(x.p, function () { var m = $('activityGoalsMainCard'); if (m) m.scrollIntoView({ behavior: 'smooth', block: 'center' }); }); });
-        row.appendChild(e);
+        var en = document.createElement('button'); en.type = 'button'; en.className = 'goalsCalEnd';
+        en.textContent = t('Échéance') + ' · ' + x.p.mainGoalText; en.title = x.p.mainGoalText;
+        en.addEventListener('click', function () { openGoalsCalPeriod(x.p, function () { var m = $('activityGoalsMainCard'); if (m) m.scrollIntoView({ behavior: 'smooth', block: 'center' }); }); });
+        row.appendChild(en);
       });
       grid.appendChild(row);
     }
   }
-  $('goalsCalPrev').addEventListener('click', function () { if (!calMonth) return; calMonth.m -= 1; if (calMonth.m < 0) { calMonth.m = 11; calMonth.y -= 1; } renderGoalsMonthCal(); });
-  $('goalsCalNext').addEventListener('click', function () { if (!calMonth) return; calMonth.m += 1; if (calMonth.m > 11) { calMonth.m = 0; calMonth.y += 1; } renderGoalsMonthCal(); });
+  // Navigation de mois : la période affichée (objectif périodique) suit le mois (celle qui contient son milieu).
+  function stepGoalsMonth(delta) {
+    if (!calMonth) return;
+    calMonth.m += delta; if (calMonth.m < 0) { calMonth.m = 11; calMonth.y -= 1; } if (calMonth.m > 11) { calMonth.m = 0; calMonth.y += 1; }
+    var mid = calMonth.y + '-' + String(calMonth.m + 1).padStart(2, '0') + '-15', hit = null;
+    ((TMT.currentGoalsPlanning && TMT.currentGoalsPlanning.periods) || []).forEach(function (p) { if (!hit && p.startDate <= mid && p.endDate >= mid) hit = p; });
+    if (hit && hit.periodNumber !== TMT.currentGoalsViewPeriodNumber) { calMonth.forPeriod = hit.periodNumber; TMT.currentGoalsViewPeriodNumber = hit.periodNumber; renderActivityGoals(); } else renderGoalsMonthCal();
+  }
+  $('goalsCalPrev').addEventListener('click', function () { stepGoalsMonth(-1); });
+  $('goalsCalNext').addEventListener('click', function () { stepGoalsMonth(1); });
 
 
   function renderActivityGoals() {
     if (!TMT.currentGoalsPlanning) return;
 
     var period = goalPeriodByNumber(TMT.currentGoalsPlanning, TMT.currentGoalsViewPeriodNumber);
-    $('activityGoalsPrevBtn').disabled = !goalPeriodByNumber(TMT.currentGoalsPlanning, TMT.currentGoalsViewPeriodNumber - 1);
-    $('activityGoalsNextBtn').disabled = !goalPeriodByNumber(TMT.currentGoalsPlanning, TMT.currentGoalsViewPeriodNumber + 1);
     if (!period) return;
 
     var title = t('Période') + ' ' + period.periodIndexInCycle;
@@ -1804,16 +1802,6 @@
     });
   }
 
-
-  $('activityGoalsPrevBtn').addEventListener('click', function () {
-    if (TMT.currentGoalsViewPeriodNumber > 1) { TMT.currentGoalsViewPeriodNumber -= 1; renderActivityGoals(); }
-  });
-
-  $('activityGoalsNextBtn').addEventListener('click', function () {
-    if (!goalPeriodByNumber(TMT.currentGoalsPlanning, TMT.currentGoalsViewPeriodNumber + 1)) return;
-    TMT.currentGoalsViewPeriodNumber += 1;
-    renderActivityGoals();
-  });
 
 
   // (7e passage, demande d'Emilien — "un seul mode : la

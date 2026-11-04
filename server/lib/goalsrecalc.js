@@ -69,35 +69,21 @@ function evaluatePeriod(userId, p, today) {
   return ev ? { ...ev, currentTargetMinutes: target } : null;
 }
 
+// Recalcul SILENCIEUX (plus de proposition ni de carte) : seul le TEMPS ESTIMÉ du grand objectif de la période en cours est ajusté, et seulement s'il n'a pas été saisi à la main
+// (source « manual » : jamais modifié). Le texte et les dates des objectifs ne changent jamais ; les propositions en attente d'avant sont classées sans suite.
 function runForUser(userId, activityId, today) {
   const periods = db.prepare(`SELECT * FROM goal_periods WHERE activityId = ? AND startDate <= ? AND endDate >= ?
     AND mainGoalText IS NOT NULL AND TRIM(mainGoalText) != ''`).all(activityId, today, today);
-  let created = 0;
-  const cutoff = new Date(Date.now() - COOLDOWN_DAYS * 86400000).toISOString();
+  let changed = 0;
   periods.forEach((p) => {
+    db.prepare("UPDATE goal_recalc_proposals SET status = 'dismissed', decidedAt = ? WHERE userId = ? AND activityId = ? AND category = ? AND status = 'pending'").run(new Date().toISOString(), userId, activityId, p.category);
+    if (p.mainGoalEstimateSource === 'manual') return;
     const ev = evaluatePeriod(userId, p, today);
-    const pending = db.prepare("SELECT id FROM goal_recalc_proposals WHERE userId = ? AND activityId = ? AND category = ? AND status = 'pending'")
-      .get(userId, activityId, p.category);
-    if (pending) {
-      // Mise à jour de la proposition en attente (jamais un doublon) ; retirée si l'écart a disparu.
-      if (!ev) db.prepare('DELETE FROM goal_recalc_proposals WHERE id = ?').run(pending.id);
-      else db.prepare(`UPDATE goal_recalc_proposals SET periodId = ?, periodNumber = ?, reason = ?, currentTargetMinutes = ?,
-        proposedTargetMinutes = ?, needPerWeekMinutes = ?, actualPerWeekMinutes = ?, weeksLeft = ? WHERE id = ?`)
-        .run(p.id, p.periodNumber, ev.reason, ev.currentTargetMinutes, ev.proposedTargetMinutes, ev.needPerWeekMinutes, ev.actualPerWeekMinutes, ev.weeksLeft, pending.id);
-      return;
-    }
-    if (!ev) return;
-    const refused = db.prepare("SELECT 1 FROM goal_recalc_proposals WHERE userId = ? AND activityId = ? AND category = ? AND status = 'dismissed' AND decidedAt > ?")
-      .get(userId, activityId, p.category, cutoff);
-    if (refused) return;
-    db.prepare(`INSERT INTO goal_recalc_proposals (userId, activityId, category, periodId, periodNumber, createdAt, reason,
-      currentTargetMinutes, proposedTargetMinutes, needPerWeekMinutes, actualPerWeekMinutes, weeksLeft)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(userId, activityId, p.category, p.id, p.periodNumber, new Date().toISOString(), ev.reason,
-        ev.currentTargetMinutes, ev.proposedTargetMinutes, ev.needPerWeekMinutes, ev.actualPerWeekMinutes, ev.weeksLeft);
-    created += 1;
+    if (!ev || ev.proposedTargetMinutes === p.mainGoalEstimateMinutes) return;
+    db.prepare("UPDATE goal_periods SET mainGoalEstimateMinutes = ?, mainGoalEstimateSource = 'recalc' WHERE id = ?").run(ev.proposedTargetMinutes, p.id);
+    changed += 1;
   });
-  return created;
+  return changed;
 }
 
 // Passage complet (job nocturne ou déclenchement manuel). Ne modifie aucun objectif.

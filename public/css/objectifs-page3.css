@@ -16,7 +16,6 @@
   padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
-.goalsPeriodNav { margin-bottom: 14px; }
 
 .goalsPeriodNavLabel .sectionTitle { margin: 0; }
 
@@ -465,12 +464,14 @@
 .goalsCalPole { margin: 0 0 8px; text-align: center; font-size: 13px; color: var(--text-light); }
 .goalsCalHead { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 8px; text-align: center; font-size: 13px; color: var(--text-light); }
 .goalsCalWeek { padding: 8px 0; border-top: 1px solid var(--sep); }
-.goalsCalDays, .goalsCalBars { display: grid; grid-template-columns: repeat(7, 1fr); }
-.goalsCalBars { margin-top: 8px; }
+.goalsCalDays { display: grid; grid-template-columns: repeat(7, 1fr); }
+.goalsCalObj { margin-bottom: 8px; }
+.goalsCalObj.goalsWeeklyList { margin-bottom: 8px; }
+.goalsCalObj.unrealistic { box-shadow: inset 0 0 0 2px var(--warn-text-2); border-radius: var(--radius-sm); }
+.goalsCalObjLine { display: block; width: 100%; min-height: 32px; padding: 0 12px; border: 0; border-radius: var(--radius-sm); box-sizing: border-box; font: inherit; font-size: 13px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.goalsCalObjLine.done { opacity: .45; }
 .goalsCalDay { justify-self: center; width: 28px; height: 28px; line-height: 28px; box-sizing: border-box; border-radius: 50%; text-align: center; font-size: 14px; color: var(--text); }
 .goalsCalDay.out { color: var(--text-light); opacity: .45; }
 .goalsCalDay.today { box-shadow: inset 0 0 0 1.5px var(--text); }
 .goalsCalDay.end { color: var(--danger); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
-.goalsCalBar { position: relative; min-height: 28px; padding: 0 8px; border: 0; border-radius: var(--radius-sm); box-sizing: border-box; font: inherit; font-size: 13px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-.goalsCalBar.done { opacity: .45; }
 .goalsCalEnd { display: block; width: 100%; margin-top: 8px; padding: 0; border: 0; background: none; color: var(--danger); font: inherit; font-size: 13px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }

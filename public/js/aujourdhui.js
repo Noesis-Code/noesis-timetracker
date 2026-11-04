@@ -810,7 +810,7 @@
     if (sortMode === 'assignee') { paintAssignees(list, foreign, me); return; }    if (sortMode !== 'activity') { list.forEach(function (t) { addRow(t, listBox); }); return; }
     group(list.concat(upc), function (t) { return t.activityId; }).forEach(function (a) {
       var inAct = function (aBody) {
-        group(a.items, function (t) { return t.pole || ''; }).forEach(function (p) {
+        group(a.items, function (t) { return t.pole || ''; }).sort(function (x, y) { return (x.items[0].poleIndex || 0) - (y.items[0].poleIndex || 0); }).forEach(function (p) { // pôles dans l'ordre de leur rang (même ordre et même nuance que l'écran Objectifs)
           var items = p.items; // le serveur a déjà appliqué la règle des 5 par secteur (goalstoday.js) : base entière, complétée par les tâches à venir si moins de 5
           var inPole = function (pBody) {
             group(items, function (t) { return t.sector || ''; }).forEach(function (s) {

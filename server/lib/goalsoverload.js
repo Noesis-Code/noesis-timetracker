@@ -61,7 +61,7 @@ function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DA
   const days = [];
   for (let i = 0; i <= lookahead; i += 1) days.push(goals.addDays(today, i));
   const isLong = (t) => !!t.long;
-  const movable = (t) => !isLong(t) && !!t.dueDateAuto;
+  const movable = (t) => !isLong(t) && !!t.dueDateAuto && !t.pinned; // pinned : réforme ou maintenance urgente, jamais déplacée
   const cur = new Map();
   tasks.forEach((t) => { if (t.dueDate && !isLong(t)) cur.set(t.id, eff(t)); });
   const load = {};
@@ -89,8 +89,10 @@ function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DA
     cands.forEach((t) => {
       if (kept === 0 || kept + t.minutes <= budget) { kept += t.minutes; return; }
       const after = days.slice(di + 1);
-      let to = after.find((e) => load[e] + t.minutes <= budget);
-      if (!to && after.length) to = after.reduce((b, e) => (load[e] < load[b] ? e : b), after[0]);
+      const okDay = (e) => !t.deadline || e <= t.deadline; // jamais au-delà de l'échéance de la période
+      let to = after.find((e) => okDay(e) && load[e] + t.minutes <= budget);
+      const pool = after.filter(okDay);
+      if (!to && pool.length) to = pool.reduce((b, e) => (load[e] < load[b] ? e : b), pool[0]);
       if (!to) { kept += t.minutes; return; }
       load[d] -= t.minutes;
       load[to] += t.minutes;
@@ -133,6 +135,12 @@ function loadTasks(activityId, budget, today, poleKey) {
     const span = captureplace.longSpan(total, budget);
     if (!span) return { ...r, minutes: total };
     return { ...r, long: true, spanDays: span.days, rest: span.rest, minutes: total };
+  });
+  const reforms = require('./reform').readMany(kept.map((r) => r.id)), kinds = require('./taskkind').readMany(kept.map((r) => r.id));
+  tasks.forEach((t) => {
+    const k = kinds[t.id] || {};
+    t.pinned = !!reforms[t.id] || (k.kind === 'maintenance' && !!k.urgent);
+    if (t.dueDateAuto && t.category) { try { const g = goalsAt(activityId, t.category, t.dueDate); t.deadline = g && g.period ? g.period.endDate : null; } catch (e) { t.deadline = null; } }
   });
   // Charge de chaque jour (même règle que computeProposal) pour le critère « journée chargée ».
   const dayLoad = {};
@@ -203,14 +211,15 @@ function signatureOf(moves) {
 
 // poleKey (optionnel) : ne garde que les déplacements de CE pôle (le secteur remonte au pôle).
 // Avec poleKey, charge ET capacité ET tâches sont celles de CE pôle (secteurs remontés au pôle) ; sans poleKey, toute l'activité.
-function getProposal(userId, activityId, poleKey) {
+function getProposal(userId, activityId, poleKey) { return buildProposal(userId, activityId, poleKey, false); }function buildProposal(userId, activityId, poleKey, ignoreDismissed, strict) { // strict (déplacement silencieux) : seules les dates posées par le moteur (dueDateAuto = 1) bougent ; une date par défaut ou suggérée (2) reste
   const today = todayLocal();
   try { captureplace.redispatchOverdue(userId, activityId); } catch (e) { /* non bloquant */ }
-  if (db.prepare("SELECT 1 FROM goal_overload_dismissals WHERE userId = ? AND activityId = ? AND day = ? AND (poleKey = '' OR poleKey = ?)").get(userId, activityId, today, poleKey || '')) {
+  if (!ignoreDismissed && db.prepare("SELECT 1 FROM goal_overload_dismissals WHERE userId = ? AND activityId = ? AND day = ? AND (poleKey = '' OR poleKey = ?)").get(userId, activityId, today, poleKey || '')) {
     return { overloaded: false, dismissed: true };
   }
   const budget = budgetFor(activityId, userId, poleKey);
   const tasks = loadTasks(activityId, budget, today, poleKey);
+  if (strict) tasks.forEach((t) => { if (t.dueDateAuto !== 1) t.pinned = true; });
   const p = computeProposal({ today, budgetMinutes: budget, tasks });
   // Plafonds de temps : appliqués APRÈS le plan de surcharge, mêmes règles
   // (proposé seulement, dates posées par le moteur uniquement).
@@ -253,21 +262,45 @@ function getProposal(userId, activityId, poleKey) {
 
 // Applique le plan APRÈS validation. `signature` = celle de l'aperçu vu par
 // l'utilisateur ; si le plan a changé entre-temps (409), rien n'est écrit.
+// Écrit les déplacements du plan. withObjectives : transfère aussi les temps ESTIMÉS des objectifs (seulement après validation de l'utilisateur).
+function applyMoves(p, withObjectives) {
+  db.exec('BEGIN');
+  try {
+    const upd = db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?');
+    p.moves.forEach((m) => upd.run(m.to, m.id));
+    if (withObjectives) p.objectives.weekly.forEach((e) => db.prepare("UPDATE goal_weekly SET estimateMinutes = ?, estimateSource = 'plan-surcharge' WHERE id = ?").run(e.after, e.id));
+    if (withObjectives) p.objectives.period.forEach((e) => db.prepare("UPDATE goal_periods SET mainGoalEstimateMinutes = ?, mainGoalEstimateSource = 'plan-surcharge' WHERE id = ?").run(e.after, e.id));
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+}
+
 function applyProposal(userId, activityId, signature, poleKey) {
   const p = getProposal(userId, activityId, poleKey);
   if (!p.overloaded) return { applied: 0 };
   if (signature && signature !== p.signature) {
     throw Object.assign(new Error('Le plan a changé depuis son affichage.'), { statusCode: 409 });
   }
-  db.exec('BEGIN');
-  try {
-    const upd = db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?');
-    p.moves.forEach((m) => upd.run(m.to, m.id));
-    p.objectives.weekly.forEach((e) => db.prepare("UPDATE goal_weekly SET estimateMinutes = ?, estimateSource = 'plan-surcharge' WHERE id = ?").run(e.after, e.id));
-    p.objectives.period.forEach((e) => db.prepare("UPDATE goal_periods SET mainGoalEstimateMinutes = ?, mainGoalEstimateSource = 'plan-surcharge' WHERE id = ?").run(e.after, e.id));
-    db.exec('COMMIT');
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  applyMoves(p, true);
   return { applied: p.moves.length };
+}
+
+// UNE SEULE fonction de rééquilibrage, en silence (plus de carte ni de proposition) : (1) tâches en retard posées par le moteur replacées selon leur urgence
+// (captureplace.redispatchOverdue), (2) journée au-delà de la capacité : les moins importantes passent au prochain jour libre, dans la limite de l'échéance de leur période,
+// en cascade si des retards urgents ont pris la place. Seules les dates posées par le moteur (dueDateAuto) bougent ; date saisie à la main, réforme, maintenance urgente : jamais.
+// Déclenchée à l'ouverture de la liste du jour et du calendrier (au plus une fois par 30 s et par activité).
+const lastRebalance = new Map();
+function rebalance(userId, activityId, opts) {
+  const key = userId + '|' + activityId, now = Date.now();
+  if (!(opts && opts.force) && now - (lastRebalance.get(key) || 0) < 30000) return { applied: 0, skipped: true };
+  lastRebalance.set(key, now);
+  const p = buildProposal(userId, activityId, undefined, true, true);
+  if (!p.overloaded) return { applied: 0 };
+  const isAuto = db.prepare('SELECT dueDateAuto FROM sub_project_items WHERE id = ?');
+  const deadlineOf = (m) => { try { const g = m.category ? goalsAt(activityId, m.category, m.from) : null; return g && g.period ? g.period.endDate : null; } catch (e) { return null; } };
+  const moves = p.moves.filter((m) => ((isAuto.get(m.id) || {}).dueDateAuto || 0) === 1 && (!deadlineOf(m) || m.to <= deadlineOf(m)));
+  if (!moves.length) return { applied: 0 };
+  applyMoves({ moves, objectives: { weekly: [], period: [] } }, false);
+  return { applied: moves.length };
 }
 
 function dismissProposal(userId, activityId, poleKey) {
@@ -275,4 +308,4 @@ function dismissProposal(userId, activityId, poleKey) {
   return { dismissed: true };
 }
 
-module.exports = { budgetFor, loadTasks, computeProposal, getProposal, applyProposal, dismissProposal };
+module.exports = { budgetFor, loadTasks, computeProposal, getProposal, applyProposal, dismissProposal, rebalance };

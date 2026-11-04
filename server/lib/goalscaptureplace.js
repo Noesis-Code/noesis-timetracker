@@ -345,10 +345,19 @@ function redispatchOverdue(userId, activityId) {
     withSpan.filter((r) => !r.span && !overdue(r) && blocked.has(r.dueDate))
       .forEach((r) => upd.run(chooseAutoPlacementDate(userId, activityId, r.category, r.label, r.id), r.id));
   }
+  // Urgence : un retard d'importance « haute » reprend la place d'AUJOURD'HUI (la logique de surcharge décale ensuite, en cascade, les moins importantes) ; les autres sont replacés par capacité.
+  // Une réforme n'est jamais déplacée.
+  let reforms = {}, ctx = {};
+  try { reforms = require('./reform').readMany(lateShort.map((r) => r.id)); ctx = require('./goalsimportance').loadGoalContexts(lateShort.map((r) => r.id)); } catch (e) { /* sans contexte : replacement par capacité */ }
+  let moved = lateLong.length;
   lateShort.forEach((r) => {
-    upd.run(chooseAutoPlacementDate(userId, activityId, r.category, r.label, r.id), r.id);
+    if (reforms[r.id]) return;
+    let urgent = false;
+    try { urgent = require('./goalsimportance').computeImportance({ today, goal: ctx[r.id], minutes: taskMinutes(activityId, r.category, r.label), capacity: cap, dayLoadMinutes: 0 }).level === 'haute'; } catch (e) { urgent = false; }
+    upd.run(urgent ? today : chooseAutoPlacementDate(userId, activityId, r.category, r.label, r.id), r.id);
+    moved += 1;
   });
-  return lateLong.length + lateShort.length;
+  return moved;
 }
 
 // Rangement par défaut à la capture (page 1) — date = aujourd'hui ;

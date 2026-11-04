@@ -21,6 +21,7 @@ function tasksToday(userId, todayParam, dayParam) {
   const today = day;
   const acts = db.prepare(`SELECT a.id, a.name, m.color FROM activities a JOIN activity_members m ON m.activityId = a.id
     WHERE m.userId = ? AND a.active = 1 ORDER BY m.position, a.id`).all(userId); // ordre des activités dans l'application (même ordre que la liste des activités)
+  if (!other) acts.forEach((a) => { try { require('./goalsoverload').rebalance(userId, a.id); } catch (e) { /* non bloquant */ } }); // rééquilibrage silencieux à l'ouverture de la liste (au plus 1 fois / 30 s / activité)
   const actIndex = new Map(acts.map((a, i) => [a.id, i])); const sharedActs = new Set(acts.filter((a) => db.prepare('SELECT COUNT(*) AS c FROM activity_members WHERE activityId = ?').get(a.id).c > 1).map((a) => a.id)); // activités partagées : le panneau de modification propose alors « Responsable »
   const todo = [], done = [], others = []; // others : tâches à faire confiées à un autre membre (tri « Responsable » seulement ; jamais comptées)
   // Les durées estimées ne se calculent que pour les tâches affichées (et un calcul par catégorie : mémo le temps de la requête).
