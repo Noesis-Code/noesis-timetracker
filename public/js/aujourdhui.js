@@ -90,7 +90,7 @@
       box.textContent = '';
       if (rowBuilder) tasks.forEach(function (task) { rowBuilder(task, box); }); // même ligne que dans la liste du jour (cocher/décocher : la tâche repart dans la liste)
       ui.archEmpty.classList.toggle('hidden', tasks.length > 0);
-    }).catch(function () {});
+    }).catch(function (e) { if (window.console) console.error('Archive : ' + ((e && e.message) || e)); });
   }
   function buildArchive() {
     var sec = el('div'); sec.id = 'goalsTodayArchiveSection';
