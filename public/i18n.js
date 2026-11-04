@@ -1675,7 +1675,7 @@
     "Choisis un pôle ou un secteur pour chaque activité.": "Choose a division or a sector for each activity.",
     "Pôle et secteur": "Division and sector",
     // ---- Page Objectifs (gabarits) ----
-    "Jour précédent": "Previous day", "Trier": "Sort", "Priorité": "Priority", "Objectif": "Goal", "Durée": "Duration",
+    "Jour précédent": "Previous day", "Trier": "Sort", "Objectif": "Goal", "Durée": "Duration",
     "Jour suivant": "Next day",
     "Faites ce jour-là": "Done that day",
     "Rien ce jour-là.": "Nothing that day.",

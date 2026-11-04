@@ -26,7 +26,7 @@ function tasksToday(userId, todayParam, dayParam) {
   // Les durées estimées ne se calculent que pour les tâches affichées (et un calcul par catégorie : mémo le temps de la requête).
   const memo = goals.beginEstimateMemo();
   try {
-    acts.forEach((a) => { const poleLabels = {}; goals.categoriesForActivity(a.id).forEach((p) => { poleLabels[p.key] = p.label; });
+    acts.forEach((a) => { const poleLabels = {}, poleIdx = {}; goals.categoriesForActivity(a.id).forEach((p, i) => { poleLabels[p.key] = p.label; poleIdx[p.key] = i; }); // poleIdx : rang du pôle, pour sa nuance (comme les objectifs)
       goalstasks.allTasksWithGroup(a.id).forEach((t) => {
         if (t.plannedUserId && t.plannedUserId !== userId) return;
         const due = t.dueDate || today;
@@ -40,7 +40,7 @@ function tasksToday(userId, todayParam, dayParam) {
         list.push({
           id: t.id, label: t.label, done: !!t.done, activityId: a.id, activityName: a.name, activityColor: a.color || null,
           sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, catKey: t.key, dueDate: due,
-          minutes: goalscapacity.taskMinutes(userId, a.id, t.poleKey, t.label), plannedUserId: t.plannedUserId || null, shared: sharedActs.has(a.id), poleName: poleLabels[t.poleKey] || t.poleKey,
+          minutes: goalscapacity.taskMinutes(userId, a.id, t.poleKey, t.label), plannedUserId: t.plannedUserId || null, shared: sharedActs.has(a.id), poleName: poleLabels[t.poleKey] || t.poleKey, poleIndex: poleIdx[t.poleKey],
         });
       });
     });
@@ -50,7 +50,7 @@ function tasksToday(userId, todayParam, dayParam) {
   const upc = [];
   if (!other) acts.forEach((a) => {
     const daily = goalstasks.dailyListForActivity(a.id, today);
-    const names = {}; goals.categoriesForActivity(a.id).forEach((p) => { names[p.key] = p.label; });
+    const names = {}, idx = {}; goals.categoriesForActivity(a.id).forEach((p, i) => { names[p.key] = p.label; idx[p.key] = i; });
     // Règle d'Émilien, par secteur (ou par pôle sans secteur) : la base (à faire aujourd'hui, en retard, sans date) est montrée en entier ; si elle compte moins de
     // minLines tâches, les prochaines tâches À VENIR du même secteur (échéance croissante) complètent jusqu'à minLines au total, jamais plus.
     const room = {};
@@ -58,7 +58,7 @@ function tasksToday(userId, todayParam, dayParam) {
       if (!(u.key in room)) room[u.key] = Math.max(0, goalstasks.DAILY_MIN_LINES - todo.filter((t) => t.activityId === a.id && t.catKey === u.key).length);
       if (room[u.key] <= 0) return;
       room[u.key] -= 1;
-      upc.push({ id: u.id, label: u.label, done: false, upcoming: true, activityId: a.id, activityName: a.name, activityColor: a.color || null, sector: u.key === u.poleKey ? null : u.groupLabel, pole: u.poleKey, poleName: names[u.poleKey] || u.poleKey, dueDate: u.dueDate, minutes: 0, plannedUserId: u.plannedUserId || null, shared: sharedActs.has(a.id) });
+      upc.push({ id: u.id, label: u.label, done: false, upcoming: true, activityId: a.id, activityName: a.name, activityColor: a.color || null, sector: u.key === u.poleKey ? null : u.groupLabel, pole: u.poleKey, poleName: names[u.poleKey] || u.poleKey, poleIndex: idx[u.poleKey], dueDate: u.dueDate, minutes: 0, plannedUserId: u.plannedUserId || null, shared: sharedActs.has(a.id) });
     });
   });
   // Ordre : activité par activité (ordre de l'application), puis dans chaque activité les paliers maintenance/développement
@@ -86,7 +86,6 @@ function tasksToday(userId, todayParam, dayParam) {
   const ordered = require('./reform').placeReforms(todo);
   todo.length = 0; ordered.forEach((t) => todo.push(t));
   todo.forEach((t) => { t.objectiveEnd = t.rank.periodEnd || null; t.objectiveNumber = t.rank.periodNumber || 0; t.objectiveWeek = t.rank.weekIndex || 0; }); // tri « Objectif » côté client (même logique que compareContinuity) : fin de période, puis semaine ; sans objectif : null
-  todo.forEach((t) => { t.priority = t.rank.reform ? 0.5 : t.rank.tier; }); // palier interne pour le tri « Priorité » côté client : 0 maintenance urgente, 0,5 réforme, 1 à 4 paliers suivants
   todo.concat(done).forEach((t) => { delete t.rank; delete t.catKey; });
   done.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || x.id - y.id);
   const sum = (l) => l.reduce((s, t) => s + (t.minutes || 0), 0);
@@ -100,12 +99,12 @@ function archiveAll(userId) {
   const out = [];
   acts.forEach((a) => {
     const shared = db.prepare('SELECT COUNT(*) AS c FROM activity_members WHERE activityId = ?').get(a.id).c > 1;
-    const names = {}; goals.categoriesForActivity(a.id).forEach((p) => { names[p.key] = p.label; });
+    const names = {}, idx = {}; goals.categoriesForActivity(a.id).forEach((p, i) => { names[p.key] = p.label; idx[p.key] = i; });
     goalstasks.archivesForActivity(a.id).tasks.forEach((t) => {
       if (t.plannedUserId && t.plannedUserId !== userId) return;
       // Mêmes champs que les tâches faites de GET /api/goals/today : la ligne d'Archive est celle de la liste du jour.
       out.push({ id: t.id, label: t.label, done: true, doneAt: t.doneAt, dueDate: t.dueDate, activityId: a.id, activityName: a.name, activityColor: a.color || null,
-        sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, poleName: names[t.poleKey] || t.poleKey, minutes: 0, plannedUserId: t.plannedUserId || null, shared, locked: !!t.locked });
+        sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, poleName: names[t.poleKey] || t.poleKey, poleIndex: idx[t.poleKey], minutes: 0, plannedUserId: t.plannedUserId || null, shared, locked: !!t.locked });
     });
   });
   out.sort((x, y) => (x.doneAt < y.doneAt ? 1 : x.doneAt > y.doneAt ? -1 : y.id - x.id));

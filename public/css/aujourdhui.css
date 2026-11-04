@@ -1,7 +1,5 @@
 /* Page 1 de la Feuille de route, vue « Aujourd'hui » (27 oct. 2026, js/aujourdhui.js). Jetons seulement, espacements 8/12/16/24. */
 
-.tasksPopSum { display: flex; justify-content: space-between; gap: 8px; padding: 0 16px 12px; font-size: 13px; color: var(--text-light); border-bottom: 1px solid var(--sep); }
-.tasksPopSum b { color: var(--text); }
 .tasksPopList { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .tasksPopEmpty { margin: 0; padding: 16px; font-size: 13px; color: var(--text-light); text-align: center; }
 .tasksPopRow { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--sep); }
@@ -85,12 +83,11 @@
 
 .goalsPage1Switch { margin-bottom: 0; }
 #goalsTodayView.hidden, #goalsActivitiesView.hidden { display: none; }
-.tasksToday { display: flex; flex-direction: column; gap: 8px; }
-.tasksTodayHead { padding: 0 4px; }
-.tasksToday .tasksPopSum { padding: 0 4px 12px; }
+.tasksToday { display: flex; flex-direction: column; gap: 8px; position: relative; }
 .tasksToday .tasksPopRow { padding-left: 4px; padding-right: 4px; }
 /* Tri (3 nov. 2026) : icône nue à gauche sous le titre, menu = .statsPeriodMenu commun ; arbre replié du tri « Activité » (chevron à droite, R21 ; séparateur pleine largeur, R22) ; modification d'une tâche = panneau de l'onglet Tâches. */
-.tasksSortWrap { align-self: flex-start; padding: 0 4px; }
+.tasksTopRow { position: absolute; top: -40px; left: 0; right: 0; height: 36px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px; } /* dans l'espace sous les onglets : la liste démarre à la même hauteur que celle de la vue Objectifs */
+.tasksCounter { font-size: 14px; font-weight: 600; color: var(--text-light); font-variant-numeric: tabular-nums; }
 .tasksSortWrap .statsPeriodMenu { left: 0; right: auto; }
 .tasksSortBtn svg { width: 22px; height: 22px; }
 .tasksTreeBody { padding-left: 12px; }

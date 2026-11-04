@@ -28,7 +28,6 @@
     return r ? h + ' h ' + (r < 10 ? '0' : '') + r : h + ' h';
   }
   function localIso() { var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
-  var dayOff = 0; // 0 = aujourd'hui, +1 = demain, -1 = hier…
   // Affichage instantané (29 oct. 2026, demande d'Émilien) : la dernière réponse de chaque jour est gardée (mémoire ; aujourd'hui aussi en stockage local,
   // pour le premier affichage après ouverture de l'app) et dessinée tout de suite ; la réponse du serveur la remplace ensuite.
   var cacheByDay = {}, CACHE_KEY = 'noesis_today_v1';
@@ -43,15 +42,9 @@
     cacheByDay[day] = d;
     if (day === localIso() && cacheUser()) { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ u: cacheUser(), d: day, data: d })); } catch (e) {} }
   }
-  function dayDate() { var d = new Date(); d.setDate(d.getDate() + dayOff); return d; }
-  function dayIso() { var d = dayDate(), p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
-  function todayLabel() {
-    var s = dayDate().toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'long', day: 'numeric', month: 'long' });
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  }
 
   // ---------- Pop-up ----------
-  var listBox = null, sumL = null, sumR = null, timer = null, loadSeq = 0;
+  var listBox = null, counter = null, timer = null, loadSeq = 0;
   var ui = {}; // éléments de la barre d'ajout
   var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null, date: null, who: null, poleId: null, open: '', members: {}, flash: null, exp: null, essor: null, expStep: 0, review: false };
 
@@ -60,17 +53,8 @@
   function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length)); }
   function build(container) {
     root = el('div', 'tasksToday');
-    var head = el('div', 'tasksTodayHead cmpNav cmpNav--sm');
-    // Jour affiché au centre, flèches de part et d'autre (même modèle que le sélecteur de pôle, en plus petit) : demain, après-demain, hier…
-    var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Jour précédent'));
-    var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Jour suivant'));
-    ui.dayLabel = el('span', 'cmpNavLabel', todayLabel());
-    function go(n) { dayOff += n; ui.dayLabel.textContent = todayLabel(); state.added = []; var c = cacheGet(dayOff ? dayIso() : localIso()); if (c) render(c); refresh(); }
-    prev.addEventListener('click', function () { go(-1); }); next.addEventListener('click', function () { go(1); });
-    head.appendChild(prev); head.appendChild(ui.dayLabel); head.appendChild(next);
-    var sum = el('div', 'tasksPopSum'); sumL = el('span'); sumR = el('span'); sum.appendChild(sumL); sum.appendChild(sumR);
     listBox = el('div', 'tasksPopList tasksTree');
-    root.appendChild(head); root.appendChild(buildSort()); root.appendChild(sum); root.appendChild(listBox); root.appendChild(buildArchive());
+    root.appendChild(buildTopRow()); root.appendChild(listBox); root.appendChild(buildArchive());
     // La barre d'ajout est AU PREMIER PLAN, fixée au-dessus de la barre des volets (comme elle). Défilé = glissement latéral entre les pages :
     // elle prend le même décalage que la page (#tab-goals) pendant le glissement, puis disparaît avec elle.
     dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock);
@@ -121,6 +105,14 @@
     });
     sec.appendChild(head); sec.appendChild(panel);
     return sec;
+  }
+  // Rangée du haut : icône de tri à gauche, compteur « faites / à faire » (X / Y, rien d'autre) à droite.
+  function buildTopRow() {
+    var row = el('div', 'tasksTopRow');
+    row.appendChild(buildSort());
+    counter = el('span', 'tasksCounter');
+    row.appendChild(counter);
+    return row;
   }
   // Icône de tri (nue, sans cadre : R37), à gauche sous le titre ; menu = le panneau déroulant commun .statsPeriodMenu (fermé au toucher ailleurs par app.js), sans icône devant les choix.
   function buildSort() {
@@ -203,7 +195,7 @@
   function actCount() { var seen = {}, n = 0; state.options.forEach(function (o) { if (!seen[o.activityId]) { seen[o.activityId] = true; n++; } }); return n; }
   function sectorsOfPole(t) { return state.options.filter(function (o) { return t && o.activityId === t.activityId && poleOf(o) === poleOf(t) && sectorOf(o); }); }
   function dateText(iso) {
-    if (!iso) iso = dayIso();
+    if (!iso) iso = localIso();
     var d = new Date(iso + 'T12:00:00'); var s = d.toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'short', day: 'numeric', month: 'short' });
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
@@ -225,7 +217,7 @@
     row.appendChild(el('span', 'tasksFieldLabel', tr('Date')));
     if (readOnly) { var v = el('button', 'tasksFieldValue'); v.type = 'button'; v.disabled = true; v.appendChild(el('span', 'tasksFieldText', dateText(state.date))); row.appendChild(v); }
     else {
-      var inp = el('input', 'tasksDateInput tasksDateInline'); inp.type = 'date'; inp.value = state.date || dayIso(); inp.setAttribute('aria-label', tr('Date'));
+      var inp = el('input', 'tasksDateInput tasksDateInline'); inp.type = 'date'; inp.value = state.date || localIso(); inp.setAttribute('aria-label', tr('Date'));
       inp.addEventListener('change', function () { state.date = inp.value || null; });
       row.appendChild(inp);
     }
@@ -678,7 +670,7 @@
         return null;
       }
       // Proposition déjà affichée : validation INSTANTANÉE (↑ ou ✕). Le panneau se ferme tout de suite, « Tâche enregistrée » s'affiche en haut de la barre, l'enregistrement se termine en arrière-plan.
-      if (shown) { fastCommit({ t: t, label: label, date: state.date || dayIso(), who: state.who }); return null; }
+      if (shown) { fastCommit({ t: t, label: label, date: state.date || localIso(), who: state.who }); return null; }
       return TMT.captureTaskFlow(label, [t.activityId], t.categoryKey, { inline: true }).then(function (flow) {
         if (!flow) return null;
         var ok = (flow.results || []).filter(function (x) { return x.ok; })[0];
@@ -686,7 +678,7 @@
         var r = ok;
           // Montrée tout de suite dans la liste, même si Noèsis l'a placée un autre jour (« demain »…), tant que la vue reste ouverte.
           state.added.unshift({ id: r.id, label: label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
-          var snap = { t: t, date: state.date || dayIso(), who: state.who }, extra = { userId: TMT.getProfile().id, dueDate: snap.date };
+          var snap = { t: t, date: state.date || localIso(), who: state.who }, extra = { userId: TMT.getProfile().id, dueDate: snap.date };
           if (snap.who) { extra.plannedUserId = snap.who.id; extra.notifyAssignee = true; }
           var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }) : Promise.resolve();
           return after.then(function () {
@@ -697,17 +689,14 @@
       .then(function () { state.busy = false; ui.send.disabled = false; });
   }
 
-  function strong(text, rest) { var s = el('span'); s.appendChild(el('b', null, text)); s.appendChild(document.createTextNode(rest)); return s; }
   var lastData = null;
   function render(d) {
     lastData = d;
-    sumL.textContent = ''; sumR.textContent = '';
-    sumL.appendChild(strong(d.doneCount + ' ' + tr(d.doneCount > 1 ? 'faites' : 'faite'), ' · ' + d.todoCount + ' ' + tr('à faire')));
-    sumR.appendChild(strong(minutesLabel(d.doneMinutes) + ' ' + tr('faites'), ' · ' + minutesLabel(d.todoMinutes) + ' ' + tr('à faire')));
+    counter.textContent = d.doneCount + ' / ' + d.todoCount; // tâches faites aujourd'hui / tâches à faire (aucun texte, aucune durée)
     listBox.textContent = '';
     var have = {}; d.tasks.forEach(function (t) { have[t.id] = true; });
     d.tasks = state.added.filter(function (a) { return !have[a.id]; }).concat(d.tasks);
-    if (!d.tasks.some(function (t) { return !t.done; })) listBox.appendChild(el('p', 'tasksPopEmpty', tr(dayOff === 0 ? 'Rien pour aujourd’hui.' : 'Rien ce jour-là.')));
+    if (!d.tasks.some(function (t) { return !t.done; })) listBox.appendChild(el('p', 'tasksPopEmpty', tr('Rien pour aujourd’hui.')));
     function addRow(t, parent) {
       var row = el('div', 'tasksPopRow' + (t.done ? ' done' : ''));
       var cb = el('button', 'tasksPopCheck'); cb.type = 'button';
@@ -739,7 +728,7 @@
       var meta = el('small');
       var dot = el('span', 'tasksPopDot'); if (t.activityColor) dot.style.background = t.activityColor;
       meta.appendChild(dot);
-      meta.appendChild(document.createTextNode([t.activityName, t.sector].filter(Boolean).join(' · ') + ' · ' + (t.done ? tr('terminé') : (t.justAdded ? tr('ajoutée à l’instant') : minutesLabel(t.minutes)))));
+      meta.appendChild(document.createTextNode([t.activityName, t.sector, t.done ? tr('terminé') : (t.justAdded ? tr('ajoutée à l’instant') : '')].filter(Boolean).join(' · ')));
       txt.appendChild(meta);
       row.appendChild(cb); row.appendChild(txt);
       // Même icône et même panneau de modification que l'onglet Tâches de la page 2 (TMT.openGoalsTaskEditPanel) ; après enregistrement, la liste se recharge.
@@ -761,18 +750,17 @@
     paintTodo(d.tasks.filter(function (t) { return !t.done; }), addRow); // les tâches faites ne restent plus dans la liste du jour : elles sont dans « Archive »
     if (archiveOpen()) loadArchive();
   }
-  // ---------- Tri (demande d'Émilien, 3 nov. 2026) : « Activité » (défaut, arbre replié), « Priorité », « Objectif », « Durée » ----------
-  var SORT_KEY = 'noesis_today_sort_v1', SORTS = ['activity', 'priority', 'objective', 'duration'];
-  var SORT_LABELS = { activity: 'Activité', priority: 'Priorité', objective: 'Objectif', duration: 'Durée' };
+  // ---------- Tri (demande d'Émilien, 3 nov. 2026) : « Activité » (défaut, arbre replié), « Aujourd'hui », « Objectif », « Durée » ----------
+  var SORT_KEY = 'noesis_today_sort_v1', SORTS = ['activity', 'today', 'objective', 'duration'];
+  var SORT_LABELS = { activity: 'Activité', today: 'Aujourd’hui', objective: 'Objectif', duration: 'Durée' };
   var sortMode = 'activity', openNodes = {}; // openNodes : branches dépliées de l'arbre, gardées le temps de la session de la vue
-  try { var savedSort = localStorage.getItem(SORT_KEY); if (SORTS.indexOf(savedSort) >= 0) sortMode = savedSort; } catch (e) {}
+  try { var savedSort = localStorage.getItem(SORT_KEY); if (savedSort === 'priority') savedSort = 'today'; if (SORTS.indexOf(savedSort) >= 0) sortMode = savedSort; } catch (e) {}
   function cmpNum(a, b) { return a < b ? -1 : a > b ? 1 : 0; }
   function sortedFlat(list) {
     var out = list.map(function (t, i) { return { t: t, i: i }; });
     out.sort(function (x, y) {
       var a = x.t, b = y.t, r = 0;
-      if (sortMode === 'priority') r = cmpNum(a.priority == null ? 3 : a.priority, b.priority == null ? 3 : b.priority);
-      else if (sortMode === 'duration') r = cmpNum(a.minutes || 0, b.minutes || 0);
+      if (sortMode === 'duration') r = cmpNum(a.minutes || 0, b.minutes || 0);
       else if (sortMode === 'objective') { // même logique que taskkind.compareContinuity : fin de période, numéro, semaine ; sans objectif à la fin
         var oa = a.objectiveEnd ? 0 : 1, ob = b.objectiveEnd ? 0 : 1;
         r = cmpNum(oa, ob) || (oa === 0 ? cmpNum(a.objectiveEnd, b.objectiveEnd) || cmpNum(a.objectiveNumber || 0, b.objectiveNumber || 0) || cmpNum(a.objectiveWeek || 0, b.objectiveWeek || 0) : 0);
@@ -783,9 +771,25 @@
   }
   // Une branche repliable : ligne (nom + chevron à droite, R21) puis son contenu, visible seulement si dépliée.
   // Ligne repliable = celle de l'onglet Tâches (TMT.buildGoalsGroupRow : mêmes classes, chevron, comportement : on redessine la liste) ; ici pour les niveaux activité et pôle.
-  function branch(parent, id, label, count, depth, fill) {
+  function toggleNode(id) { if (openNodes[id]) delete openNodes[id]; else openNodes[id] = true; if (lastData) render(lastData); }
+  // Niveau activité : la ligne de la liste d'activités de la vue « Objectifs » (mêmes classes .goalsCaptureActivityChip / .goalsCaptureZone, aucune copie de CSS) ; un toucher la déplie.
+  function activityBranch(parent, id, t0, count, fill) {
+    var open = !!openNodes[id], wrap = el('div', 'tasksActNode');
+    var btn = el('button', 'goalsCaptureActivityChip'); btn.type = 'button'; btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    var zone = el('span', 'goalsCaptureZone'); if (t0.activityColor) zone.style.setProperty('--c', t0.activityColor);
+    zone.appendChild(el('span', 'goalsCaptureActivityChipName', t0.activityName)); btn.appendChild(zone);
+    btn.appendChild(el('span', 'goalsCaptureDailyCount', String(count)));
+    btn.addEventListener('click', function () { toggleNode(id); });
+    wrap.appendChild(btn);
+    if (open) { var body = el('div', 'tasksTreeBody'); wrap.appendChild(body); fill(body); }
+    parent.appendChild(wrap);
+  }
+  // Nuance du pôle (celle des objectifs : TMT.subProjectShade, rang du pôle) ; les secteurs reprennent celle de leur pôle.
+  function poleShade(t) { return t.activityColor && TMT.subProjectShade ? TMT.subProjectShade(t.activityColor, t.poleIndex || 0, 5) : ''; }
+  function branch(parent, id, label, count, depth, fill, color) {
     var open = !!openNodes[id];
-    var row = TMT.buildGoalsGroupRow(label, count, open, function () { if (open) delete openNodes[id]; else openNodes[id] = true; if (lastData) render(lastData); });
+    var row = TMT.buildGoalsGroupRow(label, count, open, function () { toggleNode(id); });
+    if (color) row.querySelector('.activityRowName').style.color = color; // texte seulement
     if (open) { var body = el('div', 'subProjectItems tasksTreeBody'); row.appendChild(body); fill(body); }
     parent.appendChild(row);
   }
@@ -806,21 +810,21 @@
           var inPole = function (pBody) {
             group(items, function (t) { return t.sector || ''; }).forEach(function (s) {
               if (!s.key) s.items.forEach(function (t) { treeRow(t, pBody); }); // tâches directement dans le pôle : visibles à l'ouverture du pôle
-              else branch(pBody, 'a' + a.key + '/' + p.key + '/' + s.key, s.key, s.items.length, 2, function (sBody) { s.items.forEach(function (t) { treeRow(t, sBody); }); });
+              else branch(pBody, 'a' + a.key + '/' + p.key + '/' + s.key, s.key, s.items.length, 2, function (sBody) { s.items.forEach(function (t) { treeRow(t, sBody); }); }, poleShade(p.items[0]));
             });
           };
-          branch(aBody, 'a' + a.key + '/' + p.key, p.items[0].poleName || p.key, items.length, 1, inPole);
+          branch(aBody, 'a' + a.key + '/' + p.key, p.items[0].poleName || p.key, items.length, 1, inPole, poleShade(p.items[0]));
         });
       };
-      branch(listBox, 'a' + a.key, a.items[0].activityName, a.items.length, 0, inAct);
+      activityBranch(listBox, 'a' + a.key, a.items[0], a.items.length, inAct);
     });
   }
   var leaving = 0; // lignes en train de s'effacer : on ne recharge pas la liste sous leurs pieds
   function refresh() {
     if (leaving > 0 || !root || !root.getClientRects().length || listBox.querySelector('.goalsTaskEditPanel')) return; // une tâche en cours de modification : la liste ne se redessine pas sous elle // vue masquée (autre volet, autre page) : rien à charger
     var seq = ++loadSeq;
-    var day = dayOff ? dayIso() : localIso();
-    TMT.api('GET', '/api/goals/today?today=' + localIso() + (dayOff ? '&day=' + dayIso() : '')).then(function (d) { if (d && d.tasks) cachePut(day, d); if (seq === loadSeq && shown) render(d); }).catch(function () {});
+    var day = localIso();
+    TMT.api('GET', '/api/goals/today?today=' + localIso() + '').then(function (d) { if (d && d.tasks) cachePut(day, d); if (seq === loadSeq && shown) render(d); }).catch(function () {});
   }
 
   // Préchargement : les tâches du jour sont demandées dès l'ouverture de l'app (et au retour au premier plan), avant même d'ouvrir la Feuille de route.
@@ -831,7 +835,7 @@
   var mounted = false;
   TMT.todayView = {
     mount: function (container) { if (mounted) return; mounted = true; build(container); },
-    show: function () { shown = true; syncDock(); var c = cacheGet(localIso()); if (c && !dayOff) render(c); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
-    hide: function () { shown = false; dayOff = 0; openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); if (ui.dayLabel) ui.dayLabel.textContent = todayLabel(); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
+    show: function () { shown = true; syncDock(); var c = cacheGet(localIso()); if (c) render(c); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
+    hide: function () { shown = false; openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();
