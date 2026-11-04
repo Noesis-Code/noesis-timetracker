@@ -119,7 +119,7 @@
     var wrap = el('div', 'statsPeriodMenuWrap tasksSortWrap');
     var btn = el('button', 'cmpEdit tasksSortBtn'); btn.type = 'button'; btn.setAttribute('aria-haspopup', 'true'); btn.setAttribute('aria-expanded', 'false');
     btn.title = tr('Trier'); btn.setAttribute('aria-label', tr('Trier'));
-    btn.appendChild(svg('M4 7h16M7 12h10M10 17h4', 2));
+    btn.appendChild(svg('M4 8h3M11 8h9M9 6a2 2 0 1 0 0 4a2 2 0 1 0 0-4M4 16h9M17 16h3M15 14a2 2 0 1 0 0 4a2 2 0 1 0 0-4', 1.5));
     var menu = el('div', 'statsPeriodMenu hidden');
     SORTS.forEach(function (k) {
       var it = el('button', 'statsPeriodMenuItem' + (k === sortMode ? ' active' : ''), tr(SORT_LABELS[k])); it.type = 'button';
