@@ -184,11 +184,6 @@ input[type=time]:focus, select:focus, textarea:focus {
 /* Violet (10 septembre 2026, demande d'Emilien : les liens « Lire les conditions d'utilisation », « J'ai déjà un profil » et « Créer un nouveau profil » passent de bleu à violet) — anciennement var(--blue). */
 .switchLink a { color: var(--purple); text-decoration: none; }
 .switchLink a:hover { text-decoration: underline; }
-/* 11 septembre 2026 (demande d'Emilien) : écran "ajoute Noèsis à ton écran d'accueil", affiché à la place de la création/recherche de profil tant que l'app n'est pas ouverte en mode autonome (raccourci). */
-.onbInstallIcon { display: flex; justify-content: center; margin-bottom: 12px; }
-.onbInstallSteps { text-align: left; margin: 14px 0; padding-left: 22px; color: var(--text); font-size: 14px; line-height: 1.6; }
-.onbInstallSteps li { margin-bottom: 8px; }
-.onbInstallSteps li:last-child { margin-bottom: 0; }
 .userList { max-height: 220px; overflow-y: auto; text-align: left; margin-bottom: 8px; }
 /* Les 3 règles ::-webkit-scrollbar dédiées à .userList (barre grise fine visible) ont été retirées le 3 septembre 2026 : la règle générale plus haut dans ce … */
 .userChip {
@@ -3061,9 +3056,6 @@ button { -webkit-user-select: none; user-select: none; }
 #onboarding:has(#onbPinStep:not(.hidden)) .onbBackFooter { display: block; }
 #onboarding:has(#onbPinStep:not(.hidden)) .onboarding-card { margin: auto auto 0; }
 #onboarding .onbFooter a { color: var(--text-light); text-decoration: underline; }
-#onboarding .onbInstallIcon { margin-bottom: 6px; }
-#onboarding .onbInstallSteps { margin: 8px 0; font-size: 13px; line-height: 1.4; }
-#onboarding .onbInstallSteps li { margin-bottom: 4px; }
 #onboarding .userList { max-height: 200px; margin-bottom: 4px; }
 #onboarding input[type=text], #onboarding input[type=password], #onboarding input[type=tel], #onboarding input[type=email] {
   padding: 10px 14px; margin-bottom: 8px; color: var(--text);
@@ -3079,12 +3071,8 @@ button { -webkit-user-select: none; user-select: none; }
 @media not (display-mode: standalone) {
   #onboarding { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: auto; width: auto; box-sizing: border-box; }
 }
-#onboarding #onbInstallPwa .lead { text-align: center; }
 #onboarding input::placeholder { color: var(--text-light); }
 #onboarding .switchLink a, #onboarding .onbLegalText a { color: var(--onb-purple); }
-#onboarding .onbInstallIcon svg rect:first-child { fill: var(--onb-purple); }
-#onboarding .onbInstallIcon svg path { stroke: var(--onb-purple); }
-#onboarding .onbInstallIcon svg rect:last-child { fill: var(--onb-purple); }
 .onbLegalCheck { display: flex; flex-direction: row-reverse; justify-content: space-between; align-items: center; gap: 12px; text-align: left; margin: 0 0 16px; }
 .onbLegalText { font-size: 14px; line-height: 1.4; color: var(--text); }
 /* 10 oct. 2026 (conformité) : cases facultatives séparées de la case CGU ; invite des comptes existants (deux boutons identiques). */

@@ -633,29 +633,7 @@
       </div>
     </div>
 
-    <!-- 11 septembre 2026 (demande d'Emilien) : tant que l'app n'est pas
-         ouverte en mode "installé" (raccourci ajouté à l'écran d'accueil),
-         ni la création de profil ni la recherche d'un profil existant ne
-         doivent être accessibles — seules les étapes d'installation du
-         raccourci s'affichent. Détection via isStandaloneMode() dans
-         app.js (display-mode: standalone / navigator.standalone), pas
-         d'événement fiable pour "raccourci vient d'être créé" : la
-         bascule se refait à chaque chargement, donc l'écran disparaît
-         définitivement dès que l'app est lancée depuis son icône. -->
-    <div id="onbInstallPwa" class="hidden">
-      <div class="onbInstallIcon" aria-hidden="true">
-        <svg viewBox="0 0 64 64" width="56" height="56" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="6" y="6" width="52" height="52" rx="14" fill="var(--purple)" opacity="0.12"/>
-          <path d="M32 16v22M32 38l-9-9M32 38l9-9" stroke="var(--purple)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <rect x="17" y="44" width="30" height="6" rx="3" fill="var(--purple)"/>
-        </svg>
-      </div>
-      <p class="lead">Ajoute Noèsis à ton écran d'accueil</p>
-      <p class="hint">Pour créer ou retrouver ton profil, ajoute d'abord Noèsis à ton écran d'accueil — ça ne prend que quelques secondes, et l'app s'ouvrira ensuite comme une vraie application.</p>
-      <ol id="onbInstallSteps" class="onbInstallSteps"></ol>
-      <p class="hint">Une fois l'icône ajoutée, ouvre Noèsis à partir d'elle — cet écran ne s'affichera plus.</p>
-    </div>
-
+    
     <p id="onbMsg" class="msg"></p>
   </div>
   <!-- 10 oct. 2026 : lien Gouvernance discret sous la carte, visible seulement sur l'écran de connexion (Loi 25 : accessible sans compte). -->

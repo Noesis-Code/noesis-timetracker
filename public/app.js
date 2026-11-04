@@ -1128,91 +1128,9 @@
       window.navigator.standalone === true;
   }
 
-  // Détecte la plateforme pour afficher les bonnes étapes ("Ajouter à
-  // l'écran d'accueil" diffère radicalement entre Safari iOS, Chrome
-  // Android et un navigateur de bureau). iPadOS 13+ se fait passer pour un
-  // Mac dans le user-agent — on le distingue via maxTouchPoints, seul
-  // signal fiable dans ce cas.
-  function detectInstallPlatform() {
-    var ua = window.navigator.userAgent || '';
-    var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-    var isIPadOSAsMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
-    if (isIOS || isIPadOSAsMac) return 'ios';
-    if (/Android/.test(ua)) return 'android';
-    return 'desktop';
-  }
-
-  // 11 septembre 2026 (précision d'Emilien après un premier test réel sur
-  // son iPhone) : la première consigne — ouvrir le lien dans le navigateur
-  // natif de l'appareil, pas depuis une appli tierce (Messenger, Instagram,
-  // etc. ouvrent les liens dans leur propre navigateur intégré, qui ne
-  // propose pas l'installation) — s'applique à toutes les plateformes, en
-  // tête de liste. Les étapes iOS elles-mêmes ont aussi été corrigées
-  // d'après ce qu'Emilien voit réellement sur Safari (passage par le menu
-  // ⋯ avant que le bouton Partager n'apparaisse).
-  var ONB_INSTALL_COMMON_FIRST_STEP = "Ouvre ce lien directement dans le navigateur de ton appareil (Safari sur iPhone, Chrome sur Android, ton navigateur habituel sur ordinateur) — pas depuis une application comme Messenger ou Instagram, qui n'offre pas l'option d'installation.";
-  var ONB_INSTALL_STEPS = {
-    ios: [
-      ONB_INSTALL_COMMON_FIRST_STEP,
-      'Touche les trois petits points (⋯) pour faire apparaître le bouton Partager.',
-      'Touche le bouton Partager.',
-      "Fais défiler les options et touche « Ajouter à l'écran d'accueil ».",
-      'Touche « Ajouter » en haut à droite.'
-    ],
-    android: [
-      ONB_INSTALL_COMMON_FIRST_STEP,
-      'Touche le menu ⋮ (trois points) en haut à droite du navigateur.',
-      "Touche « Ajouter à l'écran d'accueil » (ou « Installer l'application »).",
-      'Confirme en touchant « Ajouter » ou « Installer ».'
-    ],
-    desktop: [
-      ONB_INSTALL_COMMON_FIRST_STEP,
-      "Clique sur l'icône d'installation (⊕) dans la barre d'adresse, à droite.",
-      "Clique sur « Installer ».",
-      "Noèsis s'ouvre dans sa propre fenêtre, accessible depuis ton bureau ou ton menu de démarrage."
-    ]
-  };
-
-  function renderOnbInstallSteps() {
-    var list = $('onbInstallSteps');
-    if (!list) return;
-    var platform = detectInstallPlatform();
-    var steps = ONB_INSTALL_STEPS[platform] || ONB_INSTALL_STEPS.desktop;
-    list.innerHTML = '';
-    steps.forEach(function (step) {
-      var li = document.createElement('li');
-      li.textContent = t(step);
-      list.appendChild(li);
-    });
-  }
-
-  // Bascule l'écran d'onboarding sur les étapes d'installation du
-  // raccourci, en masquant toutes les autres étapes (création de profil,
-  // recherche d'un profil existant, code PIN, activités) — voir
-  // isStandaloneMode() ci-dessus pour le contexte de cette demande.
-  // 29 oct. 2026 (demande d'Émilien) : sur ordinateur, on entre directement, sans installer ; le gate ne vaut que pour téléphone et tablette.
-  function installGateApplies() {
-    return !isStandaloneMode() && detectInstallPlatform() !== 'desktop';
-  }
-
-  function showOnbInstallPwa() {
-    $('onbCreate').classList.add('hidden');
-    $('onbExisting').classList.add('hidden');
-    $('onbPinStep').classList.add('hidden');
-    $('onbMsg').textContent = '';
-    renderOnbInstallSteps();
-    $('onbInstallPwa').classList.remove('hidden');
-  }
-
   function showOnboarding() {
     $('onboarding').classList.remove('hidden');
     $('app').classList.add('hidden');
-    if (installGateApplies()) {
-      showOnbInstallPwa();
-      dismissBootSplash();
-      return;
-    }
-    $('onbInstallPwa').classList.add('hidden');
     // Premier lancement (aucun profil connu) : c'est l'affichage de
     // l'onboarding, et non showApp(), qui marque la fin du "chargement" —
     // il n'y a rien d'autre à attendre à ce stade.
@@ -2222,15 +2140,8 @@
       $('resetPwdSave').disabled = true;
       api('POST', '/api/password/reset', { token: tok, password: pw })
         .then(function (r) {
-          // Tous les autres appareils sont déconnectés ; celui-ci est connecté (dans l'app installée, on entre directement).
-          if (!installGateApplies()) {
-            return api('GET', '/api/profile/' + r.id).then(function (p) { saveProfile(p); leave(); });
-          }
-          $('resetPwdMsg').textContent = t('Mot de passe changé. Ouvre l’app depuis ton écran d’accueil et connecte-toi avec ton nouveau mot de passe.');
-          $('resetPwdSave').classList.add('hidden');
-          $('resetPwdNew').classList.add('hidden');
-          $('resetPwdConfirm').classList.add('hidden');
-          $('resetPwdHint').classList.add('hidden');
+          // Tous les autres appareils sont déconnectés ; celui-ci est connecté.
+          return api('GET', '/api/profile/' + r.id).then(function (p) { saveProfile(p); leave(); });
         })
         .catch(function (err) { $('resetPwdMsg').textContent = err.message; })
         .finally(function () { $('resetPwdSave').disabled = false; });
@@ -2248,7 +2159,6 @@
     // `showOnboarding(); showOnbPinStep(match);`. Si l'app n'est pas
     // encore en mode autonome (raccourci), l'écran d'installation doit
     // rester affiché plutôt que de laisser passer l'étape code PIN.
-    if (installGateApplies()) { showOnbInstallPwa(); return; }
     pendingPinUser = user;
     $('onbCreate').classList.add('hidden');
     $('onbExisting').classList.add('hidden');
