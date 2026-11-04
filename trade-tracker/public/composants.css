@@ -269,3 +269,7 @@
 .cmpPwdWrap > input.hidden + .cmpEye { display: none; }
 .cmpEye[aria-pressed="true"] { color: var(--purple); }
 .cmpEye[aria-pressed="true"]::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M3 3l18 18'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M3 3l18 18'/%3E%3C/svg%3E"); }
+
+/* Marque discrète « la charge ne convient plus » (R29, composant unique) : posée sur un secteur de l'onglet Tâches et sur l'objectif de la semaine dans le calendrier ; aucune couleur nouvelle. */
+:root { --cmp-mark-shadow: inset 0 0 0 2px var(--warn-text-2); }
+.cmpMark { box-shadow: var(--cmp-mark-shadow); border-radius: var(--radius-sm); }

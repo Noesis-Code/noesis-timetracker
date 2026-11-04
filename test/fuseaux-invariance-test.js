@@ -67,9 +67,9 @@ for (const [tz, y, m, d, h, mi, label] of cases) {
     r.capture = sub.createItem(section, 'capture').dueDate; // tâche capturée maintenant, sans date : jour de la personne
     const late = sub.createItem(section, 'hier', { dueDate: yesterday });
     const fut = sub.createItem(section, 'demain', { dueDate: tomorrow });
-    const u = carry.unfinished('u1', A);
-    r.nonRealisees = u.today;
-    r.lateIds = u.tasks.map((t) => t.id);
+    const today2 = dates.userToday();
+    r.nonRealisees = today2;
+    r.lateIds = db.prepare('SELECT id FROM sub_project_items WHERE done = 0 AND dueDate < ?').all(today2).map((t) => t.id);
     r.lateId = late.id; r.futId = fut.id; r.capId = null;
     r.feuille = stats.timesheetForUser('u1', 0, { tz }).end;
   });

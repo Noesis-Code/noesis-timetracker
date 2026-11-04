@@ -196,52 +196,13 @@ function goalsAt(activityId, category, day) {
   return { period, weekly };
 }
 
-// Changements d'objectifs induits par les déplacements : on transfère le temps
-// estimé des tâches de l'objectif hebdo (et période) de la date d'origine vers
-// celui de la date cible. Aperçu avant→après ; rien d'écrit ici.
-function objectiveChanges(activityId, moves) {
-  const weekly = new Map();
-  const period = new Map();
-  const bump = (map, row, key, delta, extra) => {
-    const e = map.get(row.id) || { id: row.id, ...extra, before: row.__before, delta: 0 };
-    e.delta += delta;
-    map.set(row.id, e);
-  };
-  moves.forEach((m) => {
-    if (!m.category) return;
-    const a = goalsAt(activityId, m.category, m.from);
-    const b = goalsAt(activityId, m.category, m.to);
-    [[a, -m.minutes], [b, m.minutes]].forEach(([g, d]) => {
-      if (!g) return;
-      if (g.weekly) {
-        g.weekly.__before = g.weekly.estimateMinutes || 0;
-        bump(weekly, g.weekly, 'wk', d, { category: m.category, text: g.weekly.text, weekIndex: g.weekly.weekIndex });
-      }
-    });
-    if (a && b && a.period.id !== b.period.id) {
-      [[a, -m.minutes], [b, m.minutes]].forEach(([g, d]) => {
-        g.period.__before = g.period.mainGoalEstimateMinutes || 0;
-        bump(period, g.period, 'p', d, { category: m.category, text: g.period.mainGoalText, periodNumber: g.period.periodNumber });
-      });
-    }
-  });
-  const fin = (map) => [...map.values()].map((e) => ({ ...e, after: Math.max(0, e.before + e.delta) }))
-    .filter((e) => e.after !== e.before);
-  return { weekly: fin(weekly), period: fin(period) };
-}
 
-function signatureOf(moves) {
-  return moves.map((m) => m.id + '>' + m.to).join(',');
-}
 
 // poleKey (optionnel) : ne garde que les déplacements de CE pôle (le secteur remonte au pôle).
 // Avec poleKey, charge ET capacité ET tâches sont celles de CE pôle (secteurs remontés au pôle) ; sans poleKey, toute l'activité.
-function getProposal(userId, activityId, poleKey) { return buildProposal(userId, activityId, poleKey, false); }function buildProposal(userId, activityId, poleKey, ignoreDismissed, strict) { // strict (déplacement silencieux) : seules les dates posées par le moteur (dueDateAuto = 1) bougent ; une date par défaut ou suggérée (2) reste
+function buildProposal(userId, activityId, poleKey, strict) { // strict (déplacement silencieux) : seules les dates posées par le moteur (dueDateAuto = 1) bougent ; une date par défaut ou suggérée (2) reste
   const today = todayLocal();
   try { captureplace.redispatchOverdue(userId, activityId); } catch (e) { /* non bloquant */ }
-  if (!ignoreDismissed && db.prepare("SELECT 1 FROM goal_overload_dismissals WHERE userId = ? AND activityId = ? AND day = ? AND (poleKey = '' OR poleKey = ?)").get(userId, activityId, today, poleKey || '')) {
-    return { overloaded: false, dismissed: true };
-  }
   const budget = referenceFor(activityId, userId, poleKey); // référence adaptative au rythme tenu
   const tasks = loadTasks(activityId, budget, today, poleKey);
   if (strict) tasks.forEach((t) => { if (t.dueDateAuto !== 1) t.pinned = true; });
@@ -280,34 +241,21 @@ function getProposal(userId, activityId, poleKey) { return buildProposal(userId,
     capLabel: capOnly ? capLabel : null,
     capExceeded: !!capLabel,
     moves,
-    objectives: objectiveChanges(activityId, moves),
-    signature: signatureOf(moves),
   };
 }
 
 // Applique le plan APRÈS validation. `signature` = celle de l'aperçu vu par
 // l'utilisateur ; si le plan a changé entre-temps (409), rien n'est écrit.
-// Écrit les déplacements du plan. withObjectives : transfère aussi les temps ESTIMÉS des objectifs (seulement après validation de l'utilisateur).
-function applyMoves(p, withObjectives) {
+// Écrit les déplacements du plan. (plus de transfert de temps estimé : les estimations ne bougent qu'au recalcul silencieux).
+function applyMoves(p) {
   db.exec('BEGIN');
   try {
     const upd = db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?');
     p.moves.forEach((m) => upd.run(m.to, m.id));
-    if (withObjectives) p.objectives.weekly.forEach((e) => db.prepare("UPDATE goal_weekly SET estimateMinutes = ?, estimateSource = 'plan-surcharge' WHERE id = ?").run(e.after, e.id));
-    if (withObjectives) p.objectives.period.forEach((e) => db.prepare("UPDATE goal_periods SET mainGoalEstimateMinutes = ?, mainGoalEstimateSource = 'plan-surcharge' WHERE id = ?").run(e.after, e.id));
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 
-function applyProposal(userId, activityId, signature, poleKey) {
-  const p = getProposal(userId, activityId, poleKey);
-  if (!p.overloaded) return { applied: 0 };
-  if (signature && signature !== p.signature) {
-    throw Object.assign(new Error('Le plan a changé depuis son affichage.'), { statusCode: 409 });
-  }
-  applyMoves(p, true);
-  return { applied: p.moves.length };
-}
 
 // UNE SEULE fonction de rééquilibrage, en silence (plus de carte ni de proposition) : (1) tâches en retard posées par le moteur replacées selon leur urgence
 // (captureplace.redispatchOverdue), (2) journée au-delà de la capacité : les moins importantes passent au prochain jour libre, dans la limite de l'échéance de leur période,
@@ -319,19 +267,15 @@ function rebalance(userId, activityId, opts) {  const res = rebalanceMoves(user
   if (!(opts && opts.force) && now - (lastRebalance.get(key) || 0) < 30000) return { applied: 0, skipped: true };
   lastRebalance.set(key, now);
   try { require('./goalscarryover').repriseUnmet(activityId); } catch (e) { /* non bloquant */ } // objectifs hebdomadaires non atteints repris sur les semaines à venir de la période (silencieux, idempotent)
-  const p = buildProposal(userId, activityId, undefined, true, true);
+  const p = buildProposal(userId, activityId, undefined, true);
   if (!p.overloaded) return { applied: 0 };
   const isAuto = db.prepare('SELECT dueDateAuto FROM sub_project_items WHERE id = ?');
   const deadlineOf = (m) => { try { const g = m.category ? goalsAt(activityId, m.category, m.from) : null; return g && g.period ? g.period.endDate : null; } catch (e) { return null; } };
   const moves = p.moves.filter((m) => ((isAuto.get(m.id) || {}).dueDateAuto || 0) === 1 && (!deadlineOf(m) || m.to <= deadlineOf(m)));
   if (!moves.length) return { applied: 0 };
-  applyMoves({ moves, objectives: { weekly: [], period: [] } }, false);
+  applyMoves({ moves });
   return { applied: moves.length };
 }
 
-function dismissProposal(userId, activityId, poleKey) {
-  db.prepare('INSERT OR IGNORE INTO goal_overload_dismissals (userId, activityId, day, poleKey) VALUES (?, ?, ?, ?)').run(userId, activityId, todayLocal(), poleKey || '');
-  return { dismissed: true };
-}
 
-module.exports = { budgetFor, referenceFor, isOverloaded, overloadMarks, getMarks, loadTasks, computeProposal, getProposal, applyProposal, dismissProposal, rebalance, TOLERANCE };
+module.exports = { budgetFor, referenceFor, isOverloaded, overloadMarks, getMarks, loadTasks, computeProposal, rebalance, TOLERANCE };

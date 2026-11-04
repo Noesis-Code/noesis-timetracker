@@ -24,11 +24,9 @@ const crosssectorinference = require('../lib/crosssectorinference');
 // Chantier Objectifs — C (fusion sous-projet → catégorie, section Tâches,
 // 17 septembre 2026) — voir server/lib/goalstasks.js.
 const goalstasks = require('../lib/goalstasks');
-const goalsoverload = require('../lib/goalsoverload');
 const goalscarryover = require('../lib/goalscarryover');
 const timecaps = require('../lib/timecaps');
 const goalscapacity = require('../lib/goalscapacity');
-const goalsrecalc = require('../lib/goalsrecalc');
 // Chantier Objectifs — C (bulle IA de classement automatique, 17 septembre
 // 2026) — voir server/lib/goalstaskclassify.js.
 const goalstaskclassify = require('../lib/goalstaskclassify');
@@ -582,49 +580,6 @@ router.get('/activities/:id/goals/tasks/archives', (req, res) => {
     handleGoalsError(res, err);
   }
 });
-
-// Surcharge quotidienne : plan PROPOSÉ,
-// jamais appliqué sans validation. Logique : server/lib/goalsoverload.js.
-function overloadRoute(fn) {
-  return (req, res) => {
-    const userId = req.userId;
-    if (!userId) return res.status(400).json({ error: 'userId requis.' });
-    const activityId = Number(req.params.id);
-    const check = requireMembership(userId, activityId);
-    if (check.error) return res.status(check.error.status).json(check.error.body);
-    try {
-      res.json(fn(userId, activityId, req.body || {}, req.query || {}));
-    } catch (err) {
-      handleGoalsError(res, err);
-    }
-  };
-}
-router.get('/activities/:id/goals/overload', overloadRoute((u, a, b, q) => goalsoverload.getProposal(u, a, q.pole || undefined)));
-router.post('/activities/:id/goals/overload/apply', overloadRoute((u, a, b) => goalsoverload.applyProposal(u, a, b.signature, b.poleKey || undefined)));
-router.post('/activities/:id/goals/overload/dismiss', overloadRoute((u, a, b) => goalsoverload.dismissProposal(u, a, b.poleKey || undefined)));
-
-// Report entre périodes (liste « Non réalisées », tout proposé) et cible irréaliste
-// (choix de l'utilisateur). Logique : server/lib/goalscarryover.js.
-router.get('/activities/:id/goals/unfinished', overloadRoute((u, a, b, q) => ({
-  ...goalscarryover.unfinished(u, a, q.pole || undefined), realism: goalscarryover.realismAll(u, a, q.pole || undefined),
-})));
-router.post('/activities/:id/goals/unfinished/apply', overloadRoute((u, a, b) => goalscarryover.applyCarry(u, a, b, b.poleKey || undefined)));
-router.post('/activities/:id/goals/realism', overloadRoute((u, a, b) => goalscarryover.applyRealism(u, a, b)));
-
-// Recalcul d'après le temps réel : propositions en attente (créées par le job nocturne
-// server/lib/goalsrecalc.js), appliquées ou écartées par l'utilisateur seulement.
-router.get('/activities/:id/goals/recalc', overloadRoute((u, a, b, q) => ({ proposals: goalsrecalc.listPending(u, a, q.pole || undefined) })));
-function recalcDecision(fn) {
-  return (req, res) => {
-    const userId = req.userId;
-    if (!userId) return res.status(400).json({ error: 'userId requis.' });
-    const activityId = Number(req.params.id);
-    const check = requireMembership(userId, activityId);
-    if (check.error) return res.status(check.error.status).json(check.error.body);
-    try { res.json(fn(userId, activityId, req.params.pid)); } catch (err) { handleGoalsError(res, err); }
-  };
-}
-router.post('/activities/:id/goals/recalc/:pid/apply', recalcDecision(goalsrecalc.apply));
 
 // Plafonds de temps facultatifs (max/jour, max/semaine) d'un pôle ou secteur,
 // avec la moyenne historique en lecture seule. Logique : server/lib/timecaps.js.
