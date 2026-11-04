@@ -15819,7 +15819,8 @@
     visRow.appendChild(visWord);
     visRow.appendChild(sw);
     adv.appendChild(visRow);
-    // Statistiques d'activité partagée : deux interrupteurs PERSONNELS (à moi et à cette activité), désactivés par défaut ; allumer l'un donne accès aux statistiques de tous les membres. Enregistrés aussitôt.
+    // Statistiques d'activité partagée : deux interrupteurs PERSONNELS (à moi et à cette activité), désactivés par défaut ; allumer l'un donne accès aux statistiques de tous les membres. Enregistrés avec le bouton Enregistrer.
+    var cmpPending = {};
     if (a.membersCount > 1) [['compareChrono', 'Comparer le chrono'], ['compareTasks', 'Comparer les tâches']].forEach(function (k) {
       var cRow = document.createElement('label'); cRow.className = 'activityEditRow activityEditVis';
       var cWord = document.createElement('span'); cWord.textContent = t(k[1]);
@@ -15827,11 +15828,7 @@
       var cIn = document.createElement('input'); cIn.type = 'checkbox'; cIn.checked = !!a[k[0]]; cIn.setAttribute('role', 'switch');
       var cTrack = document.createElement('span'); cTrack.className = 'toggleSwitchTrack';
       cSw.appendChild(cIn); cSw.appendChild(cTrack); cRow.appendChild(cWord); cRow.appendChild(cSw); adv.appendChild(cRow);
-      cIn.addEventListener('change', function () {
-        var body = { userId: profile.id }; body[k[0]] = cIn.checked; cIn.disabled = true;
-        api('PUT', '/api/activities/' + a.id, body).then(function () { a[k[0]] = cIn.checked; return refreshActivities(); }).then(function () { if (TMT.sharedStatsRefresh) TMT.sharedStatsRefresh(); })
-          .catch(function (err) { cIn.checked = !cIn.checked; if (msg) msg.textContent = err.message; }).then(function () { cIn.disabled = false; });
-      });
+      cIn.addEventListener('change', function () { if (cIn.checked !== !!a[k[0]]) cmpPending[k[0]] = cIn.checked; else delete cmpPending[k[0]]; markDirty(); });
     });
     if ((acts || []).length > 1) adv.appendChild(plainRow(t('Fusionner avec…'), function () { openMergeActivityModal(a); }));
     adv.appendChild(plainRow(t('Membres'), function () { openCommunityMembersModal(a.id, a.name, { activity: a, solo: !(a.membersCount > 1) }); }));
@@ -15896,7 +15893,7 @@
     save.textContent = t('Enregistrer');
     // Gris et inactif tant que rien n'a changé, violet dès qu'il y a un changement.
     function markDirty() {
-      var dirty = (a.isOwner && nameIn.value.trim() !== a.name) || conf !== !!a.confidential;
+      var dirty = (a.isOwner && nameIn.value.trim() !== a.name) || conf !== !!a.confidential || Object.keys(cmpPending).length > 0;
       save.disabled = !dirty;
       save.classList.toggle('cmpBtnIdle', !dirty);
     }
@@ -15912,9 +15909,12 @@
       if (conf !== !!a.confidential) {
         chain = chain.then(function () { return api('PUT', '/api/activities/' + a.id, { userId: profile.id, confidential: conf }); });
       }
+      if (Object.keys(cmpPending).length) {
+        chain = chain.then(function () { return api('PUT', '/api/activities/' + a.id, Object.assign({ userId: profile.id }, cmpPending)); });
+      }
       chain.then(function () {
         activityEditId = null;
-        return refreshActivities().then(function () { renderActivityGrid(); loadSettingsActivities(); });
+        return refreshActivities().then(function () { renderActivityGrid(); loadSettingsActivities(); if (TMT.sharedStatsRefresh) TMT.sharedStatsRefresh(); });
       }).catch(function (err) { msg.textContent = err.message; save.disabled = false; });
     });
     row.appendChild(trash); // croix rouge en haut à droite de la carte, hors du champ du nom et des couleurs
