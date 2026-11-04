@@ -58,6 +58,28 @@ assert(dl.filter((t) => !t.upcoming).length === 2 && dl.filter((t) => t.upcoming
 assert(dl.length === 5 && ![d5, d9].some((id) => dl.some((t) => t.id === id)), 'jamais plus de 5 au total');
 assert(rr.todoCount === rr.tasks.filter((t) => !t.done && !t.upcoming).length, 'les tâches à venir ne comptent pas dans « à faire »');
 
+// Tri « Objectif » : le serveur expose l'objectif hebdomadaire de chaque tâche (id, texte) et si sa semaine est la semaine en cours.
+const eps = mkAct('Epsilon', 4);
+const pid = db.prepare('INSERT INTO goal_periods (activityId, category, periodNumber, cycleIndex, periodIndexInCycle, startDate, endDate, mainGoalText, createdAt) VALUES (?,?,?,?,?,?,?,?,?)').run(eps.id, eps.key, 90, 1, 1, today, inDays(27), 'P', '').lastInsertRowid;
+const insWk = db.prepare('INSERT INTO goal_weekly (periodId, weekIndex, text, description, createdAt) VALUES (?,?,?,?,?)');
+const wCur = insWk.run(pid, 1, 'Objectif courant', '', '').lastInsertRowid, wFut = insWk.run(pid, 3, 'Objectif futur', '', '').lastInsertRowid;
+const link = (id, w) => db.prepare('UPDATE sub_project_items SET goalWeeklyId = ? WHERE id = ?').run(w, id);
+const e1 = addDue(eps, 'Tâche objectif courant', today), e2 = addDue(eps, 'Tâche objectif futur', today), e3 = addDue(eps, 'Tâche sans objectif', today);
+link(e1, wCur); link(e2, wFut);
+const ro = goalstoday.tasksToday('u1', today).tasks, by = (id) => ro.find((t) => t.id === id);
+assert(by(e1).objectiveId === wCur && by(e1).objectiveText === 'Objectif courant' && by(e1).objectiveCurrentWeek === true, 'objectif de la semaine en cours : id, texte, semaine en cours');
+assert(by(e2).objectiveId === wFut && by(e2).objectiveCurrentWeek === false, 'objectif d\'une autre semaine : pas la semaine en cours');
+assert(by(e3).objectiveId === null && by(e3).objectiveCurrentWeek === false, 'tâche sans objectif : objectiveId nul');
+
+// Tri « Responsable » : la tâche confiée à un autre membre est exposée (avec son nom) sans entrer dans « à faire » ; la mienne et celles sans responsable restent dans la base.
+db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u2', 'Zoé', datetime('now'))").run();
+db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt, position) VALUES (?, 'u2', '#000', '', 0)").run(eps.id);
+const f1 = addDue(eps, 'Tâche de Zoé', today); db.prepare("UPDATE sub_project_items SET plannedUserId = 'u2' WHERE id = ?").run(f1);
+const rf = goalstoday.tasksToday('u1', today), fx = rf.tasks.find((t) => t.id === f1);
+assert(fx && fx.plannedUserId === 'u2' && fx.plannedUserName === 'Zoé' && fx.shared === true, 'tâche d\'un autre membre : exposée avec son nom (tri Responsable)');
+assert(rf.todoCount === rf.tasks.filter((t) => !t.done && !t.upcoming && (!t.plannedUserId || t.plannedUserId === 'u1')).length, 'la tâche d\'un autre membre ne compte pas dans « à faire »');
+assert(goalstoday.tasksToday('u2', today).tasks.some((t) => t.id === f1 && !t.upcoming), 'et elle reste dans la liste de son responsable');
+
 // Archive : tâches faites des 7 derniers jours (toutes activités) ; passé 7 jours elles disparaissent de l'application mais restent en base et retrouvables (includeLocked).
 const doneAgo = (id, days) => db.prepare('UPDATE sub_project_items SET done = 1, doneAt = ? WHERE id = ?').run(new Date(Date.now() - days * 86400000).toISOString(), id);
 const recent = addDue(gamma, 'Faite hier', today), old = addDue(delta, 'Faite il y a 10 jours', today);

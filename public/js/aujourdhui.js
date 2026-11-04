@@ -750,25 +750,12 @@
     paintTodo(d.tasks.filter(function (t) { return !t.done; }), addRow); // les tâches faites ne restent plus dans la liste du jour : elles sont dans « Archive »
     if (archiveOpen()) loadArchive();
   }
-  // ---------- Tri (demande d'Émilien, 3 nov. 2026) : « Activité » (défaut, arbre replié), « Aujourd'hui », « Objectif », « Durée » ----------
-  var SORT_KEY = 'noesis_today_sort_v1', SORTS = ['activity', 'today', 'objective', 'duration'];
-  var SORT_LABELS = { activity: 'Activité', today: 'Aujourd’hui', objective: 'Objectif', duration: 'Durée' };
+  // ---------- Tri (demande d'Émilien, 3 nov. 2026) : « Activité » (défaut, arbre replié), « Aujourd'hui », « Objectif », « Responsable » ----------
+  var SORT_KEY = 'noesis_today_sort_v1', SORTS = ['activity', 'today', 'objective', 'assignee'];
+  var SORT_LABELS = { activity: 'Activité', today: 'Aujourd’hui', objective: 'Objectif', assignee: 'Responsable' };
   var sortMode = 'activity', openNodes = {}; // openNodes : branches dépliées de l'arbre, gardées le temps de la session de la vue
-  try { var savedSort = localStorage.getItem(SORT_KEY); if (savedSort === 'priority') savedSort = 'today'; if (SORTS.indexOf(savedSort) >= 0) sortMode = savedSort; } catch (e) {}
+  try { var savedSort = localStorage.getItem(SORT_KEY); if (savedSort === 'priority' || savedSort === 'duration') savedSort = 'today'; if (SORTS.indexOf(savedSort) >= 0) sortMode = savedSort; } catch (e) {}
   function cmpNum(a, b) { return a < b ? -1 : a > b ? 1 : 0; }
-  function sortedFlat(list) {
-    var out = list.map(function (t, i) { return { t: t, i: i }; });
-    out.sort(function (x, y) {
-      var a = x.t, b = y.t, r = 0;
-      if (sortMode === 'duration') r = cmpNum(a.minutes || 0, b.minutes || 0);
-      else if (sortMode === 'objective') { // même logique que taskkind.compareContinuity : fin de période, numéro, semaine ; sans objectif à la fin
-        var oa = a.objectiveEnd ? 0 : 1, ob = b.objectiveEnd ? 0 : 1;
-        r = cmpNum(oa, ob) || (oa === 0 ? cmpNum(a.objectiveEnd, b.objectiveEnd) || cmpNum(a.objectiveNumber || 0, b.objectiveNumber || 0) || cmpNum(a.objectiveWeek || 0, b.objectiveWeek || 0) : 0);
-      }
-      return r || x.i - y.i;
-    });
-    return out.map(function (x) { return x.t; });
-  }
   // Une branche repliable : ligne (nom + chevron à droite, R21) puis son contenu, visible seulement si dépliée.
   // Ligne repliable = celle de l'onglet Tâches (TMT.buildGoalsGroupRow : mêmes classes, chevron, comportement : on redessine la liste) ; ici pour les niveaux activité et pôle.
   function toggleNode(id) { if (openNodes[id]) delete openNodes[id]; else openNodes[id] = true; if (lastData) render(lastData); }
@@ -798,11 +785,29 @@
     parent.appendChild(TMT.buildGoalsTaskRow(Object.assign({}, t, { grey: !!t.upcoming }), t.catKey || t.pole, function () { var p = listBox.querySelector('.goalsTaskEditPanel'); if (p) p.remove(); refresh(); }));
   }
   function group(list, keyOf) { var order = [], map = {}; list.forEach(function (t) { var k = keyOf(t); if (!map[k]) { map[k] = []; order.push(k); } map[k].push(t); }); return order.map(function (k) { return { key: k, items: map[k] }; }); }
+  // Tri « Objectif » : un groupe par objectif HEBDOMADAIRE de la semaine en cours (titre = texte de l'objectif), ses seules tâches à faire aujourd'hui ; objectif sans tâche masqué,
+  // tâches sans objectif masquées ; groupes dans l'ordre de taskkind.compareContinuity : fin de période la plus proche, numéro de période, semaine.
+  function paintObjectives(list) {
+    var withObj = list.filter(function (t) { return t.objectiveId != null && t.objectiveCurrentWeek; });
+    var groups = group(withObj, function (t) { return t.objectiveId; });
+    groups.sort(function (x, y) { var a = x.items[0], b = y.items[0]; return cmpNum(a.objectiveEnd, b.objectiveEnd) || cmpNum(a.objectiveNumber || 0, b.objectiveNumber || 0) || cmpNum(a.objectiveWeek || 0, b.objectiveWeek || 0); });
+    groups.forEach(function (g) { branch(listBox, 'o' + g.key, g.items[0].objectiveText || '—', g.items.length, 0, function (body) { g.items.forEach(function (t) { treeRow(t, body); }); }); });
+  }
+  // Tri « Responsable » : un groupe par personne responsable (la personne connectée d'abord ; une tâche sans responsable désigné est la sienne), puis les autres membres par ordre alphabétique ;
+  // dans chaque groupe l'ordre du serveur (activité, paliers, échéance). Tâches à faire d'aujourd'hui, retards et sans date seulement.
+  function paintAssignees(list, foreign, me) {
+    var meName = (TMT.getProfile() || {}).name || '';
+    var groups = group(list, function (t) { return foreign(t) ? t.plannedUserId : me; });
+    groups.sort(function (x, y) { if (x.key === me) return -1; if (y.key === me) return 1; return String(x.items[0].plannedUserName || '').localeCompare(String(y.items[0].plannedUserName || '')); });
+    groups.forEach(function (g) { branch(listBox, 'r' + g.key, g.key === me ? meName : (g.items[0].plannedUserName || '—'), g.items.length, 0, function (body) { g.items.forEach(function (t) { treeRow(t, body); }); }); });
+  }
   function paintTodo(list, addRow) {
     var upc = list.filter(function (t) { return t.upcoming; }); list = list.filter(function (t) { return !t.upcoming; }); // tâches à venir (complément à 5 par pôle) : seulement dans l'arbre, en grisé, jamais dans les tris à plat
     var fresh = list.filter(function (t) { return t.justAdded; }); list = list.filter(function (t) { return !t.justAdded; }); // tâche ajoutée à l'instant : en tête, avant le tri
+    var me = TMT.getProfile().id, foreign = function (t) { return !!t.plannedUserId && t.plannedUserId !== me; }; if (sortMode !== 'assignee') list = list.filter(function (t) { return !foreign(t); }); // tâches d'un autre membre : seulement dans le tri « Responsable »
     fresh.forEach(function (t) { addRow(t, listBox); });
-    if (sortMode !== 'activity') { sortedFlat(list).forEach(function (t) { addRow(t, listBox); }); return; }
+    if (sortMode === 'objective') { paintObjectives(list); return; }
+    if (sortMode === 'assignee') { paintAssignees(list, foreign, me); return; }    if (sortMode !== 'activity') { list.forEach(function (t) { addRow(t, listBox); }); return; }
     group(list.concat(upc), function (t) { return t.activityId; }).forEach(function (a) {
       var inAct = function (aBody) {
         group(a.items, function (t) { return t.pole || ''; }).forEach(function (p) {

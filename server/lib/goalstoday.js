@@ -22,13 +22,15 @@ function tasksToday(userId, todayParam, dayParam) {
   const acts = db.prepare(`SELECT a.id, a.name, m.color FROM activities a JOIN activity_members m ON m.activityId = a.id
     WHERE m.userId = ? AND a.active = 1 ORDER BY m.position, a.id`).all(userId); // ordre des activités dans l'application (même ordre que la liste des activités)
   const actIndex = new Map(acts.map((a, i) => [a.id, i])); const sharedActs = new Set(acts.filter((a) => db.prepare('SELECT COUNT(*) AS c FROM activity_members WHERE activityId = ?').get(a.id).c > 1).map((a) => a.id)); // activités partagées : le panneau de modification propose alors « Responsable »
-  const todo = [], done = [];
+  const todo = [], done = [], others = []; // others : tâches à faire confiées à un autre membre (tri « Responsable » seulement ; jamais comptées)
   // Les durées estimées ne se calculent que pour les tâches affichées (et un calcul par catégorie : mémo le temps de la requête).
   const memo = goals.beginEstimateMemo();
   try {
     acts.forEach((a) => { const poleLabels = {}, poleIdx = {}; goals.categoriesForActivity(a.id).forEach((p, i) => { poleLabels[p.key] = p.label; poleIdx[p.key] = i; }); // poleIdx : rang du pôle, pour sa nuance (comme les objectifs)
+      const memberNames = {}; if (sharedActs.has(a.id)) goals.membersForActivity(a.id).forEach((m) => { memberNames[m.id] = m.name; });
       goalstasks.allTasksWithGroup(a.id).forEach((t) => {
-        if (t.plannedUserId && t.plannedUserId !== userId) return;
+        const foreign = !!(t.plannedUserId && t.plannedUserId !== userId);
+        if (foreign && (other || t.done)) return;
         const due = t.dueDate || today;
         let list = null;
         if (other) {
@@ -36,11 +38,12 @@ function tasksToday(userId, todayParam, dayParam) {
           else if (t.done && ((t.doneAt && dayOf(new Date(t.doneAt)) === today) || (today > realToday && t.dueDate === today))) list = done;
         } else if (!t.done && due <= today) list = todo;
         else if (t.done && t.doneAt && dayOf(new Date(t.doneAt)) === today) list = done;
+        if (foreign) list = list === todo ? others : null;
         if (!list) return;
         list.push({
           id: t.id, label: t.label, done: !!t.done, activityId: a.id, activityName: a.name, activityColor: a.color || null,
           sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, catKey: t.key, dueDate: due,
-          minutes: goalscapacity.taskMinutes(userId, a.id, t.poleKey, t.label), plannedUserId: t.plannedUserId || null, shared: sharedActs.has(a.id), poleName: poleLabels[t.poleKey] || t.poleKey, poleIndex: poleIdx[t.poleKey],
+          minutes: goalscapacity.taskMinutes(userId, a.id, t.poleKey, t.label), plannedUserId: t.plannedUserId || null, shared: sharedActs.has(a.id), poleName: poleLabels[t.poleKey] || t.poleKey, poleIndex: poleIdx[t.poleKey], plannedUserName: memberNames[t.plannedUserId] || '',
         });
       });
     });
@@ -71,7 +74,7 @@ function tasksToday(userId, todayParam, dayParam) {
   // Objectif périodique (fin, numéro) puis hebdomadaire (semaine) de chaque tâche liée : tri de la continuité.
   const objInfo = {};
   const wids = Array.from(new Set(Object.values(weekly).filter((w) => w != null)));
-  if (wids.length) db.prepare('SELECT w.id, w.weekIndex, p.endDate, p.periodNumber FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE w.id IN (' + wids.map(() => '?').join(',') + ')').all(...wids).forEach((r) => { objInfo[r.id] = r; });
+  if (wids.length) db.prepare('SELECT w.id, w.weekIndex, w.text, p.startDate, p.endDate, p.periodNumber FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE w.id IN (' + wids.map(() => '?').join(',') + ')').all(...wids).forEach((r) => { objInfo[r.id] = r; });
   const capacity = {};
   todo.forEach((t) => {
     if (!(t.activityId in capacity)) { try { capacity[t.activityId] = require('./goalsoverload').budgetFor(t.activityId, userId); } catch (e) { capacity[t.activityId] = 0; } }
@@ -85,11 +88,12 @@ function tasksToday(userId, todayParam, dayParam) {
   // Réformes (reform.js) : en tête de leur pôle/secteur, ou de l'activité si elles en touchent au moins deux.
   const ordered = require('./reform').placeReforms(todo);
   todo.length = 0; ordered.forEach((t) => todo.push(t));
-  todo.forEach((t) => { t.objectiveEnd = t.rank.periodEnd || null; t.objectiveNumber = t.rank.periodNumber || 0; t.objectiveWeek = t.rank.weekIndex || 0; }); // tri « Objectif » côté client (même logique que compareContinuity) : fin de période, puis semaine ; sans objectif : null
-  todo.concat(done).forEach((t) => { delete t.rank; delete t.catKey; });
+  todo.forEach((t) => { t.objectiveEnd = t.rank.periodEnd || null; t.objectiveNumber = t.rank.periodNumber || 0; t.objectiveWeek = t.rank.weekIndex || 0; const oi = objInfo[weekly[t.id]]; t.objectiveId = oi ? weekly[t.id] : null; t.objectiveText = oi ? oi.text : ''; t.objectiveCurrentWeek = !!oi && goals.weekBoundsIn(oi, oi.weekIndex).start <= today && today <= goals.weekBoundsIn(oi, oi.weekIndex).end; }); // tri « Objectif » côté client (même logique que compareContinuity) : fin de période, puis semaine ; sans objectif : null
+  todo.concat(others, done).forEach((t) => { delete t.rank; delete t.catKey; });
+  others.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || (x.dueDate < y.dueDate ? -1 : x.dueDate > y.dueDate ? 1 : x.id - y.id));
   done.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || x.id - y.id);
   const sum = (l) => l.reduce((s, t) => s + (t.minutes || 0), 0);
-  return { today, doneCount: done.length, todoCount: todo.length, doneMinutes: sum(done), todoMinutes: sum(todo), minLines: goalstasks.DAILY_MIN_LINES, tasks: todo.concat(upc, done) };
+  return { today, doneCount: done.length, todoCount: todo.length, doneMinutes: sum(done), todoMinutes: sum(todo), minLines: goalstasks.DAILY_MIN_LINES, tasks: todo.concat(upc, others, done) };
 }
 
 // Archive de la vue Aujourd'hui : tâches faites des 7 derniers jours, TOUTES les activités de l'utilisateur (la liste de l'onglet Tâches, goalstasks.archivesForActivity, pour chaque activité),

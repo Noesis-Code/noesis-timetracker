@@ -28,7 +28,7 @@
 #goalsActivitySwitcher.communityMembersModal { align-items: stretch; background: var(--bg); }
 
 #goalsActivitySwitcher .communityMembersModalCard {
-  display: flex; flex-direction: column; padding: 0; overflow: hidden;
+  display: flex; flex-direction: column; padding: var(--topbar-h, 60px) 0 0; box-sizing: border-box; overflow: hidden; /* la barre habituelle de l'application reste visible en haut */
   height: 100%; max-height: 100%;
   border-radius: 0; box-shadow: none;
 }
@@ -45,7 +45,6 @@
   display: flex; flex-direction: column; gap: 14px;
 }
 
-#goalsBackToCaptureBtn { flex-shrink: 0; }
 
 
 /* chantier « Épuration visuelle » : .goalsActivityPlainRow/
@@ -232,8 +231,12 @@
 
 /* boutons Tâches/Objectifs retirés (balayage + 3 points) ; la bulle Discussion (fixed) reste dans le conteneur. */
 #goalsPage2ModeSwitch { display: contents; }
+:root.goalsActOpen .topbar { z-index: 102; } /* page de l'activité (z-index 101) : la barre du haut et la barre des volets restent au-dessus */
+:root.goalsActOpen .tabbar { z-index: 102; padding-right: 76px; } /* le « + » d'Expansion prend la place à droite de la barre des volets */
+.goalsTaskDock { justify-content: flex-end; }
+.goalsTaskDock .tasksComposer, .goalsTaskDockMsg { display: none; } /* plus de zone d'écriture sur la page de l'activité : seul le « + » d'Expansion reste */
 #goalsPage2Dots {
-  position: fixed; left: auto; right: 16px; z-index: 20; /* en bas à droite, dans l'activité seulement */
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
   bottom: var(--tabbar-h, 64px); display: flex; gap: 0; /* même place que #statsPageDots du Chrono */
 }
 #goalsPage2Dots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }

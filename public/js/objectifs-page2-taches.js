@@ -60,10 +60,7 @@
              flex:0 0 auto, styles.css) pendant que le reste défile dans
              #goalsActivitySwitcherScroll ci-dessous — même mécanique que
              #activityPageHeader/#activityPageScroll. -->
-        <div class="activityPageHeader">
-          <span class="activityPageName" id="goalsActivityName"></span>
-          <button type="button" class="cmpClose" id="goalsBackToCaptureBtn" aria-label="Fermer">✕</button>
-        </div>
+        <span id="goalsActivityName" class="hidden"></span><!-- plus d'en-tête propre à l'activité (nom + ✕) : la barre habituelle de l'application reste en haut ; retour à la liste = 1er point ou balayage vers la droite -->
         <div id="goalsNoPoleState" class="goalsNoPoleState hidden">
           <p class="goalsNoPoleTitle">Cette activité n’a pas encore de pôle.</p>
           <p class="hint">Crée ton premier pôle pour organiser tes tâches et tes objectifs.</p>
@@ -127,7 +124,7 @@
              pôle (portée = toute l'activité, à la différence de
              #goalsObjectifsView — le cadre de pôle juste au-dessus, lui,
              reste visible mais n'est pas une navigation propre à cet écran). -->
-        <div id="goalsTasksView" class="goalsTasksView">
+        <div id="goalsTasksView" class="goalsTasksView hidden">
           <div id="goalsOverloadCard" class="goalsOverloadCard hidden"></div>
           <!-- (Émilien) : tri des tâches par responsable, même gabarit que le filtre Public/Confidentiel des Statistiques. -->
           <div id="goalsRespFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
@@ -160,7 +157,7 @@
         </div>
 
         <!-- (Emilien) : plus de boutons Tâches/Objectifs — on glisse de droite à gauche ; 3 points en bas au milieu (celui du milieu est réservé à une prochaine demande). -->
-        <div id="goalsPage2Dots" role="group"><button type="button" class="goalsDotBtn on" data-dot="tasks" aria-label="Tâches"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" data-dot="goals" aria-label="Objectifs"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" data-dot="next" aria-label="Calendrier"><span class="goalsDot"></span></button></div>
+        <div id="goalsPage2Dots" role="group"><button type="button" class="goalsDotBtn" data-dot="home" aria-label="Feuille de route"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn on" data-dot="goals" aria-label="Objectifs"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" data-dot="next" aria-label="Calendrier"><span class="goalsDot"></span></button></div>
 
         <!-- scission Tâches / Objectifs de la Page 2 :
              emplacement de l'écran « Objectifs ». Son CONTENU (arbre
@@ -348,8 +345,8 @@
   // gabarit propre — voir le commentaire à côté de #goalsTasksProgressWrap,
   // index.html.
   var goalsPage2BaseMode = 'tasks';
-  // 3 pages qui défilent, dans l'activité : Tâches · Objectifs (arbre périodique, page d'ouverture) · Calendrier (détail de période, ex-Page 3).
-  var GOALS_PAGE2_ORDER = ['tasks', 'goals', 'month'];
+  // Dans l'activité : Objectifs (arbre périodique, page d'arrivée) · Calendrier (détail de période, ex-Page 3). Le 1er point des 3 est la page 1 (retour à la Feuille de route).
+  var GOALS_PAGE2_ORDER = ['goals', 'month'];
   function goalsPage2ViewFor(m) { return $(m === 'tasks' ? 'goalsTasksView' : m === 'month' ? 'goalsMonthView' : 'goalsObjectifsView'); }
   TMT.getGoalsPage2Mode = function () { return currentGoalsPage2Mode; };
   // opts.keep : l'appelant (openGoalsDetail) a déjà posé catégorie/période ; opts.noAnim : sans défilement.
@@ -387,7 +384,7 @@
     var slideOut = null, slideIn = null, slideFrom = 1;
     var iOld = GOALS_PAGE2_ORDER.indexOf(previousBase), iNew = GOALS_PAGE2_ORDER.indexOf(mode);
     if (!opts.noAnim && iOld >= 0 && iNew >= 0 && iOld !== iNew && views[previousBase] && views[mode] &&
-        !views.tasks.closest('.hidden') && typeof views.tasks.animate === 'function') {
+        !views.goals.closest('.hidden') && typeof views.goals.animate === 'function') {
       slideOut = views[previousBase]; slideIn = views[mode];
       var sc0 = document.getElementById('goalsActivitySwitcherScroll'), scrollS = sc0 ? sc0.scrollTop : 0, scrollH0 = sc0 ? sc0.scrollHeight : 0;
       slideFrom = iNew > iOld ? 1 : -1; // vers la droite du parcours : entre par la droite
@@ -431,6 +428,7 @@
 
   Array.prototype.forEach.call(document.querySelectorAll('#goalsPage2Dots [data-dot]'), function (b) {
     b.addEventListener('click', function () {
+      if (b.getAttribute('data-dot') === 'home') { TMT.showGoalsCapturePage(); return; } // 1er point : la page 1 de la Feuille de route
       var m = b.getAttribute('data-dot') === 'next' ? 'month' : b.getAttribute('data-dot');
       if (m !== goalsPage2BaseMode) setGoalsPage2Mode(m);
     });
@@ -458,7 +456,7 @@
     function canDrag(dx) {
       var idx = GOALS_PAGE2_ORDER.indexOf(goalsPage2BaseMode);
       var target = idx + (dx < 0 ? 1 : -1);
-      if (idx < 0 || target < 0 || target >= GOALS_PAGE2_ORDER.length) return -1;
+      if (idx < 0 || target >= GOALS_PAGE2_ORDER.length) return -1;
       if (goalsPage2BaseMode === 'goals') { // page du milieu : la grille défile à l'horizontale ; on change de page seulement à son bord (gauche vers Tâches, droit vers Calendrier)
         var sc = g0.scroller;
         if (dx > 0) {
@@ -466,7 +464,7 @@
           if (!gridAtLeft()) return -1;
         } else if (sc && !(g0.startLeft + sc.clientWidth >= sc.scrollWidth - 1 && sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 1)) return -1;
       } else if (g0.scroller) return -1;
-      return target;
+      return target < 0 ? -2 : target; // -2 : balayage vers la droite depuis la 1re page de l'activité = retour à la page 1 de la Feuille de route
     }
     var GAP = 24; // espace entre deux pages pendant le glissé
     function startDrag(dx) {
@@ -514,6 +512,7 @@
         var axis = TMT.axisLock.move(g0.lock, dx, dy); // verrouillage d'axe (helper commun)
         if (!axis) return;
         if (axis === 'y') { g0 = null; return; } // défilement vertical natif
+        if (canDrag(dx) === -2) { g0.back = dx; if (e.cancelable) e.preventDefault(); return; }
         if (!startDrag(dx)) { g0 = null; return; }
         TMT.axisLock.hold(g0.lock, g0.tg);
       }
@@ -523,6 +522,7 @@
     function finish(e, cancelled) {
       var g = g0; g0 = null;
       if (g) TMT.axisLock.release(g.lock);
+      if (g && g.back > 60 && !cancelled) { TMT.showGoalsCapturePage(); return; } // retour à la page 1
       if (!g || !g.drag) return;
       var d = g.drag, dx = d.x || 0, dt = Math.max(1, Date.now() - g.t);
       var commit = !cancelled && ((Math.abs(dx) > d.width * 0.25) || (Math.abs(dx) >= 20 && Math.abs(dx) / dt >= 0.35));
@@ -651,6 +651,10 @@
   $('goalsDiscView').addEventListener('click', function (e) { if (e.target === this) closeGoalsDiscSheet(); });
 
   TMT.setGoalsPage2Mode = setGoalsPage2Mode;
+  // La page de l'activité laisse voir la barre habituelle de l'application (roue, profil) : classe sur <html> tant qu'elle est ouverte (CSS : .topbar passe au-dessus).
+  // Un toucher sur la barre des volets (restée visible) ferme d'abord la page de l'activité, puis l'onglet choisi s'ouvre normalement.
+  (function () { var bar = document.querySelector('.tabbar'); if (bar) bar.addEventListener('click', function () { if (document.documentElement.classList.contains('goalsActOpen')) TMT.showGoalsCapturePage(); }, true); })();
+  (function () { var sw = $('goalsActivitySwitcher'); if (!sw || typeof MutationObserver !== 'function') return; function sync() { document.documentElement.classList.toggle('goalsActOpen', !sw.classList.contains('hidden')); } new MutationObserver(sync).observe(sw, { attributes: true, attributeFilter: ['class'] }); sync(); })();
 
   // voir
   // le commentaire du bouton dans index.html. Déplacé ici depuis
@@ -659,9 +663,6 @@
   // écouteur doit être posé ici — un $('goalsBackToCaptureBtn') au niveau
   // supérieur d'un autre fichier de page s'exécute avant que ce HTML-ci
   // existe, selon l'ordre de chargement des <script> dans index.html.
-  $('goalsBackToCaptureBtn').addEventListener('click', function () {
-    TMT.showGoalsCapturePage();
-  });
 
 
   // design commun des cartes d'alerte (Journée surchargée, Non réalisées,

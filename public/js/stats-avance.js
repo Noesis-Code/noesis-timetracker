@@ -52,7 +52,7 @@
       g = null;
       if (e.touches.length !== 1) return;
       var tg = e.target;
-      if (!tg.closest || tg.closest('input, textarea, select, .statsPeriodMenu, .saChips')) return;
+      if (!tg.closest || tg.closest('input:not([type=checkbox]), textarea, select, .statsPeriodMenu, .saChips')) return;
       var mods = document.querySelectorAll('.communityMembersModal:not(.hidden)'); // une fenêtre ouverte AU-DESSUS (pas celle qui contient la zone) bloque le geste
       for (var mi = 0; mi < mods.length; mi++) if (mods[mi].contains(tg) && !mods[mi].contains(zone)) return; // seule une fenêtre qui reçoit réellement le toucher bloque le geste (un sélecteur resté « ouvert » hors écran bloquait le glissement des Nouvelles tâches)
       var sc = hScroller(tg);
