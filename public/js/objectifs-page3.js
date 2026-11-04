@@ -682,6 +682,7 @@
           if (period.weeklies[i].weekIndex === weekIndex) { w = period.weeklies[i]; break; }
         }
 
+        if (w && w.noRoomToCarry) { un = true; box.classList.add('unrealistic'); } // objectif non atteint sans semaine à venir dans la période : liseré existant
         var row = document.createElement('div');
         row.className = 'goalCard goalWeeklyCard';
         // id stable, requis par openGoalsWeekEditor()

@@ -205,11 +205,13 @@
 /* boutons Tâches/Objectifs retirés (balayage + 3 points) ; la bulle Discussion (fixed) reste dans le conteneur. */
 #goalsPage2ModeSwitch { display: contents; }
 :root.goalsActOpen .topbar { z-index: 102; } /* page de l'activité (z-index 101) : la barre du haut et la barre des volets restent au-dessus */
-:root.goalsActOpen .tabbar { z-index: 102; padding-right: 76px; transition: padding-right .5s cubic-bezier(.22, .8, .3, 1); } /* la barre rétrécit en 0,5 s (seulement à l'ouverture d'une activité : au retour elle reprend sa largeur sans animation) /* le « + » d'Expansion prend la place à droite de la barre des volets */
+:root.goalsActOpen .tabbar { z-index: 102; }
+:root.goalsActOpen:not(.tabbarHasPlus) .tabbar { padding-right: 76px; transition: padding-right .5s cubic-bezier(.22, .8, .3, 1); } /* la barre rétrécit en 0,5 s (seulement à l'ouverture d'une activité : au retour elle reprend sa largeur sans animation) /* le « + » d'Expansion prend la place à droite de la barre des volets */
 .goalsTaskDock { justify-content: flex-end; }
 @keyframes goalsPlusIn { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
-:root.goalsActOpen #goalsPage2AddBtn { animation: goalsPlusIn .5s cubic-bezier(.22, .8, .3, 1) .5s both; } /* le « + » apparaît (fondu + agrandissement) une fois la barre rétrécie : 0,5 s + 0,5 s */
-@media (prefers-reduced-motion: reduce) { :root.goalsActOpen .tabbar { transition: none; } :root.goalsActOpen #goalsPage2AddBtn { animation: none; } }
+:root.goalsActOpen.tabbarHasPlus #goalsPage2AddBtn { display: none; } /* la barre portait déjà un « + » : aucune animation, c'est ce « + » qui sert à Expansion (voir objectifs-page2-taches.js) */
+:root.goalsActOpen:not(.tabbarHasPlus) #goalsPage2AddBtn { animation: goalsPlusIn .5s cubic-bezier(.22, .8, .3, 1) .5s both; } /* le « + » apparaît (fondu + agrandissement) une fois la barre rétrécie : 0,5 s + 0,5 s */
+@media (prefers-reduced-motion: reduce) { :root.goalsActOpen:not(.tabbarHasPlus) .tabbar { transition: none; } :root.goalsActOpen:not(.tabbarHasPlus) #goalsPage2AddBtn { animation: none; } }
 .goalsTaskDock .tasksComposer, .goalsTaskDockMsg { display: none; } /* plus de zone d'écriture sur la page de l'activité : seul le « + » d'Expansion reste */
 #goalsPage2Dots {
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;

@@ -293,6 +293,7 @@ function rebalance(userId, activityId, opts) {
   const key = userId + '|' + activityId, now = Date.now();
   if (!(opts && opts.force) && now - (lastRebalance.get(key) || 0) < 30000) return { applied: 0, skipped: true };
   lastRebalance.set(key, now);
+  try { require('./goalscarryover').repriseUnmet(activityId); } catch (e) { /* non bloquant */ } // objectifs hebdomadaires non atteints repris sur les semaines à venir de la période (silencieux, idempotent)
   const p = buildProposal(userId, activityId, undefined, true, true);
   if (!p.overloaded) return { applied: 0 };
   const isAuto = db.prepare('SELECT dueDateAuto FROM sub_project_items WHERE id = ?');

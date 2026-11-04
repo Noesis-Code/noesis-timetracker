@@ -75,6 +75,7 @@ function runForUser(userId, activityId, today) {
   const periods = db.prepare(`SELECT * FROM goal_periods WHERE activityId = ? AND startDate <= ? AND endDate >= ?
     AND mainGoalText IS NOT NULL AND TRIM(mainGoalText) != ''`).all(activityId, today, today);
   let changed = 0;
+  try { changed += require('./goalscarryover').repriseUnmet(activityId, today); } catch (e) { /* non bloquant */ } // passage nocturne : reprise silencieuse des objectifs hebdomadaires non atteints
   periods.forEach((p) => {
     db.prepare("UPDATE goal_recalc_proposals SET status = 'dismissed', decidedAt = ? WHERE userId = ? AND activityId = ? AND category = ? AND status = 'pending'").run(new Date().toISOString(), userId, activityId, p.category);
     if (p.mainGoalEstimateSource === 'manual') return;

@@ -45,6 +45,34 @@ assert(due(suggested) === today, 'date par défaut/suggérée : jamais déplacé
 assert(due(refo) === today, 'réforme : jamais déplacée');
 assert(overload.rebalance('u1', actId).skipped === true, 'au plus une fois par 30 s et par activité (pas de calcul répété)');
 
+// ---- Reprise silencieuse des objectifs hebdomadaires non atteints ----
+const carry = require('../server/lib/goalscarryover');
+const ins = (periodId, wi, text, est, source, status) => db.prepare("INSERT INTO goal_weekly (periodId, weekIndex, text, description, estimateMinutes, estimateSource, status, createdAt) VALUES (?,?,?,?,?,?,?,?)").run(periodId, wi, text, 'desc ' + wi, est, source, status || null, new Date().toISOString()).lastInsertRowid;
+const per = (start, end, num) => db.prepare('INSERT INTO goal_periods (activityId, category, periodNumber, cycleIndex, periodIndexInCycle, startDate, endDate, mainGoalText, createdAt) VALUES (?,?,?,?,?,?,?,?,?)').run(actId, goals.resolveToPole(actId, key), num, 1, num, start, end, 'P', '').lastInsertRowid;
+const st = goals.addDays(today, -9);
+const P1 = per(st, goals.addDays(st, 27), 51);
+const w1 = ins(P1, 1, 'Objectif S1', 120, null, 'non_atteint'), w2 = ins(P1, 2, 'Objectif S2', 60, null), w3 = ins(P1, 3, 'Objectif S3', 60, 'manual'), w4 = ins(P1, 4, 'Objectif S4', 0, null);
+const get = (id) => db.prepare('SELECT * FROM goal_weekly WHERE id = ?').get(id);
+const before1 = JSON.stringify(get(w1));
+carry.repriseUnmet(actId, today);
+assert(JSON.stringify(get(w1)) === before1, 'reprise : la semaine PASSÉE n\'est jamais modifiée');
+assert(get(w2).text === 'Objectif S2' && (get(w2).description.match(/Reprise de S\d+ : Objectif S1/g) || []).length === 1, 'semaine à venir : texte inchangé, ligne « Reprise » ajoutée une seule fois');
+assert(get(w2).estimateMinutes === 100 && get(w4).estimateMinutes === 40, 'temps estimé de l\'objectif non atteint (120 min) réparti sur les 3 semaines à venir (+40 chacune)');
+assert(get(w3).estimateMinutes === 60 && /Reprise de S\d+ : Objectif S1/.test(get(w3).description), 'temps saisi à la main : respecté (seule la ligne de reprise s\'ajoute)');
+carry.repriseUnmet(actId, today); carry.repriseUnmet(actId, today);
+assert(get(w2).estimateMinutes === 100 && (get(w2).description.match(/Reprise de/g) || []).length === 1, 'idempotent : jamais cumulé ni empilé');
+db.prepare("UPDATE goal_weekly SET status = 'atteint' WHERE id = ?").run(w1); carry.repriseUnmet(actId, today);
+assert(get(w2).estimateMinutes === 60 && !/Reprise/.test(get(w2).description) && get(w2).description === 'desc 2', 'objectif atteint depuis : la reprise disparaît, estimation et description reviennent');
+db.prepare("UPDATE goal_weekly SET status = 'non_atteint' WHERE id = ?").run(w1);
+// Pas de semaine à venir (avec objectif) dans la période : rien n'est fait, jamais au-delà de la fin
+const st2 = goals.addDays(today, -20);
+const P2 = per(st2, today, 52);
+const a1 = ins(P2, 1, 'Objectif A1', 90, null, 'non_atteint'), a2 = ins(P2, 2, 'Objectif A2', 30, null, 'atteint');
+carry.repriseUnmet(actId, today);
+assert(get(a1).description === 'desc 1' && get(a2).description === 'desc 2' && get(a2).estimateMinutes === 30, 'aucune semaine à venir dans la période : rien n\'est reporté au-delà de son échéance');
+const dec = carry.decoratePlanning({ category: key, periods: [Object.assign(db.prepare('SELECT * FROM goal_periods WHERE id = ?').get(P2), { weeklies: [get(a1), get(a2)] })] }, 'u1', actId);
+assert(dec.periods[0].weeklies[0].noRoomToCarry === true, 'et l\'objectif concerné est marqué (noRoomToCarry → liseré)');
+
 // ---- Recalcul silencieux des temps estimés ----
 const recalc = require('../server/lib/goalsrecalc');
 assert(typeof recalc.runForUser === 'function' && recalc.runForUser('u1', actId, today) === 0, 'recalcul : rien à faire sans période (aucune proposition créée)');

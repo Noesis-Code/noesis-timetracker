@@ -223,6 +223,42 @@ function applyRealism(userId, activityId, body) {
   return { applied: 'reduce', newTargetMinutes: newTarget };
 }
 
+// ---------------------------------------------------------------------------
+// REPRISE EN SILENCE des objectifs hebdomadaires non atteints (décision d'Émilien) : les semaines PASSÉES ne sont jamais modifiées ; ce sont les semaines À VENIR (celle en cours
+// comprise) de la MÊME période qui incluent le non-réalisé : une ligne « Reprise de S45 : <texte> » dans leur description (le texte de l'objectif ne change pas) et le temps estimé
+// de l'objectif non atteint réparti à parts égales sur ces semaines. Idempotent : tout est reconstruit à chaque passage (la ligne « Reprise » est remplacée, la part ajoutée est
+// retranchée de estimateCarried avant d'être recalculée). Jamais au-delà de la fin de la période : sans semaine à venir (avec objectif), rien n'est fait et l'objectif est marqué (noRoomToCarry).
+// Un temps estimé saisi à la main (estimateSource = 'manual') n'est jamais touché : seule la ligne de reprise s'ajoute.
+if (!db.prepare('PRAGMA table_info(goal_weekly)').all().some((c) => c.name === 'estimateCarried')) db.exec('ALTER TABLE goal_weekly ADD COLUMN estimateCarried INTEGER NOT NULL DEFAULT 0');
+const REPRISE_RE = /^Reprise de S\d+ : .*$/;
+function weekLabel(p, weekIndex) { return 'S' + (goals.weekOfYear ? goals.weekOfYear(p.periodIndexInCycle, weekIndex) : ((p.periodNumber - 1) % 13) * 4 + weekIndex); }
+function repriseUnmet(activityId, todayArg) {
+  const today = todayArg || todayLocal();
+  let changed = 0;
+  db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND startDate <= ? AND endDate >= ?').all(activityId, today, today).forEach((p) => {
+    const weeks = db.prepare('SELECT * FROM goal_weekly WHERE periodId = ? AND carriedToId IS NULL ORDER BY weekIndex').all(p.id);
+    const end = (w) => goals.weekBoundsIn(p, w.weekIndex).end;
+    const unmet = weeks.filter((w) => w.text && w.status !== 'atteint' && end(w) < today);
+    const future = weeks.filter((w) => w.text && end(w) >= today);
+    const total = unmet.reduce((s, w) => s + (w.estimateMinutes || 0), 0);
+    const share = future.length ? Math.round(total / future.length) : 0;
+    const lines = unmet.map((w) => 'Reprise de ' + weekLabel(p, w.weekIndex) + ' : ' + w.text);
+    future.forEach((w) => {
+      const kept = String(w.description || '').split('\n').filter((l) => !REPRISE_RE.test(l.trim()));
+      const desc = kept.concat(lines).join('\n').replace(/^\n+/, '');
+      const manual = w.estimateSource === 'manual';
+      const carried = manual ? 0 : share;
+      const est = manual ? w.estimateMinutes : Math.max(0, (w.estimateMinutes || 0) - (w.estimateCarried || 0)) + carried;
+      if (desc === (w.description || '') && carried === (w.estimateCarried || 0) && (manual || est === (w.estimateMinutes || 0))) return;
+      db.prepare('UPDATE goal_weekly SET description = ?, estimateMinutes = ?, estimateCarried = ? WHERE id = ?').run(desc, manual ? w.estimateMinutes : ((w.estimateMinutes == null && est === 0) ? null : est), carried, w.id);
+      changed += 1;
+    });
+    // Semaines passées qui ne sont plus à reprendre (atteintes depuis) : la reprise disparaît des semaines à venir (même passage, lignes retirées ci-dessus).
+  });
+  return changed;
+}
+
+
 // Ajoute `lateDays` aux objectifs hebdo passés non atteints et `realism` (drapeaux) au planning d'une catégorie.
 function decoratePlanning(planning, userId, activityId) {
   const today = todayLocal();
@@ -231,10 +267,11 @@ function decoratePlanning(planning, userId, activityId) {
       if (!w.text || w.status === 'atteint' || w.carriedToId) return;
       const end = goals.weekBoundsIn(p, w.weekIndex).end;
       if (end < today) w.lateDays = goals.daysBetween(end, today);
+      if (end < today) { const hasFuture = (p.weeklies || []).some((x) => x.text && !x.carriedToId && goals.weekBoundsIn(p, x.weekIndex).end >= today); if (!hasFuture && p.startDate <= today && p.endDate >= today) w.noRoomToCarry = true; } // pas de semaine à venir dans la période : l'objectif est marqué (liseré)
     });
   });
   try { planning.realism = realism(userId, activityId, planning.category); } catch (e) { planning.realism = null; }
   return planning;
 }
 
-module.exports = { unfinished, applyCarry, realism, realismAll, applyRealism, decoratePlanning };
+module.exports = { unfinished, applyCarry, realism, realismAll, applyRealism, decoratePlanning, repriseUnmet };
