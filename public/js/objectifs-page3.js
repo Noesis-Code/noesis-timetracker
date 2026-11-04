@@ -843,6 +843,11 @@
         daysPanel.className = 'goalWeekDaysPanel' + (isOpen ? '' : ' hidden');
         daysPanel.id = 'goalWeekDaysPanel' + weekIndex;
         box.appendChild(daysPanel);
+        if (!w || !w.text) { // semaine sans objectif : l'ajout suit la règle de l'application (ligne pointillée « + »), un toucher ouvre l'éditeur existant
+          var addLine = document.createElement('button'); addLine.type = 'button'; addLine.className = 'cmpAdd'; var plus = document.createElement('b'); plus.textContent = '+'; addLine.appendChild(plus); addLine.appendChild(document.createTextNode(t('Ajouter un objectif')));
+          row.classList.add('hidden'); box.insertBefore(addLine, row);
+          addLine.addEventListener('click', function () { addLine.remove(); row.classList.remove('hidden'); var ta = row.querySelector('textarea'); if (ta) ta.focus(); });
+        }
       })(weekIndex);
     }
     // Les panneaux de jours viennent d'être recréés vides : on les remplit tout de suite avec les derniers jours reçus
@@ -915,9 +920,10 @@
       if (slot) {
         var obj = document.createElement('div'); obj.className = 'goalsCalObj'; obj.dataset.period = String(slot.p.periodNumber); obj.dataset.week = String(slot.wi);
         if (!view || slot.p.periodNumber !== view.periodNumber) {
-          var line = document.createElement('button'); line.type = 'button'; line.className = 'goalsCalObjLine' + (slot.w && slot.w.status === 'atteint' ? ' done' : '');
-          line.style.background = color; line.style.color = readableTextOn(color);
-          line.textContent = (slot.w && slot.w.text) || ('+ ' + t('Ajouter'));
+          var hasObj = !!(slot.w && slot.w.text);
+          var line = document.createElement('button'); line.type = 'button';
+          if (hasObj) { line.className = 'goalsCalObjLine' + (slot.w.status === 'atteint' ? ' done' : ''); line.style.background = color; line.style.color = readableTextOn(color); line.textContent = slot.w.text; }
+          else { line.className = 'cmpAdd'; var pl = document.createElement('b'); pl.textContent = '+'; line.appendChild(pl); line.appendChild(document.createTextNode(t('Ajouter un objectif'))); } // ajout = ligne pointillée avec « + » (composant .cmpAdd)
           line.addEventListener('click', function () { openGoalsCalPeriod(slot.p, function () { openGoalsWeekEditor(slot.p, slot.wi); }); });
           obj.appendChild(line);
         } else if (real && real.periodNumber === slot.p.periodNumber && slot.s <= today && slot.e >= today) {

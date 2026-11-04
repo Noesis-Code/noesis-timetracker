@@ -909,7 +909,6 @@
   TMT.collapseGoalsArchives = collapseGoalsArchives;
   // Règle des « 5 lignes minimum » (une seule définition, partagée avec la vue Aujourd'hui) : on montre toutes les tâches du jour ; s'il y en a moins que minLines, les prochaines tâches datées complètent.
   function goalsUpcomingFill(upcomingList, todayCount, minLines) { return upcomingList.slice(0, Math.max(0, (minLines || 5) - todayCount)); }
-  TMT.goalsUpcomingFill = goalsUpcomingFill;
   TMT.buildGoalsTaskRow = function (task, groupKey, onChanged) { return buildGoalsTaskRow(task, groupKey, onChanged); }; // ligne de tâche de l'onglet Tâches, réutilisée par Aujourd'hui
   TMT.openGoalsTaskEditPanel = openGoalsTaskEditPanel; // réutilisé par les jours du calendrier (page 2, onglet 2)
   TMT.goalsTaskEditIcon = function () { return TMT.ui.editIcon(); };
