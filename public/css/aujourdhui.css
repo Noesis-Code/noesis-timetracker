@@ -107,5 +107,3 @@
 /* Clavier ouvert : la barre est juste au-dessus du clavier, sans les trois points de pagination (30 oct. 2026, Émilien). */
 :root.kbOpen #statsPageDots { display: none !important; }
 
-:root :is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup.cmpMark { box-shadow: var(--cmp-mark-shadow); border-radius: var(--radius-sm); } /* la ligne de l'arbre n'a pas de fond : la marque commune reprend le dessus */
-:root :is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup.cmpMark > .subProjectRowHeader { padding-left: 12px; padding-right: 12px; border-bottom-color: transparent; }

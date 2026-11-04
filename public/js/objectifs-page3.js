@@ -883,7 +883,7 @@
           line.className = 'goalsCalWeekLine' + (slot.w.status === 'atteint' ? ' done' : ''); var lc = currentGoalsCategoryColor(); line.style.background = lc; line.style.color = readableTextOn(lc); // nuance du pôle
           var tag = document.createElement('b'); tag.textContent = t('S{n}', { n: (slot.p.firstWeekOfYear || (((slot.p.periodNumber - 1) % 13) * 4 + 1)) + slot.wi - 1 });
           line.appendChild(tag); line.appendChild(document.createTextNode(slot.w.text)); line.title = slot.w.text;
-          if (slot.w.noRoomToCarry || slot.w.overloaded || (real && real.periodNumber === slot.p.periodNumber && slot.s <= today && slot.e >= today)) { line.classList.add('cmpMark'); line.title += ' — ' + t('Cible peut-être irréaliste'); }
+          if (slot.w.noRoomToCarry || slot.w.overloaded || (real && real.periodNumber === slot.p.periodNumber && slot.s <= today && slot.e >= today)) { var dot = document.createElement('span'); dot.className = 'notifDot goalsWeekDot'; line.appendChild(dot); line.title += ' — ' + t('Cible peut-être irréaliste'); } // pastille existante (.notifDot), jamais un liseré
         } else {
           line.className = 'cmpAdd'; var pl = document.createElement('b'); pl.textContent = '+'; line.appendChild(pl); line.appendChild(document.createTextNode(t('Ajouter un objectif'))); // ajout = ligne pointillée avec « + » (composant .cmpAdd)
         }

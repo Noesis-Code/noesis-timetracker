@@ -474,6 +474,8 @@
 .goalsCalWeek { margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--sep); }
 .goalsCalWeek:first-child { margin-top: 0; }
 .goalsCalWeekLine { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 0 12px; border: 0; border-radius: var(--radius-sm); box-sizing: border-box; font: inherit; font-size: 14px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.goalsCalWeekLine { position: relative; }
+.goalsCalWeekLine .goalsWeekDot { top: 6px; right: 6px; width: 10px; height: 10px; }
 .goalsCalWeekLine b { flex: none; font-size: 13px; }
 .goalsCalWeekLine.done { opacity: .45; }
 .goalsCalWeek > .cmpAdd { margin-bottom: 0; }

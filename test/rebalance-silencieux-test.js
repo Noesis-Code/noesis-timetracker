@@ -99,5 +99,12 @@ const recalc = require('../server/lib/goalsrecalc');
 assert(typeof recalc.runForUser === 'function' && recalc.runForUser('u1', actId, today) === 0, 'recalcul : rien à faire sans période (aucune proposition créée)');
 assert(db.prepare("SELECT COUNT(*) AS c FROM goal_recalc_proposals WHERE status = 'pending'").get().c === 0, 'plus aucune proposition en attente');
 
+// Marque de charge : aucune sur les secteurs de l'onglet Tâches, une pastille (.notifDot) sur les lignes d'objectif hebdomadaire de la page 3.
+const fsm = require('fs'), pth = require('path');
+const lire = (f) => fsm.readFileSync(pth.join(__dirname, '..', f), 'utf8');
+assert(!/cmpMark/.test(lire('public/js/aujourdhui.js')), 'arbre Activité : aucune marque sur les secteurs');
+assert(/goalsWeekDot/.test(lire('public/js/objectifs-page3.js')) && /notifDot goalsWeekDot/.test(lire('public/js/objectifs-page3.js')), 'page 3 : pastille sur la ligne de la semaine concernée');
+assert(!/cmpMark/.test(lire('public/js/objectifs-page3.js')) && !/cmpMark/.test(lire('public/css/composants.css')), 'plus de liseré .cmpMark');
+
 if (failed) { console.log('\nrebalance-silencieux-test : ' + failed + ' échec(s)'); process.exit(1); }
 console.log('\nrebalance-silencieux-test : OK');
