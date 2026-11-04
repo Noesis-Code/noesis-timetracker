@@ -773,10 +773,11 @@
   }
   // Nuance du pôle (celle des objectifs : TMT.subProjectShade, rang du pôle) ; les secteurs reprennent celle de leur pôle.
   function poleShade(t) { return t.activityColor && TMT.subProjectShade ? TMT.subProjectShade(t.activityColor, t.poleIndex || 0, 5) : ''; }
-  function branch(parent, id, label, count, depth, fill, color) {
+  function branch(parent, id, label, count, depth, fill, color, mark) {
     var open = !!openNodes[id];
     var row = TMT.buildGoalsGroupRow(label, count, open, function () { toggleNode(id); });
     if (color) row.querySelector('.activityRowName').style.color = color; // texte seulement
+    if (mark) row.classList.add('cmpMark'); // charge au-delà de +20 % du rythme tenu (même marque que le calendrier)
     if (open) { var body = el('div', 'subProjectItems tasksTreeBody'); row.appendChild(body); fill(body); }
     parent.appendChild(row);
   }
@@ -815,10 +816,10 @@
           var inPole = function (pBody) {
             group(items, function (t) { return t.sector || ''; }).forEach(function (s) {
               if (!s.key) s.items.forEach(function (t) { treeRow(t, pBody); }); // tâches directement dans le pôle : visibles à l'ouverture du pôle
-              else branch(pBody, 'a' + a.key + '/' + p.key + '/' + s.key, s.key, s.items.length, 2, function (sBody) { s.items.forEach(function (t) { treeRow(t, sBody); }); }, poleShade(p.items[0]));
+              else branch(pBody, 'a' + a.key + '/' + p.key + '/' + s.key, s.key, s.items.length, 2, function (sBody) { s.items.forEach(function (t) { treeRow(t, sBody); }); }, poleShade(p.items[0]), s.items.some(function (t) { return t.overloaded; }));
             });
           };
-          branch(aBody, 'a' + a.key + '/' + p.key, p.items[0].poleName || p.key, items.length, 1, inPole, poleShade(p.items[0]));
+          branch(aBody, 'a' + a.key + '/' + p.key, p.items[0].poleName || p.key, items.length, 1, inPole, poleShade(p.items[0]), p.items.some(function (t) { return t.overloaded && !t.sector; }));
         });
       };
       activityBranch(listBox, 'a' + a.key, a.items[0], a.items.length, inAct);

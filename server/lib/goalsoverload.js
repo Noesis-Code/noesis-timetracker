@@ -121,6 +121,31 @@ function budgetFor(activityId, userId, poleKey) {
   return Math.max(MIN_BUDGET_MINUTES, Math.round(total));
 }
 
+// RÈGLE DE CHARGE (Émilien) : une journée peut dépasser LÉGÈREMENT et en silence la référence (TOLERANCE = 20 %), sans rien décaler ; au-delà, une marque discrète (la même que « cible irréaliste »)
+// se pose sur le secteur et l'objectif concernés. La RÉFÉRENCE s'adapte au rythme réellement tenu : médiane des minutes terminées par jour ouvré sur 28 jours (7 jours de données au moins),
+// sinon la capacité calculée (budgetFor). Une seule fonction de calcul : referenceFor.
+const TOLERANCE = 0.2, MIN_OBSERVED_DAYS = 7;
+function minutesOfRow(activityId) { return (r) => { try { const est = r.category ? goals.estimateForGoal(activityId, r.category, 'weekly', r.label) : null; return (est && est.minutes) || DEFAULT_TASK_MINUTES; } catch (e) { return DEFAULT_TASK_MINUTES; } }; }
+function referenceFor(activityId, userId, poleKey, nowMs) {
+  const budget = budgetFor(activityId, userId, poleKey);
+  let obs = null; try { obs = require('./efficiencyprofile').observedDailyMinutes(activityId, userId, minutesOfRow(activityId), nowMs); } catch (e) { obs = null; }
+  return obs && obs.days >= MIN_OBSERVED_DAYS && obs.median > 0 ? Math.max(MIN_BUDGET_MINUTES, Math.round(obs.median)) : budget;
+}
+function isOverloaded(load, reference) { return load > reference * (1 + TOLERANCE); }
+// Secteurs/pôles dont la charge d'AUJOURD'HUI dépasse encore la tolérance (après rééquilibrage) : { clé: true }.
+function overloadMarks(userId, activityId) {
+  const today = todayLocal(), marks = {};
+  goals.categoriesForActivity(activityId).forEach((pole) => {
+    const ref = referenceFor(activityId, userId, pole.key);
+    const todays = loadTasks(activityId, ref, today, pole.key).filter((t) => !t.long && (t.dueDate < today ? today : t.dueDate) === today);
+    if (!isOverloaded(todays.reduce((s, t) => s + t.minutes, 0), ref)) return;
+    marks[pole.key] = true; todays.forEach((t) => { if (t.category) marks[t.category] = true; });
+  });
+  return marks;
+}
+const marksCache = new Map();
+function getMarks(userId, activityId) { return marksCache.get(userId + '|' + activityId) || {}; }
+
 function loadTasks(activityId, budget, today, poleKey) {
   const rows = db.prepare(`
     SELECT i.id, i.label, i.dueDate, i.dueDateAuto, sp.goalCategory AS category
@@ -217,10 +242,10 @@ function getProposal(userId, activityId, poleKey) { return buildProposal(userId,
   if (!ignoreDismissed && db.prepare("SELECT 1 FROM goal_overload_dismissals WHERE userId = ? AND activityId = ? AND day = ? AND (poleKey = '' OR poleKey = ?)").get(userId, activityId, today, poleKey || '')) {
     return { overloaded: false, dismissed: true };
   }
-  const budget = budgetFor(activityId, userId, poleKey);
+  const budget = referenceFor(activityId, userId, poleKey); // référence adaptative au rythme tenu
   const tasks = loadTasks(activityId, budget, today, poleKey);
   if (strict) tasks.forEach((t) => { if (t.dueDateAuto !== 1) t.pinned = true; });
-  const p = computeProposal({ today, budgetMinutes: budget, tasks });
+  const p = computeProposal({ today, budgetMinutes: Math.round(budget * (1 + TOLERANCE)), tasks }); // dépassement léger (20 %) toléré, rien décalé en dessous
   // Plafonds de temps : appliqués APRÈS le plan de surcharge, mêmes règles
   // (proposé seulement, dates posées par le moteur uniquement).
   const afterOverload = new Map();
@@ -289,7 +314,7 @@ function applyProposal(userId, activityId, signature, poleKey) {
 // en cascade si des retards urgents ont pris la place. Seules les dates posées par le moteur (dueDateAuto) bougent ; date saisie à la main, réforme, maintenance urgente : jamais.
 // Déclenchée à l'ouverture de la liste du jour et du calendrier (au plus une fois par 30 s et par activité).
 const lastRebalance = new Map();
-function rebalance(userId, activityId, opts) {
+function rebalance(userId, activityId, opts) {  const res = rebalanceMoves(userId, activityId, opts);  if (!res.skipped) { try { marksCache.set(userId + '|' + activityId, overloadMarks(userId, activityId)); } catch (e) { /* non bloquant */ } }  return res;}function rebalanceMoves(userId, activityId, opts) {
   const key = userId + '|' + activityId, now = Date.now();
   if (!(opts && opts.force) && now - (lastRebalance.get(key) || 0) < 30000) return { applied: 0, skipped: true };
   lastRebalance.set(key, now);
@@ -309,4 +334,4 @@ function dismissProposal(userId, activityId, poleKey) {
   return { dismissed: true };
 }
 
-module.exports = { budgetFor, loadTasks, computeProposal, getProposal, applyProposal, dismissProposal, rebalance };
+module.exports = { budgetFor, referenceFor, isOverloaded, overloadMarks, getMarks, loadTasks, computeProposal, getProposal, applyProposal, dismissProposal, rebalance, TOLERANCE };

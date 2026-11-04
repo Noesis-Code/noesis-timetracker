@@ -676,13 +676,13 @@
       (function (weekIndex) {
         var box = document.querySelector('.goalsCalObj[data-period="' + period.periodNumber + '"][data-week="' + weekIndex + '"]');
         if (!box) return;
-        var un = box.classList.contains('unrealistic'); box.textContent = ''; box.className = 'goalsCalObj goalsWeeklyList' + (un ? ' unrealistic' : ''); box.style.borderColor = currentGoalsCategoryColor();
+        var un = box.classList.contains('cmpMark'); box.textContent = ''; box.className = 'goalsCalObj goalsWeeklyList' + (un ? ' cmpMark' : ''); box.style.borderColor = currentGoalsCategoryColor();
         var w = null;
         for (var i = 0; i < period.weeklies.length; i++) {
           if (period.weeklies[i].weekIndex === weekIndex) { w = period.weeklies[i]; break; }
         }
 
-        if (w && w.noRoomToCarry) { un = true; box.classList.add('unrealistic'); } // objectif non atteint sans semaine à venir dans la période : liseré existant
+        if (w && (w.noRoomToCarry || w.overloaded)) { un = true; box.classList.add('cmpMark'); } // objectif non atteint sans semaine à venir dans la période : liseré existant
         var row = document.createElement('div');
         row.className = 'goalCard goalWeeklyCard';
         // id stable, requis par openGoalsWeekEditor()
@@ -845,7 +845,7 @@
         box.appendChild(daysPanel);
         if (!w || !w.text) { // semaine sans objectif : l'ajout suit la règle de l'application (ligne pointillée « + »), un toucher ouvre l'éditeur existant
           var addLine = document.createElement('button'); addLine.type = 'button'; addLine.className = 'cmpAdd'; var plus = document.createElement('b'); plus.textContent = '+'; addLine.appendChild(plus); addLine.appendChild(document.createTextNode(t('Ajouter un objectif')));
-          row.classList.add('hidden'); box.insertBefore(addLine, row);
+          row.classList.add('hidden'); box.insertBefore(addLine, row); daysPanel.classList.remove('hidden'); // le panneau des jours reste toujours visible, même vide
           addLine.addEventListener('click', function () { addLine.remove(); row.classList.remove('hidden'); var ta = row.querySelector('textarea'); if (ta) ta.focus(); });
         }
       })(weekIndex);
@@ -927,7 +927,7 @@
           line.addEventListener('click', function () { openGoalsCalPeriod(slot.p, function () { openGoalsWeekEditor(slot.p, slot.wi); }); });
           obj.appendChild(line);
         } else if (real && real.periodNumber === slot.p.periodNumber && slot.s <= today && slot.e >= today) {
-          obj.classList.add('unrealistic'); obj.title = t('Cible peut-être irréaliste'); // marque sur l'objectif de la semaine en cours
+          obj.classList.add('cmpMark'); obj.title = t('Cible peut-être irréaliste'); // marque sur l'objectif de la semaine en cours
         }
         row.appendChild(obj);
       }

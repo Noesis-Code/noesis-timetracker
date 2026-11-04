@@ -45,6 +45,27 @@ assert(due(suggested) === today, 'date par défaut/suggérée : jamais déplacé
 assert(due(refo) === today, 'réforme : jamais déplacée');
 assert(overload.rebalance('u1', actId).skipped === true, 'au plus une fois par 30 s et par activité (pas de calcul répété)');
 
+// ---- Règle de charge : +20 % toléré en silence, au-delà une marque ; la référence s'adapte au rythme tenu ----
+assert(!overload.isOverloaded(66, 60), '+10 % de la référence : rien (toléré en silence)');
+assert(overload.isOverloaded(75, 60), '+25 % : la marque se pose');
+db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u9', 'u9', datetime('now'))").run();
+const act2 = db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('B', 'u9', '')").run().lastInsertRowid;
+db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt, position) VALUES (?, 'u9', '#fff', '', 0)").run(act2);
+const g2 = goals.addCategory(act2, 'Prod'); const key2 = (g2 && g2.key) || goals.categoriesForActivity(act2)[0].key;
+const addB = (label) => { const it = goalstasks.addCategoryTask(act2, 'u9', key2, label, {}); db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 0 WHERE id = ?').run(today, it.id); return it.id; };
+const manualB = [addB('m1'), addB('m2'), addB('m3'), addB('m4')]; // 4 x 30 min = 120 min, dates posées à la main
+overload.rebalance('u9', act2, { force: true });
+assert(overload.getMarks('u9', act2)[key2] === true, 'charge de 120 min pour une référence de 60 (plancher) : marque sur le secteur');
+assert(manualB.every((id) => due(id) === today), 'date saisie à la main : jamais déplacée, même en surcharge');
+// rythme soutenu : 8 jours ouvrés avec 4 tâches (120 min) terminées chaque jour
+let dd = 0, n = 0;
+while (n < 8) { dd += 1; const d = goals.addDays(today, -dd); const wd = new Date(d + 'T12:00:00Z').getUTCDay(); if (wd === 0 || wd === 6) continue; n += 1;
+  for (let k = 0; k < 4; k++) { const it = goalstasks.addCategoryTask(act2, 'u9', key2, 'fait ' + n + '-' + k, {}); db.prepare('UPDATE sub_project_items SET done = 1, doneAt = ?, dueDate = ? WHERE id = ?').run(d + 'T15:00:00.000Z', d, it.id); } }
+assert(overload.referenceFor(act2, 'u9') === 120, 'rythme réellement tenu (médiane 120 min par jour ouvré sur 8 jours) : la référence s\'y adapte');
+overload.rebalance('u9', act2, { force: true });
+assert(!overload.getMarks('u9', act2)[key2], 'la situation redevient équilibrée : la marque disparaît');
+assert(manualB.every((id) => due(id) === today), 'toujours aucune date manuelle déplacée');
+
 // ---- Reprise silencieuse des objectifs hebdomadaires non atteints ----
 const carry = require('../server/lib/goalscarryover');
 const ins = (periodId, wi, text, est, source, status) => db.prepare("INSERT INTO goal_weekly (periodId, weekIndex, text, description, estimateMinutes, estimateSource, status, createdAt) VALUES (?,?,?,?,?,?,?,?)").run(periodId, wi, text, 'desc ' + wi, est, source, status || null, new Date().toISOString()).lastInsertRowid;

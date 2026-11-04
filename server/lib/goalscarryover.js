@@ -270,6 +270,10 @@ function decoratePlanning(planning, userId, activityId) {
       if (end < today) { const hasFuture = (p.weeklies || []).some((x) => x.text && !x.carriedToId && goals.weekBoundsIn(p, x.weekIndex).end >= today); if (!hasFuture && p.startDate <= today && p.endDate >= today) w.noRoomToCarry = true; } // pas de semaine à venir dans la période : l'objectif est marqué (liseré)
     });
   });
+  try { // charge au-delà de +20 % du rythme tenu : même marque sur l'objectif de la semaine en cours (voir goalsoverload.overloadMarks)
+    const marks = overload.getMarks(userId, activityId);
+    if (marks[planning.category] || marks[goals.resolveToPole(activityId, planning.category)]) (planning.periods || []).forEach((p) => (p.weeklies || []).forEach((w) => { if (w.text) { const b = goals.weekBoundsIn(p, w.weekIndex); if (b.start <= today && today <= b.end) w.overloaded = true; } }));
+  } catch (e) { /* non bloquant */ }
   try { planning.realism = realism(userId, activityId, planning.category); } catch (e) { planning.realism = null; }
   return planning;
 }

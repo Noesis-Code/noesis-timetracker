@@ -80,4 +80,15 @@ function bestDay(days, weights) {
   return days.reduce((b, d) => (weights[weekdayOfDate(d)] > weights[weekdayOfDate(b)] + 1e-9 ? d : b), days[0]);
 }
 
-module.exports = { compute, weightsFromStats, weightsFor, bestDay, weekdayOfDate, MIN_DONE, MIN_DUE_PER_DAY };
+// RYTHME OBSERVÉ (référence adaptative de la charge quotidienne) : médiane, sur les `windowDays` derniers jours (28 par défaut), des minutes de tâches réellement terminées par jour OUVRÉ
+// (lundi à vendredi) par l'utilisateur (ses tâches ou celles sans responsable). minutesOf(row) donne les minutes d'une tâche (estimation de l'appelant). Renvoie { days, median }.
+function observedDailyMinutes(activityId, userId, minutesOf, nowMs, windowDays) {
+  const since = new Date((nowMs || Date.now()) - (windowDays || 28) * 86400000).toISOString();
+  const rows = db.prepare(`SELECT i.label, i.doneAt, sp.goalCategory AS category FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
+    WHERE sp.activityId = ? AND i.done = 1 AND i.doneAt IS NOT NULL AND i.doneAt >= ? AND (i.plannedUserId IS NULL OR i.plannedUserId = ?)`).all(activityId, since, userId);
+  const perDay = {};
+  rows.forEach((r) => { const d = dayOfIso(r.doneAt), w = weekdayOfIso(r.doneAt); if (!d || w === 0 || w === 6) return; perDay[d] = (perDay[d] || 0) + (minutesOf(r) || 0); });
+  const vals = Object.keys(perDay).map((k) => perDay[k]);
+  return { days: vals.length, median: median(vals) };
+}
+module.exports = { compute, weightsFromStats, weightsFor, bestDay, weekdayOfDate, observedDailyMinutes, MIN_DONE, MIN_DUE_PER_DAY };
