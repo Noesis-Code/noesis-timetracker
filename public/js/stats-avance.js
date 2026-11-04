@@ -990,7 +990,7 @@
   function place() {
     if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (groupOn ? 2 : 1) : (sharedOn ? 2 : 1) };
     if (showing('tab-chrono')) return { ctx: 'chrono', idx: 0 };
-    if (showing('tab-goals') && showing('goalsCapturePage') && !showing('goalsActivitiesView')) return { ctx: 'goals', idx: 0 }; // vue « Objectifs » (liste des activités) : ni points ni balayage vers les statistiques
+    if (showing('tab-goals') && showing('goalsCapturePage') && !showing('goalsActivitiesView')) return { ctx: 'goals', idx: 0 }; // vue « Objectifs » (liste des activités) : pas de points, mais le balayage vers les statistiques reste actif
     return null;
   }
   function paintDots() {
@@ -1209,13 +1209,13 @@
   // Préchauffage : dès que le doigt se pose sur la page 1, la page Statistiques charge et se dessine (cachée) ; le glissement la trouve prête au lieu de la charger pendant le geste.
   var lastWarm = 0;
   if (goalsZone) goalsZone.addEventListener('touchstart', function () {
-    if (Date.now() - lastWarm < 30000 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsActivitiesView') || showing('goalsDetailPage')) return;
+    if (Date.now() - lastWarm < 30000 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsDetailPage')) return;
     lastWarm = Date.now(); inst.open();
   }, { passive: true });
   if (goalsZone) slidePager({
     zone: goalsZone,
     neighbor: function (dir) {
-      if (dir < 0 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsActivitiesView') || showing('goalsDetailPage')) return null; // les statistiques sont à droite de la page 1
+      if (dir < 0 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsDetailPage')) return null; // les statistiques sont à droite de la page 1
       return external(goalsZone, zone, function () { TMT.enterStats('goals'); }, 'stats');
     }
   });

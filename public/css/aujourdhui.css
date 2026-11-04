@@ -107,3 +107,7 @@
 /* Clavier ouvert : la barre est juste au-dessus du clavier, sans les trois points de pagination (30 oct. 2026, Émilien). */
 :root.kbOpen #statsPageDots { display: none !important; }
 
+
+/* Onglet Tâches et vue Objectifs : contenu FIXE horizontalement (aucun défilement latéral ; le geste horizontal appartient au balayage vers les statistiques) ; le texte long passe à la ligne. */
+:is(#goalsTodayView, #goalsActivitiesView, #goalsCapturePage) { max-width: 100%; overflow-x: clip; touch-action: pan-y; }
+:is(#goalsTodayView, #goalsActivitiesView) { overflow-wrap: anywhere; }
