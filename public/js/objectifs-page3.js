@@ -1837,7 +1837,7 @@
     mainFormOpenKey = null;
     // Invalide toute requête de calendrier de période encore en vol (voir loadGoalsCalendarDays() plus haut).
     goalsCalendarRequestId += 1;
-    if (TMT.isGoalsMonthOpen()) TMT.setGoalsPage2Mode('tasks', { noAnim: true });
+    if (TMT.isGoalsMonthOpen()) TMT.setGoalsPage2Mode('goals', { noAnim: true });
     TMT.updateGoalsScrubVisibility();
   }
 

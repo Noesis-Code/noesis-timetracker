@@ -990,7 +990,7 @@
   function place() {
     if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (groupOn ? 2 : 1) : (sharedOn ? 2 : 1) };
     if (showing('tab-chrono')) return { ctx: 'chrono', idx: 0 };
-    if (showing('tab-goals') && showing('goalsCapturePage')) return { ctx: 'goals', idx: 0 };
+    if (showing('tab-goals') && showing('goalsCapturePage') && !showing('goalsActivitiesView')) return { ctx: 'goals', idx: 0 }; // vue « Objectifs » (liste des activités) : ni points ni balayage vers les statistiques
     return null;
   }
   function paintDots() {
@@ -1027,7 +1027,7 @@
   // Les points suivent les onglets et l'écran de capture (ouvrir/fermer une page, glissement, notification…).
   (function () {
     var mo = new MutationObserver(setDots);
-    Array.prototype.forEach.call(document.querySelectorAll('.tab, #goalsCapturePage'), function (n) { mo.observe(n, { attributes: true, attributeFilter: ['class'] }); });
+    Array.prototype.forEach.call(document.querySelectorAll('.tab, #goalsCapturePage, #goalsActivitiesView'), function (n) { mo.observe(n, { attributes: true, attributeFilter: ['class'] }); });
   })();
 
   // ---------- 3e page du Chrono : statistiques des activités partagées ----------
@@ -1203,13 +1203,13 @@
   // Préchauffage : dès que le doigt se pose sur la page 1, la page Statistiques charge et se dessine (cachée) ; le glissement la trouve prête au lieu de la charger pendant le geste.
   var lastWarm = 0;
   if (goalsZone) goalsZone.addEventListener('touchstart', function () {
-    if (Date.now() - lastWarm < 30000 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsDetailPage')) return;
+    if (Date.now() - lastWarm < 30000 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsActivitiesView') || showing('goalsDetailPage')) return;
     lastWarm = Date.now(); inst.open();
   }, { passive: true });
   if (goalsZone) slidePager({
     zone: goalsZone,
     neighbor: function (dir) {
-      if (dir < 0 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsDetailPage')) return null; // les statistiques sont à droite de la page 1
+      if (dir < 0 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsActivitiesView') || showing('goalsDetailPage')) return null; // les statistiques sont à droite de la page 1
       return external(goalsZone, zone, function () { TMT.enterStats('goals'); }, 'stats');
     }
   });

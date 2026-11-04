@@ -101,8 +101,6 @@
              le segment actif. #goalsTasksView est le nouvel écran par
              défaut, voir plus bas. -->
         <div class="periodSwitch cmpSeg" id="goalsPage2ModeSwitch">
-          <button type="button" class="periodBtn active" id="goalsPage2ModeTasksBtn" data-mode="tasks">Tâches</button>
-          <button type="button" class="periodBtn" id="goalsPage2ModeGoalsBtn" data-mode="goals">Objectifs</button>
         </div>
         <!-- 28 oct. 2026 (Émilien) : le « + » est EXACTEMENT celui de la barre des volets (.barAddBtn, css/barre-volets.css) ; pointillé gris sans Expansion (découverte de l'extension), verre avec Expansion (ouvre « Ajouter des tâches »). Déplacé dans #goalsTaskDock au chargement. -->
         <button type="button" class="barAddBtn" id="goalsPage2AddBtn" aria-label="Découvrir Expansion" title="Découvrir Expansion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
@@ -162,7 +160,7 @@
         </div>
 
         <!-- (Emilien) : plus de boutons Tâches/Objectifs — on glisse de droite à gauche ; 3 points en bas au milieu (celui du milieu est réservé à une prochaine demande). -->
-        <div id="goalsPage2Dots" role="group"><button type="button" class="goalsDotBtn on" data-dot="tasks" aria-label="Tâches"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" data-dot="next" aria-label="Mensuel"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" data-dot="goals" aria-label="Annuel"><span class="goalsDot"></span></button></div>
+        <div id="goalsPage2Dots" role="group"><button type="button" class="goalsDotBtn on" data-dot="tasks" aria-label="Tâches"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" data-dot="goals" aria-label="Objectifs"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" data-dot="next" aria-label="Calendrier"><span class="goalsDot"></span></button></div>
 
         <!-- scission Tâches / Objectifs de la Page 2 :
              emplacement de l'écran « Objectifs ». Son CONTENU (arbre
@@ -290,7 +288,7 @@
     // les données chargées, sans dupliquer reloadGoalsAll() — ne change
     // rien pour les appelants existants, qui ignoraient déjà la valeur de
     // retour.
-    setGoalsPage2Mode('tasks');
+    setGoalsPage2Mode('goals', { noAnim: true }); // une activité s'ouvre sur la page du milieu : l'arbre des objectifs
     return reloadGoalsAll();
   }
 
@@ -350,8 +348,8 @@
   // gabarit propre — voir le commentaire à côté de #goalsTasksProgressWrap,
   // index.html.
   var goalsPage2BaseMode = 'tasks';
-  // 3 pages qui défilent — quotidien (Tâches) · mensuel (détail de période, ex-Page 3) · annuel (arbre périodique).
-  var GOALS_PAGE2_ORDER = ['tasks', 'month', 'goals'];
+  // 3 pages qui défilent, dans l'activité : Tâches · Objectifs (arbre périodique, page d'ouverture) · Calendrier (détail de période, ex-Page 3).
+  var GOALS_PAGE2_ORDER = ['tasks', 'goals', 'month'];
   function goalsPage2ViewFor(m) { return $(m === 'tasks' ? 'goalsTasksView' : m === 'month' ? 'goalsMonthView' : 'goalsObjectifsView'); }
   TMT.getGoalsPage2Mode = function () { return currentGoalsPage2Mode; };
   // opts.keep : l'appelant (openGoalsDetail) a déjà posé catégorie/période ; opts.noAnim : sans défilement.
@@ -379,10 +377,6 @@
     currentGoalsPage2Mode = mode;
     var swEl = $('goalsActivitySwitcher');
     if (swEl) swEl.classList.toggle('goalsTasksMode', mode === 'tasks'); // nom du pôle coloré sur cet onglet seulement
-    var tasksBtn = $('goalsPage2ModeTasksBtn');
-    var goalsBtn = $('goalsPage2ModeGoalsBtn');
-    if (tasksBtn) tasksBtn.classList.toggle('active', mode === 'tasks');
-    if (goalsBtn) goalsBtn.classList.toggle('active', mode === 'goals');
     GOALS_PAGE2_ORDER.forEach(function (m) {
       var dot = document.querySelector('#goalsPage2Dots [data-dot=' + (m === 'month' ? 'next' : m) + ']');
       if (dot) dot.classList.toggle('on', mode === m);
@@ -441,10 +435,6 @@
       if (m !== goalsPage2BaseMode) setGoalsPage2Mode(m);
     });
   });
-  $('goalsPage2ModeTasksBtn').addEventListener('click', function () { setGoalsPage2Mode('tasks'); });
-
-  $('goalsPage2ModeGoalsBtn').addEventListener('click', function () { setGoalsPage2Mode('goals'); });
-
   // Balayage horizontal « glissé » : les pages suivent le doigt,
   // la page voisine apparaît à côté ; au relâchement elle se pose si on a assez glissé (25 % de la largeur, ou geste rapide), sinon revient.
   // Ignoré depuis le cadre de pôle (qui change de pôle), les champs et toute zone défilant horizontalement (sauf au bord gauche de l'arbre).
@@ -469,9 +459,12 @@
       var idx = GOALS_PAGE2_ORDER.indexOf(goalsPage2BaseMode);
       var target = idx + (dx < 0 ? 1 : -1);
       if (idx < 0 || target < 0 || target >= GOALS_PAGE2_ORDER.length) return -1;
-      if (goalsPage2BaseMode === 'goals' && dx > 0) {
-        if (g0.scroller && !(g0.startLeft <= 1 && g0.scroller.scrollLeft <= 1)) return -1;
-        if (!gridAtLeft()) return -1;
+      if (goalsPage2BaseMode === 'goals') { // page du milieu : la grille défile à l'horizontale ; on change de page seulement à son bord (gauche vers Tâches, droit vers Calendrier)
+        var sc = g0.scroller;
+        if (dx > 0) {
+          if (sc && !(g0.startLeft <= 1 && sc.scrollLeft <= 1)) return -1;
+          if (!gridAtLeft()) return -1;
+        } else if (sc && !(g0.startLeft + sc.clientWidth >= sc.scrollWidth - 1 && sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 1)) return -1;
       } else if (g0.scroller) return -1;
       return target;
     }

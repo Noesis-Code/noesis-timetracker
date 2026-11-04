@@ -232,9 +232,8 @@
 
 /* boutons Tâches/Objectifs retirés (balayage + 3 points) ; la bulle Discussion (fixed) reste dans le conteneur. */
 #goalsPage2ModeSwitch { display: contents; }
-#goalsPage2ModeTasksBtn, #goalsPage2ModeGoalsBtn { display: none; }
 #goalsPage2Dots {
-  position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
+  position: fixed; left: auto; right: 16px; z-index: 20; /* en bas à droite, dans l'activité seulement */
   bottom: var(--tabbar-h, 64px); display: flex; gap: 0; /* même place que #statsPageDots du Chrono */
 }
 #goalsPage2Dots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
