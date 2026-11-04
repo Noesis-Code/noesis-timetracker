@@ -9,7 +9,7 @@ module.exports = ios
       appName: 'Noèsis',
       webDir: 'www-ios',
       backgroundColor: '#000000',
-      plugins: { CapacitorHttp: { enabled: true }, CapacitorCookies: { enabled: true } },
+      plugins: { CapacitorHttp: { enabled: true }, CapacitorCookies: { enabled: true }, Keyboard: { resize: 'none' } },
     }
   : {
       appId: 'com.compagnienoesis.app',

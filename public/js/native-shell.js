@@ -43,4 +43,12 @@
   try { delete window.PublicKeyCredential; } catch (e) {}
   // L'app installée n'a pas à proposer « Ajouter à l'écran d'accueil ».
   try { Object.defineProperty(navigator, 'standalone', { value: true, configurable: true }); } catch (e) {}
+  // Clavier : sans barre ^ v ✓ au-dessus, et la page ne se déplace pas (resize « none » dans capacitor.config.js).
+  try {
+    var kb = cap.Plugins && cap.Plugins.Keyboard;
+    if (kb) {
+      kb.setAccessoryBarVisible({ isVisible: false });
+      kb.setScroll({ isDisabled: true });
+    }
+  } catch (e) {}
 })();
