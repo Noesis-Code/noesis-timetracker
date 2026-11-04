@@ -2397,8 +2397,6 @@
     // 5 oct. 2026 (Emilien) : Historique/Archives reviennent enroulés (et sans réserve d'espace) à chaque changement d'onglet.
     collapseChronoHistory();
     if (TMT.collapseGoalsHistory) TMT.collapseGoalsHistory();
-    if (TMT.collapseGoalsArchives) TMT.collapseGoalsArchives();
-    if (TMT.collapseGoalsAlerts) TMT.collapseGoalsAlerts();
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
     // Chantier B (20 oct. 2026) : Stats n'est plus un onglet de la barre, c'est une page à gauche de Chrono (stats de temps) ou de la
@@ -11612,39 +11610,11 @@
     })();
   }
 
-  // Tâche visée par le rappel de 6 h, dans l'écran Tâches de la Page 2
-  // (public/js/objectifs-page2.js, E. Objectifs — PAGE 2). Un groupe secteur
-  // y est REPLIÉ par défaut et ne rend ses tâches qu'une fois déplié : on
-  // retrouve donc d'abord le groupe qui contient la tâche (même route en
-  // lecture que l'écran lui-même, tasks/overview), puis on rejoue le clic
-  // sur son en-tête — même principe que les branches 'activity'/'subproject'
-  // (rejouer le geste de la personne plutôt que manipuler l'état interne
-  // d'un autre segment) — et enfin on surligne la ligne [data-task-id].
+  // Tâche visée par le rappel de 6 h : on ouvre l'onglet Tâches (Feuille de route) et on surligne la ligne [data-task-id] dès qu'elle est affichée (les secteurs y sont repliés : la ligne n'existe qu'une fois son secteur déplié).
   function focusGoalsTaskFromNotification(activityId, taskId) {
-    api('GET', '/api/activities/' + activityId + '/goals/tasks/overview').then(function (data) {
-      var group = null;
-      ((data && data.groups) || []).forEach(function (g) {
-        if (group) return;
-        (g.tasks || []).forEach(function (task) { if (String(task.id) === String(taskId)) group = g; });
-      });
-      var taskSel = '#goalsTasksGroups [data-task-id="' + taskId + '"]';
-      if (!group) { focusWhenReady('#goalsTasksGroups', 20); return; }
-      var groupSel = '#goalsTasksGroups .goalsTasksGroup[data-group-key="' + (window.CSS && CSS.escape ? CSS.escape(String(group.key)) : String(group.key)) + '"]';
-      var tries = 40;
-      (function poll() {
-        var row = String(TMT.currentGoalsActivityId) === String(activityId) ? document.querySelector(groupSel) : null;
-        if (!row) {
-          if (tries-- > 0) setTimeout(poll, 100);
-          return;
-        }
-        // Pôles comme secteurs sont des accordéons repliés par défaut : on déplie dans les deux cas.
-        if (!row.classList.contains('open')) {
-          var header = row.querySelector('.subProjectRowHeader');
-          if (header) header.click();
-        }
-        focusWhenReadyOr(taskSel, groupSel);
-      })();
-    }).catch(function () { /* hors ligne ou route indisponible : on reste sur l'écran Tâches */ });
+    if (TMT.switchTab) TMT.switchTab('goals');
+    if (TMT.setGoalsPage1View) TMT.setGoalsPage1View('today');
+    focusWhenReady('#goalsTodayView [data-task-id="' + taskId + '"]', 40);
   }
 
   // Identifiant issu de l'adresse d'une notification (entier ou UUID de

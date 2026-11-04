@@ -100,60 +100,8 @@
         <div class="periodSwitch cmpSeg" id="goalsPage2ModeSwitch">
         </div>
         <!-- 28 oct. 2026 (Émilien) : le « + » est EXACTEMENT celui de la barre des volets (.barAddBtn, css/barre-volets.css) ; pointillé gris sans Expansion (découverte de l'extension), verre avec Expansion (ouvre « Ajouter des tâches »). Déplacé dans #goalsTaskDock au chargement. -->
-        <button type="button" class="barAddBtn" id="goalsPage2AddBtn" aria-label="Découvrir Expansion" title="Découvrir Expansion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button type="button" class="barAddBtn hidden" id="goalsPage2AddBtn" aria-label="Découvrir Expansion" title="Découvrir Expansion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
 
-        <!-- Écran « Tâches » — (création), refondu le 28
-             septembre 2026 sur demande directe d'Emilien : « je souhaite que
-             dans tâches, il y ait une zone avancement identique à la zone
-             d'avancement actuelle dans le main section sous projet [...]
-             Prends comme modèle le code de la section sous-projet du main
-             actuel ». La carte d'avancement réutilise donc littéralement les
-             classes de #activityProgressWrap (Sous-projets, plus haut dans ce
-             fichier) — .activityProgressCard/.activityProgressRing* — au lieu
-             d'un gabarit propre (r=19/épaisseur 5, viewBox 44×44, identique
-             pixel pour pixel, plus de r=26/60×60). Chaque groupe (secteur ou
-             pôle sans secteur) reprend de même le format exact d'une ligne
-             sous-projet (.subProjectRow) — voir buildGoalsTasksGroup()/
-             buildGoalsTaskRow(), app.js. Construit entièrement par
-             renderGoalsTasksOverview()/buildGoalsTasksGroup() (app.js) à
-             partir de GET /api/activities/:id/goals/tasks/overview (contrat
-             calé avec Tâche - Pôles & secteurs, voir le doc cité ci-dessus —
-             un champ \`description\` par groupe est désormais aussi réclamé,
-             voir cet encart plus bas). Aucun réordonnancement manuel nulle
-             part sur cet écran (demande explicite d'Emilien), ni sélecteur de
-             pôle (portée = toute l'activité, à la différence de
-             #goalsObjectifsView — le cadre de pôle juste au-dessus, lui,
-             reste visible mais n'est pas une navigation propre à cet écran). -->
-        <div id="goalsTasksView" class="goalsTasksView hidden">
-          <!-- (Émilien) : tri des tâches par responsable, même gabarit que le filtre Public/Confidentiel des Statistiques. -->
-          <div id="goalsRespFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
-            <button type="button" class="caSubProjectBtn" id="goalsRespBtn" aria-haspopup="true"><span id="goalsRespBtnLabel">Tous</span></button>
-            <div class="statsPeriodMenu caSubProjectMenu hidden" id="goalsRespMenu"></div>
-          </div>
-          <div id="goalsTasksProgressWrap" class="activityProgressCard hidden">
-            <svg class="activityProgressRing" viewBox="0 0 44 44" aria-hidden="true">
-              <circle class="activityProgressRingBg" cx="22" cy="22" r="19"></circle>
-              <circle id="goalsTasksProgressRingFill" class="activityProgressRingFill" cx="22" cy="22" r="19"></circle>
-            </svg>
-            <span id="goalsTasksProgressPercent" class="activityProgressPercent">0%</span>
-            <div class="activityProgressText">
-              <p class="activityProgressTitle">Aujourd'hui</p>
-              <p id="goalsTasksProgressCount" class="meta"></p>
-            </div>
-          </div>
-          <div id="goalsTasksGroups" class="goalsTasksGroups"></div>
-          <p id="goalsTasksEmptyHint" class="hint hidden"></p>
-          <!-- (Emilien) : bouton Archives = même gabarit/CSS que le bouton Historique du Chrono (voir objectifs-page2-taches.css). -->
-          <div id="goalsTasksArchiveSection">
-            <div class="sectionTitleRow historyHeaderClickable" id="goalsTasksArchiveHeader">
-              <p class="sectionTitle">Archives</p>
-            </div>
-            <div id="goalsTasksArchivePanel" class="hidden">
-              <div id="goalsTasksArchiveList"></div>
-              <p id="goalsTasksArchiveEmptyHint" class="hint hidden">Aucune tâche terminée ces 7 derniers jours.</p>
-            </div>
-          </div>
-        </div>
 
         <!-- (Emilien) : plus de boutons Tâches/Objectifs — on glisse de droite à gauche ; 3 points en bas au milieu (celui du milieu est réservé à une prochaine demande). -->
         <div id="goalsPage2Dots" role="group"><button type="button" class="goalsDotBtn" data-dot="home" aria-label="Feuille de route"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn on" data-dot="goals" aria-label="Objectifs"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" data-dot="next" aria-label="Calendrier"><span class="goalsDot"></span></button></div>
@@ -199,11 +147,9 @@
       reloadGoalsAll = TMT.reloadGoalsAll;
 
   // État propre à cet onglet (écran Tâches) et à la bascule à 2 segments.
-  var currentGoalsPage2Mode = 'tasks';
+  var currentGoalsPage2Mode = 'goals';
 
-  var currentGoalsTasksOverview = null;
 
-  var currentGoalsTasksOpenGroups = {};
 
 
   // ===================== VOLET OBJECTIFS — sélecteur d'activité =====================
@@ -262,8 +208,6 @@
     // objectifs-page2-objectif.js (TMT.resetGoalsObjectifsState), seul point
     // de couplage code entre les 2 onglets avec setGoalsPage2Mode().
     if (TMT.resetGoalsObjectifsState) TMT.resetGoalsObjectifsState();
-    currentGoalsTasksOverview = null;
-    currentGoalsTasksOpenGroups = {};
 
     TMT.currentGoalsActivityColor = a.color;
     // demande directe d'Emilien (page 2, point a) : le
@@ -343,10 +287,10 @@
   // réutilise de même .activityProgressCard (Sous-projets) au lieu d'un
   // gabarit propre — voir le commentaire à côté de #goalsTasksProgressWrap,
   // index.html.
-  var goalsPage2BaseMode = 'tasks';
+  var goalsPage2BaseMode = 'goals';
   // Dans l'activité : Objectifs (arbre périodique, page d'arrivée) · Calendrier (détail de période, ex-Page 3). Le 1er point des 3 est la page 1 (retour à la Feuille de route).
   var GOALS_PAGE2_ORDER = ['goals', 'month'];
-  function goalsPage2ViewFor(m) { return $(m === 'tasks' ? 'goalsTasksView' : m === 'month' ? 'goalsMonthView' : 'goalsObjectifsView'); }
+  function goalsPage2ViewFor(m) { return $(m === 'month' ? 'goalsMonthView' : 'goalsObjectifsView'); }
   TMT.getGoalsPage2Mode = function () { return currentGoalsPage2Mode; };
   // opts.keep : l'appelant (openGoalsDetail) a déjà posé catégorie/période ; opts.noAnim : sans défilement.
   function setGoalsPage2Mode(mode, opts) {
@@ -356,7 +300,6 @@
       if (TMT.pruneGoalsYears) TMT.pruneGoalsYears();
     }
     if (TMT.closeGoalsDayAddForms) TMT.closeGoalsDayAddForms(); // formulaires « ajouter une tâche » des jours refermés à chaque changement d'onglet
-    if (TMT.collapseGoalsAlerts) TMT.collapseGoalsAlerts();
     // « Discussion » est une fenêtre par-dessus la vue de base : elle ne masque ni Tâches ni Objectifs.
     if (mode === 'disc') {
       currentGoalsPage2Mode = 'disc';
@@ -368,11 +311,9 @@
       return;
     }
     var previousBase = goalsPage2BaseMode;
-    if (previousBase === 'tasks' && mode !== 'tasks') collapseGoalsArchives();
     goalsPage2BaseMode = mode;
     currentGoalsPage2Mode = mode;
     var swEl = $('goalsActivitySwitcher');
-    if (swEl) swEl.classList.toggle('goalsTasksMode', mode === 'tasks'); // nom du pôle coloré sur cet onglet seulement
     GOALS_PAGE2_ORDER.forEach(function (m) {
       var dot = document.querySelector('#goalsPage2Dots [data-dot=' + (m === 'month' ? 'next' : m) + ']');
       if (dot) dot.classList.toggle('on', mode === m);
@@ -412,7 +353,6 @@
         outAnim.cancel(); slideIn.getAnimations().forEach(function (a) { a.cancel(); }); host.style.overflowX = ''; slideIn.style.position = ''; slideIn.style.top = ''; host.style.paddingBottom = ''; host.scrollTop = 0;
       };
     }
-    if (mode === 'tasks') loadGoalsTasksOverview();
     // Défilement automatique vers la période en cours supprimé.
     if (mode === 'month' && !opts.keep && TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
     var discBtn = $('goalsPage2ModeDiscBtn');
@@ -500,7 +440,7 @@
       g0 = null;
       if (e.touches.length !== 1 || goalsPage2BaseMode !== currentGoalsPage2Mode) return;
       var tg = e.target;
-      if (tg.closest('#goalsActivityHeader, #goalsTaskDock, input, textarea, select, #goalsDiscView')) return;
+      if (tg.closest('#goalsActivityHeader, input, textarea, select, #goalsDiscView')) return;
       var sc = hScroller(tg);
       g0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), scroller: sc, startLeft: sc ? sc.scrollLeft : 0, drag: null, lock: TMT.axisLock.start(tg), tg: tg };
     }, { passive: true });
@@ -566,78 +506,25 @@
     schedule();
   })();
 
-  var goalsAddReq = 0;
-  // 28 oct. 2026 (Émilien) : « Expansion ? » (GET /api/activities/:id/offer1 → essor) décide de tout l'onglet 1 :
-  //  - UNE seule zone d'écriture et UN « + » pour tous les onglets de la page 2, à la place exacte de la pilule et du « + » de la barre ;
-  //  - avec Expansion : la zone est la consigne en langage libre de l'IA (TMT.docTasksSubmit) et le « + » (verre) ouvre la fenêtre
-  //    « Ajouter des tâches » (Modifications proposées, Nouvelles tâches, Drive : objectifs-document-taches.js) ;
-  //  - sans Expansion : la zone ajoute une tâche au pôle affiché, le « + » pointillé ouvre la découverte d'Expansion.
-  var goalsDock = null, goalsDockText = null, goalsDockMsg = null, goalsDockBusy = false, goalsDockTimer = null;
-  function buildGoalsTaskDock() {
-    goalsDock = document.createElement('div');
-    goalsDock.className = 'goalsTaskDock hidden';
-    goalsDock.id = 'goalsTaskDock';
-    goalsDockMsg = document.createElement('p'); goalsDockMsg.className = 'goalsTaskDockMsg';
-    var bar = document.createElement('div'); bar.className = 'tasksComposer';
-    var clip = TMT.ui && TMT.ui.attachBtn ? TMT.ui.attachBtn(function (list) { if (TMT.docTasksAddFiles) TMT.docTasksAddFiles(list); }, { multiple: true, label: t('Joindre un document ou une image') }) : null;
-    goalsDockText = document.createElement('textarea'); goalsDockText.className = 'tasksText'; goalsDockText.rows = 1; goalsDockText.maxLength = 300;
-    goalsDockText.placeholder = t('Ajouter une tâche');
-    goalsDockText.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGoalsDock(); } });
-    var send = document.createElement('button'); send.type = 'button'; send.className = 'cmpSend'; send.setAttribute('aria-label', t('Ajouter'));
-    send.addEventListener('mousedown', function (e) { e.preventDefault(); }); // garde le focus : le clavier reste ouvert
-    send.addEventListener('click', sendGoalsDock);
-    if (clip) { clip.classList.add('goalsDockClip'); bar.appendChild(clip); }
-    bar.appendChild(goalsDockText); bar.appendChild(send);
-    goalsDock.appendChild(goalsDockMsg); goalsDock.appendChild(bar);
-    goalsDock.appendChild($('goalsPage2AddBtn')); // le « + » à côté de la zone, à la place du « + » de la barre
-    $('goalsActivitySwitcher').appendChild(goalsDock);
-  }
-  function goalsDockSay(s) { goalsDockMsg.textContent = s || ''; clearTimeout(goalsDockTimer); if (s) goalsDockTimer = setTimeout(function () { goalsDockMsg.textContent = ''; }, 4000); }
-  // La tâche va UNIQUEMENT dans le pôle affiché : s'il n'a qu'un secteur (ou aucun), c'est lui ; sinon Noèsis choisit parmi les secteurs de l'activité (même chaîne que l'onglet Aujourd'hui).
-  function goalsDockTarget() {
-    var pole = TMT.currentGoalsSelectedPoleKey || '';
-    var groups = ((currentGoalsTasksOverview && currentGoalsTasksOverview.groups) || []).filter(function (g) { return !pole || g.poleKey === pole; });
-    return groups.length === 1 ? groups[0].key : null;
-  }
-  function sendGoalsDock() {
-    if (goalsDockBusy) return;
-    var label = goalsDockText.value.trim();
-    var expansion = goalsDock.classList.contains('hasExpansion');
-    if (!label) { goalsDockSay(expansion ? t('Écris une consigne.') : t('Écris une tâche avant d\'ajouter.')); return; }
-    if (expansion) { if (TMT.docTasksSubmit) TMT.docTasksSubmit(label.slice(0, 1500)); return; } // Expansion : la zone est la consigne en langage libre de l'IA
-    var activityId = TMT.currentGoalsActivityId; if (!activityId || !TMT.captureTaskFlow) return;
-    goalsDockBusy = true; goalsDockSay('');
-    TMT.captureTaskFlow(label, [activityId], goalsDockTarget()).then(function (flow) {
-      if (!flow) return;
-      var ok = (flow.results || []).filter(function (x) { return x.ok; })[0];
-      if (!ok) { var bad = (flow.results || [])[0]; goalsDockSay(bad && bad.error ? t(bad.error) : t('non ajoutée')); return; }
-      goalsDockText.value = '';
-      loadGoalsTasksOverview();
-    }).catch(function (err) { goalsDockSay((err && err.message) || t('Erreur.')); })
-      .then(function () { goalsDockBusy = false; });
-  }
-  buildGoalsTaskDock();
-
+  // « + » d'Expansion (même rendu que le « + » de la barre des volets : pointillé gris sans Expansion, verre avec Expansion), fixé à droite de la barre des volets.
+  // « Expansion ? » (GET /api/activities/:id/offer1 → essor) décide de son état et de son action : avec Expansion il ouvre la fenêtre « Ajouter des tâches » (objectifs-document-taches.js),
+  // sans Expansion il ouvre la découverte (ou explique « à venir » tant que le paiement n'est pas ouvert).
+  var goalsAddReq = 0, goalsHasExpansion = false;
   function syncGoalsAddBtn(activityId) {
     var btn = $('goalsPage2AddBtn'); if (!btn) return;
     var req = ++goalsAddReq;
     function apply(on) {
       if (req !== goalsAddReq) return;
-      goalsDock.classList.remove('hidden');
-      goalsDock.classList.toggle('hasExpansion', on); // le trombone (documents) n'existe qu'avec Expansion
-      btn.classList.toggle('barPaid', on); var tbp = document.querySelector('.tabbar .tabBtnAdd'); if (tbp && document.documentElement.classList.contains('tabbarHasPlus')) tbp.classList.toggle('barPaid', on); // « + » en verre avec Expansion (comme le « + » payé de la barre), pointillé gris sinon
+      goalsHasExpansion = on; btn.classList.remove('hidden');
+      btn.classList.toggle('barPaid', on); var tbp = document.querySelector('.tabbar .tabBtnAdd'); if (tbp && document.documentElement.classList.contains('tabbarHasPlus')) tbp.classList.toggle('barPaid', on);
       btn.setAttribute('aria-label', on ? t('Modifications proposées, nouvelles tâches et Drive') : t('Découvrir Expansion')); btn.title = btn.getAttribute('aria-label');
-      goalsDockText.placeholder = on ? t('Ta consigne, en langage libre…') : t('Ajouter une tâche');
       if (TMT.docTasksZoneSet) TMT.docTasksZoneSet(activityId, on);
     }
     TMT.api('GET', '/api/activities/' + encodeURIComponent(activityId) + '/offer1').then(function (r) { apply(!!(r && r.essor === true)); })
       .catch(function () { apply(false); });
   }
-  // Sans Expansion, le « + » ouvre l'offre si le paiement est ouvert (GET /api/offer/available) ; sinon, tant que le paiement n'est pas prêt (production), un message explique Expansion et dit « à venir ».
-  TMT.goalsDockClear = function () { if (goalsDockText) goalsDockText.value = ''; };
-  // Avec Expansion, le « + » (verre) ouvre la fenêtre « Ajouter des tâches » : Modifications proposées, Nouvelles tâches, Drive.
   $('goalsPage2AddBtn').addEventListener('click', function () {
-    if (goalsDock.classList.contains('hasExpansion')) { if (TMT.openDocTasks) TMT.openDocTasks(); return; }
+    if (goalsHasExpansion) { if (TMT.openDocTasks) TMT.openDocTasks(); return; }
     function soon() {
       TMT.ui.confirm(t('Expansion — à venir.') + ' ' + t('Génère automatiquement tes objectifs et tâches tous les mois en passant à Expansion.') + ' ' + t('Elle n’est pas encore disponible.'), { ok: t('Compris') });
     }
@@ -664,582 +551,14 @@
   // existe, selon l'ordre de chargement des <script> dans index.html.
 
 
-  // Plus de cartes d'alerte (surcharge, retards, cible irréaliste, recalcul) : tout se règle en silence côté serveur (goalsoverload.rebalance, goalsrecalc).
-  // Appelé par switchTab / changement de page : remet seulement le filtre de responsable à zéro.
-  TMT.collapseGoalsAlerts = function () { if (typeof resetRespFilter === 'function') resetRespFilter(); };
-
-  function loadGoalsTasksOverview() {
-    var activityId = TMT.currentGoalsActivityId;
-    if (!activityId) return;
-    api('GET', '/api/activities/' + activityId + '/goals/tasks/overview?today=' + localIso(new Date()))
-      .then(function (data) {
-        // L'utilisateur a pu changer d'activité ou de pôle pendant l'aller-
-        // retour serveur — ignorer une réponse devenue obsolète (même garde
-        // que reloadGoalsAll() ailleurs dans ce fichier).
-        if (String(activityId) !== String(TMT.currentGoalsActivityId)) return;
-        currentGoalsTasksOverview = data;
-        renderGoalsTasksOverview(data);
-      })
-      .catch(function () {
-        // Route pas encore en ligne côté serveur, ou hors-ligne : l'écran
-        // reste tel quel (voir le commentaire en tête de section).
-      });
-  }
-
-
-  // Tri par responsable : filtre PROPRE À CHAQUE PÔLE, remis sur « Tous » quand on quitte l'onglet ou l'app.
-  var respFilter = {};
-  var respMembers = { activityId: null, list: [] };
-  function loadRespMembers() {
-    var aid = TMT.currentGoalsActivityId;
-    if (!aid || String(respMembers.activityId) === String(aid)) return;
-    respMembers = { activityId: aid, list: [] };
-    api('GET', '/api/activities/' + aid + '/goals/members').then(function (d) {
-      if (String(aid) !== String(TMT.currentGoalsActivityId)) return;
-      respMembers.list = (d && d.members) || [];
-      if (currentGoalsTasksOverview) renderGoalsTasksOverview(currentGoalsTasksOverview);
-    }).catch(function () { respMembers = { activityId: null, list: [] }; });
-  }
-  function syncRespFilterUi() {
-    var wrap = $('goalsRespFilterWrap'); if (!wrap) return;
-    var pole = TMT.currentGoalsSelectedPoleKey || '';
-    var cur = respFilter[pole] || '';
-    if (cur && !respMembers.list.some(function (m) { return m.id === cur; })) { delete respFilter[pole]; cur = ''; }
-    wrap.classList.toggle('hidden', respMembers.list.length < 2);
-    var menu = $('goalsRespMenu'); menu.innerHTML = '';
-    var items = [{ id: '', name: t('Tous') }].concat(respMembers.list);
-    items.forEach(function (m) {
-      var b = document.createElement('button'); b.type = 'button';
-      b.className = 'statsPeriodMenuItem' + (m.id === cur ? ' active' : '');
-      b.dataset.who = m.id; b.textContent = m.name;
-      menu.appendChild(b);
-    });
-    var sel = items.filter(function (m) { return m.id === cur; })[0];
-    $('goalsRespBtnLabel').textContent = sel ? sel.name : t('Tous');
-  }
-  $('goalsRespBtn').addEventListener('click', function (e) {
-    e.stopPropagation();
-    var menu = $('goalsRespMenu');
-    var willOpen = menu.classList.contains('hidden');
-    document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
-    if (willOpen) menu.classList.remove('hidden');
-  });
-  $('goalsRespMenu').addEventListener('click', function (e) {
-    var item = e.target.closest('.statsPeriodMenuItem'); if (!item) return;
-    this.classList.add('hidden');
-    var pole = TMT.currentGoalsSelectedPoleKey || '';
-    if (item.dataset.who) respFilter[pole] = item.dataset.who; else delete respFilter[pole];
-    if (currentGoalsTasksOverview) renderGoalsTasksOverview(currentGoalsTasksOverview); else syncRespFilterUi();
-  });
-  function resetRespFilter() {
-    var had = Object.keys(respFilter).length > 0;
-    respFilter = {};
-    var menu = $('goalsRespMenu'); if (menu) menu.classList.add('hidden');
-    if (had && currentGoalsTasksOverview) renderGoalsTasksOverview(currentGoalsTasksOverview); else syncRespFilterUi();
-  }
-
-  function renderGoalsTasksOverview(data) {
-    loadRespMembers();
-    syncRespFilterUi();
-    // O2·06 / O2·N4 / O2·N7 : l'écran suit le pôle affiché dans le sélecteur
-    // de pôle (TMT.currentGoalsSelectedPoleKey) — seuls les secteurs (ou le
-    // pôle sans secteur) de CE pôle, avec leurs tâches et leur avancement.
-    var selPole = TMT.currentGoalsSelectedPoleKey;
-    if (data && selPole) { // filtre TOUJOURS (un pôle sans tâche n'affichait auparavant que tous les secteurs de l'activité)
-      var fg = data.groups.filter(function (g) { return g.poleKey === selPole; });
-      var fd = 0, ft = 0;
-      fg.forEach(function (g) { fd += g.done || 0; ft += g.total || 0; });
-      data = { done: fd, total: ft, percent: ft ? Math.round(fd / ft * 100) : null, groups: fg, daily: data.daily };
-    }
-    var wrap = $('goalsTasksProgressWrap');
-    // Règle R1 (même principe que renderActivityProgressRing()) : jamais de
-    // « 0% » trompeur avant le premier chargement réel — l'anneau reste
-    // masqué tant que percent est null/undefined.
-    // affiché TOUJOURS une fois les données chargées,
-    // même sans tâche dans le pôle (0 % — 0 / 0).
-    if (!data) {
-      wrap.classList.add('hidden');
-    } else {
-      if (data.percent === null || data.percent === undefined) { data.percent = 0; data.done = data.done || 0; data.total = data.total || 0; }
-      wrap.classList.remove('hidden');
-      // r=19, identique à renderActivityProgressRing() (Sous-projets) — voir
-      // le commentaire à côté de #goalsTasksProgressWrap, index.html.
-      var circumference = 2 * Math.PI * 19;
-      var fill = $('goalsTasksProgressRingFill');
-      fill.style.strokeDasharray = circumference.toFixed(2);
-      fill.style.strokeDashoffset = (circumference * (1 - data.percent / 100)).toFixed(2);
-      // à 100 % (au moins une tâche) → anneau vert, crochet et contour vert (Avancement global seulement).
-      var allDone = data.percent >= 100 && data.total > 0;
-      wrap.classList.toggle('isComplete', allDone);
-      // tant que ce n'est pas terminé, contour = couleur du pôle.
-      if (allDone || !TMT.subProjectShade) wrap.style.removeProperty('--progressEdge');
-      else wrap.style.setProperty('--progressEdge', TMT.subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, TMT.SUB_PROJECT_SHADE_COUNT));
-      if (allDone) $('goalsTasksProgressPercent').innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><polyline points="4 12.5 9.5 18 20 6.5"/></svg>';
-      else $('goalsTasksProgressPercent').textContent = data.percent + '%';
-      // liste plate (28 oct. 2026) : « 0 % · 4 tâches », en petit gris, à droite de « Aujourd'hui ».
-      $('goalsTasksProgressCount').textContent = data.percent + ' % · ' + data.total + t(' tâches');
-    }
-
-    var list = $('goalsTasksGroups');
-    list.innerHTML = '';
-    // liste « du jour » (blanches) complétée à 5 lignes minimum
-    // par les prochaines tâches datées (grises, sous « À venir »). Jamais de tâche inventée.
-    var daily = data && data.daily;
-    var allToday = (daily && daily.todayTasks) || [];
-    var allUpcoming = (daily && daily.upcoming) || [];
-    var pole = TMT.currentGoalsSelectedPoleKey;
-    var byPole = function (x) { return !pole || x.poleKey === pole; };
-    var who = respFilter[pole || ''] || '';
-    var byWho = function (x) { return !who || x.plannedUserId === who; };
-    var todayTasks = allToday.filter(byPole).filter(byWho);
-    var upcoming = goalsUpcomingFill(allUpcoming.filter(byPole).filter(byWho), todayTasks.length, daily && daily.minLines);
-    // les tâches restent RANGÉES PAR SECTEUR (accordéon replié par défaut, croix de
-    // suppression, glisser entre secteurs du pôle, ajout en ligne) ; seul le contenu de chaque
-    // secteur change : tâches du jour (blanc) puis tâches à venir (gris, avec leur date).
-    var perGroup = {};
-    todayTasks.forEach(function (task) { (perGroup[task.key] = perGroup[task.key] || []).push(Object.assign({}, task, { grey: false })); });
-    upcoming.forEach(function (task) { (perGroup[task.key] = perGroup[task.key] || []).push(Object.assign({}, task, { grey: true })); });
-    (data && data.groups || []).forEach(function (g) {
-      list.appendChild(buildGoalsTasksGroup(Object.assign({}, g, { tasks: perGroup[g.key] || [] })));
-    });
-
-    var emptyHint = $('goalsTasksEmptyHint');
-    var any = todayTasks.length + upcoming.length > 0;
-    var allDoneHere = !any && data && data.total > 0 && data.done >= data.total;
-    emptyHint.textContent = any ? '' : (allDoneHere ? t('Toutes les tâches du jour sont terminées : retrouve-les dans Archives.') : t('Aucune tâche prévue pour aujourd’hui.'));
-    emptyHint.classList.toggle('hidden', any);
-    if (!$('goalsTasksArchivePanel').classList.contains('hidden')) loadGoalsTasksArchives();
-  }
-
-  // Ligne d'archive (case cochée, texte, date de réalisation) ; décocher = retour dans la liste, puis onChanged().
-  function buildGoalsArchiveRow(task, onChanged) {
-    var row = document.createElement('div');
-    row.className = 'subProjectItem done goalsArchiveItem';
-    var cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = true;
-    if (task.locked) { cb.disabled = true; row.classList.add('taskLocked'); row.title = t('Tâche verrouillée : terminée depuis plus de 7 jours.'); }
-    cb.addEventListener('change', function () {
-      cb.disabled = true;
-      api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: false })
-        .then(function () { onChanged(); })
-        .catch(function (err) { cb.checked = true; alert(err.message); })
-        .then(function () { cb.disabled = false; });
-    });
-    row.appendChild(cb);
-    var label = document.createElement('span');
-    label.className = 'subProjectItemLabel';
-    appendLinkified(label, task.label);
-    row.appendChild(label);
-    var d = new Date(task.doneAt);
-    var when = document.createElement('span');
-    when.className = 'meta goalsDailyWhen';
-    when.textContent = isNaN(d) ? '' : (TMT.calendarDayLabel(localIso(d)) || localIso(d));
-    row.appendChild(when);
-    return row;
-  }
-  // Archives : tâches cochées (7 derniers jours), la plus récente d'abord ; décocher = retour dans la liste.
-  function loadGoalsTasksArchives() {
-    var activityId = TMT.currentGoalsActivityId;
-    if (!activityId) return;
-    api('GET', '/api/activities/' + activityId + '/goals/tasks/archives').then(function (data) {
-      if (String(activityId) !== String(TMT.currentGoalsActivityId)) return;
-      var box = $('goalsTasksArchiveList');
-      box.innerHTML = '';
-      var pole = TMT.currentGoalsSelectedPoleKey;
-      var tasks = ((data && data.tasks) || []).filter(function (x) { return !pole || x.poleKey === pole; });
-      tasks.forEach(function (task) { box.appendChild(buildGoalsArchiveRow(task, loadGoalsTasksOverview)); });
-      $('goalsTasksArchiveEmptyHint').classList.toggle('hidden', tasks.length > 0);
-    }).catch(function () {});
-  }
-  function localIso(d) {
-    var p = function (n) { return String(n).padStart(2, '0'); };
-    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
-  }
-  // même comportement que « Historique » du Chrono — à l'ouverture, la
-  // fenêtre remonte pour mettre « Archives » tout en haut (réserve d'espace sous la section si la
-  // liste est courte), on peut toujours défiler vers les tâches ; à la fermeture, retour à la
-  // position d'avant. Un espace vide (72 px) reste en permanence sous le bouton, au-dessus des 3 points.
-  var ARCHIVE_BOTTOM_GAP = 72;
-  var archiveScrollBack = null, archiveRO = null;
-  function archiveFitSpacer() {
-    var sec = $('goalsTasksArchiveSection'), sc = $('goalsActivitySwitcherScroll');
-    if (!sec || !sc || $('goalsTasksArchivePanel').classList.contains('hidden')) return;
-    var base = sec.offsetHeight - (parseFloat(sec.style.paddingBottom) || parseFloat(getComputedStyle(sec).paddingBottom) || 0);
-    var pad = Math.max(ARCHIVE_BOTTOM_GAP, sc.clientHeight - base - 8);
-    sec.style.paddingBottom = pad + 'px';
-  }
-  function archiveScrollToTop() {
-    var sc = $('goalsActivitySwitcherScroll');
-    if (!sc) return;
-    var y = sc.scrollTop + $('goalsTasksArchiveHeader').getBoundingClientRect().top - sc.getBoundingClientRect().top - 8;
-    sc.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
-  }
-  $('goalsTasksArchiveHeader').addEventListener('click', function () {
-    var sc = $('goalsActivitySwitcherScroll');
-    var opening = $('goalsTasksArchivePanel').classList.contains('hidden');
-    $('goalsTasksArchivePanel').classList.toggle('hidden', !opening);
-    if (opening) {
-      archiveScrollBack = sc ? sc.scrollTop : null;
-      loadGoalsTasksArchives();
-      archiveFitSpacer();
-      if (typeof ResizeObserver === 'function' && !archiveRO) {
-        archiveRO = new ResizeObserver(function () { archiveFitSpacer(); });
-        archiveRO.observe($('goalsTasksArchivePanel'));
-      }
-      window.requestAnimationFrame(archiveScrollToTop);
-    } else {
-      if (archiveRO) { archiveRO.disconnect(); archiveRO = null; }
-      $('goalsTasksArchiveSection').style.paddingBottom = '';
-      if (sc && archiveScrollBack != null) sc.scrollTo({ top: archiveScrollBack, behavior: 'smooth' });
-      archiveScrollBack = null;
-    }
-  });
-
-
-  // Archives revient enroulé quand on quitte l'onglet Tâches ou la page.
-  function collapseGoalsArchives() {
-    var panel = $('goalsTasksArchivePanel');
-    if (!panel || panel.classList.contains('hidden')) return;
-    panel.classList.add('hidden');
-    if (archiveRO) { archiveRO.disconnect(); archiveRO = null; }
-    $('goalsTasksArchiveSection').style.paddingBottom = '';
-    archiveScrollBack = null;
-  }
-  TMT.collapseGoalsArchives = collapseGoalsArchives;
-  // Règle des « 5 lignes minimum » (une seule définition, partagée avec la vue Aujourd'hui) : on montre toutes les tâches du jour ; s'il y en a moins que minLines, les prochaines tâches datées complètent.
-  function goalsUpcomingFill(upcomingList, todayCount, minLines) { return upcomingList.slice(0, Math.max(0, (minLines || 5) - todayCount)); }
-  TMT.buildGoalsTaskRow = function (task, groupKey, onChanged) { return buildGoalsTaskRow(task, groupKey, onChanged); }; // ligne de tâche de l'onglet Tâches, réutilisée par Aujourd'hui
-  TMT.openGoalsTaskEditPanel = openGoalsTaskEditPanel; // réutilisé par les jours du calendrier (page 2, onglet 2)
-  TMT.goalsTaskEditIcon = function () { return TMT.ui.editIcon(); };
-
-  // Rappelé par le sélecteur de pôle (objectifs-page2-objectif.js) au changement de pôle.
+  // Rappelé par le sélecteur de pôle (objectifs-page2-objectif.js) au changement de pôle : le nom du pôle prend la couleur du pôle (donnée, R16) ; jamais celle d'un secteur.
   TMT.rerenderGoalsTasksOverview = function () {
-    // le nom du pôle prend la couleur du pôle (donnée, R16) ; jamais celle d'un secteur.
     var hdr = $('goalsActivityHeader');
     if (hdr && TMT.subProjectShade) hdr.style.setProperty('--poleColor', TMT.subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, TMT.SUB_PROJECT_SHADE_COUNT));
-    if (currentGoalsTasksOverview) renderGoalsTasksOverview(currentGoalsTasksOverview);
   };
 
 
-  // Gabarit repris tel quel d'une ligne sous-projet (.subProjectRow, voir
-  // renderSubProjectsList() plus haut) — demande explicite d'Emilien, voir
-  // le commentaire en tête de section. Tout groupe (secteur OU pôle sans
-  // secteur) est un accordéon replié par défaut, état retenu dans
-  // currentGoalsTasksOpenGroups le temps de rester sur cet écran.
-  // demande directe d'Emilien (capture à l'appui) : « il
-  // y a présentement encore des secteurs qui ne sont pas enroulés » — un pôle
-  // sans secteur (g.isPole, voir le commentaire en tête de section) restait
-  // jusqu'ici TOUJOURS déplié, sans chevron (données converties
-  // en choix d'affichage ce jour-là). Emilien veut désormais le même
-  // comportement replié/chevron pour ces groupes-là aussi — g.isPole ne sert
-  // donc plus qu'à distinguer la ligne dans le contrat de données, plus à
-  // choisir son rendu ici.
-  // Ligne repliable (nom, nombre, chevron à droite) : UNE seule définition, aussi utilisée par la vue Aujourd'hui pour ses niveaux activité et pôle (TMT.buildGoalsGroupRow).
-  function buildGoalsGroupRow(label, count, isOpen, onToggle) {
-    var row = document.createElement('div');
-    row.className = 'activityRow subProjectRow goalsTasksGroup' + (isOpen ? ' open' : '');
-    var header = document.createElement('div');
-    header.className = 'activityRowHeader subProjectRowHeader';
-    var chevron = TMT.ui.chev(isOpen);
-    var name = document.createElement('span');
-    name.className = 'activityRowName';
-    name.textContent = label;
-    header.appendChild(name);
-    var badge = document.createElement('span');
-    badge.className = 'meta subProjectBadge';
-    badge.textContent = String(count); // liste plate : seulement le nombre de tâches
-    header.appendChild(badge);
-    header.appendChild(chevron);
-    row.appendChild(header);
-    header.addEventListener('click', onToggle);
-    return row;
-  }
-  TMT.buildGoalsGroupRow = buildGoalsGroupRow;
-  function buildGoalsTasksGroup(g) {
-    var isOpen = !!currentGoalsTasksOpenGroups[g.key];
-    var row = buildGoalsGroupRow(g.label, (g.tasks || []).length, isOpen, function () {
-      currentGoalsTasksOpenGroups[g.key] = !currentGoalsTasksOpenGroups[g.key];
-      renderGoalsTasksOverview(currentGoalsTasksOverview);
-    });
-    row.dataset.groupKey = g.key;
-    row.dataset.poleKey = g.poleKey || '';
 
-    // Description du pôle/secteur (attribuée via la fenêtre d'activité,
-    // section Catégories) — demande explicite d'Emilien, affichée seulement
-    // si présente, même gabarit que .subProjectRowDesc.
-    // descriptif masqué sur la page 2 (conservé dans la fenêtre d'activité).
-    if (false && g.description) {
-      var desc = document.createElement('p');
-      desc.className = 'meta subProjectRowDesc';
-      desc.textContent = g.description;
-      row.appendChild(desc);
-    }
-
-    if (isOpen) {
-      var items = document.createElement('div');
-      items.className = 'subProjectItems';
-      (g.tasks || []).forEach(function (task) { items.appendChild(buildGoalsTaskRow(task, g.key)); });
-      row.appendChild(items);
-
-      if (!g.tasks || !g.tasks.length) {
-        var hint = document.createElement('p');
-        hint.className = 'hint';
-        hint.textContent = t('Aucune tâche prévue pour aujourd’hui.');
-        row.appendChild(hint);
-      }
-    }
-
-    return row;
-  }
-
-
-
-
-  // Tâche récurrente : champ « Répéter » partagé (onglet 1 capture, onglet 2 édition).
-  // initial = { every, unit } ou null. get() renvoie { every, unit } ou null (= ne se répète pas).
-  function buildRecurrenceField(initial) {
-    var wrap = document.createElement('div');
-    wrap.className = 'recurField';
-    var mode = document.createElement('select');
-    mode.className = 'recurMode';
-    [['', t('Ne se répète pas')], ['on', t('Se répète')]].forEach(function (o) {
-      var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; mode.appendChild(op);
-    });
-    var row = document.createElement('div');
-    row.className = 'recurRow hidden';
-    // « Tous les N jours/semaines/mois » ou « N fois par semaine/mois/année » (répartis régulièrement) ; « jours ouvrables » n'apparaît
-    // que sur une tâche qui l'a déjà (écrit dans son titre), jamais en choix.
-    var kind = document.createElement('select');
-    kind.className = 'recurKind';
-    [['every', t('Tous les')], ['times', t('Fois par')]].forEach(function (o) {
-      var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; kind.appendChild(op);
-    });
-    var num = document.createElement('input');
-    num.type = 'number'; num.min = '1'; num.max = '365'; num.value = '1'; num.inputMode = 'numeric'; num.className = 'recurNum';
-    var unit = document.createElement('select');
-    unit.className = 'recurUnit';
-    var UNIT_SETS = {
-      every: [['day', t('jours')], ['week', t('semaines')], ['month', t('mois')]],
-      times: [['perweek', t('semaine')], ['permonth', t('mois')], ['peryear', t('année')]]
-    };
-    var TIMES_MAX = { perweek: 7, permonth: 31, peryear: 365 };
-    var hasWorkday = false;
-    function fillUnits(k, keep) {
-      unit.innerHTML = '';
-      var set = UNIT_SETS[k].slice();
-      if (k === 'every' && hasWorkday) set.push(['workday', t('jours ouvrables')]);
-      set.forEach(function (o) {
-        var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; unit.appendChild(op);
-      });
-      if (keep && set.some(function (o) { return o[0] === keep; })) unit.value = keep;
-    }
-    fillUnits('every');
-    row.appendChild(kind); row.appendChild(num); row.appendChild(unit);
-    var stop = document.createElement('button');
-    stop.type = 'button'; stop.className = 'iconBtn recurStop hidden'; stop.textContent = t('Arrêter la récurrence');
-    function sync() {
-      var on = mode.value === 'on';
-      row.classList.toggle('hidden', !on);
-      stop.classList.toggle('hidden', !on || !hadInitial);
-    }
-    var hadInitial = !!(initial && initial.every && initial.unit);
-    function set(rec) {
-      if (rec && rec.every && rec.unit) {
-        mode.value = 'on'; num.value = String(rec.every);
-        var isTimes = /^per(week|month|year)$/.test(rec.unit);
-        hasWorkday = rec.unit === 'workday';
-        kind.value = isTimes ? 'times' : 'every';
-        fillUnits(kind.value, rec.unit);
-      } else mode.value = '';
-      sync();
-    }
-    kind.addEventListener('change', function () { fillUnits(kind.value); });
-    mode.addEventListener('change', sync);
-    stop.addEventListener('click', function () { mode.value = ''; sync(); });
-    wrap.appendChild(mode); wrap.appendChild(row); wrap.appendChild(stop);
-    set(initial);
-    return {
-      el: wrap,
-      set: function (rec) { hadInitial = !!(rec && rec.every); set(rec); },
-      get: function () {
-        if (mode.value !== 'on') return null;
-        var max = kind.value === 'times' ? TIMES_MAX[unit.value] : (unit.value === 'workday' ? 30 : 365);
-        var n = Math.max(1, Math.min(max, parseInt(num.value, 10) || 1));
-        return { every: n, unit: unit.value };
-      }
-    };
-  }
-  TMT.buildRecurrenceField = buildRecurrenceField;
-
-  function openGoalsTaskEditPanel(row, task, onChanged) {
-    var refresh = typeof onChanged === 'function' ? onChanged : function () { loadGoalsTasksOverview(); };
-    var panel = document.createElement('div');
-    panel.className = 'goalsTaskEditPanel historyEditFields';
-    row.classList.add('goalsTaskEditing');
-    var uid = TMT.getProfile().id;
-
-    var txt = document.createElement('textarea');
-    txt.className = 'goalsTaskEditText'; txt.rows = 1; txt.maxLength = 300; txt.value = task.label || '';
-    function fitTxt() { txt.style.height = 'auto'; txt.style.height = txt.scrollHeight + 'px'; }
-    txt.addEventListener('input', fitTxt);
-    txt.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
-    panel.appendChild(txt);
-
-    var dateIn = document.createElement('input');
-    dateIn.type = 'date'; dateIn.value = task.dueDate || '';
-    panel.appendChild(dateIn);
-
-    // Récurrence : lue sur la tâche (le calendrier ne la transmet pas) ; n'est envoyée qu'une fois chargée.
-    var recField = buildRecurrenceField(null);
-    var recLoaded = false;
-    panel.appendChild(recField.el);
-    api('GET', '/api/sub-project-items/' + task.id + '?userId=' + uid).then(function (it) {
-      recField.set(it && it.recurEvery ? { every: it.recurEvery, unit: it.recurUnit } : null);
-      recLoaded = true;
-    }).catch(function () {});
-
-    var assignSel = null;
-    if (task.activityId != null ? task.shared : TMT.currentGoalsActivityIsShared) { // vue Aujourd'hui : la tâche porte son activité
-      assignSel = document.createElement('select');
-      var none = document.createElement('option'); none.value = ''; none.textContent = t('Responsable') + ' : —';
-      assignSel.appendChild(none);
-      panel.appendChild(assignSel);
-      api('GET', '/api/activities/' + (task.activityId != null ? task.activityId : TMT.currentGoalsActivityId) + '/goals/members').then(function (d) {
-        ((d && d.members) || []).forEach(function (m) {
-          var o = document.createElement('option'); o.value = m.id; o.textContent = m.name;
-          if (task.plannedUserId === m.id) o.selected = true;
-          assignSel.appendChild(o);
-        });
-      }).catch(function () {});
-    }
-
-    var actions = document.createElement('div');
-    actions.className = 'rowActions';
-    var delBtn = document.createElement('button');
-    delBtn.type = 'button'; delBtn.className = 'cmpRemove cmpRemove--corner';
-    delBtn.setAttribute('aria-label', t('Supprimer cette tâche')); delBtn.title = t('Supprimer cette tâche');
-    delBtn.addEventListener('click', function () {
-      TMT.ui.confirm(t('Supprimer cette tâche ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
-      api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + uid)
-        .then(function () { refresh(); })
-        .catch(function (err) { alert(err.message); });
-    });
-    });
-    var cancel = document.createElement('button');
-    cancel.type = 'button'; cancel.className = 'iconBtn'; cancel.textContent = t('Annuler');
-    cancel.addEventListener('click', function () { panel.remove(); row.classList.remove('goalsTaskEditing'); var eb = row.querySelector('.goalsTaskEditBtn'); if (eb) eb.style.display = ''; });
-    var save = document.createElement('button');
-    save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
-    save.addEventListener('click', function () {
-      var label = txt.value.trim();
-      if (!label) { txt.focus(); return; }
-      var body = { userId: uid, label: label };
-      if (dateIn.value) body.dueDate = dateIn.value;
-      if (assignSel && task.plannedUserId !== undefined) body.plannedUserId = assignSel.value || null;
-      if (recLoaded) body.recurrence = recField.get();
-      save.disabled = true;
-      api('PUT', '/api/sub-project-items/' + task.id, body)
-        .then(function () { refresh(); })
-        .catch(function (err) { save.disabled = false; alert(err.message); });
-    });
-    panel.appendChild(delBtn); actions.appendChild(cancel); actions.appendChild(save);
-    panel.appendChild(actions);
-    panel.addEventListener('click', function (e) { e.stopPropagation(); });
-    row.appendChild(panel);
-    fitTxt();
-    txt.focus();
-  }
-
-  function buildGoalsTaskRow(task, groupKey, onChanged) { // onChanged (facultatif) : rechargement après coche ou modification ; par défaut, la liste de l'onglet Tâches
-    var row = document.createElement('div');
-    row.className = 'subProjectItem' + (task.done ? ' done' : '') + (task.grey ? ' goalsDailyGrey' : '');
-    // demande de Notifications (coordination, voir
-    // noesis-timetracker-notifications-deep-link.md) : repère cette ligne
-    // pour le halo d'une notification qui cible une tâche
-    // (?notif=…&activityId=X&taskId=T) — Notifications réutilise
-    // le mécanisme déjà en place ailleurs dans l'app (focusWhenReady() +
-    // .notifHighlight, app.js), qui cible un élément par sélecteur CSS.
-    // ⚠️ Signalé dans le journal (chantiers-en-cours.md) mais PAS encore
-    // résolu par ce seul attribut : un groupe secteur est fermé par défaut
-    // (voir buildGoalsTasksGroup() ci-dessus, isOpen) et ne rend ses tâches
-    // dans le DOM QUE quand il est déplié — data-task-id seul est donc muet
-    // sur une tâche rangée dans un secteur encore fermé au moment où
-    // focusWhenReady() la cherche. Attend confirmation de Notifications sur
-    // le contrat proposé avant d'aller plus loin (rien construit de plus
-    // ici pour l'instant, pas de présomption unilatérale).
-    row.dataset.taskId = String(task.id);
-
-    var cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = !!task.done;
-    cb.addEventListener('change', function () {
-      cb.disabled = true;
-      api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: cb.checked })
-        .then(function () { (onChanged || loadGoalsTasksOverview)(); })
-        .catch(function (err) { cb.checked = !cb.checked; alert(err.message); })
-        .then(function () { cb.disabled = false; });
-    });
-    row.appendChild(cb);
-
-    var label = document.createElement('span');
-    label.className = 'subProjectItemLabel';
-    // Mêmes précautions que buildTaskRow() : jamais innerHTML, le texte peut
-    // venir d'un autre membre de l'activité partagée. Répond aussi à la
-    // demande d'Emilien « insérer dans les tâches des liens sur lesquels on
-    // peut directement cliquer » — déjà satisfaite par appendLinkified().
-    appendLinkified(label, task.label);
-    row.appendChild(label);
-    if (task.dueDate) { // la date s'affiche sur chaque tâche (liste plate)
-      var when = document.createElement('span');
-      when.className = 'meta goalsDailyWhen';
-      when.textContent = TMT.calendarDayLabel(task.dueDate) || task.dueDate;
-      row.appendChild(when);
-    }
-
-    // « en dessous les tâches
-    // avec une croix rouge pour les supprimer », précisée le même jour :
-    // « je souhaite que la croix [...] soit rouge, dans le même style que la
-    // croix pour supprimer les secteurs dans la feuille des activités » —
-    // .subProjectDeleteX (styles.css). Classe partagée avec Sous-projets/la
-    // feuille d'activité (croix de secteur, buildPoleSecteursBlock, app.js) —
-    // réutilisée telle quelle, jamais modifiée ici.
-    // « je
-    // souhaite que la croix pour supprimer une tâche ne soit pas encadrée » —
-    // .subProjectDeleteX cadrée/bordée reste la référence pour la croix de
-    // SECTEUR (feuille d'activité, demande initiale ci-dessus), mais pas pour
-    // celle-ci. Même technique déjà en place dans le Design pour un cas
-    // symétrique (.activityGoalsSecteurRow.editing .subProjectDeleteX,
-    // styles.css) : la classe partagée n'est pas touchée, seule sa variante
-    // DANS une ligne de tâche perd bordure/fond, par spécificité de sélecteur
-    // — voir .goalsTasksGroup .subProjectItem .subProjectDeleteX,
-    // objectifs-page2.css.
-    // Confirmation native puis DELETE /api/sub-project-items/:id (voir
-    // l'hypothèse de route signalée en tête de section).
-    // Déplacer vers un autre pôle/secteur de la même activité : bouton discret
-    // qui ouvre une liste (select natif, optgroup par pôle ; secteurs sans
-    // couleur) sous la tâche. PUT .../goals/tasks/:id/category.
-    // poignée ≡ et déplacement des tâches entre secteurs supprimés.
-
-    // la corbeille devient « modifier » ; le panneau permet de
-    // changer le texte, la date et (activité partagée) le responsable, et garde la suppression.
-    var edit = document.createElement('button');
-    edit.type = 'button';
-    edit.className = 'subProjectDeleteX goalsTaskTrashBtn goalsTaskEditBtn';
-    edit.innerHTML = TMT.ui.editIcon();
-    edit.title = t('Modifier cette tâche');
-    edit.setAttribute('aria-label', t('Modifier cette tâche'));
-    edit.addEventListener('click', function (e) {
-      e.stopPropagation();
-      var existing = row.querySelector('.goalsTaskEditPanel');
-      if (existing) { existing.remove(); edit.style.display = ''; return; }
-      edit.style.display = 'none';
-      openGoalsTaskEditPanel(row, task, onChanged);
-    });
-    row.appendChild(edit);
-
-    return row;
-  }
 
 
   // Point d'entrée appelé depuis la page 1 (objectifs-page1.js : capture →

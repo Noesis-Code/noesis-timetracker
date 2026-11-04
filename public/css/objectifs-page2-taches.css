@@ -62,7 +62,6 @@
    bulles des différents secteurs » — 10px -> 8px, même échelle que le
    gap:8px interne de .activityRow (Design) plutôt qu'un intervalle propre à
    cette page. */
-.goalsTasksGroups { display: flex; flex-direction: column; gap: 8px; }
 
 
 
@@ -135,15 +134,9 @@
 }
 .goalsTasksGroup .subProjectItem input[type="checkbox"]:checked { background: var(--purple); border-color: var(--purple); }
 .goalsTasksGroup .subProjectItem input[type="checkbox"]:checked::after { content: ""; width: 7px; height: 13px; border: solid var(--white); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
-.goalsTasksGroup .subProjectItem.dragging { position: relative; z-index: 5; opacity: .9; background: var(--bg-raised, var(--card)); box-shadow: 0 6px 18px rgba(0,0,0,.45); border-radius: var(--radius-md); }
-.goalsTasksGroup.catDropTarget { outline: 2px solid var(--purple); outline-offset: -2px; }
 
-#goalsTasksProgressWrap:not(.isComplete) { border-color: var(--progressEdge, var(--glass-border)); }
 
 /* 100 % : vert calme. Uniquement sur l'Avancement global. */
-#goalsTasksProgressWrap.isComplete { border-color: rgba(111, 201, 160, 0.55) !important; }
-#goalsTasksProgressWrap.isComplete .activityProgressRingFill { stroke: var(--good); }
-#goalsTasksProgressWrap.isComplete .activityProgressPercent { color: var(--good-text); }
 
 /* aucun grisé au toucher/survol d'une tâche (le :hover générique restait collé après un appui). */
 .goalsTasksGroup .subProjectItem:hover, .goalsTasksGroup .subProjectItem:active, .goalsTasksGroup .subProjectItem:focus-within { background: transparent; }
@@ -154,20 +147,6 @@
    même bas ; téléphone : pilule 298×52 à x=16, « + » 52×52 à x=322 sur 390 px ; ordinateur : mêmes règles que .tabbar dans css/bureau.css, une seule définition).
    Le rendu du « + » (.barAddBtn : pointillé gris + violet ; .barPaid : verre) est défini une seule fois dans css/barre-volets.css (R29).
    La zone suit le modèle de celle d'Aujourd'hui (.tasksComposer : bulle de verre, trombone à gauche, flèche d'envoi DANS la bulle). */
-.goalsTaskDock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 120; box-sizing: border-box; display: flex; align-items: flex-end; padding: 0 16px max(16px, env(safe-area-inset-bottom)); pointer-events: none; }
-:root[data-trade-on] .goalsTaskDock { padding-left: 17px; padding-right: 17px; }
-@media (min-width: 700px) { .goalsTaskDock { max-width: 460px; left: 50%; margin-left: -230px; } }
-.goalsTaskDock > * { pointer-events: auto; }
-.goalsTaskDock.hidden, .goalsActivitySwitcher.goalsNoPole .goalsTaskDock { display: none; }
-.goalsTaskDock .barAddBtn { display: flex; }
-.goalsTaskDock .tasksComposer { flex: 1 1 auto; min-width: 0; box-sizing: border-box; height: 52px; padding: 0 8px 0 16px; -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); } /* R40 : verre de la barre */
-.goalsTaskDock .tasksText::placeholder { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.goalsTaskDock .docTasksFilesBox { position: absolute; left: 16px; right: 16px; bottom: 100%; }
-.goalsTaskDock .tasksComposer .cmpSend { flex: none; }
-.goalsTaskDock .goalsDockClip { position: static; flex: none; width: 44px; height: 44px; margin-left: -8px; }
-.goalsTaskDock:not(.hasExpansion) .goalsDockClip { display: none; }
-.goalsTaskDockMsg { position: absolute; left: 0; right: 0; bottom: calc(100% + 44px); margin: 0; font-size: 13px; color: var(--text-light); text-align: center; }
-.goalsTaskDockMsg:empty { display: none; }
 
 /* Fenêtre Discussion : même gabarit que le profil d'un autre utilisateur — fond assombri, carte ancrée en bas, en-tête fixe avec ✕. */
 #goalsDiscView:not(.hidden) {
@@ -207,12 +186,10 @@
 :root.goalsActOpen .topbar { z-index: 102; } /* page de l'activité (z-index 101) : la barre du haut et la barre des volets restent au-dessus */
 :root.goalsActOpen .tabbar { z-index: 102; }
 :root.goalsActOpen:not(.tabbarHasPlus) .tabbar { padding-right: 76px; transition: padding-right .5s cubic-bezier(.22, .8, .3, 1); } /* la barre rétrécit en 0,5 s (seulement à l'ouverture d'une activité : au retour elle reprend sa largeur sans animation) /* le « + » d'Expansion prend la place à droite de la barre des volets */
-.goalsTaskDock { justify-content: flex-end; }
 @keyframes goalsPlusIn { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
 :root.goalsActOpen.tabbarHasPlus #goalsPage2AddBtn { display: none; } /* la barre portait déjà un « + » : aucune animation, c'est ce « + » qui sert à Expansion (voir objectifs-page2-taches.js) */
 :root.goalsActOpen:not(.tabbarHasPlus) #goalsPage2AddBtn { animation: goalsPlusIn .5s cubic-bezier(.22, .8, .3, 1) .5s both; } /* le « + » apparaît (fondu + agrandissement) une fois la barre rétrécie : 0,5 s + 0,5 s */
 @media (prefers-reduced-motion: reduce) { :root.goalsActOpen:not(.tabbarHasPlus) .tabbar { transition: none; } :root.goalsActOpen:not(.tabbarHasPlus) #goalsPage2AddBtn { animation: none; } }
-.goalsTaskDock .tasksComposer, .goalsTaskDockMsg { display: none; } /* plus de zone d'écriture sur la page de l'activité : seul le « + » d'Expansion reste */
 #goalsPage2Dots {
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
   bottom: var(--tabbar-h, 64px); display: flex; gap: 0; /* même place que #statsPageDots du Chrono */
@@ -229,8 +206,8 @@
 /* liste « du jour » (blanches) + « À venir » (grises) + bouton Archives (même gabarit que Historique du Chrono). */
 .goalsDailyGrey .subProjectItemLabel { color: var(--text-light); }
 .goalsDailyWhen { flex: 0 0 auto; font-size: 12px; color: var(--text-light); white-space: nowrap; }
-:is(#goalsTasksArchiveSection, #goalsTodayArchiveSection) { margin-top: 14px; padding-bottom: calc(var(--tabbar-h, 64px) + 76px); } /* espace vide permanent sous « Archives », au-dessus des 3 points */
-:is(#goalsTasksArchiveHeader, #goalsTodayArchiveHeader) {
+#goalsTodayArchiveSection { margin-top: 14px; padding-bottom: calc(var(--tabbar-h, 64px) + 76px); } /* espace vide permanent sous « Archives », au-dessus des 3 points */
+#goalsTodayArchiveHeader {
   margin-top: 4px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
   background: var(--glass-bg); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 2px 10px rgba(0, 0, 0, 0.08);
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
@@ -238,9 +215,9 @@
   margin-left: auto; margin-right: auto; cursor: pointer;
   transition: background-color var(--transition-fast);
 }
-:is(#goalsTasksArchiveHeader, #goalsTodayArchiveHeader):hover { filter: brightness(1.12); }
-:is(#goalsTasksArchiveHeader, #goalsTodayArchiveHeader) .sectionTitle { margin: 0; }
-:is(#goalsTasksArchivePanel, #goalsTodayArchivePanel) { margin-top: 10px; }
+#goalsTodayArchiveHeader:hover { filter: brightness(1.12); }
+#goalsTodayArchiveHeader .sectionTitle { margin: 0; }
+#goalsTodayArchivePanel { margin-top: 10px; }
 
 /* panneau « modifier une tâche » — case à gauche, crayon à droite, jamais au-dessus/dessous */
 .goalsTasksGroup .subProjectItem { flex-wrap: wrap; align-items: center; }
@@ -326,11 +303,6 @@
 /* Sélecteur de pôle simplifié (28 oct. 2026) : texte seul « ‹ Entreprise › », sans cadre, fond, liseré ni pastille ; flèches discrètes aux extrémités (zone de toucher 44 px, R37). */
 :root #goalsActivitySwitcher #goalsActivityHeader { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; min-height: 44px; }
 #goalsActivityHeader #goalsPoleDot { display: none; }
-:root #goalsTasksView .activityProgressCard { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; margin: 16px 0 8px; justify-content: space-between; gap: 8px; }
-#goalsTasksView .activityProgressCard .activityProgressRing, #goalsTasksView .activityProgressCard .activityProgressPercent { display: none; }
-#goalsTasksView .activityProgressCard .activityProgressText { display: contents; }
-#goalsTasksView .activityProgressCard .activityProgressTitle, #goalsTasksView .activityProgressCard .meta { margin: 0; font-size: 13px; font-weight: 400; color: var(--text-light); }
-#goalsTasksView .goalsTasksGroups { gap: 0; }
 :root :is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup { background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; border-radius: 0; padding: 0; gap: 0; }
 :is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup.open { padding-top: 0; }
 :is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup .subProjectRowHeader { min-height: 48px; border-bottom: 1px solid var(--sep); }
@@ -340,7 +312,11 @@
 :is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup .subProjectItem { min-height: 52px; padding: 4px 0; gap: 16px; border-radius: 0; border-bottom: 1px solid var(--sep); }
 :is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup .subProjectItem input[type="checkbox"] { margin-left: 4px; }
 :is(#goalsTasksGroups, .tasksTree) .goalsTasksGroup .subProjectItem.goalsTaskEditing { border-bottom: 0; }
-:root :is(#goalsTasksArchiveHeader, #goalsTodayArchiveHeader) { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; min-height: 44px; align-items: center; }
-:is(#goalsTasksArchiveHeader, #goalsTodayArchiveHeader):hover { filter: none; }
-:is(#goalsTasksArchiveHeader, #goalsTodayArchiveHeader) .sectionTitle { font-size: 13px; font-weight: 400; color: var(--text-light); }
+:root #goalsTodayArchiveHeader { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; min-height: 44px; align-items: center; }
+#goalsTodayArchiveHeader:hover { filter: none; }
+#goalsTodayArchiveHeader .sectionTitle { font-size: 13px; font-weight: 400; color: var(--text-light); }
 .recurRow .recurKind { flex: 0 0 auto; min-width: 0; }
+
+/* « + » d'Expansion (page de l'activité) : fixé à droite de la barre des volets ; masqué tant que « Expansion ? » n'est pas connu et sans pôle. */
+#goalsPage2AddBtn { display: flex; position: fixed; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 120; margin: 0; }
+#goalsPage2AddBtn.hidden, .goalsActivitySwitcher.goalsNoPole #goalsPage2AddBtn { display: none; }

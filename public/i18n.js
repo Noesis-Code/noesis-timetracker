@@ -929,10 +929,8 @@
     'Supprimer cette tâche': 'Delete this task',
     'Supprimer cette tâche ?': 'Delete this task?',
     'Supprimer la tâche': 'Delete the task',
-    "Écris une tâche avant d'ajouter.": 'Write a task before adding it.',
     'Écris une consigne.': 'Write an instruction.',
     'Modifications proposées, nouvelles tâches et Drive': 'Proposed changes, new tasks and Drive',
-    'Ta consigne, en langage libre…': 'Your instruction, in plain language…',
     'Cette tâche existe déjà dans': 'This task already exists in',
     'Ajouter quand même ?': 'Add anyway?',
     'Ajouter quand même': 'Add anyway',
@@ -943,7 +941,6 @@
     'Sous-projet introuvable.': 'Sub-project not found.',
     'Intitulé de la tâche requis.': 'Task label required.',
     'Tâche introuvable.': 'Task not found.',
-    'Tâche verrouillée : terminée depuis plus de 7 jours.': 'Task locked: completed more than 7 days ago.',
 
     // ---- Sondages (3 septembre 2026, 11ᵉ discussion "Sondages") ----
     // Textes statiques d'index.html (traduits par translateStaticDom), textes
@@ -1676,6 +1673,7 @@
     "Pôle et secteur": "Division and sector",
     // ---- Page Objectifs (gabarits) ----
     "Jour précédent": "Previous day", "Trier": "Sort", "Ajouter un objectif": "Add a goal", "Comparer le chrono": "Compare timer", "Comparer les tâches": "Compare tasks", "Mois précédent": "Previous month", "Mois suivant": "Next month", "Échéance": "Due date", "Objectif": "Goal", "Durée": "Duration",
+    "Écris une tâche avant d'ajouter.": 'Write a task before adding it.',
     "Jour suivant": "Next day",
     "Faites ce jour-là": "Done that day",
     "Rien ce jour-là.": "Nothing that day.",
@@ -1695,8 +1693,6 @@
     "+ Ajouter": "+ Add",
     "Objectifs hebdomadaires": "Weekly goals",
     "Titre de l'objectif": "Goal title",
-    "Toutes les tâches du jour sont terminées : retrouve-les dans Archives.": "All of today's tasks are done: find them in the Archive.",
-    "Aucune tâche prévue pour aujourd’hui.": "No task planned for today.",
     "Calculé par Noèsis d’après les tâches réalisées": "Calculated by Noèsis from the completed tasks",
     "en plus, ajoutées à la période": "extra, added to the period",
     "tâches faites en moins de temps": "tasks done in less time",

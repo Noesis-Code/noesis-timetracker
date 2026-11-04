@@ -27,8 +27,7 @@
     return out + (t && t.moved ? ' · déplacée (semaine pleine)' : '');
   }
 
-  // 28 oct. 2026 (Émilien) : la consigne IA s'écrit dans l'UNIQUE zone d'écriture du bas de la page d'une activité (objectifs-page2-taches.js,
-  // TMT.docTasksSubmit / docTasksAddFiles) ; le « + » en verre (avec Expansion) ouvre cette fenêtre centrée : résultats, Modifications proposées, Nouvelles tâches, Drive.
+  // 28 oct. 2026 (Émilien) : la consigne IA s'écrit dans la zone d'écriture de l'onglet Tâches (TMT.docTasksPrefill) ; le « + » en verre (avec Expansion) ouvre cette fenêtre centrée : résultats, Modifications proposées, Nouvelles tâches, Drive.
   document.getElementById('content').insertAdjacentHTML('beforeend', `
     <div id="docTasksPage" class="docTasksPop hidden" role="dialog" aria-label="Ajouter des tâches">
      <div class="docTasksPopCard cmpGlass">
@@ -72,10 +71,10 @@
       </div>
     </div>`);
 
-  (function () { // pastilles des documents joints : au-dessus de la zone d'écriture du bas
-    var dock = document.getElementById('goalsTaskDock'), ch = document.createElement('div');
+  (function () { // pastilles des documents joints : dans la fenêtre « Ajouter des tâches »
+    var ch = document.createElement('div');
     ch.id = 'docTasksFiles'; ch.className = 'docTasksFilesBox';
-    (dock || document.getElementById('docTasksPage')).appendChild(ch);
+    var body = document.querySelector('#docTasksPage .docTasksBody'); body.insertBefore(ch, body.firstChild);
   })();
 
   // Clic ailleurs : la liste des dossiers connectés se réenroule (phase de capture : avant tout re-rendu).
