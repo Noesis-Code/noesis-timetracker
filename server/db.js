@@ -2352,6 +2352,10 @@ if (!columnExists('users', 'stripeCustomerId')) {
 if (!columnExists('activity_members', 'notifyEnabled')) {
   db.exec('ALTER TABLE activity_members ADD COLUMN notifyEnabled INTEGER NOT NULL DEFAULT 1');
 }
+// Statistiques d'activité partagée : « Comparer le chrono » / « Comparer les tâches » (choix PERSONNEL à chaque membre et à chaque activité, défaut 0 = statistiques des membres invisibles).
+// Migration additive. Un membre qui active l'un des deux voit les statistiques de TOUS les membres (comportement existant, aucun consentement par membre).
+if (!columnExists('activity_members', 'compareChrono')) db.exec('ALTER TABLE activity_members ADD COLUMN compareChrono INTEGER NOT NULL DEFAULT 0');
+if (!columnExists('activity_members', 'compareTasks')) db.exec('ALTER TABLE activity_members ADD COLUMN compareTasks INTEGER NOT NULL DEFAULT 0');
 // 5 oct. 2026 (Emilien) : mode « gestion de l'IA » par utilisateur — NULL tant que non choisi (pop-up obligatoire
 // à la première capture), puis 'autonome' | 'partiel' | 'absence'.
 // 6 oct. 2026 (Emilien) : activité Publique (défaut) ou Confidentielle — PERSONNEL à chaque membre.

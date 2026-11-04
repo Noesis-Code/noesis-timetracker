@@ -19,7 +19,7 @@ function membershipCount(activityId) {
 }
 
 function serializeActivity(a, userId) {
-  var membership = db.prepare('SELECT color, notifyEnabled, confidential FROM activity_members WHERE activityId = ? AND userId = ?').get(a.id, userId);
+  var membership = db.prepare('SELECT color, notifyEnabled, confidential, compareChrono, compareTasks FROM activity_members WHERE activityId = ? AND userId = ?').get(a.id, userId);
   var owner = a.ownerId ? db.prepare('SELECT name FROM users WHERE id = ?').get(a.ownerId) : null;
   return {
     id: a.id,
@@ -38,6 +38,9 @@ function serializeActivity(a, userId) {
     notifyEnabled: membership ? !!membership.notifyEnabled : true,
     // Publique (false, défaut) / Confidentielle (true) — personnel à chaque membre.
     confidential: membership ? !!membership.confidential : false,
+    // Comparer le chrono / les tâches (statistiques de tous les membres) : réglages PERSONNELS, désactivés par défaut.
+    compareChrono: membership ? !!membership.compareChrono : false,
+    compareTasks: membership ? !!membership.compareTasks : false,
   };
 }
 
@@ -194,6 +197,11 @@ router.put('/activities/:id', (req, res) => {
     db.prepare('UPDATE activity_members SET notifyEnabled = ? WHERE activityId = ? AND userId = ?')
       .run(req.body.notifyEnabled ? 1 : 0, activity.id, userId);
   }
+
+  // Comparer le chrono / les tâches : personnel, uniquement pour MOI et pour CETTE activité (la ligne est celle de l'appelant, vérifiée par appartenance ci-dessus).
+  ['compareChrono', 'compareTasks'].forEach((k) => {
+    if (req.body[k] !== undefined) db.prepare('UPDATE activity_members SET ' + k + ' = ? WHERE activityId = ? AND userId = ?').run(req.body[k] ? 1 : 0, activity.id, userId);
+  });
 
   // Confidentialité — chaque membre règle sa propre part.
   if (req.body.confidential !== undefined) {

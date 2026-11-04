@@ -15819,6 +15819,20 @@
     visRow.appendChild(visWord);
     visRow.appendChild(sw);
     adv.appendChild(visRow);
+    // Statistiques d'activité partagée : deux interrupteurs PERSONNELS (à moi et à cette activité), désactivés par défaut ; allumer l'un donne accès aux statistiques de tous les membres. Enregistrés aussitôt.
+    if (a.membersCount > 1) [['compareChrono', 'Comparer le chrono'], ['compareTasks', 'Comparer les tâches']].forEach(function (k) {
+      var cRow = document.createElement('label'); cRow.className = 'activityEditRow activityEditVis';
+      var cWord = document.createElement('span'); cWord.textContent = t(k[1]);
+      var cSw = document.createElement('span'); cSw.className = 'toggleSwitch';
+      var cIn = document.createElement('input'); cIn.type = 'checkbox'; cIn.checked = !!a[k[0]]; cIn.setAttribute('role', 'switch');
+      var cTrack = document.createElement('span'); cTrack.className = 'toggleSwitchTrack';
+      cSw.appendChild(cIn); cSw.appendChild(cTrack); cRow.appendChild(cWord); cRow.appendChild(cSw); adv.appendChild(cRow);
+      cIn.addEventListener('change', function () {
+        var body = { userId: profile.id }; body[k[0]] = cIn.checked; cIn.disabled = true;
+        api('PUT', '/api/activities/' + a.id, body).then(function () { a[k[0]] = cIn.checked; return refreshActivities(); }).then(function () { if (TMT.sharedStatsRefresh) TMT.sharedStatsRefresh(); })
+          .catch(function (err) { cIn.checked = !cIn.checked; if (msg) msg.textContent = err.message; }).then(function () { cIn.disabled = false; });
+      });
+    });
     if ((acts || []).length > 1) adv.appendChild(plainRow(t('Fusionner avec…'), function () { openMergeActivityModal(a); }));
     adv.appendChild(plainRow(t('Membres'), function () { openCommunityMembersModal(a.id, a.name, { activity: a, solo: !(a.membersCount > 1) }); }));
     advToggle.addEventListener('click', function () {
