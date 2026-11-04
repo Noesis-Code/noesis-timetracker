@@ -21,10 +21,11 @@
         </div>
         <div id="goalsDetailScroll">
           <div id="activityGoalsBlock">
-            <div class="goalsPeriodNavLabel">
-              <p class="sectionTitle" id="activityGoalsPeriodTitle"></p>
-              <p class="goalsPeriodDates" id="activityGoalsPeriodDates"></p>
+            <div id="goalsTopLine" class="goalsTopLine">
+              <p class="goalsPeriodTag" id="activityGoalsPeriodTitle"></p>
+              <span id="goalsPeriodState" class="goalWeeklyBadge goalWeeklyBadgeStatus hidden"></span>
             </div>
+            <div id="goalsMainLineHost"></div>
 
             <!-- (discussion "Objectifs — D"), demande
                  d'Emilien : hiérarchie d'en-tête revue — activité seule tout
@@ -167,12 +168,10 @@
                 <span class="cmpNavLabel" id="goalsCalTitle"></span>
                 <button type="button" class="cmpNavArrow" id="goalsCalNext" aria-label="Mois suivant">›</button>
               </div>
-              <p class="goalsCalPole" id="goalsCalPole"></p>
               <div class="goalsCalHead" id="goalsCalHead"></div>
               <div class="goalsCalGrid" id="goalsCalGrid"></div>
             </div>
 
-            <p class="goalBilanHint hidden" id="activityGoalsBilan"></p>
             <p id="activityGoalsMsg" class="msg"></p>
           </div>
         </div>
@@ -182,6 +181,30 @@
   if (window.NoesisI18n) window.NoesisI18n.translateStaticDom(document.getElementById('goalsDetailPage'));
   // Le contenu du détail de période déménage dans la page du milieu de la Page 2.
   (function () { var host = document.getElementById('goalsMonthView'), sc = document.getElementById('goalsDetailScroll'); if (host && sc) host.appendChild(sc); })();
+  // ----- Fenêtres de la page : objectif périodique, objectif hebdomadaire, tâches d'un jour (composant de fenêtre commun : .communityMembersModal + .cmpGlass + croix ✕) -----
+  var goalsPops = {};
+  function closeGoalsPop(key) { var p = goalsPops[key]; if (p) { p.pop.classList.add('hidden'); if (key === 'week') goalsPops.weekState = null; if (key === 'day') goalsPops.dayState = null; } }
+  function buildGoalsPop(key, titleText) {
+    var pop = document.createElement('div'); pop.className = 'communityMembersModal goalsPop hidden'; pop.id = 'goalsPop_' + key;
+    var card = document.createElement('div'); card.className = 'communityMembersModalCard cmpGlass';
+    var head = document.createElement('div'); head.className = 'communityMembersModalHeader';
+    var title = document.createElement('p'); title.className = 'sectionTitle'; title.textContent = titleText || '';
+    head.appendChild(title); head.appendChild(TMT.ui.closeBtn(function () { closeGoalsPop(key); }, 'Fermer'));
+    var body = document.createElement('div'); body.className = 'goalsPopBody';
+    card.appendChild(head); card.appendChild(body); pop.appendChild(card); document.body.appendChild(pop);
+    pop.addEventListener('click', function (e) { if (e.target === pop) closeGoalsPop(key); });
+    goalsPops[key] = { pop: pop, title: title, body: body };
+    return goalsPops[key];
+  }
+  (function () {
+    var main = buildGoalsPop('main', 'Objectif périodique');
+    var dates = document.createElement('p'); dates.id = 'activityGoalsPeriodDates'; dates.className = 'goalsPeriodDates'; main.body.appendChild(dates); // dates de la période : l'éditeur existant (renderGoalsPeriodDates)
+    ['#activityGoalsMainEmptyBar', '#activityGoalsMainCard'].forEach(function (sel) { var e = document.querySelector(sel); if (e) main.body.appendChild(e); }); // la carte et l'éditeur existants de l'objectif périodique
+    var lab = document.querySelector('.goalsMainOutLabel'); if (lab) lab.remove();
+    buildGoalsPop('week', 'Objectif hebdomadaire');
+    buildGoalsPop('day', '');
+  })();
+
 
   var $ = TMT.$, api = TMT.api, readableTextOn = TMT.readableTextOn,
       subProjectShade = TMT.subProjectShade, SUB_PROJECT_SHADE_COUNT = TMT.SUB_PROJECT_SHADE_COUNT,
@@ -238,7 +261,6 @@
   // numéro de
   // requête pour le calendrier de la page 2 (garde-fou anti-réponse-en-retard,
   // voir loadGoalsCalendarDays()/closeGoalsDetail() plus bas).
-  var goalsCalendarRequestId = 0;
 
 
   var GOAL_STATUS_ORDER = ['non_atteint', 'partiel', 'atteint'];
@@ -549,15 +571,8 @@
   // rafraîchissement auto-hebdomadaire silencieux — voir
   // l'ancien suivi du remplissage auto, supprimé) : sans
   // ça, ce rafraîchissement replierait une semaine qu'Emilien vient d'ouvrir.
-  var goalsOpenWeekIndexes = {};
   // État déplié PAR (période, semaine) et seulement pour le secteur/pôle affiché : changer de période le garde,
   // changer de secteur ou de pôle (puis revenir) le remet à zéro (tout replié).
-  var goalsOpenScope = null;
-  function goalsOpenKey(period, weekIndex) { return (period ? period.periodNumber : 0) + '|' + weekIndex; }
-  function goalsOpenSync() {
-    var scope = TMT.currentGoalsActivityId + '|' + TMT.currentGoalsCategory;
-    if (goalsOpenScope !== scope) { goalsOpenScope = scope; goalsOpenWeekIndexes = {}; }
-  }
 
   // Brouillons d'édition des objectifs hebdomadaires ouverts (clé « période:semaine »),
   // conservés à travers les re-rendus (rafraîchissement silencieux).
@@ -669,202 +684,149 @@
     host.appendChild(start); host.appendChild(sep); host.appendChild(end);
   }
 
-  // Ligne d'objectif hebdomadaire (existante : texte, statut, éditeur, jours) de chaque semaine de la période AFFICHÉE, posée juste au-dessus de sa rangée du calendrier de mois
-  // (conteneur .goalsCalObj créé par renderGoalsMonthCal ; une semaine hors du mois affiché n'a pas de conteneur).
-  function renderGoalsWeeklyList(period) {
-    for (var weekIndex = 1; weekIndex <= (period.weeksCount || 4); weekIndex += 1) {
-      (function (weekIndex) {
-        var box = document.querySelector('.goalsCalObj[data-period="' + period.periodNumber + '"][data-week="' + weekIndex + '"]');
-        if (!box) return;
-        var un = box.classList.contains('cmpMark'); box.textContent = ''; box.className = 'goalsCalObj goalsWeeklyList' + (un ? ' cmpMark' : ''); box.style.borderColor = currentGoalsCategoryColor();
-        var w = null;
-        for (var i = 0; i < period.weeklies.length; i++) {
-          if (period.weeklies[i].weekIndex === weekIndex) { w = period.weeklies[i]; break; }
-        }
+  // Carte d'un objectif hebdomadaire (texte, statut, capacité, éditeur) : rendue dans la fenêtre « Objectif hebdomadaire » (plus de liste ni de panneau de jours sur la page).
+  function renderGoalsWeekCard(period, weekIndex, box) {
+    box.textContent = ''; box.className = 'goalsWeeklyList'; box.style.borderColor = currentGoalsCategoryColor();
+      var w = null;
+      for (var i = 0; i < period.weeklies.length; i++) {
+        if (period.weeklies[i].weekIndex === weekIndex) { w = period.weeklies[i]; break; }
+      }
 
-        if (w && (w.noRoomToCarry || w.overloaded)) { un = true; box.classList.add('cmpMark'); } // objectif non atteint sans semaine à venir dans la période : liseré existant
-        var row = document.createElement('div');
-        row.className = 'goalCard goalWeeklyCard';
-        // id stable, requis par openGoalsWeekEditor()
-        // plus bas — #activityGoalsWeeklyList contient désormais aussi les
-        // panneaux de jours (goalWeekDaysPanelN, un par semaine) intercalés
-        // entre les cartes, donc `list.children[weekIndex - 1]` (ancien
-        // repérage par position) ne désignerait plus la bonne carte.
-        row.id = 'goalWeekCard' + weekIndex;
-        if (w && w.carriedOverFromId) {
-          row.title = t('Reporté automatiquement depuis une semaine précédente, non atteinte.');
-        }
+      var row = document.createElement('div');
+      row.className = 'goalCard goalWeeklyCard';
+      // id stable, requis par openGoalsWeekEditor()
+      // plus bas — #activityGoalsWeeklyList contient désormais aussi les
+      // panneaux de jours (goalWeekDaysPanelN, un par semaine) intercalés
+      // entre les cartes, donc `list.children[weekIndex - 1]` (ancien
+      // repérage par position) ne désignerait plus la bonne carte.
+      row.id = 'goalWeekCard' + weekIndex;
+      if (w && w.carriedOverFromId) {
+        row.title = t('Reporté automatiquement depuis une semaine précédente, non atteinte.');
+      }
 
-        var badge = document.createElement('span');
-        badge.className = 'goalWeeklyBadge';
-        badge.textContent = t('S{n}', { n: (period.firstWeekOfYear || (((period.periodNumber - 1) % 13) * 4 + 1)) + weekIndex - 1 });
-        // Pastille de statut fusionnée avec le numéro : verte = atteint, orange = partiel,
-        // rouge = non atteint ; un clic fait tourner le statut (semaine remplie seulement).
-        if (w && w.text) {
-          badge.classList.add('goalWeeklyBadgeStatus');
-          if (goalStatusClass(w.status)) badge.classList.add(goalStatusClass(w.status));
-          badge.setAttribute('role', 'button');
-          badge.title = t(GOAL_STATUS_LABELS[w.status] || GOAL_STATUS_LABELS.non_atteint);
-          // Statut recalculé par Noèsis d'après le temps estimé des tâches réalisées ; le clic reste possible
-          // et dure jusqu'au prochain changement d'une tâche liée.
-          if (w.taskTotal > 0) badge.title = t(GOAL_STATUS_LABELS[w.status] || GOAL_STATUS_LABELS.non_atteint) + ' — ' + t('Calculé par Noèsis d’après les tâches réalisées');
-          badge.addEventListener('click', function () {
-            var idx = GOAL_STATUS_ORDER.indexOf(w.status);
-            saveWeeklyStatus(w.id, GOAL_STATUS_ORDER[(idx + 1) % GOAL_STATUS_ORDER.length]);
-          });
-        }
-        row.appendChild(badge);
-
-        var wKey = goalRewriteKey('w', period.periodNumber, weekIndex);
-        var textWrap = document.createElement('div');
-        textWrap.className = 'goalWeeklyTextWrap';
-        var draftKey = period.periodNumber + ':' + weekIndex;
-        var editing = !!goalsWeekDrafts[draftKey];
-
-        function openEditor(initial) {
-          goalsWeekDrafts[draftKey] = initial;
-          renderWeekInto(true);
-        }
-        function renderWeekInto(focusTitle) {
-          textWrap.innerHTML = '';
-          if (goalsWeekDrafts[draftKey]) {
-            textWrap.appendChild(buildWeeklyEditor(period, weekIndex, w, wKey, draftKey, focusTitle, function () { renderWeekInto(false); }));
-            return;
-          }
-          if (!w || !w.text) {
-            // Semaine vide : on écrit directement ; dès la première frappe la section se déroule.
-            var input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'goalWeeklyText';
-            input.maxLength = 300;
-            input.placeholder = t('Titre de l’objectif');
-            input.addEventListener('input', function () {
-              var cur = goalsWeekDrafts[draftKey];
-              if (cur) { cur.title = input.value; return; }
-              input.classList.add('goalWeeklyEditTitle'); // la bulle apparaît, on continue d'écrire dedans
-              // Le champ reste en place (le clavier ne se ferme pas) ; la section se déroule dessous.
-              goalsWeekDrafts[draftKey] = { title: input.value, desc: '', target: null };
-              textWrap.appendChild(buildWeeklyEditor(period, weekIndex, w, wKey, draftKey, false, function () { renderWeekInto(false); }, input));
-            });
-            textWrap.appendChild(input);
-            return;
-          }
-          var titleEl = document.createElement('div');
-          titleEl.className = 'goalWeeklyTitleText';
-          titleEl.textContent = w.text;
-          // Un objectif rempli : toucher son texte déplie/replie la semaine, comme la flèche.
-          function toggleWeek() { var b = row.querySelector('.goalWeeklyExpandBtn'); if (b) b.click(); }
-          titleEl.style.cursor = 'pointer';
-          titleEl.addEventListener('click', toggleWeek);
-          textWrap.appendChild(titleEl);
-          var wci = weekCapInfo(period.periodNumber, weekIndex);
-          var capMin = wci ? wci.target : (w.estimateSource === 'manual' && w.estimateMinutes > 0 ? w.estimateMinutes : (TMT.goalsWeekCapacityDefault || 0));
-          var capBtn = document.createElement('button');
-          capBtn.type = 'button';
-          capBtn.className = 'goalWeeklyCapBtn' + (w.estimateSource === 'manual' ? ' manual' : '');
-          capBtn.textContent = t('Capacité') + ' : ' + (capMin ? formatGoalHours(capMin) : '—');
-          capBtn.addEventListener('click', function () {
-            TMT.openDurationPicker({
-              title: 'Capacité', minutes: capMin || 0,
-              onDone: function (v) { saveWeeklyCapacity(period.periodNumber, weekIndex, w.text, v > 0 ? v : 0); },
-            });
-          });
-          textWrap.appendChild(capBtn);
-          if (wci && wci.past && wci.done != null) {
-            var info = document.createElement('div');
-            info.className = 'goalWeeklyCapInfo';
-            info.textContent = t('Réalisé') + ' : ' + formatGoalHours(wci.done) + (wci.extra > 0 ? ' · +' + formatGoalHours(wci.extra) + ' ' + t('en plus, ajoutées à la période') : '') + (wci.saved > 0 ? ' · ' + t('tâches faites en moins de temps') + ' : −' + formatGoalHours(wci.saved) : '');
-            textWrap.appendChild(info);
-          }
-        }
-        renderWeekInto(false);
-        if (w && w.text) {
-          var editBtn = document.createElement('button');
-          editBtn.type = 'button';
-          editBtn.className = 'historyRowIconBtn goalDescEditBtn goalWeeklyEditBtn';
-          editBtn.innerHTML = TMT.ui.editIcon();
-          editBtn.title = t('Modifier');
-          editBtn.setAttribute('aria-label', t('Modifier'));
-          editBtn.addEventListener('click', function () {
-            var manual = w.estimateSource === 'manual' && w.estimateMinutes > 0;
-            openEditor({ title: w.text, desc: w.description || '', target: manual ? w.estimateMinutes : null, targetTouched: false });
-          });
-          row.appendChild(textWrap);
-          row.appendChild(editBtn);
-        } else {
-          row.appendChild(textWrap);
-        }
-
-        if (w) {
-          // la pastille de statut est retirée de la ligne.
-
-          // plus de responsable ni de petit calendrier sur
-          // les objectifs hebdomadaires — l'assignation est réservée aux tâches.
-        }
-
-        // chevron de dépliage des jours de cette semaine
-        // — voir le commentaire de fonction plus haut. Bouton DÉDIÉ (plutôt
-        // que la ligne entière cliquable) pour ne jamais interférer avec le
-        // clic/focus du textarea, du sélecteur d'assignation ou de la
-        // pastille de statut juste à côté — toujours ajouté, que la semaine
-        // ait déjà un texte (w non nul) ou non : du temps réel/des tâches
-        // ponctuelles peuvent exister sur n'importe quel jour de la période
-        // indépendamment de la saisie d'un objectif hebdomadaire.
-        goalsOpenSync();
-        var isOpen = !!goalsOpenWeekIndexes[goalsOpenKey(period, weekIndex)];
-        // Couleur du PÔLE affiché (la même que le cadre de l'objectif périodique), jamais celle d'un rang de secteur.
-        var weekFill = TMT.currentGoalsPoleIndex != null ? subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex, SUB_PROJECT_SHADE_COUNT) : currentGoalsCategoryColor();
-        row.style.setProperty('--poleColor', weekFill);
-        row.style.setProperty('--poleText', readableTextOn(weekFill));
-        row.classList.toggle('weekOpen', isOpen);
-        var expandBtn = document.createElement('button');
-        expandBtn.type = 'button';
-        expandBtn.className = 'goalWeeklyExpandBtn' + (isOpen ? ' open' : '');
-        var expandChev = TMT.ui.chev(isOpen);
-        expandBtn.appendChild(expandChev);
-        expandBtn.title = t('Afficher/masquer les jours de cette semaine');
-        expandBtn.setAttribute('aria-label', t('Afficher/masquer les jours de cette semaine'));
-        expandBtn.addEventListener('click', function () {
-          var panel = $('goalWeekDaysPanel' + weekIndex);
-          if (!panel) return;
-          var opening = panel.classList.contains('hidden');
-          panel.classList.toggle('hidden', !opening);
-          if (!opening) Array.prototype.forEach.call(panel.querySelectorAll('.goalsDayTaskAdd'), function (f) { f.classList.add('hidden'); });
-          expandBtn.classList.toggle('open', opening);
-          TMT.ui.setChev(expandChev, opening);
-          row.classList.toggle('weekOpen', opening);
-          goalsOpenWeekIndexes[goalsOpenKey(period, weekIndex)] = opening;
+      var badge = document.createElement('span');
+      badge.className = 'goalWeeklyBadge';
+      badge.textContent = t('S{n}', { n: (period.firstWeekOfYear || (((period.periodNumber - 1) % 13) * 4 + 1)) + weekIndex - 1 });
+      // Pastille de statut fusionnée avec le numéro : verte = atteint, orange = partiel,
+      // rouge = non atteint ; un clic fait tourner le statut (semaine remplie seulement).
+      if (w && w.text) {
+        badge.classList.add('goalWeeklyBadgeStatus');
+        if (goalStatusClass(w.status)) badge.classList.add(goalStatusClass(w.status));
+        badge.setAttribute('role', 'button');
+        badge.title = t(GOAL_STATUS_LABELS[w.status] || GOAL_STATUS_LABELS.non_atteint);
+        // Statut recalculé par Noèsis d'après le temps estimé des tâches réalisées ; le clic reste possible
+        // et dure jusqu'au prochain changement d'une tâche liée.
+        if (w.taskTotal > 0) badge.title = t(GOAL_STATUS_LABELS[w.status] || GOAL_STATUS_LABELS.non_atteint) + ' — ' + t('Calculé par Noèsis d’après les tâches réalisées');
+        badge.addEventListener('click', function () {
+          var idx = GOAL_STATUS_ORDER.indexOf(w.status);
+          saveWeeklyStatus(w.id, GOAL_STATUS_ORDER[(idx + 1) % GOAL_STATUS_ORDER.length]);
         });
-        row.appendChild(expandBtn);
+      }
+      row.appendChild(badge);
 
-        box.appendChild(row);
+      var wKey = goalRewriteKey('w', period.periodNumber, weekIndex);
+      var textWrap = document.createElement('div');
+      textWrap.className = 'goalWeeklyTextWrap';
+      var draftKey = period.periodNumber + ':' + weekIndex;
+      var editing = !!goalsWeekDrafts[draftKey];
 
-        var daysPanel = document.createElement('div');
-        daysPanel.className = 'goalWeekDaysPanel' + (isOpen ? '' : ' hidden');
-        daysPanel.id = 'goalWeekDaysPanel' + weekIndex;
-        box.appendChild(daysPanel);
-        if (!w || !w.text) { // semaine sans objectif : l'ajout suit la règle de l'application (ligne pointillée « + »), un toucher ouvre l'éditeur existant
-          var addLine = document.createElement('button'); addLine.type = 'button'; addLine.className = 'cmpAdd'; var plus = document.createElement('b'); plus.textContent = '+'; addLine.appendChild(plus); addLine.appendChild(document.createTextNode(t('Ajouter un objectif')));
-          row.classList.add('hidden'); box.insertBefore(addLine, row); daysPanel.classList.remove('hidden'); // le panneau des jours reste toujours visible, même vide
-          addLine.addEventListener('click', function () { addLine.remove(); row.classList.remove('hidden'); var ta = row.querySelector('textarea'); if (ta) ta.focus(); });
+      function openEditor(initial) {
+        goalsWeekDrafts[draftKey] = initial;
+        renderWeekInto(true);
+      }
+      function renderWeekInto(focusTitle) {
+        textWrap.innerHTML = '';
+        if (goalsWeekDrafts[draftKey]) {
+          textWrap.appendChild(buildWeeklyEditor(period, weekIndex, w, wKey, draftKey, focusTitle, function () { renderWeekInto(false); }));
+          return;
         }
-      })(weekIndex);
-    }
-    // Les panneaux de jours viennent d'être recréés vides : on les remplit tout de suite avec les derniers jours reçus
-    // (sinon une semaine dépliée reste vide quand la liste est redessinée après le chargement des jours).
-    var cc = goalsCalDaysCache;
-    if (cc && cc.key === goalsCalDaysKey(period)) renderGoalsCalendarDays(cc.days, period);
+        if (!w || !w.text) {
+          // Semaine vide : on écrit directement ; dès la première frappe la section se déroule.
+          var input = document.createElement('input');
+          input.type = 'text';
+          input.className = 'goalWeeklyText';
+          input.maxLength = 300;
+          input.placeholder = t('Titre de l’objectif');
+          input.addEventListener('input', function () {
+            var cur = goalsWeekDrafts[draftKey];
+            if (cur) { cur.title = input.value; return; }
+            input.classList.add('goalWeeklyEditTitle'); // la bulle apparaît, on continue d'écrire dedans
+            // Le champ reste en place (le clavier ne se ferme pas) ; la section se déroule dessous.
+            goalsWeekDrafts[draftKey] = { title: input.value, desc: '', target: null };
+            textWrap.appendChild(buildWeeklyEditor(period, weekIndex, w, wKey, draftKey, false, function () { renderWeekInto(false); }, input));
+          });
+          textWrap.appendChild(input);
+          return;
+        }
+        var titleEl = document.createElement('div');
+        titleEl.className = 'goalWeeklyTitleText';
+        titleEl.textContent = w.text;
+        textWrap.appendChild(titleEl);
+        var wci = weekCapInfo(period.periodNumber, weekIndex);
+        var capMin = wci ? wci.target : (w.estimateSource === 'manual' && w.estimateMinutes > 0 ? w.estimateMinutes : (TMT.goalsWeekCapacityDefault || 0));
+        var capBtn = document.createElement('button');
+        capBtn.type = 'button';
+        capBtn.className = 'goalWeeklyCapBtn' + (w.estimateSource === 'manual' ? ' manual' : '');
+        capBtn.textContent = t('Capacité') + ' : ' + (capMin ? formatGoalHours(capMin) : '—');
+        capBtn.addEventListener('click', function () {
+          TMT.openDurationPicker({
+            title: 'Capacité', minutes: capMin || 0,
+            onDone: function (v) { saveWeeklyCapacity(period.periodNumber, weekIndex, w.text, v > 0 ? v : 0); },
+          });
+        });
+        textWrap.appendChild(capBtn);
+        if (wci && wci.past && wci.done != null) {
+          var info = document.createElement('div');
+          info.className = 'goalWeeklyCapInfo';
+          info.textContent = t('Réalisé') + ' : ' + formatGoalHours(wci.done) + (wci.extra > 0 ? ' · +' + formatGoalHours(wci.extra) + ' ' + t('en plus, ajoutées à la période') : '') + (wci.saved > 0 ? ' · ' + t('tâches faites en moins de temps') + ' : −' + formatGoalHours(wci.saved) : '');
+          textWrap.appendChild(info);
+        }
+      }
+      renderWeekInto(false);
+      if (w && w.text) {
+        var editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'historyRowIconBtn goalDescEditBtn goalWeeklyEditBtn';
+        editBtn.innerHTML = TMT.ui.editIcon();
+        editBtn.title = t('Modifier');
+        editBtn.setAttribute('aria-label', t('Modifier'));
+        editBtn.addEventListener('click', function () {
+          var manual = w.estimateSource === 'manual' && w.estimateMinutes > 0;
+          openEditor({ title: w.text, desc: w.description || '', target: manual ? w.estimateMinutes : null, targetTouched: false });
+        });
+        row.appendChild(textWrap);
+        row.appendChild(editBtn);
+      } else {
+        row.appendChild(textWrap);
+      }
+
+      if (w) {
+        // la pastille de statut est retirée de la ligne.
+
+        // plus de responsable ni de petit calendrier sur
+        // les objectifs hebdomadaires — l'assignation est réservée aux tâches.
+      }
+
+      var weekFill = TMT.currentGoalsPoleIndex != null ? subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex, SUB_PROJECT_SHADE_COUNT) : currentGoalsCategoryColor();
+      row.style.setProperty('--poleColor', weekFill);
+      row.style.setProperty('--poleText', readableTextOn(weekFill));
+    box.appendChild(row);
+  }
+  // La liste des semaines n'existe plus : seule la fenêtre ouverte, s'il y en a une, est redessinée (après un enregistrement ou un changement de période).
+  function renderGoalsWeeklyList() {
+    var st = goalsPops.weekState; if (!st || goalsPops.week.pop.classList.contains('hidden')) return;
+    var p = goalPeriodByNumber(TMT.currentGoalsPlanning, st.periodNumber); if (p) renderGoalsWeekCard(p, st.weekIndex, goalsPops.week.body);
+  }
+  function openGoalsWeekPop(period, weekIndex) {
+    goalsPops.weekState = { periodNumber: period.periodNumber, weekIndex: weekIndex };
+    goalsPops.week.title.textContent = t('S{n}', { n: (period.firstWeekOfYear || (((period.periodNumber - 1) % 13) * 4 + 1)) + weekIndex - 1 }) + ' · ' + t('Objectif hebdomadaire');
+    renderGoalsWeekCard(period, weekIndex, goalsPops.week.body);
+    goalsPops.week.pop.classList.remove('hidden');
   }
 
-  var goalsCalDaysCache = null;
-  // Referme tous les formulaires « ajouter une tâche » des jours (repli d'une semaine, changement de page/secteur/pôle/onglet).
-  function closeGoalsDayAddForms() {
-    Array.prototype.forEach.call(document.querySelectorAll('.goalsDayTaskAdd'), function (f) { f.classList.add('hidden'); });
-  }
+
+  function closeGoalsDayAddForms() { /* plus de formulaires de jours sur la page */ }
   TMT.closeGoalsDayAddForms = closeGoalsDayAddForms;
-  function goalsCalDaysKey(period) {
-    return [TMT.currentGoalsActivityId, TMT.currentGoalsCategory, period && period.periodNumber].join('|');
-  }
 
 
   // ----- Calendrier de MOIS (grille L à D) : une barre par semaine avec l'objectif HEBDOMADAIRE, le jour d'échéance de l'objectif PÉRIODIQUE marqué -----
@@ -892,7 +854,6 @@
     }
     var loc = TMT.dateLocale || undefined, pad = function (x) { return String(x).padStart(2, '0'); };
     $('goalsCalTitle').textContent = cap1(new Date(Date.UTC(calMonth.y, calMonth.m, 1)).toLocaleDateString(loc, { month: 'long', year: 'numeric', timeZone: 'UTC' }));
-    $('goalsCalPole').textContent = t(goalsCategoryLabel(TMT.currentGoalsCategory));
     var head = $('goalsCalHead'); head.textContent = '';
     for (var k = 0; k < 7; k++) { var hd = document.createElement('span'); hd.textContent = cap1(new Date(Date.UTC(2024, 0, 1 + k)).toLocaleDateString(loc, { weekday: 'narrow', timeZone: 'UTC' })); head.appendChild(hd); } // 1er janv. 2024 = lundi
     var first = calMonth.y + '-' + pad(calMonth.m + 1) + '-01', lastDay = new Date(Date.UTC(calMonth.y, calMonth.m + 1, 0)).getUTCDate();
@@ -908,45 +869,91 @@
       }
       if (p.mainGoalText && p.endDate) ends.push({ p: p, d: p.endDate });
     });
-    var color = currentGoalsCategoryColor(), today = isoToday(), endDays = {}, real = planning.realism && planning.realism.unrealistic ? planning.realism : null;
+    var today = isoToday(), endDays = {}, real = planning.realism && planning.realism.unrealistic ? planning.realism : null;
     ends.forEach(function (x) { endDays[x.d] = true; });
     grid.textContent = '';
     for (var r = 0; r < rows; r++) {
       var rs = isoAddDays(start, r * 7), re = isoAddDays(rs, 6);
       var row = document.createElement('div'); row.className = 'goalsCalWeek';
-      // Objectif HEBDOMADAIRE de la semaine, au-dessus de sa rangée : la ligne existante (texte, statut, éditeur, + pour ajouter) pour la période affichée (posée par renderGoalsWeeklyList),
-      // une ligne compacte pour une semaine d'une autre période (un toucher bascule sur cette période et ouvre l'éditeur).
+      // Ligne de l'objectif HEBDOMADAIRE, collée à sa rangée de jours : « S45 » + le titre seulement. Un toucher ouvre la fenêtre de l'objectif (carte et éditeur existants).
       var slot = null; slots.forEach(function (x) { if (!slot && x.s <= re && x.e >= rs) slot = x; });
       if (slot) {
-        var obj = document.createElement('div'); obj.className = 'goalsCalObj'; obj.dataset.period = String(slot.p.periodNumber); obj.dataset.week = String(slot.wi);
-        if (!view || slot.p.periodNumber !== view.periodNumber) {
-          var hasObj = !!(slot.w && slot.w.text);
-          var line = document.createElement('button'); line.type = 'button';
-          if (hasObj) { line.className = 'goalsCalObjLine' + (slot.w.status === 'atteint' ? ' done' : ''); line.style.background = color; line.style.color = readableTextOn(color); line.textContent = slot.w.text; }
-          else { line.className = 'cmpAdd'; var pl = document.createElement('b'); pl.textContent = '+'; line.appendChild(pl); line.appendChild(document.createTextNode(t('Ajouter un objectif'))); } // ajout = ligne pointillée avec « + » (composant .cmpAdd)
-          line.addEventListener('click', function () { openGoalsCalPeriod(slot.p, function () { openGoalsWeekEditor(slot.p, slot.wi); }); });
-          obj.appendChild(line);
-        } else if (real && real.periodNumber === slot.p.periodNumber && slot.s <= today && slot.e >= today) {
-          obj.classList.add('cmpMark'); obj.title = t('Cible peut-être irréaliste'); // marque sur l'objectif de la semaine en cours
+        var hasObj = !!(slot.w && slot.w.text), line = document.createElement('button'); line.type = 'button';
+        if (hasObj) {
+          line.className = 'goalsCalWeekLine' + (slot.w.status === 'atteint' ? ' done' : ''); var lc = currentGoalsCategoryColor(); line.style.background = lc; line.style.color = readableTextOn(lc); // nuance du pôle
+          var tag = document.createElement('b'); tag.textContent = t('S{n}', { n: (slot.p.firstWeekOfYear || (((slot.p.periodNumber - 1) % 13) * 4 + 1)) + slot.wi - 1 });
+          line.appendChild(tag); line.appendChild(document.createTextNode(slot.w.text)); line.title = slot.w.text;
+          if (slot.w.noRoomToCarry || slot.w.overloaded || (real && real.periodNumber === slot.p.periodNumber && slot.s <= today && slot.e >= today)) { line.classList.add('cmpMark'); line.title += ' — ' + t('Cible peut-être irréaliste'); }
+        } else {
+          line.className = 'cmpAdd'; var pl = document.createElement('b'); pl.textContent = '+'; line.appendChild(pl); line.appendChild(document.createTextNode(t('Ajouter un objectif'))); // ajout = ligne pointillée avec « + » (composant .cmpAdd)
         }
-        row.appendChild(obj);
+        line.addEventListener('click', function () { openGoalsCalPeriod(slot.p, function () { openGoalsWeekPop(slot.p, slot.wi); }); });
+        row.appendChild(line);
       }
       var days = document.createElement('div'); days.className = 'goalsCalDays';
       for (var c = 0; c < 7; c++) {
-        var di = isoAddDays(rs, c), cell = document.createElement('span');
+        var di = isoAddDays(rs, c), cell = document.createElement('button'); cell.type = 'button';
         cell.className = 'goalsCalDay' + (+di.slice(5, 7) - 1 !== calMonth.m ? ' out' : '') + (di === today ? ' today' : '') + (endDays[di] ? ' end' : '');
         cell.textContent = String(+di.slice(8, 10));
+        (function (iso) { cell.addEventListener('click', function () { openGoalsDayPop(iso); }); })(di);
         days.appendChild(cell);
       }
       row.appendChild(days);
       ends.filter(function (x) { return x.d >= rs && x.d <= re; }).forEach(function (x) {
         var en = document.createElement('button'); en.type = 'button'; en.className = 'goalsCalEnd';
         en.textContent = t('Échéance') + ' · ' + x.p.mainGoalText; en.title = x.p.mainGoalText;
-        en.addEventListener('click', function () { openGoalsCalPeriod(x.p, function () { var m = $('activityGoalsMainCard'); if (m) m.scrollIntoView({ behavior: 'smooth', block: 'center' }); }); });
+        en.addEventListener('click', function () { openGoalsCalPeriod(x.p, function () { openGoalsMainPop(); }); });
         row.appendChild(en);
       });
       grid.appendChild(row);
     }
+  }
+  // Fenêtre « tâches du jour » : TOUTES les tâches à réaliser ce jour-là pour le secteur / pôle affiché (lignes de tâche partagées : cocher, modifier).
+  function openGoalsDayPop(iso) {
+    var planning = TMT.currentGoalsPlanning, per = null;
+    ((planning && planning.periods) || []).forEach(function (p) { if (!per && p.startDate <= iso && p.endDate >= iso) per = p; });
+    goalsPops.dayState = { iso: iso, period: per ? per.periodNumber : null };
+    goalsPops.day.title.textContent = calendarDayLabel(iso) || iso;
+    goalsPops.day.pop.classList.remove('hidden');
+    loadGoalsDayPop();
+  }
+  function loadGoalsDayPop() {
+    var st = goalsPops.dayState; if (!st) return;
+    var box = goalsPops.day.body; box.textContent = '';
+    var empty = function () { var p = document.createElement('p'); p.className = 'hint'; p.textContent = t('Aucune tâche ce jour-là.'); box.appendChild(p); };
+    if (st.period == null) { empty(); return; }
+    api('GET', '/api/activities/' + TMT.currentGoalsActivityId + '/goals-days?category=' + encodeURIComponent(TMT.currentGoalsCategory) + '&periodNumber=' + st.period).then(function (data) {
+      if (goalsPops.dayState !== st) return;
+      var day = ((data && data.days) || []).filter(function (d) { return d.date === st.iso; })[0];
+      var tasks = (day && day.tasks) || [];
+      box.textContent = '';
+      if (!tasks.length) { empty(); return; }
+      var wrap = document.createElement('div'); wrap.className = 'goalsTasksGroup open';
+      var items = document.createElement('div'); items.className = 'subProjectItems'; wrap.appendChild(items);
+      tasks.forEach(function (task) {
+        items.appendChild(TMT.buildGoalsTaskRow({ id: task.id, label: task.label, done: !!task.done, dueDate: st.iso }, TMT.currentGoalsCategory, function () { loadGoalsDayPop(); }));
+      });
+      box.appendChild(wrap);
+    }).catch(function () { box.textContent = ''; empty(); });
+  }
+  // Fenêtre de l'objectif périodique : la carte et l'éditeur existants, avec les dates de la période (éditeur de dates existant).
+  function openGoalsMainPop() { goalsPops.main.pop.classList.remove('hidden'); }
+  // En haut de la page : « P12 », l'état de réalisation de la période et l'objectif périodique (titre seulement).
+  function renderGoalsTopLine(period) {
+    var state = $('goalsPeriodState'), ws = (period.weeklies || []).filter(function (w) { return w.text; }), st = null;
+    if (ws.length) { var done = ws.filter(function (w) { return w.status === 'atteint'; }).length; st = done === ws.length ? 'atteint' : ws.some(function (w) { return w.status === 'partiel' || w.status === 'atteint'; }) ? 'partiel' : 'non_atteint'; }
+    state.className = 'goalWeeklyBadge goalWeeklyBadgeStatus' + (st ? ' ' + goalStatusClass(st) : ' hidden');
+    state.textContent = st ? t(GOAL_STATUS_LABELS[st]) : '';
+    var host = $('goalsMainLineHost'); host.textContent = '';
+    var b = document.createElement('button'); b.type = 'button';
+    if (period.mainGoalText && period.mainGoalText.trim()) {
+      b.className = 'goalsMainLine'; b.textContent = period.mainGoalText; b.title = period.mainGoalText;
+      b.addEventListener('click', openGoalsMainPop);
+    } else {
+      b.className = 'cmpAdd'; var pl = document.createElement('b'); pl.textContent = '+'; b.appendChild(pl); b.appendChild(document.createTextNode(t('Ajouter un objectif périodique')));
+      b.addEventListener('click', function () { openGoalsMainPop(); var eb = $('activityGoalsMainEmptyBar'); if (eb && !eb.classList.contains('hidden')) eb.click(); });
+    }
+    host.appendChild(b);
   }
   // Navigation de mois : la période affichée (objectif périodique) suit le mois (celle qui contient son milieu).
   function stepGoalsMonth(delta) {
@@ -966,14 +973,9 @@
     var period = goalPeriodByNumber(TMT.currentGoalsPlanning, TMT.currentGoalsViewPeriodNumber);
     if (!period) return;
 
-    var title = t('Période') + ' ' + period.periodIndexInCycle;
-    // année calendaire de la période (au lieu de « Année 2 »), seulement hors année en cours.
-    var pm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(period.startDate || ''));
-    var periodYear = pm ? new Date(Date.UTC(+pm[1], +pm[2] - 1, +pm[3] + 6)).getUTCFullYear() : null;
-    if (periodYear && periodYear !== new Date().getFullYear()) title += ' · ' + periodYear;
-    if (period.isCurrent) title += ' · ' + t('En cours');
-    $('activityGoalsPeriodTitle').textContent = title;
+    $('activityGoalsPeriodTitle').textContent = 'P' + period.periodIndexInCycle; // la période s'écrit « P12 », comme les semaines « S45 »
     renderGoalsPeriodDates(period);
+    renderGoalsTopLine(period);
     renderGoalsMonthCal();
 
     // le nom de la catégorie se place désormais ici (en dessous de la
@@ -1268,21 +1270,8 @@
     // affichée, comme le reste de cette fonction.
     renderGoalsWeeklyList(period);
 
-    var bilan = $('activityGoalsBilan');
-    if (period.isPast && period.weeklies.length) {
-      var doneCount = period.weeklies.filter(function (w) { return w.status === 'atteint'; }).length;
-      // libellé explicite — « 3/4 objectif(s)
-      // hebdomadaire(s) atteint(s). » ne disait pas qu'il s'agit du bilan de
-      // la période terminée.
-      var text = t('Bilan de la période') + ' : ' + doneCount + ' ' + t('sur') + ' ' + period.weeklies.length + ' ' + t('objectifs hebdomadaires atteints') + '.';
-      bilan.textContent = text;
-      bilan.classList.remove('hidden');
-    } else {
-      bilan.classList.add('hidden');
-    }
 
     $('activityGoalsMsg').textContent = '';
-    loadGoalsCalendarDays(period);
   }
 
 
@@ -1363,451 +1352,21 @@
   }
 
 
-  // ===================== OBJECTIFS — PAGE 2 : CALENDRIER DE LA PÉRIODE =====================
-  // discussion "Objectifs — D : Calendrier & intégrations",
-  // demande d'Emilien : « intégrer un calendrier au volet objectif (page 2)
-  // [...] chaque ligne représente 1 jour ». Une ligne par jour de la
-  // période (28), avec sa semaine (S1 à S4, même découpage que les 4 cartes
-  // hebdomadaires ci-dessus) et le temps RÉEL pointé ce jour-là sur
-  // l'activité — même donnée que le temps réel de la période (formatGoalHours), mais
-  // jour par jour plutôt qu'agrégée sur toute la période.
-  //
-  // Chargé par un appel dédié (GET .../goals-days, server/lib/calendarfeed.js
-  // — chantier D, ne touche pas server/lib/goals.js, partagé par B/C) plutôt
-  // que mêlé à reloadGoalsAll()/GET .../goals/all : cette liste ne concerne
-  // que la période actuellement ouverte en page 2, inutile de la recalculer
-  // à chaque changement d'activité.
-  function loadGoalsCalendarDays(period) {
-    if (!period) return;
-    var requestId = ++goalsCalendarRequestId;
-    var activityId = TMT.currentGoalsActivityId;
-    var category = TMT.currentGoalsCategory;
-    var periodNumber = period.periodNumber;
-    api('GET', '/api/activities/' + activityId + '/goals-days?category=' + encodeURIComponent(category) + '&periodNumber=' + periodNumber)
-      .then(function (data) {
-        // Garde-fou : la page 2 peut avoir changé de période/catégorie/
-        // activité (ou s'être refermée) pendant que cette requête était en
-        // vol — même principe que reloadGoalsAll() plus haut.
-        if (requestId !== goalsCalendarRequestId) return;
-        renderGoalsCalendarDays(data.days || [], period);
-      })
-      .catch(function () {
-        if (requestId !== goalsCalendarRequestId) return;
-        // plus une seule liste à plat
-        // (#activityGoalsCalendarList, retirée) mais 4 panneaux par semaine
-        // (goalWeekDaysPanel1-4) — vidés individuellement en cas d'échec.
-        document.querySelectorAll('[id^="goalWeekDaysPanel"]').forEach(function (panel) { panel.innerHTML = ''; });
-      });
-  }
 
 
-  // ----- Aller à la carte hebdomadaire correspondante, depuis le calendrier -----
-  // les 4 cartes
-  // hebdomadaires (renderGoalsWeeklyList(), inchangée) sont de nouveau
-  // PERMANENTES entre l'objectif périodique et le calendrier (voir
-  // renderActivityGoals() plus haut) — sur demande explicite d'Emilien, qui
-  // a écarté la bulle flottante introduite au passage précédent (« ce n'est
-  // pas ce que j'ai demandé [...] reprends la version précédente »). Un clic
-  // sur le badge "S1"-"S4" ou le libellé du calendrier ne fait donc plus
-  // apparaître ni disparaître quoi que ce soit : il fait simplement défiler
-  // jusqu'à la carte de cette semaine, déjà visible dans le sommaire
-  // au-dessus, puis y place le focus.
-  // repérage par id stable (#goalWeekCardN, voir
-  // renderGoalsWeeklyList()) plutôt que par position dans les enfants de la
-  // liste — #activityGoalsWeeklyList contient désormais aussi les panneaux
-  // de jours intercalés entre les cartes. Ouvre aussi le panneau de la
-  // semaine visée s'il était replié (fusion objectifs hebdomadaires/
-  // calendrier), avant de défiler — sinon la carte défilée vers pourrait
-  // rester masquée par son propre panneau fermé au-dessus d'elle.
-  function openGoalsWeekEditor(period, weekIndex) {
-    var target = $('goalWeekCard' + weekIndex);
-    if (!target) return;
-    var panel = $('goalWeekDaysPanel' + weekIndex);
-    var expandBtn = target.querySelector('.goalWeeklyExpandBtn');
-    if (panel && panel.classList.contains('hidden')) {
-      panel.classList.remove('hidden');
-      if (expandBtn) { expandBtn.classList.add('open'); TMT.ui.setChev(expandBtn.querySelector('.cmpChev'), true); }
-      goalsOpenSync();
-      goalsOpenWeekIndexes[goalsOpenKey(period, weekIndex)] = true;
-    }
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    var ta = target.querySelector('textarea');
-    if (ta) ta.focus();
-  }
+  function openGoalsWeekEditor(period, weekIndex) { openGoalsWeekPop(period, weekIndex); }
 
 
-  // ----- Tâche du jour, ajoutée depuis le calendrier -----
-  // POST .../goals-days/task
-  // (server/lib/calendarfeed.js#createDayTask) — crée (ou réutilise) le
-  // sous-projet "catégorie" de l'activité et y ajoute la tâche, rattachée à ce
-  // jour précis. Recharge le calendrier de la période plutôt que d'insérer la
-  // tâche à la main côté client : la réponse peut avoir été absorbée par le
-  // moteur d'auto-planification Offre1 (autoPlanned), le calendrier reste la
-  // source de vérité.
-  function addGoalsDayTask(period, isoDate, label) {
-    return api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals-days/task', {
-      category: TMT.currentGoalsCategory,
-      isoDate: isoDate,
-      label: label,
-    })
-      .then(function () { loadGoalsCalendarDays(period); })
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; throw err; });
-  }
 
 
-  function toggleGoalsDayTask(period, itemId, done) {
-    return api('PUT', '/api/sub-project-items/' + itemId, { done: done })
-      .then(function () { loadGoalsCalendarDays(period); })
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
-  }
 
 
-  // Même motif que le formulaire d'ajout de tâche des sous-projets
-  // (buildTasksSection() plus bas dans ce fichier) : un champ texte + un
-  // bouton, Entrée soumet — repliable ici puisqu'il y en a un par jour.
-  function buildGoalsCalendarAddForm(period, day) {
-    var wrap = document.createElement('div');
-    wrap.className = 'subProjectItemAdd goalsDayTaskAdd hidden'; // même format que l'onglet 1 (zone de saisie + « Ajouter »)
-    var input = document.createElement('input');
-    input.type = 'text';
-    input.maxLength = 300;
-    input.placeholder = t('Ajouter une tâche...');
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    // « la case doit être beaucoup plus grande [...] la largeur de l'écran
-    // avec seulement une place pour le bouton ajouter » — classe dédiée
-    // (plus .iconBtn, réutilisée telle quelle ailleurs dans ce fichier) pour
-    // pouvoir agrandir ce bouton précis sans toucher au reste de l'app.
-    btn.className = 'iconBtn btnBrique';
-    btn.textContent = t('Ajouter');
-    var msg = document.createElement('p');
-    msg.className = 'msg';
-
-    function submit() {
-      var label = input.value.trim();
-      if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
-      msg.textContent = '';
-      btn.disabled = true;
-      // l'erreur s'affichait seulement dans
-      // #activityGoalsMsg, tout en bas de la page, hors de vue — le bouton
-      // semblait ne rien faire. Elle s'affiche maintenant dans le formulaire.
-      addGoalsDayTask(period, day.date, label)
-        .catch(function (err) { msg.textContent = (err && err.message) || t('Impossible d’ajouter la tâche.'); })
-        .then(function () { btn.disabled = false; });
-    }
-    btn.addEventListener('click', submit);
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); submit(); }
-    });
-
-    wrap.appendChild(input);
-    wrap.appendChild(btn);
-    wrap.appendChild(msg);
-    return wrap;
-  }
 
 
-  // (discussion "B. Objectifs — Calendrier &
-  // intégrations"), demande d'Emilien : fusion objectifs hebdomadaires +
-  // calendrier — cette fonction ne remplit plus une seule liste à plat
-  // (#activityGoalsCalendarList, retirée) mais un panneau PAR SEMAINE
-  // (goalWeekDaysPanelN, créé vide par renderGoalsWeeklyList()). Les jours
-  // reçus du serveur restent en ordre chronologique (inchangé,
-  // server/lib/calendarfeed.js) ; c'est seulement l'ORDRE D'AFFICHAGE dans
-  // chaque panneau qui est inversé, sur demande explicite d'Emilien : « le
-  // dimanche est au-dessus, puis samedi [...] jusqu'à lundi » — le dernier
-  // jour du bloc de 7 (« dimanche » au sens du volet Objectifs, voir
-  // isWeekEnd plus bas, pas forcément un dimanche calendaire) en premier,
-  // jusqu'au premier jour (« lundi ») en dernier.
-  function renderGoalsCalendarDays(days, period) {
-    goalsCalDaysCache = { key: goalsCalDaysKey(period), days: days };
-    var nowD = new Date();
-    var todayIso = nowD.getFullYear() + '-' + String(nowD.getMonth() + 1).padStart(2, '0') + '-' + String(nowD.getDate()).padStart(2, '0');
-
-    // Regroupe les jours par semaine (1 à 4) en conservant, pour chacun,
-    // s'il est le dernier jour de son bloc de 7 ("dimanche" au sens du volet
-    // Objectifs — voir commentaire de fonction) : ce calcul dépend de
-    // l'ordre CHRONOLOGIQUE d'origine (day suivant dans le tableau reçu du
-    // serveur), donc fait ICI, avant toute inversion d'affichage plus bas.
-    var byWeek = {};
-    days.forEach(function (day, idx) {
-      var isWeekEnd = !days[idx + 1] || days[idx + 1].weekIndex !== day.weekIndex;
-      var bucket = byWeek[day.weekIndex] || (byWeek[day.weekIndex] = []);
-      bucket.push({ day: day, isWeekEnd: isWeekEnd });
-    });
-
-    Object.keys(byWeek).forEach(function (weekIndexKey) {
-      var weekIndex = Number(weekIndexKey);
-      var panel = $('goalWeekDaysPanel' + weekIndex);
-      if (!panel) return;
-      panel.innerHTML = '';
-
-      // .slice() avant .reverse() : jamais .reverse() seul, qui muterait
-      // byWeek[weekIndex] et inverserait aussi tout autre usage éventuel de
-      // ce tableau — sans risque réel aujourd'hui (aucun autre usage), gardé
-      // par prudence.
-      byWeek[weekIndex].slice().reverse().forEach(function (entry) {
-        var day = entry.day;
-        var isWeekEnd = entry.isWeekEnd;
-
-        var row = document.createElement('div');
-        row.className = 'goalsCalendarRow' + (day.isToday ? ' today' : '') + (day.date < todayIso ? ' past' : '') + (isWeekEnd ? ' weekEnd' : '');
-
-        var dateEl = document.createElement('span');
-        dateEl.className = 'goalsCalendarDate';
-        dateEl.textContent = calendarDayLabel(day.date);
-        // le jour courant n'était distingué
-        // que par un fond léger — pastille « Aujourd'hui » explicite.
-        if (day.isToday) {
-          var todayBadge = document.createElement('span');
-          todayBadge.className = 'goalsCalendarTodayBadge';
-          todayBadge.textContent = t('Aujourd’hui');
-          dateEl.appendChild(todayBadge);
-        }
-        row.appendChild(dateEl);
-
-        var minutesEl = document.createElement('span');
-        minutesEl.className = 'goalsCalendarMinutes' + (day.estimatedMinutes ? '' : ' empty');
-        minutesEl.textContent = day.estimatedMinutes ? formatGoalHours(day.estimatedMinutes) : ''; // temps estimé des tâches du jour ; zéro tâche = rien
-        minutesEl.title = t('Temps estimé des tâches de ce jour');
-        row.appendChild(minutesEl);
-
-        // le badge "S1"-"S4" cliquable (weekEl) est
-        // retiré ici — chaque jour vit déjà dans le panneau de SA semaine
-        // (fusion objectifs hebdomadaires/calendrier), le répéter par jour
-        // n'apporte plus rien. .goalsCalendarWeekBadge (styles.css) reste
-        // sinon inutilisée par cette page — laissée en l'état, sans risque.
-
-        var addForm = buildGoalsCalendarAddForm(period, day);
-        var addBtn = document.createElement('button');
-        addBtn.type = 'button';
-        addBtn.className = 'goalsCalendarAddTaskBtn';
-        addBtn.title = t('Ajouter une tâche ce jour');
-        addBtn.addEventListener('click', function () {
-          addForm.classList.toggle('hidden');
-          if (!addForm.classList.contains('hidden')) {
-            var inp = addForm.querySelector('input');
-            if (inp) inp.focus();
-          }
-        });
-        row.appendChild(addBtn);
-
-        // l'objectif hebdomadaire n'est pas une tâche —
-        // plus de barre d'objectif dans la liste des jours (reste sur la carte S1-S4).
-
-        panel.appendChild(row);
-        panel.appendChild(addForm);
-
-        (day.tasks || []).forEach(function (task) {
-          var taskRow = document.createElement('div');
-          taskRow.className = 'goalsCalendarTaskRow' + (task.done ? ' done' : '');
-          var check = document.createElement('button');
-          check.type = 'button';
-          check.className = 'goalsCalendarTaskCheck';
-          check.textContent = task.done ? '✓' : '';
-          check.title = task.done ? t('Marquer non faite') : t('Marquer faite');
-          check.addEventListener('click', function () { toggleGoalsDayTask(period, task.id, !task.done); });
-          taskRow.appendChild(check);
-
-          var taskLabel = document.createElement('span');
-          taskLabel.className = 'goalsCalendarTaskLabel';
-          taskLabel.textContent = task.label;
-          taskRow.appendChild(taskLabel);
-
-          // correctif du bug « tâche capturée absente du
-          // calendrier » (voir server/lib/calendarfeed.js#dayTasksByDate) :
-          // le calendrier montre désormais les tâches de TOUTE l'activité,
-          // pas seulement du secteur actuellement ouvert — une tâche classée
-          // par l'IA dans un AUTRE secteur porte donc ce petit repère pour
-          // rester compréhensible (jamais confondue avec une tâche du
-          // secteur affiché).
-          if (task.category && task.category !== TMT.currentGoalsCategory) {
-            var otherCat = document.createElement('span');
-            otherCat.className = 'goalsCalendarTaskOtherCategory';
-            otherCat.textContent = goalsCategoryLabel(task.category);
-            taskRow.appendChild(otherCat);
-          }
-
-          // (badges « non vu », restructuration du volet
-          // Objectifs en 3 pages), demande directe d'Emilien : « dans le
-          // calendrier, il y ait un petit point violet à droite des tâches
-          // nouvellement ajoutées [...] une fois qu'elles sont visualisées,
-          // hop, le point disparaît. » — `task.unseen` vient du serveur
-          // (voir server/lib/calendarfeed.js#dayTasksByDate). Le simple fait
-          // d'afficher cette ligne EST déjà « visualiser » la tâche (elle
-          // est sous les yeux de l'utilisateur dans le calendrier) : la
-          // marquer vue dès l'affichage plutôt que d'attendre un clic dédié.
-          // Optimiste côté UI (le point disparaît tout de suite) ; jamais
-          // bloquant si l'appel échoue (retentera au prochain chargement du
-          // calendrier, le point restant simplement visible jusque-là).
-          if (task.unseen) {
-            var dot = document.createElement('span');
-            dot.className = 'goalsCalendarTaskUnseenDot';
-            dot.title = t('Nouvelle tâche ajoutée automatiquement');
-            taskRow.appendChild(dot);
-            api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/tasks/' + task.id + '/mark-seen')
-              .then(function () { dot.remove(); })
-              .catch(function () { /* pas bloquant — le point réapparaîtra au prochain chargement */ });
-          }
-
-          // Bouton modifier à droite : même éditeur sur place que l'onglet 1 (texte, date, suppression).
-          if (TMT.openGoalsTaskEditPanel) {
-            var editTask = document.createElement('button');
-            editTask.type = 'button';
-            editTask.className = 'subProjectDeleteX goalsTaskTrashBtn goalsTaskEditBtn goalsDayTaskEditBtn';
-            editTask.innerHTML = TMT.goalsTaskEditIcon ? TMT.goalsTaskEditIcon() : '';
-            editTask.title = t('Modifier cette tâche');
-            editTask.setAttribute('aria-label', t('Modifier cette tâche'));
-            editTask.addEventListener('click', function (e) {
-              e.stopPropagation();
-              var existing = taskRow.querySelector('.goalsTaskEditPanel');
-              if (existing) { existing.remove(); taskRow.classList.remove('goalsTaskEditing'); editTask.style.display = ''; return; }
-              editTask.style.display = 'none';
-              TMT.openGoalsTaskEditPanel(taskRow, { id: task.id, label: task.label, dueDate: day.date }, function () { loadGoalsCalendarDays(period); });
-            });
-            taskRow.appendChild(editTask);
-          }
-
-          bindGoalsTaskLongPress(taskRow, task, period, check);
-          panel.appendChild(taskRow);
-        });
-      });
-    });
-  }
 
 
-  // appui long (~500 ms, annulé si le
-  // doigt bouge de plus de 10 px — même geste que bindActivityLongPress,
-  // app.js) sur une tâche du détail de période => fenêtre d'édition (nom, date,
-  // secteur/pôle). Un simple tap garde son comportement (case à cocher seule).
-  function bindGoalsTaskLongPress(row, task, period, checkBtn) {
-    var timer = null, startX = 0, startY = 0, fired = false;
-    function cancel() {
-      if (timer) { clearTimeout(timer); timer = null; }
-      row.removeEventListener('pointermove', onMove);
-      row.removeEventListener('pointerup', cancel);
-      row.removeEventListener('pointercancel', cancel);
-      row.removeEventListener('pointerleave', cancel);
-    }
-    function onMove(e) {
-      if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) cancel();
-    }
-    row.addEventListener('pointerdown', function (e) {
-      if (checkBtn.contains(e.target)) return;
-      fired = false;
-      startX = e.clientX; startY = e.clientY;
-      row.addEventListener('pointermove', onMove);
-      row.addEventListener('pointerup', cancel);
-      row.addEventListener('pointercancel', cancel);
-      row.addEventListener('pointerleave', cancel);
-      timer = setTimeout(function () {
-        cancel();
-        fired = true;
-        openGoalsTaskEditModal(task, period);
-      }, 500);
-    });
-    row.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-    row.addEventListener('click', function (e) { if (fired) { e.stopPropagation(); e.preventDefault(); fired = false; } }, true);
-  }
 
 
-  function openGoalsTaskEditModal(task, period) {
-    var activityId = TMT.currentGoalsActivityId;
-    var overlay = document.createElement('div');
-    overlay.className = 'goalTaskEditModal';
-    var card = document.createElement('div');
-    card.className = 'goalTaskEditCard cmpGlass';
-    var header = document.createElement('div');
-    header.className = 'goalTaskEditHeader';
-    var title = document.createElement('p');
-    title.className = 'sectionTitle';
-    title.textContent = t('Modifier la tâche');
-    var closeBtn = TMT.ui.closeBtn(null, t('Fermer'));
-    header.appendChild(title);
-    header.appendChild(closeBtn);
-    card.appendChild(header);
-
-    function field(labelText, control) {
-      var lab = document.createElement('label');
-      lab.className = 'goalTaskEditField';
-      var span = document.createElement('span');
-      span.textContent = labelText;
-      lab.appendChild(span);
-      lab.appendChild(control);
-      card.appendChild(lab);
-    }
-    var nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.maxLength = 300;
-    nameInput.value = task.label;
-    field(t('Nom de la tâche'), nameInput);
-
-    var dateInput = document.createElement('input');
-    dateInput.type = 'date';
-    dateInput.value = task.date || '';
-    field(t('Date'), dateInput);
-
-    var catSelect = document.createElement('select');
-    field(t('Secteur / pôle'), catSelect);
-
-    var msg = document.createElement('p');
-    msg.className = 'msg';
-    card.appendChild(msg);
-    var saveBtn = document.createElement('button');
-    saveBtn.type = 'button';
-    saveBtn.className = 'goalTaskEditSave btnBrique';
-    saveBtn.textContent = t('Enregistrer');
-    card.appendChild(saveBtn);
-    overlay.appendChild(card);
-    document.body.appendChild(overlay);
-
-    function close() { overlay.remove(); }
-    closeBtn.addEventListener('click', close);
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
-
-    var currentKey = task.category || '';
-    api('GET', '/api/activities/' + activityId + '/goals/categories').then(function (data) {
-      catSelect.innerHTML = '';
-      (data.categories || []).forEach(function (c) {
-        if (c.secteurs && c.secteurs.length) {
-          // Un pôle qui a des secteurs ne reçoit pas de tâche directe.
-          var grp = document.createElement('optgroup');
-          grp.label = c.label;
-          c.secteurs.forEach(function (sec) {
-            var so = document.createElement('option');
-            so.value = sec.key;
-            so.textContent = sec.label;
-            grp.appendChild(so);
-          });
-          catSelect.appendChild(grp);
-        } else {
-          var o = document.createElement('option');
-          o.value = c.key;
-          o.textContent = c.label;
-          catSelect.appendChild(o);
-        }
-      });
-      if (currentKey) catSelect.value = currentKey;
-    }).catch(function (err) { msg.textContent = (err && err.message) || ''; });
-
-    saveBtn.addEventListener('click', function () {
-      var label = nameInput.value.trim();
-      if (!label) { msg.textContent = t('Le nom ne peut pas être vide.'); return; }
-      saveBtn.disabled = true;
-      msg.textContent = '';
-      api('PUT', '/api/sub-project-items/' + task.id, { label: label, dueDate: dateInput.value || null })
-        .then(function () {
-          if (catSelect.value && catSelect.value !== currentKey) {
-            return api('PUT', '/api/activities/' + activityId + '/goals/tasks/' + task.id + '/category', { categoryKey: catSelect.value });
-          }
-        })
-        .then(function () { close(); loadGoalsCalendarDays(period); })
-        .catch(function (err) {
-          saveBtn.disabled = false;
-          msg.textContent = (err && err.message) || t('Enregistrement impossible.');
-        });
-    });
-  }
 
 
 
@@ -1920,8 +1479,6 @@
   function closeGoalsDetail() {
     closeGoalsDayAddForms();
     mainFormOpenKey = null;
-    // Invalide toute requête de calendrier de période encore en vol (voir loadGoalsCalendarDays() plus haut).
-    goalsCalendarRequestId += 1;
     if (TMT.isGoalsMonthOpen()) TMT.setGoalsPage2Mode('goals', { noAnim: true });
     TMT.updateGoalsScrubVisibility();
   }
