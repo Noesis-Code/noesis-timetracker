@@ -1039,8 +1039,9 @@
       <!-- Chantier Chrono : 3e page du Chrono (tout à droite) = statistiques des activités partagées. Sélection de l'activité en haut (puces, comme les stats de tâches et d'objectifs) ;
            Répartition par membre + Graphique : blocs déplacés tels quels depuis la fenêtre Activité (mêmes ids). Logique : public/js/stats-avance.js (puces) et app.js (loadActivityStats). -->
       <div id="statsSharedPage" class="hidden">
+        <div class="statsPeriodMenuWrap caSubProjectFilter"><button type="button" class="caSubProjectBtn" id="ssChoiceBtn" aria-label="Activités partagées"><span id="ssChoiceLabel"></span></button></div>
         <div id="ssChips" class="saChips"></div>
-        <p id="ssEmpty" class="hint hidden">Aucune activité partagée.</p>
+        <div id="ssEmpty" class="hidden"><p class="hint">Rien n'est partagé. Choisissez les activités dont vous voulez voir les statistiques.</p><button type="button" class="cmpAdd" id="ssChoiceAdd"><b>+</b>Choisir les activités</button></div>
         <div id="ssBody">
         <div id="caCategoryFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
           <button type="button" class="caSubProjectBtn" id="caCategoryBtn" aria-haspopup="true">
@@ -1115,7 +1116,7 @@
       <!-- Feuille de route : page Groupe (tout à droite : Tâches | Objectifs | Groupe) = « Tâches par membre » des activités partagées (public/js/activite-stats-taches.js). -->
       <div id="statsGroupPage" class="hidden">
         <div id="sgChips" class="saChips"></div>
-        <p id="sgEmpty" class="hint hidden">Aucune activité partagée.</p>
+        <div id="sgEmpty" class="hidden"><p class="hint">Rien n'est partagé. Choisissez les activités dont vous voulez voir les statistiques.</p><button type="button" class="cmpAdd" id="sgChoiceAdd"><b>+</b>Choisir les activités</button></div>
         <div id="sgBody"></div>
       </div><!-- /#statsGroupPage -->
       </div>

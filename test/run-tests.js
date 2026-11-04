@@ -91,6 +91,7 @@ const SUITE_FILES = [
   'aujourdhui-tri-test.js',
   'rebalance-silencieux-test.js',
   'feuille-balayage-test.js',
+  'stats-partagees-choix-test.js',
   'reforme-test.js',
   'recurrence-frequence-test.js',
   'saisie-manuelle-proposition-test.js',

@@ -1675,7 +1675,7 @@
     "Choisis un pôle ou un secteur pour chaque activité.": "Choose a division or a sector for each activity.",
     "Pôle et secteur": "Division and sector",
     // ---- Page Objectifs (gabarits) ----
-    "Jour précédent": "Previous day", "Trier": "Sort", "Mois précédent": "Previous month", "Mois suivant": "Next month", "Échéance": "Due date", "Objectif": "Goal", "Durée": "Duration",
+    "Jour précédent": "Previous day", "Trier": "Sort", "Rien n'est partagé. Choisissez les activités dont vous voulez voir les statistiques.": "Nothing is shared. Choose the activities whose statistics you want to see.", "Choisir les activités": "Choose activities", "Activités partagées": "Shared activities", "{n} activités": "{n} activities", "Mois précédent": "Previous month", "Mois suivant": "Next month", "Échéance": "Due date", "Objectif": "Goal", "Durée": "Duration",
     "Jour suivant": "Next day",
     "Faites ce jour-là": "Done that day",
     "Rien ce jour-là.": "Nothing that day.",

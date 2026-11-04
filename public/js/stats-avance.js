@@ -1037,9 +1037,46 @@
   var ssActId = null;
   function groupAvailable() { return !!groupEl && modOnId('sharing'); }
   function sharedAvailable() { return !!sharedEl && modOnId('stats') && modOnId('sharing'); }
-  function sharedActivities() {
-    return ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a.membersCount > 1; });
+  // ---------- Choix des activités dont on veut voir les statistiques (affichage seulement : stocké sur l'appareil, par utilisateur ; aucune donnée de confidentialité ne change) ----------
+  // Deux interrupteurs indépendants par activité : « Chrono » (3e page du Chrono) et « Tâches » (page Groupe, tâches par membre). Rien n'est activé par défaut.
+  function chKey() { var p = TMT.getProfile && TMT.getProfile(); return 'noesis_shared_stats_v1_' + ((p && p.id) || ''); }
+  function chRead() { try { return JSON.parse(localStorage.getItem(chKey()) || '{}') || {}; } catch (e) { return {}; } }
+  function chWrite(o) { try { localStorage.setItem(chKey(), JSON.stringify(o)); } catch (e) { /* stockage indisponible : le choix vaut pour la session seulement */ } }
+  var chMem = null;
+  function chGet() { if (!chMem) chMem = chRead(); return chMem; }
+  TMT.sharedStatsChoice = {
+    on: function (activityId, kind) { var o = chGet()[String(activityId)]; return !!(o && o[kind]); },
+    set: function (activityId, kind, on) { var all = chGet(), o = all[String(activityId)] || {}; o[kind] = !!on; all[String(activityId)] = o; chWrite(all); },
+    reset: function () { chMem = null; }
+  };
+  function allActivities() { return (TMT.getActivitiesCache && TMT.getActivitiesCache()) || []; }
+  function sharedActivities() { return allActivities().filter(function (a) { return TMT.sharedStatsChoice.on(a.id, 'chrono'); }); }
+  var choiceModal = null;
+  function openChoicePanel() {
+    if (!choiceModal) {
+      choiceModal = el('div', 'communityMembersModal hidden'); choiceModal.id = 'sharedChoiceModal';
+      var card = el('div', 'communityMembersModalCard cmpGlass'), head = el('div', 'communityMembersModalHeader');
+      head.appendChild(el('p', 'sectionTitle', tr('Activités partagées')));
+      var x = TMT.ui.closeBtn(function () { choiceModal.classList.add('hidden'); if (TMT.sharedStatsRefresh) TMT.sharedStatsRefresh(); if (TMT.groupStats) TMT.groupStats.open(); }, tr('Fermer'));
+      head.appendChild(x); card.appendChild(head); card.appendChild(el('div', 'sharedChoiceList')); choiceModal.appendChild(card); document.body.appendChild(choiceModal);
+    }
+    var box = choiceModal.querySelector('.sharedChoiceList'); box.textContent = '';
+    allActivities().forEach(function (act) {
+      var wrap = el('div', 'sharedChoiceAct');
+      var name = el('p', 'cmpBlockTitle'); var dot = el('span', 'saChipDot'); dot.style.background = act.color || '#674EA7'; name.appendChild(dot); name.appendChild(document.createTextNode(' ' + act.name)); wrap.appendChild(name);
+      [['chrono', 'Chrono'], ['tasks', 'Tâches']].forEach(function (k) {
+        var row = el('div', 'notifRow'); row.appendChild(el('span', 'notifRowLabel', tr(k[1])));
+        var lab = el('label', 'toggleSwitch'), inp = document.createElement('input'); inp.type = 'checkbox'; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', act.name + ' · ' + tr(k[1]));
+        inp.checked = TMT.sharedStatsChoice.on(act.id, k[0]);
+        inp.addEventListener('change', function () { TMT.sharedStatsChoice.set(act.id, k[0], inp.checked); });
+        lab.appendChild(inp); lab.appendChild(el('span', 'toggleSwitchTrack')); row.appendChild(lab); wrap.appendChild(row);
+      });
+      box.appendChild(wrap);
+    });
+    choiceModal.classList.remove('hidden');
   }
+  TMT.openSharedChoice = openChoicePanel;
+  ['ssChoiceBtn', 'ssChoiceAdd', 'sgChoiceAdd'].forEach(function (id) { var b = document.getElementById(id); if (b) b.addEventListener('click', openChoicePanel); });
   function selectedShared(list) { return list.filter(function (a) { return String(a.id) === String(ssActId); })[0] || null; }
   function renderSsChips(list) {
     ssChips.innerHTML = '';
@@ -1064,6 +1101,7 @@
       var pref = list.filter(function (a) { return String(a.id) === String(TMT.currentGoalsActivityId); })[0];
       ssActId = pref ? pref.id : (list[0] ? list[0].id : null);
     }
+    var lab = document.getElementById('ssChoiceLabel'); if (lab) lab.textContent = list.length ? tr('{n} activités', { n: list.length }) : tr('Choisir les activités'); // filtre en haut : ouvre le choix des activités
     ssEmpty.classList.toggle('hidden', list.length > 0);
     ssBody.classList.toggle('hidden', list.length === 0);
     renderSsChips(list);

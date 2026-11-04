@@ -121,7 +121,7 @@
   }
 
   // Activités partagées seulement (au moins deux membres), choisies par des puces en haut, comme la 3e page du Chrono.
-  function shared() { return ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a.membersCount > 1; }); }
+  function shared() { return ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a.membersCount > 1 && TMT.sharedStatsChoice && TMT.sharedStatsChoice.on(a.id, 'tasks'); }); } // choisies dans « Activités partagées » (interrupteur Tâches)
   function renderChips(list) {
     chips.innerHTML = '';
     list.forEach(function (a) {
