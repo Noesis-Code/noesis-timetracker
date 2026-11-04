@@ -66,6 +66,8 @@ const SITE_HOSTS = ['compagnienoesis.com', 'www.compagnienoesis.com'];
 app.use((req, res, next) => {
   if (require('./lib/legalpages').serve(req, res)) return; // pages légales publiques (tous les hôtes, GET seulement)
   if (!SITE_HOSTS.includes(req.hostname)) return next();
+  // Le lien de récupération de mot de passe (?reset=…) mène à l'application, pas à la page de présentation.
+  if (req.path === '/' && req.query && req.query.reset) return res.redirect(302, 'https://web-production-15a4a.up.railway.app/?reset=' + encodeURIComponent(String(req.query.reset)));
   if ((req.path !== '/' && req.path !== '/index.html') || (req.method !== 'GET' && req.method !== 'HEAD')) return res.status(404).type('text/plain').send('Introuvable');
   res.set('Cache-Control', 'public, max-age=300');
   res.sendFile(require('path').join(__dirname, '..', 'site', 'index.html'));
