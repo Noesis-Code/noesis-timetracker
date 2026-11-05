@@ -854,7 +854,9 @@
     var loc = TMT.dateLocale || undefined, pad = function (x) { return String(x).padStart(2, '0'); };
     var navMain = view && view.mainGoalText && view.mainGoalText.trim(); // avec un objectif périodique : l'objectif prend le grand format, le mois passe en petit
     var calNav = document.querySelector('#goalsMonthCal .goalsCalNav'); if (calNav) calNav.classList.toggle('cmpNav--sm', !!navMain);
+    var topMonth = document.querySelector('.goalsTopAddMonth');
     $('goalsCalTitle').textContent = cap1(new Date(Date.UTC(calMonth.y, calMonth.m, 1)).toLocaleDateString(loc, { month: 'long', year: 'numeric', timeZone: 'UTC' }));
+    if (topMonth) topMonth.textContent = $('goalsCalTitle').textContent;
     var head = $('goalsCalHead'); head.textContent = '';
     for (var k = 0; k < 7; k++) { var hd = document.createElement('span'); hd.textContent = cap1(new Date(Date.UTC(2024, 0, 1 + k)).toLocaleDateString(loc, { weekday: 'narrow', timeZone: 'UTC' })); head.appendChild(hd); } // 1er janv. 2024 = lundi
     var first = calMonth.y + '-' + pad(calMonth.m + 1) + '-01', lastDay = new Date(Date.UTC(calMonth.y, calMonth.m + 1, 0)).getUTCDate();
@@ -876,6 +878,8 @@
     for (var r = 0; r < rows; r++) {
       var rs = isoAddDays(start, r * 7), re = isoAddDays(rs, 6);
       var row = document.createElement('div'); row.className = 'goalsCalWeek';
+      var rowSlot0 = null; slots.forEach(function (x) { if (!rowSlot0 && x.s <= re && x.e >= rs) rowSlot0 = x; });
+      if (!(rowSlot0 && rowSlot0.w && rowSlot0.w.text)) row.classList.add('goalsCalWeekEmpty'); // aucun objectif hebdomadaire : cadre en pointillés
       // Ligne de l'objectif HEBDOMADAIRE, collée à sa rangée de jours : « S45 » + le titre seulement. Un toucher ouvre la fenêtre de l'objectif (carte et éditeur existants).
       var slot = null; slots.forEach(function (x) { if (!slot && x.s <= re && x.e >= rs) slot = x; });
       if (slot) {
@@ -888,7 +892,7 @@
         } else {
           line.className = 'cmpAdd goalsCalWeekAdd'; var plw = document.createElement('b'); plw.textContent = '+'; line.appendChild(plw); line.appendChild(document.createTextNode(t('Ajouter un objectif hebdomadaire'))); // + violet, contour pointillé gris (.cmpAdd)
         }
-        line.addEventListener('click', function () { openGoalsCalPeriod(slot.p, function () { openGoalEdit('week', slot.p, slot.wi, hasObj ? slot.w.text : '', t('S{n}', { n: (slot.p.firstWeekOfYear || (((slot.p.periodNumber - 1) % 13) * 4 + 1)) + slot.wi - 1 }) + ' · ' + t('Objectif hebdomadaire')); }); });
+        line.addEventListener('click', function () { openGoalsCalPeriod(slot.p, function () { openGoalEdit('week', slot.p, slot.wi, hasObj ? slot.w.text : '', t('S{n}', { n: (slot.p.firstWeekOfYear || (((slot.p.periodNumber - 1) % 13) * 4 + 1)) + slot.wi - 1 }) + ' · ' + t('Objectif hebdomadaire'), slot.w && slot.w.description); }); });
         row.appendChild(line);
       }
       var days = document.createElement('div'); days.className = 'goalsCalDays';
@@ -911,7 +915,7 @@
   }
   // Jour touché : cercle plein sur le jour, barre « Nouvelle tâche… » en bas (même dock que la page 1, TMT.ui.dockKeyboard) et, au-dessus, le panneau des tâches déjà prévues ce jour-là
   // (lignes .tasksPop*, comme la page 1). Ajout MANUEL : la tâche est créée directement dans le secteur / pôle de la page à la date du jour choisi (aucun tri IA, aucun pop-up de placement).
-  var dayMode = 'day', goalEdit = null, saveBtn = null;
+  var dayMode = 'day', goalEdit = null, saveBtn = null, goalTitleIn = null, goalDescIn = null;
   var selDay = null, dayDock = null, dayPanel = null, dayBody = null, dayKicker = null, dayText = null, daySend = null, dayMsg = null;
   function buildGoalsDayDock() {
     if (dayDock) return;
@@ -928,12 +932,13 @@
     daySend = document.createElement('button'); daySend.type = 'button'; daySend.className = 'cmpSend'; daySend.setAttribute('aria-label', t('Ajouter'));
     daySend.addEventListener('mousedown', function (e) { e.preventDefault(); }); // le clavier reste ouvert
     daySend.addEventListener('click', addGoalsDayTask);
-    dayText.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (dayMode === 'goal') saveGoalEdit(); else addGoalsDayTask(); } });
-    saveBtn = document.createElement('button'); saveBtn.type = 'button'; saveBtn.className = 'cmpBtn cmpBtnIdle hidden'; saveBtn.textContent = t('Enregistrer'); // R35 : gris tant que rien n'a changé, violet dès qu'il y a du texte
-    saveBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    dayText.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (dayMode !== 'goal') addGoalsDayTask(); } });
+    saveBtn = document.createElement('button'); saveBtn.type = 'button'; saveBtn.className = 'tasksSaveBtn'; saveBtn.textContent = t('Enregistrer'); // plein-largeur, violet (R35 : grisé tant qu'il n'y a pas de titre)
     saveBtn.addEventListener('click', saveGoalEdit);
-    dayText.addEventListener('input', function () { if (dayMode === 'goal') saveBtn.classList.toggle('cmpBtnIdle', !dayText.value.trim()); });
-    bar.appendChild(dayText); bar.appendChild(daySend); bar.appendChild(saveBtn); dayDock.appendChild(bar); document.body.appendChild(dayDock);
+    goalTitleIn = document.createElement('input'); goalTitleIn.type = 'text'; goalTitleIn.maxLength = 300; goalTitleIn.setAttribute('aria-label', t('Titre'));
+    goalDescIn = document.createElement('textarea'); goalDescIn.rows = 4; goalDescIn.maxLength = 2000; goalDescIn.setAttribute('aria-label', t('Description'));
+    goalTitleIn.addEventListener('input', function () { saveBtn.disabled = !goalTitleIn.value.trim(); });
+    bar.appendChild(dayText); bar.appendChild(daySend); dayDock.appendChild(bar); dayDock.appendChild(saveBtn); document.body.appendChild(dayDock);
     if (TMT.ui.dockKeyboard) TMT.ui.dockKeyboard(dayDock, dayText); // même positionnement au-dessus du clavier que la barre « Nouvelle tâche… » de la page 1
     window.setInterval(function () { // la barre n'existe que tant que le calendrier est affiché
       if (!selDay) return;
@@ -942,25 +947,27 @@
     }, 400);
   }
   // Objectif périodique / hebdomadaire : UN champ (la barre) + « Enregistrer », dans le même dock que l'ajout de tâche.
-  function openGoalEdit(kind, period, weekIndex, current, label) {
+  function openGoalEdit(kind, period, weekIndex, current, label, desc) {
     selDay = null; renderGoalsMonthCal(); buildGoalsDayDock();
     dayMode = 'goal'; goalEdit = { kind: kind, period: period, weekIndex: weekIndex };
-    dayKicker.textContent = label; dayBody.textContent = ''; dayBody.classList.add('hidden'); dayMsg.textContent = '';
-    daySend.classList.add('hidden'); saveBtn.classList.remove('hidden');
-    dayText.value = current || ''; dayText.placeholder = t(kind === 'main' ? 'Objectif périodique' : 'Objectif hebdomadaire');
-    saveBtn.classList.toggle('cmpBtnIdle', !dayText.value.trim());
-    dayDock.classList.remove('hidden'); window.setTimeout(function () { dayText.focus(); }, 60);
+    dayKicker.textContent = label; dayMsg.textContent = ''; dayBody.textContent = ''; dayBody.classList.remove('hidden');
+    var f1 = document.createElement('div'); f1.className = 'goalsEditField'; var l1 = document.createElement('p'); l1.className = 'cmpBlockTitle'; l1.textContent = t('Titre'); f1.appendChild(l1); f1.appendChild(goalTitleIn);
+    var f2 = document.createElement('div'); f2.className = 'goalsEditField'; var l2 = document.createElement('p'); l2.className = 'cmpBlockTitle'; l2.textContent = t('Description'); f2.appendChild(l2); f2.appendChild(goalDescIn);
+    dayBody.appendChild(f1); dayBody.appendChild(f2);
+    goalTitleIn.value = current || ''; goalDescIn.value = desc || '';
+    dayDock.classList.add('expSave'); saveBtn.disabled = !goalTitleIn.value.trim(); // la barre d'écriture devient UN bouton plein-largeur
+    dayDock.classList.remove('hidden'); window.setTimeout(function () { goalTitleIn.focus(); }, 60);
   }
   function saveGoalEdit() {
-    var text = dayText.value.trim(); if (!goalEdit || !text) return;
+    var text = goalTitleIn.value.trim(), desc = goalDescIn.value.trim(); if (!goalEdit || !text) return;
     var ge = goalEdit; saveBtn.disabled = true;
-    var done = function () { saveBtn.disabled = false; selectGoalsDay(null); };
-    if (ge.kind === 'main') { saveMainGoalText(ge.period.periodNumber, text); done(); return; }
-    api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + ge.period.periodNumber + '/weekly/' + ge.weekIndex, { text: text, category: TMT.currentGoalsCategory })
+    var done = function () { selectGoalsDay(null); };
+    if (ge.kind === 'main') { saveMainGoalDescription(ge.period.periodNumber, text, desc, undefined); done(); return; }
+    api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + ge.period.periodNumber + '/weekly/' + ge.weekIndex, { text: text, description: desc, category: TMT.currentGoalsCategory })
       .then(reloadGoalsAll).then(done).catch(function (err) { saveBtn.disabled = false; dayMsg.textContent = (err && err.message) || t('Impossible pour le moment.'); });
   }
   function selectGoalsDay(iso) {
-    if (dayMode === 'goal') { dayMode = 'day'; goalEdit = null; if (dayDock) { dayBody.classList.remove('hidden'); daySend.classList.remove('hidden'); saveBtn.classList.add('hidden'); dayText.value = ''; dayText.placeholder = t('Nouvelle tâche…'); } if (!iso) { if (dayDock) dayDock.classList.add('hidden'); selDay = null; renderGoalsMonthCal(); return; } }
+    if (dayMode === 'goal') { dayMode = 'day'; goalEdit = null; if (dayDock) { dayDock.classList.remove('expSave'); dayBody.textContent = ''; dayText.value = ''; dayText.placeholder = t('Nouvelle tâche…'); } if (!iso) { if (dayDock) dayDock.classList.add('hidden'); selDay = null; renderGoalsMonthCal(); return; } }
     selDay = iso && iso !== selDay ? iso : null; // retoucher le même jour le désélectionne
     renderGoalsMonthCal();
     if (!selDay) { if (dayDock) dayDock.classList.add('hidden'); return; }
@@ -1004,25 +1011,25 @@
     if (ws.length) { var done = ws.filter(function (w) { return w.status === 'atteint'; }).length; st = done === ws.length ? 'atteint' : ws.some(function (w) { return w.status === 'partiel' || w.status === 'atteint'; }) ? 'partiel' : 'non_atteint'; }
     state.className = 'goalWeeklyBadge goalWeeklyBadgeStatus' + (st ? ' ' + goalStatusClass(st) : ' hidden');
     state.textContent = st ? t(GOAL_STATUS_LABELS[st]) : '';
-    var nv0 = document.querySelector('.goalsTopAdd .goalsCalNav'); if (nv0) $('goalsMonthCal').insertBefore(nv0, $('goalsMonthCal').firstChild); // le mois revient à sa place avant de vider l'en-tête
+    var oldFr = document.querySelector('.goalsTopAdd'); if (oldFr) oldFr.remove(); var navLab = document.getElementById('goalsCalTitle'); if (navLab) navLab.classList.remove('hidden');
     var host = $('goalsMainLineHost'); host.textContent = '';
     var b = document.createElement('button'); b.type = 'button';
     var hasMain = !!(period.mainGoalText && period.mainGoalText.trim());
     $('goalsTopLine').classList.toggle('hidden', !hasMain); // sans objectif : une seule petite ligne « P12 · Ajouter un objectif périodique »
-    var calNav = document.querySelector('#goalsMonthCal .goalsCalNav') || document.querySelector('.goalsTopAdd .goalsCalNav'), home = $('goalsMonthCal');
+    var calNav = document.querySelector('#goalsMonthCal .goalsCalNav');
     if (hasMain) {
-      if (calNav && calNav.parentNode !== home) home.insertBefore(calNav, home.firstChild); // le mois revient à sa place
       b.className = 'goalsMainLine goalsMainBig'; b.textContent = period.mainGoalText; b.title = period.mainGoalText;
-      b.addEventListener('click', openGoalsMainPop);
+      b.addEventListener('click', function () { openGoalEdit('main', period, null, period.mainGoalText, 'P' + period.periodIndexInCycle + ' · ' + t('Objectif périodique'), period.mainGoalDescription); });
     } else {
-      // Sans objectif : les pointillés (.cmpAdd) entourent « + Ajouter un objectif périodique » ET la date (le mois reste navigable) ; un toucher dedans ouvre le dock d'écriture.
+      // Sans objectif : le cadre pointillé (.cmpAdd) entoure « + P11 · Ajouter un objectif périodique » ET le mois ; les flèches ‹ › du mois restent à l'extérieur, de part et d'autre.
       var fr = document.createElement('div'); fr.className = 'cmpAdd goalsTopAdd'; fr.setAttribute('role', 'button'); fr.tabIndex = 0;
       var ln = document.createElement('span'); ln.className = 'goalsTopAddLine'; var pl = document.createElement('b'); pl.textContent = '+'; ln.appendChild(pl);
       ln.appendChild(document.createTextNode('P' + period.periodIndexInCycle + ' · ' + t('Ajouter un objectif périodique'))); fr.appendChild(ln);
-      if (calNav) fr.appendChild(calNav);
-      var open = function (e) { if (e && e.target && e.target.closest && e.target.closest('.cmpNavArrow')) return; openGoalEdit('main', period, null, '', 'P' + period.periodIndexInCycle + ' · ' + t('Objectif périodique')); };
-      fr.addEventListener('click', open); fr.addEventListener('keydown', function (e) { if (e.key === 'Enter') open(e); });
-      host.appendChild(fr); return;
+      var mo = document.createElement('span'); mo.className = 'goalsTopAddMonth'; fr.appendChild(mo);
+      var open = function () { openGoalEdit('main', period, null, '', 'P' + period.periodIndexInCycle + ' · ' + t('Objectif périodique'), ''); };
+      fr.addEventListener('click', open); fr.addEventListener('keydown', function (e) { if (e.key === 'Enter') open(); });
+      var labEl = document.getElementById('goalsCalTitle'); if (calNav && labEl) { labEl.classList.add('hidden'); calNav.insertBefore(fr, labEl); }
+      return;
     }
     host.appendChild(b);
   }

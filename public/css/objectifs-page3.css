@@ -491,10 +491,6 @@
 .goalsMainAddLine { display: block; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: var(--text-light); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 
 /* Haut de page sans objectif périodique : pointillés (.cmpAdd) autour de « + Ajouter … » centré et de la date juste dessous. */
-.goalsTopAdd { flex-direction: column; align-items: stretch; gap: 0; padding: 4px 8px 0; cursor: pointer; }
-.goalsTopAddLine { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; font-size: 14px; }
-.goalsTopAdd .goalsCalNav { margin: 0; }
-.goalsTopAdd .goalsCalNav .cmpNavLabel { pointer-events: none; }
 .goalsCalWeekAdd { margin-bottom: 0; }
 .goalsDayDock .cmpBtn { width: auto; flex: none; min-height: 36px; padding: 0 16px; font-size: 14px; }
 .goalsDayDock .hidden { display: none; }
@@ -505,3 +501,13 @@
 .goalsCalDay { width: 40px; height: 36px; border-radius: 18px; }
 .goalsCalEnd { min-height: 28px; margin-top: 2px; }
 .goalsMonthCal { margin-bottom: 8px; }
+
+/* Page 3 — cadres : pointillés (--cmp-dash, comme .cmpAdd) quand rien n'est enregistré, ligne pleine sinon. */
+.goalsCalWeek.goalsCalWeekEmpty { border: 1px dashed var(--cmp-dash); }
+.goalsCalWeekAdd, .goalsCalWeekAdd:hover { border: 0; background: none; gap: 0; color: var(--text-light); } /* le cadre de la semaine porte le pointillé : pas de second contour */
+.goalsCalWeekAdd b, .goalsTopAddLine b { margin-right: 8px; } /* un peu d'air entre le « + » et le texte (grille R6) */
+.goalsTopAdd { flex: 1; min-width: 0; flex-direction: column; align-items: center; gap: 0; padding: 4px 12px; cursor: pointer; }
+.goalsTopAddLine { display: flex; align-items: center; justify-content: center; min-height: 24px; font-size: 13px; color: var(--text-light); }
+.goalsTopAddMonth { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.3; }
+.goalsEditField { margin-bottom: 12px; }
+.goalsDayDock .tasksProposeBody input, .goalsDayDock .tasksProposeBody textarea { width: 100%; box-sizing: border-box; }
