@@ -195,5 +195,6 @@
 #profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsFlat .msg { margin: 8px 0 0; }
 #profileSettingsPanel.settingsDrill #settingsParamsCard .settingsGroupBody > .settingsFlat input[type=text] { border: 1px solid var(--glass-border); border-radius: var(--radius-sm); padding: 10px 12px; min-height: 44px; font-size: 14px; color: var(--text); }
 /* Avancé : flèche collée au mot ; Enregistrer inactif transparent (demande d'Émilien, 4 nov. 2026). */
+.activityEditAdvToggle.cmpToggle { justify-content: flex-end; text-align: right; }
 .activityEditAdvToggle.cmpToggle .cmpChev { margin-left: 2px; }
 .activityEditActions .cmpBtn.cmpBtnIdle { background: transparent; }

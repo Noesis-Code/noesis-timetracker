@@ -18,6 +18,7 @@ function run(fn) {
 
 router.get('/objectifs', run((req) => ({ objectifs: objectifs.liste(req.userId, String(req.query.filtre || 'en_cours')) })));
 router.post('/objectifs/contexte', run((req) => objectifs.contexte(req.userId, req.body || {})));
+router.post('/objectifs/lecture', run((req) => objectifs.lire(req.userId, req.body || {})));
 router.post('/objectifs/proposition', run((req) => objectifs.proposer(req.userId, req.body || {})));
 router.post('/objectifs', run(async (req) => objectifs.creer(req.userId, req.body || {})));
 router.get('/objectifs/:id', run((req) => objectifs.get(req.userId, req.params.id)));

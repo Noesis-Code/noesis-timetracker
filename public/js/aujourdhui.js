@@ -170,7 +170,7 @@
     ui.file.accept = '.txt,.md,.markdown,.csv,.docx,.pdf,text/*,image/*';
     clip.appendChild(ui.file);
     ui.file.addEventListener('change', onPick);
-    ui.text = el('textarea', 'tasksText'); ui.text.rows = 1; ui.text.maxLength = 300; ui.text.placeholder = tr('Ajouter une tâche');
+    ui.text = el('textarea', 'tasksText'); ui.text.rows = 1; ui.text.maxLength = 300; ui.text.placeholder = tr('Nouvelle tâche…');
     ui.text.addEventListener('input', onType);
     ui.text.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
     ui.send = el('button', 'cmpSend'); ui.send.type = 'button'; ui.send.setAttribute('aria-label', tr('Ajouter'));

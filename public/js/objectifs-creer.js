@@ -27,17 +27,26 @@
 
   function buildView() {
     emptyBox = el('div', 'objEmpty hidden');
-    var ico = el('span', 'objEmptyIcon'); ico.setAttribute('aria-hidden', 'true');
-    ico.innerHTML = '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1.2"></circle></svg>';
-    emptyBox.appendChild(ico);
     emptyBox.appendChild(el('p', 'objEmptyTitle', tr('Aucun objectif pour l’instant')));
     emptyBox.appendChild(el('p', 'hint', tr('Écris ce que tu veux atteindre, sur la durée de ton choix (une semaine, six mois, trois ans…).')));
     emptyBox.appendChild(el('p', 'hint', tr('Noèsis te propose ensuite les étapes par période et par semaine, l’activité à rattacher et les premières tâches. Tu valides, rien n’est ajouté sans toi.')));
-    filterBox = el('div', 'cmpSeg objFilter hidden'); filterBox.setAttribute('role', 'group'); filterBox.setAttribute('aria-label', tr('Filtre'));
+    // Filtre : exactement le tri de l'onglet Tâches (icône à curseurs nue + panneau .statsPeriodMenu commun), pas un second sélecteur sous Tâches | Objectifs.
+    filterBox = el('div', 'tasksTopRow objTopRow hidden');
+    var wrap = el('div', 'statsPeriodMenuWrap tasksSortWrap'), sb = el('button', 'cmpEdit tasksSortBtn'); sb.type = 'button'; sb.setAttribute('aria-haspopup', 'true'); sb.setAttribute('aria-expanded', 'false');
+    sb.title = tr('Filtrer'); sb.setAttribute('aria-label', tr('Filtrer'));
+    sb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 8h3M11 8h9M9 6a2 2 0 1 0 0 4a2 2 0 1 0 0-4M4 16h9M17 16h3M15 14a2 2 0 1 0 0 4a2 2 0 1 0 0-4"></path></svg>';
+    var menu = el('div', 'statsPeriodMenu hidden');
     [['en_cours', 'En cours'], ['atteints', 'Atteints'], ['tous', 'Tous']].forEach(function (f) {
-      var b = btn(f[0] === state.filter ? 'active' : '', tr(f[1]), function () { state.filter = f[0]; syncFilter(); load(); });
-      b.dataset.filter = f[0]; b.setAttribute('aria-pressed', f[0] === state.filter ? 'true' : 'false'); filterBox.appendChild(b);
+      var it = el('button', 'statsPeriodMenuItem' + (f[0] === state.filter ? ' active' : ''), tr(f[1])); it.type = 'button'; it.dataset.filter = f[0];
+      it.addEventListener('click', function () { menu.classList.add('hidden'); sb.setAttribute('aria-expanded', 'false'); state.filter = f[0]; syncFilter(); load(); });
+      menu.appendChild(it);
     });
+    sb.addEventListener('click', function (e) {
+      e.stopPropagation(); var open = menu.classList.contains('hidden');
+      document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+      if (open) menu.classList.remove('hidden'); sb.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    wrap.appendChild(sb); wrap.appendChild(menu); filterBox.appendChild(wrap);
     listBox = el('div', 'objList');
     root.appendChild(emptyBox); root.appendChild(filterBox); root.appendChild(listBox);
     actsTitle = el('p', 'cmpBlockTitle objActsTitle', tr('Activités'));
@@ -53,7 +62,7 @@
     sendBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
     sendBtn.addEventListener('click', start);
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); start(); } });
-    bar.appendChild(input); bar.appendChild(sendBtn); dock.appendChild(bar); document.body.appendChild(dock);
+    bar.appendChild(pin('tasksClip cmpSymbol')); bar.appendChild(input); bar.appendChild(sendBtn); dock.appendChild(bar); document.body.appendChild(dock);
     // La barre suit la page pendant le glissement vers les statistiques, et disparaît avec elle.
     var tab = document.getElementById('tab-goals');
     if (tab && window.MutationObserver) {
@@ -68,7 +77,7 @@
   }
   function syncDock() { if (dock) dock.classList.toggle('hidden', !(state.shown && host.getClientRects().length && !host.classList.contains('hidden'))); }
   function syncFilter() {
-    Array.prototype.forEach.call(filterBox.children, function (b) { var on = b.dataset.filter === state.filter; b.classList.toggle('active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+    Array.prototype.forEach.call(filterBox.querySelectorAll('.statsPeriodMenuItem'), function (b) { b.classList.toggle('active', b.dataset.filter === state.filter); });
   }
 
   function card(o) {
@@ -149,6 +158,47 @@
     return b;
   }
 
+  // ---------- Épingle : photos, fichiers -> objectifs PROPOSÉS (rien n'est créé avant « Valider ») ----------
+  var MAX_FILES = 3, MAX_BYTES = 5 * 1024 * 1024, queue = [];
+  function pin(cls) {
+    return TMT.ui.attachBtn(readFiles, { choices: true, multiple: true, className: cls, label: tr('Joindre une photo ou un fichier'),
+      labels: { library: tr('Photothèque'), camera: tr('Prendre une photo'), file: tr('Choisir un fichier') } });
+  }
+  function toAttachment(f) {
+    if (/^image\//.test(f.type)) {
+      if (!TMT.shrinkImage && TMT.renderGoalsCaptureBubble) TMT.renderGoalsCaptureBubble(); // construit le lecteur d'images partagé
+      if (TMT.shrinkImage) return TMT.shrinkImage(f);
+    }
+    return new Promise(function (ok, ko) { var r = new FileReader(); r.onload = function () { ok({ fileName: f.name, mimeType: f.type, dataUrl: r.result }); }; r.onerror = ko; r.readAsDataURL(f); });
+  }
+  function readFiles(files) {
+    if (busy) return;
+    if (files.length > MAX_FILES) return say(tr('3 fichiers maximum.'));
+    for (var i = 0; i < files.length; i++) if (files[i].size > MAX_BYTES) return say(tr('Fichier trop lourd (5 Mo max).'));
+    busy = true; queue = [];
+    Promise.all(files.map(toAttachment)).then(function (atts) { return api('POST', '/api/objectifs/lecture', { files: atts, instruction: input.value.trim() }); })
+      .then(function (r) { busy = false; chooseRead(r.objectives || []); })
+      .catch(function (e) { busy = false; say((e && e.message) || tr('Lecture impossible pour le moment.')); });
+  }
+  function say(m) { if (TMT.ui && TMT.ui.confirm) TMT.ui.confirm(m, { ok: tr('OK') }); }
+  function proposeFrom(o) { // objectif lu -> même fenêtre « Nouvel objectif », préremplie
+    return api('POST', '/api/objectifs/contexte', { text: o.title, amount: o.amount || undefined, unit: o.unit || undefined }).then(openComposer);
+  }
+  function nextQueued() { var o = queue.shift(); if (o) proposeFrom(o).catch(function () {}); }
+  function chooseRead(list) {
+    if (list.length === 1) { proposeFrom(list[0]).catch(function (e) { say(e.message); }); return; }
+    var win = openModal(tr('Objectifs lus')), on = list.map(function () { return true; });
+    win.body.appendChild(el('p', 'hint', tr('Coche ceux que tu veux garder : tu verras les étapes de chacun, rien n’est ajouté avant Valider.')));
+    list.forEach(function (o, i) {
+      var r = el('div', 'tasksPopRow objWeekRow done');
+      var c = btn('tasksPopCheck', '', function () { on[i] = !on[i]; r.classList.toggle('done', on[i]); c.setAttribute('aria-pressed', on[i] ? 'true' : 'false'); c.innerHTML = on[i] ? CHECK : ''; });
+      c.innerHTML = CHECK; c.setAttribute('aria-pressed', 'true'); c.setAttribute('aria-label', o.title);
+      r.appendChild(c); var tx = el('div', 'tasksPopText'); tx.appendChild(el('b', null, o.title)); r.appendChild(tx); win.body.appendChild(r);
+    });
+    win.foot.appendChild(btn('cmpBtn', tr('Continuer'), function () { queue = list.filter(function (o, i) { return on[i]; }); win.close(); nextQueued(); }));
+  }
+  var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></svg>';
+
   // ---------- Fenêtre « Nouvel objectif » ----------
   var busy = false;
   function start() {
@@ -164,7 +214,8 @@
     var win = openModal(tr('Nouvel objectif'));
     var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.setAttribute('aria-label', tr('Objectif'));
     titleIn.addEventListener('input', function () { form.title = titleIn.value; });
-    win.body.appendChild(field(tr('Objectif'), titleIn));
+    var titleRow = el('div', 'objTitleRow'); titleRow.appendChild(titleIn); titleRow.appendChild(pin('chatAttachBtn objPinBtn'));
+    win.body.appendChild(field(tr('Objectif'), titleRow));
 
     var amountIn = el('input', 'objAmount'); amountIn.type = 'number'; amountIn.inputMode = 'numeric'; amountIn.min = '1'; amountIn.value = form.amount; amountIn.setAttribute('aria-label', tr('Nombre'));
     var unitSeg = null, datesHint = el('p', 'hint objDates'), pickLink = btn('objLink', tr('ou choisir une date')), dateIn = el('input', 'objDatePick'); dateIn.type = 'date'; dateIn.tabIndex = -1;
@@ -331,7 +382,7 @@
         win.close(); input.value = ''; state.filter = 'en_cours'; syncFilter();
         if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {});
         if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges();
-        load();
+        load(); nextQueued();
       }).catch(function (err) { ok.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
     });
     win.foot.appendChild(ok);

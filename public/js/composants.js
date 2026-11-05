@@ -200,8 +200,31 @@
   // onFiles(Array<File>) reçoit le choix ; opts.multiple, opts.label.
   var ATTACH_ACCEPT = '.txt,.md,.markdown,.csv,.tsv,.xlsx,.docx,.pdf,text/*,image/*';
   var CLIP_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+  // opts.choices (4 nov. 2026) : l'épingle ouvre un petit menu — Photothèque, Prendre une photo (appareil), Choisir un fichier (documents) — au lieu d'un seul sélecteur.
+  function attachMenu(onFiles, opts) {
+    var wrap = document.createElement('span'); wrap.className = 'statsPeriodMenuWrap attachMenuWrap';
+    var b = document.createElement('button'); b.type = 'button'; b.className = opts.className || 'chatAttachBtn'; b.innerHTML = CLIP_SVG;
+    b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-label', opts.label || 'Joindre un fichier'); b.title = opts.label || 'Joindre un fichier';
+    var menu = document.createElement('div'); menu.className = 'statsPeriodMenu hidden';
+    var L = opts.labels || {};
+    [[L.library || 'Photothèque', 'image/*', false], [L.camera || 'Prendre une photo', 'image/*', true], [L.file || 'Choisir un fichier', '.txt,.md,.markdown,.csv,.docx,.pdf', false]].forEach(function (c) {
+      var input = document.createElement('input'); input.type = 'file'; input.className = 'hidden'; input.accept = c[1]; input.multiple = !!opts.multiple; if (c[2]) input.setAttribute('capture', 'environment');
+      input.addEventListener('change', function () { var files = Array.prototype.slice.call(input.files || []); input.value = ''; if (files.length) onFiles(files); });
+      var it = document.createElement('button'); it.type = 'button'; it.className = 'statsPeriodMenuItem'; it.textContent = c[0];
+      it.addEventListener('click', function () { menu.classList.add('hidden'); b.setAttribute('aria-expanded', 'false'); input.click(); });
+      menu.appendChild(it); menu.appendChild(input);
+    });
+    b.addEventListener('click', function (e) {
+      e.stopPropagation(); var open = menu.classList.contains('hidden');
+      document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+      if (open) menu.classList.remove('hidden'); b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    wrap.appendChild(b); wrap.appendChild(menu);
+    return wrap;
+  }
   function attachBtn(onFiles, opts) {
     opts = opts || {};
+    if (opts.choices) return attachMenu(onFiles, opts);
     var lab = document.createElement('label');
     lab.className = 'chatAttachBtn';
     lab.setAttribute('aria-label', opts.label || 'Joindre un fichier'); lab.title = opts.label || 'Joindre un fichier';

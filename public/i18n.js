@@ -1065,6 +1065,7 @@
     'Objectifs hebdomadaires proposés': 'Suggested weekly objectives',
     'Modifie ou vide une ligne, puis valide. Rien n’est enregistré avant ta validation.': 'Edit or clear a line, then confirm. Nothing is saved until you confirm.',
     'Nouvelle tâche': 'New task',
+    'Nouvelle tâche…': 'New task…',
     'Glisse pour réordonner, touche le nom pour le modifier.': 'Drag to reorder, tap the name to change it.',
     'Supprimer « ': 'Delete “',
     ' » ?': '”?',
