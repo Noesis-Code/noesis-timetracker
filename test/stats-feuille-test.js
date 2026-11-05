@@ -35,11 +35,13 @@ assert(w.pct >= 105 && w.pct <= 115 && w.over === false, 'temps passé à ~110 %
 addTime(est * 0.2 / 60); // ~130 %
 w = get().tasks.workload;
 assert(w.pct > 120 && w.over === true, 'au-delà de 120 % de l\'estimé : alerte (une fois par période côté client)');
-// « Tâches faites à la date prévue » : une semaine, navigable
-const o0 = get().tasks.onTime, o1 = get({ toff: -1 }).tasks.onTime;
-assert(o0 && o0.offset === 0 && o0.canNext === false && /^\d\d\/\d\d – \d\d\/\d\d$/.test(o0.label), 'à la date prévue : semaine en cours (libellé « du … au … »)');
-assert(o1 && o1.offset === -1 && o1.canNext === true && o1.start < o0.start, 'à la date prévue : semaine précédente navigable (‹ ›)');
-assert(js.indexOf('Aujourd\'hui') > 0 && /saTodayBtn/.test(js), 'bouton Aujourd\'hui de la carte');
+// Répartition des tâches : SYNCHRONISÉE avec le graphique (même portée Année / Période / Semaine), sans navigation ni bouton « Aujourd'hui »
+const oY = get().tasks.onTime, oW = get({ scope: 'week' }).tasks.onTime;
+assert(oY && /^\d{4}$/.test(oY.label) && oY.total === oY.onTime + oY.late + oY.postponed, 'Répartition : portée Année par défaut (libellé = l\'année)');
+assert(oW && /^\d\d\/\d\d – \d\d\/\d\d$/.test(oW.label) && oW.start <= oW.end, 'Répartition : portée Semaine = libellé de la semaine du graphique');
+assert(!/saTodayBtn/.test(js) && /function splitBody/.test(js) && /cmpEmpty/.test(js), 'Répartition : plus de bouton Aujourd\'hui, état vide commun (.cmpEmpty)');
+const sp = get({ kind: 'weekly' }).objectives.split;
+assert(sp && sp.total === sp.atteint + sp.partiel + sp.non, 'Répartition des objectifs : atteints / partiels / non atteints (Périodiques ou Hebdomadaires selon le ⋮)');
 // Avancement (objectifs) : durée des tâches restantes vs temps réellement disponible (historique Chrono 4 semaines), seuil 20 %
 assert(ins.ADVANCE_LATE_PCT === 20, 'Avancement : seuil de retard 20 % (même règle que le bilan)');
 const sub = goals.secteursForPole(m.activityId, cat.key)[0] || { key: cat.key };

@@ -487,46 +487,41 @@
     return card;
   }
 
+  // ---------- Répartition (anneau) : suit le graphique (Tâches : portée Année / Période / Semaine ; Objectifs : Périodiques / Hebdomadaires) ----------
+  function splitBody(d) {
+    var isT = tab === 't', s = isT ? (d.tasks && d.tasks.onTime) : (d.objectives && d.objectives.split), w = el('div', 'saSplit');
+    var cur = (isT ? VIEWS : OVIEWS).filter(function (x) { return x[0] === (isT ? view : oview); })[0];
+    var lbl = (cur ? tr(cur[1]) : '') + (s && s.label ? ' · ' + s.label : '');
+    if (lbl) w.appendChild(el('p', 'meta saSplitLabel', lbl));
+    var tot = (s && s.total) || 0;
+    if (!tot) { w.appendChild(el('p', 'hint cmpEmpty', tr(isT ? 'Aucune tâche sur cette période' : 'Aucun objectif sur cette période'))); return w; } // même état vide que la Répartition du Chrono (.cmpEmpty)
+    var parts = isT ? [[s.onTime, GREEN, tr('à temps')], [s.late, RED, tr('retard')], [s.postponed, GREY, tr('reportées')]] : [[s.atteint, GREEN, tr('atteint')], [s.partiel, GREY, tr('partiel')], [s.non, RED, tr('non')]];
+    var svgNS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(svgNS, 'svg'); svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('class', 'pieSvg'); svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', tr('Répartition') + ' : ' + parts.map(function (p) { return p[2] + ' ' + p[0]; }).join(', '));
+    var angle = -Math.PI / 2, gap = parts.filter(function (p) { return p[0] > 0; }).length > 1 ? 0.035 : 0;
+    parts.forEach(function (p) {
+      if (!p[0]) return;
+      var sweep = p[0] / tot * Math.PI * 2, a0 = angle + Math.min(gap / 2, sweep / 2), a1 = Math.max(a0, angle + sweep - Math.min(gap / 2, sweep / 2));
+      var path = document.createElementNS(svgNS, 'path'); path.setAttribute('d', TMT.donutSlicePath(50, 50, 46, 27, a0, a1)); path.style.fill = p[1]; svg.appendChild(path);
+      angle += sweep;
+    });
+    var area = el('div', 'pieChartArea'); area.appendChild(svg);
+    var ctr = el('div', 'pieCenter'); ctr.appendChild(el('span', 'pieCenterValue', String(tot))); ctr.appendChild(el('span', 'pieCenterLabel', tr(isT ? 'tâches' : 'objectifs'))); area.appendChild(ctr);
+    var wrap = el('div', 'pieWrap'); wrap.appendChild(area);
+    var lg = el('div', 'pieLegend');
+    parts.forEach(function (p) {
+      var r = el('div', 'pieLegendRow'), dt = el('span', 'pieLegendDot'); dt.style.background = p[1];
+      r.appendChild(dt); r.appendChild(el('span', 'pieLegendLabel', p[2])); r.appendChild(el('span', 'pieLegendValue', String(p[0]))); lg.appendChild(r);
+    });
+    wrap.appendChild(lg); w.appendChild(wrap);
+    return w;
+  }
+
   // ---------- Cartes d'information ----------
   // Chaque définition : key, title, def (par défaut, non supprimable), body(d) -> noeud ou null (donnée absente).
   var CARDS = {
     t: [
-      { key: 'onTime', def: true, title: 'Tâches faites à la date prévue', body: function (d) {
-        var o = d.tasks && d.tasks.onTime; if (!o) return null;
-        var w = el('div', 'saOnTime');
-        if (!visitor) {
-          var nav = el('div', 'cmpNav cmpNav--sm cmpNav--fixed saDaysNav'); nav.style.setProperty('--nav-label-w', '190px');
-          var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Semaine précédente'));
-          var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Semaine suivante')); next.disabled = !o.canNext;
-          prev.addEventListener('click', function () { tOff = (o.offset || 0) - 1; load(); });
-          next.addEventListener('click', function () { if (o.canNext) { tOff = Math.min(0, (o.offset || 0) + 1); load(); } });
-          nav.appendChild(prev); nav.appendChild(el('span', 'cmpNavLabel', tr('Semaine du {a} au {b}', { a: o.label.split(' – ')[0], b: o.label.split(' – ')[1] }))); nav.appendChild(next);
-          w.appendChild(nav);
-          var today = el('button', 'iconBtn saTodayBtn', tr("Aujourd'hui")); today.type = 'button'; today.disabled = !(o.offset < 0);
-          today.addEventListener('click', function () { tOff = 0; load(); });
-          w.appendChild(today);
-        }
-        var parts = [[o.onTime, GREEN, tr('à temps')], [o.late, RED, tr('retard')], [o.postponed, GREY, tr('reportées')]], tot = o.total || 0;
-        var svgNS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(svgNS, 'svg'); svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('class', 'pieSvg'); svg.setAttribute('role', 'img');
-        svg.setAttribute('aria-label', tr('Tâches faites à la date prévue') + ' : ' + parts.map(function (p) { return p[2] + ' ' + p[0]; }).join(', '));
-        var angle = -Math.PI / 2, gap = parts.filter(function (p) { return p[0] > 0; }).length > 1 ? 0.035 : 0;
-        if (!tot) { var e0 = document.createElementNS(svgNS, 'path'); e0.setAttribute('d', TMT.donutSlicePath(50, 50, 46, 27, angle, angle + Math.PI * 2)); e0.style.fill = '#2b2e35'; svg.appendChild(e0); }
-        parts.forEach(function (p) {
-          if (!p[0]) return;
-          var sweep = p[0] / tot * Math.PI * 2, s = angle + Math.min(gap / 2, sweep / 2), e = Math.max(s, angle + sweep - Math.min(gap / 2, sweep / 2));
-          var path = document.createElementNS(svgNS, 'path'); path.setAttribute('d', TMT.donutSlicePath(50, 50, 46, 27, s, e)); path.style.fill = p[1]; svg.appendChild(path);
-          angle += sweep;
-        });
-        var area = el('div', 'pieChartArea'); area.appendChild(svg);
-        var ctr = el('div', 'pieCenter'); ctr.appendChild(el('span', 'pieCenterValue', has(o.pct) ? o.pct + ' %' : '–')); ctr.appendChild(el('span', 'pieCenterLabel', tr('à temps'))); area.appendChild(ctr);
-        var wrap = el('div', 'pieWrap'); wrap.appendChild(area);
-        var lg = el('div', 'pieLegend');
-        parts.forEach(function (p) {
-          var r = el('div', 'pieLegendRow'), dt = el('span', 'pieLegendDot'); dt.style.background = p[1];
-          r.appendChild(dt); r.appendChild(el('span', 'pieLegendLabel', p[2])); r.appendChild(el('span', 'pieLegendValue', String(p[0]))); lg.appendChild(r);
-        });
-        wrap.appendChild(lg); w.appendChild(wrap);
-        return w; } },
+      { key: 'onTime', def: true, title: 'Répartition', body: function (d) { return splitBody(d); } },
       { key: 'estimate', title: 'Durée estimée contre durée réelle', body: function (d) {
         var a = d.tasks && d.tasks.estimate; if (!a || !a.length) return null;
         var w = document.createElement('div');
@@ -605,7 +600,7 @@
     ],
     o: [
       { key: 'advance', def: true, title: 'Avancement', body: function (d) {
-        var a = d.objectives && d.objectives.advance; if (!a || !a.list || !a.list.length) return null;
+        var a = d.objectives && d.objectives.advance; if (!a || !a.list || !a.list.length) return el('p', 'hint cmpEmpty', tr('Pas assez d’historique pour estimer l’avancement.'));
         var w = document.createElement('div'), STATE = { avance: [GREEN, 'En avance'], heure: [YELLOW, 'À l’heure'], retard: [RED, 'En retard'] };
         a.list.forEach(function (r, i) {
           var st = STATE[r.state] || STATE.heure, bw = bar([[r.pct, st[0]]]); bw.classList.add('saMarked'); // repère : le temps nécessaire (100 %)
@@ -693,6 +688,7 @@
     ]
   };
 
+  CARDS.t.forEach(function (c) { c.tab = 't'; }); CARDS.o.forEach(function (c) { c.tab = 'o'; });
   function infoStore(k) { return 'tmt.statsInfo.' + k; }
   function loadAdded(k) {
     try { var a = JSON.parse(localStorage.getItem(infoStore(k)) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
@@ -724,14 +720,14 @@
 
   function askRemove(def) {
     var go = function () {
-      var arr = loadAdded(tab).filter(function (k) { return k !== def.key; });
-      saveAdded(tab, arr); render();
+      var arr = loadAdded(def.tab).filter(function (k) { return k !== def.key; });
+      saveAdded(def.tab, arr); render();
     };
     if (typeof TMT.confirmDelete !== 'function') { go(); return; }
     var name = tr(def.title);
     TMT.confirmDelete({
       title: tr('Retirer cette information ?'),
-      text: tr('« {name} » ne sera plus affichée dans l’onglet {tab}. Tu pourras la rajouter à tout moment.', { name: name, tab: tr(tab === 't' ? 'Tâches' : 'Objectifs') }),
+      text: tr('« {name} » ne sera plus affichée dans l’onglet {tab}. Tu pourras la rajouter à tout moment.', { name: name, tab: tr(def.tab === 't' ? 'Tâches' : 'Objectifs') }),
       onConfirm: function () { go(); return Promise.resolve(); }
     });
     var b = document.getElementById('categoryRemoveDeleteTasksBtn');
@@ -755,6 +751,7 @@
   }
   function goTab(t) {
     if (tab === t) return;
+    if (!visitor) { tab = t; if (cfg.onTab) cfg.onTab(tab); render(); return; } // page unique : tâches et objectifs mélangés, seul le graphique change
     slideDir = t === 'o' ? 1 : -1;
     if (datas[t] && activityId != null && !visitor) { var d0 = datas[t]; setTab(t); data = d0; render(); load(true); return; } // contenu déjà reçu : affiché tout de suite, rafraîchi ensuite sans reconstruire s'il est identique
     setTab(t);
@@ -764,7 +761,7 @@
   // Au-delà de 120 % du temps estimé : fenêtre standard (✕), une fois par période, avec le bilan existant (Garder / Alléger / Prolonger) appliqué aux objectifs en cours de l'activité.
   function capacityAlert() {
     var c = data && data.tasks && data.tasks.workload;
-    if (visitor || tab !== 't' || !c || !c.over || activityId == null || !zone || zone.classList.contains('hidden') || !TMT.ui || !TMT.ui.confirm) return;
+    if (visitor || !c || !c.over || activityId == null || !zone || zone.classList.contains('hidden') || !TMT.ui || !TMT.ui.confirm) return;
     var key = 'tmt.capAlert.' + activityId + '.' + c.periodStart;
     try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch (e) { /* stockage indisponible : l'alerte peut se répéter */ }
     var aid = activityId;
@@ -783,8 +780,9 @@
   function render() {
     if (!built) return;
     var sd = slideDir; slideDir = 0;
-    els.body = bodies[tab];
-    bodies[tab].classList.remove('hidden'); bodies[tab === 't' ? 'o' : 't'].classList.add('hidden');
+    var bt = visitor ? tab : 't';
+    els.body = bodies[bt];
+    bodies[bt].classList.remove('hidden'); bodies[bt === 't' ? 'o' : 't'].classList.add('hidden');
     if (sd && typeof els.body.animate === 'function') els.body.animate([{ transform: 'translateX(' + (sd * 40) + '%)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.22,.8,.3,1)' });
     renderCore();
     capacityAlert();
@@ -810,29 +808,30 @@
       fillHalfRuns();
       return;
     }
-    defs.filter(function (c) { return c.def; }).forEach(function (c) {
-      var n = c.body(data); if (n) els.body.appendChild(infoCard(c, n, false));
-    });
+    // Page unique : le bouton Tâches | Objectifs ne change que le graphique ; toutes les cartes (tâches ET objectifs) restent affichées.
+    var all = CARDS.t.concat(CARDS.o), byKey = function (k) { return all.filter(function (x) { return x.key === k; })[0]; };
+    var put = function (c, removable) { var n = c.body(data); if (n) els.body.appendChild(infoCard(c, n, removable)); };
+    put(byKey('advance'), false); put(byKey('onTime'), false); // Avancement juste sous le graphique, puis la Répartition (synchronisée avec lui)
+    all.filter(function (c) { return c.def && c.key !== 'advance' && c.key !== 'onTime'; }).forEach(function (c) { put(c, false); });
+    var addedAll = all.filter(function (c) { return !c.def && loadAdded(c.tab).indexOf(c.key) >= 0; });
     if (!adding) {
-      defs.filter(function (c) { return !c.def && added.indexOf(c.key) >= 0; }).forEach(function (c) {
-        var n = c.body(data); if (n) els.body.appendChild(infoCard(c, n, true));
-      });
+      addedAll.forEach(function (c) { put(c, true); });
       var add = el('button', 'cmpAdd'); add.type = 'button';
       add.appendChild(el('b', null, '+')); add.appendChild(document.createTextNode(tr('Ajouter une information')));
-      add.addEventListener('click', function () { adding = true; draft = added.slice(); render(); });
+      add.addEventListener('click', function () { adding = true; draft = addedAll.map(function (c) { return c.tab + ':' + c.key; }); render(); });
       els.body.appendChild(add);
       fillHalfRuns();
       return;
     }
-    defs.filter(function (c) { return !c.def; }).forEach(function (c) {
+    all.filter(function (c) { return !c.def; }).forEach(function (c) {
       var n = c.body(data); if (!n) return;
-      var sel = draft.indexOf(c.key) >= 0;
+      var id = c.tab + ':' + c.key, sel = draft.indexOf(id) >= 0;
       var g = el('div', 'saGh' + (sel ? ' sel' : '') + (HALF[c.key] ? ' saHalf' : '')); g.setAttribute('role', 'button'); g.setAttribute('aria-pressed', sel ? 'true' : 'false');
       var inner = el('div', 'saGin'); inner.appendChild(infoCard(c, n, false)); g.appendChild(inner);
       g.addEventListener('click', function () {
-        var i = draft.indexOf(c.key);
-        if (i >= 0) draft.splice(i, 1); else draft.push(c.key);
-        g.classList.toggle('sel', i < 0); g.setAttribute('aria-pressed', i < 0 ? 'true' : 'false');
+        var k = draft.indexOf(id);
+        if (k >= 0) draft.splice(k, 1); else draft.push(id);
+        g.classList.toggle('sel', k < 0); g.setAttribute('aria-pressed', k < 0 ? 'true' : 'false');
       });
       els.body.appendChild(g);
     });
@@ -840,7 +839,10 @@
     var cancel = el('button', 'saCancel', tr('Annuler')); cancel.type = 'button';
     cancel.addEventListener('click', function () { adding = false; draft = []; render(); });
     var apply = el('button', 'saApply', tr('Appliquer')); apply.type = 'button';
-    apply.addEventListener('click', function () { saveAdded(tab, draft.slice()); adding = false; draft = []; render(); });
+    apply.addEventListener('click', function () {
+      ['t', 'o'].forEach(function (k) { saveAdded(k, draft.filter(function (x) { return x.indexOf(k + ':') === 0; }).map(function (x) { return x.slice(2); })); });
+      adding = false; draft = []; render();
+    });
     acts.appendChild(cancel); acts.appendChild(apply); els.body.appendChild(acts);
     fillHalfRuns();
   }
@@ -864,7 +866,7 @@
   }
   // Précharge l'autre onglet (état par défaut : décalages à 0) pour que le glissement ait toujours sa voisine à montrer.
   function prefetchOther() {
-    if (activityId == null) return;
+    if (activityId == null || !visitor) return; // propre page : une seule page, rien à précharger
     var o = tab === 't' ? 'o' : 't', seq = loadSeq;
     cfg.fetch(activityId, buildQs(o, 0, 0)).then(function (r) {
       if (seq !== loadSeq || tab === o || !r.data) return;

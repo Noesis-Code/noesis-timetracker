@@ -23,7 +23,7 @@
 
   // ---------- Vue : liste, état vide, barre « Nouvel objectif… » ----------
   var root = el('div', 'objView'), dock, input, sendBtn, panel, panelBody, panelFoot, panelKicker, stepBtn, stepLabel, stepPos, panelForm = null, goPropose = function () {}, advance = null, goBack = null, seq = { base: 0, count: 1, i: 0 };
-  var state = { filter: 'en_cours', items: [], total: 0, shown: false };
+  var state = { items: [], total: 0, shown: false };
 
   function buildView() {
     // Vue Objectifs (5 nov. 2026) : la liste des activités (comme avant) ; au-dessus, UN bouton qui ouvre la liste des objectifs dans un pop-up (un objectif peut être lié à plusieurs activités).
@@ -70,7 +70,6 @@
     TMT.ui.dockKeyboard(dock, input); // MÊME code que la barre « Nouvelle tâche… » : juste au-dessus du clavier
   }
   function syncDock() { if (dock) dock.classList.toggle('hidden', !(state.shown && host.getClientRects().length && !host.classList.contains('hidden'))); }
-  function syncFilter() {}
   function bar(p) {
     var t = el('div', 'goalMainProgressTrack objBar'), f = el('div', 'goalMainProgressFill');
     f.style.width = Math.round(Math.max(0, Math.min(1, p)) * 100) + '%'; t.appendChild(f); return t;
@@ -78,29 +77,21 @@
   var popup = null;
   function openObjectivesPopup() {
     var win = openModal(tr('Mes objectifs'), { onClose: function () { popup = null; } });
-    // Filtre En cours / Atteints / Tous : le même contrôle que le tri des Tâches (icône à curseurs + .statsPeriodMenu), dans le pop-up.
-    var top = el('div', 'tasksTopRow objTopRow'), wrap = el('div', 'statsPeriodMenuWrap tasksSortWrap'), sb = el('button', 'cmpEdit tasksSortBtn'); sb.type = 'button'; sb.setAttribute('aria-haspopup', 'true'); sb.setAttribute('aria-label', tr('Filtrer'));
-    sb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 8h3M11 8h9M9 6a2 2 0 1 0 0 4a2 2 0 1 0 0-4M4 16h9M17 16h3M15 14a2 2 0 1 0 0 4a2 2 0 1 0 0-4"></path></svg>';
-    var menu = el('div', 'statsPeriodMenu hidden'), list = el('div', 'objList');
+    // Tous les objectifs (plus de filtre) : une ligne par objectif ; un toucher ouvre le détail existant.
+    var list = el('div', 'objList');
     function draw() {
-      Array.prototype.forEach.call(menu.children, function (b) { b.classList.toggle('active', b.dataset.filter === state.filter); });
-      api('GET', '/api/objectifs?filtre=' + state.filter).then(function (r) {
+      api('GET', '/api/objectifs?filtre=tous').then(function (r) {
         list.textContent = ''; var items = (r && r.objectifs) || [];
-        items.forEach(function (o) { // une ligne : nom de l'objectif + activité(s) liée(s) en petit ; un toucher ouvre le détail existant
+        items.forEach(function (o) { // une ligne : nom de l'objectif + activité(s) liée(s) en petit
           var row = el('button', 'objRowLine'); row.type = 'button';
           row.appendChild(el('span', 'objRowName', o.title)); row.appendChild(el('span', 'objMeta', (o.activities && o.activities.length ? o.activities.map(function (x) { return x.name; }).join(', ') : o.activity.name)));
           row.addEventListener('click', function () { win.close(); openDetail(o.id); });
           list.appendChild(row);
         });
-        if (!items.length) list.appendChild(el('p', 'hint objNone', tr(state.filter === 'atteints' ? 'Aucun objectif atteint pour l’instant.' : state.filter === 'tous' ? 'Aucun objectif pour l’instant.' : 'Aucun objectif en cours.')));
+        if (!items.length) list.appendChild(el('p', 'hint objNone cmpEmpty', tr('Aucun objectif pour l’instant.')));
       }).catch(function () {});
     }
-    [['en_cours', 'En cours'], ['atteints', 'Atteints'], ['tous', 'Tous']].forEach(function (f) {
-      var it = el('button', 'statsPeriodMenuItem', tr(f[1])); it.type = 'button'; it.dataset.filter = f[0];
-      it.addEventListener('click', function () { menu.classList.add('hidden'); state.filter = f[0]; draw(); }); menu.appendChild(it);
-    });
-    sb.addEventListener('click', function (e) { e.stopPropagation(); var o = menu.classList.contains('hidden'); document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); }); if (o) menu.classList.remove('hidden'); });
-    wrap.appendChild(sb); wrap.appendChild(menu); top.appendChild(wrap); win.body.appendChild(top); win.body.appendChild(list);
+    win.body.appendChild(list);
     popup = { redraw: draw }; draw();
   }
   function load() { if (popup) popup.redraw(); }
@@ -379,7 +370,7 @@
         .then(function (P) { return (form.create ? api('POST', '/api/activities', { name: form.createName }).then(function (a) { return a.id; }) : Promise.resolve(form.activityId)).then(function (activityId) {
           return api('POST', '/api/objectifs', { hoursPerWeek: form.hours, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
         }); })
-        .then(function () { input.value = ''; state.filter = 'en_cours'; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); })
+        .then(function () { input.value = ''; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); })
         .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
     }
     form._show = show; show(cur);
@@ -473,7 +464,7 @@
       makeActivity.then(function (activityId) {
         return api('POST', '/api/objectifs', { hoursPerWeek: form.hours, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
       }).then(function () {
-        input.value = ''; state.filter = 'en_cours'; syncFilter();
+        input.value = '';
         if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {});
         if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges();
         load(); seq.i += 1; nextQueued();

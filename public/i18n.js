@@ -364,6 +364,9 @@
     // par renderChart() une fois zoomé (pincement à deux doigts) — voir
     // #chartZoomResetBtn dans index.html et chartViewState dans app.js.
     'Répartition': 'Breakdown',
+    'Aucune tâche sur cette période': 'No tasks in this period',
+    'Aucun objectif sur cette période': 'No objectives in this period',
+    'Pas assez d’historique pour estimer l’avancement.': 'Not enough history to estimate progress.',
     "Rien d'enregistré sur cette période.": 'Nothing recorded for this period.',
     'Graphique': 'Chart',
     'Répartition du temps par activité': 'Time breakdown by activity',

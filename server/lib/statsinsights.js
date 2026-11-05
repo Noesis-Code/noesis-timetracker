@@ -274,13 +274,12 @@ function tasksCards(ctx) {
   const out = { workload: null, onTime: null, estimate: null, weekdays: null, remaining: null, postponed: null, rhythm: null, streak: null, busy: null, capacity: null, assignees: null, urgent: null };
   const doneIn = (t) => t.done && t.doneDay && inRange(t.doneDay, { start: range.start, end: range.end });
 
-  // « Tâches faites à la date prévue » : UNE semaine (lundi–dimanche) à la fois, décalée de ctx.toff (<= 0), comme la Répartition du Chrono.
+  // Répartition des tâches (à temps / en retard / reportées) : SYNCHRONISÉE avec le graphique, donc sur la même portée (Année / Période / Semaine) ; le libellé de période suit.
   out.onTime = safe(() => {
-    const toff = Math.max(-520, Math.min(0, Number(ctx.toff) || 0));
-    const start = goals.addDays(goals.mostRecentMonday(ctx.realToday), toff * 7), end = goals.addDays(start, 6);
-    const cur = onTimeFor(allTasks, ctx.realToday, { start, end });
+    const cur = onTimeFor(allTasks, ctx.today, range);
     const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
-    return { pct: cur.pct, onTime: cur.onTime, late: cur.late, postponed: cur.postponed, total: cur.total, label: fmt(start) + ' – ' + fmt(end), start, end, offset: toff, canNext: toff < 0 };
+    const label = !range.start ? '' : (view === 'year' ? range.start.slice(0, 4) : fmt(range.start) + ' – ' + fmt(range.end));
+    return { pct: cur.pct, onTime: cur.onTime, late: cur.late, postponed: cur.postponed, total: cur.total, label, start: range.start, end: range.end };
   });
 
   // « Capacité » : temps réellement passé / temps estimé des tâches de la période courante (28 jours) ; au-delà de CAPACITY_ALERT_PCT, le client propose le bilan.
@@ -440,7 +439,7 @@ function unitEnd(o) { return o.kind === 'weekly' ? goals.weekBounds(o.periodStar
 
 function objectivesCards(ctx) {
   const { activityId, today, scope, tasks, objs, realToday, isCurrentYear } = ctx;
-  const out = { advance: null, target: null, achieved: null, weeks: null, carried: null, linked: null, pressure: null };
+  const out = { advance: null, split: null, target: null, achieved: null, weeks: null, carried: null, linked: null, pressure: null };
   // « Avancement » : par objectif (secteur, ou pôle sans secteur), la DURÉE des tâches restantes à faire comparée au temps que l'utilisateur va réellement passer d'ici la fin de la période,
   // estimé d'après ses 4 dernières semaines de Chrono. Au-delà de ADVANCE_LATE_PCT (20 %) de temps manquant : « En retard » (même seuil que le bilan) ; en deçà : « À l'heure » ; sinon « En avance ».
   out.advance = safe(() => {
@@ -465,6 +464,12 @@ function objectivesCards(ctx) {
   const last = starts.length ? starts[starts.length - 1] : null;
   const prevS = starts.length > 1 ? starts[starts.length - 2] : null;
   const lastList = last ? started.filter((o) => unitStart(o) === last) : [];
+
+  // Répartition des objectifs (atteints / partiels / non atteints) : mêmes objectifs que le graphique (Périodiques ou Hebdomadaires selon son ⋮, même année).
+  out.split = safe(() => {
+    const a = started.filter((o) => o.status === 'atteint').length, p = started.filter((o) => o.status === 'partiel').length;
+    return { atteint: a, partiel: p, non: started.length - a - p, total: started.length, kind: ctx.okind, label: ctx.yearNum ? String(ctx.yearNum) : '' };
+  });
 
   const targetCore = (mine, keys) => {
     const targetMin = mine.reduce((s, o) => s + o.est, 0);
