@@ -511,3 +511,5 @@
 .goalsTopAddMonth { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.3; }
 .goalsEditField { margin-bottom: 12px; }
 .goalsDayDock .tasksProposeBody input, .goalsDayDock .tasksProposeBody textarea { width: 100%; box-sizing: border-box; }
+/* R35 : « Enregistrer » grisé (même rendu que .cmpBtnIdle) tant que le titre est vide, violet dès qu'il y a un titre. */
+.goalsDayDock .tasksSaveBtn:disabled { background: var(--card); color: var(--text-light); box-shadow: inset 0 0 0 1px var(--border); border-color: transparent; opacity: 1; cursor: default; }
