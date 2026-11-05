@@ -268,6 +268,7 @@ function workedDays(activityId, scope, today, kind, offset, allTasks) {
 // Seuil d'alerte de la carte « Capacité » : au-delà de 120 % (temps passé > 120 % du temps estimé), le bilan Garder / Alléger / Prolonger est proposé une fois par période.
 const CAPACITY_ALERT_PCT = 120;
 const DEFAULT_TASK_MINUTES = 30;
+const ADVANCE_LATE_PCT = 20; // même seuil que le bilan (écart > 20 % : proposer le bilan)
 function tasksCards(ctx) {
   const { activityId, userId, today, scope, tasks, allTasks, range, view } = ctx;
   const out = { workload: null, onTime: null, estimate: null, weekdays: null, remaining: null, postponed: null, rhythm: null, streak: null, busy: null, capacity: null, assignees: null, urgent: null };
@@ -439,7 +440,26 @@ function unitEnd(o) { return o.kind === 'weekly' ? goals.weekBounds(o.periodStar
 
 function objectivesCards(ctx) {
   const { activityId, today, scope, tasks, objs, realToday, isCurrentYear } = ctx;
-  const out = { target: null, achieved: null, weeks: null, carried: null, linked: null, pressure: null };
+  const out = { advance: null, target: null, achieved: null, weeks: null, carried: null, linked: null, pressure: null };
+  // « Avancement » : par objectif (secteur, ou pôle sans secteur), la DURÉE des tâches restantes à faire comparée au temps que l'utilisateur va réellement passer d'ici la fin de la période,
+  // estimé d'après ses 4 dernières semaines de Chrono. Au-delà de ADVANCE_LATE_PCT (20 %) de temps manquant : « En retard » (même seuil que le bilan) ; en deçà : « À l'heure » ; sinon « En avance ».
+  out.advance = safe(() => {
+    const per = viewRange('period', realToday), weeksLeft = Math.max(1, goals.daysBetween(realToday, per.end) + 1) / 7, units = [];
+    scope.poles.forEach((p) => { if (p.sectors.length) p.sectors.forEach((s) => units.push({ key: s.key, label: s.label, keys: [s.key] })); else units.push({ key: p.key, label: p.label, keys: [p.key] }); });
+    const list = [];
+    units.forEach((u) => {
+      const open = (ctx.allTasks || []).filter((t) => u.keys.indexOf(t.key) >= 0 && !t.done && !t.closed && (!t.due || t.due <= per.end)).slice(0, 300);
+      if (!open.length) return;
+      let need = 0; open.forEach((t) => { const e = goals.estimateForGoal(activityId, t.key, 'weekly', t.label); need += e && e.minutes ? e.minutes : DEFAULT_TASK_MINUTES; });
+      const hist = minutesFor(activityId, u.keys, goals.addDays(realToday, -28), goals.addDays(realToday, -1));
+      if (!hist) return; // sans historique : rien à comparer
+      const avail = Math.round(hist / 4 * weeksLeft);
+      const state = need <= avail ? 'avance' : need <= avail * (1 + ADVANCE_LATE_PCT / 100) ? 'heure' : 'retard';
+      list.push({ key: u.key, label: u.label, needMin: need, availMin: avail, pct: Math.min(100, Math.round(avail / need * 100)), state });
+    });
+    return list.length ? { list, periodEnd: per.end, latePct: ADVANCE_LATE_PCT } : null;
+  });
+
   const started = objs.filter((o) => unitStart(o) <= today);
   const starts = Array.from(new Set(started.map(unitStart))).sort();
   const last = starts.length ? starts[starts.length - 1] : null;
@@ -735,4 +755,4 @@ function memberStats(activityId, scopeParam, yearParam, poleKey) {
     series: { labels, todayIndex, noToday, max: niceMax(max), members: seriesMembers } };
 }
 
-module.exports = { insightsForActivity, visitorInsights, glisseDetail, memberStats, CAPACITY_ALERT_PCT };
+module.exports = { insightsForActivity, visitorInsights, glisseDetail, memberStats, CAPACITY_ALERT_PCT, ADVANCE_LATE_PCT };
