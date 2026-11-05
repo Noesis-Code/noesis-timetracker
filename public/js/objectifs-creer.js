@@ -22,7 +22,7 @@
   function plural(n, one, many) { return n + ' ' + tr(n > 1 ? many : one); }
 
   // ---------- Vue : liste, état vide, barre « Nouvel objectif… » ----------
-  var root = el('div', 'objView'), filterBox, listBox, emptyBox, actsTitle, dock, input, sendBtn, panel, panelBody, panelFoot, panelKicker, stepBtn, stepLabel, stepPos, panelForm = null, goPropose = function () {}, advance = null, seq = { base: 0, count: 1, i: 0 };
+  var root = el('div', 'objView'), filterBox, listBox, emptyBox, actsTitle, dock, input, sendBtn, panel, panelBody, panelFoot, panelKicker, stepBtn, stepLabel, stepPos, panelForm = null, goPropose = function () {}, advance = null, goBack = null, seq = { base: 0, count: 1, i: 0 };
   var state = { filter: 'en_cours', items: [], total: 0, shown: false };
 
   function buildView() {
@@ -61,6 +61,19 @@
     var ph = el('div', 'tasksProposeHead'); panelKicker = el('span', 'tasksProposeKicker', tr('Nouvel objectif')); ph.appendChild(panelKicker); ph.appendChild(TMT.ui.closeBtn(function () { closePanel(); }, tr('Fermer')));
     panelBody = el('div', 'tasksProposeBody'); panelFoot = el('div', 'objPanelFoot');
     panel.appendChild(ph); panel.appendChild(panelBody); panel.appendChild(panelFoot); dock.appendChild(panel);
+    (function () { // le geste appartient au panneau ouvert : jamais confondu avec le balayage de page vers les statistiques
+      var x0 = 0, y0 = 0;
+      function done(dx, dy) {
+        if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx) * 0.8) return;
+        if (dx < 0) { if (advance && !stepBtn.disabled) advance(); } else if (goBack) goBack();
+      }
+      panel.addEventListener('touchstart', function (e) { e.stopPropagation(); var t = e.changedTouches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
+      panel.addEventListener('touchmove', function (e) { // geste nettement horizontal : le navigateur ne le prend jamais (ni retour arrière, ni défilement latéral)
+        e.stopPropagation(); var tt = e.changedTouches[0], dx = tt.clientX - x0, dy = tt.clientY - y0;
+        if (e.cancelable && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) e.preventDefault();
+      }, { passive: false });
+      panel.addEventListener('touchend', function (e) { var t = e.changedTouches[0]; done(t.clientX - x0, t.clientY - y0); }, { passive: true });
+    })();
     var bar = el('div', 'tasksComposer');
     input = el('textarea', 'tasksText'); input.rows = 1; input.maxLength = 140; input.placeholder = tr('Nouvel objectif…'); input.setAttribute('aria-label', tr('Nouvel objectif'));
     sendBtn = el('button', 'cmpSend'); sendBtn.type = 'button'; sendBtn.setAttribute('aria-label', tr('Envoyer'));
@@ -212,10 +225,10 @@
   function total() { return seq.base + 2 * seq.count; }
   function showStep(n, next, fn, enabled) { // next : nom de l'étape suivante, ou null = dernière étape (« Terminer »)
     dock.classList.add('expSave'); advance = fn;
-    stepLabel.textContent = next ? tr('Passer à') + ' ' + tr(next) : tr('Terminer'); stepPos.textContent = n + '/' + total(); stepBtn.disabled = !enabled;
+    stepLabel.textContent = next ? tr('Suivant') : tr('Terminer'); stepBtn.setAttribute('aria-label', (next ? tr('Suivant') + ' : ' + tr(next) : tr('Terminer')) + ' (' + n + '/' + total() + ')'); stepPos.textContent = n + '/' + total(); stepBtn.disabled = !enabled;
   }
   function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
-    dock.classList.remove('expSave'); advance = null; panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; queue = []; seq = { base: 0, count: 1, i: 0 };
+    dock.classList.remove('expSave'); advance = null; goBack = null; panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; queue = []; seq = { base: 0, count: 1, i: 0 };
   }
 
   // ---------- Fenêtre « Nouvel objectif » ----------
@@ -230,10 +243,11 @@
   }
 
   function openComposer(ctx) {
-    var form = { title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null };
+    var form = ctx._form || (ctx._form = { title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null, _ctx: ctx });
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
     panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Nouvel objectif');
-    form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed; form.title = ctx.title; panelForm = form;
+    if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
+    panelForm = form; goBack = null;
     function syncGo() { stepBtn.disabled = !form.dateOk; }
     var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.setAttribute('aria-label', tr('Objectif'));
     titleIn.addEventListener('input', function () { form.title = titleIn.value; });
@@ -367,6 +381,7 @@
   // ---------- Fenêtre « Étapes proposées » ----------
   function openSteps(form, proposal, actName) {
     var P = proposal, edited = { periods: {}, weeks: {}, tasks: {} }, expanded = { 1: true }, showAll = false;
+    goBack = function () { if (form._ctx) openComposer(form._ctx); }; // balayage vers la droite : retour aux paramètres (rien n'est perdu)
     panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Étapes proposées'); panelForm = { steps: true };
     var win = { body: panelBody, foot: panelFoot };
     panelBody.appendChild(el('p', 'hint objSub', P.title + ' · ' + durText(form)));
