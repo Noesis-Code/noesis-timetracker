@@ -89,3 +89,9 @@
 .objPinBtn { position: static; flex: none; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--text-light); cursor: pointer; }
 .objTitleRow .statsPeriodMenu { top: 44px; left: auto; right: 0; min-width: 200px; }
 .objDock .attachMenuWrap { display: inline-flex; }
+/* Panneau des paramètres (gabarit .tasksPropose du panneau d'ajout de tâche) : pied de message, fourchette en petit, date imposée. */
+.objPanelFoot { flex: none; }
+.objPanelFoot:empty { display: none; }
+.objRange { margin: 0; font-size: 13px; }
+.objOffer { align-self: flex-start; margin-bottom: 8px; }
+.objDock .tasksPropose .objField:last-child { margin-bottom: 0; }

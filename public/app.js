@@ -2304,6 +2304,7 @@
 
   function switchTab(tab, opts) {
     if (!tabAllowed(tab)) tab = firstTab();
+    var fromGoalsStats = !$('tab-stats').classList.contains('hidden') && TMT.statsContext && TMT.statsContext() === 'goals'; // retour des statistiques vers la Feuille de route : on garde la dernière vue (Tâches ou Objectifs)
     // 5 oct. 2026 (Emilien) : Historique/Archives reviennent enroulés (et sans réserve d'espace) à chaque changement d'onglet.
     collapseChronoHistory();
     if (TMT.collapseGoalsHistory) TMT.collapseGoalsHistory();
@@ -2343,7 +2344,7 @@
     }
     else {
       if (tab === 'community') loadCommunity();
-      else if (tab === 'goals') { if (TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(); TMT.loadGoalsTab(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
+      else if (tab === 'goals') { if (!fromGoalsStats && TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(); TMT.loadGoalsTab(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
         $('chronoHistoryPanel').classList.add('hidden');

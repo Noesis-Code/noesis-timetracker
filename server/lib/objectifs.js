@@ -12,6 +12,7 @@ const dates = require('./dates');
 const goals = require('./goals');
 const goalstasks = require('./goalstasks');
 const textlimits = require('./textlimits');
+const durees = require('./objectifs-durees');
 
 db.exec(`CREATE TABLE IF NOT EXISTS user_objectives (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -153,20 +154,55 @@ function nextWeekTaskCount(userId) {
   } catch (e) { return 0; }
 }
 
+// Durées réelles ANONYMES des objectifs atteints, par catégorie (aucun identifiant, aucun texte) ; remplace la table dès 30 objectifs.
+function learnedDurations() {
+  const out = {};
+  db.prepare('SELECT startDate, metaJson FROM user_objectives').all().forEach((r) => {
+    const m = JSON.parse(r.metaJson || '{}');
+    if (m.cat && m.attainedAt) (out[m.cat] = out[m.cat] || []).push(Math.max(1, Math.round(daysBetween(r.startDate, m.attainedAt) / 7)));
+  });
+  return out;
+}
+// Facteur de l'utilisateur : durée réelle / durée prévue de ses objectifs passés (atteints, ou échéance dépassée sans être atteints).
+function userRatios(userId) {
+  const td = today(), out = [];
+  db.prepare('SELECT startDate, endDate, metaJson FROM user_objectives WHERE userId = ?').all(userId).forEach((r) => {
+    const m = JSON.parse(r.metaJson || '{}'), planned = daysBetween(r.startDate, r.endDate);
+    if (planned < 7) return;
+    if (m.attainedAt) out.push(daysBetween(r.startDate, m.attainedAt) / planned);
+    else if (r.endDate < td) out.push(daysBetween(r.startDate, td) / planned);
+  });
+  return out;
+}
+// Tâches : jamais dans l'offre gratuite ; Expansion les génère.
+let tasksCheck = null;
+function setTasksCheck(fn) { tasksCheck = fn; }
+function tasksAllowed(userId) { try { return tasksCheck ? !!tasksCheck(userId) : !!require('./offer1access').hasOffer1Access(userId); } catch (e) { return false; } }
+
 // Contexte du formulaire « Nouvel objectif » : dates déduites, activité proposée, objectifs existants. Ne crée rien.
 function contexte(userId, body) {
   const text = String((body && body.text) || '');
   const title = cleanTitle(text);
   const found = parseDuration(text);
-  const amount = Number(body && body.amount) || (found ? found.amount : 3);
-  const unit = (body && body.unit) || (found ? found.unit : 'mois');
   const start = today();
-  const end = computeEnd(start, amount, unit);
+  const manual = !!(body && body.amount && body.unit);
+  const explicit = durees.explicitDate(text, start);
+  const fixedDate = durees.isFixedDate(text, start);
+  // Date butoir proposée (sans IA) : date écrite > durée écrite > base de durées (jamais pour une date imposée) > 3 mois par défaut.
+  const est = manual || found || fixedDate ? null : durees.estimate(title, { learned: learnedDurations(), ratios: userRatios(userId) });
+  let amount, unit, end;
+  if (manual) { amount = Number(body.amount); unit = body.unit; end = body.endDate && isDay(body.endDate) ? body.endDate : computeEnd(start, amount, unit); }
+  else if (explicit) { end = explicit; amount = Math.max(1, Math.round(daysBetween(start, end) / 7)); unit = 'semaines'; }
+  else if (found) { amount = found.amount; unit = found.unit; end = computeEnd(start, amount, unit); }
+  else if (est) { amount = est.weeks; unit = 'semaines'; end = addDays(start, est.weeks * 7); }
+  else { amount = 3; unit = 'mois'; end = computeEnd(start, amount, unit); }
   const ranked = rankActivities(userId, text);
   const best = ranked[0] && ranked[0].score > 0 ? ranked[0] : null;
   const existing = db.prepare("SELECT id, title, activityId, endDate FROM user_objectives WHERE userId = ? AND endDate >= ? ORDER BY endDate").all(userId, start);
   return {
     title, amount, unit, startDate: start, endDate: end, periodWeeks: defaultPeriodWeeks(start, end),
+    fixedDate, dateConfirmed: !!explicit || manual || !!found,
+    estimate: est ? { label: est.label, weeks: est.weeks, p10: est.p10, p90: est.p90, typicalWeeks: est.typicalWeeks, source: est.source, endDate: end, p10End: addDays(start, est.p10 * 7), p90End: addDays(start, est.p90 * 7) } : null,
     activities: ranked, suggestedActivityId: best ? best.id : null, createName: suggestedActivityName(title),
     objectives: existing, nextWeekTasks: nextWeekTaskCount(userId), tasksPerWeek: TASKS_PER_WEEK,
   };
@@ -295,7 +331,8 @@ async function proposer(userId, body) {
   if (body.activityId) { const a = userActivities(userId).find((x) => x.id === Number(body.activityId)); if (a) activityName = a.name; }
   let tasks = await aiProposal(userId, title, periods, weekly, activityName);
   if (!tasks) tasks = fallbackProposal(title, periods, weekly);
-  return { title, startDate: start, endDate: end, periodWeeks, weekly, periods, weekTasks: tasks };
+  const canTasks = tasksAllowed(userId);
+  return { title, startDate: start, endDate: end, periodWeeks, weekly, periods, weekTasks: canTasks ? tasks : [], canGenerateTasks: canTasks };
 }
 
 // ---- Création (après validation) ----
@@ -382,7 +419,7 @@ function creer(userId, body) {
     p.title = clip(given[i] && given[i].title) || (i === periods.length - 1 ? title : 'Étape ' + (i + 1));
     if (weekly) p.weeks.forEach((w, k) => { w.text = clip(given[i] && given[i].weeks && given[i].weeks[k] && (given[i].weeks[k].text !== undefined ? given[i].weeks[k].text : given[i].weeks[k])); });
   });
-  const labels = (Array.isArray(body.weekTasks) ? body.weekTasks : []).map((l) => String(l || '').trim()).filter(Boolean).slice(0, 5);
+  const labels = !tasksAllowed(userId) ? [] : (Array.isArray(body.weekTasks) ? body.weekTasks : []).map((l) => String(l || '').trim()).filter(Boolean).slice(0, 5);
   let catKey = null;
   const week1End = periods[0].weeks[0].endDate;
   const taskIds = [];
@@ -390,6 +427,8 @@ function creer(userId, body) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(userId, act.id, title, amount, unit, start, body.endDate, periodWeeks, weekly ? 1 : 0, parentId, JSON.stringify(periods), '[]', new Date().toISOString());
   const id = Number(info.lastInsertRowid);
+  const est0 = durees.estimate(title);
+  db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(est0 ? { cat: est0.id, plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7), proposed: { p10: est0.p10, p90: est0.p90 } } : {}), id);
   catKey = bridge(db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(id), periods) || (labels.length ? targetCategory(act.id, act.name) : null);
   labels.forEach((label, k) => {
     const due = addDays(start, Math.min(1 + 2 * k, daysBetween(start, week1End)));
@@ -464,7 +503,11 @@ function semaine(userId, id, n, i, done) {
   const r = rowOf(userId, id), periods = JSON.parse(r.stepsJson);
   const w = periods[Number(n) - 1] && periods[Number(n) - 1].weeks[Number(i) - 1];
   if (!w) throw err('Semaine introuvable.', 404);
-  w.done = !!done; save(r, periods, JSON.parse(r.metaJson || '{}'));
+  w.done = !!done;
+  const meta = JSON.parse(r.metaJson || '{}');
+  const all = periods.every((p) => p.weeks.every((x) => x.done));
+  if (all && !meta.attainedAt) meta.attainedAt = today(); else if (!all) delete meta.attainedAt; // sert à l'apprentissage des durées (anonyme)
+  save(r, periods, meta);
   return get(userId, id);
 }
 function bilan(userId, id, action, n) {
@@ -505,4 +548,4 @@ function duree(userId, id, periodWeeks) {
   return get(userId, id);
 }
 
-module.exports = { lire, setReadCaller, aiAllowed, defaultPeriodWeeks, contexte, proposer, creer, get, liste, semaine, bilan, duree, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, defaultPeriodWeeks, contexte, proposer, creer, get, liste, semaine, bilan, duree, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

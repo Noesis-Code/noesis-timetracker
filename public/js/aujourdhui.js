@@ -753,7 +753,7 @@
   // ---------- Tri (demande d'Émilien, 3 nov. 2026) : « Activité » (défaut, arbre replié), « Aujourd'hui », « Objectif », « Responsable » ----------
   var SORT_KEY = 'noesis_today_sort_v1', SORTS = ['activity', 'today', 'objective', 'assignee'];
   var SORT_LABELS = { activity: 'Activité', today: 'Aujourd’hui', objective: 'Objectif', assignee: 'Responsable' };
-  var sortMode = 'activity', openNodes = {}; // openNodes : branches dépliées de l'arbre, gardées le temps de la session de la vue
+  var sortMode = 'today', openNodes = {}; // openNodes : branches dépliées de l'arbre, gardées le temps de la session de la vue
   try { var savedSort = localStorage.getItem(SORT_KEY); if (savedSort === 'priority' || savedSort === 'duration') savedSort = 'today'; if (SORTS.indexOf(savedSort) >= 0) sortMode = savedSort; } catch (e) {}
   function cmpNum(a, b) { return a < b ? -1 : a > b ? 1 : 0; }
   // Une branche repliable : ligne (nom + chevron à droite, R21) puis son contenu, visible seulement si dépliée.

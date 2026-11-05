@@ -62,7 +62,7 @@
       if (!g) return;
       var dx = e.touches[0].clientX - g.x, dy = e.touches[0].clientY - g.y;
       if (!g.drag) {
-        if (g.swallow) { g.dx = dx; if (e.cancelable) e.preventDefault(); return; }
+        if (g.swallow) { if (e.cancelable) e.preventDefault(); return; }
         var axis = TMT.axisLock.move(g.lock, dx, dy); // verrouillage d'axe (helper commun)
         if (!axis) return;
         if (axis === 'y') { g = null; return; } // défilement vertical natif
@@ -70,16 +70,6 @@
         if (g.sc && (dir > 0 || !(g.startLeft <= 1 && g.sc.scrollLeft <= 1))) { g = null; return; } // zone défilant horizontalement (heatmap, graphique)
         var d = cfg.neighbor(dir);
         if (!d) { if (cfg.swallow && cfg.swallow(dir)) g.swallow = true; else g = null; return; }
-        if (cfg.noFollow) { // le contenu ne suit JAMAIS le doigt : au relâchement (≥ 60 px), on change de page d'un coup
-          g.swallow = true; g.dx = dx; g.jump = d; TMT.axisLock.hold(g.lock, g.tg);
-          g.fin = function (ev) {
-            var s0 = g; g = null; window.removeEventListener('touchend', s0.fin, true); window.removeEventListener('touchcancel', s0.fin, true);
-            TMT.axisLock.release(s0.lock); if (ev.stopPropagation) ev.stopPropagation();
-            if (ev.type !== 'touchcancel' && Math.abs(s0.dx) >= 60) { if (s0.jump.start) s0.jump.start(); s0.jump.commit(); }
-          };
-          window.addEventListener('touchend', g.fin, true); window.addEventListener('touchcancel', g.fin, true);
-          if (e.cancelable) e.preventDefault(); return;
-        }
         var hr = d.host.getBoundingClientRect(), cr = d.cur.getBoundingClientRect();
         var top = cr.top - hr.top; // AVANT d'afficher la voisine (sinon décalage vertical)
         if (d.start) d.start();
@@ -1000,7 +990,7 @@
   function place() {
     if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (groupOn ? 2 : 1) : (sharedOn ? 2 : 1) };
     if (showing('tab-chrono')) return { ctx: 'chrono', idx: 0 };
-    if (showing('tab-goals') && showing('goalsCapturePage') && !showing('goalsActivitiesView')) return { ctx: 'goals', idx: 0 }; // vue « Objectifs » (liste des activités) : pas de points, mais le balayage vers les statistiques reste actif
+    if (showing('tab-goals') && showing('goalsCapturePage')) return { ctx: 'goals', idx: 0 }; // Tâches ET Objectifs = la même page 1 = un seul point (le sélecteur est dans la page)
     return null;
   }
   function paintDots() {
@@ -1223,7 +1213,7 @@
     lastWarm = Date.now(); inst.open();
   }, { passive: true });
   if (goalsZone) slidePager({
-    zone: goalsZone, noFollow: true,
+    zone: goalsZone,
     neighbor: function (dir) {
       if (dir < 0 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsDetailPage')) return null; // les statistiques sont à droite de la page 1
       return external(goalsZone, zone, function () { TMT.enterStats('goals'); }, 'stats');

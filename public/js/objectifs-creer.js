@@ -22,7 +22,7 @@
   function plural(n, one, many) { return n + ' ' + tr(n > 1 ? many : one); }
 
   // ---------- Vue : liste, état vide, barre « Nouvel objectif… » ----------
-  var root = el('div', 'objView'), filterBox, listBox, emptyBox, actsTitle, dock, input, sendBtn;
+  var root = el('div', 'objView'), filterBox, listBox, emptyBox, actsTitle, dock, input, sendBtn, panel, panelBody, panelFoot, panelForm = null, goPropose = function () {};
   var state = { filter: 'en_cours', items: [], total: 0, shown: false };
 
   function buildView() {
@@ -55,13 +55,19 @@
     if (acts) host.insertBefore(actsTitle, acts);
 
     // Barre d'écriture : même gabarit que « Ajouter une tâche » (verre, flèche d'envoi DANS la zone, R29).
-    dock = el('div', 'tasksDock objDock hidden');
+    dock = el('div', 'tasksPopAdd tasksDock objDock hidden');
+    // Panneau des paramètres : le MÊME gabarit que le panneau d'ajout d'une tâche (aujourdhui.js) — au-dessus de la barre, visible seulement après ↑.
+    panel = el('div', 'tasksPropose cmpGlass hidden');
+    var ph = el('div', 'tasksProposeHead'); ph.appendChild(el('span', 'tasksProposeKicker', tr('Nouvel objectif'))); ph.appendChild(TMT.ui.closeBtn(function () { closePanel(); }, tr('Fermer')));
+    panelBody = el('div', 'tasksProposeBody'); panelFoot = el('div', 'objPanelFoot');
+    panel.appendChild(ph); panel.appendChild(panelBody); panel.appendChild(panelFoot); dock.appendChild(panel);
     var bar = el('div', 'tasksComposer');
     input = el('textarea', 'tasksText'); input.rows = 1; input.maxLength = 140; input.placeholder = tr('Nouvel objectif…'); input.setAttribute('aria-label', tr('Nouvel objectif'));
     sendBtn = el('button', 'cmpSend'); sendBtn.type = 'button'; sendBtn.setAttribute('aria-label', tr('Envoyer'));
     sendBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
-    sendBtn.addEventListener('click', start);
-    input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); start(); } });
+    sendBtn.addEventListener('click', function () { if (panelForm) goPropose(); else start(); });
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (panelForm) goPropose(); else start(); } });
+    input.addEventListener('input', function () { if (panelForm) panelForm.title = input.value; });
     bar.appendChild(pin('tasksClip cmpSymbol')); bar.appendChild(input); bar.appendChild(sendBtn); dock.appendChild(bar); document.body.appendChild(dock);
     // La barre suit la page pendant le glissement vers les statistiques, et disparaît avec elle.
     var tab = document.getElementById('tab-goals');
@@ -211,16 +217,36 @@
 
   function openComposer(ctx) {
     var form = { title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks };
-    var win = openModal(tr('Nouvel objectif'));
-    var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.setAttribute('aria-label', tr('Objectif'));
-    titleIn.addEventListener('input', function () { form.title = titleIn.value; });
-    var titleRow = el('div', 'objTitleRow'); titleRow.appendChild(titleIn); titleRow.appendChild(pin('chatAttachBtn objPinBtn'));
-    win.body.appendChild(field(tr('Objectif'), titleRow));
+    var win = { body: panelBody, foot: panelFoot, close: closePanel };
+    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden');
+    form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed; form.title = input.value.trim() || ctx.title; panelForm = form;
+    sendBtn.setAttribute('aria-label', tr('Proposer les étapes')); sendBtn.title = tr('Proposer les étapes'); sendBtn.disabled = !form.dateOk;
+    function syncGo() { sendBtn.disabled = !form.dateOk; }
+    if (ctx.fixedDate) { // date imposée (examen, mariage…) : jamais estimée ; la date est demandée en premier et obligatoire
+      var fixedIn = el('input'); fixedIn.type = 'date'; fixedIn.min = ctx.startDate; fixedIn.setAttribute('aria-label', tr('Date de l’échéance')); if (ctx.dateConfirmed) fixedIn.value = ctx.endDate;
+      fixedIn.addEventListener('change', function () {
+        if (!fixedIn.value || fixedIn.value <= form.startDate) { form.dateOk = false; syncGo(); return; }
+        var dd = Math.round((Date.parse(fixedIn.value + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
+        form.endDate = fixedIn.value; form.amount = Math.max(1, Math.round(dd / 7)); form.unit = 'semaines'; form.periodWeeks = dd <= 28 ? '1' : dd <= 366 ? '4' : 'mois'; form.dateOk = true; syncGo(); refresh();
+      });
+      var fixedBox = el('div'); fixedBox.appendChild(fixedIn); fixedBox.appendChild(el('p', 'hint objDates', tr('Date imposée : indique-la, Noèsis ne l’estime pas.')));
+      win.body.appendChild(field(tr('Date de l’échéance'), fixedBox)); window.setTimeout(function () { if (!ctx.dateConfirmed) fixedIn.focus(); }, 50);
+    }
+
 
     var amountIn = el('input', 'objAmount'); amountIn.type = 'number'; amountIn.inputMode = 'numeric'; amountIn.min = '1'; amountIn.value = form.amount; amountIn.setAttribute('aria-label', tr('Nombre'));
     var unitSeg = null, datesHint = el('p', 'hint objDates'), pickLink = btn('objLink', tr('ou choisir une date')), dateIn = el('input', 'objDatePick'); dateIn.type = 'date'; dateIn.tabIndex = -1;
     var units = [['semaines', tr('Semaines')], ['mois', tr('Mois')], ['années', tr('Années')]];
-    function paintDates() { datesHint.textContent = tr('Du') + ' ' + dateText(form.startDate) + ' ' + tr('au') + ' ' + dateText(form.endDate) + ' · '; datesHint.appendChild(pickLink); }
+    var rangeHint = el('p', 'hint objRange');
+    function typical(w) { return w >= 9 ? Math.round(w / 4.345) + ' ' + tr('mois') : plural(w, 'semaine', 'semaines'); }
+    function paintDates() {
+      var e = ctx.estimate;
+      if (e && !form.durTouched) { // date butoir proposée par la base de durées (sans IA), toujours modifiable
+        datesHint.textContent = tr('Proposé') + ' : ' + dateText(form.endDate) + ' (' + tr('durée typique') + ' ' + typical(e.typicalWeeks) + ') · ';
+        rangeHint.textContent = tr('Fourchette réaliste') + ' : ' + dateText(e.p10End, false) + ' – ' + dateText(e.p90End); rangeHint.classList.remove('hidden');
+      } else { datesHint.textContent = tr('Du') + ' ' + dateText(form.startDate) + ' ' + tr('au') + ' ' + dateText(form.endDate) + ' · '; rangeHint.classList.add('hidden'); }
+      datesHint.appendChild(pickLink);
+    }
     var timer = 0;
     function refreshDates() {
       clearTimeout(timer);
@@ -228,20 +254,20 @@
         api('POST', '/api/objectifs/contexte', { text: form.title || ctx.title, amount: form.amount, unit: form.unit }).then(function (c) { form.endDate = c.endDate; form.periodWeeks = c.periodWeeks; paintDates(); refresh(); }).catch(function () {});
       }, 150);
     }
-    amountIn.addEventListener('input', function () { var n = parseInt(amountIn.value, 10); if (n >= 1) { form.amount = n; refreshDates(); } });
+    amountIn.addEventListener('input', function () { var n = parseInt(amountIn.value, 10); if (n >= 1) { form.amount = n; form.durTouched = true; refreshDates(); } });
     function buildUnits() {
-      var nw = seg(units, form.unit, function (u) { form.unit = u; refreshDates(); }, tr('Unité'));
+      var nw = seg(units, form.unit, function (u) { form.unit = u; form.durTouched = true; refreshDates(); }, tr('Unité'));
       if (unitSeg) unitSeg.replaceWith(nw); unitSeg = nw; return nw;
     }
     pickLink.addEventListener('click', function () { dateIn.min = ctx.startDate; if (dateIn.showPicker) { try { dateIn.showPicker(); return; } catch (e) { /* repli */ } } dateIn.focus(); dateIn.click(); });
     dateIn.addEventListener('change', function () {
       if (!dateIn.value || dateIn.value <= form.startDate) return;
       var days = Math.round((Date.parse(dateIn.value + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
-      form.endDate = dateIn.value; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines'; amountIn.value = form.amount; form.periodWeeks = days <= 28 ? '1' : days <= 366 ? '4' : 'mois'; buildUnits(); paintDates(); refresh();
+      form.durTouched = true; form.dateOk = true; syncGo(); form.endDate = dateIn.value; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines'; amountIn.value = form.amount; form.periodWeeks = days <= 28 ? '1' : days <= 366 ? '4' : 'mois'; buildUnits(); paintDates(); refresh();
     });
     var durRow = el('div', 'objDurRow'); durRow.appendChild(amountIn); durRow.appendChild(buildUnits());
-    var durBox = el('div'); durBox.appendChild(durRow); durBox.appendChild(datesHint); durBox.appendChild(dateIn);
-    paintDates(); win.body.appendChild(field(tr('Durée'), durBox));
+    var durBox = el('div'); if (!ctx.fixedDate) durBox.appendChild(durRow); durBox.appendChild(datesHint); durBox.appendChild(rangeHint); durBox.appendChild(dateIn);
+    paintDates(); win.body.appendChild(field(ctx.fixedDate ? tr('Période') : tr('Durée'), durBox));
 
     var linksBox = el('div'), actBox = el('div'), chargeBox = el('div');
     win.body.appendChild(linksBox); win.body.appendChild(actBox); win.body.appendChild(chargeBox);
@@ -287,18 +313,22 @@
     refresh();
 
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
-    var go = btn('cmpBtn', tr('Proposer les étapes'), function () {
-      form.title = titleIn.value.trim();
+    goPropose = function () { // la flèche d'envoi de la barre mène aux étapes : même place, aucun bouton de plus
+      form.title = input.value.trim();
       if (!form.title) { msg.textContent = tr('Écris ton objectif.'); return; }
+      if (!form.dateOk) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       if (form.parentId) { var par = (ctx.objectives || []).filter(function (o) { return o.id === form.parentId; })[0]; if (par) { form.activityId = par.activityId; form.create = false; } }
       if (!form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return; }
-      go.disabled = true; msg.textContent = '';
+      sendBtn.disabled = true; msg.textContent = '';
       var actName = form.create ? form.createName : (ctx.activities.filter(function (a) { return a.id === form.activityId; })[0] || {}).name;
       api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: true, activityId: form.create ? null : form.activityId, activityName: actName })
-        .then(function (p) { go.disabled = false; win.close(); openSteps(form, p, actName); })
-        .catch(function (err) { go.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
-    });
-    win.foot.appendChild(go);
+        .then(function (p) { syncGo(); closePanel(); openSteps(form, p, actName); })
+        .catch(function (err) { syncGo(); msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
+    };
+  }
+  function closePanel() { // l'objectif tapé reste dans la barre ; la flèche redevient « Envoyer »
+    panel.classList.add('hidden'); panelForm = null; goPropose = function () {};
+    sendBtn.disabled = false; sendBtn.setAttribute('aria-label', tr('Envoyer')); sendBtn.removeAttribute('title');
   }
 
   // ---------- Fenêtre « Étapes proposées » ----------
@@ -362,6 +392,10 @@
     }
     function drawTasks() {
       tasksBox.textContent = '';
+      if (!P.weekTasks.length) { // offre gratuite : jamais de tâches proposées ; l'utilisateur écrit les siennes. Une ligne discrète renvoie à Expansion (même fenêtre d'offre qu'ailleurs).
+        tasksBox.appendChild(btn('objLink objOffer', tr('Laisse Noèsis générer les tâches pour toi'), function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); }));
+        return;
+      }
       tasksBox.appendChild(el('p', 'cmpBlockTitle', tr('Tâches de la semaine 1') + ' · ' + actName));
       P.weekTasks.forEach(function (label, i) {
         var row = el('div', 'tasksPopRow objTaskRow'); var c = el('span', 'tasksPopCheck'); c.setAttribute('aria-hidden', 'true'); row.appendChild(c);

@@ -11,6 +11,8 @@ const o = require('../server/lib/objectifs');
 const m = db.prepare('SELECT userId, activityId FROM activity_members LIMIT 1').get();
 if (!m) { console.log('  (pas de données de base : test ignoré)'); process.exit(0); }
 const u = m.userId;
+const dr = require('../server/lib/objectifs-durees');
+o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en a jamais, testé plus bas)
 (async () => {
   assert(o.computeEnd('2026-11-04', 6, 'mois') === '2027-05-04', '6 mois depuis le 4 nov. 2026 -> 4 mai 2027');
   assert(o.computeEnd('2026-11-04', 3, 'semaines') === '2026-11-25', '3 semaines');
@@ -26,6 +28,26 @@ const u = m.userId;
   assert(o.splitPeriods('2026-11-04', '2026-11-10', 4).length === 1, 'une semaine = une période');
   assert(o.splitPeriods('2026-11-04', '2027-05-04', 'mois').length === 6, 'périodes d\'un mois : 6');
 
+  // Base de durées : table, ordre de grandeur, apprentissage, personnalisation, date fixe
+  const e10 = dr.estimate('Courir un 10 km'), eSemi = dr.estimate('Courir un semi-marathon'), eBooks = dr.estimate('Lire 4 livres');
+  assert(e10 && e10.id === 'course10k' && e10.weeks === 10 && e10.p10 < e10.weeks && e10.weeks < e10.p90, 'table : 10 km = médiane et fourchette P10-P90');
+  assert(eSemi.id === 'semi' && eSemi.weeks > e10.weeks, 'table : le semi est plus long que le 10 km');
+  assert(eBooks.id === 'lecture' && eBooks.weeks === 12 && dr.estimate('Lire 8 livres').weeks === 24, 'table : l ordre de grandeur annoncé (4 livres, 8 livres) est pris en compte');
+  assert(dr.estimate('Faire du ménage') === null, 'aucune catégorie reconnue : pas d estimation inventée');
+  assert(dr.estimate('Learn Spanish').id === 'langue' && dr.estimate('Courir un marathon').id === 'marathon', 'mots-clés FR et EN');
+  assert(dr.estimate('Courir un 10 km', { ratios: [1.5, 1.5] }).weeks === 15 && dr.estimate('Courir un 10 km', { ratios: [5] }).factor === 2, 'personnalisation : facteur réel/prévu de l utilisateur, borné à 2');
+  assert(dr.estimate('Courir un 10 km', { ratios: [] }).weeks === 10, 'débutant sans historique : médiane de la table');
+  const few = { course10k: Array(29).fill(30) }, many = { course10k: Array(30).fill(30) };
+  assert(dr.estimate('Courir un 10 km', { learned: few }).source === 'table' && dr.estimate('Courir un 10 km', { learned: many }).weeks === 30 && dr.estimate('Courir un 10 km', { learned: many }).source === 'appris', 'apprentissage : remplace la table dès 30 objectifs atteints');
+  assert(dr.isFixedDate('Passer mon examen de conduite', '2026-11-04') && dr.isFixedDate('Mon mariage', '2026-11-04') && !dr.isFixedDate('Lire 4 livres', '2026-11-04'), 'date imposée détectée (examen, mariage), pas pour la lecture');
+  assert(dr.explicitDate('Soutenance le 15 mars', '2026-11-04') === '2027-03-15', 'date écrite : « le 15 mars » = prochaine occurrence');
+  const cx = o.contexte(u, { text: 'Courir un 10 km' });
+  assert(cx.estimate && cx.estimate.weeks === 10 && cx.endDate === new Date(Date.parse(cx.startDate + 'T00:00:00Z') + 70 * 86400000).toISOString().slice(0, 10) && !cx.fixedDate, 'contexte : date butoir proposée avec sa fourchette');
+  const cf = o.contexte(u, { text: 'Passer mon examen' });
+  assert(cf.fixedDate && !cf.dateConfirmed && !cf.estimate, 'contexte : date imposée, jamais estimée, à confirmer');
+  assert(o.contexte(u, { text: 'Passer mon examen le 15 mars' }).dateConfirmed === true, 'contexte : date écrite = confirmée');
+  const cu = o.contexte(u, { text: 'Courir un 10 km', amount: 5, unit: 'mois' });
+  assert(cu.estimate === null && cu.amount === 5, 'durée saisie par l utilisateur : jamais remplacée');
   const before = db.prepare('SELECT COUNT(*) AS n FROM user_objectives').get().n;
   const tasksBefore = db.prepare('SELECT COUNT(*) AS n FROM sub_project_items').get().n;
   const ctx = o.contexte(u, { text: 'Courir un semi-marathon en six mois' });
@@ -43,6 +65,14 @@ const u = m.userId;
   assert(db.prepare('SELECT COUNT(*) AS n FROM sub_project_items').get().n === tasksBefore + prop.weekTasks.length, 'les tâches de la semaine 1 sont de vraies tâches');
   assert(o.liste(u, 'en_cours').some((x) => x.id === made.id) && !o.liste(u, 'atteints').some((x) => x.id === made.id), 'liste : En cours / Atteints');
   assert(made.currentPeriod.n === 1 && made.weekTasks.total >= 1, 'période courante et tâches de la semaine');
+  // Gratuit : aucune tâche proposée ni créée
+  o.setTasksCheck(() => false);
+  const free = await o.proposer(u, { title: ctx.title, startDate: ctx.startDate, endDate: ctx.endDate, periodWeeks: 4, weekly: true, activityId: m.activityId });
+  assert(free.weekTasks.length === 0 && free.canGenerateTasks === false, 'gratuit : la proposition ne contient aucune tâche');
+  const tasksBefore2 = db.prepare('SELECT COUNT(*) AS n FROM sub_project_items').get().n;
+  o.creer(u, { title: 'Lire six livres', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-02-01', amount: 3, unit: 'mois', periodWeeks: 4, weekly: false, weekTasks: ['tâche imposée par le client'] });
+  assert(db.prepare('SELECT COUNT(*) AS n FROM sub_project_items').get().n === tasksBefore2, 'gratuit : aucune tâche créée même si le client en envoie');
+  o.setTasksCheck(() => true);
   const w = o.semaine(u, made.id, 1, 1, true);
   assert(w.progress > 0 && w.periods[0].weeks[0].done === true, 'semaine cochée : la progression avance');
   const meta = JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(made.id).metaJson);

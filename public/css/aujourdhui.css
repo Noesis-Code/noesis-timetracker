@@ -1,6 +1,6 @@
 /* Page 1 de la Feuille de route, vue « Aujourd'hui » (27 oct. 2026, js/aujourdhui.js). Jetons seulement, espacements 8/12/16/24. */
 
-.tasksPopList { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.tasksPopList { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; } /* sans overflow-x, auto par défaut : la liste défilait de côté sous le doigt (lignes seules décalées) et le balayage vers les statistiques ne partait pas */
 .tasksPopEmpty { margin: 0; padding: 16px; font-size: 13px; color: var(--text-light); text-align: center; }
 .tasksPopRow { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--sep); }
 .tasksPopCheck { flex: none; width: 28px; height: 28px; padding: 0; border-radius: 50%; border: 1px solid var(--text-light); background: none; color: var(--on-action); cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative; }
