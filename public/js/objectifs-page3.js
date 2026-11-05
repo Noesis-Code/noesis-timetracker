@@ -183,7 +183,7 @@
   (function () { var host = document.getElementById('goalsMonthView'), sc = document.getElementById('goalsDetailScroll'); if (host && sc) host.appendChild(sc); })();
   // ----- Fenêtres de la page : objectif périodique, objectif hebdomadaire, tâches d'un jour (composant de fenêtre commun : .communityMembersModal + .cmpGlass + croix ✕) -----
   var goalsPops = {};
-  function closeGoalsPop(key) { var p = goalsPops[key]; if (p) { p.pop.classList.add('hidden'); if (key === 'week') goalsPops.weekState = null; if (key === 'day') goalsPops.dayState = null; } }
+  function closeGoalsPop(key) { var p = goalsPops[key]; if (p) { p.pop.classList.add('hidden'); if (key === 'week') goalsPops.weekState = null; } }
   function buildGoalsPop(key, titleText) {
     var pop = document.createElement('div'); pop.className = 'communityMembersModal goalsPop hidden'; pop.id = 'goalsPop_' + key;
     var card = document.createElement('div'); card.className = 'communityMembersModalCard cmpGlass';
@@ -202,7 +202,6 @@
     ['#activityGoalsMainEmptyBar', '#activityGoalsMainCard'].forEach(function (sel) { var e = document.querySelector(sel); if (e) main.body.appendChild(e); }); // la carte et l'éditeur existants de l'objectif périodique
     var lab = document.querySelector('.goalsMainOutLabel'); if (lab) lab.remove();
     buildGoalsPop('week', 'Objectif hebdomadaire');
-    buildGoalsPop('day', '');
   })();
 
 
@@ -853,6 +852,8 @@
       calMonth = { y: +base.slice(0, 4), m: +base.slice(5, 7) - 1, forPeriod: view ? view.periodNumber : null };
     }
     var loc = TMT.dateLocale || undefined, pad = function (x) { return String(x).padStart(2, '0'); };
+    var navMain = view && view.mainGoalText && view.mainGoalText.trim(); // avec un objectif périodique : l'objectif prend le grand format, le mois passe en petit
+    var calNav = document.querySelector('#goalsMonthCal .goalsCalNav'); if (calNav) calNav.classList.toggle('cmpNav--sm', !!navMain);
     $('goalsCalTitle').textContent = cap1(new Date(Date.UTC(calMonth.y, calMonth.m, 1)).toLocaleDateString(loc, { month: 'long', year: 'numeric', timeZone: 'UTC' }));
     var head = $('goalsCalHead'); head.textContent = '';
     for (var k = 0; k < 7; k++) { var hd = document.createElement('span'); hd.textContent = cap1(new Date(Date.UTC(2024, 0, 1 + k)).toLocaleDateString(loc, { weekday: 'narrow', timeZone: 'UTC' })); head.appendChild(hd); } // 1er janv. 2024 = lundi
@@ -885,7 +886,7 @@
           line.appendChild(tag); line.appendChild(document.createTextNode(slot.w.text)); line.title = slot.w.text;
           if (slot.w.noRoomToCarry || slot.w.overloaded || (real && real.periodNumber === slot.p.periodNumber && slot.s <= today && slot.e >= today)) { var dot = document.createElement('span'); dot.className = 'notifDot goalsWeekDot'; line.appendChild(dot); line.title += ' — ' + t('Cible peut-être irréaliste'); } // pastille existante (.notifDot), jamais un liseré
         } else {
-          line.className = 'cmpAdd'; var pl = document.createElement('b'); pl.textContent = '+'; line.appendChild(pl); line.appendChild(document.createTextNode(t('Ajouter un objectif'))); // ajout = ligne pointillée avec « + » (composant .cmpAdd)
+          line.className = 'goalsCalWeekAdd'; line.appendChild(document.createTextNode(t('Ajouter un objectif hebdomadaire'))); // texte secondaire : même fonction d'ajout / d'édition au toucher
         }
         line.addEventListener('click', function () { openGoalsCalPeriod(slot.p, function () { openGoalsWeekPop(slot.p, slot.wi); }); });
         row.appendChild(line);
@@ -893,9 +894,9 @@
       var days = document.createElement('div'); days.className = 'goalsCalDays';
       for (var c = 0; c < 7; c++) {
         var di = isoAddDays(rs, c), cell = document.createElement('button'); cell.type = 'button';
-        cell.className = 'goalsCalDay' + (+di.slice(5, 7) - 1 !== calMonth.m ? ' out' : '') + (di === today ? ' today' : '') + (endDays[di] ? ' end' : '');
+        cell.className = 'goalsCalDay' + (+di.slice(5, 7) - 1 !== calMonth.m ? ' out' : '') + (di === today ? ' today' : '') + (endDays[di] ? ' end' : '') + (di === selDay ? ' sel' : '');
         cell.textContent = String(+di.slice(8, 10));
-        (function (iso) { cell.addEventListener('click', function () { openGoalsDayPop(iso); }); })(di);
+        (function (iso) { cell.addEventListener('click', function () { selectGoalsDay(iso); }); })(di);
         days.appendChild(cell);
       }
       row.appendChild(days);
@@ -908,33 +909,68 @@
       grid.appendChild(row);
     }
   }
-  // Fenêtre « tâches du jour » : TOUTES les tâches à réaliser ce jour-là pour le secteur / pôle affiché (lignes de tâche partagées : cocher, modifier).
-  function openGoalsDayPop(iso) {
-    var planning = TMT.currentGoalsPlanning, per = null;
-    ((planning && planning.periods) || []).forEach(function (p) { if (!per && p.startDate <= iso && p.endDate >= iso) per = p; });
-    goalsPops.dayState = { iso: iso, period: per ? per.periodNumber : null };
-    goalsPops.day.title.textContent = calendarDayLabel(iso) || iso;
-    goalsPops.day.pop.classList.remove('hidden');
-    loadGoalsDayPop();
+  // Jour touché : cercle plein sur le jour, barre « Nouvelle tâche… » en bas (même dock que la page 1, TMT.ui.dockKeyboard) et, au-dessus, le panneau des tâches déjà prévues ce jour-là
+  // (lignes .tasksPop*, comme la page 1). Ajout MANUEL : la tâche est créée directement dans le secteur / pôle de la page à la date du jour choisi (aucun tri IA, aucun pop-up de placement).
+  var selDay = null, dayDock = null, dayPanel = null, dayBody = null, dayKicker = null, dayText = null, daySend = null, dayMsg = null;
+  function buildGoalsDayDock() {
+    if (dayDock) return;
+    dayDock = document.createElement('div'); dayDock.className = 'tasksPopAdd tasksDock goalsDayDock hidden';
+    dayPanel = document.createElement('div'); dayPanel.className = 'tasksPropose cmpGlass';
+    var head = document.createElement('div'); head.className = 'tasksProposeHead';
+    dayKicker = document.createElement('span'); dayKicker.className = 'tasksProposeKicker'; head.appendChild(dayKicker);
+    head.appendChild(TMT.ui.closeBtn(function () { selectGoalsDay(null); }, t('Fermer')));
+    dayBody = document.createElement('div'); dayBody.className = 'tasksProposeBody';
+    dayMsg = document.createElement('p'); dayMsg.className = 'tasksMsg';
+    dayPanel.appendChild(head); dayPanel.appendChild(dayBody); dayPanel.appendChild(dayMsg); dayDock.appendChild(dayPanel);
+    var bar = document.createElement('div'); bar.className = 'tasksComposer';
+    dayText = document.createElement('textarea'); dayText.className = 'tasksText'; dayText.rows = 1; dayText.maxLength = 300; dayText.placeholder = t('Nouvelle tâche…'); dayText.setAttribute('aria-label', t('Nouvelle tâche'));
+    daySend = document.createElement('button'); daySend.type = 'button'; daySend.className = 'cmpSend'; daySend.setAttribute('aria-label', t('Ajouter'));
+    daySend.addEventListener('mousedown', function (e) { e.preventDefault(); }); // le clavier reste ouvert
+    daySend.addEventListener('click', addGoalsDayTask);
+    dayText.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addGoalsDayTask(); } });
+    bar.appendChild(dayText); bar.appendChild(daySend); dayDock.appendChild(bar); document.body.appendChild(dayDock);
+    if (TMT.ui.dockKeyboard) TMT.ui.dockKeyboard(dayDock, dayText); // même positionnement au-dessus du clavier que la barre « Nouvelle tâche… » de la page 1
+    window.setInterval(function () { // la barre n'existe que tant que le calendrier est affiché
+      if (!selDay) return;
+      var v = document.getElementById('goalsMonthView');
+      if (!v || !v.getClientRects().length) selectGoalsDay(null);
+    }, 400);
   }
-  function loadGoalsDayPop() {
-    var st = goalsPops.dayState; if (!st) return;
-    var box = goalsPops.day.body; box.textContent = '';
-    var empty = function () { var p = document.createElement('p'); p.className = 'hint'; p.textContent = t('Aucune tâche ce jour-là.'); box.appendChild(p); };
-    if (st.period == null) { empty(); return; }
-    api('GET', '/api/activities/' + TMT.currentGoalsActivityId + '/goals-days?category=' + encodeURIComponent(TMT.currentGoalsCategory) + '&periodNumber=' + st.period).then(function (data) {
-      if (goalsPops.dayState !== st) return;
-      var day = ((data && data.days) || []).filter(function (d) { return d.date === st.iso; })[0];
-      var tasks = (day && day.tasks) || [];
-      box.textContent = '';
+  function selectGoalsDay(iso) {
+    selDay = iso && iso !== selDay ? iso : null; // retoucher le même jour le désélectionne
+    renderGoalsMonthCal();
+    if (!selDay) { if (dayDock) dayDock.classList.add('hidden'); return; }
+    buildGoalsDayDock();
+    dayKicker.textContent = calendarDayLabel(selDay) || selDay; dayMsg.textContent = '';
+    dayDock.classList.remove('hidden');
+    loadGoalsDayTasks();
+  }
+  function loadGoalsDayTasks() {
+    var iso = selDay; if (!iso) return;
+    var per = null; ((TMT.currentGoalsPlanning && TMT.currentGoalsPlanning.periods) || []).forEach(function (p) { if (!per && p.startDate <= iso && p.endDate >= iso) per = p; });
+    var empty = function () { dayBody.textContent = ''; var p = document.createElement('p'); p.className = 'hint'; p.textContent = t('Aucune tâche ce jour-là.'); dayBody.appendChild(p); };
+    if (!per) { empty(); return; }
+    api('GET', '/api/activities/' + TMT.currentGoalsActivityId + '/goals-days?category=' + encodeURIComponent(TMT.currentGoalsCategory) + '&periodNumber=' + per.periodNumber).then(function (data) {
+      if (selDay !== iso) return;
+      var day = ((data && data.days) || []).filter(function (d) { return d.date === iso; })[0], tasks = (day && day.tasks) || [];
       if (!tasks.length) { empty(); return; }
-      var wrap = document.createElement('div'); wrap.className = 'goalsTasksGroup open';
-      var items = document.createElement('div'); items.className = 'subProjectItems'; wrap.appendChild(items);
+      dayBody.textContent = '';
       tasks.forEach(function (task) {
-        items.appendChild(TMT.buildGoalsTaskRow({ id: task.id, label: task.label, done: !!task.done, dueDate: st.iso }, TMT.currentGoalsCategory, function () { loadGoalsDayPop(); }));
+        var row = document.createElement('div'); row.className = 'tasksPopRow' + (task.done ? ' done' : '');
+        var cb = document.createElement('button'); cb.type = 'button'; cb.className = 'tasksPopCheck'; cb.setAttribute('aria-pressed', task.done ? 'true' : 'false'); cb.setAttribute('aria-label', t(task.done ? 'Remettre à faire' : 'Marquer comme faite'));
+        if (task.done) cb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></svg>';
+        cb.addEventListener('click', function () { cb.disabled = true; api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: !task.done }).catch(function () {}).then(function () { loadGoalsDayTasks(); }); });
+        var txt = document.createElement('div'); txt.className = 'tasksPopText'; var bEl = document.createElement('b'); bEl.textContent = task.label; txt.appendChild(bEl);
+        row.appendChild(cb); row.appendChild(txt); dayBody.appendChild(row);
       });
-      box.appendChild(wrap);
-    }).catch(function () { box.textContent = ''; empty(); });
+    }).catch(function () { empty(); });
+  }
+  function addGoalsDayTask() {
+    var label = dayText.value.trim(); if (!label || !selDay || daySend.disabled) return;
+    daySend.disabled = true; dayMsg.textContent = '';
+    api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/categories/' + encodeURIComponent(TMT.currentGoalsCategory) + '/tasks', { label: label, dueDate: selDay })
+      .then(function () { dayText.value = ''; daySend.disabled = false; loadGoalsDayTasks(); renderActivityGoals(); })
+      .catch(function (err) { daySend.disabled = false; dayMsg.textContent = (err && err.message) || t('Impossible pour le moment.'); });
   }
   // Fenêtre de l'objectif périodique : la carte et l'éditeur existants, avec les dates de la période (éditeur de dates existant).
   function openGoalsMainPop() { goalsPops.main.pop.classList.remove('hidden'); }
@@ -946,11 +982,13 @@
     state.textContent = st ? t(GOAL_STATUS_LABELS[st]) : '';
     var host = $('goalsMainLineHost'); host.textContent = '';
     var b = document.createElement('button'); b.type = 'button';
-    if (period.mainGoalText && period.mainGoalText.trim()) {
-      b.className = 'goalsMainLine'; b.textContent = period.mainGoalText; b.title = period.mainGoalText;
+    var hasMain = !!(period.mainGoalText && period.mainGoalText.trim());
+    $('goalsTopLine').classList.toggle('hidden', !hasMain); // sans objectif : une seule petite ligne « P12 · Ajouter un objectif périodique »
+    if (hasMain) {
+      b.className = 'goalsMainLine goalsMainBig'; b.textContent = period.mainGoalText; b.title = period.mainGoalText;
       b.addEventListener('click', openGoalsMainPop);
     } else {
-      b.className = 'cmpAdd'; var pl = document.createElement('b'); pl.textContent = '+'; b.appendChild(pl); b.appendChild(document.createTextNode(t('Ajouter un objectif périodique')));
+      b.className = 'goalsMainAddLine'; b.appendChild(document.createTextNode('P' + period.periodIndexInCycle + ' · ' + t('Ajouter un objectif périodique')));
       b.addEventListener('click', function () { openGoalsMainPop(); var eb = $('activityGoalsMainEmptyBar'); if (eb && !eb.classList.contains('hidden')) eb.click(); });
     }
     host.appendChild(b);

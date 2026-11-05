@@ -1675,7 +1675,7 @@
     "Choisis un pôle ou un secteur pour chaque activité.": "Choose a division or a sector for each activity.",
     "Pôle et secteur": "Division and sector",
     // ---- Page Objectifs (gabarits) ----
-    "Jour précédent": "Previous day", "Trier": "Sort", "Aucune tâche ce jour-là.": "No task that day.", "Ajouter un objectif périodique": "Add a periodic goal", "Ajouter un objectif": "Add a goal", "Comparer le chrono": "Compare timer", "Comparer les tâches": "Compare tasks", "Mois précédent": "Previous month", "Mois suivant": "Next month", "Échéance": "Due date", "Objectif": "Goal", "Durée": "Duration",
+    "Jour précédent": "Previous day", "Trier": "Sort", "Aucune tâche ce jour-là.": "No task that day.", "Ajouter un objectif périodique": "Add a periodic goal", "Ajouter un objectif": "Add a goal", "Ajouter un objectif hebdomadaire": "Add a weekly goal", "Impossible pour le moment.": "Not possible right now.", "Comparer le chrono": "Compare timer", "Comparer les tâches": "Compare tasks", "Mois précédent": "Previous month", "Mois suivant": "Next month", "Échéance": "Due date", "Objectif": "Goal", "Durée": "Duration",
     "Écris une tâche avant d'ajouter.": 'Write a task before adding it.',
     "Jour suivant": "Next day",
     "Faites ce jour-là": "Done that day",
