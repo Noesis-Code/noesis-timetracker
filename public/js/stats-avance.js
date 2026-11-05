@@ -461,14 +461,6 @@
     var wrap = el('div', 'statsPeriodMenuWrap');
     var btn = el('button', 'menuBtn', '⋮'); btn.type = 'button'; btn.setAttribute('aria-haspopup', 'true'); btn.setAttribute('aria-label', tr('Choisir la période'));
     var menu = el('div', 'statsPeriodMenu hidden');
-    if (!visitor) { // bascule Tâches | Objectifs : toutes les cartes en dessous suivent ce choix
-      [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (k) {
-        var it = el('button', 'statsPeriodMenuItem' + (k[0] === tab ? ' active' : ''), tr(k[1])); it.type = 'button'; it.dataset.tab = k[0];
-        it.addEventListener('click', function () { menu.classList.add('hidden'); goTab(k[0]); });
-        menu.appendChild(it);
-      });
-      menu.appendChild(el('div', 'saMenuSep'));
-    }
     VS.forEach(function (o) {
       var it = el('button', 'statsPeriodMenuItem' + (o[0] === cv ? ' active' : ''), tr(o[1])); it.type = 'button';
       if (yearSel !== null && o[0] !== 'year' && isT) { it.disabled = true; it.style.opacity = '.4'; }
@@ -484,6 +476,14 @@
     wrap.appendChild(btn); wrap.appendChild(menu);
     hd.appendChild(wrap);
     card.appendChild(hd);
+    if (!visitor) {
+      var sw = el('div', 'periodSwitch cmpSeg saSwitch'); sw.setAttribute('role', 'group'); sw.setAttribute('aria-label', tr('Choisir : tâches ou objectifs'));
+      [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (k) {
+        var bt = el('button', 'periodBtn' + (tab === k[0] ? ' active' : ''), tr(k[1])); bt.type = 'button'; bt.dataset.tab = k[0]; bt.setAttribute('aria-pressed', tab === k[0] ? 'true' : 'false');
+        bt.addEventListener('click', function () { goTab(k[0]); }); sw.appendChild(bt);
+      });
+      card.appendChild(sw);
+    }
     var svg = v ? chartSvg(v) : null;
     if (!svg) { card.appendChild(el('p', 'hint', '—')); return card; }
     var c = el('div'); c.innerHTML = svg; card.appendChild(c);
