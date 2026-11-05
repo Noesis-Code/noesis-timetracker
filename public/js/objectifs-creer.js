@@ -26,10 +26,11 @@
   var state = { items: [], total: 0, shown: false };
 
   function buildView() {
-    // Vue Objectifs (5 nov. 2026) : la liste des activités (comme avant) ; au-dessus, UN bouton qui ouvre la liste des objectifs dans un pop-up (un objectif peut être lié à plusieurs activités).
-    var see = btn('cmpBtn cmpBtnIdle objSeeBtn', tr('Voir mes objectifs'), openObjectivesPopup);
-    root.appendChild(see);
+    // Vue Objectifs (5 nov. 2026) : la liste des activités (comme avant) ; en TÊTE de cette liste, une ligne « Mes objectifs  3 › » (format des lignes d'activités, sans pastille) qui ouvre la liste des objectifs dans un pop-up.
     host.insertBefore(root, host.firstChild);
+    mountRow();
+    var box = document.getElementById('goalsCaptureActivities');
+    if (box && window.MutationObserver) new MutationObserver(mountRow).observe(box, { childList: true }); // la liste des activités se redessine : la ligne revient en tête
     // Barre d'écriture : même gabarit que « Ajouter une tâche » (verre, flèche d'envoi DANS la zone, R29).
     dock = el('div', 'tasksPopAdd tasksDock objDock hidden');
     // Panneau des paramètres : le MÊME gabarit que le panneau d'ajout d'une tâche (aujourdhui.js) — au-dessus de la barre, visible seulement après ↑.
@@ -74,6 +75,19 @@
     var t = el('div', 'goalMainProgressTrack objBar'), f = el('div', 'goalMainProgressFill');
     f.style.width = Math.round(Math.max(0, Math.min(1, p)) * 100) + '%'; t.appendChild(f); return t;
   }
+  // Ligne « Mes objectifs » : même composant de ligne que les activités (.goalsCaptureActivityChip), masque de pastille et compteur communs (composants.css).
+  var rowBtn = null, rowCount = null;
+  function mountRow() {
+    var box = document.getElementById('goalsCaptureActivities'); if (!box) return;
+    if (!rowBtn) {
+      rowBtn = btn('goalsCaptureActivityChip objLineRow', '', openObjectivesPopup);
+      var zone = el('span', 'goalsCaptureZone cmpNoDot'); zone.appendChild(el('span', 'goalsCaptureActivityChipName', tr('Mes objectifs')));
+      rowCount = el('span', 'cmpRowCount', ''); var chev = el('span', 'cmpChev'); chev.setAttribute('aria-hidden', 'true');
+      rowBtn.appendChild(zone); rowBtn.appendChild(rowCount); rowBtn.appendChild(chev);
+    }
+    if (box.firstChild !== rowBtn) box.insertBefore(rowBtn, box.firstChild);
+  }
+  function refreshCount() { api('GET', '/api/objectifs?filtre=tous').then(function (r) { if (rowCount) rowCount.textContent = String(((r && r.objectifs) || []).length || ''); }).catch(function () {}); }
   var popup = null;
   function openObjectivesPopup() {
     var win = openModal(tr('Mes objectifs'), { onClose: function () { popup = null; } });
@@ -94,7 +108,7 @@
     win.body.appendChild(list);
     popup = { redraw: draw }; draw();
   }
-  function load() { if (popup) popup.redraw(); }
+  function load() { if (popup) popup.redraw(); refreshCount(); }
 
   // ---------- Fenêtres (gabarit commun .goalTaskEditModal) ----------
   function openModal(title, opts) {
@@ -563,7 +577,7 @@
     sync();
   })();
   TMT.objectifsView = {
-    show: function () { state.shown = true; syncDock(); },
+    show: function () { state.shown = true; syncDock(); mountRow(); refreshCount(); },
     hide: function () { state.shown = false; syncDock(); }
   };
   // Si la vue Objectifs est déjà celle affichée au chargement (page1 se monte avant ce fichier).

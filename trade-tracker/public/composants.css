@@ -277,3 +277,15 @@
 
 /* État vide commun (Répartition du Chrono et des Statistiques de la Feuille de route) : même message sans donnée, centré, au rendu de .hint. */
 .cmpEmpty { text-align: center; }
+
+/* Bouton de statut (S46, P12…) : petit bouton entouré, transparent tant que la période/semaine est à venir ou sans tâche ; coloré (R12) sinon. TMT.ui.statusBtn. */
+.cmpStatus { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; min-height: 24px; padding: 0 8px; border: 1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text-light); font: inherit; font-size: 13px; font-weight: 700; line-height: 1; cursor: pointer; }
+.cmpStatus[aria-disabled="true"] { cursor: default; }
+.cmpStatus::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+.cmpStatus--ok { background: var(--good); border-color: var(--good); color: var(--white); }
+.cmpStatus--mid { background: var(--partial); border-color: var(--partial); color: var(--white); }
+.cmpStatus--bad { background: var(--danger); border-color: var(--danger); color: var(--white); }
+
+/* Ligne de liste sans pastille de couleur + compteur à droite (ex. « Mes objectifs  3 › » en tête des activités). */
+.cmpNoDot::before { display: none; }
+.cmpRowCount { flex: none; font-size: 13px; color: var(--text-light); }

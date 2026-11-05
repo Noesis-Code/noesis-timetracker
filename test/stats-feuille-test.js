@@ -10,7 +10,8 @@ const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; co
 const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'stats-avance.js'), 'utf8');
 const block = (key) => { const i = js.indexOf("{ key: '" + key + "'"); return i < 0 ? '' : js.slice(i, i + 60); };
 // Cartes par défaut (le reste reste disponible dans « Ajouter une information »)
-['onTime', 'weekdays', 'remaining', 'workload'].forEach((k) => assert(/def: true/.test(block(k)), 'Tâches : « ' + k + ' » affichée par défaut'));
+['onTime', 'weekdays'].forEach((k) => assert(/def: true/.test(block(k)), 'Tâches : « ' + k + ' » affichée par défaut'));
+['remaining', 'workload'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Tâches : « ' + k + ' » dans « Ajouter une information » (plus par défaut ; l\'alerte de capacité reste indépendante)'));
 ['estimate', 'postponed', 'rhythm', 'streak', 'busy', 'capacity', 'assignees', 'urgent'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Tâches : « ' + k + ' » dans « Ajouter une information » (code conservé)'));
 ['target', 'achieved', 'weeks', 'carried', 'linked', 'pressure'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Objectifs : « ' + k + ' » dans « Ajouter une information » (code conservé)'));
 assert(!/els\.selBtn|saSel/.test(js) && /iconBtn saModeBtn/.test(js) && !/statsPeriodMenuItem[^\n]*dataset\.tab/.test(js) && /key: 'advance', def: true/.test(js), 'plus de sélecteur en haut : bouton Tâches / Objectifs (comme Aujourd hui de la Répartition) dans la carte du graphique, distinct du menu ⋮ ; Objectifs affiche le graphique + Avancement');
@@ -39,6 +40,7 @@ assert(w.pct > 120 && w.over === true, 'au-delà de 120 % de l\'estimé : alerte
 const oY = get().tasks.onTime, oW = get({ scope: 'week' }).tasks.onTime;
 assert(oY && /^\d{4}$/.test(oY.label) && oY.total === oY.onTime + oY.late + oY.postponed, 'Répartition : portée Année par défaut (libellé = l\'année)');
 assert(oW && /^\d\d\/\d\d – \d\d\/\d\d$/.test(oW.label) && oW.start <= oW.end, 'Répartition : portée Semaine = libellé de la semaine du graphique');
+assert(js.indexOf("put(byKey('onTime'), false); put(byKey('advance'), false);") > 0, 'ordre des cartes : Répartition sous le graphique, puis Avancement');
 assert(!/saTodayBtn/.test(js) && /function splitBody/.test(js) && /cmpEmpty/.test(js), 'Répartition : plus de bouton Aujourd\'hui, état vide commun (.cmpEmpty)');
 const sp = get({ kind: 'weekly' }).objectives.split;
 assert(sp && sp.total === sp.atteint + sp.partiel + sp.non, 'Répartition des objectifs : atteints / partiels / non atteints (Périodiques ou Hebdomadaires selon le ⋮)');

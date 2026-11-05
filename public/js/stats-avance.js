@@ -552,7 +552,7 @@
           lab.appendChild(el('span', null, a.minutes.length > 7 ? String(Number((a.dates[i] || '').slice(8, 10))) : tr(['L', 'M', 'M', 'J', 'V', 'S', 'D'][i])));
         });
         w.appendChild(days); w.appendChild(lab); return w; } },
-      { key: 'remaining', def: true, title: 'Charge restante par pôle', body: function (d) {
+      { key: 'remaining', title: 'Charge restante par pôle', body: function (d) {
         var r = d.tasks && d.tasks.remaining; if (!r) return null;
         var w = document.createElement('div');
         w.appendChild(bigRow(r.count + ' ' + tr(r.count > 1 ? 'tâches' : 'tâche'), '≈ ' + fmtMin(r.minutes)));
@@ -563,7 +563,7 @@
           w.appendChild(rw);
         });
         return w; } },
-      { key: 'workload', def: true, title: 'Capacité', body: function (d) {
+      { key: 'workload', title: 'Capacité', body: function (d) {
         var c = d.tasks && d.tasks.workload; if (!c || !has(c.pct)) return null;
         var col = c.pct > c.alertAt ? RED : (c.pct > 100 ? ORANGE : GREEN), w = document.createElement('div');
         w.appendChild(bigRow(c.pct + ' %', tr('du temps estimé') + ' · ' + c.label, null, col));
@@ -811,7 +811,7 @@
     // Page unique : le bouton Tâches | Objectifs ne change que le graphique ; toutes les cartes (tâches ET objectifs) restent affichées.
     var all = CARDS.t.concat(CARDS.o), byKey = function (k) { return all.filter(function (x) { return x.key === k; })[0]; };
     var put = function (c, removable) { var n = c.body(data); if (n) els.body.appendChild(infoCard(c, n, removable)); };
-    put(byKey('advance'), false); put(byKey('onTime'), false); // Avancement juste sous le graphique, puis la Répartition (synchronisée avec lui)
+    put(byKey('onTime'), false); put(byKey('advance'), false); // Répartition (synchronisée avec le graphique) juste dessous, puis l'Avancement
     all.filter(function (c) { return c.def && c.key !== 'advance' && c.key !== 'onTime'; }).forEach(function (c) { put(c, false); });
     var addedAll = all.filter(function (c) { return !c.def && loadAdded(c.tab).indexOf(c.key) >= 0; });
     if (!adding) {

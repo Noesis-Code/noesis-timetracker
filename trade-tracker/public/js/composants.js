@@ -73,6 +73,15 @@
       return b;
     },
     chev: function (open) { var s = document.createElement('span'); s.className = 'cmpChev' + (open ? ' open' : ''); s.setAttribute('aria-hidden', 'true'); return s; },
+    // Petit bouton de statut (S46, P12…) à 3 états colorés : vert (atteint) / jaune (partiel) / rouge (non atteint) ; `state` null = transparent (à venir ou sans tâche, aucun fond, jamais de gris plein).
+    // Un clic fait tourner vert -> jaune -> rouge -> vert (onClick reçoit l'état suivant) ; sans état il ne fait rien. Composant unique (.cmpStatus) pour les périodes ET les semaines.
+    statusBtn: function (label, state, onClick) {
+      var cls = { atteint: 'ok', partiel: 'mid', non_atteint: 'bad' }, order = ['atteint', 'partiel', 'non_atteint'];
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'cmpStatus' + (cls[state] ? ' cmpStatus--' + cls[state] : ''); b.textContent = label;
+      if (!cls[state]) b.setAttribute('aria-disabled', 'true');
+      b.addEventListener('click', function (e) { e.stopPropagation(); if (cls[state] && onClick) onClick(order[(order.indexOf(state) + 1) % 3]); });
+      return b;
+    },
     toggleLabel: function (btn, label, open) { btn.textContent = ''; btn.classList.add('cmpToggle'); var s = document.createElement('span'); s.textContent = label; btn.appendChild(s); btn.appendChild(ui.chev(open)); },
     setChev: function (el, open) { if (el) el.classList.toggle('open', !!open); },
     confirm: confirmBox
@@ -293,8 +302,12 @@
     root.TMT.cmpNavSwipe = true;
     var sx = null, sy = null, snav = null;
     document.addEventListener('touchstart', function (e) {
-      snav = e.touches.length === 1 && e.target.closest ? e.target.closest('.cmpNav') : null;
-      if (snav) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }
+      snav = null;
+      if (e.touches.length === 1 && e.target.closest) {
+        var zn = e.target.closest('.cmpNav, [data-cmpnav-for]');
+        snav = zn && (zn.classList.contains('cmpNav') ? zn : document.querySelector(zn.getAttribute('data-cmpnav-for')));
+      }
+      if (snav) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; e.stopPropagation(); } // le balayage de page ne reçoit pas ce toucher
     }, { passive: true, capture: true });
     document.addEventListener('touchend', function (e) {
       var nav = snav; snav = null;

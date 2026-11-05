@@ -21,11 +21,10 @@
         </div>
         <div id="goalsDetailScroll">
           <div id="activityGoalsBlock">
-            <div id="goalsTopLine" class="goalsTopLine">
-              <p class="goalsPeriodTag" id="activityGoalsPeriodTitle"></p>
-              <span id="goalsPeriodState" class="goalWeeklyBadge goalWeeklyBadgeStatus hidden"></span>
+            <div id="goalsTopLine" class="goalsTopLine" data-cmpnav-for="#goalsMonthCal .goalsCalNav">
+              <span class="goalsPeriodTag" id="activityGoalsPeriodTitle"></span>
+              <div id="goalsMainLineHost"></div>
             </div>
-            <div id="goalsMainLineHost"></div>
 
             <!-- (discussion "Objectifs — D"), demande
                  d'Emilien : hiérarchie d'en-tête revue — activité seule tout
@@ -198,7 +197,6 @@
   }
   (function () {
     var main = buildGoalsPop('main', 'Objectif périodique');
-    var dates = document.createElement('p'); dates.id = 'activityGoalsPeriodDates'; dates.className = 'goalsPeriodDates'; main.body.appendChild(dates); // dates de la période : l'éditeur existant (renderGoalsPeriodDates)
     ['#activityGoalsMainEmptyBar', '#activityGoalsMainCard'].forEach(function (sel) { var e = document.querySelector(sel); if (e) main.body.appendChild(e); }); // la carte et l'éditeur existants de l'objectif périodique
     var lab = document.querySelector('.goalsMainOutLabel'); if (lab) lab.remove();
     buildGoalsPop('week', 'Objectif hebdomadaire');
@@ -665,24 +663,6 @@
     return box;
   }
 
-  // Périodes libres : début et fin choisis (grille de 13 périodes = valeurs par défaut). Un changement valide est
-  // enregistré aussitôt ; un refus (chevauchement, objectifs hors des nouvelles semaines) remet les dates d'origine.
-  function renderGoalsPeriodDates(period) {
-    var host = $('activityGoalsPeriodDates');
-    host.textContent = '';
-    var start = document.createElement('input'); start.type = 'date'; start.className = 'goalsPeriodDateInput'; start.value = period.startDate; start.setAttribute('aria-label', t('Début de la période'));
-    var end = document.createElement('input'); end.type = 'date'; end.className = 'goalsPeriodDateInput'; end.value = period.endDate; end.setAttribute('aria-label', t('Fin de la période'));
-    var sep = document.createTextNode(' – ');
-    function save() {
-      if (!start.value || !end.value || (start.value === period.startDate && end.value === period.endDate)) return;
-      api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + period.periodNumber + '/dates', { startDate: start.value, endDate: end.value, category: TMT.currentGoalsCategory })
-        .then(function () { return reloadGoalsAll(); })
-        .catch(function (err) { start.value = period.startDate; end.value = period.endDate; var m = document.createElement('span'); m.className = 'msg'; m.textContent = ' ' + ((err && err.message) || t('Dates refusées.')); host.appendChild(m); setTimeout(function () { if (m.parentNode) m.parentNode.removeChild(m); }, 5000); });
-    }
-    start.addEventListener('change', save); end.addEventListener('change', save);
-    host.appendChild(start); host.appendChild(sep); host.appendChild(end);
-  }
-
   // Carte d'un objectif hebdomadaire (texte, statut, capacité, éditeur) : rendue dans la fenêtre « Objectif hebdomadaire » (plus de liste ni de panneau de jours sur la page).
   function renderGoalsWeekCard(period, weekIndex, box) {
     box.textContent = ''; box.className = 'goalsWeeklyList'; box.style.borderColor = currentGoalsCategoryColor();
@@ -862,7 +842,7 @@
     var first = calMonth.y + '-' + pad(calMonth.m + 1) + '-01', lastDay = new Date(Date.UTC(calMonth.y, calMonth.m + 1, 0)).getUTCDate();
     var dow = (new Date(Date.UTC(calMonth.y, calMonth.m, 1)).getUTCDay() + 6) % 7; // lundi = 0
     var start = isoAddDays(first, -dow), rows = Math.ceil((dow + lastDay) / 7);
-    var slots = [], ends = [];
+    var slots = [];
     periods.forEach(function (p) {
       for (var wi = 1; wi <= (p.weeksCount || 4); wi++) {
         var ws = isoAddDays(p.startDate, (wi - 1) * 7), we = isoAddDays(ws, 6);
@@ -870,10 +850,8 @@
         var w = null; (p.weeklies || []).forEach(function (x) { if (x.weekIndex === wi) w = x; });
         slots.push({ p: p, wi: wi, w: w, s: ws, e: we });
       }
-      if (p.mainGoalText && p.endDate) ends.push({ p: p, d: p.endDate });
     });
-    var today = isoToday(), endDays = {}, real = planning.realism && planning.realism.unrealistic ? planning.realism : null;
-    ends.forEach(function (x) { endDays[x.d] = true; });
+    var today = isoToday(), real = planning.realism && planning.realism.unrealistic ? planning.realism : null;
     grid.textContent = '';
     for (var r = 0; r < rows; r++) {
       var rs = isoAddDays(start, r * 7), re = isoAddDays(rs, 6);
@@ -883,33 +861,31 @@
       // Ligne de l'objectif HEBDOMADAIRE, collée à sa rangée de jours : « S45 » + le titre seulement. Un toucher ouvre la fenêtre de l'objectif (carte et éditeur existants).
       var slot = null; slots.forEach(function (x) { if (!slot && x.s <= re && x.e >= rs) slot = x; });
       if (slot) {
-        var hasObj = !!(slot.w && slot.w.text), line = document.createElement('button'); line.type = 'button';
+        var hasObj = !!(slot.w && slot.w.text), line;
+        var wNum = (slot.p.firstWeekOfYear || (((slot.p.periodNumber - 1) % 13) * 4 + 1)) + slot.wi - 1, wLabel = t('S{n}', { n: wNum });
+        var openWeek = function () { openGoalsCalPeriod(slot.p, function () { openGoalEdit('week', slot.p, slot.wi, hasObj ? slot.w.text : '', wLabel + ' · ' + t('Objectif hebdomadaire'), slot.w && slot.w.description); }); };
         if (hasObj) {
-          line.className = 'goalsCalWeekLine' + (slot.w.status === 'atteint' ? ' done' : ''); var lc = currentGoalsCategoryColor(); line.style.background = lc; line.style.color = readableTextOn(lc); // nuance du pôle
-          var tag = document.createElement('b'); tag.textContent = t('S{n}', { n: (slot.p.firstWeekOfYear || (((slot.p.periodNumber - 1) % 13) * 4 + 1)) + slot.wi - 1 });
-          line.appendChild(tag); line.appendChild(document.createTextNode(slot.w.text)); line.title = slot.w.text;
-          if (slot.w.noRoomToCarry || slot.w.overloaded || (real && real.periodNumber === slot.p.periodNumber && slot.s <= today && slot.e >= today)) { var dot = document.createElement('span'); dot.className = 'notifDot goalsWeekDot'; line.appendChild(dot); line.title += ' — ' + t('Cible peut-être irréaliste'); } // pastille existante (.notifDot), jamais un liseré
+          // Statut : coloré (vert / jaune / rouge) dès que la semaine a commencé ET qu'elle a des tâches ; transparent sinon (à venir ou sans tâche). Un clic fait tourner les couleurs.
+          var wState = slot.s <= today && slot.w.taskTotal > 0 ? (slot.w.status || 'non_atteint') : null;
+          line = document.createElement('div'); line.className = 'goalsCalWeekLine';
+          line.appendChild(TMT.ui.statusBtn(wLabel, wState, function (next) { saveWeeklyStatus(slot.w.id, next); }));
+          var wt = document.createElement('button'); wt.type = 'button'; wt.className = 'goalsCalWeekTitle'; wt.textContent = slot.w.text; wt.title = slot.w.text; wt.addEventListener('click', openWeek); line.appendChild(wt);
+          if (slot.w.noRoomToCarry || slot.w.overloaded || (real && real.periodNumber === slot.p.periodNumber && slot.s <= today && slot.e >= today)) { var dot = document.createElement('span'); dot.className = 'notifDot goalsWeekDot'; line.appendChild(dot); wt.title += ' — ' + t('Cible peut-être irréaliste'); } // pastille
         } else {
+          line = document.createElement('button'); line.type = 'button'; line.addEventListener('click', openWeek);
           line.className = 'cmpAdd goalsCalWeekAdd'; var plw = document.createElement('b'); plw.textContent = '+'; line.appendChild(plw); line.appendChild(document.createTextNode(t('Ajouter un objectif hebdomadaire'))); // + violet, contour pointillé gris (.cmpAdd)
         }
-        line.addEventListener('click', function () { openGoalsCalPeriod(slot.p, function () { openGoalEdit('week', slot.p, slot.wi, hasObj ? slot.w.text : '', t('S{n}', { n: (slot.p.firstWeekOfYear || (((slot.p.periodNumber - 1) % 13) * 4 + 1)) + slot.wi - 1 }) + ' · ' + t('Objectif hebdomadaire'), slot.w && slot.w.description); }); });
         row.appendChild(line);
       }
       var days = document.createElement('div'); days.className = 'goalsCalDays';
       for (var c = 0; c < 7; c++) {
         var di = isoAddDays(rs, c), cell = document.createElement('button'); cell.type = 'button';
-        cell.className = 'goalsCalDay' + (+di.slice(5, 7) - 1 !== calMonth.m ? ' out' : '') + (di === today ? ' today' : '') + (endDays[di] ? ' end' : '') + (di === selDay ? ' sel' : '');
+        cell.className = 'goalsCalDay' + (+di.slice(5, 7) - 1 !== calMonth.m ? ' out' : '') + (di === today ? ' today' : '') + (di === selDay ? ' sel' : '');
         cell.textContent = String(+di.slice(8, 10));
         (function (iso) { cell.addEventListener('click', function () { selectGoalsDay(iso); }); })(di);
         days.appendChild(cell);
       }
       row.appendChild(days);
-      ends.filter(function (x) { return x.d >= rs && x.d <= re; }).forEach(function (x) {
-        var en = document.createElement('button'); en.type = 'button'; en.className = 'goalsCalEnd';
-        en.textContent = t('Échéance') + ' · ' + x.p.mainGoalText; en.title = x.p.mainGoalText;
-        en.addEventListener('click', function () { openGoalsCalPeriod(x.p, function () { openGoalsMainPop(); }); });
-        row.appendChild(en);
-      });
       grid.appendChild(row);
     }
   }
@@ -1018,10 +994,14 @@
   function openGoalsMainPop() { goalsPops.main.pop.classList.remove('hidden'); }
   // En haut de la page : « P12 », l'état de réalisation de la période et l'objectif périodique (titre seulement).
   function renderGoalsTopLine(period) {
-    var state = $('goalsPeriodState'), ws = (period.weeklies || []).filter(function (w) { return w.text; }), st = null;
+    var ws = (period.weeklies || []).filter(function (w) { return w.text; }), st = null;
     if (ws.length) { var done = ws.filter(function (w) { return w.status === 'atteint'; }).length; st = done === ws.length ? 'atteint' : ws.some(function (w) { return w.status === 'partiel' || w.status === 'atteint'; }) ? 'partiel' : 'non_atteint'; }
-    state.className = 'goalWeeklyBadge goalWeeklyBadgeStatus' + (st ? ' ' + goalStatusClass(st) : ' hidden');
-    state.textContent = st ? t(GOAL_STATUS_LABELS[st]) : '';
+    // Statut de la période : transparent tant qu'elle n'a pas commencé ou n'a aucune tâche ; sinon coloré. Un clic fait tourner les couleurs : les semaines de la période prennent le nouvel état (le statut de la période en est dérivé).
+    var hasTasks = ws.some(function (w) { return w.taskTotal > 0; }), pState = period.startDate <= isoToday() && hasTasks ? st : null;
+    var tagHost = $('activityGoalsPeriodTitle'); tagHost.textContent = '';
+    tagHost.appendChild(TMT.ui.statusBtn('P' + period.periodIndexInCycle, pState, function (next) {
+      Promise.all(ws.map(function (w) { return api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/weekly/' + w.id + '/status', { status: next }); })).then(reloadGoalsAll).catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
+    }));
     var oldFr = document.querySelector('.goalsTopAdd'); if (oldFr) oldFr.remove(); var navLab = document.getElementById('goalsCalTitle'); if (navLab) navLab.classList.remove('hidden');
     var host = $('goalsMainLineHost'); host.textContent = '';
     var b = document.createElement('button'); b.type = 'button';
@@ -1062,8 +1042,6 @@
     var period = goalPeriodByNumber(TMT.currentGoalsPlanning, TMT.currentGoalsViewPeriodNumber);
     if (!period) return;
 
-    $('activityGoalsPeriodTitle').textContent = 'P' + period.periodIndexInCycle; // la période s'écrit « P12 », comme les semaines « S45 »
-    renderGoalsPeriodDates(period);
     renderGoalsTopLine(period);
     renderGoalsMonthCal();
 
