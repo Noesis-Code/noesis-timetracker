@@ -1,0 +1,63 @@
+// Objectifs de la Feuille de route : durée -> dates, découpage, proposition sans écriture, création après validation, liste, détail.
+// Usage : node test/objectifs-creation-test.js
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-obj-');
+delete process.env.ANTHROPIC_API_KEY;
+try { require('child_process').execFileSync('node', [require('path').join(__dirname, '..', 'scripts', 'dev-seed.js')], { env: Object.assign({}, process.env, { RAILWAY_ENVIRONMENT_NAME: 'staging' }), stdio: 'ignore' }); } catch (e) {}
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
+let failed = 0;
+function assert(c, l) { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } }
+const db = require('../server/db');
+const o = require('../server/lib/objectifs');
+const m = db.prepare('SELECT userId, activityId FROM activity_members LIMIT 1').get();
+if (!m) { console.log('  (pas de données de base : test ignoré)'); process.exit(0); }
+const u = m.userId;
+(async () => {
+  assert(o.computeEnd('2026-11-04', 6, 'mois') === '2027-05-04', '6 mois depuis le 4 nov. 2026 -> 4 mai 2027');
+  assert(o.computeEnd('2026-11-04', 3, 'semaines') === '2026-11-25', '3 semaines');
+  assert(o.computeEnd('2026-01-31', 1, 'mois') === '2026-02-28', 'fin de mois : jour ramené au dernier jour');
+  let bad = false; try { o.computeEnd('2026-11-04', 0, 'mois'); } catch (e) { bad = true; } assert(bad, 'durée nulle refusée');
+  const d = o.parseDuration('Courir un semi-marathon en six mois');
+  assert(d && d.amount === 6 && d.unit === 'mois', 'durée lue dans le texte');
+  assert(o.cleanTitle('courir un semi en 6 mois') === 'Courir un semi', 'durée retirée de la fin du titre');
+  const per = o.splitPeriods('2026-11-04', '2027-05-04', 4);
+  assert(per[0].startDate === '2026-11-04' && per[0].endDate === '2026-12-01' && per[0].weeks.length === 4, 'période 1 : 4 nov. au 1er déc., 4 semaines');
+  assert(per.every((p, i) => !i || p.startDate === new Date(Date.parse(per[i - 1].endDate + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10)), 'périodes contiguës, sans chevauchement');
+  assert(per[per.length - 1].endDate === '2027-05-04', 'la dernière période finit à la date de fin');
+  assert(o.splitPeriods('2026-11-04', '2026-11-10', 4).length === 1, 'une semaine = une période');
+  assert(o.splitPeriods('2026-11-04', '2027-05-04', 'mois').length === 6, 'périodes d\'un mois : 6');
+
+  const before = db.prepare('SELECT COUNT(*) AS n FROM user_objectives').get().n;
+  const tasksBefore = db.prepare('SELECT COUNT(*) AS n FROM sub_project_items').get().n;
+  const ctx = o.contexte(u, { text: 'Courir un semi-marathon en six mois' });
+  assert(ctx.amount === 6 && ctx.unit === 'mois' && ctx.endDate > ctx.startDate && Array.isArray(ctx.activities), 'contexte : durée déduite du texte, activités classées');
+  const prop = await o.proposer(u, { title: ctx.title, startDate: ctx.startDate, endDate: ctx.endDate, periodWeeks: 4, weekly: true, activityId: m.activityId });
+  assert(prop.periods.length >= 6 && prop.periods[0].weeks.length === 4 && prop.weekTasks.length >= 1 && prop.weekTasks.length <= 3, 'proposition : périodes, semaines et 1 à 3 tâches');
+  assert(db.prepare('SELECT COUNT(*) AS n FROM user_objectives').get().n === before && db.prepare('SELECT COUNT(*) AS n FROM sub_project_items').get().n === tasksBefore, 'la proposition ne crée rien');
+  const noWeekly = await o.proposer(u, { title: ctx.title, startDate: ctx.startDate, endDate: ctx.endDate, periodWeeks: 4, weekly: false });
+  assert(noWeekly.periods.every((p) => p.weeks.every((w) => !w.text)), 'interrupteur hebdomadaire éteint : aucun texte de semaine');
+
+  prop.periods[0].title = 'Courir 3 fois par semaine';
+  const made = o.creer(u, { title: prop.title, activityId: m.activityId, startDate: prop.startDate, endDate: prop.endDate, amount: 6, unit: 'mois', periodWeeks: 4, weekly: true, periods: prop.periods, weekTasks: prop.weekTasks });
+  assert(made.id && made.title === prop.title && made.periodCount === prop.periods.length, 'création après validation');
+  assert(made.periods[0].title === 'Courir 3 fois par semaine', 'le texte modifié par l\'utilisateur est gardé');
+  assert(db.prepare('SELECT COUNT(*) AS n FROM sub_project_items').get().n === tasksBefore + prop.weekTasks.length, 'les tâches de la semaine 1 sont de vraies tâches');
+  assert(o.liste(u, 'en_cours').some((x) => x.id === made.id) && !o.liste(u, 'atteints').some((x) => x.id === made.id), 'liste : En cours / Atteints');
+  assert(made.currentPeriod.n === 1 && made.weekTasks.total >= 1, 'période courante et tâches de la semaine');
+  const w = o.semaine(u, made.id, 1, 1, true);
+  assert(w.progress > 0 && w.periods[0].weeks[0].done === true, 'semaine cochée : la progression avance');
+  const ext = o.bilan(u, made.id, 'prolonger', 1);
+  assert(ext.periods[1].weeks.length === 5 && ext.endDate > made.endDate, 'prolonger d\'une semaine décale la suite');
+  const du = o.duree(u, made.id, 2);
+  assert(du.periods.length > ext.periods.length && du.periods[0].n === 1, 'régler la durée : la période commencée reste, le reste est redécoupé');
+  assert(o.defaultPeriodWeeks('2026-11-04', '2026-11-25') === '1' && o.defaultPeriodWeeks('2026-11-04', '2027-05-04') === '4' && o.defaultPeriodWeeks('2026-11-04', '2029-11-04') === 'mois', 'découpage par défaut selon la durée');
+  process.env.ANTHROPIC_API_KEY = 'x';
+  assert(o.aiAllowed(u) === true, 'IA gratuite : première proposition du mois permise');
+  db.prepare("INSERT INTO ai_usage_log (userId, day, model, feature, calls, inputTokens, outputTokens, costUsd) VALUES (?, ?, 'm', 'objectifs-creation', 1, 1, 1, 0.1)").run(u, new Date().toISOString().slice(0, 10));
+  assert(o.aiAllowed(u) === false, 'IA gratuite : une seule proposition par utilisateur et par mois');
+  process.env.OBJECTIFS_GRATUIT_PLAFOND_USD = '0.05';
+  assert(o.aiAllowed('autre') === false, 'IA gratuite : plafond global mensuel atteint, règles fixes');
+  delete process.env.ANTHROPIC_API_KEY;
+  bad = false; try { o.get('autre-utilisateur', made.id); } catch (e) { bad = e.statusCode === 404; } assert(bad, 'un autre utilisateur ne voit pas cet objectif');
+  console.log(failed ? '\nobjectifs-creation-test : ' + failed + ' échec(s)' : '\nobjectifs-creation-test : OK');
+  process.exit(failed ? 1 : 0);
+})();

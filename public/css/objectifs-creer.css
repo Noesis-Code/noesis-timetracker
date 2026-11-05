@@ -1,0 +1,82 @@
+/* Feuille de route, vue « Objectifs » (4 nov. 2026) : liste d'objectifs, barre « Nouvel objectif… », fenêtres de création et de détail.
+ * Voir public/js/objectifs-creer.js. Composants communs réutilisés : .cmpSeg, .cmpNav, .cmpBtn, .cmpBlockTitle, .cmpGlass, .cmpSend (barre .tasksDock),
+ * .goalTaskEditModal, .aiModeChoice, .toggleSwitch, .tasksPopRow/.tasksPopCheck, .goalMainProgressTrack. Aucune couleur nouvelle : jetons de composants.css. */
+#goalsActivitiesView { padding-bottom: calc(var(--tabbar-h, 76px) + 120px); } /* le bas de la liste reste lisible au-dessus de la barre fixe */
+.objView { display: flex; flex-direction: column; }
+.objView .hidden, .objModal .hidden { display: none; }
+
+/* État vide : icône cible, un titre, deux phrases */
+.objEmpty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 16px; text-align: center; }
+.objEmptyIcon { display: flex; color: var(--purple); }
+.objEmptyTitle { margin: 0; font-size: 15px; font-weight: 700; color: var(--text); }
+.objEmpty .hint { margin: 0; }
+
+/* Liste */
+.objList { display: flex; flex-direction: column; gap: 12px; }
+.objCard { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: var(--radius-xl); cursor: pointer; text-align: left; -webkit-tap-highlight-color: transparent; }
+.objCard:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+.objCardHead { display: flex; align-items: center; gap: 12px; }
+.objCardTitle { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+.objMeta { font-size: 13px; color: var(--text-light); overflow-wrap: anywhere; }
+.objPeriod { font-size: 14px; color: var(--text); overflow-wrap: anywhere; }
+.objNone { text-align: center; }
+.objDot { display: inline-block; flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--purple); vertical-align: middle; } /* couleur de l'activité (donnée, R16), posée en JS */
+.objDotBtn { position: relative; flex: none; display: flex; align-items: center; justify-content: center; width: 12px; height: 28px; padding: 0; border: 0; background: none; cursor: pointer; }
+.objDotBtn::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.objBar { margin: 4px 0; }
+.objActsTitle { margin-top: 24px; }
+.objDock .tasksComposer { padding-left: 16px; }
+
+/* Fenêtres */
+.objModal .goalTaskEditCard { width: 100%; max-width: 440px; }
+.objModalTitle { flex: 1; min-width: 0; }
+.objModalTitle .sectionTitle { margin: 0; overflow-wrap: anywhere; }
+.objSub { margin: 4px 0 0; }
+.objScroll { padding-bottom: 8px; }
+.objField { margin-bottom: 16px; }
+.objDurRow { display: flex; align-items: center; gap: 12px; }
+.objDurRow .cmpSeg { flex: 1; margin: 0; }
+.objAmount { flex: none; width: 64px; box-sizing: border-box; text-align: center; }
+.objCustom { margin-top: 8px; }
+.objDates { margin: 4px 0 0; }
+.objDatePick { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.objLink { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--violet-soft); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.objDates .objLink { min-height: 0; padding: 0; }
+.objMore { align-self: flex-start; }
+.objChoice .objDot { margin-right: 12px; }
+.objNote { margin-bottom: 16px; padding: 12px 16px; border-radius: var(--radius-lg); background: var(--seg-active-bg); box-shadow: inset 0 0 0 1px var(--glass-border); }
+.objNote .hint { margin: 0; color: var(--text); }
+.objBilanTitle { margin: 0 0 4px; font-size: 14px; font-weight: 600; color: var(--text); }
+.objBilanBtns { display: flex; flex-wrap: wrap; gap: 0 12px; }
+.objFoot { flex: none; display: flex; flex-direction: column; gap: 8px; padding-top: 12px; }
+.objFoot:empty { display: none; }
+.objFootHint { margin: 0; text-align: center; }
+.objMsg { min-height: 0; margin: 0; }
+.objMsg:empty { display: none; }
+
+/* Étapes proposées */
+.objSwitchRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; margin-bottom: 8px; }
+.objSwitchLabel { font-size: 14px; color: var(--text); }
+.objPeriods { display: flex; flex-direction: column; }
+.objStep { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; padding: 12px 16px; border-radius: var(--radius-lg); }
+.objStepHead { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+.objStepToggle { cursor: pointer; }
+.objStepName { font-size: 15px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+:root:root .objStep input, :root:root .objTaskRow input { width: 100%; min-width: 0; box-sizing: border-box; padding: 4px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: var(--text); font: inherit; font-size: 15px; font-weight: 600; } /* R40 : champ transparent posé dans une carte de verre */
+:root:root .objTaskRow input { font-weight: 500; }
+.objWeeks { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.objWeek { display: flex; align-items: center; gap: 8px; min-width: 0; border-bottom: 1px solid var(--sep); }
+.objWeekNo { flex: none; font-size: 13px; color: var(--text-light); }
+:root:root .objWeek input { font-size: 14px; font-weight: 500; }
+.objTaskRow { align-items: center; padding: 8px 4px; }
+.objTaskRow .tasksPopCheck { cursor: default; }
+.objTaskRow .tasksPopCheck::after { display: none; }
+
+/* Détail */
+.objDetailTitle { display: flex; align-items: center; gap: 12px; }
+.objDetailTitle .sectionTitle { margin: 0; }
+.objWeekRow { padding: 8px 4px; align-items: center; }
+.objDetailFoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.objDetailFoot .hint { margin: 0; text-align: left; }
+:root:root .objField input.objAmount { flex: none; width: 64px; padding-left: 8px; padding-right: 8px; text-align: center; }
+:root:root .objField input.objCustom { width: 96px; }

@@ -1135,6 +1135,7 @@
       } else TMT.todayView.hide();
     }
     if (!today) renderGoalsCaptureActivities();
+    if (TMT.objectifsView) { if (today) TMT.objectifsView.hide(); else TMT.objectifsView.show(); } // vue Objectifs : liste + barre « Nouvel objectif… » (js/objectifs-creer.js)
   }
   Array.prototype.forEach.call(document.querySelectorAll('#goalsPage1Switch .periodBtn'), function (b) {
     b.addEventListener('click', function () { setGoalsPage1View(b.getAttribute('data-view')); });
@@ -1246,6 +1247,7 @@
   TMT.openGoalsPeriodFromNotification = openGoalsPeriodFromNotification;
   TMT.renderGoalsCaptureActivities = renderGoalsCaptureActivities;
   TMT.showGoalsCapturePage = showGoalsCapturePage;
+  TMT.showGoalsPolesPage = showGoalsPolesPage; // la pastille d'activité d'une carte d'objectif ouvre la page de l'activité
   TMT.renderGoalsCaptureBubble = renderGoalsCaptureBubble; // réutilisé par le pop-up du bouton flottant des tâches du jour
   $('offer1CheckoutOpenBtn').addEventListener('click', TMT.openOffer1CheckoutModal);
   // Résiliation : ouvre le portail client Stripe (POST /api/offer/portal) ; visible seulement avec un abonnement (voir loadOffer1SubscribedSection).
