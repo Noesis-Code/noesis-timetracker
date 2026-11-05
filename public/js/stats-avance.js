@@ -26,7 +26,7 @@
     if (text != null) e.textContent = text;
     return e;
   }
-  var GREEN = '#4CAF50', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
+  var GREEN = '#4CAF50', YELLOW = '#F0AD4E', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
 
   // ---------- Glissement continu (une technique pour les pages Temps | Tâches | Objectifs, propre page ET profil visité) ----------
   // Même technique que la Page 2 de la feuille de route (bindPage2ModeSwipe) : la page voisine est posée en absolu à côté de la courante
@@ -155,25 +155,7 @@
     els.msg = el('p', 'hint hidden');
     // Une page par onglet (Tâches | Objectifs) : les deux voisines coexistent pendant le glissement (slidePager).
     bodies.t = el('div', 'saBody'); bodies.o = el('div', 'saBody hidden'); els.body = bodies.t;
-    // Sélecteur Tâches | Objectifs (27 oct. 2026) : une seule page de statistiques ; le profil visité garde son propre glissement.
-    if (!visitor) {
-      els.sel = el('div', 'statsPeriodMenuWrap caSubProjectFilter saSel');
-      els.selBtn = el('button', 'caSubProjectBtn', tr(tab === 't' ? 'Tâches' : 'Objectifs')); els.selBtn.type = 'button'; els.selBtn.setAttribute('aria-haspopup', 'true'); els.selBtn.setAttribute('aria-label', tr('Choisir : tâches ou objectifs'));
-      els.selMenu = el('div', 'statsPeriodMenu caSubProjectMenu hidden');
-      [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (k) {
-        var it = el('button', 'statsPeriodMenuItem' + (tab === k[0] ? ' active' : ''), tr(k[1])); it.type = 'button'; it.dataset.tab = k[0];
-        it.addEventListener('click', function () { els.selMenu.classList.add('hidden'); goTab(k[0]); });
-        els.selMenu.appendChild(it);
-      });
-      els.selBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var willOpen = els.selMenu.classList.contains('hidden');
-        document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
-        if (willOpen) els.selMenu.classList.remove('hidden');
-      });
-      els.sel.appendChild(els.selBtn); els.sel.appendChild(els.selMenu);
-    }
-    [els.chips, els.sel, els.yearRow, els.msg, bodies.t, bodies.o].forEach(function (e) { if (e) page2.appendChild(e); });
+    [els.chips, els.yearRow, els.msg, bodies.t, bodies.o].forEach(function (e) { if (e) page2.appendChild(e); });
     if (visitor) { bodies.t.classList.add('saVisitor'); bodies.o.classList.add('saVisitor'); }
     // Feuille du bas (charge restante par secteur) : même fenêtre qu'avant (communityMembersModal), fermeture ✕.
     var m = el('div', 'communityMembersModal hidden'); if (!visitor) m.id = 'statsAvanceModal';
@@ -479,6 +461,14 @@
     var wrap = el('div', 'statsPeriodMenuWrap');
     var btn = el('button', 'menuBtn', '⋮'); btn.type = 'button'; btn.setAttribute('aria-haspopup', 'true'); btn.setAttribute('aria-label', tr('Choisir la période'));
     var menu = el('div', 'statsPeriodMenu hidden');
+    if (!visitor) { // bascule Tâches | Objectifs : toutes les cartes en dessous suivent ce choix
+      [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (k) {
+        var it = el('button', 'statsPeriodMenuItem' + (k[0] === tab ? ' active' : ''), tr(k[1])); it.type = 'button'; it.dataset.tab = k[0];
+        it.addEventListener('click', function () { menu.classList.add('hidden'); goTab(k[0]); });
+        menu.appendChild(it);
+      });
+      menu.appendChild(el('div', 'saMenuSep'));
+    }
     VS.forEach(function (o) {
       var it = el('button', 'statsPeriodMenuItem' + (o[0] === cv ? ' active' : ''), tr(o[1])); it.type = 'button';
       if (yearSel !== null && o[0] !== 'year' && isT) { it.disabled = true; it.style.opacity = '.4'; }
@@ -620,6 +610,15 @@
         return bigRow(String(u.count), tr('tâches à échéance sous {n} jours', { n: u.withinDays })); } }
     ],
     o: [
+      { key: 'advance', def: true, title: 'Avancement', body: function (d) {
+        var a = d.objectives && d.objectives.advance; if (!a || !a.list || !a.list.length) return null;
+        var w = document.createElement('div'), STATE = { avance: [GREEN, 'En avance'], heure: [YELLOW, 'À l’heure'], retard: [RED, 'En retard'] };
+        a.list.forEach(function (r, i) {
+          var st = STATE[r.state] || STATE.heure, bw = bar([[r.pct, st[0]]]); bw.classList.add('saMarked'); // repère : le temps nécessaire (100 %)
+          w.appendChild(row(poleName(r.label, poleColor(i)), bw, colored(fmtMin(r.needMin) + ' / ' + fmtMin(r.availMin), r.state !== 'retard')));
+          var s = el('div', 'saAdvState'); s.style.color = st[0]; s.textContent = tr(st[1]); w.appendChild(s);
+        });
+        return w; } },
       { key: 'target', title: 'Temps cible contre temps fait', body: function (d) {
         var a = d.objectives && d.objectives.target; if (!a || !a.length) return null;
         var w = document.createElement('div');
@@ -758,7 +757,6 @@
     if (tab === t) return;
     tab = t; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null;
     tOff = 0;
-    if (els.selBtn) { els.selBtn.textContent = tr(t === 't' ? 'Tâches' : 'Objectifs'); Array.prototype.forEach.call(els.selMenu.children, function (b) { b.classList.toggle('active', b.dataset.tab === t); }); }
     if (cfg.onTab) cfg.onTab(tab);
   }
   function goTab(t) {

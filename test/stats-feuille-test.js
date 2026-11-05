@@ -13,7 +13,7 @@ const block = (key) => { const i = js.indexOf("{ key: '" + key + "'"); return i 
 ['onTime', 'weekdays', 'remaining', 'workload'].forEach((k) => assert(/def: true/.test(block(k)), 'Tâches : « ' + k + ' » affichée par défaut'));
 ['estimate', 'postponed', 'rhythm', 'streak', 'busy', 'capacity', 'assignees', 'urgent'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Tâches : « ' + k + ' » dans « Ajouter une information » (code conservé)'));
 ['target', 'achieved', 'weeks', 'carried', 'linked', 'pressure'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Objectifs : « ' + k + ' » dans « Ajouter une information » (code conservé)'));
-assert(/caSubProjectBtn/.test(js) && /els\.selBtn/.test(js) && !/periodSwitch cmpSeg saSel/.test(js), 'un seul bouton-menu Tâches ▾ / Objectifs ▾ (même gabarit que « Tous ▾ » du Chrono)');
+assert(!/els\.selBtn|saSel/.test(js) && /\[\['t', 'Tâches'\], \['o', 'Objectifs'\]\]\.forEach/.test(js) && /key: 'advance', def: true/.test(js), 'plus de sélecteur en haut : la bascule Tâches | Objectifs est dans le menu du graphique ; Objectifs affiche le graphique + Avancement');
 assert(/tmt\.statsInfo\.|infoStore/.test(js) && /loadAdded\(tab\)/.test(js), 'préférences d\'ajout enregistrées (localStorage tmt.statsInfo.*) respectées');
 const db = require('../server/db'), goals = require('../server/lib/goals'), ins = require('../server/lib/statsinsights');
 assert(ins.CAPACITY_ALERT_PCT === 120, 'seuil d\'alerte de la carte Capacité : 120 %');
@@ -40,5 +40,19 @@ const o0 = get().tasks.onTime, o1 = get({ toff: -1 }).tasks.onTime;
 assert(o0 && o0.offset === 0 && o0.canNext === false && /^\d\d\/\d\d – \d\d\/\d\d$/.test(o0.label), 'à la date prévue : semaine en cours (libellé « du … au … »)');
 assert(o1 && o1.offset === -1 && o1.canNext === true && o1.start < o0.start, 'à la date prévue : semaine précédente navigable (‹ ›)');
 assert(js.indexOf('Aujourd\'hui') > 0 && /saTodayBtn/.test(js), 'bouton Aujourd\'hui de la carte');
+// Avancement (objectifs) : durée des tâches restantes vs temps réellement disponible (historique Chrono 4 semaines), seuil 20 %
+assert(ins.ADVANCE_LATE_PCT === 20, 'Avancement : seuil de retard 20 % (même règle que le bilan)');
+const sub = goals.secteursForPole(m.activityId, cat.key)[0] || { key: cat.key };
+const dayMinus = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+const histAdd = (h) => [3, 10, 17, 24].forEach((n) => db.prepare("INSERT INTO time_entries (userId, activityId, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory) VALUES (?, ?, ?, ?, ?, ?, 'x', ?)").run(m.userId, m.activityId, dayMinus(n) + 'T01:00:00Z', dayMinus(n) + 'T02:00:00Z', Math.round(h * 3600), dayMinus(n), sub.key));
+let adv = get({ kind: 'weekly' }).objectives.advance;
+assert(!adv || !adv.list.some((x) => x.key === sub.key), "Avancement : sans historique de temps, rien n'est jugé");
+histAdd(0.1); // très peu de temps disponible face aux tâches restantes
+adv = get({ kind: 'weekly' }).objectives.advance;
+const line = adv && adv.list.filter((x) => x.key === sub.key)[0];
+assert(line && line.needMin > line.availMin * 1.2 && line.state === 'retard', 'Avancement : temps nécessaire > temps disponible + 20 % -> En retard');
+histAdd(40); // beaucoup de temps disponible
+adv = get({ kind: 'weekly' }).objectives.advance; const l2 = adv.list.filter((x) => x.key === sub.key)[0];
+assert(l2.state === 'avance' && l2.pct === 100, 'Avancement : temps disponible >= temps nécessaire -> En avance');
 console.log(failed ? '\nstats-feuille-test : ' + failed + ' échec(s)' : '\nstats-feuille-test : OK');
 process.exit(failed ? 1 : 0);
