@@ -439,7 +439,7 @@ function unitEnd(o) { return o.kind === 'weekly' ? goals.weekBounds(o.periodStar
 
 function objectivesCards(ctx) {
   const { activityId, today, scope, tasks, objs, realToday, isCurrentYear } = ctx;
-  const out = { advance: null, split: null, target: null, achieved: null, weeks: null, carried: null, linked: null, pressure: null };
+  const out = { advance: null, timeline: null, split: null, target: null, achieved: null, weeks: null, carried: null, linked: null, pressure: null };
   // « Avancement » : par objectif (secteur, ou pôle sans secteur), la DURÉE des tâches restantes à faire comparée au temps que l'utilisateur va réellement passer d'ici la fin de la période,
   // estimé d'après ses 4 dernières semaines de Chrono. Au-delà de ADVANCE_LATE_PCT (20 %) de temps manquant : « En retard » (même seuil que le bilan) ; en deçà : « À l'heure » ; sinon « En avance ».
   out.advance = safe(() => {
@@ -457,6 +457,23 @@ function objectivesCards(ctx) {
       list.push({ key: u.key, label: u.label, needMin: need, availMin: avail, pct: Math.min(100, Math.round(avail / need * 100)), state });
     });
     return list.length ? { list, periodEnd: per.end, latePct: ADVANCE_LATE_PCT } : null;
+  });
+
+  // Avancement : une ligne PAR ACTIVITÉ sur un axe de temps commun (début le plus tôt -> fin la plus tardive) ; « fait » = semaines cochées / semaines prévues des objectifs en cours de l'activité.
+  out.timeline = safe(() => {
+    const rows = db.prepare('SELECT o.activityId, o.startDate, o.endDate, o.stepsJson, o.metaJson, a.name FROM user_objectives o JOIN activities a ON a.id = o.activityId WHERE o.userId = ?').all(ctx.userId);
+    const by = {};
+    rows.forEach((r) => {
+      let meta = {}, periods = [];
+      try { meta = JSON.parse(r.metaJson || '{}'); periods = JSON.parse(r.stepsJson || '[]'); } catch (e) { return; }
+      if (meta.attainedAt || !r.startDate || !r.endDate) return;
+      const x = by[r.activityId] || (by[r.activityId] = { activityId: r.activityId, name: r.name, start: r.startDate, end: r.endDate, done: 0, total: 0 });
+      if (r.startDate < x.start) x.start = r.startDate;
+      if (r.endDate > x.end) x.end = r.endDate;
+      periods.forEach((p) => (p.weeks || []).forEach((w) => { x.total += 1; if (w.done) x.done += 1; }));
+    });
+    const list = Object.keys(by).map((k) => by[k]).sort((p, q) => (p.end < q.end ? 1 : p.end > q.end ? -1 : 0));
+    return list.length ? { today: realToday, list } : null;
   });
 
   const started = objs.filter((o) => unitStart(o) <= today);

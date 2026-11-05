@@ -510,6 +510,26 @@
     return w;
   }
 
+  // ---------- Avancement : une ligne par activité, axe de temps commun, curseur « aujourd'hui » ----------
+  function dayNum(s) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || '')); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000 : null; }
+  function timelineBody(d) {
+    var a = d.objectives && d.objectives.timeline;
+    if (!a || !a.list || !a.list.length) return el('p', 'hint cmpEmpty', tr('Aucun objectif en cours.'));
+    var cache = (TMT.getActivitiesCache && TMT.getActivitiesCache()) || [], colorOf = function (id) { var x = cache.filter(function (c) { return String(c.id) === String(id); })[0]; return (x && x.color) || '#674EA7'; };
+    var o0 = Math.min.apply(null, a.list.map(function (r) { return dayNum(r.start); })), e0 = Math.max.apply(null, a.list.map(function (r) { return dayNum(r.end); })), span = Math.max(1, e0 - o0);
+    var pos = function (n) { return Math.max(0, Math.min(1, (n - o0) / span)) * 100; };
+    var w = el('div', 'saTl');
+    a.list.forEach(function (r) {
+      var c = colorOf(r.activityId), line = el('div', 'saTlRow');
+      line.appendChild(el('div', 'saTlName', r.name));
+      var tr0 = el('div', 'saTlTrack'); tr0.style.width = pos(dayNum(r.end)) + '%'; tr0.style.borderColor = c;
+      var fill = el('i', 'saTlFill'); fill.style.width = (r.total ? Math.round(r.done * 100 / r.total) : 0) + '%'; fill.style.background = c; tr0.appendChild(fill);
+      line.appendChild(tr0); w.appendChild(line);
+    });
+    var cur = el('i', 'saTlCursor'); cur.style.left = pos(dayNum(a.today)) + '%'; cur.setAttribute('aria-label', tr("Aujourd'hui")); w.appendChild(cur);
+    return w;
+  }
+
   // ---------- Cartes d'information ----------
   // Chaque définition : key, title, def (par défaut, non supprimable), body(d) -> noeud ou null (donnée absente).
   var CARDS = {
@@ -558,10 +578,13 @@
         return w; } },
       { key: 'workload', title: 'Capacité', body: function (d) {
         var c = d.tasks && d.tasks.workload; if (!c || !has(c.pct)) return null;
-        var col = c.pct > c.alertAt ? RED : (c.pct > 100 ? ORANGE : GREEN), w = document.createElement('div');
-        w.appendChild(bigRow(c.pct + ' %', tr('du temps estimé') + ' · ' + c.label, null, col));
-        w.appendChild(bar([[Math.min(100, c.pct), col]]));
-        w.appendChild(el('p', 'meta', tr('{a} passées sur {b} estimées', { a: fmtMin(c.actualMin), b: fmtMin(c.estimatedMin) })));
+        var w = document.createElement('div'), MAX = 160; // échelle 0 – 160 % du temps estimé ; la cible (100 %) est le repère central
+        var g = el('div', 'saGauge');
+        [[80, 120, GREEN], [120, 140, YELLOW], [140, MAX, RED]].forEach(function (z) { var s = el('i', 'saGaugeZone'); s.style.left = (z[0] * 100 / MAX) + '%'; s.style.width = ((z[1] - z[0]) * 100 / MAX) + '%'; s.style.background = z[2]; g.appendChild(s); });
+        g.appendChild(el('i', 'saGaugeTarget')).style.left = (100 * 100 / MAX) + '%';
+        var nd = el('i', 'saGaugeNeedle'); nd.style.left = (Math.max(0, Math.min(MAX, c.pct)) * 100 / MAX) + '%'; g.appendChild(nd);
+        w.appendChild(g);
+        w.appendChild(el('p', 'meta saGaugeMeta', tr('{a} passées sur {b} estimées', { a: fmtMin(c.actualMin), b: fmtMin(c.estimatedMin) })));
         return w; } },
       { key: 'postponed', title: 'Tâches reportées plusieurs fois', body: function (d) {
         var a = d.tasks && d.tasks.postponed; if (!a || !a.length) return null;
@@ -576,15 +599,7 @@
         return bigRow(String(u.count), tr('tâches à échéance sous {n} jours', { n: u.withinDays })); } }
     ],
     o: [
-      { key: 'advance', def: true, title: 'Avancement', body: function (d) {
-        var a = d.objectives && d.objectives.advance; if (!a || !a.list || !a.list.length) return el('p', 'hint cmpEmpty', tr('Pas assez d’historique pour estimer l’avancement.'));
-        var w = document.createElement('div'), STATE = { avance: [GREEN, 'En avance'], heure: [YELLOW, 'À l’heure'], retard: [RED, 'En retard'] };
-        a.list.forEach(function (r, i) {
-          var st = STATE[r.state] || STATE.heure, bw = bar([[r.pct, st[0]]]); bw.classList.add('saMarked'); // repère : le temps nécessaire (100 %)
-          w.appendChild(row(poleName(r.label, poleColor(i)), bw, colored(fmtMin(r.needMin) + ' / ' + fmtMin(r.availMin), r.state !== 'retard')));
-          var s = el('div', 'saAdvState'); s.style.color = st[0]; s.textContent = tr(st[1]); w.appendChild(s);
-        });
-        return w; } },
+      { key: 'advance', def: true, title: 'Avancement', body: function (d) { return timelineBody(d); } },
       { key: 'target', title: 'Temps cible contre temps fait', body: function (d) {
         var a = d.objectives && d.objectives.target; if (!a || !a.length) return null;
         var w = document.createElement('div');
