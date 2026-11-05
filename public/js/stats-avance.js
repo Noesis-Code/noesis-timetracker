@@ -511,7 +511,7 @@
         var o = d.tasks && d.tasks.onTime; if (!o) return null;
         var w = el('div', 'saOnTime');
         if (!visitor) {
-          var nav = el('div', 'cmpNav cmpNav--sm saDaysNav');
+          var nav = el('div', 'cmpNav cmpNav--sm cmpNav--fixed saDaysNav'); nav.style.setProperty('--nav-label-w', '190px');
           var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Semaine précédente'));
           var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Semaine suivante')); next.disabled = !o.canNext;
           prev.addEventListener('click', function () { tOff = (o.offset || 0) - 1; load(); });
@@ -554,7 +554,7 @@
       { key: 'weekdays', def: true, title: 'Jours où tu travailles vraiment', body: function (d) {
         var a = d.tasks && d.tasks.weekdays; if (!a || !a.minutes || !a.minutes.length) return null;
         var mx = Math.max.apply(null, a.minutes.map(function (m) { return m || 0; })), w = document.createElement('div');
-        var nav = el('div', 'cmpNav cmpNav--sm saDaysNav');
+        var nav = el('div', 'cmpNav cmpNav--sm cmpNav--fixed saDaysNav'); nav.style.setProperty('--nav-label-w', '150px');
         var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Période précédente'));
         var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Période suivante')); next.disabled = !a.canNext;
         prev.addEventListener('click', function () { dayOff = (a.offset || 0) - 1; load(); });
@@ -645,7 +645,7 @@
         var a = d.objectives && d.objectives.weeks; if (!a || !a.list || !a.list.length) return null;
         var w = document.createElement('div');
         if (a.mode === 'weekly') {
-          var nav = el('div', 'cmpNav cmpNav--sm saDaysNav');
+          var nav = el('div', 'cmpNav cmpNav--sm cmpNav--fixed saDaysNav'); nav.style.setProperty('--nav-label-w', '150px');
           var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Période précédente')); prev.disabled = !a.canPrev;
           var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Période suivante')); next.disabled = !a.canNext;
           prev.addEventListener('click', function () { if (a.canPrev) { wOff = (a.offset || 0) - 1; load(); } });
@@ -660,7 +660,7 @@
           while (e >= 0) { var st = e - 3; if (st <= 0) { wins.push([0, Math.min(3, n - 1)]); break; } wins.push([st, e]); e = st - 1; }
           var np = wins.length, pg = Math.max(0, Math.min(np - 1, pPage || 0));
           items = vis.slice(wins[pg][0], wins[pg][1] + 1);
-          var pn = el('div', 'cmpNav cmpNav--sm saDaysNav');
+          var pn = el('div', 'cmpNav cmpNav--sm cmpNav--fixed saDaysNav'); pn.style.setProperty('--nav-label-w', '150px');
           var pv = el('button', 'cmpNavArrow', '‹'); pv.type = 'button'; pv.setAttribute('aria-label', tr('Période précédente')); pv.disabled = pg >= np - 1;
           var nx = el('button', 'cmpNavArrow', '›'); nx.type = 'button'; nx.setAttribute('aria-label', tr('Période suivante')); nx.disabled = pg <= 0;
           pv.addEventListener('click', function () { if (pg < np - 1) { pPage = pg + 1; load(); } });
