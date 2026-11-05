@@ -245,13 +245,16 @@
   function openComposer(ctx) {
     var form = ctx._form || (ctx._form = { title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null, _ctx: ctx });
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
-    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Nouvel objectif');
+    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
+    var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
+    var boxes = { desc: el('div'), temps: el('div'), niveau: el('div'), taches: el('div') };
+    ['desc', 'temps', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
     if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
     panelForm = form; goBack = null;
     function syncGo() { stepBtn.disabled = !form.dateOk; }
     var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.setAttribute('aria-label', tr('Objectif'));
     titleIn.addEventListener('input', function () { form.title = titleIn.value; });
-    win.body.appendChild(field(tr('Objectif'), titleIn));
+    boxes.desc.appendChild(field(tr('Objectif'), titleIn));
     if (ctx.fixedDate) { // date imposée (examen, mariage…) : jamais estimée ; la date est demandée en premier et obligatoire
       var fixedIn = el('input'); fixedIn.type = 'date'; fixedIn.min = ctx.startDate; fixedIn.setAttribute('aria-label', tr('Date de l’échéance')); if (ctx.dateConfirmed) fixedIn.value = ctx.endDate;
       fixedIn.addEventListener('change', function () {
@@ -260,7 +263,7 @@
         form.endDate = fixedIn.value; form.amount = Math.max(1, Math.round(dd / 7)); form.unit = 'semaines'; form.periodWeeks = dd <= 28 ? '1' : dd <= 366 ? '4' : 'mois'; form.dateOk = true; syncGo(); refresh();
       });
       var fixedBox = el('div'); fixedBox.appendChild(fixedIn); fixedBox.appendChild(el('p', 'hint objDates', ctx.dateReason === 'inconnue' ? tr('Je ne connais pas encore ce type d’objectif : choisis la date de fin.') : tr('Date imposée : indique-la, Noèsis ne l’estime pas.')));
-      win.body.appendChild(field(tr('Date de l’échéance'), fixedBox)); window.setTimeout(function () { if (!ctx.dateConfirmed) fixedIn.focus(); }, 50);
+      boxes.temps.appendChild(field(tr('Date de l’échéance'), fixedBox)); window.setTimeout(function () { if (!ctx.dateConfirmed) fixedIn.focus(); }, 50);
     }
 
 
@@ -305,10 +308,10 @@
     });
     var durRow = el('div', 'objDurRow'); durRow.appendChild(amountIn); durRow.appendChild(buildUnits());
     var durBox = el('div'); if (!ctx.fixedDate) durBox.appendChild(durRow); durBox.appendChild(datesHint); durBox.appendChild(dateIn);
-    paintDates(); win.body.appendChild(field(ctx.fixedDate ? tr('Période') : tr('Durée'), durBox));
+    paintDates(); boxes.temps.appendChild(field(ctx.fixedDate ? tr('Période') : tr('Durée'), durBox));
 
     var linksBox = el('div'), actBox = el('div'), chargeBox = el('div');
-    win.body.appendChild(linksBox); win.body.appendChild(actBox); win.body.appendChild(chargeBox);
+    boxes.desc.appendChild(actBox); boxes.desc.appendChild(linksBox); boxes.desc.appendChild(chargeBox);
 
     function parentCandidates() {
       return (ctx.objectives || []).filter(function (o) { return !form.create && o.activityId === form.activityId && o.endDate >= form.endDate; });
@@ -347,33 +350,73 @@
       if (!(ctx.objectives || []).length) return;
       var c = el('div', 'objNote'); c.appendChild(el('p', 'hint', tr('Semaine prochaine') + ' : ' + plural(ctx.nextWeekTasks, 'tâche prévue', 'tâches prévues') + ', ' + (ctx.nextWeekTasks + ctx.tasksPerWeek) + ' ' + tr('avec cet objectif') + '.')); chargeBox.appendChild(c);
     }
-    // « Temps par semaine » : facultatif ; valeur de départ = médiane des heures Chrono des 4 dernières semaines sur l'activité liée (jamais une valeur de catégorie), modifiable.
-    var hoursIn = el('input'); hoursIn.type = 'text'; hoursIn.inputMode = 'decimal'; hoursIn.maxLength = 4; hoursIn.autocomplete = 'off'; hoursIn.setAttribute('aria-label', tr('Temps par semaine (heures)'));
-    hoursIn.addEventListener('input', function () { form.hoursTouched = true; var v = parseFloat(String(hoursIn.value).replace(',', '.')); form.hours = v > 0 && v <= 80 ? v : null; });
-    var hoursBox = field(tr('Temps par semaine (heures, facultatif)'), hoursIn); win.body.appendChild(hoursBox);
+    // Étape « Temps » : jours restants, temps déjà enregistré (Chrono), temps conseillé par semaine (historique seulement), et UN curseur d'heures par semaine.
+    var infoBox = el('div', 'objTimeInfo'), slider = el('input', 'objSlider'), sliderVal = el('span', 'objSliderVal');
+    slider.type = 'range'; slider.min = '0'; slider.max = '40'; slider.step = '0.5'; slider.value = '0'; slider.setAttribute('aria-label', tr('Heures par semaine'));
+    function fmtH(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
+    function paintSlider() { sliderVal.textContent = form.hours ? fmtH(form.hours) + ' ' + tr('par semaine') : tr('Aucun temps fixé'); }
+    slider.addEventListener('input', function () { form.hoursTouched = true; var v = parseFloat(slider.value); form.hours = v > 0 ? v : null; paintSlider(); });
+    function daysLeft() { return form.endDate ? Math.max(0, Math.round((Date.parse(form.endDate + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000)) : null; }
+    function paintInfo() {
+      infoBox.textContent = '';
+      var aid = form.activityId, rows = [[tr('Durée de l’objectif'), daysLeft() == null ? '—' : plural(daysLeft(), 'jour restant', 'jours restants')],
+        [tr('Temps déjà enregistré'), aid != null && ctx.recordedHours ? fmtH(ctx.recordedHours[aid]) : '—'],
+        [tr('Temps conseillé par semaine'), aid != null && ctx.weeklyHours ? fmtH(ctx.weeklyHours[aid]) : '—']];
+      rows.forEach(function (r) { var line = el('div', 'objTimeRow'); line.appendChild(el('span', null, r[0])); line.appendChild(el('b', null, r[1])); infoBox.appendChild(line); });
+    }
+    boxes.temps.appendChild(infoBox);
+    var sliderWrap = el('div', 'objSliderWrap'); sliderWrap.appendChild(slider); sliderWrap.appendChild(sliderVal); boxes.temps.appendChild(field(tr('Temps voulu par semaine'), sliderWrap));
     function syncHours() {
-      if (form.hoursTouched) return;
       var h = ctx.weeklyHours && form.activityId != null ? ctx.weeklyHours[form.activityId] : null;
-      form.hours = h || null; hoursIn.value = h ? String(h) : '';
+      if (!form.hoursTouched) { form.hours = h || null; slider.value = h ? String(h) : '0'; }
+      paintSlider(); paintInfo();
     }
     function refresh() { renderLinks(); renderActivities(); renderCharge(); syncHours(); }
     refresh();
-
-    var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
-    goPropose = function () { // la flèche d'envoi de la barre mène aux étapes : même place, aucun bouton de plus
+    // Étape « Niveau » : demandée SEULEMENT si des informations manquent (type d'objectif inconnu, plus d'un an, aucun historique Chrono) ; sinon sautée (3 étapes au lieu de 4).
+    function needsLevel() { var dl = daysLeft(); return !ctx.estimate || (dl != null && dl > 365) || !(ctx.weeklyHours && form.activityId != null && ctx.weeklyHours[form.activityId]); }
+    var levelIn = el('input'); levelIn.type = 'text'; levelIn.maxLength = 200; levelIn.setAttribute('aria-label', tr('Ton niveau actuel')); levelIn.value = form.level || '';
+    levelIn.addEventListener('input', function () { form.level = levelIn.value; });
+    boxes.niveau.appendChild(el('p', 'hint', tr('Pour ajuster le plan à ton niveau, dis en une phrase où tu en es (ou joins une pièce). Sans réponse, on suppose débutant.')));
+    boxes.niveau.appendChild(field(tr('Ton niveau actuel'), levelIn));
+    boxes.niveau.appendChild(btn('objLink', tr('Passer (je suis débutant)'), function () { form.level = ''; levelIn.value = ''; stepNext(); }));
+    // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
+    boxes.taches.appendChild(el('p', 'hint', ctx.canGenerateTasks ? tr('Noèsis génère les tâches de la première semaine à partir de ton plan.') : tr('Aucune tâche n’est proposée dans l’offre gratuite : écris les tiennes dans l’onglet Tâches.')));
+    if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
+    var stepNames = { desc: 'Description', temps: 'Temps', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
+    function list() { return ['desc', 'temps'].concat(needsLevel() ? ['niveau'] : []).concat(['taches']); }
+    function show(k) {
+      form._step = cur = k;
+      ['desc', 'temps', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      panelKicker.textContent = tr(stepNames[k]);
+      var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
+      stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave');
+      stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');
+      stepBtn.disabled = k === 'temps' && !form.dateOk;
+      advance = i < tot - 1 ? stepNext : finishAll; goBack = i > 0 ? function () { show(l[i - 1]); } : null;
+    }
+    function stepNext() { var l = list(), i = l.indexOf(cur); if (i < l.length - 1) { msg.textContent = ''; if (cur === 'desc' && !validDesc()) return; show(l[i + 1]); } }
+    function validDesc() {
       form.title = titleIn.value.trim();
-      if (!form.title) { msg.textContent = tr('Écris ton objectif.'); return; }
-      if (!form.dateOk) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
+      if (!form.title) { msg.textContent = tr('Écris ton objectif.'); return false; }
       if (form.parentId) { var par = (ctx.objectives || []).filter(function (o) { return o.id === form.parentId; })[0]; if (par) { form.activityId = par.activityId; form.create = false; } }
-      if (!form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return; }
+      if (!form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return false; }
+      return true;
+    }
+    function finishAll() { // Terminer : proposition par règles (ou IA gratuite du mois) puis création ; rien n'est créé avant ce geste
+      if (!validDesc()) return;
+      if (!form.dateOk) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
       var actName = form.create ? form.createName : (ctx.activities.filter(function (a) { return a.id === form.activityId; })[0] || {}).name;
       api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: true, activityId: form.create ? null : form.activityId, activityName: actName })
-        .then(function (p) { syncGo(); openSteps(form, p, actName); })
-        .catch(function (err) { syncGo(); msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
-    };
-    showStep(seq.base + 2 * seq.i + 1, 'Étapes proposées', function () { goPropose(); }, form.dateOk);
-    if (!ctx.canGenerateTasks) panelBody.appendChild(offerBtn()); // gratuit : un seul bouton vers Expansion (génération des tâches)
+        .then(function (P) { return (form.create ? api('POST', '/api/activities', { name: form.createName }).then(function (a) { return a.id; }) : Promise.resolve(form.activityId)).then(function (activityId) {
+          return api('POST', '/api/objectifs', { hoursPerWeek: form.hours, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+        }); })
+        .then(function () { input.value = ''; state.filter = 'en_cours'; syncFilter(); if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); })
+        .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
+    }
+    form._show = show; show(cur);
+
   }
   function offerBtn() { return btn('cmpBtn cmpBtnIdle objOffer', tr('Génère automatiquement tes tâches avec Noèsis'), function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); }); }
   function closePanel() { endFlow(); } // ✕ : annule, la barre redevient normale (l'objectif tapé y reste)
