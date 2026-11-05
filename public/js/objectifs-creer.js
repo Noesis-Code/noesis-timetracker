@@ -230,7 +230,7 @@
   }
 
   function openComposer(ctx) {
-    var form = { title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks };
+    var form = { title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null };
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
     panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Nouvel objectif');
     form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed; form.title = ctx.title; panelForm = form;
@@ -245,7 +245,7 @@
         var dd = Math.round((Date.parse(fixedIn.value + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
         form.endDate = fixedIn.value; form.amount = Math.max(1, Math.round(dd / 7)); form.unit = 'semaines'; form.periodWeeks = dd <= 28 ? '1' : dd <= 366 ? '4' : 'mois'; form.dateOk = true; syncGo(); refresh();
       });
-      var fixedBox = el('div'); fixedBox.appendChild(fixedIn); fixedBox.appendChild(el('p', 'hint objDates', tr('Date imposée : indique-la, Noèsis ne l’estime pas.')));
+      var fixedBox = el('div'); fixedBox.appendChild(fixedIn); fixedBox.appendChild(el('p', 'hint objDates', ctx.dateReason === 'inconnue' ? tr('Je ne connais pas encore ce type d’objectif : choisis la date de fin.') : tr('Date imposée : indique-la, Noèsis ne l’estime pas.')));
       win.body.appendChild(field(tr('Date de l’échéance'), fixedBox)); window.setTimeout(function () { if (!ctx.dateConfirmed) fixedIn.focus(); }, 50);
     }
 
@@ -260,7 +260,6 @@
       if (!form.endDate) { datesHint.textContent = tr('Indique une durée valide') + ' · '; rangeHint.classList.add('hidden'); datesHint.appendChild(pickLink); return; }
       if (e && !form.durTouched) { // date butoir proposée par la base de durées (sans IA), toujours modifiable
         datesHint.textContent = tr('Proposé') + ' : ' + dateText(form.endDate) + ' (' + tr('durée typique') + ' ' + typical(e.typicalWeeks) + ') · ';
-        rangeHint.textContent = tr('Fourchette réaliste') + ' : ' + dateText(e.p10End, false) + ' – ' + dateText(e.p90End); rangeHint.classList.remove('hidden');
       } else { datesHint.textContent = tr('Du') + ' ' + dateText(form.startDate) + ' ' + tr('au') + ' ' + dateText(form.endDate) + ' · '; rangeHint.classList.add('hidden'); }
       datesHint.appendChild(pickLink);
     }
@@ -291,7 +290,7 @@
       form.durTouched = true; form.dateOk = true; syncGo(); form.endDate = dateIn.value; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines'; amountIn.value = form.amount; form.periodWeeks = days <= 28 ? '1' : days <= 366 ? '4' : 'mois'; buildUnits(); paintDates(); refresh();
     });
     var durRow = el('div', 'objDurRow'); durRow.appendChild(amountIn); durRow.appendChild(buildUnits());
-    var durBox = el('div'); if (!ctx.fixedDate) durBox.appendChild(durRow); durBox.appendChild(datesHint); durBox.appendChild(rangeHint); durBox.appendChild(dateIn);
+    var durBox = el('div'); if (!ctx.fixedDate) durBox.appendChild(durRow); durBox.appendChild(datesHint); durBox.appendChild(dateIn);
     paintDates(); win.body.appendChild(field(ctx.fixedDate ? tr('Période') : tr('Durée'), durBox));
 
     var linksBox = el('div'), actBox = el('div'), chargeBox = el('div');
@@ -334,7 +333,16 @@
       if (!(ctx.objectives || []).length) return;
       var c = el('div', 'objNote'); c.appendChild(el('p', 'hint', tr('Semaine prochaine') + ' : ' + plural(ctx.nextWeekTasks, 'tâche prévue', 'tâches prévues') + ', ' + (ctx.nextWeekTasks + ctx.tasksPerWeek) + ' ' + tr('avec cet objectif') + '.')); chargeBox.appendChild(c);
     }
-    function refresh() { renderLinks(); renderActivities(); renderCharge(); }
+    // « Temps par semaine » : facultatif ; valeur de départ = médiane des heures Chrono des 4 dernières semaines sur l'activité liée (jamais une valeur de catégorie), modifiable.
+    var hoursIn = el('input'); hoursIn.type = 'text'; hoursIn.inputMode = 'decimal'; hoursIn.maxLength = 4; hoursIn.autocomplete = 'off'; hoursIn.setAttribute('aria-label', tr('Temps par semaine (heures)'));
+    hoursIn.addEventListener('input', function () { form.hoursTouched = true; var v = parseFloat(String(hoursIn.value).replace(',', '.')); form.hours = v > 0 && v <= 80 ? v : null; });
+    var hoursBox = field(tr('Temps par semaine (heures, facultatif)'), hoursIn); win.body.appendChild(hoursBox);
+    function syncHours() {
+      if (form.hoursTouched) return;
+      var h = ctx.weeklyHours && form.activityId != null ? ctx.weeklyHours[form.activityId] : null;
+      form.hours = h || null; hoursIn.value = h ? String(h) : '';
+    }
+    function refresh() { renderLinks(); renderActivities(); renderCharge(); syncHours(); }
     refresh();
 
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
@@ -438,7 +446,7 @@
       stepBtn.disabled = true; msg.textContent = '';
       var makeActivity = form.create ? api('POST', '/api/activities', { name: form.createName }).then(function (a) { return a.id; }) : Promise.resolve(form.activityId);
       makeActivity.then(function (activityId) {
-        return api('POST', '/api/objectifs', { title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+        return api('POST', '/api/objectifs', { hoursPerWeek: form.hours, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
       }).then(function () {
         input.value = ''; state.filter = 'en_cours'; syncFilter();
         if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {});
@@ -465,10 +473,11 @@
       var p = o.periods[idx];
       if (o.bilan) {
         var b = el('div', 'objNote objBilan');
-        b.appendChild(el('p', 'objBilanTitle', tr('Période') + ' ' + o.bilan.period + ' ' + tr('terminée') + ' · ' + o.bilan.done + ' ' + tr('semaines sur') + ' ' + o.bilan.total));
-        b.appendChild(el('p', 'hint', tr('Que faire de la période') + ' ' + o.bilan.next + ' ?'));
+        b.appendChild(el('p', 'objBilanTitle', tr('Retard de') + ' ' + o.bilan.retard + ' % ' + tr('sur le temps prévu')));
+        b.appendChild(el('p', 'hint', tr('Que faire de la suite ?')));
         var row = el('div', 'objBilanBtns');
         row.appendChild(btn('objLink', tr('Garder tel quel'), function () { act('garder'); }));
+        row.appendChild(btn('objLink', tr('Alléger'), function () { act('alleger'); }));
         row.appendChild(btn('objLink', tr('Prolonger d’une semaine'), function () { act('prolonger'); }));
         b.appendChild(row); win.body.appendChild(b);
       }
@@ -518,6 +527,15 @@
   }
 
   buildView();
+  // Réglages (Loi 25) : données anonymes agrégées des objectifs atteints, actives par défaut, case à décocher.
+  (function () {
+    var box = document.getElementById('settingsObjectifsAnon');
+    if (!box) return;
+    function loadAnon() { api('GET', '/api/objectifs/reglage').then(function (r) { box.checked = !r || r.anon !== false; }).catch(function () {}); }
+    box.addEventListener('change', function () { var on = box.checked; api('PUT', '/api/objectifs/reglage', { anon: on }).catch(function () { box.checked = !on; }); });
+    document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#profileSettingsBtn')) window.setTimeout(loadAnon, 200); });
+    loadAnon();
+  })();
   // La carte promo Expansion n'est plus dans cette vue (le bouton d'offre est dans le parcours de création). Reste accessible seulement ce qui sert à gérer :
   // abonnements actifs + « Résilier », et « J'ai un code » tant que l'accès n'est pas acquis ; sinon la section est masquée.
   (function () {

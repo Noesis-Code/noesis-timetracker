@@ -154,15 +154,34 @@ function nextWeekTaskCount(userId) {
   } catch (e) { return 0; }
 }
 
-// Durées réelles ANONYMES des objectifs atteints, par catégorie (aucun identifiant, aucun texte) ; remplace la table dès 30 objectifs.
-function learnedDurations() {
-  const out = {};
-  db.prepare('SELECT startDate, metaJson FROM user_objectives').all().forEach((r) => {
-    const m = JSON.parse(r.metaJson || '{}');
-    if (m.cat && m.attainedAt) (out[m.cat] = out[m.cat] || []).push(Math.max(1, Math.round(daysBetween(r.startDate, m.attainedAt) / 7)));
-  });
-  return out;
+// Apprentissage ANONYME (Loi 25) : actif par défaut, case à décocher dans Réglages (users.objectifsAnon). Une ligne par objectif atteint, sans identifiant ni texte :
+// catégorie, durée prévue/réelle, correction de la date proposée, heures Chrono par semaine, tâches faites par semaine (les 4 signaux).
+db.exec(`CREATE TABLE IF NOT EXISTS objectifs_signaux (
+  cat TEXT NOT NULL, plannedWeeks INTEGER, actualWeeks INTEGER, dateCorrectedDays INTEGER, chronoHoursPerWeek REAL, tasksDonePerWeek REAL, createdAt TEXT NOT NULL
+)`);
+try { if (!db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'objectifsAnon')) db.exec('ALTER TABLE users ADD COLUMN objectifsAnon INTEGER NOT NULL DEFAULT 1'); } catch (e) { /* colonne déjà là */ }
+function anonOptIn(userId) { const r = db.prepare('SELECT objectifsAnon AS a FROM users WHERE id = ?').get(userId); return !r || r.a !== 0; }
+function setAnon(userId, on) { db.prepare('UPDATE users SET objectifsAnon = ? WHERE id = ?').run(on ? 1 : 0, userId); return { anon: !!on }; }
+function chronoHours(userId, activityId, start, end) {
+  try { return db.prepare('SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ?').get(userId, activityId, start, end).s / 3600; } catch (e) { return 0; }
 }
+// Heures Chrono par semaine sur l'activité : médiane des 4 dernières semaines — seule source de la valeur de départ de « Temps par semaine » (jamais une valeur de catégorie).
+function weeklyHoursHistory(userId, activityId) {
+  const mon = mondayOf(today()), v = [];
+  for (let k = 1; k <= 4; k += 1) { const s = addDays(mon, -7 * k); v.push(chronoHours(userId, activityId, s, addDays(s, 6))); }
+  const m = durees.median(v);
+  return m > 0 ? Math.round(m * 2) / 2 : null;
+}
+function recordSignals(r, meta, periods) {
+  try {
+    if (!meta.cat || !anonOptIn(r.userId)) return;
+    const weeks = Math.max(1, daysBetween(r.startDate, meta.attainedAt) / 7);
+    const done = (JSON.parse(r.taskIdsJson || '[]')).length ? db.prepare('SELECT COUNT(*) AS n FROM sub_project_items WHERE done = 1 AND id IN (' + JSON.parse(r.taskIdsJson).map(() => '?').join(',') + ')').get(...JSON.parse(r.taskIdsJson)).n : 0;
+    db.prepare('INSERT INTO objectifs_signaux (cat, plannedWeeks, actualWeeks, dateCorrectedDays, chronoHoursPerWeek, tasksDonePerWeek, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(meta.cat, meta.plannedWeeks || null, Math.round(weeks), meta.dateCorrectedDays == null ? null : meta.dateCorrectedDays, Math.round(chronoHours(r.userId, r.activityId, r.startDate, meta.attainedAt) / weeks * 10) / 10, Math.round(done / weeks * 10) / 10, new Date().toISOString());
+  } catch (e) { console.warn('[objectifs] signaux non enregistrés :', e && e.message); }
+}
+function learnedDurations() { return durees.learnedFromSignals(db.prepare('SELECT cat, actualWeeks FROM objectifs_signaux').all()); }
 // Facteur de l'utilisateur : durée réelle / durée prévue de ses objectifs passés (atteints, ou échéance dépassée sans être atteints).
 function userRatios(userId) {
   const td = today(), out = [];
@@ -192,6 +211,7 @@ function contexte(userId, body) {
   const fixedDate = durees.isFixedDate(text, start);
   // Date butoir proposée (sans IA) : date écrite > durée écrite > base de durées (jamais pour une date imposée) > 3 mois par défaut.
   const est = manual || found || fixedDate ? null : durees.estimate(title, { learned: learnedDurations(), ratios: userRatios(userId) });
+  const unknownCategory = !manual && !found && !explicit && !fixedDate && !est; // aucune catégorie reconnue : la date est demandée en premier, rien n'est inventé
   let amount, unit, end;
   if (manual) { amount = Number(body.amount); unit = body.unit; end = body.endDate && isDay(body.endDate) ? body.endDate : computeEnd(start, amount, unit); }
   else if (explicit) { end = explicit; amount = Math.max(1, Math.round(daysBetween(start, end) / 7)); unit = 'semaines'; }
@@ -203,7 +223,8 @@ function contexte(userId, body) {
   const existing = db.prepare("SELECT id, title, activityId, endDate FROM user_objectives WHERE userId = ? AND endDate >= ? ORDER BY endDate").all(userId, start);
   return {
     title, amount, unit, startDate: start, endDate: end, periodWeeks: defaultPeriodWeeks(start, end),
-    canGenerateTasks: tasksAllowed(userId), fixedDate, dateConfirmed: !!explicit || manual || !!found,
+    canGenerateTasks: tasksAllowed(userId), fixedDate: fixedDate || unknownCategory, dateReason: fixedDate ? 'fixe' : unknownCategory ? 'inconnue' : null, dateConfirmed: !!explicit || manual || !!found,
+    weeklyHours: ranked.reduce((o, a) => { o[a.id] = weeklyHoursHistory(userId, a.id); return o; }, {}),
     estimate: est ? { label: est.label, weeks: est.weeks, p10: est.p10, p90: est.p90, typicalWeeks: est.typicalWeeks, source: est.source, endDate: end, p10End: addDays(start, est.p10 * 7), p90End: addDays(start, est.p90 * 7) } : null,
     activities: ranked, suggestedActivityId: best ? best.id : null, createName: suggestedActivityName(title),
     objectives: existing, nextWeekTasks: nextWeekTaskCount(userId), tasksPerWeek: TASKS_PER_WEEK,
@@ -430,7 +451,12 @@ function creer(userId, body) {
     .run(userId, act.id, title, amount, unit, start, body.endDate, periodWeeks, weekly ? 1 : 0, parentId, JSON.stringify(periods), '[]', new Date().toISOString());
   const id = Number(info.lastInsertRowid);
   const est0 = durees.estimate(title);
-  db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(est0 ? { cat: est0.id, plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7), proposed: { p10: est0.p10, p90: est0.p90 } } : {}), id);
+  const hpw = Number(body.hoursPerWeek) > 0 && Number(body.hoursPerWeek) <= 80 ? Math.round(Number(body.hoursPerWeek) * 10) / 10 : null; // facultatif : valeur de départ = historique Chrono, modifiable
+  const meta0 = { plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7) };
+  if (est0) { meta0.cat = est0.id; meta0.proposed = { p10: est0.p10, p90: est0.p90 }; }
+  if (hpw) meta0.hoursPerWeek = hpw;
+  if (isDay(body.proposedEnd)) meta0.dateCorrectedDays = daysBetween(body.proposedEnd, body.endDate); // signal : date corrigée par l'utilisateur
+  db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta0), id);
   catKey = bridge(db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(id), periods) || (labels.length ? targetCategory(act.id, act.name) : null);
   labels.forEach((label, k) => {
     const due = addDays(start, Math.min(1 + 2 * k, daysBetween(start, week1End)));
@@ -484,12 +510,20 @@ function shape(r, full) {
   if (full) {
     out.periods = periods; out.currentWeek = { period: cur.n, week: cw.i };
     out.tasks = weekTasks.length ? weekTasks : tasks.filter((t) => !t.done).slice(0, 5);
-    const prev = periods[ci - 1];
-    if (prev && prev.endDate < td && !(meta.bilanSeen || []).includes(prev.n)) {
-      out.bilan = { period: prev.n, done: prev.weeks.filter((w) => w.done).length, total: prev.weeks.length, next: cur.n };
-    }
+    // Bilan : seulement si le temps réellement passé dépasse de plus de 20 % le temps prévu (jamais à la simple fin d'une période, jamais de recalcul silencieux de la date).
+    const retard = lateness(r, meta);
+    if (retard > LATE_THRESHOLD && !(meta.bilanSeen || []).includes(cur.n)) out.bilan = { period: cur.n, retard: Math.round(retard * 100), next: Math.min(periods.length, cur.n + 1) };
   }
   return out;
+}
+const LATE_THRESHOLD = 0.2;
+// Retard = temps Chrono réellement passé / temps prévu (« Temps par semaine » × semaines écoulées) − 1. Sans temps par semaine saisi : aucun bilan.
+function lateness(r, meta) {
+  if (!meta.hoursPerWeek) return 0;
+  const td = today(), weeks = daysBetween(r.startDate, td > r.endDate ? r.endDate : td) / 7;
+  if (weeks < 1) return 0;
+  const est = meta.hoursPerWeek * weeks;
+  return est > 0 ? chronoHours(r.userId, r.activityId, r.startDate, td) / est - 1 : 0;
 }
 function get(userId, id) { return shape(rowOf(userId, id), true); }
 function liste(userId, filtre) {
@@ -508,16 +542,22 @@ function semaine(userId, id, n, i, done) {
   w.done = !!done;
   const meta = JSON.parse(r.metaJson || '{}');
   const all = periods.every((p) => p.weeks.every((x) => x.done));
-  if (all && !meta.attainedAt) meta.attainedAt = today(); else if (!all) delete meta.attainedAt; // sert à l'apprentissage des durées (anonyme)
+  const justAttained = all && !meta.attainedAt;
+  if (all && !meta.attainedAt) meta.attainedAt = today(); else if (!all) delete meta.attainedAt;
   save(r, periods, meta);
+  if (justAttained) recordSignals(r, meta, periods); // signaux anonymes (si la case des Réglages n'est pas décochée)
   return get(userId, id);
 }
 function bilan(userId, id, action, n) {
   const r = rowOf(userId, id); let periods = JSON.parse(r.stepsJson); const meta = JSON.parse(r.metaJson || '{}');
   meta.bilanSeen = (meta.bilanSeen || []).concat([Number(n)]);
   let end = r.endDate;
-  if (action === 'prolonger') { // la période suivante gagne une semaine ; les suivantes et la fin d'objectif glissent de 7 jours
-    const k = Number(n); // index de la période suivante = n (0-based)
+  if (action === 'alleger') { // le plan s'aligne sur le rythme réel : « Temps par semaine » devient le rythme observé (plus d'alerte tant que ce rythme tient)
+    const wk = Math.max(1, daysBetween(r.startDate, today()) / 7);
+    meta.hoursPerWeek = Math.round(chronoHours(userId, r.activityId, r.startDate, today()) / wk * 10) / 10 || meta.hoursPerWeek;
+  } else if (action === 'prolonger') { // la période suivante gagne une semaine ; les suivantes et la fin d'objectif glissent de 7 jours
+    let k = Number(n); // index de la période suivante = n (0-based) ; dernière période : on prolonge celle-ci
+    if (!periods[k]) k = Number(n) - 1;
     const p = periods[k];
     if (!p) throw err('Période introuvable.', 404);
     const last = p.weeks[p.weeks.length - 1];
@@ -550,4 +590,4 @@ function duree(userId, id, periodWeeks) {
   return get(userId, id);
 }
 
-module.exports = { setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, defaultPeriodWeeks, contexte, proposer, creer, get, liste, semaine, bilan, duree, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, defaultPeriodWeeks, contexte, proposer, creer, get, liste, semaine, bilan, duree, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

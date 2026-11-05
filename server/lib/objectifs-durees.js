@@ -88,4 +88,13 @@ function estimate(text, opts) {
   return { id: e.id, label: e.label, source, weeks: r(med), p10: r(p10), p90: r(p90), factor: Math.round(factor * 100) / 100, typicalWeeks: Math.round(med) };
 }
 
-module.exports = { TABLE, FIXED, MIN_SAMPLE, VERSION, match, estimate, isFixedDate, explicitDate, median, pct };
+// Signaux anonymes (une ligne par objectif atteint) -> durées réelles par catégorie (celles qui remplacent la table dès MIN_SAMPLE).
+// Les 4 signaux enregistrés : durée réelle vs prévue (actualWeeks, plannedWeeks), date corrigée par l'utilisateur (dateCorrectedDays),
+// heures Chrono par semaine (chronoHoursPerWeek), tâches faites par semaine (tasksDonePerWeek). Seule la durée réelle sert aujourd'hui à la proposition.
+function learnedFromSignals(rows) {
+  const out = {};
+  (rows || []).forEach((r) => { if (r && r.cat && r.actualWeeks > 0) (out[r.cat] = out[r.cat] || []).push(r.actualWeeks); });
+  return out;
+}
+
+module.exports = { learnedFromSignals, TABLE, FIXED, MIN_SAMPLE, VERSION, match, estimate, isFixedDate, explicitDate, median, pct };

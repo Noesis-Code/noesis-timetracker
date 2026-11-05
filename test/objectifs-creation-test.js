@@ -114,6 +114,48 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   process.env.OBJECTIFS_GRATUIT_PLAFOND_USD = '0.05';
   assert(o.aiAllowed('autre') === false, 'IA gratuite : plafond global mensuel atteint, règles fixes');
   delete process.env.ANTHROPIC_API_KEY;
+  // Temps par semaine : valeur de départ = historique Chrono UNIQUEMENT (médiane des 4 dernières semaines), jamais une valeur de catégorie
+  const dayIso = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  const addEntry = (activityId, day, hours) => db.prepare("INSERT INTO time_entries (userId, activityId, startTime, endTime, durationSeconds, isoDate, dayOfWeek) VALUES (?, ?, ?, ?, ?, ?, 'x')").run(u, activityId, day + 'T08:00:00Z', day + 'T09:00:00Z', Math.round(hours * 3600), day);
+  const nowIso = new Date().toISOString();
+  const actB = Number(db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, createdAt) VALUES (?, 0, 1, ?, ?)').run('Activité test chrono', u, nowIso).lastInsertRowid);
+  db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)').run(actB, u, '#9C8CC8', nowIso);
+  assert(o.weeklyHoursHistory(u, actB) === null && o.contexte(u, { text: 'Courir un 10 km' }).weeklyHours[actB] === null, 'sans historique Chrono : « Temps par semaine » vide (pas de valeur de catégorie)');
+  [8, 15, 22, 29].forEach((d) => addEntry(actB, dayIso(d), 4));
+  assert(o.weeklyHoursHistory(u, actB) === 4, 'avec historique : médiane des heures Chrono des 4 dernières semaines');
+  // Catégorie inconnue : la date est demandée en premier
+  const cunk = o.contexte(u, { text: 'Faire du ménage' });
+  assert(cunk.fixedDate === true && cunk.dateReason === 'inconnue' && cunk.estimate === null && cunk.dateConfirmed === false, 'catégorie inconnue : date demandée en premier, aucune estimation inventée');
+  // Retard > 20 % : bilan ; ≤ 20 % ou simple fin de période : pas de bilan
+  const lateStart = dayIso(21), lateEnd = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
+  const lateObj = o.creer(u, { title: 'Lire dix livres', activityId: actB, startDate: lateStart, endDate: lateEnd, amount: 11, unit: 'semaines', periodWeeks: 1, weekly: false, hoursPerWeek: 5, proposedEnd: lateEnd });
+  assert(lateObj.status === 'en_cours' && !lateObj.bilan, 'pas de bilan à la simple fin de période (période 1 terminée, aucun retard mesuré)');
+  const hoursNow = () => db.prepare('SELECT COALESCE(SUM(durationSeconds), 0) / 3600.0 AS h FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate >= ?').get(u, actB, lateStart).h;
+  const lateRow = () => db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(lateObj.id), lateMeta = () => JSON.parse(lateRow().metaJson);
+  const estH = 5 * ((Date.parse(require('../server/lib/dates').userToday()) - Date.parse(lateStart)) / 86400000) / 7; // temps prévu : 5 h x semaines écoulées
+  addEntry(actB, dayIso(2), estH * 0.95 - hoursNow()); // sous le prévu
+  assert(!o.get(u, lateObj.id).bilan, 'temps passé sous le prévu : pas de bilan');
+  addEntry(actB, dayIso(3), estH * 1.15 - hoursNow()); // +15 % (≤ 20 %)
+  assert(o.lateness(lateRow(), lateMeta()) < 0.2 && !o.get(u, lateObj.id).bilan, 'retard ≤ 20 % : pas de bilan');
+  addEntry(actB, dayIso(4), estH * 1.4 - hoursNow()); // +40 % (> 20 %)
+  const lateGot = o.get(u, lateObj.id);
+  assert(lateGot.bilan && lateGot.bilan.retard >= 20, 'retard > 20 % : le bilan (Garder / Alléger / Prolonger) se déclenche');
+  const kept = o.bilan(u, lateObj.id, 'garder', lateGot.bilan.period);
+  assert(!kept.bilan && kept.endDate === lateObj.endDate, 'Garder tel quel : la date n\'est pas recalculée en silence');
+  // Signaux anonymes : 4 signaux à l'atteinte, aucune trace d'identité ; désactivable
+  o.setAnon(u, true);
+  const sigBefore = db.prepare('SELECT COUNT(*) AS n FROM objectifs_signaux').get().n;
+  const sig1 = o.creer(u, { title: 'Courir un 10 km', activityId: m.activityId, startDate: dayIso(14), endDate: dayIso(-14), amount: 4, unit: 'semaines', periodWeeks: 1, weekly: false, proposedEnd: dayIso(-7) });
+  sig1.periods.forEach((pp) => pp.weeks.forEach((ww) => o.semaine(u, sig1.id, pp.n, ww.i, true)));
+  const sigRow = db.prepare('SELECT * FROM objectifs_signaux ORDER BY rowid DESC LIMIT 1').get();
+  assert(db.prepare('SELECT COUNT(*) AS n FROM objectifs_signaux').get().n === sigBefore + 1 && sigRow.cat === 'course10k' && sigRow.plannedWeeks > 0 && sigRow.actualWeeks > 0 && sigRow.dateCorrectedDays === 7 && sigRow.chronoHoursPerWeek !== undefined && sigRow.tasksDonePerWeek !== undefined, 'signaux anonymes enregistrés : durée prévue/réelle, date corrigée, heures Chrono, tâches faites par semaine');
+  assert(!Object.keys(sigRow).some((k) => /user|id$|title|text/i.test(k)), 'signaux : aucune identité ni texte');
+  o.setAnon(u, false);
+  const sig2 = o.creer(u, { title: 'Courir un 10 km', activityId: m.activityId, startDate: dayIso(14), endDate: dayIso(-14), amount: 4, unit: 'semaines', periodWeeks: 1, weekly: false });
+  sig2.periods.forEach((pp) => pp.weeks.forEach((ww) => o.semaine(u, sig2.id, pp.n, ww.i, true)));
+  assert(db.prepare('SELECT COUNT(*) AS n FROM objectifs_signaux').get().n === sigBefore + 1, 'case des Réglages décochée : rien n\'est enregistré');
+  o.setAnon(u, true);
+  assert(dr.learnedFromSignals([{ cat: 'x', actualWeeks: 5 }, { cat: 'x', actualWeeks: 7 }]).x.length === 2, 'apprentissage : les durées réelles anonymes alimentent la table (remplacement dès 30)');
   bad = false; try { o.get('autre-utilisateur', made.id); } catch (e) { bad = e.statusCode === 404; } assert(bad, 'un autre utilisateur ne voit pas cet objectif');
   console.log(failed ? '\nobjectifs-creation-test : ' + failed + ' échec(s)' : '\nobjectifs-creation-test : OK');
   process.exit(failed ? 1 : 0);
