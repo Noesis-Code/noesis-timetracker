@@ -138,3 +138,10 @@
 /* sélecteur d'année sous les pastilles d'activité, au-dessus des informations. */
 /* Haut du bouton d'année = haut de la 1re carte de la page Temps (mesuré : 126 px) ; les infos dessous ne bougent pas. */
 .saChips + .caSubProjectFilter { margin: -1px 0 13px; }
+
+/* Statistiques de la Feuille de route (5 nov. 2026) : bouton-menu Tâches ▾ / Objectifs ▾ (même gabarit que « Tous ▾ » du Chrono) ; carte « Tâches faites à la date prévue » = modèle de la Répartition du Chrono. */
+.saSel { margin: 0 0 12px; }
+.saOnTime { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.saOnTime .saDaysNav { margin: 0; }
+.saTodayBtn { align-self: flex-end; }
+.saOnTime .pieWrap { display: flex; flex-direction: column; align-items: center; gap: 16px; }

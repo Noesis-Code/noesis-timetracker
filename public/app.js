@@ -4011,6 +4011,7 @@
       ' A' + rInner + ',' + rInner + ' 0 ' + largeArc + ' 0 ' + x2i + ',' + y2i + ' Z';
   }
 
+  TMT.donutSlicePath = donutSlicePath; // réutilisé par la carte « Tâches faites à la date prévue » (js/stats-avance.js)
   // `ids` (optionnel, ajouté le 2 septembre 2026) : où dessiner. Sans lui,
   // le camembert de l'onglet Statistiques, exactement comme avant — la
   // Répartition (#statsPieBlock) n'a aucun changement de comportement. Avec

@@ -746,7 +746,7 @@ textarea {
 /* ===== Feuille de temps (heatmap hebdomadaire) — 29 août 2026 ===== */
 .timesheetNav { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
 .timesheetNav .cmpNav { flex: 1; min-width: 0; }
-.timesheetNav .cmpNavLabel { font-size: 13px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } /* 29 oct. 2026 : le libellé de période tient sur deux lignes au plus */
+.timesheetNav .cmpNavLabel { font-size: 12px; font-weight: 400; line-height: 1.2; overflow-wrap: normal; word-break: normal; hyphens: none; white-space: nowrap; color: var(--text-light); } /* 5 nov. 2026 (Émilien) : texte plus petit, léger, jamais coupé au milieu d'un mot (« Du 26/10 au 01/11 » entier) */ /* 29 oct. 2026 : le libellé de période tient sur deux lignes au plus */
 .timesheetScroll {
   overflow-x: auto; background: var(--card); border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card); padding: 10px 8px;
@@ -3414,3 +3414,7 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 .composerBubble > textarea { display: block; width: 100%; box-sizing: border-box; padding-bottom: 56px; margin: 0; }
 .composerBubble > .rowActions { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; align-items: center; justify-content: flex-start; flex-wrap: nowrap; gap: 8px; }
 .composerBubble > .rowActions > .iconBtn, .composerBubble > .rowActions > .btn { margin-left: auto; margin-top: 0; }
+.timesheetNav .cmpNavArrow { width: 28px; } /* flèches resserrées : le libellé « Du … au … » tient en entier sur une ligne, même à 360 px */
+.timesheetBlock .sectionTitleRow { flex-wrap: wrap; row-gap: 0; } /* le libellé de période descend sous le titre quand la ligne est trop étroite (jamais de mot coupé) */
+.timesheetNav { flex: 1 1 200px; }
+.timesheetNav .cmpNavLabel { min-width: max-content; }

@@ -142,7 +142,7 @@
   // Données : GET /api/stats/activity-insights (server/lib/statsinsights.js) ;
   // une donnée absente (null) masque simplement sa carte.
   var DEF_O = visitor ? 'all' : 'weekly'; // défaut Objectifs : « Tout » sur un profil visité, Hebdomadaires sur sa propre page
-  var tab = 't', view = 'year', oview = DEF_O, adding = false, draft = [], dayOff = 0, wOff = 0, pPage = null; // pPage : page de 4 périodes de « Où ça glisse » (null = auto). wOff : période des objectifs hebdo (0 = en cours, -N = en arrière). dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
+  var tab = 't', view = 'year', oview = DEF_O, adding = false, draft = [], dayOff = 0, wOff = 0, tOff = 0, pPage = null; // tOff : semaine de « Tâches faites à la date prévue » (0 = en cours). pPage : page de 4 périodes de « Où ça glisse » (null = auto). wOff : période des objectifs hebdo (0 = en cours, -N = en arrière). dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
   // « Tout » : profil visité seulement, premier choix du menu ⋮.
   var VIEWS = [['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
   var OVIEWS = [['periodic', 'Périodiques'], ['weekly', 'Hebdomadaires']];
@@ -157,12 +157,21 @@
     bodies.t = el('div', 'saBody'); bodies.o = el('div', 'saBody hidden'); els.body = bodies.t;
     // Sélecteur Tâches | Objectifs (27 oct. 2026) : une seule page de statistiques ; le profil visité garde son propre glissement.
     if (!visitor) {
-      els.sel = el('div', 'periodSwitch cmpSeg saSel');
+      els.sel = el('div', 'statsPeriodMenuWrap caSubProjectFilter saSel');
+      els.selBtn = el('button', 'caSubProjectBtn', tr(tab === 't' ? 'Tâches' : 'Objectifs')); els.selBtn.type = 'button'; els.selBtn.setAttribute('aria-haspopup', 'true'); els.selBtn.setAttribute('aria-label', tr('Choisir : tâches ou objectifs'));
+      els.selMenu = el('div', 'statsPeriodMenu caSubProjectMenu hidden');
       [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (k) {
-        var b = el('button', 'periodBtn' + (tab === k[0] ? ' active' : ''), tr(k[1])); b.type = 'button'; b.dataset.tab = k[0];
-        b.addEventListener('click', function () { goTab(k[0]); });
-        els.sel.appendChild(b);
+        var it = el('button', 'statsPeriodMenuItem' + (tab === k[0] ? ' active' : ''), tr(k[1])); it.type = 'button'; it.dataset.tab = k[0];
+        it.addEventListener('click', function () { els.selMenu.classList.add('hidden'); goTab(k[0]); });
+        els.selMenu.appendChild(it);
       });
+      els.selBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var willOpen = els.selMenu.classList.contains('hidden');
+        document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+        if (willOpen) els.selMenu.classList.remove('hidden');
+      });
+      els.sel.appendChild(els.selBtn); els.sel.appendChild(els.selMenu);
     }
     [els.chips, els.sel, els.yearRow, els.msg, bodies.t, bodies.o].forEach(function (e) { if (e) page2.appendChild(e); });
     if (visitor) { bodies.t.classList.add('saVisitor'); bodies.o.classList.add('saVisitor'); }
@@ -500,13 +509,41 @@
     t: [
       { key: 'onTime', def: true, title: 'Tâches faites à la date prévue', body: function (d) {
         var o = d.tasks && d.tasks.onTime; if (!o) return null;
-        var delta = has(o.prevPct) ? Math.round(o.pct - o.prevPct) : null, tot = Math.max(1, o.total || (o.onTime + o.late + o.postponed));
-        var w = document.createElement('div');
-        w.appendChild(bigRow(o.pct + ' %', null, delta ? badge(Math.abs(delta) + ' pts', delta > 0, true) : null));
-        w.appendChild(bar([[o.onTime * 100 / tot, GREEN], [o.late * 100 / tot, RED], [o.postponed * 100 / tot, GREY]]));
-        w.appendChild(legend([[GREEN, tr('à temps') + ' ' + o.onTime], [RED, tr('retard') + ' ' + o.late], [GREY, tr('reportées') + ' ' + o.postponed]]));
+        var w = el('div', 'saOnTime');
+        if (!visitor) {
+          var nav = el('div', 'cmpNav cmpNav--sm saDaysNav');
+          var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Semaine précédente'));
+          var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Semaine suivante')); next.disabled = !o.canNext;
+          prev.addEventListener('click', function () { tOff = (o.offset || 0) - 1; load(); });
+          next.addEventListener('click', function () { if (o.canNext) { tOff = Math.min(0, (o.offset || 0) + 1); load(); } });
+          nav.appendChild(prev); nav.appendChild(el('span', 'cmpNavLabel', tr('Semaine du {a} au {b}', { a: o.label.split(' – ')[0], b: o.label.split(' – ')[1] }))); nav.appendChild(next);
+          w.appendChild(nav);
+          var today = el('button', 'iconBtn saTodayBtn', tr("Aujourd'hui")); today.type = 'button'; today.disabled = !(o.offset < 0);
+          today.addEventListener('click', function () { tOff = 0; load(); });
+          w.appendChild(today);
+        }
+        var parts = [[o.onTime, GREEN, tr('à temps')], [o.late, RED, tr('retard')], [o.postponed, GREY, tr('reportées')]], tot = o.total || 0;
+        var svgNS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(svgNS, 'svg'); svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('class', 'pieSvg'); svg.setAttribute('role', 'img');
+        svg.setAttribute('aria-label', tr('Tâches faites à la date prévue') + ' : ' + parts.map(function (p) { return p[2] + ' ' + p[0]; }).join(', '));
+        var angle = -Math.PI / 2, gap = parts.filter(function (p) { return p[0] > 0; }).length > 1 ? 0.035 : 0;
+        if (!tot) { var e0 = document.createElementNS(svgNS, 'path'); e0.setAttribute('d', TMT.donutSlicePath(50, 50, 46, 27, angle, angle + Math.PI * 2)); e0.style.fill = '#2b2e35'; svg.appendChild(e0); }
+        parts.forEach(function (p) {
+          if (!p[0]) return;
+          var sweep = p[0] / tot * Math.PI * 2, s = angle + Math.min(gap / 2, sweep / 2), e = Math.max(s, angle + sweep - Math.min(gap / 2, sweep / 2));
+          var path = document.createElementNS(svgNS, 'path'); path.setAttribute('d', TMT.donutSlicePath(50, 50, 46, 27, s, e)); path.style.fill = p[1]; svg.appendChild(path);
+          angle += sweep;
+        });
+        var area = el('div', 'pieChartArea'); area.appendChild(svg);
+        var ctr = el('div', 'pieCenter'); ctr.appendChild(el('span', 'pieCenterValue', has(o.pct) ? o.pct + ' %' : '–')); ctr.appendChild(el('span', 'pieCenterLabel', tr('à temps'))); area.appendChild(ctr);
+        var wrap = el('div', 'pieWrap'); wrap.appendChild(area);
+        var lg = el('div', 'pieLegend');
+        parts.forEach(function (p) {
+          var r = el('div', 'pieLegendRow'), dt = el('span', 'pieLegendDot'); dt.style.background = p[1];
+          r.appendChild(dt); r.appendChild(el('span', 'pieLegendLabel', p[2])); r.appendChild(el('span', 'pieLegendValue', String(p[0]))); lg.appendChild(r);
+        });
+        wrap.appendChild(lg); w.appendChild(wrap);
         return w; } },
-      { key: 'estimate', def: true, title: 'Durée estimée contre durée réelle', body: function (d) {
+      { key: 'estimate', title: 'Durée estimée contre durée réelle', body: function (d) {
         var a = d.tasks && d.tasks.estimate; if (!a || !a.length) return null;
         var w = document.createElement('div');
         a.forEach(function (r, i) {
@@ -547,6 +584,13 @@
           w.appendChild(rw);
         });
         return w; } },
+      { key: 'workload', def: true, title: 'Capacité', body: function (d) {
+        var c = d.tasks && d.tasks.workload; if (!c || !has(c.pct)) return null;
+        var col = c.pct > c.alertAt ? RED : (c.pct > 100 ? ORANGE : GREEN), w = document.createElement('div');
+        w.appendChild(bigRow(c.pct + ' %', tr('du temps estimé') + ' · ' + c.label, null, col));
+        w.appendChild(bar([[Math.min(100, c.pct), col]]));
+        w.appendChild(el('p', 'meta', tr('{a} passées sur {b} estimées', { a: fmtMin(c.actualMin), b: fmtMin(c.estimatedMin) })));
+        return w; } },
       { key: 'postponed', title: 'Tâches reportées plusieurs fois', body: function (d) {
         var a = d.tasks && d.tasks.postponed; if (!a || !a.length) return null;
         var ul = el('ul', 'saLst');
@@ -576,7 +620,7 @@
         return bigRow(String(u.count), tr('tâches à échéance sous {n} jours', { n: u.withinDays })); } }
     ],
     o: [
-      { key: 'target', def: true, title: 'Temps cible contre temps fait', body: function (d) {
+      { key: 'target', title: 'Temps cible contre temps fait', body: function (d) {
         var a = d.objectives && d.objectives.target; if (!a || !a.length) return null;
         var w = document.createElement('div');
         a.forEach(function (r, i) {
@@ -586,7 +630,7 @@
           w.appendChild(rw);
         });
         return w; } },
-      { key: 'achieved', def: true, title: 'Objectifs atteints', body: function (d) {
+      { key: 'achieved', title: 'Objectifs atteints', body: function (d) {
         var a = d.objectives && d.objectives.achieved; if (!a || !a.length) return null;
         var w = document.createElement('div');
         a.forEach(function (r, i) {
@@ -597,7 +641,7 @@
         });
         w.appendChild(legend([[GREEN, tr('atteint')], [GREY, tr('partiel')], [RED, tr('non')]]));
         return w; } },
-      { key: 'weeks', def: true, title: 'Où ça glisse', body: function (d) {
+      { key: 'weeks', title: 'Où ça glisse', body: function (d) {
         var a = d.objectives && d.objectives.weeks; if (!a || !a.list || !a.list.length) return null;
         var w = document.createElement('div');
         if (a.mode === 'weekly') {
@@ -636,7 +680,7 @@
         });
         w.appendChild(g);
         return w; } },
-      { key: 'carried', def: true, title: 'Objectifs reportés qui s’accumulent', body: function (d) {
+      { key: 'carried', title: 'Objectifs reportés qui s’accumulent', body: function (d) {
         var c = d.objectives && d.objectives.carried; if (!c || !has(c.count)) return null;
         var dl = Math.round(c.delta || 0);
         return bigRow(String(c.count), null, dl ? badge(sgn(dl), dl < 0, true) : null, c.count > 0 ? RED : GREEN); } },
@@ -713,7 +757,8 @@
   function setTab(t) { // change d'onglet sans recharger (les points globaux suivent via cfg.onTab)
     if (tab === t) return;
     tab = t; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null;
-    if (els.sel) Array.prototype.forEach.call(els.sel.children, function (b) { b.classList.toggle('active', b.dataset.tab === t); });
+    tOff = 0;
+    if (els.selBtn) { els.selBtn.textContent = tr(t === 't' ? 'Tâches' : 'Objectifs'); Array.prototype.forEach.call(els.selMenu.children, function (b) { b.classList.toggle('active', b.dataset.tab === t); }); }
     if (cfg.onTab) cfg.onTab(tab);
   }
   function goTab(t) {
@@ -724,6 +769,25 @@
     if (els.body && bodies[t]) { slideDir = 0; els.body = bodies[t]; bodies[t].classList.remove('hidden'); bodies[t === 't' ? 'o' : 't'].classList.add('hidden'); } // pas de cache : la page change aussitôt (vide), elle se remplit à l'arrivée des données
     load();
   }
+  // Au-delà de 120 % du temps estimé : fenêtre standard (✕), une fois par période, avec le bilan existant (Garder / Alléger / Prolonger) appliqué aux objectifs en cours de l'activité.
+  function capacityAlert() {
+    var c = data && data.tasks && data.tasks.workload;
+    if (visitor || tab !== 't' || !c || !c.over || activityId == null || !zone || zone.classList.contains('hidden') || !TMT.ui || !TMT.ui.confirm) return;
+    var key = 'tmt.capAlert.' + activityId + '.' + c.periodStart;
+    try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch (e) { /* stockage indisponible : l'alerte peut se répéter */ }
+    var aid = activityId;
+    TMT.ui.confirm(tr('Tu as passé {pct} % du temps estimé sur la période {p}. Que faire de la suite ?', { pct: c.pct, p: c.label }), {
+      closeLabel: tr('Fermer'),
+      choices: [{ value: 'garder', label: tr('Garder tel quel') }, { value: 'alleger', label: tr('Alléger') }, { value: 'prolonger', label: tr('Prolonger d’une semaine') }]
+    }).then(function (act) {
+      if (!act || !TMT.api) return;
+      TMT.api('GET', '/api/objectifs?filtre=en_cours').then(function (r) {
+        ((r && r.objectifs) || []).filter(function (o) { return String(o.activity.id) === String(aid); }).forEach(function (o) {
+          TMT.api('POST', '/api/objectifs/' + o.id + '/bilan', { action: act, period: o.currentPeriod.n }).catch(function () {});
+        });
+      }).catch(function () {});
+    });
+  }
   function render() {
     if (!built) return;
     var sd = slideDir; slideDir = 0;
@@ -731,6 +795,7 @@
     bodies[tab].classList.remove('hidden'); bodies[tab === 't' ? 'o' : 't'].classList.add('hidden');
     if (sd && typeof els.body.animate === 'function') els.body.animate([{ transform: 'translateX(' + (sd * 40) + '%)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.22,.8,.3,1)' });
     renderCore();
+    capacityAlert();
   }
   // Rend l'AUTRE onglet (données déjà reçues) dans sa page cachée, prête à glisser à côté de la courante.
   function renderAs(t, d) {
@@ -803,7 +868,7 @@
 
   function buildQs(t, dOff, wo) {
     var all = t === 't' ? view === 'all' : oview === 'all';
-    return (all ? '&year=all' : (!visitor && yearSel !== null ? '&year=' + encodeURIComponent(yearSel) : '')) + '&scope=' + (view === 'all' ? 'year' : view) + '&kind=' + oview + (dOff ? '&offset=' + dOff : '') + (wo ? '&woff=' + wo : '');
+    return (all ? '&year=all' : (!visitor && yearSel !== null ? '&year=' + encodeURIComponent(yearSel) : '')) + '&scope=' + (view === 'all' ? 'year' : view) + '&kind=' + oview + (dOff ? '&offset=' + dOff : '') + (wo ? '&woff=' + wo : '') + (tOff && !visitor ? '&toff=' + tOff : '');
   }
   // Précharge l'autre onglet (état par défaut : décalages à 0) pour que le glissement ait toujours sa voisine à montrer.
   function prefetchOther() {

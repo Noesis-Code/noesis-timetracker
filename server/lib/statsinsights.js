@@ -265,16 +265,35 @@ function workedDays(activityId, scope, today, kind, offset, allTasks) {
   return { kind: kind === 'week' ? 'week' : 'period', start, end, label, offset, minutes: days, doneDays, plannedDays: plannedCount, dates, canNext: offset < 0 };
 }
 
+// Seuil d'alerte de la carte « Capacité » : au-delà de 120 % (temps passé > 120 % du temps estimé), le bilan Garder / Alléger / Prolonger est proposé une fois par période.
+const CAPACITY_ALERT_PCT = 120;
+const DEFAULT_TASK_MINUTES = 30;
 function tasksCards(ctx) {
   const { activityId, userId, today, scope, tasks, allTasks, range, view } = ctx;
-  const out = { onTime: null, estimate: null, weekdays: null, remaining: null, postponed: null, rhythm: null, streak: null, busy: null, capacity: null, assignees: null, urgent: null };
+  const out = { workload: null, onTime: null, estimate: null, weekdays: null, remaining: null, postponed: null, rhythm: null, streak: null, busy: null, capacity: null, assignees: null, urgent: null };
   const doneIn = (t) => t.done && t.doneDay && inRange(t.doneDay, { start: range.start, end: range.end });
 
+  // « Tâches faites à la date prévue » : UNE semaine (lundi–dimanche) à la fois, décalée de ctx.toff (<= 0), comme la Répartition du Chrono.
   out.onTime = safe(() => {
-    const cur = onTimeFor(tasks, today, range);
-    if (!cur.total) return null;
-    const prev = range.prev ? onTimeFor(allTasks, today, range.prev) : null;
-    return { pct: cur.pct, prevPct: prev && prev.total ? prev.pct : null, onTime: cur.onTime, late: cur.late, postponed: cur.postponed, total: cur.total };
+    const toff = Math.max(-520, Math.min(0, Number(ctx.toff) || 0));
+    const start = goals.addDays(goals.mostRecentMonday(ctx.realToday), toff * 7), end = goals.addDays(start, 6);
+    const cur = onTimeFor(allTasks, ctx.realToday, { start, end });
+    const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
+    return { pct: cur.pct, onTime: cur.onTime, late: cur.late, postponed: cur.postponed, total: cur.total, label: fmt(start) + ' – ' + fmt(end), start, end, offset: toff, canNext: toff < 0 };
+  });
+
+  // « Capacité » : temps réellement passé / temps estimé des tâches de la période courante (28 jours) ; au-delà de CAPACITY_ALERT_PCT, le client propose le bilan.
+  out.workload = safe(() => {
+    const per = viewRange('period', ctx.realToday), keys = scope.poles.reduce((acc, p) => acc.concat(p.timeKeys), []);
+    if (!keys.length) return null;
+    let est = 0, counted = 0;
+    allTasks.filter((t) => inRange(t.due, per)).slice(0, 300).forEach((t) => { const e = goals.estimateForGoal(activityId, t.key, 'weekly', t.label); est += e && e.minutes ? e.minutes : DEFAULT_TASK_MINUTES; counted += 1; }); // sans estimation connue : 30 min (valeur par défaut des tâches)
+    if (!counted) return null;
+    const until = per.end < ctx.realToday ? per.end : ctx.realToday;
+    const actual = minutesFor(activityId, keys, per.start, until);
+    const ay = anchorYearOf(per.start), n = Math.floor(goals.daysBetween(yearAnchor(ay), per.start) / 28) + 1;
+    const pct = Math.round(actual / est * 100);
+    return { pct, actualMin: actual, estimatedMin: est, periodStart: per.start, label: 'P' + n, alertAt: CAPACITY_ALERT_PCT, over: pct > CAPACITY_ALERT_PCT };
   });
 
   out.estimate = safe(() => {
@@ -615,7 +634,7 @@ function insightsForActivityRaw(activityId, userId, poleKey, yearParam, opts) {
   const tasks = allTasks.filter((t) => inRange(t.due, range) || inRange(t.doneDay, range) || (undated && !t.due && !t.doneDay));
   const kindObjs = okind === 'all' ? allObjs : allObjs.filter((o) => o.kind === (okind === 'weekly' ? 'weekly' : 'period'));
   const objs = year === 'all' ? kindObjs : kindObjs.filter((o) => yearOf(o.end) === year);
-  const ctx = { activityId, userId, today, realToday, scope, tasks, allTasks, objs, range, view: scopeName, offset: off, okind, visitor: !!opts.visitor, woff: Math.max(-520, Math.min(0, parseInt(opts.woff, 10) || 0)), yearNum: year === 'all' ? null : year, isCurrentYear: year === 'all' || year === cur };
+  const ctx = { activityId, userId, today, realToday, scope, tasks, allTasks, objs, range, view: scopeName, offset: off, okind, visitor: !!opts.visitor, toff: Math.max(-520, Math.min(0, parseInt(opts.toff, 10) || 0)), woff: Math.max(-520, Math.min(0, parseInt(opts.woff, 10) || 0)), yearNum: year === 'all' ? null : year, isCurrentYear: year === 'all' || year === cur };
   let minY = cur;
   allObjs.forEach((o) => { minY = Math.min(minY, anchorYearOf(o.periodStart)); });
   years.forEach((y) => { minY = Math.min(minY, y); });
@@ -716,4 +735,4 @@ function memberStats(activityId, scopeParam, yearParam, poleKey) {
     series: { labels, todayIndex, noToday, max: niceMax(max), members: seriesMembers } };
 }
 
-module.exports = { insightsForActivity, visitorInsights, glisseDetail, memberStats };
+module.exports = { insightsForActivity, visitorInsights, glisseDetail, memberStats, CAPACITY_ALERT_PCT };

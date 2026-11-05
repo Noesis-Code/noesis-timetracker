@@ -1,0 +1,44 @@
+// Statistiques de la Feuille de route : cartes par défaut, bouton-menu Tâches/Objectifs, semaine navigable, carte « Capacité » (seuil 120 %).
+// Usage : node test/stats-feuille-test.js
+const fs = require('fs'), path = require('path');
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-sf-');
+delete process.env.ANTHROPIC_API_KEY;
+try { require('child_process').execFileSync('node', [path.join(__dirname, '..', 'scripts', 'dev-seed.js')], { env: Object.assign({}, process.env, { RAILWAY_ENVIRONMENT_NAME: 'staging' }), stdio: 'ignore' }); } catch (e) {}
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
+let failed = 0;
+const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'stats-avance.js'), 'utf8');
+const block = (key) => { const i = js.indexOf("{ key: '" + key + "'"); return i < 0 ? '' : js.slice(i, i + 60); };
+// Cartes par défaut (le reste reste disponible dans « Ajouter une information »)
+['onTime', 'weekdays', 'remaining', 'workload'].forEach((k) => assert(/def: true/.test(block(k)), 'Tâches : « ' + k + ' » affichée par défaut'));
+['estimate', 'postponed', 'rhythm', 'streak', 'busy', 'capacity', 'assignees', 'urgent'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Tâches : « ' + k + ' » dans « Ajouter une information » (code conservé)'));
+['target', 'achieved', 'weeks', 'carried', 'linked', 'pressure'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Objectifs : « ' + k + ' » dans « Ajouter une information » (code conservé)'));
+assert(/caSubProjectBtn/.test(js) && /els\.selBtn/.test(js) && !/periodSwitch cmpSeg saSel/.test(js), 'un seul bouton-menu Tâches ▾ / Objectifs ▾ (même gabarit que « Tous ▾ » du Chrono)');
+assert(/tmt\.statsInfo\.|infoStore/.test(js) && /loadAdded\(tab\)/.test(js), 'préférences d\'ajout enregistrées (localStorage tmt.statsInfo.*) respectées');
+const db = require('../server/db'), goals = require('../server/lib/goals'), ins = require('../server/lib/statsinsights');
+assert(ins.CAPACITY_ALERT_PCT === 120, 'seuil d\'alerte de la carte Capacité : 120 %');
+const m = db.prepare('SELECT userId, activityId FROM activity_members LIMIT 1').get();
+if (!m) { console.log('  (pas de données de base : tests serveur ignorés)'); process.exit(failed ? 1 : 0); }
+let cat = goals.categoriesForActivity(m.activityId)[0];
+if (!cat) { goals.addCategory(m.activityId, 'PoleTest'); cat = goals.categoriesForActivity(m.activityId)[0]; }
+const goalstasks = require('../server/lib/goalstasks');
+const pad = (n) => String(n).padStart(2, '0'), d = new Date(), today = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+for (let i = 0; i < 4; i += 1) goalstasks.addCategoryTask(m.activityId, m.userId, cat.key, 'Tâche de test ' + i + ' capacité', { dueDate: today });
+const addTime = (h) => db.prepare("INSERT INTO time_entries (userId, activityId, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory) VALUES (?, ?, ?, ?, ?, ?, 'x', ?)").run(m.userId, m.activityId, today + 'T01:00:00Z', today + 'T02:00:00Z', Math.round(h * 3600), today, cat.key);
+const get = (extra) => ins.insightsForActivity(m.activityId, m.userId, null, undefined, Object.assign({ scope: 'year', kind: 'weekly' }, extra || {}));
+let r = get(); let w = r.tasks.workload;
+assert(w && w.estimatedMin > 0, 'carte Capacité : temps estimé des tâches de la période (défaut 30 min par tâche sans estimation)');
+const est = w.estimatedMin;
+addTime(est * 1.1 / 60);
+w = get().tasks.workload;
+assert(w.pct >= 105 && w.pct <= 115 && w.over === false, 'temps passé à ~110 % de l\'estimé : pas d\'alerte');
+addTime(est * 0.2 / 60); // ~130 %
+w = get().tasks.workload;
+assert(w.pct > 120 && w.over === true, 'au-delà de 120 % de l\'estimé : alerte (une fois par période côté client)');
+// « Tâches faites à la date prévue » : une semaine, navigable
+const o0 = get().tasks.onTime, o1 = get({ toff: -1 }).tasks.onTime;
+assert(o0 && o0.offset === 0 && o0.canNext === false && /^\d\d\/\d\d – \d\d\/\d\d$/.test(o0.label), 'à la date prévue : semaine en cours (libellé « du … au … »)');
+assert(o1 && o1.offset === -1 && o1.canNext === true && o1.start < o0.start, 'à la date prévue : semaine précédente navigable (‹ ›)');
+assert(js.indexOf('Aujourd\'hui') > 0 && /saTodayBtn/.test(js), 'bouton Aujourd\'hui de la carte');
+console.log(failed ? '\nstats-feuille-test : ' + failed + ' échec(s)' : '\nstats-feuille-test : OK');
+process.exit(failed ? 1 : 0);
