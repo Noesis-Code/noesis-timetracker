@@ -113,3 +113,9 @@
 .objSliderWrap { display: flex; flex-direction: column; gap: 8px; }
 .objSlider { width: 100%; accent-color: var(--purple); min-height: 44px; }
 .objSliderVal { font-size: 14px; color: var(--text); text-align: center; }
+
+.objSeeBtn { margin: 0 0 16px; }
+/* Pop-up « Mes objectifs » : une ligne par objectif = nom + activité(s) en petit (13 px, gris sable) ; séparateur plein largeur (R22). */
+.objRowLine { display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 52px; padding: 8px 4px; border: 0; border-bottom: 1px solid var(--sep); border-radius: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.objRowName { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.objList { gap: 0; }
