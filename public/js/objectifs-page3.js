@@ -995,13 +995,13 @@
   // En haut de la page : « P12 », l'état de réalisation de la période et l'objectif périodique (titre seulement).
   function renderGoalsTopLine(period) {
     var ws = (period.weeklies || []).filter(function (w) { return w.text; }), st = null;
-    if (ws.length) { var done = ws.filter(function (w) { return w.status === 'atteint'; }).length; st = done === ws.length ? 'atteint' : ws.some(function (w) { return w.status === 'partiel' || w.status === 'atteint'; }) ? 'partiel' : 'non_atteint'; }
-    // Statut de la période : transparent tant qu'elle n'a pas commencé ou n'a aucune tâche ; sinon coloré. Un clic fait tourner les couleurs : les semaines de la période prennent le nouvel état (le statut de la période en est dérivé).
+    // Couleur DÉRIVÉE des semaines (le bouton P12 ne se clique pas) : toutes réussies = vert ; majorité non réussies = rouge ; sinon (mélange, partiel) = jaune.
+    if (ws.length) { var okN = ws.filter(function (w) { return w.status === 'atteint'; }).length, badN = ws.filter(function (w) { return w.status !== 'atteint' && w.status !== 'partiel'; }).length; st = okN === ws.length ? 'atteint' : badN * 2 > ws.length ? 'non_atteint' : 'partiel'; }
+    // Transparent tant que la période n'a pas commencé ou n'a aucune tâche ; sinon coloré.
     var hasTasks = ws.some(function (w) { return w.taskTotal > 0; }), pState = period.startDate <= isoToday() && hasTasks ? st : null;
     var tagHost = $('activityGoalsPeriodTitle'); tagHost.textContent = '';
-    tagHost.appendChild(TMT.ui.statusBtn('P' + period.periodIndexInCycle, pState, function (next) {
-      Promise.all(ws.map(function (w) { return api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/weekly/' + w.id + '/status', { status: next }); })).then(reloadGoalsAll).catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
-    }));
+    tagHost.appendChild(TMT.ui.statusBtn('P' + period.periodIndexInCycle, pState)); // sans clic : suit ses semaines
+
     var oldFr = document.querySelector('.goalsTopAdd'); if (oldFr) oldFr.remove(); var navLab = document.getElementById('goalsCalTitle'); if (navLab) navLab.classList.remove('hidden');
     var host = $('goalsMainLineHost'); host.textContent = '';
     var b = document.createElement('button'); b.type = 'button';

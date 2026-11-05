@@ -78,7 +78,7 @@
     statusBtn: function (label, state, onClick) {
       var cls = { atteint: 'ok', partiel: 'mid', non_atteint: 'bad' }, order = ['atteint', 'partiel', 'non_atteint'];
       var b = document.createElement('button'); b.type = 'button'; b.className = 'cmpStatus' + (cls[state] ? ' cmpStatus--' + cls[state] : ''); b.textContent = label;
-      if (!cls[state]) b.setAttribute('aria-disabled', 'true');
+      if (!cls[state] || !onClick) b.setAttribute('aria-disabled', 'true'); // sans état ou sans action : affichage seul
       b.addEventListener('click', function (e) { e.stopPropagation(); if (cls[state] && onClick) onClick(order[(order.indexOf(state) + 1) % 3]); });
       return b;
     },
