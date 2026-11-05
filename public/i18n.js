@@ -865,6 +865,7 @@
     'Clients': 'Clients',
     'Financement': 'Funding',
     'Description': 'Description',
+    'Titre': 'Title',
     'Lien': 'Link',
     'Début': 'Started',
     'Catégorie': 'Category',

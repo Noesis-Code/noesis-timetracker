@@ -963,6 +963,7 @@
     advT.addEventListener('click', function () { var open = adv.classList.toggle('hidden') === false; advT.setAttribute('aria-expanded', open ? 'true' : 'false'); TMT.ui.toggleLabel(advT, t('Avancé'), open); });
     if (kind === 'main') { movedMain = Array.prototype.slice.call(goalsPops.main.body.children); movedMain.forEach(function (n) { adv.appendChild(n); }); }
     else { var wbox = document.createElement("div"); adv.appendChild(wbox); renderGoalsWeekCard(period, weekIndex, wbox); }
+    if (kind === "week" && !current) advT.classList.add("hidden"); // semaine vide : ni capacité ni statut à régler
     dayBody.appendChild(advT); dayBody.appendChild(adv);
     goalTitleIn.value = current || ''; goalDescIn.value = desc || '';
     dayDock.classList.add('expSave'); saveBtn.disabled = !goalTitleIn.value.trim(); // la barre d'écriture devient UN bouton plein-largeur
