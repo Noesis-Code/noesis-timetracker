@@ -985,21 +985,21 @@
   };
 
   // ---------- Points de pagination (un seul jeu, #statsPageDots, posé hors des onglets) ----------
-  var DOT_LABELS = { chrono: ['Chrono', 'Statistiques', 'Activités partagées'], goals: ['Feuille de route', 'Statistiques', 'Groupe'] }; // 27 oct. 2026 : Tâches et Objectifs ne font plus qu'une page (sélecteur Tâches | Objectifs dans la page)
+  var DOT_LABELS = { chrono: ['Chrono', 'Statistiques', 'Activités partagées'], goals: ['Tâches', 'Objectifs', 'Statistiques', 'Groupe'] }; // 4 nov. 2026 : trois points EN HAUT (Tâches · Objectifs · Statistiques), plus Groupe quand il existe
   var dotsKey = '', dotsTimer = 0;
   function place() {
-    if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (groupOn ? 2 : 1) : (sharedOn ? 2 : 1) };
+    if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (groupOn ? 3 : 2) : (sharedOn ? 2 : 1) };
     if (showing('tab-chrono')) return { ctx: 'chrono', idx: 0 };
-    if (showing('tab-goals') && showing('goalsCapturePage') && !showing('goalsActivitiesView')) return { ctx: 'goals', idx: 0 }; // vue « Objectifs » (liste des activités) : pas de points, mais le balayage vers les statistiques reste actif
+    if (showing('tab-goals') && showing('goalsCapturePage')) return { ctx: 'goals', idx: showing('goalsActivitiesView') ? 1 : 0 }; // vue Tâches = point 1, vue Objectifs = point 2
     return null;
   }
   function paintDots() {
     dotsTimer = 0;
     if (!dots || !inst) return;
     var pl = place();
-    if (!pl || (pl.ctx === 'goals' && !modOnId('stats-tasks')) || (pl.ctx === 'chrono' && !modOnId('stats'))) { dots.classList.add('hidden'); return; }
-    dots.classList.remove('hidden');
-    var labels = DOT_LABELS[pl.ctx].slice(0, pl.ctx === 'chrono' ? (sharedAvailable() ? 3 : 2) : (groupAvailable() ? 3 : 2)); // sans partage : une page de moins
+    if (!pl || (pl.ctx === 'goals' && !modOnId('stats-tasks')) || (pl.ctx === 'chrono' && !modOnId('stats'))) { dots.classList.add('hidden'); document.documentElement.classList.remove('statsDotsTop'); return; }
+    dots.classList.remove('hidden'); dots.classList.toggle('dotsTop', pl.ctx === 'goals'); document.documentElement.classList.toggle('statsDotsTop', pl.ctx === 'goals'); // Feuille de route : points en haut, centrés ; Chrono : en bas
+    var labels = DOT_LABELS[pl.ctx].slice(0, pl.ctx === 'chrono' ? (sharedAvailable() ? 3 : 2) : (groupAvailable() ? 4 : 3)); // sans partage : une page de moins
     if (dotsKey !== pl.ctx + labels.length) {
       dotsKey = pl.ctx + labels.length; dots.innerHTML = '';
       labels.forEach(function (lab) {
@@ -1020,8 +1020,11 @@
       else TMT.openStats('chrono', i === 2 ? 3 : 1);
       return;
     }
-    if (i === 0) { TMT.switchTab('goals'); return; }
-    if (i === 2) { if (showing('tab-stats')) setGroupPage(true); else TMT.openStats('goals', 4); return; }
+    if (i <= 1) { // Tâches ou Objectifs : retour sur la page 1 de la feuille de route, dans la vue choisie
+      if (showing('tab-stats') && groupOn) setGroupPage(false, { noAnim: true });
+      TMT.switchTab('goals'); if (TMT.setGoalsPage1View) TMT.setGoalsPage1View(i === 0 ? 'today' : 'activities'); return;
+    }
+    if (i === 3) { if (showing('tab-stats')) setGroupPage(true); else TMT.openStats('goals', 4); return; }
     if (showing('tab-stats')) { if (groupOn) setGroupPage(false); } else TMT.openStats('goals', 2);
   });
   // Les points suivent les onglets et l'écran de capture (ouvrir/fermer une page, glissement, notification…).

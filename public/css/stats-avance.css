@@ -6,6 +6,11 @@
 }
 #statsPageDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
 #statsPageDots .goalsDotBtn.on .goalsDot { opacity: 1; }
+/* Feuille de route (4 nov. 2026) : les points sont EN HAUT, centrés, sous la barre du haut ; le point actif est violet. */
+#statsPageDots.dotsTop { bottom: auto; top: calc(var(--topbar-h, 56px) - 4px); }
+#statsPageDots.dotsTop .goalsDotBtn { align-items: center; padding-bottom: 0; }
+#statsPageDots.dotsTop .goalsDotBtn.on .goalsDot { background: var(--purple); }
+:root.statsDotsTop #tab-stats { padding-top: 12px; } /* les statistiques de la Feuille de route démarrent sous les points, à la hauteur de Tâches | Objectifs */
 #statsAvancePage, #statsSharedPage { padding-bottom: calc(var(--tabbar-h, 64px) + 40px); }
 .saChips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 12px; scrollbar-width: none; }
 .saChips::-webkit-scrollbar { display: none; }
