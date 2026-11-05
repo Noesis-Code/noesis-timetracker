@@ -915,6 +915,8 @@
   }
   // Jour touché : cercle plein sur le jour, barre « Nouvelle tâche… » en bas (même dock que la page 1, TMT.ui.dockKeyboard) et, au-dessus, le panneau des tâches déjà prévues ce jour-là
   // (lignes .tasksPop*, comme la page 1). Ajout MANUEL : la tâche est créée directement dans le secteur / pôle de la page à la date du jour choisi (aucun tri IA, aucun pop-up de placement).
+  var movedMain = null; // nœuds de l'ancienne fenêtre de l'objectif périodique, prêtés au panneau (rendus à la fenêtre à la fermeture)
+  function restoreMain() { if (movedMain && goalsPops.main) movedMain.forEach(function (n) { goalsPops.main.body.appendChild(n); }); movedMain = null; }
   var dayMode = 'day', goalEdit = null, saveBtn = null, goalTitleIn = null, goalDescIn = null;
   var selDay = null, dayDock = null, dayPanel = null, dayBody = null, dayKicker = null, dayText = null, daySend = null, dayMsg = null;
   function buildGoalsDayDock() {
@@ -954,6 +956,14 @@
     var f1 = document.createElement('div'); f1.className = 'goalsEditField'; var l1 = document.createElement('p'); l1.className = 'cmpBlockTitle'; l1.textContent = t('Titre'); f1.appendChild(l1); f1.appendChild(goalTitleIn);
     var f2 = document.createElement('div'); f2.className = 'goalsEditField'; var l2 = document.createElement('p'); l2.className = 'cmpBlockTitle'; l2.textContent = t('Description'); f2.appendChild(l2); f2.appendChild(goalDescIn);
     dayBody.appendChild(f1); dayBody.appendChild(f2);
+    // « Avancé » (replié par défaut, R8) : dates, assignation, capacité, statut = les champs et fonctions des anciennes fenêtres, réutilisés tels quels (aucune fonction perdue).
+    restoreMain();
+    var advT = document.createElement('button'); advT.type = 'button'; advT.className = 'activityEditAdvToggle'; advT.setAttribute('aria-expanded', 'false'); TMT.ui.toggleLabel(advT, t('Avancé'), false);
+    var adv = document.createElement('div'); adv.className = 'goalsEditAdv hidden';
+    advT.addEventListener('click', function () { var open = adv.classList.toggle('hidden') === false; advT.setAttribute('aria-expanded', open ? 'true' : 'false'); TMT.ui.toggleLabel(advT, t('Avancé'), open); });
+    if (kind === 'main') { movedMain = Array.prototype.slice.call(goalsPops.main.body.children); movedMain.forEach(function (n) { adv.appendChild(n); }); }
+    else { var wbox = document.createElement("div"); adv.appendChild(wbox); renderGoalsWeekCard(period, weekIndex, wbox); }
+    dayBody.appendChild(advT); dayBody.appendChild(adv);
     goalTitleIn.value = current || ''; goalDescIn.value = desc || '';
     dayDock.classList.add('expSave'); saveBtn.disabled = !goalTitleIn.value.trim(); // la barre d'écriture devient UN bouton plein-largeur
     dayDock.classList.remove('hidden'); window.setTimeout(function () { goalTitleIn.focus(); }, 60);
@@ -967,7 +977,7 @@
       .then(reloadGoalsAll).then(done).catch(function (err) { saveBtn.disabled = false; dayMsg.textContent = (err && err.message) || t('Impossible pour le moment.'); });
   }
   function selectGoalsDay(iso) {
-    if (dayMode === 'goal') { dayMode = 'day'; goalEdit = null; if (dayDock) { dayDock.classList.remove('expSave'); dayBody.textContent = ''; dayText.value = ''; dayText.placeholder = t('Nouvelle tâche…'); } if (!iso) { if (dayDock) dayDock.classList.add('hidden'); selDay = null; renderGoalsMonthCal(); return; } }
+    if (dayMode === 'goal') { restoreMain(); dayMode = 'day'; goalEdit = null; if (dayDock) { dayDock.classList.remove('expSave'); dayBody.textContent = ''; dayText.value = ''; dayText.placeholder = t('Nouvelle tâche…'); } if (!iso) { if (dayDock) dayDock.classList.add('hidden'); selDay = null; renderGoalsMonthCal(); return; } }
     selDay = iso && iso !== selDay ? iso : null; // retoucher le même jour le désélectionne
     renderGoalsMonthCal();
     if (!selDay) { if (dayDock) dayDock.classList.add('hidden'); return; }
