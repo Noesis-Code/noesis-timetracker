@@ -489,3 +489,19 @@
 .goalsDayDock .tasksPropose { max-height: min(55vh, 440px, calc(var(--dock-vh, 100vh) - 140px)); }
 .goalsMainBig { border: 0; padding: 0; text-align: center; font-size: 20px; font-weight: 700; white-space: normal; } /* l'objectif périodique prend le grand format du mois */
 .goalsMainAddLine { display: block; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: var(--text-light); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+
+/* Haut de page sans objectif périodique : pointillés (.cmpAdd) autour de « + Ajouter … » centré et de la date juste dessous. */
+.goalsTopAdd { flex-direction: column; align-items: stretch; gap: 0; padding: 4px 8px 0; cursor: pointer; }
+.goalsTopAddLine { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; font-size: 14px; }
+.goalsTopAdd .goalsCalNav { margin: 0; }
+.goalsTopAdd .goalsCalNav .cmpNavLabel { pointer-events: none; }
+.goalsCalWeekAdd { margin-bottom: 0; }
+.goalsDayDock .cmpBtn { width: auto; flex: none; min-height: 36px; padding: 0 16px; font-size: 14px; }
+.goalsDayDock .hidden { display: none; }
+/* Calendrier resserré (R30, plan) : tout le mois (5–6 semaines) dans l'écran sans défiler ; seules les hauteurs et marges diminuent. */
+.goalsCalWeek { margin-top: 4px; padding: 4px 8px; }
+.goalsCalWeek:first-child { margin-top: 0; }
+.goalsCalWeekLine, .goalsCalWeekAdd { min-height: 28px; }
+.goalsCalDay { width: 40px; height: 36px; border-radius: 18px; }
+.goalsCalEnd { min-height: 28px; margin-top: 2px; }
+.goalsMonthCal { margin-bottom: 8px; }

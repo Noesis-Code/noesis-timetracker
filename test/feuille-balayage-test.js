@@ -34,5 +34,8 @@ const creerCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'ob
 assert(/goBack/.test(creer) && /panel\.addEventListener\('touchend'/.test(creer) && /dx < 0\) \{ if \(advance/.test(creer) && /\.objStepBtn \{ position: relative; justify-content: center; \}/.test(creerCss), 'panneau de création : balayage gauche = étape suivante, droite = précédente ; bouton violet centré');
 assert(/dock\.classList\.add\('expSave'\)/.test(creer) && /tr\('Suivant'\)/.test(creer) && /tr\('Terminer'\)/.test(creer) && /n \+ '\/' \+ total\(\)/.test(creer), 'barre d\'objectif : un seul bouton d\'avancement « Suivant » / « Terminer » avec n/total (plus de Valider séparé)');
 assert(/Génère automatiquement tes tâches avec Noèsis/.test(creer) && /offer1SoonBadge[^}]*display: none/.test(creerCss), 'bouton d\'offre Expansion dans le parcours ; carte promo retirée de la vue Objectifs');
+const creerJs = read('objectifs-creer.js'), creerCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'objectifs-creer.css'), 'utf8');
+assert(/dock\.classList\.add\('expSave'\)/.test(creerJs) && /Passer à/.test(creerJs) && /tr\('Terminer'\)/.test(creerJs) && /n \+ '\/' \+ total\(\)/.test(creerJs) && !/tr\('Valider'\)/.test(creerJs), 'barre d\'objectif : un seul bouton d\'avancement « Passer à … » / « Terminer » avec n/total (plus de Valider séparé)');
+assert(/Génère automatiquement tes tâches avec Noèsis/.test(creerJs) && /offer1SoonBadge[^}]*display: none/.test(creerCss), 'bouton d\'offre Expansion dans le parcours ; carte promo retirée de la vue Objectifs');
 if (failed) { console.log('\nfeuille-balayage-test : ' + failed + ' échec(s)'); process.exit(1); }
 console.log('\nfeuille-balayage-test : OK');
