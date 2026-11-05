@@ -95,7 +95,8 @@
       if (!s0.drag) { if (s0.swallow && e.stopPropagation) e.stopPropagation(); return; }
       if (e.stopPropagation) e.stopPropagation();
       var d = s0.drag, dt = Math.max(1, Date.now() - s0.t), mv = Math.abs(d.x);
-      var commit = !cancelled && (mv > d.w * 0.25 || (mv >= 20 && mv / dt >= 0.35));
+      // Seuil commun à toutes les vues de la page (même facilité de balayage partout) : 56 px, ou 20 px avec un peu d'élan.
+      var commit = !cancelled && (mv >= Math.min(56, d.w * 0.25) || (mv >= 20 && mv / dt >= 0.2));
       var ease = 'transform .22s cubic-bezier(.22,.8,.3,1)';
       d.cur.style.transition = ease; d.nb.style.transition = ease;
       d.cur.style.transform = 'translateX(' + (commit ? -d.dir * d.w : 0) + 'px)';

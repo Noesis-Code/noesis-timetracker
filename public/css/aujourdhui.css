@@ -111,3 +111,5 @@
 /* Onglet Tâches et vue Objectifs : contenu FIXE horizontalement (aucun défilement latéral ; le geste horizontal appartient au balayage vers les statistiques) ; le texte long passe à la ligne. */
 :is(#goalsTodayView, #goalsActivitiesView, #goalsCapturePage) { max-width: 100%; overflow-x: clip; touch-action: pan-y; }
 :is(#goalsTodayView, #goalsActivitiesView) { overflow-wrap: anywhere; }
+/* Même facilité de balayage sur toutes les vues de la page 1 : la zone de geste (#tab-goals) couvre TOUTE la hauteur de l'écran, y compris sous un contenu court (liste vide, peu d'objectifs). */
+#tab-goals:not(.hidden) { min-height: calc(100dvh - var(--topbar-h, 56px)); box-sizing: border-box; }

@@ -11,7 +11,9 @@
 (function () {
   'use strict';
   var TMT = window.TMT = window.TMT || {};
-  var THRESHOLD = 7, BIAS = 1.25; // horizontal si |dx| * 1,25 >= |dy|
+  // RÈGLE (4 nov. 2026, Émilien) : même facilité de balayage sur toutes les vues de la page — un seul réglage pour tous les pagers : tolérant aux gestes un peu diagonaux
+  // (horizontal tant que |dy| <= 1,6 x |dx|, soit environ 32°) ; décidé après 10 px de mouvement, jamais sur un tremblement de départ.
+  var THRESHOLD = 10, BIAS = 1.6; // horizontal si |dx| * 1,6 >= |dy|
   function start(target) { return { axis: null, held: [] }; }
   function move(st, dx, dy) {
     if (st.axis) return st.axis;

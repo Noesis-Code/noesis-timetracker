@@ -26,5 +26,9 @@ assert(/TMT\.keepGoalsView = target === 'goals'/.test(stats) && /!TMT\.keepGoals
 const today = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'aujourdhui.js'), 'utf8'), page1 = read('objectifs-page1.js'), creer = read('objectifs-creer.js'), compo = read('composants.js');
 assert(/resetSort: function/.test(today) && /todayView\.resetSort\(\)/.test(page1) && !/localStorage\.getItem\(SORT_KEY\)/.test(today), 'arrivée dans la Feuille de route : toujours Tâches + tri Aujourd\'hui (tri mémorisé ignoré)');
 assert(/ui\.dockKeyboard = dockKeyboard/.test(compo) && /TMT\.ui\.dockKeyboard\(dock, ui\.text\)/.test(today) && /TMT\.ui\.dockKeyboard\(dock, input\)/.test(creer), 'barres « Nouvelle tâche » et « Nouvel objectif » : même code de positionnement au-dessus du clavier');
+const axis = read('axis-lock.js');
+assert(/THRESHOLD = 10, BIAS = 1\.6/.test(axis) && /même facilité de balayage sur toutes les vues de la page/.test(axis), 'règle : même facilité de balayage sur toutes les vues de la page (axe tolérant, un seul réglage pour tous les pagers)');
+assert(/mv >= Math\.min\(56, d\.w \* 0\.25\)/.test(stats), 'seuil de bascule commun à Tâches, Objectifs et Chrono : 56 px (ou 20 px avec de l\'élan)');
+assert(/#tab-goals:not\(\.hidden\) \{ min-height: calc\(100dvh/.test(css2), 'zone de geste : toute la hauteur de l\'écran, même sous un contenu court');
 if (failed) { console.log('\nfeuille-balayage-test : ' + failed + ' échec(s)'); process.exit(1); }
 console.log('\nfeuille-balayage-test : OK');
