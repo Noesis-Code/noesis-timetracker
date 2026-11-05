@@ -75,11 +75,7 @@
       new MutationObserver(function () { dock.style.transform = tab.style.transform || ''; dock.style.transition = tab.style.transition || ''; syncDock(); }).observe(tab, { attributes: true, attributeFilter: ['style', 'class'] });
     }
     Array.prototype.forEach.call(document.querySelectorAll('#goalsCapturePage, #goalsActivitiesView'), function (n) { if (window.MutationObserver) new MutationObserver(syncDock).observe(n, { attributes: true, attributeFilter: ['class'] }); });
-    if (window.visualViewport) {
-      var kb = function () { var vv = window.visualViewport; dock.style.bottom = document.documentElement.classList.contains('kbOpen') ? (Math.max(0, window.innerHeight - (vv.offsetTop + vv.height)) + 8) + 'px' : ''; };
-      window.visualViewport.addEventListener('resize', kb); window.visualViewport.addEventListener('scroll', kb);
-      input.addEventListener('blur', function () { setTimeout(kb, 150); });
-    }
+    TMT.ui.dockKeyboard(dock, input); // MÊME code que la barre « Nouvelle tâche… » : juste au-dessus du clavier
   }
   function syncDock() { if (dock) dock.classList.toggle('hidden', !(state.shown && host.getClientRects().length && !host.classList.contains('hidden'))); }
   function syncFilter() {
@@ -234,13 +230,14 @@
     }
 
 
-    var amountIn = el('input', 'objAmount'); amountIn.type = 'number'; amountIn.inputMode = 'numeric'; amountIn.min = '1'; amountIn.value = form.amount; amountIn.setAttribute('aria-label', tr('Nombre'));
+    var amountIn = el('input', 'objAmount'); amountIn.type = 'text'; amountIn.inputMode = 'numeric'; amountIn.maxLength = 3; amountIn.autocomplete = 'off'; amountIn.value = form.amount; amountIn.setAttribute('aria-label', tr('Nombre'));
     var unitSeg = null, datesHint = el('p', 'hint objDates'), pickLink = btn('objLink', tr('ou choisir une date')), dateIn = el('input', 'objDatePick'); dateIn.type = 'date'; dateIn.tabIndex = -1;
     var units = [['semaines', tr('Semaines')], ['mois', tr('Mois')], ['années', tr('Années')]];
     var rangeHint = el('p', 'hint objRange');
     function typical(w) { return w >= 9 ? Math.round(w / 4.345) + ' ' + tr('mois') : plural(w, 'semaine', 'semaines'); }
     function paintDates() {
       var e = ctx.estimate;
+      if (!form.endDate) { datesHint.textContent = tr('Indique une durée valide') + ' · '; rangeHint.classList.add('hidden'); datesHint.appendChild(pickLink); return; }
       if (e && !form.durTouched) { // date butoir proposée par la base de durées (sans IA), toujours modifiable
         datesHint.textContent = tr('Proposé') + ' : ' + dateText(form.endDate) + ' (' + tr('durée typique') + ' ' + typical(e.typicalWeeks) + ') · ';
         rangeHint.textContent = tr('Fourchette réaliste') + ' : ' + dateText(e.p10End, false) + ' – ' + dateText(e.p90End); rangeHint.classList.remove('hidden');
@@ -248,15 +245,23 @@
       datesHint.appendChild(pickLink);
     }
     var timer = 0;
+    var seq = 0;
     function refreshDates() {
-      clearTimeout(timer);
+      clearTimeout(timer); var mine = ++seq; // une réponse en retard ne remplace jamais une saisie plus récente
       timer = setTimeout(function () {
-        api('POST', '/api/objectifs/contexte', { text: form.title || ctx.title, amount: form.amount, unit: form.unit }).then(function (c) { form.endDate = c.endDate; form.periodWeeks = c.periodWeeks; paintDates(); refresh(); }).catch(function () {});
+        api('POST', '/api/objectifs/contexte', { text: form.title || ctx.title, amount: form.amount, unit: form.unit }).then(function (c) { if (mine !== seq) return; form.endDate = c.endDate; form.periodWeeks = c.periodWeeks; form.dateOk = true; syncGo(); paintDates(); refresh(); }).catch(function () { if (mine !== seq) return; form.endDate = null; form.dateOk = false; syncGo(); paintDates();});
       }, 150);
     }
-    amountIn.addEventListener('input', function () { var n = parseInt(amountIn.value, 10); if (n >= 1) { form.amount = n; form.durTouched = true; refreshDates(); } });
+    var MAXN = { semaines: 156, mois: 120, 'années': 10 };
+    function applyDuration() { // nombre vide, 0, trop grand ou non numérique : pas de date (jamais NaN), la flèche reste grisée
+      var s = String(amountIn.value).trim(), n = /^\d+$/.test(s) ? parseInt(s, 10) : NaN;
+      form.durTouched = true;
+      if (!(n >= 1 && n <= MAXN[form.unit])) { seq++; clearTimeout(timer); form.endDate = null; form.dateOk = false; paintDates(); syncGo(); return; }
+      form.amount = n; form.dateOk = true; syncGo(); refreshDates();
+    }
+    amountIn.addEventListener('input', applyDuration);
     function buildUnits() {
-      var nw = seg(units, form.unit, function (u) { form.unit = u; form.durTouched = true; refreshDates(); }, tr('Unité'));
+      var nw = seg(units, form.unit, function (u) { form.unit = u; applyDuration(); }, tr('Unité'));
       if (unitSeg) unitSeg.replaceWith(nw); unitSeg = nw; return nw;
     }
     pickLink.addEventListener('click', function () { dateIn.min = ctx.startDate; if (dateIn.showPicker) { try { dateIn.showPicker(); return; } catch (e) { /* repli */ } } dateIn.focus(); dateIn.click(); });

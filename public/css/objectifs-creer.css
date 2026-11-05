@@ -95,3 +95,4 @@
 .objRange { margin: 0; font-size: 13px; }
 .objOffer { align-self: flex-start; margin-bottom: 8px; }
 .objDock .tasksPropose .objField:last-child { margin-bottom: 0; }
+.objDock .tasksPropose { max-height: min(55vh, 440px, calc(var(--dock-vh, 100vh) - 140px)); } /* le panneau reste dans la zone visible, clavier ouvert */

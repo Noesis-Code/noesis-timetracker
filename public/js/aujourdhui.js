@@ -64,19 +64,7 @@
     }
     setInterval(syncDock, 300);
     // Clavier ouvert : la barre se pose juste au-dessus du clavier, en tout temps (et revient à sa place normale, au-dessus des volets, à la fermeture).
-    var kbRaf = null, kbStop = 0;
-    function syncDockKeyboard() {
-      var vv = window.visualViewport;
-      if (!dock || !vv) return;
-      if (document.documentElement.classList.contains('kbOpen')) {
-        var gap = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height));
-        dock.style.bottom = (gap + 8) + 'px';
-      } else dock.style.bottom = '';
-    }
-    function kbLoop() { syncDockKeyboard(); if (Date.now() < kbStop || document.activeElement === ui.text) kbRaf = window.requestAnimationFrame(kbLoop); else kbRaf = null; }
-    function kbWatch() { kbStop = Date.now() + 800; if (!kbRaf) kbRaf = window.requestAnimationFrame(kbLoop); }
-    if (window.visualViewport) { window.visualViewport.addEventListener('resize', kbWatch); window.visualViewport.addEventListener('scroll', kbWatch); }
-    ui.text.addEventListener('focus', kbWatch); ui.text.addEventListener('blur', kbWatch);
+    TMT.ui.dockKeyboard(dock, ui.text); // code commun aux barres fixes (composants.js)
     container.appendChild(root);
   }
 
@@ -125,7 +113,7 @@
       var it = el('button', 'statsPeriodMenuItem' + (k === sortMode ? ' active' : ''), tr(SORT_LABELS[k])); it.type = 'button';
       it.addEventListener('click', function () {
         menu.classList.add('hidden'); btn.setAttribute('aria-expanded', 'false');
-        sortMode = k; try { localStorage.setItem(SORT_KEY, k); } catch (e) {}
+        sortMode = k;
         menu.querySelectorAll('.statsPeriodMenuItem').forEach(function (b) { b.classList.toggle('active', b === it); });
         if (lastData) render(lastData);
       });
@@ -754,7 +742,7 @@
   var SORT_KEY = 'noesis_today_sort_v1', SORTS = ['activity', 'today', 'objective', 'assignee'];
   var SORT_LABELS = { activity: 'Activité', today: 'Aujourd’hui', objective: 'Objectif', assignee: 'Responsable' };
   var sortMode = 'today', openNodes = {}; // openNodes : branches dépliées de l'arbre, gardées le temps de la session de la vue
-  try { var savedSort = localStorage.getItem(SORT_KEY); if (savedSort === 'priority' || savedSort === 'duration') savedSort = 'today'; if (SORTS.indexOf(savedSort) >= 0) sortMode = savedSort; } catch (e) {}
+  // Tri : toujours « Aujourd'hui » à l'arrivée dans la Feuille de route (ouverture, autre module, notification) ; gardé seulement le temps de la session (retour depuis Statistiques).
   function cmpNum(a, b) { return a < b ? -1 : a > b ? 1 : 0; }
   // Une branche repliable : ligne (nom + chevron à droite, R21) puis son contenu, visible seulement si dépliée.
   // Ligne repliable = celle de l'onglet Tâches (TMT.buildGoalsGroupRow : mêmes classes, chevron, comportement : on redessine la liste) ; ici pour les niveaux activité et pôle.
@@ -840,6 +828,11 @@
   var mounted = false;
   TMT.todayView = {
     mount: function (container) { if (mounted) return; mounted = true; build(container); },
+    resetSort: function () { // arrivée dans la Feuille de route depuis un autre module : tri « Aujourd'hui »
+      sortMode = 'today';
+      Array.prototype.forEach.call(document.querySelectorAll('.tasksSortWrap .statsPeriodMenuItem'), function (b) { b.classList.toggle('active', b.textContent === tr(SORT_LABELS.today)); });
+      if (lastData) render(lastData);
+    },
     show: function () { shown = true; syncDock(); var c = cacheGet(localIso()); if (c) render(c); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
     hide: function () { shown = false; openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };

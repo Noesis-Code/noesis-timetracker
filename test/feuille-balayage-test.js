@@ -12,7 +12,7 @@ assert(!/showing\('goalsActivitiesView'\)/.test(neighbor) && !/showing\('goalsTo
 assert(/showing\('goalsCapturePage'\)\) return \{ ctx: 'goals', idx: 0 \}/.test(stats) && !/idx: 0 \}[^\n]*\n/.test('') , 'points de pagination visibles sur Tâches ET sur Objectifs (une seule page 1 = un seul point)');
 assert(!/noFollow/.test(stats), 'le contenu suit le doigt (aucun mode sans suivi) : sélecteur, liste et barre glissent d\'un bloc avec la page Statistiques');
 const app = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
-assert(/fromGoalsStats/.test(app) && /!fromGoalsStats && TMT\.resetGoalsPage1View/.test(app), 'retour des statistiques : dernière vue (Tâches ou Objectifs) gardée ; Tâches par défaut seulement après un autre module');
+assert(/fromGoalsStats/.test(app) && /!fromGoalsStats && !TMT.keepGoalsView && TMT\.resetGoalsPage1View/.test(app), 'retour des statistiques : dernière vue (Tâches ou Objectifs) gardée ; Tâches par défaut seulement après un autre module');
 const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'aujourdhui.css'), 'utf8');
 assert(/#goalsCapturePage\) \{[^}]*overflow-x: clip[^}]*touch-action: pan-y/.test(css), 'Tâches et Objectifs : contenu fixe horizontalement (pas de défilement latéral)');
 const css2 = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'aujourdhui.css'), 'utf8');
@@ -22,5 +22,9 @@ const p2 = read('objectifs-page2-taches.js');
 assert(/GOALS_PAGE2_ORDER = \['goals', 'month'\]/.test(p2), 'dans l\'activité : Objectifs puis Calendrier (plus de page Tâches)');
 assert(/data-dot="home"[\s\S]*data-dot="goals"[\s\S]*data-dot="next"/.test(p2), 'trois points : page 1, Objectifs, Calendrier');
 assert(/openGoalsForActivity|setGoalsPage2Mode\('goals', \{ noAnim: true \}\)/.test(p2), 'une activité s\'ouvre sur Objectifs');
+assert(/TMT\.keepGoalsView = target === 'goals'/.test(stats) && /!TMT\.keepGoalsView/.test(app), 'retour au doigt depuis Statistiques : le pager signale la conservation de la vue (il masque les statistiques avant switchTab)');
+const today = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'aujourdhui.js'), 'utf8'), page1 = read('objectifs-page1.js'), creer = read('objectifs-creer.js'), compo = read('composants.js');
+assert(/resetSort: function/.test(today) && /todayView\.resetSort\(\)/.test(page1) && !/localStorage\.getItem\(SORT_KEY\)/.test(today), 'arrivée dans la Feuille de route : toujours Tâches + tri Aujourd\'hui (tri mémorisé ignoré)');
+assert(/ui\.dockKeyboard = dockKeyboard/.test(compo) && /TMT\.ui\.dockKeyboard\(dock, ui\.text\)/.test(today) && /TMT\.ui\.dockKeyboard\(dock, input\)/.test(creer), 'barres « Nouvelle tâche » et « Nouvel objectif » : même code de positionnement au-dessus du clavier');
 if (failed) { console.log('\nfeuille-balayage-test : ' + failed + ' échec(s)'); process.exit(1); }
 console.log('\nfeuille-balayage-test : OK');

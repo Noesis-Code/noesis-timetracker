@@ -1176,7 +1176,7 @@
     return {
       cur: curEl, nb: nbEl, host: host,
       start: function () { host.style.position = 'relative'; if (start) start(); },
-      commit: function () { done(); TMT.switchTab(target, target === 'stats' ? { prepared: true } : undefined); },
+      commit: function () { done(); TMT.keepGoalsView = target === 'goals'; TMT.switchTab(target, target === 'stats' ? { prepared: true } : undefined); TMT.keepGoalsView = false; }, // retour au doigt vers la Feuille de route : la dernière vue (Tâches ou Objectifs) est gardée
       cancel: done
     };
   }

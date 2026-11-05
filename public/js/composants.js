@@ -239,6 +239,23 @@
     lab.appendChild(input);
     return lab;
   }
+  // Barre d'écriture fixée en bas (.tasksDock : « Nouvelle tâche… », « Nouvel objectif… ») : clavier ouvert (classe kbOpen), elle se pose juste au-dessus du clavier
+  // (visualViewport), et revient à sa place normale, au-dessus des volets, à la fermeture. UN seul code pour toutes les barres de ce type.
+  function dockKeyboard(dock, field) {
+    var raf = null, stop = 0;
+    function sync() {
+      var vv = root.visualViewport;
+      if (!dock || !vv) return;
+      dock.style.setProperty('--dock-vh', Math.round(vv.height) + 'px'); // hauteur réellement visible : borne le panneau posé au-dessus de la barre
+      if (document.documentElement.classList.contains('kbOpen')) dock.style.bottom = (Math.max(0, root.innerHeight - (vv.offsetTop + vv.height)) + 8) + 'px';
+      else dock.style.bottom = '';
+    }
+    function loop() { sync(); if (Date.now() < stop || dock.contains(document.activeElement) || document.documentElement.classList.contains('kbOpen')) raf = root.requestAnimationFrame(loop); else raf = null; }
+    function watch() { stop = Date.now() + 800; if (!raf) raf = root.requestAnimationFrame(loop); }
+    if (root.visualViewport) { root.visualViewport.addEventListener('resize', watch); root.visualViewport.addEventListener('scroll', watch); }
+    dock.addEventListener('focusin', watch); dock.addEventListener('focusout', watch); field.addEventListener('focus', watch); field.addEventListener('blur', watch);
+  }
+  ui.dockKeyboard = dockKeyboard;
   ui.attachBtn = attachBtn;
   ui.ATTACH_ACCEPT = ATTACH_ACCEPT;
   ui.groupDrag = groupDrag;

@@ -2344,7 +2344,7 @@
     }
     else {
       if (tab === 'community') loadCommunity();
-      else if (tab === 'goals') { if (!fromGoalsStats && TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(); TMT.loadGoalsTab(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
+      else if (tab === 'goals') { if (!fromGoalsStats && !TMT.keepGoalsView && TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(); TMT.loadGoalsTab(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
         $('chronoHistoryPanel').classList.add('hidden');
@@ -9316,16 +9316,14 @@
       var searchInput = document.createElement('input');
       searchInput.type = 'text';
       searchInput.className = 'memberSearchInput';
-      searchInput.placeholder = t('Pseudo, projet, secteur');
+      searchInput.placeholder = t('Ajouter un nouveau membre…');
       searchInput.autocomplete = 'off';
+      searchInput.enterKeyHint = 'search';
       var searchRow = document.createElement('div');
       searchRow.className = 'chatComposerRow communitySearchRow';
-      var searchBtn = document.createElement('button');
-      searchBtn.type = 'button';
-      searchBtn.className = 'iconBtn btnBrique';
-      searchBtn.textContent = t('Rechercher');
+      // Même barre que celle de Communauté : loupe à gauche, plus de bouton « Rechercher » (la recherche part en tapant ou avec Entrée).
+      searchRow.insertAdjacentHTML('beforeend', '<svg class="communitySearchIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>');
       searchRow.appendChild(searchInput);
-      searchRow.appendChild(searchBtn);
 
       var suggestBox = document.createElement('div');
 
@@ -9446,7 +9444,7 @@
           .catch(function () { if (seq === addMemberSearchSeq) suggestBox.innerHTML = ''; });
       }
       var addMemberDebounce = null;
-      searchBtn.addEventListener('click', function () { clearTimeout(addMemberDebounce); runAddMemberSearch(); });
+      searchInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(addMemberDebounce); runAddMemberSearch(); } });
       searchInput.addEventListener('input', function () {
         clearTimeout(addMemberDebounce);
         addMemberDebounce = setTimeout(runAddMemberSearch, 250);
@@ -16300,7 +16298,7 @@
     $('tab-community').classList.toggle('communityOnPage2', i >= 1);
     var input = $('communitySearchInput');
     input.value = '';
-    input.placeholder = t(i === 2 ? 'Contacts, entreprises, intérêts' : (i === 1 ? 'Sujet précis, créateur' : 'Pseudo, projet, secteur'));
+    input.placeholder = t(i === 2 ? 'Contacts, entreprises, intérêts' : (i === 1 ? 'Sujet précis, créateur' : 'Pseudo, projet, secteur…'));
     Array.prototype.forEach.call($('communityPageDots').querySelectorAll('.goalsDotBtn'), function (b, k) { b.classList.toggle('on', k === i); });
     if (noLoad) return;
     if (i === 1) loadCommunityGroups(); else if (i === 2) loadNetCrm(); else loadCommunityDiscovery();

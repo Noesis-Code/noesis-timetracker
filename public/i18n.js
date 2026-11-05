@@ -880,6 +880,8 @@
     // (les projets sont devenus un aperçu public) mais un onglet PWA resté
     // ouvert avec l'ancien code peut encore l'afficher.
     'Pseudo, projet, secteur': 'Nickname, project, sector',
+    'Pseudo, projet, secteur…': 'Nickname, project, sector…',
+    'Ajouter un nouveau membre…': 'Add a new member…',
     '{n} projet(s)': '{n} project(s)',
     'Quelques profils à découvrir.': 'A few profiles to discover.',
     'Aucun projet': 'No project',
