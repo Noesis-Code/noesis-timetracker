@@ -105,3 +105,9 @@
 #offer1Section .offer1Promo { background: none; border: 0; box-shadow: none; padding: 0; }
 #offer1Section { margin: 24px 0 0; }
 .objDock .tasksPropose { touch-action: pan-y; overscroll-behavior-x: none; } /* le geste horizontal appartient au panneau (étape suivante / précédente), jamais à la navigation du navigateur */
+
+/* Vue Objectifs (5 nov. 2026) : une liste, rien d'autre. Ligne d'objectif = nom + activité en petit (13 px, gris sable) ; séparateur plein largeur comme la liste des activités (R22). */
+.objRowLine { display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 52px; padding: 8px 4px; border: 0; border-bottom: 1px solid var(--sep); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.objRowName { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.objList { gap: 0; }
+#offer1Section.objOfferOff { display: none; }

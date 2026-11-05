@@ -23,24 +23,30 @@
 
   // ---------- Vue : liste, état vide, barre « Nouvel objectif… » ----------
   var root = el('div', 'objView'), filterBox, listBox, emptyBox, actsTitle, dock, input, sendBtn, panel, panelBody, panelFoot, panelKicker, stepBtn, stepLabel, stepPos, panelForm = null, goPropose = function () {}, advance = null, goBack = null, seq = { base: 0, count: 1, i: 0 };
-  var state = { filter: 'en_cours', items: [], total: 0, shown: false };
+  var state = { filter: 'en_cours', mode: 'activites', items: [], total: 0, shown: false }; // mode : la vue n'affiche QUE la liste des activités OU celle des objectifs
 
   function buildView() {
     emptyBox = el('div', 'objEmpty hidden');
     emptyBox.appendChild(el('p', 'objEmptyTitle', tr('Aucun objectif pour l’instant')));
-    emptyBox.appendChild(el('p', 'hint', tr('Écris ce que tu veux atteindre, sur la durée de ton choix (une semaine, six mois, trois ans…).')));
-    emptyBox.appendChild(el('p', 'hint', tr('Noèsis te propose ensuite les étapes par période et par semaine, l’activité à rattacher et les premières tâches. Tu valides, rien n’est ajouté sans toi.')));
     // Filtre : exactement le tri de l'onglet Tâches (icône à curseurs nue + panneau .statsPeriodMenu commun), pas un second sélecteur sous Tâches | Objectifs.
-    filterBox = el('div', 'tasksTopRow objTopRow hidden');
+    filterBox = el('div', 'tasksTopRow objTopRow');
     var wrap = el('div', 'statsPeriodMenuWrap tasksSortWrap'), sb = el('button', 'cmpEdit tasksSortBtn'); sb.type = 'button'; sb.setAttribute('aria-haspopup', 'true'); sb.setAttribute('aria-expanded', 'false');
-    sb.title = tr('Filtrer'); sb.setAttribute('aria-label', tr('Filtrer'));
+    sb.title = tr('Trier'); sb.setAttribute('aria-label', tr('Trier'));
     sb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 8h3M11 8h9M9 6a2 2 0 1 0 0 4a2 2 0 1 0 0-4M4 16h9M17 16h3M15 14a2 2 0 1 0 0 4a2 2 0 1 0 0-4"></path></svg>';
     var menu = el('div', 'statsPeriodMenu hidden');
+    // 1er groupe : quelle liste (Activités par défaut | Objectifs). 2e groupe (seulement en mode Objectifs) : filtre En cours / Atteints / Tous, rangé dans le menu du tri pour ne perdre aucune fonction.
+    var gModes = el('div'), gFilters = el('div', 'objMenuFilters');
+    [['activites', 'Activités'], ['objectifs', 'Objectifs']].forEach(function (f) {
+      var it = el('button', 'statsPeriodMenuItem' + (f[0] === state.mode ? ' active' : ''), tr(f[1])); it.type = 'button'; it.dataset.mode = f[0];
+      it.addEventListener('click', function () { menu.classList.add('hidden'); sb.setAttribute('aria-expanded', 'false'); state.mode = f[0]; syncFilter(); render(); if (f[0] === 'objectifs') load(); });
+      gModes.appendChild(it);
+    });
     [['en_cours', 'En cours'], ['atteints', 'Atteints'], ['tous', 'Tous']].forEach(function (f) {
       var it = el('button', 'statsPeriodMenuItem' + (f[0] === state.filter ? ' active' : ''), tr(f[1])); it.type = 'button'; it.dataset.filter = f[0];
       it.addEventListener('click', function () { menu.classList.add('hidden'); sb.setAttribute('aria-expanded', 'false'); state.filter = f[0]; syncFilter(); load(); });
-      menu.appendChild(it);
+      gFilters.appendChild(it);
     });
+    menu.appendChild(gModes); menu.appendChild(el('div', 'saMenuSep objMenuFilters')); menu.appendChild(gFilters);
     sb.addEventListener('click', function (e) {
       e.stopPropagation(); var open = menu.classList.contains('hidden');
       document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
@@ -49,7 +55,7 @@
     wrap.appendChild(sb); wrap.appendChild(menu); filterBox.appendChild(wrap);
     listBox = el('div', 'objList');
     root.appendChild(emptyBox); root.appendChild(filterBox); root.appendChild(listBox);
-    actsTitle = el('p', 'cmpBlockTitle objActsTitle', tr('Activités'));
+    actsTitle = el('p', 'cmpBlockTitle objActsTitle hidden', tr('Activités'));
     host.insertBefore(root, host.firstChild);
     var acts = document.getElementById('goalsCaptureActivities');
     if (acts) host.insertBefore(actsTitle, acts);
@@ -95,26 +101,14 @@
   }
   function syncDock() { if (dock) dock.classList.toggle('hidden', !(state.shown && host.getClientRects().length && !host.classList.contains('hidden'))); }
   function syncFilter() {
-    Array.prototype.forEach.call(filterBox.querySelectorAll('.statsPeriodMenuItem'), function (b) { b.classList.toggle('active', b.dataset.filter === state.filter); });
+    Array.prototype.forEach.call(filterBox.querySelectorAll('.statsPeriodMenuItem'), function (b) { b.classList.toggle('active', b.dataset.filter ? b.dataset.filter === state.filter : b.dataset.mode === state.mode); });
+    Array.prototype.forEach.call(filterBox.querySelectorAll('.objMenuFilters'), function (g) { g.classList.toggle('hidden', state.mode !== 'objectifs'); });
   }
 
-  function card(o) {
-    var c = el('div', 'objCard cmpGlass'); c.tabIndex = 0; c.setAttribute('role', 'button');
-    var head = el('div', 'objCardHead');
-    var dot = btn('objDotBtn', '', function (e) { e.stopPropagation(); if (TMT.showGoalsPolesPage) TMT.showGoalsPolesPage(o.activity.id); }); // la pastille ouvre la page de l'activité
-    dot.setAttribute('aria-label', tr('Ouvrir l’activité') + ' ' + o.activity.name);
-    var d = el('span', 'objDot'); if (o.activity.color) d.style.background = o.activity.color; dot.appendChild(d);
-    head.appendChild(dot); head.appendChild(el('span', 'objCardTitle', o.title)); c.appendChild(head);
-    var meta = o.durationLabel + ' · ' + tr('jusqu’au') + ' ' + dateText(o.endDate) + ' · ' + o.activity.name;
-    if (o.parent) meta = tr('Étape de') + ' « ' + o.parent.title + ' » · ' + meta;
-    c.appendChild(el('div', 'objMeta', meta));
-    c.appendChild(bar(o.progress));
-    var cp = o.currentPeriod;
-    c.appendChild(el('div', 'objPeriod', tr('Période') + ' ' + cp.n + ' ' + tr('sur') + ' ' + o.periodCount + (cp.title ? ' · ' + cp.title : '')));
-    if (o.weekTasks.total) c.appendChild(el('div', 'objMeta', tr('Cette semaine') + ' : ' + o.weekTasks.done + ' ' + tr(o.weekTasks.total > 1 ? 'tâches sur' : 'tâche sur') + ' ' + o.weekTasks.total));
-    function open() { openDetail(o.id); }
-    c.addEventListener('click', open);
-    c.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  function card(o) { // une ligne : nom de l'objectif, nom de l'activité en petit dessous ; un toucher ouvre le détail
+    var c = el('button', 'objRowLine'); c.type = 'button';
+    c.appendChild(el('span', 'objRowName', o.title)); c.appendChild(el('span', 'objMeta', o.activity.name));
+    c.addEventListener('click', function () { openDetail(o.id); });
     return c;
   }
   function bar(p) {
@@ -123,12 +117,16 @@
   }
 
   function render() {
-    var none = state.total === 0;
-    emptyBox.classList.toggle('hidden', !none);
-    filterBox.classList.toggle('hidden', none);
+    var obj = state.mode === 'objectifs', none = state.total === 0, acts = document.getElementById('goalsCaptureActivities');
+    if (acts) acts.classList.toggle('hidden', obj); // mode Activités : la liste des activités, comme aujourd'hui (toucher = page de l'activité)
+    actsTitle.classList.add('hidden');
+    emptyBox.classList.toggle('hidden', !(obj && none));
+    listBox.classList.toggle('hidden', !obj);
     listBox.textContent = '';
-    state.items.forEach(function (o) { listBox.appendChild(card(o)); });
-    if (!none && !state.items.length) listBox.appendChild(el('p', 'hint objNone', tr(state.filter === 'atteints' ? 'Aucun objectif atteint pour l’instant.' : 'Aucun objectif en cours.')));
+    if (obj) state.items.forEach(function (o) { listBox.appendChild(card(o)); });
+    if (obj && !none && !state.items.length) listBox.appendChild(el('p', 'hint objNone', tr(state.filter === 'atteints' ? 'Aucun objectif atteint pour l’instant.' : 'Aucun objectif en cours.')));
+    syncFilter();
+    var offer = document.getElementById('offer1Section'); if (offer) offer.classList.toggle('objOfferOff', obj); // gestion Expansion : uniquement avec la liste des activités
   }
   function load() {
     return api('GET', '/api/objectifs?filtre=' + state.filter).then(function (r) {
@@ -564,7 +562,8 @@
     syncOffer();
   })();
   TMT.objectifsView = {
-    show: function () { state.shown = true; syncDock(); load(); },
+    show: function () { state.shown = true; syncDock(); render(); load(); },
+    resetMode: function () { state.mode = 'activites'; state.filter = 'en_cours'; if (filterBox) { syncFilter(); } }, // à l'arrivée dans la Feuille de route : liste des activités
     hide: function () { state.shown = false; syncDock(); }
   };
   // Si la vue Objectifs est déjà celle affichée au chargement (page1 se monte avant ce fichier).
