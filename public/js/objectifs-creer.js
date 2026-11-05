@@ -22,7 +22,7 @@
   function plural(n, one, many) { return n + ' ' + tr(n > 1 ? many : one); }
 
   // ---------- Vue : liste, état vide, barre « Nouvel objectif… » ----------
-  var root = el('div', 'objView'), filterBox, listBox, emptyBox, actsTitle, dock, input, sendBtn, panel, panelBody, panelFoot, panelForm = null, goPropose = function () {};
+  var root = el('div', 'objView'), filterBox, listBox, emptyBox, actsTitle, dock, input, sendBtn, panel, panelBody, panelFoot, panelKicker, stepBtn, stepLabel, stepPos, panelForm = null, goPropose = function () {}, advance = null, seq = { base: 0, count: 1, i: 0 };
   var state = { filter: 'en_cours', items: [], total: 0, shown: false };
 
   function buildView() {
@@ -58,17 +58,20 @@
     dock = el('div', 'tasksPopAdd tasksDock objDock hidden');
     // Panneau des paramètres : le MÊME gabarit que le panneau d'ajout d'une tâche (aujourdhui.js) — au-dessus de la barre, visible seulement après ↑.
     panel = el('div', 'tasksPropose cmpGlass hidden');
-    var ph = el('div', 'tasksProposeHead'); ph.appendChild(el('span', 'tasksProposeKicker', tr('Nouvel objectif'))); ph.appendChild(TMT.ui.closeBtn(function () { closePanel(); }, tr('Fermer')));
+    var ph = el('div', 'tasksProposeHead'); panelKicker = el('span', 'tasksProposeKicker', tr('Nouvel objectif')); ph.appendChild(panelKicker); ph.appendChild(TMT.ui.closeBtn(function () { closePanel(); }, tr('Fermer')));
     panelBody = el('div', 'tasksProposeBody'); panelFoot = el('div', 'objPanelFoot');
     panel.appendChild(ph); panel.appendChild(panelBody); panel.appendChild(panelFoot); dock.appendChild(panel);
     var bar = el('div', 'tasksComposer');
     input = el('textarea', 'tasksText'); input.rows = 1; input.maxLength = 140; input.placeholder = tr('Nouvel objectif…'); input.setAttribute('aria-label', tr('Nouvel objectif'));
     sendBtn = el('button', 'cmpSend'); sendBtn.type = 'button'; sendBtn.setAttribute('aria-label', tr('Envoyer'));
     sendBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
-    sendBtn.addEventListener('click', function () { if (panelForm) goPropose(); else start(); });
-    input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (panelForm) goPropose(); else start(); } });
-    input.addEventListener('input', function () { if (panelForm) panelForm.title = input.value; });
-    bar.appendChild(pin('tasksClip cmpSymbol')); bar.appendChild(input); bar.appendChild(sendBtn); dock.appendChild(bar); document.body.appendChild(dock);
+    sendBtn.addEventListener('click', start);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); start(); } });
+    bar.appendChild(pin('tasksClip cmpSymbol')); bar.appendChild(input); bar.appendChild(sendBtn); dock.appendChild(bar);
+    // Une fois l'objectif envoyé, la barre devient UN bouton (même mécanisme que « Enregistrer » d'Expansion : .tasksDock.expSave) : « Passer à … » à gauche, n/total à droite.
+    stepBtn = el('button', 'tasksSaveBtn objStepBtn'); stepBtn.type = 'button'; stepLabel = el('span', 'objStepLabel'); stepPos = el('span', 'objStepPos');
+    stepBtn.appendChild(stepLabel); stepBtn.appendChild(stepPos); stepBtn.addEventListener('click', function () { if (advance) advance(); });
+    dock.appendChild(stepBtn); document.body.appendChild(dock);
     // La barre suit la page pendant le glissement vers les statistiques, et disparaît avec elle.
     var tab = document.getElementById('tab-goals');
     if (tab && window.MutationObserver) {
@@ -186,26 +189,41 @@
   function proposeFrom(o) { // objectif lu -> même fenêtre « Nouvel objectif », préremplie
     return api('POST', '/api/objectifs/contexte', { text: o.title, amount: o.amount || undefined, unit: o.unit || undefined }).then(openComposer);
   }
-  function nextQueued() { var o = queue.shift(); if (o) proposeFrom(o).catch(function () {}); }
+  function nextQueued() { var o = queue.shift(); if (o) proposeFrom(o).catch(function () {}); else endFlow(); }
   function chooseRead(list) {
-    if (list.length === 1) { proposeFrom(list[0]).catch(function (e) { say(e.message); }); return; }
-    var win = openModal(tr('Objectifs lus')), on = list.map(function () { return true; });
-    win.body.appendChild(el('p', 'hint', tr('Coche ceux que tu veux garder : tu verras les étapes de chacun, rien n’est ajouté avant Valider.')));
+    if (list.length === 1) { seq = { base: 0, count: 1, i: 0 }; proposeFrom(list[0]).catch(function (e) { say(e.message); }); return; }
+    var on = list.map(function () { return true; });
+    seq = { base: 1, count: list.length, i: 0 };
+    panelBody.textContent = ''; panelFoot.textContent = ''; panelKicker.textContent = tr('Objectifs lus'); panel.classList.remove('hidden'); panelForm = { reading: true };
+    panelBody.appendChild(el('p', 'hint', tr('Coche ceux que tu veux garder : tu verras les étapes de chacun, rien n’est ajouté avant la fin.')));
+    function count() { var n = on.filter(Boolean).length; seq.count = Math.max(1, n); showStep(1, 'Paramètres', go, n > 0); }
+    function go() { queue = list.filter(function (o, i) { return on[i]; }); seq.count = queue.length; seq.i = 0; nextQueued(); }
     list.forEach(function (o, i) {
       var r = el('div', 'tasksPopRow objWeekRow done');
-      var c = btn('tasksPopCheck', '', function () { on[i] = !on[i]; r.classList.toggle('done', on[i]); c.setAttribute('aria-pressed', on[i] ? 'true' : 'false'); c.innerHTML = on[i] ? CHECK : ''; });
+      var c = btn('tasksPopCheck', '', function () { on[i] = !on[i]; r.classList.toggle('done', on[i]); c.setAttribute('aria-pressed', on[i] ? 'true' : 'false'); c.innerHTML = on[i] ? CHECK : ''; count(); });
       c.innerHTML = CHECK; c.setAttribute('aria-pressed', 'true'); c.setAttribute('aria-label', o.title);
-      r.appendChild(c); var tx = el('div', 'tasksPopText'); tx.appendChild(el('b', null, o.title)); r.appendChild(tx); win.body.appendChild(r);
+      r.appendChild(c); var tx = el('div', 'tasksPopText'); tx.appendChild(el('b', null, o.title)); r.appendChild(tx); panelBody.appendChild(r);
     });
-    win.foot.appendChild(btn('cmpBtn', tr('Continuer'), function () { queue = list.filter(function (o, i) { return on[i]; }); win.close(); nextQueued(); }));
+    count();
   }
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></svg>';
+
+  // ---------- Parcours : paramètres -> étapes proposées (-> objectifs lus avant, si plusieurs) ----------
+  function total() { return seq.base + 2 * seq.count; }
+  function showStep(n, next, fn, enabled) { // next : nom de l'étape suivante, ou null = dernière étape (« Terminer »)
+    dock.classList.add('expSave'); advance = fn;
+    stepLabel.textContent = next ? tr('Passer à') + ' ' + tr(next) : tr('Terminer'); stepPos.textContent = n + '/' + total(); stepBtn.disabled = !enabled;
+  }
+  function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
+    dock.classList.remove('expSave'); advance = null; panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; queue = []; seq = { base: 0, count: 1, i: 0 };
+  }
 
   // ---------- Fenêtre « Nouvel objectif » ----------
   var busy = false;
   function start() {
     var text = input.value.trim();
     if (!text || busy) return;
+    seq = { base: 0, count: 1, i: 0 }; queue = [];
     busy = true; sendBtn.disabled = true;
     api('POST', '/api/objectifs/contexte', { text: text }).then(function (ctx) { busy = false; sendBtn.disabled = false; openComposer(ctx); })
       .catch(function (err) { busy = false; sendBtn.disabled = false; if (TMT.ui && TMT.ui.confirm) TMT.ui.confirm((err && err.message) || tr('Impossible pour le moment.'), { ok: tr('OK') }); });
@@ -214,10 +232,12 @@
   function openComposer(ctx) {
     var form = { title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks };
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
-    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden');
-    form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed; form.title = input.value.trim() || ctx.title; panelForm = form;
-    sendBtn.setAttribute('aria-label', tr('Proposer les étapes')); sendBtn.title = tr('Proposer les étapes'); sendBtn.disabled = !form.dateOk;
-    function syncGo() { sendBtn.disabled = !form.dateOk; }
+    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Nouvel objectif');
+    form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed; form.title = ctx.title; panelForm = form;
+    function syncGo() { stepBtn.disabled = !form.dateOk; }
+    var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.setAttribute('aria-label', tr('Objectif'));
+    titleIn.addEventListener('input', function () { form.title = titleIn.value; });
+    win.body.appendChild(field(tr('Objectif'), titleIn));
     if (ctx.fixedDate) { // date imposée (examen, mariage…) : jamais estimée ; la date est demandée en premier et obligatoire
       var fixedIn = el('input'); fixedIn.type = 'date'; fixedIn.min = ctx.startDate; fixedIn.setAttribute('aria-label', tr('Date de l’échéance')); if (ctx.dateConfirmed) fixedIn.value = ctx.endDate;
       fixedIn.addEventListener('change', function () {
@@ -245,18 +265,18 @@
       datesHint.appendChild(pickLink);
     }
     var timer = 0;
-    var seq = 0;
+    var dseq = 0;
     function refreshDates() {
-      clearTimeout(timer); var mine = ++seq; // une réponse en retard ne remplace jamais une saisie plus récente
+      clearTimeout(timer); var mine = ++dseq; // une réponse en retard ne remplace jamais une saisie plus récente
       timer = setTimeout(function () {
-        api('POST', '/api/objectifs/contexte', { text: form.title || ctx.title, amount: form.amount, unit: form.unit }).then(function (c) { if (mine !== seq) return; form.endDate = c.endDate; form.periodWeeks = c.periodWeeks; form.dateOk = true; syncGo(); paintDates(); refresh(); }).catch(function () { if (mine !== seq) return; form.endDate = null; form.dateOk = false; syncGo(); paintDates();});
+        api('POST', '/api/objectifs/contexte', { text: form.title || ctx.title, amount: form.amount, unit: form.unit }).then(function (c) { if (mine !== dseq) return; form.endDate = c.endDate; form.periodWeeks = c.periodWeeks; form.dateOk = true; syncGo(); paintDates(); refresh(); }).catch(function () { if (mine !== dseq) return; form.endDate = null; form.dateOk = false; syncGo(); paintDates();});
       }, 150);
     }
     var MAXN = { semaines: 156, mois: 120, 'années': 10 };
     function applyDuration() { // nombre vide, 0, trop grand ou non numérique : pas de date (jamais NaN), la flèche reste grisée
       var s = String(amountIn.value).trim(), n = /^\d+$/.test(s) ? parseInt(s, 10) : NaN;
       form.durTouched = true;
-      if (!(n >= 1 && n <= MAXN[form.unit])) { seq++; clearTimeout(timer); form.endDate = null; form.dateOk = false; paintDates(); syncGo(); return; }
+      if (!(n >= 1 && n <= MAXN[form.unit])) { dseq++; clearTimeout(timer); form.endDate = null; form.dateOk = false; paintDates(); syncGo(); return; }
       form.amount = n; form.dateOk = true; syncGo(); refreshDates();
     }
     amountIn.addEventListener('input', applyDuration);
@@ -319,30 +339,32 @@
 
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
     goPropose = function () { // la flèche d'envoi de la barre mène aux étapes : même place, aucun bouton de plus
-      form.title = input.value.trim();
+      form.title = titleIn.value.trim();
       if (!form.title) { msg.textContent = tr('Écris ton objectif.'); return; }
       if (!form.dateOk) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       if (form.parentId) { var par = (ctx.objectives || []).filter(function (o) { return o.id === form.parentId; })[0]; if (par) { form.activityId = par.activityId; form.create = false; } }
       if (!form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return; }
-      sendBtn.disabled = true; msg.textContent = '';
+      stepBtn.disabled = true; msg.textContent = '';
       var actName = form.create ? form.createName : (ctx.activities.filter(function (a) { return a.id === form.activityId; })[0] || {}).name;
       api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: true, activityId: form.create ? null : form.activityId, activityName: actName })
-        .then(function (p) { syncGo(); closePanel(); openSteps(form, p, actName); })
+        .then(function (p) { syncGo(); openSteps(form, p, actName); })
         .catch(function (err) { syncGo(); msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
     };
+    showStep(seq.base + 2 * seq.i + 1, 'Étapes proposées', function () { goPropose(); }, form.dateOk);
+    if (!ctx.canGenerateTasks) panelBody.appendChild(offerBtn()); // gratuit : un seul bouton vers Expansion (génération des tâches)
   }
-  function closePanel() { // l'objectif tapé reste dans la barre ; la flèche redevient « Envoyer »
-    panel.classList.add('hidden'); panelForm = null; goPropose = function () {};
-    sendBtn.disabled = false; sendBtn.setAttribute('aria-label', tr('Envoyer')); sendBtn.removeAttribute('title');
-  }
+  function offerBtn() { return btn('cmpBtn cmpBtnIdle objOffer', tr('Génère automatiquement tes tâches avec Noèsis'), function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); }); }
+  function closePanel() { endFlow(); } // ✕ : annule, la barre redevient normale (l'objectif tapé y reste)
 
   // ---------- Fenêtre « Étapes proposées » ----------
   function openSteps(form, proposal, actName) {
     var P = proposal, edited = { periods: {}, weeks: {}, tasks: {} }, expanded = { 1: true }, showAll = false;
-    var win = openModal(tr('Étapes proposées'), { sub: P.title + ' · ' + durText(form) });
+    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Étapes proposées'); panelForm = { steps: true };
+    var win = { body: panelBody, foot: panelFoot };
+    panelBody.appendChild(el('p', 'hint objSub', P.title + ' · ' + durText(form)));
     var optBox = el('div'), periodsBox = el('div', 'objPeriods'), tasksBox = el('div');
-    var custom = el('input', 'objAmount objCustom hidden'); custom.type = 'number'; custom.min = '1'; custom.max = '52'; custom.inputMode = 'numeric'; custom.setAttribute('aria-label', tr('Semaines par période'));
-    var pwOptions = [['2', tr('2 semaines')], ['4', tr('4 semaines')], ['mois', tr('1 mois')], ['autre', tr('Autre')]];
+    var custom = el('input', 'objAmount objCustom hidden'); custom.type = 'text'; custom.maxLength = 2; custom.inputMode = 'numeric'; custom.setAttribute('aria-label', tr('Semaines par période'));
+    var pwOptions = [['2', tr('2 sem.')], ['4', tr('4 sem.')], ['mois', tr('1 mois')], ['autre', tr('Autre')]];
     function pwKey() { return P.periodWeeks === '2' || P.periodWeeks === '4' || P.periodWeeks === 'mois' ? P.periodWeeks : 'autre'; }
     function repropose(patch) {
       Object.keys(patch).forEach(function (k) { P[k] = patch[k]; });
@@ -398,7 +420,7 @@
     function drawTasks() {
       tasksBox.textContent = '';
       if (!P.weekTasks.length) { // offre gratuite : jamais de tâches proposées ; l'utilisateur écrit les siennes. Une ligne discrète renvoie à Expansion (même fenêtre d'offre qu'ailleurs).
-        tasksBox.appendChild(btn('objLink objOffer', tr('Laisse Noèsis générer les tâches pour toi'), function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); }));
+        tasksBox.appendChild(offerBtn());
         return;
       }
       tasksBox.appendChild(el('p', 'cmpBlockTitle', tr('Tâches de la semaine 1') + ' · ' + actName));
@@ -412,19 +434,20 @@
     win.body.appendChild(optBox); win.body.appendChild(periodsBox); win.body.appendChild(tasksBox);
     drawOpts(); drawPeriods(); drawTasks();
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
-    var ok = btn('cmpBtn', tr('Valider'), function () {
-      ok.disabled = true; msg.textContent = '';
+    var finish = function () {
+      stepBtn.disabled = true; msg.textContent = '';
       var makeActivity = form.create ? api('POST', '/api/activities', { name: form.createName }).then(function (a) { return a.id; }) : Promise.resolve(form.activityId);
       makeActivity.then(function (activityId) {
         return api('POST', '/api/objectifs', { title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
       }).then(function () {
-        win.close(); input.value = ''; state.filter = 'en_cours'; syncFilter();
+        input.value = ''; state.filter = 'en_cours'; syncFilter();
         if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {});
         if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges();
-        load(); nextQueued();
-      }).catch(function (err) { ok.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
-    });
-    win.foot.appendChild(ok);
+        load(); seq.i += 1; nextQueued();
+      }).catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
+    };
+    var last = seq.i >= seq.count - 1;
+    showStep(seq.base + 2 * seq.i + 2, last ? null : 'Paramètres', finish, true);
     win.foot.appendChild(el('p', 'hint objFootHint', tr('Chaque étape et chaque tâche restent modifiables.')));
   }
   function durText(f) { return f.unit === 'semaines' ? plural(f.amount, 'semaine', 'semaines') : f.unit === 'mois' ? f.amount + ' ' + tr('mois') : plural(f.amount, 'an', 'ans'); }
@@ -485,7 +508,7 @@
     function act(action) { api('POST', '/api/objectifs/' + id + '/bilan', { action: action, period: o.bilan.period }).then(function (n) { o = n; idx = null; draw(); }).catch(function () {}); }
     function setDuration() {
       var sub = openModal(tr('Durée d’une période')), picked = o.periodWeeks;
-      sub.body.appendChild(seg([['2', tr('2 semaines')], ['4', tr('4 semaines')], ['mois', tr('1 mois')]], picked, function (k) { picked = k; }, tr('Durée d’une période')));
+      sub.body.appendChild(seg([['2', tr('2 sem.')], ['4', tr('4 sem.')], ['mois', tr('1 mois')]], picked, function (k) { picked = k; }, tr('Durée d’une période')));
       sub.body.appendChild(el('p', 'hint', tr('Les périodes déjà commencées restent ; les suivantes sont redécoupées.')));
       var msg = el('p', 'tasksMsg objMsg'); sub.foot.appendChild(msg);
       var ok = btn('cmpBtn', tr('Valider'), function () { ok.disabled = true; api('PUT', '/api/objectifs/' + id + '/duree', { periodWeeks: picked }).then(function (n) { o = n; idx = null; sub.close(); draw(); }).catch(function (err) { ok.disabled = false; msg.textContent = (err && err.message) || ''; }); });
@@ -495,6 +518,18 @@
   }
 
   buildView();
+  // La carte promo Expansion n'est plus dans cette vue (le bouton d'offre est dans le parcours de création). Reste accessible seulement ce qui sert à gérer :
+  // abonnements actifs + « Résilier », et « J'ai un code » tant que l'accès n'est pas acquis ; sinon la section est masquée.
+  (function () {
+    var offer = document.getElementById('offer1Section');
+    if (!offer) return;
+    function syncOffer() {
+      var code = document.getElementById('offer1CodeLink'), subs = document.getElementById('offer1SubscribedList');
+      offer.classList.toggle('hidden', !((subs && subs.children.length) || (code && !code.classList.contains('hidden'))));
+    }
+    if (window.MutationObserver) new MutationObserver(syncOffer).observe(offer, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+    syncOffer();
+  })();
   TMT.objectifsView = {
     show: function () { state.shown = true; syncDock(); load(); },
     hide: function () { state.shown = false; syncDock(); }

@@ -48,6 +48,9 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(o.contexte(u, { text: 'Passer mon examen le 15 mars' }).dateConfirmed === true, 'contexte : date écrite = confirmée');
   const cu = o.contexte(u, { text: 'Courir un 10 km', amount: 5, unit: 'mois' });
   assert(cu.estimate === null && cu.amount === 5, 'durée saisie par l utilisateur : jamais remplacée');
+  o.setTasksCheck(null);
+  assert(o.contexte(u, { text: 'Courir un 10 km' }).canGenerateTasks === false && o.tasksAllowed(u) === false, 'sans abonnement ni code Expansion : pas de tâches (même sur staging), le bouton d offre est proposé');
+  o.setTasksCheck(() => true);
   const before = db.prepare('SELECT COUNT(*) AS n FROM user_objectives').get().n;
   const tasksBefore = db.prepare('SELECT COUNT(*) AS n FROM sub_project_items').get().n;
   const ctx = o.contexte(u, { text: 'Courir un semi-marathon en six mois' });

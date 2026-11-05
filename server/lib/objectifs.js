@@ -177,7 +177,9 @@ function userRatios(userId) {
 // Tâches : jamais dans l'offre gratuite ; Expansion les génère.
 let tasksCheck = null;
 function setTasksCheck(fn) { tasksCheck = fn; }
-function tasksAllowed(userId) { try { return tasksCheck ? !!tasksCheck(userId) : !!require('./offer1access').hasOffer1Access(userId); } catch (e) { return false; } }
+function tasksAllowed(userId) { // abonné Expansion actif ou code d'accès : jamais l'ouverture « sans paiement » de staging (le bouton d'offre doit s'y voir)
+  try { if (tasksCheck) return !!tasksCheck(userId); const o = require('./offer1access'); return !!(o.hasActiveGrant(userId) || o.hasActiveOffer1Subscription(userId)); } catch (e) { return false; }
+}
 
 // Contexte du formulaire « Nouvel objectif » : dates déduites, activité proposée, objectifs existants. Ne crée rien.
 function contexte(userId, body) {
@@ -201,7 +203,7 @@ function contexte(userId, body) {
   const existing = db.prepare("SELECT id, title, activityId, endDate FROM user_objectives WHERE userId = ? AND endDate >= ? ORDER BY endDate").all(userId, start);
   return {
     title, amount, unit, startDate: start, endDate: end, periodWeeks: defaultPeriodWeeks(start, end),
-    fixedDate, dateConfirmed: !!explicit || manual || !!found,
+    canGenerateTasks: tasksAllowed(userId), fixedDate, dateConfirmed: !!explicit || manual || !!found,
     estimate: est ? { label: est.label, weeks: est.weeks, p10: est.p10, p90: est.p90, typicalWeeks: est.typicalWeeks, source: est.source, endDate: end, p10End: addDays(start, est.p10 * 7), p90End: addDays(start, est.p90 * 7) } : null,
     activities: ranked, suggestedActivityId: best ? best.id : null, createName: suggestedActivityName(title),
     objectives: existing, nextWeekTasks: nextWeekTaskCount(userId), tasksPerWeek: TASKS_PER_WEEK,

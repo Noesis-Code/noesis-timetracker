@@ -96,3 +96,11 @@
 .objOffer { align-self: flex-start; margin-bottom: 8px; }
 .objDock .tasksPropose .objField:last-child { margin-bottom: 0; }
 .objDock .tasksPropose { max-height: min(55vh, 440px, calc(var(--dock-vh, 100vh) - 140px)); } /* le panneau reste dans la zone visible, clavier ouvert */
+/* Barre devenue UN bouton d'avancement (.tasksDock.expSave, comme « Enregistrer » d'Expansion) : « Passer à … » à gauche, n/total à droite, verre de la barre. */
+.objStepBtn { justify-content: space-between; gap: 12px; padding: 0 24px; background: var(--glass-bg); color: var(--text); border-color: var(--glass-border); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+.objStepBtn:disabled { opacity: .5; cursor: default; }
+.objStepPos { font-variant-numeric: tabular-nums; color: var(--text-light); font-weight: 500; }
+/* Expansion : plus de carte promo dans la vue Objectifs ; ne reste que la gestion (abonnements, résilier, code). */
+#offer1Section .offer1SoonBadge, #offer1Section .offer1PromoText, #offer1Section .offer1PromoSub, #offer1Section #offer1CheckoutOpenBtn { display: none; }
+#offer1Section .offer1Promo { background: none; border: 0; box-shadow: none; padding: 0; }
+#offer1Section { margin: 24px 0 0; }
