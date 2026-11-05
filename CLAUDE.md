@@ -71,6 +71,8 @@ Chacun dirige sa propre discussion Claude sur le même dépôt. Pour ne pas s'é
 
 ## Vérification visuelle (UI)
 
+**Règle (5 nov. 2026, Émilien)** : tout écran dont le CSS est touché, y compris indirectement (composant ou règle partagée), est capturé à 390 px avant de dire « fait ». Une modification d'un composant commun se vérifie sur chacun des écrans qui l'utilisent.
+
 `NOESIS_DATA_DIR=$D RAILWAY_ENVIRONMENT_NAME=staging node scripts/dev-seed.js` (affiche l'id d'Emilien), puis `NOESIS_DATA_DIR=$D PORT=3999 node server/index.js &`, puis `python3 scripts/visual-check.py <id> <dossier> [dark|light]` et lire les PNG. Pour un écran précis, copier le script et cliquer jusqu'à lui. Toute retouche de design se vérifie en capture avant de rendre la main.
 
 Toute modification d'interface suit `DESIGN.md` (lexique de design) ; relire ce fichier avant de coder et signaler tout écart. L'application n'a PAS de mode clair : sombre uniquement.
