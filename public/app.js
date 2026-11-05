@@ -15685,7 +15685,7 @@
     var visRow = document.createElement('label');
     visRow.className = 'activityEditRow activityEditVis';
     var visWord = document.createElement('span');
-    visWord.textContent = t('Visible par les autres');
+    visWord.textContent = conf ? t('Confidentiel') : t('Public'); // même mots que le Chrono
     var sw = document.createElement('span');
     sw.className = 'toggleSwitch';
     var cb = document.createElement('input');
@@ -15778,7 +15778,7 @@
       save.classList.toggle('cmpBtnIdle', !dirty);
     }
     nameIn.addEventListener('input', markDirty);
-    cb.addEventListener('change', function () { conf = !cb.checked; markDirty(); });
+    cb.addEventListener('change', function () { conf = !cb.checked; visWord.textContent = conf ? t('Confidentiel') : t('Public'); markDirty(); });
     save.addEventListener('click', function () {
       save.disabled = true;
       var newName = nameIn.value.trim();
