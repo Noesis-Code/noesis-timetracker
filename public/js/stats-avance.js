@@ -202,29 +202,22 @@
   }
   // Un pôle n'est cliquable que s'il a au moins un vrai secteur (l'entrée « pôle hors secteur » seule ne compte pas).
   function hasSectors(p) { return !visitor && !!(p && p.sectors && p.sectors.some(function (x) { return x.label; })); }
-  // Feuille « par secteur » des cartes Objectifs : kind = 'target' | 'achieved'.
+  // Feuille « par secteur » de la carte Objectifs « Temps cible contre temps fait » (kind = 'target').
   function openObjSheet(p, index, kind) {
     els.mTitle.innerHTML = '';
     els.mTitle.appendChild(dotEl(poleColor(index))); els.mTitle.appendChild(el('span', null, p.label));
     els.mSub.textContent = kind === 'target' ? fmtMin(p.doneMin) + ' / ' + fmtMin(p.targetMin) : '';
     els.mTop.innerHTML = ''; els.mScroll.scrollTop = 0;
     els.mList.innerHTML = '';
-    els.mList.appendChild(el('p', 'sectionTitle', tr(kind === 'target' ? 'Temps cible contre temps fait par secteur' : 'Objectifs atteints par secteur')));
+    els.mList.appendChild(el('p', 'sectionTitle', tr('Temps cible contre temps fait par secteur')));
     var rows = p.sectors || [];
     if (!rows.length) els.mList.appendChild(el('p', 'hint', '—'));
     rows.forEach(function (sc) {
       var r = el('div', 'saPoleRow'), top = el('div', 'saPoleTop'), b = el('div', 'saBar');
       top.appendChild(el('span', null, sc.label || tr('Pôle (hors secteur)')));
-      if (kind === 'target') {
-        var ok = sc.doneMin >= sc.targetMin, share = sc.targetMin ? Math.min(100, sc.doneMin * 100 / sc.targetMin) : 0;
-        top.appendChild(el('span', 'meta', fmtMin(sc.doneMin) + ' / ' + fmtMin(sc.targetMin)));
-        var f = el('div', 'saBarFill'); f.style.width = Math.round(share) + '%'; f.style.background = ok ? GREEN : RED; b.appendChild(f);
-      } else {
-        var tot = Math.max(1, (sc.atteint || 0) + (sc.partiel || 0) + (sc.non || 0));
-        top.appendChild(el('span', 'meta', sc.atteint + ' / ' + tot));
-        b.style.display = 'flex';
-        [[sc.atteint, GREEN], [sc.partiel, GREY], [sc.non, RED]].forEach(function (x) { var f = el('div', 'saBarFill'); f.style.width = (x[0] * 100 / tot) + '%'; f.style.background = x[1]; b.appendChild(f); });
-      }
+      var ok = sc.doneMin >= sc.targetMin, share = sc.targetMin ? Math.min(100, sc.doneMin * 100 / sc.targetMin) : 0;
+      top.appendChild(el('span', 'meta', fmtMin(sc.doneMin) + ' / ' + fmtMin(sc.targetMin)));
+      var f = el('div', 'saBarFill'); f.style.width = Math.round(share) + '%'; f.style.background = ok ? GREEN : RED; b.appendChild(f);
       r.appendChild(top); r.appendChild(b); els.mList.appendChild(r);
     });
     els.modal.classList.remove('hidden');
@@ -575,25 +568,9 @@
         var ul = el('ul', 'saLst');
         a.forEach(function (p) { var li = el('li'); li.appendChild(el('span', null, p.label)); li.appendChild(el('b', null, p.count + ' ' + tr(p.count > 1 ? 'reports' : 'report'))); ul.appendChild(li); });
         return ul; } },
-      { key: 'rhythm', title: 'Rythme de réalisation', body: function (d) {
-        var r = d.tasks && d.tasks.rhythm; if (!r || !has(r.perWorkedDay)) return null;
-        return bigRow(fmtNum(r.perWorkedDay), tr('tâche par jour travaillé')); } },
-      { key: 'streak', title: 'Série en cours', body: function (d) {
-        var r = d.tasks && d.tasks.streak; if (!r || !has(r.days)) return null;
-        return bigRow(String(r.days), tr(r.days > 1 ? 'jours de suite avec une tâche faite' : 'jour de suite avec une tâche faite')); } },
-      { key: 'busy', title: 'Agenda occupé', body: function (d) {
-        var b = d.tasks && d.tasks.busy; if (!b || !has(b.minutesToday)) return null;
-        var w = document.createElement('div');
-        w.appendChild(bigRow(fmtMin(b.minutesToday), tr("pris aujourd'hui")));
-        w.appendChild(bar([[b.minutesToday * 100 / 480, 'var(--purple)']])); return w; } },
       { key: 'capacity', title: 'Capacité par jour', body: function (d) {
         var c = d.tasks && d.tasks.capacity; if (!c || !has(c.avgFreeMinutes)) return null;
         return bigRow(fmtMin(c.avgFreeMinutes), tr('libres en moyenne')); } },
-      { key: 'assignees', title: 'Responsable habituel', body: function (d) {
-        var a = d.tasks && d.tasks.assignees; if (!a || !a.length) return null;
-        var w = document.createElement('div');
-        a.forEach(function (r) { w.appendChild(row(plain(r.label), plain(r.name))); });
-        return w; } },
       { key: 'urgent', title: 'Urgence et échéances', body: function (d) {
         var u = d.tasks && d.tasks.urgent; if (!u || !has(u.count)) return null;
         return bigRow(String(u.count), tr('tâches à échéance sous {n} jours', { n: u.withinDays })); } }
@@ -617,17 +594,6 @@
           if (hasSectors(r)) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openObjSheet(r, i, 'target'); }); }
           w.appendChild(rw);
         });
-        return w; } },
-      { key: 'achieved', title: 'Objectifs atteints', body: function (d) {
-        var a = d.objectives && d.objectives.achieved; if (!a || !a.length) return null;
-        var w = document.createElement('div');
-        a.forEach(function (r, i) {
-          var tot = Math.max(1, (r.atteint || 0) + (r.partiel || 0) + (r.non || 0)), dp = Math.round(r.deltaPts || 0);
-          var rw = row(poleName(r.label, poleColor(i)), bar([[r.atteint * 100 / tot, GREEN], [r.partiel * 100 / tot, GREY], [r.non * 100 / tot, RED]]), badge(sgn(dp, ' pts'), dp >= 0, true));
-          if (hasSectors(r)) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openObjSheet(r, i, 'achieved'); }); }
-          w.appendChild(rw);
-        });
-        w.appendChild(legend([[GREEN, tr('atteint')], [GREY, tr('partiel')], [RED, tr('non')]]));
         return w; } },
       { key: 'weeks', title: 'Où ça glisse', body: function (d) {
         var a = d.objectives && d.objectives.weeks; if (!a || !a.list || !a.list.length) return null;
@@ -668,23 +634,6 @@
         });
         w.appendChild(g);
         return w; } },
-      { key: 'carried', title: 'Objectifs reportés qui s’accumulent', body: function (d) {
-        var c = d.objectives && d.objectives.carried; if (!c || !has(c.count)) return null;
-        var dl = Math.round(c.delta || 0);
-        return bigRow(String(c.count), null, dl ? badge(sgn(dl), dl < 0, true) : null, c.count > 0 ? RED : GREEN); } },
-      { key: 'linked', title: 'Tâches liées terminées avant la fin de semaine', body: function (d) {
-        var l = d.objectives && d.objectives.linked; if (!l || !has(l.pct)) return null;
-        var ok = l.pct >= 70, w = document.createElement('div');
-        w.appendChild(bigRow(Math.round(l.pct) + ' %', null, null, ok ? GREEN : RED));
-        w.appendChild(bar([[l.pct, ok ? GREEN : RED]])); return w; } },
-      { key: 'pressure', title: 'Pression entre pôles', body: function (d) {
-        var a = d.objectives && d.objectives.pressure; if (!a || !a.length) return null;
-        var w = document.createElement('div');
-        a.forEach(function (r, i) {
-          var g = Number(r.gap) || 0;
-          w.appendChild(row(poleName(r.label, poleColor(i)), plain(r.state), colored(g ? sgn(Math.round(g)) : '0', g <= 0)));
-        });
-        return w; } }
     ]
   };
 
@@ -696,7 +645,7 @@
   function saveAdded(k, arr) { try { localStorage.setItem(infoStore(k), JSON.stringify(arr)); } catch (e) { /* stockage indisponible */ } }
 
   // Cartes à peu d'informations : deux par ligne (une seule restante = pleine largeur).
-  var HALF = { rhythm: 1, streak: 1, busy: 1, capacity: 1, assignees: 1, urgent: 1, carried: 1, linked: 1 };
+  var HALF = { capacity: 1, urgent: 1 };
   function fillHalfRuns() {
     var run = [];
     var flush = function () { if (run.length % 2 === 1) run[run.length - 1].classList.add('saFull'); run = []; };
@@ -800,7 +749,7 @@
     var defs = CARDS[tab], added = loadAdded(tab);
     if (visitor) {
       // Profil visité : cartes fixes, lecture seule (liste blanche aussi côté serveur).
-      var fixed = tab === 't' ? ['onTime', 'rhythm', 'streak'] : ['achieved', 'weeks'];
+      var fixed = tab === 't' ? ['onTime'] : ['weeks'];
       fixed.forEach(function (k) {
         var c = defs.filter(function (x) { return x.key === k; })[0], n = c && c.body(data);
         if (n) els.body.appendChild(infoCard(c, n, false));

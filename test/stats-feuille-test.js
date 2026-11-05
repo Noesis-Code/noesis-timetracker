@@ -12,8 +12,9 @@ const block = (key) => { const i = js.indexOf("{ key: '" + key + "'"); return i 
 // Cartes par défaut (le reste reste disponible dans « Ajouter une information »)
 ['onTime', 'weekdays'].forEach((k) => assert(/def: true/.test(block(k)), 'Tâches : « ' + k + ' » affichée par défaut'));
 ['remaining', 'workload'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Tâches : « ' + k + ' » dans « Ajouter une information » (plus par défaut ; l\'alerte de capacité reste indépendante)'));
-['estimate', 'postponed', 'rhythm', 'streak', 'busy', 'capacity', 'assignees', 'urgent'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Tâches : « ' + k + ' » dans « Ajouter une information » (code conservé)'));
-['target', 'achieved', 'weeks', 'carried', 'linked', 'pressure'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Objectifs : « ' + k + ' » dans « Ajouter une information » (code conservé)'));
+['estimate', 'postponed', 'capacity', 'urgent'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Tâches : « ' + k + ' » dans « Ajouter une information » (code conservé)'));
+['target', 'weeks'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Objectifs : « ' + k + ' » dans « Ajouter une information » (code conservé)'));
+['rhythm', 'streak', 'busy', 'assignees', 'achieved', 'carried', 'linked', 'pressure'].forEach((k) => assert(!new RegExp("key: '" + k + "'").test(js), 'Carte « ' + k + ' » supprimée définitivement du code et du rendu'));
 assert(!/els\.selBtn|saSel/.test(js) && /iconBtn saModeBtn/.test(js) && !/statsPeriodMenuItem[^\n]*dataset\.tab/.test(js) && /key: 'advance', def: true/.test(js), 'plus de sélecteur en haut : bouton Tâches / Objectifs (comme Aujourd hui de la Répartition) dans la carte du graphique, distinct du menu ⋮ ; Objectifs affiche le graphique + Avancement');
 assert(/tmt\.statsInfo\.|infoStore/.test(js) && /loadAdded\(tab\)/.test(js), 'préférences d\'ajout enregistrées (localStorage tmt.statsInfo.*) respectées');
 const db = require('../server/db'), goals = require('../server/lib/goals'), ins = require('../server/lib/statsinsights');
