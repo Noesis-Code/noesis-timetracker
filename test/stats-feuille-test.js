@@ -13,7 +13,7 @@ const block = (key) => { const i = js.indexOf("{ key: '" + key + "'"); return i 
 ['onTime', 'weekdays', 'remaining', 'workload'].forEach((k) => assert(/def: true/.test(block(k)), 'Tâches : « ' + k + ' » affichée par défaut'));
 ['estimate', 'postponed', 'rhythm', 'streak', 'busy', 'capacity', 'assignees', 'urgent'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Tâches : « ' + k + ' » dans « Ajouter une information » (code conservé)'));
 ['target', 'achieved', 'weeks', 'carried', 'linked', 'pressure'].forEach((k) => assert(block(k) && !/def: true/.test(block(k)), 'Objectifs : « ' + k + ' » dans « Ajouter une information » (code conservé)'));
-assert(!/els\.selBtn|saSel/.test(js) && /\[\['t', 'Tâches'\], \['o', 'Objectifs'\]\]\.forEach/.test(js) && /key: 'advance', def: true/.test(js), 'plus de sélecteur en haut : la bascule Tâches | Objectifs est dans le menu du graphique ; Objectifs affiche le graphique + Avancement');
+assert(!/els\.selBtn|saSel/.test(js) && /periodSwitch cmpSeg saSwitch/.test(js) && !/statsPeriodMenuItem[^\n]*dataset\.tab/.test(js) && /key: 'advance', def: true/.test(js), 'plus de sélecteur en haut : bouton .cmpSeg Tâches | Objectifs dans la carte du graphique, distinct du menu ⋮ ; Objectifs affiche le graphique + Avancement');
 assert(/tmt\.statsInfo\.|infoStore/.test(js) && /loadAdded\(tab\)/.test(js), 'préférences d\'ajout enregistrées (localStorage tmt.statsInfo.*) respectées');
 const db = require('../server/db'), goals = require('../server/lib/goals'), ins = require('../server/lib/statsinsights');
 assert(ins.CAPACITY_ALERT_PCT === 120, 'seuil d\'alerte de la carte Capacité : 120 %');
