@@ -180,6 +180,10 @@
 .cmpNavLabel { flex: 1; min-width: 0; text-align: center; font-size: 20px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
 .cmpNav--sm .cmpNavArrow { font-size: 18px; }
 .cmpNav--sm .cmpNavLabel { font-size: 14px; font-weight: 600; }
+/* Libellé de largeur FIXE (5 nov. 2026, Émilien) : la zone du libellé garde la largeur maximale que le texte peut prendre (--nav-label-w) ; les flèches, resserrées, collent à ce bloc et ne bougent JAMAIS quand le texte change ; le bloc reste centré. */
+.cmpNav--fixed { justify-content: center; gap: 0; }
+.cmpNav--fixed .cmpNavArrow { width: 32px; }
+.cmpNav--fixed .cmpNavLabel { flex: 0 0 var(--nav-label-w, 10em); width: var(--nav-label-w, 10em); overflow-wrap: normal; white-space: nowrap; }
 
 /* Sélecteur .cmpSeg (R42, décision d'Émilien du 27 oct. 2026) : UN composant pour tout choix entre quelques options (Aujourd'hui | Activités, Catégories | Statistiques, langues, catégories d'un message…).
    Aucun conteneur (ni fond, ni liseré). Options pleine largeur à parts égales, texte 13 px centré. Option active = pastille de 28 px (rayon 8, --seg-active-bg), texte plein en 600, aucun contour ;
