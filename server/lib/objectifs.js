@@ -728,4 +728,26 @@ function bilan(userId, id, action, n) {
   if (meta.category) bridge(rowOf(userId, id), periods);
   return get(userId, id);
 }
-module.exports = { rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, periodsInfo, setPeriods, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+// E03 : abandonner / réactiver (bascule de meta.abandoned) ; jamais en cascade : les objectifs rattachés gardent leur état (E04).
+function abandonner(userId, id, on) {
+  const r = rowOf(userId, id), meta = JSON.parse(r.metaJson || '{}');
+  if (on) { meta.abandoned = true; meta.abandonedAt = today(); } else { delete meta.abandoned; delete meta.abandonedAt; }
+  db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
+  return get(userId, r.id);
+}
+// Suppression : jamais en cascade. S'il a des objectifs rattachés (enfants), la suppression est REFUSÉE (409, liste des enfants) tant que l'appelant n'a pas confirmé ;
+// confirmée, les enfants sont détachés (ils redeviennent des objectifs finaux), jamais supprimés. Le secteur et les tâches déjà posés dans l'arbre périodique restent à l'utilisateur.
+function supprimer(userId, id, confirmed) {
+  const r = rowOf(userId, id);
+  const kids = db.prepare('SELECT id, title FROM user_objectives WHERE userId = ? AND parentId = ? ORDER BY position, id').all(userId, r.id);
+  if (kids.length && !confirmed) throw Object.assign(err('Cet objectif a ' + kids.length + ' objectif' + (kids.length > 1 ? 's rattachés' : ' rattaché') + ' : confirme pour les détacher.', 409), { extra: { children: kids } });
+  db.exec('BEGIN');
+  try {
+    kids.forEach((k) => db.prepare('UPDATE user_objectives SET parentId = NULL, parentRel = NULL, position = ? WHERE id = ?').run(nextPosition(userId, null), k.id));
+    db.prepare('DELETE FROM objectifs_refus WHERE userId = ? AND (objectifId = ? OR candidateId = ?)').run(userId, r.id, r.id);
+    db.prepare('DELETE FROM user_objectives WHERE id = ? AND userId = ?').run(r.id, userId);
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  return { ok: true, detached: kids.map((k) => k.id) };
+}
+module.exports = { abandonner, supprimer, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, periodsInfo, setPeriods, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

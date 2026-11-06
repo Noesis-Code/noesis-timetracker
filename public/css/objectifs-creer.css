@@ -80,6 +80,7 @@
 :root:root .objField input.objAmount { flex: none; width: 64px; padding-left: 8px; padding-right: 8px; text-align: center; }
 :root:root .objField input.objCustom { width: 96px; }
 /* Filtre des objectifs = le tri de l'onglet Tâches : même ligne (.tasksTopRow), posée dans le flux au lieu de l'espace sous les onglets. */
+.objRare { position: relative; margin-top: 28px; padding: 14px 40px 14px 14px; border-radius: var(--radius-lg); } /* actions rares du détail, séparées (R4) */
 .objNote { background: var(--glass-bg); } /* verre commun, pas de teinte violette */
 /* Épingle (TMT.ui.attachBtn, choices) : le menu s'ouvre vers le haut depuis la barre du bas ; dans la fenêtre, à droite du champ Objectif. */
 .objDock .statsPeriodMenu { top: auto; bottom: 44px; left: 0; right: auto; min-width: 200px; }

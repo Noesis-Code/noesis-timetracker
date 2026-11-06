@@ -58,6 +58,27 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(src.includes('bridgeFailed'), 'C12 : l’interface affiche le message');
 }
 
+// ---- 4. E03 : abandonner, réactiver, supprimer ----
+{
+  const a = mk('Objectif E03'), kid = mk('Enfant E03', { parentId: a.id }), solo = mk('Seul E03');
+  assert(o.get(u, a.id).abandoned === false, 'E03 : un objectif neuf n’est pas abandonné');
+  assert(o.abandonner(u, a.id, true).abandoned === true, 'E03 : abandonner');
+  assert(o.get(u, kid.id).abandoned === false, 'E04 : l’abandon n’entraîne jamais les objectifs rattachés');
+  assert(o.abandonner(u, a.id, false).abandoned === false, 'E05 : réactiver');
+  let e = null; try { o.supprimer(u, a.id, false); } catch (x) { e = x; }
+  assert(e && e.statusCode === 409 && e.extra && e.extra.children.length === 1 && e.extra.children[0].id === kid.id, 'E03 : suppression avec enfants refusée sans confirmation, liste des enfants rendue');
+  assert(db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE id IN (?, ?)').get(a.id, kid.id).n === 2, 'E03 : rien supprimé sans confirmation');
+  const r = o.supprimer(u, a.id, true);
+  assert(r.ok && !db.prepare('SELECT 1 FROM user_objectives WHERE id = ?').get(a.id), 'E03 : suppression confirmée');
+  const k2 = o.get(u, kid.id);
+  assert(k2.parentId === null && k2.title === 'Enfant E03', 'E03 : l’enfant est détaché, jamais supprimé');
+  assert(o.supprimer(u, solo.id, false).ok, 'E03 : un objectif sans enfant se supprime sur confirmation de l’interface');
+  let e2 = null; try { o.supprimer(u, solo.id, true); } catch (x) { e2 = x; }
+  assert(e2 && e2.statusCode === 404, 'E03 : objectif déjà supprimé : 404');
+  const rt = require('fs').readFileSync(require('path').join(__dirname, '..', 'server', 'routes', 'objectifs.js'), 'utf8');
+  assert(rt.includes("'/objectifs/:id/abandon'") && rt.includes("'/objectifs/:id/reactiver'") && rt.includes("router.delete('/objectifs/:id'"), 'E03 : routes abandon, reactiver, suppression');
+}
+
 // MARK-FIN
 const nRef = (id) => db.prepare('SELECT (SELECT COUNT(*) FROM user_objectives WHERE userId = ?) + (SELECT COUNT(*) FROM objectifs_refus WHERE userId = ?) AS n').get(id, id).n;
 assert(nRef(u) > 0, 'avant suppression : objectifs et refus du compte présents');

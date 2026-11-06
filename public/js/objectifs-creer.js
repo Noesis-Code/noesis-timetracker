@@ -409,7 +409,7 @@
       win.head.textContent = ''; win.body.textContent = ''; win.foot.textContent = '';
       var t = el('div', 'objDetailTitle'), d = el('span', 'objDot'); if (o.activity.color) d.style.background = o.activity.color;
       t.appendChild(d); t.appendChild(el('p', 'sectionTitle', o.title)); win.head.appendChild(t);
-      win.head.appendChild(el('p', 'objMeta objSub', o.durationLabel + ' · ' + tr('jusqu’au') + ' ' + dateText(o.endDate) + ' · ' + o.activity.name));
+      win.head.appendChild(el('p', 'objMeta objSub', o.durationLabel + ' · ' + tr('jusqu’au') + ' ' + dateText(o.endDate) + ' · ' + o.activity.name + (o.abandoned ? ' · ' + tr('abandonné') : '')));
       if (o.description) win.head.appendChild(el('p', 'objDesc', o.description)); // description saisie à la création
       if (o.bridgeFailed) win.head.appendChild(el('p', 'objNote', tr('Cet objectif est enregistré, mais il n’apparaît pas encore dans le calendrier : cette activité a atteint 10 secteurs par pôle. Retire un secteur dans « Gérer mes catégories », puis rouvre cet objectif.'))); // C12
       if (idx == null) idx = o.currentPeriod.n - 1;
@@ -454,8 +454,25 @@
           r.appendChild(c); var tx = el('div', 'tasksPopText'); tx.appendChild(el('b', null, tk.label)); r.appendChild(tx); win.body.appendChild(r);
         });
       }
+      // E03 : actions rares, tout en bas et séparées (R4) ; l'abandon est violet, seule la croix de suppression est rouge (R12, R28, R43, R32).
+      var rare = el('div', 'objRare cmpGlass');
+      rare.appendChild(btn('cmpBtn cmpBtnIdle', tr(o.abandoned ? 'Réactiver' : 'Abandonner'), function () {
+        api('POST', '/api/objectifs/' + id + (o.abandoned ? '/reactiver' : '/abandon')).then(function (n) { o = n; draw(); }).catch(function (e) { win.body.appendChild(el('p', 'objNote', (e && e.message) || tr('Impossible pour le moment.'))); });
+      }));
+      var rm = TMT.ui.removeBtn(deleteIt, tr('Supprimer cet objectif')); rm.className = 'cmpRemove cmpRemove--corner'; rm.textContent = ''; rm.setAttribute('aria-label', tr('Supprimer cet objectif')); rm.title = tr('Supprimer cet objectif');
+      rare.appendChild(rm); win.body.appendChild(rare);
       var f = el('div', 'objDetailFoot'); f.appendChild(el('span', 'hint objFootHint', o.periodWeeks === 'mois' ? tr('Périodes d’un mois') : tr('Périodes de') + ' ' + plural(Number(o.periodWeeks), 'semaine', 'semaines')));
       win.foot.appendChild(f);
+    }
+    function deleteIt() { // confirmation rouge ; les objectifs rattachés sont listés puis détachés, jamais supprimés
+      api('GET', '/api/objectifs?filtre=tous').then(function (r) {
+        var kids = ((r && r.objectifs) || []).filter(function (x) { return x.parentId === id; });
+        var msg = tr('Êtes-vous sûr de vouloir supprimer cet objectif ?') + ' « ' + o.title + ' »' + (kids.length ? '\n' + tr('Ses objectifs rattachés ne sont pas supprimés, ils deviennent des objectifs séparés :') + '\n' + kids.map(function (k) { return '• ' + k.title; }).join('\n') : '');
+        return TMT.ui.confirm(msg, { ok: tr('Supprimer'), danger: true }).then(function (yes) {
+          if (!yes) return;
+          return api('DELETE', '/api/objectifs/' + id + '?confirm=1').then(function () { win.close(); load(); });
+        });
+      }).catch(function (e) { win.body.appendChild(el('p', 'objNote', (e && e.message) || tr('Impossible pour le moment.'))); });
     }
     function act(action) { api('POST', '/api/objectifs/' + id + '/bilan', { action: action, period: o.bilan.period }).then(function (n) { o = n; idx = null; draw(); }).catch(function () {}); }
     api('GET', '/api/objectifs/' + id).then(function (n) { o = n; draw(); }).catch(function () { win.close(); });

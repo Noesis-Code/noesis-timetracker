@@ -59,7 +59,7 @@ Légende : ✅ géré, ⚠️ partiel, ❌ non géré. Priorité : P1 (bloquant 
 | L14 Objectif d'un autre compte | Refusé | ✅ | - |
 | E01 Atteint avec enfants non atteints | Règle à trancher | ⚠️ | P2 |
 | E02 Comment marquer atteint | Action directe | ⚠️ | P2 |
-| E03 Abandonner un objectif | Action + état atténué | ❌ | P1 |
+| E03 Abandonner un objectif | Action + état atténué | ✅ corrigé (6 nov.) : routes abandon/réactiver/suppression + détail | P1 |
 | E04 Abandon d'un parent avec enfants | Choix explicite | ❌ | P2 |
 | E05 Réactivation | Possible | ❌ | P2 |
 | E06 Atteint puis décoché | Retour en cours | ⚠️ | P3 |
