@@ -2,7 +2,6 @@
    .goalsGridScroll de css/objectifs-page2-objectif.css) ; ce fichier ne porte que ce qui est propre à la vue d'ensemble (colonnes = activités, états, dépliage, bulles fixes, glisser-déposer). */
 .objArbre { min-height: calc(100vh - 330px); display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 0 200px; }
 .arZoomRow { position: sticky; top: 70px; z-index: 5; margin: 0 0 16px; padding: 4px 0; background: var(--bg); }
-.arZoom { width: 100%; }
 .arScroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scroll-margin-bottom: 220px; }
 .arGrid { width: max-content; min-width: 100%; padding: 2px 4px 0 26px; box-sizing: border-box; }
 .arGrid .goalsGridRow { width: max-content; min-width: 100%; }

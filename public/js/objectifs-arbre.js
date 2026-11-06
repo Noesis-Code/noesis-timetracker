@@ -1,9 +1,9 @@
-/* Écran « Objectifs » de la page 1 = l'ARBRE des objectifs, ouvert au niveau d'AUJOURD'HUI : le présent et le FUTUR (le passé reste en base : zoom « Tout »).
+/* Écran « Objectifs » de la page 1 = l'ARBRE des objectifs, ouvert au niveau d'AUJOURD'HUI : le présent et le FUTUR (le passé reste en base ; il se voit au niveau le plus large, les années).
  * MÊME GRILLE que l'arbre périodique de la page 2 (classes .goalsGrid, .goalsGridRow, .goalsGridCell--empty / --filled, .goalsRowMarker de css/objectifs-page2-objectif.css, rien recopié) :
  * UNE RANGÉE = UNE PÉRIODE du réglage (13 périodes de 4 semaines par an tant que le réglage global n'existe pas), une colonne par activité, repères à gauche (numéro cerclé = à venir,
  * pastille pleine = période courante, point = passé), cases grises pleine largeur de colonne, trait fin entre les cases. Une carte d'objectif occupe UNE SEULE case : celle de son ÉCHÉANCE ;
  * le futur = les mêmes cases, AU-DESSUS de l'unique ligne « Aujourd'hui » (jusqu'à l'objectif le plus lointain + 1 an) ; plusieurs objectifs d'une même activité dans la même case = une carte « N objectifs ».
- * Zoom (.cmpSeg) : Période (une case par période) | Année (une case par année) | Tout (toutes les années, passé compris).
+ * TEMPS INDUIT PAR LE ZOOM (aucun sélecteur) : niveau activités = une case par ANNÉE (tout l'historique + 5 ans) ; niveaux pôles et secteurs = une case par PÉRIODE du réglage (13 × 4 semaines par défaut).
  * ZOOM PAR NIVEAU (se cumule avec le zoom de temps) : on ouvre très dézoomé, les GRANDS objectifs par activité ; toucher la racine (ou une carte qui regroupe plusieurs objectifs) ou ÉCARTER
  * les doigts (Ctrl + molette sur ordinateur) descend d'un niveau : l'activité se découpe en PÔLES (une racine fixe par pôle), puis en SECTEURS ; au dernier niveau, la bulle ouvre l'arbre périodique (page 2).
  * La flèche ‹ ou RAPPROCHER les doigts remonte. Un objectif PORTE le niveau où il est créé (level, poleKey, categoryKey) ; toucher une case VIDE ajoute un objectif (activité, niveau, pôle/secteur, échéance = la case).
@@ -45,7 +45,17 @@
   }
   function link(o, pid) {
     if (pid === o.parentId) return;
-    TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: pid, rel: 'apres' }).then(function () { split = {}; picked = null; return refresh(); }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });
+    TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: pid, rel: 'apres' }).then(function () { split = {}; picked = null; return refresh(); }).catch(function (e) {
+      var mac = pid != null && items.filter(function (x) { return x.id === pid; })[0];
+      if (mac && mac.isMacro && e && /dépasse celle du macro/.test(e.message || '') && TMT.ui && TMT.ui.confirm) { // l'échéance du macro doit être au moins celle de son enfant le plus lointain : on propose de la repousser (jamais en silence)
+        TMT.ui.confirm(tr('L’échéance de cet objectif dépasse celle du macro.') + '\n' + tr('Repousser l’échéance du macro au') + ' ' + o.endDate + ' ?', { ok: tr('Repousser') }).then(function (ok) {
+          if (!ok) return;
+          TMT.api('PUT', '/api/objectifs/' + pid + '/echeance', { endDate: o.endDate }).then(function () { link(o, pid); }).catch(function (e2) { say((e2 && e2.message) || tr('Impossible pour le moment.')); });
+        });
+        return;
+      }
+      say((e && e.message) || tr('Impossible pour le moment.'));
+    });
   }
   // L03 : un objectif ne se rattache qu'à un objectif de la MÊME ACTIVITÉ (toutes colonnes confondues : pôles et secteurs d'une activité sont des colonnes d'une même activité).
   var kidsAll = {};
@@ -116,11 +126,11 @@
   }
   // MACRO (objectif qui englobe des objectifs de PLUSIEURS activités) : une carte LARGE, couleur NEUTRE (jetons existants, jamais celle d'une activité, R16), même cadre que les autres cartes,
   // de la largeur exacte des colonnes des activités concernées (les colonnes intermédiaires sont traversées) ; un trait par colonne concernée la relie à ses enfants, qui gardent la couleur de leur activité.
-  function macroCard(m, today, c0, c1, W) {
+  function macroCard(m, today, c0, c1, W, cols) {
     var st = stateOf(m, today), span = c1 - c0 + 1, w = span * W + (span - 1) * GAP;
     var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st); b.type = 'button'; b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
-    t.appendChild(el('span', 'arCardMeta', (m.macroChildren || 0) + ' ' + tr((m.macroChildren || 0) > 1 ? 'objectifs' : 'objectif') + ' · ' + (m.macroActivities || []).map(function (a) { return a.name; }).join(' · ') + (m.macroEmpty ? ' · ' + tr('aucun objectif rattaché') : '')));
+    t.appendChild(el('span', 'arCardMeta', (m.macroChildren || 0) + ' ' + tr((m.macroChildren || 0) > 1 ? 'objectifs' : 'objectif') + ' · ' + (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · ') + (m.macroEmpty ? ' · ' + tr('aucun objectif rattaché') : '')));
     b.appendChild(t);
     for (var k = 0; k < span; k++) { var stub = el('i', 'arMacroStub'); stub.style.left = (k * (W + GAP) + W / 2) + 'px'; b.appendChild(stub); }
     b.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(m.id); });
@@ -152,16 +162,6 @@
     });
     return keep;
   }
-  function zoomBar() {
-    var s = el('div', 'cmpSeg arZoom'); s.setAttribute('role', 'group'); s.setAttribute('aria-label', tr('Zoom'));
-    [['period', tr('Période')], ['year', tr('Année')], ['all', tr('Tout')]].forEach(function (o) {
-      var b = el('button', zoom === o[0] ? 'active' : '', o[1]); b.type = 'button'; b.setAttribute('aria-pressed', zoom === o[0] ? 'true' : 'false');
-      b.addEventListener('click', function () { if (zoom === o[0]) return; zoom = o[0]; split = {}; picked = null; needBase = true; render(); });
-      s.appendChild(b);
-    });
-    return s;
-  }
-
   // ---------- grille de temps commune ----------
   // Une carte occupe UNE SEULE case : celle de son ÉCHÉANCE (un objectif encore ouvert dont l'échéance est passée reste dans la case d'aujourd'hui). Les cases sont les périodes du RÉGLAGE
   // (RÉGLAGE GLOBAL, par défaut 13 périodes de 4 semaines par an : P1 = jours 1 à 28 de l'année… P13 = le reste) ; en zoom Année / Tout, une case par année.
@@ -234,11 +234,11 @@
     if (lvl === 'pole') {
       var poles = (act && act.poles) || [];
       if (!poles.length) poles = [{ key: null, label: name }];
-      return poles.map(function (p) { return { key: p.key, label: p.label, color: col, objs: mine.filter(function (o) { return o.level === 'pole' && (p.key == null || o.poleKey === p.key); }), ctx: { level: 'pole', activityId: focus.activityId, poleKey: p.key, label: name + ' · ' + p.label } }; });
+      return poles.map(function (p) { return { key: p.key, label: p.label, color: col, objs: mine.filter(function (o) { return !o.isMacro && o.level === 'pole' && (p.key == null || o.poleKey === p.key); }), ctx: { level: 'pole', activityId: focus.activityId, poleKey: p.key, label: name + ' · ' + p.label } }; });
     }
     var pole = ((act && act.poles) || []).filter(function (p) { return p.key === focus.poleKey; })[0] || { key: focus.poleKey, label: focus.poleLabel || '', secteurs: [] };
     var sects = pole.secteurs && pole.secteurs.length ? pole.secteurs : [{ key: null, label: pole.label }];
-    return sects.map(function (x) { return { key: x.key, label: x.label, color: col, objs: mine.filter(function (o) { return o.level === 'secteur' && o.poleKey === focus.poleKey && (x.key == null || o.categoryKey === x.key); }), ctx: { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey, categoryKey: x.key, label: name + ' · ' + pole.label + ' · ' + x.label } }; });
+    return sects.map(function (x) { return { key: x.key, label: x.label, color: col, objs: mine.filter(function (o) { return !o.isMacro && o.level === 'secteur' && o.poleKey === focus.poleKey && (x.key == null || o.categoryKey === x.key); }), ctx: { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey, categoryKey: x.key, label: name + ' · ' + pole.label + ' · ' + x.label } }; });
   }
   var curCols = [];
   function syncCtx() { // la barre « Nouvel objectif… » crée au niveau affiché (pré-rempli et verrouillé) ; le « + » d'une colonne précise le pôle / le secteur
@@ -267,8 +267,9 @@
   function render() {
     if (!tree) return;
     tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024);
+    zoom = lvl === 'activite' ? 'all' : 'period'; // le temps suit le zoom : activités = ANNÉES (tout l'historique + 5 ans), pôles et secteurs = PÉRIODES du réglage
     var today = dayIso(), keep = visibleSet(today), shown = items.filter(function (o) { return keep[o.id]; });
-    if (items.length) { var zb = el('div', 'arZoomRow'); if (lvl !== 'activite') zb.appendChild(backNav()); zb.appendChild(zoomBar()); tree.appendChild(zb); }
+    if (items.length && lvl !== 'activite') { var zb = el('div', 'arZoomRow'); zb.appendChild(backNav()); tree.appendChild(zb); }
     kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
     curCols = columnsFor(shown); syncCtx();
     buildBases(); basesInner.textContent = '';
@@ -297,14 +298,17 @@
     data.forEach(function (c) { c.entries.forEach(function (e) { byRank[e.b.rank] = e.b; if (zoom === 'all' && e.b.rank < lo) lo = e.b.rank; if (e.b.rank > hi) hi = e.b.rank; }); });
     // macros : colonnes concernées (celles de leurs activités visibles ; entre la première et la dernière, les colonnes intermédiaires sont traversées) et case d'échéance
     var macrosAt = {}, colIdx = {};
-    curCols.forEach(function (c, i) { if (lvl === 'activite') colIdx[c.key] = i; });
-    if (lvl === 'activite') shown.filter(function (o) { return o.isMacro; }).forEach(function (m) {
-      var idx = (m.macroActivities || []).map(function (a) { return colIdx[a.id]; }).filter(function (i) { return i != null; });
-      if (!idx.length && colIdx[m.activity.id] != null) idx = [colIdx[m.activity.id]];
+    curCols.forEach(function (c, i) { colIdx[c.key] = i; });
+    // Un macro relie des colonnes d'UN niveau : activités (période longue), pôles d'une activité, secteurs d'un pôle ; il s'affiche au niveau où il relie, sinon il n'apparaît pas ici.
+    shown.filter(function (o) { return o.isMacro && (o.macroLevel || o.level || 'activite') === lvl; }).forEach(function (m) {
+      var mcs = (m.macroColumns || []).filter(function (mc) { return lvl === 'activite' || (mc.activityId === focus.activityId && (lvl === 'pole' || mc.poleKey === focus.poleKey)); });
+      var idx = mcs.map(function (mc) { return colIdx[lvl === 'activite' ? mc.activityId : lvl === 'pole' ? mc.poleKey : mc.categoryKey]; }).filter(function (i) { return i != null; });
+      if (!idx.length && lvl === 'activite' && colIdx[m.activity.id] != null) idx = [colIdx[m.activity.id]];
       if (!idx.length) return;
       var b = bucketOf(m, today); byRank[b.rank] = b; if (zoom === 'all' && b.rank < lo) lo = b.rank; if (b.rank > hi) hi = b.rank;
       (macrosAt[b.rank] = macrosAt[b.rank] || []).push({ m: m, c0: Math.min.apply(null, idx), c1: Math.max.apply(null, idx) });
     });
+    if (zoom === 'all') hi = Math.max(hi, here.rank + 500); // niveau long : cinq ans devant, une case par année
     var farRank = hi; for (var yy = 0; yy < (zoom === 'period' ? PER_YEAR : 1); yy++) farRank = nextRank(farRank); // + 1 an
     var list = [];
     for (var rk = lo; rk <= farRank; rk = nextRank(rk)) list.push(byRank[rk] || (zoom === 'period' ? { k: Math.floor(rk / 100) + 'P' + (rk % 100), rank: rk, y: Math.floor(rk / 100), p: rk % 100 } : { k: String(rk / 100), rank: rk, y: rk / 100, p: 0 }));
@@ -329,14 +333,14 @@
         var mrow = el('div', 'goalsGridRow arMacroRow'); var sp = marker(rw, here); sp.style.visibility = 'hidden'; mrow.appendChild(sp);
         data.forEach(function (c2, cj) {
           var hit = extra.filter(function (mm) { return cj >= mm.c0 && cj <= mm.c1; })[0];
-          if (hit) { if (hit.c0 === cj) mrow.appendChild(macroCard(hit.m, today, hit.c0, hit.c1, W)); return; }
+          if (hit) { if (hit.c0 === cj) mrow.appendChild(macroCard(hit.m, today, hit.c0, hit.c1, W, curCols)); return; }
           var gap = el('div', 'arGap'); cellSize(gap, W); mrow.appendChild(gap);
         });
         grid.appendChild(mrow);
       }
       data.forEach(function (c, ci) {
         var es = cells[r][ci];
-        if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W)); return; }
+        if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols)); return; }
         if (!es.length) row.appendChild(emptyCell(W, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
         else if (es.length > 1 && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, W, function () { descend(ci); })); // plusieurs objectifs d'une même activité dans la même case : une seule carte
         else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, W); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, W)); }); row.appendChild(stack); }
