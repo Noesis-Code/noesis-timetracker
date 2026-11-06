@@ -750,7 +750,7 @@
   // Niveau activité : la ligne de la liste d'activités de la vue « Objectifs » (mêmes classes .goalsCaptureActivityChip / .goalsCaptureZone, aucune copie de CSS) ; un toucher la déplie.
   function activityBranch(parent, id, t0, count, fill) {
     var open = !!openNodes[id], wrap = el('div', 'tasksActNode');
-    var btn = el('button', 'goalsCaptureActivityChip'); btn.type = 'button'; btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    var btn = el('button', 'goalsCaptureActivityChip cmpSepRow'); btn.type = 'button'; btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     var zone = el('span', 'goalsCaptureZone'); if (t0.activityColor) zone.style.setProperty('--c', t0.activityColor);
     zone.appendChild(el('span', 'goalsCaptureActivityChipName', t0.activityName)); btn.appendChild(zone);
     btn.appendChild(el('span', 'goalsCaptureDailyCount', String(count)));
