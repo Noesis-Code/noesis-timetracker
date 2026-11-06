@@ -27,3 +27,4 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 - [legal/adresses-publiques.md](legal/adresses-publiques.md) : adresses web publiques de la politique, des CGU et des mentions légales (App Store, Google Play), générées sans dupliquer le texte
 - [legal/renommage-noesis-2026-11-01.md](legal/renommage-noesis-2026-11-01.md) : le nom du produit est « Noèsis » seul depuis le 1er novembre 2026, sans changement de fond
 - [legal/audit-conformite-2026-10-30.md](legal/audit-conformite-2026-10-30.md) : audit des documents légaux contre le code (corrigé, à faire par Émilien, limites)
+- [objectifs/cas-de-figure-objectifs.md](objectifs/cas-de-figure-objectifs.md) : dossier des cas de figure du module Objectifs (cas, comportement attendu, état réel du code, priorités des correctifs)
