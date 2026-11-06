@@ -31,3 +31,8 @@
 /* Ordinateur : toutes les activités côte à côte */
 .arWide.objArbre { padding: 16px 0 140px; }
 .arWide .arCols { grid-auto-columns: minmax(240px, 1fr); }
+
+/* Ligne « Aujourd'hui » : sépare le futur (au-dessus) du présent et du passé (dessous) dans une branche. */
+.arToday { display: flex; align-items: center; gap: 8px; margin: 2px 0 4px; color: var(--text-light); font-size: 13px; }
+.arToday::before, .arToday::after { content: ''; flex: 1; height: 2px; background: var(--purple); border-radius: 1px; }
+.arToday::before { flex: none; width: 10px; }

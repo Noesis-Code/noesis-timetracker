@@ -62,6 +62,7 @@
     b.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.focus) TMT.objectifsView.focus(); }); // création à cette place : l'envoi suivant ; pour l'instant la barre « Nouvel objectif… »
     node.appendChild(b); return node;
   }
+  function todayLine() { var l = el('div', 'arToday'); l.appendChild(el('span', null, tr('Aujourd’hui'))); return l; }
   function stem(c) { var s = el('i', 'arStem'); s.style.background = c; return s; }
 
   function column(act, os, today) {
@@ -78,7 +79,13 @@
       (function walk(o, d) { seq.push({ o: o, d: d }); (kids[o.id] || []).forEach(function (k) { walk(k, d + 1); }); })(r, 0);
       var open = seq.some(function (x) { return stateOf(x.o, today) !== 'done' && stateOf(x.o, today) !== 'dropped'; });
       if (open) blk.appendChild(addCell(seq[seq.length - 1].d + 1)); // case grise au sommet de la branche
-      for (var i = seq.length - 1; i >= 0; i--) { blk.appendChild(card(seq[i].o, seq[i].d, today, all)); if (i > 0) blk.appendChild(stem(c)); }
+      var todayDone = false;
+      for (var i = seq.length - 1; i >= 0; i--) {
+        var fut = stateOf(seq[i].o, today) === 'future';
+        if (!todayDone && !fut && i < seq.length - 1 && stateOf(seq[i + 1].o, today) === 'future') { blk.appendChild(todayLine()); todayDone = true; } // le futur au-dessus de la ligne
+        blk.appendChild(card(seq[i].o, seq[i].d, today, all));
+        if (i > 0) blk.appendChild(stem(c));
+      }
       blocks.appendChild(blk);
     });
     col.appendChild(blocks);

@@ -290,3 +290,8 @@
 .goalsYearRow .statsPeriodMenuItem { flex: 1 1 auto; }
 .goalsYearNew { font-weight: 700; }
 .goalsYearPickWrap .statsPeriodMenu { z-index: 30; background: var(--card) !important; }
+
+/* Années relatives autour de la grille : « Année N+1 · 2027 » au-dessus (futur), « Année N-1 » au-dessous (passé) ; l'année affichée en violet clair. */
+.goalsYearBands { margin: 0 0 8px; }
+.goalsYearBand { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--text-light); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
+.goalsYearBand.on { color: var(--text); cursor: default; }

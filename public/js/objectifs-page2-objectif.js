@@ -730,7 +730,7 @@
     if (y < prevY) {
       TMT.pruneGoalsYears().then(function () { renderGoalsYearPicker(); });
     }
-    renderGoalsYearPicker(); renderGoalsGridHead(); renderGoalsGrid();
+    renderGoalsYearPicker(); renderGoalsGridHead(); renderGoalsGrid(); renderGoalsYearBands();
     // Les secteurs diffèrent selon l'année : recharge les colonnes de l'année choisie.
     var pk = TMT.currentGoalsSelectedPoleKey;
     if (pk && TMT.reloadGoalsGridForPole) TMT.reloadGoalsGridForPole(pk);
@@ -765,6 +765,27 @@
       row.appendChild(b);
       menu.appendChild(row);
     });
+    renderGoalsYearBands();
+  }
+  // Années RELATIVES : au-dessus de la grille les années futures (la plus lointaine en haut), au-dessous les années passées ; l'année affichée est « Année N ». Toucher une ligne affiche cette année.
+  function relYear(y) { var d = y - goalsCurrentYear(); return d === 0 ? 'N' : (d > 0 ? 'N+' + d : 'N' + d); }
+  function renderGoalsYearBands() {
+    var scroll = $('goalsGridScroll'); if (!scroll || !scroll.parentNode) return;
+    ['goalsYearBandsTop', 'goalsYearBandsBottom'].forEach(function (id) { var o = $(id); if (o) o.remove(); });
+    if (!TMT.goalsYears || TMT.goalsYearsFor !== TMT.currentGoalsActivityId || goalsHasNoRealCategory(activeGoalsCategories())) return;
+    var ty = goalsTreeYearNow(), ys = (TMT.goalsYears.years || []).slice().sort(function (a, b) { return b - a; });
+    function row(y, shown) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'goalsYearBand cmpSepRow' + (shown ? ' on' : '');
+      var s = document.createElement('span'); s.textContent = t('Année') + ' ' + relYear(y) + ' · ' + y; b.appendChild(s);
+      if (!shown) { var c = document.createElement('span'); c.className = 'cmpChev'; c.setAttribute('aria-hidden', 'true'); b.appendChild(c); b.addEventListener('click', function () { selectGoalsYear(y); }); }
+      return b;
+    }
+    var top = document.createElement('div'), bottom = document.createElement('div');
+    top.id = 'goalsYearBandsTop'; bottom.id = 'goalsYearBandsBottom'; top.className = bottom.className = 'goalsYearBands';
+    ys.filter(function (y) { return y > ty; }).forEach(function (y) { top.appendChild(row(y, false)); });
+    top.appendChild(row(ty, true));
+    ys.filter(function (y) { return y < ty; }).forEach(function (y) { bottom.appendChild(row(y, false)); });
+    scroll.parentNode.insertBefore(top, scroll); scroll.parentNode.insertBefore(bottom, scroll.nextSibling);
   }
   document.addEventListener('click', function (e) {
     var btn = e.target.closest && e.target.closest('#goalsYearPickBtn');
