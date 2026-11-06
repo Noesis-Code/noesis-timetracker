@@ -81,19 +81,55 @@
   // UN SEUL pop-up « Mes objectifs » (liste de TOUS les objectifs) : le panneau de la barre (.tasksPropose, au-dessus de « Nouvel objectif… »), ouvert par la ligne « Mes objectifs »
   // OU par un toucher sur la barre avant d'écrire. Non bloquant : on peut taper dans la barre ; il se ferme à l'envoi ou par ✕.
   var mineOpen = false;
+  // Liste indentée : les objectifs FINAUX en haut, leurs étapes décalées dessous (profondeur illimitée) avec traits de liaison ; toucher le NOM ouvre le détail, le CHEVRON à droite
+  // déplie / replie les étapes (R21). Objectifs finaux atteints : section « Archives ».
+  var folded = {}; // objectifs repliés (tout est déplié par défaut)
+  function buildTree(items) {
+    var byId = {}, kids = {}, roots = [];
+    items.forEach(function (o) { byId[o.id] = o; });
+    items.forEach(function (o) { if (o.parentId != null && byId[o.parentId]) (kids[o.parentId] = kids[o.parentId] || []).push(o); else roots.push(o); });
+    var cmp = function (a, b) { return ((a.position == null ? 1e9 : a.position) - (b.position == null ? 1e9 : b.position)) || (a.endDate < b.endDate ? -1 : a.endDate > b.endDate ? 1 : 0) || a.id - b.id; };
+    roots.sort(cmp); Object.keys(kids).forEach(function (k) { kids[k].sort(cmp); });
+    return { roots: roots, kids: kids };
+  }
+  function nodeRow(o, depth, tree, ancestors, isLast, host, rerender) {
+    var ks = tree.kids[o.id] || [], row = el('div', 'objNode cmpSepRow' + (depth ? ' objNodeStep' : ''));
+    // traits de liaison : un trait vertical par niveau d'ancêtre qui a encore des frères plus bas, plus le coude de ce niveau
+    for (var L = 1; L <= depth; L++) {
+      var x = 12 + (L - 1) * 28;
+      if (L < depth) { if (ancestors[L]) { var v = el('i', 'objTreeLine objTreeLineV'); v.style.left = x + 'px'; row.appendChild(v); } continue; }
+      var v2 = el('i', 'objTreeLine objTreeLineV' + (isLast ? ' objTreeLineHalf' : '')); v2.style.left = x + 'px'; row.appendChild(v2);
+      var h = el('i', 'objTreeLine objTreeLineH'); h.style.left = x + 'px'; row.appendChild(h);
+    }
+    var main = el('button', 'objNodeMain'); main.type = 'button'; main.style.paddingLeft = (4 + depth * 28 + (depth ? 8 : 0)) + 'px';
+    main.appendChild(el('span', 'objRowName', o.title));
+    if (!depth) main.appendChild(el('span', 'objMeta', (o.activities && o.activities.length ? o.activities.map(function (x) { return x.name; }).join(', ') : o.activity.name)));
+    main.addEventListener('click', function () { closeMine(); openDetail(o.id); });
+    row.appendChild(main);
+    if (ks.length) {
+      var tg = el('button', 'objNodeToggle'); tg.type = 'button'; tg.setAttribute('aria-expanded', folded[o.id] ? 'false' : 'true'); tg.setAttribute('aria-label', tr(folded[o.id] ? 'Déplier' : 'Replier'));
+      tg.appendChild(el('span', 'cmpRowCount', String(ks.length))); tg.appendChild(TMT.ui.chev(!folded[o.id]));
+      tg.addEventListener('click', function () { folded[o.id] = !folded[o.id]; rerender(); });
+      row.appendChild(tg);
+    }
+    host.appendChild(row);
+    if (ks.length && !folded[o.id]) {
+      ks.forEach(function (k, n) { var anc = ancestors.slice(); anc[depth + 1] = n < ks.length - 1; nodeRow(k, depth + 1, tree, anc, n === ks.length - 1, host, rerender); });
+    }
+  }
   function drawMine() {
     if (!mineOpen) return;
     api('GET', '/api/objectifs?filtre=tous').then(function (r) {
       if (!mineOpen) return;
-      var list = el('div', 'objList'), items = (r && r.objectifs) || [];
-      items.forEach(function (o) { // une ligne : nom de l'objectif + activité(s) liée(s) en petit ; un toucher ouvre le détail existant
-        var row = el('button', 'objRowLine cmpSepRow'); row.type = 'button';
-        row.appendChild(el('span', 'objRowName', o.title)); row.appendChild(el('span', 'objMeta', (o.activities && o.activities.length ? o.activities.map(function (x) { return x.name; }).join(', ') : o.activity.name)));
-        row.addEventListener('click', function () { closeMine(); openDetail(o.id); });
-        list.appendChild(row);
-      });
-      if (!items.length) list.appendChild(el('p', 'hint objNone cmpEmpty', tr('Aucun objectif pour l’instant.')));
-      panelBody.textContent = ''; panelBody.appendChild(list);
+      var items = (r && r.objectifs) || [], tree = buildTree(items);
+      function paint() {
+        var list = el('div', 'objList'), live = tree.roots.filter(function (o) { return !o.archived; }), old = tree.roots.filter(function (o) { return o.archived; });
+        live.forEach(function (o) { nodeRow(o, 0, tree, [], false, list, paint); });
+        if (old.length) { list.appendChild(el('p', 'cmpBlockTitle objArchTitle', tr('Archives'))); old.forEach(function (o) { nodeRow(o, 0, tree, [], false, list, paint); }); }
+        if (!items.length) list.appendChild(el('p', 'hint objNone cmpEmpty', tr('Aucun objectif pour l’instant.')));
+        panelBody.textContent = ''; panelBody.appendChild(list);
+      }
+      paint();
     }).catch(function () {});
   }
   function openMine() {

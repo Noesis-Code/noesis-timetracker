@@ -156,6 +156,28 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(db.prepare('SELECT COUNT(*) AS n FROM objectifs_signaux').get().n === sigBefore + 1, 'case des Réglages décochée : rien n\'est enregistré');
   o.setAnon(u, true);
   assert(dr.learnedFromSignals([{ cat: 'x', actualWeeks: 5 }, { cat: 'x', actualWeeks: 7 }]).x.length === 2, 'apprentissage : les durées réelles anonymes alimentent la table (remplacement dès 30)');
+  // Fusion : lien parent (étapes), plusieurs sommets dans une même activité, refus mémorisé, archives
+  const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.activityId, startDate: dayIso(0), endDate: dayIso(-28), amount: 4, unit: 'semaines', periodWeeks: 1, weekly: false }, extra || {}));
+  const top1 = mk('Obtenir ma certification X'), top2 = mk('Lancer la version Y');
+  assert(top1.parentId === null && top2.parentId === null && top1.id !== top2.id, 'fusion : deux objectifs finaux (sommets) dans la même activité');
+  const step1 = mk('Réussir l’examen théorique X', { parentId: top1.id, parentRel: 'avant' });
+  assert(step1.parentId === top1.id && step1.parentRel === 'avant' && step1.position >= 1, 'fusion : étape créée sous son parent, position avant');
+  const step2 = o.lier(u, mk('Cours en ligne X').id, step1.id, 'apres');
+  assert(step2.parentId === step1.id && step2.parentRel === 'apres', 'fusion : une étape peut avoir ses propres étapes (profondeur illimitée)');
+  bad = false; try { o.lier(u, top1.id, step2.id, 'avant'); } catch (e) { bad = /propres étapes/.test(e.message); } assert(bad, 'fusion : aucun cycle (un sommet ne devient pas l’étape de sa descendance)');
+  bad = false; try { o.lier(u, top1.id, top1.id, 'avant'); } catch (e) { bad = true; } assert(bad, 'fusion : un objectif ne devient pas sa propre étape');
+  bad = false; try { o.lier('autre-utilisateur', top1.id, top2.id, 'avant'); } catch (e) { bad = e.statusCode === 404; } assert(bad, 'fusion : jamais l’objectif d’un autre utilisateur');
+  const freed = o.lier(u, step2.id, null);
+  assert(freed.parentId === null && freed.parentRel === null, 'fusion : délier = redevient un objectif final séparé');
+  o.refuser(u, freed.id, top2.id); o.refuser(u, freed.id, top2.id);
+  assert(JSON.stringify(o.refusDe(u, freed.id)) === JSON.stringify([top2.id]), 'fusion : refus mémorisé par couple (objectif, candidat), sans doublon');
+  const tree = o.liste(u, 'tous');
+  assert(tree.find((x) => x.id === step1.id).parentId === top1.id && tree.every((x) => 'archived' in x), 'liste : parentId et archivage fournis pour l’arbre');
+  const arch = mk('Objectif final court');
+  arch.periods.forEach((pp) => pp.weeks.forEach((ww) => o.semaine(u, arch.id, pp.n, ww.i, true)));
+  const l2 = o.liste(u, 'tous');
+  assert(l2.find((x) => x.id === arch.id).archived === true && l2.find((x) => x.id === top1.id).archived === false, 'objectif final atteint -> archives ; les autres restent en cours');
+  assert(!!mk('Un nouveau après archivage').id, 'un nouvel objectif peut être créé après l’archivage');
   bad = false; try { o.get('autre-utilisateur', made.id); } catch (e) { bad = e.statusCode === 404; } assert(bad, 'un autre utilisateur ne voit pas cet objectif');
   console.log(failed ? '\nobjectifs-creation-test : ' + failed + ' échec(s)' : '\nobjectifs-creation-test : OK');
   process.exit(failed ? 1 : 0);

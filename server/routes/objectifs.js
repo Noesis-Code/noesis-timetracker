@@ -26,6 +26,9 @@ router.post('/objectifs', run(async (req) => objectifs.creer(req.userId, req.bod
 router.get('/objectifs/:id', run((req) => objectifs.get(req.userId, req.params.id)));
 router.put('/objectifs/:id/periodes/:n/semaines/:i', run((req) => objectifs.semaine(req.userId, req.params.id, req.params.n, req.params.i, req.body && req.body.done === true)));
 router.post('/objectifs/:id/bilan', run((req) => objectifs.bilan(req.userId, req.params.id, String((req.body || {}).action || ''), (req.body || {}).period)));
+router.put('/objectifs/:id/parent', run((req) => objectifs.lier(req.userId, req.params.id, (req.body || {}).parentId == null ? null : Number((req.body || {}).parentId), (req.body || {}).rel)));
+router.get('/objectifs/:id/refus', run((req) => ({ refus: objectifs.refusDe(req.userId, req.params.id) })));
+router.post('/objectifs/:id/refus', run((req) => objectifs.refuser(req.userId, req.params.id, Number((req.body || {}).candidateId))));
 router.put('/objectifs/:id/duree', run((req) => objectifs.duree(req.userId, req.params.id, (req.body || {}).periodWeeks)));
 
 module.exports = router;

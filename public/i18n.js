@@ -366,6 +366,8 @@
     'Répartition': 'Breakdown',
     'Aucune tâche sur cette période': 'No tasks in this period',
     'Aucun objectif sur cette période': 'No objectives in this period',
+    'Déplier': 'Expand',
+    'Replier': 'Collapse',
     'Aucun objectif pour l’instant.': 'No objectives yet.',
     'Pas assez d’historique pour estimer l’avancement.': 'Not enough history to estimate progress.',
     "Rien d'enregistré sur cette période.": 'Nothing recorded for this period.',

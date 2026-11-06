@@ -32,6 +32,20 @@ db.exec(`CREATE TABLE IF NOT EXISTS user_objectives (
   createdAt TEXT NOT NULL
 )`);
 db.exec('CREATE INDEX IF NOT EXISTS idx_user_objectives_user ON user_objectives(userId, endDate)');
+// Fusion d'objectifs : un objectif peut devenir une ÉTAPE d'un objectif plus grand (parentId, profondeur illimitée) ; plusieurs objectifs finaux (sommets) possibles, même dans un secteur.
+// parentRel : place de l'étape par rapport à son parent ('avant' | 'apres') ; position : ordre parmi ses frères.
+try {
+  const cols = db.prepare('PRAGMA table_info(user_objectives)').all().map((c) => c.name);
+  if (!cols.includes('parentRel')) db.exec('ALTER TABLE user_objectives ADD COLUMN parentRel TEXT');
+  if (!cols.includes('position')) db.exec('ALTER TABLE user_objectives ADD COLUMN position INTEGER');
+} catch (e) { console.warn('[objectifs] migration parentRel/position :', e && e.message); }
+db.exec(`CREATE TABLE IF NOT EXISTS objectifs_refus (
+  userId TEXT NOT NULL,
+  objectifId INTEGER NOT NULL,
+  candidateId INTEGER NOT NULL,
+  createdAt TEXT NOT NULL,
+  PRIMARY KEY (objectifId, candidateId)
+)`);
 
 const UNITS = ['semaines', 'mois', 'années'];
 const MAX_AMOUNT = { semaines: 156, mois: 120, 'années': 10 };
@@ -436,6 +450,7 @@ function creer(userId, body) {
     if (!par) throw err('Objectif parent introuvable.', 404);
     parentId = par.id;
   }
+  const parentRel = parentId && (body.parentRel === 'avant' || body.parentRel === 'apres') ? body.parentRel : null;
   // Les dates viennent du serveur ; les textes viennent de l'utilisateur (modifiés ou non), par rang.
   const periods = splitPeriods(start, body.endDate, periodWeeks);
   const given = Array.isArray(body.periods) ? body.periods : [];
@@ -452,6 +467,7 @@ function creer(userId, body) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(userId, act.id, title, amount, unit, start, body.endDate, periodWeeks, weekly ? 1 : 0, parentId, JSON.stringify(periods), '[]', new Date().toISOString());
   const id = Number(info.lastInsertRowid);
+  db.prepare('UPDATE user_objectives SET parentRel = ?, position = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), id);
   const est0 = durees.estimate(title);
   const hpw = Number(body.hoursPerWeek) > 0 && Number(body.hoursPerWeek) <= 80 ? Math.round(Number(body.hoursPerWeek) * 10) / 10 : null; // facultatif : valeur de départ = historique Chrono, modifiable
   const meta0 = { plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7) };
@@ -504,7 +520,7 @@ function shape(r, full) {
   const out = {
     id: r.id, title: r.title, activity: { id: act.id, name: act.name, color: act.color },
     amount: r.amount, unit: r.unit, durationLabel: durationLabel(r), startDate: r.startDate, endDate: r.endDate,
-    periodWeeks: r.periodWeeks, weekly: !!r.weekly, parent, description: meta.description || '',
+    periodWeeks: r.periodWeeks, weekly: !!r.weekly, parent, parentId: r.parentId || null, parentRel: r.parentRel || null, position: r.position == null ? null : r.position, description: meta.description || '',
     status: allWeeks.length && doneWeeks === allWeeks.length ? 'atteint' : 'en_cours',
     progress: allWeeks.length ? doneWeeks / allWeeks.length : 0,
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },
@@ -529,8 +545,41 @@ function lateness(r, meta) {
   return est > 0 ? chronoHours(r.userId, r.activityId, r.startDate, td) / est - 1 : 0;
 }
 function get(userId, id) { return shape(rowOf(userId, id), true); }
+function nextPosition(userId, parentId) {
+  const r = parentId == null
+    ? db.prepare('SELECT MAX(position) AS m FROM user_objectives WHERE userId = ? AND parentId IS NULL').get(userId)
+    : db.prepare('SELECT MAX(position) AS m FROM user_objectives WHERE userId = ? AND parentId = ?').get(userId, parentId);
+  return (r && r.m != null ? r.m : 0) + 1;
+}
+// Lier / délier : l'objectif `id` devient une étape de `parentId` (null = il redevient un objectif final séparé). Jamais de cycle ; jamais d'objectif d'un autre utilisateur.
+function lier(userId, id, parentId, rel) {
+  const r = rowOf(userId, id);
+  if (parentId == null || parentId === '') {
+    db.prepare('UPDATE user_objectives SET parentId = NULL, parentRel = NULL, position = ? WHERE id = ?').run(nextPosition(userId, null), r.id);
+    return get(userId, r.id);
+  }
+  const p = rowOf(userId, parentId);
+  for (let cur = p; cur; cur = cur.parentId ? db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId) : null) {
+    if (cur.id === r.id) throw err('Un objectif ne peut pas devenir l’étape de l’une de ses propres étapes.');
+  }
+  db.prepare('UPDATE user_objectives SET parentId = ?, parentRel = ?, position = ? WHERE id = ?')
+    .run(p.id, rel === 'avant' || rel === 'apres' ? rel : null, nextPosition(userId, p.id), r.id);
+  return get(userId, r.id);
+}
+// Refus mémorisé : « cet objectif ne dépend pas de ce candidat » (par couple) ; le refus ne se reproposera pas.
+function refuser(userId, id, candidateId) {
+  const r = rowOf(userId, id), c = rowOf(userId, candidateId);
+  db.prepare('INSERT OR REPLACE INTO objectifs_refus (userId, objectifId, candidateId, createdAt) VALUES (?, ?, ?, ?)').run(userId, r.id, c.id, new Date().toISOString());
+  return { ok: true };
+}
+function refusDe(userId, id) {
+  const r = rowOf(userId, id);
+  return db.prepare('SELECT candidateId FROM objectifs_refus WHERE userId = ? AND objectifId = ?').all(userId, r.id).map((x) => x.candidateId);
+}
 function liste(userId, filtre) {
   const all = db.prepare('SELECT * FROM user_objectives WHERE userId = ? ORDER BY endDate, id').all(userId).map((r) => shape(r, false));
+  const known = new Set(all.map((o) => o.id));
+  all.forEach((o) => { o.archived = (o.parentId == null || !known.has(o.parentId)) && o.status === 'atteint'; }); // objectif FINAL atteint -> archives (un nouveau peut être créé)
   return filtre === 'atteints' ? all.filter((o) => o.status === 'atteint') : filtre === 'tous' ? all : all.filter((o) => o.status !== 'atteint');
 }
 
@@ -593,4 +642,4 @@ function duree(userId, id, periodWeeks) {
   return get(userId, id);
 }
 
-module.exports = { setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, defaultPeriodWeeks, contexte, proposer, creer, get, liste, semaine, bilan, duree, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, defaultPeriodWeeks, contexte, proposer, creer, get, liste, semaine, bilan, duree, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
