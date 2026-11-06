@@ -198,7 +198,7 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   const pj = (...p) => fsx.readFileSync(pathx.join(__dirname, '..', ...p), 'utf8');
   const arSrc = pj('public', 'js', 'objectifs-arbre.js'), arCss = pj('public', 'css', 'objectifs-arbre.css'), swSrc = pj('public', 'sw.js'), htmlSrc = pj('public', 'index.html');
   assert(/b\.rank - a\.b\.rank/.test(arSrc) && /Futur/.test(arSrc) && /arTodayLine/.test(arSrc), 'arbre : futur en haut, passé en bas, ligne « Aujourd’hui »');
-  assert(/'ar-' \+ st/.test(arSrc) && /'future'/.test(arSrc) && /'done'/.test(arSrc) && /'now'/.test(arSrc) && /border: 2px dashed var\(--c\)/.test(arCss) && !/#[0-9a-f]{6}/i.test(arCss), 'arbre : états pâle / vif / pointillé en variantes de la couleur de l’activité (aucune couleur nouvelle)');
+  assert(/ar-' \+ st/.test(arSrc) && /'future'/.test(arSrc) && /'done'/.test(arSrc) && /'now'/.test(arSrc) && /border: 2px dashed var\(--c\)/.test(arCss) && !/#[0-9a-f]{6}/i.test(arCss), 'arbre : états pâle / vif / pointillé en variantes de la couleur de l’activité (aucune couleur nouvelle)');
   assert(/lvl: 'act'/.test(arSrc) && /lvl: 'pole'/.test(arSrc) && /openGoalsDetail/.test(arSrc) && /innerWidth >= 1024/.test(arSrc), 'arbre : activité -> pôle -> secteur -> calendrier, ordinateur >= 1024 px');
   assert(/objectifs-arbre\.js/.test(swSrc) && /objectifs-arbre\.css/.test(swSrc) && /objectifs-arbre\.js/.test(htmlSrc) && /objectifs-arbre\.css/.test(htmlSrc), 'arbre : fichiers déclarés (index.html et service worker)');
   bad = false; try { o.get('autre-utilisateur', made.id); } catch (e) { bad = e.statusCode === 404; } assert(bad, 'un autre utilisateur ne voit pas cet objectif');
