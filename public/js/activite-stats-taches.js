@@ -96,7 +96,7 @@
     });
     rows.forEach(function (r) { members.forEach(function (m) { max = Math.max(max, (g.cells[m.userId] || {})[r.key] || 0); }); });
     if (!max) { card.appendChild(el('p', 'hint cmpEmpty', tr('Aucune tâche sur cette période.'))); return card; }
-    var grid = el('div', 'cgGrid'); grid.style.gridTemplateColumns = 'minmax(0, 1.25fr) repeat(' + members.length + ', minmax(0, 1fr))';
+    var grid = el('div', 'cgGrid'); grid.style.gridTemplateColumns = 'max-content repeat(' + members.length + ', minmax(0, 1fr))';
     grid.appendChild(el('span'));
     members.forEach(function (m) { var h = el('div', 'cgHead'); h.appendChild(el('span', null, m.name)); if (m.lastName) h.appendChild(el('span', null, m.lastName)); grid.appendChild(h); });
     rows.forEach(function (r) {

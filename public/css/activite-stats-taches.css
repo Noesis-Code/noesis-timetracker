@@ -15,13 +15,13 @@
 .caTaskChartCard { margin-bottom: 10px; }
 
 /* Page Groupe : grille « Contribution » (membres x pôles/secteurs, ronds proportionnels) */
-.cgCard { padding: 16px 12px; }
-.cgGrid { display: grid; align-items: center; row-gap: 8px; column-gap: 4px; margin-top: 12px; }
-.cgHead { display: flex; flex-direction: column; align-items: center; text-align: center; font-size: 13px; font-weight: 600; line-height: 1.25; min-width: 0; }
-.cgHead span { max-width: 100%; overflow-wrap: normal; }
-.cgRowLabel { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; min-width: 0; }
-.cgRowLabel span { min-width: 0; overflow-wrap: anywhere; line-height: 1.2; }
-.cgSector { padding-left: 10px; font-weight: 500; }
+.cgCard { padding: 16px 6px; }
+.cgGrid { display: grid; align-items: center; row-gap: 8px; column-gap: 6px; margin-top: 12px; }
+.cgHead { display: flex; flex-direction: column; align-items: center; text-align: center; font-size: 13px; font-weight: 500; line-height: 1.25; min-width: 0; }
+.cgHead span { max-width: 100%; overflow-wrap: normal; letter-spacing: -0.3px; }
+.cgRowLabel { display: flex; align-items: center; gap: 3px; font-size: 13px; font-weight: 500; }
+.cgRowLabel span { white-space: nowrap; line-height: 1.2; } /* libellé entier : la colonne des libellés prend sa largeur, les colonnes des membres se partagent le reste */
+.cgSector { padding-left: 6px; }
 .cgDot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
 .cgCell { display: flex; align-items: center; justify-content: center; min-height: 44px; }
 .cgBubble { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 50%; font-size: 14px; font-weight: 700; }
