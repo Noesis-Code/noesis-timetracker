@@ -204,6 +204,7 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(/ar-' \+ st/.test(arSrc) && /'future'/.test(arSrc) && /'done'/.test(arSrc) && /'now'/.test(arSrc) && /border: 2px dashed var\(--c\)/.test(arCss) && !/#[0-9a-f]{6}/i.test(arCss), 'arbre : états pâle / vif / pointillé en variantes de la couleur de l’activité (aucune couleur nouvelle)');
   assert(/innerWidth >= 1024/.test(arSrc) && /arWide/.test(arSrc) && /showBase/.test(arSrc), 'arbre : ordinateur >= 1024 px (activités côte à côte), ouverture sur les bases');
   assert(/objectifs-arbre\.js/.test(swSrc) && /objectifs-arbre\.css/.test(swSrc) && /objectifs-arbre\.js/.test(htmlSrc) && /objectifs-arbre\.css/.test(htmlSrc), 'arbre : fichiers déclarés (index.html et service worker)');
+  assert(/createUnder: function/.test(crSrc) && /form\.fixedParent = true/.test(crSrc) && /createUnder\(\{ id: parent\.id/.test(arSrc), 'case grise « + » : crée une étape de l’objectif de la branche (parent pré-rempli, après, rattachement non redemandé)');
   bad = false; try { o.get('autre-utilisateur', made.id); } catch (e) { bad = e.statusCode === 404; } assert(bad, 'un autre utilisateur ne voit pas cet objectif');
   // Objectifs de démonstration (staging seulement, idempotent, marqués demo)
   const seedMod = require('../server/lib/seed-staging');
