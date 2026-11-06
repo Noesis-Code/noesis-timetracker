@@ -45,7 +45,7 @@ assert(all.members.every((m) => Object.keys(g.cells[m.userId]).every((k) => keys
 const poleTotal = g.poles.reduce((s, p) => s + all.members.reduce((x, m) => x + (g.cells[m.userId][p.key] || 0), 0), 0);
 assert(poleTotal <= all.total.done, 'grille : total des pôles <= tâches faites');
 const ui = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'activite-stats-taches.js'), 'utf8');
-assert(/function contribution\(/.test(ui) && /Math\.sqrt\(n \/ max\)/.test(ui) && /cgTop/.test(ui) && !/caTaskRank|caTaskBar/.test(ui), 'UI : grille de ronds proportionnels, cadre sur le plus gros, plus de classement ni de barres');
+assert(/function contribution\(/.test(ui) && /Math\.sqrt\(n \/ max\)/.test(ui) && !/cgTop|cgLegend|cgScale/.test(ui) && !/caTaskRank|caTaskBar/.test(ui), 'UI : grille de ronds proportionnels pleins (ni cadre, ni légende), plus de classement ni de barres');
 
 // Bilans automatiques (balayage réel exécuté après le seed)
 require('../server/lib/goals').runGoalsSweepAll();

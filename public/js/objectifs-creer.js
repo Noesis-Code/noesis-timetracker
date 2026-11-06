@@ -83,7 +83,7 @@
   var mineOpen = false;
   // Liste indentée : les objectifs FINAUX en haut, leurs étapes décalées dessous (profondeur illimitée) avec traits de liaison ; toucher le NOM ouvre le détail, le CHEVRON à droite
   // déplie / replie les étapes (R21). Objectifs finaux atteints : section « Archives ».
-  var folded = {}; // objectifs repliés (tout est déplié par défaut)
+  var opened = {}; // étapes dépliées (tout est replié par défaut : seuls les objectifs finaux sont visibles)
   function buildTree(items) {
     var byId = {}, kids = {}, roots = [];
     items.forEach(function (o) { byId[o.id] = o; });
@@ -107,13 +107,13 @@
     main.addEventListener('click', function () { closeMine(); openDetail(o.id); });
     row.appendChild(main);
     if (ks.length) {
-      var tg = el('button', 'objNodeToggle'); tg.type = 'button'; tg.setAttribute('aria-expanded', folded[o.id] ? 'false' : 'true'); tg.setAttribute('aria-label', tr(folded[o.id] ? 'Déplier' : 'Replier'));
-      tg.appendChild(el('span', 'cmpRowCount', String(ks.length))); tg.appendChild(TMT.ui.chev(!folded[o.id]));
-      tg.addEventListener('click', function () { folded[o.id] = !folded[o.id]; rerender(); });
+      var tg = el('button', 'objNodeToggle'); tg.type = 'button'; tg.setAttribute('aria-expanded', opened[o.id] ? 'true' : 'false'); tg.setAttribute('aria-label', tr(opened[o.id] ? 'Replier' : 'Déplier'));
+      tg.appendChild(el('span', 'cmpRowCount', String(ks.length))); tg.appendChild(TMT.ui.chev(!!opened[o.id]));
+      tg.addEventListener('click', function () { opened[o.id] = !opened[o.id]; rerender(); });
       row.appendChild(tg);
     }
     host.appendChild(row);
-    if (ks.length && !folded[o.id]) {
+    if (ks.length && opened[o.id]) {
       ks.forEach(function (k, n) { var anc = ancestors.slice(); anc[depth + 1] = n < ks.length - 1; nodeRow(k, depth + 1, tree, anc, n === ks.length - 1, host, rerender); });
     }
   }
@@ -252,8 +252,8 @@
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
     mineOpen = false; panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
-    var boxes = { desc: el('div'), temps: el('div'), niveau: el('div'), taches: el('div') };
-    ['desc', 'temps', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
+    var boxes = { desc: el('div'), rattach: el('div'), temps: el('div'), niveau: el('div'), taches: el('div') };
+    ['desc', 'rattach', 'temps', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
     if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
     panelForm = form; setBack(null);
     function syncGo() { stepBtn.disabled = !form.dateOk; }
@@ -317,30 +317,12 @@
     var durBox = el('div'); if (!ctx.fixedDate) durBox.appendChild(durRow); durBox.appendChild(datesHint); durBox.appendChild(dateIn);
     paintDates(); boxes.temps.appendChild(field(ctx.fixedDate ? tr('Période') : tr('Durée'), durBox));
 
-    var linksBox = el('div'), actBox = el('div'), chargeBox = el('div');
-    boxes.desc.appendChild(actBox); boxes.desc.appendChild(linksBox); boxes.desc.appendChild(chargeBox);
+    var actBox = el('div'), chargeBox = el('div');
+    boxes.desc.appendChild(actBox); boxes.desc.appendChild(chargeBox);
 
-    function parentCandidates() {
-      return (ctx.objectives || []).filter(function (o) { return !form.create && o.activityId === form.activityId && o.endDate >= form.endDate; });
-    }
-    function renderLinks() {
-      linksBox.textContent = '';
-      var cands = parentCandidates();
-      if (!cands.length) { form.parentId = null; return; }
-      if (form.parentId && !cands.some(function (c) { return c.id === form.parentId; })) form.parentId = null;
-      if (form.parentTouched !== true && form.parentId == null) form.parentId = cands[0].id; // proposé : même activité, échéance globale plus lointaine
-      var list = el('div', 'aiModeChoices');
-      cands.forEach(function (c) { list.appendChild(choice(tr('Étape de') + ' « ' + c.title + ' »', form.parentId === c.id ? tr('Proposé : même activité, même échéance globale') : '', form.parentId === c.id, null, function () { form.parentId = c.id; form.parentTouched = true; refresh(); })); });
-      list.appendChild(choice(tr('Objectif indépendant'), '', form.parentId == null, null, function () { form.parentId = null; form.parentTouched = true; refresh(); }));
-      linksBox.appendChild(field(tr('Lien avec tes objectifs'), list));
-    }
     function renderActivities() {
       actBox.textContent = '';
       var acts = ctx.activities || [], list = el('div', 'aiModeChoices');
-      if (form.parentId) { // étape d'un objectif : l'activité est celle de cet objectif
-        var own = acts.filter(function (a) { return a.id === form.activityId; })[0];
-        if (own) { list.appendChild(choice(own.name, tr('Celle de l’objectif choisi'), true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), list)); return; }
-      }
       var top = form.showAll ? acts : acts.slice(0, ctx.suggestedActivityId == null ? 2 : 3);
       if (!form.showAll && form.activityId != null && !top.some(function (a) { return a.id === form.activityId; })) { var sel = acts.filter(function (a) { return a.id === form.activityId; })[0]; if (sel) top = [sel].concat(top.slice(0, 2)); }
       var createRow = function () { return choice(tr('Créer l’activité') + ' « ' + form.createName + ' »', ctx.suggestedActivityId == null ? tr('Proposée : aucune de tes activités ne correspond') : '', form.create, null, function () { form.create = true; form.activityId = null; refresh(); }); };
@@ -388,7 +370,7 @@
       recVal.textContent = adv ? fmtH(adv) : '—';
       if (!form.hoursTouched) { form.hours = adv || null; hrsIn.value = adv ? String(adv) : ''; }
     }
-    function refresh() { renderLinks(); renderActivities(); renderCharge(); paintPeriods(); syncHours(); }
+    function refresh() { renderActivities(); renderCharge(); paintPeriods(); syncHours(); }
     refresh();
     // Étape « Niveau » : demandée SEULEMENT si des informations manquent (type d'objectif inconnu, plus d'un an, aucun historique Chrono) ; sinon sautée (3 étapes au lieu de 4).
     function needsLevel() { var dl = daysLeft(); return !ctx.estimate || (dl != null && dl > 365) || !(ctx.weeklyHours && form.activityId != null && ctx.weeklyHours[form.activityId]); }
@@ -399,23 +381,51 @@
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
-    var stepNames = { desc: 'Description', temps: 'Temps', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return ['desc', 'temps'].concat(needsLevel() ? ['niveau'] : []).concat(['taches']); }
+    var stepNames = { desc: 'Description', rattach: 'Rattachement', temps: 'Temps', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
+    function list() { return ['desc'].concat(form.ratt && form.ratt.cand ? ['rattach'] : []).concat(['temps']).concat(needsLevel() ? ['niveau'] : []).concat(['taches']); }
+    // Étape « Rattachement » : seulement s'il existe un candidat dans l'activité ; PROPOSITION (règles, ou IA si permis) : Accepter (avec Avant | Après) ou Refuser (refus mémorisé, l'objectif reste un sommet séparé).
+    function paintRatt() {
+      var b = boxes.rattach, r = form.ratt; b.textContent = ''; if (!r || !r.cand) return;
+      var card = el('div', 'aiModeChoice objChoice on'); card.appendChild(el('span', 'aiModeChoiceTitle', r.cand.title)); card.appendChild(el('span', 'aiModeChoiceDesc', r.cand.activityName));
+      b.appendChild(field(tr('Étape de'), card));
+      b.appendChild(field(tr('Placer'), seg([['avant', tr('Avant')], ['apres', tr('Après')]], r.rel, function (k) { r.rel = k; if (r.decided === 'accept') form.parentRel = k; }, tr('Placer'))));
+      b.appendChild(el('p', 'objPlain', '« ' + form.title + ' »'));
+      if (r.decided !== 'accept') {
+        var row = el('div', 'objRattRow');
+        row.appendChild(btn('cmpBtn', tr('Accepter'), function () { r.decided = 'accept'; form.parentId = r.cand.id; form.parentRel = r.rel; paintRatt(); show('rattach'); }));
+        row.appendChild(btn('cmpBtn cmpBtnIdle', tr('Refuser'), function () { r.decided = 'refuse'; form.parentId = null; form.parentRel = null; form.refused = (form.refused || []).concat([r.cand.id]); var l = list(), nx = l[l.indexOf('rattach') + 1]; r.cand = null; show(nx); }));
+        b.appendChild(row);
+      }
+    }
+    function loadRatt() { // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
+      var key = form.title + '|' + (form.create ? 'new' : form.activityId);
+      if (form.ratt && form.ratt.key === key) return Promise.resolve(); // même titre et même activité : la décision précédente reste
+      form.ratt = { key: key, cand: null, rel: 'apres', decided: null }; form.parentId = null; form.parentRel = null;
+      if (form.create || form.activityId == null) return Promise.resolve();
+      return api('POST', '/api/objectifs/rattachement', { title: form.title, activityId: form.activityId, refused: form.refused || [] }).then(function (r) {
+        if (r && r.candidate) { form.ratt.cand = r.candidate; form.ratt.rel = r.rel || 'apres'; }
+      }).catch(function () {});
+    }
     function show(k) {
       form._step = cur = k;
-      ['desc', 'temps', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      ['desc', 'rattach', 'temps', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      if (k === 'rattach') paintRatt();
       panelKicker.textContent = tr(stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
       stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave');
       stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');
-      stepBtn.disabled = k === 'temps' && !form.dateOk;
+      stepBtn.disabled = (k === 'temps' && !form.dateOk) || (k === 'rattach' && form.ratt && form.ratt.decided !== 'accept'); // Suivant grisé tant que le rattachement n'est pas décidé
       advance = i < tot - 1 ? stepNext : finishAll; setBack(i > 0 ? function () { show(l[i - 1]); } : null);
     }
-    function stepNext() { var l = list(), i = l.indexOf(cur); if (i < l.length - 1) { msg.textContent = ''; if (cur === 'desc' && !validDesc()) return; show(l[i + 1]); } }
+    function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
+    function stepNext() {
+      var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
+      if (cur === 'desc') { if (!validDesc()) return; stepBtn.disabled = true; loadRatt().then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; }
+      show(l[i + 1]);
+    }
     function validDesc() {
       form.title = titleIn.value.trim();
       if (!form.title) { msg.textContent = tr('Écris ton objectif.'); return false; }
-      if (form.parentId) { var par = (ctx.objectives || []).filter(function (o) { return o.id === form.parentId; })[0]; if (par) { form.activityId = par.activityId; form.create = false; } }
       if (!form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return false; }
       return true;
     }
@@ -426,7 +436,7 @@
       var actName = form.create ? form.createName : (ctx.activities.filter(function (a) { return a.id === form.activityId; })[0] || {}).name;
       api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: form.weekly !== false, activityId: form.create ? null : form.activityId, activityName: actName })
         .then(function (P) { return (form.create ? api('POST', '/api/activities', { name: form.createName }).then(function (a) { return a.id; }) : Promise.resolve(form.activityId)).then(function (activityId) {
-          return api('POST', '/api/objectifs', { hoursPerWeek: form.hours, description: form.description, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+          return api('POST', '/api/objectifs', { hoursPerWeek: form.hours, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
         }); })
         .then(function () { input.value = ''; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); })
         .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });

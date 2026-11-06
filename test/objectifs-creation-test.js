@@ -178,6 +178,17 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   const l2 = o.liste(u, 'tous');
   assert(l2.find((x) => x.id === arch.id).archived === true && l2.find((x) => x.id === top1.id).archived === false, 'objectif final atteint -> archives ; les autres restent en cours');
   assert(!!mk('Un nouveau après archivage').id, 'un nouvel objectif peut être créé après l’archivage');
+  // Rattachement à la création : PROPOSITION par règles (gratuit), refus mémorisé, jamais de lien silencieux
+  const cert = mk('Obtenir ma certification professionnelle');
+  const rat = await o.rattachement(u, { title: 'Réussir l’examen de certification', activityId: m.activityId });
+  assert(rat.candidate && Number.isInteger(rat.candidate.id) && rat.rel === 'apres' && rat.source === 'regles', 'rattachement : proposé par ressemblance de mots (règles, sans IA)');
+  assert((await o.rattachement(u, { title: 'Jardiner le week-end', activityId: m.activityId })).candidate === null, 'rattachement : aucun candidat sans ressemblance');
+  assert((await o.rattachement(u, { title: 'Obtenir une certification', activityId: m.activityId, refused: [cert.id] })).candidate === null || (await o.rattachement(u, { title: 'Obtenir une certification', activityId: m.activityId, refused: [cert.id] })).candidate.id !== cert.id, 'rattachement : un candidat refusé n’est plus reproposé');
+  assert((await o.rattachement('autre-utilisateur', { title: 'Obtenir une certification', activityId: m.activityId })).candidate === null, 'rattachement : jamais les objectifs d’un autre utilisateur');
+  const withRefus = mk('Passer l’examen de certification', { refus: [cert.id] });
+  assert(JSON.stringify(o.refusDe(u, withRefus.id)) === JSON.stringify([cert.id]) && withRefus.parentId === null, 'refus donné pendant la création : mémorisé, objectif créé comme sommet séparé');
+  const linked = mk('Obtenir une certification', { parentId: cert.id, parentRel: 'apres' });
+  assert(linked.parentId === cert.id && linked.parentRel === 'apres', 'accepté : l’objectif est créé comme étape (parentId + place après)');
   bad = false; try { o.get('autre-utilisateur', made.id); } catch (e) { bad = e.statusCode === 404; } assert(bad, 'un autre utilisateur ne voit pas cet objectif');
   console.log(failed ? '\nobjectifs-creation-test : ' + failed + ' échec(s)' : '\nobjectifs-creation-test : OK');
   process.exit(failed ? 1 : 0);

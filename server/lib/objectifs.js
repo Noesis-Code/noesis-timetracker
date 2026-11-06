@@ -266,7 +266,7 @@ function fallbackProposal(title, periods, weekly) {
 const FEATURE = 'objectifs-creation', READ_FEATURE = 'objectifs-lecture';
 function freeCapUsd() { const n = Number(process.env.OBJECTIFS_GRATUIT_PLAFOND_USD); return Number.isFinite(n) && n > 0 ? n : 50; }
 function aiAllowed(userId, feature) { // une seule proposition gratuite par mois et par utilisateur, toutes fonctions de ce fichier confondues (étapes + lecture)
-  const month = today().slice(0, 7), feats = [FEATURE, READ_FEATURE], q = feats.map(() => '?').join(',');
+  const month = today().slice(0, 7), feats = [FEATURE, READ_FEATURE, RATT_FEATURE], q = feats.map(() => '?').join(',');
   const mine = db.prepare('SELECT COALESCE(SUM(calls), 0) AS n FROM ai_usage_log WHERE userId = ? AND feature IN (' + q + ') AND day >= ? AND day <= ?').get(String(userId), ...feats, month + '-01', month + '-31').n;
   if (mine >= 1) return false;
   const all = db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE feature IN (' + q + ') AND day >= ? AND day <= ?').get(...feats, month + '-01', month + '-31').s;
@@ -374,6 +374,48 @@ async function proposer(userId, body) {
   return { title, startDate: start, endDate: end, periodWeeks, weekly, periods, weekTasks: canTasks ? tasks : [], canGenerateTasks: canTasks };
 }
 
+// ---- Rattachement : de quel objectif de l'activité ce nouvel objectif est-il une ÉTAPE ? (PROPOSITION seulement, jamais de rattachement silencieux) ----
+// Règles (gratuit, sans IA) : ressemblance de catégorie (même type d'objectif dans la base de durées) puis de mots du titre ; seuls les objectifs non atteints de la même activité
+// sont candidats, hors refus déjà donnés. IA (Haiku) : seulement avec Expansion ou, à défaut, avec l'unique proposition gratuite du mois ; toute erreur => règles.
+const RATT_FEATURE = 'objectifs-rattachement';
+function rattRules(title, cands) {
+  const mine = new Set(words(title).map(stemOf)), est = durees.estimate(title);
+  let best = null;
+  cands.forEach((c) => {
+    const meta = JSON.parse(c.metaJson || '{}'), shared = words(c.title).map(stemOf).filter((s) => mine.has(s)).length;
+    const score = shared + (est && meta.cat && meta.cat === est.id ? 2 : 0);
+    if (score >= 1 && (!best || score > best.score || (score === best.score && c.endDate > best.c.endDate))) best = { c, score };
+  });
+  return best && best.c;
+}
+async function rattAi(userId, title, cands) {
+  if (!process.env.ANTHROPIC_API_KEY || !(tasksAllowed(userId) || aiAllowed(userId))) return undefined;
+  try {
+    const aibudget = require('./aibudget'), aimodels = require('./aimodels');
+    const res = await aibudget.fetchAnthropic(RATT_FEATURE, 'https://api.anthropic.com/v1/messages', {
+      method: 'POST', signal: AbortSignal.timeout(aimodels.timeoutMs('rapprochement')),
+      headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: aimodels.FAST, max_tokens: 60, system: 'Tu dis si un NOUVEL objectif est une étape d\'un des objectifs existants. Réponds UNIQUEMENT par un objet JSON {"id": nombre ou null}. Réponds null si aucun lien clair.', messages: [{ role: 'user', content: JSON.stringify({ nouveau: title, existants: cands.map((c) => ({ id: c.id, titre: c.title })) }) }] }),
+    });
+    if (!res.ok) return undefined;
+    const body = await res.json(), text = (body.content || []).map((b) => b.text || '').join('');
+    const parsed = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
+    if (parsed.id == null) return null;
+    return cands.find((c) => c.id === Number(parsed.id)) || undefined;
+  } catch (e) { return undefined; }
+}
+async function rattachement(userId, body) {
+  const title = cleanTitle(body && body.title), act = userActivities(userId).find((a) => a.id === Number(body && body.activityId));
+  if (!act || !title) return { candidate: null };
+  const refused = new Set(((body && body.refused) || []).map(Number));
+  const cands = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).filter((r) => !refused.has(r.id) && shape(r, false).status !== 'atteint');
+  if (!cands.length) return { candidate: null };
+  let pick = await rattAi(userId, title, cands), source = 'ia';
+  if (pick === undefined) { pick = rattRules(title, cands); source = 'regles'; }
+  if (!pick) return { candidate: null };
+  return { candidate: { id: pick.id, title: pick.title, activityName: act.name }, rel: 'apres', source };
+}
+
 // ---- Création (après validation) ----
 function targetCategory(activityId, activityName) {
   let poles = goals.categoriesForActivity(activityId);
@@ -468,6 +510,7 @@ function creer(userId, body) {
     .run(userId, act.id, title, amount, unit, start, body.endDate, periodWeeks, weekly ? 1 : 0, parentId, JSON.stringify(periods), '[]', new Date().toISOString());
   const id = Number(info.lastInsertRowid);
   db.prepare('UPDATE user_objectives SET parentRel = ?, position = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), id);
+  (Array.isArray(body.refus) ? body.refus : []).slice(0, 20).forEach((cid) => { const c = db.prepare('SELECT id FROM user_objectives WHERE id = ? AND userId = ?').get(Number(cid), userId); if (c && c.id !== id) db.prepare('INSERT OR REPLACE INTO objectifs_refus (userId, objectifId, candidateId, createdAt) VALUES (?, ?, ?, ?)').run(userId, id, c.id, new Date().toISOString()); });
   const est0 = durees.estimate(title);
   const hpw = Number(body.hoursPerWeek) > 0 && Number(body.hoursPerWeek) <= 80 ? Math.round(Number(body.hoursPerWeek) * 10) / 10 : null; // facultatif : valeur de départ = historique Chrono, modifiable
   const meta0 = { plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7) };
@@ -642,4 +685,4 @@ function duree(userId, id, periodWeeks) {
   return get(userId, id);
 }
 
-module.exports = { lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, defaultPeriodWeeks, contexte, proposer, creer, get, liste, semaine, bilan, duree, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, defaultPeriodWeeks, contexte, proposer, creer, get, liste, semaine, bilan, duree, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

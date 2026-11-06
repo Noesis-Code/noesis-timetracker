@@ -133,3 +133,6 @@
 .objTreeLineHalf { bottom: 50%; }
 .objTreeLineH { top: 50%; width: 8px; height: 1px; }
 .objArchTitle { margin: 16px 4px 4px; }
+
+.objRattRow { display: flex; gap: 12px; margin-top: 16px; }
+.objRattRow .cmpBtn { flex: 1; min-height: 44px; }

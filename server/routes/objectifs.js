@@ -21,6 +21,7 @@ router.post('/objectifs/contexte', run((req) => objectifs.contexte(req.userId, r
 router.get('/objectifs/reglage', run((req) => ({ anon: objectifs.anonOptIn(req.userId) })));
 router.put('/objectifs/reglage', run((req) => objectifs.setAnon(req.userId, !(req.body && req.body.anon === false))));
 router.post('/objectifs/lecture', run((req) => objectifs.lire(req.userId, req.body || {})));
+router.post('/objectifs/rattachement', run((req) => objectifs.rattachement(req.userId, req.body || {})));
 router.post('/objectifs/proposition', run((req) => objectifs.proposer(req.userId, req.body || {})));
 router.post('/objectifs', run(async (req) => objectifs.creer(req.userId, req.body || {})));
 router.get('/objectifs/:id', run((req) => objectifs.get(req.userId, req.params.id)));

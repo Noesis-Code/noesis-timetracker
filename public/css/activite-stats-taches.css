@@ -25,6 +25,3 @@
 .cgDot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
 .cgCell { display: flex; align-items: center; justify-content: center; min-height: 44px; }
 .cgBubble { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 50%; font-size: 14px; font-weight: 700; }
-.cgTop { box-shadow: 0 0 0 2px var(--text); } /* cadre clair : principal contributeur de la ligne */
-.cgLegend { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 16px; color: var(--text-light); font-size: 13px; }
-.cgScale { display: inline-block; border-radius: 50%; background: var(--text-light); }

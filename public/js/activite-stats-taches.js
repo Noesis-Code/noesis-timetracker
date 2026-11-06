@@ -82,7 +82,7 @@
     body = el('div', 'caTaskBody'); card.appendChild(body); host.appendChild(card);
   }
   // Grille « Contribution » : colonnes = membres (nom complet sur 2 lignes), lignes = pôles puis secteurs (pastille de la couleur du pôle) ; chaque rond contient le nombre de tâches
-  // faites, son AIRE est proportionnelle (diamètre 44 x racine(n / max), mini 24 px) ; un cadre clair entoure le plus gros rond de chaque ligne (principal contributeur). Pas de classement.
+  // faites, son AIRE est proportionnelle (diamètre 44 x racine(n / max), mini 24 px), ronds pleins sans contour ni légende. Pas de classement.
   function contribution(d) {
     var card = el('div', 'saCard saGlass cgCard'), g = d.grid, members = d.members || [];
     card.appendChild(el('p', 'cmpBlockTitle', tr('Contribution')));
@@ -101,11 +101,10 @@
     members.forEach(function (m) { var h = el('div', 'cgHead'); h.appendChild(el('span', null, m.name)); if (m.lastName) h.appendChild(el('span', null, m.lastName)); grid.appendChild(h); });
     rows.forEach(function (r) {
       var lab = el('div', 'cgRowLabel' + (r.sector ? ' cgSector' : '')), dot = el('i', 'cgDot'); dot.style.background = r.color; lab.appendChild(dot); lab.appendChild(el('span', null, r.label)); grid.appendChild(lab);
-      var vals = members.map(function (m) { return (g.cells[m.userId] || {})[r.key] || 0; }), top = Math.max.apply(null, vals);
-      vals.forEach(function (n) {
+      members.map(function (m) { return (g.cells[m.userId] || {})[r.key] || 0; }).forEach(function (n) {
         var cell = el('div', 'cgCell');
         if (n > 0) {
-          var dia = Math.max(24, Math.round(44 * Math.sqrt(n / max))), c = el('span', 'cgBubble' + (n === top ? ' cgTop' : ''), String(n));
+          var dia = Math.max(24, Math.round(44 * Math.sqrt(n / max))), c = el('span', 'cgBubble', String(n));
           c.style.width = dia + 'px'; c.style.height = dia + 'px'; c.style.background = r.color;
           c.style.color = TMT.readableTextOn ? TMT.readableTextOn(r.color) : '#fff';
           cell.appendChild(c);
@@ -114,8 +113,6 @@
       });
     });
     card.appendChild(grid);
-    var lg = el('div', 'cgLegend'), s1 = el('i', 'cgScale'), s2 = el('i', 'cgScale'); s1.style.width = s1.style.height = '24px'; s2.style.width = s2.style.height = '44px';
-    lg.appendChild(s1); lg.appendChild(el('span', null, '→')); lg.appendChild(s2); card.appendChild(lg);
     return card;
   }
   function render(d) {
