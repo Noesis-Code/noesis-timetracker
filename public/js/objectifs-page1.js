@@ -108,8 +108,13 @@
     var bubbleWrapEl = $('goalsCaptureBubbleWrap');
     var textareaEl = bubbleWrapEl ? bubbleWrapEl.querySelector('textarea') : null;
     var typing = !!(textareaEl && textareaEl.value.trim());
+    // Liste « Objectifs » : seulement les activités qui ont AU MOINS UN objectif (rien n'est supprimé, seul l'affichage change) ; jamais pendant le choix d'une activité pour une tâche.
+    var onlyWithObjectives = !goalsCaptureAwaitingActivityChoice && !typing, shown = 0;
     list.forEach(function (a) {
       var id = String(a.id);
+      var bi0 = TMT.goalsCaptureBadges[a.id] || TMT.goalsCaptureBadges[id];
+      if (onlyWithObjectives && bi0 && bi0.hasObjectives === false) return;
+      shown++;
       var isSelected = goalsCaptureSelectedActivityIds.indexOf(id) !== -1;
       var btn = document.createElement('button');
       btn.type = 'button';
@@ -165,6 +170,7 @@
       box.appendChild(btn);
       if (TMT.syncUnreadChipDots) TMT.syncUnreadChipDots();
     });
+    if (onlyWithObjectives && list.length && !shown) { var none = document.createElement('p'); none.className = 'hint cmpEmpty'; none.textContent = t('Aucun objectif pour l’instant.'); box.appendChild(none); } // aucune activité n'a d'objectif : état vide
   }
 
 
