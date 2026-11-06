@@ -156,8 +156,10 @@
 
 /* Avancement : une ligne par activité sur un axe commun ; le curseur vertical marque « aujourd'hui » (couleurs = celles des activités, R16). */
 .saTl { position: relative; padding: 0 0 2px; }
-.saTlRow { margin: 0 0 10px; }
-.saTlName { margin: 0 0 4px; font-size: 13px; color: var(--text-light); }
+.saTlRow { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+.saTlAxis { position: relative; flex: 1; min-width: 0; }
+.saTlCursorBox { position: absolute; top: 0; bottom: 0; left: calc(var(--tl-name, 36%) + 8px); right: 0; pointer-events: none; }
+.saTlName { flex: 0 0 var(--tl-name, 36%); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-light); }
 .saTlTrack { position: relative; height: 12px; box-sizing: border-box; border: 1px solid; border-radius: 6px; overflow: hidden; background: transparent; }
 .saTlFill { position: absolute; left: 0; top: 0; bottom: 0; }
 .saTlCursor { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--text); pointer-events: none; }

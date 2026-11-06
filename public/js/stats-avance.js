@@ -520,13 +520,13 @@
     var pos = function (n) { return Math.max(0, Math.min(1, (n - o0) / span)) * 100; };
     var w = el('div', 'saTl');
     a.list.forEach(function (r) {
-      var c = colorOf(r.activityId), line = el('div', 'saTlRow');
-      line.appendChild(el('div', 'saTlName', r.name));
+      var c = colorOf(r.activityId), line = el('div', 'saTlRow'), axis = el('div', 'saTlAxis');
+      line.appendChild(el('div', 'saTlName', r.name)); line.appendChild(axis);
       var tr0 = el('div', 'saTlTrack'); tr0.style.width = pos(dayNum(r.end)) + '%'; tr0.style.borderColor = c;
       var fill = el('i', 'saTlFill'); fill.style.width = (r.total ? Math.round(r.done * 100 / r.total) : 0) + '%'; fill.style.background = c; tr0.appendChild(fill);
-      line.appendChild(tr0); w.appendChild(line);
+      axis.appendChild(tr0); w.appendChild(line);
     });
-    var cur = el('i', 'saTlCursor'); cur.style.left = pos(dayNum(a.today)) + '%'; cur.setAttribute('aria-label', tr("Aujourd'hui")); w.appendChild(cur);
+    var box = el('div', 'saTlCursorBox'), cur = el('i', 'saTlCursor'); cur.style.left = pos(dayNum(a.today)) + '%'; cur.setAttribute('aria-label', tr("Aujourd'hui")); box.appendChild(cur); w.appendChild(box); // le curseur ne vit que sur l'axe des lignes, jamais sur les noms
     return w;
   }
 
