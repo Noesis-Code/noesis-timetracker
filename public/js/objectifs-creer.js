@@ -93,6 +93,7 @@
     sendBtn = el('button', 'cmpSend'); sendBtn.type = 'button'; sendBtn.setAttribute('aria-label', tr('Envoyer'));
     sendBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
     sendBtn.addEventListener('click', start);
+    input.addEventListener('focus', function () { if (!input.value.trim()) openMine(); }); // toucher la barre avant d'écrire : la liste de tous les objectifs apparaît au-dessus (non bloquante)
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); start(); } });
     bar.appendChild(pin('tasksClip cmpSymbol')); bar.appendChild(input); bar.appendChild(sendBtn); dock.appendChild(bar);
     // Une fois l'objectif envoyé, la barre devient UN bouton (même mécanisme que « Enregistrer » d'Expansion : .tasksDock.expSave) : « Passer à … » à gauche, n/total à droite.
@@ -117,7 +118,7 @@
   function mountRow() {
     var box = document.getElementById('goalsCaptureActivities'); if (!box) return;
     if (!rowBtn) {
-      rowBtn = btn('goalsCaptureActivityChip objLineRow', '', openObjectivesPopup);
+      rowBtn = btn('goalsCaptureActivityChip objLineRow', '', function () { if (mineOpen) closeMine(); else openMine(); });
       var zone = el('span', 'goalsCaptureZone cmpNoDot'); zone.appendChild(el('span', 'goalsCaptureActivityChipName', tr('Mes objectifs')));
       rowCount = el('span', 'cmpRowCount', ''); var chev = el('span', 'cmpChev'); chev.setAttribute('aria-hidden', 'true');
       rowBtn.appendChild(zone); rowBtn.appendChild(rowCount); rowBtn.appendChild(chev);
@@ -125,27 +126,32 @@
     if (box.firstChild !== rowBtn) box.insertBefore(rowBtn, box.firstChild);
   }
   function refreshCount() { api('GET', '/api/objectifs?filtre=tous').then(function (r) { if (rowCount) rowCount.textContent = String(((r && r.objectifs) || []).length || ''); }).catch(function () {}); }
-  var popup = null;
-  function openObjectivesPopup() {
-    var win = openModal(tr('Mes objectifs'), { onClose: function () { popup = null; } });
-    // Tous les objectifs (plus de filtre) : une ligne par objectif ; un toucher ouvre le détail existant.
-    var list = el('div', 'objList');
-    function draw() {
-      api('GET', '/api/objectifs?filtre=tous').then(function (r) {
-        list.textContent = ''; var items = (r && r.objectifs) || [];
-        items.forEach(function (o) { // une ligne : nom de l'objectif + activité(s) liée(s) en petit
-          var row = el('button', 'objRowLine'); row.type = 'button';
-          row.appendChild(el('span', 'objRowName', o.title)); row.appendChild(el('span', 'objMeta', (o.activities && o.activities.length ? o.activities.map(function (x) { return x.name; }).join(', ') : o.activity.name)));
-          row.addEventListener('click', function () { win.close(); openDetail(o.id); });
-          list.appendChild(row);
-        });
-        if (!items.length) list.appendChild(el('p', 'hint objNone cmpEmpty', tr('Aucun objectif pour l’instant.')));
-      }).catch(function () {});
-    }
-    win.body.appendChild(list);
-    popup = { redraw: draw }; draw();
+  // UN SEUL pop-up « Mes objectifs » (liste de TOUS les objectifs) : le panneau de la barre (.tasksPropose, au-dessus de « Nouvel objectif… »), ouvert par la ligne « Mes objectifs »
+  // OU par un toucher sur la barre avant d'écrire. Non bloquant : on peut taper dans la barre ; il se ferme à l'envoi ou par ✕.
+  var mineOpen = false;
+  function drawMine() {
+    if (!mineOpen) return;
+    api('GET', '/api/objectifs?filtre=tous').then(function (r) {
+      if (!mineOpen) return;
+      var list = el('div', 'objList'), items = (r && r.objectifs) || [];
+      items.forEach(function (o) { // une ligne : nom de l'objectif + activité(s) liée(s) en petit ; un toucher ouvre le détail existant
+        var row = el('button', 'objRowLine'); row.type = 'button';
+        row.appendChild(el('span', 'objRowName', o.title)); row.appendChild(el('span', 'objMeta', (o.activities && o.activities.length ? o.activities.map(function (x) { return x.name; }).join(', ') : o.activity.name)));
+        row.addEventListener('click', function () { closeMine(); openDetail(o.id); });
+        list.appendChild(row);
+      });
+      if (!items.length) list.appendChild(el('p', 'hint objNone cmpEmpty', tr('Aucun objectif pour l’instant.')));
+      panelBody.textContent = ''; panelBody.appendChild(list);
+    }).catch(function () {});
   }
-  function load() { if (popup) popup.redraw(); refreshCount(); }
+  function openMine() {
+    if (mineOpen || panelForm || dock.classList.contains('expSave')) return; // une création est en cours : on n'y touche pas
+    mineOpen = true; stepNav = null; advance = null; goBack = null;
+    panelKicker.textContent = tr('Mes objectifs'); panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden');
+    drawMine();
+  }
+  function closeMine() { if (!mineOpen) return; mineOpen = false; panel.classList.add('hidden'); panelBody.textContent = ''; }
+  function load() { if (mineOpen) drawMine(); refreshCount(); }
 
   // ---------- Fenêtres (gabarit commun .goalTaskEditModal) ----------
   function openModal(title, opts) {
@@ -237,7 +243,7 @@
     stepLabel.textContent = next ? tr('Suivant') : tr('Terminer'); stepBtn.setAttribute('aria-label', (next ? tr('Suivant') + ' : ' + tr(next) : tr('Terminer')) + ' (' + n + '/' + total() + ')'); stepPos.textContent = n + '/' + total(); stepBtn.disabled = !enabled;
   }
   function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
-    dock.classList.remove('expSave'); advance = null; goBack = null; stepNav = null; panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; queue = []; seq = { base: 0, count: 1, i: 0 };
+    mineOpen = false; dock.classList.remove('expSave'); advance = null; goBack = null; stepNav = null; panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; queue = []; seq = { base: 0, count: 1, i: 0 };
   }
 
   // ---------- Fenêtre « Nouvel objectif » ----------
@@ -245,6 +251,7 @@
   function start() {
     var text = input.value.trim();
     if (!text || busy) return;
+    closeMine(); // l'envoi referme la liste
     seq = { base: 0, count: 1, i: 0 }; queue = [];
     busy = true; sendBtn.disabled = true;
     api('POST', '/api/objectifs/contexte', { text: text }).then(function (ctx) { busy = false; sendBtn.disabled = false; openComposer(ctx); })
@@ -254,7 +261,7 @@
   function openComposer(ctx) {
     var form = ctx._form || (ctx._form = { title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null, _ctx: ctx });
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
-    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
+    mineOpen = false; panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
     var boxes = { desc: el('div'), temps: el('div'), niveau: el('div'), taches: el('div') };
     ['desc', 'temps', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
