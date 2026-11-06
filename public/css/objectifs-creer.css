@@ -110,7 +110,8 @@
 .objTimeRow { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--text-light); }
 .objTimeRow b { color: var(--text); font-weight: 600; }
 
-.objLineRow { margin: 0 0 24px; }
+.objLineRow { margin: 0; }
+.objLineRow + .objLineRow { margin-bottom: 24px; }
 #goalsCaptureActivityPrompt:not(.hidden) ~ #goalsCaptureActivities .objLineRow { display: none; } /* pendant « Quelle activité pour cette tâche ? » la ligne ne sert pas */
 /* Pop-up « Mes objectifs » : une ligne par objectif = nom + activité(s) en petit (13 px, gris sable) ; séparateur plein largeur (R22). */
 .objRowName { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }

@@ -194,6 +194,13 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   const uiSrc = fsx.readFileSync(pathx.join(__dirname, '..', 'public', 'js', 'composants.js'), 'utf8'), crSrc = fsx.readFileSync(pathx.join(__dirname, '..', 'public', 'js', 'objectifs-creer.js'), 'utf8');
   assert(/function holdDrag\(/.test(uiSrc) && /ui\.holdDrag = holdDrag/.test(uiSrc) && /o\.holdMs \|\| 500/.test(uiSrc), 'composant commun : appui long (500 ms) + glisser-déposer sur une cible (TMT.ui.holdDrag)');
   assert(/TMT\.ui\.holdDrag\(row/.test(crSrc) && /\/parent'/.test(crSrc) && /objUnlinkZone/.test(crSrc) && /propres étapes/.test(crSrc), '« Mes objectifs » : déposer sur un objectif le rattache, zone « Délier », cycle refusé avec un retour discret');
+  // Arbre des objectifs (lecture) : temps du bas vers le haut, états, drill-down jusqu'au calendrier, bureau
+  const pj = (...p) => fsx.readFileSync(pathx.join(__dirname, '..', ...p), 'utf8');
+  const arSrc = pj('public', 'js', 'objectifs-arbre.js'), arCss = pj('public', 'css', 'objectifs-arbre.css'), swSrc = pj('public', 'sw.js'), htmlSrc = pj('public', 'index.html');
+  assert(/b\.rank - a\.b\.rank/.test(arSrc) && /Futur/.test(arSrc) && /arTodayLine/.test(arSrc), 'arbre : futur en haut, passé en bas, ligne « Aujourd’hui »');
+  assert(/ar-future/.test(arSrc) && /ar-done/.test(arSrc) && /ar-now/.test(arSrc) && /border: 2px dashed var\(--c\)/.test(arCss) && !/#[0-9a-f]{6}/i.test(arCss), 'arbre : états pâle / vif / pointillé en variantes de la couleur de l’activité (aucune couleur nouvelle)');
+  assert(/lvl: 'act'/.test(arSrc) && /lvl: 'pole'/.test(arSrc) && /openGoalsDetail/.test(arSrc) && /innerWidth >= 1024/.test(arSrc), 'arbre : activité -> pôle -> secteur -> calendrier, ordinateur >= 1024 px');
+  assert(/objectifs-arbre\.js/.test(swSrc) && /objectifs-arbre\.css/.test(swSrc) && /objectifs-arbre\.js/.test(htmlSrc) && /objectifs-arbre\.css/.test(htmlSrc), 'arbre : fichiers déclarés (index.html et service worker)');
   bad = false; try { o.get('autre-utilisateur', made.id); } catch (e) { bad = e.statusCode === 404; } assert(bad, 'un autre utilisateur ne voit pas cet objectif');
   console.log(failed ? '\nobjectifs-creation-test : ' + failed + ' échec(s)' : '\nobjectifs-creation-test : OK');
   process.exit(failed ? 1 : 0);

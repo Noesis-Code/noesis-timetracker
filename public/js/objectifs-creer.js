@@ -66,7 +66,7 @@
     f.style.width = Math.round(Math.max(0, Math.min(1, p)) * 100) + '%'; t.appendChild(f); return t;
   }
   // Ligne « Mes objectifs » : même composant de ligne que les activités (.goalsCaptureActivityChip), masque de pastille et compteur communs (composants.css).
-  var rowBtn = null, rowCount = null;
+  var rowBtn = null, rowCount = null, arbreBtn = null;
   function mountRow() {
     var box = document.getElementById('goalsCaptureActivities'); if (!box) return;
     if (!rowBtn) {
@@ -76,6 +76,12 @@
       rowBtn.appendChild(zone); rowBtn.appendChild(rowCount); rowBtn.appendChild(chev);
     }
     if (box.firstChild !== rowBtn) box.insertBefore(rowBtn, box.firstChild);
+    if (!arbreBtn) { // ligne « Arbre des objectifs » juste dessous : même composant de ligne, sans compteur
+      arbreBtn = btn('goalsCaptureActivityChip cmpSepRow objLineRow', '', function () { if (TMT.objectifsArbre) TMT.objectifsArbre.open(); });
+      var z2 = el('span', 'goalsCaptureZone cmpNoDot'); z2.appendChild(el('span', 'goalsCaptureActivityChipName', tr('Arbre des objectifs')));
+      var ch2 = el('span', 'cmpChev'); ch2.setAttribute('aria-hidden', 'true'); arbreBtn.appendChild(z2); arbreBtn.appendChild(ch2);
+    }
+    if (rowBtn.nextSibling !== arbreBtn) box.insertBefore(arbreBtn, rowBtn.nextSibling);
   }
   function refreshCount() { api('GET', '/api/objectifs?filtre=tous').then(function (r) { if (rowCount) rowCount.textContent = String(((r && r.objectifs) || []).length || ''); }).catch(function () {}); }
   // UN SEUL pop-up « Mes objectifs » (liste de TOUS les objectifs) : le panneau de la barre (.tasksPropose, au-dessus de « Nouvel objectif… »), ouvert par la ligne « Mes objectifs »
@@ -662,7 +668,8 @@
   })();
   TMT.objectifsView = {
     show: function () { state.shown = true; syncDock(); mountRow(); refreshCount(); },
-    hide: function () { state.shown = false; syncDock(); }
+    hide: function () { state.shown = false; syncDock(); },
+    focus: function () { if (input) input.focus(); }
   };
   // Si la vue Objectifs est déjà celle affichée au chargement (page1 se monte avant ce fichier).
   if (!host.classList.contains('hidden')) TMT.objectifsView.show();
