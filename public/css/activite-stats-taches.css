@@ -7,14 +7,24 @@
 .caTaskCard { background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 10px; }
 .caTaskSummary { border-color: rgba(var(--purple-rgb), 0.6); }
 .caTaskHead { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.caTaskRank { width: 18px; text-align: center; color: var(--grey-violet); font-size: 13px; }
 .caTaskName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.caTaskBar { height: 8px; border-radius: 4px; background: var(--glass-calm-line); overflow: hidden; margin-bottom: 8px; }
-.caTaskFill { height: 100%; border-radius: 4px; }
-.caTaskFill.good { background: var(--good); }
-.caTaskFill.bad { background: var(--danger); }
 .caTaskLine { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 2px 0; }
 .caTaskPage > .sectionTitleRow { margin: 0 4px 10px; }
 /* page Tâches par membre — « Sans pôle » retiré du filtre ; graphique en tête. */
 #caCategoryMenu.caNoNone [data-category="none"] { display: none; }
 .caTaskChartCard { margin-bottom: 10px; }
+
+/* Page Groupe : grille « Contribution » (membres x pôles/secteurs, ronds proportionnels) */
+.cgCard { padding: 16px 12px; }
+.cgGrid { display: grid; align-items: center; row-gap: 8px; column-gap: 4px; margin-top: 12px; }
+.cgHead { display: flex; flex-direction: column; align-items: center; text-align: center; font-size: 13px; font-weight: 600; line-height: 1.25; min-width: 0; }
+.cgHead span { max-width: 100%; overflow-wrap: normal; }
+.cgRowLabel { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; min-width: 0; }
+.cgRowLabel span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cgSector { padding-left: 10px; font-weight: 500; }
+.cgDot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
+.cgCell { display: flex; align-items: center; justify-content: center; min-height: 44px; }
+.cgBubble { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 50%; font-size: 14px; font-weight: 700; }
+.cgTop { box-shadow: 0 0 0 2px var(--text); } /* cadre clair : principal contributeur de la ligne */
+.cgLegend { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 16px; color: var(--text-light); font-size: 13px; }
+.cgScale { display: inline-block; border-radius: 50%; background: var(--text-light); }

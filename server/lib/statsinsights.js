@@ -773,7 +773,16 @@ function memberStats(activityId, scopeParam, yearParam, poleKey) {
     max = Math.max(max, acc);
     return { userId: m.id, name: m.name, lastName: m.lastName || '', color: m.color || null, values };
   });
-  return { scope: scopeName, total: { tasks: total, done: totalDone, remaining: total - totalDone }, members: out,
+  // Grille « Contribution » : tâches FAITES par membre, par pôle (total du pôle, secteurs compris) et par secteur. Comptes seulement, aucun titre de tâche.
+  const grid = { poles: scope.poles.map((p) => ({ key: p.key, label: p.label, sectors: p.sectors })), cells: {} };
+  members.forEach((m) => { grid.cells[m.id] = {}; });
+  tasks.forEach((t) => {
+    if (!t.done) return;
+    const row = grid.cells[respOf(t)]; if (!row) return;
+    row[t.pole] = (row[t.pole] || 0) + 1;
+    if (t.key !== t.pole) row[t.key] = (row[t.key] || 0) + 1;
+  });
+  return { scope: scopeName, total: { tasks: total, done: totalDone, remaining: total - totalDone }, members: out, grid,
     series: { labels, todayIndex, noToday, max: niceMax(max), members: seriesMembers } };
 }
 

@@ -36,6 +36,17 @@ const sumLast = (d) => d.series.members.reduce((a, m) => a + (m.values[d.series.
 assert(sumLast(pole) <= sumLast(all), 'filtre pôle : ne dépasse pas le total');
 assert(sumLast(insights.memberStats(aid, 'all', null, 'none')) === 0, 'clé inconnue : aucune tâche');
 
+// Grille « Contribution » (page Groupe) : tâches FAITES par membre x pôle/secteur, comptes seulement
+const g = all.grid;
+assert(g && Array.isArray(g.poles) && g.poles.length > 0, 'grille : pôles (et secteurs) de l’activité');
+assert(all.members.every((m) => g.cells[m.userId] && typeof g.cells[m.userId] === 'object'), 'grille : une ligne de comptes par membre');
+const keysOf = new Set(); g.poles.forEach((p) => { keysOf.add(p.key); (p.sectors || []).forEach((s) => keysOf.add(s.key)); });
+assert(all.members.every((m) => Object.keys(g.cells[m.userId]).every((k) => keysOf.has(k) && Number.isInteger(g.cells[m.userId][k]) && g.cells[m.userId][k] > 0)), 'grille : clés connues, entiers positifs seulement (pas de titre)');
+const poleTotal = g.poles.reduce((s, p) => s + all.members.reduce((x, m) => x + (g.cells[m.userId][p.key] || 0), 0), 0);
+assert(poleTotal <= all.total.done, 'grille : total des pôles <= tâches faites');
+const ui = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'activite-stats-taches.js'), 'utf8');
+assert(/function contribution\(/.test(ui) && /Math\.sqrt\(n \/ max\)/.test(ui) && /cgTop/.test(ui) && !/caTaskRank|caTaskBar/.test(ui), 'UI : grille de ronds proportionnels, cadre sur le plus gros, plus de classement ni de barres');
+
 // Bilans automatiques (balayage réel exécuté après le seed)
 require('../server/lib/goals').runGoalsSweepAll();
 //  : aucun message, périodes passées déjà marquées

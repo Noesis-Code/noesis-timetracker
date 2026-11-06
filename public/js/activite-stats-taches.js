@@ -12,12 +12,6 @@
   var SCOPES = [['all', 'Tout'], ['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
   var chartBody, chartMeta;
 
-  function avatar(m) {
-    var a = el('span', 'smallAvatar');
-    if (m.avatar) { var im = document.createElement('img'); im.src = m.avatar; im.alt = ''; a.appendChild(im); a.style.background = 'transparent'; }
-    else { a.textContent = (m.name || '?').trim().charAt(0).toUpperCase(); a.style.background = m.color || 'var(--purple)'; }
-    return a;
-  }
   function line(label, value) {
     var r = el('div', 'caTaskLine'); r.appendChild(el('span', null, label)); r.appendChild(el('strong', null, value)); return r;
   }
@@ -87,6 +81,43 @@
     chartBody = el('div'); chartCard.appendChild(chartBody); card.appendChild(chartCard); setMeta();
     body = el('div', 'caTaskBody'); card.appendChild(body); host.appendChild(card);
   }
+  // Grille « Contribution » : colonnes = membres (nom complet sur 2 lignes), lignes = pôles puis secteurs (pastille de la couleur du pôle) ; chaque rond contient le nombre de tâches
+  // faites, son AIRE est proportionnelle (diamètre 44 x racine(n / max), mini 24 px) ; un cadre clair entoure le plus gros rond de chaque ligne (principal contributeur). Pas de classement.
+  function contribution(d) {
+    var card = el('div', 'saCard saGlass cgCard'), g = d.grid, members = d.members || [];
+    card.appendChild(el('p', 'cmpBlockTitle', tr('Contribution')));
+    if (!g || !members.length || !(d.total && d.total.done)) { card.appendChild(el('p', 'hint cmpEmpty', tr('Aucune tâche sur cette période.'))); return card; }
+    var act = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return String(a.id) === String(actId); })[0], base = (act && act.color) || '#674EA7';
+    var rows = [], max = 0;
+    g.poles.forEach(function (p, pi) {
+      var col; try { col = TMT.subProjectShade(base, pi, TMT.SUB_PROJECT_SHADE_COUNT); } catch (e) { col = base; }
+      rows.push({ key: p.key, label: p.label, color: col, sector: false });
+      (p.sectors || []).forEach(function (s) { rows.push({ key: s.key, label: s.label, color: col, sector: true }); });
+    });
+    rows.forEach(function (r) { members.forEach(function (m) { max = Math.max(max, (g.cells[m.userId] || {})[r.key] || 0); }); });
+    if (!max) { card.appendChild(el('p', 'hint cmpEmpty', tr('Aucune tâche sur cette période.'))); return card; }
+    var grid = el('div', 'cgGrid'); grid.style.gridTemplateColumns = 'minmax(0, 1.25fr) repeat(' + members.length + ', minmax(0, 1fr))';
+    grid.appendChild(el('span'));
+    members.forEach(function (m) { var h = el('div', 'cgHead'); h.appendChild(el('span', null, m.name)); if (m.lastName) h.appendChild(el('span', null, m.lastName)); grid.appendChild(h); });
+    rows.forEach(function (r) {
+      var lab = el('div', 'cgRowLabel' + (r.sector ? ' cgSector' : '')), dot = el('i', 'cgDot'); dot.style.background = r.color; lab.appendChild(dot); lab.appendChild(el('span', null, r.label)); grid.appendChild(lab);
+      var vals = members.map(function (m) { return (g.cells[m.userId] || {})[r.key] || 0; }), top = Math.max.apply(null, vals);
+      vals.forEach(function (n) {
+        var cell = el('div', 'cgCell');
+        if (n > 0) {
+          var dia = Math.max(24, Math.round(44 * Math.sqrt(n / max))), c = el('span', 'cgBubble' + (n === top ? ' cgTop' : ''), String(n));
+          c.style.width = dia + 'px'; c.style.height = dia + 'px'; c.style.background = r.color;
+          c.style.color = TMT.readableTextOn ? TMT.readableTextOn(r.color) : '#fff';
+          cell.appendChild(c);
+        }
+        grid.appendChild(cell);
+      });
+    });
+    card.appendChild(grid);
+    var lg = el('div', 'cgLegend'), s1 = el('i', 'cgScale'), s2 = el('i', 'cgScale'); s1.style.width = s1.style.height = '24px'; s2.style.width = s2.style.height = '44px';
+    lg.appendChild(s1); lg.appendChild(el('span', null, '→')); lg.appendChild(s2); card.appendChild(lg);
+    return card;
+  }
   function render(d) {
     renderChart(d);
     body.textContent = '';
@@ -95,19 +126,7 @@
     sum.appendChild(line(tr('Restantes'), String(d.total.remaining)));
     body.appendChild(sum);
     if (!d.members.length || !d.total.tasks) body.appendChild(el('p', 'hint', tr('Aucune tâche sur cette période.')));
-    d.members.forEach(function (m, i) {
-      var c = el('div', 'caTaskCard'), head = el('div', 'caTaskHead');
-      head.appendChild(el('span', 'caTaskRank', String(i + 1)));
-      head.appendChild(avatar(m));
-      head.appendChild(el('span', 'caTaskName', m.lastName ? m.name + ' ' + m.lastName : m.name));
-      head.appendChild(el('strong', null, m.done + ' / ' + m.assigned));
-      c.appendChild(head);
-      var bar = el('div', 'caTaskBar'), fill = el('div', 'caTaskFill ' + (m.assigned && !m.good ? 'bad' : 'good'));
-      fill.style.width = (m.assigned ? m.donePct : 0) + '%'; bar.appendChild(fill); c.appendChild(bar);
-      c.appendChild(line(tr('Faites à la date prévue'), m.onTimePct == null ? '—' : m.onTimePct + ' %'));
-      c.appendChild(line(tr('En retard'), String(m.late)));
-      body.appendChild(c);
-    });
+    body.appendChild(contribution(d));
   }
   function load(force) {
     if (!actId) return;
