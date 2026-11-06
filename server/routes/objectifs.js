@@ -20,6 +20,7 @@ router.get('/objectifs', run((req) => ({ objectifs: objectifs.liste(req.userId, 
 router.post('/objectifs/contexte', run((req) => objectifs.contexte(req.userId, req.body || {})));
 router.get('/objectifs/periodes', run((req) => objectifs.periodsInfo(req.userId)));
 router.put('/objectifs/periodes', run((req) => objectifs.setPeriods(req.userId, (req.body || {}).perYear)));
+router.get('/objectifs/structure', run((req) => objectifs.structure(req.userId)));
 router.get('/objectifs/reglage', run((req) => ({ anon: objectifs.anonOptIn(req.userId) })));
 router.put('/objectifs/reglage', run((req) => objectifs.setAnon(req.userId, !(req.body && req.body.anon === false))));
 router.post('/objectifs/lecture', run((req) => objectifs.lire(req.userId, req.body || {})));

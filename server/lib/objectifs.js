@@ -38,6 +38,10 @@ try {
   const cols = db.prepare('PRAGMA table_info(user_objectives)').all().map((c) => c.name);
   if (!cols.includes('parentRel')) db.exec('ALTER TABLE user_objectives ADD COLUMN parentRel TEXT');
   if (!cols.includes('position')) db.exec('ALTER TABLE user_objectives ADD COLUMN position INTEGER');
+  // Niveau d'un objectif (6 nov. 2026) : 'activite' (grand objectif) | 'pole' | 'secteur' ; poleKey / categoryKey = le pôle / le secteur où il a été créé. Existants : niveau 'activite'.
+  if (!cols.includes('level')) db.exec("ALTER TABLE user_objectives ADD COLUMN level TEXT NOT NULL DEFAULT 'activite'");
+  if (!cols.includes('poleKey')) db.exec('ALTER TABLE user_objectives ADD COLUMN poleKey TEXT');
+  if (!cols.includes('categoryKey')) db.exec('ALTER TABLE user_objectives ADD COLUMN categoryKey TEXT');
 } catch (e) { console.warn('[objectifs] migration parentRel/position :', e && e.message); }
 db.exec(`CREATE TABLE IF NOT EXISTS objectifs_refus (
   userId TEXT NOT NULL,
@@ -450,12 +454,32 @@ async function rattachement(userId, body) {
   const title = cleanTitle(body && body.title), act = userActivities(userId).find((a) => a.id === Number(body && body.activityId));
   if (!act || !title) return { candidate: null };
   const refused = new Set(((body && body.refused) || []).map(Number));
-  const cands = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).filter((r) => !refused.has(r.id) && shape(r, false).status !== 'atteint');
+  const lv = body && body.level, pk = body && body.poleKey;
+  const above = (r) => lv === 'pole' ? (r.level || 'activite') === 'activite' : lv === 'secteur' ? r.level === 'pole' && r.poleKey === pk : true; // 1c : candidats = niveau supérieur, même branche
+  const cands = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).filter((r) => above(r) && !refused.has(r.id) && shape(r, false).status !== 'atteint');
   if (!cands.length) return { candidate: null };
   let pick = await rattAi(userId, title, cands), source = 'ia';
   if (pick === undefined) { pick = rattRules(title, cands); source = 'regles'; }
   if (!pick) return { candidate: null };
   return { candidate: { id: pick.id, title: pick.title, activityName: act.name }, rel: 'apres', source };
+}
+
+// ---- Niveaux : activité > pôle > secteur ----
+// Un objectif PORTE le niveau où il est créé ; le pôle / le secteur doivent appartenir à l'activité (sinon refus).
+function levelOf(userId, activityId, body) {
+  const level = ['activite', 'pole', 'secteur'].includes(body && body.level) ? body.level : 'activite';
+  if (level === 'activite') return { level, poleKey: null, categoryKey: null };
+  const poles = goals.categoriesForActivity(activityId);
+  const pole = poles.find((p) => p.key === (body && body.poleKey));
+  if (!pole) throw err('Choisis un pôle de cette activité.');
+  if (level === 'pole') return { level, poleKey: pole.key, categoryKey: null };
+  const sect = goals.secteursForPole(activityId, pole.key).find((x) => x.key === (body && body.categoryKey));
+  if (!sect) throw err('Choisis un secteur de ce pôle.');
+  return { level, poleKey: pole.key, categoryKey: sect.key };
+}
+// Structure pour l'arbre : par activité, ses pôles et leurs secteurs (même source que l'arbre périodique de la page 2).
+function structure(userId) {
+  return { activities: userActivities(userId).map((a) => ({ id: a.id, name: a.name, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, secteurs: goals.secteursForPole(a.id, p.key).map((x) => ({ key: x.key, label: x.label })) })) })) };
 }
 
 // ---- Création (après validation) ----
@@ -587,11 +611,12 @@ function creer(userId, body) {
   let catKey = null;
   const week1End = periods[0].weeks[0].endDate;
   const taskIds = [];
+  const lvl = levelOf(userId, act.id, body);
   const info = db.prepare(`INSERT INTO user_objectives (userId, activityId, title, amount, unit, startDate, endDate, periodWeeks, weekly, parentId, stepsJson, taskIdsJson, createdAt)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(userId, act.id, title, amount, unit, start, body.endDate, periodWeeks, weekly ? 1 : 0, parentId, JSON.stringify(periods), '[]', new Date().toISOString());
   const id = Number(info.lastInsertRowid);
-  db.prepare('UPDATE user_objectives SET parentRel = ?, position = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), id);
+  db.prepare('UPDATE user_objectives SET parentRel = ?, position = ?, level = ?, poleKey = ?, categoryKey = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), lvl.level, lvl.poleKey, lvl.categoryKey, id);
   (Array.isArray(body.refus) ? body.refus : []).slice(0, 20).forEach((cid) => { const c = db.prepare('SELECT id FROM user_objectives WHERE id = ? AND userId = ?').get(Number(cid), userId); if (c && c.id !== id) db.prepare('INSERT OR REPLACE INTO objectifs_refus (userId, objectifId, candidateId, createdAt) VALUES (?, ?, ?, ?)').run(userId, id, c.id, new Date().toISOString()); });
   const est0 = durees.estimate(title);
   const hpw = Number(body.hoursPerWeek) > 0 && Number(body.hoursPerWeek) <= 80 ? Math.round(Number(body.hoursPerWeek) * 10) / 10 : null; // facultatif : valeur de départ = historique Chrono, modifiable
@@ -646,14 +671,12 @@ function shape(r, full) {
   const out = {
     id: r.id, title: r.title, activity: { id: act.id, name: act.name, color: act.color },
     amount: r.amount, unit: r.unit, durationLabel: durationLabel(r), startDate: r.startDate, endDate: r.endDate,
+    level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null,
     periodWeeks: r.periodWeeks, weekly: !!r.weekly, parent, parentId: r.parentId || null, parentRel: r.parentRel || null, abandoned: !!meta.abandoned, bridgeFailed: !!meta.bridgeFailed, position: r.position == null ? null : r.position, description: meta.description || '',
     status: allWeeks.length && doneWeeks === allWeeks.length ? 'atteint' : 'en_cours',
     progress: allWeeks.length ? doneWeeks / allWeeks.length : 0,
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },
     weekTasks: { done: weekTasks.filter((t) => t.done).length, total: weekTasks.length },
-    // Sous-objectifs vus depuis l'arbre déplié : annuel (semaines faites / total par année touchée), périodique (currentPeriod, periodCount), hebdomadaire (semaine en cours).
-    years: Object.values(allWeeks.reduce((a, w) => { const y = String(w.startDate).slice(0, 4); (a[y] = a[y] || { year: Number(y), weeks: 0, done: 0 }).weeks += 1; if (w.done) a[y].done += 1; return a; }, {})),
-    weekNow: { i: cw.i, text: cw.text || '', done: !!cw.done },
   };
   if (full) {
     out.periods = periods; out.currentWeek = { period: cur.n, week: cw.i };
@@ -783,4 +806,4 @@ function supprimer(userId, id, confirmed) {
   return { ok: true, detached: kids.map((k) => k.id) };
 }
 migrateEcheances(); // au chargement (idempotent)
-module.exports = { checkEcheance, migrateEcheances, abandonner, supprimer, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, periodsInfo, setPeriods, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, periodsInfo, setPeriods, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

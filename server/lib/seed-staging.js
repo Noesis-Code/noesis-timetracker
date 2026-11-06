@@ -440,8 +440,45 @@ function renameDemoSteps(db) {
     });
   } catch (e) { console.error('[objectifs-demo] renommage :', e && e.message); }
 }
+// Niveaux de démonstration (activité > pôle > secteur) : chaque activité de démo reçoit deux pôles et leurs secteurs (si elle n'en a aucun) ; les objectifs de démo prennent le niveau de leur
+// profondeur (racine = activité, étapes directes = pôle, au-delà = secteur). Idempotent : seuls les objectifs de démo encore au niveau « activité » ET rattachés à un parent sont touchés.
+const DEMO_POLES = [
+  [['Produit', ['Interface', 'Serveur']], ['Croissance', ['Marketing', 'Ventes']]],
+  [['Théorie', ['Cours', 'Lectures']], ['Pratique', ['Examens', 'Stages']]],
+  [['Prospection', ['Contacts', 'Offres']], ['Fidélisation', ['Suivi', 'Contrats']]],
+  [['Endurance', ['Sorties longues', 'Fractionné']], ['Santé', ['Sommeil', 'Nutrition']]],
+];
+function levelDemo(db) {
+  try {
+    const goals = require('./goals');
+    const like = '%"demo":true%';
+    db.prepare('SELECT DISTINCT userId FROM user_objectives WHERE metaJson LIKE ? AND parentId IS NOT NULL AND level = ?').all(like, 'activite').forEach(({ userId }) => {
+      const acts = db.prepare('SELECT a.id FROM activity_members m JOIN activities a ON a.id = m.activityId WHERE m.userId = ? AND a.active = 1 ORDER BY a.id LIMIT 4').all(userId);
+      acts.forEach((a, ai) => {
+        if (!db.prepare('SELECT 1 FROM user_objectives WHERE userId = ? AND activityId = ? AND metaJson LIKE ? AND parentId IS NOT NULL AND level = ? LIMIT 1').get(userId, a.id, like, 'activite')) return;
+        if (!goals.categoriesForActivity(a.id).length) {
+          DEMO_POLES[ai % DEMO_POLES.length].forEach(([pl]) => goals.addCategory(a.id, pl));
+          goals.categoriesForActivity(a.id).forEach((p, pi) => (DEMO_POLES[ai % DEMO_POLES.length][pi] || [null, []])[1].forEach((sl) => goals.addCategory(a.id, sl, p.key)));
+        }
+        const poles = goals.categoriesForActivity(a.id); if (!poles.length) return;
+        const rows = db.prepare('SELECT id, parentId FROM user_objectives WHERE userId = ? AND activityId = ? AND metaJson LIKE ? ORDER BY id').all(userId, a.id, like);
+        const byId = {}; rows.forEach((r) => { byId[r.id] = r; });
+        const depth = (r) => { let d = 0; for (let c = r; c && c.parentId != null && byId[c.parentId]; c = byId[c.parentId]) d += 1; return d; };
+        const key = {}; let kp = 0; const ks = {};
+        rows.map((r) => ({ r, d: depth(r) })).sort((x, y) => x.d - y.d || x.r.id - y.r.id).forEach(({ r, d }) => {
+          if (d === 0) { key[r.id] = { level: 'activite' }; return; }
+          if (d === 1) { const p = poles[kp % poles.length]; kp += 1; key[r.id] = { level: 'pole', poleKey: p.key }; return; }
+          const par = key[r.parentId] || {}, pk = par.poleKey || poles[0].key, sect = goals.secteursForPole(a.id, pk);
+          if (!sect.length) { key[r.id] = { level: 'pole', poleKey: pk }; return; }
+          ks[pk] = (ks[pk] || 0); const x = sect[ks[pk] % sect.length]; ks[pk] += 1; key[r.id] = { level: 'secteur', poleKey: pk, categoryKey: x.key };
+        });
+        rows.forEach((r) => { const k = key[r.id]; if (k && k.level !== 'activite') db.prepare('UPDATE user_objectives SET level = ?, poleKey = ?, categoryKey = ? WHERE id = ?').run(k.level, k.poleKey || null, k.categoryKey || null, r.id); });
+      });
+    });
+  } catch (e) { console.error('[objectifs-demo] niveaux :', e && e.message); }
+}
 function seedDemoObjectivesOnStaging(db) {
-  try { renameDemoSteps(db || require('../db')); const r = seedDemoObjectives(db || require('../db')); if (r && r.objectives) console.log('[objectifs-demo]', JSON.stringify(r)); return r; } catch (e) { console.error('[objectifs-demo]', e && e.message); return null; }
+  try { renameDemoSteps(db || require('../db')); const r = seedDemoObjectives(db || require('../db')); levelDemo(db || require('../db')); if (r && r.objectives) console.log('[objectifs-demo]', JSON.stringify(r)); return r; } catch (e) { console.error('[objectifs-demo]', e && e.message); return null; }
 }
 
 module.exports = { seedStagingData, shouldSeed, recreateEmilienAccount, seedDemoObjectives, seedDemoObjectivesOnStaging };
