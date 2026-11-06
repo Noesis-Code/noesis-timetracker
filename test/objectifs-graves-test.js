@@ -44,6 +44,20 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(src.includes('!all.byId[id]; }); }, // !all.byId') && src.includes('!below[id] && !!all.byId[id]'), 'interface : cibles de dépôt d’une autre activité non valides');
 }
 
+// ---- 3. C12 : le 11e objectif ne perd pas son pont en silence ----
+{
+  const act = Number(db.prepare("INSERT INTO activities (name, ownerId, active, createdAt) VALUES ('Activité C12', ?, 1, '2026-11-01T00:00:00.000Z')").run(u).lastInsertRowid);
+  db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#674EA7', '2026-11-01T00:00:00.000Z')").run(act, u);
+  const made = [];
+  for (let i = 1; i <= 12; i++) made.push(o.creer(u, { title: 'Objectif C12 numéro ' + i, activityId: act, startDate: '2026-11-09', endDate: '2027-03-01' }));
+  const ok = made.filter((x) => !x.bridgeFailed), ko = made.filter((x) => x.bridgeFailed);
+  assert(ok.length >= 1 && ok.length <= 10, 'C12 : les premiers objectifs sont reliés à l’arbre périodique (' + ok.length + ')');
+  assert(ko.length >= 2 && made.slice(ok.length).every((x) => x.bridgeFailed), 'C12 : les suivants sont signalés (bridgeFailed), jamais silencieux (' + ko.length + ')');
+  assert(o.get(u, ko[0].id).bridgeFailed === true && !!ko[0].title, 'C12 : l’objectif sans pont existe et reste signalé à l’ouverture du détail');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'js', 'objectifs-creer.js'), 'utf8');
+  assert(src.includes('bridgeFailed'), 'C12 : l’interface affiche le message');
+}
+
 // MARK-FIN
 const nRef = (id) => db.prepare('SELECT (SELECT COUNT(*) FROM user_objectives WHERE userId = ?) + (SELECT COUNT(*) FROM objectifs_refus WHERE userId = ?) AS n').get(id, id).n;
 assert(nRef(u) > 0, 'avant suppression : objectifs et refus du compte présents');

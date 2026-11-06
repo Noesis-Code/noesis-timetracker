@@ -380,6 +380,7 @@
     'Rattaché à': 'Attached to',
     'Délier': 'Unlink',
     'Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.': 'An objective cannot be attached to one of its own objectives.',
+    'Cet objectif est enregistré, mais il n’apparaît pas encore dans le calendrier : cette activité a atteint 10 secteurs par pôle. Retire un secteur dans « Gérer mes catégories », puis rouvre cet objectif.': 'This objective is saved, but it does not appear in the calendar yet: this activity has reached 10 sectors per pole. Remove a sector in “Manage my categories”, then reopen this objective.',
     'Un objectif ne se rattache qu’à un objectif de la même activité.': 'An objective can only be attached to an objective of the same activity.',
     'Aucun objectif pour l’instant.': 'No objectives yet.',
     'Pas assez d’historique pour estimer l’avancement.': 'Not enough history to estimate progress.',

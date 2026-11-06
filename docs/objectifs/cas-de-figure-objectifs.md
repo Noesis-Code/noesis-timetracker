@@ -38,7 +38,7 @@ Légende : ✅ géré, ⚠️ partiel, ❌ non géré. Priorité : P1 (bloquant 
 | C09 Activité sans pôle | Pôle créé automatiquement | ✅ | - |
 | C10 Pôle sans secteur | Pas de secteur parasite | ⚠️ | P3 |
 | C11 Niveau (activité/pôle/secteur) | L'objectif porte son niveau | ❌ | P2 |
-| C12 11e objectif d'une activité | Pas de perte silencieuse | ⚠️ | P1 |
+| C12 11e objectif d'une activité | Pas de perte silencieuse | ✅ corrigé (6 nov.) : autre pôle si place, sinon message dans le détail + pont réessayé à l'ouverture | P1 |
 | C13 Activité créée puis échec | Pas d'activité orpheline | ⚠️ | P2 |
 | C14 Double soumission | Un seul objectif | ⚠️ | P3 |
 | C15 Description trop longue | Refus, pas de troncature | ⚠️ | P3 |

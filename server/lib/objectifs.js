@@ -473,7 +473,10 @@ function targetCategory(activityId, activityName) {
 function ensureObjectiveSector(activityId, activityName, title) {
   let poles = goals.categoriesForActivity(activityId);
   if (!poles.length) { goals.addCategory(activityId, activityName.slice(0, 40)); poles = goals.categoriesForActivity(activityId); }
-  const pole = poles[0].key;
+  // C12 : un pôle porte 10 secteurs au plus ; le 11e objectif prend le premier pôle de l'activité qui a encore de la place. Tous pleins : erreur claire (jamais de perte silencieuse, voir bridge).
+  const poleRow = poles.find((p) => goals.secteursForPole(activityId, p.key).length < goals.MAX_SECTEURS_PER_POLE);
+  if (!poleRow) throw err(goals.MAX_SECTEURS_PER_POLE + ' secteurs maximum par pôle : tous les pôles de cette activité sont pleins.');
+  const pole = poleRow.key;
   if (!goals.secteursForPole(activityId, pole).length) {
     const direct = db.prepare('SELECT 1 FROM activity_goal_plans WHERE activityId = ? AND category = ?').get(activityId, pole)
       || db.prepare('SELECT 1 FROM sub_projects WHERE activityId = ? AND goalCategory = ?').get(activityId, pole);
@@ -512,10 +515,15 @@ function bridge(r, periods) { // jamais bloquant : sans pont, l'objectif reste c
       meta.category = ensureObjectiveSector(r.activityId, act ? act.name : 'Objectifs', r.title);
     }
     writeBridge(r, periods, meta.category);
-    meta.bridged = true;
+    meta.bridged = true; delete meta.bridgeFailed;
     db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
     return meta.category;
-  } catch (e) { console.warn('[objectifs] pont vers le calendrier impossible :', e && e.message); return null; }
+  } catch (e) {
+    console.warn('[objectifs] pont vers le calendrier impossible :', e && e.message);
+    // Jamais silencieux : l'échec est noté sur l'objectif (bridgeFailed), l'interface le dit, et le pont est réessayé à l'ouverture du détail.
+    try { const cur = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(r.id), m2 = JSON.parse((cur && cur.metaJson) || '{}'); m2.bridgeFailed = true; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(m2), r.id); } catch (e2) { /* noté au journal seulement */ }
+    return null;
+  }
 }
 
 function creer(userId, body) {
@@ -607,7 +615,7 @@ function shape(r, full) {
   const out = {
     id: r.id, title: r.title, activity: { id: act.id, name: act.name, color: act.color },
     amount: r.amount, unit: r.unit, durationLabel: durationLabel(r), startDate: r.startDate, endDate: r.endDate,
-    periodWeeks: r.periodWeeks, weekly: !!r.weekly, parent, parentId: r.parentId || null, parentRel: r.parentRel || null, abandoned: !!meta.abandoned, position: r.position == null ? null : r.position, description: meta.description || '',
+    periodWeeks: r.periodWeeks, weekly: !!r.weekly, parent, parentId: r.parentId || null, parentRel: r.parentRel || null, abandoned: !!meta.abandoned, bridgeFailed: !!meta.bridgeFailed, position: r.position == null ? null : r.position, description: meta.description || '',
     status: allWeeks.length && doneWeeks === allWeeks.length ? 'atteint' : 'en_cours',
     progress: allWeeks.length ? doneWeeks / allWeeks.length : 0,
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },
@@ -634,7 +642,11 @@ function lateness(r, meta) {
   const est = meta.hoursPerWeek * weeks;
   return est > 0 ? chronoHours(r.userId, r.activityId, r.startDate, td) / est - 1 : 0;
 }
-function get(userId, id) { return shape(rowOf(userId, id), true); }
+function get(userId, id) {
+  let r = rowOf(userId, id);
+  if (JSON.parse(r.metaJson || '{}').bridgeFailed) { bridge(r, JSON.parse(r.stepsJson)); r = rowOf(userId, id); } // C12 : de la place est peut-être revenue
+  return shape(r, true);
+}
 function nextPosition(userId, parentId) {
   const r = parentId == null
     ? db.prepare('SELECT MAX(position) AS m FROM user_objectives WHERE userId = ? AND parentId IS NULL').get(userId)
