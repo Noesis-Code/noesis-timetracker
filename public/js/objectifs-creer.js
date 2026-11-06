@@ -153,8 +153,15 @@
     dock.classList.add('expSave'); advance = fn;
     stepLabel.textContent = next ? tr('Suivant') : tr('Terminer'); stepBtn.setAttribute('aria-label', (next ? tr('Suivant') + ' : ' + tr(next) : tr('Terminer')) + ' (' + n + '/' + total() + ')'); stepPos.textContent = n + '/' + total(); stepBtn.disabled = !enabled;
   }
+  var pendingParent = null, basePlaceholder = '';
+  function setUnder(p) { // case grise « + » de l'arbre : le prochain objectif écrit dans la barre sera une ÉTAPE de p
+    pendingParent = p;
+    if (!basePlaceholder) basePlaceholder = input.placeholder;
+    input.placeholder = tr('Étape de') + ' « ' + p.title + ' »…'; input.focus();
+  }
+  function clearUnder() { pendingParent = null; if (basePlaceholder) input.placeholder = basePlaceholder; }
   function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
-    dock.classList.remove('expSave'); advance = null; setBack(null); panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; queue = []; seq = { base: 0, count: 1, i: 0 };
+    clearUnder(); dock.classList.remove('expSave'); advance = null; setBack(null); panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; queue = []; seq = { base: 0, count: 1, i: 0 };
   }
 
   // ---------- Fenêtre « Nouvel objectif » ----------
@@ -170,6 +177,7 @@
 
   function openComposer(ctx) {
     var form = ctx._form || (ctx._form = { title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null, _ctx: ctx });
+    if (pendingParent && !form.fixedParent) { form.activityId = pendingParent.activityId; form.create = false; form.parentId = pendingParent.id; form.parentRel = 'apres'; form.fixedParent = true; form.parentTitle = pendingParent.title; form.ratt = { key: 'fixe', cand: null, rel: 'apres', decided: 'accept' }; clearUnder(); }
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
     panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
@@ -244,6 +252,10 @@
     function renderActivities() {
       actBox.textContent = '';
       var acts = ctx.activities || [], list = el('div', 'aiModeChoices');
+      if (form.fixedParent) { // étape d'un objectif choisi dans l'arbre : l'activité est la sienne
+        var own = acts.filter(function (x) { return x.id === form.activityId; })[0];
+        if (own) { list.appendChild(choice(own.name, tr('Étape de') + ' « ' + form.parentTitle + ' »', true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), list)); return; }
+      }
       var top = form.showAll ? acts : acts.slice(0, ctx.suggestedActivityId == null ? 2 : 3);
       if (!form.showAll && form.activityId != null && !top.some(function (a) { return a.id === form.activityId; })) { var sel = acts.filter(function (a) { return a.id === form.activityId; })[0]; if (sel) top = [sel].concat(top.slice(0, 2)); }
       var createRow = function () { return choice(tr('Créer l’activité') + ' « ' + form.createName + ' »', ctx.suggestedActivityId == null ? tr('Proposée : aucune de tes activités ne correspond') : '', form.create, null, function () { form.create = true; form.activityId = null; refresh(); }); };
@@ -318,7 +330,8 @@
         b.appendChild(row);
       }
     }
-    function loadRatt() { // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
+    function loadRatt() {
+      if (form.fixedParent) return Promise.resolve(); // rattachement déjà décidé (case grise de l'arbre) // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
       var key = form.title + '|' + (form.create ? 'new' : form.activityId);
       if (form.ratt && form.ratt.key === key) return Promise.resolve(); // même titre et même activité : la décision précédente reste
       form.ratt = { key: key, cand: null, rel: 'apres', decided: null }; form.parentId = null; form.parentRel = null;
@@ -556,6 +569,7 @@
     show: function () { state.shown = true; syncDock(); if (TMT.objectifsArbre) TMT.objectifsArbre.showBase(); load(); },
     hide: function () { state.shown = false; syncDock(); },
     focus: function () { if (input) input.focus(); },
+    createUnder: function (p) { setUnder(p); },
     dock: function () { return dock; },
     openDetail: function (id) { openDetail(id); }
   };

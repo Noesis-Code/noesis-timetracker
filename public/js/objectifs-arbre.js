@@ -56,10 +56,10 @@
     }
     return node;
   }
-  function addCell(depth) {
+  function addCell(depth, parent) {
     var node = el('div', 'arNode'), b = el('button', 'arCell'); b.type = 'button'; b.style.setProperty('--ar-ind', (Math.min(depth, 4) * 14) + 'px'); b.setAttribute('aria-label', tr('Nouvel objectif'));
     b.appendChild(el('b', null, '+'));
-    b.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.focus) TMT.objectifsView.focus(); }); // création à cette place : l'envoi suivant ; pour l'instant la barre « Nouvel objectif… »
+    b.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.createUnder) TMT.objectifsView.createUnder({ id: parent.id, title: parent.title, activityId: parent.activity.id }); }); // création à cette place : étape de l'objectif au sommet de la branche
     node.appendChild(b); return node;
   }
   function todayLine() { var l = el('div', 'arToday'); l.appendChild(el('span', null, tr('Aujourd’hui'))); return l; }
@@ -78,7 +78,7 @@
       var blk = el('div', 'arBlock'), seq = [];
       (function walk(o, d) { seq.push({ o: o, d: d }); (kids[o.id] || []).forEach(function (k) { walk(k, d + 1); }); })(r, 0);
       var open = seq.some(function (x) { return stateOf(x.o, today) !== 'done' && stateOf(x.o, today) !== 'dropped'; });
-      if (open) blk.appendChild(addCell(seq[seq.length - 1].d + 1)); // case grise au sommet de la branche
+      if (open) blk.appendChild(addCell(seq[seq.length - 1].d + 1, seq[seq.length - 1].o)); // case grise au sommet de la branche
       var todayDone = false;
       for (var i = seq.length - 1; i >= 0; i--) {
         var fut = stateOf(seq[i].o, today) === 'future';
