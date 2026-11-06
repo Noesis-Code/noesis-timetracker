@@ -173,13 +173,24 @@
     var d = dockEl(), top = d ? d.getBoundingClientRect().top : window.innerHeight - 120;
     var bar = d && d.querySelector('.tasksComposer'), btop = bar ? bar.getBoundingClientRect().top : top;
     bases.style.bottom = Math.max(8, window.innerHeight - btop + 8) + 'px';
-    if (tree) { var tr0 = tree.getBoundingClientRect(); bases.style.left = Math.max(0, tr0.left) + 'px'; bases.style.width = tr0.width + 'px'; bases.style.right = 'auto'; } // aligné sur les colonnes
+    syncBubbles();
     if (tree) tree.style.paddingBottom = (Math.max(8, window.innerHeight - btop + 8) + 56 + 24) + 'px'; // le contenu ne passe jamais sous les bulles ni sous la barre
+  }
+  // Chaque bulle est ATTACHÉE à sa colonne : même x, même largeur EXACTE, mesurés sur la colonne réelle (data-col) à chaque défilement horizontal, redimensionnement ou rendu ;
+  // la bande est rognée au bord de la colonne des repères (les bulles glissent avec les colonnes, jamais flottantes ni indépendantes). Seul le défilement vertical les laisse fixes en bas.
+  function syncBubbles() {
+    if (!bases || !scroller || !basesInner) return;
+    var sr = scroller.getBoundingClientRect(), x0 = sr.left; // même bord que les cartes (elles aussi glissent sous la colonne des repères)
+    bases.style.left = x0 + 'px'; bases.style.width = Math.max(0, sr.width) + 'px'; bases.style.right = 'auto';
+    Array.prototype.forEach.call(basesInner.children, function (b, i) {
+      var c = scroller.querySelector('[data-col="' + i + '"]'); if (!c) return;
+      var r = c.getBoundingClientRect(); b.style.left = (r.left - x0) + 'px'; b.style.width = r.width + 'px';
+    });
   }
   function buildBases() {
     if (bases) return;
     bases = el('div', 'arBases hidden'); basesInner = el('div', 'arBasesInner'); bases.appendChild(basesInner); document.body.appendChild(bases);
-    window.addEventListener('resize', function () { if (visible) { placeBases(); } });
+    window.addEventListener('resize', function () { if (visible) { placeBases(); window.requestAnimationFrame(syncBubbles); } });
     if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (visible) placeBases(); });
   }
   // Repère de période (mêmes classes que la page 2) : à venir = numéro cerclé, courante = pastille pleine, passée = point. En zoom Année : les deux derniers chiffres de l'année.
@@ -297,17 +308,17 @@
       grid.appendChild(row);
     });
     if (!todayPut && lastRow) lastRow.appendChild(todayLine(true)); // le présent est la dernière case : la ligne passe dessous
+    grid.querySelectorAll('.goalsGridRow').forEach(function (row) { var k = 0; Array.prototype.forEach.call(row.children, function (ch) { if (ch.classList.contains('goalsGridCell') || ch.classList.contains('arStack')) ch.setAttribute('data-col', String(k++)); }); }); // la colonne k de chaque rangée
     scroller = el('div', 'goalsGridScroll arScroll'); scroller.appendChild(grid); tree.appendChild(scroller);
     // bulles : une racine fixe par colonne (activité, pôle ou secteur), même couleur d'activité ; toucher = descendre d'un niveau
-    basesInner.style.paddingLeft = RAIL + 'px'; basesInner.style.gap = GAP + 'px';
     data.forEach(function (c, ci) {
-      var b = el('button', 'arBubble'); b.type = 'button'; b.style.width = W + 'px'; b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : '#fff';
+      var b = el('button', 'arBubble'); b.type = 'button'; b.style.width = W + 'px'; b.style.left = '0px'; b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : '#fff';
       b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
       b.addEventListener('click', function () { descend(ci); });
       basesInner.appendChild(b);
     });
-    scroller.addEventListener('scroll', function () { basesInner.style.transform = 'translateX(' + (-scroller.scrollLeft) + 'px)'; });
-    bases.classList.toggle('hidden', !visible); placeBases();
+    scroller.addEventListener('scroll', syncBubbles, { passive: true });
+    bases.classList.toggle('hidden', !visible); placeBases(); window.requestAnimationFrame(syncBubbles);
     if (needBase && tree.getClientRects().length) { needBase = false; scroller.scrollIntoView({ block: 'end' }); }
   }
   // Pincer (tactile) ou Ctrl + molette (ordinateur) : descendre d'un niveau (écarter) / remonter (rapprocher). Une seule technique de zoom, la même partout dans l'arbre.
