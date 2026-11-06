@@ -42,7 +42,7 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(kid.parentId === sameParent.id, 'même activité : rattachement accepté');
   assert(o.lier(u, here.id, sameParent.id, 'apres').parentId === sameParent.id, 'lier dans la même activité : accepté');
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'js', 'objectifs-arbre.js'), 'utf8');
-  assert(src.includes('!all.byId[id]; }); }, // !all.byId') && src.includes('!below[id] && !!all.byId[id]'), 'interface : cibles de dépôt d’une autre activité non valides');
+  assert(src.includes('function sameAct(o, id)') && src.includes('!sameAct(o, id)') && src.includes('!below[id] && !!sameAct(o, id)') && src.includes('t.isMacro ||'), 'interface : cibles de dépôt d’une autre activité non valides');
 }
 
 // ---- 3. C12 : le 11e objectif ne perd pas son pont en silence ----
