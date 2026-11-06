@@ -19,25 +19,9 @@
 .arCard .goalsGridCellText { display: flex; flex-direction: column; gap: 2px; }
 .arCardName { font-size: 13px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .arCardMeta { font-size: 12px; font-weight: 400; opacity: .72; line-height: 1.25; }
-.arCard.ar-future { background: var(--bg); border: 2px dashed var(--c); color: var(--text); }
 .arCard.ar-future .arCardMeta { color: var(--text-light); opacity: 1; }
-.arCard.ar-dropped { opacity: .4; }
 .arCard.arPicked { box-shadow: 0 0 0 2px var(--purple); }
 .arStack { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-/* Case grise vide ; « + » (crée un objectif rattaché à celui de la branche) quand elle est juste au-dessus du sommet d'une branche. */
-.arHole:disabled { opacity: 1; cursor: default; }
-.arHolePlus { display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.arHolePlus b { color: var(--purple); font-size: 22px; font-weight: 700; line-height: 1; }
-/* Dépliage : « + » / « − » (.cmpAdd) sous une colonne ; colonnes repliées étroites sur la droite ; détail et sous-objectifs dans les cartes de la colonne dépliée. */
-.arHeadCell { display: flex; gap: 8px; align-items: stretch; min-width: 0; }
-.arHeadBtn { flex: 1 1 0; min-width: 0; padding: 0; min-height: 44px; }
-.arFoldCell { border: 0; padding: 0; min-height: 64px; border-radius: var(--radius-md); opacity: .28; cursor: pointer; }
-.arFold { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 10px; width: 100%; min-height: 96px; padding: 12px 4px; border: 0; border-radius: var(--radius-lg); font: inherit; cursor: pointer; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-.arFoldN { font-size: 16px; font-weight: 700; line-height: 1; }
-.arFoldName { writing-mode: vertical-rl; font-size: 13px; font-weight: 700; max-height: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.arSub { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--sep); }
-.arSubRow { font-size: 12.5px; font-weight: 400; line-height: 1.3; opacity: .85; overflow-wrap: anywhere; }
-.arCard.ar-future .arSub { border-top-color: var(--track-bg); }
 .arEnter { animation: arEnter .22s ease-out; }
 @keyframes arEnter { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .arEnter { animation: none; } }
@@ -49,8 +33,6 @@
 .arBasesInner { display: flex; align-items: center; width: max-content; }
 .arBubble { flex: none; display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 6px 16px; border: 0; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; pointer-events: auto; box-sizing: border-box; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
 .arBubble span { overflow-wrap: anywhere; }
-.arBubbleFold { padding: 6px 8px; }
-.arBubbleFold span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 /* Lier / délier (appui long + glisser) : carte tirée, cible violette, zone « Délier » transitoire à la place de la barre (.cmpAdd sans « + »). */
 .arNode.arDragging { z-index: 7; opacity: .9; box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
 .arNode.arDropTarget { box-shadow: 0 0 0 2px var(--purple); }
@@ -58,5 +40,12 @@
 .objDock .arUnlinkZone { position: absolute; left: 0; right: 0; bottom: 0; z-index: 7; min-height: 52px; background: var(--card); }
 .objDock .arUnlinkZone.arUnlinkOver { border-color: var(--purple); color: var(--text); }
 .objDock.objLinking .tasksComposer { visibility: hidden; }
-.arCmdRow { align-items: flex-start; }
-.arFoldName { max-height: 80px; }
+/* Case vide = le gris NEUTRE de l'arbre périodique (aucune teinte d'activité, aucun « + ») ; touchable sur toute sa surface (ajouter un objectif). */
+.arHole { cursor: pointer; padding: 0; }
+.arHole:disabled { cursor: default; opacity: 1; }
+/* Tous les objectifs ont le même cadre (bordure fine de la couleur de l'activité, posée en ligne : pleine, ou pointillée pour « à venir ») ; l'état = la teinte. */
+.arCard.ar-dropped { opacity: .4; }
+.arBackNav { margin: 0 0 4px; }
+.objArbre, .arBases { touch-action: pan-x pan-y; } /* le pincer est le zoom par niveau de l'arbre, jamais le zoom du navigateur */
+.arGrid .goalsGridCell--filled.arCard { border-color: var(--ar-c) !important; border-width: 2px !important; }
+.arGrid { padding-bottom: 24px; }

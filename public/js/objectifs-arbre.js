@@ -4,8 +4,9 @@
  * pastille pleine = période courante, point = passé), cases grises pleine largeur de colonne, trait fin entre les cases. Une carte d'objectif occupe UNE SEULE case : celle de son ÉCHÉANCE ;
  * le futur = les mêmes cases, AU-DESSUS de l'unique ligne « Aujourd'hui » (jusqu'à l'objectif le plus lointain + 1 an) ; plusieurs objectifs d'une même activité dans la même case = une carte « N objectifs ».
  * Zoom (.cmpSeg) : Période (une case par période) | Année (une case par année) | Tout (toutes les années, passé compris).
- * NAVIGATION PAR DÉPLIAGE : le « + » (.cmpAdd) sous une colonne la DÉPLIE (niveau 1 : durée, état, objectifs rattachés), un second « + » déplie encore (niveau 2 : annuel, périodique, hebdomadaire) ;
- * « − » replie. L'activité dépliée prend la largeur de gauche, les autres restent repliées à droite en colonnes étroites (touchables). Le plus détaillé reste l'arbre périodique (touche la bulle).
+ * ZOOM PAR NIVEAU (se cumule avec le zoom de temps) : on ouvre très dézoomé, les GRANDS objectifs par activité ; toucher la racine (ou une carte qui regroupe plusieurs objectifs) ou ÉCARTER
+ * les doigts (Ctrl + molette sur ordinateur) descend d'un niveau : l'activité se découpe en PÔLES (une racine fixe par pôle), puis en SECTEURS ; au dernier niveau, la bulle ouvre l'arbre périodique (page 2).
+ * La flèche ‹ ou RAPPROCHER les doigts remonte. Un objectif PORTE le niveau où il est créé (level, poleKey, categoryKey) ; toucher une case VIDE ajoute un objectif (activité, niveau, pôle/secteur, échéance = la case).
  * Couleurs (R16) : pâle = en cours, vif = réalisé, contour pointillé = à venir, atténué = abandonné. L'ACTIVITÉ est la racine, EN BAS : une BULLE pleine fixe sous sa colonne, juste au-dessus de la barre « Nouvel objectif… ».
  * Appui long + glisser (TMT.ui.holdDrag) : déposer une carte sur une autre la rattache, sur « Délier » elle redevient un objectif final ; une carte « N objectifs » est une cible (choix de l'objectif
  * qui reçoit) et, en appui long, propose l'objectif à déplacer. Une case grise juste au-dessus du sommet d'une branche porte un « + » : il crée un objectif rattaché à celui de la branche.
@@ -15,9 +16,9 @@
   var TMT = window.TMT = window.TMT || {};
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-  var zoom = 'period', exp = null, split = {}, picked = null, animate = false;
+  var zoom = 'period', lvl = 'activite', focus = null, struct = null, split = {}, picked = null, animate = false;
   var tree = null, items = [], zone = null, toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, bases = null, basesInner = null, scroller = null;
-  var RAIL = 30, GAP = 10, FOLD = 72; // repères (20 px + gouttière), gouttière des rangées de la page 2, colonne repliée
+  var RAIL = 30, GAP = 10; // repères (20 px + gouttière), gouttière des rangées de la page 2
 
   function mix(hex, k) { // teinte pâle : mélange de la couleur d'activité avec du blanc (même principe que l'arbre périodique)
     var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return hex || '#674EA7';
@@ -35,10 +36,12 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 3200);
   }
   function descendants(id, kids) { var out = {}; (function walk(i) { (kids[i] || []).forEach(function (k) { out[k.id] = true; walk(k.id); }); })(id); return out; }
+  // MÊME cadre pour tous les objectifs : bordure fine de la couleur de l'activité (pleine, ou pointillée pour « à venir ») ; l'état = la teinte (vif, pâle, vide + pointillé, atténué).
   function paint(b, st, c) {
-    if (st === 'now' || st === 'dropped') { b.style.background = mix(c, 0.7); b.style.borderColor = 'transparent'; b.style.color = '#1a1a1a'; }
-    else if (st === 'done') { b.style.background = c; b.style.borderColor = 'transparent'; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c) : '#fff'; }
-    else { b.style.setProperty('--c', c); }
+    b.style.borderWidth = '2px'; b.style.borderStyle = st === 'future' ? 'dashed' : 'solid'; b.style.borderColor = c; b.style.setProperty('--ar-c', c); // --ar-c : la règle de la page 2 rend les bordures transparentes (!important), le cadre repasse par ce jeton
+    if (st === 'now' || st === 'dropped') { b.style.background = mix(c, 0.7); b.style.color = '#1a1a1a'; }
+    else if (st === 'done') { b.style.background = c; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c) : '#fff'; }
+    else { b.style.background = 'var(--bg)'; b.style.color = 'var(--text)'; }
   }
   function link(o, pid) {
     if (pid === o.parentId) return;
@@ -49,20 +52,13 @@
   var CYCLE = 'Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.';
   function cellSize(node, w) { node.style.flex = '0 0 ' + w + 'px'; node.style.width = w + 'px'; }
 
-  // mode : 'simple' (nom seul) | 'detail' (durée, état, objectifs rattachés) | 'sub' (+ annuel, périodique, hebdomadaire). La carte EST la case (.goalsGridCell--filled).
+  // mode : 'simple' (nom seul, niveau activités) | 'detail' (durée, état, objectifs rattachés, niveaux pôle et secteur). La carte EST la case (.goalsGridCell--filled).
   function card(o, today, all, mode, w) {
     var st = stateOf(o, today), c = color(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', o.title));
     if (mode !== 'simple') {
       var nk = (all.kids[o.id] || []).length;
       t.appendChild(el('span', 'arCardMeta', (o.durationLabel || '') + ' · ' + tr(STATE_LABEL[st]) + (nk ? ' · ' + nk + ' ' + tr(nk > 1 ? 'objectifs rattachés' : 'objectif rattaché') : '')));
-    }
-    if (mode === 'sub') {
-      var sub = el('span', 'arSub');
-      (o.years || []).forEach(function (y) { sub.appendChild(el('span', 'arSubRow', y.year + ' · ' + y.done + '/' + y.weeks + ' ' + tr('semaines'))); });
-      if (o.currentPeriod) sub.appendChild(el('span', 'arSubRow', tr('Période') + ' ' + o.currentPeriod.n + '/' + o.periodCount + (o.currentPeriod.title ? ' · ' + o.currentPeriod.title : '')));
-      if (o.weekNow) sub.appendChild(el('span', 'arSubRow', 'S' + o.weekNow.i + (o.weekNow.text ? ' · ' + o.weekNow.text : '') + (o.weekTasks && o.weekTasks.total ? ' · ' + o.weekTasks.done + '/' + o.weekTasks.total : '')));
-      t.appendChild(sub);
     }
     b.appendChild(t);
     b.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(o.id); });
@@ -101,12 +97,12 @@
     return best.st;
   }
   // Carte « N objectifs » : touchée = la liste ; appui long = quel objectif déplacer (la carte se sépare) ; cible de dépôt (choix de l'objectif qui reçoit).
-  function mergedCard(os, today, w) {
+  function mergedCard(os, today, w, onOpen) {
     var st = mergedState(os, today), c = color(os[0]), ids = os.map(function (o) { return o.id; });
     var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMerged arCard ar-' + st); b.type = 'button'; b.setAttribute('data-ids', ids.join(',')); cellSize(b, w); paint(b, st, c);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', os.length + ' ' + tr('objectifs')));
     t.appendChild(el('span', 'arCardMeta', os.slice(0, 2).map(function (o) { return o.title; }).join(' · '))); b.appendChild(t);
-    b.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids); });
+    b.addEventListener('click', function () { if (lvl !== 'secteur' && onOpen) onOpen(); else if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids); }); // plusieurs objectifs : toucher = descendre d'un niveau ; au dernier niveau, la liste
     if (TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, {
       holdMs: 500, list: function () { return tree; }, scroller: function () { return document.scrollingElement || document.documentElement; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
       onHold: function () {
@@ -115,13 +111,18 @@
     });
     return b;
   }
-  // Case grise vide (celle de l'arbre périodique) ; au-dessus du sommet d'une branche elle porte un « + » : crée un objectif rattaché à celui de la branche.
-  function emptyCell(color, w, parent) {
-    var b = el('button', 'goalsGridCell goalsGridCell--empty arHole'); b.type = 'button'; cellSize(b, w); b.style.setProperty('--poleTree', color);
-    if (!parent) { b.disabled = true; b.tabIndex = -1; return b; }
-    b.classList.add('arHolePlus'); b.setAttribute('aria-label', tr('Nouvel objectif')); b.appendChild(el('b', null, '+'));
-    b.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.createUnder) TMT.objectifsView.createUnder({ id: parent.id, title: parent.title, activityId: parent.activity.id }); else if (TMT.objectifsView && TMT.objectifsView.focus) TMT.objectifsView.focus(); });
+  // Case grise vide = le gris neutre de l'arbre périodique (.goalsGridCell--empty, aucune teinte, aucun « + ») ; la toucher AJOUTE un objectif (échéance = fin de la case ; une case passée n'est pas touchable).
+  function emptyCell(w, endIso, onTouch) {
+    var b = el('button', 'goalsGridCell goalsGridCell--empty arHole'); b.type = 'button'; cellSize(b, w);
+    if (!endIso) { b.disabled = true; b.tabIndex = -1; return b; }
+    b.setAttribute('aria-label', tr('Nouvel objectif')); b.addEventListener('click', function () { onTouch(endIso); });
     return b;
+  }
+  // Fin de la case (jour ISO) : fin de la période du réglage, ou de l'année ; null si elle n'est pas dans le futur.
+  function rowEnd(rw) {
+    var d = new Date(Date.UTC(rw.y, 0, 1)); d.setUTCDate(d.getUTCDate() + (rw.p && rw.p < PER_YEAR ? rw.p * PER_DAYS : 365) - 1);
+    var iso = rw.p && rw.p < PER_YEAR ? d.toISOString().slice(0, 10) : rw.y + '-12-31';
+    return iso > dayIso() ? iso : null;
   }
 
   // ZOOM : Période (une case par période) | Année (une case par année) | Tout (toutes les années, passé compris). Le passé est caché par défaut, tout reste en base.
@@ -178,12 +179,6 @@
     window.addEventListener('resize', function () { if (visible) { placeBases(); } });
     if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (visible) placeBases(); });
   }
-  function setExp(id, lvl) { exp = id == null ? null : { id: id, lvl: lvl }; split = {}; picked = null; animate = true; needBase = true; render(); }
-  // « + » / « − » (.cmpAdd, R29) sous une colonne : déplier d'un niveau / replier d'un niveau.
-  function head(cls, label, sign, fn) {
-    var b = el('button', 'cmpAdd arHeadBtn ' + cls); b.type = 'button'; b.setAttribute('aria-label', label); b.appendChild(el('b', null, sign));
-    b.addEventListener('click', fn); return b;
-  }
   // Repère de période (mêmes classes que la page 2) : à venir = numéro cerclé, courante = pastille pleine, passée = point. En zoom Année : les deux derniers chiffres de l'année.
   function marker(rw, here) {
     var st = rw.rank > here.rank ? 'future' : rw.rank === here.rank ? 'current' : 'past', m = el('span', 'goalsRowMarker goalsRowMarker--' + st);
@@ -193,25 +188,71 @@
     return m;
   }
 
+  // ---------- zoom par NIVEAU : activités (grands objectifs) > pôles d'une activité > secteurs d'un pôle (= le modèle de l'arbre périodique, page 2) ----------
+  var LEVEL_LABEL = { activite: 'Activité', pole: 'Pôle', secteur: 'Secteur' };
+  function actOf(id) { return ((struct && struct.activities) || []).filter(function (a) { return a.id === id; })[0] || null; }
+  // Colonnes du niveau affiché : { key, label, objs (objectifs de CE niveau dans cette colonne), ctx (niveau, activité, pôle, secteur : pré-remplit et verrouille la création) }
+  function columnsFor(shown) {
+    var cols = [];
+    if (lvl === 'activite') {
+      var seen = {};
+      shown.forEach(function (o) {
+        var id = o.activity.id, c = seen[id];
+        if (!c) { c = seen[id] = { key: id, label: o.activity.name, color: color(o), objs: [], ctx: { level: 'activite', activityId: id, label: o.activity.name } }; cols.push(c); }
+        if ((o.level || 'activite') === 'activite') c.objs.push(o);
+      });
+      return cols;
+    }
+    var act = actOf(focus.activityId), mine = shown.filter(function (o) { return o.activity.id === focus.activityId; }), col = mine.length ? color(mine[0]) : '#674EA7';
+    var name = act ? act.name : (mine[0] ? mine[0].activity.name : '');
+    if (lvl === 'pole') {
+      var poles = (act && act.poles) || [];
+      if (!poles.length) poles = [{ key: null, label: name }];
+      return poles.map(function (p) { return { key: p.key, label: p.label, color: col, objs: mine.filter(function (o) { return o.level === 'pole' && (p.key == null || o.poleKey === p.key); }), ctx: { level: 'pole', activityId: focus.activityId, poleKey: p.key, label: name + ' · ' + p.label } }; });
+    }
+    var pole = ((act && act.poles) || []).filter(function (p) { return p.key === focus.poleKey; })[0] || { key: focus.poleKey, label: focus.poleLabel || '', secteurs: [] };
+    var sects = pole.secteurs && pole.secteurs.length ? pole.secteurs : [{ key: null, label: pole.label }];
+    return sects.map(function (x) { return { key: x.key, label: x.label, color: col, objs: mine.filter(function (o) { return o.level === 'secteur' && o.poleKey === focus.poleKey && (x.key == null || o.categoryKey === x.key); }), ctx: { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey, categoryKey: x.key, label: name + ' · ' + pole.label + ' · ' + x.label } }; });
+  }
+  var curCols = [];
+  function syncCtx() { // la barre « Nouvel objectif… » crée au niveau affiché (pré-rempli et verrouillé) ; le « + » d'une colonne précise le pôle / le secteur
+    if (TMT.objectifsView && TMT.objectifsView.setContext) TMT.objectifsView.setContext(lvl === 'activite' ? { level: 'activite' } : (curCols[0] && curCols[0].ctx) || { level: lvl, activityId: focus && focus.activityId });
+  }
+  function go(l, f) { lvl = l; focus = f; split = {}; picked = null; animate = true; needBase = true; render(); }
+  function descend(ci) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
+    var c = curCols[ci]; if (!c) return;
+    if (lvl === 'activite') go('pole', { activityId: c.ctx.activityId });
+    else if (lvl === 'pole' && c.key != null) go('secteur', { activityId: focus.activityId, poleKey: c.key, poleLabel: c.label });
+    else if (TMT.showGoalsPolesPage) TMT.showGoalsPolesPage(focus.activityId);
+  }
+  function ascend() { if (lvl === 'secteur') go('pole', { activityId: focus.activityId }); else if (lvl === 'pole') go('activite', null); } // flèche de retour ou pincer inverse
+  function colAt(x) { // colonne sous un point d'écran (pincer / Ctrl+molette) : celle de la bulle qui lui correspond
+    var bs = basesInner ? basesInner.children : [], best = 0, dmin = 1e9;
+    for (var i = 0; i < bs.length; i++) { var r = bs[i].getBoundingClientRect(), d = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; if (d < dmin) { dmin = d; best = i; } }
+    return best;
+  }
+  function backNav() { // flèche de retour (.cmpNav, R45) + où l'on est
+    var nav = el('div', 'cmpNav cmpNav--sm arBackNav'), b = el('button', 'cmpNavArrow', '‹'); b.type = 'button'; b.setAttribute('aria-label', tr('Remonter'));
+    b.addEventListener('click', ascend);
+    var act = actOf(focus.activityId), name = act ? act.name : '';
+    nav.appendChild(b); nav.appendChild(el('span', 'cmpNavLabel', name + (lvl === 'secteur' ? ' · ' + (focus.poleLabel || '') : ''))); return nav;
+  }
+
   function render() {
     if (!tree) return;
     tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024);
     var today = dayIso(), keep = visibleSet(today), shown = items.filter(function (o) { return keep[o.id]; });
-    if (items.length) { var zb = el('div', 'arZoomRow'); zb.appendChild(zoomBar()); tree.appendChild(zb); }
-    var acts = {}, order = [];
-    shown.forEach(function (o) { var id = o.activity.id; if (!acts[id]) { acts[id] = { a: o.activity, os: [] }; order.push(id); } acts[id].os.push(o); });
-    if (exp && !acts[exp.id]) exp = null; // l'activité dépliée n'est plus visible à cette échelle
-    if (exp) order = [exp.id].concat(order.filter(function (id) { return id !== exp.id; })); // la dépliée à gauche, les autres repliées à sa droite
+    if (items.length) { var zb = el('div', 'arZoomRow'); if (lvl !== 'activite') zb.appendChild(backNav()); zb.appendChild(zoomBar()); tree.appendChild(zb); }
+    curCols = columnsFor(shown); syncCtx();
     buildBases(); basesInner.textContent = '';
-    if (!order.length) { tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); bases.classList.add('hidden'); return; }
-    var n = order.length, wide = window.innerWidth >= 1024, avail = Math.min(window.innerWidth, wide ? 1400 : 600) - 32;
+    if (!curCols.length) { tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); bases.classList.add('hidden'); return; }
+    var n = curCols.length, wide = window.innerWidth >= 1024, avail = tree.clientWidth || (Math.min(window.innerWidth, wide ? 1400 : 600) - 32); // largeur réelle de la zone
     var baseW = Math.floor((avail - RAIL - GAP - 4) / 2), cols = wide ? Math.max(220, Math.floor((avail - RAIL - GAP * (n - 1)) / n)) : baseW; // deux colonnes de même largeur visibles
-    var W = Math.min(Math.max(cols, measureBubble(order.map(function (id) { return acts[id].a.name; }))), window.innerWidth - 80);
-    var WE = exp ? Math.max(190, Math.min(wide ? 520 : 9999, avail - RAIL - GAP - FOLD - 4)) : W; // largeur de la colonne dépliée
-    var widths = order.map(function (id, i) { return exp ? (i === 0 ? WE : FOLD) : W; });
+    var W = Math.min(Math.max(cols, measureBubble(curCols.map(function (c) { return c.label; }))), window.innerWidth - 80);
+    var mode = lvl === 'activite' ? 'simple' : 'detail';
     // données par colonne : arbre, parcours, case (période ou année) de chaque objectif
-    var data = order.map(function (id) {
-      var os = acts[id].os, byId = {}, kids = {}, roots = [];
+    var data = curCols.map(function (c) {
+      var os = c.objs, byId = {}, kids = {}, roots = [];
       os.forEach(function (o) { byId[o.id] = o; });
       os.forEach(function (o) { if (o.parentId != null && byId[o.parentId]) (kids[o.parentId] = kids[o.parentId] || []).push(o); else roots.push(o); });
       var cmp = function (a, b) { return ((a.position == null ? 1e9 : a.position) - (b.position == null ? 1e9 : b.position)) || (a.startDate < b.startDate ? -1 : 1) || a.id - b.id; };
@@ -222,7 +263,7 @@
         var open = seq.some(function (x) { var s = stateOf(x.o, today); return s !== 'done' && s !== 'dropped'; });
         seq.forEach(function (x, i) { entries.push({ o: x.o, d: x.d, ri: ri, i: i, top: i === seq.length - 1, open: open, b: bucketOf(x.o, today) }); });
       });
-      return { act: acts[id].a, color: (acts[id].a && acts[id].a.color) || '#674EA7', entries: entries, all: { byId: byId, kids: kids }, count: os.length };
+      return { col: c, color: c.color, entries: entries, all: { byId: byId, kids: kids }, count: os.length };
     });
     // rangées communes (futur en haut) : TOUTES les cases, de la plus ancienne affichée (aujourd'hui, ou le passé au zoom Tout) jusqu'à l'objectif le plus lointain + 1 an
     var here = rowKey(today), lo = here.rank, hi = here.rank, byRank = {};
@@ -231,13 +272,11 @@
     var list = [];
     for (var rk = lo; rk <= farRank; rk = nextRank(rk)) list.push(byRank[rk] || (zoom === 'period' ? { k: Math.floor(rk / 100) + 'P' + (rk % 100), rank: rk, y: Math.floor(rk / 100), p: rk % 100 } : { k: String(rk / 100), rank: rk, y: rk / 100, p: 0 }));
     list.reverse();
-    // cellules des colonnes : [rangée][colonne] -> entrées ; « + » sur la case vide juste au-dessus du sommet d'une branche encore ouverte
+    // cellules des colonnes : [rangée][colonne] -> entrées
     var cells = list.map(function (rw) { return data.map(function (c) { return c.entries.filter(function (e) { return e.b.rank === rw.rank; }).sort(function (a, b) { return (a.ri - b.ri) || (b.i - a.i); }); }); });
-    var plus = {};
-    if (!exp) cells.forEach(function (row, r) { row.forEach(function (es, ci) { if (es.length === 1 && es[0].top && es[0].open && r > 0 && !cells[r - 1][ci].length && !plus[(r - 1) + ':' + ci]) plus[(r - 1) + ':' + ci] = es[0].o; }); });
 
     var grid = el('div', 'goalsGrid arGrid' + (animate ? ' arEnter' : '')); animate = false;
-    var lastY = null, todayPut = false, mode = exp ? (exp.lvl > 1 ? 'sub' : 'detail') : 'simple', lastRow = null;
+    var lastY = null, todayPut = false, lastRow = null;
     function todayLine(after) { var tl = el('div', 'arTodayLine' + (after ? ' arTodayLine--after' : '')); tl.appendChild(el('span', null, tr('Aujourd’hui'))); return tl; } // l'unique ligne « Aujourd'hui »
     list.forEach(function (rw, r) {
       var row = el('div', 'goalsGridRow'); row.setAttribute('data-rank', String(rw.rank)); lastRow = row;
@@ -246,48 +285,52 @@
       if (rw.y !== lastY) { var yt = el('span', 'arYearTag', String(rw.y)); row.appendChild(yt); } lastY = rw.y;
       data.forEach(function (c, ci) {
         var es = cells[r][ci];
-        if (exp && ci > 0) { var fc = el('button', 'arFoldCell'); fc.type = 'button'; fc.tabIndex = -1; fc.setAttribute('aria-hidden', 'true'); cellSize(fc, FOLD); fc.style.background = c.color; fc.addEventListener('click', function () { setExp(order[ci], 1); }); row.appendChild(fc); return; }
-        if (!es.length) row.appendChild(emptyCell(c.color, widths[ci], plus[r + ':' + ci]));
-        else if (es.length > 1 && !exp && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, widths[ci])); // plusieurs objectifs d'une même activité dans la même case : une seule carte
-        else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, widths[ci]); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, widths[ci])); }); row.appendChild(stack); }
-        else row.appendChild(card(es[0].o, today, c.all, mode, widths[ci]));
+        if (!es.length) row.appendChild(emptyCell(W, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
+        else if (es.length > 1 && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, W, function () { descend(ci); })); // plusieurs objectifs d'une même activité dans la même case : une seule carte
+        else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, W); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, W)); }); row.appendChild(stack); }
+        else row.appendChild(card(es[0].o, today, c.all, mode, W));
       });
       grid.appendChild(row);
     });
     if (!todayPut && lastRow) lastRow.appendChild(todayLine(true)); // le présent est la dernière case : la ligne passe dessous
-    // commandes tout en bas, sous les colonnes : « + » (déplier) ; sur la colonne dépliée « − » (replier) et, au niveau 1, « + » (déplier encore) ; colonne repliée : touche = la déplier
-    var cmd = el('div', 'goalsGridRow arCmdRow');
-    data.forEach(function (c, ci) {
-      var cell = el('div', 'arHeadCell'), id = order[ci]; cellSize(cell, widths[ci]);
-      if (exp && ci > 0) {
-        var f = el('button', 'arFold'); f.type = 'button'; f.style.background = c.color; f.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : '#fff'; f.setAttribute('aria-label', tr('Déplier') + ' ' + c.act.name + ' (' + c.count + ')');
-        f.appendChild(el('b', 'arFoldN', String(c.count))); f.appendChild(el('span', 'arFoldName', c.act.name)); f.addEventListener('click', function () { setExp(id, 1); }); cell.appendChild(f);
-      } else if (!exp) cell.appendChild(head('arPlusBtn', tr('Déplier') + ' ' + c.act.name, '+', function () { setExp(id, 1); }));
-      else {
-        cell.classList.add('arHeadPair');
-        cell.appendChild(head('arMinusBtn', tr('Replier') + ' ' + c.act.name, '−', function () { setExp(exp.lvl > 1 ? id : null, 1); }));
-        if (exp.lvl < 2) cell.appendChild(head('arPlusBtn', tr('Déplier encore') + ' ' + c.act.name, '+', function () { setExp(id, 2); }));
-      }
-      cmd.appendChild(cell);
-    });
-    grid.appendChild(cmd);
     scroller = el('div', 'goalsGridScroll arScroll'); scroller.appendChild(grid); tree.appendChild(scroller);
-    // bulles : la dépliée ouvre l'arbre périodique (page 2) ; une repliée (étroite, nom tronqué) la déplie
+    // bulles : une racine fixe par colonne (activité, pôle ou secteur), même couleur d'activité ; toucher = descendre d'un niveau
     basesInner.style.paddingLeft = RAIL + 'px'; basesInner.style.gap = GAP + 'px';
     data.forEach(function (c, ci) {
-      var folded = exp && ci > 0, b = el('button', 'arBubble' + (folded ? ' arBubbleFold' : '')); b.type = 'button'; b.style.width = widths[ci] + 'px'; b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : '#fff';
-      b.appendChild(el('span', null, c.act.name)); b.title = c.act.name;
-      b.addEventListener('click', function () { if (folded) setExp(order[ci], 1); else if (TMT.showGoalsPolesPage) TMT.showGoalsPolesPage(c.act.id); });
+      var b = el('button', 'arBubble'); b.type = 'button'; b.style.width = W + 'px'; b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : '#fff';
+      b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
+      b.addEventListener('click', function () { descend(ci); });
       basesInner.appendChild(b);
     });
     scroller.addEventListener('scroll', function () { basesInner.style.transform = 'translateX(' + (-scroller.scrollLeft) + 'px)'; });
     bases.classList.toggle('hidden', !visible); placeBases();
     if (needBase && tree.getClientRects().length) { needBase = false; scroller.scrollIntoView({ block: 'end' }); }
   }
+  // Pincer (tactile) ou Ctrl + molette (ordinateur) : descendre d'un niveau (écarter) / remonter (rapprocher). Une seule technique de zoom, la même partout dans l'arbre.
+  (function () {
+    var pinch = null, lastWheel = 0;
+    function inArbre(t) { return visible && t && t.closest && t.closest('#goalsObjArbre, .arBases'); }
+    function dist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+    document.addEventListener('touchstart', function (e) { if (e.touches.length === 2 && inArbre(e.target)) pinch = { d: dist(e.touches), x: (e.touches[0].clientX + e.touches[1].clientX) / 2, done: false }; }, { passive: true });
+    document.addEventListener('touchmove', function (e) {
+      if (!pinch || e.touches.length !== 2) return;
+      if (e.cancelable) e.preventDefault();
+      if (pinch.done) return;
+      var k = dist(e.touches) / pinch.d;
+      if (k > 1.3) { pinch.done = true; descend(colAt(pinch.x)); } else if (k < 0.75) { pinch.done = true; ascend(); }
+    }, { passive: false });
+    document.addEventListener('touchend', function (e) { if (e.touches.length < 2) pinch = null; }, { passive: true });
+    document.addEventListener('wheel', function (e) {
+      if (!e.ctrlKey || !inArbre(e.target)) return;
+      e.preventDefault();
+      var now = Date.now(); if (now - lastWheel < 400) return; lastWheel = now;
+      if (e.deltaY < 0) descend(colAt(e.clientX)); else ascend();
+    }, { passive: false });
+  })();
   function refresh() {
     if (!tree) return Promise.resolve();
-    return Promise.all([TMT.api('GET', '/api/objectifs?filtre=tous'), TMT.api('GET', '/api/objectifs/periodes').catch(function () { return null; })]).then(function (rs) {
-      items = (rs[0] && rs[0].objectifs) || []; if (rs[1] && rs[1].perYear) { PER_YEAR = rs[1].perYear; PER_DAYS = rs[1].weeks * 7; } loaded = true; render();
+    return Promise.all([TMT.api('GET', '/api/objectifs?filtre=tous'), TMT.api('GET', '/api/objectifs/periodes').catch(function () { return null; }), TMT.api('GET', '/api/objectifs/structure').catch(function () { return null; })]).then(function (rs) {
+      items = (rs[0] && rs[0].objectifs) || []; struct = rs[2]; if (rs[1] && rs[1].perYear) { PER_YEAR = rs[1].perYear; PER_DAYS = rs[1].weeks * 7; } loaded = true; render();
     }).catch(function () {});
   }
   tree = document.getElementById('goalsObjArbre');
