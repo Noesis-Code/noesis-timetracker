@@ -18,6 +18,10 @@ function run(fn) {
 
 router.get('/objectifs', run((req) => ({ objectifs: objectifs.liste(req.userId, String(req.query.filtre || 'en_cours')) })));
 router.post('/objectifs/contexte', run((req) => objectifs.contexte(req.userId, req.body || {})));
+<<<<<<< HEAD
+=======
+router.put('/objectifs/:id/niveau-temps', run((req) => objectifs.modifierNiveauTemps(req.userId, req.params.id, String((req.body || {}).timeLevel || ''))));
+>>>>>>> 73bc492b (Niveaux de temps fixes : réglage Périodes supprimé (routes, restructuration), constante 13 x 4, timeLevel (periode, annee, pluriannuel) déduit et migré, macro au niveau >= enfants, route niveau-temps ; tests et dossier)
 router.get('/objectifs/structure', run((req) => objectifs.structure(req.userId)));
 router.get('/objectifs/reglage', run((req) => ({ anon: objectifs.anonOptIn(req.userId) })));
 router.put('/objectifs/reglage', run((req) => objectifs.setAnon(req.userId, !(req.body && req.body.anon === false))));

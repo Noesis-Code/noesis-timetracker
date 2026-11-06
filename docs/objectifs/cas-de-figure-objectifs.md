@@ -67,8 +67,8 @@ Légende : ✅ géré, ⚠️ partiel, ❌ non géré. Priorité : P1 (bloquant 
 | E08 Échéance dépassée non atteint | Reste visible, signalé | ⚠️ | P3 |
 | E09 Semaines futures cochées | Interdit ou signalé | ⚠️ | P3 |
 | E10 Archives | Racine atteinte archivée | ✅ | - |
-| T01 Périodes globales (Réglages) | Réglage unique | ❌ | P1 |
-| T02 Changer le réglage avec objectifs existants | Restructure avec confirmation | ❌ | P1 |
+| T01 Périodes globales (Réglages) | SUPPRIMÉ : périodes fixes 13 × 4 (section 14) | ✅ remplacé (6 nov.) | P1 |
+| T02 Changer le réglage avec objectifs existants | Sans objet : plus de réglage | ✅ sans objet (6 nov.) | P1 |
 | T03 Objectif sur plusieurs périodes | Étalé sur ses périodes | ❌ | P2 |
 | T04 Plusieurs années | Lignes par année | ✅ | - |
 | T05 Bissextile, 53 semaines | Aucun décalage | ✅ | - |
@@ -401,7 +401,7 @@ Règles (toutes testées dans `test/objectifs-graves-test.js`, section 6) :
 - **M10 Création** : à la création, si des objectifs RESSEMBLANTS existent dans d'autres activités (règles de ressemblance gratuites), `POST /objectifs/rattachement` renvoie `macro.candidates` (avant/après, modifiable) ; rien n'est écrit sans validation : `POST /objectifs/macro { title, childIds }` crée le macro et rattache les objectifs choisis. ✅ serveur ; interface de la proposition (étape du panneau de création) : à brancher.
 - **M11 Macro dans un macro** : par la fusion, interdit (un macro ne se range pas dans un autre par cette voie) ; par `lier`, permis.
 
-## Réglage des périodes : portée actuelle (6 nov. 2026, décision d'Émilien)
+## Réglage des périodes : portée actuelle (6 nov. 2026, décision d'Émilien) : ANNULÉ, voir section 14
 
 Le réglage global « Périodes » (Réglages > Préférences : 4 × 13, 13 × 4 par défaut, 26 × 2 ou 52 × 1) ne s'applique pour l'instant qu'à l'ARBRE DES OBJECTIFS et aux OBJECTIFS de l'utilisateur (`user_objectives` : création, restructuration de tous les objectifs sans rien supprimer, anciennes périodes gardées dans `meta.prevPeriods`). L'arbre périodique de la page 2, le calendrier de la page 3 et les statistiques (axes P1 à P13) restent à 13 périodes de 4 semaines : ils viennent du moteur de plans d'activité (`server/lib/goals.js`, `PERIODS_PER_CYCLE = 13`, `goal_periods`), PARTAGÉ entre les membres d'une activité, alors que le réglage est personnel. Ne pas modifier ce moteur tant qu'Émilien n'a pas décidé comment un réglage personnel cohabite avec un plan d'activité commun.
 ### 13 bis. Macros à chaque niveau, enchaînés, échéance (envoi 7, 6 nov. 2026)
@@ -416,3 +416,16 @@ Un macro relie plusieurs colonnes à CHAQUE niveau : activités, pôles d'une ac
 - **M17 Suppression d'un enfant ou d'un macro intermédiaire** : décision documentée : RIEN en cascade ; la suppression confirmée détache les enfants, qui deviennent des SOMMETS (jamais remontés au grand-parent, car la règle d'activité ou de niveau pourrait ne pas tenir sous lui) ; sans confirmation : 409 avec la liste. Le macro parent reste, sans l'enfant supprimé ; l'échéance du parent n'est pas réduite. ✅
 - **M18 Changement du réglage des périodes** : les échéances (macros comprises) ne changent pas ; les cases (périodes et semaines) sont recalculées, textes et états conservés (`restructure`). ✅
 - **M19 Activité unique** : aucun macro d'activités proposé (il faut au moins 2 colonnes reliables). ✅
+
+## 14. Niveaux de temps fixes (changement de direction d'Émilien, 6 nov. 2026, envoi 8)
+
+ANNULE le réglage « Périodes » des Préférences : l'utilisateur ne règle plus la longueur des périodes. Trois niveaux de temps FIXES, du court au long : PÉRIODE (13 × 4 semaines, comme l'arbre périodique) -> ANNÉE -> PLURIANNUEL. Chaque objectif se place à l'échelle de son choix ; sa place dans l'arbre dépend de ce niveau. Code : `server/lib/objectifs-temps.js` (constante unique `PERIODS_PER_YEAR = 13`, `PERIOD_WEEKS = 4`, utilisée par la création, la proposition et le contexte) ; champ `timeLevel` ('periode' | 'annee' | 'pluriannuel', défaut 'periode') sur `user_objectives`, exposé par `liste()` et `get()`.
+
+Supprimé côté serveur : `GET/PUT /api/objectifs/periodes`, la restructuration de tous les objectifs (`restructure`, `meta.prevPeriods` n'est plus écrit ; les anciennes valeurs déjà stockées restent), les quatre formats, `MAX_PERIODS` ramené à 140 (13 périodes par an sur dix ans). Les colonnes `users.objPerYear / objPeriodWeeks / objPeriodsAsked` restent en base, intactes et inutilisées. Nouvelle route : `PUT /api/objectifs/:id/niveau-temps { timeLevel }`.
+
+- **N01 Déduction du niveau** (création sans niveau, migration des anciens) : durée début -> échéance <= 13 semaines : période ; <= 156 semaines (3 ans) : année ; au-delà : pluriannuel. Migration une seule fois, à l'ajout de la colonne, sans rien supprimer ; le nombre d'objectifs hors niveau « période » est écrit au journal du serveur. ✅ testé (base à l'ancien schéma).
+- **N02 Niveau choisi** : accepté s'il est valide (sinon 400 « Niveau de temps invalide ») et cohérent avec l'échéance. ✅
+- **N03 Cohérence échéance / niveau** (refus, jamais d'ajustement silencieux) : période <= 13 semaines ; année <= 156 semaines ; pluriannuel > 52 semaines. Modifier l'échéance au-delà du niveau est refusé avec « change d'abord le niveau de temps ». ✅
+- **N04 Macro et niveaux** : le niveau de temps d'un macro est au moins celui de ses enfants : refusé (400, message court) à la création d'un enfant, au rattachement, quand on abaisse le macro sous un enfant, ou qu'on allonge un enfant au-delà du macro. La fusion en macro prend le niveau le plus long de ses enfants. ✅
+- **N05 Périodes** : toutes de 4 semaines, quel que soit le niveau (un objectif annuel compte 13 périodes par an). Les objectifs existants gardent leurs périodes enregistrées.
+- **N06 Réglage supprimé** (ancien M18 / T01 / T02) : plus de restructuration ni de confirmation ; les échéances ne changent jamais.

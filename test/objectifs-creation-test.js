@@ -88,8 +88,13 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(meta2.category && meta2.category !== meta.category, 'pont : deux objectifs de la même activité, deux plans séparés (jamais mélangés)');
   const ext = o.bilan(u, made.id, 'prolonger', 1);
   assert(ext.periods[1].weeks.length === 5 && ext.endDate > made.endDate, 'prolonger d\'une semaine décale la suite');
+<<<<<<< HEAD
   // PÉRIODES FIXES (6 nov. 2026) : 13 × 4 semaines pour tous ; plus de réglage ni de durée de période par objectif.
   assert(typeof o.duree === 'undefined' && typeof o.setPeriods === 'undefined' && typeof o.periodsInfo === 'undefined' && o.splitPeriods('2026-11-02', '2026-12-27', '4').length === 2, 'périodes : fixes (4 semaines), plus de réglage ni de « Régler la durée »');
+=======
+  // Périodes FIXES 13 × 4 (6 nov. 2026) : plus de réglage global ; une constante unique (objectifs-temps.js), niveau de temps par objectif.
+  assert(typeof o.periodsInfo === 'undefined' && typeof o.setPeriods === 'undefined' && require('../server/lib/objectifs-temps').PERIOD_WEEKS === 4 && require('../server/lib/objectifs-temps').PERIODS_PER_YEAR === 13 && made.periodWeeks === '4', 'périodes : réglage global supprimé, 13 × 4 fixes');
+>>>>>>> 73bc492b (Niveaux de temps fixes : réglage Périodes supprimé (routes, restructuration), constante 13 x 4, timeLevel (periode, annee, pluriannuel) déduit et migré, macro au niveau >= enfants, route niveau-temps ; tests et dossier)
   // Lecture de pièces jointes (fausse IA) : propose, ne crée rien ; image jamais stockée ; quota partagé avec « Proposer les étapes ».
   const seen = [];
   o.setReadCaller(async (a) => { seen.push(a); return JSON.stringify({ objectives: [{ title: 'Courir un 10 km en deux mois', amount: null, unit: null }, { title: 'Lire quatre livres', amount: 3, unit: 'mois' }, { title: '' }] }); });

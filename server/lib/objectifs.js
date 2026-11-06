@@ -13,6 +13,7 @@ const goals = require('./goals');
 const goalstasks = require('./goalstasks');
 const textlimits = require('./textlimits');
 const durees = require('./objectifs-durees');
+const temps = require('./objectifs-temps');
 
 db.exec(`CREATE TABLE IF NOT EXISTS user_objectives (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,6 +43,16 @@ try {
   if (!cols.includes('level')) db.exec("ALTER TABLE user_objectives ADD COLUMN level TEXT NOT NULL DEFAULT 'activite'");
   if (!cols.includes('poleKey')) db.exec('ALTER TABLE user_objectives ADD COLUMN poleKey TEXT');
   if (!cols.includes('categoryKey')) db.exec('ALTER TABLE user_objectives ADD COLUMN categoryKey TEXT');
+  if (!cols.includes('timeLevel')) { // niveau de temps (6 nov. 2026) : DÉDUIT de l'échéance pour les objectifs existants (une seule fois, à l'ajout de la colonne)
+    db.exec("ALTER TABLE user_objectives ADD COLUMN timeLevel TEXT NOT NULL DEFAULT 'periode'");
+    let changed = 0;
+    db.prepare('SELECT id, startDate, endDate FROM user_objectives').all().forEach((r) => {
+      if (!isDay(r.startDate) || !isDay(r.endDate)) return;
+      const lv = temps.deduce(r.startDate, r.endDate);
+      if (lv !== 'periode') { db.prepare('UPDATE user_objectives SET timeLevel = ? WHERE id = ?').run(lv, r.id); changed += 1; }
+    });
+    if (changed) console.log('[objectifs] niveau de temps déduit : ' + changed + ' objectif(s) hors niveau période');
+  }
   if (!cols.includes('isMacro')) db.exec('ALTER TABLE user_objectives ADD COLUMN isMacro INTEGER NOT NULL DEFAULT 0'); // objectif MACRO : englobe des sous-objectifs de plusieurs activités
 } catch (e) { console.warn('[objectifs] migration parentRel/position :', e && e.message); }
 db.exec(`CREATE TABLE IF NOT EXISTS objectifs_refus (
@@ -54,7 +65,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS objectifs_refus (
 
 const UNITS = ['semaines', 'mois', 'années'];
 const MAX_AMOUNT = { semaines: 156, mois: 120, 'années': 10 };
-const MAX_PERIODS = 400; // 52 × 1 sur sept ans
+const MAX_PERIODS = 140; // 13 périodes par an sur dix ans au plus (MAX_AMOUNT années)
 const TASKS_PER_WEEK = 3; // ordre de grandeur des tâches par semaine d'un objectif (carte « Semaine prochaine »)
 const MAX_TITLE = 140;
 
@@ -69,6 +80,7 @@ function checkParent(child, parent) {
     // Un macro relie des colonnes d'UN niveau (activités, pôles ou secteurs) : ses enfants sont de ce niveau.
     if (child.level && (parent.level || 'activite') !== child.level) throw err('Ce macro relie des objectifs de niveau « ' + (parent.level || 'activite') + ' » : cet objectif est de niveau « ' + child.level + ' ».');
     // Échéance d'un macro : au moins aussi lointaine que celle de chacun de ses enfants (le serveur refuse ; l'interface propose de repousser celle du macro).
+    if (child.timeLevel && temps.rank(child.timeLevel) > temps.rank(parent.timeLevel)) throw err('Le niveau de temps du macro doit être au moins celui de ses objectifs (« ' + child.timeLevel + ' »).');
     if (child.endDate && parent.endDate && child.endDate > parent.endDate) throw err('L’échéance de cet objectif (' + child.endDate + ') dépasse celle du macro (' + parent.endDate + ') : repousse d’abord l’échéance du macro.');
   }
 }
@@ -195,9 +207,12 @@ db.exec(`CREATE TABLE IF NOT EXISTS objectifs_signaux (
 try { if (!db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'objectifsAnon')) db.exec('ALTER TABLE users ADD COLUMN objectifsAnon INTEGER NOT NULL DEFAULT 1'); } catch (e) { /* colonne déjà là */ }
 function anonOptIn(userId) { const r = db.prepare('SELECT objectifsAnon AS a FROM users WHERE id = ?').get(userId); return !r || r.a !== 0; }
 function setAnon(userId, on) { db.prepare('UPDATE users SET objectifsAnon = ? WHERE id = ?').run(on ? 1 : 0, userId); return { anon: !!on }; }
-// PÉRIODES FIXES (décision d'Émilien, 6 nov. 2026) : 13 périodes de 4 semaines par an, la même chose pour tous ; l'utilisateur ne règle plus la longueur des périodes.
-const PERIOD_WEEKS = '4';
-function userPW() { return PERIOD_WEEKS; }
+// Réglage « Périodes » SUPPRIMÉ (6 nov. 2026) : périodes fixes 13 × 4 semaines (objectifs-temps.js). Les colonnes users.objPerYear / objPeriodWeeks / objPeriodsAsked
+// restent en base, intactes et inutilisées (données conservées).
+for (const [col, def] of [['objPerYear', 13], ['objPeriodWeeks', 4], ['objPeriodsAsked', 0]]) {
+  try { if (!db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === col)) db.exec('ALTER TABLE users ADD COLUMN ' + col + ' INTEGER NOT NULL DEFAULT ' + def); } catch (e) { /* colonne déjà là */ }
+}
+function userPW() { return String(temps.PERIOD_WEEKS); }
 function chronoHours(userId, activityId, start, end) {
   try { return db.prepare('SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ?').get(userId, activityId, start, end).s / 3600; } catch (e) { return 0; }
 }
@@ -258,7 +273,7 @@ function contexte(userId, body) {
   const best = ranked[0] && ranked[0].score > 0 ? ranked[0] : null;
   const existing = db.prepare("SELECT id, title, activityId, endDate FROM user_objectives WHERE userId = ? AND endDate >= ? ORDER BY endDate").all(userId, start);
   return {
-    title, amount, unit, startDate: start, endDate: end, periodWeeks: userPW(),
+    title, amount, unit, startDate: start, endDate: end, periodWeeks: userPW(), periodsAsk: false, periodsPerYear: temps.PERIODS_PER_YEAR, timeLevel: temps.deduce(start, end),
     canGenerateTasks: tasksAllowed(userId), fixedDate: fixedDate || unknownCategory, dateReason: fixedDate ? 'fixe' : unknownCategory ? 'inconnue' : null, dateConfirmed: !!explicit || manual || !!found,
     weeklyHours: ranked.reduce((o, a) => { o[a.id] = weeklyHoursHistory(userId, a.id); return o; }, {}),
     lastWeekHours: ranked.reduce((o, a) => { o[a.id] = Math.round(chronoHours(userId, a.id, addDays(today(), -6), today()) * 2) / 2; return o; }, {}), // temps enregistré (Chrono) sur les 7 derniers jours : repère « enregistré » du curseur d'heures par semaine
@@ -580,11 +595,14 @@ function creer(userId, body) {
   const amount = Number.isInteger(Number(body.amount)) && Number(body.amount) > 0 ? Number(body.amount) : Math.max(1, Math.round(daysBetween(start, body.endDate) / 7));
   const periodWeeks = userPW();
   const weekly = body.weekly !== false;
+  const timeLevel = body.timeLevel === undefined || body.timeLevel === null || body.timeLevel === '' ? temps.deduce(start, body.endDate) : String(body.timeLevel);
+  if (!temps.TIME_LEVELS.includes(timeLevel)) throw err('Niveau de temps invalide (période, année ou pluriannuel).');
+  { const inco = temps.incoherence(timeLevel, start, body.endDate); if (inco) throw err(inco); }
   let parentId = null;
   if (body.parentId) {
-    const par = db.prepare('SELECT id, activityId, isMacro, level, endDate FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body.parentId), userId);
+    const par = db.prepare('SELECT id, activityId, isMacro, level, endDate, timeLevel FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body.parentId), userId);
     if (!par) throw err('Objectif parent introuvable.', 404);
-    checkParent({ activityId: act.id, isMacro: body.isMacro === true, level: levelOf(userId, act.id, body).level, endDate: body.endDate }, par);
+    checkParent({ activityId: act.id, isMacro: body.isMacro === true, level: levelOf(userId, act.id, body).level, endDate: body.endDate, timeLevel }, par);
     parentId = par.id;
   }
   const parentRel = parentId && (body.parentRel === 'avant' || body.parentRel === 'apres') ? body.parentRel : null;
@@ -605,7 +623,7 @@ function creer(userId, body) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(userId, act.id, title, amount, unit, start, body.endDate, periodWeeks, weekly ? 1 : 0, parentId, JSON.stringify(periods), '[]', new Date().toISOString());
   const id = Number(info.lastInsertRowid);
-  db.prepare('UPDATE user_objectives SET parentRel = ?, position = ?, level = ?, poleKey = ?, categoryKey = ?, isMacro = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), lvl.level, lvl.poleKey, lvl.categoryKey, body.isMacro === true ? 1 : 0, id);
+  db.prepare('UPDATE user_objectives SET parentRel = ?, position = ?, level = ?, poleKey = ?, categoryKey = ?, isMacro = ?, timeLevel = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), lvl.level, lvl.poleKey, lvl.categoryKey, body.isMacro === true ? 1 : 0, timeLevel, id);
   (Array.isArray(body.refus) ? body.refus : []).slice(0, 20).forEach((cid) => { const c = db.prepare('SELECT id FROM user_objectives WHERE id = ? AND userId = ?').get(Number(cid), userId); if (c && c.id !== id) db.prepare('INSERT OR REPLACE INTO objectifs_refus (userId, objectifId, candidateId, createdAt) VALUES (?, ?, ?, ?)').run(userId, id, c.id, new Date().toISOString()); });
   const est0 = durees.estimate(title);
   const hpw = Number(body.hoursPerWeek) > 0 && Number(body.hoursPerWeek) <= 80 ? Math.round(Number(body.hoursPerWeek) * 10) / 10 : null; // facultatif : valeur de départ = historique Chrono, modifiable
@@ -708,7 +726,7 @@ function shape(r, full) {
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },
     weekTasks: { done: weekTasks.filter((t) => t.done).length, total: weekTasks.length },
   };
-  out.isMacro = !!r.isMacro;
+  out.isMacro = !!r.isMacro; out.timeLevel = r.timeLevel || 'periode';
   if (r.isMacro) {
     const mi = macroInfo(r);
     out.macroLevel = r.level || 'activite'; out.macroColumns = columnsOf(r); out.childMacroIds = activeKids(r).filter((k) => k.isMacro).map((k) => k.id);
@@ -752,7 +770,7 @@ function lier(userId, id, parentId, rel) {
     return get(userId, r.id);
   }
   const p = rowOf(userId, parentId);
-  checkParent({ activityId: r.activityId, isMacro: !!r.isMacro, level: r.level || 'activite', endDate: r.endDate }, p); // L03 (revu pour le macro) + niveau + échéance
+  checkParent({ activityId: r.activityId, isMacro: !!r.isMacro, level: r.level || 'activite', endDate: r.endDate, timeLevel: r.timeLevel || 'periode' }, p); // L03 (revu pour le macro) + niveau + échéance
   for (let cur = p; cur; cur = cur.parentId ? db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId) : null) {
     if (cur.id === r.id) throw err('Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.');
   }
@@ -859,7 +877,8 @@ function fusionnerEnMacro(userId, body) {
   const start = kids.map((k) => k.startDate).sort()[0], end = kids.map((k) => k.endDate).sort().pop();
   const lv = kids[0].level || 'activite';
   if (kids.some((k) => (k.level || 'activite') !== lv)) throw err('Un macro relie des objectifs d’un même niveau (activités, pôles ou secteurs).');
-  const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : kids[0].poleKey, categoryKey: lv === 'secteur' ? kids[0].categoryKey : null });
+  const tl = kids.map((k) => k.timeLevel || 'periode').sort((a, c) => temps.rank(c) - temps.rank(a))[0];
+  const created = creer(userId, { timeLevel: tl, title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : kids[0].poleKey, categoryKey: lv === 'secteur' ? kids[0].categoryKey : null });
   kids.forEach((k) => lier(userId, k.id, created.id, 'avant'));
   return get(userId, created.id);
 }
@@ -874,6 +893,7 @@ function modifierEcheance(userId, id, endDate) {
   }
   const par = r.parentId ? db.prepare('SELECT isMacro, endDate FROM user_objectives WHERE id = ?').get(r.parentId) : null;
   if (par && par.isMacro && endDate > par.endDate) throw err('L’échéance de cet objectif (' + endDate + ') dépasse celle du macro (' + par.endDate + ') : repousse d’abord l’échéance du macro.');
+  { const inco = temps.incoherence(r.timeLevel || 'periode', r.startDate, endDate); if (inco) throw err(inco + ' (change d’abord le niveau de temps)'); }
   const old = JSON.parse(r.stepsJson || '[]'), wk = {}; old.forEach((p) => p.weeks.forEach((w) => { wk[w.startDate] = w; }));
   const next = splitPeriods(r.startDate, endDate, r.periodWeeks);
   next.forEach((p) => {
@@ -884,6 +904,20 @@ function modifierEcheance(userId, id, endDate) {
   const meta = JSON.parse(r.metaJson || '{}'); meta.plannedWeeks = Math.round(daysBetween(r.startDate, endDate) / 7);
   db.prepare('UPDATE user_objectives SET endDate = ?, stepsJson = ?, metaJson = ? WHERE id = ?').run(endDate, JSON.stringify(next), JSON.stringify(meta), r.id);
   if (meta.category) bridge(rowOf(userId, r.id), next);
+  return get(userId, r.id);
+}
+// Niveau de temps : PUT /objectifs/:id/niveau-temps. Cohérent avec l'échéance ; un macro au moins aussi long que ses enfants ; un enfant d'un macro pas plus long que lui.
+function modifierNiveauTemps(userId, id, level) {
+  const r = rowOf(userId, id);
+  if (!temps.TIME_LEVELS.includes(level)) throw err('Niveau de temps invalide (période, année ou pluriannuel).');
+  const inco = temps.incoherence(level, r.startDate, r.endDate); if (inco) throw err(inco);
+  if (r.isMacro) {
+    const longest = activeKids(r).map((k) => k.timeLevel || 'periode').sort((a, c) => temps.rank(c) - temps.rank(a))[0];
+    if (longest && temps.rank(level) < temps.rank(longest)) throw err('Le niveau de temps du macro doit être au moins celui de ses objectifs (« ' + longest + ' »).');
+  }
+  const par = r.parentId ? db.prepare('SELECT isMacro, timeLevel FROM user_objectives WHERE id = ?').get(r.parentId) : null;
+  if (par && par.isMacro && temps.rank(level) > temps.rank(par.timeLevel)) throw err('Le niveau de temps du macro (« ' + par.timeLevel + ' ») est plus court que celui de cet objectif.');
+  db.prepare('UPDATE user_objectives SET timeLevel = ? WHERE id = ?').run(level, r.id);
   return get(userId, r.id);
 }
 // E03 : abandonner / réactiver (bascule de meta.abandoned) ; jamais en cascade : les objectifs rattachés gardent leur état (E04).
@@ -909,4 +943,4 @@ function supprimer(userId, id, confirmed) {
   return { ok: true, detached: kids.map((k) => k.id) };
 }
 migrateEcheances(); // au chargement (idempotent)
-module.exports = { modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { modifierNiveauTemps, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
