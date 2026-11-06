@@ -80,7 +80,8 @@
     function close() { overlay.remove(); if (opts.onClose) opts.onClose(); }
     x.addEventListener('click', close);
     overlay.addEventListener('mousedown', function (e) { overlay._down = e.target === overlay; });
-    overlay.addEventListener('click', function (e) { if (e.target === overlay && overlay._down) close(); });
+    var born = Date.now(); // le relâchement d'un appui long (carte fusionnée) ne ferme jamais la fenêtre qu'il vient d'ouvrir
+    overlay.addEventListener('click', function (e) { if (e.target === overlay && overlay._down && Date.now() - born > 700) close(); });
     return { overlay: overlay, body: body, foot: foot, close: close, head: titleBox };
   }
   function field(label, node) { var w = el('div', 'objField'); w.appendChild(el('p', 'cmpBlockTitle', label)); w.appendChild(node); return w; }
@@ -404,11 +405,11 @@
     opts = opts || {};
     api('GET', '/api/objectifs?filtre=tous').then(function (r) {
       var os = ((r && r.objectifs) || []).filter(function (o) { return ids.indexOf(o.id) >= 0 && (opts.skip || []).indexOf(o.id) < 0; });
-      var win = openModal(opts.title || os.length + ' ' + tr('objectifs'), { onClose: load });
+      var win = openModal(opts.title || os.length + ' ' + tr('objectifs'), { onClose: load }), born0 = Date.now(); // le relâchement d'un appui long ne choisit jamais une ligne
       os.forEach(function (o) {
         var row = el('button', 'objGroupRow cmpSepRow'); row.type = 'button';
         row.appendChild(el('span', 'objRowName', o.title)); row.appendChild(el('span', 'objMeta', o.durationLabel + ' · ' + o.activity.name));
-        row.addEventListener('click', function () { win.close(); if (opts.onPick) opts.onPick(o.id); else openDetail(o.id); });
+        row.addEventListener('click', function () { if (Date.now() - born0 < 700) return; win.close(); if (opts.onPick) opts.onPick(o.id); else openDetail(o.id); });
         win.body.appendChild(row);
       });
     }).catch(function () {});
