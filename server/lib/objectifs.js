@@ -65,6 +65,12 @@ const MSG_MACRO_PARENT = 'Un objectif macro ne se rattache qu’à un autre obje
 function checkParent(child, parent) {
   if (child.isMacro && !parent.isMacro) throw err(MSG_MACRO_PARENT);
   if (!parent.isMacro && parent.activityId !== child.activityId) throw err(MSG_AUTRE_ACTIVITE);
+  if (parent.isMacro) {
+    // Un macro relie des colonnes d'UN niveau (activités, pôles ou secteurs) : ses enfants sont de ce niveau.
+    if (child.level && (parent.level || 'activite') !== child.level) throw err('Ce macro relie des objectifs de niveau « ' + (parent.level || 'activite') + ' » : cet objectif est de niveau « ' + child.level + ' ».');
+    // Échéance d'un macro : au moins aussi lointaine que celle de chacun de ses enfants (le serveur refuse ; l'interface propose de repousser celle du macro).
+    if (child.endDate && parent.endDate && child.endDate > parent.endDate) throw err('L’échéance de cet objectif (' + child.endDate + ') dépasse celle du macro (' + parent.endDate + ') : repousse d’abord l’échéance du macro.');
+  }
 }
 function err(msg, code) { return Object.assign(new Error(msg), { statusCode: code || 400 }); }
 const iso = (y, m, d) => y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
@@ -459,6 +465,7 @@ async function rattAi(userId, title, cands) {
   } catch (e) { return undefined; }
 }
 function macroProposal(userId, title, act, refused) {
+  if (userActivities(userId).length < 2) return null; // activité unique : aucune colonne à relier, pas de macro d'activités
   const names = {}; userActivities(userId).forEach((a) => { names[a.id] = a.name; });
   const rows = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId != ? AND parentId IS NULL AND isMacro = 0').all(userId, act.id)
     .filter((r) => names[r.activityId] && !refused.has(r.id) && !JSON.parse(r.metaJson || '{}').abandoned && shape(r, false).status !== 'atteint');
@@ -493,9 +500,11 @@ function levelOf(userId, activityId, body) {
   if (level === 'activite') return { level, poleKey: null, categoryKey: null };
   const poles = goals.categoriesForActivity(activityId);
   const pole = poles.find((p) => p.key === (body && body.poleKey));
+  if (!pole && body && body.isMacro === true) return { level, poleKey: null, categoryKey: null }; // un macro relie plusieurs colonnes : aucune colonne propre
   if (!pole) throw err('Choisis un pôle de cette activité.');
   if (level === 'pole') return { level, poleKey: pole.key, categoryKey: null };
   const sect = goals.secteursForPole(activityId, pole.key).find((x) => x.key === (body && body.categoryKey));
+  if (!sect && body && body.isMacro === true) return { level, poleKey: pole.key, categoryKey: null };
   if (!sect) throw err('Choisis un secteur de ce pôle.');
   return { level, poleKey: pole.key, categoryKey: sect.key };
 }
@@ -615,9 +624,9 @@ function creer(userId, body) {
   const weekly = body.weekly !== false;
   let parentId = null;
   if (body.parentId) {
-    const par = db.prepare('SELECT id, activityId, isMacro FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body.parentId), userId);
+    const par = db.prepare('SELECT id, activityId, isMacro, level, endDate FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body.parentId), userId);
     if (!par) throw err('Objectif parent introuvable.', 404);
-    checkParent({ activityId: act.id, isMacro: body.isMacro === true }, par);
+    checkParent({ activityId: act.id, isMacro: body.isMacro === true, level: levelOf(userId, act.id, body).level, endDate: body.endDate }, par);
     parentId = par.id;
   }
   const parentRel = parentId && (body.parentRel === 'avant' || body.parentRel === 'apres') ? body.parentRel : null;
@@ -695,13 +704,28 @@ function rowAttained(row, depth) {
   const weeks = steps.reduce((a, p) => a.concat(p.weeks || []), []);
   return weeks.length > 0 && weeks.every((w) => w.done);
 }
+// Colonnes reliées (par niveau) : activités | pôles d'une activité | secteurs d'un pôle, à travers les macros enchaînés (un macro peut avoir un macro pour enfant).
+function leafKids(r, depth) {
+  if (depth > 20) return [];
+  return activeKids(r).reduce((a, k) => a.concat(k.isMacro ? leafKids(k, depth + 1) : [k]), []);
+}
+function columnsOf(r) {
+  const level = r.level || 'activite', seen = {}, cols = [];
+  leafKids(r, 0).forEach((k) => {
+    const key = level === 'activite' ? String(k.activityId) : level === 'pole' ? k.activityId + '/' + k.poleKey : k.activityId + '/' + k.poleKey + '/' + k.categoryKey;
+    if (seen[key]) return; seen[key] = 1;
+    const a = db.prepare('SELECT name FROM activities WHERE id = ?').get(k.activityId);
+    cols.push({ level, activityId: k.activityId, activityName: a ? a.name : '', poleKey: level === 'activite' ? null : k.poleKey, categoryKey: level === 'secteur' ? k.categoryKey : null });
+  });
+  return cols;
+}
 function macroInfo(r, depth) {
   depth = depth || 0;
   const kids = depth > 20 ? [] : activeKids(r);
   const isAb = (k) => { try { return !!JSON.parse(k.metaJson || '{}').abandoned; } catch (e) { return false; } };
   const live = kids.filter((k) => !isAb(k)), attained = live.filter((k) => rowAttained(k, depth)).length;
   const seen = {}, activities = [];
-  kids.forEach((k) => { if (!seen[k.activityId]) { seen[k.activityId] = 1; const a = db.prepare('SELECT id, name FROM activities WHERE id = ?').get(k.activityId); if (a) activities.push({ id: a.id, name: a.name }); } });
+  leafKids(r, depth).forEach((k) => { if (!seen[k.activityId]) { seen[k.activityId] = 1; const a = db.prepare('SELECT id, name FROM activities WHERE id = ?').get(k.activityId); if (a) activities.push({ id: a.id, name: a.name }); } });
   if (!kids.length) { const a = db.prepare('SELECT id, name FROM activities WHERE id = ? AND active = 1').get(r.activityId); if (a) activities.push({ id: a.id, name: a.name }); }
   return { activities, total: kids.length, live: live.length, attained, empty: kids.length === 0, allAbandoned: kids.length > 0 && live.length === 0,
     status: live.length > 0 && attained === live.length ? 'atteint' : 'en_cours', progress: live.length ? attained / live.length : 0 };
@@ -729,6 +753,7 @@ function shape(r, full) {
   out.isMacro = !!r.isMacro;
   if (r.isMacro) {
     const mi = macroInfo(r);
+    out.macroLevel = r.level || 'activite'; out.macroColumns = columnsOf(r); out.childMacroIds = activeKids(r).filter((k) => k.isMacro).map((k) => k.id);
     out.macroActivities = mi.activities; out.macroEmpty = mi.empty; out.macroAllAbandoned = mi.allAbandoned; out.macroChildren = mi.total;
     out.status = mi.status; out.progress = mi.progress;
   }
@@ -769,7 +794,7 @@ function lier(userId, id, parentId, rel) {
     return get(userId, r.id);
   }
   const p = rowOf(userId, parentId);
-  checkParent(r, p); // L03 (revu pour le macro)
+  checkParent({ activityId: r.activityId, isMacro: !!r.isMacro, level: r.level || 'activite', endDate: r.endDate }, p); // L03 (revu pour le macro) + niveau + échéance
   for (let cur = p; cur; cur = cur.parentId ? db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId) : null) {
     if (cur.id === r.id) throw err('Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.');
   }
@@ -833,6 +858,8 @@ function bilan(userId, id, action, n) {
     }
     end = addDays(end, 7);
   } else if (action !== 'garder') throw err('Action invalide.');
+  const macroPar = r.parentId ? db.prepare('SELECT isMacro, endDate FROM user_objectives WHERE id = ?').get(r.parentId) : null;
+  if (macroPar && macroPar.isMacro && end > macroPar.endDate) throw err('Prolonger dépasserait l’échéance du macro (' + macroPar.endDate + ') : repousse d’abord l’échéance du macro.');
   save(r, periods, meta, end);
   if (meta.category) bridge(rowOf(userId, id), periods);
   return get(userId, id);
@@ -872,9 +899,34 @@ function fusionnerEnMacro(userId, body) {
   const kids = ids.map((i) => rowOf(userId, i));
   kids.forEach((k) => { if (k.parentId) throw err('« ' + k.title + ' » est déjà l’étape d’un objectif : détache-le d’abord.'); if (k.isMacro) throw err('Un macro ne se range pas dans un autre macro par cette voie.'); });
   const start = kids.map((k) => k.startDate).sort()[0], end = kids.map((k) => k.endDate).sort().pop();
-  const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description });
+  const lv = kids[0].level || 'activite';
+  if (kids.some((k) => (k.level || 'activite') !== lv)) throw err('Un macro relie des objectifs d’un même niveau (activités, pôles ou secteurs).');
+  const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : kids[0].poleKey, categoryKey: lv === 'secteur' ? kids[0].categoryKey : null });
   kids.forEach((k) => lier(userId, k.id, created.id, 'avant'));
   return get(userId, created.id);
+}
+// Modification de l'échéance (jamais vide ; macro : au moins aussi lointaine que celle de ses enfants ; enfant d'un macro : pas au-delà du macro).
+// Les périodes sont redécoupées de la date de début à la nouvelle échéance ; les semaines gardent texte et état (même date de début).
+function modifierEcheance(userId, id, endDate) {
+  const r = rowOf(userId, id);
+  checkEcheance({ endDate, startDate: r.startDate }, r.startDate);
+  if (r.isMacro) {
+    const far = activeKids(r).map((k) => k.endDate).sort().pop();
+    if (far && endDate < far) throw err('L’échéance d’un macro est au moins celle de son objectif le plus lointain (' + far + ').');
+  }
+  const par = r.parentId ? db.prepare('SELECT isMacro, endDate FROM user_objectives WHERE id = ?').get(r.parentId) : null;
+  if (par && par.isMacro && endDate > par.endDate) throw err('L’échéance de cet objectif (' + endDate + ') dépasse celle du macro (' + par.endDate + ') : repousse d’abord l’échéance du macro.');
+  const old = JSON.parse(r.stepsJson || '[]'), wk = {}; old.forEach((p) => p.weeks.forEach((w) => { wk[w.startDate] = w; }));
+  const next = splitPeriods(r.startDate, endDate, r.periodWeeks);
+  next.forEach((p) => {
+    const same = old.find((o) => o.startDate === p.startDate);
+    p.title = same && same.title ? same.title : (p.n === next.length ? r.title : 'P ' + p.n);
+    p.weeks.forEach((w) => { const o = wk[w.startDate]; if (o) { w.text = o.text || ''; w.done = !!o.done; } });
+  });
+  const meta = JSON.parse(r.metaJson || '{}'); meta.plannedWeeks = Math.round(daysBetween(r.startDate, endDate) / 7);
+  db.prepare('UPDATE user_objectives SET endDate = ?, stepsJson = ?, metaJson = ? WHERE id = ?').run(endDate, JSON.stringify(next), JSON.stringify(meta), r.id);
+  if (meta.category) bridge(rowOf(userId, r.id), next);
+  return get(userId, r.id);
 }
 // E03 : abandonner / réactiver (bascule de meta.abandoned) ; jamais en cascade : les objectifs rattachés gardent leur état (E04).
 function abandonner(userId, id, on) {
@@ -899,4 +951,4 @@ function supprimer(userId, id, confirmed) {
   return { ok: true, detached: kids.map((k) => k.id) };
 }
 migrateEcheances(); // au chargement (idempotent)
-module.exports = { macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, periodsInfo, setPeriods, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, periodsInfo, setPeriods, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

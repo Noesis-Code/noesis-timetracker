@@ -171,6 +171,65 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(db.prepare('PRAGMA table_info(user_objectives)').all().some((c) => c.name === 'isMacro'), 'migration : colonne isMacro');
 }
 
+// ---- 7. Macros : niveaux, macro d'un macro, cycles, échéance, suppression, périodes, activité unique ----
+{
+  const goalsLib = require('../server/lib/goals');
+  const newAct = (name) => { const id = Number(db.prepare("INSERT INTO activities (name, ownerId, active, createdAt) VALUES (?, ?, 1, '2026-11-01T00:00:00.000Z')").run(name, u).lastInsertRowid); db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#674EA7', '2026-11-01T00:00:00.000Z')").run(id, u); return id; };
+  const B1 = newAct('Niveau B1'), B2 = newAct('Niveau B2'), B3 = newAct('Niveau B3');
+  const mkB = (title, activityId, extra) => o.creer(u, Object.assign({ title, activityId, startDate: '2026-11-09', endDate: '2027-03-01', noBridge: true }, extra || {}));
+  const bad = (fn) => { try { fn(); return null; } catch (x) { return x; } };
+  // macro d'un macro, colonnes non adjacentes
+  const mA = mkB('Macro A+B', B1, { isMacro: true }), a1 = mkB('Objectif B1', B1, { parentId: mA.id }), a2 = mkB('Objectif B2', B2, { parentId: mA.id });
+  const mB = mkB('Macro (A+B)+C', B1, { isMacro: true }), a3 = mkB('Objectif B3', B3, { parentId: mB.id });
+  assert(o.lier(u, mA.id, mB.id, 'avant').parentId === mB.id, 'macro d’un macro : un macro relie (A+B) avec C');
+  const gB = o.get(u, mB.id);
+  assert(gB.macroLevel === 'activite' && gB.childMacroIds.length === 1 && gB.childMacroIds[0] === mA.id, 'liste/get : macroLevel et childMacroIds');
+  assert(gB.macroColumns.length === 3 && [B1, B2, B3].every((a) => gB.macroColumns.some((c) => c.activityId === a)) && gB.macroActivities.length === 3, 'macro enchaîné : colonnes reliées à travers les macros (A, B et C)');
+  assert(o.liste(u, 'tous').find((x) => x.id === mB.id).macroColumns.length === 3, 'liste() expose macroColumns');
+  // cycles macro <-> macro
+  let e = bad(() => o.lier(u, mB.id, mA.id, 'apres')); assert(e && e.statusCode === 400 && /propres/.test(e.message), 'cycle macro <-> macro refusé');
+  e = bad(() => o.lier(u, mA.id, mA.id, 'apres')); assert(e && e.statusCode === 400, 'un macro n’est pas son propre parent');
+  // échéance d'un macro
+  const late = bad(() => mkB('Trop tard', B2, { parentId: mA.id, endDate: '2027-06-01' }));
+  assert(late && late.statusCode === 400 && /dépasse celle du macro/.test(late.message), 'création d’un enfant plus lointain que le macro : refus 400');
+  const far = mkB('Libre lointain', B2, { endDate: '2027-09-01' });
+  e = bad(() => o.lier(u, far.id, mA.id, 'apres')); assert(e && e.statusCode === 400 && /dépasse celle du macro/.test(e.message), 'rattacher un enfant plus lointain que le macro : refus 400');
+  e = bad(() => o.modifierEcheance(u, mA.id, '2027-01-15')); assert(e && e.statusCode === 400 && /au moins celle/.test(e.message), 'macro : échéance plus proche que celle d’un enfant refusée');
+  e = bad(() => o.modifierEcheance(u, mA.id, '2027-10-01')); assert(e && /dépasse celle du macro/.test(e.message), 'macro enfant d’un macro : pas au-delà du macro parent');
+  o.modifierEcheance(u, mB.id, '2027-12-01');
+  const pushed = o.modifierEcheance(u, mA.id, '2027-10-01'); assert(pushed.endDate === '2027-10-01' && pushed.periods.length > 1, 'macro : échéance repoussée, périodes recalculées');
+  assert(o.lier(u, far.id, mA.id, 'apres').parentId === mA.id, 'après avoir repoussé le macro, l’enfant plus lointain se rattache');
+  e = bad(() => o.modifierEcheance(u, far.id, '2028-01-01')); assert(e && /dépasse celle du macro/.test(e.message), 'enfant : échéance au-delà du macro refusée');
+  e = bad(() => o.modifierEcheance(u, a1.id, '')); assert(e && e.statusCode === 400, 'échéance vide refusée en modification');
+  const edge = mkB('Au bord', B1, { parentId: mA.id, endDate: '2027-10-01' });
+  e = bad(() => o.bilan(u, edge.id, 'prolonger', 1)); assert(e && e.statusCode === 400 && /macro/.test(e.message), 'prolonger un enfant au-delà du macro : refus');
+  // niveau pôle : un macro relie des pôles d'une activité
+  goalsLib.addCategory(B1, 'Pôle test 1'); goalsLib.addCategory(B1, 'Pôle test 2');
+  const poles = goalsLib.categoriesForActivity(B1);
+  const pm = mkB('Macro de pôles', B1, { isMacro: true, level: 'pole' });
+  const p1 = mkB('Objectif pôle 1', B1, { level: 'pole', poleKey: poles[0].key, parentId: pm.id }), p2 = mkB('Objectif pôle 2', B1, { level: 'pole', poleKey: poles[1].key, parentId: pm.id });
+  const gp = o.get(u, pm.id);
+  assert(gp.macroLevel === 'pole' && gp.macroColumns.length === 2 && gp.macroColumns.every((c) => c.level === 'pole' && c.activityId === B1) && gp.macroColumns[0].poleKey !== gp.macroColumns[1].poleKey, 'macro de niveau pôle : relie deux pôles d’une même activité');
+  e = bad(() => mkB('Mauvais niveau', B1, { parentId: pm.id })); assert(e && e.statusCode === 400 && /niveau/.test(e.message), 'enfant d’un autre niveau refusé');
+  // suppression d'un macro intermédiaire : rien en cascade, les enfants deviennent sommets
+  e = bad(() => o.supprimer(u, mA.id, false)); assert(e && e.statusCode === 409 && e.extra.children.length >= 3, 'macro intermédiaire : suppression refusée sans confirmation, enfants listés');
+  const rr = o.supprimer(u, mA.id, true);
+  assert(rr.ok && rr.detached.includes(a1.id) && o.get(u, a1.id).parentId === null && o.get(u, a2.id).title === 'Objectif B2', 'macro intermédiaire supprimé : ses enfants deviennent des sommets, aucun supprimé');
+  assert(o.get(u, mB.id).childMacroIds.length === 0 && o.get(u, mB.id).macroChildren === 1, 'le macro parent reste, sans le macro supprimé');
+  // changement de réglage des périodes : échéances inchangées, cases recalculées
+  const endsBefore = db.prepare('SELECT id, endDate FROM user_objectives WHERE userId = ? AND id IN (?, ?, ?)').all(u, mB.id, a3.id, pm.id);
+  const cur = o.periodsInfo(u).perYear; o.setPeriods(u, cur === 26 ? 13 : 26);
+  const endsAfter = db.prepare('SELECT id, endDate FROM user_objectives WHERE userId = ? AND id IN (?, ?, ?)').all(u, mB.id, a3.id, pm.id);
+  assert(JSON.stringify(endsBefore) === JSON.stringify(endsAfter), 'réglage des périodes changé : échéances (macros comprises) inchangées');
+  assert(o.get(u, mB.id).periods.length !== undefined && o.get(u, mB.id).periodWeeks === String(o.periodsInfo(u).weeks), 'réglage des périodes : cases recalculées');
+  // activité unique : pas de macro d'activités proposé
+  const mine = db.prepare('SELECT a.id FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1').all(u).map((r) => r.id);
+  db.prepare('UPDATE activities SET active = 0 WHERE id IN (' + mine.map(() => '?').join(',') + ')').run(...mine); db.prepare('UPDATE activities SET active = 1 WHERE id = ?').run(B1); // une seule activité active
+  const rs = await o.rattachement(u, { title: 'Courir un semi-marathon', activityId: B1 });
+  db.prepare('UPDATE activities SET active = 1 WHERE id IN (' + mine.map(() => '?').join(',') + ')').run(...mine);
+  assert(!rs.macro, 'activité unique : aucun macro d’activités proposé');
+}
+
 // MARK-FIN
 const nRef = (id) => db.prepare('SELECT (SELECT COUNT(*) FROM user_objectives WHERE userId = ?) + (SELECT COUNT(*) FROM objectifs_refus WHERE userId = ?) AS n').get(id, id).n;
 assert(nRef(u) > 0, 'avant suppression : objectifs et refus du compte présents');

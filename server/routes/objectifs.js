@@ -31,6 +31,7 @@ router.post('/objectifs/macro', run((req) => objectifs.fusionnerEnMacro(req.user
 router.get('/objectifs/:id', run((req) => objectifs.get(req.userId, req.params.id)));
 router.put('/objectifs/:id/periodes/:n/semaines/:i', run((req) => objectifs.semaine(req.userId, req.params.id, req.params.n, req.params.i, req.body && req.body.done === true)));
 router.post('/objectifs/:id/bilan', run((req) => objectifs.bilan(req.userId, req.params.id, String((req.body || {}).action || ''), (req.body || {}).period)));
+router.put('/objectifs/:id/echeance', run((req) => objectifs.modifierEcheance(req.userId, req.params.id, (req.body || {}).endDate)));
 router.get('/objectifs/:id/macro', run((req) => objectifs.macroDe(req.userId, req.params.id)));
 router.put('/objectifs/:id/macro', run((req) => objectifs.setMacro(req.userId, req.params.id, (req.body || {}).isMacro === true)));
 router.put('/objectifs/:id/activite', run((req) => objectifs.deplacer(req.userId, req.params.id, (req.body || {}).activityId)));
