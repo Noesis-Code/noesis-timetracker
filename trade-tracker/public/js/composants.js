@@ -207,7 +207,7 @@
   // Appui long + glisser-déposer SUR une cible (R27/R29 ; même technique que groupDrag : pointer events, ligne tirée en transform seulement, défilement automatique en bord de zone).
   // Appui long (o.holdMs, 500 ms par défaut) sans bouger -> la ligne se détache et suit le doigt ; un mouvement avant la fin de l'appui = défilement normal, rien ne se passe.
   // Relâché sur une ligne cible (o.targetSel, hors la ligne tirée) -> o.onDrop(ligneCible) ; sur o.zone() (zone « Délier » transitoire) -> o.onZone() ; ailleurs = annulé.
-  // o : { list, scroller, targetSel, isInvalid(ligneCible) -> bool, onStart, onEnd, onDrop, onInvalid, zone() -> élément ou null, onZone, holdMs, draggingClass, targetClass, badClass, zoneOverClass }.
+  // o : { list, scroller, hscroller, insets() -> {top, bottom}, onHold (appui long sans glisser), targetSel, isInvalid(ligneCible) -> bool, onStart, onEnd, onDrop, onInvalid, zone() -> élément ou null, onZone, holdMs, draggingClass, targetClass, badClass, zoneOverClass }.
   function holdDrag(row, o) {
     var maxScroll = 0, timer = 0, active = false, sx = 0, sy = 0, lastX = 0, lastY = 0, pid = null, startScroll = 0, raf = 0, target = null, overZone = false, scroller = null, justDragged = 0;
     row.addEventListener('contextmenu', function (e) { e.preventDefault(); });
@@ -220,19 +220,25 @@
       overZone = !!(zr && lastX >= zr.left && lastX <= zr.right && lastY >= zr.top && lastY <= zr.bottom);
       if (z && o.zoneOverClass) z.classList.toggle(o.zoneOverClass, overZone);
       var hit = null;
-      if (!overZone) targets().forEach(function (el) { var r = el.getBoundingClientRect(); if (lastY >= r.top && lastY <= r.bottom) hit = el; });
+      if (!overZone) targets().forEach(function (el) { var r = el.getBoundingClientRect(); if (lastY >= r.top && lastY <= r.bottom && lastX >= r.left && lastX <= r.right) hit = el; }); // les deux axes : les cibles peuvent être en colonnes
       targets().forEach(function (el) { el.classList.toggle(o.targetClass, el === hit && !(o.isInvalid && o.isInvalid(el))); });
       target = hit;
     }
-    function place() { row.style.transform = 'translate(' + (lastX - sx) + 'px,' + (lastY - sy + scroller.scrollTop - startScroll) + 'px)'; compute(); }
+    var hs = null, startLeft = 0, maxLeft = 0;
+    function place() { row.style.transform = 'translate(' + (lastX - sx + (hs ? hs.scrollLeft - startLeft : 0)) + 'px,' + (lastY - sy + scroller.scrollTop - startScroll) + 'px)'; compute(); }
     function tick() {
-      var r = scroller.getBoundingClientRect(), zone = 60, speed = 0;
-      if (lastY < r.top + zone) speed = -Math.ceil((r.top + zone - lastY) / 5); else if (lastY > r.bottom - zone) speed = Math.ceil((lastY - (r.bottom - zone)) / 5);
+      // Défilement automatique : fenêtre visible (page entière = le viewport, pas la hauteur du document), réduite des bandeaux fixes (o.insets() -> {top, bottom}) ; o.hscroller : défilement horizontal.
+      var isDoc = scroller === document.documentElement || scroller === document.scrollingElement, r = isDoc ? { top: 0, bottom: window.innerHeight } : scroller.getBoundingClientRect(), ins = (o.insets && o.insets()) || {}, zone = 60, speed = 0, hspeed = 0;
+      var top = r.top + (ins.top || 0), bottom = r.bottom - (ins.bottom || 0);
+      if (lastY < top + zone) speed = -Math.ceil((top + zone - lastY) / 5); else if (lastY > bottom - zone) speed = Math.ceil((lastY - (bottom - zone)) / 5);
+      if (hs && !overZone) { var hr = hs.getBoundingClientRect(); if (lastX < hr.left + 40) hspeed = -Math.ceil((hr.left + 40 - lastX) / 3); else if (lastX > hr.right - 40) hspeed = Math.ceil((lastX - (hr.right - 40)) / 3); }
+      if (hspeed) { hs.scrollLeft = Math.max(0, Math.min(maxLeft, hs.scrollLeft + Math.max(-20, Math.min(20, hspeed)))); place(); }
       if (speed && !overZone) { scroller.scrollTop = Math.max(0, Math.min(maxScroll, scroller.scrollTop + Math.max(-20, Math.min(20, speed)))); place(); } // jamais au-delà de la fin réelle de la liste (la ligne tirée allonge la zone défilante) // pas de défilement quand le doigt est sur la zone de dépôt
       raf = requestAnimationFrame(tick);
     }
     function start() {
       active = true; scroller = val(o.scroller) || val(o.list); startScroll = scroller.scrollTop; maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      hs = val(o.hscroller) || null; startLeft = hs ? hs.scrollLeft : 0; maxLeft = hs ? Math.max(0, hs.scrollWidth - hs.clientWidth) : 0;
       try { row.setPointerCapture(pid); } catch (e) { /* le geste continue sans capture */ }
       row.classList.add(o.draggingClass); if (o.onStart) o.onStart();
       if (o.isInvalid) targets().forEach(function (el) { el.classList.toggle(o.badClass, !!o.isInvalid(el)); });
@@ -263,7 +269,9 @@
       if (e.button > 0 || active || (o.ignoreSel && e.target.closest(o.ignoreSel))) return;
       pid = e.pointerId; sx = lastX = e.clientX; sy = lastY = e.clientY;
       document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp); document.addEventListener('pointercancel', onCancel);
-      clearTimeout(timer); timer = setTimeout(start, o.holdMs || 500);
+      clearTimeout(timer); timer = setTimeout(o.onHold ? function () { // appui long SANS glisser (carte fusionnée) : o.onHold() à la place du glisser
+        document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); document.removeEventListener('pointercancel', onCancel); justDragged = Date.now(); o.onHold();
+      } : start, o.holdMs || 500);
     });
   }
   // Épingle (trombone) commune (R39, 28 oct. 2026) : même icône que les discussions (.chatAttachBtn), sans cadre (R37), zone de toucher

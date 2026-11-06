@@ -255,7 +255,7 @@ Contraintes : exactement autant de périodes et de semaines que demandé ; progr
 function fallbackProposal(title, periods, weekly) {
   const N = periods.length;
   periods.forEach((p, i) => {
-    p.title = N === 1 ? title : i === 0 ? 'Poser les bases' : i === N - 1 ? title : 'Étape ' + (i + 1) + ' sur ' + N;
+    p.title = N === 1 ? title : i === 0 ? 'Poser les bases' : i === N - 1 ? title : 'Objectif ' + (i + 1) + ' sur ' + N;
     if (weekly && N === 1 && p.weeks.length === 1) p.weeks[0].text = title; // sans IA, les autres semaines restent à remplir
   });
   return [title.length > 100 ? 'Faire le premier pas' : 'Faire le premier pas : ' + title.charAt(0).toLowerCase() + title.slice(1)];
@@ -498,7 +498,7 @@ function creer(userId, body) {
   const given = Array.isArray(body.periods) ? body.periods : [];
   const clip = (s) => { const c = textlimits.clean(s, { max: 120, word: 'Texte' }); if (c.error) throw err(c.error); return c.text; };
   periods.forEach((p, i) => {
-    p.title = clip(given[i] && given[i].title) || (i === periods.length - 1 ? title : 'Étape ' + (i + 1));
+    p.title = clip(given[i] && given[i].title) || (i === periods.length - 1 ? title : 'Objectif ' + (i + 1));
     if (weekly) p.weeks.forEach((w, k) => { w.text = clip(given[i] && given[i].weeks && given[i].weeks[k] && (given[i].weeks[k].text !== undefined ? given[i].weeks[k].text : given[i].weeks[k])); });
   });
   const labels = !tasksAllowed(userId) ? [] : (Array.isArray(body.weekTasks) ? body.weekTasks : []).map((l) => String(l || '').trim()).filter(Boolean).slice(0, 5);
@@ -569,6 +569,9 @@ function shape(r, full) {
     progress: allWeeks.length ? doneWeeks / allWeeks.length : 0,
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },
     weekTasks: { done: weekTasks.filter((t) => t.done).length, total: weekTasks.length },
+    // Sous-objectifs vus depuis l'arbre déplié : annuel (semaines faites / total par année touchée), périodique (currentPeriod, periodCount), hebdomadaire (semaine en cours).
+    years: Object.values(allWeeks.reduce((a, w) => { const y = String(w.startDate).slice(0, 4); (a[y] = a[y] || { year: Number(y), weeks: 0, done: 0 }).weeks += 1; if (w.done) a[y].done += 1; return a; }, {})),
+    weekNow: { i: cw.i, text: cw.text || '', done: !!cw.done },
   };
   if (full) {
     out.periods = periods; out.currentWeek = { period: cur.n, week: cw.i };
@@ -604,7 +607,7 @@ function lier(userId, id, parentId, rel) {
   }
   const p = rowOf(userId, parentId);
   for (let cur = p; cur; cur = cur.parentId ? db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId) : null) {
-    if (cur.id === r.id) throw err('Un objectif ne peut pas devenir l’étape de l’une de ses propres étapes.');
+    if (cur.id === r.id) throw err('Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.');
   }
   db.prepare('UPDATE user_objectives SET parentId = ?, parentRel = ?, position = ? WHERE id = ?')
     .run(p.id, rel === 'avant' || rel === 'apres' ? rel : null, nextPosition(userId, p.id), r.id);
@@ -678,7 +681,7 @@ function duree(userId, id, periodWeeks) {
   const rest = from <= r.endDate ? splitPeriods(from, r.endDate, pw) : [];
   rest.forEach((p, k) => {
     const old = periods.filter((x) => x.startDate > td)[k];
-    p.n = keep.length + k + 1; p.title = (old && old.title) || 'Étape ' + p.n;
+    p.n = keep.length + k + 1; p.title = (old && old.title) || 'Objectif ' + p.n;
     p.weeks.forEach((w) => { w.text = ''; });
   });
   db.prepare('UPDATE user_objectives SET periodWeeks = ?, stepsJson = ? WHERE id = ?').run(pw, JSON.stringify(keep.concat(rest)), r.id);

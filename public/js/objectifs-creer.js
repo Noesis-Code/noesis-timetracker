@@ -133,7 +133,7 @@
     var on = list.map(function () { return true; });
     seq = { base: 1, count: list.length, i: 0 };
     panelBody.textContent = ''; panelFoot.textContent = ''; panelKicker.textContent = tr('Objectifs lus'); panel.classList.remove('hidden'); panelForm = { reading: true };
-    panelBody.appendChild(el('p', 'hint', tr('Coche ceux que tu veux garder : tu verras les étapes de chacun, rien n’est ajouté avant la fin.')));
+    panelBody.appendChild(el('p', 'hint', tr('Coche ceux que tu veux garder : tu verras le découpage de chacun, rien n’est ajouté avant la fin.')));
     function count() { var n = on.filter(Boolean).length; seq.count = Math.max(1, n); showStep(1, 'Paramètres', go, n > 0); }
     function go() { queue = list.filter(function (o, i) { return on[i]; }); seq.count = queue.length; seq.i = 0; nextQueued(); }
     list.forEach(function (o, i) {
@@ -157,7 +157,7 @@
   function setUnder(p) { // case grise « + » de l'arbre : le prochain objectif écrit dans la barre sera une ÉTAPE de p
     pendingParent = p;
     if (!basePlaceholder) basePlaceholder = input.placeholder;
-    input.placeholder = tr('Étape de') + ' « ' + p.title + ' »…'; input.focus();
+    input.placeholder = tr('Rattaché à') + ' « ' + p.title + ' »…'; input.focus();
   }
   function clearUnder() { pendingParent = null; if (basePlaceholder) input.placeholder = basePlaceholder; }
   function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
@@ -254,7 +254,7 @@
       var acts = ctx.activities || [], list = el('div', 'aiModeChoices');
       if (form.fixedParent) { // étape d'un objectif choisi dans l'arbre : l'activité est la sienne
         var own = acts.filter(function (x) { return x.id === form.activityId; })[0];
-        if (own) { list.appendChild(choice(own.name, tr('Étape de') + ' « ' + form.parentTitle + ' »', true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), list)); return; }
+        if (own) { list.appendChild(choice(own.name, tr('Rattaché à') + ' « ' + form.parentTitle + ' »', true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), list)); return; }
       }
       var top = form.showAll ? acts : acts.slice(0, ctx.suggestedActivityId == null ? 2 : 3);
       if (!form.showAll && form.activityId != null && !top.some(function (a) { return a.id === form.activityId; })) { var sel = acts.filter(function (a) { return a.id === form.activityId; })[0]; if (sel) top = [sel].concat(top.slice(0, 2)); }
@@ -320,7 +320,7 @@
     function paintRatt() {
       var b = boxes.rattach, r = form.ratt; b.textContent = ''; if (!r || !r.cand) return;
       var card = el('div', 'aiModeChoice objChoice on'); card.appendChild(el('span', 'aiModeChoiceTitle', r.cand.title)); card.appendChild(el('span', 'aiModeChoiceDesc', r.cand.activityName));
-      b.appendChild(field(tr('Étape de'), card));
+      b.appendChild(field(tr('Rattaché à'), card));
       b.appendChild(field(tr('Placer'), seg([['avant', tr('Avant')], ['apres', tr('Après')]], r.rel, function (k) { r.rel = k; if (r.decided === 'accept') form.parentRel = k; }, tr('Placer'))));
       b.appendChild(el('p', 'objPlain', '« ' + form.title + ' »'));
       if (r.decided !== 'accept') {
@@ -474,19 +474,21 @@
     };
     var last = seq.i >= seq.count - 1;
     showStep(seq.base + 2 * seq.i + 2, last ? null : 'Paramètres', finish, true);
-    win.foot.appendChild(el('p', 'hint objFootHint', tr('Chaque étape et chaque tâche restent modifiables.')));
+    win.foot.appendChild(el('p', 'hint objFootHint', tr('Chaque période et chaque tâche restent modifiables.')));
   }
   function durText(f) { return f.unit === 'semaines' ? plural(f.amount, 'semaine', 'semaines') : f.unit === 'mois' ? f.amount + ' ' + tr('mois') : plural(f.amount, 'an', 'ans'); }
 
   // Carte fusionnée de l'arbre : la liste des objectifs qu'elle contient (même fenêtre que le détail) ; chaque ligne ouvre le détail de l'objectif.
-  function openGroup(ids) {
+  // opts.title / opts.onPick (choix d'un objectif du groupe : déplacer ou recevoir un dépôt) / opts.skip (ids exclus) ; sans opts : un toucher ouvre le détail.
+  function openGroup(ids, opts) {
+    opts = opts || {};
     api('GET', '/api/objectifs?filtre=tous').then(function (r) {
-      var os = ((r && r.objectifs) || []).filter(function (o) { return ids.indexOf(o.id) >= 0; });
-      var win = openModal(os.length + ' ' + tr('objectifs'), { onClose: load });
+      var os = ((r && r.objectifs) || []).filter(function (o) { return ids.indexOf(o.id) >= 0 && (opts.skip || []).indexOf(o.id) < 0; });
+      var win = openModal(opts.title || os.length + ' ' + tr('objectifs'), { onClose: load });
       os.forEach(function (o) {
         var row = el('button', 'objGroupRow cmpSepRow'); row.type = 'button';
         row.appendChild(el('span', 'objRowName', o.title)); row.appendChild(el('span', 'objMeta', o.durationLabel + ' · ' + o.activity.name));
-        row.addEventListener('click', function () { win.close(); openDetail(o.id); });
+        row.addEventListener('click', function () { win.close(); if (opts.onPick) opts.onPick(o.id); else openDetail(o.id); });
         win.body.appendChild(row);
       });
     }).catch(function () {});
@@ -583,7 +585,7 @@
     hide: function () { state.shown = false; syncDock(); if (TMT.objectifsArbre && TMT.objectifsArbre.hide) TMT.objectifsArbre.hide(); },
     focus: function () { if (input) input.focus(); },
     createUnder: function (p) { setUnder(p); },
-    openGroup: function (ids) { openGroup(ids); },
+    openGroup: function (ids, opts) { openGroup(ids, opts); },
     dock: function () { return dock; },
     openDetail: function (id) { openDetail(id); }
   };

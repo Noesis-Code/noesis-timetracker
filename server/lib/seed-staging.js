@@ -429,8 +429,12 @@ function seedDemoObjectives(db) {
   });
   return out;
 }
+// Renommage idempotent : les titres de période « Étape N » des objectifs de démonstration deviennent « Objectif N » (il n'y a que des objectifs).
+function renameDemoSteps(db) {
+  try { db.prepare("UPDATE user_objectives SET stepsJson = REPLACE(stepsJson, '\"title\":\"Étape ', '\"title\":\"Objectif ') WHERE metaJson LIKE '%\"demo\":true%' AND stepsJson LIKE '%\"title\":\"Étape %'").run(); } catch (e) { console.error('[objectifs-demo] renommage :', e && e.message); }
+}
 function seedDemoObjectivesOnStaging(db) {
-  try { const r = seedDemoObjectives(db || require('../db')); if (r && r.objectives) console.log('[objectifs-demo]', JSON.stringify(r)); return r; } catch (e) { console.error('[objectifs-demo]', e && e.message); return null; }
+  try { renameDemoSteps(db || require('../db')); const r = seedDemoObjectives(db || require('../db')); if (r && r.objectives) console.log('[objectifs-demo]', JSON.stringify(r)); return r; } catch (e) { console.error('[objectifs-demo]', e && e.message); return null; }
 }
 
 module.exports = { seedStagingData, shouldSeed, recreateEmilienAccount, seedDemoObjectives, seedDemoObjectivesOnStaging };
