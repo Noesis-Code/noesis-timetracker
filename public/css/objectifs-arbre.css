@@ -49,3 +49,11 @@
 .objArbre, .arBases { touch-action: pan-x pan-y; } /* le pincer est le zoom par niveau de l'arbre, jamais le zoom du navigateur */
 .arGrid .goalsGridCell--filled.arCard { border-color: var(--ar-c) !important; border-width: 2px !important; }
 .arGrid { padding-bottom: 24px; }
+/* Macro : carte large NEUTRE (jetons existants : blanc cassé et gris du thème, jamais la couleur d'une activité), même cadre de 2 px ; un trait par colonne concernée la relie à ses enfants. */
+.arGrid .goalsGridCell--filled.arMacro { --ar-c: var(--text-light); background: color-mix(in srgb, var(--text) 85%, var(--bg)); color: var(--bg); }
+.arGrid .goalsGridCell--filled.arMacro.ar-done { background: var(--text); }
+.arGrid .goalsGridCell--filled.arMacro.ar-future { background: var(--bg); color: var(--text); border-style: dashed; }
+.arMacro .arCardMeta { overflow-wrap: anywhere; }
+.arMacroStub { position: absolute; bottom: calc(var(--goalsGridGap) / -2 - 2px); width: 2px; height: calc(var(--goalsGridGap) / 2 + 2px); margin-left: -1px; background: var(--text-light); pointer-events: none; }
+.arMacroRow { margin-top: calc(var(--goalsGridGap) * -0.5); }
+.arGap { pointer-events: none; }
