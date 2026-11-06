@@ -1,27 +1,34 @@
-/* Écran « Objectifs » = arbre : une colonne par activité, l'activité (racine) EN BAS, le temps monte (objectifs finaux, étapes, futur en haut).
-   États = variantes de la couleur de l'activité (R16) : pâle = en cours, vif = réalisé, contour pointillé = futur, atténué = abandonné. Traits de 2 px. */
-.objArbre { min-height: calc(100vh - 330px); display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 0 140px; }
+/* Écran « Objectifs » = arbre sur une grille de temps COMMUNE : colonnes = activités (même largeur partout), lignes de temps identiques (futur en haut), une seule ligne « Aujourd'hui »,
+   cases grises vides = trous. Bulles d'activité pleines, fixes, juste au-dessus de la barre « Nouvel objectif… ». États = variantes de la couleur de l'activité (R16). Traits de 2 px. */
+.objArbre { min-height: calc(100vh - 330px); display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 0 200px; }
 .arZoomRow { position: sticky; top: 70px; z-index: 5; margin: 0 0 16px; padding: 4px 0; background: var(--bg); }
 .arZoom { width: 100%; }
-.arCols { scroll-margin-bottom: 150px; display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 12px) / 2); gap: 12px; align-items: end; width: 100%; overflow-x: auto; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
-.arCols[style*="--ar-n: 1"] { grid-auto-columns: 100%; }
-.arCol { min-width: 0; display: flex; flex-direction: column; scroll-snap-align: start; }
-.arBlocks { display: flex; flex-direction: column; gap: 16px; }
-.arBlock { display: flex; flex-direction: column; }
+.arScroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scroll-margin-bottom: 220px; }
+.arGrid { position: relative; display: grid; column-gap: 8px; row-gap: 12px; width: max-content; }
+.arRail { position: sticky; left: 0; z-index: 3; display: flex; flex-direction: column; gap: 2px; padding-top: 12px; color: var(--text-light); font-size: 13px; font-weight: 600; line-height: 1.2; }
+.arRailY { color: var(--text); }
+.arSlot { display: flex; flex-direction: column; gap: 10px; min-width: 0; position: relative; z-index: 1; }
+.arTodayRow { grid-column: 1 / -1; position: relative; z-index: 2; display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; font-weight: 600; }
+.arTodayRow::before { content: ''; width: 10px; height: 2px; background: var(--purple); border-radius: 1px; }
+.arTodayRow::after { content: ''; flex: 1; height: 2px; background: var(--purple); border-radius: 1px; }
+.arTrunk { display: block; width: 2px; margin-left: 20px; justify-self: start; align-self: stretch; z-index: 0; pointer-events: none; }
 .arNode { position: relative; }
-.arStem { display: block; width: 2px; height: 10px; margin-left: 20px; }
 .arCard { display: flex; flex-direction: column; gap: 2px; width: calc(100% - var(--ar-ind, 0px)); margin-left: var(--ar-ind, 0px); min-height: 52px; padding: 8px 12px; border: 0; border-radius: var(--radius-lg); text-align: left; font: inherit; cursor: pointer; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .arCardName { font-size: 14px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .arCardMeta { font-size: 13px; opacity: .72; line-height: 1.25; }
-.arCard.ar-future { background: transparent; border: 2px dashed var(--c); color: var(--text); }
+.arCard.ar-future { background: var(--bg); border: 2px dashed var(--c); color: var(--text); }
 .arCard.ar-future .arCardMeta { color: var(--text-light); opacity: 1; }
 .arCard.ar-dropped { opacity: .4; }
-.arCell { display: flex; align-items: center; justify-content: center; width: calc(100% - var(--ar-ind, 0px)); margin-left: var(--ar-ind, 0px); min-height: 44px; border: 0; border-radius: var(--radius-lg); background: var(--card); color: var(--text-light); font: inherit; cursor: pointer; box-sizing: border-box; margin-bottom: 10px; }
-.arCell b { color: var(--purple); font-size: 22px; font-weight: 700; line-height: 1; }
-.arBase { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 4px 8px; border: 0; border-top: 2px solid var(--c); background: none; color: var(--text); font: inherit; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer; }
-.arBaseName { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.25; }
-.arDot { flex: none; width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.arPlus { display: flex; align-items: center; justify-content: center; width: calc(100% - var(--ar-ind, 0px)); margin-left: var(--ar-ind, 0px); min-height: 44px; border: 0; border-radius: var(--radius-lg); background: var(--card); color: var(--text-light); font: inherit; cursor: pointer; box-sizing: border-box; }
+.arPlus b { color: var(--purple); font-size: 22px; font-weight: 700; line-height: 1; }
+.arHole { min-height: 52px; border-radius: var(--radius-lg); background: var(--card); opacity: .55; }
 .arNote { margin: 8px 0 0; }
+/* Bulles d'activité : pleines, détachées, de même largeur, FIXES au-dessus de la barre ; elles suivent le défilement horizontal des colonnes. */
+.arBases { position: fixed; left: 0; right: 0; z-index: 40; overflow: hidden; pointer-events: none; }
+.arBases.hidden { display: none; }
+.arBasesInner { display: flex; align-items: center; width: max-content; }
+.arBubble { flex: none; display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 6px 16px; border: 0; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; pointer-events: auto; box-sizing: border-box; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
+.arBubble span { overflow-wrap: anywhere; }
 /* Lier / délier (appui long + glisser) : carte tirée, cible violette, zone « Délier » transitoire à la place de la barre (.cmpAdd sans « + »). */
 .arNode.arDragging { z-index: 6; opacity: .9; }
 .arNode.arDragging .arCard { box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
@@ -30,12 +37,3 @@
 .objDock .arUnlinkZone { position: absolute; left: 0; right: 0; bottom: 0; z-index: 7; min-height: 52px; background: var(--card); }
 .objDock .arUnlinkZone.arUnlinkOver { border-color: var(--purple); color: var(--text); }
 .objDock.objLinking .tasksComposer { visibility: hidden; }
-/* Ordinateur : toutes les activités côte à côte */
-.arWide.objArbre { padding: 16px 0 140px; }
-.arWide .arCols { grid-auto-columns: minmax(240px, 1fr); }
-
-/* Ligne « Aujourd'hui » : sépare le futur (au-dessus) du présent et du passé (dessous) dans une branche. */
-.arToday { display: flex; align-items: center; gap: 8px; margin: 2px 0 4px; color: var(--text-light); font-size: 13px; }
-.arToday::before, .arToday::after { content: ''; flex: 1; height: 2px; background: var(--purple); border-radius: 1px; }
-.arToday::before { flex: none; width: 10px; }
-

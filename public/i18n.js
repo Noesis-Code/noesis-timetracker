@@ -375,6 +375,7 @@
     'Arbre des objectifs': 'Objectives tree',
     'Futur': 'Future',
     'Zoom': 'Zoom',
+    'objectifs': 'objectives',
     'Aucun objectif à cette échelle.': 'No objectives at this scale.',
     'Étape de': 'Step of',
     'Délier': 'Unlink',

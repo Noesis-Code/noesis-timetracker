@@ -465,6 +465,19 @@
   }
   function durText(f) { return f.unit === 'semaines' ? plural(f.amount, 'semaine', 'semaines') : f.unit === 'mois' ? f.amount + ' ' + tr('mois') : plural(f.amount, 'an', 'ans'); }
 
+  // Carte fusionnée de l'arbre : la liste des objectifs qu'elle contient (même fenêtre que le détail) ; chaque ligne ouvre le détail de l'objectif.
+  function openGroup(ids) {
+    api('GET', '/api/objectifs?filtre=tous').then(function (r) {
+      var os = ((r && r.objectifs) || []).filter(function (o) { return ids.indexOf(o.id) >= 0; });
+      var win = openModal(os.length + ' ' + tr('objectifs'), { onClose: load });
+      os.forEach(function (o) {
+        var row = el('button', 'objGroupRow cmpSepRow'); row.type = 'button';
+        row.appendChild(el('span', 'objRowName', o.title)); row.appendChild(el('span', 'objMeta', o.durationLabel + ' · ' + o.activity.name));
+        row.addEventListener('click', function () { win.close(); openDetail(o.id); });
+        win.body.appendChild(row);
+      });
+    }).catch(function () {});
+  }
   // ---------- Fenêtre « détail d'un objectif » ----------
   function openDetail(id) {
     var win = openModal('', { onClose: load }), idx = null, o = null;
@@ -554,8 +567,9 @@
   })();
   TMT.objectifsView = {
     show: function () { state.shown = true; syncDock(); if (TMT.objectifsArbre) TMT.objectifsArbre.showBase(); load(); },
-    hide: function () { state.shown = false; syncDock(); },
+    hide: function () { state.shown = false; syncDock(); if (TMT.objectifsArbre && TMT.objectifsArbre.hide) TMT.objectifsArbre.hide(); },
     focus: function () { if (input) input.focus(); },
+    openGroup: function (ids) { openGroup(ids); },
     dock: function () { return dock; },
     openDetail: function (id) { openDetail(id); }
   };

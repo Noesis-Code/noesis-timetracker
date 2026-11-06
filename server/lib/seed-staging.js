@@ -414,7 +414,7 @@ function seedDemoObjectives(db) {
         list.forEach((n) => {
           try {
             const days = n.e - n.s, unit = days > 400 ? 'mois' : 'semaines';
-            const r = objectifs.creer(u.id, { title: n.t, activityId, startDate: iso(n.s), endDate: iso(n.e), unit, amount: unit === 'mois' ? Math.max(1, Math.round(days / 30)) : Math.max(1, Math.round(days / 7)), periodWeeks: days > 400 ? 'mois' : (days > 120 ? 4 : 1), weekly: false, parentId, parentRel: parentId ? 'apres' : undefined, description: 'Donnée de démonstration' });
+            const r = objectifs.creer(u.id, { title: n.t, activityId, startDate: iso(n.s), endDate: iso(n.e), unit, amount: unit === 'mois' ? Math.max(1, Math.round(days / 30)) : Math.max(1, Math.round(days / 7)), periodWeeks: days > 400 ? 'mois' : (days > 120 ? 4 : 1), weekly: false, parentId, parentRel: parentId ? 'apres' : undefined, description: 'Donnée de démonstration', noBridge: true });
             if (n.done) r.periods.forEach((pp) => pp.weeks.forEach((w) => objectifs.semaine(u.id, r.id, pp.n, w.i, true)));
             const row = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(r.id), meta = JSON.parse(row.metaJson || '{}');
             meta.demo = true; if (n.dropped) meta.abandoned = true;

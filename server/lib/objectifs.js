@@ -519,7 +519,8 @@ function creer(userId, body) {
   if (body.description) meta0.description = String(body.description).trim().slice(0, 500); // description libre de l'objectif (étape « Description »)
   if (isDay(body.proposedEnd)) meta0.dateCorrectedDays = daysBetween(body.proposedEnd, body.endDate); // signal : date corrigée par l'utilisateur
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta0), id);
-  catKey = bridge(db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(id), periods) || (labels.length ? targetCategory(act.id, act.name) : null);
+  catKey = (body.noBridge === true ? null : bridge(db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(id), periods)) || // noBridge : objectifs de démonstration (staging), sans secteur ni plan dans l'arbre périodique
+     (labels.length ? targetCategory(act.id, act.name) : null);
   labels.forEach((label, k) => {
     const due = addDays(start, Math.min(1 + 2 * k, daysBetween(start, week1End)));
     taskIds.push(goalstasks.addCategoryTask(act.id, userId, catKey, label, { dueDate: due }).id);
