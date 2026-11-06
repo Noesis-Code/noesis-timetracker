@@ -62,6 +62,8 @@ const P = {
   goal_period_assignees: { cols: ['userId'], erase: 'cascade', exp: 'goalPeriods' },
   goal_period_due_reminders: { cols: ['userId'], erase: 'cascade', exp: 'NON: journal d\'envoi de rappels' },
   goal_recalc_proposals: { cols: ['userId'], erase: 'explicit', exp: 'NON: propositions de recalcul transitoires' },
+  user_objectives: { cols: ['userId'], erase: 'explicit', exp: 'objectives' },
+  objectifs_refus: { cols: ['userId'], erase: 'explicit', exp: 'objectiveRefusals' },
   goal_time_caps: { cols: ['userId'], erase: 'explicit', exp: 'goalTimeCaps' },
   goal_weekly: { cols: ['assignedUserId'], erase: 'setnull', exp: 'goalWeekly' },
   idempotency_keys: { cols: ['userId'], erase: 'explicit', exp: 'NON: clés techniques de capture hors ligne' },
@@ -96,7 +98,7 @@ P.horaire_refused_threads = { cols: ['userId'], erase: 'cascade', exp: 'NON: emp
 // Tables sans aucune colonne qui désigne un compte (contenu d'activité, journaux globaux, jetons de webhooks...).
 const NON_PERSONAL = new Set(['activities_rebuild', 'activity_billing_cycles', 'activity_goal_categories', 'activity_goal_plans', 'activity_offre1',
   'announcements', 'generation_quality_log', 'goal_cross_sector_suggestions', 'goal_periods', 'goal_year_goals', 'goal_years', 'inactive_account_runs',
-  'poll_options', 'plan_activation_attempts', 'stripe_webhook_events', 'sub_project_item_queue', 'ai_alerts_sent', 'passkey_challenges', 'horaire_migrations']);
+  'poll_options', 'plan_activation_attempts', 'stripe_webhook_events', 'sub_project_item_queue', 'ai_alerts_sent', 'passkey_challenges', 'horaire_migrations', 'objectifs_signaux']);
 
 const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map((r) => r.name);
 const info = (t) => db.prepare(`PRAGMA table_info(${t})`).all();

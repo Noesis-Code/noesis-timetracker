@@ -293,6 +293,20 @@ function buildUserExport(userId) {
      FROM goal_capacity_overrides o JOIN activities a ON a.id = o.activityId WHERE o.userId = ?`,
     userId
   ) : [];
+  // Objectifs de l'arbre (Loi 25) : titre, durée, dates, étapes, description, lien parent/enfant, objectifs refusés pour une fusion.
+  const objectives = has('user_objectives') ? rows(
+    `SELECT o.id, o.activityId, a.name AS activityName, o.title, o.amount, o.unit, o.startDate, o.endDate, o.periodWeeks, o.weekly,
+            o.parentId, o.parentRel, o.position, o.stepsJson, o.taskIdsJson, o.metaJson, o.createdAt
+     FROM user_objectives o LEFT JOIN activities a ON a.id = o.activityId WHERE o.userId = ? ORDER BY o.id`,
+    userId
+  ).map((o) => {
+    const parse = (s, d) => { try { return JSON.parse(s); } catch (e) { return d; } };
+    const { stepsJson, taskIdsJson, metaJson, ...rest } = o;
+    const meta = parse(metaJson, {});
+    return { ...rest, description: meta.description || null, steps: parse(stepsJson, []), taskIds: parse(taskIdsJson, []), meta };
+  }) : [];
+  const objectiveRefusals = has('objectifs_refus') ? rows(
+    'SELECT objectifId, candidateId, createdAt FROM objectifs_refus WHERE userId = ? ORDER BY objectifId, candidateId', userId) : [];
   const dailySuggestionSettings = has('daily_suggestion_settings')
     ? row('SELECT declaredMinutes, updatedAt FROM daily_suggestion_settings WHERE userId = ?', userId) || null : null;
   // Abonnement payant : état et dates seulement, jamais les identifiants Stripe.
@@ -438,6 +452,8 @@ function buildUserExport(userId) {
     clientProfileForm,
     goalTimeCaps,
     goalCapacityOverrides,
+    objectives,
+    objectiveRefusals,
     dailySuggestionSettings,
     subscriptions,
     horaire,

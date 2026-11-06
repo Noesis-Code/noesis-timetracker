@@ -111,8 +111,8 @@ Légende : ✅ géré, ⚠️ partiel, ❌ non géré. Priorité : P1 (bloquant 
 | D02 Objectifs orphelins | Sommets | ✅ | - |
 | D03 Plans annuel/périodique/hebdo existants | Visibles dans l'arbre | ⚠️ | P2 |
 | D04 Seed de démo | Idempotent, staging seulement | ⚠️ | P3 |
-| D05 Suppression de compte | Objectifs effacés | ❌ | P1 |
-| D06 Export des données | Objectifs inclus | ❌ | P1 |
+| D05 Suppression de compte | Objectifs effacés | ✅ corrigé (6 nov.) | P1 |
+| D06 Export des données | Objectifs inclus | ✅ corrigé (6 nov.) | P1 |
 | K01 Tâche d'un objectif supprimé | Tâche conservée | ✅ | - |
 | K02 Objectif archivé, tâches ouvertes | Cohérent | ⚠️ | P3 |
 | K03 Tâche sans objectif | Permise | ✅ | - |
