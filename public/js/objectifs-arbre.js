@@ -47,6 +47,9 @@
     if (pid === o.parentId) return;
     TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: pid, rel: 'apres' }).then(function () { split = {}; picked = null; return refresh(); }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });
   }
+  // L03 : un objectif ne se rattache qu'à un objectif de la MÊME ACTIVITÉ (toutes colonnes confondues : pôles et secteurs d'une activité sont des colonnes d'une même activité).
+  var kidsAll = {};
+  function sameAct(o, id) { var t = items.filter(function (x) { return x.id === id; })[0]; return !!t && t.activity.id === o.activity.id; }
   function idsOf(t) { var s = t.getAttribute('data-ids'); return s ? s.split(',').map(Number) : [Number(t.getAttribute('data-id'))]; }
   var SAME_ACT = 'Un objectif ne se rattache qu’à un objectif de la même activité.';
   var CYCLE = 'Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.';
@@ -63,12 +66,12 @@
     b.appendChild(t);
     b.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(o.id); });
     if (TMT.ui && TMT.ui.holdDrag) {
-      var below = descendants(o.id, all.kids);
+      var below = descendants(o.id, kidsAll); // descendance sur TOUTES les colonnes (un enfant peut être dans un autre pôle)
       TMT.ui.holdDrag(b, {
         holdMs: 500, list: function () { return tree; }, scroller: function () { return document.scrollingElement || document.documentElement; }, hscroller: function () { return scroller; },
         insets: function () { var zr = tree && tree.querySelector('.arZoomRow'), z = zone && zone.getBoundingClientRect(); return { top: zr ? zr.getBoundingClientRect().bottom : 0, bottom: z && z.height ? window.innerHeight - z.top : 0 }; },
         targetSel: '.arNode[data-id], .arNode[data-ids]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', zoneOverClass: 'arUnlinkOver',
-        isInvalid: function (t) { return idsOf(t).every(function (id) { return id === o.id || !!below[id] || !all.byId[id]; }); }, // !all.byId : autre activité (L03)
+        isInvalid: function (t) { return idsOf(t).every(function (id) { return id === o.id || !!below[id] || !sameAct(o, id); }); }, // !all.byId : autre activité (L03)
         onStart: function () {
           if (!zone) { zone = el('button', 'cmpAdd arUnlinkZone', tr('Délier')); zone.type = 'button'; zone.tabIndex = -1; }
           var d = dockEl(); if (d) { d.appendChild(zone); d.classList.add('objLinking'); }
@@ -77,12 +80,12 @@
         onEnd: function () { var d = dockEl(); if (zone && zone.parentNode) zone.parentNode.removeChild(zone); if (d) d.classList.remove('objLinking'); if (bases && visible) bases.classList.remove('hidden'); },
         zone: function () { return zone; },
         onDrop: function (t) {
-          var ok = idsOf(t).filter(function (id) { return id !== o.id && !below[id] && !!all.byId[id]; });
+          var ok = idsOf(t).filter(function (id) { return id !== o.id && !below[id] && !!sameAct(o, id); });
           if (ok.length > 1 && TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ok, { title: tr('Rattacher à quel objectif ?'), onPick: function (pid) { link(o, pid); } }); // carte fusionnée : on choisit l'objectif qui reçoit
           else if (ok.length) link(o, ok[0]);
         },
         onZone: function () { if (o.parentId != null) link(o, null); },
-        onInvalid: function (t) { say(tr(t && idsOf(t).some(function (id) { return !all.byId[id]; }) ? SAME_ACT : CYCLE)); }
+        onInvalid: function (t) { say(tr(t && idsOf(t).some(function (id) { return !sameAct(o, id); }) ? SAME_ACT : CYCLE)); }
       });
     }
     return b;
@@ -243,6 +246,7 @@
     tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024);
     var today = dayIso(), keep = visibleSet(today), shown = items.filter(function (o) { return keep[o.id]; });
     if (items.length) { var zb = el('div', 'arZoomRow'); if (lvl !== 'activite') zb.appendChild(backNav()); zb.appendChild(zoomBar()); tree.appendChild(zb); }
+    kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
     curCols = columnsFor(shown); syncCtx();
     buildBases(); basesInner.textContent = '';
     if (!curCols.length) { tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); bases.classList.add('hidden'); return; }
