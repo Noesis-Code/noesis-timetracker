@@ -1,36 +1,33 @@
-/* Arbre des objectifs (lecture) : page pleine, temps du bas (passé) vers le haut (futur), cartes à la couleur de l'activité (R16).
-   États = variantes de la couleur : pâle = en cours (fond posé en JS), vif = réalisé (fond posé en JS), contour pointillé = futur. Traits de liaison 2 px. */
-.arPage { position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column; background: var(--bg); }
-.arPage.hidden { display: none; }
-.arHead { display: flex; align-items: center; gap: 4px; min-height: 56px; padding: 8px 12px 8px 8px; }
-.arTitle { flex: 1; min-width: 0; margin: 0 0 0 8px; font-size: 18px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.arBack { margin-left: 0; }
-.arBody { flex: 1; overflow-y: auto; padding: 0 16px calc(24px + env(safe-area-inset-bottom)); }
-.arLegend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 16px; color: var(--text-light); font-size: 13px; }
-.arLegend span { display: inline-flex; align-items: center; gap: 8px; }
-.arSw { display: inline-block; width: 16px; height: 16px; border-radius: 5px; box-sizing: border-box; background: var(--text-light); }
-.arSw.ar-now { background: color-mix(in srgb, var(--text-light) 55%, #fff); }
-.arSw.ar-done { background: var(--text-light); }
-.arSw.ar-future { background: transparent; border: 2px dashed var(--text-light); }
-.arBand { position: relative; margin: 0 0 24px; }
-.arBandTitle { margin: 0 0 12px; }
-.arToday .arBandTitle { color: var(--text); }
-.arTodayLine { display: block; height: 2px; margin: -4px 0 12px; background: var(--purple); border-radius: 1px; }
-.arNode { position: relative; margin: 0 0 12px; }
-.arCard { display: flex; flex-direction: column; gap: 2px; width: calc(100% - var(--ar-ind, 0px)); min-height: 56px; padding: 10px 14px; border: 0; border-radius: var(--radius-lg); text-align: left; font: inherit; cursor: pointer; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-.arCardName { font-size: 15px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+/* Écran « Objectifs » = arbre : une colonne par activité, l'activité (racine) EN BAS, le temps monte (objectifs finaux, étapes, futur en haut).
+   États = variantes de la couleur de l'activité (R16) : pâle = en cours, vif = réalisé, contour pointillé = futur, atténué = abandonné. Traits de 2 px. */
+.objArbre { min-height: calc(100vh - 330px); display: flex; align-items: flex-end; padding: 8px 0 140px; }
+.arCols { scroll-margin-bottom: 150px; display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 12px) / 2); gap: 12px; align-items: end; width: 100%; overflow-x: auto; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+.arCols[style*="--ar-n: 1"] { grid-auto-columns: 100%; }
+.arCol { min-width: 0; display: flex; flex-direction: column; scroll-snap-align: start; }
+.arBlocks { display: flex; flex-direction: column; gap: 16px; }
+.arBlock { display: flex; flex-direction: column; }
+.arNode { position: relative; }
+.arStem { display: block; width: 2px; height: 10px; margin-left: 20px; }
+.arCard { display: flex; flex-direction: column; gap: 2px; width: calc(100% - var(--ar-ind, 0px)); margin-left: var(--ar-ind, 0px); min-height: 52px; padding: 8px 12px; border: 0; border-radius: var(--radius-lg); text-align: left; font: inherit; cursor: pointer; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.arCardName { font-size: 14px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .arCardMeta { font-size: 13px; opacity: .72; line-height: 1.25; }
 .arCard.ar-future { background: transparent; border: 2px dashed var(--c); color: var(--text); }
 .arCard.ar-future .arCardMeta { color: var(--text-light); opacity: 1; }
-.arLink { position: absolute; top: -12px; height: calc(50% + 12px); width: 12px; border-left: 2px solid; border-bottom: 2px solid; border-bottom-left-radius: 10px; pointer-events: none; }
-.arCell { display: flex; align-items: center; justify-content: center; width: calc(100% - var(--ar-ind, 0px)); min-height: 56px; border: 0; border-radius: var(--radius-lg); background: var(--card); color: var(--text-light); font: inherit; cursor: pointer; box-sizing: border-box; }
+.arCard.ar-dropped { opacity: .4; }
+.arCell { display: flex; align-items: center; justify-content: center; width: calc(100% - var(--ar-ind, 0px)); margin-left: var(--ar-ind, 0px); min-height: 44px; border: 0; border-radius: var(--radius-lg); background: var(--card); color: var(--text-light); font: inherit; cursor: pointer; box-sizing: border-box; margin-bottom: 10px; }
 .arCell b { color: var(--purple); font-size: 22px; font-weight: 700; line-height: 1; }
-.arRow { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 53px; padding: 4px; border: 0; background: none; color: var(--text); font: inherit; font-size: 15px; font-weight: 600; text-align: left; cursor: pointer; }
-.arRowName { flex: 1; min-width: 0; }
+.arBase { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 4px 8px; border: 0; border-top: 2px solid var(--c); background: none; color: var(--text); font: inherit; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer; }
+.arBaseName { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.25; }
 .arDot { flex: none; width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-.arSubRow { padding-left: 28px; font-weight: 500; }
-/* Ordinateur : arbres dépliés, activités côte à côte */
-.arWide .arBody { padding: 0 32px 32px; }
-.arCols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(280px, 1fr); gap: 24px; align-items: start; overflow-x: auto; }
-.arCol { min-width: 0; }
-.arColTitle { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.arNote { margin: 8px 0 0; }
+/* Lier / délier (appui long + glisser) : carte tirée, cible violette, zone « Délier » transitoire à la place de la barre (.cmpAdd sans « + »). */
+.arNode.arDragging { z-index: 6; opacity: .9; }
+.arNode.arDragging .arCard { box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
+.arNode.arDropTarget .arCard { box-shadow: 0 0 0 2px var(--purple); }
+.arNode.arDropBad { opacity: .45; }
+.objDock .arUnlinkZone { position: absolute; left: 0; right: 0; bottom: 0; z-index: 7; min-height: 52px; background: var(--card); }
+.objDock .arUnlinkZone.arUnlinkOver { border-color: var(--purple); color: var(--text); }
+.objDock.objLinking .tasksComposer { visibility: hidden; }
+/* Ordinateur : toutes les activités côte à côte */
+.arWide.objArbre { padding: 16px 0 140px; }
+.arWide .arCols { grid-auto-columns: minmax(240px, 1fr); }

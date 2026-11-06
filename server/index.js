@@ -32,6 +32,8 @@ try { require('./lib/profilecolors-staging').applyProfileColorsOnStaging(); } ca
 try { require('./lib/scenarios-staging').seedScenariosOnStaging(); } catch (e) { console.error('[scenarios-staging]', e.message); }
 // Staging seulement (sauf SEED_STATS_DEMO=0) : (re)crée l'activité « Exemple statistiques (test) » (+ une confidentielle).
 try { require('./lib/stats-demo-staging').seedStatsDemoOnStaging(); } catch (e) { console.error('[stats-demo-staging]', e.message); }
+// Staging seulement (sauf SEED_OBJECTIFS_DEMO=0) : objectifs de démonstration (arbre des objectifs de la page 1), idempotent.
+try { require('./lib/seed-staging').seedDemoObjectivesOnStaging(); } catch (e) { console.error('[objectifs-demo]', e.message); }
 // Staging seulement (sauf SEED_COMMUNITIES_DEMO=0) : (re)crée des communautés et membres fictifs pour voir le réseau.
 try { require('./lib/communities-demo-staging').seedCommunitiesDemoOnStaging(); } catch (e) { console.error('[communities-demo-staging]', e.message); }
 // Staging seulement (sauf SEED_NETWORK_DEMO=0) : réseau personnel fictif d'Emilien Staging.

@@ -807,14 +807,6 @@ router.get('/goals/capture/badges', (req, res) => {
         const ov = goalstasks.tasksOverviewForActivity(a.id, req.query.today);
         out[a.id].daily = { done: ov.done, total: ov.total };
       } catch (e) { out[a.id].daily = { done: 0, total: 0 }; }
-      // Au moins un objectif (liste « Objectifs » de la page 1) : objectif créé (user_objectives), objectif périodique ou hebdomadaire saisi, objectif annuel.
-      try {
-        out[a.id].hasObjectives = !!(
-          db.prepare('SELECT 1 FROM user_objectives WHERE userId = ? AND activityId = ? LIMIT 1').get(userId, a.id)
-          || db.prepare("SELECT 1 FROM goal_periods WHERE activityId = ? AND TRIM(COALESCE(mainGoalText, '')) <> '' LIMIT 1").get(a.id)
-          || db.prepare("SELECT 1 FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE p.activityId = ? AND TRIM(COALESCE(w.text, '')) <> '' LIMIT 1").get(a.id)
-          || db.prepare("SELECT 1 FROM goal_year_goals WHERE activityId = ? AND TRIM(COALESCE(text, '')) <> '' LIMIT 1").get(a.id));
-      } catch (e) { out[a.id].hasObjectives = true; }
     });
     res.json({ activities: out });
   } catch (err) {

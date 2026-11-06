@@ -563,7 +563,7 @@ function shape(r, full) {
   const out = {
     id: r.id, title: r.title, activity: { id: act.id, name: act.name, color: act.color },
     amount: r.amount, unit: r.unit, durationLabel: durationLabel(r), startDate: r.startDate, endDate: r.endDate,
-    periodWeeks: r.periodWeeks, weekly: !!r.weekly, parent, parentId: r.parentId || null, parentRel: r.parentRel || null, position: r.position == null ? null : r.position, description: meta.description || '',
+    periodWeeks: r.periodWeeks, weekly: !!r.weekly, parent, parentId: r.parentId || null, parentRel: r.parentRel || null, abandoned: !!meta.abandoned, position: r.position == null ? null : r.position, description: meta.description || '',
     status: allWeeks.length && doneWeeks === allWeeks.length ? 'atteint' : 'en_cours',
     progress: allWeeks.length ? doneWeeks / allWeeks.length : 0,
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },

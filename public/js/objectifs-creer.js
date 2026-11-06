@@ -26,11 +26,8 @@
   var state = { items: [], total: 0, shown: false };
 
   function buildView() {
-    // Vue Objectifs (5 nov. 2026) : la liste des activités (comme avant) ; en TÊTE de cette liste, une ligne « Mes objectifs  3 › » (format des lignes d'activités, sans pastille) qui ouvre la liste des objectifs dans un pop-up.
+    // Vue Objectifs : l'ARBRE des objectifs (js/objectifs-arbre.js, #goalsObjArbre) ; ici la barre « Nouvel objectif… » et ses étapes.
     host.insertBefore(root, host.firstChild);
-    mountRow();
-    var box = document.getElementById('goalsCaptureActivities');
-    if (box && window.MutationObserver) new MutationObserver(mountRow).observe(box, { childList: true }); // la liste des activités se redessine : la ligne revient en tête
     // Barre d'écriture : même gabarit que « Ajouter une tâche » (verre, flèche d'envoi DANS la zone, R29).
     dock = el('div', 'tasksPopAdd tasksDock objDock hidden');
     // Panneau des paramètres : le MÊME gabarit que le panneau d'ajout d'une tâche (aujourdhui.js) — au-dessus de la barre, visible seulement après ↑.
@@ -45,7 +42,6 @@
     sendBtn = el('button', 'cmpSend'); sendBtn.type = 'button'; sendBtn.setAttribute('aria-label', tr('Envoyer'));
     sendBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
     sendBtn.addEventListener('click', start);
-    input.addEventListener('focus', function () { if (!input.value.trim()) openMine(); }); // toucher la barre avant d'écrire : la liste de tous les objectifs apparaît au-dessus (non bloquante)
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); start(); } });
     bar.appendChild(pin('tasksClip cmpSymbol')); bar.appendChild(input); bar.appendChild(sendBtn); dock.appendChild(bar);
     // Une fois l'objectif envoyé, la barre devient UN bouton (même mécanisme que « Enregistrer » d'Expansion : .tasksDock.expSave) : « Passer à … » à gauche, n/total à droite.
@@ -65,116 +61,7 @@
     var t = el('div', 'goalMainProgressTrack objBar'), f = el('div', 'goalMainProgressFill');
     f.style.width = Math.round(Math.max(0, Math.min(1, p)) * 100) + '%'; t.appendChild(f); return t;
   }
-  // Ligne « Mes objectifs » : même composant de ligne que les activités (.goalsCaptureActivityChip), masque de pastille et compteur communs (composants.css).
-  var rowBtn = null, rowCount = null, arbreBtn = null;
-  function mountRow() {
-    var box = document.getElementById('goalsCaptureActivities'); if (!box) return;
-    if (!rowBtn) {
-      rowBtn = btn('goalsCaptureActivityChip cmpSepRow objLineRow', '', function () { if (mineOpen) closeMine(); else openMine(); });
-      var zone = el('span', 'goalsCaptureZone cmpNoDot'); zone.appendChild(el('span', 'goalsCaptureActivityChipName', tr('Mes objectifs')));
-      rowCount = el('span', 'cmpRowCount', ''); var chev = el('span', 'cmpChev'); chev.setAttribute('aria-hidden', 'true');
-      rowBtn.appendChild(zone); rowBtn.appendChild(rowCount); rowBtn.appendChild(chev);
-    }
-    if (box.firstChild !== rowBtn) box.insertBefore(rowBtn, box.firstChild);
-    if (!arbreBtn) { // ligne « Arbre des objectifs » juste dessous : même composant de ligne, sans compteur
-      arbreBtn = btn('goalsCaptureActivityChip cmpSepRow objLineRow', '', function () { if (TMT.objectifsArbre) TMT.objectifsArbre.open(); });
-      var z2 = el('span', 'goalsCaptureZone cmpNoDot'); z2.appendChild(el('span', 'goalsCaptureActivityChipName', tr('Arbre des objectifs')));
-      var ch2 = el('span', 'cmpChev'); ch2.setAttribute('aria-hidden', 'true'); arbreBtn.appendChild(z2); arbreBtn.appendChild(ch2);
-    }
-    if (rowBtn.nextSibling !== arbreBtn) box.insertBefore(arbreBtn, rowBtn.nextSibling);
-  }
-  function refreshCount() { api('GET', '/api/objectifs?filtre=tous').then(function (r) { if (rowCount) rowCount.textContent = String(((r && r.objectifs) || []).length || ''); }).catch(function () {}); }
-  // UN SEUL pop-up « Mes objectifs » (liste de TOUS les objectifs) : le panneau de la barre (.tasksPropose, au-dessus de « Nouvel objectif… »), ouvert par la ligne « Mes objectifs »
-  // OU par un toucher sur la barre avant d'écrire. Non bloquant : on peut taper dans la barre ; il se ferme à l'envoi ou par ✕.
-  var mineOpen = false;
-  // Liste indentée : les objectifs FINAUX en haut, leurs étapes décalées dessous (profondeur illimitée) avec traits de liaison ; toucher le NOM ouvre le détail, le CHEVRON à droite
-  // déplie / replie les étapes (R21). Objectifs finaux atteints : section « Archives ».
-  var opened = {}; // étapes dépliées (tout est replié par défaut : seuls les objectifs finaux sont visibles)
-  function buildTree(items) {
-    var byId = {}, kids = {}, roots = [];
-    items.forEach(function (o) { byId[o.id] = o; });
-    items.forEach(function (o) { if (o.parentId != null && byId[o.parentId]) (kids[o.parentId] = kids[o.parentId] || []).push(o); else roots.push(o); });
-    var cmp = function (a, b) { return ((a.position == null ? 1e9 : a.position) - (b.position == null ? 1e9 : b.position)) || (a.endDate < b.endDate ? -1 : a.endDate > b.endDate ? 1 : 0) || a.id - b.id; };
-    roots.sort(cmp); Object.keys(kids).forEach(function (k) { kids[k].sort(cmp); });
-    return { roots: roots, kids: kids };
-  }
-  // Lier / délier : appui long (500 ms) sur un objectif puis glisser. Déposé sur un autre objectif -> il devient son étape (après) ; déposé sur la zone « Délier » (qui remplace la barre le
-  // temps du geste) -> il redevient un objectif final séparé. Jamais de cycle : un objectif ne se dépose ni sur lui-même ni sur ses propres étapes (retour discret). L'arbre est redessiné aussitôt.
-  var unlinkZone = null, linkNote = null;
-  function descendantsOf(id, tree) { var out = {}; (function walk(i) { (tree.kids[i] || []).forEach(function (k) { out[k.id] = true; walk(k.id); }); })(id); return out; }
-  function sayLink(msgText) { if (!linkNote) return; linkNote.textContent = msgText; clearTimeout(sayLink.t); sayLink.t = setTimeout(function () { linkNote.textContent = ''; }, 2600); }
-  function bindLink(row, main, o, tree, host, rerender) {
-    var below = descendantsOf(o.id, tree);
-    TMT.ui.holdDrag(row, {
-      ignoreSel: '.objNodeToggle',
-      holdMs: 500, list: function () { return host; }, scroller: function () { return panelBody; }, targetSel: '.objNode', draggingClass: 'objDragging', targetClass: 'objDropTarget', badClass: 'objDropBad', zoneOverClass: 'objUnlinkOver',
-      isInvalid: function (el) { var id = Number(el.getAttribute('data-id')); return id === o.id || !!below[id]; },
-      onStart: function () {
-        if (!unlinkZone) { unlinkZone = btn('cmpAdd objUnlinkZone', tr('Délier'), function () {}); unlinkZone.tabIndex = -1; }
-        dock.appendChild(unlinkZone); dock.classList.add('objLinking'); row.classList.add('objDragging');
-      },
-      onEnd: function () { if (unlinkZone && unlinkZone.parentNode) unlinkZone.parentNode.removeChild(unlinkZone); dock.classList.remove('objLinking'); row.classList.remove('objDragging'); },
-      zone: function () { return unlinkZone; },
-      onDrop: function (el) {
-        var pid = Number(el.getAttribute('data-id')); if (pid === o.parentId) return;
-        api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: pid, rel: 'apres' }).then(function () { opened[pid] = true; drawMine(); refreshCount(); }).catch(function (e) { sayLink((e && e.message) || tr('Impossible pour le moment.')); });
-      },
-      onZone: function () {
-        if (o.parentId == null) return;
-        api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: null }).then(function () { drawMine(); refreshCount(); }).catch(function (e) { sayLink((e && e.message) || tr('Impossible pour le moment.')); });
-      },
-      onInvalid: function () { sayLink(tr('Un objectif ne peut pas devenir l’étape de l’une de ses propres étapes.')); }
-    });
-  }
-  function nodeRow(o, depth, tree, ancestors, isLast, host, rerender) {
-    var ks = tree.kids[o.id] || [], row = el('div', 'objNode cmpSepRow' + (depth ? ' objNodeStep' : ''));
-    // traits de liaison : un trait vertical par niveau d'ancêtre qui a encore des frères plus bas, plus le coude de ce niveau
-    for (var L = 1; L <= depth; L++) {
-      var x = 12 + (L - 1) * 28;
-      if (L < depth) { if (ancestors[L]) { var v = el('i', 'objTreeLine objTreeLineV'); v.style.left = x + 'px'; row.appendChild(v); } continue; }
-      var v2 = el('i', 'objTreeLine objTreeLineV' + (isLast ? ' objTreeLineHalf' : '')); v2.style.left = x + 'px'; row.appendChild(v2);
-      var h = el('i', 'objTreeLine objTreeLineH'); h.style.left = x + 'px'; row.appendChild(h);
-    }
-    var main = el('button', 'objNodeMain'); main.type = 'button'; main.style.paddingLeft = (4 + depth * 28 + (depth ? 8 : 0)) + 'px';
-    main.appendChild(el('span', 'objRowName', o.title));
-    if (!depth) main.appendChild(el('span', 'objMeta', (o.activities && o.activities.length ? o.activities.map(function (x) { return x.name; }).join(', ') : o.activity.name)));
-    main.addEventListener('click', function () { closeMine(); openDetail(o.id); });
-    row.appendChild(main); row.setAttribute('data-id', String(o.id));
-    bindLink(row, main, o, tree, host, rerender);
-    if (ks.length) {
-      var tg = el('button', 'objNodeToggle'); tg.type = 'button'; tg.setAttribute('aria-expanded', opened[o.id] ? 'true' : 'false'); tg.setAttribute('aria-label', tr(opened[o.id] ? 'Replier' : 'Déplier'));
-      tg.appendChild(el('span', 'cmpRowCount', String(ks.length))); tg.appendChild(TMT.ui.chev(!!opened[o.id]));
-      tg.addEventListener('click', function () { opened[o.id] = !opened[o.id]; rerender(); });
-      row.appendChild(tg);
-    }
-    host.appendChild(row);
-    if (ks.length && opened[o.id]) {
-      ks.forEach(function (k, n) { var anc = ancestors.slice(); anc[depth + 1] = n < ks.length - 1; nodeRow(k, depth + 1, tree, anc, n === ks.length - 1, host, rerender); });
-    }
-  }
-  function drawMine() {
-    if (!mineOpen) return;
-    api('GET', '/api/objectifs?filtre=tous').then(function (r) {
-      if (!mineOpen) return;
-      var items = (r && r.objectifs) || [], tree = buildTree(items);
-      function paint() {
-        var list = el('div', 'objList'), live = tree.roots.filter(function (o) { return !o.archived; }), old = tree.roots.filter(function (o) { return o.archived; });
-        live.forEach(function (o) { nodeRow(o, 0, tree, [], false, list, paint); });
-        if (old.length) { list.appendChild(el('p', 'cmpBlockTitle objArchTitle', tr('Archives'))); old.forEach(function (o) { nodeRow(o, 0, tree, [], false, list, paint); }); }
-        if (!items.length) list.appendChild(el('p', 'hint objNone cmpEmpty', tr('Aucun objectif pour l’instant.')));
-        panelBody.textContent = ''; panelBody.appendChild(list);
-      }
-      paint();
-    }).catch(function () {});
-  }
-  function openMine() {
-    if (mineOpen || panelForm || dock.classList.contains('expSave')) return; // une création est en cours : on n'y touche pas
-    mineOpen = true; advance = null; setBack(null);
-    panelKicker.textContent = tr('Mes objectifs'); panelBody.textContent = ''; panelFoot.textContent = ''; linkNote = el('p', 'tasksMsg objMsg'); panelFoot.appendChild(linkNote); panel.classList.remove('hidden');
-    drawMine();
-  }
-  function closeMine() { if (!mineOpen) return; mineOpen = false; panel.classList.add('hidden'); panelBody.textContent = ''; }
-  function load() { if (mineOpen) drawMine(); refreshCount(); }
+  function load() { if (TMT.objectifsArbre) TMT.objectifsArbre.refresh(); } // l'arbre se redessine après une création ou une modification
 
   // ---------- Fenêtres (gabarit commun .goalTaskEditModal) ----------
   function openModal(title, opts) {
@@ -267,7 +154,7 @@
     stepLabel.textContent = next ? tr('Suivant') : tr('Terminer'); stepBtn.setAttribute('aria-label', (next ? tr('Suivant') + ' : ' + tr(next) : tr('Terminer')) + ' (' + n + '/' + total() + ')'); stepPos.textContent = n + '/' + total(); stepBtn.disabled = !enabled;
   }
   function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
-    mineOpen = false; dock.classList.remove('expSave'); advance = null; setBack(null); panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; queue = []; seq = { base: 0, count: 1, i: 0 };
+    dock.classList.remove('expSave'); advance = null; setBack(null); panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; queue = []; seq = { base: 0, count: 1, i: 0 };
   }
 
   // ---------- Fenêtre « Nouvel objectif » ----------
@@ -275,7 +162,6 @@
   function start() {
     var text = input.value.trim();
     if (!text || busy) return;
-    closeMine(); // l'envoi referme la liste
     seq = { base: 0, count: 1, i: 0 }; queue = [];
     busy = true; sendBtn.disabled = true;
     api('POST', '/api/objectifs/contexte', { text: text }).then(function (ctx) { busy = false; sendBtn.disabled = false; openComposer(ctx); })
@@ -285,7 +171,7 @@
   function openComposer(ctx) {
     var form = ctx._form || (ctx._form = { title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null, _ctx: ctx });
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
-    mineOpen = false; panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
+    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
     var boxes = { desc: el('div'), rattach: el('div'), temps: el('div'), niveau: el('div'), taches: el('div') };
     ['desc', 'rattach', 'temps', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
@@ -667,9 +553,11 @@
     sync();
   })();
   TMT.objectifsView = {
-    show: function () { state.shown = true; syncDock(); mountRow(); refreshCount(); },
+    show: function () { state.shown = true; syncDock(); if (TMT.objectifsArbre) TMT.objectifsArbre.showBase(); load(); },
     hide: function () { state.shown = false; syncDock(); },
-    focus: function () { if (input) input.focus(); }
+    focus: function () { if (input) input.focus(); },
+    dock: function () { return dock; },
+    openDetail: function (id) { openDetail(id); }
   };
   // Si la vue Objectifs est déjà celle affichée au chargement (page1 se monte avant ce fichier).
   if (!host.classList.contains('hidden')) TMT.objectifsView.show();

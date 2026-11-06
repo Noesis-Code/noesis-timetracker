@@ -360,4 +360,77 @@ function recreateEmilienAccount(db) {
   return { created: true, id: emilienId, follows, activities: joined };
 }
 
-module.exports = { seedStagingData, shouldSeed, recreateEmilienAccount };
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// OBJECTIFS DE DÉMONSTRATION (arbre des objectifs de la page 1) — STAGING UNIQUEMENT (shouldSeed : RAILWAY_ENVIRONMENT_NAME défini et différent de « production »).
+// Pour Emilien Staging et deux profils fictifs : jusqu'à 4 activités chacun, 2 à 4 objectifs finaux par activité, étapes sur 2 à 3 niveaux (parentId), des objectifs RÉALISÉS (passé),
+// EN COURS, FUTURS (échéances jusqu'en 2031) et un ABANDONNÉ (meta.abandoned). Chaque objectif porte meta.demo = true (« donnée de démonstration »). Idempotent : un utilisateur qui a
+// déjà un objectif de démonstration n'est pas retouché ; aucun objectif réel n'est modifié. Désactivation : SEED_OBJECTIFS_DEMO=0.
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+const DEMO_TREES = [
+  [ // activité 1
+    { t: 'Lancer la version 2', s: -70, e: 170, kids: [
+      { t: 'Concevoir les nouveaux écrans', s: -70, e: -10, done: true, kids: [{ t: 'Prototype cliquable', s: -70, e: -30, done: true }, { t: 'Tests avec dix utilisateurs', s: -30, e: -10, done: true }] },
+      { t: 'Développer les modules', s: -10, e: 110, kids: [{ t: 'Module des objectifs', s: -10, e: 60 }, { t: 'Bêta fermée', s: 110, e: 170 }] },
+      { t: 'Lancement public', s: 170, e: 260 }] },
+    { t: 'Atteindre mille utilisateurs', s: 260, e: 1000, kids: [{ t: 'Cent premiers utilisateurs', s: 260, e: 420, kids: [{ t: 'Programme de parrainage', s: 260, e: 330 }] }, { t: 'Équipe de cinq personnes', s: 420, e: 1000 }] },
+    { t: 'Version 1 publiée', s: -520, e: -90, done: true, kids: [{ t: 'Première maquette', s: -520, e: -400, done: true }, { t: 'Fonctions de base', s: -400, e: -90, done: true }] },
+    { t: 'Ancien prototype papier', s: -400, e: -300, dropped: true },
+  ],
+  [ // activité 2
+    { t: 'Obtenir ma certification', s: -40, e: 220, kids: [
+      { t: 'Réussir l’examen théorique', s: -40, e: 100, kids: [{ t: 'Cours en ligne', s: -40, e: 30, done: true }, { t: 'Examen blanc', s: 30, e: 100 }] },
+      { t: 'Réussir l’examen pratique', s: 100, e: 220, kids: [{ t: 'Stage de préparation', s: 100, e: 160 }] }] },
+    { t: 'Parler anglais couramment', s: 220, e: 1500, kids: [{ t: 'Niveau intermédiaire', s: 220, e: 600, kids: [{ t: 'Cours du soir', s: 220, e: 400 }] }, { t: 'Séjour à l’étranger', s: 900, e: 1500 }] },
+    { t: 'Lire douze livres techniques', s: -330, e: -20, done: true, kids: [{ t: 'Six premiers livres', s: -330, e: -170, done: true }] },
+  ],
+  [ // activité 3
+    { t: 'Signer dix clients', s: -90, e: 120, kids: [
+      { t: 'Offre claire et tarifs', s: -90, e: -20, done: true },
+      { t: 'Cinq rendez-vous par mois', s: -20, e: 60, kids: [{ t: 'Liste de prospects', s: -20, e: 10, done: true }, { t: 'Relance des devis', s: 10, e: 60 }] },
+      { t: 'Contrats signés', s: 60, e: 120 }] },
+    { t: 'Cinquante clients actifs', s: 120, e: 1700, kids: [{ t: 'Trente clients actifs', s: 120, e: 800, kids: [{ t: 'Équipe commerciale', s: 400, e: 800 }] }] },
+    { t: 'Refonte de l’offre', s: -260, e: -60, done: true },
+  ],
+  [ // activité 4
+    { t: 'Courir un semi-marathon', s: -50, e: 140, kids: [{ t: 'Courir 10 km sans arrêt', s: -50, e: 20, done: true }, { t: 'Courir 15 km', s: 20, e: 80 }, { t: 'Course officielle', s: 140, e: 150 }] },
+    { t: 'Courir un marathon', s: 150, e: 800, kids: [{ t: 'Plan de seize semaines', s: 330, e: 520, kids: [{ t: 'Sorties longues', s: 400, e: 520 }] }] },
+    { t: 'Ultra-trail de montagne', s: 900, e: 1900 },
+  ],
+];
+function seedDemoObjectives(db) {
+  if (!shouldSeed() || process.env.SEED_OBJECTIFS_DEMO === '0') return { skipped: 'hors staging' };
+  const objectifs = require('./objectifs');
+  const today = new Date();
+  const iso = (off) => { const d = new Date(today.getTime() + off * 86400000); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const people = [{ name: EMILIEN_SEED_ACCOUNT.name, lastName: EMILIEN_SEED_ACCOUNT.lastName }].concat(FAKE_USERS.slice(0, 2).map((u) => ({ name: u.name, lastName: u.lastName })));
+  const out = { users: 0, objectives: 0 };
+  people.forEach((p) => {
+    const u = db.prepare('SELECT id FROM users WHERE name = ? AND lastName = ?').get(p.name, p.lastName);
+    if (!u) return;
+    if (db.prepare('SELECT 1 FROM user_objectives WHERE userId = ? AND metaJson LIKE ? LIMIT 1').get(u.id, '%"demo":true%')) return; // déjà fait
+    const acts = db.prepare('SELECT a.id FROM activity_members m JOIN activities a ON a.id = m.activityId WHERE m.userId = ? AND a.active = 1 ORDER BY a.id LIMIT 4').all(u.id);
+    acts.forEach((a, ai) => {
+      (function make(list, activityId, parentId) {
+        list.forEach((n) => {
+          try {
+            const days = n.e - n.s, unit = days > 400 ? 'mois' : 'semaines';
+            const r = objectifs.creer(u.id, { title: n.t, activityId, startDate: iso(n.s), endDate: iso(n.e), unit, amount: unit === 'mois' ? Math.max(1, Math.round(days / 30)) : Math.max(1, Math.round(days / 7)), periodWeeks: days > 400 ? 'mois' : (days > 120 ? 4 : 1), weekly: false, parentId, parentRel: parentId ? 'apres' : undefined, description: 'Donnée de démonstration' });
+            if (n.done) r.periods.forEach((pp) => pp.weeks.forEach((w) => objectifs.semaine(u.id, r.id, pp.n, w.i, true)));
+            const row = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(r.id), meta = JSON.parse(row.metaJson || '{}');
+            meta.demo = true; if (n.dropped) meta.abandoned = true;
+            db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
+            out.objectives += 1;
+            if (n.kids) make(n.kids, activityId, r.id);
+          } catch (e) { console.error('[objectifs-demo] ' + n.t + ' :', e && e.message); }
+        });
+      })(DEMO_TREES[ai % DEMO_TREES.length], a.id, null);
+    });
+    out.users += 1;
+  });
+  return out;
+}
+function seedDemoObjectivesOnStaging(db) {
+  try { const r = seedDemoObjectives(db || require('../db')); if (r && r.objectives) console.log('[objectifs-demo]', JSON.stringify(r)); return r; } catch (e) { console.error('[objectifs-demo]', e && e.message); return null; }
+}
+
+module.exports = { seedStagingData, shouldSeed, recreateEmilienAccount, seedDemoObjectives, seedDemoObjectivesOnStaging };

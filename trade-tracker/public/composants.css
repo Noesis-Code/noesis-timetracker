@@ -286,9 +286,6 @@
 .cmpStatus--mid { background: var(--partial); border-color: var(--partial); color: var(--white); }
 .cmpStatus--bad { background: var(--danger); border-color: var(--danger); color: var(--white); }
 
-/* Ligne de liste sans pastille de couleur + compteur à droite (ex. « Mes objectifs  3 › » en tête des activités). */
-.cmpNoDot::before { display: none; }
-.cmpRowCount { flex: none; font-size: 13px; color: var(--text-light); }
 
 /* Séparateur de ligne (R22) : trait de 1 px dessiné par ::after, d'un bord à l'autre de la ligne, même opacité partout (--sep) ; contrairement à une bordure du bas il ne disparaît pas aux alignements de pixels fractionnaires (écrans @3x, lignes à hauteur non entière). Mettre la classe sur la ligne. */
 .cmpSepRow { position: relative; border: 0; box-sizing: border-box; }

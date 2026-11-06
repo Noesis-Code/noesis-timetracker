@@ -27,9 +27,6 @@
 
 .goalsCapturePage.hidden { display: none; }
 
-.goalsCaptureActivities {
-  display: flex; flex-direction: column; gap: 8px;
-}
 
 .goalsCaptureActivityChip {
   display: flex; align-items: center; gap: 6px;
@@ -41,7 +38,6 @@
 }
 
 /* 28 oct. 2026 (Émilien) : même modèle que l'onglet Aujourd'hui — une pastille de la couleur de l'activité (donnée, R16), le nom, le compteur du jour à droite ; une ligne simple sépare les activités. */
-.goalsCaptureActivities { gap: 0; padding-bottom: 1px; } /* idem : le trait de la dernière activité n'est jamais rogné */
 .goalsCaptureActivityChip { gap: 12px; min-height: 53px; padding: 4px 4px; border: 0; border-radius: 0; background: none; } /* trait du bas : .cmpSepRow (composants.css) */
 .goalsCaptureZone {
   flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 12px; box-sizing: border-box; padding: 4px 0;

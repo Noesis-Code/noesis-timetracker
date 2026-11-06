@@ -24,7 +24,7 @@
         <div id="goalsActivitiesView" class="hidden">
         <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
         <p id="goalsCaptureActivityPrompt" class="hint goalsCaptureActivityPrompt hidden">Quelle activité pour cette tâche ?</p>
-        <div id="goalsCaptureActivities" class="goalsCaptureActivities"></div>
+        <div id="goalsObjArbre" class="objArbre"></div>
         <!-- Offre 1 : affichée ici, sous les activités. Logique dans app.js (loadOffer1SubscribedSection /
              openOffer1CheckoutModal, exposés via TMT) ; la modale #offer1CheckoutModal reste dans index.html. -->
         <div id="offer1Section">
@@ -97,81 +97,7 @@
   // chaque clic, jamais un mode figé au chargement de la page — l'utilisateur
   // peut très bien commencer à sélectionner des activités, tout effacer, puis
   // cliquer à nouveau pour naviguer.
-  function renderGoalsCaptureActivities() {
-    var box = $('goalsCaptureActivities');
-    if (!box) return;
-    box.innerHTML = '';
-    var list = TMT.getActivitiesCache() || [];
-    // Au repos : bulle neutre (base CSS de .goalsCaptureActivityChip, déjà grise) + point toujours plein. En train
-    // d'écrire : anneau creux si non sélectionnée, contour + point pleins dans la couleur de l'activité si
-    // sélectionnée. Le fond au repos étant constant, aucun contraste de texte calculé n'est nécessaire.
-    var bubbleWrapEl = $('goalsCaptureBubbleWrap');
-    var textareaEl = bubbleWrapEl ? bubbleWrapEl.querySelector('textarea') : null;
-    var typing = !!(textareaEl && textareaEl.value.trim());
-    // Liste « Objectifs » : seulement les activités qui ont AU MOINS UN objectif (rien n'est supprimé, seul l'affichage change) ; jamais pendant le choix d'une activité pour une tâche.
-    var onlyWithObjectives = !goalsCaptureAwaitingActivityChoice && !typing, shown = 0;
-    list.forEach(function (a) {
-      var id = String(a.id);
-      var bi0 = TMT.goalsCaptureBadges[a.id] || TMT.goalsCaptureBadges[id];
-      if (onlyWithObjectives && bi0 && bi0.hasObjectives === false) return;
-      shown++;
-      var isSelected = goalsCaptureSelectedActivityIds.indexOf(id) !== -1;
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'goalsCaptureActivityChip cmpSepRow' + (isSelected ? ' selected' : '');
-
-      // Médaillon (28 oct. 2026, Émilien) : le nom ENTIER dans la zone de couleur de l'activité, puis le compteur du jour. Plus de point,
-      // plus de flèche ni de contour de couleur : le toucher ouvre la page de l'activité. En train d'écrire, une activité non choisie s'atténue.
-      var zone = document.createElement('span');
-      zone.className = 'goalsCaptureZone';
-      zone.style.setProperty('--c', a.color);
-      var name = document.createElement('span');
-      name.className = 'goalsCaptureActivityChipName';
-      name.textContent = a.name;
-      zone.appendChild(name);
-      if (goalsCaptureAwaitingActivityChoice || (typing && !isSelected)) btn.classList.add('dim');
-      btn.appendChild(zone);
-
-      // Badge violet « non vu » — jamais un compteur cumulatif, voir
-      // server/lib/goalstasks.js#unseenCountsForActivity.
-      var badgeInfo = TMT.goalsCaptureBadges[a.id] || TMT.goalsCaptureBadges[id];
-      // X/Y des tâches du jour ; rien s'il n'y en a aucune.
-      if (badgeInfo && badgeInfo.daily && badgeInfo.daily.total > 0) {
-        var dc = document.createElement('span');
-        dc.className = 'goalsCaptureDailyCount';
-        dc.textContent = badgeInfo.daily.done + '/' + badgeInfo.daily.total;
-        btn.appendChild(dc);
-      }
-      if (badgeInfo && badgeInfo.total > 0) {
-        var badge = document.createElement('span');
-        badge.className = 'goalsCaptureBadge';
-        badge.textContent = String(badgeInfo.total);
-        btn.appendChild(badge);
-      }
-
-      btn.addEventListener('click', function () {
-        var wrap = $('goalsCaptureBubbleWrap');
-        var textarea = wrap ? wrap.querySelector('textarea') : null;
-        var hasText = textarea && textarea.value.trim();
-        if (hasText) {
-          toggleGoalsCaptureActivitySelection(id);
-          // On sort seulement du mode « attente » (la puce choisie reprend son rendu normal) sans masquer l'invite :
-          // elle ne se ferme que sur un envoi réussi (submit()), pas au premier choix d'activité.
-          if (goalsCaptureAwaitingActivityChoice && goalsCaptureSelectedActivityIds.length) {
-            goalsCaptureAwaitingActivityChoice = false;
-            renderGoalsCaptureActivities();
-          }
-        } else {
-          showGoalsPolesPage(a.id);
-        }
-      });
-
-      btn.dataset.activityId = id;
-      box.appendChild(btn);
-      if (TMT.syncUnreadChipDots) TMT.syncUnreadChipDots();
-    });
-    if (onlyWithObjectives && list.length && !shown) { var none = document.createElement('p'); none.className = 'hint cmpEmpty'; none.textContent = t('Aucun objectif pour l’instant.'); box.appendChild(none); } // aucune activité n'a d'objectif : état vide
-  }
+  function renderGoalsCaptureActivities() { if (TMT.objectifsArbre && TMT.objectifsArbre.refresh) TMT.objectifsArbre.refresh(); } // la liste d'activités a disparu : l'écran Objectifs est l'arbre (js/objectifs-arbre.js)
 
 
   // Nouvelle bulle de capture de la page 1 — même gabarit visuel qu'à

@@ -193,15 +193,25 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   const fsx = require('fs'), pathx = require('path');
   const uiSrc = fsx.readFileSync(pathx.join(__dirname, '..', 'public', 'js', 'composants.js'), 'utf8'), crSrc = fsx.readFileSync(pathx.join(__dirname, '..', 'public', 'js', 'objectifs-creer.js'), 'utf8');
   assert(/function holdDrag\(/.test(uiSrc) && /ui\.holdDrag = holdDrag/.test(uiSrc) && /o\.holdMs \|\| 500/.test(uiSrc), 'composant commun : appui long (500 ms) + glisser-déposer sur une cible (TMT.ui.holdDrag)');
-  assert(/TMT\.ui\.holdDrag\(row/.test(crSrc) && /\/parent'/.test(crSrc) && /objUnlinkZone/.test(crSrc) && /propres étapes/.test(crSrc), '« Mes objectifs » : déposer sur un objectif le rattache, zone « Délier », cycle refusé avec un retour discret');
+  const arbreJs = fsx.readFileSync(pathx.join(__dirname, '..', 'public', 'js', 'objectifs-arbre.js'), 'utf8'), pg1 = fsx.readFileSync(pathx.join(__dirname, '..', 'public', 'js', 'objectifs-page1.js'), 'utf8');
+  assert(/TMT\.ui\.holdDrag\(node/.test(arbreJs) && /\/parent'/.test(arbreJs) && /arUnlinkZone/.test(arbreJs) && /propres étapes/.test(arbreJs), 'arbre : déposer une carte sur une autre la rattache, zone « Délier », cycle refusé avec un retour discret');
+  assert(!/openMine|mountRow|objLineRow|Mes objectifs/.test(crSrc) && !/goalsCaptureActivityChip/.test(pg1.slice(pg1.indexOf('function renderGoalsCaptureActivities'), pg1.indexOf('function renderGoalsCaptureActivities') + 400)) && /id="goalsObjArbre"/.test(pg1), 'ancien système retiré : plus de ligne « Mes objectifs », de pop-up ni de liste d’activités ; l’écran Objectifs est l’arbre');
   // Arbre des objectifs (lecture) : temps du bas vers le haut, états, drill-down jusqu'au calendrier, bureau
   const pj = (...p) => fsx.readFileSync(pathx.join(__dirname, '..', ...p), 'utf8');
   const arSrc = pj('public', 'js', 'objectifs-arbre.js'), arCss = pj('public', 'css', 'objectifs-arbre.css'), swSrc = pj('public', 'sw.js'), htmlSrc = pj('public', 'index.html');
-  assert(/b\.rank - a\.b\.rank/.test(arSrc) && /Futur/.test(arSrc) && /arTodayLine/.test(arSrc), 'arbre : futur en haut, passé en bas, ligne « Aujourd’hui »');
+  assert(/column\(act, os, today\)/.test(arSrc) && /arBase/.test(arSrc) && /for \(var i = seq\.length - 1; i >= 0; i--\)/.test(arSrc) && /showGoalsPolesPage/.test(arSrc), 'arbre : activité = racine EN BAS (base cliquable), étapes au-dessus, une colonne par activité');
   assert(/ar-' \+ st/.test(arSrc) && /'future'/.test(arSrc) && /'done'/.test(arSrc) && /'now'/.test(arSrc) && /border: 2px dashed var\(--c\)/.test(arCss) && !/#[0-9a-f]{6}/i.test(arCss), 'arbre : états pâle / vif / pointillé en variantes de la couleur de l’activité (aucune couleur nouvelle)');
-  assert(/lvl: 'act'/.test(arSrc) && /lvl: 'pole'/.test(arSrc) && /openGoalsDetail/.test(arSrc) && /innerWidth >= 1024/.test(arSrc), 'arbre : activité -> pôle -> secteur -> calendrier, ordinateur >= 1024 px');
+  assert(/innerWidth >= 1024/.test(arSrc) && /arWide/.test(arSrc) && /showBase/.test(arSrc), 'arbre : ordinateur >= 1024 px (activités côte à côte), ouverture sur les bases');
   assert(/objectifs-arbre\.js/.test(swSrc) && /objectifs-arbre\.css/.test(swSrc) && /objectifs-arbre\.js/.test(htmlSrc) && /objectifs-arbre\.css/.test(htmlSrc), 'arbre : fichiers déclarés (index.html et service worker)');
   bad = false; try { o.get('autre-utilisateur', made.id); } catch (e) { bad = e.statusCode === 404; } assert(bad, 'un autre utilisateur ne voit pas cet objectif');
+  // Objectifs de démonstration (staging seulement, idempotent, marqués demo)
+  const seedMod = require('../server/lib/seed-staging');
+  const s1 = seedMod.seedDemoObjectives(db), s2 = seedMod.seedDemoObjectives(db);
+  const demoRows = db.prepare("SELECT parentId, metaJson FROM user_objectives WHERE metaJson LIKE '%\"demo\":true%'").all();
+  assert(s1.objectives > 20 && s2.objectives === 0 && demoRows.length === s1.objectives, 'démo : objectifs créés pour plusieurs comptes, deuxième passage sans effet (idempotent)');
+  assert(demoRows.some((r) => r.parentId != null) && demoRows.some((r) => JSON.parse(r.metaJson).abandoned) && demoRows.every((r) => JSON.parse(r.metaJson).demo === true), 'démo : étapes (parentId), un abandonné, tous marqués démonstration');
+  const envBefore = process.env.RAILWAY_ENVIRONMENT_NAME; process.env.RAILWAY_ENVIRONMENT_NAME = 'production';
+  assert(seedMod.seedDemoObjectives(db).skipped, 'démo : jamais en production'); process.env.RAILWAY_ENVIRONMENT_NAME = envBefore;
   console.log(failed ? '\nobjectifs-creation-test : ' + failed + ' échec(s)' : '\nobjectifs-creation-test : OK');
   process.exit(failed ? 1 : 0);
 })();
