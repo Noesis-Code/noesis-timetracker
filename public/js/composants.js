@@ -211,7 +211,8 @@
   function holdDrag(row, o) {
     var maxScroll = 0, timer = 0, active = false, sx = 0, sy = 0, lastX = 0, lastY = 0, pid = null, startScroll = 0, raf = 0, target = null, overZone = false, scroller = null, justDragged = 0;
     row.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-    row.addEventListener('touchmove', function (e) { if (active && e.cancelable) e.preventDefault(); }, { passive: false });
+    // Glisser actif : le geste appartient à la carte tirée, jamais au balayage de page (pagers : stats-avance.js, page 2) ni au défilement natif.
+    row.addEventListener('touchmove', function (e) { if (active) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); } }, { passive: false });
     row.addEventListener('click', function (e) { if (Date.now() - justDragged < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
     var val = function (x) { return typeof x === 'function' ? x() : x; };
     function targets() { var l = val(o.list); return Array.prototype.slice.call(l.querySelectorAll(o.targetSel)).filter(function (el) { return el !== row; }); }
