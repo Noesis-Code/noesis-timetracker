@@ -25,7 +25,7 @@ router.put('/objectifs/reglage', run((req) => objectifs.setAnon(req.userId, !(re
 router.post('/objectifs/lecture', run((req) => objectifs.lire(req.userId, req.body || {})));
 router.post('/objectifs/rattachement', run((req) => objectifs.rattachement(req.userId, req.body || {})));
 router.post('/objectifs/proposition', run((req) => objectifs.proposer(req.userId, req.body || {})));
-router.post('/objectifs', run(async (req) => objectifs.creer(req.userId, req.body || {})));
+router.post('/objectifs', run(async (req) => { objectifs.checkEcheance(req.body || {}, null, true); return objectifs.creer(req.userId, req.body || {}); })); // échéance obligatoire, jamais passée
 router.get('/objectifs/:id', run((req) => objectifs.get(req.userId, req.params.id)));
 router.put('/objectifs/:id/periodes/:n/semaines/:i', run((req) => objectifs.semaine(req.userId, req.params.id, req.params.n, req.params.i, req.body && req.body.done === true)));
 router.post('/objectifs/:id/bilan', run((req) => objectifs.bilan(req.userId, req.params.id, String((req.body || {}).action || ''), (req.body || {}).period)));

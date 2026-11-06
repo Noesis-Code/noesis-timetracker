@@ -381,6 +381,8 @@
     'Délier': 'Unlink',
     'Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.': 'An objective cannot be attached to one of its own objectives.',
     'Cet objectif est enregistré, mais il n’apparaît pas encore dans le calendrier : cette activité a atteint 10 secteurs par pôle. Retire un secteur dans « Gérer mes catégories », puis rouvre cet objectif.': 'This objective is saved, but it does not appear in the calendar yet: this activity has reached 10 sectors per pole. Remove a sector in “Manage my categories”, then reopen this objective.',
+    'L’échéance ne peut pas être dans le passé.': 'The deadline cannot be in the past.',
+    'Indique la date de l’échéance.': 'Enter the deadline date.',
     'Réactiver': 'Reactivate',
     'Abandonner': 'Abandon',
     'abandonné': 'abandoned',

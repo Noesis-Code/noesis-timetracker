@@ -32,7 +32,7 @@ Légende : ✅ géré, ⚠️ partiel, ❌ non géré. Priorité : P1 (bloquant 
 | C03 Titre vide | Refus clair | ✅ | - |
 | C04 Titre trop long | Refus clair (140) | ✅ | - |
 | C05 Échéance / début dans le passé | Refus ou confirmation | ⚠️ | P2 |
-| C06 Échéance absente | Date proposée, jamais vide | ✅ | - |
+| C06 Échéance absente | IMPOSSIBLE par règle (6 nov.) | ✅ règle appliquée | - |
 | C07 Échéance très lointaine | Message clair ou plafond | ⚠️ | P2 |
 | C08 Activité inconnue, inactive, non membre | Refus | ✅ | - |
 | C09 Activité sans pôle | Pôle créé automatiquement | ✅ | - |
@@ -142,7 +142,7 @@ Légende : ✅ géré, ⚠️ partiel, ❌ non géré. Priorité : P1 (bloquant 
 
 **C05 Échéance ou début dans le passé.** Attendu : confirmation explicite. Actuel ⚠️ : `startDate` est accepté tel quel et seule `endDate > startDate` est vérifiée (`o.js:483-484`) ; un objectif entièrement passé peut être créé. Le sélecteur de date a `min = startDate` (`cr.js:239`), pas la route. Correctif : refuser `endDate < aujourd'hui` côté serveur.
 
-**C06 Échéance absente.** ✅ `contexte` propose toujours une date (écrite, durée, base de durées ou 3 mois, `o.js:229-234`) ; `creer` refuse « Dates invalides » si absente (`o.js:484`).
+**C06 Échéance absente : impossible par règle (Émilien, 6 nov. 2026).** Un objectif a TOUJOURS une échéance, une date précise. Serveur : `checkEcheance` (400, « Indique l’échéance de l’objectif… », date ISO valide, jamais dans le passé à la création par la route ; `save` refuse une date invalide en édition). Interface : Suivant/Terminer grisé tant qu’aucune date valide n’est choisie, message court pour une date passée, l’échéance proposée par la base de durées reste modifiable. Migration idempotente `migrateEcheances` : tout objectif existant sans échéance valide reçoit une échéance par défaut (dernière date connue de ses périodes, sinon début + durée typique de la catégorie, sinon début + 1 an), marqué `meta.echeanceDefaut`, rien supprimé. Historique : ✅ `contexte` propose toujours une date (écrite, durée, base de durées ou 3 mois, `o.js:229-234`) ; `creer` refuse « Dates invalides » si absente (`o.js:484`).
 
 **C07 Échéance très lointaine.** Attendu : plafond clair. Actuel ⚠️ : durée de période « mois » au-delà d'un an (`defaultPeriodWeeks`, `o.js:276`) et `MAX_PERIODS = 80` (`o.js:52,119`) : un objectif de 10 ans (permis par `MAX_AMOUNT`, `o.js:51`) échoue avec « Trop de périodes : choisis une période plus longue », alors que la période par défaut est déjà « mois ». `endDate` n'a aucun plafond. Correctif : au-delà de 80 mois, proposer 13 semaines ou 1 an ; plafonner `endDate` à début + 10 ans.
 

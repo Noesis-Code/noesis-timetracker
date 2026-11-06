@@ -526,12 +526,43 @@ function bridge(r, periods) { // jamais bloquant : sans pont, l'objectif reste c
   }
 }
 
+// RÈGLE (Émilien, 6 nov. 2026) : un objectif a TOUJOURS une échéance, une date précise. Absente ou invalide = impossible (400, message clair).
+// `pasPassee` : seule la saisie de l'utilisateur (route) refuse une échéance déjà passée ; les objectifs de démonstration du staging en gardent.
+function checkEcheance(body, start, pasPassee) {
+  const e = body && body.endDate;
+  if (e === undefined || e === null || e === '') throw err('Indique l’échéance de l’objectif (une date précise).');
+  if (!isDay(e)) throw err('L’échéance doit être une date valide.');
+  if (pasPassee && e < today()) throw err('L’échéance ne peut pas être dans le passé.');
+  if (e <= (start || (isDay(body.startDate) ? body.startDate : today()))) throw err('L’échéance doit venir après le début de l’objectif.');
+}
+// Migration idempotente : un objectif existant sans échéance valide en reçoit une PAR DÉFAUT, rien n'est supprimé. Ordre : dernière date connue de ses périodes,
+// sinon début + durée typique de sa catégorie, sinon début + 1 an. Marqué meta.echeanceDefaut (pour que l'utilisateur la corrige). Retourne le nombre d'objectifs touchés.
+function migrateEcheances() {
+  let n = 0;
+  try {
+    db.prepare('SELECT * FROM user_objectives').all().forEach((r) => {
+      if (isDay(r.endDate) && (!isDay(r.startDate) || r.endDate > r.startDate)) return;
+      const start = isDay(r.startDate) ? r.startDate : String(r.createdAt || '').slice(0, 10) || today();
+      const start2 = isDay(start) ? start : today();
+      let steps = []; try { steps = JSON.parse(r.stepsJson || '[]'); } catch (e) { steps = []; }
+      const known = steps.map((p) => p && p.endDate).filter((d) => isDay(d) && d > start2).sort().pop();
+      const meta = (() => { try { return JSON.parse(r.metaJson || '{}'); } catch (e) { return {}; } })();
+      const cat = meta.cat && durees.TABLE ? (durees.TABLE.find && durees.TABLE.find((c) => c.id === meta.cat)) : null;
+      const end = known || (cat && cat.median ? addDays(start2, Math.round(cat.median * 7)) : addDays(start2, 365));
+      meta.echeanceDefaut = true;
+      db.prepare('UPDATE user_objectives SET startDate = ?, endDate = ?, metaJson = ? WHERE id = ?').run(start2, end, JSON.stringify(meta), r.id);
+      n += 1;
+    });
+  } catch (e) { console.warn('[objectifs] migration des échéances :', e && e.message); }
+  if (n) console.log('[objectifs] échéance par défaut attribuée à ' + n + ' objectif(s) sans échéance valide');
+  return n;
+}
 function creer(userId, body) {
   const title = cleanTitle(body && body.title);
   const act = userActivities(userId).find((a) => a.id === Number(body.activityId));
   if (!act) throw err('Choisis une de tes activités.');
   const start = isDay(body.startDate) ? body.startDate : today();
-  if (!isDay(body.endDate) || body.endDate <= start) throw err('Dates invalides.');
+  checkEcheance(body, start);
   const unit = UNITS.includes(body.unit) ? body.unit : 'semaines';
   const amount = Number.isInteger(Number(body.amount)) && Number(body.amount) > 0 ? Number(body.amount) : Math.max(1, Math.round(daysBetween(start, body.endDate) / 7));
   const periodWeeks = userPW(userId);
@@ -688,6 +719,7 @@ function liste(userId, filtre) {
 
 // ---- Modifications (toujours explicites, jamais silencieuses) ----
 function save(r, periods, meta, endDate) {
+  if (endDate !== undefined && !isDay(endDate)) throw err('L’échéance doit être une date valide.'); // jamais d'objectif sans échéance, en édition non plus
   db.prepare('UPDATE user_objectives SET stepsJson = ?, metaJson = ?, endDate = ? WHERE id = ?').run(JSON.stringify(periods), JSON.stringify(meta), endDate || r.endDate, r.id);
 }
 function semaine(userId, id, n, i, done) {
@@ -750,4 +782,5 @@ function supprimer(userId, id, confirmed) {
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   return { ok: true, detached: kids.map((k) => k.id) };
 }
-module.exports = { abandonner, supprimer, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, periodsInfo, setPeriods, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+migrateEcheances(); // au chargement (idempotent)
+module.exports = { checkEcheance, migrateEcheances, abandonner, supprimer, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, periodsInfo, setPeriods, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

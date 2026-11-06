@@ -79,6 +79,35 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(rt.includes("'/objectifs/:id/abandon'") && rt.includes("'/objectifs/:id/reactiver'") && rt.includes("router.delete('/objectifs/:id'"), 'E03 : routes abandon, reactiver, suppression');
 }
 
+// ---- 5. Échéance obligatoire (règle d'Émilien, 6 nov. 2026) ----
+{
+  const base = { title: 'Sans échéance', activityId: m.activityId, startDate: '2026-11-09', noBridge: true };
+  const tryIt = (b, route) => { try { if (route) o.checkEcheance(b, null, true); o.creer(u, b); return null; } catch (x) { return x; } };
+  let e = tryIt(base); assert(e && e.statusCode === 400 && /échéance/.test(e.message), 'échéance absente : refusée (400, message clair)');
+  e = tryIt(Object.assign({}, base, { endDate: '' })); assert(e && e.statusCode === 400, 'échéance vide : refusée');
+  e = tryIt(Object.assign({}, base, { endDate: '2026-02-31' })); assert(e && e.statusCode === 400 && /valide/.test(e.message), 'date impossible (31 février) : refusée');
+  e = tryIt(Object.assign({}, base, { endDate: 'demain' })); assert(e && e.statusCode === 400, 'texte non ISO : refusé');
+  e = tryIt(Object.assign({}, base, { startDate: '2020-01-01', endDate: '2020-06-01' }), true); assert(e && e.statusCode === 400 && /passé/.test(e.message), 'saisie utilisateur : échéance passée refusée');
+  e = tryIt(Object.assign({}, base, { endDate: '2027-06-01' }), true); assert(e === null, 'échéance valide et future : acceptée');
+  const before = db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE userId = ?').get(u).n;
+  // migration : anciens objectifs sans échéance valide
+  const ins = db.prepare("INSERT INTO user_objectives (userId, activityId, title, amount, unit, startDate, endDate, stepsJson, metaJson, createdAt) VALUES (?, ?, ?, 1, 'mois', ?, ?, ?, ?, '2026-10-01T00:00:00.000Z')");
+  const i1 = Number(ins.run(u, m.activityId, 'Ancien sans date', '2026-10-01', '', '[]', '{}').lastInsertRowid);
+  const i2 = Number(ins.run(u, m.activityId, 'Ancien avec étapes', '2026-10-01', 'n/a', JSON.stringify([{ n: 1, startDate: '2026-10-01', endDate: '2026-12-15', weeks: [] }]), '{}').lastInsertRowid);
+  const i3 = Number(ins.run(u, m.activityId, 'Courir un 10 km', '2026-10-01', '', '[]', JSON.stringify({ cat: 'course10k' })).lastInsertRowid);
+  const n1 = o.migrateEcheances();
+  const g = (id) => db.prepare('SELECT endDate, metaJson FROM user_objectives WHERE id = ?').get(id);
+  assert(n1 === 3, 'migration : 3 objectifs sans échéance traités (' + n1 + ')');
+  assert(g(i1).endDate === '2027-10-01', 'migration : ni étapes ni catégorie : début + 1 an');
+  assert(g(i2).endDate === '2026-12-15', 'migration : dernière date connue des périodes');
+  assert(g(i3).endDate === '2026-12-10', 'migration : début + durée typique de la catégorie (10 semaines)');
+  assert(JSON.parse(g(i1).metaJson).echeanceDefaut === true, 'migration : marqué échéance par défaut');
+  assert(o.migrateEcheances() === 0, 'migration idempotente');
+  assert(db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE userId = ?').get(u).n === before + 3, 'migration : rien supprimé');
+  const cs = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'js', 'objectifs-creer.js'), 'utf8');
+  assert(cs.includes('!form.dateOk || !form.endDate') && cs.includes('MSG_PASSE'), 'interface : Suivant/Terminer grisé sans date valide, message pour une date passée');
+}
+
 // MARK-FIN
 const nRef = (id) => db.prepare('SELECT (SELECT COUNT(*) FROM user_objectives WHERE userId = ?) + (SELECT COUNT(*) FROM objectifs_refus WHERE userId = ?) AS n').get(id, id).n;
 assert(nRef(u) > 0, 'avant suppression : objectifs et refus du compte présents');

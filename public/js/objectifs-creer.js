@@ -193,7 +193,8 @@
     })();
     if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
     panelForm = form; setBack(null);
-    function syncGo() { stepBtn.disabled = !form.dateOk; }
+    function syncGo() { stepBtn.disabled = !form.dateOk || !form.endDate; } // échéance obligatoire : Suivant / Terminer grisé sans date valide
+    var MSG_PASSE = tr('L’échéance ne peut pas être dans le passé.');
     var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.setAttribute('aria-label', tr('Objectif'));
     titleIn.addEventListener('input', function () { form.title = titleIn.value; });
     boxes.desc.appendChild(field(tr('Objectif'), titleIn));
@@ -203,7 +204,8 @@
     if (ctx.fixedDate) { // date imposée (examen, mariage…) : jamais estimée ; la date est demandée en premier et obligatoire
       var fixedIn = el('input'); fixedIn.type = 'date'; fixedIn.min = ctx.startDate; fixedIn.setAttribute('aria-label', tr('Date de l’échéance')); if (ctx.dateConfirmed) fixedIn.value = ctx.endDate;
       fixedIn.addEventListener('change', function () {
-        if (!fixedIn.value || fixedIn.value <= form.startDate) { form.dateOk = false; syncGo(); return; }
+        if (!fixedIn.value || fixedIn.value <= form.startDate) { form.dateOk = false; syncGo(); if (fixedIn.value) msg.textContent = MSG_PASSE; return; }
+        msg.textContent = '';
         var dd = Math.round((Date.parse(fixedIn.value + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
         form.endDate = fixedIn.value; form.amount = Math.max(1, Math.round(dd / 7)); form.unit = 'semaines'; form.periodWeeks = dd <= 28 ? '1' : dd <= 366 ? '4' : 'mois'; form.dateOk = true; syncGo(); refresh();
       });
@@ -246,7 +248,8 @@
     }
     pickLink.addEventListener('click', function () { dateIn.min = ctx.startDate; if (dateIn.showPicker) { try { dateIn.showPicker(); return; } catch (e) { /* repli */ } } dateIn.focus(); dateIn.click(); });
     dateIn.addEventListener('change', function () {
-      if (!dateIn.value || dateIn.value <= form.startDate) return;
+      if (!dateIn.value || dateIn.value <= form.startDate) { if (dateIn.value) { form.dateOk = false; syncGo(); msg.textContent = MSG_PASSE; } return; }
+      msg.textContent = '';
       var days = Math.round((Date.parse(dateIn.value + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
       form.durTouched = true; form.dateOk = true; syncGo(); form.endDate = dateIn.value; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines'; amountIn.value = form.amount; form.periodWeeks = days <= 28 ? '1' : days <= 366 ? '4' : 'mois'; buildUnits(); paintDates(); refresh();
     });
@@ -368,7 +371,7 @@
     }
     function finishAll() { // Terminer : proposition par règles (ou IA gratuite du mois) puis création ; rien n'est créé avant ce geste
       if (!validDesc()) return;
-      if (!form.dateOk) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
+      if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
       var actName = form.create ? form.createName : (ctx.activities.filter(function (a) { return a.id === form.activityId; })[0] || {}).name;
       api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: form.weekly !== false, activityId: form.create ? null : form.activityId, activityName: actName })
