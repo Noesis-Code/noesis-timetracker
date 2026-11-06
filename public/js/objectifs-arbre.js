@@ -10,13 +10,13 @@
   var TMT = window.TMT = window.TMT || {};
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-  var tree = null, items = [], zone = null, note = null, noteTimer = 0, loaded = false, needBase = false;
+  var zoom = 'year', tree = null, items = [], zone = null, note = null, noteTimer = 0, loaded = false, needBase = false;
 
   function mix(hex, k) { // teinte pâle : mélange de la couleur d'activité avec du blanc (même principe que l'arbre périodique)
     var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return hex || '#674EA7';
     return '#' + [0, 2, 4].map(function (i) { var v = parseInt(m[1].substr(i, 2), 16), x = Math.round(v + (255 - v) * k).toString(16); return x.length < 2 ? '0' + x : x; }).join('');
   }
-  function dayIso() { var d = new Date(), p = function (x) { return String(x).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+  function dayIso(date) { var d = date || new Date(), p = function (x) { return String(x).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
   function stateOf(o, today) { return o.abandoned ? 'dropped' : (o.status === 'atteint' ? 'done' : (o.startDate > today ? 'future' : 'now')); }
   function color(o) { return (o.activity && o.activity.color) || '#674EA7'; }
   function say(msg) { if (!note) return; note.textContent = msg; clearTimeout(noteTimer); noteTimer = setTimeout(function () { note.textContent = ''; }, 2600); }
@@ -98,12 +98,34 @@
     return col;
   }
 
+  // ZOOM : Aujourd'hui = en cours + futur proche (90 jours) ; Année = ce qui touche l'année en cours ; Tout = tout le chemin parcouru (réalisés, abandonnés, futurs).
+  function visibleSet(today) {
+    var y = today.slice(0, 4), near = dayIso(new Date(Date.now() + 90 * 86400000)), byId = {}, keep = {};
+    items.forEach(function (o) { byId[o.id] = o; });
+    items.forEach(function (o) {
+      var st = stateOf(o, today), ok = zoom === 'all' || (zoom === 'year' ? (o.startDate <= y + '-12-31' && o.endDate >= y + '-01-01') : (st === 'now' || (st === 'future' && o.startDate <= near)));
+      if (!ok) return;
+      for (var c = o; c && !keep[c.id]; c = c.parentId != null ? byId[c.parentId] : null) keep[c.id] = true; // le chemin jusqu'à l'objectif final reste
+    });
+    return keep;
+  }
+  function zoomBar() {
+    var s = el('div', 'cmpSeg arZoom'); s.setAttribute('role', 'group'); s.setAttribute('aria-label', tr('Zoom'));
+    [['today', tr('Aujourd’hui')], ['year', tr('Année')], ['all', tr('Tout')]].forEach(function (o) {
+      var b = el('button', zoom === o[0] ? 'active' : '', o[1]); b.type = 'button'; b.setAttribute('aria-pressed', zoom === o[0] ? 'true' : 'false');
+      b.addEventListener('click', function () { if (zoom === o[0]) return; zoom = o[0]; needBase = true; render(); });
+      s.appendChild(b);
+    });
+    return s;
+  }
+  function dayIso2() { return dayIso(); }
   function render() {
     if (!tree) return;
     tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024);
-    var today = dayIso(), acts = {}, order = [];
-    items.forEach(function (o) { var id = o.activity.id; if (!acts[id]) { acts[id] = { a: o.activity, os: [] }; order.push(id); } acts[id].os.push(o); });
-    if (!order.length) { tree.appendChild(el('p', 'hint cmpEmpty', tr('Aucun objectif pour l’instant.'))); return; }
+    var today = dayIso2(), acts = {}, order = [], keep = visibleSet(today), shown = items.filter(function (o) { return keep[o.id]; });
+    if (items.length) { var zb = el('div', 'arZoomRow'); zb.appendChild(zoomBar()); tree.appendChild(zb); }
+    shown.forEach(function (o) { var id = o.activity.id; if (!acts[id]) { acts[id] = { a: o.activity, os: [] }; order.push(id); } acts[id].os.push(o); });
+    if (!order.length) { tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
     var cols = el('div', 'arCols'); cols.style.setProperty('--ar-n', String(order.length));
     order.forEach(function (id) { cols.appendChild(column(acts[id].a, acts[id].os, today)); });
     tree.appendChild(cols);

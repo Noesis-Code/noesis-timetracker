@@ -1,6 +1,8 @@
 /* Écran « Objectifs » = arbre : une colonne par activité, l'activité (racine) EN BAS, le temps monte (objectifs finaux, étapes, futur en haut).
    États = variantes de la couleur de l'activité (R16) : pâle = en cours, vif = réalisé, contour pointillé = futur, atténué = abandonné. Traits de 2 px. */
-.objArbre { min-height: calc(100vh - 330px); display: flex; align-items: flex-end; padding: 8px 0 140px; }
+.objArbre { min-height: calc(100vh - 330px); display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 0 140px; }
+.arZoomRow { position: sticky; top: 70px; z-index: 5; margin: 0 0 16px; padding: 4px 0; background: var(--bg); }
+.arZoom { width: 100%; }
 .arCols { scroll-margin-bottom: 150px; display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 12px) / 2); gap: 12px; align-items: end; width: 100%; overflow-x: auto; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
 .arCols[style*="--ar-n: 1"] { grid-auto-columns: 100%; }
 .arCol { min-width: 0; display: flex; flex-direction: column; scroll-snap-align: start; }
@@ -36,3 +38,4 @@
 .arToday { display: flex; align-items: center; gap: 8px; margin: 2px 0 4px; color: var(--text-light); font-size: 13px; }
 .arToday::before, .arToday::after { content: ''; flex: 1; height: 2px; background: var(--purple); border-radius: 1px; }
 .arToday::before { flex: none; width: 10px; }
+

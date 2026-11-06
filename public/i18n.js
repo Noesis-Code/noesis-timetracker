@@ -374,6 +374,8 @@
     'Replier': 'Collapse',
     'Arbre des objectifs': 'Objectives tree',
     'Futur': 'Future',
+    'Zoom': 'Zoom',
+    'Aucun objectif à cette échelle.': 'No objectives at this scale.',
     'Étape de': 'Step of',
     'Délier': 'Unlink',
     'Un objectif ne peut pas devenir l’étape de l’une de ses propres étapes.': 'An objective cannot become a step of its own steps.',
