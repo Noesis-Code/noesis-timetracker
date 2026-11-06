@@ -109,17 +109,6 @@
 .objTimeInfo { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .objTimeRow { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--text-light); }
 .objTimeRow b { color: var(--text); font-weight: 600; }
-.objSliderWrap { display: flex; flex-direction: column; gap: 8px; }
-.objHelp { margin: 0 0 12px; }
-.objSliderBar { position: relative; padding: 22px 0 26px; } /* de la place pour les libellés des repères (au-dessus : enregistré, dessous : conseillé) */
-.objSlider { display: block; width: 100%; margin: 0; accent-color: var(--purple); min-height: 28px; }
-.objSliderVal { font-size: 15px; font-weight: 600; color: var(--text); text-align: center; }
-.objMark { position: absolute; bottom: 4px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
-.objMarkTick { display: block; width: 2px; height: 10px; background: var(--text-light); }
-.objMarkLbl { margin-top: 2px; font-size: 13px; color: var(--text-light); white-space: nowrap; }
-.objMark--up { bottom: auto; top: 0; flex-direction: column-reverse; }
-.objMark--up .objMarkLbl { margin: 0 0 2px; }
-.objGhost { z-index: 106; }
 
 .objLineRow { margin: 0 0 24px; }
 #goalsCaptureActivityPrompt:not(.hidden) ~ #goalsCaptureActivities .objLineRow { display: none; } /* pendant « Quelle activité pour cette tâche ? » la ligne ne sert pas */
@@ -128,5 +117,9 @@
 .objRowName { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
 .objList { gap: 0; }
 
-.objMark--l .objMarkLbl { transform: translateX(-38%); }
-.objMark--r .objMarkLbl { transform: translateX(38%); }
+
+.objHoursVal { display: inline-flex; align-items: center; gap: 2px; font-weight: 600; color: var(--text); }
+.objHoursVal input { width: 64px; min-height: 36px; padding: 0 10px; box-sizing: border-box; text-align: right; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: inherit; font: inherit; }
+.objDock .tasksProposeHead .tasksProposeKicker { flex: 1; min-width: 0; }
+.objBack { margin-left: -12px; }
+.objPlain { margin: 0; font-size: 14px; color: var(--text); }

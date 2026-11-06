@@ -457,6 +457,7 @@ function creer(userId, body) {
   const meta0 = { plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7) };
   if (est0) { meta0.cat = est0.id; meta0.proposed = { p10: est0.p10, p90: est0.p90 }; }
   if (hpw) meta0.hoursPerWeek = hpw;
+  if (body.description) meta0.description = String(body.description).trim().slice(0, 500); // description libre de l'objectif (étape « Description »)
   if (isDay(body.proposedEnd)) meta0.dateCorrectedDays = daysBetween(body.proposedEnd, body.endDate); // signal : date corrigée par l'utilisateur
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta0), id);
   catKey = bridge(db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(id), periods) || (labels.length ? targetCategory(act.id, act.name) : null);
