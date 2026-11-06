@@ -113,7 +113,7 @@
       var isSelected = goalsCaptureSelectedActivityIds.indexOf(id) !== -1;
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'goalsCaptureActivityChip' + (isSelected ? ' selected' : '');
+      btn.className = 'goalsCaptureActivityChip cmpSepRow' + (isSelected ? ' selected' : '');
 
       // Médaillon (28 oct. 2026, Émilien) : le nom ENTIER dans la zone de couleur de l'activité, puis le compteur du jour. Plus de point,
       // plus de flèche ni de contour de couleur : le toucher ouvre la page de l'activité. En train d'écrire, une activité non choisie s'atténue.

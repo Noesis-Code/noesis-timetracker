@@ -70,7 +70,7 @@
   function mountRow() {
     var box = document.getElementById('goalsCaptureActivities'); if (!box) return;
     if (!rowBtn) {
-      rowBtn = btn('goalsCaptureActivityChip objLineRow', '', function () { if (mineOpen) closeMine(); else openMine(); });
+      rowBtn = btn('goalsCaptureActivityChip cmpSepRow objLineRow', '', function () { if (mineOpen) closeMine(); else openMine(); });
       var zone = el('span', 'goalsCaptureZone cmpNoDot'); zone.appendChild(el('span', 'goalsCaptureActivityChipName', tr('Mes objectifs')));
       rowCount = el('span', 'cmpRowCount', ''); var chev = el('span', 'cmpChev'); chev.setAttribute('aria-hidden', 'true');
       rowBtn.appendChild(zone); rowBtn.appendChild(rowCount); rowBtn.appendChild(chev);
@@ -87,7 +87,7 @@
       if (!mineOpen) return;
       var list = el('div', 'objList'), items = (r && r.objectifs) || [];
       items.forEach(function (o) { // une ligne : nom de l'objectif + activité(s) liée(s) en petit ; un toucher ouvre le détail existant
-        var row = el('button', 'objRowLine'); row.type = 'button';
+        var row = el('button', 'objRowLine cmpSepRow'); row.type = 'button';
         row.appendChild(el('span', 'objRowName', o.title)); row.appendChild(el('span', 'objMeta', (o.activities && o.activities.length ? o.activities.map(function (x) { return x.name; }).join(', ') : o.activity.name)));
         row.addEventListener('click', function () { closeMine(); openDetail(o.id); });
         list.appendChild(row);

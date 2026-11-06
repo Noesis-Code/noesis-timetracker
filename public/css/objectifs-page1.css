@@ -41,8 +41,8 @@
 }
 
 /* 28 oct. 2026 (Émilien) : même modèle que l'onglet Aujourd'hui — une pastille de la couleur de l'activité (donnée, R16), le nom, le compteur du jour à droite ; une ligne simple sépare les activités. */
-.goalsCaptureActivities { gap: 0; }
-.goalsCaptureActivityChip { gap: 12px; min-height: 52px; padding: 4px 4px; border: 0; border-bottom: 1px solid var(--sep); border-radius: 0; background: none; }
+.goalsCaptureActivities { gap: 0; padding-bottom: 1px; } /* idem : le trait de la dernière activité n'est jamais rogné */
+.goalsCaptureActivityChip { gap: 12px; min-height: 53px; padding: 4px 4px; border: 0; border-radius: 0; background: none; } /* trait du bas : .cmpSepRow (composants.css) */
 .goalsCaptureZone {
   flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 12px; box-sizing: border-box; padding: 4px 0;
   color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.25;
@@ -77,7 +77,7 @@
   font-size: 11px; font-weight: 700; line-height: 1;
 }
 
-.goalsCaptureDailyCount { font-size: 12px; font-weight: 600; color: var(--text-light); margin-left: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.goalsCaptureDailyCount { line-height: 1; font-size: 12px; font-weight: 600; color: var(--text-light); margin-left: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 .goalsCaptureBubbleWrap { display: flex; flex-direction: column; }
 
