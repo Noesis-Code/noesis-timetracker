@@ -88,13 +88,8 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(meta2.category && meta2.category !== meta.category, 'pont : deux objectifs de la même activité, deux plans séparés (jamais mélangés)');
   const ext = o.bilan(u, made.id, 'prolonger', 1);
   assert(ext.periods[1].weeks.length === 5 && ext.endDate > made.endDate, 'prolonger d\'une semaine décale la suite');
-  // Réglage GLOBAL des périodes (6 nov. 2026) : défaut 13 × 4 ; le modifier restructure tous les objectifs, sans rien supprimer ; plus de durée par objectif.
-  assert(o.periodsInfo(u).perYear === 13 && o.periodsInfo(u).weeks === 4 && typeof o.duree === 'undefined' && typeof o.defaultPeriodWeeks === 'undefined', 'périodes : défaut 13 × 4, plus de « Régler la durée » ni de durée par objectif');
-  const beforeW = JSON.parse(db.prepare('SELECT stepsJson FROM user_objectives WHERE id = ?').get(made.id).stepsJson).reduce((a, p) => a.concat(p.weeks.map((w) => w.startDate)), []);
-  const pi = o.setPeriods(u, 26), after = JSON.parse(db.prepare('SELECT stepsJson, periodWeeks, metaJson FROM user_objectives WHERE id = ?').get(made.id).stepsJson);
-  assert(pi.weeks === 2 && pi.ask === false && after.every((p) => p.weeks.length <= 2) && db.prepare('SELECT periodWeeks AS w FROM user_objectives WHERE id = ?').get(made.id).w === '2', 'périodes : 26 × 2 restructure tous les objectifs (périodes toutes identiques)');
-  assert(after.reduce((a, p) => a.concat(p.weeks.map((w) => w.startDate)), []).join() === beforeW.join() && JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(made.id).metaJson).prevPeriods.length === 1, 'périodes : aucune semaine perdue, anciennes périodes conservées (meta.prevPeriods)');
-  let badP = false; try { o.setPeriods(u, 7); } catch (e) { badP = true; } assert(badP, 'périodes : format invalide refusé');
+  // PÉRIODES FIXES (6 nov. 2026) : 13 × 4 semaines pour tous ; plus de réglage ni de durée de période par objectif.
+  assert(typeof o.duree === 'undefined' && typeof o.setPeriods === 'undefined' && typeof o.periodsInfo === 'undefined' && o.splitPeriods('2026-11-02', '2026-12-27', '4').length === 2, 'périodes : fixes (4 semaines), plus de réglage ni de « Régler la durée »');
   // Lecture de pièces jointes (fausse IA) : propose, ne crée rien ; image jamais stockée ; quota partagé avec « Proposer les étapes ».
   const seen = [];
   o.setReadCaller(async (a) => { seen.push(a); return JSON.stringify({ objectives: [{ title: 'Courir un 10 km en deux mois', amount: null, unit: null }, { title: 'Lire quatre livres', amount: 3, unit: 'mois' }, { title: '' }] }); });

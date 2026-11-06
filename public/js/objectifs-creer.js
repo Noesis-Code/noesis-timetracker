@@ -145,8 +145,6 @@
     });
     count();
   }
-  var PERIOD_PRESETS = [['4', '4 × 13'], ['13', '13 × 4'], ['26', '26 × 2'], ['52', '52 × 1']]; // périodes par an × semaines par période
-  function periodText(p) { return p + ' ' + tr('périodes par an') + ' · ' + Math.round(52 / p) + ' ' + tr(Math.round(52 / p) > 1 ? 'semaines chacune' : 'semaine chacune'); }
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></svg>';
 
   // ---------- Parcours : paramètres -> étapes proposées (-> objectifs lus avant, si plusieurs) ----------
@@ -193,14 +191,8 @@
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
     panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
-    var boxes = { periodes: el('div'), desc: el('div'), rattach: el('div'), temps: el('div'), niveau: el('div'), taches: el('div') };
-    if (form._p0 === undefined) form._p0 = !!ctx.periodsAsk; if (form.perYear === undefined) form.perYear = ctx.periodsPerYear || 13;
-    ['periodes', 'desc', 'rattach', 'temps', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
-    (function () { // étape 0 : format des périodes (présélection 13 × 4), une seule fois, au tout premier objectif
-      var b0 = boxes.periodes, hint = el('p', 'hint objPlain');
-      function paint0() { b0.textContent = ''; b0.appendChild(field(tr('Périodes'), seg(PERIOD_PRESETS, String(form.perYear), function (k) { form.perYear = Number(k); paint0(); }, tr('Périodes')))); hint.textContent = periodText(form.perYear); b0.appendChild(hint); b0.appendChild(el('p', 'objPlain', tr('Tu peux le changer dans Réglages.'))); }
-      paint0();
-    })();
+    var boxes = { desc: el('div'), rattach: el('div'), temps: el('div'), niveau: el('div'), taches: el('div') };
+    ['desc', 'rattach', 'temps', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
     if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
     panelForm = form; setBack(null);
     function syncGo() { stepBtn.disabled = !form.dateOk || !form.endDate; } // échéance obligatoire : Suivant / Terminer grisé sans date valide
@@ -370,8 +362,8 @@
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
-    var stepNames = { periodes: 'Périodes', desc: 'Description', rattach: 'Rattachement', temps: 'Temps', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || (form._p0 ? 'periodes' : 'desc');
-    function list() { return (form._p0 ? ['periodes'] : []).concat(['desc']).concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(['temps']).concat(needsLevel() ? ['niveau'] : []).concat(['taches']); }
+    var stepNames = { desc: 'Description', rattach: 'Rattachement', temps: 'Temps', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
+    function list() { return ['desc'].concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(['temps']).concat(needsLevel() ? ['niveau'] : []).concat(['taches']); }
     // Étape « Rattachement » : seulement s'il existe un candidat dans l'activité ; PROPOSITION (règles, ou IA si permis) : Accepter (avec Avant | Après) ou Refuser (refus mémorisé, l'objectif reste un sommet séparé).
     function rattPending() { // « Suivant » reste grisé tant qu'une proposition affichée n'est pas décidée (jamais de choix silencieux)
       var r = form.ratt; if (!r) return false;
@@ -443,7 +435,7 @@
     }
     function show(k) {
       form._step = cur = k;
-      ['periodes', 'desc', 'rattach', 'temps', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      ['desc', 'rattach', 'temps', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
       if (k === 'rattach') paintRatt();
       panelKicker.textContent = tr(stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
@@ -455,7 +447,6 @@
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
     function stepNext() {
       var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
-      if (cur === 'periodes') { stepBtn.disabled = true; api('PUT', '/api/objectifs/periodes', { perYear: form.perYear }).then(function () { stepBtn.disabled = false; show(l[i + 1]); }).catch(function (e) { stepBtn.disabled = false; msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }); return; }
       if (cur === 'desc') { if (!validDesc()) return; stepBtn.disabled = true; loadRatt().then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; }
       show(l[i + 1]);
     }
@@ -587,26 +578,6 @@
     box.addEventListener('change', function () { var on = box.checked; api('PUT', '/api/objectifs/reglage', { anon: on }).catch(function () { box.checked = !on; }); });
     document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#profileSettingsBtn')) window.setTimeout(loadAnon, 200); });
     loadAnon();
-  })();
-  // Réglage global des périodes (Réglages > Préférences, ligne « Périodes » sous « Modules ») : 13 × 4 par défaut ; enregistrer restructure TOUS les objectifs (confirmation, rien n'est supprimé).
-  (function () {
-    var box = document.getElementById('periodsBox'), msgEl = document.getElementById('periodsMsg'), head = document.getElementById('periodsHeader');
-    if (!box) return;
-    var cur = 13, pick = 13;
-    function draw() {
-      box.textContent = ''; box.appendChild(field(tr('Périodes par an × semaines'), seg(PERIOD_PRESETS, String(pick), function (k) { pick = Number(k); msgEl.textContent = ''; draw(); }, tr('Périodes'))));
-      box.appendChild(el('p', 'hint', periodText(pick)));
-      if (pick !== cur) box.appendChild(btn('cmpBtn', tr('Enregistrer'), save));
-    }
-    function save() {
-      TMT.ui.confirm(tr('Les périodes de tous tes objectifs passent à') + ' ' + Math.round(52 / pick) + ' ' + tr(Math.round(52 / pick) > 1 ? 'semaines' : 'semaine') + '. ' + tr('Rien n’est supprimé : chaque semaine garde son texte et son état.'), { ok: tr('Enregistrer') }).then(function (ok) {
-        if (!ok) return;
-        api('PUT', '/api/objectifs/periodes', { perYear: pick }).then(function (r) { cur = pick = r.perYear; msgEl.textContent = tr('Enregistré.'); draw(); load(); }).catch(function (e) { msgEl.textContent = (e && e.message) || tr('Impossible pour le moment.'); });
-      });
-    }
-    function loadP() { api('GET', '/api/objectifs/periodes').then(function (r) { cur = pick = r.perYear; draw(); }).catch(function () { draw(); }); }
-    if (head) head.addEventListener('click', loadP);
-    draw(); document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#profileSettingsBtn')) window.setTimeout(loadP, 200); });
   })();
   // Gestion Expansion (abonnements actifs, Résilier, « J'ai un code ») : déplacée dans Réglages > Mon IA (même éléments, mêmes id). La carte promo n'est plus affichée.
   (function () {

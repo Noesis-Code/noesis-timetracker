@@ -216,12 +216,6 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   const rr = o.supprimer(u, mA.id, true);
   assert(rr.ok && rr.detached.includes(a1.id) && o.get(u, a1.id).parentId === null && o.get(u, a2.id).title === 'Objectif B2', 'macro intermédiaire supprimé : ses enfants deviennent des sommets, aucun supprimé');
   assert(o.get(u, mB.id).childMacroIds.length === 0 && o.get(u, mB.id).macroChildren === 1, 'le macro parent reste, sans le macro supprimé');
-  // changement de réglage des périodes : échéances inchangées, cases recalculées
-  const endsBefore = db.prepare('SELECT id, endDate FROM user_objectives WHERE userId = ? AND id IN (?, ?, ?)').all(u, mB.id, a3.id, pm.id);
-  const cur = o.periodsInfo(u).perYear; o.setPeriods(u, cur === 26 ? 13 : 26);
-  const endsAfter = db.prepare('SELECT id, endDate FROM user_objectives WHERE userId = ? AND id IN (?, ?, ?)').all(u, mB.id, a3.id, pm.id);
-  assert(JSON.stringify(endsBefore) === JSON.stringify(endsAfter), 'réglage des périodes changé : échéances (macros comprises) inchangées');
-  assert(o.get(u, mB.id).periods.length !== undefined && o.get(u, mB.id).periodWeeks === String(o.periodsInfo(u).weeks), 'réglage des périodes : cases recalculées');
   // activité unique : pas de macro d'activités proposé
   const mine = db.prepare('SELECT a.id FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1').all(u).map((r) => r.id);
   db.prepare('UPDATE activities SET active = 0 WHERE id IN (' + mine.map(() => '?').join(',') + ')').run(...mine); db.prepare('UPDATE activities SET active = 1 WHERE id = ?').run(B1); // une seule activité active

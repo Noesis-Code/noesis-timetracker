@@ -195,51 +195,9 @@ db.exec(`CREATE TABLE IF NOT EXISTS objectifs_signaux (
 try { if (!db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'objectifsAnon')) db.exec('ALTER TABLE users ADD COLUMN objectifsAnon INTEGER NOT NULL DEFAULT 1'); } catch (e) { /* colonne déjà là */ }
 function anonOptIn(userId) { const r = db.prepare('SELECT objectifsAnon AS a FROM users WHERE id = ?').get(userId); return !r || r.a !== 0; }
 function setAnon(userId, on) { db.prepare('UPDATE users SET objectifsAnon = ? WHERE id = ?').run(on ? 1 : 0, userId); return { anon: !!on }; }
-// RÉGLAGE GLOBAL DES PÉRIODES (décision d'Émilien, 6 nov. 2026) : nombre de périodes par an × semaines par période, le même pour tous les objectifs de l'utilisateur
-// (par défaut 13 périodes de 4 semaines). Quatre formats qui remplissent l'année : 4 × 13, 13 × 4, 26 × 2, 52 × 1. Jamais de durée de période par objectif.
-for (const [col, def] of [['objPerYear', 13], ['objPeriodWeeks', 4], ['objPeriodsAsked', 0]]) {
-  try { if (!db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === col)) db.exec('ALTER TABLE users ADD COLUMN ' + col + ' INTEGER NOT NULL DEFAULT ' + def); } catch (e) { /* colonne déjà là */ }
-}
-const PERIOD_PRESETS = { 4: 13, 13: 4, 26: 2, 52: 1 }; // périodes par an -> semaines par période
-function periodSetting(userId) {
-  const r = db.prepare('SELECT objPerYear AS p, objPeriodWeeks AS w, objPeriodsAsked AS a FROM users WHERE id = ?').get(userId) || {};
-  return { perYear: r.p || 13, weeks: r.w || 4, asked: !!r.a };
-}
-function userPW(userId) { return String(periodSetting(userId).weeks); }
-// ask = vrai tant que l'utilisateur n'a encore aucun objectif et n'a jamais confirmé ce réglage (étape 0 du tout premier objectif).
-function periodsInfo(userId) {
-  const s = periodSetting(userId), n = db.prepare('SELECT COUNT(*) AS c FROM user_objectives WHERE userId = ?').get(userId).c;
-  return { perYear: s.perYear, weeks: s.weeks, ask: !s.asked && n === 0 };
-}
-// Restructure TOUS les objectifs de la même façon : périodes toutes identiques, redécoupées de la date de début à l'échéance ; les semaines gardent leur texte et leur état (même date de début),
-// les anciennes périodes sont conservées dans meta.prevPeriods (rien n'est supprimé).
-function restructure(userId, pw) {
-  const rows = db.prepare('SELECT * FROM user_objectives WHERE userId = ?').all(userId);
-  rows.forEach((r) => {
-    const old = JSON.parse(r.stepsJson || '[]'), meta = JSON.parse(r.metaJson || '{}');
-    if (String(r.periodWeeks) === String(pw)) return;
-    const wk = {}; old.forEach((p) => p.weeks.forEach((w) => { wk[w.startDate] = w; }));
-    const next = splitPeriods(r.startDate, r.endDate, pw);
-    next.forEach((p) => {
-      const same = old.find((o) => o.startDate === p.startDate);
-      p.title = same && same.title ? same.title : (p.n === next.length ? r.title : 'P ' + p.n);
-      p.weeks.forEach((w) => { const o = wk[w.startDate]; if (o) { w.text = o.text || ''; w.done = !!o.done; } });
-    });
-    meta.prevPeriods = (meta.prevPeriods || []).concat([{ at: today(), periodWeeks: r.periodWeeks, periods: old }]).slice(-5);
-    const all = next.every((p) => p.weeks.every((w) => w.done));
-    if (all && !meta.attainedAt) meta.attainedAt = today(); else if (!all) delete meta.attainedAt;
-    db.prepare('UPDATE user_objectives SET periodWeeks = ?, stepsJson = ?, metaJson = ? WHERE id = ?').run(String(pw), JSON.stringify(next), JSON.stringify(meta), r.id);
-    try { if (meta.category) bridge(db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(r.id), next); } catch (e) { /* le pont n'est jamais bloquant */ }
-  });
-}
-function setPeriods(userId, perYear) {
-  const p = Number(perYear);
-  if (!PERIOD_PRESETS[p]) throw err('Format de périodes invalide.');
-  const w = PERIOD_PRESETS[p];
-  db.prepare('UPDATE users SET objPerYear = ?, objPeriodWeeks = ?, objPeriodsAsked = 1 WHERE id = ?').run(p, w, userId);
-  restructure(userId, String(w));
-  return periodsInfo(userId);
-}
+// PÉRIODES FIXES (décision d'Émilien, 6 nov. 2026) : 13 périodes de 4 semaines par an, la même chose pour tous ; l'utilisateur ne règle plus la longueur des périodes.
+const PERIOD_WEEKS = '4';
+function userPW() { return PERIOD_WEEKS; }
 function chronoHours(userId, activityId, start, end) {
   try { return db.prepare('SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ?').get(userId, activityId, start, end).s / 3600; } catch (e) { return 0; }
 }
@@ -300,7 +258,7 @@ function contexte(userId, body) {
   const best = ranked[0] && ranked[0].score > 0 ? ranked[0] : null;
   const existing = db.prepare("SELECT id, title, activityId, endDate FROM user_objectives WHERE userId = ? AND endDate >= ? ORDER BY endDate").all(userId, start);
   return {
-    title, amount, unit, startDate: start, endDate: end, periodWeeks: userPW(userId), periodsAsk: periodsInfo(userId).ask, periodsPerYear: periodSetting(userId).perYear,
+    title, amount, unit, startDate: start, endDate: end, periodWeeks: userPW(),
     canGenerateTasks: tasksAllowed(userId), fixedDate: fixedDate || unknownCategory, dateReason: fixedDate ? 'fixe' : unknownCategory ? 'inconnue' : null, dateConfirmed: !!explicit || manual || !!found,
     weeklyHours: ranked.reduce((o, a) => { o[a.id] = weeklyHoursHistory(userId, a.id); return o; }, {}),
     lastWeekHours: ranked.reduce((o, a) => { o[a.id] = Math.round(chronoHours(userId, a.id, addDays(today(), -6), today()) * 2) / 2; return o; }, {}), // temps enregistré (Chrono) sur les 7 derniers jours : repère « enregistré » du curseur d'heures par semaine
@@ -423,7 +381,7 @@ async function proposer(userId, body) {
   const start = isDay(body.startDate) ? body.startDate : today();
   const end = isDay(body.endDate) ? body.endDate : computeEnd(start, body.amount, body.unit);
   if (end <= start) throw err('La fin doit être après le début.');
-  const periodWeeks = userPW(userId);
+  const periodWeeks = userPW();
   const weekly = body.weekly !== false;
   const periods = splitPeriods(start, end, periodWeeks);
   let activityName = String(body.activityName || '');
@@ -620,7 +578,7 @@ function creer(userId, body) {
   checkEcheance(body, start);
   const unit = UNITS.includes(body.unit) ? body.unit : 'semaines';
   const amount = Number.isInteger(Number(body.amount)) && Number(body.amount) > 0 ? Number(body.amount) : Math.max(1, Math.round(daysBetween(start, body.endDate) / 7));
-  const periodWeeks = userPW(userId);
+  const periodWeeks = userPW();
   const weekly = body.weekly !== false;
   let parentId = null;
   if (body.parentId) {
@@ -951,4 +909,4 @@ function supprimer(userId, id, confirmed) {
   return { ok: true, detached: kids.map((k) => k.id) };
 }
 migrateEcheances(); // au chargement (idempotent)
-module.exports = { modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, periodsInfo, setPeriods, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
