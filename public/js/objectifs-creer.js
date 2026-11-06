@@ -507,6 +507,7 @@
       var t = el('div', 'objDetailTitle'), d = el('span', 'objDot'); if (o.activity.color) d.style.background = o.activity.color;
       t.appendChild(d); t.appendChild(el('p', 'sectionTitle', o.title)); win.head.appendChild(t);
       win.head.appendChild(el('p', 'objMeta objSub', o.durationLabel + ' · ' + tr('jusqu’au') + ' ' + dateText(o.endDate) + ' · ' + o.activity.name));
+      if (o.description) win.head.appendChild(el('p', 'objDesc', o.description)); // description saisie à la création
       if (idx == null) idx = o.currentPeriod.n - 1;
       var p = o.periods[idx];
       if (o.bilan) {

@@ -87,7 +87,7 @@
 .tasksToday .tasksPopRow { padding-left: 4px; padding-right: 4px; }
 /* Tri (3 nov. 2026) : icône nue à gauche sous le titre, menu = .statsPeriodMenu commun ; arbre replié du tri « Activité » (chevron à droite, R21 ; séparateur pleine largeur, R22) ; modification d'une tâche = panneau de l'onglet Tâches. */
 .tasksTopRow { position: absolute; top: -26px; left: 0; right: 0; height: 24px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px; } /* dans l'espace sous les onglets : la liste démarre à la même hauteur que celle de la vue Objectifs */
-.tasksCounter { padding: 0 13px; border: 0; background: none; font-size: 13px; line-height: 24px; color: var(--text-light); font-variant-numeric: tabular-nums; } /* pastille à contour fin, chiffres seulement */
+.tasksCounter { padding: 0 6.5px 0 13px; border: 0; background: none; font-size: 13px; line-height: 24px; color: var(--text-light); font-variant-numeric: tabular-nums; } /* pastille à contour fin, chiffres seulement */
 .tasksSortWrap .statsPeriodMenu { left: 0; right: auto; }
 .tasksSortBtn svg { width: 22px; height: 22px; }
 .tasksTreeBody { padding-left: 12px; }
