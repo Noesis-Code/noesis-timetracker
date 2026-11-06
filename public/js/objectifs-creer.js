@@ -269,6 +269,47 @@
 
     var actBox = el('div'), chargeBox = el('div');
     boxes.desc.appendChild(actBox); boxes.desc.appendChild(chargeBox);
+    // « Avancé » (R8 : repliable, fermé par défaut) : relier cet objectif à d'AUTRES colonnes du même niveau par un macro (facultatif ; l'IA le propose aussi à l'étape Rattachement). Rien n'est créé avant « Terminer ».
+    var advBox = el('div', 'objAdvanced'); boxes.desc.appendChild(advBox);
+    function advIds() { var a = form.adv || {}; return Object.keys(a).filter(function (k) { return a[k]; }).map(Number); }
+    function paintAdv() {
+      if (form.advOpen && form.advFor !== form.activityId) { form.advFor = form.activityId; form.advList = null; form.adv = {}; loadAdv(); } // l'activité a changé : la liste des colonnes à relier aussi
+      advBox.textContent = '';
+      var head = btn('objLink objAdvHead', (form.advOpen ? '▾ ' : '▸ ') + tr('Avancé'), function () { form.advOpen = !form.advOpen; if (form.advOpen && !form.advList) { loadAdv(); } paintAdv(); });
+      head.setAttribute('aria-expanded', form.advOpen ? 'true' : 'false'); advBox.appendChild(head);
+      if (!form.advOpen) return;
+      advBox.appendChild(el('p', 'hint', tr('Un macro relie plusieurs colonnes du même niveau (activités, pôles ou secteurs) : cet objectif et ceux que tu choisis.')));
+      if (!form.advList) { advBox.appendChild(el('p', 'hint', tr('Chargement…'))); return; }
+      if (!form.advList.length) { advBox.appendChild(el('p', 'hint', tr('Aucun objectif d’une autre colonne à relier.'))); return; }
+      var lst = el('div');
+      form.advList.forEach(function (c) {
+        var on = !!(form.adv && form.adv[c.id]), r = el('div', 'tasksPopRow objWeekRow' + (on ? ' done' : ''));
+        var cb = btn('tasksPopCheck', '', function () { form.adv = form.adv || {}; form.adv[c.id] = !on; paintAdv(); });
+        cb.innerHTML = on ? CHECK : ''; cb.setAttribute('aria-pressed', on ? 'true' : 'false'); cb.setAttribute('aria-label', c.title);
+        r.appendChild(cb); var tx = el('div', 'tasksPopText'); tx.appendChild(el('b', null, c.title)); tx.appendChild(el('small', null, c.label)); r.appendChild(tx); lst.appendChild(r);
+      });
+      advBox.appendChild(field(tr('Relier à'), lst));
+      if (advIds().length) {
+        var tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = form.advTitle === undefined ? (form.title || '') : form.advTitle; tIn.setAttribute('aria-label', tr('Nom du macro'));
+        tIn.addEventListener('input', function () { form.advTitle = tIn.value; });
+        advBox.appendChild(field(tr('Nom du macro'), tIn));
+        var n = advIds().length;
+        advBox.appendChild(el('p', 'objPlain', tr('Après') + ' : ' + tr('le macro englobe cet objectif') + ' + ' + n + ' ' + tr(n > 1 ? 'autres objectifs' : 'autre objectif') + '.'));
+      }
+    }
+    function loadAdv() { // objectifs libres du MÊME niveau, d'une autre colonne (activité, pôle ou secteur)
+      api('GET', '/api/objectifs?filtre=en_cours').then(function (r) {
+        var lv = form.level || 'activite', acts = {}; (ctx.activities || []).forEach(function (a) { acts[a.id] = a.name; });
+        form.advList = ((r && r.objectifs) || []).filter(function (o) {
+          if (o.isMacro || o.parentId != null || o.abandoned || (o.level || 'activite') !== lv) return false;
+          if (lv === 'activite') return o.activity.id !== form.activityId;
+          if (o.activity.id !== form.activityId) return false;
+          return lv === 'pole' ? o.poleKey !== form.poleKey : (o.poleKey === form.poleKey && o.categoryKey !== form.categoryKey);
+        }).map(function (o) { return { id: o.id, title: o.title, label: o.activity.name + (lv !== 'activite' ? ' · ' + (o.poleKey || '') + (o.categoryKey ? ' / ' + o.categoryKey : '') : '') }; });
+        paintAdv();
+      }).catch(function () { form.advList = []; paintAdv(); });
+    }
+    paintAdv();
 
     function renderActivities() {
       actBox.textContent = '';
@@ -318,7 +359,7 @@
       recVal.textContent = adv ? fmtH(adv) : '—';
       if (!form.hoursTouched) { form.hours = adv || null; hrsIn.value = adv ? String(adv) : ''; }
     }
-    function refresh() { renderActivities(); renderCharge(); paintPeriods(); syncHours(); }
+    function refresh() { renderActivities(); renderCharge(); paintPeriods(); syncHours(); if (advBox) paintAdv(); }
     refresh();
     // Étape « Niveau » : demandée SEULEMENT si des informations manquent (type d'objectif inconnu, plus d'un an, aucun historique Chrono) ; sinon sautée (3 étapes au lieu de 4).
     function needsLevel() { var dl = daysLeft(); return !ctx.estimate || (dl != null && dl > 365) || !(ctx.weeklyHours && form.activityId != null && ctx.weeklyHours[form.activityId]); }
@@ -339,6 +380,7 @@
       if (r.macro && !form.macroDecided && r.decided !== 'accept') return true;
       return false;
     }
+    function allMacroIds() { var a = form.macroDecided === 'accept' ? macroIds() : []; advIds().forEach(function (i) { if (a.indexOf(i) < 0) a.push(i); }); return a; }
     function macroIds() { var sel = form.macroSel || {}; return ((form.ratt && form.ratt.macro && form.ratt.macro.candidates) || []).filter(function (c) { return sel[c.id]; }).map(function (c) { return c.id; }); }
     // Proposition de macro (étape « Rattachement », même format : avant / après, Accepter ou Refuser, tout modifiable) : un objectif plus large qui englobe celui-ci et des objectifs proches d'AUTRES activités.
     function paintMacro(blkParent, m) {
@@ -432,7 +474,7 @@
         .then(function (P) { return (form.create ? api('POST', '/api/activities', { name: form.createName }).then(function (a) { return a.id; }) : Promise.resolve(form.activityId)).then(function (activityId) {
           return api('POST', '/api/objectifs', { level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hours, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
         }); })
-        .then(function (cr) { return form.macroDecided === 'accept' && cr && cr.id && macroIds().length ? api('POST', '/api/objectifs/macro', { childIds: [cr.id].concat(macroIds()), title: (form.macroTitle || form.title || '').trim() || form.title }).then(function () { return cr; }) : cr; }) // macro validé : créé APRÈS l'objectif, avec les objectifs choisis des autres activités
+        .then(function (cr) { return cr && cr.id && allMacroIds().length ? api('POST', '/api/objectifs/macro', { childIds: [cr.id].concat(allMacroIds()), title: ((advIds().length ? form.advTitle : form.macroTitle) || form.title || '').trim() || form.title }).then(function () { return cr; }) : cr; }) // macro validé : créé APRÈS l'objectif, avec les objectifs choisis des autres activités
         .then(function (created) { input.value = ''; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); if (created && created.bridgeFailed) openDetail(created.id); /* C12 : le message s’affiche dans le détail */ })
         .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
     }
