@@ -38,14 +38,11 @@ try {
   const cols = db.prepare('PRAGMA table_info(user_objectives)').all().map((c) => c.name);
   if (!cols.includes('parentRel')) db.exec('ALTER TABLE user_objectives ADD COLUMN parentRel TEXT');
   if (!cols.includes('position')) db.exec('ALTER TABLE user_objectives ADD COLUMN position INTEGER');
-<<<<<<< HEAD
   // Niveau d'un objectif (6 nov. 2026) : 'activite' (grand objectif) | 'pole' | 'secteur' ; poleKey / categoryKey = le pôle / le secteur où il a été créé. Existants : niveau 'activite'.
   if (!cols.includes('level')) db.exec("ALTER TABLE user_objectives ADD COLUMN level TEXT NOT NULL DEFAULT 'activite'");
   if (!cols.includes('poleKey')) db.exec('ALTER TABLE user_objectives ADD COLUMN poleKey TEXT');
   if (!cols.includes('categoryKey')) db.exec('ALTER TABLE user_objectives ADD COLUMN categoryKey TEXT');
-=======
   if (!cols.includes('isMacro')) db.exec('ALTER TABLE user_objectives ADD COLUMN isMacro INTEGER NOT NULL DEFAULT 0'); // objectif MACRO : englobe des sous-objectifs de plusieurs activités
->>>>>>> bec4c28f (Objectifs macro : isMacro, parent d'une autre activité seulement sous un macro (L03 revu), achèvement calculé, enfant déplacé, activité supprimée, proposition de macro à la création et fusion validée (serveur, tests, dossier))
 } catch (e) { console.warn('[objectifs] migration parentRel/position :', e && e.message); }
 db.exec(`CREATE TABLE IF NOT EXISTS objectifs_refus (
   userId TEXT NOT NULL,
@@ -474,18 +471,13 @@ async function rattachement(userId, body) {
   const title = cleanTitle(body && body.title), act = userActivities(userId).find((a) => a.id === Number(body && body.activityId));
   if (!act || !title) return { candidate: null };
   const refused = new Set(((body && body.refused) || []).map(Number));
-<<<<<<< HEAD
   const lv = body && body.level, pk = body && body.poleKey;
   const above = (r) => lv === 'pole' ? (r.level || 'activite') === 'activite' : lv === 'secteur' ? r.level === 'pole' && r.poleKey === pk : true; // 1c : candidats = niveau supérieur, même branche
   const cands = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).filter((r) => above(r) && !refused.has(r.id) && shape(r, false).status !== 'atteint');
-  if (!cands.length) return { candidate: null };
-=======
-  const cands = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).filter((r) => !refused.has(r.id) && shape(r, false).status !== 'atteint');
   // Macro (6 nov. 2026) : des objectifs RESSEMBLANTS dans d'AUTRES activités de l'utilisateur (règles de ressemblance, gratuit) font proposer un macro multi-activités :
   // simple proposition (avant/après et titre modifiables par l'utilisateur), rien n'est écrit sans sa validation.
   const macro = macroProposal(userId, title, act, refused);
   if (!cands.length) return macro ? { candidate: null, macro } : { candidate: null };
->>>>>>> bec4c28f (Objectifs macro : isMacro, parent d'une autre activité seulement sous un macro (L03 revu), achèvement calculé, enfant déplacé, activité supprimée, proposition de macro à la création et fusion validée (serveur, tests, dossier))
   let pick = await rattAi(userId, title, cands), source = 'ia';
   if (pick === undefined) { pick = rattRules(title, cands); source = 'regles'; }
   if (!pick) return macro ? { candidate: null, macro } : { candidate: null };
@@ -646,11 +638,7 @@ function creer(userId, body) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(userId, act.id, title, amount, unit, start, body.endDate, periodWeeks, weekly ? 1 : 0, parentId, JSON.stringify(periods), '[]', new Date().toISOString());
   const id = Number(info.lastInsertRowid);
-<<<<<<< HEAD
-  db.prepare('UPDATE user_objectives SET parentRel = ?, position = ?, level = ?, poleKey = ?, categoryKey = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), lvl.level, lvl.poleKey, lvl.categoryKey, id);
-=======
-  db.prepare('UPDATE user_objectives SET parentRel = ?, position = ?, isMacro = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), body.isMacro === true ? 1 : 0, id);
->>>>>>> bec4c28f (Objectifs macro : isMacro, parent d'une autre activité seulement sous un macro (L03 revu), achèvement calculé, enfant déplacé, activité supprimée, proposition de macro à la création et fusion validée (serveur, tests, dossier))
+  db.prepare('UPDATE user_objectives SET parentRel = ?, position = ?, level = ?, poleKey = ?, categoryKey = ?, isMacro = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), lvl.level, lvl.poleKey, lvl.categoryKey, body.isMacro === true ? 1 : 0, id);
   (Array.isArray(body.refus) ? body.refus : []).slice(0, 20).forEach((cid) => { const c = db.prepare('SELECT id FROM user_objectives WHERE id = ? AND userId = ?').get(Number(cid), userId); if (c && c.id !== id) db.prepare('INSERT OR REPLACE INTO objectifs_refus (userId, objectifId, candidateId, createdAt) VALUES (?, ?, ?, ?)').run(userId, id, c.id, new Date().toISOString()); });
   const est0 = durees.estimate(title);
   const hpw = Number(body.hoursPerWeek) > 0 && Number(body.hoursPerWeek) <= 80 ? Math.round(Number(body.hoursPerWeek) * 10) / 10 : null; // facultatif : valeur de départ = historique Chrono, modifiable
@@ -911,8 +899,4 @@ function supprimer(userId, id, confirmed) {
   return { ok: true, detached: kids.map((k) => k.id) };
 }
 migrateEcheances(); // au chargement (idempotent)
-<<<<<<< HEAD
-module.exports = { checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, periodsInfo, setPeriods, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
-=======
-module.exports = { macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, periodsInfo, setPeriods, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
->>>>>>> bec4c28f (Objectifs macro : isMacro, parent d'une autre activité seulement sous un macro (L03 revu), achèvement calculé, enfant déplacé, activité supprimée, proposition de macro à la création et fusion validée (serveur, tests, dossier))
+module.exports = { macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, periodsInfo, setPeriods, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
