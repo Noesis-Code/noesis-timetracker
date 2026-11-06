@@ -127,3 +127,6 @@
 .objRowLine { display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 52px; padding: 8px 4px; border: 0; border-bottom: 1px solid var(--sep); border-radius: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .objRowName { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
 .objList { gap: 0; }
+
+.objMark--l .objMarkLbl { transform: translateX(-38%); }
+.objMark--r .objMarkLbl { transform: translateX(38%); }

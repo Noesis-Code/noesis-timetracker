@@ -385,6 +385,8 @@
       var max = Math.max(2 * (adv || 0), 10); max = Math.ceil(max / 0.5) * 0.5; slider.max = String(max); // jamais bornée à un petit intervalle
       if (!form.hoursTouched) { form.hours = adv || null; slider.value = adv ? String(Math.min(adv, max)) : '0'; }
       placeMark(markAdv, tr('Conseillé'), adv, max); placeMark(markRec, tr('Enregistré'), rec, max);
+      var close = adv > 0 && rec > 0 && Math.abs(adv - rec) / max < 0.15; // repères voisins : les libellés s'écartent pour rester lisibles
+      markAdv.classList.toggle('objMark--r', close); markRec.classList.toggle('objMark--l', close);
       paintSlider(); paintInfo();
     }
     function refresh() { renderLinks(); renderActivities(); renderCharge(); syncHours(); }
