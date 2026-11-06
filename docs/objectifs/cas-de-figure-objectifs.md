@@ -45,7 +45,7 @@ Légende : ✅ géré, ⚠️ partiel, ❌ non géré. Priorité : P1 (bloquant 
 | C16 Nouvel objectif après un atteint | Possible | ✅ | - |
 | L01 Cycle | Refusé | ✅ | - |
 | L02 Rattaché à soi-même | Refusé | ✅ | - |
-| L03 Parent d'une autre activité | Refusé | ✅ corrigé (6 nov.) | P1 |
+| L03 Parent d'une autre activité | Refusé, SAUF sous un macro (section 13) | ✅ corrigé (6 nov.), revu pour le macro | P1 |
 | L04 Parent supprimé | Enfants remontent, pas d'erreur | ❌ | P2 |
 | L05 Parent archivé (atteint) | Cohérent | ⚠️ | P2 |
 | L06 Parent abandonné | Non proposé par l'IA | ⚠️ | P3 |
@@ -381,3 +381,22 @@ Proposition, rien n'a été codé.
 14. **C01, C05, C13, H01, I05, L05, L11, P02-P04, P06** : périodes à la création, échéance passée, activité orpheline, file hors ligne, quota IA, parent atteint, dates parent/enfant, règles de responsables.
 
 **P3** : C02, C10, C14, C15, E06, E08, E09, L06, L08, T11, A08, H02-H04, D01, D04, K02, K05, I02, P05.
+
+## 13. Objectifs macro (décision d'Émilien, 6 nov. 2026)
+
+Un objectif MACRO englobe plusieurs sous-objectifs plus précis (micro) qui peuvent appartenir à DIFFÉRENTES activités (zones différentes, objectif commun). Le macro est commun au-dessus des activités ; chaque micro reste dans UNE seule activité. Ce modèle REVOIT la règle L03 : le parent d'une autre activité n'est autorisé que si ce parent est un macro. Tout est dans `server/lib/objectifs.js` (colonne `isMacro`, migration sans perte) ; l'affichage (carte large neutre qui chevauche les colonnes) est fait par l'agent de l'arbre à partir des champs de `liste()` : `isMacro`, `macroActivities[]` (id, name), `macroEmpty`, `macroAllAbandoned`, `macroChildren`, `status`, `progress`.
+
+Modèle : le macro garde l'`activityId` de sa création (activité d'attache, colonne NOT NULL) ; ses activités affichées sont celles de ses enfants dont l'activité est active (un enfant d'une activité supprimée est archivé : ignoré). Un macro n'a pas de pont vers l'arbre périodique (ses enfants portent les plans).
+
+Règles (toutes testées dans `test/objectifs-graves-test.js`, section 6) :
+- **M01 L03 revu** : parent d'une autre activité accepté seulement si le parent est un macro (serveur 400 sinon ; arbre : cibles d'une autre activité encore non valides côté glisser-déposer, à ouvrir aux macros par l'agent de l'arbre). ✅ serveur.
+- **M02 Garde** : un macro est un sommet ou l'étape d'un autre macro, jamais l'étape d'un objectif ordinaire ; un objectif étape d'un objectif ordinaire ne peut pas devenir macro (`PUT /objectifs/:id/macro`). ✅
+- **M03 Macro sans enfant** : reste visible, signalé (`macroEmpty`). ✅
+- **M04 Enfant déplacé vers une autre activité** (`PUT /objectifs/:id/activite`) : autorisé seulement s'il garde un parent macro (ou n'a pas de parent) et n'a pas d'enfants ordinaires ; son pont suit la nouvelle activité. ✅
+- **M05 Activité supprimée avec macro** : ses enfants sortent du macro (archivés), le macro reste avec ses autres enfants ; sans aucun enfant actif il reste visible et signalé. ✅
+- **M06 Macro à cheval sur des colonnes non adjacentes** : accepté (enfants des activités A1 et A3 sans A2). ✅ (affichage : agent de l'arbre)
+- **M07 Achèvement** : atteint quand tous ses enfants non abandonnés le sont ; calcul à l'affichage (`liste`, `get`) et route `GET /objectifs/:id/macro`. ✅
+- **M08 Tous les enfants abandonnés** : jamais « atteint », signalé (`macroAllAbandoned`). ✅
+- **M09 Retour en objectif ordinaire** : refusé tant que le macro englobe des objectifs d'autres activités. ✅
+- **M10 Création** : à la création, si des objectifs RESSEMBLANTS existent dans d'autres activités (règles de ressemblance gratuites), `POST /objectifs/rattachement` renvoie `macro.candidates` (avant/après, modifiable) ; rien n'est écrit sans validation : `POST /objectifs/macro { title, childIds }` crée le macro et rattache les objectifs choisis. ✅ serveur ; interface de la proposition (étape du panneau de création) : à brancher.
+- **M11 Macro dans un macro** : par la fusion, interdit (un macro ne se range pas dans un autre par cette voie) ; par `lier`, permis.

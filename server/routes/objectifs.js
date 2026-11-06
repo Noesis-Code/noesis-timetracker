@@ -27,9 +27,13 @@ router.post('/objectifs/lecture', run((req) => objectifs.lire(req.userId, req.bo
 router.post('/objectifs/rattachement', run((req) => objectifs.rattachement(req.userId, req.body || {})));
 router.post('/objectifs/proposition', run((req) => objectifs.proposer(req.userId, req.body || {})));
 router.post('/objectifs', run(async (req) => { objectifs.checkEcheance(req.body || {}, null, true); return objectifs.creer(req.userId, req.body || {}); })); // échéance obligatoire, jamais passée
+router.post('/objectifs/macro', run((req) => objectifs.fusionnerEnMacro(req.userId, req.body || {})));
 router.get('/objectifs/:id', run((req) => objectifs.get(req.userId, req.params.id)));
 router.put('/objectifs/:id/periodes/:n/semaines/:i', run((req) => objectifs.semaine(req.userId, req.params.id, req.params.n, req.params.i, req.body && req.body.done === true)));
 router.post('/objectifs/:id/bilan', run((req) => objectifs.bilan(req.userId, req.params.id, String((req.body || {}).action || ''), (req.body || {}).period)));
+router.get('/objectifs/:id/macro', run((req) => objectifs.macroDe(req.userId, req.params.id)));
+router.put('/objectifs/:id/macro', run((req) => objectifs.setMacro(req.userId, req.params.id, (req.body || {}).isMacro === true)));
+router.put('/objectifs/:id/activite', run((req) => objectifs.deplacer(req.userId, req.params.id, (req.body || {}).activityId)));
 router.post('/objectifs/:id/abandon', run((req) => objectifs.abandonner(req.userId, req.params.id, true)));
 router.post('/objectifs/:id/reactiver', run((req) => objectifs.abandonner(req.userId, req.params.id, false)));
 router.delete('/objectifs/:id', run((req) => objectifs.supprimer(req.userId, req.params.id, String(req.query.confirm || '') === '1')));

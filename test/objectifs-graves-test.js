@@ -14,6 +14,7 @@ const u = m.userId;
 o.setTasksCheck(() => false);
 const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.activityId, startDate: '2026-11-09', endDate: '2027-03-01', noBridge: true }, extra || {}));
 
+(async () => {
 // ---- 1. Export et suppression de compte ----
 {
   const a = mk('Objectif A', { description: 'Ma description privée' });
@@ -92,9 +93,9 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   const before = db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE userId = ?').get(u).n;
   // migration : anciens objectifs sans échéance valide
   const ins = db.prepare("INSERT INTO user_objectives (userId, activityId, title, amount, unit, startDate, endDate, stepsJson, metaJson, createdAt) VALUES (?, ?, ?, 1, 'mois', ?, ?, ?, ?, '2026-10-01T00:00:00.000Z')");
-  const i1 = Number(ins.run(u, m.activityId, 'Ancien sans date', '2026-10-01', '', '[]', '{}').lastInsertRowid);
-  const i2 = Number(ins.run(u, m.activityId, 'Ancien avec étapes', '2026-10-01', 'n/a', JSON.stringify([{ n: 1, startDate: '2026-10-01', endDate: '2026-12-15', weeks: [] }]), '{}').lastInsertRowid);
-  const i3 = Number(ins.run(u, m.activityId, 'Courir un 10 km', '2026-10-01', '', '[]', JSON.stringify({ cat: 'course10k' })).lastInsertRowid);
+  const i1 = Number(ins.run(u, m.activityId, 'Ancien sans date', '2026-10-01', '', JSON.stringify([{ n: 1, startDate: '2026-10-01', weeks: [{ i: 1, startDate: '2026-10-01', endDate: '2026-10-07' }] }]), '{}').lastInsertRowid);
+  const i2 = Number(ins.run(u, m.activityId, 'Ancien avec étapes', '2026-10-01', 'n/a', JSON.stringify([{ n: 1, startDate: '2026-10-01', endDate: '2026-12-15', weeks: [{ i: 1, startDate: '2026-10-01', endDate: '2026-10-07' }] }]), '{}').lastInsertRowid);
+  const i3 = Number(ins.run(u, m.activityId, 'Courir un 10 km', '2026-10-01', '', JSON.stringify([{ n: 1, startDate: '2026-10-01', weeks: [{ i: 1, startDate: '2026-10-01', endDate: '2026-10-07' }] }]), JSON.stringify({ cat: 'course10k' })).lastInsertRowid);
   const n1 = o.migrateEcheances();
   const g = (id) => db.prepare('SELECT endDate, metaJson FROM user_objectives WHERE id = ?').get(id);
   assert(n1 === 3, 'migration : 3 objectifs sans échéance traités (' + n1 + ')');
@@ -108,6 +109,68 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(cs.includes('!form.dateOk || !form.endDate') && cs.includes('MSG_PASSE'), 'interface : Suivant/Terminer grisé sans date valide, message pour une date passée');
 }
 
+// ---- 6. Objectifs MACRO : plusieurs activités sous un objectif commun ----
+{
+  const newAct = (name) => { const id = Number(db.prepare("INSERT INTO activities (name, ownerId, active, createdAt) VALUES (?, ?, 1, '2026-11-01T00:00:00.000Z')").run(name, u).lastInsertRowid); db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#674EA7', '2026-11-01T00:00:00.000Z')").run(id, u); return id; };
+  const A1 = newAct('Macro A1'), A2 = newAct('Macro A2'), A3 = newAct('Macro A3');
+  const mkIn = (title, activityId, extra) => o.creer(u, Object.assign({ title, activityId, startDate: '2026-11-09', endDate: '2027-03-01', noBridge: true }, extra || {}));
+  const bad = (fn) => { try { fn(); return null; } catch (x) { return x; } };
+  const macro = mkIn('Macro santé', A1, { isMacro: true });
+  assert(macro.isMacro === true && macro.macroEmpty === true && macro.macroChildren === 0, 'macro créé : visible, sans enfant, signalé (macroEmpty)');
+  assert(macro.macroActivities.length === 1 && macro.macroActivities[0].id === A1, 'macro sans enfant : son activité d’attache');
+  const m1 = mkIn('Micro A1', A1, { parentId: macro.id }), m2 = mkIn('Micro A2', A2, { parentId: macro.id });
+  const m3 = mkIn('Micro A3', A3);
+  assert(m2.parentId === macro.id, 'macro : un enfant d’une AUTRE activité est accepté');
+  assert(o.lier(u, m3.id, macro.id, 'apres').parentId === macro.id, 'macro : lier un enfant d’une troisième activité (colonnes non adjacentes) accepté');
+  let g = o.get(u, macro.id);
+  assert(g.macroActivities.map((a) => a.id).sort().join() === [A1, A2, A3].sort().join() && g.macroChildren === 3 && !g.macroEmpty, 'macro : activités = celles de ses enfants (liste : macroActivities)');
+  const normal = mkIn('Parent ordinaire A1', A1), x2 = mkIn('Enfant A2', A2);
+  let e = bad(() => o.lier(u, x2.id, normal.id, 'apres')); assert(e && e.statusCode === 400 && /même activité/.test(e.message), 'parent ordinaire d’une autre activité : toujours refusé (L03)');
+  e = bad(() => mkIn('Enfant refusé', A2, { parentId: normal.id })); assert(e && e.statusCode === 400, 'creer : parent ordinaire d’une autre activité refusé');
+  // garde : macro = sommet ou étape de macro
+  const m5 = mkIn('Macro étape', A1, { isMacro: true });
+  e = bad(() => o.lier(u, m5.id, normal.id, 'apres')); assert(e && /macro/.test(e.message), 'un macro ne devient pas l’étape d’un objectif ordinaire');
+  assert(o.lier(u, m5.id, macro.id, 'apres').parentId === macro.id, 'un macro peut être l’étape d’un macro');
+  const kidOfNormal = mkIn('Fils ordinaire', A1, { parentId: normal.id });
+  e = bad(() => o.setMacro(u, kidOfNormal.id, true)); assert(e && e.statusCode === 400, 'un objectif étape d’un objectif ordinaire ne peut pas devenir macro');
+  e = bad(() => o.setMacro(u, macro.id, false)); assert(e && /autres activités/.test(e.message), 'macro avec enfants d’autres activités : retour en ordinaire refusé');
+  // achèvement
+  const done = (id) => { const r = o.get(u, id); r.periods.forEach((p) => p.weeks.forEach((w) => o.semaine(u, id, p.n, w.i, true))); };
+  done(m1.id); done(m2.id);
+  assert(o.get(u, macro.id).status === 'en_cours', 'macro : pas atteint tant qu’un enfant ne l’est pas');
+  o.abandonner(u, m5.id, true); done(m3.id);
+  g = o.get(u, macro.id);
+  assert(g.status === 'atteint' && g.progress === 1, 'macro : atteint quand tous ses enfants non abandonnés le sont (calcul à l’affichage)');
+  assert(o.liste(u, 'tous').find((x) => x.id === macro.id).status === 'atteint' && o.macroDe(u, macro.id).status === 'atteint', 'macro : même état dans liste() et dans la route macro');
+  // tous les enfants abandonnés
+  const m6 = mkIn('Macro tout abandonné', A1, { isMacro: true }), c1 = mkIn('Enfant abandonné', A2, { parentId: m6.id });
+  o.abandonner(u, c1.id, true);
+  g = o.get(u, m6.id); assert(g.macroAllAbandoned === true && g.status === 'en_cours', 'macro dont tous les enfants sont abandonnés : jamais atteint, signalé');
+  // enfant déplacé vers une autre activité
+  const moved = o.deplacer(u, m2.id, A3); assert(moved.activity.id === A3 && moved.parentId === macro.id, 'enfant de macro : déplaçable vers une autre activité, garde son parent macro');
+  e = bad(() => o.deplacer(u, kidOfNormal.id, A2)); assert(e && e.statusCode === 400, 'enfant d’un parent ordinaire : déplacement vers une autre activité refusé');
+  e = bad(() => o.deplacer(u, normal.id, A2)); assert(e && /rattachés/.test(e.message), 'objectif ayant des enfants ordinaires : ne change pas d’activité');
+  const free = mkIn('Libre', A1); assert(o.deplacer(u, free.id, A2).activity.id === A2, 'objectif sans parent : déplaçable');
+  // activité supprimée avec macro : ses enfants sont archivés, le macro reste avec les autres
+  db.prepare("UPDATE activities SET active = 0, deletedAt = '2026-11-06T00:00:00.000Z' WHERE id = ?").run(A3);
+  g = o.get(u, macro.id);
+  assert(!g.macroActivities.some((a) => a.id === A3) && g.macroChildren === 2 && g.macroActivities.length === 1 && g.macroActivities[0].id === A1, 'activité supprimée : ses enfants sortent du macro, le macro reste avec ses autres enfants');
+  db.prepare("UPDATE activities SET active = 0, deletedAt = '2026-11-06T00:00:00.000Z' WHERE id = ?").run(A1);
+  g = o.get(u, macro.id);
+  assert(g.macroEmpty === true && g.macroActivities.length === 0 && g.title === 'Macro santé', 'toutes les activités supprimées : le macro reste visible, vide, signalé');
+  db.prepare('UPDATE activities SET active = 1, deletedAt = NULL WHERE id IN (?, ?)').run(A1, A3);
+  // proposition de macro à la création + fusion validée
+  const p1 = mkIn('Courir un semi-marathon', A1), p2 = mkIn('Courir un semi-marathon bis', A2);
+  const rt = await o.rattachement(u, { title: 'Préparer un semi-marathon', activityId: A3 });
+  assert(rt.macro && rt.macro.candidates.length >= 2 && rt.macro.candidates.every((c) => c.activityId !== A3), 'création : objectifs ressemblants dans plusieurs autres activités : macro proposé (jamais écrit)');
+  assert(db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE title = ?').get('Préparer un semi-marathon').n === 0, 'la proposition n’écrit rien');
+  e = bad(() => o.fusionnerEnMacro(u, { title: 'Semi', childIds: [p1.id] })); assert(e && e.statusCode === 400, 'fusion : au moins deux objectifs');
+  const fus = o.fusionnerEnMacro(u, { title: 'Semi-marathon (macro)', childIds: [p1.id, p2.id] });
+  assert(fus.isMacro && fus.macroChildren === 2 && fus.macroActivities.length === 2 && o.get(u, p1.id).parentId === fus.id, 'fusion validée : macro créé, objectifs rattachés à cheval sur deux activités');
+  const sc = db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'user_objectives'").get().n; assert(sc === 1, 'table user_objectives intacte');
+  assert(db.prepare('PRAGMA table_info(user_objectives)').all().some((c) => c.name === 'isMacro'), 'migration : colonne isMacro');
+}
+
 // MARK-FIN
 const nRef = (id) => db.prepare('SELECT (SELECT COUNT(*) FROM user_objectives WHERE userId = ?) + (SELECT COUNT(*) FROM objectifs_refus WHERE userId = ?) AS n').get(id, id).n;
 assert(nRef(u) > 0, 'avant suppression : objectifs et refus du compte présents');
@@ -115,3 +178,4 @@ require('../server/lib/accountdeletion').deleteAccountData(db.prepare('SELECT * 
 assert(nRef(u) === 0, 'suppression de compte : plus aucun objectif ni refus');
 console.log(failed ? `\n${failed} échec(s)` : '\nTous les contrôles passent.');
 process.exit(failed ? 1 : 0);
+})();

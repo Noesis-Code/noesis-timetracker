@@ -296,7 +296,7 @@ function buildUserExport(userId) {
   // Objectifs de l'arbre (Loi 25) : titre, durée, dates, étapes, description, lien parent/enfant, objectifs refusés pour une fusion.
   const objectives = has('user_objectives') ? rows(
     `SELECT o.id, o.activityId, a.name AS activityName, o.title, o.amount, o.unit, o.startDate, o.endDate, o.periodWeeks, o.weekly,
-            o.parentId, o.parentRel, o.position, o.stepsJson, o.taskIdsJson, o.metaJson, o.createdAt
+            o.parentId, o.parentRel, o.position, o.isMacro, o.stepsJson, o.taskIdsJson, o.metaJson, o.createdAt
      FROM user_objectives o LEFT JOIN activities a ON a.id = o.activityId WHERE o.userId = ? ORDER BY o.id`,
     userId
   ).map((o) => {
