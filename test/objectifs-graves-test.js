@@ -216,11 +216,8 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   const rr = o.supprimer(u, mA.id, true);
   assert(rr.ok && rr.detached.includes(a1.id) && o.get(u, a1.id).parentId === null && o.get(u, a2.id).title === 'Objectif B2', 'macro intermédiaire supprimé : ses enfants deviennent des sommets, aucun supprimé');
   assert(o.get(u, mB.id).childMacroIds.length === 0 && o.get(u, mB.id).macroChildren === 1, 'le macro parent reste, sans le macro supprimé');
-<<<<<<< HEAD
-=======
   // réglage des périodes supprimé : échéances inchangées, périodes fixes 13 × 4 (section 8)
   assert(typeof o.setPeriods === 'undefined' && o.get(u, mB.id).periodWeeks === '4', 'périodes fixes 13 × 4 : plus de réglage global');
->>>>>>> 73bc492b (Niveaux de temps fixes : réglage Périodes supprimé (routes, restructuration), constante 13 x 4, timeLevel (periode, annee, pluriannuel) déduit et migré, macro au niveau >= enfants, route niveau-temps ; tests et dossier)
   // activité unique : pas de macro d'activités proposé
   const mine = db.prepare('SELECT a.id FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1').all(u).map((r) => r.id);
   db.prepare('UPDATE activities SET active = 0 WHERE id IN (' + mine.map(() => '?').join(',') + ')').run(...mine); db.prepare('UPDATE activities SET active = 1 WHERE id = ?').run(B1); // une seule activité active
