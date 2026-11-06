@@ -147,8 +147,8 @@
 
   // ---------- grille de temps commune ----------
   // Une carte occupe UNE SEULE case : celle de son ÉCHÉANCE (un objectif encore ouvert dont l'échéance est passée reste dans la case d'aujourd'hui). Les cases sont les périodes du RÉGLAGE
-  // (par défaut 13 périodes de 4 semaines par an : P1 = jours 1 à 28 de l'année… P13 = le reste) ; en zoom Année / Tout, une case par année.
-  var PER_YEAR = 13, PER_DAYS = 28;
+  // (RÉGLAGE GLOBAL, par défaut 13 périodes de 4 semaines par an : P1 = jours 1 à 28 de l'année… P13 = le reste) ; en zoom Année / Tout, une case par année.
+  var PER_YEAR = 13, PER_DAYS = 28; // valeurs du réglage global (GET /api/objectifs/periodes), rechargées à chaque refresh ; défaut 13 périodes de 4 semaines
   function periodOf(iso) { // { y, p } : année et numéro de période de la date
     var y = Number(iso.slice(0, 4)), d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000);
     return { y: y, p: Math.min(PER_YEAR, Math.floor(d / PER_DAYS) + 1) };
@@ -285,7 +285,9 @@
   }
   function refresh() {
     if (!tree) return Promise.resolve();
-    return TMT.api('GET', '/api/objectifs?filtre=tous').then(function (r) { items = (r && r.objectifs) || []; loaded = true; render(); }).catch(function () {});
+    return Promise.all([TMT.api('GET', '/api/objectifs?filtre=tous'), TMT.api('GET', '/api/objectifs/periodes').catch(function () { return null; })]).then(function (rs) {
+      items = (rs[0] && rs[0].objectifs) || []; if (rs[1] && rs[1].perYear) { PER_YEAR = rs[1].perYear; PER_DAYS = rs[1].weeks * 7; } loaded = true; render();
+    }).catch(function () {});
   }
   tree = document.getElementById('goalsObjArbre');
   if (tree) window.addEventListener('resize', function () { if (loaded && visible) render(); });

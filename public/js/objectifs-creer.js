@@ -144,6 +144,8 @@
     });
     count();
   }
+  var PERIOD_PRESETS = [['4', '4 × 13'], ['13', '13 × 4'], ['26', '26 × 2'], ['52', '52 × 1']]; // périodes par an × semaines par période
+  function periodText(p) { return p + ' ' + tr('périodes par an') + ' · ' + Math.round(52 / p) + ' ' + tr(Math.round(52 / p) > 1 ? 'semaines chacune' : 'semaine chacune'); }
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></svg>';
 
   // ---------- Parcours : paramètres -> étapes proposées (-> objectifs lus avant, si plusieurs) ----------
@@ -181,8 +183,14 @@
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
     panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
-    var boxes = { desc: el('div'), rattach: el('div'), temps: el('div'), niveau: el('div'), taches: el('div') };
-    ['desc', 'rattach', 'temps', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
+    var boxes = { periodes: el('div'), desc: el('div'), rattach: el('div'), temps: el('div'), niveau: el('div'), taches: el('div') };
+    if (form._p0 === undefined) form._p0 = !!ctx.periodsAsk; if (form.perYear === undefined) form.perYear = ctx.periodsPerYear || 13;
+    ['periodes', 'desc', 'rattach', 'temps', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
+    (function () { // étape 0 : format des périodes (présélection 13 × 4), une seule fois, au tout premier objectif
+      var b0 = boxes.periodes, hint = el('p', 'hint objPlain');
+      function paint0() { b0.textContent = ''; b0.appendChild(field(tr('Périodes'), seg(PERIOD_PRESETS, String(form.perYear), function (k) { form.perYear = Number(k); paint0(); }, tr('Périodes')))); hint.textContent = periodText(form.perYear); b0.appendChild(hint); b0.appendChild(el('p', 'objPlain', tr('Tu peux le changer dans Réglages.'))); }
+      paint0();
+    })();
     if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
     panelForm = form; setBack(null);
     function syncGo() { stepBtn.disabled = !form.dateOk; }
@@ -276,15 +284,9 @@
     function fmtH(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
     function daysLeft() { return form.endDate ? Math.max(0, Math.round((Date.parse(form.endDate + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000)) : null; }
     if (form.weekly === undefined) form.weekly = true;
-    var pdBox = el('div'), custom = el('input', 'objAmount objCustom hidden'); custom.type = 'text'; custom.maxLength = 2; custom.inputMode = 'numeric'; custom.setAttribute('aria-label', tr('Semaines par période'));
-    var pwOptions = [['2', tr('2 sem.')], ['4', tr('4 sem.')], ['mois', tr('1 mois')], ['autre', tr('Autre')]];
-    function pwKey() { return form.periodWeeks === '2' || form.periodWeeks === '4' || form.periodWeeks === 'mois' ? form.periodWeeks : 'autre'; }
-    custom.addEventListener('change', function () { var n = parseInt(custom.value, 10); if (n >= 1 && n <= 52) form.periodWeeks = String(n); });
+    var pdBox = el('div'); // le format des périodes n'est plus choisi par objectif : réglage global (Réglages > Préférences > Périodes)
     function paintPeriods() {
       pdBox.textContent = '';
-      var s = seg(pwOptions, pwKey(), function (k) { if (k === 'autre') { custom.classList.remove('hidden'); custom.focus(); return; } custom.classList.add('hidden'); form.periodWeeks = k; }, tr('Périodes'));
-      var pf = field(tr('Périodes'), s); pf.appendChild(custom); pdBox.appendChild(pf);
-      custom.classList.toggle('hidden', pwKey() !== 'autre'); if (pwKey() === 'autre') custom.value = form.periodWeeks === 'mois' ? '' : (form.periodWeeks || '');
       var row = el('div', 'objSwitchRow'); row.appendChild(el('span', 'objSwitchLabel', tr('Objectifs hebdomadaires')));
       var sw = el('label', 'toggleSwitch'), inp = el('input'); inp.type = 'checkbox'; inp.checked = !!form.weekly; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', tr('Objectifs hebdomadaires'));
       inp.addEventListener('change', function () { form.weekly = inp.checked; });
@@ -314,8 +316,8 @@
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
-    var stepNames = { desc: 'Description', rattach: 'Rattachement', temps: 'Temps', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return ['desc'].concat(form.ratt && form.ratt.cand ? ['rattach'] : []).concat(['temps']).concat(needsLevel() ? ['niveau'] : []).concat(['taches']); }
+    var stepNames = { periodes: 'Périodes', desc: 'Description', rattach: 'Rattachement', temps: 'Temps', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || (form._p0 ? 'periodes' : 'desc');
+    function list() { return (form._p0 ? ['periodes'] : []).concat(['desc']).concat(form.ratt && form.ratt.cand ? ['rattach'] : []).concat(['temps']).concat(needsLevel() ? ['niveau'] : []).concat(['taches']); }
     // Étape « Rattachement » : seulement s'il existe un candidat dans l'activité ; PROPOSITION (règles, ou IA si permis) : Accepter (avec Avant | Après) ou Refuser (refus mémorisé, l'objectif reste un sommet séparé).
     function paintRatt() {
       var b = boxes.rattach, r = form.ratt; b.textContent = ''; if (!r || !r.cand) return;
@@ -342,7 +344,7 @@
     }
     function show(k) {
       form._step = cur = k;
-      ['desc', 'rattach', 'temps', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      ['periodes', 'desc', 'rattach', 'temps', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
       if (k === 'rattach') paintRatt();
       panelKicker.textContent = tr(stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
@@ -354,6 +356,7 @@
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
     function stepNext() {
       var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
+      if (cur === 'periodes') { stepBtn.disabled = true; api('PUT', '/api/objectifs/periodes', { perYear: form.perYear }).then(function () { stepBtn.disabled = false; show(l[i + 1]); }).catch(function (e) { stepBtn.disabled = false; msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }); return; }
       if (cur === 'desc') { if (!validDesc()) return; stepBtn.disabled = true; loadRatt().then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; }
       show(l[i + 1]);
     }
@@ -381,101 +384,6 @@
   function offerBtn() { return btn('cmpBtn cmpBtnIdle objOffer', tr('Génère automatiquement tes tâches avec Noèsis'), function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); }); }
   function closePanel() { endFlow(); } // ✕ : annule, la barre redevient normale (l'objectif tapé y reste)
 
-  // ---------- Fenêtre « Étapes proposées » ----------
-  function openSteps(form, proposal, actName) {
-    var P = proposal, edited = { periods: {}, weeks: {}, tasks: {} }, expanded = { 1: true }, showAll = false;
-    setBack(function () { if (form._ctx) openComposer(form._ctx); }); // retour aux paramètres (rien n'est perdu)
-    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Étapes proposées'); panelForm = { steps: true };
-    var win = { body: panelBody, foot: panelFoot };
-    panelBody.appendChild(el('p', 'hint objSub', P.title + ' · ' + durText(form)));
-    var optBox = el('div'), periodsBox = el('div', 'objPeriods'), tasksBox = el('div');
-    var custom = el('input', 'objAmount objCustom hidden'); custom.type = 'text'; custom.maxLength = 2; custom.inputMode = 'numeric'; custom.setAttribute('aria-label', tr('Semaines par période'));
-    var pwOptions = [['2', tr('2 sem.')], ['4', tr('4 sem.')], ['mois', tr('1 mois')], ['autre', tr('Autre')]];
-    function pwKey() { return P.periodWeeks === '2' || P.periodWeeks === '4' || P.periodWeeks === 'mois' ? P.periodWeeks : 'autre'; }
-    function repropose(patch) {
-      Object.keys(patch).forEach(function (k) { P[k] = patch[k]; });
-      api('POST', '/api/objectifs/proposition', { title: P.title, startDate: P.startDate, endDate: P.endDate, periodWeeks: P.periodWeeks, weekly: P.weekly, activityId: form.create ? null : form.activityId, activityName: actName }).then(function (n) {
-        n.periods.forEach(function (p, i) { // ce que l'utilisateur a modifié est gardé
-          if (edited.periods[i] != null && P.periods[i]) p.title = P.periods[i].title;
-          p.weeks.forEach(function (w, k) { if (edited.weeks[i + ':' + k] != null && P.periods[i] && P.periods[i].weeks[k]) w.text = P.periods[i].weeks[k].text; });
-        });
-        P.periods = n.periods; P.periodWeeks = n.periodWeeks; P.weekly = n.weekly; drawPeriods(); drawOpts();
-      }).catch(function (err) { msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
-    }
-    function drawOpts() {
-      optBox.textContent = '';
-      var s = seg(pwOptions, pwKey(), function (k) {
-        if (k === 'autre') { custom.classList.remove('hidden'); custom.value = P.periodWeeks === 'mois' ? 4 : P.periodWeeks; custom.focus(); return; }
-        custom.classList.add('hidden'); repropose({ periodWeeks: k });
-      }, tr('Durée d’une période'));
-      var pf = field(tr('Durée d’une période'), s); pf.appendChild(custom); optBox.appendChild(pf);
-      custom.classList.toggle('hidden', pwKey() !== 'autre');
-      var row = el('div', 'objSwitchRow'); row.appendChild(el('span', 'objSwitchLabel', tr('Objectifs hebdomadaires')));
-      var sw = el('label', 'toggleSwitch'), inp = el('input'); inp.type = 'checkbox'; inp.checked = !!P.weekly; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', tr('Objectifs hebdomadaires'));
-      inp.addEventListener('change', function () { repropose({ weekly: inp.checked }); });
-      sw.appendChild(inp); sw.appendChild(el('span', 'toggleSwitchTrack')); row.appendChild(sw); optBox.appendChild(row);
-    }
-    custom.addEventListener('change', function () { var n = parseInt(custom.value, 10); if (n >= 1 && n <= 52) repropose({ periodWeeks: String(n) }); });
-    function drawPeriods() {
-      periodsBox.textContent = '';
-      periodsBox.appendChild(el('p', 'cmpBlockTitle', plural(P.periods.length, 'période', 'périodes')));
-      var shownN = showAll ? P.periods.length : Math.min(3, P.periods.length);
-      P.periods.slice(0, shownN).forEach(function (p, i) {
-        var c = el('div', 'objStep cmpGlass');
-        var head = el('div', 'objStepHead');
-        head.appendChild(el('span', 'objMeta', tr('Période') + ' ' + p.n + ' · ' + dateText(p.startDate, false) + ' – ' + dateText(p.endDate, false)));
-        if (P.weekly && p.weeks.length) { var ch = el('span', 'cmpChev' + (expanded[p.n] ? ' open' : '')); head.appendChild(ch); head.classList.add('objStepToggle'); head.addEventListener('click', function () { expanded[p.n] = !expanded[p.n]; drawPeriods(); }); head.tabIndex = 0; head.setAttribute('role', 'button'); head.setAttribute('aria-expanded', expanded[p.n] ? 'true' : 'false'); }
-        c.appendChild(head);
-        var t = el('input', 'objStepTitle'); t.type = 'text'; t.maxLength = 120; t.value = p.title; t.setAttribute('aria-label', tr('Objectif de la période') + ' ' + p.n);
-        t.addEventListener('input', function () { p.title = t.value; edited.periods[i] = true; });
-        c.appendChild(t);
-        if (P.weekly && expanded[p.n]) {
-          var wk = el('div', 'objWeeks');
-          p.weeks.forEach(function (w, k) {
-            var cell = el('label', 'objWeek'); cell.appendChild(el('span', 'objWeekNo', 'S' + w.i));
-            var wi = el('input'); wi.type = 'text'; wi.maxLength = 120; wi.value = w.text; wi.placeholder = tr('Objectif de la semaine'); wi.setAttribute('aria-label', tr('Semaine') + ' ' + w.i);
-            wi.addEventListener('input', function () { w.text = wi.value; edited.weeks[i + ':' + k] = true; });
-            cell.appendChild(wi); wk.appendChild(cell);
-          });
-          c.appendChild(wk);
-        }
-        periodsBox.appendChild(c);
-      });
-      if (shownN < P.periods.length) periodsBox.appendChild(btn('objLink objMore', '+ ' + plural(P.periods.length - shownN, 'période', 'périodes') + ' ' + tr('jusqu’au') + ' ' + dateText(P.endDate), function () { showAll = true; drawPeriods(); }));
-    }
-    function drawTasks() {
-      tasksBox.textContent = '';
-      if (!P.weekTasks.length) { // offre gratuite : jamais de tâches proposées ; l'utilisateur écrit les siennes. Une ligne discrète renvoie à Expansion (même fenêtre d'offre qu'ailleurs).
-        tasksBox.appendChild(offerBtn());
-        return;
-      }
-      tasksBox.appendChild(el('p', 'cmpBlockTitle', tr('Tâches de la semaine 1') + ' · ' + actName));
-      P.weekTasks.forEach(function (label, i) {
-        var row = el('div', 'tasksPopRow objTaskRow'); var c = el('span', 'tasksPopCheck'); c.setAttribute('aria-hidden', 'true'); row.appendChild(c);
-        var ti = el('input', 'objTaskInput'); ti.type = 'text'; ti.maxLength = 300; ti.value = label; ti.setAttribute('aria-label', tr('Tâche') + ' ' + (i + 1));
-        ti.addEventListener('input', function () { P.weekTasks[i] = ti.value; });
-        row.appendChild(ti); tasksBox.appendChild(row);
-      });
-    }
-    win.body.appendChild(optBox); win.body.appendChild(periodsBox); win.body.appendChild(tasksBox);
-    drawOpts(); drawPeriods(); drawTasks();
-    var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
-    var finish = function () {
-      stepBtn.disabled = true; msg.textContent = '';
-      var makeActivity = form.create ? api('POST', '/api/activities', { name: form.createName }).then(function (a) { return a.id; }) : Promise.resolve(form.activityId);
-      makeActivity.then(function (activityId) {
-        return api('POST', '/api/objectifs', { hoursPerWeek: form.hours, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
-      }).then(function () {
-        input.value = '';
-        if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {});
-        if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges();
-        load(); seq.i += 1; nextQueued();
-      }).catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
-    };
-    var last = seq.i >= seq.count - 1;
-    showStep(seq.base + 2 * seq.i + 2, last ? null : 'Paramètres', finish, true);
-    win.foot.appendChild(el('p', 'hint objFootHint', tr('Chaque période et chaque tâche restent modifiables.')));
-  }
   function durText(f) { return f.unit === 'semaines' ? plural(f.amount, 'semaine', 'semaines') : f.unit === 'mois' ? f.amount + ' ' + tr('mois') : plural(f.amount, 'an', 'ans'); }
 
   // Carte fusionnée de l'arbre : la liste des objectifs qu'elle contient (même fenêtre que le détail) ; chaque ligne ouvre le détail de l'objectif.
@@ -546,17 +454,9 @@
         });
       }
       var f = el('div', 'objDetailFoot'); f.appendChild(el('span', 'hint objFootHint', o.periodWeeks === 'mois' ? tr('Périodes d’un mois') : tr('Périodes de') + ' ' + plural(Number(o.periodWeeks), 'semaine', 'semaines')));
-      f.appendChild(btn('objLink', tr('Régler la durée'), setDuration)); win.foot.appendChild(f);
+      win.foot.appendChild(f);
     }
     function act(action) { api('POST', '/api/objectifs/' + id + '/bilan', { action: action, period: o.bilan.period }).then(function (n) { o = n; idx = null; draw(); }).catch(function () {}); }
-    function setDuration() {
-      var sub = openModal(tr('Durée d’une période')), picked = o.periodWeeks;
-      sub.body.appendChild(seg([['2', tr('2 sem.')], ['4', tr('4 sem.')], ['mois', tr('1 mois')]], picked, function (k) { picked = k; }, tr('Durée d’une période')));
-      sub.body.appendChild(el('p', 'hint', tr('Les périodes déjà commencées restent ; les suivantes sont redécoupées.')));
-      var msg = el('p', 'tasksMsg objMsg'); sub.foot.appendChild(msg);
-      var ok = btn('cmpBtn', tr('Valider'), function () { ok.disabled = true; api('PUT', '/api/objectifs/' + id + '/duree', { periodWeeks: picked }).then(function (n) { o = n; idx = null; sub.close(); draw(); }).catch(function (err) { ok.disabled = false; msg.textContent = (err && err.message) || ''; }); });
-      sub.foot.appendChild(ok);
-    }
     api('GET', '/api/objectifs/' + id).then(function (n) { o = n; draw(); }).catch(function () { win.close(); });
   }
 
@@ -569,6 +469,26 @@
     box.addEventListener('change', function () { var on = box.checked; api('PUT', '/api/objectifs/reglage', { anon: on }).catch(function () { box.checked = !on; }); });
     document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#profileSettingsBtn')) window.setTimeout(loadAnon, 200); });
     loadAnon();
+  })();
+  // Réglage global des périodes (Réglages > Préférences, ligne « Périodes » sous « Modules ») : 13 × 4 par défaut ; enregistrer restructure TOUS les objectifs (confirmation, rien n'est supprimé).
+  (function () {
+    var box = document.getElementById('periodsBox'), msgEl = document.getElementById('periodsMsg'), head = document.getElementById('periodsHeader');
+    if (!box) return;
+    var cur = 13, pick = 13;
+    function draw() {
+      box.textContent = ''; box.appendChild(field(tr('Périodes par an × semaines'), seg(PERIOD_PRESETS, String(pick), function (k) { pick = Number(k); msgEl.textContent = ''; draw(); }, tr('Périodes'))));
+      box.appendChild(el('p', 'hint', periodText(pick)));
+      if (pick !== cur) box.appendChild(btn('cmpBtn', tr('Enregistrer'), save));
+    }
+    function save() {
+      TMT.ui.confirm(tr('Les périodes de tous tes objectifs passent à') + ' ' + Math.round(52 / pick) + ' ' + tr(Math.round(52 / pick) > 1 ? 'semaines' : 'semaine') + '. ' + tr('Rien n’est supprimé : chaque semaine garde son texte et son état.'), { ok: tr('Enregistrer') }).then(function (ok) {
+        if (!ok) return;
+        api('PUT', '/api/objectifs/periodes', { perYear: pick }).then(function (r) { cur = pick = r.perYear; msgEl.textContent = tr('Enregistré.'); draw(); load(); }).catch(function (e) { msgEl.textContent = (e && e.message) || tr('Impossible pour le moment.'); });
+      });
+    }
+    function loadP() { api('GET', '/api/objectifs/periodes').then(function (r) { cur = pick = r.perYear; draw(); }).catch(function () { draw(); }); }
+    if (head) head.addEventListener('click', loadP);
+    draw(); document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#profileSettingsBtn')) window.setTimeout(loadP, 200); });
   })();
   // Gestion Expansion (abonnements actifs, Résilier, « J'ai un code ») : déplacée dans Réglages > Mon IA (même éléments, mêmes id). La carte promo n'est plus affichée.
   (function () {

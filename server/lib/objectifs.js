@@ -49,7 +49,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS objectifs_refus (
 
 const UNITS = ['semaines', 'mois', 'années'];
 const MAX_AMOUNT = { semaines: 156, mois: 120, 'années': 10 };
-const MAX_PERIODS = 80;
+const MAX_PERIODS = 400; // 52 × 1 sur sept ans
 const TASKS_PER_WEEK = 3; // ordre de grandeur des tâches par semaine d'un objectif (carte « Semaine prochaine »)
 const MAX_TITLE = 140;
 
@@ -116,7 +116,7 @@ function splitPeriods(start, end, periodWeeks) {
     if (pEnd < cur) pEnd = cur;
     out.push({ startDate: cur, endDate: pEnd });
     cur = addDays(pEnd, 1);
-    if (out.length > MAX_PERIODS) throw err('Trop de périodes : choisis une période plus longue.');
+    if (out.length > MAX_PERIODS) throw err('Trop de périodes : raccourcis la durée de l’objectif.');
   }
   // Un reste de moins d'une semaine rejoint la période précédente.
   if (out.length > 1 && daysBetween(out[out.length - 1].startDate, out[out.length - 1].endDate) + 1 < 7) {
@@ -176,6 +176,51 @@ db.exec(`CREATE TABLE IF NOT EXISTS objectifs_signaux (
 try { if (!db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'objectifsAnon')) db.exec('ALTER TABLE users ADD COLUMN objectifsAnon INTEGER NOT NULL DEFAULT 1'); } catch (e) { /* colonne déjà là */ }
 function anonOptIn(userId) { const r = db.prepare('SELECT objectifsAnon AS a FROM users WHERE id = ?').get(userId); return !r || r.a !== 0; }
 function setAnon(userId, on) { db.prepare('UPDATE users SET objectifsAnon = ? WHERE id = ?').run(on ? 1 : 0, userId); return { anon: !!on }; }
+// RÉGLAGE GLOBAL DES PÉRIODES (décision d'Émilien, 6 nov. 2026) : nombre de périodes par an × semaines par période, le même pour tous les objectifs de l'utilisateur
+// (par défaut 13 périodes de 4 semaines). Quatre formats qui remplissent l'année : 4 × 13, 13 × 4, 26 × 2, 52 × 1. Jamais de durée de période par objectif.
+for (const [col, def] of [['objPerYear', 13], ['objPeriodWeeks', 4], ['objPeriodsAsked', 0]]) {
+  try { if (!db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === col)) db.exec('ALTER TABLE users ADD COLUMN ' + col + ' INTEGER NOT NULL DEFAULT ' + def); } catch (e) { /* colonne déjà là */ }
+}
+const PERIOD_PRESETS = { 4: 13, 13: 4, 26: 2, 52: 1 }; // périodes par an -> semaines par période
+function periodSetting(userId) {
+  const r = db.prepare('SELECT objPerYear AS p, objPeriodWeeks AS w, objPeriodsAsked AS a FROM users WHERE id = ?').get(userId) || {};
+  return { perYear: r.p || 13, weeks: r.w || 4, asked: !!r.a };
+}
+function userPW(userId) { return String(periodSetting(userId).weeks); }
+// ask = vrai tant que l'utilisateur n'a encore aucun objectif et n'a jamais confirmé ce réglage (étape 0 du tout premier objectif).
+function periodsInfo(userId) {
+  const s = periodSetting(userId), n = db.prepare('SELECT COUNT(*) AS c FROM user_objectives WHERE userId = ?').get(userId).c;
+  return { perYear: s.perYear, weeks: s.weeks, ask: !s.asked && n === 0 };
+}
+// Restructure TOUS les objectifs de la même façon : périodes toutes identiques, redécoupées de la date de début à l'échéance ; les semaines gardent leur texte et leur état (même date de début),
+// les anciennes périodes sont conservées dans meta.prevPeriods (rien n'est supprimé).
+function restructure(userId, pw) {
+  const rows = db.prepare('SELECT * FROM user_objectives WHERE userId = ?').all(userId);
+  rows.forEach((r) => {
+    const old = JSON.parse(r.stepsJson || '[]'), meta = JSON.parse(r.metaJson || '{}');
+    if (String(r.periodWeeks) === String(pw)) return;
+    const wk = {}; old.forEach((p) => p.weeks.forEach((w) => { wk[w.startDate] = w; }));
+    const next = splitPeriods(r.startDate, r.endDate, pw);
+    next.forEach((p) => {
+      const same = old.find((o) => o.startDate === p.startDate);
+      p.title = same && same.title ? same.title : (p.n === next.length ? r.title : 'P ' + p.n);
+      p.weeks.forEach((w) => { const o = wk[w.startDate]; if (o) { w.text = o.text || ''; w.done = !!o.done; } });
+    });
+    meta.prevPeriods = (meta.prevPeriods || []).concat([{ at: today(), periodWeeks: r.periodWeeks, periods: old }]).slice(-5);
+    const all = next.every((p) => p.weeks.every((w) => w.done));
+    if (all && !meta.attainedAt) meta.attainedAt = today(); else if (!all) delete meta.attainedAt;
+    db.prepare('UPDATE user_objectives SET periodWeeks = ?, stepsJson = ?, metaJson = ? WHERE id = ?').run(String(pw), JSON.stringify(next), JSON.stringify(meta), r.id);
+    try { if (meta.category) bridge(db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(r.id), next); } catch (e) { /* le pont n'est jamais bloquant */ }
+  });
+}
+function setPeriods(userId, perYear) {
+  const p = Number(perYear);
+  if (!PERIOD_PRESETS[p]) throw err('Format de périodes invalide.');
+  const w = PERIOD_PRESETS[p];
+  db.prepare('UPDATE users SET objPerYear = ?, objPeriodWeeks = ?, objPeriodsAsked = 1 WHERE id = ?').run(p, w, userId);
+  restructure(userId, String(w));
+  return periodsInfo(userId);
+}
 function chronoHours(userId, activityId, start, end) {
   try { return db.prepare('SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ?').get(userId, activityId, start, end).s / 3600; } catch (e) { return 0; }
 }
@@ -236,7 +281,7 @@ function contexte(userId, body) {
   const best = ranked[0] && ranked[0].score > 0 ? ranked[0] : null;
   const existing = db.prepare("SELECT id, title, activityId, endDate FROM user_objectives WHERE userId = ? AND endDate >= ? ORDER BY endDate").all(userId, start);
   return {
-    title, amount, unit, startDate: start, endDate: end, periodWeeks: defaultPeriodWeeks(start, end),
+    title, amount, unit, startDate: start, endDate: end, periodWeeks: userPW(userId), periodsAsk: periodsInfo(userId).ask, periodsPerYear: periodSetting(userId).perYear,
     canGenerateTasks: tasksAllowed(userId), fixedDate: fixedDate || unknownCategory, dateReason: fixedDate ? 'fixe' : unknownCategory ? 'inconnue' : null, dateConfirmed: !!explicit || manual || !!found,
     weeklyHours: ranked.reduce((o, a) => { o[a.id] = weeklyHoursHistory(userId, a.id); return o; }, {}),
     lastWeekHours: ranked.reduce((o, a) => { o[a.id] = Math.round(chronoHours(userId, a.id, addDays(today(), -6), today()) * 2) / 2; return o; }, {}), // temps enregistré (Chrono) sur les 7 derniers jours : repère « enregistré » du curseur d'heures par semaine
@@ -255,7 +300,7 @@ Contraintes : exactement autant de périodes et de semaines que demandé ; progr
 function fallbackProposal(title, periods, weekly) {
   const N = periods.length;
   periods.forEach((p, i) => {
-    p.title = N === 1 ? title : i === 0 ? 'Poser les bases' : i === N - 1 ? title : 'Objectif ' + (i + 1) + ' sur ' + N;
+    p.title = N === 1 ? title : i === 0 ? 'Poser les bases' : i === N - 1 ? title : 'P ' + (i + 1) + ' sur ' + N;
     if (weekly && N === 1 && p.weeks.length === 1) p.weeks[0].text = title; // sans IA, les autres semaines restent à remplir
   });
   return [title.length > 100 ? 'Faire le premier pas' : 'Faire le premier pas : ' + title.charAt(0).toLowerCase() + title.slice(1)];
@@ -273,10 +318,6 @@ function aiAllowed(userId, feature) { // une seule proposition gratuite par mois
   return all < freeCapUsd();
 }
 // Durée de période par défaut : jusqu'à 4 semaines, une période par semaine ; jusqu'à 12 mois, 4 semaines ; au-delà d'un an, un mois.
-function defaultPeriodWeeks(start, end) {
-  const days = daysBetween(start, end);
-  return days <= 28 ? '1' : days <= 366 ? '4' : 'mois';
-}
 
 async function aiProposal(userId, title, periods, weekly, activityName) {
   if (!process.env.ANTHROPIC_API_KEY || !aiAllowed(userId)) return null;
@@ -363,7 +404,7 @@ async function proposer(userId, body) {
   const start = isDay(body.startDate) ? body.startDate : today();
   const end = isDay(body.endDate) ? body.endDate : computeEnd(start, body.amount, body.unit);
   if (end <= start) throw err('La fin doit être après le début.');
-  const periodWeeks = normPeriodWeeks(body.periodWeeks === undefined ? defaultPeriodWeeks(start, end) : body.periodWeeks);
+  const periodWeeks = userPW(userId);
   const weekly = body.weekly !== false;
   const periods = splitPeriods(start, end, periodWeeks);
   let activityName = String(body.activityName || '');
@@ -484,7 +525,7 @@ function creer(userId, body) {
   if (!isDay(body.endDate) || body.endDate <= start) throw err('Dates invalides.');
   const unit = UNITS.includes(body.unit) ? body.unit : 'semaines';
   const amount = Number.isInteger(Number(body.amount)) && Number(body.amount) > 0 ? Number(body.amount) : Math.max(1, Math.round(daysBetween(start, body.endDate) / 7));
-  const periodWeeks = normPeriodWeeks(body.periodWeeks === undefined ? 4 : body.periodWeeks);
+  const periodWeeks = userPW(userId);
   const weekly = body.weekly !== false;
   let parentId = null;
   if (body.parentId) {
@@ -498,7 +539,7 @@ function creer(userId, body) {
   const given = Array.isArray(body.periods) ? body.periods : [];
   const clip = (s) => { const c = textlimits.clean(s, { max: 120, word: 'Texte' }); if (c.error) throw err(c.error); return c.text; };
   periods.forEach((p, i) => {
-    p.title = clip(given[i] && given[i].title) || (i === periods.length - 1 ? title : 'Objectif ' + (i + 1));
+    p.title = clip(given[i] && given[i].title) || (i === periods.length - 1 ? title : 'P ' + (i + 1));
     if (weekly) p.weeks.forEach((w, k) => { w.text = clip(given[i] && given[i].weeks && given[i].weeks[k] && (given[i].weeks[k].text !== undefined ? given[i].weeks[k].text : given[i].weeks[k])); });
   });
   const labels = !tasksAllowed(userId) ? [] : (Array.isArray(body.weekTasks) ? body.weekTasks : []).map((l) => String(l || '').trim()).filter(Boolean).slice(0, 5);
@@ -672,21 +713,4 @@ function bilan(userId, id, action, n) {
   if (meta.category) bridge(rowOf(userId, id), periods);
   return get(userId, id);
 }
-// « Régler la durée » : les périodes déjà commencées restent ; le reste est redécoupé avec la nouvelle durée de période.
-function duree(userId, id, periodWeeks) {
-  const r = rowOf(userId, id), periods = JSON.parse(r.stepsJson), td = today();
-  const pw = normPeriodWeeks(periodWeeks);
-  const keep = periods.filter((p) => p.startDate <= td);
-  const from = keep.length ? addDays(keep[keep.length - 1].endDate, 1) : r.startDate;
-  const rest = from <= r.endDate ? splitPeriods(from, r.endDate, pw) : [];
-  rest.forEach((p, k) => {
-    const old = periods.filter((x) => x.startDate > td)[k];
-    p.n = keep.length + k + 1; p.title = (old && old.title) || 'Objectif ' + p.n;
-    p.weeks.forEach((w) => { w.text = ''; });
-  });
-  db.prepare('UPDATE user_objectives SET periodWeeks = ?, stepsJson = ? WHERE id = ?').run(pw, JSON.stringify(keep.concat(rest)), r.id);
-  if (JSON.parse(r.metaJson || '{}').category) bridge(rowOf(userId, id), keep.concat(rest));
-  return get(userId, id);
-}
-
-module.exports = { rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, defaultPeriodWeeks, contexte, proposer, creer, get, liste, semaine, bilan, duree, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, periodsInfo, setPeriods, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
