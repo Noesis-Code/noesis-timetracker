@@ -136,3 +136,12 @@
 
 .objRattRow { display: flex; gap: 12px; margin-top: 16px; }
 .objRattRow .cmpBtn { flex: 1; min-height: 44px; }
+
+/* Lier / délier (appui long + glisser) : ligne tirée, cible violette, zone « Délier » transitoire à la place de la barre (.cmpAdd sans « + »). */
+.objNodeMain { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.objNode.objDragging { z-index: 6; opacity: .92; box-shadow: 0 6px 18px rgba(0, 0, 0, .35); background: var(--card); border-radius: var(--radius-md); }
+.objNode.objDropTarget { box-shadow: inset 0 0 0 2px var(--purple); border-radius: var(--radius-md); }
+.objNode.objDropBad { opacity: .45; }
+.objDock .objUnlinkZone { position: absolute; left: 0; right: 0; bottom: 0; z-index: 7; min-height: 52px; background: var(--card); }
+.objDock .objUnlinkZone.objUnlinkOver { border-color: var(--purple); color: var(--text); }
+.objDock.objLinking .tasksComposer { visibility: hidden; }

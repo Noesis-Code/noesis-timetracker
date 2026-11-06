@@ -204,6 +204,68 @@
       handle.addEventListener('pointercancel', onCancel);
     });
   }
+  // Appui long + glisser-déposer SUR une cible (R27/R29 ; même technique que groupDrag : pointer events, ligne tirée en transform seulement, défilement automatique en bord de zone).
+  // Appui long (o.holdMs, 500 ms par défaut) sans bouger -> la ligne se détache et suit le doigt ; un mouvement avant la fin de l'appui = défilement normal, rien ne se passe.
+  // Relâché sur une ligne cible (o.targetSel, hors la ligne tirée) -> o.onDrop(ligneCible) ; sur o.zone() (zone « Délier » transitoire) -> o.onZone() ; ailleurs = annulé.
+  // o : { list, scroller, targetSel, isInvalid(ligneCible) -> bool, onStart, onEnd, onDrop, onInvalid, zone() -> élément ou null, onZone, holdMs, draggingClass, targetClass, badClass, zoneOverClass }.
+  function holdDrag(row, o) {
+    var maxScroll = 0, timer = 0, active = false, sx = 0, sy = 0, lastX = 0, lastY = 0, pid = null, startScroll = 0, raf = 0, target = null, overZone = false, scroller = null, justDragged = 0;
+    row.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    row.addEventListener('touchmove', function (e) { if (active && e.cancelable) e.preventDefault(); }, { passive: false });
+    row.addEventListener('click', function (e) { if (Date.now() - justDragged < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
+    var val = function (x) { return typeof x === 'function' ? x() : x; };
+    function targets() { var l = val(o.list); return Array.prototype.slice.call(l.querySelectorAll(o.targetSel)).filter(function (el) { return el !== row; }); }
+    function compute() {
+      var z = val(o.zone), zr = z && z.getBoundingClientRect();
+      overZone = !!(zr && lastX >= zr.left && lastX <= zr.right && lastY >= zr.top && lastY <= zr.bottom);
+      if (z && o.zoneOverClass) z.classList.toggle(o.zoneOverClass, overZone);
+      var hit = null;
+      if (!overZone) targets().forEach(function (el) { var r = el.getBoundingClientRect(); if (lastY >= r.top && lastY <= r.bottom) hit = el; });
+      targets().forEach(function (el) { el.classList.toggle(o.targetClass, el === hit && !(o.isInvalid && o.isInvalid(el))); });
+      target = hit;
+    }
+    function place() { row.style.transform = 'translate(' + (lastX - sx) + 'px,' + (lastY - sy + scroller.scrollTop - startScroll) + 'px)'; compute(); }
+    function tick() {
+      var r = scroller.getBoundingClientRect(), zone = 60, speed = 0;
+      if (lastY < r.top + zone) speed = -Math.ceil((r.top + zone - lastY) / 5); else if (lastY > r.bottom - zone) speed = Math.ceil((lastY - (r.bottom - zone)) / 5);
+      if (speed && !overZone) { scroller.scrollTop = Math.max(0, Math.min(maxScroll, scroller.scrollTop + Math.max(-20, Math.min(20, speed)))); place(); } // jamais au-delà de la fin réelle de la liste (la ligne tirée allonge la zone défilante) // pas de défilement quand le doigt est sur la zone de dépôt
+      raf = requestAnimationFrame(tick);
+    }
+    function start() {
+      active = true; scroller = val(o.scroller) || val(o.list); startScroll = scroller.scrollTop; maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      try { row.setPointerCapture(pid); } catch (e) { /* le geste continue sans capture */ }
+      row.classList.add(o.draggingClass); if (o.onStart) o.onStart();
+      if (o.isInvalid) targets().forEach(function (el) { el.classList.toggle(o.badClass, !!o.isInvalid(el)); });
+      if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
+      raf = requestAnimationFrame(tick);
+    }
+    function finish(commit) {
+      clearTimeout(timer); document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); document.removeEventListener('pointercancel', onCancel);
+      if (!active) return;
+      cancelAnimationFrame(raf); active = false; justDragged = Date.now();
+      var t0 = target, z0 = overZone, bad = t0 && o.isInvalid && o.isInvalid(t0);
+      row.style.transform = ''; row.classList.remove(o.draggingClass);
+      targets().forEach(function (el) { el.classList.remove(o.targetClass); el.classList.remove(o.badClass); });
+      var z = val(o.zone); if (z && o.zoneOverClass) z.classList.remove(o.zoneOverClass);
+      target = null; overZone = false;
+      if (o.onEnd) o.onEnd();
+      if (!commit) return;
+      if (z0 && o.onZone) o.onZone(); else if (t0 && bad) { if (o.onInvalid) o.onInvalid(t0); } else if (t0 && o.onDrop) o.onDrop(t0);
+    }
+    function onMove(e) {
+      if (e.pointerId !== pid) return;
+      if (!active) { if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 8) { clearTimeout(timer); document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); document.removeEventListener('pointercancel', onCancel); } return; }
+      lastX = e.clientX; lastY = e.clientY; place();
+    }
+    function onUp(e) { if (e.pointerId === pid) finish(true); }
+    function onCancel(e) { if (e.pointerId === pid) finish(false); }
+    row.addEventListener('pointerdown', function (e) {
+      if (e.button > 0 || active || (o.ignoreSel && e.target.closest(o.ignoreSel))) return;
+      pid = e.pointerId; sx = lastX = e.clientX; sy = lastY = e.clientY;
+      document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp); document.addEventListener('pointercancel', onCancel);
+      clearTimeout(timer); timer = setTimeout(start, o.holdMs || 500);
+    });
+  }
   // Épingle (trombone) commune (R39, 28 oct. 2026) : même icône que les discussions (.chatAttachBtn), sans cadre (R37), zone de toucher
   // 44 px ; ouvre le sélecteur du système (ordinateur ; téléphone : fichiers, photos, appareil photo) avec les mêmes types partout.
   // onFiles(Array<File>) reçoit le choix ; opts.multiple, opts.label.
@@ -268,6 +330,7 @@
   ui.attachBtn = attachBtn;
   ui.ATTACH_ACCEPT = ATTACH_ACCEPT;
   ui.groupDrag = groupDrag;
+  ui.holdDrag = holdDrag;
   // Repère de couleur du module Horaire (30 oct. 2026) : dans Paramètres | Création des horaires (.horaireCats), l'option de droite
   // active passe le violet et le halo au bleu roi (classe modeCreation sur <html>, jetons dans composants.css) ; l'option de gauche les remet en violet.
   function syncModeClair() {

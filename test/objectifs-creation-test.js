@@ -189,6 +189,11 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(JSON.stringify(o.refusDe(u, withRefus.id)) === JSON.stringify([cert.id]) && withRefus.parentId === null, 'refus donné pendant la création : mémorisé, objectif créé comme sommet séparé');
   const linked = mk('Obtenir une certification', { parentId: cert.id, parentRel: 'apres' });
   assert(linked.parentId === cert.id && linked.parentRel === 'apres', 'accepté : l’objectif est créé comme étape (parentId + place après)');
+  // Lier / délier par appui long + glisser-déposer (interface) : composant commun, 500 ms, zone « Délier », refus de cycle explicite
+  const fsx = require('fs'), pathx = require('path');
+  const uiSrc = fsx.readFileSync(pathx.join(__dirname, '..', 'public', 'js', 'composants.js'), 'utf8'), crSrc = fsx.readFileSync(pathx.join(__dirname, '..', 'public', 'js', 'objectifs-creer.js'), 'utf8');
+  assert(/function holdDrag\(/.test(uiSrc) && /ui\.holdDrag = holdDrag/.test(uiSrc) && /o\.holdMs \|\| 500/.test(uiSrc), 'composant commun : appui long (500 ms) + glisser-déposer sur une cible (TMT.ui.holdDrag)');
+  assert(/TMT\.ui\.holdDrag\(row/.test(crSrc) && /\/parent'/.test(crSrc) && /objUnlinkZone/.test(crSrc) && /propres étapes/.test(crSrc), '« Mes objectifs » : déposer sur un objectif le rattache, zone « Délier », cycle refusé avec un retour discret');
   bad = false; try { o.get('autre-utilisateur', made.id); } catch (e) { bad = e.statusCode === 404; } assert(bad, 'un autre utilisateur ne voit pas cet objectif');
   console.log(failed ? '\nobjectifs-creation-test : ' + failed + ' échec(s)' : '\nobjectifs-creation-test : OK');
   process.exit(failed ? 1 : 0);

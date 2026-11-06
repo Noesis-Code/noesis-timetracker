@@ -372,6 +372,8 @@
     'Avant': 'Before',
     'Après': 'After',
     'Replier': 'Collapse',
+    'Délier': 'Unlink',
+    'Un objectif ne peut pas devenir l’étape de l’une de ses propres étapes.': 'An objective cannot become a step of its own steps.',
     'Aucun objectif pour l’instant.': 'No objectives yet.',
     'Pas assez d’historique pour estimer l’avancement.': 'Not enough history to estimate progress.',
     "Rien d'enregistré sur cette période.": 'Nothing recorded for this period.',

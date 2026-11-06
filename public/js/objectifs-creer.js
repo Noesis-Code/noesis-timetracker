@@ -92,6 +92,34 @@
     roots.sort(cmp); Object.keys(kids).forEach(function (k) { kids[k].sort(cmp); });
     return { roots: roots, kids: kids };
   }
+  // Lier / délier : appui long (500 ms) sur un objectif puis glisser. Déposé sur un autre objectif -> il devient son étape (après) ; déposé sur la zone « Délier » (qui remplace la barre le
+  // temps du geste) -> il redevient un objectif final séparé. Jamais de cycle : un objectif ne se dépose ni sur lui-même ni sur ses propres étapes (retour discret). L'arbre est redessiné aussitôt.
+  var unlinkZone = null, linkNote = null;
+  function descendantsOf(id, tree) { var out = {}; (function walk(i) { (tree.kids[i] || []).forEach(function (k) { out[k.id] = true; walk(k.id); }); })(id); return out; }
+  function sayLink(msgText) { if (!linkNote) return; linkNote.textContent = msgText; clearTimeout(sayLink.t); sayLink.t = setTimeout(function () { linkNote.textContent = ''; }, 2600); }
+  function bindLink(row, main, o, tree, host, rerender) {
+    var below = descendantsOf(o.id, tree);
+    TMT.ui.holdDrag(row, {
+      ignoreSel: '.objNodeToggle',
+      holdMs: 500, list: function () { return host; }, scroller: function () { return panelBody; }, targetSel: '.objNode', draggingClass: 'objDragging', targetClass: 'objDropTarget', badClass: 'objDropBad', zoneOverClass: 'objUnlinkOver',
+      isInvalid: function (el) { var id = Number(el.getAttribute('data-id')); return id === o.id || !!below[id]; },
+      onStart: function () {
+        if (!unlinkZone) { unlinkZone = btn('cmpAdd objUnlinkZone', tr('Délier'), function () {}); unlinkZone.tabIndex = -1; }
+        dock.appendChild(unlinkZone); dock.classList.add('objLinking'); row.classList.add('objDragging');
+      },
+      onEnd: function () { if (unlinkZone && unlinkZone.parentNode) unlinkZone.parentNode.removeChild(unlinkZone); dock.classList.remove('objLinking'); row.classList.remove('objDragging'); },
+      zone: function () { return unlinkZone; },
+      onDrop: function (el) {
+        var pid = Number(el.getAttribute('data-id')); if (pid === o.parentId) return;
+        api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: pid, rel: 'apres' }).then(function () { opened[pid] = true; drawMine(); refreshCount(); }).catch(function (e) { sayLink((e && e.message) || tr('Impossible pour le moment.')); });
+      },
+      onZone: function () {
+        if (o.parentId == null) return;
+        api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: null }).then(function () { drawMine(); refreshCount(); }).catch(function (e) { sayLink((e && e.message) || tr('Impossible pour le moment.')); });
+      },
+      onInvalid: function () { sayLink(tr('Un objectif ne peut pas devenir l’étape de l’une de ses propres étapes.')); }
+    });
+  }
   function nodeRow(o, depth, tree, ancestors, isLast, host, rerender) {
     var ks = tree.kids[o.id] || [], row = el('div', 'objNode cmpSepRow' + (depth ? ' objNodeStep' : ''));
     // traits de liaison : un trait vertical par niveau d'ancêtre qui a encore des frères plus bas, plus le coude de ce niveau
@@ -105,7 +133,8 @@
     main.appendChild(el('span', 'objRowName', o.title));
     if (!depth) main.appendChild(el('span', 'objMeta', (o.activities && o.activities.length ? o.activities.map(function (x) { return x.name; }).join(', ') : o.activity.name)));
     main.addEventListener('click', function () { closeMine(); openDetail(o.id); });
-    row.appendChild(main);
+    row.appendChild(main); row.setAttribute('data-id', String(o.id));
+    bindLink(row, main, o, tree, host, rerender);
     if (ks.length) {
       var tg = el('button', 'objNodeToggle'); tg.type = 'button'; tg.setAttribute('aria-expanded', opened[o.id] ? 'true' : 'false'); tg.setAttribute('aria-label', tr(opened[o.id] ? 'Replier' : 'Déplier'));
       tg.appendChild(el('span', 'cmpRowCount', String(ks.length))); tg.appendChild(TMT.ui.chev(!!opened[o.id]));
@@ -135,7 +164,7 @@
   function openMine() {
     if (mineOpen || panelForm || dock.classList.contains('expSave')) return; // une création est en cours : on n'y touche pas
     mineOpen = true; advance = null; setBack(null);
-    panelKicker.textContent = tr('Mes objectifs'); panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden');
+    panelKicker.textContent = tr('Mes objectifs'); panelBody.textContent = ''; panelFoot.textContent = ''; linkNote = el('p', 'tasksMsg objMsg'); panelFoot.appendChild(linkNote); panel.classList.remove('hidden');
     drawMine();
   }
   function closeMine() { if (!mineOpen) return; mineOpen = false; panel.classList.add('hidden'); panelBody.textContent = ''; }
