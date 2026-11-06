@@ -27,6 +27,23 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   // MARK-SUPPRESSION
 }
 
+// ---- 2. L03 : jamais de parent d’une autre activité ----
+{
+  const other = Number(db.prepare("INSERT INTO activities (name, ownerId, active, createdAt) VALUES ('Autre activité L03', ?, 1, '2026-11-01T00:00:00.000Z')").run(u).lastInsertRowid);
+  db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#674EA7', '2026-11-01T00:00:00.000Z')").run(other, u);
+  const here = mk('Objectif ici'), there = o.creer(u, { title: 'Objectif là-bas', activityId: other, startDate: '2026-11-09', endDate: '2027-03-01', noBridge: true });
+  let e1 = null; try { o.lier(u, here.id, there.id, 'apres'); } catch (e) { e1 = e; }
+  assert(e1 && e1.statusCode === 400 && /même activité/.test(e1.message), 'lier : parent d’une autre activité refusé (400, message clair)');
+  assert(o.get(u, here.id).parentId === null, 'lier refusé : aucun lien posé');
+  let e2 = null; try { mk('Enfant hors activité', { parentId: there.id }); } catch (e) { e2 = e; }
+  assert(e2 && e2.statusCode === 400 && /même activité/.test(e2.message), 'creer : parent d’une autre activité refusé');
+  const sameParent = mk('Parent même activité'), kid = mk('Enfant même activité', { parentId: sameParent.id });
+  assert(kid.parentId === sameParent.id, 'même activité : rattachement accepté');
+  assert(o.lier(u, here.id, sameParent.id, 'apres').parentId === sameParent.id, 'lier dans la même activité : accepté');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'js', 'objectifs-arbre.js'), 'utf8');
+  assert(src.includes('!all.byId[id]; }); }, // !all.byId') && src.includes('!below[id] && !!all.byId[id]'), 'interface : cibles de dépôt d’une autre activité non valides');
+}
+
 // MARK-FIN
 const nRef = (id) => db.prepare('SELECT (SELECT COUNT(*) FROM user_objectives WHERE userId = ?) + (SELECT COUNT(*) FROM objectifs_refus WHERE userId = ?) AS n').get(id, id).n;
 assert(nRef(u) > 0, 'avant suppression : objectifs et refus du compte présents');

@@ -45,6 +45,7 @@
     TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: pid, rel: 'apres' }).then(function () { split = {}; picked = null; return refresh(); }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });
   }
   function idsOf(t) { var s = t.getAttribute('data-ids'); return s ? s.split(',').map(Number) : [Number(t.getAttribute('data-id'))]; }
+  var SAME_ACT = 'Un objectif ne se rattache qu’à un objectif de la même activité.';
   var CYCLE = 'Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.';
   function cellSize(node, w) { node.style.flex = '0 0 ' + w + 'px'; node.style.width = w + 'px'; }
 
@@ -71,7 +72,7 @@
         holdMs: 500, list: function () { return tree; }, scroller: function () { return document.scrollingElement || document.documentElement; }, hscroller: function () { return scroller; },
         insets: function () { var zr = tree && tree.querySelector('.arZoomRow'), z = zone && zone.getBoundingClientRect(); return { top: zr ? zr.getBoundingClientRect().bottom : 0, bottom: z && z.height ? window.innerHeight - z.top : 0 }; },
         targetSel: '.arNode[data-id], .arNode[data-ids]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', zoneOverClass: 'arUnlinkOver',
-        isInvalid: function (t) { return idsOf(t).every(function (id) { return id === o.id || !!below[id]; }); },
+        isInvalid: function (t) { return idsOf(t).every(function (id) { return id === o.id || !!below[id] || !all.byId[id]; }); }, // !all.byId : autre activité (L03)
         onStart: function () {
           if (!zone) { zone = el('button', 'cmpAdd arUnlinkZone', tr('Délier')); zone.type = 'button'; zone.tabIndex = -1; }
           var d = dockEl(); if (d) { d.appendChild(zone); d.classList.add('objLinking'); }
@@ -80,12 +81,12 @@
         onEnd: function () { var d = dockEl(); if (zone && zone.parentNode) zone.parentNode.removeChild(zone); if (d) d.classList.remove('objLinking'); if (bases && visible) bases.classList.remove('hidden'); },
         zone: function () { return zone; },
         onDrop: function (t) {
-          var ok = idsOf(t).filter(function (id) { return id !== o.id && !below[id]; });
+          var ok = idsOf(t).filter(function (id) { return id !== o.id && !below[id] && !!all.byId[id]; });
           if (ok.length > 1 && TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ok, { title: tr('Rattacher à quel objectif ?'), onPick: function (pid) { link(o, pid); } }); // carte fusionnée : on choisit l'objectif qui reçoit
           else if (ok.length) link(o, ok[0]);
         },
         onZone: function () { if (o.parentId != null) link(o, null); },
-        onInvalid: function () { say(tr(CYCLE)); }
+        onInvalid: function (t) { say(tr(t && idsOf(t).some(function (id) { return !all.byId[id]; }) ? SAME_ACT : CYCLE)); }
       });
     }
     return b;

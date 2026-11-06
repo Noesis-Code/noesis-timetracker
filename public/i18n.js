@@ -380,6 +380,7 @@
     'Rattaché à': 'Attached to',
     'Délier': 'Unlink',
     'Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.': 'An objective cannot be attached to one of its own objectives.',
+    'Un objectif ne se rattache qu’à un objectif de la même activité.': 'An objective can only be attached to an objective of the same activity.',
     'Aucun objectif pour l’instant.': 'No objectives yet.',
     'Pas assez d’historique pour estimer l’avancement.': 'Not enough history to estimate progress.',
     "Rien d'enregistré sur cette période.": 'Nothing recorded for this period.',

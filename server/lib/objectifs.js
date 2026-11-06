@@ -53,6 +53,7 @@ const MAX_PERIODS = 400; // 52 × 1 sur sept ans
 const TASKS_PER_WEEK = 3; // ordre de grandeur des tâches par semaine d'un objectif (carte « Semaine prochaine »)
 const MAX_TITLE = 140;
 
+const MSG_AUTRE_ACTIVITE = 'Un objectif ne se rattache qu’à un objectif de la même activité.';
 function err(msg, code) { return Object.assign(new Error(msg), { statusCode: code || 400 }); }
 const iso = (y, m, d) => y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
 function today() { return dates.userToday(); }
@@ -529,8 +530,9 @@ function creer(userId, body) {
   const weekly = body.weekly !== false;
   let parentId = null;
   if (body.parentId) {
-    const par = db.prepare('SELECT id FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body.parentId), userId);
+    const par = db.prepare('SELECT id, activityId FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body.parentId), userId);
     if (!par) throw err('Objectif parent introuvable.', 404);
+    if (par.activityId !== act.id) throw err(MSG_AUTRE_ACTIVITE);
     parentId = par.id;
   }
   const parentRel = parentId && (body.parentRel === 'avant' || body.parentRel === 'apres') ? body.parentRel : null;
@@ -647,6 +649,7 @@ function lier(userId, id, parentId, rel) {
     return get(userId, r.id);
   }
   const p = rowOf(userId, parentId);
+  if (p.activityId !== r.activityId) throw err(MSG_AUTRE_ACTIVITE); // L03 : un objectif est lié à UNE activité, son parent est de la même
   for (let cur = p; cur; cur = cur.parentId ? db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId) : null) {
     if (cur.id === r.id) throw err('Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.');
   }

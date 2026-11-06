@@ -45,7 +45,7 @@ Légende : ✅ géré, ⚠️ partiel, ❌ non géré. Priorité : P1 (bloquant 
 | C16 Nouvel objectif après un atteint | Possible | ✅ | - |
 | L01 Cycle | Refusé | ✅ | - |
 | L02 Rattaché à soi-même | Refusé | ✅ | - |
-| L03 Parent d'une autre activité | Refusé | ❌ | P1 |
+| L03 Parent d'une autre activité | Refusé | ✅ corrigé (6 nov.) | P1 |
 | L04 Parent supprimé | Enfants remontent, pas d'erreur | ❌ | P2 |
 | L05 Parent archivé (atteint) | Cohérent | ⚠️ | P2 |
 | L06 Parent abandonné | Non proposé par l'IA | ⚠️ | P3 |
