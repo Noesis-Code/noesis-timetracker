@@ -110,8 +110,16 @@
 .objTimeRow { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--text-light); }
 .objTimeRow b { color: var(--text); font-weight: 600; }
 .objSliderWrap { display: flex; flex-direction: column; gap: 8px; }
-.objSlider { width: 100%; accent-color: var(--purple); min-height: 44px; }
-.objSliderVal { font-size: 14px; color: var(--text); text-align: center; }
+.objHelp { margin: 0 0 12px; }
+.objSliderBar { position: relative; padding: 22px 0 26px; } /* de la place pour les libellés des repères (au-dessus : enregistré, dessous : conseillé) */
+.objSlider { display: block; width: 100%; margin: 0; accent-color: var(--purple); min-height: 28px; }
+.objSliderVal { font-size: 15px; font-weight: 600; color: var(--text); text-align: center; }
+.objMark { position: absolute; bottom: 4px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.objMarkTick { display: block; width: 2px; height: 10px; background: var(--text-light); }
+.objMarkLbl { margin-top: 2px; font-size: 13px; color: var(--text-light); white-space: nowrap; }
+.objMark--up { bottom: auto; top: 0; flex-direction: column-reverse; }
+.objMark--up .objMarkLbl { margin: 0 0 2px; }
+.objGhost { z-index: 106; }
 
 .objLineRow { margin: 0 0 24px; }
 #goalsCaptureActivityPrompt:not(.hidden) ~ #goalsCaptureActivities .objLineRow { display: none; } /* pendant « Quelle activité pour cette tâche ? » la ligne ne sert pas */

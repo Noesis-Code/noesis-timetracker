@@ -225,6 +225,7 @@ function contexte(userId, body) {
     title, amount, unit, startDate: start, endDate: end, periodWeeks: defaultPeriodWeeks(start, end),
     canGenerateTasks: tasksAllowed(userId), fixedDate: fixedDate || unknownCategory, dateReason: fixedDate ? 'fixe' : unknownCategory ? 'inconnue' : null, dateConfirmed: !!explicit || manual || !!found,
     weeklyHours: ranked.reduce((o, a) => { o[a.id] = weeklyHoursHistory(userId, a.id); return o; }, {}),
+    lastWeekHours: ranked.reduce((o, a) => { o[a.id] = Math.round(chronoHours(userId, a.id, addDays(today(), -6), today()) * 2) / 2; return o; }, {}), // temps enregistré (Chrono) sur les 7 derniers jours : repère « enregistré » du curseur d'heures par semaine
     recordedHours: ranked.reduce((o, a) => { o[a.id] = Math.round(chronoHours(userId, a.id, '2000-01-01', today()) * 10) / 10; return o; }, {}), // temps déjà enregistré (Chrono) sur l'activité
     estimate: est ? { label: est.label, weeks: est.weeks, p10: est.p10, p90: est.p90, typicalWeeks: est.typicalWeeks, source: est.source, endDate: end, p10End: addDays(start, est.p10 * 7), p90End: addDays(start, est.p90 * 7) } : null,
     activities: ranked, suggestedActivityId: best ? best.id : null, createName: suggestedActivityName(title),
