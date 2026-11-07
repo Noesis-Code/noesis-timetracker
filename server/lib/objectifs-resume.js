@@ -23,6 +23,17 @@ let caller = null; // tests : fausse IA (prompt) -> texte
 function setCaller(fn) { caller = fn; }
 function err(msg, code) { return Object.assign(new Error(msg), { statusCode: code || 400 }); }
 
+// TROIS VOIES (décision d'Émilien, 6 nov. 2026 : limiter FORTEMENT l'IA des comptes gratuits) :
+//  1) 'aucune' (compte gratuit, par défaut) : le grand objectif est l'ACCUMULATION des titres reliés ; AUCUN appel IA, le crédit gratuit n'est jamais touché ;
+//  2) 'expansion' : IA intégrée (modèle léger, cache agressif : jeu de titres inchangé = aucun nouvel appel, mémoire 7 jours) ;
+//  3) 'personnelle' : une IA branchée par « Connecter mon IA » (jeton actif) fait le travail dans SA conversation, avec l'outil de lecture `arbre_objectifs` du connecteur ;
+//     Noèsis ne rappelle pas Anthropic (iaPersonnelle: true : l'interface sait que l'IA de la personne s'en charge).
+const CACHE_TTL_MS = 7 * 24 * 3600 * 1000;
+function aiMode(userId) {
+  try { if (require('./offer1access').hasOffer1Access(userId)) return 'expansion'; } catch (e) { /* repli */ }
+  try { if (db.prepare('SELECT 1 FROM ai_tokens WHERE userId = ? AND revokedAt IS NULL LIMIT 1').get(userId)) return 'personnelle'; } catch (e) { /* repli */ }
+  return 'aucune';
+}
 function bigOnes(userId, activityId, year) {
   return db.prepare(`SELECT o.id, o.title, o.endDate, o.metaJson FROM user_objectives o
     WHERE o.userId = ? AND o.activityId = ? AND substr(o.endDate, 1, 4) = ?
@@ -64,20 +75,22 @@ async function resumeAnnuel(userId, activityId, year) {
   if (!Number.isInteger(y) || y < 2000 || y > 2100) throw err('Année invalide.');
   if (!db.prepare('SELECT 1 FROM activity_members m JOIN activities a ON a.id = m.activityId WHERE m.userId = ? AND m.activityId = ? AND a.active = 1').get(userId, aid)) throw err('Activité introuvable.', 404);
   const bigs = bigOnes(userId, aid, y);
-  if (!bigs.length) return { text: '', source: 'titres', generatedAt: null, count: 0 };
+  if (!bigs.length) return { text: '', source: 'titres', generatedAt: null, count: 0, iaPersonnelle: false };
+  const mode = aiMode(userId);
+  if (mode !== 'expansion') return { text: titlesText(bigs), source: 'titres', generatedAt: null, count: bigs.length, iaPersonnelle: mode === 'personnelle' }; // zéro appel Anthropic
   const hash = hashOf(bigs);
   const row = db.prepare('SELECT hash, text, createdAt FROM objectifs_resume_annuel WHERE userId = ? AND activityId = ? AND year = ?').get(userId, aid, y);
-  if (row && row.hash === hash) return { text: row.text, source: 'ia', generatedAt: row.createdAt, count: bigs.length };
+  if (row && row.hash === hash) return { text: row.text, source: 'ia', generatedAt: row.createdAt, count: bigs.length, iaPersonnelle: false };
   let text = null;
   try {
     const aicache = require('./aicache');
-    text = await aicache.memoize([FEATURE, userId, aid, y, hash], () => callAi(userId, buildPrompt(bigs, y)), { cacheIf: (v) => !!v });
+    text = await aicache.memoize([FEATURE, userId, aid, y, hash], () => callAi(userId, buildPrompt(bigs, y)), { cacheIf: (v) => !!v, ttlMs: CACHE_TTL_MS });
   } catch (e) { text = null; } // panne, limite de budget ou plafond : repli sans IA
-  if (!text) return { text: titlesText(bigs), source: 'titres', generatedAt: null, count: bigs.length };
+  if (!text) return { text: titlesText(bigs), source: 'titres', generatedAt: null, count: bigs.length, iaPersonnelle: false };
   const now = new Date().toISOString();
   db.prepare(`INSERT INTO objectifs_resume_annuel (userId, activityId, year, hash, text, createdAt) VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(userId, activityId, year) DO UPDATE SET hash = excluded.hash, text = excluded.text, createdAt = excluded.createdAt`).run(userId, aid, y, hash, text, now);
-  return { text, source: 'ia', generatedAt: now, count: bigs.length };
+  return { text, source: 'ia', generatedAt: now, count: bigs.length, iaPersonnelle: false };
 }
 // ---- Titre commun d'un macro (fonction macro-titre) : UNE ligne ≤ 140 caractères à partir des titres des objectifs reliés ----
 // Entrée : childIds[] (objectifs de la personne) OU columns[] ({ activityId, poleKey?, categoryKey? } : sans poleKey = niveau activité, avec poleKey = pôle, avec categoryKey = secteur) ;
@@ -111,6 +124,8 @@ const clipLine = (s) => { const t = String(s || '').replace(/[\r\n]+/g, ' ').rep
 const firstLine = (s) => clipLine(String(s || '').split(/\r?\n/).find((l) => l.trim()) || '');
 async function titreMacro(userId, body) {
   const titles = titlesFor(userId, body), joined = clipLine(titles.join(' · '));
+  const mode = aiMode(userId);
+  if (mode !== 'expansion') return { title: joined, source: 'titres', iaPersonnelle: mode === 'personnelle' }; // zéro appel Anthropic, crédit gratuit intact
   const prompt = 'Objectifs à englober :\n' + titles.map((t) => '- ' + t.slice(0, MAX_TITLE)).join('\n');
   const hash = crypto.createHash('sha256').update(JSON.stringify(titles)).digest('hex');
   let line = null;
@@ -129,8 +144,8 @@ async function titreMacro(userId, body) {
       if (!res.ok) return null;
       const b = await res.json();
       return firstLine((b.content || []).map((x) => x.text || '').join(''));
-    }, { cacheIf: (v) => !!v });
+    }, { cacheIf: (v) => !!v, ttlMs: CACHE_TTL_MS });
   } catch (e) { line = null; } // panne, crédit épuisé ou plafond : repli sans IA
-  return line ? { title: line, source: 'ia' } : { title: joined, source: 'titres' };
+  return line ? { title: line, source: 'ia', iaPersonnelle: false } : { title: joined, source: 'titres', iaPersonnelle: false };
 }
 module.exports = { resumeAnnuel, titreMacro, setTitleCaller, setCaller, bigOnes, FEATURE };

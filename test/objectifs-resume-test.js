@@ -2,6 +2,7 @@
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-resume-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 delete process.env.ANTHROPIC_API_KEY;
+const fs = require('fs');
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');
@@ -83,18 +84,47 @@ const bad = async (fn) => { try { await fn(); return null; } catch (x) { return 
   e = await bad(() => R.titreMacro(u, {})); assert(e && e.statusCode === 400, 'sans objectif ni colonne : 400');
   e = await bad(() => R.titreMacro('autre', { childIds: [t1.id] })); assert(e && e.statusCode === 404, 'objectif d’un autre compte : 404');
   assert(db.prepare("SELECT COUNT(*) AS n FROM user_objectives WHERE isMacro = 1").get().n === 0, 'ne crée rien');
-  // crédit gratuit épuisé : aucun appel API, repli sur les titres
-  R.setTitleCaller(null); process.env.ANTHROPIC_API_KEY = 'k'; process.env.EXPANSION_SANS_PAIEMENT = '0';
+  // voie 2 (Expansion, ici : staging sans paiement) : appel réel (fausse API), modèle léger, journalisé, mis en cache
+  R.setTitleCaller(null); R.setCaller(null); process.env.ANTHROPIC_API_KEY = 'k';
   let api = 0; global.fetch = async (url, init) => { api++; const b = JSON.parse(init.body); return { ok: true, status: 200, clone() { return this; }, async json() { return { model: b.model, usage: { input_tokens: 400, output_tokens: 20 }, content: [{ type: 'text', text: 'Titre IA commun' }] }; } }; };
   db.prepare('UPDATE user_objectives SET title = ? WHERE id = ?').run('Frais un', t1.id);
   tt = await R.titreMacro(u, { childIds: [t1.id, o2a.id] });
-  assert(tt.source === 'ia' && tt.title === 'Titre IA commun' && api === 1, 'vraie voie (fausse API) : titre IA, modèle léger, journalisé');
+  assert(tt.source === 'ia' && tt.title === 'Titre IA commun' && api === 1 && tt.iaPersonnelle === false, 'Expansion : titre IA (fausse API), modèle léger');
   assert(db.prepare("SELECT COALESCE(SUM(calls), 0) AS n FROM ai_usage_log WHERE feature = 'macro-titre' AND userId = ?").get(u).n === 1, 'appel journalisé sous « macro-titre »');
-  const ab = require('../server/lib/aibudget'); process.env.IA_GRATUIT_CREDIT_MOIS_CAD = '0.0000001';
-  db.prepare('UPDATE user_objectives SET title = ? WHERE id = ?').run('Frais deux', t1.id);
-  const api0 = api; tt = await R.titreMacro(u, { childIds: [t1.id, o2a.id] });
-  assert(tt.source === 'titres' && api === api0, 'crédit gratuit épuisé : aucun appel, repli sur les titres');
-  delete process.env.IA_GRATUIT_CREDIT_MOIS_CAD;
+  await R.titreMacro(u, { childIds: [t1.id, o2a.id] }); assert(api === 1, 'Expansion : cache agressif, jeu de titres inchangé = aucun nouvel appel');
+  // voie 1 (compte gratuit, par défaut) : zéro appel Anthropic, crédit gratuit intact
+  process.env.EXPANSION_SANS_PAIEMENT = '0';
+  const spentBefore = db.prepare("SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE userId = ?").get(u).s;
+  let fcalls = 0; R.setCaller(async () => { fcalls++; return 'x'; }); R.setTitleCaller(async () => { fcalls++; return 'x'; });
+  db.prepare('UPDATE user_objectives SET title = ? WHERE id = ?').run('Gratuit un', t1.id);
+  const api1 = api;
+  tt = await R.titreMacro(u, { childIds: [t1.id, o2a.id] });
+  assert(tt.source === 'titres' && tt.title === 'Gratuit un · Autre colonne A' && tt.iaPersonnelle === false, 'compte gratuit : le grand objectif = accumulation des titres reliés');
+  let rs = await R.resumeAnnuel(u, act, 2027);
+  assert(rs.source === 'titres' && /Livrer la version 2/.test(rs.text) && rs.iaPersonnelle === false, 'compte gratuit : résumé annuel = liste des titres');
+  assert(api === api1 && fcalls === 0, 'compte gratuit : zéro appel au fournisseur et zéro appel de génération');
+  assert(db.prepare("SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE userId = ?").get(u).s === spentBefore, 'compte gratuit : le crédit gratuit n’est pas consommé par ces fonctions');
+  // voie 2 : Expansion payante (accès accordé) : IA intégrée
+  const access = require('../server/lib/offer1access'); access.grantAccess(u, 'test');
+  R.setCaller(null); R.setTitleCaller(null);
+  db.prepare('UPDATE user_objectives SET title = ? WHERE id = ?').run('Payant un', t1.id);
+  tt = await R.titreMacro(u, { childIds: [t1.id, o2a.id] });
+  assert(tt.source === 'ia' && api === api1 + 1, 'Expansion payante : IA intégrée');
+  await R.titreMacro(u, { childIds: [t1.id, o2a.id] }); assert(api === api1 + 1, 'Expansion payante : second appel identique servi par le cache');
+  db.prepare('UPDATE user_objectives SET title = ? WHERE id = ?').run('Payant deux', t1.id);
+  await R.titreMacro(u, { childIds: [t1.id, o2a.id] }); assert(api === api1 + 2, 'régénération seulement si le jeu de titres change');
+  // voie 3 : IA personnelle branchée (jeton actif), sans Expansion : Noèsis ne rappelle pas Anthropic
+  access.revokeAccess(u);
+  db.prepare("INSERT INTO ai_tokens (userId, label, tokenHash, createdAt) VALUES (?, 'ma-ia', 'hash-resume-test', datetime('now'))").run(u);
+  const api2 = api;
+  tt = await R.titreMacro(u, { childIds: [t1.id, o2a.id] }); rs = await R.resumeAnnuel(u, act, 2027);
+  assert(tt.source === 'titres' && tt.iaPersonnelle === true && rs.source === 'titres' && rs.iaPersonnelle === true && api === api2, 'IA personnelle branchée : zéro appel Noèsis, iaPersonnelle indiqué à l’interface');
+  db.prepare("UPDATE ai_tokens SET revokedAt = datetime('now') WHERE tokenHash = 'hash-resume-test'").run();
+  tt = await R.titreMacro(u, { childIds: [t1.id, o2a.id] }); assert(tt.iaPersonnelle === false, 'jeton retiré : plus d’IA personnelle');
+  // outil de lecture du connecteur (lecture seule)
+  const mcpSrc = fs.readFileSync(require('path').join(__dirname, '..', 'server', 'routes', 'mcp.js'), 'utf8');
+  assert(/arbre_objectifs: \{[\s\S]{0,1800}grand_objectif/.test(mcpSrc) && !/arbre_objectifs: \{[\s\S]{0,300}write: true/.test(mcpSrc), 'connecteur : outil de lecture arbre_objectifs (sans écriture)');
+  const lst = o.liste(u, 'tous'); assert(lst.every((x) => typeof x.isBig === 'boolean' && x.activity && x.endDate), 'liste() porte les champs lus par le connecteur (isBig, activité, échéance)');
   const rt2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server', 'routes', 'objectifs.js'), 'utf8');
   assert(rt2.includes("router.post('/objectifs/macro/titre'"), 'route POST /objectifs/macro/titre');
   // délier = retirer l'extension ; échéance du macro >= enfants

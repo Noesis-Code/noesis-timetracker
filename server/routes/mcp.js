@@ -139,6 +139,20 @@ const tools = {
       return { activityId: a.id, activite: a.name, horizon: args.horizon, poles: out };
     },
   },
+  arbre_objectifs: {
+    description: "Arbre des objectifs de l'utilisateur (lecture seule) : chaque objectif avec son échéance, son parent, s'il est un grand objectif (a des sous-objectifs) ou un macro (relie plusieurs colonnes). Sert à résumer une année ou à proposer un titre commun. activityId facultatif.",
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer', description: "Limiter à une activité (lister_activites)." }, annee: { type: 'integer', description: "Limiter aux objectifs dont l'échéance tombe cette année." } }, additionalProperties: false },
+    run(userId, args) {
+      if (args.activityId != null) memberActivity(userId, args.activityId);
+      let list = require('../lib/objectifs').liste(userId, 'tous');
+      if (args.activityId != null) list = list.filter((o) => o.activity.id === Number(args.activityId) || (o.isMacro && (o.macroActivities || []).some((a) => a.id === Number(args.activityId))));
+      if (args.annee != null) list = list.filter((o) => String(o.endDate).slice(0, 4) === String(args.annee));
+      return list.map((o) => ({
+        id: o.id, titre: o.title, activityId: o.activity.id, activite: o.activity.name, debut: o.startDate, echeance: o.endDate,
+        parent_id: o.parentId || null, grand_objectif: !!o.isBig, macro: !!o.isMacro, abandonne: !!o.abandoned, atteint: o.status === 'atteint',
+      }));
+    },
+  },
   plan_du_jour_donnees: {
     description: "Données pour proposer un plan du jour : tâches du jour, tâches en retard, tâches à venir, et capacité hebdomadaire (minutes) par pôle. L'IA propose, l'utilisateur décide.",
     inputSchema: { type: 'object', properties: { activityId: { type: 'integer' } }, required: ['activityId'], additionalProperties: false },
