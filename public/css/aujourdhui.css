@@ -119,8 +119,8 @@
 .tasksWeek .cmpNavLabel .cmpChev { margin-left: 0; width: 20px; transform: rotate(90deg); }
 .tasksWeek .cmpNavLabel .cmpChev.open { transform: rotate(-90deg); }
 .tasksWeekFrame { display: flex; align-items: center; gap: 4px; touch-action: pan-y; } /* flèches de part et d'autre du calendrier, centrées sur lui */
-.tasksWeekFrame { gap: 0; margin: 0 -8px; } /* flèches fines collées aux bords : le calendrier prend presque toute la largeur (on balaie de toute façon) */
-.tasksWeekFrame .cmpNavArrow { width: 16px; font-size: 16px; }
+.tasksWeekFrame { gap: 0; margin: 0; } /* flèches fines DANS les marges (jamais coupées) : le calendrier garde presque toute la largeur */
+.tasksWeekFrame .cmpNavArrow { width: 14px; font-size: 16px; }
 .tasksWeekGrid { flex: 1; min-width: 0; }
 .tasksWeek .goalsCalNav { justify-content: center; }
 .tasksWeek .goalsCalHead { margin-bottom: 4px; }
