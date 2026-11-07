@@ -42,7 +42,7 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(kid.parentId === sameParent.id, 'même activité : rattachement accepté');
   assert(o.lier(u, here.id, sameParent.id, 'apres').parentId === sameParent.id, 'lier dans la même activité : accepté');
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'js', 'objectifs-arbre.js'), 'utf8');
-  assert(src.includes('function sameAct(o, id)') && src.includes('!sameAct(o, id)') && src.includes('!below[id] && !!sameAct(o, id)') && src.includes('t.isMacro ||'), 'interface : cibles de dépôt d’une autre activité non valides');
+  assert(src.includes('function sameAct(o, id)') && src.includes('t.isMacro ||') && !src.includes('arUnlinkZone'), 'interface : la règle « même activité » reste (sauf sous un macro) ; le glisser-lier et la zone « Délier » ont été retirés (la règle est tenue par le serveur)');
 }
 
 // ---- 3. C12 : le 11e objectif ne perd pas son pont en silence ----
