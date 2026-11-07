@@ -130,9 +130,17 @@
 /* Jour passé : lecture seule (ce qui a été fait) ; rien à cocher ni à modifier. */
 .tasksToday.dayPast .tasksPopCheck, .tasksToday.dayPast .subProjectItem input[type="checkbox"] { pointer-events: none; }
 .tasksToday.dayPast .goalsTaskEditBtn { display: none; }
-/* Filtre à deux niveaux : menus de Statistiques côte à côte (le second n'apparaît qu'une fois une activité choisie). */
-.tasksFilter { display: flex; gap: 8px; }
-.tasksFilter .caSubProjectFilter { flex: 1; min-width: 0; margin: 0 0 8px; }
-.tasksFilter .caSubProjectBtn { width: 100%; justify-content: space-between; }
-.tasksFilter .caSubProjectMenu { min-width: 100%; }
-.tasksFilter .caSubProjectBtn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+/* Filtre (7 nov. 2026) : ligne nue au-dessus du calendrier ; le panneau se déroule sur place, en deux pages qui glissent (activités, puis pôles avec leurs secteurs). */
+.tasksFilter { display: block; }
+.tasksFilterLine { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; font-family: inherit; font-size: 16px; font-weight: 600; color: var(--text); cursor: pointer; }
+.tasksFilterLine .cmpChev { margin-left: 0; width: 20px; transform: rotate(90deg); }
+.tasksFilterLine .cmpChev.open { transform: rotate(-90deg); }
+.tasksFilterPanel { overflow: hidden; margin: 0 0 8px; transition: height .22s ease; }
+.tasksFilterTrack { display: flex; align-items: flex-start; width: 200%; transition: transform .25s cubic-bezier(.22,.8,.3,1); }
+.tasksFilterPage { flex: 0 0 50%; min-width: 0; display: flex; flex-direction: column; }
+.tasksFilterPage .tasksChoice { display: flex; align-items: center; justify-content: space-between; }
+.tasksFilterPage .tasksChoice.on { color: var(--violet-soft); font-weight: 600; }
+.tasksFilterPage .tasksChoice.lv1 { padding-left: 28px; }
+.tasksFilterPage .tasksChoice.pole { font-weight: 600; }
+.tasksFilterArrow { color: var(--text-light); font-size: 18px; }
+.tasksFilterTitle { margin: 0; padding: 12px 4px 4px; font-size: 13px; color: var(--text-light); }

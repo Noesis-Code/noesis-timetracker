@@ -57,7 +57,7 @@
   function build(container) {
     root = el('div', 'tasksToday');
     listBox = el('div', 'tasksPopList tasksTree');
-    root.appendChild(buildCal()); root.appendChild(buildFilter()); root.appendChild(buildTopRow()); root.appendChild(listBox); root.appendChild(buildArchive());
+    root.appendChild(buildFilter()); root.appendChild(buildCal()); root.appendChild(buildTopRow()); root.appendChild(listBox); root.appendChild(buildArchive());
     // La barre d'ajout est AU PREMIER PLAN, fixée au-dessus de la barre des volets (comme elle). Défilé = glissement latéral entre les pages :
     // elle prend le même décalage que la page (#tab-goals) pendant le glissement, puis disparaît avec elle.
     dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock);
@@ -146,40 +146,66 @@
   setInterval(rollDay, 30000);
   function resetDay() { viewDay = 'all'; calAnchor = localIso(); calExpanded = false; paintCal(); }
 
-  // ---------- Filtre à deux niveaux (comme Statistiques) : 1) Toutes les activités / une activité ; 2) une fois l'activité choisie : tous ses pôles / un pôle / un secteur ----------
-  // Menus = ceux de Statistiques (.caSubProjectFilter / .caSubProjectBtn / .statsPeriodMenu) ; un seul geste par niveau. Les tâches sans objectif restent dans la liste de leur activité.
-  var filt = { act: null, pole: null, sector: null }, filterBox = null;
+  // ---------- Filtre (7 nov. 2026) : une ligne nue sous « Tâches | Objectifs », au-dessus du calendrier ----------
+  // Un toucher déroule un panneau sur place : page 1 = « Toutes les activités » + les activités ; toucher une activité glisse vers la page 2 = ses pôles, chacun avec ses secteurs
+  // dessous (choix direct, pas de 3e page). Balayage vers la droite = retour à la page 1. Les tâches sans objectif restent dans la liste de leur activité, pôle ou secteur.
+  var filt = { act: null, pole: null, sector: null }, filterBox = null, filtOpen = false, filtBrowse = null;
   function filtMatch(t) { return filt.act == null || (String(t.activityId) === filt.act && (filt.pole == null || t.pole === filt.pole) && (filt.sector == null || t.sector === filt.sector)); }
-  function menuWrap(label, items, onPick, current) {
-    var wrap = el('div', 'statsPeriodMenuWrap caSubProjectFilter'), btn = el('button', 'caSubProjectBtn'); btn.type = 'button'; btn.setAttribute('aria-haspopup', 'true');
-    btn.appendChild(el('span', null, label)); var menu = el('div', 'statsPeriodMenu caSubProjectMenu hidden');
-    items.forEach(function (it) {
-      var b = el('button', 'statsPeriodMenuItem' + (it.key === current ? ' active' : ''), it.label); b.type = 'button'; if (it.sub) b.style.paddingLeft = '32px';
-      b.addEventListener('click', function () { menu.classList.add('hidden'); onPick(it); }); menu.appendChild(b);
-    });
-    btn.addEventListener('click', function (e) { e.stopPropagation(); var open = menu.classList.contains('hidden'); document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); }); if (open) menu.classList.remove('hidden'); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); });
-    wrap.appendChild(btn); wrap.appendChild(menu); return wrap;
-  }
   function buildFilter() { filterBox = el('div', 'tasksFilter'); paintFilter(); return filterBox; }
-  function paintFilter() {
-    if (!filterBox) return; filterBox.textContent = '';
+  function filtData(actId) {
     var acts = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a && a.id != null; });
     if (filt.act != null && !acts.some(function (a) { return String(a.id) === filt.act; })) filt = { act: null, pole: null, sector: null };
-    var cur = acts.filter(function (a) { return String(a.id) === filt.act; })[0];
-    var items = [{ key: null, label: tr('Toutes les activités') }].concat(acts.map(function (a) { return { key: String(a.id), label: a.name }; }));
-    filterBox.appendChild(menuWrap(cur ? cur.name : tr('Toutes les activités'), items, function (it) { filt = { act: it.key, pole: null, sector: null }; paintFilter(); if (lastData) render(lastData); }, filt.act));
-    if (!cur) return;
     var poles = [], seen = {}, secs = {};
-    ((lastData && lastData.tasks) || []).filter(function (t) { return String(t.activityId) === filt.act; }).forEach(function (t) {
+    ((lastData && lastData.tasks) || []).filter(function (t) { return actId != null && String(t.activityId) === String(actId); }).forEach(function (t) {
       if (!seen[t.pole]) { seen[t.pole] = true; poles.push({ key: t.pole, label: t.poleName || t.pole, idx: t.poleIndex || 0 }); secs[t.pole] = []; }
       if (t.sector && secs[t.pole].indexOf(t.sector) < 0) secs[t.pole].push(t.sector);
     });
     poles.sort(function (a, b) { return a.idx - b.idx; });
-    var pItems = [{ key: null, label: tr('Tous les pôles') }];
-    poles.forEach(function (p) { pItems.push({ key: p.key, label: p.label, pole: p.key }); secs[p.key].forEach(function (x) { pItems.push({ key: p.key + '/' + x, label: x, pole: p.key, sector: x, sub: true }); }); });
-    var pole = poles.filter(function (p) { return p.key === filt.pole; })[0];
-    var lab = filt.sector || (pole ? pole.label : tr('Tous les pôles'));
-    filterBox.appendChild(menuWrap(lab, pItems, function (it) { filt.pole = it.pole || null; filt.sector = it.sector || null; paintFilter(); if (lastData) render(lastData); }, filt.sector ? filt.pole + '/' + filt.sector : filt.pole));
+    return { acts: acts, poles: poles, secs: secs };
+  }
+  function applyFilt(next) { filt = next; filtOpen = false; filtBrowse = null; paintFilter(); if (lastData) render(lastData); }
+  function filtRow(parent, text, level, on, fn) {
+    var b = el('button', 'tasksChoice' + (level ? ' lv' + level : '') + (on ? ' on' : ''), text); b.type = 'button'; b.addEventListener('click', fn); parent.appendChild(b); return b;
+  }
+  function paintFilter() {
+    if (!filterBox) return; filterBox.textContent = '';
+    var d = filtData(filt.act), cur = d.acts.filter(function (a) { return String(a.id) === filt.act; })[0], pole = d.poles.filter(function (p) { return p.key === filt.pole; })[0];
+    var label = cur ? cur.name + (pole ? ' › ' + (filt.sector || pole.label) : '') : tr('Toutes les activités');
+    var head = el('button', 'cmpNavLabel tasksFilterLine'); head.type = 'button'; head.setAttribute('aria-expanded', filtOpen ? 'true' : 'false');
+    head.appendChild(document.createTextNode(label)); head.appendChild(el('span', 'cmpChev' + (filtOpen ? ' open' : '')));
+    head.addEventListener('click', function () { filtOpen = !filtOpen; filtBrowse = null; paintFilter(); });
+    filterBox.appendChild(head);
+    if (!filtOpen) return;
+    var panel = el('div', 'tasksFilterPanel'), track = el('div', 'tasksFilterTrack'), p1 = el('div', 'tasksFilterPage'), p2 = el('div', 'tasksFilterPage');
+    filtRow(p1, tr('Toutes les activités'), 0, filt.act == null, function () { applyFilt({ act: null, pole: null, sector: null }); });
+    d.acts.forEach(function (a) {
+      var b = filtRow(p1, a.name, 0, String(a.id) === filt.act, function () { filtBrowse = String(a.id); paintFilterPage2(); go(1); });
+      b.appendChild(el('span', 'tasksFilterArrow', '›'));
+    });
+    track.appendChild(p1); track.appendChild(p2); panel.appendChild(track); filterBox.appendChild(panel);
+    function paintFilterPage2() {
+      var a = d.acts.filter(function (x) { return String(x.id) === filtBrowse; })[0]; if (!a) return;
+      var dd = filtData(filtBrowse); p2.textContent = '';
+      p2.appendChild(el('p', 'tasksFilterTitle', a.name));
+      filtRow(p2, tr('Toute l’activité'), 0, filt.act === filtBrowse && filt.pole == null, function () { applyFilt({ act: filtBrowse, pole: null, sector: null }); });
+      dd.poles.forEach(function (p) {
+        filtRow(p2, p.label, 0, filt.act === filtBrowse && filt.pole === p.key && !filt.sector, function () { applyFilt({ act: filtBrowse, pole: p.key, sector: null }); }).classList.add('pole');
+        dd.secs[p.key].forEach(function (x) { filtRow(p2, x, 1, filt.act === filtBrowse && filt.pole === p.key && filt.sector === x, function () { applyFilt({ act: filtBrowse, pole: p.key, sector: x }); }); });
+      });
+    }
+    var page = 0;
+    function size() { panel.style.height = (page ? p2 : p1).offsetHeight + 'px'; }
+    function go(n) { page = n; track.style.transform = 'translateX(' + (n ? -50 : 0) + '%)'; size(); if (!n) filtBrowse = null; }
+    if (filtBrowse) { paintFilterPage2(); page = 1; track.style.transition = 'none'; track.style.transform = 'translateX(-50%)'; window.requestAnimationFrame(function () { track.style.transition = ''; }); }
+    window.requestAnimationFrame(size);
+    // Balayage vers la droite sur le panneau = retour aux activités (le geste ne change pas de page de l'application).
+    var x0 = 0, y0 = 0;
+    panel.addEventListener('touchstart', function (e) { e.stopPropagation(); x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    panel.addEventListener('touchmove', function (e) { e.stopPropagation(); }, { passive: true });
+    panel.addEventListener('touchend', function (e) {
+      e.stopPropagation(); var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+      if (page === 1 && dx > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(0);
+    }, { passive: true });
   }
 
   // « Archive » (fin de l'onglet) : même gabarit que « Archives » de l'onglet Tâches (mêmes classes, CSS partagé) ; les lignes sont celles de la liste du jour,
