@@ -207,7 +207,7 @@
   // Appui long + glisser-déposer SUR une cible (R27/R29 ; même technique que groupDrag : pointer events, ligne tirée en transform seulement, défilement automatique en bord de zone).
   // Appui long (o.holdMs, 500 ms par défaut) sans bouger -> la ligne se détache et suit le doigt ; un mouvement avant la fin de l'appui = défilement normal, rien ne se passe.
   // Relâché sur une ligne cible (o.targetSel, hors la ligne tirée) -> o.onDrop(ligneCible) ; sur o.zone() (zone « Délier » transitoire) -> o.onZone() ; ailleurs = annulé.
-  // o : { list, scroller, hscroller, insets() -> {top, bottom}, onHold (appui long sans glisser), targetSel, isInvalid(ligneCible) -> bool, onStart, onEnd, onDrop, onInvalid, zone() -> élément ou null, onZone, holdMs, draggingClass, targetClass, badClass, zoneOverClass }.
+  // o : { onHoldRelease (appui long relâché sans déplacement), list, scroller, hscroller, insets() -> {top, bottom}, onHold (appui long sans glisser), targetSel, isInvalid(ligneCible) -> bool, onStart, onEnd, onDrop, onInvalid, zone() -> élément ou null, onZone, holdMs, draggingClass, targetClass, badClass, zoneOverClass }.
   function holdDrag(row, o) {
     var maxScroll = 0, timer = 0, active = false, sx = 0, sy = 0, lastX = 0, lastY = 0, pid = null, startScroll = 0, raf = 0, target = null, overZone = false, scroller = null, justDragged = 0;
     row.addEventListener('contextmenu', function (e) { e.preventDefault(); });
@@ -258,6 +258,7 @@
       if (o.onEnd) o.onEnd();
       if (!commit) return;
       if (z0 && o.onZone) o.onZone(); else if (t0 && bad) { if (o.onInvalid) o.onInvalid(t0); } else if (t0 && o.onDrop) o.onDrop(t0);
+      else if (!t0 && !z0 && o.onHoldRelease && Math.hypot(lastX - sx, lastY - sy) < 14) o.onHoldRelease(); // appui long relâché sur place : l'action « détail » (le glisser reste le geste de maintien puis déplacement)
     }
     function onMove(e) {
       if (e.pointerId !== pid) return;

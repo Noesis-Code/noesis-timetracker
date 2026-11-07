@@ -365,6 +365,7 @@
     var stepNames = { desc: 'Description', rattach: 'Rattachement', temps: 'Temps', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
     function list() { return ['desc'].concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(['temps']).concat(needsLevel() ? ['niveau'] : []).concat(['taches']); }
     // Étape « Rattachement » : seulement s'il existe un candidat dans l'activité ; PROPOSITION (règles, ou IA si permis) : Accepter (avec Avant | Après) ou Refuser (refus mémorisé, l'objectif reste un sommet séparé).
+    function dueOf(id) { var x = (ctx.objectives || []).filter(function (o) { return o.id === id; })[0]; return x && x.endDate ? ' · ' + tr('jusqu’au') + ' ' + dateText(x.endDate) : ''; } // échéance du parent proposé
     function rattPending() { // « Suivant » reste grisé tant qu'une proposition affichée n'est pas décidée (jamais de choix silencieux)
       var r = form.ratt; if (!r) return false;
       if (form.macroDecided === 'accept') return false;
@@ -388,7 +389,7 @@
         var r = el('div', 'tasksPopRow objWeekRow' + (sel[c.id] ? ' done' : ''));
         var cb = btn('tasksPopCheck', '', function () { sel[c.id] = !sel[c.id]; form.macroDecided = null; paintRatt(); show('rattach'); });
         cb.innerHTML = sel[c.id] ? CHECK : ''; cb.setAttribute('aria-pressed', sel[c.id] ? 'true' : 'false'); cb.setAttribute('aria-label', c.title + ' · ' + c.activityName);
-        r.appendChild(cb); var tx = el('div', 'tasksPopText'); tx.appendChild(el('b', null, c.title)); tx.appendChild(el('small', null, c.activityName)); r.appendChild(tx); lst.appendChild(r);
+        r.appendChild(cb); var tx = el('div', 'tasksPopText'); tx.appendChild(el('b', null, c.title)); tx.appendChild(el('small', null, c.activityName + dueOf(c.id))); r.appendChild(tx); lst.appendChild(r);
       });
       blk.appendChild(field(tr('Activités concernées'), lst));
       var n = macroIds().length, avant = el('p', 'objPlain'), apres = el('p', 'objPlain');
@@ -409,7 +410,7 @@
     function paintRatt() {
       var b = boxes.rattach, r = form.ratt; b.textContent = ''; if (!r || (!r.cand && !r.macro)) return;
       if (r.cand && form.macroDecided !== 'accept') {
-        var card = el('div', 'aiModeChoice objChoice on'); card.appendChild(el('span', 'aiModeChoiceTitle', r.cand.title)); card.appendChild(el('span', 'aiModeChoiceDesc', r.cand.activityName));
+        var card = el('div', 'aiModeChoice objChoice on'); card.appendChild(el('span', 'aiModeChoiceTitle', r.cand.title)); card.appendChild(el('span', 'aiModeChoiceDesc', r.cand.activityName + dueOf(r.cand.id)));
         b.appendChild(field(tr('Rattaché à'), card));
         b.appendChild(field(tr('Placer'), seg([['avant', tr('Avant')], ['apres', tr('Après')]], r.rel, function (k) { r.rel = k; if (r.decided === 'accept') form.parentRel = k; }, tr('Placer'))));
         b.appendChild(el('p', 'objPlain', '« ' + form.title + ' »'));

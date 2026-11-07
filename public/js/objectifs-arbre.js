@@ -66,7 +66,7 @@
   function cellSize(node, w) { node.style.flex = '0 0 ' + w + 'px'; node.style.width = w + 'px'; }
 
   // mode : 'simple' (nom seul, niveau activités) | 'detail' (durée, état, objectifs rattachés, niveaux pôle et secteur). La carte EST la case (.goalsGridCell--filled).
-  function card(o, today, all, mode, w) {
+  function card(o, today, all, mode, w, onTap) {
     var st = stateOf(o, today), c = color(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', o.title));
     if (mode !== 'simple') {
@@ -74,11 +74,12 @@
       t.appendChild(el('span', 'arCardMeta', (o.durationLabel || '') + ' · ' + tr(STATE_LABEL[st]) + (nk ? ' · ' + nk + ' ' + tr(nk > 1 ? 'objectifs rattachés' : 'objectif rattaché') : '')));
     }
     b.appendChild(t);
-    b.addEventListener('click', function () { if (lvl === 'activite') { go('pole', { activityId: o.activity.id, block: blockStart(o.endDate) }); return; } if (TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(o.id); }); // arbre macro : toucher un grand objectif descend dans les 5 années de son bloc ; ailleurs : le détail
+    b.addEventListener('click', function () { if (onTap) { onTap(); return; } if (lvl === 'activite') { go('pole', { activityId: o.activity.id, block: blockStart(o.endDate) }); return; } if (TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(o.id); }); // arbre macro : toucher un grand objectif descend dans les 5 années de son bloc ; ailleurs : le détail
     if (TMT.ui && TMT.ui.holdDrag) {
       var below = descendants(o.id, kidsAll); // descendance sur TOUTES les colonnes (un enfant peut être dans un autre pôle)
       TMT.ui.holdDrag(b, {
         holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; },
+        onHoldRelease: function () { if (TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(o.id); }, // appui long relâché sur place : le DÉTAIL complet (description, rattachement, abandonner, supprimer), à tous les niveaux
         targetSel: '.arNode[data-id], .arNode[data-ids]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', zoneOverClass: 'arUnlinkOver',
         isInvalid: function (t) { return idsOf(t).every(function (id) { return id === o.id || !!below[id] || !sameAct(o, id); }); }, // !all.byId : autre activité (L03)
         onStart: function () {
@@ -108,12 +109,12 @@
     return best.st;
   }
   // Carte « N objectifs » : touchée = la liste ; appui long = quel objectif déplacer (la carte se sépare) ; cible de dépôt (choix de l'objectif qui reçoit).
-  function mergedCard(os, today, w, onOpen) {
+  function mergedCard(os, today, w, onOpen, onTap) {
     var st = mergedState(os, today), c = color(os[0]), ids = os.map(function (o) { return o.id; });
     var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMerged arCard ar-' + st); b.type = 'button'; b.setAttribute('data-ids', ids.join(',')); cellSize(b, w); paint(b, st, c);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', os.length + ' ' + tr('objectifs')));
     t.appendChild(el('span', 'arCardMeta', os.slice(0, 2).map(function (o) { return o.title; }).join(' · '))); b.appendChild(t);
-    b.addEventListener('click', function () { if (lvl !== 'secteur' && onOpen) onOpen(); else if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids); }); // plusieurs objectifs : toucher = descendre d'un niveau ; au dernier niveau, la liste
+    b.addEventListener('click', function () { if (onTap) { onTap(); return; } if (lvl !== 'secteur' && onOpen) onOpen(); else if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids); }); // plusieurs objectifs : toucher = descendre d'un niveau ; au dernier niveau, la liste
     if (TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, {
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
       onHold: function () {
@@ -217,12 +218,13 @@
   if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (visible) fitTree(); });
   // Repère de période (mêmes classes que la page 2) : à venir = numéro cerclé, courante = pastille pleine, passée = point. En zoom Année : les deux derniers chiffres de l'année.
   // Dernier niveau (secteurs) : toucher le repère d'une PÉRIODE ouvre le calendrier (page 3) de cette période, par l'ouverture existante (openGoalsPeriodFromNotification) ; rien d'autre n'est ajouté.
-  function openCalendar(rw) {
+  function calTap(rw, c) { return lvl === 'secteur' && rw.p ? function () { openCalendar(rw, c.col.key); } : null; } // niveau secteurs : toucher une case OCCUPÉE ouvre le calendrier de la période
+  function openCalendar(rw, preferKey) {
     if (!focus || focus.activityId == null || !focus.poleKey || !rw.p || !TMT.openGoalsPeriodFromNotification) return;
     var aid = focus.activityId, d0 = new Date(Date.UTC(rw.y, 0, 1)); d0.setUTCDate(d0.getUTCDate() + (rw.p - 1) * PER_DAYS);
     var s0 = d0.toISOString().slice(0, 10), e0 = rw.p < PER_YEAR ? new Date(d0.getTime() + (PER_DAYS - 1) * 86400000).toISOString().slice(0, 10) : rw.y + '-12-31';
     TMT.api('GET', '/api/activities/' + aid + '/goals/all-for-pole?poleKey=' + encodeURIComponent(focus.poleKey) + '&year=' + rw.y).then(function (r) {
-      var by = (r && r.byCategory) || {}, keys = curCols.map(function (c) { return c.key; }).filter(function (k) { return by[k]; }).concat(Object.keys(by));
+      var by = (r && r.byCategory) || {}, keys = [preferKey].concat(curCols.map(function (c) { return c.key; })).concat(Object.keys(by)).filter(function (k) { return k != null && by[k]; });
       for (var i = 0; i < keys.length; i++) {
         var hit = ((by[keys[i]] && by[keys[i]].periods) || []).filter(function (p) { return p.startDate <= e0 && p.endDate >= s0; })[0];
         if (hit) { TMT.openGoalsPeriodFromNotification(aid, keys[i], hit.periodNumber); return; }
@@ -385,9 +387,9 @@
         if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols)); return; }
         if (!es.length) row.appendChild(emptyCell(W, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
         else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, W, rw.y)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
-        else if (es.length > 1 && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, W, function () { descend(ci, rw.y); })); // plusieurs objectifs d'une même activité dans la même case : une seule carte
-        else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, W); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, W)); }); row.appendChild(stack); }
-        else row.appendChild(card(es[0].o, today, c.all, mode, W));
+        else if (es.length > 1 && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, W, function () { descend(ci, rw.y); }, calTap(rw, c))); // plusieurs objectifs d'une même activité dans la même case : une seule carte
+        else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, W); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, W, calTap(rw, c))); }); row.appendChild(stack); }
+        else row.appendChild(card(es[0].o, today, c.all, mode, W, calTap(rw, c)));
       });
       grid.appendChild(row);
     });
