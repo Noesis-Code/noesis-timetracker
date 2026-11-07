@@ -656,7 +656,7 @@
     hide: function () { state.shown = false; syncDock(); if (TMT.objectifsArbre && TMT.objectifsArbre.hide) TMT.objectifsArbre.hide(); },
     focus: function () { if (input) input.focus(); },
     setContext: function (c) { setContext(c); },
-    confirmDelete: function (id, title, isMacro) { confirmDelete(id, title, load, null, isMacro); },
+    confirmDelete: function (id, title, isMacro) { confirmDelete(id, title, load, function (e) { if (TMT.objectifsArbre && TMT.objectifsArbre.say) TMT.objectifsArbre.say((e && e.message) || tr('Impossible pour le moment.')); }, isMacro); }, // un refus du serveur (ex. « Fusion passée : impossible de délier. ») s'affiche en message court
     openExtend: function (cfg) { return openExtend(cfg); }, closeExtend: function () { closeExtend(); },
     createAt: function (o) { createAt(o); },
     openGroup: function (ids, opts) { openGroup(ids, opts); },

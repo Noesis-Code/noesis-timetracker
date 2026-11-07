@@ -21,23 +21,10 @@
   var MIN_ROWS = 5;
   var RAIL = 30, GAP = 10; // largeur de la colonne de repères + gouttière (RAIL change avec le niveau : ovale d'un bloc de 5 ans, d'une année, rond d'une période)
 
-  function mix(hex, k) { // teinte pâle : mélange de la couleur d'activité avec du blanc (même principe que l'arbre périodique)
-    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return hex || '#674EA7';
-    return '#' + [0, 2, 4].map(function (i) { var v = parseInt(m[1].substr(i, 2), 16), x = Math.round(v + (255 - v) * k).toString(16); return x.length < 2 ? '0' + x : x; }).join('');
-  }
-  function shadeL(hex, k, sMul) { // même teinte, luminosité réduite de k (0,25 = 25 %) : la bulle d'une colonne est plus foncée que ses cartes
-    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return hex;
-    var r = parseInt(m[1].substr(0, 2), 16) / 255, g = parseInt(m[1].substr(2, 2), 16) / 255, b = parseInt(m[1].substr(4, 2), 16) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, h = 0, s = 0, d = mx - mn;
-    if (d) { s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; }
-    l = Math.max(0, Math.min(1, l * (1 - k))); s = Math.min(1, s * (sMul || 1));
-    var q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q, f = function (t) { if (t < 0) t += 1; if (t > 1) t -= 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
-    var rgb = s ? [f(h + 1 / 3), f(h), f(h - 1 / 3)] : [l, l, l];
-    return '#' + rgb.map(function (x) { return ('0' + Math.round(x * 255).toString(16)).slice(-2); }).join('');
-  }
   function dayIso(date) { var d = date || new Date(), p = function (x) { return String(x).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
   function stateOf(o, today) { return o.abandoned ? 'dropped' : (o.status === 'atteint' ? 'done' : (o.startDate > today ? 'future' : 'now')); }
   var STATE_LABEL = { now: 'En cours', done: 'Réalisé', future: 'À venir', dropped: 'Abandonné' };
-  function color(o) { return (o.activity && o.activity.color) || '#674EA7'; }
+  function color(o) { return o.activity && o.activity.color; } // couleur de DONNÉE de l'activité (celle du Chrono) : aucun repli, une couleur absente doit se voir
   function dockEl() { return TMT.objectifsView && TMT.objectifsView.dock && TMT.objectifsView.dock(); }
   function say(msg) { // message passager, au-dessus des bulles (toujours visible, même défilé en haut de l'arbre)
     if (!toast) { toast = el('p', 'arToast hidden'); toast.setAttribute('role', 'status'); document.body.appendChild(toast); }
@@ -48,12 +35,10 @@
   function descendants(id, kids) { var out = {}; (function walk(i) { (kids[i] || []).forEach(function (k) { out[k.id] = true; walk(k.id); }); })(id); return out; }
   // MÊME cadre pour tous les objectifs : bordure fine de la couleur de l'activité (pleine, ou pointillée pour « à venir ») ; l'état = la teinte (vif, pâle, vide + pointillé, atténué).
   function paint(b, st, c) {
-    // Carte PLEINE de la couleur de la colonne (comme l'arbre périodique original), sans liseré de couleur : le contour est celui du fond. L'état ne varie que par la luminosité de CETTE couleur :
-    // en cours = couleur pleine ; réalisé = plus vive ; à venir = plus claire ; abandonné = plus sombre et atténuée. Texte lisible via TMT.readableTextOn.
-    var fill = st === 'done' ? shadeL(c, -0.1, 1.25) : st === 'future' ? mix(c, 0.4) : st === 'dropped' ? shadeL(c, 0.35) : c;
-    b.style.background = fill; b.style.borderWidth = '2px'; b.style.borderStyle = 'solid'; b.style.borderColor = fill; b.style.setProperty('--ar-c', fill); // --ar-c : la règle de la page 2 rend les bordures transparentes (!important)
-    b.style.color = TMT.readableTextOn ? TMT.readableTextOn(fill) : 'inherit';
-    if (st === 'dropped') b.style.opacity = '0.75';
+    // Carte PLEINE de la couleur de la colonne TELLE QUELLE (comme l'arbre périodique original), quel que soit l'état : aucun mélange, aucune variation de teinte ; sans liseré de couleur (le contour est celui du fond).
+    // L'état ne se voit que par une petite marque (CSS : ✓ réalisé, titre barré abandonné), jamais par la couleur du fond. Texte lisible via TMT.readableTextOn.
+    b.style.background = c; b.style.borderWidth = '2px'; b.style.borderStyle = 'solid'; b.style.borderColor = c; b.style.setProperty('--ar-c', c); // --ar-c : la règle de la page 2 rend les bordures transparentes (!important)
+    b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c) : 'inherit';
   }
   function link(o, pid) {
     if (pid === o.parentId) return;
@@ -364,7 +349,7 @@
       });
       return cols;
     }
-    var act = actOf(focus.activityId), mine = shown.filter(function (o) { return o.activity.id === focus.activityId; }), col = mine.length ? color(mine[0]) : '#674EA7';
+    var act = actOf(focus.activityId), mine = shown.filter(function (o) { return o.activity.id === focus.activityId; }), col = mine.length ? color(mine[0]) : (act && act.color);
     var name = act ? act.name : (mine[0] ? mine[0].activity.name : '');
     var poles = (act && act.poles) || [], firstPole = poles.length ? poles[0].key : null;
     function poleColor(p) { return p && p.shadeRank != null && TMT.subProjectShade ? TMT.subProjectShade(col, p.shadeRank, p.shadeCount) : col; } // couleur RÉELLE du pôle (donnée du serveur : rang de nuance, même règle que Chrono et les statistiques) // nuance de la couleur de l'activité, FIXE selon le rang du pôle (réordonné : les nuances suivent)
@@ -375,6 +360,25 @@
     var pole = poles.filter(function (p) { return p.key === focus.poleKey; })[0] || { key: focus.poleKey, label: focus.poleLabel || '', secteurs: [] };
     var sects = pole.secteurs && pole.secteurs.length ? pole.secteurs : [{ key: null, label: pole.label }], firstSect = sects[0].key, pcol = poleColor(pole); // secteurs : UNE seule couleur, celle de leur pôle (jamais de couleur propre, R16)
     return sects.map(function (x) { return { key: x.key, label: x.label, color: pcol, objs: mine.filter(function (o) { return !o.isMacro && want(o) && (o.poleKey || firstPole) === focus.poleKey && (o.categoryKey || firstSect) === x.key; }), ctx: { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey, categoryKey: x.key, label: name + ' · ' + pole.label + ' · ' + x.label } }; });
+  }
+  // Fusion dans le TEMPS (règle d'affichage dérivée par le serveur : mergeStart / mergeReached / mergePast, rien n'est supprimé) :
+  //  - avant la période de fusion : colonnes séparées et voisines ; la carte large du macro est dans sa période ; AU-DESSUS (périodes plus tardives) une seule colonne, celle de l'entité touchée (la première du groupe) ;
+  //  - dès que le présent atteint la période (et une fois passée) : UNE colonne à largeur standard (nom et couleur de l'entité qui englobe), les autres sont absorbées ; la carte du macro est standard.
+  function macroIdx(m, cols) {
+    var ci = {}; cols.forEach(function (c, i) { ci[c.key] = i; });
+    var idx = (m.macroColumns || []).filter(function (mc) { return lvl === 'activite' || (mc.activityId === focus.activityId && (lvl === 'pole' || mc.poleKey === focus.poleKey)); })
+      .map(function (mc) { return ci[lvl === 'activite' ? mc.activityId : lvl === 'pole' ? mc.poleKey : mc.categoryKey]; }).filter(function (i) { return i != null; });
+    if (!idx.length && lvl === 'activite' && ci[m.activity.id] != null) idx = [ci[m.activity.id]];
+    return idx.sort(function (x, y) { return x - y; }).filter(function (v, i, arr) { return arr.indexOf(v) === i; });
+  }
+  function rootMacro(m) { return !(m.parentId != null && items.some(function (x) { return x.id === m.parentId && x.isMacro; })); }
+  function foldMerged(shown, cols) {
+    var drop = {};
+    shown.filter(function (o) { return o.isMacro && o.mergeReached && rootMacro(o) && (o.macroLevel || o.level || 'activite') === lvl; }).forEach(function (m) {
+      var idx = macroIdx(m, cols); if (idx.length < 2) return;
+      var anchor = idx[0]; idx.slice(1).forEach(function (q) { if (drop[q]) return; drop[q] = true; cols[anchor].objs = cols[anchor].objs.concat(cols[q].objs); });
+    });
+    return cols.filter(function (c, i) { return !drop[i]; });
   }
   var curCols = [], ordreMap = {};
   // Ordre de présentation des colonnes : DÉRIVÉ par le serveur (GET /objectifs/ordre) ; les colonnes reliées par un macro sont voisines tant qu'il existe, délié = ordre d'origine. Utilisé tel quel, jamais recalculé ici.
@@ -426,7 +430,7 @@
     tree.classList.toggle('arEditing', editMode); tree.classList.toggle('arExtending', !!ext);
     if (items.length) { var zb = el('div', 'arZoomRow'); if (lvl !== 'activite') zb.appendChild(backNav()); zb.appendChild(editToggle()); tree.appendChild(zb); }
     kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
-    curCols = sortByOrdre(columnsFor(shown)); syncCtx();
+    curCols = foldMerged(shown, sortByOrdre(columnsFor(shown))); syncCtx();
     if (!curCols.length) { gridArea = scroller = null; tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
     var n = curCols.length, wide = window.innerWidth >= 1024, avail = tree.clientWidth || (Math.min(window.innerWidth, wide ? 1400 : 600) - 32); // largeur réelle de la zone
     var baseW = Math.floor((avail - RAIL - GAP - 4) / 2), cols = wide ? Math.max(220, Math.floor((avail - RAIL - GAP * (n - 1)) / n)) : baseW; // deux colonnes de même largeur visibles
@@ -455,12 +459,10 @@
     curCols.forEach(function (c, i) { colIdx[c.key] = i; });
     // Un macro relie des colonnes d'UN niveau : activités (période longue), pôles d'une activité, secteurs d'un pôle ; il s'affiche au niveau où il relie, sinon il n'apparaît pas ici.
     shown.filter(function (o) { return o.isMacro && (o.macroLevel || o.level || 'activite') === lvl; }).forEach(function (m) {
-      var mcs = (m.macroColumns || []).filter(function (mc) { return lvl === 'activite' || (mc.activityId === focus.activityId && (lvl === 'pole' || mc.poleKey === focus.poleKey)); });
-      var idx = mcs.map(function (mc) { return colIdx[lvl === 'activite' ? mc.activityId : lvl === 'pole' ? mc.poleKey : mc.categoryKey]; }).filter(function (i) { return i != null; });
-      if (!idx.length && lvl === 'activite' && colIdx[m.activity.id] != null) idx = [colIdx[m.activity.id]];
+      var idx = macroIdx(m, curCols);
       if (!idx.length) return;
       var b = bucketOf(m, today); byRank[b.rank] = b; if (zoom === 'block' && b.rank < lo) lo = b.rank; if (b.rank > hi) hi = b.rank;
-      (macrosAt[b.rank] = macrosAt[b.rank] || []).push({ m: m, c0: Math.min.apply(null, idx), c1: Math.max.apply(null, idx) });
+      (macrosAt[b.rank] = macrosAt[b.rank] || []).push({ m: m, c0: Math.min.apply(null, idx), c1: Math.max.apply(null, idx), idxs: idx });
     });
     if (ext && ext.mode === 'create' && ext.base) { // aperçu : la carte de base devient une carte large neutre sur les colonnes incluses
       var xi = Object.keys(ext.cols).map(Number).filter(function (i) { return i < curCols.length; });
@@ -478,6 +480,14 @@
     // cellules des colonnes : [rangée][colonne] -> entrées
     var cells = list.map(function (rw) { return data.map(function (c) { return c.entries.filter(function (e) { return e.b.rank === rw.rank; }).sort(function (a, b) { return (a.ri - b.ri) || (b.i - a.i); }); }); });
 
+    var holes = {}; // au-dessus (périodes plus tardives) d'une carte large non encore atteinte : les colonnes absorbées n'ont plus de cases, leurs objectifs vont dans la colonne de l'entité touchée
+    Object.keys(macrosAt).forEach(function (k) {
+      macrosAt[k].forEach(function (mm) {
+        if (!(mm.m.id > 0) || mm.m.mergeReached || !rootMacro(mm.m) || !mm.idxs || mm.idxs.length < 2) return;
+        var anchor = mm.idxs[0];
+        list.forEach(function (rw2, r2) { if (rw2.rank <= Number(k)) return; mm.idxs.slice(1).forEach(function (q) { cells[r2][anchor] = cells[r2][anchor].concat(cells[r2][q]); cells[r2][q] = []; holes[r2 + ':' + q] = true; }); });
+      });
+    });
     var grid = el('div', 'goalsGrid arGrid' + (zoom !== 'period' ? ' arCompact' : '') + (animate ? ' arEnter' : '')); // années et blocs de 5 ans : rangées COMPACTES (moins de hauteur) animate = false;
     var lastY = null;
     list.forEach(function (rw, r) {
@@ -507,6 +517,7 @@
       data.forEach(function (c, ci) {
         var es = cells[r][ci];
         if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols)); return; }
+        if (holes[r + ':' + ci]) { var hole = el('div', 'arGap'); cellSize(hole, W); hole.setAttribute('data-col', String(ci)); row.appendChild(hole); return; } // colonne absorbée : plus de case au-dessus de la fusion
         if (!es.length && lvl === 'secteur' && rw.p) row.appendChild(emptyCell(W, 'cal', function () { openCalendar(rw, c.col.key); })); // niveau secteurs : toucher une case vide ouvre AUSSI le calendrier (« Ajouter un objectif périodique » s'y trouve)
         else if (!es.length) row.appendChild(emptyCell(W, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
         else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, W, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
@@ -599,7 +610,7 @@
     document.documentElement.classList.remove('calFromTree'); savedView = null;
   }).observe(tree);
   TMT.objectifsArbre = {
-    refresh: refresh, render: render,
+    refresh: refresh, render: render, say: function (m) { say(m); },
     showBase: function () {
       document.documentElement.classList.remove('calFromTree');
       visible = true;

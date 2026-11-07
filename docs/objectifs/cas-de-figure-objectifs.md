@@ -477,7 +477,7 @@ Page 1 de la Feuille de route = sélecteur « Tâches | Objectifs » (Objectifs 
 
 ## Couleurs de l'arbre (7 nov. 2026)
 
-- Activité sans pôle : une seule colonne, couleur de l'activité ; étiquette non remplie (contour de la couleur, pastille, nom en blanc), cartes de la couleur pleine ; états : réalisé plus vive, à venir plus claire, abandonné plus sombre.
+- Activité sans pôle : une seule colonne, couleur de l'activité ; étiquette non remplie (contour de la couleur, pastille, nom en blanc), cartes de la couleur pleine ; toutes les cartes à la couleur telle quelle, l'état par une petite marque (✓ réalisé, titre barré abandonné).
 - Plus de 5 pôles : `TMT.subProjectShade` ne fournit que 5 nuances ; à partir du 6e pôle les nuances se répètent (rang modulo 5). Les bulles gardent leur nom pour les distinguer.
 - Pôle réordonné : la nuance suit le NOUVEAU rang (la nuance est fixée par le rang, pas par le pôle) ; cartes et bulles se recolorent ensemble.
 - Pôle supprimé : les rangs se resserrent, les pôles restants reprennent les nuances 1 à n.
@@ -534,3 +534,15 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 - Période passée : `mergePast`. Délier un enfant, le ranger ailleurs, supprimer le macro ou le refaire objectif ordinaire sont refusés avec « Fusion passée : impossible de délier. » ; rien n'est supprimé ni détaché. Supprimer un enfant seul reste possible.
 - Changement de jour à minuit : l'état suit `userToday()` (fuseau de la personne) ; le dernier jour de la période n'est pas encore « passée », le lendemain oui.
 - Échéance modifiée : la période de fusion suit la nouvelle échéance (un macro dont l'échéance est repoussée dans le futur redevient défaisable).
+
+## Fusion dans le temps, affichage (7 nov. 2026)
+
+- Avant la période de fusion : colonnes séparées et voisines ; la carte large du macro est dans la période de son échéance (une rangée, sur les colonnes fusionnées) ; AU-DESSUS (périodes plus tardives) les colonnes absorbées n'ont plus de cases (vides) et leurs objectifs vont dans la colonne de l'entité touchée (la première du groupe).
+- Dès que le présent atteint la période (et une fois passée) : UNE seule colonne à largeur standard, au nom et à la couleur de l'entité touchée ; les autres colonnes et leurs étiquettes sont absorbées ; la carte du macro est à largeur standard. Calculé à chaque lecture (`mergeReached`, `mergePast` du serveur), donc le changement de jour à minuit suffit.
+- Macros chaînés (A+B puis +C) : un seul groupe, une seule colonne ; pôles d'une activité et secteurs d'un pôle : même règle au niveau affiché. Plusieurs objectifs futurs de l'entité fusionnée : tous dans la colonne unique. Colonne future vide : case grise, comme ailleurs.
+- Délier une fusion passée : refus « Fusion passée : impossible de délier. » affiché en message court (glisser vers « Délier » ou croix du macro). Limite : l'entité « touchée » n'est pas mémorisée côté serveur ; on prend la première colonne du groupe.
+
+## Couleur des cartes par état et espace sous le sélecteur (7 nov. 2026)
+
+- TOUTES les cartes (en cours, à venir, réalisé, abandonné) sont à la couleur de donnée de l'activité telle quelle (`o.activity.color`, la même que Chrono) : aucun mélange, aucune variation ; plus de repli violet (une couleur absente doit se voir). L'état se voit par une petite marque : ✓ réalisé, titre barré abandonné. Mesuré : en cours, à venir, réalisé, abandonné = couleur de donnée pour chacune des 4 activités de test.
+- Onglet Objectifs : l'écart de 16 px sous le sélecteur « Tâches | Objectifs » est retiré (seulement quand l'arbre est affiché) ; la ligne de retour et le crayon montent de 16 px, l'arbre les récupère.
