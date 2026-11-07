@@ -194,8 +194,8 @@
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
     panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
-    var boxes = { desc: el('div'), rattach: el('div'), temps: el('div'), niveau: el('div'), taches: el('div') };
-    ['desc', 'rattach', 'temps', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
+    var boxes = { desc: el('div'), rattach: el('div'), temps: el('div'), activite: el('div'), niveau: el('div'), taches: el('div') };
+    ['desc', 'rattach', 'temps', 'activite', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
     if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
     panelForm = form; setBack(null);
     function syncGo() { stepBtn.disabled = !form.dateOk || !form.endDate; } // échéance obligatoire : Suivant / Terminer grisé sans date valide
@@ -203,28 +203,39 @@
     var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.setAttribute('aria-label', tr('Objectif'));
     titleIn.addEventListener('input', function () { form.title = titleIn.value; });
     boxes.desc.appendChild(field(tr('Objectif'), titleIn));
-    // Description guidée (7 nov. 2026) : trois questions à cases (.cmpSeg, plusieurs choix possibles) + quelques mots ; le texte composé (mots-clés) est lu par l'IA.
+    // Description guidée, compacte (7 nov. 2026) : les questions s'ouvrent l'une après l'autre (la suivante apparaît dès qu'un choix est fait, plusieurs choix possibles) ; UN seul champ « Quelques mots » à la fin ; le texte composé est lu par l'IA.
     var GUIDE = [
       { k: 'reussite', q: 'Comment le mesures-tu ?', label: 'Réussite', opts: ['Chiffre', 'Date', 'Résultat'] },
       { k: 'raison', q: 'Pourquoi ?', label: 'Raison', opts: ['Santé', 'Carrière', 'Plaisir'] },
       { k: 'obstacle', q: 'Qu’est-ce qui peut bloquer ?', label: 'Obstacle', opts: ['Temps', 'Énergie', 'Argent'] }
     ];
     form.guide = form.guide || {};
+    function picksOf(g) { return form.guide[g.k] || (form.guide[g.k] = []); }
     function composeDesc() {
-      form.description = GUIDE.map(function (g) { var v = form.guide[g.k] || { picks: [], words: '' }, parts = v.picks.map(function (p) { return tr(p).toLowerCase(); }); if (v.words.trim()) parts.push(v.words.trim()); return parts.length ? tr(g.label) + ' : ' + parts.join(', ') : ''; }).filter(Boolean).join(' · ').slice(0, 500);
+      var t = GUIDE.map(function (g) { var p = picksOf(g).map(function (x) { return tr(x).toLowerCase(); }); return p.length ? tr(g.label) + ' : ' + p.join(', ') : ''; }).filter(Boolean);
+      if ((form.guideWords || '').trim()) t.push(tr('Précisions') + ' : ' + form.guideWords.trim());
+      form.description = t.join(' · ').slice(0, 500);
     }
-    GUIDE.forEach(function (g) {
-      var v = form.guide[g.k] || (form.guide[g.k] = { picks: [], words: '' }), s = el('div', 'cmpSeg'), wordsIn = el('input'), box = el('div');
-      s.setAttribute('role', 'group'); s.setAttribute('aria-label', tr(g.q));
-      g.opts.forEach(function (o) {
-        var b = btn(v.picks.indexOf(o) >= 0 ? 'active' : '', tr(o), function () { var i = v.picks.indexOf(o); if (i >= 0) v.picks.splice(i, 1); else v.picks.push(o); b.classList.toggle('active', i < 0); b.setAttribute('aria-pressed', i < 0 ? 'true' : 'false'); composeDesc(); });
-        b.setAttribute('aria-pressed', v.picks.indexOf(o) >= 0 ? 'true' : 'false'); s.appendChild(b);
-      });
-      wordsIn.type = 'text'; wordsIn.maxLength = 60; wordsIn.value = v.words; wordsIn.placeholder = tr('Quelques mots'); wordsIn.setAttribute('aria-label', tr(g.q));
-      wordsIn.addEventListener('input', function () { v.words = wordsIn.value; composeDesc(); });
-      box.appendChild(s); box.appendChild(wordsIn); boxes.desc.appendChild(field(tr(g.q), box));
-    });
-    composeDesc();
+    var guideBox = el('div', 'objGuide'); boxes.desc.appendChild(guideBox);
+    function paintGuide() {
+      guideBox.textContent = '';
+      for (var gi = 0; gi < GUIDE.length; gi++) {
+        (function (g) {
+          var v = picksOf(g), s = el('div', 'cmpSeg');
+          s.setAttribute('role', 'group'); s.setAttribute('aria-label', tr(g.q));
+          g.opts.forEach(function (o) {
+            var b = btn(v.indexOf(o) >= 0 ? 'active' : '', tr(o), function () { var i = v.indexOf(o); if (i >= 0) v.splice(i, 1); else v.push(o); composeDesc(); paintGuide(); });
+            b.setAttribute('aria-pressed', v.indexOf(o) >= 0 ? 'true' : 'false'); s.appendChild(b);
+          });
+          guideBox.appendChild(field(tr(g.q), s));
+        })(GUIDE[gi]);
+        if (!picksOf(GUIDE[gi]).length) return; // la question suivante s'ouvre après un choix
+      }
+      var wordsIn = el('input'); wordsIn.type = 'text'; wordsIn.maxLength = 80; wordsIn.value = form.guideWords || ''; wordsIn.placeholder = tr('Quelques mots'); wordsIn.setAttribute('aria-label', tr('Quelques mots'));
+      wordsIn.addEventListener('input', function () { form.guideWords = wordsIn.value; composeDesc(); });
+      guideBox.appendChild(wordsIn);
+    }
+    paintGuide(); composeDesc();
     if (ctx.fixedDate) { // date imposée (examen, mariage…) : jamais estimée ; la date est demandée en premier et obligatoire
       var fixedIn = el('input'); fixedIn.type = 'date'; fixedIn.min = ctx.startDate; fixedIn.setAttribute('aria-label', tr('Date de l’échéance')); if (ctx.dateConfirmed || form.endFixed) fixedIn.value = form.endFixed ? form.endDate : ctx.endDate;
       fixedIn.addEventListener('change', function () {
@@ -283,9 +294,9 @@
     paintDates(); boxes.temps.appendChild(field(ctx.fixedDate || form.endFixed ? tr('Période') : tr('Durée'), durBox));
 
     var actBox = el('div'), chargeBox = el('div');
-    boxes.desc.appendChild(actBox); boxes.desc.appendChild(chargeBox);
+    boxes.activite.appendChild(actBox); boxes.activite.appendChild(chargeBox);
     // « Avancé » (R8 : repliable, fermé par défaut) : relier cet objectif à d'AUTRES colonnes du même niveau par un macro (facultatif ; l'IA le propose aussi à l'étape Rattachement). Rien n'est créé avant « Terminer ».
-    var advBox = el('div', 'objAdvanced'); boxes.desc.appendChild(advBox);
+    var advBox = el('div', 'objAdvanced'); boxes.activite.appendChild(advBox);
     function advIds() { var a = form.adv || {}; return Object.keys(a).filter(function (k) { return a[k]; }).map(Number); }
     function paintAdv() {
       if (form.advOpen && form.advFor !== form.activityId) { form.advFor = form.activityId; form.advList = null; form.adv = {}; loadAdv(); } // l'activité a changé : la liste des colonnes à relier aussi
@@ -385,8 +396,8 @@
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
-    var stepNames = { desc: 'Description', rattach: 'Rattachement', temps: 'Temps', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return ['desc'].concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(['temps']).concat(needsLevel() ? ['niveau'] : []).concat(['taches']); }
+    var stepNames = { desc: 'Description', rattach: 'Rattachement', temps: 'Temps', activite: 'Activité', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
+    function list() { return ['desc'].concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(['temps', 'activite']).concat(needsLevel() ? ['niveau'] : []).concat(['taches']); }
     // Étape « Rattachement » : seulement s'il existe un candidat dans l'activité ; PROPOSITION (règles, ou IA si permis) : Accepter (avec Avant | Après) ou Refuser (refus mémorisé, l'objectif reste un sommet séparé).
     function dueOf(id) { var x = (ctx.objectives || []).filter(function (o) { return o.id === id; })[0]; return x && x.endDate ? ' · ' + tr('jusqu’au') + ' ' + dateText(x.endDate) : ''; } // échéance du parent proposé
     function rattPending() { // « Suivant » reste grisé tant qu'une proposition affichée n'est pas décidée (jamais de choix silencieux)
@@ -460,7 +471,7 @@
     }
     function show(k) {
       form._step = cur = k;
-      ['desc', 'rattach', 'temps', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      ['desc', 'rattach', 'temps', 'activite', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
       if (k === 'rattach') paintRatt();
       panelKicker.textContent = tr(stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
@@ -473,16 +484,18 @@
     function stepNext() {
       var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
       if (cur === 'desc') { if (!validDesc()) return; stepBtn.disabled = true; loadRatt().then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; }
+      if (cur === 'activite' && !form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return; }
       show(l[i + 1]);
     }
-    function validDesc() {
+    function validDesc(final) {
       form.title = titleIn.value.trim();
       if (!form.title) { msg.textContent = tr('Écris ton objectif.'); return false; }
-      if (!form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return false; }
+      if (final && !form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return false; }
       return true;
     }
     function finishAll() { // Terminer : proposition par règles (ou IA gratuite du mois) puis création ; rien n'est créé avant ce geste
-      if (!validDesc()) return;
+      if (!validDesc(true)) return;
+      if (form.ratt && form.ratt.key !== form.title + '|' + (form.create ? 'new' : form.activityId)) { form.parentId = null; form.parentRel = null; form.macroDecided = null; } // l'activité a changé après la proposition de rattachement : plus de parent
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
       var actName = form.create ? form.createName : (ctx.activities.filter(function (a) { return a.id === form.activityId; })[0] || {}).name;

@@ -661,3 +661,9 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 - La croix ✕ en haut à droite du panneau était absente (un commentaire de ligne avalait son appel) : rétablie ; elle annule (aucun objectif créé, vérifié).
 - Description guidée : la zone libre est remplacée par trois questions à cases multiples (`.cmpSeg`) + « Quelques mots » : Réussite (Chiffre, Date, Résultat), Raison (Santé, Carrière, Plaisir), Obstacle (Temps, Énergie, Argent). Le texte composé (« Réussite : chiffre, 10 km · Raison : santé… », 500 au plus) est enregistré dans la description lue par l'IA ; aucun changement serveur.
 - Cas : titre vide → « Écris ton objectif. » ; case touchée pendant une création en cours → ignorée (`busy`) ; échéance de la case passée → refus du serveur.
+
+## Création : pages recomposées, description compacte (7 nov. 2026)
+
+- Ordre des pages : Description (titre + description seulement) → Rattachement (si candidat) → Temps → **Activité** (Activité liée, charge de la semaine prochaine, Avancé) → Niveau (si info manquante) → Tâches. Vérifié à 375 px : page 1 compacte, page 3 « Activité ».
+- Description compacte : les questions s'ouvrent une à une (la suivante après un choix, plusieurs choix possibles) ; UN seul champ « Quelques mots » (80 au plus, « Précisions : … ») après la dernière question.
+- Cas : l'activité n'est plus demandée à la page 1 ; « Suivant » de la page Activité refuse sans activité (« Choisis une activité. ») ; le rattachement est proposé d'après l'activité suggérée ou verrouillée, et s'il change à la page Activité le parent proposé est abandonné (aucun rattachement silencieux).
