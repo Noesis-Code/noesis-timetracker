@@ -606,7 +606,7 @@
     function drawSeps() { // UN seul trait pointillé neutre entre deux groupes d'activités (pôles ou secteurs de plusieurs activités reliées)
       var seps = layer.querySelectorAll('.arSep'); Array.prototype.forEach.call(seps, function (s) { s.parentNode.removeChild(s); });
       if (lvl === 'activite') return; var bs = tree.querySelectorAll('.arBubble'), b0 = layer.getBoundingClientRect();
-      for (var k = 1; k < curCols.length; k++) if (curCols[k].ctx.activityId !== curCols[k - 1].ctx.activityId && bs[k] && bs[k - 1]) { var x = (bs[k - 1].getBoundingClientRect().right + bs[k].getBoundingClientRect().left) / 2, l = el('i', 'arSep'); l.style.left = Math.round(x - b0.left - 1) + 'px'; layer.appendChild(l); }
+      for (var k = 1; k < curCols.length; k++) if (curCols[k].ctx.activityId !== curCols[k - 1].ctx.activityId && bs[k] && bs[k - 1]) { bs[k].classList.add('arSepStart'); Array.prototype.forEach.call(tree.querySelectorAll('[data-col="' + k + '"]'), function (n) { n.classList.add('arSepStart'); }); var x = (bs[k - 1].getBoundingClientRect().right + bs[k].getBoundingClientRect().left) / 2, l = el('i', 'arSep'); l.style.left = Math.round(x - b0.left - 1) + 'px'; layer.appendChild(l); }
     }
     function relayout() { if (stickEnd && gridArea) gridArea.scrollTop = gridArea.scrollHeight; positionRail(); drawLinks(); drawSeps(); }
     var marks = [];
