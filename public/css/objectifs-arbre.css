@@ -68,3 +68,8 @@
 .arSummary .goalsGridCellText { display: flex; flex-direction: column; gap: 3px; }
 .arSummary .arCardName { font-size: 13px; font-weight: 600; }
 .arSummaryText { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+/* Rangées d'années et de blocs : compactes (gouttière réduite, cases moins hautes, repère ovale plus bas) ; les cases restent des cases grises, les cadres identiques. */
+.arGrid.arCompact { --goalsGridGap: 14px; }
+.arGrid.arCompact .goalsGridCell { min-height: 40px; }
+.arGrid.arCompact .goalsGridCell--filled .goalsGridCellText { padding: 8px 12px; }
+.arGrid.arCompact .goalsRowMarker--ovale { height: 18px; line-height: 18px; }

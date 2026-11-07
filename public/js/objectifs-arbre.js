@@ -356,7 +356,7 @@
     // cellules des colonnes : [rangée][colonne] -> entrées
     var cells = list.map(function (rw) { return data.map(function (c) { return c.entries.filter(function (e) { return e.b.rank === rw.rank; }).sort(function (a, b) { return (a.ri - b.ri) || (b.i - a.i); }); }); });
 
-    var grid = el('div', 'goalsGrid arGrid' + (animate ? ' arEnter' : '')); animate = false;
+    var grid = el('div', 'goalsGrid arGrid' + (zoom !== 'period' ? ' arCompact' : '') + (animate ? ' arEnter' : '')); // années et blocs de 5 ans : rangées COMPACTES (moins de hauteur) animate = false;
     var lastY = null;
     list.forEach(function (rw, r) {
       var row = el('div', 'goalsGridRow'); row.setAttribute('data-rank', String(rw.rank));
