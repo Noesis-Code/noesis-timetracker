@@ -184,6 +184,73 @@
       .catch(function (err) { busy = false; sendBtn.disabled = false; if (TMT.ui && TMT.ui.confirm) TMT.ui.confirm((err && err.message) || tr('Impossible pour le moment.'), { ok: tr('OK') }); });
   }
 
+  // ---------- Blocs partagés par la création et la modification d'un objectif (une seule copie) ----------
+  // Description guidée : trois questions repliées (flèche à droite, R21) ; UNE seule est ouverte (cases + mots) ; Entrée referme et ouvre la suivante. Le texte composé (mots-clés) est lu par l'IA.
+  var GUIDE = [
+    { k: 'reussite', q: 'Comment le mesures-tu ?', label: 'Réussite', opts: ['Chiffre', 'Date', 'Résultat'] },
+    { k: 'raison', q: 'Pourquoi ?', label: 'Raison', opts: ['Santé', 'Carrière', 'Plaisir'] },
+    { k: 'obstacle', q: 'Qu’est-ce qui peut bloquer ?', label: 'Obstacle', opts: ['Temps', 'Énergie', 'Argent'] }
+  ];
+  function guideAns(form, g) { form.guide = form.guide || {}; return form.guide[g.k] || (form.guide[g.k] = { picks: [], words: '' }); }
+  function guideParse(form, text) { // relit une description déjà enregistrée ; le texte libre ancien est gardé tel quel (form.guideRest), jamais perdu
+    form.guide = {}; var rest = [];
+    String(text || '').split(' · ').forEach(function (part) {
+      var g = GUIDE.filter(function (x) { return part.indexOf(tr(x.label) + ' : ') === 0; })[0];
+      if (!g) { if (part.trim()) rest.push(part.trim()); return; }
+      var a = guideAns(form, g), words = [];
+      part.slice((tr(g.label) + ' : ').length).split(', ').forEach(function (tok) {
+        var o = g.opts.filter(function (x) { return tr(x).toLowerCase() === tok.toLowerCase(); })[0];
+        if (o && a.picks.indexOf(o) < 0) a.picks.push(o); else if (tok.trim()) words.push(tok.trim());
+      });
+      a.words = words.join(', ');
+    });
+    form.guideRest = rest.join(' · ');
+  }
+  function guideCompose(form) {
+    var t = GUIDE.map(function (g) { var a = guideAns(form, g), p = a.picks.map(function (x) { return tr(x).toLowerCase(); }); if (a.words.trim()) p.push(a.words.trim()); return p.length ? tr(g.label) + ' : ' + p.join(', ') : ''; }).filter(Boolean);
+    if (form.guideRest) t.push(form.guideRest);
+    return t.join(' · ').slice(0, 500);
+  }
+  function paintGuideInto(box, form, onChange, focusWords) {
+    box.textContent = '';
+    if (form.guideOpen === undefined) form.guideOpen = 0;
+    GUIDE.forEach(function (g, gi) {
+      var a = guideAns(form, g), open = form.guideOpen === gi, wrap = el('div', 'objField objGuideRow' + (open ? ' open' : ''));
+      var head = btn('objGuideHead', '', function () { form.guideOpen = open ? -1 : gi; paintGuideInto(box, form, onChange); });
+      head.setAttribute('aria-expanded', open ? 'true' : 'false');
+      var pk = a.picks.map(function (x) { return tr(x).toLowerCase(); }).join(', '), tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr(g.q))); if (a.words.trim() && !open) tx.appendChild(el('small', 'hint', a.words.trim())); head.appendChild(tx); head.appendChild(el('span', 'hint objGuideRight', (pk && !open ? '(' + pk + ')  ' : '') + (open ? '▾' : '▸'))); // paramètres cochés à droite en gris, réponse écrite dessous
+      wrap.appendChild(head);
+      if (open) {
+        var s = el('div', 'cmpSeg'), wordsIn = el('input');
+        s.setAttribute('role', 'group'); s.setAttribute('aria-label', tr(g.q));
+        g.opts.forEach(function (o) {
+          var b = btn(a.picks.indexOf(o) >= 0 ? 'active' : '', tr(o), function () { var i = a.picks.indexOf(o); if (i >= 0) a.picks.splice(i, 1); else a.picks.push(o); b.classList.toggle('active', i < 0); b.setAttribute('aria-pressed', i < 0 ? 'true' : 'false'); onChange(); });
+          b.setAttribute('aria-pressed', a.picks.indexOf(o) >= 0 ? 'true' : 'false'); s.appendChild(b);
+        });
+        wordsIn.type = 'text'; wordsIn.maxLength = 60; wordsIn.value = a.words; wordsIn.placeholder = tr('Quelques mots'); wordsIn.setAttribute('aria-label', tr(g.q)); wordsIn.enterKeyHint = 'next';
+        wordsIn.addEventListener('input', function () { a.words = wordsIn.value; onChange(); });
+        wordsIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); form.guideOpen = gi + 1 < GUIDE.length ? gi + 1 : -1; paintGuideInto(box, form, onChange, true); } });
+        wrap.appendChild(s); wrap.appendChild(wordsIn);
+        if (focusWords) window.setTimeout(function () { wordsIn.focus(); }, 0);
+      }
+      box.appendChild(wrap);
+    });
+  }
+  // Terme (Périodique / Moyen terme / Long terme) et objectifs inclus : mêmes seuils que server/lib/objectifs-temps.js (26 et 130 semaines) ; choix impossibles grisés ; vérifiés aussi par le serveur.
+  var TERMS = [['periode', 'Périodique'], ['annee', 'Moyen terme'], ['pluriannuel', 'Long terme']], INNER = [['periodiques', 'Périodiques'], ['hebdomadaires', 'Hebdomadaires'], ['les_deux', 'Les deux']];
+  function termsFor(days) { var w = (days || 0) / 7; return w <= 26 ? ['periode'] : w <= 130 ? ['periode', 'annee'] : ['periode', 'annee', 'pluriannuel']; }
+  function multiOf(days) { return (days || 0) > 28; }
+  function segDisabled(options, current, allowed, onPick, label) {
+    var s = seg(options, current, onPick, label);
+    Array.prototype.forEach.call(s.children, function (b, i) { if (allowed.indexOf(options[i][0]) < 0) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); } });
+    return s;
+  }
+  function paintTermInto(box, form, days, onChange) {
+    var ok = termsFor(days); if (ok.indexOf(form.term) < 0) form.term = ok[ok.length - 1]; // imposé si un seul choix ; sinon, tant que rien n'est choisi, le terme le plus long permis
+    box.appendChild(field(tr('Terme'), segDisabled(TERMS.map(function (t) { return [t[0], tr(t[1])]; }), form.term, ok, function (k) { form.term = k; form.termTouched = true; if (onChange) onChange(); }, tr('Terme'))));
+    if (multiOf(days)) box.appendChild(field(tr('Objectifs inclus'), seg(INNER.map(function (t) { return [t[0], tr(t[1])]; }), form.innerGoals, function (k) { form.innerGoals = k; form.weekly = k !== 'periodiques'; if (onChange) onChange(); }, tr('Objectifs inclus')))); // une seule période : hebdomadaires seulement, rien à choisir
+  }
+
   function openComposer(ctx) {
     var form = ctx._form || (ctx._form = { acts: ctx.suggestedActivityId != null ? [ctx.suggestedActivityId] : [], news: ctx.suggestedActivityId == null ? [{ key: 1, name: ctx.createName, color: null }] : [], hoursBy: {}, title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null, _ctx: ctx });
     if (!form.ctxApplied) {
@@ -205,42 +272,10 @@
     titleIn.addEventListener('input', function () { form.title = titleIn.value; });
     boxes.desc.appendChild(field(tr('Objectif'), titleIn));
     var dueBox = el('div'); boxes.desc.appendChild(dueBox); // l'échéance suit le titre (page 1), avant la description
-    // Description guidée (7 nov. 2026) : trois questions repliées en lignes (flèche à droite, R21) ; UNE seule est ouverte : ses cases (plusieurs choix) et ses mots. Entrée dans le champ de mots la referme et ouvre la suivante.
-    var GUIDE = [
-      { k: 'reussite', q: 'Comment le mesures-tu ?', label: 'Réussite', opts: ['Chiffre', 'Date', 'Résultat'] },
-      { k: 'raison', q: 'Pourquoi ?', label: 'Raison', opts: ['Santé', 'Carrière', 'Plaisir'] },
-      { k: 'obstacle', q: 'Qu’est-ce qui peut bloquer ?', label: 'Obstacle', opts: ['Temps', 'Énergie', 'Argent'] }
-    ];
-    form.guide = form.guide || {};
-    if (form.guideOpen === undefined) form.guideOpen = 0;
-    function ans(g) { return form.guide[g.k] || (form.guide[g.k] = { picks: [], words: '' }); }
-    function summary(g) { var a = ans(g), p = a.picks.map(function (x) { return tr(x).toLowerCase(); }); if (a.words.trim()) p.push(a.words.trim()); return p.join(', '); }
-    function composeDesc() { form.description = GUIDE.map(function (g) { var s = summary(g); return s ? tr(g.label) + ' : ' + s : ''; }).filter(Boolean).join(' · ').slice(0, 500); }
+    form.guide = form.guide || {}; // description guidée : blocs partagés avec la modification (paintGuideInto)
     var guideBox = el('div', 'objGuide'); boxes.desc.appendChild(guideBox);
-    function paintGuide(focusWords) {
-      guideBox.textContent = '';
-      GUIDE.forEach(function (g, gi) {
-        var a = ans(g), open = form.guideOpen === gi, wrap = el('div', 'objField objGuideRow' + (open ? ' open' : ''));
-        var head = btn('objGuideHead', '', function () { form.guideOpen = open ? -1 : gi; paintGuide(); });
-        head.setAttribute('aria-expanded', open ? 'true' : 'false');
-        var pk = a.picks.map(function (x) { return tr(x).toLowerCase(); }).join(', '), tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr(g.q))); if (a.words.trim() && !open) tx.appendChild(el('small', 'hint', a.words.trim())); head.appendChild(tx); head.appendChild(el('span', 'hint objGuideRight', (pk && !open ? '(' + pk + ')  ' : '') + (open ? '▾' : '▸'))); // la réponse sous la question, la flèche à droite
-        wrap.appendChild(head);
-        if (open) {
-          var s = el('div', 'cmpSeg'), wordsIn = el('input');
-          s.setAttribute('role', 'group'); s.setAttribute('aria-label', tr(g.q));
-          g.opts.forEach(function (o) {
-            var b = btn(a.picks.indexOf(o) >= 0 ? 'active' : '', tr(o), function () { var i = a.picks.indexOf(o); if (i >= 0) a.picks.splice(i, 1); else a.picks.push(o); b.classList.toggle('active', i < 0); b.setAttribute('aria-pressed', i < 0 ? 'true' : 'false'); composeDesc(); });
-            b.setAttribute('aria-pressed', a.picks.indexOf(o) >= 0 ? 'true' : 'false'); s.appendChild(b);
-          });
-          wordsIn.type = 'text'; wordsIn.maxLength = 60; wordsIn.value = a.words; wordsIn.placeholder = tr('Quelques mots'); wordsIn.setAttribute('aria-label', tr(g.q)); wordsIn.enterKeyHint = 'next';
-          wordsIn.addEventListener('input', function () { a.words = wordsIn.value; composeDesc(); });
-          wordsIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); form.guideOpen = gi + 1 < GUIDE.length ? gi + 1 : -1; paintGuide(true); } }); // Entrée : referme celle-ci, ouvre la suivante
-          wrap.appendChild(s); wrap.appendChild(wordsIn);
-          if (focusWords) window.setTimeout(function () { wordsIn.focus(); }, 0);
-        }
-        guideBox.appendChild(wrap);
-      });
-    }
+    function composeDesc() { form.description = guideCompose(form); }
+    function paintGuide(f) { paintGuideInto(guideBox, form, composeDesc, f); }
     paintGuide(); composeDesc();
     // Échéance (page 1) : « Date d'échéance : » et UN petit champ date à droite (calendrier natif), rien d'autre. Proposée par la base de durées (sans IA) ou imposée par la case de l'arbre.
     var dateIn = el('input', 'objDueInput'); dateIn.type = 'date'; dateIn.min = ctx.startDate; dateIn.setAttribute('aria-label', tr('Date d’échéance'));
@@ -299,25 +334,10 @@
     function fmtH(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
     function daysLeft() { return form.endDate ? Math.max(0, Math.round((Date.parse(form.endDate + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000)) : null; }
     if (form.weekly === undefined) form.weekly = true;
-    // Terme (7 nov. 2026) : Périodique / Moyen terme / Long terme, selon l'échéance (mêmes seuils que server/lib/objectifs-temps.js : 26 semaines et 130 semaines) ; les choix impossibles sont grisés.
-    var TERMS = [['periode', 'Périodique'], ['annee', 'Moyen terme'], ['pluriannuel', 'Long terme']], INNER = [['periodiques', 'Périodiques'], ['hebdomadaires', 'Hebdomadaires'], ['les_deux', 'Les deux']];
-    function allowedTerms() { var w = (daysLeft() || 0) / 7; return w <= 26 ? ['periode'] : w <= 130 ? ['periode', 'annee'] : ['periode', 'annee', 'pluriannuel']; }
-    function multiPeriods() { return (daysLeft() || 0) > 28; }
     form.innerGoals = form.innerGoals || 'les_deux';
-    var pdBox = el('div'); // le format des périodes n'est plus choisi par objectif : périodes fixes de 4 semaines
-    function segDisabled(options, current, allowed, onPick, label) {
-      var s = seg(options, current, onPick, label);
-      Array.prototype.forEach.call(s.children, function (b, i) { if (allowed.indexOf(options[i][0]) < 0) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); } });
-      return s;
-    }
-    function paintPeriods() {
-      pdBox.textContent = '';
-      var ok = allowedTerms(); if (ok.indexOf(form.term) < 0) form.term = ok[ok.length - 1]; // imposé si un seul choix ; sinon, tant que rien n'est choisi, le terme le plus long permis
-      pdBox.appendChild(field(tr('Terme'), segDisabled(TERMS.map(function (t) { return [t[0], tr(t[1])]; }), form.term, ok, function (k) { form.term = k; form.termTouched = true; }, tr('Terme'))));
-      if (multiPeriods()) { // plusieurs périodes : objectifs périodiques, hebdomadaires ou les deux ; une seule période : hebdomadaires seulement (rien à choisir)
-        pdBox.appendChild(field(tr('Objectifs inclus'), seg(INNER.map(function (t) { return [t[0], tr(t[1])]; }), form.innerGoals, function (k) { form.innerGoals = k; form.weekly = k !== 'periodiques'; }, tr('Objectifs inclus'))));
-      }
-    }
+    function multiPeriods() { return multiOf(daysLeft()); }
+    var pdBox = el('div'); // périodes fixes de 4 semaines : seul le terme et les objectifs inclus se choisissent
+    function paintPeriods() { pdBox.textContent = ''; paintTermInto(pdBox, form, daysLeft()); }
     boxes.temps.appendChild(pdBox);
     // Page « Heures » : une ligne par activité choisie (valeur de départ : son historique Chrono), modifiable.
     // Activité NOUVELLE : on demande d'où vient ce temps : « S'ajoute » à mon temps actuel, ou « Pris sur » une autre activité (à choisir).
@@ -474,7 +494,7 @@
           tg.forEach(function (t, k) { // une activité après l'autre : crée l'activité si elle est nouvelle, puis son objectif (même titre, même échéance)
             chain = chain.then(function () { return t.pending ? api('POST', '/api/activities', { name: t.pending.name, color: t.pending.color || undefined }).then(function (a) { return a.id; }) : t.id; })
               .then(function (activityId) {
-                return api('POST', '/api/objectifs', { term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, hoursFrom: t.pending && form.hoursFrom[t.key] ? { mode: form.hoursFrom[t.key].mode, fromActivityId: form.hoursFrom[t.key].fromId } : null, description: form.description, parentRel: k === 0 ? form.parentRel : null, refus: k === 0 ? form.refused : null, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: k === 0 ? form.parentId : null, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: k === 0 ? P.weekTasks : [] });
+                return api('POST', '/api/objectifs', { term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, skill: form.skill || '', hoursFrom: t.pending && form.hoursFrom[t.key] ? { mode: form.hoursFrom[t.key].mode, fromActivityId: form.hoursFrom[t.key].fromId } : null, description: form.description, parentRel: k === 0 ? form.parentRel : null, refus: k === 0 ? form.refused : null, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: k === 0 ? form.parentId : null, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: k === 0 ? P.weekTasks : [] });
               })
               .then(function (cr) { if (cr && cr.id) { madeIds.push(cr.id); if (!first) first = cr; } });
           });
@@ -528,6 +548,66 @@
         return api('DELETE', '/api/objectifs/' + id + '?confirm=1').then(function () { if (done) done(); });
       });
     }).catch(function (e) { if (fail) fail(e); });
+  }
+  // ---------- Panneau de MODIFICATION d'un objectif (mode édition de l'arbre : crayon, puis toucher une carte) ----------
+  // Même format que la création : un panneau juste au-dessus de la barre, UN seul bouton « Enregistrer » (R35 : gris tant que rien n'a changé, violet ensuite). Mêmes blocs que la création
+  // (description guidée, date d'échéance, terme et objectifs inclus). L'activité ne se modifie pas (supprimer puis recréer) ; la fusion se fait par l'appui long dans l'arbre, jamais d'ici.
+  function openEdit(id) {
+    api('GET', '/api/objectifs/' + id).then(function (o) {
+      var daysOf = function (end) { return Math.max(0, Math.round((Date.parse(end + 'T00:00:00Z') - Date.parse(o.startDate + 'T00:00:00Z')) / 86400000)); };
+      var form = { title: o.title, endDate: o.endDate, term: o.term || null, innerGoals: o.innerGoals || 'les_deux', hours: o.hoursPerWeek || null, skill: o.skill || '', guideOpen: 0 };
+      guideParse(form, o.description || '');
+      var okInit = termsFor(daysOf(o.endDate)); if (okInit.indexOf(form.term) < 0) form.term = okInit[okInit.length - 1];
+      if (!multiOf(daysOf(o.endDate))) form.innerGoals = 'hebdomadaires';
+      var orig = { title: o.title, endDate: o.endDate, desc: guideCompose(form), term: form.term, inner: form.innerGoals, hours: form.hours, skill: String(form.skill).trim() };
+      function inner() { return multiOf(daysOf(form.endDate)) ? form.innerGoals : 'hebdomadaires'; }
+      function dirty() { return form.title.trim() !== orig.title || form.endDate !== orig.endDate || guideCompose(form) !== orig.desc || form.term !== orig.term || inner() !== orig.inner || (form.hours || null) !== (orig.hours || null) || String(form.skill).trim() !== orig.skill; }
+      var msg = el('p', 'tasksMsg objMsg');
+      function sync() { stepBtn.disabled = !dirty() || !form.endDate; }
+      panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = tr('Modifier l’objectif'); panelForm = { edit: true }; setBack(null);
+      panelBody.appendChild(el('p', 'hint', o.activity.name + (o.isMacro ? '' : ' · ' + o.title))); // l'activité est affichée, jamais modifiable
+      if (o.isMacro) { // seul un titre qui regroupe plusieurs objectifs se réécrit ; un objectif simple garde son titre
+        var tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = form.title; tIn.setAttribute('aria-label', tr('Titre'));
+        tIn.addEventListener('input', function () { form.title = tIn.value; sync(); }); panelBody.appendChild(field(tr('Titre'), tIn));
+      }
+      var guideBox = el('div', 'objGuide'); panelBody.appendChild(guideBox);
+      function paintG(f) { paintGuideInto(guideBox, form, function () { sync(); }, f); }
+      paintG();
+      var dueRow = el('div', 'objDueRow'), dateIn = el('input', 'objDueInput'), tBox = el('div');
+      dateIn.type = 'date'; dateIn.min = o.startDate; dateIn.value = form.endDate; dateIn.setAttribute('aria-label', tr('Date d’échéance'));
+      dueRow.appendChild(el('span', 'objDueLabel', tr('Date d’échéance') + ' :')); dueRow.appendChild(dateIn); panelBody.appendChild(dueRow);
+      function paintT() { tBox.textContent = ''; paintTermInto(tBox, form, daysOf(form.endDate), sync); }
+      dateIn.addEventListener('change', function () {
+        if (!dateIn.value || dateIn.value <= o.startDate) { form.endDate = null; msg.textContent = dateIn.value ? tr('L’échéance ne peut pas être dans le passé.') : ''; sync(); return; }
+        msg.textContent = ''; form.endDate = dateIn.value; paintT(); sync();
+      });
+      paintT(); panelBody.appendChild(tBox);
+      var hRow = el('div', 'objTimeRow'), hVal = el('span', 'objHoursVal'), hIn = el('input');
+      hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.value = form.hours ? String(form.hours) : ''; hIn.setAttribute('aria-label', tr('Heures par semaine'));
+      hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); form.hours = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; sync(); });
+      hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); panelBody.appendChild(hRow);
+      var sIn = el('input'); sIn.type = 'text'; sIn.maxLength = 200; sIn.value = form.skill; sIn.setAttribute('aria-label', tr('Ton niveau actuel'));
+      sIn.addEventListener('input', function () { form.skill = sIn.value; sync(); }); panelBody.appendChild(field(tr('Ton niveau actuel'), sIn));
+      if (o.parts && o.parts.items.length) { // ce que chaque sous-objectif représente dans la validation du grand objectif (proportionnel au temps prévu ; parts égales sans heures prévues)
+        var pb = el('div', 'objField'); pb.appendChild(el('p', 'cmpBlockTitle', tr('Part de chaque objectif')));
+        o.parts.items.forEach(function (it) { var r = el('div', 'objTimeRow'); r.appendChild(el('span', null, it.title)); r.appendChild(el('b', null, it.percent + ' %')); pb.appendChild(r); });
+        pb.appendChild(el('p', 'hint', tr(o.parts.mode === 'temps' ? 'Selon le temps prévu de chaque objectif.' : 'Parts égales : les heures ne sont pas toutes prévues.')));
+        panelBody.appendChild(pb);
+      }
+      var ab = btn('cmpBtn cmpBtnIdle', tr(o.abandoned ? 'Réactiver' : 'Abandonner'), function () { api('POST', '/api/objectifs/' + id + (o.abandoned ? '/reactiver' : '/abandon')).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }); });
+      var rare = el('div', 'objRare'); rare.appendChild(ab); panelBody.appendChild(rare); // action rare, tout en bas, violette (R4, R28)
+      function save() {
+        var calls = [];
+        if (o.isMacro && form.title.trim() !== orig.title) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/titre', { title: form.title.trim() }); });
+        if (guideCompose(form) !== orig.desc) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/description', { description: guideCompose(form) }); });
+        if (form.endDate !== orig.endDate) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/echeance', { endDate: form.endDate }); });
+        calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/parametres', { term: form.term, inner: inner(), hoursPerWeek: form.hours, skill: String(form.skill).trim() }); }); // après l'échéance : le terme dépend de la date
+        stepBtn.disabled = true; msg.textContent = '';
+        var chain = Promise.resolve(); calls.forEach(function (c) { chain = chain.then(c); });
+        chain.then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
+      }
+      dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save;
+    }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });
   }
   // ---------- Fenêtre « détail d'un objectif » ----------
   function openDetail(id) {
@@ -670,7 +750,8 @@
     createAt: function (o) { createAt(o); },
     openGroup: function (ids, opts) { openGroup(ids, opts); },
     dock: function () { return dock; },
-    openDetail: function (id) { openDetail(id); }
+    openDetail: function (id) { openDetail(id); },
+    openEdit: function (id) { openEdit(id); } // mode édition de l'arbre : panneau de modification (même format que la création)
   };
   // Si la vue Objectifs est déjà celle affichée au chargement (page1 se monte avant ce fichier).
   if (!host.classList.contains('hidden')) TMT.objectifsView.show();

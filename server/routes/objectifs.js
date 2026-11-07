@@ -35,6 +35,7 @@ router.put('/objectifs/:id/periodes/:n/semaines/:i', run((req) => objectifs.sema
 router.post('/objectifs/:id/bilan', run((req) => objectifs.bilan(req.userId, req.params.id, String((req.body || {}).action || ''), (req.body || {}).period)));
 router.put('/objectifs/:id/titre', run((req) => objectifs.renommer(req.userId, req.params.id, (req.body || {}).title)));
 router.put('/objectifs/:id/description', run((req) => objectifs.decrire(req.userId, req.params.id, (req.body || {}).description)));
+router.put('/objectifs/:id/parametres', run((req) => objectifs.parametres(req.userId, req.params.id, req.body || {})));
 router.put('/objectifs/:id/echeance', run((req) => objectifs.modifierEcheance(req.userId, req.params.id, (req.body || {}).endDate)));
 router.get('/objectifs/:id/macro', run((req) => objectifs.macroDe(req.userId, req.params.id)));
 router.put('/objectifs/:id/macro', run((req) => objectifs.setMacro(req.userId, req.params.id, (req.body || {}).isMacro === true, (req.body || {}).anchor)));

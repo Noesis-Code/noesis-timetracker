@@ -639,6 +639,7 @@ function creer(userId, body) {
   const meta0 = { plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7), term, inner };
   if (est0) { meta0.cat = est0.id; meta0.proposed = { p10: est0.p10, p90: est0.p90 }; }
   if (hpw) meta0.hoursPerWeek = hpw;
+  if (typeof body.skill === 'string' && body.skill.trim()) { const sk = textlimits.clean(body.skill, { max: 200, word: 'Niveau' }); if (sk.error) throw err(sk.error); if (sk.text) meta0.skill = sk.text; }
   // Activité créée avec l'objectif : d'où vient son temps ? « plus » (s'ajoute au temps habituel) ou « prise » sur une autre activité de la personne (7 nov. 2026).
   const hf = body.hoursFrom && typeof body.hoursFrom === 'object' ? body.hoursFrom : null;
   if (hf && hf.mode === 'prise') {
@@ -710,6 +711,34 @@ function columnsOf(r) {
   });
   return cols;
 }
+// Part de chaque sous-objectif dans la validation du grand objectif (décision d'Émilien, 7 nov. 2026) : proportionnelle au TEMPS PRÉVU (heures par semaine × semaines prévues) ;
+// si un sous-objectif n'a pas d'heures prévues, repli annoncé sur des parts ÉGALES. Les abandonnés ne comptent pas. Total toujours 100 %.
+function computeParts(r) {
+  const kids = activeKids(r).filter((k) => { try { return !JSON.parse(k.metaJson || '{}').abandoned; } catch (e) { return true; } });
+  if (!kids.length) return null;
+  const hrs = kids.map((k) => { let m = {}; try { m = JSON.parse(k.metaJson || '{}'); } catch (e) { m = {}; } return (Number(m.hoursPerWeek) || 0) * Math.max(1, Number(m.plannedWeeks) || 1); });
+  const sum = hrs.reduce((a, b) => a + b, 0), timed = sum > 0 && hrs.every((h) => h > 0);
+  const pct = kids.map((k, i) => Math.round((timed ? hrs[i] / sum : 1 / kids.length) * 100));
+  const diff = 100 - pct.reduce((a, b) => a + b, 0); if (diff) pct[pct.indexOf(Math.max.apply(null, pct))] += diff;
+  return { mode: timed ? 'temps' : 'egales', items: kids.map((k, i) => ({ id: k.id, title: k.title, percent: pct[i] })) };
+}
+// Mode édition : terme, objectifs inclus, heures par semaine, niveau (l'activité et la fusion ne se modifient pas ici). Chaque règle est vérifiée ici, pas seulement dans l'interface.
+function parametres(userId, id, body) {
+  body = body || {};
+  const r = rowOf(userId, id), meta = JSON.parse(r.metaJson || '{}');
+  const ok = temps.termes(r.startDate, r.endDate);
+  if (body.term != null) { if (!ok.includes(body.term)) throw err('Ce terme n’est pas possible pour cette échéance.'); meta.term = body.term; }
+  else if (meta.term && !ok.includes(meta.term)) meta.term = ok[ok.length - 1]; // l'échéance a changé : le terme reste dans les choix permis
+  const multi = daysBetween(r.startDate, r.endDate) > 28;
+  if (body.inner != null) { if (!['periodiques', 'hebdomadaires', 'les_deux'].includes(body.inner)) throw err('Objectifs inclus : choix invalide.'); meta.inner = multi ? body.inner : 'hebdomadaires'; }
+  else if (!multi && meta.inner) meta.inner = 'hebdomadaires';
+  if (meta.inner) db.prepare('UPDATE user_objectives SET weekly = ? WHERE id = ?').run(meta.inner === 'periodiques' ? 0 : 1, r.id);
+  if ('hoursPerWeek' in body) { const v = Number(body.hoursPerWeek); if (v > 0 && v <= 80) meta.hoursPerWeek = Math.round(v * 10) / 10; else if (body.hoursPerWeek == null || body.hoursPerWeek === '') delete meta.hoursPerWeek; else throw err('Heures par semaine : entre 0 et 80.'); }
+  if ('skill' in body) { const c = textlimits.clean(String(body.skill || ''), { max: 200, word: 'Niveau' }); if (c.error) throw err(c.error); if (c.text) meta.skill = c.text; else delete meta.skill; }
+  db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
+  return get(userId, id);
+}
+
 function macroInfo(r, depth) {
   depth = depth || 0;
   const kids = depth > 20 ? [] : activeKids(r);
@@ -742,9 +771,11 @@ function shape(r, full) {
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },
     weekTasks: { done: weekTasks.filter((t) => t.done).length, total: weekTasks.length },
   };
+  out.hoursPerWeek = meta.hoursPerWeek || null; out.skill = meta.skill || '';
   out.term = meta.term || null; out.innerGoals = meta.inner || null; // choix de création (terme, objectifs inclus) ; null pour les objectifs plus anciens
   out.isMacro = !!r.isMacro; out.timeLevel = temps.deduce(r.startDate, r.endDate); // dérivé de l'échéance, affichage seulement (jamais saisi ni validé)
   out.isBig = !!db.prepare('SELECT 1 FROM user_objectives WHERE userId = ? AND parentId = ? LIMIT 1').get(r.userId, r.id); // grand objectif = a au moins un sous-objectif
+  if (r.isMacro || out.isBig) out.parts = computeParts(r); // ce que chaque sous-objectif représente dans la validation du grand objectif
   if (r.isMacro) {
     const mi = macroInfo(r);
     out.macroLevel = r.level || 'activite'; out.macroColumns = columnsOf(r); out.childMacroIds = activeKids(r).filter((k) => k.isMacro).map((k) => k.id);
@@ -1038,4 +1069,4 @@ function supprimer(userId, id, confirmed) {
 }
 migrateEcheances(); // au chargement (idempotent)
 try { const n = purgeOrphanMacros(null); if (n) console.log('[objectifs] ' + n + ' macro(s) sans objectif relié retiré(s)'); } catch (e) { console.warn('[objectifs] nettoyage des macros vides impossible :', e.message); }
-module.exports = { purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

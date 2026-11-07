@@ -239,6 +239,24 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(crSrc.includes('function paintMacro') && crSrc.includes("'/api/objectifs/macro'") && crSrc.includes('macroDecided') && crSrc.includes('Annuler le macro'), 'macro proposé : avant / après, Accepter ou Refuser, nom et activités modifiables, créé après l’objectif, jamais en silence');
   assert(/createAt: function/.test(crSrc) && /form\.fixedCtx = true/.test(crSrc) && /createAt\(\{ ctx: c\.col\.ctx/.test(arSrc) && !/arHolePlus|createUnder/.test(arSrc), 'toucher une case VIDE ajoute un objectif (activité, niveau, échéance de la case) ; plus de « + » dans les cases');
   bad = false; try { o.get('autre-utilisateur', made.id); } catch (e) { bad = e.statusCode === 404; } assert(bad, 'un autre utilisateur ne voit pas cet objectif');
+  // Terme, objectifs inclus, mode édition, parts d'un grand objectif (7 nov. 2026)
+  const tm = require('../server/lib/objectifs-temps');
+  assert(tm.termes('2026-11-07', '2027-01-07').join() === 'periode' && tm.termes('2026-11-07', '2028-11-07').join() === 'periode,annee' && tm.termes('2026-11-07', '2032-11-07').length === 3, 'termes permis : < 6 mois périodique seul, < 2,5 ans +moyen, au-delà les trois');
+  let badT = false; try { o.creer(u, { title: 'Terme refusé', activityId: m.activityId, endDate: '2032-11-07', term: 'inconnu' }); } catch (e) { badT = e.statusCode === 400 || /terme/i.test(e.message); } assert(badT, 'création : terme incompatible refusé');
+  const shortO = o.creer(u, { title: 'Court terme', activityId: m.activityId, startDate: prop.startDate, endDate: '2026-12-01', inner: 'periodiques' });
+  assert(shortO.term === 'periode' && shortO.innerGoals === 'hebdomadaires', 'une seule période : périodique imposé et hebdomadaires seulement');
+  const ed = o.parametres(u, made.id, { hoursPerWeek: 5, skill: 'débutant', inner: 'periodiques' });
+  assert(ed.hoursPerWeek === 5 && ed.skill === 'débutant' && ed.innerGoals === 'periodiques' && ed.weekly === false, 'édition : heures, niveau et objectifs inclus enregistrés');
+  badT = false; try { o.parametres(u, shortO.id, { term: 'pluriannuel' }); } catch (e) { badT = true; } assert(badT, 'édition : terme incompatible avec l’échéance refusé');
+  badT = false; try { o.parametres(u, made.id, { hoursPerWeek: 99 }); } catch (e) { badT = true; } assert(badT, 'édition : heures hors limites refusées');
+  const bigG = o.creer(u, { title: 'Grand objectif', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-06-01', hoursPerWeek: 2 });
+  const k1 = o.creer(u, { title: 'Sous A', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-03-01', hoursPerWeek: 6, parentId: bigG.id });
+  const k2 = o.creer(u, { title: 'Sous B', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-03-01', hoursPerWeek: 2, parentId: bigG.id });
+  const partsG = o.get(u, bigG.id).parts;
+  assert(partsG && partsG.mode === 'temps' && partsG.items.length === 2 && partsG.items.reduce((x, i) => x + i.percent, 0) === 100 && partsG.items.find((i) => i.id === k1.id).percent === 75, 'parts : proportionnelles au temps prévu (6 h et 2 h = 75 % / 25 %), total 100 %');
+  o.parametres(u, k2.id, { hoursPerWeek: null });
+  const parts2 = o.get(u, bigG.id).parts;
+  assert(parts2.mode === 'egales' && parts2.items.every((i) => i.percent === 50), 'parts : sans heures prévues pour un sous-objectif, repli sur parts égales');
   // Objectifs de démonstration (staging seulement, idempotent, marqués demo)
   const seedMod = require('../server/lib/seed-staging');
   const s1 = seedMod.seedDemoObjectives(db), s2 = seedMod.seedDemoObjectives(db);
