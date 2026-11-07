@@ -348,56 +348,11 @@ function breakerResult(failed, now) {
 }
 function breakerReset() { breaker.fails = 0; breaker.openUntil = 0; breaker.probing = false; }
 
-// ---- PLAFONDS DE L'IA GRATUITE (décision d'Émilien, 6 nov. 2026) ----
-// Tout compte SANS accès Expansion est « gratuit » : (1) plafond GLOBAL mensuel pour TOUTE l'IA gratuite (IA_GRATUIT_PLAFOND_GLOBAL_USD, défaut 500 $ US),
-// (2) plafond PAR UTILISATEUR et par mois civil (IA_GRATUIT_PLAFOND_USER_USD, défaut 2 $ US, ses dépenses par activité comprises), (3) modèle LÉGER seul (jamais le modèle fort),
-// (4) alerte au journal à 80 % du plafond global. Un compte Expansion et les appels système ne sont jamais limités ici. Au-delà : la fonction retombe sur ses règles locales
-// (l'appel lève la même Error aiBlocked que toute limite de budget, sans appeler l'API) ; jamais d'erreur bloquante pour l'utilisateur.
-db.exec('CREATE TABLE IF NOT EXISTS ai_free_spend (month TEXT PRIMARY KEY, costUsd REAL NOT NULL DEFAULT 0)'); // dépense mensuelle cumulée de l'IA gratuite, sans compte ni texte
-function freeGlobalCap() { return envNum('IA_GRATUIT_PLAFOND_GLOBAL_USD') || 500; }
-function freeUserCap() { return envNum('IA_GRATUIT_PLAFOND_USER_USD') || 2; }
-function isFreeUser(key) {
-  const id = splitKey(key).userId;
-  if (!id || id === SYSTEM_USER) return false;
-  try { return !require('./offer1access').hasOffer1Access(id); } catch (e) { return false; }
-}
-function freeSpentGlobal(now) { const r = db.prepare('SELECT costUsd AS s FROM ai_free_spend WHERE month = ?').get(todayLocal(now).slice(0, 7)); return r ? r.s : 0; }
-function freeSpentUser(key, now) {
-  const id = splitKey(key).userId, month = todayLocal(now).slice(0, 7);
-  return db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE (userId = ? OR userId LIKE ?) AND day >= ? AND day <= ?').get(String(id), String(id) + '#a%', month + '-01', month + '-31').s || 0;
-}
-function freeCheck(key, now) {
-  if (freeSpentUser(key, now) >= freeUserCap() - 1e-12 || freeSpentGlobal(now) >= freeGlobalCap() - 1e-12) {
-    return { ok: false, resumesOn: nextMonthStart(now), message: "Disponible avec Expansion : la limite mensuelle de l'IA gratuite est atteinte. Elle reprend le " + dateLabelFr(nextMonthStart(now)) + '.' };
-  }
-  return { ok: true };
-}
-function freeAdd(cost, now) {
-  if (!(cost > 0)) return;
-  const month = todayLocal(now).slice(0, 7), before = freeSpentGlobal(now);
-  db.prepare('INSERT INTO ai_free_spend (month, costUsd) VALUES (?, ?) ON CONFLICT(month) DO UPDATE SET costUsd = costUsd + excluded.costUsd').run(month, cost);
-  const cap = freeGlobalCap();
-  if (before < cap * 0.8 && before + cost >= cap * 0.8 && claimAlert('ia-gratuit-80', month, +cap.toFixed(2))) {
-    console.warn('[aibudget] ALERTE IA gratuite : 80 % du plafond global mensuel atteint (' + (before + cost).toFixed(2) + ' USD sur ' + cap.toFixed(2) + ' USD, IA_GRATUIT_PLAFOND_GLOBAL_USD) ; au-delà, repli sans IA pour les comptes gratuits');
-  }
-}
-// Corps d'appel d'un compte gratuit : modèle fort remplacé par le modèle léger.
-function lightBody(init) {
-  if (!init || typeof init.body !== 'string') return init;
-  try {
-    const b = JSON.parse(init.body);
-    if (b && typeof b.model === 'string' && !/haiku/i.test(b.model)) { b.model = require('./aimodels').FAST; return { ...init, body: JSON.stringify(b) }; }
-  } catch (e) { /* corps non JSON : inchangé */ }
-  return init;
-}
-
 // Remplace fetch(ANTHROPIC_URL, init) : vérifie le budget, appelle l'API, enregistre le coût.
 // Bloqué : lève une Error { aiBlocked: true, resumesOn } SANS appeler l'API (les appelants
 // l'attrapent déjà comme n'importe quelle panne IA). Renvoie la Response d'origine, intacte.
 async function fetchAnthropic(feature, url, init, userId) {
   const uid = userId || currentUser() || SYSTEM_USER;
-  const free = isFreeUser(uid);
-  if (free) { const fc = freeCheck(uid); if (!fc.ok) throw Object.assign(new Error(fc.message), { aiBlocked: true, freeCap: true, resumesOn: fc.resumesOn, period: 'mois' }); init = lightBody(init); }
   const est = estimateMaxCost(init && init.body);
   const c = check(uid, undefined, est);
   if (!c.ok) throw Object.assign(new Error(c.message), { aiBlocked: true, resumesOn: c.resumesOn, period: c.period });
@@ -412,7 +367,7 @@ async function fetchAnthropic(feature, url, init, userId) {
     if (res && res.ok && typeof res.clone === 'function') {
       try {
         const body = await res.clone().json();
-        if (body && body.usage) { const mdl = body.model || (init && init.body && JSON.parse(init.body).model); record(uid, mdl, body.usage, feature); if (free) freeAdd(computeCost(mdl, body.usage)); }
+        if (body && body.usage) record(uid, body.model || (init && init.body && JSON.parse(init.body).model), body.usage, feature);
       } catch (e) { /* réponse non lisible : rien à enregistrer */ }
     }
     return res;
