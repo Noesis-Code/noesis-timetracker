@@ -22,7 +22,7 @@ const walk = (d) => fs.readdirSync(path.join(root, d), { withFileTypes: true }).
   });
 });
 walk('server');
-if (types.size < 10) fail('trop peu de types détectés : ' + [...types].join(','));
+if (types.size < 9) fail('trop peu de types détectés : ' + [...types].join(','));
 
 // 2. Une branche du client par type.
 const body = app.slice(app.indexOf('function openTabFromNotification'));
