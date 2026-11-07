@@ -162,7 +162,7 @@ const now = () => new Date().toISOString();
   let scheduled = 0; const orig = cron.schedule; cron.schedule = () => { scheduled++; };
   cronMod.startSubscriptionCron(); cronMod.startSubscriptionCron();
   cron.schedule = orig;
-  ok(scheduled === 2, 'cron : démarrage idempotent (2 tâches planifiées, pas 4)');
+  ok(scheduled === 3, 'cron : démarrage idempotent (3 tâches planifiées : balayage, horaire, rappel mensuel de l’IA gratuite ; pas 6)');
   const mailsSrc = require('fs').readFileSync(require('path').join(__dirname, '../server/lib/subscriptioncron.js'), 'utf8');
   ok(!/subscriptionmails|notifyUser/.test(mailsSrc), 'cron : n\'envoie aucun courriel (pas de rappel de renouvellement : Stripe gère le prélèvement)');
 
