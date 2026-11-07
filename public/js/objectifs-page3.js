@@ -20,9 +20,10 @@
         </div>
         <div id="goalsDetailScroll">
           <div id="activityGoalsBlock">
-            <div id="goalsTopLine" class="goalsTopLine" data-cmpnav-for="#goalsMonthCal .goalsCalNav">
+            <div id="goalsTopLine" class="goalsTopLine">
               <span class="goalsPeriodTag" id="activityGoalsPeriodTitle"></span>
               <div id="goalsMainLineHost"></div>
+              <button type="button" class="cmpNavArrow" id="goalsPeriodNext" aria-label="Période suivante">›</button>
             </div>
 
             <!-- (discussion "Objectifs — D"), demande
@@ -160,14 +161,16 @@
                  cliquable par jour (ancien mécanisme de renvoi vers la carte
                  hebdomadaire) disparaît avec elle : redondant maintenant que
                  le jour est déjà affiché sous sa propre semaine. -->
-            <div id="goalsMonthCal" class="goalsMonthCal">
-              <div class="goalsCalNav cmpNav">
-                <button type="button" class="cmpNavArrow" id="goalsCalPrev" aria-label="Mois précédent">‹</button>
-                <span class="cmpNavLabel" id="goalsCalTitle"></span>
-                <button type="button" class="cmpNavArrow" id="goalsCalNext" aria-label="Mois suivant">›</button>
+            <div id="goalsMonthCal" class="goalsMonthCal tasksWeek">
+              <div class="cmpNav cmpNav--sm goalsCalNav">
+                <button type="button" class="cmpNavLabel tasksWeekLabel" id="goalsCalTitle" aria-expanded="false"></button>
               </div>
-              <div class="goalsCalHead" id="goalsCalHead"></div>
-              <div class="goalsCalGrid" id="goalsCalGrid"></div>
+              <div class="tasksWeekHead"><div class="goalsCalHead" id="goalsCalHead"></div></div>
+              <div class="tasksWeekFrame">
+                <button type="button" class="cmpNavArrow" id="goalsCalPrev" aria-label="Précédent">‹</button>
+                <div class="tasksWeekGrid goalsCalGrid" id="goalsCalGrid"></div>
+                <button type="button" class="cmpNavArrow" id="goalsCalNext" aria-label="Suivant">›</button>
+              </div>
             </div>
 
             <p id="activityGoalsMsg" class="msg"></p>
@@ -827,21 +830,20 @@
     var planning = TMT.currentGoalsPlanning, grid = $('goalsCalGrid');
     if (!grid || !planning) return;
     var periods = planning.periods || [], view = goalPeriodByNumber(planning, TMT.currentGoalsViewPeriodNumber);
-    if (!calMonth || (view && calMonth.forPeriod !== view.periodNumber)) {
-      var base = (!view || view.isCurrent) ? isoToday() : isoAddDays(view.startDate, 14); // période en cours : le mois d'aujourd'hui
-      calMonth = { y: +base.slice(0, 4), m: +base.slice(5, 7) - 1, forPeriod: view ? view.periodNumber : null };
-    }
+    // Même pliage que la bande de Tâches : replié = la semaine de l'ancre (jour choisi ou aujourd'hui), déployé = le mois ; l'état vit dans la vue Tâches (calNavState).
+    var nav = calNavState(), ref = nav.expanded ? nav.anchor.slice(0, 8) + '01' : isoAddDays(mondayIso(nav.anchor), 3); // semaine à cheval sur deux mois : le mois du jeudi
+    calMonth = { y: +ref.slice(0, 4), m: +ref.slice(5, 7) - 1, forPeriod: view ? view.periodNumber : null };
     var loc = TMT.dateLocale || undefined, pad = function (x) { return String(x).padStart(2, '0'); };
-    var navMain = view && view.mainGoalText && view.mainGoalText.trim(); // avec un objectif périodique : l'objectif prend le grand format, le mois passe en petit
-    var calNav = document.querySelector('#goalsMonthCal .goalsCalNav'); if (calNav) calNav.classList.toggle('cmpNav--sm', !!navMain);
-    var topMonth = document.querySelector('.goalsTopAddMonth');
-    $('goalsCalTitle').textContent = cap1(new Date(Date.UTC(calMonth.y, calMonth.m, 1)).toLocaleDateString(loc, { month: 'long', year: 'numeric', timeZone: 'UTC' }));
-    if (topMonth) topMonth.textContent = $('goalsCalTitle').textContent;
+    var titleEl = $('goalsCalTitle'); titleEl.textContent = '';
+    titleEl.appendChild(document.createTextNode(cap1(new Date(Date.UTC(calMonth.y, calMonth.m, 1)).toLocaleDateString(loc, { month: 'long', year: 'numeric', timeZone: 'UTC' }))));
+    var chev = document.createElement('span'); chev.className = 'cmpChev' + (nav.expanded ? ' open' : ''); titleEl.appendChild(chev);
+    titleEl.setAttribute('aria-expanded', nav.expanded ? 'true' : 'false');
     var head = $('goalsCalHead'); head.textContent = '';
     for (var k = 0; k < 7; k++) { var hd = document.createElement('span'); hd.textContent = cap1(new Date(Date.UTC(2024, 0, 1 + k)).toLocaleDateString(loc, { weekday: 'narrow', timeZone: 'UTC' })); head.appendChild(hd); } // 1er janv. 2024 = lundi
     var first = calMonth.y + '-' + pad(calMonth.m + 1) + '-01', lastDay = new Date(Date.UTC(calMonth.y, calMonth.m + 1, 0)).getUTCDate();
     var dow = (new Date(Date.UTC(calMonth.y, calMonth.m, 1)).getUTCDay() + 6) % 7; // lundi = 0
     var start = isoAddDays(first, -dow), rows = Math.ceil((dow + lastDay) / 7);
+    if (!nav.expanded) { start = mondayIso(nav.anchor); rows = 1; }
     var slots = [];
     periods.forEach(function (p) {
       for (var wi = 1; wi <= (p.weeksCount || 4); wi++) {
@@ -880,7 +882,7 @@
       var days = document.createElement('div'); days.className = 'goalsCalDays';
       for (var c = 0; c < 7; c++) {
         var di = isoAddDays(rs, c), cell = document.createElement('button'); cell.type = 'button';
-        cell.className = 'goalsCalDay' + (+di.slice(5, 7) - 1 !== calMonth.m ? ' out' : '') + (di === today ? ' today' : '') + (di === selDay ? ' sel' : '');
+        cell.className = 'goalsCalDay' + (nav.expanded && +di.slice(5, 7) - 1 !== calMonth.m ? ' out' : '') + (di === today ? ' today' : '') + (di === selDay ? ' sel' : '');
         cell.textContent = String(+di.slice(8, 10));
         (function (iso) { cell.addEventListener('click', function () { selectGoalsDay(iso); }); })(di);
         days.appendChild(cell);
@@ -892,7 +894,7 @@
   // Positionne le calendrier sur le mois d'une date (TMT.ouvrirCalendrierTaches) : la période affichée ne change pas, seul le mois saute.
   TMT.goalsCalGoTo = function (iso) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso || ''))) return;
-    calMonth = { y: +iso.slice(0, 4), m: +iso.slice(5, 7) - 1, forPeriod: TMT.currentGoalsViewPeriodNumber };
+    if (calHook && calHook.setNav) calHook.setNav(iso);
     renderGoalsMonthCal();
   };
   // Jour touché : cercle plein sur le jour, barre « Nouvelle tâche… » en bas (même dock que la page 1, TMT.ui.dockKeyboard) et, au-dessus, le panneau des tâches déjà prévues ce jour-là
@@ -1018,38 +1020,38 @@
     var tagHost = $('activityGoalsPeriodTitle'); tagHost.textContent = '';
     tagHost.appendChild(TMT.ui.statusBtn('P' + period.periodIndexInCycle, pState)); // sans clic : suit ses semaines
 
-    var oldFr = document.querySelector('.goalsTopAdd'); if (oldFr) oldFr.remove(); var navLab = document.getElementById('goalsCalTitle'); if (navLab) navLab.classList.remove('hidden');
     var host = $('goalsMainLineHost'); host.textContent = '';
     var b = document.createElement('button'); b.type = 'button';
     var hasMain = !!(period.mainGoalText && period.mainGoalText.trim());
-    $('goalsTopLine').classList.toggle('hidden', !hasMain); // sans objectif : une seule petite ligne « P12 · Ajouter un objectif périodique »
-    var calNav = document.querySelector('#goalsMonthCal .goalsCalNav');
-    if (hasMain) {
-      b.className = 'goalsMainLine goalsMainBig'; b.textContent = period.mainGoalText; b.title = period.mainGoalText;
-      b.addEventListener('click', function () { openGoalEdit('main', period, null, period.mainGoalText, 'P' + period.periodIndexInCycle + ' · ' + t('Objectif périodique'), period.mainGoalDescription); });
-    } else {
-      // Sans objectif : le cadre pointillé (.cmpAdd) entoure « + P11 · Ajouter un objectif périodique » ET le mois ; les flèches ‹ › du mois restent à l'extérieur, de part et d'autre.
-      var fr = document.createElement('div'); fr.className = 'cmpAdd goalsTopAdd'; fr.setAttribute('role', 'button'); fr.tabIndex = 0;
-      var ln = document.createElement('span'); ln.className = 'goalsTopAddLine'; var pl = document.createElement('b'); pl.textContent = '+'; ln.appendChild(pl);
-      ln.appendChild(document.createTextNode('P' + period.periodIndexInCycle + ' · ' + t('Ajouter un objectif périodique'))); fr.appendChild(ln);
-      var mo = document.createElement('span'); mo.className = 'goalsTopAddMonth'; fr.appendChild(mo);
-      var open = function () { openGoalEdit('main', period, null, '', 'P' + period.periodIndexInCycle + ' · ' + t('Objectif périodique'), ''); };
-      fr.addEventListener('click', open); fr.addEventListener('keydown', function (e) { if (e.key === 'Enter') open(); });
-      var labEl = document.getElementById('goalsCalTitle'); if (calNav && labEl) { labEl.classList.add('hidden'); calNav.insertBefore(fr, labEl); }
-      return;
-    }
+    // Ligne de période (en haut de la vue Tâches, à droite de l'icône de filtre) : titre de l'objectif périodique, ou « + Ajouter un objectif périodique » ; un toucher ouvre l'éditeur.
+    if (hasMain) { b.className = 'goalsMainLine goalsMainBig'; b.textContent = period.mainGoalText; b.title = period.mainGoalText; }
+    else { b.className = 'goalsMainLine goalsMainBig goalsMainAdd'; var pl = document.createElement('b'); pl.textContent = '+'; b.appendChild(pl); b.appendChild(document.createTextNode(t('Ajouter un objectif périodique'))); }
+    b.addEventListener('click', function () { openGoalEdit('main', period, null, hasMain ? period.mainGoalText : '', 'P' + period.periodIndexInCycle + ' · ' + t('Objectif périodique'), hasMain ? period.mainGoalDescription : ''); });
     host.appendChild(b);
   }
+  // Changer de période : un seul contrôle (chevron ›) = période suivante (la dernière ramène à la première) ; le calendrier se pose sur son premier jour.
+  $('goalsPeriodNext').addEventListener('click', function () {
+    var ps = ((TMT.currentGoalsPlanning && TMT.currentGoalsPlanning.periods) || []).slice().sort(function (a, b) { return a.startDate < b.startDate ? -1 : 1; });
+    if (!ps.length) return;
+    var i = -1; ps.forEach(function (p, k) { if (p.periodNumber === TMT.currentGoalsViewPeriodNumber) i = k; });
+    var nx = ps[(i + 1) % ps.length];
+    TMT.currentGoalsViewPeriodNumber = nx.periodNumber;
+    if (calHook && calHook.setNav) calHook.setNav(nx.startDate);
+    renderActivityGoals();
+  });
   // Navigation de mois : la période affichée (objectif périodique) suit le mois (celle qui contient son milieu).
-  function stepGoalsMonth(delta) {
-    if (!calMonth) return;
-    calMonth.m += delta; if (calMonth.m < 0) { calMonth.m = 11; calMonth.y -= 1; } if (calMonth.m > 11) { calMonth.m = 0; calMonth.y += 1; }
-    var mid = calMonth.y + '-' + String(calMonth.m + 1).padStart(2, '0') + '-15', hit = null;
-    ((TMT.currentGoalsPlanning && TMT.currentGoalsPlanning.periods) || []).forEach(function (p) { if (!hit && p.startDate <= mid && p.endDate >= mid) hit = p; });
-    if (hit && hit.periodNumber !== TMT.currentGoalsViewPeriodNumber) { calMonth.forPeriod = hit.periodNumber; TMT.currentGoalsViewPeriodNumber = hit.periodNumber; renderActivityGoals(); } else renderGoalsMonthCal();
-  }
-  $('goalsCalPrev').addEventListener('click', function () { stepGoalsMonth(-1); });
-  $('goalsCalNext').addEventListener('click', function () { stepGoalsMonth(1); });
+  function mondayIso(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso), dw = (new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay() + 6) % 7; return isoAddDays(iso, -dw); }
+  function calNavState() { var n = calHook && calHook.nav ? calHook.nav() : null; return n || { anchor: isoToday(), expanded: true }; }
+  // La période affichée suit le calendrier : celle qui contient le jeudi de la semaine (replié) ou le milieu du mois (déployé).
+  TMT.goalsCalNavChanged = function () {
+    if (!calIntegrated()) return;
+    var nav = calNavState(), ref = nav.expanded ? nav.anchor.slice(0, 8) + '15' : isoAddDays(mondayIso(nav.anchor), 3), hit = null;
+    ((TMT.currentGoalsPlanning && TMT.currentGoalsPlanning.periods) || []).forEach(function (p) { if (!hit && p.startDate <= ref && p.endDate >= ref) hit = p; });
+    if (hit && hit.periodNumber !== TMT.currentGoalsViewPeriodNumber) { TMT.currentGoalsViewPeriodNumber = hit.periodNumber; renderActivityGoals(); } else renderGoalsMonthCal();
+  };
+  $('goalsCalPrev').addEventListener('click', function () { if (calHook && calHook.step) calHook.step(-1); });
+  $('goalsCalNext').addEventListener('click', function () { if (calHook && calHook.step) calHook.step(1); });
+  $('goalsCalTitle').addEventListener('click', function () { if (calHook && calHook.toggle) calHook.toggle(); });
 
 
   function renderActivityGoals() {
@@ -1498,14 +1500,16 @@
   TMT.goalsCalMount = function (host, hook) {
     var sc = $('goalsDetailScroll'); if (!sc || !host) return;
     calHostEl = host; calHook = hook || null; if (sc.parentNode !== host) host.appendChild(sc);
+    var top = $('goalsTopLine'); if (top && hook && hook.topHost && top.parentNode !== hook.topHost) hook.topHost.appendChild(top); // ligne de période : en haut, à droite de l'icône de filtre
     selDay = curSel();
   };
   // Rend le nœud à la page 3 (elle va s'ouvrir) ; la vue Tâches en est prévenue (hook.released).
   TMT.goalsCalUnmount = function () {
     if (!calHostEl) return;
     if (dayMode === 'goal') selectGoalsDay(null);
-    var sc = $('goalsDetailScroll'), back = $('goalsMonthView'), hook = calHook;
+    var sc = $('goalsDetailScroll'), back = $('goalsMonthView') || $('goalsDetailPage'), hook = calHook, top = $('goalsTopLine'), blk = $('activityGoalsBlock');
     if (sc && back && sc.parentNode === calHostEl) back.appendChild(sc);
+    if (top && blk && top.parentNode !== blk) blk.insertBefore(top, blk.firstChild);
     calHostEl = null; calHook = null; selDay = null;
     if (hook && hook.released) hook.released();
   };
@@ -1543,7 +1547,8 @@
       if (!applyGoalsMonthState(cat, per)) return false;
       if (!date) { var vp = goalPeriodByNumber(planning, TMT.currentGoalsViewPeriodNumber); date = vp && !vp.isCurrent ? isoAddDays(vp.startDate, 14) : isoToday(); }
       TMT.goalsCalMount(host, hook);
-      calMonth = null; TMT.goalsCalGoTo(date); renderActivityGoals();
+      if (o.date && calHook && calHook.setNav) calHook.setNav(o.date);
+      renderActivityGoals();
       api('POST', '/api/activities/' + aid + '/goals/categories/' + encodeURIComponent(cat) + '/mark-seen').then(loadGoalsCaptureBadges).catch(function () {});
       var cols = TMT.currentGoalsGridColumns || [], poles = (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.categories) || [];
       var sec = cols.filter(function (c) { return c.key === cat; })[0], pol = poles.filter(function (p) { return p.key === (o.poleKey || cat); })[0];

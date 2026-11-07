@@ -49,5 +49,8 @@ const p1 = R('public', 'js', 'objectifs-page1.js'), p3 = R('public', 'js', 'obje
 assert(p1.includes('TMT.ouvrirCalendrierTaches = function') && p1.includes('TMT.todayView.openCalendar') && js.includes('TMT.showGoalsCalendar') && p3.includes('TMT.showGoalsCalendar = function') && p3.includes('TMT.goalsCalMount'), 'ouverture directe du calendrier des tâches : la vue Tâches (filtre pôle / secteur) monte le calendrier de la page 3 (même nœud, aucune copie)');
 assert(p3.includes('TMT.goalsCalGoTo = function') && p3.includes('renderGoalsMonthCal();'), 'le calendrier se positionne sur le mois de la date demandée (TMT.goalsCalGoTo)');
 assert(js.includes("nDone + ' / ' + (nDone + nTodo)") && !js.includes("viewDay === 'all' ? String(nTodo)"), 'compteur : toujours « réalisées / total » (jamais le nombre de tâches à faire seul)');
+const pk = js.slice(js.indexOf('function pickDay'), js.indexOf('// Minuit'));
+assert(pk.length > 50 && !/calExpanded\s*=[^=]/.test(pk) && pk.includes('if (!calExpanded) calAnchor = d'), 'jour touché : le calendrier déployé le reste (bande et calendrier importé), seul le libellé du mois replie');
+assert(js.includes('function toggleExpand(resetAnchor)') && p3.includes("id=\"goalsCalTitle\"") && p3.includes('tasksWeekFrame') && p3.includes('goalsPeriodNext'), 'calendrier importé : libellé du mois + chevron comme la bande, flèches sur les côtés, contrôle de période');
 if (failed) { console.log('\nvue-taches-jour-test : ' + failed + ' échec(s)'); process.exit(1); }
 console.log('\nvue-taches-jour-test : OK');

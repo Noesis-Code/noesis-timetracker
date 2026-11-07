@@ -79,7 +79,7 @@
   function addDays(s, n) { var d = fromIso(s); d.setDate(d.getDate() + n); return isoOf(d); }
   function mondayOf(s) { return addDays(s, -((fromIso(s).getDay() + 6) % 7)); }
   function cap1(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-  function buildCal() { calBox = el('div', 'tasksWeek'); calAnchor = dayIso(); paintCal(); bindCalSwipe(); return calBox; }
+  function buildCal() { calBox = el('div', 'tasksWeek'); calAnchor = dayIso(); paintCal(); bindCalSwipe(calBox); return calBox; }
   function paintCal() {
     if (!calBox) return;
     calBox.textContent = '';
@@ -91,7 +91,7 @@
     var ref = calExpanded ? anchor.slice(0, 8) + '01' : addDays(mondayOf(anchor), 3); // semaine à cheval sur deux mois : le mois du jeudi (norme ISO)
     label.appendChild(document.createTextNode(cap1(fromIso(ref).toLocaleDateString(loc, { month: 'long', year: 'numeric' }))));
     label.appendChild(el('span', 'cmpChev' + (calExpanded ? ' open' : '')));
-    label.addEventListener('click', function () { calExpanded = !calExpanded; paintCal(); });
+    label.addEventListener('click', function () { toggleExpand(false); });
     prev.addEventListener('click', function () { stepCal(-1); });
     next.addEventListener('click', function () { stepCal(1); });
     nav.appendChild(label); calBox.appendChild(nav); // libellé du mois seul en haut ; les flèches encadrent le calendrier (centrées sur lui, elles descendent quand le mois se déploie)
@@ -117,11 +117,11 @@
     syncCalSel();
   }
   // Balayage sur le calendrier : change de semaine (ou de mois déployé), jamais de page (les écouteurs de page ne voient pas le geste).
-  function bindCalSwipe() {
+  function bindCalSwipe(node) {
     var x0 = 0, y0 = 0, on = false;
-    calBox.addEventListener('touchstart', function (e) { e.stopPropagation(); on = e.touches.length === 1; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
-    calBox.addEventListener('touchmove', function (e) { e.stopPropagation(); }, { passive: true });
-    calBox.addEventListener('touchend', function (e) {
+    node.addEventListener('touchstart', function (e) { e.stopPropagation(); on = e.touches.length === 1; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    node.addEventListener('touchmove', function (e) { e.stopPropagation(); }, { passive: true });
+    node.addEventListener('touchend', function (e) {
       e.stopPropagation(); if (!on) return; on = false;
       var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
       if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) stepCal(dx < 0 ? 1 : -1);
@@ -130,12 +130,18 @@
   function stepCal(n) {
     if (calExpanded) { var d = fromIso((calAnchor || dayIso()).slice(0, 8) + '01'); d.setMonth(d.getMonth() + n); calAnchor = isoOf(d); }
     else calAnchor = addDays(calAnchor || dayIso(), 7 * n);
-    paintCal();
+    paintCal(); calNavChanged();
   }
+  // Libellé du mois : replie / déploie (jamais au choix d'un jour). resetAnchor (calendrier importé) : en repliant, la semaine est celle du jour choisi, sinon d'aujourd'hui.
+  function toggleExpand(resetAnchor) {
+    if (calExpanded && resetAnchor) calAnchor = viewDay === 'all' ? localIso() : dayIso();
+    calExpanded = !calExpanded; paintCal(); calNavChanged();
+  }
+  function calNavChanged() { if (calOn && TMT.goalsCalNavChanged) TMT.goalsCalNavChanged(); } // la période du calendrier importé suit la semaine / le mois affiché
   // Jour choisi : la liste ne montre QUE cette journée. Futur : les ajouts sont datés de ce jour ; passé : lecture seule.
   function pickDay(d) {
-    var nv = d === localIso() ? null : d; viewDay = nv === viewDay ? 'all' : nv; calAnchor = d; // retoucher le jour choisi = retour à toutes les tâches
-    calExpanded = false; state.date = null;
+    var nv = d === localIso() ? null : d; viewDay = nv === viewDay ? 'all' : nv; if (!calExpanded) calAnchor = d; // retoucher le jour choisi = retour à toutes les tâches ; mois déployé : il le reste (8 nov. 2026, Émilien), même mois
+    state.date = null;
     paintCal();
     var c = cacheGet(viewKey()); if (c) render(c); else { listBox.textContent = ''; }
     refresh();
@@ -154,9 +160,14 @@
   var calHook = {
     current: function () { return viewDay === 'all' ? null : dayIso(); },
     pick: function (iso) { pickDay(iso); },
+    topHost: null, // posé après la construction de la rangée du haut
+    nav: function () { return { anchor: calAnchor || dayIso(), expanded: calExpanded }; },
+    step: function (n) { stepCal(n); },
+    toggle: function () { toggleExpand(true); },
+    setNav: function (iso) { calAnchor = iso; paintCal(); },
     released: function () { calSeq++; calOn = false; calKey = ''; setCalOn(false); } // la page 3 reprend son calendrier : la bande revient
   };
-  function buildCalHost() { calHost = el('div', 'tasksCalHost hidden'); return calHost; }
+  function buildCalHost() { calHost = el('div', 'tasksCalHost hidden'); bindCalSwipe(calHost); return calHost; }
   function setCalOn(on) { if (calBox) calBox.classList.toggle('hidden', on); if (calHost) calHost.classList.toggle('hidden', !on); if (root) root.classList.toggle('calIntegrated', on); }
   function calCat() { return filt.act != null && filt.pole != null ? (filt.sectorKey || filt.pole) : null; } // catégorie du calendrier : le secteur, ou le pôle sans secteurs
   function syncCalSel() { if (calOn && TMT.goalsCalSetSel) TMT.goalsCalSetSel(calHook.current()); }
@@ -166,7 +177,8 @@
     if (!cat || !calHost || !TMT.showGoalsCalendar) { calOff(); return Promise.resolve(false); }
     var key = filt.act + '|' + filt.pole + '|' + (filt.sectorKey || '');
     if (!force && calOn && key === calKey && Date.now() - calAt < 3000) return Promise.resolve(true);
-    var seq = ++calSeq, d = date || (calOn && TMT.goalsCalMonthIso && TMT.goalsCalMonthIso()) || calAnchor || dayIso();
+    calHook.topHost = periodHost;
+    var seq = ++calSeq, d = date || calAnchor || dayIso();
     return TMT.showGoalsCalendar({ activityId: filt.act, poleKey: filt.pole, secteurKey: filt.sectorKey || null, date: d }, calHost, calHook).then(function (r) {
       if (seq !== calSeq) return !!r;
       if (!r) { calOff(); return false; } // pas de planning pour cette catégorie (ex. pôle qui a des secteurs) : la bande reste
@@ -187,7 +199,9 @@
   // dessous (choix direct, pas de 3e page). Balayage vers la droite = retour à la page 1. Les tâches sans objectif restent dans la liste de leur activité, pôle ou secteur.
   var filt = { act: null, pole: null, sector: null }, filterBox = null, filtOpen = false, filtBrowse = null;
   function filtMatch(t) { return filt.act == null || (String(t.activityId) === filt.act && (filt.pole == null || t.pole === filt.pole) && (filt.sector == null || (t.sectorKey !== undefined && filt.sectorKey ? t.sectorKey === filt.sectorKey : t.sector === filt.sector))); }
-  function buildFilter() { filterBox = el('div', 'tasksFilter'); paintFilter(); return filterBox; }
+  var filterRow = null, periodHost = null;
+  // Rangée du haut : icône de filtre à gauche ; à sa droite, la ligne de période du calendrier importé (masquée quand le panneau de filtre est ouvert).
+  function buildFilter() { filterRow = el('div', 'tasksFilterRow'); filterBox = el('div', 'tasksFilter'); periodHost = el('div', 'tasksPeriodHost'); filterRow.appendChild(filterBox); filterRow.appendChild(periodHost); paintFilter(); return filterRow; }
   function filtData(actId) {
     var acts = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a && a.id != null; });
     if (filt.act != null && !acts.some(function (a) { return String(a.id) === filt.act; })) filt = { act: null, pole: null, sector: null };
@@ -205,7 +219,7 @@
   }
   document.addEventListener('click', function (e) { if (filtOpen && filterBox && !filterBox.contains(e.target)) { filtOpen = false; filtBrowse = null; paintFilter(); } });
   function paintFilter() {
-    if (!filterBox) return; filterBox.textContent = '';
+    if (!filterBox) return; filterBox.textContent = ''; if (filterRow) filterRow.classList.toggle('open', filtOpen);
     var d = filtData(filt.act), cur = d.acts.filter(function (a) { return String(a.id) === filt.act; })[0], pole = d.poles.filter(function (p) { return p.key === filt.pole; })[0];
     var label = cur ? cur.name + (filt.pole != null && (pole || filt.poleLabel) ? ' › ' + (filt.sector || (pole ? pole.label : filt.poleLabel)) : '') : tr('Toutes les activités');
     var head = el('button', 'tasksFilterLine' + (cur ? ' on' : '')); head.type = 'button'; head.setAttribute('aria-expanded', filtOpen ? 'true' : 'false');
@@ -1003,6 +1017,7 @@
       var prev = filt, sk = o.secteurKey && o.secteurKey !== o.poleKey ? String(o.secteurKey) : null;
       var known = ((lastData && lastData.tasks) || []).filter(function (t) { return String(t.activityId) === String(o.activityId) && t.pole === o.poleKey && (!sk || t.sectorKey === sk); })[0];
       filt = { act: String(o.activityId), pole: o.poleKey, poleLabel: known ? known.poleName : '', sector: sk ? ((known && known.sector) || sk) : null, sectorKey: sk };
+      if (o.date) calAnchor = o.date;
       return syncCalendar(o.date || null, true).then(function (ok) {
         if (!ok) { filt = prev; paintFilter(); syncCalendar(); return false; }
         filtOpen = false; filtBrowse = null;

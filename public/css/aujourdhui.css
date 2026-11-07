@@ -152,5 +152,17 @@
 .tasksWeekHead { padding: 0 14px; } /* aligné sur la grille des numéros (14 px = largeur d'une flèche) */
 
 /* Calendrier de la page 3 intégré (7 nov. 2026) : le même nœud #goalsDetailScroll, posé ici quand le filtre désigne un pôle ou un secteur (remplace la bande de la semaine). */
-.tasksCalHost { margin-top: -8px; }
+.tasksCalHost { margin-top: 0; }
 .tasksCalHost #goalsDetailScroll { flex: none; overflow: visible; padding: 0; }
+/* Rangée du haut : icône de filtre à gauche, ligne de période (titre de l'objectif périodique + chevron « période suivante ») à sa droite ; masquée quand le panneau de filtre est ouvert. */
+.tasksFilterRow { display: flex; align-items: center; gap: 8px; }
+.tasksFilterRow .tasksFilter { flex: none; }
+.tasksFilterRow.open .tasksFilter { flex: 1; }
+.tasksFilterRow.open .tasksPeriodHost { display: none; }
+.tasksPeriodHost { flex: 1; min-width: 0; }
+.tasksPeriodHost .goalsTopLine { margin: 0; justify-content: flex-start; min-width: 0; }
+.tasksPeriodHost #goalsMainLineHost { flex: 1; min-width: 0; }
+.tasksPeriodHost .goalsMainBig { width: 100%; font-size: 14px; font-weight: 600; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tasksPeriodHost .goalsMainAdd { color: var(--text-light); font-weight: 400; }
+.tasksPeriodHost .goalsMainAdd b { color: var(--purple); margin-right: 6px; }
+.tasksPeriodHost .cmpNavArrow { flex: none; }
