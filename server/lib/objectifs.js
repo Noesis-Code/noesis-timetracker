@@ -318,11 +318,11 @@ async function aiProposal(userId, title, periods, weekly, activityName) {
   try {
     const aibudget = require('./aibudget'), aimodels = require('./aimodels');
     const payload = { objectif: title, activite: activityName || '', periodes: periods.map((p) => ({ du: p.startDate, au: p.endDate, semaines: weekly ? p.weeks.length : 0 })) };
-    const res = await aibudget.fetchAnthropic(FEATURE, 'https://api.anthropic.com/v1/messages', {
+    const res = await aibudget.runAs(userId, () => aibudget.fetchAnthropic(FEATURE, 'https://api.anthropic.com/v1/messages', {
       method: 'POST', signal: AbortSignal.timeout(aimodels.timeoutMs('hebdo')),
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({ model: aimodels.strongModel(), max_tokens: 4000, system: SYSTEM, messages: [{ role: 'user', content: JSON.stringify(payload) }] }),
-    });
+    }));
     if (!res.ok) return null;
     const body = await res.json();
     const text = (body.content || []).map((b) => b.text || '').join('');
@@ -369,11 +369,11 @@ async function lire(userId, body) {
     const aibudget = require('./aibudget'), aimodels = require('./aimodels');
     const content = images.map((im) => ({ type: 'image', source: { type: 'base64', media_type: im.media_type, data: im.data } }));
     content.push({ type: 'text', text: (note ? 'Consigne : ' + note + '\n\n' : '') + texts.map((t) => '<document>\n' + t + '\n</document>').join('\n') });
-    const res = await aibudget.fetchAnthropic(READ_FEATURE, 'https://api.anthropic.com/v1/messages', {
+    const res = await aibudget.runAs(userId, () => aibudget.fetchAnthropic(READ_FEATURE, 'https://api.anthropic.com/v1/messages', {
       method: 'POST', signal: AbortSignal.timeout(aimodels.timeoutMs('hebdo')),
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({ model: aimodels.strongModel(), max_tokens: 1500, system: READ_SYSTEM, messages: [{ role: 'user', content }] }),
-    });
+    }));
     if (!res.ok) throw err('Lecture impossible pour le moment.', 502);
     const b = await res.json();
     out = (b.content || []).map((x) => x.text || '').join('');
@@ -427,11 +427,11 @@ async function rattAi(userId, title, cands) {
   if (!process.env.ANTHROPIC_API_KEY || !(tasksAllowed(userId) || aiAllowed(userId))) return undefined;
   try {
     const aibudget = require('./aibudget'), aimodels = require('./aimodels');
-    const res = await aibudget.fetchAnthropic(RATT_FEATURE, 'https://api.anthropic.com/v1/messages', {
+    const res = await aibudget.runAs(userId, () => aibudget.fetchAnthropic(RATT_FEATURE, 'https://api.anthropic.com/v1/messages', {
       method: 'POST', signal: AbortSignal.timeout(aimodels.timeoutMs('rapprochement')),
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({ model: aimodels.FAST, max_tokens: 60, system: 'Tu dis si un NOUVEL objectif est une étape d\'un des objectifs existants. Réponds UNIQUEMENT par un objet JSON {"id": nombre ou null}. Réponds null si aucun lien clair.', messages: [{ role: 'user', content: JSON.stringify({ nouveau: title, existants: cands.map((c) => ({ id: c.id, titre: c.title })) }) }] }),
-    });
+    }));
     if (!res.ok) return undefined;
     const body = await res.json(), text = (body.content || []).map((b) => b.text || '').join('');
     const parsed = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
