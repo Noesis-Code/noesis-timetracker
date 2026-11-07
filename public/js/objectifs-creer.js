@@ -394,10 +394,10 @@
     refresh();
     // Étape « Niveau » : demandée SEULEMENT si des informations manquent (type d'objectif inconnu, plus d'un an, aucun historique Chrono) ; sinon sautée (3 étapes au lieu de 4).
     function needsLevel() { var dl = daysLeft(); return !ctx.estimate || (dl != null && dl > 365) || !(ctx.weeklyHours && form.activityId != null && ctx.weeklyHours[form.activityId]); }
-    var levelIn = el('input'); levelIn.type = 'text'; levelIn.maxLength = 200; levelIn.setAttribute('aria-label', tr('Ton niveau actuel')); levelIn.value = form.level || '';
-    levelIn.addEventListener('input', function () { form.level = levelIn.value; });
+    var levelIn = el('input'); levelIn.type = 'text'; levelIn.maxLength = 200; levelIn.setAttribute('aria-label', tr('Ton niveau actuel')); levelIn.value = form.skill || '';
+    levelIn.addEventListener('input', function () { form.skill = levelIn.value; }); // le niveau de la personne n'est PAS form.level (niveau de l'arbre : activité, pôle, secteur)
     boxes.niveau.appendChild(field(tr('Ton niveau actuel'), levelIn));
-    boxes.niveau.appendChild(btn('objLink', tr('Passer (je suis débutant)'), function () { form.level = ''; levelIn.value = ''; (advance || stepNext)(); })); // dernière page : « Passer » termine
+    boxes.niveau.appendChild(btn('objLink', tr('Passer (je suis débutant)'), function () { form.skill = ''; levelIn.value = ''; (advance || stepNext)(); })); // dernière page : « Passer » termine
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
