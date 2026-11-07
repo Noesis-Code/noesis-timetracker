@@ -15,13 +15,8 @@
            la tâche est répertoriée dans toutes les activités choisies ; texte vide + clic sur une puce = ouvre la page 2
            de cette activité. Badge violet = tâches capturées pas encore vues (jamais un compteur cumulatif). -->
       <div id="goalsCapturePage" class="goalsCapturePage">
-        <!-- 27 oct. 2026 (Émilien) : deux boutons en haut ; « Aujourd'hui » = tâches du jour + barre d'ajout (js/aujourdhui.js), « Activités » = choix de l'activité pour organiser ses tâches. -->
-        <div id="goalsPage1Switch" class="periodSwitch cmpSeg goalsPage1Switch">
-          <button type="button" class="periodBtn active" data-view="today">Tâches</button>
-          <button type="button" class="periodBtn" data-view="activities">Objectifs</button>
-        </div>
-        <div id="goalsTodayView"></div>
-        <div id="goalsActivitiesView" class="hidden">
+        <!-- 6 nov. 2026 (Émilien) : la page 1 = directement l'arbre des Objectifs ; les tâches du jour vivent dans le tiroir (js/tiroir.js, rideau tiré depuis le haut). -->
+        <div id="goalsActivitiesView">
         <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
         <p id="goalsCaptureActivityPrompt" class="hint goalsCaptureActivityPrompt hidden">Quelle activité pour cette tâche ?</p>
         <div id="goalsObjArbre" class="objArbre"></div>
@@ -1053,28 +1048,9 @@
   // cette section. Repart d'une sélection vide et rafraîchit les badges à
   // chaque fois (l'utilisateur peut revenir ici après avoir vu/ajouté des
   // tâches ailleurs).
-  // Page 1 : vue « Aujourd'hui » (par défaut) ou « Activités ».
-  var goalsPage1View = 'today';
-  function setGoalsPage1View(v) {
-    goalsPage1View = v === 'activities' ? 'activities' : 'today';
-    var today = goalsPage1View === 'today';
-    $('goalsTodayView').classList.toggle('hidden', !today);
-    $('goalsActivitiesView').classList.toggle('hidden', today);
-    Array.prototype.forEach.call(document.querySelectorAll('#goalsPage1Switch .periodBtn'), function (b) { b.classList.toggle('active', b.getAttribute('data-view') === goalsPage1View); });
-    if (TMT.todayView) {
-      if (today) {
-        TMT.todayView.mount($('goalsTodayView')); TMT.todayView.show();
-      } else TMT.todayView.hide();
-    }
-    if (!today) renderGoalsCaptureActivities();
-    if (TMT.objectifsView) { if (today) TMT.objectifsView.hide(); else TMT.objectifsView.show(); } // vue Objectifs : liste + barre « Nouvel objectif… » (js/objectifs-creer.js)
-  }
-  Array.prototype.forEach.call(document.querySelectorAll('#goalsPage1Switch .periodBtn'), function (b) {
-    b.addEventListener('click', function () { setGoalsPage1View(b.getAttribute('data-view')); });
-  });
-  TMT.setGoalsPage1View = setGoalsPage1View;
-  TMT.resetGoalsPage1View = function () { goalsPage1View = 'today'; if (TMT.todayView && TMT.todayView.resetSort) TMT.todayView.resetSort(); };
-  window.addEventListener('load', function () { if (goalsPage1View === 'today' && TMT.todayView) setGoalsPage1View('today'); }); // aujourdhui.js se charge après cette page
+  // Page 1 = l'arbre des Objectifs (plus de sélecteur Tâches | Objectifs : la liste du jour est le tiroir, js/tiroir.js).
+  // Arrivée dans la Feuille de route depuis un autre module : le tri du tiroir revient à « Aujourd'hui ».
+  TMT.resetGoalsPage1View = function () { if (TMT.todayView && TMT.todayView.resetSort) TMT.todayView.resetSort(); };
 
   function showGoalsCapturePage() {
     var list = TMT.getActivitiesCache() || [];
@@ -1105,7 +1081,7 @@
     window.requestAnimationFrame(function () { goalsScrollTop(); window.requestAnimationFrame(goalsScrollTop); });
     if (TMT.loadOffer1SubscribedSection) TMT.loadOffer1SubscribedSection();
     loadOffer1Availability();
-    setGoalsPage1View(goalsPage1View);
+    if (TMT.objectifsView) TMT.objectifsView.show(); // vue Objectifs : arbre + barre « Nouvel objectif… » (js/objectifs-creer.js)
   }
 
 

@@ -11520,11 +11520,10 @@
     })();
   }
 
-  // Tâche visée par le rappel de 6 h : on ouvre l'onglet Tâches (Feuille de route) et on surligne la ligne [data-task-id] dès qu'elle est affichée (les secteurs y sont repliés : la ligne n'existe qu'une fois son secteur déplié).
+  // Tâche visée par le rappel de 6 h : on ouvre le tiroir des tâches (js/tiroir.js) et on surligne la ligne [data-task-id] dès qu'elle est affichée (les secteurs y sont repliés : la ligne n'existe qu'une fois son secteur déplié).
   function focusGoalsTaskFromNotification(activityId, taskId) {
-    if (TMT.switchTab) TMT.switchTab('goals');
-    if (TMT.setGoalsPage1View) TMT.setGoalsPage1View('today');
-    focusWhenReady('#goalsTodayView [data-task-id="' + taskId + '"]', 40);
+    if (TMT.taskDrawer) TMT.taskDrawer.open();
+    focusWhenReady('#taskDrawer [data-task-id="' + taskId + '"]', 40);
   }
 
   // Identifiant issu de l'adresse d'une notification (entier ou UUID de

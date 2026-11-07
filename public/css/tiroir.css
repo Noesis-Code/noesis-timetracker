@@ -1,0 +1,32 @@
+/* Tiroir des tâches (6 nov. 2026, piste T « rideau depuis le haut », js/tiroir.js) : jetons et composants existants seulement
+   (.cmpGlass, .cmpClose, .cmpNav, .cmpChev, .goalsCal*, .cmpHandle de composants.css ; contenu = js/aujourdhui.js). Espacements 8/12/16/24. */
+:root { --tiroir-h: calc(100dvh - var(--tabbar-h, 76px) - 96px); }
+.taskDrawer { position: fixed; top: 0; left: 0; right: 0; margin: 0 auto; width: min(100%, 896px); height: var(--tiroir-h); box-sizing: border-box; z-index: 102; display: flex; flex-direction: column; border-radius: 0 0 var(--radius-xl) var(--radius-xl); transform: translateY(-100%); will-change: transform; }
+.taskDrawer.hidden { display: none; }
+.taskDrawerScrim { position: fixed; inset: 0; z-index: 101; background: var(--black); opacity: 0; pointer-events: none; }
+.taskDrawerScrim.on { pointer-events: auto; }
+.taskDrawerScrim.hidden { display: none; }
+.taskDrawerHead { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: calc(max(env(safe-area-inset-top, 0px), 8px) + 8px) 16px 0 16px; }
+.taskDrawerTitle { margin: 0; font-size: 20px; font-weight: 700; color: var(--text); }
+.taskDrawerCal { flex: none; padding: 0 16px; }
+.taskDrawerCal .cmpNavLabel { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding: 0; border: 0; background: none; font-family: inherit; color: var(--text-light); cursor: pointer; }
+.taskDrawerCal .cmpNavLabel .cmpChev { margin-left: 0; width: 20px; transform: rotate(90deg); }
+.taskDrawerCal .cmpNavLabel .cmpChev.open { transform: rotate(-90deg); }
+.taskDrawerCal .goalsCalHead { margin-bottom: 4px; }
+.taskDrawerCal .goalsCalWeek { margin-top: 4px; }
+.taskDrawerCal .goalsCalWeek:first-child { margin-top: 0; }
+.taskDrawerBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 8px 16px 0; touch-action: pan-y; overflow-wrap: anywhere; }
+.taskDrawer .tasksToday { padding-bottom: 72px; } /* la dernière tâche reste lisible au-dessus de la barre d'ajout */
+.taskDrawer .tasksTopRow { position: static; top: auto; padding: 0 4px; margin-bottom: 4px; }
+.taskDrawerHandle { flex: none; }
+/* Poignée fermée : juste sous la barre du haut, sur tous les écrans qui l'ont ; le clavier ouvert la masque. */
+.taskDrawerHandleTop { position: fixed; top: calc(var(--topbar-h, 56px) - 16px); left: 50%; transform: translateX(-50%); z-index: 12; width: 160px; }
+.taskDrawerHandleTop.hidden { display: none; }
+/* La barre « Nouvelle tâche… » est au bas du tiroir, au-dessus de la poignée, et suit le rideau pendant le geste. */
+.tasksDock.tasksDock--tiroir { bottom: calc(var(--tabbar-h, 76px) + 140px); z-index: 103; }
+/* Clavier ouvert : le tiroir descend jusqu'au clavier, la barre se pose dessus (dockKeyboard), la poignée disparaît. */
+/* Tiroir ouvert : la barre « Nouvel objectif… » de l'arbre se cache (une seule barre d'écriture à l'écran). */
+:root.tiroirOpen .tasksDock:not(.tasksDock--tiroir) { visibility: hidden; }
+:root.kbOpen .taskDrawer { height: var(--tiroir-kb-h, var(--tiroir-h)); }
+:root.kbOpen .taskDrawerHandle, :root.kbOpen .taskDrawerHandleTop { display: none; }
+@media (prefers-reduced-motion: reduce) { .taskDrawer, .tasksDock--tiroir { transition: none !important; } }

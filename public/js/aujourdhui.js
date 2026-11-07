@@ -1,8 +1,8 @@
-/* Page 1 de la Feuille de route, vue « Aujourd'hui » (27 oct. 2026, demande d'Émilien ; remplace le bouton flottant) : tâches du jour de toutes les
+/* Tiroir des tâches (6 nov. 2026, piste T « rideau depuis le haut » ; ex-page Tâches de la Feuille de route, 27 oct. 2026) : tâches du jour de toutes les
  * activités (à cocher : cercle rempli + coche, barrée et grisée, puis descend dans « Faites aujourd'hui »), puis la barre « Ajouter une tâche ».
  * Ajout : Noèsis PROPOSE « Activité › Pôle » (POST /api/goals/capture/propose, ne crée rien) ; la flèche ↑ accepte, « Changer » choisit ailleurs ;
  * l'envoi suit la même chaîne que l'ancienne bulle de la page 1 (TMT.captureTaskFlow : pop-up selon le mode de l'IA).
- * Données : GET /api/goals/today. Monté par objectifs-page1.js (TMT.todayView.mount / show / hide). */
+ * Données : GET /api/goals/today. Monté par js/tiroir.js (TMT.todayView.mount / show / hide / setDay). */
 (function () {
   'use strict';
   var TMT = window.TMT;
@@ -48,20 +48,16 @@
   var ui = {}; // éléments de la barre d'ajout
   var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null, date: null, who: null, poleId: null, open: '', members: {}, flash: null, exp: null, essor: null, expStep: 0, review: false };
 
-  var root = null, shown = false, dock = null;
+  var root = null, shown = false, dock = null, viewDay = null; // viewDay : jour affiché (null = aujourd'hui)
+  function dayIso() { return viewDay || localIso(); }
   // La barre n'existe à l'écran que si la vue Aujourd'hui est réellement visible (autre volet, autre vue ou page par-dessus : masquée).
   function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length)); }
   function build(container) {
     root = el('div', 'tasksToday');
     listBox = el('div', 'tasksPopList tasksTree');
     root.appendChild(buildTopRow()); root.appendChild(listBox); root.appendChild(buildArchive());
-    // La barre d'ajout est AU PREMIER PLAN, fixée au-dessus de la barre des volets (comme elle). Défilé = glissement latéral entre les pages :
-    // elle prend le même décalage que la page (#tab-goals) pendant le glissement, puis disparaît avec elle.
-    dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock);
-    var tab = document.getElementById('tab-goals');
-    if (tab && window.MutationObserver) {
-      new MutationObserver(function () { dock.style.transform = tab.style.transform || ''; dock.style.transition = tab.style.transition || ''; syncDock(); }).observe(tab, { attributes: true, attributeFilter: ['style', 'class'] }); // fin de glissement vers les statistiques : l'onglet se masque, la barre se masque dans la même image (sans attendre le balayage de 300 ms)
-    }
+    // La barre d'ajout est AU PREMIER PLAN, au bas du tiroir (js/tiroir.js lui donne le même décalage que le rideau pendant le geste) ; elle disparaît avec lui.
+    dock = buildAdd(); dock.classList.add('tasksDock', 'tasksDock--tiroir', 'hidden'); document.body.appendChild(dock);
     setInterval(syncDock, 300);
     // Clavier ouvert : la barre se pose juste au-dessus du clavier, en tout temps (et revient à sa place normale, au-dessus des volets, à la fermeture).
     TMT.ui.dockKeyboard(dock, ui.text); // code commun aux barres fixes (composants.js)
@@ -183,7 +179,7 @@
   function actCount() { var seen = {}, n = 0; state.options.forEach(function (o) { if (!seen[o.activityId]) { seen[o.activityId] = true; n++; } }); return n; }
   function sectorsOfPole(t) { return state.options.filter(function (o) { return t && o.activityId === t.activityId && poleOf(o) === poleOf(t) && sectorOf(o); }); }
   function dateText(iso) {
-    if (!iso) iso = localIso();
+    if (!iso) iso = dayIso();
     var d = new Date(iso + 'T12:00:00'); var s = d.toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'short', day: 'numeric', month: 'short' });
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
@@ -205,7 +201,7 @@
     row.appendChild(el('span', 'tasksFieldLabel', tr('Date')));
     if (readOnly) { var v = el('button', 'tasksFieldValue'); v.type = 'button'; v.disabled = true; v.appendChild(el('span', 'tasksFieldText', dateText(state.date))); row.appendChild(v); }
     else {
-      var inp = el('input', 'tasksDateInput tasksDateInline'); inp.type = 'date'; inp.value = state.date || localIso(); inp.setAttribute('aria-label', tr('Date'));
+      var inp = el('input', 'tasksDateInput tasksDateInline'); inp.type = 'date'; inp.value = state.date || dayIso(); inp.setAttribute('aria-label', tr('Date'));
       inp.addEventListener('change', function () { state.date = inp.value || null; });
       row.appendChild(inp);
     }
@@ -658,7 +654,7 @@
         return null;
       }
       // Proposition déjà affichée : validation INSTANTANÉE (↑ ou ✕). Le panneau se ferme tout de suite, « Tâche enregistrée » s'affiche en haut de la barre, l'enregistrement se termine en arrière-plan.
-      if (shown) { fastCommit({ t: t, label: label, date: state.date || localIso(), who: state.who }); return null; }
+      if (shown) { fastCommit({ t: t, label: label, date: state.date || dayIso(), who: state.who }); return null; }
       return TMT.captureTaskFlow(label, [t.activityId], t.categoryKey, { inline: true }).then(function (flow) {
         if (!flow) return null;
         var ok = (flow.results || []).filter(function (x) { return x.ok; })[0];
@@ -666,7 +662,7 @@
         var r = ok;
           // Montrée tout de suite dans la liste, même si Noèsis l'a placée un autre jour (« demain »…), tant que la vue reste ouverte.
           state.added.unshift({ id: r.id, label: label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
-          var snap = { t: t, date: state.date || localIso(), who: state.who }, extra = { userId: TMT.getProfile().id, dueDate: snap.date };
+          var snap = { t: t, date: state.date || dayIso(), who: state.who }, extra = { userId: TMT.getProfile().id, dueDate: snap.date };
           if (snap.who) { extra.plannedUserId = snap.who.id; extra.notifyAssignee = true; }
           var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }) : Promise.resolve();
           return after.then(function () {
@@ -816,8 +812,8 @@
   function refresh() {
     if (leaving > 0 || !root || !root.getClientRects().length || listBox.querySelector('.goalsTaskEditPanel')) return; // une tâche en cours de modification : la liste ne se redessine pas sous elle // vue masquée (autre volet, autre page) : rien à charger
     var seq = ++loadSeq;
-    var day = localIso();
-    TMT.api('GET', '/api/goals/today?today=' + localIso() + '').then(function (d) { if (d && d.tasks) cachePut(day, d); if (seq === loadSeq && shown) render(d); }).catch(function () {});
+    var day = dayIso();
+    TMT.api('GET', '/api/goals/today?today=' + day + '').then(function (d) { if (d && d.tasks) cachePut(day, d); if (seq === loadSeq && shown) render(d); }).catch(function () {});
   }
 
   // Préchargement : les tâches du jour sont demandées dès l'ouverture de l'app (et au retour au premier plan), avant même d'ouvrir la Feuille de route.
@@ -833,7 +829,9 @@
       Array.prototype.forEach.call(document.querySelectorAll('.tasksSortWrap .statsPeriodMenuItem'), function (b) { b.classList.toggle('active', b.textContent === tr(SORT_LABELS.today)); });
       if (lastData) render(lastData);
     },
-    show: function () { shown = true; syncDock(); var c = cacheGet(localIso()); if (c) render(c); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
-    hide: function () { shown = false; openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
+    setDay: function (iso) { viewDay = iso && iso !== localIso() ? iso : null; state.date = null; var c = cacheGet(dayIso()); if (c) render(c); refresh(); },
+    dock: function () { return dock; },
+    show: function () { shown = true; syncDock(); var c = cacheGet(dayIso()); if (c) render(c); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
+    hide: function () { shown = false; viewDay = null; openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();
