@@ -74,11 +74,6 @@
       t.appendChild(el('span', 'arCardMeta', (o.durationLabel || '') + ' · ' + tr(STATE_LABEL[st]) + (nk ? ' · ' + nk + ' ' + tr(nk > 1 ? 'objectifs rattachés' : 'objectif rattaché') : '')));
     }
     b.appendChild(t);
-    if (o.parent && o.parentLevel && o.parentLevel !== tl(o)) { // parent d'un AUTRE niveau de temps : il n'est pas dans cet arbre, une marque discrète le nomme au toucher
-      var up = el('span', 'arUp', '↑'); up.setAttribute('role', 'img'); up.setAttribute('aria-label', tr('Rattaché à') + ' ' + o.parent.title); up.title = o.parent.title;
-      up.addEventListener('click', function (e) { e.stopPropagation(); say(tr('Rattaché à') + ' « ' + o.parent.title + ' » · ' + tr(o.parentLevel === 'pluriannuel' ? 'Pluriannuel' : o.parentLevel === 'annee' ? 'Année' : 'Période')); });
-      b.appendChild(up);
-    }
     b.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(o.id); });
     if (TMT.ui && TMT.ui.holdDrag) {
       var below = descendants(o.id, kidsAll); // descendance sur TOUTES les colonnes (un enfant peut être dans un autre pôle)
@@ -216,16 +211,20 @@
   var LEVEL_LABEL = { activite: 'Activité', pole: 'Pôle', secteur: 'Secteur' };
   function actOf(id) { return ((struct && struct.activities) || []).filter(function (a) { return a.id === id; })[0] || null; }
   // Colonnes du niveau affiché : { key, label, objs (objectifs de CE niveau dans cette colonne), ctx (niveau, activité, pôle, secteur : pré-remplit et verrouille la création) }
-  var TL_OF = { activite: 'pluriannuel', pole: 'annee', secteur: 'periode' }; // un niveau d'arbre ne montre QUE les objectifs de son niveau de temps (timeLevel, déduit de l'échéance par le serveur)
-  function tl(o) { return o.timeLevel || 'periode'; }
+  // MODÈLE SIMPLIFIÉ (6 nov. 2026) : aucun niveau choisi ni stocké. Le TYPE d'un objectif vient de sa STRUCTURE : détaillé en sous-objectifs (ou macro) = GRAND objectif, sinon objectif simple.
+  // Le niveau où il se voit vient de sa durée : grand objectif de plus d'un an = arbre MACRO (blocs de 5 ans) ; grand objectif d'un an ou moins = arbre des ANNÉES ; tous les objectifs = arbre des PÉRIODES.
+  function weeksOf(o) { return (Date.parse(o.endDate + 'T00:00:00Z') - Date.parse(o.startDate + 'T00:00:00Z')) / 604800000; }
+  function isGrand(o) { return !!o.isMacro || (kidsAll[o.id] || []).length > 0; }
+  function lv(o) { return isGrand(o) ? (weeksOf(o) > 52 ? 'pluriannuel' : 'annee') : 'periode'; }
+  var OBJ_OF = { activite: function (o) { return lv(o) === 'pluriannuel'; }, pole: function (o) { return lv(o) === 'annee'; }, secteur: function () { return true; } };
   function columnsFor(shown) {
-    var cols = [], want = TL_OF[lvl];
+    var cols = [], want = OBJ_OF[lvl];
     if (lvl === 'activite') {
       var seen = {};
       shown.forEach(function (o) {
         var id = o.activity.id, c = seen[id];
         if (!c) { c = seen[id] = { key: id, label: o.activity.name, color: color(o), objs: [], ctx: { level: 'activite', activityId: id, label: o.activity.name } }; cols.push(c); }
-        if (!o.isMacro && tl(o) === want) c.objs.push(o); // un macro est une carte large, jamais dans la colonne d'une seule activité
+        if (!o.isMacro && want(o)) c.objs.push(o); // un macro est une carte large, jamais dans la colonne d'une seule activité
       });
       return cols;
     }
@@ -234,11 +233,11 @@
     var poles = (act && act.poles) || [], firstPole = poles.length ? poles[0].key : null;
     if (lvl === 'pole') {
       if (!poles.length) poles = [{ key: null, label: name }];
-      return poles.map(function (p) { return { key: p.key, label: p.label, color: col, objs: mine.filter(function (o) { return !o.isMacro && tl(o) === want && (o.poleKey || firstPole) === p.key; }), ctx: { level: 'pole', activityId: focus.activityId, poleKey: p.key, label: name + ' · ' + p.label } }; });
+      return poles.map(function (p) { return { key: p.key, label: p.label, color: col, objs: mine.filter(function (o) { return !o.isMacro && want(o) && (o.poleKey || firstPole) === p.key; }), ctx: { level: 'pole', activityId: focus.activityId, poleKey: p.key, label: name + ' · ' + p.label } }; });
     }
     var pole = poles.filter(function (p) { return p.key === focus.poleKey; })[0] || { key: focus.poleKey, label: focus.poleLabel || '', secteurs: [] };
     var sects = pole.secteurs && pole.secteurs.length ? pole.secteurs : [{ key: null, label: pole.label }], firstSect = sects[0].key;
-    return sects.map(function (x) { return { key: x.key, label: x.label, color: col, objs: mine.filter(function (o) { return !o.isMacro && tl(o) === want && (o.poleKey || firstPole) === focus.poleKey && (o.categoryKey || firstSect) === x.key; }), ctx: { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey, categoryKey: x.key, label: name + ' · ' + pole.label + ' · ' + x.label } }; });
+    return sects.map(function (x) { return { key: x.key, label: x.label, color: col, objs: mine.filter(function (o) { return !o.isMacro && want(o) && (o.poleKey || firstPole) === focus.poleKey && (o.categoryKey || firstSect) === x.key; }), ctx: { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey, categoryKey: x.key, label: name + ' · ' + pole.label + ' · ' + x.label } }; });
   }
   var curCols = [];
   function syncCtx() { // la barre « Nouvel objectif… » crée au niveau affiché (pré-rempli et verrouillé) ; le « + » d'une colonne précise le pôle / le secteur
@@ -389,10 +388,11 @@
   // OUVERTURE : le niveau de temps du plus large des objectifs de l'utilisateur (pluriannuel s'il y en a, sinon année, sinon période) ; recalculé à chaque ouverture et chaque retour, rien n'est mémorisé.
   function applyOpen() {
     var order = ['pluriannuel', 'annee', 'periode'], best = null;
-    items.forEach(function (o) { var t = tl(o); if (!o.abandoned && (best == null || order.indexOf(t) < order.indexOf(best))) best = t; });
+    kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
+    items.forEach(function (o) { var t = lv(o); if (!o.abandoned && (best == null || order.indexOf(t) < order.indexOf(best))) best = t; });
     split = {}; picked = null;
     if (best == null || best === 'pluriannuel') { lvl = 'activite'; focus = null; return; }
-    var cnt = {}, poleCnt = {}; items.forEach(function (o) { if (tl(o) === best && !o.isMacro) { cnt[o.activity.id] = (cnt[o.activity.id] || 0) + 1; if (o.poleKey) poleCnt[o.activity.id + '/' + o.poleKey] = (poleCnt[o.activity.id + '/' + o.poleKey] || 0) + 1; } });
+    var cnt = {}, poleCnt = {}; items.forEach(function (o) { if (lv(o) === best && !o.isMacro) { cnt[o.activity.id] = (cnt[o.activity.id] || 0) + 1; if (o.poleKey) poleCnt[o.activity.id + '/' + o.poleKey] = (poleCnt[o.activity.id + '/' + o.poleKey] || 0) + 1; } });
     var aid = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; })[0];
     if (aid == null) { lvl = 'activite'; focus = null; return; }
     aid = Number(aid);

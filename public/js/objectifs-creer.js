@@ -145,7 +145,6 @@
     });
     count();
   }
-  var TLN = { periode: 'Période', annee: 'Année', pluriannuel: 'Pluriannuel' }, TLR = { periode: 0, annee: 1, pluriannuel: 2 }; // niveaux de temps (déduits de l'échéance par le serveur : jamais un réglage)
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></svg>';
 
   // ---------- Parcours : paramètres -> étapes proposées (-> objectifs lus avant, si plusieurs) ----------
@@ -501,7 +500,7 @@
       win.head.textContent = ''; win.body.textContent = ''; win.foot.textContent = '';
       var t = el('div', 'objDetailTitle'), d = el('span', 'objDot'); if (o.activity.color) d.style.background = o.activity.color;
       t.appendChild(d); t.appendChild(el('p', 'sectionTitle', o.title)); win.head.appendChild(t);
-      if (o.parent) { var pl = btn('objLink objParentLine', tr('Rattaché à') + ' : ' + o.parent.title + ' · ' + tr(TLN[o.parent.timeLevel] || 'Période'), function () { win.close(); openDetail(o.parent.id); }); win.head.appendChild(pl); } // ouvre le détail du parent (qui peut être d'un autre niveau de temps)
+      if (o.parent) { var pl = btn('objLink objParentLine', tr('Rattaché à') + ' : ' + o.parent.title, function () { win.close(); openDetail(o.parent.id); }); win.head.appendChild(pl); } // ouvre le détail du parent (qui peut être d'un autre niveau de temps)
       win.head.appendChild(el('p', 'objMeta objSub', o.durationLabel + ' · ' + tr('jusqu’au') + ' ' + dateText(o.endDate) + ' · ' + o.activity.name + (o.abandoned ? ' · ' + tr('abandonné') : '')));
       if (o.description) win.head.appendChild(el('p', 'objDesc', o.description)); // description saisie à la création
       if (o.bridgeFailed) win.head.appendChild(el('p', 'objNote', tr('Cet objectif est enregistré, mais il n’apparaît pas encore dans le calendrier : cette activité a atteint 10 secteurs par pôle. Retire un secteur dans « Gérer mes catégories », puis rouvre cet objectif.'))); // C12
@@ -558,7 +557,7 @@
       var advD = el('div', 'objAdvanced'), hd = btn('objLink objAdvHead', (advOpenD ? '▾ ' : '▸ ') + tr('Avancé'), function () {
         advOpenD = !advOpenD;
         if (advOpenD && !parentList) api('GET', '/api/objectifs?filtre=en_cours').then(function (r) {
-          parentList = ((r && r.objectifs) || []).filter(function (x) { return x.id !== o.id && x.activity.id === o.activity.id && !x.abandoned && (TLR[x.timeLevel || 'periode'] >= TLR[o.timeLevel || 'periode']); });
+          parentList = ((r && r.objectifs) || []).filter(function (x) { return x.id !== o.id && x.activity.id === o.activity.id && !x.abandoned && x.endDate >= o.endDate; }); // règle simple : l'échéance du parent est au moins celle de l'enfant (le serveur valide)
           draw();
         }).catch(function () { parentList = []; draw(); });
         draw();
@@ -572,7 +571,7 @@
           none.addEventListener('click', function () { setParent(null); }); advD.appendChild(none);
           parentList.forEach(function (x) {
             var row = el('button', 'objGroupRow cmpSepRow' + (o.parentId === x.id ? ' on' : '')); row.type = 'button';
-            row.appendChild(el('span', 'objRowName', x.title)); row.appendChild(el('span', 'objMeta', tr(TLN[x.timeLevel || 'periode'] || 'Période') + ' · ' + x.durationLabel));
+            row.appendChild(el('span', 'objRowName', x.title)); row.appendChild(el('span', 'objMeta', tr('jusqu’au') + ' ' + dateText(x.endDate)));
             row.addEventListener('click', function () { setParent(x.id); }); advD.appendChild(row);
           });
         }
