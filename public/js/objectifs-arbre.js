@@ -46,7 +46,9 @@
   function idsOf(t) { var s = t.getAttribute('data-ids'); return s ? s.split(',').map(Number) : [Number(t.getAttribute('data-id'))]; }
   var SAME_ACT = 'Un objectif ne se rattache qu’à un objectif de la même activité.';
   var CYCLE = 'Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.';
-  function cellSize(node, w) { node.style.flex = '0 0 ' + w + 'px'; node.style.width = w + 'px'; }
+  // LARGEURS 100 % CSS : une largeur est une expression CSS (jamais des pixels mesurés en JS) ; --ar-w (posée sur la zone qui défile) vaut toute la largeur utile pour UNE colonne, la moitié pour deux ou plus (règle de l'arbre périodique) ; cqw = largeur de cette zone, aucune mesure ni écouteur.
+  function cellSize(node, w) { node.style.flex = '0 0 ' + w; node.style.width = w; }
+  function spanW(W, k) { return k === 1 ? W : 'calc(' + W + ' * ' + k + ' + ' + (GAP * (k - 1)) + 'px)'; }
 
   // mode : 'simple' (nom seul, niveau activités) | 'detail' (durée, état, objectifs rattachés, niveaux pôle et secteur). La carte EST la case (.goalsGridCell--filled).
   function removeCross(o, onClick) { // petite croix rouge en haut à droite (composant .cmpRemove, R32) : supprime après confirmation (les objectifs rattachés sont détachés)
@@ -108,12 +110,12 @@
   // MACRO (objectif qui englobe des objectifs de PLUSIEURS activités) : une carte LARGE, couleur NEUTRE (jetons existants, jamais celle d'une activité, R16), même cadre que les autres cartes,
   // de la largeur exacte des colonnes des activités concernées (les colonnes intermédiaires sont traversées) ; un trait par colonne concernée la relie à ses enfants, qui gardent la couleur de leur activité.
   function macroCard(m, today, c0, c1, W, cols) {
-    var st = stateOf(m, today), span = c1 - c0 + 1, w = span * W + (span - 1) * GAP;
+    var st = stateOf(m, today), span = c1 - c0 + 1, w = spanW(W, span);
     var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && (ext.macro && ext.macro.id === m.id || ext.mode === 'create' && m.id < 0) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
     t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
     b.appendChild(t);
-    for (var k = 0; k < span; k++) { var stub = el('i', 'arMacroStub'); stub.style.left = (k * (W + GAP) + W / 2) + 'px'; if (cols && cols[c0 + k]) stub.style.background = cols[c0 + k].color; b.appendChild(stub); } // trait de la couleur de la colonne reliée, jusqu'à sa carte enfant
+    for (var k = 0; k < span; k++) { var stub = el('i', 'arMacroStub'); stub.style.left = 'calc((' + W + ' + ' + GAP + 'px) * ' + k + ' + ' + W + ' / 2)'; if (cols && cols[c0 + k]) stub.style.background = cols[c0 + k].color; b.appendChild(stub); } // trait de la couleur de la colonne reliée, jusqu'à sa carte enfant
     if (cols && cols[c0]) b.style.setProperty('--goalsCellLineColor', cols[c0].color); // et du haut du macro à la colonne unique au-dessus
     b.addEventListener('click', function () { if (!editMode) { descend(c0); return; } // toucher COURT = descendre d'un niveau (règle générale) ; le mode Fusionner/Séparer s'ouvre UNIQUEMENT par l'appui long
        if (m.id > 0 && TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(m.id); });
@@ -278,19 +280,20 @@
   }
   // Conteneur de l'arbre : hauteur = de son haut jusqu'à la barre « Nouvel objectif… » (juste au-dessus d'elle, sans espace flottant). Les bulles sont la dernière rangée de l'arbre (voir render) :
   // aucune position fixe ni recalcul de leur x ou de leur largeur, elles partagent la mise en page et le défilement horizontal des colonnes.
-  function desiredH() { // hauteur de l'arbre : de son haut au haut RÉEL de la barre (Safari mobile : la barre d'adresse qui se rétracte déplace la barre fixe sans toujours déclencher « resize »)
+  var botObs = null;
+  function publishBot() { // distance du HAUT RÉEL de la barre du bas au bas de l'écran (barre « Nouvel objectif » + points + onglets + zone de sécurité) ; l'arbre se pose juste au-dessus (bottom CSS)
+    if (!tree) return;
     var d = dockEl(), bar = d && d.querySelector('.tasksComposer'); if (bar && !bar.getClientRects().length) bar = d.querySelector('.tasksSaveBtn');
-    var btop = bar && bar.getClientRects().length ? bar.getBoundingClientRect().top : (window.visualViewport ? window.visualViewport.height : window.innerHeight) - 100;
-    return Math.max(240, btop - tree.getBoundingClientRect().top);
+    if (!bar || !bar.getClientRects().length) return;
+    tree.style.setProperty('--ar-bot', Math.round(window.innerHeight - bar.getBoundingClientRect().top) + 'px');
   }
-  function fitTree() {
+  function fitTree() { // MISE EN PAGE DÉTERMINISTE : l'arbre est posé en CSS (fixed, haut = bas de l'en-tête, bas = haut de la barre du bas) ; le haut est mesuré à chaque rendu, le bas est republié par un ResizeObserver sur la barre elle-même, jamais par un minuteur ni un écouteur de défilement
     if (!tree || !tree.getClientRects().length) return;
-    var d = dockEl(), bar = d && d.querySelector('.tasksComposer'); if (bar && !bar.getClientRects().length) bar = d.querySelector('.tasksSaveBtn'); // la barre devenue bouton (Enregistrer / Séparer) borne l'arbre comme la barre d'écriture : sans cela l'arbre était recadré à 240 px
-    var btop = bar && bar.getClientRects().length ? bar.getBoundingClientRect().top : window.innerHeight - 100;
-    var h = Math.max(240, btop - tree.getBoundingClientRect().top); // de son haut au haut de la barre ; la gouttière (8 px) est le seul espace sous la rangée des titres (padding bas de la rangée)
-    tree.style.height = Math.round(h) + 'px';
+    var pr = tree.parentElement.getBoundingClientRect();
+    tree.style.setProperty('--ar-top', Math.round(pr.top) + 'px'); tree.style.setProperty('--ar-left', Math.round(pr.left) + 'px'); tree.style.setProperty('--ar-right', Math.round(window.innerWidth - pr.right) + 'px');
+    publishBot();
+    var d = dockEl(); if (d && !botObs && window.ResizeObserver) { botObs = new ResizeObserver(publishBot); botObs.observe(d); }
   }
-  if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (visible) fitTree(); });
   // Repère de période (mêmes classes que la page 2) : à venir = numéro cerclé, courante = pastille pleine, passée = point. En zoom Année : les deux derniers chiffres de l'année.
   // Dernier niveau (secteurs) : toucher le repère d'une PÉRIODE ouvre le calendrier (page 3) de cette période, par l'ouverture existante (openGoalsPeriodFromNotification) ; rien d'autre n'est ajouté.
   function calTap(rw, c) { return lvl === 'secteur' && rw.p ? function () { openCalendar(rw, c.col.key); } : null; } // niveau secteurs : toucher une case OCCUPÉE ouvre le calendrier de la période
@@ -411,6 +414,7 @@
   function render() {
     if (!tree) return;
     var keepTop = !needBase && gridArea ? gridArea.scrollTop : null, keepLeft = !needBase && scroller ? scroller.scrollLeft : 0;
+    document.documentElement.classList.toggle('arbreOn', visible); // page non défilante tant que l'arbre est affiché (aucun élastique)
     tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024); fitTree();
     zoom = lvl === 'activite' ? 'block' : lvl === 'pole' ? 'year' : 'period'; // le temps suit le zoom : arbre macro = blocs de 5 ans (pluriannuel), années (annuel), périodes 13 × 4 (période)
     var mw = 46; RAIL = mw + 10; tree.style.setProperty('--ar-mw', mw + 'px'); tree.style.setProperty('--ar-pl', (mw + 6) + 'px'); // colonne de repères : ovale d'un bloc / d'une année, rond d'une période (+ année en ovale)
@@ -420,10 +424,10 @@
     kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
     curCols = foldMerged(shown, sortByOrdre(columnsFor(shown))); syncCtx();
     if (!curCols.length) { gridArea = scroller = null; tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
-    var n = curCols.length, wide = window.innerWidth >= 1024, avail = tree.clientWidth || (Math.min(window.innerWidth, wide ? 1400 : 600) - 32); // largeur réelle de la zone
-    var baseW = Math.floor((avail - RAIL - GAP - 4) / 2), cols = n === 1 ? avail - RAIL - 4 : baseW; // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
-    var W = Math.min(cols, window.innerWidth - 80); // les titres passent à la ligne, la largeur ne grandit jamais avec le texte
-    if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) W = Math.max(44, Math.min(W, Math.floor((avail - RAIL - GAP * (spanN - 1) - 4) / spanN))); } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
+    var n = curCols.length, wide = window.innerWidth >= 1024;
+    var arW = n === 1 ? 'calc(100cqw - 4px)' : 'calc((100cqw - ' + (GAP + 4) + 'px) / 2)'; // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
+    var W = 'var(--ar-w)'; // les titres passent à la ligne, la largeur ne grandit jamais avec le texte
+    if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) arW = 'calc((100cqw - ' + (4 + GAP * (spanN - 1)) + 'px) / ' + spanN + ')'; } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
     var mode = lvl === 'activite' ? 'simple' : 'detail';
     // données par colonne : arbre, parcours, case (période ou année) de chaque objectif
     var data = curCols.map(function (c) {
@@ -511,7 +515,7 @@
         var es = cells[r][ci];
         if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols)); return; }
         if (holes[r + ':' + ci]) return; // colonne absorbée : au-dessus de la fusion il ne reste QU'UNE colonne, sur toute la largeur des colonnes liées (la case de l'entité touchée est élargie)
-        var Wc = wideAt[r + ':' + ci] ? wideAt[r + ':' + ci] * W + (wideAt[r + ':' + ci] - 1) * GAP : W;
+        var Wc = wideAt[r + ':' + ci] ? spanW(W, wideAt[r + ':' + ci]) : W;
         if (!es.length && lvl === 'secteur' && rw.p) row.appendChild(emptyCell(Wc, 'cal', function () { openCalendar(rw, c.col.key); })); // niveau secteurs : toucher une case vide ouvre AUSSI le calendrier (« Ajouter un objectif périodique » s'y trouve)
         else if (!es.length) row.appendChild(emptyCell(Wc, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
         else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, Wc, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
@@ -539,7 +543,7 @@
     });
     baseWrap.appendChild(baseRow);
     // COLONNE FIXE des repères du temps (.arRail, à gauche, jamais recouverte) + zone qui défile à droite (.arHScroll : colonnes d'activités ET titres, horizontalement) ; le défilement vertical est celui du conteneur commun .arGridArea : repères et rangées défilent ensemble sans script.
-    var body = el('div', 'arBody'), rail = el('div', 'arRail' + (zoom !== 'period' ? ' arCompact' : '')), hs = el('div', 'arHScroll' + (n <= 2 ? ' goalsGridScroll--locked' : '')), hin = el('div', 'arHInner');
+    var body = el('div', 'arBody'), rail = el('div', 'arRail' + (zoom !== 'period' ? ' arCompact' : '')), hs = el('div', 'arHScroll' + (n <= 2 ? ' goalsGridScroll--locked' : '')), hin = el('div', 'arHInner'); hs.style.setProperty('--ar-w', arW);
     hin.appendChild(grid); hin.appendChild(baseWrap); hs.appendChild(hin); body.appendChild(rail); body.appendChild(hs); gridArea.appendChild(body); column.appendChild(gridArea); scroller.appendChild(column); tree.appendChild(scroller); scroller = hs; // UN SEUL conteneur défile (vertical ET horizontal) : c'est lui que les repères « collent » à gauche (sticky), sans aucun script // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
     (function () { // les cases s'écartent ou se rapprochent pour remplir la zone (entre 40 ou 64 px et 120 px) : ni grand vide, ni rangées trop longues ; trop de rangées = défilement
       var H = gridArea.clientHeight - baseWrap.offsetHeight, n = list.length + grid.querySelectorAll('.arMacroRow').length; if (!H || !n) return;
@@ -593,14 +597,7 @@
     }).then(function () { render(); }).catch(function () {});
   }
   tree = document.getElementById('goalsObjArbre');
-  if (tree) window.addEventListener('resize', function () { if (loaded && visible) render(); });
-  // La barre « Nouvel objectif… » peut bouger sans que la fenêtre soit redimensionnée (clavier, barre d'adresse du navigateur mobile) : on recalcule la hauteur de l'arbre depuis le HAUT RÉEL de la barre.
-  var refitT = 0;
-  function refit() { window.clearTimeout(refitT); refitT = window.setTimeout(function () { if (loaded && visible && tree && tree.getClientRects().length) render(); }, 150); }
-  if (window.visualViewport) { window.visualViewport.addEventListener('resize', refit); window.visualViewport.addEventListener('scroll', refit); }
-  document.addEventListener('focusin', refit); document.addEventListener('focusout', refit);
-  window.addEventListener('scroll', refit, { passive: true }); window.addEventListener('orientationchange', refit);
-  window.setInterval(function () { if (loaded && visible && tree && tree.getClientRects().length && Math.abs(desiredH() - tree.offsetHeight) > 1) render(); }, 400); // filet : si la barre a bougé sans événement, l'arbre se recale (bas des titres = haut de la barre − 8 px)
+  // Aucun écouteur de redimensionnement, de défilement ni de fenêtre visuelle, aucun minuteur : les largeurs et la hauteur sont du CSS ; seul le décalage haut/bas est mesuré à chaque rendu (fitTree).
   // UNE SEULE flèche de retour : depuis un calendrier ouvert par l'arbre, la flèche ‹ du cadre du pôle (qui ne change plus de pôle) ramène à l'arbre.
   document.addEventListener('click', function (e) {
     if (!document.documentElement.classList.contains('calFromTree') || !e.target.closest || !e.target.closest('#goalsPrevPoleBtn')) return;
@@ -616,11 +613,11 @@
     refresh: refresh, render: render, say: function (m) { say(m); },
     showBase: function () {
       document.documentElement.classList.remove('calFromTree');
-      visible = true;
+      visible = true; document.documentElement.classList.add('arbreOn');
       if (savedView) { lvl = savedView.lvl; focus = savedView.focus; restoreView = savedView; savedView = null; needBase = false; openPending = false; if (loaded) render(); return; } // retour du calendrier : même niveau, même position
       needBase = true; openPending = true; if (loaded) { applyOpen(); render(); }
     },
     reopen: function () { if (visible && !savedView) { needBase = true; openPending = true; if (loaded) { applyOpen(); render(); } refresh(); } }, // retour sur la page (statistiques, activité, calendrier) : ouverture recalculée
-    hide: function () { visible = false; editMode = false; document.documentElement.classList.remove('calFromTree'); }
+    hide: function () { visible = false; editMode = false; document.documentElement.classList.remove('calFromTree', 'arbreOn'); }
   };
 })();

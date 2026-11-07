@@ -1,6 +1,9 @@
 /* Écran « Objectifs » = l'arbre sur la MÊME grille que l'arbre périodique de la page 2 : on réutilise ses classes (.goalsGrid, .goalsGridRow, .goalsGridCell--empty/--filled, .goalsRowMarker,
    .goalsGridScroll de css/objectifs-page2-objectif.css) ; ce fichier ne porte que ce qui est propre à la vue d'ensemble (colonnes = activités, états, dépliage, bulles fixes, glisser-déposer). */
-.objArbre { display: flex; flex-direction: column; overflow: hidden; padding: 0; } /* hauteur posée par fitTree : de son haut à la barre « Nouvel objectif… » */
+.objArbre { position: fixed; top: var(--ar-top, 160px); bottom: var(--ar-bot, 150px); left: var(--ar-left, 16px); right: var(--ar-right, 16px); display: flex; flex-direction: column; overflow: hidden; padding: 0; min-height: 0; } /* posé en CSS entre l'en-tête et le haut RÉEL de la barre du bas : bas des titres = haut de la barre − 8 px (gouttière), quel que soit l'appareil */
+/* Tant que l'arbre est affiché la page ne défile pas : aucun élastique, rien ne se déplace sous le doigt. */
+html.arbreOn { overflow: hidden; overscroll-behavior: none; }
+html.arbreOn body { position: fixed; inset: 0; width: 100%; overflow: hidden; overscroll-behavior: none; }
 .arZoomRow { flex: none; margin: 0 0 4px; display: flex; align-items: center; min-height: 26px; }
 .arZoomRow .arBackNav { margin: 0; }
 .arEditToggle { margin-left: auto; }
@@ -14,7 +17,7 @@
 /* Colonne fixe des repères (.arRail) à gauche ; à droite la zone qui défile horizontalement (.arHScroll) : jamais de carte sous un repère. */
 .arBody { display: flex; align-items: stretch; min-height: 100%; }
 .arRail { position: relative; flex: none; width: calc(var(--ar-mw, 46px) + 10px); }
-.arHScroll { flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; display: flex; flex-direction: column; -webkit-overflow-scrolling: touch; }
+.arHScroll { container-type: inline-size; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; display: flex; flex-direction: column; -webkit-overflow-scrolling: touch; }
 .arHInner { width: max-content; min-width: 100%; flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-end; }
 .arGridArea { display: block; flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; } /* un seul conteneur de défilement : les repères du temps (sticky à gauche) restent fixes au défilement horizontal, alignés sur leur rangée */
 /* Bulles = dernière rangée de l'arbre : mêmes marges et mêmes largeurs que les rangées de la grille ; jamais fixes ni flottantes. */
