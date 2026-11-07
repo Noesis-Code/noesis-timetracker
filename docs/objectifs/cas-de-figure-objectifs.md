@@ -495,3 +495,8 @@ Page 1 de la Feuille de route = sélecteur « Tâches | Objectifs » (Objectifs 
 
 - Le mode est une classe sur l'arbre ENTIER : toutes les colonnes, visibles ou défilées hors écran, tremblent et portent la croix rouge. Test : nombre de croix = nombre de cartes d'objectif rendues (résumé annuel exclu). Une carte « N objectifs » porte aussi la croix : elle demande LEQUEL supprimer, puis la confirmation rouge. Mesuré avec 4 colonnes et défilement horizontal : 10 cartes, 10 croix.
 - Repères du temps : colonne de 46 px à tous les niveaux (avant : 88 px pour les blocs, 56 px pour les années, 52 px pour les périodes). Bloc de 5 ans = deux années complètes superposées (13 px) dans une pastille cerclée ; année = pastille de 4 chiffres ; bloc courant en pastille pleine claire.
+
+## Titres d'activité / pôle / secteur = dernière rangée de l'arbre (7 nov. 2026)
+
+- Les titres sont des cases de la DERNIÈRE rangée, dans le même conteneur défilant que les colonnes (flux normal : ni sticky, ni fixes, ni flottants). Quand l'arbre défile, ils montent et sortent de l'écran avec leur colonne ; au repos (tout en bas) ils sont juste au-dessus de la barre « Nouvel objectif… » et on ne peut pas défiler plus bas (overscroll none).
+- Mesuré à 390 et 360 px (activités) : repos titre 624-678 px, barre à 694 px ; après 300 px de défilement le titre bouge avec la colonne (même décalage). Secteurs : défilement max 6539 px, après 300 px de défilement le titre descend de 300 px comme les cartes. Pôles : tout tient à l'écran, rien à défiler (le titre reste avec la grille).

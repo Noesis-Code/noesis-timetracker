@@ -16,7 +16,7 @@
 .arBaseWrap { flex: none; width: max-content; min-width: 100%; box-sizing: border-box; padding: 8px 4px 8px var(--ar-pl, 26px); }
 .arBaseRow { align-items: center; }
 .arBaseRow::before { display: none; }
-.arBaseWrap .arSpacer { position: sticky; left: 0; top: auto; transform: none; flex: 0 0 var(--ar-mw, 20px); width: var(--ar-mw, 20px); margin-left: calc(-1 * var(--ar-pl, 26px)); visibility: hidden; }
+.arBaseWrap .arSpacer { position: static; transform: none; flex: 0 0 var(--ar-mw, 20px); width: var(--ar-mw, 20px); margin-left: calc(-1 * var(--ar-pl, 26px)); visibility: hidden; }
 .arGrid { width: max-content; min-width: 100%; padding: 2px 4px 0 var(--ar-pl, 26px); box-sizing: border-box; margin-top: auto; } /* ancré en BAS : la dernière rangée touche les bulles, les cases du futur s'empilent vers le haut */
 .arGrid .goalsGridRow { width: max-content; min-width: 100%; }
 .arGrid .goalsGridRow:has(.arDragging) { z-index: 6; }

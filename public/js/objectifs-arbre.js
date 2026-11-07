@@ -508,9 +508,9 @@
       b.addEventListener('click', function () { descend(ci); });
       baseRow.appendChild(b);
     });
-    baseWrap.appendChild(baseRow); column.appendChild(baseWrap); scroller.appendChild(column); tree.appendChild(scroller);
+    baseWrap.appendChild(baseRow); gridArea.appendChild(baseWrap); scroller.appendChild(column); tree.appendChild(scroller); // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
     (function () { // les cases s'écartent ou se rapprochent pour remplir la zone (entre 40 ou 64 px et 120 px) : ni grand vide, ni rangées trop longues ; trop de rangées = défilement
-      var H = gridArea.clientHeight, n = list.length + grid.querySelectorAll('.arMacroRow').length; if (!H || !n) return;
+      var H = gridArea.clientHeight - baseWrap.offsetHeight, n = list.length + grid.querySelectorAll('.arMacroRow').length; if (!H || !n) return;
       var gap = parseFloat(getComputedStyle(grid).getPropertyValue('--goalsGridGap')) || 34, minH = grid.classList.contains('arCompact') ? 40 : 64;
       grid.style.setProperty('--ar-cell-h', Math.max(minH, Math.min(120, Math.floor((H - 8 - (n - 1) * gap) / n))) + 'px');
     })();
