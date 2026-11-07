@@ -126,3 +126,9 @@
 .objGroupRow { display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 53px; padding: 8px 4px; border: 0; border-radius: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .objGuideHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .objGuideHead .cmpBlockTitle { margin: 0; }
+.objGuideRow { margin: 0; }
+.objGuideRow.open { margin-bottom: 8px; }
+.objGuideRow .cmpSeg { margin-bottom: 8px; }
+.objGuide { margin-bottom: 16px; }
+.objGuideTxt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.objGuideTxt .hint { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
