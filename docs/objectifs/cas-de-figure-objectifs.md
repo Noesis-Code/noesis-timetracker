@@ -417,6 +417,13 @@ Un macro relie plusieurs colonnes à CHAQUE niveau : activités, pôles d'une ac
 - **M18 Changement du réglage des périodes** : les échéances (macros comprises) ne changent pas ; les cases (périodes et semaines) sont recalculées, textes et états conservés (`restructure`). ✅
 - **M19 Activité unique** : aucun macro d'activités proposé (il faut au moins 2 colonnes reliables). ✅
 
+### 13 ter. Macros : extension sur colonnes et titre commun (6 nov. 2026)
+
+- **M20 Extension sur colonnes** : un macro s'étend sur les colonnes de ses enfants (`macroColumns`, par niveau activité / pôle / secteur) ; relier un objectif d'une autre colonne étend le macro. ✅
+- **M21 Délier = retirer l'extension** : délier un enfant (`PUT /objectifs/:id/parent` sans parent) le retire du macro ; la colonne n'est plus reliée si c'était son dernier objectif ; rien n'est supprimé. ✅ testé.
+- **M22 Échéance du macro** : toujours au moins celle de ses enfants (création, rattachement, prolongation, modification) ; délier un enfant ne raccourcit pas le macro. ✅
+- **M23 Titre commun** (`POST /api/objectifs/macro/titre` { childIds[] ou columns[] } -> { title, source: 'ia' | 'titres' }) : UNE ligne de 140 caractères au plus, à partir des deux objectifs les plus récents par colonne reliée ; ne crée rien (le client enregistre ensuite par `POST /objectifs/macro` avec le titre modifiable) ; repli sans IA = titres joints par « · » ; cache par hash des titres ; crédit gratuit et plafond global appliqués (crédit épuisé : aucun appel). ✅
+
 ## 14. Modèle simplifié du temps et de la hiérarchie (validé par Émilien, 6 nov. 2026, envoi C)
 
 REMPLACE les anciennes sections 14 (niveaux de temps choisis) et 14 bis (rattachement entre niveaux). Pas de réglage de périodes, pas de niveau de temps choisi : le NIVEAU se déduit de l'échéance (case = année puis période 13 × 4) et le TYPE d'un objectif de sa STRUCTURE (a au moins un sous-objectif = « grand objectif »).

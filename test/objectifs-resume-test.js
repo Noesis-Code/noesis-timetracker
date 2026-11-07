@@ -55,6 +55,55 @@ const bad = async (fn) => { try { await fn(); return null; } catch (x) { return 
   r = await R.resumeAnnuel(u, act, 2027);
   assert(r.source === 'ia' && /haiku/i.test(model) && sent.max_tokens === 200, 'appel réel (fausse API) : modèle léger, 200 jetons de sortie au plus');
   assert(db.prepare("SELECT COALESCE(SUM(calls), 0) AS n FROM ai_usage_log WHERE feature = 'resume-annuel' AND userId = ?").get(u).n === 1, 'appel journalisé sous « resume-annuel », compté sur la personne');
+  // ---- titre commun d'un macro (macro-titre) ----
+  const act2 = Number(db.prepare("INSERT INTO activities (name, ownerId, active, createdAt) VALUES ('Titre 2', ?, 1, '2026-11-01T00:00:00.000Z')").run(u).lastInsertRowid);
+  db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#674EA7', '2026-11-01T00:00:00.000Z')").run(act2, u);
+  const t1 = mk('Titre un'), t2 = mk('Titre deux'), t3 = mk('Titre trois');
+  const o2a = o.creer(u, { title: 'Autre colonne A', activityId: act2, startDate: '2026-11-09', endDate: '2027-03-01', noBridge: true }), o2b = o.creer(u, { title: 'Autre colonne B', activityId: act2, startDate: '2026-11-09', endDate: '2027-03-01', noBridge: true });
+  let tcalls = 0, tprompt = '';
+  R.setCaller(null); R.setTitleCaller(async (p) => { tcalls++; tprompt = p; return '« Un grand objectif commun »\nligne en trop'; });
+  let tt = await R.titreMacro(u, { columns: [{ activityId: act }, { activityId: act2 }] });
+  assert(tt.source === 'ia' && tt.title === 'Un grand objectif commun' && tt.title.indexOf('\n') < 0, 'titre : une seule ligne, sans guillemets, première ligne seulement');
+  assert((tprompt.match(/^- /gm) || []).length === 4 && /Titre trois/.test(tprompt) && /Titre deux/.test(tprompt) && /Autre colonne A/.test(tprompt) && /Autre colonne B/.test(tprompt) && !/^- Titre un$/m.test(tprompt), 'les deux objectifs les plus récents par colonne reliée (4 titres, le plus ancien écarté)');
+  const before = tcalls; await R.titreMacro(u, { columns: [{ activityId: act }, { activityId: act2 }] });
+  assert(tcalls === before, 'cache par hash des titres : aucun nouvel appel');
+  tt = await R.titreMacro(u, { childIds: [t1.id, o2a.id] });
+  assert(tt.source === 'ia' && /Titre un/.test(tprompt) && /Autre colonne A/.test(tprompt), 'avec childIds : titre à partir de ces objectifs');
+  R.setTitleCaller(async () => { throw new Error('panne'); });
+  tt = await R.titreMacro(u, { childIds: [t2.id, o2b.id] });
+  assert(tt.source === 'titres' && tt.title === 'Titre deux · Autre colonne B', 'repli sans IA : titres joints par « · »');
+  R.setTitleCaller(async () => 'x'.repeat(300));
+  tt = await R.titreMacro(u, { childIds: [t3.id, o2a.id] });
+  assert(tt.title.length <= 140, 'titre limité à 140 caractères');
+  const longJoin = [t1, t2, t3].map(() => 'y'.repeat(80));
+  R.setTitleCaller(async () => null);
+  db.prepare('UPDATE user_objectives SET title = ? WHERE id = ?').run('z'.repeat(100), t1.id); db.prepare('UPDATE user_objectives SET title = ? WHERE id = ?').run('w'.repeat(100), t2.id);
+  tt = await R.titreMacro(u, { childIds: [t1.id, t2.id] });
+  assert(tt.source === 'titres' && tt.title.length <= 140, 'repli : limité à 140 caractères');
+  e = await bad(() => R.titreMacro(u, {})); assert(e && e.statusCode === 400, 'sans objectif ni colonne : 400');
+  e = await bad(() => R.titreMacro('autre', { childIds: [t1.id] })); assert(e && e.statusCode === 404, 'objectif d’un autre compte : 404');
+  assert(db.prepare("SELECT COUNT(*) AS n FROM user_objectives WHERE isMacro = 1").get().n === 0, 'ne crée rien');
+  // crédit gratuit épuisé : aucun appel API, repli sur les titres
+  R.setTitleCaller(null); process.env.ANTHROPIC_API_KEY = 'k'; process.env.EXPANSION_SANS_PAIEMENT = '0';
+  let api = 0; global.fetch = async (url, init) => { api++; const b = JSON.parse(init.body); return { ok: true, status: 200, clone() { return this; }, async json() { return { model: b.model, usage: { input_tokens: 400, output_tokens: 20 }, content: [{ type: 'text', text: 'Titre IA commun' }] }; } }; };
+  db.prepare('UPDATE user_objectives SET title = ? WHERE id = ?').run('Frais un', t1.id);
+  tt = await R.titreMacro(u, { childIds: [t1.id, o2a.id] });
+  assert(tt.source === 'ia' && tt.title === 'Titre IA commun' && api === 1, 'vraie voie (fausse API) : titre IA, modèle léger, journalisé');
+  assert(db.prepare("SELECT COALESCE(SUM(calls), 0) AS n FROM ai_usage_log WHERE feature = 'macro-titre' AND userId = ?").get(u).n === 1, 'appel journalisé sous « macro-titre »');
+  const ab = require('../server/lib/aibudget'); process.env.IA_GRATUIT_CREDIT_MOIS_CAD = '0.0000001';
+  db.prepare('UPDATE user_objectives SET title = ? WHERE id = ?').run('Frais deux', t1.id);
+  const api0 = api; tt = await R.titreMacro(u, { childIds: [t1.id, o2a.id] });
+  assert(tt.source === 'titres' && api === api0, 'crédit gratuit épuisé : aucun appel, repli sur les titres');
+  delete process.env.IA_GRATUIT_CREDIT_MOIS_CAD;
+  const rt2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server', 'routes', 'objectifs.js'), 'utf8');
+  assert(rt2.includes("router.post('/objectifs/macro/titre'"), 'route POST /objectifs/macro/titre');
+  // délier = retirer l'extension ; échéance du macro >= enfants
+  const mac = o.creer(u, { title: 'Macro colonnes', activityId: act, startDate: '2026-11-09', endDate: '2027-03-01', isMacro: true, noBridge: true });
+  const k1 = o.creer(u, { title: 'Fils colonne 1', activityId: act, startDate: '2026-11-09', endDate: '2027-03-01', parentId: mac.id, noBridge: true }), k2 = o.creer(u, { title: 'Fils colonne 2', activityId: act2, startDate: '2026-11-09', endDate: '2027-02-01', parentId: mac.id, noBridge: true });
+  assert(o.get(u, mac.id).macroColumns.length === 2, 'macro étendu sur deux colonnes');
+  o.lier(u, k2.id, null);
+  assert(o.get(u, mac.id).macroColumns.length === 1 && o.get(u, k2.id).parentId === null, 'délier un enfant retire l’extension sur sa colonne');
+  e = await bad(() => o.modifierEcheance(u, mac.id, '2027-01-01')); assert(e && /au moins celle/.test(e.message), 'échéance du macro >= celle de ses enfants');
   // route
   const rt = require('fs').readFileSync(require('path').join(__dirname, '..', 'server', 'routes', 'objectifs.js'), 'utf8');
   assert(rt.indexOf("'/objectifs/resume-annuel'") > 0 && rt.indexOf("'/objectifs/resume-annuel'") < rt.indexOf("'/objectifs/:id'"), 'route GET /objectifs/resume-annuel déclarée avant /objectifs/:id');

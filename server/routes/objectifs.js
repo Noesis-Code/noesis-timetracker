@@ -18,6 +18,7 @@ function run(fn) {
 
 router.get('/objectifs', run((req) => ({ objectifs: objectifs.liste(req.userId, String(req.query.filtre || 'en_cours')) })));
 router.post('/objectifs/contexte', run((req) => objectifs.contexte(req.userId, req.body || {})));
+router.post('/objectifs/macro/titre', run((req) => require('../lib/objectifs-resume').titreMacro(req.userId, req.body || {})));
 router.get('/objectifs/resume-annuel', run((req) => require('../lib/objectifs-resume').resumeAnnuel(req.userId, req.query.activityId, req.query.year)));
 router.get('/objectifs/structure', run((req) => objectifs.structure(req.userId)));
 router.get('/objectifs/reglage', run((req) => ({ anon: objectifs.anonOptIn(req.userId) })));
