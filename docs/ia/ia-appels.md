@@ -48,6 +48,18 @@ Plafonds propres restants (autres mécanismes) : Drive 40 appels/jour (`DRIVE_SY
 
 Alertes (journal serveur seulement, aucune notification) : coût du jour tous comptes > `AI_COST_ALERT_DAY_CAD` (défaut 8 CAD, une ligne par jour de Montréal, durable au redémarrage) ; rapport hebdomadaire `--semaine` > `AI_WEEKLY_ALERT_CAD` (défaut 5 CAD) ou fonction en hausse de plus de 50 % (et > 0,25 $) ; adaptatif derrière `AI_ALERT_ADAPTIVE=1` (`aialertthreshold.js`, 3,5 CAD x comptes actifs) ; clé refusée 401/403 (`ALERTE clé API Anthropic refusée`, une par heure). Le jour de tous les compteurs = `aifeaturecaps.dayKey` (America/Toronto, jamais UTC).
 
+## 3 bis. Plafonds de l'IA gratuite (décision d'Émilien, 6 nov. 2026)
+
+Tout compte SANS accès Expansion est « gratuit ». Appliqué dans le point d'appel unique `aibudget.fetchAnthropic` (journal `ai_usage_log`, mois civil de Montréal), avant le budget par compte de la section 3 :
+- plafond GLOBAL mensuel de TOUTE l'IA gratuite : `IA_GRATUIT_PLAFOND_GLOBAL_USD` (défaut 500 $ US), cumul dans la table `ai_free_spend` (sans compte ni texte) ;
+- plafond PAR UTILISATEUR gratuit et par mois : `IA_GRATUIT_PLAFOND_USER_USD` (défaut 2 $ US), ses dépenses par activité (`utilisateur#aActivité`) comprises ;
+- modèle LÉGER seul : tout appel d'un compte gratuit qui demandait un modèle fort part en Haiku (jamais de repli vers le modèle fort) ;
+- au-delà d'un plafond : l'appel lève la même erreur `aiBlocked` (`freeCap: true`, message « Disponible avec Expansion… ») SANS appeler l'API ; chaque fonction retombe sur ses règles locales, jamais d'erreur bloquante pour l'utilisateur ;
+- alerte au journal serveur (une seule fois par mois) à 80 % du plafond global ;
+- un compte Expansion et les appels système ne sont jamais limités par ces plafonds ; le cache de réponse de 24 h (`aicache.memoize`) s'applique déjà aux fonctions concernées ;
+- les appels de `objectifs.js` (étapes, lecture, rapprochement) passent maintenant par `aibudget.runAs(userId, …)` : avant, ils étaient comptés sur le compte « système » (donc hors budget de la personne).
+Test : `test/ia-gratuit-plafonds-test.js`.
+
 ## 4. Réductions déjà appliquées
 
 - Orthographe : consigne raccourcie (127 -> 110 jetons), clé de mémo normalisée.
