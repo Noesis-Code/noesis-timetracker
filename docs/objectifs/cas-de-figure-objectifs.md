@@ -564,3 +564,8 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 - Macro orphelin : un macro sans objectif relié disparaît (au détachement du dernier enfant, à la suppression du dernier enfant, et au chargement pour les macros vides existants) ; jamais un objectif de l'utilisateur.
 - La barre devenue bouton borne la hauteur de l'arbre (avant, l'arbre était recadré à 240 px) ; le relâchement de l'appui long ne coche rien.
 - Testé au toucher réel à 390 px et 1435 px : appui long, choix d'une case, Enregistrer, toucher le macro, Séparer, ajout d'une case, annuler en touchant dehors, en retouchant la case d'origine et en touchant un titre.
+
+## Largeur des colonnes : règle de l'arbre périodique (page 2) (7 nov. 2026)
+
+- Règles lues dans `objectifs-page2-objectif.js/.css` : gouttière de colonnes 10 px, écart entre rangées 34 px ; UNE colonne = toute la largeur (flex 1 1 0) ; DEUX = moitié chacune ; TROIS ou plus = deux visibles à la fois (`calc(50% - 5px)`) avec défilement horizontal ; repères à gauche (26 px), traits verticaux de 2 px entre cases ; titre de colonne de la largeur de sa colonne.
+- Arbre des objectifs, avant : une colonne seule avait la largeur de DEUX moitiés et les titres élargissaient les colonnes au-delà de la moitié (la deuxième colonne dépassait de l'écran). Après : 1 colonne = toute la largeur (291 px contre 140 px pour chacune de deux colonnes à 390 px) ; 2 colonnes = moitié chacune (140 px) ; 3+ = moitié, défilement ; les titres passent à la ligne. Grand écran : inchangé (les colonnes se partagent la largeur).
