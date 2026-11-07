@@ -313,7 +313,6 @@
     return m;
   }
   // Année en OVALE (4 chiffres) sur la première ligne de l'année, aux niveaux des périodes : même composant que les repères, contour fin ; pleine pour l'année courante.
-  function yearOval(y) { var m = el('span', 'goalsRowMarker goalsRowMarker--future goalsRowMarker--ovale arYearTag', String(y)); if (y === new Date().getFullYear()) { m.classList.remove('goalsRowMarker--future'); m.classList.add('goalsRowMarker--current'); m.style.background = 'var(--text)'; m.style.color = 'var(--bg)'; } return m; }
   // ---------- zoom par NIVEAU : activités (grands objectifs) > pôles d'une activité > secteurs d'un pôle (= le modèle de l'arbre périodique, page 2) ----------
   var LEVEL_LABEL = { activite: 'Activité', pole: 'Pôle', secteur: 'Secteur' };
   function actOf(id) { return ((struct && struct.activities) || []).filter(function (a) { return a.id === id; })[0] || null; }
@@ -392,11 +391,6 @@
     else if (TMT.showGoalsPolesPage) TMT.showGoalsPolesPage(focus.activityId);
   }
   function ascend() { if (lvl === 'secteur') go('pole', { activityId: focus.activityId }); else if (lvl === 'pole') go('activite', null); } // flèche de retour ou pincer inverse
-  function colAt(x) { // colonne sous un point d'écran (pincer / Ctrl+molette) : celle de la bulle qui lui correspond
-    var bs = tree ? tree.querySelectorAll('.arBubble') : [], best = 0, dmin = 1e9;
-    for (var i = 0; i < bs.length; i++) { var r = bs[i].getBoundingClientRect(), d = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; if (d < dmin) { dmin = d; best = i; } }
-    return best;
-  }
   function editToggle() { // crayon ✎ (R15, sans cadre R37) sous « Objectifs » : mode édition (les cartes tremblent, croix rouge, toucher = paramètres) ; le retoucher quitte
     var b = TMT.ui.editBtn(function () { editMode = !editMode; render(); }, tr(editMode ? 'Terminer la modification' : 'Modifier les objectifs'));
     b.classList.add('arEditToggle'); b.setAttribute('aria-pressed', editMode ? 'true' : 'false'); return b;
@@ -481,11 +475,10 @@
       });
     });
     var grid = el('div', 'goalsGrid arGrid' + (zoom !== 'period' ? ' arCompact' : '') + (animate ? ' arEnter' : '')); // années et blocs de 5 ans : rangées COMPACTES (moins de hauteur) animate = false;
-    var lastY = null;
+    
     list.forEach(function (rw, r) {
       var row = el('div', 'goalsGridRow'); row.setAttribute('data-rank', String(rw.rank));
       var rowMark = marker(rw, here, lvl === 'secteur' && rw.p ? function () { openCalendar(rw, curCols[0] && curCols[0].key); } : null); row.appendChild(rowMark);
-      if (rw.y !== lastY) { if (rw.p) row.appendChild(yearOval(rw.y)); } lastY = rw.y;
       var macs = macrosAt[rw.rank] || [], skip = {}, extra = [];
       macs.sort(function (x, y) { return (x.m.endDate < y.m.endDate ? 1 : -1); }); // le macro le plus lointain d'abord : un macro peut avoir un autre macro pour enfant (A+B puis (A+B)+C), les cartes larges s'empilent
       macs.forEach(function (mm) { // inline si aucune carte ni autre macro n'occupe les colonnes traversées dans cette case ; sinon dans une rangée de macro juste au-dessus (signalé)
@@ -546,42 +539,30 @@
       var gap = parseFloat(getComputedStyle(grid).getPropertyValue('--goalsGridGap')) || 34, minH = grid.classList.contains('arCompact') ? 40 : 64;
       grid.style.setProperty('--ar-cell-h', Math.max(minH, Math.min(120, Math.floor((H - 8 - (n - 1) * gap) / n))) + 'px');
     })();
-    function placeRail() { // chaque repère va dans la colonne fixe, au niveau de sa rangée (mesuré une fois la mise en page posée)
-      var r0 = rail.getBoundingClientRect().top;
+    var marks = [];
+    function placeRail() { // chaque repère va dans la colonne fixe ; sa position est ensuite (re)mesurée sur la rangée de sa période
       Array.prototype.forEach.call(grid.querySelectorAll('.goalsGridRow'), function (row) {
-        var rr = row.getBoundingClientRect(), mid = rr.top - r0 + rr.height / 2;
         Array.prototype.slice.call(row.children).filter(function (ch) { return ch.classList.contains('goalsRowMarker'); }).forEach(function (m) {
           if (m.style.visibility === 'hidden') { row.removeChild(m); return; }
-          rail.appendChild(m); var h = m.offsetHeight || 20; m.style.top = Math.round(mid - h / 2 + (m.classList.contains('arYearTag') ? 14 + h / 2 : 0)) + 'px';
+          rail.appendChild(m); marks.push({ m: m, rk: row.getAttribute('data-rank') });
         });
       });
+      positionRail();
     }
-    placeRail();
+    function positionRail() { // le repère est au milieu de TOUTE la hauteur de sa période (rangée de cases ET rangées de macro) ; remesuré après la mise en page
+      var r0 = rail.getBoundingClientRect().top;
+      marks.forEach(function (x) {
+        var top = 1e9, bot = -1e9;
+        Array.prototype.forEach.call(grid.querySelectorAll('.goalsGridRow[data-rank="' + x.rk + '"]'), function (g) { var q = g.getBoundingClientRect(); top = Math.min(top, q.top); bot = Math.max(bot, q.bottom); });
+        var h = x.m.offsetHeight || 20; x.m.style.top = Math.round((top + bot) / 2 - r0 - h / 2) + 'px';
+      });
+    }
+    placeRail(); window.requestAnimationFrame(positionRail); window.setTimeout(positionRail, 350);
     if (restoreView) { gridArea.scrollTop = restoreView.top; scroller.scrollLeft = restoreView.left; restoreView = null; }
     else if (needBase || keepTop == null) { needBase = false; gridArea.scrollTop = gridArea.scrollHeight; window.requestAnimationFrame(function () { if (gridArea) gridArea.scrollTop = gridArea.scrollHeight; }); } // ouverture : le présent (en bas)
     else { gridArea.scrollTop = keepTop; scroller.scrollLeft = keepLeft; }
   }
-  // Pincer (tactile) ou Ctrl + molette (ordinateur) : descendre d'un niveau (écarter) / remonter (rapprocher). Une seule technique de zoom, la même partout dans l'arbre.
-  (function () {
-    var pinch = null, lastWheel = 0;
-    function inArbre(t) { return visible && t && t.closest && t.closest('#goalsObjArbre'); }
-    function dist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
-    document.addEventListener('touchstart', function (e) { if (e.touches.length === 2 && inArbre(e.target)) pinch = { d: dist(e.touches), x: (e.touches[0].clientX + e.touches[1].clientX) / 2, done: false }; }, { passive: true });
-    document.addEventListener('touchmove', function (e) {
-      if (!pinch || e.touches.length !== 2) return;
-      if (e.cancelable) e.preventDefault();
-      if (pinch.done) return;
-      var k = dist(e.touches) / pinch.d;
-      if (k > 1.3) { pinch.done = true; descend(colAt(pinch.x)); } else if (k < 0.75) { pinch.done = true; ascend(); }
-    }, { passive: false });
-    document.addEventListener('touchend', function (e) { if (e.touches.length < 2) pinch = null; }, { passive: true });
-    document.addEventListener('wheel', function (e) {
-      if (!e.ctrlKey || !inArbre(e.target)) return;
-      e.preventDefault();
-      var now = Date.now(); if (now - lastWheel < 400) return; lastWheel = now;
-      if (e.deltaY < 0) descend(colAt(e.clientX)); else ascend();
-    }, { passive: false });
-  })();
+  // On ne change de niveau QUE par le toucher (descendre) et la flèche de retour : ni pincement ni Ctrl + molette (retirés à la demande d'Émilien).
   // OUVERTURE : le niveau de temps du plus large des objectifs de l'utilisateur (pluriannuel s'il y en a, sinon année, sinon période) ; recalculé à chaque ouverture et chaque retour, rien n'est mémorisé.
   function applyOpen() {
     var order = ['pluriannuel', 'annee', 'periode'], best = null;

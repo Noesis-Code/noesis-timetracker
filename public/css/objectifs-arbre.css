@@ -75,7 +75,6 @@
 .goalsRowMarker--ovale { border-radius: 999px; font-size: 13px; padding: 0; height: 20px; width: auto; justify-content: center; white-space: nowrap; }
 .goalsRowMarker--ovale.goalsRowMarker--future { opacity: 1; box-shadow: inset 0 0 0 1px currentColor; }
 .goalsRowMarker--ovale.goalsRowMarker--current { box-shadow: none; }
-:is(.arGrid, .arRail) .goalsRowMarker.arYearTag { position: absolute; left: calc(-1 * var(--ar-pl, 26px)); top: calc(50% + 14px); margin: 0; transform: none; flex: none; width: auto; min-width: 20px; padding: 0 8px; background-clip: padding-box; z-index: 3; } /* année en ovale sous le rond de la période : jamais dans le flux de la rangée */
 .objParentLine { display: block; text-align: left; padding: 0; margin: 2px 0 4px; }
 .arSummary { text-align: left; }
 .arSummary .goalsGridCellText { display: flex; flex-direction: column; gap: 3px; }
@@ -97,7 +96,6 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 /* Onglet Objectifs : la ligne de retour et le crayon se rapprochent du sélecteur « Tâches | Objectifs » (seul l'écart de 16 px sous le sélecteur est retiré ; l'onglet Tâches ne change pas) ; l'arbre récupère la hauteur. */
 #goalsCapturePage:has(#goalsActivitiesView:not(.hidden)) .goalsPage1Switch { margin-bottom: 0; }
 .arRail .goalsRowMarker { position: absolute; left: 0; margin: 0; transform: none; flex: none; align-self: auto; }
-.arRail .goalsRowMarker.arYearTag { left: 0; }
 .arRail.arCompact .goalsRowMarker--ovale { height: 18px; line-height: 18px; }
 /* Règle de l'arbre périodique (.goalsGridScroll--locked) : une ou deux colonnes = aucun défilement horizontal, le balayage part vers la page voisine. */
 .arHScroll.goalsGridScroll--locked { overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; }
