@@ -74,6 +74,11 @@
       t.appendChild(el('span', 'arCardMeta', (o.durationLabel || '') + ' · ' + tr(STATE_LABEL[st]) + (nk ? ' · ' + nk + ' ' + tr(nk > 1 ? 'objectifs rattachés' : 'objectif rattaché') : '')));
     }
     b.appendChild(t);
+    if (o.parent && o.parentLevel && o.parentLevel !== tl(o)) { // parent d'un AUTRE niveau de temps : il n'est pas dans cet arbre, une marque discrète le nomme au toucher
+      var up = el('span', 'arUp', '↑'); up.setAttribute('role', 'img'); up.setAttribute('aria-label', tr('Rattaché à') + ' ' + o.parent.title); up.title = o.parent.title;
+      up.addEventListener('click', function (e) { e.stopPropagation(); say(tr('Rattaché à') + ' « ' + o.parent.title + ' » · ' + tr(o.parentLevel === 'pluriannuel' ? 'Pluriannuel' : o.parentLevel === 'annee' ? 'Année' : 'Période')); });
+      b.appendChild(up);
+    }
     b.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(o.id); });
     if (TMT.ui && TMT.ui.holdDrag) {
       var below = descendants(o.id, kidsAll); // descendance sur TOUTES les colonnes (un enfant peut être dans un autre pôle)
