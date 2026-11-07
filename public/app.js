@@ -8300,7 +8300,6 @@
     if (TMT.currentGoalsViewPeriodNumber == null || !goalPeriodByNumber(detailPlanning, TMT.currentGoalsViewPeriodNumber)) {
       TMT.currentGoalsViewPeriodNumber = detailPlanning.currentPeriodNumber;
     }
-    if (TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen()) TMT.renderActivityGoals();
   }
 
 
@@ -8369,7 +8368,6 @@
       // requête était en vol.
       if (activityId !== TMT.currentGoalsActivityId || poleKey !== TMT.currentGoalsSelectedPoleKey) return;
       TMT.currentGoalsGridColumns = data.columns || [];
-      if (TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen() && TMT.prepareGoalsMonth) { TMT.prepareGoalsMonth(); TMT.renderGoalsPoleSwitcher(); }
       TMT.currentGoalsMaxSecteurs = data.maxSecteurs || TMT.currentGoalsMaxSecteurs;
       if (TMT.currentGoalsAllPlannings) {
         TMT.currentGoalsAllPlannings.byCategory = TMT.currentGoalsAllPlannings.byCategory || {};

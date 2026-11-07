@@ -104,7 +104,7 @@
 
 
         <!-- (Emilien) : plus de boutons Tâches/Objectifs — on glisse de droite à gauche ; 3 points en bas au milieu (celui du milieu est réservé à une prochaine demande). -->
-        <div id="goalsPage2Dots" role="group"><button type="button" class="goalsDotBtn" data-dot="home" aria-label="Feuille de route"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn on" data-dot="goals" aria-label="Objectifs"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" data-dot="next" aria-label="Calendrier"><span class="goalsDot"></span></button></div>
+        <div id="goalsPage2Dots" role="group"><button type="button" class="goalsDotBtn" data-dot="home" aria-label="Feuille de route"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn on" data-dot="goals" aria-label="Objectifs"><span class="goalsDot"></span></button></div>
 
         <!-- scission Tâches / Objectifs de la Page 2 :
              emplacement de l'écran « Objectifs ». Son CONTENU (arbre
@@ -114,7 +114,6 @@
              ne référence aucun élément de son intérieur. Le cadre de pôle
              (#goalsActivityHeader) est de même injecté par ce fichier-là,
              juste avant #goalsPage2ModeSwitch. -->
-        <div id="goalsMonthView" class="hidden"></div>
         <div id="goalsObjectifsView" class="hidden"></div>
         <!-- Onglet « Discussion » () : le bloc #communityDiscussionBlock (index.html, logique dans app.js : TMT.discussion) y est déplacé juste après l'injection. -->
         <div id="goalsDiscView" class="goalsDiscView hidden"></div>
@@ -193,7 +192,6 @@
     $('goalsActivitySwitcher').classList.remove('hidden');
     // Changer d'activité revient toujours à la grille — le détail resterait
     // sinon ouvert sur une période qui appartient à l'ancienne activité.
-    TMT.closeGoalsDetail();
 
     // Glissement circulaire : après la dernière activité on revient à la
     // première, et inversement avant la première on revient à la dernière
@@ -289,8 +287,8 @@
   // index.html.
   var goalsPage2BaseMode = 'goals';
   // Dans l'activité : Objectifs (arbre périodique, page d'arrivée) · Calendrier (détail de période, ex-Page 3). Le 1er point des 3 est la page 1 (retour à la Feuille de route).
-  var GOALS_PAGE2_ORDER = ['goals', 'month'];
-  function goalsPage2ViewFor(m) { return $(m === 'month' ? 'goalsMonthView' : 'goalsObjectifsView'); }
+  var GOALS_PAGE2_ORDER = ['goals']; // la page 3 (calendrier) est retirée : le calendrier est dans la vue Tâches
+  function goalsPage2ViewFor(m) { return $('goalsObjectifsView'); }
   TMT.getGoalsPage2Mode = function () { return currentGoalsPage2Mode; };
   // opts.keep : l'appelant (openGoalsDetail) a déjà posé catégorie/période ; opts.noAnim : sans défilement.
   function setGoalsPage2Mode(mode, opts) {
@@ -315,7 +313,7 @@
     currentGoalsPage2Mode = mode;
     var swEl = $('goalsActivitySwitcher');
     GOALS_PAGE2_ORDER.forEach(function (m) {
-      var dot = document.querySelector('#goalsPage2Dots [data-dot=' + (m === 'month' ? 'next' : m) + ']');
+      var dot = document.querySelector('#goalsPage2Dots [data-dot=' + m + ']');
       if (dot) dot.classList.toggle('on', mode === m);
     });
     var views = {};
@@ -354,7 +352,6 @@
       };
     }
     // Défilement automatique vers la période en cours supprimé.
-    if (mode === 'month' && !opts.keep && TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
     var discBtn = $('goalsPage2ModeDiscBtn');
     if (discBtn) discBtn.classList.toggle('active', mode === 'disc');
     var discView = $('goalsDiscView');
@@ -368,7 +365,7 @@
   Array.prototype.forEach.call(document.querySelectorAll('#goalsPage2Dots [data-dot]'), function (b) {
     b.addEventListener('click', function () {
       if (b.getAttribute('data-dot') === 'home') { TMT.showGoalsCapturePage(); return; } // 1er point : la page 1 de la Feuille de route
-      var m = b.getAttribute('data-dot') === 'next' ? 'month' : b.getAttribute('data-dot');
+      var m = b.getAttribute('data-dot');
       if (m !== goalsPage2BaseMode) setGoalsPage2Mode(m);
     });
   });
@@ -412,7 +409,6 @@
       var curMode = goalsPage2BaseMode, nbMode = GOALS_PAGE2_ORDER[target];
       var cur = goalsPage2ViewFor(curMode), nb = goalsPage2ViewFor(nbMode);
       if (!cur || !nb) return false;
-      if (nbMode === 'month' && TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
       var r = cur.getBoundingClientRect(), zr = cur.offsetParent ? cur.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
       var curTop = cur.offsetTop; // AVANT d'afficher la voisine (qui précède parfois cur dans le DOM et la décalerait)
       nb.classList.remove('hidden');

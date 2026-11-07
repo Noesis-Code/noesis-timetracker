@@ -1086,7 +1086,6 @@
     }
     $('goalsNoActivityHint').classList.add('hidden');
     $('goalsActivitySwitcher').classList.add('hidden');
-    TMT.closeGoalsDetail();
     $('goalsCapturePage').classList.remove('hidden');
     goalsCaptureSelectedActivityIds = [];
     goalsCaptureAwaitingActivityChoice = false;
@@ -1165,7 +1164,7 @@
       if (idx === -1) return;
       var loaded = TMT.openGoalsForActivity(idx);
       if (loaded && loaded.then && category && periodNumber) {
-        return loaded.then(function () { TMT.openGoalsDetail(category, periodNumber); });
+        return loaded.then(function () { if (TMT.ouvrirCalendrierTaches) TMT.ouvrirCalendrierTaches({ activityId: activityId, poleKey: category, secteurKey: category, periodNumber: periodNumber }); }); // le calendrier vit dans la vue Tâches
       }
     });
   }

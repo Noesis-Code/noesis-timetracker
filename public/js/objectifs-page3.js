@@ -17,7 +17,6 @@
       <div class="communityMembersModalCard">
         <div class="activityPageHeader">
           <span class="activityPageName" id="goalsDetailTitle"></span>
-          <button type="button" class="cmpClose" id="goalsDetailBack" aria-label="Fermer">✕</button>
         </div>
         <div id="goalsDetailScroll">
           <div id="activityGoalsBlock">
@@ -1488,77 +1487,7 @@
     return true;
   }
 
-  function showGoalsMonthContent(category) {
-    var sc = $('goalsActivitySwitcherScroll');
-    if (sc) sc.scrollTop = 0;
-    renderActivityGoals();
-    TMT.updateGoalsScrubVisibility();
-    // ouvrir ce nœud le marque vu.
-    if (TMT.currentGoalsActivityId) {
-      api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/categories/' + encodeURIComponent(category) + '/mark-seen')
-        .then(loadGoalsCaptureBadges)
-        .catch(function () {});
-    }
-  }
-
-  // Clic sur une période de l'arbre : la page du milieu s'ouvre sur CETTE période (défilement latéral).
-  function openGoalsDetail(category, periodNumber) {
-    TMT.goalsCalUnmount();
-    closeGoalsDayAddForms();
-    mainFormForceKey = periodNumber + '|' + category; // seule entrée qui ouvre d'emblée la création d'objectif périodique
-    if (!applyGoalsMonthState(category, periodNumber)) { mainFormForceKey = null; return; }
-    TMT.setGoalsPage2Mode('month', { keep: true });
-    renderGoalsMonthSectors(); // bug #71 : la bulle du secteur cliqué doit être celle sélectionnée (sinon reste sur le premier)
-    showGoalsMonthContent(category);
-  }
-
-  // Arrivée par balayage : période en cours du pôle affiché (période déjà choisie conservée si même catégorie).
-  TMT.prepareGoalsMonth = function () {
-    TMT.goalsCalUnmount();
-    closeGoalsDayAddForms();
-    mainFormOpenKey = null; // arrivée par balayage / changement de secteur : carte « + Ajouter » par défaut
-    // Page du milieu : on choisit un SECTEUR du pôle affiché (le pôle lui-même si sans secteur).
-    var sec = TMT.goalsMonthSecteur && TMT.goalsMonthSecteur();
-    var cat = (sec && sec.key) || TMT.currentGoalsSelectedPoleKey || TMT.currentGoalsCategory;
-    var known = (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.byCategory) || {};
-    if (!known[cat]) cat = Object.keys(known)[0] || cat;
-    TMT.currentGoalsSelectedSecteurKey = cat;
-    var keep = cat === TMT.currentGoalsCategory ? TMT.currentGoalsViewPeriodNumber : null;
-    if (!applyGoalsMonthState(cat, keep)) { renderActivityGoals(); return; }
-    renderGoalsMonthSectors();
-    showGoalsMonthContent(cat);
-  };
-
-  // Bulles des secteurs du pôle affiché, sous le cadre pôle (page mensuel). Style des puces d'activité de Statistiques, sans pastille.
-  function renderGoalsMonthSectors() {
-    var host = $('goalsMonthView');
-    if (!host) return;
-    var box = $('goalsMonthSectors');
-    if (!box) {
-      box = document.createElement('div');
-      box.id = 'goalsMonthSectors';
-      box.className = 'gmChips';
-      host.insertBefore(box, host.firstChild);
-    }
-    var cols = TMT.currentGoalsGridColumns || [];
-    var sel = TMT.goalsMonthSecteur && TMT.goalsMonthSecteur();
-    box.textContent = '';
-    var edge = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
-    box.style.setProperty('--chipEdge', edge);
-    box.classList.toggle('hidden', cols.length < 2);
-    cols.forEach(function (c) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'gmChip' + (sel && sel.key === c.key ? ' on' : '');
-      b.textContent = t(c.label);
-      b.addEventListener('click', function () {
-        if (sel && sel.key === c.key) return;
-        TMT.currentGoalsSelectedSecteurKey = c.key;
-        TMT.prepareGoalsMonth();
-      });
-      box.appendChild(b);
-    });
-  }
+  // (page 3 retirée le 7 nov. 2026 : le calendrier vit dans la vue Tâches ; openGoalsDetail, prepareGoalsMonth, les bulles de secteurs et la fermeture de la page n'existent plus)
 
   // ----- Calendrier intégré à la vue Tâches (7 nov. 2026, demande d'Émilien) : UN SEUL calendrier. Le nœud #goalsDetailScroll (celui de la page 3, aucune copie) est posé dans un hôte de la vue Tâches
   // quand son filtre désigne un pôle ou un secteur ; toutes ses fonctions restent (cadres, objectifs hebdomadaires et périodique, éditeur). Le jour touché est confié à la vue Tâches (crochet : liste filtrée + barre d'ajout). -----
@@ -1622,28 +1551,5 @@
     }).catch(function () { return false; });
   };
 
-  TMT.isGoalsMonthOpen = function () { return !!TMT.getGoalsPage2Mode && TMT.getGoalsPage2Mode() === 'month'; };
-
-  function closeGoalsDetail() {
-    closeGoalsDayAddForms();
-    mainFormOpenKey = null;
-    if (TMT.isGoalsMonthOpen()) TMT.setGoalsPage2Mode('goals', { noAnim: true });
-    TMT.updateGoalsScrubVisibility();
-  }
-
-
-  $('goalsDetailBack').addEventListener('click', closeGoalsDetail);
-
-  // Clic sur le fond, hors de la carte : referme — même motif que
-  // #activityPage/#viewProfileModal (le test sur e.target évite de refermer
-  // sur un clic qui vient d'un élément intérieur et a juste remonté).
-  $('goalsDetailPage').addEventListener('click', function (e) {
-    if (e.target === $('goalsDetailPage')) closeGoalsDetail();
-  });
-
-  // Points d'entrée appelés depuis la page 1 et la page 2, et depuis app.js
-  // (refreshGoalsDetailPageIfOpen(), restée côté app.js — voir son en-tête TMT).
-  TMT.openGoalsDetail = openGoalsDetail;
-  TMT.closeGoalsDetail = closeGoalsDetail;
   TMT.renderActivityGoals = renderActivityGoals;
 })();

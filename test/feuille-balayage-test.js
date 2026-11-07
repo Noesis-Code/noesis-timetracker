@@ -19,8 +19,8 @@ const css2 = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'aujour
 assert(/\.tasksPopList \{[^}]*overflow-x: hidden/.test(css2), 'liste de tâches : aucun défilement latéral natif (la liste ne se décale plus seule, le balayage part)');
 assert(/input:not\(\[type=checkbox\]\)/.test(stats), 'un balayage qui commence sur une case à cocher reste possible');
 const p2 = read('objectifs-page2-taches.js');
-assert(/GOALS_PAGE2_ORDER = \['goals', 'month'\]/.test(p2), 'dans l\'activité : Objectifs puis Calendrier (plus de page Tâches)');
-assert(/data-dot="home"[\s\S]*data-dot="goals"[\s\S]*data-dot="next"/.test(p2), 'trois points : page 1, Objectifs, Calendrier');
+assert(p2.includes("GOALS_PAGE2_ORDER = ['goals']"), 'dans l activité : Objectifs seul (la page 3 Calendrier est retirée : le calendrier est dans la vue Tâches)');
+assert(p2.includes('data-dot="home"') && p2.includes('data-dot="goals"') && !p2.includes('data-dot="next"'), 'deux points : page 1, Objectifs (le point de la page 3 est retiré)');
 assert(/openGoalsForActivity|setGoalsPage2Mode\('goals', \{ noAnim: true \}\)/.test(p2), 'une activité s\'ouvre sur Objectifs');
 assert(/TMT\.keepGoalsView = target === 'goals'/.test(stats) && /!TMT\.keepGoalsView/.test(app), 'retour au doigt depuis Statistiques : le pager signale la conservation de la vue (il masque les statistiques avant switchTab)');
 const today = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'aujourdhui.js'), 'utf8'), page1 = read('objectifs-page1.js'), creer = read('objectifs-creer.js'), compo = read('composants.js');
