@@ -667,3 +667,8 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 - Ordre des pages : Description (titre + description seulement) → Rattachement (si candidat) → Temps → **Activité** (Activité liée, charge de la semaine prochaine, Avancé) → Niveau (si info manquante) → Tâches. Vérifié à 375 px : page 1 compacte, page 3 « Activité ».
 - Description compacte : les questions s'ouvrent une à une (la suivante après un choix, plusieurs choix possibles) ; UN seul champ « Quelques mots » (80 au plus, « Précisions : … ») après la dernière question.
 - Cas : l'activité n'est plus demandée à la page 1 ; « Suivant » de la page Activité refuse sans activité (« Choisis une activité. ») ; le rattachement est proposé d'après l'activité suggérée ou verrouillée, et s'il change à la page Activité le parent proposé est abandonné (aucun rattachement silencieux).
+
+## Hauteur d'une case : le contenu seul (7 nov. 2026, correction d'Émilien)
+
+- La hauteur d'une case ne dépend QUE de son contenu : au moins 64 px (40 px aux niveaux années et blocs), au plus 120 px, texte coupé par « … » (titre sur 3 lignes, 2 aux années/blocs, sous-ligne sur 2). Retiré : le calcul JS qui répartissait la hauteur de l'écran entre les rangées (`--ar-cell-h`) ; plus rien ne lie la hauteur d'une case à l'écran, au geste ou à l'élastique. L'arbre défile verticalement si le contenu dépasse ; s'il est plus court, les titres restent collés en bas.
+- Mesuré à 390 px, écrans de 844 et 700 px, avant / pendant / après un tirage vers le bas puis vers le haut : hauteurs de cartes identiques (40 / 52,5 / 53,3 px) et de rangées identiques (40, 40, 40, 53, 53 px). Un titre de 640 caractères : la case passe de 40 à 52,5 px (jamais plus que le maximum), texte coupé (capture regardée).

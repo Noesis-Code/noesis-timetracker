@@ -545,11 +545,7 @@
     // COLONNE FIXE des repères du temps (.arRail, à gauche, jamais recouverte) + zone qui défile à droite (.arHScroll : colonnes d'activités ET titres, horizontalement) ; le défilement vertical est celui du conteneur commun .arGridArea : repères et rangées défilent ensemble sans script.
     var body = el('div', 'arBody'), rail = el('div', 'arRail' + (zoom !== 'period' ? ' arCompact' : '')), hs = el('div', 'arHScroll' + (n <= 2 ? ' goalsGridScroll--locked' : '')), hin = el('div', 'arHInner'); hs.style.setProperty('--ar-w', arW);
     hin.appendChild(grid); hin.appendChild(baseWrap); hs.appendChild(hin); body.appendChild(rail); body.appendChild(hs); gridArea.appendChild(body); column.appendChild(gridArea); scroller.appendChild(column); tree.appendChild(scroller); scroller = hs; // UN SEUL conteneur défile (vertical ET horizontal) : c'est lui que les repères « collent » à gauche (sticky), sans aucun script // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
-    (function () { // les cases s'écartent ou se rapprochent pour remplir la zone (entre 40 ou 64 px et 120 px) : ni grand vide, ni rangées trop longues ; trop de rangées = défilement
-      var H = gridArea.clientHeight - baseWrap.offsetHeight, n = list.length + grid.querySelectorAll('.arMacroRow').length; if (!H || !n) return;
-      var gap = parseFloat(getComputedStyle(grid).getPropertyValue('--goalsGridGap')) || 34, minH = grid.classList.contains('arCompact') ? 40 : 64;
-      grid.style.setProperty('--ar-cell-h', Math.max(minH, Math.min(120, Math.floor((H - 8 - (n - 1) * gap) / n))) + 'px');
-    })();
+    // La HAUTEUR d'une case ne dépend QUE de son contenu (min 64 px, 40 px aux années et blocs ; max 120 px, texte coupé par « … ») : jamais de la hauteur de l'écran, du geste ni de l'élastique. Plus aucun calcul de hauteur en JS.
     var marks = [];
     function placeRail() { // chaque repère va dans la colonne fixe ; sa position est ensuite (re)mesurée sur la rangée de sa période
       Array.prototype.forEach.call(grid.querySelectorAll('.goalsGridRow'), function (row) {

@@ -86,7 +86,12 @@ html.arbreOn body { position: fixed; inset: 0; width: 100%; overflow: hidden; ov
 .arSummaryText { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
 /* Rangées d'années et de blocs : compactes (gouttière réduite, cases moins hautes, repère ovale plus bas) ; les cases restent des cases grises, les cadres identiques. */
 .arGrid.arCompact { --goalsGridGap: 14px; }
-.arGrid .goalsGridCell { min-height: var(--ar-cell-h, 64px); } /* hauteur posée par le rendu : la grille remplit la zone */
+.arGrid .goalsGridCell { min-height: 64px; } /* hauteur = contenu, bornée (grille R6) : 64 px au moins ; jamais liée à la hauteur de l'écran */
+.arGrid.arCompact .goalsGridCell { min-height: 40px; }
+.arGrid .goalsGridCell--filled { max-height: 120px; overflow: hidden; } /* une très longue description n'étire jamais la case */
+.arGrid .arCardName { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.arGrid .arCardMeta { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.arGrid.arCompact .arCardName { -webkit-line-clamp: 2; }
 .arGrid.arCompact .goalsGridCell--filled .goalsGridCellText { padding: 8px 12px; }
 .arGrid.arCompact .goalsRowMarker--ovale { height: 18px; line-height: 18px; }
 /* Mode Étendre : colonnes incluses surlignées (contour violet), les autres atténuées. */
