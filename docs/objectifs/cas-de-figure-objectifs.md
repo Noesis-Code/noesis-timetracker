@@ -568,7 +568,7 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 ## Largeur des colonnes : règle de l'arbre périodique (page 2) (7 nov. 2026)
 
 - Règles lues dans `objectifs-page2-objectif.js/.css` : gouttière de colonnes 10 px, écart entre rangées 34 px ; UNE colonne = toute la largeur (flex 1 1 0) ; DEUX = moitié chacune ; TROIS ou plus = deux visibles à la fois (`calc(50% - 5px)`) avec défilement horizontal ; repères à gauche (26 px), traits verticaux de 2 px entre cases ; titre de colonne de la largeur de sa colonne.
-- Arbre des objectifs, avant : une colonne seule avait la largeur de DEUX moitiés et les titres élargissaient les colonnes au-delà de la moitié (la deuxième colonne dépassait de l'écran). Après : 1 colonne = toute la largeur (291 px contre 140 px pour chacune de deux colonnes à 390 px) ; 2 colonnes = moitié chacune (140 px) ; 3+ = moitié, défilement ; les titres passent à la ligne. Grand écran : inchangé (les colonnes se partagent la largeur).
+- Arbre des objectifs, avant : une colonne seule avait la largeur de DEUX moitiés et les titres élargissaient les colonnes au-delà de la moitié (la deuxième colonne dépassait de l'écran). Après : 1 colonne = toute la largeur (291 px contre 140 px pour chacune de deux colonnes à 390 px) ; 2 colonnes = moitié chacune (140 px) ; 3+ = moitié, défilement ; les titres passent à la ligne. Grand écran : même règle (1 colonne = toute la largeur, 2 ou plus = deux visibles à la fois, défilement) ; mesuré à 1280 px : colonnes de 413 px, zone de 840 px, deux visibles, repères fixes (x identique avant et après un défilement de 300 px).
 
 ## Vue des périodes : une année, 13 périodes (7 nov. 2026, décision d'Émilien)
 

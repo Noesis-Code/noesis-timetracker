@@ -442,7 +442,7 @@
     curCols = foldMerged(shown, sortByOrdre(columnsFor(shown))); syncCtx();
     if (!curCols.length) { gridArea = scroller = null; tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
     var n = curCols.length, wide = window.innerWidth >= 1024, avail = tree.clientWidth || (Math.min(window.innerWidth, wide ? 1400 : 600) - 32); // largeur réelle de la zone
-    var baseW = Math.floor((avail - RAIL - GAP - 4) / 2), cols = wide ? Math.max(220, Math.floor((avail - RAIL - GAP * (n - 1)) / n)) : (n === 1 ? avail - RAIL - 4 : baseW); // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
+    var baseW = Math.floor((avail - RAIL - GAP - 4) / 2), cols = n === 1 ? avail - RAIL - 4 : baseW; // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
     var W = Math.min(cols, window.innerWidth - 80); // les titres passent à la ligne, la largeur ne grandit jamais avec le texte
     if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) W = Math.max(88, Math.min(W, Math.floor((avail - RAIL - GAP * (spanN - 1) - 4) / spanN))); } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
     var mode = lvl === 'activite' ? 'simple' : 'detail';
