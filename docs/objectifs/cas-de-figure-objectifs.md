@@ -621,3 +621,9 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 ## Cartes de groupe : un titre court, aucun comptage (7 nov. 2026)
 
 - Le texte « N objectifs » est retiré (cartes qui regroupent plusieurs objectifs : activités, blocs, années, périodes, macros). La carte porte UN titre court, SANS IA : le titre du plus grand objectif du groupe (celui qui englobe le plus d'autres, sinon l'échéance la plus lointaine). Une carte de macro porte son titre et, dessous, les colonnes reliées, sans comptage. Vérifié à 390 px aux niveaux activités et années : aucune carte ne contient « objectifs ».
+
+## Fusion aux niveaux pôles et secteurs ; cycle suivant (7 nov. 2026)
+
+- Niveau pôles (années, colonnes = pôles d'une activité) : l'appui long sur une case d'année ouvre le même mode (tremblement, grisé, cases éligibles de la ligne éclairées, bouton du bas « Enregistrer » gris) ; choisir la case d'un autre pôle puis Enregistrer crée un macro de 2 pôles, sa carte large est dans la rangée de l'année. Vérifié au toucher réel à 390 px (capture regardée). Un macro ne relie que des objectifs d'un même niveau : on ne propose que ceux du niveau affiché. Si une autre carte occupe la rangée de l'année, la carte du macro prend une rangée voisine (cas rare, signalé par le repère partagé).
+- Niveau secteurs : même mode via les cartes d'objectif (colonnes = secteurs d'un pôle) ; pas testé avec deux secteurs remplis dans la démo.
+- Cycle suivant : un objectif dont l'échéance dépasse la fin du cycle affiché apparaît dans le cycle suivant, à sa période ou année, sans marque : « Plus un an » (+1 an) apparaît en période 5 de la vue des secteurs 2027 (on y arrive en touchant la case 2027 du niveau pôles) ; « Plus six ans » (+6 ans) apparaît à l'année 2032 de la vue des années du bloc 2031-2035 (on y arrive depuis le niveau activités, rangée 31/35). Aucune flèche n'est ajoutée : la navigation reste « descendre / remonter ».

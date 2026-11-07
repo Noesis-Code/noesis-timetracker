@@ -122,7 +122,8 @@
   }
   // ---------- MODE ÉTENDRE : relier d'autres colonnes du MÊME niveau (activités, pôles d'une activité, secteurs d'un pôle) par un macro ----------
   function colPayload(i) { var x = curCols[i] && curCols[i].col ? curCols[i].col.ctx : curCols[i].ctx; return lvl === 'activite' ? { activityId: x.activityId } : lvl === 'pole' ? { activityId: x.activityId, poleKey: x.poleKey } : { activityId: x.activityId, poleKey: x.poleKey, categoryKey: x.categoryKey }; }
-  function newest(i, n) { return (curCols[i].objs || []).filter(function (o) { return o.parentId == null && !o.isMacro && !o.abandoned; }).sort(function (x, y) { return y.id - x.id; }).slice(0, n); }
+  function newest(i, n) { return (curCols[i].objs || []).filter(function (o) { return o.parentId == null && !o.isMacro && !o.abandoned && (o.level || 'activite') === lvl; }) // un macro relie des objectifs d'UN même niveau (serveur) : on ne propose que ceux du niveau affiché
+      .sort(function (x, y) { return y.id - x.id; }).slice(0, n); }
   function colOfObj(o) { var ci = -1; curCols.forEach(function (c, i) { var k = lvl === 'activite' ? o.activity.id : lvl === 'pole' ? (o.poleKey || curCols[0].key) : (o.categoryKey || curCols[0].key); if (ci < 0 && c.key === k) ci = i; }); return ci; }
   function extChildIds() { var ids = []; Object.keys(ext.cols).forEach(function (k) { var i = Number(k); (i === ext.baseCol ? [ext.base] : newest(i, 2)).forEach(function (o) { if (o && ids.indexOf(o.id) < 0) ids.push(o.id); }); }); return ids; }
   function colFree(i) { return newest(i, 2).length > 0; } // la colonne a des objectifs libres (non rattachés) à relier
@@ -205,7 +206,7 @@
     return resumeCache[k];
   }
   function summaryCard(os, color, w, year, ci) {
-    var b = el('button', 'goalsGridCell goalsGridCell--filled arSummary arCard'); b.type = 'button'; cellSize(b, w); paint(b, 'now', color);
+    var b = el('button', 'goalsGridCell goalsGridCell--filled arSummary arCard' + (ext && ext.mode === 'create' && ext.base && os.some(function (x) { return x.id === ext.base.id; }) ? ' arExtSelf' : '')); b.type = 'button'; cellSize(b, w); paint(b, 'now', color);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', bigOf(os).title)); b.appendChild(t);
     resumeOf(os[0].activity.id, year).then(function (txt) { // le texte du serveur remplace la liste de titres dans la case (3 lignes au plus, coupure propre)
       if (!txt || !b.isConnected) return;
@@ -214,6 +215,10 @@
     b.addEventListener('click', function () { // toucher = descendre d'un niveau ; en mode édition : l'« objectif annuel » (résumé de l'année, GET resume-annuel) puis la liste des objectifs
       if (!editMode) { descend(ci, null, year); return; }
       if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(os.map(function (o) { return o.id; }), { title: tr('Objectif annuel') + ' ' + year, intro: function () { return TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + os[0].activity.id + '&year=' + year).then(function (r) { return r && r.text; }); } });
+    });
+    if (!editMode && TMT.ui && TMT.ui.holdDrag && ci != null) TMT.ui.holdDrag(b, { // appui long : le même mode Fusionner / Séparer qu'aux autres niveaux (colonnes = pôles d'une activité)
+      holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
+      onHold: function () { var same = os.filter(function (x) { return (x.level || 'activite') === lvl; }), base = bigOf(same.length ? same : os), par = base.parentId != null && items.filter(function (x) { return x.id === base.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par); else startExtend(base, ci); }
     });
     return b;
   }
