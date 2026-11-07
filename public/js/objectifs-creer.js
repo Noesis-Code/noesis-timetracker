@@ -484,6 +484,7 @@
     api('GET', '/api/objectifs?filtre=tous').then(function (r) {
       var os = ((r && r.objectifs) || []).filter(function (o) { return ids.indexOf(o.id) >= 0 && (opts.skip || []).indexOf(o.id) < 0; });
       var win = openModal(opts.title || os.length + ' ' + tr('objectifs'), { onClose: load }), born0 = Date.now(); // le relâchement d'un appui long ne choisit jamais une ligne
+      if (opts.intro) { var ip = el('p', 'objDesc', tr('Chargement…')); win.body.appendChild(ip); opts.intro().then(function (t) { ip.textContent = t || ''; }).catch(function () { ip.textContent = ''; }); } // texte placé au-dessus de la liste (résumé annuel)
       os.forEach(function (o) {
         var row = el('button', 'objGroupRow cmpSepRow'); row.type = 'button';
         row.appendChild(el('span', 'objRowName', o.title)); row.appendChild(el('span', 'objMeta', o.durationLabel + ' · ' + o.activity.name));

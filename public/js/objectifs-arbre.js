@@ -135,11 +135,13 @@
     return b;
   }
   // Case d'une ANNÉE : résumé des grands objectifs de l'année (texte simple, sans IA : leurs titres, quatre au plus) ; touchée, elle liste ces objectifs.
-  function summaryCard(os, color, w) {
+  function summaryCard(os, color, w, year) {
     var b = el('button', 'goalsGridCell goalsGridCell--filled arSummary arCard'); b.type = 'button'; cellSize(b, w); paint(b, 'now', color);
     var t = el('div', 'goalsGridCellText'); os.slice(0, 4).forEach(function (o) { t.appendChild(el('span', 'arCardName', o.title)); });
     if (os.length > 4) t.appendChild(el('span', 'arCardMeta', '+ ' + (os.length - 4) + ' ' + tr('objectifs'))); b.appendChild(t);
-    b.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(os.map(function (o) { return o.id; })); });
+    b.addEventListener('click', function () { // l'« objectif annuel » : résumé de l'activité pour l'année (GET resume-annuel : IA à la demande, repli titres), puis la liste des objectifs
+      if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(os.map(function (o) { return o.id; }), { title: tr('Objectif annuel') + ' ' + year, intro: function () { return TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + os[0].activity.id + '&year=' + year).then(function (r) { return r && r.text; }); } });
+    });
     return b;
   }
   // Case grise vide = le gris neutre de l'arbre périodique (.goalsGridCell--empty, aucune teinte, aucun « + ») ; la toucher AJOUTE un objectif (échéance = fin de la case ; une case passée n'est pas touchable).
@@ -352,7 +354,7 @@
         var es = cells[r][ci];
         if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols)); return; }
         if (!es.length) row.appendChild(emptyCell(W, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
-        else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, W)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
+        else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, W, rw.y)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
         else if (es.length > 1 && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, W, function () { descend(ci, rw.y); })); // plusieurs objectifs d'une même activité dans la même case : une seule carte
         else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, W); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, W)); }); row.appendChild(stack); }
         else row.appendChild(card(es[0].o, today, c.all, mode, W));
