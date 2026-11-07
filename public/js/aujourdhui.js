@@ -264,8 +264,9 @@
     }
     var page = 0;
     function size() { panel.style.height = ((page ? p2 : p1).offsetHeight + 8) + 'px'; }
-    function vis() { p1.style.visibility = page ? 'hidden' : ''; p2.style.visibility = page ? '' : 'hidden'; }
-    function go(n) { page = n; p1.style.visibility = ''; p2.style.visibility = ''; track.style.transform = 'translateX(' + (n ? -50 : 0) + '%)'; size(); if (!n) filtBrowse = null; window.setTimeout(function () { if (page === n) vis(); }, 280); }
+    function vis() { p1.style.visibility = page ? 'hidden' : ''; p2.style.visibility = page ? '' : 'hidden'; p1.style.opacity = page ? '0' : ''; p2.style.opacity = page ? '' : '0'; }
+    function go(n) { page = n; p1.style.visibility = ''; p2.style.visibility = ''; p1.style.opacity = n ? '0' : ''; p2.style.opacity = n ? '' : '0'; // la page qui part s'efface aussitôt : ses flèches ne traînent pas à gauche pendant le glissement
+      track.style.transform = 'translateX(' + (n ? -50 : 0) + '%)'; size(); if (!n) filtBrowse = null; window.setTimeout(function () { if (page === n) vis(); }, 280); }
     if (filtBrowse) { paintFilterPage2(); page = 1; track.style.transition = 'none'; track.style.transform = 'translateX(-50%)'; window.requestAnimationFrame(function () { track.style.transition = ''; }); }
     vis(); window.requestAnimationFrame(size);
     // Balayage vers la droite sur le panneau = retour aux activités (le geste ne change pas de page de l'application).
