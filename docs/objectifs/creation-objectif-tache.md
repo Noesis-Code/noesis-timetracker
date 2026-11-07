@@ -43,3 +43,7 @@ Pas de durée, priorité, description ni objectif lié à la création. Orthogra
 3. Temps : « Objectifs hebdomadaires » et « Heures par semaine » visibles ; l'édition n'a ni temps attribué ni hebdomadaire.
 4. Pas de lien objectif ↔ tâche à la création d'une tâche.
 5. Date de tâche passée : acceptée sans avertissement.
+
+## Idée gardée de côté : page « Tâches » à la création d'un objectif (7 nov. 2026)
+
+Décision d'Émilien : l'offre Expansion est laissée de côté jusqu'à son lancement (objectif : dans environ deux semaines). La 5e page du panneau (« Tâches générées automatiquement » avec Expansion, ou bouton d'offre « Génère automatiquement tes tâches avec Noèsis » en gratuit) est retirée du parcours : `TACHES_PAGE = false` dans `public/js/objectifs-creer.js`, le code de la page (`boxes.taches`, `offerBtn`) est conservé. À remettre à `true` dès qu'Expansion est en ligne. Le parcours passe à 4 pages au plus : Description, Rattachement (si candidat), Temps, Activité, Niveau (si info manquante).

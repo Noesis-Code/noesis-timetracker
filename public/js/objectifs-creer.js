@@ -174,6 +174,7 @@
 
   // ---------- Fenêtre « Nouvel objectif » ----------
   var busy = false;
+  var TACHES_PAGE = false; // page « Tâches » (offre Expansion) gardée de côté jusqu'au lancement d'Expansion : remettre à true (docs/objectifs/creation-objectif-tache.md)
   function start() {
     var text = input.value.trim();
     if (!text || busy) return;
@@ -396,12 +397,12 @@
     var levelIn = el('input'); levelIn.type = 'text'; levelIn.maxLength = 200; levelIn.setAttribute('aria-label', tr('Ton niveau actuel')); levelIn.value = form.level || '';
     levelIn.addEventListener('input', function () { form.level = levelIn.value; });
     boxes.niveau.appendChild(field(tr('Ton niveau actuel'), levelIn));
-    boxes.niveau.appendChild(btn('objLink', tr('Passer (je suis débutant)'), function () { form.level = ''; levelIn.value = ''; stepNext(); }));
+    boxes.niveau.appendChild(btn('objLink', tr('Passer (je suis débutant)'), function () { form.level = ''; levelIn.value = ''; (advance || stepNext)(); })); // dernière page : « Passer » termine
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
     var stepNames = { desc: 'Description', rattach: 'Rattachement', temps: 'Temps', activite: 'Activité', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return ['desc'].concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(['temps', 'activite']).concat(needsLevel() ? ['niveau'] : []).concat(['taches']); }
+    function list() { return ['desc'].concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(['temps', 'activite']).concat(needsLevel() ? ['niveau'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     // Étape « Rattachement » : seulement s'il existe un candidat dans l'activité ; PROPOSITION (règles, ou IA si permis) : Accepter (avec Avant | Après) ou Refuser (refus mémorisé, l'objectif reste un sommet séparé).
     function dueOf(id) { var x = (ctx.objectives || []).filter(function (o) { return o.id === id; })[0]; return x && x.endDate ? ' · ' + tr('jusqu’au') + ' ' + dateText(x.endDate) : ''; } // échéance du parent proposé
     function rattPending() { // « Suivant » reste grisé tant qu'une proposition affichée n'est pas décidée (jamais de choix silencieux)
