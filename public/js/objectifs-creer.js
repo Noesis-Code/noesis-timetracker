@@ -413,7 +413,7 @@
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
     var stepNames = { desc: 'Description', rattach: 'Rattachement', temps: 'Temps', activite: 'Activité', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return ['desc'].concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(['temps', 'activite']).concat(needsLevel() ? ['niveau'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
+    function list() { return ['desc', 'temps', 'activite'].concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(needsLevel() ? ['niveau'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     // Étape « Rattachement » : seulement s'il existe un candidat dans l'activité ; PROPOSITION (règles, ou IA si permis) : Accepter (avec Avant | Après) ou Refuser (refus mémorisé, l'objectif reste un sommet séparé).
     function dueOf(id) { var x = (ctx.objectives || []).filter(function (o) { return o.id === id; })[0]; return x && x.endDate ? ' · ' + tr('jusqu’au') + ' ' + dateText(x.endDate) : ''; } // échéance du parent proposé
     function rattPending() { // « Suivant » reste grisé tant qu'une proposition affichée n'est pas décidée (jamais de choix silencieux)
@@ -499,8 +499,11 @@
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
     function stepNext() {
       var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
-      if (cur === 'desc') { if (!validDesc()) return; stepBtn.disabled = true; loadRatt().then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; }
-      if (cur === 'activite' && !form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return; }
+      if (cur === 'desc') { if (!validDesc()) return; show(l[i + 1]); return; }
+      if (cur === 'activite') { // le rattachement / la fusion dépendent de l'échéance ET de l'activité : proposés après la page Activité
+        if (!form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return; }
+        stepBtn.disabled = true; loadRatt().then(function () { stepBtn.disabled = false; stepNextFrom('activite'); }); return;
+      }
       show(l[i + 1]);
     }
     function validDesc(final) {
