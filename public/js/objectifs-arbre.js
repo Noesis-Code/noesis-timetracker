@@ -115,8 +115,6 @@
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
     t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
     b.appendChild(t);
-    for (var k = 0; k < span; k++) { var stub = el('i', 'arMacroStub'); stub.style.left = 'calc((' + W + ' + ' + GAP + 'px) * ' + k + ' + ' + W + ' / 2)'; if (cols && cols[c0 + k]) stub.style.background = cols[c0 + k].color; b.appendChild(stub); } // trait de la couleur de la colonne reliée, jusqu'à sa carte enfant
-    if (cols && cols[c0]) b.style.setProperty('--goalsCellLineColor', cols[c0].color); // et du haut du macro à la colonne unique au-dessus
     b.addEventListener('click', function () { if (!editMode) { descend(c0); return; } // toucher COURT = descendre d'un niveau (règle générale) ; le mode Fusionner/Séparer s'ouvre UNIQUEMENT par l'appui long
        if (m.id > 0 && TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(m.id); });
     if (editMode && m.id > 0) { b.appendChild(removeCross(m)); return b; }
@@ -209,7 +207,7 @@
     return resumeCache[k];
   }
   function summaryCard(os, color, w, year, ci) {
-    var b = el('button', 'goalsGridCell goalsGridCell--filled arSummary arCard' + (ext && ext.mode === 'create' && ext.base && os.some(function (x) { return x.id === ext.base.id; }) ? ' arExtSelf' : '')); b.type = 'button'; cellSize(b, w); paint(b, 'now', color);
+    var b = el('button', 'goalsGridCell goalsGridCell--filled arSummary arCard' + (ext && ext.mode === 'create' && ext.base && os.some(function (x) { return x.id === ext.base.id; }) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-ids', os.map(function (x) { return x.id; }).join(',')); cellSize(b, w); paint(b, 'now', color);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', bigOf(os).title)); b.appendChild(t);
     resumeOf(os[0].activity.id, year).then(function (txt) { // le texte du serveur remplace la liste de titres dans la case (3 lignes au plus, coupure propre)
       if (!txt || !b.isConnected) return;
@@ -523,14 +521,13 @@
         else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, Wc); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, Wc, calTap(rw, c), ci, c.color)); }); row.appendChild(stack); }
         else row.appendChild(card(es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, c.color));
       });
+      if (!row.querySelector('.goalsGridCell--filled')) row.classList.add('arEmptyRow'); // rangée sans objectif : elle prend sa part du reste (CSS)
       grid.appendChild(row);
     });
     // UN SEUL conteneur de défilement horizontal (colonnes ET bulles) > colonne verticale : (1) la grille, qui défile en vertical sous la ligne « Aujourd'hui » ; (2) la rangée des bulles, dernière
     // rangée de la colonne (flex: none), même mise en page que les rangées de la grille (mêmes marges, mêmes largeurs de cellule) : chaque bulle est sous sa colonne par construction.
     var rowIdx = {}; list.forEach(function (rw, r) { rowIdx[rw.rank] = r; });
-    var linkGap = {}; // cases traversées par un lien parent -> enfant (dans une même colonne) : leur trait vertical prend la couleur de l'activité
-    data.forEach(function (c, ci) { c.entries.forEach(function (e) { var par = e.o.parentId != null && c.all.byId[e.o.parentId]; if (!par) return; var pe = c.entries.filter(function (x) { return x.o.id === par.id; })[0]; if (!pe || rowIdx[pe.b.rank] == null || rowIdx[e.b.rank] == null) return; for (var q = rowIdx[pe.b.rank] + 1; q <= rowIdx[e.b.rank]; q++) linkGap[q + ':' + ci] = c.color; }); });
-    grid.querySelectorAll('.goalsGridRow').forEach(function (row) { var k = 0, r = rowIdx[Number(row.getAttribute('data-rank'))]; Array.prototype.forEach.call(row.children, function (ch) { if (ch.classList.contains('arMacro')) k += Number(ch.getAttribute('data-span')) || 1; else if (ch.classList.contains('arGap')) k += 1; else if (ch.classList.contains('goalsGridCell') || ch.classList.contains('arStack')) { ch.setAttribute('data-col', String(k)); if (linkGap[r + ':' + k]) ch.style.setProperty('--goalsCellLineColor', linkGap[r + ':' + k]); k++; } }); }); // colonne de chaque cellule (un macro en couvre plusieurs)
+    grid.querySelectorAll('.goalsGridRow').forEach(function (row) { var k = 0, r = rowIdx[Number(row.getAttribute('data-rank'))]; Array.prototype.forEach.call(row.children, function (ch) { if (ch.classList.contains('arMacro')) k += Number(ch.getAttribute('data-span')) || 1; else if (ch.classList.contains('arGap')) k += 1; else if (ch.classList.contains('goalsGridCell') || ch.classList.contains('arStack')) { ch.setAttribute('data-col', String(k)); k++; } }); }); // colonne de chaque cellule (un macro en couvre plusieurs)
     if (ext) Array.prototype.forEach.call(grid.querySelectorAll('[data-col]'), function (ch) { var cj = Number(ch.getAttribute('data-col')), on = !!ext.cols[cj]; var rr = ch.closest('.goalsGridRow'), inRow = !!rr && Number(rr.getAttribute('data-rank')) === ext.rank; ch.classList.toggle('arExtOn', on && inRow); ch.classList.toggle('arExtOff', !(inRow && extEligible(cj))); }); // seules les cases de la LIGNE de la carte touchée (colonnes éligibles) restent éclairées
     scroller = el('div', 'goalsGridScroll arScroll');
     var column = el('div', 'arColumn'); gridArea = el('div', 'arGridArea');
@@ -546,6 +543,25 @@
     var body = el('div', 'arBody'), rail = el('div', 'arRail' + (zoom !== 'period' ? ' arCompact' : '')), hs = el('div', 'arHScroll' + (n <= 2 ? ' goalsGridScroll--locked' : '')), hin = el('div', 'arHInner'); hs.style.setProperty('--ar-w', arW);
     hin.appendChild(grid); hin.appendChild(baseWrap); hs.appendChild(hin); body.appendChild(rail); body.appendChild(hs); gridArea.appendChild(body); column.appendChild(gridArea); scroller.appendChild(column); tree.appendChild(scroller); scroller = hs; // UN SEUL conteneur défile (vertical ET horizontal) : c'est lui que les repères « collent » à gauche (sticky), sans aucun script // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
     // La HAUTEUR d'une case ne dépend QUE de son contenu (min 64 px, 40 px aux années et blocs ; max 120 px, texte coupé par « … ») : jamais de la hauteur de l'écran, du geste ni de l'élastique. Plus aucun calcul de hauteur en JS.
+    var layer = el('div', 'arLinks'); hin.insertBefore(layer, hin.firstChild);
+    function drawLinks() { // UNE SEULE fonction de dessin des traits, pour tous les arbres et tous les niveaux : un trait de 2 px, uniquement entre deux objectifs REMPLIS reliés (parent-enfant, macro-enfants, macro-objectif du dessus), du bord BAS de la carte du haut au bord HAUT de la carte du bas ; jamais vers une case vide
+      layer.textContent = ''; var b0 = layer.getBoundingClientRect(), empties = Array.prototype.map.call(grid.querySelectorAll('.goalsGridCell--empty'), function (e) { return e.getBoundingClientRect(); });
+      function cardOf(id) { var e = grid.querySelector('[data-id="' + id + '"]'); if (e) return e; var ms = grid.querySelectorAll('[data-ids]'); for (var i = 0; i < ms.length; i++) if ((',' + ms[i].getAttribute('data-ids') + ',').indexOf(',' + id + ',') >= 0) return ms[i]; return null; }
+      function firstCards(id, depth) { var e = cardOf(id); if (e) return [e]; if (depth > 6) return []; var out = []; items.forEach(function (x) { if (x.parentId === id) out = out.concat(firstCards(x.id, depth + 1)); }); return out; }
+      function seg(p, q, color) {
+        if (p === q) return; var rp = p.getBoundingClientRect(), rq = q.getBoundingClientRect(), up = rp.top <= rq.top ? rp : rq, lo = up === rp ? rq : rp, ov = Math.min(rp.right, rq.right) - Math.max(rp.left, rq.left), h = lo.top - up.bottom;
+        if (ov < 2 || h < 1) return; var x = (Math.max(rp.left, rq.left) + Math.min(rp.right, rq.right)) / 2, l = el('i', 'arLink');
+        if (empties.some(function (e) { return x > e.left && x < e.right && e.bottom > up.bottom + 1 && e.top < lo.top - 1; })) return; // jamais de trait à travers une case vide : seulement entre deux objectifs REMPLIS voisins
+        l.style.left = Math.round(x - b0.left - 1) + 'px'; l.style.top = Math.round(up.bottom - b0.top) + 'px'; l.style.height = Math.round(h) + 'px'; l.style.background = color; layer.appendChild(l);
+      }
+      items.forEach(function (o) {
+        if (o.parentId == null) return; var par = items.filter(function (x) { return x.id === o.parentId; })[0], pe = par && cardOf(par.id); if (!pe) return;
+        firstCards(o.id, 0).forEach(function (ce) { seg(pe, ce, getComputedStyle(ce).backgroundColor); }); // couleur de l'objectif relié en dessous (celle du macro quand c'est lui)
+      });
+    }
+    var stickEnd = false; // à l'ouverture l'arbre est calé en bas (le présent) : tant que la personne n'a pas touché, le bas est recalé après chaque mise en page tardive (polices, textes qui passent à la ligne)
+    gridArea.addEventListener('touchstart', function () { stickEnd = false; }, { passive: true }); gridArea.addEventListener('wheel', function () { stickEnd = false; }, { passive: true });
+    function relayout() { if (stickEnd && gridArea) gridArea.scrollTop = gridArea.scrollHeight; positionRail(); drawLinks(); }
     var marks = [];
     function placeRail() { // chaque repère va dans la colonne fixe ; sa position est ensuite (re)mesurée sur la rangée de sa période
       Array.prototype.forEach.call(grid.querySelectorAll('.goalsGridRow'), function (row) {
@@ -564,9 +580,9 @@
         var h = x.m.offsetHeight || 20; x.m.style.top = Math.round((top + bot) / 2 - r0 - h / 2) + 'px';
       });
     }
-    placeRail(); window.requestAnimationFrame(positionRail); window.setTimeout(positionRail, 350);
+    placeRail(); drawLinks(); window.requestAnimationFrame(relayout); window.setTimeout(relayout, 350);
     if (restoreView) { gridArea.scrollTop = restoreView.top; scroller.scrollLeft = restoreView.left; restoreView = null; }
-    else if (needBase || keepTop == null) { needBase = false; gridArea.scrollTop = gridArea.scrollHeight; window.requestAnimationFrame(function () { if (gridArea) gridArea.scrollTop = gridArea.scrollHeight; }); } // ouverture : le présent (en bas)
+    else if (needBase || keepTop == null) { needBase = false; stickEnd = true; gridArea.scrollTop = gridArea.scrollHeight; window.requestAnimationFrame(function () { if (gridArea) gridArea.scrollTop = gridArea.scrollHeight; }); } // ouverture : le présent (en bas)
     else { gridArea.scrollTop = keepTop; scroller.scrollLeft = keepLeft; }
   }
   // On ne change de niveau QUE par le toucher (descendre) et la flèche de retour : ni pincement ni Ctrl + molette (retirés à la demande d'Émilien).

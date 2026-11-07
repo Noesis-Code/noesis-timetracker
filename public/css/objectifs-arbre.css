@@ -63,8 +63,7 @@ html.arbreOn body { position: fixed; inset: 0; width: 100%; overflow: hidden; ov
 .arGrid .goalsGridCell--filled.arMacro.ar-done { background: var(--text); }
 .arGrid .goalsGridCell--filled.arMacro.ar-future { background: color-mix(in srgb, var(--text) 85%, var(--bg)); color: var(--bg); }
 .arMacro .arCardMeta { overflow-wrap: anywhere; }
-.arMacroStub { position: absolute; z-index: 2; bottom: calc(var(--goalsGridGap) * -1 - 2px); width: 2px; height: calc(var(--goalsGridGap) + 2px); margin-left: -1px; background: var(--text-light); pointer-events: none; } /* continu, du bas du macro au haut de la carte enfant, 2 px, centré sur sa colonne */
-.arMacroRow .arMacroStub { bottom: -10px; height: 10px; } /* macro dans sa rangée voisine : 8 px d'écart + 2 px */
+
 .arMacroRow { margin-top: 0; margin-bottom: calc(8px - var(--goalsGridGap)); } /* rangée du macro : dans SA période, collée (8 px) à la rangée des cases de cette période, jamais entre deux périodes */
 /* Carte concernée par la fusion : elle tremble (keyframes des volets) et reste allumée. */
 .arExtending .arExtSelf { animation: tabJiggle .26s ease-in-out infinite alternate; }
@@ -110,3 +109,14 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arHScroll.goalsGridScroll--locked { overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; }
 .arBubble.arExtOn { box-shadow: none; } /* titre choisi : rempli de la couleur (script), jamais de contour violet */
 .arBubble.arExtOn .arDot { background: currentColor !important; opacity: .55; }
+/* Traits : dessinés par drawLinks (une seule fonction) ; ceux de la grille d'origine (cases vides, rangées) sont retirés. */
+.arGrid .goalsGridCell::before, .arGrid .goalsGridRow::before { display: none; }
+.arHInner { position: relative; }
+.arLinks { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+.arLink { position: absolute; width: 2px; }
+/* Arbres les plus macro (blocs de 5 ans et années) : la grille COMBLE toute la hauteur libre entre l'en-tête et la barre du bas (rangées qui se partagent la hauteur, CSS pur) ; une carte pleine garde sa taille de contenu (64 à 120 px, texte coupé, centrée dans sa rangée), les cases vides prennent le reste ; titres collés en bas. Arbre des périodes : hauteur naturelle, défilement vertical. */
+.arGrid.arCompact { flex: 1 1 auto; margin-top: 0; padding-top: 0; }
+.arGrid.arCompact { justify-content: space-between; } /* aucune rangée vide : la marge restante est répartie entre les rangées (jamais de vide) */
+.arGrid.arCompact .goalsGridRow { flex: 0 0 auto; } /* une rangée remplie a la hauteur de son contenu (64 à 120 px, texte coupé) : plus de texte, plus haute */
+.arGrid.arCompact .goalsGridRow.arEmptyRow { flex: 1 1 0; min-height: 40px; } /* seules les rangées VIDES se partagent ÉQUITABLEMENT le reste */
+.arGrid.arCompact .goalsGridCell--filled { min-height: 64px; align-self: center; }
