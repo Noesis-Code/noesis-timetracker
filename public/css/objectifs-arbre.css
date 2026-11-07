@@ -6,20 +6,19 @@
 .arColumn { display: flex; flex-direction: column; height: 100%; width: max-content; min-width: 100%; }
 .arGridArea { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; width: max-content; min-width: 100%; -webkit-overflow-scrolling: touch; }
 /* Bulles = dernière rangée de l'arbre : mêmes marges et mêmes largeurs que les rangées de la grille ; jamais fixes ni flottantes. */
-.arBaseWrap { flex: none; width: max-content; min-width: 100%; box-sizing: border-box; padding: 8px 4px 8px 26px; }
+.arBaseWrap { flex: none; width: max-content; min-width: 100%; box-sizing: border-box; padding: 8px 4px 8px var(--ar-pl, 26px); }
 .arBaseRow { align-items: center; }
 .arBaseRow::before { display: none; }
-.arBaseWrap .arSpacer { position: sticky; left: 0; top: auto; transform: none; flex: 0 0 20px; margin-left: -26px; visibility: hidden; }
-.arGrid { width: max-content; min-width: 100%; padding: 2px 4px 0 26px; box-sizing: border-box; }
+.arBaseWrap .arSpacer { position: sticky; left: 0; top: auto; transform: none; flex: 0 0 var(--ar-mw, 20px); width: var(--ar-mw, 20px); margin-left: calc(-1 * var(--ar-pl, 26px)); visibility: hidden; }
+.arGrid { width: max-content; min-width: 100%; padding: 2px 4px 0 var(--ar-pl, 26px); box-sizing: border-box; }
 .arGrid .goalsGridRow { width: max-content; min-width: 100%; }
 .arGrid .goalsGridRow:has(.arDragging) { z-index: 6; }
 /* Repères à gauche, FIXES au défilement horizontal : numéro cerclé (à venir), pastille pleine (courante), point (passé) ; l'année sous le repère. */
-.arGrid .goalsRowMarker { position: sticky; left: 0; top: auto; transform: none; flex: 0 0 20px; margin-left: -26px; align-self: center; background: var(--bg); }
-.arYearTag { position: absolute; left: -26px; top: calc(50% + 14px); font-size: 10px; font-weight: 700; line-height: 1; color: var(--text); pointer-events: none; }
+.arGrid .goalsRowMarker { position: sticky; left: 0; top: auto; transform: none; flex: 0 0 var(--ar-mw, 20px); width: var(--ar-mw, 20px); margin-left: calc(-1 * var(--ar-pl, 26px)); align-self: center; background: var(--bg); }
 /* L'unique ligne « Aujourd'hui » : dans la gouttière entre deux rangées (le futur au-dessus, le passé au-dessous). */
-.arTodayLine { position: absolute; left: -26px; right: 0; top: calc(var(--goalsGridGap) / -2); height: 0; border-top: 2px solid var(--purple); z-index: 4; pointer-events: none; }
+.arTodayLine { position: absolute; left: calc(-1 * var(--ar-pl, 26px)); right: 0; top: calc(var(--goalsGridGap) / -2); height: 0; border-top: 2px solid var(--purple); z-index: 4; pointer-events: none; }
 .arTodayLine--after { top: auto; bottom: calc(var(--goalsGridGap) / -2); }
-.arTodayLine span { position: absolute; left: 30px; top: -10px; padding: 0 8px; background: var(--bg); color: var(--text); font-size: 13px; font-weight: 600; line-height: 18px; }
+.arTodayLine span { position: absolute; left: calc(var(--ar-mw, 20px) + 10px); top: -10px; padding: 0 8px; background: var(--bg); color: var(--text); font-size: 13px; font-weight: 600; line-height: 18px; }
 /* Cartes = cases remplies de la page 2, à la couleur de l'activité (R16) : pâle = en cours, vif = réalisé, contour pointillé = à venir, atténué = abandonné. */
 .arCard { box-shadow: none; text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .arCard .goalsGridCellText { display: flex; flex-direction: column; gap: 2px; }
@@ -62,3 +61,9 @@
 /* L'arbre tient dans l'écran (hauteur = jusqu'à la barre « Nouvel objectif… ») : seule la grille défile en vertical, les colonnes et leurs bulles en horizontal ; un geste commencé dans l'arbre ne fait jamais défiler la page. */
 .arGridArea { overscroll-behavior-y: contain; } /* vertical : ne chaîne pas vers la page ; horizontal : le geste passe au conteneur des colonnes */
 .arScroll { overscroll-behavior: contain; }
+/* Repères : le rond d'une période garde son numéro ; l'ovale (bloc de 5 ans, année) est le MÊME composant, pilule de même hauteur, texte centré. */
+.arGrid .goalsRowMarker:not(.goalsRowMarker--ovale) { flex-basis: 20px; width: 20px; margin-right: calc(var(--ar-mw, 20px) - 20px); }
+.goalsRowMarker--ovale { border-radius: 999px; font-size: 13px; padding: 0; height: 20px; width: auto; justify-content: center; white-space: nowrap; }
+.goalsRowMarker--ovale.goalsRowMarker--future { opacity: 1; box-shadow: inset 0 0 0 1px currentColor; }
+.goalsRowMarker--ovale.goalsRowMarker--current { box-shadow: none; }
+.arGrid .goalsRowMarker.arYearTag { position: absolute; left: calc(-1 * var(--ar-pl, 26px)); top: calc(50% + 14px); margin: 0; transform: none; flex: none; width: auto; min-width: 20px; padding: 0 8px; background-clip: padding-box; z-index: 3; } /* année en ovale sous le rond de la période : jamais dans le flux de la rangée */
