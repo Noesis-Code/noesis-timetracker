@@ -135,10 +135,19 @@
     return b;
   }
   // Case d'une ANNÉE : résumé des grands objectifs de l'année (texte simple, sans IA : leurs titres, quatre au plus) ; touchée, elle liste ces objectifs.
+  var resumeCache = {};
+  function resumeOf(aid, year) { // résumé annuel du serveur (IA à la demande, repli titres), mémorisé le temps de la session
+    var k = aid + ':' + year; if (!resumeCache[k]) resumeCache[k] = TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + aid + '&year=' + year).then(function (r) { return r && r.text ? String(r.text) : ''; }).catch(function () { return ''; });
+    return resumeCache[k];
+  }
   function summaryCard(os, color, w, year) {
     var b = el('button', 'goalsGridCell goalsGridCell--filled arSummary arCard'); b.type = 'button'; cellSize(b, w); paint(b, 'now', color);
     var t = el('div', 'goalsGridCellText'); os.slice(0, 4).forEach(function (o) { t.appendChild(el('span', 'arCardName', o.title)); });
     if (os.length > 4) t.appendChild(el('span', 'arCardMeta', '+ ' + (os.length - 4) + ' ' + tr('objectifs'))); b.appendChild(t);
+    resumeOf(os[0].activity.id, year).then(function (txt) { // le texte du serveur remplace la liste de titres dans la case (3 lignes au plus, coupure propre)
+      if (!txt || !b.isConnected) return;
+      t.textContent = ''; t.appendChild(el('span', 'arSummaryText', txt.replace(/\n\s*-\s*/g, ' · ').replace(/^\s*-\s*/, '')));
+    });
     b.addEventListener('click', function () { // l'« objectif annuel » : résumé de l'activité pour l'année (GET resume-annuel : IA à la demande, repli titres), puis la liste des objectifs
       if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(os.map(function (o) { return o.id; }), { title: tr('Objectif annuel') + ' ' + year, intro: function () { return TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + os[0].activity.id + '&year=' + year).then(function (r) { return r && r.text; }); } });
     });

@@ -66,4 +66,5 @@
 .objParentLine { display: block; text-align: left; padding: 0; margin: 2px 0 4px; }
 .arSummary { text-align: left; }
 .arSummary .goalsGridCellText { display: flex; flex-direction: column; gap: 3px; }
-.arSummary .arCardName { font-size: 12.5px; font-weight: 600; }
+.arSummary .arCardName { font-size: 13px; font-weight: 600; }
+.arSummaryText { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
