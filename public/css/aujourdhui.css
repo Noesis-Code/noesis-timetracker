@@ -178,3 +178,9 @@
 .tasksToday.calIntegrated .tasksFilterRow:not(.open) .tasksFilter { position: absolute; left: 0; top: calc(100% + 10px); transform: translateY(-50%); z-index: 1; }
 .tasksPeriodHost #goalsPeriodNext { display: none; }
 .tasksFilterPage { transition: opacity .18s ease; }
+/* Titre de période : « P12 » puis le titre sur UNE ligne, centrés sur le mois (marges égales des deux côtés de l'icône), coupés par « … » s'ils sont trop longs. Numéros de semaine et de période : texte nu, sans bulle ni couleur. */
+.tasksToday.calIntegrated .tasksFilterRow:not(.open) { padding-right: 36px; }
+.tasksToday.calIntegrated .tasksPeriodHost .goalsTopLine { justify-content: center; }
+.tasksToday.calIntegrated .tasksPeriodHost #goalsMainLineHost { flex: 0 1 auto; }
+.tasksToday.calIntegrated .tasksPeriodHost .goalsMainBig { width: auto; max-width: 100%; display: block; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; text-align: center; }
+.tasksToday .goalsCalWeekLine .cmpStatus, .tasksToday .tasksPeriodHost .cmpStatus { min-height: 0; padding: 0; border: 0; background: transparent; color: var(--text-light); }
