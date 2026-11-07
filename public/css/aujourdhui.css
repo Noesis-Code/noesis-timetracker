@@ -132,10 +132,12 @@
 .tasksToday.dayPast .goalsTaskEditBtn { display: none; }
 /* Filtre (7 nov. 2026) : ligne nue au-dessus du calendrier ; le panneau se déroule sur place, en deux pages qui glissent (activités, puis pôles avec leurs secteurs). */
 .tasksFilter { display: block; }
-.tasksFilterLine { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; font-family: inherit; font-size: 16px; font-weight: 600; color: var(--text); cursor: pointer; }
-.tasksFilterLine .cmpChev { margin-left: 0; width: 20px; transform: rotate(90deg); }
-.tasksFilterLine .cmpChev.open { transform: rotate(-90deg); }
-.tasksFilterPanel { overflow: hidden; margin: 0 0 8px; transition: height .22s ease; }
+.tasksFilterLine { position: relative; display: flex; align-items: center; justify-content: flex-start; width: auto; min-height: 32px; margin-top: -8px; padding: 0 4px; border: 0; background: none; color: var(--text-light); cursor: pointer; } /* à gauche, juste sous « Tâches » ; icône réglage à la place du titre */
+.tasksFilterLine::after { content: ''; position: absolute; left: 0; top: 50%; width: 44px; height: 44px; transform: translateY(-50%); }
+.tasksFilterLine svg { width: 22px; height: 22px; }
+.tasksFilterLine.on { color: var(--violet-soft); }
+.tasksFilterPanel { overflow: hidden; margin: 4px 0 8px; padding: 4px 12px; border-radius: var(--radius-lg); transition: height .22s ease; } /* section en verre (.cmpGlass, R31), comme le panneau de création */
+.tasksWeek { margin-top: -8px; }
 .tasksFilterTrack { display: flex; align-items: flex-start; width: 200%; transition: transform .25s cubic-bezier(.22,.8,.3,1); }
 .tasksFilterPage { flex: 0 0 50%; min-width: 0; display: flex; flex-direction: column; }
 .tasksFilterPage .tasksChoice { display: flex; align-items: center; justify-content: space-between; }

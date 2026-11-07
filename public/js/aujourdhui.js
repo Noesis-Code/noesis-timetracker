@@ -171,12 +171,13 @@
     if (!filterBox) return; filterBox.textContent = '';
     var d = filtData(filt.act), cur = d.acts.filter(function (a) { return String(a.id) === filt.act; })[0], pole = d.poles.filter(function (p) { return p.key === filt.pole; })[0];
     var label = cur ? cur.name + (pole ? ' › ' + (filt.sector || pole.label) : '') : tr('Toutes les activités');
-    var head = el('button', 'cmpNavLabel tasksFilterLine'); head.type = 'button'; head.setAttribute('aria-expanded', filtOpen ? 'true' : 'false');
-    head.appendChild(document.createTextNode(label)); head.appendChild(el('span', 'cmpChev' + (filtOpen ? ' open' : '')));
+    var head = el('button', 'tasksFilterLine' + (cur ? ' on' : '')); head.type = 'button'; head.setAttribute('aria-expanded', filtOpen ? 'true' : 'false');
+    head.title = label; head.setAttribute('aria-label', label); // le libellé n'est plus un titre : l'icône réglage prend sa place (violette quand un filtre est actif)
+    head.appendChild(svg('M4 8h3M11 8h9M9 6a2 2 0 1 0 0 4a2 2 0 1 0 0-4M4 16h9M17 16h3M15 14a2 2 0 1 0 0 4a2 2 0 1 0 0-4', 1.5));
     head.addEventListener('click', function () { filtOpen = !filtOpen; filtBrowse = null; paintFilter(); });
     filterBox.appendChild(head);
     if (!filtOpen) return;
-    var panel = el('div', 'tasksFilterPanel'), track = el('div', 'tasksFilterTrack'), p1 = el('div', 'tasksFilterPage'), p2 = el('div', 'tasksFilterPage');
+    var panel = el('div', 'tasksFilterPanel cmpGlass'), track = el('div', 'tasksFilterTrack'), p1 = el('div', 'tasksFilterPage'), p2 = el('div', 'tasksFilterPage');
     filtRow(p1, tr('Toutes les activités'), 0, filt.act == null, function () { applyFilt({ act: null, pole: null, sector: null }); });
     d.acts.forEach(function (a) {
       var b = filtRow(p1, a.name, 0, String(a.id) === filt.act, function () { filtBrowse = String(a.id); paintFilterPage2(); go(1); });
@@ -194,7 +195,7 @@
       });
     }
     var page = 0;
-    function size() { panel.style.height = (page ? p2 : p1).offsetHeight + 'px'; }
+    function size() { panel.style.height = ((page ? p2 : p1).offsetHeight + 8) + 'px'; }
     function go(n) { page = n; track.style.transform = 'translateX(' + (n ? -50 : 0) + '%)'; size(); if (!n) filtBrowse = null; }
     if (filtBrowse) { paintFilterPage2(); page = 1; track.style.transition = 'none'; track.style.transform = 'translateX(-50%)'; window.requestAnimationFrame(function () { track.style.transition = ''; }); }
     window.requestAnimationFrame(size);
