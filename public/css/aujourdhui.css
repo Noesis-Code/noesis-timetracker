@@ -166,3 +166,7 @@
 .tasksPeriodHost .goalsMainAdd { color: var(--text-light); font-weight: 400; }
 .tasksPeriodHost .goalsMainAdd b { color: var(--purple); margin-right: 6px; }
 .tasksPeriodHost .cmpNavArrow { flex: none; }
+
+/* Pop-up des tâches du jour touché (comme la page 3) : au-dessus de la barre d'ajout ; la liste sous le calendrier n'existe plus à ce moment-là. */
+.tasksDayPop .tasksPopList { margin: 0; }
+.tasksDayPop .tasksProposeBody { overflow-y: auto; min-height: 0; }

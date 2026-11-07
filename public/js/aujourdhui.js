@@ -60,7 +60,7 @@
     root.appendChild(buildFilter()); root.appendChild(buildCal()); root.appendChild(buildCalHost()); root.appendChild(buildTopRow()); root.appendChild(listBox); root.appendChild(buildArchive());
     // La barre d'ajout est AU PREMIER PLAN, fixée au-dessus de la barre des volets (comme elle). Défilé = glissement latéral entre les pages :
     // elle prend le même décalage que la page (#tab-goals) pendant le glissement, puis disparaît avec elle.
-    dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock);
+    dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock); buildDayPop(); listHome = root;
     var tab = document.getElementById('tab-goals');
     if (tab && window.MutationObserver) {
       new MutationObserver(function () { dock.style.transform = tab.style.transform || ''; dock.style.transition = tab.style.transition || ''; syncDock(); }).observe(tab, { attributes: true, attributeFilter: ['style', 'class'] }); // fin de glissement vers les statistiques : l'onglet se masque, la barre se masque dans la même image (sans attendre le balayage de 300 ms)
@@ -139,10 +139,26 @@
   }
   function calNavChanged() { if (calOn && TMT.goalsCalNavChanged) TMT.goalsCalNavChanged(); } // la période du calendrier importé suit la semaine / le mois affiché
   // Jour choisi : la liste ne montre QUE cette journée. Futur : les ajouts sont datés de ce jour ; passé : lecture seule.
+  // Jour touché (comme la page 3) : la liste sous le calendrier disparaît ; les tâches du jour s'affichent dans un pop-up au-dessus de la barre d'ajout (✕ = retour à toutes les tâches).
+  var dayPop = null, dayPopBody = null, dayPopKick = null, listHome = null;
+  function buildDayPop() {
+    dayPop = el('div', 'tasksPropose cmpGlass tasksDayPop hidden');
+    var head = el('div', 'tasksProposeHead'); dayPopKick = el('span', 'tasksProposeKicker'); head.appendChild(dayPopKick);
+    head.appendChild(TMT.ui.closeBtn(function () { if (viewDay !== 'all') pickDay(dayIso()); }, tr('Fermer')));
+    dayPopBody = el('div', 'tasksProposeBody'); dayPop.appendChild(head); dayPop.appendChild(dayPopBody);
+    dock.insertBefore(dayPop, dock.firstChild);
+  }
+  function syncDayPop() {
+    if (!dayPop || !listHome) return;
+    var on = viewDay !== 'all';
+    if (on) { dayPopKick.textContent = cap1(fromIso(dayIso()).toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'long', day: 'numeric', month: 'long' })); if (listBox.parentNode !== dayPopBody) dayPopBody.appendChild(listBox); }
+    else if (listBox.parentNode !== listHome) listHome.insertBefore(listBox, document.getElementById('goalsTodayArchiveSection'));
+    dayPop.classList.toggle('hidden', !on);
+  }
   function pickDay(d) {
     var nv = d === localIso() ? null : d; viewDay = nv === viewDay ? 'all' : nv; if (!calExpanded) calAnchor = d; // retoucher le jour choisi = retour à toutes les tâches ; mois déployé : il le reste (8 nov. 2026, Émilien), même mois
     state.date = null;
-    paintCal();
+    paintCal(); syncDayPop();
     var c = cacheGet(viewKey()); if (c) render(c); else { listBox.textContent = ''; }
     refresh();
   }
@@ -151,7 +167,7 @@
   function rollDay() { var t = localIso(); if (t === lastToday) return; lastToday = t; if (!viewDay || viewDay === 'all') calAnchor = t; paintCal(); if (shown) { var c = cacheGet(viewKey()); if (c) render(c); refresh(); } }
   document.addEventListener('visibilitychange', function () { if (!document.hidden) rollDay(); });
   setInterval(rollDay, 30000);
-  function resetDay() { viewDay = 'all'; calAnchor = localIso(); calExpanded = false; paintCal(); }
+  function resetDay() { viewDay = 'all'; calAnchor = localIso(); calExpanded = false; paintCal(); syncDayPop(); }
 
   // ---------- Calendrier de la page 3 intégré (7 nov. 2026, demande d'Émilien) : UN SEUL calendrier, celui de la page 3 (objectifs-page3.js : TMT.showGoalsCalendar, aucune copie) ----------
   // Il remplace la bande de la semaine QUAND le filtre désigne un pôle (sans secteurs) ou un secteur ; sans filtre ou avec une activité seule, la bande reste telle quelle.
@@ -1022,7 +1038,7 @@
         if (!ok) { filt = prev; paintFilter(); syncCalendar(); return false; }
         filtOpen = false; filtBrowse = null;
         if (o.date) { calAnchor = o.date; calExpanded = false; }
-        viewDay = 'all'; paintCal(); paintFilter(); if (lastData) render(lastData);
+        viewDay = 'all'; paintCal(); syncDayPop(); paintFilter(); if (lastData) render(lastData);
         if (TMT.setGoalsPage1View) TMT.setGoalsPage1View('today');
         return true;
       });
