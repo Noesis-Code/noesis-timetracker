@@ -32,7 +32,7 @@
     dock = el('div', 'tasksPopAdd tasksDock objDock hidden');
     // Panneau des paramètres : le MÊME gabarit que le panneau d'ajout d'une tâche (aujourdhui.js) — au-dessus de la barre, visible seulement après ↑.
     panel = el('div', 'tasksPropose cmpGlass hidden');
-    var ph = el('div', 'tasksProposeHead'); panelKicker = el('span', 'tasksProposeKicker', tr('Nouvel objectif')); backBtn = el('button', 'cmpNavArrow objBack hidden', '‹'); backBtn.type = 'button'; backBtn.setAttribute('aria-label', tr('Retour')); backBtn.addEventListener('click', function () { if (goBack) goBack(); }); ph.appendChild(backBtn); ph.appendChild(panelKicker); // flèche de retour à l'étape précédente (sans cadre, zone 44 px) ph.appendChild(TMT.ui.closeBtn(function () { closePanel(); }, tr('Fermer')));
+    var ph = el('div', 'tasksProposeHead'); panelKicker = el('span', 'tasksProposeKicker', tr('Nouvel objectif')); backBtn = el('button', 'cmpNavArrow objBack hidden', '‹'); backBtn.type = 'button'; backBtn.setAttribute('aria-label', tr('Retour')); backBtn.addEventListener('click', function () { if (goBack) goBack(); }); ph.appendChild(backBtn); ph.appendChild(panelKicker); /* flèche de retour à l'étape précédente (sans cadre, zone 44 px) */ ph.appendChild(TMT.ui.closeBtn(function () { closePanel(); }, tr('Fermer'))); // ✕ en haut à droite (R13) : annule
     panelBody = el('div', 'tasksProposeBody'); panelFoot = el('div', 'objPanelFoot');
     panel.appendChild(ph); panel.appendChild(panelBody); panel.appendChild(panelFoot); dock.appendChild(panel);
     panel.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true }); // les gestes du panneau n'appartiennent pas au balayage de page
@@ -159,10 +159,11 @@
   var viewCtx = { level: 'activite' }, pendingEnd = null, basePlaceholder = '';
   var LEVEL_LABEL = { activite: 'Activité', pole: 'Pôle', secteur: 'Secteur' };
   function setContext(c) { viewCtx = c || { level: 'activite' }; }
-  function createAt(o) { // case vide touchée : la barre s'ouvre, pré-remplie (niveau, activité, échéance)
-    setContext(o.ctx); pendingEnd = o.endDate || null;
-    if (!basePlaceholder) basePlaceholder = input.placeholder;
-    input.placeholder = tr('Nouvel objectif') + ' · ' + (o.ctx && o.ctx.label ? o.ctx.label + ' · ' : '') + (o.label || '') + '…'; input.focus();
+  function createAt(o) { // case vide touchée : le panneau s'ouvre tout de suite (titre vide à saisir), l'échéance de la case est imposée
+    if (busy) return;
+    setContext(o.ctx); pendingEnd = o.endDate || null; seq = { base: 0, count: 1, i: 0 }; queue = []; busy = true;
+    api('POST', '/api/objectifs/contexte', { text: '', blank: true, amount: 1, unit: 'semaines', endDate: pendingEnd }).then(function (ctx) { busy = false; openComposer(ctx); })
+      .catch(function (err) { busy = false; clearPending(); say((err && err.message) || tr('Impossible pour le moment.')); });
   }
   function clearPending() { pendingEnd = null; if (basePlaceholder) input.placeholder = basePlaceholder; }
   var extendCancel = null;
@@ -224,6 +225,7 @@
     var rangeHint = el('p', 'hint objRange');
     function paintDates() {
       var e = ctx.estimate;
+      if (form.endFixed) { datesHint.textContent = tr('Échéance') + ' : ' + dateText(form.endDate); rangeHint.classList.add('hidden'); return; } // case de l'arbre : période imposée, non modifiable
       if (!form.endDate) { datesHint.textContent = tr('Indique une durée valide') + ' · '; rangeHint.classList.add('hidden'); datesHint.appendChild(pickLink); return; }
       if (e && !form.durTouched) { // date butoir proposée par la base de durées (sans IA), toujours modifiable
         datesHint.textContent = tr('Proposé') + ' : ' + dateText(form.endDate) + ' · ';
@@ -258,8 +260,8 @@
       form.durTouched = true; form.dateOk = true; syncGo(); form.endDate = dateIn.value; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines'; amountIn.value = form.amount; form.periodWeeks = days <= 28 ? '1' : days <= 366 ? '4' : 'mois'; buildUnits(); paintDates(); refresh();
     });
     var durRow = el('div', 'objDurRow'); durRow.appendChild(amountIn); durRow.appendChild(buildUnits());
-    var durBox = el('div'); if (!ctx.fixedDate) durBox.appendChild(durRow); durBox.appendChild(datesHint); durBox.appendChild(dateIn);
-    paintDates(); boxes.temps.appendChild(field(ctx.fixedDate ? tr('Période') : tr('Durée'), durBox));
+    var durBox = el('div'); if (!ctx.fixedDate && !form.endFixed) durBox.appendChild(durRow); durBox.appendChild(datesHint); if (!form.endFixed) durBox.appendChild(dateIn);
+    paintDates(); boxes.temps.appendChild(field(ctx.fixedDate || form.endFixed ? tr('Période') : tr('Durée'), durBox));
 
     var actBox = el('div'), chargeBox = el('div');
     boxes.desc.appendChild(actBox); boxes.desc.appendChild(chargeBox);

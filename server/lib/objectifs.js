@@ -255,7 +255,7 @@ function tasksAllowed(userId) { // abonné Expansion actif ou code d'accès : ja
 // Contexte du formulaire « Nouvel objectif » : dates déduites, activité proposée, objectifs existants. Ne crée rien.
 function contexte(userId, body) {
   const text = String((body && body.text) || '');
-  const title = cleanTitle(text);
+  const title = body && body.blank === true && !text.trim() && isDay(body.endDate) ? '' : cleanTitle(text); // case vide de l'arbre : titre saisi dans le panneau, échéance imposée par la case
   const found = parseDuration(text);
   const start = today();
   const manual = !!(body && body.amount && body.unit);
