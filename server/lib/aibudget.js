@@ -348,11 +348,64 @@ function breakerResult(failed, now) {
 }
 function breakerReset() { breaker.fails = 0; breaker.openUntil = 0; breaker.probing = false; }
 
+// ---- CRÉDIT DE L'IA GRATUITE, PAR UTILISATEUR (cahier des charges d'Émilien, 6 nov. 2026) ----
+// Tout compte SANS accès Expansion (jamais un compte Expansion, ni le connecteur IA libre qui n'appelle pas l'API de Noèsis) a un crédit mensuel de 1 CAD
+// (même devise que les budgets de la section 3 : CAD, converti en USD par fx.toUsd pour comparer à ai_usage_log.costUsd ; IA_GRATUIT_CREDIT_MOIS_CAD).
+// ÉTALEMENT HEBDOMADAIRE : chaque semaine civile (lundi-dimanche), l'utilisateur peut dépenser 35 % du SOLDE RESTANT du mois :
+//   fenêtre = de max(lundi de la semaine, 1er du mois) à aujourd'hui ;
+//   dépensé_avant = dépense du mois AVANT le début de la fenêtre ; dépensé_semaine = dépense depuis le début de la fenêtre ;
+//   dépense autorisée de la semaine = 0,35 × (crédit − dépensé_avant) ; budget restant de la semaine = dépense autorisée − dépensé_semaine.
+// (dépensé_avant exclut la semaine en cours, sinon la dépense compterait deux fois.) Le non-utilisé d'une semaine reste dans le solde ; remise à zéro le 1er de chaque mois ;
+// une semaine à cheval sur deux mois est coupée au 1er (chaque jour compte pour son mois). Avec 1 CAD tout dépensé chaque semaine : 35, 23, 15, 10 cents.
+// Modèle LÉGER seul (jamais le modèle fort). Épuisé : repli sans IA (même erreur aiBlocked que toute limite de budget, sans appeler l'API), message court avec le jour de recharge.
+function freeCreditUsd() { return fx.toUsd(envNum('IA_GRATUIT_CREDIT_MOIS_CAD') || 1); }
+function freeWeekShare() { const n = envNum('IA_GRATUIT_FRACTION_SEMAINE'); return n && n <= 1 ? n : 0.35; }
+function isFreeUser(key) {
+  if (key == null || key === '') return false;
+  const id = splitKey(key).userId;
+  if (!id || id === SYSTEM_USER) return false;
+  try { return !require('./offer1access').hasOffer1Access(id); } catch (e) { return false; }
+}
+function freeSpentBetween(key, from, to) {
+  const id = splitKey(key).userId;
+  return db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE (userId = ? OR userId LIKE ?) AND day >= ? AND day <= ?').get(String(id), String(id) + '#a%', from, to).s || 0;
+}
+// État du crédit gratuit : { credit, windowStart, spentBefore, spentWeek, allowed, remaining, ok, resumesOn }
+function freeStatus(key, now) {
+  const day = todayLocal(now), monthStart = day.slice(0, 7) + '-01', wk = weekStart(now);
+  const windowStart = wk > monthStart ? wk : monthStart;
+  const credit = freeCreditUsd();
+  const before = windowStart > monthStart ? freeSpentBetween(key, monthStart, addDaysIso(windowStart, -1)) : 0;
+  const spentWeek = freeSpentBetween(key, windowStart, day);
+  const allowed = freeWeekShare() * Math.max(0, credit - before);
+  const remaining = allowed - spentWeek;
+  const nextMonday = weekStart(now, 7), nextMonth = nextMonthStart(now);
+  return { credit, windowStart, spentBefore: before, spentWeek, allowed, remaining, ok: remaining > 1e-12, resumesOn: nextMonday < nextMonth ? nextMonday : nextMonth, resumesMonday: nextMonday < nextMonth };
+}
+function addDaysIso(d, n) { const t = new Date(Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10)) + n)); return t.getUTCFullYear() + '-' + pad2(t.getUTCMonth() + 1) + '-' + pad2(t.getUTCDate()); }
+function freeBlockedMessage(st) { return 'Crédit IA épuisé, reprend ' + (st.resumesMonday ? 'lundi' : 'le ' + dateLabelFr(st.resumesOn)) + '.'; }
+function freeCheck(key, now, estimate) {
+  const st = freeStatus(key, now), est = Number(estimate) > 0 ? Number(estimate) : 0;
+  if (st.ok && st.remaining + 1e-9 >= est) return { ok: true };
+  return { ok: false, resumesOn: st.resumesOn, message: freeBlockedMessage(st) };
+}
+// Corps d'appel d'un compte gratuit : modèle fort remplacé par le modèle léger.
+function lightBody(init) {
+  if (!init || typeof init.body !== 'string') return init;
+  try {
+    const b = JSON.parse(init.body);
+    if (b && typeof b.model === 'string' && !/haiku/i.test(b.model)) { b.model = require('./aimodels').FAST; return { ...init, body: JSON.stringify(b) }; }
+  } catch (e) { /* corps non JSON : inchangé */ }
+  return init;
+}
+
 // Remplace fetch(ANTHROPIC_URL, init) : vérifie le budget, appelle l'API, enregistre le coût.
 // Bloqué : lève une Error { aiBlocked: true, resumesOn } SANS appeler l'API (les appelants
 // l'attrapent déjà comme n'importe quelle panne IA). Renvoie la Response d'origine, intacte.
 async function fetchAnthropic(feature, url, init, userId) {
   const uid = userId || currentUser() || SYSTEM_USER;
+  const free = isFreeUser(uid);
+  if (free) { init = lightBody(init); const fc = freeCheck(uid, undefined, estimateMaxCost(init && init.body)); if (!fc.ok) throw Object.assign(new Error(fc.message), { aiBlocked: true, freeCap: true, resumesOn: fc.resumesOn, period: 'semaine' }); }
   const est = estimateMaxCost(init && init.body);
   const c = check(uid, undefined, est);
   if (!c.ok) throw Object.assign(new Error(c.message), { aiBlocked: true, resumesOn: c.resumesOn, period: c.period });
@@ -374,4 +427,4 @@ async function fetchAnthropic(feature, url, init, userId) {
   } finally { release(uid, est); }
 }
 
-module.exports = { keyFor, splitKey, recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
+module.exports = { freeStatus, freeCheck, isFreeUser, keyFor, splitKey, recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };

@@ -49,6 +49,20 @@ Plafonds propres restants (autres mécanismes) : Drive 40 appels/jour (`DRIVE_SY
 
 Alertes (journal serveur seulement, aucune notification) : coût du jour tous comptes > `AI_COST_ALERT_DAY_CAD` (défaut 8 CAD, une ligne par jour de Montréal, durable au redémarrage) ; rapport hebdomadaire `--semaine` > `AI_WEEKLY_ALERT_CAD` (défaut 5 CAD) ou fonction en hausse de plus de 50 % (et > 0,25 $) ; adaptatif derrière `AI_ALERT_ADAPTIVE=1` (`aialertthreshold.js`, 3,5 CAD x comptes actifs) ; clé refusée 401/403 (`ALERTE clé API Anthropic refusée`, une par heure). Le jour de tous les compteurs = `aifeaturecaps.dayKey` (America/Toronto, jamais UTC).
 
+## 3 bis. Crédit de l'IA gratuite par utilisateur (cahier des charges d'Émilien, 6 nov. 2026)
+
+Tout compte SANS accès Expansion est « gratuit » (jamais un compte Expansion, ni les appels système, ni le connecteur IA libre qui utilise l'IA de la personne et non celle de Noèsis). Appliqué dans le point d'appel unique `aibudget.fetchAnthropic`, à TOUS les appels IA d'un compte gratuit, AVANT le budget de la section 3 (journal `ai_usage_log`, jour civil de Montréal).
+- **Crédit** : 1 CAD par mois et par utilisateur (`IA_GRATUIT_CREDIT_MOIS_CAD`). Devise : CAD, comme les budgets de la section 3 (3,5 CAD par semaine, 15 CAD par mois) ; converti en USD (`fx.toUsd`) pour être comparé à `ai_usage_log.costUsd`, qui est en USD. Les dépenses par activité (`utilisateur#aActivité`) comptent pour l'utilisateur.
+- **Étalement hebdomadaire**, formule exacte (semaine = lundi-dimanche civil de Montréal) :
+  - fenêtre = de max(lundi de la semaine, 1er du mois) à aujourd'hui ;
+  - dépensé_avant = dépense du mois AVANT le début de la fenêtre ; dépensé_semaine = dépense depuis le début de la fenêtre ;
+  - **dépense autorisée de la semaine = 0,35 × (crédit − dépensé_avant)** ; **budget restant de la semaine = cette valeur − dépensé_semaine** (`IA_GRATUIT_FRACTION_SEMAINE`, défaut 0,35).
+  - « dépensé_avant » exclut la semaine en cours : sinon la dépense de la semaine serait comptée deux fois. Avec 1 CAD tout dépensé chaque semaine : 35, 23, 15, 10 cents ; il reste toujours un peu de crédit, de moins en moins, jamais plus de 1 CAD par mois. Le non-utilisé d'une semaine reste dans le solde ; remise à zéro le 1er de chaque mois civil ; une semaine à cheval sur deux mois est coupée au 1er (chaque jour compte pour son mois).
+- **Modèle léger seul** : un appel d'un compte gratuit qui demandait un modèle fort part en Haiku (jamais de repli vers le modèle fort).
+- **Épuisé** : l'appel lève la même erreur `aiBlocked` (`freeCap: true`) SANS appeler l'API ; chaque fonction retombe sur ses règles locales (jamais d'erreur bloquante). Message court : « Crédit IA épuisé, reprend lundi. » (ou « …reprend le 1er décembre. » si le 1er du mois précède le lundi) ; les fonctions qui affichent déjà le message d'une limite de budget l'affichent tel quel (aucun nouveau bouton ni écran) ; pas de compteur affiché (aucune zone existante ne s'y prête).
+- Les appels de `objectifs.js` et du résumé annuel passent par `aibudget.runAs(userId, …)` : comptés sur la personne.
+Test : `test/ia-gratuit-credit-test.js`.
+
 ## 4. Réductions déjà appliquées
 
 - Orthographe : consigne raccourcie (127 -> 110 jetons), clé de mémo normalisée.
