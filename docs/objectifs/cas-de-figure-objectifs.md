@@ -526,3 +526,11 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 
 - Niveau secteurs : toucher le NOM d'un secteur ouvre son calendrier (page 3) au mois d'aujourd'hui ; toucher une PÉRIODE (case ou repère) l'ouvre au mois de son premier jour. Les deux passent par `TMT.ouvrirCalendrierTaches`. Niveaux activités et pôles : toucher le nom descend d'un niveau, comme avant.
 - Le niveau, la colonne et le défilement sont mémorisés AVANT l'appel (`savedView`, `calFromTree`) : la flèche de retour revient au même endroit. Si la fonction répond « non » (aucune période) : message court, rien n'est mémorisé.
+
+## Fusion dans le temps, serveur (7 nov. 2026)
+
+- Règle d'affichage dérivée à chaque lecture (`server/lib/objectifs-fusion.js`), jamais de suppression : la période de fusion est la période de l'arbre (13 par an, 28 jours, la 13e va au 31 décembre) qui contient l'échéance du macro. Un macro porte `mergeStart`, `mergeEnd`, `mergeReached` (aujourd'hui >= début), `mergePast` (aujourd'hui > fin).
+- Avant la période : colonnes séparées et voisines. Délier défait tout. Chaînage (A+B puis +C) : autorisé avant la date, comme avant.
+- Période passée : `mergePast`. Délier un enfant, le ranger ailleurs, supprimer le macro ou le refaire objectif ordinaire sont refusés avec « Fusion passée : impossible de délier. » ; rien n'est supprimé ni détaché. Supprimer un enfant seul reste possible.
+- Changement de jour à minuit : l'état suit `userToday()` (fuseau de la personne) ; le dernier jour de la période n'est pas encore « passée », le lendemain oui.
+- Échéance modifiée : la période de fusion suit la nouvelle échéance (un macro dont l'échéance est repoussée dans le futur redevient défaisable).

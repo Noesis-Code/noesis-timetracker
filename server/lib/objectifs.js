@@ -14,6 +14,7 @@ const goalstasks = require('./goalstasks');
 const textlimits = require('./textlimits');
 const durees = require('./objectifs-durees');
 const temps = require('./objectifs-temps');
+const fusion = require('./objectifs-fusion');
 
 db.exec(`CREATE TABLE IF NOT EXISTS user_objectives (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -736,6 +737,7 @@ function shape(r, full) {
     out.macroLevel = r.level || 'activite'; out.macroColumns = columnsOf(r); out.childMacroIds = activeKids(r).filter((k) => k.isMacro).map((k) => k.id);
     out.macroActivities = mi.activities; out.macroEmpty = mi.empty; out.macroAllAbandoned = mi.allAbandoned; out.macroChildren = mi.total;
     out.status = mi.status; out.progress = mi.progress;
+    Object.assign(out, fusion.state(r.endDate, today())); // fusion dans le temps : période de fusion et son état (calculé à chaque lecture, rien n'est écrit)
   }
   if (full) {
     out.periods = periods; out.currentWeek = { period: cur.n, week: cw.i };
@@ -767,8 +769,14 @@ function nextPosition(userId, parentId) {
   return (r && r.m != null ? r.m : 0) + 1;
 }
 // Lier / délier : l'objectif `id` devient une étape de `parentId` (null = il redevient un objectif final séparé). Jamais de cycle ; jamais d'objectif d'un autre utilisateur.
+// Une fusion dont la période est PASSÉE est définitive : on ne détache plus ses objectifs (ni on ne les range ailleurs).
+function assertFusionOuverte(r) {
+  const par = r.parentId ? db.prepare('SELECT isMacro, endDate FROM user_objectives WHERE id = ?').get(r.parentId) : null;
+  if (par && par.isMacro && fusion.state(par.endDate, today()).mergePast) throw err(fusion.MSG_PASSEE);
+}
 function lier(userId, id, parentId, rel) {
   const r = rowOf(userId, id);
+  if (Number(parentId) !== r.parentId) assertFusionOuverte(r);
   if (parentId == null || parentId === '') {
     db.prepare('UPDATE user_objectives SET parentId = NULL, parentRel = NULL, position = ? WHERE id = ?').run(nextPosition(userId, null), r.id);
     return get(userId, r.id);
@@ -883,6 +891,7 @@ function setMacro(userId, id, on, anchor) {
     const par = r.parentId ? db.prepare('SELECT isMacro FROM user_objectives WHERE id = ?').get(r.parentId) : null;
     if (par && !par.isMacro) throw err('Un objectif étape d’un objectif ordinaire ne peut pas devenir macro.');
   } else {
+    if (fusion.state(r.endDate, today()).mergePast) throw err(fusion.MSG_PASSEE);
     const other = activeKids(r).filter((k) => k.activityId !== r.activityId);
     if (other.length) throw err('Ce macro englobe des objectifs d’autres activités (' + other.map((k) => '« ' + k.title + ' »').join(', ') + ') : détache-les avant d’en faire un objectif ordinaire.');
   }
@@ -975,6 +984,7 @@ function abandonner(userId, id, on) {
 // confirmée, les enfants sont détachés (ils redeviennent des objectifs finaux), jamais supprimés. Le secteur et les tâches déjà posés dans l'arbre périodique restent à l'utilisateur.
 function supprimer(userId, id, confirmed) {
   const r = rowOf(userId, id);
+  if (r.isMacro && fusion.state(r.endDate, today()).mergePast) throw err(fusion.MSG_PASSEE); // supprimer le macro = tout délier
   const kids = db.prepare('SELECT id, title FROM user_objectives WHERE userId = ? AND parentId = ? ORDER BY position, id').all(userId, r.id);
   if (kids.length && !confirmed) throw Object.assign(err('Cet objectif a ' + kids.length + ' objectif' + (kids.length > 1 ? 's rattachés' : ' rattaché') + ' : confirme pour les détacher.', 409), { extra: { children: kids } });
   db.exec('BEGIN');

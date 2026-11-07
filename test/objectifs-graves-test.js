@@ -293,6 +293,36 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(o.modifierEcheance(u, p.id, '2027-06-01').endDate === '2027-06-01', 'échéance modifiée');
   assert(o.get(u, k.id).parentId === p.id, 'les rattachements ne bougent pas');
 }
+// ---- Fusion dans le temps : période de fusion, état dérivé, refus de délier une fusion passée ----
+{
+  const F = require('../server/lib/objectifs-fusion');
+  const p = F.periodOf('2026-11-15');
+  assert(p.year === 2026 && p.number >= 1 && p.start <= '2026-11-15' && p.end >= '2026-11-15', 'période de fusion : la période de l’arbre qui contient l’échéance');
+  assert(F.periodOf('2026-12-31').number === 13 && F.periodOf('2026-12-31').end === '2026-12-31', 'la 13e période va jusqu’au 31 décembre');
+  let st = F.state('2026-11-15', '2026-09-01');
+  assert(!st.mergeReached && !st.mergePast, 'avant la période : colonnes séparées (ni atteinte ni passée)');
+  st = F.state('2026-11-15', p.start);
+  assert(st.mergeReached && !st.mergePast, 'à l’entrée dans la période : atteinte, pas passée');
+  assert(!F.state('2026-11-15', p.end).mergePast && F.state('2026-11-15', '2027-12-31').mergePast, 'dernier jour : pas encore passée ; le lendemain : passée (changement de jour à minuit)');
+  const a1 = mk('Fusion A', { endDate: '2027-02-01' });
+  const act2 = Number(db.prepare("INSERT INTO activities (name, ownerId, active, createdAt) VALUES ('Autre fusion', ?, 1, '2026-11-01T00:00:00.000Z')").run(u).lastInsertRowid);
+  db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#674EA7', '2026-11-01T00:00:00.000Z')").run(act2, u);
+  const c1 = o.creer(u, { title: 'Fusion C', activityId: act2, startDate: '2026-11-09', endDate: '2027-03-01', noBridge: true });
+  const m1 = o.fusionnerEnMacro(u, { childIds: [a1.id, c1.id], title: 'Macro futur' });
+  assert(m1.mergeStart && m1.mergeEnd && m1.mergePast === false, 'le macro porte sa période de fusion (calculée à la lecture)');
+  assert(o.lier(u, a1.id, null).parentId === null, 'avant la date : délier défait la fusion'); o.lier(u, c1.id, null);
+  const m2 = o.fusionnerEnMacro(u, { childIds: [a1.id, c1.id], title: 'Macro chaîné' });
+  const bad = (fn) => { try { fn(); return null; } catch (e) { return e; } };
+  db.prepare("UPDATE user_objectives SET endDate = '2026-01-20', startDate = '2026-01-05' WHERE id IN (?, ?, ?)").run(m2.id, a1.id, c1.id);
+  assert(o.get(u, m2.id).mergePast === true, 'macro dont la période est passée : fusion passée');
+  let e = bad(() => o.lier(u, a1.id, null));
+  assert(e && e.message === 'Fusion passée : impossible de délier.', 'fusion passée : délier refusé avec le message court');
+  e = bad(() => o.supprimer(u, m2.id, true));
+  assert(e && e.message === 'Fusion passée : impossible de délier.', 'fusion passée : supprimer le macro (tout délier) refusé aussi');
+  e = bad(() => o.setMacro(u, m2.id, false));
+  assert(e && /Fusion passée/.test(e.message), 'fusion passée : le macro ne redevient pas un objectif ordinaire');
+  assert(o.get(u, a1.id).parentId === m2.id && o.get(u, c1.id).parentId === m2.id, 'aucune donnée supprimée ni détachée');
+}
 // MARK-FIN
 const nRef = (id) => db.prepare('SELECT (SELECT COUNT(*) FROM user_objectives WHERE userId = ?) + (SELECT COUNT(*) FROM objectifs_refus WHERE userId = ?) AS n').get(id, id).n;
 assert(nRef(u) > 0, 'avant suppression : objectifs et refus du compte présents');
