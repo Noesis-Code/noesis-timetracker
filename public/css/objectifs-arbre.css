@@ -1,8 +1,15 @@
 /* Écran « Objectifs » = l'arbre sur la MÊME grille que l'arbre périodique de la page 2 : on réutilise ses classes (.goalsGrid, .goalsGridRow, .goalsGridCell--empty/--filled, .goalsRowMarker,
    .goalsGridScroll de css/objectifs-page2-objectif.css) ; ce fichier ne porte que ce qui est propre à la vue d'ensemble (colonnes = activités, états, dépliage, bulles fixes, glisser-déposer). */
-.objArbre { min-height: calc(100vh - 330px); display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 0 200px; }
-.arZoomRow { position: sticky; top: 70px; z-index: 5; margin: 0 0 16px; padding: 4px 0; background: var(--bg); }
-.arScroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scroll-margin-bottom: 220px; }
+.objArbre { display: flex; flex-direction: column; overflow: hidden; padding: 0; } /* hauteur posée par fitTree : de son haut à la barre « Nouvel objectif… » */
+.arZoomRow { flex: none; margin: 0 0 4px; }
+.arScroll { flex: 1 1 auto; min-height: 0; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+.arColumn { display: flex; flex-direction: column; height: 100%; width: max-content; min-width: 100%; }
+.arGridArea { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; width: max-content; min-width: 100%; -webkit-overflow-scrolling: touch; }
+/* Bulles = dernière rangée de l'arbre : mêmes marges et mêmes largeurs que les rangées de la grille ; jamais fixes ni flottantes. */
+.arBaseWrap { flex: none; width: max-content; min-width: 100%; box-sizing: border-box; padding: 8px 4px 8px 26px; }
+.arBaseRow { align-items: center; }
+.arBaseRow::before { display: none; }
+.arBaseWrap .arSpacer { position: sticky; left: 0; top: auto; transform: none; flex: 0 0 20px; margin-left: -26px; visibility: hidden; }
 .arGrid { width: max-content; min-width: 100%; padding: 2px 4px 0 26px; box-sizing: border-box; }
 .arGrid .goalsGridRow { width: max-content; min-width: 100%; }
 .arGrid .goalsGridRow:has(.arDragging) { z-index: 6; }
@@ -26,11 +33,7 @@
 @media (prefers-reduced-motion: reduce) { .arEnter { animation: none; } }
 .arToast { position: fixed; left: 16px; right: 16px; z-index: 45; margin: 0 auto; max-width: 420px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--card); color: var(--text); font-size: 13px; text-align: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); pointer-events: none; }
 .arToast.hidden { display: none; }
-/* Bulles d'activité : pleines, détachées, de même largeur que leur colonne, FIXES au-dessus de la barre ; elles suivent le défilement horizontal des colonnes. */
-.arBases { position: fixed; left: 0; right: 0; z-index: 40; overflow: hidden; pointer-events: none; }
-.arBases.hidden { display: none; }
-.arBasesInner { position: relative; height: 48px; width: 100%; }
-.arBubble { position: absolute; top: 0; flex: none; display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 6px 16px; border: 0; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; pointer-events: auto; box-sizing: border-box; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
+.arBubble { position: relative; flex: none; display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 6px 16px; border: 0; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; pointer-events: auto; box-sizing: border-box; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
 .arBubble span { overflow-wrap: anywhere; }
 /* Lier / délier (appui long + glisser) : carte tirée, cible violette, zone « Délier » transitoire à la place de la barre (.cmpAdd sans « + »). */
 .arNode.arDragging { z-index: 7; opacity: .9; box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
@@ -45,7 +48,7 @@
 /* Tous les objectifs ont le même cadre (bordure fine de la couleur de l'activité, posée en ligne : pleine, ou pointillée pour « à venir ») ; l'état = la teinte. */
 .arCard.ar-dropped { opacity: .4; }
 .arBackNav { margin: 0 0 4px; }
-.objArbre, .arBases { touch-action: pan-x pan-y; } /* le pincer est le zoom par niveau de l'arbre, jamais le zoom du navigateur */
+.objArbre { touch-action: pan-x pan-y; } /* le pincer est le zoom par niveau de l'arbre, jamais le zoom du navigateur */
 .arGrid .goalsGridCell--filled.arCard { border-color: var(--ar-c) !important; border-width: 2px !important; }
 .arGrid { padding-bottom: 24px; }
 /* Macro : carte large NEUTRE (jetons existants : blanc cassé et gris du thème, jamais la couleur d'une activité), même cadre de 2 px ; un trait par colonne concernée la relie à ses enfants. */
@@ -56,3 +59,6 @@
 .arMacroStub { position: absolute; bottom: calc(var(--goalsGridGap) / -2 - 2px); width: 2px; height: calc(var(--goalsGridGap) / 2 + 2px); margin-left: -1px; background: var(--text-light); pointer-events: none; }
 .arMacroRow { margin-top: calc(var(--goalsGridGap) * -0.5); }
 .arGap { pointer-events: none; }
+/* L'arbre tient dans l'écran (hauteur = jusqu'à la barre « Nouvel objectif… ») : seule la grille défile en vertical, les colonnes et leurs bulles en horizontal ; un geste commencé dans l'arbre ne fait jamais défiler la page. */
+.arGridArea { overscroll-behavior-y: contain; } /* vertical : ne chaîne pas vers la page ; horizontal : le geste passe au conteneur des colonnes */
+.arScroll { overscroll-behavior: contain; }

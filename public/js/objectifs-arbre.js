@@ -17,7 +17,7 @@
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
   var zoom = 'period', lvl = 'activite', focus = null, struct = null, split = {}, picked = null, animate = false;
-  var tree = null, items = [], zone = null, toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, bases = null, basesInner = null, scroller = null;
+  var tree = null, items = [], zone = null, toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, scroller = null, gridArea = null;
   var RAIL = 30, GAP = 10; // repères (20 px + gouttière), gouttière des rangées de la page 2
 
   function mix(hex, k) { // teinte pâle : mélange de la couleur d'activité avec du blanc (même principe que l'arbre périodique)
@@ -78,16 +78,14 @@
     if (TMT.ui && TMT.ui.holdDrag) {
       var below = descendants(o.id, kidsAll); // descendance sur TOUTES les colonnes (un enfant peut être dans un autre pôle)
       TMT.ui.holdDrag(b, {
-        holdMs: 500, list: function () { return tree; }, scroller: function () { return document.scrollingElement || document.documentElement; }, hscroller: function () { return scroller; },
-        insets: function () { var zr = tree && tree.querySelector('.arZoomRow'), z = zone && zone.getBoundingClientRect(); return { top: zr ? zr.getBoundingClientRect().bottom : 0, bottom: z && z.height ? window.innerHeight - z.top : 0 }; },
+        holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; },
         targetSel: '.arNode[data-id], .arNode[data-ids]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', zoneOverClass: 'arUnlinkOver',
         isInvalid: function (t) { return idsOf(t).every(function (id) { return id === o.id || !!below[id] || !sameAct(o, id); }); }, // !all.byId : autre activité (L03)
         onStart: function () {
           if (!zone) { zone = el('button', 'cmpAdd arUnlinkZone', tr('Délier')); zone.type = 'button'; zone.tabIndex = -1; }
           var d = dockEl(); if (d) { d.appendChild(zone); d.classList.add('objLinking'); }
-          if (bases) bases.classList.add('hidden');
         },
-        onEnd: function () { var d = dockEl(); if (zone && zone.parentNode) zone.parentNode.removeChild(zone); if (d) d.classList.remove('objLinking'); if (bases && visible) bases.classList.remove('hidden'); },
+        onEnd: function () { var d = dockEl(); if (zone && zone.parentNode) zone.parentNode.removeChild(zone); if (d) d.classList.remove('objLinking'); },
         zone: function () { return zone; },
         onDrop: function (t) {
           var ok = idsOf(t).filter(function (id) { return id !== o.id && !below[id] && !!sameAct(o, id); });
@@ -117,7 +115,7 @@
     t.appendChild(el('span', 'arCardMeta', os.slice(0, 2).map(function (o) { return o.title; }).join(' · '))); b.appendChild(t);
     b.addEventListener('click', function () { if (lvl !== 'secteur' && onOpen) onOpen(); else if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids); }); // plusieurs objectifs : toucher = descendre d'un niveau ; au dernier niveau, la liste
     if (TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, {
-      holdMs: 500, list: function () { return tree; }, scroller: function () { return document.scrollingElement || document.documentElement; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
+      holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
       onHold: function () {
         if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids, { title: tr('Déplacer quel objectif ?'), onPick: function (id) { ids.forEach(function (i) { split[i] = true; }); picked = id; render(); say(tr('Appui long sur la carte choisie, puis glisse-la.')); } });
       }
@@ -180,31 +178,15 @@
     var cv = measureBubble.cv || (measureBubble.cv = document.createElement('canvas')), g = cv.getContext('2d'); g.font = '700 14px system-ui, sans-serif';
     return Math.ceil(Math.max.apply(null, names.map(function (n) { return Math.max.apply(null, String(n).split(/\s+/).map(function (w) { return g.measureText(w).width; })); }).concat([0]))) + 36;
   }
-  function placeBases() { // bulles FIXES, juste au-dessus de la barre « Nouvel objectif… »
-    if (!bases) return;
-    var d = dockEl(), top = d ? d.getBoundingClientRect().top : window.innerHeight - 120;
-    var bar = d && d.querySelector('.tasksComposer'), btop = bar ? bar.getBoundingClientRect().top : top;
-    bases.style.bottom = Math.max(8, window.innerHeight - btop + 8) + 'px';
-    syncBubbles();
-    if (tree) tree.style.paddingBottom = (Math.max(8, window.innerHeight - btop + 8) + 56 + 24) + 'px'; // le contenu ne passe jamais sous les bulles ni sous la barre
+  // Conteneur de l'arbre : hauteur = de son haut jusqu'à la barre « Nouvel objectif… » (juste au-dessus d'elle, sans espace flottant). Les bulles sont la dernière rangée de l'arbre (voir render) :
+  // aucune position fixe ni recalcul de leur x ou de leur largeur, elles partagent la mise en page et le défilement horizontal des colonnes.
+  function fitTree() {
+    if (!tree || !tree.getClientRects().length) return;
+    var d = dockEl(), bar = d && d.querySelector('.tasksComposer'), btop = bar ? bar.getBoundingClientRect().top : window.innerHeight - 100;
+    var h = Math.max(240, btop - 8 - tree.getBoundingClientRect().top);
+    tree.style.height = Math.round(h) + 'px';
   }
-  // Chaque bulle est ATTACHÉE à sa colonne : même x, même largeur EXACTE, mesurés sur la colonne réelle (data-col) à chaque défilement horizontal, redimensionnement ou rendu ;
-  // la bande est rognée au bord de la colonne des repères (les bulles glissent avec les colonnes, jamais flottantes ni indépendantes). Seul le défilement vertical les laisse fixes en bas.
-  function syncBubbles() {
-    if (!bases || !scroller || !basesInner) return;
-    var sr = scroller.getBoundingClientRect(), x0 = sr.left; // même bord que les cartes (elles aussi glissent sous la colonne des repères)
-    bases.style.left = x0 + 'px'; bases.style.width = Math.max(0, sr.width) + 'px'; bases.style.right = 'auto';
-    Array.prototype.forEach.call(basesInner.children, function (b, i) {
-      var c = scroller.querySelector('[data-col="' + i + '"]'); if (!c) return;
-      var r = c.getBoundingClientRect(); b.style.left = (r.left - x0) + 'px'; b.style.width = r.width + 'px';
-    });
-  }
-  function buildBases() {
-    if (bases) return;
-    bases = el('div', 'arBases hidden'); basesInner = el('div', 'arBasesInner'); bases.appendChild(basesInner); document.body.appendChild(bases);
-    window.addEventListener('resize', function () { if (visible) { placeBases(); window.requestAnimationFrame(syncBubbles); } });
-    if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (visible) placeBases(); });
-  }
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (visible) fitTree(); });
   // Repère de période (mêmes classes que la page 2) : à venir = numéro cerclé, courante = pastille pleine, passée = point. En zoom Année : les deux derniers chiffres de l'année.
   function marker(rw, here) {
     var st = rw.rank > here.rank ? 'future' : rw.rank === here.rank ? 'current' : 'past', m = el('span', 'goalsRowMarker goalsRowMarker--' + st);
@@ -253,7 +235,7 @@
   }
   function ascend() { if (lvl === 'secteur') go('pole', { activityId: focus.activityId }); else if (lvl === 'pole') go('activite', null); } // flèche de retour ou pincer inverse
   function colAt(x) { // colonne sous un point d'écran (pincer / Ctrl+molette) : celle de la bulle qui lui correspond
-    var bs = basesInner ? basesInner.children : [], best = 0, dmin = 1e9;
+    var bs = tree ? tree.querySelectorAll('.arBubble') : [], best = 0, dmin = 1e9;
     for (var i = 0; i < bs.length; i++) { var r = bs[i].getBoundingClientRect(), d = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; if (d < dmin) { dmin = d; best = i; } }
     return best;
   }
@@ -266,14 +248,14 @@
 
   function render() {
     if (!tree) return;
-    tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024);
+    var keepTop = !needBase && gridArea ? gridArea.scrollTop : null, keepLeft = !needBase && scroller ? scroller.scrollLeft : 0;
+    tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024); fitTree();
     zoom = lvl === 'activite' ? 'all' : 'period'; // le temps suit le zoom : activités = ANNÉES (tout l'historique + 5 ans), pôles et secteurs = PÉRIODES du réglage
     var today = dayIso(), keep = visibleSet(today), shown = items.filter(function (o) { return keep[o.id]; });
     if (items.length && lvl !== 'activite') { var zb = el('div', 'arZoomRow'); zb.appendChild(backNav()); tree.appendChild(zb); }
     kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
     curCols = columnsFor(shown); syncCtx();
-    buildBases(); basesInner.textContent = '';
-    if (!curCols.length) { tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); bases.classList.add('hidden'); return; }
+    if (!curCols.length) { gridArea = scroller = null; tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
     var n = curCols.length, wide = window.innerWidth >= 1024, avail = tree.clientWidth || (Math.min(window.innerWidth, wide ? 1400 : 600) - 32); // largeur réelle de la zone
     var baseW = Math.floor((avail - RAIL - GAP - 4) / 2), cols = wide ? Math.max(220, Math.floor((avail - RAIL - GAP * (n - 1)) / n)) : baseW; // deux colonnes de même largeur visibles
     var W = Math.min(Math.max(cols, measureBubble(curCols.map(function (c) { return c.label; }))), window.innerWidth - 80);
@@ -349,23 +331,25 @@
       grid.appendChild(row);
     });
     if (!todayPut && lastRow) lastRow.appendChild(todayLine(true)); // le présent est la dernière case : la ligne passe dessous
-    grid.querySelectorAll('.goalsGridRow').forEach(function (row) { var k = 0; Array.prototype.forEach.call(row.children, function (ch) { if (ch.classList.contains('arMacro')) k += Number(ch.getAttribute('data-span')) || 1; else if (ch.classList.contains('arGap')) k += 1; else if (ch.classList.contains('goalsGridCell') || ch.classList.contains('arStack')) ch.setAttribute('data-col', String(k++)); }); }); // la colonne k de chaque rangée (un macro couvre plusieurs colonnes)
-    scroller = el('div', 'goalsGridScroll arScroll'); scroller.appendChild(grid); tree.appendChild(scroller);
-    // bulles : une racine fixe par colonne (activité, pôle ou secteur), même couleur d'activité ; toucher = descendre d'un niveau
+    // UN SEUL conteneur de défilement horizontal (colonnes ET bulles) > colonne verticale : (1) la grille, qui défile en vertical sous la ligne « Aujourd'hui » ; (2) la rangée des bulles, dernière
+    // rangée de la colonne (flex: none), même mise en page que les rangées de la grille (mêmes marges, mêmes largeurs de cellule) : chaque bulle est sous sa colonne par construction.
+    scroller = el('div', 'goalsGridScroll arScroll');
+    var column = el('div', 'arColumn'); gridArea = el('div', 'arGridArea'); gridArea.appendChild(grid); column.appendChild(gridArea);
+    var baseWrap = el('div', 'goalsGrid arBaseWrap'), baseRow = el('div', 'goalsGridRow arBaseRow'), spacer = el('span', 'goalsRowMarker goalsRowMarker--past arSpacer'); spacer.setAttribute('aria-hidden', 'true'); baseRow.appendChild(spacer);
     data.forEach(function (c, ci) {
-      var b = el('button', 'arBubble'); b.type = 'button'; b.style.width = W + 'px'; b.style.left = '0px'; b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : '#fff';
+      var b = el('button', 'arBubble'); b.type = 'button'; cellSize(b, W); b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : '#fff';
       b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
       b.addEventListener('click', function () { descend(ci); });
-      basesInner.appendChild(b);
+      baseRow.appendChild(b);
     });
-    scroller.addEventListener('scroll', syncBubbles, { passive: true });
-    bases.classList.toggle('hidden', !visible); placeBases(); window.requestAnimationFrame(syncBubbles);
-    if (needBase && tree.getClientRects().length) { needBase = false; scroller.scrollIntoView({ block: 'end' }); }
+    baseWrap.appendChild(baseRow); column.appendChild(baseWrap); scroller.appendChild(column); tree.appendChild(scroller);
+    if (needBase || keepTop == null) { needBase = false; gridArea.scrollTop = gridArea.scrollHeight; window.requestAnimationFrame(function () { if (gridArea) gridArea.scrollTop = gridArea.scrollHeight; }); } // ouverture : le présent (en bas)
+    else { gridArea.scrollTop = keepTop; scroller.scrollLeft = keepLeft; }
   }
   // Pincer (tactile) ou Ctrl + molette (ordinateur) : descendre d'un niveau (écarter) / remonter (rapprocher). Une seule technique de zoom, la même partout dans l'arbre.
   (function () {
     var pinch = null, lastWheel = 0;
-    function inArbre(t) { return visible && t && t.closest && t.closest('#goalsObjArbre, .arBases'); }
+    function inArbre(t) { return visible && t && t.closest && t.closest('#goalsObjArbre'); }
     function dist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
     document.addEventListener('touchstart', function (e) { if (e.touches.length === 2 && inArbre(e.target)) pinch = { d: dist(e.touches), x: (e.touches[0].clientX + e.touches[1].clientX) / 2, done: false }; }, { passive: true });
     document.addEventListener('touchmove', function (e) {
@@ -393,7 +377,7 @@
   if (tree) window.addEventListener('resize', function () { if (loaded && visible) render(); });
   TMT.objectifsArbre = {
     refresh: refresh, render: render,
-    showBase: function () { needBase = true; visible = true; if (bases) bases.classList.remove('hidden'); if (loaded) render(); },
-    hide: function () { visible = false; if (bases) bases.classList.add('hidden'); }
+    showBase: function () { needBase = true; visible = true; if (loaded) render(); },
+    hide: function () { visible = false; }
   };
 })();
