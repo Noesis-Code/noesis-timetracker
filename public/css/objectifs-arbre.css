@@ -28,7 +28,7 @@
 @media (prefers-reduced-motion: reduce) { .arEnter { animation: none; } }
 .arToast { position: fixed; left: 16px; right: 16px; z-index: 45; margin: 0 auto; max-width: 420px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--card); color: var(--text); font-size: 13px; text-align: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); pointer-events: none; }
 .arToast.hidden { display: none; }
-.arBubble { position: relative; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 14px; border: 2px solid var(--track-bg); border-radius: var(--radius-md); background: var(--card); color: #fff; font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: left; cursor: pointer; pointer-events: auto; box-sizing: border-box; } /* comme les cartes de l'arbre périodique : même rayon, contour plein de la couleur de l'activité */
+.arBubble { position: relative; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 14px; border: 2px solid transparent; border-radius: var(--radius-md); background: var(--card); color: #fff; font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: left; cursor: pointer; pointer-events: auto; box-sizing: border-box; } /* comme les cartes de l'arbre périodique : même rayon, contour plein de la couleur de l'activité */
 .arDot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
 .arBubble span { overflow-wrap: anywhere; }
 /* Lier / délier (appui long + glisser) : carte tirée, cible violette, zone « Délier » transitoire à la place de la barre (.cmpAdd sans « + »). */
@@ -47,7 +47,7 @@
 .objArbre { touch-action: pan-x pan-y; } /* le pincer est le zoom par niveau de l'arbre, jamais le zoom du navigateur */
 .arGrid .goalsGridCell--filled.arCard { border-color: var(--ar-c) !important; border-width: 2px !important; }
 /* Macro : carte large NEUTRE (jetons existants : blanc cassé et gris du thème, jamais la couleur d'une activité), même cadre de 2 px ; un trait par colonne concernée la relie à ses enfants. */
-.arGrid .goalsGridCell--filled.arMacro { --ar-c: var(--text-light); background: color-mix(in srgb, var(--text) 85%, var(--bg)); color: var(--bg); }
+.arGrid .goalsGridCell--filled.arMacro { --ar-c: transparent; background: color-mix(in srgb, var(--text) 85%, var(--bg)); color: var(--bg); }
 .arGrid .goalsGridCell--filled.arMacro.ar-done { background: var(--text); }
 .arGrid .goalsGridCell--filled.arMacro.ar-future { background: color-mix(in srgb, var(--text) 85%, var(--bg)); color: var(--bg); }
 .arMacro .arCardMeta { overflow-wrap: anywhere; }

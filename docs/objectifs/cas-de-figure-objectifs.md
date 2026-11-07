@@ -469,3 +469,11 @@ Page 1 de la Feuille de route = sélecteur « Tâches | Objectifs » (Objectifs 
 - Arrivé de l'arbre, le calendrier ne propose plus ni changement de pôle ni de secteur (cadre du pôle : seule la flèche ‹ reste, elle est le retour) ; seul le MOIS change (flèches et balayage). Une seule flèche de retour ramène à l'arbre au même niveau, à la même colonne et au même défilement.
 - Cas : mois sans objectif (la case ouvre le calendrier du mois, vide) ; secteur sans période dans le plan à ces dates : message « Aucune période du calendrier à ces dates », l'arbre reste ; retour d'arbre : niveau et défilement identiques.
 - Non fait : depuis la vue macro, un toucher direct sur une case d'année ou de période vers son détail puis le calendrier en deux touchers (le parcours reste : bloc, années, secteurs, période).
+
+## Couleurs de l'arbre (7 nov. 2026)
+
+- Activité sans pôle : une seule colonne, couleur de l'activité ; bulle = cette teinte assombrie (luminosité −25 %), nom en blanc, cartes pâles de la même teinte.
+- Plus de 5 pôles : `TMT.subProjectShade` ne fournit que 5 nuances ; à partir du 6e pôle les nuances se répètent (rang modulo 5). Les bulles gardent leur nom pour les distinguer.
+- Pôle réordonné : la nuance suit le NOUVEAU rang (la nuance est fixée par le rang, pas par le pôle) ; cartes et bulles se recolorent ensemble.
+- Pôle supprimé : les rangs se resserrent, les pôles restants reprennent les nuances 1 à n.
+- Secteurs : jamais de couleur propre ; toutes les colonnes du niveau secteurs ont la nuance de leur pôle.
