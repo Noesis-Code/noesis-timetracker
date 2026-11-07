@@ -1156,6 +1156,13 @@
   // choix soit appliqué en dernier ; referme la page 1 : un lien profond atterrit sur la période visée, jamais sur
   // l'écran de capture.
   function openGoalsPeriodFromNotification(activityId, category, periodNumber) {
+    if (category && periodNumber && TMT.ouvrirCalendrierTaches) { // rappel de fin de période : le calendrier vit dans la vue Tâches (page 3 retirée), filtre posé sur le pôle / secteur du rappel
+      TMT.api('GET', '/api/objectifs/structure').catch(function () { return null; }).then(function (st) {
+        var act = st && (st.activities || []).filter(function (x) { return String(x.id) === String(activityId); })[0], pole = act && (act.poles || []).filter(function (p) { return p.key === category || (p.secteurs || []).some(function (x) { return x.key === category; }); })[0];
+        return TMT.ouvrirCalendrierTaches({ activityId: activityId, poleKey: pole ? pole.key : category, secteurKey: category, periodNumber: periodNumber });
+      });
+      return;
+    }
     $('goalsCapturePage').classList.add('hidden');
     var ready = TMT.getActivitiesCache() && TMT.getActivitiesCache().length ? Promise.resolve(TMT.getActivitiesCache()) : refreshActivities();
     ready.then(function (list) {
@@ -1164,7 +1171,7 @@
       if (idx === -1) return;
       var loaded = TMT.openGoalsForActivity(idx);
       if (loaded && loaded.then && category && periodNumber) {
-        return loaded.then(function () { if (TMT.ouvrirCalendrierTaches) TMT.ouvrirCalendrierTaches({ activityId: activityId, poleKey: category, secteurKey: category, periodNumber: periodNumber }); }); // le calendrier vit dans la vue Tâches
+        return loaded.then(function () { if (TMT.ouvrirCalendrierTaches) TMT.ouvrirCalendrierTaches({ activityId: activityId, poleKey: TMT.currentGoalsSelectedPoleKey || category, secteurKey: category, periodNumber: periodNumber }); }); // le calendrier vit dans la vue Tâches
       }
     });
   }

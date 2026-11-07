@@ -591,3 +591,22 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 - Vérifié au toucher réel à 390 px : appui long, choix de 2 cases (3 colonnes fusionnées, carte de 3 colonnes), re-toucher la carte (bouton « Séparer », 3 colonnes choisies), ajout de 2 cases (5 colonnes), Enregistrer, nouvelle ouverture (« Séparer », 5 colonnes choisies), Séparer : le macro disparaît, il ne reste que les macros d'origine.
 - Une colonne ajoutée dont l'objectif a une échéance plus lointaine que celle du macro : confirmation « Repousser l'échéance du macro au … ? » (jamais en silence) ; refuser ne change rien. Avant ce correctif, le serveur refusait l'ajout et le message restait seul.
 - En modification, les colonnes se resserrent (jusqu'à 44 px) pour que la carte large du macro tienne toujours à l'écran, même à 5 colonnes.
+
+## Règles de mise en page de la page 2 (arbre périodique), avant / après dans l'arbre des objectifs (7 nov. 2026)
+
+| Règle de la page 2 (hors largeur) | Avant | Après |
+|---|---|---|
+| Gouttière entre colonnes 10 px | appliquée | appliquée (même constante) |
+| Écart entre rangées 34 px (`--goalsGridGap`) | appliquée (classes partagées) | appliquée |
+| Trait vertical 2 px entre cases, couleur de l'activité si liées | appliquée | appliquée |
+| Séparateur horizontal pointillé entre rangées (très pâle) | appliquée (classes partagées) | appliquée |
+| Case vide grise (`.goalsGridCell--empty`) | appliquée | appliquée |
+| Hauteur de case : 64 px minimum | remplacée par une hauteur adaptative (40 à 120 px) pour remplir l'écran | inchangée, volontaire (demande d'Émilien : la grille remplit l'écran) |
+| Marge basse de 220 px sous la grille | non appliquée (butée en bas) | inchangée, volontaire (demande d'Émilien : butée en bas) |
+| Repères à gauche | colonne fixe de 56 px | inchangée, volontaire (colonne fixe, demande d'Émilien) |
+| Une ou deux colonnes : défilement horizontal verrouillé (`goalsGridScroll--locked`) | non appliquée | appliquée (le balayage part vers la page voisine) |
+| Texte de carte 12 px, relief 600 | 13 px | inchangée (13 px, lisibilité demandée) |
+
+## Rappel de fin de période (7 nov. 2026)
+
+- Le rappel ouvre désormais le calendrier de la vue Tâches, filtre posé sur le pôle / secteur du rappel (la page d'activité n'est plus ouverte entre les deux). Vérifié à 390 px en appelant le point d'entrée du rappel : onglet Tâches actif, calendrier de Novembre 2026 affiché, aucune page d'activité visible.

@@ -102,3 +102,5 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arRail .goalsRowMarker { position: absolute; left: 0; margin: 0; transform: none; flex: none; align-self: auto; }
 .arRail .goalsRowMarker.arYearTag { left: 0; }
 .arRail.arCompact .goalsRowMarker--ovale { height: 18px; line-height: 18px; }
+/* Règle de l'arbre périodique (.goalsGridScroll--locked) : une ou deux colonnes = aucun défilement horizontal, le balayage part vers la page voisine. */
+.arHScroll.goalsGridScroll--locked { overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; }
