@@ -477,7 +477,7 @@ Page 1 de la Feuille de route = sélecteur « Tâches | Objectifs » (Objectifs 
 
 ## Couleurs de l'arbre (7 nov. 2026)
 
-- Activité sans pôle : une seule colonne, couleur de l'activité ; étiquette non remplie (contour de la couleur, pastille, nom en blanc), cartes de la couleur pleine ; toutes les cartes à la couleur telle quelle, l'état par une petite marque (✓ réalisé, titre barré abandonné).
+- Activité sans pôle : une seule colonne, couleur de l'activité ; étiquette non remplie (contour de la couleur, pastille, nom en blanc), cartes de la couleur pleine ; toutes les cartes à la couleur telle quelle.
 - Plus de 5 pôles : `TMT.subProjectShade` ne fournit que 5 nuances ; à partir du 6e pôle les nuances se répètent (rang modulo 5). Les bulles gardent leur nom pour les distinguer.
 - Pôle réordonné : la nuance suit le NOUVEAU rang (la nuance est fixée par le rang, pas par le pôle) ; cartes et bulles se recolorent ensemble.
 - Pôle supprimé : les rangs se resserrent, les pôles restants reprennent les nuances 1 à n.
@@ -544,7 +544,7 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 
 ## Couleur des cartes par état et espace sous le sélecteur (7 nov. 2026)
 
-- TOUTES les cartes (en cours, à venir, réalisé, abandonné) sont à la couleur de donnée de l'activité telle quelle (`o.activity.color`, la même que Chrono) : aucun mélange, aucune variation ; plus de repli violet (une couleur absente doit se voir). L'état se voit par une petite marque : ✓ réalisé, titre barré abandonné. Mesuré : en cours, à venir, réalisé, abandonné = couleur de donnée pour chacune des 4 activités de test.
+- TOUTES les cartes (en cours, à venir, réalisé, abandonné) sont à la couleur de donnée de l'activité telle quelle (`o.activity.color`, la même que Chrono) : aucun mélange, aucune variation ; plus de repli violet (une couleur absente doit se voir). Aucune marque ni variation visible par état (retiré : non demandé par Émilien). Mesuré : en cours, à venir, réalisé, abandonné = couleur de donnée pour chacune des 4 activités de test.
 - Onglet Objectifs : l'écart de 16 px sous le sélecteur « Tâches | Objectifs » est retiré (seulement quand l'arbre est affiché) ; la ligne de retour et le crayon montent de 16 px, l'arbre les récupère.
 
 ## Macro existant : modifier, ajouter une colonne, défusionner (7 nov. 2026)
@@ -552,5 +552,5 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 - Appui long sur la carte large d'un macro : panneau MACRO. Les colonnes déjà fusionnées sont cochées (contour violet) et allumées ; les autres colonnes reliables sont allumées, le reste est éteint. Toucher une colonne l'ajoute ou la retire ; Enregistrer applique (ajout : ses objectifs libres les plus récents entrent dans le macro ; retrait : ils sont détachés). Le relâchement de l'appui long ne coche ni ne décoche rien.
 - « Défusionner » (texte rouge, sous le texte du panneau) : confirmation « Les objectifs reliés sont conservés » ; le macro disparaît, les colonnes retrouvent leur ordre d'origine. Après la période de fusion : refus « Fusion passée : impossible de délier. » (message court).
 - Un macro est TOUJOURS dans sa période : sa rangée porte le repère de la période (alignée dessus) et est collée (8 px) à la rangée des cases de cette période, jamais entre deux périodes ; largeur = exactement les colonnes fusionnées. En modification, la carte est amenée à l'écran et les colonnes se resserrent pour qu'elle tienne (jamais coupée au bord) ; l'arbre grisé redevient normal à la sortie.
-- Repères du temps : ils suivent le défilement horizontal (toujours visibles à gauche).
+- Repères du temps : fixes à gauche au défilement horizontal (sticky natif : un seul conteneur défile, sans script), toujours alignés sur leur rangée au défilement vertical (mesuré : écart vertical repère-carte 0 px, repère à 20 px de gauche avant et après un défilement de 120 px).
 - Vérifié au toucher réel à 390 px (2 puis 3 colonnes fusionnées : ajout, enregistrement, nouvelle modification, défusion avec retour à l'ordre d'origine) et à 360 px (2 colonnes).

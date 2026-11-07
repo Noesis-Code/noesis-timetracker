@@ -36,7 +36,7 @@
   // MÊME cadre pour tous les objectifs : bordure fine de la couleur de l'activité (pleine, ou pointillée pour « à venir ») ; l'état = la teinte (vif, pâle, vide + pointillé, atténué).
   function paint(b, st, c) {
     // Carte PLEINE de la couleur de la colonne TELLE QUELLE (comme l'arbre périodique original), quel que soit l'état : aucun mélange, aucune variation de teinte ; sans liseré de couleur (le contour est celui du fond).
-    // L'état ne se voit que par une petite marque (CSS : ✓ réalisé, titre barré abandonné), jamais par la couleur du fond. Texte lisible via TMT.readableTextOn.
+    // Aucune marque ni variation par état : seule la couleur de l'activité compte (demande d'Émilien). Texte lisible via TMT.readableTextOn.
     b.style.background = c; b.style.borderWidth = '2px'; b.style.borderStyle = 'solid'; b.style.borderColor = c; b.style.setProperty('--ar-c', c); // --ar-c : la règle de la page 2 rend les bordures transparentes (!important)
     b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c) : 'inherit';
   }
@@ -556,7 +556,6 @@
     grid.querySelectorAll('.goalsGridRow').forEach(function (row) { var k = 0, r = rowIdx[Number(row.getAttribute('data-rank'))]; Array.prototype.forEach.call(row.children, function (ch) { if (ch.classList.contains('arMacro')) k += Number(ch.getAttribute('data-span')) || 1; else if (ch.classList.contains('arGap')) k += 1; else if (ch.classList.contains('goalsGridCell') || ch.classList.contains('arStack')) { ch.setAttribute('data-col', String(k)); if (linkGap[r + ':' + k]) ch.style.setProperty('--goalsCellLineColor', linkGap[r + ':' + k]); k++; } }); }); // colonne de chaque cellule (un macro en couvre plusieurs)
     if (ext) Array.prototype.forEach.call(grid.querySelectorAll('[data-col]'), function (ch) { var cj = Number(ch.getAttribute('data-col')), on = !!ext.cols[cj]; ch.classList.toggle('arExtOn', on); ch.classList.toggle('arExtOff', !extEligible(cj)); });
     scroller = el('div', 'goalsGridScroll arScroll');
-    scroller.addEventListener('scroll', function () { tree.style.setProperty('--ar-sl', scroller.scrollLeft + 'px'); }, { passive: true }); // repères du temps toujours visibles à gauche, même défilé à droite (le sticky ne suit pas : la grille défile en vertical dans son propre conteneur)
     var column = el('div', 'arColumn'); gridArea = el('div', 'arGridArea'); gridArea.appendChild(grid); column.appendChild(gridArea);
     var baseWrap = el('div', 'goalsGrid arBaseWrap'), baseRow = el('div', 'goalsGridRow arBaseRow'), spacer = el('span', 'goalsRowMarker goalsRowMarker--past arSpacer'); spacer.setAttribute('aria-hidden', 'true'); baseRow.appendChild(spacer);
     data.forEach(function (c, ci) {
@@ -565,7 +564,7 @@
       b.addEventListener('click', function () { if (lvl === 'secteur' && c.col.key != null && TMT.ouvrirCalendrierTaches) { openTasksCal({ secteurKey: c.col.key }); return; } descend(ci); }); // niveau secteurs : toucher le NOM d'un secteur ouvre son calendrier (aujourd'hui) ; ailleurs : descendre d'un niveau
       baseRow.appendChild(b);
     });
-    baseWrap.appendChild(baseRow); gridArea.appendChild(baseWrap); scroller.appendChild(column); tree.appendChild(scroller); // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
+    baseWrap.appendChild(baseRow); gridArea.appendChild(baseWrap); scroller.appendChild(column); tree.appendChild(scroller); scroller = gridArea; // UN SEUL conteneur défile (vertical ET horizontal) : c'est lui que les repères « collent » à gauche (sticky), sans aucun script // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
     (function () { // les cases s'écartent ou se rapprochent pour remplir la zone (entre 40 ou 64 px et 120 px) : ni grand vide, ni rangées trop longues ; trop de rangées = défilement
       var H = gridArea.clientHeight - baseWrap.offsetHeight, n = list.length + grid.querySelectorAll('.arMacroRow').length; if (!H || !n) return;
       var gap = parseFloat(getComputedStyle(grid).getPropertyValue('--goalsGridGap')) || 34, minH = grid.classList.contains('arCompact') ? 40 : 64;

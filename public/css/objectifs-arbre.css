@@ -9,9 +9,9 @@
 .arEditing .arCard { animation: tabJiggle .26s ease-in-out infinite alternate; }
 .arEditing .arCard:nth-child(even) { animation-delay: -.13s; }
 @media (prefers-reduced-motion: reduce) { .arEditing .arCard { animation: none; } }
-.arScroll { flex: 1 1 auto; min-height: 0; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
-.arColumn { display: flex; flex-direction: column; height: 100%; width: max-content; min-width: 100%; }
-.arGridArea { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; width: max-content; min-width: 100%; -webkit-overflow-scrolling: touch; }
+.arScroll { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.arColumn { display: flex; flex-direction: column; height: 100%; width: 100%; }
+.arGridArea { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; } /* un seul conteneur de défilement : les repères du temps (sticky à gauche) restent fixes au défilement horizontal, alignés sur leur rangée */
 /* Bulles = dernière rangée de l'arbre : mêmes marges et mêmes largeurs que les rangées de la grille ; jamais fixes ni flottantes. */
 .arBaseWrap { flex: none; width: max-content; min-width: 100%; box-sizing: border-box; padding: 8px 4px 8px var(--ar-pl, 26px); }
 .arBaseRow { align-items: center; }
@@ -63,7 +63,7 @@
 .arUnmerge { color: var(--danger); background: none; border: 0; text-decoration: none; }
 .arGap { pointer-events: none; }
 /* L'arbre tient dans l'écran (hauteur = jusqu'à la barre « Nouvel objectif… ») : seule la grille défile en vertical, les colonnes et leurs bulles en horizontal ; un geste commencé dans l'arbre ne fait jamais défiler la page. */
-.arGridArea { overscroll-behavior-y: none; } /* vertical : ne chaîne pas vers la page ; horizontal : le geste passe au conteneur des colonnes */
+.arGridArea { overscroll-behavior: none; }
 .arScroll { overscroll-behavior: none; } /* aucun rebond, aucun vide sous les bulles */
 /* Repères : le rond d'une période garde son numéro ; l'ovale (bloc de 5 ans, année) est le MÊME composant, pilule de même hauteur, texte centré. */
 .arGrid .goalsRowMarker:not(.goalsRowMarker--ovale) { flex-basis: 20px; width: 20px; margin-right: calc(var(--ar-mw, 20px) - 20px); }
@@ -89,10 +89,5 @@
 .arExtending .goalsRowMarker { opacity: .5; }
 /* Calendrier ouvert depuis l'arbre : on reste dans le secteur d'où l'on vient (ni pôle ni secteur à changer) ; seul le mois change. */
 html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { display: none !important; } /* la flèche ‹ du cadre du pôle devient le retour à l’arbre */
-/* État d'une carte : jamais par la couleur de fond, seulement une petite marque. */
-.ar-done .arCardName::after { content: ' ✓'; }
-.ar-dropped .arCardName { text-decoration: line-through; }
 /* Onglet Objectifs : la ligne de retour et le crayon se rapprochent du sélecteur « Tâches | Objectifs » (seul l'écart de 16 px sous le sélecteur est retiré ; l'onglet Tâches ne change pas) ; l'arbre récupère la hauteur. */
 #goalsCapturePage:has(#goalsActivitiesView:not(.hidden)) .goalsPage1Switch { margin-bottom: 0; }
-/* Repères du temps : ils suivent le défilement horizontal (variable posée par le script) pour rester à gauche ; z-index au-dessus des cartes. */
-.arGrid .goalsRowMarker { transform: translateX(var(--ar-sl, 0px)); z-index: 4; }
