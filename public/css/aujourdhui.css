@@ -171,7 +171,7 @@
 .tasksDayPop .tasksPopList { margin: 0; }
 .tasksDayPop .tasksProposeBody { overflow-y: auto; min-height: 0; }
 .tasksDayPop .tasksPopRow:last-child, .tasksDayPop .tasksPopList > :last-child .tasksPopRow:last-child { border-bottom: 0; } /* pas de trait sous la dernière tâche */
-.tasksToday.calIntegrated > .tasksPopList, .tasksToday.calIntegrated > .tasksTopRow, .tasksToday.dayPopOn > .tasksTopRow { display: none; } /* calendrier ouvert : la liste et le compteur n'existent que dans le pop-up du jour touché (jamais dessous) */
+.tasksToday.calUnfolded > .tasksPopList, .tasksToday.calUnfolded > .tasksTopRow { display: none; } /* calendrier déplié : la liste et le compteur n'existent que dans le pop-up du jour touché (jamais dessous) ; replié : liste normale */
 .tasksDayPop .tasksProposeHead .tasksDayCount { margin-left: auto; margin-right: 8px; align-self: center; }
 /* Calendrier importé : la ligne de période monte tout en haut ; l'icône de filtre se centre entre elle et le libellé du mois (plus de chevron « période suivante » : on change de période avec les flèches du calendrier). */
 .tasksToday.calIntegrated .tasksFilterRow:not(.open) { display: block; position: relative; margin-top: -8px; padding-left: 36px; }

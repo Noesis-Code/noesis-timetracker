@@ -135,7 +135,7 @@
   // Libellé du mois : replie / déploie (jamais au choix d'un jour). resetAnchor (calendrier importé) : en repliant, la semaine est celle du jour choisi, sinon d'aujourd'hui.
   function toggleExpand(resetAnchor) {
     if (calExpanded && resetAnchor) calAnchor = viewDay === 'all' ? localIso() : dayIso();
-    calExpanded = !calExpanded; paintCal(); calNavChanged();
+    calExpanded = !calExpanded; paintCal(); syncDayPop(); calNavChanged();
   }
   function calNavChanged() { if (calOn && TMT.goalsCalNavChanged) TMT.goalsCalNavChanged(); } // la période du calendrier importé suit la semaine / le mois affiché
   // Jour choisi : la liste ne montre QUE cette journée. Futur : les ajouts sont datés de ce jour ; passé : lecture seule.
@@ -151,11 +151,11 @@
   }
   function syncDayPop() {
     if (!dayPop || !listHome) return;
-    var on = viewDay !== 'all';
+    var on = viewDay !== 'all' && calExpanded; // pop-up seulement calendrier DÉPLIÉ ; replié : la liste du jour, comme d'habitude
     if (on) { dayPopKick.textContent = cap1(fromIso(dayIso()).toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'long', day: 'numeric', month: 'long' })); if (listBox.parentNode !== dayPopBody) dayPopBody.appendChild(listBox); }
     else if (listBox.parentNode !== listHome) listHome.insertBefore(listBox, document.getElementById('goalsTodayArchiveSection'));
     dayPop.classList.toggle('hidden', !on);
-    if (root) root.classList.toggle('dayPopOn', on);
+    if (root) { root.classList.toggle('dayPopOn', on); root.classList.toggle('calUnfolded', !!calExpanded); }
   }
   function pickDay(d) {
     var nv = d === localIso() ? null : d; viewDay = nv === viewDay ? 'all' : nv; if (!calExpanded) calAnchor = d; // retoucher le jour choisi = retour à toutes les tâches ; mois déployé : il le reste (8 nov. 2026, Émilien), même mois
