@@ -145,9 +145,6 @@
     });
     count();
   }
-  var TIME_LEVELS = [['periode', 'Période'], ['annee', 'Année'], ['pluriannuel', 'Pluriannuel']]; // niveaux de temps FIXES, du court au long
-  function deduceTL(start, end) { var w = (Date.parse(end + 'T00:00:00Z') - Date.parse(start + 'T00:00:00Z')) / 604800000; return w <= 13 ? 'periode' : w <= 156 ? 'annee' : 'pluriannuel'; }
-  function timeSeg(current, onPick) { return seg(TIME_LEVELS.map(function (x) { return [x[0], tr(x[1])]; }), current, onPick, tr('Niveau de temps')); }
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></svg>';
 
   // ---------- Parcours : paramètres -> étapes proposées (-> objectifs lus avant, si plusieurs) ----------
@@ -273,8 +270,6 @@
       var head = btn('objLink objAdvHead', (form.advOpen ? '▾ ' : '▸ ') + tr('Avancé'), function () { form.advOpen = !form.advOpen; if (form.advOpen && !form.advList) { loadAdv(); } paintAdv(); });
       head.setAttribute('aria-expanded', form.advOpen ? 'true' : 'false'); advBox.appendChild(head);
       if (!form.advOpen) return;
-      var effTL = form.tlTouched ? form.timeLevel : deduceTL(form.startDate, form.endDate || form.startDate); // par défaut : déduit de l'échéance ; choisi, il est envoyé tel quel (le serveur refuse une échéance incohérente)
-      advBox.appendChild(field(tr('Niveau de temps'), timeSeg(effTL, function (k) { form.timeLevel = k; form.tlTouched = true; paintAdv(); })));
       advBox.appendChild(el('p', 'hint', tr('Un macro relie plusieurs colonnes du même niveau (activités, pôles ou secteurs) : cet objectif et ceux que tu choisis.')));
       if (!form.advList) { advBox.appendChild(el('p', 'hint', tr('Chargement…'))); return; }
       if (!form.advList.length) { advBox.appendChild(el('p', 'hint', tr('Aucun objectif d’une autre colonne à relier.'))); return; }
@@ -468,7 +463,7 @@
       var actName = form.create ? form.createName : (ctx.activities.filter(function (a) { return a.id === form.activityId; })[0] || {}).name;
       api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: form.weekly !== false, activityId: form.create ? null : form.activityId, activityName: actName })
         .then(function (P) { return (form.create ? api('POST', '/api/activities', { name: form.createName }).then(function (a) { return a.id; }) : Promise.resolve(form.activityId)).then(function (activityId) {
-          return api('POST', '/api/objectifs', { timeLevel: form.tlTouched ? form.timeLevel : undefined, level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hours, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+          return api('POST', '/api/objectifs', { level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hours, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
         }); })
         .then(function (cr) { return cr && cr.id && allMacroIds().length ? api('POST', '/api/objectifs/macro', { childIds: [cr.id].concat(allMacroIds()), title: ((advIds().length ? form.advTitle : form.macroTitle) || form.title || '').trim() || form.title }).then(function () { return cr; }) : cr; }) // macro validé : créé APRÈS l'objectif, avec les objectifs choisis des autres activités
         .then(function (created) { input.value = ''; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); if (created && created.bridgeFailed) openDetail(created.id); /* C12 : le message s’affiche dans le détail */ })
@@ -499,7 +494,7 @@
   }
   // ---------- Fenêtre « détail d'un objectif » ----------
   function openDetail(id) {
-    var win = openModal('', { onClose: load }), idx = null, o = null, advOpenD = false, tlMsg = '';
+    var win = openModal('', { onClose: load }), idx = null, o = null;
     win.head.textContent = '';
     function draw() {
       win.head.textContent = ''; win.body.textContent = ''; win.foot.textContent = '';
@@ -558,15 +553,7 @@
       var rm = TMT.ui.removeBtn(deleteIt, tr('Supprimer cet objectif')); rm.className = 'cmpRemove cmpRemove--corner'; rm.textContent = ''; rm.setAttribute('aria-label', tr('Supprimer cet objectif')); rm.title = tr('Supprimer cet objectif');
       rare.appendChild(rm); win.body.appendChild(rare);
       var f = el('div', 'objDetailFoot'); f.appendChild(el('span', 'hint objFootHint', o.periodWeeks === 'mois' ? tr('Périodes d’un mois') : tr('Périodes de') + ' ' + plural(Number(o.periodWeeks), 'semaine', 'semaines')));
-      var advD = el('div', 'objAdvanced'), hd = btn('objLink objAdvHead', (advOpenD ? '▾ ' : '▸ ') + tr('Avancé'), function () { advOpenD = !advOpenD; draw(); }); // R8 : repliable, fermé par défaut
-      hd.setAttribute('aria-expanded', advOpenD ? 'true' : 'false'); advD.appendChild(hd);
-      if (advOpenD) {
-        advD.appendChild(field(tr('Niveau de temps'), timeSeg(o.timeLevel || 'periode', function (k) {
-          api('PUT', '/api/objectifs/' + id + '/niveau-temps', { timeLevel: k }).then(function () { return api('GET', '/api/objectifs/' + id); }).then(function (n) { o = n; draw(); }).catch(function (err) { tlMsg = (err && err.message) || tr('Impossible pour le moment.'); draw(); });
-        })));
-        var tm = el('p', 'tasksMsg objMsg', tlMsg); tlMsg = ''; advD.appendChild(tm);
-      }
-      win.foot.appendChild(advD); win.foot.appendChild(f);
+      win.foot.appendChild(f);
     }
     function deleteIt() { // confirmation rouge ; les objectifs rattachés sont listés puis détachés, jamais supprimés
       api('GET', '/api/objectifs?filtre=tous').then(function (r) {
