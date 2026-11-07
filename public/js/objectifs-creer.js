@@ -195,8 +195,8 @@
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
     panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
-    var boxes = { desc: el('div'), rattach: el('div'), temps: el('div'), activite: el('div'), niveau: el('div'), taches: el('div') };
-    ['desc', 'rattach', 'temps', 'activite', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
+    var boxes = { desc: el('div'), rattach: el('div'), temps: el('div'), heures: el('div'), activite: el('div'), niveau: el('div'), taches: el('div') };
+    ['desc', 'rattach', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
     if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
     panelForm = form; setBack(null);
     function syncGo() { stepBtn.disabled = !form.dateOk || !form.endDate; } // échéance obligatoire : Suivant / Terminer grisé sans date valide
@@ -204,6 +204,7 @@
     var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.setAttribute('aria-label', tr('Objectif'));
     titleIn.addEventListener('input', function () { form.title = titleIn.value; });
     boxes.desc.appendChild(field(tr('Objectif'), titleIn));
+    var dueBox = el('div'); boxes.desc.appendChild(dueBox); // l'échéance suit le titre (page 1), avant la description
     // Description guidée (7 nov. 2026) : trois questions repliées en lignes (flèche à droite, R21) ; UNE seule est ouverte : ses cases (plusieurs choix) et ses mots. Entrée dans le champ de mots la referme et ouvre la suivante.
     var GUIDE = [
       { k: 'reussite', q: 'Comment le mesures-tu ?', label: 'Réussite', opts: ['Chiffre', 'Date', 'Résultat'] },
@@ -250,7 +251,7 @@
         form.endDate = fixedIn.value; form.amount = Math.max(1, Math.round(dd / 7)); form.unit = 'semaines'; form.periodWeeks = dd <= 28 ? '1' : dd <= 366 ? '4' : 'mois'; form.dateOk = true; syncGo(); refresh();
       });
       var fixedBox = el('div'); fixedBox.appendChild(fixedIn);
-      boxes.temps.appendChild(field(tr('Date de l’échéance'), fixedBox)); window.setTimeout(function () { if (!ctx.dateConfirmed && !form.endFixed) fixedIn.focus(); }, 50);
+      dueBox.appendChild(field(tr('Date de l’échéance'), fixedBox)); window.setTimeout(function () { if (!ctx.dateConfirmed && !form.endFixed) fixedIn.focus(); }, 50);
     }
 
 
@@ -296,7 +297,7 @@
     });
     var durRow = el('div', 'objDurRow'); durRow.appendChild(amountIn); durRow.appendChild(buildUnits());
     var durBox = el('div'); if (!ctx.fixedDate && !form.endFixed) durBox.appendChild(durRow); durBox.appendChild(datesHint); if (!form.endFixed) durBox.appendChild(dateIn);
-    paintDates(); boxes.temps.appendChild(field(ctx.fixedDate || form.endFixed ? tr('Période') : tr('Durée'), durBox));
+    paintDates(); dueBox.appendChild(field(ctx.fixedDate || form.endFixed ? tr('Période') : tr('Durée'), durBox));
 
     var actBox = el('div'), chargeBox = el('div');
     boxes.activite.appendChild(actBox); boxes.activite.appendChild(chargeBox);
@@ -395,7 +396,7 @@
     hrsIn.addEventListener('input', function () { form.hoursTouched = true; var v = parseFloat(String(hrsIn.value).replace(',', '.')); form.hours = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; });
     hrsVal.appendChild(hrsIn); hrsVal.appendChild(el('span', null, 'h'));
     hrsRow.appendChild(el('span', null, tr('Heures par semaine'))); hrsRow.appendChild(hrsVal);
-    hoursBox.appendChild(recRow); hoursBox.appendChild(hrsRow); boxes.temps.appendChild(hoursBox);
+    hoursBox.appendChild(recRow); hoursBox.appendChild(hrsRow); boxes.heures.appendChild(hoursBox);
     function syncHours() {
       var aid = form.activityId, adv = ctx.weeklyHours && aid != null ? ctx.weeklyHours[aid] : null;
       recVal.textContent = adv ? fmtH(adv) : '—';
@@ -412,8 +413,8 @@
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
-    var stepNames = { desc: 'Description', rattach: 'Rattachement', temps: 'Temps', activite: 'Activité', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return ['desc', 'temps', 'activite'].concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(needsLevel() ? ['niveau'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
+    var stepNames = { desc: 'Description', rattach: 'Rattachement', temps: 'Temps', heures: 'Heures', activite: 'Activité', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
+    function list() { return ['desc', 'activite'].concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(['temps', 'heures']).concat(needsLevel() ? ['niveau'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     // Étape « Rattachement » : seulement s'il existe un candidat dans l'activité ; PROPOSITION (règles, ou IA si permis) : Accepter (avec Avant | Après) ou Refuser (refus mémorisé, l'objectif reste un sommet séparé).
     function dueOf(id) { var x = (ctx.objectives || []).filter(function (o) { return o.id === id; })[0]; return x && x.endDate ? ' · ' + tr('jusqu’au') + ' ' + dateText(x.endDate) : ''; } // échéance du parent proposé
     function rattPending() { // « Suivant » reste grisé tant qu'une proposition affichée n'est pas décidée (jamais de choix silencieux)
@@ -487,13 +488,13 @@
     }
     function show(k) {
       form._step = cur = k;
-      ['desc', 'rattach', 'temps', 'activite', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      ['desc', 'rattach', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
       if (k === 'rattach') paintRatt();
       panelKicker.textContent = tr(stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
       stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave');
       stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');
-      stepBtn.disabled = (k === 'temps' && !form.dateOk) || (k === 'rattach' && rattPending()); // Suivant grisé tant que le rattachement n'est pas décidé
+      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate)) || (k === 'rattach' && rattPending()); // Suivant grisé tant que le rattachement n'est pas décidé
       advance = i < tot - 1 ? stepNext : finishAll; setBack(i > 0 ? function () { show(l[i - 1]); } : null);
     }
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
@@ -509,6 +510,7 @@
     function validDesc(final) {
       form.title = titleIn.value.trim();
       if (!form.title) { msg.textContent = tr('Écris ton objectif.'); return false; }
+      if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return false; }
       if (final && !form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return false; }
       return true;
     }
