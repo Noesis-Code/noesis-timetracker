@@ -278,6 +278,11 @@
   }
   // Conteneur de l'arbre : hauteur = de son haut jusqu'à la barre « Nouvel objectif… » (juste au-dessus d'elle, sans espace flottant). Les bulles sont la dernière rangée de l'arbre (voir render) :
   // aucune position fixe ni recalcul de leur x ou de leur largeur, elles partagent la mise en page et le défilement horizontal des colonnes.
+  function desiredH() { // hauteur de l'arbre : de son haut au haut RÉEL de la barre (Safari mobile : la barre d'adresse qui se rétracte déplace la barre fixe sans toujours déclencher « resize »)
+    var d = dockEl(), bar = d && d.querySelector('.tasksComposer'); if (bar && !bar.getClientRects().length) bar = d.querySelector('.tasksSaveBtn');
+    var btop = bar && bar.getClientRects().length ? bar.getBoundingClientRect().top : (window.visualViewport ? window.visualViewport.height : window.innerHeight) - 100;
+    return Math.max(240, btop - tree.getBoundingClientRect().top);
+  }
   function fitTree() {
     if (!tree || !tree.getClientRects().length) return;
     var d = dockEl(), bar = d && d.querySelector('.tasksComposer'); if (bar && !bar.getClientRects().length) bar = d.querySelector('.tasksSaveBtn'); // la barre devenue bouton (Enregistrer / Séparer) borne l'arbre comme la barre d'écriture : sans cela l'arbre était recadré à 240 px
@@ -594,6 +599,8 @@
   function refit() { window.clearTimeout(refitT); refitT = window.setTimeout(function () { if (loaded && visible && tree && tree.getClientRects().length) render(); }, 150); }
   if (window.visualViewport) { window.visualViewport.addEventListener('resize', refit); window.visualViewport.addEventListener('scroll', refit); }
   document.addEventListener('focusin', refit); document.addEventListener('focusout', refit);
+  window.addEventListener('scroll', refit, { passive: true }); window.addEventListener('orientationchange', refit);
+  window.setInterval(function () { if (loaded && visible && tree && tree.getClientRects().length && Math.abs(desiredH() - tree.offsetHeight) > 1) render(); }, 400); // filet : si la barre a bougé sans événement, l'arbre se recale (bas des titres = haut de la barre − 8 px)
   // UNE SEULE flèche de retour : depuis un calendrier ouvert par l'arbre, la flèche ‹ du cadre du pôle (qui ne change plus de pôle) ramène à l'arbre.
   document.addEventListener('click', function (e) {
     if (!document.documentElement.classList.contains('calFromTree') || !e.target.closest || !e.target.closest('#goalsPrevPoleBtn')) return;
