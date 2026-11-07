@@ -203,9 +203,28 @@
     var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.setAttribute('aria-label', tr('Objectif'));
     titleIn.addEventListener('input', function () { form.title = titleIn.value; });
     boxes.desc.appendChild(field(tr('Objectif'), titleIn));
-    var descIn = el('textarea'); descIn.rows = 3; descIn.maxLength = 500; descIn.value = form.description || ''; descIn.setAttribute('aria-label', tr('Description'));
-    descIn.addEventListener('input', function () { form.description = descIn.value; });
-    boxes.desc.appendChild(field(tr('Description'), descIn));
+    // Description guidée (7 nov. 2026) : trois questions à cases (.cmpSeg, plusieurs choix possibles) + quelques mots ; le texte composé (mots-clés) est lu par l'IA.
+    var GUIDE = [
+      { k: 'reussite', q: 'Comment le mesures-tu ?', label: 'Réussite', opts: ['Chiffre', 'Date', 'Résultat'] },
+      { k: 'raison', q: 'Pourquoi ?', label: 'Raison', opts: ['Santé', 'Carrière', 'Plaisir'] },
+      { k: 'obstacle', q: 'Qu’est-ce qui peut bloquer ?', label: 'Obstacle', opts: ['Temps', 'Énergie', 'Argent'] }
+    ];
+    form.guide = form.guide || {};
+    function composeDesc() {
+      form.description = GUIDE.map(function (g) { var v = form.guide[g.k] || { picks: [], words: '' }, parts = v.picks.map(function (p) { return tr(p).toLowerCase(); }); if (v.words.trim()) parts.push(v.words.trim()); return parts.length ? tr(g.label) + ' : ' + parts.join(', ') : ''; }).filter(Boolean).join(' · ').slice(0, 500);
+    }
+    GUIDE.forEach(function (g) {
+      var v = form.guide[g.k] || (form.guide[g.k] = { picks: [], words: '' }), s = el('div', 'cmpSeg'), wordsIn = el('input'), box = el('div');
+      s.setAttribute('role', 'group'); s.setAttribute('aria-label', tr(g.q));
+      g.opts.forEach(function (o) {
+        var b = btn(v.picks.indexOf(o) >= 0 ? 'active' : '', tr(o), function () { var i = v.picks.indexOf(o); if (i >= 0) v.picks.splice(i, 1); else v.picks.push(o); b.classList.toggle('active', i < 0); b.setAttribute('aria-pressed', i < 0 ? 'true' : 'false'); composeDesc(); });
+        b.setAttribute('aria-pressed', v.picks.indexOf(o) >= 0 ? 'true' : 'false'); s.appendChild(b);
+      });
+      wordsIn.type = 'text'; wordsIn.maxLength = 60; wordsIn.value = v.words; wordsIn.placeholder = tr('Quelques mots'); wordsIn.setAttribute('aria-label', tr(g.q));
+      wordsIn.addEventListener('input', function () { v.words = wordsIn.value; composeDesc(); });
+      box.appendChild(s); box.appendChild(wordsIn); boxes.desc.appendChild(field(tr(g.q), box));
+    });
+    composeDesc();
     if (ctx.fixedDate) { // date imposée (examen, mariage…) : jamais estimée ; la date est demandée en premier et obligatoire
       var fixedIn = el('input'); fixedIn.type = 'date'; fixedIn.min = ctx.startDate; fixedIn.setAttribute('aria-label', tr('Date de l’échéance')); if (ctx.dateConfirmed || form.endFixed) fixedIn.value = form.endFixed ? form.endDate : ctx.endDate;
       fixedIn.addEventListener('change', function () {
