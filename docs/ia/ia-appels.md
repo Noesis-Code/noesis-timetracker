@@ -63,6 +63,16 @@ Tout compte SANS accès Expansion est « gratuit » (jamais un compte Expansion,
 - Les appels de `objectifs.js` et du résumé annuel passent par `aibudget.runAs(userId, …)` : comptés sur la personne.
 Test : `test/ia-gratuit-credit-test.js`.
 
+## 3 ter. Plafond global annuel NET de l'IA gratuite (cahier des charges d'Émilien, 6 nov. 2026)
+
+- **Net** = coût cumulé de l'IA des comptes gratuits depuis le 1er janvier (table `ai_free_cost` : un total par jour, en USD, sans compte ni texte ; comptes Expansion exclus) MOINS la marge nette des abonnés Expansion de l'année.
+- **Coupure** : l'IA gratuite ne se coupe que si ce net dépasse la perte annuelle maximale, `IA_GRATUITE_PERTE_ANNUELLE_MAX` (défaut 100 $ US) : tout compte gratuit passe en repli sans IA (« Disponible avec Expansion : l'IA gratuite est suspendue pour le moment. ») ; sinon seul le crédit par utilisateur (3 bis) s'applique. Les comptes Expansion ne sont jamais coupés.
+- **Marge Expansion (donnée absente)** : la base ne conserve aucun montant de revenu (`activity_subscriptions` ne garde que des identifiants et des dates Stripe) : la marge n'est PAS lisible aujourd'hui. En attendant, plafond de 100 $ FIXE (marge = 0). Lecture prévue quand la donnée existera : revenus d'abonnement nets de Stripe moins coûts IA des comptes payants ; d'ici là, elle peut être posée à la main par `IA_EXPANSION_MARGE_ANNUELLE_USD`.
+- **Alerte à 50 %** du plafond : une seule fois par année (clé `ia-gratuit-50` dans `ai_alerts_sent`) ; pas d'alerte à 80 % ni à 100 %.
+- **Rappel le 1er de chaque mois, 9 h** (cron existant de `subscriptioncron.js`, `aibudget.monthlyFreeReminder`) : coût net depuis le début de l'année, % du plafond, marge Expansion déduite (ou « plafond fixe »), tendance du mois écoulé (coût brut du mois, la marge n'étant pas ventilée par mois) ; une seule notification par mois (clé `ia-gratuit-rappel`).
+- **Destinataire** : l'administrateur seulement, jamais les utilisateurs, par la notification push existante (`push.sendToUsers`), message court en français, sans écran ni réglage. L'administrateur est identifié par la variable `IA_ALERTE_ADMIN_USER_IDS` (ids de comptes séparés par des virgules, comme `EXPANSION_ALLOW_USER_IDS`) ; non définie : journal du serveur seulement.
+Test : `test/ia-gratuit-global-test.js`.
+
 ## 4. Réductions déjà appliquées
 
 - Orthographe : consigne raccourcie (127 -> 110 jetons), clé de mémo normalisée.

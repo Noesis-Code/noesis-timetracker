@@ -99,6 +99,11 @@ function startSubscriptionCron() {
     runMonthlyRegeneration().catch((e) => console.error('[subscriptioncron] balayage mensuel échoué :', e.message));
   });
 
+  // Le 1er de chaque mois, 9 h : rappel à l'administrateur du coût net de l'IA gratuite (aibudget.monthlyFreeReminder ; une seule notification par mois).
+  cron.schedule('0 9 1 * *', () => {
+    try { require('./aibudget').monthlyFreeReminder(); } catch (e) { console.error('[subscriptioncron] rappel IA gratuite échoué :', e.message); }
+  });
+
   // Horaire : révélation des tâches dont le remplacement est dû depuis 24h.
   // Une granularité d'une heure est largement suffisante pour un délai de
   // 24h — être en retard de quelques minutes ne se voit pas.

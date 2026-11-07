@@ -384,7 +384,57 @@ function freeStatus(key, now) {
 }
 function addDaysIso(d, n) { const t = new Date(Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10)) + n)); return t.getUTCFullYear() + '-' + pad2(t.getUTCMonth() + 1) + '-' + pad2(t.getUTCDate()); }
 function freeBlockedMessage(st) { return 'Crédit IA épuisé, reprend ' + (st.resumesMonday ? 'lundi' : 'le ' + dateLabelFr(st.resumesOn)) + '.'; }
+// ---- PLAFOND GLOBAL ANNUEL NET DE L'IA GRATUITE (cahier des charges d'Émilien, 6 nov. 2026) ----
+// Net = coût cumulé de l'IA des comptes gratuits depuis le 1er janvier (table ai_free_cost, un total par jour, sans compte ni texte, en USD)
+// MOINS la marge nette des abonnés Expansion de l'année. L'IA gratuite ne se coupe que si ce net dépasse la perte annuelle maximale
+// (IA_GRATUITE_PERTE_ANNUELLE_MAX, défaut 100 $ US) ; sinon seul le crédit par utilisateur s'applique.
+// MARGE EXPANSION : la base ne garde AUCUN montant de revenu (activity_subscriptions ne stocke que des identifiants et des dates Stripe) : la marge n'est donc pas lisible.
+// En attendant, plafond de 100 $ FIXE (marge = 0) ; la marge peut être posée à la main par IA_EXPANSION_MARGE_ANNUELLE_USD (revenus nets de Stripe moins coûts IA des comptes payants).
+// ALERTE à 50 % du plafond : une seule fois par année (table ai_alerts_sent) ; RAPPEL le 1er de chaque mois (cron de l'abonnement). Destinataire : l'administrateur
+// seulement, par la notification push du serveur (push.sendToUsers) ; identifié par IA_ALERTE_ADMIN_USER_IDS (ids de comptes, comme EXPANSION_ALLOW_USER_IDS). Jamais aux utilisateurs.
+db.exec('CREATE TABLE IF NOT EXISTS ai_free_cost (day TEXT PRIMARY KEY, costUsd REAL NOT NULL DEFAULT 0)');
+function freeLossCap() { return envNum('IA_GRATUITE_PERTE_ANNUELLE_MAX') || 100; }
+function expansionMarginYear() { return envNum('IA_EXPANSION_MARGE_ANNUELLE_USD'); } // null = non lisible
+function freeNetYear(now) {
+  const year = todayLocal(now).slice(0, 4);
+  const cost = db.prepare("SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_free_cost WHERE day >= ? AND day <= ?").get(year + '-01-01', year + '-12-31').s || 0;
+  const margin = expansionMarginYear();
+  return { year, cost, margin, readable: margin != null, net: cost - (margin || 0), cap: freeLossCap() };
+}
+function adminIds() { return String(process.env.IA_ALERTE_ADMIN_USER_IDS || '').split(',').map((x) => x.trim()).filter(Boolean); }
+function notifyAdmin(title, body) {
+  console.warn('[aibudget] ' + title + ' : ' + body);
+  const ids = adminIds();
+  if (!ids.length) return false; // aucun administrateur configuré : journal seulement
+  try { require('./push').sendToUsers(ids, { title, body, tag: 'ia-gratuit', url: '/' }); return true; } catch (e) { return false; }
+}
+const usd = (n) => n.toFixed(2).replace('.', ',') + ' $';
+function freeAddCost(cost, now) {
+  if (!(cost > 0)) return;
+  const before = freeNetYear(now);
+  db.prepare('INSERT INTO ai_free_cost (day, costUsd) VALUES (?, ?) ON CONFLICT(day) DO UPDATE SET costUsd = costUsd + excluded.costUsd').run(todayLocal(now), cost);
+  const after = before.net + cost;
+  if (before.net < before.cap * 0.5 && after >= before.cap * 0.5 && claimAlert('ia-gratuit-50', before.year, +before.cap.toFixed(2))) {
+    notifyAdmin('IA gratuite : 50 % du plafond', 'La perte nette de l’IA gratuite atteint ' + usd(after) + ' sur ' + usd(before.cap) + ' par an (50 %).');
+  }
+}
+// Rappel mensuel (le 1er) : une seule notification par mois ; coût net depuis le début de l'année, % du plafond, marge Expansion (ou valeur fixe), tendance du mois écoulé.
+function monthlyFreeReminder(now) {
+  const d = todayLocal(now), ym = d.slice(0, 7);
+  if (!claimAlert('ia-gratuit-rappel', ym, 'm')) return null;
+  const n = freeNetYear(now), y = Number(d.slice(0, 4)), m = Number(d.slice(5, 7));
+  const monthSum = (yy, mm) => { const p = yy + '-' + pad2(mm); return db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_free_cost WHERE day >= ? AND day <= ?').get(p + '-01', p + '-31').s || 0; };
+  const last = m === 1 ? [y - 1, 12] : [y, m - 1], prev = last[1] === 1 ? [last[0] - 1, 12] : [last[0], last[1] - 1];
+  const a = monthSum(last[0], last[1]), b = monthSum(prev[0], prev[1]);
+  const trend = b > 0 ? (a >= b ? 'hausse' : 'baisse') + ' de ' + Math.round(Math.abs(a - b) / b * 100) + ' %' : (a > 0 ? 'en hausse' : 'stable');
+  const body = 'IA gratuite : ' + usd(n.net) + ' net depuis le 1er janvier (' + Math.round(n.net / n.cap * 100) + ' % de ' + usd(n.cap) + '), '
+    + (n.readable ? 'marge Expansion déduite ' + usd(n.margin) : 'marge Expansion non lisible, plafond fixe') + '. Mois écoulé : ' + usd(a) + ' (précédent ' + usd(b) + ', ' + trend + ').';
+  notifyAdmin('IA gratuite : point du mois', body);
+  return body;
+}
 function freeCheck(key, now, estimate) {
+  const net = freeNetYear(now);
+  if (net.net > net.cap) return { ok: false, resumesOn: null, message: 'Disponible avec Expansion : l’IA gratuite est suspendue pour le moment.' };
   const st = freeStatus(key, now), est = Number(estimate) > 0 ? Number(estimate) : 0;
   if (st.ok && st.remaining + 1e-9 >= est) return { ok: true };
   return { ok: false, resumesOn: st.resumesOn, message: freeBlockedMessage(st) };
@@ -420,11 +470,11 @@ async function fetchAnthropic(feature, url, init, userId) {
     if (res && res.ok && typeof res.clone === 'function') {
       try {
         const body = await res.clone().json();
-        if (body && body.usage) record(uid, body.model || (init && init.body && JSON.parse(init.body).model), body.usage, feature);
+        if (body && body.usage) { const mdl = body.model || (init && init.body && JSON.parse(init.body).model); record(uid, mdl, body.usage, feature); if (free) freeAddCost(computeCost(mdl, body.usage)); }
       } catch (e) { /* réponse non lisible : rien à enregistrer */ }
     }
     return res;
   } finally { release(uid, est); }
 }
 
-module.exports = { freeStatus, freeCheck, isFreeUser, keyFor, splitKey, recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
+module.exports = { freeNetYear, monthlyFreeReminder, freeStatus, freeCheck, isFreeUser, keyFor, splitKey, recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
