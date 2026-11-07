@@ -317,11 +317,9 @@
     var cells = list.map(function (rw) { return data.map(function (c) { return c.entries.filter(function (e) { return e.b.rank === rw.rank; }).sort(function (a, b) { return (a.ri - b.ri) || (b.i - a.i); }); }); });
 
     var grid = el('div', 'goalsGrid arGrid' + (animate ? ' arEnter' : '')); animate = false;
-    var lastY = null, todayPut = false, lastRow = null;
-    function todayLine(after) { var tl = el('div', 'arTodayLine' + (after ? ' arTodayLine--after' : '')); tl.appendChild(el('span', null, tr('Aujourd’hui'))); return tl; } // l'unique ligne « Aujourd'hui »
+    var lastY = null;
     list.forEach(function (rw, r) {
-      var row = el('div', 'goalsGridRow'); row.setAttribute('data-rank', String(rw.rank)); lastRow = row;
-      if (!todayPut && rw.rank < here.rank) { row.appendChild(todayLine(false)); todayPut = true; } // sépare le futur (au-dessus) du passé (en dessous, zoom Tout)
+      var row = el('div', 'goalsGridRow'); row.setAttribute('data-rank', String(rw.rank));
       row.appendChild(marker(rw, here));
       if (rw.y !== lastY) { if (rw.p) row.appendChild(yearOval(rw.y)); } lastY = rw.y;
       var macs = macrosAt[rw.rank] || [], skip = {}, extra = [];
@@ -348,7 +346,6 @@
       });
       grid.appendChild(row);
     });
-    if (!todayPut && lastRow) lastRow.appendChild(todayLine(true)); // le présent est la dernière case : la ligne passe dessous
     // UN SEUL conteneur de défilement horizontal (colonnes ET bulles) > colonne verticale : (1) la grille, qui défile en vertical sous la ligne « Aujourd'hui » ; (2) la rangée des bulles, dernière
     // rangée de la colonne (flex: none), même mise en page que les rangées de la grille (mêmes marges, mêmes largeurs de cellule) : chaque bulle est sous sa colonne par construction.
     scroller = el('div', 'goalsGridScroll arScroll');
