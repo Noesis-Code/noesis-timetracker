@@ -1,4 +1,4 @@
-/* Liste du jour et barre d'ajout du tiroir des tâches (ex-vue « Aujourd'hui » de la page 1, 27 oct. 2026 ; js/aujourdhui.js, tiroir : css/tiroir.css). Jetons seulement, espacements 8/12/16/24. */
+/* Page 1 de la Feuille de route, vue « Aujourd'hui » (27 oct. 2026, js/aujourdhui.js). Jetons seulement, espacements 8/12/16/24. */
 
 .tasksPopList { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; } /* sans overflow-x, auto par défaut : la liste défilait de côté sous le doigt (lignes seules décalées) et le balayage vers les statistiques ne partait pas */
 .tasksPopEmpty { margin: 0; padding: 16px; font-size: 13px; color: var(--text-light); text-align: center; }
@@ -81,7 +81,8 @@
 .tasksToast.hidden { display: none; }
 .tasksMsg { margin: 0; font-size: 13px; color: var(--text-light); }
 
-#goalsActivitiesView.hidden { display: none; }
+.goalsPage1Switch { margin-bottom: 0; }
+#goalsTodayView.hidden, #goalsActivitiesView.hidden { display: none; }
 .tasksToday { display: flex; flex-direction: column; gap: 8px; position: relative; }
 .tasksToday .tasksPopRow { padding-left: 4px; padding-right: 4px; }
 /* Tri (3 nov. 2026) : icône nue à gauche sous le titre, menu = .statsPeriodMenu commun ; arbre replié du tri « Activité » (chevron à droite, R21 ; séparateur pleine largeur, R22) ; modification d'une tâche = panneau de l'onglet Tâches. */
@@ -108,7 +109,19 @@
 
 
 /* Onglet Tâches et vue Objectifs : contenu FIXE horizontalement (aucun défilement latéral ; le geste horizontal appartient au balayage vers les statistiques) ; le texte long passe à la ligne. */
-#goalsActivitiesView, #goalsCapturePage { max-width: 100%; overflow-x: clip; touch-action: pan-y; }
-#goalsActivitiesView { overflow-wrap: anywhere; }
+:is(#goalsTodayView, #goalsActivitiesView, #goalsCapturePage) { max-width: 100%; overflow-x: clip; touch-action: pan-y; }
+:is(#goalsTodayView, #goalsActivitiesView) { overflow-wrap: anywhere; }
 /* Même facilité de balayage sur toutes les vues de la page 1 : la zone de geste (#tab-goals) couvre TOUTE la hauteur de l'écran, y compris sous un contenu court (liste vide, peu d'objectifs). */
 #tab-goals:not(.hidden) { min-height: calc(100dvh - var(--topbar-h, 56px)); box-sizing: border-box; }
+
+/* Vue Tâches par journée (6 nov. 2026, modèle B) : bande de la semaine (classes .goalsCal* et .cmpNav de la page 3, aucun style nouveau pour les jours), rangée tri + compteur sous la bande. */
+.tasksWeek .cmpNavLabel { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding: 0; border: 0; background: none; font-family: inherit; color: var(--text-light); cursor: pointer; }
+.tasksWeek .cmpNavLabel .cmpChev { margin-left: 0; width: 20px; transform: rotate(90deg); }
+.tasksWeek .cmpNavLabel .cmpChev.open { transform: rotate(-90deg); }
+.tasksWeek .goalsCalHead { margin-bottom: 4px; }
+.tasksWeek .goalsCalWeek { margin-top: 4px; }
+.tasksWeek .goalsCalWeek:first-child { margin-top: 0; }
+.tasksToday .tasksTopRow { position: static; top: auto; margin-bottom: 4px; }
+/* Jour passé : lecture seule (ce qui a été fait) ; rien à cocher ni à modifier. */
+.tasksToday.dayPast .tasksPopCheck, .tasksToday.dayPast .subProjectItem input[type="checkbox"] { pointer-events: none; }
+.tasksToday.dayPast .goalsTaskEditBtn { display: none; }

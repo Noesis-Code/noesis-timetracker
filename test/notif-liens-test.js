@@ -29,7 +29,7 @@ const body = app.slice(app.indexOf('function openTabFromNotification'));
 for (const t of types) if (!new RegExp("target === '" + t + "'").test(body)) fail('?notif=' + t + ' : aucune branche dans openTabFromNotification');
 
 // 3. Écrans visés qui existent.
-for (const id of ['followRequestsList', 'invitesList', 'taskDrawer', 'tradePageTitle', 'followingFeed', 'viewProfilePostsList', 'activitiesList']) {
+for (const id of ['followRequestsList', 'invitesList', 'goalsTodayView', 'tradePageTitle', 'followingFeed', 'viewProfilePostsList', 'activitiesList']) {
   if (!all.includes(id)) fail('élément visé introuvable : #' + id);
 }
 // 4. ?notif=activity : l'écran Discussion n'existe plus, la branche ne doit plus l'attendre.

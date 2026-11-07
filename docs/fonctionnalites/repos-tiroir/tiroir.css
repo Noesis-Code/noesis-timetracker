@@ -30,3 +30,10 @@
 :root.kbOpen .taskDrawer { height: var(--tiroir-kb-h, var(--tiroir-h)); }
 :root.kbOpen .taskDrawerHandle, :root.kbOpen .taskDrawerHandleTop { display: none; }
 @media (prefers-reduced-motion: reduce) { .taskDrawer, .tasksDock--tiroir { transition: none !important; } }
+
+/* Poignée .cmpHandle (était dans css/composants.css) */
+/* Poignée .cmpHandle (6 nov. 2026, tiroir des tâches) : petite barre grise de 36 × 5 px qu'on tire pour ouvrir ou fermer un rideau ; zone de toucher de 44 px de haut, jamais de cadre ni de fond.
+   Un seul composant pour toutes les poignées de l'app (jamais redéfini écran par écran). */
+.cmpHandle { position: relative; flex: none; display: flex; align-items: center; justify-content: center; width: 100%; max-width: 160px; height: 44px; margin: 0 auto; padding: 0; border: 0; background: none; cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.cmpHandle::before { content: ''; width: 36px; height: 5px; border-radius: 3px; background: var(--text-light); opacity: .6; }
+.cmpHandle:focus, .cmpHandle:focus-visible { outline: 0; box-shadow: none; }

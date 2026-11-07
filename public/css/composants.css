@@ -114,12 +114,6 @@
 .cmpToggle { display: flex; align-items: center; width: 100%; text-align: left; }
 .cmpChev.open { transform: rotate(90deg); }
 
-/* Poignée .cmpHandle (6 nov. 2026, tiroir des tâches) : petite barre grise de 36 × 5 px qu'on tire pour ouvrir ou fermer un rideau ; zone de toucher de 44 px de haut, jamais de cadre ni de fond.
-   Un seul composant pour toutes les poignées de l'app (jamais redéfini écran par écran). */
-.cmpHandle { position: relative; flex: none; display: flex; align-items: center; justify-content: center; width: 100%; max-width: 160px; height: 44px; margin: 0 auto; padding: 0; border: 0; background: none; cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent; }
-.cmpHandle::before { content: ''; width: 36px; height: 5px; border-radius: 3px; background: var(--text-light); opacity: .6; }
-.cmpHandle:focus, .cmpHandle:focus-visible { outline: 0; box-shadow: none; }
-
 /* Modifier ✎ (R15/R21) : icône fournie par TMT.ui.editIcon() */
 .cmpEdit {
   position: relative; width: 26px; height: 26px; flex-shrink: 0; padding: 0; border: none; background: transparent; border-radius: var(--radius-sm);

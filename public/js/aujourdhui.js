@@ -1,8 +1,8 @@
-/* Tiroir des tâches (6 nov. 2026, piste T « rideau depuis le haut » ; ex-page Tâches de la Feuille de route, 27 oct. 2026) : tâches du jour de toutes les
+/* Page 1 de la Feuille de route, vue « Tâches » (27 oct. 2026 ; 6 nov. 2026 : bande de la SEMAINE en haut, liste de la JOURNÉE choisie seulement) : tâches du jour de toutes les
  * activités (à cocher : cercle rempli + coche, barrée et grisée, puis descend dans « Faites aujourd'hui »), puis la barre « Ajouter une tâche ».
  * Ajout : Noèsis PROPOSE « Activité › Pôle » (POST /api/goals/capture/propose, ne crée rien) ; la flèche ↑ accepte, « Changer » choisit ailleurs ;
  * l'envoi suit la même chaîne que l'ancienne bulle de la page 1 (TMT.captureTaskFlow : pop-up selon le mode de l'IA).
- * Données : GET /api/goals/today. Monté par js/tiroir.js (TMT.todayView.mount / show / hide / setDay). */
+ * Données : GET /api/goals/today. Monté par objectifs-page1.js (TMT.todayView.mount / show / hide). */
 (function () {
   'use strict';
   var TMT = window.TMT;
@@ -48,21 +48,83 @@
   var ui = {}; // éléments de la barre d'ajout
   var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null, date: null, who: null, poleId: null, open: '', members: {}, flash: null, exp: null, essor: null, expStep: 0, review: false };
 
-  var root = null, shown = false, dock = null, viewDay = null; // viewDay : jour affiché (null = aujourd'hui)
+  var root = null, shown = false, dock = null, viewDay = null; // viewDay : jour choisi dans la bande (null = aujourd'hui)
   function dayIso() { return viewDay || localIso(); }
+  function dayKind() { var d = dayIso(), t = localIso(); return d < t ? 'past' : d > t ? 'future' : 'today'; }
   // La barre n'existe à l'écran que si la vue Aujourd'hui est réellement visible (autre volet, autre vue ou page par-dessus : masquée).
   function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length)); }
   function build(container) {
     root = el('div', 'tasksToday');
     listBox = el('div', 'tasksPopList tasksTree');
-    root.appendChild(buildTopRow()); root.appendChild(listBox); root.appendChild(buildArchive());
-    // La barre d'ajout est AU PREMIER PLAN, au bas du tiroir (js/tiroir.js lui donne le même décalage que le rideau pendant le geste) ; elle disparaît avec lui.
-    dock = buildAdd(); dock.classList.add('tasksDock', 'tasksDock--tiroir', 'hidden'); document.body.appendChild(dock);
+    root.appendChild(buildCal()); root.appendChild(buildTopRow()); root.appendChild(listBox); root.appendChild(buildArchive());
+    // La barre d'ajout est AU PREMIER PLAN, fixée au-dessus de la barre des volets (comme elle). Défilé = glissement latéral entre les pages :
+    // elle prend le même décalage que la page (#tab-goals) pendant le glissement, puis disparaît avec elle.
+    dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock);
+    var tab = document.getElementById('tab-goals');
+    if (tab && window.MutationObserver) {
+      new MutationObserver(function () { dock.style.transform = tab.style.transform || ''; dock.style.transition = tab.style.transition || ''; syncDock(); }).observe(tab, { attributes: true, attributeFilter: ['style', 'class'] }); // fin de glissement vers les statistiques : l'onglet se masque, la barre se masque dans la même image (sans attendre le balayage de 300 ms)
+    }
     setInterval(syncDock, 300);
     // Clavier ouvert : la barre se pose juste au-dessus du clavier, en tout temps (et revient à sa place normale, au-dessus des volets, à la fermeture).
     TMT.ui.dockKeyboard(dock, ui.text); // code commun aux barres fixes (composants.js)
     container.appendChild(root);
   }
+
+  // ---------- Bande de la SEMAINE (modèle B, 6 nov. 2026) : jours cliquables ; le libellé du mois déploie le mois en place (classes .goalsCal*, .cmpNav de la page 3) ----------
+  var calBox = null, calExpanded = false, calAnchor = null;
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function isoOf(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function fromIso(s) { return new Date(s + 'T12:00:00'); }
+  function addDays(s, n) { var d = fromIso(s); d.setDate(d.getDate() + n); return isoOf(d); }
+  function mondayOf(s) { return addDays(s, -((fromIso(s).getDay() + 6) % 7)); }
+  function cap1(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function buildCal() { calBox = el('div', 'tasksWeek'); calAnchor = dayIso(); paintCal(); return calBox; }
+  function paintCal() {
+    if (!calBox) return;
+    calBox.textContent = '';
+    var loc = TMT.dateLocale || undefined, sel = dayIso(), today = localIso(), anchor = calAnchor || sel;
+    var nav = el('div', 'cmpNav cmpNav--sm goalsCalNav');
+    var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr(calExpanded ? 'Mois précédent' : 'Semaine précédente'));
+    var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr(calExpanded ? 'Mois suivant' : 'Semaine suivante'));
+    var label = el('button', 'cmpNavLabel tasksWeekLabel'); label.type = 'button'; label.setAttribute('aria-expanded', calExpanded ? 'true' : 'false');
+    var ref = calExpanded ? anchor.slice(0, 8) + '01' : addDays(mondayOf(anchor), 3); // semaine à cheval sur deux mois : le mois du jeudi (norme ISO)
+    label.appendChild(document.createTextNode(cap1(fromIso(ref).toLocaleDateString(loc, { month: 'long', year: 'numeric' }))));
+    label.appendChild(el('span', 'cmpChev' + (calExpanded ? ' open' : '')));
+    label.addEventListener('click', function () { calExpanded = !calExpanded; paintCal(); });
+    prev.addEventListener('click', function () { stepCal(-1); });
+    next.addEventListener('click', function () { stepCal(1); });
+    nav.appendChild(prev); nav.appendChild(label); nav.appendChild(next); calBox.appendChild(nav);
+    var head = el('div', 'goalsCalHead');
+    for (var k = 0; k < 7; k++) head.appendChild(el('span', null, cap1(new Date(2024, 0, 1 + k).toLocaleDateString(loc, { weekday: 'narrow' })))); // 1er janv. 2024 = lundi
+    calBox.appendChild(head);
+    var first, rows, month = fromIso(anchor).getMonth();
+    if (calExpanded) { var f = anchor.slice(0, 8) + '01', fd = fromIso(f); first = mondayOf(f); rows = Math.ceil((((fd.getDay() + 6) % 7) + new Date(fd.getFullYear(), month + 1, 0).getDate()) / 7); }
+    else { first = mondayOf(anchor); rows = 1; }
+    for (var r = 0; r < rows; r++) {
+      var week = el('div', 'goalsCalWeek'), days = el('div', 'goalsCalDays');
+      for (var c = 0; c < 7; c++) {
+        var di = addDays(first, r * 7 + c);
+        var cell = el('button', 'goalsCalDay' + (calExpanded && fromIso(di).getMonth() !== month ? ' out' : '') + (di === today ? ' today' : '') + (di === sel ? ' sel' : ''), String(+di.slice(8, 10)));
+        cell.type = 'button'; cell.setAttribute('data-day', di);
+        (function (d) { cell.addEventListener('click', function () { pickDay(d); }); })(di);
+        days.appendChild(cell);
+      }
+      week.appendChild(days); calBox.appendChild(week);
+    }
+  }
+  function stepCal(n) {
+    if (calExpanded) { var d = fromIso((calAnchor || dayIso()).slice(0, 8) + '01'); d.setMonth(d.getMonth() + n); calAnchor = isoOf(d); }
+    else calAnchor = addDays(calAnchor || dayIso(), 7 * n);
+    paintCal();
+  }
+  // Jour choisi : la liste ne montre QUE cette journée. Futur : les ajouts sont datés de ce jour ; passé : lecture seule.
+  function pickDay(d) {
+    viewDay = d === localIso() ? null : d; calAnchor = d; calExpanded = false; state.date = null;
+    paintCal();
+    var c = cacheGet(dayIso()); if (c) render(c); else { listBox.textContent = ''; }
+    refresh();
+  }
+  function resetDay() { viewDay = null; calAnchor = localIso(); calExpanded = false; paintCal(); }
 
   // « Archive » (fin de l'onglet) : même gabarit que « Archives » de l'onglet Tâches (mêmes classes, CSS partagé) ; les lignes sont celles de la liste du jour,
   // mais pour toutes les activités (GET /api/goals/archive). Tâches faites des 7 derniers jours ; passé ce délai elles n'apparaissent plus, mais restent en base.
@@ -631,6 +693,7 @@
   }
   function send() {
     if (state.busy) return;
+    if (dayIso() < localIso() || (state.date && state.date < localIso())) { ui.msg.textContent = tr('Pas d’ajout dans un jour passé.'); return; } // jour passé : lecture seule
     var label = ui.text.value.trim();
     if (!label) { ui.msg.textContent = tr('Écris une tâche avant d’ajouter.'); return; }
     if (state.expStep === 1) { expNext(); return; }
@@ -676,11 +739,14 @@
   var lastData = null;
   function render(d) {
     lastData = d;
-    counter.textContent = d.doneCount + ' / ' + d.todoCount; // tâches faites aujourd'hui / tâches à faire (aucun texte, aucune durée)
+    var kind = dayKind();
+    root.classList.toggle('dayPast', kind === 'past'); root.classList.toggle('dayFuture', kind === 'future');
+    if (kind === 'past') d = Object.assign({}, d, { tasks: (d.tasks || []).filter(function (t) { return t.done; }), todoCount: 0 }); // jour passé : ce qui a été fait, rien d'autre
+    counter.textContent = kind === 'past' ? String(d.doneCount) : d.doneCount + ' / ' + d.todoCount; // tâches faites aujourd'hui / tâches à faire (aucun texte, aucune durée)
     listBox.textContent = '';
     var have = {}; d.tasks.forEach(function (t) { have[t.id] = true; });
     d.tasks = state.added.filter(function (a) { return !have[a.id]; }).concat(d.tasks);
-    if (!d.tasks.some(function (t) { return !t.done; })) listBox.appendChild(el('p', 'tasksPopEmpty', tr('Rien pour aujourd’hui.')));
+    if (!d.tasks.some(function (t) { return !t.done; })) listBox.appendChild(el('p', 'tasksPopEmpty', tr(kind === 'today' ? 'Rien pour aujourd’hui.' : 'Aucune tâche ce jour-là.')));
     function addRow(t, parent) {
       var row = el('div', 'tasksPopRow' + (t.done ? ' done' : ''));
       var cb = el('button', 'tasksPopCheck'); cb.type = 'button';
@@ -772,9 +838,12 @@
   // Tri « Objectif » : un groupe par objectif HEBDOMADAIRE de la semaine en cours (titre = texte de l'objectif), ses seules tâches à faire aujourd'hui ; objectif sans tâche masqué,
   // tâches sans objectif masquées ; groupes dans l'ordre de taskkind.compareContinuity : fin de période la plus proche, numéro de période, semaine.
   function paintObjectives(list) {
-    var withObj = list.filter(function (t) { return t.objectiveId != null && t.objectiveCurrentWeek; });
+    var withObj = list.filter(function (t) { return t.objectiveId != null; }), without = list.filter(function (t) { return t.objectiveId == null; }), day = dayIso();
     var groups = group(withObj, function (t) { return t.objectiveId; });
-    groups.sort(function (x, y) { var a = x.items[0], b = y.items[0]; return cmpNum(a.objectiveEnd, b.objectiveEnd) || cmpNum(a.objectiveNumber || 0, b.objectiveNumber || 0) || cmpNum(a.objectiveWeek || 0, b.objectiveWeek || 0); });
+    // Objectifs les PLUS PROCHES de la journée choisie : ceux qui finissent le plus tôt à partir de ce jour d'abord, puis ceux déjà échus (le plus récemment échu d'abord).
+    var ahead = function (g) { return g.items[0].objectiveEnd && g.items[0].objectiveEnd >= day ? 0 : 1; };
+    groups.sort(function (x, y) { var a = x.items[0], b = y.items[0]; return (ahead(x) - ahead(y)) || (ahead(x) ? cmpNum(b.objectiveEnd, a.objectiveEnd) : cmpNum(a.objectiveEnd, b.objectiveEnd)) || cmpNum(a.objectiveNumber || 0, b.objectiveNumber || 0) || cmpNum(a.objectiveWeek || 0, b.objectiveWeek || 0); });
+    without.forEach(function (t) { treeRow(t, listBox); }); // tâches sans objectif : toujours visibles, en tête
     groups.forEach(function (g) { branch(listBox, 'o' + g.key, g.items[0].objectiveText || '—', g.items.length, 0, function (body) { g.items.forEach(function (t) { treeRow(t, body); }); }); });
   }
   // Tri « Responsable » : un groupe par personne responsable (la personne connectée d'abord ; une tâche sans responsable désigné est la sienne), puis les autres membres par ordre alphabétique ;
@@ -813,7 +882,7 @@
     if (leaving > 0 || !root || !root.getClientRects().length || listBox.querySelector('.goalsTaskEditPanel')) return; // une tâche en cours de modification : la liste ne se redessine pas sous elle // vue masquée (autre volet, autre page) : rien à charger
     var seq = ++loadSeq;
     var day = dayIso();
-    TMT.api('GET', '/api/goals/today?today=' + day + '').then(function (d) { if (d && d.tasks) cachePut(day, d); if (seq === loadSeq && shown) render(d); }).catch(function () {});
+    TMT.api('GET', '/api/goals/today?today=' + localIso() + (viewDay ? '&day=' + viewDay : '')).then(function (d) { if (d && d.tasks) cachePut(day, d); if (seq === loadSeq && shown) render(d); }).catch(function () {});
   }
 
   // Préchargement : les tâches du jour sont demandées dès l'ouverture de l'app (et au retour au premier plan), avant même d'ouvrir la Feuille de route.
@@ -824,14 +893,13 @@
   var mounted = false;
   TMT.todayView = {
     mount: function (container) { if (mounted) return; mounted = true; build(container); },
-    resetSort: function () { // arrivée dans la Feuille de route depuis un autre module : tri « Aujourd'hui »
+    resetSort: function () {
+      resetDay(); // arrivée dans la Feuille de route depuis un autre module : tri « Aujourd'hui »
       sortMode = 'today';
       Array.prototype.forEach.call(document.querySelectorAll('.tasksSortWrap .statsPeriodMenuItem'), function (b) { b.classList.toggle('active', b.textContent === tr(SORT_LABELS.today)); });
       if (lastData) render(lastData);
     },
-    setDay: function (iso) { viewDay = iso && iso !== localIso() ? iso : null; state.date = null; var c = cacheGet(dayIso()); if (c) render(c); refresh(); },
-    dock: function () { return dock; },
     show: function () { shown = true; syncDock(); var c = cacheGet(dayIso()); if (c) render(c); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
-    hide: function () { shown = false; viewDay = null; openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
+    hide: function () { shown = false; resetDay(); openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();
