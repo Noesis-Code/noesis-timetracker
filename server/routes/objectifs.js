@@ -19,6 +19,8 @@ function run(fn) {
 router.get('/objectifs', run((req) => ({ objectifs: objectifs.liste(req.userId, String(req.query.filtre || 'en_cours')) })));
 router.post('/objectifs/contexte', run((req) => objectifs.contexte(req.userId, req.body || {})));
 router.post('/objectifs/macro/titre', run((req) => require('../lib/objectifs-resume').titreMacro(req.userId, req.body || {})));
+router.get('/objectifs/ordre', run((req) => require('../lib/objectifs-ordre').lire(req.userId, String(req.query.level || ''), req.query.scope, req.query.anchor)));
+router.put('/objectifs/ordre', run((req) => require('../lib/objectifs-ordre').ecrire(req.userId, req.body || {})));
 router.get('/objectifs/resume-annuel', run((req) => require('../lib/objectifs-resume').resumeAnnuel(req.userId, req.query.activityId, req.query.year)));
 router.get('/objectifs/structure', run((req) => objectifs.structure(req.userId)));
 router.get('/objectifs/reglage', run((req) => ({ anon: objectifs.anonOptIn(req.userId) })));
@@ -35,7 +37,7 @@ router.put('/objectifs/:id/titre', run((req) => objectifs.renommer(req.userId, r
 router.put('/objectifs/:id/description', run((req) => objectifs.decrire(req.userId, req.params.id, (req.body || {}).description)));
 router.put('/objectifs/:id/echeance', run((req) => objectifs.modifierEcheance(req.userId, req.params.id, (req.body || {}).endDate)));
 router.get('/objectifs/:id/macro', run((req) => objectifs.macroDe(req.userId, req.params.id)));
-router.put('/objectifs/:id/macro', run((req) => objectifs.setMacro(req.userId, req.params.id, (req.body || {}).isMacro === true)));
+router.put('/objectifs/:id/macro', run((req) => objectifs.setMacro(req.userId, req.params.id, (req.body || {}).isMacro === true, (req.body || {}).anchor)));
 router.put('/objectifs/:id/activite', run((req) => objectifs.deplacer(req.userId, req.params.id, (req.body || {}).activityId)));
 router.post('/objectifs/:id/abandon', run((req) => objectifs.abandonner(req.userId, req.params.id, true)));
 router.post('/objectifs/:id/reactiver', run((req) => objectifs.abandonner(req.userId, req.params.id, false)));

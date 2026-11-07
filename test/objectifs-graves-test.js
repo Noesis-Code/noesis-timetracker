@@ -143,7 +143,8 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(g.status === 'atteint' && g.progress === 1, 'macro : atteint quand tous ses enfants non abandonnés le sont (calcul à l’affichage)');
   assert(o.liste(u, 'tous').find((x) => x.id === macro.id).status === 'atteint' && o.macroDe(u, macro.id).status === 'atteint', 'macro : même état dans liste() et dans la route macro');
   // tous les enfants abandonnés
-  const m6 = mkIn('Macro tout abandonné', A1, { isMacro: true }), c1 = mkIn('Enfant abandonné', A2, { parentId: m6.id });
+  const A4 = newAct('Macro A4'), A5 = newAct('Macro A5'), A6 = newAct('Macro A6'); // colonnes libres : une colonne déjà reliée à un macro ne peut pas être reliée à un autre
+  const m6 = mkIn('Macro tout abandonné', A1, { isMacro: true }), c1 = mkIn('Enfant abandonné', A4, { parentId: m6.id });
   o.abandonner(u, c1.id, true);
   g = o.get(u, m6.id); assert(g.macroAllAbandoned === true && g.status === 'en_cours', 'macro dont tous les enfants sont abandonnés : jamais atteint, signalé');
   // enfant déplacé vers une autre activité
@@ -160,7 +161,7 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(g.macroEmpty === true && g.macroActivities.length === 0 && g.title === 'Macro santé', 'toutes les activités supprimées : le macro reste visible, vide, signalé');
   db.prepare('UPDATE activities SET active = 1, deletedAt = NULL WHERE id IN (?, ?)').run(A1, A3);
   // proposition de macro à la création + fusion validée
-  const p1 = mkIn('Courir un semi-marathon', A1), p2 = mkIn('Courir un semi-marathon bis', A2);
+  const p1 = mkIn('Courir un semi-marathon', A5), p2 = mkIn('Courir un semi-marathon bis', A6);
   const rt = await o.rattachement(u, { title: 'Préparer un semi-marathon', activityId: A3 });
   assert(rt.macro && rt.macro.candidates.length >= 2 && rt.macro.candidates.every((c) => c.activityId !== A3), 'création : objectifs ressemblants dans plusieurs autres activités : macro proposé (jamais écrit)');
   assert(db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE title = ?').get('Préparer un semi-marathon').n === 0, 'la proposition n’écrit rien');

@@ -603,6 +603,7 @@ function creer(userId, body) {
     const par = db.prepare('SELECT id, activityId, isMacro, level, endDate FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body.parentId), userId);
     if (!par) throw err('Objectif parent introuvable.', 404);
     checkParent({ activityId: act.id, isMacro: body.isMacro === true, level: levelOf(userId, act.id, body).level, endDate: body.endDate }, par);
+    if (par.isMacro && body.isMacro !== true) { const lv0 = levelOf(userId, act.id, body); assertColumnFree(userId, db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(par.id), { id: -1, userId, activityId: act.id, level: lv0.level, poleKey: lv0.poleKey, categoryKey: lv0.categoryKey, isMacro: 0 }); }
     parentId = par.id;
   }
   const parentRel = parentId && (body.parentRel === 'avant' || body.parentRel === 'apres') ? body.parentRel : null;
@@ -772,7 +773,8 @@ function lier(userId, id, parentId, rel) {
     return get(userId, r.id);
   }
   const p = rowOf(userId, parentId);
-  checkParent({ activityId: r.activityId, isMacro: !!r.isMacro, level: r.level || 'activite', endDate: r.endDate }, p); // L03 (revu pour le macro) + niveau de colonne + échéance
+  checkParent({ activityId: r.activityId, isMacro: !!r.isMacro, level: r.level || 'activite', endDate: r.endDate }, p);
+  if (p.isMacro) assertColumnFree(userId, p, r); // L03 (revu pour le macro) + niveau de colonne + échéance
   for (let cur = p; cur; cur = cur.parentId ? db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId) : null) {
     if (cur.id === r.id) throw err('Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.');
   }
@@ -842,9 +844,39 @@ function bilan(userId, id, action, n) {
   if (meta.category) bridge(rowOf(userId, id), periods);
   return get(userId, id);
 }
+// ---- Colonnes, groupes de macros et règle de fusion (mode Étendre) ----
+// Une colonne = (niveau, activité, pôle, secteur). RÈGLE : une colonne déjà reliée à un macro ne peut pas être reliée à un AUTRE macro séparé (400 « Délie d'abord ce macro ») ;
+// relier à un macro existant par chaînage (macro enfant) fait entrer le groupe entier. La fusion est réversible : aucune donnée de base n'est modifiée (voir objectifs-ordre.js).
+const MSG_COLONNE_RELIEE = 'Délie d’abord ce macro : cette colonne est déjà reliée à un autre macro.';
+function colKeyOf(r) { const lv = r.level || 'activite'; return lv + '|' + r.activityId + '|' + (lv === 'activite' ? '' : (r.poleKey || '')) + '|' + (lv === 'secteur' ? (r.categoryKey || '') : ''); }
+function macroRoot(row) { // macro le plus haut de la chaîne (le macro lui-même s'il en est un), sinon null
+  let cur = row, root = row.isMacro ? row : null, n = 0;
+  while (cur && cur.parentId && n++ < 50) { const p = db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId); if (!p) break; if (p.isMacro) root = p; cur = p; }
+  return root;
+}
+function columnLinkedElsewhere(userId, leaf, leafIds, allowedRootId) {
+  const key = colKeyOf(leaf);
+  return db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND isMacro = 0').all(userId).some((x) => {
+    if (leafIds.has(x.id) || colKeyOf(x) !== key) return false;
+    const rx = macroRoot(x);
+    return !!rx && rx.id !== allowedRootId;
+  });
+}
+function assertColumnFree(userId, macroRow, child) { // child : ligne d'objectif (ou objet { id, activityId, level, poleKey, categoryKey, isMacro })
+  const rootId = macroRoot(macroRow).id;
+  const leaves = child.isMacro ? (child.id > 0 ? leafKids(child, 0) : []) : [child];
+  const ids = new Set(leaves.map((l) => l.id));
+  if (leaves.some((l) => columnLinkedElsewhere(userId, l, ids, rootId))) throw err(MSG_COLONNE_RELIEE);
+}
+// Groupes de macros (macros racines) et colonnes reliées : lus par l'ordre de présentation des colonnes.
+function macroGroups(userId) {
+  return db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND isMacro = 1').all(userId)
+    .filter((r) => { const p = r.parentId ? db.prepare('SELECT isMacro FROM user_objectives WHERE id = ?').get(r.parentId) : null; return !(p && p.isMacro); })
+    .map((r) => ({ id: r.id, level: r.level || 'activite', columns: columnsOf(r) }));
+}
 // Macro : état et activités (route GET /objectifs/:id/macro), bascule, déplacement d'un enfant, fusion proposée puis validée.
 function macroDe(userId, id) { const r = rowOf(userId, id); if (!r.isMacro) throw err('Cet objectif n’est pas un macro.', 400); return Object.assign({ id: r.id, title: r.title }, macroInfo(r)); }
-function setMacro(userId, id, on) {
+function setMacro(userId, id, on, anchor) {
   const r = rowOf(userId, id);
   if (on) {
     const par = r.parentId ? db.prepare('SELECT isMacro FROM user_objectives WHERE id = ?').get(r.parentId) : null;
@@ -854,7 +886,9 @@ function setMacro(userId, id, on) {
     if (other.length) throw err('Ce macro englobe des objectifs d’autres activités (' + other.map((k) => '« ' + k.title + ' »').join(', ') + ') : détache-les avant d’en faire un objectif ordinaire.');
   }
   db.prepare('UPDATE user_objectives SET isMacro = ? WHERE id = ?').run(on ? 1 : 0, r.id);
-  return get(userId, r.id);
+  const out = get(userId, r.id);
+  if (on && out.macroColumns && out.macroColumns.length > 1) Object.assign(out, require('./objectifs-ordre').forMacro(userId, out.macroColumns, anchor) || {}); // ordre de présentation DÉRIVÉ, rien n'est écrit
+  return out;
 }
 // Un objectif (micro) change d'activité seulement s'il garde un parent macro commun (ou n'a pas de parent) et n'a pas d'objectifs rattachés ordinaires.
 function deplacer(userId, id, activityId) {
@@ -879,9 +913,11 @@ function fusionnerEnMacro(userId, body) {
   const start = kids.map((k) => k.startDate).sort()[0], end = kids.map((k) => k.endDate).sort().pop();
   const lv = kids[0].level || 'activite';
   if (kids.some((k) => (k.level || 'activite') !== lv)) throw err('Un macro relie des objectifs d’un même niveau (activités, pôles ou secteurs).');
+  { const kidIds = new Set(kids.map((k) => k.id)); if (kids.some((k) => columnLinkedElsewhere(userId, k, kidIds, null))) throw err(MSG_COLONNE_RELIEE); } // avant toute création
   const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : kids[0].poleKey, categoryKey: lv === 'secteur' ? kids[0].categoryKey : null });
   kids.forEach((k) => lier(userId, k.id, created.id, 'avant'));
-  return get(userId, created.id);
+  const out = get(userId, created.id);
+  return Object.assign(out, require('./objectifs-ordre').forMacro(userId, out.macroColumns, body.anchor) || {}); // ordre de présentation dérivé (rien n'est écrit)
 }
 // Modification de l'échéance (jamais vide ; macro : au moins aussi lointaine que celle de ses enfants ; enfant d'un macro : pas au-delà du macro).
 // Les périodes sont redécoupées de la date de début à la nouvelle échéance ; les semaines gardent texte et état (même date de début).
@@ -950,4 +986,4 @@ function supprimer(userId, id, confirmed) {
   return { ok: true, detached: kids.map((k) => k.id) };
 }
 migrateEcheances(); // au chargement (idempotent)
-module.exports = { renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

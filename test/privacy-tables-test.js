@@ -63,6 +63,7 @@ const P = {
   goal_period_due_reminders: { cols: ['userId'], erase: 'cascade', exp: 'NON: journal d\'envoi de rappels' },
   goal_recalc_proposals: { cols: ['userId'], erase: 'explicit', exp: 'NON: propositions de recalcul transitoires' },
   objectifs_resume_annuel: { cols: ['userId'], erase: 'explicit', exp: 'NON: résumé dérivé des objectifs (recalculable), effacé avec le compte' },
+  objectifs_ordre: { cols: ['userId'], erase: 'explicit', exp: 'objectiveColumnOrder' },
   user_objectives: { cols: ['userId'], erase: 'explicit', exp: 'objectives' },
   objectifs_refus: { cols: ['userId'], erase: 'explicit', exp: 'objectiveRefusals' },
   goal_time_caps: { cols: ['userId'], erase: 'explicit', exp: 'goalTimeCaps' },
