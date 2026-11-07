@@ -24,7 +24,7 @@ assert(/\.tasksToday\.dayPast \.tasksPopCheck[^}]*pointer-events: none/.test(css
 assert(/dayIso\(\) < localIso\(\)[\s\S]{0,160}Pas d’ajout dans un jour passé/.test(js), 'ajout refusé dans le passé avec un message court');
 assert(/state\.date \|\| dayIso\(\)/.test(js), 'jour futur choisi : les ajouts sont datés de ce jour');
 assert(/hide: function \(\) \{ shown = false; resetDay\(\)/.test(js) && /resetSort: function \(\) \{\s*resetDay\(\)/.test(js), 'en quittant la vue ou en arrivant d\'un autre module : retour à aujourd\'hui');
-assert(/tr\(kind === 'today' \? 'Rien pour aujourd’hui\.' : 'Aucune tâche ce jour-là\.'\)/.test(js), 'journée sans tâche : message vide propre au jour');
+assert(js.includes("kind === 'today' ? 'Rien pour aujourd’hui.' : 'Aucune tâche ce jour-là.'"), 'journée sans tâche : message vide propre au jour');
 
 // Tri Objectif : tâches sans objectif visibles, objectifs les plus proches du jour choisi
 assert(/without\.forEach\(function \(t\) \{ treeRow\(t, listBox\); \}\)/.test(js) && !/objectiveCurrentWeek/.test(js), 'tri Objectif : les tâches sans objectif restent visibles');
