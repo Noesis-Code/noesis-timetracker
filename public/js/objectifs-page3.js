@@ -889,6 +889,12 @@
       grid.appendChild(row);
     }
   }
+  // Positionne le calendrier sur le mois d'une date (TMT.ouvrirCalendrierTaches) : la période affichée ne change pas, seul le mois saute.
+  TMT.goalsCalGoTo = function (iso) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso || ''))) return;
+    calMonth = { y: +iso.slice(0, 4), m: +iso.slice(5, 7) - 1, forPeriod: TMT.currentGoalsViewPeriodNumber };
+    renderGoalsMonthCal();
+  };
   // Jour touché : cercle plein sur le jour, barre « Nouvelle tâche… » en bas (même dock que la page 1, TMT.ui.dockKeyboard) et, au-dessus, le panneau des tâches déjà prévues ce jour-là
   // (lignes .tasksPop*, comme la page 1). Ajout MANUEL : la tâche est créée directement dans le secteur / pôle de la page à la date du jour choisi (aucun tri IA, aucun pop-up de placement).
   var movedMain = null; // nœuds de l'ancienne fenêtre de l'objectif périodique, prêtés au panneau (rendus à la fenêtre à la fermeture)
