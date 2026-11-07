@@ -486,7 +486,8 @@ function levelOf(userId, activityId, body) {
 }
 // Structure pour l'arbre : par activité, ses pôles et leurs secteurs (même source que l'arbre périodique de la page 2).
 function structure(userId) {
-  return { activities: userActivities(userId).map((a) => ({ id: a.id, name: a.name, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, secteurs: goals.secteursForPole(a.id, p.key).map((x) => ({ key: x.key, label: x.label })) })) })) };
+  return { activities: userActivities(userId).map((a) => { const sr = require('./categorystats').shadeRanks(a.id); return ({ id: a.id, name: a.name, color: a.color, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, shadeRank: sr.ranks.has(p.key) ? sr.ranks.get(p.key) : 0, shadeCount: sr.count, // couleur du pôle = la MÊME règle que Chrono et les statistiques : nuance de la couleur de l'activité selon ce rang
+ secteurs: goals.secteursForPole(a.id, p.key).map((x) => ({ key: x.key, label: x.label })) })) }); }) };
 }
 
 // ---- Création (après validation) ----

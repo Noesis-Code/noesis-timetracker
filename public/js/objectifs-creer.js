@@ -510,10 +510,10 @@
     }).catch(function () {});
   }
   // Suppression : confirmation rouge ; les objectifs rattachés sont listés puis détachés, jamais supprimés (croix rouge du mode édition de l'arbre et du détail).
-  function confirmDelete(id, title, done, fail) {
+  function confirmDelete(id, title, done, fail, isMacro) {
     api('GET', '/api/objectifs?filtre=tous').then(function (r) {
       var kids = ((r && r.objectifs) || []).filter(function (x) { return x.parentId === id; });
-      var msg = tr('Êtes-vous sûr de vouloir supprimer cet objectif ?') + ' « ' + title + ' »' + (kids.length ? '\n' + tr('Ses objectifs rattachés ne sont pas supprimés, ils deviennent des objectifs séparés :') + '\n' + kids.map(function (k) { return '• ' + k.title; }).join('\n') : '');
+      var msg = tr(isMacro ? 'Êtes-vous sûr de vouloir supprimer ce macro ?' : 'Êtes-vous sûr de vouloir supprimer cet objectif ?') + ' « ' + title + ' »' + (isMacro ? '\n' + tr('Les objectifs reliés sont conservés.') : kids.length ? '\n' + tr('Ses objectifs rattachés ne sont pas supprimés, ils deviennent des objectifs séparés :') + '\n' + kids.map(function (k) { return '• ' + k.title; }).join('\n') : '');
       return TMT.ui.confirm(msg, { ok: tr('Supprimer'), danger: true }).then(function (yes) {
         if (!yes) return;
         return api('DELETE', '/api/objectifs/' + id + '?confirm=1').then(function () { if (done) done(); });
@@ -656,7 +656,7 @@
     hide: function () { state.shown = false; syncDock(); if (TMT.objectifsArbre && TMT.objectifsArbre.hide) TMT.objectifsArbre.hide(); },
     focus: function () { if (input) input.focus(); },
     setContext: function (c) { setContext(c); },
-    confirmDelete: function (id, title) { confirmDelete(id, title, load); },
+    confirmDelete: function (id, title, isMacro) { confirmDelete(id, title, load, null, isMacro); },
     openExtend: function (cfg) { return openExtend(cfg); }, closeExtend: function () { closeExtend(); },
     createAt: function (o) { createAt(o); },
     openGroup: function (ids, opts) { openGroup(ids, opts); },

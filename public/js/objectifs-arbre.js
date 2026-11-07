@@ -79,7 +79,7 @@
 
   // mode : 'simple' (nom seul, niveau activités) | 'detail' (durée, état, objectifs rattachés, niveaux pôle et secteur). La carte EST la case (.goalsGridCell--filled).
   function removeCross(o, onClick) { // petite croix rouge en haut à droite (composant .cmpRemove, R32) : supprime après confirmation (les objectifs rattachés sont détachés)
-    var x = TMT.ui.removeBtn(function (e) { if (e && e.stopPropagation) e.stopPropagation(); if (onClick) { onClick(); return; } if (TMT.objectifsView && TMT.objectifsView.confirmDelete) TMT.objectifsView.confirmDelete(o.id, o.title); }, tr('Supprimer cet objectif'));
+    var x = TMT.ui.removeBtn(function (e) { if (e && e.stopPropagation) e.stopPropagation(); if (onClick) { onClick(); return; } if (TMT.objectifsView && TMT.objectifsView.confirmDelete) TMT.objectifsView.confirmDelete(o.id, o.title, !!o.isMacro); }, tr('Supprimer cet objectif'));
     x.className = 'cmpRemove cmpRemove--corner'; x.setAttribute('aria-label', tr('Supprimer cet objectif')); x.addEventListener('pointerdown', function (e) { e.stopPropagation(); }); return x;
   }
   function card(o, today, all, mode, w, onTap, extCol, colColor) {
@@ -169,6 +169,15 @@
   function newest(i, n) { return (curCols[i].objs || []).filter(function (o) { return o.parentId == null && !o.isMacro && !o.abandoned; }).sort(function (x, y) { return y.id - x.id; }).slice(0, n); }
   function colOfObj(o) { var ci = -1; curCols.forEach(function (c, i) { var k = lvl === 'activite' ? o.activity.id : lvl === 'pole' ? (o.poleKey || curCols[0].key) : (o.categoryKey || curCols[0].key); if (ci < 0 && c.key === k) ci = i; }); return ci; }
   function extChildIds() { var ids = []; Object.keys(ext.cols).forEach(function (k) { var i = Number(k); (i === ext.baseCol ? [ext.base] : newest(i, 2)).forEach(function (o) { if (o && ids.indexOf(o.id) < 0) ids.push(o.id); }); }); return ids; }
+  function colFree(i) { return newest(i, 2).length > 0; } // la colonne a des objectifs libres (non rattachés) à relier
+  function colLinked(i) { return (curCols[i].objs || []).some(function (o) { var p = o.parentId != null && items.filter(function (x) { return x.id === o.parentId; })[0]; return !!(p && p.isMacro); }); }
+  function extEligible(i) { return !!ext.cols[i] || colFree(i); }
+  function extScrollToEligible() { // colonnes cachées par le défilement horizontal : la première colonne reliable arrive à l'écran
+    if (!scroller || !tree) return;
+    var bs = tree.querySelectorAll('.arBubble'), vr = scroller.getBoundingClientRect(), first = null;
+    for (var i = 0; i < bs.length; i++) { if (!extEligible(i)) continue; var r = bs[i].getBoundingClientRect(); if (r.right > vr.left + RAIL && r.left < vr.right) return; if (!first) first = bs[i]; }
+    if (first) scroller.scrollLeft = Math.max(0, first.offsetLeft - RAIL - 8);
+  }
   function extChanged() { return Object.keys(ext.cols).sort().join() !== Object.keys(ext.init).sort().join(); }
   function extCanSave() { return ext.mode === 'create' ? Object.keys(ext.cols).length >= 2 && extChildIds().length >= 2 : extChanged() && Object.keys(ext.cols).length >= 1; }
   function extRefreshTitle() { // titre commun : IA légère si disponible, sinon les titres joints par « · » (POST macro/titre) ; jamais écrasé si l'utilisateur l'a modifié
@@ -191,7 +200,7 @@
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
     ext = { mode: 'create', base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0 }; ext.cols[ci] = true; ext.init[ci] = true;
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
-    extOpenPanel(); render();
+    extOpenPanel(); render(); extScrollToEligible();
   }
   function startExtendEdit(m) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
@@ -203,6 +212,7 @@
   }
   function extToggle(ci) {
     if (!ext || ci < 0 || ci >= curCols.length || (ext.mode === 'create' && ci === ext.baseCol)) return;
+    if (!extEligible(ci)) { say(tr(colLinked(ci) ? 'Délie d’abord ce macro.' : 'Aucun objectif libre à relier dans cette colonne.')); return; } // colonne éteinte : message court, jamais un blocage muet
     if (ext.cols[ci]) delete ext.cols[ci]; else ext.cols[ci] = true;
     ext.panel.setEnabled(extCanSave()); extRefreshTitle(); render();
     if (ext.mode === 'create' && Object.keys(ext.cols).length > 1 && extChildIds().length < 2) ext.panel.setHint(tr('Ces colonnes n’ont pas assez d’objectifs libres (non rattachés) à relier.')); // jamais un blocage muet
@@ -323,7 +333,7 @@
     var oval = !rw.p, st = rw.rank > here.rank ? 'future' : rw.rank === here.rank ? 'current' : 'past', m = el('span', 'goalsRowMarker goalsRowMarker--' + st + (oval ? ' goalsRowMarker--ovale' : ''));
     var label = rw.block ? rw.y + '-' + rw.y2 : rw.p ? String(rw.p) : String(rw.y);
     m.setAttribute('aria-label', rw.p ? tr('Période') + ' ' + rw.p + ' · ' + rw.y : label);
-    if (st !== 'past') { if (rw.block) { m.classList.add('arBlockTag'); m.appendChild(el('span', null, String(rw.y))); m.appendChild(el('span', null, String(rw.y2))); } else m.textContent = label; } // bloc de 5 ans : les deux années COMPLÈTES l'une au-dessus de l'autre dans une étroite pastille cerclée
+    if (st !== 'past') m.textContent = rw.block ? ('0' + (rw.y % 100)).slice(-2) + '/' + ('0' + (rw.y2 % 100)).slice(-2) : label; // bloc de 5 ans : les deux derniers chiffres de chaque année (« 26/30 »), pastille cerclée étroite
     if (st === 'current') { m.style.background = 'var(--text)'; m.style.color = 'var(--bg)'; }
     if (onTap) { m.setAttribute('role', 'button'); m.tabIndex = 0; m.style.cursor = 'pointer'; m.addEventListener('click', onTap); }
     return m;
@@ -354,20 +364,31 @@
     var act = actOf(focus.activityId), mine = shown.filter(function (o) { return o.activity.id === focus.activityId; }), col = mine.length ? color(mine[0]) : '#674EA7';
     var name = act ? act.name : (mine[0] ? mine[0].activity.name : '');
     var poles = (act && act.poles) || [], firstPole = poles.length ? poles[0].key : null;
-    function poleColor(rank, n) { return poles.length && TMT.subProjectShade ? TMT.subProjectShade(col, rank, n) : col; } // nuance de la couleur de l'activité, FIXE selon le rang du pôle (réordonné : les nuances suivent)
+    function poleColor(p) { return p && p.shadeRank != null && TMT.subProjectShade ? TMT.subProjectShade(col, p.shadeRank, p.shadeCount) : col; } // couleur RÉELLE du pôle (donnée du serveur : rang de nuance, même règle que Chrono et les statistiques) // nuance de la couleur de l'activité, FIXE selon le rang du pôle (réordonné : les nuances suivent)
     if (lvl === 'pole') {
       if (!poles.length) poles = [{ key: null, label: name }];
-      return poles.map(function (p, pi) { return { key: p.key, label: p.label, color: poleColor(pi, poles.length), objs: mine.filter(function (o) { return !o.isMacro && want(o) && (o.poleKey || firstPole) === p.key; }), ctx: { level: 'pole', activityId: focus.activityId, poleKey: p.key, label: name + ' · ' + p.label } }; });
+      return poles.map(function (p, pi) { return { key: p.key, label: p.label, color: poleColor(p), objs: mine.filter(function (o) { return !o.isMacro && want(o) && (o.poleKey || firstPole) === p.key; }), ctx: { level: 'pole', activityId: focus.activityId, poleKey: p.key, label: name + ' · ' + p.label } }; });
     }
     var pole = poles.filter(function (p) { return p.key === focus.poleKey; })[0] || { key: focus.poleKey, label: focus.poleLabel || '', secteurs: [] };
-    var sects = pole.secteurs && pole.secteurs.length ? pole.secteurs : [{ key: null, label: pole.label }], firstSect = sects[0].key, pcol = poleColor(Math.max(0, poles.indexOf(pole)), poles.length); // secteurs : UNE seule couleur, celle de leur pôle (jamais de couleur propre, R16)
+    var sects = pole.secteurs && pole.secteurs.length ? pole.secteurs : [{ key: null, label: pole.label }], firstSect = sects[0].key, pcol = poleColor(pole); // secteurs : UNE seule couleur, celle de leur pôle (jamais de couleur propre, R16)
     return sects.map(function (x) { return { key: x.key, label: x.label, color: pcol, objs: mine.filter(function (o) { return !o.isMacro && want(o) && (o.poleKey || firstPole) === focus.poleKey && (o.categoryKey || firstSect) === x.key; }), ctx: { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey, categoryKey: x.key, label: name + ' · ' + pole.label + ' · ' + x.label } }; });
   }
-  var curCols = [];
+  var curCols = [], ordreMap = {};
+  // Ordre de présentation des colonnes : DÉRIVÉ par le serveur (GET /objectifs/ordre) ; les colonnes reliées par un macro sont voisines tant qu'il existe, délié = ordre d'origine. Utilisé tel quel, jamais recalculé ici.
+  function ordreKey() { return lvl === 'activite' ? ['activite', ''] : lvl === 'pole' ? ['pole', String(focus.activityId)] : ['secteur', focus.activityId + ':' + focus.poleKey]; }
+  function loadOrdre() { var k = ordreKey(); return TMT.api('GET', '/api/objectifs/ordre?level=' + k[0] + '&scope=' + encodeURIComponent(k[1])).then(function (r) { ordreMap[k.join('|')] = (r && r.order) || null; }).catch(function () {}); }
+  function sortByOrdre(cols) {
+    var o = ordreMap[ordreKey().join('|')]; if (!o) return cols;
+    return cols.map(function (c, i) { return { c: c, i: i }; }).sort(function (x, y) { var p = o.indexOf(String(x.c.key)), q = o.indexOf(String(y.c.key)); p = p < 0 ? 999 + x.i : p; q = q < 0 ? 999 + y.i : q; return p - q; }).map(function (z) { return z.c; });
+  }
   function syncCtx() { // la barre « Nouvel objectif… » crée au niveau affiché (pré-rempli et verrouillé) ; le « + » d'une colonne précise le pôle / le secteur
     if (TMT.objectifsView && TMT.objectifsView.setContext) TMT.objectifsView.setContext(lvl === 'activite' ? { level: 'activite' } : (curCols[0] && curCols[0].ctx) || { level: lvl, activityId: focus && focus.activityId });
   }
-  function go(l, f) { lvl = l; focus = f; split = {}; picked = null; animate = true; needBase = true; render(); }
+  function go(l, f) {
+    lvl = l; focus = f; split = {}; picked = null; animate = true; needBase = true; render();
+    var k = ordreKey().join('|'), before = JSON.stringify(ordreMap[k]);
+    loadOrdre().then(function () { if (visible && ordreKey().join('|') === k && JSON.stringify(ordreMap[k]) !== before) render(); }); // l'ordre de présentation arrive : les colonnes reliées se rapprochent
+  }
   function blockStart(iso) { var y0 = new Date().getFullYear(), y = Number(iso.slice(0, 4)); return y0 + 5 * Math.floor((y - y0) / 5); } // première année du bloc de 5 ans qui contient l'échéance
   function descend(ci, block) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
     var c = curCols[ci]; if (!c) return;
@@ -399,10 +420,10 @@
     zoom = lvl === 'activite' ? 'block' : lvl === 'pole' ? 'year' : 'period'; // le temps suit le zoom : arbre macro = blocs de 5 ans (pluriannuel), années (annuel), périodes 13 × 4 (période)
     var mw = 46; RAIL = mw + 10; tree.style.setProperty('--ar-mw', mw + 'px'); tree.style.setProperty('--ar-pl', (mw + 6) + 'px'); // colonne de repères : ovale d'un bloc / d'une année, rond d'une période (+ année en ovale)
     var today = dayIso(), keep = visibleSet(today), shown = items.filter(function (o) { return keep[o.id]; });
-    tree.classList.toggle('arEditing', editMode);
+    tree.classList.toggle('arEditing', editMode); tree.classList.toggle('arExtending', !!ext);
     if (items.length) { var zb = el('div', 'arZoomRow'); if (lvl !== 'activite') zb.appendChild(backNav()); zb.appendChild(editToggle()); tree.appendChild(zb); }
     kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
-    curCols = columnsFor(shown); syncCtx();
+    curCols = sortByOrdre(columnsFor(shown)); syncCtx();
     if (!curCols.length) { gridArea = scroller = null; tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
     var n = curCols.length, wide = window.innerWidth >= 1024, avail = tree.clientWidth || (Math.min(window.innerWidth, wide ? 1400 : 600) - 32); // largeur réelle de la zone
     var baseW = Math.floor((avail - RAIL - GAP - 4) / 2), cols = wide ? Math.max(220, Math.floor((avail - RAIL - GAP * (n - 1)) / n)) : baseW; // deux colonnes de même largeur visibles
@@ -498,12 +519,12 @@
     var linkGap = {}; // cases traversées par un lien parent -> enfant (dans une même colonne) : leur trait vertical prend la couleur de l'activité
     data.forEach(function (c, ci) { c.entries.forEach(function (e) { var par = e.o.parentId != null && c.all.byId[e.o.parentId]; if (!par) return; var pe = c.entries.filter(function (x) { return x.o.id === par.id; })[0]; if (!pe || rowIdx[pe.b.rank] == null || rowIdx[e.b.rank] == null) return; for (var q = rowIdx[pe.b.rank] + 1; q <= rowIdx[e.b.rank]; q++) linkGap[q + ':' + ci] = c.color; }); });
     grid.querySelectorAll('.goalsGridRow').forEach(function (row) { var k = 0, r = rowIdx[Number(row.getAttribute('data-rank'))]; Array.prototype.forEach.call(row.children, function (ch) { if (ch.classList.contains('arMacro')) k += Number(ch.getAttribute('data-span')) || 1; else if (ch.classList.contains('arGap')) k += 1; else if (ch.classList.contains('goalsGridCell') || ch.classList.contains('arStack')) { ch.setAttribute('data-col', String(k)); if (linkGap[r + ':' + k]) ch.style.setProperty('--goalsCellLineColor', linkGap[r + ':' + k]); k++; } }); }); // colonne de chaque cellule (un macro en couvre plusieurs)
-    if (ext) Array.prototype.forEach.call(grid.querySelectorAll('[data-col]'), function (ch) { var on = !!ext.cols[Number(ch.getAttribute('data-col'))]; ch.classList.toggle('arExtOn', on); ch.classList.toggle('arExtOff', !on); });
+    if (ext) Array.prototype.forEach.call(grid.querySelectorAll('[data-col]'), function (ch) { var cj = Number(ch.getAttribute('data-col')), on = !!ext.cols[cj]; ch.classList.toggle('arExtOn', on); ch.classList.toggle('arExtOff', !extEligible(cj)); });
     scroller = el('div', 'goalsGridScroll arScroll');
     var column = el('div', 'arColumn'); gridArea = el('div', 'arGridArea'); gridArea.appendChild(grid); column.appendChild(gridArea);
     var baseWrap = el('div', 'goalsGrid arBaseWrap'), baseRow = el('div', 'goalsGridRow arBaseRow'), spacer = el('span', 'goalsRowMarker goalsRowMarker--past arSpacer'); spacer.setAttribute('aria-hidden', 'true'); baseRow.appendChild(spacer);
     data.forEach(function (c, ci) {
-      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; // étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
+      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : extEligible(ci) ? '' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; // étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
       var dot = el('i', 'arDot'); dot.style.background = c.color; b.appendChild(dot); b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
       b.addEventListener('click', function () { descend(ci); });
       baseRow.appendChild(b);
@@ -558,8 +579,8 @@
   function refresh() {
     if (!tree) return Promise.resolve();
     return Promise.all([TMT.api('GET', '/api/objectifs?filtre=tous'), TMT.api('GET', '/api/objectifs/structure').catch(function () { return null; })]).then(function (rs) {
-      items = (rs[0] && rs[0].objectifs) || []; struct = rs[1]; loaded = true; if (openPending) { applyOpen(); openPending = false; } render();
-    }).catch(function () {});
+      items = (rs[0] && rs[0].objectifs) || []; struct = rs[1]; loaded = true; if (openPending) { applyOpen(); openPending = false; } return loadOrdre();
+    }).then(function () { render(); }).catch(function () {});
   }
   tree = document.getElementById('goalsObjArbre');
   if (tree) window.addEventListener('resize', function () { if (loaded && visible) render(); });

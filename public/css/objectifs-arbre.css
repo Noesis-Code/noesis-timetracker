@@ -82,9 +82,8 @@
 .arGrid.arCompact .goalsRowMarker--ovale { height: 18px; line-height: 18px; }
 /* Mode Étendre : colonnes incluses surlignées (contour violet), les autres atténuées. */
 .arExtOn { box-shadow: 0 0 0 2px var(--purple); }
-.arExtOff { opacity: .45; }
+.arExtOff { opacity: .3; }
+/* Mode Étendre : TOUT l'arbre s'assombrit ; seules les colonnes reliables (et celles déjà choisies) restent allumées ; repères et en-tête éteints aussi. */
+.arExtending .goalsRowMarker, .arExtending .arZoomRow, .arExtending .arMacro:not(.arExtOn) { opacity: .3; }
 /* Calendrier ouvert depuis l'arbre : on reste dans le secteur d'où l'on vient (ni pôle ni secteur à changer) ; seul le mois change. */
 html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { display: none !important; } /* la flèche ‹ du cadre du pôle devient le retour à l’arbre */
-/* Repère d'un bloc de 5 ans : deux années complètes superposées (13 px) dans une pastille cerclée aussi étroite que celle d'une année ou d'une période. */
-.arGrid .goalsRowMarker--ovale.arBlockTag { flex-direction: column; height: auto; line-height: 1.2; padding: 3px 0; border-radius: 16px; }
-.arGrid.arCompact .goalsRowMarker--ovale.arBlockTag { height: auto; line-height: 1.2; }

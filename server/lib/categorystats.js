@@ -305,6 +305,7 @@ function categoryChart(userId, activityId, granularity, tz) {
 }
 
 module.exports = {
+  shadeRanks,
   categoryBreakdownForRange,
   categoryTimesheet,
   categoryChart,

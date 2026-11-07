@@ -494,7 +494,7 @@ Page 1 de la Feuille de route = sélecteur « Tâches | Objectifs » (Objectifs 
 ## Mode édition : croix et repères (7 nov. 2026)
 
 - Le mode est une classe sur l'arbre ENTIER : toutes les colonnes, visibles ou défilées hors écran, tremblent et portent la croix rouge. Test : nombre de croix = nombre de cartes d'objectif rendues (résumé annuel exclu). Une carte « N objectifs » porte aussi la croix : elle demande LEQUEL supprimer, puis la confirmation rouge. Mesuré avec 4 colonnes et défilement horizontal : 10 cartes, 10 croix.
-- Repères du temps : colonne de 46 px à tous les niveaux (avant : 88 px pour les blocs, 56 px pour les années, 52 px pour les périodes). Bloc de 5 ans = deux années complètes superposées (13 px) dans une pastille cerclée ; année = pastille de 4 chiffres ; bloc courant en pastille pleine claire.
+- Repères du temps : colonne de 46 px à tous les niveaux (avant : 88 px pour les blocs, 56 px pour les années, 52 px pour les périodes). Bloc de 5 ans = les deux derniers chiffres de chaque année séparés par un slash (« 26/30 », « 31/35 », 13 px) dans une pastille cerclée (décision d'Émilien, la superposition est retirée) ; année = pastille de 4 chiffres ; bloc courant en pastille pleine claire.
 
 ## Titres d'activité / pôle / secteur = dernière rangée de l'arbre (7 nov. 2026)
 
@@ -512,3 +512,12 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 - **T06 Semaine à cheval sur deux mois** : inchangé (J05) ; le filtre ne dépend pas de la bande. ✅
 - **T07 Pôle ou secteur sans tâche** : absent de la page 2 (elle est construite des tâches chargées) — À SURVEILLER si Émilien veut voir les pôles vides. ⚠️
 - **T08 Changer d'activité** : le pôle/secteur choisi est remis à « Toute l’activité ». ✅
+- **T07 Pôle ou secteur sans tâche** : absent du second menu (il est construit des tâches chargées) — À SURVEILLER si Émilien veut voir les pôles vides. ⚠️
+- **T08 Changer d'activité** : le pôle/secteur choisi est remis à « Tous les pôles ». ✅
+
+## Mode Étendre, ordre et couleurs réelles (7 nov. 2026)
+
+- Mode Étendre : tout l'arbre s'assombrit ; seules les colonnes qui ont des objectifs libres (non rattachés) restent allumées, les colonnes choisies ont un contour violet, les autres sont éteintes. Toucher une colonne éteinte : message court (« Délie d'abord ce macro. » si elle est déjà reliée, sinon « Aucun objectif libre à relier dans cette colonne. »). Colonnes hors écran : la première colonne reliable est amenée à l'écran à l'entrée du mode.
+- On peut sauter une colonne. L'ordre de présentation vient du serveur (GET /api/objectifs/ordre, dérivé des macros, colonnes reliées voisines tant que le macro existe) ; le client l'utilise tel quel et le relit à chaque rafraîchissement et à chaque changement de niveau. Délier ou supprimer le macro : l'ordre d'origine revient.
+- Délier : appui long puis glisser hors du macro (zone « Délier »), ou croix du mode édition sur la carte large du macro (confirmation : « Les objectifs reliés sont conservés »). Non fait : refus « Fusion passée : impossible de délier. » après la période de fusion, et la carte macro dans la période de l'échéance (rangée unique) réduite à une colonne une fois la période passée ; à faire avec le serveur.
+- Couleurs : activité = sa couleur (membre) ; pôle = couleur réelle donnée par le serveur (`shadeRank`, `shadeCount` de /api/objectifs/structure, même règle que Chrono et statistiques : le premier pôle est le plus clair) ; secteur = couleur de son pôle. Mesuré sur le compte d'Émilien : couleur affichée = couleur de donnée pour chaque activité, pôle et secteur.
