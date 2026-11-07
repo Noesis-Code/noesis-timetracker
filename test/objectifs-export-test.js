@@ -1,0 +1,47 @@
+// Export des données : tous les objectifs, passés et abandonnés compris, état explicite, macros, refus (le passé n'est visible que par l'export). Usage : node test/objectifs-export-test.js
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-objexp-');
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
+let failed = 0;
+const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const db = require('../server/db');
+const o = require('../server/lib/objectifs');
+const { buildUserExport } = require('../server/lib/dataexport');
+const u = 'exp-u';
+db.prepare("INSERT INTO users (id, name, createdAt) VALUES (?, ?, datetime('now'))").run(u, u);
+const newAct = (name) => { const id = Number(db.prepare("INSERT INTO activities (name, ownerId, active, createdAt) VALUES (?, ?, 1, '2026-11-01T00:00:00.000Z')").run(name, u).lastInsertRowid); db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#674EA7', '2026-11-01T00:00:00.000Z')").run(id, u); return id; };
+const A1 = newAct('Export A1'), A2 = newAct('Export A2');
+const mk = (title, aid, extra) => o.creer(u, Object.assign({ title, activityId: aid, startDate: '2026-11-09', endDate: '2027-03-01', noBridge: true }, extra || {}));
+
+const done = mk('Objectif réalisé', A1, { description: 'Terminé' });
+o.get(u, done.id).periods.forEach((p) => p.weeks.forEach((w) => o.semaine(u, done.id, p.n, w.i, true)));
+const dropped = mk('Objectif abandonné', A1); o.abandonner(u, dropped.id, true);
+const inProgress = mk('Objectif en cours', A2, { description: 'En cours' });
+const macro = mk('Macro export', A1, { isMacro: true }), c1 = mk('Enfant macro 1', A1, { parentId: macro.id }), c2 = mk('Enfant macro 2', A2, { parentId: macro.id });
+o.refuser(u, inProgress.id, done.id);
+db.prepare("INSERT INTO user_objectives (userId, activityId, title, amount, unit, startDate, endDate, stepsJson, metaJson, createdAt) VALUES (?, ?, 'Ancien sans date', 1, 'mois', '2026-10-01', '', '[]', '{}', '2026-10-01T00:00:00.000Z')").run(u, A1);
+o.migrateEcheances();
+
+const ex = buildUserExport(u), L = ex.objectives || [], by = (t) => L.find((x) => x.title === t);
+assert(L.length === 7, 'tous les objectifs sont exportés, passés et abandonnés compris (' + L.length + ')');
+const keys = ['id', 'title', 'description', 'activityId', 'activityName', 'niveau', 'poleKey', 'categoryKey', 'poleName', 'categoryName', 'parentId', 'parentRel', 'position', 'startDate', 'endDate', 'etat', 'isMacro', 'enfants', 'periodes', 'meta', 'createdAt'];
+assert(keys.every((k) => k in by('Objectif réalisé')), 'clés stables présentes : ' + keys.filter((k) => !(k in by('Objectif réalisé'))).join(','));
+assert(by('Objectif réalisé').etat === 'realise' && by('Objectif abandonné').etat === 'abandonne' && by('Objectif en cours').etat === 'en_cours', 'état explicite : realise | abandonne | en_cours');
+assert(by('Objectif abandonné').meta.abandoned === true && by('Objectif réalisé').description === 'Terminé', 'meta (abandon) et description');
+assert(Array.isArray(by('Objectif en cours').periodes) && by('Objectif en cours').periodes.length > 1 && by('Objectif en cours').periodes[0].weeks.length > 0, 'stepsJson déplié en periodes (semaines comprises)');
+assert(!('stepsJson' in by('Objectif en cours')) && !('metaJson' in by('Objectif en cours')) && !('steps' in by('Objectif en cours')), 'aucun JSON brut ni clé obsolète');
+assert(by('Objectif en cours').activityName === 'Export A2' && by('Objectif réalisé').activityName === 'Export A1', 'noms lisibles des activités');
+const m = by('Macro export');
+assert(m.isMacro === true && m.enfants.length === 2 && m.enfants.includes(c1.id) && m.enfants.includes(c2.id), 'macro : enfants listés');
+assert(m.macroActivities.length === 2 && m.macroColumns.length === 2 && Array.isArray(m.childMacroIds), 'macro : activités et colonnes reliées');
+assert(by('Enfant macro 1').parentId === macro.id && by('Enfant macro 2').position != null && 'parentRel' in by('Enfant macro 1'), 'liens parent/enfant (parentId, parentRel, position)');
+assert(by('Ancien sans date').meta.echeanceDefaut === true && /^\d{4}-\d{2}-\d{2}$/.test(by('Ancien sans date').endDate), 'meta : échéance par défaut exportée');
+assert((ex.objectiveRefusals || []).some((r) => r.objectifId === inProgress.id && r.candidateId === done.id), 'refus (objectifs_refus) exportés');
+const goalsLib = require('../server/lib/goals'); goalsLib.addCategory(A1, 'Pôle lisible');
+const pole = goalsLib.categoriesForActivity(A1).slice(-1)[0];
+mk('Objectif de pôle', A1, { level: 'pole', poleKey: pole.key });
+const pe = buildUserExport(u).objectives.find((x) => x.title === 'Objectif de pôle');
+assert(pe.niveau === 'pole' && pe.poleKey === pole.key && pe.poleName === 'Pôle lisible', 'niveau pôle : clé et nom lisible');
+const doc = require('fs').readFileSync(require('path').join(__dirname, '..', 'docs', 'objectifs', 'export-objectifs.md'), 'utf8');
+assert(/etat/.test(doc) && /periodes/.test(doc), 'format documenté dans docs/objectifs/export-objectifs.md');
+console.log(failed ? `\n${failed} échec(s)` : '\nTous les contrôles passent.');
+process.exit(failed ? 1 : 0);

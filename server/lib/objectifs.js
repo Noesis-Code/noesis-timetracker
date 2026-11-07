@@ -790,7 +790,7 @@ function refusDe(userId, id) {
   return db.prepare('SELECT candidateId FROM objectifs_refus WHERE userId = ? AND objectifId = ?').all(userId, r.id).map((x) => x.candidateId);
 }
 function liste(userId, filtre) {
-  const all = db.prepare('SELECT * FROM user_objectives WHERE userId = ? ORDER BY endDate, id').all(userId).map((r) => shape(r, false));
+  const all = db.prepare('SELECT * FROM user_objectives WHERE userId = ? ORDER BY endDate, id').all(userId).map((r) => { try { return shape(r, false); } catch (e) { console.warn('[objectifs] ligne illisible ignorée dans la liste (id ' + r.id + ') : ' + (e && e.message)); return null; } }).filter(Boolean); // une ligne corrompue ne fait plus tomber toute la liste (elle reste dans l'export)
   const known = new Set(all.map((o) => o.id));
   all.forEach((o) => { o.archived = (o.parentId == null || !known.has(o.parentId)) && o.status === 'atteint'; }); // objectif FINAL atteint -> archives (un nouveau peut être créé)
   return filtre === 'atteints' ? all.filter((o) => o.status === 'atteint') : filtre === 'tous' ? all : all.filter((o) => o.status !== 'atteint');

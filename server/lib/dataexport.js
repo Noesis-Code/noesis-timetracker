@@ -296,15 +296,42 @@ function buildUserExport(userId) {
   // Objectifs de l'arbre (Loi 25) : titre, durée, dates, étapes, description, lien parent/enfant, objectifs refusés pour une fusion.
   const objectives = has('user_objectives') ? rows(
     `SELECT o.id, o.activityId, a.name AS activityName, o.title, o.amount, o.unit, o.startDate, o.endDate, o.periodWeeks, o.weekly,
-            o.parentId, o.parentRel, o.position, o.isMacro, o.stepsJson, o.taskIdsJson, o.metaJson, o.createdAt
+            o.level, o.poleKey, o.categoryKey, o.parentId, o.parentRel, o.position, o.isMacro, o.stepsJson, o.taskIdsJson, o.metaJson, o.createdAt
      FROM user_objectives o LEFT JOIN activities a ON a.id = o.activityId WHERE o.userId = ? ORDER BY o.id`,
     userId
   ).map((o) => {
     const parse = (s, d) => { try { return JSON.parse(s); } catch (e) { return d; } };
     const { stepsJson, taskIdsJson, metaJson, ...rest } = o;
     const meta = parse(metaJson, {});
-    return { ...rest, description: meta.description || null, steps: parse(stepsJson, []), taskIds: parse(taskIdsJson, []), meta };
+    return { ...rest, description: meta.description || null, periodes: parse(stepsJson, []), taskIds: parse(taskIdsJson, []), meta };
   }) : [];
+  // Le passé n'est visible QUE par cet export (aucune interface d'archives) : TOUS les objectifs (réalisés et abandonnés compris), état explicite, noms lisibles,
+  // enfants, macros (activités / colonnes reliées), périodes dépliées. Format décrit dans docs/objectifs/export-objectifs.md.
+  if (objectives.length) {
+    let byId = {};
+    try { require('./objectifs').liste(userId, 'tous').forEach((x) => { byId[x.id] = x; }); } catch (e) { byId = {}; }
+    const poleLabel = {}, sectLabel = {};
+    const goalsLib = require('./goals');
+    const labelsOf = (aid) => {
+      if (poleLabel[aid]) return;
+      poleLabel[aid] = {}; sectLabel[aid] = {};
+      try { goalsLib.categoriesForActivity(aid).forEach((p) => { poleLabel[aid][p.key] = p.label; goalsLib.secteursForPole(aid, p.key).forEach((s) => { sectLabel[aid][p.key + '/' + s.key] = s.label; }); }); } catch (e) { /* noms illisibles : clés seules */ }
+    };
+    const kids = {}; objectives.forEach((o) => { if (o.parentId != null) (kids[o.parentId] = kids[o.parentId] || []).push(o.id); });
+    objectives.forEach((o) => {
+      const d = byId[o.id] || {};
+      labelsOf(o.activityId);
+      o.niveau = o.level || 'activite';
+      o.poleName = o.poleKey ? (poleLabel[o.activityId][o.poleKey] || null) : null;
+      o.categoryName = o.categoryKey ? (sectLabel[o.activityId][o.poleKey + '/' + o.categoryKey] || null) : null;
+      const weeks = (Array.isArray(o.periodes) ? o.periodes : []).reduce((a, p) => a.concat((p && p.weeks) || []), []);
+      const reached = d.status ? d.status === 'atteint' : (weeks.length > 0 && weeks.every((w) => w.done)); // repli si la ligne n'a pas pu être lue par liste()
+      o.etat = (o.meta && o.meta.abandoned) ? 'abandonne' : (reached ? 'realise' : 'en_cours');
+      o.isMacro = !!o.isMacro;
+      o.enfants = kids[o.id] || [];
+      if (o.isMacro) { o.macroActivities = d.macroActivities || []; o.macroColumns = d.macroColumns || []; o.childMacroIds = d.childMacroIds || []; }
+    });
+  }
   const objectiveRefusals = has('objectifs_refus') ? rows(
     'SELECT objectifId, candidateId, createdAt FROM objectifs_refus WHERE userId = ? ORDER BY objectifId, candidateId', userId) : [];
   const dailySuggestionSettings = has('daily_suggestion_settings')

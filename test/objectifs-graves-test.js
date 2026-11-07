@@ -23,7 +23,7 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(Array.isArray(ex.objectives) && ex.objectives.length >= 2, 'export : objectifs présents');
   const eb = (ex.objectives || []).find((x) => x.id === b.id), ea = (ex.objectives || []).find((x) => x.id === a.id);
   assert(eb && eb.parentId === a.id && eb.parentRel === 'avant', 'export : lien parent/enfant');
-  assert(ea && ea.description === 'Ma description privée' && Array.isArray(ea.steps) && ea.steps.length > 0, 'export : description et étapes');
+  assert(ea && ea.description === 'Ma description privée' && Array.isArray(ea.periodes) && ea.periodes.length > 0, 'export : description et périodes dépliées');
   assert((ex.objectiveRefusals || []).some((r) => r.objectifId === b.id && r.candidateId === a.id), 'export : refus de fusion');
   // MARK-SUPPRESSION
 }
