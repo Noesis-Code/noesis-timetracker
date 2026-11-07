@@ -39,7 +39,7 @@ function tasksToday(userId, todayParam, dayParam) {
         if (other) {
           if (!t.done && t.dueDate === today) list = todo;
           else if (t.done && ((t.doneAt && dayOf(new Date(t.doneAt)) === today) || (today > realToday && t.dueDate === today))) list = done;
-        } else if (all) { if (!t.done) list = todo; }
+        } else if (all) { if (!t.done) list = todo; else if (t.doneAt && dayOf(new Date(t.doneAt)) === realToday) list = done; } // « toutes » : à faire (toutes échéances) + faites AUJOURD'HUI, pour que le compteur « faites / total » soit juste
         else if (!t.done && due <= today) list = todo;
         else if (t.done && t.doneAt && dayOf(new Date(t.doneAt)) === today) list = done;
         if (foreign) list = list === todo ? others : null;
