@@ -11603,7 +11603,7 @@
 
     // Module désactivé (Réglages > Modules) : la notification est ignorée sans erreur.
     var NOTIF_MODULES = { activity: ['roadmap', 'sharing'], post: ['community'], follow: ['community'], community: ['community'], profile: ['community'],
-      invite: ['sharing'], drivesync: ['roadmap', 'ai'], taskassigned: ['roadmap'], goalperiod: ['roadmap'], trade: ['trade'] };
+      invite: ['sharing'], drivesync: ['roadmap', 'ai'], taskassigned: ['roadmap'], trade: ['trade'] };
     if ((NOTIF_MODULES[target] || []).some(function (m) { return !modOn(m); })) return;
 
     // Nouvel achat Trade Tracker (POST /api/trade-events -> push.js#notifyTradePurchase) : ouvre la page plein écran Trade Tracker.
@@ -11712,21 +11712,6 @@
         var taTask = notifIdParam(params, 'taskId');
         if (taTask) focusGoalsTaskFromNotification(taActivityId, taTask);
       }
-      return;
-    }
-
-    // Rappel de fin de période d'objectif (15 septembre 2026,
-    // server/lib/goalreminders.js, discussion "Objectifs — D : Calendrier &
-    // intégrations") : ouvre l'onglet Objectifs sur l'activité concernée
-    // puis directement la page 2 de la période — voir
-    // openGoalsPeriodFromNotification() plus haut, qui attend que
-    // l'activité soit chargée avant d'ouvrir le détail.
-    if (target === 'goalperiod') {
-      var goalActivityId = params.get('activityId');
-      var goalCategory = params.get('category');
-      var goalPeriodNumber = Number(params.get('periodNumber'));
-      switchTab('goals');
-      if (goalActivityId) openGoalsActivityFromNotification(goalActivityId, goalCategory, goalPeriodNumber);
       return;
     }
 

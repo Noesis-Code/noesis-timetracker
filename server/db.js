@@ -902,7 +902,7 @@ CREATE INDEX IF NOT EXISTS idx_goal_period_assignees_period ON goal_period_assig
 -- la PERSONNE (qui rejoint l'activité après coup reçoit quand même le sien).
 -- Table neuve, jamais présente dans un schéma antérieur : CREATE TABLE IF
 -- NOT EXISTS suffit, comme goal_period_assignees ci-dessus (pas besoin de
--- migrateGoalsCategorySchema()). Voir server/lib/goalreminders.js.
+-- migrateGoalsCategorySchema()). Table conservée (données intactes) : les rappels de fin de période ont été supprimés le 7 nov. 2026, plus rien ne l'alimente.
 CREATE TABLE IF NOT EXISTS goal_period_due_reminders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   periodId INTEGER NOT NULL REFERENCES goal_periods(id) ON DELETE CASCADE,

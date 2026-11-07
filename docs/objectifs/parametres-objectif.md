@@ -13,7 +13,7 @@ Factuel : colonne « Existe » = ce que le code fait déjà (table `user_objecti
 | Parent / macro (lier, délier) | Oui : `PUT /:id/parent`, `PUT /:id/macro`, glisser-déposer dans l'arbre, « Rattaché à » dans Avancé | Aucun (objectif final) | Avancé (le glisser-déposer reste le geste principal) |
 | État (en cours / réalisé / abandonné) | Oui : abandon et réactivation (`/abandon`, `/reactiver`) ; « réalisé » se déduit de l'échéance et des tâches | En cours | Bas du panneau, séparé (abandon violet, suppression = croix rouge) |
 | Responsable (délégation) | Non | Moi | Plus tard : rien à afficher d'ici là |
-| Rappel | Non pour l'objectif lui-même (rappels existants : `goalreminders.js`, par période du calendrier) | Aucun | Plus tard |
+| Rappel | Non pour l'objectif lui-même (les rappels de fin de période ont été supprimés le 7 nov. 2026) | Aucun | Plus tard |
 | Couleur | Non, et jamais : vient de l'activité, nuance par rang du pôle (R16) | — | Absente |
 
 ## Ce que le mode édition peut offrir sans nouveau code serveur

@@ -13,7 +13,6 @@ Source : adresses `?notif=type&...` émises par `server/lib/*.js` ; branches de 
 | `dailypriority` | `dailysuggestioncron.js` | Page 2 Tâches, groupe déplié | tâche surlignée |
 | `drivesync` | `drivesync.js` | Page Ajouter, pop-up des tâches ajoutées | – |
 | `taskassigned` | `taskassignnotif.js` | Page 2, période (ou Tâches) | semaine/tâche surlignée |
-| `goalperiod` | `goalreminders.js` | Page 2, détail de la période | – |
 | `subproject` | `duereminders.js` | Onglet Activité, activité ouverte, section Tâches | pas de sous-projet à surligner (UI retirée) |
 | `community`, `profile` | anciennes notifications | Onglet Communauté / Profil | – |
 
