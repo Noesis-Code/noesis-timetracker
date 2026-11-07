@@ -484,6 +484,7 @@
     var tIn = null, hint = el('p', 'hint objPlain', cfg.hint || '');
     if (cfg.title != null) { tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = cfg.title; tIn.setAttribute('aria-label', tr('Titre du macro')); tIn.addEventListener('input', function () { cfg.onTitle(tIn.value); }); panelBody.appendChild(field(tr('Titre du macro'), tIn)); }
     panelBody.appendChild(hint);
+    if (cfg.onUnmerge) panelFoot.appendChild(btn('objLink arUnmerge', tr('Défusionner'), cfg.onUnmerge)); // bouton secondaire, texte rouge (R28) : le macro disparaît, ses objectifs sont conservés
     dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.removeAttribute('aria-label'); stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = !cfg.canSave();
     advance = function () { var s = cfg.onSave; extendCancel = null; s(); }; extendCancel = cfg.onCancel;
     return { setTitle: function (t0) { if (tIn) tIn.value = t0; }, setHint: function (h) { hint.textContent = h; }, setEnabled: function (b) { stepBtn.disabled = !b; } };

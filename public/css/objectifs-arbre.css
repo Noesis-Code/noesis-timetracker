@@ -59,7 +59,8 @@
 .arGrid .goalsGridCell--filled.arMacro.ar-future { background: color-mix(in srgb, var(--text) 85%, var(--bg)); color: var(--bg); }
 .arMacro .arCardMeta { overflow-wrap: anywhere; }
 .arMacroStub { position: absolute; bottom: calc(var(--goalsGridGap) / -2 - 2px); width: 2px; height: calc(var(--goalsGridGap) / 2 + 2px); margin-left: -1px; background: var(--text-light); pointer-events: none; }
-.arMacroRow { margin-top: calc(var(--goalsGridGap) * -0.5); }
+.arMacroRow { margin-top: 0; margin-bottom: calc(8px - var(--goalsGridGap)); } /* rangée du macro : dans SA période, collée (8 px) à la rangée des cases de cette période, jamais entre deux périodes */
+.arUnmerge { color: var(--danger); background: none; border: 0; text-decoration: none; }
 .arGap { pointer-events: none; }
 /* L'arbre tient dans l'écran (hauteur = jusqu'à la barre « Nouvel objectif… ») : seule la grille défile en vertical, les colonnes et leurs bulles en horizontal ; un geste commencé dans l'arbre ne fait jamais défiler la page. */
 .arGridArea { overscroll-behavior-y: none; } /* vertical : ne chaîne pas vers la page ; horizontal : le geste passe au conteneur des colonnes */
@@ -84,7 +85,8 @@
 .arExtOn { box-shadow: 0 0 0 2px var(--purple); }
 .arExtOff { opacity: .3; }
 /* Mode Étendre : TOUT l'arbre s'assombrit ; seules les colonnes reliables (et celles déjà choisies) restent allumées ; repères et en-tête éteints aussi. */
-.arExtending .goalsRowMarker, .arExtending .arZoomRow, .arExtending .arMacro:not(.arExtOn) { opacity: .3; }
+.arExtending .arZoomRow, .arExtending .arMacro:not(.arExtSelf) { opacity: .3; }
+.arExtending .goalsRowMarker { opacity: .5; }
 /* Calendrier ouvert depuis l'arbre : on reste dans le secteur d'où l'on vient (ni pôle ni secteur à changer) ; seul le mois change. */
 html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { display: none !important; } /* la flèche ‹ du cadre du pôle devient le retour à l’arbre */
 /* État d'une carte : jamais par la couleur de fond, seulement une petite marque. */
@@ -92,3 +94,5 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .ar-dropped .arCardName { text-decoration: line-through; }
 /* Onglet Objectifs : la ligne de retour et le crayon se rapprochent du sélecteur « Tâches | Objectifs » (seul l'écart de 16 px sous le sélecteur est retiré ; l'onglet Tâches ne change pas) ; l'arbre récupère la hauteur. */
 #goalsCapturePage:has(#goalsActivitiesView:not(.hidden)) .goalsPage1Switch { margin-bottom: 0; }
+/* Repères du temps : ils suivent le défilement horizontal (variable posée par le script) pour rester à gauche ; z-index au-dessus des cartes. */
+.arGrid .goalsRowMarker { transform: translateX(var(--ar-sl, 0px)); z-index: 4; }

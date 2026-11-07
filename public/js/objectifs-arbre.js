@@ -139,7 +139,7 @@
   // de la largeur exacte des colonnes des activités concernées (les colonnes intermédiaires sont traversées) ; un trait par colonne concernée la relie à ses enfants, qui gardent la couleur de leur activité.
   function macroCard(m, today, c0, c1, W, cols) {
     var st = stateOf(m, today), span = c1 - c0 + 1, w = span * W + (span - 1) * GAP;
-    var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st); b.type = 'button'; b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w);
+    var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && ext.macro && ext.macro.id === m.id ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
     t.appendChild(el('span', 'arCardMeta', (m.macroChildren || 0) + ' ' + tr((m.macroChildren || 0) > 1 ? 'objectifs' : 'objectif') + ' · ' + (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · ') + (m.macroEmpty ? ' · ' + tr('aucun objectif rattaché') : '')));
     b.appendChild(t);
@@ -178,23 +178,40 @@
     ext.panel = TMT.objectifsView.openExtend({
       title: ext.mode === 'create' ? ext.title : null,
       hint: ext.mode === 'create' ? tr('Touche une colonne voisine pour l’inclure ou l’exclure.') : tr('Touche une colonne pour l’inclure ou la retirer du macro.'),
+      onUnmerge: ext.mode === 'edit' ? extUnmerge : null,
       canSave: extCanSave, onTitle: function (t0) { ext.title = t0; ext.touched = true; render(); },
       onSave: extSave, onCancel: function () { if (ext) { ext = null; render(); } }
     });
   }
+  function extUnmerge() { // Défusionner : le macro disparaît, ses objectifs sont CONSERVÉS (délier avant la date défait tout ; fusion passée : refus du serveur)
+    var m = ext && ext.macro; if (!m || !TMT.ui || !TMT.ui.confirm) return;
+    TMT.ui.confirm(tr('Défusionner') + ' « ' + m.title + ' » ?' + String.fromCharCode(10) + tr('Les objectifs reliés sont conservés.'), { ok: tr('Défusionner'), danger: true }).then(function (yes) {
+      if (!yes) return;
+      TMT.api('DELETE', '/api/objectifs/' + m.id + '?confirm=1').then(function () { ext = null; if (TMT.objectifsView && TMT.objectifsView.closeExtend) TMT.objectifsView.closeExtend(); return refresh(); }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });
+    });
+  }
+  function watchRelease() { // dernier relâchement du doigt (l'appui long qui ouvre le mode se termine APRÈS l'ouverture, le clic qui suit ne doit rien cocher)
+    if (!ext) return; ext.holding = true;
+    var done = function () { if (ext) { ext.releasedAt = Date.now(); ext.holding = false; } document.removeEventListener('touchend', done, true); document.removeEventListener('pointerup', done, true); };
+    document.addEventListener('touchend', done, true); document.addEventListener('pointerup', done, true);
+    window.setTimeout(function () { if (ext) ext.holding = false; }, 2500);
+  }
   function startExtend(o, ci) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
-    ext = { mode: 'create', base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0 }; ext.cols[ci] = true; ext.init[ci] = true;
+    ext = { mode: 'create', base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now() }; ext.cols[ci] = true; ext.init[ci] = true;
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
-    extOpenPanel(); render(); extScrollToEligible();
+    extOpenPanel(); render(); watchRelease(); extScrollToEligible();
   }
   function startExtendEdit(m) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
-    ext = { mode: 'edit', macro: m, cols: {}, init: {}, seq: 0 };
+    ext = { mode: 'edit', macro: m, cols: {}, init: {}, seq: 0, born: Date.now() };
     items.filter(function (x) { return x.parentId === m.id && !x.isMacro; }).forEach(function (x) { var i = colOfObj(x); if (i >= 0) { ext.cols[i] = true; ext.init[i] = true; } });
     if (!Object.keys(ext.cols).length) return (ext = null);
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
-    extOpenPanel(); render();
+    extOpenPanel(); render(); watchRelease();
+    window.requestAnimationFrame(function () { // la carte du macro n'est jamais coupée : sa première colonne est amenée à l'écran
+      var card = tree && tree.querySelector('.arMacro[data-id="' + m.id + '"]'); if (card && scroller) scroller.scrollLeft = Math.max(0, scroller.scrollLeft + card.getBoundingClientRect().left - (scroller.getBoundingClientRect().left + RAIL + 4));
+    });
   }
   function extToggle(ci) {
     if (!ext || ci < 0 || ci >= curCols.length || (ext.mode === 'create' && ci === ext.baseCol)) return;
@@ -215,7 +232,9 @@
   document.addEventListener('click', function (e) {
     if (!ext || !tree || !e.target.closest || !e.target.closest('#goalsObjArbre')) return;
     var b = e.target.closest('.arBubble'), cell = e.target.closest('[data-col]'), ci = b ? Array.prototype.indexOf.call(tree.querySelectorAll('.arBubble'), b) : cell ? Number(cell.getAttribute('data-col')) : colAt(e.clientX);
-    e.stopPropagation(); e.preventDefault(); extToggle(ci);
+    e.stopPropagation(); e.preventDefault();
+    if (Date.now() - Math.max(ext.born, ext.releasedAt || 0) < 500 || !ext.releasedAt && Date.now() - ext.born < 1500 && ext.holding) return; // le relâchement de l'appui long qui a ouvert le mode ne coche ni ne décoche aucune colonne
+    extToggle(ci);
   }, true);
   // Case d'une ANNÉE : résumé des grands objectifs de l'année (texte simple, sans IA : leurs titres, quatre au plus) ; touchée, elle liste ces objectifs.
   var resumeCache = {};
@@ -435,6 +454,7 @@
     var n = curCols.length, wide = window.innerWidth >= 1024, avail = tree.clientWidth || (Math.min(window.innerWidth, wide ? 1400 : 600) - 32); // largeur réelle de la zone
     var baseW = Math.floor((avail - RAIL - GAP - 4) / 2), cols = wide ? Math.max(220, Math.floor((avail - RAIL - GAP * (n - 1)) / n)) : baseW; // deux colonnes de même largeur visibles
     var W = Math.min(Math.max(cols, measureBubble(curCols.map(function (c) { return c.label; }))), window.innerWidth - 80);
+    if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) W = Math.max(88, Math.min(W, Math.floor((avail - RAIL - GAP * (spanN - 1) - 4) / spanN))); } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
     var mode = lvl === 'activite' ? 'simple' : 'detail';
     // données par colonne : arbre, parcours, case (période ou année) de chaque objectif
     var data = curCols.map(function (c) {
@@ -492,7 +512,7 @@
     var lastY = null;
     list.forEach(function (rw, r) {
       var row = el('div', 'goalsGridRow'); row.setAttribute('data-rank', String(rw.rank));
-      row.appendChild(marker(rw, here, lvl === 'secteur' && rw.p ? function () { openCalendar(rw, curCols[0] && curCols[0].key); } : null));
+      var rowMark = marker(rw, here, lvl === 'secteur' && rw.p ? function () { openCalendar(rw, curCols[0] && curCols[0].key); } : null); row.appendChild(rowMark);
       if (rw.y !== lastY) { if (rw.p) row.appendChild(yearOval(rw.y)); } lastY = rw.y;
       var macs = macrosAt[rw.rank] || [], skip = {}, extra = [];
       macs.sort(function (x, y) { return (x.m.endDate < y.m.endDate ? 1 : -1); }); // le macro le plus lointain d'abord : un macro peut avoir un autre macro pour enfant (A+B puis (A+B)+C), les cartes larges s'empilent
@@ -506,7 +526,7 @@
         if (mr) mr.push(mm); else mrows.push([mm]);
       });
       mrows.forEach(function (mr) {
-        var mrow = el('div', 'goalsGridRow arMacroRow'); var sp = marker(rw, here); sp.style.visibility = 'hidden'; mrow.appendChild(sp);
+        var mrow = el('div', 'goalsGridRow arMacroRow'); mrow.setAttribute('data-rank', String(rw.rank)); var sp = marker(rw, here, lvl === 'secteur' && rw.p ? function () { openCalendar(rw, curCols[0] && curCols[0].key); } : null); if (mr !== mrows[0]) sp.style.visibility = 'hidden'; mrow.appendChild(sp); // un macro est TOUJOURS dans sa période : sa rangée porte le repère de la période (alignée sur lui), collée à la rangée des cases de cette même période
         data.forEach(function (c2, cj) {
           var hit = mr.filter(function (mm) { return cj >= mm.c0 && cj <= mm.c1; })[0];
           if (hit) { if (hit.c0 === cj) mrow.appendChild(macroCard(hit.m, today, hit.c0, hit.c1, W, curCols)); return; }
@@ -514,6 +534,7 @@
         });
         grid.appendChild(mrow);
       });
+      if (mrows.length) rowMark.style.visibility = 'hidden'; // le repère de la période est porté par la rangée du macro, juste au-dessus
       data.forEach(function (c, ci) {
         var es = cells[r][ci];
         if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols)); return; }
@@ -535,6 +556,7 @@
     grid.querySelectorAll('.goalsGridRow').forEach(function (row) { var k = 0, r = rowIdx[Number(row.getAttribute('data-rank'))]; Array.prototype.forEach.call(row.children, function (ch) { if (ch.classList.contains('arMacro')) k += Number(ch.getAttribute('data-span')) || 1; else if (ch.classList.contains('arGap')) k += 1; else if (ch.classList.contains('goalsGridCell') || ch.classList.contains('arStack')) { ch.setAttribute('data-col', String(k)); if (linkGap[r + ':' + k]) ch.style.setProperty('--goalsCellLineColor', linkGap[r + ':' + k]); k++; } }); }); // colonne de chaque cellule (un macro en couvre plusieurs)
     if (ext) Array.prototype.forEach.call(grid.querySelectorAll('[data-col]'), function (ch) { var cj = Number(ch.getAttribute('data-col')), on = !!ext.cols[cj]; ch.classList.toggle('arExtOn', on); ch.classList.toggle('arExtOff', !extEligible(cj)); });
     scroller = el('div', 'goalsGridScroll arScroll');
+    scroller.addEventListener('scroll', function () { tree.style.setProperty('--ar-sl', scroller.scrollLeft + 'px'); }, { passive: true }); // repères du temps toujours visibles à gauche, même défilé à droite (le sticky ne suit pas : la grille défile en vertical dans son propre conteneur)
     var column = el('div', 'arColumn'); gridArea = el('div', 'arGridArea'); gridArea.appendChild(grid); column.appendChild(gridArea);
     var baseWrap = el('div', 'goalsGrid arBaseWrap'), baseRow = el('div', 'goalsGridRow arBaseRow'), spacer = el('span', 'goalsRowMarker goalsRowMarker--past arSpacer'); spacer.setAttribute('aria-hidden', 'true'); baseRow.appendChild(spacer);
     data.forEach(function (c, ci) {
