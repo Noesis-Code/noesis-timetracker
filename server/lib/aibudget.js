@@ -348,17 +348,17 @@ function breakerResult(failed, now) {
 }
 function breakerReset() { breaker.fails = 0; breaker.openUntil = 0; breaker.probing = false; }
 
-// ---- CRÉDIT DE L'IA GRATUITE, PAR UTILISATEUR (cahier des charges d'Émilien, 6 nov. 2026) ----
-// Tout compte SANS accès Expansion (jamais un compte Expansion, ni le connecteur IA libre qui n'appelle pas l'API de Noèsis) a un crédit mensuel de 1 CAD
-// (même devise que les budgets de la section 3 : CAD, converti en USD par fx.toUsd pour comparer à ai_usage_log.costUsd ; IA_GRATUIT_CREDIT_MOIS_CAD).
+// ---- CRÉDIT DE L'IA GRATUITE, PAR UTILISATEUR (cahier des charges d'Émilien, 6 nov. 2026 ; montant fixé le 7 nov. 2026 : 3 $ USD) ----
+// Tout compte SANS accès Expansion (jamais un compte Expansion, ni le connecteur IA libre qui n'appelle pas l'API de Noèsis) a un crédit mensuel de 3 $ USD par défaut
+// (IA_GRATUITE_CREDIT_MENSUEL_USD, réglable sans coder). Devise : USD, comme ai_usage_log.costUsd et le forfait Team (l'ancien crédit de 1 CAD des premiers essais est abandonné).
 // ÉTALEMENT HEBDOMADAIRE : chaque semaine civile (lundi-dimanche), l'utilisateur peut dépenser 35 % du SOLDE RESTANT du mois :
 //   fenêtre = de max(lundi de la semaine, 1er du mois) à aujourd'hui ;
 //   dépensé_avant = dépense du mois AVANT le début de la fenêtre ; dépensé_semaine = dépense depuis le début de la fenêtre ;
 //   dépense autorisée de la semaine = 0,35 × (crédit − dépensé_avant) ; budget restant de la semaine = dépense autorisée − dépensé_semaine.
 // (dépensé_avant exclut la semaine en cours, sinon la dépense compterait deux fois.) Le non-utilisé d'une semaine reste dans le solde ; remise à zéro le 1er de chaque mois ;
-// une semaine à cheval sur deux mois est coupée au 1er (chaque jour compte pour son mois). Avec 1 CAD tout dépensé chaque semaine : 35, 23, 15, 10 cents.
+// une semaine à cheval sur deux mois est coupée au 1er (chaque jour compte pour son mois). Avec 3 $ tout dépensé chaque semaine : 1,05 $, 0,68 $, 0,44 $, 0,29 $.
 // Modèle LÉGER seul (jamais le modèle fort). Épuisé : repli sans IA (même erreur aiBlocked que toute limite de budget, sans appeler l'API), message court avec le jour de recharge.
-function freeCreditUsd() { return fx.toUsd(envNum('IA_GRATUIT_CREDIT_MOIS_CAD') || 1); }
+function freeCreditUsd() { return envNum('IA_GRATUITE_CREDIT_MENSUEL_USD') || 3; }
 function freeWeekShare() { const n = envNum('IA_GRATUIT_FRACTION_SEMAINE'); return n && n <= 1 ? n : 0.35; }
 function isFreeUser(key) {
   if (key == null || key === '') return false;
@@ -384,22 +384,21 @@ function freeStatus(key, now) {
 }
 function addDaysIso(d, n) { const t = new Date(Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10)) + n)); return t.getUTCFullYear() + '-' + pad2(t.getUTCMonth() + 1) + '-' + pad2(t.getUTCDate()); }
 function freeBlockedMessage(st) { return 'Crédit IA épuisé, reprend ' + (st.resumesMonday ? 'lundi' : 'le ' + dateLabelFr(st.resumesOn)) + '.'; }
-// ---- PLAFOND GLOBAL ANNUEL NET DE L'IA GRATUITE (cahier des charges d'Émilien, 6 nov. 2026) ----
-// Net = coût cumulé de l'IA des comptes gratuits depuis le 1er janvier (table ai_free_cost, un total par jour, sans compte ni texte, en USD)
-// MOINS la marge nette des abonnés Expansion de l'année. L'IA gratuite ne se coupe que si ce net dépasse la perte annuelle maximale
-// (IA_GRATUITE_PERTE_ANNUELLE_MAX, défaut 100 $ US) ; sinon seul le crédit par utilisateur s'applique.
-// MARGE EXPANSION : la base ne garde AUCUN montant de revenu (activity_subscriptions ne stocke que des identifiants et des dates Stripe) : la marge n'est donc pas lisible.
-// En attendant, plafond de 100 $ FIXE (marge = 0) ; la marge peut être posée à la main par IA_EXPANSION_MARGE_ANNUELLE_USD (revenus nets de Stripe moins coûts IA des comptes payants).
-// ALERTE à 50 % du plafond : une seule fois par année (table ai_alerts_sent) ; RAPPEL le 1er de chaque mois (cron de l'abonnement). Destinataire : l'administrateur
-// seulement, par la notification push du serveur (push.sendToUsers) ; identifié par IA_ALERTE_ADMIN_USER_IDS (ids de comptes, comme EXPANSION_ALLOW_USER_IDS). Jamais aux utilisateurs.
+// ---- GARDE-FOU GLOBAL MENSUEL DE L'IA GRATUITE (décision d'Émilien, 7 nov. 2026 ; remplace le plafond annuel net de 100 $) ----
+// Le forfait Team est lié à l'organisation Console : 120 $ USD/mois de crédits promotionnels (dépensés en premier, sans report, expirent en fin de cycle) + un solde payé en réserve.
+// L'IA des comptes gratuits est COUPÉE quand son coût du mois atteint 80 % du pool (120 $ -> 96 $) : 20 % restent aux comptes Expansion et au connecteur, et le solde payé n'est pas
+// entamé à cause de l'IA gratuite. Réglable : IA_GRATUITE_POOL_MENSUEL_USD (défaut 120) et IA_GRATUITE_RESERVE_PCT (défaut 20). Coût du mois = table ai_free_cost (un total par jour,
+// en USD, sans compte ni texte ; comptes gratuits seulement). Reprise automatique au 1er du mois suivant. ALERTE à 50 % du pool mensuel : une seule fois par mois (ai_alerts_sent) ;
+// RAPPEL le 1er de chaque mois (cron de l'abonnement) avec le coût du mois écoulé en USD. Destinataire : l'administrateur seulement (push.sendToUsers), jamais les utilisateurs ;
+// pas d'alerte à 80 ni 100 %.
 db.exec('CREATE TABLE IF NOT EXISTS ai_free_cost (day TEXT PRIMARY KEY, costUsd REAL NOT NULL DEFAULT 0)');
-function freeLossCap() { return envNum('IA_GRATUITE_PERTE_ANNUELLE_MAX') || 100; }
-function expansionMarginYear() { return envNum('IA_EXPANSION_MARGE_ANNUELLE_USD'); } // null = non lisible
-function freeNetYear(now) {
-  const year = todayLocal(now).slice(0, 4);
-  const cost = db.prepare("SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_free_cost WHERE day >= ? AND day <= ?").get(year + '-01-01', year + '-12-31').s || 0;
-  const margin = expansionMarginYear();
-  return { year, cost, margin, readable: margin != null, net: cost - (margin || 0), cap: freeLossCap() };
+function freePool() { return envNum('IA_GRATUITE_POOL_MENSUEL_USD') || 120; }
+function freeReservePct() { const n = Number(process.env.IA_GRATUITE_RESERVE_PCT); return process.env.IA_GRATUITE_RESERVE_PCT !== undefined && process.env.IA_GRATUITE_RESERVE_PCT !== '' && Number.isFinite(n) && n >= 0 && n < 100 ? n : 20; }
+function freeMonthCost(now) {
+  const month = todayLocal(now).slice(0, 7);
+  const cost = db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_free_cost WHERE day >= ? AND day <= ?').get(month + '-01', month + '-31').s || 0;
+  const pool = freePool();
+  return { month, cost, pool, reservePct: freeReservePct(), cutoff: pool * (1 - freeReservePct() / 100) };
 }
 // Administrateur : comptes trouvés par id (IA_ALERTE_ADMIN_USER_IDS) OU par courriel (IA_ALERTE_ADMIN_EMAILS, insensible à la casse et aux espaces) ; union sans doublon
 // (une seule notification par compte). Aucun compte trouvé : liste vide (journal seulement, sans erreur).
@@ -419,32 +418,47 @@ function notifyAdmin(title, body) {
   try { require('./push').sendToUsers(ids, { title, body, tag: 'ia-gratuit', url: '/' }); return true; } catch (e) { return false; }
 }
 const usd = (n) => n.toFixed(2).replace('.', ',') + ' $';
+// Perte annuelle nette (ALERTE SEULEMENT, plus de coupure : la coupure est le pool mensuel) : coût de l'IA gratuite depuis le 1er janvier moins la marge Expansion posée à la main
+// (IA_EXPANSION_MARGE_ANNUELLE_USD ; la base ne garde aucun revenu, marge non lisible = 0), comparé à IA_GRATUITE_PERTE_ANNUELLE_MAX (défaut 100 $) ; une alerte à 50 %, une fois par année.
+function freeNetYear(now) {
+  const year = todayLocal(now).slice(0, 4);
+  const cost = db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_free_cost WHERE day >= ? AND day <= ?').get(year + '-01-01', year + '-12-31').s || 0;
+  const margin = envNum('IA_EXPANSION_MARGE_ANNUELLE_USD');
+  return { year, cost, margin, readable: margin != null, net: cost - (margin || 0), cap: envNum('IA_GRATUITE_PERTE_ANNUELLE_MAX') || 100 };
+}
 function freeAddCost(cost, now) {
   if (!(cost > 0)) return;
-  const before = freeNetYear(now);
+  const before = freeMonthCost(now), yBefore = freeNetYear(now);
   db.prepare('INSERT INTO ai_free_cost (day, costUsd) VALUES (?, ?) ON CONFLICT(day) DO UPDATE SET costUsd = costUsd + excluded.costUsd').run(todayLocal(now), cost);
-  const after = before.net + cost;
-  if (before.net < before.cap * 0.5 && after >= before.cap * 0.5 && claimAlert('ia-gratuit-50', before.year, +before.cap.toFixed(2))) {
-    notifyAdmin('IA gratuite : 50 % du plafond', 'La perte nette de l’IA gratuite atteint ' + usd(after) + ' sur ' + usd(before.cap) + ' par an (50 %).');
+  const after = before.cost + cost, pct = Math.round(after / before.pool * 100);
+  // Alertes mensuelles à l'administrateur : 50 % ET 90 % du pool mensuel, chacune UNE fois par mois (mémorisée dans ai_alerts_sent, remise à zéro le 1er).
+  [[0.5, 'ia-gratuit-50', '50 %'], [0.9, 'ia-gratuit-90', '90 %']].forEach(([share, kind, label]) => {
+    if (before.cost < before.pool * share && after >= before.pool * share && claimAlert(kind, before.month, +before.pool.toFixed(2))) {
+      notifyAdmin('IA gratuite : ' + label + ' du pool', 'IA gratuite : ' + usd(after) + ' ce mois-ci, ' + pct + ' % du pool de ' + usd(before.pool) + ' (coupure à ' + usd(before.cutoff) + ').');
+    }
+  });
+  const yAfter = yBefore.net + cost;
+  if (yBefore.net < yBefore.cap * 0.5 && yAfter >= yBefore.cap * 0.5 && claimAlert('ia-gratuit-an-50', yBefore.year, +yBefore.cap.toFixed(2))) {
+    notifyAdmin('IA gratuite : 50 % de la perte annuelle', 'Perte nette de l’IA gratuite : ' + usd(yAfter) + ' depuis le 1er janvier, 50 % de ' + usd(yBefore.cap) + ' par an.');
   }
 }
-// Rappel mensuel (le 1er) : une seule notification par mois ; coût net depuis le début de l'année, % du plafond, marge Expansion (ou valeur fixe), tendance du mois écoulé.
+// Rappel mensuel (le 1er) : une seule notification par mois ; coût du mois écoulé en USD, % du pool, tendance par rapport au mois précédent.
 function monthlyFreeReminder(now) {
   const d = todayLocal(now), ym = d.slice(0, 7);
   if (!claimAlert('ia-gratuit-rappel', ym, 'm')) return null;
-  const n = freeNetYear(now), y = Number(d.slice(0, 4)), m = Number(d.slice(5, 7));
+  const y = Number(d.slice(0, 4)), m = Number(d.slice(5, 7)), pool = freePool();
   const monthSum = (yy, mm) => { const p = yy + '-' + pad2(mm); return db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_free_cost WHERE day >= ? AND day <= ?').get(p + '-01', p + '-31').s || 0; };
   const last = m === 1 ? [y - 1, 12] : [y, m - 1], prev = last[1] === 1 ? [last[0] - 1, 12] : [last[0], last[1] - 1];
-  const a = monthSum(last[0], last[1]), b = monthSum(prev[0], prev[1]);
-  const trend = b > 0 ? (a >= b ? 'hausse' : 'baisse') + ' de ' + Math.round(Math.abs(a - b) / b * 100) + ' %' : (a > 0 ? 'en hausse' : 'stable');
-  const body = 'IA gratuite : ' + usd(n.net) + ' net depuis le 1er janvier (' + Math.round(n.net / n.cap * 100) + ' % de ' + usd(n.cap) + '), '
-    + (n.readable ? 'marge Expansion déduite ' + usd(n.margin) : 'marge Expansion non lisible, plafond fixe') + '. Mois écoulé : ' + usd(a) + ' (précédent ' + usd(b) + ', ' + trend + ').';
+  const a = monthSum(last[0], last[1]), c = monthSum(prev[0], prev[1]);
+  const trend = c > 0 ? (a >= c ? 'hausse' : 'baisse') + ' de ' + Math.round(Math.abs(a - c) / c * 100) + ' %' : (a > 0 ? 'en hausse' : 'stable');
+  const yr = freeNetYear(now);
+  const body = 'IA gratuite : ' + usd(a) + ' le mois écoulé (' + Math.round(a / pool * 100) + ' % du pool de ' + usd(pool) + '), précédent ' + usd(c) + ', ' + trend + '.' + ' Depuis le 1er janvier : ' + usd(yr.net) + ' net (' + Math.round(yr.net / yr.cap * 100) + ' % de ' + usd(yr.cap) + (yr.readable ? ', marge Expansion déduite' : ', marge Expansion non lisible') + ').';
   notifyAdmin('IA gratuite : point du mois', body);
   return body;
 }
 function freeCheck(key, now, estimate) {
-  const net = freeNetYear(now);
-  if (net.net > net.cap) return { ok: false, resumesOn: null, message: 'Disponible avec Expansion : l’IA gratuite est suspendue pour le moment.' };
+  const mc = freeMonthCost(now);
+  if (mc.cost >= mc.cutoff - 1e-12) return { ok: false, resumesOn: nextMonthStart(now), message: 'Disponible avec Expansion : l’IA gratuite reprend le ' + dateLabelFr(nextMonthStart(now)) + '.' };
   const st = freeStatus(key, now), est = Number(estimate) > 0 ? Number(estimate) : 0;
   if (st.ok && st.remaining + 1e-9 >= est) return { ok: true };
   return { ok: false, resumesOn: st.resumesOn, message: freeBlockedMessage(st) };
@@ -487,4 +501,4 @@ async function fetchAnthropic(feature, url, init, userId) {
   } finally { release(uid, est); }
 }
 
-module.exports = { freeNetYear, monthlyFreeReminder, freeStatus, freeCheck, isFreeUser, keyFor, splitKey, recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
+module.exports = { freeMonthCost, freeNetYear, monthlyFreeReminder, freeStatus, freeCheck, isFreeUser, keyFor, splitKey, recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
