@@ -521,3 +521,8 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 - On peut sauter une colonne. L'ordre de présentation vient du serveur (GET /api/objectifs/ordre, dérivé des macros, colonnes reliées voisines tant que le macro existe) ; le client l'utilise tel quel et le relit à chaque rafraîchissement et à chaque changement de niveau. Délier ou supprimer le macro : l'ordre d'origine revient.
 - Délier : appui long puis glisser hors du macro (zone « Délier »), ou croix du mode édition sur la carte large du macro (confirmation : « Les objectifs reliés sont conservés »). Non fait : refus « Fusion passée : impossible de délier. » après la période de fusion, et la carte macro dans la période de l'échéance (rangée unique) réduite à une colonne une fois la période passée ; à faire avec le serveur.
 - Couleurs : activité = sa couleur (membre) ; pôle = couleur réelle donnée par le serveur (`shadeRank`, `shadeCount` de /api/objectifs/structure, même règle que Chrono et statistiques : le premier pôle est le plus clair) ; secteur = couleur de son pôle. Mesuré sur le compte d'Émilien : couleur affichée = couleur de donnée pour chaque activité, pôle et secteur.
+
+## Calendrier des tâches depuis l'arbre (7 nov. 2026)
+
+- Niveau secteurs : toucher le NOM d'un secteur ouvre son calendrier (page 3) au mois d'aujourd'hui ; toucher une PÉRIODE (case ou repère) l'ouvre au mois de son premier jour. Les deux passent par `TMT.ouvrirCalendrierTaches`. Niveaux activités et pôles : toucher le nom descend d'un niveau, comme avant.
+- Le niveau, la colonne et le défilement sont mémorisés AVANT l'appel (`savedView`, `calFromTree`) : la flèche de retour revient au même endroit. Si la fonction répond « non » (aucune période) : message court, rien n'est mémorisé.

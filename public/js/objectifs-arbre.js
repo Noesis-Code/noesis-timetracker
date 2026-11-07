@@ -317,18 +317,20 @@
   // Repère de période (mêmes classes que la page 2) : à venir = numéro cerclé, courante = pastille pleine, passée = point. En zoom Année : les deux derniers chiffres de l'année.
   // Dernier niveau (secteurs) : toucher le repère d'une PÉRIODE ouvre le calendrier (page 3) de cette période, par l'ouverture existante (openGoalsPeriodFromNotification) ; rien d'autre n'est ajouté.
   function calTap(rw, c) { return lvl === 'secteur' && rw.p ? function () { openCalendar(rw, c.col.key); } : null; } // niveau secteurs : toucher une case OCCUPÉE ouvre le calendrier de la période
-  function openCalendar(rw, preferKey) {
-    if (!focus || focus.activityId == null || !focus.poleKey || !rw.p || !TMT.openGoalsPeriodFromNotification) return;
-    var aid = focus.activityId, d0 = new Date(Date.UTC(rw.y, 0, 1)); d0.setUTCDate(d0.getUTCDate() + (rw.p - 1) * PER_DAYS);
-    var s0 = d0.toISOString().slice(0, 10), e0 = rw.p < PER_YEAR ? new Date(d0.getTime() + (PER_DAYS - 1) * 86400000).toISOString().slice(0, 10) : rw.y + '-12-31';
-    TMT.api('GET', '/api/activities/' + aid + '/goals/all-for-pole?poleKey=' + encodeURIComponent(focus.poleKey) + '&year=' + rw.y).then(function (r) {
-      var by = (r && r.byCategory) || {}, keys = [preferKey].concat(curCols.map(function (c) { return c.key; })).concat(Object.keys(by)).filter(function (k) { return k != null && by[k]; });
-      for (var i = 0; i < keys.length; i++) {
-        var hit = ((by[keys[i]] && by[keys[i]].periods) || []).filter(function (p) { return p.startDate <= e0 && p.endDate >= s0; })[0];
-        if (hit) { savedView = { lvl: lvl, focus: focus, top: gridArea ? gridArea.scrollTop : 0, left: scroller ? scroller.scrollLeft : 0 }; document.documentElement.classList.add('calFromTree'); TMT.openGoalsPeriodFromNotification(aid, keys[i], hit.periodNumber); return; } // la flèche de retour du calendrier ramène à cet endroit exact de l'arbre ; ni pôle ni secteur ne s'y changent (calFromTree)
-      }
-      say(tr('Aucune période du calendrier à ces dates.'));
-    }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });
+  // Calendrier des tâches (page 3) depuis l'arbre : TMT.ouvrirCalendrierTaches ; la vue (niveau, colonne, défilement) est mémorisée AVANT l'appel pour que la flèche de retour y revienne.
+  function openTasksCal(extra) {
+    if (!focus || focus.activityId == null || !focus.poleKey || !TMT.ouvrirCalendrierTaches) return;
+    var keep = savedView = { lvl: lvl, focus: focus, top: gridArea ? gridArea.scrollTop : 0, left: scroller ? scroller.scrollLeft : 0 };
+    document.documentElement.classList.add('calFromTree');
+    Promise.resolve(TMT.ouvrirCalendrierTaches(Object.assign({ activityId: focus.activityId, poleKey: focus.poleKey }, extra))).then(function (ok) {
+      if (ok) return;
+      if (savedView === keep) savedView = null; document.documentElement.classList.remove('calFromTree'); say(tr('Aucune période du calendrier à ces dates.'));
+    }).catch(function () { if (savedView === keep) savedView = null; document.documentElement.classList.remove('calFromTree'); say(tr('Impossible pour le moment.')); });
+  }
+  function openCalendar(rw, secteurKey) { // toucher une PÉRIODE (niveau secteurs) : calendrier du secteur, au mois du 1er jour de la période
+    if (!rw.p) return;
+    var d0 = new Date(Date.UTC(rw.y, 0, 1)); d0.setUTCDate(d0.getUTCDate() + (rw.p - 1) * PER_DAYS);
+    openTasksCal({ secteurKey: secteurKey, date: d0.toISOString().slice(0, 10) });
   }
   function marker(rw, here, onTap) {
     var oval = !rw.p, st = rw.rank > here.rank ? 'future' : rw.rank === here.rank ? 'current' : 'past', m = el('span', 'goalsRowMarker goalsRowMarker--' + st + (oval ? ' goalsRowMarker--ovale' : ''));
@@ -480,7 +482,7 @@
     var lastY = null;
     list.forEach(function (rw, r) {
       var row = el('div', 'goalsGridRow'); row.setAttribute('data-rank', String(rw.rank));
-      row.appendChild(marker(rw, here, lvl === 'secteur' && rw.p ? function () { openCalendar(rw); } : null));
+      row.appendChild(marker(rw, here, lvl === 'secteur' && rw.p ? function () { openCalendar(rw, curCols[0] && curCols[0].key); } : null));
       if (rw.y !== lastY) { if (rw.p) row.appendChild(yearOval(rw.y)); } lastY = rw.y;
       var macs = macrosAt[rw.rank] || [], skip = {}, extra = [];
       macs.sort(function (x, y) { return (x.m.endDate < y.m.endDate ? 1 : -1); }); // le macro le plus lointain d'abord : un macro peut avoir un autre macro pour enfant (A+B puis (A+B)+C), les cartes larges s'empilent
@@ -527,7 +529,7 @@
     data.forEach(function (c, ci) {
       var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : extEligible(ci) ? '' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; // étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
       var dot = el('i', 'arDot'); dot.style.background = c.color; b.appendChild(dot); b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
-      b.addEventListener('click', function () { descend(ci); });
+      b.addEventListener('click', function () { if (lvl === 'secteur' && c.col.key != null && TMT.ouvrirCalendrierTaches) { openTasksCal({ secteurKey: c.col.key }); return; } descend(ci); }); // niveau secteurs : toucher le NOM d'un secteur ouvre son calendrier (aujourd'hui) ; ailleurs : descendre d'un niveau
       baseRow.appendChild(b);
     });
     baseWrap.appendChild(baseRow); gridArea.appendChild(baseWrap); scroller.appendChild(column); tree.appendChild(scroller); // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
