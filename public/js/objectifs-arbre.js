@@ -185,6 +185,7 @@
     var my = ++ext.seq;
     TMT.api('POST', '/api/objectifs/macro/titre', { columns: Object.keys(ext.cols).map(function (k) { return colPayload(Number(k)); }) }).then(function (r) {
       if (!ext || my !== ext.seq || ext.touched || !r || !r.title) return;
+      if (r.source !== 'ia') { ext.panel.setHint(tr('Le macro porte le titre de l’objectif touché, modifiable.')); return; } // sans IA : titre COURT = celui de l’objectif sur lequel on a fait l’appui long (jamais la concaténation des enfants)
       ext.title = r.title; ext.panel.setTitle(r.title); ext.panel.setHint(r.source === 'ia' ? tr('Titre proposé par l’IA, modifiable.') : tr('Titre fait des titres des objectifs reliés, modifiable.'));
     }).catch(function () {});
   }
