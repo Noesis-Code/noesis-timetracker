@@ -273,7 +273,7 @@ function contexte(userId, body) {
   const best = ranked[0] && ranked[0].score > 0 ? ranked[0] : null;
   const existing = db.prepare("SELECT id, title, activityId, endDate FROM user_objectives WHERE userId = ? AND endDate >= ? ORDER BY endDate").all(userId, start);
   return {
-    title, amount, unit, startDate: start, endDate: end, periodWeeks: userPW(), periodsAsk: false, periodsPerYear: temps.PERIODS_PER_YEAR, timeLevel: temps.deduce(start, end),
+    title, amount, unit, startDate: start, endDate: end, periodWeeks: userPW(), timeLevel: temps.deduce(start, end),
     canGenerateTasks: tasksAllowed(userId), fixedDate: fixedDate || unknownCategory, dateReason: fixedDate ? 'fixe' : unknownCategory ? 'inconnue' : null, dateConfirmed: !!explicit || manual || !!found,
     weeklyHours: ranked.reduce((o, a) => { o[a.id] = weeklyHoursHistory(userId, a.id); return o; }, {}),
     lastWeekHours: ranked.reduce((o, a) => { o[a.id] = Math.round(chronoHours(userId, a.id, addDays(today(), -6), today()) * 2) / 2; return o; }, {}), // temps enregistré (Chrono) sur les 7 derniers jours : repère « enregistré » du curseur d'heures par semaine
