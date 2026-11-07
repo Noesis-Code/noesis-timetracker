@@ -11,6 +11,6 @@ assert(/tasksPopAdd tasksDock goalsDayDock/.test(js) && /TMT\.ui\.dockKeyboard\(
 assert(/tasksPopRow/.test(js) && /tasksPopCheck/.test(js) && !/openGoalsDayPop/.test(js), 'panneau des tâches du jour en lignes .tasksPop* ; l\'ancien pop-up du jour est remplacé');
 const add = (js.match(/function addGoalsDayTask[\s\S]*?\r?\n  \}\r?\n/) || [''])[0];
 assert(/goals\/categories\/' \+ encodeURIComponent\(TMT\.currentGoalsCategory\) \+ '\/tasks'/.test(add) && !/capture|classif|propose/i.test(add), 'ajout manuel direct dans le secteur / pôle de la page (aucun tri IA, aucun pop-up de placement)');
-assert(/goalsMainBig/.test(js) && /goalsMainAdd/.test(js) && js.includes('goalsPeriodNext'), 'ligne de période (en haut de la vue Tâches) : titre de l'objectif périodique, ou « + Ajouter un objectif périodique », et un chevron période suivante ; le mois est le petit libellé de la bande');
+assert(/goalsMainBig/.test(js) && /goalsMainAdd/.test(js) && js.includes('goalsPeriodNext'), 'ligne de période (en haut de la vue Tâches) : titre de l’objectif périodique, ou « + Ajouter un objectif périodique », et un chevron période suivante ; le mois est le petit libellé de la bande');
 if (failed) { console.log('\ncalendrier-page3-test : ' + failed + ' échec(s)'); process.exit(1); }
 console.log('\ncalendrier-page3-test : OK');
