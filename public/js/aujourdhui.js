@@ -140,10 +140,11 @@
   function calNavChanged() { if (calOn && TMT.goalsCalNavChanged) TMT.goalsCalNavChanged(); } // la période du calendrier importé suit la semaine / le mois affiché
   // Jour choisi : la liste ne montre QUE cette journée. Futur : les ajouts sont datés de ce jour ; passé : lecture seule.
   // Jour touché (comme la page 3) : la liste sous le calendrier disparaît ; les tâches du jour s'affichent dans un pop-up au-dessus de la barre d'ajout (✕ = retour à toutes les tâches).
-  var dayPop = null, dayPopBody = null, dayPopKick = null, listHome = null;
+  var dayPopCount = null, dayPop = null, dayPopBody = null, dayPopKick = null, listHome = null;
   function buildDayPop() {
     dayPop = el('div', 'tasksPropose cmpGlass tasksDayPop hidden');
     var head = el('div', 'tasksProposeHead'); dayPopKick = el('span', 'tasksProposeKicker'); head.appendChild(dayPopKick);
+    dayPopCount = el('span', 'tasksCounter tasksDayCount'); head.appendChild(dayPopCount);
     head.appendChild(TMT.ui.closeBtn(function () { if (viewDay !== 'all') pickDay(dayIso()); }, tr('Fermer')));
     dayPopBody = el('div', 'tasksProposeBody'); dayPop.appendChild(head); dayPop.appendChild(dayPopBody);
     dock.insertBefore(dayPop, dock.firstChild);
@@ -154,6 +155,7 @@
     if (on) { dayPopKick.textContent = cap1(fromIso(dayIso()).toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'long', day: 'numeric', month: 'long' })); if (listBox.parentNode !== dayPopBody) dayPopBody.appendChild(listBox); }
     else if (listBox.parentNode !== listHome) listHome.insertBefore(listBox, document.getElementById('goalsTodayArchiveSection'));
     dayPop.classList.toggle('hidden', !on);
+    if (root) root.classList.toggle('dayPopOn', on);
   }
   function pickDay(d) {
     var nv = d === localIso() ? null : d; viewDay = nv === viewDay ? 'all' : nv; if (!calExpanded) calAnchor = d; // retoucher le jour choisi = retour à toutes les tâches ; mois déployé : il le reste (8 nov. 2026, Émilien), même mois
@@ -868,6 +870,7 @@
     if (kind === 'past') d = Object.assign({}, d, { tasks: (d.tasks || []).filter(function (t) { return t.done; }), todoCount: 0 }); // jour passé : ce qui a été fait, rien d'autre
     var nDone = d.tasks.filter(function (t) { return t.done; }).length, nTodo = d.tasks.filter(function (t) { return !t.done && !t.upcoming && !(t.plannedUserId && t.plannedUserId !== TMT.getProfile().id) && (viewDay !== 'all' || t.dueNow !== false); }).length; // vue « toutes » : le compteur reste celui d'AUJOURD'HUI (à faire aujourd'hui, en retard ou sans date), identique à la vue du jour
     counter.textContent = kind === 'past' ? String(nDone) : nDone + ' / ' + (nDone + nTodo); // faites / total (faites + à faire) de ce qui est affiché : une tâche cochée quitte la liste mais reste comptée, +1 aux faites
+    if (dayPopCount) dayPopCount.textContent = counter.textContent; // le compteur vit dans l'en-tête du pop-up du jour
     listBox.textContent = '';
     var have = {}; d.tasks.forEach(function (t) { have[t.id] = true; });
     d.tasks = state.added.filter(function (a) { return !have[a.id]; }).concat(d.tasks);

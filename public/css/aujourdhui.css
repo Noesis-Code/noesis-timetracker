@@ -170,3 +170,6 @@
 /* Pop-up des tâches du jour touché (comme la page 3) : au-dessus de la barre d'ajout ; la liste sous le calendrier n'existe plus à ce moment-là. */
 .tasksDayPop .tasksPopList { margin: 0; }
 .tasksDayPop .tasksProposeBody { overflow-y: auto; min-height: 0; }
+.tasksDayPop .tasksPopRow:last-child, .tasksDayPop .tasksPopList > :last-child .tasksPopRow:last-child { border-bottom: 0; } /* pas de trait sous la dernière tâche */
+.tasksToday.calIntegrated > .tasksPopList, .tasksToday.calIntegrated > .tasksTopRow, .tasksToday.dayPopOn > .tasksTopRow { display: none; } /* calendrier ouvert : la liste et le compteur n'existent que dans le pop-up du jour touché (jamais dessous) */
+.tasksDayPop .tasksProposeHead .tasksDayCount { margin-left: auto; margin-right: 8px; align-self: center; }
