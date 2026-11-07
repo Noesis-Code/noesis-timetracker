@@ -185,10 +185,10 @@
   }
 
   function openComposer(ctx) {
-    var form = ctx._form || (ctx._form = { title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null, _ctx: ctx });
+    var form = ctx._form || (ctx._form = { acts: ctx.suggestedActivityId != null ? [ctx.suggestedActivityId] : [], news: ctx.suggestedActivityId == null ? [{ key: 1, name: ctx.createName, color: null }] : [], hoursBy: {}, title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null, _ctx: ctx });
     if (!form.ctxApplied) {
       form.ctxApplied = true; var vc = viewCtx || {}; form.level = vc.level || 'activite'; form.poleKey = vc.poleKey || null; form.categoryKey = vc.categoryKey || null; form.ctxLabel = vc.label || '';
-      if (vc.activityId != null) { form.activityId = vc.activityId; form.create = false; form.fixedCtx = true; }
+      if (vc.activityId != null) { form.activityId = vc.activityId; form.acts = [vc.activityId]; form.news = []; form.create = false; form.fixedCtx = true; }
       if (pendingEnd) { var dd0 = Math.round((Date.parse(pendingEnd + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000); form.endDate = pendingEnd; form.amount = Math.max(1, Math.ceil(dd0 / 7)); form.unit = 'semaines'; form.dateOk = true; form.durTouched = true; form.endFixed = true; }
       clearPending();
     }
@@ -301,23 +301,43 @@
     }
     paintAdv();
 
-    function renderActivities() {
+    function actById(id) { return (ctx.activities || []).filter(function (a) { return a.id === id; })[0]; }
+    function syncMain() { form.activityId = form.acts.length ? form.acts[0] : null; form.create = !form.acts.length && form.news.length > 0; if (form.create) form.createName = form.news[0].name; }
+    function noActivity() { return !form.acts.length && !form.news.length; }
+    function renderActivities() { // plusieurs activités possibles : un objectif par activité, fusionnés en macro à la création
       actBox.textContent = '';
-      var acts = ctx.activities || [], list = el('div', 'aiModeChoices');
+      var acts = ctx.activities || [], list = el('div');
       if (form.fixedCtx) { // créé depuis un niveau de l'arbre : l'activité (et le pôle, le secteur) sont verrouillés
-        var own = acts.filter(function (x) { return x.id === form.activityId; })[0];
-        if (own) { list.appendChild(choice(own.name, tr(LEVEL_LABEL[form.level]) + (form.ctxLabel ? ' · ' + form.ctxLabel : ''), true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), list)); return; }
+        var own = actById(form.activityId), lock = el('div', 'aiModeChoices');
+        if (own) { lock.appendChild(choice(own.name, tr(LEVEL_LABEL[form.level]) + (form.ctxLabel ? ' · ' + form.ctxLabel : ''), true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), lock)); return; }
       }
-      var top = form.showAll ? acts : acts.slice(0, ctx.suggestedActivityId == null ? 2 : 3);
-      if (!form.showAll && form.activityId != null && !top.some(function (a) { return a.id === form.activityId; })) { var sel = acts.filter(function (a) { return a.id === form.activityId; })[0]; if (sel) top = [sel].concat(top.slice(0, 2)); }
-      var createRow = function () { return choice(tr('Créer l’activité') + ' « ' + form.createName + ' »', ctx.suggestedActivityId == null ? tr('Proposée : aucune de tes activités ne correspond') : '', form.create, null, function () { form.create = true; form.activityId = null; refresh(); }); };
-      if (ctx.suggestedActivityId == null) list.appendChild(createRow());
-      top.forEach(function (a) {
-        list.appendChild(choice(a.name, a.id === ctx.suggestedActivityId ? tr('Proposée') : '', !form.create && form.activityId === a.id, a.color, function () { form.create = false; form.activityId = a.id; refresh(); }));
+      function row(name, sub, color, on, toggle) {
+        var r = el('div', 'tasksPopRow objWeekRow'), cb = btn('tasksPopCheck', '', toggle);
+        cb.innerHTML = on ? CHECK : ''; cb.setAttribute('aria-pressed', on ? 'true' : 'false'); cb.setAttribute('aria-label', name);
+        r.appendChild(cb); var tx = el('div', 'tasksPopText'), b = el('b'); if (color) { var d = el('span', 'objDot'); d.style.background = color; b.appendChild(d); } b.appendChild(document.createTextNode(name)); tx.appendChild(b); if (sub) tx.appendChild(el('small', null, sub)); r.appendChild(tx); return r;
+      }
+      acts.forEach(function (a) {
+        var on = form.acts.indexOf(a.id) >= 0;
+        list.appendChild(row(a.name, a.id === ctx.suggestedActivityId ? tr('Proposée') : '', a.color, on, function () { if (on) form.acts.splice(form.acts.indexOf(a.id), 1); else form.acts.push(a.id); syncMain(); refresh(); }));
       });
-      if (ctx.suggestedActivityId != null && form.showAll) list.appendChild(createRow());
-      if (!form.showAll && (acts.length > top.length || ctx.suggestedActivityId != null)) list.appendChild(btn('objLink objMore', tr('Autre activité…'), function () { form.showAll = true; renderActivities(); }));
-      actBox.appendChild(field(tr('Activité liée'), list));
+      form.news.forEach(function (n) { list.appendChild(row(n.name, tr('Nouvelle activité'), n.color, true, function () { form.news = form.news.filter(function (x) { return x !== n; }); syncMain(); refresh(); })); });
+      var add = btn('cmpAdd', '', function () { openNewAct(); }); add.appendChild(el('b', null, '+')); add.appendChild(document.createTextNode(tr('Créer une activité'))); list.appendChild(add);
+      actBox.appendChild(field(tr('Activités liées'), list));
+    }
+    // Sous-page « Nouvelle activité » : mêmes champs que Réglages (nom, couleur). Rien n'est créé avant « Terminer » de l'objectif : l'activité n'apparaît nulle part avant.
+    var newBox = el('div'); panelBody.appendChild(newBox); newBox.classList.add('hidden');
+    function openNewAct() {
+      ['desc', 'rattach', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.add('hidden'); });
+      newBox.classList.remove('hidden'); newBox.textContent = ''; msg.textContent = '';
+      var nameIn = el('input'), sw = el('div'), color = null;
+      nameIn.type = 'text'; nameIn.maxLength = 40; nameIn.placeholder = tr('Nom de l’activité'); nameIn.setAttribute('aria-label', tr('Nom de l’activité'));
+      newBox.appendChild(field(tr('Nom'), nameIn)); newBox.appendChild(field(tr('Couleur'), sw));
+      if (TMT.renderColorSwatches) TMT.renderColorSwatches(sw, null, function (c) { color = c; }, true);
+      panelKicker.textContent = tr('Nouvelle activité'); stepLabel.textContent = tr('Terminer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Terminer')); stepBtn.disabled = true;
+      nameIn.addEventListener('input', function () { stepBtn.disabled = !nameIn.value.trim(); });
+      function back() { newBox.classList.add('hidden'); form._step = cur = 'activite'; show('activite'); }
+      advance = function () { var n = nameIn.value.trim(); if (!n) return; form.news.push({ key: Date.now(), name: n, color: color }); syncMain(); newBox.classList.add('hidden'); refresh(); show('activite'); };
+      setBack(back); nameIn.focus();
     }
     function renderCharge() {
       chargeBox.textContent = '';
@@ -348,19 +368,23 @@
       }
     }
     boxes.temps.appendChild(pdBox);
-    var hoursBox = el('div', 'objTimeInfo'), recRow = el('div', 'objTimeRow'), recVal = el('b'), hrsRow = el('div', 'objTimeRow'), hrsVal = el('span', 'objHoursVal'), hrsIn = el('input');
-    recRow.appendChild(el('span', null, tr('Nombre recommandé'))); recRow.appendChild(recVal);
-    hrsIn.type = 'text'; hrsIn.inputMode = 'decimal'; hrsIn.maxLength = 4; hrsIn.setAttribute('aria-label', tr('Heures par semaine'));
-    hrsIn.addEventListener('input', function () { form.hoursTouched = true; var v = parseFloat(String(hrsIn.value).replace(',', '.')); form.hours = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; });
-    hrsVal.appendChild(hrsIn); hrsVal.appendChild(el('span', null, 'h'));
-    hrsRow.appendChild(el('span', null, tr('Heures par semaine'))); hrsRow.appendChild(hrsVal);
-    hoursBox.appendChild(recRow); hoursBox.appendChild(hrsRow); boxes.heures.appendChild(hoursBox);
-    function syncHours() {
-      var aid = form.activityId, adv = ctx.weeklyHours && aid != null ? ctx.weeklyHours[aid] : null;
-      recVal.textContent = adv ? fmtH(adv) : '—';
-      if (!form.hoursTouched) { form.hours = adv || null; hrsIn.value = adv ? String(adv) : ''; }
+    // Page « Heures » : une ligne par activité choisie (valeur de départ : son historique Chrono), modifiable.
+    var hoursBox = el('div', 'objTimeInfo'); boxes.heures.appendChild(hoursBox);
+    form.hoursBy = form.hoursBy || {};
+    function targets() { return form.acts.map(function (id) { return { key: 'a' + id, id: id, name: (actById(id) || {}).name || '' }; }).concat(form.news.map(function (n) { return { key: 'n' + n.key, pending: n, name: n.name }; })); }
+    function paintHours() {
+      hoursBox.textContent = '';
+      targets().forEach(function (t) {
+        var adv = t.id != null && ctx.weeklyHours ? ctx.weeklyHours[t.id] : null;
+        if (form.hoursBy[t.key] === undefined) form.hoursBy[t.key] = adv || null;
+        var rowH = el('div', 'objTimeRow'), val = el('span', 'objHoursVal'), inp = el('input');
+        inp.type = 'text'; inp.inputMode = 'decimal'; inp.maxLength = 4; inp.value = form.hoursBy[t.key] ? String(form.hoursBy[t.key]) : ''; inp.setAttribute('aria-label', tr('Heures par semaine') + ' : ' + t.name);
+        inp.addEventListener('input', function () { var v = parseFloat(String(inp.value).replace(',', '.')); form.hoursBy[t.key] = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; });
+        val.appendChild(inp); val.appendChild(el('span', null, 'h'));
+        rowH.appendChild(el('span', null, t.name + (adv ? ' · ' + fmtH(adv) : ''))); rowH.appendChild(val); hoursBox.appendChild(rowH);
+      });
     }
-    function refresh() { renderActivities(); renderCharge(); paintPeriods(); syncHours(); if (advBox) paintAdv(); }
+    function refresh() { renderActivities(); renderCharge(); paintPeriods(); paintHours(); if (advBox) paintAdv(); }
     refresh();
     // Étape « Niveau » : demandée SEULEMENT si des informations manquent (type d'objectif inconnu, plus d'un an, aucun historique Chrono) ; sinon sautée (3 étapes au lieu de 4).
     function needsLevel() { var dl = daysLeft(); return !ctx.estimate || (dl != null && dl > 365) || !(ctx.weeklyHours && form.activityId != null && ctx.weeklyHours[form.activityId]); }
@@ -437,7 +461,7 @@
       var key = form.title + '|' + (form.create ? 'new' : form.activityId);
       if (form.ratt && form.ratt.key === key) return Promise.resolve(); // même titre et même activité : la décision précédente reste
       form.ratt = { key: key, cand: null, rel: 'apres', decided: null }; form.parentId = null; form.parentRel = null; form.macroDecided = null; form.macroSel = null; form.macroTitle = undefined;
-      if (form.create || form.activityId == null) return Promise.resolve();
+      if (form.create || form.activityId == null || form.acts.length + form.news.length > 1) return Promise.resolve(); // plusieurs activités : macro, pas de rattachement
       return api('POST', '/api/objectifs/rattachement', { endDate: form.endDate, title: form.title, activityId: form.activityId, // une seule règle : le parent a une échéance au moins égale à celle du nouvel objectif
  refused: form.refused || [] }).then(function (r) {
         if (r && r.candidate) { form.ratt.cand = r.candidate; form.ratt.rel = r.rel || 'apres'; }
@@ -447,6 +471,7 @@
     function show(k) {
       form._step = cur = k;
       ['desc', 'rattach', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      newBox.classList.add('hidden'); if (k === 'heures') paintHours();
       if (k === 'rattach') paintRatt();
       panelKicker.textContent = tr(stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
@@ -460,7 +485,7 @@
       var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
       if (cur === 'desc') { if (!validDesc()) return; show(l[i + 1]); return; }
       if (cur === 'activite') { // le rattachement / la fusion dépendent de l'échéance ET de l'activité : proposés après la page Activité
-        if (!form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return; }
+        if (noActivity()) { msg.textContent = tr('Choisis une activité.'); return; }
         stepBtn.disabled = true; loadRatt().then(function () { stepBtn.disabled = false; stepNextFrom('activite'); }); return;
       }
       show(l[i + 1]);
@@ -469,7 +494,7 @@
       form.title = titleIn.value.trim();
       if (!form.title) { msg.textContent = tr('Écris ton objectif.'); return false; }
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return false; }
-      if (final && !form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return false; }
+      if (final && noActivity()) { msg.textContent = tr('Choisis une activité.'); return false; }
       return true;
     }
     function innerOf() { return multiPeriods() ? form.innerGoals : 'hebdomadaires'; }
@@ -478,15 +503,24 @@
       if (form.ratt && form.ratt.key !== form.title + '|' + (form.create ? 'new' : form.activityId)) { form.parentId = null; form.parentRel = null; form.macroDecided = null; } // l'activité a changé après la proposition de rattachement : plus de parent
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
-      var actName = form.create ? form.createName : (ctx.activities.filter(function (a) { return a.id === form.activityId; })[0] || {}).name;
+      var tg = targets(), actName = tg.length ? tg[0].name : '', madeIds = [], first = null;
       api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.create ? null : form.activityId, activityName: actName })
-        .then(function (P) { return (form.create ? api('POST', '/api/activities', { name: form.createName }).then(function (a) { return a.id; }) : Promise.resolve(form.activityId)).then(function (activityId) {
-          return api('POST', '/api/objectifs', { term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hours, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
-        }); })
-        .then(function (cr) { return cr && cr.id && allMacroIds().length ? api('POST', '/api/objectifs/macro', { childIds: [cr.id].concat(allMacroIds()), title: ((advIds().length ? form.advTitle : form.macroTitle) || form.title || '').trim() || form.title }).then(function () { return cr; }) : cr; }) // macro validé : créé APRÈS l'objectif, avec les objectifs choisis des autres activités
-        .then(function (created) { input.value = ''; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); if (created && created.bridgeFailed) openDetail(created.id); /* C12 : le message s’affiche dans le détail */ })
+        .then(function (P) {
+          var chain = Promise.resolve();
+          tg.forEach(function (t, k) { // une activité après l'autre : crée l'activité si elle est nouvelle, puis son objectif (même titre, même échéance)
+            chain = chain.then(function () { return t.pending ? api('POST', '/api/activities', { name: t.pending.name, color: t.pending.color || undefined }).then(function (a) { return a.id; }) : t.id; })
+              .then(function (activityId) {
+                return api('POST', '/api/objectifs', { term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, description: form.description, parentRel: k === 0 ? form.parentRel : null, refus: k === 0 ? form.refused : null, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: k === 0 ? form.parentId : null, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: k === 0 ? P.weekTasks : [] });
+              })
+              .then(function (cr) { if (cr && cr.id) { madeIds.push(cr.id); if (!first) first = cr; } });
+          });
+          return chain;
+        })
+        .then(function () { var all = madeIds.concat(allMacroIds()); return madeIds.length && all.length > 1 ? api('POST', '/api/objectifs/macro', { childIds: all, title: ((advIds().length ? form.advTitle : form.macroTitle) || form.title || '').trim() || form.title }) : null; }) // macro : un objectif par activité choisie (+ objectifs d'autres colonnes choisis en Avancé), créé APRÈS les objectifs
+        .then(function () { var created = first; input.value = ''; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); if (created && created.bridgeFailed) openDetail(created.id); /* C12 : le message s’affiche dans le détail */ })
         .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
     }
+
     form._show = show; show(cur);
 
   }

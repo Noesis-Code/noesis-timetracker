@@ -1097,6 +1097,7 @@
     if (current !== selected) onSelect(current);
     return current;
   }
+  window.TMT = window.TMT || {}; window.TMT.renderColorSwatches = renderColorSwatches; // réutilisé par la création d'objectif (nouvelle activité)
 
   // ===================== ONBOARDING =====================
   // Efface l'écran de chargement animé de public/index.html (#bootSplash).
