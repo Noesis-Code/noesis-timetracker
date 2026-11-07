@@ -90,22 +90,7 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(ext.periods[1].weeks.length === 5 && ext.endDate > made.endDate, 'prolonger d\'une semaine décale la suite');
   // Périodes FIXES 13 × 4 (6 nov. 2026) : plus de réglage global ; une constante unique (objectifs-temps.js), niveau de temps par objectif.
   assert(typeof o.periodsInfo === 'undefined' && typeof o.setPeriods === 'undefined' && require('../server/lib/objectifs-temps').PERIOD_WEEKS === 4 && require('../server/lib/objectifs-temps').PERIODS_PER_YEAR === 13 && made.periodWeeks === '4', 'périodes : réglage global supprimé, 13 × 4 fixes');
-  // Lecture de pièces jointes (fausse IA) : propose, ne crée rien ; image jamais stockée ; quota partagé avec « Proposer les étapes ».
-  const seen = [];
-  o.setReadCaller(async (a) => { seen.push(a); return JSON.stringify({ objectives: [{ title: 'Courir un 10 km en deux mois', amount: null, unit: null }, { title: 'Lire quatre livres', amount: 3, unit: 'mois' }, { title: '' }] }); });
-  const txt = { fileName: 'liste.txt', mimeType: 'text/plain', dataUrl: 'data:text/plain;base64,' + Buffer.from('- courir un 10 km - lire quatre livres').toString('base64') };
-  const png = { fileName: 'photo.png', mimeType: 'image/png', dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' };
-  const nObj = db.prepare('SELECT COUNT(*) AS n FROM user_objectives').get().n;
-  const lu = await o.lire(u, { files: [txt, png] });
-  assert(lu.objectives.length === 2 && lu.objectives[0].title === 'Courir un 10 km' && lu.objectives[0].amount === 2 && lu.objectives[1].unit === 'mois', 'lecture : objectifs proposés (ligne vide ignorée)');
-  assert(seen[0].texts.length === 1 && seen[0].images.length === 1, 'lecture : texte et image transmis à l IA pour cet appel');
-  assert(db.prepare('SELECT COUNT(*) AS n FROM user_objectives').get().n === nObj, 'lecture : rien nest créé');
-  bad = false; try { await o.lire(u, { files: [txt, txt, txt, txt] }); } catch (e) { bad = e.statusCode === 400; } assert(bad, 'lecture : 3 pièces jointes au plus');
-  db.prepare("INSERT INTO ai_usage_log (userId, day, model, feature, calls, inputTokens, outputTokens, costUsd) VALUES (?, ?, 'm', 'objectifs-lecture', 1, 1, 1, 0.1)").run(u, new Date().toISOString().slice(0, 10));
-  seen.length = 0; bad = false; try { await o.lire(u, { files: [txt] }); } catch (e) { bad = e.statusCode === 403 && /Expansion/.test(e.message); }
-  assert(bad && !seen.length, 'lecture : au-delà du gratuit, « disponible avec Expansion » sans lire le fichier');
-  assert(o.aiAllowed(u) === false, 'une lecture consomme lunique proposition gratuite du mois');
-  o.setReadCaller(null);
+  // (la lecture de pièces jointes à la création d'objectif a été retirée le 7 nov. 2026 : plus d'épingle dans la barre « Nouvel objectif… »)
   process.env.ANTHROPIC_API_KEY = 'x';
   assert(o.aiAllowed('autre-premier') === true, 'IA gratuite : première proposition du mois permise');
   db.prepare("INSERT INTO ai_usage_log (userId, day, model, feature, calls, inputTokens, outputTokens, costUsd) VALUES (?, ?, 'm', 'objectifs-creation', 1, 1, 1, 0.1)").run(u, new Date().toISOString().slice(0, 10));
