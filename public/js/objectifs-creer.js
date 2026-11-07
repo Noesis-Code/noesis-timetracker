@@ -219,10 +219,10 @@
     function paintGuide(focusWords) {
       guideBox.textContent = '';
       GUIDE.forEach(function (g, gi) {
-        var a = ans(g), open = form.guideOpen === gi, wrap = el('div', 'objGuideRow' + (open ? ' open' : ''));
+        var a = ans(g), open = form.guideOpen === gi, wrap = el('div', 'objField objGuideRow' + (open ? ' open' : ''));
         var head = btn('objGuideHead', '', function () { form.guideOpen = open ? -1 : gi; paintGuide(); });
         head.setAttribute('aria-expanded', open ? 'true' : 'false');
-        var pk = a.picks.map(function (x) { return tr(x).toLowerCase(); }).join(', '), tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr(g.q) + (pk && !open ? ' (' + pk + ')' : ''))); if (a.words.trim() && !open) tx.appendChild(el('small', 'hint', a.words.trim())); head.appendChild(tx); head.appendChild(el('span', 'hint', open ? '▾' : '▸')); // la réponse sous la question, la flèche à droite
+        var pk = a.picks.map(function (x) { return tr(x).toLowerCase(); }).join(', '), tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr(g.q))); if (a.words.trim() && !open) tx.appendChild(el('small', 'hint', a.words.trim())); head.appendChild(tx); head.appendChild(el('span', 'hint objGuideRight', (pk && !open ? '(' + pk + ')  ' : '') + (open ? '▾' : '▸'))); // la réponse sous la question, la flèche à droite
         wrap.appendChild(head);
         if (open) {
           var s = el('div', 'cmpSeg'), wordsIn = el('input');

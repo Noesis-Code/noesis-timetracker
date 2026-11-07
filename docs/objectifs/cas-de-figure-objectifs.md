@@ -683,3 +683,5 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 - Questions repliées (7 nov. 2026) : lignes collées (pas de marge entre elles) ; à côté de la question, les cases cochées entre parenthèses (« Comment le mesures-tu ? (chiffre, date) ») ; dessous, la réponse écrite (« 10 km en 1h ») ; flèche à droite. Vérifié à 375 px.
 
 - Bogue corrigé (7 nov. 2026) : le champ « Ton niveau actuel » de la page Niveau écrasait `form.level`, le niveau de l'arbre (activité/pôle/secteur) envoyé à la création : un objectif créé depuis l'arbre pouvait porter un niveau erroné. Le texte vit maintenant dans `form.skill` (non envoyé : aucun code serveur ne le lit encore). Page « Tâches » retirée (parcours de 4 pages au plus, « Terminer » sur la dernière, « Passer » termine sur la page Niveau).
+
+- Correctif de design (7 nov. 2026) : la barre « Quelques mots » retrouve son style d'origine (le conteneur reprend la classe `.objField`, qui porte le style des champs) ; les cases cochées restent À DROITE, en gris et entre parenthèses (« (chiffre, date) »), la réponse écrite dessous, sous la question. Vérifié à 375 px.
