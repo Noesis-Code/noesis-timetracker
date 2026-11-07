@@ -15,6 +15,9 @@ function periodOf(endDate) {
 }
 // État de fusion d'un macro à la date « today » : { mergeYear, mergePeriod, mergeStart, mergeEnd, mergeReached, mergePast }.
 function state(endDate, today) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(endDate || '')) || Number.isNaN(Date.parse(endDate + 'T00:00:00Z'))) { // échéance illisible : aucun état de fusion (jamais d'erreur serveur à la lecture)
+    return { mergeYear: null, mergePeriod: null, mergeStart: null, mergeEnd: null, mergeReached: false, mergePast: false };
+  }
   const p = periodOf(endDate);
   return { mergeYear: p.year, mergePeriod: p.number, mergeStart: p.start, mergeEnd: p.end, mergeReached: today >= p.start, mergePast: today > p.end };
 }

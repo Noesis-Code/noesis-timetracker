@@ -10,8 +10,8 @@ function run(fn) {
     if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
     try { res.json(await fn(req)); } catch (err) {
       if (err && err.statusCode) return res.status(err.statusCode).json(Object.assign({ error: err.message }, err.extra || {}));
-      console.error('[objectifs]', err);
-      res.status(500).json({ error: 'Erreur serveur' });
+      console.error('[objectifs] ' + req.method + ' ' + req.originalUrl.split('?')[0], err);
+      res.status(500).json({ error: 'Impossible pour le moment : réessaie dans un instant.' });
     }
   };
 }

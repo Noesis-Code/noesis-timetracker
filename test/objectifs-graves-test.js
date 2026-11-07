@@ -317,11 +317,11 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(o.get(u, m2.id).mergePast === true, 'macro dont la période est passée : fusion passée');
   let e = bad(() => o.lier(u, a1.id, null));
   assert(e && e.message === 'Fusion passée : impossible de délier.', 'fusion passée : délier refusé avec le message court');
-  e = bad(() => o.supprimer(u, m2.id, true));
-  assert(e && e.message === 'Fusion passée : impossible de délier.', 'fusion passée : supprimer le macro (tout délier) refusé aussi');
   e = bad(() => o.setMacro(u, m2.id, false));
   assert(e && /Fusion passée/.test(e.message), 'fusion passée : le macro ne redevient pas un objectif ordinaire');
   assert(o.get(u, a1.id).parentId === m2.id && o.get(u, c1.id).parentId === m2.id, 'aucune donnée supprimée ni détachée');
+  const del = o.supprimer(u, m2.id, true);
+  assert(del.ok && !db.prepare('SELECT 1 FROM user_objectives WHERE id = ?').get(m2.id) && o.get(u, a1.id).parentId === null && o.get(u, c1.id).parentId === null && !o.get(u, a1.id).isMacro, 'fusion passée : supprimer le macro reste permis (le macro disparaît, les enfants redeviennent des objectifs normaux, jamais supprimés)');
 }
 // ---- Macro séparé : plus de macro orphelin ----
 {
@@ -340,6 +340,45 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   db.prepare("INSERT INTO user_objectives (userId, activityId, title, amount, unit, startDate, endDate, isMacro, createdAt) VALUES (?, ?, 'Macro vide ancien', 1, 'mois', '2026-11-09', '2027-04-01', 1, '2026-11-09T00:00:00.000Z')").run(u, m.activity.id);
   assert(o.purgeOrphanMacros(u) >= 1 && !db.prepare("SELECT 1 FROM user_objectives WHERE title = 'Macro vide ancien'").get(), 'nettoyage des macros vides existants (démo)');
 }
+// ---- 11. Supprimer un macro (croix du mode édition) : jamais « erreur serveur », enfants conservés ----
+{
+  const fs = require('fs'), F = require('../server/lib/objectifs-fusion');
+  const newAct = (name) => { const id = Number(db.prepare("INSERT INTO activities (name, ownerId, active, createdAt) VALUES (?, ?, 1, '2026-11-01T00:00:00.000Z')").run(name, u).lastInsertRowid); db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#674EA7', '2026-11-01T00:00:00.000Z')").run(id, u); return id; };
+  const [S1, S2, S3, S4] = ['Suppr 1', 'Suppr 2', 'Suppr 3', 'Suppr 4'].map(newAct);
+  const mkS = (title, aid, extra) => o.creer(u, Object.assign({ title, activityId: aid, startDate: '2026-11-09', endDate: '2027-03-01', noBridge: true }, extra || {}));
+  const bad = (fn) => { try { fn(); return null; } catch (x) { return x; } };
+  const normal = (id) => { const r = db.prepare('SELECT parentId, isMacro FROM user_objectives WHERE id = ?').get(id); return !!r && r.parentId === null && !r.isMacro; };
+  // macro simple sur 3 colonnes
+  const a = mkS('s-a', S1), b = mkS('s-b', S2), c = mkS('s-c', S3);
+  const m1 = o.fusionnerEnMacro(u, { title: 'Macro simple', childIds: [a.id, b.id, c.id] });
+  const r1 = o.supprimer(u, m1.id, true);
+  assert(r1.ok && !db.prepare('SELECT 1 FROM user_objectives WHERE id = ?').get(m1.id) && [a, b, c].every((x) => normal(x.id)), 'macro simple sur 3 colonnes supprimé : les 3 objectifs redeviennent normaux, colonnes séparées');
+  assert(!o.macroGroups(u).some((g) => g.id === m1.id), 'plus aucun groupe de macro : l’ordre de présentation retrouve l’ordre de base');
+  // macro dont les enfants ont leurs propres sous-objectifs
+  const d = mkS('s-d', S1), e = mkS('s-e', S2), dk = mkS('s-d enfant', S1, { parentId: d.id, endDate: '2027-02-01' });
+  const m2 = o.fusionnerEnMacro(u, { title: 'Macro avec enfants', childIds: [d.id, e.id] });
+  let err = bad(() => o.supprimer(u, m2.id, false)); assert(err && err.statusCode === 409 && err.extra.children.length === 2, 'sans confirmation : 409 avec la liste des enfants (jamais d’erreur serveur)');
+  assert(o.supprimer(u, m2.id, true).ok && normal(d.id) && normal(e.id) && o.get(u, dk.id).parentId === d.id, 'macro avec enfants : enfants normaux, leurs propres sous-objectifs intacts');
+  // macro passé : la suppression reste permise
+  const f = mkS('s-f', S1), g = mkS('s-g', S2);
+  const m3 = o.fusionnerEnMacro(u, { title: 'Macro passé', childIds: [f.id, g.id] });
+  db.prepare("UPDATE user_objectives SET endDate = '2026-01-20', startDate = '2026-01-05' WHERE id IN (?, ?, ?)").run(m3.id, f.id, g.id);
+  assert(o.get(u, m3.id).mergePast === true, 'macro passé : fusion passée');
+  err = bad(() => o.lier(u, f.id, null)); assert(err && err.message === 'Fusion passée : impossible de délier.', 'macro passé : délier un enfant reste refusé (message court en français)');
+  assert(o.supprimer(u, m3.id, true).ok && normal(f.id) && normal(g.id), 'macro passé : supprimer le macro est permis, enfants redevenus normaux');
+  // macros chaînés : supprimer l'enfant puis le parent
+  const h = mkS('s-h', S1), i2 = mkS('s-i', S2), j = mkS('s-j', S3), k2 = mkS('s-k', S4);
+  const mA = o.fusionnerEnMacro(u, { title: 'Macro A', childIds: [h.id, i2.id] }), mB = o.fusionnerEnMacro(u, { title: 'Macro B', childIds: [j.id, k2.id] });
+  o.lier(u, mA.id, mB.id, 'avant');
+  assert(o.supprimer(u, mA.id, true).ok && normal(h.id) && normal(i2.id) && o.get(u, mB.id).macroChildren === 2 && !o.get(u, mB.id).childMacroIds.length, 'macro chaîné : supprimer le macro enfant détache ses objectifs, le macro parent reste avec les siens');
+  assert(o.supprimer(u, mB.id, true).ok && normal(j.id) && normal(k2.id), 'macro parent supprimé ensuite : ses objectifs redeviennent normaux');
+  // robustesse : une échéance illisible ne donne jamais d'erreur serveur
+  assert(F.state('', '2026-11-07').mergePast === false && F.state(null, '2026-11-07').mergeStart === null, 'échéance illisible : aucun état de fusion, aucune exception');
+  // messages lisibles : plus de « Erreur serveur » brut dans les routes d'objectifs
+  const rt = fs.readFileSync(require('path').join(__dirname, '..', 'server', 'routes', 'objectifs.js'), 'utf8');
+  assert(!rt.includes("'Erreur serveur'") && rt.includes('Impossible pour le moment'), 'routes d’objectifs : message lisible en français pour toute erreur inattendue');
+}
+
 // MARK-FIN
 const nRef = (id) => db.prepare('SELECT (SELECT COUNT(*) FROM user_objectives WHERE userId = ?) + (SELECT COUNT(*) FROM objectifs_refus WHERE userId = ?) AS n').get(id, id).n;
 assert(nRef(u) > 0, 'avant suppression : objectifs et refus du compte présents');

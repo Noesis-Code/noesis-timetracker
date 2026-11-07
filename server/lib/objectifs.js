@@ -991,7 +991,7 @@ function abandonner(userId, id, on) {
 // confirmée, les enfants sont détachés (ils redeviennent des objectifs finaux), jamais supprimés. Le secteur et les tâches déjà posés dans l'arbre périodique restent à l'utilisateur.
 function supprimer(userId, id, confirmed) {
   const r = rowOf(userId, id);
-  if (r.isMacro && fusion.state(r.endDate, today()).mergePast) throw err(fusion.MSG_PASSEE); // supprimer le macro = tout délier
+  // Supprimer un macro, même passé : le macro disparaît, ses enfants redeviennent des objectifs NORMAUX de leurs activités (jamais supprimés, jamais orphelins) ; seul « délier » un enfant d'un macro passé reste refusé (assertFusionOuverte).
   const kids = db.prepare('SELECT id, title FROM user_objectives WHERE userId = ? AND parentId = ? ORDER BY position, id').all(userId, r.id);
   if (kids.length && !confirmed) throw Object.assign(err('Cet objectif a ' + kids.length + ' objectif' + (kids.length > 1 ? 's rattachés' : ' rattaché') + ' : confirme pour les détacher.', 409), { extra: { children: kids } });
   db.exec('BEGIN');
@@ -1000,8 +1000,8 @@ function supprimer(userId, id, confirmed) {
     db.prepare('DELETE FROM objectifs_refus WHERE userId = ? AND (objectifId = ? OR candidateId = ?)').run(userId, r.id, r.id);
     db.prepare('DELETE FROM user_objectives WHERE id = ? AND userId = ?').run(r.id, userId);
     db.exec('COMMIT');
-    purgeOrphanMacros(userId); // un macro dont le dernier enfant vient d'être supprimé disparaît aussi
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  } catch (e) { try { db.exec('ROLLBACK'); } catch (e2) { /* aucune transaction ouverte : on garde l'erreur d'origine */ } throw e; }
+  try { purgeOrphanMacros(userId); } catch (e) { console.warn('[objectifs] nettoyage des macros vides : ' + (e && e.message)); } // un macro dont le dernier enfant vient d'être supprimé disparaît aussi ; jamais bloquant
   return { ok: true, detached: kids.map((k) => k.id) };
 }
 migrateEcheances(); // au chargement (idempotent)
