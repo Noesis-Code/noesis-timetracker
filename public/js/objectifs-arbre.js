@@ -69,7 +69,7 @@
     }
     b.appendChild(t);
     b.addEventListener('click', function () { // toucher = DESCENDRE d'un niveau dans la branche de la carte (jamais de panneau) ; en mode édition : ses paramètres
-      if (editMode) { if (TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(o.id); return; }
+      if (editMode) { if (TMT.objectifsView && TMT.objectifsView.openEdit) TMT.objectifsView.openEdit(o.id); return; }
       if (onTap) { onTap(); return; } if (extCol != null) descend(extCol, blockStart(o.endDate), Number(String(o.endDate).slice(0, 4)));
     });
     if (editMode) { b.appendChild(removeCross(o)); return b; } // mode édition : ni appui long « Étendre » ni glisser-lier
@@ -97,7 +97,7 @@
     var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMerged arCard ar-' + st); b.type = 'button'; b.setAttribute('data-ids', ids.join(',')); cellSize(b, w); paint(b, st, c);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', bigOf(os).title)); b.appendChild(t); // UN titre court, aucune ligne de comptage
     b.addEventListener('click', function () { // plusieurs objectifs : toucher = descendre d'un niveau ; en mode édition : la liste, pour choisir celui à modifier
-      if (editMode) { if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids); return; }
+      if (editMode) { if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids, { onPick: function (id) { if (TMT.objectifsView.openEdit) TMT.objectifsView.openEdit(id); } }); return; }
       if (onTap) { onTap(); return; } if (onOpen) onOpen();
     });
     if (editMode) { // carte « N objectifs » : la croix demande d'abord LEQUEL supprimer (même liste que le toucher), puis la confirmation rouge
@@ -121,7 +121,7 @@
     t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
     b.appendChild(t);
     b.addEventListener('click', function () { if (!editMode) { descend(c0, null, null, m); return; } // toucher COURT = descendre d'un niveau (règle générale) ; le mode Fusionner/Séparer s'ouvre UNIQUEMENT par l'appui long
-       if (m.id > 0 && TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(m.id); });
+       if (m.id > 0 && TMT.objectifsView && TMT.objectifsView.openEdit) TMT.objectifsView.openEdit(m.id); });
     if (editMode && m.id > 0) { b.appendChild(removeCross(m)); return b; }
     if (m.id > 0 && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', onHold: function () { startExtendEdit(m); } }); // appui long sur un macro : modifier les colonnes reliées
     return b;
@@ -238,7 +238,7 @@
     });
     b.addEventListener('click', function () { // toucher = descendre d'un niveau ; en mode édition : l'« objectif annuel » (résumé de l'année, GET resume-annuel) puis la liste des objectifs
       if (!editMode) { descend(ci, null, year); return; }
-      if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(os.map(function (o) { return o.id; }), { title: tr('Objectif annuel') + ' ' + year, intro: function () { return TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + os[0].activity.id + '&year=' + year).then(function (r) { return r && r.text; }); } });
+      if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(os.map(function (o) { return o.id; }), { title: tr('Objectif annuel') + ' ' + year, intro: function () { return TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + os[0].activity.id + '&year=' + year).then(function (r) { return r && r.text; }); }, onPick: function (id) { if (TMT.objectifsView.openEdit) TMT.objectifsView.openEdit(id); } });
     });
     if (editMode) b.appendChild(groupCross(os)); // mode édition : croix rouge (même fonction que les cartes de groupe)
     if (!editMode && TMT.ui && TMT.ui.holdDrag && ci != null) TMT.ui.holdDrag(b, { // appui long : le même mode Fusionner / Séparer qu'aux autres niveaux (colonnes = pôles d'une activité)
