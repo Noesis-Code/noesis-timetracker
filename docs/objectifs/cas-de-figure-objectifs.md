@@ -462,3 +462,10 @@ Page 1 de la Feuille de route = sélecteur « Tâches | Objectifs » (Objectifs 
 - **J07 Tâche déplacée vers un jour passé** : un ajout daté du passé est refusé (message J02) ; l'édition d'une ligne existante n'est pas bloquée par ce garde (À SURVEILLER : déplacer une tâche vers un jour passé la rend « en retard ») ; une tâche déjà datée dans le passé non faite reste « en retard » dans la liste d'AUJOURD'HUI, jamais dans la lecture seule du jour passé (qui ne montre que le fait).
 - **J08 Tri « Objectif »** : les tâches de la journée choisie sont groupées par objectif hebdomadaire ; les objectifs dont l'échéance est la plus proche à partir de ce jour d'abord, puis les objectifs déjà échus (le plus récemment échu d'abord) ; les tâches SANS objectif restent visibles, en tête, sans groupe. ✅
 - **J09 Tâche sans objectif** : visible dans tous les tris (en tête dans le tri « Objectif »). ✅
+
+## Calendrier depuis l'arbre (7 nov. 2026)
+
+- Niveau secteurs : toucher une case, VIDE ou occupée, ouvre le calendrier (page 3) au mois de la période (ouverture existante `openGoalsPeriodFromNotification`) ; « Ajouter un objectif périodique » s'y trouve. Case vide = calendrier (v994 « ajouter » remplacé à ce niveau ; la création reste possible aux autres niveaux et par la barre « Nouvel objectif… »).
+- Arrivé de l'arbre, le calendrier ne propose plus ni changement de pôle ni de secteur (cadre du pôle : seule la flèche ‹ reste, elle est le retour) ; seul le MOIS change (flèches et balayage). Une seule flèche de retour ramène à l'arbre au même niveau, à la même colonne et au même défilement.
+- Cas : mois sans objectif (la case ouvre le calendrier du mois, vide) ; secteur sans période dans le plan à ces dates : message « Aucune période du calendrier à ces dates », l'arbre reste ; retour d'arbre : niveau et défilement identiques.
+- Non fait : depuis la vue macro, un toucher direct sur une case d'année ou de période vers son détail puis le calendrier en deux touchers (le parcours reste : bloc, années, secteurs, période).

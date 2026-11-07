@@ -76,3 +76,5 @@
 /* Mode Étendre : colonnes incluses surlignées (contour violet), les autres atténuées. */
 .arExtOn { box-shadow: 0 0 0 2px var(--purple); }
 .arExtOff { opacity: .45; }
+/* Calendrier ouvert depuis l'arbre : on reste dans le secteur d'où l'on vient (ni pôle ni secteur à changer) ; seul le mois change. */
+html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { display: none !important; } /* la flèche ‹ du cadre du pôle devient le retour à l’arbre */

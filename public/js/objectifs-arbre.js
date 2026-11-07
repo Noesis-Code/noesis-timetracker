@@ -17,7 +17,7 @@
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
   var zoom = 'period', lvl = 'activite', focus = null, struct = null, split = {}, picked = null, animate = false, openPending = false;
-  var tree = null, items = [], zone = null, toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, scroller = null, gridArea = null, ext = null;
+  var tree = null, items = [], zone = null, toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, scroller = null, gridArea = null, ext = null, savedView = null, restoreView = null;
   var MIN_ROWS = 5;
   var RAIL = 30, GAP = 10; // largeur de la colonne de repères + gouttière (RAIL change avec le niveau : ovale d'un bloc de 5 ans, d'une année, rond d'une période)
 
@@ -286,7 +286,7 @@
       var by = (r && r.byCategory) || {}, keys = [preferKey].concat(curCols.map(function (c) { return c.key; })).concat(Object.keys(by)).filter(function (k) { return k != null && by[k]; });
       for (var i = 0; i < keys.length; i++) {
         var hit = ((by[keys[i]] && by[keys[i]].periods) || []).filter(function (p) { return p.startDate <= e0 && p.endDate >= s0; })[0];
-        if (hit) { TMT.openGoalsPeriodFromNotification(aid, keys[i], hit.periodNumber); return; }
+        if (hit) { savedView = { lvl: lvl, focus: focus, top: gridArea ? gridArea.scrollTop : 0, left: scroller ? scroller.scrollLeft : 0 }; document.documentElement.classList.add('calFromTree'); TMT.openGoalsPeriodFromNotification(aid, keys[i], hit.periodNumber); return; } // la flèche de retour du calendrier ramène à cet endroit exact de l'arbre ; ni pôle ni secteur ne s'y changent (calFromTree)
       }
       say(tr('Aucune période du calendrier à ces dates.'));
     }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });
@@ -449,7 +449,8 @@
       data.forEach(function (c, ci) {
         var es = cells[r][ci];
         if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols)); return; }
-        if (!es.length) row.appendChild(emptyCell(W, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
+        if (!es.length && lvl === 'secteur' && rw.p) row.appendChild(emptyCell(W, 'cal', function () { openCalendar(rw, c.col.key); })); // niveau secteurs : toucher une case vide ouvre AUSSI le calendrier (« Ajouter un objectif périodique » s'y trouve)
+        else if (!es.length) row.appendChild(emptyCell(W, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
         else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, W, rw.y)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
         else if (es.length > 1 && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, W, function () { descend(ci, rw.y); }, calTap(rw, c))); // plusieurs objectifs d'une même activité dans la même case : une seule carte
         else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, W); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, W, calTap(rw, c), ci)); }); row.appendChild(stack); }
@@ -479,7 +480,8 @@
       var gap = parseFloat(getComputedStyle(grid).getPropertyValue('--goalsGridGap')) || 34, minH = grid.classList.contains('arCompact') ? 40 : 64;
       grid.style.setProperty('--ar-cell-h', Math.max(minH, Math.min(120, Math.floor((H - 8 - (n - 1) * gap) / n))) + 'px');
     })();
-    if (needBase || keepTop == null) { needBase = false; gridArea.scrollTop = gridArea.scrollHeight; window.requestAnimationFrame(function () { if (gridArea) gridArea.scrollTop = gridArea.scrollHeight; }); } // ouverture : le présent (en bas)
+    if (restoreView) { gridArea.scrollTop = restoreView.top; scroller.scrollLeft = restoreView.left; restoreView = null; }
+    else if (needBase || keepTop == null) { needBase = false; gridArea.scrollTop = gridArea.scrollHeight; window.requestAnimationFrame(function () { if (gridArea) gridArea.scrollTop = gridArea.scrollHeight; }); } // ouverture : le présent (en bas)
     else { gridArea.scrollTop = keepTop; scroller.scrollLeft = keepLeft; }
   }
   // Pincer (tactile) ou Ctrl + molette (ordinateur) : descendre d'un niveau (écarter) / remonter (rapprocher). Une seule technique de zoom, la même partout dans l'arbre.
@@ -527,10 +529,26 @@
   }
   tree = document.getElementById('goalsObjArbre');
   if (tree) window.addEventListener('resize', function () { if (loaded && visible) render(); });
+  // UNE SEULE flèche de retour : depuis un calendrier ouvert par l'arbre, la flèche ‹ du cadre du pôle (qui ne change plus de pôle) ramène à l'arbre.
+  document.addEventListener('click', function (e) {
+    if (!document.documentElement.classList.contains('calFromTree') || !e.target.closest || !e.target.closest('#goalsPrevPoleBtn')) return;
+    e.stopPropagation(); e.preventDefault(); if (TMT.showGoalsCapturePage) TMT.showGoalsCapturePage();
+  }, true);
+  // Retour du calendrier : l'arbre réapparaît tel qu'il était (même niveau) ; le défilement mémorisé est remis, le drapeau « depuis l'arbre » levé.
+  if (tree && window.ResizeObserver) new ResizeObserver(function () {
+    if (!tree.getClientRects().length || !savedView) return;
+    if (gridArea) gridArea.scrollTop = savedView.top; if (scroller) scroller.scrollLeft = savedView.left;
+    document.documentElement.classList.remove('calFromTree'); savedView = null;
+  }).observe(tree);
   TMT.objectifsArbre = {
     refresh: refresh, render: render,
-    showBase: function () { needBase = true; visible = true; openPending = true; if (loaded) { applyOpen(); render(); } },
-    reopen: function () { if (visible) { needBase = true; openPending = true; if (loaded) { applyOpen(); render(); } refresh(); } }, // retour sur la page (statistiques, activité, calendrier) : ouverture recalculée
-    hide: function () { visible = false; }
+    showBase: function () {
+      document.documentElement.classList.remove('calFromTree');
+      visible = true;
+      if (savedView) { lvl = savedView.lvl; focus = savedView.focus; restoreView = savedView; savedView = null; needBase = false; openPending = false; if (loaded) render(); return; } // retour du calendrier : même niveau, même position
+      needBase = true; openPending = true; if (loaded) { applyOpen(); render(); }
+    },
+    reopen: function () { if (visible && !savedView) { needBase = true; openPending = true; if (loaded) { applyOpen(); render(); } refresh(); } }, // retour sur la page (statistiques, activité, calendrier) : ouverture recalculée
+    hide: function () { visible = false; document.documentElement.classList.remove('calFromTree'); }
   };
 })();
