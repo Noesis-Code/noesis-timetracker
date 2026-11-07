@@ -242,62 +242,20 @@
       });
     }
     paintGuide(); composeDesc();
-    if (ctx.fixedDate) { // date imposée (examen, mariage…) : jamais estimée ; la date est demandée en premier et obligatoire
-      var fixedIn = el('input'); fixedIn.type = 'date'; fixedIn.min = ctx.startDate; fixedIn.setAttribute('aria-label', tr('Date de l’échéance')); if (ctx.dateConfirmed || form.endFixed) fixedIn.value = form.endFixed ? form.endDate : ctx.endDate;
-      fixedIn.addEventListener('change', function () {
-        if (!fixedIn.value || fixedIn.value <= form.startDate) { form.dateOk = false; syncGo(); if (fixedIn.value) msg.textContent = MSG_PASSE; return; }
-        msg.textContent = '';
-        var dd = Math.round((Date.parse(fixedIn.value + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
-        form.endDate = fixedIn.value; form.amount = Math.max(1, Math.round(dd / 7)); form.unit = 'semaines'; form.periodWeeks = dd <= 28 ? '1' : dd <= 366 ? '4' : 'mois'; form.dateOk = true; syncGo(); refresh();
-      });
-      var fixedBox = el('div'); fixedBox.appendChild(fixedIn);
-      dueBox.appendChild(field(tr('Date de l’échéance'), fixedBox)); window.setTimeout(function () { if (!ctx.dateConfirmed && !form.endFixed) fixedIn.focus(); }, 50);
-    }
-
-
-    var amountIn = el('input', 'objAmount'); amountIn.type = 'text'; amountIn.inputMode = 'numeric'; amountIn.maxLength = 3; amountIn.autocomplete = 'off'; amountIn.value = form.amount; amountIn.setAttribute('aria-label', tr('Nombre'));
-    var unitSeg = null, datesHint = el('p', 'hint objDates'), pickLink = btn('objLink', tr('ou choisir une date')), dateIn = el('input', 'objDatePick'); dateIn.type = 'date'; dateIn.tabIndex = -1;
-    var units = [['semaines', tr('Semaines')], ['mois', tr('Mois')], ['années', tr('Années')]];
-    var rangeHint = el('p', 'hint objRange');
-    function paintDates() {
-      var e = ctx.estimate;
-      if (form.endFixed) { datesHint.textContent = tr('Échéance') + ' : ' + dateText(form.endDate); rangeHint.classList.add('hidden'); return; } // case de l'arbre : période imposée, non modifiable
-      if (!form.endDate) { datesHint.textContent = tr('Indique une durée valide') + ' · '; rangeHint.classList.add('hidden'); datesHint.appendChild(pickLink); return; }
-      if (e && !form.durTouched) { // date butoir proposée par la base de durées (sans IA), toujours modifiable
-        datesHint.textContent = tr('Proposé') + ' : ' + dateText(form.endDate) + ' · ';
-      } else { datesHint.textContent = tr('Du') + ' ' + dateText(form.startDate) + ' ' + tr('au') + ' ' + dateText(form.endDate) + ' · '; rangeHint.classList.add('hidden'); }
-      datesHint.appendChild(pickLink);
-    }
-    var timer = 0;
-    var dseq = 0;
-    function refreshDates() {
-      clearTimeout(timer); var mine = ++dseq; // une réponse en retard ne remplace jamais une saisie plus récente
-      timer = setTimeout(function () {
-        api('POST', '/api/objectifs/contexte', { text: form.title || ctx.title, amount: form.amount, unit: form.unit }).then(function (c) { if (mine !== dseq) return; form.endDate = c.endDate; form.periodWeeks = c.periodWeeks; form.dateOk = true; syncGo(); paintDates(); refresh(); }).catch(function () { if (mine !== dseq) return; form.endDate = null; form.dateOk = false; syncGo(); paintDates();});
-      }, 150);
-    }
-    var MAXN = { semaines: 156, mois: 120, 'années': 10 };
-    function applyDuration() { // nombre vide, 0, trop grand ou non numérique : pas de date (jamais NaN), la flèche reste grisée
-      var s = String(amountIn.value).trim(), n = /^\d+$/.test(s) ? parseInt(s, 10) : NaN;
-      form.durTouched = true;
-      if (!(n >= 1 && n <= MAXN[form.unit])) { dseq++; clearTimeout(timer); form.endDate = null; form.dateOk = false; paintDates(); syncGo(); return; }
-      form.amount = n; form.dateOk = true; syncGo(); refreshDates();
-    }
-    amountIn.addEventListener('input', applyDuration);
-    function buildUnits() {
-      var nw = seg(units, form.unit, function (u) { form.unit = u; applyDuration(); }, tr('Unité'));
-      if (unitSeg) unitSeg.replaceWith(nw); unitSeg = nw; return nw;
-    }
-    pickLink.addEventListener('click', function () { dateIn.min = ctx.startDate; if (dateIn.showPicker) { try { dateIn.showPicker(); return; } catch (e) { /* repli */ } } dateIn.focus(); dateIn.click(); });
+    // Échéance (page 1) : « Date d'échéance : » et UN petit champ date à droite (calendrier natif), rien d'autre. Proposée par la base de durées (sans IA) ou imposée par la case de l'arbre.
+    var dateIn = el('input', 'objDueInput'); dateIn.type = 'date'; dateIn.min = ctx.startDate; dateIn.setAttribute('aria-label', tr('Date d’échéance'));
+    function paintDates() { if (!form.endFixed) dateIn.value = ctx.fixedDate && !ctx.dateConfirmed && !form.endDate ? '' : (form.endDate || ''); }
     dateIn.addEventListener('change', function () {
-      if (!dateIn.value || dateIn.value <= form.startDate) { if (dateIn.value) { form.dateOk = false; syncGo(); msg.textContent = MSG_PASSE; } return; }
+      var v = dateIn.value;
+      if (!v || v <= form.startDate) { form.dateOk = false; syncGo(); if (v) msg.textContent = MSG_PASSE; return; }
       msg.textContent = '';
-      var days = Math.round((Date.parse(dateIn.value + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
-      form.durTouched = true; form.dateOk = true; syncGo(); form.endDate = dateIn.value; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines'; amountIn.value = form.amount; form.periodWeeks = days <= 28 ? '1' : days <= 366 ? '4' : 'mois'; buildUnits(); paintDates(); refresh();
+      var days = Math.round((Date.parse(v + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
+      form.durTouched = true; form.dateOk = true; form.endDate = v; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines'; form.periodWeeks = days <= 28 ? '1' : days <= 366 ? '4' : 'mois'; syncGo(); refresh();
     });
-    var durRow = el('div', 'objDurRow'); durRow.appendChild(amountIn); durRow.appendChild(buildUnits());
-    var durBox = el('div'); if (!ctx.fixedDate && !form.endFixed) durBox.appendChild(durRow); durBox.appendChild(datesHint); if (!form.endFixed) durBox.appendChild(dateIn);
-    paintDates(); dueBox.appendChild(field(ctx.fixedDate || form.endFixed ? tr('Période') : tr('Durée'), durBox));
+    if (ctx.fixedDate && !ctx.dateConfirmed && !form.endFixed) { form.endDate = null; form.dateOk = false; window.setTimeout(function () { dateIn.focus(); }, 50); } // date imposée par le type d'objectif (examen, mariage…) : demandée, jamais estimée
+    var dueRow = el('div', 'objDueRow'); dueRow.appendChild(el('span', 'objDueLabel', tr('Date d’échéance') + ' :'));
+    if (form.endFixed) dueRow.appendChild(el('span', 'objDueLabel', dateText(form.endDate))); else dueRow.appendChild(dateIn); // depuis l'arbre : échéance de la case, non modifiable
+    paintDates(); dueBox.appendChild(dueRow);
 
     var actBox = el('div'), chargeBox = el('div');
     boxes.activite.appendChild(actBox); boxes.activite.appendChild(chargeBox);
