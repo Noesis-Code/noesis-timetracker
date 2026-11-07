@@ -25,11 +25,11 @@
     var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return hex || '#674EA7';
     return '#' + [0, 2, 4].map(function (i) { var v = parseInt(m[1].substr(i, 2), 16), x = Math.round(v + (255 - v) * k).toString(16); return x.length < 2 ? '0' + x : x; }).join('');
   }
-  function shadeL(hex, k) { // même teinte, luminosité réduite de k (0,25 = 25 %) : la bulle d'une colonne est plus foncée que ses cartes
+  function shadeL(hex, k, sMul) { // même teinte, luminosité réduite de k (0,25 = 25 %) : la bulle d'une colonne est plus foncée que ses cartes
     var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return hex;
     var r = parseInt(m[1].substr(0, 2), 16) / 255, g = parseInt(m[1].substr(2, 2), 16) / 255, b = parseInt(m[1].substr(4, 2), 16) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, h = 0, s = 0, d = mx - mn;
     if (d) { s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; }
-    l = l * (1 - k);
+    l = Math.max(0, Math.min(1, l * (1 - k))); s = Math.min(1, s * (sMul || 1));
     var q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q, f = function (t) { if (t < 0) t += 1; if (t > 1) t -= 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
     var rgb = s ? [f(h + 1 / 3), f(h), f(h - 1 / 3)] : [l, l, l];
     return '#' + rgb.map(function (x) { return ('0' + Math.round(x * 255).toString(16)).slice(-2); }).join('');
@@ -48,10 +48,12 @@
   function descendants(id, kids) { var out = {}; (function walk(i) { (kids[i] || []).forEach(function (k) { out[k.id] = true; walk(k.id); }); })(id); return out; }
   // MÊME cadre pour tous les objectifs : bordure fine de la couleur de l'activité (pleine, ou pointillée pour « à venir ») ; l'état = la teinte (vif, pâle, vide + pointillé, atténué).
   function paint(b, st, c) {
-    // Carte PLEINE (comme l'arbre périodique original) : aucun liseré de couleur, le contour est celui du fond ; l'état ne change que la teinte (pâle, plus pâle à venir, vive).
-    var fill = st === 'now' || st === 'dropped' ? mix(c, 0.7) : st === 'future' ? mix(c, 0.82) : c;
+    // Carte PLEINE de la couleur de la colonne (comme l'arbre périodique original), sans liseré de couleur : le contour est celui du fond. L'état ne varie que par la luminosité de CETTE couleur :
+    // en cours = couleur pleine ; réalisé = plus vive ; à venir = plus claire ; abandonné = plus sombre et atténuée. Texte lisible via TMT.readableTextOn.
+    var fill = st === 'done' ? shadeL(c, -0.1, 1.25) : st === 'future' ? mix(c, 0.4) : st === 'dropped' ? shadeL(c, 0.35) : c;
     b.style.background = fill; b.style.borderWidth = '2px'; b.style.borderStyle = 'solid'; b.style.borderColor = fill; b.style.setProperty('--ar-c', fill); // --ar-c : la règle de la page 2 rend les bordures transparentes (!important)
-    b.style.color = st === 'done' ? (TMT.readableTextOn ? TMT.readableTextOn(c) : '#fff') : '#1a1a1a';
+    b.style.color = TMT.readableTextOn ? TMT.readableTextOn(fill) : 'inherit';
+    if (st === 'dropped') b.style.opacity = '0.75';
   }
   function link(o, pid) {
     if (pid === o.parentId) return;
@@ -76,8 +78,8 @@
   function cellSize(node, w) { node.style.flex = '0 0 ' + w + 'px'; node.style.width = w + 'px'; }
 
   // mode : 'simple' (nom seul, niveau activités) | 'detail' (durée, état, objectifs rattachés, niveaux pôle et secteur). La carte EST la case (.goalsGridCell--filled).
-  function removeCross(o) { // petite croix rouge en haut à droite (composant .cmpRemove, R32) : supprime après confirmation (les objectifs rattachés sont détachés)
-    var x = TMT.ui.removeBtn(function (e) { if (e && e.stopPropagation) e.stopPropagation(); if (TMT.objectifsView && TMT.objectifsView.confirmDelete) TMT.objectifsView.confirmDelete(o.id, o.title); }, tr('Supprimer cet objectif'));
+  function removeCross(o, onClick) { // petite croix rouge en haut à droite (composant .cmpRemove, R32) : supprime après confirmation (les objectifs rattachés sont détachés)
+    var x = TMT.ui.removeBtn(function (e) { if (e && e.stopPropagation) e.stopPropagation(); if (onClick) { onClick(); return; } if (TMT.objectifsView && TMT.objectifsView.confirmDelete) TMT.objectifsView.confirmDelete(o.id, o.title); }, tr('Supprimer cet objectif'));
     x.className = 'cmpRemove cmpRemove--corner'; x.setAttribute('aria-label', tr('Supprimer cet objectif')); x.addEventListener('pointerdown', function (e) { e.stopPropagation(); }); return x;
   }
   function card(o, today, all, mode, w, onTap, extCol, colColor) {
@@ -136,7 +138,10 @@
       if (editMode) { if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids); return; }
       if (onTap) { onTap(); return; } if (onOpen) onOpen();
     });
-    if (editMode) return b;
+    if (editMode) { // carte « N objectifs » : la croix demande d'abord LEQUEL supprimer (même liste que le toucher), puis la confirmation rouge
+      b.appendChild(removeCross(null, function () { if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids, { title: tr('Supprimer quel objectif ?'), onPick: function (id) { var t = os.filter(function (x) { return x.id === id; })[0]; if (t && TMT.objectifsView.confirmDelete) TMT.objectifsView.confirmDelete(id, t.title); } }); }));
+      return b;
+    }
     if (TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, {
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
       onHold: function () {
@@ -318,7 +323,7 @@
     var oval = !rw.p, st = rw.rank > here.rank ? 'future' : rw.rank === here.rank ? 'current' : 'past', m = el('span', 'goalsRowMarker goalsRowMarker--' + st + (oval ? ' goalsRowMarker--ovale' : ''));
     var label = rw.block ? rw.y + '-' + rw.y2 : rw.p ? String(rw.p) : String(rw.y);
     m.setAttribute('aria-label', rw.p ? tr('Période') + ' ' + rw.p + ' · ' + rw.y : label);
-    if (st !== 'past') m.textContent = label;
+    if (st !== 'past') { if (rw.block) { m.classList.add('arBlockTag'); m.appendChild(el('span', null, String(rw.y))); m.appendChild(el('span', null, String(rw.y2))); } else m.textContent = label; } // bloc de 5 ans : les deux années COMPLÈTES l'une au-dessus de l'autre dans une étroite pastille cerclée
     if (st === 'current') { m.style.background = 'var(--text)'; m.style.color = 'var(--bg)'; }
     if (onTap) { m.setAttribute('role', 'button'); m.tabIndex = 0; m.style.cursor = 'pointer'; m.addEventListener('click', onTap); }
     return m;
@@ -392,7 +397,7 @@
     var keepTop = !needBase && gridArea ? gridArea.scrollTop : null, keepLeft = !needBase && scroller ? scroller.scrollLeft : 0;
     tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024); fitTree();
     zoom = lvl === 'activite' ? 'block' : lvl === 'pole' ? 'year' : 'period'; // le temps suit le zoom : arbre macro = blocs de 5 ans (pluriannuel), années (annuel), périodes 13 × 4 (période)
-    var mw = zoom === 'block' ? 88 : zoom === 'year' ? 56 : 52; RAIL = mw + 10; tree.style.setProperty('--ar-mw', mw + 'px'); tree.style.setProperty('--ar-pl', (mw + 6) + 'px'); // colonne de repères : ovale d'un bloc / d'une année, rond d'une période (+ année en ovale)
+    var mw = 46; RAIL = mw + 10; tree.style.setProperty('--ar-mw', mw + 'px'); tree.style.setProperty('--ar-pl', (mw + 6) + 'px'); // colonne de repères : ovale d'un bloc / d'une année, rond d'une période (+ année en ovale)
     var today = dayIso(), keep = visibleSet(today), shown = items.filter(function (o) { return keep[o.id]; });
     tree.classList.toggle('arEditing', editMode);
     if (items.length) { var zb = el('div', 'arZoomRow'); if (lvl !== 'activite') zb.appendChild(backNav()); zb.appendChild(editToggle()); tree.appendChild(zb); }
@@ -498,7 +503,7 @@
     var column = el('div', 'arColumn'); gridArea = el('div', 'arGridArea'); gridArea.appendChild(grid); column.appendChild(gridArea);
     var baseWrap = el('div', 'goalsGrid arBaseWrap'), baseRow = el('div', 'goalsGridRow arBaseRow'), spacer = el('span', 'goalsRowMarker goalsRowMarker--past arSpacer'); spacer.setAttribute('aria-hidden', 'true'); baseRow.appendChild(spacer);
     data.forEach(function (c, ci) {
-      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); var deep = shadeL(c.color, 0.25); b.style.background = deep; b.style.borderColor = deep;
+      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; // étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
       var dot = el('i', 'arDot'); dot.style.background = c.color; b.appendChild(dot); b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
       b.addEventListener('click', function () { descend(ci); });
       baseRow.appendChild(b);

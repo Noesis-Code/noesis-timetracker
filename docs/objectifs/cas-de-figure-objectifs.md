@@ -472,7 +472,7 @@ Page 1 de la Feuille de route = sélecteur « Tâches | Objectifs » (Objectifs 
 
 ## Couleurs de l'arbre (7 nov. 2026)
 
-- Activité sans pôle : une seule colonne, couleur de l'activité ; bulle = cette teinte assombrie (luminosité −25 %), nom en blanc, cartes pâles de la même teinte.
+- Activité sans pôle : une seule colonne, couleur de l'activité ; étiquette non remplie (contour de la couleur, pastille, nom en blanc), cartes de la couleur pleine ; états : réalisé plus vive, à venir plus claire, abandonné plus sombre.
 - Plus de 5 pôles : `TMT.subProjectShade` ne fournit que 5 nuances ; à partir du 6e pôle les nuances se répètent (rang modulo 5). Les bulles gardent leur nom pour les distinguer.
 - Pôle réordonné : la nuance suit le NOUVEAU rang (la nuance est fixée par le rang, pas par le pôle) ; cartes et bulles se recolorent ensemble.
 - Pôle supprimé : les rangs se resserrent, les pôles restants reprennent les nuances 1 à n.
@@ -485,3 +485,8 @@ Page 1 de la Feuille de route = sélecteur « Tâches | Objectifs » (Objectifs 
 - Toucher une carte en mode édition ouvre ses paramètres (détail existant : échéance, rattachement sous Avancé, abandon/réactivation). Les champs à ajouter sont dans `parametres-objectif.md`, en attente d'Émilien.
 - Croix rouge : confirmation `TMT.ui.confirm` (« Supprimer », rouge) ; les objectifs rattachés sont listés puis détachés, jamais supprimés.
 - Le mode édition coupe l'appui long « Étendre » et le glisser-lier (le plus simple) ; le crayon retouché le quitte ; quitter l'écran le quitte aussi.
+
+## Mode édition : croix et repères (7 nov. 2026)
+
+- Le mode est une classe sur l'arbre ENTIER : toutes les colonnes, visibles ou défilées hors écran, tremblent et portent la croix rouge. Test : nombre de croix = nombre de cartes d'objectif rendues (résumé annuel exclu). Une carte « N objectifs » porte aussi la croix : elle demande LEQUEL supprimer, puis la confirmation rouge. Mesuré avec 4 colonnes et défilement horizontal : 10 cartes, 10 croix.
+- Repères du temps : colonne de 46 px à tous les niveaux (avant : 88 px pour les blocs, 56 px pour les années, 52 px pour les périodes). Bloc de 5 ans = deux années complètes superposées (13 px) dans une pastille cerclée ; année = pastille de 4 chiffres ; bloc courant en pastille pleine claire.

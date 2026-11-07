@@ -522,8 +522,18 @@
   }
   // ---------- Fenêtre « détail d'un objectif » ----------
   function openDetail(id) {
-    var win = openModal('', { onClose: load }), idx = null, o = null, advOpenD = false, parentList = null, parMsg = '';
+    var win = openModal('', { onClose: load }), idx = null, o = null, advOpenD = false, parentList = null, parMsg = '', draft = null, saveMsg = '', syncSave = function () {};
     win.head.textContent = '';
+    function dirty() { return !!draft && (draft.title !== o.title || draft.end !== o.endDate || draft.desc !== (o.description || '')); }
+    function saveAll() { // Enregistrer (R35) : titre, échéance, description ; chaque refus du serveur s'affiche en une phrase courte
+      var calls = [];
+      if (draft.title !== o.title) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/titre', { title: draft.title }); });
+      if (draft.desc !== (o.description || '')) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/description', { description: draft.desc }); });
+      if (draft.end !== o.endDate) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/echeance', { endDate: draft.end }); });
+      var chain = Promise.resolve(); calls.forEach(function (c) { chain = chain.then(c); });
+      chain.then(function () { return api('GET', '/api/objectifs/' + id); }).then(function (n) { o = n; draft = null; saveMsg = ''; idx = null; draw(); })
+        .catch(function (e) { api('GET', '/api/objectifs/' + id).then(function (n) { o = n; draft = { title: draft.title, end: draft.end, desc: draft.desc }; saveMsg = (e && e.message) || tr('Impossible pour le moment.'); draw(); }).catch(function () {}); });
+    }
     function draw() {
       win.head.textContent = ''; win.body.textContent = ''; win.foot.textContent = '';
       var t = el('div', 'objDetailTitle'), d = el('span', 'objDot'); if (o.activity.color) d.style.background = o.activity.color;
@@ -532,6 +542,10 @@
       win.head.appendChild(el('p', 'objMeta objSub', o.durationLabel + ' · ' + tr('jusqu’au') + ' ' + dateText(o.endDate) + ' · ' + o.activity.name + (o.abandoned ? ' · ' + tr('abandonné') : '')));
       if (o.description) win.head.appendChild(el('p', 'objDesc', o.description)); // description saisie à la création
       if (o.bridgeFailed) win.head.appendChild(el('p', 'objNote', tr('Cet objectif est enregistré, mais il n’apparaît pas encore dans le calendrier : cette activité a atteint 10 secteurs par pôle. Retire un secteur dans « Gérer mes catégories », puis rouvre cet objectif.'))); // C12
+      if (!draft) draft = { title: o.title, end: o.endDate, desc: o.description || '' };
+      var tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = draft.title; tIn.setAttribute('aria-label', tr('Titre'));
+      var eIn = el('input'); eIn.type = 'date'; eIn.value = draft.end; eIn.min = o.startDate; eIn.setAttribute('aria-label', tr('Échéance'));
+      win.body.appendChild(field(tr('Titre'), tIn)); win.body.appendChild(field(tr('Échéance'), eIn));
       if (idx == null) idx = o.currentPeriod.n - 1;
       var p = o.periods[idx];
       if (o.bilan) {
@@ -592,6 +606,8 @@
       }); // R8 : repliable, fermé par défaut
       hd.setAttribute('aria-expanded', advOpenD ? 'true' : 'false'); advD.appendChild(hd);
       if (advOpenD) {
+        var dIn = el('textarea'); dIn.rows = 3; dIn.maxLength = 1000; dIn.value = draft.desc; dIn.setAttribute('aria-label', tr('Description (pour l’IA)'));
+        dIn.addEventListener('input', function () { draft.desc = dIn.value; syncSave(); }); advD.appendChild(field(tr('Description (pour l’IA)'), dIn));
         advD.appendChild(el('p', 'cmpBlockTitle', tr('Rattaché à')));
         if (!parentList) advD.appendChild(el('p', 'hint', tr('Chargement…')));
         else {
@@ -605,7 +621,9 @@
         }
         advD.appendChild(el('p', 'tasksMsg objMsg', parMsg)); parMsg = '';
       }
-      win.foot.appendChild(advD); win.foot.appendChild(f);
+      var sv = btn('cmpBtn cmpBtnIdle', tr('Enregistrer'), saveAll); sv.disabled = true; syncSave = function () { var d = dirty(); sv.disabled = !d; sv.classList.toggle('cmpBtnIdle', !d); };
+      tIn.addEventListener('input', function () { draft.title = tIn.value; syncSave(); }); eIn.addEventListener('input', function () { draft.end = eIn.value; syncSave(); }); syncSave();
+      win.foot.appendChild(advD); if (saveMsg) win.foot.appendChild(el('p', 'tasksMsg objMsg', saveMsg)); win.foot.appendChild(sv); win.foot.appendChild(f);
     }
     function deleteIt() { confirmDelete(id, o.title, function () { win.close(); load(); }, function (e) { win.body.appendChild(el('p', 'objNote', (e && e.message) || tr('Impossible pour le moment.'))); }); }
     function setParent(pid) { api('PUT', '/api/objectifs/' + id + '/parent', { parentId: pid, rel: 'apres' }).then(function () { return api('GET', '/api/objectifs/' + id); }).then(function (n) { o = n; parentList = null; advOpenD = false; draw(); }).catch(function (err) { parMsg = (err && err.message) || tr('Impossible pour le moment.'); draw(); }); }

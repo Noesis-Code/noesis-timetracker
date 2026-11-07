@@ -34,18 +34,19 @@ function aiMode(userId) {
   try { if (db.prepare('SELECT 1 FROM ai_tokens WHERE userId = ? AND revokedAt IS NULL LIMIT 1').get(userId)) return 'personnelle'; } catch (e) { /* repli */ }
   return 'aucune';
 }
+function descOf(metaJson) { try { return String(JSON.parse(metaJson || '{}').description || '').replace(/\s+/g, ' ').trim().slice(0, 300); } catch (e) { return ''; } } // « Description (pour l'IA) » : 300 caractères au plus
 function bigOnes(userId, activityId, year) {
   return db.prepare(`SELECT o.id, o.title, o.endDate, o.metaJson FROM user_objectives o
     WHERE o.userId = ? AND o.activityId = ? AND substr(o.endDate, 1, 4) = ?
       AND EXISTS (SELECT 1 FROM user_objectives c WHERE c.parentId = o.id AND c.userId = o.userId)
     ORDER BY o.endDate, o.id`).all(userId, activityId, String(year))
     .filter((r) => { try { return !JSON.parse(r.metaJson || '{}').abandoned; } catch (e) { return true; } })
-    .map((r) => ({ id: r.id, title: r.title, endDate: r.endDate }));
+    .map((r) => ({ id: r.id, title: r.title, endDate: r.endDate, desc: descOf(r.metaJson) }));
 }
-const hashOf = (bigs) => crypto.createHash('sha256').update(JSON.stringify(bigs.map((b) => [b.id, b.title, b.endDate]))).digest('hex');
+const hashOf = (bigs) => crypto.createHash('sha256').update(JSON.stringify(bigs.map((b) => [b.id, b.title, b.endDate, b.desc]))).digest('hex');
 const titlesText = (bigs) => bigs.map((b) => '- ' + b.title).join('\n');
 function buildPrompt(bigs, year) {
-  return 'Année ' + year + '. Grands objectifs :\n' + bigs.slice(0, MAX_OBJECTIVES).map((b) => '- ' + String(b.title).slice(0, MAX_TITLE) + ' (échéance ' + b.endDate + ')').join('\n');
+  return 'Année ' + year + '. Grands objectifs :\n' + bigs.slice(0, MAX_OBJECTIVES).map((b) => '- ' + String(b.title).slice(0, MAX_TITLE) + ' (échéance ' + b.endDate + ')' + (b.desc ? ' — ' + b.desc : '')).join('\n');
 }
 function clean(text) {
   const lines = String(text || '').replace(/\r/g, '').split('\n').map((l) => l.trim()).filter(Boolean);
@@ -115,10 +116,10 @@ function titlesFor(userId, body) {
       db.prepare('SELECT id, title, metaJson FROM user_objectives WHERE userId = ? AND isMacro = 0 AND ' + where + ' ORDER BY id DESC').all(userId, ...args).filter(notAb).slice(0, 2).forEach((r) => rows.push(r));
     });
   } else throw err('Indique des objectifs ou des colonnes à relier.');
-  const seen = new Set(), titles = [];
-  rows.forEach((r) => { if (!seen.has(r.id)) { seen.add(r.id); titles.push(String(r.title)); } });
+  const seen = new Set(), titles = []; titles.descs = [];
+  rows.forEach((r) => { if (!seen.has(r.id)) { seen.add(r.id); titles.push(String(r.title)); titles.descs.push(descOf(r.metaJson)); } });
   if (!titles.length) throw err('Aucun objectif à relier.');
-  return titles.slice(0, 12);
+  const out = titles.slice(0, 12); out.descs = titles.descs.slice(0, 12); return out;
 }
 const clipLine = (s) => { const t = String(s || '').replace(/[\r\n]+/g, ' ').replace(/^["«\s]+|["»\s]+$/g, '').trim(); return t.length > MAX_TITLE_LINE ? t.slice(0, MAX_TITLE_LINE - 1).trimEnd() + '…' : t; };
 const firstLine = (s) => clipLine(String(s || '').split(/\r?\n/).find((l) => l.trim()) || '');
@@ -126,8 +127,8 @@ async function titreMacro(userId, body) {
   const titles = titlesFor(userId, body), joined = clipLine(titles.join(' · '));
   const mode = aiMode(userId);
   if (mode !== 'expansion') return { title: joined, source: 'titres', iaPersonnelle: mode === 'personnelle' }; // zéro appel Anthropic, crédit gratuit intact
-  const prompt = 'Objectifs à englober :\n' + titles.map((t) => '- ' + t.slice(0, MAX_TITLE)).join('\n');
-  const hash = crypto.createHash('sha256').update(JSON.stringify(titles)).digest('hex');
+  const prompt = 'Objectifs à englober :\n' + titles.map((t, i) => '- ' + t.slice(0, MAX_TITLE) + (titles.descs && titles.descs[i] ? ' — ' + titles.descs[i] : '')).join('\n');
+  const hash = crypto.createHash('sha256').update(JSON.stringify([titles, titles.descs || []])).digest('hex');
   let line = null;
   try {
     const aicache = require('./aicache');

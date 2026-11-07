@@ -35,7 +35,7 @@
 @media (prefers-reduced-motion: reduce) { .arEnter { animation: none; } }
 .arToast { position: fixed; left: 16px; right: 16px; z-index: 45; margin: 0 auto; max-width: 420px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--card); color: var(--text); font-size: 13px; text-align: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); pointer-events: none; }
 .arToast.hidden { display: none; }
-.arBubble { position: relative; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 14px; border: 2px solid transparent; border-radius: var(--radius-md); background: var(--card); color: #fff; font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: left; cursor: pointer; pointer-events: auto; box-sizing: border-box; } /* comme les cartes de l'arbre périodique : même rayon, contour plein de la couleur de l'activité */
+.arBubble { position: relative; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 14px; border: 2px solid var(--track-bg); border-radius: var(--radius-md); background: var(--glass-bg); color: var(--text); font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: left; cursor: pointer; pointer-events: auto; box-sizing: border-box; } /* comme les cartes de l'arbre périodique : même rayon, contour plein de la couleur de l'activité */
 .arDot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
 .arBubble span { overflow-wrap: anywhere; }
 /* Lier / délier (appui long + glisser) : carte tirée, cible violette, zone « Délier » transitoire à la place de la barre (.cmpAdd sans « + »). */
@@ -85,3 +85,6 @@
 .arExtOff { opacity: .45; }
 /* Calendrier ouvert depuis l'arbre : on reste dans le secteur d'où l'on vient (ni pôle ni secteur à changer) ; seul le mois change. */
 html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { display: none !important; } /* la flèche ‹ du cadre du pôle devient le retour à l’arbre */
+/* Repère d'un bloc de 5 ans : deux années complètes superposées (13 px) dans une pastille cerclée aussi étroite que celle d'une année ou d'une période. */
+.arGrid .goalsRowMarker--ovale.arBlockTag { flex-direction: column; height: auto; line-height: 1.2; padding: 3px 0; border-radius: 16px; }
+.arGrid.arCompact .goalsRowMarker--ovale.arBlockTag { height: auto; line-height: 1.2; }

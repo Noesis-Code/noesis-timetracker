@@ -421,6 +421,7 @@ function rattRules(title, cands) {
   });
   return best && best.c;
 }
+const descOf = (r) => { try { return String(JSON.parse(r.metaJson || '{}').description || '').replace(/\s+/g, ' ').trim().slice(0, 300); } catch (e) { return ''; } }; // « Description (pour l'IA) » : 300 caractères au plus lus par l'IA
 async function rattAi(userId, title, cands) {
   if (!process.env.ANTHROPIC_API_KEY || !(tasksAllowed(userId) || aiAllowed(userId))) return undefined;
   try {
@@ -428,7 +429,7 @@ async function rattAi(userId, title, cands) {
     const res = await aibudget.runAs(userId, () => aibudget.fetchAnthropic(RATT_FEATURE, 'https://api.anthropic.com/v1/messages', {
       method: 'POST', signal: AbortSignal.timeout(aimodels.timeoutMs('rapprochement')),
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: aimodels.FAST, max_tokens: 60, system: 'Tu dis si un NOUVEL objectif est une étape d\'un des objectifs existants. Réponds UNIQUEMENT par un objet JSON {"id": nombre ou null}. Réponds null si aucun lien clair.', messages: [{ role: 'user', content: JSON.stringify({ nouveau: title, existants: cands.map((c) => ({ id: c.id, titre: c.title })) }) }] }),
+      body: JSON.stringify({ model: aimodels.FAST, max_tokens: 60, system: 'Tu dis si un NOUVEL objectif est une étape d\'un des objectifs existants. Réponds UNIQUEMENT par un objet JSON {"id": nombre ou null}. Réponds null si aucun lien clair.', messages: [{ role: 'user', content: JSON.stringify({ nouveau: title, existants: cands.map((c) => { const d = descOf(c), x = { id: c.id, titre: c.title }; if (d) x.description = d; return x; }) }) }] }),
     }));
     if (!res.ok) return undefined;
     const body = await res.json(), text = (body.content || []).map((b) => b.text || '').join('');
@@ -905,6 +906,27 @@ function modifierEcheance(userId, id, endDate) {
   if (meta.category) bridge(rowOf(userId, r.id), next);
   return get(userId, r.id);
 }
+// Mode édition : titre (non vide, 140 au plus ; l'orthographe seule se corrige en silence, jamais un autre changement) et description « pour l'IA » (1000 au plus).
+async function renommer(userId, id, title) {
+  const r = rowOf(userId, id);
+  let t = String(title == null ? '' : title).replace(/\s+/g, ' ').trim();
+  if (!t) throw err('Le titre ne peut pas être vide.');
+  if (t.length > MAX_TITLE) throw err('Titre trop long (' + MAX_TITLE + ' caractères au plus).');
+  const fixed = await require('./silentspellfix').fixText(t, userId);
+  if (fixed && fixed.length <= MAX_TITLE) t = fixed;
+  const steps = JSON.parse(r.stepsJson || '[]');
+  steps.forEach((p) => { if (p.title === r.title) p.title = t; }); // la période finale porte le titre de l'objectif
+  db.prepare('UPDATE user_objectives SET title = ?, stepsJson = ? WHERE id = ?').run(t, JSON.stringify(steps), r.id);
+  return get(userId, r.id);
+}
+function decrire(userId, id, text) {
+  const r = rowOf(userId, id), d = String(text == null ? '' : text).trim();
+  if (d.length > 1000) throw err('Description trop longue (1000 caractères au plus).');
+  const meta = JSON.parse(r.metaJson || '{}');
+  if (d) meta.description = d; else delete meta.description;
+  db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
+  return get(userId, r.id);
+}
 // E03 : abandonner / réactiver (bascule de meta.abandoned) ; jamais en cascade : les objectifs rattachés gardent leur état (E04).
 function abandonner(userId, id, on) {
   const r = rowOf(userId, id), meta = JSON.parse(r.metaJson || '{}');
@@ -928,4 +950,4 @@ function supprimer(userId, id, confirmed) {
   return { ok: true, detached: kids.map((k) => k.id) };
 }
 migrateEcheances(); // au chargement (idempotent)
-module.exports = { modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

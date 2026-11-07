@@ -273,6 +273,25 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(o.supprimer(u, shortP.id, true).ok, 'parent supprimé (confirmé) : enfants détachés');
 }
 
+// ---- Mode édition : titre, description « pour l'IA », échéance ----
+{
+  const p = mk('Parent édition'), k = mk('Enfant édition', { parentId: p.id, endDate: '2027-02-01' });
+  const bad = async (fn) => { try { await fn(); return null; } catch (e) { return e; } };
+  let e = await bad(() => o.renommer(u, p.id, '   '));
+  assert(e && e.statusCode === 400 && /vide/.test(e.message), 'titre vide refusé');
+  e = await bad(() => o.renommer(u, p.id, 'x'.repeat(141)));
+  assert(e && e.statusCode === 400 && /trop long/.test(e.message), 'titre de plus de 140 caractères refusé');
+  const r = await o.renommer(u, p.id, '  Nouveau   titre  ');
+  assert(r.title === 'Nouveau titre' && o.get(u, p.id).title === 'Nouveau titre', 'titre enregistré, espaces nettoyés (aucune autre modification)');
+  e = await bad(() => o.decrire(u, p.id, 'y'.repeat(1001)));
+  assert(e && e.statusCode === 400 && /trop longue/.test(e.message), 'description de plus de 1000 caractères refusée');
+  assert(o.decrire(u, p.id, '  Contexte pour l’IA ').description === 'Contexte pour l’IA', 'description enregistrée');
+  assert(o.decrire(u, p.id, '').description === '', 'description vidée');
+  e = await bad(() => o.modifierEcheance(u, p.id, '2027-01-01'));
+  assert(e && /au moins celle/.test(e.message), 'échéance du parent avant celle de son enfant refusée (règle existante)');
+  assert(o.modifierEcheance(u, p.id, '2027-06-01').endDate === '2027-06-01', 'échéance modifiée');
+  assert(o.get(u, k.id).parentId === p.id, 'les rattachements ne bougent pas');
+}
 // MARK-FIN
 const nRef = (id) => db.prepare('SELECT (SELECT COUNT(*) FROM user_objectives WHERE userId = ?) + (SELECT COUNT(*) FROM objectifs_refus WHERE userId = ?) AS n').get(id, id).n;
 assert(nRef(u) > 0, 'avant suppression : objectifs et refus du compte présents');

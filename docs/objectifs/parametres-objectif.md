@@ -19,3 +19,9 @@ Factuel : colonne « Existe » = ce que le code fait déjà (table `user_objecti
 ## Ce que le mode édition peut offrir sans nouveau code serveur
 
 Échéance, activité, parent/macro, abandon/réactivation, suppression (avec confirmation listant les objectifs rattachés, qui sont détachés et jamais supprimés). Titre, description, début et secteur demanderaient une route de modification : à valider avant de les coder.
+
+## Choix validés par Émilien (7 nov. 2026) : panneau du mode édition
+
+- Modifiables : TITRE (visible, `PUT /api/objectifs/:id/titre`, non vide, 140 au plus, orthographe corrigée en silence, rien d'autre), ÉCHÉANCE (visible, règles parent/enfant existantes, messages courts), DESCRIPTION « Description (pour l'IA) » (sous « Avancé » fermé, `PUT /api/objectifs/:id/description`, 1000 au plus), Rattaché à (sous Avancé), abandon/réactivation en bas. Bouton Enregistrer R35 (gris puis violet).
+- Pas de secteur/pôle, pas de début, pas de temps attribué.
+- La description est lue par l'IA (300 caractères au plus par objectif) dans la proposition de rattachement et dans le titre/résumé IA des comptes Expansion ; les comptes sans IA ne l'utilisent pas (aucun appel).
