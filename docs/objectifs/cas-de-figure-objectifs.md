@@ -477,3 +477,11 @@ Page 1 de la Feuille de route = sélecteur « Tâches | Objectifs » (Objectifs 
 - Pôle réordonné : la nuance suit le NOUVEAU rang (la nuance est fixée par le rang, pas par le pôle) ; cartes et bulles se recolorent ensemble.
 - Pôle supprimé : les rangs se resserrent, les pôles restants reprennent les nuances 1 à n.
 - Secteurs : jamais de couleur propre ; toutes les colonnes du niveau secteurs ont la nuance de leur pôle.
+
+## Toucher une carte et mode édition (7 nov. 2026)
+
+- Toucher une carte (pluriannuelle, annuelle, période) ne rouvre plus de panneau : on descend d'un niveau dans la branche de la carte (pluriannuel, années/pôles, secteurs, arbre périodique, calendrier).
+- Crayon ✎ en haut à droite, sous « Objectifs » : mode édition. Les cartes tremblent (keyframes `tabJiggle` des volets) ; chaque carte d'un seul objectif et chaque macro porte la croix rouge ; les cartes regroupées (« N objectifs », résumé annuel) tremblent sans croix et ouvrent la liste pour choisir l'objectif.
+- Toucher une carte en mode édition ouvre ses paramètres (détail existant : échéance, rattachement sous Avancé, abandon/réactivation). Les champs à ajouter sont dans `parametres-objectif.md`, en attente d'Émilien.
+- Croix rouge : confirmation `TMT.ui.confirm` (« Supprimer », rouge) ; les objectifs rattachés sont listés puis détachés, jamais supprimés.
+- Le mode édition coupe l'appui long « Étendre » et le glisser-lier (le plus simple) ; le crayon retouché le quitte ; quitter l'écran le quitte aussi.

@@ -1,7 +1,14 @@
 /* Écran « Objectifs » = l'arbre sur la MÊME grille que l'arbre périodique de la page 2 : on réutilise ses classes (.goalsGrid, .goalsGridRow, .goalsGridCell--empty/--filled, .goalsRowMarker,
    .goalsGridScroll de css/objectifs-page2-objectif.css) ; ce fichier ne porte que ce qui est propre à la vue d'ensemble (colonnes = activités, états, dépliage, bulles fixes, glisser-déposer). */
 .objArbre { display: flex; flex-direction: column; overflow: hidden; padding: 0; } /* hauteur posée par fitTree : de son haut à la barre « Nouvel objectif… » */
-.arZoomRow { flex: none; margin: 0 0 4px; }
+.arZoomRow { flex: none; margin: 0 0 4px; display: flex; align-items: center; min-height: 26px; }
+.arZoomRow .arBackNav { margin: 0; }
+.arEditToggle { margin-left: auto; }
+.arEditToggle[aria-pressed="true"] { color: var(--purple); }
+/* Mode édition : les cartes tremblent comme les volets de la barre (keyframes tabJiggle, barre-volets.css) ; la croix rouge est le composant .cmpRemove. */
+.arEditing .arCard { animation: tabJiggle .26s ease-in-out infinite alternate; }
+.arEditing .arCard:nth-child(even) { animation-delay: -.13s; }
+@media (prefers-reduced-motion: reduce) { .arEditing .arCard { animation: none; } }
 .arScroll { flex: 1 1 auto; min-height: 0; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
 .arColumn { display: flex; flex-direction: column; height: 100%; width: max-content; min-width: 100%; }
 .arGridArea { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; width: max-content; min-width: 100%; -webkit-overflow-scrolling: touch; }

@@ -509,6 +509,17 @@
       });
     }).catch(function () {});
   }
+  // Suppression : confirmation rouge ; les objectifs rattachés sont listés puis détachés, jamais supprimés (croix rouge du mode édition de l'arbre et du détail).
+  function confirmDelete(id, title, done, fail) {
+    api('GET', '/api/objectifs?filtre=tous').then(function (r) {
+      var kids = ((r && r.objectifs) || []).filter(function (x) { return x.parentId === id; });
+      var msg = tr('Êtes-vous sûr de vouloir supprimer cet objectif ?') + ' « ' + title + ' »' + (kids.length ? '\n' + tr('Ses objectifs rattachés ne sont pas supprimés, ils deviennent des objectifs séparés :') + '\n' + kids.map(function (k) { return '• ' + k.title; }).join('\n') : '');
+      return TMT.ui.confirm(msg, { ok: tr('Supprimer'), danger: true }).then(function (yes) {
+        if (!yes) return;
+        return api('DELETE', '/api/objectifs/' + id + '?confirm=1').then(function () { if (done) done(); });
+      });
+    }).catch(function (e) { if (fail) fail(e); });
+  }
   // ---------- Fenêtre « détail d'un objectif » ----------
   function openDetail(id) {
     var win = openModal('', { onClose: load }), idx = null, o = null, advOpenD = false, parentList = null, parMsg = '';
@@ -596,16 +607,7 @@
       }
       win.foot.appendChild(advD); win.foot.appendChild(f);
     }
-    function deleteIt() { // confirmation rouge ; les objectifs rattachés sont listés puis détachés, jamais supprimés
-      api('GET', '/api/objectifs?filtre=tous').then(function (r) {
-        var kids = ((r && r.objectifs) || []).filter(function (x) { return x.parentId === id; });
-        var msg = tr('Êtes-vous sûr de vouloir supprimer cet objectif ?') + ' « ' + o.title + ' »' + (kids.length ? '\n' + tr('Ses objectifs rattachés ne sont pas supprimés, ils deviennent des objectifs séparés :') + '\n' + kids.map(function (k) { return '• ' + k.title; }).join('\n') : '');
-        return TMT.ui.confirm(msg, { ok: tr('Supprimer'), danger: true }).then(function (yes) {
-          if (!yes) return;
-          return api('DELETE', '/api/objectifs/' + id + '?confirm=1').then(function () { win.close(); load(); });
-        });
-      }).catch(function (e) { win.body.appendChild(el('p', 'objNote', (e && e.message) || tr('Impossible pour le moment.'))); });
-    }
+    function deleteIt() { confirmDelete(id, o.title, function () { win.close(); load(); }, function (e) { win.body.appendChild(el('p', 'objNote', (e && e.message) || tr('Impossible pour le moment.'))); }); }
     function setParent(pid) { api('PUT', '/api/objectifs/' + id + '/parent', { parentId: pid, rel: 'apres' }).then(function () { return api('GET', '/api/objectifs/' + id); }).then(function (n) { o = n; parentList = null; advOpenD = false; draw(); }).catch(function (err) { parMsg = (err && err.message) || tr('Impossible pour le moment.'); draw(); }); }
     function act(action) { api('POST', '/api/objectifs/' + id + '/bilan', { action: action, period: o.bilan.period }).then(function (n) { o = n; idx = null; draw(); }).catch(function () {}); }
     api('GET', '/api/objectifs/' + id).then(function (n) { o = n; draw(); }).catch(function () { win.close(); });
@@ -636,6 +638,7 @@
     hide: function () { state.shown = false; syncDock(); if (TMT.objectifsArbre && TMT.objectifsArbre.hide) TMT.objectifsArbre.hide(); },
     focus: function () { if (input) input.focus(); },
     setContext: function (c) { setContext(c); },
+    confirmDelete: function (id, title) { confirmDelete(id, title, load); },
     openExtend: function (cfg) { return openExtend(cfg); }, closeExtend: function () { closeExtend(); },
     createAt: function (o) { createAt(o); },
     openGroup: function (ids, opts) { openGroup(ids, opts); },
