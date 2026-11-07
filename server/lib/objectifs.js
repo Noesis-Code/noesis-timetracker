@@ -75,7 +75,7 @@ const MSG_MACRO_PARENT = 'Un objectif macro ne se rattache qu’à un autre obje
 // L03 revu (macro, Émilien 6 nov. 2026) : un objectif (micro) reste dans UNE activité ; son parent est de la même activité, SAUF si le parent est un macro (commun à plusieurs activités).
 // Garde simple : un macro est un sommet ou l'étape d'un autre macro, jamais l'étape d'un objectif ordinaire ; un objectif qui est l'étape d'un objectif ordinaire ne peut pas devenir macro.
 function checkParent(child, parent) {
-  if (child.isMacro && !parent.isMacro) throw err(MSG_MACRO_PARENT);
+  if (child.isMacro && !parent.isMacro && (child.level || 'activite') === 'activite') throw err(MSG_MACRO_PARENT); // aux niveaux pôles et secteurs un macro prend la place de ses objectifs sous leur parent commun
   if (!parent.isMacro && parent.activityId !== child.activityId) throw err(MSG_AUTRE_ACTIVITE);
   if (parent.isMacro) {
     // Un macro relie des colonnes d'UN niveau (activités, pôles ou secteurs) : ses enfants sont de ce niveau.
@@ -933,12 +933,18 @@ function fusionnerEnMacro(userId, body) {
   const ids = [...new Set((Array.isArray(body && body.childIds) ? body.childIds : []).map(Number))].slice(0, 20);
   if (ids.length < 2) throw err('Un macro englobe au moins deux objectifs.');
   const kids = ids.map((i) => rowOf(userId, i));
-  kids.forEach((k) => { if (k.parentId) throw err('« ' + k.title + ' » est déjà l’étape d’un objectif : détache-le d’abord.'); if (k.isMacro) throw err('Un macro ne se range pas dans un autre macro par cette voie.'); });
+  kids.forEach((k) => { if (k.isMacro) throw err('Un macro ne se range pas dans un autre macro par cette voie.'); });
+  // Objectifs fins (pôles, secteurs) : ils sont les étapes d'un objectif plus grand ; on peut les fusionner s'ils ont le MÊME parent (le macro prend leur place sous ce parent) ; parents différents : refus.
+  const parents = new Set(kids.map((k) => k.parentId || null));
+  if (parents.size > 1) throw err('Ces objectifs ne sont pas les étapes du même objectif : détache-les d’abord.');
+  const commonParent = [...parents][0];
+  if (commonParent && db.prepare('SELECT isMacro FROM user_objectives WHERE id = ?').get(commonParent).isMacro) throw err('Ces objectifs sont déjà reliés à un macro.');
   const start = kids.map((k) => k.startDate).sort()[0], end = kids.map((k) => k.endDate).sort().pop();
   const lv = kids[0].level || 'activite';
   if (kids.some((k) => (k.level || 'activite') !== lv)) throw err('Un macro relie des objectifs d’un même niveau (activités, pôles ou secteurs).');
   { const kidIds = new Set(kids.map((k) => k.id)); if (kids.some((k) => columnLinkedElsewhere(userId, k, kidIds, null))) throw err(MSG_COLONNE_RELIEE); } // avant toute création
   const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : kids[0].poleKey, categoryKey: lv === 'secteur' ? kids[0].categoryKey : null });
+  if (commonParent) lier(userId, created.id, commonParent, 'apres'); // le macro prend la place de ses objectifs sous leur parent
   kids.forEach((k) => lier(userId, k.id, created.id, 'avant'));
   const out = get(userId, created.id);
   return Object.assign(out, require('./objectifs-ordre').forMacro(userId, out.macroColumns, body.anchor) || {}); // ordre de présentation dérivé (rien n'est écrit)
@@ -1003,7 +1009,8 @@ function supprimer(userId, id, confirmed) {
   if (kids.length && !confirmed) throw Object.assign(err('Cet objectif a ' + kids.length + ' objectif' + (kids.length > 1 ? 's rattachés' : ' rattaché') + ' : confirme pour les détacher.', 409), { extra: { children: kids } });
   db.exec('BEGIN');
   try {
-    kids.forEach((k) => db.prepare('UPDATE user_objectives SET parentId = NULL, parentRel = NULL, position = ? WHERE id = ?').run(nextPosition(userId, null), k.id));
+    const up = (r.level || 'activite') === 'activite' ? null : (r.parentId || null);
+    kids.forEach((k) => db.prepare('UPDATE user_objectives SET parentId = ?, parentRel = NULL, position = ? WHERE id = ?').run(up, nextPosition(userId, up), k.id)); // les objectifs reliés remontent sous le parent du macro (aucun, pour un macro d'activités)
     db.prepare('DELETE FROM objectifs_refus WHERE userId = ? AND (objectifId = ? OR candidateId = ?)').run(userId, r.id, r.id);
     db.prepare('DELETE FROM user_objectives WHERE id = ? AND userId = ?').run(r.id, userId);
     db.exec('COMMIT');

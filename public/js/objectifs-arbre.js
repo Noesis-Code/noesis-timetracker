@@ -55,6 +55,11 @@
     var x = TMT.ui.removeBtn(function (e) { if (e && e.stopPropagation) e.stopPropagation(); if (onClick) { onClick(); return; } if (TMT.objectifsView && TMT.objectifsView.confirmDelete) TMT.objectifsView.confirmDelete(o.id, o.title, !!o.isMacro); }, tr('Supprimer cet objectif'));
     x.className = 'cmpRemove cmpRemove--corner'; x.setAttribute('aria-label', tr('Supprimer cet objectif')); x.addEventListener('pointerdown', function (e) { e.stopPropagation(); }); return x;
   }
+  function groupCross(os) { // croix rouge d'une carte qui regroupe plusieurs objectifs (carte fusionnée, case d'année) : un seul objectif = confirmation directe, sinon on choisit LEQUEL supprimer, puis la confirmation rouge
+    var ids = os.map(function (x) { return x.id; });
+    var del = function (id) { var t = os.filter(function (x) { return x.id === id; })[0]; if (t && TMT.objectifsView && TMT.objectifsView.confirmDelete) TMT.objectifsView.confirmDelete(id, t.title, !!t.isMacro); };
+    return removeCross(null, function () { if (ids.length === 1) { del(ids[0]); return; } if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids, { title: tr('Supprimer quel objectif ?'), onPick: del }); });
+  }
   function card(o, today, all, mode, w, onTap, extCol, colColor) {
     var st = stateOf(o, today), c = colColor || color(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c); if (ext && ext.mode === 'create' && ext.base && ext.base.id === o.id) b.classList.add('arExtSelf');
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', o.title));
@@ -96,7 +101,7 @@
       if (onTap) { onTap(); return; } if (onOpen) onOpen();
     });
     if (editMode) { // carte « N objectifs » : la croix demande d'abord LEQUEL supprimer (même liste que le toucher), puis la confirmation rouge
-      b.appendChild(removeCross(null, function () { if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids, { title: tr('Supprimer quel objectif ?'), onPick: function (id) { var t = os.filter(function (x) { return x.id === id; })[0]; if (t && TMT.objectifsView.confirmDelete) TMT.objectifsView.confirmDelete(id, t.title); } }); }));
+      b.appendChild(groupCross(os));
       return b;
     }
     if (TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, {
@@ -115,7 +120,7 @@
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
     t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
     b.appendChild(t);
-    b.addEventListener('click', function () { if (!editMode) { descend(c0); return; } // toucher COURT = descendre d'un niveau (règle générale) ; le mode Fusionner/Séparer s'ouvre UNIQUEMENT par l'appui long
+    b.addEventListener('click', function () { if (!editMode) { descend(c0, null, null, m); return; } // toucher COURT = descendre d'un niveau (règle générale) ; le mode Fusionner/Séparer s'ouvre UNIQUEMENT par l'appui long
        if (m.id > 0 && TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(m.id); });
     if (editMode && m.id > 0) { b.appendChild(removeCross(m)); return b; }
     if (m.id > 0 && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', onHold: function () { startExtendEdit(m); } }); // appui long sur un macro : modifier les colonnes reliées
@@ -123,9 +128,19 @@
   }
   // ---------- MODE ÉTENDRE : relier d'autres colonnes du MÊME niveau (activités, pôles d'une activité, secteurs d'un pôle) par un macro ----------
   function colPayload(i) { var x = curCols[i] && curCols[i].col ? curCols[i].col.ctx : curCols[i].ctx; return lvl === 'activite' ? { activityId: x.activityId } : lvl === 'pole' ? { activityId: x.activityId, poleKey: x.poleKey } : { activityId: x.activityId, poleKey: x.poleKey, categoryKey: x.categoryKey }; }
-  function newest(i, n) { return (curCols[i].objs || []).filter(function (o) { return o.parentId == null && !o.isMacro && !o.abandoned && (o.level || 'activite') === (ext && ext.level || lvl); }) // un macro relie des objectifs d'UN même niveau (serveur) : on ne propose que ceux du niveau affiché
+  function newest(i, n) { return (curCols[i].objs || []).filter(function (o) { return (o.parentId == null ? null : o.parentId) === (ext && ext.parent != null ? ext.parent : null) && !o.isMacro && !o.abandoned && (o.level || 'activite') === (ext && ext.level || lvl) && (!ext || ext.rank == null || bucketOf(o, dayIso()).rank === ext.rank); }) // même LIGNE (année / période), même parent ; // un macro relie des objectifs d'UN même niveau (serveur) : on ne propose que ceux du niveau affiché
       .sort(function (x, y) { return y.id - x.id; }).slice(0, n); }
-  function colOfObj(o) { var ci = -1; curCols.forEach(function (c, i) { var k = lvl === 'activite' ? o.activity.id : lvl === 'pole' ? (o.poleKey || curCols[0].key) : (o.categoryKey || curCols[0].key); if (ci < 0 && c.key === k) ci = i; }); return ci; }
+  function isMulti() { return !!(focus && focus.activityIds && focus.activityIds.length > 1); } // un macro qui relie plusieurs activités : on descend vers les pôles de TOUTES ces activités, ensemble
+  function pkeyOf(c) { return c.pkey != null ? c.pkey : c.key; } // clé réelle du pôle (la clé de colonne est composée « activité/pôle » en mode multi-activités : les clés de pôle se recoupent d'une activité à l'autre)
+  function colOfObj(o) {
+    var ci = -1, first = null;
+    curCols.forEach(function (c, i) {
+      var k;
+      if (lvl === 'pole') { if (c.ctx.activityId !== o.activity.id) return; if (!first) first = c; k = o.poleKey || pkeyOf(first); if (ci < 0 && pkeyOf(c) === k) ci = i; return; }
+      k = lvl === 'activite' ? o.activity.id : (o.categoryKey || curCols[0].key); if (ci < 0 && c.key === k) ci = i;
+    });
+    return ci;
+  }
   function extChildIds() { var ids = []; Object.keys(ext.cols).forEach(function (k) { var i = Number(k); (i === ext.baseCol ? [ext.base] : newest(i, 2)).forEach(function (o) { if (o && ids.indexOf(o.id) < 0) ids.push(o.id); }); }); return ids; }
   function colFree(i) { return newest(i, 2).length > 0; } // la colonne a des objectifs libres (non rattachés) à relier
   function colLinked(i) { return (curCols[i].objs || []).some(function (o) { var p = o.parentId != null && items.filter(function (x) { return x.id === o.parentId; })[0]; return !!(p && p.isMacro); }); }
@@ -149,15 +164,24 @@
     document.addEventListener('touchend', done, true); document.addEventListener('pointerup', done, true);
     window.setTimeout(function () { if (ext) ext.holding = false; }, 2500);
   }
+  function pickBase(o, ci) { // case qui réunit des objectifs de PARENTS différents (niveaux pôle / secteur) : on garde le parent qui a le plus de colonnes voisines à relier, sur la même ligne
+    var level = o.level || 'activite', rank = bucketOf(o, dayIso()).rank, today = dayIso();
+    var ok = function (x, key) { return !x.isMacro && !x.abandoned && (x.level || 'activite') === level && bucketOf(x, today).rank === rank && (x.parentId == null ? null : x.parentId) === key; };
+    var mine = (curCols[ci].objs || []).filter(function (x) { return ok(x, x.parentId == null ? null : x.parentId); }), best = null;
+    mine.forEach(function (x) { var key = x.parentId == null ? null : x.parentId, n = 0; curCols.forEach(function (c, j) { if (j !== ci && (c.objs || []).some(function (y) { return ok(y, key); })) n++; }); var own = (o.parentId == null ? null : o.parentId) === key; if (!best || n > best.n || (n === best.n && own && !best.own)) best = { key: key, n: n, own: own }; });
+    if (!best) return o;
+    return bigOf(mine.filter(function (x) { return (x.parentId == null ? null : x.parentId) === best.key; }));
+  }
   function startExtend(o, ci) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
-    ext = { mode: 'create', level: o.level || 'activite', base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now(), rank: bucketOf(o, dayIso()).rank }; ext.cols[ci] = true; ext.init[ci] = true;
+    o = pickBase(o, ci);
+    ext = { mode: 'create', level: o.level || 'activite', parent: o.parentId == null ? null : o.parentId, base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now(), rank: bucketOf(o, dayIso()).rank }; ext.cols[ci] = true; ext.init[ci] = true;
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
     extOpenPanel(); render(); watchRelease(); extScrollToEligible(); // création : le doigt est DÉJÀ relevé (appui long relâché sur place) ; le clic qui suit ne coche rien
   }
   function startExtendEdit(m, fromTap) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
-    ext = { mode: 'edit', level: m.macroLevel || m.level || 'activite', macro: m, cols: {}, init: {}, seq: 0, born: Date.now(), rank: bucketOf(m, dayIso()).rank };
+    ext = { mode: 'edit', level: m.macroLevel || m.level || 'activite', parent: m.parentId == null ? null : m.parentId, macro: m, cols: {}, init: {}, seq: 0, born: Date.now(), rank: bucketOf(m, dayIso()).rank };
     items.filter(function (x) { return x.parentId === m.id && !x.isMacro; }).forEach(function (x) { var i = colOfObj(x); if (i >= 0) { ext.cols[i] = true; ext.init[i] = true; } });
     if (!Object.keys(ext.cols).length) return (ext = null);
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
@@ -217,6 +241,7 @@
       if (!editMode) { descend(ci, null, year); return; }
       if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(os.map(function (o) { return o.id; }), { title: tr('Objectif annuel') + ' ' + year, intro: function () { return TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + os[0].activity.id + '&year=' + year).then(function (r) { return r && r.text; }); } });
     });
+    if (editMode) b.appendChild(groupCross(os)); // mode édition : croix rouge (même fonction que les cartes de groupe)
     if (!editMode && TMT.ui && TMT.ui.holdDrag && ci != null) TMT.ui.holdDrag(b, { // appui long : le même mode Fusionner / Séparer qu'aux autres niveaux (colonnes = pôles d'une activité)
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
       onHold: function () { var same = os.filter(function (x) { return (x.level || 'activite') === lvl; }), base = bigOf(same.length ? same : os), par = base.parentId != null && items.filter(function (x) { return x.id === base.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par); else startExtend(base, ci); }
@@ -341,6 +366,16 @@
       });
       return cols;
     }
+    if (lvl === 'pole' && isMulti()) { // pôles de toutes les activités reliées, dans l'ordre de la page précédente, colonnes adjacentes, couleur de pôle de chacune
+      var outM = [];
+      focus.activityIds.forEach(function (aid) {
+        var a2 = actOf(aid), mine2 = shown.filter(function (o) { return o.activity.id === aid; }), col2 = mine2.length ? color(mine2[0]) : (a2 && a2.color), nm2 = a2 ? a2.name : '', poles2 = (a2 && a2.poles) || [], fp = poles2.length ? poles2[0].key : null;
+        var pc = function (p) { return p && p.shadeRank != null && TMT.subProjectShade ? TMT.subProjectShade(col2, p.shadeRank, p.shadeCount) : col2; };
+        if (!poles2.length) poles2 = [{ key: null, label: nm2 }];
+        poles2.forEach(function (p) { outM.push({ key: aid + '/' + p.key, pkey: p.key, aid: aid, label: p.label, color: pc(p), objs: mine2.filter(function (o) { return !o.isMacro && want(o) && (o.poleKey || fp) === p.key; }), ctx: { level: 'pole', activityId: aid, poleKey: p.key, label: nm2 + ' · ' + p.label } }); });
+      });
+      return outM;
+    }
     var act = actOf(focus.activityId), mine = shown.filter(function (o) { return o.activity.id === focus.activityId; }), col = mine.length ? color(mine[0]) : (act && act.color);
     var name = act ? act.name : (mine[0] ? mine[0].activity.name : '');
     var poles = (act && act.poles) || [], firstPole = poles.length ? poles[0].key : null;
@@ -358,8 +393,9 @@
   //  - dès que le présent atteint la période (et une fois passée) : UNE colonne à largeur standard (nom et couleur de l'entité qui englobe), les autres sont absorbées ; la carte du macro est standard.
   function macroIdx(m, cols) {
     var ci = {}; cols.forEach(function (c, i) { ci[c.key] = i; });
-    var idx = (m.macroColumns || []).filter(function (mc) { return lvl === 'activite' || (mc.activityId === focus.activityId && (lvl === 'pole' || mc.poleKey === focus.poleKey)); })
-      .map(function (mc) { return ci[lvl === 'activite' ? mc.activityId : lvl === 'pole' ? mc.poleKey : mc.categoryKey]; }).filter(function (i) { return i != null; });
+    var scope = isMulti() ? focus.activityIds : [focus && focus.activityId];
+    var idx = (m.macroColumns || []).filter(function (mc) { return lvl === 'activite' || (scope.indexOf(mc.activityId) >= 0 && (lvl === 'pole' || mc.poleKey === focus.poleKey)); })
+      .map(function (mc) { return ci[lvl === 'activite' ? mc.activityId : lvl === 'pole' ? (isMulti() ? mc.activityId + '/' + mc.poleKey : mc.poleKey) : mc.categoryKey]; }).filter(function (i) { return i != null; });
     if (!idx.length && lvl === 'activite' && ci[m.activity.id] != null) idx = [ci[m.activity.id]];
     return idx.sort(function (x, y) { return x - y; }).filter(function (v, i, arr) { return arr.indexOf(v) === i; });
   }
@@ -375,9 +411,9 @@
   var curCols = [], ordreMap = {};
   // Ordre de présentation des colonnes : DÉRIVÉ par le serveur (GET /objectifs/ordre) ; les colonnes reliées par un macro sont voisines tant qu'il existe, délié = ordre d'origine. Utilisé tel quel, jamais recalculé ici.
   function ordreKey() { return lvl === 'activite' ? ['activite', ''] : lvl === 'pole' ? ['pole', String(focus.activityId)] : ['secteur', focus.activityId + ':' + focus.poleKey]; }
-  function loadOrdre() { var k = ordreKey(); return TMT.api('GET', '/api/objectifs/ordre?level=' + k[0] + '&scope=' + encodeURIComponent(k[1])).then(function (r) { ordreMap[k.join('|')] = (r && r.order) || null; }).catch(function () {}); }
+  function loadOrdre() { if (isMulti()) return Promise.resolve(); var k = ordreKey(); return TMT.api('GET', '/api/objectifs/ordre?level=' + k[0] + '&scope=' + encodeURIComponent(k[1])).then(function (r) { ordreMap[k.join('|')] = (r && r.order) || null; }).catch(function () {}); }
   function sortByOrdre(cols) {
-    var o = ordreMap[ordreKey().join('|')]; if (!o) return cols;
+    if (isMulti()) return cols; var o = ordreMap[ordreKey().join('|')]; if (!o) return cols;
     return cols.map(function (c, i) { return { c: c, i: i }; }).sort(function (x, y) { var p = o.indexOf(String(x.c.key)), q = o.indexOf(String(y.c.key)); p = p < 0 ? 999 + x.i : p; q = q < 0 ? 999 + y.i : q; return p - q; }).map(function (z) { return z.c; });
   }
   function syncCtx() { // la barre « Nouvel objectif… » crée au niveau affiché (pré-rempli et verrouillé) ; le « + » d'une colonne précise le pôle / le secteur
@@ -389,11 +425,17 @@
     loadOrdre().then(function () { if (visible && ordreKey().join('|') === k && JSON.stringify(ordreMap[k]) !== before) render(); }); // l'ordre de présentation arrive : les colonnes reliées se rapprochent
   }
   function blockStart(iso) { var y0 = new Date().getFullYear(), y = Number(iso.slice(0, 4)); return y0 + 5 * Math.floor((y - y0) / 5); } // première année du bloc de 5 ans qui contient l'échéance
-  function descend(ci, block, year) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
+  function descend(ci, block, year, macro) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
     var c = curCols[ci]; if (!c) return;
-    if (lvl === 'activite') go('pole', { activityId: c.ctx.activityId, block: block });
-    else if (lvl === 'pole' && c.key != null) { // la vue des secteurs montre UNE année de 13 périodes : celle de l'échéance de l'objectif touché (sinon l'année courante, ou la première du bloc)
-      var y0 = new Date().getFullYear(), bk = focus && focus.block; go('secteur', { activityId: focus.activityId, poleKey: c.key, poleLabel: c.label, year: year || (bk && !(y0 >= bk && y0 < bk + 5) ? bk : y0) });
+    if (lvl === 'activite') {
+      var order = ((struct && struct.activities) || []).map(function (x) { return x.id; }), ids = [];
+      if (macro) (macro.macroColumns || []).forEach(function (mc) { if (ids.indexOf(mc.activityId) < 0) ids.push(mc.activityId); });
+      ids.sort(function (p, q) { return order.indexOf(p) - order.indexOf(q); }); // ordre de la page précédente (même si les colonnes sont absorbées dans le temps)
+      if (ids.length > 1) go('pole', { activityId: ids[0], activityIds: ids }); // macro reliant plusieurs activités : les pôles de toutes ces activités, ensemble
+      else go('pole', { activityId: c.ctx.activityId, block: block });
+    }
+    else if (lvl === 'pole' && pkeyOf(c) != null) { // la vue des secteurs montre UNE année de 13 périodes : celle de l'échéance de l'objectif touché (sinon l'année courante, ou la première du bloc)
+      var y0 = new Date().getFullYear(), bk = focus && focus.block; go('secteur', { activityId: c.ctx.activityId, poleKey: pkeyOf(c), poleLabel: c.label, year: year || (bk && !(y0 >= bk && y0 < bk + 5) ? bk : y0) });
     }
     else if (TMT.showGoalsPolesPage) TMT.showGoalsPolesPage(focus.activityId);
   }
@@ -405,7 +447,7 @@
   function backNav() { // flèche de retour (.cmpNav, R45) + où l'on est
     var nav = el('div', 'cmpNav cmpNav--sm arBackNav'), b = el('button', 'cmpNavArrow', '‹'); b.type = 'button'; b.setAttribute('aria-label', tr('Remonter'));
     b.addEventListener('click', ascend);
-    var act = actOf(focus.activityId), name = act ? act.name : '';
+    var act = actOf(focus.activityId), name = isMulti() ? focus.activityIds.map(function (id) { var x = actOf(id); return x ? x.name : ''; }).join(' + ') : (act ? act.name : '');
     nav.appendChild(b); nav.appendChild(el('span', 'cmpNavLabel', name + (lvl === 'secteur' ? ' · ' + (focus.poleLabel || '') : ''))); return nav;
   }
 
@@ -561,7 +603,12 @@
     }
     var stickEnd = false; // à l'ouverture l'arbre est calé en bas (le présent) : tant que la personne n'a pas touché, le bas est recalé après chaque mise en page tardive (polices, textes qui passent à la ligne)
     gridArea.addEventListener('touchstart', function () { stickEnd = false; }, { passive: true }); gridArea.addEventListener('wheel', function () { stickEnd = false; }, { passive: true });
-    function relayout() { if (stickEnd && gridArea) gridArea.scrollTop = gridArea.scrollHeight; positionRail(); drawLinks(); }
+    function drawSeps() { // UN seul trait pointillé neutre entre deux groupes d'activités (pôles ou secteurs de plusieurs activités reliées)
+      var seps = layer.querySelectorAll('.arSep'); Array.prototype.forEach.call(seps, function (s) { s.parentNode.removeChild(s); });
+      if (lvl === 'activite') return; var bs = tree.querySelectorAll('.arBubble'), b0 = layer.getBoundingClientRect();
+      for (var k = 1; k < curCols.length; k++) if (curCols[k].ctx.activityId !== curCols[k - 1].ctx.activityId && bs[k] && bs[k - 1]) { var x = (bs[k - 1].getBoundingClientRect().right + bs[k].getBoundingClientRect().left) / 2, l = el('i', 'arSep'); l.style.left = Math.round(x - b0.left - 1) + 'px'; layer.appendChild(l); }
+    }
+    function relayout() { if (stickEnd && gridArea) gridArea.scrollTop = gridArea.scrollHeight; positionRail(); drawLinks(); drawSeps(); }
     var marks = [];
     function placeRail() { // chaque repère va dans la colonne fixe ; sa position est ensuite (re)mesurée sur la rangée de sa période
       Array.prototype.forEach.call(grid.querySelectorAll('.goalsGridRow'), function (row) {
@@ -580,7 +627,7 @@
         var h = x.m.offsetHeight || 20; x.m.style.top = Math.round((top + bot) / 2 - r0 - h / 2) + 'px';
       });
     }
-    placeRail(); drawLinks(); window.requestAnimationFrame(relayout); window.setTimeout(relayout, 350);
+    placeRail(); drawLinks(); drawSeps(); window.requestAnimationFrame(relayout); window.setTimeout(relayout, 350);
     if (restoreView) { gridArea.scrollTop = restoreView.top; scroller.scrollLeft = restoreView.left; restoreView = null; }
     else if (needBase || keepTop == null) { needBase = false; stickEnd = true; gridArea.scrollTop = gridArea.scrollHeight; window.requestAnimationFrame(function () { if (gridArea) gridArea.scrollTop = gridArea.scrollHeight; }); } // ouverture : le présent (en bas)
     else { gridArea.scrollTop = keepTop; scroller.scrollLeft = keepLeft; }

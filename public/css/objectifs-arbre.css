@@ -120,3 +120,4 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arGrid.arCompact .goalsGridRow { flex: 0 0 auto; } /* une rangée remplie a la hauteur de son contenu (64 à 120 px, texte coupé) : plus de texte, plus haute */
 .arGrid.arCompact .goalsGridRow.arEmptyRow { flex: 1 1 0; min-height: 40px; } /* seules les rangées VIDES se partagent ÉQUITABLEMENT le reste */
 .arGrid.arCompact .goalsGridCell--filled { min-height: 64px; align-self: center; }
+.arSep { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--text-light); opacity: .45; pointer-events: none; } /* séparateur neutre entre deux groupes d'activités reliées */
