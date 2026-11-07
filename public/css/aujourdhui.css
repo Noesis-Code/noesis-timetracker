@@ -135,8 +135,8 @@
 .tasksFilterLine { position: relative; display: flex; align-items: center; justify-content: flex-start; width: auto; min-height: 32px; margin-top: -8px; padding: 0 4px; border: 0; background: none; color: var(--text-light); cursor: pointer; } /* à gauche, juste sous « Tâches » ; icône réglage à la place du titre */
 .tasksFilterLine::after { content: ''; position: absolute; left: 0; top: 50%; width: 44px; height: 44px; transform: translateY(-50%); }
 .tasksFilterLine svg { width: 22px; height: 22px; }
-.tasksFilterLine.on { color: var(--violet-soft); }
-.tasksFilterPanel { overflow: hidden; margin: 4px 0 8px; padding: 4px 12px; border-radius: var(--radius-lg); transition: height .22s ease; } /* section en verre (.cmpGlass, R31), comme le panneau de création */
+.tasksFilterLine, .tasksFilterLine.on { color: var(--text); } /* icône blanche, jamais violette */
+.tasksFilterPanel { background: color-mix(in srgb, var(--text) 9%, transparent); overflow: hidden; margin: 4px 0 8px; padding: 4px 12px; border-radius: var(--radius-lg); transition: height .22s ease; } /* section en verre (.cmpGlass, R31), comme le panneau de création */
 .tasksWeek { margin-top: -8px; }
 .tasksFilterTrack { display: flex; align-items: flex-start; width: 200%; transition: transform .25s cubic-bezier(.22,.8,.3,1); }
 .tasksFilterPage { flex: 0 0 50%; min-width: 0; display: flex; flex-direction: column; }
@@ -146,3 +146,7 @@
 .tasksFilterPage .tasksChoice.pole { font-weight: 600; }
 .tasksFilterArrow { color: var(--text-light); font-size: 18px; }
 .tasksFilterTitle { margin: 0; padding: 12px 4px 4px; font-size: 13px; color: var(--text-light); }
+.tasksFilterPage .tasksChoice:last-child { border-bottom: 0; } /* pas de trait sous la dernière ligne */
+.tasksToday .tasksCounter { margin-left: auto; }
+
+.tasksWeekHead { padding: 0 14px; } /* aligné sur la grille des numéros (14 px = largeur d'une flèche) */

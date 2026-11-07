@@ -98,7 +98,7 @@
     var frame = el('div', 'tasksWeekFrame'), grid = el('div', 'tasksWeekGrid');
     var head = el('div', 'goalsCalHead');
     for (var k = 0; k < 7; k++) head.appendChild(el('span', null, cap1(new Date(2024, 0, 1 + k).toLocaleDateString(loc, { weekday: 'narrow' })))); // 1er janv. 2024 = lundi
-    grid.appendChild(head);
+    var hw = el('div', 'tasksWeekHead'); hw.appendChild(head); calBox.appendChild(hw); // initiales des jours HORS du cadre : les flèches se centrent sur les cases des numéros
     var first, rows, month = fromIso(anchor).getMonth();
     if (calExpanded) { var f = anchor.slice(0, 8) + '01', fd = fromIso(f); first = mondayOf(f); rows = Math.ceil((((fd.getDay() + 6) % 7) + new Date(fd.getFullYear(), month + 1, 0).getDate()) / 7); }
     else { first = mondayOf(anchor); rows = 1; }
@@ -167,6 +167,7 @@
   function filtRow(parent, text, level, on, fn) {
     var b = el('button', 'tasksChoice' + (level ? ' lv' + level : '') + (on ? ' on' : ''), text); b.type = 'button'; b.addEventListener('click', fn); parent.appendChild(b); return b;
   }
+  document.addEventListener('click', function (e) { if (filtOpen && filterBox && !filterBox.contains(e.target)) { filtOpen = false; filtBrowse = null; paintFilter(); } });
   function paintFilter() {
     if (!filterBox) return; filterBox.textContent = '';
     var d = filtData(filt.act), cur = d.acts.filter(function (a) { return String(a.id) === filt.act; })[0], pole = d.poles.filter(function (p) { return p.key === filt.pole; })[0];
@@ -174,9 +175,8 @@
     var head = el('button', 'tasksFilterLine' + (cur ? ' on' : '')); head.type = 'button'; head.setAttribute('aria-expanded', filtOpen ? 'true' : 'false');
     head.title = label; head.setAttribute('aria-label', label); // le libellé n'est plus un titre : l'icône réglage prend sa place (violette quand un filtre est actif)
     head.appendChild(svg('M4 8h3M11 8h9M9 6a2 2 0 1 0 0 4a2 2 0 1 0 0-4M4 16h9M17 16h3M15 14a2 2 0 1 0 0 4a2 2 0 1 0 0-4', 1.5));
-    head.addEventListener('click', function () { filtOpen = !filtOpen; filtBrowse = null; paintFilter(); });
-    filterBox.appendChild(head);
-    if (!filtOpen) return;
+    head.addEventListener('click', function (e) { e.stopPropagation(); filtOpen = !filtOpen; filtBrowse = null; paintFilter(); });
+    if (!filtOpen) { filterBox.appendChild(head); return; } // ouverte : la section REMPLACE l'icône
     var panel = el('div', 'tasksFilterPanel cmpGlass'), track = el('div', 'tasksFilterTrack'), p1 = el('div', 'tasksFilterPage'), p2 = el('div', 'tasksFilterPage');
     filtRow(p1, tr('Toutes les activités'), 0, filt.act == null, function () { applyFilt({ act: null, pole: null, sector: null }); });
     d.acts.forEach(function (a) {
@@ -196,9 +196,10 @@
     }
     var page = 0;
     function size() { panel.style.height = ((page ? p2 : p1).offsetHeight + 8) + 'px'; }
-    function go(n) { page = n; track.style.transform = 'translateX(' + (n ? -50 : 0) + '%)'; size(); if (!n) filtBrowse = null; }
+    function vis() { p1.style.visibility = page ? 'hidden' : ''; p2.style.visibility = page ? '' : 'hidden'; }
+    function go(n) { page = n; p1.style.visibility = ''; p2.style.visibility = ''; track.style.transform = 'translateX(' + (n ? -50 : 0) + '%)'; size(); if (!n) filtBrowse = null; window.setTimeout(function () { if (page === n) vis(); }, 280); }
     if (filtBrowse) { paintFilterPage2(); page = 1; track.style.transition = 'none'; track.style.transform = 'translateX(-50%)'; window.requestAnimationFrame(function () { track.style.transition = ''; }); }
-    window.requestAnimationFrame(size);
+    vis(); window.requestAnimationFrame(size);
     // Balayage vers la droite sur le panneau = retour aux activités (le geste ne change pas de page de l'application).
     var x0 = 0, y0 = 0;
     panel.addEventListener('touchstart', function (e) { e.stopPropagation(); x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
@@ -238,39 +239,10 @@
   // Rangée du haut : icône de tri à gauche, compteur « faites / à faire » (X / Y, rien d'autre) à droite.
   function buildTopRow() {
     var row = el('div', 'tasksTopRow');
-    row.appendChild(buildSort());
     counter = el('span', 'tasksCounter');
     row.appendChild(counter);
     return row;
   }
-  // Icône de tri (nue, sans cadre : R37), à gauche sous le titre ; menu = le panneau déroulant commun .statsPeriodMenu (fermé au toucher ailleurs par app.js), sans icône devant les choix.
-  function buildSort() {
-    var wrap = el('div', 'statsPeriodMenuWrap tasksSortWrap');
-    var btn = el('button', 'cmpEdit tasksSortBtn'); btn.type = 'button'; btn.setAttribute('aria-haspopup', 'true'); btn.setAttribute('aria-expanded', 'false');
-    btn.title = tr('Trier'); btn.setAttribute('aria-label', tr('Trier'));
-    btn.appendChild(svg('M4 8h3M11 8h9M9 6a2 2 0 1 0 0 4a2 2 0 1 0 0-4M4 16h9M17 16h3M15 14a2 2 0 1 0 0 4a2 2 0 1 0 0-4', 1.5));
-    var menu = el('div', 'statsPeriodMenu hidden');
-    SORTS.forEach(function (k) {
-      var it = el('button', 'statsPeriodMenuItem' + (k === sortMode ? ' active' : ''), tr(SORT_LABELS[k])); it.type = 'button';
-      it.addEventListener('click', function () {
-        menu.classList.add('hidden'); btn.setAttribute('aria-expanded', 'false');
-        sortMode = k;
-        menu.querySelectorAll('.statsPeriodMenuItem').forEach(function (b) { b.classList.toggle('active', b === it); });
-        if (lastData) render(lastData);
-      });
-      menu.appendChild(it);
-    });
-    btn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      var willOpen = menu.classList.contains('hidden');
-      document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
-      if (willOpen) menu.classList.remove('hidden');
-      btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-    });
-    wrap.appendChild(btn); wrap.appendChild(menu);
-    return wrap;
-  }
-
   // Barre d'ajout : [📎 à gauche] [texte] [↑ flèche d'envoi] ; au-dessus, la proposition de Noèsis.
   function buildAdd() {
     var box = el('div', 'tasksPopAdd');
