@@ -574,3 +574,8 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 
 - La vue des secteurs montre l'année de l'ÉCHÉANCE de l'objectif touché : 13 périodes, pas une de plus (une autre année = un autre objectif/une autre entrée). Entrée par un titre ou en pinçant, sans objectif touché : l'année courante (ou la première année du bloc si l'année courante n'en fait pas partie). Mesuré à 390 px : 13 périodes, année 2031 pour l'objectif touché de 2031.
 - La vue des années (niveau pôles) reste limitée à 5 années (un bloc) ; au-delà, c'est un autre bloc pluriannuel.
+
+## Repères fixes et cycles à fin fixe (7 nov. 2026)
+
+- Les repères du temps ont leur PROPRE colonne fixe à gauche (`.arRail`, hors du défilement horizontal) ; les colonnes d'activités et les titres défilent horizontalement dans `.arHScroll`, à côté, jamais dessous ; le défilement vertical est commun (repères et rangées ensemble, sans script). Mesuré à 390 et 360 px : x du repère 20 px (18 px à 360) avant et après un défilement horizontal de 120 px, bord de la colonne à 76 px (74 px), aucune carte ne dépasse dans cette colonne ; écart vertical repère/rangée 0 à 1 px.
+- Cycle à fin FIXE : pluriannuel = fin du bloc de 5 ans, annuel = fin de l'année, périodique = fin des 13 périodes. La vue va du présent à cette fin, jamais au-delà, sans remplissage vers l'année ou le bloc suivant ; une échéance au-delà de la fin du cycle appartient à un autre cycle. Mesuré (aujourd'hui = 7 nov. 2026 = période 12) : la vue des périodes de 2026 n'affiche que les périodes 12 et 13 ; une année future affiche ses 13 périodes ; un bloc de 5 ans futur affiche ses 5 années.
