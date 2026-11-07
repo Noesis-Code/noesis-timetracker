@@ -21,7 +21,6 @@
 .arCard .goalsGridCellText { display: flex; flex-direction: column; gap: 2px; }
 .arCardName { font-size: 13px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .arCardMeta { font-size: 12px; font-weight: 400; opacity: .72; line-height: 1.25; }
-.arCard.ar-future .arCardMeta { color: var(--text-light); opacity: 1; }
 .arCard.arPicked { box-shadow: 0 0 0 2px var(--purple); }
 .arStack { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .arEnter { animation: arEnter .22s ease-out; }
@@ -29,7 +28,8 @@
 @media (prefers-reduced-motion: reduce) { .arEnter { animation: none; } }
 .arToast { position: fixed; left: 16px; right: 16px; z-index: 45; margin: 0 auto; max-width: 420px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--card); color: var(--text); font-size: 13px; text-align: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); pointer-events: none; }
 .arToast.hidden { display: none; }
-.arBubble { position: relative; flex: none; display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 6px 16px; border: 0; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; pointer-events: auto; box-sizing: border-box; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
+.arBubble { position: relative; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 14px; border: 2px solid var(--track-bg); border-radius: var(--radius-md); background: var(--card); color: #fff; font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: left; cursor: pointer; pointer-events: auto; box-sizing: border-box; } /* comme les cartes de l'arbre périodique : même rayon, contour plein de la couleur de l'activité */
+.arDot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
 .arBubble span { overflow-wrap: anywhere; }
 /* Lier / délier (appui long + glisser) : carte tirée, cible violette, zone « Délier » transitoire à la place de la barre (.cmpAdd sans « + »). */
 .arNode.arDragging { z-index: 7; opacity: .9; box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
@@ -49,14 +49,14 @@
 /* Macro : carte large NEUTRE (jetons existants : blanc cassé et gris du thème, jamais la couleur d'une activité), même cadre de 2 px ; un trait par colonne concernée la relie à ses enfants. */
 .arGrid .goalsGridCell--filled.arMacro { --ar-c: var(--text-light); background: color-mix(in srgb, var(--text) 85%, var(--bg)); color: var(--bg); }
 .arGrid .goalsGridCell--filled.arMacro.ar-done { background: var(--text); }
-.arGrid .goalsGridCell--filled.arMacro.ar-future { background: var(--bg); color: var(--text); border-style: dashed; }
+.arGrid .goalsGridCell--filled.arMacro.ar-future { background: color-mix(in srgb, var(--text) 85%, var(--bg)); color: var(--bg); }
 .arMacro .arCardMeta { overflow-wrap: anywhere; }
 .arMacroStub { position: absolute; bottom: calc(var(--goalsGridGap) / -2 - 2px); width: 2px; height: calc(var(--goalsGridGap) / 2 + 2px); margin-left: -1px; background: var(--text-light); pointer-events: none; }
 .arMacroRow { margin-top: calc(var(--goalsGridGap) * -0.5); }
 .arGap { pointer-events: none; }
 /* L'arbre tient dans l'écran (hauteur = jusqu'à la barre « Nouvel objectif… ») : seule la grille défile en vertical, les colonnes et leurs bulles en horizontal ; un geste commencé dans l'arbre ne fait jamais défiler la page. */
-.arGridArea { overscroll-behavior-y: contain; } /* vertical : ne chaîne pas vers la page ; horizontal : le geste passe au conteneur des colonnes */
-.arScroll { overscroll-behavior: contain; }
+.arGridArea { overscroll-behavior-y: none; } /* vertical : ne chaîne pas vers la page ; horizontal : le geste passe au conteneur des colonnes */
+.arScroll { overscroll-behavior: none; } /* aucun rebond, aucun vide sous les bulles */
 /* Repères : le rond d'une période garde son numéro ; l'ovale (bloc de 5 ans, année) est le MÊME composant, pilule de même hauteur, texte centré. */
 .arGrid .goalsRowMarker:not(.goalsRowMarker--ovale) { flex-basis: 20px; width: 20px; margin-right: calc(var(--ar-mw, 20px) - 20px); }
 .goalsRowMarker--ovale { border-radius: 999px; font-size: 13px; padding: 0; height: 20px; width: auto; justify-content: center; white-space: nowrap; }
@@ -70,7 +70,7 @@
 .arSummaryText { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
 /* Rangées d'années et de blocs : compactes (gouttière réduite, cases moins hautes, repère ovale plus bas) ; les cases restent des cases grises, les cadres identiques. */
 .arGrid.arCompact { --goalsGridGap: 14px; }
-.arGrid.arCompact .goalsGridCell { min-height: 40px; }
+.arGrid .goalsGridCell { min-height: var(--ar-cell-h, 64px); } /* hauteur posée par le rendu : la grille remplit la zone */
 .arGrid.arCompact .goalsGridCell--filled .goalsGridCellText { padding: 8px 12px; }
 .arGrid.arCompact .goalsRowMarker--ovale { height: 18px; line-height: 18px; }
 /* Mode Étendre : colonnes incluses surlignées (contour violet), les autres atténuées. */
