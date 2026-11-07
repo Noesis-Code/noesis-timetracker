@@ -617,3 +617,7 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 - Titres choisis en mode fusion : REMPLIS de la couleur de l'activité (du pôle), plus de contour violet.
 - La zone « Délier » et le glisser-lier sont supprimés (interface, code, CSS) : l'appui long ouvre le mode et la barre du bas devient tout de suite le bouton, avant même le relâchement : « Séparer » (violet) sur un objectif fusionné, « Enregistrer » gris sinon. Aucune autre manière de délier. Rattacher un objectif à un autre reste possible par « Rattaché à » dans les paramètres (mode édition).
 - Un toucher COURT sur un macro, un objectif fusionné ou un titre descend d'un niveau (règle générale) ; seul l'appui long ouvre le mode. Vérifié à 390 px (capture pendant l'appui long : bouton « Séparer », aucune zone pointillée, composer masqué ; toucher court : niveau d'après, mode fermé).
+
+## Cartes de groupe : un titre court, aucun comptage (7 nov. 2026)
+
+- Le texte « N objectifs » est retiré (cartes qui regroupent plusieurs objectifs : activités, blocs, années, périodes, macros). La carte porte UN titre court, SANS IA : le titre du plus grand objectif du groupe (celui qui englobe le plus d'autres, sinon l'échéance la plus lointaine). Une carte de macro porte son titre et, dessous, les colonnes reliées, sans comptage. Vérifié à 390 px aux niveaux activités et années : aucune carte ne contient « objectifs ».

@@ -82,11 +82,13 @@
     return best.st;
   }
   // Carte « N objectifs » : touchée = la liste ; appui long = quel objectif déplacer (la carte se sépare) ; cible de dépôt (choix de l'objectif qui reçoit).
+  function bigOf(os) { // titre court d'un groupe SANS IA : l'objectif qui englobe le plus d'autres, à égalité l'échéance la plus lointaine
+    var best = null; os.forEach(function (o) { var n = Object.keys(descendants(o.id, kidsAll)).length; if (!best || n > best.n || (n === best.n && o.endDate > best.o.endDate)) best = { o: o, n: n }; }); return best ? best.o : os[0];
+  }
   function mergedCard(os, today, w, onOpen, onTap, colColor) {
     var st = mergedState(os, today), c = colColor || color(os[0]), ids = os.map(function (o) { return o.id; });
     var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMerged arCard ar-' + st); b.type = 'button'; b.setAttribute('data-ids', ids.join(',')); cellSize(b, w); paint(b, st, c);
-    var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', os.length + ' ' + tr('objectifs')));
-    t.appendChild(el('span', 'arCardMeta', os.slice(0, 2).map(function (o) { return o.title; }).join(' · '))); b.appendChild(t);
+    var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', bigOf(os).title)); b.appendChild(t); // UN titre court, aucune ligne de comptage
     b.addEventListener('click', function () { // plusieurs objectifs : toucher = descendre d'un niveau ; en mode édition : la liste, pour choisir celui à modifier
       if (editMode) { if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids); return; }
       if (onTap) { onTap(); return; } if (onOpen) onOpen();
@@ -109,7 +111,7 @@
     var st = stateOf(m, today), span = c1 - c0 + 1, w = span * W + (span - 1) * GAP;
     var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && (ext.macro && ext.macro.id === m.id || ext.mode === 'create' && m.id < 0) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
-    t.appendChild(el('span', 'arCardMeta', (m.macroChildren || 0) + ' ' + tr((m.macroChildren || 0) > 1 ? 'objectifs' : 'objectif') + ' · ' + (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · ') + (m.macroEmpty ? ' · ' + tr('aucun objectif rattaché') : '')));
+    t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
     b.appendChild(t);
     for (var k = 0; k < span; k++) { var stub = el('i', 'arMacroStub'); stub.style.left = (k * (W + GAP) + W / 2) + 'px'; b.appendChild(stub); }
     b.addEventListener('click', function () { if (!editMode) { descend(c0); return; } // toucher COURT = descendre d'un niveau (règle générale) ; le mode Fusionner/Séparer s'ouvre UNIQUEMENT par l'appui long
@@ -204,8 +206,7 @@
   }
   function summaryCard(os, color, w, year, ci) {
     var b = el('button', 'goalsGridCell goalsGridCell--filled arSummary arCard'); b.type = 'button'; cellSize(b, w); paint(b, 'now', color);
-    var t = el('div', 'goalsGridCellText'); os.slice(0, 4).forEach(function (o) { t.appendChild(el('span', 'arCardName', o.title)); });
-    if (os.length > 4) t.appendChild(el('span', 'arCardMeta', '+ ' + (os.length - 4) + ' ' + tr('objectifs'))); b.appendChild(t);
+    var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', bigOf(os).title)); b.appendChild(t);
     resumeOf(os[0].activity.id, year).then(function (txt) { // le texte du serveur remplace la liste de titres dans la case (3 lignes au plus, coupure propre)
       if (!txt || !b.isConnected) return;
       t.textContent = ''; t.appendChild(el('span', 'arSummaryText', txt.replace(/\n\s*-\s*/g, ' · ').replace(/^\s*-\s*/, '')));
