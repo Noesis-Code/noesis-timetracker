@@ -47,9 +47,6 @@
 .arNode.arDragging { z-index: 7; opacity: .9; box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
 .arNode.arDropTarget { box-shadow: 0 0 0 2px var(--purple); }
 .arNode.arDropBad { opacity: .45; }
-.objDock .arUnlinkZone { position: absolute; left: 0; right: 0; bottom: 0; z-index: 7; min-height: 52px; background: var(--card); }
-.objDock .arUnlinkZone.arUnlinkOver { border-color: var(--purple); color: var(--text); }
-.objDock.objLinking .tasksComposer { visibility: hidden; }
 /* Case vide = le gris NEUTRE de l'arbre périodique (aucune teinte d'activité, aucun « + ») ; touchable sur toute sa surface (ajouter un objectif). */
 .arHole { cursor: pointer; padding: 0; }
 .arHole:disabled { cursor: default; opacity: 1; }
@@ -104,3 +101,5 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arRail.arCompact .goalsRowMarker--ovale { height: 18px; line-height: 18px; }
 /* Règle de l'arbre périodique (.goalsGridScroll--locked) : une ou deux colonnes = aucun défilement horizontal, le balayage part vers la page voisine. */
 .arHScroll.goalsGridScroll--locked { overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; }
+.arBubble.arExtOn { box-shadow: none; } /* titre choisi : rempli de la couleur (script), jamais de contour violet */
+.arBubble.arExtOn .arDot { background: currentColor !important; opacity: .55; }

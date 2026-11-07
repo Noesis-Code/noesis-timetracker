@@ -609,4 +609,11 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 
 ## Rappel de fin de période (7 nov. 2026)
 
-- Le rappel ouvre désormais le calendrier de la vue Tâches, filtre posé sur le pôle / secteur du rappel (la page d'activité n'est plus ouverte entre les deux). Vérifié à 390 px en appelant le point d'entrée du rappel : onglet Tâches actif, calendrier de Novembre 2026 affiché, aucune page d'activité visible.
+- Supprimé côté serveur par décision d'Émilien ; la redirection du rappel vers le calendrier des Tâches a été retirée de l'arbre.
+
+## Fusion : le macro incorpore l'objectif, appui long seul, plus de « Délier » (7 nov. 2026)
+
+- Le macro INCORPORE l'objectif existant : sa carte prend la place de la rangée de son enfant le plus lointain (même période), élargie sur les colonnes fusionnées ; aucune rangée n'est créée, aucune case vide n'est ajoutée (mesuré : 5 rangées avant et après la fusion). Les enfants incorporés n'ont plus de carte propre dans cette rangée. Si une carte étrangère occupe la place, le macro garde sa rangée voisine (cas rare).
+- Titres choisis en mode fusion : REMPLIS de la couleur de l'activité (du pôle), plus de contour violet.
+- La zone « Délier » et le glisser-lier sont supprimés (interface, code, CSS) : l'appui long ouvre le mode et la barre du bas devient tout de suite le bouton, avant même le relâchement : « Séparer » (violet) sur un objectif fusionné, « Enregistrer » gris sinon. Aucune autre manière de délier. Rattacher un objectif à un autre reste possible par « Rattaché à » dans les paramètres (mode édition).
+- Un toucher COURT sur un macro, un objectif fusionné ou un titre descend d'un niveau (règle générale) ; seul l'appui long ouvre le mode. Vérifié à 390 px (capture pendant l'appui long : bouton « Séparer », aucune zone pointillée, composer masqué ; toucher court : niveau d'après, mode fermé).
