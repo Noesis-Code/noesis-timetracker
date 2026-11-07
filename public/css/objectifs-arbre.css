@@ -60,7 +60,8 @@
 .arGrid .goalsGridCell--filled.arMacro.ar-done { background: var(--text); }
 .arGrid .goalsGridCell--filled.arMacro.ar-future { background: color-mix(in srgb, var(--text) 85%, var(--bg)); color: var(--bg); }
 .arMacro .arCardMeta { overflow-wrap: anywhere; }
-.arMacroStub { position: absolute; bottom: calc(var(--goalsGridGap) / -2 - 2px); width: 2px; height: calc(var(--goalsGridGap) / 2 + 2px); margin-left: -1px; background: var(--text-light); pointer-events: none; }
+.arMacroStub { position: absolute; z-index: 2; bottom: calc(var(--goalsGridGap) * -1 - 2px); width: 2px; height: calc(var(--goalsGridGap) + 2px); margin-left: -1px; background: var(--text-light); pointer-events: none; } /* continu, du bas du macro au haut de la carte enfant, 2 px, centré sur sa colonne */
+.arMacroRow .arMacroStub { bottom: -10px; height: 10px; } /* macro dans sa rangée voisine : 8 px d'écart + 2 px */
 .arMacroRow { margin-top: 0; margin-bottom: calc(8px - var(--goalsGridGap)); } /* rangée du macro : dans SA période, collée (8 px) à la rangée des cases de cette période, jamais entre deux périodes */
 /* Carte concernée par la fusion : elle tremble (keyframes des volets) et reste allumée. */
 .arExtending .arExtSelf { animation: tabJiggle .26s ease-in-out infinite alternate; }

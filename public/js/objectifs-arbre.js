@@ -113,7 +113,8 @@
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
     t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
     b.appendChild(t);
-    for (var k = 0; k < span; k++) { var stub = el('i', 'arMacroStub'); stub.style.left = (k * (W + GAP) + W / 2) + 'px'; b.appendChild(stub); }
+    for (var k = 0; k < span; k++) { var stub = el('i', 'arMacroStub'); stub.style.left = (k * (W + GAP) + W / 2) + 'px'; if (cols && cols[c0 + k]) stub.style.background = cols[c0 + k].color; b.appendChild(stub); } // trait de la couleur de la colonne reliée, jusqu'à sa carte enfant
+    if (cols && cols[c0]) b.style.setProperty('--goalsCellLineColor', cols[c0].color); // et du haut du macro à la colonne unique au-dessus
     b.addEventListener('click', function () { if (!editMode) { descend(c0); return; } // toucher COURT = descendre d'un niveau (règle générale) ; le mode Fusionner/Séparer s'ouvre UNIQUEMENT par l'appui long
        if (m.id > 0 && TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(m.id); });
     if (editMode && m.id > 0) { b.appendChild(removeCross(m)); return b; }
@@ -122,7 +123,7 @@
   }
   // ---------- MODE ÉTENDRE : relier d'autres colonnes du MÊME niveau (activités, pôles d'une activité, secteurs d'un pôle) par un macro ----------
   function colPayload(i) { var x = curCols[i] && curCols[i].col ? curCols[i].col.ctx : curCols[i].ctx; return lvl === 'activite' ? { activityId: x.activityId } : lvl === 'pole' ? { activityId: x.activityId, poleKey: x.poleKey } : { activityId: x.activityId, poleKey: x.poleKey, categoryKey: x.categoryKey }; }
-  function newest(i, n) { return (curCols[i].objs || []).filter(function (o) { return o.parentId == null && !o.isMacro && !o.abandoned && (o.level || 'activite') === lvl; }) // un macro relie des objectifs d'UN même niveau (serveur) : on ne propose que ceux du niveau affiché
+  function newest(i, n) { return (curCols[i].objs || []).filter(function (o) { return o.parentId == null && !o.isMacro && !o.abandoned && (o.level || 'activite') === (ext && ext.level || lvl); }) // un macro relie des objectifs d'UN même niveau (serveur) : on ne propose que ceux du niveau affiché
       .sort(function (x, y) { return y.id - x.id; }).slice(0, n); }
   function colOfObj(o) { var ci = -1; curCols.forEach(function (c, i) { var k = lvl === 'activite' ? o.activity.id : lvl === 'pole' ? (o.poleKey || curCols[0].key) : (o.categoryKey || curCols[0].key); if (ci < 0 && c.key === k) ci = i; }); return ci; }
   function extChildIds() { var ids = []; Object.keys(ext.cols).forEach(function (k) { var i = Number(k); (i === ext.baseCol ? [ext.base] : newest(i, 2)).forEach(function (o) { if (o && ids.indexOf(o.id) < 0) ids.push(o.id); }); }); return ids; }
@@ -150,13 +151,13 @@
   }
   function startExtend(o, ci) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
-    ext = { mode: 'create', base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now(), rank: bucketOf(o, dayIso()).rank }; ext.cols[ci] = true; ext.init[ci] = true;
+    ext = { mode: 'create', level: o.level || 'activite', base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now(), rank: bucketOf(o, dayIso()).rank }; ext.cols[ci] = true; ext.init[ci] = true;
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
     extOpenPanel(); render(); watchRelease(); extScrollToEligible(); // création : le doigt est DÉJÀ relevé (appui long relâché sur place) ; le clic qui suit ne coche rien
   }
   function startExtendEdit(m, fromTap) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
-    ext = { mode: 'edit', macro: m, cols: {}, init: {}, seq: 0, born: Date.now(), rank: bucketOf(m, dayIso()).rank };
+    ext = { mode: 'edit', level: m.macroLevel || m.level || 'activite', macro: m, cols: {}, init: {}, seq: 0, born: Date.now(), rank: bucketOf(m, dayIso()).rank };
     items.filter(function (x) { return x.parentId === m.id && !x.isMacro; }).forEach(function (x) { var i = colOfObj(x); if (i >= 0) { ext.cols[i] = true; ext.init[i] = true; } });
     if (!Object.keys(ext.cols).length) return (ext = null);
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
@@ -281,7 +282,7 @@
     if (!tree || !tree.getClientRects().length) return;
     var d = dockEl(), bar = d && d.querySelector('.tasksComposer'); if (bar && !bar.getClientRects().length) bar = d.querySelector('.tasksSaveBtn'); // la barre devenue bouton (Enregistrer / Séparer) borne l'arbre comme la barre d'écriture : sans cela l'arbre était recadré à 240 px
     var btop = bar && bar.getClientRects().length ? bar.getBoundingClientRect().top : window.innerHeight - 100;
-    var h = Math.max(240, btop - 8 - tree.getBoundingClientRect().top);
+    var h = Math.max(240, btop - tree.getBoundingClientRect().top); // de son haut au haut de la barre ; la gouttière (8 px) est le seul espace sous la rangée des titres (padding bas de la rangée)
     tree.style.height = Math.round(h) + 'px';
   }
   if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (visible) fitTree(); });
@@ -466,12 +467,12 @@
     // cellules des colonnes : [rangée][colonne] -> entrées
     var cells = list.map(function (rw) { return data.map(function (c) { return c.entries.filter(function (e) { return e.b.rank === rw.rank; }).sort(function (a, b) { return (a.ri - b.ri) || (b.i - a.i); }); }); });
 
-    var holes = {}; // au-dessus (périodes plus tardives) d'une carte large non encore atteinte : les colonnes absorbées n'ont plus de cases, leurs objectifs vont dans la colonne de l'entité touchée
+    var holes = {}, wideAt = {}; // au-dessus (périodes plus tardives) d'une carte large non encore atteinte : les colonnes absorbées n'ont plus de cases, leurs objectifs vont dans la colonne de l'entité touchée
     Object.keys(macrosAt).forEach(function (k) {
       macrosAt[k].forEach(function (mm) {
         if (!(mm.m.id > 0) || mm.m.mergeReached || !rootMacro(mm.m) || !mm.idxs || mm.idxs.length < 2) return;
         var anchor = mm.idxs[0];
-        list.forEach(function (rw2, r2) { if (rw2.rank <= Number(k)) return; mm.idxs.slice(1).forEach(function (q) { cells[r2][anchor] = cells[r2][anchor].concat(cells[r2][q]); cells[r2][q] = []; holes[r2 + ':' + q] = true; }); });
+        list.forEach(function (rw2, r2) { if (rw2.rank <= Number(k)) return; mm.idxs.slice(1).forEach(function (q) { cells[r2][anchor] = cells[r2][anchor].concat(cells[r2][q]); cells[r2][q] = []; holes[r2 + ':' + q] = true; wideAt[r2 + ':' + anchor] = mm.idxs.length; }); });
       });
     });
     var grid = el('div', 'goalsGrid arGrid' + (zoom !== 'period' ? ' arCompact' : '') + (animate ? ' arEnter' : '')); // années et blocs de 5 ans : rangées COMPACTES (moins de hauteur) animate = false;
@@ -504,13 +505,14 @@
       data.forEach(function (c, ci) {
         var es = cells[r][ci];
         if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols)); return; }
-        if (holes[r + ':' + ci]) { var hole = el('div', 'arGap'); cellSize(hole, W); hole.setAttribute('data-col', String(ci)); row.appendChild(hole); return; } // colonne absorbée : plus de case au-dessus de la fusion
-        if (!es.length && lvl === 'secteur' && rw.p) row.appendChild(emptyCell(W, 'cal', function () { openCalendar(rw, c.col.key); })); // niveau secteurs : toucher une case vide ouvre AUSSI le calendrier (« Ajouter un objectif périodique » s'y trouve)
-        else if (!es.length) row.appendChild(emptyCell(W, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
-        else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, W, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
-        else if (es.length > 1 && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, W, function () { descend(ci, rw.y, rw.y); }, calTap(rw, c), c.color)); // plusieurs objectifs d'une même activité dans la même case : une seule carte
-        else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, W); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, W, calTap(rw, c), ci, c.color)); }); row.appendChild(stack); }
-        else row.appendChild(card(es[0].o, today, c.all, mode, W, calTap(rw, c), ci, c.color));
+        if (holes[r + ':' + ci]) return; // colonne absorbée : au-dessus de la fusion il ne reste QU'UNE colonne, sur toute la largeur des colonnes liées (la case de l'entité touchée est élargie)
+        var Wc = wideAt[r + ':' + ci] ? wideAt[r + ':' + ci] * W + (wideAt[r + ':' + ci] - 1) * GAP : W;
+        if (!es.length && lvl === 'secteur' && rw.p) row.appendChild(emptyCell(Wc, 'cal', function () { openCalendar(rw, c.col.key); })); // niveau secteurs : toucher une case vide ouvre AUSSI le calendrier (« Ajouter un objectif périodique » s'y trouve)
+        else if (!es.length) row.appendChild(emptyCell(Wc, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
+        else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, Wc, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
+        else if (es.length > 1 && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, Wc, function () { descend(ci, rw.y, rw.y); }, calTap(rw, c), c.color)); // plusieurs objectifs d'une même activité dans la même case : une seule carte
+        else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, Wc); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, Wc, calTap(rw, c), ci, c.color)); }); row.appendChild(stack); }
+        else row.appendChild(card(es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, c.color));
       });
       grid.appendChild(row);
     });
@@ -587,6 +589,11 @@
   }
   tree = document.getElementById('goalsObjArbre');
   if (tree) window.addEventListener('resize', function () { if (loaded && visible) render(); });
+  // La barre « Nouvel objectif… » peut bouger sans que la fenêtre soit redimensionnée (clavier, barre d'adresse du navigateur mobile) : on recalcule la hauteur de l'arbre depuis le HAUT RÉEL de la barre.
+  var refitT = 0;
+  function refit() { window.clearTimeout(refitT); refitT = window.setTimeout(function () { if (loaded && visible && tree && tree.getClientRects().length) render(); }, 150); }
+  if (window.visualViewport) { window.visualViewport.addEventListener('resize', refit); window.visualViewport.addEventListener('scroll', refit); }
+  document.addEventListener('focusin', refit); document.addEventListener('focusout', refit);
   // UNE SEULE flèche de retour : depuis un calendrier ouvert par l'arbre, la flèche ‹ du cadre du pôle (qui ne change plus de pôle) ramène à l'arbre.
   document.addEventListener('click', function (e) {
     if (!document.documentElement.classList.contains('calFromTree') || !e.target.closest || !e.target.closest('#goalsPrevPoleBtn')) return;
