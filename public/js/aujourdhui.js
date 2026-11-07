@@ -124,6 +124,11 @@
     var c = cacheGet(dayIso()); if (c) render(c); else { listBox.textContent = ''; }
     refresh();
   }
+  // Minuit / retour au premier plan : le cercle « aujourd'hui », la nature du jour choisi (passé / futur) et la liste se mettent à jour.
+  var lastToday = localIso();
+  function rollDay() { var t = localIso(); if (t === lastToday) return; lastToday = t; if (!viewDay) calAnchor = t; paintCal(); if (shown) { var c = cacheGet(dayIso()); if (c) render(c); refresh(); } }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) rollDay(); });
+  setInterval(rollDay, 30000);
   function resetDay() { viewDay = null; calAnchor = localIso(); calExpanded = false; paintCal(); }
 
   // « Archive » (fin de l'onglet) : même gabarit que « Archives » de l'onglet Tâches (mêmes classes, CSS partagé) ; les lignes sont celles de la liste du jour,
@@ -357,6 +362,7 @@
   }
   function expansionAsked() {
     if (state.busy) return;
+    if (dayIso() < localIso()) { say(tr('Pas d’ajout dans un jour passé.')); return; } // jour passé : lecture seule
     var label = ui.text.value.trim();
     if (!label) { say(tr('Écris ta demande, puis appuie longuement sur ↑ pour Expansion.')); return; }
     startExpansion(expKind(label), label);

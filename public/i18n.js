@@ -1225,6 +1225,8 @@
     'sur': 'out of',
     'objectifs hebdomadaires atteints': 'weekly goals met',
     'Aujourd’hui': 'Today',
+    'Pas de date dans le passé.': 'No date in the past.',
+    'Pas d’ajout dans un jour passé.': 'No new tasks on a past day.',
     'Impossible d’ajouter la tâche.': 'Could not add the task.',
 
     // ---- 20 septembre 2026 (discussion Objectifs — Logique métier, chantier

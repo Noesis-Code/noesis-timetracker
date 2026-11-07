@@ -40,5 +40,10 @@ assert(gs.map((g) => g.e).join() === '2026-11-12,2026-12-01,2026-11-01,2026-10-2
 // Serveur : jour futur et passé (goalstoday.tasksToday avec day)
 const srv = R('server', 'lib', 'goalstoday.js');
 assert(/dayParam/.test(srv) && /today > realToday && t\.dueDate === today/.test(srv), 'serveur : jour futur = tâches prévues ce jour-là, jour passé = ce qui y a été fait');
+const tl = R('public', 'js', 'taches-ligne.js');
+assert(/dateIn.value !== task.dueDate && dateIn.value < todayD/.test(tl) && /Pas de date dans le passé/.test(tl), 'édition : déplacement vers un jour passé refusé (une tâche déjà passée garde sa date)');
+assert(js.indexOf('function rollDay') >= 0 && js.indexOf("visibilitychange', function () { if (!document.hidden) rollDay") >= 0 && js.indexOf('setInterval(rollDay') >= 0, 'minuit / retour au premier plan : bande et jour repeints');
+assert(/function expansionAsked\(\) \{\s*if \(state\.busy\) return;\s*if \(dayIso\(\) < localIso\(\)\)/.test(js), 'appui long (Expansion) refusé vers un jour passé');
+assert(js.includes('function rollDay') && js.includes("visibilitychange', function () { if (!document.hidden) rollDay") && js.includes('setInterval(rollDay'), 'minuit / retour au premier plan : bande et jour repeints');
 if (failed) { console.log('\nvue-taches-jour-test : ' + failed + ' échec(s)'); process.exit(1); }
 console.log('\nvue-taches-jour-test : OK');

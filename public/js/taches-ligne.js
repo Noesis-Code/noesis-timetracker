@@ -133,6 +133,7 @@
     var dateIn = document.createElement('input');
     dateIn.type = 'date'; dateIn.value = task.dueDate || '';
     panel.appendChild(dateIn);
+    var pastMsg = document.createElement('p'); pastMsg.className = 'hint hidden'; pastMsg.textContent = t('Pas de date dans le passé.'); panel.appendChild(pastMsg);
 
     // Récurrence : lue sur la tâche (le calendrier ne la transmet pas) ; n'est envoyée qu'une fois chargée.
     var recField = buildRecurrenceField(null);
@@ -179,6 +180,9 @@
       var label = txt.value.trim();
       if (!label) { txt.focus(); return; }
       var body = { userId: uid, label: label };
+      var nowD = new Date(), todayD = nowD.getFullYear() + '-' + String(nowD.getMonth() + 1).padStart(2, '0') + '-' + String(nowD.getDate()).padStart(2, '0');
+      if (dateIn.value && dateIn.value !== task.dueDate && dateIn.value < todayD) { pastMsg.classList.remove('hidden'); return; } // aucun déplacement vers un jour passé ; une tâche déjà passée garde sa date
+      pastMsg.classList.add('hidden');
       if (dateIn.value) body.dueDate = dateIn.value;
       if (assignSel && task.plannedUserId !== undefined) body.plannedUserId = assignSel.value || null;
       if (recLoaded) body.recurrence = recField.get();
