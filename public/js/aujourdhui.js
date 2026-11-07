@@ -800,7 +800,7 @@
     var kind = dayKind();
     root.classList.toggle('dayPast', kind === 'past'); root.classList.toggle('dayFuture', kind === 'future');
     if (kind === 'past') d = Object.assign({}, d, { tasks: (d.tasks || []).filter(function (t) { return t.done; }), todoCount: 0 }); // jour passé : ce qui a été fait, rien d'autre
-    var nDone = d.tasks.filter(function (t) { return t.done; }).length, nTodo = d.tasks.filter(function (t) { return !t.done && !t.upcoming && !(t.plannedUserId && t.plannedUserId !== TMT.getProfile().id); }).length;
+    var nDone = d.tasks.filter(function (t) { return t.done; }).length, nTodo = d.tasks.filter(function (t) { return !t.done && !t.upcoming && !(t.plannedUserId && t.plannedUserId !== TMT.getProfile().id) && (viewDay !== 'all' || t.dueNow !== false); }).length; // vue « toutes » : le compteur reste celui d'AUJOURD'HUI (à faire aujourd'hui, en retard ou sans date), identique à la vue du jour
     counter.textContent = kind === 'past' ? String(nDone) : nDone + ' / ' + (nDone + nTodo); // faites / total (faites + à faire) de ce qui est affiché : une tâche cochée quitte la liste mais reste comptée, +1 aux faites
     listBox.textContent = '';
     var have = {}; d.tasks.forEach(function (t) { have[t.id] = true; });

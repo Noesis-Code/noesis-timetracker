@@ -46,7 +46,7 @@ function tasksToday(userId, todayParam, dayParam) {
         if (!list) return;
         list.push({
           id: t.id, label: t.label, done: !!t.done, activityId: a.id, activityName: a.name, activityColor: a.color || null,
-          sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, catKey: t.key, dueDate: due, overloaded: !other && !t.done && !!(marks[t.key] || marks[t.poleKey]) && due <= today,
+          sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, catKey: t.key, dueDate: due, dueNow: due <= today, overloaded: !other && !t.done && !!(marks[t.key] || marks[t.poleKey]) && due <= today,
           minutes: goalscapacity.taskMinutes(userId, a.id, t.poleKey, t.label), plannedUserId: t.plannedUserId || null, shared: sharedActs.has(a.id), poleName: poleLabels[t.poleKey] || t.poleKey, poleIndex: poleIdx[t.poleKey], plannedUserName: memberNames[t.plannedUserId] || '',
         });
       });
