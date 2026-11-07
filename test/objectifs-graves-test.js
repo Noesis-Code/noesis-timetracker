@@ -380,8 +380,12 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
       const top = mk('Grand objectif fin', { endDate: '2028-12-31' }), top2 = mk('Autre grand objectif', { endDate: '2028-12-31' });
       const pA = mk('Pôle A fin', { level: 'pole', poleKey: pl[0].key, parentId: top.id, endDate: '2027-12-31' }), pB = mk('Pôle B fin', { level: 'pole', poleKey: pl[1].key, parentId: top.id, endDate: '2027-12-31' });
       const pC = mk('Pôle C fin', { level: 'pole', poleKey: pl[1].key, parentId: top2.id, endDate: '2027-12-31' });
-      const eP = bad(() => o.fusionnerEnMacro(u, { title: 'Mélange', childIds: [pA.id, pC.id] }));
-      assert(eP && /même objectif/.test(eP.message), 'fusion aux niveaux fins : parents différents refusés (message lisible)');
+      const mx = o.fusionnerEnMacro(u, { title: 'Mélange', childIds: [pA.id, pC.id] });
+      assert(o.get(u, mx.id).parentId === null && o.get(u, pA.id).parentId === mx.id && o.get(u, pC.id).parentId === mx.id, 'fusion aux niveaux fins : parents différents ou aucun lien, la fusion est permise (le macro est un sommet)');
+      assert(o.supprimer(u, mx.id, true).ok && o.get(u, pA.id).parentId === top.id && o.get(u, pC.id).parentId === top2.id, 'séparer : chaque objectif retrouve son parent d’origine, rien n’est supprimé');
+      const sA = mk('Pôle sans parent A', { level: 'pole', poleKey: pl[0].key, endDate: '2027-12-31' }), sB = mk('Pôle sans parent B', { level: 'pole', poleKey: pl[1].key, endDate: '2027-12-31' });
+      const ms = o.fusionnerEnMacro(u, { title: 'Sans parent', childIds: [sA.id, sB.id] });
+      assert(o.get(u, ms.id).macroColumns.length === 2 && o.supprimer(u, ms.id, true).ok && o.get(u, sA.id).parentId === null && o.get(u, sB.id).parentId === null, 'fusion sans aucun parent : macro à 2 colonnes, séparer remet des sommets');
       const mp = o.fusionnerEnMacro(u, { title: 'Macro pôles', childIds: [pA.id, pB.id] });
       assert(o.get(u, mp.id).parentId === top.id && o.get(u, pA.id).parentId === mp.id && o.get(u, pB.id).parentId === mp.id && o.get(u, mp.id).level === 'pole', 'fusion aux niveaux fins : le macro prend la place de ses objectifs sous leur parent commun');
       assert(o.supprimer(u, mp.id, true).ok && o.get(u, pA.id).parentId === top.id && o.get(u, pB.id).parentId === top.id, 'séparer aux niveaux fins : les objectifs remontent sous le parent du macro, rien n’est supprimé');

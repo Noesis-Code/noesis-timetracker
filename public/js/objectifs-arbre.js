@@ -116,7 +116,7 @@
   // de la largeur exacte des colonnes des activités concernées (les colonnes intermédiaires sont traversées) ; un trait par colonne concernée la relie à ses enfants, qui gardent la couleur de leur activité.
   function macroCard(m, today, c0, c1, W, cols) {
     var st = stateOf(m, today), span = c1 - c0 + 1, w = spanW(W, span);
-    var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && (ext.macro && ext.macro.id === m.id || ext.mode === 'create' && m.id < 0) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w);
+    var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && (ext.macro && ext.macro.id === m.id || ext.mode === 'create' && m.id < 0) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-c0', String(c0)); b.setAttribute('data-c1', String(c1)); b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
     t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
     b.appendChild(t);
@@ -128,15 +128,17 @@
   }
   // ---------- MODE ÉTENDRE : relier d'autres colonnes du MÊME niveau (activités, pôles d'une activité, secteurs d'un pôle) par un macro ----------
   function colPayload(i) { var x = curCols[i] && curCols[i].col ? curCols[i].col.ctx : curCols[i].ctx; return lvl === 'activite' ? { activityId: x.activityId } : lvl === 'pole' ? { activityId: x.activityId, poleKey: x.poleKey } : { activityId: x.activityId, poleKey: x.poleKey, categoryKey: x.categoryKey }; }
-  function newest(i, n) { return (curCols[i].objs || []).filter(function (o) { return (o.parentId == null ? null : o.parentId) === (ext && ext.parent != null ? ext.parent : null) && !o.isMacro && !o.abandoned && (o.level || 'activite') === (ext && ext.level || lvl) && (!ext || ext.rank == null || bucketOf(o, dayIso()).rank === ext.rank); }) // même LIGNE (année / période), même parent ; // un macro relie des objectifs d'UN même niveau (serveur) : on ne propose que ceux du niveau affiché
+  function newest(i, n) { return (curCols[i].objs || []).filter(function (o) { return !o.isMacro && !o.abandoned && (o.level || 'activite') === (ext && ext.level || lvl) && (!ext || ext.rank == null || bucketOf(o, dayIso()).rank === ext.rank); }) // même LIGNE (année / période), avec ou sans lien entre eux ; // un macro relie des objectifs d'UN même niveau (serveur) : on ne propose que ceux du niveau affiché
       .sort(function (x, y) { return y.id - x.id; }).slice(0, n); }
-  function isMulti() { return !!(focus && focus.activityIds && focus.activityIds.length > 1); } // un macro qui relie plusieurs activités : on descend vers les pôles de TOUTES ces activités, ensemble
+  function isMulti() { return !!(focus && ((focus.activityIds && focus.activityIds.length > 1) || (focus.pairs && focus.pairs.length > 1))); }
+  function pairsOf() { return (focus && focus.pairs) || []; } // niveau secteurs d'un macro qui relie des pôles de plusieurs activités : les secteurs de TOUS ces pôles, ensemble // un macro qui relie plusieurs activités : on descend vers les pôles de TOUTES ces activités, ensemble
   function pkeyOf(c) { return c.pkey != null ? c.pkey : c.key; } // clé réelle du pôle (la clé de colonne est composée « activité/pôle » en mode multi-activités : les clés de pôle se recoupent d'une activité à l'autre)
   function colOfObj(o) {
     var ci = -1, first = null;
     curCols.forEach(function (c, i) {
       var k;
       if (lvl === 'pole') { if (c.ctx.activityId !== o.activity.id) return; if (!first) first = c; k = o.poleKey || pkeyOf(first); if (ci < 0 && pkeyOf(c) === k) ci = i; return; }
+      if (lvl === 'secteur' && pairsOf().length > 1) { if (c.ctx.activityId === o.activity.id && c.ctx.poleKey === o.poleKey && c.ctx.categoryKey === (o.categoryKey || c.ctx.categoryKey) && ci < 0) ci = i; return; }
       k = lvl === 'activite' ? o.activity.id : (o.categoryKey || curCols[0].key); if (ci < 0 && c.key === k) ci = i;
     });
     return ci;
@@ -164,24 +166,21 @@
     document.addEventListener('touchend', done, true); document.addEventListener('pointerup', done, true);
     window.setTimeout(function () { if (ext) ext.holding = false; }, 2500);
   }
-  function pickBase(o, ci) { // case qui réunit des objectifs de PARENTS différents (niveaux pôle / secteur) : on garde le parent qui a le plus de colonnes voisines à relier, sur la même ligne
+  function pickBase(o, ci) { // l'objectif touché ; si la case en réunit plusieurs du même niveau et de la même ligne, celui qui englobe le plus d'autres (son titre nomme le macro)
     var level = o.level || 'activite', rank = bucketOf(o, dayIso()).rank, today = dayIso();
-    var ok = function (x, key) { return !x.isMacro && !x.abandoned && (x.level || 'activite') === level && bucketOf(x, today).rank === rank && (x.parentId == null ? null : x.parentId) === key; };
-    var mine = (curCols[ci].objs || []).filter(function (x) { return ok(x, x.parentId == null ? null : x.parentId); }), best = null;
-    mine.forEach(function (x) { var key = x.parentId == null ? null : x.parentId, n = 0; curCols.forEach(function (c, j) { if (j !== ci && (c.objs || []).some(function (y) { return ok(y, key); })) n++; }); var own = (o.parentId == null ? null : o.parentId) === key; if (!best || n > best.n || (n === best.n && own && !best.own)) best = { key: key, n: n, own: own }; });
-    if (!best) return o;
-    return bigOf(mine.filter(function (x) { return (x.parentId == null ? null : x.parentId) === best.key; }));
+    var mine = (curCols[ci].objs || []).filter(function (x) { return !x.isMacro && !x.abandoned && (x.level || 'activite') === level && bucketOf(x, today).rank === rank; });
+    return mine.length ? (mine.some(function (x) { return x.id === o.id; }) ? o : bigOf(mine)) : o;
   }
   function startExtend(o, ci) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
     o = pickBase(o, ci);
-    ext = { mode: 'create', level: o.level || 'activite', parent: o.parentId == null ? null : o.parentId, base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now(), rank: bucketOf(o, dayIso()).rank }; ext.cols[ci] = true; ext.init[ci] = true;
+    ext = { mode: 'create', level: o.level || 'activite', base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now(), rank: bucketOf(o, dayIso()).rank }; ext.cols[ci] = true; ext.init[ci] = true;
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
     extOpenPanel(); render(); watchRelease(); extScrollToEligible(); // création : le doigt est DÉJÀ relevé (appui long relâché sur place) ; le clic qui suit ne coche rien
   }
   function startExtendEdit(m, fromTap) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
-    ext = { mode: 'edit', level: m.macroLevel || m.level || 'activite', parent: m.parentId == null ? null : m.parentId, macro: m, cols: {}, init: {}, seq: 0, born: Date.now(), rank: bucketOf(m, dayIso()).rank };
+    ext = { mode: 'edit', level: m.macroLevel || m.level || 'activite', macro: m, cols: {}, init: {}, seq: 0, born: Date.now(), rank: bucketOf(m, dayIso()).rank };
     items.filter(function (x) { return x.parentId === m.id && !x.isMacro; }).forEach(function (x) { var i = colOfObj(x); if (i >= 0) { ext.cols[i] = true; ext.init[i] = true; } });
     if (!Object.keys(ext.cols).length) return (ext = null);
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
@@ -303,7 +302,7 @@
   }
   // Conteneur de l'arbre : hauteur = de son haut jusqu'à la barre « Nouvel objectif… » (juste au-dessus d'elle, sans espace flottant). Les bulles sont la dernière rangée de l'arbre (voir render) :
   // aucune position fixe ni recalcul de leur x ou de leur largeur, elles partagent la mise en page et le défilement horizontal des colonnes.
-  var botObs = null;
+  var botObs = null, topObs = null;
   function publishBot() { // distance du HAUT RÉEL de la barre du bas au bas de l'écran (barre « Nouvel objectif » + points + onglets + zone de sécurité) ; l'arbre se pose juste au-dessus (bottom CSS)
     if (!tree) return;
     var d = dockEl(), bar = d && d.querySelector('.tasksComposer'); if (bar && !bar.getClientRects().length) bar = d.querySelector('.tasksSaveBtn');
@@ -316,6 +315,10 @@
     tree.style.setProperty('--ar-top', Math.round(pr.top) + 'px'); tree.style.setProperty('--ar-left', Math.round(pr.left) + 'px'); tree.style.setProperty('--ar-right', Math.round(window.innerWidth - pr.right) + 'px');
     publishBot();
     var d = dockEl(); if (d && !botObs && window.ResizeObserver) { botObs = new ResizeObserver(publishBot); botObs.observe(d); }
+    if (!topObs) { // le haut est remesuré quand l'en-tête, le sélecteur ou la fenêtre changent de taille (iPhone : barre d'état, polices tardives, clavier) : la grille ne passe jamais sous le sélecteur
+      topObs = true; var again = function () { if (visible) fitTree(); };
+      if (window.ResizeObserver) { var to = new ResizeObserver(again); to.observe(document.documentElement); to.observe(tree.parentElement); if (tree.parentElement.parentElement) to.observe(tree.parentElement.parentElement); }
+    }
   }
   // Repère de période (mêmes classes que la page 2) : à venir = numéro cerclé, courante = pastille pleine, passée = point. En zoom Année : les deux derniers chiffres de l'année.
   // Dernier niveau (secteurs) : toucher le repère d'une PÉRIODE ouvre le calendrier (page 3) de cette période, par l'ouverture existante (openGoalsPeriodFromNotification) ; rien d'autre n'est ajouté.
@@ -376,6 +379,15 @@
       });
       return outM;
     }
+    if (lvl === 'secteur' && pairsOf().length > 1) {
+      var outS = [];
+      pairsOf().forEach(function (pr) {
+        var a3 = actOf(pr.activityId), m3 = shown.filter(function (o) { return o.activity.id === pr.activityId; }), c3 = m3.length ? color(m3[0]) : (a3 && a3.color), p3 = ((a3 && a3.poles) || []).filter(function (p) { return p.key === pr.poleKey; })[0] || { key: pr.poleKey, label: '', secteurs: [] };
+        var pc3 = p3.shadeRank != null && TMT.subProjectShade ? TMT.subProjectShade(c3, p3.shadeRank, p3.shadeCount) : c3, ss = p3.secteurs && p3.secteurs.length ? p3.secteurs : [{ key: null, label: p3.label }], fs3 = ss[0].key, fp3 = ((a3 && a3.poles) || [])[0] ? a3.poles[0].key : null;
+        ss.forEach(function (x) { outS.push({ key: pr.activityId + '/' + pr.poleKey + '/' + x.key, label: x.label, color: pc3, objs: m3.filter(function (o) { return !o.isMacro && want(o) && (o.poleKey || fp3) === pr.poleKey && (o.categoryKey || fs3) === x.key; }), ctx: { level: 'secteur', activityId: pr.activityId, poleKey: pr.poleKey, categoryKey: x.key, label: (a3 ? a3.name : '') + ' · ' + p3.label + ' · ' + x.label } }); });
+      });
+      return outS;
+    }
     var act = actOf(focus.activityId), mine = shown.filter(function (o) { return o.activity.id === focus.activityId; }), col = mine.length ? color(mine[0]) : (act && act.color);
     var name = act ? act.name : (mine[0] ? mine[0].activity.name : '');
     var poles = (act && act.poles) || [], firstPole = poles.length ? poles[0].key : null;
@@ -393,9 +405,9 @@
   //  - dès que le présent atteint la période (et une fois passée) : UNE colonne à largeur standard (nom et couleur de l'entité qui englobe), les autres sont absorbées ; la carte du macro est standard.
   function macroIdx(m, cols) {
     var ci = {}; cols.forEach(function (c, i) { ci[c.key] = i; });
-    var scope = isMulti() ? focus.activityIds : [focus && focus.activityId];
-    var idx = (m.macroColumns || []).filter(function (mc) { return lvl === 'activite' || (scope.indexOf(mc.activityId) >= 0 && (lvl === 'pole' || mc.poleKey === focus.poleKey)); })
-      .map(function (mc) { return ci[lvl === 'activite' ? mc.activityId : lvl === 'pole' ? (isMulti() ? mc.activityId + '/' + mc.poleKey : mc.poleKey) : mc.categoryKey]; }).filter(function (i) { return i != null; });
+    var multiS = lvl === 'secteur' && pairsOf().length > 1, scope = isMulti() && !multiS ? focus.activityIds : [focus && focus.activityId];
+    var idx = (m.macroColumns || []).filter(function (mc) { return lvl === 'activite' || (multiS ? pairsOf().some(function (pr) { return pr.activityId === mc.activityId && pr.poleKey === mc.poleKey; }) : (scope.indexOf(mc.activityId) >= 0 && (lvl === 'pole' || mc.poleKey === focus.poleKey))); })
+      .map(function (mc) { return ci[lvl === 'activite' ? mc.activityId : lvl === 'pole' ? (isMulti() ? mc.activityId + '/' + mc.poleKey : mc.poleKey) : (multiS ? mc.activityId + '/' + mc.poleKey + '/' + mc.categoryKey : mc.categoryKey)]; }).filter(function (i) { return i != null; });
     if (!idx.length && lvl === 'activite' && ci[m.activity.id] != null) idx = [ci[m.activity.id]];
     return idx.sort(function (x, y) { return x - y; }).filter(function (v, i, arr) { return arr.indexOf(v) === i; });
   }
@@ -427,19 +439,21 @@
   function blockStart(iso) { var y0 = new Date().getFullYear(), y = Number(iso.slice(0, 4)); return y0 + 5 * Math.floor((y - y0) / 5); } // première année du bloc de 5 ans qui contient l'échéance
   function descend(ci, block, year, macro) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
     var c = curCols[ci]; if (!c) return;
+    if (macro && block == null && macro.endDate) block = blockStart(macro.endDate); // la vue des années d'un macro : le bloc FIXE de 5 ans de SON échéance, jamais l'étendue de ses enfants
     if (lvl === 'activite') {
       var order = ((struct && struct.activities) || []).map(function (x) { return x.id; }), ids = [];
       if (macro) (macro.macroColumns || []).forEach(function (mc) { if (ids.indexOf(mc.activityId) < 0) ids.push(mc.activityId); });
       ids.sort(function (p, q) { return order.indexOf(p) - order.indexOf(q); }); // ordre de la page précédente (même si les colonnes sont absorbées dans le temps)
-      if (ids.length > 1) go('pole', { activityId: ids[0], activityIds: ids }); // macro reliant plusieurs activités : les pôles de toutes ces activités, ensemble
+      if (ids.length > 1) go('pole', { activityId: ids[0], activityIds: ids, block: block }); // macro reliant plusieurs activités : les pôles de toutes ces activités, ensemble
       else go('pole', { activityId: c.ctx.activityId, block: block });
     }
+    else if (lvl === 'pole' && macro && (function () { var u = {}; (macro.macroColumns || []).forEach(function (mc) { u[mc.activityId + '/' + mc.poleKey] = { activityId: mc.activityId, poleKey: mc.poleKey }; }); window.__pairs = Object.keys(u).map(function (k) { return u[k]; }); return window.__pairs.length > 1; })()) { var pr0 = window.__pairs[0]; go('secteur', { activityId: pr0.activityId, poleKey: pr0.poleKey, poleLabel: '', year: year || (macro.endDate ? Number(String(macro.endDate).slice(0, 4)) : new Date().getFullYear()), pairs: window.__pairs }); window.__pairs = null; }
     else if (lvl === 'pole' && pkeyOf(c) != null) { // la vue des secteurs montre UNE année de 13 périodes : celle de l'échéance de l'objectif touché (sinon l'année courante, ou la première du bloc)
       var y0 = new Date().getFullYear(), bk = focus && focus.block; go('secteur', { activityId: c.ctx.activityId, poleKey: pkeyOf(c), poleLabel: c.label, year: year || (bk && !(y0 >= bk && y0 < bk + 5) ? bk : y0) });
     }
     else if (TMT.showGoalsPolesPage) TMT.showGoalsPolesPage(focus.activityId);
   }
-  function ascend() { if (lvl === 'secteur') go('pole', { activityId: focus.activityId }); else if (lvl === 'pole') go('activite', null); } // flèche de retour ou pincer inverse
+  function ascend() { if (lvl === 'secteur') { var ids2 = pairsOf().map(function (p) { return p.activityId; }).filter(function (v, i, x) { return x.indexOf(v) === i; }); go('pole', ids2.length > 1 ? { activityId: ids2[0], activityIds: ids2 } : { activityId: focus.activityId }); } else if (lvl === 'pole') go('activite', null); } // flèche de retour ou pincer inverse
   function editToggle() { // crayon ✎ (R15, sans cadre R37) sous « Objectifs » : mode édition (les cartes tremblent, croix rouge, toucher = paramètres) ; le retoucher quitte
     var b = TMT.ui.editBtn(function () { editMode = !editMode; render(); }, tr(editMode ? 'Terminer la modification' : 'Modifier les objectifs'));
     b.classList.add('arEditToggle'); b.setAttribute('aria-pressed', editMode ? 'true' : 'false'); return b;
@@ -447,8 +461,8 @@
   function backNav() { // flèche de retour (.cmpNav, R45) + où l'on est
     var nav = el('div', 'cmpNav cmpNav--sm arBackNav'), b = el('button', 'cmpNavArrow', '‹'); b.type = 'button'; b.setAttribute('aria-label', tr('Remonter'));
     b.addEventListener('click', ascend);
-    var act = actOf(focus.activityId), name = isMulti() ? focus.activityIds.map(function (id) { var x = actOf(id); return x ? x.name : ''; }).join(' + ') : (act ? act.name : '');
-    nav.appendChild(b); nav.appendChild(el('span', 'cmpNavLabel', name + (lvl === 'secteur' ? ' · ' + (focus.poleLabel || '') : ''))); return nav;
+    var act = actOf(focus.activityId), name = isMulti() ? (focus.activityIds || pairsOf().map(function (p) { return p.activityId; }).filter(function (v, i, a) { return a.indexOf(v) === i; })).map(function (id) { var x = actOf(id); return x ? x.name : ''; }).join(' + ') : (act ? act.name : '');
+    nav.appendChild(b); nav.appendChild(el('span', 'cmpNavLabel', name + (lvl === 'secteur' && !pairsOf().length ? ' · ' + (focus.poleLabel || '') : ''))); return nav;
   }
 
   function render() {
@@ -606,9 +620,11 @@
     function drawSeps() { // UN seul trait pointillé neutre entre deux groupes d'activités (pôles ou secteurs de plusieurs activités reliées)
       var seps = layer.querySelectorAll('.arSep'); Array.prototype.forEach.call(seps, function (s) { s.parentNode.removeChild(s); });
       if (lvl === 'activite') return; var bs = tree.querySelectorAll('.arBubble'), b0 = layer.getBoundingClientRect();
-      for (var k = 1; k < curCols.length; k++) if (curCols[k].ctx.activityId !== curCols[k - 1].ctx.activityId && bs[k] && bs[k - 1]) { bs[k].classList.add('arSepStart'); Array.prototype.forEach.call(tree.querySelectorAll('[data-col="' + k + '"]'), function (n) { n.classList.add('arSepStart'); }); var x = (bs[k - 1].getBoundingClientRect().right + bs[k].getBoundingClientRect().left) / 2, l = el('i', 'arSep'); l.style.left = Math.round(x - b0.left - 1) + 'px'; layer.appendChild(l); }
+      if (isMulti()) Array.prototype.forEach.call(tree.querySelectorAll('.arMacro[data-c1]'), function (mc) { var a0 = bs[Number(mc.getAttribute('data-c0'))], a1 = bs[Number(mc.getAttribute('data-c1'))]; if (a0 && a1 && mc.getAttribute('data-c1') !== mc.getAttribute('data-c0')) { var wpx = Math.round(a1.getBoundingClientRect().right - a0.getBoundingClientRect().left) + 'px'; mc.style.width = wpx; mc.style.flex = '0 0 ' + wpx; } }); // une carte large qui enjambe la gouttière doublée du séparateur couvre exactement ses colonnes
+      for (var k = 1; k < curCols.length; k++) if ((curCols[k].ctx.activityId !== curCols[k - 1].ctx.activityId || (lvl === 'secteur' && curCols[k].ctx.poleKey !== curCols[k - 1].ctx.poleKey)) && bs[k] && bs[k - 1]) { bs[k].classList.add('arSepStart'); Array.prototype.forEach.call(tree.querySelectorAll('[data-col="' + k + '"]'), function (n) { n.classList.add('arSepStart'); }); var x = (bs[k - 1].getBoundingClientRect().right + bs[k].getBoundingClientRect().left) / 2, l = el('i', 'arSep'); l.style.left = Math.round(x - b0.left - 1) + 'px'; layer.appendChild(l); }
     }
-    function relayout() { if (stickEnd && gridArea) gridArea.scrollTop = gridArea.scrollHeight; positionRail(); drawLinks(); drawSeps(); }
+    function relayout() { if (stickEnd && gridArea) gridArea.scrollTop = gridArea.scrollHeight; fitTree(); positionRail(); drawLinks(); drawSeps(); }
+    if (window.ResizeObserver) { var rqd = false, roL = new ResizeObserver(function () { if (rqd) return; rqd = true; window.requestAnimationFrame(function () { rqd = false; positionRail(); drawLinks(); drawSeps(); }); }); roL.observe(gridArea); roL.observe(grid); } // repères, traits et séparateurs suivent toute rangée qui change de hauteur (mise en page tardive)
     var marks = [];
     function placeRail() { // chaque repère va dans la colonne fixe ; sa position est ensuite (re)mesurée sur la rangée de sa période
       Array.prototype.forEach.call(grid.querySelectorAll('.goalsGridRow'), function (row) {

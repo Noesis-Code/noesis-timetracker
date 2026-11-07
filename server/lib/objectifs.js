@@ -797,7 +797,9 @@ function lier(userId, id, parentId, rel) {
   const r = rowOf(userId, id);
   if (Number(parentId) !== r.parentId) assertFusionOuverte(r);
   if (parentId == null || parentId === '') {
-    db.prepare('UPDATE user_objectives SET parentId = NULL, parentRel = NULL, position = ? WHERE id = ?').run(nextPosition(userId, null), r.id);
+    let back = null; // détaché d'un macro : l'objectif retrouve le parent qu'il avait avant d'y être relié (s'il existe encore, même activité, non macro)
+    try { const m0 = JSON.parse(r.metaJson || '{}'), op = r.parentId ? db.prepare('SELECT isMacro FROM user_objectives WHERE id = ?').get(r.parentId) : null; if (op && op.isMacro && m0.prevParent) { const pp = m0.prevParent.id ? db.prepare('SELECT id, activityId, isMacro FROM user_objectives WHERE id = ? AND userId = ?').get(m0.prevParent.id, userId) : null; if (pp && !pp.isMacro && pp.activityId === r.activityId) back = pp.id; delete m0.prevParent; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(m0), r.id); } } catch (e) { back = null; }
+    db.prepare('UPDATE user_objectives SET parentId = ?, parentRel = NULL, position = ? WHERE id = ?').run(back, nextPosition(userId, back), r.id);
     purgeOrphanMacros(userId); // le dernier enfant détaché : le macro vide disparaît
     return get(userId, r.id);
   }
@@ -807,6 +809,7 @@ function lier(userId, id, parentId, rel) {
   for (let cur = p; cur; cur = cur.parentId ? db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId) : null) {
     if (cur.id === r.id) throw err('Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.');
   }
+  if (p.isMacro && !r.isMacro && r.parentId !== p.id) setPrevParent(r, r.parentId || null); // séparer ou retirer remet l'objectif tel qu'il était
   db.prepare('UPDATE user_objectives SET parentId = ?, parentRel = ?, position = ? WHERE id = ?')
     .run(p.id, rel === 'avant' || rel === 'apres' ? rel : null, nextPosition(userId, p.id), r.id);
   return get(userId, r.id);
@@ -880,7 +883,7 @@ const MSG_COLONNE_RELIEE = 'Délie d’abord ce macro : cette colonne est déjà
 function colKeyOf(r) { const lv = r.level || 'activite'; return lv + '|' + r.activityId + '|' + (lv === 'activite' ? '' : (r.poleKey || '')) + '|' + (lv === 'secteur' ? (r.categoryKey || '') : ''); }
 function macroRoot(row) { // macro le plus haut de la chaîne (le macro lui-même s'il en est un), sinon null
   let cur = row, root = row.isMacro ? row : null, n = 0;
-  while (cur && cur.parentId && n++ < 50) { const p = db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId); if (!p) break; if (p.isMacro) root = p; cur = p; }
+  while (cur && cur.parentId && n++ < 50) { const p = db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId); if (!p) break; if (p.isMacro && (p.level || 'activite') === (row.level || 'activite')) root = p; cur = p; }
   return root;
 }
 function columnLinkedElsewhere(userId, leaf, leafIds, allowedRootId) {
@@ -935,23 +938,23 @@ function deplacer(userId, id, activityId) {
   return get(userId, r.id);
 }
 // Fusion en macro : l'utilisateur a VALIDÉ la proposition (jamais silencieuse) ; childIds = objectifs existants à englober, title modifiable. Le macro prend les dates extrêmes des enfants.
+function setPrevParent(k, pid) { let m = {}; try { m = JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(k.id).metaJson || '{}'); } catch (e) { m = {}; } m.prevParent = { id: pid }; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(m), k.id); }
 function fusionnerEnMacro(userId, body) {
   const ids = [...new Set((Array.isArray(body && body.childIds) ? body.childIds : []).map(Number))].slice(0, 20);
   if (ids.length < 2) throw err('Un macro englobe au moins deux objectifs.');
   const kids = ids.map((i) => rowOf(userId, i));
   kids.forEach((k) => { if (k.isMacro) throw err('Un macro ne se range pas dans un autre macro par cette voie.'); });
   // Objectifs fins (pôles, secteurs) : ils sont les étapes d'un objectif plus grand ; on peut les fusionner s'ils ont le MÊME parent (le macro prend leur place sous ce parent) ; parents différents : refus.
-  const parents = new Set(kids.map((k) => k.parentId || null));
-  if (parents.size > 1) throw err('Ces objectifs ne sont pas les étapes du même objectif : détache-les d’abord.');
-  const commonParent = [...parents][0];
-  if (commonParent && db.prepare('SELECT isMacro FROM user_objectives WHERE id = ?').get(commonParent).isMacro) throw err('Ces objectifs sont déjà reliés à un macro.');
+  const parents = new Set(kids.map((k) => k.parentId || null)); // décision d'Émilien (7 nov. 2026) : tout objectif de la même ligne se fusionne, avec ou sans lien entre eux, d'activités différentes ou non
+  if (kids.some((k) => k.parentId && db.prepare('SELECT isMacro FROM user_objectives WHERE id = ?').get(k.parentId).isMacro)) throw err('Ces objectifs sont déjà reliés à un macro : délie-les d’abord.');
+  const commonParent = parents.size === 1 && kids.every((k) => k.activityId === kids[0].activityId) ? [...parents][0] : null; // parent commun (même activité) : le macro prend leur place dessous ; sinon le macro est un sommet
   const start = kids.map((k) => k.startDate).sort()[0], end = kids.map((k) => k.endDate).sort().pop();
   const lv = kids[0].level || 'activite';
   if (kids.some((k) => (k.level || 'activite') !== lv)) throw err('Un macro relie des objectifs d’un même niveau (activités, pôles ou secteurs).');
   { const kidIds = new Set(kids.map((k) => k.id)); if (kids.some((k) => columnLinkedElsewhere(userId, k, kidIds, null))) throw err(MSG_COLONNE_RELIEE); } // avant toute création
   const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : kids[0].poleKey, categoryKey: lv === 'secteur' ? kids[0].categoryKey : null });
   if (commonParent) lier(userId, created.id, commonParent, 'apres'); // le macro prend la place de ses objectifs sous leur parent
-  kids.forEach((k) => lier(userId, k.id, created.id, 'avant'));
+  kids.forEach((k) => { setPrevParent(k, k.parentId || null); lier(userId, k.id, created.id, 'avant'); }); // le parent d'origine est gardé : séparer remet les objectifs tels qu'ils étaient
   const out = get(userId, created.id);
   return Object.assign(out, require('./objectifs-ordre').forMacro(userId, out.macroColumns, body.anchor) || {}); // ordre de présentation dérivé (rien n'est écrit)
 }
@@ -1011,12 +1014,21 @@ function abandonner(userId, id, on) {
 function supprimer(userId, id, confirmed) {
   const r = rowOf(userId, id);
   // Supprimer un macro, même passé : le macro disparaît, ses enfants redeviennent des objectifs NORMAUX de leurs activités (jamais supprimés, jamais orphelins) ; seul « délier » un enfant d'un macro passé reste refusé (assertFusionOuverte).
-  const kids = db.prepare('SELECT id, title FROM user_objectives WHERE userId = ? AND parentId = ? ORDER BY position, id').all(userId, r.id);
+  const kids = db.prepare('SELECT id, title, activityId, metaJson FROM user_objectives WHERE userId = ? AND parentId = ? ORDER BY position, id').all(userId, r.id);
   if (kids.length && !confirmed) throw Object.assign(err('Cet objectif a ' + kids.length + ' objectif' + (kids.length > 1 ? 's rattachés' : ' rattaché') + ' : confirme pour les détacher.', 409), { extra: { children: kids } });
   db.exec('BEGIN');
   try {
     const up = (r.level || 'activite') === 'activite' ? null : (r.parentId || null);
-    kids.forEach((k) => db.prepare('UPDATE user_objectives SET parentId = ?, parentRel = NULL, position = ? WHERE id = ?').run(up, nextPosition(userId, up), k.id)); // les objectifs reliés remontent sous le parent du macro (aucun, pour un macro d'activités)
+    kids.forEach((k) => { // chaque objectif retrouve son parent d'origine s'il existe encore (même activité, non macro) ; sinon le parent du macro
+      let m = {}; try { m = JSON.parse(k.metaJson || '{}'); } catch (e) { m = {}; }
+      let to = up;
+      if (m.prevParent && Object.prototype.hasOwnProperty.call(m.prevParent, 'id')) {
+        const pp = m.prevParent.id ? db.prepare('SELECT id, activityId, isMacro FROM user_objectives WHERE id = ? AND userId = ?').get(m.prevParent.id, userId) : null;
+        to = pp && !pp.isMacro && pp.activityId === k.activityId ? pp.id : (m.prevParent.id ? up : null);
+        delete m.prevParent; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(m), k.id);
+      }
+      db.prepare('UPDATE user_objectives SET parentId = ?, parentRel = NULL, position = ? WHERE id = ?').run(to, nextPosition(userId, to), k.id);
+    }); // les objectifs reliés remontent sous le parent du macro (aucun, pour un macro d'activités)
     db.prepare('DELETE FROM objectifs_refus WHERE userId = ? AND (objectifId = ? OR candidateId = ?)').run(userId, r.id, r.id);
     db.prepare('DELETE FROM user_objectives WHERE id = ? AND userId = ?').run(r.id, userId);
     db.exec('COMMIT');
