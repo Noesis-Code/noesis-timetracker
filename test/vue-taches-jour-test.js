@@ -48,5 +48,6 @@ assert(js.includes('function rollDay') && js.includes("visibilitychange', functi
 const p1 = R('public', 'js', 'objectifs-page1.js'), p3 = R('public', 'js', 'objectifs-page3.js');
 assert(p1.includes('TMT.ouvrirCalendrierTaches = function') && p1.includes('openGoalsPeriodFromNotification(aid, k, hit.periodNumber)') && p1.includes('all-for-pole'), 'ouverture directe du calendrier des tâches : TMT.ouvrirCalendrierTaches réutilise la page 3 (aucune copie)');
 assert(p3.includes('TMT.goalsCalGoTo = function') && p3.includes('renderGoalsMonthCal();'), 'le calendrier se positionne sur le mois de la date demandée (TMT.goalsCalGoTo)');
+assert(js.includes("nDone + ' / ' + (nDone + nTodo)") && !js.includes("viewDay === 'all' ? String(nTodo)"), 'compteur : toujours « réalisées / total » (jamais le nombre de tâches à faire seul)');
 if (failed) { console.log('\nvue-taches-jour-test : ' + failed + ' échec(s)'); process.exit(1); }
 console.log('\nvue-taches-jour-test : OK');
