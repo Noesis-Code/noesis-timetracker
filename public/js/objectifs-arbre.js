@@ -361,19 +361,25 @@
       row.appendChild(marker(rw, here, lvl === 'secteur' && rw.p ? function () { openCalendar(rw); } : null));
       if (rw.y !== lastY) { if (rw.p) row.appendChild(yearOval(rw.y)); } lastY = rw.y;
       var macs = macrosAt[rw.rank] || [], skip = {}, extra = [];
-      macs.forEach(function (mm) { // inline si aucune carte n'occupe les colonnes traversées dans cette case ; sinon dans une rangée de macro juste au-dessus (signalé)
-        var free = true; for (var q = mm.c0; q <= mm.c1; q++) if (cells[r][q].length) free = false;
+      macs.sort(function (x, y) { return (x.m.endDate < y.m.endDate ? 1 : -1); }); // le macro le plus lointain d'abord : un macro peut avoir un autre macro pour enfant (A+B puis (A+B)+C), les cartes larges s'empilent
+      macs.forEach(function (mm) { // inline si aucune carte ni autre macro n'occupe les colonnes traversées dans cette case ; sinon dans une rangée de macro juste au-dessus (signalé)
+        var free = true; for (var q = mm.c0; q <= mm.c1; q++) if (cells[r][q].length || skip[q]) free = false;
         if (free) for (var q2 = mm.c0; q2 <= mm.c1; q2++) skip[q2] = mm; else extra.push(mm);
       });
-      if (extra.length) { // rangée de macro (même repère, masqué) : la carte large traverse les colonnes sans toucher aux cartes de la case
+      var mrows = []; // rangées de macro empilées : un macro va dans la première rangée où il ne chevauche aucun autre
+      extra.forEach(function (mm) {
+        var mr = mrows.filter(function (x) { return x.every(function (o) { return mm.c1 < o.c0 || mm.c0 > o.c1; }); })[0];
+        if (mr) mr.push(mm); else mrows.push([mm]);
+      });
+      mrows.forEach(function (mr) {
         var mrow = el('div', 'goalsGridRow arMacroRow'); var sp = marker(rw, here); sp.style.visibility = 'hidden'; mrow.appendChild(sp);
         data.forEach(function (c2, cj) {
-          var hit = extra.filter(function (mm) { return cj >= mm.c0 && cj <= mm.c1; })[0];
+          var hit = mr.filter(function (mm) { return cj >= mm.c0 && cj <= mm.c1; })[0];
           if (hit) { if (hit.c0 === cj) mrow.appendChild(macroCard(hit.m, today, hit.c0, hit.c1, W, curCols)); return; }
           var gap = el('div', 'arGap'); cellSize(gap, W); mrow.appendChild(gap);
         });
         grid.appendChild(mrow);
-      }
+      });
       data.forEach(function (c, ci) {
         var es = cells[r][ci];
         if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols)); return; }

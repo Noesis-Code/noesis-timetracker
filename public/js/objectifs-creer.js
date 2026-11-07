@@ -428,7 +428,8 @@
       if (form.ratt && form.ratt.key === key) return Promise.resolve(); // même titre et même activité : la décision précédente reste
       form.ratt = { key: key, cand: null, rel: 'apres', decided: null }; form.parentId = null; form.parentRel = null; form.macroDecided = null; form.macroSel = null; form.macroTitle = undefined;
       if (form.create || form.activityId == null) return Promise.resolve();
-      return api('POST', '/api/objectifs/rattachement', { level: form.level, poleKey: form.poleKey, title: form.title, activityId: form.activityId, refused: form.refused || [] }).then(function (r) {
+      return api('POST', '/api/objectifs/rattachement', { endDate: form.endDate, title: form.title, activityId: form.activityId, // une seule règle : le parent a une échéance au moins égale à celle du nouvel objectif
+ refused: form.refused || [] }).then(function (r) {
         if (r && r.candidate) { form.ratt.cand = r.candidate; form.ratt.rel = r.rel || 'apres'; }
         if (r && r.macro && r.macro.candidates && r.macro.candidates.length) form.ratt.macro = r.macro; // proposition de macro multi-activités (règles)
       }).catch(function () {});
