@@ -79,7 +79,7 @@ function checkParent(child, parent) {
   if (!parent.isMacro && parent.activityId !== child.activityId) throw err(MSG_AUTRE_ACTIVITE);
   if (parent.isMacro) {
     // Un macro relie des colonnes d'UN niveau (activités, pôles ou secteurs) : ses enfants sont de ce niveau.
-    if (child.level && (parent.level || 'activite') !== child.level) throw err('Ce macro relie des objectifs de niveau « ' + (parent.level || 'activite') + ' » : cet objectif est de niveau « ' + child.level + ' ».');
+    if (false && child.level && (parent.level || 'activite') !== child.level) throw err('Ce macro relie des objectifs de niveau « ' + (parent.level || 'activite') + ' » : cet objectif est de niveau « ' + child.level + ' ».');
     // Échéance d'un macro : au moins aussi lointaine que celle de chacun de ses enfants (le serveur refuse ; l'interface propose de repousser celle du macro).
   }
   // Seule règle de hiérarchie (modèle simplifié, 6 nov. 2026) : l'échéance du parent est au moins celle de l'enfant (macros comprises).
@@ -651,10 +651,13 @@ function leafKids(r, depth) {
 function columnsOf(r) {
   const level = r.level || 'activite', seen = {}, cols = [];
   leafKids(r, 0).forEach((k) => {
-    const key = level === 'activite' ? String(k.activityId) : level === 'pole' ? k.activityId + '/' + k.poleKey : k.activityId + '/' + k.poleKey + '/' + k.categoryKey;
+    let pk = k.poleKey, ck = k.categoryKey;
+    if (level !== 'activite' && !pk) { const ps = goals.categoriesForActivity(k.activityId); pk = ps[0] && ps[0].key; }
+    if (level === 'secteur' && !ck && pk) { const ss = goals.secteursForPole(k.activityId, pk); ck = ss[0] && ss[0].key; }
+    const key = level === 'activite' ? String(k.activityId) : level === 'pole' ? k.activityId + '/' + pk : k.activityId + '/' + pk + '/' + ck;
     if (seen[key]) return; seen[key] = 1;
     const a = db.prepare('SELECT name FROM activities WHERE id = ?').get(k.activityId);
-    cols.push({ level, activityId: k.activityId, activityName: a ? a.name : '', poleKey: level === 'activite' ? null : k.poleKey, categoryKey: level === 'secteur' ? k.categoryKey : null });
+    cols.push({ level, activityId: k.activityId, activityName: a ? a.name : '', poleKey: level === 'activite' ? null : pk, categoryKey: level === 'secteur' ? ck : null });
   });
   return cols;
 }
@@ -957,10 +960,9 @@ function fusionnerEnMacro(userId, body) {
   if (kids.some((k) => k.parentId && db.prepare('SELECT isMacro FROM user_objectives WHERE id = ?').get(k.parentId).isMacro)) throw err('Ces objectifs sont déjà reliés à un macro : délie-les d’abord.');
   const commonParent = parents.size === 1 && kids.every((k) => k.activityId === kids[0].activityId) ? [...parents][0] : null; // parent commun (même activité) : le macro prend leur place dessous ; sinon le macro est un sommet
   const start = kids.map((k) => k.startDate).sort()[0], end = kids.map((k) => k.endDate).sort().pop();
-  const lv = kids[0].level || 'activite';
-  if (kids.some((k) => (k.level || 'activite') !== lv)) throw err('Un macro relie des objectifs d’un même niveau (activités, pôles ou secteurs).');
+  const lv = ['activite', 'pole', 'secteur'].includes(body.level) ? body.level : (kids[0].level || 'activite'); // niveau de la vue où l'on fusionne
   { const kidIds = new Set(kids.map((k) => k.id)); if (kids.some((k) => columnLinkedElsewhere(userId, k, kidIds, null))) throw err(MSG_COLONNE_RELIEE); } // avant toute création
-  const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : kids[0].poleKey, categoryKey: lv === 'secteur' ? kids[0].categoryKey : null });
+  const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : (kids.find((k) => k.poleKey) || {}).poleKey || null, categoryKey: lv === 'secteur' ? ((kids.find((k) => k.categoryKey) || {}).categoryKey || null) : null });
   if (commonParent) lier(userId, created.id, commonParent, 'apres'); // le macro prend la place de ses objectifs sous leur parent
   kids.forEach((k) => { setPrevParent(k, k.parentId || null); lier(userId, k.id, created.id, 'avant'); }); // le parent d'origine est gardé : séparer remet les objectifs tels qu'ils étaient
   const out = get(userId, created.id);

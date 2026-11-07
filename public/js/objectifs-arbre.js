@@ -128,8 +128,11 @@
   }
   // ---------- MODE ÉTENDRE : relier d'autres colonnes du MÊME niveau (activités, pôles d'une activité, secteurs d'un pôle) par un macro ----------
   function colPayload(i) { var x = curCols[i] && curCols[i].col ? curCols[i].col.ctx : curCols[i].ctx; return lvl === 'activite' ? { activityId: x.activityId } : lvl === 'pole' ? { activityId: x.activityId, poleKey: x.poleKey } : { activityId: x.activityId, poleKey: x.poleKey, categoryKey: x.categoryKey }; }
-  function newest(i, n) { return (curCols[i].objs || []).filter(function (o) { return !o.isMacro && !o.abandoned && (o.level || 'activite') === (ext && ext.level || lvl) && (!ext || ext.rank == null || bucketOf(o, dayIso()).rank === ext.rank); }) // même LIGNE (année / période), avec ou sans lien entre eux ; // un macro relie des objectifs d'UN même niveau (serveur) : on ne propose que ceux du niveau affiché
-      .sort(function (x, y) { return y.id - x.id; }).slice(0, n); }
+  function newest(i, n) { // objectifs fusionnables d'une colonne : TOUS ceux de la MÊME ligne (année / période), quels que soient leur activité, leur niveau propre, leur parent ou leur lien ; on préfère ceux du niveau affiché quand la case en a
+    var all = (curCols[i].objs || []).filter(function (o) { return !o.isMacro && !o.abandoned && (!ext || ext.rank == null || bucketOf(o, dayIso()).rank === ext.rank); });
+    var lv = ext && ext.level ? all.filter(function (o) { return (o.level || 'activite') === ext.level; }) : [];
+    return (lv.length ? lv : all).sort(function (x, y) { return y.id - x.id; }).slice(0, n);
+  }
   function isMulti() { return !!(focus && ((focus.activityIds && focus.activityIds.length > 1) || (focus.pairs && focus.pairs.length > 1))); }
   function pairsOf() { return (focus && focus.pairs) || []; } // niveau secteurs d'un macro qui relie des pôles de plusieurs activités : les secteurs de TOUS ces pôles, ensemble // un macro qui relie plusieurs activités : on descend vers les pôles de TOUTES ces activités, ensemble
   function pkeyOf(c) { return c.pkey != null ? c.pkey : c.key; } // clé réelle du pôle (la clé de colonne est composée « activité/pôle » en mode multi-activités : les clés de pôle se recoupent d'une activité à l'autre)
@@ -166,15 +169,15 @@
     document.addEventListener('touchend', done, true); document.addEventListener('pointerup', done, true);
     window.setTimeout(function () { if (ext) ext.holding = false; }, 2500);
   }
-  function pickBase(o, ci) { // l'objectif touché ; si la case en réunit plusieurs du même niveau et de la même ligne, celui qui englobe le plus d'autres (son titre nomme le macro)
-    var level = o.level || 'activite', rank = bucketOf(o, dayIso()).rank, today = dayIso();
-    var mine = (curCols[ci].objs || []).filter(function (x) { return !x.isMacro && !x.abandoned && (x.level || 'activite') === level && bucketOf(x, today).rank === rank; });
+  function pickBase(o, ci) { // l'objectif touché ; si la case en réunit plusieurs de la même ligne, celui qui englobe le plus d'autres (son titre nomme le macro)
+    var rank = bucketOf(o, dayIso()).rank, today = dayIso();
+    var mine = (curCols[ci].objs || []).filter(function (x) { return !x.isMacro && !x.abandoned && bucketOf(x, today).rank === rank; });
     return mine.length ? (mine.some(function (x) { return x.id === o.id; }) ? o : bigOf(mine)) : o;
   }
   function startExtend(o, ci) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
     o = pickBase(o, ci);
-    ext = { mode: 'create', level: o.level || 'activite', base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now(), rank: bucketOf(o, dayIso()).rank }; ext.cols[ci] = true; ext.init[ci] = true;
+    ext = { mode: 'create', level: lvl, base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now(), rank: bucketOf(o, dayIso()).rank }; ext.cols[ci] = true; ext.init[ci] = true;
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
     extOpenPanel(); render(); watchRelease(); extScrollToEligible(); // création : le doigt est DÉJÀ relevé (appui long relâché sur place) ; le clic qui suit ne coche rien
   }
@@ -198,7 +201,7 @@
   }
   function extSave() { // jamais en silence : enregistrer = macro créé (titre visible, modifiable) ou colonnes reliées / déliées ; l'échéance du macro est la plus lointaine des enfants (serveur)
     var x = ext, done = function () { ext = null; if (TMT.objectifsView && TMT.objectifsView.closeExtend) TMT.objectifsView.closeExtend(); return refresh(); }, fail = function (e) { say((e && e.message) || tr('Impossible pour le moment.')); extSync(); };
-    if (x.mode === 'create') { var ids = extChildIds(); TMT.api('POST', '/api/objectifs/macro', { childIds: ids, title: (x.title || x.base.title || '').trim() || x.base.title }).then(done).catch(fail); return; }
+    if (x.mode === 'create') { var ids = extChildIds(); TMT.api('POST', '/api/objectifs/macro', { childIds: ids, level: lvl, title: (x.title || x.base.title || '').trim() || x.base.title }).then(done).catch(fail); return; }
     if (!extChanged()) { TMT.api('DELETE', '/api/objectifs/' + x.macro.id + '?confirm=1').then(done).catch(fail); return; } // SÉPARER : le macro disparaît, ses objectifs sont conservés (fusion passée : refus du serveur affiché)
     var added = []; Object.keys(x.cols).filter(function (k) { return !x.init[k]; }).forEach(function (k) { newest(Number(k), 2).forEach(function (o) { added.push(o); }); });
     var far = added.map(function (o) { return o.endDate; }).sort().pop(), seq = Promise.resolve();
@@ -685,6 +688,10 @@
     document.documentElement.classList.remove('calFromTree'); savedView = null;
   }).observe(tree);
   TMT.objectifsArbre = {
+    debugEligibility: function () { // pour les tests : la raison pour laquelle chaque objectif de chaque colonne est (in)éligible à la fusion
+      if (!ext) return null; var today = dayIso();
+      return curCols.map(function (c, i) { return { col: c.label, eligible: extEligible(i), objs: (c.objs || []).map(function (o) { return { id: o.id, titre: o.title, niveau: o.level || 'activite', parent: o.parentId, raison: o.isMacro ? 'macro' : o.abandoned ? 'abandonné' : bucketOf(o, today).rank !== ext.rank ? 'autre ligne ' + bucketOf(o, today).rank : 'ok' }; }) }; });
+    },
     refresh: refresh, render: render, say: function (m) { say(m); },
     showBase: function () {
       document.documentElement.classList.remove('calFromTree');

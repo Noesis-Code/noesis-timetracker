@@ -211,7 +211,7 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   const p1 = mkB('Objectif pôle 1', B1, { level: 'pole', poleKey: poles[0].key, parentId: pm.id }), p2 = mkB('Objectif pôle 2', B1, { level: 'pole', poleKey: poles[1].key, parentId: pm.id });
   const gp = o.get(u, pm.id);
   assert(gp.macroLevel === 'pole' && gp.macroColumns.length === 2 && gp.macroColumns.every((c) => c.level === 'pole' && c.activityId === B1) && gp.macroColumns[0].poleKey !== gp.macroColumns[1].poleKey, 'macro de niveau pôle : relie deux pôles d’une même activité');
-  e = bad(() => mkB('Mauvais niveau', B1, { parentId: pm.id })); assert(e && e.statusCode === 400 && /niveau/.test(e.message), 'enfant d’un autre niveau refusé');
+  e = bad(() => mkB('Autre niveau', B1, { parentId: pm.id })); assert(!e || /colonne/.test(e.message), 'enfant d’un autre niveau : plus refusé pour son niveau (seule la colonne déjà reliée l’est)');
   // suppression d'un macro intermédiaire : rien en cascade, les enfants deviennent sommets
   e = bad(() => o.supprimer(u, mA.id, false)); assert(e && e.statusCode === 409 && e.extra.children.length >= 3, 'macro intermédiaire : suppression refusée sans confirmation, enfants listés');
   const rr = o.supprimer(u, mA.id, true);
