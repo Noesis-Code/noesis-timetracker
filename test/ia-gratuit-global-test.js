@@ -62,6 +62,23 @@ let k = 0; const fresh = () => 'g-x' + (++k); // un nouveau compte gratuit à ch
   assert(/19,00 \$ net depuis le 1er janvier \(19 % de 100,00 \$\)/.test(body) && /marge Expansion non lisible/.test(body) && /Mois écoulé : 5,00 \$ \(précédent 4,00 \$, hausse de 25 %\)/.test(body), 'rappel : net cumulé, % du plafond, marge (ou valeur fixe), tendance : ' + body);
   assert(ab.monthlyFreeReminder(new Date(2026, 10, 1, 9)) === null && sent.length === 1, 'une seule notification par rappel (pas de doublon dans le mois)');
   assert(typeof ab.monthlyFreeReminder(new Date(2026, 11, 1, 9)) === 'string' && sent.length === 2, 'rappel du mois suivant : une nouvelle notification');
+  // administrateur par courriel (insensible à la casse et aux espaces), union avec les ids, sans doublon
+  db.prepare("UPDATE users SET email = ? WHERE id = 'g-admin'").run('Admin@CompagnieNoesis.com');
+  db.prepare("UPDATE users SET email = ? WHERE id = 'g-a'").run('autre@exemple.com');
+  delete process.env.IA_ALERTE_ADMIN_USER_IDS; process.env.IA_ALERTE_ADMIN_EMAILS = ' admin@compagnienoesis.com , inconnu@x.com ';
+  db.prepare('DELETE FROM ai_alerts_sent').run(); sent.length = 0;
+  ab.monthlyFreeReminder(new Date(2027, 0, 1, 9));
+  assert(sent.length === 1 && sent[0].ids.length === 1 && sent[0].ids[0] === 'g-admin', 'administrateur trouvé par courriel (casse et espaces ignorés), jamais un autre compte');
+  process.env.IA_ALERTE_ADMIN_USER_IDS = 'g-admin'; db.prepare('DELETE FROM ai_alerts_sent').run(); sent.length = 0;
+  ab.monthlyFreeReminder(new Date(2027, 0, 1, 9));
+  assert(sent.length === 1 && sent[0].ids.length === 1, 'trouvé par id ET par courriel : une seule notification pour le compte');
+  process.env.IA_ALERTE_ADMIN_USER_IDS = 'g-a'; db.prepare('DELETE FROM ai_alerts_sent').run(); sent.length = 0;
+  ab.monthlyFreeReminder(new Date(2027, 0, 1, 9));
+  assert(sent.length === 1 && sent[0].ids.slice().sort().join() === 'g-a,g-admin', 'union des comptes trouvés par id et par courriel');
+  process.env.IA_ALERTE_ADMIN_EMAILS = 'personne@nulle-part.com'; delete process.env.IA_ALERTE_ADMIN_USER_IDS; db.prepare('DELETE FROM ai_alerts_sent').run(); sent.length = 0;
+  const none = ab.monthlyFreeReminder(new Date(2027, 0, 1, 9));
+  assert(typeof none === 'string' && sent.length === 0, 'aucun compte ne correspond : journal seulement, sans erreur');
+  delete process.env.IA_ALERTE_ADMIN_EMAILS;
   // cron existant réutilisé
   const cr = require('fs').readFileSync(require('path').join(__dirname, '..', 'server', 'lib', 'subscriptioncron.js'), 'utf8');
   assert(/cron\.schedule\('0 9 1 \* \*'[\s\S]{0,200}monthlyFreeReminder/.test(cr), 'rappel mensuel branché sur le cron existant (le 1er, 9 h)');

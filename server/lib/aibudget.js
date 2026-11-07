@@ -401,7 +401,17 @@ function freeNetYear(now) {
   const margin = expansionMarginYear();
   return { year, cost, margin, readable: margin != null, net: cost - (margin || 0), cap: freeLossCap() };
 }
-function adminIds() { return String(process.env.IA_ALERTE_ADMIN_USER_IDS || '').split(',').map((x) => x.trim()).filter(Boolean); }
+// Administrateur : comptes trouvés par id (IA_ALERTE_ADMIN_USER_IDS) OU par courriel (IA_ALERTE_ADMIN_EMAILS, insensible à la casse et aux espaces) ; union sans doublon
+// (une seule notification par compte). Aucun compte trouvé : liste vide (journal seulement, sans erreur).
+function adminIds() {
+  const list = (v) => String(v || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const out = new Set(list(process.env.IA_ALERTE_ADMIN_USER_IDS));
+  const emails = list(process.env.IA_ALERTE_ADMIN_EMAILS).map((e) => e.toLowerCase());
+  if (emails.length) {
+    try { db.prepare('SELECT id, email FROM users WHERE email IS NOT NULL').all().forEach((u) => { if (emails.includes(String(u.email).trim().toLowerCase())) out.add(u.id); }); } catch (e) { /* aucun courriel lisible */ }
+  }
+  return [...out];
+}
 function notifyAdmin(title, body) {
   console.warn('[aibudget] ' + title + ' : ' + body);
   const ids = adminIds();
