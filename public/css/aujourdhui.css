@@ -130,3 +130,9 @@
 /* Jour passé : lecture seule (ce qui a été fait) ; rien à cocher ni à modifier. */
 .tasksToday.dayPast .tasksPopCheck, .tasksToday.dayPast .subProjectItem input[type="checkbox"] { pointer-events: none; }
 .tasksToday.dayPast .goalsTaskEditBtn { display: none; }
+/* Filtre à deux niveaux : menus de Statistiques côte à côte (le second n'apparaît qu'une fois une activité choisie). */
+.tasksFilter { display: flex; gap: 8px; }
+.tasksFilter .caSubProjectFilter { flex: 1; min-width: 0; margin: 0 0 8px; }
+.tasksFilter .caSubProjectBtn { width: 100%; justify-content: space-between; }
+.tasksFilter .caSubProjectMenu { min-width: 100%; }
+.tasksFilter .caSubProjectBtn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }

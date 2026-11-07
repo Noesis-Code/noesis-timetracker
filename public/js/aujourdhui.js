@@ -48,15 +48,16 @@
   var ui = {}; // éléments de la barre d'ajout
   var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null, date: null, who: null, poleId: null, open: '', members: {}, flash: null, exp: null, essor: null, expStep: 0, review: false };
 
-  var root = null, shown = false, dock = null, viewDay = null; // viewDay : jour choisi dans la bande (null = aujourd'hui)
-  function dayIso() { return viewDay || localIso(); }
+  var root = null, shown = false, dock = null, viewDay = 'all'; // viewDay : 'all' = TOUTES les tâches (défaut) ; null = aujourd'hui ; sinon le jour choisi dans la bande
+  function dayIso() { return (viewDay && viewDay !== 'all') ? viewDay : localIso(); }
+  function viewKey() { return viewDay === 'all' ? 'all' : dayIso(); }
   function dayKind() { var d = dayIso(), t = localIso(); return d < t ? 'past' : d > t ? 'future' : 'today'; }
   // La barre n'existe à l'écran que si la vue Aujourd'hui est réellement visible (autre volet, autre vue ou page par-dessus : masquée).
   function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length)); }
   function build(container) {
     root = el('div', 'tasksToday');
     listBox = el('div', 'tasksPopList tasksTree');
-    root.appendChild(buildCal()); root.appendChild(buildTopRow()); root.appendChild(listBox); root.appendChild(buildArchive());
+    root.appendChild(buildCal()); root.appendChild(buildFilter()); root.appendChild(buildTopRow()); root.appendChild(listBox); root.appendChild(buildArchive());
     // La barre d'ajout est AU PREMIER PLAN, fixée au-dessus de la barre des volets (comme elle). Défilé = glissement latéral entre les pages :
     // elle prend le même décalage que la page (#tab-goals) pendant le glissement, puis disparaît avec elle.
     dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock);
@@ -105,7 +106,7 @@
       var week = el('div', 'goalsCalWeek'), days = el('div', 'goalsCalDays');
       for (var c = 0; c < 7; c++) {
         var di = addDays(first, r * 7 + c);
-        var cell = el('button', 'goalsCalDay' + (calExpanded && fromIso(di).getMonth() !== month ? ' out' : '') + (di === today ? ' today' : '') + (di === sel ? ' sel' : ''), String(+di.slice(8, 10)));
+        var cell = el('button', 'goalsCalDay' + (calExpanded && fromIso(di).getMonth() !== month ? ' out' : '') + (di === today ? ' today' : '') + (di === sel && viewDay !== 'all' ? ' sel' : ''), String(+di.slice(8, 10)));
         cell.type = 'button'; cell.setAttribute('data-day', di);
         (function (d) { cell.addEventListener('click', function () { pickDay(d); }); })(di);
         days.appendChild(cell);
@@ -132,17 +133,54 @@
   }
   // Jour choisi : la liste ne montre QUE cette journée. Futur : les ajouts sont datés de ce jour ; passé : lecture seule.
   function pickDay(d) {
-    viewDay = d === localIso() ? null : d; calAnchor = d; calExpanded = false; state.date = null;
+    var nv = d === localIso() ? null : d; viewDay = nv === viewDay ? 'all' : nv; calAnchor = d; // retoucher le jour choisi = retour à toutes les tâches
+    calExpanded = false; state.date = null;
     paintCal();
-    var c = cacheGet(dayIso()); if (c) render(c); else { listBox.textContent = ''; }
+    var c = cacheGet(viewKey()); if (c) render(c); else { listBox.textContent = ''; }
     refresh();
   }
   // Minuit / retour au premier plan : le cercle « aujourd'hui », la nature du jour choisi (passé / futur) et la liste se mettent à jour.
   var lastToday = localIso();
-  function rollDay() { var t = localIso(); if (t === lastToday) return; lastToday = t; if (!viewDay) calAnchor = t; paintCal(); if (shown) { var c = cacheGet(dayIso()); if (c) render(c); refresh(); } }
+  function rollDay() { var t = localIso(); if (t === lastToday) return; lastToday = t; if (!viewDay || viewDay === 'all') calAnchor = t; paintCal(); if (shown) { var c = cacheGet(viewKey()); if (c) render(c); refresh(); } }
   document.addEventListener('visibilitychange', function () { if (!document.hidden) rollDay(); });
   setInterval(rollDay, 30000);
-  function resetDay() { viewDay = null; calAnchor = localIso(); calExpanded = false; paintCal(); }
+  function resetDay() { viewDay = 'all'; calAnchor = localIso(); calExpanded = false; paintCal(); }
+
+  // ---------- Filtre à deux niveaux (comme Statistiques) : 1) Toutes les activités / une activité ; 2) une fois l'activité choisie : tous ses pôles / un pôle / un secteur ----------
+  // Menus = ceux de Statistiques (.caSubProjectFilter / .caSubProjectBtn / .statsPeriodMenu) ; un seul geste par niveau. Les tâches sans objectif restent dans la liste de leur activité.
+  var filt = { act: null, pole: null, sector: null }, filterBox = null;
+  function filtMatch(t) { return filt.act == null || (String(t.activityId) === filt.act && (filt.pole == null || t.pole === filt.pole) && (filt.sector == null || t.sector === filt.sector)); }
+  function menuWrap(label, items, onPick, current) {
+    var wrap = el('div', 'statsPeriodMenuWrap caSubProjectFilter'), btn = el('button', 'caSubProjectBtn'); btn.type = 'button'; btn.setAttribute('aria-haspopup', 'true');
+    btn.appendChild(el('span', null, label)); var menu = el('div', 'statsPeriodMenu caSubProjectMenu hidden');
+    items.forEach(function (it) {
+      var b = el('button', 'statsPeriodMenuItem' + (it.key === current ? ' active' : ''), it.label); b.type = 'button'; if (it.sub) b.style.paddingLeft = '32px';
+      b.addEventListener('click', function () { menu.classList.add('hidden'); onPick(it); }); menu.appendChild(b);
+    });
+    btn.addEventListener('click', function (e) { e.stopPropagation(); var open = menu.classList.contains('hidden'); document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); }); if (open) menu.classList.remove('hidden'); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); });
+    wrap.appendChild(btn); wrap.appendChild(menu); return wrap;
+  }
+  function buildFilter() { filterBox = el('div', 'tasksFilter'); paintFilter(); return filterBox; }
+  function paintFilter() {
+    if (!filterBox) return; filterBox.textContent = '';
+    var acts = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a && a.id != null; });
+    if (filt.act != null && !acts.some(function (a) { return String(a.id) === filt.act; })) filt = { act: null, pole: null, sector: null };
+    var cur = acts.filter(function (a) { return String(a.id) === filt.act; })[0];
+    var items = [{ key: null, label: tr('Toutes les activités') }].concat(acts.map(function (a) { return { key: String(a.id), label: a.name }; }));
+    filterBox.appendChild(menuWrap(cur ? cur.name : tr('Toutes les activités'), items, function (it) { filt = { act: it.key, pole: null, sector: null }; paintFilter(); if (lastData) render(lastData); }, filt.act));
+    if (!cur) return;
+    var poles = [], seen = {}, secs = {};
+    ((lastData && lastData.tasks) || []).filter(function (t) { return String(t.activityId) === filt.act; }).forEach(function (t) {
+      if (!seen[t.pole]) { seen[t.pole] = true; poles.push({ key: t.pole, label: t.poleName || t.pole, idx: t.poleIndex || 0 }); secs[t.pole] = []; }
+      if (t.sector && secs[t.pole].indexOf(t.sector) < 0) secs[t.pole].push(t.sector);
+    });
+    poles.sort(function (a, b) { return a.idx - b.idx; });
+    var pItems = [{ key: null, label: tr('Tous les pôles') }];
+    poles.forEach(function (p) { pItems.push({ key: p.key, label: p.label, pole: p.key }); secs[p.key].forEach(function (x) { pItems.push({ key: p.key + '/' + x, label: x, pole: p.key, sector: x, sub: true }); }); });
+    var pole = poles.filter(function (p) { return p.key === filt.pole; })[0];
+    var lab = filt.sector || (pole ? pole.label : tr('Tous les pôles'));
+    filterBox.appendChild(menuWrap(lab, pItems, function (it) { filt.pole = it.pole || null; filt.sector = it.sector || null; paintFilter(); if (lastData) render(lastData); }, filt.sector ? filt.pole + '/' + filt.sector : filt.pole));
+  }
 
   // « Archive » (fin de l'onglet) : même gabarit que « Archives » de l'onglet Tâches (mêmes classes, CSS partagé) ; les lignes sont celles de la liste du jour,
   // mais pour toutes les activités (GET /api/goals/archive). Tâches faites des 7 derniers jours ; passé ce délai elles n'apparaissent plus, mais restent en base.
@@ -758,14 +796,17 @@
   var lastData = null;
   function render(d) {
     lastData = d;
+    if (filterBox && !filterBox.querySelector('.statsPeriodMenu:not(.hidden)')) paintFilter();
+    d = Object.assign({}, d, { tasks: (d.tasks || []).filter(filtMatch) });
     var kind = dayKind();
     root.classList.toggle('dayPast', kind === 'past'); root.classList.toggle('dayFuture', kind === 'future');
     if (kind === 'past') d = Object.assign({}, d, { tasks: (d.tasks || []).filter(function (t) { return t.done; }), todoCount: 0 }); // jour passé : ce qui a été fait, rien d'autre
-    counter.textContent = kind === 'past' ? String(d.doneCount) : d.doneCount + ' / ' + d.todoCount; // tâches faites aujourd'hui / tâches à faire (aucun texte, aucune durée)
+    var nDone = d.tasks.filter(function (t) { return t.done; }).length, nTodo = d.tasks.filter(function (t) { return !t.done && !t.upcoming && !(t.plannedUserId && t.plannedUserId !== TMT.getProfile().id); }).length;
+    counter.textContent = kind === 'past' ? String(nDone) : viewDay === 'all' ? String(nTodo) : nDone + ' / ' + nTodo; // tâches faites aujourd'hui / tâches à faire (aucun texte, aucune durée)
     listBox.textContent = '';
     var have = {}; d.tasks.forEach(function (t) { have[t.id] = true; });
     d.tasks = state.added.filter(function (a) { return !have[a.id]; }).concat(d.tasks);
-    if (!d.tasks.some(function (t) { return !t.done; })) listBox.appendChild(el('p', 'tasksPopEmpty', tr(kind === 'today' ? 'Rien pour aujourd’hui.' : 'Aucune tâche ce jour-là.')));
+    if (!d.tasks.some(function (t) { return !t.done; })) listBox.appendChild(el('p', 'tasksPopEmpty', tr(viewDay === 'all' ? 'Aucune tâche.' : kind === 'today' ? 'Rien pour aujourd’hui.' : 'Aucune tâche ce jour-là.')));
     function addRow(t, parent) {
       var row = el('div', 'tasksPopRow' + (t.done ? ' done' : ''));
       var cb = el('button', 'tasksPopCheck'); cb.type = 'button';
@@ -900,7 +941,7 @@
   function refresh() {
     if (leaving > 0 || !root || !root.getClientRects().length || listBox.querySelector('.goalsTaskEditPanel')) return; // une tâche en cours de modification : la liste ne se redessine pas sous elle // vue masquée (autre volet, autre page) : rien à charger
     var seq = ++loadSeq;
-    var day = dayIso();
+    var day = viewKey();
     TMT.api('GET', '/api/goals/today?today=' + localIso() + (viewDay ? '&day=' + viewDay : '')).then(function (d) { if (d && d.tasks) cachePut(day, d); if (seq === loadSeq && shown) render(d); }).catch(function () {});
   }
 
@@ -918,7 +959,7 @@
       Array.prototype.forEach.call(document.querySelectorAll('.tasksSortWrap .statsPeriodMenuItem'), function (b) { b.classList.toggle('active', b.textContent === tr(SORT_LABELS.today)); });
       if (lastData) render(lastData);
     },
-    show: function () { shown = true; syncDock(); var c = cacheGet(dayIso()); if (c) render(c); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
+    show: function () { shown = true; syncDock(); var c = cacheGet(viewKey()); if (c) render(c); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
     hide: function () { shown = false; resetDay(); openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();

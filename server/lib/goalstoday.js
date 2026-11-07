@@ -17,7 +17,8 @@ function validToday(s) { return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.t
 function tasksToday(userId, todayParam, dayParam) {
   const realToday = validToday(todayParam);
   const day = typeof dayParam === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dayParam) ? dayParam : realToday;
-  const other = day !== realToday;
+  const all = dayParam === 'all'; // vue par défaut : TOUTES les tâches à faire, quelle que soit l'échéance (les faites sont dans l'Archive)
+  const other = !all && day !== realToday;
   const today = day;
   const acts = db.prepare(`SELECT a.id, a.name, m.color FROM activities a JOIN activity_members m ON m.activityId = a.id
     WHERE m.userId = ? AND a.active = 1 ORDER BY m.position, a.id`).all(userId); // ordre des activités dans l'application (même ordre que la liste des activités)
@@ -38,7 +39,8 @@ function tasksToday(userId, todayParam, dayParam) {
         if (other) {
           if (!t.done && t.dueDate === today) list = todo;
           else if (t.done && ((t.doneAt && dayOf(new Date(t.doneAt)) === today) || (today > realToday && t.dueDate === today))) list = done;
-        } else if (!t.done && due <= today) list = todo;
+        } else if (all) { if (!t.done) list = todo; }
+        else if (!t.done && due <= today) list = todo;
         else if (t.done && t.doneAt && dayOf(new Date(t.doneAt)) === today) list = done;
         if (foreign) list = list === todo ? others : null;
         if (!list) return;
@@ -53,7 +55,7 @@ function tasksToday(userId, todayParam, dayParam) {
   // Tâches À VENIR (vue « Activité » repliée) : même complément que l'onglet Tâches de la page 2 (goalstasks.dailyListForActivity) : au moins 5 tâches par pôle,
   // les prochaines tâches datées du même pôle (échéance croissante) complètent. Marquées upcoming : jamais comptées, jamais dans « Faites aujourd'hui ».
   const upc = [];
-  if (!other) acts.forEach((a) => {
+  if (!other && !all) acts.forEach((a) => {
     const daily = goalstasks.dailyListForActivity(a.id, today);
     const names = {}, idx = {}; goals.categoriesForActivity(a.id).forEach((p, i) => { names[p.key] = p.label; idx[p.key] = i; });
     // Règle d'Émilien, par secteur (ou par pôle sans secteur) : la base (à faire aujourd'hui, en retard, sans date) est montrée en entier ; si elle compte moins de

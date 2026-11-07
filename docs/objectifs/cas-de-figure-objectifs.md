@@ -500,3 +500,15 @@ Page 1 de la Feuille de route = sélecteur « Tâches | Objectifs » (Objectifs 
 
 - Les titres sont des cases de la DERNIÈRE rangée, dans le même conteneur défilant que les colonnes (flux normal : ni sticky, ni fixes, ni flottants). Quand l'arbre défile, ils montent et sortent de l'écran avec leur colonne ; au repos (tout en bas) ils sont juste au-dessus de la barre « Nouvel objectif… » et on ne peut pas défiler plus bas (overscroll none).
 - Mesuré à 390 et 360 px (activités) : repos titre 624-678 px, barre à 694 px ; après 300 px de défilement le titre bouge avec la colonne (même décalage). Secteurs : défilement max 6539 px, après 300 px de défilement le titre descend de 300 px comme les cartes. Pôles : tout tient à l'écran, rien à défiler (le titre reste avec la grille).
+
+## Tâches : toutes par défaut et filtre activité / pôle / secteur (7 nov. 2026)
+
+Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâches à faire (toutes échéances, GET /api/goals/today?day=all ; les faites sont dans l'Archive), compteur = nombre à faire. Toucher un jour montre sa journée (J01 à J09 ci-dessus) ; retoucher le même jour revient à toutes. Sous la bande, deux menus de Statistiques (.caSubProjectFilter) : « Toutes les activités » / une activité ; une fois l'activité choisie, un second menu « Tous les pôles » / un pôle / un secteur (indenté). Le filtre s'applique à la vue en cours (toutes ou journée). Les tâches sans objectif restent dans la liste de leur activité, jamais cachées.
+- **T01 Défaut** : toutes les tâches à faire, aucun jour en surbrillance (le cercle d'aujourd'hui reste). ✅
+- **T02 Toucher aujourd'hui** : les tâches du jour (J01) ; retoucher = retour à toutes. ✅
+- **T03 Journée sans tâche** : « Aucune tâche ce jour-là. » ; « Aucune tâche. » si la vue entière est vide ; le filtre reste affiché. ✅
+- **T04 Activité sans objectif** : choisie, elle liste ses tâches (avec ou sans objectif) ; si elle n'a aucune tâche, « Aucune tâche. » et le second menu n'offre que « Tous les pôles ». ✅
+- **T05 Tâche sans objectif** : visible dans toutes les vues et sous son activité, pôle ou secteur. ✅
+- **T06 Semaine à cheval sur deux mois** : inchangé (J05) ; le filtre ne dépend pas de la bande. ✅
+- **T07 Pôle ou secteur sans tâche** : absent du second menu (il est construit des tâches chargées) — À SURVEILLER si Émilien veut voir les pôles vides. ⚠️
+- **T08 Changer d'activité** : le pôle/secteur choisi est remis à « Tous les pôles ». ✅
