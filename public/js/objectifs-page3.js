@@ -941,6 +941,14 @@
     else { var wbox = document.createElement("div"); adv.appendChild(wbox); renderGoalsWeekCard(period, weekIndex, wbox); }
     if (kind === "week" && !current) advT.classList.add("hidden"); // semaine vide : ni capacité ni statut à régler
     dayBody.appendChild(advT); dayBody.appendChild(adv);
+    if (kind === 'main' && TMT.objectifsView && TMT.objectifsView.openDetail) { // l'objectif du secteur : son détail complet (description, rattachement, Avancé, abandonner, supprimer) s'ouvre d'ici
+      api('GET', '/api/objectifs?filtre=tous').then(function (r) {
+        var cat = TMT.currentGoalsCategory, o = ((r && r.objectifs) || []).filter(function (x) { return x.category && x.category === cat; })[0];
+        if (!o || !goalEdit) return;
+        var lk = document.createElement('button'); lk.type = 'button'; lk.className = 'activityEditAdvToggle'; lk.textContent = t('Détail de l’objectif');
+        lk.addEventListener('click', function () { TMT.objectifsView.openDetail(o.id); }); dayBody.appendChild(lk);
+      }).catch(function () {});
+    }
     goalTitleIn.value = current || ''; goalDescIn.value = desc || '';
     dayDock.classList.add('expSave'); saveBtn.disabled = !goalTitleIn.value.trim(); // la barre d'écriture devient UN bouton plein-largeur
     dayDock.classList.remove('hidden'); window.setTimeout(function () { goalTitleIn.focus(); }, 60);

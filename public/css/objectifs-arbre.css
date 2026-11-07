@@ -73,3 +73,6 @@
 .arGrid.arCompact .goalsGridCell { min-height: 40px; }
 .arGrid.arCompact .goalsGridCell--filled .goalsGridCellText { padding: 8px 12px; }
 .arGrid.arCompact .goalsRowMarker--ovale { height: 18px; line-height: 18px; }
+/* Mode Étendre : colonnes incluses surlignées (contour violet), les autres atténuées. */
+.arExtOn { box-shadow: 0 0 0 2px var(--purple); }
+.arExtOff { opacity: .45; }

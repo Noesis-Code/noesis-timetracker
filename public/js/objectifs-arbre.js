@@ -17,7 +17,7 @@
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
   var zoom = 'period', lvl = 'activite', focus = null, struct = null, split = {}, picked = null, animate = false, openPending = false;
-  var tree = null, items = [], zone = null, toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, scroller = null, gridArea = null;
+  var tree = null, items = [], zone = null, toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, scroller = null, gridArea = null, ext = null;
   var RAIL = 30, GAP = 10; // largeur de la colonne de repères + gouttière (RAIL change avec le niveau : ovale d'un bloc de 5 ans, d'une année, rond d'une période)
 
   function mix(hex, k) { // teinte pâle : mélange de la couleur d'activité avec du blanc (même principe que l'arbre périodique)
@@ -66,7 +66,7 @@
   function cellSize(node, w) { node.style.flex = '0 0 ' + w + 'px'; node.style.width = w + 'px'; }
 
   // mode : 'simple' (nom seul, niveau activités) | 'detail' (durée, état, objectifs rattachés, niveaux pôle et secteur). La carte EST la case (.goalsGridCell--filled).
-  function card(o, today, all, mode, w, onTap) {
+  function card(o, today, all, mode, w, onTap, extCol) {
     var st = stateOf(o, today), c = color(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', o.title));
     if (mode !== 'simple') {
@@ -79,7 +79,7 @@
       var below = descendants(o.id, kidsAll); // descendance sur TOUTES les colonnes (un enfant peut être dans un autre pôle)
       TMT.ui.holdDrag(b, {
         holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; },
-        onHoldRelease: function () { if (TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(o.id); }, // appui long relâché sur place : le DÉTAIL complet (description, rattachement, abandonner, supprimer), à tous les niveaux
+        onHoldRelease: function () { if (extCol != null) startExtend(o, extCol); }, // appui long relâché sur place : mode ÉTENDRE (relier d'autres colonnes du même niveau par un macro)
         targetSel: '.arNode[data-id], .arNode[data-ids]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', zoneOverClass: 'arUnlinkOver',
         isInvalid: function (t) { return idsOf(t).every(function (id) { return id === o.id || !!below[id] || !sameAct(o, id); }); }, // !all.byId : autre activité (L03)
         onStart: function () {
@@ -132,9 +132,67 @@
     t.appendChild(el('span', 'arCardMeta', (m.macroChildren || 0) + ' ' + tr((m.macroChildren || 0) > 1 ? 'objectifs' : 'objectif') + ' · ' + (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · ') + (m.macroEmpty ? ' · ' + tr('aucun objectif rattaché') : '')));
     b.appendChild(t);
     for (var k = 0; k < span; k++) { var stub = el('i', 'arMacroStub'); stub.style.left = (k * (W + GAP) + W / 2) + 'px'; b.appendChild(stub); }
-    b.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(m.id); });
+    b.addEventListener('click', function () { if (m.id > 0 && TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(m.id); });
+    if (m.id > 0 && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', onHold: function () { startExtendEdit(m); } }); // appui long sur un macro : modifier les colonnes reliées
     return b;
   }
+  // ---------- MODE ÉTENDRE : relier d'autres colonnes du MÊME niveau (activités, pôles d'une activité, secteurs d'un pôle) par un macro ----------
+  function colPayload(i) { var x = curCols[i] && curCols[i].col ? curCols[i].col.ctx : curCols[i].ctx; return lvl === 'activite' ? { activityId: x.activityId } : lvl === 'pole' ? { activityId: x.activityId, poleKey: x.poleKey } : { activityId: x.activityId, poleKey: x.poleKey, categoryKey: x.categoryKey }; }
+  function newest(i, n) { return (curCols[i].objs || []).filter(function (o) { return o.parentId == null && !o.isMacro && !o.abandoned; }).sort(function (x, y) { return y.id - x.id; }).slice(0, n); }
+  function colOfObj(o) { var ci = -1; curCols.forEach(function (c, i) { var k = lvl === 'activite' ? o.activity.id : lvl === 'pole' ? (o.poleKey || curCols[0].key) : (o.categoryKey || curCols[0].key); if (ci < 0 && c.key === k) ci = i; }); return ci; }
+  function extChildIds() { var ids = []; Object.keys(ext.cols).forEach(function (k) { var i = Number(k); (i === ext.baseCol ? [ext.base] : newest(i, 2)).forEach(function (o) { if (o && ids.indexOf(o.id) < 0) ids.push(o.id); }); }); return ids; }
+  function extChanged() { return Object.keys(ext.cols).sort().join() !== Object.keys(ext.init).sort().join(); }
+  function extCanSave() { return ext.mode === 'create' ? Object.keys(ext.cols).length >= 2 && extChildIds().length >= 2 : extChanged() && Object.keys(ext.cols).length >= 1; }
+  function extRefreshTitle() { // titre commun : IA légère si disponible, sinon les titres joints par « · » (POST macro/titre) ; jamais écrasé si l'utilisateur l'a modifié
+    if (ext.mode !== 'create' || Object.keys(ext.cols).length < 2) return;
+    var my = ++ext.seq;
+    TMT.api('POST', '/api/objectifs/macro/titre', { columns: Object.keys(ext.cols).map(function (k) { return colPayload(Number(k)); }) }).then(function (r) {
+      if (!ext || my !== ext.seq || ext.touched || !r || !r.title) return;
+      ext.title = r.title; ext.panel.setTitle(r.title); ext.panel.setHint(r.source === 'ia' ? tr('Titre proposé par l’IA, modifiable.') : tr('Titre fait des titres des objectifs reliés, modifiable.'));
+    }).catch(function () {});
+  }
+  function extOpenPanel() {
+    ext.panel = TMT.objectifsView.openExtend({
+      title: ext.mode === 'create' ? ext.title : null,
+      hint: ext.mode === 'create' ? tr('Touche une colonne voisine pour l’inclure ou l’exclure.') : tr('Touche une colonne pour l’inclure ou la retirer du macro.'),
+      canSave: extCanSave, onTitle: function (t0) { ext.title = t0; ext.touched = true; render(); },
+      onSave: extSave, onCancel: function () { if (ext) { ext = null; render(); } }
+    });
+  }
+  function startExtend(o, ci) {
+    if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
+    ext = { mode: 'create', base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0 }; ext.cols[ci] = true; ext.init[ci] = true;
+    if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
+    extOpenPanel(); render();
+  }
+  function startExtendEdit(m) {
+    if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
+    ext = { mode: 'edit', macro: m, cols: {}, init: {}, seq: 0 };
+    items.filter(function (x) { return x.parentId === m.id && !x.isMacro; }).forEach(function (x) { var i = colOfObj(x); if (i >= 0) { ext.cols[i] = true; ext.init[i] = true; } });
+    if (!Object.keys(ext.cols).length) return (ext = null);
+    if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
+    extOpenPanel(); render();
+  }
+  function extToggle(ci) {
+    if (!ext || ci < 0 || ci >= curCols.length || (ext.mode === 'create' && ci === ext.baseCol)) return;
+    if (ext.cols[ci]) delete ext.cols[ci]; else ext.cols[ci] = true;
+    ext.panel.setEnabled(extCanSave()); extRefreshTitle(); render();
+    if (ext.mode === 'create' && Object.keys(ext.cols).length > 1 && extChildIds().length < 2) ext.panel.setHint(tr('Ces colonnes n’ont pas assez d’objectifs libres (non rattachés) à relier.')); // jamais un blocage muet
+  }
+  function extSave() { // jamais en silence : enregistrer = macro créé (titre visible, modifiable) ou colonnes reliées / déliées ; l'échéance du macro est la plus lointaine des enfants (serveur)
+    var x = ext, done = function () { ext = null; if (TMT.objectifsView && TMT.objectifsView.closeExtend) TMT.objectifsView.closeExtend(); return refresh(); }, fail = function (e) { say((e && e.message) || tr('Impossible pour le moment.')); if (ext) { ext.panel.setEnabled(extCanSave()); } };
+    if (x.mode === 'create') { var ids = extChildIds(); TMT.api('POST', '/api/objectifs/macro', { childIds: ids, title: (x.title || x.base.title || '').trim() || x.base.title }).then(done).catch(fail); return; }
+    var seq = Promise.resolve();
+    Object.keys(x.cols).filter(function (k) { return !x.init[k]; }).forEach(function (k) { newest(Number(k), 2).forEach(function (o) { seq = seq.then(function () { return TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: x.macro.id, rel: 'apres' }); }); }); }); // colonne ajoutée : ses objectifs les plus récents rejoignent le macro
+    Object.keys(x.init).filter(function (k) { return !x.cols[k]; }).forEach(function (k) { items.filter(function (o) { return o.parentId === x.macro.id && colOfObj(o) === Number(k); }).forEach(function (o) { seq = seq.then(function () { return TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: null }); }); }); }); // colonne retirée : DÉLIER
+    seq.then(done).catch(fail);
+  }
+  // en mode Étendre, toucher une colonne (case, bulle) l'inclut ou l'exclut : le toucher ordinaire est suspendu
+  document.addEventListener('click', function (e) {
+    if (!ext || !tree || !e.target.closest || !e.target.closest('#goalsObjArbre')) return;
+    var b = e.target.closest('.arBubble'), cell = e.target.closest('[data-col]'), ci = b ? Array.prototype.indexOf.call(tree.querySelectorAll('.arBubble'), b) : cell ? Number(cell.getAttribute('data-col')) : colAt(e.clientX);
+    e.stopPropagation(); e.preventDefault(); extToggle(ci);
+  }, true);
   // Case d'une ANNÉE : résumé des grands objectifs de l'année (texte simple, sans IA : leurs titres, quatre au plus) ; touchée, elle liste ces objectifs.
   var resumeCache = {};
   function resumeOf(aid, year) { // résumé annuel du serveur (IA à la demande, repli titres), mémorisé le temps de la session
@@ -345,6 +403,10 @@
       var b = bucketOf(m, today); byRank[b.rank] = b; if (zoom === 'block' && b.rank < lo) lo = b.rank; if (b.rank > hi) hi = b.rank;
       (macrosAt[b.rank] = macrosAt[b.rank] || []).push({ m: m, c0: Math.min.apply(null, idx), c1: Math.max.apply(null, idx) });
     });
+    if (ext && ext.mode === 'create' && ext.base) { // aperçu : la carte de base devient une carte large neutre sur les colonnes incluses
+      var xi = Object.keys(ext.cols).map(Number).filter(function (i) { return i < curCols.length; });
+      if (xi.length > 1) { var xb = bucketOf(ext.base, today); byRank[xb.rank] = xb; if (xb.rank > hi) hi = xb.rank; (macrosAt[xb.rank] = macrosAt[xb.rank] || []).push({ m: { id: -1, title: ext.title || ext.base.title, startDate: ext.base.startDate, endDate: ext.base.endDate, status: 'en_cours', isMacro: true, macroChildren: xi.length }, c0: Math.min.apply(null, xi), c1: Math.max.apply(null, xi) }); }
+    }
     if (zoom !== 'period') hi = Math.max(hi, here.rank + 500); // horizon : au moins 5 ans devant (bloc suivant, ou cinq années)
     var blockYears = zoom === 'year' && focus && focus.block; // arbre des années ouvert depuis un grand objectif : exactement les 5 années de son bloc
     if (blockYears) { lo = focus.block * 100; hi = (focus.block + 4) * 100; }
@@ -388,18 +450,20 @@
         if (!es.length) row.appendChild(emptyCell(W, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
         else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, W, rw.y)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
         else if (es.length > 1 && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, W, function () { descend(ci, rw.y); }, calTap(rw, c))); // plusieurs objectifs d'une même activité dans la même case : une seule carte
-        else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, W); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, W, calTap(rw, c))); }); row.appendChild(stack); }
-        else row.appendChild(card(es[0].o, today, c.all, mode, W, calTap(rw, c)));
+        else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, W); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, W, calTap(rw, c), ci)); }); row.appendChild(stack); }
+        else row.appendChild(card(es[0].o, today, c.all, mode, W, calTap(rw, c), ci));
       });
       grid.appendChild(row);
     });
     // UN SEUL conteneur de défilement horizontal (colonnes ET bulles) > colonne verticale : (1) la grille, qui défile en vertical sous la ligne « Aujourd'hui » ; (2) la rangée des bulles, dernière
     // rangée de la colonne (flex: none), même mise en page que les rangées de la grille (mêmes marges, mêmes largeurs de cellule) : chaque bulle est sous sa colonne par construction.
+    grid.querySelectorAll('.goalsGridRow').forEach(function (row) { var k = 0; Array.prototype.forEach.call(row.children, function (ch) { if (ch.classList.contains('arMacro')) k += Number(ch.getAttribute('data-span')) || 1; else if (ch.classList.contains('arGap')) k += 1; else if (ch.classList.contains('goalsGridCell') || ch.classList.contains('arStack')) ch.setAttribute('data-col', String(k++)); }); }); // colonne de chaque cellule (un macro en couvre plusieurs)
+    if (ext) Array.prototype.forEach.call(grid.querySelectorAll('[data-col]'), function (ch) { var on = !!ext.cols[Number(ch.getAttribute('data-col'))]; ch.classList.toggle('arExtOn', on); ch.classList.toggle('arExtOff', !on); });
     scroller = el('div', 'goalsGridScroll arScroll');
     var column = el('div', 'arColumn'); gridArea = el('div', 'arGridArea'); gridArea.appendChild(grid); column.appendChild(gridArea);
     var baseWrap = el('div', 'goalsGrid arBaseWrap'), baseRow = el('div', 'goalsGridRow arBaseRow'), spacer = el('span', 'goalsRowMarker goalsRowMarker--past arSpacer'); spacer.setAttribute('aria-hidden', 'true'); baseRow.appendChild(spacer);
     data.forEach(function (c, ci) {
-      var b = el('button', 'arBubble'); b.type = 'button'; cellSize(b, W); b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : '#fff';
+      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : '#fff';
       b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
       b.addEventListener('click', function () { descend(ci); });
       baseRow.appendChild(b);

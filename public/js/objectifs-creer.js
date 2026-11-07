@@ -165,7 +165,9 @@
     input.placeholder = tr('Nouvel objectif') + ' · ' + (o.ctx && o.ctx.label ? o.ctx.label + ' · ' : '') + (o.label || '') + '…'; input.focus();
   }
   function clearPending() { pendingEnd = null; if (basePlaceholder) input.placeholder = basePlaceholder; }
+  var extendCancel = null;
   function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
+    if (extendCancel) { var xc = extendCancel; extendCancel = null; xc(); } // mode Étendre annulé (✕) : l'arbre reprend son état
     clearPending(); dock.classList.remove('expSave'); advance = null; setBack(null); panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; queue = []; seq = { base: 0, count: 1, i: 0 };
   }
 
@@ -475,6 +477,18 @@
 
   }
   function offerBtn() { return btn('cmpBtn cmpBtnIdle objOffer', tr('Génère automatiquement tes tâches avec Noèsis'), function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); }); }
+  // MODE ÉTENDRE (arbre) : le panneau porte le titre commun du macro (modifiable, jamais en silence) ; la barre devient « Enregistrer » pleine largeur (grisée tant que rien n'a changé, violette ensuite) ; ✕ annule.
+  // cfg : { title (null = pas de champ), hint, canSave(), onTitle(t), onSave(), onCancel() } -> { setTitle, setHint, setEnabled }
+  function openExtend(cfg) {
+    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Macro'); panelForm = { extend: true }; setBack(null);
+    var tIn = null, hint = el('p', 'hint objPlain', cfg.hint || '');
+    if (cfg.title != null) { tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = cfg.title; tIn.setAttribute('aria-label', tr('Titre du macro')); tIn.addEventListener('input', function () { cfg.onTitle(tIn.value); }); panelBody.appendChild(field(tr('Titre du macro'), tIn)); }
+    panelBody.appendChild(hint);
+    dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.removeAttribute('aria-label'); stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = !cfg.canSave();
+    advance = function () { var s = cfg.onSave; extendCancel = null; s(); }; extendCancel = cfg.onCancel;
+    return { setTitle: function (t0) { if (tIn) tIn.value = t0; }, setHint: function (h) { hint.textContent = h; }, setEnabled: function (b) { stepBtn.disabled = !b; } };
+  }
+  function closeExtend() { extendCancel = null; endFlow(); }
   function closePanel() { endFlow(); } // ✕ : annule, la barre redevient normale (l'objectif tapé y reste)
 
   function durText(f) { return f.unit === 'semaines' ? plural(f.amount, 'semaine', 'semaines') : f.unit === 'mois' ? f.amount + ' ' + tr('mois') : plural(f.amount, 'an', 'ans'); }
@@ -622,6 +636,7 @@
     hide: function () { state.shown = false; syncDock(); if (TMT.objectifsArbre && TMT.objectifsArbre.hide) TMT.objectifsArbre.hide(); },
     focus: function () { if (input) input.focus(); },
     setContext: function (c) { setContext(c); },
+    openExtend: function (cfg) { return openExtend(cfg); }, closeExtend: function () { closeExtend(); },
     createAt: function (o) { createAt(o); },
     openGroup: function (ids, opts) { openGroup(ids, opts); },
     dock: function () { return dock; },

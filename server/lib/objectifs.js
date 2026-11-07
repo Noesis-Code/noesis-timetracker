@@ -719,7 +719,7 @@ function shape(r, full) {
   const out = {
     id: r.id, title: r.title, activity: { id: act.id, name: act.name, color: act.color },
     amount: r.amount, unit: r.unit, durationLabel: durationLabel(r), startDate: r.startDate, endDate: r.endDate,
-    level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null,
+    level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null, category: meta.category || null,
     periodWeeks: r.periodWeeks, weekly: !!r.weekly, parent, parentId: r.parentId || null, parentRel: r.parentRel || null, abandoned: !!meta.abandoned, bridgeFailed: !!meta.bridgeFailed, position: r.position == null ? null : r.position, description: meta.description || '',
     status: allWeeks.length && doneWeeks === allWeeks.length ? 'atteint' : 'en_cours',
     progress: allWeeks.length ? doneWeeks / allWeeks.length : 0,
