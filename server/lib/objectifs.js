@@ -716,11 +716,41 @@ function columnsOf(r) {
 function computeParts(r) {
   const kids = activeKids(r).filter((k) => { try { return !JSON.parse(k.metaJson || '{}').abandoned; } catch (e) { return true; } });
   if (!kids.length) return null;
-  const hrs = kids.map((k) => { let m = {}; try { m = JSON.parse(k.metaJson || '{}'); } catch (e) { m = {}; } return (Number(m.hoursPerWeek) || 0) * Math.max(1, Number(m.plannedWeeks) || 1); });
-  const sum = hrs.reduce((a, b) => a + b, 0), timed = sum > 0 && hrs.every((h) => h > 0);
+  const hrs = kids.map((k) => { let m = {}; try { m = JSON.parse(k.metaJson || '{}'); } catch (e) { m = {}; } return (Number(m.hoursPerWeek) || 0) * Math.max(1, Number(m.plannedWeeks) || 1); }), set = kids.map((k) => { try { return JSON.parse(k.metaJson || '{}').hoursPerWeek != null; } catch (e) { return false; } });
+  const sum = hrs.reduce((a, b) => a + b, 0), timed = sum > 0 && set.every(Boolean);
   const pct = kids.map((k, i) => Math.round((timed ? hrs[i] / sum : 1 / kids.length) * 100));
   const diff = 100 - pct.reduce((a, b) => a + b, 0); if (diff) pct[pct.indexOf(Math.max.apply(null, pct))] += diff;
   return { mode: timed ? 'temps' : 'egales', items: kids.map((k, i) => ({ id: k.id, title: k.title, percent: pct[i] })) };
+}
+// Changer la part d'un sous-objectif (7 nov. 2026, Émilien) : le TEMPS (heures par semaine) de ce sous-objectif et des autres change, le TOTAL du grand objectif reste constant.
+// Règle : les autres parts se rééquilibrent en proportion de leur part actuelle pour que le total reste 100 % (parts égales si toutes les autres sont à 0 %) ;
+// heures par semaine d'un sous-objectif = part × temps total ÷ semaines prévues. Le temps d'une activité = les heures de ses objectifs : il suit. Aperçu (apply faux) puis application en une seule transaction.
+function changerPart(userId, id, body, apply) {
+  body = body || {};
+  const r = rowOf(userId, id);
+  const kids = activeKids(r).filter((k) => { try { return !JSON.parse(k.metaJson || '{}').abandoned; } catch (e) { return true; } });
+  const c = kids.find((k) => k.id === Number(body.childId));
+  if (!c) throw err('Choisis un des objectifs du groupe.');
+  if (kids.length < 2) throw err('Un seul objectif : sa part reste de 100 %.');
+  const pn = Number(body.percent);
+  if (body.percent === '' || body.percent == null || !Number.isFinite(pn) || pn < 0 || pn > 100) throw err('Part : un nombre entre 0 et 100.');
+  const p = Math.round(pn);
+  const meta = (k) => { try { return JSON.parse(k.metaJson || '{}'); } catch (e) { return {}; } };
+  const weeks = (k) => Math.max(1, Number(meta(k).plannedWeeks) || 1);
+  const hrs = kids.map((k) => (Number(meta(k).hoursPerWeek) || 0) * weeks(k)), total = hrs.reduce((a, b) => a + b, 0);
+  if (!(total > 0)) throw err('Prévois d’abord des heures pour au moins un de ces objectifs.');
+  const cur = computeParts(r).items.map((i) => i.percent), ci = kids.indexOf(c);
+  const others = kids.map((k, i) => i).filter((i) => i !== ci), oldOthers = others.reduce((a, i) => a + cur[i], 0), rest = 100 - p;
+  const sh = kids.map(() => 0); sh[ci] = p;
+  others.forEach((i) => { sh[i] = Math.round(oldOthers > 0 ? cur[i] * rest / oldOthers : rest / others.length); });
+  const diff = 100 - sh.reduce((a, b) => a + b, 0); if (diff && others.length) { const big = others.reduce((m, i) => (sh[i] >= sh[m] ? i : m), others[0]); sh[big] += diff; }
+  const items = kids.map((k, i) => {
+    const before = meta(k).hoursPerWeek == null ? null : Number(meta(k).hoursPerWeek), after = Math.round(sh[i] / 100 * total / weeks(k) * 10) / 10;
+    const act = db.prepare('SELECT name FROM activities WHERE id = ?').get(k.activityId), habit = weeklyHoursHistory(userId, k.activityId);
+    return { id: k.id, title: k.title, activityName: act ? act.name : '', percent: sh[i], hoursBefore: before, hoursAfter: after, belowHabit: !!(habit && after < habit), habit: habit || null };
+  });
+  if (apply) { db.exec('BEGIN'); try { kids.forEach((k, i) => { const m = meta(k); m.hoursPerWeek = items[i].hoursAfter; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(m), k.id); }); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; } } // une seule transaction
+  return apply ? get(userId, id) : { items, total: Math.round(total * 10) / 10 };
 }
 // Mode édition : terme, objectifs inclus, heures par semaine, niveau (l'activité et la fusion ne se modifient pas ici). Chaque règle est vérifiée ici, pas seulement dans l'interface.
 function parametres(userId, id, body) {
@@ -771,7 +801,7 @@ function shape(r, full) {
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },
     weekTasks: { done: weekTasks.filter((t) => t.done).length, total: weekTasks.length },
   };
-  out.hoursPerWeek = meta.hoursPerWeek || null; out.skill = meta.skill || '';
+  out.hoursPerWeek = meta.hoursPerWeek != null ? meta.hoursPerWeek : null; out.skill = meta.skill || ''; // 0 h = part à 0 %
   out.term = meta.term || null; out.innerGoals = meta.inner || null; // choix de création (terme, objectifs inclus) ; null pour les objectifs plus anciens
   out.isMacro = !!r.isMacro; out.timeLevel = temps.deduce(r.startDate, r.endDate); // dérivé de l'échéance, affichage seulement (jamais saisi ni validé)
   out.isBig = !!db.prepare('SELECT 1 FROM user_objectives WHERE userId = ? AND parentId = ? LIMIT 1').get(r.userId, r.id); // grand objectif = a au moins un sous-objectif
@@ -1069,4 +1099,4 @@ function supprimer(userId, id, confirmed) {
 }
 migrateEcheances(); // au chargement (idempotent)
 try { const n = purgeOrphanMacros(null); if (n) console.log('[objectifs] ' + n + ' macro(s) sans objectif relié retiré(s)'); } catch (e) { console.warn('[objectifs] nettoyage des macros vides impossible :', e.message); }
-module.exports = { parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

@@ -237,7 +237,7 @@
     });
   }
   // Terme (Périodique / Moyen terme / Long terme) et objectifs inclus : mêmes seuils que server/lib/objectifs-temps.js (26 et 130 semaines) ; choix impossibles grisés ; vérifiés aussi par le serveur.
-  var TERMS = [['periode', 'Périodique'], ['annee', 'Moyen terme'], ['pluriannuel', 'Long terme']], INNER = [['periodiques', 'Périodiques'], ['hebdomadaires', 'Hebdomadaires'], ['les_deux', 'Les deux']];
+  var TERMS = [['periode', 'Court'], ['annee', 'Moyen'], ['pluriannuel', 'Long']], INNER = [['periodiques', 'Périodiques'], ['hebdomadaires', 'Hebdomadaires'], ['les_deux', 'Les deux']];
   function termsFor(days) { var w = (days || 0) / 7; return w <= 26 ? ['periode'] : w <= 130 ? ['periode', 'annee'] : ['periode', 'annee', 'pluriannuel']; }
   function multiOf(days) { return (days || 0) > 28; }
   function segDisabled(options, current, allowed, onPick, label) {
@@ -263,7 +263,14 @@
     panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
     var boxes = { desc: el('div'), rattach: el('div'), temps: el('div'), heures: el('div'), activite: el('div'), niveau: el('div'), taches: el('div') };
-    ['desc', 'rattach', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (k) { panelBody.appendChild(boxes[k]); });
+    var slidePages = el('div', 'tasksPages'), slideTrack = el('div', 'tasksTrack'), slideA = el('div', 'tasksPage'), slideB = el('div', 'tasksPage off'), slideTimer = 0;
+    ['desc', 'rattach', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (k) { slideA.appendChild(boxes[k]); });
+    slideTrack.appendChild(slideA); slideTrack.appendChild(slideB); slidePages.appendChild(slideTrack); panelBody.appendChild(slidePages);
+    function slideTo(sub) { // la page de création d'une activité glisse depuis la droite (et revient) comme les pages du panneau de tâche
+      window.clearTimeout(slideTimer);
+      if (sub) { slideB.classList.remove('off'); void slideTrack.offsetWidth; slideTrack.style.transform = 'translateX(-50%)'; slideTimer = window.setTimeout(function () { slideA.classList.add('off'); }, 300); }
+      else { slideA.classList.remove('off'); void slideTrack.offsetWidth; slideTrack.style.transform = ''; slideTimer = window.setTimeout(function () { slideB.classList.add('off'); }, 300); }
+    }
     if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
     panelForm = form; setBack(null);
     function syncGo() { stepBtn.disabled = !form.dateOk || !form.endDate; } // échéance obligatoire : Suivant / Terminer grisé sans date valide
@@ -316,19 +323,37 @@
       var add = btn('cmpAdd', '', function () { openNewAct(); }); add.appendChild(el('b', null, '+')); add.appendChild(document.createTextNode(tr('Ajouter une activité'))); actBox.appendChild(add);
     }
     // Sous-page « Nouvelle activité » : mêmes champs que Réglages (nom, couleur). Rien n'est créé avant « Terminer » de l'objectif : l'activité n'apparaît nulle part avant.
-    var newBox = el('div'); panelBody.appendChild(newBox); newBox.classList.add('hidden');
-    function openNewAct() {
-      ['desc', 'rattach', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.add('hidden'); });
-      newBox.classList.remove('hidden', 'objSlide'); void newBox.offsetWidth; newBox.classList.add('objSlide'); newBox.textContent = ''; // la page glisse msg.textContent = '';
-      var nameIn = el('input'), sw = el('div'), color = null;
+    var newBox = el('div'); slideB.appendChild(newBox);
+    function openNewAct() { // nom + couleur (en haut à gauche, dépliable, comme dans Réglages), puis le temps prévu : s'ajoute à mon temps, ou pris sur une autre activité
+      newBox.textContent = ''; msg.textContent = '';
+      var nameIn = el('input'), swWrap = el('div', 'objNewSw hidden'), sw = el('div'), color = null, hrs = null, from = { mode: 'plus', fromId: null };
+      var head = el('div', 'objNewHead'), dot = btn('objNewDot', '', function () { swWrap.classList.toggle('hidden'); });
+      dot.setAttribute('aria-label', tr('Couleur'));
       nameIn.type = 'text'; nameIn.maxLength = 40; nameIn.placeholder = tr('Nom de l’activité'); nameIn.setAttribute('aria-label', tr('Nom de l’activité'));
-      newBox.appendChild(field(tr('Nom'), nameIn)); newBox.appendChild(field(tr('Couleur'), sw));
-      if (TMT.renderColorSwatches) TMT.renderColorSwatches(sw, null, function (c) { color = c; }, true);
-      panelKicker.textContent = tr('Nouvelle activité'); stepLabel.textContent = tr('Terminer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Terminer')); stepBtn.disabled = true;
-      nameIn.addEventListener('input', function () { stepBtn.disabled = !nameIn.value.trim(); });
-      function back() { newBox.classList.add('hidden'); form._step = cur = 'activite'; show('activite'); }
-      advance = function () { var n = nameIn.value.trim(); if (!n) return; form.news.push({ key: Date.now(), name: n, color: color }); syncMain(); newBox.classList.add('hidden'); refresh(); show('activite'); };
-      setBack(back); nameIn.focus();
+      head.appendChild(dot); head.appendChild(nameIn); newBox.appendChild(head); swWrap.appendChild(sw); newBox.appendChild(swWrap);
+      if (TMT.renderColorSwatches) TMT.renderColorSwatches(sw, null, function (c) { color = c; dot.style.background = c; }, true);
+      var hRow = el('div', 'objTimeRow'), hVal = el('span', 'objHoursVal'), hIn = el('input'), originBox = el('div');
+      hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.setAttribute('aria-label', tr('Heures par semaine'));
+      hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); hrs = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; });
+      hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); newBox.appendChild(hRow);
+      newBox.appendChild(originBox);
+      function okGo() { return !!nameIn.value.trim() && (from.mode !== 'prise' || from.fromId != null); }
+      function syncGo() { stepBtn.disabled = !okGo(); }
+      function paintOrigin() {
+        originBox.textContent = '';
+        originBox.appendChild(seg([['plus', tr('S’ajoute')], ['prise', tr('Pris sur…')]], from.mode, function (k) { from.mode = k; if (k === 'plus') from.fromId = null; paintOrigin(); syncGo(); }, tr('Origine du temps')));
+        if (from.mode === 'prise') {
+          var lst = el('div', 'aiModeChoices');
+          (ctx.activities || []).forEach(function (a) { lst.appendChild(choice(a.name, '', from.fromId === a.id, a.color, function () { from.fromId = a.id; paintOrigin(); syncGo(); })); });
+          originBox.appendChild(lst);
+        }
+      }
+      paintOrigin();
+      slideTo(true); panelKicker.textContent = tr('Nouvelle activité'); stepLabel.textContent = tr('Terminer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Terminer')); syncGo();
+      nameIn.addEventListener('input', syncGo);
+      function back() { slideTo(false); form._step = cur = 'activite'; show('activite'); }
+      advance = function () { if (!okGo()) return; var n = { key: Date.now(), name: nameIn.value.trim(), color: color }; form.news.push(n); form.hoursBy['n' + n.key] = hrs; form.hoursFrom['n' + n.key] = { mode: from.mode, fromId: from.fromId }; syncMain(); slideTo(false); refresh(); show('activite'); };
+      setBack(back); window.setTimeout(function () { nameIn.focus({ preventScroll: true }); slidePages.scrollLeft = 0; }, 320); // focus APRÈS le glissement, sans défilement (sinon le conteneur masqué se décale)
     }
     // Étape « Temps » : échéance (ci-dessus), format des périodes, objectifs hebdomadaires, puis un petit tableau : « Nombre recommandé » (valeur seule) et « Heures par semaine » (champ modifiable).
     function fmtH(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
@@ -341,7 +366,7 @@
     boxes.temps.appendChild(pdBox);
     // Page « Heures » : une ligne par activité choisie (valeur de départ : son historique Chrono), modifiable.
     // Activité NOUVELLE : on demande d'où vient ce temps : « S'ajoute » à mon temps actuel, ou « Pris sur » une autre activité (à choisir).
-    var hoursBox = el('div', 'objTimeInfo'); boxes.heures.appendChild(hoursBox);
+    var hoursBox = el('div', 'objTimeInfo'); boxes.temps.appendChild(hoursBox);
     form.hoursBy = form.hoursBy || {}; form.hoursFrom = form.hoursFrom || {};
     function targets() { return form.acts.map(function (id) { return { key: 'a' + id, id: id, name: (actById(id) || {}).name || '' }; }).concat(form.news.map(function (n) { return { key: 'n' + n.key, pending: n, name: n.name }; })); }
     function hoursOk() { return targets().every(function (t) { var f = form.hoursFrom[t.key]; return !t.pending || !f || f.mode !== 'prise' || f.fromId != null; }); }
@@ -355,19 +380,9 @@
         inp.addEventListener('input', function () { var v = parseFloat(String(inp.value).replace(',', '.')); form.hoursBy[t.key] = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; });
         val.appendChild(inp); val.appendChild(el('span', null, 'h'));
         rowH.appendChild(el('span', null, t.name + (adv ? ' · ' + fmtH(adv) : ''))); rowH.appendChild(val); hoursBox.appendChild(rowH);
-        if (t.pending) {
-          var f = form.hoursFrom[t.key] || (form.hoursFrom[t.key] = { mode: 'plus', fromId: null }), sub = el('div', 'objField');
-          sub.appendChild(seg([['plus', tr('S’ajoute')], ['prise', tr('Pris sur…')]], f.mode, function (k) { f.mode = k; if (k === 'plus') f.fromId = null; paintHours(); syncHoursGo(); }, tr('Origine du temps')));
-          if (f.mode === 'prise') {
-            var lst = el('div', 'aiModeChoices');
-            (ctx.activities || []).forEach(function (a) { lst.appendChild(choice(a.name, '', f.fromId === a.id, a.color, function () { f.fromId = a.id; paintHours(); syncHoursGo(); })); });
-            sub.appendChild(lst);
-          }
-          hoursBox.appendChild(sub);
-        }
       });
     }
-    function syncHoursGo() { if (cur === 'heures') stepBtn.disabled = !hoursOk(); }
+    function syncHoursGo() { if (cur === 'temps') stepBtn.disabled = !hoursOk(); }
     function refresh() { renderActivities(); paintPeriods(); paintHours(); }
     refresh();
     // Étape « Niveau » : demandée SEULEMENT si des informations manquent (type d'objectif inconnu, plus d'un an, aucun historique Chrono) ; sinon sautée (3 étapes au lieu de 4).
@@ -380,7 +395,7 @@
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
     var stepNames = { desc: 'Description', rattach: 'Rattachement', temps: 'Temps', heures: 'Heures', activite: 'Activité', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return ['desc', 'activite'].concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(['temps', 'heures']).concat(needsLevel() ? ['niveau'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
+    function list() { return ['desc', 'activite'].concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(['temps']).concat(needsLevel() ? ['niveau'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     // Étape « Rattachement » : seulement s'il existe un candidat dans l'activité ; PROPOSITION (règles, ou IA si permis) : Accepter (avec Avant | Après) ou Refuser (refus mémorisé, l'objectif reste un sommet séparé).
     function dueOf(id) { var x = (ctx.objectives || []).filter(function (o) { return o.id === id; })[0]; return x && x.endDate ? ' · ' + tr('jusqu’au') + ' ' + dateText(x.endDate) : ''; } // échéance du parent proposé
     function rattPending() { // « Suivant » reste grisé tant qu'une proposition affichée n'est pas décidée (jamais de choix silencieux)
@@ -455,13 +470,13 @@
     function show(k) {
       form._step = cur = k;
       ['desc', 'rattach', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
-      newBox.classList.add('hidden'); if (k === 'heures') paintHours();
+      if (k === 'temps') paintHours();
       if (k === 'rattach') paintRatt();
       panelKicker.textContent = tr(stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
       stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave');
       stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');
-      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate)) || (k === 'rattach' && rattPending()) || (k === 'heures' && !hoursOk()); // Suivant grisé tant que le rattachement n'est pas décidé
+      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate)) || (k === 'rattach' && rattPending()) || (k === 'temps' && !hoursOk()); // Suivant grisé tant que le rattachement n'est pas décidé
       advance = i < tot - 1 ? stepNext : finishAll; setBack(i > 0 ? function () { show(l[i - 1]); } : null);
     }
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
@@ -555,13 +570,13 @@
   function openEdit(id) {
     api('GET', '/api/objectifs/' + id).then(function (o) {
       var daysOf = function (end) { return Math.max(0, Math.round((Date.parse(end + 'T00:00:00Z') - Date.parse(o.startDate + 'T00:00:00Z')) / 86400000)); };
-      var form = { title: o.title, endDate: o.endDate, term: o.term || null, innerGoals: o.innerGoals || 'les_deux', hours: o.hoursPerWeek || null, skill: o.skill || '', guideOpen: 0 };
+      var form = { title: o.title, endDate: o.endDate, term: o.term || null, innerGoals: o.innerGoals || 'les_deux', hours: o.hoursPerWeek != null ? o.hoursPerWeek : null, skill: o.skill || '', guideOpen: 0 };
       guideParse(form, o.description || '');
       var okInit = termsFor(daysOf(o.endDate)); if (okInit.indexOf(form.term) < 0) form.term = okInit[okInit.length - 1];
       if (!multiOf(daysOf(o.endDate))) form.innerGoals = 'hebdomadaires';
       var orig = { title: o.title, endDate: o.endDate, desc: guideCompose(form), term: form.term, inner: form.innerGoals, hours: form.hours, skill: String(form.skill).trim() };
       function inner() { return multiOf(daysOf(form.endDate)) ? form.innerGoals : 'hebdomadaires'; }
-      function dirty() { return form.title.trim() !== orig.title || form.endDate !== orig.endDate || guideCompose(form) !== orig.desc || form.term !== orig.term || inner() !== orig.inner || (form.hours || null) !== (orig.hours || null) || String(form.skill).trim() !== orig.skill; }
+      function dirty() { return form.title.trim() !== orig.title || form.endDate !== orig.endDate || guideCompose(form) !== orig.desc || form.term !== orig.term || inner() !== orig.inner || form.hours !== orig.hours || String(form.skill).trim() !== orig.skill || partDirty(); }
       var msg = el('p', 'tasksMsg objMsg');
       function sync() { stepBtn.disabled = !dirty() || !form.endDate; }
       panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = tr('Modifier l’objectif'); panelForm = { edit: true }; setBack(null);
@@ -583,25 +598,60 @@
       });
       paintT(); panelBody.appendChild(tBox);
       var hRow = el('div', 'objTimeRow'), hVal = el('span', 'objHoursVal'), hIn = el('input');
-      hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.value = form.hours ? String(form.hours) : ''; hIn.setAttribute('aria-label', tr('Heures par semaine'));
+      hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.value = form.hours != null ? String(form.hours) : ''; hIn.setAttribute('aria-label', tr('Heures par semaine'));
       hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); form.hours = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; sync(); });
       hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); panelBody.appendChild(hRow);
       var sIn = el('input'); sIn.type = 'text'; sIn.maxLength = 200; sIn.value = form.skill; sIn.setAttribute('aria-label', tr('Ton niveau actuel'));
       sIn.addEventListener('input', function () { form.skill = sIn.value; sync(); }); panelBody.appendChild(field(tr('Ton niveau actuel'), sIn));
-      if (o.parts && o.parts.items.length) { // ce que chaque sous-objectif représente dans la validation du grand objectif (proportionnel au temps prévu ; parts égales sans heures prévues)
-        var pb = el('div', 'objField'); pb.appendChild(el('p', 'cmpBlockTitle', tr('Part de chaque objectif')));
-        o.parts.items.forEach(function (it) { var r = el('div', 'objTimeRow'); r.appendChild(el('span', null, it.title)); r.appendChild(el('b', null, it.percent + ' %')); pb.appendChild(r); });
-        pb.appendChild(el('p', 'hint', tr(o.parts.mode === 'temps' ? 'Selon le temps prévu de chaque objectif.' : 'Parts égales : les heures ne sont pas toutes prévues.')));
-        panelBody.appendChild(pb);
+      // Parts d'un grand objectif (proportionnelles au temps prévu) : MODIFIABLES. Changer une part change le temps du sous-objectif et rééquilibre les autres (total constant) ; l'avant / après est montré
+      // sous chaque ligne avant d'enregistrer ; « Enregistrer » applique le tout (serveur : une seule transaction).
+      var partsBox = el('div', 'objField'), partRows = {}, partEdit = null, partPreview = null, partTimer = 0, partSeq = 0;
+      panelBody.appendChild(partsBox);
+      function partDirty() { return !!(partEdit && partPreview && o.parts && o.parts.items.some(function (it) { return it.id === partEdit.id && it.percent !== partEdit.percent; })); }
+      function fmtHh(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
+      function noteOf(it) {
+        var t = [];
+        if (it.hoursAfter != null && it.hoursBefore !== it.hoursAfter) t.push(fmtHh(it.hoursBefore) + ' → ' + fmtHh(it.hoursAfter) + ' ' + tr('par semaine'));
+        if (it.activityName) t.push(it.activityName);
+        if (it.belowHabit) t.push('⚠ ' + tr('moins que ton temps habituel') + ' (' + fmtHh(it.habit) + ')');
+        return t.join(' · ');
+      }
+      function applyPreview() {
+        if (!partPreview) return;
+        partPreview.items.forEach(function (it) { var r = partRows[it.id]; if (!r) return; if (!partEdit || it.id !== partEdit.id) r.inp.value = String(it.percent); r.note.textContent = noteOf(it); });
+      }
+      function askPreview() {
+        window.clearTimeout(partTimer); var mine = ++partSeq;
+        partTimer = window.setTimeout(function () {
+          if (!partEdit) return;
+          api('POST', '/api/objectifs/' + id + '/parts/apercu', { childId: partEdit.id, percent: partEdit.percent }).then(function (r) { if (mine !== partSeq) return; partPreview = r; msg.textContent = ''; applyPreview(); sync(); })
+            .catch(function (e) { if (mine !== partSeq) return; partPreview = null; msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
+        }, 250);
+      }
+      if (o.parts && o.parts.items.length) {
+        partsBox.appendChild(el('p', 'cmpBlockTitle', tr('Part de chaque objectif')));
+        o.parts.items.forEach(function (it) {
+          var row = el('div', 'objTimeRow'), left = el('span', 'objGuideTxt'), val = el('span', 'objHoursVal'), inp = el('input'), note = el('small', 'hint');
+          left.appendChild(el('span', null, it.title)); left.appendChild(note);
+          inp.type = 'text'; inp.inputMode = 'numeric'; inp.maxLength = 3; inp.value = String(it.percent); inp.setAttribute('aria-label', tr('Part de') + ' ' + it.title); inp.disabled = o.parts.items.length < 2;
+          inp.addEventListener('input', function () {
+            var s = String(inp.value).trim(), n = /^\d+$/.test(s) ? parseInt(s, 10) : NaN;
+            if (!(n >= 0 && n <= 100)) { partEdit = null; partPreview = null; msg.textContent = tr('Part : un nombre entre 0 et 100.'); sync(); return; }
+            msg.textContent = ''; partEdit = { id: it.id, percent: n }; askPreview(); sync();
+          });
+          val.appendChild(inp); val.appendChild(el('span', null, '%')); row.appendChild(left); row.appendChild(val); partsBox.appendChild(row); partRows[it.id] = { inp: inp, note: note };
+        });
+        partsBox.appendChild(el('p', 'hint', tr(o.parts.mode === 'temps' ? 'Selon le temps prévu de chaque objectif. Changer une part change le temps des autres, le total reste le même.' : 'Parts égales : les heures ne sont pas toutes prévues.')));
       }
       var ab = btn('cmpBtn cmpBtnIdle', tr(o.abandoned ? 'Réactiver' : 'Abandonner'), function () { api('POST', '/api/objectifs/' + id + (o.abandoned ? '/reactiver' : '/abandon')).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }); });
       var rare = el('div', 'objRare'); rare.appendChild(ab); panelBody.appendChild(rare); // action rare, tout en bas, violette (R4, R28)
       function save() {
         var calls = [];
+        if (partDirty()) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/parts', { childId: partEdit.id, percent: partEdit.percent }); });
         if (o.isMacro && form.title.trim() !== orig.title) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/titre', { title: form.title.trim() }); });
         if (guideCompose(form) !== orig.desc) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/description', { description: guideCompose(form) }); });
         if (form.endDate !== orig.endDate) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/echeance', { endDate: form.endDate }); });
-        calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/parametres', { term: form.term, inner: inner(), hoursPerWeek: form.hours, skill: String(form.skill).trim() }); }); // après l'échéance : le terme dépend de la date
+        calls.push(function () { var b = { term: form.term, inner: inner(), skill: String(form.skill).trim() }; if (form.hours !== orig.hours) b.hoursPerWeek = form.hours; return api('PUT', '/api/objectifs/' + id + '/parametres', b); }); // les heures ne sont envoyées que si elles ont changé (0 h = part à 0 %, jamais effacée en silence) // après l'échéance : le terme dépend de la date
         stepBtn.disabled = true; msg.textContent = '';
         var chain = Promise.resolve(); calls.forEach(function (c) { chain = chain.then(c); });
         chain.then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });

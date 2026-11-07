@@ -257,6 +257,44 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   o.parametres(u, k2.id, { hoursPerWeek: null });
   const parts2 = o.get(u, bigG.id).parts;
   assert(parts2.mode === 'egales' && parts2.items.every((i) => i.percent === 50), 'parts : sans heures prévues pour un sous-objectif, repli sur parts égales');
+  // Changer la part d'un sous-objectif : le temps change, le total reste constant (7 nov. 2026)
+  const bg = o.creer(u, { title: 'Groupe parts', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-06-01', hoursPerWeek: 1 });
+  const kA = o.creer(u, { title: 'Part A', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-03-01', hoursPerWeek: 6, parentId: bg.id });
+  const kB = o.creer(u, { title: 'Part B', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-03-01', hoursPerWeek: 2, parentId: bg.id });
+  const kC = o.creer(u, { title: 'Part C', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-03-01', hoursPerWeek: 2, parentId: bg.id });
+  const pv = o.changerPart(u, bg.id, { childId: kA.id, percent: 80 }, false);
+  const pctOf = (r, id) => r.items.find((i) => i.id === id).percent;
+  assert(pctOf(pv, kA.id) === 80 && pctOf(pv, kB.id) === 10 && pctOf(pv, kC.id) === 10 && pv.items.reduce((x, i) => x + i.percent, 0) === 100, 'parts : 60/20/20 -> A à 80 %, les autres en proportion (10/10), total 100 %');
+  const hoursAfter = pv.items.reduce((x, i) => x + i.hoursAfter, 0), hoursBefore = pv.items.reduce((x, i) => x + (i.hoursBefore || 0), 0);
+  assert(Math.abs(hoursAfter - hoursBefore) < 0.35 && pv.items.find((i) => i.id === kA.id).hoursAfter > pv.items.find((i) => i.id === kA.id).hoursBefore, 'parts : le total des heures reste constant, A gagne du temps (aperçu, rien d’écrit)');
+  assert(o.get(u, kA.id).hoursPerWeek === 6, 'parts : l’aperçu n’écrit rien');
+  o.changerPart(u, bg.id, { childId: kA.id, percent: 80 }, true);
+  assert(o.get(u, kA.id).hoursPerWeek > 6 && o.get(u, kB.id).hoursPerWeek < 2, 'parts : application = heures des sous-objectifs changées en une transaction');
+  o.changerPart(u, bg.id, { childId: kB.id, percent: 0 }, true);
+  const z = o.get(u, bg.id).parts;
+  assert(z.mode === 'temps' && z.items.find((i) => i.id === kB.id).percent === 0 && z.items.reduce((x, i) => x + i.percent, 0) === 100 && o.get(u, kB.id).hoursPerWeek === 0, 'parts : une part à 0 % met le temps à 0, les autres se partagent le reste');
+  for (const bad of [{ childId: kA.id, percent: 101 }, { childId: kA.id, percent: -1 }, { childId: kA.id, percent: 'abc' }, { childId: kA.id, percent: '' }, { childId: 99999999, percent: 10 }]) {
+    let refused = false, raw = false; try { o.changerPart(u, bg.id, bad, false); } catch (e) { refused = e.statusCode === 400 && /Part|Choisis/.test(e.message); raw = !e.statusCode; } assert(refused && !raw, 'parts : valeur refusée avec un message court (' + JSON.stringify(bad.percent) + ')');
+  }
+  const lone = o.creer(u, { title: 'Groupe seul', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-06-01', hoursPerWeek: 1 });
+  const loneK = o.creer(u, { title: 'Seul enfant', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-03-01', hoursPerWeek: 3, parentId: lone.id });
+  let one = false; try { o.changerPart(u, lone.id, { childId: loneK.id, percent: 50 }, false); } catch (e) { one = /100/.test(e.message); } assert(one, 'parts : un seul sous-objectif, sa part reste 100 %');
+  const nt = o.creer(u, { title: 'Groupe sans temps', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-06-01' });
+  const nt1 = o.creer(u, { title: 'Sans temps 1', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-03-01', parentId: nt.id });
+  o.creer(u, { title: 'Sans temps 2', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-03-01', parentId: nt.id });
+  let noT = false; try { o.changerPart(u, nt.id, { childId: nt1.id, percent: 70 }, false); } catch (e) { noT = /heures/.test(e.message); } assert(noT, 'parts : aucun sous-objectif avec du temps : message court');
+  const mixG = o.creer(u, { title: 'Groupe mixte', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-06-01' });
+  const mxA = o.creer(u, { title: 'Mixte A', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-03-01', hoursPerWeek: 4, parentId: mixG.id });
+  o.creer(u, { title: 'Mixte sans temps', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-03-01', parentId: mixG.id });
+  const mx = o.changerPart(u, mixG.id, { childId: mxA.id, percent: 50 }, false);
+  assert(o.get(u, mixG.id).parts.mode === 'egales' && mx.items.reduce((x, i) => x + i.percent, 0) === 100 && mx.items.every((i) => i.hoursAfter > 0), 'parts : un sous-objectif sans temps reçoit sa part (50/50) ; avant, parts égales annoncées');
+  const acts2 = db.prepare('SELECT DISTINCT a.id FROM activities a JOIN activity_members am ON am.activityId = a.id WHERE am.userId = ? AND a.active = 1').all(u);
+  if (acts2.length > 1) {
+    const mA = o.creer(u, { title: 'Multi A', activityId: acts2[0].id, startDate: prop.startDate, endDate: '2027-03-01', hoursPerWeek: 4 }), mB = o.creer(u, { title: 'Multi B', activityId: acts2[1].id, startDate: prop.startDate, endDate: '2027-03-01', hoursPerWeek: 4 });
+    const mac = o.fusionnerEnMacro(u, { childIds: [mA.id, mB.id], title: 'Multi macro' });
+    const mp = o.changerPart(u, mac.id, { childId: mA.id, percent: 75 }, true);
+    assert(mp.parts && mp.parts.items.find((i) => i.id === mA.id).percent === 75 && o.get(u, mA.id).hoursPerWeek > 4 && o.get(u, mB.id).hoursPerWeek < 4, 'parts : macro à plusieurs activités, le temps de chaque activité suit');
+  } else console.log('  (une seule activité dans la base de test : cas multi-activités ignoré)');
   // Objectifs de démonstration (staging seulement, idempotent, marqués demo)
   const seedMod = require('../server/lib/seed-staging');
   const s1 = seedMod.seedDemoObjectives(db), s2 = seedMod.seedDemoObjectives(db);
