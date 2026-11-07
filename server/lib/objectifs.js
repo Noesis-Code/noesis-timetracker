@@ -599,7 +599,13 @@ function creer(userId, body) {
   const unit = UNITS.includes(body.unit) ? body.unit : 'semaines';
   const amount = Number.isInteger(Number(body.amount)) && Number(body.amount) > 0 ? Number(body.amount) : Math.max(1, Math.round(daysBetween(start, body.endDate) / 7));
   const periodWeeks = userPW();
-  const weekly = body.weekly !== false;
+  // Terme (périodique, moyen, long) et objectifs inclus (périodiques, hebdomadaires, les deux), 7 nov. 2026 : vérifiés ici ; une seule période = hebdomadaires seulement.
+  const termsOk = temps.termes(start, body.endDate);
+  if (body.term != null && !termsOk.includes(body.term)) throw err('Ce terme n’est pas possible pour cette échéance.');
+  const term = body.term || termsOk[termsOk.length - 1];
+  const innerReq = ['periodiques', 'hebdomadaires', 'les_deux'].includes(body.inner) ? body.inner : (body.weekly === false ? 'periodiques' : 'les_deux');
+  const inner = daysBetween(start, body.endDate) > 28 ? innerReq : 'hebdomadaires';
+  const weekly = inner !== 'periodiques';
   let parentId = null;
   if (body.parentId) {
     const par = db.prepare('SELECT id, activityId, isMacro, level, endDate FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body.parentId), userId);
@@ -630,7 +636,7 @@ function creer(userId, body) {
   (Array.isArray(body.refus) ? body.refus : []).slice(0, 20).forEach((cid) => { const c = db.prepare('SELECT id FROM user_objectives WHERE id = ? AND userId = ?').get(Number(cid), userId); if (c && c.id !== id) db.prepare('INSERT OR REPLACE INTO objectifs_refus (userId, objectifId, candidateId, createdAt) VALUES (?, ?, ?, ?)').run(userId, id, c.id, new Date().toISOString()); });
   const est0 = durees.estimate(title);
   const hpw = Number(body.hoursPerWeek) > 0 && Number(body.hoursPerWeek) <= 80 ? Math.round(Number(body.hoursPerWeek) * 10) / 10 : null; // facultatif : valeur de départ = historique Chrono, modifiable
-  const meta0 = { plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7) };
+  const meta0 = { plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7), term, inner };
   if (est0) { meta0.cat = est0.id; meta0.proposed = { p10: est0.p10, p90: est0.p90 }; }
   if (hpw) meta0.hoursPerWeek = hpw;
   if (body.description) meta0.description = String(body.description).trim().slice(0, 500); // description libre de l'objectif (étape « Description »)
@@ -730,6 +736,7 @@ function shape(r, full) {
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },
     weekTasks: { done: weekTasks.filter((t) => t.done).length, total: weekTasks.length },
   };
+  out.term = meta.term || null; out.innerGoals = meta.inner || null; // choix de création (terme, objectifs inclus) ; null pour les objectifs plus anciens
   out.isMacro = !!r.isMacro; out.timeLevel = temps.deduce(r.startDate, r.endDate); // dérivé de l'échéance, affichage seulement (jamais saisi ni validé)
   out.isBig = !!db.prepare('SELECT 1 FROM user_objectives WHERE userId = ? AND parentId = ? LIMIT 1').get(r.userId, r.id); // grand objectif = a au moins un sous-objectif
   if (r.isMacro) {

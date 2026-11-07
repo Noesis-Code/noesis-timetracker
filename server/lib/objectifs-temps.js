@@ -13,4 +13,8 @@ function deduce(start, end) {
   const w = weeksBetween(start, end);
   return w <= MAX_WEEKS.periode ? 'periode' : w <= MAX_WEEKS.annee ? 'annee' : 'pluriannuel';
 }
-module.exports = { PERIODS_PER_YEAR, PERIOD_WEEKS, PERIOD_DAYS, TIME_LEVELS, deduce, weeksBetween };
+// Terme choisi à la création (7 nov. 2026) : 'periode' (périodique), 'annee' (moyen terme), 'pluriannuel' (long terme). Moins de 26 semaines : périodique seul (imposé) ;
+// jusqu'à 130 semaines (2,5 ans) : périodique ou moyen terme ; au-delà : les trois. Le choix est vérifié ici, jamais seulement dans l'interface.
+const TERM_LIMITS = { periode: 26, annee: 130 };
+function termes(start, end) { const w = weeksBetween(start, end); return w <= TERM_LIMITS.periode ? ['periode'] : w <= TERM_LIMITS.annee ? ['periode', 'annee'] : TIME_LEVELS.slice(); }
+module.exports = { termes, PERIODS_PER_YEAR, PERIOD_WEEKS, PERIOD_DAYS, TIME_LEVELS, deduce, weeksBetween };

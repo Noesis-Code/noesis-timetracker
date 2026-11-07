@@ -369,13 +369,24 @@
     function fmtH(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
     function daysLeft() { return form.endDate ? Math.max(0, Math.round((Date.parse(form.endDate + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000)) : null; }
     if (form.weekly === undefined) form.weekly = true;
-    var pdBox = el('div'); // le format des périodes n'est plus choisi par objectif : réglage global (Réglages > Préférences > Périodes)
+    // Terme (7 nov. 2026) : Périodique / Moyen terme / Long terme, selon l'échéance (mêmes seuils que server/lib/objectifs-temps.js : 26 semaines et 130 semaines) ; les choix impossibles sont grisés.
+    var TERMS = [['periode', 'Périodique'], ['annee', 'Moyen terme'], ['pluriannuel', 'Long terme']], INNER = [['periodiques', 'Périodiques'], ['hebdomadaires', 'Hebdomadaires'], ['les_deux', 'Les deux']];
+    function allowedTerms() { var w = (daysLeft() || 0) / 7; return w <= 26 ? ['periode'] : w <= 130 ? ['periode', 'annee'] : ['periode', 'annee', 'pluriannuel']; }
+    function multiPeriods() { return (daysLeft() || 0) > 28; }
+    form.innerGoals = form.innerGoals || 'les_deux';
+    var pdBox = el('div'); // le format des périodes n'est plus choisi par objectif : périodes fixes de 4 semaines
+    function segDisabled(options, current, allowed, onPick, label) {
+      var s = seg(options, current, onPick, label);
+      Array.prototype.forEach.call(s.children, function (b, i) { if (allowed.indexOf(options[i][0]) < 0) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); } });
+      return s;
+    }
     function paintPeriods() {
       pdBox.textContent = '';
-      var row = el('div', 'objSwitchRow'); row.appendChild(el('span', 'objSwitchLabel', tr('Objectifs hebdomadaires')));
-      var sw = el('label', 'toggleSwitch'), inp = el('input'); inp.type = 'checkbox'; inp.checked = !!form.weekly; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', tr('Objectifs hebdomadaires'));
-      inp.addEventListener('change', function () { form.weekly = inp.checked; });
-      sw.appendChild(inp); sw.appendChild(el('span', 'toggleSwitchTrack')); row.appendChild(sw); pdBox.appendChild(row);
+      var ok = allowedTerms(); if (ok.indexOf(form.term) < 0) form.term = ok[ok.length - 1]; // imposé si un seul choix ; sinon, tant que rien n'est choisi, le terme le plus long permis
+      pdBox.appendChild(field(tr('Terme'), segDisabled(TERMS.map(function (t) { return [t[0], tr(t[1])]; }), form.term, ok, function (k) { form.term = k; form.termTouched = true; }, tr('Terme'))));
+      if (multiPeriods()) { // plusieurs périodes : objectifs périodiques, hebdomadaires ou les deux ; une seule période : hebdomadaires seulement (rien à choisir)
+        pdBox.appendChild(field(tr('Objectifs inclus'), seg(INNER.map(function (t) { return [t[0], tr(t[1])]; }), form.innerGoals, function (k) { form.innerGoals = k; form.weekly = k !== 'periodiques'; }, tr('Objectifs inclus'))));
+      }
     }
     boxes.temps.appendChild(pdBox);
     var hoursBox = el('div', 'objTimeInfo'), recRow = el('div', 'objTimeRow'), recVal = el('b'), hrsRow = el('div', 'objTimeRow'), hrsVal = el('span', 'objHoursVal'), hrsIn = el('input');
@@ -498,15 +509,16 @@
       if (final && !form.create && form.activityId == null) { msg.textContent = tr('Choisis une activité.'); return false; }
       return true;
     }
+    function innerOf() { return multiPeriods() ? form.innerGoals : 'hebdomadaires'; }
     function finishAll() { // Terminer : proposition par règles (ou IA gratuite du mois) puis création ; rien n'est créé avant ce geste
       if (!validDesc(true)) return;
       if (form.ratt && form.ratt.key !== form.title + '|' + (form.create ? 'new' : form.activityId)) { form.parentId = null; form.parentRel = null; form.macroDecided = null; } // l'activité a changé après la proposition de rattachement : plus de parent
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
       var actName = form.create ? form.createName : (ctx.activities.filter(function (a) { return a.id === form.activityId; })[0] || {}).name;
-      api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: form.weekly !== false, activityId: form.create ? null : form.activityId, activityName: actName })
+      api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.create ? null : form.activityId, activityName: actName })
         .then(function (P) { return (form.create ? api('POST', '/api/activities', { name: form.createName }).then(function (a) { return a.id; }) : Promise.resolve(form.activityId)).then(function (activityId) {
-          return api('POST', '/api/objectifs', { level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hours, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+          return api('POST', '/api/objectifs', { term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hours, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
         }); })
         .then(function (cr) { return cr && cr.id && allMacroIds().length ? api('POST', '/api/objectifs/macro', { childIds: [cr.id].concat(allMacroIds()), title: ((advIds().length ? form.advTitle : form.macroTitle) || form.title || '').trim() || form.title }).then(function () { return cr; }) : cr; }) // macro validé : créé APRÈS l'objectif, avec les objectifs choisis des autres activités
         .then(function (created) { input.value = ''; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); if (created && created.bridgeFailed) openDetail(created.id); /* C12 : le message s’affiche dans le détail */ })
