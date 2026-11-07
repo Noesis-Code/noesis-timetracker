@@ -429,3 +429,15 @@ Supprimé côté serveur : `GET/PUT /api/objectifs/periodes`, la restructuration
 - **N04 Macro et niveaux** : le niveau de temps d'un macro est au moins celui de ses enfants : refusé (400, message court) à la création d'un enfant, au rattachement, quand on abaisse le macro sous un enfant, ou qu'on allonge un enfant au-delà du macro. La fusion en macro prend le niveau le plus long de ses enfants. ✅
 - **N05 Périodes** : toutes de 4 semaines, quel que soit le niveau (un objectif annuel compte 13 périodes par an). Les objectifs existants gardent leurs périodes enregistrées.
 - **N06 Réglage supprimé** (ancien M18 / T01 / T02) : plus de restructuration ni de confirmation ; les échéances ne changent jamais.
+
+### 14 bis. Le rattachement traverse les niveaux de temps (précision d'Émilien, 6 nov. 2026, envoi 9)
+
+Un objectif de PÉRIODE peut se lier à un objectif ANNUEL, et un annuel à un PLURIANNUEL. Règle serveur : le `timeLevel` du PARENT est au moins celui de l'ENFANT (période < année < pluriannuel), pour tout parent (les macros gardent en plus leur règle propre). La restriction « même activité » (L03) reste, sauf sous un macro.
+
+- **N07 Période -> année -> pluriannuel** : rattachements acceptés (`lier`, `creer`). ✅ testé.
+- **N08 Parent de niveau inférieur** : refusé (400, « Le niveau de temps du parent (« X ») doit être au moins celui de cet objectif »), dans `lier` et `creer`. Le déplacement d'activité ne change aucun niveau. ✅
+- **N09 Changement du niveau de temps** : abaisser un parent sous un de ses enfants est refusé (« change d'abord son niveau de temps ») ; relever un enfant au-dessus de son parent est refusé (« change d'abord le niveau du parent ») ; la cohérence échéance/niveau (N03) reste vérifiée avant. ✅
+- **N10 Proposition de rattachement** (règles de ressemblance et IA) : les candidats sont les objectifs de la même activité de niveau SUPÉRIEUR ou égal à celui du nouvel objectif (niveau choisi, sinon déduit de ses dates, sinon période) ; jamais un parent de niveau inférieur. ✅
+- **N11 Parent d'un autre niveau supprimé** : l'enfant est détaché (sommet), son niveau est conservé, rien n'est supprimé en cascade. ✅
+- **N12 Affichage** : `get()` renvoie le parent complet (`parent.id`, `parent.title`, `parent.timeLevel`) et `parentLevel` ; `liste()` aussi (`parentLevel`).
+- **N13 Données existantes** : aucun contrôle rétroactif ; un ancien rattachement dont le parent est de niveau inférieur reste tel quel jusqu'à la prochaine modification de l'un des deux.

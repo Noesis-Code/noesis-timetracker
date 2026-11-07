@@ -282,6 +282,51 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(!rt.includes("'/objectifs/periodes'") && rt.includes("'/objectifs/:id/niveau-temps'"), 'routes : /objectifs/periodes supprimées, niveau-temps ajoutée');
 }
 
+// ---- 9. Le rattachement traverse les niveaux de temps : parent de niveau >= enfant ----
+{
+  const newAct = (name) => { const id = Number(db.prepare("INSERT INTO activities (name, ownerId, active, createdAt) VALUES (?, ?, 1, '2026-11-01T00:00:00.000Z')").run(name, u).lastInsertRowid); db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#674EA7', '2026-11-01T00:00:00.000Z')").run(id, u); return id; };
+  const D1 = newAct('Traversée D1');
+  const mkD = (title, extra) => o.creer(u, Object.assign({ title, activityId: D1, startDate: '2026-11-09', endDate: '2027-01-04', noBridge: true }, extra || {}));
+  const bad = (fn) => { try { fn(); return null; } catch (x) { return x; } };
+  const plur = mkD('Cap pluriannuel', { endDate: '2031-01-01' }), ann = mkD('Objectif annuel', { endDate: '2027-09-01' }), per = mkD('Objectif de période');
+  assert([plur, ann, per].map((x) => x.timeLevel).join() === 'pluriannuel,annee,periode', 'trois niveaux de temps créés');
+  assert(o.lier(u, per.id, ann.id, 'apres').parentId === ann.id, 'période -> année : rattachement accepté');
+  assert(o.lier(u, ann.id, plur.id, 'apres').parentId === plur.id, 'année -> pluriannuel : rattachement accepté');
+  let g = o.get(u, per.id);
+  assert(g.parent && g.parent.id === ann.id && g.parent.timeLevel === 'annee' && g.parentLevel === 'annee', 'get() expose le parent complet (id, titre, timeLevel) et parentLevel');
+  assert(o.liste(u, 'tous').find((x) => x.id === ann.id).parentLevel === 'pluriannuel', 'liste() expose parentLevel');
+  // parent de niveau inférieur refusé (parent ordinaire)
+  const per2 = mkD('Autre période'), ann2 = mkD('Autre annuel', { endDate: '2027-09-01' });
+  let e = bad(() => o.lier(u, ann2.id, per2.id, 'apres')); assert(e && e.statusCode === 400 && /niveau de temps du parent/.test(e.message), 'lier : parent de niveau inférieur refusé (annuel sous période)');
+  e = bad(() => mkD('Création sous période', { timeLevel: 'annee', endDate: '2027-09-01', parentId: per2.id })); assert(e && e.statusCode === 400 && /niveau de temps du parent/.test(e.message), 'creer : parent de niveau inférieur refusé');
+  e = bad(() => o.lier(u, plur.id, ann2.id, 'apres')); assert(e && e.statusCode === 400, 'pluriannuel sous annuel refusé');
+  // changement de niveau
+  const shortAnn = mkD('Parent annuel court', { timeLevel: 'annee' }), shortKid = mkD('Enfant annuel court', { timeLevel: 'annee' });
+  o.lier(u, shortKid.id, shortAnn.id, 'apres');
+  e = bad(() => o.modifierNiveauTemps(u, shortAnn.id, 'periode')); assert(e && e.statusCode === 400 && /change d’abord/.test(e.message), 'abaisser un parent sous son enfant : refusé (change d’abord le niveau de l’enfant)');
+  const pe = mkD('Période à relever', { timeLevel: 'periode', endDate: '2027-01-04' });
+  assert(o.lier(u, pe.id, ann2.id, 'apres').parentId === ann2.id, 'période sous annuel');
+  e = bad(() => o.modifierNiveauTemps(u, plur.id, 'annee')); assert(e && e.statusCode === 400, 'abaisser un parent pluriannuel : refusé (échéance ou enfant)');
+  const per3 = mkD('Période seule', { endDate: '2027-01-04' }), ann3 = mkD('Annuel parent', { endDate: '2027-09-01' });
+  o.lier(u, per3.id, ann3.id, 'apres');
+  e = bad(() => o.modifierEcheance(u, per3.id, '2027-09-01')); assert(e && /niveau de temps/.test(e.message), 'allonger un enfant : refus tant que son niveau ne change pas');
+  o.modifierNiveauTemps(u, per3.id, 'annee'); assert(o.get(u, per3.id).timeLevel === 'annee', 'enfant relevé au niveau de son parent : accepté');
+  // relever un enfant au-dessus de son parent
+  const lone = mkD('Annuel parent bis', { endDate: '2027-09-01' }), kid = mkD('Enfant période');
+  o.lier(u, kid.id, lone.id, 'apres');
+  e = bad(() => o.modifierNiveauTemps(u, kid.id, 'pluriannuel')); assert(e && e.statusCode === 400, 'relever un enfant au-dessus de son parent : refusé');
+  // proposition de rattachement : candidats de niveau supérieur, jamais inférieur
+  const rp = await o.rattachement(u, { title: 'Préparer le cap pluriannuel', activityId: D1, startDate: '2026-11-09', endDate: '2027-01-04' });
+  assert(rp.candidate && rp.candidate.id === plur.id, 'rattachement d’un objectif de période : l’objectif de niveau supérieur (pluriannuel) est proposé');
+  const rp2 = await o.rattachement(u, { title: 'Objectif annuel de plus', activityId: D1, startDate: '2026-11-09', endDate: '2027-09-01' });
+  assert(!rp2.candidate || (o.get(u, rp2.candidate.id).timeLevel !== 'periode'), 'rattachement d’un objectif annuel : jamais un parent de niveau période');
+  const rp3 = await o.rattachement(u, { title: 'Cap pluriannuel suite', activityId: D1, startDate: '2026-11-09', endDate: '2031-06-01' });
+  assert(!rp3.candidate || o.get(u, rp3.candidate.id).timeLevel === 'pluriannuel', 'rattachement d’un pluriannuel : seulement un parent pluriannuel');
+  // parent supprimé : l'enfant est détaché, rien d'autre ne change
+  const rm = o.supprimer(u, ann3.id, true);
+  assert(rm.ok && o.get(u, per3.id).parentId === null && o.get(u, per3.id).timeLevel === 'annee', 'parent d’un autre niveau supprimé : enfant détaché, niveau conservé');
+}
+
 // MARK-FIN
 const nRef = (id) => db.prepare('SELECT (SELECT COUNT(*) FROM user_objectives WHERE userId = ?) + (SELECT COUNT(*) FROM objectifs_refus WHERE userId = ?) AS n').get(id, id).n;
 assert(nRef(u) > 0, 'avant suppression : objectifs et refus du compte présents');

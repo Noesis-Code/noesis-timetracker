@@ -76,6 +76,8 @@ const MSG_MACRO_PARENT = 'Un objectif macro ne se rattache qu’à un autre obje
 function checkParent(child, parent) {
   if (child.isMacro && !parent.isMacro) throw err(MSG_MACRO_PARENT);
   if (!parent.isMacro && parent.activityId !== child.activityId) throw err(MSG_AUTRE_ACTIVITE);
+  // Le rattachement traverse les niveaux de temps (période -> année -> pluriannuel) : le parent est de niveau >= celui de l'enfant, pour tout parent.
+  if (!parent.isMacro && child.timeLevel && temps.rank(child.timeLevel) > temps.rank(parent.timeLevel || 'periode')) throw err('Le niveau de temps du parent (« ' + (parent.timeLevel || 'periode') + ' ») doit être au moins celui de cet objectif (« ' + child.timeLevel + ' »).');
   if (parent.isMacro) {
     // Un macro relie des colonnes d'UN niveau (activités, pôles ou secteurs) : ses enfants sont de ce niveau.
     if (child.level && (parent.level || 'activite') !== child.level) throw err('Ce macro relie des objectifs de niveau « ' + (parent.level || 'activite') + ' » : cet objectif est de niveau « ' + child.level + ' ».');
@@ -453,7 +455,10 @@ async function rattachement(userId, body) {
   const refused = new Set(((body && body.refused) || []).map(Number));
   const lv = body && body.level, pk = body && body.poleKey;
   const above = (r) => lv === 'pole' ? (r.level || 'activite') === 'activite' : lv === 'secteur' ? r.level === 'pole' && r.poleKey === pk : true; // 1c : candidats = niveau supérieur, même branche
-  const cands = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).filter((r) => above(r) && !refused.has(r.id) && shape(r, false).status !== 'atteint');
+  // Niveau de temps du nouvel objectif (choisi, sinon déduit de ses dates, sinon période) : les candidats sont de niveau SUPÉRIEUR ou égal (période -> année -> pluriannuel), jamais inférieur.
+  const sd = body && isDay(body.startDate) ? body.startDate : today();
+  const newLevel = body && temps.TIME_LEVELS.includes(body.timeLevel) ? body.timeLevel : (body && isDay(body.endDate) && body.endDate > sd ? temps.deduce(sd, body.endDate) : 'periode');
+  const cands = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).filter((r) => above(r) && temps.rank(r.timeLevel || 'periode') >= temps.rank(newLevel) && !refused.has(r.id) && shape(r, false).status !== 'atteint');
   // Macro (6 nov. 2026) : des objectifs RESSEMBLANTS dans d'AUTRES activités de l'utilisateur (règles de ressemblance, gratuit) font proposer un macro multi-activités :
   // simple proposition (avant/après et titre modifiables par l'utilisateur), rien n'est écrit sans sa validation.
   const macro = macroProposal(userId, title, act, refused);
@@ -715,7 +720,8 @@ function shape(r, full) {
   const act = db.prepare('SELECT a.id, a.name, m.color FROM activities a LEFT JOIN activity_members m ON m.activityId = a.id AND m.userId = ? WHERE a.id = ?').get(r.userId, r.activityId) || { id: r.activityId, name: '', color: null };
   const tasks = tasksOf(r, JSON.parse(r.taskIdsJson || '[]'));
   const weekTasks = tasks.filter((t) => t.dueDate && t.dueDate >= cw.startDate && t.dueDate <= cw.endDate);
-  const parent = r.parentId ? db.prepare('SELECT id, title FROM user_objectives WHERE id = ?').get(r.parentId) : null;
+  const parentRow = r.parentId ? db.prepare('SELECT id, title, timeLevel FROM user_objectives WHERE id = ?').get(r.parentId) : null;
+  const parent = parentRow ? { id: parentRow.id, title: parentRow.title, timeLevel: parentRow.timeLevel || 'periode' } : null;
   const out = {
     id: r.id, title: r.title, activity: { id: act.id, name: act.name, color: act.color },
     amount: r.amount, unit: r.unit, durationLabel: durationLabel(r), startDate: r.startDate, endDate: r.endDate,
@@ -726,7 +732,7 @@ function shape(r, full) {
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },
     weekTasks: { done: weekTasks.filter((t) => t.done).length, total: weekTasks.length },
   };
-  out.isMacro = !!r.isMacro; out.timeLevel = r.timeLevel || 'periode';
+  out.isMacro = !!r.isMacro; out.timeLevel = r.timeLevel || 'periode'; out.parentLevel = parent ? parent.timeLevel : null;
   if (r.isMacro) {
     const mi = macroInfo(r);
     out.macroLevel = r.level || 'activite'; out.macroColumns = columnsOf(r); out.childMacroIds = activeKids(r).filter((k) => k.isMacro).map((k) => k.id);
@@ -915,8 +921,10 @@ function modifierNiveauTemps(userId, id, level) {
     const longest = activeKids(r).map((k) => k.timeLevel || 'periode').sort((a, c) => temps.rank(c) - temps.rank(a))[0];
     if (longest && temps.rank(level) < temps.rank(longest)) throw err('Le niveau de temps du macro doit être au moins celui de ses objectifs (« ' + longest + ' »).');
   }
+  const kidsAll = db.prepare('SELECT timeLevel FROM user_objectives WHERE userId = ? AND parentId = ?').all(userId, r.id).map((k) => k.timeLevel || 'periode').sort((a, c) => temps.rank(c) - temps.rank(a));
+  if (!r.isMacro && kidsAll.length && temps.rank(level) < temps.rank(kidsAll[0])) throw err('Cet objectif a un objectif rattaché de niveau « ' + kidsAll[0] + ' » : change d’abord son niveau de temps.');
   const par = r.parentId ? db.prepare('SELECT isMacro, timeLevel FROM user_objectives WHERE id = ?').get(r.parentId) : null;
-  if (par && par.isMacro && temps.rank(level) > temps.rank(par.timeLevel)) throw err('Le niveau de temps du macro (« ' + par.timeLevel + ' ») est plus court que celui de cet objectif.');
+  if (par && temps.rank(level) > temps.rank(par.timeLevel)) throw err('Le niveau de temps du ' + (par.isMacro ? 'macro' : 'parent') + ' (« ' + par.timeLevel + ' ») est plus court que celui de cet objectif : change d’abord le niveau du ' + (par.isMacro ? 'macro' : 'parent') + '.');
   db.prepare('UPDATE user_objectives SET timeLevel = ? WHERE id = ?').run(level, r.id);
   return get(userId, r.id);
 }
