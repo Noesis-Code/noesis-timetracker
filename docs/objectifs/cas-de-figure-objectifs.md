@@ -417,30 +417,17 @@ Un macro relie plusieurs colonnes à CHAQUE niveau : activités, pôles d'une ac
 - **M18 Changement du réglage des périodes** : les échéances (macros comprises) ne changent pas ; les cases (périodes et semaines) sont recalculées, textes et états conservés (`restructure`). ✅
 - **M19 Activité unique** : aucun macro d'activités proposé (il faut au moins 2 colonnes reliables). ✅
 
-## 14. Niveaux de temps fixes (changement de direction d'Émilien, 6 nov. 2026, envoi 8)
+## 14. Modèle simplifié du temps et de la hiérarchie (validé par Émilien, 6 nov. 2026, envoi C)
 
-ANNULE le réglage « Périodes » des Préférences : l'utilisateur ne règle plus la longueur des périodes. Trois niveaux de temps FIXES, du court au long : PÉRIODE (13 × 4 semaines, comme l'arbre périodique) -> ANNÉE -> PLURIANNUEL. Chaque objectif se place à l'échelle de son choix ; sa place dans l'arbre dépend de ce niveau. Code : `server/lib/objectifs-temps.js` (constante unique `PERIODS_PER_YEAR = 13`, `PERIOD_WEEKS = 4`, utilisée par la création, la proposition et le contexte) ; champ `timeLevel` ('periode' | 'annee' | 'pluriannuel', défaut 'periode') sur `user_objectives`, exposé par `liste()` et `get()`.
+REMPLACE les anciennes sections 14 (niveaux de temps choisis) et 14 bis (rattachement entre niveaux). Pas de réglage de périodes, pas de niveau de temps choisi : le NIVEAU se déduit de l'échéance (case = année puis période 13 × 4) et le TYPE d'un objectif de sa STRUCTURE (a au moins un sous-objectif = « grand objectif »).
 
-Supprimé côté serveur : `GET/PUT /api/objectifs/periodes`, la restructuration de tous les objectifs (`restructure`, `meta.prevPeriods` n'est plus écrit ; les anciennes valeurs déjà stockées restent), les quatre formats, `MAX_PERIODS` ramené à 140 (13 périodes par an sur dix ans). Les colonnes `users.objPerYear / objPeriodWeeks / objPeriodsAsked` restent en base, intactes et inutilisées. Nouvelle route : `PUT /api/objectifs/:id/niveau-temps { timeLevel }`.
-
-- **N01 Déduction du niveau** (création sans niveau, migration des anciens) : durée début -> échéance <= 13 semaines : période ; <= 156 semaines (3 ans) : année ; au-delà : pluriannuel. Migration une seule fois, à l'ajout de la colonne, sans rien supprimer ; le nombre d'objectifs hors niveau « période » est écrit au journal du serveur. ✅ testé (base à l'ancien schéma).
-- **N02 Niveau choisi** : accepté s'il est valide (sinon 400 « Niveau de temps invalide ») et cohérent avec l'échéance. ✅
-- **N03 Cohérence échéance / niveau** (refus, jamais d'ajustement silencieux) : période <= 13 semaines ; année <= 156 semaines ; pluriannuel > 52 semaines. Modifier l'échéance au-delà du niveau est refusé avec « change d'abord le niveau de temps ». ✅
-- **N04 Macro et niveaux** : le niveau de temps d'un macro est au moins celui de ses enfants : refusé (400, message court) à la création d'un enfant, au rattachement, quand on abaisse le macro sous un enfant, ou qu'on allonge un enfant au-delà du macro. La fusion en macro prend le niveau le plus long de ses enfants. ✅
-- **N05 Périodes** : toutes de 4 semaines, quel que soit le niveau (un objectif annuel compte 13 périodes par an). Les objectifs existants gardent leurs périodes enregistrées.
-- **N06 Réglage supprimé** (ancien M18 / T01 / T02) : plus de restructuration ni de confirmation ; les échéances ne changent jamais.
-
-### 14 bis. Le rattachement traverse les niveaux de temps (précision d'Émilien, 6 nov. 2026, envoi 9)
-
-Un objectif de PÉRIODE peut se lier à un objectif ANNUEL, et un annuel à un PLURIANNUEL. Règle serveur : le `timeLevel` du PARENT est au moins celui de l'ENFANT (période < année < pluriannuel), pour tout parent (les macros gardent en plus leur règle propre). La restriction « même activité » (L03) reste, sauf sous un macro.
-
-- **N07 Période -> année -> pluriannuel** : rattachements acceptés (`lier`, `creer`). ✅ testé.
-- **N08 Parent de niveau inférieur** : refusé (400, « Le niveau de temps du parent (« X ») doit être au moins celui de cet objectif »), dans `lier` et `creer`. Le déplacement d'activité ne change aucun niveau. ✅
-- **N09 Changement du niveau de temps** : abaisser un parent sous un de ses enfants est refusé (« change d'abord son niveau de temps ») ; relever un enfant au-dessus de son parent est refusé (« change d'abord le niveau du parent ») ; la cohérence échéance/niveau (N03) reste vérifiée avant. ✅
-- **N10 Proposition de rattachement** (règles de ressemblance et IA) : les candidats sont les objectifs de la même activité de niveau SUPÉRIEUR ou égal à celui du nouvel objectif (niveau choisi, sinon déduit de ses dates, sinon période) ; jamais un parent de niveau inférieur. ✅
-- **N11 Parent d'un autre niveau supprimé** : l'enfant est détaché (sommet), son niveau est conservé, rien n'est supprimé en cascade. ✅
-- **N12 Affichage** : `get()` renvoie le parent complet (`parent.id`, `parent.title`, `parent.timeLevel`) et `parentLevel` ; `liste()` aussi (`parentLevel`).
-- **N13 Données existantes** : aucun contrôle rétroactif ; un ancien rattachement dont le parent est de niveau inférieur reste tel quel jusqu'à la prochaine modification de l'un des deux.
+- **N01 Périodes fixes** : 13 périodes de 4 semaines par an, constante unique (`server/lib/objectifs-temps.js`) ; routes `/objectifs/periodes` et `/objectifs/:id/niveau-temps` supprimées ; colonnes `users.objPerYear / objPeriodWeeks / objPeriodsAsked` et `user_objectives.timeLevel` conservées en base, inutilisées. ✅
+- **N02 Niveau déduit** : `timeLevel` exposé par `get()` / `liste()` est calculé depuis l'échéance (<= 13 semaines : période ; <= 3 ans : année ; au-delà : pluriannuel), pour l'affichage seulement ; un `timeLevel` envoyé est ignoré ; aucun refus de cohérence niveau / échéance. ✅
+- **N03 Type = structure** : `isBig` (a au moins un sous-objectif) exposé par `get()` / `liste()`. ✅
+- **N04 Seule règle de hiérarchie** : l'échéance du parent est au moins celle de l'enfant (macros comprises) ; refus 400 à la création d'un enfant, au rattachement (`lier`), à la prolongation (bilan « prolonger »), à la modification de l'échéance de l'enfant (au-delà du parent) et du parent (en deçà de son enfant le plus lointain). Messages courts : « dépasse celle du macro / de son parent ». Aucune notion de niveau : un enfant de longue durée sous un parent qui finit plus tard est accepté. ✅
+- **N05 Proposition de rattachement** (règles de ressemblance et IA) : candidats = objectifs de la même activité dont l'échéance est au moins celle du nouvel objectif ; la restriction « même activité » (L03) reste, sauf macro. ✅
+- **N06 Parent supprimé** : l'enfant est détaché (sommet), rien en cascade. ✅
+- **N07 Données existantes** : aucun contrôle rétroactif ; un ancien rattachement dont le parent finit avant l'enfant reste tel quel jusqu'à la prochaine modification de l'un des deux.
 
 ## Arbre des objectifs : niveaux de temps et ouverture (6 nov. 2026)
 

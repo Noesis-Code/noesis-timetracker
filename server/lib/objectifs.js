@@ -43,7 +43,7 @@ try {
   if (!cols.includes('level')) db.exec("ALTER TABLE user_objectives ADD COLUMN level TEXT NOT NULL DEFAULT 'activite'");
   if (!cols.includes('poleKey')) db.exec('ALTER TABLE user_objectives ADD COLUMN poleKey TEXT');
   if (!cols.includes('categoryKey')) db.exec('ALTER TABLE user_objectives ADD COLUMN categoryKey TEXT');
-  if (!cols.includes('timeLevel')) { // niveau de temps (6 nov. 2026) : DÉDUIT de l'échéance pour les objectifs existants (une seule fois, à l'ajout de la colonne)
+  if (!cols.includes('timeLevel')) { // colonne timeLevel CONSERVÉE (modèle simplifié, 6 nov. 2026) mais inutilisée : le niveau se déduit de l'échéance à l'affichage ; remplie une seule fois à l'ajout pour mémoire
     db.exec("ALTER TABLE user_objectives ADD COLUMN timeLevel TEXT NOT NULL DEFAULT 'periode'");
     let changed = 0;
     db.prepare('SELECT id, startDate, endDate FROM user_objectives').all().forEach((r) => {
@@ -76,15 +76,13 @@ const MSG_MACRO_PARENT = 'Un objectif macro ne se rattache qu’à un autre obje
 function checkParent(child, parent) {
   if (child.isMacro && !parent.isMacro) throw err(MSG_MACRO_PARENT);
   if (!parent.isMacro && parent.activityId !== child.activityId) throw err(MSG_AUTRE_ACTIVITE);
-  // Le rattachement traverse les niveaux de temps (période -> année -> pluriannuel) : le parent est de niveau >= celui de l'enfant, pour tout parent.
-  if (!parent.isMacro && child.timeLevel && temps.rank(child.timeLevel) > temps.rank(parent.timeLevel || 'periode')) throw err('Le niveau de temps du parent (« ' + (parent.timeLevel || 'periode') + ' ») doit être au moins celui de cet objectif (« ' + child.timeLevel + ' »).');
   if (parent.isMacro) {
     // Un macro relie des colonnes d'UN niveau (activités, pôles ou secteurs) : ses enfants sont de ce niveau.
     if (child.level && (parent.level || 'activite') !== child.level) throw err('Ce macro relie des objectifs de niveau « ' + (parent.level || 'activite') + ' » : cet objectif est de niveau « ' + child.level + ' ».');
     // Échéance d'un macro : au moins aussi lointaine que celle de chacun de ses enfants (le serveur refuse ; l'interface propose de repousser celle du macro).
-    if (child.timeLevel && temps.rank(child.timeLevel) > temps.rank(parent.timeLevel)) throw err('Le niveau de temps du macro doit être au moins celui de ses objectifs (« ' + child.timeLevel + ' »).');
-    if (child.endDate && parent.endDate && child.endDate > parent.endDate) throw err('L’échéance de cet objectif (' + child.endDate + ') dépasse celle du macro (' + parent.endDate + ') : repousse d’abord l’échéance du macro.');
   }
+  // Seule règle de hiérarchie (modèle simplifié, 6 nov. 2026) : l'échéance du parent est au moins celle de l'enfant (macros comprises).
+  if (child.endDate && parent.endDate && child.endDate > parent.endDate) throw err('L’échéance de cet objectif (' + child.endDate + ') dépasse celle ' + (parent.isMacro ? 'du macro' : 'de son parent') + ' (' + parent.endDate + ') : repousse d’abord l’échéance ' + (parent.isMacro ? 'du macro' : 'du parent') + '.');
 }
 function err(msg, code) { return Object.assign(new Error(msg), { statusCode: code || 400 }); }
 const iso = (y, m, d) => y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
@@ -455,10 +453,9 @@ async function rattachement(userId, body) {
   const refused = new Set(((body && body.refused) || []).map(Number));
   const lv = body && body.level, pk = body && body.poleKey;
   const above = (r) => lv === 'pole' ? (r.level || 'activite') === 'activite' : lv === 'secteur' ? r.level === 'pole' && r.poleKey === pk : true; // 1c : candidats = niveau supérieur, même branche
-  // Niveau de temps du nouvel objectif (choisi, sinon déduit de ses dates, sinon période) : les candidats sont de niveau SUPÉRIEUR ou égal (période -> année -> pluriannuel), jamais inférieur.
-  const sd = body && isDay(body.startDate) ? body.startDate : today();
-  const newLevel = body && temps.TIME_LEVELS.includes(body.timeLevel) ? body.timeLevel : (body && isDay(body.endDate) && body.endDate > sd ? temps.deduce(sd, body.endDate) : 'periode');
-  const cands = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).filter((r) => above(r) && temps.rank(r.timeLevel || 'periode') >= temps.rank(newLevel) && !refused.has(r.id) && shape(r, false).status !== 'atteint');
+  // Candidats : objectifs de la même activité dont l'échéance est au moins celle du nouvel objectif (seule règle de hiérarchie ; aucune notion de niveau).
+  const newEnd = body && isDay(body.endDate) ? body.endDate : null;
+  const cands = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).filter((r) => above(r) && (!newEnd || r.endDate >= newEnd) && !refused.has(r.id) && shape(r, false).status !== 'atteint');
   // Macro (6 nov. 2026) : des objectifs RESSEMBLANTS dans d'AUTRES activités de l'utilisateur (règles de ressemblance, gratuit) font proposer un macro multi-activités :
   // simple proposition (avant/après et titre modifiables par l'utilisateur), rien n'est écrit sans sa validation.
   const macro = macroProposal(userId, title, act, refused);
@@ -600,14 +597,11 @@ function creer(userId, body) {
   const amount = Number.isInteger(Number(body.amount)) && Number(body.amount) > 0 ? Number(body.amount) : Math.max(1, Math.round(daysBetween(start, body.endDate) / 7));
   const periodWeeks = userPW();
   const weekly = body.weekly !== false;
-  const timeLevel = body.timeLevel === undefined || body.timeLevel === null || body.timeLevel === '' ? temps.deduce(start, body.endDate) : String(body.timeLevel);
-  if (!temps.TIME_LEVELS.includes(timeLevel)) throw err('Niveau de temps invalide (période, année ou pluriannuel).');
-  { const inco = temps.incoherence(timeLevel, start, body.endDate); if (inco) throw err(inco); }
   let parentId = null;
   if (body.parentId) {
-    const par = db.prepare('SELECT id, activityId, isMacro, level, endDate, timeLevel FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body.parentId), userId);
+    const par = db.prepare('SELECT id, activityId, isMacro, level, endDate FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body.parentId), userId);
     if (!par) throw err('Objectif parent introuvable.', 404);
-    checkParent({ activityId: act.id, isMacro: body.isMacro === true, level: levelOf(userId, act.id, body).level, endDate: body.endDate, timeLevel }, par);
+    checkParent({ activityId: act.id, isMacro: body.isMacro === true, level: levelOf(userId, act.id, body).level, endDate: body.endDate }, par);
     parentId = par.id;
   }
   const parentRel = parentId && (body.parentRel === 'avant' || body.parentRel === 'apres') ? body.parentRel : null;
@@ -628,7 +622,7 @@ function creer(userId, body) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(userId, act.id, title, amount, unit, start, body.endDate, periodWeeks, weekly ? 1 : 0, parentId, JSON.stringify(periods), '[]', new Date().toISOString());
   const id = Number(info.lastInsertRowid);
-  db.prepare('UPDATE user_objectives SET parentRel = ?, position = ?, level = ?, poleKey = ?, categoryKey = ?, isMacro = ?, timeLevel = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), lvl.level, lvl.poleKey, lvl.categoryKey, body.isMacro === true ? 1 : 0, timeLevel, id);
+  db.prepare('UPDATE user_objectives SET parentRel = ?, position = ?, level = ?, poleKey = ?, categoryKey = ?, isMacro = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), lvl.level, lvl.poleKey, lvl.categoryKey, body.isMacro === true ? 1 : 0, id);
   (Array.isArray(body.refus) ? body.refus : []).slice(0, 20).forEach((cid) => { const c = db.prepare('SELECT id FROM user_objectives WHERE id = ? AND userId = ?').get(Number(cid), userId); if (c && c.id !== id) db.prepare('INSERT OR REPLACE INTO objectifs_refus (userId, objectifId, candidateId, createdAt) VALUES (?, ?, ?, ?)').run(userId, id, c.id, new Date().toISOString()); });
   const est0 = durees.estimate(title);
   const hpw = Number(body.hoursPerWeek) > 0 && Number(body.hoursPerWeek) <= 80 ? Math.round(Number(body.hoursPerWeek) * 10) / 10 : null; // facultatif : valeur de départ = historique Chrono, modifiable
@@ -720,8 +714,8 @@ function shape(r, full) {
   const act = db.prepare('SELECT a.id, a.name, m.color FROM activities a LEFT JOIN activity_members m ON m.activityId = a.id AND m.userId = ? WHERE a.id = ?').get(r.userId, r.activityId) || { id: r.activityId, name: '', color: null };
   const tasks = tasksOf(r, JSON.parse(r.taskIdsJson || '[]'));
   const weekTasks = tasks.filter((t) => t.dueDate && t.dueDate >= cw.startDate && t.dueDate <= cw.endDate);
-  const parentRow = r.parentId ? db.prepare('SELECT id, title, timeLevel FROM user_objectives WHERE id = ?').get(r.parentId) : null;
-  const parent = parentRow ? { id: parentRow.id, title: parentRow.title, timeLevel: parentRow.timeLevel || 'periode' } : null;
+  const parentRow = r.parentId ? db.prepare('SELECT id, title FROM user_objectives WHERE id = ?').get(r.parentId) : null;
+  const parent = parentRow ? { id: parentRow.id, title: parentRow.title } : null;
   const out = {
     id: r.id, title: r.title, activity: { id: act.id, name: act.name, color: act.color },
     amount: r.amount, unit: r.unit, durationLabel: durationLabel(r), startDate: r.startDate, endDate: r.endDate,
@@ -732,7 +726,8 @@ function shape(r, full) {
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },
     weekTasks: { done: weekTasks.filter((t) => t.done).length, total: weekTasks.length },
   };
-  out.isMacro = !!r.isMacro; out.timeLevel = r.timeLevel || 'periode'; out.parentLevel = parent ? parent.timeLevel : null;
+  out.isMacro = !!r.isMacro; out.timeLevel = temps.deduce(r.startDate, r.endDate); // dérivé de l'échéance, affichage seulement (jamais saisi ni validé)
+  out.isBig = !!db.prepare('SELECT 1 FROM user_objectives WHERE userId = ? AND parentId = ? LIMIT 1').get(r.userId, r.id); // grand objectif = a au moins un sous-objectif
   if (r.isMacro) {
     const mi = macroInfo(r);
     out.macroLevel = r.level || 'activite'; out.macroColumns = columnsOf(r); out.childMacroIds = activeKids(r).filter((k) => k.isMacro).map((k) => k.id);
@@ -776,7 +771,7 @@ function lier(userId, id, parentId, rel) {
     return get(userId, r.id);
   }
   const p = rowOf(userId, parentId);
-  checkParent({ activityId: r.activityId, isMacro: !!r.isMacro, level: r.level || 'activite', endDate: r.endDate, timeLevel: r.timeLevel || 'periode' }, p); // L03 (revu pour le macro) + niveau + échéance
+  checkParent({ activityId: r.activityId, isMacro: !!r.isMacro, level: r.level || 'activite', endDate: r.endDate }, p); // L03 (revu pour le macro) + niveau de colonne + échéance
   for (let cur = p; cur; cur = cur.parentId ? db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId) : null) {
     if (cur.id === r.id) throw err('Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.');
   }
@@ -841,7 +836,7 @@ function bilan(userId, id, action, n) {
     end = addDays(end, 7);
   } else if (action !== 'garder') throw err('Action invalide.');
   const macroPar = r.parentId ? db.prepare('SELECT isMacro, endDate FROM user_objectives WHERE id = ?').get(r.parentId) : null;
-  if (macroPar && macroPar.isMacro && end > macroPar.endDate) throw err('Prolonger dépasserait l’échéance du macro (' + macroPar.endDate + ') : repousse d’abord l’échéance du macro.');
+  if (macroPar && end > macroPar.endDate) throw err('Prolonger dépasserait l’échéance ' + (macroPar.isMacro ? 'du macro' : 'du parent') + ' (' + macroPar.endDate + ') : repousse d’abord l’échéance ' + (macroPar.isMacro ? 'du macro' : 'du parent') + '.');
   save(r, periods, meta, end);
   if (meta.category) bridge(rowOf(userId, id), periods);
   return get(userId, id);
@@ -883,8 +878,7 @@ function fusionnerEnMacro(userId, body) {
   const start = kids.map((k) => k.startDate).sort()[0], end = kids.map((k) => k.endDate).sort().pop();
   const lv = kids[0].level || 'activite';
   if (kids.some((k) => (k.level || 'activite') !== lv)) throw err('Un macro relie des objectifs d’un même niveau (activités, pôles ou secteurs).');
-  const tl = kids.map((k) => k.timeLevel || 'periode').sort((a, c) => temps.rank(c) - temps.rank(a))[0];
-  const created = creer(userId, { timeLevel: tl, title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : kids[0].poleKey, categoryKey: lv === 'secteur' ? kids[0].categoryKey : null });
+  const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : kids[0].poleKey, categoryKey: lv === 'secteur' ? kids[0].categoryKey : null });
   kids.forEach((k) => lier(userId, k.id, created.id, 'avant'));
   return get(userId, created.id);
 }
@@ -893,13 +887,12 @@ function fusionnerEnMacro(userId, body) {
 function modifierEcheance(userId, id, endDate) {
   const r = rowOf(userId, id);
   checkEcheance({ endDate, startDate: r.startDate }, r.startDate);
-  if (r.isMacro) {
-    const far = activeKids(r).map((k) => k.endDate).sort().pop();
-    if (far && endDate < far) throw err('L’échéance d’un macro est au moins celle de son objectif le plus lointain (' + far + ').');
+  { // un parent (macro ou non) : échéance au moins celle de son enfant le plus lointain
+    const far = (r.isMacro ? activeKids(r) : db.prepare('SELECT endDate FROM user_objectives WHERE userId = ? AND parentId = ?').all(userId, r.id)).map((k) => k.endDate).sort().pop();
+    if (far && endDate < far) throw err('L’échéance ' + (r.isMacro ? 'd’un macro est au moins celle de' : 'd’un objectif est au moins celle de') + ' son objectif le plus lointain (' + far + ').');
   }
   const par = r.parentId ? db.prepare('SELECT isMacro, endDate FROM user_objectives WHERE id = ?').get(r.parentId) : null;
-  if (par && par.isMacro && endDate > par.endDate) throw err('L’échéance de cet objectif (' + endDate + ') dépasse celle du macro (' + par.endDate + ') : repousse d’abord l’échéance du macro.');
-  { const inco = temps.incoherence(r.timeLevel || 'periode', r.startDate, endDate); if (inco) throw err(inco + ' (change d’abord le niveau de temps)'); }
+  if (par && endDate > par.endDate) throw err('L’échéance de cet objectif (' + endDate + ') dépasse celle ' + (par.isMacro ? 'du macro' : 'de son parent') + ' (' + par.endDate + ') : repousse d’abord l’échéance ' + (par.isMacro ? 'du macro' : 'du parent') + '.');
   const old = JSON.parse(r.stepsJson || '[]'), wk = {}; old.forEach((p) => p.weeks.forEach((w) => { wk[w.startDate] = w; }));
   const next = splitPeriods(r.startDate, endDate, r.periodWeeks);
   next.forEach((p) => {
@@ -910,22 +903,6 @@ function modifierEcheance(userId, id, endDate) {
   const meta = JSON.parse(r.metaJson || '{}'); meta.plannedWeeks = Math.round(daysBetween(r.startDate, endDate) / 7);
   db.prepare('UPDATE user_objectives SET endDate = ?, stepsJson = ?, metaJson = ? WHERE id = ?').run(endDate, JSON.stringify(next), JSON.stringify(meta), r.id);
   if (meta.category) bridge(rowOf(userId, r.id), next);
-  return get(userId, r.id);
-}
-// Niveau de temps : PUT /objectifs/:id/niveau-temps. Cohérent avec l'échéance ; un macro au moins aussi long que ses enfants ; un enfant d'un macro pas plus long que lui.
-function modifierNiveauTemps(userId, id, level) {
-  const r = rowOf(userId, id);
-  if (!temps.TIME_LEVELS.includes(level)) throw err('Niveau de temps invalide (période, année ou pluriannuel).');
-  const inco = temps.incoherence(level, r.startDate, r.endDate); if (inco) throw err(inco);
-  if (r.isMacro) {
-    const longest = activeKids(r).map((k) => k.timeLevel || 'periode').sort((a, c) => temps.rank(c) - temps.rank(a))[0];
-    if (longest && temps.rank(level) < temps.rank(longest)) throw err('Le niveau de temps du macro doit être au moins celui de ses objectifs (« ' + longest + ' »).');
-  }
-  const kidsAll = db.prepare('SELECT timeLevel FROM user_objectives WHERE userId = ? AND parentId = ?').all(userId, r.id).map((k) => k.timeLevel || 'periode').sort((a, c) => temps.rank(c) - temps.rank(a));
-  if (!r.isMacro && kidsAll.length && temps.rank(level) < temps.rank(kidsAll[0])) throw err('Cet objectif a un objectif rattaché de niveau « ' + kidsAll[0] + ' » : change d’abord son niveau de temps.');
-  const par = r.parentId ? db.prepare('SELECT isMacro, timeLevel FROM user_objectives WHERE id = ?').get(r.parentId) : null;
-  if (par && temps.rank(level) > temps.rank(par.timeLevel)) throw err('Le niveau de temps du ' + (par.isMacro ? 'macro' : 'parent') + ' (« ' + par.timeLevel + ' ») est plus court que celui de cet objectif : change d’abord le niveau du ' + (par.isMacro ? 'macro' : 'parent') + '.');
-  db.prepare('UPDATE user_objectives SET timeLevel = ? WHERE id = ?').run(level, r.id);
   return get(userId, r.id);
 }
 // E03 : abandonner / réactiver (bascule de meta.abandoned) ; jamais en cascade : les objectifs rattachés gardent leur état (E04).
@@ -951,4 +928,4 @@ function supprimer(userId, id, confirmed) {
   return { ok: true, detached: kids.map((k) => k.id) };
 }
 migrateEcheances(); // au chargement (idempotent)
-module.exports = { modifierNiveauTemps, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

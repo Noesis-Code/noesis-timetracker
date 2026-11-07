@@ -368,9 +368,9 @@ function recreateEmilienAccount(db) {
 // ---------------------------------------------------------------------------------------------------------------------------------------------
 const DEMO_TREES = [
   [ // activité 1
-    { t: 'Lancer la version 2', s: -70, e: 170, kids: [
+    { t: 'Lancer la version 2', s: -70, e: 260, kids: [
       { t: 'Concevoir les nouveaux écrans', s: -70, e: -10, done: true, kids: [{ t: 'Prototype cliquable', s: -70, e: -30, done: true }, { t: 'Tests avec dix utilisateurs', s: -30, e: -10, done: true }] },
-      { t: 'Développer les modules', s: -10, e: 110, kids: [{ t: 'Module des objectifs', s: -10, e: 60 }, { t: 'Bêta fermée', s: 110, e: 170 }] },
+      { t: 'Développer les modules', s: -10, e: 170, kids: [{ t: 'Module des objectifs', s: -10, e: 60 }, { t: 'Bêta fermée', s: 110, e: 170 }] },
       { t: 'Lancement public', s: 170, e: 260 }] },
     { t: 'Atteindre mille utilisateurs', s: 260, e: 1000, kids: [{ t: 'Cent premiers utilisateurs', s: 260, e: 420, kids: [{ t: 'Programme de parrainage', s: 260, e: 330 }] }, { t: 'Équipe de cinq personnes', s: 420, e: 1000 }] },
     { t: 'Version 1 publiée', s: -520, e: -90, done: true, kids: [{ t: 'Première maquette', s: -520, e: -400, done: true }, { t: 'Fonctions de base', s: -400, e: -90, done: true }] },
