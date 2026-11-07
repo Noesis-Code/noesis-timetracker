@@ -60,7 +60,10 @@
 .arMacro .arCardMeta { overflow-wrap: anywhere; }
 .arMacroStub { position: absolute; bottom: calc(var(--goalsGridGap) / -2 - 2px); width: 2px; height: calc(var(--goalsGridGap) / 2 + 2px); margin-left: -1px; background: var(--text-light); pointer-events: none; }
 .arMacroRow { margin-top: 0; margin-bottom: calc(8px - var(--goalsGridGap)); } /* rangée du macro : dans SA période, collée (8 px) à la rangée des cases de cette période, jamais entre deux périodes */
-.arUnmerge { color: var(--danger); background: none; border: 0; text-decoration: none; }
+/* Carte concernée par la fusion : elle tremble (keyframes des volets) et reste allumée. */
+.arExtending .arExtSelf { animation: tabJiggle .26s ease-in-out infinite alternate; }
+/* Barre devenue Enregistrer / Séparer : grise tant que rien n'a changé (R35). */
+.tasksDock.expExtend .tasksSaveBtn:disabled { background: var(--card); color: var(--text-light); box-shadow: inset 0 0 0 1px var(--border); opacity: 1; }
 .arGap { pointer-events: none; }
 /* L'arbre tient dans l'écran (hauteur = jusqu'à la barre « Nouvel objectif… ») : seule la grille défile en vertical, les colonnes et leurs bulles en horizontal ; un geste commencé dans l'arbre ne fait jamais défiler la page. */
 .arGridArea { overscroll-behavior: none; }

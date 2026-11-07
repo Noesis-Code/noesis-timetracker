@@ -769,6 +769,12 @@ function nextPosition(userId, parentId) {
   return (r && r.m != null ? r.m : 0) + 1;
 }
 // Lier / délier : l'objectif `id` devient une étape de `parentId` (null = il redevient un objectif final séparé). Jamais de cycle ; jamais d'objectif d'un autre utilisateur.
+// Un macro SANS objectif relié n'a plus de raison d'être (un macro englobe au moins deux objectifs) : séparé, il disparaît (jamais un objectif de l'utilisateur ; ses anciens enfants restent normaux).
+function purgeOrphanMacros(userId) {
+  const rows = db.prepare('SELECT id, userId FROM user_objectives WHERE isMacro = 1' + (userId ? ' AND userId = ?' : '') + ' AND NOT EXISTS (SELECT 1 FROM user_objectives c WHERE c.parentId = user_objectives.id)').all(...(userId ? [userId] : []));
+  rows.forEach((r) => { db.prepare('DELETE FROM objectifs_refus WHERE userId = ? AND (objectifId = ? OR candidateId = ?)').run(r.userId, r.id, r.id); db.prepare('DELETE FROM user_objectives WHERE id = ?').run(r.id); });
+  return rows.length;
+}
 // Une fusion dont la période est PASSÉE est définitive : on ne détache plus ses objectifs (ni on ne les range ailleurs).
 function assertFusionOuverte(r) {
   const par = r.parentId ? db.prepare('SELECT isMacro, endDate FROM user_objectives WHERE id = ?').get(r.parentId) : null;
@@ -779,6 +785,7 @@ function lier(userId, id, parentId, rel) {
   if (Number(parentId) !== r.parentId) assertFusionOuverte(r);
   if (parentId == null || parentId === '') {
     db.prepare('UPDATE user_objectives SET parentId = NULL, parentRel = NULL, position = ? WHERE id = ?').run(nextPosition(userId, null), r.id);
+    purgeOrphanMacros(userId); // le dernier enfant détaché : le macro vide disparaît
     return get(userId, r.id);
   }
   const p = rowOf(userId, parentId);
@@ -993,8 +1000,10 @@ function supprimer(userId, id, confirmed) {
     db.prepare('DELETE FROM objectifs_refus WHERE userId = ? AND (objectifId = ? OR candidateId = ?)').run(userId, r.id, r.id);
     db.prepare('DELETE FROM user_objectives WHERE id = ? AND userId = ?').run(r.id, userId);
     db.exec('COMMIT');
+    purgeOrphanMacros(userId); // un macro dont le dernier enfant vient d'être supprimé disparaît aussi
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   return { ok: true, detached: kids.map((k) => k.id) };
 }
 migrateEcheances(); // au chargement (idempotent)
-module.exports = { macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+try { const n = purgeOrphanMacros(null); if (n) console.log('[objectifs] ' + n + ' macro(s) sans objectif relié retiré(s)'); } catch (e) { console.warn('[objectifs] nettoyage des macros vides impossible :', e.message); }
+module.exports = { purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, lire, setReadCaller, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

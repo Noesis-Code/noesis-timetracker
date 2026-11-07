@@ -168,7 +168,7 @@
   var extendCancel = null;
   function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
     if (extendCancel) { var xc = extendCancel; extendCancel = null; xc(); } // mode Étendre annulé (✕) : l'arbre reprend son état
-    clearPending(); dock.classList.remove('expSave'); advance = null; setBack(null); panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; queue = []; seq = { base: 0, count: 1, i: 0 };
+    clearPending(); dock.classList.remove('expSave', 'expExtend'); advance = null; setBack(null); panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; queue = []; seq = { base: 0, count: 1, i: 0 };
   }
 
   // ---------- Fenêtre « Nouvel objectif » ----------
@@ -479,15 +479,11 @@
   function offerBtn() { return btn('cmpBtn cmpBtnIdle objOffer', tr('Génère automatiquement tes tâches avec Noèsis'), function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); }); }
   // MODE ÉTENDRE (arbre) : le panneau porte le titre commun du macro (modifiable, jamais en silence) ; la barre devient « Enregistrer » pleine largeur (grisée tant que rien n'a changé, violette ensuite) ; ✕ annule.
   // cfg : { title (null = pas de champ), hint, canSave(), onTitle(t), onSave(), onCancel() } -> { setTitle, setHint, setEnabled }
-  function openExtend(cfg) {
-    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Macro'); panelForm = { extend: true }; setBack(null);
-    var tIn = null, hint = el('p', 'hint objPlain', cfg.hint || '');
-    if (cfg.title != null) { tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = cfg.title; tIn.setAttribute('aria-label', tr('Titre du macro')); tIn.addEventListener('input', function () { cfg.onTitle(tIn.value); }); panelBody.appendChild(field(tr('Titre du macro'), tIn)); }
-    panelBody.appendChild(hint);
-    if (cfg.onUnmerge) panelFoot.appendChild(btn('objLink arUnmerge', tr('Défusionner'), cfg.onUnmerge)); // bouton secondaire, texte rouge (R28) : le macro disparaît, ses objectifs sont conservés
-    dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.removeAttribute('aria-label'); stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = !cfg.canSave();
+  function openExtend(cfg) { // plus de panneau : seule la barre « Nouvel objectif… » devient le bouton Enregistrer (Séparer sur une fusion existante), gris tant que rien n'a changé (R35)
+    panel.classList.add('hidden'); panelForm = { extend: true }; setBack(null);
+    dock.classList.add('expSave', 'expExtend'); stepLabel.textContent = cfg.label; stepPos.textContent = ''; stepBtn.setAttribute('aria-label', cfg.label); stepBtn.disabled = !cfg.canSave();
     advance = function () { var s = cfg.onSave; extendCancel = null; s(); }; extendCancel = cfg.onCancel;
-    return { setTitle: function (t0) { if (tIn) tIn.value = t0; }, setHint: function (h) { hint.textContent = h; }, setEnabled: function (b) { stepBtn.disabled = !b; } };
+    return { setLabel: function (t) { stepLabel.textContent = t; stepBtn.setAttribute('aria-label', t); }, setEnabled: function (b) { stepBtn.disabled = !b; } };
   }
   function closeExtend() { extendCancel = null; endFlow(); }
   function closePanel() { endFlow(); } // ✕ : annule, la barre redevient normale (l'objectif tapé y reste)

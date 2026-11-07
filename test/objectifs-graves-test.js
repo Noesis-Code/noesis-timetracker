@@ -323,6 +323,23 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(e && /Fusion passée/.test(e.message), 'fusion passée : le macro ne redevient pas un objectif ordinaire');
   assert(o.get(u, a1.id).parentId === m2.id && o.get(u, c1.id).parentId === m2.id, 'aucune donnée supprimée ni détachée');
 }
+// ---- Macro séparé : plus de macro orphelin ----
+{
+  const act4 = Number(db.prepare("INSERT INTO activities (name, ownerId, active, createdAt) VALUES ('Orph act A', ?, 1, '2026-11-01T00:00:00.000Z')").run(u).lastInsertRowid);
+  db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#674EA7', '2026-11-01T00:00:00.000Z')").run(act4, u);
+  const a = o.creer(u, { title: 'Orph A', activityId: act4, startDate: '2026-11-09', endDate: '2027-04-01', noBridge: true });
+  const act3 = Number(db.prepare("INSERT INTO activities (name, ownerId, active, createdAt) VALUES ('Orph act', ?, 1, '2026-11-01T00:00:00.000Z')").run(u).lastInsertRowid);
+  db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#674EA7', '2026-11-01T00:00:00.000Z')").run(act3, u);
+  const b = o.creer(u, { title: 'Orph B', activityId: act3, startDate: '2026-11-09', endDate: '2027-04-01', noBridge: true });
+  const m = o.fusionnerEnMacro(u, { childIds: [a.id, b.id], title: 'Macro orphelin' });
+  o.lier(u, a.id, null);
+  assert(db.prepare('SELECT 1 FROM user_objectives WHERE id = ?').get(m.id), 'un enfant détaché : le macro reste tant qu’il a un objectif relié');
+  o.lier(u, b.id, null);
+  assert(!db.prepare('SELECT 1 FROM user_objectives WHERE id = ?').get(m.id), 'dernier enfant détaché : le macro vide disparaît (aucun macro orphelin)');
+  assert(o.get(u, a.id).parentId === null && o.get(u, b.id).parentId === null && o.get(u, a.id).isMacro === false, 'les anciens enfants restent des objectifs normaux');
+  db.prepare("INSERT INTO user_objectives (userId, activityId, title, amount, unit, startDate, endDate, isMacro, createdAt) VALUES (?, ?, 'Macro vide ancien', 1, 'mois', '2026-11-09', '2027-04-01', 1, '2026-11-09T00:00:00.000Z')").run(u, m.activity.id);
+  assert(o.purgeOrphanMacros(u) >= 1 && !db.prepare("SELECT 1 FROM user_objectives WHERE title = 'Macro vide ancien'").get(), 'nettoyage des macros vides existants (démo)');
+}
 // MARK-FIN
 const nRef = (id) => db.prepare('SELECT (SELECT COUNT(*) FROM user_objectives WHERE userId = ?) + (SELECT COUNT(*) FROM objectifs_refus WHERE userId = ?) AS n').get(id, id).n;
 assert(nRef(u) > 0, 'avant suppression : objectifs et refus du compte présents');

@@ -68,7 +68,7 @@
     x.className = 'cmpRemove cmpRemove--corner'; x.setAttribute('aria-label', tr('Supprimer cet objectif')); x.addEventListener('pointerdown', function (e) { e.stopPropagation(); }); return x;
   }
   function card(o, today, all, mode, w, onTap, extCol, colColor) {
-    var st = stateOf(o, today), c = colColor || color(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c);
+    var st = stateOf(o, today), c = colColor || color(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c); if (ext && ext.mode === 'create' && ext.base && ext.base.id === o.id) b.classList.add('arExtSelf');
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', o.title));
     if (mode !== 'simple') {
       var nk = (all.kids[o.id] || []).length;
@@ -139,12 +139,13 @@
   // de la largeur exacte des colonnes des activités concernées (les colonnes intermédiaires sont traversées) ; un trait par colonne concernée la relie à ses enfants, qui gardent la couleur de leur activité.
   function macroCard(m, today, c0, c1, W, cols) {
     var st = stateOf(m, today), span = c1 - c0 + 1, w = span * W + (span - 1) * GAP;
-    var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && ext.macro && ext.macro.id === m.id ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w);
+    var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && (ext.macro && ext.macro.id === m.id || ext.mode === 'create' && m.id < 0) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
     t.appendChild(el('span', 'arCardMeta', (m.macroChildren || 0) + ' ' + tr((m.macroChildren || 0) > 1 ? 'objectifs' : 'objectif') + ' · ' + (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · ') + (m.macroEmpty ? ' · ' + tr('aucun objectif rattaché') : '')));
     b.appendChild(t);
     for (var k = 0; k < span; k++) { var stub = el('i', 'arMacroStub'); stub.style.left = (k * (W + GAP) + W / 2) + 'px'; b.appendChild(stub); }
-    b.addEventListener('click', function () { if (!editMode) { descend(c0); return; } if (m.id > 0 && TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(m.id); });
+    b.addEventListener('click', function () { if (!editMode) { if (m.id > 0 && !ext) startExtendEdit(m, true); else descend(c0); return; } // toucher une carte déjà fusionnée : le mode (tremblement, grisé, colonnes concernées éclairées), bouton « Séparer »
+       if (m.id > 0 && TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(m.id); });
     if (editMode && m.id > 0) { b.appendChild(removeCross(m)); return b; }
     if (m.id > 0 && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', onHold: function () { startExtendEdit(m); } }); // appui long sur un macro : modifier les colonnes reliées
     return b;
@@ -164,32 +165,12 @@
     if (first) scroller.scrollLeft = Math.max(0, first.offsetLeft - RAIL - 8);
   }
   function extChanged() { return Object.keys(ext.cols).sort().join() !== Object.keys(ext.init).sort().join(); }
-  function extCanSave() { return ext.mode === 'create' ? Object.keys(ext.cols).length >= 2 && extChildIds().length >= 2 : extChanged() && Object.keys(ext.cols).length >= 1; }
-  function extRefreshTitle() { // titre commun : IA légère si disponible, sinon les titres joints par « · » (POST macro/titre) ; jamais écrasé si l'utilisateur l'a modifié
-    if (ext.mode !== 'create' || Object.keys(ext.cols).length < 2) return;
-    var my = ++ext.seq;
-    TMT.api('POST', '/api/objectifs/macro/titre', { columns: Object.keys(ext.cols).map(function (k) { return colPayload(Number(k)); }) }).then(function (r) {
-      if (!ext || my !== ext.seq || ext.touched || !r || !r.title) return;
-      if (r.source !== 'ia') { ext.panel.setHint(tr('Le macro porte le titre de l’objectif touché, modifiable.')); return; } // sans IA : titre COURT = celui de l’objectif sur lequel on a fait l’appui long (jamais la concaténation des enfants)
-      ext.title = r.title; ext.panel.setTitle(r.title); ext.panel.setHint(r.source === 'ia' ? tr('Titre proposé par l’IA, modifiable.') : tr('Titre fait des titres des objectifs reliés, modifiable.'));
-    }).catch(function () {});
-  }
-  function extOpenPanel() {
-    ext.panel = TMT.objectifsView.openExtend({
-      title: ext.mode === 'create' ? ext.title : null,
-      hint: ext.mode === 'create' ? tr('Touche une colonne voisine pour l’inclure ou l’exclure.') : tr('Touche une colonne pour l’inclure ou la retirer du macro.'),
-      onUnmerge: ext.mode === 'edit' ? extUnmerge : null,
-      canSave: extCanSave, onTitle: function (t0) { ext.title = t0; ext.touched = true; render(); },
-      onSave: extSave, onCancel: function () { if (ext) { ext = null; render(); } }
-    });
-  }
-  function extUnmerge() { // Défusionner : le macro disparaît, ses objectifs sont CONSERVÉS (délier avant la date défait tout ; fusion passée : refus du serveur)
-    var m = ext && ext.macro; if (!m || !TMT.ui || !TMT.ui.confirm) return;
-    TMT.ui.confirm(tr('Défusionner') + ' « ' + m.title + ' » ?' + String.fromCharCode(10) + tr('Les objectifs reliés sont conservés.'), { ok: tr('Défusionner'), danger: true }).then(function (yes) {
-      if (!yes) return;
-      TMT.api('DELETE', '/api/objectifs/' + m.id + '?confirm=1').then(function () { ext = null; if (TMT.objectifsView && TMT.objectifsView.closeExtend) TMT.objectifsView.closeExtend(); return refresh(); }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });
-    });
-  }
+  function extCanSave() { return ext.mode === 'create' ? Object.keys(ext.cols).length >= 2 && extChildIds().length >= 2 : !extChanged() || Object.keys(ext.cols).length >= 1; } // fusion existante : « Séparer » tant que rien ne change, « Enregistrer » dès que la sélection change
+  // Le mode Étendre n'a plus de panneau : la barre « Nouvel objectif… » devient le bouton Enregistrer (ou SÉPARER sur une fusion existante, tant que la sélection n'a pas changé).
+  function extLabel() { return ext.mode === 'edit' && !extChanged() ? tr('Séparer') : tr('Enregistrer'); }
+  function extSync() { if (ext && ext.panel) { ext.panel.setLabel(extLabel()); ext.panel.setEnabled(extCanSave()); } }
+  function extCancel() { if (!ext) return; ext = null; if (TMT.objectifsView && TMT.objectifsView.closeExtend) TMT.objectifsView.closeExtend(); render(); } // annuler : rien n'est changé
+  function extOpenPanel() { ext.panel = TMT.objectifsView.openExtend({ label: extLabel(), canSave: extCanSave, onSave: extSave, onCancel: function () { if (ext) { ext = null; render(); } } }); }
   function watchRelease() { // dernier relâchement du doigt (l'appui long qui ouvre le mode se termine APRÈS l'ouverture, le clic qui suit ne doit rien cocher)
     if (!ext) return; ext.holding = true;
     var done = function () { if (ext) { ext.releasedAt = Date.now(); ext.holding = false; } document.removeEventListener('touchend', done, true); document.removeEventListener('pointerup', done, true); };
@@ -198,17 +179,17 @@
   }
   function startExtend(o, ci) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
-    ext = { mode: 'create', base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now() }; ext.cols[ci] = true; ext.init[ci] = true;
+    ext = { mode: 'create', base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now(), rank: bucketOf(o, dayIso()).rank }; ext.cols[ci] = true; ext.init[ci] = true;
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
-    extOpenPanel(); render(); watchRelease(); extScrollToEligible();
+    extOpenPanel(); render(); ext.releasedAt = Date.now(); extScrollToEligible(); // création : le doigt est DÉJÀ relevé (appui long relâché sur place) ; le clic qui suit ne coche rien
   }
-  function startExtendEdit(m) {
+  function startExtendEdit(m, fromTap) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
-    ext = { mode: 'edit', macro: m, cols: {}, init: {}, seq: 0, born: Date.now() };
+    ext = { mode: 'edit', macro: m, cols: {}, init: {}, seq: 0, born: Date.now(), rank: bucketOf(m, dayIso()).rank };
     items.filter(function (x) { return x.parentId === m.id && !x.isMacro; }).forEach(function (x) { var i = colOfObj(x); if (i >= 0) { ext.cols[i] = true; ext.init[i] = true; } });
     if (!Object.keys(ext.cols).length) return (ext = null);
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
-    extOpenPanel(); render(); watchRelease();
+    extOpenPanel(); render(); if (fromTap) ext.releasedAt = Date.now(); else watchRelease(); // un simple toucher : le doigt est déjà relevé ; un appui long : on attend son relâchement
     window.requestAnimationFrame(function () { // la carte du macro n'est jamais coupée : sa première colonne est amenée à l'écran
       var card = tree && tree.querySelector('.arMacro[data-id="' + m.id + '"]'); if (card && scroller) scroller.scrollLeft = Math.max(0, scroller.scrollLeft + card.getBoundingClientRect().left - (scroller.getBoundingClientRect().left + RAIL + 4));
     });
@@ -217,12 +198,13 @@
     if (!ext || ci < 0 || ci >= curCols.length || (ext.mode === 'create' && ci === ext.baseCol)) return;
     if (!extEligible(ci)) { say(tr(colLinked(ci) ? 'Délie d’abord ce macro.' : 'Aucun objectif libre à relier dans cette colonne.')); return; } // colonne éteinte : message court, jamais un blocage muet
     if (ext.cols[ci]) delete ext.cols[ci]; else ext.cols[ci] = true;
-    ext.panel.setEnabled(extCanSave()); extRefreshTitle(); render();
-    if (ext.mode === 'create' && Object.keys(ext.cols).length > 1 && extChildIds().length < 2) ext.panel.setHint(tr('Ces colonnes n’ont pas assez d’objectifs libres (non rattachés) à relier.')); // jamais un blocage muet
+    extSync(); render();
+    if (ext.mode === 'create' && Object.keys(ext.cols).length > 1 && extChildIds().length < 2) say(tr('Ces colonnes n’ont pas assez d’objectifs libres (non rattachés) à relier.')); // jamais un blocage muet
   }
   function extSave() { // jamais en silence : enregistrer = macro créé (titre visible, modifiable) ou colonnes reliées / déliées ; l'échéance du macro est la plus lointaine des enfants (serveur)
-    var x = ext, done = function () { ext = null; if (TMT.objectifsView && TMT.objectifsView.closeExtend) TMT.objectifsView.closeExtend(); return refresh(); }, fail = function (e) { say((e && e.message) || tr('Impossible pour le moment.')); if (ext) { ext.panel.setEnabled(extCanSave()); } };
+    var x = ext, done = function () { ext = null; if (TMT.objectifsView && TMT.objectifsView.closeExtend) TMT.objectifsView.closeExtend(); return refresh(); }, fail = function (e) { say((e && e.message) || tr('Impossible pour le moment.')); extSync(); };
     if (x.mode === 'create') { var ids = extChildIds(); TMT.api('POST', '/api/objectifs/macro', { childIds: ids, title: (x.title || x.base.title || '').trim() || x.base.title }).then(done).catch(fail); return; }
+    if (!extChanged()) { TMT.api('DELETE', '/api/objectifs/' + x.macro.id + '?confirm=1').then(done).catch(fail); return; } // SÉPARER : le macro disparaît, ses objectifs sont conservés (fusion passée : refus du serveur affiché)
     var seq = Promise.resolve();
     Object.keys(x.cols).filter(function (k) { return !x.init[k]; }).forEach(function (k) { newest(Number(k), 2).forEach(function (o) { seq = seq.then(function () { return TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: x.macro.id, rel: 'apres' }); }); }); }); // colonne ajoutée : ses objectifs les plus récents rejoignent le macro
     Object.keys(x.init).filter(function (k) { return !x.cols[k]; }).forEach(function (k) { items.filter(function (o) { return o.parentId === x.macro.id && colOfObj(o) === Number(k); }).forEach(function (o) { seq = seq.then(function () { return TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: null }); }); }); }); // colonne retirée : DÉLIER
@@ -230,13 +212,18 @@
   }
   // en mode Étendre, toucher une colonne (case, bulle) l'inclut ou l'exclut : le toucher ordinaire est suspendu
   document.addEventListener('click', function (e) {
-    if (!ext || !tree || !e.target.closest || !e.target.closest('#goalsObjArbre')) return;
-    var b = e.target.closest('.arBubble'), cell = e.target.closest('[data-col]'), ci = b ? Array.prototype.indexOf.call(tree.querySelectorAll('.arBubble'), b) : cell ? Number(cell.getAttribute('data-col')) : colAt(e.clientX);
+    if (!ext || !e.target.closest) return;
+    if (e.target.closest('.tasksDock')) return; // la barre devenue bouton : Enregistrer / Séparer
+    var inTree = tree && e.target.closest('#goalsObjArbre');
+    if (Date.now() - Math.max(ext.born, ext.releasedAt || 0) < 500 || !ext.releasedAt && Date.now() - ext.born < 1500 && ext.holding) { if (inTree) { e.stopPropagation(); e.preventDefault(); } return; } // le relâchement de l'appui long qui a ouvert le mode ne coche ni ne décoche rien
+    if (!inTree) { extCancel(); return; } // toucher EN DEHORS : quitter sans rien changer
     e.stopPropagation(); e.preventDefault();
-    if (Date.now() - Math.max(ext.born, ext.releasedAt || 0) < 500 || !ext.releasedAt && Date.now() - ext.born < 1500 && ext.holding) return; // le relâchement de l'appui long qui a ouvert le mode ne coche ni ne décoche aucune colonne
-    extToggle(ci);
+    if (e.target.closest('.arExtSelf')) { extCancel(); return; } // re-toucher la case concernée : quitter sans rien changer
+    var cell = e.target.closest('[data-col]'), rr = cell && cell.closest('.goalsGridRow');
+    if (!cell || !rr || Number(rr.getAttribute('data-rank')) !== ext.rank || !extEligible(Number(cell.getAttribute('data-col')))) { extCancel(); return; } // autre ligne, case grisée, titre, fond : annuler sans rien changer
+    extToggle(Number(cell.getAttribute('data-col')));
   }, true);
-  // Case d'une ANNÉE : résumé des grands objectifs de l'année (texte simple, sans IA : leurs titres, quatre au plus) ; touchée, elle liste ces objectifs.
+  // Case d'une ANNÉE  // Case d'une ANNÉE : résumé des grands objectifs de l'année (texte simple, sans IA : leurs titres, quatre au plus) ; touchée, elle liste ces objectifs.
   var resumeCache = {};
   function resumeOf(aid, year) { // résumé annuel du serveur (IA à la demande, repli titres), mémorisé le temps de la session
     var k = aid + ':' + year; if (!resumeCache[k]) resumeCache[k] = TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + aid + '&year=' + year).then(function (r) { return r && r.text ? String(r.text) : ''; }).catch(function () { return ''; });
@@ -313,7 +300,8 @@
   // aucune position fixe ni recalcul de leur x ou de leur largeur, elles partagent la mise en page et le défilement horizontal des colonnes.
   function fitTree() {
     if (!tree || !tree.getClientRects().length) return;
-    var d = dockEl(), bar = d && d.querySelector('.tasksComposer'), btop = bar ? bar.getBoundingClientRect().top : window.innerHeight - 100;
+    var d = dockEl(), bar = d && d.querySelector('.tasksComposer'); if (bar && !bar.getClientRects().length) bar = d.querySelector('.tasksSaveBtn'); // la barre devenue bouton (Enregistrer / Séparer) borne l'arbre comme la barre d'écriture : sans cela l'arbre était recadré à 240 px
+    var btop = bar && bar.getClientRects().length ? bar.getBoundingClientRect().top : window.innerHeight - 100;
     var h = Math.max(240, btop - 8 - tree.getBoundingClientRect().top);
     tree.style.height = Math.round(h) + 'px';
   }
@@ -554,12 +542,12 @@
     var linkGap = {}; // cases traversées par un lien parent -> enfant (dans une même colonne) : leur trait vertical prend la couleur de l'activité
     data.forEach(function (c, ci) { c.entries.forEach(function (e) { var par = e.o.parentId != null && c.all.byId[e.o.parentId]; if (!par) return; var pe = c.entries.filter(function (x) { return x.o.id === par.id; })[0]; if (!pe || rowIdx[pe.b.rank] == null || rowIdx[e.b.rank] == null) return; for (var q = rowIdx[pe.b.rank] + 1; q <= rowIdx[e.b.rank]; q++) linkGap[q + ':' + ci] = c.color; }); });
     grid.querySelectorAll('.goalsGridRow').forEach(function (row) { var k = 0, r = rowIdx[Number(row.getAttribute('data-rank'))]; Array.prototype.forEach.call(row.children, function (ch) { if (ch.classList.contains('arMacro')) k += Number(ch.getAttribute('data-span')) || 1; else if (ch.classList.contains('arGap')) k += 1; else if (ch.classList.contains('goalsGridCell') || ch.classList.contains('arStack')) { ch.setAttribute('data-col', String(k)); if (linkGap[r + ':' + k]) ch.style.setProperty('--goalsCellLineColor', linkGap[r + ':' + k]); k++; } }); }); // colonne de chaque cellule (un macro en couvre plusieurs)
-    if (ext) Array.prototype.forEach.call(grid.querySelectorAll('[data-col]'), function (ch) { var cj = Number(ch.getAttribute('data-col')), on = !!ext.cols[cj]; ch.classList.toggle('arExtOn', on); ch.classList.toggle('arExtOff', !extEligible(cj)); });
+    if (ext) Array.prototype.forEach.call(grid.querySelectorAll('[data-col]'), function (ch) { var cj = Number(ch.getAttribute('data-col')), on = !!ext.cols[cj]; var rr = ch.closest('.goalsGridRow'), inRow = !!rr && Number(rr.getAttribute('data-rank')) === ext.rank; ch.classList.toggle('arExtOn', on && inRow); ch.classList.toggle('arExtOff', !(inRow && extEligible(cj))); }); // seules les cases de la LIGNE de la carte touchée (colonnes éligibles) restent éclairées
     scroller = el('div', 'goalsGridScroll arScroll');
     var column = el('div', 'arColumn'); gridArea = el('div', 'arGridArea'); gridArea.appendChild(grid); column.appendChild(gridArea);
     var baseWrap = el('div', 'goalsGrid arBaseWrap'), baseRow = el('div', 'goalsGridRow arBaseRow'), spacer = el('span', 'goalsRowMarker goalsRowMarker--past arSpacer'); spacer.setAttribute('aria-hidden', 'true'); baseRow.appendChild(spacer);
     data.forEach(function (c, ci) {
-      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : extEligible(ci) ? '' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; // étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
+      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; // étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
       var dot = el('i', 'arDot'); dot.style.background = c.color; b.appendChild(dot); b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
       b.addEventListener('click', function () { if (lvl === 'secteur' && c.col.key != null && TMT.ouvrirCalendrierTaches) { openTasksCal({ secteurKey: c.col.key }); return; } descend(ci); }); // niveau secteurs : toucher le NOM d'un secteur ouvre son calendrier (aujourd'hui) ; ailleurs : descendre d'un niveau
       baseRow.appendChild(b);
