@@ -14,7 +14,7 @@ db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) V
 goals.addCategory(act, 'Production');
 const key = goals.categoriesForActivity(act)[0].key;
 const iso = (d) => d.toISOString().slice(0, 10);
-const today = iso(new Date());
+const today = require('../server/lib/dates').userToday(); // même « aujourd'hui » que le serveur (fuseau de l'utilisateur), pas la date UTC
 const nextMon = goals.addDays(goals.mostRecentMonday(today), 7);
 const [mon, tue, wed, thu, fri] = [0, 1, 2, 3, 4].map((i) => goals.addDays(nextMon, i));
 const sat = goals.addDays(nextMon, 5), sun = goals.addDays(nextMon, 6), mon2 = goals.addDays(nextMon, 7);
