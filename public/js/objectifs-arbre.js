@@ -77,7 +77,7 @@
     b.appendChild(t);
     b.addEventListener('click', function () { // toucher = DESCENDRE d'un niveau dans la branche de la carte (jamais de panneau) ; en mode édition : ses paramètres
       if (editMode) { if (TMT.objectifsView && TMT.objectifsView.openDetail) TMT.objectifsView.openDetail(o.id); return; }
-      if (onTap) { onTap(); return; } if (extCol != null) descend(extCol, blockStart(o.endDate));
+      if (onTap) { onTap(); return; } if (extCol != null) descend(extCol, blockStart(o.endDate), Number(String(o.endDate).slice(0, 4)));
     });
     if (editMode) { b.appendChild(removeCross(o)); return b; } // mode édition : ni appui long « Étendre » ni glisser-lier
     if (TMT.ui && TMT.ui.holdDrag) {
@@ -238,7 +238,7 @@
       t.textContent = ''; t.appendChild(el('span', 'arSummaryText', txt.replace(/\n\s*-\s*/g, ' · ').replace(/^\s*-\s*/, '')));
     });
     b.addEventListener('click', function () { // toucher = descendre d'un niveau ; en mode édition : l'« objectif annuel » (résumé de l'année, GET resume-annuel) puis la liste des objectifs
-      if (!editMode) { descend(ci); return; }
+      if (!editMode) { descend(ci, null, year); return; }
       if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(os.map(function (o) { return o.id; }), { title: tr('Objectif annuel') + ' ' + year, intro: function () { return TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + os[0].activity.id + '&year=' + year).then(function (r) { return r && r.text; }); } });
     });
     return b;
@@ -404,10 +404,12 @@
     loadOrdre().then(function () { if (visible && ordreKey().join('|') === k && JSON.stringify(ordreMap[k]) !== before) render(); }); // l'ordre de présentation arrive : les colonnes reliées se rapprochent
   }
   function blockStart(iso) { var y0 = new Date().getFullYear(), y = Number(iso.slice(0, 4)); return y0 + 5 * Math.floor((y - y0) / 5); } // première année du bloc de 5 ans qui contient l'échéance
-  function descend(ci, block) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
+  function descend(ci, block, year) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
     var c = curCols[ci]; if (!c) return;
     if (lvl === 'activite') go('pole', { activityId: c.ctx.activityId, block: block });
-    else if (lvl === 'pole' && c.key != null) go('secteur', { activityId: focus.activityId, poleKey: c.key, poleLabel: c.label });
+    else if (lvl === 'pole' && c.key != null) { // la vue des secteurs montre UNE année de 13 périodes : celle de l'échéance de l'objectif touché (sinon l'année courante, ou la première du bloc)
+      var y0 = new Date().getFullYear(), bk = focus && focus.block; go('secteur', { activityId: focus.activityId, poleKey: c.key, poleLabel: c.label, year: year || (bk && !(y0 >= bk && y0 < bk + 5) ? bk : y0) });
+    }
     else if (TMT.showGoalsPolesPage) TMT.showGoalsPolesPage(focus.activityId);
   }
   function ascend() { if (lvl === 'secteur') go('pole', { activityId: focus.activityId }); else if (lvl === 'pole') go('activite', null); } // flèche de retour ou pincer inverse
@@ -481,6 +483,7 @@
     if (blockYears) { lo = focus.block * 100; hi = (focus.block + 4) * 100; }
     var farRank = hi; for (var yy = 0; yy < (zoom === 'period' ? PER_YEAR : 1); yy++) farRank = nextRank(farRank); // + 1 an
     if (blockYears) farRank = hi;
+    if (zoom === 'period' && focus && focus.year) { lo = focus.year * 100 + 1; hi = focus.year * 100 + PER_YEAR; farRank = hi; } // vue des périodes : UNE année, 13 périodes, pas plus
     var list = [];
     for (var rk = lo; rk <= farRank; rk = nextRank(rk)) list.push(byRank[rk] || rowOfRank(rk));
     while (list.length < MIN_ROWS) list.push(rowOfRank(nextRank(list[list.length - 1].rank))); // toujours au moins 5 cases : le futur se prolonge en cases grises vides
@@ -530,7 +533,7 @@
         if (!es.length && lvl === 'secteur' && rw.p) row.appendChild(emptyCell(W, 'cal', function () { openCalendar(rw, c.col.key); })); // niveau secteurs : toucher une case vide ouvre AUSSI le calendrier (« Ajouter un objectif périodique » s'y trouve)
         else if (!es.length) row.appendChild(emptyCell(W, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
         else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, W, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
-        else if (es.length > 1 && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, W, function () { descend(ci, rw.y); }, calTap(rw, c), c.color)); // plusieurs objectifs d'une même activité dans la même case : une seule carte
+        else if (es.length > 1 && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, W, function () { descend(ci, rw.y, rw.y); }, calTap(rw, c), c.color)); // plusieurs objectifs d'une même activité dans la même case : une seule carte
         else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, W); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, W, calTap(rw, c), ci, c.color)); }); row.appendChild(stack); }
         else row.appendChild(card(es[0].o, today, c.all, mode, W, calTap(rw, c), ci, c.color));
       });
@@ -597,7 +600,7 @@
     if (best === 'annee') { lvl = 'pole'; focus = { activityId: aid }; return; }
     var act = actOf(aid), pk = Object.keys(poleCnt).filter(function (k) { return k.indexOf(aid + '/') === 0; }).sort(function (a, b) { return poleCnt[b] - poleCnt[a]; })[0], key = pk ? pk.split('/')[1] : (act && act.poles && act.poles[0] ? act.poles[0].key : null);
     var pl = act && act.poles && act.poles.filter(function (p) { return p.key === key; })[0];
-    lvl = 'secteur'; focus = { activityId: aid, poleKey: key, poleLabel: pl ? pl.label : '' };
+    lvl = 'secteur'; focus = { activityId: aid, poleKey: key, poleLabel: pl ? pl.label : '', year: new Date().getFullYear() };
   }
   function refresh() {
     if (!tree) return Promise.resolve();

@@ -569,3 +569,8 @@ Par défaut aucun jour n'est choisi dans la bande : la vue montre TOUTES les tâ
 
 - Règles lues dans `objectifs-page2-objectif.js/.css` : gouttière de colonnes 10 px, écart entre rangées 34 px ; UNE colonne = toute la largeur (flex 1 1 0) ; DEUX = moitié chacune ; TROIS ou plus = deux visibles à la fois (`calc(50% - 5px)`) avec défilement horizontal ; repères à gauche (26 px), traits verticaux de 2 px entre cases ; titre de colonne de la largeur de sa colonne.
 - Arbre des objectifs, avant : une colonne seule avait la largeur de DEUX moitiés et les titres élargissaient les colonnes au-delà de la moitié (la deuxième colonne dépassait de l'écran). Après : 1 colonne = toute la largeur (291 px contre 140 px pour chacune de deux colonnes à 390 px) ; 2 colonnes = moitié chacune (140 px) ; 3+ = moitié, défilement ; les titres passent à la ligne. Grand écran : inchangé (les colonnes se partagent la largeur).
+
+## Vue des périodes : une année, 13 périodes (7 nov. 2026, décision d'Émilien)
+
+- La vue des secteurs montre l'année de l'ÉCHÉANCE de l'objectif touché : 13 périodes, pas une de plus (une autre année = un autre objectif/une autre entrée). Entrée par un titre ou en pinçant, sans objectif touché : l'année courante (ou la première année du bloc si l'année courante n'en fait pas partie). Mesuré à 390 px : 13 périodes, année 2031 pour l'objectif touché de 2031.
+- La vue des années (niveau pôles) reste limitée à 5 années (un bloc) ; au-delà, c'est un autre bloc pluriannuel.
