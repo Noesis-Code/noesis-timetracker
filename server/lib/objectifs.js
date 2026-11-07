@@ -639,6 +639,12 @@ function creer(userId, body) {
   const meta0 = { plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7), term, inner };
   if (est0) { meta0.cat = est0.id; meta0.proposed = { p10: est0.p10, p90: est0.p90 }; }
   if (hpw) meta0.hoursPerWeek = hpw;
+  // Activité créée avec l'objectif : d'où vient son temps ? « plus » (s'ajoute au temps habituel) ou « prise » sur une autre activité de la personne (7 nov. 2026).
+  const hf = body.hoursFrom && typeof body.hoursFrom === 'object' ? body.hoursFrom : null;
+  if (hf && hf.mode === 'prise') {
+    if (!userActivities(userId).some((x) => x.id === Number(hf.fromActivityId))) throw err('Choisis l’activité sur laquelle ce temps est pris.');
+    meta0.hoursFrom = { mode: 'prise', fromActivityId: Number(hf.fromActivityId) };
+  } else if (hf && hf.mode === 'plus') meta0.hoursFrom = { mode: 'plus' };
   if (body.description) meta0.description = String(body.description).trim().slice(0, 500); // description libre de l'objectif (étape « Description »)
   if (isDay(body.proposedEnd)) meta0.dateCorrectedDays = daysBetween(body.proposedEnd, body.endDate); // signal : date corrigée par l'utilisateur
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta0), id);
