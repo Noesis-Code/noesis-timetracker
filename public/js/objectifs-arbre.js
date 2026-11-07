@@ -205,8 +205,13 @@
     var x = ext, done = function () { ext = null; if (TMT.objectifsView && TMT.objectifsView.closeExtend) TMT.objectifsView.closeExtend(); return refresh(); }, fail = function (e) { say((e && e.message) || tr('Impossible pour le moment.')); extSync(); };
     if (x.mode === 'create') { var ids = extChildIds(); TMT.api('POST', '/api/objectifs/macro', { childIds: ids, title: (x.title || x.base.title || '').trim() || x.base.title }).then(done).catch(fail); return; }
     if (!extChanged()) { TMT.api('DELETE', '/api/objectifs/' + x.macro.id + '?confirm=1').then(done).catch(fail); return; } // SÉPARER : le macro disparaît, ses objectifs sont conservés (fusion passée : refus du serveur affiché)
-    var seq = Promise.resolve();
-    Object.keys(x.cols).filter(function (k) { return !x.init[k]; }).forEach(function (k) { newest(Number(k), 2).forEach(function (o) { seq = seq.then(function () { return TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: x.macro.id, rel: 'apres' }); }); }); }); // colonne ajoutée : ses objectifs les plus récents rejoignent le macro
+    var added = []; Object.keys(x.cols).filter(function (k) { return !x.init[k]; }).forEach(function (k) { newest(Number(k), 2).forEach(function (o) { added.push(o); }); });
+    var far = added.map(function (o) { return o.endDate; }).sort().pop(), seq = Promise.resolve();
+    if (far && far > x.macro.endDate) seq = TMT.ui.confirm(tr('Repousser l’échéance du macro au') + ' ' + far + ' ?', { ok: tr('Repousser') }).then(function (ok) { // une colonne ajoutée a une échéance plus lointaine : l'échéance du macro la suit, avec ton accord (jamais en silence)
+      if (!ok) throw { message: tr('Rien n’est changé : l’échéance du macro reste la même.') };
+      return TMT.api('PUT', '/api/objectifs/' + x.macro.id + '/echeance', { endDate: far });
+    });
+    added.forEach(function (o) { seq = seq.then(function () { return TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: x.macro.id, rel: 'apres' }); }); }); // colonne ajoutée : ses objectifs les plus récents rejoignent le macro
     Object.keys(x.init).filter(function (k) { return !x.cols[k]; }).forEach(function (k) { items.filter(function (o) { return o.parentId === x.macro.id && colOfObj(o) === Number(k); }).forEach(function (o) { seq = seq.then(function () { return TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: null }); }); }); }); // colonne retirée : DÉLIER
     seq.then(done).catch(fail);
   }
@@ -444,7 +449,7 @@
     var n = curCols.length, wide = window.innerWidth >= 1024, avail = tree.clientWidth || (Math.min(window.innerWidth, wide ? 1400 : 600) - 32); // largeur réelle de la zone
     var baseW = Math.floor((avail - RAIL - GAP - 4) / 2), cols = n === 1 ? avail - RAIL - 4 : baseW; // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
     var W = Math.min(cols, window.innerWidth - 80); // les titres passent à la ligne, la largeur ne grandit jamais avec le texte
-    if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) W = Math.max(88, Math.min(W, Math.floor((avail - RAIL - GAP * (spanN - 1) - 4) / spanN))); } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
+    if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) W = Math.max(44, Math.min(W, Math.floor((avail - RAIL - GAP * (spanN - 1) - 4) / spanN))); } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
     var mode = lvl === 'activite' ? 'simple' : 'detail';
     // données par colonne : arbre, parcours, case (période ou année) de chaque objectif
     var data = curCols.map(function (c) {
