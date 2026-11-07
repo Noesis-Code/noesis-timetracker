@@ -23,7 +23,7 @@ assert(/dayKind\(\)/.test(js) && /kind === 'past'[\s\S]{0,200}filter\(function \
 assert(/\.tasksToday\.dayPast \.tasksPopCheck[^}]*pointer-events: none/.test(css) && /\.tasksToday\.dayPast \.goalsTaskEditBtn \{ display: none/.test(css), 'jour passé : lecture seule (case inactive, modification masquée)');
 assert(/dayIso\(\) < localIso\(\)[\s\S]{0,160}Pas d’ajout dans un jour passé/.test(js), 'ajout refusé dans le passé avec un message court');
 assert(/state\.date \|\| dayIso\(\)/.test(js), 'jour futur choisi : les ajouts sont datés de ce jour');
-assert(/hide: function \(\) \{ shown = false; resetDay\(\)/.test(js) && /resetSort: function \(\) \{\s*resetDay\(\)/.test(js), 'en quittant la vue ou en arrivant d\'un autre module : retour à aujourd\'hui');
+assert(/hide: function \(\) \{ shown = false; if \(TMT\.goalsCalCloseEditor\) TMT\.goalsCalCloseEditor\(\); resetDay\(\)/.test(js) && /resetSort: function \(\) \{\s*resetDay\(\)/.test(js), 'en quittant la vue ou en arrivant d\'un autre module : retour à aujourd\'hui');
 assert(js.includes("kind === 'today' ? 'Rien pour aujourd’hui.' : 'Aucune tâche ce jour-là.'"), 'journée sans tâche : message vide propre au jour');
 
 // Tri Objectif : tâches sans objectif visibles, objectifs les plus proches du jour choisi
@@ -46,7 +46,7 @@ assert(js.indexOf('function rollDay') >= 0 && js.indexOf("visibilitychange', fun
 assert(/function expansionAsked\(\) \{\s*if \(state\.busy\) return;\s*if \(dayIso\(\) < localIso\(\)\)/.test(js), 'appui long (Expansion) refusé vers un jour passé');
 assert(js.includes('function rollDay') && js.includes("visibilitychange', function () { if (!document.hidden) rollDay") && js.includes('setInterval(rollDay'), 'minuit / retour au premier plan : bande et jour repeints');
 const p1 = R('public', 'js', 'objectifs-page1.js'), p3 = R('public', 'js', 'objectifs-page3.js');
-assert(p1.includes('TMT.ouvrirCalendrierTaches = function') && p1.includes('openGoalsPeriodFromNotification(aid, k, hit.periodNumber)') && p1.includes('all-for-pole'), 'ouverture directe du calendrier des tâches : TMT.ouvrirCalendrierTaches réutilise la page 3 (aucune copie)');
+assert(p1.includes('TMT.ouvrirCalendrierTaches = function') && p1.includes('TMT.todayView.openCalendar') && js.includes('TMT.showGoalsCalendar') && p3.includes('TMT.showGoalsCalendar = function') && p3.includes('TMT.goalsCalMount'), 'ouverture directe du calendrier des tâches : la vue Tâches (filtre pôle / secteur) monte le calendrier de la page 3 (même nœud, aucune copie)');
 assert(p3.includes('TMT.goalsCalGoTo = function') && p3.includes('renderGoalsMonthCal();'), 'le calendrier se positionne sur le mois de la date demandée (TMT.goalsCalGoTo)');
 assert(js.includes("nDone + ' / ' + (nDone + nTodo)") && !js.includes("viewDay === 'all' ? String(nTodo)"), 'compteur : toujours « réalisées / total » (jamais le nombre de tâches à faire seul)');
 if (failed) { console.log('\nvue-taches-jour-test : ' + failed + ' échec(s)'); process.exit(1); }

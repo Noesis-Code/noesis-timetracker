@@ -46,7 +46,7 @@ function tasksToday(userId, todayParam, dayParam) {
         if (!list) return;
         list.push({
           id: t.id, label: t.label, done: !!t.done, activityId: a.id, activityName: a.name, activityColor: a.color || null,
-          sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, catKey: t.key, dueDate: due, dueNow: due <= today, overloaded: !other && !t.done && !!(marks[t.key] || marks[t.poleKey]) && due <= today,
+          sector: t.key === t.poleKey ? null : t.groupLabel, sectorKey: t.key === t.poleKey ? null : t.key, pole: t.poleKey, catKey: t.key, dueDate: due, dueNow: due <= today, overloaded: !other && !t.done && !!(marks[t.key] || marks[t.poleKey]) && due <= today,
           minutes: goalscapacity.taskMinutes(userId, a.id, t.poleKey, t.label), plannedUserId: t.plannedUserId || null, shared: sharedActs.has(a.id), poleName: poleLabels[t.poleKey] || t.poleKey, poleIndex: poleIdx[t.poleKey], plannedUserName: memberNames[t.plannedUserId] || '',
         });
       });
@@ -65,7 +65,7 @@ function tasksToday(userId, todayParam, dayParam) {
       if (!(u.key in room)) room[u.key] = Math.max(0, goalstasks.DAILY_MIN_LINES - todo.filter((t) => t.activityId === a.id && t.catKey === u.key).length);
       if (room[u.key] <= 0) return;
       room[u.key] -= 1;
-      upc.push({ id: u.id, label: u.label, done: false, upcoming: true, activityId: a.id, activityName: a.name, activityColor: a.color || null, sector: u.key === u.poleKey ? null : u.groupLabel, pole: u.poleKey, poleName: names[u.poleKey] || u.poleKey, poleIndex: idx[u.poleKey], dueDate: u.dueDate, minutes: 0, plannedUserId: u.plannedUserId || null, shared: sharedActs.has(a.id) });
+      upc.push({ id: u.id, label: u.label, done: false, upcoming: true, activityId: a.id, activityName: a.name, activityColor: a.color || null, sector: u.key === u.poleKey ? null : u.groupLabel, sectorKey: u.key === u.poleKey ? null : u.key, pole: u.poleKey, poleName: names[u.poleKey] || u.poleKey, poleIndex: idx[u.poleKey], dueDate: u.dueDate, minutes: 0, plannedUserId: u.plannedUserId || null, shared: sharedActs.has(a.id) });
     });
   });
   // Ordre : activité par activité (ordre de l'application), puis dans chaque activité les paliers maintenance/développement
@@ -112,7 +112,7 @@ function archiveAll(userId) {
       if (t.plannedUserId && t.plannedUserId !== userId) return;
       // Mêmes champs que les tâches faites de GET /api/goals/today : la ligne d'Archive est celle de la liste du jour.
       out.push({ id: t.id, label: t.label, done: true, doneAt: t.doneAt, dueDate: t.dueDate, activityId: a.id, activityName: a.name, activityColor: a.color || null,
-        sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, poleName: names[t.poleKey] || t.poleKey, poleIndex: idx[t.poleKey], minutes: 0, plannedUserId: t.plannedUserId || null, shared, locked: !!t.locked });
+        sector: t.key === t.poleKey ? null : t.groupLabel, sectorKey: t.key === t.poleKey ? null : t.key, pole: t.poleKey, poleName: names[t.poleKey] || t.poleKey, poleIndex: idx[t.poleKey], minutes: 0, plannedUserId: t.plannedUserId || null, shared, locked: !!t.locked });
     });
   });
   out.sort((x, y) => (x.doneAt < y.doneAt ? 1 : x.doneAt > y.doneAt ? -1 : y.id - x.id));

@@ -150,3 +150,7 @@
 .tasksToday .tasksCounter { margin-left: auto; }
 
 .tasksWeekHead { padding: 0 14px; } /* aligné sur la grille des numéros (14 px = largeur d'une flèche) */
+
+/* Calendrier de la page 3 intégré (7 nov. 2026) : le même nœud #goalsDetailScroll, posé ici quand le filtre désigne un pôle ou un secteur (remplace la bande de la semaine). */
+.tasksCalHost { margin-top: -8px; }
+.tasksCalHost #goalsDetailScroll { flex: none; overflow: visible; padding: 0; }

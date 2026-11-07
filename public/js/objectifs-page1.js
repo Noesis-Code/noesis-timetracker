@@ -1170,7 +1170,7 @@
     });
   }
 
-  // Calendrier des tâches (7 nov. 2026, demande d'Émilien) : ouvre DIRECTEMENT le calendrier de la page 3 (le même .goalsCal*, aucune copie) d'un secteur, sur la bonne période, le mois de la date demandée.
+  // Calendrier des tâches (7 nov. 2026, demande d'Émilien) : ouvre la vue Tâches filtrée sur ce pôle / secteur, avec le calendrier de la page 3 (le même .goalsCal*, aucune copie), sur la bonne période et au mois de la date demandée.
   // Appel : TMT.ouvrirCalendrierTaches({ activityId, poleKey, secteurKey, periodNumber, date }) -> Promise<boolean>.
   //   activityId : activité ; poleKey : pôle (clé, ex. 'c1') ; secteurKey : clé du secteur (catégorie) ou, à défaut, celle du pôle ;
   //   periodNumber (facultatif) : période exacte déjà connue ; date 'AAAA-MM-JJ' (facultatif, aujourd'hui par défaut) : période qui la contient + mois/semaine affichés.
@@ -1181,19 +1181,9 @@
     if (aid == null || !key) return Promise.resolve(false);
     var p2 = function (n) { return String(n).padStart(2, '0'); }, now = new Date();
     var date = /^\d{4}-\d{2}-\d{2}$/.test(String(o.date || '')) ? o.date : (o.periodNumber ? null : now.getFullYear() + '-' + p2(now.getMonth() + 1) + '-' + p2(now.getDate()));
-    var goTo = function () { if (date && TMT.goalsCalGoTo) TMT.goalsCalGoTo(date); return true; };
-    if (o.periodNumber) return Promise.resolve(openGoalsPeriodFromNotification(aid, key, o.periodNumber)).then(goTo);
-    var year = date.slice(0, 4);
-    return api('GET', '/api/activities/' + aid + '/goals/all-for-pole?poleKey=' + encodeURIComponent(o.poleKey || key) + '&year=' + year).then(function (r) {
-      var by = (r && r.byCategory) || {}, keys = [key, o.poleKey].concat(Object.keys(by)).filter(function (k) { return k != null && by[k]; }), hit = null, k = null;
-      for (var i = 0; i < keys.length && !hit; i++) {
-        var ps = (by[keys[i]].periods || []).slice().sort(function (a, b) { return a.startDate < b.startDate ? -1 : 1; });
-        hit = ps.filter(function (p) { return p.startDate <= date && p.endDate >= date; })[0] || ps.filter(function (p) { return p.startDate > date; })[0] || ps[ps.length - 1] || null;
-        if (hit) k = keys[i];
-      }
-      if (!hit) return false;
-      return Promise.resolve(openGoalsPeriodFromNotification(aid, k, hit.periodNumber)).then(goTo);
-    }).catch(function () { return false; });
+    // 7 nov. 2026 : le calendrier est celui de la vue Tâches (filtre posé sur ce pôle / secteur) ; l'ancienne page 3 n'est plus ouverte ici.
+    if (!TMT.todayView || !TMT.todayView.openCalendar) return Promise.resolve(false);
+    return TMT.todayView.openCalendar({ activityId: aid, poleKey: o.poleKey || key, secteurKey: o.secteurKey || null, periodNumber: o.periodNumber || null, date: date }).catch(function () { return false; });
   };
 
 

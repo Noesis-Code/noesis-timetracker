@@ -30,7 +30,7 @@
   function localIso() { var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
   // Affichage instantané (29 oct. 2026, demande d'Émilien) : la dernière réponse de chaque jour est gardée (mémoire ; aujourd'hui aussi en stockage local,
   // pour le premier affichage après ouverture de l'app) et dessinée tout de suite ; la réponse du serveur la remplace ensuite.
-  var cacheByDay = {}, CACHE_KEY = 'noesis_today_v1';
+  var cacheByDay = {}, CACHE_KEY = 'noesis_today_v2';
   function cacheUser() { try { var p = TMT.getProfile && TMT.getProfile(); return p && p.id ? String(p.id) : ''; } catch (e) { return ''; } }
   function cacheGet(day) {
     if (cacheByDay[day]) return cacheByDay[day];
@@ -53,11 +53,11 @@
   function viewKey() { return viewDay === 'all' ? 'all' : dayIso(); }
   function dayKind() { var d = dayIso(), t = localIso(); return d < t ? 'past' : d > t ? 'future' : 'today'; }
   // La barre n'existe à l'écran que si la vue Aujourd'hui est réellement visible (autre volet, autre vue ou page par-dessus : masquée).
-  function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length)); }
+  function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length) || !!(TMT.goalsCalEditing && TMT.goalsCalEditing())); } // l'éditeur d'objectif du calendrier intégré a sa propre barre : celle-ci se masque pendant ce temps
   function build(container) {
     root = el('div', 'tasksToday');
     listBox = el('div', 'tasksPopList tasksTree');
-    root.appendChild(buildFilter()); root.appendChild(buildCal()); root.appendChild(buildTopRow()); root.appendChild(listBox); root.appendChild(buildArchive());
+    root.appendChild(buildFilter()); root.appendChild(buildCal()); root.appendChild(buildCalHost()); root.appendChild(buildTopRow()); root.appendChild(listBox); root.appendChild(buildArchive());
     // La barre d'ajout est AU PREMIER PLAN, fixée au-dessus de la barre des volets (comme elle). Défilé = glissement latéral entre les pages :
     // elle prend le même décalage que la page (#tab-goals) pendant le glissement, puis disparaît avec elle.
     dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock);
@@ -114,6 +114,7 @@
       week.appendChild(days); grid.appendChild(week);
     }
     frame.appendChild(prev); frame.appendChild(grid); frame.appendChild(next); calBox.appendChild(frame);
+    syncCalSel();
   }
   // Balayage sur le calendrier : change de semaine (ou de mois déployé), jamais de page (les écouteurs de page ne voient pas le geste).
   function bindCalSwipe() {
@@ -146,11 +147,46 @@
   setInterval(rollDay, 30000);
   function resetDay() { viewDay = 'all'; calAnchor = localIso(); calExpanded = false; paintCal(); }
 
+  // ---------- Calendrier de la page 3 intégré (7 nov. 2026, demande d'Émilien) : UN SEUL calendrier, celui de la page 3 (objectifs-page3.js : TMT.showGoalsCalendar, aucune copie) ----------
+  // Il remplace la bande de la semaine QUAND le filtre désigne un pôle (sans secteurs) ou un secteur ; sans filtre ou avec une activité seule, la bande reste telle quelle.
+  // Le jour touché dans sa grille filtre la liste d'ici (crochet calHook) ; la barre « Nouvelle tâche… » d'ici est celle qui ajoute, datée de ce jour.
+  var calHost = null, calOn = false, calKey = '', calAt = 0, calSeq = 0;
+  var calHook = {
+    current: function () { return viewDay === 'all' ? null : dayIso(); },
+    pick: function (iso) { pickDay(iso); },
+    released: function () { calSeq++; calOn = false; calKey = ''; setCalOn(false); } // la page 3 reprend son calendrier : la bande revient
+  };
+  function buildCalHost() { calHost = el('div', 'tasksCalHost hidden'); return calHost; }
+  function setCalOn(on) { if (calBox) calBox.classList.toggle('hidden', on); if (calHost) calHost.classList.toggle('hidden', !on); if (root) root.classList.toggle('calIntegrated', on); }
+  function calCat() { return filt.act != null && filt.pole != null ? (filt.sectorKey || filt.pole) : null; } // catégorie du calendrier : le secteur, ou le pôle sans secteurs
+  function syncCalSel() { if (calOn && TMT.goalsCalSetSel) TMT.goalsCalSetSel(calHook.current()); }
+  function calOff() { calSeq++; calOn = false; calKey = ''; setCalOn(false); if (TMT.goalsCalUnmount) TMT.goalsCalUnmount(); }
+  function syncCalendar(date, force) {
+    var cat = calCat();
+    if (!cat || !calHost || !TMT.showGoalsCalendar) { calOff(); return Promise.resolve(false); }
+    var key = filt.act + '|' + filt.pole + '|' + (filt.sectorKey || '');
+    if (!force && calOn && key === calKey && Date.now() - calAt < 3000) return Promise.resolve(true);
+    var seq = ++calSeq, d = date || (calOn && TMT.goalsCalMonthIso && TMT.goalsCalMonthIso()) || calAnchor || dayIso();
+    return TMT.showGoalsCalendar({ activityId: filt.act, poleKey: filt.pole, secteurKey: filt.sectorKey || null, date: d }, calHost, calHook).then(function (r) {
+      if (seq !== calSeq) return !!r;
+      if (!r) { calOff(); return false; } // pas de planning pour cette catégorie (ex. pôle qui a des secteurs) : la bande reste
+      calKey = key; calAt = Date.now(); calOn = true; setCalOn(true);
+      var chg = false;
+      if (r.poleLabel && filt.poleLabel !== r.poleLabel) { filt.poleLabel = r.poleLabel; chg = true; }
+      if (filt.sectorKey && r.sectorLabel && filt.sector !== r.sectorLabel) { filt.sector = r.sectorLabel; chg = true; }
+      if (chg) paintFilter();
+      syncCalSel();
+      return true;
+    });
+  }
+  // Après un ajout, un cochage ou un enregistrement : les cadres du calendrier (statuts, pastilles) se rechargent.
+  function calReload() { if (!calOn || !TMT.reloadGoalsAll) return; TMT.reloadGoalsAll().then(function () { if (calOn && TMT.renderActivityGoals) TMT.renderActivityGoals(); }).catch(function () {}); }
+
   // ---------- Filtre (7 nov. 2026) : une ligne nue sous « Tâches | Objectifs », au-dessus du calendrier ----------
   // Un toucher déroule un panneau sur place : page 1 = « Toutes les activités » + les activités ; toucher une activité glisse vers la page 2 = ses pôles, chacun avec ses secteurs
   // dessous (choix direct, pas de 3e page). Balayage vers la droite = retour à la page 1. Les tâches sans objectif restent dans la liste de leur activité, pôle ou secteur.
   var filt = { act: null, pole: null, sector: null }, filterBox = null, filtOpen = false, filtBrowse = null;
-  function filtMatch(t) { return filt.act == null || (String(t.activityId) === filt.act && (filt.pole == null || t.pole === filt.pole) && (filt.sector == null || t.sector === filt.sector)); }
+  function filtMatch(t) { return filt.act == null || (String(t.activityId) === filt.act && (filt.pole == null || t.pole === filt.pole) && (filt.sector == null || (t.sectorKey !== undefined && filt.sectorKey ? t.sectorKey === filt.sectorKey : t.sector === filt.sector))); }
   function buildFilter() { filterBox = el('div', 'tasksFilter'); paintFilter(); return filterBox; }
   function filtData(actId) {
     var acts = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a && a.id != null; });
@@ -158,12 +194,12 @@
     var poles = [], seen = {}, secs = {};
     ((lastData && lastData.tasks) || []).filter(function (t) { return actId != null && String(t.activityId) === String(actId); }).forEach(function (t) {
       if (!seen[t.pole]) { seen[t.pole] = true; poles.push({ key: t.pole, label: t.poleName || t.pole, idx: t.poleIndex || 0 }); secs[t.pole] = []; }
-      if (t.sector && secs[t.pole].indexOf(t.sector) < 0) secs[t.pole].push(t.sector);
+      if (t.sector && !secs[t.pole].some(function (s) { return s.label === t.sector; })) secs[t.pole].push({ label: t.sector, key: t.sectorKey || null });
     });
     poles.sort(function (a, b) { return a.idx - b.idx; });
     return { acts: acts, poles: poles, secs: secs };
   }
-  function applyFilt(next) { filt = next; filtOpen = false; filtBrowse = null; paintFilter(); if (lastData) render(lastData); }
+  function applyFilt(next) { filt = next; filtOpen = false; filtBrowse = null; paintFilter(); if (lastData) render(lastData); syncCalendar(); }
   function filtRow(parent, text, level, on, fn) {
     var b = el('button', 'tasksChoice' + (level ? ' lv' + level : '') + (on ? ' on' : ''), text); b.type = 'button'; b.addEventListener('click', fn); parent.appendChild(b); return b;
   }
@@ -171,7 +207,7 @@
   function paintFilter() {
     if (!filterBox) return; filterBox.textContent = '';
     var d = filtData(filt.act), cur = d.acts.filter(function (a) { return String(a.id) === filt.act; })[0], pole = d.poles.filter(function (p) { return p.key === filt.pole; })[0];
-    var label = cur ? cur.name + (pole ? ' › ' + (filt.sector || pole.label) : '') : tr('Toutes les activités');
+    var label = cur ? cur.name + (filt.pole != null && (pole || filt.poleLabel) ? ' › ' + (filt.sector || (pole ? pole.label : filt.poleLabel)) : '') : tr('Toutes les activités');
     var head = el('button', 'tasksFilterLine' + (cur ? ' on' : '')); head.type = 'button'; head.setAttribute('aria-expanded', filtOpen ? 'true' : 'false');
     head.title = label; head.setAttribute('aria-label', label); // le libellé n'est plus un titre : l'icône réglage prend sa place (violette quand un filtre est actif)
     head.appendChild(svg('M4 8h3M11 8h9M9 6a2 2 0 1 0 0 4a2 2 0 1 0 0-4M4 16h9M17 16h3M15 14a2 2 0 1 0 0 4a2 2 0 1 0 0-4', 1.5));
@@ -190,8 +226,8 @@
       p2.appendChild(el('p', 'tasksFilterTitle', a.name));
       filtRow(p2, tr('Toute l’activité'), 0, filt.act === filtBrowse && filt.pole == null, function () { applyFilt({ act: filtBrowse, pole: null, sector: null }); });
       dd.poles.forEach(function (p) {
-        filtRow(p2, p.label, 0, filt.act === filtBrowse && filt.pole === p.key && !filt.sector, function () { applyFilt({ act: filtBrowse, pole: p.key, sector: null }); }).classList.add('pole');
-        dd.secs[p.key].forEach(function (x) { filtRow(p2, x, 1, filt.act === filtBrowse && filt.pole === p.key && filt.sector === x, function () { applyFilt({ act: filtBrowse, pole: p.key, sector: x }); }); });
+        filtRow(p2, p.label, 0, filt.act === filtBrowse && filt.pole === p.key && !filt.sector, function () { applyFilt({ act: filtBrowse, pole: p.key, poleLabel: p.label, sector: null }); }).classList.add('pole');
+        dd.secs[p.key].forEach(function (x) { filtRow(p2, x.label, 1, filt.act === filtBrowse && filt.pole === p.key && filt.sector === x.label, function () { applyFilt({ act: filtBrowse, pole: p.key, poleLabel: p.label, sector: x.label, sectorKey: x.key }); }); });
       });
     }
     var page = 0;
@@ -553,7 +589,7 @@
     if (!picked.length) { reset(); return; }
     ui.save.disabled = true;
     TMT.api('POST', '/api/activities/' + t.activityId + '/document-tasks/apply', { tasks: picked.map(function (x) { return { title: x.title, key: t.categoryKey, day: x.day, week: x.week, minutes: x.minutes }; }) }).then(function (r) {
-      var n = (r && r.addedCount) || 0; reset(); refresh();
+      var n = (r && r.addedCount) || 0; reset(); refresh(); calReload();
       showToast(n + ' ' + tr(n > 1 ? 'tâches enregistrées' : 'tâche enregistrée'));
     }).catch(function (err) { say((err && err.message) || tr('Erreur.')); }).then(function () { ui.save.disabled = false; });
   }
@@ -660,7 +696,7 @@
     if (!picked.length) { reset(); return Promise.resolve(); }
     e.loading = true; paintExpansion();
     return TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/apply', { tasks: picked.map(function (t) { return { title: t.title, key: e.categoryKey || t.key, day: t.day, week: t.week, minutes: t.minutes }; }) }).then(function (r) {
-      var n = (r && r.addedCount) || 0; reset(); refresh();
+      var n = (r && r.addedCount) || 0; reset(); refresh(); calReload();
       showToast(n + ' ' + tr(n > 1 ? 'tâches enregistrées' : 'tâche enregistrée'));
     }).catch(function (err) { e.loading = false; say((err && err.message) || tr('Erreur.')); paintExpansion(); });
   }
@@ -744,7 +780,7 @@
       state.added.unshift({ id: ok.id, label: c.label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
       var extra = { userId: TMT.getProfile().id, dueDate: c.date };
       if (c.who) { extra.plannedUserId = c.who.id; extra.notifyAssignee = true; }
-      return TMT.api('PUT', '/api/sub-project-items/' + ok.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }).then(function () { refresh(); });
+      return TMT.api('PUT', '/api/sub-project-items/' + ok.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }).then(function () { refresh(); calReload(); });
     }).catch(function (err) { fail(err && err.message); });
   }
   function send() {
@@ -785,7 +821,7 @@
           if (snap.who) { extra.plannedUserId = snap.who.id; extra.notifyAssignee = true; }
           var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }) : Promise.resolve();
           return after.then(function () {
-            reset(); refresh(); showToast(tr('Tâche enregistrée'));
+            reset(); refresh(); calReload(); showToast(tr('Tâche enregistrée'));
           });
       });
     }).catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Erreur.'); })
@@ -828,7 +864,7 @@
               row.style.maxHeight = row.offsetHeight + 'px';
               void row.offsetHeight;
               row.classList.add('leaving'); row.style.maxHeight = '0px';
-              setTimeout(function () { leaving = Math.max(0, leaving - 1); refresh(); }, 360);
+              setTimeout(function () { leaving = Math.max(0, leaving - 1); refresh(); calReload(); }, 360);
             }, 1000);
           });
       });
@@ -958,7 +994,25 @@
       Array.prototype.forEach.call(document.querySelectorAll('.tasksSortWrap .statsPeriodMenuItem'), function (b) { b.classList.toggle('active', b.textContent === tr(SORT_LABELS.today)); });
       if (lastData) render(lastData);
     },
-    show: function () { shown = true; syncDock(); var c = cacheGet(viewKey()); if (c) render(c); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
-    hide: function () { shown = false; resetDay(); openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
+    syncDock: syncDock,
+    // Arrivée depuis l'arbre des objectifs (TMT.ouvrirCalendrierTaches) : filtre posé sur ce pôle / secteur, calendrier au bon mois, puis la vue Tâches s'affiche. -> Promise<boolean> ; échec : le filtre d'avant est remis.
+    openCalendar: function (o) {
+      o = o || {}; if (o.activityId == null || !o.poleKey) return Promise.resolve(false);
+      var host = document.getElementById('goalsTodayView'); if (!host) return Promise.resolve(false);
+      TMT.todayView.mount(host);
+      var prev = filt, sk = o.secteurKey && o.secteurKey !== o.poleKey ? String(o.secteurKey) : null;
+      var known = ((lastData && lastData.tasks) || []).filter(function (t) { return String(t.activityId) === String(o.activityId) && t.pole === o.poleKey && (!sk || t.sectorKey === sk); })[0];
+      filt = { act: String(o.activityId), pole: o.poleKey, poleLabel: known ? known.poleName : '', sector: sk ? ((known && known.sector) || sk) : null, sectorKey: sk };
+      return syncCalendar(o.date || null, true).then(function (ok) {
+        if (!ok) { filt = prev; paintFilter(); syncCalendar(); return false; }
+        filtOpen = false; filtBrowse = null;
+        if (o.date) { calAnchor = o.date; calExpanded = false; }
+        viewDay = 'all'; paintCal(); paintFilter(); if (lastData) render(lastData);
+        if (TMT.setGoalsPage1View) TMT.setGoalsPage1View('today');
+        return true;
+      });
+    },
+    show: function () { shown = true; syncDock(); var c = cacheGet(viewKey()); if (c) render(c); refresh(); syncCalendar(); clearInterval(timer); timer = setInterval(refresh, 6000); },
+    hide: function () { shown = false; if (TMT.goalsCalCloseEditor) TMT.goalsCalCloseEditor(); resetDay(); openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();

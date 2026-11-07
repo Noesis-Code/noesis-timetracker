@@ -207,7 +207,8 @@
       subProjectShade = TMT.subProjectShade, SUB_PROJECT_SHADE_COUNT = TMT.SUB_PROJECT_SHADE_COUNT,
       calendarDayLabel = TMT.calendarDayLabel, loadGoalsCaptureBadges = TMT.loadGoalsCaptureBadges,
       formatGoalPeriodDates = TMT.formatGoalPeriodDates, goalPeriodByNumber = TMT.goalPeriodByNumber,
-      activeGoalsCategories = TMT.activeGoalsCategories, reloadGoalsAll = TMT.reloadGoalsAll;
+      activeGoalsCategories = TMT.activeGoalsCategories,
+      reloadGoalsAll = function () { return TMT.reloadGoalsAll().then(function (r) { if (calIntegrated()) renderActivityGoals(); return r; }); }; // calendrier intégré à la vue Tâches : les données rechargées le redessinent
 
 
   // Résout le libellé d'une catégorie (fixe OU personnalisée, active OU
@@ -925,14 +926,14 @@
     bar.appendChild(dayText); bar.appendChild(daySend); dayDock.appendChild(bar); dayDock.appendChild(saveBtn); document.body.appendChild(dayDock);
     if (TMT.ui.dockKeyboard) TMT.ui.dockKeyboard(dayDock, dayText); // même positionnement au-dessus du clavier que la barre « Nouvelle tâche… » de la page 1
     window.setInterval(function () { // la barre n'existe que tant que le calendrier est affiché
-      if (!selDay) return;
-      var v = document.getElementById('goalsMonthView');
+      if (!selDay && dayMode !== 'goal') return;
+      var v = calIntegrated() ? $('goalsDetailScroll') : document.getElementById('goalsMonthView');
       if (!v || !v.getClientRects().length) selectGoalsDay(null);
     }, 400);
   }
   // Objectif périodique / hebdomadaire : UN champ (la barre) + « Enregistrer », dans le même dock que l'ajout de tâche.
   function openGoalEdit(kind, period, weekIndex, current, label, desc) {
-    selDay = null; renderGoalsMonthCal(); buildGoalsDayDock();
+    selDay = calIntegrated() ? curSel() : null; renderGoalsMonthCal(); buildGoalsDayDock();
     dayMode = 'goal'; goalEdit = { kind: kind, period: period, weekIndex: weekIndex };
     dayKicker.textContent = label; dayMsg.textContent = ''; dayBody.textContent = ''; dayBody.classList.remove('hidden');
     var f1 = document.createElement('div'); f1.className = 'goalsEditField'; var l1 = document.createElement('p'); l1.className = 'cmpBlockTitle'; l1.textContent = t('Titre'); f1.appendChild(l1); f1.appendChild(goalTitleIn);
@@ -957,7 +958,7 @@
     }
     goalTitleIn.value = current || ''; goalDescIn.value = desc || '';
     dayDock.classList.add('expSave'); saveBtn.disabled = !goalTitleIn.value.trim(); // la barre d'écriture devient UN bouton plein-largeur
-    dayDock.classList.remove('hidden'); window.setTimeout(function () { goalTitleIn.focus(); }, 60);
+    dayDock.classList.remove('hidden'); syncToday(); window.setTimeout(function () { goalTitleIn.focus(); }, 60);
   }
   function saveGoalEdit() {
     var text = goalTitleIn.value.trim(), desc = goalDescIn.value.trim(); if (!goalEdit || !text) return;
@@ -968,7 +969,9 @@
       .then(reloadGoalsAll).then(done).catch(function (err) { saveBtn.disabled = false; dayMsg.textContent = (err && err.message) || t('Impossible pour le moment.'); });
   }
   function selectGoalsDay(iso) {
-    if (dayMode === 'goal') { restoreMain(); dayMode = 'day'; goalEdit = null; if (dayDock) { dayDock.classList.remove('expSave'); dayBody.textContent = ''; dayText.value = ''; dayText.placeholder = t('Nouvelle tâche…'); } if (!iso) { if (dayDock) dayDock.classList.add('hidden'); selDay = null; renderGoalsMonthCal(); return; } }
+    var hook = calIntegrated() ? calHook : null; // calendrier intégré à la vue Tâches : le jour touché filtre la liste de la vue (hook.pick), jamais le dock de la page 3
+    if (dayMode === 'goal') { restoreMain(); dayMode = 'day'; goalEdit = null; if (dayDock) { dayDock.classList.remove('expSave'); dayBody.textContent = ''; dayText.value = ''; dayText.placeholder = t('Nouvelle tâche…'); } if (!iso || hook) { if (dayDock) dayDock.classList.add('hidden'); selDay = hook ? curSel() : null; renderGoalsMonthCal(); syncToday(); if (!iso) return; } }
+    if (hook) { if (iso) hook.pick(iso); return; }
     selDay = iso && iso !== selDay ? iso : null; // retoucher le même jour le désélectionne
     renderGoalsMonthCal();
     if (!selDay) { if (dayDock) dayDock.classList.add('hidden'); return; }
@@ -1500,6 +1503,7 @@
 
   // Clic sur une période de l'arbre : la page du milieu s'ouvre sur CETTE période (défilement latéral).
   function openGoalsDetail(category, periodNumber) {
+    TMT.goalsCalUnmount();
     closeGoalsDayAddForms();
     mainFormForceKey = periodNumber + '|' + category; // seule entrée qui ouvre d'emblée la création d'objectif périodique
     if (!applyGoalsMonthState(category, periodNumber)) { mainFormForceKey = null; return; }
@@ -1510,6 +1514,7 @@
 
   // Arrivée par balayage : période en cours du pôle affiché (période déjà choisie conservée si même catégorie).
   TMT.prepareGoalsMonth = function () {
+    TMT.goalsCalUnmount();
     closeGoalsDayAddForms();
     mainFormOpenKey = null; // arrivée par balayage / changement de secteur : carte « + Ajouter » par défaut
     // Page du milieu : on choisit un SECTEUR du pôle affiché (le pôle lui-même si sans secteur).
@@ -1554,6 +1559,68 @@
       box.appendChild(b);
     });
   }
+
+  // ----- Calendrier intégré à la vue Tâches (7 nov. 2026, demande d'Émilien) : UN SEUL calendrier. Le nœud #goalsDetailScroll (celui de la page 3, aucune copie) est posé dans un hôte de la vue Tâches
+  // quand son filtre désigne un pôle ou un secteur ; toutes ses fonctions restent (cadres, objectifs hebdomadaires et périodique, éditeur). Le jour touché est confié à la vue Tâches (crochet : liste filtrée + barre d'ajout). -----
+  var calHostEl = null, calHook = null, calLoadSeq = 0;
+  function calIntegrated() { var sc = $('goalsDetailScroll'); return !!(calHostEl && sc && sc.parentNode === calHostEl); }
+  function curSel() { return calHook && calHook.current ? calHook.current() : null; }
+  function syncToday() { if (TMT.todayView && TMT.todayView.syncDock) TMT.todayView.syncDock(); }
+  TMT.goalsCalMount = function (host, hook) {
+    var sc = $('goalsDetailScroll'); if (!sc || !host) return;
+    calHostEl = host; calHook = hook || null; if (sc.parentNode !== host) host.appendChild(sc);
+    selDay = curSel();
+  };
+  // Rend le nœud à la page 3 (elle va s'ouvrir) ; la vue Tâches en est prévenue (hook.released).
+  TMT.goalsCalUnmount = function () {
+    if (!calHostEl) return;
+    if (dayMode === 'goal') selectGoalsDay(null);
+    var sc = $('goalsDetailScroll'), back = $('goalsMonthView'), hook = calHook;
+    if (sc && back && sc.parentNode === calHostEl) back.appendChild(sc);
+    calHostEl = null; calHook = null; selDay = null;
+    if (hook && hook.released) hook.released();
+  };
+  TMT.goalsCalCloseEditor = function () { if (dayMode === 'goal') selectGoalsDay(null); };
+  TMT.goalsCalEditing = function () { return dayMode === 'goal' && !!dayDock && !dayDock.classList.contains('hidden'); };
+  TMT.goalsCalSetSel = function (iso) { if (!calIntegrated()) return; if (dayMode === 'goal') return; selDay = iso || null; renderGoalsMonthCal(); };
+  TMT.goalsCalMonthIso = function () { return calMonth ? calMonth.y + '-' + String(calMonth.m + 1).padStart(2, '0') + '-01' : null; };
+  // o : { activityId, poleKey, secteurKey (facultatif), periodNumber (facultatif), date (facultatif) } ; host : conteneur de la vue Tâches ; hook : { current(), pick(iso), released() }.
+  // Pose le contexte (activité, pôle, secteur) comme openGoalsForActivity / openGoalsDetail, sans ouvrir la fenêtre de l'activité. -> Promise<false | { poleLabel, sectorLabel }>
+  TMT.showGoalsCalendar = function (o, host, hook) {
+    o = o || {};
+    var aid = o.activityId == null ? '' : String(o.activityId), cat = o.secteurKey || o.poleKey;
+    if (!aid || !cat || !host) return Promise.resolve(false);
+    var list = TMT.getActivitiesCache() || [], idx = -1;
+    list.forEach(function (a, i) { if (idx === -1 && String(a.id) === aid) idx = i; });
+    if (idx === -1) return Promise.resolve(false);
+    var act = list[idx];
+    if (TMT.currentGoalsActivityId !== aid) {
+      TMT.currentGoalsActivityIndex = idx; TMT.currentGoalsActivityId = aid; TMT.currentGoalsActivityIsShared = act.membersCount > 1;
+      if (TMT.resetGoalsObjectifsState) TMT.resetGoalsObjectifsState();
+      TMT.currentGoalsActivityColor = act.color; $('goalsActivityName').textContent = act.name;
+    }
+    var token = ++calLoadSeq;
+    TMT.currentGoalsSelectedPoleKey = o.poleKey || cat; TMT.currentGoalsSelectedSecteurKey = cat;
+    return TMT.reloadGoalsAll().then(function () {
+      if (token !== calLoadSeq) return false;
+      var by = (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.byCategory) || {}, planning = by[cat];
+      if (!planning) return false;
+      var periods = (planning.periods || []).slice().sort(function (a, b) { return a.startDate < b.startDate ? -1 : 1; });
+      var date = /^\d{4}-\d{2}-\d{2}$/.test(String(o.date || '')) ? o.date : null, per = o.periodNumber != null && goalPeriodByNumber(planning, o.periodNumber) ? o.periodNumber : null;
+      if (per == null) {
+        var q = date || isoToday(), hit = periods.filter(function (p) { return p.startDate <= q && p.endDate >= q; })[0] || periods.filter(function (p) { return p.startDate > q; })[0] || periods[periods.length - 1];
+        per = hit ? hit.periodNumber : planning.currentPeriodNumber;
+      }
+      if (!applyGoalsMonthState(cat, per)) return false;
+      if (!date) { var vp = goalPeriodByNumber(planning, TMT.currentGoalsViewPeriodNumber); date = vp && !vp.isCurrent ? isoAddDays(vp.startDate, 14) : isoToday(); }
+      TMT.goalsCalMount(host, hook);
+      calMonth = null; TMT.goalsCalGoTo(date); renderActivityGoals();
+      api('POST', '/api/activities/' + aid + '/goals/categories/' + encodeURIComponent(cat) + '/mark-seen').then(loadGoalsCaptureBadges).catch(function () {});
+      var cols = TMT.currentGoalsGridColumns || [], poles = (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.categories) || [];
+      var sec = cols.filter(function (c) { return c.key === cat; })[0], pol = poles.filter(function (p) { return p.key === (o.poleKey || cat); })[0];
+      return { poleLabel: pol ? pol.label : '', sectorLabel: sec && cat !== (o.poleKey || cat) ? sec.label : '' };
+    }).catch(function () { return false; });
+  };
 
   TMT.isGoalsMonthOpen = function () { return !!TMT.getGoalsPage2Mode && TMT.getGoalsPage2Mode() === 'month'; };
 
