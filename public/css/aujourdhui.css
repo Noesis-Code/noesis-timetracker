@@ -118,6 +118,9 @@
 .tasksWeek .cmpNavLabel { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding: 0; border: 0; background: none; font-family: inherit; color: var(--text-light); cursor: pointer; }
 .tasksWeek .cmpNavLabel .cmpChev { margin-left: 0; width: 20px; transform: rotate(90deg); }
 .tasksWeek .cmpNavLabel .cmpChev.open { transform: rotate(-90deg); }
+.tasksWeekFrame { display: flex; align-items: center; gap: 4px; touch-action: pan-y; } /* flèches de part et d'autre du calendrier, centrées sur lui */
+.tasksWeekGrid { flex: 1; min-width: 0; }
+.tasksWeek .goalsCalNav { justify-content: center; }
 .tasksWeek .goalsCalHead { margin-bottom: 4px; }
 .tasksWeek .goalsCalWeek { margin-top: 4px; }
 .tasksWeek .goalsCalWeek:first-child { margin-top: 0; }

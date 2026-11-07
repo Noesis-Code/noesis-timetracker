@@ -78,7 +78,7 @@
   function addDays(s, n) { var d = fromIso(s); d.setDate(d.getDate() + n); return isoOf(d); }
   function mondayOf(s) { return addDays(s, -((fromIso(s).getDay() + 6) % 7)); }
   function cap1(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-  function buildCal() { calBox = el('div', 'tasksWeek'); calAnchor = dayIso(); paintCal(); return calBox; }
+  function buildCal() { calBox = el('div', 'tasksWeek'); calAnchor = dayIso(); paintCal(); bindCalSwipe(); return calBox; }
   function paintCal() {
     if (!calBox) return;
     calBox.textContent = '';
@@ -93,10 +93,11 @@
     label.addEventListener('click', function () { calExpanded = !calExpanded; paintCal(); });
     prev.addEventListener('click', function () { stepCal(-1); });
     next.addEventListener('click', function () { stepCal(1); });
-    nav.appendChild(prev); nav.appendChild(label); nav.appendChild(next); calBox.appendChild(nav);
+    nav.appendChild(label); calBox.appendChild(nav); // libellé du mois seul en haut ; les flèches encadrent le calendrier (centrées sur lui, elles descendent quand le mois se déploie)
+    var frame = el('div', 'tasksWeekFrame'), grid = el('div', 'tasksWeekGrid');
     var head = el('div', 'goalsCalHead');
     for (var k = 0; k < 7; k++) head.appendChild(el('span', null, cap1(new Date(2024, 0, 1 + k).toLocaleDateString(loc, { weekday: 'narrow' })))); // 1er janv. 2024 = lundi
-    calBox.appendChild(head);
+    grid.appendChild(head);
     var first, rows, month = fromIso(anchor).getMonth();
     if (calExpanded) { var f = anchor.slice(0, 8) + '01', fd = fromIso(f); first = mondayOf(f); rows = Math.ceil((((fd.getDay() + 6) % 7) + new Date(fd.getFullYear(), month + 1, 0).getDate()) / 7); }
     else { first = mondayOf(anchor); rows = 1; }
@@ -109,8 +110,20 @@
         (function (d) { cell.addEventListener('click', function () { pickDay(d); }); })(di);
         days.appendChild(cell);
       }
-      week.appendChild(days); calBox.appendChild(week);
+      week.appendChild(days); grid.appendChild(week);
     }
+    frame.appendChild(prev); frame.appendChild(grid); frame.appendChild(next); calBox.appendChild(frame);
+  }
+  // Balayage sur le calendrier : change de semaine (ou de mois déployé), jamais de page (les écouteurs de page ne voient pas le geste).
+  function bindCalSwipe() {
+    var x0 = 0, y0 = 0, on = false;
+    calBox.addEventListener('touchstart', function (e) { e.stopPropagation(); on = e.touches.length === 1; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    calBox.addEventListener('touchmove', function (e) { e.stopPropagation(); }, { passive: true });
+    calBox.addEventListener('touchend', function (e) {
+      e.stopPropagation(); if (!on) return; on = false;
+      var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) stepCal(dx < 0 ? 1 : -1);
+    }, { passive: true });
   }
   function stepCal(n) {
     if (calExpanded) { var d = fromIso((calAnchor || dayIso()).slice(0, 8) + '01'); d.setMonth(d.getMonth() + n); calAnchor = isoOf(d); }
