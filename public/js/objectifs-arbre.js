@@ -216,12 +216,27 @@
   }
   if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (visible) fitTree(); });
   // Repère de période (mêmes classes que la page 2) : à venir = numéro cerclé, courante = pastille pleine, passée = point. En zoom Année : les deux derniers chiffres de l'année.
-  function marker(rw, here) {
+  // Dernier niveau (secteurs) : toucher le repère d'une PÉRIODE ouvre le calendrier (page 3) de cette période, par l'ouverture existante (openGoalsPeriodFromNotification) ; rien d'autre n'est ajouté.
+  function openCalendar(rw) {
+    if (!focus || focus.activityId == null || !focus.poleKey || !rw.p || !TMT.openGoalsPeriodFromNotification) return;
+    var aid = focus.activityId, d0 = new Date(Date.UTC(rw.y, 0, 1)); d0.setUTCDate(d0.getUTCDate() + (rw.p - 1) * PER_DAYS);
+    var s0 = d0.toISOString().slice(0, 10), e0 = rw.p < PER_YEAR ? new Date(d0.getTime() + (PER_DAYS - 1) * 86400000).toISOString().slice(0, 10) : rw.y + '-12-31';
+    TMT.api('GET', '/api/activities/' + aid + '/goals/all-for-pole?poleKey=' + encodeURIComponent(focus.poleKey) + '&year=' + rw.y).then(function (r) {
+      var by = (r && r.byCategory) || {}, keys = curCols.map(function (c) { return c.key; }).filter(function (k) { return by[k]; }).concat(Object.keys(by));
+      for (var i = 0; i < keys.length; i++) {
+        var hit = ((by[keys[i]] && by[keys[i]].periods) || []).filter(function (p) { return p.startDate <= e0 && p.endDate >= s0; })[0];
+        if (hit) { TMT.openGoalsPeriodFromNotification(aid, keys[i], hit.periodNumber); return; }
+      }
+      say(tr('Aucune période du calendrier à ces dates.'));
+    }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });
+  }
+  function marker(rw, here, onTap) {
     var oval = !rw.p, st = rw.rank > here.rank ? 'future' : rw.rank === here.rank ? 'current' : 'past', m = el('span', 'goalsRowMarker goalsRowMarker--' + st + (oval ? ' goalsRowMarker--ovale' : ''));
     var label = rw.block ? rw.y + '-' + rw.y2 : rw.p ? String(rw.p) : String(rw.y);
     m.setAttribute('aria-label', rw.p ? tr('Période') + ' ' + rw.p + ' · ' + rw.y : label);
     if (st !== 'past') m.textContent = label;
     if (st === 'current') { m.style.background = 'var(--text)'; m.style.color = 'var(--bg)'; }
+    if (onTap) { m.setAttribute('role', 'button'); m.tabIndex = 0; m.style.cursor = 'pointer'; m.addEventListener('click', onTap); }
     return m;
   }
   // Année en OVALE (4 chiffres) sur la première ligne de l'année, aux niveaux des périodes : même composant que les repères, contour fin ; pleine pour l'année courante.
@@ -343,7 +358,7 @@
     var lastY = null;
     list.forEach(function (rw, r) {
       var row = el('div', 'goalsGridRow'); row.setAttribute('data-rank', String(rw.rank));
-      row.appendChild(marker(rw, here));
+      row.appendChild(marker(rw, here, lvl === 'secteur' && rw.p ? function () { openCalendar(rw); } : null));
       if (rw.y !== lastY) { if (rw.p) row.appendChild(yearOval(rw.y)); } lastY = rw.y;
       var macs = macrosAt[rw.rank] || [], skip = {}, extra = [];
       macs.forEach(function (mm) { // inline si aucune carte n'occupe les colonnes traversées dans cette case ; sinon dans une rangée de macro juste au-dessus (signalé)
