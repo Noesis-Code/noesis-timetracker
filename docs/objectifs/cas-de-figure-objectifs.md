@@ -748,3 +748,7 @@ Cause du « impossible de fusionner » dans les années et les périodes : les o
 
 ## Création depuis une bulle ou une case vide : plus de page Activité (8 nov. 2026)
 - L'activité est imposée par la bulle : la page « Activité » est retirée du parcours (Description → Temps…). Depuis la barre sans bulle, elle reste (choix libre).
+
+## Responsables d'une activité (8 nov. 2026, lot 1 serveur)
+- Table `activity_managers` ; le propriétaire est toujours responsable (jamais retirable) ; seuls les membres de l'activité peuvent l'être ; tous les responsables sont égaux ; un responsable d'activité l'est aussi de ses pôles et secteurs.
+- Routes : GET/PUT `/api/activities/:id/responsables`, DELETE `/api/activities/:id/responsables/:userId`. Pas encore d'interface : titre de l'arbre (Feuille de route) et paramètres de l'activité (Réglages) à brancher par leurs sessions.

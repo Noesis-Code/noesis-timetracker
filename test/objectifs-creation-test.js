@@ -221,7 +221,7 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(arSrc.includes('function editToggle') && arSrc.includes('function removeCross') && arSrc.includes('if (editMode) { b.appendChild(removeCross(o)); return b; }') && crSrc.includes('function confirmDelete') && arCss.includes('.arEditing .arCard { animation: tabJiggle') && !arSrc.includes('openDetail(o.id); }); // arbre macro'), 'mode édition : crayon sous « Objectifs », cartes qui tremblent avec croix rouge (confirmation, rattachés détachés), toucher = paramètres ; hors édition toucher une carte descend d’un niveau, jamais de panneau');
   assert((arSrc.match(/removeCross[(]/g) || []).length >= 4 && arSrc.includes("tree.classList.toggle('arEditing', editMode)") && arSrc.includes('Supprimer quel objectif ?') && arSrc.includes("rw.block") && arSrc.includes("'/' + ('0' + (rw.y2 % 100)).slice(-2)") && !arSrc.includes('arBlockTag') && arSrc.includes('var mw = 46'), 'mode édition : une croix sur chaque carte d’objectif (simple, macro, « N objectifs » avec choix), classe posée sur l’arbre entier ; repères étroits de 46 px, blocs « 26/30 »');
   assert(arSrc.includes('function startExtend') && arSrc.includes('function startExtendEdit') && arSrc.includes("'/api/objectifs/macro'") && crSrc.includes('function openExtend') && crSrc.includes('extendCancel') && arSrc.includes('!== ext.rank'), 'mode Étendre : appui long relâché sur place, seules les cases de la LIGNE de la carte touchée (colonnes éligibles) se choisissent, ailleurs = annuler, barre « Enregistrer » pleine largeur');
-  assert(pj('public', 'js', 'objectifs-page3.js').includes('Détail de l’objectif') && pj('server', 'lib', 'objectifs.js').includes('category: meta.category'), 'détail complet d’un objectif de secteur : lien « Détail de l’objectif » dans le panneau de l’objectif périodique du calendrier');
+  assert(pj('server', 'lib', 'objectifs.js').includes('category: meta.category'), 'détail complet d’un objectif de secteur : (le lien du calendrier a été retiré avec l’éditeur du calendrier, 8 nov. 2026)');
   assert(arSrc.includes('var mrows = []') && arSrc.includes('x.m.endDate') && arSrc.includes('macroCard(hit.m'), 'macros chaînés : un macro peut avoir un macro pour enfant, les cartes larges s’empilent (le plus lointain en haut) sans se masquer');
   assert(crSrc.includes("{ endDate: form.endDate, title: form.title") && !crSrc.includes('level: form.level, poleKey: form.poleKey, title: form.title'), 'proposition de rattachement : une seule règle, l’échéance du parent est au moins celle du nouvel objectif');
   assert(crSrc.includes('function paintMacro') && crSrc.includes("'/api/objectifs/macro'") && crSrc.includes('macroDecided') && crSrc.includes('Annuler le macro'), 'macro proposé : avant / après, Accepter ou Refuser, nom et activités modifiables, créé après l’objectif, jamais en silence');
@@ -291,6 +291,24 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(demoRows.some((r) => r.parentId != null) && demoRows.some((r) => JSON.parse(r.metaJson).abandoned) && demoRows.every((r) => JSON.parse(r.metaJson).demo === true), 'démo : étapes (parentId), un abandonné, tous marqués démonstration');
   const envBefore = process.env.RAILWAY_ENVIRONMENT_NAME; process.env.RAILWAY_ENVIRONMENT_NAME = 'production';
   assert(seedMod.seedDemoObjectives(db).skipped, 'démo : jamais en production'); process.env.RAILWAY_ENVIRONMENT_NAME = envBefore;
+  // Responsables d'une activité : propriétaire toujours responsable, ajout/retrait, seuls les membres, tous égaux
+  {
+    const R = require('../server/lib/responsables');
+    const act = db.prepare('SELECT a.id, a.ownerId FROM activities a WHERE a.active = 1 AND a.ownerId IS NOT NULL AND (SELECT COUNT(*) FROM activity_members m WHERE m.activityId = a.id) >= 2 LIMIT 1').get();
+    if (!act) console.log('  (aucune activité partagée dans la base de test : responsables ignorés)');
+    else {
+      const other = db.prepare('SELECT userId FROM activity_members WHERE activityId = ? AND userId <> ? LIMIT 1').get(act.id, act.ownerId).userId;
+      const stranger = db.prepare('SELECT id FROM users WHERE id NOT IN (SELECT userId FROM activity_members WHERE activityId = ?) LIMIT 1').get(act.id);
+      let l = R.lister(act.ownerId, act.id);
+      assert(l.canManage && l.members.some((x) => x.owner && x.manager) && !l.members.find((x) => x.id === other).manager, 'responsables : le propriétaire l’est toujours, un membre simple non');
+      let denied = false; try { R.ajouter(other, act.id, other); } catch (e) { denied = e.statusCode === 403; } assert(denied, 'responsables : un simple membre ne peut pas ajouter');
+      l = R.ajouter(act.ownerId, act.id, other); assert(l.members.find((x) => x.id === other).manager && R.isManager(other, act.id), 'responsables : le propriétaire ajoute un responsable');
+      const back = R.ajouter(other, act.id, act.ownerId); assert(back.members.find((x) => x.id === act.ownerId).manager, 'responsables : un responsable agit comme le propriétaire (tous égaux)');
+      let own = false; try { R.retirer(other, act.id, act.ownerId); } catch (e) { own = e.statusCode === 400; } assert(own, 'responsables : le propriétaire ne peut pas être retiré');
+      if (stranger) { let ns = false; try { R.ajouter(act.ownerId, act.id, stranger.id); } catch (e) { ns = e.statusCode === 400; } assert(ns, 'responsables : seul un membre peut être responsable'); }
+      l = R.retirer(act.ownerId, act.id, other); assert(!l.members.find((x) => x.id === other).manager, 'responsables : retrait d’un responsable');
+    }
+  }
   console.log(failed ? '\nobjectifs-creation-test : ' + failed + ' échec(s)' : '\nobjectifs-creation-test : OK');
   process.exit(failed ? 1 : 0);
 })();

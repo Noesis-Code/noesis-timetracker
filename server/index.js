@@ -212,6 +212,7 @@ app.use('/api', require('./routes/statsactivityprogress'));
 app.use('/api', require('./routes/goals'));
 // Objectifs de la Feuille de route (contexte, proposition d'étapes, création après validation, liste, détail).
 app.use('/api', require('./routes/objectifs'));
+app.use('/api', require('./routes/responsables')); // responsables d'une activité (8 nov. 2026)
 // Pôles/secteurs (gestion des catégories), extraits de routes/goals.js.
 app.use('/api', require('./routes/categories'));
 // Parcours d'achat de l'Offre 1 (8 septembre 2026) : démarrage du paiement
