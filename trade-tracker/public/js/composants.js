@@ -72,6 +72,25 @@
       b.appendChild(p); b.appendChild(document.createTextNode(label));
       return b;
     },
+    // Menu « ⋯ » (8 nov. 2026, demande d'Émilien) : petit bouton à trois points et son menu en verre (.statsPeriodMenu, posé sur la page par le mécanisme ci-dessous).
+    // items : [{ label, danger, onClick }]. Un seul composant pour tout ce qui se règle sur une ligne (membres d'une activité…).
+    dotsMenu: function (label, items) {
+      var wrap = document.createElement('div'); wrap.className = 'statsPeriodMenuWrap cmpDots';
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'menuBtn'; b.textContent = '⋯'; b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-label', label || 'Paramètres');
+      var menu = document.createElement('div'); menu.className = 'statsPeriodMenu hidden';
+      items.forEach(function (it) {
+        var x = document.createElement('button'); x.type = 'button'; x.className = 'statsPeriodMenuItem' + (it.danger ? ' danger' : ''); x.textContent = it.label;
+        x.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.add('hidden'); it.onClick(); });
+        menu.appendChild(x);
+      });
+      b.addEventListener('click', function (e) {
+        e.stopPropagation(); var open = menu.classList.contains('hidden');
+        document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+        if (open) menu.classList.remove('hidden');
+      });
+      wrap.appendChild(b); wrap.appendChild(menu);
+      return wrap;
+    },
     chev: function (open) { var s = document.createElement('span'); s.className = 'cmpChev' + (open ? ' open' : ''); s.setAttribute('aria-hidden', 'true'); return s; },
     // Petit bouton de statut (S46, P12…) à 3 états colorés : vert (atteint) / jaune (partiel) / rouge (non atteint) ; `state` null = transparent (à venir ou sans tâche, aucun fond, jamais de gris plein).
     // Un clic fait tourner vert -> jaune -> rouge -> vert (onClick reçoit l'état suivant) ; sans état il ne fait rien. Composant unique (.cmpStatus) pour les périodes ET les semaines.
@@ -262,14 +281,14 @@
     }
     function onMove(e) {
       if (e.pointerId !== pid) return;
-      if (!active) { if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) { if (o.onTrace) o.onTrace('annulé : le doigt a bougé de plus de 10 px'); clearTimeout(timer); document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); document.removeEventListener('pointercancel', onCancel); } return; }
+      if (!active) { if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) { clearTimeout(timer); document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); document.removeEventListener('pointercancel', onCancel); } return; }
       lastX = e.clientX; lastY = e.clientY; place();
     }
     function onUp(e) { if (e.pointerId === pid) finish(true); }
-    function onCancel(e) { if (e.pointerId === pid) { if (o.onTrace && !active) o.onTrace('annulé : pointercancel (le système a pris le geste : défilement)'); finish(false); } }
+    function onCancel(e) { if (e.pointerId === pid) finish(false); }
     row.addEventListener('pointerdown', function (e) {
       if (e.button > 0 || active || (o.ignoreSel && e.target.closest(o.ignoreSel))) return;
-      pid = e.pointerId; sx = lastX = e.clientX; sy = lastY = e.clientY; if (o.onTrace) o.onTrace('appui détecté (' + (e.pointerType || '?') + '), 500 ms…');
+      pid = e.pointerId; sx = lastX = e.clientX; sy = lastY = e.clientY;
       document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp); document.addEventListener('pointercancel', onCancel);
       clearTimeout(timer); timer = setTimeout(o.onHold ? function () { // appui long SANS glisser (carte fusionnée) : o.onHold() à la place du glisser
         document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); document.removeEventListener('pointercancel', onCancel); justDragged = Date.now(); o.onHold();

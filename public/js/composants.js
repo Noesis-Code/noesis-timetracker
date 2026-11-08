@@ -281,14 +281,14 @@
     }
     function onMove(e) {
       if (e.pointerId !== pid) return;
-      if (!active) { if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) { if (o.onTrace) o.onTrace('annulé : le doigt a bougé de plus de 10 px'); clearTimeout(timer); document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); document.removeEventListener('pointercancel', onCancel); } return; }
+      if (!active) { if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) { clearTimeout(timer); document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); document.removeEventListener('pointercancel', onCancel); } return; }
       lastX = e.clientX; lastY = e.clientY; place();
     }
     function onUp(e) { if (e.pointerId === pid) finish(true); }
-    function onCancel(e) { if (e.pointerId === pid) { if (o.onTrace && !active) o.onTrace('annulé : pointercancel (le système a pris le geste : défilement)'); finish(false); } }
+    function onCancel(e) { if (e.pointerId === pid) finish(false); }
     row.addEventListener('pointerdown', function (e) {
       if (e.button > 0 || active || (o.ignoreSel && e.target.closest(o.ignoreSel))) return;
-      pid = e.pointerId; sx = lastX = e.clientX; sy = lastY = e.clientY; if (o.onTrace) o.onTrace('appui détecté (' + (e.pointerType || '?') + '), 500 ms…');
+      pid = e.pointerId; sx = lastX = e.clientX; sy = lastY = e.clientY;
       document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp); document.addEventListener('pointercancel', onCancel);
       clearTimeout(timer); timer = setTimeout(o.onHold ? function () { // appui long SANS glisser (carte fusionnée) : o.onHold() à la place du glisser
         document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); document.removeEventListener('pointercancel', onCancel); justDragged = Date.now(); o.onHold();
