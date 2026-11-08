@@ -772,3 +772,9 @@ Appui long (téléphone) : même mécanique que l’appui long des activités et
 
 ## Gérer les responsables (8 nov. 2026, GO d'Émilien)
 - Réglages > activité (crayon) > Avancé > « Responsables » : ligne qui se déroule sur place (R36), composants existants (.cmpRemove, .cmpAdd). Visible seulement pour une activité partagée. Propriétaire en tête, non retirable ; seuls les membres peuvent être ajoutés ; tous égaux ; seul un responsable ajoute ou retire.
+
+## Création : une activité, puis pôle, puis secteur (8 nov. 2026, décisions d'Émilien)
+- Une seule activité par objectif. Après l'activité : « Pôle » puis « Secteur » (déroulés, facultatifs, secteur seulement après un pôle).
+- Le niveau vient du choix : activité seule = long, + pôle = moyen, + secteur = court. Court/Moyen/Long n'apparaît plus dans la page Temps ; le niveau gagne sur la durée (le serveur n'en refuse plus la combinaison, `creer` dans server/lib/objectifs.js).
+- Plus de page Rattachement ni de macro multi-activités : le parent de la même activité (échéance au moins égale) est choisi tout seul. Le macro se fait depuis l'arbre.
+- À retirer plus tard (code mort) : paintMacro, paintRatt, rattPending dans objectifs-creer.js.

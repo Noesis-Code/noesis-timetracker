@@ -237,6 +237,8 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(shortO.term === 'periode' && shortO.innerGoals === 'hebdomadaires', 'une seule période : périodique imposé et hebdomadaires seulement');
   const ed = o.parametres(u, made.id, { hoursPerWeek: 5, skill: 'débutant', inner: 'periodiques' });
   assert(ed.hoursPerWeek === 5 && ed.skill === 'débutant' && ed.innerGoals === 'periodiques' && ed.weekly === false, 'édition : heures, niveau et objectifs inclus enregistrés');
+  const lvlO = o.creer(u, { title: 'Niveau gagne', activityId: m.activityId, startDate: prop.startDate, endDate: '2026-12-01', level: 'activite', inner: 'hebdomadaires' });
+  assert(lvlO.term === 'pluriannuel', 'activité seule = long même avec une échéance courte (le niveau gagne sur la durée)');
   badT = false; try { o.parametres(u, shortO.id, { term: 'pluriannuel' }); } catch (e) { badT = true; } assert(badT, 'édition : terme incompatible avec l’échéance refusé');
   badT = false; try { o.parametres(u, made.id, { hoursPerWeek: 99 }); } catch (e) { badT = true; } assert(badT, 'édition : heures hors limites refusées');
   const bigG = o.creer(u, { title: 'Grand objectif', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-06-01', hoursPerWeek: 2 });

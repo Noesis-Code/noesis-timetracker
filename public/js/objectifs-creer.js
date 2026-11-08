@@ -214,9 +214,9 @@
     var weeks = 0; out.forEach(function (r) { for (var t = r[0]; t <= r[1]; t += 7 * D) weeks++; });
     return { periods: out.length, weeks: weeks };
   }
-  function paintTermInto(box, form, days, onChange) {
-    var ok = termsFor(days); if (ok.indexOf(form.term) < 0) form.term = ok[ok.length - 1]; // imposé si un seul choix ; sinon, tant que rien n'est choisi, le terme le plus long permis
-    box.appendChild(field(tr('Terme'), segDisabled(TERMS.map(function (t) { return [t[0], tr(t[1])]; }), form.term, ok, function (k) { form.term = k; form.termTouched = true; if (onChange) onChange(); }, tr('Terme'))));
+  function paintTermInto(box, form, days, onChange, noTerm) { // noTerm : création, le terme se déduit du niveau (activité = long, pôle = moyen, secteur = court)
+    var ok = termsFor(days); if (!noTerm && ok.indexOf(form.term) < 0) form.term = ok[ok.length - 1]; // imposé si un seul choix ; sinon, tant que rien n'est choisi, le terme le plus long permis
+    if (!noTerm) box.appendChild(field(tr('Terme'), segDisabled(TERMS.map(function (t) { return [t[0], tr(t[1])]; }), form.term, ok, function (k) { form.term = k; form.termTouched = true; if (onChange) onChange(); }, tr('Terme'))));
     // Objectifs inclus : deux cases (cochées par défaut quand c'est possible, au moins une reste cochée) avec le nombre de chacun ; une seule période (≤ 28 jours) : hebdomadaires seulement, périodiques grisés
     var multi = multiOf(days), cnt = goalCounts(form, days), per = multi && form.innerGoals !== 'hebdomadaires', wk = form.innerGoals !== 'periodiques';
     var gs = el('div', 'cmpSeg'); gs.setAttribute('role', 'group'); gs.setAttribute('aria-label', tr('Objectifs inclus'));
@@ -293,13 +293,21 @@
         if (own) { lock.appendChild(choice(own.name, tr(LEVEL_LABEL[form.level]) + (form.ctxLabel ? ' · ' + form.ctxLabel : ''), true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), lock)); return; }
       }
       var inTree = {}; (ctx.objectives || []).forEach(function (o) { inTree[o.activityId] = true; });
-      function card(a) { var on = form.acts.indexOf(a.id) >= 0; return choice(a.name, a.id === ctx.suggestedActivityId ? tr('Proposée') : '', on, a.color, function () { if (on) form.acts.splice(form.acts.indexOf(a.id), 1); else form.acts.push(a.id); syncMain(); refresh(); }); }
+      function card(a) { var on = form.acts.indexOf(a.id) >= 0; return choice(a.name, a.id === ctx.suggestedActivityId ? tr('Proposée') : '', on, a.color, function () { form.acts = on ? [] : [a.id]; form.news = []; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; syncMain(); refresh(); var nx = actBox.querySelector('.goalsPlacementField'); if (nx && nx.scrollIntoView) nx.scrollIntoView({ block: 'nearest' }); }); }
       var here = acts.filter(function (a) { return inTree[a.id]; }), notYet = acts.filter(function (a) { return !inTree[a.id]; });
       if (here.length) { var l1 = el('div', 'aiModeChoices'); here.forEach(function (a) { l1.appendChild(card(a)); }); actBox.appendChild(field(tr('Dans l’arbre'), l1)); }
       var l2 = el('div', 'aiModeChoices');
       notYet.forEach(function (a) { l2.appendChild(card(a)); });
       form.news.forEach(function (n) { l2.appendChild(choice(n.name, tr('Nouvelle activité'), true, n.color, function () { form.news = form.news.filter(function (x) { return x !== n; }); syncMain(); refresh(); })); });
       if (notYet.length || form.news.length) actBox.appendChild(field(tr('Pas encore dans l’arbre'), l2));
+      // Pôle puis secteur (déroulés, facultatifs) : activité seule = objectif long, + pôle = moyen, + secteur = court (le niveau gagne sur la durée).
+      var one = form.acts.length === 1 ? actById(form.acts[0]) : null;
+      function drop(none, items, cur, onPick) { var w = el('div', 'goalsPlacementField'), sl = el('select'); var o0 = el('option', null, none); o0.value = ''; sl.appendChild(o0); items.forEach(function (x) { var o = el('option', null, x.label); o.value = x.key; sl.appendChild(o); }); sl.value = cur || ''; sl.addEventListener('change', function () { onPick(sl.value || null); }); w.appendChild(sl); return w; }
+      if (one && (one.poles || []).length) {
+        actBox.appendChild(field(tr('Pôle'), drop(tr('Aucun pôle'), one.poles, form.poleKey, function (k) { form.poleKey = k; form.categoryKey = null; form.level = k ? 'pole' : 'activite'; refresh(); })));
+        var pl = one.poles.filter(function (x) { return x.key === form.poleKey; })[0];
+        if (pl && (pl.secteurs || []).length) actBox.appendChild(field(tr('Secteur'), drop(tr('Aucun secteur'), pl.secteurs, form.categoryKey, function (k) { form.categoryKey = k; form.level = k ? 'secteur' : 'pole'; refresh(); })));
+      }
     }
     // Étape « Temps » : échéance (ci-dessus), format des périodes, objectifs hebdomadaires, puis un petit tableau : « Nombre recommandé » (valeur seule) et « Heures par semaine » (champ modifiable).
     function fmtH(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
@@ -308,7 +316,7 @@
     form.innerGoals = form.innerGoals || 'les_deux';
     function multiPeriods() { return multiOf(daysLeft()); }
     var pdBox = el('div'); // périodes fixes de 4 semaines : seul le terme et les objectifs inclus se choisissent
-    function paintPeriods() { pdBox.textContent = ''; paintTermInto(pdBox, form, daysLeft()); }
+    function paintPeriods() { pdBox.textContent = ''; form.term = { activite: 'pluriannuel', pole: 'annee', secteur: 'periode' }[form.level || 'activite']; paintTermInto(pdBox, form, daysLeft(), null, true); }
     boxes.temps.appendChild(pdBox);
     // Page « Heures » : une ligne par activité choisie (valeur de départ : son historique Chrono), modifiable.
     // Activité NOUVELLE : on demande d'où vient ce temps : « S'ajoute » à mon temps actuel, ou « Pris sur » une autre activité (à choisir).
@@ -341,7 +349,7 @@
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
     var stepNames = { desc: 'Description', rattach: 'Rattachement', temps: 'Temps', heures: 'Heures', activite: 'Activité', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(['temps']).concat(form.ratt && (form.ratt.cand || (form.ratt.macro && !form.macroDecided)) ? ['rattach'] : []).concat(needsLevel() ? ['niveau'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
+    function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(['temps']).concat(needsLevel() ? ['niveau'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     // Étape « Rattachement » : seulement s'il existe un candidat dans l'activité ; PROPOSITION (règles, ou IA si permis) : Accepter (avec Avant | Après) ou Refuser (refus mémorisé, l'objectif reste un sommet séparé).
     function dueOf(id) { var x = (ctx.objectives || []).filter(function (o) { return o.id === id; })[0]; return x && x.endDate ? ' · ' + tr('jusqu’au') + ' ' + dateText(x.endDate) : ''; } // échéance du parent proposé
     function rattPending() { // « Suivant » reste grisé tant qu'une proposition affichée n'est pas décidée (jamais de choix silencieux)
@@ -409,8 +417,7 @@
       if (form.create || form.activityId == null || form.acts.length + form.news.length > 1) return Promise.resolve(); // plusieurs activités : macro, pas de rattachement
       return api('POST', '/api/objectifs/rattachement', { endDate: form.endDate, title: form.title, activityId: form.activityId, // une seule règle : le parent a une échéance au moins égale à celle du nouvel objectif
  refused: form.refused || [] }).then(function (r) {
-        if (r && r.candidate) { form.ratt.cand = r.candidate; form.ratt.rel = r.rel || 'apres'; }
-        if (r && r.macro && r.macro.candidates && r.macro.candidates.length) form.ratt.macro = r.macro; // proposition de macro multi-activités (règles)
+        if (r && r.candidate) { form.ratt.cand = r.candidate; form.ratt.rel = r.rel || 'apres'; form.ratt.decided = 'accept'; form.parentId = r.candidate.id; form.parentRel = form.ratt.rel; } // parent de la même activité choisi tout seul (8 nov. 2026), plus de page Rattachement ni de macro multi-activités
       }).catch(function () {});
     }
     function show(k) {

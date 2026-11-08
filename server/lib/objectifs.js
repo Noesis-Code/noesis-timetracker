@@ -181,7 +181,7 @@ function rankActivities(userId, text) {
   return userActivities(userId).map((a) => {
     const aw = words(a.name + ' ' + labelsOf(a.id).join(' ')).map(stemOf);
     const score = aw.filter((w, i) => aw.indexOf(w) === i && tw.has(w)).length;
-    return { id: a.id, name: a.name, color: a.color, score };
+    return { id: a.id, name: a.name, color: a.color, score, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, secteurs: goals.secteursForPole(a.id, p.key).map((x) => ({ key: x.key, label: x.label })) })) }; // pôles et secteurs : choisis après l'activité (le niveau en découle)
   }).sort((x, y) => y.score - x.score);
 }
 function suggestedActivityName(text) {
@@ -548,8 +548,10 @@ function creer(userId, body) {
   const periodWeeks = userPW();
   // Terme (périodique, moyen, long) et objectifs inclus (périodiques, hebdomadaires, les deux), 7 nov. 2026 : vérifiés ici ; une seule période = hebdomadaires seulement.
   const termsOk = temps.termes(start, body.endDate);
-  if (body.term != null && !termsOk.includes(body.term)) throw err('Ce terme n’est pas possible pour cette échéance.');
-  const term = body.term || termsOk[termsOk.length - 1];
+  // 8 nov. 2026 (Émilien) : le NIVEAU gagne sur la durée. Activité seule = long, + pôle = moyen, + secteur = court ; l'échéance ne refuse plus un niveau.
+  const LEVEL_TERM = { activite: 'pluriannuel', pole: 'annee', secteur: 'periode' };
+  if (!['activite', 'pole', 'secteur'].includes(body.level) && body.term != null && !termsOk.includes(body.term)) throw err('Ce terme n’est pas possible pour cette échéance.');
+  const term = ['activite', 'pole', 'secteur'].includes(body.level) ? LEVEL_TERM[body.level] : (body.term || termsOk[termsOk.length - 1]);
   const innerReq = ['periodiques', 'hebdomadaires', 'les_deux'].includes(body.inner) ? body.inner : (body.weekly === false ? 'periodiques' : 'les_deux');
   const inner = daysBetween(start, body.endDate) > 28 ? innerReq : 'hebdomadaires';
   const weekly = inner !== 'periodiques';
