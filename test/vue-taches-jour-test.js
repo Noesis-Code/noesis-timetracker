@@ -23,7 +23,7 @@ assert(/dayKind\(\)/.test(js) && /kind === 'past'[\s\S]{0,200}filter\(function \
 assert(/\.tasksToday\.dayPast \.tasksPopCheck[^}]*pointer-events: none/.test(css) && /\.tasksToday\.dayPast \.goalsTaskEditBtn \{ display: none/.test(css), 'jour passé : lecture seule (case inactive, modification masquée)');
 assert(/dayIso\(\) < localIso\(\)[\s\S]{0,160}Pas d’ajout dans un jour passé/.test(js), 'ajout refusé dans le passé avec un message court');
 assert(/state\.date \|\| dayIso\(\)/.test(js), 'jour futur choisi : les ajouts sont datés de ce jour');
-assert(/hide: function \(\) \{ shown = false; if \(TMT\.goalsCalCloseEditor\) TMT\.goalsCalCloseEditor\(\); resetDay\(\)/.test(js) && /resetSort: function \(\) \{\s*resetDay\(\)/.test(js), 'en quittant la vue ou en arrivant d\'un autre module : retour à aujourd\'hui');
+assert(/hide: function \(\) \{ shown = false; resetDay\(\)/.test(js) && /resetSort: function \(\) \{\s*resetDay\(\)/.test(js), 'en quittant la vue ou en arrivant d\'un autre module : retour à aujourd\'hui');
 assert(js.includes("kind === 'today' ? 'Rien pour aujourd’hui.' : 'Aucune tâche ce jour-là.'"), 'journée sans tâche : message vide propre au jour');
 
 // Tri Objectif : tâches sans objectif visibles, objectifs les plus proches du jour choisi
