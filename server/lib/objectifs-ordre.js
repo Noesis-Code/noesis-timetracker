@@ -50,7 +50,9 @@ function baseOrder(userId, level, scope) {
 // Clés des colonnes (du périmètre) reliées par chaque groupe de macros du niveau.
 function groupsIn(userId, level, scope) {
   const sc = scopeOf(level, scope);
-  return require('./objectifs').macroGroups(userId).filter((g) => g.level === level).map((g) => {
+  const t = Date.parse(require('./dates').userToday() + 'T00:00:00Z'), dist = (g) => Math.abs(Date.parse(String(g.endDate) + 'T00:00:00Z') - t) || 0;
+  // deux macros de lignes différentes peuvent partager une colonne : le macro le plus proche d'aujourd'hui est appliqué EN DERNIER, c'est lui qui décide du voisinage (ordre stable, jamais d'erreur)
+  return require('./objectifs').macroGroups(userId).filter((g) => g.level === level).sort((x, y) => dist(y) - dist(x) || x.id - y.id).map((g) => {
     const keys = [];
     g.columns.forEach((c) => {
       let k = null;

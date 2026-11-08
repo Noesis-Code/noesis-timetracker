@@ -386,6 +386,17 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
       const sA = mk('Pôle sans parent A', { level: 'pole', poleKey: pl[0].key, endDate: '2027-12-31' }), sB = mk('Pôle sans parent B', { level: 'pole', poleKey: pl[1].key, endDate: '2027-12-31' });
       const ms = o.fusionnerEnMacro(u, { title: 'Sans parent', childIds: [sA.id, sB.id] });
       assert(o.get(u, ms.id).macroColumns.length === 2 && o.supprimer(u, ms.id, true).ok && o.get(u, sA.id).parentId === null && o.get(u, sB.id).parentId === null, 'fusion sans aucun parent : macro à 2 colonnes, séparer remet des sommets');
+      // lignes différentes : un macro de 2027 puis un macro de 2035 sur les MÊMES colonnes sont permis ; deux macros sur la MÊME ligne restent refusés
+      const l1 = mk('Ligne 2027 A', { level: 'pole', poleKey: pl[0].key, endDate: '2027-12-30' }), l2 = mk('Ligne 2027 B', { level: 'pole', poleKey: pl[1].key, endDate: '2027-12-30' });
+      const l3 = mk('Ligne 2035 A', { level: 'pole', poleKey: pl[0].key, endDate: '2035-12-30' }), l4 = mk('Ligne 2035 B', { level: 'pole', poleKey: pl[1].key, endDate: '2035-12-30' });
+      const l5 = mk('Ligne 2027 C', { level: 'pole', poleKey: pl[0].key, endDate: '2027-06-30' }), l6 = mk('Ligne 2027 D', { level: 'pole', poleKey: pl[1].key, endDate: '2027-06-30' });
+      const m27 = o.fusionnerEnMacro(u, { title: 'M 2027', childIds: [l1.id, l2.id], level: 'pole' });
+      const m35 = bad(() => o.fusionnerEnMacro(u, { title: 'M 2035', childIds: [l3.id, l4.id], level: 'pole' }));
+      assert(!m35, 'macros de lignes différentes (2027 puis 2035) sur les mêmes colonnes : permis');
+      const mDup = bad(() => o.fusionnerEnMacro(u, { title: 'M 2027 bis', childIds: [l5.id, l6.id], level: 'pole' }));
+      assert(mDup && /colonne/.test(mDup.message), 'deux macros sur la MÊME ligne (même année) : toujours refusés');
+      require('../server/lib/objectifs-ordre').lire(u, 'pole', String(m.activityId)); // l'ordre dérivé ne casse pas avec deux macros sur les mêmes colonnes
+      o.supprimer(u, m27.id, true); o.supprimer(u, o.get(u, l3.id).parentId, true);
       const mp = o.fusionnerEnMacro(u, { title: 'Macro pôles', childIds: [pA.id, pB.id] });
       assert(o.get(u, mp.id).parentId === top.id && o.get(u, pA.id).parentId === mp.id && o.get(u, pB.id).parentId === mp.id && o.get(u, mp.id).level === 'pole', 'fusion aux niveaux fins : le macro prend la place de ses objectifs sous leur parent commun');
       assert(o.supprimer(u, mp.id, true).ok && o.get(u, pA.id).parentId === top.id && o.get(u, pB.id).parentId === top.id, 'séparer aux niveaux fins : les objectifs remontent sous le parent du macro, rien n’est supprimé');
