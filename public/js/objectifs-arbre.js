@@ -226,11 +226,12 @@
     seq.then(done).catch(fail);
   }
   // en mode Étendre, toucher une colonne (case, bulle) l'inclut ou l'exclut : le toucher ordinaire est suspendu
+  document.addEventListener('pointerdown', function () { if (ext && Date.now() > ext.born) ext.newTouch = true; }, true); // un nouveau toucher a commencé après l'ouverture du mode
   document.addEventListener('click', function (e) {
     if (!ext || !e.target.closest) return;
     if (e.target.closest('.tasksDock')) return; // la barre devenue bouton : Enregistrer / Séparer
     var inTree = tree && e.target.closest('#goalsObjArbre');
-    if (Date.now() - Math.max(ext.born, ext.releasedAt || 0) < 500 || !ext.releasedAt && Date.now() - ext.born < 1500 && ext.holding) { if (inTree) { e.stopPropagation(); e.preventDefault(); } return; } // le relâchement de l'appui long qui a ouvert le mode ne coche ni ne décoche rien
+    if (!ext.newTouch) { if (inTree) { e.stopPropagation(); e.preventDefault(); } return; } // seul le clic du relâchement de l'appui long (aucun NOUVEAU toucher depuis l'ouverture du mode) est ignoré ; sur iPhone le relâchement n'atteint pas le document (la carte tenue a été redessinée), donc plus aucune garde à minuterie : le premier vrai toucher compte // le relâchement de l'appui long qui a ouvert le mode ne coche ni ne décoche rien
     if (!inTree) { extCancel(); return; } // toucher EN DEHORS : quitter sans rien changer
     e.stopPropagation(); e.preventDefault();
     if (e.target.closest('.arExtSelf')) { extCancel(); return; } // re-toucher la case concernée : quitter sans rien changer
