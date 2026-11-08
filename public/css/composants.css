@@ -304,4 +304,4 @@
 .calPeriod { color: var(--purple); }
 .goalsCalDays { position: relative; }
 .goalsCalDay { position: relative; z-index: 1; }
-.calPeriodBand { position: absolute; top: 0; bottom: 0; z-index: 0; box-sizing: border-box; border-radius: var(--radius-pill, 999px); background: rgba(var(--purple-rgb), .28); border: 1px solid var(--glass-border); pointer-events: none; } /* faisceau violet pâle (halo R11) à 4 px des bords du cadre, comme la bulle de la barre des volets */
+.calPeriodBand { position: absolute; top: 6px; bottom: 6px; z-index: 0; border-radius: var(--radius-pill, 999px); background: rgba(var(--purple-rgb), .14); box-shadow: 0 0 10px rgba(var(--purple-rgb), .16); pointer-events: none; } /* halo violet doux, sans contour, plus fin que la bulle de la barre */
