@@ -198,3 +198,7 @@
 .activityEditAdvToggle.cmpToggle { justify-content: flex-end; text-align: right; }
 .activityEditAdvToggle.cmpToggle .cmpChev { margin-left: 2px; }
 .activityEditActions .cmpBtn.cmpBtnIdle { background: transparent; }
+.respBody { display: flex; flex-direction: column; padding: 0 4px 8px; }
+.respRow { display: flex; align-items: center; justify-content: space-between; min-height: 44px; font-size: 15px; color: var(--text); }
+.respPick { color: var(--text); }
+.activityEditAdv > .respBlock { border-top: 1px solid var(--sep); }

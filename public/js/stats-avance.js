@@ -1066,7 +1066,7 @@
   // La 3e page n'existe que si au moins une activité a l'interrupteur correspondant allumé ; un membre qui l'allume voit les statistiques de TOUS les membres (comportement existant).
   function allActivities() { return (TMT.getActivitiesCache && TMT.getActivitiesCache()) || []; }
   TMT.sharedStatsChoice = {
-    on: function (activityId, kind) { var x = allActivities().filter(function (a) { return String(a.id) === String(activityId); })[0]; if (!x) return false; if (kind !== 'tasks' && !(x.membersCount > 1)) return true; /* activité à un seul membre : le même tableau de temps, avec lui seul (rien à comparer, donc rien à allumer) */ return !!(x.membersCount > 1 && x[kind === 'tasks' ? 'compareTasks' : 'compareChrono']); },
+    on: function (activityId, kind) { var x = allActivities().filter(function (a) { return String(a.id) === String(activityId); })[0]; return !!(x && x.membersCount > 1 && x[kind === 'tasks' ? 'compareTasks' : 'compareChrono']); },
     any: function (kind) { return allActivities().some(function (a) { return TMT.sharedStatsChoice.on(a.id, kind); }); }
   };
   function sharedActivities() { return allActivities().filter(function (a) { return TMT.sharedStatsChoice.on(a.id, 'chrono'); }); }

@@ -15403,6 +15403,7 @@
     });
     if ((acts || []).length > 1) adv.appendChild(plainRow(t('Fusionner avec…'), function () { openMergeActivityModal(a); }));
     adv.appendChild(plainRow(t('Membres'), function () { openCommunityMembersModal(a.id, a.name, { activity: a, solo: !(a.membersCount > 1) }); }));
+    if (a.membersCount > 1 && TMT.responsablesBlock) adv.appendChild(TMT.responsablesBlock(a)); // responsables (8 nov. 2026) : ligne qui se déroule sur place
     advToggle.addEventListener('click', function () {
       var open = adv.classList.toggle('hidden') === false;
       advToggle.setAttribute('aria-expanded', open ? 'true' : 'false');

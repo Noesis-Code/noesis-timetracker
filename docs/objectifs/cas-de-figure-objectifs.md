@@ -767,6 +767,8 @@ Appui long (téléphone) : même mécanique que l’appui long des activités et
 - Table conservée : `activity_managers`, module unique `server/lib/responsables.js` (règles : propriétaire toujours responsable et non retirable, seuls les membres, tous égaux). `tempsmembres.js` s'y appuie (`ids`, `isManager`).
 - Migration sans perte, une seule fois : les lignes de l'ancienne `activity_responsables` sont copiées (membres seulement), puis la table est renommée `activity_responsables_migre` (conservée, jamais supprimée) pour ne jamais ressusciter un responsable retiré ensuite.
 
-## Activité non partagée : le même tableau de temps (8 nov. 2026)
-- Une activité à un seul membre affiche le MÊME tableau de temps (3e page du Chrono), avec lui seul : plus d'interrupteur « Comparer le chrono » à allumer (rien à comparer). Le tableau « Qui fait quoi » des tâches reste réservé aux activités partagées.
-- Origines pour un membre unique : « s'ajoute » et « pris sur une autre activité » (sa propre activité seulement) ; pas d'échange (personne d'autre).
+## Activité non partagée : pas de tableau de temps (8 nov. 2026, décision d'Émilien)
+- Une activité à un seul membre n'a PAS de tableau de temps (réponse NON) : l'essai du 8 nov. est retiré (interface). Aucune donnée supprimée (S6). Les activités partagées gardent leur tableau.
+
+## Gérer les responsables (8 nov. 2026, GO d'Émilien)
+- Réglages > activité (crayon) > Avancé > « Responsables » : ligne qui se déroule sur place (R36), composants existants (.cmpRemove, .cmpAdd). Visible seulement pour une activité partagée. Propriétaire en tête, non retirable ; seuls les membres peuvent être ajoutés ; tous égaux ; seul un responsable ajoute ou retire.
