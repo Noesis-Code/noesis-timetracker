@@ -557,36 +557,44 @@
     panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = spec.title; panelForm = { edit: true }; setBack(null);
     panelBody.appendChild(el('p', 'hint', spec.path));
     function line(label, value) { var r = el('div', 'objTimeRow'); r.appendChild(el('span', null, label)); r.appendChild(el('span', 'objHoursVal', value)); return r; }
-    // 1. Temps dépensé
+    // 1. Temps dépensé : activité à UN membre = lui seul (pas de tableau par membre) ; à plusieurs = une ligne par membre. Pôle = le pôle et ses secteurs ; secteur = SEULEMENT ce secteur (ni les autres secteurs, ni le pôle).
     var timeBox = el('div', 'objField'); timeBox.appendChild(el('p', 'cmpBlockTitle', tr('Temps dépensé'))); timeBox.appendChild(el('p', 'hint', '…')); panelBody.appendChild(timeBox);
     var now = new Date(), jan1 = new Date(now.getFullYear(), 0, 1), doy = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - jan1) / 86400000), p0 = Math.min(12, Math.floor(doy / 28)), ps = new Date(now.getFullYear(), 0, 1 + p0 * 28), pe = p0 < 12 ? new Date(now.getFullYear(), 0, 1 + p0 * 28 + 27) : new Date(now.getFullYear(), 11, 31);
     var base = '/api/category-stats?activityId=' + act.id;
-    function shares(r) { // part de l'élément dans une fenêtre : { me, parent, kids }
-      var cats = (r && r.categories) || [], all = r ? r.totalSeconds : 0, me = 0, parent = all, kids = [];
+    function shares(r) { // temps de l'élément dans une fenêtre : { me, kids }
+      var cats = (r && r.categories) || [], all = r ? r.totalSeconds : 0, me = 0, kids = [];
       if (spec.level === 'activite') { me = all; cats.forEach(function (c) { kids.push({ name: c.parentName || c.name, seconds: c.seconds }); }); }
       else if (spec.level === 'pole') { cats.forEach(function (c) { if (c.category === spec.poleKey || c.parentKey === spec.poleKey) { me += c.seconds; kids.push({ name: c.parentKey === spec.poleKey ? c.name : null, seconds: c.seconds }); } }); }
-      else { parent = 0; cats.forEach(function (c) { if (c.category === spec.categoryKey) me += c.seconds; if (c.category === spec.poleKey || c.parentKey === spec.poleKey) parent += c.seconds; }); }
-      return { me: me, parent: parent, kids: kids };
+      else { cats.forEach(function (c) { if (c.category === spec.categoryKey) me += c.seconds; }); }
+      return { me: me, kids: kids };
     }
-    Promise.all([api('GET', base + '&period=week'), api('GET', base + '&from=' + isoDay(ps) + '&to=' + isoDay(pe)), api('GET', base + '&from=2000-01-01&to=' + isoDay(now))]).then(function (rs) {
+    function windows(memberId) { var q = memberId ? '&memberId=' + encodeURIComponent(memberId) : ''; return Promise.all([api('GET', base + '&period=week' + q), api('GET', base + '&from=' + isoDay(ps) + '&to=' + isoDay(pe) + q), api('GET', base + '&from=2000-01-01&to=' + isoDay(now) + q)]); }
+    var membersP = api('GET', '/api/activities/' + act.id + '/responsables').catch(function () { return { members: [] }; });
+    membersP.then(function (mr) {
+      var ms = mr.members || [];
       timeBox.textContent = ''; timeBox.appendChild(el('p', 'cmpBlockTitle', tr('Temps dépensé')));
-      [[tr('Cette semaine'), rs[0]], [tr('Cette période'), rs[1]], [tr('Au total'), rs[2]]].forEach(function (x) {
-        var s = shares(x[1]);
-        timeBox.appendChild(line(x[0], fmtHours(s.me) + (spec.level !== 'activite' && s.parent > 0 ? ' · ' + Math.round(s.me / s.parent * 100) + ' % ' + tr(spec.level === 'pole' ? 'de l’activité' : 'du pôle') : '')));
-      });
-      var tot = shares(rs[2]); // répartition des enfants (pôles d'une activité, secteurs d'un pôle) : lignes simples, sur le total
-      if (spec.level !== 'secteur' && tot.kids.length && tot.me > 0) {
-        var byName = {}; tot.kids.forEach(function (k) { var n = k.name || tr('Sans catégorie'); byName[n] = (byName[n] || 0) + k.seconds; });
-        timeBox.appendChild(el('p', 'hint', tr(spec.level === 'activite' ? 'Répartition par pôle' : 'Répartition par secteur')));
-        Object.keys(byName).sort(function (a, b) { return byName[b] - byName[a]; }).forEach(function (n) { timeBox.appendChild(line(n, fmtHours(byName[n]) + ' · ' + Math.round(byName[n] / tot.me * 100) + ' %')); });
+      if (ms.length < 2) { // activité individuelle : seulement toi
+        return windows(null).then(function (rs) {
+          [[tr('Cette semaine'), rs[0]], [tr('Cette période'), rs[1]], [tr('Au total'), rs[2]]].forEach(function (x) { timeBox.appendChild(line(x[0], fmtHours(shares(x[1]).me))); });
+          var tot = shares(rs[2]); // répartition des enfants (pôles d'une activité, secteurs d'un pôle) : lignes simples ; jamais sous un secteur
+          if (spec.level !== 'secteur' && tot.kids.length && tot.me > 0) {
+            var byName = {}; tot.kids.forEach(function (k) { var n = k.name || tr('Sans catégorie'); byName[n] = (byName[n] || 0) + k.seconds; });
+            timeBox.appendChild(el('p', 'hint', tr(spec.level === 'activite' ? 'Répartition par pôle' : 'Répartition par secteur')));
+            Object.keys(byName).sort(function (p, q) { return byName[q] - byName[p]; }).forEach(function (n) { timeBox.appendChild(line(n, fmtHours(byName[n]) + ' · ' + Math.round(byName[n] / tot.me * 100) + ' %')); });
+          }
+        });
       }
+      timeBox.appendChild(el('p', 'hint', tr('Semaine') + ' · ' + tr('période') + ' · ' + tr('total'))); // activité à plusieurs : une ligne par membre
+      return Promise.all(ms.map(function (m) { return windows(m.id).then(function (rs) { return { m: m, v: rs.map(function (r) { return shares(r).me; }) }; }).catch(function () { return { m: m, v: null }; }); })).then(function (rows) {
+        rows.forEach(function (x) { timeBox.appendChild(line(x.m.name, x.v ? x.v.map(fmtHours).join(' · ') : '—')); });
+      });
     }).catch(function () { timeBox.textContent = ''; timeBox.appendChild(el('p', 'cmpBlockTitle', tr('Temps dépensé'))); timeBox.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); });
     // 2. Objectifs en cours
     var ob = spec.objectives, objBox = el('div', 'objField'); objBox.appendChild(el('p', 'cmpBlockTitle', tr('Objectifs en cours')));
     objBox.appendChild(line(tr('Objectifs actifs'), String(ob.count))); objBox.appendChild(line(tr('Prochaine échéance'), ob.next || '—')); objBox.appendChild(line(tr('En retard'), String(ob.late))); panelBody.appendChild(objBox);
     // 3. Responsables (lecture seule : route du lot 1 /api/activities/:id/responsables ; le propriétaire est toujours responsable, tous égaux, aucun écran de gestion ici)
     var respBox = el('div', 'objField'); respBox.appendChild(el('p', 'cmpBlockTitle', tr('Responsables'))); var respTxt = el('p', 'hint', '…'); respBox.appendChild(respTxt); panelBody.appendChild(respBox);
-    api('GET', '/api/activities/' + act.id + '/responsables').then(function (r) { var names = (r.members || []).filter(function (m) { return m.manager; }).map(function (m) { return m.name + (m.owner ? ' (' + tr('propriétaire') + ')' : ''); }); respTxt.textContent = names.length ? names.join(' · ') : '—'; }).catch(function () { respTxt.textContent = '—'; });
+    membersP.then(function (r) { var names = (r.members || []).filter(function (m) { return m.manager; }).map(function (m) { return m.name + (m.owner ? ' (' + tr('propriétaire') + ')' : ''); }); respTxt.textContent = names.length ? names.join(' · ') : '—'; }).catch(function () { respTxt.textContent = '—'; });
     // 4. Réglages de l'activité : mêmes champs que Réglages > Activités (nom, couleur), même route
     var setBox = el('div', 'objField'); setBox.appendChild(el('p', 'cmpBlockTitle', tr('Réglages de l’activité')));
     if (spec.level !== 'activite') setBox.appendChild(el('p', 'hint', tr('Les pôles et les secteurs suivent les réglages de l’activité') + ' « ' + act.name + ' ».'));
