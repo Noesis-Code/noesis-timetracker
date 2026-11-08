@@ -1,23 +1,18 @@
 // Temps par membre d'une activité partagée : tableau de tous les temps (activité, pôles, membres) et historique continu
 // des changements de temps prévu (décisions d'Émilien, 8 nov. 2026 ; docs/objectifs/creation-objectif-tache.md).
 // - Temps passé : heures par semaine, moyenne des 4 dernières semaines (28 jours), secteurs remontés au pôle.
-// - Temps prévu : la dernière valeur de l'historique (member_time_changes) ; rien n'est écrasé, chaque changement garde sa ligne.
-// - Responsables : le propriétaire de l'activité + les responsables ajoutés (activity_responsables) ; un responsable d'activité
-//   l'est de tous ses pôles et secteurs ; tous égaux, ils modifient directement le temps de n'importe quel membre.
+// - Temps prévu d'un PÔLE = la capacité hebdo de la Feuille de route (goal_capacity_overrides, lue par la planification) :
+//   le tableau la lit et l'écrit, chaque changement garde aussi sa ligne d'historique (member_time_changes).
+//   Activité avec pôles : prévu = somme des pôles ; sans pôle : dernière ligne d'historique.
+// - Responsables : server/lib/responsables.js (propriétaire + ajoutés, égaux, valables pour tous les pôles et secteurs).
 // - Le membre modifié par quelqu'un d'autre reçoit une notification (avant → après, par qui).
 // Calcul sans IA. Tables additives, idempotentes.
 const db = require('../db');
 const goals = require('./goals');
 const { isActivityMember } = require('./subprojects');
+const responsables = require('./responsables');
 
 db.exec(`
-CREATE TABLE IF NOT EXISTS activity_responsables (
-  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
-  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  addedBy TEXT,
-  addedAt TEXT NOT NULL,
-  PRIMARY KEY (activityId, userId)
-);
 CREATE TABLE IF NOT EXISTS member_time_changes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
@@ -43,30 +38,13 @@ const ORIGIN_LABELS = { ajout: "S'ajoute", 'autre-activite': 'Pris sur une autre
 const WEEKS = 4;
 const MAX_MIN = 168 * 60;
 
-function isResponsable(activityId, userId) {
-  if (!userId) return false;
-  const a = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(Number(activityId));
-  if (!a) return false;
-  if (a.ownerId === userId) return true;
-  return !!db.prepare('SELECT 1 FROM activity_responsables WHERE activityId = ? AND userId = ?').get(Number(activityId), userId);
-}
+// Responsables : module unique server/lib/responsables.js (activity_managers), jamais dupliqué ici.
+function isResponsable(activityId, userId) { return !!userId && responsables.isManager(userId, Number(activityId)); }
 function responsablesFor(activityId) {
   const a = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(Number(activityId));
-  const ids = db.prepare('SELECT userId FROM activity_responsables WHERE activityId = ?').all(Number(activityId)).map((r) => r.userId);
+  const ids = db.prepare('SELECT userId FROM activity_managers WHERE activityId = ?').all(Number(activityId)).map((r) => r.userId);
   if (a && a.ownerId && !ids.includes(a.ownerId)) ids.unshift(a.ownerId);
   return ids;
-}
-// Ajout/retrait d'un responsable : réservé à un responsable ; le propriétaire ne se retire pas.
-function addResponsable(activityId, byId, userId) {
-  if (!isResponsable(activityId, byId)) return { error: 'Réservé aux responsables.' };
-  if (!isActivityMember(userId, activityId)) return { error: "Cette personne n'est pas membre de cette activité." };
-  db.prepare('INSERT OR IGNORE INTO activity_responsables (activityId, userId, addedBy, addedAt) VALUES (?, ?, ?, ?)').run(Number(activityId), userId, byId, new Date().toISOString());
-  return { ok: true };
-}
-function removeResponsable(activityId, byId, userId) {
-  if (!isResponsable(activityId, byId)) return { error: 'Réservé aux responsables.' };
-  db.prepare('DELETE FROM activity_responsables WHERE activityId = ? AND userId = ?').run(Number(activityId), userId);
-  return { ok: true };
 }
 
 // Clé de pôle normalisée : null = l'activité entière ; un secteur remonte à son pôle (règle verrouillée).
@@ -78,7 +56,15 @@ function validPole(activityId, key) {
   if (key === null) return true;
   return (goals.categoriesForActivity(Number(activityId)) || []).some((p) => p.key === key);
 }
+function hasPoles(activityId) { return (goals.categoriesForActivity(Number(activityId)) || []).length > 0; }
 function plannedMin(activityId, poleKey, memberId) {
+  if (poleKey !== null) {
+    const cap = db.prepare('SELECT weeklyMinutes FROM goal_capacity_overrides WHERE activityId = ? AND category = ? AND userId = ?').get(Number(activityId), poleKey, memberId);
+    if (cap) return cap.weeklyMinutes;
+  } else if (hasPoles(activityId)) {
+    const vals = goals.categoriesForActivity(Number(activityId)).map((p) => plannedMin(activityId, p.key, memberId)).filter((v) => v !== null);
+    return vals.length ? vals.reduce((x, y) => x + y, 0) : null;
+  }
   const row = db.prepare(`SELECT afterMin FROM member_time_changes WHERE activityId = ? AND memberId = ? AND poleKey IS ? ORDER BY id DESC LIMIT 1`)
     .get(Number(activityId), memberId, poleKey);
   return row ? row.afterMin : null;
@@ -97,6 +83,11 @@ function insertLine(o, groupId, at) {
   const info = db.prepare(`INSERT INTO member_time_changes (activityId, poleKey, memberId, changedBy, beforeMin, afterMin, origin, fromActivityId, fromPoleKey, withMemberId, groupId, at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(Number(o.activityId), o.poleKey, o.memberId, o.changedBy, before, o.afterMin, o.origin,
     o.fromActivityId || null, o.fromPoleKey === undefined ? null : o.fromPoleKey, o.withMemberId || null, groupId, at);
+  // Feuille de route : la capacité hebdo du membre sur ce pôle prend la nouvelle valeur.
+  if (o.poleKey !== null) {
+    db.prepare(`INSERT INTO goal_capacity_overrides (activityId, category, userId, weeklyMinutes, updatedAt) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(activityId, category, userId) DO UPDATE SET weeklyMinutes = excluded.weeklyMinutes, updatedAt = excluded.updatedAt`).run(Number(o.activityId), o.poleKey, o.memberId, o.afterMin, at);
+  }
   return { id: Number(info.lastInsertRowid), before };
 }
 
@@ -116,6 +107,7 @@ function changePlanned(opts, notify) {
   if (by !== memberId && !isResponsable(activityId, by)) return { status: 403, error: 'Seul un responsable modifie le temps d\'un autre membre.' };
   const poleKey = normPole(activityId, opts.poleKey);
   if (!validPole(activityId, poleKey)) return { status: 400, error: 'Pôle inconnu.' };
+  if (poleKey === null && hasPoles(activityId)) return { status: 400, error: 'Le temps prévu se règle par pôle.' };
   const before = plannedMin(activityId, poleKey, memberId) || 0;
   const delta = afterMin - before;
 
@@ -124,6 +116,7 @@ function changePlanned(opts, notify) {
     if (by !== memberId) return { status: 403, error: 'Pris sur une autre activité : seulement pour son propre temps.' };
     const src = Number(opts.fromActivityId);
     if (!Number.isInteger(src) || src === activityId || !isActivityMember(memberId, src)) return { status: 400, error: 'Activité source invalide.' };
+    if (hasPoles(src)) return { status: 400, error: 'Activité source avec pôles : choisis le pôle depuis son propre tableau.' };
     lines.push({ activityId: src, poleKey: null, memberId, afterMin: Math.max(0, (plannedMin(src, null, memberId) || 0) - delta) });
   } else if (origin === 'meme-activite') {
     const fromPole = normPole(activityId, opts.fromPoleKey);
@@ -179,14 +172,15 @@ function pastMinutes(activityId, todayIso) {
   const start = d.toISOString().slice(0, 10);
   const rows = db.prepare(`SELECT userId, goalCategory AS cat, SUM(durationSeconds) AS s FROM time_entries
     WHERE activityId = ? AND isoDate BETWEEN ? AND ? GROUP BY userId, goalCategory`).all(Number(activityId), start, end);
-  const byPole = new Map(), byMember = new Map();
+  const byPole = new Map(), byMember = new Map(), byCat = new Map();
   rows.forEach((r) => {
     const m = (r.s || 0) / 60 / WEEKS;
     byMember.set(r.userId, (byMember.get(r.userId) || 0) + m);
+    if (r.cat) { const kc = r.userId + '|' + r.cat; byCat.set(kc, (byCat.get(kc) || 0) + m); }
     const p = r.cat ? normPole(activityId, r.cat) : null;
     if (p) { const k = r.userId + '|' + p; byPole.set(k, (byPole.get(k) || 0) + m); }
   });
-  return { byPole, byMember, start, end };
+  return { byPole, byMember, byCat, start, end };
 }
 
 // Tableau complet + historique, pour un membre de l'activité.
@@ -209,6 +203,13 @@ function tableFor(activityId, callerId, todayIso) {
     const sum = (f) => rows.reduce((s, r) => s + (r[f] || 0), 0);
     return { key: l.key, label: l.label, rows, pastMin: sum('pastMin'), plannedMin: rows.some((r) => r.plannedMin !== null) ? sum('plannedMin') : null };
   });
+  // Barres (8 nov. 2026) : temps travaillé par membre pour l'activité, chaque pôle (secteurs compris) et chaque secteur.
+  const barRows = (map, key) => members.map((m) => ({ userId: m.userId, pastMin: Math.round(map.get(m.userId + '|' + key) || 0) }));
+  const bars = [{ key: null, label: act.name, kind: 'activite', rows: members.map((m) => ({ userId: m.userId, pastMin: Math.round(past.byMember.get(m.userId) || 0) })) }];
+  poles.forEach((p) => {
+    bars.push({ key: p.key, label: p.label, kind: 'pole', rows: barRows(past.byPole, p.key) });
+    (goals.secteursForPole(activityId, p.key) || []).forEach((s) => bars.push({ key: s.key, label: s.label, kind: 'secteur', rows: barRows(past.byCat, s.key) }));
+  });
   const names = new Map(members.map((m) => [m.userId, m.name]));
   const nameOf = (id) => names.get(id) || userName(id);
   const history = db.prepare('SELECT * FROM member_time_changes WHERE activityId = ? ORDER BY id DESC LIMIT 300').all(activityId).map((h) => ({
@@ -225,10 +226,13 @@ function tableFor(activityId, callerId, todayIso) {
     weeks: WEEKS, from: past.start, to: past.end,
     members: members.map((m) => ({ userId: m.userId, name: m.name, color: m.color, responsable: resp.includes(m.userId) })),
     isResponsable: resp.includes(callerId),
+    me: callerId,
+    plannedByPole: poles.length > 0, // le prévu se règle par pôle (Feuille de route) ; sinon au niveau de l'activité
     levels,
+    bars,
     history,
     requested: history.filter((h) => h.requested),
   };
 }
 
-module.exports = { ORIGINS, ORIGIN_LABELS, isResponsable, responsablesFor, addResponsable, removeResponsable, changePlanned, plannedMin, pastMinutes, tableFor, fmtMin };
+module.exports = { ORIGINS, ORIGIN_LABELS, isResponsable, responsablesFor, changePlanned, plannedMin, pastMinutes, tableFor, fmtMin };

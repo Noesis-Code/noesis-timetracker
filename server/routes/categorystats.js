@@ -216,12 +216,5 @@ router.post('/member-times', (req, res) => {
   if (r.error) return res.status(r.status).json({ error: r.error });
   res.json(r);
 });
-router.post('/member-times/responsables', (req, res) => {
-  const b = req.body || {};
-  const fn = b.remove ? tempsMembres.removeResponsable : tempsMembres.addResponsable;
-  const r = fn(Number(b.activityId), req.userId, String(b.userId || ''));
-  if (r.error) return res.status(403).json({ error: r.error });
-  res.json(r);
-});
 
 module.exports = router;

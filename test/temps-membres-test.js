@@ -7,6 +7,7 @@ let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');
 const tm = require('../server/lib/tempsmembres');
+const resp = require('../server/lib/responsables');
 const now = new Date().toISOString();
 ['e', 'c', 'x'].forEach((id, i) => db.prepare('INSERT INTO users (id, name, createdAt) VALUES (?, ?, ?)').run(id, ['Émilien', 'Camille', 'Xavier'][i], now));
 const act = (owner) => Number(db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('Maison', ?, ?)").run(owner, now).lastInsertRowid);
@@ -31,17 +32,24 @@ assert(t.isResponsable === false && tm.isResponsable(A, 'e'), '4. propriétaire 
 
 const notes = [];
 const N = (tg, by) => notes.push({ to: tg.memberId, by, before: tg.before, after: tg.afterMin });
-let r = tm.changePlanned({ activityId: A, poleKey: null, memberId: 'x', changedBy: 'c', afterMin: 60, origin: 'ajout' }, N);
+let r = tm.changePlanned({ activityId: A, poleKey: 'cuisine', memberId: 'x', changedBy: 'c', afterMin: 60, origin: 'ajout' }, N);
 assert(r.status === 403, '5. un membre non responsable ne modifie pas le temps d\'un autre');
-r = tm.changePlanned({ activityId: A, poleKey: null, memberId: 'c', changedBy: 'c', afterMin: 300, origin: 'ajout' }, N);
+assert(tm.changePlanned({ activityId: A, poleKey: null, memberId: 'c', changedBy: 'c', afterMin: 300, origin: 'ajout' }, N).status === 400, '5b. activité avec pôles : le prévu se règle par pôle');
+r = tm.changePlanned({ activityId: A, poleKey: 'linge', memberId: 'c', changedBy: 'c', afterMin: 300, origin: 'ajout' }, N);
 assert(r.ok && notes.length === 0, '6. son propre temps : permis, sans notification');
-r = tm.changePlanned({ activityId: A, poleKey: null, memberId: 'c', changedBy: 'e', afterMin: 360, origin: 'ajout' }, N);
+r = tm.changePlanned({ activityId: A, poleKey: 'linge', memberId: 'c', changedBy: 'e', afterMin: 360, origin: 'ajout' }, N);
 assert(r.ok && notes.length === 1 && notes[0].to === 'c' && notes[0].before === 300 && notes[0].after === 360 && notes[0].by === 'e', '7. responsable → membre : notification avant → après, par qui');
-assert(tm.plannedMin(A, null, 'c') === 360, '8. prévu = dernière ligne');
+assert(tm.plannedMin(A, 'linge', 'c') === 360, '8. prévu = dernière valeur');
+const cap = (a, k, u) => (db.prepare('SELECT weeklyMinutes FROM goal_capacity_overrides WHERE activityId = ? AND category = ? AND userId = ?').get(a, k, u) || {}).weeklyMinutes;
+assert(cap(A, 'linge', 'c') === 360, '8b. Feuille de route : capacité hebdo du membre mise à jour');
+db.prepare("UPDATE goal_capacity_overrides SET weeklyMinutes = 345 WHERE activityId = ? AND category = 'linge' AND userId = 'c'").run(A);
+assert(tm.plannedMin(A, 'linge', 'c') === 345, '8c. une capacité changée dans la Feuille de route se lit dans le tableau');
 
-// Responsable ajouté : égal au propriétaire, modifie le propriétaire.
-assert(tm.addResponsable(A, 'c', 'x').error, '9. un non-responsable n\'ajoute pas de responsable');
-assert(tm.addResponsable(A, 'e', 'c').ok && tm.isResponsable(A, 'c'), '10. responsable ajouté');
+// Responsable ajouté (module responsables.js) : égal au propriétaire, modifie le propriétaire.
+let thrown = false; try { resp.ajouter('c', A, 'x'); } catch (e) { thrown = true; }
+assert(thrown, '9. un non-responsable n\'ajoute pas de responsable');
+resp.ajouter('e', A, 'c');
+assert(tm.isResponsable(A, 'c'), '10. responsable ajouté');
 r = tm.changePlanned({ activityId: A, poleKey: 'cuisine', memberId: 'e', changedBy: 'c', afterMin: 120, origin: 'ajout' }, N);
 assert(r.ok, '11. un responsable ajouté modifie le temps du propriétaire');
 
@@ -55,10 +63,10 @@ r = tm.changePlanned({ activityId: A, poleKey: 'cuisine', memberId: 'x', changed
 assert(tm.plannedMin(A, 'cuisine', 'x') === 90 && tm.plannedMin(A, 'cuisine', 'c') === 0, '13. échange : +60 à Xavier, Camille plafonnée à 0');
 
 // Autre activité : seulement pour son propre temps.
-r = tm.changePlanned({ activityId: A, poleKey: null, memberId: 'x', changedBy: 'e', afterMin: 500, origin: 'autre-activite', fromActivityId: B }, N);
+r = tm.changePlanned({ activityId: A, poleKey: 'linge', memberId: 'x', changedBy: 'e', afterMin: 500, origin: 'autre-activite', fromActivityId: B }, N);
 assert(r.status === 403, '14. pris sur une autre activité refusé pour le temps d\'un autre');
 tm.changePlanned({ activityId: B, poleKey: null, memberId: 'e', changedBy: 'e', afterMin: 200, origin: 'ajout' }, N);
-r = tm.changePlanned({ activityId: A, poleKey: null, memberId: 'e', changedBy: 'e', afterMin: 50, origin: 'autre-activite', fromActivityId: B }, N);
+r = tm.changePlanned({ activityId: A, poleKey: 'linge', memberId: 'e', changedBy: 'e', afterMin: 50, origin: 'autre-activite', fromActivityId: B }, N);
 assert(r.ok && tm.plannedMin(B, null, 'e') === 150, '15. pris sur une autre activité : −50 sur Maison de Camille');
 
 assert(tm.changePlanned({ activityId: A, poleKey: null, memberId: 'e', changedBy: 'e', afterMin: 10, origin: 'magie' }, N).status === 400, '16. origine inconnue refusée');

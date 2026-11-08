@@ -9,3 +9,17 @@
 .stNum { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stRow > span { display: flex; flex-direction: column; min-width: 0; }
 .stSub { color: var(--text-light); white-space: normal; }
+/* Barres verticales par membre (activité, pôles, secteurs). */
+.sbGrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); column-gap: 12px; row-gap: 8px; align-items: end; margin-top: 12px; font-size: 13px; }
+.sbLabel { align-self: end; padding-bottom: 2px; overflow-wrap: anywhere; }
+.sb-activite, .sb-pole { font-weight: 600; }
+.sb-secteur { padding-left: 12px; color: var(--text-light); }
+.sbCols { display: flex; align-items: flex-end; justify-content: flex-end; gap: 8px; min-height: 76px; }
+.sbCol { flex: 0 1 44px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.sbVal { font-size: 13px; color: var(--text-light); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sbBar { display: block; width: 16px; border-radius: 4px 4px 0 0; }
+/* Temps prévu modifiable (R36 : la ligne se déroule sur place). */
+.stEditVal { min-height: 44px; padding: 0; border: 0; background: none; font: inherit; color: var(--violet-soft); cursor: pointer; }
+.stEditRow { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; padding: 8px 0 12px; }
+.stEditLabel { display: flex; flex-direction: column; gap: 8px; color: var(--text-light); }
+.stDot { flex: none; width: 12px; height: 12px; border-radius: 50%; }

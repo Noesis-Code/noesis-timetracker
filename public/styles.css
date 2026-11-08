@@ -724,19 +724,6 @@ textarea {
 .statsPeriodMenuItem:hover { background: var(--hover-bg); }
 .statsPeriodMenuItem.active { color: var(--purple); font-weight: bold; }
 
-/* Sélecteur de sous-projet de la section Statistiques d'une activité (4 septembre 2026, chantier « Chrono — sous-projets »). */
-.caSubProjectFilter { display: block; margin: 0 0 10px; }
-.caSubProjectBtn {
-  display: inline-flex; align-items: center; gap: 6px;
-  max-width: 100%; padding: 8px 12px;
-  background: var(--card); color: var(--text);
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  font-size: 14px; cursor: pointer;
-}
-.caSubProjectBtn::after { content: '\25BE'; opacity: 0.7; }
-.caSubProjectBtn:hover { background: var(--hover-bg); }
-.caSubProjectMenu { left: 0; right: auto; max-height: 260px; overflow-y: auto; }
-
 /* Même écart entre la carte d'ajout et la première activité existante
    qu'entre deux activités existantes (voir ".activitiesList { gap: 8px }"). */
 #newActivityCard { margin-bottom: 8px; }

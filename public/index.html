@@ -1023,76 +1023,8 @@
         <div id="ssChips" class="saChips"></div>
         <p id="ssEmpty" class="hint hidden">Aucune activité partagée.</p>
         <div id="ssBody">
-        <div id="caCategoryFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
-          <button type="button" class="caSubProjectBtn" id="caCategoryBtn" aria-haspopup="true">
-            <span id="caCategoryBtnLabel">Tous les pôles</span>
-          </button>
-          <div class="statsPeriodMenu caSubProjectMenu hidden" id="caCategoryMenu"></div>
-        </div>
-
-        <div class="statsSection">
-          <div class="sectionTitleRow">
-            <p class="sectionTitle">Répartition</p>
-            <!-- Motif "⋮" générique de l'onglet Statistiques (.statsPeriodMenu*),
-                 câblé par setupStatsPeriodMenu() — réutilisé tel quel, aucune
-                 règle CSS ni aucune ligne de ce helper n'a été modifiée.
-                 "Aujourd'hui" n'existe QUE sur la Répartition, comme demandé :
-                 le Graphique tracerait un seul point pour une seule journée. -->
-            <div class="statsPeriodMenuWrap">
-              <button type="button" class="menuBtn" id="caPiePeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
-              <div class="statsPeriodMenu hidden" id="caPiePeriodMenu">
-                <button type="button" class="statsPeriodMenuItem" data-period="day">Aujourd'hui</button>
-                <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
-              </div>
-            </div>
-          </div>
-          <!-- ⚠️ 3 septembre 2026, demande d'Emilien : « je souhaite que
-               l'indication de l'année ou de la semaine ou du mois ou
-               d'aujourd'hui soit affichée comme sur la capture d'écran, comme
-               dans le volet statistique ». Reprise à l'identique de
-               #statsPieBlock : .statsSummary (libellé de période au-dessus)
-               entre la ligne de titre et le camembert.
-               ⚠️ 6 septembre 2026 : le total en gros qui l'accompagnait a
-               été retiré, ici comme dans les quatre autres Répartitions —
-               il faisait doublon avec celui que renderActivityPie écrit au
-               centre du camembert. Le libellé de période, lui, reste :
-               c'est ce qu'Emilien demandait le 3 septembre. -->
-          <div class="statsSummary">
-            <p class="statsLabel" id="communityActivityStatsLabel"></p>
-          </div>
-          <div id="communityActivityPie" class="pieWrap"></div>
-          <p id="communityActivityPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
-        </div>
-
-        <div id="communityActivityChartBlock" class="statsSection">
-          <div class="sectionTitleRow">
-            <p class="sectionTitle">Graphique</p>
-            <div class="statsPeriodMenuWrap">
-              <button type="button" class="menuBtn" id="caChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
-              <!-- ⚠️ Second passage du 3 septembre : GRANULARITÉ (Jour/Semaine/Mois),
-                   plus une période. Le graphique couvre toujours toute l'histoire
-                   de l'activité — mêmes valeurs et même ordre que #chartPeriodMenu
-                   dans l'onglet Statistiques, dont ce bloc est la copie. -->
-              <div class="statsPeriodMenu hidden" id="caChartPeriodMenu">
-                <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
-              </div>
-            </div>
-          </div>
-          <div class="chartWrap" id="communityActivityChartWrap">
-            <div class="chartScroll">
-              <div id="communityActivityChart" class="chartSvgWrap"></div>
-            </div>
-            <div id="caChartTooltip" class="chartTooltip hidden" role="tooltip"></div>
-          </div>
-          <div id="communityActivityChartLegend" class="chartLegend"></div>
-          <p id="communityActivityChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
-        </div>
-        <!-- 8 nov. 2026 : tableau de tous les temps (activité, pôles, membres) + Changements demandés + Historique (public/js/stats-temps.js). -->
-        <div id="ssTemps" class="statsSection"></div>
+        <!-- 8 nov. 2026 : seuls blocs de cette page (Répartition, Graphique et filtre par pôle retirés) : barres par membre, tableau des temps modifiable, Changements demandés, Historique (public/js/stats-temps.js). -->
+        <div id="ssTemps"></div>
         </div><!-- /#ssBody -->
       </div><!-- /#statsSharedPage -->
       <!-- Feuille de route : page Groupe (tout à droite : Tâches | Objectifs | Groupe) = « Tâches par membre » des activités partagées (public/js/activite-stats-taches.js). -->
