@@ -27,8 +27,6 @@
 /* Surveillance du dossier Drive + pop-up des tâches ajoutées (sombre seulement, même verre/halo). */
 .docTasksSync { margin-bottom: 2px; }
 .docTasksSync .docTasksSyncRow { font-size: 13px; padding: 0 4px; margin: -4px 0 12px; background: none; border: 0; box-shadow: none; }
-.docTasksCheck { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; font-size: 13px; }
-.docTasksCheck input { margin-top: 3px; accent-color: var(--purple); }
 .docTasksInstr { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 10px; border-radius: var(--radius-md); border: 1px solid var(--glass-border); background: transparent; color: inherit; font: inherit; font-size: 13px; resize: none; }
 .docTasksPop { position: fixed; inset: 0; z-index: 103; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .55); }
 .docTasksPop.hidden { display: none; }

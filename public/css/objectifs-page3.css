@@ -17,7 +17,6 @@
 }
 
 
-.goalsPeriodNavLabel .sectionTitle { margin: 0; }
 
 
 .goalsCategoryLabel {
@@ -105,7 +104,6 @@
 .goalMainCard .goalMainEmptyHint { color: inherit; opacity: 0.85; }
 
 
-.goalBilanHint { text-align: center; font-size: 13px; color: var(--text-light); margin: 4px 0 0; }
 
 .goalsWeeklyList {
   display: flex; flex-direction: column; gap: 1px;
@@ -155,65 +153,32 @@
 
 .goalWeeklyDailyPlanBtn:disabled { opacity: 0.6; cursor: default; }
 
-/* (discussion "B. Objectifs — Calendrier &
-   intégrations"), demande d'Emilien : fusion objectifs hebdomadaires +
-   calendrier — .goalsCalendarLabel/.goalsCalendarList (l'ancienne section
-   "Calendrier de la période" séparée) sont retirées avec le gabarit HTML qui
-   les utilisait (objectifs-page3.js) ; .goalsCalendarRow et tout ce qui suit
-   restent utilisées telles quelles, désormais à l'intérieur de
-   .goalWeekDaysPanel ci-dessous plutôt que de l'ancien conteneur à plat. */
 
-.goalWeeklyExpandBtn {
-  flex-shrink: 0; width: 26px; height: 26px; padding: 0; margin-left: auto;
-  border: none; border-radius: 50%; background: transparent;
-  color: var(--text-light); cursor: pointer; line-height: 1;
-  display: flex; align-items: center; justify-content: center;
-  transition: background-color var(--transition-fast);
-}
-.goalWeeklyExpandBtn .cmpChev { color: inherit; }
-
-.goalWeeklyExpandBtn:hover { background: var(--track-bg); }
 
 .goalWeekDaysPanel {
   display: flex; flex-direction: column; gap: 0; background: transparent;
 }
-.goalWeekDaysPanel .goalsCalendarRow { background: transparent !important; border: none; border-top: 1px solid var(--sep); }
 :is(#goalsMonthView, .goalsPop) .goalsWeeklyList .goalWeeklyCard.weekOpen:not(:has(.goalWeeklyEditor)) { background: var(--poleColor) !important; box-shadow: none !important; color: var(--poleText); }
 :is(#goalsMonthView, .goalsPop) .goalsWeeklyList .goalWeeklyCard.weekOpen:not(:has(.goalWeeklyEditor)) :is(.goalWeeklyTitleText, .goalWeeklyCapInfo, .goalWeeklyCapBtn, .goalWeeklyExpandBtn, .goalWeeklyEditBtn, .goalWeeklyEditBtn svg) { color: var(--poleText) !important; }
-.goalWeekDaysPanel .goalsCalendarRow { box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 
 .goalWeekDaysPanel.hidden { display: none; }
 
-.goalsCalendarRow {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 12px; background: var(--card); font-size: 13px;
-}
 
-.goalsCalendarRow.today { background: rgba(var(--purple-rgb), 0.1); font-weight: 600; }
 
-.goalsCalendarDate { flex: 1; min-width: 0; color: var(--text); text-transform: capitalize; }
 
-.goalsCalendarTodayBadge {
-  display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
-  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
-  color: var(--on-action); background: var(--purple); vertical-align: middle;
-}
 
 .goalsCalendarWeekBadge {
   flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--text-light);
   background: var(--track-bg); border-radius: 999px; padding: 2px 8px;
 }
 
-.goalsCalendarMinutes { flex-shrink: 0; width: 48px; text-align: right; color: var(--text); font-weight: 600; }
 
-.goalsCalendarMinutes.empty { color: var(--text-light); font-weight: 400; }
 
 
 .goalsCalendarWeekBadge.clickable { cursor: pointer; color: var(--purple); background: rgba(var(--purple-rgb), 0.14); }
 
 .goalsCalendarWeekBadge.clickable:hover { background: rgba(var(--purple-rgb), 0.22); }
 
-.goalsCalendarRow.weekEnd { flex-wrap: wrap; }
 
 .goalsCalendarAddTaskBtn {
   position: relative; flex-shrink: 0; width: 28px; height: 28px;
@@ -234,23 +199,10 @@
 .goalsCalendarAddTaskBtn:hover { color: var(--text); background: var(--border); }
 
 
-.goalsCalendarTaskRow {
-  display: flex; align-items: center; gap: 8px;
-  padding: 5px 12px 5px 28px; background: var(--card); font-size: 12.5px;
-}
 
-.goalsCalendarTaskCheck {
-  flex-shrink: 0; width: 18px; height: 18px; border-radius: 5px;
-  border: 1px solid var(--border); background: var(--card);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; color: var(--green); line-height: 1;
-}
 
-.goalsCalendarTaskRow.done .goalsCalendarTaskCheck { background: rgba(156, 140, 200, 0.18); border-color: var(--green); }
 
-.goalsCalendarTaskLabel { flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; }
 
-.goalsCalendarTaskRow.done .goalsCalendarTaskLabel { color: var(--text-light); text-decoration: line-through; }
 
 .goalAssigneeChip {
   display: inline-flex; align-items: center; gap: 5px;
@@ -268,16 +220,7 @@
 
 .goalAssigneeChip.active .dot { background: var(--white); }
 
-.goalsCalendarTaskUnseenDot {
-  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-  background: var(--purple); margin-left: 6px; flex-shrink: 0;
-}
 
-.goalsCalendarTaskOtherCategory {
-  flex-shrink: 0; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
-  background: var(--card-alt, var(--bg)); border: 1px solid var(--border);
-  color: var(--text-light); font-size: 11px; white-space: nowrap;
-}
 
 /* régression signalée par Emilien, cause identifiée par
    la discussion Page 2 : le commit b8b1779 (Page 2 devenue fenêtre plein
@@ -303,14 +246,7 @@
 
 /* Fenêtre d'édition d'une tâche (appui long) : gabarit partagé avec .communityMembersModal, voir styles.css. */
 .goalTaskEditHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.goalTaskEditField { display: block; margin-bottom: 12px; }
-.goalTaskEditField span { display: block; font-size: 12px; color: var(--text-light); margin-bottom: 4px; }
-.goalTaskEditField input, .goalTaskEditField select { width: 100%; box-sizing: border-box; }
-.goalTaskEditSave { width: 100%; }
-.goalsCalendarTaskRow { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
-/* jours passés en violet foncé. */
-.goalsCalendarRow.past .goalsCalendarDate { color: var(--purple-dark); font-weight: 600; }
 
 /* le détail de période (ex-Page 3) vit désormais DANS la Page 2, au milieu (mensuel) — la page 2 défile. */
 #goalsMonthView #goalsDetailScroll { flex: none; overflow: visible; padding: 0; }
@@ -429,18 +365,11 @@
 .goalWeeklyBadgeStatus.goalStatusAtteint { background: var(--good); }
 .goalWeeklyBadgeStatus.goalStatusPartiel { background: var(--partial); }
 .goalWeeklyBadgeStatus.goalStatusNonAtteint { background: var(--danger); }
-.goalWeekDaysPanel .goalsCalendarTaskRow { background: transparent !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; opacity: 1; }
-.goalWeekDaysPanel .goalsCalendarTaskRow { flex-wrap: wrap; }
-.goalWeekDaysPanel .goalsDayTaskEditBtn { flex: 0 0 auto; margin-left: auto; display: inline-flex; align-items: center; justify-content: center; padding: 6px; color: var(--text-light); background: transparent !important; border: none !important; box-shadow: none !important; }
-.goalWeekDaysPanel .goalsTaskEditing > .goalsCalendarTaskCheck, .goalWeekDaysPanel .goalsTaskEditing > .goalsCalendarTaskLabel, .goalWeekDaysPanel .goalsTaskEditing > .goalsCalendarTaskOtherCategory { display: none !important; }
 .goalWeekDaysPanel .goalsTaskEditPanel { flex: 0 0 100%; }
-.goalsDayTaskAdd { flex-wrap: wrap; align-items: center; margin-top: 0; padding: 8px 12px; background: transparent; }
-.goalsDayTaskAdd .msg { flex-basis: 100%; margin: 0; min-height: 0; }
 /* Semaine dépliée : pastille neutre = même couleur que la cellule, simple contour de la couleur du titre ; plus de rond autour du chevron. */
 :is(#goalsMonthView, .goalsPop) .goalsWeeklyList .goalWeeklyCard.weekOpen:not(:has(.goalWeeklyEditor)) .goalWeeklyBadge:not(.goalWeeklyBadgeStatus) { background: transparent !important; color: var(--poleText) !important; box-shadow: inset 0 0 0 1px var(--poleText) !important; }
 :is(#goalsMonthView, .goalsPop) .goalsWeeklyList .goalWeeklyCard.weekOpen:not(:has(.goalWeeklyEditor)) input.goalWeeklyText { color: var(--poleText) !important; }
 :is(#goalsMonthView, .goalsPop) .goalsWeeklyList .goalWeeklyCard.weekOpen:not(:has(.goalWeeklyEditor)) input.goalWeeklyText::placeholder { color: var(--poleText) !important; opacity: 0.55; }
-.goalsWeeklyList .goalWeeklyExpandBtn, .goalsWeeklyList .goalWeeklyExpandBtn:hover, .goalsWeeklyList .goalWeeklyExpandBtn:focus, .goalsWeeklyList .goalWeeklyExpandBtn:active, .goalsWeeklyList .goalWeeklyExpandBtn:focus-visible { background: transparent !important; box-shadow: none !important; outline: none !important; -webkit-tap-highlight-color: transparent; border-radius: 0; }
 .cmpAdd#activityGoalsMainEmptyBar { margin-bottom: 14px; }
 .goalWeeklyCapInfo { font-size: 12px; color: var(--text-light); padding: 2px 0; }
 
@@ -476,7 +405,6 @@
 .tasksDock.goalsDayDock { z-index: 105; } /* au-dessus de la page Calendrier (z 101), sous les fenêtres (z 110) */
 .goalsDayDock .tasksPropose { max-height: min(55vh, 440px, calc(var(--dock-vh, 100vh) - 140px)); }
 .goalsMainBig { width: auto; max-width: 100%; min-height: 0; border: 0; padding: 0; text-align: left; font-size: 20px; font-weight: 700; white-space: nowrap; } /* l'objectif périodique prend le grand format du mois */
-.goalsMainAddLine { display: block; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: var(--text-light); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 
 /* Haut de page sans objectif périodique : pointillés (.cmpAdd) autour de « + Ajouter … » centré et de la date juste dessous. */
 .goalsCalWeekAdd { margin-bottom: 0; }
