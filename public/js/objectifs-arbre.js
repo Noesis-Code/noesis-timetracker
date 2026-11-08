@@ -700,7 +700,7 @@
       items = (rs[0] && rs[0].objectifs) || []; struct = rs[1]; loaded = true; if (openPending) { applyOpen(); openPending = false; } return loadOrdre();
     }).then(function () { render(); }).catch(function () {});
   }
-  tree = document.getElementById('goalsObjArbre');
+  tree = document.getElementById('goalsObjArbre'); if (tree) tree.setAttribute('data-hscroll', '.arHScroll'); // le pager de pages (stats-avance.js) lit ce défilement horizontal pour tout toucher dans l'arbre (repères, bandeau compris)
   // Aucun écouteur de redimensionnement, de défilement ni de fenêtre visuelle, aucun minuteur : les largeurs et la hauteur sont du CSS ; seul le décalage haut/bas est mesuré à chaque rendu (fitTree).
   // UNE SEULE flèche de retour : depuis un calendrier ouvert par l'arbre, la flèche ‹ du cadre du pôle (qui ne change plus de pôle) ramène à l'arbre.
   document.addEventListener('click', function (e) {

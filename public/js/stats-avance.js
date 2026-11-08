@@ -40,6 +40,8 @@
     zone.style.touchAction = 'pan-y';
     function hScroller(e0) {
       for (var e = e0; e && e !== zone; e = e.parentElement) {
+        // zone qui contient un défilement horizontal HORS de la ligne du toucher (arbre des objectifs : repères du temps, bandeau du haut) : data-hscroll="sélecteur" désigne ce défilement, la même règle s'applique (aucun passage de page dans le sens du défilement, retour seulement depuis le bord gauche)
+        if (e.getAttribute && e.getAttribute('data-hscroll')) { var hz = e.querySelector(e.getAttribute('data-hscroll')); if (hz && hz.scrollWidth > hz.clientWidth + 1) { var hox = getComputedStyle(hz).overflowX; if (hox === 'auto' || hox === 'scroll') return hz; } }
         if (e.scrollWidth > e.clientWidth + 1) {
           var ox = getComputedStyle(e).overflowX;
           if (ox === 'auto' || ox === 'scroll') return e;

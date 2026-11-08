@@ -9,3 +9,5 @@
 **Aucune autre entrée** : ni pincer, ni appui long pour descendre (l'appui long ouvre le mode Fusionner), ni l'ancienne page « Pôle · Année N » (« Objectif de l'année »). Cette page était atteignable par un toucher sur une colonne de secteur sans clé (un pôle sans secteur, ex. « Catégorie 1 ») : le toucher n'y mène plus.
 
 **Test d'une nouvelle entrée** : si un écran n'est atteignable que par un chemin absent de cette page, on corrige le chemin, pas l'écran.
+
+Balayage horizontal de l’arbre : tout toucher dans l’arbre (repères, bandeau compris) suit la règle du défilement horizontal du pager commun (`stats-avance.js`, `data-hscroll`) : aucun passage aux statistiques dans le sens du défilement ; un nouveau balayage après relâchement.
