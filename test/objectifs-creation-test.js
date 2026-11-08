@@ -224,7 +224,7 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(arSrc.includes('var mrows = []') && arSrc.includes('x.m.endDate') && arSrc.includes('macroCard(hit.m'), 'macros chaînés : un macro peut avoir un macro pour enfant, les cartes larges s’empilent (le plus lointain en haut) sans se masquer');
   assert(crSrc.includes("{ endDate: form.endDate, title: form.title") && !crSrc.includes('level: form.level, poleKey: form.poleKey, title: form.title'), 'proposition de rattachement : une seule règle, l’échéance du parent est au moins celle du nouvel objectif');
   assert(crSrc.includes('function paintMacro') && crSrc.includes("'/api/objectifs/macro'") && crSrc.includes('macroDecided') && crSrc.includes('Annuler le macro'), 'macro proposé : avant / après, Accepter ou Refuser, nom et activités modifiables, créé après l’objectif, jamais en silence');
-  assert(/createAt: function/.test(crSrc) && /form\.fixedCtx = true/.test(crSrc) && /createAt\(\{ ctx: c\.col\.ctx/.test(arSrc) && !/arHolePlus|createUnder/.test(arSrc), 'toucher une case VIDE ajoute un objectif (activité, niveau, échéance de la case) ; plus de « + » dans les cases');
+  assert(/createAt: function/.test(crSrc) && /form.fixedCtx = fromCell/.test(crSrc) && /createAt\(\{ ctx: c\.col\.ctx/.test(arSrc) && !/arHolePlus|createUnder/.test(arSrc), 'toucher une case VIDE ajoute un objectif (activité, niveau, échéance de la case) ; plus de « + » dans les cases');
   bad = false; try { o.get('autre-utilisateur', made.id); } catch (e) { bad = e.statusCode === 404; } assert(bad, 'un autre utilisateur ne voit pas cet objectif');
   // Terme, objectifs inclus, mode édition, parts d'un grand objectif (7 nov. 2026)
   const tm = require('../server/lib/objectifs-temps');
