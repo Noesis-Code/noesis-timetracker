@@ -47,3 +47,12 @@ Pas de durée, priorité, description ni objectif lié à la création. Orthogra
 ## Idée gardée de côté : page « Tâches » à la création d'un objectif (7 nov. 2026)
 
 Décision d'Émilien : l'offre Expansion est laissée de côté jusqu'à son lancement (objectif : dans environ deux semaines). La 5e page du panneau (« Tâches générées automatiquement » avec Expansion, ou bouton d'offre « Génère automatiquement tes tâches avec Noèsis » en gratuit) est retirée du parcours : `TACHES_PAGE = false` dans `public/js/objectifs-creer.js`, le code de la page (`boxes.taches`, `offerBtn`) est conservé. À remettre à `true` dès qu'Expansion est en ligne. Le parcours passe à 4 pages au plus : Description, Rattachement (si candidat), Temps, Activité, Niveau (si info manquante).
+
+## Temps par membre, responsables (décisions d'Émilien, 8 nov. 2026)
+- **Page Temps** : pour le niveau choisi (activité, pôle ou secteur), une ligne par membre : heures par semaine passées (moyenne des 4 dernières semaines, statistiques) en gris + temps prévu modifiable ; total du niveau recalculé en haut.
+- **Origines d'un changement de temps** : s'ajoute · pris sur une autre activité (SEULEMENT pour son propre temps) · pris sur un autre pôle/secteur de la même activité · échangé entre responsables (total constant).
+- **Responsables** : le propriétaire de l'activité et les responsables ajoutés (plusieurs possibles). Un responsable d'activité l'est aussi de tous ses pôles et secteurs. TOUS les responsables sont égaux : ils modifient directement le temps de n'importe quel membre, propriétaire compris. Réglable dans les paramètres de l'activité et en touchant l'activité au titre de l'arbre périodique.
+- **Notification** au membre modifié (avant → après, par qui). Si c'est du temps additionnel, il choisit depuis la notification de le prendre sur une autre activité à lui ou de l'ajouter.
+- **Statistiques** : tableau de tous les temps par activité et par pôle, avec historique continu et case « changements demandés » (branche à part, côté Chrono/Statistiques).
+- **Ordre** : 1) responsables, 2) temps passé par membre dans la page Temps, 3) modification avec les 4 origines. Ensuite : « Objectifs inclus » retiré de la page Temps et remplacé, à la fin du parcours, par « Générer les objectifs périodiques / hebdomadaires » (avec description de chacun, on peut passer).
+- Points de contact avec d'autres sessions : titre de l'activité dans l'arbre (Feuille de route), paramètres d'une activité (Réglages), notifications (Notifications).
