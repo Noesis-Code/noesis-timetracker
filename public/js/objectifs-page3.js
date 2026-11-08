@@ -50,7 +50,6 @@
                  bandeau plein largeur de la couleur de catégorie (voir
                  renderActivityGoals(), app.js). -->
             <p class="goalCardLabel goalsWeeklyLabel goalsMainOutLabel">Objectif périodique</p>
-            <button type="button" class="cmpAdd hidden" id="activityGoalsMainEmptyBar"><b>+</b>Aucun objectif périodique · Ajouter</button>
             <div class="goalCard goalMainCard" id="activityGoalsMainCard">
               <!-- (discussion "Objectifs — D"), demande
                    d'Emilien : « la zone de texte [...] moins grande [...]
@@ -199,7 +198,7 @@
   }
   (function () {
     var main = buildGoalsPop('main', 'Objectif périodique');
-    ['#activityGoalsMainEmptyBar', '#activityGoalsMainCard'].forEach(function (sel) { var e = document.querySelector(sel); if (e) main.body.appendChild(e); }); // la carte et l'éditeur existants de l'objectif périodique
+    ['#activityGoalsMainCard'].forEach(function (sel) { var e = document.querySelector(sel); if (e) main.body.appendChild(e); }); // la carte et l'éditeur existants de l'objectif périodique
     var lab = document.querySelector('.goalsMainOutLabel'); if (lab) lab.remove();
     buildGoalsPop('week', 'Objectif hebdomadaire');
   })();
@@ -306,7 +305,6 @@
 
   var mainFormForceKey = null; // posé par openGoalsDetail() (clic sur une période dans l'arbre) : formulaire visible d'emblée
   var mainDraft = null; // { key, text } : texte commencé dans le formulaire d'objectif périodique vide
-  var mainFormOpenKey = null; // « période|pôle » dont le formulaire d'objectif périodique vide a été ouvert (+ Ajouter)
   var mainEditKey = null; // « période|pôle » dont l'objectif périodique est en modification sur place
 
 
@@ -952,7 +950,6 @@
       .catch(function (err) { daySend.disabled = false; dayMsg.textContent = (err && err.message) || t('Impossible pour le moment.'); });
   }
   // Fenêtre de l'objectif périodique : la carte et l'éditeur existants, avec les dates de la période (éditeur de dates existant).
-  function openGoalsMainPop() { goalsPops.main.pop.classList.remove('hidden'); }
   // En haut de la page : « P12 », l'état de réalisation de la période et l'objectif périodique (titre seulement).
   function renderGoalsTopLine(period) {
     var ws = (period.weeklies || []).filter(function (w) { return w.text; }), st = null;
@@ -1237,18 +1234,8 @@
     // Sans objectif périodique : carte discrète « Aucun objectif périodique · + Ajouter » ; les semaines (objectifs
     // hebdomadaires, tâches par jour) restent toujours accessibles, l'objectif périodique est facultatif.
     var emptyKey = period.periodNumber + '|' + TMT.currentGoalsCategory;
-    var emptyBar = $('activityGoalsMainEmptyBar');
-    if (mainFormForceKey === emptyKey) { mainFormOpenKey = emptyKey; mainFormForceKey = null; }
     var hasDraft = !hasMainGoal && !!mainDraft && mainDraft.key === emptyKey && !!mainDraft.text;
-    var showForm = hasMainGoal || hasDraft || mainFormOpenKey === emptyKey;
-    if (emptyBar) {
-      emptyBar.classList.toggle('hidden', showForm);
-      emptyBar.onclick = function () {
-        mainFormOpenKey = emptyKey;
-        renderActivityGoals();
-        var inp = $('activityGoalsMainInput'); if (inp) inp.focus();
-      };
-    }
+    var showForm = hasMainGoal || hasDraft;
     var mainCardBox = $('activityGoalsMainCard');
     if (mainCardBox) mainCardBox.classList.toggle('hidden', !showForm);
     var periodBodyBox = $('activityGoalsPeriodBody');
@@ -1378,7 +1365,6 @@
 
 
 
-  function openGoalsWeekEditor(period, weekIndex) { openGoalsWeekPop(period, weekIndex); }
 
 
 
