@@ -35,12 +35,12 @@ function isMember(userId, activityId) { return !!db.prepare('SELECT 1 FROM activ
 function isManager(userId, activityId) {
   const a = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(Number(activityId));
   if (!a) return false;
-  return a.ownerId === userId || !!db.prepare('SELECT 1 FROM activity_managers WHERE activityId = ? AND userId = ?').get(Number(activityId), userId);
+  return a.ownerId === userId || (isMember(userId, Number(activityId)) && !!db.prepare('SELECT 1 FROM activity_managers WHERE activityId = ? AND userId = ?').get(Number(activityId), userId)); // un ancien membre (exclu ou parti) n'est plus responsable
 }
 // Identifiants des responsables (propriétaire en tête) : source unique, utilisée par server/lib/tempsmembres.js.
 function ids(activityId) {
   const a = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(Number(activityId));
-  const list = db.prepare('SELECT userId FROM activity_managers WHERE activityId = ? ORDER BY addedAt, userId').all(Number(activityId)).map((r) => r.userId);
+  const list = db.prepare('SELECT g.userId FROM activity_managers g JOIN activity_members m ON m.activityId = g.activityId AND m.userId = g.userId WHERE g.activityId = ? ORDER BY g.addedAt, g.userId').all(Number(activityId)).map((r) => r.userId);
   if (a && a.ownerId) return [a.ownerId].concat(list.filter((x) => x !== a.ownerId));
   return list;
 }

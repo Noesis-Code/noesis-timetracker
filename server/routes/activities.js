@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const textlimits = require('../lib/textlimits');
+require('../lib/responsables'); // crée la table activity_managers (exclure un membre le retire des responsables)
 const { paletteFor, isInPalette } = require('../lib/theme');
 const { notifyActivityInvite } = require('../lib/push');
 // ⚠️ 3 septembre 2026 — débordement signalé par la discussion "Activité —
@@ -391,6 +392,7 @@ router.delete('/activities/:id/members/:memberId', (req, res) => {
 
   db.exec('BEGIN');
   try {
+    db.prepare('DELETE FROM activity_managers WHERE activityId = ? AND userId = ?').run(activity.id, targetId); // exclure un membre le retire des responsables
     // Nouvelle activité personnelle pour la personne exclue, même logique que
     // "Séparer" (voir plus haut) : elle garde son historique déjà enregistré.
     const info = db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, createdAt) VALUES (?, ?, 1, ?, ?)')

@@ -778,3 +778,8 @@ Appui long (téléphone) : même mécanique que l’appui long des activités et
 - Le niveau vient du choix : activité seule = long, + pôle = moyen, + secteur = court. Court/Moyen/Long n'apparaît plus dans la page Temps ; le niveau gagne sur la durée (le serveur n'en refuse plus la combinaison, `creer` dans server/lib/objectifs.js).
 - Plus de page Rattachement ni de macro multi-activités : le parent de la même activité (échéance au moins égale) est choisi tout seul. Le macro se fait depuis l'arbre.
 - À retirer plus tard (code mort) : paintMacro, paintRatt, rattPending dans objectifs-creer.js.
+
+## Responsables : par le menu « ⋯ » des membres (8 nov. 2026, décision d'Émilien)
+- Liste des membres d'une activité : « Exclure » et « Ajouter / Retirer comme responsable » sont rangés dans un petit menu « ⋯ » (TMT.ui.dotsMenu, composants.js ; logique dans public/js/responsables-ui.js, réutilisée par la fiche du titre). La ligne séparée « Responsables » des réglages est retirée (une fonction, un chemin).
+- Réglages > activité : « Stratégie » est retirée de l'interface (public/js/strategie.js et css retirés ; les données de stratégie ne sont jamais supprimées, routes et lectures serveur inchangées) ; « Membres » prend sa place, visible directement.
+- Un membre exclu ou parti n'est plus responsable (isManager et ids exigent d'être membre ; l'exclusion supprime sa ligne de activity_managers).

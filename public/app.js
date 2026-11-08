@@ -8910,28 +8910,19 @@
     // membres [doit se situer] au même niveau que le nom complet des
     // membres ») — ajouté DANS .activityRowHeader (même ligne que le nom),
     // pas dans un .rowActions séparé en dessous comme au premier jet.
+    // 8 nov. 2026 (demande d'Émilien) : « Exclure » et « Ajouter / Retirer comme responsable » sont rangés dans un petit menu « ⋯ » (composant commun TMT.ui.dotsMenu) à côté du nom.
+    var menuItems = [];
     if (opts.canExclude && profile && m.userId !== profile.id) {
-      var header = row.querySelector('.activityRowHeader');
-      var excludeBtn = document.createElement('button');
-      excludeBtn.type = 'button';
-      excludeBtn.className = 'iconBtn btnBrique btnDanger';
-      excludeBtn.textContent = t('Exclure');
-      excludeBtn.addEventListener('click', function () {
+      menuItems.push({ label: t('Exclure'), danger: true, onClick: function () {
         TMT.ui.confirm(t('Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.', { name: displayName, activity: opts.activityName }), { ok: t('Exclure') }).then(function (ok) { if (!ok) return;
-        excludeBtn.disabled = true;
-        api('DELETE', '/api/activities/' + opts.activityId + '/members/' + m.userId, { userId: profile.id })
-          .then(function (res) {
-            alert(t(res.message));
-            if (opts.onExcluded) opts.onExcluded();
-          })
-          .catch(function (err) {
-            excludeBtn.disabled = false;
-            alert(err.message);
-          });
-      });
-      });
-      header.appendChild(excludeBtn);
+          api('DELETE', '/api/activities/' + opts.activityId + '/members/' + m.userId, { userId: profile.id })
+            .then(function (res) { alert(t(res.message)); if (opts.onExcluded) opts.onExcluded(); })
+            .catch(function (err) { alert(err.message); });
+        });
+      } });
     }
+    (opts.extraItems || []).forEach(function (it) { menuItems.push(it); });
+    if (menuItems.length) row.querySelector('.activityRowHeader').appendChild(TMT.ui.dotsMenu(t('Paramètres du membre'), menuItems));
 
     return row;
   }
@@ -9224,7 +9215,8 @@
     // pouvoir rafraîchir la liste après une exclusion, sans refermer la
     // modale ni la retraverser depuis la grille d'activités.
     function loadMembers() {
-      return api('GET', '/api/community/activity-members?userId=' + profile.id + '&activityId=' + activityId).then(function (data) {
+      return Promise.all([api('GET', '/api/community/activity-members?userId=' + profile.id + '&activityId=' + activityId), TMT.responsables ? TMT.responsables.load(activityId) : Promise.resolve(null)]).then(function (both) {
+        var data = both[0], respSt = both[1];
         $('communityMembersModalTitle').textContent = t('Membres · {name}', { name: data.activityName });
         var box = $('communityMembersModalList');
         box.innerHTML = '';
@@ -9235,6 +9227,7 @@
             activityId: activityId,
             activityName: data.activityName,
             onExcluded: refreshAfterExclude,
+            extraItems: respSt ? TMT.responsables.items(activityId, respSt, m.userId, function (e) { if (e) alert(e.message); loadMembers(); }) : [], // Ajouter / Retirer comme responsable
           }));
         });
         $('communityMembersModal').classList.remove('hidden');
@@ -15357,11 +15350,8 @@
     }
     var rows = document.createElement('div');
     rows.className = 'activityEditRows';
-    if (TMT.strategy) {
-      rows.appendChild(plainRow(t('Stratégie'), function () {
-        openEditPopup(t('Stratégie'), function (body) { TMT.strategy.mount(body, a.id); });
-      }, 'ai'));
-    }
+    // 8 nov. 2026 (demande d'Émilien) : « Membres » prend la place de « Stratégie » (retirée de l'interface ; les données de stratégie restent, jamais supprimées) et n'est plus sous « Avancé ».
+    rows.appendChild(plainRow(t('Membres'), function () { openCommunityMembersModal(a.id, a.name, { activity: a, solo: !(a.membersCount > 1) }); }));
     rows.appendChild(plainRow(t('Catégories'), function () { openCategoriesPopup(a); }));
     fields.appendChild(rows);
 
@@ -15402,8 +15392,6 @@
       cIn.addEventListener('change', function () { if (cIn.checked !== !!a[k[0]]) cmpPending[k[0]] = cIn.checked; else delete cmpPending[k[0]]; markDirty(); });
     });
     if ((acts || []).length > 1) adv.appendChild(plainRow(t('Fusionner avec…'), function () { openMergeActivityModal(a); }));
-    adv.appendChild(plainRow(t('Membres'), function () { openCommunityMembersModal(a.id, a.name, { activity: a, solo: !(a.membersCount > 1) }); }));
-    if (a.membersCount > 1 && TMT.responsablesBlock) adv.appendChild(TMT.responsablesBlock(a)); // responsables (8 nov. 2026) : ligne qui se déroule sur place
     advToggle.addEventListener('click', function () {
       var open = adv.classList.toggle('hidden') === false;
       advToggle.setAttribute('aria-expanded', open ? 'true' : 'false');

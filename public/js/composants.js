@@ -72,6 +72,25 @@
       b.appendChild(p); b.appendChild(document.createTextNode(label));
       return b;
     },
+    // Menu « ⋯ » (8 nov. 2026, demande d'Émilien) : petit bouton à trois points et son menu en verre (.statsPeriodMenu, posé sur la page par le mécanisme ci-dessous).
+    // items : [{ label, danger, onClick }]. Un seul composant pour tout ce qui se règle sur une ligne (membres d'une activité…).
+    dotsMenu: function (label, items) {
+      var wrap = document.createElement('div'); wrap.className = 'statsPeriodMenuWrap cmpDots';
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'menuBtn'; b.textContent = '⋯'; b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-label', label || 'Paramètres');
+      var menu = document.createElement('div'); menu.className = 'statsPeriodMenu hidden';
+      items.forEach(function (it) {
+        var x = document.createElement('button'); x.type = 'button'; x.className = 'statsPeriodMenuItem' + (it.danger ? ' danger' : ''); x.textContent = it.label;
+        x.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.add('hidden'); it.onClick(); });
+        menu.appendChild(x);
+      });
+      b.addEventListener('click', function (e) {
+        e.stopPropagation(); var open = menu.classList.contains('hidden');
+        document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+        if (open) menu.classList.remove('hidden');
+      });
+      wrap.appendChild(b); wrap.appendChild(menu);
+      return wrap;
+    },
     chev: function (open) { var s = document.createElement('span'); s.className = 'cmpChev' + (open ? ' open' : ''); s.setAttribute('aria-hidden', 'true'); return s; },
     // Petit bouton de statut (S46, P12…) à 3 états colorés : vert (atteint) / jaune (partiel) / rouge (non atteint) ; `state` null = transparent (à venir ou sans tâche, aucun fond, jamais de gris plein).
     // Un clic fait tourner vert -> jaune -> rouge -> vert (onClick reçoit l'état suivant) ; sans état il ne fait rien. Composant unique (.cmpStatus) pour les périodes ET les semaines.

@@ -588,14 +588,20 @@
     // 2. Objectifs en cours
     var ob = spec.objectives, objBox = el('div', 'objField'); objBox.appendChild(el('p', 'cmpBlockTitle', tr('Objectifs en cours')));
     objBox.appendChild(line(tr('Objectifs actifs'), String(ob.count))); objBox.appendChild(line(tr('Prochaine échéance'), ob.next || '—')); objBox.appendChild(line(tr('En retard'), String(ob.late))); panelBody.appendChild(objBox);
-    // 3. Responsables : la ligne des réglages de l'activité (TMT.responsablesBlock, jamais recopiée) quand l'activité est partagée ; sinon le propriétaire seul
+    // 3. Responsables : mêmes lignes et même menu « ⋯ » que la liste des membres de l'activité (TMT.responsables + TMT.ui.dotsMenu, jamais recopiés). Un non-responsable n'apparaît que si je peux en ajouter.
     var respBox = el('div', 'objField'); panelBody.appendChild(respBox);
-    membersP.then(function (r) {
+    function paintResp(r) {
+      respBox.textContent = ''; respBox.appendChild(el('p', 'cmpBlockTitle', tr('Responsables')));
       var ms = r.members || [];
-      if (ms.length > 1 && TMT.responsablesBlock) { respBox.appendChild(TMT.responsablesBlock({ id: act.id })); return; }
-      respBox.appendChild(el('p', 'cmpBlockTitle', tr('Responsables')));
-      var names = ms.filter(function (m) { return m.manager; }).map(function (m) { return m.name + (m.owner ? ' (' + tr('propriétaire') + ')' : ''); }); respBox.appendChild(el('p', 'hint', names.length ? names.join(' · ') : '—'));
-    });
+      ms.filter(function (m) { return m.manager || r.canManage; }).forEach(function (m) {
+        var row = el('div', 'objTimeRow'); row.appendChild(el('span', null, m.name + (m.owner ? ' (' + tr('propriétaire') + ')' : m.manager ? '' : ' · ' + tr('membre'))));
+        var its = TMT.responsables ? TMT.responsables.items(act.id, r, m.id, function (e) { if (e) msg.textContent = e.message; TMT.responsables.load(act.id).then(paintResp); }) : [];
+        if (its.length && TMT.ui.dotsMenu) row.appendChild(TMT.ui.dotsMenu(tr('Paramètres du membre'), its));
+        respBox.appendChild(row);
+      });
+      if (!ms.length) respBox.appendChild(el('p', 'hint', '—'));
+    }
+    membersP.then(paintResp);
     function save() {
       if (!dirty()) return;
       stepBtn.disabled = true; msg.textContent = '';

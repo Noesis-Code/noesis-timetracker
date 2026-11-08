@@ -320,6 +320,11 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
       assert(!stranger || !R.isManager(stranger.id, act.id), 'responsables : une ancienne ligne d’un non-membre n’est pas migrée');
       assert(db.prepare('SELECT COUNT(*) AS n FROM activity_responsables_migre WHERE activityId = ?').get(act.id).n >= 1 && !db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'activity_responsables'").get(), 'responsables : l’ancienne table est conservée sous un autre nom (rien n’est supprimé)');
       assert(JSON.stringify(R.ids(act.id)) === JSON.stringify([act.ownerId].concat(R.ids(act.id).filter((x) => x !== act.ownerId))) && R.ids(act.id).includes(other), 'responsables : source unique des identifiants (propriétaire en tête)');
+      // Un membre exclu ou parti n'est plus responsable (même si sa ligne reste) ; le menu « ⋯ » ne propose rien aux non-responsables
+      const mem0 = db.prepare('SELECT * FROM activity_members WHERE activityId = ? AND userId = ?').get(act.id, other);
+      R.ajouter(act.ownerId, act.id, other); db.prepare('DELETE FROM activity_members WHERE activityId = ? AND userId = ?').run(act.id, other);
+      assert(!R.isManager(other, act.id) && !R.ids(act.id).includes(other), 'responsables : un ancien membre n’est plus responsable');
+      db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)').run(act.id, other, mem0.color, mem0.joinedAt);
       R.retirer(act.ownerId, act.id, other);
     }
   }
