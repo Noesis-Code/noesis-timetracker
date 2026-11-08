@@ -78,6 +78,19 @@ assert(t.requested.length && t.requested.every((h) => h.changedBy !== h.memberId
 assert(lvl && t.levels[0].plannedMin === tm.plannedMin(A, null, 'c') + tm.plannedMin(A, null, 'e') + tm.plannedMin(A, null, 'x'), '20. total prévu du niveau = somme des membres');
 assert(tm.tableFor(A, 'zz', today).status === 403, '21. non-membre : 403');
 
+// Activité à UN SEUL membre : même tableau, avec lui seul ; « pris sur une autre activité » pour son propre temps ; jamais l'échange (personne d'autre).
+const S1 = act('x'); member(S1, 'x'); const S2 = act('x'); member(S2, 'x');
+const ts = tm.tableFor(S1, 'x', today);
+assert(!ts.error && ts.levels.length === 1 && ts.levels[0].rows.length === 1 && ts.levels[0].rows[0].userId === 'x', '22. activité non partagée : le même tableau, avec le seul membre');
+let rs = tm.changePlanned({ activityId: S2, poleKey: null, memberId: 'x', changedBy: 'x', afterMin: 300, origin: 'ajout' }, () => {});
+assert(rs.ok, '23. non partagée : s’ajoute');
+rs = tm.changePlanned({ activityId: S1, poleKey: null, memberId: 'x', changedBy: 'x', afterMin: 120, origin: 'autre-activite', fromActivityId: S2 }, () => {});
+assert(rs.ok && tm.plannedMin(S1, null, 'x') === 120 && tm.plannedMin(S2, null, 'x') === 180, '24. non partagée : pris sur une autre activité à soi (300 → 180, 120 ajoutés)');
+rs = tm.changePlanned({ activityId: S1, poleKey: null, memberId: 'x', changedBy: 'x', afterMin: 200, origin: 'autre-activite', fromActivityId: A }, () => {});
+assert(rs.error && rs.status === 400, '25. une activité dont on n’est pas membre ne peut pas être source');
+rs = tm.changePlanned({ activityId: S1, poleKey: null, memberId: 'x', changedBy: 'x', afterMin: 200, origin: 'echange', withMemberId: 'c' }, () => {});
+assert(rs.error, '26. non partagée : pas d’échange (personne d’autre)');
+
 try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* Windows : base encore ouverte */ }
 if (failed) { console.log(failed + ' échec(s)'); process.exit(1); }
 process.exit(0);
