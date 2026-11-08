@@ -101,21 +101,22 @@
     fillSrc();
   }
 
-  // Barres verticales : temps travaillé de chaque membre (h/sem., 4 semaines) pour l'activité, ses pôles et ses secteurs.
-  function barsCard(d) {
-    var colors = {}; d.members.forEach(function (m) { colors[m.userId] = m.color; });
-    var max = 1; (d.bars || []).forEach(function (b) { b.rows.forEach(function (r) { if (r.pastMin > max) max = r.pastMin; }); });
-    var sec = el('div', 'statsSection');
-    var hd = el('div', 'sectionTitleRow');
-    var ttl = el('p', 'sectionTitle', tr('Temps travaillé') + ' '); ttl.appendChild(el('span', 'meta', '· ' + tr('h / sem., 4 semaines'))); hd.appendChild(ttl);
-    sec.appendChild(hd);
+  // Barres verticales (h/sem., 4 semaines). Page : un groupe par pôle ; un appui ouvre la fenêtre du pôle (même format que
+  // la répartition du Chrono : bande de la couleur de l'activité, ✕), avec le pôle par membre puis chaque secteur par membre.
+  function legend(d) {
     var lg = el('div', 'saLegend');
     d.members.forEach(function (m) { var sp = el('span'), i = el('i', 'saSw'); i.style.background = m.color; sp.appendChild(i); sp.appendChild(document.createTextNode(m.name)); lg.appendChild(sp); });
-    sec.appendChild(lg);
+    return lg;
+  }
+  function barGrid(d, list, onTap) {
+    var colors = {}; d.members.forEach(function (m) { colors[m.userId] = m.color; });
+    var max = 1; list.forEach(function (b) { b.rows.forEach(function (r) { if (r.pastMin > max) max = r.pastMin; }); });
     var g = el('div', 'sbGrid');
-    (d.bars || []).forEach(function (b, k) {
+    list.forEach(function (b, k) {
       if (k) g.appendChild(el('span', 'stSep'));
-      g.appendChild(el('span', 'sbLabel sb-' + b.kind, b.label));
+      var lab = el(onTap ? 'button' : 'span', 'sbLabel sb-' + b.kind, b.label);
+      if (onTap) { lab.type = 'button'; lab.addEventListener('click', function () { onTap(b); }); }
+      g.appendChild(lab);
       var cols = el('div', 'sbCols');
       b.rows.forEach(function (r) {
         var c = el('div', 'sbCol');
@@ -123,10 +124,50 @@
         var bar = el('i', 'sbBar'); bar.style.height = Math.max(2, Math.round(56 * r.pastMin / max)) + 'px'; bar.style.background = colors[r.userId] || '';
         c.appendChild(bar); cols.appendChild(c);
       });
+      if (onTap) { cols.classList.add('sbTap'); cols.addEventListener('click', function () { onTap(b); }); }
       g.appendChild(cols);
     });
-    sec.appendChild(g);
+    return g;
+  }
+  function barsCard(d) {
+    var poles = (d.bars || []).filter(function (b) { return b.kind === 'pole'; });
+    var list = poles.length ? poles : (d.bars || []).filter(function (b) { return b.kind === 'activite'; });
+    var sec = el('div', 'statsSection');
+    var hd = el('div', 'sectionTitleRow');
+    var ttl = el('p', 'sectionTitle', tr('Temps travaillé') + ' '); ttl.appendChild(el('span', 'meta', '· ' + tr('h / sem., 4 semaines'))); hd.appendChild(ttl);
+    sec.appendChild(hd);
+    sec.appendChild(legend(d));
+    sec.appendChild(barGrid(d, list, poles.length ? function (p) { openPole(d, p); } : null));
     return sec;
+  }
+
+  var modal = null;
+  function closePole() { if (modal) modal.classList.add('hidden'); }
+  function openPole(d, p) {
+    if (!modal) {
+      modal = el('div', 'communityMembersModal hidden'); modal.id = 'statsTempsPoleModal';
+      modal.innerHTML = '<div class="communityMembersModalCard cmpGlass"><div class="viewProfileIdentity"><span class="identityName"></span>'
+        + '<button type="button" class="cmpClose" aria-label="Fermer">✕</button></div><div class="viewProfileScroll"></div></div>';
+      modal.querySelector('.cmpClose').addEventListener('click', closePole);
+      modal.addEventListener('click', function (e) { if (e.target === modal) closePole(); });
+      document.body.appendChild(modal);
+    }
+    var me = d.members.filter(function (m) { return m.userId === d.me; })[0];
+    var color = me && me.color;
+    var bar = modal.querySelector('.viewProfileIdentity');
+    bar.classList.toggle('tinted', !!color); bar.style.background = color || '';
+    bar.style.color = color && TMT.textColorForTheme ? TMT.textColorForTheme('dark') : '';
+    modal.querySelector('.identityName').textContent = p.label;
+    var body = modal.querySelector('.viewProfileScroll'); body.textContent = ''; body.scrollTop = 0;
+    var sec = el('div', 'statsSection');
+    var hd = el('div', 'sectionTitleRow');
+    var ttl = el('p', 'sectionTitle', tr('Répartition') + ' '); ttl.appendChild(el('span', 'meta', '· ' + tr('h / sem., 4 semaines'))); hd.appendChild(ttl);
+    sec.appendChild(hd);
+    sec.appendChild(legend(d));
+    var secteurs = (d.bars || []).filter(function (b) { return b.kind === 'secteur' && b.pole === p.key; });
+    sec.appendChild(barGrid(d, [p].concat(secteurs), null));
+    body.appendChild(sec);
+    modal.classList.remove('hidden');
   }
 
   function origin(h) {

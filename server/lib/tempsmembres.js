@@ -203,7 +203,7 @@ function tableFor(activityId, callerId, todayIso) {
   const bars = [{ key: null, label: act.name, kind: 'activite', rows: members.map((m) => ({ userId: m.userId, pastMin: Math.round(past.byMember.get(m.userId) || 0) })) }];
   poles.forEach((p) => {
     bars.push({ key: p.key, label: p.label, kind: 'pole', rows: barRows(past.byPole, p.key) });
-    (goals.secteursForPole(activityId, p.key) || []).forEach((s) => bars.push({ key: s.key, label: s.label, kind: 'secteur', rows: barRows(past.byCat, s.key) }));
+    (goals.secteursForPole(activityId, p.key) || []).forEach((s) => bars.push({ key: s.key, label: s.label, kind: 'secteur', pole: p.key, rows: barRows(past.byCat, s.key) }));
   });
   const names = new Map(members.map((m) => [m.userId, m.name]));
   const nameOf = (id) => names.get(id) || userName(id);
