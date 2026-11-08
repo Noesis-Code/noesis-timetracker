@@ -147,3 +147,5 @@
 .objNewSw .colorSwatches { overflow: visible; flex-wrap: wrap; padding: 4px; }
 /* Fenêtre de création : textes gris un peu plus lisibles sur le verre transparent (même teinte, plus claire ; aucune couleur nouvelle) */
 .objDock .tasksPropose { --text-light: color-mix(in srgb, var(--text) 78%, transparent); }
+/* Les pages glissantes défilent à la verticale quand la liste dépasse (sinon « Ajouter une activité » était coupé) */
+.objDock .tasksPages { overflow-x: hidden; overflow-y: auto; }
