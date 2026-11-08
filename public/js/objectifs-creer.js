@@ -300,40 +300,6 @@
       notYet.forEach(function (a) { l2.appendChild(card(a)); });
       form.news.forEach(function (n) { l2.appendChild(choice(n.name, tr('Nouvelle activité'), true, n.color, function () { form.news = form.news.filter(function (x) { return x !== n; }); syncMain(); refresh(); })); });
       if (notYet.length || form.news.length) actBox.appendChild(field(tr('Pas encore dans l’arbre'), l2));
-      var add = btn('cmpAdd', '', function () { openNewAct(); }); add.appendChild(el('b', null, '+')); add.appendChild(document.createTextNode(tr('Ajouter une activité'))); actBox.appendChild(add);
-    }
-    // Sous-page « Nouvelle activité » : mêmes champs que Réglages (nom, couleur). Rien n'est créé avant « Terminer » de l'objectif : l'activité n'apparaît nulle part avant.
-    var newBox = el('div'); slideB.appendChild(newBox);
-    function openNewAct() { // nom + couleur (en haut à gauche, dépliable, comme dans Réglages), puis le temps prévu : s'ajoute à mon temps, ou pris sur une autre activité
-      newBox.textContent = ''; msg.textContent = '';
-      var nameIn = el('input'), swWrap = el('div', 'objNewSw hidden'), sw = el('div'), color = null, hrs = null, from = { mode: 'plus', fromId: null };
-      var head = el('div', 'objNewHead'), dot = btn('objNewDot', '', function () { swWrap.classList.toggle('hidden'); });
-      dot.setAttribute('aria-label', tr('Couleur'));
-      nameIn.type = 'text'; nameIn.maxLength = 40; nameIn.placeholder = tr('Nom de l’activité'); nameIn.setAttribute('aria-label', tr('Nom de l’activité'));
-      head.appendChild(dot); head.appendChild(nameIn); newBox.appendChild(head); swWrap.appendChild(sw); newBox.appendChild(swWrap);
-      if (TMT.renderColorSwatches) TMT.renderColorSwatches(sw, null, function (c) { color = c; dot.style.background = c; }, true);
-      var hRow = el('div', 'objTimeRow'), hVal = el('span', 'objHoursVal'), hIn = el('input'), originBox = el('div');
-      hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.setAttribute('aria-label', tr('Heures par semaine'));
-      hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); hrs = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; });
-      hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); newBox.appendChild(hRow);
-      newBox.appendChild(originBox);
-      function okGo() { return !!nameIn.value.trim() && (from.mode !== 'prise' || from.fromId != null); }
-      function syncGo() { stepBtn.disabled = !okGo(); }
-      function paintOrigin() {
-        originBox.textContent = '';
-        originBox.appendChild(seg([['plus', tr('S’ajoute')], ['prise', tr('Pris sur…')]], from.mode, function (k) { from.mode = k; if (k === 'plus') from.fromId = null; paintOrigin(); syncGo(); }, tr('Origine du temps')));
-        if (from.mode === 'prise') {
-          var lst = el('div', 'aiModeChoices');
-          (ctx.activities || []).forEach(function (a) { lst.appendChild(choice(a.name, '', from.fromId === a.id, a.color, function () { from.fromId = a.id; paintOrigin(); syncGo(); })); });
-          originBox.appendChild(lst);
-        }
-      }
-      paintOrigin();
-      slideTo(true); panelKicker.textContent = tr('Nouvelle activité'); stepLabel.textContent = tr('Terminer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Terminer')); syncGo();
-      nameIn.addEventListener('input', syncGo);
-      function back() { slideTo(false); form._step = cur = 'activite'; show('activite'); }
-      advance = function () { if (!okGo()) return; var n = { key: Date.now(), name: nameIn.value.trim(), color: color }; form.news.push(n); form.hoursBy['n' + n.key] = hrs; form.hoursFrom['n' + n.key] = { mode: from.mode, fromId: from.fromId }; syncMain(); slideTo(false); refresh(); show('activite'); };
-      setBack(back); window.setTimeout(function () { nameIn.focus({ preventScroll: true }); slidePages.scrollLeft = 0; }, 320); // focus APRÈS le glissement, sans défilement (sinon le conteneur masqué se décale)
     }
     // Étape « Temps » : échéance (ci-dessus), format des périodes, objectifs hebdomadaires, puis un petit tableau : « Nombre recommandé » (valeur seule) et « Heures par semaine » (champ modifiable).
     function fmtH(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
