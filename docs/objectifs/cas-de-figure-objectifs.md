@@ -752,3 +752,9 @@ Cause du « impossible de fusionner » dans les années et les périodes : les o
 ## Responsables d'une activité (8 nov. 2026, lot 1 serveur)
 - Table `activity_managers` ; le propriétaire est toujours responsable (jamais retirable) ; seuls les membres de l'activité peuvent l'être ; tous les responsables sont égaux ; un responsable d'activité l'est aussi de ses pôles et secteurs.
 - Routes : GET/PUT `/api/activities/:id/responsables`, DELETE `/api/activities/:id/responsables/:userId`. Pas encore d'interface : titre de l'arbre (Feuille de route) et paramètres de l'activité (Réglages) à brancher par leurs sessions.
+
+## Liaison des colonnes (macro) : une seule règle (8 nov. 2026, remplace « même ligne » et « colonne déjà reliée »)
+
+Écrite une fois dans `public/js/objectifs-liaison.js`, lue par le serveur (`server/lib/objectifs.js`) ET par l’écran (`objectifs-arbre.js`). Un nouveau lien est REFUSÉ quand il reprend deux colonnes ou plus d’un macro existant du même niveau ; il est accepté dès qu’au moins une colonne reliée au-dessus est laissée de côté (A+B reliées : A+B refusé, B+C accepté). Message : « Ces colonnes sont déjà reliées au-dessus. » Mêmes niveaux partout (activités, années/pôles, périodes/secteurs). Au-dessus d’un macro les colonnes reliées se replient en une seule (un objectif proposé), donc la liaison se fait en dessous.
+
+Appui long (téléphone) : même mécanique que l’appui long des activités et de la barre des volets (500 ms, annulé au-delà de 10 px par axe). Une trace temporaire (marquée TEMP dans `objectifs-arbre.js`) s’affiche à l’appui long.

@@ -648,9 +648,10 @@ function leafKids(r, depth) {
   if (depth > 20) return [];
   return activeKids(r).reduce((a, k) => a.concat(k.isMacro ? leafKids(k, depth + 1) : [k]), []);
 }
-function columnsOf(r) {
-  const level = r.level || 'activite', seen = {}, cols = [];
-  leafKids(r, 0).forEach((k) => {
+function columnsOf(r) { return columnsOfLeaves(r.level || 'activite', leafKids(r, 0)); }
+function columnsOfLeaves(level, leaves) {
+  const seen = {}, cols = [];
+  leaves.forEach((k) => {
     let pk = k.poleKey, ck = k.categoryKey;
     if (level !== 'activite' && !pk) { const ps = goals.categoriesForActivity(k.activityId); pk = ps[0] && ps[0].key; }
     if (level === 'secteur' && !ck && pk) { const ss = goals.secteursForPole(k.activityId, pk); ck = ss[0] && ss[0].key; }
@@ -890,35 +891,22 @@ function bilan(userId, id, action, n) {
 // ---- Colonnes, groupes de macros et règle de fusion (mode Étendre) ----
 // Une colonne = (niveau, activité, pôle, secteur). RÈGLE : une colonne déjà reliée à un macro ne peut pas être reliée à un AUTRE macro séparé (400 « Délie d'abord ce macro ») ;
 // relier à un macro existant par chaînage (macro enfant) fait entrer le groupe entier. La fusion est réversible : aucune donnée de base n'est modifiée (voir objectifs-ordre.js).
-const MSG_COLONNE_RELIEE = 'Délie d’abord ce macro : cette colonne est déjà reliée à un autre macro.';
-function colKeyOf(r) { const lv = r.level || 'activite'; return lv + '|' + r.activityId + '|' + (lv === 'activite' ? '' : (r.poleKey || '')) + '|' + (lv === 'secteur' ? (r.categoryKey || '') : ''); }
+
 function macroRoot(row) { // macro le plus haut de la chaîne (le macro lui-même s'il en est un), sinon null
   let cur = row, root = row.isMacro ? row : null, n = 0;
   while (cur && cur.parentId && n++ < 50) { const p = db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId); if (!p) break; if (p.isMacro && (p.level || 'activite') === (row.level || 'activite')) root = p; cur = p; }
   return root;
 }
-// LIGNE d'un macro (même règle que l'arbre : bucketOf / rowKey) : bloc de 5 ans à partir de l'année courante (activités), année (pôles), période de 28 jours (secteurs) ; un macro en retard compte dans la ligne d'aujourd'hui.
-function macroRowKey(m) {
-  const t = today(), late = m.endDate < t && !m.abandoned && m.status !== 'atteint', d = late ? t : m.endDate, y = Number(String(d).slice(0, 4)), lvl = m.level || 'activite';
-  if (lvl === 'secteur') return 's' + y + '/' + fusion.periodOf(d).number;
-  if (lvl === 'pole') return 'p' + y;
-  const y0 = Number(t.slice(0, 4));
-  return 'a' + (y0 + 5 * Math.floor((y - y0) / 5));
+// RÈGLE DE LIAISON (écrite une fois : public/js/objectifs-liaison.js, lue aussi par l'écran) : un nouveau lien qui reprend deux colonnes ou plus d'un macro existant du même niveau est refusé (« Ces colonnes sont déjà reliées au-dessus. »).
+const liaison = require('../../public/js/objectifs-liaison.js');
+const MSG_COLONNE_RELIEE = liaison.MSG;
+function assertLiaison(userId, level, leaves, ignoreRootId) {
+  if (liaison.refuse(level, columnsOfLeaves(level, leaves), macroGroups(userId), ignoreRootId)) throw err(MSG_COLONNE_RELIEE);
 }
-// Une colonne ne peut être reliée à un AUTRE macro que s'il est sur la MÊME ligne ; des macros de lignes différentes (2026, 2035…) peuvent partager une colonne.
-function columnLinkedElsewhere(userId, leaf, leafIds, allowedRootId, myRow) {
-  const key = colKeyOf(leaf), mine = myRow ? macroRowKey(myRow) : null;
-  return db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND isMacro = 0').all(userId).some((x) => {
-    if (leafIds.has(x.id) || colKeyOf(x) !== key) return false;
-    const rx = macroRoot(x);
-    return !!rx && rx.id !== allowedRootId && (!mine || macroRowKey(rx) === mine);
-  });
-}
-function assertColumnFree(userId, macroRow, child) { // child : ligne d'objectif (ou objet { id, activityId, level, poleKey, categoryKey, isMacro })
-  const rootId = macroRoot(macroRow).id;
-  const leaves = child.isMacro ? (child.id > 0 ? leafKids(child, 0) : []) : [child];
-  const ids = new Set(leaves.map((l) => l.id));
-  if (leaves.some((l) => columnLinkedElsewhere(userId, l, ids, rootId, macroRoot(macroRow)))) throw err(MSG_COLONNE_RELIEE);
+function assertColumnFree(userId, macroRow, child) { // child : ligne d'objectif (ou objet { id, activityId, level, poleKey, categoryKey, isMacro }) que l'on relie à ce macro
+  const root = macroRoot(macroRow), level = root.level || 'activite';
+  const add = child.isMacro ? (child.id > 0 ? leafKids(child, 0) : []) : [child];
+  assertLiaison(userId, level, leafKids(root, 0).concat(add), child.isMacro && child.id > 0 ? [root.id, child.id] : root.id);
 }
 // Groupes de macros (macros racines) et colonnes reliées : lus par l'ordre de présentation des colonnes.
 function macroGroups(userId) {
@@ -970,7 +958,7 @@ function fusionnerEnMacro(userId, body) {
   const commonParent = parents.size === 1 && kids.every((k) => k.activityId === kids[0].activityId) ? [...parents][0] : null; // parent commun (même activité) : le macro prend leur place dessous ; sinon le macro est un sommet
   const start = kids.map((k) => k.startDate).sort()[0], end = kids.map((k) => k.endDate).sort().pop();
   const lv = ['activite', 'pole', 'secteur'].includes(body.level) ? body.level : (kids[0].level || 'activite'); // niveau de la vue où l'on fusionne
-  { const kidIds = new Set(kids.map((k) => k.id)); if (kids.some((k) => columnLinkedElsewhere(userId, k, kidIds, null, { level: lv, endDate: end, status: 'en_cours' }))) throw err(MSG_COLONNE_RELIEE); } // avant toute création
+  assertLiaison(userId, lv, kids, null); // règle de liaison, avant toute création
   const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : (kids.find((k) => k.poleKey) || {}).poleKey || null, categoryKey: lv === 'secteur' ? ((kids.find((k) => k.categoryKey) || {}).categoryKey || null) : null });
   if (commonParent) lier(userId, created.id, commonParent, 'apres'); // le macro prend la place de ses objectifs sous leur parent
   kids.forEach((k) => { setPrevParent(k, k.parentId || null); lier(userId, k.id, created.id, 'avant'); }); // le parent d'origine est gardé : séparer remet les objectifs tels qu'ils étaient

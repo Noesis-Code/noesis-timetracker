@@ -44,11 +44,14 @@ const rowsOrdre = () => db.prepare('SELECT COUNT(*) AS n FROM objectifs_ordre WH
   assert(eq(ord.lire(u, 'activite', '').order, S(A, B, C, D)), 'ordre de présentation recalculé à chaque lecture');
   // colonne déjà reliée à un macro : refus
   const b1 = mk('Objectif B1', B), b2 = mk('Objectif B2', B), c2 = mk('Objectif C2', C), d2 = mk('Objectif D2', D);
-  e = bad(() => o.fusionnerEnMacro(u, { title: 'Autre macro', childIds: [b1.id, c2.id] })); assert(e && e.statusCode === 400 && /Délie d’abord ce macro/.test(e.message), 'fusion : une colonne déjà reliée à un macro ne peut pas rejoindre un autre macro séparé');
+  e = bad(() => o.fusionnerEnMacro(u, { title: 'Autre macro', childIds: [c2.id, d2.id] })); assert(e && e.statusCode === 400 && /déjà reliées au-dessus/.test(e.message), 'fusion : C+D déjà reliées au-dessus, C+D de nouveau est refusé (message d’une phrase)');
+  const okBC = o.fusionnerEnMacro(u, { title: 'Macro B+C', childIds: [b2.id, mk('Objectif C3', C).id] }); assert(okBC && okBC.macroColumns.length === 2, 'fusion : B+C accepté (D laissée de côté) ; A+B+… idem tant qu’une colonne est laissée de côté'); o.supprimer(u, okBC.id, true);
   assert(db.prepare("SELECT COUNT(*) AS n FROM user_objectives WHERE title = 'Autre macro'").get().n === 0, 'refus avant toute création');
   const m3 = o.creer(u, { title: 'Macro B+?', activityId: B, startDate: '2026-11-09', endDate: '2027-03-01', isMacro: true, noBridge: true });
-  e = bad(() => o.lier(u, d2.id, m3.id, 'apres')); assert(e && /Délie d’abord ce macro/.test(e.message), 'lier : colonne D déjà reliée à un autre macro : refus');
-  e = bad(() => mk('Enfant refusé', D, { parentId: m3.id })); assert(e && /Délie d’abord ce macro/.test(e.message), 'creer : nouvel enfant dans une colonne déjà reliée à un autre macro : refus');
+  o.lier(u, b1.id, m3.id, 'apres'); assert(o.lier(u, c2.id, m3.id, 'apres').parentId === m3.id, 'lier : C seule rejoint le macro (D laissée de côté) : accepté');
+  e = bad(() => o.lier(u, d2.id, m3.id, 'apres')); assert(e && /déjà reliées au-dessus/.test(e.message), 'lier : C+D déjà reliées au-dessus : refus');
+  e = bad(() => mk('Enfant refusé', D, { parentId: m3.id })); assert(e && /déjà reliées au-dessus/.test(e.message), 'creer : nouvel enfant qui referait C+D : refus');
+  o.lier(u, c2.id, null);
   assert(o.lier(u, b1.id, m3.id, 'apres').parentId === m3.id && mk('Enfant B bis', B, { parentId: m3.id }).parentId === m3.id, 'colonne libre : rattachement accepté, et la même colonne dans le même macro aussi');
   // délier le macro C+D (supprimer sans cascade) libère les colonnes
   o.supprimer(u, f2.id, true);
@@ -63,7 +66,8 @@ const rowsOrdre = () => db.prepare('SELECT COUNT(*) AS n FROM objectifs_ordre WH
   assert(eq(ord.lire(u, 'activite', '').order.slice(0, 3).sort(), S(A, B, D).sort()), 'les trois colonnes du groupe chaîné se suivent');
   // la colonne du groupe ne peut pas être reliée à un macro séparé
   const m5 = o.creer(u, { title: 'Macro séparé', activityId: C, startDate: '2026-11-09', endDate: '2027-03-01', isMacro: true, noBridge: true });
-  e = bad(() => o.lier(u, x.id, m5.id, 'apres')); assert(e && /Délie d’abord ce macro/.test(e.message), 'une colonne du groupe chaîné ne rejoint pas un macro séparé');
+  o.lier(u, b2.id, m5.id, 'apres');
+  e = bad(() => o.lier(u, x.id, m5.id, 'apres')); assert(e && /déjà reliées au-dessus/.test(e.message), 'deux colonnes du groupe chaîné (A+B) ne se relient pas de nouveau dans un macro séparé');
   // niveau pôle : ordre des pôles d'une activité
   const goalsLib = require('../server/lib/goals'); goalsLib.addCategory(B, 'Pôle un'); goalsLib.addCategory(B, 'Pôle deux'); goalsLib.addCategory(B, 'Pôle trois');
   const poles = goalsLib.categoriesForActivity(B).map((p) => p.key);
