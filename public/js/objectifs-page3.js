@@ -827,10 +827,9 @@
     var titleEl = $('goalsCalTitle'); titleEl.textContent = '';
     titleEl.appendChild(document.createTextNode(cap1(new Date(Date.UTC(calMonth.y, calMonth.m, 1)).toLocaleDateString(loc, { month: 'long', year: 'numeric', timeZone: 'UTC' }))));
     var chev = document.createElement('span'); chev.className = 'cmpChev' + (nav.expanded ? ' open' : ''); titleEl.appendChild(chev);
-    var pm = null, pActive = null;
-    if (nav.expanded) { // mois déplié : à gauche du mois, les périodes présentes plus de 10 jours dans ce mois
-      pm = TMT.calNums.periodsOfMonth(calMonth.y, calMonth.m); pActive = TMT.calNums.period(nav.anchor.slice(0, 7) === ref.slice(0, 7) ? nav.anchor : ref.slice(0, 8) + '15');
-      var pbox = document.createElement('span'); pbox.className = 'calPeriods'; pm.forEach(function (x) { var sp = document.createElement('span'); sp.className = 'calPeriod' + (pm.length > 1 && x.p === pActive ? ' active' : ''); sp.textContent = 'P' + x.p; pbox.appendChild(sp); }); titleEl.appendChild(pbox);
+    var mp = null;
+    if (nav.expanded) { // mois déplié : à gauche du mois, la période la plus représentée (une seule)
+      mp = TMT.calNums.mainPeriod(calMonth.y, calMonth.m); if (mp) { var pbox = document.createElement('span'); pbox.className = 'calPeriods'; var sp = document.createElement('span'); sp.className = 'calPeriod'; sp.textContent = 'P' + mp.p; pbox.appendChild(sp); titleEl.appendChild(pbox); }
     }
     titleEl.setAttribute('aria-expanded', nav.expanded ? 'true' : 'false');
     var head = $('goalsCalHead'); head.textContent = '';
@@ -874,10 +873,10 @@
         var di = isoAddDays(rs, c), cell = document.createElement('button'); cell.type = 'button';
         cell.className = 'goalsCalDay' + (nav.expanded && +di.slice(5, 7) - 1 !== calMonth.m ? ' out' : '') + (di === today ? ' today' : '') + (di === selDay ? ' sel' : '');
         cell.textContent = String(+di.slice(8, 10));
-        if (pm && pm.length > 1 && TMT.calNums.period(di) === pActive && +di.slice(5, 7) - 1 === calMonth.m) cell.classList.add('inPeriod'); // plusieurs périodes dans le mois : les jours de la période active sont soulignés
         (function (iso) { cell.addEventListener('click', function () { selectGoalsDay(iso); }); })(di);
         days.appendChild(cell);
       }
+      if (mp) TMT.calNums.band(days, [0, 1, 2, 3, 4, 5, 6].map(function (c) { var d = isoAddDays(rs, c); return +d.slice(5, 7) - 1 === calMonth.m && TMT.calNums.period(d) === mp.p; })); // faisceau sur les jours de la période
       row.appendChild(days);
       var wrow = document.createElement('div'); wrow.className = 'calWeekRow'; wrow.appendChild(gutter); wrow.appendChild(row); grid.appendChild(wrow);
     }

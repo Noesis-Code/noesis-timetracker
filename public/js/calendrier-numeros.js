@@ -12,13 +12,21 @@
   }
   function period(iso) { return Math.min(13, Math.ceil(week(iso) / 4)); } // P1…P13
   // Périodes à indiquer pour un mois (y, m 0-11) : seulement celles présentes PLUS de 10 jours dans le mois. -> [{ p, days }] dans l'ordre du mois.
-  function periodsOfMonth(y, m) {
+  function periodsOfMonth(y, m, all) {
     var n = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(), out = [], p = function (x) { return String(x).padStart(2, '0'); };
     for (var d = 1; d <= n; d++) {
       var pn = period(y + '-' + p(m + 1) + '-' + p(d)), last = out[out.length - 1];
       if (last && last.p === pn) last.days++; else out.push({ p: pn, days: 1 });
     }
-    return out.filter(function (x) { return x.days > 10; });
+    return all ? out : out.filter(function (x) { return x.days > 10; });
   }
-  TMT.calNums = { week: week, period: period, periodsOfMonth: periodsOfMonth };
+  // Période la PLUS représentée dans un mois : la seule affichée. -> { p, days }
+  function mainPeriod(y, m) { var best = null; periodsOfMonth(y, m, true).forEach(function (x) { if (!best || x.days > best.days) best = x; }); return best; }
+  // Faisceau violet pâle derrière les jours d'une rangée qui font partie de la période : flags = 7 booléens (lundi → dimanche) ; une seule bande par rangée, à 4 px des bords du cadre (comme la bulle de la barre des volets).
+  function band(daysEl, flags) {
+    var a = flags.indexOf(true), b = flags.lastIndexOf(true); if (a < 0) return;
+    var el = document.createElement('div'); el.className = 'calPeriodBand'; el.style.left = (a * 100 / 7) + '%'; el.style.width = ((b - a + 1) * 100 / 7) + '%';
+    daysEl.insertBefore(el, daysEl.firstChild);
+  }
+  TMT.calNums = { week: week, period: period, periodsOfMonth: periodsOfMonth, mainPeriod: mainPeriod, band: band };
 })();
