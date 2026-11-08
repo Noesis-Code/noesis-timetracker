@@ -212,8 +212,9 @@
   function openComposer(ctx) {
     var form = ctx._form || (ctx._form = { acts: ctx.suggestedActivityId != null ? [ctx.suggestedActivityId] : [], news: ctx.suggestedActivityId == null ? [{ key: 1, name: ctx.createName, color: null }] : [], hoursBy: {}, title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null, _ctx: ctx });
     if (!form.ctxApplied) {
-      form.ctxApplied = true; var vc = viewCtx || {}; form.level = vc.level || 'activite'; form.poleKey = vc.poleKey || null; form.categoryKey = vc.categoryKey || null; form.ctxLabel = vc.label || '';
-      if (vc.activityId != null) { form.activityId = vc.activityId; form.acts = [vc.activityId]; form.news = []; form.create = false; form.fixedCtx = true; }
+      form.ctxApplied = true; var vc = viewCtx || {}, fromCell = !!pendingEnd; // verrouillé SEULEMENT si on part d'une case vide de l'arbre ; depuis la barre, le choix de l'activité est libre
+      form.level = fromCell ? (vc.level || 'activite') : 'activite'; form.poleKey = fromCell ? (vc.poleKey || null) : null; form.categoryKey = fromCell ? (vc.categoryKey || null) : null; form.ctxLabel = fromCell ? (vc.label || '') : '';
+      if (vc.activityId != null) { form.activityId = vc.activityId; form.acts = [vc.activityId]; form.news = []; form.create = false; form.fixedCtx = fromCell; }
       if (pendingEnd) { var dd0 = Math.round((Date.parse(pendingEnd + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000); form.endDate = pendingEnd; form.amount = Math.max(1, Math.ceil(dd0 / 7)); form.unit = 'semaines'; form.dateOk = true; form.durTouched = true; form.endFixed = true; }
       clearPending();
     }

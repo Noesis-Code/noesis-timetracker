@@ -145,3 +145,5 @@
 .objNewDot { flex: none; width: 44px; height: 44px; padding: 8px; border: 0; border-radius: 50%; background-clip: content-box; cursor: pointer; }
 .objNewSw { padding: 6px 4px; overflow: visible; }
 .objNewSw .colorSwatches { overflow: visible; flex-wrap: wrap; padding: 4px; }
+/* Fenêtre de création : textes gris un peu plus lisibles sur le verre transparent (même teinte, plus claire ; aucune couleur nouvelle) */
+.objDock .tasksPropose { --text-light: color-mix(in srgb, var(--text) 78%, transparent); }

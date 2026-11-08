@@ -737,3 +737,7 @@ Cause du « impossible de fusionner » dans les années et les périodes : les o
 - Vérifié à 375 px (captures regardées) ; le serveur de test doit être redémarré après un changement de code serveur (un ancien processus répondait « Erreur serveur » à une route inconnue).
 
 - Épingle retirée de la création d'objectif (7 nov. 2026, demande d'Émilien) : plus de trombone dans la barre « Nouvel objectif… », plus de lecture de photos / fichiers pour proposer des objectifs (client : épingle, lecture, choix « Objectifs lus » ; serveur : route `POST /api/objectifs/lecture`, `lire`, `setReadCaller` ; test lié retiré). Aucune donnée supprimée ; le quota d'IA gratuite continue de compter les anciennes lectures (`objectifs-lecture`). L'épingle de la barre « Nouvelle tâche… » est inchangée. Vérifié à 375 px : aucun `.tasksClip` ni champ fichier dans la barre des objectifs, un seul dans la page (celui des tâches).
+
+## Création depuis la barre : activité libre, textes gris plus lisibles (8 nov. 2026)
+- Écrire un objectif dans la barre SANS toucher une case de l'arbre : l'activité n'est jamais verrouillée, même depuis la page d'une activité (la page est seulement présélectionnée) ; tout autre choix reste possible. Le verrou (activité, pôle, secteur, échéance) ne vaut que pour une case vide touchée.
+- Fenêtre de création : les textes gris (aides, paramètres, mots du sélecteur) sont un peu plus clairs, sans devenir blancs ; transparence inchangée.
