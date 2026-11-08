@@ -393,5 +393,49 @@
       arrows[dx < 0 ? arrows.length - 1 : 0].click();
     }, { passive: true, capture: true });
   }
+  // Menus ⋮ (.statsPeriodMenu, 8 nov. 2026, demande d'Émilien) : à l'ouverture, le menu est posé sur la page (position fixe, au même
+  // endroit) pour passer au-dessus de toutes les sections et que son verre floute vraiment ce qu'il recouvre (dans une carte en verre, le
+  // flou ne voit que la carte) ; il suit son bouton au défilement et revient à sa place à la fermeture. Un seul mécanisme pour toute l'app.
+  var floating = [];
+  function liftMenu(m) {
+    var r = m.getBoundingClientRect();
+    if (!r.width || !m.parentNode) return;
+    var a = m.parentNode.getBoundingClientRect();
+    m._home = { parent: m.parentNode, prev: m.previousSibling, next: m.nextSibling, top: r.top, left: r.left, aTop: a.top, aLeft: a.left };
+    m.classList.add('cmpMenuFloat');
+    m.style.top = r.top + 'px'; m.style.left = r.left + 'px'; m.style.width = r.width + 'px';
+    document.body.appendChild(m);
+    floating.push(m);
+  }
+  function landMenu(m) {
+    var h = m._home; m._home = null;
+    floating = floating.filter(function (x) { return x !== m; });
+    m.classList.remove('cmpMenuFloat'); m.style.top = ''; m.style.left = ''; m.style.width = '';
+    if (h.prev && h.prev.parentNode === h.parent) h.parent.insertBefore(m, h.prev.nextSibling);
+    else if (h.next && h.next.parentNode === h.parent) h.parent.insertBefore(m, h.next);
+    else if (!h.prev && !h.next && h.parent.isConnected) h.parent.appendChild(m);
+    else m.remove();
+  }
+  function followMenus() {
+    floating.forEach(function (m) {
+      var h = m._home, a = h.parent.getBoundingClientRect();
+      m.style.top = (h.top + a.top - h.aTop) + 'px'; m.style.left = (h.left + a.left - h.aLeft) + 'px';
+    });
+  }
+  // Vrai si `box` contient un menu ⋮ ouvert, à sa place ou posé sur la page.
+  ui.menuOpenIn = function (box) {
+    return !!(box && (box.querySelector('.statsPeriodMenu:not(.hidden)') || floating.some(function (m) { return box.contains(m._home.parent); })));
+  };
+  if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
+    new MutationObserver(function (list) {
+      list.forEach(function (mu) {
+        var m = mu.target;
+        if (!m.classList || !m.classList.contains('statsPeriodMenu')) return;
+        if (m.classList.contains('hidden')) { if (m._home) landMenu(m); } else if (!m._home) liftMenu(m);
+      });
+    }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    window.addEventListener('scroll', function () { if (floating.length) followMenus(); }, true);
+    window.addEventListener('resize', function () { if (floating.length) followMenus(); });
+  }
   root.TMT.ui = Object.assign(root.TMT.ui || {}, ui);
 })();

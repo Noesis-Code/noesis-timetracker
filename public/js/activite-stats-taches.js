@@ -45,24 +45,16 @@
       });
       menu.appendChild(it);
     });
-    // Menu ouvert posé sur la page (hors de la carte) : toujours au-dessus des sections suivantes, et son verre floute
-    // vraiment ce qu'il recouvre (dans une carte en verre, le flou ne voit que la carte). Fermé au défilement.
-    menu.classList.add('shrMenu');
+    // Ouvert, le menu est posé sur la page par le mécanisme commun (composants.js) : au-dessus des sections, en verre.
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
       var willOpen = menu.classList.contains('hidden');
       document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
-      if (!willOpen) return;
-      var r = btn.getBoundingClientRect();
-      if (menu.parentNode !== document.body) document.body.appendChild(menu);
-      menu.style.top = (r.bottom + 6) + 'px';
-      menu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
-      menu.classList.remove('hidden');
+      if (willOpen) menu.classList.remove('hidden');
     });
-    wrap.appendChild(btn);
+    wrap.appendChild(btn); wrap.appendChild(menu);
     return wrap;
   }
-  window.addEventListener('scroll', function () { document.querySelectorAll('.shrMenu').forEach(function (m) { m.classList.add('hidden'); }); }, true);
   function cardHead(card, title, meta, menu) {
     var row = el('div', 'saHd');
     var ttl = el('p', 'sectionTitle', tr(title) + ' '); ttl.appendChild(meta); row.appendChild(ttl);

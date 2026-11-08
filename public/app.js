@@ -3735,12 +3735,12 @@
   // Referme tout menu de période ouvert au clic n'importe où en dehors de
   // lui (ou de son bouton "⋮") — même mécanisme que .notifPanel en Profil.
   document.addEventListener('click', function (e) {
-    if (!e.target.closest('.statsPeriodMenuWrap')) closeAllStatsPeriodMenus();
+    if (!e.target.closest('.statsPeriodMenuWrap, .statsPeriodMenu')) closeAllStatsPeriodMenus();
   });
   // 1er oct. 2026 : un appui long sur le graphique (lecture des données) ne produit pas de « click » —
   // on referme donc aussi le menu dès le début du toucher en dehors de lui.
   document.addEventListener('pointerdown', function (e) {
-    if (!e.target.closest('.statsPeriodMenuWrap')) closeAllStatsPeriodMenus();
+    if (!e.target.closest('.statsPeriodMenuWrap, .statsPeriodMenu')) closeAllStatsPeriodMenus();
   }, true);
   // Aligne l'état visuel (option en surbrillance) d'un menu de période sur
   // une période donnée, sans déclencher onSelect — utilisé quand la période

@@ -900,7 +900,7 @@
   var lastData = null;
   function render(d) {
     lastData = d;
-    if (filterBox && !filterBox.querySelector('.statsPeriodMenu:not(.hidden)')) paintFilter();
+    if (filterBox && !TMT.ui.menuOpenIn(filterBox)) paintFilter();
     d = Object.assign({}, d, { tasks: (d.tasks || []).filter(filtMatch) });
     var kind = dayKind();
     root.classList.toggle('dayPast', kind === 'past'); root.classList.toggle('dayFuture', kind === 'future');
