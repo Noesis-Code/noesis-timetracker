@@ -53,7 +53,7 @@
   function viewKey() { return viewDay === 'all' ? 'all' : dayIso(); }
   function dayKind() { var d = dayIso(), t = localIso(); return d < t ? 'past' : d > t ? 'future' : 'today'; }
   // La barre n'existe à l'écran que si la vue Aujourd'hui est réellement visible (autre volet, autre vue ou page par-dessus : masquée).
-  function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length) || !!(TMT.goalsCalEditing && TMT.goalsCalEditing())); } // l'éditeur d'objectif du calendrier intégré a sa propre barre : celle-ci se masque pendant ce temps
+  function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length)); } // l'éditeur d'objectif du calendrier intégré a sa propre barre : celle-ci se masque pendant ce temps
   function build(container) {
     root = el('div', 'tasksToday');
     listBox = el('div', 'tasksPopList tasksTree');
@@ -1048,6 +1048,6 @@
       });
     },
     show: function () { shown = true; syncDock(); var c = cacheGet(viewKey()); if (c) render(c); refresh(); syncCalendar(); clearInterval(timer); timer = setInterval(refresh, 6000); },
-    hide: function () { shown = false; if (TMT.goalsCalCloseEditor) TMT.goalsCalCloseEditor(); resetDay(); openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
+    hide: function () { shown = false; resetDay(); openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();

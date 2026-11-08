@@ -818,14 +818,6 @@
   function isoAddDays(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + n)); var p = function (x) { return String(x).padStart(2, '0'); }; return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()); }
   function isoToday() { var d = new Date(), p = function (x) { return String(x).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
   function cap1(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-  function openGoalsCalPeriod(period, after) {
-    if (period.periodNumber !== TMT.currentGoalsViewPeriodNumber) {
-      if (calMonth) calMonth.forPeriod = period.periodNumber; // le mois affiché ne saute pas
-      TMT.currentGoalsViewPeriodNumber = period.periodNumber;
-      renderActivityGoals();
-    }
-    after();
-  }
   function renderGoalsMonthCal() {
     var planning = TMT.currentGoalsPlanning, grid = $('goalsCalGrid');
     if (!grid || !planning) return;
@@ -865,19 +857,16 @@
       if (slot) {
         var hasObj = !!(slot.w && slot.w.text), line;
         var wNum = (slot.p.firstWeekOfYear || (((slot.p.periodNumber - 1) % 13) * 4 + 1)) + slot.wi - 1, wLabel = t('S{n}', { n: wNum });
-        var openWeek = function () { openGoalsCalPeriod(slot.p, function () { openGoalEdit('week', slot.p, slot.wi, hasObj ? slot.w.text : '', wLabel + ' · ' + t('Objectif hebdomadaire'), slot.w && slot.w.description); }); };
+        // Le calendrier n'AJOUTE ni ne modifie aucun objectif (arbre périodique, mode modifier) : il affiche les titres présents, sinon rien.
         if (hasObj) {
           // Statut : coloré (vert / jaune / rouge) dès que la semaine a commencé ET qu'elle a des tâches ; transparent sinon (à venir ou sans tâche). Un clic fait tourner les couleurs.
           var wState = slot.s <= today && slot.w.taskTotal > 0 ? (slot.w.status || 'non_atteint') : null;
           line = document.createElement('div'); line.className = 'goalsCalWeekLine';
           line.appendChild(TMT.ui.statusBtn(wLabel, wState, function (next) { saveWeeklyStatus(slot.w.id, next); }));
-          var wt = document.createElement('button'); wt.type = 'button'; wt.className = 'goalsCalWeekTitle'; wt.textContent = slot.w.text; wt.title = slot.w.text; wt.addEventListener('click', openWeek); line.appendChild(wt);
+          var wt = document.createElement('span'); wt.className = 'goalsCalWeekTitle'; wt.textContent = slot.w.text; wt.title = slot.w.text; line.appendChild(wt);
           if (slot.w.noRoomToCarry || slot.w.overloaded || (real && real.periodNumber === slot.p.periodNumber && slot.s <= today && slot.e >= today)) { var dot = document.createElement('span'); dot.className = 'notifDot goalsWeekDot'; line.appendChild(dot); wt.title += ' — ' + t('Cible peut-être irréaliste'); } // pastille
-        } else {
-          line = document.createElement('button'); line.type = 'button'; line.addEventListener('click', openWeek);
-          line.className = 'cmpAdd goalsCalWeekAdd'; var plw = document.createElement('b'); plw.textContent = '+'; line.appendChild(plw); line.appendChild(document.createTextNode(t('Ajouter un objectif hebdomadaire'))); // + violet, contour pointillé gris (.cmpAdd)
         }
-        row.appendChild(line);
+        if (line) row.appendChild(line);
       }
       var days = document.createElement('div'); days.className = 'goalsCalDays';
       for (var c = 0; c < 7; c++) {
@@ -899,9 +888,6 @@
   };
   // Jour touché : cercle plein sur le jour, barre « Nouvelle tâche… » en bas (même dock que la page 1, TMT.ui.dockKeyboard) et, au-dessus, le panneau des tâches déjà prévues ce jour-là
   // (lignes .tasksPop*, comme la page 1). Ajout MANUEL : la tâche est créée directement dans le secteur / pôle de la page à la date du jour choisi (aucun tri IA, aucun pop-up de placement).
-  var movedMain = null; // nœuds de l'ancienne fenêtre de l'objectif périodique, prêtés au panneau (rendus à la fenêtre à la fermeture)
-  function restoreMain() { if (movedMain && goalsPops.main) movedMain.forEach(function (n) { goalsPops.main.body.appendChild(n); }); movedMain = null; }
-  var dayMode = 'day', goalEdit = null, saveBtn = null, goalTitleIn = null, goalDescIn = null;
   var selDay = null, dayDock = null, dayPanel = null, dayBody = null, dayKicker = null, dayText = null, daySend = null, dayMsg = null;
   function buildGoalsDayDock() {
     if (dayDock) return;
@@ -918,60 +904,17 @@
     daySend = document.createElement('button'); daySend.type = 'button'; daySend.className = 'cmpSend'; daySend.setAttribute('aria-label', t('Ajouter'));
     daySend.addEventListener('mousedown', function (e) { e.preventDefault(); }); // le clavier reste ouvert
     daySend.addEventListener('click', addGoalsDayTask);
-    dayText.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (dayMode !== 'goal') addGoalsDayTask(); } });
-    saveBtn = document.createElement('button'); saveBtn.type = 'button'; saveBtn.className = 'tasksSaveBtn'; saveBtn.textContent = t('Enregistrer'); // plein-largeur, violet (R35 : grisé tant qu'il n'y a pas de titre)
-    saveBtn.addEventListener('click', saveGoalEdit);
-    goalTitleIn = document.createElement('input'); goalTitleIn.type = 'text'; goalTitleIn.maxLength = 300; goalTitleIn.setAttribute('aria-label', t('Titre'));
-    goalDescIn = document.createElement('textarea'); goalDescIn.rows = 4; goalDescIn.maxLength = 2000; goalDescIn.setAttribute('aria-label', t('Description'));
-    goalTitleIn.addEventListener('input', function () { saveBtn.disabled = !goalTitleIn.value.trim(); });
-    bar.appendChild(dayText); bar.appendChild(daySend); dayDock.appendChild(bar); dayDock.appendChild(saveBtn); document.body.appendChild(dayDock);
+    dayText.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addGoalsDayTask(); } });
+    bar.appendChild(dayText); bar.appendChild(daySend); dayDock.appendChild(bar); document.body.appendChild(dayDock);
     if (TMT.ui.dockKeyboard) TMT.ui.dockKeyboard(dayDock, dayText); // même positionnement au-dessus du clavier que la barre « Nouvelle tâche… » de la page 1
     window.setInterval(function () { // la barre n'existe que tant que le calendrier est affiché
-      if (!selDay && dayMode !== 'goal') return;
+      if (!selDay) return;
       var v = calIntegrated() ? $('goalsDetailScroll') : document.getElementById('goalsMonthView');
       if (!v || !v.getClientRects().length) selectGoalsDay(null);
     }, 400);
   }
-  // Objectif périodique / hebdomadaire : UN champ (la barre) + « Enregistrer », dans le même dock que l'ajout de tâche.
-  function openGoalEdit(kind, period, weekIndex, current, label, desc) {
-    selDay = calIntegrated() ? curSel() : null; renderGoalsMonthCal(); buildGoalsDayDock();
-    dayMode = 'goal'; goalEdit = { kind: kind, period: period, weekIndex: weekIndex };
-    dayKicker.textContent = label; dayMsg.textContent = ''; dayBody.textContent = ''; dayBody.classList.remove('hidden');
-    var f1 = document.createElement('div'); f1.className = 'goalsEditField'; var l1 = document.createElement('p'); l1.className = 'cmpBlockTitle'; l1.textContent = t('Titre'); f1.appendChild(l1); f1.appendChild(goalTitleIn);
-    var f2 = document.createElement('div'); f2.className = 'goalsEditField'; var l2 = document.createElement('p'); l2.className = 'cmpBlockTitle'; l2.textContent = t('Description'); f2.appendChild(l2); f2.appendChild(goalDescIn);
-    dayBody.appendChild(f1); dayBody.appendChild(f2);
-    // « Avancé » (replié par défaut, R8) : dates, assignation, capacité, statut = les champs et fonctions des anciennes fenêtres, réutilisés tels quels (aucune fonction perdue).
-    restoreMain();
-    var advT = document.createElement('button'); advT.type = 'button'; advT.className = 'activityEditAdvToggle'; advT.setAttribute('aria-expanded', 'false'); TMT.ui.toggleLabel(advT, t('Avancé'), false);
-    var adv = document.createElement('div'); adv.className = 'goalsEditAdv hidden';
-    advT.addEventListener('click', function () { var open = adv.classList.toggle('hidden') === false; advT.setAttribute('aria-expanded', open ? 'true' : 'false'); TMT.ui.toggleLabel(advT, t('Avancé'), open); });
-    if (kind === 'main') { movedMain = Array.prototype.slice.call(goalsPops.main.body.children); movedMain.forEach(function (n) { adv.appendChild(n); }); }
-    else { var wbox = document.createElement("div"); adv.appendChild(wbox); renderGoalsWeekCard(period, weekIndex, wbox); }
-    if (kind === "week" && !current) advT.classList.add("hidden"); // semaine vide : ni capacité ni statut à régler
-    dayBody.appendChild(advT); dayBody.appendChild(adv);
-    if (kind === 'main' && TMT.objectifsView && TMT.objectifsView.openDetail) { // l'objectif du secteur : son détail complet (description, rattachement, Avancé, abandonner, supprimer) s'ouvre d'ici
-      api('GET', '/api/objectifs?filtre=tous').then(function (r) {
-        var cat = TMT.currentGoalsCategory, o = ((r && r.objectifs) || []).filter(function (x) { return x.category && x.category === cat; })[0];
-        if (!o || !goalEdit) return;
-        var lk = document.createElement('button'); lk.type = 'button'; lk.className = 'activityEditAdvToggle'; lk.textContent = t('Détail de l’objectif');
-        lk.addEventListener('click', function () { TMT.objectifsView.openDetail(o.id); }); dayBody.appendChild(lk);
-      }).catch(function () {});
-    }
-    goalTitleIn.value = current || ''; goalDescIn.value = desc || '';
-    dayDock.classList.add('expSave'); saveBtn.disabled = !goalTitleIn.value.trim(); // la barre d'écriture devient UN bouton plein-largeur
-    dayDock.classList.remove('hidden'); syncToday(); window.setTimeout(function () { goalTitleIn.focus(); }, 60);
-  }
-  function saveGoalEdit() {
-    var text = goalTitleIn.value.trim(), desc = goalDescIn.value.trim(); if (!goalEdit || !text) return;
-    var ge = goalEdit; saveBtn.disabled = true;
-    var done = function () { selectGoalsDay(null); };
-    if (ge.kind === 'main') { saveMainGoalDescription(ge.period.periodNumber, text, desc, undefined); done(); return; }
-    api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + ge.period.periodNumber + '/weekly/' + ge.weekIndex, { text: text, description: desc, category: TMT.currentGoalsCategory })
-      .then(reloadGoalsAll).then(done).catch(function (err) { saveBtn.disabled = false; dayMsg.textContent = (err && err.message) || t('Impossible pour le moment.'); });
-  }
   function selectGoalsDay(iso) {
     var hook = calIntegrated() ? calHook : null; // calendrier intégré à la vue Tâches : le jour touché filtre la liste de la vue (hook.pick), jamais le dock de la page 3
-    if (dayMode === 'goal') { restoreMain(); dayMode = 'day'; goalEdit = null; if (dayDock) { dayDock.classList.remove('expSave'); dayBody.textContent = ''; dayText.value = ''; dayText.placeholder = t('Nouvelle tâche…'); } if (!iso || hook) { if (dayDock) dayDock.classList.add('hidden'); selDay = hook ? curSel() : null; renderGoalsMonthCal(); syncToday(); if (!iso) return; } }
     if (hook) { if (iso) hook.pick(iso); return; }
     selDay = iso && iso !== selDay ? iso : null; // retoucher le même jour le désélectionne
     renderGoalsMonthCal();
@@ -1021,13 +964,9 @@
     tagHost.appendChild(TMT.ui.statusBtn('P' + period.periodIndexInCycle, pState)); // sans clic : suit ses semaines
 
     var host = $('goalsMainLineHost'); host.textContent = '';
-    var b = document.createElement('button'); b.type = 'button';
     var hasMain = !!(period.mainGoalText && period.mainGoalText.trim());
-    // Ligne de période (en haut de la vue Tâches, à droite de l'icône de filtre) : titre de l'objectif périodique, ou « + Ajouter un objectif périodique » ; un toucher ouvre l'éditeur.
-    if (hasMain) { b.className = 'goalsMainLine goalsMainBig'; b.textContent = period.mainGoalText; b.title = period.mainGoalText; }
-    else { b.className = 'goalsMainLine goalsMainBig goalsMainAdd'; var pl = document.createElement('b'); pl.textContent = '+'; b.appendChild(pl); b.appendChild(document.createTextNode(t('Ajouter un objectif périodique'))); }
-    b.addEventListener('click', function () { openGoalEdit('main', period, null, hasMain ? period.mainGoalText : '', 'P' + period.periodIndexInCycle + ' · ' + t('Objectif périodique'), hasMain ? period.mainGoalDescription : ''); });
-    host.appendChild(b);
+    // Ligne de période : titre de l'objectif périodique s'il existe, sinon rien (il s'ajoute par l'arbre périodique, mode modifier).
+    if (hasMain) { var b = document.createElement('span'); b.className = 'goalsMainLine goalsMainBig'; b.textContent = period.mainGoalText; b.title = period.mainGoalText; host.appendChild(b); }
   }
   // Changer de période : un seul contrôle (chevron ›) = période suivante (la dernière ramène à la première) ; le calendrier se pose sur son premier jour.
   $('goalsPeriodNext').addEventListener('click', function () {
@@ -1506,16 +1445,13 @@
   // Rend le nœud à la page 3 (elle va s'ouvrir) ; la vue Tâches en est prévenue (hook.released).
   TMT.goalsCalUnmount = function () {
     if (!calHostEl) return;
-    if (dayMode === 'goal') selectGoalsDay(null);
     var sc = $('goalsDetailScroll'), back = $('goalsMonthView') || $('goalsDetailPage'), hook = calHook, top = $('goalsTopLine'), blk = $('activityGoalsBlock');
     if (sc && back && sc.parentNode === calHostEl) back.appendChild(sc);
     if (top && blk && top.parentNode !== blk) blk.insertBefore(top, blk.firstChild);
     calHostEl = null; calHook = null; selDay = null;
     if (hook && hook.released) hook.released();
   };
-  TMT.goalsCalCloseEditor = function () { if (dayMode === 'goal') selectGoalsDay(null); };
-  TMT.goalsCalEditing = function () { return dayMode === 'goal' && !!dayDock && !dayDock.classList.contains('hidden'); };
-  TMT.goalsCalSetSel = function (iso) { if (!calIntegrated()) return; if (dayMode === 'goal') return; selDay = iso || null; renderGoalsMonthCal(); };
+  TMT.goalsCalSetSel = function (iso) { if (!calIntegrated()) return; selDay = iso || null; renderGoalsMonthCal(); };
   TMT.goalsCalMonthIso = function () { return calMonth ? calMonth.y + '-' + String(calMonth.m + 1).padStart(2, '0') + '-01' : null; };
   // o : { activityId, poleKey, secteurKey (facultatif), periodNumber (facultatif), date (facultatif) } ; host : conteneur de la vue Tâches ; hook : { current(), pick(iso), released() }.
   // Pose le contexte (activité, pôle, secteur) comme openGoalsForActivity / openGoalsDetail, sans ouvrir la fenêtre de l'activité. -> Promise<false | { poleLabel, sectorLabel }>

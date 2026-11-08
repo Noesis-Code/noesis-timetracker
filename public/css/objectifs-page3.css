@@ -388,11 +388,11 @@
 .goalsTopLine { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 4px; }
 .goalsTopLine #goalsMainLineHost { min-width: 0; }
 .goalsPeriodTag { flex: none; }
-.goalsMainLine { display: block; width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text); font: inherit; font-size: 15px; font-weight: 600; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.goalsMainLine { display: block; width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text); font: inherit; font-size: 15px; font-weight: 600; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
 .goalsCalWeek { margin-top: 12px; padding: 8px; border: 1px solid var(--glass-border); border-radius: var(--radius-lg); } /* chaque semaine est encadrée : ligne de l'objectif hebdomadaire + rangée des jours */
 .goalsCalWeek:first-child { margin-top: 0; }
 .goalsCalWeekLine { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 0; background: none; box-sizing: border-box; font-size: 13px; }
-.goalsCalWeekTitle { flex: 1; min-width: 0; min-height: 28px; padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.goalsCalWeekTitle { flex: 1; min-width: 0; min-height: 28px; padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
 .goalsCalWeekLine { position: relative; }
 .goalsCalWeekLine .goalsWeekDot { top: 6px; right: 6px; width: 10px; height: 10px; }
 .goalsCalWeek > .cmpAdd { margin-bottom: 0; }
@@ -400,27 +400,23 @@
 .goalsCalDay { justify-self: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; box-sizing: border-box; font: inherit; font-size: 14px; color: var(--text); text-align: center; cursor: pointer; }
 .goalsCalDay.today { box-shadow: inset 0 0 0 2px var(--purple); }
 
-.goalsCalWeekAdd { display: block; width: 100%; min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--text-light); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
 .goalsCalDay.sel { background: var(--purple); color: var(--on-action); font-weight: 600; } /* jour touché : cercle plein (le contour violet reste pour aujourd'hui) */
 .tasksDock.goalsDayDock { z-index: 105; } /* au-dessus de la page Calendrier (z 101), sous les fenêtres (z 110) */
 .goalsDayDock .tasksPropose { max-height: min(55vh, 440px, calc(var(--dock-vh, 100vh) - 140px)); }
 .goalsMainBig { width: auto; max-width: 100%; min-height: 0; border: 0; padding: 0; text-align: left; font-size: 20px; font-weight: 700; white-space: nowrap; } /* l'objectif périodique prend le grand format du mois */
 
 /* Haut de page sans objectif périodique : pointillés (.cmpAdd) autour de « + Ajouter … » centré et de la date juste dessous. */
-.goalsCalWeekAdd { margin-bottom: 0; }
 .goalsDayDock .cmpBtn { width: auto; flex: none; min-height: 36px; padding: 0 16px; font-size: 14px; }
 .goalsDayDock .hidden { display: none; }
 /* Calendrier resserré (R30, plan) : tout le mois (5–6 semaines) dans l'écran sans défiler ; seules les hauteurs et marges diminuent. */
 .goalsCalWeek { margin-top: 4px; padding: 4px 8px; }
 .goalsCalWeek:first-child { margin-top: 0; }
-.goalsCalWeekLine, .goalsCalWeekAdd { min-height: 28px; }
+.goalsCalWeekLine { min-height: 28px; }
 .goalsCalDay { width: 40px; height: 36px; border-radius: 18px; }
 .goalsMonthCal { margin-bottom: 8px; }
 
 /* Page 3 — cadres : pointillés (--cmp-dash, comme .cmpAdd) quand rien n'est enregistré, ligne pleine sinon. */
 .goalsCalWeek.goalsCalWeekEmpty { border: 1px dashed var(--cmp-dash); }
-.goalsCalWeekAdd, .goalsCalWeekAdd:hover { border: 0; background: none; gap: 0; color: var(--text-light); } /* le cadre de la semaine porte le pointillé : pas de second contour */
-.goalsCalWeekAdd b { margin-right: 8px; } /* un peu d'air entre le « + » et le texte (grille R6) */
 .goalsEditField { margin-bottom: 12px; }
 .goalsDayDock .tasksProposeBody input, .goalsDayDock .tasksProposeBody textarea { width: 100%; box-sizing: border-box; }
 /* R35 : « Enregistrer » grisé (même rendu que .cmpBtnIdle) tant que le titre est vide, violet dès qu'il y a un titre. */
