@@ -29,3 +29,4 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 - [legal/audit-conformite-2026-10-30.md](legal/audit-conformite-2026-10-30.md) : audit des documents légaux contre le code (corrigé, à faire par Émilien, limites)
 - [objectifs/cas-de-figure-objectifs.md](objectifs/cas-de-figure-objectifs.md) : dossier des cas de figure du module Objectifs (cas, comportement attendu, état réel du code, priorités des correctifs)
 - [objectifs/parametres-objectif.md](objectifs/parametres-objectif.md) : inventaire court des paramètres d’un objectif (existant, défaut, placement visible ou Avancé), à valider par Émilien
+- [objectifs/navigation-arbre.md](objectifs/navigation-arbre.md) : règle unique de navigation de l’arbre (niveaux, entrée = toucher, sortie = flèche, aucune entrée cachée).

@@ -454,7 +454,7 @@
     else if (lvl === 'pole' && pkeyOf(c) != null) { // la vue des secteurs montre UNE année de 13 périodes : celle de l'échéance de l'objectif touché (sinon l'année courante, ou la première du bloc)
       var y0 = new Date().getFullYear(), bk = focus && focus.block; go('secteur', { activityId: c.ctx.activityId, poleKey: pkeyOf(c), poleLabel: c.label, year: year || (bk && !(y0 >= bk && y0 < bk + 5) ? bk : y0) });
     }
-    else if (TMT.showGoalsPolesPage) TMT.showGoalsPolesPage(focus.activityId);
+    // dernier niveau (secteurs) : un toucher ne descend plus (règle de navigation : docs/objectifs/navigation-arbre.md) ; l'ancienne page « Pôle · Année » n'est plus une entrée cachée de l'arbre
   }
   function ascend() { if (lvl === 'secteur') { var ids2 = pairsOf().map(function (p) { return p.activityId; }).filter(function (v, i, x) { return x.indexOf(v) === i; }); go('pole', ids2.length > 1 ? { activityId: ids2[0], activityIds: ids2 } : { activityId: focus.activityId }); } else if (lvl === 'pole') go('activite', null); } // flèche de retour ou pincer inverse
   function editToggle() { // crayon ✎ (R15, sans cadre R37) sous « Objectifs » : mode édition (les cartes tremblent, croix rouge, toucher = paramètres) ; le retoucher quitte
