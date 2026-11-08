@@ -714,6 +714,9 @@
     // cliquée ouvre directement Valider/Annuler) ----
     'Voulez-vous inviter {name} à rejoindre cette activité ?': 'Do you want to invite {name} to join this activity?',
     'Exclure': 'Exclude',
+    'Paramètres du membre': 'Member settings',
+    'Ajouter comme responsable': 'Add as manager',
+    'Retirer comme responsable': 'Remove as manager',
     'Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.':
       'Exclude {name} from "{activity}"? This person will keep their already recorded history, in their own personal activity. They will no longer be part of "{activity}" afterwards.',
     '{from} t\'invite sur « {activity} ».': '{from} invites you to "{activity}".',
