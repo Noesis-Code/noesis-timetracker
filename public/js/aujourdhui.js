@@ -226,6 +226,10 @@
   var filterRow = null, periodHost = null;
   // Rangée du haut : icône de filtre à gauche ; à sa droite, la ligne de période du calendrier importé (masquée quand le panneau de filtre est ouvert).
   function buildFilter() { filterRow = el('div', 'tasksFilterRow'); filterBox = el('div', 'tasksFilter'); periodHost = el('div', 'tasksPeriodHost'); filterRow.appendChild(filterBox); filterRow.appendChild(periodHost); paintFilter(); return filterRow; }
+  var struct = null; // { activityId: [{ key, label, secteurs: [{ key, label }] }] }, lu comme l'arbre (GET /api/objectifs/structure)
+  function loadStruct() {
+    return TMT.api('GET', '/api/objectifs/structure').then(function (r) { var m = {}; ((r && r.activities) || []).forEach(function (a) { m[String(a.id)] = a.poles || []; }); struct = m; paintFilter(); }).catch(function () {});
+  }
   function filtData(actId) {
     var acts = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a && a.id != null; });
     if (filt.act != null && !acts.some(function (a) { return String(a.id) === filt.act; })) filt = { act: null, pole: null, sector: null };
@@ -233,6 +237,12 @@
     ((lastData && lastData.tasks) || []).filter(function (t) { return actId != null && String(t.activityId) === String(actId); }).forEach(function (t) {
       if (!seen[t.pole]) { seen[t.pole] = true; poles.push({ key: t.pole, label: t.poleName || t.pole, idx: t.poleIndex || 0 }); secs[t.pole] = []; }
       if (t.sector && !secs[t.pole].some(function (s) { return s.label === t.sector; })) secs[t.pole].push({ label: t.sector, key: t.sectorKey || null });
+    });
+    // Structure de l'activité (pôles et secteurs, comme l'arbre) : toujours proposée, même sans tâche chargée (jour touché, activité sans tâche).
+    var st = struct && actId != null ? struct[String(actId)] : null;
+    if (st) st.forEach(function (p, i) {
+      if (!seen[p.key]) { seen[p.key] = true; poles.push({ key: p.key, label: p.label || p.key, idx: i - 1000 }); secs[p.key] = []; }
+      (p.secteurs || []).forEach(function (x) { if (!secs[p.key].some(function (y) { return y.label === x.label; })) secs[p.key].push({ label: x.label, key: x.key || null }); });
     });
     poles.sort(function (a, b) { return a.idx - b.idx; });
     return { acts: acts, poles: poles, secs: secs };
@@ -249,7 +259,7 @@
     var head = el('button', 'tasksFilterLine' + (cur ? ' on' : '')); head.type = 'button'; head.setAttribute('aria-expanded', filtOpen ? 'true' : 'false');
     head.title = label; head.setAttribute('aria-label', label); // le libellé n'est plus un titre : l'icône réglage prend sa place (violette quand un filtre est actif)
     head.appendChild(svg('M4 8h3M11 8h9M9 6a2 2 0 1 0 0 4a2 2 0 1 0 0-4M4 16h9M17 16h3M15 14a2 2 0 1 0 0 4a2 2 0 1 0 0-4', 1.5));
-    head.addEventListener('click', function (e) { e.stopPropagation(); filtOpen = !filtOpen; filtBrowse = null; paintFilter(); });
+    head.addEventListener('click', function (e) { e.stopPropagation(); filtOpen = !filtOpen; filtBrowse = null; paintFilter(); if (filtOpen && !struct) loadStruct(); });
     if (!filtOpen) { filterBox.appendChild(head); return; } // ouverte : la section REMPLACE l'icône
     var panel = el('div', 'tasksFilterPanel cmpGlass'), track = el('div', 'tasksFilterTrack'), p1 = el('div', 'tasksFilterPage'), p2 = el('div', 'tasksFilterPage');
     filtRow(p1, tr('Toutes les activités'), 0, filt.act == null, function () { applyFilt({ act: null, pole: null, sector: null }); });
