@@ -94,12 +94,13 @@
   }
   TMT.docTasksZoneSet = zoneSet;
   // Attend que l'abonnement soit confirmé (la réponse « Expansion ? » arrive après l'ouverture de la page de l'activité), puis appelle cb.
-  function whenZone(cb) {
+  function whenZone(cb, onFail) {
     var tries = 60;
     (function wait() {
       var z = $('docTasksPage');
       if (z && essorOn) { cb(z); return; }
       if (tries-- > 0) setTimeout(wait, 100);
+      else if (onFail) onFail('La zone « Ajouter des tâches » ne s’est pas ouverte : vérifie qu’Expansion est actif sur cette activité, puis réessaie.');
     })();
   }
   function open() { whenZone(function (z) { z.classList.remove('hidden'); }); }
@@ -109,12 +110,12 @@
   TMT.docTasksAddFiles = function (list) { whenZone(function () { addFiles(list); }); };
   // Zone libre IA (onglet Aujourd'hui) : ouvre la page de l'activité choisie, joint les fichiers et lance la proposition
   // (l'IA propose, l'utilisateur coche ; rien n'est écrit avant « Ajouter les tâches cochées »).
-  TMT.docTasksPrefill = function (activityId, text, list) {
+  TMT.docTasksPrefill = function (activityId, text, list, onFail) {
     TMT.currentGoalsActivityId = String(activityId);
     openForActivity(String(activityId), function () {
       files = (list || []).slice(); renderFiles();
       submit(String(text || '').slice(0, 1500));
-    });
+    }, onFail);
   };
   function actId() { return TMT.currentGoalsActivityId; }
   function msg(t) { $('docTasksMsg').textContent = t || ''; }
@@ -446,9 +447,9 @@
 
   // Retour de Google (?drive=connected&activityId=N) : on rouvre la page Ajouter de cette activité.
   // Ouvre la page Ajouter de l'activité (retour de Google, ou notification ?notif=drivesync).
-  function openForActivity(aid, then) {
+  function openForActivity(aid, then, onFail) {
     aid = String(aid || '');
-    if (!/^\d+$/.test(aid)) return;
+    if (!/^\d+$/.test(aid)) { if (onFail) onFail('Activité introuvable.'); return; }
     var tries = 120;
     (function poll() {
       if (TMT.switchTab && TMT.openGoalsPeriodFromNotification && TMT.getActivitiesCache && (TMT.getActivitiesCache() || []).length) {
@@ -457,13 +458,15 @@
           TMT.openGoalsPeriodFromNotification(aid, null, null);
           var t2 = 60;
           (function wait() {
-            if (String(TMT.currentGoalsActivityId) === aid) { if (then) whenZone(then); else open(); return; }
+            if (String(TMT.currentGoalsActivityId) === aid) { if (then) whenZone(then, onFail); else open(); return; }
             if (t2-- > 0) setTimeout(wait, 100);
+            else if (onFail) onFail('La page de l’activité ne s’est pas ouverte : réessaie.');
           })();
         }, 300);
         return;
       }
       if (tries-- > 0) setTimeout(poll, 100);
+      else if (onFail) onFail('Les activités ne sont pas chargées : réessaie dans un instant.');
     })();
   }
   TMT.openDocTasksForActivity = function (aid) { openForActivity(aid); };
@@ -477,7 +480,7 @@
 
   function render(r) {
     var host = $('docTasksResults');
-    if (!proposals.length) { pendingMode = false; host.innerHTML = '<p class="hint">Aucune tâche proposée.</p>'; return; }
+    if (!proposals.length) { pendingMode = false; host.innerHTML = '<p class="hint">L’IA n’a trouvé aucune tâche à proposer (photo trop floue, ou rien de lisible). Reprends la photo de plus près, ou écris la liste dans la consigne.</p>'; return; }
     var html = proposals.map(function (t, i) {
       var meta = [t.categoryLabel, dayOrWeekLabel(t), t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
       var pick = '';

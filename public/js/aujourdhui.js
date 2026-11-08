@@ -759,17 +759,40 @@
   // Pièces jointes (mêmes contraintes que la zone de la page 1) : un document concerne UNE activité (celle du rangement choisi).
   function onPick() {
     var picked = Array.prototype.slice.call(ui.file.files || []); ui.file.value = '';
-    if (!TMT.shrinkImage && TMT.renderGoalsCaptureBubble) TMT.renderGoalsCaptureBubble(); // construit le lecteur d'images partagé
     picked.forEach(function (f) {
       if (state.files.length >= MAX_FILES) { ui.msg.textContent = tr('3 fichiers maximum.'); return; }
-      if (f.size > MAX_BYTES) { ui.msg.textContent = tr('Fichier trop lourd (5 Mo max).'); return; }
-      if (/^image\//.test(f.type) && TMT.shrinkImage) {
-        TMT.shrinkImage(f).then(function (o) { state.files.push(o); paintChips(); }).catch(function (e) { ui.msg.textContent = e.message; });
+      var isImg = /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name || '');
+      if (isImg) { // photo : réduite ici (une photo d'iPhone pèse plusieurs Mo), jamais envoyée telle quelle
+        if (f.size > 30 * 1024 * 1024) { ui.msg.textContent = tr('Photo trop lourde (30 Mo max).'); return; }
+        shrinkPhoto(f).then(function (o) { state.files.push(o); paintChips(); }).catch(function (e) { ui.msg.textContent = (e && e.message) || tr('Photo illisible : essaie en JPEG.'); });
         return;
       }
+      if (f.size > MAX_BYTES) { ui.msg.textContent = tr('Fichier trop lourd (5 Mo max).'); return; }
       var r = new FileReader();
       r.onload = function () { state.files.push({ fileName: f.name, mimeType: f.type, dataUrl: r.result }); paintChips(); };
       r.readAsDataURL(f);
+    });
+  }
+  // Photo réduite pour l'IA : côté 1600 px puis plus petit tant qu'elle dépasse ~380 Ko (plafond serveur 400 Ko) ; un manuscrit reste lisible.
+  function shrinkPhoto(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var side = 1600, q = 0.78, out = null;
+        for (var i = 0; i < 8; i++) {
+          var k = Math.min(1, side / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+          cv.width = Math.max(1, Math.round(img.width * k)); cv.height = Math.max(1, Math.round(img.height * k));
+          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          out = cv.toDataURL('image/jpeg', q);
+          if (out.length * 0.75 <= 380 * 1024) break;
+          if (q > 0.5) q -= 0.1; else side = Math.round(side * 0.8);
+        }
+        if (!out || out.length * 0.75 > 395 * 1024) { reject(new Error(tr('Photo trop lourde pour l’IA : prends-la de moins près.'))); return; }
+        resolve({ fileName: (file.name || 'photo').replace(/\.\w+$/, '') + '.jpg', mimeType: 'image/jpeg', dataUrl: out });
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error(tr('Photo illisible (format non pris en charge) : réessaie en JPEG ou PNG.'))); };
+      img.src = url;
     });
   }
   function paintChips() {
@@ -838,8 +861,14 @@
       if (!t) { state.review = true; paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Choisis où ranger la tâche.'); if (state.options.length) toggleChooser(state.poleId ? 'pole' : 'activity'); return null; }
       if (state.files.length) {
         var files = state.files.slice();
-        if (TMT.docTasksPrefill) TMT.docTasksPrefill(t.activityId, label, files);
-        return null;
+        return essorActivities().then(function (list) {
+          if (!list.some(function (x) { return String(x.id) === String(t.activityId); })) { // pas d'Expansion sur cette activité : on le dit, rien ne part, les fichiers restent joints
+            ui.msg.textContent = tr('Lire une photo ou un document demande Expansion sur cette activité.'); return null;
+          }
+          if (!TMT.docTasksPrefill) { ui.msg.textContent = tr('Lecture de document indisponible pour le moment.'); return null; }
+          TMT.docTasksPrefill(t.activityId, label, files, function (why) { ui.msg.textContent = why; });
+          return null;
+        });
       }
       // Proposition déjà affichée : validation INSTANTANÉE (↑ ou ✕). Le panneau se ferme tout de suite, « Tâche enregistrée » s'affiche en haut de la barre, l'enregistrement se termine en arrière-plan.
       if (shown) { fastCommit({ t: t, label: label, date: state.date || dayIso(), who: state.who }); return null; }

@@ -350,6 +350,32 @@ function docMentionsDate(docText, iso) {
 }
 function norm0(v) { return String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 
+// Jour demandé dans la consigne (« pour samedi », « demain », « le 14/11 »), calculé SANS l'IA : toutes les tâches de la demande y vont, sans être déplacées
+// par la répartition de capacité (décision d'Émilien : une date précise demandée prime). null si la consigne ne nomme aucun jour.
+const WEEKDAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+function requestedDay(instruction, today) {
+  const t = norm0(instruction);
+  if (!t || !today) return null;
+  const dateOnly = (d) => (isRealDate(d) && d >= today ? d : null);
+  try { const e = require('./objectifs-durees').explicitDate(String(instruction || ''), today); if (e && dateOnly(e)) return e; } catch (e) { /* repli ci-dessous */ }
+  const dm = /(?:^|[^\d])(\d{1,2})[\/.](\d{1,2})(?:[\/.](\d{2,4}))?(?!\d)/.exec(String(instruction || '')); // « 14/11 », « 14.11.2026 » : jour/mois (année facultative : la prochaine occurrence)
+  if (dm) {
+    const dd = ('0' + dm[1]).slice(-2), mm = ('0' + dm[2]).slice(-2);
+    let y = dm[3] ? (dm[3].length === 2 ? 2000 + Number(dm[3]) : Number(dm[3])) : Number(today.slice(0, 4));
+    let c = y + '-' + mm + '-' + dd; if (!dm[3] && c < today) c = (y + 1) + '-' + mm + '-' + dd;
+    if (dateOnly(c)) return c;
+  }
+  if (/\bapres[- ]demain\b/.test(t)) return goals.addDays(today, 2);
+  if (/\bdemain\b/.test(t)) return goals.addDays(today, 1);
+  if (/\baujourd'?hui\b|\bce jour\b|\bce soir\b|\bce matin\b/.test(t)) return today;
+  const found = WEEKDAYS.map((n, i) => ({ i, at: t.search(new RegExp('\\b' + n + '\\b')) })).filter((x) => x.at >= 0).sort((p, q) => p.at - q.at);
+  if (found.length !== 1) return null; // aucun jour, ou plusieurs jours : l'IA tranche
+  const dow = new Date(today + 'T12:00:00Z').getUTCDay();
+  let add = (found[0].i - dow + 7) % 7;
+  if (add === 0 && /\bprochain\b/.test(t)) add = 7;
+  return goals.addDays(today, add);
+}
+
 // Jour retenu pour une valeur de l'IA : { day, exact } ou null. Un lundi d'une semaine de l'horizon (ancien format) est un jour valide.
 // Jamais avant aujourd'hui ; hors horizon -> null ; jour non travaillé sans date du document -> prochain jour travaillé.
 function resolveDay(v, ctx) {
@@ -415,7 +441,8 @@ function parseDetailed(text, ctx) {
     seen.add(dedupe);
     const mn = Math.round(Number(t.minutes));
     if (pick) toChoose++;
-    const rd = resolveDay(t.week != null ? t.week : t.day, ctx);
+    const asked = ctx.requestedDay && ctx.requestedDay >= ctx.weeks[0] && ctx.requestedDay <= goals.addDays(ctx.weeks[ctx.weeks.length - 1], 6) ? { day: ctx.requestedDay, exact: true } : null; // jour demandé dans la consigne : prime sur l'IA
+    const rd = asked || resolveDay(t.week != null ? t.week : t.day, ctx);
     tasks.push({ title, key, categoryLabel: labels.get(key), toChoose: pick, week: rd ? goals.mostRecentMonday(rd.day) : null, day: rd ? rd.day : null, exact: !!(rd && rd.exact), moved: false, minutes: Number.isFinite(mn) && mn >= 5 && mn <= MAX_TASK_MINUTES ? mn : null });
   });
   // Durées recopiées en série (6 tâches ou plus, 80 % ou plus avec exactement la même durée) : estimation sans information, durée inconnue (les tâches restent).
@@ -518,7 +545,7 @@ async function prepareProposal(userId, activityId, body, opts) {
 // Interprétation de la réponse de l'IA (aussi pour un résultat de lot). prep : { ctx?, cctx?, doc?, want }.
 function finishProposal(userId, activityId, out, prep) {
   const ctx0 = prep.ctx || buildContext(userId, activityId);
-  const ctx = { ...ctx0, docText: (prep.doc && prep.doc.text) || '' };
+  const ctx = { ...ctx0, docText: (prep.doc && prep.doc.text) || '', requestedDay: requestedDay(prep.instruction, ctx0.today || todayIso()) };
   const text = out && typeof out === 'object' ? out.text : out;
   const aiTruncated = !!(out && typeof out === 'object' && out.stopReason === 'max_tokens');
   const parsed = parseDetailed(text, ctx);
@@ -555,7 +582,7 @@ async function propose(userId, activityId, body, opts) {
     if (!bud.ok) throw httpError(429, bud.message); // activité au plafond de budget : aucune relance, message clair (plafond, reprise)
     try {
       const want2 = { t: true, c: false };
-      const parts2 = docanalysis.buildParts(prep.ctx, prep.cctx, { instruction: prep.instruction + '\n(Les tâches précédentes étaient trop vagues ou recopiaient l\'objectif. Propose 3 à 6 tâches concrètes : un verbe d\'action et un objet précis, jamais le texte de l\'objectif.)', doc: prep.doc.text || '', want: want2 });
+      const parts2 = docanalysis.buildParts(prep.ctx, prep.cctx, { instruction: prep.instruction + '\n(Les tâches précédentes étaient trop vagues ou recopiaient l\'objectif. Reformule chaque tâche de façon concrète : un verbe d\'action et un objet précis, jamais le texte de l\'objectif. Si la consigne demande une tâche par ligne ou toutes les lignes, garde-les toutes ; sinon propose 3 à 6 tâches.)', doc: prep.doc.text || '', want: want2 });
       if (prep.doc.images && prep.doc.images.length) parts2.images = prep.doc.images;
       const out2 = await aibudget.runAs(aibudget.keyFor(userId, activityId), () => docanalysis.call({ parts: parts2, want: want2, feature: 'document-taches' }));
       const res2 = finishProposal(userId, activityId, out2, { ...prep, want: want2, parts: parts2 });
@@ -591,4 +618,4 @@ function apply(userId, activityId, tasks) {
   return { addedCount: added.length, addedIds: added, skipped };
 }
 
-module.exports = { norm, propose, prepareProposal, finishProposal, buildContext, MAX_DOC_CHARS, apply, setCaller, resetRate, parseProposals, textFromFile, unzipEntry, capacityWarnings, dayWarnings, balanceDays, docMentionsDate, parseDetailed, SYSTEM, buildUser, buildUserParts, weeksContext, RATE_MAX };
+module.exports = { requestedDay, norm, propose, prepareProposal, finishProposal, buildContext, MAX_DOC_CHARS, apply, setCaller, resetRate, parseProposals, textFromFile, unzipEntry, capacityWarnings, dayWarnings, balanceDays, docMentionsDate, parseDetailed, SYSTEM, buildUser, buildUserParts, weeksContext, RATE_MAX };

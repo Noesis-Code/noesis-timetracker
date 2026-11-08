@@ -93,5 +93,14 @@ const fin = (rows, doc) => {
   assert(/par jour travaillé/.test(stable) && /Charge DÉJÀ acceptée par jour/.test(stable), 'prompt : capacité par jour et charge acceptée');
   const sys = require('../server/lib/docanalysis').SYSTEM;
   assert(sys.indexOf('ANNUEL') < sys.indexOf('PÉRIODIQUE') && sys.indexOf('PÉRIODIQUE') < sys.indexOf('HEBDOMADAIRE') && /CAPACITÉ/.test(sys) && /jamais un horaire/.test(sys), 'système : décision annuel -> périodique -> hebdomadaire -> capacité -> jour');
+  // Jour demandé dans la consigne (photo d'une liste « pour samedi ») : calculé sans l'IA, prime sur la répartition ; une tâche par ligne sans limite à 5
+  const lundi = '2026-11-09';
+  assert(dt.requestedDay('Une tâche par ligne pour samedi', lundi) === '2026-11-14' && dt.requestedDay('demain', lundi) === '2026-11-10' && dt.requestedDay('lundi prochain', lundi) === '2026-11-16', 'consigne : samedi / demain / lundi prochain calculés');
+  assert(dt.requestedDay('le 14/11', lundi) === '2026-11-14' && dt.requestedDay('pour le 02/11', lundi) === '2027-11-02' && dt.requestedDay('mardi ou jeudi', lundi) === null && dt.requestedDay('trois tâches', lundi) === null, 'consigne : date jj/mm, deux jours ou aucun jour = l’IA tranche');
+  const sysT = require('../server/lib/docanalysis').SYSTEM;
+  assert(/JOUR DEMANDÉ/.test(sysT) && /PHOTO OU LISTE/.test(sysT) && /sans limite à 5/.test(sysT), 'système : jour demandé et photo/liste (une tâche par ligne, sans limite à 5)');
+  const ctxD = { weeks: [lundi, '2026-11-16'], today: lundi, candidates: [{ key: 'k', label: 'K' }], app: { open: [] }, requestedDay: '2026-11-14', dayCapacityMinutes: 30 };
+  const pr = dt.parseProposals(JSON.stringify({ t: [['Acheter du lait', 'k', null, 30], ['Acheter du pain', 'k', '2026-11-11', 30], ['Acheter des oeufs', 'k', null, 30]] }), ctxD);
+  assert(pr && pr.length === 3 && pr.every((t) => t.day === '2026-11-14' && t.exact), 'consigne « samedi » : toutes les tâches ce jour-là, marquées exactes (jamais déplacées par la capacité)');
   process.exit(failed ? 1 : 0);
 })();
