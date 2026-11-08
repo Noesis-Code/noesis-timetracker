@@ -745,3 +745,6 @@ Cause du « impossible de fusionner » dans les années et les périodes : les o
 ## Temps : objectifs inclus en deux cases avec le nombre (8 nov. 2026)
 - « Périodiques (N) » et « Hebdomadaires (M) » : deux cases, cochées par défaut ; au moins une reste cochée. Le nombre suit l'échéance (même découpage que le serveur : périodes de 4 semaines, ou d'un mois au-delà d'un an).
 - Échéance de 28 jours ou moins : une seule période, « Périodiques » grisé, « Hebdomadaires » coché.
+
+## Création depuis une bulle ou une case vide : plus de page Activité (8 nov. 2026)
+- L'activité est imposée par la bulle : la page « Activité » est retirée du parcours (Description → Temps…). Depuis la barre sans bulle, elle reste (choix libre).
