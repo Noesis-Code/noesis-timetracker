@@ -94,6 +94,11 @@
     label.addEventListener('click', function () { toggleExpand(false); });
     prev.addEventListener('click', function () { stepCal(-1); });
     next.addEventListener('click', function () { stepCal(1); });
+    var pm = null, pActive = null;
+    if (calExpanded && TMT.calNums) { // mois déplié : à gauche du mois, les périodes présentes plus de 10 jours dans ce mois (P1…P13, d'après les dates)
+      pm = TMT.calNums.periodsOfMonth(+ref.slice(0, 4), +ref.slice(5, 7) - 1); pActive = TMT.calNums.period(ref.slice(0, 8) + ((anchor.slice(0, 7) === ref.slice(0, 7)) ? anchor.slice(8, 10) : '15'));
+      var pbox = el('span', 'calPeriods'); pm.forEach(function (x) { pbox.appendChild(el('span', 'calPeriod' + (pm.length > 1 && x.p === pActive ? ' active' : ''), 'P' + x.p)); }); label.appendChild(pbox);
+    }
     nav.appendChild(label); calBox.appendChild(nav); // libellé du mois seul en haut ; les flèches encadrent le calendrier (centrées sur lui, elles descendent quand le mois se déploie)
     var frame = el('div', 'tasksWeekFrame'), grid = el('div', 'tasksWeekGrid');
     var head = el('div', 'goalsCalHead');
@@ -103,15 +108,17 @@
     if (calExpanded) { var f = anchor.slice(0, 8) + '01', fd = fromIso(f); first = mondayOf(f); rows = Math.ceil((((fd.getDay() + 6) % 7) + new Date(fd.getFullYear(), month + 1, 0).getDate()) / 7); }
     else { first = mondayOf(anchor); rows = 1; }
     for (var r = 0; r < rows; r++) {
-      var week = el('div', 'goalsCalWeek'), days = el('div', 'goalsCalDays');
+      var wrow = el('div', 'calWeekRow'), week = el('div', 'goalsCalWeek'), days = el('div', 'goalsCalDays');
+      if (TMT.calNums) wrow.appendChild(el('span', 'calWeekNum', 'S' + TMT.calNums.week(addDays(first, r * 7)))); // numéro de la semaine, à gauche de sa rangée
       for (var c = 0; c < 7; c++) {
         var di = addDays(first, r * 7 + c);
         var cell = el('button', 'goalsCalDay' + (calExpanded && fromIso(di).getMonth() !== month ? ' out' : '') + (di === today ? ' today' : '') + (di === sel && viewDay !== 'all' ? ' sel' : ''), String(+di.slice(8, 10)));
         cell.type = 'button'; cell.setAttribute('data-day', di);
+        if (pm && pm.length > 1 && TMT.calNums.period(di) === pActive && fromIso(di).getMonth() === month) cell.classList.add('inPeriod'); // plusieurs périodes dans le mois : les jours de la période active sont soulignés
         (function (d) { cell.addEventListener('click', function () { pickDay(d); }); })(di);
         days.appendChild(cell);
       }
-      week.appendChild(days); grid.appendChild(week);
+      week.appendChild(days); wrow.appendChild(week); grid.appendChild(wrow);
     }
     frame.appendChild(prev); frame.appendChild(grid); frame.appendChild(next); calBox.appendChild(frame);
     syncCalSel();

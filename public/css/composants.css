@@ -290,3 +290,13 @@
 /* Séparateur de ligne (R22) : trait de 1 px dessiné par ::after, d'un bord à l'autre de la ligne, même opacité partout (--sep) ; contrairement à une bordure du bas il ne disparaît pas aux alignements de pixels fractionnaires (écrans @3x, lignes à hauteur non entière). Mettre la classe sur la ligne. */
 .cmpSepRow { position: relative; border: 0; box-sizing: border-box; }
 .cmpSepRow::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--sep); pointer-events: none; }
+
+/* Calendrier (bande de la vue Tâches ET grille du calendrier) : numéro de la semaine à gauche de sa rangée, périodes à gauche du mois, jours de la période soulignés. Défini une seule fois (R29). */
+.calWeekRow { display: flex; align-items: center; }
+.calWeekRow > .goalsCalWeek { flex: 1; min-width: 0; }
+.calWeekNum, .calWeekNum.cmpStatus { flex: 0 0 32px; width: 32px; min-height: 0; padding: 0; border: 0; background: transparent; color: var(--text-light); font-size: 13px; font-weight: 400; text-align: left; justify-content: flex-start; }
+.goalsCalHead, .tasksWeekHead .goalsCalHead { margin-left: 32px; }
+.cmpNavLabel, #goalsCalTitle { position: relative; }
+.calPeriods { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: flex; gap: 8px; font-size: 13px; font-weight: 400; color: var(--text-light); white-space: nowrap; }
+.calPeriod.active { color: var(--purple); }
+.goalsCalDay.inPeriod { text-decoration: underline; text-decoration-color: var(--purple); text-decoration-thickness: 2px; text-underline-offset: 6px; }

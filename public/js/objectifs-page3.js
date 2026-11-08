@@ -827,6 +827,11 @@
     var titleEl = $('goalsCalTitle'); titleEl.textContent = '';
     titleEl.appendChild(document.createTextNode(cap1(new Date(Date.UTC(calMonth.y, calMonth.m, 1)).toLocaleDateString(loc, { month: 'long', year: 'numeric', timeZone: 'UTC' }))));
     var chev = document.createElement('span'); chev.className = 'cmpChev' + (nav.expanded ? ' open' : ''); titleEl.appendChild(chev);
+    var pm = null, pActive = null;
+    if (nav.expanded) { // mois déplié : à gauche du mois, les périodes présentes plus de 10 jours dans ce mois
+      pm = TMT.calNums.periodsOfMonth(calMonth.y, calMonth.m); pActive = TMT.calNums.period(nav.anchor.slice(0, 7) === ref.slice(0, 7) ? nav.anchor : ref.slice(0, 8) + '15');
+      var pbox = document.createElement('span'); pbox.className = 'calPeriods'; pm.forEach(function (x) { var sp = document.createElement('span'); sp.className = 'calPeriod' + (pm.length > 1 && x.p === pActive ? ' active' : ''); sp.textContent = 'P' + x.p; pbox.appendChild(sp); }); titleEl.appendChild(pbox);
+    }
     titleEl.setAttribute('aria-expanded', nav.expanded ? 'true' : 'false');
     var head = $('goalsCalHead'); head.textContent = '';
     for (var k = 0; k < 7; k++) { var hd = document.createElement('span'); hd.textContent = cap1(new Date(Date.UTC(2024, 0, 1 + k)).toLocaleDateString(loc, { weekday: 'narrow', timeZone: 'UTC' })); head.appendChild(hd); } // 1er janv. 2024 = lundi
@@ -848,17 +853,17 @@
     for (var r = 0; r < rows; r++) {
       var rs = isoAddDays(start, r * 7), re = isoAddDays(rs, 6);
       var row = document.createElement('div'); row.className = 'goalsCalWeek';
+      var wLabel = 'S' + TMT.calNums.week(rs), gutter = document.createElement('span'); gutter.className = 'calWeekNum'; gutter.textContent = wLabel; // numéro de la semaine (d'après les dates), à gauche de sa rangée
       // Ligne de l'objectif HEBDOMADAIRE, collée à sa rangée de jours : « S45 » + le titre seulement. Un toucher ouvre la fenêtre de l'objectif (carte et éditeur existants).
       var slot = null; slots.forEach(function (x) { if (!slot && x.s <= re && x.e >= rs) slot = x; });
       if (slot) {
         var hasObj = !!(slot.w && slot.w.text), line;
-        var wNum = (slot.p.firstWeekOfYear || (((slot.p.periodNumber - 1) % 13) * 4 + 1)) + slot.wi - 1, wLabel = t('S{n}', { n: wNum });
         // Le calendrier n'AJOUTE ni ne modifie aucun objectif (arbre périodique, mode modifier) : il affiche les titres présents, sinon rien.
         if (hasObj) {
           // Statut : coloré (vert / jaune / rouge) dès que la semaine a commencé ET qu'elle a des tâches ; transparent sinon (à venir ou sans tâche). Un clic fait tourner les couleurs.
           var wState = slot.s <= today && slot.w.taskTotal > 0 ? (slot.w.status || 'non_atteint') : null;
           line = document.createElement('div'); line.className = 'goalsCalWeekLine';
-          line.appendChild(TMT.ui.statusBtn(wLabel, wState, function (next) { saveWeeklyStatus(slot.w.id, next); }));
+          gutter = TMT.ui.statusBtn(wLabel, wState, function (next) { saveWeeklyStatus(slot.w.id, next); }); gutter.classList.add('calWeekNum');
           var wt = document.createElement('span'); wt.className = 'goalsCalWeekTitle'; wt.textContent = slot.w.text; wt.title = slot.w.text; line.appendChild(wt);
           if (slot.w.noRoomToCarry || slot.w.overloaded || (real && real.periodNumber === slot.p.periodNumber && slot.s <= today && slot.e >= today)) { var dot = document.createElement('span'); dot.className = 'notifDot goalsWeekDot'; line.appendChild(dot); wt.title += ' — ' + t('Cible peut-être irréaliste'); } // pastille
         }
@@ -869,11 +874,12 @@
         var di = isoAddDays(rs, c), cell = document.createElement('button'); cell.type = 'button';
         cell.className = 'goalsCalDay' + (nav.expanded && +di.slice(5, 7) - 1 !== calMonth.m ? ' out' : '') + (di === today ? ' today' : '') + (di === selDay ? ' sel' : '');
         cell.textContent = String(+di.slice(8, 10));
+        if (pm && pm.length > 1 && TMT.calNums.period(di) === pActive && +di.slice(5, 7) - 1 === calMonth.m) cell.classList.add('inPeriod'); // plusieurs périodes dans le mois : les jours de la période active sont soulignés
         (function (iso) { cell.addEventListener('click', function () { selectGoalsDay(iso); }); })(di);
         days.appendChild(cell);
       }
       row.appendChild(days);
-      grid.appendChild(row);
+      var wrow = document.createElement('div'); wrow.className = 'calWeekRow'; wrow.appendChild(gutter); wrow.appendChild(row); grid.appendChild(wrow);
     }
   }
   // Positionne le calendrier sur le mois d'une date (TMT.ouvrirCalendrierTaches) : la période affichée ne change pas, seul le mois saute.
@@ -956,7 +962,7 @@
     // Transparent tant que la période n'a pas commencé ou n'a aucune tâche ; sinon coloré.
     var hasTasks = ws.some(function (w) { return w.taskTotal > 0; }), pState = period.startDate <= isoToday() && hasTasks ? st : null;
     var tagHost = $('activityGoalsPeriodTitle'); tagHost.textContent = '';
-    tagHost.appendChild(TMT.ui.statusBtn('P' + period.periodIndexInCycle, pState)); // sans clic : suit ses semaines
+    tagHost.appendChild(TMT.ui.statusBtn('P' + TMT.calNums.period(period.startDate), pState)); // sans clic : suit ses semaines
 
     var host = $('goalsMainLineHost'); host.textContent = '';
     var hasMain = !!(period.mainGoalText && period.mainGoalText.trim());
