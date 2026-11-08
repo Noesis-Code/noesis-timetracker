@@ -203,10 +203,31 @@
     Array.prototype.forEach.call(s.children, function (b, i) { if (allowed.indexOf(options[i][0]) < 0) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); } });
     return s;
   }
+  function goalCounts(form, days) { // nombre de périodes et de semaines : même découpage que server/lib/objectifs.js (splitPeriods)
+    var D = 86400000, st = form.startDate ? Date.parse(form.startDate + 'T00:00:00Z') : Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()), en = st + (days || 0) * D;
+    var pw = form.periodWeeks || (days <= 28 ? '1' : days <= 366 ? '4' : 'mois'), out = [], cur = st;
+    while (cur <= en && out.length < 400) {
+      var pe; if (pw === 'mois') { var d0 = new Date(st); d0.setUTCMonth(d0.getUTCMonth() + out.length + 1); pe = d0.getTime() - D; } else pe = cur + Number(pw) * 7 * D - D;
+      if (pe > en) pe = en; if (pe < cur) pe = cur; out.push([cur, pe]); cur = pe + D;
+    }
+    if (out.length > 1 && (out[out.length - 1][1] - out[out.length - 1][0]) / D + 1 < 7) { var l = out.pop(); out[out.length - 1][1] = l[1]; }
+    var weeks = 0; out.forEach(function (r) { for (var t = r[0]; t <= r[1]; t += 7 * D) weeks++; });
+    return { periods: out.length, weeks: weeks };
+  }
   function paintTermInto(box, form, days, onChange) {
     var ok = termsFor(days); if (ok.indexOf(form.term) < 0) form.term = ok[ok.length - 1]; // imposé si un seul choix ; sinon, tant que rien n'est choisi, le terme le plus long permis
     box.appendChild(field(tr('Terme'), segDisabled(TERMS.map(function (t) { return [t[0], tr(t[1])]; }), form.term, ok, function (k) { form.term = k; form.termTouched = true; if (onChange) onChange(); }, tr('Terme'))));
-    if (multiOf(days)) box.appendChild(field(tr('Objectifs inclus'), seg(INNER.map(function (t) { return [t[0], tr(t[1])]; }), form.innerGoals, function (k) { form.innerGoals = k; form.weekly = k !== 'periodiques'; if (onChange) onChange(); }, tr('Objectifs inclus')))); // une seule période : hebdomadaires seulement, rien à choisir
+    // Objectifs inclus : deux cases (cochées par défaut quand c'est possible, au moins une reste cochée) avec le nombre de chacun ; une seule période (≤ 28 jours) : hebdomadaires seulement, périodiques grisés
+    var multi = multiOf(days), cnt = goalCounts(form, days), per = multi && form.innerGoals !== 'hebdomadaires', wk = form.innerGoals !== 'periodiques';
+    var gs = el('div', 'cmpSeg'); gs.setAttribute('role', 'group'); gs.setAttribute('aria-label', tr('Objectifs inclus'));
+    function goalBtn(on, label, n, enabled, toggle) {
+      var g = btn(on ? 'active' : '', label + ' (' + n + ')', function () { toggle(); });
+      g.setAttribute('aria-pressed', on ? 'true' : 'false'); if (!enabled) { g.disabled = true; g.setAttribute('aria-disabled', 'true'); } return g;
+    }
+    function setInner(p2, w2) { form.innerGoals = p2 && w2 ? 'les_deux' : p2 ? 'periodiques' : 'hebdomadaires'; form.weekly = w2; if (onChange) onChange(); }
+    gs.appendChild(goalBtn(per, tr('Périodiques'), cnt.periods, multi, function () { if (per && !wk) return; setInner(!per, wk); }));
+    gs.appendChild(goalBtn(wk, tr('Hebdomadaires'), cnt.weeks, true, function () { if (wk && !per) return; setInner(per, !wk); }));
+    box.appendChild(field(tr('Objectifs inclus'), gs));
   }
 
   function openComposer(ctx) {
@@ -529,7 +550,7 @@
   function openEdit(id) {
     api('GET', '/api/objectifs/' + id).then(function (o) {
       var daysOf = function (end) { return Math.max(0, Math.round((Date.parse(end + 'T00:00:00Z') - Date.parse(o.startDate + 'T00:00:00Z')) / 86400000)); };
-      var form = { title: o.title, endDate: o.endDate, term: o.term || null, innerGoals: o.innerGoals || 'les_deux', hours: o.hoursPerWeek != null ? o.hoursPerWeek : null, skill: o.skill || '', guideOpen: 0 };
+      var form = { title: o.title, endDate: o.endDate, startDate: o.startDate, periodWeeks: o.periodWeeks, term: o.term || null, innerGoals: o.innerGoals || 'les_deux', hours: o.hoursPerWeek != null ? o.hoursPerWeek : null, skill: o.skill || '', guideOpen: 0 };
       guideParse(form, o.description || '');
       var okInit = termsFor(daysOf(o.endDate)); if (okInit.indexOf(form.term) < 0) form.term = okInit[okInit.length - 1];
       if (!multiOf(daysOf(o.endDate))) form.innerGoals = 'hebdomadaires';

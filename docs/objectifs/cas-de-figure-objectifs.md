@@ -741,3 +741,7 @@ Cause du « impossible de fusionner » dans les années et les périodes : les o
 ## Création depuis la barre : activité libre, textes gris plus lisibles (8 nov. 2026)
 - Écrire un objectif dans la barre SANS toucher une case de l'arbre : l'activité n'est jamais verrouillée, même depuis la page d'une activité (la page est seulement présélectionnée) ; tout autre choix reste possible. Le verrou (activité, pôle, secteur, échéance) ne vaut que pour une case vide touchée.
 - Fenêtre de création : les textes gris (aides, paramètres, mots du sélecteur) sont un peu plus clairs, sans devenir blancs ; transparence inchangée.
+
+## Temps : objectifs inclus en deux cases avec le nombre (8 nov. 2026)
+- « Périodiques (N) » et « Hebdomadaires (M) » : deux cases, cochées par défaut ; au moins une reste cochée. Le nombre suit l'échéance (même découpage que le serveur : périodes de 4 semaines, ou d'un mois au-delà d'un an).
+- Échéance de 28 jours ou moins : une seule période, « Périodiques » grisé, « Hebdomadaires » coché.
