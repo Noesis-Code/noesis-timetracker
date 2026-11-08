@@ -453,6 +453,19 @@
     loadOrdre().then(function () { if (visible && ordreKey().join('|') === k && JSON.stringify(ordreMap[k]) !== before) render(); }); // l'ordre de présentation arrive : les colonnes reliées se rapprochent
   }
   function blockStart(iso) { var y0 = new Date().getFullYear(), y = Number(iso.slice(0, 4)); return y0 + 5 * Math.floor((y - y0) / 5); } // première année du bloc de 5 ans qui contient l'échéance
+  function ficheOf(ci) { // données de la fiche d'un titre : activité, pôle ou secteur (temps : routes existantes, côté fenêtre)
+    var c = curCols[ci], x = c.col ? c.col.ctx : c.ctx, a = actOf(x.activityId) || { id: x.activityId, name: (c.label || ''), color: c.color }, today = dayIso(), firstPole = a.poles && a.poles[0] ? a.poles[0].key : null;
+    var mine = items.filter(function (o) {
+      if (o.isMacro || o.activity.id !== x.activityId) return false;
+      if (lvl === 'activite') return true;
+      if (lvl === 'pole') return (o.poleKey || firstPole) === x.poleKey;
+      return (o.poleKey || firstPole) === x.poleKey && o.categoryKey === x.categoryKey;
+    }).filter(function (o) { return !o.abandoned && o.status !== 'atteint'; });
+    var next = mine.filter(function (o) { return o.endDate >= today; }).map(function (o) { return o.endDate; }).sort()[0] || null;
+    var label = c.col ? c.col.label : c.label, path = lvl === 'activite' ? (tr('Activité')) : (a.name + (lvl === 'secteur' && x.poleLabel ? '' : '') + ' · ' + (x.label ? String(x.label).split(' · ').slice(1).join(' · ') : label));
+    return { level: lvl, title: label, path: path || a.name, activity: { id: a.id, name: a.name, color: a.color || c.color }, poleKey: x.poleKey, categoryKey: x.categoryKey, objectives: { count: mine.length, next: next, late: mine.filter(function (o) { return o.endDate < today; }).length } };
+  }
+  function openFiche(ci) { if (TMT.objectifsView && TMT.objectifsView.openFiche) TMT.objectifsView.openFiche(ficheOf(ci)); }
   function descend(ci, block, year, macro) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
     var c = curCols[ci]; if (!c) return;
     if (macro && block == null && macro.endDate) block = blockStart(macro.endDate); // la vue des années d'un macro : le bloc FIXE de 5 ans de SON échéance, jamais l'étendue de ses enfants
@@ -607,7 +620,7 @@
     data.forEach(function (c, ci) {
       var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; if (ext && ext.cols[ci]) { b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : ''; } // titre choisi en mode fusion : REMPLI de la couleur de l'activité (du pôle), plus de contour violet ; étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
       var dot = el('i', 'arDot'); dot.style.background = c.color; b.appendChild(dot); b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
-      b.addEventListener('click', function () { if (lvl === 'secteur' && c.col.key != null && TMT.ouvrirCalendrierTaches) { openTasksCal({ secteurKey: c.col.key }); return; } descend(ci); }); // niveau secteurs : toucher le NOM d'un secteur ouvre son calendrier (aujourd'hui) ; ailleurs : descendre d'un niveau
+      b.addEventListener('click', function () { openFiche(ci); }); // toucher le TITRE d'une colonne : la fiche (jamais un changement d'arbre ni le calendrier) ; on descend uniquement en touchant une case // niveau secteurs : toucher le NOM d'un secteur ouvre son calendrier (aujourd'hui) ; ailleurs : descendre d'un niveau
       baseRow.appendChild(b);
     });
     baseWrap.appendChild(baseRow);

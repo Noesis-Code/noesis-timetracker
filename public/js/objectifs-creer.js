@@ -547,6 +547,58 @@
   // ---------- Panneau de MODIFICATION d'un objectif (mode édition de l'arbre : crayon, puis toucher une carte) ----------
   // Même format que la création : un panneau juste au-dessus de la barre, UN seul bouton « Enregistrer » (R35 : gris tant que rien n'a changé, violet ensuite). Mêmes blocs que la création
   // (description guidée, date d'échéance, terme et objectifs inclus). L'activité ne se modifie pas (supprimer puis recréer) ; la fusion se fait par l'appui long dans l'arbre, jamais d'ici.
+  // ---------- FICHE d'un titre de colonne (activité, pôle, secteur) : même panneau que « Modifier l'objectif » (au-dessus de la barre du bas, ✕, Enregistrer grisé tant que rien n'a changé) ----------
+  // Contenu : temps dépensé (routes existantes /api/category-stats), objectifs en cours (données de l'arbre), réglages de l'activité (nom, couleur : mêmes champs, même route et mêmes pastilles que Réglages > Activités).
+  // Responsables / chefs de projet : ils n'existent pas dans les réglages d'activité actuels : rien d'inventé ici.
+  function fmtHours(sec) { var h = sec / 3600; return (h >= 10 ? String(Math.round(h)) : String(Math.round(h * 10) / 10).replace('.', ',')) + ' h'; }
+  function isoDay(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function openFiche(spec) {
+    var act = spec.activity, msg = el('p', 'tasksMsg objMsg'), orig = { name: act.name, color: act.color }, form = { name: act.name, color: act.color };
+    panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = spec.title; panelForm = { edit: true }; setBack(null);
+    panelBody.appendChild(el('p', 'hint', spec.path));
+    function line(label, value) { var r = el('div', 'objTimeRow'); r.appendChild(el('span', null, label)); r.appendChild(el('span', 'objHoursVal', value)); return r; }
+    // 1. Temps dépensé
+    var timeBox = el('div', 'objField'); timeBox.appendChild(el('p', 'cmpBlockTitle', tr('Temps dépensé'))); timeBox.appendChild(el('p', 'hint', '…')); panelBody.appendChild(timeBox);
+    var now = new Date(), jan1 = new Date(now.getFullYear(), 0, 1), doy = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - jan1) / 86400000), p0 = Math.min(12, Math.floor(doy / 28)), ps = new Date(now.getFullYear(), 0, 1 + p0 * 28), pe = p0 < 12 ? new Date(now.getFullYear(), 0, 1 + p0 * 28 + 27) : new Date(now.getFullYear(), 11, 31);
+    var base = '/api/category-stats?activityId=' + act.id;
+    function shares(r) { // part de l'élément dans une fenêtre : { me, parent, kids }
+      var cats = (r && r.categories) || [], all = r ? r.totalSeconds : 0, me = 0, parent = all, kids = [];
+      if (spec.level === 'activite') { me = all; cats.forEach(function (c) { kids.push({ name: c.parentName || c.name, seconds: c.seconds }); }); }
+      else if (spec.level === 'pole') { cats.forEach(function (c) { if (c.category === spec.poleKey || c.parentKey === spec.poleKey) { me += c.seconds; kids.push({ name: c.parentKey === spec.poleKey ? c.name : null, seconds: c.seconds }); } }); }
+      else { parent = 0; cats.forEach(function (c) { if (c.category === spec.categoryKey) me += c.seconds; if (c.category === spec.poleKey || c.parentKey === spec.poleKey) parent += c.seconds; }); }
+      return { me: me, parent: parent, kids: kids };
+    }
+    Promise.all([api('GET', base + '&period=week'), api('GET', base + '&from=' + isoDay(ps) + '&to=' + isoDay(pe)), api('GET', base + '&from=2000-01-01&to=' + isoDay(now))]).then(function (rs) {
+      timeBox.textContent = ''; timeBox.appendChild(el('p', 'cmpBlockTitle', tr('Temps dépensé')));
+      [[tr('Cette semaine'), rs[0]], [tr('Cette période'), rs[1]], [tr('Au total'), rs[2]]].forEach(function (x) {
+        var s = shares(x[1]);
+        timeBox.appendChild(line(x[0], fmtHours(s.me) + (spec.level !== 'activite' && s.parent > 0 ? ' · ' + Math.round(s.me / s.parent * 100) + ' % ' + tr(spec.level === 'pole' ? 'de l’activité' : 'du pôle') : '')));
+      });
+      var tot = shares(rs[2]); // répartition des enfants (pôles d'une activité, secteurs d'un pôle) : lignes simples, sur le total
+      if (spec.level !== 'secteur' && tot.kids.length && tot.me > 0) {
+        var byName = {}; tot.kids.forEach(function (k) { var n = k.name || tr('Sans catégorie'); byName[n] = (byName[n] || 0) + k.seconds; });
+        timeBox.appendChild(el('p', 'hint', tr(spec.level === 'activite' ? 'Répartition par pôle' : 'Répartition par secteur')));
+        Object.keys(byName).sort(function (a, b) { return byName[b] - byName[a]; }).forEach(function (n) { timeBox.appendChild(line(n, fmtHours(byName[n]) + ' · ' + Math.round(byName[n] / tot.me * 100) + ' %')); });
+      }
+    }).catch(function () { timeBox.textContent = ''; timeBox.appendChild(el('p', 'cmpBlockTitle', tr('Temps dépensé'))); timeBox.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); });
+    // 2. Objectifs en cours
+    var ob = spec.objectives, objBox = el('div', 'objField'); objBox.appendChild(el('p', 'cmpBlockTitle', tr('Objectifs en cours')));
+    objBox.appendChild(line(tr('Objectifs actifs'), String(ob.count))); objBox.appendChild(line(tr('Prochaine échéance'), ob.next || '—')); objBox.appendChild(line(tr('En retard'), String(ob.late))); panelBody.appendChild(objBox);
+    // 4. Réglages de l'activité : mêmes champs que Réglages > Activités (nom, couleur), même route
+    var setBox = el('div', 'objField'); setBox.appendChild(el('p', 'cmpBlockTitle', tr('Réglages de l’activité')));
+    if (spec.level !== 'activite') setBox.appendChild(el('p', 'hint', tr('Les pôles et les secteurs suivent les réglages de l’activité') + ' « ' + act.name + ' ».'));
+    var nameIn = el('input'); nameIn.type = 'text'; nameIn.maxLength = 60; nameIn.value = form.name; nameIn.setAttribute('aria-label', tr('Nom de l’activité')); setBox.appendChild(field(tr('Nom'), nameIn));
+    var sw = el('div'); if (TMT.renderColorSwatches) TMT.renderColorSwatches(sw, form.color, function (c) { form.color = c; sync(); }, true); setBox.appendChild(field(tr('Couleur'), sw)); panelBody.appendChild(setBox);
+    function dirty() { return form.name.trim() !== orig.name || form.color !== orig.color; }
+    function sync() { stepBtn.disabled = !dirty() || !form.name.trim(); }
+    nameIn.addEventListener('input', function () { form.name = nameIn.value; sync(); });
+    function save() {
+      var b = {}; if (form.name.trim() !== orig.name) b.name = form.name.trim(); if (form.color !== orig.color) b.color = form.color;
+      stepBtn.disabled = true; msg.textContent = '';
+      api('PUT', '/api/activities/' + act.id, b).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
+    }
+    dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save;
+  }
   function openEdit(id) {
     api('GET', '/api/objectifs/' + id).then(function (o) {
       var daysOf = function (end) { return Math.max(0, Math.round((Date.parse(end + 'T00:00:00Z') - Date.parse(o.startDate + 'T00:00:00Z')) / 86400000)); };
@@ -781,6 +833,7 @@
     openGroup: function (ids, opts) { openGroup(ids, opts); },
     dock: function () { return dock; },
     openDetail: function (id) { openDetail(id); },
+    openFiche: function (spec) { openFiche(spec); },
     openEdit: function (id) { openEdit(id); } // mode édition de l'arbre : panneau de modification (même format que la création)
   };
   // Si la vue Objectifs est déjà celle affichée au chargement (page1 se monte avant ce fichier).
