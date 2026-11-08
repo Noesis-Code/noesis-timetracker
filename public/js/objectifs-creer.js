@@ -584,6 +584,9 @@
     // 2. Objectifs en cours
     var ob = spec.objectives, objBox = el('div', 'objField'); objBox.appendChild(el('p', 'cmpBlockTitle', tr('Objectifs en cours')));
     objBox.appendChild(line(tr('Objectifs actifs'), String(ob.count))); objBox.appendChild(line(tr('Prochaine échéance'), ob.next || '—')); objBox.appendChild(line(tr('En retard'), String(ob.late))); panelBody.appendChild(objBox);
+    // 3. Responsables (lecture seule : route du lot 1 /api/activities/:id/responsables ; le propriétaire est toujours responsable, tous égaux, aucun écran de gestion ici)
+    var respBox = el('div', 'objField'); respBox.appendChild(el('p', 'cmpBlockTitle', tr('Responsables'))); var respTxt = el('p', 'hint', '…'); respBox.appendChild(respTxt); panelBody.appendChild(respBox);
+    api('GET', '/api/activities/' + act.id + '/responsables').then(function (r) { var names = (r.members || []).filter(function (m) { return m.manager; }).map(function (m) { return m.name + (m.owner ? ' (' + tr('propriétaire') + ')' : ''); }); respTxt.textContent = names.length ? names.join(' · ') : '—'; }).catch(function () { respTxt.textContent = '—'; });
     // 4. Réglages de l'activité : mêmes champs que Réglages > Activités (nom, couleur), même route
     var setBox = el('div', 'objField'); setBox.appendChild(el('p', 'cmpBlockTitle', tr('Réglages de l’activité')));
     if (spec.level !== 'activite') setBox.appendChild(el('p', 'hint', tr('Les pôles et les secteurs suivent les réglages de l’activité') + ' « ' + act.name + ' ».'));

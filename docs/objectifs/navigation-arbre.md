@@ -2,7 +2,7 @@
 
 **Niveaux** (du haut vers le bas) : Activités (blocs fixes de 5 ans) > Pôles d'une activité (années) > Secteurs d'un pôle (périodes de 28 jours). Un macro multi-activités descend vers les pôles (puis les secteurs) de toutes ses activités, ensemble, bornés au bloc de 5 ans de son échéance.
 
-**Entrée** : un seul geste, le toucher court. Toucher une carte, une bulle de colonne ou une carte de macro descend d'UN niveau. Au dernier niveau (secteurs) toucher une case occupée ouvre le calendrier des tâches de cette période (sortie : la flèche de retour du calendrier ramène à la même vue) ; toucher une colonne sans secteur ne fait rien.
+**Entrée** : un seul geste, le toucher court. Toucher une carte ou une carte de macro descend d'UN niveau. Toucher le TITRE d'une colonne (bulle d'activité, de pôle, de secteur) ouvre la fiche de l'élément (même panneau à chaque niveau : temps dépensé, objectifs en cours, responsables en lecture seule, réglages de l'activité) : jamais un changement d'arbre ni le calendrier. Au dernier niveau (secteurs) toucher une case occupée ouvre le calendrier des tâches de cette période (sortie : la flèche de retour du calendrier ramène à la même vue) ; toucher une colonne sans secteur ne fait rien.
 
 **Sortie** : un seul geste, la flèche ‹ en haut à gauche, un niveau à la fois. Dans le mode Fusionner / Séparer ou le mode édition, on sort par ✕ ou en touchant hors de la zone, sans rien changer.
 
