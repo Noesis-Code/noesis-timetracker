@@ -526,7 +526,7 @@
     // 1. Temps dépensé : UN sélecteur simple (semaine / période / année) en haut à droite ; activité à UN membre = toi seul, à plusieurs = une ligne par membre ; pôle = le pôle et ses secteurs ; secteur = SEULEMENT ce secteur
     var timeBox = el('div', 'objField'), head = el('div', 'objDueRow'), seg = el('div', 'cmpSeg'), timeBody = el('div'); seg.style.cssText = 'width:auto;margin:0;flex:none';
     head.appendChild(el('p', 'cmpBlockTitle', tr('Temps dépensé')));
-    [['week', tr('Sem.')], ['period', tr('Pér.')], ['year', tr('Année')]].forEach(function (w) { var bt = btn('', w[1], function () { win = w[0]; Array.prototype.forEach.call(seg.children, function (x) { x.classList.toggle('active', x === bt); }); paintTime(); }); if (w[0] === win) bt.classList.add('active'); seg.appendChild(bt); });
+    [['week', tr('Semaine')], ['period', tr('Période')], ['year', tr('Année')]].forEach(function (w) { var bt = btn('', w[1], function () { win = w[0]; Array.prototype.forEach.call(seg.children, function (x) { x.classList.toggle('active', x === bt); }); paintTime(); }); if (w[0] === win) bt.classList.add('active'); bt.style.cssText = 'flex:none;overflow:visible;text-overflow:clip;white-space:nowrap;padding-left:10px;padding-right:10px'; seg.appendChild(bt); });
     head.appendChild(seg); timeBox.appendChild(head); timeBox.appendChild(timeBody); panelBody.appendChild(timeBox);
     var now = new Date(), jan1 = new Date(now.getFullYear(), 0, 1), doy = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - jan1) / 86400000), p0 = Math.min(12, Math.floor(doy / 28)), ps = new Date(now.getFullYear(), 0, 1 + p0 * 28), pe = p0 < 12 ? new Date(now.getFullYear(), 0, 1 + p0 * 28 + 27) : new Date(now.getFullYear(), 11, 31);
     var base = '/api/category-stats?activityId=' + act.id;
@@ -559,17 +559,23 @@
       }).catch(function () { timeBody.textContent = ''; timeBody.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); });
     }
     paintTime();
-    // Temps PRÉVU (heures par semaine) : modifiable depuis la fiche au niveau pôle seulement (le prévu se règle par pôle ; un secteur remonte au pôle) ; route existante POST /api/member-times
-    function dirty() { return plan && plan.value !== plan.orig; }
+    // Temps PRÉVU (heures par semaine), au niveau pôle seulement (le prévu se règle par pôle ; un secteur remonte au pôle) : une ligne par membre ; un responsable règle celui des autres, un non-responsable ne règle que le sien
+    // (droits vérifiés côté serveur par changePlanned) ; le temps enregistré par le Chrono ne change jamais. Route existante POST /api/member-times (historique, origines, notification déjà prévus).
+    var plans = {};
+    function dirty() { return Object.keys(plans).some(function (k) { return plans[k].value !== plans[k].orig; }); }
     function sync() { stepBtn.disabled = !dirty(); }
     if (spec.level === 'pole') {
-      var planBox = el('div', 'objField'), planIn = el('input'); planBox.appendChild(el('p', 'cmpBlockTitle', tr('Temps prévu')));
-      var pr = el('div', 'objTimeRow'), pv = el('span', 'objHoursVal'); planIn.type = 'text'; planIn.inputMode = 'decimal'; planIn.maxLength = 4; planIn.setAttribute('aria-label', tr('Heures par semaine')); planIn.disabled = true;
-      pv.appendChild(planIn); pv.appendChild(el('span', null, 'h')); pr.appendChild(el('span', null, tr('Heures par semaine'))); pr.appendChild(pv); planBox.appendChild(pr); panelBody.appendChild(planBox);
+      var planBox = el('div', 'objField'); planBox.appendChild(el('p', 'cmpBlockTitle', tr('Temps prévu (heures par semaine)'))); panelBody.appendChild(planBox);
       api('GET', '/api/member-times?activityId=' + act.id).then(function (t) {
-        var lv = (t.levels || []).filter(function (l) { return l.key === spec.poleKey; })[0], row = lv && lv.rows.filter(function (x) { return x.userId === t.me; })[0], min = row && row.plannedMin != null ? row.plannedMin : null, h = min != null ? Math.round(min / 6) / 10 : null;
-        plan = { value: h, orig: h, me: t.me }; planIn.value = h != null ? String(h) : ''; planIn.disabled = false;
-        planIn.addEventListener('input', function () { var v = parseFloat(String(planIn.value).replace(',', '.')); plan.value = v >= 0 && v <= 80 ? Math.round(v * 10) / 10 : plan.orig; sync(); });
+        var lv = (t.levels || []).filter(function (l) { return l.key === spec.poleKey; })[0], names = {}; (t.members || []).forEach(function (m) { names[m.userId] = m.name; });
+        ((lv && lv.rows) || []).forEach(function (row) {
+          var mine = row.userId === t.me, h = row.plannedMin != null ? Math.round(row.plannedMin / 6) / 10 : null, r = el('div', 'objTimeRow'), v = el('span', 'objHoursVal'), inp = el('input');
+          plans[row.userId] = { value: h, orig: h };
+          inp.type = 'text'; inp.inputMode = 'decimal'; inp.maxLength = 4; inp.value = h != null ? String(h) : ''; inp.setAttribute('aria-label', tr('Heures par semaine') + ' ' + (names[row.userId] || ''));
+          inp.disabled = !(mine || t.isResponsable); // seul un responsable règle le temps d'un autre membre
+          inp.addEventListener('input', function () { var x = parseFloat(String(inp.value).replace(',', '.')); plans[row.userId].value = x >= 0 && x <= 80 ? Math.round(x * 10) / 10 : plans[row.userId].orig; sync(); });
+          v.appendChild(inp); v.appendChild(el('span', null, 'h')); r.appendChild(el('span', null, (names[row.userId] || '') + (mine ? ' (' + tr('toi') + ')' : ''))); r.appendChild(v); planBox.appendChild(r);
+        });
       }).catch(function () { planBox.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); });
     }
     // 2. Objectifs en cours
@@ -586,7 +592,8 @@
     function save() {
       if (!dirty()) return;
       stepBtn.disabled = true; msg.textContent = '';
-      api('POST', '/api/member-times', { activityId: act.id, poleKey: spec.poleKey, memberId: plan.me, afterMin: Math.round(plan.value * 60), origin: 'ajout' }).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
+      var chain = Promise.resolve(); Object.keys(plans).filter(function (k) { return plans[k].value !== plans[k].orig; }).forEach(function (k) { chain = chain.then(function () { return api('POST', '/api/member-times', { activityId: act.id, poleKey: spec.poleKey, memberId: k, afterMin: Math.round(plans[k].value * 60), origin: 'ajout' }); }); });
+      chain.then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
     }
     dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save;
   }
