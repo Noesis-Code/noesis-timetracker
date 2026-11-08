@@ -71,6 +71,7 @@ const P = {
   idempotency_keys: { cols: ['userId'], erase: 'explicit', exp: 'NON: clés techniques de capture hors ligne' },
   inactive_account_log: { cols: ['userId'], erase: 'kept', exp: 'NON: journal d\'avis/suppression, id seul sans nom ni courriel, conservé exprès (preuve de suppression)' },
   member_time_overrides: { cols: ['memberId'], erase: 'explicit', exp: 'NON: estimation de temps posée par l\'activité' },
+  task_share_wanted: { cols: ['userId'], erase: 'cascade', exp: 'NON: temps voulu du membre pour le partage des tâches de l\'activité' },
   message_reports: { cols: ['reporterId'], erase: 'explicit', exp: 'NON: signalement de modération' },
   note_attachments: { cols: ['userId'], erase: 'cascade', exp: 'noteAttachments' },
   parental_consent_requests: { cols: ['userId'], erase: 'cascade', exp: 'NON: coordonnées du tuteur (tiers)' },
@@ -98,7 +99,7 @@ for (const t of ['horaire_employees', 'horaire_positions', 'horaire_qualificatio
 for (const t of ['horaire_availabilities', 'horaire_rotation', 'horaire_schedules', 'horaire_assignments', 'horaire_covers', 'horaire_timeoff']) P[t] = { cols: ['userId'], erase: 'cascade', exp: 'NON: horaire éphémère, table toujours vide (mémoire seule, jamais stockée)' };
 P.horaire_refused_threads = { cols: ['userId'], erase: 'cascade', exp: 'NON: empreinte SHA-256 d\'un fil de courriel refusé (90 jours), aucun contenu lisible' };
 // Tables sans aucune colonne qui désigne un compte (contenu d'activité, journaux globaux, jetons de webhooks...).
-const NON_PERSONAL = new Set(['activities_rebuild', 'activity_billing_cycles', 'activity_goal_categories', 'activity_goal_plans', 'activity_offre1',
+const NON_PERSONAL = new Set(['task_share_minutes', 'activities_rebuild', 'activity_billing_cycles', 'activity_goal_categories', 'activity_goal_plans', 'activity_offre1',
   'announcements', 'generation_quality_log', 'goal_cross_sector_suggestions', 'goal_periods', 'goal_year_goals', 'goal_years', 'inactive_account_runs',
   'poll_options', 'plan_activation_attempts', 'stripe_webhook_events', 'sub_project_item_queue', 'ai_alerts_sent', 'passkey_challenges', 'horaire_migrations', 'objectifs_signaux', 'ai_free_cost']);
 

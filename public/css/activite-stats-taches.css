@@ -1,23 +1,50 @@
-/* Fenêtre Activité > Statistiques > page 2 « Tâches par membre ». Voir public/js/activite-stats-taches.js. */
+/* Statistiques de groupe de la Feuille de route : Qui fait quoi, Tâches faites, Tâches récurrentes, Partager les tâches. Voir public/js/activite-stats-taches.js. */
 #caStatsPages { position: relative; }
 #caStatsDots { position: fixed; left: 50%; transform: translateX(-50%); z-index: 200; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 0; }
 #caStatsDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
 #caStatsDots .goalsDotBtn.on .goalsDot { opacity: 1; }
 #caStatsPage2 { padding-bottom: 40px; }
-.caTaskCard { background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 10px; }
-.caTaskSummary { border-color: rgba(var(--purple-rgb), 0.6); }
-.caTaskLine { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 2px 0; }
-.caTaskPage > .sectionTitleRow { margin: 0 4px 10px; }
-.caTaskChartCard { margin-bottom: 10px; }
+.caTaskPage { padding-bottom: 24px; }
+.caTaskChartCard { margin-bottom: 12px; }
+.shrLegend { font-size: 13px; gap: 4px 16px; }
 
-/* Page Groupe : grille « Contribution » (membres x pôles/secteurs, ronds proportionnels) */
-.cgCard { padding: 16px 6px; }
-.cgGrid { display: grid; align-items: center; row-gap: 8px; column-gap: 6px; margin-top: 12px; }
-.cgHead { display: flex; flex-direction: column; align-items: center; text-align: center; font-size: 13px; font-weight: 500; line-height: 1.25; min-width: 0; }
-.cgHead span { max-width: 100%; overflow-wrap: normal; letter-spacing: -0.3px; }
-.cgRowLabel { display: flex; align-items: center; gap: 3px; font-size: 13px; font-weight: 500; }
-.cgRowLabel span { white-space: nowrap; line-height: 1.2; } /* libellé entier : la colonne des libellés prend sa largeur, les colonnes des membres se partagent le reste */
-.cgSector { padding-left: 6px; }
-.cgDot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
-.cgCell { display: flex; align-items: center; justify-content: center; min-height: 44px; }
-.cgBubble { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 50%; font-size: 14px; font-weight: 700; }
+/* Tâches faites : demi-largeur, valeur en grand */
+.shrDone { width: calc(50% - 6px); box-sizing: border-box; margin-bottom: 12px; }
+.shrDoneTitle { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+.shrDoneValue { margin: 0; font-size: 24px; font-weight: 700; }
+
+/* Tâches récurrentes : tableau tâche x membre, traits d'un bord à l'autre (R22) */
+.shrRec { margin-bottom: 16px; }
+.shrTable { width: 100%; border-collapse: collapse; font-size: 14px; }
+.shrTable th { padding: 12px 8px; font-weight: 600; text-align: center; color: var(--text); }
+.shrTable td { padding: 12px 8px; border-top: 1px solid var(--sep); }
+.shrTable th + th, .shrTable td + td { border-left: 1px solid var(--sep); }
+.shrTask { color: var(--grey-violet); }
+.shrCount { text-align: center; font-weight: 600; color: var(--link-blue); }
+
+/* Bouton qui ouvre la fenêtre */
+.shrOpen { display: block; margin: 0 auto; min-height: 44px; padding: 8px 16px; border: 0; border-radius: 999px; font: inherit; font-size: 14px; color: var(--text);
+  background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--glass-calm-line); -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur); cursor: pointer; }
+
+/* Fenêtre « Partager les tâches » (carte de TMT.ui.confirm élargie) */
+.cmpConfirmCard.shrShare { max-width: 380px; max-height: calc(100dvh - 32px); gap: 12px; padding: 16px; }
+.shrShareHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.shrShareHead h2 { margin: 0; font-size: 17px; font-weight: 700; }
+.shrShare .cmpSeg { margin: 0; }
+.shrShareBody { overflow-y: auto; min-height: 0; }
+.shrRow { display: grid; grid-template-columns: minmax(0, 1fr) 96px 64px; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid var(--sep); font-size: 14px; }
+.shrHeadRow { min-height: 32px; border-top: 0; font-size: 12px; color: var(--grey-violet); }
+.shrHeadRow > * { font-size: 12px; font-weight: 400; }
+.shrHeadRow .shrResp, .shrHeadRow .shrHours, .shrHeadRow .shrWant, .shrHeadRow .shrTotal { text-align: center; }
+.shrMemberHead { grid-template-columns: minmax(0, 1fr) 72px 64px; margin-top: 12px; }
+.shrMember { grid-template-columns: minmax(0, 1fr) 72px 64px; font-size: 16px; }
+.shrLabel { display: flex; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.shrDot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.shrPick { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px 0 10px; border-radius: 999px; background: var(--float-active); }
+.shrShare .shrPick select { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-size: 13px; -webkit-appearance: none; appearance: none; cursor: pointer; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.shrPick select option { background: var(--surface-dim); }
+.shrShare .shrPill { width: 100%; box-sizing: border-box; height: 30px; padding: 0 6px; border: 0; border-radius: 999px; background: var(--float-active); color: var(--text); font: inherit; font-size: 13px; text-align: center; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.shrPill:focus, .shrPick:focus-within { outline: 2px solid var(--purple); outline-offset: 0; }
+.shrMember .shrTotal { text-align: center; font-size: 16px; font-weight: 700; }
+.shrGap { margin: 8px 0 0; font-size: 13px; color: var(--grey-violet); }
+.shrGap:empty { display: none; }

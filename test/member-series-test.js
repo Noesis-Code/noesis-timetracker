@@ -26,7 +26,7 @@ const keys = Object.values(r.emilien.keys);
   assert(s && s.members.length === d.members.length && s.members.length >= 2, scope + ' : une série par membre');
   assert(s.members.every((m) => m.values.length === s.labels.length), scope + ' : valeurs alignées sur les étiquettes');
   assert(s.members.every((m) => m.values.every((v, i, a) => v == null || i === 0 || a[i - 1] == null || v >= a[i - 1])), scope + ' : courbes cumulées croissantes');
-  assert(s.members.every((m) => Object.keys(m).sort().join() === 'color,lastName,name,userId,values'), scope + ' : aucun titre de tâche dans les séries');
+  assert(s.members.every((m) => Object.keys(m).sort().join() === 'color,hours,lastName,name,tasks,userId,values'), scope + ' : aucun titre de tâche dans les séries');
 });
 const all = insights.memberStats(aid, 'all', null, null);
 const tot = all.series.members.reduce((a, m) => a + m.values[all.series.todayIndex], 0);
@@ -45,7 +45,7 @@ assert(all.members.every((m) => Object.keys(g.cells[m.userId]).every((k) => keys
 const poleTotal = g.poles.reduce((s, p) => s + all.members.reduce((x, m) => x + (g.cells[m.userId][p.key] || 0), 0), 0);
 assert(poleTotal <= all.total.done, 'grille : total des pôles <= tâches faites');
 const ui = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'activite-stats-taches.js'), 'utf8');
-assert(/function contribution\(/.test(ui) && /Math\.sqrt\(n \/ max\)/.test(ui) && !/cgTop|cgLegend|cgScale/.test(ui) && !/caTaskRank|caTaskBar/.test(ui), 'UI : grille de ronds proportionnels pleins (ni cadre, ni légende), plus de classement ni de barres');
+assert(/Qui fait quoi/.test(ui) && /Tâches récurrentes/.test(ui) && /Partager les tâches/.test(ui) && !/function contribution\(/.test(ui) && !/caTaskRank|caTaskBar/.test(ui), 'UI : Qui fait quoi, Tâches faites, Tâches récurrentes, Partager les tâches (maquettes du 8 nov. 2026 : la grille Contribution sort de la page), ni classement ni barres');
 
 // Bilans automatiques (balayage réel exécuté après le seed)
 require('../server/lib/goals').runGoalsSweepAll();

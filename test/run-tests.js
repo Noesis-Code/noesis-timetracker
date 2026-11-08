@@ -193,6 +193,7 @@ const SUITE_FILES = [
   'importance-test.js',
   'inactive-accounts-test.js',
   'member-series-test.js',
+  'partage-taches-test.js',
   'modules-gating-test.js',
   'pin-lock-test.js',
   'silentspellfix-test.js',

@@ -766,12 +766,22 @@ function memberStats(activityId, scopeParam, yearParam, poleKey) {
   }
   const buckets = {}; members.forEach((m) => { buckets[m.id] = new Array(n).fill(0); });
   doneTasks.forEach((t) => { const i = idx(t.doneDay); if (i >= 0) buckets[respOf(t)][i] += 1; });
-  let max = 0;
+  // « Qui fait quoi » (partage des tâches, 8 nov. 2026) : heures enregistrées et tâches faites PAR case (pas cumulées), une paire de courbes par membre.
+  const hours = {}; members.forEach((m) => { hours[m.id] = new Array(n).fill(0); });
+  db.prepare('SELECT userId, isoDate, SUM(durationSeconds) AS s FROM time_entries WHERE activityId = ? GROUP BY userId, isoDate').all(activityId).forEach((r) => {
+    if (!hours[r.userId] || !r.isoDate) return;
+    const i = idx(r.isoDate); if (i >= 0) hours[r.userId][i] += r.s / 3600;
+  });
+  let max = 0; let maxHours = 0; let maxTasks = 0;
   const seriesMembers = members.map((m) => {
-    let acc = 0; const values = [];
-    for (let i = 0; i < n; i += 1) { acc += buckets[m.id][i]; values.push(i <= todayIndex ? acc : null); }
+    let acc = 0; const values = []; const tasksPer = []; const hoursPer = [];
+    for (let i = 0; i < n; i += 1) {
+      acc += buckets[m.id][i]; values.push(i <= todayIndex ? acc : null);
+      tasksPer.push(i <= todayIndex ? buckets[m.id][i] : null); hoursPer.push(i <= todayIndex ? round1(hours[m.id][i]) : null);
+      if (i <= todayIndex) { maxTasks = Math.max(maxTasks, buckets[m.id][i]); maxHours = Math.max(maxHours, hours[m.id][i]); }
+    }
     max = Math.max(max, acc);
-    return { userId: m.id, name: m.name, lastName: m.lastName || '', color: m.color || null, values };
+    return { userId: m.id, name: m.name, lastName: m.lastName || '', color: m.color || null, values, tasks: tasksPer, hours: hoursPer };
   });
   // Grille « Contribution » : tâches FAITES par membre, par pôle (total du pôle, secteurs compris) et par secteur. Comptes seulement, aucun titre de tâche.
   const grid = { poles: scope.poles.map((p) => ({ key: p.key, label: p.label, sectors: p.sectors })), cells: {} };
@@ -783,7 +793,14 @@ function memberStats(activityId, scopeParam, yearParam, poleKey) {
     if (t.key !== t.pole) row[t.key] = (row[t.key] || 0) + 1;
   });
   return { scope: scopeName, total: { tasks: total, done: totalDone, remaining: total - totalDone }, members: out, grid,
-    series: { labels, todayIndex, noToday, max: niceMax(max), members: seriesMembers } };
+    series: { labels, todayIndex, noToday, max: niceMax(max), maxHours: niceMax(maxHours), maxTasks: niceMax(maxTasks), members: seriesMembers } };
 }
 
-module.exports = { insightsForActivity, visitorInsights, glisseDetail, memberStats, CAPACITY_ALERT_PCT, ADVANCE_LATE_PCT };
+// Bornes d'une portée Tout / Année / Période / Semaine (mêmes grilles que memberStats) ; Tout = sans borne. Partage des tâches (lib/partagetaches.js).
+function scopeRange(scopeParam) {
+  if (scopeParam === 'all') return { start: null, end: null };
+  const r = viewRange(scopeParam === 'period' || scopeParam === 'week' ? scopeParam : 'year', todayLocal());
+  return { start: r.start, end: r.end };
+}
+
+module.exports = { insightsForActivity, visitorInsights, glisseDetail, memberStats, scopeRange, CAPACITY_ALERT_PCT, ADVANCE_LATE_PCT };

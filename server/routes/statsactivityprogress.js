@@ -4,6 +4,7 @@ const express = require('express');
 const db = require('../db');
 const progress = require('../lib/statsactivityprogress');
 const insights = require('../lib/statsinsights');
+const partage = require('../lib/partagetaches');
 
 const router = express.Router();
 
@@ -69,6 +70,43 @@ router.get('/stats/activity-members', (req, res) => {
   if (!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId)) return res.status(403).json({ error: "Tu n'es pas membre de cette activité." });
   try { return res.json(insights.memberStats(activityId, req.query.scope, null, typeof req.query.category === 'string' && req.query.category !== '' && req.query.category !== 'all' ? req.query.category : null)); } catch (err) {
     console.error('[stats-activity-members]', err);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Partage des tâches (8 nov. 2026, lib/partagetaches.js, sans IA) : membres de l'activité seulement (403 sinon).
+//  GET  /api/stats/recurring-tasks?activityId=…&scope=all|year|period|week — tableau « Tâches récurrentes » (comptes par membre) ;
+//  GET  /api/stats/task-share?activityId=…&mode=week|period — proposition de partage (responsables, h / sem., temps voulu) ;
+//  POST /api/stats/task-share { activityId, wanted: { userId: minutes }, tasks: [{ id, userId, minutes }] } — « Valider le partage ».
+function memberGuard(req, res, activityId) {
+  if (!req.userId) { res.status(400).json({ error: 'userId requis.' }); return false; }
+  if (!Number.isInteger(activityId)) { res.status(400).json({ error: 'activityId requis.' }); return false; }
+  if (!db.prepare('SELECT id FROM activities WHERE id = ?').get(activityId)) { res.status(404).json({ error: 'Activité introuvable.' }); return false; }
+  if (!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, req.userId)) { res.status(403).json({ error: "Tu n'es pas membre de cette activité." }); return false; }
+  return true;
+}
+router.get('/stats/recurring-tasks', (req, res) => {
+  const activityId = Number(req.query.activityId);
+  if (!memberGuard(req, res, activityId)) return undefined;
+  try { return res.json(partage.recurringTable(activityId, String(req.query.scope || 'year'))); } catch (err) {
+    console.error('[stats-recurring-tasks]', err);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+router.get('/stats/task-share', (req, res) => {
+  const activityId = Number(req.query.activityId);
+  if (!memberGuard(req, res, activityId)) return undefined;
+  try { return res.json(partage.proposal(activityId, String(req.query.mode || 'week'))); } catch (err) {
+    console.error('[stats-task-share]', err);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+router.post('/stats/task-share', (req, res) => {
+  const activityId = Number(req.body && req.body.activityId);
+  if (!memberGuard(req, res, activityId)) return undefined;
+  try { return res.json(partage.save(activityId, req.body)); } catch (err) {
+    if (err.statusCode === 400) return res.status(400).json({ error: err.message });
+    console.error('[stats-task-share-save]', err);
     return res.status(500).json({ error: 'Erreur serveur' });
   }
 });
