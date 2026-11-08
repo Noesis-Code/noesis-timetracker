@@ -848,8 +848,6 @@
     for (var r = 0; r < rows; r++) {
       var rs = isoAddDays(start, r * 7), re = isoAddDays(rs, 6);
       var row = document.createElement('div'); row.className = 'goalsCalWeek';
-      var rowSlot0 = null; slots.forEach(function (x) { if (!rowSlot0 && x.s <= re && x.e >= rs) rowSlot0 = x; });
-      if (!(rowSlot0 && rowSlot0.w && rowSlot0.w.text)) row.classList.add('goalsCalWeekEmpty'); // aucun objectif hebdomadaire : cadre en pointillés
       // Ligne de l'objectif HEBDOMADAIRE, collée à sa rangée de jours : « S45 » + le titre seulement. Un toucher ouvre la fenêtre de l'objectif (carte et éditeur existants).
       var slot = null; slots.forEach(function (x) { if (!slot && x.s <= re && x.e >= rs) slot = x; });
       if (slot) {
