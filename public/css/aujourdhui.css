@@ -181,3 +181,6 @@
 .tasksToday.calIntegrated .tasksPeriodHost #goalsMainLineHost { flex: 0 1 auto; }
 .tasksToday.calIntegrated .tasksPeriodHost .goalsMainBig { width: auto; max-width: 100%; display: block; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; text-align: center; }
 .tasksToday .goalsCalWeekLine .cmpStatus, .tasksToday .tasksPeriodHost .cmpStatus { min-height: 0; padding: 0; border: 0; background: transparent; color: var(--text-light); }
+/* Icône des choix d'activité plus près des onglets Tâches / Objectifs, calendrier plus près de l'icône (grille R6 : 8 px) */
+.tasksToday { margin-top: -16px; }
+.tasksToday:not(.calIntegrated) .goalsCalNav { margin-top: -8px; }
