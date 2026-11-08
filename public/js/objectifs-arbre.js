@@ -107,7 +107,7 @@
     if (TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, {
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
       onHold: function () {
-        if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids, { title: tr('Fusionner quel objectif ?'), onPick: function (id) { var oo = items.filter(function (x) { return x.id === id; })[0], ci = oo ? colOfObj(oo) : -1; if (!oo || ci < 0) return; var par = oo.parentId != null && items.filter(function (x) { return x.id === oo.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par, false, true); else startExtend(oo, ci, true); } }); // choix dans la liste : le doigt est déjà levé, aucune garde de relâchement (le premier toucher suivant compte)
+        if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids, { title: tr('Fusionner quel objectif ?'), onPick: function (id) { var oo = items.filter(function (x) { return x.id === id; })[0], ci = oo ? colOfObj(oo) : -1; if (!oo || ci < 0) return; var par = oo.parentId != null && items.filter(function (x) { return x.id === oo.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par, false, true); else startExtend(oo, ci, true, os); } }); // choix dans la liste : le doigt est déjà levé, aucune garde de relâchement (le premier toucher suivant compte)
       }
     });
     return b;
@@ -174,10 +174,12 @@
     var mine = (curCols[ci].objs || []).filter(function (x) { return !x.isMacro && !x.abandoned && bucketOf(x, today).rank === rank; });
     return mine.length ? (mine.some(function (x) { return x.id === o.id; }) ? o : bigOf(mine)) : o;
   }
-  function startExtend(o, ci, fromList) {
+  function startExtend(o, ci, fromList, cellObjs) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
     o = pickBase(o, ci);
     ext = { mode: 'create', level: lvl, base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now(), rank: bucketOf(o, dayIso()).rank }; ext.cols[ci] = true; ext.init[ci] = true;
+    // une case qui réunit les objectifs de PLUSIEURS colonnes (colonnes repliées au-dessus d'une carte large) : toutes ces colonnes sont cochées d'emblée, la case entière se fusionne
+    (cellObjs || []).forEach(function (x) { if (x.isMacro || x.abandoned || bucketOf(x, dayIso()).rank !== ext.rank) return; var j = colOfObj(x); if (j >= 0 && j !== ci) ext.cols[j] = true; });
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
     extOpenPanel(); render(); if (fromList) ext.born -= 2000; else watchRelease(); extScrollToEligible(); // création : le doigt est DÉJÀ relevé (appui long relâché sur place) ; le clic qui suit ne coche rien
   }
@@ -246,7 +248,7 @@
     if (editMode) b.appendChild(groupCross(os)); // mode édition : croix rouge (même fonction que les cartes de groupe)
     if (!editMode && TMT.ui && TMT.ui.holdDrag && ci != null) TMT.ui.holdDrag(b, { // appui long : le même mode Fusionner / Séparer qu'aux autres niveaux (colonnes = pôles d'une activité)
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
-      onHold: function () { var same = os.filter(function (x) { return (x.level || 'activite') === lvl; }), base = bigOf(same.length ? same : os), par = base.parentId != null && items.filter(function (x) { return x.id === base.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par); else startExtend(base, ci); }
+      onHold: function () { var same = os.filter(function (x) { return (x.level || 'activite') === lvl; }), base = bigOf(same.length ? same : os), par = base.parentId != null && items.filter(function (x) { return x.id === base.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par); else startExtend(base, ci, false, os); }
     });
     return b;
   }
