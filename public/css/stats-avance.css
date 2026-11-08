@@ -137,6 +137,7 @@
 
 /* sélecteur d'année sous les pastilles d'activité, au-dessus des informations. */
 /* Haut du bouton d'année = haut de la 1re carte de la page Temps (mesuré : 126 px) ; les infos dessous ne bougent pas. */
+.saChips + .caSubProjectFilter { margin: -1px 0 13px; }
 
 .saTodayBtn { align-self: flex-end; }
 
