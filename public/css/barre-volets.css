@@ -97,10 +97,6 @@ html.noCommunityBar #whoami { display: none; }
 }
 /* Zone de toucher de la croix : 44 px (R25, composant .cmpRemove). Elle recouvre l'icône : un glisser qui commence sur la croix déplace l'icône (barre-volets.js), seul un tap court retire. */
 .tabbar .tabBtn.dragging .barX { display: none; }
-.barHint {
-  position: fixed; left: 16px; right: 16px; z-index: 51; margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-light, #A59E96);
-  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 52px + 12px); pointer-events: none;
-}
 
 
 /* Pages de statistiques à gauche de Chrono / de la Feuille de route : le geste de glissement doit marcher aussi dans la zone vide sous le contenu. */

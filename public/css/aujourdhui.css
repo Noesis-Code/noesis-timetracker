@@ -89,7 +89,6 @@
 .tasksTopRow { position: absolute; top: -26px; left: 0; right: 0; height: 24px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px; } /* dans l'espace sous les onglets : la liste démarre à la même hauteur que celle de la vue Objectifs */
 .tasksCounter { padding: 0; border: 0; background: none; line-height: 24px; } /* typographie : .goalsCaptureDailyCount (objectifs-page1.css) ; bord droit du texte = fin de la ligne, comme les compteurs des activités */
 .tasksSortWrap .statsPeriodMenu { left: 0; right: auto; }
-.tasksSortBtn svg { width: 22px; height: 22px; }
 .tasksTreeBody { padding-left: 12px; }
 /* Rond de coche toujours complet (iPhone) : jamais écrasé ni rogné dans la ligne de l'arbre. */
 .tasksTree .subProjectItem input[type="checkbox"] { flex: none; box-sizing: border-box; width: 28px; height: 28px; min-width: 28px; min-height: 28px; padding: 0; overflow: visible; }

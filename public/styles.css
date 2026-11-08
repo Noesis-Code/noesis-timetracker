@@ -1980,10 +1980,6 @@ button { -webkit-user-select: none; user-select: none; }
   flex: 0 0 auto;
 }
 
-.subProjectRowDesc {
-  margin: 4px 0 0;
-  overflow-wrap: anywhere;
-}
 
 /* Barre d'avancement : le remplissage est piloté en JS (style.width), la piste garde la couleur de fond déjà utilisée par les barres de classement (--track-bg, variable de Design). */
 .subProjectProgressTrack {
@@ -1993,17 +1989,7 @@ button { -webkit-user-select: none; user-select: none; }
   overflow: hidden;
 }
 
-.subProjectProgressFill {
-  height: 100%;
-  width: 0;
-  border-radius: 3px;
-  background: var(--purple);
-  transition: width 0.2s ease;
-}
 
-.subProjectRowTrack {
-  margin-top: 6px;
-}
 
 /* Le détail d'un sous-projet est déplacé dans la ligne sélectionnée
    (attachSubProjectDetail) : un léger décalage et une ligne de séparation le
@@ -2074,11 +2060,6 @@ button { -webkit-user-select: none; user-select: none; }
   color: var(--text-light);
 }
 
-/* 28 septembre 2026 (historique de tâches, Page 1 du volet Objectifs, backlog encart 71 puis DEUX refontes le même jour). */
-.historyEditTaskLabel {
-  width: 100%;
-  box-sizing: border-box;
-}
 
 .subProjectItemAdd {
   display: flex;
@@ -2274,46 +2255,13 @@ button { -webkit-user-select: none; user-select: none; }
   border-radius: var(--radius-md);
 }
 
-.activityProgressRing {
-  flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  transform: rotate(-90deg);   /* le remplissage part du haut, pas de la droite */
-}
 
-.activityProgressRingBg,
-.activityProgressRingFill {
-  fill: none;
-  stroke-width: 5;
-}
 
-.activityProgressRingBg { stroke: var(--track-bg); }
 
-.activityProgressRingFill {
-  stroke: var(--purple);
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.3s ease;
-}
 
-/* Le pourcentage est posé PAR-DESSUS l'anneau, pas dedans : un <text> SVG
-   aurait tourné avec lui (rotate(-90deg) ci-dessus). */
-.activityProgressPercent {
-  position: absolute;
-  left: 14px;
-  width: 44px;
-  text-align: center;
-  font-size: 0.78rem;
-  font-weight: 600;
-}
 
-.activityProgressText { min-width: 0; }
 
-.activityProgressTitle {
-  margin: 0 0 2px;
-  font-weight: 600;
-}
 
-.activityProgressText .meta { margin: 0; }
 
 /* ----- Menu "Ajouter" : une carte étroite et cadrée -----
    Demande d'Emilien : « encadrée dans une section étroite, bien définie ».
@@ -3240,16 +3188,9 @@ button { -webkit-user-select: none; user-select: none; }
 .activityVisChip { display: inline-block; border-radius: 999px; padding: 1px 9px; font-size: 12px; line-height: 1.5; background: rgba(255,255,255,.06); }
 .activityRow.activityRowDim { opacity: .38; pointer-events: none; }
 .activityEditBubble .catNewPoleFields input[type="text"] { border-radius: 12px; }
-.activityVisRow { display: flex; align-items: center; gap: 10px; padding: 2px 0; cursor: pointer; }
-.activityVisWord { font-size: 14px; color: var(--text); }
-.activityVisNote { margin: 0; }
-.activityEditMerge { align-self: flex-start; }
 .activityRow.activityEditBubble { scroll-margin-bottom: 120px; scroll-margin-top: 12px; }
 .activityEditNameLine { display: flex; align-items: center; gap: 10px; }
 .activityEditNameLine input { flex: 1; min-width: 0; }
-.activityVisLine { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.activityVisLine .activityVisRow { flex: 1; min-width: 0; }
-.activityVisLine .activityEditMerge { margin-left: auto; flex: 0 0 auto; align-self: center; white-space: nowrap; }
 .activityEditNameLine .colorSwatches{margin-left:auto;flex-wrap:nowrap;justify-content:flex-end;min-width:0}
 .activityEditNameLine .colorSwatches.hidden,.activityEditNameLine input.hidden{display:none}
 .activityEditNameLine.colorOpen{border:1px solid rgba(255,255,255,.22);border-radius:12px;padding:6px 8px}
@@ -3265,8 +3206,6 @@ button { -webkit-user-select: none; user-select: none; }
 .activityEditNameLine.colorOpen .colorSwatches .swatch:nth-child(8){animation-delay:315ms}
 .activityEditNameLine.colorOpen .colorSwatches .swatch:nth-child(9){animation-delay:360ms}
 .activityEditNameLine.colorOpen .colorSwatches .swatch:nth-child(10){animation-delay:405ms}
-.activityVisLine .activityVisRow{padding-left:30px}
-.activityEditBubble .activityVisNote{padding-left:30px}
 
 /* Agenda externe (9 oct. 2026) : bouton « URL enregistrées » (même style que « Gérer mon temps ») et liste à corbeilles. */
 .externalCalendarListBtn { align-self: flex-start; background: none; border: 0; padding: 0; margin-top: 8px; color: var(--purple); text-decoration: underline; font: inherit; font-size: 14px; cursor: pointer; }
@@ -3282,11 +3221,6 @@ button { -webkit-user-select: none; user-select: none; }
 .settingsConsentCard .consentItem .notifRow { border-bottom: none; padding-bottom: 2px; }
 .settingsConsentCard .notifRow:last-child { border-bottom: none; }
 
-/* 10 oct. 2026 : Déconnexion dans le bandeau des Réglages, compacte, à gauche de la croix. */
-.subpageHeader .logoutBtnHeader { margin-left: auto; font-size: 12px; padding: 4px 8px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); }
-#profileSettingsPanel.settingsPanel .logoutBtnHeader ~ #settingsCloseBtn { margin-left: 0; }
-.subpageHeader .logoutBtn.logoutBtnHeader { color: var(--brique-text); border-color: var(--brique); background: transparent; }
-.subpageHeader .logoutBtn.logoutBtnHeader:hover { background: rgba(var(--brique-rgb), 0.14); text-decoration: none; }
 /* 10 oct. 2026 : Identité — moins d'espace entre « Enregistrer » et l'onglet Sécurité. */
 #settingsMsg:empty { min-height: 0; margin: 0; }
 #profileSettingsScroll .settingsCard:has(#settingsSaveBtn) { padding-bottom: 4px; }

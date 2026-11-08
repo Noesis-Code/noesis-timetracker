@@ -105,60 +105,7 @@
    calcul, valeur ajustée. */
 #offer1Section { margin: 24px 0 72px; }
 
-/* (réaffectation activité/pôle/secteur/période/semaine/
-   jour depuis l'Historique, demande d'Emilien) — les 5 sélecteurs héritent
-   déjà du thème générique input/select de styles.css (Design, non touché
-   ici) ; seule la mise en page verticale + le petit libellé au-dessus de
-   chacun sont propres à cette page. */
-.historyReassign {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 10px;
-}
-.historyReassignLabel {
-  font-size: 12px;
-  color: var(--text-light);
-  margin-bottom: -2px;
-}
-.historyReassign select {
-  width: 100%;
-  box-sizing: border-box;
-}
-.historyReassign input[type="date"] {
-  /* champ de date centré, même recette que les heures du Chrono. */
-  appearance: none; -webkit-appearance: none;
-  width: 100%; max-width: 220px; min-width: 0;
-  display: block; margin: 0 auto;
-  box-sizing: border-box;
-  text-align: center;
-}
-.historyReassignGoals {
-  margin-top: 2px;
-}
 
-/* suite (9) — demande directe d'Emilien, maquettes Design
- * à l'appui (Option B « groupé par jour » + édition « Où / Quand ») :
- * - le formulaire Activité/Pôle-secteur passe de 2 lignes empilées à 1 seule
- *   ligne "Où", d'où .historyReassignRow (flex, les 2 select se partagent la
- *   largeur) ;
- * - la liste de l'Historique n'est plus une suite de cartes .historyEntry
- *   (gabarit du Chrono, pas touché) mais un regroupement par jour : un en-tête
- *   (.historyDayHeader) au-dessus d'une liste de lignes compactes
- *   (.historyDayList > .historyEntryCompact), séparées par un simple filet —
- *   jamais de carte/ombre par tâche, exactement la densité de la maquette
- *   approuvée. .isEditing donne à la ligne en cours d'édition un cadre
- *   propre, pour qu'elle se distingue visuellement des lignes de lecture
- *   autour d'elle pendant qu'on la modifie.
- */
-.historyReassignRow {
-  display: flex;
-  gap: 8px;
-}
-.historyReassignRow select {
-  flex: 1;
-  min-width: 0;
-}
 
 .historyDayHeader {
   font-size: 12px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
@@ -187,7 +134,6 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-.historyRowDone { font-size: 12px; color: var(--green); flex-shrink: 0; }
 
 .historyRowIconBtn {
   width: 26px; height: 26px; flex-shrink: 0; border: none; background: transparent; border-radius: var(--radius-sm);
@@ -310,18 +256,14 @@
 /* Historique — la 2e case « Où » garde son format de <select> ; une couche transparente ouvre le menu flottant. */
 .goalsWhereKeep { position: relative; display: block; flex: 1; min-width: 0; }
 .goalsWhereKeep select { width: 100%; }
-.historyReassignRow .goalsWhereKeep select { flex: none; }
 .goalsWhereOverlay { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0; margin: 0; opacity: 0; cursor: pointer; z-index: 2; }
 
 /* Historique — cellule pôle/secteur de la même taille que celle de l'activité, texte « Pôle → Secteur » coupé par « … ». */
 .goalsWhereKeep select.goalsWhereHideText { color: transparent; text-shadow: none; width: 100%; box-sizing: border-box; }
 .goalsWhereKeep select.goalsWhereHideText option, .goalsWhereKeep select.goalsWhereHideText optgroup { color: initial; }
 .goalsWhereLabel { position: absolute; left: 10px; right: 30px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text); font: inherit; font-size: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 1; }
-.historyReassignRow > select, .historyReassignRow > .goalsWhereKeep { flex: 1 1 0; min-width: 0; width: 0; }
 
 :root .goalsWhereKeep select.goalsWhereHideText { color: transparent !important; -webkit-text-fill-color: transparent !important; }
-.historyReassignRow .goalsWhereKeep { display: flex; }
-.historyReassignRow .goalsWhereKeep select { height: 100%; min-height: 0; }
 .goalsWhereKeep::after { content: ""; position: absolute; right: 9px; top: 50%; width: 5px; height: 5px; border-right: 1.5px solid var(--text); border-bottom: 1.5px solid var(--text); transform: translateY(-70%) rotate(45deg); pointer-events: none; z-index: 1; }
 
 /* Offre 1 pas encore disponible : badge « À venir » et bouton grisé, non cliquable. */
