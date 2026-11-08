@@ -11,6 +11,20 @@ db.exec(`CREATE TABLE IF NOT EXISTS activity_managers (
   PRIMARY KEY (activityId, userId)
 )`);
 
+// Migration sans perte (S6), UNE seule fois : la première version du tableau des temps créait `activity_responsables`. Ses lignes sont COPIÉES ici (membres seulement,
+// jamais écrasées), puis l'ancienne table est RENOMMÉE `activity_responsables_migre` (conservée, jamais supprimée) : elle ne peut pas ressusciter un responsable retiré plus tard.
+function migrerAncienneTable() {
+  try {
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'activity_responsables'").get()) return 0;
+    const r = db.prepare(`INSERT OR IGNORE INTO activity_managers (activityId, userId, addedBy, addedAt)
+      SELECT o.activityId, o.userId, o.addedBy, o.addedAt FROM activity_responsables o
+      WHERE EXISTS (SELECT 1 FROM activity_members m WHERE m.activityId = o.activityId AND m.userId = o.userId)`).run();
+    db.exec('ALTER TABLE activity_responsables RENAME TO activity_responsables_migre');
+    return Number(r.changes) || 0;
+  } catch (e) { console.error('[responsables] migration', e.message); return 0; }
+}
+migrerAncienneTable();
+
 function err(code, msg) { const e = new Error(msg); e.statusCode = code; return e; }
 function activity(activityId) {
   const a = db.prepare('SELECT id, name, ownerId FROM activities WHERE id = ? AND active = 1').get(Number(activityId));
@@ -22,6 +36,13 @@ function isManager(userId, activityId) {
   const a = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(Number(activityId));
   if (!a) return false;
   return a.ownerId === userId || !!db.prepare('SELECT 1 FROM activity_managers WHERE activityId = ? AND userId = ?').get(Number(activityId), userId);
+}
+// Identifiants des responsables (propriétaire en tête) : source unique, utilisée par server/lib/tempsmembres.js.
+function ids(activityId) {
+  const a = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(Number(activityId));
+  const list = db.prepare('SELECT userId FROM activity_managers WHERE activityId = ? ORDER BY addedAt, userId').all(Number(activityId)).map((r) => r.userId);
+  if (a && a.ownerId) return [a.ownerId].concat(list.filter((x) => x !== a.ownerId));
+  return list;
 }
 function lister(userId, activityId) {
   const a = activity(activityId);
@@ -45,4 +66,4 @@ function retirer(userId, activityId, targetId) {
   db.prepare('DELETE FROM activity_managers WHERE activityId = ? AND userId = ?').run(a.id, String(targetId));
   return lister(userId, a.id);
 }
-module.exports = { lister, ajouter, retirer, isManager };
+module.exports = { ids, migrerAncienneTable, lister, ajouter, retirer, isManager };

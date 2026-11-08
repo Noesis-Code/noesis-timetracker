@@ -40,12 +40,7 @@ const MAX_MIN = 168 * 60;
 
 // Responsables : module unique server/lib/responsables.js (activity_managers), jamais dupliqué ici.
 function isResponsable(activityId, userId) { return !!userId && responsables.isManager(userId, Number(activityId)); }
-function responsablesFor(activityId) {
-  const a = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(Number(activityId));
-  const ids = db.prepare('SELECT userId FROM activity_managers WHERE activityId = ?').all(Number(activityId)).map((r) => r.userId);
-  if (a && a.ownerId && !ids.includes(a.ownerId)) ids.unshift(a.ownerId);
-  return ids;
-}
+function responsablesFor(activityId) { return responsables.ids(activityId); }
 
 // Clé de pôle normalisée : null = l'activité entière ; un secteur remonte à son pôle (règle verrouillée).
 function normPole(activityId, key) {

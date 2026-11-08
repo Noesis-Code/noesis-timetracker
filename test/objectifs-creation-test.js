@@ -307,6 +307,16 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
       let own = false; try { R.retirer(other, act.id, act.ownerId); } catch (e) { own = e.statusCode === 400; } assert(own, 'responsables : le propriétaire ne peut pas être retiré');
       if (stranger) { let ns = false; try { R.ajouter(act.ownerId, act.id, stranger.id); } catch (e) { ns = e.statusCode === 400; } assert(ns, 'responsables : seul un membre peut être responsable'); }
       l = R.retirer(act.ownerId, act.id, other); assert(!l.members.find((x) => x.id === other).manager, 'responsables : retrait d’un responsable');
+      // Migration sans perte de l'ancienne table `activity_responsables` (première version du tableau des temps) vers la table unique `activity_managers`
+      db.exec('CREATE TABLE IF NOT EXISTS activity_responsables (activityId INTEGER NOT NULL, userId TEXT NOT NULL, addedBy TEXT, addedAt TEXT NOT NULL, PRIMARY KEY (activityId, userId))');
+      db.prepare('INSERT OR REPLACE INTO activity_responsables (activityId, userId, addedBy, addedAt) VALUES (?, ?, ?, ?)').run(act.id, other, act.ownerId, '2026-11-08T00:00:00.000Z');
+      if (stranger) db.prepare('INSERT OR REPLACE INTO activity_responsables (activityId, userId, addedBy, addedAt) VALUES (?, ?, ?, ?)').run(act.id, stranger.id, act.ownerId, '2026-11-08T00:00:00.000Z');
+      const moved = R.migrerAncienneTable();
+      assert(R.isManager(other, act.id) && moved >= 1 && R.migrerAncienneTable() === 0, 'responsables : anciens responsables copiés dans la table unique, une seule fois');
+      assert(!stranger || !R.isManager(stranger.id, act.id), 'responsables : une ancienne ligne d’un non-membre n’est pas migrée');
+      assert(db.prepare('SELECT COUNT(*) AS n FROM activity_responsables_migre WHERE activityId = ?').get(act.id).n >= 1 && !db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'activity_responsables'").get(), 'responsables : l’ancienne table est conservée sous un autre nom (rien n’est supprimé)');
+      assert(JSON.stringify(R.ids(act.id)) === JSON.stringify([act.ownerId].concat(R.ids(act.id).filter((x) => x !== act.ownerId))) && R.ids(act.id).includes(other), 'responsables : source unique des identifiants (propriétaire en tête)');
+      R.retirer(act.ownerId, act.id, other);
     }
   }
   console.log(failed ? '\nobjectifs-creation-test : ' + failed + ' échec(s)' : '\nobjectifs-creation-test : OK');
