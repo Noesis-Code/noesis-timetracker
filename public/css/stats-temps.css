@@ -1,0 +1,11 @@
+/* Statistiques des activités partagées : tableau des temps par activité, pôle et membre (public/js/stats-temps.js). Jetons seulement. */
+#ssTemps .meta { color: var(--text-light); font-weight: 400; }
+.stGrid { display: grid; grid-template-columns: minmax(0, 1fr) max-content max-content; column-gap: 16px; row-gap: 8px; align-items: center; margin-top: 8px; font-size: 13px; }
+.stHead { color: var(--text-light); text-align: right; }
+.stLevel { font-weight: 600; }
+.stSep { grid-column: 1 / -1; height: 1px; background: var(--sep); }
+.stMember { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text-light); }
+.stMember span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stNum { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stRow > span { display: flex; flex-direction: column; min-width: 0; }
+.stSub { color: var(--text-light); white-space: normal; }

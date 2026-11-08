@@ -197,4 +197,31 @@ router.get('/category-stats/activities', (req, res) => {
   res.json({ from, to, activityIds: activitiesWithCategoryTime(userId, from, to) });
 });
 
+// Temps par membre (8 nov. 2026, Émilien) : tableau de tous les temps (activité, pôles, membres) + historique continu
+// des changements de temps prévu + « Changements demandés ». Logique : server/lib/tempsmembres.js (sans IA).
+const tempsMembres = require('../lib/tempsmembres');
+router.get('/member-times', (req, res) => {
+  const activityId = Number(req.query.activityId);
+  if (!Number.isInteger(activityId) || activityId <= 0) return res.status(400).json({ error: 'Activité invalide.' });
+  const r = tempsMembres.tableFor(activityId, req.userId);
+  if (r.error) return res.status(r.status).json({ error: r.error });
+  res.json(r);
+});
+router.post('/member-times', (req, res) => {
+  const b = req.body || {};
+  const r = tempsMembres.changePlanned({
+    activityId: b.activityId, poleKey: b.poleKey, memberId: b.memberId || req.userId, changedBy: req.userId,
+    afterMin: b.afterMin, origin: b.origin, fromActivityId: b.fromActivityId, fromPoleKey: b.fromPoleKey, withMemberId: b.withMemberId,
+  });
+  if (r.error) return res.status(r.status).json({ error: r.error });
+  res.json(r);
+});
+router.post('/member-times/responsables', (req, res) => {
+  const b = req.body || {};
+  const fn = b.remove ? tempsMembres.removeResponsable : tempsMembres.addResponsable;
+  const r = fn(Number(b.activityId), req.userId, String(b.userId || ''));
+  if (r.error) return res.status(403).json({ error: r.error });
+  res.json(r);
+});
+
 module.exports = router;

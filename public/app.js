@@ -9055,6 +9055,7 @@
     syncActivityPeriodMenus();
     loadActivityCategoryFilter(a.id);
     loadActivityStats(a.id);
+    if (TMT.statsTempsLoad) TMT.statsTempsLoad(a.id); // tableau des temps (public/js/stats-temps.js)
   }
 
   // ----- Section Camembert : une part par MEMBRE (couleur = nuance personnelle
