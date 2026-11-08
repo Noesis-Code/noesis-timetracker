@@ -14,7 +14,6 @@ const goals = require('./goals');
 const timecaps = require('./timecaps');
 
 const THRESHOLD = 0.25;
-const COOLDOWN_DAYS = 7;
 
 db.exec(`CREATE TABLE IF NOT EXISTS goal_recalc_proposals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

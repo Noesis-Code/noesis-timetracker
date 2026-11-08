@@ -1081,10 +1081,6 @@ function planningForActivity(activityId, category) {
   };
 }
 
-function weekIsOver(periodStart, weekIndex) {
-  return weekBounds(periodStart, weekIndex).end < todayLocal();
-}
-
 // ---------------------------------------------------------------------------
 // Écritures
 

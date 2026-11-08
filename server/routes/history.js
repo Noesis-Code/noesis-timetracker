@@ -36,11 +36,6 @@ function decorateWithCategory(rows) {
   return rows;
 }
 
-function attachmentsFor(timeEntryId) {
-  return db.prepare(`SELECT id, fileName, mimeType, sizeBytes, dataUrl, createdAt
-                      FROM note_attachments WHERE timeEntryId = ? ORDER BY createdAt ASC`).all(timeEntryId);
-}
-
 // Liste modifiable des enregistrements de la semaine en cours (ou d'une
 // période donnée) — pour corriger un oubli de STOP, une mauvaise activité, etc.
 router.get('/history', (req, res) => {

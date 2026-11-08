@@ -70,24 +70,6 @@
   var goalsCaptureAwaitingActivityChoice = false;
 
 
-  // Dupliqué depuis server/lib/goals.js#addDays (petit utilitaire, plutôt que d'alourdir window.TMT) ; base UTC comme
-  // le serveur pour que le jour choisi corresponde à periodBounds/weekBounds.
-  function addDaysISO(isoDay, n) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(isoDay || ''));
-    if (!m) return isoDay;
-    var d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-    d.setUTCDate(d.getUTCDate() + n);
-    var p = function (x) { return String(x).padStart(2, '0'); };
-    return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate());
-  }
-
-
-  function toggleGoalsCaptureActivitySelection(activityId) {
-    var id = String(activityId);
-    var idx = goalsCaptureSelectedActivityIds.indexOf(id);
-    if (idx === -1) goalsCaptureSelectedActivityIds.push(id); else goalsCaptureSelectedActivityIds.splice(idx, 1);
-    renderGoalsCaptureActivities();
-  }
 
 
   // Double fonction demandée par Emilien (voir #goalsCapturePage,
