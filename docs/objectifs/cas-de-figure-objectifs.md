@@ -783,3 +783,7 @@ Appui long (téléphone) : même mécanique que l’appui long des activités et
 - Liste des membres d'une activité : « Exclure » et « Ajouter / Retirer comme responsable » sont rangés dans un petit menu « ⋯ » (TMT.ui.dotsMenu, composants.js ; logique dans public/js/responsables-ui.js, réutilisée par la fiche du titre). La ligne séparée « Responsables » des réglages est retirée (une fonction, un chemin).
 - Réglages > activité : « Stratégie » est retirée de l'interface (public/js/strategie.js et css retirés ; les données de stratégie ne sont jamais supprimées, routes et lectures serveur inchangées) ; « Membres » prend sa place, visible directement.
 - Un membre exclu ou parti n'est plus responsable (isManager et ids exigent d'être membre ; l'exclusion supprime sa ligne de activity_managers).
+
+## Carte pleine reliée à une case vide (8 nov. 2026)
+
+Une carte REMPLIE se relie à une CASE VIDE de la même ligne de temps, à tous les niveaux : le résultat est un macro qui porte le titre de la carte pleine et couvre les deux colonnes ; la case vide devient une colonne reliée SANS nouvel objectif. Modèle : le macro garde ces colonnes dans `metaJson.extraColumns` (lues par `columnsOf`, exposées en `emptyColumns`, réglables par `PUT /api/objectifs/:id/colonnes-vides`) ; aucune table ajoutée. La règle de liaison (`objectifs-liaison.js`) compte ces colonnes comme les autres. Séparer ou supprimer le macro remet l’objectif tel qu’il était et fait disparaître la colonne vide. Trait seulement entre cartes remplies, jamais vers une case vide.

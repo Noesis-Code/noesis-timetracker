@@ -398,6 +398,13 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
       assert(!okBC, 'B+C accepté (A laissée de côté)');
       require('../server/lib/objectifs-ordre').lire(u, 'pole', String(m.activityId)); // l'ordre dérivé ne casse pas avec deux macros qui partagent la colonne B
       o.supprimer(u, m27.id, true); o.supprimer(u, o.get(u, l4.id).parentId, true);
+      // carte pleine reliée à une CASE VIDE de la même ligne : un macro d'une seule carte + une colonne sans objectif ; séparer remet l'état d'origine
+      const full = mk('Carte pleine', { level: 'pole', poleKey: pl3[0].key, endDate: '2027-05-30' });
+      const mv = o.fusionnerEnMacro(u, { title: 'Carte pleine', childIds: [full.id], emptyColumns: [{ activityId: m.activityId, poleKey: pl3[2].key }], level: 'pole' });
+      assert(mv.macroColumns.length === 2 && mv.emptyColumns.length === 1 && o.get(u, full.id).parentId === mv.id, 'carte pleine + case vide : macro sur 2 colonnes, aucun nouvel objectif');
+      const refVide = bad(() => o.fusionnerEnMacro(u, { title: 'x', childIds: [mk('Autre pleine', { level: 'pole', poleKey: pl3[0].key, endDate: '2027-05-30' }).id], emptyColumns: [{ activityId: m.activityId, poleKey: pl3[2].key }], level: 'pole' }));
+      assert(refVide && /déjà reliées au-dessus/.test(refVide.message), 'une colonne vide déjà reliée au-dessus avec la même colonne pleine : refusé (règle de liaison)');
+      assert(o.supprimer(u, mv.id, true).ok && o.get(u, full.id).parentId === null, 'séparer : l’objectif retrouve son état d’origine, la colonne vide disparaît avec le macro');
       const mp = o.fusionnerEnMacro(u, { title: 'Macro pôles', childIds: [pA.id, pB.id] });
       assert(o.get(u, mp.id).parentId === top.id && o.get(u, pA.id).parentId === mp.id && o.get(u, pB.id).parentId === mp.id && o.get(u, mp.id).level === 'pole', 'fusion aux niveaux fins : le macro prend la place de ses objectifs sous leur parent commun');
       assert(o.supprimer(u, mp.id, true).ok && o.get(u, pA.id).parentId === top.id && o.get(u, pB.id).parentId === top.id, 'séparer aux niveaux fins : les objectifs remontent sous le parent du macro, rien n’est supprimé');

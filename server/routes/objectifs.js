@@ -32,6 +32,7 @@ router.post('/objectifs/macro', run((req) => objectifs.fusionnerEnMacro(req.user
 router.get('/objectifs/:id', run((req) => objectifs.get(req.userId, req.params.id)));
 router.put('/objectifs/:id/periodes/:n/semaines/:i', run((req) => objectifs.semaine(req.userId, req.params.id, req.params.n, req.params.i, req.body && req.body.done === true)));
 router.post('/objectifs/:id/bilan', run((req) => objectifs.bilan(req.userId, req.params.id, String((req.body || {}).action || ''), (req.body || {}).period)));
+router.put('/objectifs/:id/colonnes-vides', run((req) => objectifs.setEmptyColumns(req.userId, req.params.id, (req.body || {}).emptyColumns)));
 router.put('/objectifs/:id/titre', run((req) => objectifs.renommer(req.userId, req.params.id, (req.body || {}).title)));
 router.put('/objectifs/:id/description', run((req) => objectifs.decrire(req.userId, req.params.id, (req.body || {}).description)));
 router.post('/objectifs/:id/parts/apercu', run((req) => objectifs.changerPart(req.userId, req.params.id, req.body || {}, false)));

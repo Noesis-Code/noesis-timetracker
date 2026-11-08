@@ -650,9 +650,30 @@ function leafKids(r, depth) {
   if (depth > 20) return [];
   return activeKids(r).reduce((a, k) => a.concat(k.isMacro ? leafKids(k, depth + 1) : [k]), []);
 }
-function columnsOf(r) { return columnsOfLeaves(r.level || 'activite', leafKids(r, 0)); }
-function columnsOfLeaves(level, leaves) {
+// Colonnes reliées SANS objectif (une carte pleine reliée à une case vide de la même ligne, décision d'Émilien 8 nov. 2026) : stockées dans metaJson.extraColumns du macro (aucun nouvel objectif, aucune table) ; supprimées avec lui.
+function ownExtras(r) { try { const x = JSON.parse(r.metaJson || '{}').extraColumns; return Array.isArray(x) ? x : []; } catch (e) { return []; } }
+function treeExtras(r, depth) { return ownExtras(r).concat(depth > 20 ? [] : activeKids(r).filter((k) => k.isMacro).reduce((a, k) => a.concat(treeExtras(k, depth + 1)), [])); }
+function columnsOf(r) { return columnsOfLeaves(r.level || 'activite', leafKids(r, 0), treeExtras(r, 0)); }
+function cleanEmpties(userId, level, list) {
+  if (list == null) return [];
+  if (!Array.isArray(list) || list.length > 20) throw err('Colonnes vides invalides.');
+  const mine = userActivities(userId);
+  return list.map((c) => {
+    const activityId = Number(c && c.activityId);
+    if (!mine.some((a) => a.id === activityId)) throw err('Colonne inconnue.');
+    if (level === 'activite') return { activityId, poleKey: null, categoryKey: null };
+    const poleKey = goals.categoriesForActivity(activityId).some((p) => p.key === (c && c.poleKey)) ? c.poleKey : null;
+    if (!poleKey) throw err('Colonne inconnue.');
+    if (level === 'pole') return { activityId, poleKey, categoryKey: null };
+    const categoryKey = goals.secteursForPole(activityId, poleKey).some((x) => x.key === (c && c.categoryKey)) ? c.categoryKey : null;
+    if (!categoryKey) throw err('Colonne inconnue.');
+    return { activityId, poleKey, categoryKey };
+  });
+}
+function writeExtras(id, list) { const row = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(id); let m = {}; try { m = JSON.parse(row.metaJson || '{}'); } catch (e) { m = {}; } if (list.length) m.extraColumns = list; else delete m.extraColumns; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(m), id); }
+function columnsOfLeaves(level, leaves, extras) {
   const seen = {}, cols = [];
+  leaves = leaves.concat((extras || []).map((e) => ({ activityId: e.activityId, poleKey: e.poleKey, categoryKey: e.categoryKey })));
   leaves.forEach((k) => {
     let pk = k.poleKey, ck = k.categoryKey;
     if (level !== 'activite' && !pk) { const ps = goals.categoriesForActivity(k.activityId); pk = ps[0] && ps[0].key; }
@@ -761,7 +782,7 @@ function shape(r, full) {
   if (r.isMacro || out.isBig) out.parts = computeParts(r); // ce que chaque sous-objectif représente dans la validation du grand objectif
   if (r.isMacro) {
     const mi = macroInfo(r);
-    out.macroLevel = r.level || 'activite'; out.macroColumns = columnsOf(r); out.childMacroIds = activeKids(r).filter((k) => k.isMacro).map((k) => k.id);
+    out.macroLevel = r.level || 'activite'; out.macroColumns = columnsOf(r); out.emptyColumns = ownExtras(r); out.childMacroIds = activeKids(r).filter((k) => k.isMacro).map((k) => k.id);
     out.macroActivities = mi.activities; out.macroEmpty = mi.empty; out.macroAllAbandoned = mi.allAbandoned; out.macroChildren = mi.total;
     out.status = mi.status; out.progress = mi.progress;
     Object.assign(out, fusion.state(r.endDate, today())); // fusion dans le temps : période de fusion et son état (calculé à chaque lecture, rien n'est écrit)
@@ -902,13 +923,13 @@ function macroRoot(row) { // macro le plus haut de la chaîne (le macro lui-mêm
 // RÈGLE DE LIAISON (écrite une fois : public/js/objectifs-liaison.js, lue aussi par l'écran) : un nouveau lien qui reprend deux colonnes ou plus d'un macro existant du même niveau est refusé (« Ces colonnes sont déjà reliées au-dessus. »).
 const liaison = require('../../public/js/objectifs-liaison.js');
 const MSG_COLONNE_RELIEE = liaison.MSG;
-function assertLiaison(userId, level, leaves, ignoreRootId) {
-  if (liaison.refuse(level, columnsOfLeaves(level, leaves), macroGroups(userId), ignoreRootId)) throw err(MSG_COLONNE_RELIEE);
+function assertLiaison(userId, level, leaves, ignoreRootId, extras) {
+  if (liaison.refuse(level, columnsOfLeaves(level, leaves, extras), macroGroups(userId), ignoreRootId)) throw err(MSG_COLONNE_RELIEE);
 }
 function assertColumnFree(userId, macroRow, child) { // child : ligne d'objectif (ou objet { id, activityId, level, poleKey, categoryKey, isMacro }) que l'on relie à ce macro
   const root = macroRoot(macroRow), level = root.level || 'activite';
   const add = child.isMacro ? (child.id > 0 ? leafKids(child, 0) : []) : [child];
-  assertLiaison(userId, level, leafKids(root, 0).concat(add), child.isMacro && child.id > 0 ? [root.id, child.id] : root.id);
+  assertLiaison(userId, level, leafKids(root, 0).concat(add), child.isMacro && child.id > 0 ? [root.id, child.id] : root.id, treeExtras(root, 0));
 }
 // Groupes de macros (macros racines) et colonnes reliées : lus par l'ordre de présentation des colonnes.
 function macroGroups(userId) {
@@ -949,9 +970,19 @@ function deplacer(userId, id, activityId) {
 }
 // Fusion en macro : l'utilisateur a VALIDÉ la proposition (jamais silencieuse) ; childIds = objectifs existants à englober, title modifiable. Le macro prend les dates extrêmes des enfants.
 function setPrevParent(k, pid) { let m = {}; try { m = JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(k.id).metaJson || '{}'); } catch (e) { m = {}; } m.prevParent = { id: pid }; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(m), k.id); }
+function setEmptyColumns(userId, id, list) { // mode modification d'un macro : ajoute / retire des colonnes reliées sans objectif
+  const r = rowOf(userId, id);
+  if (!r.isMacro) throw err('Cet objectif n’est pas un macro.');
+  if (fusion.state(r.endDate, today()).mergePast) throw err(fusion.MSG_PASSEE);
+  const level = r.level || 'activite', empties = cleanEmpties(userId, level, list || []);
+  assertLiaison(userId, level, leafKids(r, 0), macroRoot(r).id, empties.concat(treeExtras(r, 0).filter((e) => !ownExtras(r).some((o) => JSON.stringify(o) === JSON.stringify(e)))));
+  writeExtras(r.id, empties);
+  return get(userId, r.id);
+}
 function fusionnerEnMacro(userId, body) {
   const ids = [...new Set((Array.isArray(body && body.childIds) ? body.childIds : []).map(Number))].slice(0, 20);
-  if (ids.length < 2) throw err('Un macro englobe au moins deux objectifs.');
+  const emptiesRaw = body && body.emptyColumns;
+  if (ids.length < 1 || (ids.length < 2 && !(Array.isArray(emptiesRaw) && emptiesRaw.length))) throw err('Un macro englobe au moins deux objectifs.');
   const kids = ids.map((i) => rowOf(userId, i));
   kids.forEach((k) => { if (k.isMacro) throw err('Un macro ne se range pas dans un autre macro par cette voie.'); });
   // Objectifs fins (pôles, secteurs) : ils sont les étapes d'un objectif plus grand ; on peut les fusionner s'ils ont le MÊME parent (le macro prend leur place sous ce parent) ; parents différents : refus.
@@ -960,9 +991,11 @@ function fusionnerEnMacro(userId, body) {
   const commonParent = parents.size === 1 && kids.every((k) => k.activityId === kids[0].activityId) ? [...parents][0] : null; // parent commun (même activité) : le macro prend leur place dessous ; sinon le macro est un sommet
   const start = kids.map((k) => k.startDate).sort()[0], end = kids.map((k) => k.endDate).sort().pop();
   const lv = ['activite', 'pole', 'secteur'].includes(body.level) ? body.level : (kids[0].level || 'activite'); // niveau de la vue où l'on fusionne
-  assertLiaison(userId, lv, kids, null); // règle de liaison, avant toute création
+  const empties = cleanEmpties(userId, lv, emptiesRaw); // cases vides de la même ligne reliées à la carte pleine (aucun nouvel objectif)
+  assertLiaison(userId, lv, kids, null, empties); // règle de liaison, avant toute création
   const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : (kids.find((k) => k.poleKey) || {}).poleKey || null, categoryKey: lv === 'secteur' ? ((kids.find((k) => k.categoryKey) || {}).categoryKey || null) : null });
   if (commonParent) lier(userId, created.id, commonParent, 'apres'); // le macro prend la place de ses objectifs sous leur parent
+  if (empties.length) writeExtras(created.id, empties);
   kids.forEach((k) => { setPrevParent(k, k.parentId || null); lier(userId, k.id, created.id, 'avant'); }); // le parent d'origine est gardé : séparer remet les objectifs tels qu'ils étaient
   const out = get(userId, created.id);
   return Object.assign(out, require('./objectifs-ordre').forMacro(userId, out.macroColumns, body.anchor) || {}); // ordre de présentation dérivé (rien n'est écrit)
@@ -1047,4 +1080,4 @@ function supprimer(userId, id, confirmed) {
 }
 migrateEcheances(); // au chargement (idempotent)
 try { const n = purgeOrphanMacros(null); if (n) console.log('[objectifs] ' + n + ' macro(s) sans objectif relié retiré(s)'); } catch (e) { console.warn('[objectifs] nettoyage des macros vides impossible :', e.message); }
-module.exports = { changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

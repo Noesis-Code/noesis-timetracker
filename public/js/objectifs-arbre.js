@@ -147,9 +147,12 @@
     return ci;
   }
   function extChildIds() { var ids = []; Object.keys(ext.cols).forEach(function (k) { var i = Number(k); (i === ext.baseCol ? [ext.base] : newest(i, 2)).forEach(function (o) { if (o && ids.indexOf(o.id) < 0) ids.push(o.id); }); }); return ids; }
+  function colEmpty(i) { return (curCols[i].objs || []).every(function (o) { return o.isMacro || o.abandoned || bucketOf(o, dayIso()).rank !== ext.rank; }); } // aucune carte dans cette colonne sur la ligne de l'objectif touché : une CASE VIDE de la même ligne se relie à la carte pleine (aucun nouvel objectif)
   function colFree(i) { return newest(i, 2).length > 0; } // la colonne a des objectifs libres (non rattachés) à relier
   function colLinked(i) { return (curCols[i].objs || []).some(function (o) { var p = o.parentId != null && items.filter(function (x) { return x.id === o.parentId; })[0]; return !!(p && p.isMacro); }); }
-  function extEligible(i) { return !!ext.cols[i] || colFree(i); }
+  function extEligible(i) { return !!ext.cols[i] || colFree(i) || colEmpty(i); }
+  function emptyCols() { return Object.keys(ext.cols).map(Number).filter(function (i) { return i !== ext.baseCol && !newest(i, 2).length; }); } // colonnes cochées sans carte sur la ligne
+  function colIndexOfPayload(p) { for (var j = 0; j < curCols.length; j++) { var q = colPayload(j); if (q.activityId === p.activityId && (lvl === 'activite' || q.poleKey === p.poleKey) && (lvl !== 'secteur' || q.categoryKey === p.categoryKey)) return j; } return -1; }
   function extScrollToEligible() { // colonnes cachées par le défilement horizontal : la première colonne reliable arrive à l'écran
     if (!scroller || !tree) return;
     var bs = tree.querySelectorAll('.arBubble'), vr = scroller.getBoundingClientRect(), first = null;
@@ -157,7 +160,7 @@
     if (first) scroller.scrollLeft = Math.max(0, first.getBoundingClientRect().left - vr.left + scroller.scrollLeft - 8);
   }
   function extChanged() { return Object.keys(ext.cols).sort().join() !== Object.keys(ext.init).sort().join(); }
-  function extCanSave() { return ext.mode === 'create' ? Object.keys(ext.cols).length >= 2 && extChildIds().length >= 2 : !extChanged() || Object.keys(ext.cols).length >= 1; } // fusion existante : « Séparer » tant que rien ne change, « Enregistrer » dès que la sélection change
+  function extCanSave() { return ext.mode === 'create' ? Object.keys(ext.cols).length >= 2 && extChildIds().length >= 1 : !extChanged() || Object.keys(ext.cols).length >= 1; } // fusion existante : « Séparer » tant que rien ne change, « Enregistrer » dès que la sélection change
   // Le mode Étendre n'a plus de panneau : la barre « Nouvel objectif… » devient le bouton Enregistrer (ou SÉPARER sur une fusion existante, tant que la sélection n'a pas changé).
   function extLabel() { return ext.mode === 'edit' && !extChanged() ? tr('Séparer') : tr('Enregistrer'); }
   function extSync() { if (ext && ext.panel) { ext.panel.setLabel(extLabel()); ext.panel.setEnabled(extCanSave()); } }
@@ -210,13 +213,14 @@
     ext = { mode: 'create', level: lvl, base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now(), rank: bucketOf(o, dayIso()).rank }; ext.cols[ci] = true; ext.init[ci] = true;
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
     extOpenPanel(); render(); if (fromList) ext.born -= 2000; else watchRelease(); extScrollToEligible();
-    (function () { var n = 0; curCols.forEach(function (cc, j) { if (j !== ci && colFree(j)) n++; }); trace('mode ouvert · ' + n + ' autre(s) colonne(s) éligible(s) sur ' + (curCols.length - 1) + (n ? '' : ' · ' + whyNone(ci))); })(); // TEMP
+    (function () { var nv = 0, no = 0; curCols.forEach(function (cc, j) { if (j === ci) return; if (colFree(j)) no++; else if (colEmpty(j)) nv++; }); trace('mode ouvert · ' + no + ' colonne(s) avec objectif libre, ' + nv + ' case(s) vide(s) éligible(s) sur ' + (curCols.length - 1) + (no + nv ? '' : ' · ' + whyNone(ci))); })(); // TEMP
     // création : le doigt est DÉJÀ relevé (appui long relâché sur place) ; le clic qui suit ne coche rien
   }
   function startExtendEdit(m, fromTap, fromList) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
     ext = { mode: 'edit', level: m.macroLevel || m.level || 'activite', macro: m, cols: {}, init: {}, seq: 0, born: Date.now(), rank: bucketOf(m, dayIso()).rank };
     items.filter(function (x) { return x.parentId === m.id && !x.isMacro; }).forEach(function (x) { var i = colOfObj(x); if (i >= 0) { ext.cols[i] = true; ext.init[i] = true; } });
+    (m.emptyColumns || []).forEach(function (e) { var i = colIndexOfPayload(e); if (i >= 0) { ext.cols[i] = true; ext.init[i] = true; } });
     if (!Object.keys(ext.cols).length) return (ext = null);
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
     extOpenPanel(); render(); if (fromList) ext.born -= 2000; else watchRelease(); // un simple toucher : le doigt est déjà relevé ; un appui long : on attend son relâchement
@@ -236,11 +240,10 @@
     if (ext.cols[ci]) delete ext.cols[ci];
     else { var next = Object.keys(ext.cols).map(Number).concat([ci]); if (liaisonRefusee(next)) { say(TMT.liaison.MSG); return; } ext.cols[ci] = true; } // refus : une phrase, la colonne n'est pas cochée
     extSync(); render();
-    if (ext.mode === 'create' && Object.keys(ext.cols).length > 1 && extChildIds().length < 2) say(tr('Ces colonnes n’ont pas assez d’objectifs libres (non rattachés) à relier.')); // jamais un blocage muet
   }
   function extSave() { // jamais en silence : enregistrer = macro créé (titre visible, modifiable) ou colonnes reliées / déliées ; l'échéance du macro est la plus lointaine des enfants (serveur)
     var x = ext, done = function () { ext = null; if (TMT.objectifsView && TMT.objectifsView.closeExtend) TMT.objectifsView.closeExtend(); return refresh(); }, fail = function (e) { say((e && e.message) || tr('Impossible pour le moment.')); extSync(); };
-    if (x.mode === 'create') { var ids = extChildIds(); TMT.api('POST', '/api/objectifs/macro', { childIds: ids, level: lvl, title: (x.title || x.base.title || '').trim() || x.base.title }).then(done).catch(fail); return; }
+    if (x.mode === 'create') { var ids = extChildIds(); TMT.api('POST', '/api/objectifs/macro', { childIds: ids, emptyColumns: emptyCols().map(function (i) { return colPayload(i); }), level: lvl, title: (x.title || x.base.title || '').trim() || x.base.title }).then(done).catch(fail); return; }
     if (!extChanged()) { TMT.api('DELETE', '/api/objectifs/' + x.macro.id + '?confirm=1').then(done).catch(fail); return; } // SÉPARER : le macro disparaît, ses objectifs sont conservés (fusion passée : refus du serveur affiché)
     var added = []; Object.keys(x.cols).filter(function (k) { return !x.init[k]; }).forEach(function (k) { newest(Number(k), 2).forEach(function (o) { added.push(o); }); });
     var far = added.map(function (o) { return o.endDate; }).sort().pop(), seq = Promise.resolve();
@@ -250,6 +253,9 @@
     });
     added.forEach(function (o) { seq = seq.then(function () { return TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: x.macro.id, rel: 'apres' }); }); }); // colonne ajoutée : ses objectifs les plus récents rejoignent le macro
     Object.keys(x.init).filter(function (k) { return !x.cols[k]; }).forEach(function (k) { items.filter(function (o) { return o.parentId === x.macro.id && colOfObj(o) === Number(k); }).forEach(function (o) { seq = seq.then(function () { return TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: null }); }); }); }); // colonne retirée : DÉLIER
+    var kidCols = {}; items.filter(function (o) { return o.parentId === x.macro.id && !o.isMacro; }).forEach(function (o) { kidCols[colOfObj(o)] = true; });
+    var emptyNow = Object.keys(x.cols).map(Number).filter(function (i) { return !kidCols[i] && !newest(i, 2).length; }).map(function (i) { return colPayload(i); });
+    if (JSON.stringify(emptyNow) !== JSON.stringify(x.macro.emptyColumns || [])) seq = seq.then(function () { return TMT.api('PUT', '/api/objectifs/' + x.macro.id + '/colonnes-vides', { emptyColumns: emptyNow }); }); // colonnes reliées sans carte : ajoutées ou retirées
     seq.then(done).catch(fail);
   }
   // en mode Étendre, toucher une colonne (case, bulle) l'inclut ou l'exclut : le toucher ordinaire est suspendu
