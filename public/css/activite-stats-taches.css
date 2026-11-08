@@ -48,3 +48,7 @@
 .shrMember .shrTotal { text-align: center; font-size: 16px; font-weight: 700; }
 .shrGap { margin: 8px 0 0; font-size: 13px; color: var(--grey-violet); }
 .shrGap:empty { display: none; }
+
+/* Menu ⋮ des cartes (8 nov. 2026, demande d'Émilien) : posé sur la page à l'ouverture (activite-stats-taches.js), donc toujours
+   au-dessus des sections suivantes ; en verre commun (jetons de .cmpGlass, R31), qui floute réellement ce qu'il recouvre. */
+:root .statsPeriodMenu.shrMenu { position: fixed; left: auto; z-index: 300; background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
