@@ -42,12 +42,13 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(dr.isFixedDate('Passer mon examen de conduite', '2026-11-04') && dr.isFixedDate('Mon mariage', '2026-11-04') && !dr.isFixedDate('Lire 4 livres', '2026-11-04'), 'date imposée détectée (examen, mariage), pas pour la lecture');
   assert(dr.explicitDate('Soutenance le 15 mars', '2026-11-04') === '2027-03-15', 'date écrite : « le 15 mars » = prochaine occurrence');
   const cx = o.contexte(u, { text: 'Courir un 10 km' });
-  assert(cx.estimate && cx.estimate.weeks === 10 && cx.endDate === new Date(Date.parse(cx.startDate + 'T00:00:00Z') + 70 * 86400000).toISOString().slice(0, 10) && !cx.fixedDate, 'contexte : date butoir proposée avec sa fourchette');
+  assert(cx.estimate === undefined && cx.endDate === null && cx.amount === null && cx.fixedDate === true && cx.dateReason === 'inconnue' && cx.dateConfirmed === false, 'contexte : rien d\'écrit = AUCUNE date par défaut (plus d\'estimation), la date est demandée en premier');
+  assert(o.contexte(u, { text: 'Lire 4 livres en 3 mois' }).endDate !== null && o.contexte(u, { text: 'Lire 4 livres en 3 mois' }).dateConfirmed === true, 'contexte : une durée écrite est prise');
   const cf = o.contexte(u, { text: 'Passer mon examen' });
-  assert(cf.fixedDate && !cf.dateConfirmed && !cf.estimate, 'contexte : date imposée, jamais estimée, à confirmer');
+  assert(cf.fixedDate && !cf.dateConfirmed && cf.endDate === null && cf.dateReason === 'fixe', 'contexte : date imposée, aucune date par défaut, à poser');
   assert(o.contexte(u, { text: 'Passer mon examen le 15 mars' }).dateConfirmed === true, 'contexte : date écrite = confirmée');
   const cu = o.contexte(u, { text: 'Courir un 10 km', amount: 5, unit: 'mois' });
-  assert(cu.estimate === null && cu.amount === 5, 'durée saisie par l utilisateur : jamais remplacée');
+  assert(cu.endDate !== null && cu.amount === 5, 'durée saisie par l utilisateur : jamais remplacée');
   o.setTasksCheck(null);
   assert(o.contexte(u, { text: 'Courir un 10 km' }).canGenerateTasks === false && o.tasksAllowed(u) === false, 'sans abonnement ni code Expansion : pas de tâches (même sur staging), le bouton d offre est proposé');
   o.setTasksCheck(() => true);
@@ -109,7 +110,7 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   assert(o.weeklyHoursHistory(u, actB) === 4, 'avec historique : moyenne des heures Chrono des 4 dernières semaines (les 2 dernières comptées double)');
   // Catégorie inconnue : la date est demandée en premier
   const cunk = o.contexte(u, { text: 'Faire du ménage' });
-  assert(cunk.fixedDate === true && cunk.dateReason === 'inconnue' && cunk.estimate === null && cunk.dateConfirmed === false, 'catégorie inconnue : date demandée en premier, aucune estimation inventée');
+  assert(cunk.fixedDate === true && cunk.dateReason === 'inconnue' && cunk.endDate === null && cunk.dateConfirmed === false, 'catégorie inconnue : date demandée en premier, aucune estimation inventée');
   // Retard > 20 % : bilan ; ≤ 20 % ou simple fin de période : pas de bilan
   const lateStart = dayIso(21), lateEnd = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
   const lateObj = o.creer(u, { title: 'Lire dix livres', activityId: actB, startDate: lateStart, endDate: lateEnd, amount: 11, unit: 'semaines', periodWeeks: 1, weekly: false, hoursPerWeek: 5, proposedEnd: lateEnd });
@@ -130,6 +131,9 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   o.setAnon(u, true);
   const sigBefore = db.prepare('SELECT COUNT(*) AS n FROM objectifs_signaux').get().n;
   const sig1 = o.creer(u, { title: 'Courir un 10 km', activityId: m.activityId, startDate: dayIso(14), endDate: dayIso(-14), amount: 4, unit: 'semaines', periodWeeks: 1, weekly: false, proposedEnd: dayIso(-7) });
+  // l'estimation est abandonnée (9 nov. 2026) : un NOUVEL objectif n'a plus de catégorie ; on simule un objectif plus ancien qui en porte une pour garder le test des signaux
+  assert(JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(sig1.id).metaJson).cat === undefined, 'nouvel objectif : aucune catégorie de durée apprise (estimation abandonnée)');
+  db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(Object.assign(JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(sig1.id).metaJson), { cat: 'course10k' })), sig1.id);
   sig1.periods.forEach((pp) => pp.weeks.forEach((ww) => o.semaine(u, sig1.id, pp.n, ww.i, true)));
   const sigRow = db.prepare('SELECT * FROM objectifs_signaux ORDER BY rowid DESC LIMIT 1').get();
   assert(db.prepare('SELECT COUNT(*) AS n FROM objectifs_signaux').get().n === sigBefore + 1 && sigRow.cat === 'course10k' && sigRow.plannedWeeks > 0 && sigRow.actualWeeks > 0 && sigRow.dateCorrectedDays === 7 && sigRow.chronoHoursPerWeek !== undefined && sigRow.tasksDonePerWeek !== undefined, 'signaux anonymes enregistrés : durée prévue/réelle, date corrigée, heures Chrono, tâches faites par semaine');
@@ -178,7 +182,7 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   const uiSrc = fsx.readFileSync(pathx.join(__dirname, '..', 'public', 'js', 'composants.js'), 'utf8'), crSrc = fsx.readFileSync(pathx.join(__dirname, '..', 'public', 'js', 'objectifs-creer.js'), 'utf8');
   assert(/function holdDrag\(/.test(uiSrc) && /ui\.holdDrag = holdDrag/.test(uiSrc) && /o\.holdMs \|\| 500/.test(uiSrc), 'composant commun : appui long (500 ms) + glisser-déposer sur une cible (TMT.ui.holdDrag)');
   const arbreJs = fsx.readFileSync(pathx.join(__dirname, '..', 'public', 'js', 'objectifs-arbre.js'), 'utf8'), pg1 = fsx.readFileSync(pathx.join(__dirname, '..', 'public', 'js', 'objectifs-page1.js'), 'utf8');
-  assert(arbreJs.includes('TMT.ui.holdDrag(b,') && !arbreJs.includes('arUnlinkZone') && !arbreJs.includes("tr('Délier')") && arbreJs.includes('APPUI LONG : le menu d'actions'), 'arbre : plus de zone « Délier » ni de glisser-lier ; l’appui long ouvre le menu d’actions (Relier = mode Fusionner/Séparer)');
+  assert(arbreJs.includes('TMT.ui.holdDrag(b,') && !arbreJs.includes('arUnlinkZone') && !arbreJs.includes("tr('Délier')") && arbreJs.includes('APPUI LONG : le menu d\'actions'), 'arbre : plus de zone « Délier » ni de glisser-lier ; l’appui long ouvre le menu d’actions (Relier = mode Fusionner/Séparer)');
   assert(!/openMine|mountRow|objLineRow|Mes objectifs/.test(crSrc) && !/goalsCaptureActivityChip/.test(pg1.slice(pg1.indexOf('function renderGoalsCaptureActivities'), pg1.indexOf('function renderGoalsCaptureActivities') + 400)) && /id="goalsObjArbre"/.test(pg1), 'ancien système retiré : plus de ligne « Mes objectifs », de pop-up ni de liste d’activités ; l’écran Objectifs est l’arbre');
   // Arbre des objectifs (lecture) : temps du bas vers le haut, états, drill-down jusqu'au calendrier, bureau
   const pj = (...p) => fsx.readFileSync(pathx.join(__dirname, '..', ...p), 'utf8');

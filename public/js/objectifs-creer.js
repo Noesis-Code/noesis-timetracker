@@ -315,7 +315,7 @@
   }
 
   function openComposer(ctx) {
-    var form = ctx._form || (ctx._form = { acts: ctx.suggestedActivityId != null ? [ctx.suggestedActivityId] : [], hoursBy: {}, title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null, _ctx: ctx });
+    var form = ctx._form || (ctx._form = { acts: ctx.suggestedActivityId != null ? [ctx.suggestedActivityId] : [], hoursBy: {}, title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: null, _ctx: ctx });
     if (!form.ctxApplied) {
       form.ctxApplied = true; var vc = viewCtx || {}, fromCell = !!pendingEnd; // verrouillé SEULEMENT si on part d'une case vide de l'arbre ; depuis la barre, le choix de l'activité est libre
       form.level = fromCell ? (vc.level || 'activite') : 'activite'; form.poleKey = fromCell ? (vc.poleKey || null) : null; form.categoryKey = fromCell ? (vc.categoryKey || null) : null; form.ctxLabel = fromCell ? (vc.label || '') : '';
@@ -559,7 +559,7 @@
     function refresh() { renderActivities(); syncTerm(); }
     refresh();
     // Étape « Niveau » : demandée SEULEMENT si des informations manquent (type d'objectif inconnu, plus d'un an, aucun historique Chrono) ; sinon sautée (3 étapes au lieu de 4).
-    function needsLevel() { var dl = daysLeft(); return !ctx.estimate || (dl != null && dl > 365) || !(ctx.weeklyHours && form.activityId != null && ctx.weeklyHours[form.activityId]); }
+    function needsLevel() { var dl = daysLeft(); return (dl != null && dl > 365) || !(ctx.weeklyHours && form.activityId != null && ctx.weeklyHours[form.activityId]); }
     var levelIn = el('input'); levelIn.type = 'text'; levelIn.maxLength = 200; levelIn.setAttribute('aria-label', tr('Ton niveau actuel')); levelIn.value = form.skill || '';
     levelIn.addEventListener('input', function () { form.skill = levelIn.value; }); // le niveau de la personne n'est PAS form.level (niveau de l'arbre : activité, pôle, secteur)
     boxes.niveau.appendChild(field(tr('Ton niveau actuel'), levelIn));

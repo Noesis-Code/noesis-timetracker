@@ -1,3 +1,5 @@
+> **Estimation abandonnée le 9 nov. 2026 (décision d'Émilien)** : plus de date par défaut ; une date ou une durée écrite est prise, sinon la date est demandée. Le module reste en code mort (explicitDate / isFixedDate servent encore).
+
 # Base de durées des objectifs (date butoir proposée sans IA)
 
 Code : `server/lib/objectifs-durees.js` (version 1, 4 nov. 2026). Coût nul : aucun appel IA.

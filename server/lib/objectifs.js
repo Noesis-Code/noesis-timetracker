@@ -253,15 +253,14 @@ function contexte(userId, body) {
   const manual = !!(body && body.amount && body.unit);
   const explicit = durees.explicitDate(text, start);
   const fixedDate = durees.isFixedDate(text, start);
-  // Date butoir proposée (sans IA) : date écrite > durée écrite > base de durées (jamais pour une date imposée) > 3 mois par défaut.
-  const est = manual || found || fixedDate ? null : durees.estimate(title, { learned: learnedDurations(), ratios: userRatios(userId) });
-  const unknownCategory = !manual && !found && !explicit && !fixedDate && !est; // aucune catégorie reconnue : la date est demandée en premier, rien n'est inventé
+  // Échéance (9 nov. 2026, décision d'Émilien) : une date ou une durée ÉCRITE (ou une date imposée) est prise ; SINON AUCUNE date par défaut (plus de base de durées, plus d'estimation, plus de « 3 mois ») :
+  // endDate = null, la date d'échéance est demandée en premier à la page Description (même mécanisme que dateReason « inconnue »).
+  const unknownCategory = !manual && !found && !explicit && !fixedDate;
   let amount, unit, end;
   if (manual) { amount = Number(body.amount); unit = body.unit; end = body.endDate && isDay(body.endDate) ? body.endDate : computeEnd(start, amount, unit); }
   else if (explicit) { end = explicit; amount = Math.max(1, Math.round(daysBetween(start, end) / 7)); unit = 'semaines'; }
   else if (found) { amount = found.amount; unit = found.unit; end = computeEnd(start, amount, unit); }
-  else if (est) { amount = est.weeks; unit = 'semaines'; end = addDays(start, est.weeks * 7); }
-  else { amount = 3; unit = 'mois'; end = computeEnd(start, amount, unit); }
+  else { amount = null; unit = null; end = null; }
   const ranked = rankActivities(userId, text);
   // Toujours une activité présélectionnée (9 nov. 2026) : la meilleure correspondance de mots (score > 0) ; sinon l'activité où il y a le plus de temps Chrono ; à défaut d'historique, la première de la liste. null seulement sans aucune activité.
   let best = ranked[0] && ranked[0].score > 0 ? ranked[0] : null;
@@ -272,12 +271,11 @@ function contexte(userId, body) {
   }
   const existing = db.prepare("SELECT id, title, activityId, endDate FROM user_objectives WHERE userId = ? AND endDate >= ? ORDER BY endDate").all(userId, start);
   return {
-    title, amount, unit, startDate: start, endDate: end, periodWeeks: userPW(), timeLevel: temps.deduce(start, end),
+    title, amount, unit, startDate: start, endDate: end, periodWeeks: userPW(), timeLevel: end ? temps.deduce(start, end) : null,
     canGenerateTasks: tasksAllowed(userId), fixedDate: fixedDate || unknownCategory, dateReason: fixedDate ? 'fixe' : unknownCategory ? 'inconnue' : null, dateConfirmed: !!explicit || manual || !!found,
     weeklyHours: ranked.reduce((o, a) => { o[a.id] = weeklyHoursHistory(userId, a.id); return o; }, {}),
     lastWeekHours: ranked.reduce((o, a) => { o[a.id] = Math.round(chronoHours(userId, a.id, addDays(today(), -6), today()) * 2) / 2; return o; }, {}), // temps enregistré (Chrono) sur les 7 derniers jours : repère « enregistré » du curseur d'heures par semaine
     recordedHours: ranked.reduce((o, a) => { o[a.id] = Math.round(chronoHours(userId, a.id, '2000-01-01', today()) * 10) / 10; return o; }, {}), // temps déjà enregistré (Chrono) sur l'activité
-    estimate: est ? { label: est.label, weeks: est.weeks, p10: est.p10, p90: est.p90, typicalWeeks: est.typicalWeeks, source: est.source, endDate: end, p10End: addDays(start, est.p10 * 7), p90End: addDays(start, est.p90 * 7) } : null,
     activities: ranked, suggestedActivityId: best ? best.id : null,
     objectives: existing, nextWeekTasks: nextWeekTaskCount(userId), tasksPerWeek: TASKS_PER_WEEK,
   };
@@ -360,11 +358,11 @@ async function proposer(userId, body) {
 // sont candidats, hors refus déjà donnés. IA (Haiku) : seulement avec Expansion ou, à défaut, avec l'unique proposition gratuite du mois ; toute erreur => règles.
 const RATT_FEATURE = 'objectifs-rattachement';
 function rattRules(title, cands) {
-  const mine = new Set(words(title).map(stemOf)), est = durees.estimate(title);
+  const mine = new Set(words(title).map(stemOf));
   let best = null;
   cands.forEach((c) => {
     const meta = JSON.parse(c.metaJson || '{}'), shared = words(c.title).map(stemOf).filter((s) => mine.has(s)).length;
-    const score = shared + (est && meta.cat && meta.cat === est.id ? 2 : 0);
+    const score = shared;
     if (score >= 1 && (!best || score > best.score || (score === best.score && c.endDate > best.c.endDate))) best = { c, score };
   });
   return best && best.c;
@@ -646,10 +644,8 @@ function creer(userId, body) {
   const id = Number(info.lastInsertRowid);
   db.prepare('UPDATE user_objectives SET parentRel = ?, position = ?, level = ?, poleKey = ?, categoryKey = ?, isMacro = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), lvl.level, lvl.poleKey, lvl.categoryKey, body.isMacro === true ? 1 : 0, id);
   (Array.isArray(body.refus) ? body.refus : []).slice(0, 20).forEach((cid) => { const c = db.prepare('SELECT id FROM user_objectives WHERE id = ? AND userId = ?').get(Number(cid), userId); if (c && c.id !== id) db.prepare('INSERT OR REPLACE INTO objectifs_refus (userId, objectifId, candidateId, createdAt) VALUES (?, ?, ?, ?)').run(userId, id, c.id, new Date().toISOString()); });
-  const est0 = durees.estimate(title);
   const hpw = Number(body.hoursPerWeek) > 0 && Number(body.hoursPerWeek) <= 168 ? Math.round(Number(body.hoursPerWeek) * 10) / 10 : null; // facultatif : valeur de départ = historique Chrono, modifiable
   const meta0 = { plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7), term, inner };
-  if (est0) { meta0.cat = est0.id; meta0.proposed = { p10: est0.p10, p90: est0.p90 }; }
   if (hpw) meta0.hoursPerWeek = hpw;
   if (typeof body.skill === 'string' && body.skill.trim()) { const sk = textlimits.clean(body.skill, { max: 200, word: 'Niveau' }); if (sk.error) throw err(sk.error); if (sk.text) meta0.skill = sk.text; }
   if (body.description) meta0.description = String(body.description).trim().slice(0, 900); // description libre de l'objectif (étape « Description »)
