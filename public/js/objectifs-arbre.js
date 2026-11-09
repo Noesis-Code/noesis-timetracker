@@ -638,7 +638,8 @@
       function seg(p, q, color) {
         if (p === q) return; var rp = p.getBoundingClientRect(), rq = q.getBoundingClientRect(), up = rp.top <= rq.top ? rp : rq, lo = up === rp ? rq : rp, ov = Math.min(rp.right, rq.right) - Math.max(rp.left, rq.left), h = lo.top - up.bottom;
         if (ov < 2 || h < 1) return; var x = (Math.max(rp.left, rq.left) + Math.min(rp.right, rq.right)) / 2, l = el('i', 'arLink');
-        if (empties.some(function (e) { return x > e.left && x < e.right && e.bottom > up.bottom + 1 && e.top < lo.top - 1; })) return; // jamais de trait à travers une case vide : seulement entre deux objectifs REMPLIS voisins
+        if (empties.some(function (e) { return x > e.left && x < e.right && e.bottom > up.bottom + 1 && e.top < lo.top - 1; })) return;
+        if (Array.prototype.some.call(grid.querySelectorAll('.arNode'), function (n) { if (n === p || n === q) return false; var e = n.getBoundingClientRect(); return x > e.left + 1 && x < e.right - 1 && e.bottom > up.bottom + 1 && e.top < lo.top - 1; })) return; // un trait s'arrête au bord de sa carte : jamais à travers une autre carte (macro ou objectif) qui se trouve entre les deux // jamais de trait à travers une case vide : seulement entre deux objectifs REMPLIS voisins
         l.style.left = Math.round(x - b0.left - 1) + 'px'; l.style.top = Math.round(up.bottom - b0.top) + 'px'; l.style.height = Math.round(h) + 'px'; l.style.background = color; layer.appendChild(l);
       }
       items.forEach(function (o) {

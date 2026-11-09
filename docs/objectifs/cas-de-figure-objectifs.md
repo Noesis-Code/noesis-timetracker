@@ -791,3 +791,5 @@ Une carte REMPLIE se relie à une CASE VIDE de la même ligne de temps, à tous 
 ## Macros chaînés par colonne commune (9 nov. 2026)
 
 Règle écrite une fois dans `public/js/objectifs-liaison.js` (`chain`), appliquée par le serveur (`relinkMacros`, après toute création, extension, séparation) : deux macros du même niveau se rattachent DÈS QU’ILS PARTAGENT AU MOINS UNE COLONNE ; le macro de plus tard (le dessus) est le parent du plus tôt (le dessous) et couvre l’UNION de leurs colonnes, en cascade sur toute la chaîne ; sans colonne commune, aucun lien. Exemple : A+B dessus, B+C dessous : le dessus devient parent et couvre A+B+C. Séparer le dessous le détache et le dessus retrouve A+B. La contrainte « au moins une colonne laissée de côté » (refus de A+B de nouveau) reste. Un macro placé sous un objectif ordinaire n’est pas déplacé.
+
+Traits : un trait relie deux cartes remplies, s’arrête au bord de sa carte et ne traverse jamais une autre carte (macro ou objectif) située entre les deux ; couleur de la carte enfant (beige quand l’enfant est un macro) ; une seule fonction de dessin (`drawLinks`).
