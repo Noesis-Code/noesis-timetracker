@@ -424,9 +424,11 @@
     function tpSpec() { return { activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, endDate: form.endDate || null, inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }; }
     function tpKey() { var q = tpSpec(); return [q.activityId, q.level, q.poleKey || '', q.categoryKey || '', q.endDate || '', q.inner || ''].join('|'); }
     function tpQuery() { var q = tpSpec(); return 'activityId=' + encodeURIComponent(q.activityId) + '&level=' + q.level + (q.poleKey ? '&poleKey=' + encodeURIComponent(q.poleKey) : '') + (q.categoryKey ? '&categoryKey=' + encodeURIComponent(q.categoryKey) : '') + (q.endDate ? '&endDate=' + encodeURIComponent(q.endDate) : '') + (form.level === 'secteur' ? '&inner=' + (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : ''); }
-    function hrs(min) { return min == null ? '—' : String(Math.round(min / 60 * 100) / 100).replace('.', ','); } // minutes -> heures (décimales permises)
+    // UNE seule fonction de formatage des heures : minutes -> « 13 », « 13,25 » (virgule en français, point en anglais) ; hh() ajoute l'unité (« 13 h »).
+    function hrs(min) { if (min == null) return '—'; var s = String(Math.round(min / 60 * 100) / 100), en = window.NoesisI18n && window.NoesisI18n.getLang && window.NoesisI18n.getLang() === 'en'; return en ? s : s.replace('.', ','); }
+    function hh(min) { return min == null ? '—' : hrs(min) + ' h'; }
     function parseHrs(raw) { // 0 à 168 h (les heures d'une semaine), décimales permises, aucune autre limite
-      var t = String(raw == null ? '' : raw).trim().replace(',', '.');
+      var t = String(raw == null ? '' : raw).trim().replace(/\s*h$/i, '').replace(',', '.'); // « 13 h » est accepté comme « 13 »
       if (t === '') return { ok: true, min: null };
       if (!/^\d{1,3}(\.\d{0,2})?$/.test(t)) return { ok: false, min: null };
       var v = parseFloat(t); if (!(v >= 0 && v <= 168)) return { ok: false, min: null };
@@ -464,9 +466,10 @@
       }).catch(function (err) { tp.loading = false; tp.key = null; tpPaint(); msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
     }
     function trow(cls, cells) { var r = el('div', 'objTRow ' + cls); cells.forEach(function (c) { r.appendChild(c); }); return r; }
+    function tsep() { return el('span', 'objTSep', '/'); } // séparateur « / » entre le Prévu et le Passé (gris sable, même position sur toutes les lignes)
     function tcell(text, cls) { return el('span', 'objTCell' + (cls ? ' ' + cls : ''), text); }
     function tedit(value, onInput, label, onCommit) { // case modifiable : violet, sans carré ni cadre (R11, R33)
-      var i = el('input', 'objTEdit'); i.type = 'text'; i.inputMode = 'decimal'; i.maxLength = 6; i.value = value; i.setAttribute('aria-label', label);
+      var i = el('input', 'objTEdit'); i.type = 'text'; i.inputMode = 'decimal'; i.maxLength = 9; i.value = value; i.setAttribute('aria-label', label);
       var last = value;
       i.addEventListener('input', function () { var h = parseHrs(i.value); if (!h.ok) { i.value = last; return; } last = i.value; onInput(h.min); });
       if (onCommit) i.addEventListener('change', onCommit); // saisie terminée (Entrée / OK du clavier ou perte de focus) : les écrans suivants apparaissent ou disparaissent
@@ -476,11 +479,11 @@
     function tpScreen1() {
       var e = tp.e, page = el('div', 'objTPage'), tbl = el('div', 'cmpList');
       page.appendChild(el('p', 'cmpBlockTitle', tr('Heures par semaine')));
-      tbl.appendChild(trow('objTHead', [el('span', 'objTCell'), tcell(tr('Prévu'), 'objTH'), tcell(tr('Passé'), 'objTH')]));
-      tbl.appendChild(trow('', [tcell(e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, 'objTLabel'), tcell(hrs(e.up.prevuMin), 'objTRO'), tcell(hrs(e.up.passeMin), 'objTRO')])); // niveau du dessus : lecture seule
-      var inp = tedit(tp.valueMin == null ? '' : hrs(tp.valueMin), function (min) { tp.valueMin = min; tp.mode = null; tp.apres = {}; tp.effects = null; tpSync(); }, tr('Prévu'), function () { tpCommit(inp.value); });
+      tbl.appendChild(trow('objTPair objTHead', [el('span', 'objTCell'), tcell(tr('Prévu'), 'objTH'), tsep(), tcell(tr('Passé'), 'objTH objTLeft')]));
+      tbl.appendChild(trow('objTPair', [tcell(e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, 'objTLabel'), tcell(hh(e.up.prevuMin), 'objTRO'), tsep(), tcell(hh(e.up.passeMin), 'objTRO objTLeft')])); // niveau du dessus : lecture seule
+      var inp = tedit(tp.valueMin == null ? '' : hh(tp.valueMin), function (min) { tp.valueMin = min; tp.mode = null; tp.apres = {}; tp.effects = null; tpSync(); }, tr('Prévu'), function () { tpCommit(inp.value); });
       var edCell = el('span', 'objTCell'); edCell.appendChild(inp);
-      tbl.appendChild(trow('', [tcell(e.me.label, 'objTLabel'), edCell, tcell(hrs(e.me.passeMin), 'objTRO')])); // niveau choisi : Prévu modifiable (violet), Passé en lecture seule
+      tbl.appendChild(trow('objTPair', [tcell(e.me.label, 'objTLabel'), edCell, tsep(), tcell(hh(e.me.passeMin), 'objTRO objTLeft')])); // niveau choisi : Prévu modifiable (violet), Passé en lecture seule
       page.appendChild(tbl);
       return page;
     }

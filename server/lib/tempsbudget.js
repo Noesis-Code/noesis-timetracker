@@ -3,7 +3,8 @@
 //  - Prévu d'un niveau = hoursPerWeek de l'objectif qui occupe sa case, sinon (au premier écran) le Passé ; ligne du dessus = l'objectif PARENT sur la même période (pôle pour un secteur, activité pour un pôle) ;
 //    au niveau activité : capacité hebdomadaire de la personne (manuelle, sinon moyenne Chrono : weekplanner.getWeeklyCapacity).
 //  - Cases voisines (« Prendre sur… ») = autres secteurs du pôle / autres pôles de l'activité / autres activités, sur la même période ; sans objectif (ou à 0 h), elles ne sont pas listées.
-//  - Passé : médiane des 4 dernières semaines complètes du Chrono (même calcul que l'historique de départ de la création).
+//  - Passé : moyenne des 4 dernières semaines du Chrono, les 2 dernières comptées double (weeklyavg, fonction partagée), arrondie au QUART D'HEURE ; la capacité par défaut (moyenne Chrono) l'est aussi avant d'être affichée.
+//    Une valeur saisie à la main (hoursPerWeek d'un objectif, capacité manuelle) n'est JAMAIS réarrondie.
 // Rien n'est écrit avant l'appel avec apply = true (« Valider ») ; le niveau choisi n'a pas encore d'objectif : sa valeur part avec la création (hoursPerWeek), les écritures ne touchent que le parent et les voisins.
 const db = require('../db');
 const goals = require('./goals');
@@ -30,7 +31,9 @@ function keysOf(activityId, key) {
   if (poles.some((p) => p.key === key)) return [key].concat((goals.secteursForPole(activityId, key) || []).map((s) => s.key));
   return [key];
 }
-// Passé : médiane (4 dernières semaines complètes) des minutes chronométrées par semaine ; arrondi à la demi-heure comme l'historique de départ de la création.
+// Passé : moyenne pondérée (weeklyavg) des minutes chronométrées par semaine, arrondie au quart d'heure (15 min).
+const QUARTER = 15;
+function roundQuarter(m) { return m == null ? null : Math.round(m / QUARTER) * QUARTER; }
 function passeMin(userId, activityId, key) {
   const keys = activityId == null ? null : keysOf(activityId, key);
   const m = weeklyavg.weeklyAverage(today(), (s, e) => {
@@ -39,7 +42,7 @@ function passeMin(userId, activityId, key) {
     if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); }
     return db.prepare(q).get(...args).s / 60;
   });
-  return m > 0 ? Math.round(m / 30) * 30 : null;
+  return m > 0 ? roundQuarter(m) : null;
 }
 function metaOf(id) { const r = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(id); try { return JSON.parse((r && r.metaJson) || '{}'); } catch (e) { return {}; } }
 // Case de l'arbre (niveau + période) : l'objectif qui l'occupe et ses heures par semaine (minutes, ou null si aucune).
@@ -53,6 +56,9 @@ function writeHours(id, minutes) {
   const meta = metaOf(id); meta.hoursPerWeek = Math.max(0, Math.round(minutes / 60 * 100) / 100);
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), id);
 }
+
+// Capacité affichée : la valeur saisie à la main telle quelle ; la capacité par défaut (moyenne Chrono) arrondie au quart d'heure, comme le Passé.
+function capDisplay(cap) { return cap && cap.minutes != null && cap.source !== 'manual' ? roundQuarter(cap.minutes) : (cap ? cap.minutes : null); }
 
 // État d'un niveau : ligne du dessus (lecture seule), ligne du niveau, cases voisines, options.
 function etat(userId, spec) {
@@ -74,7 +80,7 @@ function etat(userId, spec) {
   const mePrevu = Number.isFinite(ownNum) && ownNum >= 0 ? ownNum : (meCell ? meCell.min : null);
   let others;
   if (level === 'activite') {
-    out.up = { kind: 'total', label: null, prevuMin: cap.minutes, passeMin: passeMin(userId, null, null) };
+    out.up = { kind: 'total', label: null, prevuMin: capDisplay(cap), passeMin: passeMin(userId, null, null) };
     out.me = { key: null, label: act.name, prevuMin: mePrevu, passeMin: passeMin(userId, aid, null) };
     others = userActivities(userId).filter((x) => x.id !== aid).map((x) => { const c = cell(userId, x.id, 'activite', null, null, end); return { key: 'a' + x.id, label: x.name, avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
     out.modes = ['ajouter', 'autres']; // « Prendre sur les autres activités » : toujours proposé
@@ -116,7 +122,7 @@ function plan(userId, body, apply) {
   if (delta > 0 && mode === 'ajouter') {
     res.effects.push({ level: e.level, label: e.me.label, beforeMin: old, afterMin: newMin });
     chain.forEach((c) => res.effects.push({ level: c.kind, label: c.label, beforeMin: c.prevuMin, afterMin: c.prevuMin + delta }));
-    res.effects.push({ level: 'total', label: null, beforeMin: cap.minutes || 0, afterMin: (cap.minutes || 0) + delta });
+    res.effects.push({ level: 'total', label: null, beforeMin: capDisplay(cap) || 0, afterMin: (capDisplay(cap) || 0) + delta });
   } else if (delta > 0 && (mode === 'reste' || mode === 'autres')) {
     const apres = body.apres && typeof body.apres === 'object' ? body.apres : {};
     res.lines = e.takeLines[mode].map((l) => { const a = apres[l.key] === undefined ? l.avantMin : Math.round(Number(apres[l.key])); return { key: l.key, label: l.label, avantMin: l.avantMin, apresMin: a, objectifId: l.objectifId || null }; });
@@ -142,4 +148,4 @@ function plan(userId, body, apply) {
   return res;
 }
 
-module.exports = { etat, plan, passeMin, MAX_MIN };
+module.exports = { etat, plan, passeMin, roundQuarter, MAX_MIN };

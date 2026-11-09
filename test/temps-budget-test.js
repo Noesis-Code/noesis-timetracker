@@ -96,6 +96,9 @@ const spec = (level, extra) => Object.assign({ activityId: A, level, poleKey: le
   // ---- Hebdomadaire / Périodique : deux cases différentes ----
   const oH = obj(A, 'secteur', P1, S1, 4); db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify({ hoursPerWeek: 4, inner: 'hebdomadaires' }), oH);
   assert(tb.etat('u1', spec('secteur', { inner: 'hebdomadaires' })).me.prevuMin === H(4) && tb.etat('u1', spec('secteur', { inner: 'periodiques' })).me.prevuMin === null, 'secteur : la case Hebdomadaire et la case Périodique sont distinctes (le Prévu suit le choix)');
+  // ---- Arrondi au quart d'heure (Prévu par défaut et Passé) ----
+  assert(tb.roundQuarter(790) === 795 && tb.roundQuarter(797) === 795 && tb.roundQuarter(780) === 780 && tb.roundQuarter(0) === 0 && tb.roundQuarter(null) === null, 'arrondi au quart d’heure : 790 et 797 min donnent 13,25 h (795), 780 reste 13 h, 0 et null inchangés');
+  assert(tb.etat('u1', spec('pole', { poleKey: P3 })).me.passeMin === null && tb.passeMin('u1', A, P1) % 15 === 0, 'Passé : multiple de 15 min, null sans temps');
   // ---- Plafond 168 h, décimales ----
   bad = false; try { tb.plan('u1', spec('activite', { newMin: H(169) }), false); } catch (x) { bad = x.statusCode === 400; }
   assert(bad, 'plafond : plus de 168 h refusé');

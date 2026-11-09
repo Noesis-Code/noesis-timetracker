@@ -118,9 +118,12 @@
 /* Étape « Temps » : lignes d'information + UN curseur d'heures par semaine (curseur natif, couleur d'accent = violet de l'app). */
 /* Étape « Temps » : tableaux (R22 lignes d'un bord à l'autre par .cmpList ; R11 violet = modifiable ; R33 aucun carré ni pointillé) ; lecture seule en blanc / gris sable */
 .objTRow { display: grid; grid-template-columns: minmax(0, 1fr) 76px 76px; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; color: var(--text); }
+.objTPair { grid-template-columns: minmax(0, 1fr) 76px 12px 76px; gap: 0 4px; }
+.objTSep { text-align: center; color: var(--text-light); }
 .objTHead { min-height: 32px; font-size: 13px; color: var(--text-light); }
 .objTLine { grid-template-columns: minmax(0, 1fr); }
 .objTCell { text-align: right; }
+.objTLeft { text-align: left; }
 .objTLabel { text-align: left; min-width: 0; overflow-wrap: anywhere; color: var(--text); }
 .objTRO { color: var(--text-light); }
 .objTH { color: var(--text-light); }
