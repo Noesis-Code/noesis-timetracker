@@ -332,7 +332,7 @@
         if (own) { lock.appendChild(choice(own.name, tr(LEVEL_LABEL[form.level]) + (form.ctxLabel ? ' · ' + form.ctxLabel : ''), true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), lock)); return; }
       }
       var inTree = {}; (ctx.objectives || []).forEach(function (o) { inTree[o.activityId] = true; });
-      function card(a) { var on = form.acts.indexOf(a.id) >= 0; return choice(a.name, a.id === ctx.suggestedActivityId ? tr('Proposée') : '', on, a.color, function () { form.acts = on ? [] : [a.id]; form.news = []; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; syncMain(); refresh(); var nx = actBox.querySelector('.goalsPlacementField'); if (nx && nx.scrollIntoView) nx.scrollIntoView({ block: 'nearest' }); }); }
+      function card(a) { var on = form.acts.indexOf(a.id) >= 0; return choice(a.name, '', on, a.color, function () { form.acts = on ? [] : [a.id]; form.news = []; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; syncMain(); refresh(); var nx = actBox.querySelector('.goalsPlacementField'); if (nx && nx.scrollIntoView) nx.scrollIntoView({ block: 'nearest' }); }); }
       var here = acts.filter(function (a) { return inTree[a.id]; }), notYet = acts.filter(function (a) { return !inTree[a.id]; });
       if (here.length) { var l1 = el('div', 'aiModeChoices'); here.forEach(function (a) { l1.appendChild(card(a)); }); actBox.appendChild(field(tr('Dans l’arbre'), l1)); }
       var l2 = el('div', 'aiModeChoices');
