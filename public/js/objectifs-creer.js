@@ -405,33 +405,150 @@
         fetchParent().then(function (p) { live.textContent = base + ' · ' + (p && p.title ? tr('sous') + ' « ' + p.title + ' »' : tr('sans parent')); });
       }
     }
-    // Étape « Temps » : échéance (ci-dessus), format des périodes, objectifs hebdomadaires, puis un petit tableau : « Nombre recommandé » (valeur seule) et « Heures par semaine » (champ modifiable).
-    function fmtH(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
+    // Étape « Temps » (refaite le 9 nov. 2026, décision d'Émilien ; règles du standard design : R22 lignes de tableau d'un bord à l'autre, R11 violet #9C8CC8 = modifiable, R33 aucun pointillé ni cadre,
+    // R35 bouton du bas grisé tant que ce n'est pas valide, R21 flèches, choix = cartes de la page Activité). Des écrans qui se parcourent par balayage, sans point de pagination ; le suivant n'existe que si le précédent l'exige :
+    //  1. « Heures par semaine » : tableau Prévu / Passé (ligne du niveau DU DESSUS en lecture seule, ligne du niveau choisi : Prévu modifiable) ;
+    //  2. « D'où vient ce temps ? » : seulement si la valeur AUGMENTE (et qu'il y a plus d'une possibilité) ;
+    //  3. « Prendre sur… » : tableau Avant / Après équilibré ; ou « Ajouter » : effets en lecture seule.
+    // Le Prévu est un BUDGET hebdomadaire du niveau (serveur : server/lib/tempsbudget.js) ; rien n'est écrit avant « Valider ».
+    // RÈGLE DE DURÉE (A) : à rebrancher plus tard (paintTermInto, utilisée par la modification d'un objectif) ; ses données par défaut restent ci-dessous, inchangées.
     function daysLeft() { return form.endDate ? Math.max(0, Math.round((Date.parse(form.endDate + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000)) : null; }
     if (form.weekly === undefined) form.weekly = true;
-    form.innerGoals = form.innerGoals || 'les_deux';
+    form.innerGoals = form.innerGoals || 'les_deux'; // objectifs inclus par défaut : périodiques ET hebdomadaires (sauf règle hebdomadaire de la page Activité, voir innerOf)
     function multiPeriods() { return multiOf(daysLeft()); }
-    var pdBox = el('div'); // périodes fixes de 4 semaines : seul le terme et les objectifs inclus se choisissent
-    function paintPeriods() { pdBox.textContent = ''; form.term = { activite: 'pluriannuel', pole: 'annee', secteur: 'periode' }[form.level || 'activite']; paintTermInto(pdBox, form, daysLeft(), null, true); }
-    boxes.temps.appendChild(pdBox);
-    // Page « Heures » : une ligne par activité choisie (valeur de départ : son historique Chrono), modifiable.
-    // Activité NOUVELLE : on demande d'où vient ce temps : « S'ajoute » à mon temps actuel, ou « Pris sur » une autre activité (à choisir).
-    var hoursBox = el('div', 'objTimeInfo'); boxes.temps.appendChild(hoursBox);
+    function syncTerm() { form.term = { activite: 'pluriannuel', pole: 'annee', secteur: 'periode' }[form.level || 'activite']; } // le terme se déduit du niveau (activité = long, pôle = moyen, secteur = court)
     form.hoursBy = form.hoursBy || {};
     function targets() { return form.acts.map(function (id) { return { key: 'a' + id, id: id, name: (actById(id) || {}).name || '' }; }); }
-    function paintHours() {
-      hoursBox.textContent = '';
-      targets().forEach(function (t) {
-        var adv = t.id != null && ctx.weeklyHours ? ctx.weeklyHours[t.id] : null;
-        if (form.hoursBy[t.key] === undefined) form.hoursBy[t.key] = adv || null;
-        var rowH = el('div', 'objTimeRow'), val = el('span', 'objHoursVal'), inp = el('input');
-        inp.type = 'text'; inp.inputMode = 'decimal'; inp.maxLength = 4; inp.value = form.hoursBy[t.key] ? String(form.hoursBy[t.key]) : ''; inp.setAttribute('aria-label', tr('Heures par semaine') + ' : ' + t.name);
-        inp.addEventListener('input', function () { var v = parseFloat(String(inp.value).replace(',', '.')); form.hoursBy[t.key] = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; });
-        val.appendChild(inp); val.appendChild(el('span', null, 'h'));
-        rowH.appendChild(el('span', null, t.name + (adv ? ' · ' + fmtH(adv) : ''))); rowH.appendChild(val); hoursBox.appendChild(rowH);
-      });
+    var tpBox = el('div'); boxes.temps.appendChild(tpBox);
+    var tp = form.tp = form.tp || { key: null, e: null, valueMin: null, mode: null, apres: {}, page: 0, effects: null, loading: false };
+    function tpSpec() { return { activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null }; }
+    function tpKey() { var q = tpSpec(); return [q.activityId, q.level, q.poleKey || '', q.categoryKey || ''].join('|'); }
+    function tpQuery() { var q = tpSpec(); return 'activityId=' + encodeURIComponent(q.activityId) + '&level=' + q.level + (q.poleKey ? '&poleKey=' + encodeURIComponent(q.poleKey) : '') + (q.categoryKey ? '&categoryKey=' + encodeURIComponent(q.categoryKey) : ''); }
+    function hrs(min) { return min == null ? '—' : String(Math.round(min / 60 * 100) / 100).replace('.', ','); } // minutes -> heures (décimales permises)
+    function parseHrs(raw) { // 0 à 168 h (les heures d'une semaine), décimales permises, aucune autre limite
+      var t = String(raw == null ? '' : raw).trim().replace(',', '.');
+      if (t === '') return { ok: true, min: null };
+      if (!/^\d{1,3}(\.\d{0,2})?$/.test(t)) return { ok: false, min: null };
+      var v = parseFloat(t); if (!(v >= 0 && v <= 168)) return { ok: false, min: null };
+      return { ok: true, min: Math.round(v * 60) };
     }
-    function refresh() { renderActivities(); paintPeriods(); paintHours(); }
+    function tpOld() { return tp.e ? (tp.e.valueMin || 0) : 0; }
+    function tpChanging() { return !!tp.e && tp.valueMin != null && tp.valueMin !== (tp.e.valueMin == null ? 0 : tp.e.valueMin); }
+    function tpIncrease() { return tpChanging() && tp.valueMin > tpOld(); }
+    function tpModes() { return tp.e ? tp.e.modes : []; }
+    function tpMode() { return tpModes().length === 1 && tpIncrease() ? tpModes()[0] : tp.mode; } // une seule possibilité : écran « d'où vient ce temps » sauté
+    function tpPages() { var p = ['s1']; if (tpIncrease()) { if (tpModes().length > 1) p.push('s2'); if (tpMode()) p.push('s3'); } return p; }
+    function tpLines() { var m = tpMode(); return tp.e && (m === 'reste' || m === 'autres') ? tp.e.takeLines[m] : []; }
+    function tpAfter(l) { return tp.apres[l.key] === undefined ? l.avantMin : tp.apres[l.key]; }
+    function tpTaken() { return tpLines().reduce(function (n, l) { return n + (l.avantMin - tpAfter(l)); }, 0); }
+    function tpBalanced() { var m = tpMode(); if (m === 'ajouter') return true; return tpLines().length > 0 && tpLines().every(function (l) { var a = tpAfter(l); return a >= 0 && a <= l.avantMin; }) && tpTaken() === tp.valueMin - tpOld(); }
+    function tpValid() { if (!tpChanging()) return true; if (!tpIncrease()) return true; return !!tpMode() && tpBalanced(); }
+    var LV = { activite: "L’activité", pole: 'Le pôle', secteur: 'Le secteur' };
+    function tpSync() { // bouton du bas : « Valider » tant qu'un changement est en cours ; sinon « Suivant » (étape suivante de la création)
+      if (cur !== 'temps') return;
+      var q = tpSpec(); form.hoursBy['a' + q.activityId] = tp.valueMin != null && tp.valueMin > 0 ? Math.round(tp.valueMin / 60 * 100) / 100 : null; // hoursPerWeek de l'objectif = le Prévu du niveau choisi
+      if (tpChanging()) { stepLabel.textContent = tr('Valider'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Valider')); stepBtn.disabled = !tpValid(); advance = tpValider; }
+      else { var l = list(), i = l.indexOf('temps'), tot = l.length; stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = (i + 1) + '/' + tot; stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + (i + 1) + '/' + tot + ')'); stepBtn.disabled = false; advance = i < tot - 1 ? stepNext : finishAll; }
+    }
+    function tpValider() { // applique le changement (serveur), puis REVIENT à l'écran 1 avec les nouvelles valeurs
+      if (!tpChanging() || !tpValid()) return;
+      var body = Object.assign(tpSpec(), { newMin: tp.valueMin, mode: tpIncrease() ? tpMode() : null, apres: tp.apres, apply: true });
+      stepBtn.disabled = true; msg.textContent = '';
+      api('POST', '/api/objectifs/temps/plan', body).then(function () { tp.key = null; return tpLoad(true); }).catch(function (err) { msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); tpSync(); });
+    }
+    function tpGo(i) { var n = tpPages().length; tp.page = Math.max(0, Math.min(n - 1, i)); tpPaint(); }
+    function tpLoad(force) {
+      if (!force && tp.key === tpKey() && tp.e) { tpPaint(); tpSync(); return Promise.resolve(); }
+      tp.key = tpKey(); tp.loading = true; tp.e = null; tpPaint();
+      return api('GET', '/api/objectifs/temps?' + tpQuery()).then(function (e) {
+        tp.e = e; tp.loading = false; tp.valueMin = e.valueMin == null ? null : e.valueMin; tp.mode = null; tp.apres = {}; tp.page = 0; tp.effects = null; tpPaint(); tpSync();
+      }).catch(function (err) { tp.loading = false; tp.key = null; tpPaint(); msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
+    }
+    function trow(cls, cells) { var r = el('div', 'objTRow ' + cls); cells.forEach(function (c) { r.appendChild(c); }); return r; }
+    function tcell(text, cls) { return el('span', 'objTCell' + (cls ? ' ' + cls : ''), text); }
+    function tedit(value, onInput, label, onCommit) { // case modifiable : violet, sans carré ni cadre (R11, R33)
+      var i = el('input', 'objTEdit'); i.type = 'text'; i.inputMode = 'decimal'; i.maxLength = 6; i.value = value; i.setAttribute('aria-label', label);
+      var last = value;
+      i.addEventListener('input', function () { var h = parseHrs(i.value); if (!h.ok) { i.value = last; return; } last = i.value; onInput(h.min); });
+      if (onCommit) i.addEventListener('change', onCommit); // la saisie est finie : les écrans suivants apparaissent ou disparaissent
+      return i;
+    }
+    function tpScreen1() {
+      var e = tp.e, page = el('div', 'objTPage'), tbl = el('div', 'cmpList');
+      page.appendChild(el('p', 'cmpBlockTitle', tr('Heures par semaine')));
+      tbl.appendChild(trow('objTHead', [el('span', 'objTCell'), tcell(tr('Prévu'), 'objTH'), tcell(tr('Passé'), 'objTH')]));
+      tbl.appendChild(trow('', [tcell(e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, 'objTLabel'), tcell(hrs(e.up.prevuMin), 'objTRO'), tcell(hrs(e.up.passeMin), 'objTRO')])); // niveau du dessus : lecture seule
+      var inp = tedit(tp.valueMin == null ? '' : hrs(tp.valueMin), function (min) { tp.valueMin = min; tp.mode = null; tp.apres = {}; tp.effects = null; tpAfterEdit(); }, tr('Prévu'), function () { tpPaint(); });
+      var edCell = el('span', 'objTCell'); edCell.appendChild(inp);
+      tbl.appendChild(trow('', [tcell(e.me.label, 'objTLabel'), edCell, tcell(hrs(e.me.passeMin), 'objTRO')])); // niveau choisi : Prévu modifiable (violet), Passé en lecture seule
+      page.appendChild(tbl);
+      return page;
+    }
+    function tpAfterEdit() { // la valeur change : les écrans suivants apparaissent ou disparaissent ; on ne repeint pas la saisie en cours
+      if (tp.page >= tpPages().length) tp.page = tpPages().length - 1;
+      tpSync();
+    }
+    function modeLabel(m) {
+      if (m === 'ajouter') return tr('Ajouter');
+      var lv = tp.e.level;
+      if (m === 'autres') return tr(lv === 'activite' ? 'Prendre sur les autres activités' : lv === 'pole' ? 'Prendre sur les autres pôles' : 'Prendre sur les autres secteurs');
+      return tr(lv === 'pole' ? 'Prendre sur le reste de l’activité' : 'Prendre sur le reste du pôle');
+    }
+    function tpScreen2() {
+      var page = el('div', 'objTPage'), box = el('div', 'aiModeChoices');
+      page.appendChild(el('p', 'cmpBlockTitle', tr('D’où vient ce temps ?')));
+      tpModes().forEach(function (m) { box.appendChild(choice(modeLabel(m), '', tp.mode === m, null, function () { tp.mode = m; tp.apres = {}; tp.effects = null; tpSync(); tpPaint(); tpGo(tpPages().indexOf('s3')); })); });
+      page.appendChild(box);
+      return page;
+    }
+    function tpScreen3() {
+      var e = tp.e, page = el('div', 'objTPage'), tbl = el('div', 'cmpList'), m = tpMode();
+      if (m === 'ajouter') { // effet en lecture seule : le niveau, ceux du dessus qui grandissent de la différence, le total
+        page.appendChild(el('p', 'cmpBlockTitle', tr('Effet')));
+        if (!tp.effects) { api('POST', '/api/objectifs/temps/plan', Object.assign(tpSpec(), { newMin: tp.valueMin, mode: 'ajouter', apply: false })).then(function (r) { tp.effects = r.effects; if (tpPages().indexOf('s3') >= 0) tpPaint(); }).catch(function () {}); return page; }
+        tp.effects.forEach(function (x) {
+          var txt = x.level === 'total' ? tr('Ton total passe de {a} h à {b} h', { a: hrs(x.beforeMin), b: hrs(x.afterMin) }) : tr(LV[x.level] + ' passe de {a} h à {b} h', { a: hrs(x.beforeMin), b: hrs(x.afterMin) });
+          tbl.appendChild(trow('objTLine', [el('span', 'objTLabel', txt)]));
+        });
+        page.appendChild(tbl); return page;
+      }
+      page.appendChild(el('p', 'cmpBlockTitle', modeLabel(m)));
+      tbl.appendChild(trow('objTHead', [el('span', 'objTCell'), tcell(tr('Avant'), 'objTH'), tcell(tr('Après'), 'objTH')]));
+      var totalCell = tcell('', 'objTRO');
+      tpLines().forEach(function (l) {
+        var ed = el('span', 'objTCell'); ed.appendChild(tedit(hrs(tpAfter(l)), function (min) { tp.apres[l.key] = min == null ? 0 : min; paintTotal(); tpSync(); }, tr('Après') + ' : ' + l.label));
+        tbl.appendChild(trow('', [tcell(l.key === 'reste' ? tr(l.label) : l.label, 'objTLabel'), tcell(hrs(l.avantMin), 'objTRO'), ed]));
+      });
+      var totBefore = tcell('', 'objTRO'), totAfter = tcell('', 'objTRO');
+      function paintTotal() { // Total du niveau du dessus : constant (avant = après) tant que c'est équilibré
+        var avant = tpOld() + tpLines().reduce(function (n, l) { return n + l.avantMin; }, 0), apres = tp.valueMin + tpLines().reduce(function (n, l) { return n + tpAfter(l); }, 0);
+        totBefore.textContent = hrs(avant); totAfter.textContent = hrs(apres); totAfter.classList.toggle('objTBad', apres !== avant);
+      }
+      tbl.appendChild(trow('objTTotal', [tcell(tr('Total'), 'objTLabel'), totBefore, totAfter])); paintTotal();
+      page.appendChild(tbl);
+      return page;
+    }
+    function tpPaint() {
+      tpBox.textContent = '';
+      if (tp.loading || !tp.e) { return; }
+      var pages = tpPages(), n = pages.length, wrap = el('div', 'tasksPages objTPages'), track = el('div', 'tasksTrack'), build = { s1: tpScreen1, s2: tpScreen2, s3: tpScreen3 };
+      track.style.width = (n * 100) + '%';
+      pages.forEach(function (k) { var pg = el('div', 'tasksPage'); pg.style.flexBasis = (100 / n) + '%'; pg.appendChild(build[k]()); track.appendChild(pg); });
+      track.style.transform = 'translateX(' + (-tp.page * 100 / n) + '%)';
+      wrap.appendChild(track); tpBox.appendChild(wrap);
+      tpSwipe(wrap);
+    }
+    function tpSwipe(node) { // balayage de page existant (mêmes zones et seuils que les autres pages) : la page entière se décale d'un bloc
+      var x0 = 0, y0 = 0, on = false;
+      function done(dx, dy) { if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx) * 0.8) return; tpGo(tp.page + (dx < 0 ? 1 : -1)); }
+      node.addEventListener('touchstart', function (ev) { ev.stopPropagation(); var t = ev.changedTouches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
+      node.addEventListener('touchmove', function (ev) { ev.stopPropagation(); }, { passive: true });
+      node.addEventListener('touchend', function (ev) { var t = ev.changedTouches[0]; done(t.clientX - x0, t.clientY - y0); }, { passive: true });
+      node.addEventListener('pointerdown', function (ev) { if (ev.pointerType !== 'mouse' || ev.target.tagName === 'INPUT') return; x0 = ev.clientX; y0 = ev.clientY; on = true; });
+      node.addEventListener('pointerup', function (ev) { if (ev.pointerType !== 'mouse' || !on) return; on = false; done(ev.clientX - x0, ev.clientY - y0); });
+      node.addEventListener('pointercancel', function () { on = false; });
+    }
+    function refresh() { renderActivities(); syncTerm(); }
     refresh();
     // Étape « Niveau » : demandée SEULEMENT si des informations manquent (type d'objectif inconnu, plus d'un an, aucun historique Chrono) ; sinon sautée (3 étapes au lieu de 4).
     function needsLevel() { var dl = daysLeft(); return !ctx.estimate || (dl != null && dl > 365) || !(ctx.weeklyHours && form.activityId != null && ctx.weeklyHours[form.activityId]); }
@@ -460,13 +577,14 @@
       if (k === 'desc' && form._hints && form._shownOnce) form._hints();
       if (k === 'desc') form._shownOnce = true;
       if (k === 'activite') { form.poleOpen = false; renderActivities(); } // à l'arrivée : seulement les activités, aucun choix de pôle déroulé
-      if (k === 'temps') paintHours();
+      if (k === 'temps') tpLoad();
       panelKicker.textContent = tr(stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
       stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave');
       stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');
       stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate)); // Suivant grisé tant que le rattachement n'est pas décidé
       advance = i < tot - 1 ? stepNext : finishAll; setBack(i > 0 ? function () { show(l[i - 1]); } : null);
+      if (k === 'temps') tpSync();
     }
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
     function stepNext() {
