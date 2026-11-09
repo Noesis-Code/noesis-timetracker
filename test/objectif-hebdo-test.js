@@ -45,7 +45,26 @@ const mk = (extra) => o.creer('u1', Object.assign({ title: 'Objectif ' + Math.ra
   // Interface : affiché seulement au niveau secteur et si l'échéance est proche ; éteint par défaut ; remplace « Objectifs inclus »
   const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'objectifs-creer.js'), 'utf8').split('\r\n').join('\n');
   assert(src.includes("f.level === 'secteur' && !!f.endDate && !!f.startDate && f.endDate <= isoAdd(mondayIso(f.startDate), 13)"), 'interrupteur : niveau secteur ET échéance dans la semaine en cours ou la suivante');
-  assert(src.includes("el('span', 'toggleSwitch')") && src.includes("cb.checked = !!form.weeklyOn") && !/form\.weeklyOn = true|weeklyOn: true/.test(src), 'composant .toggleSwitch existant, éteint par défaut');
+  // Bloc « Cet objectif est-il » (9 nov. 2026) : deux options .cmpSeg Hebdomadaire / Périodique, seulement quand un SECTEUR est choisi, sous la liste des activités et juste au-dessus de la phrase ; plus d'interrupteur
+  const iLists = src.indexOf("var l2 = el('div', 'aiModeChoices');"), iBlock = src.indexOf("field(tr('Cet objectif est-il'), segDisabled("), iLive = src.indexOf('// Phrase en direct (texte seul)');
+  assert(iLists > 0 && iBlock > iLists && iLive > iBlock, 'le bloc est sous la liste des activités et juste au-dessus de la phrase récapitulative');
+  assert(src.includes("if (form.level === 'secteur' && form.categoryKey) {") && !src.includes('toggleSwitch') && !src.includes("'switch'"), 'le bloc n’existe que si un secteur est sélectionné ; l’ancien interrupteur (.toggleSwitch) et son code sont retirés');
+  assert(src.includes("form.weeklyOn && okWeekly ? 'hebdomadaire' : 'periodique'") && src.includes("okWeekly ? ['hebdomadaire', 'periodique'] : ['periodique']") && src.includes('segDisabled([[\'hebdomadaire\', tr(\'Hebdomadaire\')], [\'periodique\', tr(\'Périodique\')]]'), '« Périodique » par défaut ; « Hebdomadaire » grisé quand l’échéance ne le permet pas ; « Périodique » toujours possible');
+  assert(src.includes("if (form.weeklyOn && !weeklyPossible(form)) form.weeklyOn = false;") && src.includes("form.weeklyOn = k === 'hebdomadaire'; refresh();"), 'si l’échéance change et que l’hebdomadaire devient impossible : retour automatique à « Périodique » ; le choix recalcule la phrase et le niveau');
+  {
+    const a1 = src.indexOf('  function isoAdd(iso, n)'), a2 = src.indexOf('\n', src.indexOf('  function weeklyPossible(f) {'));
+    const wp = new Function(src.slice(a1, a2) + '\nreturn weeklyPossible;')();
+    const t0 = today, mon = (iso) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
+    const lim = addDays(mon(t0), 13);
+    assert(wp({ level: 'secteur', startDate: t0, endDate: addDays(t0, 3) }) === true && wp({ level: 'secteur', startDate: t0, endDate: lim }) === true, 'hebdomadaire possible : échéance dans la semaine en cours ou la suivante');
+    assert(wp({ level: 'secteur', startDate: t0, endDate: addDays(lim, 1) }) === false && wp({ level: 'secteur', startDate: t0, endDate: addDays(t0, 90) }) === false, 'hebdomadaire impossible : échéance plus lointaine (option grisée)');
+    assert(wp({ level: 'pole', startDate: t0, endDate: addDays(t0, 3) }) === false && wp({ level: 'activite', startDate: t0, endDate: addDays(t0, 3) }) === false, 'hebdomadaire impossible hors niveau secteur');
+    // bascule et changement d'échéance (même règle que l'écran)
+    const st = { level: 'secteur', startDate: t0, endDate: addDays(t0, 3), weeklyOn: false };
+    st.weeklyOn = true; assert(wp(st) && st.weeklyOn, 'bascule : Hebdomadaire sélectionné');
+    st.endDate = addDays(t0, 60); if (st.weeklyOn && !wp(st)) st.weeklyOn = false;
+    assert(st.weeklyOn === false, 'changement d’échéance : « Hebdomadaire » devient impossible, retour automatique à « Périodique »');
+  }
   assert(src.includes("if (weeklyPossible(form)) return form.weeklyOn ? 'hebdomadaires' : 'periodiques'") && src.includes('if (form._switchShown) return;'), 'périodique/hebdomadaire décidé par l’interrupteur quand il est affiché ; « Objectifs inclus » masqué (aucune contradiction)');
   // Phrase en direct sous les choix de la page Activité : activité › pôle › secteur · période ou semaine · sous « parent » / sans parent (texte seul, lecture seule)
   assert(src.includes("path.join(' › ')") && src.includes("tr('sous') + ' « ' + p.title + ' »' : tr('sans parent')") && src.includes("tr('semaine') + ' ' + weekNo(form.endDate) : tr('période') + ' ' + periodNo(form.endDate)"), 'phrase en direct : chemin, période ou semaine, parent ou « sans parent »');

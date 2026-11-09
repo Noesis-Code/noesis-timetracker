@@ -3,7 +3,7 @@
  * (périodes, semaines, tâches de la semaine 1, tout modifiable) -> Valider -> liste des objectifs -> détail.
  * Rien n'est créé avant « Valider » (POST /api/objectifs/contexte et /proposition ne créent rien).
  * Serveur : server/lib/objectifs.js. Composants réutilisés : .goalTaskEditModal/.cmpGlass, TMT.ui.closeBtn (R13), .cmpSeg (R42),
- * .cmpSend (R29, barre .tasksDock/.tasksComposer), .cmpNav (R45), .cmpBtn, .cmpBlockTitle (R41), .toggleSwitch, .tasksPopRow/.tasksPopCheck.
+ * .cmpSend (R29, barre .tasksDock/.tasksComposer), .cmpNav (R45), .cmpBtn, .cmpBlockTitle (R41), .tasksPopRow/.tasksPopCheck.
  * Monté dans #goalsActivitiesView par objectifs-page1.js (TMT.objectifsView.show / hide). */
 (function () {
   'use strict';
@@ -263,7 +263,7 @@
     var ok = termsFor(days); if (!noTerm && ok.indexOf(form.term) < 0) form.term = ok[ok.length - 1]; // imposé si un seul choix ; sinon, tant que rien n'est choisi, le terme le plus long permis
     if (!noTerm) box.appendChild(field(tr('Terme'), segDisabled(TERMS.map(function (t) { return [t[0], tr(t[1])]; }), form.term, ok, function (k) { form.term = k; form.termTouched = true; if (onChange) onChange(); }, tr('Terme'))));
     // Objectifs inclus : deux cases (cochées par défaut quand c'est possible, au moins une reste cochée) avec le nombre de chacun ; une seule période (≤ 28 jours) : hebdomadaires seulement, périodiques grisés
-    if (form._switchShown) return; // l'interrupteur « Hebdomadaire » (page Activité) décide : périodique ou hebdomadaire
+    if (form._switchShown) return; // le bloc « Cet objectif est-il » (page Activité) décide : périodique ou hebdomadaire
     var multi = multiOf(days), cnt = goalCounts(form, days), per = multi && form.innerGoals !== 'hebdomadaires', wk = form.innerGoals !== 'periodiques';
     var gs = el('div', 'cmpSeg'); gs.setAttribute('role', 'group'); gs.setAttribute('aria-label', tr('Objectifs inclus'));
     function goalBtn(on, label, n, enabled, toggle) {
@@ -380,19 +380,20 @@
         blk.appendChild(hasP && on ? chev(c, open) : c); // flèche seulement sur l'activité choisie (c'est elle qui déroule)
         if (open) under(a, blk);
         host.appendChild(blk);
-        if (on && weeklyPossible(form)) { // éteint par défaut = objectif périodique ; allumé = objectif hebdomadaire
-          form._switchShown = true;
-          var row = el('label', 'objTimeRow'), sw = el('span', 'toggleSwitch'), cb = el('input'), track = el('span', 'toggleSwitchTrack');
-          cb.type = 'checkbox'; cb.checked = !!form.weeklyOn; cb.setAttribute('role', 'switch'); cb.setAttribute('aria-label', tr('Hebdomadaire'));
-          cb.addEventListener('change', function () { form.weeklyOn = cb.checked; renderActivities(); });
-          sw.appendChild(cb); sw.appendChild(track); row.appendChild(el('span', null, tr('Hebdomadaire'))); row.appendChild(sw); host.appendChild(row);
-        }
       }
       var here = acts.filter(function (a) { return inTree[a.id]; }), notYet = acts.filter(function (a) { return !inTree[a.id]; });
       if (here.length) { var l1 = el('div', 'aiModeChoices'); here.forEach(function (a) { card(a, l1); }); actBox.appendChild(field(tr('Dans l’arbre'), l1)); }
       var l2 = el('div', 'aiModeChoices');
       notYet.forEach(function (a) { card(a, l2); });
       if (notYet.length) actBox.appendChild(field(tr('Pas encore dans l’arbre'), l2));
+      // « Cet objectif est-il » (9 nov. 2026) : dès qu'un SECTEUR est choisi, deux options (.cmpSeg) : Hebdomadaire / Périodique (par défaut). « Hebdomadaire » est grisé tant que l'échéance n'est pas dans la semaine en cours ou
+      // la suivante ; si l'échéance change et que l'hebdomadaire devient impossible, retour automatique à « Périodique ». Sans secteur choisi, le bloc n'existe pas.
+      if (form.weeklyOn && !weeklyPossible(form)) form.weeklyOn = false;
+      if (form.level === 'secteur' && form.categoryKey) {
+        var okWeekly = weeklyPossible(form);
+        form._switchShown = okWeekly; // quand l'hebdomadaire est possible, ce choix décide (« Objectifs inclus » masqué) ; sinon l'échéance décide seule, comme avant
+        actBox.appendChild(field(tr('Cet objectif est-il'), segDisabled([['hebdomadaire', tr('Hebdomadaire')], ['periodique', tr('Périodique')]], form.weeklyOn && okWeekly ? 'hebdomadaire' : 'periodique', okWeekly ? ['hebdomadaire', 'periodique'] : ['periodique'], function (k) { form.weeklyOn = k === 'hebdomadaire'; refresh(); }, tr('Cet objectif est-il'))));
+      }
       // Phrase en direct (texte seul) : activité › pôle › secteur · période ou semaine d'après l'échéance · parent retenu (« sans parent » s'il n'y en a pas)
       var cur0 = actById(form.activityId);
       if (cur0) {
