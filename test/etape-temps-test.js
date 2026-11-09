@@ -27,13 +27,13 @@ assert(/color: var\(--purple\)/.test(ed) && /border: 0/.test(ed) && /background:
 assert(/input\[type=text\]\.objTEdit:focus \{[^}]*box-shadow: 0 1px 0 0 var\(--purple\)/.test(css) && !/objTEdit[^{]*\{[^}]*(border: 1px|outline: [^n])/.test(css), 'au focus seulement : un trait fin sous le chiffre, aucun cadre');
 assert(js.includes("'cmpList'"), 'lignes séparées bord à bord (R22, .cmpList)');
 ['Heures par semaine', 'Prévu', 'Passé', 'Toutes tes activités'].forEach((k) => assert(i18n.includes(k), 'traduction : ' + k));
-assert(js.includes('function tsep()') && (js.match(/tsep()/g) || []).length >= 4 && js.includes("'objTPair objTHead'") && /.objTSep {[^}]*color: var(--text-light)/.test(css) && /.objTPair {[^}]*76px 12px 76px/.test(css), 'écran 1 : « Prévu / Passé » avec une barre oblique grise (une seule fonction de rendu, même position sur toutes les lignes, sans colonne ajoutée à l’écran Avant / Après)');
-{ const hm = js.match(/function hrs(min) {[^
-]*
-s*function hh(min) {[^
-]*
-/); const f = hm && new Function('window', hm[0] + '; return { hrs: hrs, hh: hh };'); const F = f && f({ NoesisI18n: { getLang: () => 'fr' } }), G = f && f({ NoesisI18n: { getLang: () => 'en' } });
-  assert(F && F.hh(780) === '13 h' && F.hrs(795) === '13,25' && F.hrs(810) === '13,5' && F.hrs(825) === '13,75' && F.hh(null) === '—' && G.hrs(795) === '13.25', 'formatage des heures : « 13 h », 13,25, 13,5, 13,75 (virgule en français, point en anglais), une seule fonction'); }
+assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >= 4 && js.includes("'objTPair objTHead'") && /\.objTSep \{[^}]*color: var\(--text-light\)/.test(css) && /\.objTPair \{[^}]*76px 12px 76px/.test(css), 'écran 1 : « Prévu / Passé » avec une barre oblique grise (une seule fonction de rendu, même position sur toutes les lignes, sans colonne ajoutée à l’écran Avant / Après)');
+{
+  const a1 = js.indexOf('    function hrs(min)'), a2 = js.indexOf('    function parseHrs');
+  const mk = (lang) => new Function('window', js.slice(a1, a2) + '; return { hrs: hrs, hh: hh };')({ NoesisI18n: { getLang: () => lang } });
+  const F = mk('fr'), G = mk('en');
+  assert(F.hh(780) === '13 h' && F.hrs(795) === '13,25' && F.hrs(810) === '13,5' && F.hrs(825) === '13,75' && F.hh(null) === '—' && G.hrs(795) === '13.25', 'formatage des heures : « 13 h », 13,25, 13,5, 13,75 (virgule en français, point en anglais), une seule fonction');
+}
 const m = js.match(/function parseHrs\(raw\) \{[\s\S]*?\n    \}/);
 if (m) { const parseHrs = new Function(m[0] + '; return parseHrs;')(); assert(parseHrs('168').ok && parseHrs('168').min === 168 * 60, '168 accepté'); assert(!parseHrs('169').ok, '169 refusé'); assert(parseHrs('1,5').ok && parseHrs('1,5').min === 90, 'décimales permises'); }
 
