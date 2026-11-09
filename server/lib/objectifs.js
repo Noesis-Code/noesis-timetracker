@@ -411,16 +411,6 @@ async function rattAi(userId, title, cands) {
     return cands.find((c) => c.id === Number(parsed.id)) || undefined;
   } catch (e) { return undefined; }
 }
-function macroProposal(userId, title, act, refused) {
-  if (userActivities(userId).length < 2) return null; // activité unique : aucune colonne à relier, pas de macro d'activités
-  const names = {}; userActivities(userId).forEach((a) => { names[a.id] = a.name; });
-  const rows = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId != ? AND parentId IS NULL AND isMacro = 0').all(userId, act.id)
-    .filter((r) => names[r.activityId] && !refused.has(r.id) && !JSON.parse(r.metaJson || '{}').abandoned && shape(r, false).status !== 'atteint');
-  const byAct = {}; rows.forEach((r) => { (byAct[r.activityId] = byAct[r.activityId] || []).push(r); });
-  const picks = Object.keys(byAct).map((k) => rattRules(title, byAct[k])).filter(Boolean);
-  if (!picks.length) return null;
-  return { candidates: picks.map((p) => ({ id: p.id, title: p.title, activityName: names[p.activityId], activityId: p.activityId })), rel: 'avant', source: 'regles' };
-}
 async function rattachement(userId, body) {
   const title = cleanTitle(body && body.title), act = userActivities(userId).find((a) => a.id === Number(body && body.activityId));
   if (!act || !title) return { candidate: null };
@@ -430,16 +420,11 @@ async function rattachement(userId, body) {
   // Candidats : objectifs de la même activité dont l'échéance est au moins celle du nouvel objectif (seule règle de hiérarchie ; aucune notion de niveau).
   const newEnd = body && isDay(body.endDate) ? body.endDate : null;
   const cands = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).filter((r) => above(r) && (!newEnd || r.endDate >= newEnd) && !refused.has(r.id) && shape(r, false).status !== 'atteint');
-  // Macro (6 nov. 2026) : des objectifs RESSEMBLANTS dans d'AUTRES activités de l'utilisateur (règles de ressemblance, gratuit) font proposer un macro multi-activités :
-  // simple proposition (avant/après et titre modifiables par l'utilisateur), rien n'est écrit sans sa validation.
-  const macro = macroProposal(userId, title, act, refused);
-  if (!cands.length) return macro ? { candidate: null, macro } : { candidate: null };
+  if (!cands.length) return { candidate: null };
   let pick = await rattAi(userId, title, cands), source = 'ia';
   if (pick === undefined) { pick = rattRules(title, cands); source = 'regles'; }
-  if (!pick) return macro ? { candidate: null, macro } : { candidate: null };
-  const out = { candidate: { id: pick.id, title: pick.title, activityName: act.name }, rel: 'apres', source };
-  if (macro) out.macro = macro;
-  return out;
+  if (!pick) return { candidate: null };
+  return { candidate: { id: pick.id, title: pick.title, activityName: act.name }, rel: 'apres', source };
 }
 
 // ---- Niveaux : activité > pôle > secteur ----

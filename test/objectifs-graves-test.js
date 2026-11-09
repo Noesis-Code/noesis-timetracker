@@ -163,7 +163,7 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   // proposition de macro à la création + fusion validée
   const p1 = mkIn('Courir un semi-marathon', A5), p2 = mkIn('Courir un semi-marathon bis', A6);
   const rt = await o.rattachement(u, { title: 'Préparer un semi-marathon', activityId: A3 });
-  assert(rt.macro && rt.macro.candidates.length >= 2 && rt.macro.candidates.every((c) => c.activityId !== A3), 'création : objectifs ressemblants dans plusieurs autres activités : macro proposé (jamais écrit)');
+  assert(rt.macro === undefined && !rt.candidate, 'création : objectifs ressemblants dans d’autres activités : plus de macro proposé (les macros se font seulement depuis l’arbre)');
   assert(db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE title = ?').get('Préparer un semi-marathon').n === 0, 'la proposition n’écrit rien');
   e = bad(() => o.fusionnerEnMacro(u, { title: 'Semi', childIds: [p1.id] })); assert(e && e.statusCode === 400, 'fusion : au moins deux objectifs');
   const fus = o.fusionnerEnMacro(u, { title: 'Semi-marathon (macro)', childIds: [p1.id, p2.id] });

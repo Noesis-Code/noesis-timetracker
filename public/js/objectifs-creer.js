@@ -269,9 +269,9 @@
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
     panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
-    var boxes = { desc: el('div'), rattach: el('div'), temps: el('div'), heures: el('div'), activite: el('div'), niveau: el('div'), taches: el('div') };
+    var boxes = { desc: el('div'), temps: el('div'), heures: el('div'), activite: el('div'), niveau: el('div'), taches: el('div') };
     var slidePages = el('div', 'tasksPages'), slideTrack = el('div', 'tasksTrack'), slideA = el('div', 'tasksPage'), slideB = el('div', 'tasksPage off'), slideTimer = 0;
-    ['desc', 'rattach', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (k) { slideA.appendChild(boxes[k]); });
+    ['desc', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (k) { slideA.appendChild(boxes[k]); });
     slideTrack.appendChild(slideA); slideTrack.appendChild(slideB); slidePages.appendChild(slideTrack); panelBody.appendChild(slidePages);
     function slideTo(sub) { // la page de création d'une activité glisse depuis la droite (et revient) comme les pages du panneau de tâche
       window.clearTimeout(slideTimer);
@@ -324,7 +324,7 @@
     function actById(id) { return (ctx.activities || []).filter(function (a) { return a.id === id; })[0]; }
     function syncMain() { form.activityId = form.acts.length ? form.acts[0] : null; form.create = !form.acts.length && form.news.length > 0; if (form.create) form.createName = form.news[0].name; }
     function noActivity() { return !form.acts.length && !form.news.length; }
-    function renderActivities() { // plusieurs activités possibles : un objectif par activité, fusionnés en macro à la création
+    function renderActivities() { // UNE seule activité par objectif (les macros se font seulement depuis l'arbre)
       actBox.textContent = '';
       var acts = ctx.activities || [];
       if (form.fixedCtx) { // créé depuis un niveau de l'arbre : l'activité (et le pôle, le secteur) sont verrouillés
@@ -387,90 +387,30 @@
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
-    var stepNames = { desc: 'Description', rattach: 'Rattachement', temps: 'Temps', heures: 'Heures', activite: 'Activité', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
+    var stepNames = { desc: 'Description', temps: 'Temps', heures: 'Heures', activite: 'Activité', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
     function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(['temps']).concat(needsLevel() ? ['niveau'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
-    // Étape « Rattachement » : seulement s'il existe un candidat dans l'activité ; PROPOSITION (règles, ou IA si permis) : Accepter (avec Avant | Après) ou Refuser (refus mémorisé, l'objectif reste un sommet séparé).
-    function dueOf(id) { var x = (ctx.objectives || []).filter(function (o) { return o.id === id; })[0]; return x && x.endDate ? ' · ' + tr('jusqu’au') + ' ' + dateText(x.endDate) : ''; } // échéance du parent proposé
-    function rattPending() { // « Suivant » reste grisé tant qu'une proposition affichée n'est pas décidée (jamais de choix silencieux)
-      var r = form.ratt; if (!r) return false;
-      if (form.macroDecided === 'accept') return false;
-      if (r.cand && r.decided !== 'accept') return true;
-      if (r.macro && !form.macroDecided && r.decided !== 'accept') return true;
-      return false;
-    }
-    function allMacroIds() { var a = form.macroDecided === 'accept' ? macroIds() : []; return a; }
-    function macroIds() { var sel = form.macroSel || {}; return ((form.ratt && form.ratt.macro && form.ratt.macro.candidates) || []).filter(function (c) { return sel[c.id]; }).map(function (c) { return c.id; }); }
-    // Proposition de macro (étape « Rattachement », même format : avant / après, Accepter ou Refuser, tout modifiable) : un objectif plus large qui englobe celui-ci et des objectifs proches d'AUTRES activités.
-    function paintMacro(blkParent, m) {
-      var sel = form.macroSel || (form.macroSel = {}); m.candidates.forEach(function (c) { if (sel[c.id] === undefined) sel[c.id] = true; });
-      if (form.macroTitle === undefined) form.macroTitle = form.title;
-      var blk = el('div', 'objMacroBox');
-      blk.appendChild(el('p', 'cmpBlockTitle', tr('Objectif macro')));
-      blk.appendChild(el('p', 'objPlain', tr('Des objectifs proches existent dans d’autres activités : un macro peut les englober avec') + ' « ' + form.title + ' ».'));
-      var tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = form.macroTitle; tIn.setAttribute('aria-label', tr('Nom du macro'));
-      blk.appendChild(field(tr('Nom du macro'), tIn));
-      var lst = el('div');
-      m.candidates.forEach(function (c) {
-        var r = el('div', 'tasksPopRow objWeekRow' + (sel[c.id] ? ' done' : ''));
-        var cb = btn('tasksPopCheck', '', function () { sel[c.id] = !sel[c.id]; form.macroDecided = null; paintRatt(); show('rattach'); });
-        cb.innerHTML = sel[c.id] ? CHECK : ''; cb.setAttribute('aria-pressed', sel[c.id] ? 'true' : 'false'); cb.setAttribute('aria-label', c.title + ' · ' + c.activityName);
-        r.appendChild(cb); var tx = el('div', 'tasksPopText'); tx.appendChild(el('b', null, c.title)); tx.appendChild(el('small', null, c.activityName + dueOf(c.id))); r.appendChild(tx); lst.appendChild(r);
-      });
-      blk.appendChild(field(tr('Activités concernées'), lst));
-      var n = macroIds().length, avant = el('p', 'objPlain'), apres = el('p', 'objPlain');
-      function paintBA() { avant.textContent = tr('Avant') + ' : « ' + form.title + ' » ' + tr('reste seul') + '.'; apres.textContent = tr('Après') + ' : ' + tr('le macro') + ' « ' + (form.macroTitle || form.title) + ' » ' + tr('englobe cet objectif') + (n ? ' + ' + n + ' ' + tr(n > 1 ? 'objectifs d’autres activités' : 'objectif d’une autre activité') : '') + '.'; }
-      paintBA(); tIn.addEventListener('input', function () { form.macroTitle = tIn.value; paintBA(); });
-      blk.appendChild(avant); blk.appendChild(apres);
-      var row = el('div', 'objRattRow');
-      if (form.macroDecided !== 'accept') {
-        var ok = btn('cmpBtn', tr('Accepter'), function () {
-          form.macroDecided = 'accept'; if (form.ratt.cand) { form.ratt.decided = 'refuse'; form.parentId = null; form.parentRel = null; } // un objectif macro et un rattachement ne se cumulent pas
-          paintRatt(); show('rattach');
-        });
-        ok.disabled = n === 0; row.appendChild(ok);
-        row.appendChild(btn('cmpBtn cmpBtnIdle', tr('Refuser'), function () { form.macroDecided = 'refuse'; var l = list(), nx = l[l.indexOf('rattach') + 1]; if (form.ratt.cand && form.ratt.decided !== 'accept') { paintRatt(); show('rattach'); } else show(nx || 'temps'); }));
-      } else row.appendChild(btn('objLink', tr('Annuler le macro'), function () { form.macroDecided = null; paintRatt(); show('rattach'); }));
-      blk.appendChild(row); blkParent.appendChild(blk);
-    }
-    function paintRatt() {
-      var b = boxes.rattach, r = form.ratt; b.textContent = ''; if (!r || (!r.cand && !r.macro)) return;
-      if (r.cand && form.macroDecided !== 'accept') {
-        var card = el('div', 'aiModeChoice objChoice on'); card.appendChild(el('span', 'aiModeChoiceTitle', r.cand.title)); card.appendChild(el('span', 'aiModeChoiceDesc', r.cand.activityName + dueOf(r.cand.id)));
-        b.appendChild(field(tr('Rattaché à'), card));
-        b.appendChild(field(tr('Placer'), seg([['avant', tr('Avant')], ['apres', tr('Après')]], r.rel, function (k) { r.rel = k; if (r.decided === 'accept') form.parentRel = k; }, tr('Placer'))));
-        b.appendChild(el('p', 'objPlain', '« ' + form.title + ' »'));
-        if (r.decided !== 'accept') {
-          var row = el('div', 'objRattRow');
-          row.appendChild(btn('cmpBtn', tr('Accepter'), function () { r.decided = 'accept'; form.parentId = r.cand.id; form.parentRel = r.rel; paintRatt(); show('rattach'); }));
-          row.appendChild(btn('cmpBtn cmpBtnIdle', tr('Refuser'), function () { r.decided = 'refuse'; form.parentId = null; form.parentRel = null; form.refused = (form.refused || []).concat([r.cand.id]); var l = list(), nx = l[l.indexOf('rattach') + 1]; r.cand = null; if (r.macro && !form.macroDecided) { paintRatt(); show('rattach'); } else show(nx); }));
-          b.appendChild(row);
-        }
-      }
-      if (r.macro && r.decided !== 'accept') paintMacro(b, r.macro);
-    }
     function loadRatt() {
       // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
       var key = form.title + '|' + (form.create ? 'new' : form.activityId);
       if (form.ratt && form.ratt.key === key) return Promise.resolve(); // même titre et même activité : la décision précédente reste
-      form.ratt = { key: key, cand: null, rel: 'apres', decided: null }; form.parentId = null; form.parentRel = null; form.macroDecided = null; form.macroSel = null; form.macroTitle = undefined;
-      if (form.create || form.activityId == null || form.acts.length + form.news.length > 1) return Promise.resolve(); // plusieurs activités : macro, pas de rattachement
+      form.ratt = { key: key, cand: null, rel: 'apres', decided: null }; form.parentId = null; form.parentRel = null;
+      if (form.create || form.activityId == null) return Promise.resolve();
       return api('POST', '/api/objectifs/rattachement', { endDate: form.endDate, title: form.title, activityId: form.activityId, // une seule règle : le parent a une échéance au moins égale à celle du nouvel objectif
  refused: form.refused || [] }).then(function (r) {
-        if (r && r.candidate) { form.ratt.cand = r.candidate; form.ratt.rel = r.rel || 'apres'; form.ratt.decided = 'accept'; form.parentId = r.candidate.id; form.parentRel = form.ratt.rel; } // parent de la même activité choisi tout seul (8 nov. 2026), plus de page Rattachement ni de macro multi-activités
+        if (r && r.candidate) { form.ratt.cand = r.candidate; form.ratt.rel = r.rel || 'apres'; form.ratt.decided = 'accept'; form.parentId = r.candidate.id; form.parentRel = form.ratt.rel; } // parent de la même activité choisi tout seul (8 nov. 2026), plus de page Rattachement ; les macros ne se font plus à la création (seulement depuis l'arbre)
       }).catch(function () {});
     }
     function show(k) {
       form._step = cur = k;
-      ['desc', 'rattach', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      ['desc', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
       if (k === 'desc' && form._hints && form._shownOnce) form._hints();
       if (k === 'desc') form._shownOnce = true;
       if (k === 'temps') paintHours();
-      if (k === 'rattach') paintRatt();
       panelKicker.textContent = tr(stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
       stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave');
       stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');
-      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate)) || (k === 'rattach' && rattPending()) || (k === 'temps' && !hoursOk()); // Suivant grisé tant que le rattachement n'est pas décidé
+      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate)) || (k === 'temps' && !hoursOk()); // Suivant grisé tant que le rattachement n'est pas décidé
       advance = i < tot - 1 ? stepNext : finishAll; setBack(i > 0 ? function () { show(l[i - 1]); } : null);
     }
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
@@ -493,23 +433,18 @@
     function innerOf() { return multiPeriods() ? form.innerGoals : 'hebdomadaires'; }
     function finishAll() { // Terminer : proposition par règles (ou IA gratuite du mois) puis création ; rien n'est créé avant ce geste
       if (!validDesc(true)) return;
-      if (form.ratt && form.ratt.key !== form.title + '|' + (form.create ? 'new' : form.activityId)) { form.parentId = null; form.parentRel = null; form.macroDecided = null; } // l'activité a changé après la proposition de rattachement : plus de parent
+      if (form.ratt && form.ratt.key !== form.title + '|' + (form.create ? 'new' : form.activityId)) { form.parentId = null; form.parentRel = null; } // l'activité a changé après la proposition de rattachement : plus de parent
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
-      var tg = targets(), actName = tg.length ? tg[0].name : '', madeIds = [], first = null;
+      var t = targets()[0], actName = t ? t.name : '', first = null;
       api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.create ? null : form.activityId, activityName: actName })
-        .then(function (P) {
-          var chain = Promise.resolve();
-          tg.forEach(function (t, k) { // une activité après l'autre : crée l'activité si elle est nouvelle, puis son objectif (même titre, même échéance)
-            chain = chain.then(function () { return t.pending ? api('POST', '/api/activities', { name: t.pending.name, color: t.pending.color || undefined }).then(function (a) { return a.id; }) : t.id; })
-              .then(function (activityId) {
-                return api('POST', '/api/objectifs', { term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, skill: form.skill || '', hoursFrom: t.pending && form.hoursFrom[t.key] ? { mode: form.hoursFrom[t.key].mode, fromActivityId: form.hoursFrom[t.key].fromId } : null, description: form.description, parentRel: k === 0 ? form.parentRel : null, refus: k === 0 ? form.refused : null, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: k === 0 ? form.parentId : null, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: k === 0 ? P.weekTasks : [] });
-              })
-              .then(function (cr) { if (cr && cr.id) { madeIds.push(cr.id); if (!first) first = cr; } });
-          });
-          return chain;
+        .then(function (P) { // UNE seule activité (les macros se font seulement depuis l'arbre) : crée l'activité si elle est nouvelle, puis l'objectif
+          return (t.pending ? api('POST', '/api/activities', { name: t.pending.name, color: t.pending.color || undefined }).then(function (a) { return a.id; }) : Promise.resolve(t.id))
+            .then(function (activityId) {
+              return api('POST', '/api/objectifs', { term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, skill: form.skill || '', hoursFrom: t.pending && form.hoursFrom[t.key] ? { mode: form.hoursFrom[t.key].mode, fromActivityId: form.hoursFrom[t.key].fromId } : null, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+            })
+            .then(function (cr) { if (cr && cr.id) first = cr; });
         })
-        .then(function () { var all = madeIds.concat(allMacroIds()); return madeIds.length && all.length > 1 ? api('POST', '/api/objectifs/macro', { childIds: all, title: (form.macroTitle || form.title || '').trim() || form.title }) : null; }) // macro : un objectif par activité choisie (+ objectifs d'autres colonnes choisis en Avancé), créé APRÈS les objectifs
         .then(function () { var created = first; input.value = ''; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); if (created && created.bridgeFailed) openDetail(created.id); /* C12 : le message s’affiche dans le détail */ })
         .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
     }
