@@ -1,5 +1,5 @@
-// Description de l'objectif : réponses du PARENT proposées à l'enfant (9 nov. 2026). Cinq questions seulement (Avec qui, Avec quoi, Où, Autre nom, Hors sujet), par copie champ par
-// champ (sans IA), jamais Que faire / Quel résultat / Comment ça avance / Obstacle ; parent plein, partiel ou vide ; rien n'est écrit avant validation.
+// Description de l'objectif : 9 questions facultatives en 3 groupes ; un mot touché se SÉLECTIONNE (bascule, plusieurs possibles), rien n'est écrit dans le champ texte ; réponses du PARENT proposées à
+// l'enfant (cinq questions, mots pré-sélectionnés + texte, copie champ par champ, sans IA, jamais Que faire / Quel résultat / Comment ça avance / Obstacle) ; compteur « n/3 » par groupe.
 const fs = require('fs');
 const path = require('path');
 let failed = 0;
@@ -8,56 +8,76 @@ const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'objectif
 const a = src.indexOf('  var GUIDE_GROUPS = ['), b = src.indexOf('  function paintGuideInto(');
 assert(a > 0 && b > a, 'bloc de la description guidée trouvé');
 const tr = (s) => s;
-const api = new Function('tr', src.slice(a, b) + '\nreturn { GUIDE, guideParse, guideCompose, guideAns, guideProposals, guideInsert, guideFilled, GUIDE_FROM_PARENT };')(tr);
+const api = new Function('tr', src.slice(a, b) + '\nreturn { GUIDE, GUIDE_GROUPS, guideParse, guideCompose, guideAns, guideProposals, guideToggle, guideFilled, GUIDE_FROM_PARENT };')(tr);
+const Q = (k) => api.GUIDE.filter((g) => g.k === k)[0];
 
-const full = 'Faire : contacter · Résultat : devis · Avancement : chiffre · Avec qui : client · Avec quoi : outils · Lieu : en ligne · Obstacle : argent · Hors sujet : plus tard · Autre nom : surnom';
+// ---- Pré-remplissage depuis le parent : parent plein / partiel / vide ----
+const full = 'Faire : contacter · Résultat : devis · Avancement : chiffre · Avec qui : client, équipe, ma voisine · Avec quoi : outils · Lieu : en ligne · Obstacle : argent · Hors sujet : plus tard · Autre nom : surnom, le grand projet';
 let p = api.guideProposals(full);
 assert(JSON.stringify(Object.keys(p).sort()) === JSON.stringify(['horssujet', 'nom', 'ou', 'qui', 'quoi']), 'parent plein : seules les cinq questions sont proposées');
-assert(p.qui === 'client' && p.quoi === 'outils' && p.ou === 'en ligne' && p.nom === 'surnom' && p.horssujet === 'plus tard', 'parent plein : copie champ par champ');
+assert(JSON.stringify(p.qui) === JSON.stringify({ picks: ['Client', 'Équipe'], text: 'ma voisine' }) && JSON.stringify(p.quoi) === JSON.stringify({ picks: ['Outils'], text: '' }), 'parent plein : mots pré-sélectionnés ET texte du parent, champ par champ');
+assert(JSON.stringify(p.nom) === JSON.stringify({ picks: ['Surnom'], text: 'le grand projet' }) && p.ou.picks[0] === 'En ligne', 'parent plein : autres questions copiées');
 assert(!('faire' in p) && !('resultat' in p) && !('avance' in p) && !('obstacle' in p), 'jamais Que faire, Quel résultat, Comment ça avance, Obstacle');
 p = api.guideProposals('Faire : créer · Avec qui : équipe · Obstacle : temps');
-assert(JSON.stringify(p) === JSON.stringify({ qui: 'équipe' }), 'parent partiel : seul ce qui est écrit est proposé');
+assert(JSON.stringify(Object.keys(p)) === JSON.stringify(['qui']) && p.qui.picks[0] === 'Équipe', 'parent partiel : seul ce qui est écrit est proposé');
 assert(JSON.stringify(api.guideProposals('')) === '{}' && JSON.stringify(api.guideProposals(null)) === '{}', 'parent vide : aucun champ proposé (comme avant)');
 assert(JSON.stringify(api.guideProposals('Réussite : chiffre · Raison : santé · texte libre ancien')) === '{}', 'ancien format du parent : rien de proposé, rien de perdu');
 assert(JSON.stringify(api.guideProposals('Avec qui :   ')) === '{}', 'réponse blanche : rien');
 
-// La proposition n'est pas une réponse : le texte composé de l'enfant reste vide tant que la personne ne valide pas
-const child = {};
-api.guideParse(child, '');
-assert(api.guideCompose(child) === '', 'enfant : rien d’enregistré tant que la proposition n’est pas validée');
-child.proposed = api.guideProposals(full);
-assert(api.guideCompose(child) === '', 'les propositions ne passent jamais dans le texte composé');
-const qui = api.GUIDE.filter((g) => g.k === 'qui')[0];
-api.guideAns(child, qui).text = child.proposed.qui; // toucher = valider
-assert(api.guideCompose(child) === 'Avec qui : client', 'validée : seule la réponse touchée est enregistrée');
-const ou = api.GUIDE.filter((g) => g.k === 'ou')[0], aOu = api.guideAns(child, ou);
-api.guideInsert(aOu, 'En ligne');
-assert(aOu.touched === true && /Lieu : en ligne/.test(api.guideCompose(child)), 'un mot touché compte comme une réponse de la personne');
+// ---- Sélection : bascule, plusieurs mots, texte libre séparé ----
+const f = {}; api.guideParse(f, '');
+const qui = Q('qui'), aq = api.guideAns(f, qui);
+assert(api.guideCompose(f) === '' && !api.guideFilled(aq), 'départ : rien d’écrit, question non remplie');
+api.guideToggle(aq, 'Client');
+assert(JSON.stringify(aq.picks) === '["Client"]' && aq.text === '' && api.guideFilled(aq), 'toucher un mot le SÉLECTIONNE ; rien n’est écrit dans la case de texte');
+api.guideToggle(aq, 'Équipe');
+assert(JSON.stringify(aq.picks) === '["Client","Équipe"]', 'plusieurs mots possibles par question');
+api.guideToggle(aq, 'Client');
+assert(JSON.stringify(aq.picks) === '["Équipe"]' && api.guideFilled(aq), 'toucher de nouveau le DÉSÉLECTIONNE');
+api.guideToggle(aq, 'Équipe');
+assert(aq.picks.length === 0 && !api.guideFilled(aq), 'plus aucun mot et pas de texte : question non remplie');
+// texte seul / mots seuls / les deux
+const ouQ = Q('ou'), ao = api.guideAns(f, ouQ);
+ao.text = 'chez le client';
+assert(api.guideFilled(ao) && api.guideCompose(f) === 'Lieu : chez le client', 'texte seul : question remplie');
+const quoiQ = Q('quoi'), aqq = api.guideAns(f, quoiQ);
+api.guideToggle(aqq, 'Outils'); api.guideToggle(aqq, 'Documents');
+assert(api.guideCompose(f) === 'Avec quoi : outils, documents · Lieu : chez le client', 'mots seuls : texte composé « libellé : mots » ; les deux : mots puis texte');
+api.guideToggle(ao, 'En ligne');
+assert(api.guideCompose(f) === 'Avec quoi : outils, documents · Lieu : en ligne, chez le client', 'mots sélectionnés ET texte écrit, ensemble');
 
-// Garde statique : lecture seule, composants existants, aucun appel payant
+// ---- Enregistrement et relecture ----
+const saved = api.guideCompose(f), g2 = {};
+api.guideParse(g2, saved);
+assert(JSON.stringify(api.guideAns(g2, quoiQ).picks) === '["Outils","Documents"]' && api.guideAns(g2, quoiQ).text === '', 'relecture : mots sélectionnés retrouvés');
+assert(JSON.stringify(api.guideAns(g2, ouQ).picks) === '["En ligne"]' && api.guideAns(g2, ouQ).text === 'chez le client', 'relecture : mots ET texte retrouvés séparément');
+assert(api.guideCompose(g2) === saved, 'enregistrement puis relecture : texte identique (aucune perte)');
+const legacy = {}; api.guideParse(legacy, 'Obstacle : temps, argent, manque de budget · Raison : santé · note libre');
+assert(JSON.stringify(api.guideAns(legacy, Q('obstacle')).picks) === '["Temps","Argent"]' && api.guideAns(legacy, Q('obstacle')).text === 'manque de budget' && /Raison : santé · note libre/.test(api.guideCompose(legacy)), 'ancienne description : réponses reconnues, texte inconnu conservé');
+
+// ---- La proposition n'est pas une réponse ----
+const child = {}; api.guideParse(child, '');
+child.proposed = api.guideProposals(full);
+assert(api.guideCompose(child) === '' && !api.guideFilled(api.guideAns(child, qui)), 'enfant : une proposition du parent non touchée n’est ni enregistrée ni comptée');
+const aqu = api.guideAns(child, qui); aqu.picks = child.proposed.qui.picks.slice(); aqu.text = child.proposed.qui.text; aqu.touched = true; // toucher la proposition = valider
+assert(api.guideCompose(child) === 'Avec qui : client, équipe, ma voisine' && api.guideFilled(aqu), 'validée : mots et texte du parent enregistrés, la question compte');
+
+// ---- Compteur « n/3 » par groupe ----
+const cnt = (form, grp) => grp.qs.filter((g) => api.guideFilled(api.guideAns(form, g))).length;
+const ctxGroup = api.GUIDE_GROUPS[1];
+assert(ctxGroup.g === 'Le contexte' && api.GUIDE_GROUPS[0].g === 'Le travail' && api.GUIDE_GROUPS[2].g === 'Les précisions', 'titres des trois groupes : Le travail, Le contexte, Les précisions');
+assert(cnt(f, ctxGroup) === 3 - 1 && cnt(f, api.GUIDE_GROUPS[0]) === 0 && cnt(f, api.GUIDE_GROUPS[2]) === 0, 'compteur : une question avec un mot OU du texte compte (2/3 ici), sinon 0');
+assert(cnt(child, ctxGroup) === 1, 'compteur : seulement ce qui est validé par la personne');
+
+// ---- Garde statique : lecture seule, composants existants, aucun appel payant ----
 const ra = src.indexOf('    function refreshHints()'), rb = src.indexOf('    form._hints = refreshHints;');
 const body = src.slice(ra, rb);
 assert(ra > 0 && rb > ra, 'refreshHints trouvé');
 assert(!/'PUT'|'DELETE'|api\('POST', '\/api\/objectifs'[,)]/.test(body) && !/anthropic|callModel/i.test(body) && !/objectifs\/(proposition|contexte|macro)/.test(body), 'refreshHints : aucune écriture, aucun appel IA');
-assert(/btn\('cmpBtn cmpBtnIdle', tr\('Proposé'\)/.test(src), 'la proposition est un bouton cmpBtn atténué (aucun nouveau style)');
-assert(/a\.touched = true/.test(src) && /!a\.touched && !a\.text\.trim\(\)/.test(src), 'écrire ou effacer soi-même retire la proposition');
-assert(/GUIDE_FROM_PARENT = \['qui', 'quoi', 'ou', 'nom', 'horssujet'\]/.test(src), 'les cinq clés exactes');
-
-// Groupes repliables (9 nov. 2026) : titres, compteur « n/3 » des réponses écrites ou validées (jamais une proposition du parent non touchée), « Le travail » déplié par défaut
-assert(["g: 'Le travail'", "g: 'Le contexte'", "g: 'Les précisions'"].every((x) => src.includes(x)), 'titres des trois groupes : Le travail, Le contexte, Les précisions');
+assert(/btn\('cmpBtn cmpBtnIdle', tr\('Proposé'\)/.test(src) && src.includes("btn(on ? 'active' : '', tr(o)"), 'proposition = bouton cmpBtn atténué ; mots = boutons à bascule (état « active » des choix de l’app)');
 assert(src.includes("btn('objGuideHead cmpToggle'") && src.includes("el('span', 'cmpChev' + (open ? ' open' : ''))") && src.includes("filled + '/' + grp.qs.length"), 'cellule repliable : titre, compteur « n/3 », flèche R21 (.cmpChev)');
 assert(src.includes('if (form.guideOpen === undefined) form.guideOpen = 0;') && !/localStorage|sessionStorage/.test(src.slice(a, src.indexOf('  // Terme (Périodique'))), '« Le travail » déplié par défaut ; l’état déplié/replié ne s’enregistre pas');
-{
-  const childC = {}; api.guideParse(childC, '');
-  const cnt = (grp) => grp.qs.filter((g) => api.guideFilled(api.guideAns(childC, g))).length;
-  const grpT = api.GROUPS ? api.GROUPS[0] : null;
-  const quiQ = api.GUIDE.filter((g) => g.k === 'qui')[0], quoiQ = api.GUIDE.filter((g) => g.k === 'quoi')[0];
-  const ctxGroup = { qs: [quiQ, quoiQ, api.GUIDE.filter((g) => g.k === 'ou')[0]] };
-  childC.proposed = api.guideProposals(full);
-  assert(cnt(ctxGroup) === 0, 'compteur : une proposition du parent non touchée ne compte pas');
-  api.guideAns(childC, quiQ).text = 'client';
-  assert(cnt(ctxGroup) === 1, 'compteur : une réponse validée ou écrite compte');
-  assert(grpT === null || true, 'groupes');
-}
+assert(/GUIDE_FROM_PARENT = \['qui', 'quoi', 'ou', 'nom', 'horssujet'\]/.test(src), 'les cinq clés exactes');
+
 console.log(failed ? '\ndescription-parent-test : ' + failed + ' ÉCHEC(S)' : '\ndescription-parent-test : OK');
 process.exit(failed ? 1 : 0);

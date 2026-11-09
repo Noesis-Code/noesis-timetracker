@@ -161,36 +161,37 @@
       { k: 'nom', q: 'Autre nom ?', label: 'Autre nom', opts: ['Sigle', 'Surnom', 'Nom du client'] }] }
   ];
   var GUIDE = [].concat.apply([], GUIDE_GROUPS.map(function (x) { return x.qs; }));
-  function guideAns(form, g) { form.guide = form.guide || {}; return form.guide[g.k] || (form.guide[g.k] = { text: '' }); }
-  function guideParse(form, text) { // relit une description déjà enregistrée ; tout texte qui n'est pas une réponse connue (ancien format compris) est gardé tel quel (form.guideRest), jamais perdu
+  function guideAns(form, g) { form.guide = form.guide || {}; return form.guide[g.k] || (form.guide[g.k] = { picks: [], text: '' }); }
+  function guideParse(form, text) { // relit une description déjà enregistrée : mots connus = mots sélectionnés, le reste = texte libre ; tout texte qui n'est pas une réponse connue (ancien format compris) est gardé tel quel (form.guideRest), jamais perdu
     form.guide = {}; var rest = [];
     String(text || '').split(' · ').forEach(function (part) {
       var g = GUIDE.filter(function (x) { return part.indexOf(tr(x.label) + ' : ') === 0; })[0];
       if (!g) { if (part.trim()) rest.push(part.trim()); return; }
-      guideAns(form, g).text = part.slice((tr(g.label) + ' : ').length).trim();
+      var a = guideAns(form, g), words = [];
+      part.slice((tr(g.label) + ' : ').length).split(', ').forEach(function (tok) {
+        var o = g.opts.filter(function (x) { return tr(x).toLowerCase() === tok.trim().toLowerCase(); })[0];
+        if (o) { if (a.picks.indexOf(o) < 0) a.picks.push(o); } else if (tok.trim()) words.push(tok.trim());
+      });
+      a.text = words.join(', ');
     });
     form.guideRest = rest.join(' · ');
   }
-  function guideCompose(form) {
-    var t = GUIDE.map(function (g) { var a = guideAns(form, g); return a.text.trim() ? tr(g.label) + ' : ' + a.text.trim() : ''; }).filter(Boolean);
+  function guideCompose(form) { // « Libellé : mots sélectionnés, texte écrit » ; lu par l'IA (rattachement des tâches)
+    var t = GUIDE.map(function (g) { var a = guideAns(form, g), p = a.picks.map(function (x) { return tr(x).toLowerCase(); }); if (a.text.trim()) p.push(a.text.trim()); return p.length ? tr(g.label) + ' : ' + p.join(', ') : ''; }).filter(Boolean);
     if (form.guideRest) t.push(form.guideRest);
     return t.join(' · ').slice(0, 900);
   }
-  // Pré-remplissage depuis le PARENT (9 nov. 2026, décision d'Émilien) : seules cinq questions sont proposées à l'objectif enfant, par simple copie champ par champ (sans IA) ; jamais
-  // « Que faire ? », « Quel résultat ? », « Comment ça avance ? » ni « Obstacle ? ». Rien n'est enregistré avant la validation (toucher la proposition) ; pas depuis les enfants.
+  // Pré-remplissage depuis le PARENT (9 nov. 2026, décision d'Émilien) : seules cinq questions sont proposées à l'objectif enfant, par simple copie champ par champ (sans IA) : mots pré-sélectionnés ET texte du parent ;
+  // jamais « Que faire ? », « Quel résultat ? », « Comment ça avance ? » ni « Obstacle ? ». Rien n'est enregistré avant la validation (toucher la proposition ou un mot) ; pas depuis les enfants.
   var GUIDE_FROM_PARENT = ['qui', 'quoi', 'ou', 'nom', 'horssujet'];
   function guideProposals(parentDescription) {
     var tmp = {}, out = {}; guideParse(tmp, parentDescription);
-    GUIDE_FROM_PARENT.forEach(function (k) { var a = tmp.guide && tmp.guide[k], t = a ? a.text.trim() : ''; if (t) out[k] = t; });
+    GUIDE_FROM_PARENT.forEach(function (k) { var a = tmp.guide && tmp.guide[k]; if (a && (a.picks.length || a.text.trim())) out[k] = { picks: a.picks.slice(), text: a.text.trim() }; });
     return out;
   }
-  function guideFilled(a) { return !!a.text.trim(); } // une question est remplie si elle porte une réponse écrite ou validée par la personne (jamais une proposition du parent non touchée)
-  function guideInsert(a, word) { // un toucher insère le mot dans la réponse (une seule fois ; la personne peut le retirer ou écrire autour)
-    var w = tr(word).toLowerCase(), cur = a.text.trim();
-    if (cur.toLowerCase().split(/[,;] */).indexOf(w) >= 0) return false;
-    a.text = cur ? cur + ', ' + w : w; a.touched = true;
-    return true;
-  }
+  // Une question est remplie si au moins un mot est sélectionné OU du texte est écrit (jamais une proposition du parent non touchée)
+  function guideFilled(a) { return a.picks.length > 0 || !!a.text.trim(); }
+  function guideToggle(a, word) { var i = a.picks.indexOf(word); if (i >= 0) a.picks.splice(i, 1); else a.picks.push(word); a.touched = true; } // bascule sélectionné / non sélectionné ; rien n'est écrit dans le champ texte
   function paintGuideInto(box, form, onChange, focusFirst) {
     box.textContent = '';
     if (form.guideOpen === undefined) form.guideOpen = 0;
@@ -208,11 +209,18 @@
         grp.qs.forEach(function (g, qi) {
           var a = guideAns(form, g), q = el('div', 'objGuideQ'), s = el('div', 'cmpSeg'), ans = el('input');
           q.appendChild(el('span', 'cmpBlockTitle', tr(g.q)));
-          var prop = form.proposed && form.proposed[g.k];
-          if (prop && !a.touched && !a.text.trim()) q.appendChild(btn('cmpBtn cmpBtnIdle', tr('Proposé') + ' : ' + prop, function () { a.text = prop; a.touched = true; onChange(); paintGuideInto(box, form, onChange); }));
+          var prop = form.proposed && form.proposed[g.k], pending = !!prop && !a.touched && !guideFilled(a); // proposition du parent : visible tant qu'on n'y touche pas
+          if (pending) q.appendChild(btn('cmpBtn cmpBtnIdle', tr('Proposé') + ' : ' + prop.picks.map(function (x) { return tr(x).toLowerCase(); }).concat(prop.text ? [prop.text] : []).join(', '), function () { a.picks = prop.picks.slice(); a.text = prop.text; a.touched = true; onChange(); paintGuideInto(box, form, onChange); }));
           s.setAttribute('role', 'group'); s.setAttribute('aria-label', tr(g.q));
           ans.type = 'text'; ans.maxLength = 80; ans.value = a.text; ans.placeholder = tr('Quelques mots'); ans.setAttribute('aria-label', tr(g.q)); ans.enterKeyHint = 'next';
-          g.opts.forEach(function (o) { s.appendChild(btn('', tr(o), function () { if (guideInsert(a, o)) { ans.value = a.text; onChange(); } })); });
+          g.opts.forEach(function (o) {
+            var on = a.picks.indexOf(o) >= 0 || (pending && prop.picks.indexOf(o) >= 0); // mots proposés : pré-sélectionnés (comme une sélection), mais pas enregistrés
+            var b = btn(on ? 'active' : '', tr(o), function () {
+              if (pending && !a.touched) { a.picks = prop.picks.slice(); a.touched = true; } // toucher un mot valide la sélection proposée puis la modifie
+              guideToggle(a, o); onChange(); paintGuideInto(box, form, onChange);
+            });
+            b.setAttribute('aria-pressed', on ? 'true' : 'false'); s.appendChild(b);
+          });
           ans.addEventListener('input', function () { a.text = ans.value; a.touched = true; onChange(); });
           ans.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); var nx = box.querySelectorAll('.objGuideQ input')[qi + 1]; if (nx) nx.focus(); else { form.guideOpen = gi + 1 < GUIDE_GROUPS.length ? gi + 1 : -1; paintGuideInto(box, form, onChange, true); } } });
           q.appendChild(s); q.appendChild(ans); wrap.appendChild(q);
