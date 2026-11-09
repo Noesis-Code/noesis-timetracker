@@ -147,15 +147,15 @@
   // Chaque question propose trois mots : un toucher INSÈRE le mot dans la réponse (champ texte modifiable). Le texte composé « Libellé : réponse · … » est lu par l'IA (rattachement
   // des tâches à l'objectif) ; l'IA élargit chaque réponse avec des synonymes côté serveur, sans que la personne écrive plus. Le texte des questions et des mots est fixé par Émilien.
   var GUIDE_GROUPS = [
-    { g: 'Faire', qs: [
+    { g: 'Le travail', qs: [
       { k: 'faire', q: 'Que faire ?', label: 'Faire', opts: ['Contacter', 'Créer', 'Organiser'] },
       { k: 'resultat', q: 'Quel résultat ?', label: 'Résultat', opts: ['Document', 'Livraison', 'Décision'] },
       { k: 'avance', q: 'Comment ça avance ?', label: 'Avancement', opts: ['Chiffre', 'Terminé', 'Habitude'] }] },
-    { g: 'Avec quoi', qs: [
+    { g: 'Le contexte', qs: [
       { k: 'qui', q: 'Avec qui ?', label: 'Avec qui', opts: ['Client', 'Équipe', 'Proches'] },
       { k: 'quoi', q: 'Avec quoi ?', label: 'Avec quoi', opts: ['Outils', 'Matériel', 'Documents'] },
       { k: 'ou', q: 'Où ?', label: 'Lieu', opts: ['Lieu', 'En ligne', 'Déplacement'] }] },
-    { g: 'Limites', qs: [
+    { g: 'Les précisions', qs: [
       { k: 'obstacle', q: 'Obstacle ?', label: 'Obstacle', opts: ['Temps', 'Argent', 'Quelqu’un'] },
       { k: 'horssujet', q: 'Hors sujet ?', label: 'Hors sujet', opts: ['Autre projet', 'Autre domaine', 'Plus tard'] },
       { k: 'nom', q: 'Autre nom ?', label: 'Autre nom', opts: ['Sigle', 'Surnom', 'Nom du client'] }] }
@@ -184,6 +184,7 @@
     GUIDE_FROM_PARENT.forEach(function (k) { var a = tmp.guide && tmp.guide[k], t = a ? a.text.trim() : ''; if (t) out[k] = t; });
     return out;
   }
+  function guideFilled(a) { return !!a.text.trim(); } // une question est remplie si elle porte une réponse écrite ou validée par la personne (jamais une proposition du parent non touchée)
   function guideInsert(a, word) { // un toucher insère le mot dans la réponse (une seule fois ; la personne peut le retirer ou écrire autour)
     var w = tr(word).toLowerCase(), cur = a.text.trim();
     if (cur.toLowerCase().split(/[,;] */).indexOf(w) >= 0) return false;
@@ -195,11 +196,12 @@
     if (form.guideOpen === undefined) form.guideOpen = 0;
     GUIDE_GROUPS.forEach(function (grp, gi) {
       var open = form.guideOpen === gi, wrap = el('div', 'objField objGuideRow' + (open ? ' open' : ''));
-      var head = btn('objGuideHead', '', function () { form.guideOpen = open ? -1 : gi; paintGuideInto(box, form, onChange); });
+      var head = btn('objGuideHead cmpToggle', '', function () { form.guideOpen = open ? -1 : gi; paintGuideInto(box, form, onChange); });
       head.setAttribute('aria-expanded', open ? 'true' : 'false');
-      var filled = grp.qs.filter(function (g) { return guideAns(form, g).text.trim(); }).length, tx = el('span', 'objGuideTxt');
+      var filled = grp.qs.filter(function (g) { return guideFilled(guideAns(form, g)); }).length, tx = el('span', 'objGuideTxt');
       tx.appendChild(el('span', 'cmpBlockTitle', tr(grp.g)));
-      head.appendChild(tx); head.appendChild(el('span', 'hint objGuideRight', (filled && !open ? '(' + filled + '/' + grp.qs.length + ')  ' : '') + (open ? '▾' : '▸')));
+      // à droite : compteur « 2/3 » (gris sable) puis la flèche R21 (composant .cmpChev, pivotée quand le groupe est ouvert)
+      head.appendChild(tx); head.appendChild(el('span', 'hint objGuideRight', filled + '/' + grp.qs.length)); head.appendChild(el('span', 'cmpChev' + (open ? ' open' : '')));
       wrap.appendChild(head);
       if (open) {
         var firstIn = null;

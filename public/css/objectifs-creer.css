@@ -124,16 +124,17 @@
 .objPlain { margin: 0; font-size: 14px; color: var(--text); }
 
 .objGroupRow { display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 53px; padding: 8px 4px; border: 0; border-radius: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.objGuideHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.objGuideHead .cmpBlockTitle { margin: 0; }
-.objGuideRow { margin: 0; }
-.objGuideRow.open { margin-bottom: 8px; }
+.objGuideHead { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; box-sizing: border-box; padding: 12px 16px; border: 0; border-radius: var(--radius-xl); background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--glass-calm-line); color: inherit; font: inherit; text-align: left; cursor: pointer; } /* cellule en verre calme sur toute la largeur (comme .aiModeChoice) */
+.objGuideHead .cmpBlockTitle { margin: 0; padding: 0; font-size: 14px; color: var(--purple); }
+.objGuideHead .cmpChev { margin-left: 0; }
+.objGuideRow { margin: 0 0 8px; }
+.objGuideRow.open .objGuideHead { margin-bottom: 16px; }
 .objGuideRow .cmpSeg { margin-bottom: 8px; }
 .objGuideQ { margin-bottom: 16px; }
 .objGuide { margin-bottom: 16px; }
 .objGuideTxt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
 .objGuideTxt .hint { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.objGuideRight { flex: none; white-space: nowrap; }
+.objGuideRight { flex: none; white-space: nowrap; margin: 0 0 0 auto; color: var(--grey-violet); }
 .objField .cmpSeg > :disabled { opacity: .4; cursor: default; }
 .objDueRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .objDueInput { flex: none; width: auto; min-height: 36px; padding: 0 10px; }

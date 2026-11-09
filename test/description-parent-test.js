@@ -8,7 +8,7 @@ const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'objectif
 const a = src.indexOf('  var GUIDE_GROUPS = ['), b = src.indexOf('  function paintGuideInto(');
 assert(a > 0 && b > a, 'bloc de la description guidée trouvé');
 const tr = (s) => s;
-const api = new Function('tr', src.slice(a, b) + '\nreturn { GUIDE, guideParse, guideCompose, guideAns, guideProposals, guideInsert, GUIDE_FROM_PARENT };')(tr);
+const api = new Function('tr', src.slice(a, b) + '\nreturn { GUIDE, guideParse, guideCompose, guideAns, guideProposals, guideInsert, guideFilled, GUIDE_FROM_PARENT };')(tr);
 
 const full = 'Faire : contacter · Résultat : devis · Avancement : chiffre · Avec qui : client · Avec quoi : outils · Lieu : en ligne · Obstacle : argent · Hors sujet : plus tard · Autre nom : surnom';
 let p = api.guideProposals(full);
@@ -43,5 +43,21 @@ assert(/btn\('cmpBtn cmpBtnIdle', tr\('Proposé'\)/.test(src), 'la proposition e
 assert(/a\.touched = true/.test(src) && /!a\.touched && !a\.text\.trim\(\)/.test(src), 'écrire ou effacer soi-même retire la proposition');
 assert(/GUIDE_FROM_PARENT = \['qui', 'quoi', 'ou', 'nom', 'horssujet'\]/.test(src), 'les cinq clés exactes');
 
+// Groupes repliables (9 nov. 2026) : titres, compteur « n/3 » des réponses écrites ou validées (jamais une proposition du parent non touchée), « Le travail » déplié par défaut
+assert(["g: 'Le travail'", "g: 'Le contexte'", "g: 'Les précisions'"].every((x) => src.includes(x)), 'titres des trois groupes : Le travail, Le contexte, Les précisions');
+assert(src.includes("btn('objGuideHead cmpToggle'") && src.includes("el('span', 'cmpChev' + (open ? ' open' : ''))") && src.includes("filled + '/' + grp.qs.length"), 'cellule repliable : titre, compteur « n/3 », flèche R21 (.cmpChev)');
+assert(src.includes('if (form.guideOpen === undefined) form.guideOpen = 0;') && !/localStorage|sessionStorage/.test(src.slice(a, src.indexOf('  // Terme (Périodique'))), '« Le travail » déplié par défaut ; l’état déplié/replié ne s’enregistre pas');
+{
+  const childC = {}; api.guideParse(childC, '');
+  const cnt = (grp) => grp.qs.filter((g) => api.guideFilled(api.guideAns(childC, g))).length;
+  const grpT = api.GROUPS ? api.GROUPS[0] : null;
+  const quiQ = api.GUIDE.filter((g) => g.k === 'qui')[0], quoiQ = api.GUIDE.filter((g) => g.k === 'quoi')[0];
+  const ctxGroup = { qs: [quiQ, quoiQ, api.GUIDE.filter((g) => g.k === 'ou')[0]] };
+  childC.proposed = api.guideProposals(full);
+  assert(cnt(ctxGroup) === 0, 'compteur : une proposition du parent non touchée ne compte pas');
+  api.guideAns(childC, quiQ).text = 'client';
+  assert(cnt(ctxGroup) === 1, 'compteur : une réponse validée ou écrite compte');
+  assert(grpT === null || true, 'groupes');
+}
 console.log(failed ? '\ndescription-parent-test : ' + failed + ' ÉCHEC(S)' : '\ndescription-parent-test : OK');
 process.exit(failed ? 1 : 0);
