@@ -15,7 +15,24 @@
       return shared >= 2;
     });
   }
-  var api = { MSG: MSG, key: key, refuse: refuse };
+  // CHAÎNAGE (décision d'Émilien, 9 nov. 2026) : deux macros se rattachent DÈS QU'ILS PARTAGENT AU MOINS UNE COLONNE ; le macro de plus tard (le dessus) est le parent du plus tôt (le dessous) et couvre l'union de ses colonnes,
+  // en cascade sur toute la chaîne ; sans colonne commune, aucun lien. macros = [{ id, level, endDate, direct:[colonne] }] (colonnes directes : celles de leurs objectifs et de leurs cases vides) ; rend { id: idDuParent | null }.
+  function chain(macros) {
+    var out = {}, byLevel = {};
+    (macros || []).forEach(function (m) { out[m.id] = null; (byLevel[m.level || 'activite'] = byLevel[m.level || 'activite'] || []).push(m); });
+    Object.keys(byLevel).forEach(function (level) {
+      var list = byLevel[level].slice().sort(function (a, b) { return a.endDate < b.endDate ? -1 : a.endDate > b.endDate ? 1 : a.id - b.id; }), union = {};
+      list.forEach(function (m) { union[m.id] = {}; (m.direct || []).forEach(function (c) { union[m.id][key(level, c)] = true; }); });
+      list.forEach(function (m, i) {
+        for (var j = i + 1; j < list.length; j++) { // le plus proche macro plus tardif qui partage une colonne avec toute la branche de m
+          var n = list[j], hit = (n.direct || []).some(function (c) { return union[m.id][key(level, c)]; });
+          if (hit) { out[m.id] = n.id; Object.keys(union[m.id]).forEach(function (k) { union[n.id][k] = true; }); break; }
+        }
+      });
+    });
+    return out;
+  }
+  var api = { MSG: MSG, key: key, refuse: refuse, chain: chain };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) { root.TMT = root.TMT || {}; root.TMT.liaison = api; }
 })(typeof window !== 'undefined' ? window : null);

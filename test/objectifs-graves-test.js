@@ -398,6 +398,14 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
       assert(!okBC, 'B+C accepté (A laissée de côté)');
       require('../server/lib/objectifs-ordre').lire(u, 'pole', String(m.activityId)); // l'ordre dérivé ne casse pas avec deux macros qui partagent la colonne B
       o.supprimer(u, m27.id, true); o.supprimer(u, o.get(u, l4.id).parentId, true);
+      // CHAÎNAGE (9 nov. 2026) : A+B dessus (2029), B+C dessous (2027) : ils partagent B, le dessus devient parent du dessous et couvre A+B+C ; Séparer le dessous : le dessus retrouve A+B ; sans colonne commune : aucun lien
+      const tA = mk('Chaîne A', { level: 'pole', poleKey: pl3[0].key, endDate: '2029-11-30' }), tB = mk('Chaîne B', { level: 'pole', poleKey: pl3[1].key, endDate: '2029-11-30' });
+      const tB2 = mk('Chaîne B2', { level: 'pole', poleKey: pl3[1].key, endDate: '2027-11-30' }), tC = mk('Chaîne C', { level: 'pole', poleKey: pl3[2].key, endDate: '2027-11-30' });
+      const mTop = o.fusionnerEnMacro(u, { title: 'Dessus A+B', childIds: [tA.id, tB.id], level: 'pole' });
+      const under = o.fusionnerEnMacro(u, { title: 'Dessous B+C', childIds: [tB2.id, tC.id], level: 'pole' });
+      assert(o.get(u, under.id).parentId === mTop.id && o.get(u, mTop.id).macroColumns.length === 3, 'chaînage : B+C partage B avec A+B, le dessus devient parent et couvre A+B+C');
+      assert(o.supprimer(u, under.id, true).ok && o.get(u, mTop.id).macroColumns.length === 2 && o.get(u, tB2.id).parentId === null, 'séparer le dessous : le dessus retrouve ses colonnes d’origine, aucun objectif perdu');
+      o.supprimer(u, mTop.id, true);
       // carte pleine reliée à une CASE VIDE de la même ligne : un macro d'une seule carte + une colonne sans objectif ; séparer remet l'état d'origine
       const full = mk('Carte pleine', { level: 'pole', poleKey: pl3[0].key, endDate: '2027-05-30' });
       const mv = o.fusionnerEnMacro(u, { title: 'Carte pleine', childIds: [full.id], emptyColumns: [{ activityId: m.activityId, poleKey: pl3[2].key }], level: 'pole' });

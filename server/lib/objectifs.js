@@ -670,6 +670,19 @@ function cleanEmpties(userId, level, list) {
     return { activityId, poleKey, categoryKey };
   });
 }
+// Macros rattachés selon la règle partagée (objectifs-liaison.js, chain) : recalculé après toute création, extension, séparation ; seuls les macros sommets ou étapes d'un macro bougent (un macro sous un objectif ordinaire reste où il est).
+function relinkMacros(userId) {
+  const rows = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND isMacro = 1').all(userId);
+  const byId = new Map(rows.map((r) => [r.id, r])), parentIsMacro = (r) => !!(r.parentId && byId.has(r.parentId));
+  const free = rows.filter((r) => !r.parentId || parentIsMacro(r));
+  const input = free.map((r) => ({ id: r.id, level: r.level || 'activite', endDate: r.endDate, direct: columnsOfLeaves(r.level || 'activite', activeKids(r).filter((k) => !k.isMacro), ownExtras(r)) }));
+  const want = liaison.chain(input);
+  free.forEach((r) => {
+    const w = want[r.id] || null, cur = parentIsMacro(r) ? r.parentId : null;
+    if (w === cur) return;
+    db.prepare('UPDATE user_objectives SET parentId = ?, parentRel = ?, position = ? WHERE id = ?').run(w, w ? 'avant' : null, nextPosition(userId, w), r.id);
+  });
+}
 function writeExtras(id, list) { const row = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(id); let m = {}; try { m = JSON.parse(row.metaJson || '{}'); } catch (e) { m = {}; } if (list.length) m.extraColumns = list; else delete m.extraColumns; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(m), id); }
 function columnsOfLeaves(level, leaves, extras) {
   const seen = {}, cols = [];
@@ -835,7 +848,7 @@ function lier(userId, id, parentId, rel) {
     let back = null; // détaché d'un macro : l'objectif retrouve le parent qu'il avait avant d'y être relié (s'il existe encore, même activité, non macro)
     try { const m0 = JSON.parse(r.metaJson || '{}'), op = r.parentId ? db.prepare('SELECT isMacro FROM user_objectives WHERE id = ?').get(r.parentId) : null; if (op && op.isMacro && m0.prevParent) { const pp = m0.prevParent.id ? db.prepare('SELECT id, activityId, isMacro FROM user_objectives WHERE id = ? AND userId = ?').get(m0.prevParent.id, userId) : null; if (pp && !pp.isMacro && pp.activityId === r.activityId) back = pp.id; delete m0.prevParent; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(m0), r.id); } } catch (e) { back = null; }
     db.prepare('UPDATE user_objectives SET parentId = ?, parentRel = NULL, position = ? WHERE id = ?').run(back, nextPosition(userId, back), r.id);
-    purgeOrphanMacros(userId); // le dernier enfant détaché : le macro vide disparaît
+    purgeOrphanMacros(userId); relinkMacros(userId); // le dernier enfant détaché : le macro vide disparaît
     return get(userId, r.id);
   }
   const p = rowOf(userId, parentId);
@@ -847,6 +860,7 @@ function lier(userId, id, parentId, rel) {
   if (p.isMacro && !r.isMacro && r.parentId !== p.id) setPrevParent(r, r.parentId || null); // séparer ou retirer remet l'objectif tel qu'il était
   db.prepare('UPDATE user_objectives SET parentId = ?, parentRel = ?, position = ? WHERE id = ?')
     .run(p.id, rel === 'avant' || rel === 'apres' ? rel : null, nextPosition(userId, p.id), r.id);
+  if (!r.isMacro) relinkMacros(userId); // un objectif ajouté à un macro peut lui faire partager une colonne avec un autre macro
   return get(userId, r.id);
 }
 // Refus mémorisé : « cet objectif ne dépend pas de ce candidat » (par couple) ; le refus ne se reproposera pas.
@@ -976,7 +990,7 @@ function setEmptyColumns(userId, id, list) { // mode modification d'un macro : a
   if (fusion.state(r.endDate, today()).mergePast) throw err(fusion.MSG_PASSEE);
   const level = r.level || 'activite', empties = cleanEmpties(userId, level, list || []);
   assertLiaison(userId, level, leafKids(r, 0), macroRoot(r).id, empties.concat(treeExtras(r, 0).filter((e) => !ownExtras(r).some((o) => JSON.stringify(o) === JSON.stringify(e)))));
-  writeExtras(r.id, empties);
+  writeExtras(r.id, empties); relinkMacros(userId);
   return get(userId, r.id);
 }
 function fusionnerEnMacro(userId, body) {
@@ -996,7 +1010,8 @@ function fusionnerEnMacro(userId, body) {
   const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : (kids.find((k) => k.poleKey) || {}).poleKey || null, categoryKey: lv === 'secteur' ? ((kids.find((k) => k.categoryKey) || {}).categoryKey || null) : null });
   if (commonParent) lier(userId, created.id, commonParent, 'apres'); // le macro prend la place de ses objectifs sous leur parent
   if (empties.length) writeExtras(created.id, empties);
-  kids.forEach((k) => { setPrevParent(k, k.parentId || null); lier(userId, k.id, created.id, 'avant'); }); // le parent d'origine est gardé : séparer remet les objectifs tels qu'ils étaient
+  kids.forEach((k) => { setPrevParent(k, k.parentId || null); lier(userId, k.id, created.id, 'avant'); });
+  relinkMacros(userId); // le parent d'origine est gardé : séparer remet les objectifs tels qu'ils étaient
   const out = get(userId, created.id);
   return Object.assign(out, require('./objectifs-ordre').forMacro(userId, out.macroColumns, body.anchor) || {}); // ordre de présentation dérivé (rien n'est écrit)
 }
@@ -1075,7 +1090,7 @@ function supprimer(userId, id, confirmed) {
     db.prepare('DELETE FROM user_objectives WHERE id = ? AND userId = ?').run(r.id, userId);
     db.exec('COMMIT');
   } catch (e) { try { db.exec('ROLLBACK'); } catch (e2) { /* aucune transaction ouverte : on garde l'erreur d'origine */ } throw e; }
-  try { purgeOrphanMacros(userId); } catch (e) { console.warn('[objectifs] nettoyage des macros vides : ' + (e && e.message)); } // un macro dont le dernier enfant vient d'être supprimé disparaît aussi ; jamais bloquant
+  try { purgeOrphanMacros(userId); relinkMacros(userId); } catch (e) { console.warn('[objectifs] nettoyage des macros vides : ' + (e && e.message)); } // un macro dont le dernier enfant vient d'être supprimé disparaît aussi ; jamais bloquant
   return { ok: true, detached: kids.map((k) => k.id) };
 }
 migrateEcheances(); // au chargement (idempotent)
