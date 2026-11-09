@@ -132,8 +132,8 @@
 .objPlain { margin: 0; font-size: 14px; color: var(--text); }
 
 .objGroupRow { display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 53px; padding: 8px 4px; border: 0; border-radius: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.objGuideHead { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; box-sizing: border-box; padding: 12px 16px; border: 0; border-radius: var(--radius-xl); background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--glass-calm-line); color: inherit; font: inherit; text-align: left; cursor: pointer; } /* cellule en verre calme sur toute la largeur (comme .aiModeChoice) */
-.objGuideHead .cmpBlockTitle { margin: 0; padding: 0; font-size: 14px; color: var(--purple); }
+.objGuideHead { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; box-sizing: border-box; padding: 0; border: 0; border-bottom: 1px solid var(--sep); border-radius: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; } /* titre calé à gauche, ligne fine d'un bord à l'autre (R22, même trait que .cmpSep) */
+.objGuideHead .cmpBlockTitle { margin: 0; padding: 0; }
 .objGuideHead .cmpChev { margin-left: 0; }
 .objGuideRow { margin: 0 0 8px; }
 .objGuideRow.open .objGuideHead { margin-bottom: 16px; }
