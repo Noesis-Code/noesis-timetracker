@@ -4166,24 +4166,13 @@
   // ----- Clarté perçue (lisibilité du texte sur une couleur d'activité) -----
   // Les couleurs des pôles ne se calculent plus ici : elles sont fixes dans public/theme-palette.js (TMT.poleColor, règle R47).
   // Luminance relative (WCAG) d'une couleur #rrggbb.
-  function relLuminance(hex) {
-    var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''));
-    if (!m) return 0;
-    var c = [1, 2, 3].map(function (i) {
-      var v = parseInt(m[i], 16) / 255;
-      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-    });
-    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-  }
+  function relLuminance(hex) { return window.NOESIS_THEME_PALETTES.relLuminance(hex); } // source unique : public/theme-palette.js (même fonction que la règle des couleurs de pôles)
 
   // Clarté CIE L* d'une couleur — l'axe perceptuellement uniforme de la
   // luminosité. Deux couleurs séparées de 12 unités de L* se distinguent
   // toujours autant, qu'on soit dans les tons clairs ou dans les tons foncés,
   // ce qui n'est vrai NI de la luminosité HSL NI du rapport de contraste WCAG.
-  function labLightness(hex) {
-    var y = relLuminance(hex);
-    return y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y;
-  }
+  function labLightness(hex) { return window.NOESIS_THEME_PALETTES.labLightness(hex); } // source unique : public/theme-palette.js
 
   // 16 septembre 2026 (Objectifs — B, 8e passage) : couleur de texte lisible
   // sur un fond de nuance calculée (TMT.poleColor() plus bas) — utilisée

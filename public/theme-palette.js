@@ -70,50 +70,117 @@
     '#B0787D', '#B08B78', '#B09F78', '#9DB078', '#78B094', '#78ABB0', '#7894B0', '#8178B0', '#A678B0',
   ];
 
-  // COULEURS DES PÔLES (9 nov. 2026, décision d'Émilien, règle R47) : chaque couleur d'activité de la palette sombre a 5 teintes STANDARDS FIXES pour ses 5 pôles au plus (rang 1 à 5),
-  // lues ici, jamais calculées à la volée. Même famille de teinte que l'activité (écart de teinte ≤ 8°), TOUTES lisibles sur le fond #0B0A0A (contraste texte de 4,8 à 11,7:1, ≥ 4,5:1),
-  // jamais pâles ni sombres, et deux pôles d'une même activité ne se ressemblent jamais (écart CIE76 ΔE ≥ 15). Le rang 1 est le plus soutenu, le rang 5 le plus clair.
-  // Les secteurs reprennent la teinte de leur pôle. Une couleur d'activité qui n'est pas dans la palette sombre (jumelle claire, ancienne palette LEGACY_*) prend les teintes de la couleur
-  // sombre de teinte la plus proche. Les palettes LEGACY_* ne sont jamais réécrites.
-  var POLE_TINTS = {
-    '#A04B52': ['#E34239', '#E96769', '#E98A84', '#EEA1B1', '#E2BEBC'],
-    '#A0674B': ['#A57247', '#E66C4E', '#E0924E', '#EAA786', '#DFC0B4'],
-    '#A0864B': ['#8F7D24', '#C98023', '#C29E70', '#DDB020', '#DAC76A'],
-    '#83A04B': ['#5E8A2E', '#5FA117', '#95AE3A', '#82C91D', '#AED37A'],
-    '#4BA075': ['#3B8B6D', '#18A64B', '#21BA81', '#79C69F', '#38E375'],
-    '#4B98A0': ['#17899E', '#17A19B', '#1FB2DC', '#7DC1C7', '#43DADE'],
-    '#4B75A0': ['#317CE2', '#4B96D2', '#7AAAC6', '#98B7ED', '#B9C8E1'],
-    '#594BA0': ['#8C64E9', '#9E7DEC', '#A29AF1', '#B8AFEB', '#C5C4E6'],
-    '#914BA0': ['#D620DE', '#D161E8', '#D486EE', '#DBA2E8', '#E0BBE2'],
-  };
-
-  function hueOf(hex) {
-    var n = parseInt(String(hex).slice(1), 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
-    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
-    if (!d) return null;
-    var h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
-    h *= 60; return h < 0 ? h + 360 : h;
-  }
-  function tintKey(color) {
-    var c = String(color || '').toUpperCase();
-    if (!/^#[0-9A-F]{6}$/.test(c)) return null;
-    if (POLE_TINTS[c]) return c;
-    var li = LIGHT_PALETTE.map(function (x) { return x.toUpperCase(); }).indexOf(c);
-    if (li >= 0) return DARK_PALETTE[li];
-    var h = hueOf(c), best = null, bd = 999;
-    if (h === null) return DARK_PALETTE[0];
-    DARK_PALETTE.forEach(function (d) { var hd = hueOf(d), x = Math.abs(h - hd); x = Math.min(x, 360 - x); if (x < bd) { bd = x; best = d; } });
-    return best;
-  }
-  // UNE fonction publique unique (TMT.poleColor côté navigateur) : couleur du pôle d'index « index » (0 = pôle 1 … 4 = pôle 5 ; au-delà de 5, on repart au rang 1) d'une activité de couleur « activityColor ».
-  // Sans index (null / undefined) : la couleur de l'activité elle-même. Ne calcule rien : elle lit POLE_TINTS.
-  function poleColor(activityColor, index) {
-    if (index === null || index === undefined) return activityColor;
-    var key = tintKey(activityColor);
-    if (!key) return activityColor;
-    var rank = ((Number(index) % 5) + 5) % 5;
-    return POLE_TINTS[key][rank];
+  // COULEURS DES PÔLES (R47, décision d'Émilien, 9 nov. 2026) : le standard design est la règle « plus clair / plus foncé » de l'activité, SOURCE UNIQUE ICI (déplacée à l'identique depuis public/app.js, ancienne
+  // fonction subProjectShade) : MÊME teinte ET MÊME saturation que l'activité, 5 rangs (pôles 5 au plus, au-delà : index % 5), clarté CIE L* répartie de 90 à 22 hors d'une zone de ±11 autour de la couleur de base.
+  // UNE fonction publique : TMT.poleColor(couleurActivité, index) (index 0 = pôle 1 … 4 = pôle 5 ; sans index : la couleur de l'activité). Les secteurs reprennent la teinte de leur pôle. Aucune autre règle de teinte.
+  function hexToHsl(hex) {
+    var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''));
+    if (!m) return null;
+    var r = parseInt(m[1], 16) / 255, g = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var l = (max + min) / 2, h = 0, s = 0;
+    if (max !== min) {
+      var d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
+    }
+    return { h: h, s: s, l: l };
   }
 
-  return { POLE_TINTS: POLE_TINTS, poleColor: poleColor, DARK_PALETTE: DARK_PALETTE, LIGHT_PALETTE: LIGHT_PALETTE, LEGACY_DARK_PALETTE: LEGACY_DARK_PALETTE, LEGACY_LIGHT_PALETTE: LEGACY_LIGHT_PALETTE, LEGACY_PROFILE_PALETTE: LEGACY_PROFILE_PALETTE };
+  function hslToHex(h, s, l) {
+    function hue2rgb(p, q, tt) {
+      if (tt < 0) tt += 1;
+      if (tt > 1) tt -= 1;
+      if (tt < 1 / 6) return p + (q - p) * 6 * tt;
+      if (tt < 1 / 2) return q;
+      if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
+      return p;
+    }
+    var r, g, b;
+    if (s === 0) { r = g = b = l; }
+    else {
+      var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      var p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1 / 3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1 / 3);
+    }
+    function hx(v) { return ('0' + Math.round(v * 255).toString(16)).slice(-2); }
+    return '#' + hx(r) + hx(g) + hx(b);
+  }
+
+  function relLuminance(hex) {
+    var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''));
+    if (!m) return 0;
+    var c = [1, 2, 3].map(function (i) {
+      var v = parseInt(m[i], 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+
+  function labLightness(hex) {
+    var y = relLuminance(hex);
+    return y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y;
+  }
+
+  var POLE_SHADE_COUNT = 5;
+  var poleShadeCache = {};
+
+  function poleColor(baseHex, index) {
+    if (index === null || index === undefined) return baseHex;
+    var hsl = hexToHsl(baseHex);
+    if (!hsl) return baseHex;
+
+    var rank = ((Number(index) % POLE_SHADE_COUNT) + POLE_SHADE_COUNT)
+      % POLE_SHADE_COUNT;
+    var cacheKey = baseHex + '|' + rank;
+    if (poleShadeCache[cacheKey]) return poleShadeCache[cacheKey];
+
+    // Bande de clarté : ni assez claire pour se confondre avec la carte en
+    // thème clair, ni assez foncée pour se confondre avec le fond en thème
+    // sombre. Vérifié : la nuance la plus claire reste à ΔE ≥ 13 du blanc pur,
+    // la plus foncée à ΔE ≥ 18 d'un fond sombre.
+    var LO = 22, HI = 90;      // en clarté CIE L*, pas en luminosité HSL
+    var GAP = 11;              // écart minimal, en L*, avec la couleur de base
+
+    // Teinte ET saturation sont conservées telles quelles : ce sont bien des
+    // nuances de la couleur de l'activité (demande d'Emilien du 4 septembre),
+    // et le balayage de réglages a montré qu'y toucher ne gagnait rien une
+    // fois l'espacement fait dans le bon espace.
+    var s = hsl.s;
+    var lBase = labLightness(baseHex);
+
+    // Deux segments : au-dessus et en dessous de la zone interdite autour de
+    // la base (réservée au temps « Sans sous-projet »). L'un des deux peut
+    // être vide si la couleur de l'activité est déjà à une extrémité. Les cinq
+    // rangs se répartissent régulièrement sur leur concaténation, du plus clair
+    // au plus foncé.
+    var upLen = Math.max(0, HI - Math.max(lBase + GAP, LO));
+    var loLen = Math.max(0, Math.min(lBase - GAP, HI) - LO);
+    var total = upLen + loLen;
+
+    var target;
+    if (total <= 0) {
+      target = lBase >= (HI + LO) / 2 ? LO : HI;   // cas dégénéré
+    } else {
+      var d = (rank / (POLE_SHADE_COUNT - 1)) * total;
+      target = d <= upLen ? HI - d : Math.min(lBase - GAP, HI) - (d - upLen);
+    }
+
+    // Dichotomie sur la luminosité HSL pour atteindre la clarté L* visée :
+    // L* est monotone en l à teinte et saturation fixées. 28 itérations
+    // descendent bien en dessous du pas d'un entier de composante.
+    var lo = 0, hi = 1;
+    for (var k = 0; k < 28; k++) {
+      var mid = (lo + hi) / 2;
+      if (labLightness(hslToHex(hsl.h, s, mid)) < target) lo = mid; else hi = mid;
+    }
+    var out = hslToHex(hsl.h, s, (lo + hi) / 2);
+    poleShadeCache[cacheKey] = out;
+    return out;
+  }
+
+  return { poleColor: poleColor, relLuminance: relLuminance, labLightness: labLightness, DARK_PALETTE: DARK_PALETTE, LIGHT_PALETTE: LIGHT_PALETTE, LEGACY_DARK_PALETTE: LEGACY_DARK_PALETTE, LEGACY_LIGHT_PALETTE: LEGACY_LIGHT_PALETTE, LEGACY_PROFILE_PALETTE: LEGACY_PROFILE_PALETTE };
 });
