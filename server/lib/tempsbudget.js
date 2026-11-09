@@ -3,7 +3,8 @@
 //  - Prévu d'un niveau = hoursPerWeek de l'objectif qui occupe sa case, sinon (au premier écran) le Passé ; ligne du dessus = l'objectif PARENT sur la même période (pôle pour un secteur, activité pour un pôle) ;
 //    au niveau activité : capacité hebdomadaire de la personne (manuelle, sinon moyenne Chrono : weekplanner.getWeeklyCapacity).
 //  - « Déplacer » (UN seul tableau Avant / Après) fusionne toutes les sources possibles du temps : les AUTRES cases du même niveau sur la même période (autres secteurs du pôle / autres pôles de l'activité / autres activités ; sans objectif ou à 0 h elles ne sont pas listées)
-//    + « Sans pôle » (niveau pôle) / « Sans secteur » (niveau secteur) = ce qui reste de l'objectif PARENT une fois retirées les heures des cases du niveau (parent − somme des autres cases − le niveau lui-même) ; jamais pour l'activité.
+//    + « Reste de l'activité » (pôle) / « Reste du pôle » (secteur) = ce qui reste de l'objectif PARENT une fois retirées les heures des cases du niveau (parent − somme des autres cases − le niveau lui-même) ;
+//      « Reste de ta capacité » (activité) = capacité hebdomadaire − les heures de toutes les activités (la vôtre comprise). Toutes les lignes du niveau sont listées, même à 0 h.
 //  - Passé : moyenne des 4 dernières semaines du Chrono, les 2 dernières comptées double (weeklyavg, fonction partagée), arrondie au QUART D'HEURE ; la capacité par défaut (moyenne Chrono) l'est aussi avant d'être affichée.
 //    Une valeur saisie à la main (hoursPerWeek d'un objectif, capacité manuelle) n'est JAMAIS réarrondie.
 // Rien n'est écrit avant l'appel avec apply = true (« Valider ») ; le niveau choisi n'a pas encore d'objectif : sa valeur part avec la création (hoursPerWeek), les écritures ne touchent que le parent et les voisins.
@@ -84,6 +85,9 @@ function etat(userId, spec) {
     out.up = { kind: 'total', label: null, prevuMin: capDisplay(cap), passeMin: passeMin(userId, null, null) };
     out.me = { key: null, label: act.name, prevuMin: mePrevu, passeMin: passeMin(userId, aid, null) };
     others = userActivities(userId).filter((x) => x.id !== aid).map((x) => { const c = cell(userId, x.id, 'activite', null, null, end); return { key: 'a' + x.id, label: x.name, avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
+    const usedA = others.reduce((t, x) => t + (x.avantMin || 0), 0) + (mePrevu || 0);
+    out.restMin = out.up.prevuMin === null ? 0 : Math.max(0, out.up.prevuMin - usedA); // la part de la capacité hebdomadaire qu'aucune activité n'occupe
+    out.restLabel = 'Reste de ta capacité';
   } else {
     const upCell = level === 'pole' ? cell(userId, aid, 'activite', null, null, end) : cell(userId, aid, 'pole', poleKey, null, end);
     const upKey = level === 'pole' ? null : poleKey;
@@ -93,13 +97,13 @@ function etat(userId, spec) {
     others = sib.map((x) => { const c = level === 'pole' ? cell(userId, aid, 'pole', x.key, null, end) : cell(userId, aid, 'secteur', poleKey, x.key, end, inn); return { key: x.key, label: x.label, avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
     const used = others.reduce((s, x) => s + (x.avantMin || 0), 0) + (mePrevu || 0);
     out.restMin = out.up.prevuMin === null ? 0 : Math.max(0, out.up.prevuMin - used);
-    out.restLabel = level === 'pole' ? 'Sans pôle' : 'Sans secteur';
+    out.restLabel = level === 'pole' ? 'Reste de l’activité' : 'Reste du pôle';
   }
   out.others = others;
   out.valueMin = out.me.prevuMin !== null ? out.me.prevuMin : out.me.passeMin; // valeur par défaut : le Prévu existant, à défaut le Passé
-  const lines = others.filter((x) => (x.avantMin || 0) > 0 && x.objectifId); // une case voisine sans objectif n'est pas listée
   out.modes = ['ajouter', 'deplacer']; // deux possibilités à tous les niveaux
-  out.takeLines = { deplacer: lines.map((x) => ({ key: x.key, label: x.label, avantMin: x.avantMin, objectifId: x.objectifId })).concat((out.restMin || 0) > 0 ? [{ key: 'reste', label: out.restLabel, avantMin: out.restMin }] : []) };
+  // « Déplacer » : TOUTES les autres lignes du même niveau, même à 0 h (une ligne sans objectif ne peut que rester à 0), puis la ligne source « Reste … » ; une source ne fait que baisser, jamais sous 0
+  out.takeLines = { deplacer: others.map((x) => ({ key: x.key, label: x.label, avantMin: x.avantMin || 0, objectifId: x.objectifId })).concat([{ key: 'reste', label: out.restLabel, avantMin: out.restMin || 0 }]) };
   return out;
 }
 

@@ -11,8 +11,9 @@ assert(js.includes("tr('Prévu')") && js.includes("tr('Passé')"), 'tableau : co
 assert(js.includes("tr('Heures par semaine')") && js.includes('D’où vient ce temps ?'), 'écrans 1 et 2 titrés');
 assert(js.includes("tr(m === 'ajouter' ? 'Ajouter' : 'Déplacer')") && !js.includes('Prendre sur') && !js.includes("'autres'"), 'écran 2 : deux cartes seulement, « Ajouter » et « Déplacer » (plus de « Prendre sur… », ni de modes « reste » / « autres »)');
 assert(js.includes("'aiModeChoices objCenterChoices'") && /\.objCenterChoices \.objChoice \{[^}]*align-items: center; justify-content: center; text-align: center/.test(css), 'texte de chaque carte centré, horizontalement et verticalement (même composant de carte)');
-assert(js.includes("'Ton total reste à'") && js.includes("'L’activité reste à'") && js.includes("'Le pôle reste à'") && !js.includes('Reste à prendre'), 'écran 3 « Déplacer » : dernière ligne « … reste à » (total du niveau du dessus) ; pas de ligne « Reste à prendre »');
-assert(js.includes("tcell(l.key === 'reste' ? tr(l.label) : l.label, 'objTLabel')"), 'une seule table Avant / Après : les autres cases et « Sans pôle » / « Sans secteur »');
+assert(js.includes("tcell(tr('Total'), 'objTLabel')") && !js.includes('reste à') && !js.includes('Reste à prendre'), 'écran 3 « Déplacer » : dernière ligne « Total » (plus « L’activité » / « Le pôle ») ; pas de ligne « Reste à prendre »');
+assert(/\.objTMute \{ color: var\(--text-light\); \}/.test(css) && /\.objTTitle \.objTH \{ color: var\(--text\); \}/.test(css) && /\.objTTotal \.objTLabel, \.objTTotal \.objTRO \{ color: var\(--text\); \}/.test(css) && /\.cmpList > \.objTTotal \{ border-top-color: var\(--text-light\); \}/.test(css) && !/#[0-9a-fA-F]{3,6}/.test(css.slice(css.indexOf('Tableau « Déplacer »'), css.indexOf('.objTNote'))), 'couleurs : titres et Total en blanc, noms et heures en gris sable, trait plus marqué avant Total (jetons, rien en dur)');
+assert(js.includes("tcell(l.key === 'reste' ? tr(l.label) : l.label, 'objTLabel objTMute')") && js.includes("tcell(tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), 'objTLabel objTH')"), 'une seule grille Avant / Après : en-tête = nom du niveau ; la ligne augmentée, les autres lignes, le « Reste … »');
 assert(js.includes('tpScreen1') && js.includes('tpScreen2') && js.includes('tpScreen3'), 'trois écrans');
 assert(js.includes('tpPages') && js.includes('tasksPages'), 'balayage : mécanisme de pages existant');
 assert(!/objTDots|pagination|pageDots/.test(js.slice(js.indexOf('function tpPaint'), js.indexOf('function tpPaint') + 3000)), 'aucun point de pagination');
@@ -24,7 +25,7 @@ assert((js.match(/\/api\/objectifs\/temps\/plan/g) || []).length === 2 && js.inc
 // plus aucune saisie au clavier dans la page Temps
 const tpCode = js.slice(js.indexOf('    var tpBox = '), js.indexOf('    function refresh() {'));
 assert(!tpCode.includes("el('input'") && !tpCode.includes('inputMode') && !tpCode.includes("'keydown'") && !tpCode.includes('.blur()') && !js.includes('function tedit(') && !js.includes('function parseHrs('), 'aucun champ de saisie, clavier, Entrée ni perte de focus dans la page Temps ; tedit et parseHrs supprimés');
-assert(tpCode.includes("TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: 168") && (tpCode.match(/tbtn\(/g) || []).length >= 3, 'le Prévu et les « Après » ouvrent le sélecteur de durée standard (initialisé à la valeur actuelle, plafond 168 h)');
+assert(tpCode.includes("TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: maxMin == null ? 168") && (tpCode.match(/tbtn\(/g) || []).length >= 3, 'le Prévu et les « Après » ouvrent le sélecteur de durée standard (initialisé à la valeur actuelle, plafond 168 h)');
 assert(!/durPickerSheet/.test(js), 'aucun second sélecteur : le composant unique de l’app (R29)');
 assert(js.includes("'&inner=' + (form.weeklyOn ? 'hebdomadaires' : 'periodiques')") && js.includes("q.inner || ''"), 'la recherche de la case tient compte de Hebdomadaire / Périodique');
 const ed = css.slice(css.indexOf('button.objTEdit {'), css.indexOf('button.objTEdit {') + 400), edAll = css.slice(css.indexOf('button.objTEdit {'));
@@ -60,6 +61,42 @@ assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >=
   t.tpCommit(0); assert(t.tp.valueMin === 0 && t.tpChanging() && !t.tpIncrease() && t.tp.page === 0, 'valeur 0 : une baisse, aucun glissement');
   t = mk(E(['ajouter']), 360); t.tpCommit(420); assert(t.tp.page === 1 && t.tpPages().join() === 's1,s3' && t.tpMode() === 'ajouter' && t.tpValid(), 'une seule possibilité : l’écran « d’où vient ce temps » est sauté, glissement direct vers l’effet');
   t = mk(E(['ajouter', 'deplacer']), 360); t.tpCommit(168 * 60); assert(t.tpIncrease() && t.tp.valueMin === 168 * 60, '168 h acceptées (heures d’une semaine)');
+}
+
+// grille « Déplacer » (tpScreen3 exécutée telle quelle avec des doublures du DOM)
+{
+  const a = js.indexOf('    function tpOld()'), b = js.indexOf('    function tpSync()'), c = js.indexOf('    function tpScreen3()'), d = js.indexOf('    function tpPaint()');
+  const h0 = js.indexOf('    function hh(min)'), h1 = js.indexOf('\n', h0);
+  const mkEl = (tag, cls, text) => ({ tag, cls: cls || '', textContent: text == null ? '' : text, children: [], hidden: false, appendChild(x) { this.children.push(x); return x; }, classList: { toggle(n, on) { if (n === 'hidden') this.owner.hidden = !!on; } } });
+  const run = (level, valueMin, oldMin, lines, apres) => {
+    const tp = { e: { level, valueMin: oldMin, modes: ['ajouter', 'deplacer'], takeLines: { deplacer: lines }, me: { label: 'Produit' } }, valueMin, mode: 'deplacer', apres: apres || {}, page: 0 };
+    const btns = []; const synced = [];
+    const el = (tag, cls, text) => { const x = mkEl(tag, cls, text); x.classList.owner = x; return x; };
+    const trow = (cls, cells) => ({ cls, cells });
+    const tcell = (text, cls) => { const x = el('span', 'objTCell' + (cls ? ' ' + cls : ''), text); x.text = text; return x; };
+    const tbtn = (min, label, onPick, maxMin) => { const x = { btn: true, min, label, onPick, maxMin }; btns.push(x); return x; };
+    const tr = (str, v) => String(str).replace(/\{(\w+)\}/g, (m, k) => (v && v[k] !== undefined ? v[k] : m));
+    const body = js.slice(h0, h1) + '\n' + js.slice(a, b) + '\n' + js.slice(c, d) + '\nreturn { tpScreen3, tpBalanced, tpValid };';
+    const api = new Function('tp', 'el', 'trow', 'tcell', 'tbtn', 'tr', 'tpSync', body)(tp, el, trow, tcell, tbtn, tr, () => synced.push(1));
+    const page = api.tpScreen3(); const tbl = page.children[0], note = page.children[1];
+    return { tp, btns, page, tbl, note, api, rows: tbl.children, synced };
+  };
+  const L = [{ key: 'p2', label: 'Réseaux', avantMin: 120, objectifId: 5 }, { key: 'p3', label: 'Salons', avantMin: 0, objectifId: null }, { key: 'reste', label: 'Reste de l’activité', avantMin: 60 }];
+  let g = run('pole', 300, 180, L);
+  const btnOf = (c) => (c.children && c.children[0] && c.children[0].btn ? c.children[0] : null);
+  const cellsText = (row) => row.cells.map((c) => btnOf(c) ? 'BTN:' + btnOf(c).min : c.textContent);
+  assert(g.rows.length === 6 && cellsText(g.rows[0]).join('|') === 'Pôle|Avant|Après' && g.rows[0].cls.indexOf('objTTitle') >= 0, 'en-tête : le nom du niveau (« Pôle »), Avant, Après');
+  assert(cellsText(g.rows[1]).join('|') === 'Produit|3h|5h' && !g.rows[1].cells.some((c) => btnOf(c)), '1re ligne : celle qu’on augmente (Produit 3h → 5h), en lecture seule (aucune case violette), Après > Avant');
+  assert(cellsText(g.rows[2])[0] === 'Réseaux' && cellsText(g.rows[3]).join('|') === 'Salons|0h|BTN:0' && cellsText(g.rows[4])[0] === 'Reste de l’activité', 'puis TOUTES les autres lignes, même à 0 h (Salons), puis « Reste de l’activité » ; leurs Après sont modifiables');
+  assert(btnOf(g.rows[2].cells[2]).maxMin === 120 && btnOf(g.rows[4].cells[2]).maxMin === 60, 'un Après ne peut pas dépasser son Avant (plafond de la roue = Avant)');
+  assert(cellsText(g.rows[5]).join('|') === 'Total|6h|8h' && g.rows[5].cls.indexOf('objTTotal') >= 0, 'dernière ligne « Total » : Avant 6h (3 + 2 + 0 + 1), Après 8h tant que rien n’est repris');
+  assert(g.note.textContent === 'Le total doit rester à 6h : reprends encore 2h sur les lignes du dessus.' && !g.note.hidden && !g.api.tpValid(), 'non équilibré : phrase « reprends encore 2h », « Suivant » grisé');
+  btnOf(g.rows[2].cells[2]).onPick(0, { }); assert(g.note.textContent === '' && g.note.hidden && g.api.tpValid() && g.rows[5].cells[2].textContent === '6h', 'équilibré (Réseaux 2h → 0h) : total Après = Avant (6h), phrase disparue, « Suivant » actif (violet)');
+  btnOf(g.rows[4].cells[2]).onPick(0, { }); assert(g.note.textContent === 'Le total doit rester à 6h : remets 1h sur une ligne.' && !g.api.tpValid(), 'trop repris (Réseaux et Reste à 0h) : phrase « remets 1h sur une ligne », « Suivant » grisé');
+  g = run('secteur', 120, 60, [{ key: 's2', label: 'Blog', avantMin: 135, objectifId: 7 }, { key: 'reste', label: 'Reste du pôle', avantMin: 0 }]);
+  assert(cellsText(g.rows[0])[0] === 'Secteur' && g.note.textContent === 'Le total doit rester à 3h15 : reprends encore 1h sur les lignes du dessus.', 'secteur : en-tête « Secteur », durées au format 3h15 dans la phrase');
+  g = run('activite', 480, 240, [{ key: 'a2', label: 'Atelier', avantMin: 300, objectifId: 9 }, { key: 'reste', label: 'Reste de ta capacité', avantMin: 0 }]);
+  assert(cellsText(g.rows[0])[0] === 'Activité' && cellsText(g.rows[3])[0] === 'Reste de ta capacité', 'activité : en-tête « Activité », ligne « Reste de ta capacité »');
 }
 
 // sélecteur de durée standard (public/app.js) : exécuté avec un DOM minimal

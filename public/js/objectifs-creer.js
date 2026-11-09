@@ -462,9 +462,9 @@
     function tcell(text, cls) { return el('span', 'objTCell' + (cls ? ' ' + cls : ''), text); }
     // Valeur modifiable = chiffre violet SANS rectangle (R11, R33), simple bouton-texte : le toucher ouvre le sélecteur de durée STANDARD de l'app (TMT.openDurationPicker, composant unique R29) ; aucun clavier.
     // ✓ = confirmation (onPick reçoit les minutes) ; ✕ ou toucher dehors : rien ne change. Plafond 168 h (les heures d'une semaine) ; une valeur choisie à la roue n'est jamais réarrondie.
-    function tbtn(minutes, label, onPick) {
+    function tbtn(minutes, label, onPick, maxMin) { // maxMin (facultatif) : une source ne fait que baisser, jamais au-dessus de son « Avant »
       var b = el('button', 'objTEdit', hh(minutes)); b.type = 'button'; b.setAttribute('aria-label', label);
-      b.addEventListener('click', function () { TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: 168, minuteStep: 15, onDone: function (v) { minutes = v; onPick(v, b); } }); });
+      b.addEventListener('click', function () { TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: maxMin == null ? 168 : Math.max(1, Math.ceil(maxMin / 60)), minuteStep: 15, onDone: function (v) { if (maxMin != null) v = Math.min(v, maxMin); minutes = v; onPick(v, b); } }); });
       return b;
     }
     function tpScreen1() {
@@ -503,20 +503,22 @@
         });
         page.appendChild(tbl); return page;
       }
-      page.appendChild(el('p', 'cmpBlockTitle', modeLabel(m)));
-      tbl.appendChild(trow('objTHead', [el('span', 'objTCell'), tcell(tr('Avant'), 'objTH'), tcell(tr('Après'), 'objTH')]));
-      var totalCell = tcell('', 'objTRO');
+      // « Déplacer » : UNE grille. En-tête = nom du niveau, Avant, Après ; 1re ligne = celle qu'on augmente (lecture seule) ; puis TOUTES les autres lignes du niveau (même à 0 h) et la ligne « Reste … » : leur Après est modifiable (jamais au-dessus de leur Avant) ; « Total » : le total Après doit égaler le total Avant.
+      tbl.appendChild(trow('objTHead objTTitle', [tcell(tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), 'objTLabel objTH'), tcell(tr('Avant'), 'objTH'), tcell(tr('Après'), 'objTH')]));
+      tbl.appendChild(trow('', [tcell(e.me.label, 'objTLabel objTMute'), tcell(hh(tpOld()), 'objTRO'), tcell(hh(tp.valueMin), 'objTRO')]));
       tpLines().forEach(function (l) {
-        var ed = el('span', 'objTCell'); ed.appendChild(tbtn(tpAfter(l), tr('Après') + ' : ' + l.label, function (v, b) { tp.apres[l.key] = v; b.textContent = hh(v); paintTotal(); tpSync(); }));
-        tbl.appendChild(trow('', [tcell(l.key === 'reste' ? tr(l.label) : l.label, 'objTLabel'), tcell(hh(l.avantMin), 'objTRO'), ed]));
+        var ed = el('span', 'objTCell'); ed.appendChild(tbtn(tpAfter(l), tr('Après') + ' : ' + tr(l.label), function (v, b) { tp.apres[l.key] = v; b.textContent = hh(v); paintTotal(); tpSync(); }, l.avantMin));
+        tbl.appendChild(trow('', [tcell(l.key === 'reste' ? tr(l.label) : l.label, 'objTLabel objTMute'), tcell(hh(l.avantMin), 'objTRO'), ed]));
       });
-      var totBefore = tcell('', 'objTRO'), totAfter = tcell('', 'objTRO');
-      function paintTotal() { // Total du niveau du dessus : constant (avant = après) tant que c'est équilibré
+      var totBefore = tcell('', 'objTRO'), totAfter = tcell('', 'objTRO'), note = el('p', 'hint objTNote');
+      function paintTotal() { // Total : Avant = Après quand c'est équilibré ; sinon une phrase (texte seul) dit pourquoi « Suivant » est grisé
         var avant = tpOld() + tpLines().reduce(function (n, l) { return n + l.avantMin; }, 0), apres = tp.valueMin + tpLines().reduce(function (n, l) { return n + tpAfter(l); }, 0);
-        totBefore.textContent = hh(avant); totAfter.textContent = hh(apres); totAfter.classList.toggle('objTBad', apres !== avant);
+        totBefore.textContent = hh(avant); totAfter.textContent = hh(apres);
+        note.textContent = apres === avant ? '' : tr(apres > avant ? 'Le total doit rester à {t} : reprends encore {d} sur les lignes du dessus.' : 'Le total doit rester à {t} : remets {d} sur une ligne.', { t: hh(avant), d: hh(Math.abs(apres - avant)) });
+        note.classList.toggle('hidden', apres === avant);
       }
-      tbl.appendChild(trow('objTTotal', [tcell(tr(e.level === 'activite' ? 'Ton total reste à' : e.level === 'pole' ? 'L’activité reste à' : 'Le pôle reste à'), 'objTLabel'), totBefore, totAfter])); paintTotal(); // total du niveau du dessus : constant
-      page.appendChild(tbl);
+      tbl.appendChild(trow('objTTotal', [tcell(tr('Total'), 'objTLabel'), totBefore, totAfter])); paintTotal();
+      page.appendChild(tbl); page.appendChild(note);
       return page;
     }
     function tpPaint() {

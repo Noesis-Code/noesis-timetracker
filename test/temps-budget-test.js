@@ -52,7 +52,7 @@ const spec = (level, extra) => Object.assign({ activityId: A, level, poleKey: le
   const oA = obj(A, 'activite', null, null, 20), oB = obj(B, 'activite', null, null, 5), oP2 = obj(A, 'pole', P2, null, 3), oP3 = obj(A, 'pole', P3, null, null);
   e = tb.etat('u1', spec('pole'));
   assert(e.up.prevuMin === H(20) && e.me.prevuMin === null && e.valueMin === H(6), 'pôle : ligne du dessus = objectif de l’activité (20 h) ; sans objectif propre, défaut = Passé');
-  assert(e.others.length === 2 && e.takeLines.deplacer.length === 2 && e.takeLines.deplacer[0].key === P2 && e.takeLines.deplacer[0].avantMin === H(3) && e.takeLines.deplacer[1].key === 'reste' && e.takeLines.deplacer[1].label === 'Sans pôle' && e.takeLines.deplacer[1].avantMin === H(17), '« Déplacer » : UN tableau = les autres pôles qui ont du temps (Réseaux 3 h ; Salons sans objectif n’est pas listé) + « Sans pôle » (20 − 3 = 17 h)');
+  assert(e.others.length === 2 && e.takeLines.deplacer.map((l) => l.key).join() === P2 + ',' + P3 + ',reste' && e.takeLines.deplacer[0].avantMin === H(3) && e.takeLines.deplacer[1].avantMin === 0 && e.takeLines.deplacer[1].objectifId === oP3 && e.takeLines.deplacer[2].label === 'Reste de l’activité' && e.takeLines.deplacer[2].avantMin === H(17), '« Déplacer » : UN tableau = TOUS les autres pôles, même à 0 h (Salons : objectif sans heures, 0 h), + « Reste de l’activité » (20 − 3 = 17 h)');
   assert(e.restMin === H(17) && e.modes.join() === 'ajouter,deplacer', '« Sans pôle » = objectif de l’activité (20 h) − les autres pôles (3 h) − le pôle lui-même (0 h) = 17 h ; deux possibilités seulement');
   assert(tb.etat('u1', spec('pole', { ownMin: H(9) })).valueMin === H(9), 'la valeur déjà validée remplace le défaut (retour à l’écran 1)');
 
@@ -94,7 +94,7 @@ const spec = (level, extra) => Object.assign({ activityId: A, level, poleKey: le
   const oPole1 = obj(A, 'pole', P1, null, 10), oS2 = obj(A, 'secteur', P1, S2, 2);
   e = tb.etat('u1', spec('secteur'));
   assert(e.up.kind === 'pole' && e.up.prevuMin === H(10) && e.me.prevuMin === null, 'secteur : ligne du dessus = objectif du pôle (10 h)');
-  assert(e.takeLines.deplacer.length === 2 && e.takeLines.deplacer[0].key === S2 && e.takeLines.deplacer[0].avantMin === H(2) && e.takeLines.deplacer[1].key === 'reste' && e.takeLines.deplacer[1].label === 'Sans secteur' && e.takeLines.deplacer[1].avantMin === H(8), 'secteur : les autres secteurs qui ont un objectif (2 h) + « Sans secteur » (pôle 10 h − 2 h = 8 h)');
+  assert(e.takeLines.deplacer.length === 2 && e.takeLines.deplacer[0].key === S2 && e.takeLines.deplacer[0].avantMin === H(2) && e.takeLines.deplacer[1].key === 'reste' && e.takeLines.deplacer[1].label === 'Reste du pôle' && e.takeLines.deplacer[1].avantMin === H(8), 'secteur : les autres secteurs (2 h) + « Reste du pôle » (pôle 10 h − 2 h = 8 h)');
   tb.plan('u1', spec('secteur', { newMin: H(8), mode: 'ajouter' }), true);
   assert(hours(oPole1) === 18 && hours(oA) === 31, 'secteur, Ajouter : le pôle (10 → 18 h) et l’activité (23 → 31 h) grandissent de la différence (0 → 8 h)');
 
@@ -111,7 +111,7 @@ const spec = (level, extra) => Object.assign({ activityId: A, level, poleKey: le
 
   // ---- Niveau activité : « Prendre sur les autres activités » toujours proposé ----
   e = tb.etat('u1', spec('activite'));
-  assert(e.manualCapacity === false && e.modes.join() === 'ajouter,deplacer' && e.me.prevuMin === H(31) && e.takeLines.deplacer.length === 1 && e.takeLines.deplacer.some((l) => l.key === 'a' + B && l.avantMin === H(5)), 'activité : les autres activités qui ont du temps, aucune ligne « Sans … » (cartes toujours affichées)');
+  assert(e.manualCapacity === false && e.modes.join() === 'ajouter,deplacer' && e.me.prevuMin === H(31) && e.takeLines.deplacer.map((l) => l.key).join() === 'a' + B + ',a' + C + ',reste' && e.takeLines.deplacer[2].label === 'Reste de ta capacité' && e.takeLines.deplacer.some((l) => l.key === 'a' + B && l.avantMin === H(5)), 'activité : TOUTES les autres activités (même à 0 h) + « Reste de ta capacité »');
   assert(tb.etat('u1', spec('activite', { activityId: C })).modes.join() === 'ajouter,deplacer', 'une activité sans objectif propre : les deux cartes sont proposées aussi');
   const capBefore = wp.getWeeklyCapacity('u1').minutes;
   tb.plan('u1', spec('activite', { newMin: H(35), mode: 'deplacer', apres: { ['a' + B]: H(1) } }), true);
