@@ -94,10 +94,6 @@
     label.addEventListener('click', function () { toggleExpand(false); });
     prev.addEventListener('click', function () { stepCal(-1); });
     next.addEventListener('click', function () { stepCal(1); });
-    var mp = null;
-    if (calExpanded && TMT.calNums) { // mois déplié : à gauche du mois, la période la plus représentée du mois (une seule)
-      mp = TMT.calNums.mainPeriod(+ref.slice(0, 4), +ref.slice(5, 7) - 1); if (mp) { var pbox = el('span', 'calPeriods'); pbox.appendChild(el('span', 'calPeriod', 'P' + mp.p)); label.appendChild(pbox); }
-    }
     nav.appendChild(label); calBox.appendChild(nav); // libellé du mois seul en haut ; les flèches encadrent le calendrier (centrées sur lui, elles descendent quand le mois se déploie)
     var frame = el('div', 'tasksWeekFrame'), grid = el('div', 'tasksWeekGrid');
     var head = el('div', 'goalsCalHead');
@@ -108,7 +104,7 @@
     else { first = mondayOf(anchor); rows = 1; }
     for (var r = 0; r < rows; r++) {
       var wrow = el('div', 'calWeekRow'), week = el('div', 'goalsCalWeek'), days = el('div', 'goalsCalDays');
-      if (TMT.calNums) wrow.appendChild(el('span', 'calWeekNum', 'S' + TMT.calNums.week(addDays(first, r * 7)))); // numéro de la semaine, à gauche de sa rangée
+      if (TMT.calNums) { var wn = el('span', 'calWeekNum', 'S' + TMT.calNums.week(addDays(first, r * 7))); wn.appendChild(el('i', null, 'P' + TMT.calNums.period(addDays(first, r * 7)))); wrow.appendChild(wn); } // numéro de la semaine, à gauche de sa rangée
       for (var c = 0; c < 7; c++) {
         var di = addDays(first, r * 7 + c);
         var cell = el('button', 'goalsCalDay' + (calExpanded && fromIso(di).getMonth() !== month ? ' out' : '') + (di === today ? ' today' : '') + (di === sel && viewDay !== 'all' ? ' sel' : ''), String(+di.slice(8, 10)));
@@ -116,7 +112,6 @@
         (function (d) { cell.addEventListener('click', function () { pickDay(d); }); })(di);
         days.appendChild(cell);
       }
-      if (mp) TMT.calNums.band(days, [0, 1, 2, 3, 4, 5, 6].map(function (c) { var d = addDays(first, r * 7 + c); return fromIso(d).getMonth() === month && TMT.calNums.period(d) === mp.p; })); // faisceau sur les jours de la période
       week.appendChild(days); wrow.appendChild(week); grid.appendChild(wrow);
     }
     frame.appendChild(prev); frame.appendChild(grid); frame.appendChild(next); calBox.appendChild(frame);

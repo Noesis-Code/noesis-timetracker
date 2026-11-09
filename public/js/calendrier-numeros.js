@@ -1,32 +1,18 @@
 /* Numéros de semaine (S1–S52) et de période (P1–P13) d'un calendrier, calculés d'après les DATES : 52 semaines par an, 13 périodes de 4 semaines.
-   Une semaine appartient à l'année de son jeudi : une semaine de janvier est donc toujours dans les premières semaines (jamais P13 en janvier).
+   La première semaine (et la première période) commence le PREMIER LUNDI de janvier ; les jours d'avant appartiennent à la dernière semaine de l'année précédente.
+   Une semaine dont le lundi tombe en janvier est donc toujours dans les premières semaines (jamais P13 en janvier, sauf les jours avant le premier lundi).
    Un seul calcul, partagé par la bande de la vue Tâches et la grille du calendrier (R29). */
 (function () {
   var TMT = window.TMT = window.TMT || {};
+  var DAY = 86400000;
   function parse(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); return Date.UTC(+m[1], +m[2] - 1, +m[3]); }
-  function fmt(ms) { var d = new Date(ms), p = function (x) { return String(x).padStart(2, '0'); }; return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()); }
-  function thursdayOf(iso) { var ms = parse(iso), dw = (new Date(ms).getUTCDay() + 6) % 7; return ms - dw * 86400000 + 3 * 86400000; }
+  function mondayOf(ms) { return ms - ((new Date(ms).getUTCDay() + 6) % 7) * DAY; }
+  function firstMonday(y) { var j = Date.UTC(y, 0, 1); return j + ((8 - new Date(j).getUTCDay()) % 7) * DAY; } // premier lundi de janvier
   function week(iso) { // S1…S52 de la semaine qui contient ce jour
-    var th = thursdayOf(iso), y = new Date(th).getUTCFullYear(), doy = Math.round((th - Date.UTC(y, 0, 1)) / 86400000);
-    return Math.min(52, Math.floor(doy / 7) + 1);
+    var m = mondayOf(parse(iso)), y = new Date(m).getUTCFullYear(), start = firstMonday(y);
+    if (m < start) start = firstMonday(y - 1);
+    return Math.min(52, Math.floor((m - start) / (7 * DAY)) + 1);
   }
   function period(iso) { return Math.min(13, Math.ceil(week(iso) / 4)); } // P1…P13
-  // Périodes à indiquer pour un mois (y, m 0-11) : seulement celles présentes PLUS de 10 jours dans le mois. -> [{ p, days }] dans l'ordre du mois.
-  function periodsOfMonth(y, m, all) {
-    var n = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(), out = [], p = function (x) { return String(x).padStart(2, '0'); };
-    for (var d = 1; d <= n; d++) {
-      var pn = period(y + '-' + p(m + 1) + '-' + p(d)), last = out[out.length - 1];
-      if (last && last.p === pn) last.days++; else out.push({ p: pn, days: 1 });
-    }
-    return all ? out : out.filter(function (x) { return x.days > 10; });
-  }
-  // Période la PLUS représentée dans un mois : la seule affichée. -> { p, days }
-  function mainPeriod(y, m) { var best = null; periodsOfMonth(y, m, true).forEach(function (x) { if (!best || x.days > best.days) best = x; }); return best; }
-  // Faisceau violet pâle derrière les jours d'une rangée qui font partie de la période : flags = 7 booléens (lundi → dimanche) ; une seule bande par rangée, à 4 px des bords du cadre (comme la bulle de la barre des volets).
-  function band(daysEl, flags) {
-    var a = flags.indexOf(true), b = flags.lastIndexOf(true); if (a < 0) return;
-    var el = document.createElement('div'); el.className = 'calPeriodBand'; el.style.left = (a * 100 / 7) + '%'; el.style.width = ((b - a + 1) * 100 / 7) + '%';
-    daysEl.insertBefore(el, daysEl.firstChild);
-  }
-  TMT.calNums = { week: week, period: period, periodsOfMonth: periodsOfMonth, mainPeriod: mainPeriod, band: band };
+  TMT.calNums = { week: week, period: period };
 })();

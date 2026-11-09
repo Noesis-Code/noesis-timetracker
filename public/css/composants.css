@@ -297,11 +297,8 @@
 /* Calendrier (bande de la vue Tâches ET grille du calendrier) : numéro de la semaine à gauche de sa rangée, périodes à gauche du mois, jours de la période soulignés. Défini une seule fois (R29). */
 .calWeekRow { position: relative; margin-left: 14px; }
 .calWeekRow > .goalsCalWeek { padding: 4px; border-radius: var(--radius-lg); }
-.calWeekNum, .calWeekNum.cmpStatus { position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%); z-index: 2; min-height: 0; padding: 2px 3px; border: 0; background: var(--bg, #0B0A0A); color: var(--text-light); font-size: 11px; font-weight: 400; line-height: 1; } /* numéro de la semaine centré sur le trait gauche du cadre */
+.calWeekNum, .calWeekNum.cmpStatus { position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%); z-index: 2; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px; border: 0; background: var(--bg, #0B0A0A); color: var(--text-light); font-size: 10px; font-weight: 400; line-height: 1.2; text-align: center; }
+.calWeekNum > i { font-style: normal; color: var(--purple); } /* numéro de période sous le S, dans la même pastille sur le trait */ /* numéro de la semaine centré sur le trait gauche du cadre */
 .goalsCalHead, .tasksWeekHead .goalsCalHead { margin-left: 14px; }
-.cmpNavLabel, #goalsCalTitle { position: relative; }
-.calPeriods { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: flex; gap: 8px; font-size: 13px; font-weight: 400; color: var(--text-light); white-space: nowrap; }
-.calPeriod { color: var(--purple); }
 .goalsCalDays { position: relative; }
 .goalsCalDay { position: relative; z-index: 1; }
-.calPeriodBand { position: absolute; top: 6px; bottom: 6px; z-index: 0; border-radius: var(--radius-pill, 999px); background: rgba(var(--purple-rgb), .14); box-shadow: 0 0 10px rgba(var(--purple-rgb), .16); pointer-events: none; } /* halo violet doux, sans contour, plus fin que la bulle de la barre */

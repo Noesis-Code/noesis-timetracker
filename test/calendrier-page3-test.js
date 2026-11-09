@@ -12,5 +12,15 @@ assert(/tasksPopRow/.test(js) && /tasksPopCheck/.test(js) && !/openGoalsDayPop/.
 const add = (js.match(/function addGoalsDayTask[\s\S]*?\r?\n  \}\r?\n/) || [''])[0];
 assert(/goals\/categories\/' \+ encodeURIComponent\(TMT\.currentGoalsCategory\) \+ '\/tasks'/.test(add) && !/capture|classif|propose/i.test(add), 'ajout manuel direct dans le secteur / pôle de la page (aucun tri IA, aucun pop-up de placement)');
 assert(/goalsMainBig/.test(js) && !/goalsMainAdd/.test(js) && !/Ajouter un objectif périodique/.test(js), 'ligne de période : titre de l’objectif périodique seulement, sinon rien');
+{ // numéros S/P d'après les dates : la première semaine commence le premier lundi de janvier
+  global.window = {}; require('../public/js/calendrier-numeros.js'); const c = window.TMT.calNums;
+  assert(c.week('2026-01-05') === 1 && c.period('2026-01-05') === 1 && c.week('2026-01-04') === 52 && c.period('2026-01-04') === 13, 'la semaine 1 commence le premier lundi de janvier (avant : dernière semaine de l’année précédente)');
+  assert(c.week('2031-01-28') === 4 && c.period('2031-01-28') === 1 && c.week('2026-12-31') === 52, 'une semaine de janvier n’est jamais P13 ; 52 semaines au plus');
+}
+{ // numéros S/P d'après les dates : la première semaine commence le premier lundi de janvier
+  global.window = {}; require('../public/js/calendrier-numeros.js'); const c = window.TMT.calNums;
+  assert(c.week('2026-01-05') === 1 && c.period('2026-01-05') === 1 && c.week('2026-01-04') === 52 && c.period('2026-01-04') === 13, 'la semaine 1 commence le premier lundi de janvier (avant : dernière semaine de l’année précédente)');
+  assert(c.week('2031-01-28') === 4 && c.period('2031-01-28') === 1 && c.week('2026-12-31') === 52, 'une semaine de janvier n’est jamais P13 ; 52 semaines au plus');
+}
 if (failed) { console.log('\ncalendrier-page3-test : ' + failed + ' échec(s)'); process.exit(1); }
 console.log('\ncalendrier-page3-test : OK');
