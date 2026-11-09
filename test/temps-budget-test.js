@@ -58,11 +58,11 @@ const spec = (level, extra) => Object.assign({ activityId: A, level, poleKey: le
 
   // ---- Baisse : un seul écran, rien n'est écrit ----
   let r = tb.plan('u1', spec('pole', { newMin: H(4) }), true);
-  assert(r.increase === false && r.effects.length === 0 && hours(oA) === 20 && hours(oP2) === 3, 'baisse validée : aucun autre niveau ne bouge (le temps libéré reste libre)');
+  assert(r.increase === false && r.lines.length === 0 && hours(oA) === 20 && hours(oP2) === 3, 'baisse validée : aucun autre niveau ne bouge (le temps libéré reste libre)');
 
   // ---- Ajouter : l'objectif parent grandit de la différence ----
   r = tb.plan('u1', spec('pole', { newMin: H(9), mode: 'ajouter' }), false);
-  assert(r.increase && r.deltaMin === H(3) && r.effects.map((x) => x.level).join() === 'pole,activite,total' && r.effects[1].beforeMin === H(20) && r.effects[1].afterMin === H(23), 'Ajouter : le pôle passe de 6 h à 9 h, l’activité de 20 h à 23 h, le total grandit');
+  assert(r.increase && r.deltaMin === H(3) && r.balanced === true && r.effects === undefined, 'Ajouter : hausse de 3 h (6 → 9 h), aucun aperçu d’effet (plus d’écran d’effet)');
   assert(hours(oA) === 20, 'aperçu : rien n’est écrit avant « Valider »');
   let bad = false; try { tb.plan('u1', spec('pole', { newMin: H(9) }), true); } catch (x) { bad = x.statusCode === 400; }
   assert(bad, 'hausse sans choix d’origine : « Valider » refusé');

@@ -19,9 +19,9 @@ assert(js.includes('tpPages') && js.includes('tasksPages'), 'balayage : mécanis
 assert(!/objTDots|pagination|pageDots/.test(js.slice(js.indexOf('function tpPaint'), js.indexOf('function tpPaint') + 3000)), 'aucun point de pagination');
 assert(!js.includes('tpValider') && !js.includes("tr('Valider')") && !js.includes('tp.committed'), 'plus de bouton « Valider » ni d’écran qui revient à l’écran 1');
 assert(/\.objDock\.objTemps \.objStepBtn:disabled \{ background: var\(--card\); color: var\(--text-light\); box-shadow: inset 0 0 0 1px var\(--border\); opacity: 1; \}/.test(css) && js.includes("dock.classList.toggle('objTemps', k === 'temps')"), 'bouton du bas : gris (R35) quand il est désactivé à l’étape Temps, violet standard sinon');
-assert(js.includes("tpSync(); tp.shown = 1; tpPaint(); tpGo(tpPages().indexOf('s3'));") && !js.includes("if (m === 'ajouter') { tp.page = 0") && js.includes("tr('Effet')"), '« Ajouter » mène à l’écran d’EFFET séparé (lecture seule), sans retour automatique à l’écran 1 ; « Suivant » y est actif (étape suivante)');
+assert(js.includes("if (m === 'ajouter') { if (advance && !stepBtn.disabled) advance(); } else {") && !js.includes("tr('Effet')") && !js.includes('effects') && !js.includes("if (m === 'ajouter') { tp.page = 0"), '« Ajouter » passe directement à l’étape suivante de la création (même fonction d’avancement que « Suivant ») ; plus d’écran d’effet');
 assert(js.includes('stepBtn.disabled = !tpValid(); advance = i < tot - 1 ? stepNext : finishAll;'), 'le bouton du bas reste « Suivant » / « Terminer » ; grisé seulement si la répartition n’est pas équilibrée');
-assert((js.match(/\/api\/objectifs\/temps\/plan/g) || []).length === 2 && js.includes('function tpApply()') && js.includes('function go(replaceId) { return tpApply().then('), 'le serveur n’est modifié qu’à « Terminer » (tpApply dans la création) ; l’aperçu de l’effet ne modifie rien');
+assert((js.match(/\/api\/objectifs\/temps\/plan/g) || []).length === 1 && js.includes('function tpApply()') && js.includes('function go(replaceId) { return tpApply().then('), 'le serveur n’est modifié qu’à « Terminer » (tpApply dans la création) ; plus d’aperçu ni d’écran d’effet');
 // plus aucune saisie au clavier dans la page Temps
 const tpCode = js.slice(js.indexOf('    var tpBox = '), js.indexOf('    function refresh() {'));
 assert(!tpCode.includes("el('input'") && !tpCode.includes('inputMode') && !tpCode.includes("'keydown'") && !tpCode.includes('.blur()') && !js.includes('function tedit(') && !js.includes('function parseHrs('), 'aucun champ de saisie, clavier, Entrée ni perte de focus dans la page Temps ; tedit et parseHrs supprimés');
@@ -43,9 +43,9 @@ assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >=
 
 // comportement des écrans (fonctions extraites telles quelles du code) : la valeur arrive en MINUTES depuis le ✓ du sélecteur
 {
-  const a = js.indexOf('    function tpOld()'), b = js.indexOf('    var LV = '), c = js.indexOf('    function tpCommit(min)'), d = js.indexOf('    function modeLabel(m)');
+  const a = js.indexOf('    function tpOld()'), b = js.indexOf('    function tpSync()'), c = js.indexOf('    function tpCommit(min)'), d = js.indexOf('    function modeLabel(m)');
   const mk = (e, valueMin) => {
-    const tp = { e, valueMin, mode: null, apres: {}, page: 0, effects: null };
+    const tp = { e, valueMin, mode: null, apres: {}, page: 0 };
     const api = new Function('tp', 'tpSync', 'tpPaint', js.slice(a, b) + '\n' + js.slice(c, d) + '\nreturn { tpCommit, tpPages, tpValid, tpIncrease, tpChanging, tpMode, tpBalanced };')(tp, () => {}, () => {});
     return Object.assign({ tp }, api);
   };
@@ -54,13 +54,31 @@ assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >=
   t.tp.page = 0; t.tpCommit(360); assert(t.tp.page === 0 && !t.tpChanging() && t.tpPages().join() === 's1', '✓ sans changement : rien ne bouge, aucun glissement');
   t.tpCommit(240); assert(t.tp.page === 0 && t.tpChanging() && !t.tpIncrease() && t.tpPages().join() === 's1' && t.tpValid(), 'baisse : aucun glissement, aucune question (le temps libéré reste libre), « Suivant » actif');
   t.tpCommit(540); assert(t.tp.page === 1 && t.tpIncrease() && t.tpPages().join() === 's1,s2' && !t.tpValid(), 'hausse : glissement vers « D’où vient ce temps ? » ; « Suivant » grisé tant que rien n’est choisi');
-  t.tp.mode = 'ajouter'; assert(t.tpPages().join() === 's1,s2,s3' && t.tpValid(), 'Ajouter : écran d’effet, « Suivant » actif');
+  t.tp.mode = 'ajouter'; assert(t.tpPages().join() === 's1,s2' && t.tpValid(), 'Ajouter : aucun écran d’effet (on passe à l’étape suivante), « Suivant » actif');
+  t.tp.mode = 'deplacer'; assert(t.tpPages().join() === 's1,s2,s3' && !t.tpValid(), 'Déplacer : le tableau Avant / Après existe ; « Suivant » grisé tant que rien n’est déplacé');
   t.tp.mode = 'deplacer'; t.tp.apres = { p2: 120 }; assert(t.tpBalanced() === false && !t.tpValid(), '« Déplacer » non équilibré (1 h déplacée pour 3 h de hausse) : « Suivant » grisé');
   t.tp.apres = { p2: 0 }; assert(t.tpBalanced() && t.tpValid(), '« Déplacer » équilibré (3 h déplacées pour 3 h) : « Suivant » actif');
   t.tpCommit(360); assert(t.tp.page === 0 && !t.tpChanging() && t.tp.mode === null && t.tpPages().join() === 's1', 'valeur remise au défaut : le changement est annulé (retour à un seul écran)');
   t.tpCommit(0); assert(t.tp.valueMin === 0 && t.tpChanging() && !t.tpIncrease() && t.tp.page === 0, 'valeur 0 : une baisse, aucun glissement');
-  t = mk(E(['ajouter']), 360); t.tpCommit(420); assert(t.tp.page === 1 && t.tpPages().join() === 's1,s3' && t.tpMode() === 'ajouter' && t.tpValid(), 'une seule possibilité : l’écran « d’où vient ce temps » est sauté, glissement direct vers l’effet');
+  t = mk(E(['ajouter']), 360); t.tpCommit(420); assert(t.tpPages().join() === 's1' && t.tpMode() === 'ajouter' && t.tpValid(), 'une seule possibilité (Ajouter) : ni écran 2 ni effet, « Suivant » actif');
   t = mk(E(['ajouter', 'deplacer']), 360); t.tpCommit(168 * 60); assert(t.tpIncrease() && t.tp.valueMin === 168 * 60, '168 h acceptées (heures d’une semaine)');
+}
+
+// écran 2 : « Ajouter » avance comme « Suivant » ; « Déplacer » glisse vers le tableau
+{
+  const a2 = js.indexOf('    function tpOld()'), b2 = js.indexOf('    function tpSync()'), c2 = js.indexOf('    function modeLabel(m)'), d2 = js.indexOf('    function tpScreen3()');
+  const mk = (disabled) => {
+    const tp = { e: { valueMin: 360, modes: ['ajouter', 'deplacer'], takeLines: { deplacer: [] } }, valueMin: 540, mode: null, apres: {}, page: 1, shown: 1 };
+    const log = []; const cards = {}; const state = { advance: () => log.push('advance'), stepBtn: { disabled } };
+    const el = () => ({ appendChild() {} }); const choice = (title, d, on, c, fn) => { cards[title] = fn; return {}; };
+    const body = js.slice(a2, b2) + '\n' + js.slice(c2, d2).replace(/\badvance\b/g, 'S.advance').replace(/\bstepBtn\b/g, 'S.stepBtn') + '\nreturn { tpScreen2 };';
+    const api = new Function('tp', 'el', 'choice', 'tr', 'tpSync', 'tpPaint', 'tpGo', 'S', body)(tp, el, choice, (x) => x, () => log.push('sync'), () => log.push('paint'), (i) => log.push('go' + i), state);
+    api.tpScreen2(); return { tp, log, cards };
+  };
+  let r = mk(false); r.cards['Ajouter']();
+  assert(r.tp.mode === 'ajouter' && r.tp.valueMin === 540 && r.log.join() === 'sync,advance', '« Ajouter » : la valeur est gardée et la création passe à l’étape suivante (même fonction d’avancement que « Suivant »), sans écran d’effet');
+  r = mk(true); r.cards['Ajouter'](); assert(r.log.join() === 'sync', '« Ajouter » : mêmes contrôles qu’un « Suivant » normal (bouton désactivé : on n’avance pas)');
+  r = mk(false); r.cards['Déplacer'](); assert(r.tp.mode === 'deplacer' && r.log.indexOf('advance') < 0 && r.log.join() === 'sync,paint,go2', '« Déplacer » : glissement vers le tableau Avant / Après, on n’avance pas');
 }
 
 // grille « Déplacer » (tpScreen3 exécutée telle quelle avec des doublures du DOM)

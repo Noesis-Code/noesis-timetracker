@@ -113,7 +113,7 @@ function plan(userId, body, apply) {
   const newMin = Math.round(Number(body.newMin));
   if (!Number.isFinite(newMin) || newMin < 0 || newMin > MAX_MIN) throw err('Un budget va de 0 à 168 heures par semaine.');
   const old = e.valueMin || 0, delta = newMin - old, aid = e.activityId, end = body.endDate;
-  const res = { ok: true, deltaMin: delta, increase: delta > 0, oldMin: old, newMin, effects: [], lines: [], balanced: true };
+  const res = { ok: true, deltaMin: delta, increase: delta > 0, oldMin: old, newMin, lines: [], balanced: true };
   const cap = weekplanner.getWeeklyCapacity(userId) || { minutes: null, source: null };
   const chain = []; // cases du dessus qui ont un objectif : elles grandissent de la différence (Ajouter)
   if (e.level === 'secteur') { const c = cell(userId, aid, 'pole', e.poleKey, null, end); if (c) chain.push({ id: c.id, label: e.up.label, kind: 'pole', prevuMin: c.min || 0 }); }
@@ -121,11 +121,7 @@ function plan(userId, body, apply) {
   const mode = delta > 0 ? String(body.mode || '') : '';
   if (delta > 0 && !['ajouter', 'deplacer'].includes(mode)) { res.balanced = false; res.needsMode = true; }
   if (delta > 0 && mode && mode !== 'ajouter' && !e.modes.includes(mode)) throw err('Cette possibilité n’existe pas ici.');
-  if (delta > 0 && mode === 'ajouter') {
-    res.effects.push({ level: e.level, label: e.me.label, beforeMin: old, afterMin: newMin });
-    chain.forEach((c) => res.effects.push({ level: c.kind, label: c.label, beforeMin: c.prevuMin, afterMin: c.prevuMin + delta }));
-    res.effects.push({ level: 'total', label: null, beforeMin: capDisplay(cap) || 0, afterMin: (capDisplay(cap) || 0) + delta });
-  } else if (delta > 0 && mode === 'deplacer') {
+  if (delta > 0 && mode === 'deplacer') {
     const apres = body.apres && typeof body.apres === 'object' ? body.apres : {};
     res.lines = e.takeLines.deplacer.map((l) => { const a = apres[l.key] === undefined ? l.avantMin : Math.round(Number(apres[l.key])); return { key: l.key, label: l.label, avantMin: l.avantMin, apresMin: a, objectifId: l.objectifId || null }; });
     const bad = res.lines.some((l) => !(l.apresMin >= 0 && l.apresMin <= l.avantMin));
