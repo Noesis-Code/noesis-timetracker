@@ -5,7 +5,7 @@
 //   activites confondues). Cible manuelle prioritaire, sinon moyenne chronometree.
 
 // NB : les weekKey doivent etre au format zero-rempli YYYY-Www (ex. 2026-W05) : le tri est lexical.
-const AVG_DAYS = 28;
+const weeklyavg = require('./weeklyavg'); // moyenne hebdomadaire partagée : 4 semaines, les 2 dernières comptées double
 const MAX_WEEK_MINUTES = 10080;
 
 function cmpItems(a, b) {
@@ -82,10 +82,8 @@ function planWeeks({ weeks = [], capacities = {}, members = [], carryLimitWeeks 
 // --- Capacite par utilisateur (acces base, hors planWeeks) ---
 
 function historyAverageMinutes(userId, db) {
-  const d = new Date(Date.now() - AVG_DAYS * 86400000).toISOString();
-  const r = db.prepare('SELECT COALESCE(SUM(durationSeconds),0) AS s FROM time_entries WHERE userId = ? AND startTime >= ?').get(userId, d);
-  const m = Math.round(r.s / 60 / (AVG_DAYS / 7));
-  return m > 0 ? m : null;
+  const m = weeklyavg.weeklyAverage(require('./dates').userToday(), (s, e) => db.prepare('SELECT COALESCE(SUM(durationSeconds),0) AS s FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ?').get(userId, s, e).s / 60);
+  return m !== null && Math.round(m) > 0 ? Math.round(m) : null;
 }
 
 function getWeeklyCapacity(userId) {

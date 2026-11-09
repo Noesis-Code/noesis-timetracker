@@ -98,15 +98,15 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   process.env.OBJECTIFS_GRATUIT_PLAFOND_USD = '0.05';
   assert(o.aiAllowed('autre') === false, 'IA gratuite : plafond global mensuel atteint, règles fixes');
   delete process.env.ANTHROPIC_API_KEY;
-  // Temps par semaine : valeur de départ = historique Chrono UNIQUEMENT (médiane des 4 dernières semaines), jamais une valeur de catégorie
+  // Temps par semaine : valeur de départ = historique Chrono UNIQUEMENT (moyenne des 4 dernières semaines, les 2 dernières comptées double), jamais une valeur de catégorie
   const dayIso = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
   const addEntry = (activityId, day, hours) => db.prepare("INSERT INTO time_entries (userId, activityId, startTime, endTime, durationSeconds, isoDate, dayOfWeek) VALUES (?, ?, ?, ?, ?, ?, 'x')").run(u, activityId, day + 'T08:00:00Z', day + 'T09:00:00Z', Math.round(hours * 3600), day);
   const nowIso = new Date().toISOString();
   const actB = Number(db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, createdAt) VALUES (?, 0, 1, ?, ?)').run('Activité test chrono', u, nowIso).lastInsertRowid);
   db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)').run(actB, u, '#9C8CC8', nowIso);
   assert(o.weeklyHoursHistory(u, actB) === null && o.contexte(u, { text: 'Courir un 10 km' }).weeklyHours[actB] === null, 'sans historique Chrono : « Temps par semaine » vide (pas de valeur de catégorie)');
-  [8, 15, 22, 29].forEach((d) => addEntry(actB, dayIso(d), 4));
-  assert(o.weeklyHoursHistory(u, actB) === 4, 'avec historique : médiane des heures Chrono des 4 dernières semaines');
+  [3, 10, 17, 24].forEach((d) => addEntry(actB, dayIso(d), 4)); // une semaine terminée la veille chacune
+  assert(o.weeklyHoursHistory(u, actB) === 4, 'avec historique : moyenne des heures Chrono des 4 dernières semaines (les 2 dernières comptées double)');
   // Catégorie inconnue : la date est demandée en premier
   const cunk = o.contexte(u, { text: 'Faire du ménage' });
   assert(cunk.fixedDate === true && cunk.dateReason === 'inconnue' && cunk.estimate === null && cunk.dateConfirmed === false, 'catégorie inconnue : date demandée en premier, aucune estimation inventée');

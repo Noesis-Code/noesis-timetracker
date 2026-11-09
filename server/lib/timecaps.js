@@ -31,17 +31,13 @@ function cleanMinutes(v, name) {
   return n;
 }
 
-// Moyenne historique (28 derniers jours terminés) du temps chronométré de l'utilisateur,
+// Moyenne historique (4 dernières semaines, les 2 dernières comptées double : weeklyavg) du temps chronométré de l'utilisateur,
 // via categorystats.categoryBreakdownForRange (déjà utilisé par la Répartition).
 // Un pôle cumule ses secteurs.
 function averages(userId, activityId, key) {
-  const categorystats = require('./categorystats'); // paresseux : évite un cycle de chargement
   const today = todayLocal();
-  const bd = categorystats.categoryBreakdownForRange(userId, activityId, goals.addDays(today, -AVG_DAYS), goals.addDays(today, -1));
-  const isPole = goals.isValidCategoryForActivity(activityId, key);
-  const seconds = bd.categories.reduce((s, c) => s + ((c.category === key || (isPole && c.parentKey === key)) ? c.seconds : 0), 0);
-  const perDay = Math.round(seconds / 60 / AVG_DAYS);
-  return { avgDayMinutes: perDay, avgWeekMinutes: Math.round(seconds / 60 / (AVG_DAYS / 7)) };
+  const week = require('./weeklyavg').weeklyAverage(today, (s, e) => minutesInRange(userId, activityId, key, s, e)) || 0; // 4 semaines, les 2 dernières comptées double (fonction partagée)
+  return { avgDayMinutes: Math.round(week / 7), avgWeekMinutes: Math.round(week) };
 }
 
 // Minutes réellement chronométrées dans [startIso, endIso] pour UN pôle (secteurs cumulés) ou UN secteur.

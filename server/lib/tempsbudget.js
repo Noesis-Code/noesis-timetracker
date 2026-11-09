@@ -8,13 +8,11 @@
 const db = require('../db');
 const goals = require('./goals');
 const weekplanner = require('./weekplanner');
+const weeklyavg = require('./weeklyavg'); // moyenne hebdomadaire partagée (4 semaines, les 2 dernières comptées double)
 
 const MAX_MIN = 168 * 60; // seul plafond : les heures d'une semaine
 function err(msg, status) { return Object.assign(new Error(msg), { statusCode: status || 400 }); }
 function today() { return require('./dates').userToday(); }
-function addDays(iso, n) { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
-function mondayOf(iso) { const w = new Date(iso + 'T00:00:00Z').getUTCDay(); return addDays(iso, -((w + 6) % 7)); }
-function median(v) { const s = v.slice().sort((a, b) => a - b), m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
 function objectifs() { return require('./objectifs'); } // chargé à l'appel (évite une dépendance circulaire)
 
 function userActivities(userId) {
@@ -34,16 +32,13 @@ function keysOf(activityId, key) {
 }
 // Passé : médiane (4 dernières semaines complètes) des minutes chronométrées par semaine ; arrondi à la demi-heure comme l'historique de départ de la création.
 function passeMin(userId, activityId, key) {
-  const mon = mondayOf(today()), v = [];
   const keys = activityId == null ? null : keysOf(activityId, key);
-  for (let k = 1; k <= 4; k += 1) {
-    const s = addDays(mon, -7 * k), e = addDays(s, 6);
+  const m = weeklyavg.weeklyAverage(today(), (s, e) => {
     let q = 'SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ?', args = [userId, s, e];
     if (activityId != null) { q += ' AND activityId = ?'; args.push(Number(activityId)); }
     if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); }
-    v.push(db.prepare(q).get(...args).s / 60);
-  }
-  const m = median(v);
+    return db.prepare(q).get(...args).s / 60;
+  });
   return m > 0 ? Math.round(m / 30) * 30 : null;
 }
 function metaOf(id) { const r = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(id); try { return JSON.parse((r && r.metaJson) || '{}'); } catch (e) { return {}; } }

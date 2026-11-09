@@ -211,11 +211,9 @@ function userPW() { return String(temps.PERIOD_WEEKS); }
 function chronoHours(userId, activityId, start, end) {
   try { return db.prepare('SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ?').get(userId, activityId, start, end).s / 3600; } catch (e) { return 0; }
 }
-// Heures Chrono par semaine sur l'activité : médiane des 4 dernières semaines — seule source de la valeur de départ de « Temps par semaine » (jamais une valeur de catégorie).
+// Heures Chrono par semaine sur l'activité : moyenne des 4 dernières semaines, les 2 dernières comptées double (fonction partagée weeklyavg) — seule source de la valeur de départ de « Temps par semaine » (jamais une valeur de catégorie).
 function weeklyHoursHistory(userId, activityId) {
-  const mon = mondayOf(today()), v = [];
-  for (let k = 1; k <= 4; k += 1) { const s = addDays(mon, -7 * k); v.push(chronoHours(userId, activityId, s, addDays(s, 6))); }
-  const m = durees.median(v);
+  const m = require('./weeklyavg').weeklyAverage(today(), (s, e) => chronoHours(userId, activityId, s, e) * 60) / 60;
   return m > 0 ? Math.round(m * 2) / 2 : null;
 }
 function recordSignals(r, meta, periods) {
