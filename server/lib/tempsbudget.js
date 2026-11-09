@@ -46,6 +46,31 @@ function passeMin(userId, activityId, key) {
   });
   return m > 0 ? roundQuarter(m) : null;
 }
+// Passé PAR JOUR DE LA SEMAINE (lundi = index 0) : même moyenne pondérée (weeklyavg), mêmes filtres que passeMin ; null sans temps.
+function passeByDay(userId, activityId, key) {
+  const keys = activityId == null ? null : keysOf(activityId, key);
+  return weeklyavg.weeklyByDay(today(), (s, e) => {
+    let q = 'SELECT isoDate, COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ?', args = [userId, s, e];
+    if (activityId != null) { q += ' AND activityId = ?'; args.push(Number(activityId)); }
+    if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); }
+    q += ' GROUP BY isoDate';
+    const out = [0, 0, 0, 0, 0, 0, 0];
+    db.prepare(q).all(...args).forEach((r) => { out[(new Date(r.isoDate + 'T00:00:00Z').getUTCDay() + 6) % 7] += r.s / 60; });
+    return out;
+  });
+}
+// Répartition PAR JOUR d'un total hebdomadaire (minutes) : les PROPORTIONS de weights (Passé par jour, ou les anciens jours quand les heures changent), mises à l'échelle pour que la somme = total,
+// arrondies au quart d'heure, l'écart d'arrondi va sur le jour le plus chargé ; sans poids : répartition égale sur les jours ouvrés (lundi à vendredi).
+function defaultByDay(total, weights) {
+  total = Math.round(total);
+  if (!(total > 0)) return [0, 0, 0, 0, 0, 0, 0];
+  const sum = weights ? weights.reduce((a, b) => a + b, 0) : 0;
+  const raw = sum > 0 ? weights.map((v) => v / sum * total) : [1, 1, 1, 1, 1, 0, 0].map((v) => v * total / 5);
+  const out = raw.map((v) => Math.round(v / QUARTER) * QUARTER);
+  let h = 0; raw.forEach((v, i) => { if (v > raw[h]) h = i; });
+  out[h] += total - out.reduce((a, b) => a + b, 0);
+  return out;
+}
 function metaOf(id) { const r = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(id); try { return JSON.parse((r && r.metaJson) || '{}'); } catch (e) { return {}; } }
 // Case de l'arbre (niveau + période) : l'objectif qui l'occupe et ses heures par semaine (minutes, ou null si aucune).
 function cell(userId, aid, level, pk, ck, endDate, inner) { // inner : « Hebdomadaire » / « Périodique » du secteur (la semaine et la période sont deux cases différentes)
@@ -146,4 +171,4 @@ function plan(userId, body, apply) {
   return res;
 }
 
-module.exports = { etat, plan, passeMin, roundQuarter, MAX_MIN };
+module.exports = { etat, plan, passeMin, passeByDay, defaultByDay, roundQuarter, MAX_MIN };

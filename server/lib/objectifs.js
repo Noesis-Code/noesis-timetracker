@@ -810,6 +810,20 @@ function parametres(userId, id, body) {
   else if (!multi && meta.inner) meta.inner = 'hebdomadaires';
   if (meta.inner) db.prepare('UPDATE user_objectives SET weekly = ? WHERE id = ?').run(meta.inner === 'periodiques' ? 0 : 1, r.id);
   if ('hoursPerWeek' in body) { const v = Number(body.hoursPerWeek); if (v > 0 && v <= 80) meta.hoursPerWeek = Math.round(v * 10) / 10; else if (body.hoursPerWeek == null || body.hoursPerWeek === '') delete meta.hoursPerWeek; else throw err('Heures par semaine : entre 0 et 80.'); }
+  // Réglage « jour par jour » (9 nov. 2026) : meta.hoursByDay = 7 entiers (minutes, lundi = index 0), dont la somme = les heures par semaine. Ajout sans migration ; le planificateur ne l'utilise pas encore.
+  const hpwMin = meta.hoursPerWeek > 0 ? Math.round(meta.hoursPerWeek * 60) : 0, tb = require('./tempsbudget');
+  if ('hoursByDay' in body) {
+    if (body.hoursByDay == null) delete meta.hoursByDay;
+    else {
+      const d = body.hoursByDay;
+      if (!Array.isArray(d) || d.length !== 7 || !d.every((v) => Number.isInteger(v) && v >= 0 && v <= 1440)) throw err('Jour par jour : sept durées en minutes.');
+      if (d.reduce((a, b) => a + b, 0) !== hpwMin) throw err('Le total des jours doit être égal aux heures par semaine.');
+      meta.hoursByDay = d;
+    }
+  } else if (Array.isArray(meta.hoursByDay)) { // les heures par semaine ont changé : les jours suivent PROPORTIONNELLEMENT (arrondi au quart d'heure) ; plus d'heures : retour au défaut
+    if (!hpwMin) delete meta.hoursByDay;
+    else if (meta.hoursByDay.reduce((a, b) => a + b, 0) !== hpwMin) meta.hoursByDay = tb.defaultByDay(hpwMin, meta.hoursByDay);
+  }
   if ('skill' in body) { const c = textlimits.clean(String(body.skill || ''), { max: 200, word: 'Niveau' }); if (c.error) throw err(c.error); if (c.text) meta.skill = c.text; else delete meta.skill; }
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
   return get(userId, id);
@@ -825,6 +839,22 @@ function macroInfo(r, depth) {
   if (!kids.length) { const a = db.prepare('SELECT id, name FROM activities WHERE id = ? AND active = 1').get(r.activityId); if (a) activities.push({ id: a.id, name: a.name }); }
   return { activities, total: kids.length, live: live.length, attained, empty: kids.length === 0, allAbandoned: kids.length > 0 && live.length === 0,
     status: live.length > 0 && attained === live.length ? 'atteint' : 'en_cours', progress: live.length ? attained / live.length : 0 };
+}
+// Réglage « jour par jour » : Passé par jour (même moyenne pondérée que la page Temps, arrondi au quart d'heure), Passé de la semaine, répartition par défaut. Visible seulement si le Prévu diffère du Passé.
+function dayKeyOf(r) { return r.level === 'secteur' ? (r.categoryKey || null) : r.level === 'pole' ? (r.poleKey || null) : null; }
+function byDayInfo(r, meta) {
+  try {
+    const tb = require('./tempsbudget'), key = dayKeyOf(r);
+    const raw = tb.passeByDay(r.userId, r.activityId, key), passe = raw ? raw.map((v) => tb.roundQuarter(v)) : null, week = tb.passeMin(r.userId, r.activityId, key);
+    const hpwMin = meta.hoursPerWeek > 0 ? Math.round(meta.hoursPerWeek * 60) : 0;
+    return { passe: passe || [0, 0, 0, 0, 0, 0, 0], passeWeekMin: week, default: tb.defaultByDay(hpwMin, raw), show: hpwMin > 0 && hpwMin !== (week || 0) };
+  } catch (e) { return null; }
+}
+// Répartition par défaut pour un total donné (heures modifiées à l'écran avant d'enregistrer) : lecture seule.
+function joursDefaut(userId, id, minutes) {
+  const r = rowOf(userId, id), tb = require('./tempsbudget'); let m = {}; try { m = JSON.parse(r.metaJson || '{}'); } catch (e) { m = {}; }
+  // des jours déjà réglés : ils suivent PROPORTIONNELLEMENT le nouveau total (comme à l'enregistrement) ; sinon les proportions du Passé
+  return { default: tb.defaultByDay(Number(minutes), Array.isArray(m.hoursByDay) ? m.hoursByDay : tb.passeByDay(r.userId, r.activityId, dayKeyOf(r))) };
 }
 function shape(r, full) {
   const periods = JSON.parse(r.stepsJson), meta = JSON.parse(r.metaJson || '{}'), td = today();
@@ -848,6 +878,8 @@ function shape(r, full) {
     weekTasks: { done: weekTasks.filter((t) => t.done).length, total: weekTasks.length },
   };
   out.hoursPerWeek = meta.hoursPerWeek != null ? meta.hoursPerWeek : null; out.skill = meta.skill || ''; // 0 h = part à 0 %
+  out.hoursByDay = Array.isArray(meta.hoursByDay) ? meta.hoursByDay : null;
+  if (full) out.byDay = byDayInfo(r, meta); // détail seulement : Passé par jour (Chrono du niveau) pour le réglage « jour par jour » de la modification
   out.term = meta.term || null; out.innerGoals = meta.inner || null; // choix de création (terme, objectifs inclus) ; null pour les objectifs plus anciens
   out.isMacro = !!r.isMacro; out.timeLevel = temps.deduce(r.startDate, r.endDate); // dérivé de l'échéance, affichage seulement (jamais saisi ni validé)
   out.isBig = !!db.prepare('SELECT 1 FROM user_objectives WHERE userId = ? AND parentId = ? LIMIT 1').get(r.userId, r.id); // grand objectif = a au moins un sous-objectif
@@ -1155,4 +1187,4 @@ function supprimer(userId, id, confirmed) {
 }
 migrateEcheances(); // au chargement (idempotent)
 try { const n = purgeOrphanMacros(null); if (n) console.log('[objectifs] ' + n + ' macro(s) sans objectif relié retiré(s)'); } catch (e) { console.warn('[objectifs] nettoyage des macros vides impossible :', e.message); }
-module.exports = { setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

@@ -23,8 +23,8 @@ assert(js.includes("if (m === 'ajouter') { if (advance && !stepBtn.disabled) adv
 assert(js.includes('stepBtn.disabled = !tpValid(); advance = i < tot - 1 ? stepNext : finishAll;'), 'le bouton du bas reste « Suivant » / « Terminer » ; grisé seulement si la répartition n’est pas équilibrée');
 assert((js.match(/\/api\/objectifs\/temps\/plan/g) || []).length === 1 && js.includes('function tpApply()') && js.includes('function go(replaceId) { return tpApply().then('), 'le serveur n’est modifié qu’à « Terminer » (tpApply dans la création) ; plus d’aperçu ni d’écran d’effet');
 // plus aucune saisie au clavier dans la page Temps
-const tpCode = js.slice(js.indexOf('    var tpBox = '), js.indexOf('    function refresh() {'));
-assert(!tpCode.includes("el('input'") && !tpCode.includes('inputMode') && !tpCode.includes("'keydown'") && !tpCode.includes('.blur()') && !js.includes('function tedit(') && !js.includes('function parseHrs('), 'aucun champ de saisie, clavier, Entrée ni perte de focus dans la page Temps ; tedit et parseHrs supprimés');
+const tpCode = js.slice(js.indexOf('    var tpBox = '), js.indexOf('    function refresh() {')) + js.slice(js.indexOf('  function tbtn('), js.indexOf('  function btn('));
+assert(!tpCode.includes("el('input'") && !tpCode.includes('inputMode') && !tpCode.includes("'keydown'") && !tpCode.includes('.blur()') && (js.match(/function hh\(/g) || []).length === 1 && (js.match(/function tbtn\(/g) || []).length === 1 && !js.includes('function tedit(') && !js.includes('function parseHrs('), 'aucun champ de saisie, clavier, Entrée ni perte de focus dans la page Temps ; tedit et parseHrs supprimés');
 assert(tpCode.includes("TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: maxMin == null ? 168") && (tpCode.match(/tbtn\(/g) || []).length >= 3, 'le Prévu et les « Après » ouvrent le sélecteur de durée standard (initialisé à la valeur actuelle, plafond 168 h)');
 assert(!/durPickerSheet/.test(js), 'aucun second sélecteur : le composant unique de l’app (R29)');
 assert(js.includes("'&inner=' + (form.weeklyOn ? 'hebdomadaires' : 'periodiques')") && js.includes("q.inner || ''"), 'la recherche de la case tient compte de Hebdomadaire / Périodique');
@@ -35,7 +35,7 @@ assert(js.includes("'cmpList'"), 'lignes séparées bord à bord (R22, .cmpList)
 ['Heures par semaine', 'Prévu', 'Passé', 'Toutes tes activités'].forEach((k) => assert(i18n.includes(k), 'traduction : ' + k));
 assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >= 3 && js.includes("'objTPair objTHead'") && !/objTHead'[^\n]*tsep\(\)/.test(js) && /\.objTSep \{[^}]*color: var\(--text-light\)/.test(css) && /\.objTPair \{[^}]*76px 12px 76px/.test(css), 'écran 1 : « / » seulement entre les VALEURS d’une ligne (gris sable, une seule fonction de rendu) ; l’en-tête écrit Prévu et Passé côte à côte, sans barre oblique');
 {
-  const a1 = js.indexOf('    function hh(min)'), a2 = js.indexOf('\n', a1);
+  const a1 = js.indexOf('  function hh(min)'), a2 = js.indexOf('\n', a1);
   const hh = new Function(js.slice(a1, a2) + '; return hh;')();
   assert(hh(780) === '13h' && hh(795) === '13h15' && hh(810) === '13h30' && hh(825) === '13h45' && hh(30) === '0h30' && hh(0) === '0h' && hh(125) === '2h05' && hh(168 * 60) === '168h' && hh(null) === '—', 'format des durées : 13h, 13h15, 13h30, 13h45, 0h30, 2h05 (minutes de la roue telles quelles), jamais de décimale');
   assert(!js.includes('hrs(') && !/\d,\d/.test(js.slice(a1, a2)) && (js.match(/function hh\(/g) || []).length === 1, 'une seule fonction de formatage pour toute la page (tableaux, Avant / Après, effet)');
@@ -84,7 +84,7 @@ assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >=
 // grille « Déplacer » (tpScreen3 exécutée telle quelle avec des doublures du DOM)
 {
   const a = js.indexOf('    function tpOld()'), b = js.indexOf('    function tpSync()'), c = js.indexOf('    function tpScreen3()'), d = js.indexOf('    function tpPaint()');
-  const h0 = js.indexOf('    function hh(min)'), h1 = js.indexOf('\n', h0);
+  const h0 = js.indexOf('  function hh(min)'), h1 = js.indexOf('\n', h0);
   const mkEl = (tag, cls, text) => ({ tag, cls: cls || '', textContent: text == null ? '' : text, children: [], hidden: false, appendChild(x) { this.children.push(x); return x; }, classList: { toggle(n, on) { if (n === 'hidden') this.owner.hidden = !!on; } } });
   const run = (level, valueMin, oldMin, lines, apres) => {
     const tp = { e: { level, valueMin: oldMin, modes: ['ajouter', 'deplacer'], takeLines: { deplacer: lines }, me: { label: 'Produit' } }, valueMin, mode: 'deplacer', apres: apres || {}, page: 0 };

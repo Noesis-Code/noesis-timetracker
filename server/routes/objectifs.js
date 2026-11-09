@@ -40,6 +40,7 @@ router.put('/objectifs/:id/titre', run((req) => objectifs.renommer(req.userId, r
 router.put('/objectifs/:id/description', run((req) => objectifs.decrire(req.userId, req.params.id, (req.body || {}).description)));
 router.post('/objectifs/:id/parts/apercu', run((req) => objectifs.changerPart(req.userId, req.params.id, req.body || {}, false)));
 router.put('/objectifs/:id/parts', run((req) => objectifs.changerPart(req.userId, req.params.id, req.body || {}, true)));
+router.get('/objectifs/:id/jours', run((req) => objectifs.joursDefaut(req.userId, req.params.id, req.query.minutes)));
 router.put('/objectifs/:id/parametres', run((req) => objectifs.parametres(req.userId, req.params.id, req.body || {})));
 router.put('/objectifs/:id/echeance', run((req) => objectifs.modifierEcheance(req.userId, req.params.id, (req.body || {}).endDate)));
 router.get('/objectifs/:id/macro', run((req) => objectifs.macroDe(req.userId, req.params.id)));

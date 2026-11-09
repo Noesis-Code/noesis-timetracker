@@ -133,6 +133,12 @@
 .objTTotal .objTLabel, .objTTotal .objTRO { color: var(--text); }
 .cmpList > .objTTotal { border-top-color: var(--text-light); }
 .objTNote { margin: 12px 0 0; }
+/* Réglage « jour par jour » (modification d'un objectif, volet « Avancé ») : L M M J V S D + Total ; en-têtes et Total en blanc, Passé en gris sable, Prévu violet (boutons-texte sans rectangle). */
+.objDayRow { display: grid; grid-template-columns: 44px repeat(7, minmax(0, 1fr)) 40px; align-items: center; min-height: 44px; font-size: 13px; }
+.objDayCell { text-align: center; color: var(--text-light); min-width: 0; }
+.objDayRow > .objDayCell:first-child { text-align: left; }
+.objDayHead .objDayCell, .objDayTotal { color: var(--text); }
+.objDayRow .objTEdit { text-align: center; font-size: 13px; }
 .objTH { color: var(--text-light); }
 .objTTotal { font-weight: 600; }
 /* Valeur modifiable = texte violet NU (aucun rectangle : ni fond, ni bordure, ni cadre), bouton-texte qui ouvre le sélecteur de durée standard. Zone de toucher 44 px (R7, R25). */

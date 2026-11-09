@@ -14,6 +14,15 @@
   if (!host) return;
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  // UNE seule fonction de formatage des durées pour toute la page Temps : heures puis minutes, jamais de décimale (« 13h », « 13h15 », « 13h30 », « 0h30 », « 2h05 »). Les minutes choisies à la roue s'affichent telles quelles.
+  function hh(min) { if (min == null) return '—'; var m = Math.round(min), h = Math.floor(m / 60), r = m % 60; return h + 'h' + (r ? (r < 10 ? '0' : '') + r : ''); }
+  // Valeur modifiable = chiffre violet SANS rectangle (R11, R33), simple bouton-texte : le toucher ouvre le sélecteur de durée STANDARD de l'app (TMT.openDurationPicker, composant unique R29) ; aucun clavier.
+  // ✓ = confirmation (onPick reçoit les minutes) ; ✕ ou toucher dehors : rien ne change. Plafond 168 h (les heures d'une semaine) ; une valeur choisie à la roue n'est jamais réarrondie.
+  function tbtn(minutes, label, onPick, maxMin) { // maxMin (facultatif) : une source ne fait que baisser, jamais au-dessus de son « Avant »
+    var b = el('button', 'objTEdit', hh(minutes)); b.type = 'button'; b.setAttribute('aria-label', label);
+    b.addEventListener('click', function () { TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: maxMin == null ? 168 : Math.max(1, Math.ceil(maxMin / 60)), minuteStep: 15, onDone: function (v) { if (maxMin != null) v = Math.min(v, maxMin); minutes = v; onPick(v, b); } }); });
+    return b;
+  }
   function btn(cls, text, fn) { var b = el('button', cls, text); b.type = 'button'; if (fn) b.addEventListener('click', fn); return b; }
   function dateText(iso, withYear) {
     var d = new Date(iso + 'T12:00:00');
@@ -424,8 +433,6 @@
     function tpSpec() { return { activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, endDate: form.endDate || null, inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }; }
     function tpKey() { var q = tpSpec(); return [q.activityId, q.level, q.poleKey || '', q.categoryKey || '', q.endDate || '', q.inner || ''].join('|'); }
     function tpQuery() { var q = tpSpec(); return 'activityId=' + encodeURIComponent(q.activityId) + '&level=' + q.level + (q.poleKey ? '&poleKey=' + encodeURIComponent(q.poleKey) : '') + (q.categoryKey ? '&categoryKey=' + encodeURIComponent(q.categoryKey) : '') + (q.endDate ? '&endDate=' + encodeURIComponent(q.endDate) : '') + (form.level === 'secteur' ? '&inner=' + (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : ''); }
-    // UNE seule fonction de formatage des durées pour toute la page Temps : heures puis minutes, jamais de décimale (« 13h », « 13h15 », « 13h30 », « 0h30 », « 2h05 »). Les minutes choisies à la roue s'affichent telles quelles.
-    function hh(min) { if (min == null) return '—'; var m = Math.round(min), h = Math.floor(m / 60), r = m % 60; return h + 'h' + (r ? (r < 10 ? '0' : '') + r : ''); }
     function tpOld() { return tp.e ? (tp.e.valueMin || 0) : 0; }
     function tpChanging() { return !!tp.e && tp.valueMin != null && tp.valueMin !== (tp.e.valueMin == null ? 0 : tp.e.valueMin); }
     function tpIncrease() { return tpChanging() && tp.valueMin > tpOld(); }
@@ -459,13 +466,6 @@
     function trow(cls, cells) { var r = el('div', 'objTRow ' + cls); cells.forEach(function (c) { r.appendChild(c); }); return r; }
     function tsep() { return el('span', 'objTSep', '/'); } // séparateur « / » entre le Prévu et le Passé (gris sable, même position sur toutes les lignes)
     function tcell(text, cls) { return el('span', 'objTCell' + (cls ? ' ' + cls : ''), text); }
-    // Valeur modifiable = chiffre violet SANS rectangle (R11, R33), simple bouton-texte : le toucher ouvre le sélecteur de durée STANDARD de l'app (TMT.openDurationPicker, composant unique R29) ; aucun clavier.
-    // ✓ = confirmation (onPick reçoit les minutes) ; ✕ ou toucher dehors : rien ne change. Plafond 168 h (les heures d'une semaine) ; une valeur choisie à la roue n'est jamais réarrondie.
-    function tbtn(minutes, label, onPick, maxMin) { // maxMin (facultatif) : une source ne fait que baisser, jamais au-dessus de son « Avant »
-      var b = el('button', 'objTEdit', hh(minutes)); b.type = 'button'; b.setAttribute('aria-label', label);
-      b.addEventListener('click', function () { TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: maxMin == null ? 168 : Math.max(1, Math.ceil(maxMin / 60)), minuteStep: 15, onDone: function (v) { if (maxMin != null) v = Math.min(v, maxMin); minutes = v; onPick(v, b); } }); });
-      return b;
-    }
     function tpScreen1() {
       var e = tp.e, page = el('div', 'objTPage'), tbl = el('div', 'cmpList');
       page.appendChild(el('p', 'cmpBlockTitle', tr('Heures par semaine')));
@@ -764,9 +764,17 @@
       if (!multiOf(daysOf(o.endDate))) form.innerGoals = 'hebdomadaires';
       var orig = { title: o.title, endDate: o.endDate, desc: guideCompose(form), term: form.term, inner: form.innerGoals, hours: form.hours, skill: String(form.skill).trim() };
       function inner() { return multiOf(daysOf(form.endDate)) ? form.innerGoals : 'hebdomadaires'; }
-      function dirty() { return form.title.trim() !== orig.title || form.endDate !== orig.endDate || guideCompose(form) !== orig.desc || form.term !== orig.term || inner() !== orig.inner || form.hours !== orig.hours || String(form.skill).trim() !== orig.skill || partDirty(); }
+      // Réglage « jour par jour » (volet « Avancé » sous les heures par semaine) : visible seulement si le Prévu diffère du Passé ; Σ des jours = heures par semaine, sinon « Enregistrer » reste grisé.
+      var bd = o.byDay || null, byOrig = o.hoursByDay ? o.hoursByDay.slice() : null, byBase = bd ? (byOrig || bd.default.slice()) : null, byOpen = false, byTimer = 0, byDirtyFlag = false, byLoading = false;
+      form.byDay = byBase ? byBase.slice() : null;
+      function hoursMin() { return form.hours > 0 ? Math.round(form.hours * 60) : 0; }
+      function byShow() { return !!bd && hoursMin() > 0 && hoursMin() !== (bd.passeWeekMin || 0); }
+      function bySum() { return form.byDay ? form.byDay.reduce(function (a, b) { return a + b; }, 0) : 0; }
+      function byOk() { return !byShow() || (!byLoading && bySum() === hoursMin()); }
+      function byChanged() { return byShow() && JSON.stringify(form.byDay) !== JSON.stringify(byBase); }
+      function dirty() { return byChanged() || form.title.trim() !== orig.title || form.endDate !== orig.endDate || guideCompose(form) !== orig.desc || form.term !== orig.term || inner() !== orig.inner || form.hours !== orig.hours || String(form.skill).trim() !== orig.skill || partDirty(); }
       var msg = el('p', 'tasksMsg objMsg');
-      function sync() { stepBtn.disabled = !dirty() || !form.endDate; }
+      function sync() { stepBtn.disabled = !dirty() || !form.endDate || !byOk(); }
       panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = tr('Modifier l’objectif'); panelForm = { edit: true }; setBack(null);
       panelBody.appendChild(el('p', 'hint', o.activity.name + (o.isMacro ? '' : ' · ' + o.title))); // l'activité est affichée, jamais modifiable
       if (o.isMacro) { // seul un titre qui regroupe plusieurs objectifs se réécrit ; un objectif simple garde son titre
@@ -787,8 +795,50 @@
       paintT(); panelBody.appendChild(tBox);
       var hRow = el('div', 'objTimeRow'), hVal = el('span', 'objHoursVal'), hIn = el('input');
       hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.value = form.hours != null ? String(form.hours) : ''; hIn.setAttribute('aria-label', tr('Heures par semaine'));
-      hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); form.hours = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; sync(); });
+      hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); form.hours = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; byRefresh(true); sync(); });
       hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); panelBody.appendChild(hRow);
+      var dayBox = el('div'); panelBody.appendChild(dayBox);
+      function durSentence(m) { return m < 60 ? m + ' min' : hh(m); }
+      function byRefresh(hoursChanged) { // les heures par semaine ont changé : les jours reprennent la répartition par défaut (ou suivent proportionnellement les jours déjà réglés)
+        window.clearTimeout(byTimer);
+        if (hoursChanged && byShow()) {
+          byLoading = true;
+          byTimer = window.setTimeout(function () {
+            var want = hoursMin();
+            api('GET', '/api/objectifs/' + id + '/jours?minutes=' + want).then(function (r) { if (want !== hoursMin()) return; form.byDay = r.default.slice(); byBase = r.default.slice(); byLoading = false; paintDays(); sync(); }).catch(function () { byLoading = false; paintDays(); sync(); });
+          }, 350);
+        } else if (!byShow()) byLoading = false;
+        paintDays();
+      }
+      function paintDays() {
+        dayBox.textContent = '';
+        if (!byShow() || !form.byDay) return;
+        var wrap = el('div', 'objField objGuideRow' + (byOpen ? ' open' : ''));
+        var head = btn('objGuideHead cmpToggle', '', function () { byOpen = !byOpen; paintDays(); });
+        head.setAttribute('aria-expanded', byOpen ? 'true' : 'false');
+        var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
+        head.appendChild(tx); head.appendChild(el('span', 'cmpChev' + (byOpen ? ' open' : ''))); wrap.appendChild(head);
+        if (byOpen) {
+          var tbl = el('div', 'cmpList objDayTbl'), names = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+          function row(cls, cells) { var r = el('div', 'objDayRow ' + cls); cells.forEach(function (c) { r.appendChild(c); }); return r; }
+          function cell(text, cls) { return el('span', 'objDayCell' + (cls ? ' ' + cls : ''), text); }
+          tbl.appendChild(row('objDayHead', [cell('')].concat(names.map(function (n) { return cell(n); })).concat([cell(tr('Total'))])));
+          var passe = bd.passe || [0, 0, 0, 0, 0, 0, 0];
+          tbl.appendChild(row('objDayPast', [cell(tr('Passé'))].concat(passe.map(function (m) { return cell(hh(m)); })).concat([cell(hh(passe.reduce(function (a, b) { return a + b; }, 0)), 'objDayTotal')])));
+          var totalCell = cell(hh(bySum()), 'objDayTotal'), note = el('p', 'hint objTNote');
+          function paintNote() {
+            var sum = bySum(), want = hoursMin(); totalCell.textContent = hh(sum);
+            note.textContent = sum === want ? '' : tr(sum > want ? 'Le total doit rester à {t} : retire {d} sur un jour.' : 'Le total doit rester à {t} : ajoute {d} sur un jour.', { t: hh(want), d: durSentence(Math.abs(sum - want)) });
+            note.classList.toggle('hidden', sum === want);
+          }
+          var cells = [cell(tr('Prévu'))];
+          form.byDay.forEach(function (m, d) { var c = cell(''); c.appendChild(tbtn(m, tr('Prévu') + ' : ' + names[d], function (v, b) { form.byDay[d] = v; b.textContent = hh(v); paintNote(); sync(); }, 1440)); cells.push(c); });
+          cells.push(totalCell); tbl.appendChild(row('objDayPlan', cells)); paintNote();
+          wrap.appendChild(tbl); wrap.appendChild(note);
+        }
+        dayBox.appendChild(wrap);
+      }
+      paintDays();
       var sIn = el('input'); sIn.type = 'text'; sIn.maxLength = 200; sIn.value = form.skill; sIn.setAttribute('aria-label', tr('Ton niveau actuel'));
       sIn.addEventListener('input', function () { form.skill = sIn.value; sync(); }); panelBody.appendChild(field(tr('Ton niveau actuel'), sIn));
       // Parts d'un grand objectif (proportionnelles au temps prévu) : MODIFIABLES. Changer une part change le temps du sous-objectif et rééquilibre les autres (total constant) ; l'avant / après est montré
@@ -839,7 +889,7 @@
         if (o.isMacro && form.title.trim() !== orig.title) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/titre', { title: form.title.trim() }); });
         if (guideCompose(form) !== orig.desc) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/description', { description: guideCompose(form) }); });
         if (form.endDate !== orig.endDate) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/echeance', { endDate: form.endDate }); });
-        calls.push(function () { var b = { term: form.term, inner: inner(), skill: String(form.skill).trim() }; if (form.hours !== orig.hours) b.hoursPerWeek = form.hours; return api('PUT', '/api/objectifs/' + id + '/parametres', b); }); // les heures ne sont envoyées que si elles ont changé (0 h = part à 0 %, jamais effacée en silence) // après l'échéance : le terme dépend de la date
+        calls.push(function () { var b = { term: form.term, inner: inner(), skill: String(form.skill).trim() }; if (form.hours !== orig.hours) b.hoursPerWeek = form.hours; if (byChanged()) b.hoursByDay = form.byDay; else if (!byShow() && byOrig && form.hours !== orig.hours) b.hoursByDay = null; return api('PUT', '/api/objectifs/' + id + '/parametres', b); }); // les heures ne sont envoyées que si elles ont changé (0 h = part à 0 %, jamais effacée en silence) // après l'échéance : le terme dépend de la date
         stepBtn.disabled = true; msg.textContent = '';
         var chain = Promise.resolve(); calls.forEach(function (c) { chain = chain.then(c); });
         chain.then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });

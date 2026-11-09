@@ -22,4 +22,14 @@ function weeklyAverage(todayIso, minutesIn) {
   return weightedAverage(mins);
 }
 
-module.exports = { weeklyAverage, weightedAverage, WEIGHTS };
+// Même moyenne (mêmes 4 semaines, mêmes poids 2-2-1-1, mêmes semaines existantes) mais PAR JOUR DE LA SEMAINE : byDayIn(startIso, endIso) renvoie 7 valeurs (lundi = index 0) ; la somme des 7 résultats est la moyenne hebdomadaire.
+function weeklyByDay(todayIso, byDayIn) {
+  const wins = WEIGHTS.map((w, i) => { const end = addDays(todayIso, -1 - 7 * i); return byDayIn(addDays(end, -6), end); });
+  let oldest = -1; wins.forEach((d, i) => { if (d.reduce((a, b) => a + b, 0) > 0) oldest = i; });
+  if (oldest < 0) return null;
+  const out = [0, 0, 0, 0, 0, 0, 0]; let weight = 0;
+  for (let i = 0; i <= oldest; i += 1) { weight += WEIGHTS[i]; for (let d = 0; d < 7; d += 1) out[d] += wins[i][d] * WEIGHTS[i]; }
+  return out.map((v) => v / weight);
+}
+
+module.exports = { weeklyAverage, weeklyByDay, weightedAverage, WEIGHTS };
