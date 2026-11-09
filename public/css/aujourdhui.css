@@ -184,3 +184,7 @@
 /* Icône des choix d'activité plus près des onglets Tâches / Objectifs, calendrier plus près de l'icône (grille R6 : 8 px) */
 .tasksToday { margin-top: -16px; }
 .tasksToday:not(.calIntegrated) .goalsCalNav { margin-top: -8px; }
+.tasksDot { flex: none; width: 10px; height: 10px; margin-right: 10px; border-radius: 50%; background: var(--purple); }
+.tasksFilterPage .tasksChoice { justify-content: flex-start; }
+.tasksFilterPage .tasksChoice .tasksFilterArrow { margin-left: auto; }
+.tasksFilterTitle { display: flex; align-items: center; }

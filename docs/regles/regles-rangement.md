@@ -71,6 +71,8 @@ Sans titres, mêmes icônes, plus petite ; statistiques de temps à droite du Ch
 ## État actuel
 Palette R11 migrée (20 oct. 2026) par jetons CSS dans `public/styles.css` (`--purple`, `--text`, `--on-action`, `--pop-bg`, `--halo`, `--glass-strong-*` pour le verre fort). Reste à faire : barre des volets R18 (agent B).
 
+- R47. Activité, pôle, secteur (décision d'Émilien, 9 nov. 2026) : une activité s'affiche toujours avec un point à sa gauche, de sa couleur ; un pôle, avec un point de la nuance standard de l'app (même règle que Chrono et les statistiques, `TMT.subProjectShade`) ; un secteur n'a jamais de couleur propre. Dans un choix (ex. filtre de Tâches), toucher un pôle le sélectionne et déroule ses secteurs dessous ; choisir un secteur est facultatif, et le filtre devient alors propre à ce secteur.
+
 ## Checklist à joindre au compte rendu
 ```
 R1 [ ] R2 [ ] R3 [ ] R4 [ ] R5 [ ] R6 [ ] R7 [ ] R8 [ ] R9 [ ] R11 [ ] R12 [ ] R13 [ ] R14 [ ] R15 [ ] R16 [ ] R17 [ ] R18 [ ] R19 [ ] R20 [ ] R21 [ ] R22 [ ] R23 [ ] R24 [ ] R25 [ ] R26 [ ] R27 [ ] R28 [ ] R29 [ ] R30 [ ] R46 [ ] R47 [ ] F1-F5 [ ]  R10 : captures 390 px + 360 px jointes [ ]
