@@ -333,20 +333,20 @@
         if (own) { lock.appendChild(choice(own.name, tr(LEVEL_LABEL[form.level]) + (form.ctxLabel ? ' · ' + form.ctxLabel : ''), true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), lock)); return; }
       }
       var inTree = {}; (ctx.objectives || []).forEach(function (o) { inTree[o.activityId] = true; });
-      function card(a) { var on = form.acts.indexOf(a.id) >= 0; return choice(a.name, '', on, a.color, function () { form.acts = on ? [] : [a.id]; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; syncMain(); refresh(); var nx = actBox.querySelector('.goalsPlacementField'); if (nx && nx.scrollIntoView) nx.scrollIntoView({ block: 'nearest' }); }); }
-      var here = acts.filter(function (a) { return inTree[a.id]; }), notYet = acts.filter(function (a) { return !inTree[a.id]; });
-      if (here.length) { var l1 = el('div', 'aiModeChoices'); here.forEach(function (a) { l1.appendChild(card(a)); }); actBox.appendChild(field(tr('Dans l’arbre'), l1)); }
-      var l2 = el('div', 'aiModeChoices');
-      notYet.forEach(function (a) { l2.appendChild(card(a)); });
-      if (notYet.length) actBox.appendChild(field(tr('Pas encore dans l’arbre'), l2));
-      // Pôle puis secteur (déroulés, facultatifs) : activité seule = objectif long, + pôle = moyen, + secteur = court (le niveau gagne sur la durée).
-      var one = form.acts.length === 1 ? actById(form.acts[0]) : null;
       function drop(none, items, cur, onPick) { var w = el('div', 'goalsPlacementField'), sl = el('select'); var o0 = el('option', null, none); o0.value = ''; sl.appendChild(o0); items.forEach(function (x) { var o = el('option', null, x.label); o.value = x.key; sl.appendChild(o); }); sl.value = cur || ''; sl.addEventListener('change', function () { onPick(sl.value || null); }); w.appendChild(sl); return w; }
-      if (one && (one.poles || []).length) {
-        actBox.appendChild(field(tr('Pôle'), drop(tr('Aucun pôle'), one.poles, form.poleKey, function (k) { form.poleKey = k; form.categoryKey = null; form.level = k ? 'pole' : 'activite'; refresh(); })));
-        var pl = one.poles.filter(function (x) { return x.key === form.poleKey; })[0];
-        if (pl && (pl.secteurs || []).length) actBox.appendChild(field(tr('Secteur'), drop(tr('Aucun secteur'), pl.secteurs, form.categoryKey, function (k) { form.categoryKey = k; form.level = k ? 'secteur' : 'pole'; refresh(); })));
+      // Pôle puis secteur (déroulés en place sous l'activité choisie, facultatifs) : activité seule = objectif long, + pôle = moyen, + secteur = court (le niveau gagne sur la durée).
+      function under(a, host) {
+        if (!(a.poles || []).length) return;
+        host.appendChild(field(tr('Pôle'), drop(tr('Aucun pôle'), a.poles, form.poleKey, function (k) { form.poleKey = k; form.categoryKey = null; form.level = k ? 'pole' : 'activite'; refresh(); })));
+        var pl = a.poles.filter(function (x) { return x.key === form.poleKey; })[0];
+        if (pl && (pl.secteurs || []).length) host.appendChild(field(tr('Secteur'), drop(tr('Aucun secteur'), pl.secteurs, form.categoryKey, function (k) { form.categoryKey = k; form.level = k ? 'secteur' : 'pole'; refresh(); })));
       }
+      function card(a, host) { var on = form.acts.indexOf(a.id) >= 0; host.appendChild(choice(a.name, '', on, a.color, function () { form.acts = on ? [] : [a.id]; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; syncMain(); refresh(); var nx = actBox.querySelector('.goalsPlacementField'); if (nx && nx.scrollIntoView) nx.scrollIntoView({ block: 'nearest' }); })); if (on) under(a, host); }
+      var here = acts.filter(function (a) { return inTree[a.id]; }), notYet = acts.filter(function (a) { return !inTree[a.id]; });
+      if (here.length) { var l1 = el('div', 'aiModeChoices'); here.forEach(function (a) { card(a, l1); }); actBox.appendChild(field(tr('Dans l’arbre'), l1)); }
+      var l2 = el('div', 'aiModeChoices');
+      notYet.forEach(function (a) { card(a, l2); });
+      if (notYet.length) actBox.appendChild(field(tr('Pas encore dans l’arbre'), l2));
     }
     // Étape « Temps » : échéance (ci-dessus), format des périodes, objectifs hebdomadaires, puis un petit tableau : « Nombre recommandé » (valeur seule) et « Heures par semaine » (champ modifiable).
     function fmtH(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
