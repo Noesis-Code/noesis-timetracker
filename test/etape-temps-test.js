@@ -11,9 +11,7 @@ assert(js.includes("tr('Prévu')") && js.includes("tr('Passé')"), 'tableau : co
 assert(js.includes("tr('Heures par semaine')") && js.includes('D’où vient ce temps ?'), 'écrans 1 et 2 titrés');
 assert(js.includes("tr(m === 'ajouter' ? 'Ajouter' : 'Déplacer')") && !js.includes('Prendre sur') && !js.includes("'autres'"), 'écran 2 : deux cartes seulement, « Ajouter » et « Déplacer » (plus de « Prendre sur… », ni de modes « reste » / « autres »)');
 assert(js.includes("'aiModeChoices objCenterChoices'") && /\.objCenterChoices \.objChoice \{[^}]*align-items: center; justify-content: center; text-align: center/.test(css), 'texte de chaque carte centré, horizontalement et verticalement (même composant de carte)');
-assert(js.includes("tcell(tr('Total'), 'objTLabel')") && !js.includes('reste à') && !js.includes('Reste à prendre'), 'écran 3 « Déplacer » : dernière ligne « Total » (plus « L’activité » / « Le pôle ») ; pas de ligne « Reste à prendre »');
-assert(/\.objTMute \{ color: var\(--text-light\); \}/.test(css) && /\.objTTitle \.objTH \{ color: var\(--text\); \}/.test(css) && /\.objTTotal \.objTLabel, \.objTTotal \.objTRO \{ color: var\(--text\); \}/.test(css) && /\.cmpList > \.objTTotal \{ border-top-color: var\(--text-light\); \}/.test(css) && !/#[0-9a-fA-F]{3,6}/.test(css.slice(css.indexOf('Tableau « Déplacer »'), css.indexOf('.objTNote'))), 'couleurs : titres et Total en blanc, noms et heures en gris sable, trait plus marqué avant Total (jetons, rien en dur)');
-assert(js.includes("tcell(l.key === 'reste' ? tr(l.label) : l.label, 'objTLabel objTMute')") && js.includes("tcell(tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), 'objTLabel objTH')"), 'une seule grille Avant / Après : en-tête = nom du niveau ; la ligne augmentée, les autres lignes, le « Reste … »');
+assert(js.includes("el('span', 'objGridName', tr('Total'))") && !js.includes('reste à') && !js.includes('Reste à prendre'), 'écran « Déplacer » : dernière ligne « Total » (plus « L’activité » / « Le pôle ») ; pas de ligne « Reste à prendre »');
 assert(js.includes('tpScreen1') && js.includes('tpScreen2') && js.includes('tpScreen3'), 'trois écrans');
 assert(js.includes('tpPages') && js.includes('tasksPages'), 'balayage : mécanisme de pages existant');
 assert(!/objTDots|pagination|pageDots/.test(js.slice(js.indexOf('function tpPaint'), js.indexOf('function tpPaint') + 3000)), 'aucun point de pagination');
@@ -25,15 +23,16 @@ assert((js.match(/\/api\/objectifs\/temps\/plan/g) || []).length === 1 && js.inc
 // plus aucune saisie au clavier dans la page Temps
 const tpCode = js.slice(js.indexOf('    var tpBox = '), js.indexOf('    function refresh() {')) + js.slice(js.indexOf('  function tbtn('), js.indexOf('  function btn('));
 assert(!tpCode.includes("el('input'") && !tpCode.includes('inputMode') && !tpCode.includes("'keydown'") && !tpCode.includes('.blur()') && (js.match(/function hh\(/g) || []).length === 1 && (js.match(/function tbtn\(/g) || []).length === 1 && !js.includes('function tedit(') && !js.includes('function parseHrs('), 'aucun champ de saisie, clavier, Entrée ni perte de focus dans la page Temps ; tedit et parseHrs supprimés');
-assert(tpCode.includes("TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: maxMin == null ? 168") && (tpCode.match(/tbtn\(/g) || []).length >= 3, 'le Prévu et les « Après » ouvrent le sélecteur de durée standard (initialisé à la valeur actuelle, plafond 168 h)');
+assert(tpCode.includes("TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: maxMin == null ? 168") && (tpCode.match(/tbtn\(/g) || []).length >= 2, 'le Prévu et les « Après » ouvrent le sélecteur de durée standard (initialisé à la valeur actuelle, plafond 168 h)');
 assert(!/durPickerSheet/.test(js), 'aucun second sélecteur : le composant unique de l’app (R29)');
 assert(js.includes("'&inner=' + (form.weeklyOn ? 'hebdomadaires' : 'periodiques')") && js.includes("q.inner || ''"), 'la recherche de la case tient compte de Hebdomadaire / Périodique');
 const ed = css.slice(css.indexOf('button.objTEdit {'), css.indexOf('button.objTEdit {') + 400), edAll = css.slice(css.indexOf('button.objTEdit {'));
 assert(/color: var\(--purple\)/.test(ed) && /border: 0/.test(ed) && /background: none/.test(ed) && /box-shadow: none/.test(ed) && /min-height: 44px/.test(ed) && /text-align: right/.test(ed), 'valeur modifiable : texte violet nu, aligné à droite, sans fond ni bordure ni cadre, zone de toucher 44 px');
 assert(/button\.objTEdit:hover, button\.objTEdit:active, button\.objTEdit:focus \{ background: none; border: 0; box-shadow: none; outline: none; \}/.test(edAll) && /appearance: none/.test(ed) && /-webkit-tap-highlight-color: transparent/.test(edAll), ':hover, :active, :focus et le style par défaut du navigateur : aucun fond, bordure, ombre ni contour (appearance none)');
-assert(js.includes("'cmpList'"), 'lignes séparées bord à bord (R22, .cmpList)');
 ['Heures par semaine', 'Prévu', 'Passé', 'Toutes tes activités'].forEach((k) => assert(i18n.includes(k), 'traduction : ' + k));
-assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >= 3 && js.includes("'objTPair objTHead'") && !/objTHead'[^\n]*tsep\(\)/.test(js) && /\.objTSep \{[^}]*color: var\(--text-light\)/.test(css) && /\.objTPair \{[^}]*76px 12px 76px/.test(css), 'écran 1 : « / » seulement entre les VALEURS d’une ligne (gris sable, une seule fonction de rendu) ; l’en-tête écrit Prévu et Passé côte à côte, sans barre oblique');
+assert(/\.objGridBody::before \{[^}]*right: 124px; width: 1px; background: var\(--sep\);/.test(css) && /\.objGridRow \+ \.objGridRow \{ border-top: 1px solid var\(--sep\); \}/.test(css) && /\.objGridTotal \{ border-top: 1px solid var\(--text-light\);/.test(css) && !/\.objGridHead[^{]*\{[^}]*border/.test(css), 'traits : horizontaux entre les lignes, UN trait vertical continu entre Chrono et Objectif (décalé de 12 px), « Total » avec un trait plus marqué, aucun trait sous le titre « Objectif »');
+assert(/\.objGridHead \{[^}]*font-size: 11px; color: var\(--text\)/.test(css) && /\.objGridName \{[^}]*color: var\(--text-light\)/.test(css) && /\.objGridChrono \{[^}]*color: var\(--text-light\)/.test(css) && /\.objGridApres \{ color: var\(--text\); \}/.test(css) && /\.objGridTotal \.objGridName, \.objGridTotal \.objGridChrono \{ color: var\(--text\); \}/.test(css) && !/#[0-9a-fA-F]{3,6}/.test(css.slice(css.indexOf('.objGrid {'), css.indexOf('button.objTEdit {'))), 'couleurs par jetons : titres blancs (11 px), noms et valeurs gris sable, après modifiable violet (objTEdit), Total blanc, rien en dur');
+assert((js.match(/function objTable\(/g) || []).length === 1 && js.includes('objTable({ levelLabel') && (js.match(/objTable\(\{/g) || []).length === 2 && !js.includes('Reste de ta capacité') && !/restLabel = 'Reste de ta capacité'/.test(read('server', 'lib', 'tempsbudget.js')) && !js.includes('function trow(') && !js.includes('function tsep('), 'une seule fonction de rendu du tableau (écran 1 et écran « Déplacer »), plus de « Reste de ta capacité », anciens assistants de ligne supprimés');
 {
   const a1 = js.indexOf('  function hh(min)'), a2 = js.indexOf('\n', a1);
   const hh = new Function(js.slice(a1, a2) + '; return hh;')();
@@ -81,40 +80,54 @@ assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >=
   r = mk(false); r.cards['Déplacer'](); assert(r.tp.mode === 'deplacer' && r.log.indexOf('advance') < 0 && r.log.join() === 'sync,paint,go2', '« Déplacer » : glissement vers le tableau Avant / Après, on n’avance pas');
 }
 
-// grille « Déplacer » (tpScreen3 exécutée telle quelle avec des doublures du DOM)
+// tableau « Chrono / Objectif » : écran 1 et écran « Déplacer » (fonctions du code exécutées telles quelles avec des doublures du DOM)
 {
-  const a = js.indexOf('    function tpOld()'), b = js.indexOf('    function tpSync()'), c = js.indexOf('    function tpScreen3()'), d = js.indexOf('    function tpPaint()');
-  const h0 = js.indexOf('  function hh(min)'), h1 = js.indexOf('\n', h0);
-  const mkEl = (tag, cls, text) => ({ tag, cls: cls || '', textContent: text == null ? '' : text, children: [], hidden: false, appendChild(x) { this.children.push(x); return x; }, classList: { toggle(n, on) { if (n === 'hidden') this.owner.hidden = !!on; } } });
-  const run = (level, valueMin, oldMin, lines, apres) => {
-    const tp = { e: { level, valueMin: oldMin, modes: ['ajouter', 'deplacer'], takeLines: { deplacer: lines }, me: { label: 'Produit' } }, valueMin, mode: 'deplacer', apres: apres || {}, page: 0 };
-    const btns = []; const synced = [];
-    const el = (tag, cls, text) => { const x = mkEl(tag, cls, text); x.classList.owner = x; return x; };
-    const trow = (cls, cells) => ({ cls, cells });
-    const tcell = (text, cls) => { const x = el('span', 'objTCell' + (cls ? ' ' + cls : ''), text); x.text = text; return x; };
-    const tbtn = (min, label, onPick, maxMin) => { const x = { btn: true, min, label, onPick, maxMin }; btns.push(x); return x; };
-    const tr = (str, v) => String(str).replace(/\{(\w+)\}/g, (m, k) => (v && v[k] !== undefined ? v[k] : m));
-    const body = js.slice(h0, h1) + '\n' + js.slice(a, b) + '\n' + js.slice(c, d) + '\nreturn { tpScreen3, tpBalanced, tpValid };';
-    const api = new Function('tp', 'el', 'trow', 'tcell', 'tbtn', 'tr', 'tpSync', body)(tp, el, trow, tcell, tbtn, tr, () => synced.push(1));
-    const page = api.tpScreen3(); const tbl = page.children[0], note = page.children[1];
-    return { tp, btns, page, tbl, note, api, rows: tbl.children, synced };
+  const sl = (from, to) => js.slice(js.indexOf(from), js.indexOf(to));
+  const src = sl('  function hh(min)', '\n') + '\n' ; // ligne de hh
+  const hhLine = js.slice(js.indexOf('  function hh(min)'), js.indexOf('\n', js.indexOf('  function hh(min)')));
+  const body = hhLine + '\n' + sl('  function tbtn(', '  // Tableau « Chrono / Objectif »') + '\n' + sl('  function objTable(cfg)', '  function btn(') + '\n' + sl('    function tpOld()', '    function tpSync()') + '\n' + sl('    function tpScreen1()', '    function tpCommit(min)') + '\n' + sl('    function tpScreen3()', '    function tpPaint()') + '\nreturn { tpScreen1, tpScreen3, tpValid, tpBalanced };';
+  const mkEl = (tag, cls, text) => { const x = { tag, className: cls || '', textContent: text == null ? '' : text, children: [], listeners: {}, attrs: {}, classList: { toggle(n, on) { if (n === 'hidden') x.hidden = !!on; } }, hidden: false,
+    appendChild(c) { x.children.push(c); return c; }, addEventListener(t, fn) { (x.listeners[t] = x.listeners[t] || []).push(fn); }, setAttribute(k, v) { x.attrs[k] = v; } }; return x; };
+  const find = (n, cls) => { const out = []; (function w(x) { if (x.className.split(' ').indexOf(cls) >= 0) out.push(x); x.children.forEach(w); })(n); return out; };
+  const text = (n) => n.textContent + n.children.map(text).join('');
+  const run = (level, valueMin, oldMin, lines, me, up) => {
+    const tp = { e: { level, valueMin: oldMin, modes: ['ajouter', 'deplacer'], takeLines: { deplacer: lines }, me, up }, valueMin, mode: 'deplacer', apres: {}, page: 0 };
+    const picker = { last: null }, committed = [], synced = [];
+    const TMT = { openDurationPicker: (o) => { picker.last = o; } };
+    const tr = (s, v) => String(s).replace(/\{(\w+)\}/g, (m, k) => (v && v[k] !== undefined ? v[k] : m));
+    const api = new Function('tp', 'el', 'tr', 'TMT', 'tpCommit', 'tpSync', body)(tp, mkEl, tr, TMT, (v) => committed.push(v), () => synced.push(1));
+    return Object.assign({ tp, picker, committed, synced }, api);
   };
-  const L = [{ key: 'p2', label: 'Réseaux', avantMin: 120, objectifId: 5 }, { key: 'p3', label: 'Salons', avantMin: 0, objectifId: null }, { key: 'reste', label: 'Reste de l’activité', avantMin: 60 }];
-  let g = run('pole', 300, 180, L);
-  const btnOf = (c) => (c.children && c.children[0] && c.children[0].btn ? c.children[0] : null);
-  const cellsText = (row) => row.cells.map((c) => btnOf(c) ? 'BTN:' + btnOf(c).min : c.textContent);
-  assert(g.rows.length === 6 && cellsText(g.rows[0]).join('|') === 'Pôle|Avant|Après' && g.rows[0].cls.indexOf('objTTitle') >= 0, 'en-tête : le nom du niveau (« Pôle »), Avant, Après');
-  assert(cellsText(g.rows[1]).join('|') === 'Produit|3h|5h' && !g.rows[1].cells.some((c) => btnOf(c)), '1re ligne : celle qu’on augmente (Produit 3h → 5h), en lecture seule (aucune case violette), Après > Avant');
-  assert(cellsText(g.rows[2])[0] === 'Réseaux' && cellsText(g.rows[3]).join('|') === 'Salons|0h|BTN:0' && cellsText(g.rows[4])[0] === 'Reste de l’activité', 'puis TOUTES les autres lignes, même à 0 h (Salons), puis « Reste de l’activité » ; leurs Après sont modifiables');
-  assert(btnOf(g.rows[2].cells[2]).maxMin === 120 && btnOf(g.rows[4].cells[2]).maxMin === 60, 'un Après ne peut pas dépasser son Avant (plafond de la roue = Avant)');
-  assert(cellsText(g.rows[5]).join('|') === 'Total|6h|8h' && g.rows[5].cls.indexOf('objTTotal') >= 0, 'dernière ligne « Total » : Avant 6h (3 + 2 + 0 + 1), Après 8h tant que rien n’est repris');
-  assert(g.note.textContent === 'Le total doit rester à 6h : reprends encore 2h sur les lignes du dessus.' && !g.note.hidden && !g.api.tpValid(), 'non équilibré : phrase « reprends encore 2h », « Suivant » grisé');
-  btnOf(g.rows[2].cells[2]).onPick(0, { }); assert(g.note.textContent === '' && g.note.hidden && g.api.tpValid() && g.rows[5].cells[2].textContent === '6h', 'équilibré (Réseaux 2h → 0h) : total Après = Avant (6h), phrase disparue, « Suivant » actif (violet)');
-  btnOf(g.rows[4].cells[2]).onPick(0, { }); assert(g.note.textContent === 'Le total doit rester à 6h : remets 1h sur une ligne.' && !g.api.tpValid(), 'trop repris (Réseaux et Reste à 0h) : phrase « remets 1h sur une ligne », « Suivant » grisé');
-  g = run('secteur', 120, 60, [{ key: 's2', label: 'Blog', avantMin: 135, objectifId: 7 }, { key: 'reste', label: 'Reste du pôle', avantMin: 0 }]);
-  assert(cellsText(g.rows[0])[0] === 'Secteur' && g.note.textContent === 'Le total doit rester à 3h15 : reprends encore 1h sur les lignes du dessus.', 'secteur : en-tête « Secteur », durées au format 3h15 dans la phrase');
-  g = run('activite', 480, 240, [{ key: 'a2', label: 'Atelier', avantMin: 300, objectifId: 9 }, { key: 'reste', label: 'Reste de ta capacité', avantMin: 0 }]);
-  assert(cellsText(g.rows[0])[0] === 'Activité' && cellsText(g.rows[3])[0] === 'Reste de ta capacité', 'activité : en-tête « Activité », ligne « Reste de ta capacité »');
+  const L2 = [{ key: 'p2', label: 'Réseaux', chronoMin: 120, objMin: 120, avantMin: 120, objectifId: 5 }, { key: 'p3', label: 'Salons', chronoMin: 75, objMin: null, avantMin: 75, objectifId: null }, { key: 'reste', label: 'Reste de l’activité', chronoMin: null, objMin: 60, avantMin: 60 }];
+  const ME = { label: 'Produit', passeMin: 180, prevuMin: null }, UP = { kind: 'activite', label: 'Marketing', prevuMin: 1200, passeMin: 600 };
+  // écran 1 : niveau pôle / secteur / activité
+  for (const [level, head] of [['pole', 'Pôle'], ['secteur', 'Secteur'], ['activite', 'Activité']]) {
+    const g = run(level, 180, 180, L2, ME, level === 'activite' ? { kind: 'total', label: null, prevuMin: 3000, passeMin: 2700 } : UP);
+    const page = g.tpScreen1(), head1 = find(page, 'objGridHead')[0];
+    assert(text(head1) === head + 'ChronoObjectif' && !text(page).includes('Avant') && !text(page).includes('Après'), 'écran 1 niveau ' + level + ' : en-tête « ' + head + ' », « Chrono », UN titre « Objectif » (plus de sous-titres Avant / Après)');
+    const rows = find(page, 'objGridRow');
+    assert(rows.length === 2 && text(rows[1]) === 'Produit3h—/3h' && find(rows[1], 'objTEdit').length === 1 && find(rows[0], 'objTEdit').length === 0 && (level !== 'activite' || text(rows[0]).indexOf('Toutes tes activités') === 0), 'écran 1 niveau ' + level + ' : ligne du niveau du dessus en lecture seule ; ligne de l’utilisateur : Chrono 3h, avant « — » (pas d’objectif), barre oblique, après 3h modifiable');
+  }
+  let g = run('pole', 300, 180, L2, ME, UP);
+  let page = g.tpScreen3();
+  const tbl = page.children[0], bodyEl = find(page, 'objGridBody')[0], total = find(page, 'objGridTotal')[0];
+  assert(tbl.children.length === 2 && tbl.children[0] === bodyEl && tbl.children[1] === total && !bodyEl.children.some((c) => c === total), 'le trait vertical (sur le corps) s’arrête au-dessus de « Total » : la ligne Total est hors du corps et traverse tout le tableau');
+  let rows = find(page, 'objGridRow');
+  assert(rows.length === 4 && text(rows[0]) === 'Produit3h—/5h' && find(rows[0], 'objTEdit').length === 0 && find(rows[0], 'objGridApres').length === 1, 'Déplacer : la ligne augmentée (Produit, avant « — », après 5h) est en lecture seule (blanche, sans case violette)');
+  assert(text(rows[1]) === 'Réseaux2h2h/2h' && text(rows[2]) === 'Salons1h15—/1h15' && text(rows[3]) === 'Reste de l’activité1h/1h', 'puis les autres lignes : Chrono gris, avant = objectif ou « — » (Salons sans objectif part de son Chrono 1h15), après modifiable ; « Reste » gardé car > 0, durées en « 1h15 »');
+  assert(find(rows[1], 'objTEdit').length === 1 && find(rows[2], 'objTEdit').length === 1 && find(rows[3], 'objTEdit').length === 1, 'les après des lignes sources sont modifiables (sélecteur de durée standard)');
+  assert(text(total) === 'Total7h15 / 9h15' || text(total) === 'Total7h15/9h15', 'ligne « Total » : avant 7h15 (3 + 2 + 1h15 + 1), après 9h15 tant que rien n’est repris');
+  const note = find(page, 'objTNote')[0];
+  assert(note.textContent === 'Le total doit rester à 7h15 : reprends encore 2h sur les lignes du dessus.' && !note.hidden && !g.tpValid(), 'non équilibré : phrase « reprends encore 2h », « Suivant » grisé');
+  const click = (row) => { find(row, 'objTEdit')[0].listeners.click[0](); return g.picker.last; };
+  let p = click(rows[1]); assert(p.maxHours === 2 && p.minuteStep === 15 && p.minutes === 120, 'le sélecteur s’ouvre à la valeur actuelle (15 min), plafonné à l’avant');
+  p.onDone(0); assert(note.textContent === '' && note.hidden && g.tpValid() && text(total).replace(/ /g, '') === 'Total7h15/7h15', 'équilibré (Réseaux 2h → 0h) : total après = avant (7h15), phrase disparue, « Suivant » actif (violet)');
+  p = click(rows[2]); p.onDone(0); assert(note.textContent === 'Le total doit rester à 7h15 : remets 1h15 sur une ligne.' && !g.tpValid(), 'trop repris (Salons aussi à 0h) : phrase « remets 1h15 sur une ligne », « Suivant » grisé');
+  p = click(rows[3]); p.onDone(999); assert(g.tp.apres.reste === 60, 'un après ne dépasse jamais son avant (une source ne fait que baisser)');
+  // niveau activité : aucune ligne « Reste de ta capacité »
+  g = run('activite', 480, 240, [{ key: 'a2', label: 'Atelier', chronoMin: 300, objMin: 300, avantMin: 300, objectifId: 9 }], { label: 'Marketing', passeMin: 240, prevuMin: 240 }, { kind: 'total', label: null, prevuMin: 3000, passeMin: 2700 });
+  page = g.tpScreen3(); rows = find(page, 'objGridRow');
+  assert(find(page, 'objGridHead')[0].children[0].textContent === 'Activité' && rows.length === 2 && text(rows[0]) === 'Marketing4h4h/8h' && text(rows[1]) === 'Atelier5h5h/5h' && text(page).indexOf('capacité') < 0, 'niveau activité : en-tête « Activité », la ligne augmentée puis les autres activités, aucun « Reste de ta capacité »');
 }
 
 // sélecteur de durée standard (public/app.js) : exécuté avec un DOM minimal

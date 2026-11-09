@@ -23,6 +23,34 @@
     b.addEventListener('click', function () { TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: maxMin == null ? 168 : Math.max(1, Math.ceil(maxMin / 60)), minuteStep: 15, onDone: function (v) { if (maxMin != null) v = Math.min(v, maxMin); minutes = v; onPick(v, b); } }); });
     return b;
   }
+  // Tableau « Chrono / Objectif » (UNE seule fonction de rendu, partagée : écran 1 et écran « Déplacer » de l'étape Temps ; la fiche d'une catégorie pourra la reprendre).
+  // cfg = { levelLabel, rows: [{ label, chrono, avant, apres?, edit?: { label, maxMin, onPick(min) }, white? }], total?: true } ; chrono / avant : minutes ou null (« — ») ; apres absent = pas de « / ».
+  // Colonnes : nom du niveau (en-tête blanc 11 px), « Chrono » (lecture seule, gris sable), UN titre « Objectif » centré ; chaque ligne montre « avant / après » (barre oblique grise entre les VALEURS) ; après violet et modifiable
+  // (sélecteur de durée standard) si edit, sinon blanc. Traits : horizontaux entre les lignes ; un trait vertical continu entre Chrono et Objectif (décalé de 12 px), arrêté au-dessus de « Total » ; « Total » traverse tout le tableau, trait plus marqué.
+  function objTable(cfg) {
+    var node = el('div', 'objGrid'), body = el('div', 'objGridBody'), head = el('div', 'objGridHead');
+    head.appendChild(el('span', 'objGridName', cfg.levelLabel)); head.appendChild(el('span', 'objGridChrono', tr('Chrono'))); head.appendChild(el('span', 'objGridObj', tr('Objectif')));
+    body.appendChild(head);
+    cfg.rows.forEach(function (r) {
+      var row = el('div', 'objGridRow'), obj = el('span', 'objGridObj');
+      row.appendChild(el('span', 'objGridName', r.label)); row.appendChild(el('span', 'objGridChrono', r.chrono == null ? '' : hh(r.chrono)));
+      obj.appendChild(el('span', 'objGridAvant', r.avant == null ? '—' : hh(r.avant)));
+      if (r.apres !== undefined) {
+        obj.appendChild(el('span', 'objGridSlash', '/'));
+        if (r.edit) obj.appendChild(tbtn(r.apres, r.edit.label, function (v, b) { b.textContent = hh(v); r.edit.onPick(v); }, r.edit.maxMin));
+        else obj.appendChild(el('span', 'objGridApres', hh(r.apres)));
+      }
+      row.appendChild(obj); body.appendChild(row);
+    });
+    node.appendChild(body);
+    var tA = el('span', 'objGridApres'), tB = el('span', 'objGridApres');
+    if (cfg.total) {
+      var tot = el('div', 'objGridTotal'), tObj = el('span', 'objGridObj');
+      tObj.appendChild(tA); tObj.appendChild(el('span', 'objGridSlash', '/')); tObj.appendChild(tB);
+      tot.appendChild(el('span', 'objGridName', tr('Total'))); tot.appendChild(el('span', 'objGridChrono')); tot.appendChild(tObj); node.appendChild(tot);
+    }
+    return { node: node, setTotal: function (avant, apres) { tA.textContent = hh(avant); tB.textContent = hh(apres); } };
+  }
   function btn(cls, text, fn) { var b = el('button', cls, text); b.type = 'button'; if (fn) b.addEventListener('click', fn); return b; }
   function dateText(iso, withYear) {
     var d = new Date(iso + 'T12:00:00');
@@ -463,17 +491,12 @@
         tp.e = e; tp.loading = false; tp.valueMin = e.valueMin == null ? null : e.valueMin; tp.mode = null; tp.apres = {}; tp.page = 0; tp.shown = 0; tpPaint(); tpSync();
       }).catch(function (err) { tp.loading = false; tp.key = null; tpPaint(); msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
     }
-    function trow(cls, cells) { var r = el('div', 'objTRow ' + cls); cells.forEach(function (c) { r.appendChild(c); }); return r; }
-    function tsep() { return el('span', 'objTSep', '/'); } // séparateur « / » entre le Prévu et le Passé (gris sable, même position sur toutes les lignes)
-    function tcell(text, cls) { return el('span', 'objTCell' + (cls ? ' ' + cls : ''), text); }
     function tpScreen1() {
-      var e = tp.e, page = el('div', 'objTPage'), tbl = el('div', 'cmpList');
+      var e = tp.e, page = el('div', 'objTPage'), rows = [];
       page.appendChild(el('p', 'cmpBlockTitle', tr('Heures par semaine')));
-      tbl.appendChild(trow('objTPair objTHead', [el('span', 'objTCell'), tcell(tr('Prévu'), 'objTH'), el('span', 'objTSep'), tcell(tr('Passé'), 'objTH objTLeft')]));
-      tbl.appendChild(trow('objTPair', [tcell(e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, 'objTLabel'), tcell(hh(e.up.prevuMin), 'objTRO'), tsep(), tcell(hh(e.up.passeMin), 'objTRO objTLeft')])); // niveau du dessus : lecture seule
-      var edCell = el('span', 'objTCell'); edCell.appendChild(tbtn(tp.valueMin, tr('Prévu'), function (v) { tpCommit(v); }));
-      tbl.appendChild(trow('objTPair', [tcell(e.me.label, 'objTLabel'), edCell, tsep(), tcell(hh(e.me.passeMin), 'objTRO objTLeft')])); // niveau choisi : Prévu modifiable (violet), Passé en lecture seule
-      page.appendChild(tbl);
+      rows.push({ label: e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, chrono: e.up.passeMin, avant: e.up.prevuMin }); // niveau du dessus : lecture seule
+      rows.push({ label: e.me.label, chrono: e.me.passeMin, avant: e.me.prevuMin, apres: tp.valueMin, edit: { label: tr('Prévu'), onPick: function (v) { tpCommit(v); } } }); // niveau choisi : l'après est modifiable (violet)
+      page.appendChild(objTable({ levelLabel: tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), rows: rows }).node);
       return page;
     }
     function tpCommit(min) { // ✓ du sélecteur : valeur inchangée = rien ; baisse = aucun glissement ; hausse = glissement vers « D'où vient ce temps ? » (ou l'effet si une seule possibilité) ; valeur remise au défaut = changement annulé
@@ -492,23 +515,21 @@
       return page;
     }
     function tpScreen3() {
-      var e = tp.e, page = el('div', 'objTPage'), tbl = el('div', 'cmpList'), m = tpMode();
-      // « Déplacer » : UNE grille. En-tête = nom du niveau, Avant, Après ; 1re ligne = celle qu'on augmente (lecture seule) ; puis TOUTES les autres lignes du niveau (même à 0 h) et la ligne « Reste … » : leur Après est modifiable (jamais au-dessus de leur Avant) ; « Total » : le total Après doit égaler le total Avant.
-      tbl.appendChild(trow('objTHead objTTitle', [tcell(tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), 'objTLabel objTH'), tcell(tr('Avant'), 'objTH'), tcell(tr('Après'), 'objTH')]));
-      tbl.appendChild(trow('', [tcell(e.me.label, 'objTLabel objTMute'), tcell(hh(tpOld()), 'objTRO'), tcell(hh(tp.valueMin), 'objTRO')]));
+      var e = tp.e, page = el('div', 'objTPage'), rows = [];
+      // « Déplacer » : la ligne augmentée (lecture seule, blanche) puis TOUTES les autres lignes du niveau (après modifiable, jamais au-dessus de leur avant effectif) et le « Reste … » s'il est > 0 ; « Total » : après = avant.
+      rows.push({ label: e.me.label, chrono: e.me.passeMin, avant: e.me.prevuMin, apres: tp.valueMin });
       tpLines().forEach(function (l) {
-        var ed = el('span', 'objTCell'); ed.appendChild(tbtn(tpAfter(l), tr('Après') + ' : ' + tr(l.label), function (v, b) { tp.apres[l.key] = v; b.textContent = hh(v); paintTotal(); tpSync(); }, l.avantMin));
-        tbl.appendChild(trow('', [tcell(l.key === 'reste' ? tr(l.label) : l.label, 'objTLabel objTMute'), tcell(hh(l.avantMin), 'objTRO'), ed]));
+        rows.push({ label: l.key === 'reste' ? tr(l.label) : l.label, chrono: l.chronoMin, avant: l.objMin, apres: tpAfter(l), edit: { label: tr('Après') + ' : ' + (l.key === 'reste' ? tr(l.label) : l.label), maxMin: l.avantMin, onPick: function (v) { tp.apres[l.key] = v; paintTotal(); tpSync(); } } });
       });
-      var totBefore = tcell('', 'objTRO'), totAfter = tcell('', 'objTRO'), note = el('p', 'hint objTNote');
+      var tbl = objTable({ levelLabel: tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), rows: rows, total: true }), note = el('p', 'hint objTNote');
       function paintTotal() { // Total : Avant = Après quand c'est équilibré ; sinon une phrase (texte seul) dit pourquoi « Suivant » est grisé
         var avant = tpOld() + tpLines().reduce(function (n, l) { return n + l.avantMin; }, 0), apres = tp.valueMin + tpLines().reduce(function (n, l) { return n + tpAfter(l); }, 0);
-        totBefore.textContent = hh(avant); totAfter.textContent = hh(apres);
+        tbl.setTotal(avant, apres);
         note.textContent = apres === avant ? '' : tr(apres > avant ? 'Le total doit rester à {t} : reprends encore {d} sur les lignes du dessus.' : 'Le total doit rester à {t} : remets {d} sur une ligne.', { t: hh(avant), d: hh(Math.abs(apres - avant)) });
         note.classList.toggle('hidden', apres === avant);
       }
-      tbl.appendChild(trow('objTTotal', [tcell(tr('Total'), 'objTLabel'), totBefore, totAfter])); paintTotal();
-      page.appendChild(tbl); page.appendChild(note);
+      paintTotal();
+      page.appendChild(tbl.node); page.appendChild(note);
       return page;
     }
     function tpPaint() {

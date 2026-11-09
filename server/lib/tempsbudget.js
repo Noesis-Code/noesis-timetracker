@@ -4,7 +4,7 @@
 //    au niveau activité : capacité hebdomadaire de la personne (manuelle, sinon moyenne Chrono : weekplanner.getWeeklyCapacity).
 //  - « Déplacer » (UN seul tableau Avant / Après) fusionne toutes les sources possibles du temps : les AUTRES cases du même niveau sur la même période (autres secteurs du pôle / autres pôles de l'activité / autres activités ; sans objectif ou à 0 h elles ne sont pas listées)
 //    + « Reste de l'activité » (pôle) / « Reste du pôle » (secteur) = ce qui reste de l'objectif PARENT une fois retirées les heures des cases du niveau (parent − somme des autres cases − le niveau lui-même) ;
-//      « Reste de ta capacité » (activité) = capacité hebdomadaire − les heures de toutes les activités (la vôtre comprise). Toutes les lignes du niveau sont listées, même à 0 h.
+//      Pas de « Reste » au niveau activité (le Chrono des lignes donne déjà le total). Chaque ligne porte son Chrono (lecture seule) et son Avant EFFECTIF (l'objectif de la case, sinon le Chrono) ; le « Reste » n'est gardé que s'il est > 0.
 //  - Passé : moyenne des 4 dernières semaines du Chrono, les 2 dernières comptées double (weeklyavg, fonction partagée), arrondie au QUART D'HEURE ; la capacité par défaut (moyenne Chrono) l'est aussi avant d'être affichée.
 //    Une valeur saisie à la main (hoursPerWeek d'un objectif, capacité manuelle) n'est JAMAIS réarrondie.
 // Rien n'est écrit avant l'appel avec apply = true (« Valider ») ; le niveau choisi n'a pas encore d'objectif : sa valeur part avec la création (hoursPerWeek), les écritures ne touchent que le parent et les voisins.
@@ -109,17 +109,15 @@ function etat(userId, spec) {
   if (level === 'activite') {
     out.up = { kind: 'total', label: null, prevuMin: capDisplay(cap), passeMin: passeMin(userId, null, null) };
     out.me = { key: null, label: act.name, prevuMin: mePrevu, passeMin: passeMin(userId, aid, null) };
-    others = userActivities(userId).filter((x) => x.id !== aid).map((x) => { const c = cell(userId, x.id, 'activite', null, null, end); return { key: 'a' + x.id, label: x.name, avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
-    const usedA = others.reduce((t, x) => t + (x.avantMin || 0), 0) + (mePrevu || 0);
-    out.restMin = out.up.prevuMin === null ? 0 : Math.max(0, out.up.prevuMin - usedA); // la part de la capacité hebdomadaire qu'aucune activité n'occupe
-    out.restLabel = 'Reste de ta capacité';
+    others = userActivities(userId).filter((x) => x.id !== aid).map((x) => { const c = cell(userId, x.id, 'activite', null, null, end); return { key: 'a' + x.id, label: x.name, chronoMin: passeMin(userId, x.id, null), avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
+    out.restMin = 0; // plus de « Reste de ta capacité » : le Chrono des lignes donne déjà le total
   } else {
     const upCell = level === 'pole' ? cell(userId, aid, 'activite', null, null, end) : cell(userId, aid, 'pole', poleKey, null, end);
     const upKey = level === 'pole' ? null : poleKey;
     out.up = { kind: level === 'pole' ? 'activite' : 'pole', label: level === 'pole' ? act.name : label(poleKey), prevuMin: upCell ? upCell.min : null, passeMin: passeMin(userId, aid, upKey) };
     out.me = { key: level === 'pole' ? poleKey : catKey, label: label(level === 'pole' ? poleKey : catKey), prevuMin: mePrevu, passeMin: passeMin(userId, aid, level === 'pole' ? poleKey : catKey) };
     const sib = level === 'pole' ? poles.filter((p) => p.key !== poleKey) : sects.filter((s) => s.key !== catKey);
-    others = sib.map((x) => { const c = level === 'pole' ? cell(userId, aid, 'pole', x.key, null, end) : cell(userId, aid, 'secteur', poleKey, x.key, end, inn); return { key: x.key, label: x.label, avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
+    others = sib.map((x) => { const c = level === 'pole' ? cell(userId, aid, 'pole', x.key, null, end) : cell(userId, aid, 'secteur', poleKey, x.key, end, inn); return { key: x.key, label: x.label, chronoMin: passeMin(userId, aid, x.key), avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
     const used = others.reduce((s, x) => s + (x.avantMin || 0), 0) + (mePrevu || 0);
     out.restMin = out.up.prevuMin === null ? 0 : Math.max(0, out.up.prevuMin - used);
     out.restLabel = level === 'pole' ? 'Reste de l’activité' : 'Reste du pôle';
@@ -128,7 +126,8 @@ function etat(userId, spec) {
   out.valueMin = out.me.prevuMin !== null ? out.me.prevuMin : out.me.passeMin; // valeur par défaut : le Prévu existant, à défaut le Passé
   out.modes = ['ajouter', 'deplacer']; // deux possibilités à tous les niveaux
   // « Déplacer » : TOUTES les autres lignes du même niveau, même à 0 h (une ligne sans objectif ne peut que rester à 0), puis la ligne source « Reste … » ; une source ne fait que baisser, jamais sous 0
-  out.takeLines = { deplacer: others.map((x) => ({ key: x.key, label: x.label, avantMin: x.avantMin || 0, objectifId: x.objectifId })).concat([{ key: 'reste', label: out.restLabel, avantMin: out.restMin || 0 }]) };
+  // Chaque ligne : Chrono (lecture seule), objMin = heures de l'objectif de la case (null : « — »), avantMin = Avant EFFECTIF = l'objectif, sinon le Chrono. « Reste … » seulement s'il est > 0 (jamais pour l'activité).
+  out.takeLines = { deplacer: others.map((x) => ({ key: x.key, label: x.label, chronoMin: x.chronoMin, objMin: x.avantMin, avantMin: x.avantMin != null ? x.avantMin : (x.chronoMin || 0), objectifId: x.objectifId })).concat((out.restMin || 0) > 0 ? [{ key: 'reste', label: out.restLabel, chronoMin: null, objMin: out.restMin, avantMin: out.restMin }] : []) };
   return out;
 }
 

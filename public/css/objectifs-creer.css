@@ -118,20 +118,7 @@
 
 /* Étape « Temps » : lignes d'information + UN curseur d'heures par semaine (curseur natif, couleur d'accent = violet de l'app). */
 /* Étape « Temps » : tableaux (R22 lignes d'un bord à l'autre par .cmpList ; R11 violet = modifiable ; R33 aucun carré ni pointillé) ; lecture seule en blanc / gris sable */
-.objTRow { display: grid; grid-template-columns: minmax(0, 1fr) 76px 76px; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; color: var(--text); }
-.objTPair { grid-template-columns: minmax(0, 1fr) 76px 12px 76px; gap: 0 4px; }
-.objTSep { text-align: center; color: var(--text-light); }
-.objTHead { min-height: 32px; font-size: 13px; color: var(--text-light); }
-.objTLine { grid-template-columns: minmax(0, 1fr); }
-.objTCell { text-align: right; }
-.objTLeft { text-align: left; }
-.objTLabel { text-align: left; min-width: 0; overflow-wrap: anywhere; color: var(--text); }
-.objTRO { color: var(--text-light); }
 /* Tableau « Déplacer » : TITRES (niveau, Avant, Après, Total) en blanc ; NOMS et HEURES des lignes en gris sable ; « Total » séparé par un trait plus marqué (jetons existants). */
-.objTMute { color: var(--text-light); }
-.objTTitle .objTH { color: var(--text); }
-.objTTotal .objTLabel, .objTTotal .objTRO { color: var(--text); }
-.cmpList > .objTTotal { border-top-color: var(--text-light); }
 .objTNote { margin: 12px 0 0; }
 /* Réglage « jour par jour » (modification d'un objectif, volet « Avancé ») : L M M J V S D + Total ; en-têtes et Total en blanc, Passé en gris sable, Prévu violet (boutons-texte sans rectangle). */
 .objDayRow { display: grid; grid-template-columns: 44px repeat(7, minmax(0, 1fr)) 40px; align-items: center; min-height: 44px; font-size: 13px; }
@@ -139,11 +126,25 @@
 .objDayRow > .objDayCell:first-child { text-align: left; }
 .objDayHead .objDayCell, .objDayTotal { color: var(--text); }
 .objDayRow .objTEdit { text-align: center; font-size: 13px; }
-.objTH { color: var(--text-light); }
-.objTTotal { font-weight: 600; }
 /* Valeur modifiable = texte violet NU (aucun rectangle : ni fond, ni bordure, ni cadre), bouton-texte qui ouvre le sélecteur de durée standard. Zone de toucher 44 px (R7, R25). */
 .objCenterChoices .objChoice { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 64px; } /* écran « D'où vient ce temps ? » : le texte de chaque carte est centré (horizontalement et verticalement) */
 .objCenterChoices .aiModeChoiceTitle { justify-content: center; text-align: center; }
+/* Tableau « Chrono / Objectif » (objTable) : lignes-bandes en flex ; trait vertical continu entre Chrono et Objectif (12 px de marge de chaque côté), arrêté avant « Total » ; « Total » traverse tout, trait plus marqué. Jetons existants. */
+.objGrid { display: flex; flex-direction: column; }
+.objGridBody { position: relative; }
+.objGridBody::before { content: ''; position: absolute; top: 0; bottom: 0; right: 124px; width: 1px; background: var(--sep); }
+.objGridHead, .objGridRow, .objGridTotal { display: flex; align-items: center; min-height: 44px; }
+.objGridHead { min-height: 32px; font-size: 11px; color: var(--text); }
+.objGridRow + .objGridRow { border-top: 1px solid var(--sep); }
+.objGridTotal { border-top: 1px solid var(--text-light); color: var(--text); font-weight: 600; font-size: 14px; }
+.objGridName { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-size: 14px; color: var(--text-light); }
+.objGridChrono { flex: none; width: 56px; margin-right: 12px; text-align: right; font-size: 14px; color: var(--text-light); }
+.objGridObj { flex: none; width: 112px; margin-left: 12px; display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 14px; color: var(--text-light); }
+.objGridHead .objGridName, .objGridHead .objGridChrono, .objGridHead .objGridObj { font-size: 11px; color: var(--text); }
+.objGridSlash { color: var(--text-light); }
+.objGridApres { color: var(--text); }
+.objGridObj .objTEdit { width: auto; min-width: 44px; padding: 0 2px; text-align: center; }
+.objGridTotal .objGridName, .objGridTotal .objGridChrono { color: var(--text); }
 button.objTEdit { width: 100%; min-height: 44px; box-sizing: border-box; padding: 0; text-align: right; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--purple); font: inherit; cursor: pointer; -webkit-appearance: none; appearance: none; }
 button.objTEdit { outline: none; -webkit-tap-highlight-color: transparent; }
 button.objTEdit:hover, button.objTEdit:active, button.objTEdit:focus { background: none; border: 0; box-shadow: none; outline: none; }

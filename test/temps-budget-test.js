@@ -27,7 +27,7 @@ const mon = (() => { const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(d.ge
 for (let k = 1; k <= 4; k++) { // Chrono des 4 dernières semaines complètes : 6 h par semaine sur A (Web), 2 h sur B
   const day = add(mon, -7 * k + 1);
   const ins = (act, cat, sec) => db.prepare("INSERT INTO time_entries (userId, activityId, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory, source) VALUES ('u1', ?, ?, ?, ?, ?, 2, ?, 'manual')").run(act, day + 'T10:00:00Z', day + 'T16:00:00Z', sec, day, cat);
-  ins(A, P1, 6 * 3600); ins(B, null, 2 * 3600);
+  ins(A, P1, 6 * 3600); ins(B, null, 2 * 3600); ins(C, null, 3 * 3600);
 }
 let n = 0;
 const obj = (act, level, pk, ck, hours) => { // un objectif qui occupe la case (niveau + période) avec ses heures par semaine
@@ -111,7 +111,7 @@ const spec = (level, extra) => Object.assign({ activityId: A, level, poleKey: le
 
   // ---- Niveau activité : « Prendre sur les autres activités » toujours proposé ----
   e = tb.etat('u1', spec('activite'));
-  assert(e.manualCapacity === false && e.modes.join() === 'ajouter,deplacer' && e.me.prevuMin === H(31) && e.takeLines.deplacer.map((l) => l.key).join() === 'a' + B + ',a' + C + ',reste' && e.takeLines.deplacer[2].label === 'Reste de ta capacité' && e.takeLines.deplacer.some((l) => l.key === 'a' + B && l.avantMin === H(5)), 'activité : TOUTES les autres activités (même à 0 h) + « Reste de ta capacité »');
+  assert(e.manualCapacity === false && e.modes.join() === 'ajouter,deplacer' && e.me.prevuMin === H(31) && e.takeLines.deplacer.map((l) => l.key).join() === 'a' + B + ',a' + C && !e.takeLines.deplacer.some((l) => l.key === 'reste') && e.takeLines.deplacer[1].objMin === null && e.takeLines.deplacer[1].chronoMin === H(3) && e.takeLines.deplacer[1].avantMin === H(3) && e.takeLines.deplacer[0].chronoMin === H(2) && e.takeLines.deplacer[0].objMin === H(5) && e.takeLines.deplacer.some((l) => l.key === 'a' + B && l.avantMin === H(5)), 'activité : toutes les autres activités, aucun « Reste de ta capacité » ; une ligne sans objectif part de son Chrono (Avant effectif 3 h, objectif « — »)');
   assert(tb.etat('u1', spec('activite', { activityId: C })).modes.join() === 'ajouter,deplacer', 'une activité sans objectif propre : les deux cartes sont proposées aussi');
   const capBefore = wp.getWeeklyCapacity('u1').minutes;
   tb.plan('u1', spec('activite', { newMin: H(35), mode: 'deplacer', apres: { ['a' + B]: H(1) } }), true);
