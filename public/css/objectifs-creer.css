@@ -116,6 +116,7 @@
 .objDock .tasksPropose { touch-action: pan-y; overscroll-behavior-x: none; } /* le geste horizontal appartient au panneau (étape suivante / précédente), jamais à la navigation du navigateur */
 
 /* Étape « Temps » : lignes d'information + UN curseur d'heures par semaine (curseur natif, couleur d'accent = violet de l'app). */
+.objTimeInfo { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .objTimeRow { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--text-light); }
 .objTimeRow b { color: var(--text); font-weight: 600; }
 
