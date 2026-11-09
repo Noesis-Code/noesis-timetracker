@@ -131,7 +131,9 @@
 .objTBad { color: var(--danger); }
 /* Valeur modifiable = texte violet NU (aucun rectangle : ni fond, ni bordure, ni cadre), bouton-texte qui ouvre le sélecteur de durée standard. Zone de toucher 44 px (R7, R25). */
 button.objTEdit { width: 100%; min-height: 44px; box-sizing: border-box; padding: 0; text-align: right; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--purple); font: inherit; cursor: pointer; -webkit-appearance: none; appearance: none; }
-button.objTEdit:focus-visible { outline: none; box-shadow: 0 1px 0 0 var(--purple); }
+button.objTEdit { outline: none; -webkit-tap-highlight-color: transparent; }
+button.objTEdit:hover, button.objTEdit:active, button.objTEdit:focus { background: none; border: 0; box-shadow: none; outline: none; }
+button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavier seulement : un trait fin sous le chiffre, rien d'autre */
 .objTPages .tasksPage { padding-bottom: 8px; }
 .objTimeRow { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--text-light); }
 .objTimeRow b { color: var(--text); font-weight: 600; }

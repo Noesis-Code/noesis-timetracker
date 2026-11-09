@@ -22,16 +22,17 @@ assert(!tpCode.includes("el('input'") && !tpCode.includes('inputMode') && !tpCod
 assert(tpCode.includes("TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: 168") && (tpCode.match(/tbtn\(/g) || []).length >= 3, 'le Prévu et les « Après » ouvrent le sélecteur de durée standard (initialisé à la valeur actuelle, plafond 168 h)');
 assert(!/durPickerSheet/.test(js), 'aucun second sélecteur : le composant unique de l’app (R29)');
 assert(js.includes("'&inner=' + (form.weeklyOn ? 'hebdomadaires' : 'periodiques')") && js.includes("q.inner || ''"), 'la recherche de la case tient compte de Hebdomadaire / Périodique');
-const ed = css.slice(css.indexOf('button.objTEdit {'), css.indexOf('button.objTEdit:focus-visible'));
+const ed = css.slice(css.indexOf('button.objTEdit {'), css.indexOf('button.objTEdit {') + 400), edAll = css.slice(css.indexOf('button.objTEdit {'));
 assert(/color: var\(--purple\)/.test(ed) && /border: 0/.test(ed) && /background: none/.test(ed) && /box-shadow: none/.test(ed) && /min-height: 44px/.test(ed) && /text-align: right/.test(ed), 'valeur modifiable : texte violet nu, aligné à droite, sans fond ni bordure ni cadre, zone de toucher 44 px');
+assert(/button\.objTEdit:hover, button\.objTEdit:active, button\.objTEdit:focus \{ background: none; border: 0; box-shadow: none; outline: none; \}/.test(edAll) && /appearance: none/.test(ed) && /-webkit-tap-highlight-color: transparent/.test(edAll), ':hover, :active, :focus et le style par défaut du navigateur : aucun fond, bordure, ombre ni contour (appearance none)');
 assert(js.includes("'cmpList'"), 'lignes séparées bord à bord (R22, .cmpList)');
 ['Heures par semaine', 'Prévu', 'Passé', 'Toutes tes activités'].forEach((k) => assert(i18n.includes(k), 'traduction : ' + k));
-assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >= 4 && js.includes("'objTPair objTHead'") && /\.objTSep \{[^}]*color: var\(--text-light\)/.test(css) && /\.objTPair \{[^}]*76px 12px 76px/.test(css), 'écran 1 : « Prévu / Passé » avec une barre oblique grise (une seule fonction de rendu)');
+assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >= 3 && js.includes("'objTPair objTHead'") && !/objTHead'[^\n]*tsep\(\)/.test(js) && /\.objTSep \{[^}]*color: var\(--text-light\)/.test(css) && /\.objTPair \{[^}]*76px 12px 76px/.test(css), 'écran 1 : « / » seulement entre les VALEURS d’une ligne (gris sable, une seule fonction de rendu) ; l’en-tête écrit Prévu et Passé côte à côte, sans barre oblique');
 {
-  const a1 = js.indexOf('    function hrs(min)'), a2 = js.indexOf('    function tpOld');
-  const mk = (lang) => new Function('window', js.slice(a1, a2) + '; return { hrs: hrs, hh: hh };')({ NoesisI18n: { getLang: () => lang } });
-  const F = mk('fr'), G = mk('en');
-  assert(F.hh(780) === '13 h' && F.hrs(795) === '13,25' && F.hrs(810) === '13,5' && F.hrs(825) === '13,75' && F.hh(null) === '—' && G.hrs(795) === '13.25', 'formatage des heures : « 13 h », 13,25, 13,5, 13,75 (virgule en français, point en anglais), une seule fonction');
+  const a1 = js.indexOf('    function hh(min)'), a2 = js.indexOf('\n', a1);
+  const hh = new Function(js.slice(a1, a2) + '; return hh;')();
+  assert(hh(780) === '13h' && hh(795) === '13h15' && hh(810) === '13h30' && hh(825) === '13h45' && hh(30) === '0h30' && hh(0) === '0h' && hh(125) === '2h05' && hh(168 * 60) === '168h' && hh(null) === '—', 'format des durées : 13h, 13h15, 13h30, 13h45, 0h30, 2h05 (minutes de la roue telles quelles), jamais de décimale');
+  assert(!js.includes('hrs(') && !/\d,\d/.test(js.slice(a1, a2)) && (js.match(/function hh\(/g) || []).length === 1, 'une seule fonction de formatage pour toute la page (tableaux, Avant / Après, effet)');
 }
 
 // comportement des écrans (fonctions extraites telles quelles du code) : la valeur arrive en MINUTES depuis le ✓ du sélecteur

@@ -424,9 +424,8 @@
     function tpSpec() { return { activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, endDate: form.endDate || null, inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }; }
     function tpKey() { var q = tpSpec(); return [q.activityId, q.level, q.poleKey || '', q.categoryKey || '', q.endDate || '', q.inner || ''].join('|'); }
     function tpQuery() { var q = tpSpec(); return 'activityId=' + encodeURIComponent(q.activityId) + '&level=' + q.level + (q.poleKey ? '&poleKey=' + encodeURIComponent(q.poleKey) : '') + (q.categoryKey ? '&categoryKey=' + encodeURIComponent(q.categoryKey) : '') + (q.endDate ? '&endDate=' + encodeURIComponent(q.endDate) : '') + (form.level === 'secteur' ? '&inner=' + (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : ''); }
-    // UNE seule fonction de formatage des heures : minutes -> « 13 », « 13,25 » (virgule en français, point en anglais) ; hh() ajoute l'unité (« 13 h »).
-    function hrs(min) { if (min == null) return '—'; var s = String(Math.round(min / 60 * 100) / 100), en = window.NoesisI18n && window.NoesisI18n.getLang && window.NoesisI18n.getLang() === 'en'; return en ? s : s.replace('.', ','); }
-    function hh(min) { return min == null ? '—' : hrs(min) + ' h'; }
+    // UNE seule fonction de formatage des durées pour toute la page Temps : heures puis minutes, jamais de décimale (« 13h », « 13h15 », « 13h30 », « 0h30 », « 2h05 »). Les minutes choisies à la roue s'affichent telles quelles.
+    function hh(min) { if (min == null) return '—'; var m = Math.round(min), h = Math.floor(m / 60), r = m % 60; return h + 'h' + (r ? (r < 10 ? '0' : '') + r : ''); }
     function tpOld() { return tp.e ? (tp.e.valueMin || 0) : 0; }
     function tpChanging() { return !!tp.e && tp.valueMin != null && tp.valueMin !== (tp.e.valueMin == null ? 0 : tp.e.valueMin); }
     function tpIncrease() { return tpChanging() && tp.valueMin > tpOld(); }
@@ -471,7 +470,7 @@
     function tpScreen1() {
       var e = tp.e, page = el('div', 'objTPage'), tbl = el('div', 'cmpList');
       page.appendChild(el('p', 'cmpBlockTitle', tr('Heures par semaine')));
-      tbl.appendChild(trow('objTPair objTHead', [el('span', 'objTCell'), tcell(tr('Prévu'), 'objTH'), tsep(), tcell(tr('Passé'), 'objTH objTLeft')]));
+      tbl.appendChild(trow('objTPair objTHead', [el('span', 'objTCell'), tcell(tr('Prévu'), 'objTH'), el('span', 'objTSep'), tcell(tr('Passé'), 'objTH objTLeft')]));
       tbl.appendChild(trow('objTPair', [tcell(e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, 'objTLabel'), tcell(hh(e.up.prevuMin), 'objTRO'), tsep(), tcell(hh(e.up.passeMin), 'objTRO objTLeft')])); // niveau du dessus : lecture seule
       var edCell = el('span', 'objTCell'); edCell.appendChild(tbtn(tp.valueMin, tr('Prévu'), function (v) { tpCommit(v); }));
       tbl.appendChild(trow('objTPair', [tcell(e.me.label, 'objTLabel'), edCell, tsep(), tcell(hh(e.me.passeMin), 'objTRO objTLeft')])); // niveau choisi : Prévu modifiable (violet), Passé en lecture seule
@@ -504,7 +503,7 @@
         page.appendChild(el('p', 'cmpBlockTitle', tr('Effet')));
         if (!tp.effects) { api('POST', '/api/objectifs/temps/plan', Object.assign(tpSpec(), { newMin: tp.valueMin, mode: 'ajouter', apply: false })).then(function (r) { tp.effects = r.effects; if (tpPages().indexOf('s3') >= 0) tpPaint(); }).catch(function () {}); return page; }
         tp.effects.forEach(function (x) {
-          var txt = x.level === 'total' ? tr('Ton total passe de {a} h à {b} h', { a: hrs(x.beforeMin), b: hrs(x.afterMin) }) : tr(LV[x.level] + ' passe de {a} h à {b} h', { a: hrs(x.beforeMin), b: hrs(x.afterMin) });
+          var txt = x.level === 'total' ? tr('Ton total passe de {a} à {b}', { a: hh(x.beforeMin), b: hh(x.afterMin) }) : tr(LV[x.level] + ' passe de {a} à {b}', { a: hh(x.beforeMin), b: hh(x.afterMin) });
           tbl.appendChild(trow('objTLine', [el('span', 'objTLabel', txt)]));
         });
         page.appendChild(tbl); return page;
@@ -514,12 +513,12 @@
       var totalCell = tcell('', 'objTRO');
       tpLines().forEach(function (l) {
         var ed = el('span', 'objTCell'); ed.appendChild(tbtn(tpAfter(l), tr('Après') + ' : ' + l.label, function (v, b) { tp.apres[l.key] = v; b.textContent = hh(v); paintTotal(); tpSync(); }));
-        tbl.appendChild(trow('', [tcell(l.key === 'reste' ? tr(l.label) : l.label, 'objTLabel'), tcell(hrs(l.avantMin), 'objTRO'), ed]));
+        tbl.appendChild(trow('', [tcell(l.key === 'reste' ? tr(l.label) : l.label, 'objTLabel'), tcell(hh(l.avantMin), 'objTRO'), ed]));
       });
       var totBefore = tcell('', 'objTRO'), totAfter = tcell('', 'objTRO');
       function paintTotal() { // Total du niveau du dessus : constant (avant = après) tant que c'est équilibré
         var avant = tpOld() + tpLines().reduce(function (n, l) { return n + l.avantMin; }, 0), apres = tp.valueMin + tpLines().reduce(function (n, l) { return n + tpAfter(l); }, 0);
-        totBefore.textContent = hrs(avant); totAfter.textContent = hrs(apres); totAfter.classList.toggle('objTBad', apres !== avant);
+        totBefore.textContent = hh(avant); totAfter.textContent = hh(apres); totAfter.classList.toggle('objTBad', apres !== avant);
       }
       tbl.appendChild(trow('objTTotal', [tcell(tr('Total'), 'objTLabel'), totBefore, totAfter])); paintTotal();
       page.appendChild(tbl);
