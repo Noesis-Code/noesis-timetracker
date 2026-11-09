@@ -18,7 +18,10 @@ assert(js.includes('tpPages') && js.includes('tasksPages'), 'balayage : mécanis
 assert(!/objTDots|pagination|pageDots/.test(js.slice(js.indexOf('function tpPaint'), js.indexOf('function tpPaint') + 3000)), 'aucun point de pagination');
 assert(!js.includes('tpValider') && !js.includes("tr('Valider')") && !js.includes('tp.committed'), 'plus de bouton « Valider » ni d’écran qui revient à l’écran 1');
 assert(js.includes('stepBtn.disabled = !tpValid(); advance = i < tot - 1 ? stepNext : finishAll;'), 'le bouton du bas reste « Suivant » / « Terminer » ; grisé seulement si la répartition n’est pas équilibrée');
-assert((js.match(/\/api\/objectifs\/temps\/plan/g) || []).length === 2 && js.includes('function tpApply()') && js.includes('function go(replaceId) { return tpApply().then('), 'le serveur n’est modifié qu’à « Terminer » (tpApply dans la création) ; l’aperçu de l’effet ne modifie rien');
+assert((js.match(/\/api\/objectifs\/temps\/plan/g) || []).length === 1 && js.includes('function tpApply()') && js.includes('function go(replaceId) { return tpApply().then('), 'le serveur n’est modifié qu’à « Terminer » (tpApply dans la création) ; plus d’aperçu ni d’écran d’effet');
+assert(!js.includes('Effet') && !js.includes('effects') && !js.includes('tpScreen3() {\n      var e = tp.e, page = el(\'div\', \'objTPage\'), tbl = el(\'div\', \'cmpList\'), m = tpMode();\n      if (m === \'ajouter\')'), 'écran d’effet supprimé (code mort retiré)');
+assert(js.includes("if (m === 'ajouter') { tp.page = 0; tpPaint(); } else { tpPaint(); tpGo(tpPages().indexOf('s3')); }"), '« Ajouter » : retour automatique à l’écran 1 (glissement arrière) ; « Déplacer » : glissement vers le tableau Avant / Après');
+assert(/\.objDock\.objTemps \.objStepBtn:disabled \{ background: var\(--card\); color: var\(--text-light\); box-shadow: inset 0 0 0 1px var\(--border\); opacity: 1; \}/.test(css) && js.includes("dock.classList.toggle('objTemps', k === 'temps')"), 'bouton du bas : gris (R35) quand il est désactivé à l’étape Temps, violet standard sinon (contraste mesuré 6,1:1)');
 // plus aucune saisie au clavier dans la page Temps
 const tpCode = js.slice(js.indexOf('    var tpBox = '), js.indexOf('    function refresh() {'));
 assert(!tpCode.includes("el('input'") && !tpCode.includes('inputMode') && !tpCode.includes("'keydown'") && !tpCode.includes('.blur()') && !js.includes('function tedit(') && !js.includes('function parseHrs('), 'aucun champ de saisie, clavier, Entrée ni perte de focus dans la page Temps ; tedit et parseHrs supprimés');
@@ -40,7 +43,7 @@ assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >=
 
 // comportement des écrans (fonctions extraites telles quelles du code) : la valeur arrive en MINUTES depuis le ✓ du sélecteur
 {
-  const a = js.indexOf('    function tpOld()'), b = js.indexOf('    var LV = '), c = js.indexOf('    function tpCommit(min)'), d = js.indexOf('    function modeLabel(m)');
+  const a = js.indexOf('    function tpOld()'), b = js.indexOf('    function tpSync()'), c = js.indexOf('    function tpCommit(min)'), d = js.indexOf('    function modeLabel(m)');
   const mk = (e, valueMin) => {
     const tp = { e, valueMin, mode: null, apres: {}, page: 0, effects: null };
     const api = new Function('tp', 'tpSync', 'tpPaint', js.slice(a, b) + '\n' + js.slice(c, d) + '\nreturn { tpCommit, tpPages, tpValid, tpIncrease, tpChanging, tpMode, tpBalanced };')(tp, () => {}, () => {});
@@ -51,12 +54,13 @@ assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >=
   t.tp.page = 0; t.tpCommit(360); assert(t.tp.page === 0 && !t.tpChanging() && t.tpPages().join() === 's1', '✓ sans changement : rien ne bouge, aucun glissement');
   t.tpCommit(240); assert(t.tp.page === 0 && t.tpChanging() && !t.tpIncrease() && t.tpPages().join() === 's1' && t.tpValid(), 'baisse : aucun glissement, aucune question (le temps libéré reste libre), « Suivant » actif');
   t.tpCommit(540); assert(t.tp.page === 1 && t.tpIncrease() && t.tpPages().join() === 's1,s2' && !t.tpValid(), 'hausse : glissement vers « D’où vient ce temps ? » ; « Suivant » grisé tant que rien n’est choisi');
-  t.tp.mode = 'ajouter'; assert(t.tpPages().join() === 's1,s2,s3' && t.tpValid(), 'Ajouter : écran d’effet, « Suivant » actif');
+  t.tp.mode = 'ajouter'; assert(t.tpPages().join() === 's1,s2' && t.tpValid(), 'Ajouter : aucun écran d’effet (retour à l’écran 1), « Suivant » actif (violet)');
+  t.tp.mode = 'deplacer'; assert(t.tpPages().join() === 's1,s2,s3' && !t.tpValid(), 'Déplacer : le tableau Avant / Après existe ; « Suivant » grisé tant que rien n’est déplacé');
   t.tp.mode = 'deplacer'; t.tp.apres = { p2: 120 }; assert(t.tpBalanced() === false && !t.tpValid(), '« Déplacer » non équilibré (1 h déplacée pour 3 h de hausse) : « Suivant » grisé');
   t.tp.apres = { p2: 0 }; assert(t.tpBalanced() && t.tpValid(), '« Déplacer » équilibré (3 h déplacées pour 3 h) : « Suivant » actif');
   t.tpCommit(360); assert(t.tp.page === 0 && !t.tpChanging() && t.tp.mode === null && t.tpPages().join() === 's1', 'valeur remise au défaut : le changement est annulé (retour à un seul écran)');
   t.tpCommit(0); assert(t.tp.valueMin === 0 && t.tpChanging() && !t.tpIncrease() && t.tp.page === 0, 'valeur 0 : une baisse, aucun glissement');
-  t = mk(E(['ajouter']), 360); t.tpCommit(420); assert(t.tp.page === 1 && t.tpPages().join() === 's1,s3' && t.tpMode() === 'ajouter' && t.tpValid(), 'une seule possibilité : l’écran « d’où vient ce temps » est sauté, glissement direct vers l’effet');
+  t = mk(E(['ajouter']), 360); t.tpCommit(420); assert(t.tpPages().join() === 's1' && t.tpMode() === 'ajouter' && t.tpValid(), 'une seule possibilité (Ajouter) : ni écran 2 ni effet, « Suivant » actif');
   t = mk(E(['ajouter', 'deplacer']), 360); t.tpCommit(168 * 60); assert(t.tpIncrease() && t.tp.valueMin === 168 * 60, '168 h acceptées (heures d’une semaine)');
 }
 
