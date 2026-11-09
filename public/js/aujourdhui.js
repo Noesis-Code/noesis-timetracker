@@ -915,7 +915,8 @@
     listBox.textContent = '';
     var have = {}; d.tasks.forEach(function (t) { have[t.id] = true; });
     d.tasks = state.added.filter(function (a) { return !have[a.id]; }).concat(d.tasks);
-    if (!d.tasks.some(function (t) { return !t.done; })) listBox.appendChild(el('p', 'tasksPopEmpty', tr(viewDay === 'all' ? 'Aucune tâche.' : kind === 'today' ? 'Rien pour aujourd’hui.' : 'Aucune tâche ce jour-là.')));
+    var inDay = viewDay !== 'all'; // jour touché : la liste montre aussi les tâches FAITES du jour (le compteur « faites / total » les compte) ; vue « toutes » : les faites sont dans Archive
+    if (!d.tasks.some(function (t) { return inDay || !t.done; })) listBox.appendChild(el('p', 'tasksPopEmpty', tr(viewDay === 'all' ? 'Aucune tâche.' : kind === 'today' ? 'Rien pour aujourd’hui.' : 'Aucune tâche ce jour-là.')));
     function addRow(t, parent) {
       var row = el('div', 'tasksPopRow' + (t.done ? ' done' : ''));
       var cb = el('button', 'tasksPopCheck'); cb.type = 'button';
@@ -966,7 +967,8 @@
       parent.appendChild(row);
     }
     rowBuilder = addRow; // la même ligne sert à « Archive » (tâches faites : rond coché, titre barré, « terminé », icône de modification)
-    paintTodo(d.tasks.filter(function (t) { return !t.done; }), addRow); // les tâches faites ne restent plus dans la liste du jour : elles sont dans « Archive »
+    paintTodo(d.tasks.filter(function (t) { return !t.done; }), addRow);
+    if (inDay) d.tasks.filter(function (t) { return t.done; }).forEach(function (t) { addRow(t, listBox); }); // les tâches faites ne restent plus dans la liste du jour : elles sont dans « Archive »
     if (archiveOpen()) loadArchive();
   }
   // ---------- Tri (demande d'Émilien, 3 nov. 2026) : « Activité » (défaut, arbre replié), « Aujourd'hui », « Objectif », « Responsable » ----------
