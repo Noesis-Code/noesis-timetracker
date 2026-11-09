@@ -463,16 +463,24 @@
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
       var t = targets()[0], actName = t ? t.name : '', first = null;
-      api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.activityId, activityName: actName })
+      function go(replaceId) { return api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.activityId, activityName: actName })
         .then(function (P) { // UNE seule activité, qui existe déjà (elle se crée dans Réglages) ; les macros se font seulement depuis l'arbre
           return Promise.resolve(t.id)
             .then(function (activityId) {
-              return api('POST', '/api/objectifs', { term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, skill: form.skill || '', description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+              return api('POST', '/api/objectifs', { replaceId: replaceId || undefined, term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, skill: form.skill || '', description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
             })
             .then(function (cr) { if (cr && cr.id) first = cr; });
         })
         .then(function () { var created = first; input.value = ''; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); if (created && created.bridgeFailed) openDetail(created.id); /* C12 : le message s’affiche dans le détail */ })
         .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
+      }
+      // Case déjà occupée (même colonne, même ligne du temps) : avertissement (R28, violet, jamais rouge) ; « Remplacer » ARCHIVE l'ancien objectif (réversible), il n'est jamais supprimé
+      api('POST', '/api/objectifs/case', { activityId: form.activityId, level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, endDate: form.endDate }).then(function (r) { return r && r.occupant ? r.occupant : null; }, function () { return null; })
+        .then(function (occ) {
+          if (!occ) return go(null);
+          return TMT.ui.confirm(tr('Un objectif existe déjà à cette date. Le remplacer ?'), { choices: [{ value: true, label: tr('Remplacer') }, { value: false, label: tr('Annuler'), quiet: true }] })
+            .then(function (yes) { if (!yes) { stepBtn.disabled = false; return null; } return go(occ.id); });
+        });
     }
 
     form._show = show; show(cur);

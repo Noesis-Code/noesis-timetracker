@@ -404,6 +404,31 @@ async function rattAi(userId, title, cands) {
     return cands.find((c) => c.id === Number(parsed.id)) || undefined;
   } catch (e) { return undefined; }
 }
+// Case occupée (9 nov. 2026) : un objectif existe déjà dans la MÊME colonne (activité, pôle, secteur) et à la MÊME ligne du temps (période au niveau secteur, année au niveau pôle, bloc de 5 ans
+// au niveau activité), comme l'arbre le calcule. Les abandonnés et les macros ne comptent pas. Renvoie { id, title } ou null. Lecture seule.
+function cellKey(level, iso) {
+  const y = Number(iso.slice(0, 4)), d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000);
+  if (level === 'secteur') return y * 100 + Math.min(13, Math.floor(d / 28) + 1);
+  if (level === 'pole') return y * 100;
+  const y0 = Number(today().slice(0, 4));
+  return (y0 + 5 * Math.floor((y - y0) / 5)) * 100;
+}
+function occupants(userId, body) {
+  const act = userActivities(userId).find((a) => a.id === Number(body && body.activityId));
+  if (!act || !isDay(body && body.endDate)) return [];
+  const level = ['activite', 'pole', 'secteur'].includes(body.level) ? body.level : 'activite';
+  const pk = level === 'activite' ? null : (body.poleKey || null), ck = level === 'secteur' ? (body.categoryKey || null) : null;
+  const key = cellKey(level, body.endDate), now = today();
+  return db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ? AND isMacro = 0 ORDER BY id').all(userId, act.id).filter((r) => {
+    if (body.__skip != null && r.id === Number(body.__skip)) return false; // l'objectif qu'on vient de créer n'est pas l'occupant
+    if ((r.level || 'activite') !== level || (r.poleKey || null) !== pk || (r.categoryKey || null) !== ck) return false;
+    let meta = {}; try { meta = JSON.parse(r.metaJson || '{}'); } catch (e) { meta = {}; }
+    if (meta.abandoned) return false;
+    const late = r.endDate < now && shape(r, false).status !== 'atteint';
+    return cellKey(level, late ? now : r.endDate) === key;
+  }).map((r) => ({ id: r.id, title: r.title }));
+}
+function occupant(userId, body) { return occupants(userId, body)[0] || null; }
 async function rattachement(userId, body) {
   const title = cleanTitle(body && body.title), act = userActivities(userId).find((a) => a.id === Number(body && body.activityId));
   if (!act || !title) return { candidate: null };
@@ -605,6 +630,7 @@ function creer(userId, body) {
   });
   db.prepare('UPDATE user_objectives SET taskIdsJson = ? WHERE id = ?').run(JSON.stringify(taskIds), id);
   setImmediate(() => { expandHints(userId, id); });
+  if (body.replaceId != null) { const occ = occupants(userId, Object.assign({}, body, { level: lvl.level, poleKey: lvl.poleKey, categoryKey: lvl.categoryKey, __skip: id })).filter((x) => x.id === Number(body.replaceId))[0]; if (occ) abandonner(userId, occ.id, true); } // remplacé = archivé (réversible), seulement si c'est bien l'occupant de la case
   return get(userId, id);
 }
 
@@ -1096,4 +1122,4 @@ function supprimer(userId, id, confirmed) {
 }
 migrateEcheances(); // au chargement (idempotent)
 try { const n = purgeOrphanMacros(null); if (n) console.log('[objectifs] ' + n + ' macro(s) sans objectif relié retiré(s)'); } catch (e) { console.warn('[objectifs] nettoyage des macros vides impossible :', e.message); }
-module.exports = { setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
