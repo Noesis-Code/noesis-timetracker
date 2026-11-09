@@ -184,13 +184,6 @@ function rankActivities(userId, text) {
     return { id: a.id, name: a.name, color: a.color, score, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, secteurs: goals.secteursForPole(a.id, p.key).map((x) => ({ key: x.key, label: x.label })) })) }; // pôles et secteurs : choisis après l'activité (le niveau en découle)
   }).sort((x, y) => y.score - x.score);
 }
-function suggestedActivityName(text) {
-  let w = String(text || '').replace(/[.,;:!?()«»"“”]/g, ' ').replace(/\b[ldjmtsnc][’']/gi, '').split(/\s+/).filter((x) => x && !STOP.has(fold(x)) && fold(x).length >= 3);
-  if (w.length > 1 && /(er|ir|re)$/i.test(w[0])) w = w.slice(1); // « Courir un semi-marathon » : le verbe d'action n'est pas le nom de l'activité
-  const name = w.slice(0, 2).join(' ') || 'Objectifs';
-  return name.charAt(0).toUpperCase() + name.slice(1);
-}
-
 function nextWeekTaskCount(userId) {
   const mon = addDays(mondayOf(today()), 7), sun = addDays(mon, 6);
   try {
@@ -280,7 +273,7 @@ function contexte(userId, body) {
     lastWeekHours: ranked.reduce((o, a) => { o[a.id] = Math.round(chronoHours(userId, a.id, addDays(today(), -6), today()) * 2) / 2; return o; }, {}), // temps enregistré (Chrono) sur les 7 derniers jours : repère « enregistré » du curseur d'heures par semaine
     recordedHours: ranked.reduce((o, a) => { o[a.id] = Math.round(chronoHours(userId, a.id, '2000-01-01', today()) * 10) / 10; return o; }, {}), // temps déjà enregistré (Chrono) sur l'activité
     estimate: est ? { label: est.label, weeks: est.weeks, p10: est.p10, p90: est.p90, typicalWeeks: est.typicalWeeks, source: est.source, endDate: end, p10End: addDays(start, est.p10 * 7), p90End: addDays(start, est.p90 * 7) } : null,
-    activities: ranked, suggestedActivityId: best ? best.id : null, createName: suggestedActivityName(title),
+    activities: ranked, suggestedActivityId: best ? best.id : null,
     objectives: existing, nextWeekTasks: nextWeekTaskCount(userId), tasksPerWeek: TASKS_PER_WEEK,
   };
 }
@@ -599,12 +592,6 @@ function creer(userId, body) {
   if (est0) { meta0.cat = est0.id; meta0.proposed = { p10: est0.p10, p90: est0.p90 }; }
   if (hpw) meta0.hoursPerWeek = hpw;
   if (typeof body.skill === 'string' && body.skill.trim()) { const sk = textlimits.clean(body.skill, { max: 200, word: 'Niveau' }); if (sk.error) throw err(sk.error); if (sk.text) meta0.skill = sk.text; }
-  // Activité créée avec l'objectif : d'où vient son temps ? « plus » (s'ajoute au temps habituel) ou « prise » sur une autre activité de la personne (7 nov. 2026).
-  const hf = body.hoursFrom && typeof body.hoursFrom === 'object' ? body.hoursFrom : null;
-  if (hf && hf.mode === 'prise') {
-    if (!userActivities(userId).some((x) => x.id === Number(hf.fromActivityId))) throw err('Choisis l’activité sur laquelle ce temps est pris.');
-    meta0.hoursFrom = { mode: 'prise', fromActivityId: Number(hf.fromActivityId) };
-  } else if (hf && hf.mode === 'plus') meta0.hoursFrom = { mode: 'plus' };
   if (body.description) meta0.description = String(body.description).trim().slice(0, 900); // description libre de l'objectif (étape « Description »)
   if (isDay(body.proposedEnd)) meta0.dateCorrectedDays = daysBetween(body.proposedEnd, body.endDate); // signal : date corrigée par l'utilisateur
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta0), id);

@@ -258,11 +258,11 @@
   }
 
   function openComposer(ctx) {
-    var form = ctx._form || (ctx._form = { acts: ctx.suggestedActivityId != null ? [ctx.suggestedActivityId] : [], news: ctx.suggestedActivityId == null ? [{ key: 1, name: ctx.createName, color: null }] : [], hoursBy: {}, title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, createName: ctx.createName, create: ctx.suggestedActivityId == null && true, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null, _ctx: ctx });
+    var form = ctx._form || (ctx._form = { acts: ctx.suggestedActivityId != null ? [ctx.suggestedActivityId] : [], hoursBy: {}, title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: ctx.estimate ? ctx.estimate.endDate : null, _ctx: ctx });
     if (!form.ctxApplied) {
       form.ctxApplied = true; var vc = viewCtx || {}, fromCell = !!pendingEnd; // verrouillé SEULEMENT si on part d'une case vide de l'arbre ; depuis la barre, le choix de l'activité est libre
       form.level = fromCell ? (vc.level || 'activite') : 'activite'; form.poleKey = fromCell ? (vc.poleKey || null) : null; form.categoryKey = fromCell ? (vc.categoryKey || null) : null; form.ctxLabel = fromCell ? (vc.label || '') : '';
-      if (vc.activityId != null) { form.activityId = vc.activityId; form.acts = [vc.activityId]; form.news = []; form.create = false; form.fixedCtx = fromCell; }
+      if (vc.activityId != null) { form.activityId = vc.activityId; form.acts = [vc.activityId]; form.fixedCtx = fromCell; }
       if (pendingEnd) { var dd0 = Math.round((Date.parse(pendingEnd + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000); form.endDate = pendingEnd; form.amount = Math.max(1, Math.ceil(dd0 / 7)); form.unit = 'semaines'; form.dateOk = true; form.durTouched = true; form.endFixed = true; }
       clearPending();
     }
@@ -291,7 +291,7 @@
     function composeDesc() { form.description = guideCompose(form); }
     function paintGuide(f) { paintGuideInto(guideBox, form, composeDesc, f); }
     function refreshHints() { // propositions du parent : lecture seule (aucune écriture), une activité, un parent ; sinon aucun champ proposé (comme avant)
-      var pid = form.parentId != null ? form.parentId : null, single = !form.create && form.activityId != null && form.acts.length + form.news.length <= 1;
+      var pid = form.parentId != null ? form.parentId : null, single = form.activityId != null;
       var key = form.title + '|' + form.activityId + '|' + form.endDate;
       var get = !single ? Promise.resolve(null) : pid != null ? Promise.resolve(pid) : !form.dateOk || !form.endDate ? Promise.resolve(null)
         : form.hintKey === key ? Promise.resolve(form.hintParentId == null ? null : form.hintParentId)
@@ -322,23 +322,23 @@
     boxes.activite.appendChild(actBox);
 
     function actById(id) { return (ctx.activities || []).filter(function (a) { return a.id === id; })[0]; }
-    function syncMain() { form.activityId = form.acts.length ? form.acts[0] : null; form.create = !form.acts.length && form.news.length > 0; if (form.create) form.createName = form.news[0].name; }
-    function noActivity() { return !form.acts.length && !form.news.length; }
+    function syncMain() { form.activityId = form.acts.length ? form.acts[0] : null; }
+    function noActivity() { return !form.acts.length; }
     function renderActivities() { // UNE seule activité par objectif (les macros se font seulement depuis l'arbre)
       actBox.textContent = '';
       var acts = ctx.activities || [];
+      if (!acts.length) { actBox.appendChild(el('p', 'objPlain', tr('Crée d’abord une activité dans Réglages.'))); return; }
       if (form.fixedCtx) { // créé depuis un niveau de l'arbre : l'activité (et le pôle, le secteur) sont verrouillés
         var own = actById(form.activityId), lock = el('div', 'aiModeChoices');
         if (own) { lock.appendChild(choice(own.name, tr(LEVEL_LABEL[form.level]) + (form.ctxLabel ? ' · ' + form.ctxLabel : ''), true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), lock)); return; }
       }
       var inTree = {}; (ctx.objectives || []).forEach(function (o) { inTree[o.activityId] = true; });
-      function card(a) { var on = form.acts.indexOf(a.id) >= 0; return choice(a.name, '', on, a.color, function () { form.acts = on ? [] : [a.id]; form.news = []; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; syncMain(); refresh(); var nx = actBox.querySelector('.goalsPlacementField'); if (nx && nx.scrollIntoView) nx.scrollIntoView({ block: 'nearest' }); }); }
+      function card(a) { var on = form.acts.indexOf(a.id) >= 0; return choice(a.name, '', on, a.color, function () { form.acts = on ? [] : [a.id]; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; syncMain(); refresh(); var nx = actBox.querySelector('.goalsPlacementField'); if (nx && nx.scrollIntoView) nx.scrollIntoView({ block: 'nearest' }); }); }
       var here = acts.filter(function (a) { return inTree[a.id]; }), notYet = acts.filter(function (a) { return !inTree[a.id]; });
       if (here.length) { var l1 = el('div', 'aiModeChoices'); here.forEach(function (a) { l1.appendChild(card(a)); }); actBox.appendChild(field(tr('Dans l’arbre'), l1)); }
       var l2 = el('div', 'aiModeChoices');
       notYet.forEach(function (a) { l2.appendChild(card(a)); });
-      form.news.forEach(function (n) { l2.appendChild(choice(n.name, tr('Nouvelle activité'), true, n.color, function () { form.news = form.news.filter(function (x) { return x !== n; }); syncMain(); refresh(); })); });
-      if (notYet.length || form.news.length) actBox.appendChild(field(tr('Pas encore dans l’arbre'), l2));
+      if (notYet.length) actBox.appendChild(field(tr('Pas encore dans l’arbre'), l2));
       // Pôle puis secteur (déroulés, facultatifs) : activité seule = objectif long, + pôle = moyen, + secteur = court (le niveau gagne sur la durée).
       var one = form.acts.length === 1 ? actById(form.acts[0]) : null;
       function drop(none, items, cur, onPick) { var w = el('div', 'goalsPlacementField'), sl = el('select'); var o0 = el('option', null, none); o0.value = ''; sl.appendChild(o0); items.forEach(function (x) { var o = el('option', null, x.label); o.value = x.key; sl.appendChild(o); }); sl.value = cur || ''; sl.addEventListener('change', function () { onPick(sl.value || null); }); w.appendChild(sl); return w; }
@@ -360,9 +360,8 @@
     // Page « Heures » : une ligne par activité choisie (valeur de départ : son historique Chrono), modifiable.
     // Activité NOUVELLE : on demande d'où vient ce temps : « S'ajoute » à mon temps actuel, ou « Pris sur » une autre activité (à choisir).
     var hoursBox = el('div', 'objTimeInfo'); boxes.temps.appendChild(hoursBox);
-    form.hoursBy = form.hoursBy || {}; form.hoursFrom = form.hoursFrom || {};
-    function targets() { return form.acts.map(function (id) { return { key: 'a' + id, id: id, name: (actById(id) || {}).name || '' }; }).concat(form.news.map(function (n) { return { key: 'n' + n.key, pending: n, name: n.name }; })); }
-    function hoursOk() { return targets().every(function (t) { var f = form.hoursFrom[t.key]; return !t.pending || !f || f.mode !== 'prise' || f.fromId != null; }); }
+    form.hoursBy = form.hoursBy || {};
+    function targets() { return form.acts.map(function (id) { return { key: 'a' + id, id: id, name: (actById(id) || {}).name || '' }; }); }
     function paintHours() {
       hoursBox.textContent = '';
       targets().forEach(function (t) {
@@ -375,7 +374,6 @@
         rowH.appendChild(el('span', null, t.name + (adv ? ' · ' + fmtH(adv) : ''))); rowH.appendChild(val); hoursBox.appendChild(rowH);
       });
     }
-    function syncHoursGo() { if (cur === 'temps') stepBtn.disabled = !hoursOk(); }
     function refresh() { renderActivities(); paintPeriods(); paintHours(); }
     refresh();
     // Étape « Niveau » : demandée SEULEMENT si des informations manquent (type d'objectif inconnu, plus d'un an, aucun historique Chrono) ; sinon sautée (3 étapes au lieu de 4).
@@ -391,10 +389,10 @@
     function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(['temps']).concat(needsLevel() ? ['niveau'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     function loadRatt() {
       // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
-      var key = form.title + '|' + (form.create ? 'new' : form.activityId);
+      var key = form.title + '|' + form.activityId;
       if (form.ratt && form.ratt.key === key) return Promise.resolve(); // même titre et même activité : la décision précédente reste
       form.ratt = { key: key, cand: null, rel: 'apres', decided: null }; form.parentId = null; form.parentRel = null;
-      if (form.create || form.activityId == null) return Promise.resolve();
+      if (form.activityId == null) return Promise.resolve();
       return api('POST', '/api/objectifs/rattachement', { endDate: form.endDate, title: form.title, activityId: form.activityId, // une seule règle : le parent a une échéance au moins égale à celle du nouvel objectif
  refused: form.refused || [] }).then(function (r) {
         if (r && r.candidate) { form.ratt.cand = r.candidate; form.ratt.rel = r.rel || 'apres'; form.ratt.decided = 'accept'; form.parentId = r.candidate.id; form.parentRel = form.ratt.rel; } // parent de la même activité choisi tout seul (8 nov. 2026), plus de page Rattachement ; les macros ne se font plus à la création (seulement depuis l'arbre)
@@ -410,7 +408,7 @@
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
       stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave');
       stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');
-      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate)) || (k === 'temps' && !hoursOk()); // Suivant grisé tant que le rattachement n'est pas décidé
+      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate)) || (k === 'activite' && !(ctx.activities || []).length); // Suivant grisé tant que le rattachement n'est pas décidé
       advance = i < tot - 1 ? stepNext : finishAll; setBack(i > 0 ? function () { show(l[i - 1]); } : null);
     }
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
@@ -433,15 +431,15 @@
     function innerOf() { return multiPeriods() ? form.innerGoals : 'hebdomadaires'; }
     function finishAll() { // Terminer : proposition par règles (ou IA gratuite du mois) puis création ; rien n'est créé avant ce geste
       if (!validDesc(true)) return;
-      if (form.ratt && form.ratt.key !== form.title + '|' + (form.create ? 'new' : form.activityId)) { form.parentId = null; form.parentRel = null; } // l'activité a changé après la proposition de rattachement : plus de parent
+      if (form.ratt && form.ratt.key !== form.title + '|' + form.activityId) { form.parentId = null; form.parentRel = null; } // l'activité a changé après la proposition de rattachement : plus de parent
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
       var t = targets()[0], actName = t ? t.name : '', first = null;
-      api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.create ? null : form.activityId, activityName: actName })
-        .then(function (P) { // UNE seule activité (les macros se font seulement depuis l'arbre) : crée l'activité si elle est nouvelle, puis l'objectif
-          return (t.pending ? api('POST', '/api/activities', { name: t.pending.name, color: t.pending.color || undefined }).then(function (a) { return a.id; }) : Promise.resolve(t.id))
+      api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.activityId, activityName: actName })
+        .then(function (P) { // UNE seule activité, qui existe déjà (elle se crée dans Réglages) ; les macros se font seulement depuis l'arbre
+          return Promise.resolve(t.id)
             .then(function (activityId) {
-              return api('POST', '/api/objectifs', { term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, skill: form.skill || '', hoursFrom: t.pending && form.hoursFrom[t.key] ? { mode: form.hoursFrom[t.key].mode, fromActivityId: form.hoursFrom[t.key].fromId } : null, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+              return api('POST', '/api/objectifs', { term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, skill: form.skill || '', description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
             })
             .then(function (cr) { if (cr && cr.id) first = cr; });
         })
