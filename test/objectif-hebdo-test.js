@@ -47,6 +47,12 @@ const mk = (extra) => o.creer('u1', Object.assign({ title: 'Objectif ' + Math.ra
   assert(src.includes("f.level === 'secteur' && !!f.endDate && !!f.startDate && f.endDate <= isoAdd(mondayIso(f.startDate), 13)"), 'interrupteur : niveau secteur ET échéance dans la semaine en cours ou la suivante');
   assert(src.includes("el('span', 'toggleSwitch')") && src.includes("cb.checked = !!form.weeklyOn") && !/form\.weeklyOn = true|weeklyOn: true/.test(src), 'composant .toggleSwitch existant, éteint par défaut');
   assert(src.includes("if (weeklyPossible(form)) return form.weeklyOn ? 'hebdomadaires' : 'periodiques'") && src.includes('if (form._switchShown) return;'), 'périodique/hebdomadaire décidé par l’interrupteur quand il est affiché ; « Objectifs inclus » masqué (aucune contradiction)');
+  // Phrase en direct sous les choix de la page Activité : activité › pôle › secteur · période ou semaine · sous « parent » / sans parent (texte seul, lecture seule)
+  assert(src.includes("path.join(' › ')") && src.includes("tr('sous') + ' « ' + p.title + ' »' : tr('sans parent')") && src.includes("tr('semaine') + ' ' + weekNo(form.endDate) : tr('période') + ' ' + periodNo(form.endDate)"), 'phrase en direct : chemin, période ou semaine, parent ou « sans parent »');
+  const fp = src.slice(src.indexOf('    function fetchParent()'), src.indexOf('    function refreshHints()'));
+  assert(fp.includes("'/api/objectifs/rattachement'") && !/'PUT'|'DELETE'/.test(fp) && fp.includes('return Promise.resolve(null)'), 'parent retenu : même appel de rattachement, lecture seule ; absent = « sans parent »');
+  const per = (iso) => { const y = Number(iso.slice(0, 4)); const d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000); return Math.min(13, Math.floor(d / 28) + 1); };
+  assert(src.includes('Math.min(13, Math.floor(d / 28) + 1)') && per('2026-01-01') === 1 && per('2026-02-05') === 2 && per('2026-12-31') === 13, 'numéro de période : même découpage que l’arbre (13 périodes de 28 jours)');
   console.log(failed ? '\nobjectif-hebdo-test : ' + failed + ' ÉCHEC(S)' : '\nobjectif-hebdo-test : OK');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

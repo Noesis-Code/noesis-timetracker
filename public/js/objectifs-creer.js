@@ -228,6 +228,8 @@
   function isoAdd(iso, n) { var d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
   function mondayIso(iso) { return isoAdd(iso, -((new Date(iso + 'T00:00:00Z').getUTCDay() + 6) % 7)); }
   // Interrupteur « Hebdomadaire » (9 nov. 2026) : possible SEULEMENT au niveau secteur et si l'échéance tombe dans la semaine en cours ou la suivante ; l'échéance décide ce qui est possible.
+  function periodNo(iso) { var y = Number(iso.slice(0, 4)), d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000); return Math.min(13, Math.floor(d / 28) + 1); }
+  function weekNo(iso) { var y = Number(iso.slice(0, 4)), d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000); return Math.min(52, Math.floor(d / 7) + 1); }
   function weeklyPossible(f) { return f.level === 'secteur' && !!f.endDate && !!f.startDate && f.endDate <= isoAdd(mondayIso(f.startDate), 13); }
   function segDisabled(options, current, allowed, onPick, label) {
     var s = seg(options, current, onPick, label);
@@ -295,13 +297,17 @@
     var guideBox = el('div', 'objGuide'); boxes.desc.appendChild(guideBox);
     function composeDesc() { form.description = guideCompose(form); }
     function paintGuide(f) { paintGuideInto(guideBox, form, composeDesc, f); }
-    function refreshHints() { // propositions du parent : lecture seule (aucune écriture), une activité, un parent ; sinon aucun champ proposé (comme avant)
-      var pid = form.parentId != null ? form.parentId : null, single = form.activityId != null;
+    // Parent retenu automatiquement (même appel que le rattachement : même activité, échéance du parent au moins celle du nouvel objectif) : { id, title } ou null. Lecture seule.
+    function fetchParent() {
+      if (form.activityId == null) return Promise.resolve(null);
+      if (form.parentId != null) return Promise.resolve({ id: form.parentId, title: form.ratt && form.ratt.cand ? form.ratt.cand.title : '' });
+      if (!form.dateOk || !form.endDate) return Promise.resolve(null);
       var key = form.title + '|' + form.activityId + '|' + form.endDate;
-      var get = !single ? Promise.resolve(null) : pid != null ? Promise.resolve(pid) : !form.dateOk || !form.endDate ? Promise.resolve(null)
-        : form.hintKey === key ? Promise.resolve(form.hintParentId == null ? null : form.hintParentId)
-        : api('POST', '/api/objectifs/rattachement', { endDate: form.endDate, title: form.title, activityId: form.activityId, refused: form.refused || [] }).then(function (r) { form.hintKey = key; form.hintParentId = r && r.candidate ? r.candidate.id : null; return form.hintParentId; });
-      get.then(function (id) { return id == null ? null : api('GET', '/api/objectifs/' + id); }).then(function (o) {
+      if (form.hintKey === key) return Promise.resolve(form.hintParent || null);
+      return api('POST', '/api/objectifs/rattachement', { endDate: form.endDate, title: form.title, activityId: form.activityId, refused: form.refused || [] }).then(function (r) { form.hintKey = key; form.hintParent = r && r.candidate ? { id: r.candidate.id, title: r.candidate.title } : null; return form.hintParent; }).catch(function () { return null; });
+    }
+    function refreshHints() { // propositions du parent : lecture seule (aucune écriture), une activité, un parent ; sinon aucun champ proposé (comme avant)
+      fetchParent().then(function (p) { return p ? api('GET', '/api/objectifs/' + p.id) : null; }).then(function (o) {
         var next = o ? guideProposals(o.description || '') : {};
         if (JSON.stringify(next) !== JSON.stringify(form.proposed || {})) { form.proposed = next; paintGuide(); }
       }).catch(function () { if (form.proposed && Object.keys(form.proposed).length) { form.proposed = {}; paintGuide(); } });
@@ -349,7 +355,7 @@
           form._switchShown = true;
           var row = el('label', 'objTimeRow'), sw = el('span', 'toggleSwitch'), cb = el('input'), track = el('span', 'toggleSwitchTrack');
           cb.type = 'checkbox'; cb.checked = !!form.weeklyOn; cb.setAttribute('role', 'switch'); cb.setAttribute('aria-label', tr('Hebdomadaire'));
-          cb.addEventListener('change', function () { form.weeklyOn = cb.checked; });
+          cb.addEventListener('change', function () { form.weeklyOn = cb.checked; renderActivities(); });
           sw.appendChild(cb); sw.appendChild(track); row.appendChild(el('span', null, tr('Hebdomadaire'))); row.appendChild(sw); host.appendChild(row);
         }
       }
@@ -359,6 +365,16 @@
       var l2 = el('div', 'aiModeChoices');
       notYet.forEach(function (a) { card(a, l2); });
       if (notYet.length) actBox.appendChild(field(tr('Pas encore dans l’arbre'), l2));
+      // Phrase en direct (texte seul) : activité › pôle › secteur · période ou semaine d'après l'échéance · parent retenu (« sans parent » s'il n'y en a pas)
+      var cur0 = actById(form.activityId);
+      if (cur0) {
+        var live = el('p', 'hint'), path = [cur0.name], pol = (cur0.poles || []).filter(function (x) { return x.key === form.poleKey; })[0];
+        if (pol) { path.push(pol.label); var sct = (pol.secteurs || []).filter(function (x) { return x.key === form.categoryKey; })[0]; if (sct) path.push(sct.label); }
+        var when = form.endDate ? (weeklyPossible(form) && form.weeklyOn ? tr('semaine') + ' ' + weekNo(form.endDate) : tr('période') + ' ' + periodNo(form.endDate)) : '';
+        var base = path.join(' › ') + (when ? ' · ' + when : '');
+        live.textContent = base; actBox.appendChild(live);
+        fetchParent().then(function (p) { live.textContent = base + ' · ' + (p && p.title ? tr('sous') + ' « ' + p.title + ' »' : tr('sans parent')); });
+      }
     }
     // Étape « Temps » : échéance (ci-dessus), format des périodes, objectifs hebdomadaires, puis un petit tableau : « Nombre recommandé » (valeur seule) et « Heures par semaine » (champ modifiable).
     function fmtH(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
