@@ -361,11 +361,11 @@
       function poleColor(a, p) { return p && p.shadeRank != null && TMT.subProjectShade ? TMT.subProjectShade(a.color, p.shadeRank, p.shadeCount) : a.color; }
       function under(a, blk) {
         (a.poles || []).forEach(function (p) {
+          // nom en couleur de texte standard ; la couleur du pôle est sur la pastille ronde (.objDot, comme les activités)
           var sel = form.poleKey === p.key, secs = p.secteurs || [], pc = poleColor(a, p);
-          var r = choice(p.label, '', sel, null, function () { form.poleKey = sel ? null : p.key; form.categoryKey = null; form.level = sel ? 'activite' : 'pole'; refresh(); });
-          if (pc) r.style.color = pc; // le nom du pôle s'écrit dans sa couleur
+          var r = choice(p.label, '', sel, pc, function () { form.poleKey = sel ? null : p.key; form.categoryKey = null; form.level = sel ? 'activite' : 'pole'; refresh(); });
           blk.appendChild(secs.length ? chev(r, sel) : r);
-          if (sel) secs.forEach(function (x) { var on2 = form.categoryKey === x.key, r2 = choice(x.label, '', on2, null, function () { form.categoryKey = on2 ? null : x.key; form.level = on2 ? 'pole' : 'secteur'; refresh(); }); r2.classList.add('objSub'); if (pc) r2.style.color = pc; blk.appendChild(r2); }); // les secteurs héritent de la couleur de leur pôle, décalés d'un cran
+          if (sel) secs.forEach(function (x) { var on2 = form.categoryKey === x.key, r2 = choice(x.label, '', on2, pc, function () { form.categoryKey = on2 ? null : x.key; form.level = on2 ? 'pole' : 'secteur'; refresh(); }); r2.classList.add('objSub'); blk.appendChild(r2); }); // les secteurs ont la pastille de la couleur de leur pôle, décalés d'un cran
         });
       }
       function card(a, host) {
