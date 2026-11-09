@@ -7668,7 +7668,7 @@
   TMT.fmtCapMinutes = fmtCapMinutes;
   // Feuille flottante de choix d'une durée (heures 0-99 + minutes par 5), style
   // sélecteur d'heure iOS : deux roues scroll-snap. opts : { title, minutes, onDone(min) }.
-  // « Réinitialiser » = 0:00 ; ✓ valide ; ✕ ou toucher dehors ferme sans changer. opts.maxHours (facultatif, défaut 99) : plafond des heures ; à ce plafond les minutes valent 0 (ex. 168 h = les heures d'une semaine).
+  // « Réinitialiser » = 0:00 ; ✓ valide ; ✕ ou toucher dehors ferme sans changer. opts.minuteStep (facultatif, défaut 5) : pas de la roue des minutes ; opts.maxHours (facultatif, défaut 99) : plafond des heures ; à ce plafond les minutes valent 0 (ex. 168 h = les heures d'une semaine).
   function openDurationPicker(opts) {
     var maxH = Number(opts.maxHours) > 0 ? Math.floor(Number(opts.maxHours)) : 99, maxMin = maxH === 99 ? 99 * 60 + 59 : maxH * 60;
     var ROW = 44, init = Math.max(0, Math.min(maxMin, Number(opts.minutes) || 0));
@@ -7701,7 +7701,7 @@
       return { get: function () { return values[Math.max(0, Math.min(values.length - 1, Math.round(sc.scrollTop / ROW)))]; }, set: function (v) { sc.scrollTo({ top: Math.max(0, values.indexOf(v)) * ROW, behavior: 'smooth' }); } };
     }
     var hours = []; for (var h = 0; h <= maxH; h++) hours.push(h);
-    var mins = []; for (var m = 0; m < 60; m += 5) mins.push(m);
+    var mins = []; var step = [5, 10, 15, 20, 30].indexOf(Number(opts.minuteStep)) >= 0 ? Number(opts.minuteStep) : 5; for (var m = 0; m < 60; m += step) mins.push(m);
     var curMin = init % 60; if (mins.indexOf(curMin) < 0) { mins.push(curMin); mins.sort(function (p, q) { return p - q; }); }
     var hW = wheel(hours, Math.floor(init / 60), t('Heures'), 'h');
     var mW = wheel(mins, curMin, t('Minutes'), 'm');

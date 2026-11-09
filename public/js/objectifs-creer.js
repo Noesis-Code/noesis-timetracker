@@ -464,7 +464,7 @@
     // ✓ = confirmation (onPick reçoit les minutes) ; ✕ ou toucher dehors : rien ne change. Plafond 168 h (les heures d'une semaine) ; une valeur choisie à la roue n'est jamais réarrondie.
     function tbtn(minutes, label, onPick) {
       var b = el('button', 'objTEdit', hh(minutes)); b.type = 'button'; b.setAttribute('aria-label', label);
-      b.addEventListener('click', function () { TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: 168, onDone: function (v) { minutes = v; onPick(v, b); } }); });
+      b.addEventListener('click', function () { TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: 168, minuteStep: 15, onDone: function (v) { minutes = v; onPick(v, b); } }); });
       return b;
     }
     function tpScreen1() {

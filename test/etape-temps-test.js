@@ -88,6 +88,12 @@ assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >=
     r = await run({ minutes: 168 * 60, maxHours: 168 }); assert(r.scrolls[0].scrollTop === 168 * 44 && r.scrolls[1].scrollTop === 0, '168 h : ouverture sur 168 h 00');
     r.scrolls[1].scrollTop = 6 * 44; r.ok.fire('click'); assert(r.got.join() === String(168 * 60), '168 h : les minutes valent 0 (plafond)');
     r = await run({ minutes: 100 * 60 }); assert(r.scrolls[0].children.length === 100 && r.scrolls[0].scrollTop === 99 * 44, 'usage existant (sans maxHours) : plafond de 99 h inchangé');
+    r = await run({ minutes: 795, maxHours: 168, minuteStep: 15 });
+    assert(r.scrolls[1].children.map((c) => c.textContent).join() === '00,15,30,45' && r.scrolls[0].scrollTop === 13 * 44 && r.scrolls[1].scrollTop === 1 * 44, 'page Temps : roue des minutes à 0 / 15 / 30 / 45, valeur de départ 13 h 15 (roues sur 13 et 15)');
+    r.scrolls[1].scrollTop = 3 * 44; r.ok.fire('click'); assert(r.got.join() === String(13 * 60 + 45), 'minute choisie à la roue (45) : multiple de 15, jamais réarrondie');
+    r = await run({ minutes: 125, maxHours: 168, minuteStep: 15 });
+    assert(r.scrolls[1].children.map((c) => c.textContent).join() === '00,05,15,30,45' && r.scrolls[1].scrollTop === 1 * 44, 'valeur de départ non multiple de 15 (2 h 05) : la valeur actuelle s’ajoute à la roue (comportement existant)');
+    r = await run({ minutes: 30 }); assert(r.scrolls[1].children.map((c) => c.textContent).join() === '00,05,10,15,20,25,30,35,40,45,50,55', 'usage existant (Cible, plafonds) : pas de 5 inchangé');
     r = await run({ minutes: 360, maxHours: 168 }); r.reset.fire('click'); await new Promise((s) => setTimeout(s, 10)); assert(r.got.join() === '0', '« Réinitialiser » : 0');
     console.log(failed ? '\netape-temps-test : ' + failed + ' ÉCHEC(S)' : '\netape-temps-test : OK');
     process.exit(failed ? 1 : 0);
