@@ -234,6 +234,15 @@
   // Terme (Périodique / Moyen terme / Long terme) et objectifs inclus : mêmes seuils que server/lib/objectifs-temps.js (26 et 130 semaines) ; choix impossibles grisés ; vérifiés aussi par le serveur.
   var TERMS = [['periode', 'Court'], ['annee', 'Moyen'], ['pluriannuel', 'Long']], INNER = [['periodiques', 'Périodiques'], ['hebdomadaires', 'Hebdomadaires'], ['les_deux', 'Les deux']];
   function termsFor(days) { var w = (days || 0) / 7; return w <= 26 ? ['periode'] : w <= 130 ? ['periode', 'annee'] : ['periode', 'annee', 'pluriannuel']; }
+  // Heures par semaine : vide = inconnu (null) ; 0 = aucune (null) ; 0 à 80 h, une décimale ; au-delà de 80 ou illisible : refusé.
+  function parseHours(raw) {
+    var t = String(raw == null ? '' : raw).trim().replace(',', '.');
+    if (t === '') return { ok: true, value: null };
+    if (!/^\d{1,2}(\.\d?)?$/.test(t)) return { ok: false, value: null };
+    var v = parseFloat(t);
+    if (!(v >= 0 && v <= 80)) return { ok: false, value: null };
+    return { ok: true, value: v > 0 ? Math.round(v * 10) / 10 : null };
+  }
   function multiOf(days) { return (days || 0) > 28; }
   function isoAdd(iso, n) { var d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
   function mondayIso(iso) { return isoAdd(iso, -((new Date(iso + 'T00:00:00Z').getUTCDay() + 6) % 7)); }
@@ -259,11 +268,10 @@
     var weeks = 0; out.forEach(function (r) { for (var t = r[0]; t <= r[1]; t += 7 * D) weeks++; });
     return { periods: out.length, weeks: weeks };
   }
-  function paintTermInto(box, form, days, onChange, noTerm) { // noTerm : création, le terme se déduit du niveau (activité = long, pôle = moyen, secteur = court)
-    var ok = termsFor(days); if (!noTerm && ok.indexOf(form.term) < 0) form.term = ok[ok.length - 1]; // imposé si un seul choix ; sinon, tant que rien n'est choisi, le terme le plus long permis
-    if (!noTerm) box.appendChild(field(tr('Terme'), segDisabled(TERMS.map(function (t) { return [t[0], tr(t[1])]; }), form.term, ok, function (k) { form.term = k; form.termTouched = true; if (onChange) onChange(); }, tr('Terme'))));
+  function paintTermInto(box, form, days, onChange) { // modification d'un objectif existant (la création n'affiche plus ces choix : sa règle de durée sera rebranchée plus tard, voir « Étape Temps » dans openComposer)
+    var ok = termsFor(days); if (ok.indexOf(form.term) < 0) form.term = ok[ok.length - 1]; // imposé si un seul choix ; sinon, tant que rien n'est choisi, le terme le plus long permis
+    box.appendChild(field(tr('Terme'), segDisabled(TERMS.map(function (t) { return [t[0], tr(t[1])]; }), form.term, ok, function (k) { form.term = k; form.termTouched = true; if (onChange) onChange(); }, tr('Terme'))));
     // Objectifs inclus : deux cases (cochées par défaut quand c'est possible, au moins une reste cochée) avec le nombre de chacun ; une seule période (≤ 28 jours) : hebdomadaires seulement, périodiques grisés
-    if (form._switchShown) return; // le bloc « Cet objectif est-il » (page Activité) décide : périodique ou hebdomadaire
     var multi = multiOf(days), cnt = goalCounts(form, days), per = multi && form.innerGoals !== 'hebdomadaires', wk = form.innerGoals !== 'periodiques';
     var gs = el('div', 'cmpSeg'); gs.setAttribute('role', 'group'); gs.setAttribute('aria-label', tr('Objectifs inclus'));
     function goalBtn(on, label, n, enabled, toggle) {
@@ -351,7 +359,6 @@
     function renderActivities() { // UNE seule activité par objectif (les macros se font seulement depuis l'arbre)
       actBox.textContent = '';
       var acts = ctx.activities || [];
-      form._switchShown = false;
       if (form.fixedCtx) { // créé depuis un niveau de l'arbre : l'activité (et le pôle, le secteur) sont verrouillés
         var own = actById(form.activityId), lock = el('div', 'aiModeChoices');
         if (own) { lock.appendChild(choice(own.name, tr(LEVEL_LABEL[form.level]) + (form.ctxLabel ? ' · ' + form.ctxLabel : ''), true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), lock)); return; }
@@ -391,7 +398,6 @@
       if (form.weeklyOn && !weeklyPossible(form)) form.weeklyOn = false;
       if (form.level === 'secteur' && form.categoryKey) {
         var okWeekly = weeklyPossible(form);
-        form._switchShown = okWeekly; // quand l'hebdomadaire est possible, ce choix décide (« Objectifs inclus » masqué) ; sinon l'échéance décide seule, comme avant
         actBox.appendChild(field(tr('Cet objectif est-il'), segDisabled([['hebdomadaire', tr('Hebdomadaire')], ['periodique', tr('Périodique')]], form.weeklyOn && okWeekly ? 'hebdomadaire' : 'periodique', okWeekly ? ['hebdomadaire', 'periodique'] : ['periodique'], function (k) { form.weeklyOn = k === 'hebdomadaire'; refresh(); }, tr('Cet objectif est-il'))));
       }
       // Phrase en direct (texte seul) : activité › pôle › secteur · période ou semaine d'après l'échéance · parent retenu (« sans parent » s'il n'y en a pas)
@@ -405,33 +411,33 @@
         fetchParent().then(function (p) { live.textContent = base + ' · ' + (p && p.title ? tr('sous') + ' « ' + p.title + ' »' : tr('sans parent')); });
       }
     }
-    // Étape « Temps » : échéance (ci-dessus), format des périodes, objectifs hebdomadaires, puis un petit tableau : « Nombre recommandé » (valeur seule) et « Heures par semaine » (champ modifiable).
-    function fmtH(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
+    // Étape « Temps » (refaite le 9 nov. 2026, décision d'Émilien) : UNE seule question, « Heures par semaine », un champ numérique (0 à 80 h, décimale permise) pour l'activité choisie ; valeur de départ = l'historique Chrono
+    // (ctx.weeklyHours), modifiable, vide si inconnu. Plus d'« Objectifs inclus », de terme ni de lignes multi-activités à l'écran.
+    // RÈGLE DE DURÉE (A) : à rebrancher plus tard dans cette page (ou la suivante). Ses données restent ci-dessous, inchangées : form.term (déduit du niveau), form.innerGoals / innerOf() (périodes et semaines), les périodes (splitPeriods
+    // côté serveur) ; pour la remettre à l'écran, paintTermInto(box, form, daysLeft(), onChange) existe toujours (utilisée par la modification d'un objectif).
     function daysLeft() { return form.endDate ? Math.max(0, Math.round((Date.parse(form.endDate + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000)) : null; }
     if (form.weekly === undefined) form.weekly = true;
-    form.innerGoals = form.innerGoals || 'les_deux';
+    form.innerGoals = form.innerGoals || 'les_deux'; // valeur par défaut des objectifs inclus : périodiques ET hebdomadaires (sauf règle hebdomadaire de la page Activité, voir innerOf)
     function multiPeriods() { return multiOf(daysLeft()); }
-    var pdBox = el('div'); // périodes fixes de 4 semaines : seul le terme et les objectifs inclus se choisissent
-    function paintPeriods() { pdBox.textContent = ''; form.term = { activite: 'pluriannuel', pole: 'annee', secteur: 'periode' }[form.level || 'activite']; paintTermInto(pdBox, form, daysLeft(), null, true); }
-    boxes.temps.appendChild(pdBox);
-    // Page « Heures » : une ligne par activité choisie (valeur de départ : son historique Chrono), modifiable.
-    // Activité NOUVELLE : on demande d'où vient ce temps : « S'ajoute » à mon temps actuel, ou « Pris sur » une autre activité (à choisir).
-    var hoursBox = el('div', 'objTimeInfo'); boxes.temps.appendChild(hoursBox);
+    function syncTerm() { form.term = { activite: 'pluriannuel', pole: 'annee', secteur: 'periode' }[form.level || 'activite']; } // le terme se déduit du niveau (activité = long, pôle = moyen, secteur = court)
+    var hoursBox = el('div'); boxes.temps.appendChild(hoursBox);
     form.hoursBy = form.hoursBy || {};
     function targets() { return form.acts.map(function (id) { return { key: 'a' + id, id: id, name: (actById(id) || {}).name || '' }; }); }
     function paintHours() {
       hoursBox.textContent = '';
-      targets().forEach(function (t) {
-        var adv = t.id != null && ctx.weeklyHours ? ctx.weeklyHours[t.id] : null;
-        if (form.hoursBy[t.key] === undefined) form.hoursBy[t.key] = adv || null;
-        var rowH = el('div', 'objTimeRow'), val = el('span', 'objHoursVal'), inp = el('input');
-        inp.type = 'text'; inp.inputMode = 'decimal'; inp.maxLength = 4; inp.value = form.hoursBy[t.key] ? String(form.hoursBy[t.key]) : ''; inp.setAttribute('aria-label', tr('Heures par semaine') + ' : ' + t.name);
-        inp.addEventListener('input', function () { var v = parseFloat(String(inp.value).replace(',', '.')); form.hoursBy[t.key] = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; });
-        val.appendChild(inp); val.appendChild(el('span', null, 'h'));
-        rowH.appendChild(el('span', null, t.name + (adv ? ' · ' + fmtH(adv) : ''))); rowH.appendChild(val); hoursBox.appendChild(rowH);
+      var t = targets()[0]; if (!t) return;
+      var adv = ctx.weeklyHours ? ctx.weeklyHours[t.id] : null;
+      if (form.hoursBy[t.key] === undefined) form.hoursBy[t.key] = adv || null; // valeur de départ : historique Chrono ; vide si inconnu
+      var inp = el('input'), last = form.hoursBy[t.key] ? String(form.hoursBy[t.key]) : '';
+      inp.type = 'text'; inp.inputMode = 'decimal'; inp.maxLength = 4; inp.value = last; inp.setAttribute('aria-label', tr('Heures par semaine'));
+      inp.addEventListener('input', function () {
+        var h = parseHours(inp.value);
+        if (!h.ok) { inp.value = last; return; } // un nombre au-delà de 80 (ou illisible) est refusé : on garde la dernière valeur valide
+        last = inp.value; form.hoursBy[t.key] = h.value;
       });
+      hoursBox.appendChild(field(tr('Heures par semaine'), inp));
     }
-    function refresh() { renderActivities(); paintPeriods(); paintHours(); }
+    function refresh() { renderActivities(); syncTerm(); paintHours(); }
     refresh();
     // Étape « Niveau » : demandée SEULEMENT si des informations manquent (type d'objectif inconnu, plus d'un an, aucun historique Chrono) ; sinon sautée (3 étapes au lieu de 4).
     function needsLevel() { var dl = daysLeft(); return !ctx.estimate || (dl != null && dl > 365) || !(ctx.weeklyHours && form.activityId != null && ctx.weeklyHours[form.activityId]); }

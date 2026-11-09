@@ -65,7 +65,7 @@ const mk = (extra) => o.creer('u1', Object.assign({ title: 'Objectif ' + Math.ra
     st.endDate = addDays(t0, 60); if (st.weeklyOn && !wp(st)) st.weeklyOn = false;
     assert(st.weeklyOn === false, 'changement d’échéance : « Hebdomadaire » devient impossible, retour automatique à « Périodique »');
   }
-  assert(src.includes("if (weeklyPossible(form)) return form.weeklyOn ? 'hebdomadaires' : 'periodiques'") && src.includes('if (form._switchShown) return;'), 'périodique/hebdomadaire décidé par l’interrupteur quand il est affiché ; « Objectifs inclus » masqué (aucune contradiction)');
+  assert(src.includes("if (weeklyPossible(form)) return form.weeklyOn ? 'hebdomadaires' : 'periodiques'"), 'périodique/hebdomadaire décidé par le bloc « Cet objectif est-il » quand l’hebdomadaire est possible');
   // Phrase en direct sous les choix de la page Activité : activité › pôle › secteur · période ou semaine · sous « parent » / sans parent (texte seul, lecture seule)
   assert(src.includes("path.join(' › ')") && src.includes("tr('sous') + ' « ' + p.title + ' »' : tr('sans parent')") && src.includes("tr('semaine') + ' ' + weekNo(form.endDate) : tr('période') + ' ' + periodNo(form.endDate)"), 'phrase en direct : chemin, période ou semaine, parent ou « sans parent »');
   const fp = src.slice(src.indexOf('    function fetchParent()'), src.indexOf('    function refreshHints()'));
