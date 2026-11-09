@@ -410,7 +410,7 @@
     //  1. « Heures par semaine » : tableau Prévu / Passé (ligne du niveau DU DESSUS en lecture seule, ligne du niveau choisi : Prévu modifiable) ;
     //  2. « D'où vient ce temps ? » : seulement si la valeur AUGMENTE (et qu'il y a plus d'une possibilité) ;
     //  3. « Prendre sur… » : tableau Avant / Après équilibré ; ou « Ajouter » : effets en lecture seule.
-    // Le Prévu est un BUDGET hebdomadaire du niveau (serveur : server/lib/tempsbudget.js) ; rien n'est écrit avant « Valider ».
+    // Le Prévu est un BUDGET hebdomadaire du niveau (serveur : server/lib/tempsbudget.js) ; rien n'est écrit avant « Terminer » de la création (tpApply).
     // RÈGLE DE DURÉE (A) : à rebrancher plus tard (paintTermInto, utilisée par la modification d'un objectif) ; ses données par défaut restent ci-dessous, inchangées.
     function daysLeft() { return form.endDate ? Math.max(0, Math.round((Date.parse(form.endDate + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000)) : null; }
     if (form.weekly === undefined) form.weekly = true;
@@ -421,9 +421,9 @@
     function targets() { return form.acts.map(function (id) { return { key: 'a' + id, id: id, name: (actById(id) || {}).name || '' }; }); }
     var tpBox = el('div'); boxes.temps.appendChild(tpBox);
     var tp = form.tp = form.tp || { key: null, e: null, valueMin: null, mode: null, apres: {}, page: 0, effects: null, loading: false };
-    function tpSpec() { return { activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, endDate: form.endDate || null }; }
-    function tpKey() { var q = tpSpec(); return [q.activityId, q.level, q.poleKey || '', q.categoryKey || '', q.endDate || ''].join('|'); }
-    function tpQuery() { var q = tpSpec(); return 'activityId=' + encodeURIComponent(q.activityId) + '&level=' + q.level + (q.poleKey ? '&poleKey=' + encodeURIComponent(q.poleKey) : '') + (q.categoryKey ? '&categoryKey=' + encodeURIComponent(q.categoryKey) : '') + (q.endDate ? '&endDate=' + encodeURIComponent(q.endDate) : '') + (tp.committed != null ? '&ownMin=' + tp.committed : ''); }
+    function tpSpec() { return { activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, endDate: form.endDate || null, inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }; }
+    function tpKey() { var q = tpSpec(); return [q.activityId, q.level, q.poleKey || '', q.categoryKey || '', q.endDate || '', q.inner || ''].join('|'); }
+    function tpQuery() { var q = tpSpec(); return 'activityId=' + encodeURIComponent(q.activityId) + '&level=' + q.level + (q.poleKey ? '&poleKey=' + encodeURIComponent(q.poleKey) : '') + (q.categoryKey ? '&categoryKey=' + encodeURIComponent(q.categoryKey) : '') + (q.endDate ? '&endDate=' + encodeURIComponent(q.endDate) : '') + (form.level === 'secteur' ? '&inner=' + (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : ''); }
     function hrs(min) { return min == null ? '—' : String(Math.round(min / 60 * 100) / 100).replace('.', ','); } // minutes -> heures (décimales permises)
     function parseHrs(raw) { // 0 à 168 h (les heures d'une semaine), décimales permises, aucune autre limite
       var t = String(raw == null ? '' : raw).trim().replace(',', '.');
@@ -444,25 +444,23 @@
     function tpBalanced() { var m = tpMode(); if (m === 'ajouter') return true; return tpLines().length > 0 && tpLines().every(function (l) { var a = tpAfter(l); return a >= 0 && a <= l.avantMin; }) && tpTaken() === tp.valueMin - tpOld(); }
     function tpValid() { if (!tpChanging()) return true; if (!tpIncrease()) return true; return !!tpMode() && tpBalanced(); }
     var LV = { activite: "L’activité", pole: 'Le pôle', secteur: 'Le secteur' };
-    function tpSync() { // bouton du bas : « Valider » tant qu'un changement est en cours ; sinon « Suivant » (étape suivante de la création)
+    function tpSync() { // bouton du bas : toujours « Suivant » (« Terminer » à la dernière étape) ; grisé (R35) seulement si une répartition « Prendre sur… » n'est pas équilibrée
       if (cur !== 'temps') return;
       var q = tpSpec(); form.hoursBy['a' + q.activityId] = tp.valueMin != null && tp.valueMin > 0 ? Math.round(tp.valueMin / 60 * 100) / 100 : null; // hoursPerWeek de l'objectif = le Prévu du niveau choisi
-      if (tpChanging()) { stepLabel.textContent = tr('Valider'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Valider')); stepBtn.disabled = !tpValid(); advance = tpValider; }
-      else { var l = list(), i = l.indexOf('temps'), tot = l.length; stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = (i + 1) + '/' + tot; stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + (i + 1) + '/' + tot + ')'); stepBtn.disabled = false; advance = i < tot - 1 ? stepNext : finishAll; }
+      var l = list(), i = l.indexOf('temps'), tot = l.length; stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = (i + 1) + '/' + tot; stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + (i + 1) + '/' + tot + ')');
+      stepBtn.disabled = !tpValid(); advance = i < tot - 1 ? stepNext : finishAll;
     }
-    function tpValider() { // applique le changement (serveur), puis REVIENT à l'écran 1 avec les nouvelles valeurs
-      if (!tpChanging() || !tpValid()) return;
-      var body = Object.assign(tpSpec(), { newMin: tp.valueMin, mode: tpIncrease() ? tpMode() : null, apres: tp.apres, apply: true });
-      stepBtn.disabled = true; msg.textContent = '';
-      api('POST', '/api/objectifs/temps/plan', body).then(function () { tp.committed = tp.valueMin; tp.key = null; return tpLoad(true); }).catch(function (err) { msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); tpSync(); });
+    // Appliqué au serveur seulement à « Terminer » (abandon = rien n'est modifié) : parent et cases voisines ; le niveau choisi part avec la création (hoursPerWeek).
+    function tpApply() {
+      if (!tp.e || !tpChanging() || !tpIncrease() || !tpValid()) return Promise.resolve();
+      return api('POST', '/api/objectifs/temps/plan', Object.assign(tpSpec(), { newMin: tp.valueMin, mode: tpMode(), apres: tp.apres, apply: true }));
     }
     function tpGo(i) { var n = tpPages().length; tp.page = Math.max(0, Math.min(n - 1, i)); tpPaint(); }
     function tpLoad(force) {
       if (!force && tp.key === tpKey() && tp.e) { tpPaint(); tpSync(); return Promise.resolve(); }
-      if (!force && tp.key !== tpKey()) tp.committed = null; // autre niveau ou autre échéance : on repart du Prévu de la case
       tp.key = tpKey(); tp.loading = true; tp.e = null; tpPaint();
       return api('GET', '/api/objectifs/temps?' + tpQuery()).then(function (e) {
-        tp.e = e; tp.loading = false; tp.valueMin = e.valueMin == null ? null : e.valueMin; tp.mode = null; tp.apres = {}; tp.page = 0; tp.effects = null; tpPaint(); tpSync();
+        tp.e = e; tp.loading = false; tp.valueMin = e.valueMin == null ? null : e.valueMin; tp.mode = null; tp.apres = {}; tp.page = 0; tp.shown = 0; tp.effects = null; tpPaint(); tpSync();
       }).catch(function (err) { tp.loading = false; tp.key = null; tpPaint(); msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
     }
     function trow(cls, cells) { var r = el('div', 'objTRow ' + cls); cells.forEach(function (c) { r.appendChild(c); }); return r; }
@@ -471,7 +469,8 @@
       var i = el('input', 'objTEdit'); i.type = 'text'; i.inputMode = 'decimal'; i.maxLength = 6; i.value = value; i.setAttribute('aria-label', label);
       var last = value;
       i.addEventListener('input', function () { var h = parseHrs(i.value); if (!h.ok) { i.value = last; return; } last = i.value; onInput(h.min); });
-      if (onCommit) i.addEventListener('change', onCommit); // la saisie est finie : les écrans suivants apparaissent ou disparaissent
+      if (onCommit) i.addEventListener('change', onCommit); // saisie terminée (Entrée / OK du clavier ou perte de focus) : les écrans suivants apparaissent ou disparaissent
+      i.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); i.blur(); } });
       return i;
     }
     function tpScreen1() {
@@ -479,15 +478,18 @@
       page.appendChild(el('p', 'cmpBlockTitle', tr('Heures par semaine')));
       tbl.appendChild(trow('objTHead', [el('span', 'objTCell'), tcell(tr('Prévu'), 'objTH'), tcell(tr('Passé'), 'objTH')]));
       tbl.appendChild(trow('', [tcell(e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, 'objTLabel'), tcell(hrs(e.up.prevuMin), 'objTRO'), tcell(hrs(e.up.passeMin), 'objTRO')])); // niveau du dessus : lecture seule
-      var inp = tedit(tp.valueMin == null ? '' : hrs(tp.valueMin), function (min) { tp.valueMin = min; tp.mode = null; tp.apres = {}; tp.effects = null; tpAfterEdit(); }, tr('Prévu'), function () { tpPaint(); });
+      var inp = tedit(tp.valueMin == null ? '' : hrs(tp.valueMin), function (min) { tp.valueMin = min; tp.mode = null; tp.apres = {}; tp.effects = null; tpSync(); }, tr('Prévu'), function () { tpCommit(inp.value); });
       var edCell = el('span', 'objTCell'); edCell.appendChild(inp);
       tbl.appendChild(trow('', [tcell(e.me.label, 'objTLabel'), edCell, tcell(hrs(e.me.passeMin), 'objTRO')])); // niveau choisi : Prévu modifiable (violet), Passé en lecture seule
       page.appendChild(tbl);
       return page;
     }
-    function tpAfterEdit() { // la valeur change : les écrans suivants apparaissent ou disparaissent ; on ne repeint pas la saisie en cours
-      if (tp.page >= tpPages().length) tp.page = tpPages().length - 1;
-      tpSync();
+    function tpCommit(raw) { // la valeur est confirmée : baisse ou inchangée = aucun glissement ; hausse = glissement vers « D'où vient ce temps ? » (ou l'effet si une seule possibilité) ; valeur remise au défaut = changement annulé
+      var h = parseHrs(raw);
+      if (!h.ok || h.min == null) tp.valueMin = tp.e.valueMin == null ? null : tp.e.valueMin; else tp.valueMin = h.min;
+      tp.mode = null; tp.apres = {}; tp.effects = null;
+      tp.page = tpIncrease() ? 1 : 0;
+      tpSync(); tpPaint();
     }
     function modeLabel(m) {
       if (m === 'ajouter') return tr('Ajouter');
@@ -498,7 +500,7 @@
     function tpScreen2() {
       var page = el('div', 'objTPage'), box = el('div', 'aiModeChoices');
       page.appendChild(el('p', 'cmpBlockTitle', tr('D’où vient ce temps ?')));
-      tpModes().forEach(function (m) { box.appendChild(choice(modeLabel(m), '', tp.mode === m, null, function () { tp.mode = m; tp.apres = {}; tp.effects = null; tpSync(); tpPaint(); tpGo(tpPages().indexOf('s3')); })); });
+      tpModes().forEach(function (m) { box.appendChild(choice(modeLabel(m), '', tp.mode === m, null, function () { tp.mode = m; tp.apres = {}; tp.effects = null; tpSync(); tp.shown = 1; tpPaint(); tpGo(tpPages().indexOf('s3')); })); }); // toucher une carte glisse vers l'écran suivant
       page.appendChild(box);
       return page;
     }
@@ -535,8 +537,12 @@
       var pages = tpPages(), n = pages.length, wrap = el('div', 'tasksPages objTPages'), track = el('div', 'tasksTrack'), build = { s1: tpScreen1, s2: tpScreen2, s3: tpScreen3 };
       track.style.width = (n * 100) + '%';
       pages.forEach(function (k) { var pg = el('div', 'tasksPage'); pg.style.flexBasis = (100 / n) + '%'; pg.appendChild(build[k]()); track.appendChild(pg); });
-      track.style.transform = 'translateX(' + (-tp.page * 100 / n) + '%)';
+      var from = Math.max(0, Math.min(n - 1, tp.shown || 0)), to = tp.page;
+      track.style.transform = 'translateX(' + (-from * 100 / n) + '%)';
       wrap.appendChild(track); tpBox.appendChild(wrap);
+      tp.shown = to;
+      if (from !== to) window.requestAnimationFrame(function () { window.requestAnimationFrame(function () { track.style.transform = 'translateX(' + (-to * 100 / n) + '%)'; }); });
+      else track.style.transform = 'translateX(' + (-to * 100 / n) + '%)';
       tpSwipe(wrap);
     }
     function tpSwipe(node) { // balayage de page existant (mêmes zones et seuils que les autres pages) : la page entière se décale d'un bloc
@@ -611,7 +617,7 @@
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
       var t = targets()[0], actName = t ? t.name : '', first = null;
-      function go(replaceId) { return api('POST', '/api/objectifs/proposition', { level: form.level || 'activite', inner: form.level === 'secteur' ? innerOf() : undefined, title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.activityId, activityName: actName })
+      function go(replaceId) { return tpApply().then(function () { return api('POST', '/api/objectifs/proposition', { level: form.level || 'activite', inner: form.level === 'secteur' ? innerOf() : undefined, title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.activityId, activityName: actName }); })
         .then(function (P) { // UNE seule activité, qui existe déjà (elle se crée dans Réglages) ; les macros se font seulement depuis l'arbre
           return Promise.resolve(t.id)
             .then(function (activityId) {

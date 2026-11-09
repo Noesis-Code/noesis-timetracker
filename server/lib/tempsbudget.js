@@ -43,8 +43,8 @@ function passeMin(userId, activityId, key) {
 }
 function metaOf(id) { const r = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(id); try { return JSON.parse((r && r.metaJson) || '{}'); } catch (e) { return {}; } }
 // Case de l'arbre (niveau + période) : l'objectif qui l'occupe et ses heures par semaine (minutes, ou null si aucune).
-function cell(userId, aid, level, pk, ck, endDate) {
-  const o = objectifs().occupant(userId, { activityId: aid, level, poleKey: pk, categoryKey: ck, endDate });
+function cell(userId, aid, level, pk, ck, endDate, inner) { // inner : « Hebdomadaire » / « Périodique » du secteur (la semaine et la période sont deux cases différentes)
+  const o = objectifs().occupant(userId, { activityId: aid, level, poleKey: pk, categoryKey: ck, endDate, inner: level === 'secteur' ? inner : undefined });
   if (!o) return null;
   const h = Number(metaOf(o.id).hoursPerWeek);
   return { id: o.id, min: h > 0 ? Math.round(h * 60) : null };
@@ -69,7 +69,8 @@ function etat(userId, spec) {
   const label = (k) => { const x = poles.concat(sects).find((p) => p.key === k); return x ? x.label : k; };
   const out = { level, activityId: aid, poleKey, categoryKey: catKey, manualCapacity: manual, maxMin: MAX_MIN };
   const ownNum = spec.ownMin === undefined || spec.ownMin === null || spec.ownMin === '' ? null : Math.round(Number(spec.ownMin));
-  const meCell = cell(userId, aid, level, poleKey, catKey, end);
+  const inn = ['periodiques', 'hebdomadaires'].includes(spec.inner) ? spec.inner : undefined;
+  const meCell = cell(userId, aid, level, poleKey, catKey, end, inn);
   const mePrevu = Number.isFinite(ownNum) && ownNum >= 0 ? ownNum : (meCell ? meCell.min : null);
   let others;
   if (level === 'activite') {
@@ -83,7 +84,7 @@ function etat(userId, spec) {
     out.up = { kind: level === 'pole' ? 'activite' : 'pole', label: level === 'pole' ? act.name : label(poleKey), prevuMin: upCell ? upCell.min : null, passeMin: passeMin(userId, aid, upKey) };
     out.me = { key: level === 'pole' ? poleKey : catKey, label: label(level === 'pole' ? poleKey : catKey), prevuMin: mePrevu, passeMin: passeMin(userId, aid, level === 'pole' ? poleKey : catKey) };
     const sib = level === 'pole' ? poles.filter((p) => p.key !== poleKey) : sects.filter((s) => s.key !== catKey);
-    others = sib.map((x) => { const c = level === 'pole' ? cell(userId, aid, 'pole', x.key, null, end) : cell(userId, aid, 'secteur', poleKey, x.key, end); return { key: x.key, label: x.label, avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
+    others = sib.map((x) => { const c = level === 'pole' ? cell(userId, aid, 'pole', x.key, null, end) : cell(userId, aid, 'secteur', poleKey, x.key, end, inn); return { key: x.key, label: x.label, avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
     const used = others.reduce((s, x) => s + (x.avantMin || 0), 0) + (mePrevu || 0);
     out.restMin = out.up.prevuMin === null ? 0 : Math.max(0, out.up.prevuMin - used);
     out.restLabel = level === 'pole' ? 'Reste de l’activité' : 'Reste du pôle';

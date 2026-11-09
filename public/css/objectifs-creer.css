@@ -126,8 +126,9 @@
 .objTH { color: var(--text-light); }
 .objTTotal { font-weight: 600; }
 .objTBad { color: var(--danger); }
-.objTEdit { width: 100%; min-height: 44px; box-sizing: border-box; padding: 0; text-align: right; border: 0; background: none; color: var(--purple); font: inherit; }
-.objTEdit:focus { outline: none; }
+/* Valeur modifiable = texte violet NU (aucun rectangle : ni fond, ni bordure, ni cadre) ; le sélecteur « input[type=text] » dépasse la règle globale des champs (fond --card, bordure, halo au focus). Au focus seulement : curseur et trait fin sous le chiffre. Zone de toucher 44 px (R7, R25). */
+input[type=text].objTEdit { width: 100%; min-height: 44px; box-sizing: border-box; padding: 0; text-align: right; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--purple); font: inherit; -webkit-appearance: none; appearance: none; }
+input[type=text].objTEdit:focus { outline: none; border: 0; background: none; box-shadow: 0 1px 0 0 var(--purple); }
 .objTPages .tasksPage { padding-bottom: 8px; }
 .objTimeRow { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--text-light); }
 .objTimeRow b { color: var(--text); font-weight: 600; }

@@ -93,6 +93,9 @@ const spec = (level, extra) => Object.assign({ activityId: A, level, poleKey: le
   tb.plan('u1', spec('secteur', { newMin: H(8), mode: 'ajouter' }), true);
   assert(hours(oPole1) === 18 && hours(oA) === 31, 'secteur, Ajouter : le pôle (10 → 18 h) et l’activité (23 → 31 h) grandissent de la différence (0 → 8 h)');
 
+  // ---- Hebdomadaire / Périodique : deux cases différentes ----
+  const oH = obj(A, 'secteur', P1, S1, 4); db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify({ hoursPerWeek: 4, inner: 'hebdomadaires' }), oH);
+  assert(tb.etat('u1', spec('secteur', { inner: 'hebdomadaires' })).me.prevuMin === H(4) && tb.etat('u1', spec('secteur', { inner: 'periodiques' })).me.prevuMin === null, 'secteur : la case Hebdomadaire et la case Périodique sont distinctes (le Prévu suit le choix)');
   // ---- Plafond 168 h, décimales ----
   bad = false; try { tb.plan('u1', spec('activite', { newMin: H(169) }), false); } catch (x) { bad = x.statusCode === 400; }
   assert(bad, 'plafond : plus de 168 h refusé');
