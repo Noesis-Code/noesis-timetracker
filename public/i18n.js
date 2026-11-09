@@ -1094,7 +1094,7 @@
     ' pour une capacité moyenne de ': ' for an average capacity of ',
     ". Nouveau plan proposé (rien n'est modifié sans ta validation).": '. New plan proposed (nothing changes without your approval).',
     'Objectif hebdo': 'Weekly goal',
-    'Objectif de période': 'Period goal',
+    'Objectif de période': 'Period goal', 'Objectif': 'Goal',
     'Valider': 'Approve',
     '… et ': '… and ',
     ' autres tâches déplacées': ' more tasks moved',

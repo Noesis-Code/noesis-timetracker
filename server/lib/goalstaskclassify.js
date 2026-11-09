@@ -562,12 +562,14 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
       }
       let placedDate = null;
       const placeOut = {};
+      let hesitation = null; // l'IA a hésité entre deux objectifs : proposés à l'utilisateur après le placement (jamais devinés)
       if (!skipAutoPlace) {
         try {
           let pre;
           if (kindInfo && !require('./capturedatehint').parseDateHint(label, require('./dates').userToday())) pre = objMatch;
           else if (kindInfo) pre = undefined;
           else pre = await goalscaptureplace.precomputeObjectiveMatch(userId, activityId, item.categoryKey, label);
+          hesitation = pre && !pre.cand ? pre : null;
           placedDate = goalscaptureplace.placeCaptureDefault(userId, activityId, item.categoryKey, item.id, label, { out: placeOut, pre, noAssign: absence, kindInfo });
         } catch (e) {
           // Jamais bloquant pour la capture elle-même — la tâche reste
@@ -576,6 +578,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
           placedDate = null;
         }
       }
+      if (hesitation) goalscaptureplace.proposeHesitation(userId, activityId, item.id, hesitation);
       // Détail du rangement pour le pop-up de la page 1.
       let placement = {};
       try {

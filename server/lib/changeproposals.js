@@ -57,7 +57,7 @@ const FIELDS = {
   task: { date: 'date', text: 'text', retirer: 'retirer' },
   weekly: { time: 'time', instruction: 'instruction' },
 };
-const FIELD_LABEL = { date: 'Date', text: 'Texte', time: 'Temps estimé', instruction: 'Consigne', retirer: 'Retirer (hors stratégie)', category: 'Secteur', goal: 'Objectif de période', newtask: 'Nouvelle tâche' };
+const FIELD_LABEL = { date: 'Date', text: 'Texte', time: 'Temps estimé', instruction: 'Consigne', retirer: 'Retirer (hors stratégie)', category: 'Secteur', goalweekly: 'Objectif', goal: 'Objectif de période', newtask: 'Nouvelle tâche' };
 
 // ---------- Contexte ----------
 function buildContext(userId, activityId) {
@@ -254,15 +254,16 @@ function list(activityId, viewerId) {
     .filter((r) => !isSpellingOnly(r.field, r.beforeValue, r.afterValue, r.reason)); // corrections orthographiques déjà stockées : masquées
   const out = withLabels(rows, viewerId);
   const catLabel = (k) => { try { const f = require('./crosssectorinference').flattenCategories(activityId).find((c) => c.key === k); return f ? f.label : k; } catch (e) { return k; } };
-  out.forEach((o) => { if (o.field === 'category') { o.before = catLabel(o.before); o.after = catLabel(o.after); } });
+  const weeklyText = (id) => { const w = db.prepare('SELECT text FROM goal_weekly WHERE id = ?').get(Number(id)); return w ? String(w.text || '') : ''; };
+  out.forEach((o) => { if (o.field === 'category') { o.before = catLabel(o.before); o.after = catLabel(o.after); } else if (o.field === 'goalweekly') { o.before = o.before ? weeklyText(o.before) : ''; o.after = weeklyText(o.after); } });
   return out;
 }
 
 // Stocke des changements validés ('pending' uniquement) ; renvoie le nombre de nouvelles lignes.
 function store(userId, activityId, changes) {
   const find = db.prepare("SELECT id, status FROM change_proposals WHERE activityId = ? AND hash = ?"); // un refus (dismissed) reste mémorisé ; une ligne « inapplicable » (échec d'application) n'est PAS un refus
-  const ins = db.prepare(`INSERT INTO change_proposals (activityId, userId, target, targetId, field, beforeValue, afterValue, reason, hash, status, createdAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`);
+  const ins = db.prepare(`INSERT INTO change_proposals (activityId, userId, target, targetId, field, beforeValue, afterValue, reason, hash, status, createdAt, checked)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`);
   const now = new Date().toISOString();
   let added = 0;
   changes.forEach((c) => {
@@ -273,7 +274,7 @@ function store(userId, activityId, changes) {
       added++; return;
     }
     if (old) return; // déjà en attente, refusée (mémorisée) ou appliquée : jamais re-proposée
-    ins.run(activityId, userId, c.target, c.targetId, c.field, c.before, c.after, c.reason, h, now);
+    ins.run(activityId, userId, c.target, c.targetId, c.field, c.before, c.after, c.reason, h, now, c.checked === 0 ? 0 : 1);
     added++;
   });
   console.log(`[changeproposals] proposees=${changes.length} nouvelles=${added}`); // compteurs seulement
@@ -488,6 +489,22 @@ function applyOne(userId, activityId, r) {
       require('./goalstasks').moveCategoryTask(activityId, userId, r.targetId, r.afterValue);
       return null;
     }
+    if (r.field === 'goalweekly') { // l'utilisateur choisit un des deux objectifs proposés : la tâche y est rattachée ; l'autre proposition est refusée (mémorisée) ; les deux sont apprises
+      const wk = db.prepare('SELECT w.id, w.text FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE w.id = ? AND p.activityId = ?').get(Number(r.afterValue), activityId);
+      if (!wk) return 'objectif introuvable';
+      const was = db.prepare('SELECT goalWeeklyId FROM sub_project_items WHERE id = ?').get(r.targetId);
+      if (String((was && was.goalWeeklyId) || '') !== (r.beforeValue || '')) return 'déjà modifiée depuis la proposition';
+      db.prepare('UPDATE sub_project_items SET goalWeeklyId = ? WHERE id = ?').run(wk.id, r.targetId);
+      goals.recomputeForWeeklies([wk.id, was && was.goalWeeklyId]);
+      const ex = require('./goalsclassifyexamples');
+      ex.recordObjective(activityId, userId, cur.label, wk.text, true);
+      db.prepare("SELECT * FROM change_proposals WHERE target = 'task' AND targetId = ? AND field = 'goalweekly' AND status = 'pending' AND id != ?").all(r.targetId, r.id).forEach((o) => {
+        const ow = db.prepare('SELECT text FROM goal_weekly WHERE id = ?').get(Number(o.afterValue));
+        if (ow) ex.recordObjective(activityId, userId, cur.label, ow.text, false);
+        mark(o.id, 'dismissed');
+      });
+      return null;
+    }
     const now = r.field === 'date' ? (cur.dueDate || '') : cur.label;
     if (now !== (r.beforeValue || '')) return 'déjà modifiée depuis la proposition';
     if (r.field === 'retirer') { subprojects.deleteItem(r.targetId); return null; } // validé par l'utilisateur
@@ -528,7 +545,13 @@ function apply(userId, activityId, ids) {
 
 function dismiss(activityId, ids) {
   const rows = pendingRows(activityId, ids);
-  rows.forEach((r) => mark(r.id, 'dismissed'));
+  rows.forEach((r) => {
+    if (r.target === 'task' && r.field === 'goalweekly') { // refus d'un objectif proposé : appris (« refusé »), jamais reproposé (hash mémorisé)
+      const t = db.prepare('SELECT label FROM sub_project_items WHERE id = ?').get(r.targetId), w = db.prepare('SELECT text FROM goal_weekly WHERE id = ?').get(Number(r.afterValue));
+      if (t && w) require('./goalsclassifyexamples').recordObjective(activityId, r.userId, t.label, w.text, false);
+    }
+    mark(r.id, 'dismissed');
+  });
   return { dismissedCount: rows.length };
 }
 

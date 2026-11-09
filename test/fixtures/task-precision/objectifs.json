@@ -1,0 +1,95 @@
+{
+  "_doc": "Jeu de précision du rattachement tâche -> objectif (9 nov. 2026). Chaque jeu a des objectifs hebdomadaires et des cas [tâche, type, attendu]. Types : clair (attendu = numéro de l'objectif, 1 à n), ambigu (attendu = les deux numéros : l'IA doit hésiter et proposer les deux, jamais deviner), vague et hors-sujet (attendu = null : aucun rattachement). Lancé par scripts/eval-objective-match.js.",
+  "sets": [
+    {
+      "id": "boutique",
+      "objectives": [
+        "Refaire le site web de la boutique",
+        "Préparer la campagne courriel de décembre",
+        "Organiser le salon professionnel de mars",
+        "Mettre à jour la comptabilité du trimestre"
+      ],
+      "cases": [
+        ["Rédiger la page d'accueil du site web", "clair", 1],
+        ["Tester le site web sur mobile", "clair", 1],
+        ["Choisir les photos du site web de la boutique", "clair", 1],
+        ["Écrire le courriel de lancement de la campagne", "clair", 2],
+        ["Segmenter la liste de la campagne courriel", "clair", 2],
+        ["Programmer l'envoi du courriel de décembre", "clair", 2],
+        ["Réserver le stand du salon professionnel", "clair", 3],
+        ["Imprimer les affiches du salon professionnel de mars", "clair", 3],
+        ["Saisir les factures de la comptabilité", "clair", 4],
+        ["Rapprocher les relevés bancaires du trimestre", "clair", 4],
+        ["Annoncer la campagne courriel sur le site web", "ambigu", [1, 2]],
+        ["Compter les ventes du salon professionnel pour la comptabilité du trimestre", "ambigu", [3, 4]],
+        ["Mettre en ligne les offres de la campagne courriel sur le site web", "ambigu", [1, 2]],
+        ["Faire le truc", "vague", null],
+        ["Penser à ça", "vague", null],
+        ["Voir pour la suite", "vague", null],
+        ["Acheter du pain", "hors-sujet", null],
+        ["Réparer le vélo du voisin", "hors-sujet", null],
+        ["Appeler le dentiste", "hors-sujet", null]
+      ]
+    },
+    {
+      "id": "atelier",
+      "objectives": [
+        "Construire la table de la cliente Dubois",
+        "Entretenir les machines de l'atelier",
+        "Préparer l'exposition d'été",
+        "Former l'apprenti au tournage"
+      ],
+      "cases": [
+        ["Découper les planches de la table Dubois", "clair", 1],
+        ["Poncer le plateau de la table de la cliente", "clair", 1],
+        ["Livrer la table à madame Dubois", "clair", 1],
+        ["Aiguiser les lames de la scie de l'atelier", "clair", 2],
+        ["Graisser les machines de l'atelier", "clair", 2],
+        ["Installer les panneaux de l'exposition d'été", "clair", 3],
+        ["Choisir les pièces pour l'exposition d'été", "clair", 3],
+        ["Montrer à l'apprenti comment centrer une pièce au tournage", "clair", 4],
+        ["Corriger le premier bol de l'apprenti au tournage", "clair", 4],
+        ["Ranger les outils de tournage avec l'apprenti", "clair", 4],
+        ["Entretenir le tour avant la leçon de l'apprenti", "ambigu", [2, 4]],
+        ["Terminer la table Dubois avant l'exposition d'été", "ambigu", [1, 3]],
+        ["Expliquer à l'apprenti l'entretien des machines de l'atelier", "ambigu", [2, 4]],
+        ["Régler ce truc", "vague", null],
+        ["Réfléchir un peu", "vague", null],
+        ["S'occuper du reste", "vague", null],
+        ["Payer l'assurance de la voiture", "hors-sujet", null],
+        ["Réserver un restaurant samedi", "hors-sujet", null],
+        ["Renouveler le passeport", "hors-sujet", null]
+      ]
+    },
+    {
+      "id": "recherche",
+      "objectives": [
+        "Rédiger le chapitre trois de la thèse",
+        "Analyser les données de l'enquête",
+        "Préparer la présentation au colloque",
+        "Réviser la bibliographie complète"
+      ],
+      "cases": [
+        ["Écrire l'introduction du chapitre trois", "clair", 1],
+        ["Relire le plan du chapitre trois de la thèse", "clair", 1],
+        ["Nettoyer les données de l'enquête", "clair", 2],
+        ["Calculer les moyennes des données de l'enquête", "clair", 2],
+        ["Faire les graphiques de l'analyse des données", "clair", 2],
+        ["Préparer les diapositives de la présentation au colloque", "clair", 3],
+        ["Répéter la présentation du colloque", "clair", 3],
+        ["Vérifier les références de la bibliographie", "clair", 4],
+        ["Ajouter les sources manquantes à la bibliographie complète", "clair", 4],
+        ["Uniformiser le style de la bibliographie", "clair", 4],
+        ["Résumer les données de l'enquête dans le chapitre trois", "ambigu", [1, 2]],
+        ["Ajouter la bibliographie à la présentation du colloque", "ambigu", [3, 4]],
+        ["Montrer les données de l'enquête pendant la présentation du colloque", "ambigu", [2, 3]],
+        ["Avancer", "vague", null],
+        ["Faire des trucs importants", "vague", null],
+        ["Voir plus tard", "vague", null],
+        ["Changer les pneus d'hiver", "hors-sujet", null],
+        ["Planifier les vacances d'été", "hors-sujet", null],
+        ["Acheter un cadeau d'anniversaire", "hors-sujet", null]
+      ]
+    }
+  ]
+}

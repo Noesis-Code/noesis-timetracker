@@ -61,10 +61,52 @@ function recentExamples(activityId, candidates, limit, userId) {
 function resetForUser(userId) {
   try {
     if (!userId) return 0;
+    db.prepare('DELETE FROM goal_objective_examples WHERE userId = ?').run(userId);
     return Number(db.prepare('DELETE FROM goal_classify_examples WHERE userId = ?').run(userId).changes) || 0;
   } catch (e) {
     return 0;
   }
 }
 
-module.exports = { recordCorrection, recentExamples, resetForUser, INJECT_COUNT, MAX_BLOCK_CHARS };
+// Rattachement tâche → objectif (9 nov. 2026, Émilien) : le choix de l'utilisateur entre deux objectifs proposés (« choisi »), ou son refus (« refusé »),
+// est mémorisé PAR ACTIVITÉ et par utilisateur (50 exemples au plus par activité), puis remis dans le prompt de rattachement (goalscaptureplace.buildMatchPrompt)
+// de CETTE activité, pour CET utilisateur seulement. Rien d'autre n'est mémorisé. Jamais bloquant.
+db.exec(`CREATE TABLE IF NOT EXISTS goal_objective_examples (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  activityId INTEGER NOT NULL,
+  userId TEXT,
+  label TEXT NOT NULL,
+  objective TEXT NOT NULL,
+  verdict TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+)`);
+db.exec('CREATE INDEX IF NOT EXISTS idx_goal_objective_examples_activity ON goal_objective_examples(activityId, id)');
+const OBJ_BLOCK_CHARS = 420;
+const OBJ_INJECT_COUNT = 6;
+function recordObjective(activityId, userId, label, objective, chosen) {
+  try {
+    const l = String(label || '').trim().slice(0, MAX_LABEL), o = String(objective || '').trim().slice(0, MAX_LABEL);
+    if (!l || !o || !userId) return;
+    db.prepare('INSERT INTO goal_objective_examples (activityId, userId, label, objective, verdict, createdAt) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(activityId, userId, l, o, chosen ? 'choisi' : 'refuse', new Date().toISOString());
+    db.prepare(`DELETE FROM goal_objective_examples WHERE activityId = ? AND id NOT IN
+      (SELECT id FROM goal_objective_examples WHERE activityId = ? ORDER BY id DESC LIMIT ?)`).run(activityId, activityId, KEEP_PER_ACTIVITY);
+  } catch (e) { /* non bloquant */ }
+}
+// Derniers exemples DE CET UTILISATEUR dans cette activité (du plus récent au plus ancien), bloc plafonné.
+function recentObjectiveExamples(activityId, userId) {
+  try {
+    if (!userId) return [];
+    const rows = db.prepare('SELECT label, objective, verdict FROM goal_objective_examples WHERE activityId = ? AND userId = ? ORDER BY id DESC LIMIT 30').all(activityId, userId);
+    const out = []; let size = 0;
+    for (const r of rows) {
+      const len = r.label.length + r.objective.length + 12;
+      if (size + len > OBJ_BLOCK_CHARS) break;
+      size += len; out.push({ label: r.label, objective: r.objective, chosen: r.verdict === 'choisi' });
+      if (out.length >= OBJ_INJECT_COUNT) break;
+    }
+    return out;
+  } catch (e) { return []; }
+}
+
+module.exports = { recordCorrection, recentExamples, recordObjective, recentObjectiveExamples, resetForUser, INJECT_COUNT, MAX_BLOCK_CHARS };
