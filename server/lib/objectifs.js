@@ -263,7 +263,13 @@ function contexte(userId, body) {
   else if (est) { amount = est.weeks; unit = 'semaines'; end = addDays(start, est.weeks * 7); }
   else { amount = 3; unit = 'mois'; end = computeEnd(start, amount, unit); }
   const ranked = rankActivities(userId, text);
-  const best = ranked[0] && ranked[0].score > 0 ? ranked[0] : null;
+  // Toujours une activité présélectionnée (9 nov. 2026) : la meilleure correspondance de mots (score > 0) ; sinon l'activité où il y a le plus de temps Chrono ; à défaut d'historique, la première de la liste. null seulement sans aucune activité.
+  let best = ranked[0] && ranked[0].score > 0 ? ranked[0] : null;
+  if (!best && ranked.length) {
+    const hrs = ranked.map((a) => ({ a, h: chronoHours(userId, a.id, '2000-01-01', today()) }));
+    const top = hrs.reduce((m, x) => (x.h > m.h ? x : m), { a: null, h: 0 });
+    best = top.a || userActivities(userId).map((u) => ranked.find((r) => r.id === u.id)).filter(Boolean)[0] || ranked[0];
+  }
   const existing = db.prepare("SELECT id, title, activityId, endDate FROM user_objectives WHERE userId = ? AND endDate >= ? ORDER BY endDate").all(userId, start);
   return {
     title, amount, unit, startDate: start, endDate: end, periodWeeks: userPW(), timeLevel: temps.deduce(start, end),
