@@ -17,7 +17,7 @@
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
   var zoom = 'period', lvl = 'activite', focus = null, struct = null, split = {}, picked = null, animate = false, openPending = false;
-  var tree = null, items = [], toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, editMode = false, scroller = null, gridArea = null, ext = null, savedView = null, restoreView = null;
+  var tree = null, items = [], toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, scroller = null, gridArea = null, ext = null, savedView = null, restoreView = null;
   var MIN_ROWS = 5;
   var RAIL = 30, GAP = 10; // largeur de la colonne de repères + gouttière (RAIL change avec le niveau : ovale d'un bloc de 5 ans, d'une année, rond d'une période)
 
@@ -51,15 +51,30 @@
   function spanW(W, k) { return k === 1 ? W : 'calc(' + W + ' * ' + k + ' + ' + (GAP * (k - 1)) + 'px)'; }
 
   // mode : 'simple' (nom seul, niveau activités) | 'detail' (durée, état, objectifs rattachés, niveaux pôle et secteur). La carte EST la case (.goalsGridCell--filled).
-  function removeCross(o, onClick) { // petite croix rouge en haut à droite (composant .cmpRemove, R32) : supprime après confirmation (les objectifs rattachés sont détachés)
-    var x = TMT.ui.removeBtn(function (e) { if (e && e.stopPropagation) e.stopPropagation(); if (onClick) { onClick(); return; } if (TMT.objectifsView && TMT.objectifsView.confirmDelete) TMT.objectifsView.confirmDelete(o.id, o.title, !!o.isMacro); }, tr('Supprimer cet objectif'));
-    x.className = 'cmpRemove cmpRemove--corner'; x.setAttribute('aria-label', tr('Supprimer cet objectif')); x.addEventListener('pointerdown', function (e) { e.stopPropagation(); }); return x;
+  // APPUI LONG sur une carte (500 ms, TMT.ui.holdDrag, même mécanique que les activités, R27) = MENU d'actions (composant commun TMT.ui.dotsMenu, R29) : Relier · Modifier · Supprimer (rouge, R28, confirmation TMT.ui.confirm).
+  // Les trois actions sont EXACTEMENT celles de l'ancien mode Modifier / du mode de liaison (R9 : on déplace, on ne retire rien).
+  function actionMenu(anchor, acts) {
+    if (!TMT.ui || !TMT.ui.dotsMenu) return;
+    var r = anchor.getBoundingClientRect(), wrap, away;
+    var cleanup = function () { if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap); document.removeEventListener('pointerdown', away, true); };
+    wrap = TMT.ui.dotsMenu(tr('Actions'), acts.map(function (a) { return { label: a.label, danger: a.danger, onClick: function () { cleanup(); a.onClick(); } }; }));
+    wrap.style.cssText = 'position:fixed;left:' + Math.round(r.left + r.width / 2) + 'px;top:' + Math.round(r.top + r.height / 2) + 'px;width:0;height:0;z-index:300';
+    var mb = wrap.querySelector('.menuBtn'); mb.style.visibility = 'hidden';
+    document.body.appendChild(wrap); mb.click();
+    away = function (e) { if (!e.target.closest || !e.target.closest('.statsPeriodMenu')) cleanup(); };
+    window.setTimeout(function () { document.addEventListener('pointerdown', away, true); }, 350);
   }
-  function groupCross(os) { // croix rouge d'une carte qui regroupe plusieurs objectifs (carte fusionnée, case d'année) : un seul objectif = confirmation directe, sinon on choisit LEQUEL supprimer, puis la confirmation rouge
-    var ids = os.map(function (x) { return x.id; });
+  function openEditOf(id) { if (TMT.objectifsView && TMT.objectifsView.openEdit) TMT.objectifsView.openEdit(id); }
+  function editAction(os, intro) { // Modifier : un seul objectif = son panneau ; plusieurs = la liste pour choisir lequel (puis le panneau)
+    if (os.length === 1) { openEditOf(os[0].id); return; }
+    if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(os.map(function (x) { return x.id; }), Object.assign({ onPick: openEditOf }, intro || {}));
+  }
+  function deleteAction(os) { // Supprimer : un seul objectif = confirmation directe ; plusieurs = on choisit LEQUEL, puis la confirmation rouge
     var del = function (id) { var t = os.filter(function (x) { return x.id === id; })[0]; if (t && TMT.objectifsView && TMT.objectifsView.confirmDelete) TMT.objectifsView.confirmDelete(id, t.title, !!t.isMacro); };
-    return removeCross(null, function () { if (ids.length === 1) { del(ids[0]); return; } if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids, { title: tr('Supprimer quel objectif ?'), onPick: del }); });
+    if (os.length === 1) { del(os[0].id); return; }
+    if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(os.map(function (x) { return x.id; }), { title: tr('Supprimer quel objectif ?'), onPick: del });
   }
+  function menuActs(os, relier, intro) { var a = []; if (relier) a.push({ label: tr('Relier'), onClick: relier }); a.push({ label: tr('Modifier'), onClick: function () { editAction(os, intro); } }); a.push({ label: tr('Supprimer'), danger: true, onClick: function () { deleteAction(os); } }); return a; }
   function card(o, today, all, mode, w, onTap, extCol, colColor) {
     var st = stateOf(o, today), c = colColor || color(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c); if (ext && ext.mode === 'create' && ext.base && ext.base.id === o.id) b.classList.add('arExtSelf');
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', o.title));
@@ -68,14 +83,12 @@
       t.appendChild(el('span', 'arCardMeta', (o.durationLabel || '') + ' · ' + tr(STATE_LABEL[st]) + (nk ? ' · ' + nk + ' ' + tr(nk > 1 ? 'objectifs rattachés' : 'objectif rattaché') : '')));
     }
     b.appendChild(t);
-    b.addEventListener('click', function () { // toucher = DESCENDRE d'un niveau dans la branche de la carte (jamais de panneau) ; en mode édition : ses paramètres
-      if (editMode) { if (TMT.objectifsView && TMT.objectifsView.openEdit) TMT.objectifsView.openEdit(o.id); return; }
+    b.addEventListener('click', function () { // toucher = DESCENDRE d'un niveau dans la branche de la carte (jamais de panneau)
       if (onTap) { onTap(); return; } if (extCol != null) descend(extCol, blockStart(o.endDate), Number(String(o.endDate).slice(0, 4)));
     });
-    if (editMode) { b.appendChild(removeCross(o)); return b; } // mode édition : ni appui long « Étendre » ni glisser-lier
-    if (TMT.ui && TMT.ui.holdDrag && extCol != null) TMT.ui.holdDrag(b, { // APPUI LONG : la barre du bas devient tout de suite le bouton (Séparer si l'objectif est déjà fusionné, sinon Enregistrer gris) ; plus de glisser-lier ni de zone « Délier »
+    if (TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { // APPUI LONG : le menu d'actions (Relier = le mode de liaison actuel, Modifier, Supprimer)
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
-      onHold: function () { var par = o.parentId != null && items.filter(function (x) { return x.id === o.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par); else startExtend(o, extCol); }
+      onHold: function () { var par = o.parentId != null && items.filter(function (x) { return x.id === o.parentId && x.isMacro; })[0]; actionMenu(b, menuActs([o], extCol != null ? function () { if (par) startExtendEdit(par); else startExtend(o, extCol); } : null)); }
     });
     return b;
   }
@@ -96,18 +109,14 @@
     var st = mergedState(os, today), c = colColor || color(os[0]), ids = os.map(function (o) { return o.id; });
     var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMerged arCard ar-' + st); b.type = 'button'; b.setAttribute('data-ids', ids.join(',')); cellSize(b, w); paint(b, st, c);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', bigOf(os).title)); b.appendChild(t); // UN titre court, aucune ligne de comptage
-    b.addEventListener('click', function () { // plusieurs objectifs : toucher = descendre d'un niveau ; en mode édition : la liste, pour choisir celui à modifier
-      if (editMode) { if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids, { onPick: function (id) { if (TMT.objectifsView.openEdit) TMT.objectifsView.openEdit(id); } }); return; }
+    b.addEventListener('click', function () { // plusieurs objectifs : toucher = descendre d'un niveau
       if (onTap) { onTap(); return; } if (onOpen) onOpen();
     });
-    if (editMode) { // carte « N objectifs » : la croix demande d'abord LEQUEL supprimer (même liste que le toucher), puis la confirmation rouge
-      b.appendChild(groupCross(os));
-      return b;
-    }
     if (TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, {
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
       onHold: function () {
-        if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids, { title: tr('Fusionner quel objectif ?'), onPick: function (id) { var oo = items.filter(function (x) { return x.id === id; })[0], ci = oo ? colOfObj(oo) : -1; if (!oo || ci < 0) return; var par = oo.parentId != null && items.filter(function (x) { return x.id === oo.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par, false, true); else startExtend(oo, ci, true); } }); // choix dans la liste : le doigt est déjà levé, aucune garde de relâchement (le premier toucher suivant compte)
+        var relier = function () { if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(ids, { title: tr('Fusionner quel objectif ?'), onPick: function (id) { var oo = items.filter(function (x) { return x.id === id; })[0], ci = oo ? colOfObj(oo) : -1; if (!oo || ci < 0) return; var par = oo.parentId != null && items.filter(function (x) { return x.id === oo.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par, false, true); else startExtend(oo, ci, true); } }); }; // choix dans la liste : le doigt est déjà levé
+        actionMenu(b, menuActs(os, relier));
       }
     });
     return b;
@@ -120,10 +129,8 @@
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
     t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
     b.appendChild(t);
-    b.addEventListener('click', function () { if (!editMode) { descend(c0, null, null, m); return; } // toucher COURT = descendre d'un niveau (règle générale) ; le mode Fusionner/Séparer s'ouvre UNIQUEMENT par l'appui long
-       if (m.id > 0 && TMT.objectifsView && TMT.objectifsView.openEdit) TMT.objectifsView.openEdit(m.id); });
-    if (editMode && m.id > 0) { b.appendChild(removeCross(m)); return b; }
-    if (m.id > 0 && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', onHold: function () { startExtendEdit(m); } }); // appui long sur un macro : modifier les colonnes reliées
+    b.addEventListener('click', function () { descend(c0, null, null, m); }); // toucher COURT = descendre d'un niveau (règle générale)
+    if (m.id > 0 && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', onHold: function () { actionMenu(b, menuActs([m], function () { startExtendEdit(m); })); } }); // appui long sur un macro : menu (Relier = modifier les colonnes reliées / Séparer, Modifier, Supprimer)
     return b;
   }
   // ---------- MODE ÉTENDRE : relier d'autres colonnes du MÊME niveau (activités, pôles d'une activité, secteurs d'un pôle) par un macro ----------
@@ -254,21 +261,36 @@
       if (!txt || !b.isConnected) return;
       t.textContent = ''; t.appendChild(el('span', 'arSummaryText', txt.replace(/\n\s*-\s*/g, ' · ').replace(/^\s*-\s*/, '')));
     });
-    b.addEventListener('click', function () { // toucher = descendre d'un niveau ; en mode édition : l'« objectif annuel » (résumé de l'année, GET resume-annuel) puis la liste des objectifs
-      if (!editMode) { descend(ci, null, year); return; }
-      if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(os.map(function (o) { return o.id; }), { title: tr('Objectif annuel') + ' ' + year, intro: function () { return TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + os[0].activity.id + '&year=' + year).then(function (r) { return r && r.text; }); }, onPick: function (id) { if (TMT.objectifsView.openEdit) TMT.objectifsView.openEdit(id); } });
-    });
-    if (editMode) b.appendChild(groupCross(os)); // mode édition : croix rouge (même fonction que les cartes de groupe)
-    if (!editMode && TMT.ui && TMT.ui.holdDrag && ci != null) TMT.ui.holdDrag(b, { // appui long : le même mode Fusionner / Séparer qu'aux autres niveaux (colonnes = pôles d'une activité)
+    b.addEventListener('click', function () { descend(ci, null, year); }); // toucher = descendre d'un niveau
+    if (TMT.ui && TMT.ui.holdDrag && ci != null) TMT.ui.holdDrag(b, { // appui long : le menu d'actions
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
-      onHold: function () { var same = os.filter(function (x) { return (x.level || 'activite') === lvl; }), base = bigOf(same.length ? same : os), par = base.parentId != null && items.filter(function (x) { return x.id === base.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par); else startExtend(base, ci); }
+      onHold: function () {
+        var relier = function () { var same = os.filter(function (x) { return (x.level || 'activite') === lvl; }), base = bigOf(same.length ? same : os), par = base.parentId != null && items.filter(function (x) { return x.id === base.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par); else startExtend(base, ci); };
+        actionMenu(b, menuActs(os, relier, { title: tr('Objectif annuel') + ' ' + year, intro: function () { return TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + os[0].activity.id + '&year=' + year).then(function (r) { return r && r.text; }); } })); // Modifier : l'« objectif annuel » (résumé de l'année) puis la liste
+      }
     });
     return b;
   }
   // Case grise vide = le gris neutre de l'arbre périodique (.goalsGridCell--empty, aucune teinte, aucun « + ») ; la toucher AJOUTE un objectif (échéance = fin de la case ; une case passée n'est pas touchable).
-  function emptyCell(w, endIso, onTouch) {
+  // REPÈRE d'une case vide (R23 : même pastille numérotée que les repères du temps, .goalsRowMarker ; R25 : toute la case est la zone de toucher, bien au-delà de 44 px) : le nombre de cases du niveau du dessous (années d'un bloc, périodes d'une année)
+  // où se trouvent des objectifs de n'importe quel niveau inférieur de la colonne, dans la période de la case ; l'appui court descend là, où ils sont visibles (et où l'on peut créer). Max 5 (bloc), 13 (année).
+  function belowOf(c, rw) {
+    var x = c.col && c.col.ctx; if (!x || x.activityId == null) return null;
+    if (lvl === 'activite') { // case d'un bloc de 5 ans : les années du bloc qui contiennent un objectif de l'activité
+      var ys = {}; items.forEach(function (o) { if (o.isMacro || o.abandoned || o.activity.id !== x.activityId) return; var y = Number(String(o.endDate).slice(0, 4)); if (y >= rw.y && y <= rw.y2) ys[y] = true; });
+      var n = Object.keys(ys).length; return n ? { n: Math.min(5, n), go: function (ci) { go('pole', { activityId: x.activityId, block: rw.y }); } } : null;
+    }
+    if (lvl === 'pole' && x.poleKey != null) { // case d'une année : les périodes de l'année qui contiennent un objectif du pôle (secteurs et semaines compris)
+      var act = actOf(x.activityId), fp = act && act.poles && act.poles[0] ? act.poles[0].key : null, ps = {};
+      items.forEach(function (o) { if (o.isMacro || o.abandoned || o.activity.id !== x.activityId || (o.poleKey || fp) !== x.poleKey) return; var q = periodOf(o.endDate); if (q.y === rw.y) ps[q.p] = true; });
+      var m = Object.keys(ps).length; return m ? { n: Math.min(13, m), go: function () { go('secteur', { activityId: x.activityId, poleKey: x.poleKey, poleLabel: c.col.label, year: rw.y }); } } : null;
+    }
+    return null;
+  }
+  function emptyCell(w, endIso, onTouch, below) {
     var b = el('button', 'goalsGridCell goalsGridCell--empty arHole'); b.type = 'button'; cellSize(b, w);
     if (!endIso) { b.disabled = true; b.tabIndex = -1; return b; }
+    if (below) { b.classList.add('arHoleBadge'); b.appendChild(el('span', 'goalsRowMarker goalsRowMarker--future', String(below.n))); b.setAttribute('aria-label', below.n + ' ' + tr('en dessous')); b.addEventListener('click', function () { below.go(); }); return b; } // objectifs plus bas : l'appui court descend
     b.setAttribute('aria-label', tr('Nouvel objectif')); b.addEventListener('click', function () { onTouch(endIso); });
     return b;
   }
@@ -485,10 +507,6 @@
     // dernier niveau (secteurs) : un toucher ne descend plus (règle de navigation : docs/objectifs/navigation-arbre.md) ; l'ancienne page « Pôle · Année » n'est plus une entrée cachée de l'arbre
   }
   function ascend() { if (lvl === 'secteur') { var ids2 = pairsOf().map(function (p) { return p.activityId; }).filter(function (v, i, x) { return x.indexOf(v) === i; }); go('pole', ids2.length > 1 ? { activityId: ids2[0], activityIds: ids2 } : { activityId: focus.activityId }); } else if (lvl === 'pole') go('activite', null); } // flèche de retour ou pincer inverse
-  function editToggle() { // crayon ✎ (R15, sans cadre R37) sous « Objectifs » : mode édition (les cartes tremblent, croix rouge, toucher = paramètres) ; le retoucher quitte
-    var b = TMT.ui.editBtn(function () { editMode = !editMode; render(); }, tr(editMode ? 'Terminer la modification' : 'Modifier les objectifs'));
-    b.classList.add('arEditToggle'); b.setAttribute('aria-pressed', editMode ? 'true' : 'false'); return b;
-  }
   function backNav() { // flèche de retour (.cmpNav, R45) + où l'on est
     var nav = el('div', 'cmpNav cmpNav--sm arBackNav'), b = el('button', 'cmpNavArrow', '‹'); b.type = 'button'; b.setAttribute('aria-label', tr('Remonter'));
     b.addEventListener('click', ascend);
@@ -504,8 +522,8 @@
     zoom = lvl === 'activite' ? 'block' : lvl === 'pole' ? 'year' : 'period'; // le temps suit le zoom : arbre macro = blocs de 5 ans (pluriannuel), années (annuel), périodes 13 × 4 (période)
     var mw = 46; RAIL = mw + 10; tree.style.setProperty('--ar-mw', mw + 'px'); tree.style.setProperty('--ar-pl', (mw + 6) + 'px'); // colonne de repères : ovale d'un bloc / d'une année, rond d'une période (+ année en ovale)
     var today = dayIso(), keep = visibleSet(today), shown = items.filter(function (o) { return keep[o.id]; });
-    tree.classList.toggle('arEditing', editMode); tree.classList.toggle('arExtending', !!ext);
-    if (items.length) { var zb = el('div', 'arZoomRow'); if (lvl !== 'activite') zb.appendChild(backNav()); zb.appendChild(editToggle()); tree.appendChild(zb); }
+    tree.classList.toggle('arExtending', !!ext);
+    if (items.length && lvl !== 'activite') { var zb = el('div', 'arZoomRow'); zb.appendChild(backNav()); tree.appendChild(zb); } // plus de crayon : deux gestes seulement (toucher = naviguer, appui long = menu)
     kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
     curCols = foldMerged(shown, sortByOrdre(columnsFor(shown))); syncCtx();
     if (!curCols.length) { gridArea = scroller = null; tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
@@ -602,7 +620,7 @@
         if (holes[r + ':' + ci]) return; // colonne absorbée : au-dessus de la fusion il ne reste QU'UNE colonne, sur toute la largeur des colonnes liées (la case de l'entité touchée est élargie)
         var Wc = wideAt[r + ':' + ci] ? spanW(W, wideAt[r + ':' + ci]) : W;
         if (!es.length && lvl === 'secteur' && rw.p) row.appendChild(emptyCell(Wc, 'cal', function () { openCalendar(rw, c.col.key); })); // niveau secteurs : toucher une case vide ouvre AUSSI le calendrier (« Ajouter un objectif périodique » s'y trouve)
-        else if (!es.length) row.appendChild(emptyCell(Wc, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
+        else if (!es.length) row.appendChild(emptyCell(Wc, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); }, belowOf(c, rw))); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
         else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, Wc, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
         else if (es.length > 1 && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, Wc, function () { descend(ci, rw.y, rw.y); }, calTap(rw, c), c.color)); // plusieurs objectifs d'une même activité dans la même case : une seule carte
         else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, Wc); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, Wc, calTap(rw, c), ci, c.color)); }); row.appendChild(stack); }
@@ -729,6 +747,6 @@
       needBase = true; openPending = true; if (loaded) { applyOpen(); render(); }
     },
     reopen: function () { if (visible && !savedView) { needBase = true; openPending = true; if (loaded) { applyOpen(); render(); } refresh(); } }, // retour sur la page (statistiques, activité, calendrier) : ouverture recalculée
-    hide: function () { visible = false; editMode = false; document.documentElement.classList.remove('calFromTree', 'arbreOn'); }
+    hide: function () { visible = false; document.documentElement.classList.remove('calFromTree', 'arbreOn'); }
   };
 })();

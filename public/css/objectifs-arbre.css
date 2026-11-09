@@ -6,12 +6,6 @@ html.arbreOn { overflow: hidden; overscroll-behavior: none; }
 html.arbreOn body { position: fixed; inset: 0; width: 100%; overflow: hidden; overscroll-behavior: none; }
 .arZoomRow { flex: none; margin: 0 0 4px; display: flex; align-items: center; min-height: 26px; }
 .arZoomRow .arBackNav { margin: 0; }
-.arEditToggle { margin-left: auto; }
-.arEditToggle[aria-pressed="true"] { color: var(--purple); }
-/* Mode édition : les cartes tremblent comme les volets de la barre (keyframes tabJiggle, barre-volets.css) ; la croix rouge est le composant .cmpRemove. */
-.arEditing .arCard { animation: tabJiggle .26s ease-in-out infinite alternate; }
-.arEditing .arCard:nth-child(even) { animation-delay: -.13s; }
-@media (prefers-reduced-motion: reduce) { .arEditing .arCard { animation: none; } }
 .arScroll { flex: 1 1 auto; min-height: 0; overflow: hidden; }
 .arColumn { display: flex; flex-direction: column; height: 100%; width: 100%; }
 /* Colonne fixe des repères (.arRail) à gauche ; à droite la zone qui défile horizontalement (.arHScroll) : jamais de carte sous un repère. */
@@ -122,3 +116,7 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arGrid.arCompact .goalsGridCell--filled { min-height: 64px; align-self: center; }
 .arSepStart { margin-left: 10px; } /* gouttière doublée (2 × 10 px, valeur de la grille R6) à l'endroit du séparateur */
 .arSep { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--text-light); opacity: .45; pointer-events: none; } /* séparateur neutre entre deux groupes d'activités reliées */
+
+/* Case vide avec repère : la pastille numérotée est la même que celle des repères du temps (R23), centrée dans la case ; toute la case est la zone de toucher (R25) */
+.arHoleBadge { display: flex; align-items: center; justify-content: center; }
+.arHoleBadge .goalsRowMarker { position: static; margin: 0; transform: none; flex: none; width: auto; min-width: 20px; padding: 0 5px; pointer-events: none; }
