@@ -104,7 +104,7 @@
     else { first = mondayOf(anchor); rows = 1; }
     for (var r = 0; r < rows; r++) {
       var wrow = el('div', 'calWeekRow'), week = el('div', 'goalsCalWeek'), days = el('div', 'goalsCalDays');
-      if (TMT.calNums) { var wn = el('span', 'calWeekNum', 'S' + TMT.calNums.week(addDays(first, r * 7))); wn.appendChild(el('i', null, 'P' + TMT.calNums.period(addDays(first, r * 7)))); wrow.appendChild(wn); } // numéro de la semaine, à gauche de sa rangée
+      if (TMT.calNums) { var wn = el('span', 'calWeekNum', 'S' + TMT.calNums.week(addDays(first, r * 7))); if (calExpanded) wn.appendChild(el('i', null, 'P' + TMT.calNums.period(addDays(first, r * 7)))); wrow.appendChild(wn); } // numéro de la semaine, à gauche de sa rangée
       for (var c = 0; c < 7; c++) {
         var di = addDays(first, r * 7 + c);
         var cell = el('button', 'goalsCalDay' + (calExpanded && fromIso(di).getMonth() !== month ? ' out' : '') + (di === today ? ' today' : '') + (di === sel && viewDay !== 'all' ? ' sel' : ''), String(+di.slice(8, 10)));
