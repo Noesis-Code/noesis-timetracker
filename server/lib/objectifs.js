@@ -181,7 +181,8 @@ function rankActivities(userId, text) {
   return userActivities(userId).map((a) => {
     const aw = words(a.name + ' ' + labelsOf(a.id).join(' ')).map(stemOf);
     const score = aw.filter((w, i) => aw.indexOf(w) === i && tw.has(w)).length;
-    return { id: a.id, name: a.name, color: a.color, score, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, secteurs: goals.secteursForPole(a.id, p.key).map((x) => ({ key: x.key, label: x.label })) })) }; // pôles et secteurs : choisis après l'activité (le niveau en découle)
+    const sr = require('./categorystats').shadeRanks(a.id);
+    return { id: a.id, name: a.name, color: a.color, score, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, shadeRank: sr.ranks.has(p.key) ? sr.ranks.get(p.key) : 0, shadeCount: sr.count, secteurs: goals.secteursForPole(a.id, p.key).map((x) => ({ key: x.key, label: x.label })) })) }; // pôles et secteurs : choisis après l'activité (le niveau en découle)
   }).sort((x, y) => y.score - x.score);
 }
 function nextWeekTaskCount(userId) {

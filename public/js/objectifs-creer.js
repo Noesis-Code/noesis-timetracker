@@ -358,18 +358,20 @@
       // choisir un pôle déroule ses secteurs juste dessous ; retoucher le pôle ou le secteur choisi l'annule (même règle qu'une carte d'activité). Pas de libellés, pas de « Aucun ». Facultatifs :
       // activité seule = objectif long, + pôle = moyen, + secteur = court (le niveau gagne sur la durée). Une activité sans pôle : rien ne se déroule.
       function chev(row, open) { row.classList.add('objHasChev'); row.appendChild(el('span', 'cmpChev' + (open ? ' open' : ''))); return row; }
+      function poleColor(a, p) { return p && p.shadeRank != null && TMT.subProjectShade ? TMT.subProjectShade(a.color, p.shadeRank, p.shadeCount) : a.color; }
       function under(a, blk) {
         (a.poles || []).forEach(function (p) {
-          var sel = form.poleKey === p.key, secs = p.secteurs || [];
+          var sel = form.poleKey === p.key, secs = p.secteurs || [], pc = poleColor(a, p);
           var r = choice(p.label, '', sel, null, function () { form.poleKey = sel ? null : p.key; form.categoryKey = null; form.level = sel ? 'activite' : 'pole'; refresh(); });
+          if (pc) r.style.color = pc; // le nom du pôle s'écrit dans sa couleur
           blk.appendChild(secs.length ? chev(r, sel) : r);
-          if (sel) secs.forEach(function (x) { var on2 = form.categoryKey === x.key; blk.appendChild(choice(x.label, '', on2, null, function () { form.categoryKey = on2 ? null : x.key; form.level = on2 ? 'pole' : 'secteur'; refresh(); })); });
+          if (sel) secs.forEach(function (x) { var on2 = form.categoryKey === x.key, r2 = choice(x.label, '', on2, null, function () { form.categoryKey = on2 ? null : x.key; form.level = on2 ? 'pole' : 'secteur'; refresh(); }); r2.classList.add('objSub'); if (pc) r2.style.color = pc; blk.appendChild(r2); }); // les secteurs héritent de la couleur de leur pôle, décalés d'un cran
         });
       }
       function card(a, host) {
         var on = form.acts.indexOf(a.id) >= 0, hasP = (a.poles || []).length > 0, open = on && hasP && !!form.poleOpen, blk = el('div', 'objAct');
         var c = choice(a.name, '', on, a.color, function () {
-          if (on) { if (hasP) { form.poleOpen = !form.poleOpen; renderActivities(); } return; } // activité déjà choisie : déroule / replie ses pôles
+          if (on) { if (hasP) { if (form.poleOpen) { form.poleKey = null; form.categoryKey = null; form.level = 'activite'; } form.poleOpen = !form.poleOpen; refresh(); } return; } // activité déjà choisie : déroule ses pôles ; la retoucher les replie et désélectionne pôle ET secteur (niveau, phrase, interrupteur recalculés)
           form.acts = [a.id]; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; form.poleOpen = false; syncMain(); refresh();
         });
         blk.appendChild(hasP && on ? chev(c, open) : c); // flèche seulement sur l'activité choisie (c'est elle qui déroule)
