@@ -354,14 +354,28 @@
         if (own) { lock.appendChild(choice(own.name, tr(LEVEL_LABEL[form.level]) + (form.ctxLabel ? ' · ' + form.ctxLabel : ''), true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), lock)); return; }
       }
       var inTree = {}; (ctx.objectives || []).forEach(function (o) { inTree[o.activityId] = true; });
-      function drop(none, items, cur, onPick) { var w = el('div', 'goalsPlacementField'), sl = el('select'); var o0 = el('option', null, none); o0.value = ''; sl.appendChild(o0); items.forEach(function (x) { var o = el('option', null, x.label); o.value = x.key; sl.appendChild(o); }); sl.value = cur || ''; sl.addEventListener('change', function () { onPick(sl.value || null); }); w.appendChild(sl); return w; }
-      // Pôle puis secteur (déroulés en place sous l'activité choisie, facultatifs) : activité seule = objectif long, + pôle = moyen, + secteur = court (le niveau gagne sur la durée).
-      function under(a, host) {
-        if (!(a.poles || []).length) return;
-        host.appendChild(field(tr('Pôle'), drop(tr('Aucun pôle'), a.poles, form.poleKey, function (k) { form.poleKey = k; form.categoryKey = null; form.level = k ? 'pole' : 'activite'; refresh(); })));
-        var pl = a.poles.filter(function (x) { return x.key === form.poleKey; })[0];
-        if (pl && (pl.secteurs || []).length) host.appendChild(field(tr('Secteur'), drop(tr('Aucun secteur'), pl.secteurs, form.categoryKey, function (k) { form.categoryKey = k; form.level = k ? 'secteur' : 'pole'; refresh(); })));
-        if (weeklyPossible(form)) { // éteint par défaut = objectif périodique ; allumé = objectif hebdomadaire
+      // Pôle puis secteur (9 nov. 2026) : AUCUN choix déroulé à l'arrivée ; toucher l'activité déjà choisie déroule les pôles, collés sous sa carte (un seul bloc, même largeur) ; la retoucher les replie ;
+      // choisir un pôle déroule ses secteurs juste dessous ; retoucher le pôle ou le secteur choisi l'annule (même règle qu'une carte d'activité). Pas de libellés, pas de « Aucun ». Facultatifs :
+      // activité seule = objectif long, + pôle = moyen, + secteur = court (le niveau gagne sur la durée). Une activité sans pôle : rien ne se déroule.
+      function chev(row, open) { row.classList.add('objHasChev'); row.appendChild(el('span', 'cmpChev' + (open ? ' open' : ''))); return row; }
+      function under(a, blk) {
+        (a.poles || []).forEach(function (p) {
+          var sel = form.poleKey === p.key, secs = p.secteurs || [];
+          var r = choice(p.label, '', sel, null, function () { form.poleKey = sel ? null : p.key; form.categoryKey = null; form.level = sel ? 'activite' : 'pole'; refresh(); });
+          blk.appendChild(secs.length ? chev(r, sel) : r);
+          if (sel) secs.forEach(function (x) { var on2 = form.categoryKey === x.key; blk.appendChild(choice(x.label, '', on2, null, function () { form.categoryKey = on2 ? null : x.key; form.level = on2 ? 'pole' : 'secteur'; refresh(); })); });
+        });
+      }
+      function card(a, host) {
+        var on = form.acts.indexOf(a.id) >= 0, hasP = (a.poles || []).length > 0, open = on && hasP && !!form.poleOpen, blk = el('div', 'objAct');
+        var c = choice(a.name, '', on, a.color, function () {
+          if (on) { if (hasP) { form.poleOpen = !form.poleOpen; renderActivities(); } return; } // activité déjà choisie : déroule / replie ses pôles
+          form.acts = [a.id]; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; form.poleOpen = false; syncMain(); refresh();
+        });
+        blk.appendChild(hasP && on ? chev(c, open) : c); // flèche seulement sur l'activité choisie (c'est elle qui déroule)
+        if (open) under(a, blk);
+        host.appendChild(blk);
+        if (on && weeklyPossible(form)) { // éteint par défaut = objectif périodique ; allumé = objectif hebdomadaire
           form._switchShown = true;
           var row = el('label', 'objTimeRow'), sw = el('span', 'toggleSwitch'), cb = el('input'), track = el('span', 'toggleSwitchTrack');
           cb.type = 'checkbox'; cb.checked = !!form.weeklyOn; cb.setAttribute('role', 'switch'); cb.setAttribute('aria-label', tr('Hebdomadaire'));
@@ -369,7 +383,6 @@
           sw.appendChild(cb); sw.appendChild(track); row.appendChild(el('span', null, tr('Hebdomadaire'))); row.appendChild(sw); host.appendChild(row);
         }
       }
-      function card(a, host) { var on = form.acts.indexOf(a.id) >= 0; host.appendChild(choice(a.name, '', on, a.color, function () { form.acts = on ? [] : [a.id]; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; syncMain(); refresh(); var nx = actBox.querySelector('.goalsPlacementField'); if (nx && nx.scrollIntoView) nx.scrollIntoView({ block: 'nearest' }); })); if (on) under(a, host); }
       var here = acts.filter(function (a) { return inTree[a.id]; }), notYet = acts.filter(function (a) { return !inTree[a.id]; });
       if (here.length) { var l1 = el('div', 'aiModeChoices'); here.forEach(function (a) { card(a, l1); }); actBox.appendChild(field(tr('Dans l’arbre'), l1)); }
       var l2 = el('div', 'aiModeChoices');
@@ -441,6 +454,7 @@
       ['desc', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
       if (k === 'desc' && form._hints && form._shownOnce) form._hints();
       if (k === 'desc') form._shownOnce = true;
+      if (k === 'activite') { form.poleOpen = false; renderActivities(); } // à l'arrivée : seulement les activités, aucun choix de pôle déroulé
       if (k === 'temps') paintHours();
       panelKicker.textContent = tr(stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
