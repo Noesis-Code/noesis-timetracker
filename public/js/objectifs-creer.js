@@ -225,6 +225,10 @@
   var TERMS = [['periode', 'Court'], ['annee', 'Moyen'], ['pluriannuel', 'Long']], INNER = [['periodiques', 'Périodiques'], ['hebdomadaires', 'Hebdomadaires'], ['les_deux', 'Les deux']];
   function termsFor(days) { var w = (days || 0) / 7; return w <= 26 ? ['periode'] : w <= 130 ? ['periode', 'annee'] : ['periode', 'annee', 'pluriannuel']; }
   function multiOf(days) { return (days || 0) > 28; }
+  function isoAdd(iso, n) { var d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+  function mondayIso(iso) { return isoAdd(iso, -((new Date(iso + 'T00:00:00Z').getUTCDay() + 6) % 7)); }
+  // Interrupteur « Hebdomadaire » (9 nov. 2026) : possible SEULEMENT au niveau secteur et si l'échéance tombe dans la semaine en cours ou la suivante ; l'échéance décide ce qui est possible.
+  function weeklyPossible(f) { return f.level === 'secteur' && !!f.endDate && !!f.startDate && f.endDate <= isoAdd(mondayIso(f.startDate), 13); }
   function segDisabled(options, current, allowed, onPick, label) {
     var s = seg(options, current, onPick, label);
     Array.prototype.forEach.call(s.children, function (b, i) { if (allowed.indexOf(options[i][0]) < 0) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); } });
@@ -245,6 +249,7 @@
     var ok = termsFor(days); if (!noTerm && ok.indexOf(form.term) < 0) form.term = ok[ok.length - 1]; // imposé si un seul choix ; sinon, tant que rien n'est choisi, le terme le plus long permis
     if (!noTerm) box.appendChild(field(tr('Terme'), segDisabled(TERMS.map(function (t) { return [t[0], tr(t[1])]; }), form.term, ok, function (k) { form.term = k; form.termTouched = true; if (onChange) onChange(); }, tr('Terme'))));
     // Objectifs inclus : deux cases (cochées par défaut quand c'est possible, au moins une reste cochée) avec le nombre de chacun ; une seule période (≤ 28 jours) : hebdomadaires seulement, périodiques grisés
+    if (form._switchShown) return; // l'interrupteur « Hebdomadaire » (page Activité) décide : périodique ou hebdomadaire
     var multi = multiOf(days), cnt = goalCounts(form, days), per = multi && form.innerGoals !== 'hebdomadaires', wk = form.innerGoals !== 'periodiques';
     var gs = el('div', 'cmpSeg'); gs.setAttribute('role', 'group'); gs.setAttribute('aria-label', tr('Objectifs inclus'));
     function goalBtn(on, label, n, enabled, toggle) {
@@ -327,6 +332,7 @@
     function renderActivities() { // UNE seule activité par objectif (les macros se font seulement depuis l'arbre)
       actBox.textContent = '';
       var acts = ctx.activities || [];
+      form._switchShown = false;
       if (form.fixedCtx) { // créé depuis un niveau de l'arbre : l'activité (et le pôle, le secteur) sont verrouillés
         var own = actById(form.activityId), lock = el('div', 'aiModeChoices');
         if (own) { lock.appendChild(choice(own.name, tr(LEVEL_LABEL[form.level]) + (form.ctxLabel ? ' · ' + form.ctxLabel : ''), true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), lock)); return; }
@@ -339,6 +345,13 @@
         host.appendChild(field(tr('Pôle'), drop(tr('Aucun pôle'), a.poles, form.poleKey, function (k) { form.poleKey = k; form.categoryKey = null; form.level = k ? 'pole' : 'activite'; refresh(); })));
         var pl = a.poles.filter(function (x) { return x.key === form.poleKey; })[0];
         if (pl && (pl.secteurs || []).length) host.appendChild(field(tr('Secteur'), drop(tr('Aucun secteur'), pl.secteurs, form.categoryKey, function (k) { form.categoryKey = k; form.level = k ? 'secteur' : 'pole'; refresh(); })));
+        if (weeklyPossible(form)) { // éteint par défaut = objectif périodique ; allumé = objectif hebdomadaire
+          form._switchShown = true;
+          var row = el('label', 'objTimeRow'), sw = el('span', 'toggleSwitch'), cb = el('input'), track = el('span', 'toggleSwitchTrack');
+          cb.type = 'checkbox'; cb.checked = !!form.weeklyOn; cb.setAttribute('role', 'switch'); cb.setAttribute('aria-label', tr('Hebdomadaire'));
+          cb.addEventListener('change', function () { form.weeklyOn = cb.checked; });
+          sw.appendChild(cb); sw.appendChild(track); row.appendChild(el('span', null, tr('Hebdomadaire'))); row.appendChild(sw); host.appendChild(row);
+        }
       }
       function card(a, host) { var on = form.acts.indexOf(a.id) >= 0; host.appendChild(choice(a.name, '', on, a.color, function () { form.acts = on ? [] : [a.id]; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; syncMain(); refresh(); var nx = actBox.querySelector('.goalsPlacementField'); if (nx && nx.scrollIntoView) nx.scrollIntoView({ block: 'nearest' }); })); if (on) under(a, host); }
       var here = acts.filter(function (a) { return inTree[a.id]; }), notYet = acts.filter(function (a) { return !inTree[a.id]; });
@@ -427,7 +440,7 @@
       if (final && noActivity()) { msg.textContent = tr('Choisis une activité.'); return false; }
       return true;
     }
-    function innerOf() { return multiPeriods() ? form.innerGoals : 'hebdomadaires'; }
+    function innerOf() { if (weeklyPossible(form)) return form.weeklyOn ? 'hebdomadaires' : 'periodiques'; return multiPeriods() ? form.innerGoals : 'hebdomadaires'; }
     function finishAll() { // Terminer : proposition par règles (ou IA gratuite du mois) puis création ; rien n'est créé avant ce geste
       if (!validDesc(true)) return;
       if (form.ratt && form.ratt.key !== form.title + '|' + form.activityId) { form.parentId = null; form.parentRel = null; } // l'activité a changé après la proposition de rattachement : plus de parent

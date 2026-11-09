@@ -556,7 +556,9 @@ function creer(userId, body) {
   if (!['activite', 'pole', 'secteur'].includes(body.level) && body.term != null && !termsOk.includes(body.term)) throw err('Ce terme n’est pas possible pour cette échéance.');
   const term = ['activite', 'pole', 'secteur'].includes(body.level) ? LEVEL_TERM[body.level] : (body.term || termsOk[termsOk.length - 1]);
   const innerReq = ['periodiques', 'hebdomadaires', 'les_deux'].includes(body.inner) ? body.inner : (body.weekly === false ? 'periodiques' : 'les_deux');
-  const inner = daysBetween(start, body.endDate) > 28 ? innerReq : 'hebdomadaires';
+  // Au niveau secteur, si l'échéance tombe dans la semaine en cours ou la suivante, l'interrupteur « Hebdomadaire » choisit : périodique ou hebdomadaire ; ailleurs, l'échéance décide (une seule période : hebdomadaires).
+  const switchable = body.level === 'secteur' && body.endDate <= addDays(mondayOf(today()), 13) && ['periodiques', 'hebdomadaires'].includes(body.inner);
+  const inner = switchable || daysBetween(start, body.endDate) > 28 ? innerReq : 'hebdomadaires';
   const weekly = inner !== 'periodiques';
   let parentId = null;
   if (body.parentId) {
