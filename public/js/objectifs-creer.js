@@ -420,7 +420,7 @@
     form.hoursBy = form.hoursBy || {};
     function targets() { return form.acts.map(function (id) { return { key: 'a' + id, id: id, name: (actById(id) || {}).name || '' }; }); }
     var tpBox = el('div'); boxes.temps.appendChild(tpBox);
-    var tp = form.tp = form.tp || { key: null, e: null, valueMin: null, mode: null, apres: {}, page: 0, loading: false };
+    var tp = form.tp = form.tp || { key: null, e: null, valueMin: null, mode: null, apres: {}, page: 0, effects: null, loading: false };
     function tpSpec() { return { activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, endDate: form.endDate || null, inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }; }
     function tpKey() { var q = tpSpec(); return [q.activityId, q.level, q.poleKey || '', q.categoryKey || '', q.endDate || '', q.inner || ''].join('|'); }
     function tpQuery() { var q = tpSpec(); return 'activityId=' + encodeURIComponent(q.activityId) + '&level=' + q.level + (q.poleKey ? '&poleKey=' + encodeURIComponent(q.poleKey) : '') + (q.categoryKey ? '&categoryKey=' + encodeURIComponent(q.categoryKey) : '') + (q.endDate ? '&endDate=' + encodeURIComponent(q.endDate) : '') + (form.level === 'secteur' ? '&inner=' + (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : ''); }
@@ -431,12 +431,13 @@
     function tpIncrease() { return tpChanging() && tp.valueMin > tpOld(); }
     function tpModes() { return tp.e ? tp.e.modes : []; }
     function tpMode() { return tpModes().length === 1 && tpIncrease() ? tpModes()[0] : tp.mode; } // une seule possibilité : écran « d'où vient ce temps » sauté
-    function tpPages() { var p = ['s1']; if (tpIncrease()) { if (tpModes().length > 1) p.push('s2'); if (tpMode() === 'deplacer') p.push('s3'); } return p; } // le tableau Avant / Après n'existe que pour « Déplacer » (« Ajouter » n'a pas d'écran d'effet)
+    function tpPages() { var p = ['s1']; if (tpIncrease()) { if (tpModes().length > 1) p.push('s2'); if (tpMode()) p.push('s3'); } return p; }
     function tpLines() { return tp.e && tpMode() === 'deplacer' ? tp.e.takeLines.deplacer : []; } // UN seul tableau : les autres cases du niveau + « Sans pôle » / « Sans secteur »
     function tpAfter(l) { return tp.apres[l.key] === undefined ? l.avantMin : tp.apres[l.key]; }
     function tpTaken() { return tpLines().reduce(function (n, l) { return n + (l.avantMin - tpAfter(l)); }, 0); }
     function tpBalanced() { var m = tpMode(); if (m === 'ajouter') return true; return tpLines().length > 0 && tpLines().every(function (l) { var a = tpAfter(l); return a >= 0 && a <= l.avantMin; }) && tpTaken() === tp.valueMin - tpOld(); }
     function tpValid() { if (!tpChanging()) return true; if (!tpIncrease()) return true; return !!tpMode() && tpBalanced(); }
+    var LV = { activite: "L’activité", pole: 'Le pôle', secteur: 'Le secteur' };
     function tpSync() { // bouton du bas : toujours « Suivant » (« Terminer » à la dernière étape) ; grisé (R35) seulement si une répartition « Déplacer » n'est pas équilibrée
       if (cur !== 'temps') return;
       var q = tpSpec(); form.hoursBy['a' + q.activityId] = tp.valueMin != null && tp.valueMin > 0 ? Math.round(tp.valueMin / 60 * 100) / 100 : null; // hoursPerWeek de l'objectif = le Prévu du niveau choisi
@@ -453,7 +454,7 @@
       if (!force && tp.key === tpKey() && tp.e) { tpPaint(); tpSync(); return Promise.resolve(); }
       tp.key = tpKey(); tp.loading = true; tp.e = null; tpPaint();
       return api('GET', '/api/objectifs/temps?' + tpQuery()).then(function (e) {
-        tp.e = e; tp.loading = false; tp.valueMin = e.valueMin == null ? null : e.valueMin; tp.mode = null; tp.apres = {}; tp.page = 0; tp.shown = 0; tpPaint(); tpSync();
+        tp.e = e; tp.loading = false; tp.valueMin = e.valueMin == null ? null : e.valueMin; tp.mode = null; tp.apres = {}; tp.page = 0; tp.shown = 0; tp.effects = null; tpPaint(); tpSync();
       }).catch(function (err) { tp.loading = false; tp.key = null; tpPaint(); msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
     }
     function trow(cls, cells) { var r = el('div', 'objTRow ' + cls); cells.forEach(function (c) { r.appendChild(c); }); return r; }
@@ -479,7 +480,7 @@
     function tpCommit(min) { // ✓ du sélecteur : valeur inchangée = rien ; baisse = aucun glissement ; hausse = glissement vers « D'où vient ce temps ? » (ou l'effet si une seule possibilité) ; valeur remise au défaut = changement annulé
       if (min === tp.valueMin) return;
       tp.valueMin = min;
-      tp.mode = null; tp.apres = {};
+      tp.mode = null; tp.apres = {}; tp.effects = null;
       tp.page = tpIncrease() ? 1 : 0;
       tpSync(); tpPaint();
     }
@@ -487,12 +488,21 @@
     function tpScreen2() {
       var page = el('div', 'objTPage'), box = el('div', 'aiModeChoices objCenterChoices'); // deux cartes, texte centré
       page.appendChild(el('p', 'cmpBlockTitle', tr('D’où vient ce temps ?')));
-      tpModes().forEach(function (m) { box.appendChild(choice(modeLabel(m), '', tp.mode === m, null, function () { tp.mode = m; tp.apres = {}; tpSync(); tp.shown = 1; if (m === 'ajouter') { tp.page = 0; tpPaint(); } else { tpPaint(); tpGo(tpPages().indexOf('s3')); } })); }); // « Ajouter » : retour automatique à l'écran 1 (glissement arrière) ; « Déplacer » : glissement vers le tableau Avant / Après
+      tpModes().forEach(function (m) { box.appendChild(choice(modeLabel(m), '', tp.mode === m, null, function () { tp.mode = m; tp.apres = {}; tp.effects = null; tpSync(); tp.shown = 1; tpPaint(); tpGo(tpPages().indexOf('s3')); })); }); // toucher une carte glisse vers l'écran suivant
       page.appendChild(box);
       return page;
     }
     function tpScreen3() {
       var e = tp.e, page = el('div', 'objTPage'), tbl = el('div', 'cmpList'), m = tpMode();
+      if (m === 'ajouter') { // effet en lecture seule : le niveau, ceux du dessus qui grandissent de la différence, le total
+        page.appendChild(el('p', 'cmpBlockTitle', tr('Effet')));
+        if (!tp.effects) { api('POST', '/api/objectifs/temps/plan', Object.assign(tpSpec(), { newMin: tp.valueMin, mode: 'ajouter', apply: false })).then(function (r) { tp.effects = r.effects; if (tpPages().indexOf('s3') >= 0) tpPaint(); }).catch(function () {}); return page; }
+        tp.effects.forEach(function (x) {
+          var txt = x.level === 'total' ? tr('Ton total passe de {a} à {b}', { a: hh(x.beforeMin), b: hh(x.afterMin) }) : tr(LV[x.level] + ' passe de {a} à {b}', { a: hh(x.beforeMin), b: hh(x.afterMin) });
+          tbl.appendChild(trow('objTLine', [el('span', 'objTLabel', txt)]));
+        });
+        page.appendChild(tbl); return page;
+      }
       page.appendChild(el('p', 'cmpBlockTitle', modeLabel(m)));
       tbl.appendChild(trow('objTHead', [el('span', 'objTCell'), tcell(tr('Avant'), 'objTH'), tcell(tr('Après'), 'objTH')]));
       var totalCell = tcell('', 'objTRO');
@@ -512,9 +522,7 @@
     function tpPaint() {
       tpBox.textContent = '';
       if (tp.loading || !tp.e) { return; }
-      var pages = tpPages(), n = pages.length;
-      if (tp.page >= n) tp.page = n - 1;
-      var wrap = el('div', 'tasksPages objTPages'), track = el('div', 'tasksTrack'), build = { s1: tpScreen1, s2: tpScreen2, s3: tpScreen3 };
+      var pages = tpPages(), n = pages.length, wrap = el('div', 'tasksPages objTPages'), track = el('div', 'tasksTrack'), build = { s1: tpScreen1, s2: tpScreen2, s3: tpScreen3 };
       track.style.width = (n * 100) + '%';
       pages.forEach(function (k) { var pg = el('div', 'tasksPage'); pg.style.flexBasis = (100 / n) + '%'; pg.appendChild(build[k]()); track.appendChild(pg); });
       var from = Math.max(0, Math.min(n - 1, tp.shown || 0)), to = tp.page;
