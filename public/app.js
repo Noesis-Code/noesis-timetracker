@@ -7668,9 +7668,10 @@
   TMT.fmtCapMinutes = fmtCapMinutes;
   // Feuille flottante de choix d'une durée (heures 0-99 + minutes par 5), style
   // sélecteur d'heure iOS : deux roues scroll-snap. opts : { title, minutes, onDone(min) }.
-  // « Réinitialiser » = 0:00 ; ✓ valide ; ✕ ou toucher dehors ferme sans changer.
+  // « Réinitialiser » = 0:00 ; ✓ valide ; ✕ ou toucher dehors ferme sans changer. opts.maxHours (facultatif, défaut 99) : plafond des heures ; à ce plafond les minutes valent 0 (ex. 168 h = les heures d'une semaine).
   function openDurationPicker(opts) {
-    var ROW = 44, init = Math.max(0, Math.min(99 * 60 + 59, Number(opts.minutes) || 0));
+    var maxH = Number(opts.maxHours) > 0 ? Math.floor(Number(opts.maxHours)) : 99, maxMin = maxH === 99 ? 99 * 60 + 59 : maxH * 60;
+    var ROW = 44, init = Math.max(0, Math.min(maxMin, Number(opts.minutes) || 0));
     var ov = document.createElement('div'); ov.className = 'durPickerOverlay';
     var sheet = document.createElement('div'); sheet.className = 'durPickerSheet cmpGlass';
     sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-label', t(opts.title || 'Cible'));
@@ -7699,7 +7700,7 @@
       setTimeout(function () { sc.scrollTop = idx * ROW; }, 0);
       return { get: function () { return values[Math.max(0, Math.min(values.length - 1, Math.round(sc.scrollTop / ROW)))]; }, set: function (v) { sc.scrollTo({ top: Math.max(0, values.indexOf(v)) * ROW, behavior: 'smooth' }); } };
     }
-    var hours = []; for (var h = 0; h <= 99; h++) hours.push(h);
+    var hours = []; for (var h = 0; h <= maxH; h++) hours.push(h);
     var mins = []; for (var m = 0; m < 60; m += 5) mins.push(m);
     var curMin = init % 60; if (mins.indexOf(curMin) < 0) { mins.push(curMin); mins.sort(function (p, q) { return p - q; }); }
     var hW = wheel(hours, Math.floor(init / 60), t('Heures'), 'h');
@@ -7708,7 +7709,7 @@
     var reset = document.createElement('button'); reset.type = 'button'; reset.className = 'durPickerReset'; reset.textContent = t('Réinitialiser');
     reset.addEventListener('click', function () { hW.set(0); mW.set(0); setTimeout(function () { opts.onDone(0); close(); }, 0); });
     var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'durPickerOk'; ok.textContent = '✓'; ok.setAttribute('aria-label', t('Valider'));
-    ok.addEventListener('click', function () { var v = hW.get() * 60 + mW.get(); close(); opts.onDone(v); });
+    ok.addEventListener('click', function () { var v = Math.min(maxMin, hW.get() * 60 + mW.get()); close(); opts.onDone(v); });
     bar.appendChild(reset); bar.appendChild(ok);
     sheet.appendChild(head); sheet.appendChild(wheels); sheet.appendChild(bar);
     ov.appendChild(sheet); document.body.appendChild(ov);

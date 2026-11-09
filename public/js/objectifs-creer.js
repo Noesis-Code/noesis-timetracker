@@ -427,13 +427,6 @@
     // UNE seule fonction de formatage des heures : minutes -> « 13 », « 13,25 » (virgule en français, point en anglais) ; hh() ajoute l'unité (« 13 h »).
     function hrs(min) { if (min == null) return '—'; var s = String(Math.round(min / 60 * 100) / 100), en = window.NoesisI18n && window.NoesisI18n.getLang && window.NoesisI18n.getLang() === 'en'; return en ? s : s.replace('.', ','); }
     function hh(min) { return min == null ? '—' : hrs(min) + ' h'; }
-    function parseHrs(raw) { // 0 à 168 h (les heures d'une semaine), décimales permises, aucune autre limite
-      var t = String(raw == null ? '' : raw).trim().replace(/\s*h$/i, '').replace(',', '.'); // « 13 h » est accepté comme « 13 »
-      if (t === '') return { ok: true, min: null };
-      if (!/^\d{1,3}(\.\d{0,2})?$/.test(t)) return { ok: false, min: null };
-      var v = parseFloat(t); if (!(v >= 0 && v <= 168)) return { ok: false, min: null };
-      return { ok: true, min: Math.round(v * 60) };
-    }
     function tpOld() { return tp.e ? (tp.e.valueMin || 0) : 0; }
     function tpChanging() { return !!tp.e && tp.valueMin != null && tp.valueMin !== (tp.e.valueMin == null ? 0 : tp.e.valueMin); }
     function tpIncrease() { return tpChanging() && tp.valueMin > tpOld(); }
@@ -468,28 +461,26 @@
     function trow(cls, cells) { var r = el('div', 'objTRow ' + cls); cells.forEach(function (c) { r.appendChild(c); }); return r; }
     function tsep() { return el('span', 'objTSep', '/'); } // séparateur « / » entre le Prévu et le Passé (gris sable, même position sur toutes les lignes)
     function tcell(text, cls) { return el('span', 'objTCell' + (cls ? ' ' + cls : ''), text); }
-    function tedit(value, onInput, label, onCommit) { // case modifiable : violet, sans carré ni cadre (R11, R33)
-      var i = el('input', 'objTEdit'); i.type = 'text'; i.inputMode = 'decimal'; i.maxLength = 9; i.value = value; i.setAttribute('aria-label', label);
-      var last = value;
-      i.addEventListener('input', function () { var h = parseHrs(i.value); if (!h.ok) { i.value = last; return; } last = i.value; onInput(h.min); });
-      if (onCommit) i.addEventListener('change', onCommit); // saisie terminée (Entrée / OK du clavier ou perte de focus) : les écrans suivants apparaissent ou disparaissent
-      i.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); i.blur(); } });
-      return i;
+    // Valeur modifiable = chiffre violet SANS rectangle (R11, R33), simple bouton-texte : le toucher ouvre le sélecteur de durée STANDARD de l'app (TMT.openDurationPicker, composant unique R29) ; aucun clavier.
+    // ✓ = confirmation (onPick reçoit les minutes) ; ✕ ou toucher dehors : rien ne change. Plafond 168 h (les heures d'une semaine) ; une valeur choisie à la roue n'est jamais réarrondie.
+    function tbtn(minutes, label, onPick) {
+      var b = el('button', 'objTEdit', hh(minutes)); b.type = 'button'; b.setAttribute('aria-label', label);
+      b.addEventListener('click', function () { TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: 168, onDone: function (v) { minutes = v; onPick(v, b); } }); });
+      return b;
     }
     function tpScreen1() {
       var e = tp.e, page = el('div', 'objTPage'), tbl = el('div', 'cmpList');
       page.appendChild(el('p', 'cmpBlockTitle', tr('Heures par semaine')));
       tbl.appendChild(trow('objTPair objTHead', [el('span', 'objTCell'), tcell(tr('Prévu'), 'objTH'), tsep(), tcell(tr('Passé'), 'objTH objTLeft')]));
       tbl.appendChild(trow('objTPair', [tcell(e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, 'objTLabel'), tcell(hh(e.up.prevuMin), 'objTRO'), tsep(), tcell(hh(e.up.passeMin), 'objTRO objTLeft')])); // niveau du dessus : lecture seule
-      var inp = tedit(tp.valueMin == null ? '' : hh(tp.valueMin), function (min) { tp.valueMin = min; tp.mode = null; tp.apres = {}; tp.effects = null; tpSync(); }, tr('Prévu'), function () { tpCommit(inp.value); });
-      var edCell = el('span', 'objTCell'); edCell.appendChild(inp);
+      var edCell = el('span', 'objTCell'); edCell.appendChild(tbtn(tp.valueMin, tr('Prévu'), function (v) { tpCommit(v); }));
       tbl.appendChild(trow('objTPair', [tcell(e.me.label, 'objTLabel'), edCell, tsep(), tcell(hh(e.me.passeMin), 'objTRO objTLeft')])); // niveau choisi : Prévu modifiable (violet), Passé en lecture seule
       page.appendChild(tbl);
       return page;
     }
-    function tpCommit(raw) { // la valeur est confirmée : baisse ou inchangée = aucun glissement ; hausse = glissement vers « D'où vient ce temps ? » (ou l'effet si une seule possibilité) ; valeur remise au défaut = changement annulé
-      var h = parseHrs(raw);
-      if (!h.ok || h.min == null) tp.valueMin = tp.e.valueMin == null ? null : tp.e.valueMin; else tp.valueMin = h.min;
+    function tpCommit(min) { // ✓ du sélecteur : valeur inchangée = rien ; baisse = aucun glissement ; hausse = glissement vers « D'où vient ce temps ? » (ou l'effet si une seule possibilité) ; valeur remise au défaut = changement annulé
+      if (min === tp.valueMin) return;
+      tp.valueMin = min;
       tp.mode = null; tp.apres = {}; tp.effects = null;
       tp.page = tpIncrease() ? 1 : 0;
       tpSync(); tpPaint();
@@ -522,7 +513,7 @@
       tbl.appendChild(trow('objTHead', [el('span', 'objTCell'), tcell(tr('Avant'), 'objTH'), tcell(tr('Après'), 'objTH')]));
       var totalCell = tcell('', 'objTRO');
       tpLines().forEach(function (l) {
-        var ed = el('span', 'objTCell'); ed.appendChild(tedit(hrs(tpAfter(l)), function (min) { tp.apres[l.key] = min == null ? 0 : min; paintTotal(); tpSync(); }, tr('Après') + ' : ' + l.label));
+        var ed = el('span', 'objTCell'); ed.appendChild(tbtn(tpAfter(l), tr('Après') + ' : ' + l.label, function (v, b) { tp.apres[l.key] = v; b.textContent = hh(v); paintTotal(); tpSync(); }));
         tbl.appendChild(trow('', [tcell(l.key === 'reste' ? tr(l.label) : l.label, 'objTLabel'), tcell(hrs(l.avantMin), 'objTRO'), ed]));
       });
       var totBefore = tcell('', 'objTRO'), totAfter = tcell('', 'objTRO');
