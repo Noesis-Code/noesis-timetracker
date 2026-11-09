@@ -396,7 +396,7 @@
       if (cur0) {
         var live = el('p', 'hint'), path = [cur0.name], pol = (cur0.poles || []).filter(function (x) { return x.key === form.poleKey; })[0];
         if (pol) { path.push(pol.label); var sct = (pol.secteurs || []).filter(function (x) { return x.key === form.categoryKey; })[0]; if (sct) path.push(sct.label); }
-        var when = form.endDate ? (weeklyPossible(form) && form.weeklyOn ? tr('semaine') + ' ' + weekNo(form.endDate) : tr('période') + ' ' + periodNo(form.endDate)) : '';
+        var when = !form.endDate ? '' : (form.level === 'secteur' ? (weeklyPossible(form) && form.weeklyOn ? tr('semaine') + ' ' + weekNo(form.endDate) : tr('période') + ' ' + periodNo(form.endDate)) : tr('année') + ' ' + form.endDate.slice(0, 4)); // le libellé suit le niveau (même terme que paintPeriods : activité = pluriannuel / année, pôle = année, secteur = période)
         var base = path.join(' › ') + (when ? ' · ' + when : '');
         live.textContent = base; actBox.appendChild(live);
         fetchParent().then(function (p) { live.textContent = base + ' · ' + (p && p.title ? tr('sous') + ' « ' + p.title + ' »' : tr('sans parent')); });
