@@ -11,6 +11,7 @@ const goals = require('../server/lib/goals');
 const goalstasks = require('../server/lib/goalstasks');
 const cp = require('../server/lib/goalscaptureplace');
 const cprop = require('../server/lib/changeproposals');
+require('../server/lib/objectifs'); // crée la table des objectifs de la Feuille de route
 const ex = require('../server/lib/goalsclassifyexamples');
 const today = require('../server/lib/dates').userToday();
 require('../server/lib/silentspellfix').setCaller(async (t) => t);
@@ -94,6 +95,19 @@ const mkWeekly = (act, key, num, text) => {
   assert(small.length <= 6 && small.map((e) => e.label.length + e.objective.length + 12).reduce((a, b) => a + b, 0) <= 420, 'bloc d’exemples plafonné');
   ex.resetForUser('u1');
   assert(ex.recentObjectiveExamples(act, 'u1').length === 0, 'remise à zéro des exemples du compte');
+
+  // ---- indices de la description guidée (réponses + synonymes) ----
+  const catKey = goals.resolveToPole(act, key);
+  const meta = { category: catKey, description: 'Faire : contacter · Résultat : devis · Obstacle : budget', descKeywords: 'appeler, joindre, estimation' };
+  db.prepare("INSERT INTO user_objectives (userId, activityId, title, amount, unit, startDate, endDate, periodWeeks, weekly, stepsJson, taskIdsJson, metaJson, createdAt) VALUES ('u1', ?, 'Signer le contrat', 4, 'semaines', ?, ?, '1', 1, '[]', '[]', ?, '')").run(act, start, goals.addDays(start, 27), JSON.stringify(meta));
+  const hint = cp.objectiveHints(act, catKey);
+  assert(/contacter/.test(hint) && /devis/.test(hint) && /budget/.test(hint) && /appeler, joindre/.test(hint), 'indices : réponses et synonymes de la description');
+  assert(!/Faire :|Résultat :|Obstacle :/.test(hint), 'indices : sans les libellés des questions');
+  assert(cp.objectiveHints(act, 'autre') === '', 'indices : seulement pour la catégorie de l’objectif');
+  const cand = cp.listObjectiveCandidates(act, [catKey], today).find((c) => c.kind === 'weekly');
+  assert(cand && /appeler/.test(cand.description), 'les candidats portent les indices (lus par le rapprochement)');
+  const t3 = cp.lexScore(cp.stemSet('Appeler le client pour le devis'), cand.text, cand.description);
+  assert(t3 > cp.lexScore(cp.stemSet('Appeler le client pour le devis'), cand.text, ''), 'les synonymes aident le rapprochement lexical');
 
   // ---- sans hésitation : comportement inchangé ----
   const m3 = await cp.matchObjective('u1', act, key, 'Refaire la vitrine du magasin', { ai: async () => '{"index":1,"confidence":0.9,"reason":"même sujet"}' });

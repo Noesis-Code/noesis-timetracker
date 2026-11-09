@@ -453,20 +453,36 @@ function weekOfYear(weekStart) {
   const ms = Date.parse(weekStart + 'T00:00:00Z') - Date.parse(anchor + 'T00:00:00Z');
   return Math.min(52, Math.floor(ms / 86400000 / 7) + 1);
 }
+// Indices de rattachement (9 nov. 2026) : les réponses de la description guidée de l'objectif (sans les libellés de questions) et leurs synonymes (meta.descKeywords, posés par
+// objectifs.expandHints) enrichissent le texte lu pour rapprocher une tâche de l'objectif de cette catégorie. Jamais affichés ; vides si l'objectif n'a pas de description.
+function objectiveHints(activityId, category) {
+  try {
+    const parts = [];
+    db.prepare('SELECT metaJson FROM user_objectives WHERE activityId = ?').all(activityId).forEach((r) => {
+      const m = JSON.parse(r.metaJson || '{}');
+      if (m.category !== category) return;
+      const ans = String(m.description || '').split(' · ').map((x) => { const i = x.indexOf(' : '); return (i >= 0 ? x.slice(i + 3) : x).trim(); }).filter(Boolean).join(', ');
+      if (ans) parts.push(ans);
+      if (m.descKeywords) parts.push(String(m.descKeywords));
+    });
+    return parts.join(', ').slice(0, 400);
+  } catch (e) { return ''; }
+}
 // Objectifs candidats (hebdomadaires non atteints et périodiques en cours ou à venir) des pôles donnés.
 function listObjectiveCandidates(activityId, poleKeys, today) {
   const out = [];
   poleKeys.forEach((pole) => {
+    const hint = objectiveHints(activityId, pole);
     db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ?').all(activityId, pole).forEach((p) => {
       if (p.endDate < today) return;
       db.prepare('SELECT * FROM goal_weekly WHERE periodId = ?').all(p.id).forEach((w) => {
         if (!String(w.text || '').trim() || w.status === 'atteint') return;
         const b = goals.weekBounds(p.startDate, w.weekIndex);
         if (b.end < today) return;
-        out.push({ kind: 'weekly', weeklyId: w.id, text: String(w.text), description: String(w.description || ''), period: p, poleKey: pole, weekStart: goals.mostRecentMonday(b.start) });
+        out.push({ kind: 'weekly', weeklyId: w.id, text: String(w.text), description: (hint ? hint + ' ' : '') + String(w.description || ''), period: p, poleKey: pole, weekStart: goals.mostRecentMonday(b.start) });
       });
       if (String(p.mainGoalText || '').trim() && p.mainGoalStatus !== 'atteint') {
-        out.push({ kind: 'period', text: String(p.mainGoalText), description: '', period: p, poleKey: pole, weekStart: goals.mostRecentMonday(p.startDate) });
+        out.push({ kind: 'period', text: String(p.mainGoalText), description: hint, period: p, poleKey: pole, weekStart: goals.mostRecentMonday(p.startDate) });
       }
     });
   });
@@ -698,6 +714,7 @@ module.exports = {  placeCaptureDefault,
   lexScore,
   stemSet,
   listObjectiveCandidates,
+  objectiveHints,
   redispatchOverdue,
   LOOKAHEAD_DAYS,
   DEFAULT_TASK_MINUTES,

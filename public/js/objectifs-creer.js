@@ -143,53 +143,70 @@
   }
 
   // ---------- Blocs partagés par la création et la modification d'un objectif (une seule copie) ----------
-  // Description guidée : trois questions repliées (flèche à droite, R21) ; UNE seule est ouverte (cases + mots) ; Entrée referme et ouvre la suivante. Le texte composé (mots-clés) est lu par l'IA.
-  var GUIDE = [
-    { k: 'reussite', q: 'Comment le mesures-tu ?', label: 'Réussite', opts: ['Chiffre', 'Date', 'Résultat'] },
-    { k: 'raison', q: 'Pourquoi ?', label: 'Raison', opts: ['Santé', 'Carrière', 'Plaisir'] },
-    { k: 'obstacle', q: 'Qu’est-ce qui peut bloquer ?', label: 'Obstacle', opts: ['Temps', 'Énergie', 'Argent'] }
+  // Description guidée (9 nov. 2026, décision d'Émilien) : neuf questions FACULTATIVES en trois groupes de trois ; UN seul groupe ouvert à la fois (flèche à droite, R21).
+  // Chaque question propose trois mots : un toucher INSÈRE le mot dans la réponse (champ texte modifiable). Le texte composé « Libellé : réponse · … » est lu par l'IA (rattachement
+  // des tâches à l'objectif) ; l'IA élargit chaque réponse avec des synonymes côté serveur, sans que la personne écrive plus. Le texte des questions et des mots est fixé par Émilien.
+  var GUIDE_GROUPS = [
+    { g: 'Faire', qs: [
+      { k: 'faire', q: 'Que faire ?', label: 'Faire', opts: ['Contacter', 'Créer', 'Organiser'] },
+      { k: 'resultat', q: 'Quel résultat ?', label: 'Résultat', opts: ['Document', 'Livraison', 'Décision'] },
+      { k: 'avance', q: 'Comment ça avance ?', label: 'Avancement', opts: ['Chiffre', 'Terminé', 'Habitude'] }] },
+    { g: 'Avec quoi', qs: [
+      { k: 'qui', q: 'Avec qui ?', label: 'Avec qui', opts: ['Client', 'Équipe', 'Proches'] },
+      { k: 'quoi', q: 'Avec quoi ?', label: 'Avec quoi', opts: ['Outils', 'Matériel', 'Documents'] },
+      { k: 'ou', q: 'Où ?', label: 'Lieu', opts: ['Lieu', 'En ligne', 'Déplacement'] }] },
+    { g: 'Limites', qs: [
+      { k: 'obstacle', q: 'Obstacle ?', label: 'Obstacle', opts: ['Temps', 'Argent', 'Quelqu’un'] },
+      { k: 'horssujet', q: 'Hors sujet ?', label: 'Hors sujet', opts: ['Autre projet', 'Autre domaine', 'Plus tard'] },
+      { k: 'nom', q: 'Autre nom ?', label: 'Autre nom', opts: ['Sigle', 'Surnom', 'Nom du client'] }] }
   ];
-  function guideAns(form, g) { form.guide = form.guide || {}; return form.guide[g.k] || (form.guide[g.k] = { picks: [], words: '' }); }
-  function guideParse(form, text) { // relit une description déjà enregistrée ; le texte libre ancien est gardé tel quel (form.guideRest), jamais perdu
+  var GUIDE = [].concat.apply([], GUIDE_GROUPS.map(function (x) { return x.qs; }));
+  function guideAns(form, g) { form.guide = form.guide || {}; return form.guide[g.k] || (form.guide[g.k] = { text: '' }); }
+  function guideParse(form, text) { // relit une description déjà enregistrée ; tout texte qui n'est pas une réponse connue (ancien format compris) est gardé tel quel (form.guideRest), jamais perdu
     form.guide = {}; var rest = [];
     String(text || '').split(' · ').forEach(function (part) {
       var g = GUIDE.filter(function (x) { return part.indexOf(tr(x.label) + ' : ') === 0; })[0];
       if (!g) { if (part.trim()) rest.push(part.trim()); return; }
-      var a = guideAns(form, g), words = [];
-      part.slice((tr(g.label) + ' : ').length).split(', ').forEach(function (tok) {
-        var o = g.opts.filter(function (x) { return tr(x).toLowerCase() === tok.toLowerCase(); })[0];
-        if (o && a.picks.indexOf(o) < 0) a.picks.push(o); else if (tok.trim()) words.push(tok.trim());
-      });
-      a.words = words.join(', ');
+      guideAns(form, g).text = part.slice((tr(g.label) + ' : ').length).trim();
     });
     form.guideRest = rest.join(' · ');
   }
   function guideCompose(form) {
-    var t = GUIDE.map(function (g) { var a = guideAns(form, g), p = a.picks.map(function (x) { return tr(x).toLowerCase(); }); if (a.words.trim()) p.push(a.words.trim()); return p.length ? tr(g.label) + ' : ' + p.join(', ') : ''; }).filter(Boolean);
+    var t = GUIDE.map(function (g) { var a = guideAns(form, g); return a.text.trim() ? tr(g.label) + ' : ' + a.text.trim() : ''; }).filter(Boolean);
     if (form.guideRest) t.push(form.guideRest);
-    return t.join(' · ').slice(0, 500);
+    return t.join(' · ').slice(0, 900);
   }
-  function paintGuideInto(box, form, onChange, focusWords) {
+  function guideInsert(a, word) { // un toucher insère le mot dans la réponse (une seule fois ; la personne peut le retirer ou écrire autour)
+    var w = tr(word).toLowerCase(), cur = a.text.trim();
+    if (cur.toLowerCase().split(/[,;] */).indexOf(w) >= 0) return false;
+    a.text = cur ? cur + ', ' + w : w;
+    return true;
+  }
+  function paintGuideInto(box, form, onChange, focusFirst) {
     box.textContent = '';
     if (form.guideOpen === undefined) form.guideOpen = 0;
-    GUIDE.forEach(function (g, gi) {
-      var a = guideAns(form, g), open = form.guideOpen === gi, wrap = el('div', 'objField objGuideRow' + (open ? ' open' : ''));
+    GUIDE_GROUPS.forEach(function (grp, gi) {
+      var open = form.guideOpen === gi, wrap = el('div', 'objField objGuideRow' + (open ? ' open' : ''));
       var head = btn('objGuideHead', '', function () { form.guideOpen = open ? -1 : gi; paintGuideInto(box, form, onChange); });
       head.setAttribute('aria-expanded', open ? 'true' : 'false');
-      var pk = a.picks.map(function (x) { return tr(x).toLowerCase(); }).join(', '), tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr(g.q))); if (a.words.trim() && !open) tx.appendChild(el('small', 'hint', a.words.trim())); head.appendChild(tx); head.appendChild(el('span', 'hint objGuideRight', (pk && !open ? '(' + pk + ')  ' : '') + (open ? '▾' : '▸'))); // paramètres cochés à droite en gris, réponse écrite dessous
+      var filled = grp.qs.filter(function (g) { return guideAns(form, g).text.trim(); }).length, tx = el('span', 'objGuideTxt');
+      tx.appendChild(el('span', 'cmpBlockTitle', tr(grp.g)));
+      head.appendChild(tx); head.appendChild(el('span', 'hint objGuideRight', (filled && !open ? '(' + filled + '/' + grp.qs.length + ')  ' : '') + (open ? '▾' : '▸')));
       wrap.appendChild(head);
       if (open) {
-        var s = el('div', 'cmpSeg'), wordsIn = el('input');
-        s.setAttribute('role', 'group'); s.setAttribute('aria-label', tr(g.q));
-        g.opts.forEach(function (o) {
-          var b = btn(a.picks.indexOf(o) >= 0 ? 'active' : '', tr(o), function () { var i = a.picks.indexOf(o); if (i >= 0) a.picks.splice(i, 1); else a.picks.push(o); b.classList.toggle('active', i < 0); b.setAttribute('aria-pressed', i < 0 ? 'true' : 'false'); onChange(); });
-          b.setAttribute('aria-pressed', a.picks.indexOf(o) >= 0 ? 'true' : 'false'); s.appendChild(b);
+        var firstIn = null;
+        grp.qs.forEach(function (g, qi) {
+          var a = guideAns(form, g), q = el('div', 'objGuideQ'), s = el('div', 'cmpSeg'), ans = el('input');
+          q.appendChild(el('span', 'cmpBlockTitle', tr(g.q)));
+          s.setAttribute('role', 'group'); s.setAttribute('aria-label', tr(g.q));
+          ans.type = 'text'; ans.maxLength = 80; ans.value = a.text; ans.placeholder = tr('Quelques mots'); ans.setAttribute('aria-label', tr(g.q)); ans.enterKeyHint = 'next';
+          g.opts.forEach(function (o) { s.appendChild(btn('', tr(o), function () { if (guideInsert(a, o)) { ans.value = a.text; onChange(); } })); });
+          ans.addEventListener('input', function () { a.text = ans.value; onChange(); });
+          ans.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); var nx = box.querySelectorAll('.objGuideQ input')[qi + 1]; if (nx) nx.focus(); else { form.guideOpen = gi + 1 < GUIDE_GROUPS.length ? gi + 1 : -1; paintGuideInto(box, form, onChange, true); } } });
+          q.appendChild(s); q.appendChild(ans); wrap.appendChild(q);
+          if (!firstIn) firstIn = ans;
         });
-        wordsIn.type = 'text'; wordsIn.maxLength = 60; wordsIn.value = a.words; wordsIn.placeholder = tr('Quelques mots'); wordsIn.setAttribute('aria-label', tr(g.q)); wordsIn.enterKeyHint = 'next';
-        wordsIn.addEventListener('input', function () { a.words = wordsIn.value; onChange(); });
-        wordsIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); form.guideOpen = gi + 1 < GUIDE.length ? gi + 1 : -1; paintGuideInto(box, form, onChange, true); } });
-        wrap.appendChild(s); wrap.appendChild(wordsIn);
-        if (focusWords) window.setTimeout(function () { wordsIn.focus(); }, 0);
+        if (focusFirst && firstIn) window.setTimeout(function () { firstIn.focus(); }, 0);
       }
       box.appendChild(wrap);
     });

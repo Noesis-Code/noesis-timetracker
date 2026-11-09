@@ -129,6 +129,7 @@
 .objGuideRow { margin: 0; }
 .objGuideRow.open { margin-bottom: 8px; }
 .objGuideRow .cmpSeg { margin-bottom: 8px; }
+.objGuideQ { margin-bottom: 16px; }
 .objGuide { margin-bottom: 16px; }
 .objGuideTxt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
 .objGuideTxt .hint { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
