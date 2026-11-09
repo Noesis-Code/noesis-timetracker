@@ -176,10 +176,18 @@
     if (form.guideRest) t.push(form.guideRest);
     return t.join(' · ').slice(0, 900);
   }
+  // Pré-remplissage depuis le PARENT (9 nov. 2026, décision d'Émilien) : seules cinq questions sont proposées à l'objectif enfant, par simple copie champ par champ (sans IA) ; jamais
+  // « Que faire ? », « Quel résultat ? », « Comment ça avance ? » ni « Obstacle ? ». Rien n'est enregistré avant la validation (toucher la proposition) ; pas depuis les enfants.
+  var GUIDE_FROM_PARENT = ['qui', 'quoi', 'ou', 'nom', 'horssujet'];
+  function guideProposals(parentDescription) {
+    var tmp = {}, out = {}; guideParse(tmp, parentDescription);
+    GUIDE_FROM_PARENT.forEach(function (k) { var a = tmp.guide && tmp.guide[k], t = a ? a.text.trim() : ''; if (t) out[k] = t; });
+    return out;
+  }
   function guideInsert(a, word) { // un toucher insère le mot dans la réponse (une seule fois ; la personne peut le retirer ou écrire autour)
     var w = tr(word).toLowerCase(), cur = a.text.trim();
     if (cur.toLowerCase().split(/[,;] */).indexOf(w) >= 0) return false;
-    a.text = cur ? cur + ', ' + w : w;
+    a.text = cur ? cur + ', ' + w : w; a.touched = true;
     return true;
   }
   function paintGuideInto(box, form, onChange, focusFirst) {
@@ -198,10 +206,12 @@
         grp.qs.forEach(function (g, qi) {
           var a = guideAns(form, g), q = el('div', 'objGuideQ'), s = el('div', 'cmpSeg'), ans = el('input');
           q.appendChild(el('span', 'cmpBlockTitle', tr(g.q)));
+          var prop = form.proposed && form.proposed[g.k];
+          if (prop && !a.touched && !a.text.trim()) q.appendChild(btn('cmpBtn cmpBtnIdle', tr('Proposé') + ' : ' + prop, function () { a.text = prop; a.touched = true; onChange(); paintGuideInto(box, form, onChange); }));
           s.setAttribute('role', 'group'); s.setAttribute('aria-label', tr(g.q));
           ans.type = 'text'; ans.maxLength = 80; ans.value = a.text; ans.placeholder = tr('Quelques mots'); ans.setAttribute('aria-label', tr(g.q)); ans.enterKeyHint = 'next';
           g.opts.forEach(function (o) { s.appendChild(btn('', tr(o), function () { if (guideInsert(a, o)) { ans.value = a.text; onChange(); } })); });
-          ans.addEventListener('input', function () { a.text = ans.value; onChange(); });
+          ans.addEventListener('input', function () { a.text = ans.value; a.touched = true; onChange(); });
           ans.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); var nx = box.querySelectorAll('.objGuideQ input')[qi + 1]; if (nx) nx.focus(); else { form.guideOpen = gi + 1 < GUIDE_GROUPS.length ? gi + 1 : -1; paintGuideInto(box, form, onChange, true); } } });
           q.appendChild(s); q.appendChild(ans); wrap.appendChild(q);
           if (!firstIn) firstIn = ans;
@@ -280,7 +290,19 @@
     var guideBox = el('div', 'objGuide'); boxes.desc.appendChild(guideBox);
     function composeDesc() { form.description = guideCompose(form); }
     function paintGuide(f) { paintGuideInto(guideBox, form, composeDesc, f); }
-    paintGuide(); composeDesc();
+    function refreshHints() { // propositions du parent : lecture seule (aucune écriture), une activité, un parent ; sinon aucun champ proposé (comme avant)
+      var pid = form.parentId != null ? form.parentId : null, single = !form.create && form.activityId != null && form.acts.length + form.news.length <= 1;
+      var key = form.title + '|' + form.activityId + '|' + form.endDate;
+      var get = !single ? Promise.resolve(null) : pid != null ? Promise.resolve(pid) : !form.dateOk || !form.endDate ? Promise.resolve(null)
+        : form.hintKey === key ? Promise.resolve(form.hintParentId == null ? null : form.hintParentId)
+        : api('POST', '/api/objectifs/rattachement', { endDate: form.endDate, title: form.title, activityId: form.activityId, refused: form.refused || [] }).then(function (r) { form.hintKey = key; form.hintParentId = r && r.candidate ? r.candidate.id : null; return form.hintParentId; });
+      get.then(function (id) { return id == null ? null : api('GET', '/api/objectifs/' + id); }).then(function (o) {
+        var next = o ? guideProposals(o.description || '') : {};
+        if (JSON.stringify(next) !== JSON.stringify(form.proposed || {})) { form.proposed = next; paintGuide(); }
+      }).catch(function () { if (form.proposed && Object.keys(form.proposed).length) { form.proposed = {}; paintGuide(); } });
+    }
+    form._hints = refreshHints;
+    paintGuide(); composeDesc(); refreshHints();
     // Échéance (page 1) : « Date d'échéance : » et UN petit champ date à droite (calendrier natif), rien d'autre. Proposée par la base de durées (sans IA) ou imposée par la case de l'arbre.
     var dateIn = el('input', 'objDueInput'); dateIn.type = 'date'; dateIn.min = ctx.startDate; dateIn.setAttribute('aria-label', tr('Date d’échéance'));
     function paintDates() { if (!form.endFixed) dateIn.value = ctx.fixedDate && !ctx.dateConfirmed && !form.endDate ? '' : (form.endDate || ''); }
@@ -440,6 +462,8 @@
     function show(k) {
       form._step = cur = k;
       ['desc', 'rattach', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      if (k === 'desc' && form._hints && form._shownOnce) form._hints();
+      if (k === 'desc') form._shownOnce = true;
       if (k === 'temps') paintHours();
       if (k === 'rattach') paintRatt();
       panelKicker.textContent = tr(stepNames[k]);
@@ -862,6 +886,7 @@
     dock: function () { return dock; },
     openDetail: function (id) { openDetail(id); },
     openFiche: function (spec) { openFiche(spec); },
+    guideProposals: guideProposals,
     openEdit: function (id) { openEdit(id); } // mode édition de l'arbre : panneau de modification (même format que la création)
   };
   // Si la vue Objectifs est déjà celle affichée au chargement (page1 se monte avant ce fichier).
