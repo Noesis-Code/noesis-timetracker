@@ -327,7 +327,6 @@
     function renderActivities() { // UNE seule activité par objectif (les macros se font seulement depuis l'arbre)
       actBox.textContent = '';
       var acts = ctx.activities || [];
-      if (!acts.length) { actBox.appendChild(el('p', 'objPlain', tr('Crée d’abord une activité dans Réglages.'))); return; }
       if (form.fixedCtx) { // créé depuis un niveau de l'arbre : l'activité (et le pôle, le secteur) sont verrouillés
         var own = actById(form.activityId), lock = el('div', 'aiModeChoices');
         if (own) { lock.appendChild(choice(own.name, tr(LEVEL_LABEL[form.level]) + (form.ctxLabel ? ' · ' + form.ctxLabel : ''), true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), lock)); return; }
@@ -408,7 +407,7 @@
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
       stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave');
       stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');
-      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate)) || (k === 'activite' && !(ctx.activities || []).length); // Suivant grisé tant que le rattachement n'est pas décidé
+      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate)); // Suivant grisé tant que le rattachement n'est pas décidé
       advance = i < tot - 1 ? stepNext : finishAll; setBack(i > 0 ? function () { show(l[i - 1]); } : null);
     }
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
