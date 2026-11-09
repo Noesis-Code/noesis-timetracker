@@ -407,12 +407,14 @@ async function rattAi(userId, title, cands) {
 // au niveau activité), comme l'arbre le calcule. Les abandonnés et les macros ne comptent pas. Renvoie { id, title } ou null. Lecture seule.
 // « Remplacer » (décision d'Émilien, 9 nov. 2026) SUPPRIME l'objectif présent avec la suppression existante (supprimer, celle du mode modification de l'arbre) : seulement une fois le nouvel objectif enregistré.
 // Secteur : « Périodique » = la PÉRIODE (28 jours depuis le 1er janvier, 13 par an) qui contient l'échéance ; « Hebdomadaire » = la SEMAINE (lundi) qui contient l'échéance (9 nov. 2026, décision d'Émilien).
-function periodStartOf(iso) { const y = Number(iso.slice(0, 4)), d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000); return addDays(y + '-01-01', 28 * Math.min(12, Math.floor(d / 28))); }
+// MÊME grille que le calendrier (public/js/calendrier-numeros.js, goals.yearGridStart) : la semaine 1 et la période 1 commencent le PREMIER LUNDI de janvier ; les jours d'avant appartiennent à la dernière semaine / période de l'année précédente.
+function gridOf(iso) { const m = mondayOf(iso), g = goals.yearGridStart(m), week = Math.min(52, Math.floor(daysBetween(g, m) / 7) + 1); return { grid: g, year: Number(g.slice(0, 4)), week, period: Math.min(13, Math.ceil(week / 4)) }; }
+function periodStartOf(iso) { const g = gridOf(iso); return addDays(g.grid, 28 * (g.period - 1)); }
 function cellStartOf(inner, iso) { return inner === 'hebdomadaires' ? mondayOf(iso) : periodStartOf(iso); }
 function cellKey(level, iso, weekly) {
-  const y = Number(iso.slice(0, 4)), d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000);
+  const y = Number(iso.slice(0, 4));
   if (level === 'secteur' && weekly) return Number(mondayOf(iso).replace(/-/g, '')) * 1000; // la semaine, par son lundi
-  if (level === 'secteur') return y * 100 + Math.min(13, Math.floor(d / 28) + 1);
+  if (level === 'secteur') { const g = gridOf(iso); return g.year * 100 + g.period; }
   if (level === 'pole') return y * 100;
   const y0 = Number(today().slice(0, 4));
   return (y0 + 5 * Math.floor((y - y0) / 5)) * 100;
@@ -580,8 +582,9 @@ function creer(userId, body) {
   let start = isDay(body.startDate) ? body.startDate : today();
   // Secteur (9 nov. 2026) : « Hebdomadaire » est toujours possible, quelle que soit l'échéance ; l'échéance PLACE l'objectif : la semaine ou la période qui la contient (jamais tout l'intervalle depuis aujourd'hui).
   const placed = body.level === 'secteur' && isDay(body.endDate) && ['periodiques', 'hebdomadaires'].includes(body.inner);
-  if (placed) { const cs = cellStartOf(body.inner, body.endDate); if (cs > start && cs < body.endDate) start = cs; }
-  checkEcheance(body, start);
+  let startCheck = start; // échéance posée le jour même où la semaine / période commence : une seule journée, valable
+  if (placed) { const cs = cellStartOf(body.inner, body.endDate); if (cs > start && cs <= body.endDate) { start = cs; startCheck = cs === body.endDate ? addDays(cs, -1) : cs; } }
+  checkEcheance(body, startCheck);
   const unit = UNITS.includes(body.unit) ? body.unit : 'semaines';
   const amount = Number.isInteger(Number(body.amount)) && Number(body.amount) > 0 ? Number(body.amount) : Math.max(1, Math.round(daysBetween(start, body.endDate) / 7));
   const periodWeeks = userPW();

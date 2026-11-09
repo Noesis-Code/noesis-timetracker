@@ -43,7 +43,7 @@ const mk = (extra) => o.creer('u1', Object.assign({ title: 'Objectif ' + Math.ra
   assert(row.startDate === '2039-06-13' && row.endDate === lointaine && steps.length === 1 && steps[0].weeks.length === 1 && JSON.parse(row.metaJson).hoursPerWeek === 3, 'hebdomadaire 2039 : la semaine qui contient l’échéance (lundi 13 juin), une seule semaine, heures par semaine gardées');
   r = mk({ endDate: lointaine, inner: 'periodiques' });
   row = rowOf(r.id); steps = JSON.parse(row.stepsJson);
-  assert(row.startDate === '2039-05-21' && row.endDate === lointaine && steps.length === 1, 'périodique 2039 : la période (28 jours depuis le 1er janvier) qui contient l’échéance, une seule période (' + row.startDate + ')');
+  assert(row.startDate === '2039-05-23' && row.endDate === lointaine && steps.length === 1, 'périodique 2039 : la période (28 jours depuis le 1er janvier) qui contient l’échéance, une seule période (' + row.startDate + ')');
   // case occupée : la semaine et la période sont deux cases différentes ; la même semaine est occupée
   const caseOf = (inner, endDate) => o.occupant('u1', { activityId: act, level: 'secteur', poleKey, categoryKey: secKey, endDate, inner });
   assert(caseOf('hebdomadaires', '2039-06-17') && caseOf('hebdomadaires', '2039-06-17').id, 'case occupée : la même semaine (hebdomadaire)');
@@ -86,8 +86,7 @@ const mk = (extra) => o.creer('u1', Object.assign({ title: 'Objectif ' + Math.ra
   assert(src.includes("path.join(' › ')") && src.includes("tr('sous') + ' « ' + p.title + ' »' : tr('sans parent')") && src.includes("tr('semaine') + ' ' + weekNo(form.endDate) : tr('période') + ' ' + periodNo(form.endDate)"), 'phrase en direct : chemin, période ou semaine, parent ou « sans parent »');
   const fp = src.slice(src.indexOf('    function fetchParent()'), src.indexOf('    function refreshHints()'));
   assert(fp.includes("'/api/objectifs/rattachement'") && !/'PUT'|'DELETE'/.test(fp) && fp.includes('return Promise.resolve(null)'), 'parent retenu : même appel de rattachement, lecture seule ; absent = « sans parent »');
-  const per = (iso) => { const y = Number(iso.slice(0, 4)); const d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000); return Math.min(13, Math.floor(d / 28) + 1); };
-  assert(src.includes('Math.min(13, Math.floor(d / 28) + 1)') && per('2026-01-01') === 1 && per('2026-02-05') === 2 && per('2026-12-31') === 13, 'numéro de période : même découpage que l’arbre (13 périodes de 28 jours)');
+  assert(src.includes('TMT.calNums.period(iso)') && src.includes('TMT.calNums.week(iso)'), 'numéro de période et de semaine : la fonction partagée du calendrier (premier lundi de janvier), voir numerotation-creation-test');
   // Choix pôle/secteur : couleur du pôle (donnée), secteurs de la même couleur et décalés d'un cran, retoucher un parent replie et désélectionne ses enfants
   const ctxA = (await o.contexte('u1', { text: 'Poncer la table en 3 mois' })).activities.filter((x) => x.id === act)[0];
   assert(ctxA && ctxA.poles.length >= 1 && ctxA.poles.every((p) => Number.isInteger(p.shadeRank) && Number.isInteger(p.shadeCount)), 'les pôles portent leur rang de nuance (couleur de donnée, même règle que l’arbre)');

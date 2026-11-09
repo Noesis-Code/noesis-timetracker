@@ -238,8 +238,9 @@
   function isoAdd(iso, n) { var d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
   function mondayIso(iso) { return isoAdd(iso, -((new Date(iso + 'T00:00:00Z').getUTCDay() + 6) % 7)); }
   // Interrupteur « Hebdomadaire » (9 nov. 2026) : possible SEULEMENT au niveau secteur et si l'échéance tombe dans la semaine en cours ou la suivante ; l'échéance décide ce qui est possible.
-  function periodNo(iso) { var y = Number(iso.slice(0, 4)), d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000); return Math.min(13, Math.floor(d / 28) + 1); }
-  function weekNo(iso) { var y = Number(iso.slice(0, 4)), d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000); return Math.min(52, Math.floor(d / 7) + 1); }
+  // Numéros de semaine et de période : la MÊME fonction que le calendrier (public/js/calendrier-numeros.js, premier lundi de janvier) ; aucune copie ici.
+  function periodNo(iso) { return TMT.calNums.period(iso); }
+  function weekNo(iso) { return TMT.calNums.week(iso); }
   // Tranche de 5 ans d'un objectif d'ACTIVITÉ (pluriannuel) : MÊME définition que la colonne pluriannuelle de l'arbre (objectifs-arbre.js, blockStart / rowKey) : première année = année en cours + 5 × partie entière de (année de l'échéance - année en cours) / 5.
   function blockStart(iso) { var y0 = new Date().getFullYear(), y = Number(iso.slice(0, 4)); return y0 + 5 * Math.floor((y - y0) / 5); }
   function weeklyPossible(f) { return f.level === 'secteur' && !!f.endDate; } // dès qu'un secteur est choisi, « Hebdomadaire » est toujours possible (l'échéance place l'objectif : sa semaine ou sa période)
