@@ -421,9 +421,9 @@
     function targets() { return form.acts.map(function (id) { return { key: 'a' + id, id: id, name: (actById(id) || {}).name || '' }; }); }
     var tpBox = el('div'); boxes.temps.appendChild(tpBox);
     var tp = form.tp = form.tp || { key: null, e: null, valueMin: null, mode: null, apres: {}, page: 0, effects: null, loading: false };
-    function tpSpec() { return { activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null }; }
-    function tpKey() { var q = tpSpec(); return [q.activityId, q.level, q.poleKey || '', q.categoryKey || ''].join('|'); }
-    function tpQuery() { var q = tpSpec(); return 'activityId=' + encodeURIComponent(q.activityId) + '&level=' + q.level + (q.poleKey ? '&poleKey=' + encodeURIComponent(q.poleKey) : '') + (q.categoryKey ? '&categoryKey=' + encodeURIComponent(q.categoryKey) : ''); }
+    function tpSpec() { return { activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, endDate: form.endDate || null }; }
+    function tpKey() { var q = tpSpec(); return [q.activityId, q.level, q.poleKey || '', q.categoryKey || '', q.endDate || ''].join('|'); }
+    function tpQuery() { var q = tpSpec(); return 'activityId=' + encodeURIComponent(q.activityId) + '&level=' + q.level + (q.poleKey ? '&poleKey=' + encodeURIComponent(q.poleKey) : '') + (q.categoryKey ? '&categoryKey=' + encodeURIComponent(q.categoryKey) : '') + (q.endDate ? '&endDate=' + encodeURIComponent(q.endDate) : '') + (tp.committed != null ? '&ownMin=' + tp.committed : ''); }
     function hrs(min) { return min == null ? '—' : String(Math.round(min / 60 * 100) / 100).replace('.', ','); } // minutes -> heures (décimales permises)
     function parseHrs(raw) { // 0 à 168 h (les heures d'une semaine), décimales permises, aucune autre limite
       var t = String(raw == null ? '' : raw).trim().replace(',', '.');
@@ -454,11 +454,12 @@
       if (!tpChanging() || !tpValid()) return;
       var body = Object.assign(tpSpec(), { newMin: tp.valueMin, mode: tpIncrease() ? tpMode() : null, apres: tp.apres, apply: true });
       stepBtn.disabled = true; msg.textContent = '';
-      api('POST', '/api/objectifs/temps/plan', body).then(function () { tp.key = null; return tpLoad(true); }).catch(function (err) { msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); tpSync(); });
+      api('POST', '/api/objectifs/temps/plan', body).then(function () { tp.committed = tp.valueMin; tp.key = null; return tpLoad(true); }).catch(function (err) { msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); tpSync(); });
     }
     function tpGo(i) { var n = tpPages().length; tp.page = Math.max(0, Math.min(n - 1, i)); tpPaint(); }
     function tpLoad(force) {
       if (!force && tp.key === tpKey() && tp.e) { tpPaint(); tpSync(); return Promise.resolve(); }
+      if (!force && tp.key !== tpKey()) tp.committed = null; // autre niveau ou autre échéance : on repart du Prévu de la case
       tp.key = tpKey(); tp.loading = true; tp.e = null; tpPaint();
       return api('GET', '/api/objectifs/temps?' + tpQuery()).then(function (e) {
         tp.e = e; tp.loading = false; tp.valueMin = e.valueMin == null ? null : e.valueMin; tp.mode = null; tp.apres = {}; tp.page = 0; tp.effects = null; tpPaint(); tpSync();
