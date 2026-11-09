@@ -6,7 +6,7 @@
  * haut). Données : GET /api/stats/activity-progress (lecture seule,
  * server/lib/statsactivityprogress.js ; définition d'« objectif atteint » dans
  * l'en-tête de ce fichier serveur). Couleurs de pôle : nuances automatiques de
- * l'activité (TMT.subProjectShade) ; jamais de couleur propre aux secteurs. */
+ * l'activité (TMT.poleColor) ; jamais de couleur propre aux secteurs. */
 (function () {
   'use strict';
   var TMT = window.TMT;
@@ -134,7 +134,7 @@
     return (a && a.color) || '#674EA7';
   }
   function poleColor(index) {
-    try { return TMT.subProjectShade(activityColor(), index, TMT.SUB_PROJECT_SHADE_COUNT); } catch (e) { return activityColor(); }
+    try { return TMT.poleColor(activityColor(), index); } catch (e) { return activityColor(); }
   }
 
   // ---------- Construction (une fois) ----------

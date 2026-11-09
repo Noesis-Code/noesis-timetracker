@@ -391,7 +391,7 @@
       var outM = [];
       focus.activityIds.forEach(function (aid) {
         var a2 = actOf(aid), mine2 = shown.filter(function (o) { return o.activity.id === aid; }), col2 = mine2.length ? color(mine2[0]) : (a2 && a2.color), nm2 = a2 ? a2.name : '', poles2 = (a2 && a2.poles) || [], fp = poles2.length ? poles2[0].key : null;
-        var pc = function (p) { return p && p.shadeRank != null && TMT.subProjectShade ? TMT.subProjectShade(col2, p.shadeRank, p.shadeCount) : col2; };
+        var pc = function (p) { return p && p.shadeRank != null && TMT.poleColor ? TMT.poleColor(col2, p.shadeRank) : col2; };
         if (!poles2.length) poles2 = [{ key: null, label: nm2 }];
         poles2.forEach(function (p) { outM.push({ key: aid + '/' + p.key, pkey: p.key, aid: aid, label: p.label, color: pc(p), objs: mine2.filter(function (o) { return !o.isMacro && want(o) && (o.poleKey || fp) === p.key; }), ctx: { level: 'pole', activityId: aid, poleKey: p.key, label: nm2 + ' · ' + p.label } }); });
       });
@@ -401,7 +401,7 @@
       var outS = [];
       pairsOf().forEach(function (pr) {
         var a3 = actOf(pr.activityId), m3 = shown.filter(function (o) { return o.activity.id === pr.activityId; }), c3 = m3.length ? color(m3[0]) : (a3 && a3.color), p3 = ((a3 && a3.poles) || []).filter(function (p) { return p.key === pr.poleKey; })[0] || { key: pr.poleKey, label: '', secteurs: [] };
-        var pc3 = p3.shadeRank != null && TMT.subProjectShade ? TMT.subProjectShade(c3, p3.shadeRank, p3.shadeCount) : c3, ss = p3.secteurs && p3.secteurs.length ? p3.secteurs : [{ key: null, label: p3.label }], fs3 = ss[0].key, fp3 = ((a3 && a3.poles) || [])[0] ? a3.poles[0].key : null;
+        var pc3 = p3.shadeRank != null && TMT.poleColor ? TMT.poleColor(c3, p3.shadeRank) : c3, ss = p3.secteurs && p3.secteurs.length ? p3.secteurs : [{ key: null, label: p3.label }], fs3 = ss[0].key, fp3 = ((a3 && a3.poles) || [])[0] ? a3.poles[0].key : null;
         ss.forEach(function (x) { outS.push({ key: pr.activityId + '/' + pr.poleKey + '/' + x.key, label: x.label, color: pc3, objs: m3.filter(function (o) { return !o.isMacro && want(o) && (o.poleKey || fp3) === pr.poleKey && (o.categoryKey || fs3) === x.key; }), ctx: { level: 'secteur', activityId: pr.activityId, poleKey: pr.poleKey, categoryKey: x.key, label: (a3 ? a3.name : '') + ' · ' + p3.label + ' · ' + x.label } }); });
       });
       return outS;
@@ -409,7 +409,7 @@
     var act = actOf(focus.activityId), mine = shown.filter(function (o) { return o.activity.id === focus.activityId; }), col = mine.length ? color(mine[0]) : (act && act.color);
     var name = act ? act.name : (mine[0] ? mine[0].activity.name : '');
     var poles = (act && act.poles) || [], firstPole = poles.length ? poles[0].key : null;
-    function poleColor(p) { return p && p.shadeRank != null && TMT.subProjectShade ? TMT.subProjectShade(col, p.shadeRank, p.shadeCount) : col; } // couleur RÉELLE du pôle (donnée du serveur : rang de nuance, même règle que Chrono et les statistiques) // nuance de la couleur de l'activité, FIXE selon le rang du pôle (réordonné : les nuances suivent)
+    function poleColor(p) { return p && p.shadeRank != null && TMT.poleColor ? TMT.poleColor(col, p.shadeRank) : col; } // couleur RÉELLE du pôle (donnée du serveur : rang de nuance, même règle que Chrono et les statistiques) // nuance de la couleur de l'activité, FIXE selon le rang du pôle (réordonné : les nuances suivent)
     if (lvl === 'pole') {
       if (!poles.length) poles = [{ key: null, label: name }];
       return poles.map(function (p, pi) { return { key: p.key, label: p.label, color: poleColor(p), objs: mine.filter(function (o) { return !o.isMacro && want(o) && (o.poleKey || firstPole) === p.key; }), ctx: { level: 'pole', activityId: focus.activityId, poleKey: p.key, label: name + ' · ' + p.label } }; });

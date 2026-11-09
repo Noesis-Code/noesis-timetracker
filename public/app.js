@@ -4163,89 +4163,9 @@
   // todolist (contrat R1-R6, figé) : les deux chiffres se lisent côte à côte,
   // jamais l'un dans l'autre.
 
-  // ----- Nuances : même teinte, même saturation, clarté échelonnée -----
-  // Les couleurs d'activité viennent d'une palette fermée de 8 teintes très
-  // écartées (public/theme-palette.js) : ne faire varier que la CLARTÉ garantit
-  // qu'un sous-projet d'une activité « rouge » reste reconnaissable comme du
-  // rouge, et qu'aucune nuance ne peut être confondue avec une autre activité.
-  function hexToHsl(hex) {
-    var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''));
-    if (!m) return null;
-    var r = parseInt(m[1], 16) / 255, g = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255;
-    var max = Math.max(r, g, b), min = Math.min(r, g, b);
-    var l = (max + min) / 2, h = 0, s = 0;
-    if (max !== min) {
-      var d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
-      else if (max === g) h = (b - r) / d + 2;
-      else h = (r - g) / d + 4;
-      h /= 6;
-    }
-    return { h: h, s: s, l: l };
-  }
-
-  function hslToHex(h, s, l) {
-    function hue2rgb(p, q, tt) {
-      if (tt < 0) tt += 1;
-      if (tt > 1) tt -= 1;
-      if (tt < 1 / 6) return p + (q - p) * 6 * tt;
-      if (tt < 1 / 2) return q;
-      if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
-      return p;
-    }
-    var r, g, b;
-    if (s === 0) { r = g = b = l; }
-    else {
-      var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      var p = 2 * l - q;
-      r = hue2rgb(p, q, h + 1 / 3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1 / 3);
-    }
-    function hx(v) { return ('0' + Math.round(v * 255).toString(16)).slice(-2); }
-    return '#' + hx(r) + hx(g) + hx(b);
-  }
-
-  // `index` est le rang du sous-projet dans l'ordre d'affichage de l'activité
-  // (calculé côté serveur sur TOUS ses sous-projets, clôturés compris, pour
-  // qu'une couleur ne change pas d'une semaine à l'autre). `index` null =
-  // temps NON rattaché : il garde exactement la couleur de l'activité, donc
-  // rien ne change à l'écran pour qui n'utilise pas les sous-projets.
-  //
-  // ⚠️ Réécrit le 5 septembre 2026 — Emilien, captures à l'appui : « je
-  // souhaite que le contraste entre les couleurs des sous-projets soit plus
-  // prononcé ».
-  //
-  // LA CAUSE, et c'est tout l'intérêt de la réécriture : la première version
-  // espaçait les nuances régulièrement en LUMINOSITÉ HSL. Or le contraste
-  // perçu entre deux couleurs suit un RAPPORT DE LUMINANCE, pas une différence
-  // de luminosité. Près du clair, deux luminosités écartées de 0.15 sont
-  // presque indiscernables ; près du foncé, le même écart saute aux yeux. Un
-  // espacement régulier en luminosité produit donc mécaniquement des paires
-  // collées d'un côté et écartées de l'autre — les trois violets identiques de
-  // la capture d'Emilien.
-  //
-  // Ce qui change, dans l'ordre de l'effet obtenu :
-  //   1. les rangs sont répartis régulièrement dans le LOGARITHME de la
-  //      luminance : chaque nuance a alors le même rapport de contraste avec
-  //      sa voisine, quelle que soit sa position dans la bande ;
-  //   2. la zone interdite autour de la couleur de base (réservée au temps
-  //      « Sans sous-projet ») est RETIRÉE de la bande avant répartition, au
-  //      lieu d'être corrigée après coup par un petit décalage — qui pouvait
-  //      rapprocher deux nuances voisines ;
-  //   3. la saturation alterne légèrement d'un rang à l'autre, pour que deux
-  //      nuances voisines diffèrent sur deux dimensions au lieu d'une.
-  //
-  // Gain mesuré sur les 8 couleurs des deux palettes, pire couple : ~1.2:1
-  // avant, ~1.5 à 1.9:1 après, sur trois sous-projets.
-  //
-  // La TEINTE, elle, ne bouge jamais (écart maximal mesuré : 0.9°) : c'est ce
-  // qui fait qu'on lit encore « une nuance de cette activité » et pas une
-  // autre couleur (demande d'origine d'Emilien du 4 septembre). Deux
-  // assertions le vérifient.
-
-  // Luminance relative (WCAG) d'une couleur #rrggbb. Sert à espacer les
-  // nuances par CONTRASTE PERÇU et non par luminosité HSL brute — voir
-  // subProjectShade juste en dessous pour la raison.
+  // ----- Clarté perçue (lisibilité du texte sur une couleur d'activité) -----
+  // Les couleurs des pôles ne se calculent plus ici : elles sont fixes dans public/theme-palette.js (TMT.poleColor, règle R47).
+  // Luminance relative (WCAG) d'une couleur #rrggbb.
   function relLuminance(hex) {
     var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''));
     if (!m) return 0;
@@ -4255,11 +4175,6 @@
     });
     return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
   }
-
-  // Les nuances sont recalculées à chaque case de la Feuille de temps — 672 en
-  // vue Semaine — et le calcul ci-dessous fait une recherche par dichotomie.
-  // Une mémoïsation par (couleur, rang, nombre) rend le coût négligeable.
-  var subProjectShadeCache = {};
 
   // Clarté CIE L* d'une couleur — l'axe perceptuellement uniforme de la
   // luminosité. Deux couleurs séparées de 12 unités de L* se distinguent
@@ -4271,12 +4186,12 @@
   }
 
   // 16 septembre 2026 (Objectifs — B, 8e passage) : couleur de texte lisible
-  // sur un fond de nuance calculée (subProjectShade() plus bas) — utilisée
+  // sur un fond de nuance calculée (TMT.poleColor() plus bas) — utilisée
   // pour les badges de catégorie de la grille d'Objectifs (renderGoalsGridHead()).
   // Différent de textColorForTheme (plus haut) : celle-ci suppose un fond
   // toujours issu de la palette contrainte par thème (8 couleurs, toujours
   // assez sombre en thème sombre / assez claire en thème clair pour un texte
-  // fixe). Les nuances de subProjectShade() couvrent au contraire une bande
+  // fixe). Les nuances de TMT.poleColor() couvrent au contraire une bande
   // de clarté volontairement large (L* 22 à 90, voir son commentaire) pour
   // rester distinguables entre elles — certaines sont donc bien plus claires
   // que ce que textColorForTheme suppose. Seuil à mi-bande (56) plutôt que
@@ -4294,7 +4209,7 @@
   // avant, où readableTextOn() ci-dessus choisissait le texte en fonction du
   // FOND rempli) : une nuance trop sombre en thème sombre, ou trop claire en
   // thème clair, devient difficile à lire en petit texte. Les 5 nuances de
-  // subProjectShade() couvrent volontairement L* 22 à 90 (voir son
+  // TMT.poleColor() couvrent volontairement L* 22 à 90 (voir son
   // commentaire plus bas) pour rester distinguables ENTRE ELLES — ça ne
   // suffit pas à garantir une bonne lisibilité en TEXTE. Corrige seulement
   // au-delà du même seuil L* 56 que readableTextOn() (mi-bande), et mélange
@@ -4316,102 +4231,9 @@
     b = Math.round(b + (b2 - b) * amount);
     return '#' + [r, g, b].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
   }
+  // Nombre de couleurs de pôle standards par activité (theme-palette.js, TMT.poleColor) : sert à étaler les rangs des membres d'une activité partagée.
+  var POLE_TINT_COUNT = 5;
 
-  // ⚠️ 27 septembre 2026 : pastelActivityColor()/pastelActivityTextColor()
-  // (fond pastel clair au repos, option 2 choisie la veille) retirées le
-  // même jour — retour à la couleur pleine de l'activité sur demande directe
-  // d'Emilien, voir renderGoalsCaptureActivities() plus bas (état « au
-  // repos »). Avant elles, mutedActivityColor() (26 septembre, « plein
-  // assourdi ») avait déjà été retirée de la même façon — l'historique
-  // complet de ces 3 tentatives reste dans `noesis-timetracker-chantiers-
-  // en-cours.md`, encarts 63/67.
-
-  // ⚠️ 6 septembre 2026, demande d'Emilien : « je souhaite que tu crées pour
-  // chaque couleur d'activité 5 nuances distinguables à l'œil nu ».
-  //
-  // Deux changements par rapport à la veille :
-  //   · le nombre de nuances est FIXE (5) au lieu de dépendre du nombre de
-  //     sous-projets. Conséquence voulue et importante : ajouter un
-  //     sous-projet ne redistribue plus toutes les couleurs — celle d'un
-  //     sous-projet donné ne bouge plus jamais. `count` n'est donc plus lu ;
-  //     le paramètre reste dans la signature pour tous les appelants
-  //     existants, y compris le serveur qui envoie encore `shadeCount` ;
-  //   · les nuances sont espacées en CLARTÉ CIE L*, et non plus en logarithme
-  //     de luminance. Le rapport de contraste WCAG ne mesure que la luminance :
-  //     il ne voit pas la différence de teinte ou de saturation, et écrase les
-  //     écarts dans les tons clairs. L* est l'axe fait pour ça.
-  //
-  // Réglage choisi par balayage sur 12 couleurs (les 8 des deux palettes plus
-  // 4 cas extrêmes), en maximisant le PIRE écart perceptif (ΔE CIELAB) de
-  // toutes les paires, couleur de base comprise :
-  //   bande L* [22, 90], écart minimal de 11 avec la base, teinte et
-  //   saturation inchangées.
-  // Résultat : ΔE minimal de 12.3 (contre 6.4 la veille) — « nettement
-  // distinguable » commence vers 10. La nuance la plus claire reste à ΔE ≥ 13
-  // du blanc pur et la plus foncée à ΔE ≥ 18 d'un fond sombre : les cinq
-  // restent visibles sur les deux thèmes, ce qui interdisait d'élargir
-  // davantage la bande.
-  //
-  // ⚠️ Au-delà de 5 sous-projets, les nuances se répètent (index % 5). C'est
-  // volontaire et c'est la conséquence directe de la demande : cinq couleurs
-  // franches valent mieux que huit indistinctes. Si Emilien a un jour des
-  // activités à plus de cinq sous-projets et veut les distinguer toutes, il
-  // faudra parler de teinte — c'est la seule dimension qui reste.
-  var SUB_PROJECT_SHADE_COUNT = 5;
-
-  function subProjectShade(baseHex, index, count) {
-    if (index === null || index === undefined) return baseHex;
-    var hsl = hexToHsl(baseHex);
-    if (!hsl) return baseHex;
-
-    var rank = ((Number(index) % SUB_PROJECT_SHADE_COUNT) + SUB_PROJECT_SHADE_COUNT)
-      % SUB_PROJECT_SHADE_COUNT;
-    var cacheKey = baseHex + '|' + rank;
-    if (subProjectShadeCache[cacheKey]) return subProjectShadeCache[cacheKey];
-
-    // Bande de clarté : ni assez claire pour se confondre avec la carte en
-    // thème clair, ni assez foncée pour se confondre avec le fond en thème
-    // sombre. Vérifié : la nuance la plus claire reste à ΔE ≥ 13 du blanc pur,
-    // la plus foncée à ΔE ≥ 18 d'un fond sombre.
-    var LO = 22, HI = 90;      // en clarté CIE L*, pas en luminosité HSL
-    var GAP = 11;              // écart minimal, en L*, avec la couleur de base
-
-    // Teinte ET saturation sont conservées telles quelles : ce sont bien des
-    // nuances de la couleur de l'activité (demande d'Emilien du 4 septembre),
-    // et le balayage de réglages a montré qu'y toucher ne gagnait rien une
-    // fois l'espacement fait dans le bon espace.
-    var s = hsl.s;
-    var lBase = labLightness(baseHex);
-
-    // Deux segments : au-dessus et en dessous de la zone interdite autour de
-    // la base (réservée au temps « Sans sous-projet »). L'un des deux peut
-    // être vide si la couleur de l'activité est déjà à une extrémité. Les cinq
-    // rangs se répartissent régulièrement sur leur concaténation, du plus clair
-    // au plus foncé.
-    var upLen = Math.max(0, HI - Math.max(lBase + GAP, LO));
-    var loLen = Math.max(0, Math.min(lBase - GAP, HI) - LO);
-    var total = upLen + loLen;
-
-    var target;
-    if (total <= 0) {
-      target = lBase >= (HI + LO) / 2 ? LO : HI;   // cas dégénéré
-    } else {
-      var d = (rank / (SUB_PROJECT_SHADE_COUNT - 1)) * total;
-      target = d <= upLen ? HI - d : Math.min(lBase - GAP, HI) - (d - upLen);
-    }
-
-    // Dichotomie sur la luminosité HSL pour atteindre la clarté L* visée :
-    // L* est monotone en l à teinte et saturation fixées. 28 itérations
-    // descendent bien en dessous du pas d'un entier de composante.
-    var lo = 0, hi = 1;
-    for (var k = 0; k < 28; k++) {
-      var mid = (lo + hi) / 2;
-      if (labLightness(hslToHex(hsl.h, s, mid)) < target) lo = mid; else hi = mid;
-    }
-    var out = hslToHex(hsl.h, s, (lo + hi) / 2);
-    subProjectShadeCache[cacheKey] = out;
-    return out;
-  }
 
   // ----- La fenêtre -----
   // Elle reprend la structure du volet Statistiques : une Feuille de temps,
@@ -4653,7 +4475,7 @@
   // doivent colorer des cases dont ils n'ont pas la part sous la main), tandis
   // que /category-stats — celle du mode « Aujourd'hui » et de la page solo —
   // met un `shadeIndex` sur CHAQUE part et pas de table. Sans ce repli, le rang
-  // était introuvable, `subProjectShade(base, null, ...)` renvoyait la couleur
+  // était introuvable, `TMT.poleColor(base, null, ...)` renvoyait la couleur
   // de base, et TOUTES les catégories ressortaient de la couleur de l'activité
   // — exactement ce qu'Emilien a vu en appuyant sur « Aujourd'hui ».
   //
@@ -4665,7 +4487,7 @@
     if (category === null || category === undefined) return data.baseColor;
     var rank = data.shadeByCategory ? data.shadeByCategory[category] : undefined;
     if (rank === undefined || rank === null) rank = fallbackRank;
-    return subProjectShade(data.baseColor, rank === undefined ? null : rank, data.shadeCount);
+    return TMT.poleColor(data.baseColor, rank === undefined ? null : rank);
   }
 
   // ⚠️ 6 septembre 2026, demande d'Emilien : « je souhaite que la barre
@@ -4985,7 +4807,7 @@
   // semaine) — s'y accrocher rendrait cette section dépendante d'un écran qui
   // bouge vite, et l'y faire entrer demanderait de le paramétrer de bout en
   // bout. Les deux écrans partagent ce qui est STABLE : la route,
-  // subProjectShade et renderPie. Rien d'autre.
+  // TMT.poleColor et renderPie. Rien d'autre.
   //
   // ⚠️ Le temps enregistré SANS catégorie forme sa propre part. Le
   // rattachement à une catégorie au démarrage du chrono est optionnel et
@@ -5034,7 +4856,7 @@
         name: p.parentKey ? ((p.parentName || t('Pôle')) + ' · ' + ownName) : ownName,
         seconds: p.seconds,
         percent: p.percent,
-        color: subProjectShade(data.baseColor, p.shadeIndex, data.shadeCount),
+        color: TMT.poleColor(data.baseColor, p.shadeIndex),
       };
     });
     // Nouvelle donnée (nouvelle période, nouvelle activité) : on repart de
@@ -5988,7 +5810,7 @@
   // membres d'avoir choisi la même : ils devenaient alors indistinguables,
   // exactement le cas de la capture. On garde donc ici la couleur de
   // l'ACTIVITÉ, et chaque membre reçoit une de ses cinq nuances — même
-  // fonction (subProjectShade) et même palette que les sous-projets, pour que
+  // fonction (TMT.poleColor) et même palette que les sous-projets, pour que
   // les deux sections de cette page se lisent de la même façon.
   var currentActivityColor = '';
 
@@ -6034,11 +5856,11 @@
     // À deux membres, prendre les rangs 0 et 1 donnait deux nuances claires
     // presque jumelles ; étalés, ils prennent les deux extrêmes de l'échelle.
     // Conséquence assumée : arriver à trois membres redistribue les nuances.
-    var last = SUB_PROJECT_SHADE_COUNT - 1;
-    var rank = known.length > SUB_PROJECT_SHADE_COUNT
-      ? index % SUB_PROJECT_SHADE_COUNT
+    var last = POLE_TINT_COUNT - 1;
+    var rank = known.length > POLE_TINT_COUNT
+      ? index % POLE_TINT_COUNT
       : Math.round((index * last) / (known.length - 1));
-    return subProjectShade(currentActivityColor, rank, known.length);
+    return TMT.poleColor(currentActivityColor, rank);
   }
 
   // Le bloc de détail est un élément unique, déplacé d'une ligne à l'autre au
@@ -6890,7 +6712,7 @@
   // Comportement :
   //  · liste de PÔLES ; toucher une ligne la déplie/replie et révèle ses SECTEURS ;
   //  · couleur : seulement les pôles, AUTOMATIQUE selon leur position dans la liste
-  //    (subProjectShade, nuance de la couleur de l'activité) — aucun sélecteur ;
+  //    (TMT.poleColor, teinte standard de pôle de l'activité) — aucun sélecteur ;
   //  · ajout : zone d'écriture #catComposer (frère de #activityPageScroll, voir
   //    index.html), collée au-dessus du clavier ; la cible est « nouveau pôle » ou
   //    un pôle précis (touche « + Nouveau secteur » sous un pôle déplié) ;
@@ -7154,7 +6976,7 @@
     header.className = 'activityRowHeader';
     var dot = document.createElement('span');
     dot.className = 'dot';
-    dot.style.background = subProjectShade(currentActivityColor, 0, SUB_PROJECT_SHADE_COUNT);
+    dot.style.background = TMT.poleColor(currentActivityColor, 0);
     var title = document.createElement('span');
     title.className = 'activityRowName';
     title.textContent = t('Nouveau pôle');
@@ -7507,7 +7329,7 @@
     var dot = document.createElement('span');
     dot.className = 'dot';
     // Couleur AUTOMATIQUE : nuance de la couleur de l'activité selon la position.
-    dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+    dot.style.background = TMT.poleColor(currentActivityColor, index);
 
     if (edit) {
       var handle = document.createElement('span');
@@ -8036,7 +7858,7 @@
       header.className = 'activityRowHeader clickable';
       var dot = document.createElement('span');
       dot.className = 'dot';
-      dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+      dot.style.background = TMT.poleColor(currentActivityColor, index);
       var name = document.createElement('span');
       name.className = 'activityRowName';
       name.textContent = pole.label;
@@ -8097,7 +7919,7 @@
 
   // 16 septembre 2026 (8e passage) : couleur de L'ACTIVITÉ affichée, posée
   // par openGoalsForActivity() — source de base pour les nuances
-  // automatiques des badges de catégorie (subProjectShade(), voir
+  // automatiques des badges de catégorie (TMT.poleColor(), voir
   // renderGoalsGridHead()/renderGoalsGrid() plus bas, couleur 100%
   // automatique, plus aucune couleur choisie/stockée par catégorie).
   TMT.currentGoalsActivityColor = '';
@@ -17376,8 +17198,6 @@
   window.TMT.dateLocale = dateLocale;
   window.TMT.refreshActivities = refreshActivities;
   window.TMT.textColorForTheme = textColorForTheme;
-  window.TMT.subProjectShade = subProjectShade;
-  window.TMT.SUB_PROJECT_SHADE_COUNT = SUB_PROJECT_SHADE_COUNT;
   window.TMT.eclairciPourLisibilite = eclairciPourLisibilite;
   window.TMT.readableTextOn = readableTextOn;
   window.TMT.appendLinkified = appendLinkified;

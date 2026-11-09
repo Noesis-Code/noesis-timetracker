@@ -992,8 +992,8 @@
     if (open) { var body = el('div', 'tasksTreeBody'); wrap.appendChild(body); fill(body); }
     parent.appendChild(wrap);
   }
-  // Nuance du pôle (celle des objectifs : TMT.subProjectShade, rang du pôle) ; les secteurs reprennent celle de leur pôle.
-  function poleShade(t) { return t.activityColor && TMT.subProjectShade ? TMT.subProjectShade(t.activityColor, t.poleIndex || 0, 5) : ''; }
+  // Nuance du pôle (celle des objectifs : TMT.poleColor, rang du pôle) ; les secteurs reprennent celle de leur pôle.
+  function poleShade(t) { return t.activityColor && TMT.poleColor ? TMT.poleColor(t.activityColor, t.poleIndex || 0) : ''; }
   function branch(parent, id, label, count, depth, fill, color) {
     var open = !!openNodes[id];
     var row = TMT.buildGoalsGroupRow(label, count, open, function () { toggleNode(id); });

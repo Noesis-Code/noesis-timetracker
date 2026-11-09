@@ -205,7 +205,6 @@
 
 
   var $ = TMT.$, api = TMT.api, readableTextOn = TMT.readableTextOn,
-      subProjectShade = TMT.subProjectShade, SUB_PROJECT_SHADE_COUNT = TMT.SUB_PROJECT_SHADE_COUNT,
       calendarDayLabel = TMT.calendarDayLabel, loadGoalsCaptureBadges = TMT.loadGoalsCaptureBadges,
       formatGoalPeriodDates = TMT.formatGoalPeriodDates, goalPeriodByNumber = TMT.goalPeriodByNumber,
       activeGoalsCategories = TMT.activeGoalsCategories,
@@ -236,7 +235,7 @@
   // du serveur le même jour (couleur 100% automatique, cadré séparément avec
   // Emilien — voir server/lib/goals.js). Adaptée pour rester fonctionnelle :
   // même mécanisme que renderGoalsGridHead()/renderGoalsGrid() (nuance de
-  // subProjectShade() à partir de TMT.currentGoalsActivityColor et du RANG de la
+  // TMT.poleColor() à partir de TMT.currentGoalsActivityColor et du RANG de la
   // catégorie), plus aucun repli violet nécessaire — chaque catégorie, y
   // compris la catégorie par défaut seule, a désormais toujours sa propre
   // nuance calculée.
@@ -247,7 +246,7 @@
     // Secteur (page mensuel) : la couleur est celle du PÔLE affiché, jamais le violet de repli.
     if (index === -1 && TMT.currentGoalsPoleIndex != null) index = TMT.currentGoalsPoleIndex;
     if (index === -1) return 'var(--purple)';
-    return subProjectShade(TMT.currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+    return TMT.poleColor(TMT.currentGoalsActivityColor, index);
   }
 
 
@@ -787,7 +786,7 @@
         // les objectifs hebdomadaires — l'assignation est réservée aux tâches.
       }
 
-      var weekFill = TMT.currentGoalsPoleIndex != null ? subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex, SUB_PROJECT_SHADE_COUNT) : currentGoalsCategoryColor();
+      var weekFill = TMT.currentGoalsPoleIndex != null ? TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex) : currentGoalsCategoryColor();
       row.style.setProperty('--poleColor', weekFill);
       row.style.setProperty('--poleText', readableTextOn(weekFill));
     box.appendChild(row);
@@ -1025,7 +1024,7 @@
       var mainTextColor = readableTextOn(mainCatColor);
       mainCardEl.style.background = mainCatColor;
       mainCardEl.style.color = mainTextColor;
-      mainCardEl.style.setProperty('--cardEdge', TMT.currentGoalsPoleIndex != null ? subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex, SUB_PROJECT_SHADE_COUNT) : mainCatColor); // page mensuel : verre + contour de la couleur du pôle (CSS)
+      mainCardEl.style.setProperty('--cardEdge', TMT.currentGoalsPoleIndex != null ? TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex) : mainCatColor); // page mensuel : verre + contour de la couleur du pôle (CSS)
       if (mainProgressTrackEl) {
         mainProgressTrackEl.style.background = mainTextColor === '#ffffff'
           ? 'rgba(255, 255, 255, 0.25)'

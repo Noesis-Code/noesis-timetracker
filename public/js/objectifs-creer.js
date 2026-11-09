@@ -361,7 +361,7 @@
       // choisir un pôle déroule ses secteurs juste dessous ; retoucher le pôle ou le secteur choisi l'annule (même règle qu'une carte d'activité). Pas de libellés, pas de « Aucun ». Facultatifs :
       // activité seule = objectif long, + pôle = moyen, + secteur = court (le niveau gagne sur la durée). Une activité sans pôle : rien ne se déroule.
       function chev(row, open) { row.classList.add('objHasChev'); row.appendChild(el('span', 'cmpChev' + (open ? ' open' : ''))); return row; }
-      function poleColor(a, p) { return p && p.shadeRank != null && TMT.subProjectShade ? TMT.subProjectShade(a.color, p.shadeRank, p.shadeCount) : a.color; }
+      function poleColor(a, p) { return p && p.shadeRank != null && TMT.poleColor ? TMT.poleColor(a.color, p.shadeRank) : a.color; }
       function under(a, blk) {
         (a.poles || []).forEach(function (p) {
           var sel = form.poleKey === p.key, secs = p.secteurs || [], pc = poleColor(a, p);

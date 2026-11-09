@@ -550,7 +550,7 @@
   // Rappelé par le sélecteur de pôle (objectifs-page2-objectif.js) au changement de pôle : le nom du pôle prend la couleur du pôle (donnée, R16) ; jamais celle d'un secteur.
   TMT.rerenderGoalsTasksOverview = function () {
     var hdr = $('goalsActivityHeader');
-    if (hdr && TMT.subProjectShade) hdr.style.setProperty('--poleColor', TMT.subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, TMT.SUB_PROJECT_SHADE_COUNT));
+    if (hdr && TMT.poleColor) hdr.style.setProperty('--poleColor', TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0));
   };
 
 

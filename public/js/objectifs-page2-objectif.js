@@ -243,8 +243,6 @@
 
   var $ = TMT.$,
       api = TMT.api,
-      subProjectShade = TMT.subProjectShade,
-      SUB_PROJECT_SHADE_COUNT = TMT.SUB_PROJECT_SHADE_COUNT,
       eclairciPourLisibilite = TMT.eclairciPourLisibilite,
       readableTextOn = TMT.readableTextOn,
       switchTab = TMT.switchTab,
@@ -588,7 +586,7 @@
     poles.forEach(function (p, i) { if (p.key === TMT.currentGoalsSelectedPoleKey) index = i; });
     if (index === -1) index = 0;
     TMT.currentGoalsPoleIndex = index;
-    var shade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
+    var shade = TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0);
     applyGoalsHeaderState(header, false, poles[index], shade); // cadre = PÔLE sur toutes les pages
     if (TMT.rerenderGoalsTasksOverview) TMT.rerenderGoalsTasksOverview();
   }
@@ -639,7 +637,7 @@
   // nom de catégorie
   // CENTRÉ et encadré dans un cadre coloré — une NUANCE de la couleur de
   // l'activité, une nuance différente par catégorie, même mécanisme que les
-  // 5 nuances des sous-projets (subProjectShade(), plus haut dans ce
+  // 5 nuances des sous-projets (TMT.poleColor(), plus haut dans ce
   // fichier) plutôt qu'une nouvelle échelle de couleurs. Couleur 100%
   // automatique (cadré avec Emilien, AskUserQuestion) : plus de champ
   // `color` côté serveur, tout se calcule ici à partir de
@@ -949,7 +947,7 @@
         var span = document.createElement('span');
         span.className = 'goalsGridHeadCell';
         span.textContent = t(c.label);
-        var shade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
+        var shade = TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0);
         // (discussion "Objectifs — Titres des catégories"),
         // demande d'Emilien : « je laisse la couleur noire à l'intérieur et
         // mets le titre de la catégorie en couleur » — fond transparent (la
@@ -994,7 +992,7 @@
     } else if (!hasNoRealCategory && isPoleFallbackColumn) {
       // Pôle sans secteur : l'objectif de l'année reste possible, sans titre de secteur.
       var poleCat = categories[0];
-      var poleShade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
+      var poleShade = TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0);
       head.appendChild(buildGoalsYearColumn(poleCat, null, poleShade));
       loadGoalsYearGoals(); loadGoalsYears();
     }
@@ -1274,7 +1272,7 @@
     var grid = $('goalsGrid');
     if (!grid || !TMT.currentGoalsAllPlannings) return;
     grid.innerHTML = '';
-    grid.style.setProperty('--poleTree', subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT));
+    grid.style.setProperty('--poleTree', TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0));
     var byCategory = TMT.currentGoalsAllPlannings.byCategory || {};
     var categories = activeGoalsCategories();
     // même garde que renderGoalsGridHead()
@@ -1362,7 +1360,7 @@
             // je souhaite qu'on ait l'impression qu'on a creusé les lettres
             // à travers la bulle. » — effet "texte gravé" : la bulle est
             // remplie en APLAT de la nuance automatique de la catégorie
-            // (même fonction subProjectShade() que le badge d'en-tête,
+            // (même fonction TMT.poleColor() que le badge d'en-tête,
             // jamais une simple bordure comme avant ce passage), le texte
             // prend exactement la couleur du fond d'écran (var(--bg), PAS
             // readableTextOn() — Emilien veut la couleur du fond, pas un
@@ -1371,7 +1369,7 @@
             // dessus. La bordure reprend la même nuance que le fond (plus
             // aucun contour visible, bulle pleine comme la maquette de
             // référence envoyée par Emilien).
-            var filledShade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
+            var filledShade = TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0);
             cell.style.background = filledShade;
             cell.style.borderColor = filledShade;
             txt.style.color = 'var(--bg)';
@@ -1421,7 +1419,7 @@
         marker.setAttribute('aria-label', t('Période') + ' ' + periodIndex);
         if (mState !== 'past') marker.textContent = String(periodIndex);
         if (mState === 'current') {
-          var poleColor = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
+          var poleColor = TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0);
           marker.style.background = poleColor;
           marker.style.color = readableTextOn(poleColor);
         }

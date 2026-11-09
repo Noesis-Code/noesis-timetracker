@@ -611,12 +611,12 @@
     return 'S' + Math.ceil(((d - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7);
   }
   // PARCOURS EN 3 ÉCRANS dans le pop-up (Sommaire › Un pôle › Un secteur), glissement horizontal, points en bas.
-  // Seul l'écran visible est rendu. Couleur d'un pôle = nuance automatique de l'app (TMT.subProjectShade), jamais pour un secteur.
+  // Seul l'écran visible est rendu. Couleur d'un pôle = nuance automatique de l'app (TMT.poleColor), jamais pour un secteur.
   var nav = { s: 0, p: null, g: null }, pcolors = {};
   function poleColor(pk) {
     if (pcolors[pk]) return pcolors[pk];
     var base = TMT.currentGoalsActivityColor || '#674EA7', c = base;
-    try { c = TMT.subProjectShade(base, pmeta.poleIdx[pk] || 0, TMT.SUB_PROJECT_SHADE_COUNT) || base; } catch (e) {}
+    try { c = TMT.poleColor(base, pmeta.poleIdx[pk] || 0) || base; } catch (e) {}
     return (pcolors[pk] = c);
   }
   function mkGrp(id, label) { return { id: id, label: label, flat: [], weeks: {}, wlist: [] }; }
