@@ -333,9 +333,11 @@ async function aiProposal(userId, title, periods, weekly, activityName) {
 // Proposition d'étapes : ne crée rien. Le client montre, l'utilisateur modifie puis valide (creer).
 async function proposer(userId, body) {
   const title = cleanTitle(body && body.title);
-  const start = isDay(body.startDate) ? body.startDate : today();
+  let start = isDay(body.startDate) ? body.startDate : today();
   const end = isDay(body.endDate) ? body.endDate : computeEnd(start, body.amount, body.unit);
-  if (end <= start) throw err('La fin doit être après le début.');
+  const pl = placement(Object.assign({}, body, { endDate: end }), start); // même placement par colonne que la création
+  start = pl.start;
+  if (end <= pl.startCheck) throw err('La fin doit être après le début.');
   const periodWeeks = userPW();
   const weekly = body.weekly !== false;
   const periods = splitPeriods(start, end, periodWeeks);
@@ -411,13 +413,26 @@ async function rattAi(userId, title, cands) {
 function gridOf(iso) { const m = mondayOf(iso), g = goals.yearGridStart(m), week = Math.min(52, Math.floor(daysBetween(g, m) / 7) + 1); return { grid: g, year: Number(g.slice(0, 4)), week, period: Math.min(13, Math.ceil(week / 4)) }; }
 function periodStartOf(iso) { const g = gridOf(iso); return addDays(g.grid, 28 * (g.period - 1)); }
 function cellStartOf(inner, iso) { return inner === 'hebdomadaires' ? mondayOf(iso) : periodStartOf(iso); }
+// Pôle = l'ANNÉE (celle de l'arbre : année civile de l'échéance) ; activité = la TRANCHE de 5 ans (première année = année en cours) qui la contient : MÊMES définitions que les colonnes de l'arbre (objectifs-arbre.js, blockStart / rowKey).
+function blockYearOf(iso) { const y0 = Number(today().slice(0, 4)), y = Number(iso.slice(0, 4)); return y0 + 5 * Math.floor((y - y0) / 5); }
 function cellKey(level, iso, weekly) {
-  const y = Number(iso.slice(0, 4));
   if (level === 'secteur' && weekly) return Number(mondayOf(iso).replace(/-/g, '')) * 1000; // la semaine, par son lundi
   if (level === 'secteur') { const g = gridOf(iso); return g.year * 100 + g.period; }
-  if (level === 'pole') return y * 100;
-  const y0 = Number(today().slice(0, 4));
-  return (y0 + 5 * Math.floor((y - y0) / 5)) * 100;
+  if (level === 'pole') return Number(iso.slice(0, 4)) * 100;
+  return blockYearOf(iso) * 100;
+}
+// PLACEMENT par colonne (9 nov. 2026, décision d'Émilien) : l'échéance place l'objectif dans SA colonne (secteur : période ou semaine ; pôle : année ; activité : tranche de 5 ans) ; il ne couvre pas l'intervalle depuis aujourd'hui
+// (aucune période générée avant sa colonne : plus de « Trop de périodes » pour 2039 et au-delà). Les étapes avant sa colonne sont des objectifs plus bas, créés ou reliés à la main : l'app n'en crée aucun toute seule.
+// Si la colonne contient déjà aujourd'hui, le début reste aujourd'hui (comportement d'avant). Renvoie le début retenu et le début à contrôler (échéance posée le premier jour de la colonne : une seule journée, valable).
+function placement(body, start) {
+  const end = body && body.endDate;
+  if (!isDay(end) || (body && body.isMacro === true)) return { start, startCheck: start, placed: false };
+  let cs = null, placedSecteur = false;
+  if (body.level === 'secteur' && ['periodiques', 'hebdomadaires'].includes(body.inner)) { cs = cellStartOf(body.inner, end); placedSecteur = true; }
+  else if (body.level === 'pole') cs = end.slice(0, 4) + '-01-01'; // la colonne commence le 1er janvier de l'année
+  else if (body.level === 'activite') cs = blockYearOf(end) + '-01-01';
+  if (cs && cs > start && cs <= end) return { start: cs, startCheck: cs === end ? addDays(cs, -1) : cs, placed: placedSecteur };
+  return { start, startCheck: start, placed: placedSecteur };
 }
 function occupants(userId, body) {
   const act = userActivities(userId).find((a) => a.id === Number(body && body.activityId));
@@ -581,10 +596,9 @@ function creer(userId, body) {
   if (!act) throw err('Choisis une de tes activités.');
   let start = isDay(body.startDate) ? body.startDate : today();
   // Secteur (9 nov. 2026) : « Hebdomadaire » est toujours possible, quelle que soit l'échéance ; l'échéance PLACE l'objectif : la semaine ou la période qui la contient (jamais tout l'intervalle depuis aujourd'hui).
-  const placed = body.level === 'secteur' && isDay(body.endDate) && ['periodiques', 'hebdomadaires'].includes(body.inner);
-  let startCheck = start; // échéance posée le jour même où la semaine / période commence : une seule journée, valable
-  if (placed) { const cs = cellStartOf(body.inner, body.endDate); if (cs > start && cs <= body.endDate) { start = cs; startCheck = cs === body.endDate ? addDays(cs, -1) : cs; } }
-  checkEcheance(body, startCheck);
+  const pl = placement(body, start), placed = pl.placed;
+  start = pl.start;
+  checkEcheance(body, pl.startCheck);
   const unit = UNITS.includes(body.unit) ? body.unit : 'semaines';
   const amount = Number.isInteger(Number(body.amount)) && Number(body.amount) > 0 ? Number(body.amount) : Math.max(1, Math.round(daysBetween(start, body.endDate) / 7));
   const periodWeeks = userPW();

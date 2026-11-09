@@ -611,7 +611,7 @@
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
       var t = targets()[0], actName = t ? t.name : '', first = null;
-      function go(replaceId) { return api('POST', '/api/objectifs/proposition', { title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.activityId, activityName: actName })
+      function go(replaceId) { return api('POST', '/api/objectifs/proposition', { level: form.level || 'activite', inner: form.level === 'secteur' ? innerOf() : undefined, title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.activityId, activityName: actName })
         .then(function (P) { // UNE seule activité, qui existe déjà (elle se crée dans Réglages) ; les macros se font seulement depuis l'arbre
           return Promise.resolve(t.id)
             .then(function (activityId) {
