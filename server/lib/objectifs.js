@@ -406,8 +406,12 @@ async function rattAi(userId, title, cands) {
 // Case occupée (9 nov. 2026) : un objectif existe déjà dans la MÊME colonne (activité, pôle, secteur) et à la MÊME ligne du temps (période au niveau secteur, année au niveau pôle, bloc de 5 ans
 // au niveau activité), comme l'arbre le calcule. Les abandonnés et les macros ne comptent pas. Renvoie { id, title } ou null. Lecture seule.
 // « Remplacer » (décision d'Émilien, 9 nov. 2026) SUPPRIME l'objectif présent avec la suppression existante (supprimer, celle du mode modification de l'arbre) : seulement une fois le nouvel objectif enregistré.
-function cellKey(level, iso) {
+// Secteur : « Périodique » = la PÉRIODE (28 jours depuis le 1er janvier, 13 par an) qui contient l'échéance ; « Hebdomadaire » = la SEMAINE (lundi) qui contient l'échéance (9 nov. 2026, décision d'Émilien).
+function periodStartOf(iso) { const y = Number(iso.slice(0, 4)), d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000); return addDays(y + '-01-01', 28 * Math.min(12, Math.floor(d / 28))); }
+function cellStartOf(inner, iso) { return inner === 'hebdomadaires' ? mondayOf(iso) : periodStartOf(iso); }
+function cellKey(level, iso, weekly) {
   const y = Number(iso.slice(0, 4)), d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000);
+  if (level === 'secteur' && weekly) return Number(mondayOf(iso).replace(/-/g, '')) * 1000; // la semaine, par son lundi
   if (level === 'secteur') return y * 100 + Math.min(13, Math.floor(d / 28) + 1);
   if (level === 'pole') return y * 100;
   const y0 = Number(today().slice(0, 4));
@@ -418,14 +422,18 @@ function occupants(userId, body) {
   if (!act || !isDay(body && body.endDate)) return [];
   const level = ['activite', 'pole', 'secteur'].includes(body.level) ? body.level : 'activite';
   const pk = level === 'activite' ? null : (body.poleKey || null), ck = level === 'secteur' ? (body.categoryKey || null) : null;
-  const key = cellKey(level, body.endDate), now = today();
+  const explicitInner = level === 'secteur' && ['periodiques', 'hebdomadaires'].includes(body.inner); // sans choix explicite : la période, comme avant
+  const weeklyReq = explicitInner && body.inner === 'hebdomadaires';
+  const key = cellKey(level, body.endDate, weeklyReq), now = today();
   return db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ? AND isMacro = 0 ORDER BY id').all(userId, act.id).filter((r) => {
     if (body.__skip != null && r.id === Number(body.__skip)) return false; // l'objectif qu'on vient de créer n'est pas l'occupant
     if ((r.level || 'activite') !== level || (r.poleKey || null) !== pk || (r.categoryKey || null) !== ck) return false;
     let meta = {}; try { meta = JSON.parse(r.metaJson || '{}'); } catch (e) { meta = {}; }
     if (meta.abandoned) return false;
+    const weeklyRow = explicitInner && meta.inner === 'hebdomadaires';
+    if (weeklyRow !== weeklyReq) return false; // une semaine et une période sont deux cases différentes
     const late = r.endDate < now && shape(r, false).status !== 'atteint';
-    return cellKey(level, late ? now : r.endDate) === key;
+    return cellKey(level, late ? now : r.endDate, weeklyRow) === key;
   }).map((r) => ({ id: r.id, title: r.title }));
 }
 function occupant(userId, body) { return occupants(userId, body)[0] || null; }
@@ -569,7 +577,10 @@ function creer(userId, body) {
   const title = cleanTitle(body && body.title);
   const act = userActivities(userId).find((a) => a.id === Number(body.activityId));
   if (!act) throw err('Choisis une de tes activités.');
-  const start = isDay(body.startDate) ? body.startDate : today();
+  let start = isDay(body.startDate) ? body.startDate : today();
+  // Secteur (9 nov. 2026) : « Hebdomadaire » est toujours possible, quelle que soit l'échéance ; l'échéance PLACE l'objectif : la semaine ou la période qui la contient (jamais tout l'intervalle depuis aujourd'hui).
+  const placed = body.level === 'secteur' && isDay(body.endDate) && ['periodiques', 'hebdomadaires'].includes(body.inner);
+  if (placed) { const cs = cellStartOf(body.inner, body.endDate); if (cs > start && cs < body.endDate) start = cs; }
   checkEcheance(body, start);
   const unit = UNITS.includes(body.unit) ? body.unit : 'semaines';
   const amount = Number.isInteger(Number(body.amount)) && Number(body.amount) > 0 ? Number(body.amount) : Math.max(1, Math.round(daysBetween(start, body.endDate) / 7));
@@ -582,8 +593,7 @@ function creer(userId, body) {
   const term = ['activite', 'pole', 'secteur'].includes(body.level) ? LEVEL_TERM[body.level] : (body.term || termsOk[termsOk.length - 1]);
   const innerReq = ['periodiques', 'hebdomadaires', 'les_deux'].includes(body.inner) ? body.inner : (body.weekly === false ? 'periodiques' : 'les_deux');
   // Au niveau secteur, si l'échéance tombe dans la semaine en cours ou la suivante, l'interrupteur « Hebdomadaire » choisit : périodique ou hebdomadaire ; ailleurs, l'échéance décide (une seule période : hebdomadaires).
-  const switchable = body.level === 'secteur' && body.endDate <= addDays(mondayOf(today()), 13) && ['periodiques', 'hebdomadaires'].includes(body.inner);
-  const inner = switchable || daysBetween(start, body.endDate) > 28 ? innerReq : 'hebdomadaires';
+  const inner = placed || daysBetween(start, body.endDate) > 28 ? innerReq : 'hebdomadaires';
   const weekly = inner !== 'periodiques';
   let parentId = null;
   if (body.parentId) {

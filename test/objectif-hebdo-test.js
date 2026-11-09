@@ -32,7 +32,23 @@ const mk = (extra) => o.creer('u1', Object.assign({ title: 'Objectif ' + Math.ra
   // hebdomadaire impossible : échéance au-delà de la semaine suivante (≤ 28 jours = une seule période) : l'échéance décide
   const far = addDays(nextWeekEnd, 3);
   r = mk({ endDate: far, inner: 'periodiques' });
-  assert(r.innerGoals === 'hebdomadaires', 'échéance au-delà de la semaine suivante : l’interrupteur ne peut pas imposer un périodique (une période : hebdomadaires)');
+  assert(r.innerGoals === 'periodiques', 'échéance au-delà de la semaine suivante : le choix de l’utilisateur est respecté (Périodique)');
+  r = mk({ endDate: far, inner: 'hebdomadaires' });
+  assert(r.innerGoals === 'hebdomadaires', 'échéance au-delà de la semaine suivante : « Hebdomadaire » reste possible');
+  // échéance très lointaine (2039) : l'échéance PLACE l'objectif (sa semaine / sa période), le serveur le crée sans « Trop de périodes »
+  const lointaine = '2039-06-15';
+  const rowOf = (id) => db.prepare('SELECT startDate, endDate, stepsJson, metaJson FROM user_objectives WHERE id = ?').get(id);
+  r = mk({ endDate: lointaine, inner: 'hebdomadaires', hoursPerWeek: 3 });
+  let row = rowOf(r.id), steps = JSON.parse(row.stepsJson);
+  assert(row.startDate === '2039-06-13' && row.endDate === lointaine && steps.length === 1 && steps[0].weeks.length === 1 && JSON.parse(row.metaJson).hoursPerWeek === 3, 'hebdomadaire 2039 : la semaine qui contient l’échéance (lundi 13 juin), une seule semaine, heures par semaine gardées');
+  r = mk({ endDate: lointaine, inner: 'periodiques' });
+  row = rowOf(r.id); steps = JSON.parse(row.stepsJson);
+  assert(row.startDate === '2039-05-21' && row.endDate === lointaine && steps.length === 1, 'périodique 2039 : la période (28 jours depuis le 1er janvier) qui contient l’échéance, une seule période (' + row.startDate + ')');
+  // case occupée : la semaine et la période sont deux cases différentes ; la même semaine est occupée
+  const caseOf = (inner, endDate) => o.occupant('u1', { activityId: act, level: 'secteur', poleKey, categoryKey: secKey, endDate, inner });
+  assert(caseOf('hebdomadaires', '2039-06-17') && caseOf('hebdomadaires', '2039-06-17').id, 'case occupée : la même semaine (hebdomadaire)');
+  assert(!caseOf('hebdomadaires', '2039-06-20'), 'case libre : la semaine suivante');
+  assert(caseOf('periodiques', '2039-06-01') && !caseOf('periodiques', '2039-07-01'), 'case occupée : la même période (périodique) ; libre : la période suivante');
   // autre niveau : jamais d'interrupteur
   r = o.creer('u1', { title: 'Niveau pôle', activityId: act, startDate: today, level: 'pole', poleKey, endDate: addDays(today, 3), inner: 'periodiques' });
   assert(r.innerGoals === 'hebdomadaires', 'niveau pôle : pas d’interrupteur, l’échéance décide');
@@ -44,7 +60,7 @@ const mk = (extra) => o.creer('u1', Object.assign({ title: 'Objectif ' + Math.ra
 
   // Interface : affiché seulement au niveau secteur et si l'échéance est proche ; éteint par défaut ; remplace « Objectifs inclus »
   const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'objectifs-creer.js'), 'utf8').split('\r\n').join('\n');
-  assert(src.includes("f.level === 'secteur' && !!f.endDate && !!f.startDate && f.endDate <= isoAdd(mondayIso(f.startDate), 13)"), 'interrupteur : niveau secteur ET échéance dans la semaine en cours ou la suivante');
+  assert(src.includes("function weeklyPossible(f) { return f.level === 'secteur' && !!f.endDate; }"), '« Hebdomadaire » : possible dès qu’un secteur est choisi, quelle que soit l’échéance');
   // Bloc « Cet objectif est-il » (9 nov. 2026) : deux options .cmpSeg Hebdomadaire / Périodique, seulement quand un SECTEUR est choisi, sous la liste des activités et juste au-dessus de la phrase ; plus d'interrupteur
   const iLists = src.indexOf("var l2 = el('div', 'aiModeChoices');"), iBlock = src.indexOf("field(tr('Cet objectif est-il'), segDisabled("), iLive = src.indexOf('// Phrase en direct (texte seul)');
   assert(iLists > 0 && iBlock > iLists && iLive > iBlock, 'le bloc est sous la liste des activités et juste au-dessus de la phrase récapitulative');
@@ -57,13 +73,13 @@ const mk = (extra) => o.creer('u1', Object.assign({ title: 'Objectif ' + Math.ra
     const t0 = today, mon = (iso) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
     const lim = addDays(mon(t0), 13);
     assert(wp({ level: 'secteur', startDate: t0, endDate: addDays(t0, 3) }) === true && wp({ level: 'secteur', startDate: t0, endDate: lim }) === true, 'hebdomadaire possible : échéance dans la semaine en cours ou la suivante');
-    assert(wp({ level: 'secteur', startDate: t0, endDate: addDays(lim, 1) }) === false && wp({ level: 'secteur', startDate: t0, endDate: addDays(t0, 90) }) === false, 'hebdomadaire impossible : échéance plus lointaine (option grisée)');
+    assert(wp({ level: 'secteur', startDate: t0, endDate: addDays(lim, 1) }) === true && wp({ level: 'secteur', startDate: t0, endDate: '2039-06-15' }) === true, 'hebdomadaire possible aussi pour une échéance lointaine (plus de grisé lié à la date)');
     assert(wp({ level: 'pole', startDate: t0, endDate: addDays(t0, 3) }) === false && wp({ level: 'activite', startDate: t0, endDate: addDays(t0, 3) }) === false, 'hebdomadaire impossible hors niveau secteur');
     // bascule et changement d'échéance (même règle que l'écran)
     const st = { level: 'secteur', startDate: t0, endDate: addDays(t0, 3), weeklyOn: false };
     st.weeklyOn = true; assert(wp(st) && st.weeklyOn, 'bascule : Hebdomadaire sélectionné');
     st.endDate = addDays(t0, 60); if (st.weeklyOn && !wp(st)) st.weeklyOn = false;
-    assert(st.weeklyOn === false, 'changement d’échéance : « Hebdomadaire » devient impossible, retour automatique à « Périodique »');
+    assert(st.weeklyOn === true, 'changement d’échéance : « Hebdomadaire » reste sélectionné');
   }
   assert(src.includes("if (weeklyPossible(form)) return form.weeklyOn ? 'hebdomadaires' : 'periodiques'") && src.includes('if (form._switchShown) return;'), 'périodique/hebdomadaire décidé par l’interrupteur quand il est affiché ; « Objectifs inclus » masqué (aucune contradiction)');
   // Phrase en direct sous les choix de la page Activité : activité › pôle › secteur · période ou semaine · sous « parent » / sans parent (texte seul, lecture seule)

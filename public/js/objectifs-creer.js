@@ -242,7 +242,7 @@
   function weekNo(iso) { var y = Number(iso.slice(0, 4)), d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000); return Math.min(52, Math.floor(d / 7) + 1); }
   // Tranche de 5 ans d'un objectif d'ACTIVITÉ (pluriannuel) : MÊME définition que la colonne pluriannuelle de l'arbre (objectifs-arbre.js, blockStart / rowKey) : première année = année en cours + 5 × partie entière de (année de l'échéance - année en cours) / 5.
   function blockStart(iso) { var y0 = new Date().getFullYear(), y = Number(iso.slice(0, 4)); return y0 + 5 * Math.floor((y - y0) / 5); }
-  function weeklyPossible(f) { return f.level === 'secteur' && !!f.endDate && !!f.startDate && f.endDate <= isoAdd(mondayIso(f.startDate), 13); }
+  function weeklyPossible(f) { return f.level === 'secteur' && !!f.endDate; } // dès qu'un secteur est choisi, « Hebdomadaire » est toujours possible (l'échéance place l'objectif : sa semaine ou sa période)
   function segDisabled(options, current, allowed, onPick, label) {
     var s = seg(options, current, onPick, label);
     Array.prototype.forEach.call(s.children, function (b, i) { if (allowed.indexOf(options[i][0]) < 0) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); } });
@@ -310,12 +310,12 @@
     function composeDesc() { form.description = guideCompose(form); }
     function paintGuide(f) { paintGuideInto(guideBox, form, composeDesc, f); }
     // Parent retenu automatiquement (même appel que le rattachement : même activité, échéance du parent au moins celle du nouvel objectif) : { id, title } ou null. Lecture seule.
-    function rattBody() { return { endDate: form.endDate, title: form.title, activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, refused: form.refused || [] }; }
+    function rattBody() { return { inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined, endDate: form.endDate, title: form.title, activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, refused: form.refused || [] }; }
     function rattKey() { return [form.title, form.activityId, form.level || 'activite', form.poleKey || '', form.categoryKey || ''].join('|'); }
     function fetchParent() {
       if (form.activityId == null) return Promise.resolve(null);
       if (!form.dateOk || !form.endDate) return Promise.resolve(null);
-      var key = rattKey() + '|' + form.endDate; // le parent dépend aussi du niveau, du pôle et du secteur choisis
+      var key = rattKey() + '|' + form.endDate + '|' + (form.weeklyOn ? 'h' : 'p'); // le parent dépend aussi du niveau, du pôle et du secteur choisis
       if (form.hintKey === key) return Promise.resolve(form.hintParent || null);
       return api('POST', '/api/objectifs/rattachement', rattBody()).then(function (r) { form.hintKey = key; form.hintParent = r && r.candidate ? { id: r.candidate.id, title: r.candidate.title } : null; return form.hintParent; }).catch(function () { return null; });
     }
@@ -386,8 +386,7 @@
       var l2 = el('div', 'aiModeChoices');
       notYet.forEach(function (a) { card(a, l2); });
       if (notYet.length) actBox.appendChild(field(tr('Pas encore dans l’arbre'), l2));
-      // « Cet objectif est-il » (9 nov. 2026) : dès qu'un SECTEUR est choisi, deux options (.cmpSeg) : Hebdomadaire / Périodique (par défaut). « Hebdomadaire » est grisé tant que l'échéance n'est pas dans la semaine en cours ou
-      // la suivante ; si l'échéance change et que l'hebdomadaire devient impossible, retour automatique à « Périodique ». Sans secteur choisi, le bloc n'existe pas.
+      // « Cet objectif est-il » (9 nov. 2026) : dès qu'un SECTEUR est choisi, deux options (.cmpSeg) : Hebdomadaire / Périodique (par défaut). « Hebdomadaire » n'est plus jamais grisé par la date (Périodique = la période qui contient l'échéance, Hebdomadaire = la semaine qui la contient) ; Sans secteur choisi, le bloc n'existe pas.
       if (form.weeklyOn && !weeklyPossible(form)) form.weeklyOn = false;
       if (form.level === 'secteur' && form.categoryKey) {
         var okWeekly = weeklyPossible(form);
@@ -623,7 +622,7 @@
         .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
       }
       // Case déjà occupée (même colonne, même ligne du temps) : avertissement (R28) ; « Remplacer » (rouge : suppression définitive) supprime l'ancien objectif avec la suppression existante, SEULEMENT une fois le nouveau enregistré (côté serveur) ; Annuler (violet) ne touche à rien
-      api('POST', '/api/objectifs/case', { activityId: form.activityId, level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, endDate: form.endDate }).then(function (r) { return r && r.occupant ? r.occupant : null; }, function () { return null; })
+      api('POST', '/api/objectifs/case', { activityId: form.activityId, level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, endDate: form.endDate, inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }).then(function (r) { return r && r.occupant ? r.occupant : null; }, function () { return null; })
         .then(function (occ) {
           if (!occ) return go(null);
           return TMT.ui.confirm(tr('Un objectif existe déjà à cette date. Le remplacer le supprimera définitivement.'), { choices: [{ value: true, label: tr('Remplacer'), danger: true }, { value: false, label: tr('Annuler') }] })
