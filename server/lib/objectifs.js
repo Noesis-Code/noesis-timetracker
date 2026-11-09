@@ -436,7 +436,7 @@ async function rattachement(userId, body) {
   if (!act || !title) return { candidate: null };
   const refused = new Set(((body && body.refused) || []).map(Number));
   const lv = body && body.level, pk = body && body.poleKey;
-  const above = (r) => lv === 'pole' ? (r.level || 'activite') === 'activite' : lv === 'secteur' ? r.level === 'pole' && r.poleKey === pk : true; // 1c : candidats = niveau supérieur, même branche
+  const above = (r) => lv === 'pole' ? (r.level || 'activite') === 'activite' : lv === 'secteur' ? (r.level === 'pole' && r.poleKey === pk) || (r.level || 'activite') === 'activite' : true; // 1c : candidats = niveau supérieur, même branche (le parent d'un secteur : l'objectif de son pôle, ou celui de l'activité)
   // Candidats : objectifs de la même activité dont l'échéance est au moins celle du nouvel objectif (seule règle de hiérarchie ; aucune notion de niveau).
   const newEnd = body && isDay(body.endDate) ? body.endDate : null;
   const cands = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).filter((r) => above(r) && (!newEnd || r.endDate >= newEnd) && !refused.has(r.id) && shape(r, false).status !== 'atteint');

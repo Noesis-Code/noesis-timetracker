@@ -308,13 +308,14 @@
     function composeDesc() { form.description = guideCompose(form); }
     function paintGuide(f) { paintGuideInto(guideBox, form, composeDesc, f); }
     // Parent retenu automatiquement (même appel que le rattachement : même activité, échéance du parent au moins celle du nouvel objectif) : { id, title } ou null. Lecture seule.
+    function rattBody() { return { endDate: form.endDate, title: form.title, activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, refused: form.refused || [] }; }
+    function rattKey() { return [form.title, form.activityId, form.level || 'activite', form.poleKey || '', form.categoryKey || ''].join('|'); }
     function fetchParent() {
       if (form.activityId == null) return Promise.resolve(null);
-      if (form.parentId != null) return Promise.resolve({ id: form.parentId, title: form.ratt && form.ratt.cand ? form.ratt.cand.title : '' });
       if (!form.dateOk || !form.endDate) return Promise.resolve(null);
-      var key = form.title + '|' + form.activityId + '|' + form.endDate;
+      var key = rattKey() + '|' + form.endDate; // le parent dépend aussi du niveau, du pôle et du secteur choisis
       if (form.hintKey === key) return Promise.resolve(form.hintParent || null);
-      return api('POST', '/api/objectifs/rattachement', { endDate: form.endDate, title: form.title, activityId: form.activityId, refused: form.refused || [] }).then(function (r) { form.hintKey = key; form.hintParent = r && r.candidate ? { id: r.candidate.id, title: r.candidate.title } : null; return form.hintParent; }).catch(function () { return null; });
+      return api('POST', '/api/objectifs/rattachement', rattBody()).then(function (r) { form.hintKey = key; form.hintParent = r && r.candidate ? { id: r.candidate.id, title: r.candidate.title } : null; return form.hintParent; }).catch(function () { return null; });
     }
     function refreshHints() { // propositions du parent : lecture seule (aucune écriture), une activité, un parent ; sinon aucun champ proposé (comme avant)
       fetchParent().then(function (p) { return p ? api('GET', '/api/objectifs/' + p.id) : null; }).then(function (o) {
@@ -442,12 +443,11 @@
     function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(['temps']).concat(needsLevel() ? ['niveau'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     function loadRatt() {
       // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
-      var key = form.title + '|' + form.activityId;
-      if (form.ratt && form.ratt.key === key) return Promise.resolve(); // même titre et même activité : la décision précédente reste
+      var key = rattKey();
+      if (form.ratt && form.ratt.key === key) return Promise.resolve(); // même titre, même activité et même niveau : la décision précédente reste
       form.ratt = { key: key, cand: null, rel: 'apres', decided: null }; form.parentId = null; form.parentRel = null;
       if (form.activityId == null) return Promise.resolve();
-      return api('POST', '/api/objectifs/rattachement', { endDate: form.endDate, title: form.title, activityId: form.activityId, // une seule règle : le parent a une échéance au moins égale à celle du nouvel objectif
- refused: form.refused || [] }).then(function (r) {
+      return api('POST', '/api/objectifs/rattachement', rattBody()).then(function (r) { // une seule règle : le parent a une échéance au moins égale à celle du nouvel objectif ; niveau et pôle / secteur envoyés
         if (r && r.candidate) { form.ratt.cand = r.candidate; form.ratt.rel = r.rel || 'apres'; form.ratt.decided = 'accept'; form.parentId = r.candidate.id; form.parentRel = form.ratt.rel; } // parent de la même activité choisi tout seul (8 nov. 2026), plus de page Rattachement ; les macros ne se font plus à la création (seulement depuis l'arbre)
       }).catch(function () {});
     }
@@ -485,7 +485,7 @@
     function innerOf() { if (weeklyPossible(form)) return form.weeklyOn ? 'hebdomadaires' : 'periodiques'; return multiPeriods() ? form.innerGoals : 'hebdomadaires'; }
     function finishAll() { // Terminer : proposition par règles (ou IA gratuite du mois) puis création ; rien n'est créé avant ce geste
       if (!validDesc(true)) return;
-      if (form.ratt && form.ratt.key !== form.title + '|' + form.activityId) { form.parentId = null; form.parentRel = null; } // l'activité a changé après la proposition de rattachement : plus de parent
+      if (form.ratt && form.ratt.key !== rattKey()) { form.parentId = null; form.parentRel = null; } // l'activité a changé après la proposition de rattachement : plus de parent
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
       var t = targets()[0], actName = t ? t.name : '', first = null;
