@@ -33,6 +33,7 @@ function deleteAccountData(user) {
   try {
     db.prepare('DELETE FROM running_timers WHERE userId = ?').run(user.id);
     db.prepare('DELETE FROM goal_classify_examples WHERE userId = ?').run(user.id); // exemples appris du classement IA (propres au compte)
+    if (tableExists('activity_managers')) db.prepare('DELETE FROM activity_managers WHERE userId = ?').run(user.id); // responsables d'activité (le propriétaire reste responsable par sa propriété)
     if (tableExists('goal_objective_examples')) db.prepare('DELETE FROM goal_objective_examples WHERE userId = ?').run(user.id); // choix entre deux objectifs (rattachement IA), propres au compte
     db.prepare('DELETE FROM time_entries WHERE userId = ?').run(user.id);
     db.prepare('DELETE FROM activity_members WHERE userId = ?').run(user.id);
