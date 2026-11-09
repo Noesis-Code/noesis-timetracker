@@ -9,7 +9,10 @@ const js = read('public', 'js', 'objectifs-creer.js'), css = read('public', 'css
 
 assert(js.includes("tr('Prévu')") && js.includes("tr('Passé')"), 'tableau : colonnes Prévu et Passé');
 assert(js.includes("tr('Heures par semaine')") && js.includes('D’où vient ce temps ?'), 'écrans 1 et 2 titrés');
-assert(js.includes('Prendre sur') && js.includes('Ajouter'), 'cartes Ajouter / Prendre sur');
+assert(js.includes("tr(m === 'ajouter' ? 'Ajouter' : 'Déplacer')") && !js.includes('Prendre sur') && !js.includes("'autres'"), 'écran 2 : deux cartes seulement, « Ajouter » et « Déplacer » (plus de « Prendre sur… », ni de modes « reste » / « autres »)');
+assert(js.includes("'aiModeChoices objCenterChoices'") && /\.objCenterChoices \.objChoice \{[^}]*align-items: center; justify-content: center; text-align: center/.test(css), 'texte de chaque carte centré, horizontalement et verticalement (même composant de carte)');
+assert(js.includes("'Ton total reste à'") && js.includes("'L’activité reste à'") && js.includes("'Le pôle reste à'") && !js.includes('Reste à prendre'), 'écran 3 « Déplacer » : dernière ligne « … reste à » (total du niveau du dessus) ; pas de ligne « Reste à prendre »');
+assert(js.includes("tcell(l.key === 'reste' ? tr(l.label) : l.label, 'objTLabel')"), 'une seule table Avant / Après : les autres cases et « Sans pôle » / « Sans secteur »');
 assert(js.includes('tpScreen1') && js.includes('tpScreen2') && js.includes('tpScreen3'), 'trois écrans');
 assert(js.includes('tpPages') && js.includes('tasksPages'), 'balayage : mécanisme de pages existant');
 assert(!/objTDots|pagination|pageDots/.test(js.slice(js.indexOf('function tpPaint'), js.indexOf('function tpPaint') + 3000)), 'aucun point de pagination');
@@ -43,18 +46,18 @@ assert(js.includes('function tsep()') && (js.match(/tsep\(\)/g) || []).length >=
     const api = new Function('tp', 'tpSync', 'tpPaint', js.slice(a, b) + '\n' + js.slice(c, d) + '\nreturn { tpCommit, tpPages, tpValid, tpIncrease, tpChanging, tpMode, tpBalanced };')(tp, () => {}, () => {});
     return Object.assign({ tp }, api);
   };
-  const E = (modes) => ({ valueMin: 360, modes, takeLines: { autres: [{ key: 'p2', label: 'P2', avantMin: 180 }], reste: [] } });
-  let t = mk(E(['ajouter', 'autres', 'reste']), 360);
+  const E = (modes) => ({ valueMin: 360, modes, takeLines: { deplacer: [{ key: 'p2', label: 'P2', avantMin: 180 }] } });
+  let t = mk(E(['ajouter', 'deplacer']), 360);
   t.tp.page = 0; t.tpCommit(360); assert(t.tp.page === 0 && !t.tpChanging() && t.tpPages().join() === 's1', '✓ sans changement : rien ne bouge, aucun glissement');
   t.tpCommit(240); assert(t.tp.page === 0 && t.tpChanging() && !t.tpIncrease() && t.tpPages().join() === 's1' && t.tpValid(), 'baisse : aucun glissement, aucune question (le temps libéré reste libre), « Suivant » actif');
   t.tpCommit(540); assert(t.tp.page === 1 && t.tpIncrease() && t.tpPages().join() === 's1,s2' && !t.tpValid(), 'hausse : glissement vers « D’où vient ce temps ? » ; « Suivant » grisé tant que rien n’est choisi');
   t.tp.mode = 'ajouter'; assert(t.tpPages().join() === 's1,s2,s3' && t.tpValid(), 'Ajouter : écran d’effet, « Suivant » actif');
-  t.tp.mode = 'autres'; t.tp.apres = { p2: 120 }; assert(t.tpBalanced() === false && !t.tpValid(), '« Prendre sur… » non équilibré (1 h prise pour 3 h de hausse) : « Suivant » grisé');
-  t.tp.apres = { p2: 0 }; assert(t.tpBalanced() && t.tpValid(), '« Prendre sur… » équilibré (3 h prises pour 3 h) : « Suivant » actif');
+  t.tp.mode = 'deplacer'; t.tp.apres = { p2: 120 }; assert(t.tpBalanced() === false && !t.tpValid(), '« Déplacer » non équilibré (1 h déplacée pour 3 h de hausse) : « Suivant » grisé');
+  t.tp.apres = { p2: 0 }; assert(t.tpBalanced() && t.tpValid(), '« Déplacer » équilibré (3 h déplacées pour 3 h) : « Suivant » actif');
   t.tpCommit(360); assert(t.tp.page === 0 && !t.tpChanging() && t.tp.mode === null && t.tpPages().join() === 's1', 'valeur remise au défaut : le changement est annulé (retour à un seul écran)');
   t.tpCommit(0); assert(t.tp.valueMin === 0 && t.tpChanging() && !t.tpIncrease() && t.tp.page === 0, 'valeur 0 : une baisse, aucun glissement');
   t = mk(E(['ajouter']), 360); t.tpCommit(420); assert(t.tp.page === 1 && t.tpPages().join() === 's1,s3' && t.tpMode() === 'ajouter' && t.tpValid(), 'une seule possibilité : l’écran « d’où vient ce temps » est sauté, glissement direct vers l’effet');
-  t = mk(E(['ajouter', 'autres']), 360); t.tpCommit(168 * 60); assert(t.tpIncrease() && t.tp.valueMin === 168 * 60, '168 h acceptées (heures d’une semaine)');
+  t = mk(E(['ajouter', 'deplacer']), 360); t.tpCommit(168 * 60); assert(t.tpIncrease() && t.tp.valueMin === 168 * 60, '168 h acceptées (heures d’une semaine)');
 }
 
 // sélecteur de durée standard (public/app.js) : exécuté avec un DOM minimal

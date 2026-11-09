@@ -2,7 +2,8 @@
 // MODÈLE : les heures vivent SUR L'OBJECTIF (metaJson.hoursPerWeek existant), valables pour la période de cet objectif : la case de l'arbre = niveau + période (objectifs.occupant). AUCUNE table de budget.
 //  - Prévu d'un niveau = hoursPerWeek de l'objectif qui occupe sa case, sinon (au premier écran) le Passé ; ligne du dessus = l'objectif PARENT sur la même période (pôle pour un secteur, activité pour un pôle) ;
 //    au niveau activité : capacité hebdomadaire de la personne (manuelle, sinon moyenne Chrono : weekplanner.getWeeklyCapacity).
-//  - Cases voisines (« Prendre sur… ») = autres secteurs du pôle / autres pôles de l'activité / autres activités, sur la même période ; sans objectif (ou à 0 h), elles ne sont pas listées.
+//  - « Déplacer » (UN seul tableau Avant / Après) fusionne toutes les sources possibles du temps : les AUTRES cases du même niveau sur la même période (autres secteurs du pôle / autres pôles de l'activité / autres activités ; sans objectif ou à 0 h elles ne sont pas listées)
+//    + « Sans pôle » (niveau pôle) / « Sans secteur » (niveau secteur) = ce qui reste de l'objectif PARENT une fois retirées les heures des cases du niveau (parent − somme des autres cases − le niveau lui-même) ; jamais pour l'activité.
 //  - Passé : moyenne des 4 dernières semaines du Chrono, les 2 dernières comptées double (weeklyavg, fonction partagée), arrondie au QUART D'HEURE ; la capacité par défaut (moyenne Chrono) l'est aussi avant d'être affichée.
 //    Une valeur saisie à la main (hoursPerWeek d'un objectif, capacité manuelle) n'est JAMAIS réarrondie.
 // Rien n'est écrit avant l'appel avec apply = true (« Valider ») ; le niveau choisi n'a pas encore d'objectif : sa valeur part avec la création (hoursPerWeek), les écritures ne touchent que le parent et les voisins.
@@ -83,7 +84,6 @@ function etat(userId, spec) {
     out.up = { kind: 'total', label: null, prevuMin: capDisplay(cap), passeMin: passeMin(userId, null, null) };
     out.me = { key: null, label: act.name, prevuMin: mePrevu, passeMin: passeMin(userId, aid, null) };
     others = userActivities(userId).filter((x) => x.id !== aid).map((x) => { const c = cell(userId, x.id, 'activite', null, null, end); return { key: 'a' + x.id, label: x.name, avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
-    out.modes = ['ajouter', 'autres']; // « Prendre sur les autres activités » : toujours proposé
   } else {
     const upCell = level === 'pole' ? cell(userId, aid, 'activite', null, null, end) : cell(userId, aid, 'pole', poleKey, null, end);
     const upKey = level === 'pole' ? null : poleKey;
@@ -93,15 +93,13 @@ function etat(userId, spec) {
     others = sib.map((x) => { const c = level === 'pole' ? cell(userId, aid, 'pole', x.key, null, end) : cell(userId, aid, 'secteur', poleKey, x.key, end, inn); return { key: x.key, label: x.label, avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
     const used = others.reduce((s, x) => s + (x.avantMin || 0), 0) + (mePrevu || 0);
     out.restMin = out.up.prevuMin === null ? 0 : Math.max(0, out.up.prevuMin - used);
-    out.restLabel = level === 'pole' ? 'Reste de l’activité' : 'Reste du pôle';
-    out.modes = ['ajouter', 'reste', 'autres'];
+    out.restLabel = level === 'pole' ? 'Sans pôle' : 'Sans secteur';
   }
   out.others = others;
   out.valueMin = out.me.prevuMin !== null ? out.me.prevuMin : out.me.passeMin; // valeur par défaut : le Prévu existant, à défaut le Passé
   const lines = others.filter((x) => (x.avantMin || 0) > 0 && x.objectifId); // une case voisine sans objectif n'est pas listée
-  out.takeLines = { autres: lines.map((x) => ({ key: x.key, label: x.label, avantMin: x.avantMin, objectifId: x.objectifId })),
-    reste: (out.restMin || 0) > 0 ? [{ key: 'reste', label: out.restLabel, avantMin: out.restMin }] : [] };
-  out.modes = out.modes.filter((m) => m === 'ajouter' || (level === 'activite' && m === 'autres') || (out.takeLines[m] && out.takeLines[m].length));
+  out.modes = ['ajouter', 'deplacer']; // deux possibilités à tous les niveaux
+  out.takeLines = { deplacer: lines.map((x) => ({ key: x.key, label: x.label, avantMin: x.avantMin, objectifId: x.objectifId })).concat((out.restMin || 0) > 0 ? [{ key: 'reste', label: out.restLabel, avantMin: out.restMin }] : []) };
   return out;
 }
 
@@ -117,15 +115,15 @@ function plan(userId, body, apply) {
   if (e.level === 'secteur') { const c = cell(userId, aid, 'pole', e.poleKey, null, end); if (c) chain.push({ id: c.id, label: e.up.label, kind: 'pole', prevuMin: c.min || 0 }); }
   if (e.level !== 'activite') { const c = cell(userId, aid, 'activite', null, null, end); if (c) chain.push({ id: c.id, label: (db.prepare('SELECT name FROM activities WHERE id = ?').get(aid) || {}).name, kind: 'activite', prevuMin: c.min || 0 }); }
   const mode = delta > 0 ? String(body.mode || '') : '';
-  if (delta > 0 && !['ajouter', 'reste', 'autres'].includes(mode)) { res.balanced = false; res.needsMode = true; }
+  if (delta > 0 && !['ajouter', 'deplacer'].includes(mode)) { res.balanced = false; res.needsMode = true; }
   if (delta > 0 && mode && mode !== 'ajouter' && !e.modes.includes(mode)) throw err('Cette possibilité n’existe pas ici.');
   if (delta > 0 && mode === 'ajouter') {
     res.effects.push({ level: e.level, label: e.me.label, beforeMin: old, afterMin: newMin });
     chain.forEach((c) => res.effects.push({ level: c.kind, label: c.label, beforeMin: c.prevuMin, afterMin: c.prevuMin + delta }));
     res.effects.push({ level: 'total', label: null, beforeMin: capDisplay(cap) || 0, afterMin: (capDisplay(cap) || 0) + delta });
-  } else if (delta > 0 && (mode === 'reste' || mode === 'autres')) {
+  } else if (delta > 0 && mode === 'deplacer') {
     const apres = body.apres && typeof body.apres === 'object' ? body.apres : {};
-    res.lines = e.takeLines[mode].map((l) => { const a = apres[l.key] === undefined ? l.avantMin : Math.round(Number(apres[l.key])); return { key: l.key, label: l.label, avantMin: l.avantMin, apresMin: a, objectifId: l.objectifId || null }; });
+    res.lines = e.takeLines.deplacer.map((l) => { const a = apres[l.key] === undefined ? l.avantMin : Math.round(Number(apres[l.key])); return { key: l.key, label: l.label, avantMin: l.avantMin, apresMin: a, objectifId: l.objectifId || null }; });
     const bad = res.lines.some((l) => !(l.apresMin >= 0 && l.apresMin <= l.avantMin));
     const taken = res.lines.reduce((s, l) => s + (l.avantMin - l.apresMin), 0);
     res.balanced = !bad && taken === delta && res.lines.length > 0; // le total du niveau du dessus reste constant
@@ -141,7 +139,7 @@ function plan(userId, body, apply) {
         chain.forEach((c) => writeHours(c.id, c.prevuMin + delta));
         if (cap.source === 'manual') weekplanner.setWeeklyCapacity(userId, (cap.minutes || 0) + delta);
       }
-      if (delta > 0 && mode === 'autres') res.lines.forEach((l) => { if (l.objectifId) writeHours(l.objectifId, l.apresMin); }); // les heures des cases voisines
+      if (delta > 0 && mode === 'deplacer') res.lines.forEach((l) => { if (l.objectifId) writeHours(l.objectifId, l.apresMin); }); // les heures des cases voisines
       db.exec('COMMIT');
     } catch (x) { try { db.exec('ROLLBACK'); } catch (y) { /* rien d'ouvert */ } throw x; }
   }

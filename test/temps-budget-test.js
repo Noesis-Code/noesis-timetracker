@@ -52,8 +52,8 @@ const spec = (level, extra) => Object.assign({ activityId: A, level, poleKey: le
   const oA = obj(A, 'activite', null, null, 20), oB = obj(B, 'activite', null, null, 5), oP2 = obj(A, 'pole', P2, null, 3), oP3 = obj(A, 'pole', P3, null, null);
   e = tb.etat('u1', spec('pole'));
   assert(e.up.prevuMin === H(20) && e.me.prevuMin === null && e.valueMin === H(6), 'pôle : ligne du dessus = objectif de l’activité (20 h) ; sans objectif propre, défaut = Passé');
-  assert(e.others.length === 2 && e.takeLines.autres.length === 1 && e.takeLines.autres[0].key === P2 && e.takeLines.autres[0].avantMin === H(3), 'cases voisines : seules celles qui ont un objectif avec des heures sont listées');
-  assert(e.restMin === H(17) && e.modes.join() === 'ajouter,reste,autres', 'reste de l’activité = 20 − 3 = 17 h ; les trois possibilités');
+  assert(e.others.length === 2 && e.takeLines.deplacer.length === 2 && e.takeLines.deplacer[0].key === P2 && e.takeLines.deplacer[0].avantMin === H(3) && e.takeLines.deplacer[1].key === 'reste' && e.takeLines.deplacer[1].label === 'Sans pôle' && e.takeLines.deplacer[1].avantMin === H(17), '« Déplacer » : UN tableau = les autres pôles qui ont du temps (Réseaux 3 h ; Salons sans objectif n’est pas listé) + « Sans pôle » (20 − 3 = 17 h)');
+  assert(e.restMin === H(17) && e.modes.join() === 'ajouter,deplacer', '« Sans pôle » = objectif de l’activité (20 h) − les autres pôles (3 h) − le pôle lui-même (0 h) = 17 h ; deux possibilités seulement');
   assert(tb.etat('u1', spec('pole', { ownMin: H(9) })).valueMin === H(9), 'la valeur déjà validée remplace le défaut (retour à l’écran 1)');
 
   // ---- Baisse : un seul écran, rien n'est écrit ----
@@ -69,27 +69,32 @@ const spec = (level, extra) => Object.assign({ activityId: A, level, poleKey: le
   tb.plan('u1', spec('pole', { newMin: H(9), mode: 'ajouter' }), true);
   assert(hours(oA) === 23 && hours(oP2) === 3, 'Ajouter validé : l’objectif de l’activité passe à 23 h, les voisins ne bougent pas');
 
-  // ---- Prendre sur les autres pôles : équilibré / non ----
-  r = tb.plan('u1', spec('pole', { newMin: H(7), mode: 'autres', apres: { [P2]: H(2) } }), false);
+  // ---- Déplacer depuis un autre pôle : équilibré / non ----
+  r = tb.plan('u1', spec('pole', { newMin: H(7), mode: 'deplacer', apres: { [P2]: H(2) } }), false);
   assert(r.balanced === true && r.takenMin === H(1), 'équilibré : 1 h prise sur Réseaux = 1 h de hausse (6 → 7)');
-  r = tb.plan('u1', spec('pole', { newMin: H(7), mode: 'autres', apres: { [P2]: H(1) } }), false);
+  r = tb.plan('u1', spec('pole', { newMin: H(7), mode: 'deplacer', apres: { [P2]: H(1) } }), false);
   assert(r.balanced === false, 'non équilibré : validation impossible');
-  bad = false; try { tb.plan('u1', spec('pole', { newMin: H(7), mode: 'autres', apres: { [P2]: H(1) } }), true); } catch (x) { bad = x.statusCode === 400; }
+  bad = false; try { tb.plan('u1', spec('pole', { newMin: H(7), mode: 'deplacer', apres: { [P2]: H(1) } }), true); } catch (x) { bad = x.statusCode === 400; }
   assert(bad && hours(oP2) === 3, 'non équilibré refusé côté serveur, rien n’est modifié');
-  assert(tb.plan('u1', spec('pole', { newMin: H(7), mode: 'autres', apres: { [P2]: H(9) } }), false).balanced === false, 'un « Après » au-dessus du « Avant » est refusé');
-  tb.plan('u1', spec('pole', { newMin: H(7), mode: 'autres', apres: { [P2]: H(2) } }), true);
+  assert(tb.plan('u1', spec('pole', { newMin: H(7), mode: 'deplacer', apres: { [P2]: H(9) } }), false).balanced === false, 'un « Après » au-dessus du « Avant » est refusé');
+  tb.plan('u1', spec('pole', { newMin: H(7), mode: 'deplacer', apres: { [P2]: H(2) } }), true);
   assert(hours(oP2) === 2 && hours(oA) === 23, 'équilibré validé : l’objectif du voisin baisse ; le total du dessus reste constant');
 
-  // ---- Reste de l'activité : le total du dessus ne bouge pas ----
+  // ---- Déplacer depuis « Sans pôle » et un autre pôle à la fois : le total du dessus ne bouge pas ----
   e = tb.etat('u1', spec('pole', { ownMin: H(7) }));
-  r = tb.plan('u1', spec('pole', { ownMin: H(7), newMin: H(8), mode: 'reste', apres: { reste: e.restMin - H(1) } }), true);
-  assert(r.balanced && hours(oA) === 23 && hours(oP2) === 2, '« Prendre sur le reste » : aucune autre case modifiée');
+  r = tb.plan('u1', spec('pole', { ownMin: H(7), newMin: H(8), mode: 'deplacer', apres: { reste: e.restMin - H(1) } }), true);
+  assert(r.balanced && hours(oA) === 23 && hours(oP2) === 2, '« Sans pôle » seul : 1 h prise sur la part sans pôle, aucune autre case modifiée');
+  e = tb.etat('u1', spec('pole', { ownMin: H(7) }));
+  r = tb.plan('u1', spec('pole', { ownMin: H(7), newMin: H(10), mode: 'deplacer', apres: { [P2]: H(1), reste: e.restMin - H(2) } }), true);
+  assert(r.balanced && r.takenMin === H(3) && hours(oP2) === 1 && hours(oA) === 23, 'une source mixte (Réseaux −1 h, Sans pôle −2 h) : équilibré, seul l’objectif de Réseaux est écrit');
+  bad = false; try { tb.plan('u1', spec('pole', { newMin: H(9), mode: 'autres', apres: {} }), true); } catch (x) { bad = x.statusCode === 400; }
+  assert(bad, 'les anciens modes (« autres », « reste ») n’existent plus');
 
   // ---- Niveau secteur : ligne du dessus = objectif du pôle ----
   const oPole1 = obj(A, 'pole', P1, null, 10), oS2 = obj(A, 'secteur', P1, S2, 2);
   e = tb.etat('u1', spec('secteur'));
   assert(e.up.kind === 'pole' && e.up.prevuMin === H(10) && e.me.prevuMin === null, 'secteur : ligne du dessus = objectif du pôle (10 h)');
-  assert(e.takeLines.autres.length === 1 && e.takeLines.autres[0].key === S2 && e.takeLines.autres[0].avantMin === H(2), 'autres secteurs : seuls ceux qui ont un objectif');
+  assert(e.takeLines.deplacer.length === 2 && e.takeLines.deplacer[0].key === S2 && e.takeLines.deplacer[0].avantMin === H(2) && e.takeLines.deplacer[1].key === 'reste' && e.takeLines.deplacer[1].label === 'Sans secteur' && e.takeLines.deplacer[1].avantMin === H(8), 'secteur : les autres secteurs qui ont un objectif (2 h) + « Sans secteur » (pôle 10 h − 2 h = 8 h)');
   tb.plan('u1', spec('secteur', { newMin: H(8), mode: 'ajouter' }), true);
   assert(hours(oPole1) === 18 && hours(oA) === 31, 'secteur, Ajouter : le pôle (10 → 18 h) et l’activité (23 → 31 h) grandissent de la différence (0 → 8 h)');
 
@@ -106,11 +111,11 @@ const spec = (level, extra) => Object.assign({ activityId: A, level, poleKey: le
 
   // ---- Niveau activité : « Prendre sur les autres activités » toujours proposé ----
   e = tb.etat('u1', spec('activite'));
-  assert(e.manualCapacity === false && e.modes.join() === 'ajouter,autres' && e.me.prevuMin === H(31) && e.takeLines.autres.some((l) => l.key === 'a' + B && l.avantMin === H(5)), 'activité, capacité non manuelle : les deux possibilités (cartes toujours affichées)');
-  assert(tb.etat('u1', spec('activite', { activityId: C })).modes.join() === 'ajouter,autres', 'même sans aucune autre case : « autres » reste proposé');
+  assert(e.manualCapacity === false && e.modes.join() === 'ajouter,deplacer' && e.me.prevuMin === H(31) && e.takeLines.deplacer.length === 1 && e.takeLines.deplacer.some((l) => l.key === 'a' + B && l.avantMin === H(5)), 'activité : les autres activités qui ont du temps, aucune ligne « Sans … » (cartes toujours affichées)');
+  assert(tb.etat('u1', spec('activite', { activityId: C })).modes.join() === 'ajouter,deplacer', 'une activité sans objectif propre : les deux cartes sont proposées aussi');
   const capBefore = wp.getWeeklyCapacity('u1').minutes;
-  tb.plan('u1', spec('activite', { newMin: H(35), mode: 'autres', apres: { ['a' + B]: H(1) } }), true);
-  assert(hours(oB) === 1 && wp.getWeeklyCapacity('u1').minutes === capBefore, 'Prendre sur les autres activités : l’objectif de l’autre baisse, le total reste constant');
+  tb.plan('u1', spec('activite', { newMin: H(35), mode: 'deplacer', apres: { ['a' + B]: H(1) } }), true);
+  assert(hours(oB) === 1 && wp.getWeeklyCapacity('u1').minutes === capBefore, 'Déplacer depuis une autre activité : son objectif baisse, le total reste constant');
   wp.setWeeklyCapacity('u1', H(30));
   assert(tb.etat('u1', spec('activite')).up.prevuMin === H(30) && tb.etat('u1', spec('activite')).manualCapacity === true, 'capacité manuelle : ligne du dessus = capacité');
   tb.plan('u1', spec('activite', { newMin: H(36), mode: 'ajouter' }), true);

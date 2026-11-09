@@ -130,6 +130,8 @@
 .objTTotal { font-weight: 600; }
 .objTBad { color: var(--danger); }
 /* Valeur modifiable = texte violet NU (aucun rectangle : ni fond, ni bordure, ni cadre), bouton-texte qui ouvre le sélecteur de durée standard. Zone de toucher 44 px (R7, R25). */
+.objCenterChoices .objChoice { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 64px; } /* écran « D'où vient ce temps ? » : le texte de chaque carte est centré (horizontalement et verticalement) */
+.objCenterChoices .aiModeChoiceTitle { justify-content: center; text-align: center; }
 button.objTEdit { width: 100%; min-height: 44px; box-sizing: border-box; padding: 0; text-align: right; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--purple); font: inherit; cursor: pointer; -webkit-appearance: none; appearance: none; }
 button.objTEdit { outline: none; -webkit-tap-highlight-color: transparent; }
 button.objTEdit:hover, button.objTEdit:active, button.objTEdit:focus { background: none; border: 0; box-shadow: none; outline: none; }
