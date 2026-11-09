@@ -474,11 +474,11 @@
         .then(function () { var created = first; input.value = ''; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); if (created && created.bridgeFailed) openDetail(created.id); /* C12 : le message s’affiche dans le détail */ })
         .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
       }
-      // Case déjà occupée (même colonne, même ligne du temps) : avertissement (R28, violet, jamais rouge) ; « Remplacer » ARCHIVE l'ancien objectif (réversible), il n'est jamais supprimé
+      // Case déjà occupée (même colonne, même ligne du temps) : avertissement (R28) ; « Remplacer » (rouge : suppression définitive) supprime l'ancien objectif avec la suppression existante, SEULEMENT une fois le nouveau enregistré (côté serveur) ; Annuler (violet) ne touche à rien
       api('POST', '/api/objectifs/case', { activityId: form.activityId, level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, endDate: form.endDate }).then(function (r) { return r && r.occupant ? r.occupant : null; }, function () { return null; })
         .then(function (occ) {
           if (!occ) return go(null);
-          return TMT.ui.confirm(tr('Un objectif existe déjà à cette date. Le remplacer ?'), { choices: [{ value: true, label: tr('Remplacer') }, { value: false, label: tr('Annuler'), quiet: true }] })
+          return TMT.ui.confirm(tr('Un objectif existe déjà à cette date. Le remplacer le supprimera définitivement.'), { choices: [{ value: true, label: tr('Remplacer'), danger: true }, { value: false, label: tr('Annuler') }] })
             .then(function (yes) { if (!yes) { stepBtn.disabled = false; return null; } return go(occ.id); });
         });
     }

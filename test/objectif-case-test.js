@@ -1,5 +1,5 @@
-// Case déjà occupée (9 nov. 2026) : un objectif existe déjà dans la même colonne (activité/pôle/secteur) et à la même ligne du temps -> avertissement ; « Remplacer » ARCHIVE l'ancien
-// (abandonné, réversible par « réactiver »), il n'est jamais supprimé : ses données, sous-objectifs et tâches sont conservés (S6). Serveur en processus (aucun réseau).
+// Case déjà occupée (9 nov. 2026) : un objectif existe déjà dans la même colonne (activité/pôle/secteur) et à la même ligne du temps -> avertissement ; « Remplacer » SUPPRIME l'ancien (suppression existante, après l'enregistrement du nouveau)
+// (sous-objectifs détachés, jamais supprimés). Serveur en processus (aucun réseau).
 process.env.TZ = 'America/Montreal';
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-case-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
@@ -33,33 +33,31 @@ const cell = (extra) => o.occupant('u1', Object.assign({ activityId: act, level:
   assert(cell({ level: 'pole', categoryKey: null }) === null, 'autre niveau : case libre');
   assert(o.occupant('autre-utilisateur', { activityId: act, level: 'secteur', poleKey, categoryKey: secKey, endDate: addDays(today, 20) }) === null, 'un autre utilisateur ne voit pas la case');
 
-  // Remplacer : l'ancien est archivé (abandonné), jamais supprimé ; ses sous-objectifs et ses données restent
+  // Remplacer (décision d'Émilien) : l'ancien est SUPPRIMÉ avec la suppression existante, SEULEMENT une fois le nouveau enregistré ; ses sous-objectifs sont détachés (jamais supprimés)
   const kid = o.creer('u1', { title: 'Sous-objectif', activityId: act, startDate: today, endDate: addDays(today, 15), level: 'secteur', poleKey, categoryKey: secKey, parentId: old.id });
-  const kidCell = o.occupant('u1', { activityId: act, level: 'secteur', poleKey, categoryKey: secKey, endDate: addDays(today, 15) });
-  assert(kidCell && kidCell.id !== undefined, 'les deux objectifs occupent la case (même période)');
+  assert(kid.parentId === old.id, 'départ : le sous-objectif est rattaché à l’ancien objectif');
+  // échec de l'enregistrement du nouveau (échéance passée) : rien n'est supprimé
+  let failedCreate = false; try { mk({ title: 'Échec', endDate: addDays(today, -3), inner: 'hebdomadaires', replaceId: old.id }); } catch (e) { failedCreate = true; }
+  assert(failedCreate && !!db.prepare('SELECT 1 FROM user_objectives WHERE id = ?').get(old.id), 'échec de l’enregistrement : l’ancien objectif reste');
   const before = db.prepare('SELECT COUNT(*) AS n FROM user_objectives').get().n;
   const neu = mk({ title: 'Nouvel objectif', endDate: addDays(today, 20), inner: 'hebdomadaires', replaceId: old.id });
   const after = db.prepare('SELECT COUNT(*) AS n FROM user_objectives').get().n;
-  const row = db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(old.id);
-  assert(after === before + 1 && !!row, 'Remplacer ne supprime rien : l’ancien objectif existe toujours');
-  assert(JSON.parse(row.metaJson).abandoned === true, 'l’ancien est archivé (abandonné), donc retiré de l’arbre');
-  assert(db.prepare('SELECT parentId FROM user_objectives WHERE id = ?').get(kid.id).parentId === old.id, 'ses sous-objectifs sont conservés');
-  assert(cell().id !== old.id && neu.id > old.id, 'l’ancien objectif n’occupe plus la case (retiré de l’arbre)');
-  o.abandonner('u1', old.id, false);
-  assert(!JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(old.id).metaJson).abandoned, 'réversible : « réactiver » restaure l’ancien');
+  assert(!db.prepare('SELECT 1 FROM user_objectives WHERE id = ?').get(old.id) && after === before, 'Remplacer : l’ancien objectif est supprimé, le nouveau enregistré');
+  const kidRow = db.prepare('SELECT parentId FROM user_objectives WHERE id = ?').get(kid.id);
+  assert(!!kidRow && kidRow.parentId !== old.id, 'son sous-objectif est conservé et détaché (jamais supprimé)');
+  assert(cell() && cell().id !== old.id && neu.id > old.id, 'la case est occupée par le nouvel objectif seulement');
 
-  // replaceId qui n'est pas l'occupant : ignoré (jamais d'archivage arbitraire)
+  // replaceId qui n'est pas l'occupant : ignoré (jamais de suppression arbitraire)
   const other = o.creer('u1', { title: 'Ailleurs', activityId: act, startDate: today, endDate: addDays(today, 20 + 56), level: 'secteur', poleKey, categoryKey: secKey });
   mk({ title: 'Autre case', endDate: addDays(today, 20 + 120), replaceId: other.id });
-  assert(!JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(other.id).metaJson).abandoned, 'replaceId hors de la case : rien n’est archivé');
+  assert(!!db.prepare('SELECT 1 FROM user_objectives WHERE id = ?').get(other.id), 'replaceId hors de la case : rien n’est supprimé');
 
-  // Interface : avertissement R28 (violet, jamais rouge), Remplacer / Annuler
+  // Interface : avertissement (R28), Remplacer en rouge, Annuler en violet ; rien n'est supprimé avant « Terminer » (la suppression part avec la création, côté serveur)
   const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'objectifs-creer.js'), 'utf8').split('\r\n').join('\n');
   const a = src.indexOf("api('POST', '/api/objectifs/case'"), b = src.indexOf('    form._show = show;');
   const blk = src.slice(a, b);
-  assert(a > 0 && blk.includes("tr('Un objectif existe déjà à cette date. Le remplacer ?')") && blk.includes("label: tr('Remplacer')") && blk.includes("label: tr('Annuler'), quiet: true"), 'avertissement : « Un objectif existe déjà à cette date. Le remplacer ? », boutons Remplacer / Annuler');
-  assert(!/danger/.test(blk) && blk.includes('TMT.ui.confirm('), 'TMT.ui.confirm, aucun bouton rouge');
-  assert(src.includes('replaceId: replaceId || undefined'), 'le remplacement passe par la création (atomique côté serveur)');
+  assert(a > 0 && blk.includes("tr('Un objectif existe déjà à cette date. Le remplacer le supprimera définitivement.')") && blk.includes("label: tr('Remplacer'), danger: true") && blk.includes("{ value: false, label: tr('Annuler') }"), 'avertissement : texte exact, Remplacer en rouge (danger), Annuler en violet (bouton principal)');
+  assert(blk.includes('TMT.ui.confirm(') && !/'DELETE'/.test(blk) && src.includes('replaceId: replaceId || undefined'), 'aucun appel de suppression à la fenêtre : la suppression part avec la création enregistrée');
   console.log(failed ? '\nobjectif-case-test : ' + failed + ' ÉCHEC(S)' : '\nobjectif-case-test : OK');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

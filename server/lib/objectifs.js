@@ -406,6 +406,7 @@ async function rattAi(userId, title, cands) {
 }
 // Case occupée (9 nov. 2026) : un objectif existe déjà dans la MÊME colonne (activité, pôle, secteur) et à la MÊME ligne du temps (période au niveau secteur, année au niveau pôle, bloc de 5 ans
 // au niveau activité), comme l'arbre le calcule. Les abandonnés et les macros ne comptent pas. Renvoie { id, title } ou null. Lecture seule.
+// « Remplacer » (décision d'Émilien, 9 nov. 2026) SUPPRIME l'objectif présent avec la suppression existante (supprimer, celle du mode modification de l'arbre) : seulement une fois le nouvel objectif enregistré.
 function cellKey(level, iso) {
   const y = Number(iso.slice(0, 4)), d = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(y + '-01-01T00:00:00Z')) / 86400000);
   if (level === 'secteur') return y * 100 + Math.min(13, Math.floor(d / 28) + 1);
@@ -630,7 +631,7 @@ function creer(userId, body) {
   });
   db.prepare('UPDATE user_objectives SET taskIdsJson = ? WHERE id = ?').run(JSON.stringify(taskIds), id);
   setImmediate(() => { expandHints(userId, id); });
-  if (body.replaceId != null) { const occ = occupants(userId, Object.assign({}, body, { level: lvl.level, poleKey: lvl.poleKey, categoryKey: lvl.categoryKey, __skip: id })).filter((x) => x.id === Number(body.replaceId))[0]; if (occ) abandonner(userId, occ.id, true); } // remplacé = archivé (réversible), seulement si c'est bien l'occupant de la case
+  if (body.replaceId != null) { const occ = occupants(userId, Object.assign({}, body, { level: lvl.level, poleKey: lvl.poleKey, categoryKey: lvl.categoryKey, __skip: id })).filter((x) => x.id === Number(body.replaceId))[0]; if (occ) { try { supprimer(userId, occ.id, true); } catch (e) { console.warn('[objectifs] remplacement : ancien objectif conservé : ' + (e && e.message)); } } } // remplacé = supprimé (suppression existante : sous-objectifs détachés), APRÈS l'enregistrement du nouveau ; en cas d'échec l'ancien reste
   return get(userId, id);
 }
 
