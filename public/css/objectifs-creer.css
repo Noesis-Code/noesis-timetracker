@@ -129,10 +129,9 @@
 /* Valeur modifiable = texte violet NU (aucun rectangle : ni fond, ni bordure, ni cadre), bouton-texte qui ouvre le sélecteur de durée standard. Zone de toucher 44 px (R7, R25). */
 .objCenterChoices .objChoice { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 64px; } /* écran « D'où vient ce temps ? » : le texte de chaque carte est centré (horizontalement et verticalement) */
 .objCenterChoices .aiModeChoiceTitle { justify-content: center; text-align: center; }
-/* Tableau « Chrono / Objectif » (objTable) : lignes-bandes en flex ; trait vertical continu entre Chrono et Objectif (12 px de marge de chaque côté), arrêté avant « Total » ; « Total » traverse tout, trait plus marqué. Jetons existants. */
-.objGrid { display: flex; flex-direction: column; }
-.objGridBody { position: relative; }
-.objGridBody::before { content: ''; position: absolute; top: 0; bottom: 0; right: 124px; width: 1px; background: var(--sep); }
+/* Tableau « Chrono / Objectif » (objTable) : lignes-bandes en flex ; trait vertical continu entre Chrono et Objectif (12 px de marge de chaque côté), de l'en-tête jusqu'au bas de « Total » ; trait horizontal plus marqué au-dessus de « Total ». Jetons existants. */
+.objGrid { position: relative; display: flex; flex-direction: column; }
+.objGrid::before { content: ''; position: absolute; top: 0; bottom: 0; right: 124px; width: 1px; background: var(--sep); } /* continu de l'en-tête jusqu'au bas de « Total » (jamais en dessous) */
 .objGridHead, .objGridRow, .objGridTotal { display: flex; align-items: center; min-height: 44px; }
 .objGridHead { min-height: 32px; font-size: 11px; color: var(--text); }
 .objGridRow + .objGridRow { border-top: 1px solid var(--sep); }

@@ -26,7 +26,7 @@
   // Tableau « Chrono / Objectif » (UNE seule fonction de rendu, partagée : écran 1 et écran « Déplacer » de l'étape Temps ; la fiche d'une catégorie pourra la reprendre).
   // cfg = { levelLabel, rows: [{ label, chrono, avant, apres?, edit?: { label, maxMin, onPick(min) }, white? }], total?: true } ; chrono / avant : minutes ou null (« — ») ; apres absent = pas de « / ».
   // Colonnes : nom du niveau (en-tête blanc 11 px), « Chrono » (lecture seule, gris sable), UN titre « Objectif » centré ; chaque ligne montre « avant / après » (barre oblique grise entre les VALEURS) ; après violet et modifiable
-  // (sélecteur de durée standard) si edit, sinon blanc. Traits : horizontaux entre les lignes ; un trait vertical continu entre Chrono et Objectif (décalé de 12 px), arrêté au-dessus de « Total » ; « Total » traverse tout le tableau, trait plus marqué.
+  // (sélecteur de durée standard) si edit, sinon blanc. Traits : horizontaux entre les lignes ; un trait vertical continu entre Chrono et Objectif (décalé de 12 px), de l'en-tête jusqu'au bas de « Total » ; trait horizontal plus marqué au-dessus de « Total ».
   function objTable(cfg) {
     var node = el('div', 'objGrid'), body = el('div', 'objGridBody'), head = el('div', 'objGridHead');
     head.appendChild(el('span', 'objGridName', cfg.levelLabel)); head.appendChild(el('span', 'objGridChrono', tr('Chrono'))); head.appendChild(el('span', 'objGridObj', tr('Objectif')));
