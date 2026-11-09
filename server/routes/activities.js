@@ -561,6 +561,10 @@ router.delete('/activities/:id', (req, res) => {
   const membership = db.prepare('SELECT * FROM activity_members WHERE activityId = ? AND userId = ?').get(activity.id, userId);
   if (!membership) return res.status(403).json({ error: "Tu ne fais pas partie de cette activité." });
 
+  // Règle produit (9 nov. 2026, Émilien) : la dernière activité d'un compte ne se supprime jamais (un compte en a toujours une). Aucune donnée n'est touchée ; seule la suppression du compte retire tout.
+  const activeCount = db.prepare('SELECT COUNT(*) AS n FROM activity_members m JOIN activities a ON a.id = m.activityId WHERE m.userId = ? AND a.active = 1').get(userId).n;
+  if (activeCount <= 1) return res.status(400).json({ error: 'Il te faut au moins une activité : celle-ci ne peut pas être supprimée.' });
+
   const runningForUser = db.prepare('SELECT 1 FROM running_timers WHERE userId = ? AND activityId = ?').get(userId, activity.id);
   if (runningForUser) {
     return res.status(409).json({ error: 'Arrête le chrono en cours sur cette activité avant de la supprimer.' });

@@ -15477,7 +15477,7 @@
         return refreshActivities().then(function () { renderActivityGrid(); loadSettingsActivities(); if (TMT.sharedStatsRefresh) TMT.sharedStatsRefresh(); });
       }).catch(function (err) { msg.textContent = err.message; save.disabled = false; });
     });
-    row.appendChild(trash); // croix rouge en haut à droite de la carte, hors du champ du nom et des couleurs
+    if ((acts || []).length > 1) row.appendChild(trash); // croix rouge en haut à droite de la carte, hors du champ du nom et des couleurs ; absente quand il ne reste qu'une activité (la dernière ne se supprime pas)
     actions.appendChild(cancel);
     actions.appendChild(save);
     fields.appendChild(actions);
