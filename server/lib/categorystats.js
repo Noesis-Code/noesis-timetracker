@@ -90,16 +90,20 @@ function checkAccess(callerId, activityId, memberId) {
 // chantier frontend séparé).
 function shadeRanks(activityId) {
   const rows = db.prepare(
-    'SELECT key, parentKey FROM activity_goal_categories WHERE activityId = ? ORDER BY position ASC, id ASC'
+    'SELECT key, parentKey, removedAt FROM activity_goal_categories WHERE activityId = ? ORDER BY position ASC, id ASC'
   ).all(activityId);
-  const poleRows = rows.filter((r) => !r.parentKey);
+  // 9 nov. 2026 : les rangs se comptent sur les pôles ACTIFS seulement (ceux que les écrans affichent : categoriesForActivity, removedAt NULL), dans le même ordre ;
+  // avant, un pôle retiré (gelé) gardait un rang et décalait les suivants : rang 5 → retour au plus clair (« clair, foncé, puis clair à nouveau »). Un pôle retiré (temps passé encore visible
+  // dans les statistiques) reçoit un rang APRÈS les actifs : il n'en décale aucun.
+  const poleRows = rows.filter((r) => !r.parentKey).sort((a, b) => (a.removedAt ? 1 : 0) - (b.removedAt ? 1 : 0));
+  const activeCount = poleRows.filter((r) => !r.removedAt).length;
   if (poleRows.length) {
     const ranks = new Map();
     poleRows.forEach((r, i) => ranks.set(r.key, i));
     rows.filter((r) => r.parentKey).forEach((r) => {
       if (ranks.has(r.parentKey)) ranks.set(r.key, ranks.get(r.parentKey));
     });
-    return { ranks, count: poleRows.length };
+    return { ranks, count: activeCount };
   }
   // 21 septembre 2026 (Statistiques — Pôles & secteurs) : corrigé de
   // `goals.polesForActivity`, jamais exporté par server/lib/goals.js (nom
