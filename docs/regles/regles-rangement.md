@@ -1,4 +1,4 @@
-# Référence design unique (règles R1–R46 et F1–F5, obligatoires, décision d'Émilien du 20 oct. 2026)
+# Référence design unique (règles R1–R47 et F1–F5, obligatoires, décision d'Émilien du 20 oct. 2026)
 
 Tout agent lit ce fichier avant de toucher à l'interface (`public/`). Le relecteur refuse toute branche qui les viole sans justification écrite.
 
@@ -53,6 +53,7 @@ Tout agent lit ce fichier avant de toucher à l'interface (`public/`). Le relect
 - R44. Sous-catégories d'un écran (décision d'Émilien, 28 oct. 2026) : texte simple, la sous-catégorie active est soulignée en violet ; pas de fond ni de cadre. Composant unique `.cmpSubTabs` (css/composants.css).
 - R45. Navigation par flèches (décision d'Émilien, 28 oct. 2026) : tout sélecteur qui parcourt des éléments qui se suivent (jour, mois d'un calendrier, semaine, pôle, période…) utilise le composant unique `.cmpNav` de `css/composants.css` (R29) : texte seul sans cadre, valeur courante centrée (`.cmpNavLabel`), flèches ‹ › discrètes de part et d'autre (`.cmpNavArrow`, 44 px de toucher). Deux tailles : normale (pôle, 20 px gras) et `.cmpNav--sm` (jour d'Aujourd'hui, mois d'un calendrier, 14 px). Aucune autre forme de flèches de navigation : l'ancien modèle (carré, cadre, pastille) disparaît partout (audit de toute l'app).
 - R46. Flèches ET balayage (décision d'Émilien, 3 nov. 2026) : chaque fois qu'un libellé est accompagné de flèches ‹ › pour passer à la valeur suivante (R45), on change de valeur de DEUX façons : toucher une flèche OU balayer horizontalement le libellé (≥ 60 px, plus horizontal que vertical ; vers la gauche = suivant, vers la droite = précédent). Mécanique unique, déjà celle du sélecteur de pôle de la Feuille de route, désormais dans le composant `.cmpNav` (`TMT.cmpNavSwipe`, `js/composants.js`) : le balayage actionne la flèche (même fonction que le clic, flèche désactivée = rien). Tout nouveau sélecteur à flèches utilise `.cmpNav`/`.cmpNavArrow` et reçoit le balayage sans code ; jamais d'écouteur de balayage propre à un écran. Aucun rendu ne change.
+- R47. Couleurs de pôles (décision d'Émilien, 9 nov. 2026) : 5 teintes standards par activité, pôles 5 au plus, source unique `public/theme-palette.js` (`POLE_TINTS`), aucune exception. Chacune des 9 couleurs d'activité a 5 teintes de pôle FIXES (rang 1 à 5), de la même famille de teinte, toutes lisibles sur le fond #0B0A0A (contraste texte ≥ 4,5:1), jamais pâles ni sombres, et deux pôles d'une même activité ne se ressemblent jamais. Elles sont LUES, jamais calculées à la volée : UNE fonction publique `TMT.poleColor(couleurActivité, index)` (index 0 = pôle 1 … 4 = pôle 5). Les secteurs prennent la teinte de leur pôle ; sans pôle, la couleur de l'activité. Interdit : tout autre calcul de teinte de pôle (nuances, éclaircissement, mélange) dans l'arbre, la création, Réglages, les stats, le Chrono, Trade Tracker. Test : `test/pole-couleurs-test.js` (contraste, distinction, aucun ancien calcul).
 
 ## Nouvelle règle = application partout
 Toute nouvelle règle écrite ici déclenche (par le coordinateur) un chantier ou, si les cinq chantiers permanents sont occupés, une tâche « à venir » dans le chantier « Simplification et design général » : auditer TOUTE l'application (`public/`, `trade-tracker/`, Expansion), lister les écarts, les corriger en réutilisant le composant unique de R29, puis cocher la checklist. Le relecteur refuse une branche qui recopie un composant au lieu de le réutiliser.
@@ -72,6 +73,6 @@ Palette R11 migrée (20 oct. 2026) par jetons CSS dans `public/styles.css` (`--p
 
 ## Checklist à joindre au compte rendu
 ```
-R1 [ ] R2 [ ] R3 [ ] R4 [ ] R5 [ ] R6 [ ] R7 [ ] R8 [ ] R9 [ ] R11 [ ] R12 [ ] R13 [ ] R14 [ ] R15 [ ] R16 [ ] R17 [ ] R18 [ ] R19 [ ] R20 [ ] R21 [ ] R22 [ ] R23 [ ] R24 [ ] R25 [ ] R26 [ ] R27 [ ] R28 [ ] R29 [ ] R30 [ ] R46 [ ] F1-F5 [ ]  R10 : captures 390 px + 360 px jointes [ ]
+R1 [ ] R2 [ ] R3 [ ] R4 [ ] R5 [ ] R6 [ ] R7 [ ] R8 [ ] R9 [ ] R11 [ ] R12 [ ] R13 [ ] R14 [ ] R15 [ ] R16 [ ] R17 [ ] R18 [ ] R19 [ ] R20 [ ] R21 [ ] R22 [ ] R23 [ ] R24 [ ] R25 [ ] R26 [ ] R27 [ ] R28 [ ] R29 [ ] R30 [ ] R46 [ ] R47 [ ] F1-F5 [ ]  R10 : captures 390 px + 360 px jointes [ ]
 (une règle non cochée = une phrase de justification)
 ```

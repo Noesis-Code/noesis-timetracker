@@ -41,6 +41,7 @@
     module.exports = factory();
   } else {
     root.NOESIS_THEME_PALETTES = factory();
+    root.TMT = root.TMT || {}; root.TMT.poleColor = root.NOESIS_THEME_PALETTES.poleColor; // fonction publique unique des couleurs de pôles
   }
 })(typeof self !== 'undefined' ? self : this, function () {
   // 30 sept. 2026 (demande d'Emilien) : palette « B · Minéral (froid dominant) », 9 couleurs, même ordre
@@ -69,5 +70,50 @@
     '#B0787D', '#B08B78', '#B09F78', '#9DB078', '#78B094', '#78ABB0', '#7894B0', '#8178B0', '#A678B0',
   ];
 
-  return { DARK_PALETTE: DARK_PALETTE, LIGHT_PALETTE: LIGHT_PALETTE, LEGACY_DARK_PALETTE: LEGACY_DARK_PALETTE, LEGACY_LIGHT_PALETTE: LEGACY_LIGHT_PALETTE, LEGACY_PROFILE_PALETTE: LEGACY_PROFILE_PALETTE };
+  // COULEURS DES PÔLES (9 nov. 2026, décision d'Émilien, règle R47) : chaque couleur d'activité de la palette sombre a 5 teintes STANDARDS FIXES pour ses 5 pôles au plus (rang 1 à 5),
+  // lues ici, jamais calculées à la volée. Même famille de teinte que l'activité (écart de teinte ≤ 8°), TOUTES lisibles sur le fond #0B0A0A (contraste texte de 4,8 à 11,7:1, ≥ 4,5:1),
+  // jamais pâles ni sombres, et deux pôles d'une même activité ne se ressemblent jamais (écart CIE76 ΔE ≥ 15). Le rang 1 est le plus soutenu, le rang 5 le plus clair.
+  // Les secteurs reprennent la teinte de leur pôle. Une couleur d'activité qui n'est pas dans la palette sombre (jumelle claire, ancienne palette LEGACY_*) prend les teintes de la couleur
+  // sombre de teinte la plus proche. Les palettes LEGACY_* ne sont jamais réécrites.
+  var POLE_TINTS = {
+    '#A04B52': ['#E34239', '#E96769', '#E98A84', '#EEA1B1', '#E2BEBC'],
+    '#A0674B': ['#A57247', '#E66C4E', '#E0924E', '#EAA786', '#DFC0B4'],
+    '#A0864B': ['#8F7D24', '#C98023', '#C29E70', '#DDB020', '#DAC76A'],
+    '#83A04B': ['#5E8A2E', '#5FA117', '#95AE3A', '#82C91D', '#AED37A'],
+    '#4BA075': ['#3B8B6D', '#18A64B', '#21BA81', '#79C69F', '#38E375'],
+    '#4B98A0': ['#17899E', '#17A19B', '#1FB2DC', '#7DC1C7', '#43DADE'],
+    '#4B75A0': ['#317CE2', '#4B96D2', '#7AAAC6', '#98B7ED', '#B9C8E1'],
+    '#594BA0': ['#8C64E9', '#9E7DEC', '#A29AF1', '#B8AFEB', '#C5C4E6'],
+    '#914BA0': ['#D620DE', '#D161E8', '#D486EE', '#DBA2E8', '#E0BBE2'],
+  };
+
+  function hueOf(hex) {
+    var n = parseInt(String(hex).slice(1), 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    if (!d) return null;
+    var h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h *= 60; return h < 0 ? h + 360 : h;
+  }
+  function tintKey(color) {
+    var c = String(color || '').toUpperCase();
+    if (!/^#[0-9A-F]{6}$/.test(c)) return null;
+    if (POLE_TINTS[c]) return c;
+    var li = LIGHT_PALETTE.map(function (x) { return x.toUpperCase(); }).indexOf(c);
+    if (li >= 0) return DARK_PALETTE[li];
+    var h = hueOf(c), best = null, bd = 999;
+    if (h === null) return DARK_PALETTE[0];
+    DARK_PALETTE.forEach(function (d) { var hd = hueOf(d), x = Math.abs(h - hd); x = Math.min(x, 360 - x); if (x < bd) { bd = x; best = d; } });
+    return best;
+  }
+  // UNE fonction publique unique (TMT.poleColor côté navigateur) : couleur du pôle d'index « index » (0 = pôle 1 … 4 = pôle 5 ; au-delà de 5, on repart au rang 1) d'une activité de couleur « activityColor ».
+  // Sans index (null / undefined) : la couleur de l'activité elle-même. Ne calcule rien : elle lit POLE_TINTS.
+  function poleColor(activityColor, index) {
+    if (index === null || index === undefined) return activityColor;
+    var key = tintKey(activityColor);
+    if (!key) return activityColor;
+    var rank = ((Number(index) % 5) + 5) % 5;
+    return POLE_TINTS[key][rank];
+  }
+
+  return { POLE_TINTS: POLE_TINTS, poleColor: poleColor, DARK_PALETTE: DARK_PALETTE, LIGHT_PALETTE: LIGHT_PALETTE, LEGACY_DARK_PALETTE: LEGACY_DARK_PALETTE, LEGACY_LIGHT_PALETTE: LEGACY_LIGHT_PALETTE, LEGACY_PROFILE_PALETTE: LEGACY_PROFILE_PALETTE };
 });
