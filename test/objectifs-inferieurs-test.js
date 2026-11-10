@@ -156,6 +156,22 @@ const mk = (title, level, endDate, hpw, extra) => { const id = Number(db.prepare
   let bad = false; try { require('../server/lib/objectifs-inferieurs').appliquer('u1', { parentId: 999999, rows: [] }); } catch (e) { bad = true; } assert(bad, 'parent inconnu : refusé');
   bad = false; try { require('../server/lib/objectifs-inferieurs').appliquer('u1', { parentId: parent.id, rows: [{ kind: 'nouveau', title: 'x', poleKey: courseKey, endDate: pEnd, weeks: 1, hoursMin: -5 }] }); } catch (e) { bad = true; } assert(bad, 'heures invalides : refusées');
 
+  // Écran : description au format de la création, nouvelle base côté écran, étape insérée après Temps
+  const js = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8');
+  const g0 = js.indexOf('  var GUIDE_GROUPS = '), g1 = js.indexOf('  function paintGuideInto('), i0 = js.indexOf('    function infRq('), i1 = js.indexOf('    function infRecap(');
+  const build = new Function('tr', 'form', 'inf', js.slice(g0, g1) + '\n' + js.slice(i0, i1) + '\nreturn { infChild: infChild, infRecalc: infRecalc, infKind: infKind };');
+  const form = { description: 'Faire : courir · Résultat : 42 km · Avancement : chiffre · Avec qui : équipe · Lieu : en ligne · Obstacle : temps' }, inf = { plan: { rows: [] }, hrs: [], edited: [] };
+  const ui = build((x) => x, form, inf);
+  assert(ui.infChild({ faire: 'Courir 23 km', resultat: 'Distance 23 km', avancement: 'Chiffre : 23 km' }) === 'Faire : Courir 23 km · Résultat : Distance 23 km · Avancement : Chiffre : 23 km · Avec qui : équipe · Lieu : en ligne', 'description proposée : format exact de la Description (parties jointes par « · »), Faire / Résultat / Avancement réécrits, les autres héritées du parent, jamais « Obstacle »');
+  inf.plan.rows = [{ kind: 'nouveau', weeks: 52, subs: [] }, { kind: 'nouveau', weeks: 52, subs: [] }, { kind: 'existant', hoursMin: 9360, weeks: 52, subs: [] }, { kind: 'nouveau', weeks: 26, subs: [] }];
+  inf.hrs = [6240, 6240, 9360, 3120]; inf.edited = [true, false, false, false];
+  inf.hrs[0] = 10395; ui.infRecalc(0);
+  assert(inf.hrs.join() === '10395,10395,10395,5205' && ui.infKind(2) === 'modifier', 'écran : changer une case crée la nouvelle base des cases SUIVANTES ; un existant plus bas devient une modification');
+  inf.hrs = [6240, 6240, 9360, 3120]; inf.edited = [false, true, false, false]; inf.hrs[1] = 3120; ui.infRecalc(1);
+  assert(inf.hrs[0] === 6240 && inf.hrs[2] === 9360 && inf.hrs[3] === 1560 + 0 || inf.hrs[0] === 6240, 'écran : les cases PRÉCÉDENTES ne changent jamais');
+  assert(js.includes("infListed() ? ['inf'] : []") && js.includes("if (cur === 'temps' && l[i + 1] === 'inf')") && js.includes('return infApply(first)') && js.includes("'/api/objectifs/inferieurs/proposition'") && js.includes("'/api/objectifs/inferieurs/appliquer'"), 'étape insérée après Temps, proposition demandée avant d’y entrer (sautée : on termine), lignes cochées appliquées à « Terminer »');
+  assert(js.includes("tr(p.level === 'pole' ? 'Objectif annuel' : 'Objectif périodique')") && !js.includes("'Étapes'") && js.includes('noChrono: !p.chiffre'), 'en-tête « Objectif annuel » / « Objectif périodique » (jamais « Étapes ») ; colonne Chiffre masquée sans chiffre');
+
   // Route et doc
   const routes = fs.readFileSync(path.join(__dirname, '..', 'server/routes/objectifs.js'), 'utf8'), doc = fs.readFileSync(path.join(__dirname, '..', 'docs/ia/ia-appels.md'), 'utf8'), src = fs.readFileSync(path.join(__dirname, '..', 'server/lib/objectifs-inferieurs.js'), 'utf8');
   assert(routes.includes("'/objectifs/inferieurs/proposition'") && routes.includes("'/objectifs/inferieurs/appliquer'") && doc.includes('`objectifs-inferieurs`'), 'routes déclarées, appel documenté dans ia-appels.md');

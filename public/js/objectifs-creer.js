@@ -24,19 +24,22 @@
     return b;
   }
   // Tableau « Chrono / Objectif » (UNE seule fonction de rendu, partagée : écran 1 et écran « Déplacer » de l'étape Temps ; la fiche d'une catégorie pourra la reprendre).
-  // cfg = { levelLabel, rows: [{ label, chrono, avant, apres?, edit?: { label, maxMin, onPick(min) }, white? }], total?: true } ; chrono / avant : minutes ou null (« — ») ; apres absent = pas de « / ».
+  // cfg = { levelLabel, rows: [{ label, chrono, avant, apres?, edit?: { label, maxMin, onPick(min) }, white? }], total?: true, chronoTitle?, objTitle?, noChrono?, single? } ; options de l'étape « Objectifs inférieurs » (même fonction, mêmes traits) : titres de colonnes, colonne Chrono masquée,
+  // par ligne : chronoText (texte à la place des heures), check { checked, onChange } (case à cocher), sub (petit texte gris au-dessus du titre), muted (ligne grise), indent (sous-ligne), noAvant (pas de « avant »), sep (séparateur à la place de « / ») ; single : le total n'a qu'une valeur ; chrono / avant : minutes ou null (« — ») ; apres absent = pas de « / ».
   // Colonnes : nom du niveau (en-tête blanc 11 px), « Chrono » (lecture seule, gris sable), UN titre « Objectif » centré ; chaque ligne montre « avant / après » (barre oblique grise entre les VALEURS) ; après violet et modifiable
   // (sélecteur de durée standard) si edit, sinon blanc. Traits : horizontaux entre les lignes ; un trait vertical continu entre Chrono et Objectif (décalé de 12 px), de l'en-tête jusqu'au bas de « Total » ; trait horizontal plus marqué au-dessus de « Total ».
   function objTable(cfg) {
     var node = el('div', 'objGrid'), body = el('div', 'objGridBody'), head = el('div', 'objGridHead');
-    head.appendChild(el('span', 'objGridName', cfg.levelLabel)); head.appendChild(el('span', 'objGridChrono', tr('Chrono'))); head.appendChild(el('span', 'objGridObj', tr('Objectif')));
+    head.appendChild(el('span', 'objGridName', cfg.levelLabel)); if (!cfg.noChrono) head.appendChild(el('span', 'objGridChrono', cfg.chronoTitle || tr('Chrono'))); head.appendChild(el('span', 'objGridObj', cfg.objTitle || tr('Objectif')));
     body.appendChild(head);
     cfg.rows.forEach(function (r) {
-      var row = el('div', 'objGridRow'), obj = el('span', 'objGridObj');
-      row.appendChild(el('span', 'objGridName', r.label)); row.appendChild(el('span', 'objGridChrono', r.chrono == null ? '' : hh(r.chrono)));
-      obj.appendChild(el('span', 'objGridAvant', r.avant == null ? '—' : hh(r.avant)));
+      var row = el('div', 'objGridRow' + (r.muted ? ' objGridMuted' : '') + (r.indent ? ' objGridIndent' : '')), obj = el('span', 'objGridObj');
+      if (r.check) { var cb = el('input'); cb.type = 'checkbox'; cb.checked = !!r.check.checked; cb.setAttribute('aria-label', r.label); cb.addEventListener('change', function () { r.check.onChange(cb.checked); }); row.appendChild(cb); }
+      var nm = el('span', 'objGridName'); if (r.sub) nm.appendChild(el('span', 'objGridSub', r.sub)); nm.appendChild(el('span', null, r.label)); row.appendChild(nm);
+      if (!cfg.noChrono) row.appendChild(el('span', 'objGridChrono', r.chronoText != null ? r.chronoText : (r.chrono == null ? '' : hh(r.chrono))));
+      if (!r.noAvant) obj.appendChild(el('span', 'objGridAvant', r.avant == null ? '—' : hh(r.avant)));
       if (r.apres !== undefined) {
-        obj.appendChild(el('span', 'objGridSlash', '/'));
+        if (!r.noAvant) obj.appendChild(el('span', 'objGridSlash', r.sep || '/'));
         if (r.edit) obj.appendChild(tbtn(r.apres, r.edit.label, function (v, b) { b.textContent = hh(v); r.edit.onPick(v); }, r.edit.maxMin));
         else obj.appendChild(el('span', 'objGridApres', hh(r.apres)));
       }
@@ -46,8 +49,8 @@
     var tA = el('span', 'objGridApres'), tB = el('span', 'objGridApres');
     if (cfg.total) {
       var tot = el('div', 'objGridTotal'), tObj = el('span', 'objGridObj');
-      tObj.appendChild(tA); tObj.appendChild(el('span', 'objGridSlash', '/')); tObj.appendChild(tB);
-      tot.appendChild(el('span', 'objGridName', tr('Total'))); tot.appendChild(el('span', 'objGridChrono')); tot.appendChild(tObj); node.appendChild(tot);
+      if (!cfg.single) { tObj.appendChild(tA); tObj.appendChild(el('span', 'objGridSlash', '/')); } tObj.appendChild(tB);
+      tot.appendChild(el('span', 'objGridName', tr('Total'))); if (!cfg.noChrono) tot.appendChild(el('span', 'objGridChrono')); tot.appendChild(tObj); node.appendChild(tot);
     }
     return { node: node, setTotal: function (avant, apres) { tA.textContent = hh(avant); tB.textContent = hh(apres); } };
   }
@@ -326,9 +329,9 @@
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
     panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
-    var boxes = { desc: el('div'), temps: el('div'), heures: el('div'), activite: el('div'), niveau: el('div'), taches: el('div') };
+    var boxes = { desc: el('div'), temps: el('div'), heures: el('div'), activite: el('div'), niveau: el('div'), inf: el('div'), taches: el('div') };
     var slidePages = el('div', 'tasksPages'), slideTrack = el('div', 'tasksTrack'), slideA = el('div', 'tasksPage'), slideB = el('div', 'tasksPage off'), slideTimer = 0;
-    ['desc', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (k) { slideA.appendChild(boxes[k]); });
+    ['desc', 'temps', 'heures', 'activite', 'niveau', 'inf', 'taches'].forEach(function (k) { slideA.appendChild(boxes[k]); });
     slideTrack.appendChild(slideA); slideTrack.appendChild(slideB); slidePages.appendChild(slideTrack); panelBody.appendChild(slidePages);
     function slideTo(sub) { // la page de création d'une activité glisse depuis la droite (et revient) comme les pages du panneau de tâche
       window.clearTimeout(slideTimer);
@@ -635,11 +638,85 @@
         nivPaint(); nivSync();
       });
     }
+    // Étape « Objectifs inférieurs » (10 nov. 2026) : après Temps, seulement pour un objectif d'activité (annuels) ou de pôle (périodiques) et si le serveur propose quelque chose ; sautée en silence sinon (objectifs-inferieurs.js).
+    // Le serveur calcule (cases, heures, chiffres) et l'IA rédige ; ici : cocher / refuser chaque ligne, changer les heures (les cases SUIVANTES suivent la nouvelle base) ; rien n'est écrit avant « Terminer ».
+    var inf = form.inf = form.inf || { key: null, plan: null, on: [], hrs: [], edited: [] };
+    function infEligible() { return (form.level === 'activite' || form.level === 'pole') && !!form.endDate && tp.valueMin > 0; }
+    function infListed() { return infEligible() && !(inf.plan && inf.plan.skip); }
+    function infKey() { return [nivKey(), tp.valueMin, form.level || '', form.poleKey || ''].join('|'); }
+    function infFetch() {
+      if (!infEligible()) { inf.plan = { skip: true }; inf.key = null; return Promise.resolve(); }
+      var key = infKey(); if (inf.key === key && inf.plan) return Promise.resolve();
+      inf.key = key; inf.plan = null;
+      var nb = nivBody(), dep = nb && nb.answers[0] ? nb.answers[0].a : '';
+      return api('POST', '/api/objectifs/inferieurs/proposition', { title: form.title, description: form.description || '', activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, startDate: form.startDate, endDate: form.endDate, rateMin: tp.valueMin, depart: dep }).then(function (p) {
+        if (inf.key !== key) return;
+        inf.plan = p && !p.skip ? p : { skip: true };
+        if (!inf.plan.skip) { inf.on = p.rows.map(function (r) { return r.checked; }); inf.hrs = p.rows.map(function (r) { return r.hoursMin; }); inf.edited = p.rows.map(function () { return false; }); }
+      }).catch(function () { if (inf.key === key) inf.plan = { skip: true }; });
+    }
+    function infRq(m) { return Math.round(m / 15) * 15; }
+    function infEx(r) { return r.kind === 'existant' ? r.hoursMin : (r.kind === 'modifier' ? r.fromMin : null); } // heures de l'objectif existant de la case
+    function infKind(i) { var r = inf.plan.rows[i]; return r.kind === 'nouveau' ? 'nouveau' : (inf.hrs[i] > infEx(r) ? 'modifier' : 'existant'); }
+    function infSubs(r) { return r.subs.reduce(function (n, x) { return n + x.hoursMin; }, 0); }
+    function infRecalc(k) { // une case changée (ou plus haute) fixe la NOUVELLE BASE des cases SUIVANTES seulement, jamais des précédentes
+      var rows = inf.plan.rows, rate = inf.hrs[k] / rows[k].weeks;
+      for (var j = k + 1; j < rows.length; j++) {
+        var r = rows[j], ex = infEx(r);
+        if (inf.edited[j]) { rate = inf.hrs[j] / r.weeks; continue; }
+        var prop = infRq(rate * r.weeks), floor = Math.max(prop, infRq(infSubs(r)));
+        if (ex != null && ex >= floor) { inf.hrs[j] = ex; if (ex > prop) rate = ex / r.weeks; continue; }
+        inf.hrs[j] = floor; if (floor > prop) rate = floor / r.weeks;
+      }
+    }
+    function infNum(v) { return String(v).replace('.', ','); }
+    function infChild(r) { // description de l'objectif proposé : MÊME format que la Description de création ; seules Faire, Résultat, Avancement changent, les autres viennent du parent (GUIDE_FROM_PARENT)
+      var f = { guide: {}, guideRest: '' }, inh = guideProposals(form.description || '');
+      GUIDE_FROM_PARENT.forEach(function (k) { if (inh[k]) f.guide[k] = { picks: inh[k].picks.slice(), text: inh[k].text }; });
+      f.guide.faire = { picks: [], text: r.faire || '' }; f.guide.resultat = { picks: [], text: r.resultat || '' }; f.guide.avance = { picks: [], text: r.avancement || '' };
+      return guideCompose(f);
+    }
+    function infRecap(p) { // tableau récapitulatif de la description : libellé gris, valeur blanche ; une ligne absente n'est pas affichée
+      var g = form.guide || {}, nb = nivBody(), items = [];
+      function val(k) { var a = g[k]; return a ? a.picks.map(function (x) { return tr(x).toLowerCase(); }).concat(a.text && a.text.trim() ? [a.text.trim()] : []).join(', ') : ''; }
+      items.push([tr('Faire'), val('faire')]); items.push([tr('Résultat'), val('resultat')]);
+      if (p.chiffre) items.push([tr('Chiffre'), (p.chiffre.objet ? p.chiffre.objet + ' : ' : '') + infNum(p.chiffre.depart) + ' → ' + infNum(p.chiffre.cible) + (p.chiffre.unite ? ' ' + p.chiffre.unite : '')]);
+      items.push([tr('Départ'), nb && nb.answers[0] ? nb.answers[0].a : '']);
+      var node = el('div', 'objGrid objRecap');
+      items.filter(function (x) { return x[1]; }).forEach(function (x) { var row = el('div', 'objGridRow'); row.appendChild(el('span', 'objGridName', x[0])); row.appendChild(el('span', 'objRecapVal', x[1])); node.appendChild(row); });
+      return node;
+    }
+    function infPaint() {
+      var box = boxes.inf; box.textContent = ''; var p = inf.plan; if (!p || p.skip) return;
+      box.appendChild(el('p', 'cmpBlockTitle objNivTitle', form.title)); box.appendChild(infRecap(p));
+      var rows = [], tbl;
+      function total() { return p.rows.reduce(function (n, r, i) { return n + (infKind(i) !== 'existant' && inf.on[i] !== false ? inf.hrs[i] : 0); }, 0); }
+      p.rows.forEach(function (r, i) {
+        var kind = infKind(i), mute = kind === 'existant', c = r.chiffre;
+        var row = { label: r.title || r.existingTitle || r.label, sub: r.label, muted: mute, chronoText: c ? infNum(c.value) + (c.unit ? ' ' + c.unit : '') : '', apres: inf.hrs[i], noAvant: kind !== 'modifier', sep: '→', avant: kind === 'modifier' ? infEx(r) : undefined };
+        if (!mute) { row.check = { checked: inf.on[i] !== false, onChange: function (v) { inf.on[i] = v; tbl.setTotal(null, total()); } }; row.edit = { label: tr('Heures'), onPick: function (v) { inf.hrs[i] = v; inf.edited[i] = true; infRecalc(i); infPaint(); } }; }
+        rows.push(row);
+        r.subs.forEach(function (x) { rows.push({ label: x.title, indent: true, muted: true, apres: x.hoursMin, noAvant: true }); });
+      });
+      tbl = objTable({ levelLabel: tr(p.level === 'pole' ? 'Objectif annuel' : 'Objectif périodique'), chronoTitle: tr('Chiffre'), noChrono: !p.chiffre, objTitle: tr('Heures'), single: true, rows: rows, total: true });
+      tbl.setTotal(null, total()); box.appendChild(tbl.node);
+    }
+    function infApply(parent) { // à « Terminer » : seulement les lignes cochées ; créées / modifiées par les fonctions existantes côté serveur
+      var p = inf.plan; if (!parent || !parent.id || !p || p.skip || cur !== 'inf') return Promise.resolve();
+      var rows = [];
+      p.rows.forEach(function (r, i) {
+        var kind = infKind(i); if (kind === 'existant' || inf.on[i] === false) return;
+        if (kind === 'modifier') { rows.push({ kind: 'modifier', existingId: r.existingId, weeks: r.weeks, hoursMin: inf.hrs[i] }); return; }
+        rows.push({ kind: 'nouveau', title: r.title, description: infChild(r), poleKey: r.poleKey, categoryKey: r.categoryKey, endDate: r.endDate, weeks: r.weeks, hoursMin: inf.hrs[i], chiffre: r.chiffre, reason: hh(p.rateMin) + ' × ' + r.weeks + ' ' + tr('sem'), attachIds: r.subs.filter(function (x) { return x.attach; }).map(function (x) { return x.id; }) });
+      });
+      if (!rows.length) return Promise.resolve();
+      return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: parent.id, rateMin: p.rateMin, rows: rows }).catch(function () { /* l'objectif principal existe déjà : jamais de blocage */ });
+    }
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
-    var stepNames = { desc: 'Description', temps: 'Temps', heures: 'Heures', activite: 'Activité', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(niv.skip ? [] : ['niveau']).concat(['temps']).concat(TACHES_PAGE ? ['taches'] : []); }
+    var stepNames = { desc: 'Description', temps: 'Temps', heures: 'Heures', activite: 'Activité', niveau: 'Niveau', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
+    function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(niv.skip ? [] : ['niveau']).concat(['temps']).concat(infListed() ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     function loadRatt() {
       // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
       var key = rattKey();
@@ -652,7 +729,8 @@
     }
     function show(k) {
       form._step = cur = k;
-      ['desc', 'temps', 'heures', 'activite', 'niveau', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      ['desc', 'temps', 'heures', 'activite', 'niveau', 'inf', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      if (k === 'inf') infPaint();
       if (k === 'desc' && form._hints && form._shownOnce) form._hints();
       if (k === 'desc') form._shownOnce = true;
       if (k === 'activite') { form.poleOpen = false; renderActivities(); } // à l'arrivée : seulement les activités, aucun choix de pôle déroulé
@@ -670,6 +748,7 @@
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
     function stepNext() {
       var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
+      if (cur === 'temps' && l[i + 1] === 'inf') { stepBtn.disabled = true; infFetch().then(function () { stepBtn.disabled = false; if (inf.plan && !inf.plan.skip) show('inf'); else finishAll(); }); return; }
       if (cur === 'desc') { if (!validDesc()) return; if (form.fixedCtx) { stepBtn.disabled = true; loadRatt().then(nivFetch).then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; } show(l[i + 1]); return; } // créé depuis une bulle : activité imposée, pas de page Activité
       if (cur === 'activite') { // le rattachement / la fusion dépendent de l'échéance ET de l'activité : proposés après la page Activité
         if (noActivity()) { msg.textContent = tr('Choisis une activité.'); return; }
@@ -699,6 +778,7 @@
             })
             .then(function (cr) { if (cr && cr.id) first = cr; });
         })
+        .then(function () { return infApply(first); })
         .then(function () { var created = first; input.value = ''; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); if (created && created.bridgeFailed) openDetail(created.id); /* C12 : le message s’affiche dans le détail */ })
         .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
       }

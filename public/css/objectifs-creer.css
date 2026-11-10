@@ -195,3 +195,11 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objNivGrid { position: relative; margin: 0 0 16px; --seg-sep: var(--sep); } /* 16 px sous le tableau (les 16 px sous le trait du titre viennent de .objGuideRow.open .objGuideHead) ; la barre verticale (composant .cmpSeg) prend la couleur des séparateurs de groupes */
 .objNivGrid .cmpSeg { margin: 0; }
 .objNivGrid::before { content: ''; position: absolute; left: 0; right: 0; top: 44px; height: 1px; background: var(--sep); } /* UNE barre horizontale entre les deux lignes (44 px de haut chacune) */
+/* Étape « Objectifs inférieurs » : mêmes traits que le tableau de l'étape Temps (.objGrid) ; ligne grise (existant plus haut, sous-lignes en retrait), petit texte de période, récapitulatif de la description sans trait vertical */
+.objGridMuted .objGridName, .objGridMuted .objGridApres, .objGridMuted .objTEdit { color: var(--text-light); }
+.objGridIndent .objGridName { padding-left: 24px; font-size: 13px; }
+.objGridSub { display: block; font-size: 11px; color: var(--text-light); }
+.objRecap { margin: 0 0 24px; }
+.objRecap::before { display: none; }
+.objRecap .objGridName { flex: none; width: 96px; }
+.objRecapVal { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-size: 14px; color: var(--text); }
