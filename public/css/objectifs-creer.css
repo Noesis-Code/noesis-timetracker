@@ -188,11 +188,10 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 /* Les pages glissantes défilent à la verticale quand la liste dépasse (sinon « Ajouter une activité » était coupé) */
 .objDock .tasksPages { overflow-x: hidden; overflow-y: auto; }
 
-/* Page « Ton niveau » (10 nov. 2026) : trois questions guidées, groupes sans bulle avec un trait fin à gauche (couleur de séparation standard), choix en pastilles de 44 px (choisi = .cmpBtn violet, non choisi = .cmpBtnIdle verre calme) */
+/* Page « Ton niveau » (10 nov. 2026) : trois questions en accordéon, même format que la Description (.objGuideRow / .objGuideHead), quatre réponses en .cmpSeg 2 × 2 */
 .objNivTitle { padding: 0 0 4px; }
 .objNivSub { margin: 0 0 24px; }
-.objNivQ { margin: 0 0 24px; padding-left: 12px; border-left: 1px solid var(--sep); }
-.objNivHead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.objNivHead .hint { margin: 0; flex: none; }
-.objNivChips { display: flex; flex-wrap: wrap; gap: 8px; }
-.objNivChips .cmpBtn { width: auto; min-height: 44px; padding: 8px 16px; font-size: 14px; font-weight: 500; }
+.objNivAns { color: var(--purple); } /* réponse choisie, à droite du titre replié (13 px comme .hint) */
+.objNivGrid { position: relative; margin: 0 0 16px; --seg-sep: var(--sep); } /* 16 px sous le tableau (les 16 px sous le trait du titre viennent de .objGuideRow.open .objGuideHead) ; la barre verticale (composant .cmpSeg) prend la couleur des séparateurs de groupes */
+.objNivGrid .cmpSeg { margin: 0; }
+.objNivGrid::before { content: ''; position: absolute; left: 0; right: 0; top: 44px; height: 1px; background: var(--sep); } /* UNE barre horizontale entre les deux lignes (44 px de haut chacune) */

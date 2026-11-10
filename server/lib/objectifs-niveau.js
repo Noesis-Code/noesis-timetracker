@@ -8,7 +8,7 @@ const FEATURE = 'niveau-questions';
 const KEYS = ['accompli', 'regularite', 'anciennete'];
 const FIXED = [
   { key: 'accompli', q: 'Ce que tu as déjà accompli', choices: ['Rien encore', 'Un premier essai', 'Plusieurs résultats', 'Des résultats solides'] },
-  { key: 'regularite', q: 'Ta régularité actuelle', choices: ['Aucune', '1 fois par semaine', '2 ou 3 fois par semaine', '4 fois ou plus par semaine'] },
+  { key: 'regularite', q: 'Ta régularité par semaine', choices: ['Aucune', '1 fois', '2 ou 3 fois', '4 fois ou plus'] },
   { key: 'anciennete', q: 'Ton ancienneté', choices: ['Moins de 3 mois', '3 à 12 mois', '1 à 3 ans', 'Plus de 3 ans'] },
 ];
 

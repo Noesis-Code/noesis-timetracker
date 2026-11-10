@@ -573,7 +573,7 @@
     refresh();
     // Étape « Niveau » (10 nov. 2026) : TOUJOURS affichée, avant « Temps » ; trois questions guidées (accompli, régularité, ancienneté), quatre choix chacun, aucun texte à taper.
     // Les questions sont écrites par l'IA selon l'objectif (questions fixes si l'IA ne répond pas) ; le niveau se déduit côté serveur des trois réponses (objectifs-niveau.js).
-    var niv = form.niv = form.niv || { key: null, qs: null, picks: [null, null, null] };
+    var niv = form.niv = form.niv || { key: null, qs: null, picks: [null, null, null], open: 0 };
     function nivKey() { return [form.title || '', form.activityId == null ? '' : form.activityId].join('|'); }
     function nivDone() { return !!niv.qs && niv.picks.every(function (p) { return p != null; }); }
     function nivBody() { return nivDone() ? { answers: niv.qs.map(function (q, qi) { return { q: q.q, a: q.choices[niv.picks[qi]], i: niv.picks[qi] }; }) } : undefined; }
@@ -583,21 +583,36 @@
       boxes.niveau.appendChild(el('p', 'cmpBlockTitle objNivTitle', tr('Ton niveau')));
       boxes.niveau.appendChild(el('p', 'hint objNivSub', form.title + (form.endDate ? ' · ' + dateText(form.endDate) : '')));
       if (!niv.qs) { boxes.niveau.appendChild(el('p', 'hint', tr('Un instant…'))); return; }
+      // Même format que la Description (paintGuideInto) : une question = un titre de groupe replié / déplié (une seule ouverte), trait dessous, flèche à droite ; la réponse choisie s'affiche en violet avant la flèche.
       niv.qs.forEach(function (q, qi) {
-        var g = el('div', 'objNivQ'), head = el('div', 'objNivHead');
-        head.appendChild(el('span', 'cmpBlockTitle', tr(q.q))); head.appendChild(el('span', 'hint', (qi + 1) + '/3'));
-        var chips = el('div', 'objNivChips'); chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', tr(q.q));
-        q.choices.forEach(function (c, ci) {
-          var on = niv.picks[qi] === ci, b = btn('cmpBtn' + (on ? '' : ' cmpBtnIdle'), tr(c), function () { niv.picks[qi] = ci; nivPaint(); nivSync(); });
-          b.setAttribute('aria-pressed', on ? 'true' : 'false'); chips.appendChild(b);
-        });
-        g.appendChild(head); g.appendChild(chips); boxes.niveau.appendChild(g);
+        var open = niv.open === qi, wrap = el('div', 'objField objGuideRow' + (open ? ' open' : ''));
+        var head = btn('objGuideHead cmpToggle', '', function () { niv.open = open ? -1 : qi; nivPaint(); });
+        head.setAttribute('aria-expanded', open ? 'true' : 'false');
+        var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr(q.q)));
+        head.appendChild(tx);
+        head.appendChild(el('span', 'hint objGuideRight objNivAns', niv.picks[qi] != null ? tr(q.choices[niv.picks[qi]]) : '')); // à droite : la réponse choisie (violet) ; vide tant qu'il n'y en a pas, la flèche demeure à droite (R21)
+        head.appendChild(el('span', 'cmpChev' + (open ? ' open' : ''))); wrap.appendChild(head);
+        if (open) { // les quatre réponses : deux sélecteurs standard (.cmpSeg) de deux cases l'un sous l'autre ; une barre verticale dans chacun, une barre horizontale entre les deux
+          var grid = el('div', 'objNivGrid'); grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', tr(q.q));
+          [0, 2].forEach(function (from) {
+            var sg = el('div', 'cmpSeg');
+            q.choices.slice(from, from + 2).forEach(function (c, k) {
+              var ci = from + k, on = niv.picks[qi] === ci, bt = btn(on ? 'active' : '', tr(c), function () {
+                niv.picks[qi] = ci; var next = niv.picks.indexOf(null); niv.open = next; nivPaint(); nivSync(); // se replie ; la prochaine question sans réponse se déplie (aucune : tout est replié)
+              });
+              bt.setAttribute('aria-pressed', on ? 'true' : 'false'); sg.appendChild(bt);
+            });
+            grid.appendChild(sg);
+          });
+          wrap.appendChild(grid);
+        }
+        boxes.niveau.appendChild(wrap);
       });
     }
     function nivLoad() { // une seule demande par objectif (titre + activité) ; changer le titre ou l'activité repose les questions et efface les réponses
       var key = nivKey();
       if (niv.key === key && niv.qs) { nivPaint(); nivSync(); return; }
-      niv.key = key; niv.qs = null; niv.picks = [null, null, null]; nivPaint(); nivSync();
+      niv.key = key; niv.qs = null; niv.picks = [null, null, null]; niv.open = 0; nivPaint(); nivSync();
       var t = targets()[0];
       api('POST', '/api/objectifs/niveau/questions', { title: form.title, activityName: t ? t.name : '' }).then(function (r) { if (niv.key === key && r && r.questions) { niv.qs = r.questions; nivPaint(); nivSync(); } })
         .catch(function () { if (niv.key === key) { niv.key = null; boxes.niveau.querySelector('.hint:last-child').textContent = tr('Impossible pour le moment.'); } });
