@@ -459,7 +459,7 @@
     var tpBox = el('div'); boxes.temps.appendChild(tpBox);
     var tp = form.tp = form.tp || { key: null, e: null, valueMin: null, mode: null, apres: {}, page: 0, loading: false };
     function tpSpec() { return { activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, endDate: form.endDate || null, inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }; }
-    function tpKey() { var q = tpSpec(); return [q.activityId, q.level, q.poleKey || '', q.categoryKey || '', q.endDate || '', q.inner || '', (form.niv && form.niv.picks || []).join('')].join('|'); }
+    function tpKey() { var q = tpSpec(); return [q.activityId, q.level, q.poleKey || '', q.categoryKey || '', q.endDate || '', q.inner || '', (form.niv && form.niv.picks || []).join(''), (form.niv && form.niv.skip ? 's' : '')].join('|'); }
     function tpQuery() { var q = tpSpec(); return 'activityId=' + encodeURIComponent(q.activityId) + '&level=' + q.level + (q.poleKey ? '&poleKey=' + encodeURIComponent(q.poleKey) : '') + (q.categoryKey ? '&categoryKey=' + encodeURIComponent(q.categoryKey) : '') + (q.endDate ? '&endDate=' + encodeURIComponent(q.endDate) : '') + (form.level === 'secteur' ? '&inner=' + (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : ''); }
     function tpOld() { return tp.e ? (tp.e.valueMin || 0) : 0; }
     function tpChanging() { return !!tp.e && tp.valueMin != null && tp.valueMin !== (tp.e.valueMin == null ? 0 : tp.e.valueMin); }
@@ -488,7 +488,7 @@
     function tpLoad(force) {
       if (!force && tp.key === tpKey() && tp.e) { tpPaint(); tpSync(); return Promise.resolve(); }
       tp.key = tpKey(); tp.loading = true; tp.e = null; tpPaint();
-      var key = tp.key, nb = nivBody(), sg = form.endDate && nb ? api('POST', '/api/objectifs/temps/suggestion', { title: form.title, endDate: form.endDate, startDate: form.startDate, activityName: (targets()[0] || {}).name || '', niveau: nb }).then(function (r) { return r && r.suggestion && r.suggestion.perWeekMin && r.suggestion.perWeekMin.mid > 0 ? r.suggestion : null; }, function () { return null; }) : Promise.resolve(null);
+      var key = tp.key, nb = nivBody(), sg = form.endDate && niv.qs ? api('POST', '/api/objectifs/temps/suggestion', { title: form.title, endDate: form.endDate, startDate: form.startDate, activityName: (targets()[0] || {}).name || '', niveau: nb }).then(function (r) { return r && r.suggestion && r.suggestion.perWeekMin && r.suggestion.perWeekMin.mid > 0 ? r.suggestion : null; }, function () { return null; }) : Promise.resolve(null);
       return Promise.all([api('GET', '/api/objectifs/temps?' + tpQuery()), sg]).then(function (res) {
         var e = res[0], g = res[1]; if (tp.key !== key) return;
         tp.sugg = g; if (g) g.startMin = g.perWeekMin.mid;
@@ -571,12 +571,18 @@
     }
     function refresh() { renderActivities(); syncTerm(); }
     refresh();
-    // Étape « Niveau » (10 nov. 2026) : TOUJOURS affichée, avant « Temps » ; trois questions guidées (accompli, régularité, ancienneté), quatre choix chacun, aucun texte à taper.
+    // Étape « Niveau » (10 nov. 2026) : avant « Temps », SAUTÉE quand elle est inutile (objectif sans progression) ou que le niveau est déjà connu (objectif similaire récent) ; seules les questions manquantes sont posées (le Chrono répond à la régularité et à l'ancienneté) ; trois questions guidées (accompli, régularité, ancienneté), quatre choix chacun, aucun texte à taper.
     // Les questions sont écrites par l'IA selon l'objectif (questions fixes si l'IA ne répond pas) ; le niveau se déduit côté serveur des trois réponses (objectifs-niveau.js).
-    var niv = form.niv = form.niv || { key: null, qs: null, picks: [null, null, null], open: 0 };
-    function nivKey() { return [form.title || '', form.activityId == null ? '' : form.activityId].join('|'); }
+    var niv = form.niv = form.niv || { key: null, qs: null, picks: [], open: 0, known: [], skip: false, type: null };
+    var NIV_KEYS = ['accompli', 'regularite', 'anciennete'];
+    function nivKey() { return [form.title || '', form.activityId == null ? '' : form.activityId, form.level || 'activite', form.poleKey || '', form.categoryKey || '', form.endDate || '', form.description || ''].join('|'); }
     function nivDone() { return !!niv.qs && niv.picks.every(function (p) { return p != null; }); }
-    function nivBody() { return nivDone() ? { answers: niv.qs.map(function (q, qi) { return { q: q.q, a: q.choices[niv.picks[qi]], i: niv.picks[qi] }; }) } : undefined; }
+    function nivBody() { // les trois réponses : connues (Chrono ou objectif similaire) + choisies ; rien si le niveau n'existe pas (objectif sans progression)
+      if (!nivDone()) return undefined;
+      var by = {}; niv.known.forEach(function (k) { by[k.key] = { q: k.q, a: k.a, i: k.i }; }); niv.qs.forEach(function (q, qi) { by[q.key] = { q: q.q, a: q.choices[niv.picks[qi]], i: niv.picks[qi] }; });
+      var out = NIV_KEYS.map(function (k) { return by[k]; });
+      return out.every(Boolean) ? { answers: out } : undefined;
+    }
     function nivSync() { stepBtn.disabled = !nivDone(); }
     function nivPaint() {
       boxes.niveau.textContent = '';
@@ -609,19 +615,31 @@
         boxes.niveau.appendChild(wrap);
       });
     }
-    function nivLoad() { // une seule demande par objectif (titre + activité) ; changer le titre ou l'activité repose les questions et efface les réponses
+    function nivFetch() { // une seule demande par objectif ; changer le titre, l'activité, le niveau de l'arbre, l'échéance ou la description repose les questions et efface les réponses
       var key = nivKey();
-      if (niv.key === key && niv.qs) { nivPaint(); nivSync(); return; }
-      niv.key = key; niv.qs = null; niv.picks = [null, null, null]; niv.open = 0; nivPaint(); nivSync();
+      if (niv.key === key && niv.qs) return Promise.resolve();
+      niv.key = key; niv.qs = null; niv.picks = []; niv.open = 0; niv.known = []; niv.skip = false; niv.type = null;
       var t = targets()[0];
-      api('POST', '/api/objectifs/niveau/questions', { title: form.title, activityName: t ? t.name : '' }).then(function (r) { if (niv.key === key && r && r.questions) { niv.qs = r.questions; nivPaint(); nivSync(); } })
-        .catch(function () { if (niv.key === key) { niv.key = null; boxes.niveau.querySelector('.hint:last-child').textContent = tr('Impossible pour le moment.'); } });
+      return api('POST', '/api/objectifs/niveau/questions', { title: form.title, description: form.description || '', endDate: form.endDate, activityId: form.activityId, activityName: t ? t.name : '', level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null }).then(function (r) {
+        if (niv.key !== key || !r || !r.questions) return;
+        niv.qs = r.questions; niv.picks = r.questions.map(function () { return null; }); niv.known = r.known || []; niv.skip = !!r.skip; niv.type = r.type || null;
+      }).catch(function () { if (niv.key === key) niv.key = null; });
+    }
+    function nivLoad() { // à l'arrivée sur la page (si la demande n'a pas déjà été faite avant d'y entrer)
+      if (niv.qs) { nivPaint(); nivSync(); return; }
+      nivPaint(); nivSync();
+      nivFetch().then(function () {
+        if (cur !== 'niveau') return;
+        if (niv.skip) { show('temps'); return; }
+        if (!niv.qs) { var h = boxes.niveau.querySelector('.hint:last-child'); if (h) h.textContent = tr('Impossible pour le moment.'); return; }
+        nivPaint(); nivSync();
+      });
     }
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
     var stepNames = { desc: 'Description', temps: 'Temps', heures: 'Heures', activite: 'Activité', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(['niveau', 'temps']).concat(TACHES_PAGE ? ['taches'] : []); }
+    function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(niv.skip ? [] : ['niveau']).concat(['temps']).concat(TACHES_PAGE ? ['taches'] : []); }
     function loadRatt() {
       // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
       var key = rattKey();
@@ -652,10 +670,10 @@
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
     function stepNext() {
       var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
-      if (cur === 'desc') { if (!validDesc()) return; if (form.fixedCtx) { stepBtn.disabled = true; loadRatt().then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; } show(l[i + 1]); return; } // créé depuis une bulle : activité imposée, pas de page Activité
+      if (cur === 'desc') { if (!validDesc()) return; if (form.fixedCtx) { stepBtn.disabled = true; loadRatt().then(nivFetch).then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; } show(l[i + 1]); return; } // créé depuis une bulle : activité imposée, pas de page Activité
       if (cur === 'activite') { // le rattachement / la fusion dépendent de l'échéance ET de l'activité : proposés après la page Activité
         if (noActivity()) { msg.textContent = tr('Choisis une activité.'); return; }
-        stepBtn.disabled = true; loadRatt().then(function () { stepBtn.disabled = false; stepNextFrom('activite'); }); return;
+        stepBtn.disabled = true; loadRatt().then(nivFetch).then(function () { stepBtn.disabled = false; stepNextFrom('activite'); }); return;
       }
       show(l[i + 1]);
     }
@@ -677,7 +695,7 @@
         .then(function (P) { // UNE seule activité, qui existe déjà (elle se crée dans Réglages) ; les macros se font seulement depuis l'arbre
           return Promise.resolve(t.id)
             .then(function (activityId) {
-              return api('POST', '/api/objectifs', { replaceId: replaceId || undefined, term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, niveau: nivBody(), suggestion: tp.sugg ? { range: tp.sugg.range, perWeekMin: { mid: tp.sugg.perWeekMin.mid }, factor: tp.sugg.factor, weeks: tp.sugg.weeks, reason: tp.sugg.reason } : undefined, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+              return api('POST', '/api/objectifs', { replaceId: replaceId || undefined, term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, niveau: nivBody(), niveauType: niv.type || undefined, suggestion: tp.sugg ? { range: tp.sugg.range, perWeekMin: { mid: tp.sugg.perWeekMin.mid }, factor: tp.sugg.factor, weeks: tp.sugg.weeks, reason: tp.sugg.reason } : undefined, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
             })
             .then(function (cr) { if (cr && cr.id) first = cr; });
         })

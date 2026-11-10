@@ -30,7 +30,7 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   // Avec clé IA (réseau simulé) : Haiku sûr, Haiku peu sûr -> modèle fort, panne -> fixes, plafond atteint -> fixes
   process.env.ANTHROPIC_API_KEY = 'test'; delete process.env.NOESIS_FAST_MODEL;
   const realFetch = global.fetch, calls = [];
-  const good = (c) => ({ questions: [{ key: 'accompli', q: 'Ta plus longue course ?', choices: ['Jamais couru', '5 km', '10 km', '21 km ou plus'] }, { key: 'regularite', q: 'Tu cours combien de fois ?', choices: ['Aucune', '1 fois', '2 ou 3 fois', '4 fois ou plus'] }, { key: 'anciennete', q: 'Depuis quand ?', choices: ['Moins de 3 mois', '3 à 12 mois', '1 à 3 ans', 'Plus de 3 ans'] }], confidence: c });
+  const good = (c) => ({ questions: [{ key: 'accompli', q: 'Ta plus longue course ?', choices: ['Jamais couru', '5 km', '10 km', '21 km ou plus'] }, { key: 'regularite', q: 'Tu cours combien de fois ?', choices: ['Aucune', '1 fois', '2 ou 3 fois', '4 fois ou plus'] }, { key: 'anciennete', q: 'Depuis quand ?', choices: ['Moins de 3 mois', '3 à 12 mois', '1 à 3 ans', 'Plus de 3 ans'] }], pertinent: true, type: 'course à pied', confidence: c });
   let mode = 'sure';
   global.fetch = async (url, init) => {
     const body = JSON.parse(init.body); calls.push(body.model);
@@ -72,7 +72,7 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
   // Interface et doc
   const js = read('public/js/objectifs-creer.js'), css = read('public/css/objectifs-creer.css'), doc = read('docs/ia/ia-appels.md'), routes = read('server/routes/objectifs.js');
-  assert(js.includes(".concat(['niveau', 'temps'])") && !js.includes('needsLevel') && !js.includes('Passer (je suis débutant)') && !js.includes("levelIn"), 'ordre Description, Activité, Niveau, Temps ; page toujours affichée ; plus de champ texte ni de « Passer »');
+  assert(js.includes(".concat(niv.skip ? [] : ['niveau']).concat(['temps'])") && !js.includes('needsLevel') && !js.includes('Passer (je suis débutant)') && !js.includes("levelIn"), 'ordre Description, Activité, Niveau, Temps ; page sautée seulement quand elle est inutile ou le niveau connu ; plus de champ texte ni de « Passer »');
   assert(js.includes("'/api/objectifs/niveau/questions'") && js.includes('niveau: nivBody()') && !js.includes("skill: form.skill || ''"), 'la création envoie les trois réponses, plus le texte libre');
   assert(js.includes("k === 'niveau' && !nivDone()") && js.includes("btn('objGuideHead cmpToggle'") && js.includes("'cmpChev' + (open ? ' open' : '')") && js.includes('niv.picks.indexOf(null)') && js.includes("el('div', 'cmpSeg')") && !js.includes('objNivQ') && !js.includes('objNivChips'), 'accordéon comme la Description (titre, trait, flèche), réponse suivante dépliée, réponses en .cmpSeg 2 × 2 ; Suivant grisé tant que les trois questions n’ont pas de réponse');
   assert(css.includes('.objNivGrid::before') && css.includes('--seg-sep: var(--sep)') && css.includes('.objNivAns { color: var(--purple); }') && !css.includes('.objNivQ') && !css.includes('.objNivChips') && !/.objNiv[^{]*{[^}]*#[0-9a-fA-F]{3,6}/.test(css), 'style : une barre horizontale entre les deux lignes, réponse violette ; ancien CSS retiré, aucune couleur codée en dur');

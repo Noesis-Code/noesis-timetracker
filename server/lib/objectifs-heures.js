@@ -80,14 +80,14 @@ async function suggest(userId, body, today) {
     if (!title || !process.env.ANTHROPIC_API_KEY || !/^\d{4}-\d{2}-\d{2}$/.test(String(end)) || !/^\d{4}-\d{2}-\d{2}$/.test(String(start))) return none;
     const days = Math.round((Date.parse(end + 'T00:00:00Z') - Date.parse(start + 'T00:00:00Z')) / 86400000);
     if (!(days > 0)) return none;
-    const niv = require('./objectifs-niveau').readAnswers(body.niveau, require('./textlimits').clean, () => null);
-    if (!niv || !LEVELS.includes(niv.level)) return none; // il faut le niveau déduit des trois réponses (sinon : comportement actuel)
+    const niv = body.niveau ? require('./objectifs-niveau').readAnswers(body.niveau, require('./textlimits').clean, () => null) : null; // sans niveau (page sautée) : l'estimation se fait sans niveau
+    if (body.niveau && (!niv || !LEVELS.includes(niv.level))) return none;
     const activity = String((body && body.activityName) || '').replace(/\s+/g, ' ').trim().slice(0, 80);
-    const payload = { objectif: title, echeance: end, jours: days, niveau: niv.level, reponses: niv.answers.map((x) => ({ question: x.q, reponse: x.a })), activite: activity || undefined };
+    const payload = { objectif: title, echeance: end, jours: days, niveau: niv ? niv.level : undefined, reponses: niv ? niv.answers.map((x) => ({ question: x.q, reponse: x.a })) : undefined, activite: activity || undefined };
     const aibudget = require('./aibudget');
-    const r = await aibudget.runAs(userId, () => aicache.memoize([FEATURE, title.toLowerCase(), activity.toLowerCase(), niv.level, niv.answers.map((x) => x.i).join('')], () => estimate(payload)));
+    const r = await aibudget.runAs(userId, () => aicache.memoize([FEATURE, title.toLowerCase(), activity.toLowerCase(), niv ? niv.level : 'sans-niveau', niv ? niv.answers.map((x) => x.i).join('') : ''], () => estimate(payload)));
     const c = compute(r.range, days / 7, factorFor(pairs(userId), pairs(), MIN_DONE));
-    return { suggestion: Object.assign({ level: niv.level, range: r.range, reason: r.reason }, c) };
+    return { suggestion: Object.assign({ level: niv ? niv.level : null, range: r.range, reason: r.reason }, c) };
   } catch (e) { return none; } // plafond atteint (aiBlocked), panne, délai, réponse invalide
 }
 

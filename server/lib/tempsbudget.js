@@ -170,4 +170,4 @@ function plan(userId, body, apply) {
   return res;
 }
 
-module.exports = { etat, plan, passeMin, passeByDay, defaultByDay, roundQuarter, MAX_MIN };
+module.exports = { keysOf, etat, plan, passeMin, passeByDay, defaultByDay, roundQuarter, MAX_MIN };

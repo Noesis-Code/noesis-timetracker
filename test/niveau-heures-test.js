@@ -60,7 +60,9 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
     aicache.memoClear(); mode = 'down';
     assert((await h.suggest('u1', body, '2026-11-10')).suggestion === null, 'panne : aucune suggestion');
     aicache.memoClear(); mode = 'sure';
-    assert((await h.suggest('u1', Object.assign({}, body, { endDate: null }), '2026-11-10')).suggestion === null && (await h.suggest('u1', Object.assign({}, body, { endDate: '2026-11-01' }), '2026-11-10')).suggestion === null && (await h.suggest('u1', Object.assign({}, body, { niveau: undefined }), '2026-11-10')).suggestion === null, 'sans échéance, échéance passée ou sans réponses de niveau : aucune suggestion');
+    assert((await h.suggest('u1', Object.assign({}, body, { endDate: null }), '2026-11-10')).suggestion === null && (await h.suggest('u1', Object.assign({}, body, { endDate: '2026-11-01' }), '2026-11-10')).suggestion === null, 'sans échéance ou échéance passée : aucune suggestion');
+    const sn = (await h.suggest('u1', Object.assign({}, body, { niveau: undefined }), '2026-11-10')).suggestion;
+    assert(sn && sn.level === null && sn.perWeekMin.mid === 240, 'page Niveau sautée (aucun niveau) : l’estimation se fait sans niveau');
   } finally { global.fetch = realFetch; delete process.env.ANTHROPIC_API_KEY; }
 
   // Enregistrement avec l'objectif
