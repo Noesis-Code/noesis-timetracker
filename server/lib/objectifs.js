@@ -649,6 +649,7 @@ function creer(userId, body) {
   if (hpw) meta0.hoursPerWeek = hpw;
   if (typeof body.skill === 'string' && body.skill.trim()) { const sk = textlimits.clean(body.skill, { max: 200, word: 'Niveau' }); if (sk.error) throw err(sk.error); if (sk.text) meta0.skill = sk.text; }
   const niv = require('./objectifs-niveau').readAnswers(body.niveau, textlimits.clean, (m) => { throw err(m); }); if (niv) meta0.niveau = niv; // trois réponses guidées + niveau déduit (débutant, intermédiaire, avancé), propre à cet objectif
+  const sug = require('./objectifs-heures').readStored(body.suggestion); if (sug) meta0.suggestion = sug; // suggestion d'heures de l'IA (milieu, fourchette, facteur) gardée pour apprendre ; le choix de la personne = hoursPerWeek
   if (body.description) meta0.description = String(body.description).trim().slice(0, 900); // description libre de l'objectif (étape « Description »)
   if (isDay(body.proposedEnd)) meta0.dateCorrectedDays = daysBetween(body.proposedEnd, body.endDate); // signal : date corrigée par l'utilisateur
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta0), id);
