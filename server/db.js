@@ -2441,6 +2441,12 @@ if (!columnExists('sub_project_items', 'autoCaptured')) {
 if (!columnExists('sub_project_items', 'dueDateAuto')) {
   db.exec('ALTER TABLE sub_project_items ADD COLUMN dueDateAuto INTEGER NOT NULL DEFAULT 0');
 }
+// Durée d'une tâche (10 nov. 2026, docs/ia/durees-taches.md, phase 1) : fourchette estimée par l'IA, colonnes additives nullables.
+// medianMinutes sert au planning, maxMinutes aux alertes de surcharge ; durSource : 'ia-micro' | 'ia' | 'defaut'.
+['minMinutes INTEGER', 'medianMinutes INTEGER', 'maxMinutes INTEGER', 'durSource TEXT', 'durConfidence INTEGER'].forEach((def) => {
+  const col = def.split(' ')[0];
+  if (tableExists('sub_project_items') && !columnExists('sub_project_items', col)) db.exec('ALTER TABLE sub_project_items ADD COLUMN ' + def);
+});
 if (!columnExists('sub_project_items', 'seenAt')) {
   db.exec('ALTER TABLE sub_project_items ADD COLUMN seenAt TEXT');
 }

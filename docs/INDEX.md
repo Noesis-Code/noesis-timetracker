@@ -13,7 +13,7 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 ## Sous-dossiers
 - `regles/` : règles de travail (`regles-rangement`, `brief-chantier`, `boucle-veille`, `modele-tache`, `intentions`) ; `efvp-horaire.md` (projet d'EFVP Loi 25 du module Horaire, à signer).
 - `audits/` : audits, benchmarks, écarts de design, performance, fiabilité, sécurité, accessibilité, fuseaux, PWA.
-- `ia/` : `ia-appels.md`, document IA unique (appels, modèles, budget, échecs, coûts) ; `objectifs-durees.md`, base de durées des objectifs (date butoir proposée sans IA).
+- `ia/` : `ia-appels.md`, document IA unique (appels, modèles, budget, échecs, coûts) ; `objectifs-durees.md`, base de durées des objectifs (date butoir proposée sans IA) ; `durees-taches.md`, durée d'une tâche (fourchette stockée, micro-étapes, plan en 3 phases).
 - `expansion/` : offre payante (accès, résiliation, courriels, Stripe, taxes, parcours commercial) ; `connecteur-ia-libre.md` (outils d'écriture du connecteur IA, gratuits) ; `lecture-organisation-ia-cadrage.md` (lecture anonyme de l'organisation IA, à trancher).
 - `trade/` : Trade Tracker (connexion, délais, intégration).
 - `basic/` : offre gratuite (contrastes) ; `module-horaire.md` (module « Horaire » : horaires du personnel d'un restaurant, backend).

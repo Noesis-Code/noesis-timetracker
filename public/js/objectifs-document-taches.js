@@ -983,7 +983,7 @@
     var picked = [];
     Array.prototype.forEach.call($('docTasksResults').querySelectorAll('input[data-i]:checked'), function (c) {
       var t = proposals[Number(c.getAttribute('data-i'))];
-      if (t) picked.push({ title: t.title, key: t.key, week: t.week, day: t.day, minutes: t.minutes });
+      if (t) picked.push({ title: t.title, key: t.key, week: t.week, day: t.day, minutes: t.minutes, minMinutes: t.minMinutes, maxMinutes: t.maxMinutes });
     });
     if (!picked.length) { msg('Coche au moins une tâche.'); return; }
     if (busy) return; busy = true;

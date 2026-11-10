@@ -944,7 +944,8 @@ function postBilanIfDue(activity, category, planStartDate) {
 // objectifs hebdomadaires sont atteints, partiel s'il en manque un seul, non atteint s'il en manque 2 ou plus.
 const WEEKLY_ATTEINT_MIN = 0.9;
 const WEEKLY_PARTIEL_MIN = 0.75;
-const DEFAULT_TASK_MINUTES = 30;
+const taskminutes = require('./taskminutes'); // durée d'une tâche : point unique
+const DEFAULT_TASK_MINUTES = taskminutes.DEFAULT_TASK_MINUTES;
 
 // Pur. tasks : [{ done, minutes }] ; minutes absent/<=0 -> DEFAULT_TASK_MINUTES. Renvoie null s'il n'y a aucune tâche.
 // Ratio de temps fait (0..1) : SOURCE UNIQUE, réutilisée par le statut ET par les statistiques « Où ça glisse ».
@@ -969,9 +970,9 @@ function weeklyStatusFromTasks(tasks) {
 }
 
 // Minutes d'une tâche liée à un objectif hebdomadaire (catégorie de l'objectif) : estimation historique, sinon défaut.
-function weeklyTaskMinutes(activityId, category, label) {
-  const est = estimateForGoal(activityId, category, 'weekly', label);
-  return est && est.minutes > 0 ? est.minutes : DEFAULT_TASK_MINUTES;
+// row (facultatif) : ligne de la tâche (médiane stockée par l'IA, prioritaire).
+function weeklyTaskMinutes(activityId, category, label, row) {
+  return taskminutes.taskMinutes(row, () => { const est = estimateForGoal(activityId, category, 'weekly', label); return est && est.minutes; });
 }
 
 // Pur. statuses : statuts des objectifs hebdomadaires de la période. null si aucun objectif hebdomadaire.
@@ -1001,8 +1002,8 @@ function recomputeWeeklyStatus(weeklyId) {
     FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE w.id = ?
   `).get(weeklyId);
   if (!w) return;
-  const rows = db.prepare('SELECT label, done FROM sub_project_items WHERE goalWeeklyId = ?').all(weeklyId);
-  const st = weeklyStatusFromTasks(rows.map((r) => ({ done: !!r.done, minutes: weeklyTaskMinutes(w.activityId, w.category, r.label) })));
+  const rows = db.prepare('SELECT label, done, medianMinutes, maxMinutes FROM sub_project_items WHERE goalWeeklyId = ?').all(weeklyId);
+  const st = weeklyStatusFromTasks(rows.map((r) => ({ done: !!r.done, minutes: weeklyTaskMinutes(w.activityId, w.category, r.label, r) })));
   if (st != null && st !== w.status) db.prepare('UPDATE goal_weekly SET status = ? WHERE id = ?').run(st, weeklyId);
   recomputePeriodStatus(w.periodId);
 }

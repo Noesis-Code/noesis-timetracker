@@ -31,7 +31,8 @@ const MAX_OBJECTIVES = 200; // objectifs hebdomadaires listés dans le prompt (l
 const MAX_PERIOD_GOALS = 120; // objectifs périodiques listés dans le prompt (les plus proches d'abord)
 const DEFAULT_WORK_DAYS = 7; // nombre de jours travaillés par semaine (la capacité hebdo est mesurée week-ends inclus) ; un réglage futur pourra le remplacer
 const WORK_DAYS = [1, 2, 3, 4, 5, 6, 0].slice(0, DEFAULT_WORK_DAYS); // getUTCDay : lundi d'abord
-const DEFAULT_TASK_MINUTES = 30;   // durée d'une tâche sans estimation (acceptée ou proposée sans durée)
+const taskminutes = require('./taskminutes');
+const DEFAULT_TASK_MINUTES = taskminutes.DEFAULT_TASK_MINUTES;   // durée d'une tâche sans estimation (point unique : taskminutes.js)
 const LOAD_WEEKS_IN_PROMPT = 12;   // semaines proches dont la charge déjà acceptée est donnée à l'IA
 const RATE_MAX = 10, RATE_WINDOW = 60 * 60 * 1000;
 
@@ -208,17 +209,16 @@ function appData(activityId, weeks) {
   return { objectives, open, recentDone, yearGoals, periodGoals };
 }
 
-// Tâches ACCEPTÉES (ouvertes, avec échéance dans l'horizon) : charge par jour en minutes. Aucune colonne d'estimation n'existe sur
-// sub_project_items : durée par défaut DEFAULT_TASK_MINUTES. Toutes les activités de la personne (sa capacité est globale), tâches
+// Tâches ACCEPTÉES (ouvertes, avec échéance dans l'horizon) : charge par jour en minutes (médiane stockée, sinon DEFAULT_TASK_MINUTES via taskminutes.taskMinutes). Toutes les activités de la personne (sa capacité est globale), tâches
 // non assignées à quelqu'un d'autre.
 function acceptedLoadByDay(userId, weeks) {
   const out = {};
   try {
     const from = weeks[0], to = goals.addDays(weeks[weeks.length - 1], 6);
-    db.prepare(`SELECT i.dueDate AS d FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
+    db.prepare(`SELECT i.dueDate AS d, i.medianMinutes FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
       WHERE i.done = 0 AND i.dueDate >= ? AND i.dueDate <= ? AND (i.plannedUserId IS NULL OR i.plannedUserId = ?)
       AND sp.activityId IN (SELECT activityId FROM activity_members WHERE userId = ?)`).all(from, to, userId, userId)
-      .forEach((r) => { const d = String(r.d || '').slice(0, 10); if (isRealDate(d)) out[d] = (out[d] || 0) + DEFAULT_TASK_MINUTES; });
+      .forEach((r) => { const d = String(r.d || '').slice(0, 10); if (isRealDate(d)) out[d] = (out[d] || 0) + taskminutes.taskMinutes(r); });
   } catch (e) { /* aucune charge connue */ }
   return out;
 }
@@ -304,7 +304,7 @@ function salvageTaskObjects(text) {
 
 // Format court ["titre","cle","AAAA-MM-JJ"|null,minutes|null] -> objet {title,key,week,minutes} ; l'objet de l'ancien format passe tel quel.
 function taskFromRow(t) {
-  return Array.isArray(t) ? { title: t[0], key: t[1], week: t[2], minutes: t[3] } : t;
+  return Array.isArray(t) ? { title: t[0], key: t[1], week: t[2], minutes: t[3], minMinutes: t[4], maxMinutes: t[5] } : t;
 }
 
 const norm = (v) => String(v == null ? '' : v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -443,14 +443,16 @@ function parseDetailed(text, ctx) {
     if (pick) toChoose++;
     const asked = ctx.requestedDay && ctx.requestedDay >= ctx.weeks[0] && ctx.requestedDay <= goals.addDays(ctx.weeks[ctx.weeks.length - 1], 6) ? { day: ctx.requestedDay, exact: true } : null; // jour demandé dans la consigne : prime sur l'IA
     const rd = asked || resolveDay(t.week != null ? t.week : t.day, ctx);
-    tasks.push({ title, key, categoryLabel: labels.get(key), toChoose: pick, week: rd ? goals.mostRecentMonday(rd.day) : null, day: rd ? rd.day : null, exact: !!(rd && rd.exact), moved: false, minutes: Number.isFinite(mn) && mn >= 5 && mn <= MAX_TASK_MINUTES ? mn : null });
+    tasks.push({ title, key, categoryLabel: labels.get(key), toChoose: pick, week: rd ? goals.mostRecentMonday(rd.day) : null, day: rd ? rd.day : null, exact: !!(rd && rd.exact), moved: false, minutes: Number.isFinite(mn) && mn >= 5 && mn <= MAX_TASK_MINUTES ? mn : null, minMinutes: null, maxMinutes: null });
+    const est = taskminutes.fromProposal(t.minutes, t.minMinutes, t.maxMinutes); // fourchette de l'IA, validée par le code (sinon : médiane seule)
+    if (est && est.min != null) { const last = tasks[tasks.length - 1]; last.minMinutes = est.min; last.maxMinutes = est.max; last.minutes = est.median; }
   });
   // Durées recopiées en série (6 tâches ou plus, 80 % ou plus avec exactement la même durée) : estimation sans information, durée inconnue (les tâches restent).
   if (tasks.length >= 6) {
     const freq = {};
     tasks.forEach((x) => { if (x.minutes) freq[x.minutes] = (freq[x.minutes] || 0) + 1; });
     const top = Object.keys(freq).sort((p, q) => freq[q] - freq[p])[0];
-    if (top && freq[top] >= Math.ceil(tasks.length * 0.8)) tasks.forEach((x) => { if (String(x.minutes) === top) x.minutes = null; });
+    if (top && freq[top] >= Math.ceil(tasks.length * 0.8)) tasks.forEach((x) => { if (String(x.minutes) === top) { x.minutes = null; x.minMinutes = null; x.maxMinutes = null; } });
   }
   aibudget.recordQuality('documenttasks', list.length, rejected, cleaned);
   return { tasks, found: list.length, dropped, toChoose, repaired };
@@ -610,6 +612,8 @@ function apply(userId, activityId, tasks) {
     if (!title || typeof key !== 'string' || !goals.isValidCategoryOrSecteurForActivity(activityId, key)) { skipped.push({ title, reason: 'catégorie invalide' }); return; }
     if (exists.get(activityId, key, title.toLowerCase())) { skipped.push({ title, reason: 'déjà présente' }); return; }
     const extra = { origin: 'ai' }; // tâche créée par l'IA : retirable en silence si elle devient hors stratégie
+    const est = taskminutes.fromProposal(t && t.minutes, t && t.minMinutes, t && t.maxMinutes);
+    if (est) { extra.estimate = est; extra.durSource = 'ia'; }
     const target = validTargetDate((t && t.day) || (t && t.week), weeks); // le jour choisi, sinon la semaine (ancien format)
     if (target) extra.dueDate = target < today ? today : target;
     try { added.push(goalstasks.addCategoryTask(activityId, userId, key, title, extra).id); }

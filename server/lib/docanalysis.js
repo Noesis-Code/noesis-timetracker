@@ -41,9 +41,9 @@ const SYSTEM = [
   "Ne propose JAMAIS de correction d'orthographe, de grammaire, d'accents ni de ponctuation : elles sont posées en silence ailleurs, hors de cette liste.",
   "N'invente aucun nom propre. Utilise UNIQUEMENT les identifiants fournis. Une raison courte (120 caractères max) en français pour chaque modification.",
   "FORMAT DE SORTIE : la fin du message contient <sortie> qui liste les sections à produire. Réponds UNIQUEMENT par du JSON valide, sans texte autour ni balises markdown, avec SEULEMENT les clés demandées (les données entre <donnees> ne servent qu'à la section \"c\") :",
-  '- "t" (tâches proposées) : [["titre","cleCategorie","AAAA-MM-JJ"|null,minutes|null],...] — un tableau par tâche, dans cet ordre exact : titre, clé, jour cible, durée en minutes ; [] si aucune tâche.',
+  '- "t" (tâches proposées) : [["titre","cleCategorie","AAAA-MM-JJ"|null,minutes|null,min|null,max|null],...] — un tableau par tâche, dans cet ordre exact : titre, clé, jour cible, durée en minutes, durée minimale et durée maximale plausibles (entiers, 5 à 480, min <= durée <= max) ; [] si aucune tâche.',
   '- "c" (modifications proposées) : [["t"|"w",123,"date"|"text"|"time"|"instruction"|"retirer","valeur","raison"],...] — un tableau par modification, dans cet ordre : "t" = tâche ou "w" = objectif hebdomadaire, id, champ, nouvelle valeur, raison ; [] si rien à proposer.',
-  'Exemple avec les deux sections : {"t":[["Appeler Paul","cle",null,30]],"c":[["t",12,"date","2026-10-20","Trop chargé"]]}',
+  'Exemple avec les deux sections : {"t":[["Appeler Paul","cle",null,30,15,45]],"c":[["t",12,"date","2026-10-20","Trop chargé"]]}',
 ].join('\n');
 
 // Balises du prompt retirées de TOUT texte inséré (document, titres de tâches, objectifs, catégories), variantes avec espaces comprises (« < /document >»).

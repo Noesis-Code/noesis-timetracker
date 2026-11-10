@@ -217,6 +217,8 @@ function addCategoryTask(activityId, userId, categoryKey, label, extra) {
 
   const { subProject, section } = ensureCategoryTaskSection(activityId, userId, categoryKey);
   const item = subprojects.createItem(section, clean, cleanExtra);
+  // Fourchette de durée estimée par l'IA (docs/ia/durees-taches.md) : stockée avant le recalcul ci-dessous ; jamais bloquant.
+  if (extra && extra.estimate) require('./taskminutes').store(db, item.id, extra.estimate, extra.durSource);
   try {
     goalsauto.onSubProjectItemChanged(activityId, categoryKey);
   } catch (e) {

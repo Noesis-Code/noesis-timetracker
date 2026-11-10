@@ -24,7 +24,8 @@ const captureplace = require('./goalscaptureplace');
 const goalsimportance = require('./goalsimportance');
 const timecaps = require('./timecaps');
 
-const DEFAULT_TASK_MINUTES = captureplace.DEFAULT_TASK_MINUTES;
+const taskminutes = require('./taskminutes');
+const DEFAULT_TASK_MINUTES = taskminutes.DEFAULT_TASK_MINUTES;
 const LOOKAHEAD_DAYS = captureplace.LOOKAHEAD_DAYS;
 const MIN_BUDGET_MINUTES = 60;
 
@@ -125,7 +126,7 @@ function budgetFor(activityId, userId, poleKey) {
 // se pose sur le secteur et l'objectif concernés. La RÉFÉRENCE s'adapte au rythme réellement tenu : médiane des minutes terminées par jour ouvré sur 28 jours (7 jours de données au moins),
 // sinon la capacité calculée (budgetFor). Une seule fonction de calcul : referenceFor.
 const TOLERANCE = 0.2, MIN_OBSERVED_DAYS = 7;
-function minutesOfRow(activityId) { return (r) => { try { const est = r.category ? goals.estimateForGoal(activityId, r.category, 'weekly', r.label) : null; return (est && est.minutes) || DEFAULT_TASK_MINUTES; } catch (e) { return DEFAULT_TASK_MINUTES; } }; }
+function minutesOfRow(activityId) { return (r) => { try { return taskminutes.taskMinutes(r, () => { const est = r.category ? goals.estimateForGoal(activityId, r.category, 'weekly', r.label) : null; return est && est.minutes; }); } catch (e) { return DEFAULT_TASK_MINUTES; } }; }
 function referenceFor(activityId, userId, poleKey, nowMs) {
   const budget = budgetFor(activityId, userId, poleKey);
   let obs = null; try { obs = require('./efficiencyprofile').observedDailyMinutes(activityId, userId, minutesOfRow(activityId), nowMs); } catch (e) { obs = null; }
@@ -138,7 +139,7 @@ function overloadMarks(userId, activityId) {
   goals.categoriesForActivity(activityId).forEach((pole) => {
     const ref = referenceFor(activityId, userId, pole.key);
     const todays = loadTasks(activityId, ref, today, pole.key).filter((t) => !t.long && (t.dueDate < today ? today : t.dueDate) === today);
-    if (!isOverloaded(todays.reduce((s, t) => s + t.minutes, 0), ref)) return;
+    if (!isOverloaded(todays.reduce((s, t) => s + (t.maxMinutes || t.minutes), 0), ref)) return; // alerte : borne haute des durées
     marks[pole.key] = true; todays.forEach((t) => { if (t.category) marks[t.category] = true; });
   });
   return marks;
@@ -148,18 +149,19 @@ function getMarks(userId, activityId) { return marksCache.get(userId + '|' + act
 
 function loadTasks(activityId, budget, today, poleKey) {
   const rows = db.prepare(`
-    SELECT i.id, i.label, i.dueDate, i.dueDateAuto, sp.goalCategory AS category
+    SELECT i.id, i.label, i.dueDate, i.dueDateAuto, i.medianMinutes, i.maxMinutes, sp.goalCategory AS category
     FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND i.done = 0 AND i.dueDate IS NOT NULL AND i.dueDate != ''
   `).all(activityId);
   const kept = !poleKey ? rows : rows.filter((r) => r.category && goals.resolveToPole(activityId, r.category) === poleKey);
   const ctx = goalsimportance.loadGoalContexts(kept.map((r) => r.id));
   const tasks = kept.map((r) => {
-    const est = r.category ? goals.estimateForGoal(activityId, r.category, 'weekly', r.label) : null;
-    const total = (est && est.minutes) || DEFAULT_TASK_MINUTES;
+    const hist = () => { const est = r.category ? goals.estimateForGoal(activityId, r.category, 'weekly', r.label) : null; return est && est.minutes; };
+    const total = taskminutes.taskMinutes(r, hist);
+    const high = taskminutes.taskMaxMinutes(r, hist); // borne haute : alertes de surcharge
     const span = captureplace.longSpan(total, budget);
-    if (!span) return { ...r, minutes: total };
-    return { ...r, long: true, spanDays: span.days, rest: span.rest, minutes: total };
+    if (!span) return { ...r, minutes: total, maxMinutes: high };
+    return { ...r, long: true, spanDays: span.days, rest: span.rest, minutes: total, maxMinutes: high };
   });
   const reforms = require('./reform').readMany(kept.map((r) => r.id)), kinds = require('./taskkind').readMany(kept.map((r) => r.id));
   tasks.forEach((t) => {

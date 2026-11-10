@@ -384,7 +384,7 @@ function todayLocalDay() {
 // de ses secteurs ; un secteur ne montre que les siennes (voir periodDaysForUser).
 function dayTasksByDate(activityId, startDate, endDate, categoryKeys) {
   let rows = db.prepare(`
-    SELECT i.id, i.label, i.done, i.dueDate, i.autoCaptured, i.seenAt, sp.goalCategory AS category
+    SELECT i.id, i.label, i.done, i.dueDate, i.autoCaptured, i.seenAt, i.medianMinutes, i.maxMinutes, sp.goalCategory AS category
     FROM sub_project_items i
     JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND i.dueDate BETWEEN ? AND ?
@@ -445,7 +445,7 @@ function periodDaysForUser(userId, activityId, category, periodNumber) {
   // Temps affiché par jour = temps ESTIMÉ des tâches de ce jour (rien d'autre ; aucun jour sans tâche n'a de temps).
   const goalscapacity = require('./goalscapacity');
   Object.keys(tasksByDay).forEach((d) => {
-    tasksByDay[d].forEach((t) => { t.minutes = goalscapacity.taskMinutes(userId, activityId, t.category, t.label); });
+    tasksByDay[d].forEach((t) => { t.minutes = goalscapacity.taskMinutes(userId, activityId, t.category, t.label, t); });
   });
 
   const today = todayLocalDay();

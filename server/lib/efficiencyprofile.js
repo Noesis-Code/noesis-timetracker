@@ -84,7 +84,7 @@ function bestDay(days, weights) {
 // (lundi à vendredi) par l'utilisateur (ses tâches ou celles sans responsable). minutesOf(row) donne les minutes d'une tâche (estimation de l'appelant). Renvoie { days, median }.
 function observedDailyMinutes(activityId, userId, minutesOf, nowMs, windowDays) {
   const since = new Date((nowMs || Date.now()) - (windowDays || 28) * 86400000).toISOString();
-  const rows = db.prepare(`SELECT i.label, i.doneAt, sp.goalCategory AS category FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
+  const rows = db.prepare(`SELECT i.label, i.doneAt, i.medianMinutes, i.maxMinutes, sp.goalCategory AS category FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND i.done = 1 AND i.doneAt IS NOT NULL AND i.doneAt >= ? AND (i.plannedUserId IS NULL OR i.plannedUserId = ?)`).all(activityId, since, userId);
   const perDay = {};
   rows.forEach((r) => { const d = dayOfIso(r.doneAt), w = weekdayOfIso(r.doneAt); if (!d || w === 0 || w === 6) return; perDay[d] = (perDay[d] || 0) + (minutesOf(r) || 0); });

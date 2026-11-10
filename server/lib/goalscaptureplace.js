@@ -54,7 +54,8 @@ const LOOKAHEAD_DAYS = 14;
 // minutes: null tant qu'aucun historique de la catégorie n'existe) — un
 // tiers d'heure, même ordre de grandeur que le repli déjà choisi pour
 // un besoin voisin (signal « temps estimé »).
-const DEFAULT_TASK_MINUTES = 30;
+const taskminutes = require('./taskminutes'); // durée d'une tâche : point unique (médiane stockée > estimation historique > 30 min)
+const DEFAULT_TASK_MINUTES = taskminutes.DEFAULT_TASK_MINUTES;
 
 function todayLocal() {
   return require('./dates').userToday(); // jour de la requête en cours (fuseau du téléphone), sinon jour du processus
@@ -102,9 +103,18 @@ function capacityFor(userId, activityId) {
   return require('./goalsoverload').budgetFor(activityId, userId);
 }
 
-function taskMinutes(activityId, category, label) {
-  const est = category ? goals.estimateForGoal(activityId, category, 'weekly', label) : null;
-  return (est && est.minutes) || DEFAULT_TASK_MINUTES;
+// rowOrId (facultatif) : ligne de la tâche (médiane/max stockés) ou son id ; sans durée stockée, estimation historique puis 30 min.
+function taskRow(rowOrId) {
+  if (rowOrId && typeof rowOrId === 'object') return rowOrId;
+  const id = Number(rowOrId);
+  if (!(id > 0)) return null;
+  try { return db.prepare('SELECT medianMinutes, maxMinutes FROM sub_project_items WHERE id = ?').get(id) || null; } catch (e) { return null; }
+}
+function taskMinutes(activityId, category, label, rowOrId) {
+  return taskminutes.taskMinutes(taskRow(rowOrId), () => {
+    const est = category ? goals.estimateForGoal(activityId, category, 'weekly', label) : null;
+    return est && est.minutes;
+  });
 }
 
 // Pur. null si la tâche n'est pas longue.
@@ -122,7 +132,7 @@ function longSpan(minutes, capacity) {
 function committedMinutesByDay(userId, days, excludeId) {
   const earliest = goals.addDays(days[0], -60);
   const rows = db.prepare(`
-    SELECT i.id, i.label, i.dueDate AS date, sp.activityId, sp.goalCategory AS category
+    SELECT i.id, i.label, i.dueDate AS date, i.medianMinutes, i.maxMinutes, sp.activityId, sp.goalCategory AS category
     FROM sub_project_items i
     JOIN sub_project_sections s ON s.id = i.sectionId
     JOIN sub_projects sp ON sp.id = s.subProjectId
@@ -133,7 +143,7 @@ function committedMinutesByDay(userId, days, excludeId) {
   days.forEach((d) => { byDay[d] = 0; });
   const globalBudget = globalDailyCapacityMinutes(userId);
   rows.forEach((r) => {
-    const minutes = taskMinutes(r.activityId, r.category, r.label);
+    const minutes = taskMinutes(r.activityId, r.category, r.label, r);
     const cap = capacityFor(userId, r.activityId);
     const span = longSpan(minutes, cap);
     if (!span) {
@@ -166,7 +176,7 @@ function activityWeeklyCapacityMinutes(userId, activityId) {
 // reste le dernier jour.
 function activityMinutesByDay(userId, activityId, days, excludeId) {
   const rows = db.prepare(`
-    SELECT i.label, i.dueDate AS date, sp.goalCategory AS category
+    SELECT i.label, i.dueDate AS date, i.medianMinutes, i.maxMinutes, sp.goalCategory AS category
     FROM sub_project_items i
     JOIN sub_project_sections s ON s.id = i.sectionId
     JOIN sub_projects sp ON sp.id = s.subProjectId
@@ -176,7 +186,7 @@ function activityMinutesByDay(userId, activityId, days, excludeId) {
   days.forEach((d) => { byDay[d] = 0; });
   const cap = capacityFor(userId, activityId);
   rows.forEach((r) => {
-    const minutes = taskMinutes(activityId, r.category, r.label);
+    const minutes = taskMinutes(activityId, r.category, r.label, r);
     const span = longSpan(minutes, cap);
     const n = span ? span.days : 1;
     for (let k = 0; k < n; k += 1) {
@@ -241,7 +251,7 @@ function freeRunStart(days, window, load, span, cap) {
 // info : { urgent, long, recurrence: { every, unit } | null }.
 function maintenanceDate(userId, activityId, categoryKey, itemId, taskLabel, info) {
   const today = todayLocal();
-  const own = (info && info.minutes > 0) ? info.minutes : taskMinutes(activityId, categoryKey, taskLabel);
+  const own = (info && info.minutes > 0) ? info.minutes : taskMinutes(activityId, categoryKey, taskLabel, itemId);
   const cap = capacityFor(userId, activityId);
   const span = longSpan(own, cap);
   const longStart = () => {
@@ -265,7 +275,7 @@ function maintenanceDate(userId, activityId, categoryKey, itemId, taskLabel, inf
 
 function chooseAutoPlacementDate(userId, activityId, categoryKey, taskLabel, excludeId) {
   const today = todayLocal();
-  const ownMinutes = taskMinutes(activityId, categoryKey, taskLabel);
+  const ownMinutes = taskMinutes(activityId, categoryKey, taskLabel, excludeId);
   const span = longSpan(ownMinutes, capacityFor(userId, activityId));
   const extra = span ? span.days : 0;
   const days = [];
@@ -321,7 +331,7 @@ function autoPlaceTask(userId, activityId, categoryKey, itemId, taskLabel) {
 function redispatchOverdue(userId, activityId) {
   const today = todayLocal();
   const all = db.prepare(`
-    SELECT i.id, i.label, i.dueDate, sp.goalCategory AS category
+    SELECT i.id, i.label, i.dueDate, i.medianMinutes, i.maxMinutes, sp.goalCategory AS category
     FROM sub_project_items i
     JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND i.done = 0 AND i.dueDateAuto = 1 AND i.dueDate IS NOT NULL AND i.dueDate != ''
@@ -329,7 +339,7 @@ function redispatchOverdue(userId, activityId) {
   `).all(activityId);
   const cap = capacityFor(userId, activityId);
   const upd = db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?');
-  const withSpan = all.map((r) => ({ ...r, span: longSpan(taskMinutes(activityId, r.category, r.label), cap) }));
+  const withSpan = all.map((r) => ({ ...r, span: longSpan(taskMinutes(activityId, r.category, r.label, r), cap) }));
   // Une tâche longue n'est en retard qu'une fois son DERNIER jour passé.
   const overdue = (r) => (r.span ? goals.addDays(r.dueDate, r.span.days - 1) : r.dueDate) < today;
   const lateLong = withSpan.filter((r) => r.span && overdue(r));
@@ -353,7 +363,7 @@ function redispatchOverdue(userId, activityId) {
   lateShort.forEach((r) => {
     if (reforms[r.id]) return;
     let urgent = false;
-    try { urgent = require('./goalsimportance').computeImportance({ today, goal: ctx[r.id], minutes: taskMinutes(activityId, r.category, r.label), capacity: cap, dayLoadMinutes: 0 }).level === 'haute'; } catch (e) { urgent = false; }
+    try { urgent = require('./goalsimportance').computeImportance({ today, goal: ctx[r.id], minutes: taskMinutes(activityId, r.category, r.label, r), capacity: cap, dayLoadMinutes: 0 }).level === 'haute'; } catch (e) { urgent = false; }
     upd.run(urgent ? today : chooseAutoPlacementDate(userId, activityId, r.category, r.label, r.id), r.id);
     moved += 1;
   });
@@ -626,7 +636,7 @@ function objectiveTarget(userId, activityId, categoryKey, taskLabel, today, own,
 function dateForCapture(userId, activityId, categoryKey, itemId, taskLabel, out, pre, kindInfo) {
   const today = todayLocal();
   const hint = require('./capturedatehint').parseDateHint(taskLabel, today);
-  const own = taskMinutes(activityId, categoryKey, taskLabel);
+  const own = taskMinutes(activityId, categoryKey, taskLabel, itemId);
   try {
     if (hint && hint.kind === 'day') return hint.date;
     if (hint && hint.kind === 'week') {

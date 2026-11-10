@@ -63,6 +63,7 @@ const goalscaptureplace = require('./goalscaptureplace');
 const crosssectorinference = require('./crosssectorinference');
 const aicache = require('./aicache');
 const taskkind = require('./taskkind');
+const taskminutes = require('./taskminutes');
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_API_VERSION = '2023-06-01';
@@ -76,6 +77,9 @@ const timeoutFor = (feature) => require('./aimodels').timeoutMs(feature === 'cor
 const MAX_OUTPUT_TOKENS = 32;
 // Mode strict (capture) : la réponse peut être « INCERTAIN: cléA, cléB ».
 const MAX_OUTPUT_TOKENS_STRICT = 80;
+// Durée estimée dans la MÊME réponse (docs/ia/durees-taches.md) : « min-max | étapes » (nombres seulement), quelques jetons de plus.
+const DURATION_TOKENS = 36;
+const DURATION_RULE = "Estime aussi la durée de la tâche : découpe-la mentalement en 2 à 6 micro-étapes de 5 à 15 minutes (nombres seulement), puis donne la durée minimale et maximale plausibles en minutes (entiers, 5 à 480, minimale <= somme des étapes <= maximale). Ajoute-les à la fin de la réponse sous la forme « min-max | étape,étape,étape » (exemple : 20-45 | 10,10,15). Pas de durée si tu réponds INCERTAIN.";
 
 function configured() {
   return !!process.env.ANTHROPIC_API_KEY;
@@ -155,6 +159,7 @@ function buildPrompt(label, categories, examples, opts) {
         'Choisis toujours une clé de la liste ci-dessus, même en cas de doute.',
       ]),
     ...(withConfidence ? ["Format de réponse : la clé, puis ' | ', puis ta confiance de 0 à 100 (exemple : cléA | 90). Sois honnête : en dessous de 80 si tu hésites."] : []),
+    ...(opts && opts.duration ? [DURATION_RULE, withConfidence ? 'Exemple complet : cléA | 90 | 20-45 | 10,10,15' : 'Exemple complet : cléA | 20-45 | 10,10,15'] : []),
   ].join('\n');
 }
 
@@ -163,9 +168,17 @@ function buildPrompt(label, categories, examples, opts) {
 // retomber sur le repli déterministe pour un simple entourage de texte.
 function extractKey(text, categories) {
   if (!text) return null;
-  const cleaned = text.trim().replace(/^["'`]+|["'`.]+$/g, '');
+  const cleaned = String(text).split('|')[0].trim().replace(/^["'`]+|["'`.]+$/g, '');
   const found = categories.find((c) => c.key === cleaned) || categories.find((c) => cleaned.includes(c.key));
   return found ? found.key : null;
+}
+
+// Durée estimée dans la réponse (« cléA | 90 | 20-45 | 10,10,15 ») : fourchette + étapes, VALIDÉES par le code (taskminutes.validateEstimate) ; null si absente ou invalide.
+function extractDuration(text) {
+  const parts = String(text || '').split('|').slice(1);
+  const i = parts.findIndex((p) => /\d\s*(?:-|–|à)\s*\d/.test(p));
+  if (i < 0) return null;
+  return taskminutes.parseEstimateText(parts[i], parts[i + 1]);
 }
 
 // Réponse « INCERTAIN: cléA, cléB » : renvoie les clés valides (dans l'ordre,
@@ -252,18 +265,35 @@ function minConfidence() {
   return Number.isFinite(n) && n >= 0 && n <= 100 ? n : 80;
 }
 async function callTiered(label, categories, examples, allowUncertain, maxTokens) {
-  const strongPrompt = () => buildPrompt(label, categories, examples, { allowUncertain });
+  const strongPrompt = () => buildPrompt(label, categories, examples, { allowUncertain, duration: true });
   const fast = fastModel();
   if (fast) {
     try {
-      const text = await callModel(buildPrompt(label, categories, examples, { allowUncertain, confidence: true }), maxTokens + 12, 'classement-tache', fast);
+      const text = await callModel(buildPrompt(label, categories, examples, { allowUncertain, confidence: true, duration: true }), maxTokens + 12 + DURATION_TOKENS, 'classement-tache', fast);
       const key = extractKey(text, categories);
       const m = /\|\s*(\d{1,3})/.exec(String(text || ''));
       const conf = m ? Number(m[1]) : null;
-      if (key && !extractUncertain(text, categories) && conf != null && conf >= minConfidence()) return key;
+      if (key && !extractUncertain(text, categories) && conf != null && conf >= minConfidence()) return text;
     } catch (err) { if (aicache.isNoFallback(err)) throw err; /* repli sur le modèle fort */ }
   }
-  return callModel(strongPrompt(), maxTokens, fast ? 'classement-tache:repli' : 'classement-tache');
+  return callModel(strongPrompt(), maxTokens + DURATION_TOKENS, fast ? 'classement-tache:repli' : 'classement-tache');
+}
+
+// Estimation SEULE (catégorie déjà connue : choix de l'utilisateur ou un seul pôle) : le même modèle rapide, réponse « min-max | étapes ».
+// Jamais d'erreur visible : échec, plafond gratuit atteint ou réponse invalide => null (durée par défaut de 30 min). Mémo 24 h (callModel).
+async function estimateDuration(label) {
+  if (!configured()) return null;
+  try {
+    const prompt = [
+      'Une personne a écrit une tâche à faire :',
+      '"' + label + '"',
+      'Estime sa durée : découpe-la mentalement en 2 à 6 micro-étapes de 5 à 15 minutes (nombres seulement), puis donne la durée minimale et maximale plausibles en minutes (entiers, 5 à 480, minimale <= somme des étapes <= maximale). Réponds UNIQUEMENT sous la forme « min-max | étape,étape,étape » (exemple : 20-45 | 10,10,15), sans autre texte.',
+    ].join('\n');
+    const text = await callModel(prompt, DURATION_TOKENS, 'estimation-duree', fastModel() || undefined);
+    return extractDuration('| ' + String(text || '').trim());
+  } catch (err) {
+    return null;
+  }
 }
 
 async function classifyCategory(activityId, label, opts) {
@@ -278,9 +308,9 @@ async function classifyCategory(activityId, label, opts) {
       if (!categories.some((c) => c.key === opts.forcedKey)) {
         throw Object.assign(new Error('Catégorie choisie invalide pour cette activité.'), { statusCode: 400 });
       }
-      return { key: opts.forcedKey, usedAi: false, aiError: null };
+      return { key: opts.forcedKey, usedAi: false, aiError: null, estimate: opts.skipAi ? null : await estimateDuration(label) };
     }
-    if (categories.length === 1) return { key: categories[0].key, usedAi: false, aiError: null };
+    if (categories.length === 1) return { key: categories[0].key, usedAi: false, aiError: null, estimate: opts.skipAi ? null : await estimateDuration(label) };
     const unresolved = (suggestedKeys, aiError) => ({
       unresolved: true,
       aiError,
@@ -294,7 +324,7 @@ async function classifyCategory(activityId, label, opts) {
       const unc = extractUncertain(text, categories);
       if (unc) return unresolved(unc, null);
       const key = extractKey(text, categories);
-      if (key) return { key, usedAi: true, aiError: null };
+      if (key) return { key, usedAi: true, aiError: null, estimate: extractDuration(text) };
       return unresolved(null, "Réponse de Noèsis inexploitable.");
     } catch (err) {
       return unresolved(null, err.message);
@@ -307,7 +337,7 @@ async function classifyCategory(activityId, label, opts) {
   try {
     const text = await callTiered(label, categories, goalsclassifyexamples.recentExamples(activityId, categories, undefined, opts && opts.userId), false, MAX_OUTPUT_TOKENS);
     const key = extractKey(text, categories);
-    if (key) return { key, usedAi: true, aiError: null };
+    if (key) return { key, usedAi: true, aiError: null, estimate: extractDuration(text) };
     return { key: fallbackKey, usedAi: false, aiError: "Réponse de Noèsis inexploitable." };
   } catch (err) {
     return { key: fallbackKey, usedAi: false, aiError: err.message };
@@ -377,12 +407,12 @@ async function addTaskWithAutoCategory(activityId, userId, label, opts) {
   const cls = await classifyCategory(activityId, clean, Object.assign({}, opts, { userId }));
   // Mode strict : classement non résolu, rien n'est créé (voir classifyCategory).
   if (cls.unresolved) return cls;
-  const { key, usedAi, aiError } = cls;
+  const { key, usedAi, aiError, estimate } = cls;
   // 25 septembre 2026 (badges « non vu », restructuration du volet Objectifs
   // en 3 pages) : toute tâche créée par CE chemin (classification IA, jamais
   // le formulaire de catégorie classique) est marquée autoCaptured — voir
   // server/lib/subprojects.js#createItem et goalstasks.js#unseenCountsForActivity.
-  const item = goalstasks.addCategoryTask(activityId, userId, key, clean, { autoCaptured: true, recurrence: opts && opts.recurrence ? opts.recurrence : null });
+  const item = goalstasks.addCategoryTask(activityId, userId, key, clean, { autoCaptured: true, recurrence: opts && opts.recurrence ? opts.recurrence : null, estimate: estimate || null, durSource: estimate ? estimate.source : null });
   let suggestedObjective = null;
   try {
     suggestedObjective = suggestWeeklyObjective(activityId, key, clean);
@@ -540,7 +570,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
         try {
           objMatch = await goalscaptureplace.matchObjective(userId, activityId, item.categoryKey, label);
           const own = recurrence || recurrenceSuggestion || null;
-          const minutes = goalscaptureplace.taskMinutes(activityId, item.categoryKey, label);
+          const minutes = goalscaptureplace.taskMinutes(activityId, item.categoryKey, label, item.id);
           const kind = taskkind.compute({
             label, activityId, categoryKey: item.categoryKey, recurrence: own, objectiveMatched: !!(objMatch && objMatch.cand),
             minutes, capacity: require('./goalsoverload').budgetFor(activityId, userId),
@@ -634,6 +664,8 @@ module.exports = {  proposePlacement,
   fastModel,
   modelName,
   classifyCategory,
+  estimateDuration,
+  extractDuration,
   buildPrompt,
   buildClassificationCandidates,
   suggestWeeklyObjective,

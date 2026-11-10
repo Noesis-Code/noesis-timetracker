@@ -267,7 +267,7 @@ function workedDays(activityId, scope, today, kind, offset, allTasks) {
 
 // Seuil d'alerte de la carte « Capacité » : au-delà de 120 % (temps passé > 120 % du temps estimé), le bilan Garder / Alléger / Prolonger est proposé une fois par période.
 const CAPACITY_ALERT_PCT = 120;
-const DEFAULT_TASK_MINUTES = 30;
+const DEFAULT_TASK_MINUTES = require('./taskminutes').DEFAULT_TASK_MINUTES;
 const ADVANCE_LATE_PCT = 20; // même seuil que le bilan (écart > 20 % : proposer le bilan)
 function tasksCards(ctx) {
   const { activityId, userId, today, scope, tasks, allTasks, range, view } = ctx;
