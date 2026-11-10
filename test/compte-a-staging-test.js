@@ -3,8 +3,11 @@ process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-comptea-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'production';
 const db = require('../server/db');
 const seed = require('../server/lib/seed-staging');
+const auth = require('../server/lib/auth');
 const goals = require('../server/lib/goals');
 require('../server/lib/objectifs'); // crée la table des objectifs
+const MDP = 'Factice-test#' + Date.now(), MDP2 = MDP + 'bis'; // valeurs factices, propres au test
+process.env.COMPTE_A_PASSWORD = MDP;
 let failed = 0;
 function assert(c, l) { if (c) console.log('  ok  ' + l); else { failed += 1; console.log('  FAIL ' + l); } }
 const A = seed.COMPTE_A_SEED_ACCOUNT;
@@ -35,6 +38,20 @@ const weeks = [...new Set(rows.map((x) => monday(x.isoDate)))].sort((a, b) => a 
 let run = 1, best = 1; for (let i = 1; i < weeks.length; i++) { run = weeks[i] === weeks[i - 1] + 1 ? run + 1 : 1; best = Math.max(best, run); }
 assert(best >= 4, 'au moins 4 semaines consécutives (' + best + ')');
 assert(db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE userId = ?').get(u.id).n === 0, 'aucun objectif');
+const row = () => db.prepare('SELECT id, pin, passwordStrong FROM users WHERE name = ? AND lastName = ?').get(A.name, A.lastName);
+assert(row().passwordStrong === 1 && auth.checkPin(row(), MDP) === 'ok' && auth.checkPin(row(), 'mauvais') === 'bad', 'connexion simulée (checkPin) : bon mot de passe accepté, mauvais refusé');
+db.prepare('UPDATE users SET pin = ?, pinFailCount = 5, pinLockedUntil = ? WHERE id = ?').run(auth.makePinRecord('ancien!Mdp1'), new Date(Date.now() + 3600000).toISOString(), u.id);
+const r3 = seed.seedCompteAOnStaging(db);
+assert(r3 && r3.passwordUpdated && auth.checkPin(row(), MDP) === 'ok', 'ancien hachage remplacé : le nouveau mot de passe fonctionne, compte déverrouillé');
+process.env.COMPTE_A_PASSWORD = MDP2;
+const r4 = seed.seedCompteAOnStaging(db);
+assert(r4 && r4.passwordUpdated && auth.checkPin(row(), MDP2) === 'ok' && auth.checkPin(row(), MDP) === 'bad', 'variable changée : hachage mis à jour');
+process.env.COMPTE_A_PASSWORD = '';
+const h0 = row().pin; seed.seedCompteAOnStaging(db);
+assert(row().pin === h0, 'variable retirée : compte existant intact');
+process.env.COMPTE_A_PASSWORD = MDP2;
+const hashAvant = row().pin; seed.seedCompteAOnStaging(db);
+assert(row().pin === hashAvant, 'bon mot de passe déjà en place : hachage intact');
 const entriesBefore = rows.length;
 const r2 = seed.seedCompteAOnStaging(db);
 assert(r2 && r2.created === false && nbA() === 1 && db.prepare('SELECT COUNT(*) AS n FROM time_entries WHERE userId = ?').get(u.id).n === entriesBefore, 'relancé : rien recréé ni écrasé');

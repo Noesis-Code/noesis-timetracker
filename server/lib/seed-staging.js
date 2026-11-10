@@ -60,7 +60,7 @@
 const path = require('path');
 const fs = require('fs');
 const { randomUUID } = require('node:crypto');
-const { makePinRecord } = require('./auth');
+const { makePinRecord, verifyPinRecord } = require('./auth');
 const { DARK_PALETTE } = require('../../public/theme-palette.js');
 const { isoDateOf, dayNameOf } = require('./dates');
 
@@ -483,26 +483,37 @@ function seedDemoObjectivesOnStaging(db) {
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------
 // COMPTE A (10 nov. 2026) — compte de test persistant pour Gaspard (création d'objectifs sur staging). STAGING UNIQUEMENT (shouldSeed : RAILWAY_ENVIRONMENT_NAME défini
-// et différent de « production »), jamais en production ni en local. Idempotent : s'il existe déjà (même prénom/nom), rien n'est recréé ni écrasé.
+// et différent de « production »), jamais en production ni en local. Idempotent : s'il existe déjà (même prénom/nom), rien n'est recréé ni écrasé (seul un ancien mot de passe est remplacé).
 // Contenu : UNE activité « Course à pied », 2 pôles (Entraînement, Santé), 1 secteur par pôle (Endurance, Récupération), et du temps Chrono sur le seul secteur Endurance :
 // 6 semaines consécutives se terminant cette semaine, 3 séances d'environ 1 h par semaine. Aucun objectif (Gaspard les crée en testant). Identité fictive, aucune donnée réelle.
-// Connexion : écran de connexion, Prénom « Compte », Nom « A » et le NIP de COMPTE_A_SEED_ACCOUNT.pin.
+// Connexion : écran de connexion, Prénom « Compte », Nom « A » et le mot de passe posé dans la variable d'environnement COMPTE_A_PASSWORD (Railway, environnement staging) : jamais écrit dans le dépôt.
+// Variable absente ou vide : le compte n'est pas créé et, s'il existe, il n'est pas touché. Variable changée : seul le hachage du mot de passe est remplacé (compteur d'échecs et verrou remis à zéro).
 // ---------------------------------------------------------------------------------------------------------------------------------------------
-const COMPTE_A_SEED_ACCOUNT = { name: 'Compte', lastName: 'A', pin: '4321' };
+const COMPTE_A_SEED_ACCOUNT = { name: 'Compte', lastName: 'A' };
 const COMPTE_A_WEEKS = 6;
 // Séances par semaine (de la plus ancienne à la plus récente) : [jour (0 = lundi), minutes] — 3 séances d'environ 1 h, légèrement variées.
 const COMPTE_A_SESSIONS = [[[0, 55], [2, 65], [5, 60]], [[1, 60], [3, 50], [5, 70]], [[0, 60], [2, 60], [4, 55]], [[1, 65], [3, 60], [6, 50]], [[0, 50], [3, 65], [5, 60]], [[0, 60], [1, 55], [2, 65]]];
 function seedCompteAOnStaging(db) {
   if (!shouldSeed()) return null;
+  const password = process.env.COMPTE_A_PASSWORD;
+  if (!password) { console.log('[compte-a] COMPTE_A_PASSWORD absent, Compte A non créé.'); return null; }
   try {
     db = db || require('../db');
-    if (db.prepare('SELECT id FROM users WHERE name = ? AND lastName = ?').get(COMPTE_A_SEED_ACCOUNT.name, COMPTE_A_SEED_ACCOUNT.lastName)) return { created: false };
+    const existing = db.prepare('SELECT id, pin FROM users WHERE name = ? AND lastName = ?').get(COMPTE_A_SEED_ACCOUNT.name, COMPTE_A_SEED_ACCOUNT.lastName);
+    if (existing) {
+      // Déjà créé : seul le hachage du mot de passe est remis à jour s'il ne correspond plus (ancien mot de passe) ; rien d'autre n'est touché.
+      let ok = false; try { ok = verifyPinRecord(password, existing.pin); } catch (e) { ok = false; }
+      if (ok) return { created: false };
+      db.prepare('UPDATE users SET pin = ?, pinFailCount = 0, pinLockedUntil = NULL WHERE id = ?').run(makePinRecord(password), existing.id);
+      console.log('[compte-a] Mot de passe du Compte A mis à jour.');
+      return { created: false, passwordUpdated: true };
+    }
     const goals = require('./goals');
     const now = new Date(), nowIso = now.toISOString();
     const userId = randomUUID();
     const color = DARK_PALETTE[1] || DARK_PALETTE[0];
     db.prepare("INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang, passwordStrong) VALUES (?, ?, ?, '', 'compte-a@exemple.test', ?, ?, ?, 'dark', 1, 'fr', 1)")
-      .run(userId, COMPTE_A_SEED_ACCOUNT.name, COMPTE_A_SEED_ACCOUNT.lastName, color, nowIso, makePinRecord(COMPTE_A_SEED_ACCOUNT.pin));
+      .run(userId, COMPTE_A_SEED_ACCOUNT.name, COMPTE_A_SEED_ACCOUNT.lastName, color, nowIso, makePinRecord(password));
     const aid = Number(db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, shareToken, createdAt) VALUES (?, 0, 1, ?, ?, ?)').run('Course à pied', userId, randomUUID(), nowIso).lastInsertRowid);
     db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)').run(aid, userId, color, nowIso);
     goals.addCategory(aid, 'Entraînement');
