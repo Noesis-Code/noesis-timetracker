@@ -30,6 +30,8 @@ router.get('/objectifs/temps', run((req) => require('../lib/tempsbudget').etat(r
 router.post('/objectifs/temps/plan', run((req) => { const b = req.body || {}; return require('../lib/tempsbudget').plan(req.userId, b, b.apply === true); }));
 router.post('/objectifs/niveau/questions', run((req) => require('../lib/objectifs-niveau').questions(req.userId, req.body || {}, require('../lib/dates').userToday())));
 router.post('/objectifs/temps/suggestion', run((req) => require('../lib/objectifs-heures').suggest(req.userId, req.body || {}, require('../lib/dates').userToday())));
+router.post('/objectifs/inferieurs/proposition', run((req) => require('../lib/objectifs-inferieurs').plan(req.userId, req.body || {}, require('../lib/dates').userToday())));
+router.post('/objectifs/inferieurs/appliquer', run((req) => require('../lib/objectifs-inferieurs').appliquer(req.userId, req.body || {})));
 router.post('/objectifs/rattachement', run((req) => objectifs.rattachement(req.userId, req.body || {})));
 router.post('/objectifs/proposition', run((req) => objectifs.proposer(req.userId, req.body || {})));
 router.post('/objectifs', run(async (req) => { objectifs.checkEcheance(req.body || {}, null, true); return objectifs.creer(req.userId, req.body || {}); })); // échéance obligatoire, jamais passée
