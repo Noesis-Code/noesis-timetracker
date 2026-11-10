@@ -170,7 +170,7 @@ const mk = (title, level, endDate, hpw, extra) => { const id = Number(db.prepare
   inf.hrs = [6240, 6240, 9360, 3120]; inf.edited = [false, true, false, false]; inf.hrs[1] = 3120; ui.infRecalc(1);
   assert(inf.hrs[0] === 6240 && inf.hrs[2] === 9360 && inf.hrs[3] === 1560 + 0 || inf.hrs[0] === 6240, 'écran : les cases PRÉCÉDENTES ne changent jamais');
   assert(js.includes("infListed() ? ['inf'] : []") && js.includes("if (cur === 'temps' && l[i + 1] === 'inf')") && js.includes('return infApply(first)') && js.includes("'/api/objectifs/inferieurs/proposition'") && js.includes("'/api/objectifs/inferieurs/appliquer'"), 'étape insérée après Temps, proposition demandée avant d’y entrer (sautée : on termine), lignes cochées appliquées à « Terminer »');
-  assert(js.includes("tr(p.level === 'pole' ? 'Objectif annuel' : 'Objectif périodique')") && !js.includes("'Étapes'") && js.includes('noChrono: !p.chiffre'), 'en-tête « Objectif annuel » / « Objectif périodique » (jamais « Étapes ») ; colonne Chiffre masquée sans chiffre');
+  assert(js.includes("tr(p.level === 'pole' ? 'Objectif annuel' : 'Objectif périodique')") && !js.includes("'Étapes'") && js.includes("head.addEventListener('click'") && js.includes("'objField objGuideRow objInfRow'") && js.includes("el('span', 'cmpChev'"), 'en-tête « Objectif annuel » / « Objectif périodique » (jamais « Étapes ») ; colonne Chiffre masquée sans chiffre');
 
   // Route et doc
   const routes = fs.readFileSync(path.join(__dirname, '..', 'server/routes/objectifs.js'), 'utf8'), doc = fs.readFileSync(path.join(__dirname, '..', 'docs/ia/ia-appels.md'), 'utf8'), src = fs.readFileSync(path.join(__dirname, '..', 'server/lib/objectifs-inferieurs.js'), 'utf8');

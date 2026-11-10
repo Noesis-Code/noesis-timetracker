@@ -195,11 +195,25 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objNivGrid { position: relative; margin: 0 0 16px; --seg-sep: var(--sep); } /* 16 px sous le tableau (les 16 px sous le trait du titre viennent de .objGuideRow.open .objGuideHead) ; la barre verticale (composant .cmpSeg) prend la couleur des séparateurs de groupes */
 .objNivGrid .cmpSeg { margin: 0; }
 .objNivGrid::before { content: ''; position: absolute; left: 0; right: 0; top: 44px; height: 1px; background: var(--sep); } /* UNE barre horizontale entre les deux lignes (44 px de haut chacune) */
-/* Étape « Objectifs inférieurs » : mêmes traits que le tableau de l'étape Temps (.objGrid) ; ligne grise (existant plus haut, sous-lignes en retrait), petit texte de période, récapitulatif de la description sans trait vertical */
-.objGridMuted .objGridName, .objGridMuted .objGridApres, .objGridMuted .objTEdit { color: var(--text-light); }
-.objGridIndent .objGridName { padding-left: 24px; font-size: 13px; }
-.objGridSub { display: block; font-size: 11px; color: var(--text-light); }
+/* Étape « Objectifs inférieurs » : lignes au format des groupes de la Description (.objGuideRow / .objGuideHead) ; dépliée, la ligne forme une section en verre calme (jetons existants) */
 .objRecap { margin: 0 0 24px; }
 .objRecap::before { display: none; }
 .objRecap .objGridName { flex: none; width: 96px; }
 .objRecapVal { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-size: 14px; color: var(--text); }
+.objInf { margin: 0 0 16px; }
+.objInf .objGridChrono { width: 48px; margin-right: 8px; font-size: 13px; }
+.objInf .objGridObj { width: 96px; margin-left: 8px; font-size: 13px; }
+.objInfHdr, .objInfTotal { padding: 0 20px 0 24px; }
+.objInfHdr .objGridChrono, .objInfTotal .objGridChrono { margin-right: 25px; } /* aligne l'en-tête et le total sur les lignes (espace + petit trait + espace) */
+.objInfRow .objGuideHead { gap: 8px; }
+.objInfCb { flex: none; width: 16px; }
+.objInfBar { flex: none; width: 1px; height: 14px; background: var(--sep); }
+.objInfSub { display: block; margin: 0; font-size: 11px; }
+.objInfRow .objGuideTxt { flex: 1 1 auto; }
+.objInfRow.open { margin: 0 -12px 8px; padding: 0 12px 4px; background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--glass-calm-line); -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur); border-radius: var(--radius-lg); }
+.objInfRow.open .objGuideHead { border-bottom-color: transparent; margin-bottom: 8px; }
+.objInfOff { opacity: .5; }
+.objInfMuted .objGuideHead .cmpBlockTitle, .objInfMuted .objGridApres { color: var(--text-light); }
+.objInfBody { margin: 0 0 12px 24px; }
+.objInfSubs .objGridName { flex: 1 1 auto; width: auto; color: var(--text-light); }
+.objInfSubs .objRecapVal { flex: none; color: var(--text-light); }

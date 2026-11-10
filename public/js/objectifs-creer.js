@@ -24,22 +24,19 @@
     return b;
   }
   // Tableau « Chrono / Objectif » (UNE seule fonction de rendu, partagée : écran 1 et écran « Déplacer » de l'étape Temps ; la fiche d'une catégorie pourra la reprendre).
-  // cfg = { levelLabel, rows: [{ label, chrono, avant, apres?, edit?: { label, maxMin, onPick(min) }, white? }], total?: true, chronoTitle?, objTitle?, noChrono?, single? } ; options de l'étape « Objectifs inférieurs » (même fonction, mêmes traits) : titres de colonnes, colonne Chrono masquée,
-  // par ligne : chronoText (texte à la place des heures), check { checked, onChange } (case à cocher), sub (petit texte gris au-dessus du titre), muted (ligne grise), indent (sous-ligne), noAvant (pas de « avant »), sep (séparateur à la place de « / ») ; single : le total n'a qu'une valeur ; chrono / avant : minutes ou null (« — ») ; apres absent = pas de « / ».
+  // cfg = { levelLabel, rows: [{ label, chrono, avant, apres?, edit?: { label, maxMin, onPick(min) }, white? }], total?: true } ; chrono / avant : minutes ou null (« — ») ; apres absent = pas de « / ».
   // Colonnes : nom du niveau (en-tête blanc 11 px), « Chrono » (lecture seule, gris sable), UN titre « Objectif » centré ; chaque ligne montre « avant / après » (barre oblique grise entre les VALEURS) ; après violet et modifiable
   // (sélecteur de durée standard) si edit, sinon blanc. Traits : horizontaux entre les lignes ; un trait vertical continu entre Chrono et Objectif (décalé de 12 px), de l'en-tête jusqu'au bas de « Total » ; trait horizontal plus marqué au-dessus de « Total ».
   function objTable(cfg) {
     var node = el('div', 'objGrid'), body = el('div', 'objGridBody'), head = el('div', 'objGridHead');
-    head.appendChild(el('span', 'objGridName', cfg.levelLabel)); if (!cfg.noChrono) head.appendChild(el('span', 'objGridChrono', cfg.chronoTitle || tr('Chrono'))); head.appendChild(el('span', 'objGridObj', cfg.objTitle || tr('Objectif')));
+    head.appendChild(el('span', 'objGridName', cfg.levelLabel)); head.appendChild(el('span', 'objGridChrono', tr('Chrono'))); head.appendChild(el('span', 'objGridObj', tr('Objectif')));
     body.appendChild(head);
     cfg.rows.forEach(function (r) {
-      var row = el('div', 'objGridRow' + (r.muted ? ' objGridMuted' : '') + (r.indent ? ' objGridIndent' : '')), obj = el('span', 'objGridObj');
-      if (r.check) { var cb = el('input'); cb.type = 'checkbox'; cb.checked = !!r.check.checked; cb.setAttribute('aria-label', r.label); cb.addEventListener('change', function () { r.check.onChange(cb.checked); }); row.appendChild(cb); }
-      var nm = el('span', 'objGridName'); if (r.sub) nm.appendChild(el('span', 'objGridSub', r.sub)); nm.appendChild(el('span', null, r.label)); row.appendChild(nm);
-      if (!cfg.noChrono) row.appendChild(el('span', 'objGridChrono', r.chronoText != null ? r.chronoText : (r.chrono == null ? '' : hh(r.chrono))));
-      if (!r.noAvant) obj.appendChild(el('span', 'objGridAvant', r.avant == null ? '—' : hh(r.avant)));
+      var row = el('div', 'objGridRow'), obj = el('span', 'objGridObj');
+      row.appendChild(el('span', 'objGridName', r.label)); row.appendChild(el('span', 'objGridChrono', r.chrono == null ? '' : hh(r.chrono)));
+      obj.appendChild(el('span', 'objGridAvant', r.avant == null ? '—' : hh(r.avant)));
       if (r.apres !== undefined) {
-        if (!r.noAvant) obj.appendChild(el('span', 'objGridSlash', r.sep || '/'));
+        obj.appendChild(el('span', 'objGridSlash', '/'));
         if (r.edit) obj.appendChild(tbtn(r.apres, r.edit.label, function (v, b) { b.textContent = hh(v); r.edit.onPick(v); }, r.edit.maxMin));
         else obj.appendChild(el('span', 'objGridApres', hh(r.apres)));
       }
@@ -49,8 +46,8 @@
     var tA = el('span', 'objGridApres'), tB = el('span', 'objGridApres');
     if (cfg.total) {
       var tot = el('div', 'objGridTotal'), tObj = el('span', 'objGridObj');
-      if (!cfg.single) { tObj.appendChild(tA); tObj.appendChild(el('span', 'objGridSlash', '/')); } tObj.appendChild(tB);
-      tot.appendChild(el('span', 'objGridName', tr('Total'))); if (!cfg.noChrono) tot.appendChild(el('span', 'objGridChrono')); tot.appendChild(tObj); node.appendChild(tot);
+      tObj.appendChild(tA); tObj.appendChild(el('span', 'objGridSlash', '/')); tObj.appendChild(tB);
+      tot.appendChild(el('span', 'objGridName', tr('Total'))); tot.appendChild(el('span', 'objGridChrono')); tot.appendChild(tObj); node.appendChild(tot);
     }
     return { node: node, setTotal: function (avant, apres) { tA.textContent = hh(avant); tB.textContent = hh(apres); } };
   }
@@ -640,7 +637,7 @@
     }
     // Étape « Objectifs inférieurs » (10 nov. 2026) : après Temps, seulement pour un objectif d'activité (annuels) ou de pôle (périodiques) et si le serveur propose quelque chose ; sautée en silence sinon (objectifs-inferieurs.js).
     // Le serveur calcule (cases, heures, chiffres) et l'IA rédige ; ici : cocher / refuser chaque ligne, changer les heures (les cases SUIVANTES suivent la nouvelle base) ; rien n'est écrit avant « Terminer ».
-    var inf = form.inf = form.inf || { key: null, plan: null, on: [], hrs: [], edited: [] };
+    var inf = form.inf = form.inf || { key: null, plan: null, on: [], hrs: [], edited: [], open: -1 };
     function infEligible() { return (form.level === 'activite' || form.level === 'pole') && !!form.endDate && tp.valueMin > 0; }
     function infListed() { return infEligible() && !(inf.plan && inf.plan.skip); }
     function infKey() { return [nivKey(), tp.valueMin, form.level || '', form.poleKey || ''].join('|'); }
@@ -652,7 +649,7 @@
       return api('POST', '/api/objectifs/inferieurs/proposition', { title: form.title, description: form.description || '', activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, startDate: form.startDate, endDate: form.endDate, rateMin: tp.valueMin, depart: dep }).then(function (p) {
         if (inf.key !== key) return;
         inf.plan = p && !p.skip ? p : { skip: true };
-        if (!inf.plan.skip) { inf.on = p.rows.map(function (r) { return r.checked; }); inf.hrs = p.rows.map(function (r) { return r.hoursMin; }); inf.edited = p.rows.map(function () { return false; }); }
+        if (!inf.plan.skip) { inf.on = p.rows.map(function (r) { return r.checked; }); inf.hrs = p.rows.map(function (r) { return r.hoursMin; }); inf.edited = p.rows.map(function () { return false; }); inf.open = -1; }
       }).catch(function () { if (inf.key === key) inf.plan = { skip: true }; });
     }
     function infRq(m) { return Math.round(m / 15) * 15; }
@@ -686,20 +683,48 @@
       items.filter(function (x) { return x[1]; }).forEach(function (x) { var row = el('div', 'objGridRow'); row.appendChild(el('span', 'objGridName', x[0])); row.appendChild(el('span', 'objRecapVal', x[1])); node.appendChild(row); });
       return node;
     }
+    // Lignes de sous-objectifs : UNE ligne avec UN trait dessous, comme les groupes de la Description (.objGuideRow / .objGuideHead cmpToggle) ; toucher la ligne la déplie (une seule à la fois) et elle forme alors une section.
+    // Ligne : case à cocher, période en petit gris au-dessus du titre, chiffre, petit trait, heures (violet, sélecteur standard), flèche à droite. Dépliée : Faire, Résultat, Avancement, puis les objectifs existants plus bas (gris, sans case).
     function infPaint() {
       var box = boxes.inf; box.textContent = ''; var p = inf.plan; if (!p || p.skip) return;
       box.appendChild(el('p', 'cmpBlockTitle objNivTitle', form.title)); box.appendChild(infRecap(p));
-      var rows = [], tbl;
-      function total() { return p.rows.reduce(function (n, r, i) { return n + (infKind(i) !== 'existant' && inf.on[i] !== false ? inf.hrs[i] : 0); }, 0); }
+      var wrap = el('div', 'objInf'), hasC = !!p.chiffre, totC, totH;
+      var hdr = el('div', 'objGridHead objInfHdr'); hdr.appendChild(el('span', 'objGridName', tr(p.level === 'pole' ? 'Objectif annuel' : 'Objectif périodique')));
+      if (hasC) hdr.appendChild(el('span', 'objGridChrono', tr('Chiffre'))); hdr.appendChild(el('span', 'objGridObj', tr('Heures'))); wrap.appendChild(hdr);
+      function counted(i) { return infKind(i) !== 'existant' && inf.on[i] !== false; }
+      function setTot() { // somme des lignes cochées : heures, et chiffre final (cumulatif : le plus haut jalon ; additif : la somme)
+        totH.textContent = hh(p.rows.reduce(function (n, r, i) { return n + (counted(i) ? inf.hrs[i] : 0); }, 0));
+        if (!hasC) return;
+        var vals = p.rows.filter(function (r, i) { return counted(i) && r.chiffre; }).map(function (r) { return r.chiffre.value; });
+        totC.textContent = vals.length ? infNum(p.chiffre.type === 'additif' ? Math.round(vals.reduce(function (a, b) { return a + b; }, 0) * 100) / 100 : Math.max.apply(null, vals)) + (p.chiffre.unite ? ' ' + p.chiffre.unite : '') : '';
+      }
       p.rows.forEach(function (r, i) {
-        var kind = infKind(i), mute = kind === 'existant', c = r.chiffre;
-        var row = { label: r.title || r.existingTitle || r.label, sub: r.label, muted: mute, chronoText: c ? infNum(c.value) + (c.unit ? ' ' + c.unit : '') : '', apres: inf.hrs[i], noAvant: kind !== 'modifier', sep: '→', avant: kind === 'modifier' ? infEx(r) : undefined };
-        if (!mute) { row.check = { checked: inf.on[i] !== false, onChange: function (v) { inf.on[i] = v; tbl.setTotal(null, total()); } }; row.edit = { label: tr('Heures'), onPick: function (v) { inf.hrs[i] = v; inf.edited[i] = true; infRecalc(i); infPaint(); } }; }
-        rows.push(row);
-        r.subs.forEach(function (x) { rows.push({ label: x.title, indent: true, muted: true, apres: x.hoursMin, noAvant: true }); });
+        var kind = infKind(i), mute = kind === 'existant', open = inf.open === i, c = r.chiffre;
+        var rowEl = el('div', 'objField objGuideRow objInfRow' + (open ? ' open' : '') + (!mute && inf.on[i] === false ? ' objInfOff' : '') + (mute ? ' objInfMuted' : ''));
+        var head = el('div', 'objGuideHead cmpToggle'); head.setAttribute('role', 'button'); head.tabIndex = 0; head.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (mute) head.appendChild(el('span', 'objInfCb'));
+        else { var cb = el('input'); cb.type = 'checkbox'; cb.checked = inf.on[i] !== false; cb.setAttribute('aria-label', r.title || r.existingTitle || r.label); cb.addEventListener('change', function () { inf.on[i] = cb.checked; rowEl.classList.toggle('objInfOff', !cb.checked); setTot(); }); head.appendChild(cb); }
+        var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'hint objInfSub', r.label)); tx.appendChild(el('span', 'cmpBlockTitle', r.title || r.existingTitle || r.label)); head.appendChild(tx);
+        if (hasC) { head.appendChild(el('span', 'objGridChrono', c ? infNum(c.value) + (c.unit ? ' ' + c.unit : '') : '')); head.appendChild(el('span', 'objInfBar')); }
+        var hrs = el('span', 'objGridObj');
+        if (kind === 'modifier') { hrs.appendChild(el('span', 'objGridAvant', hh(infEx(r)))); hrs.appendChild(el('span', 'objGridSlash', '→')); }
+        if (mute) hrs.appendChild(el('span', 'objGridApres', hh(inf.hrs[i]))); else hrs.appendChild(tbtn(inf.hrs[i], tr('Heures'), function (v) { inf.hrs[i] = v; inf.edited[i] = true; infRecalc(i); infPaint(); }));
+        head.appendChild(hrs); head.appendChild(el('span', 'cmpChev' + (open ? ' open' : '')));
+        function toggle() { inf.open = open ? -1 : i; infPaint(); }
+        head.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('input, .objTEdit')) return; toggle(); });
+        head.addEventListener('keydown', function (e) { if (e.target === head && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); } });
+        rowEl.appendChild(head);
+        if (open) {
+          var lines = [[tr('Faire'), r.faire], [tr('Résultat'), r.resultat], [tr('Avancement'), r.avancement]].filter(function (x) { return x[1]; });
+          if (lines.length) { var tb = el('div', 'objGrid objRecap objInfBody'); lines.forEach(function (x) { var rw = el('div', 'objGridRow'); rw.appendChild(el('span', 'objGridName', x[0])); rw.appendChild(el('span', 'objRecapVal', x[1])); tb.appendChild(rw); }); rowEl.appendChild(tb); }
+          if (r.subs.length) { var sb = el('div', 'objGrid objRecap objInfBody objInfSubs'); r.subs.forEach(function (x) { var rw = el('div', 'objGridRow'); rw.appendChild(el('span', 'objGridName', x.title)); rw.appendChild(el('span', 'objRecapVal', hh(x.hoursMin))); sb.appendChild(rw); }); rowEl.appendChild(sb); }
+        }
+        wrap.appendChild(rowEl);
       });
-      tbl = objTable({ levelLabel: tr(p.level === 'pole' ? 'Objectif annuel' : 'Objectif périodique'), chronoTitle: tr('Chiffre'), noChrono: !p.chiffre, objTitle: tr('Heures'), single: true, rows: rows, total: true });
-      tbl.setTotal(null, total()); box.appendChild(tbl.node);
+      var tot = el('div', 'objGridTotal objInfTotal'); tot.appendChild(el('span', 'objGridName', tr('Total')));
+      if (hasC) { totC = el('span', 'objGridChrono'); tot.appendChild(totC); }
+      var th = el('span', 'objGridObj'); totH = el('span', 'objGridApres'); th.appendChild(totH); tot.appendChild(th); wrap.appendChild(tot);
+      setTot(); box.appendChild(wrap);
     }
     function infApply(parent) { // à « Terminer » : seulement les lignes cochées ; créées / modifiées par les fonctions existantes côté serveur
       var p = inf.plan; if (!parent || !parent.id || !p || p.skip || cur !== 'inf') return Promise.resolve();
