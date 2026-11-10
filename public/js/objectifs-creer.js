@@ -547,7 +547,7 @@
     }
     function tpPaint() {
       tpBox.textContent = '';
-      if (tp.loading || !tp.e) { return; }
+      if (tp.loading || !tp.e) { if (tp.loading) TMT.ui.loader(tpBox); return; } // écran qui charge : le N standard (R48)
       var pages = tpPages(), n = pages.length, wrap = el('div', 'tasksPages objTPages'), track = el('div', 'tasksTrack'), build = { s1: tpScreen1, s2: tpScreen2, s3: tpScreen3 };
       track.style.width = (n * 100) + '%';
       pages.forEach(function (k) { var pg = el('div', 'tasksPage'); pg.style.flexBasis = (100 / n) + '%'; pg.appendChild(build[k]()); track.appendChild(pg); });
@@ -588,7 +588,7 @@
       boxes.niveau.textContent = '';
       boxes.niveau.appendChild(el('p', 'cmpBlockTitle objNivTitle', tr('Ton niveau')));
       boxes.niveau.appendChild(el('p', 'hint objNivSub', form.title + (form.endDate ? ' · ' + dateText(form.endDate) : '')));
-      if (!niv.qs) { boxes.niveau.appendChild(el('p', 'hint', tr('Un instant…'))); return; }
+      if (!niv.qs) { if (niv.failed) boxes.niveau.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); else TMT.ui.loader(boxes.niveau); return; } // zone qui charge : le N standard (R48)
       // Même format que la Description (paintGuideInto) : une question = un titre de groupe replié / déplié (une seule ouverte), trait dessous, flèche à droite ; la réponse choisie s'affiche en violet avant la flèche.
       niv.qs.forEach(function (q, qi) {
         var open = niv.open === qi, wrap = el('div', 'objField objGuideRow' + (open ? ' open' : ''));
@@ -618,7 +618,7 @@
     function nivFetch() { // une seule demande par objectif ; changer le titre, l'activité, le niveau de l'arbre, l'échéance ou la description repose les questions et efface les réponses
       var key = nivKey();
       if (niv.key === key && niv.qs) return Promise.resolve();
-      niv.key = key; niv.qs = null; niv.picks = []; niv.open = 0; niv.known = []; niv.skip = false; niv.type = null;
+      niv.key = key; niv.qs = null; niv.picks = []; niv.open = 0; niv.known = []; niv.skip = false; niv.type = null; niv.failed = false;
       var t = targets()[0];
       return api('POST', '/api/objectifs/niveau/questions', { title: form.title, description: form.description || '', endDate: form.endDate, activityId: form.activityId, activityName: t ? t.name : '', level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null }).then(function (r) {
         if (niv.key !== key || !r || !r.questions) return;
@@ -631,7 +631,7 @@
       nivFetch().then(function () {
         if (cur !== 'niveau') return;
         if (niv.skip) { show('temps'); return; }
-        if (!niv.qs) { var h = boxes.niveau.querySelector('.hint:last-child'); if (h) h.textContent = tr('Impossible pour le moment.'); return; }
+        if (!niv.qs) { niv.failed = true; nivPaint(); return; }
         nivPaint(); nivSync();
       });
     }
@@ -735,7 +735,7 @@
     api('GET', '/api/objectifs?filtre=tous').then(function (r) {
       var os = ((r && r.objectifs) || []).filter(function (o) { return ids.indexOf(o.id) >= 0 && (opts.skip || []).indexOf(o.id) < 0; });
       var win = openModal(opts.title || os.length + ' ' + tr('objectifs'), { onClose: load }), born0 = Date.now(); // le relâchement d'un appui long ne choisit jamais une ligne
-      if (opts.intro) { var ip = el('p', 'objDesc', tr('Chargement…')); win.body.appendChild(ip); opts.intro().then(function (t) { ip.textContent = t || ''; }).catch(function () { ip.textContent = ''; }); } // texte placé au-dessus de la liste (résumé annuel)
+      if (opts.intro) { var ip = el('p', 'objDesc'), ld = TMT.ui.loader(ip, { seul: true }); win.body.appendChild(ip); opts.intro().then(function (t) { ld.remove(); ip.textContent = t || ''; }).catch(function () { ld.remove(); ip.textContent = ''; }); } // texte placé au-dessus de la liste (résumé annuel)
       os.forEach(function (o) {
         var row = el('button', 'objGroupRow cmpSepRow'); row.type = 'button';
         row.appendChild(el('span', 'objRowName', o.title)); row.appendChild(el('span', 'objMeta', o.durationLabel + ' · ' + o.activity.name));
@@ -785,7 +785,7 @@
     function winQuery() { return win === 'week' ? '&period=week' : win === 'year' ? '&period=year' : '&from=' + isoDay(ps) + '&to=' + isoDay(pe); }
     var membersP = api('GET', '/api/activities/' + act.id + '/responsables').catch(function () { return { members: [] }; });
     function paintTime() {
-      timeBody.textContent = ''; timeBody.appendChild(el('p', 'hint', '…'));
+      timeBody.textContent = ''; TMT.ui.loader(timeBody, { seul: true });
       membersP.then(function (mr) {
         var ms = mr.members || [];
         if (ms.length < 2) { // activité individuelle : seulement toi
@@ -1079,7 +1079,7 @@
         var dIn = el('textarea'); dIn.rows = 3; dIn.maxLength = 1000; dIn.value = draft.desc; dIn.setAttribute('aria-label', tr('Description (pour l’IA)'));
         dIn.addEventListener('input', function () { draft.desc = dIn.value; syncSave(); }); advD.appendChild(field(tr('Description (pour l’IA)'), dIn));
         advD.appendChild(el('p', 'cmpBlockTitle', tr('Rattaché à')));
-        if (!parentList) advD.appendChild(el('p', 'hint', tr('Chargement…')));
+        if (!parentList) TMT.ui.loader(advD, { seul: true });
         else {
           var none = el('button', 'objGroupRow cmpSepRow' + (o.parentId == null ? ' on' : '')); none.type = 'button'; none.appendChild(el('span', 'objRowName', tr('Aucun (objectif final)')));
           none.addEventListener('click', function () { setParent(null); }); advD.appendChild(none);
