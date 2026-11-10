@@ -648,6 +648,7 @@ function creer(userId, body) {
   const meta0 = { plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7), term, inner };
   if (hpw) meta0.hoursPerWeek = hpw;
   if (typeof body.skill === 'string' && body.skill.trim()) { const sk = textlimits.clean(body.skill, { max: 200, word: 'Niveau' }); if (sk.error) throw err(sk.error); if (sk.text) meta0.skill = sk.text; }
+  const niv = require('./objectifs-niveau').readAnswers(body.niveau, textlimits.clean, (m) => { throw err(m); }); if (niv) meta0.niveau = niv; // trois réponses guidées + niveau déduit (débutant, intermédiaire, avancé), propre à cet objectif
   if (body.description) meta0.description = String(body.description).trim().slice(0, 900); // description libre de l'objectif (étape « Description »)
   if (isDay(body.proposedEnd)) meta0.dateCorrectedDays = daysBetween(body.proposedEnd, body.endDate); // signal : date corrigée par l'utilisateur
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta0), id);
@@ -873,7 +874,7 @@ function shape(r, full) {
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },
     weekTasks: { done: weekTasks.filter((t) => t.done).length, total: weekTasks.length },
   };
-  out.hoursPerWeek = meta.hoursPerWeek != null ? meta.hoursPerWeek : null; out.skill = meta.skill || ''; // 0 h = part à 0 %
+  out.hoursPerWeek = meta.hoursPerWeek != null ? meta.hoursPerWeek : null; out.skill = meta.skill || ''; out.niveau = meta.niveau || null; // 0 h = part à 0 %
   out.hoursByDay = Array.isArray(meta.hoursByDay) ? meta.hoursByDay : null;
   if (full) out.byDay = byDayInfo(r, meta); // détail seulement : Passé par jour (Chrono du niveau) pour le réglage « jour par jour » de la modification
   out.term = meta.term || null; out.innerGoals = meta.inner || null; // choix de création (terme, objectifs inclus) ; null pour les objectifs plus anciens

@@ -187,3 +187,12 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objDock .tasksPropose { --text-light: color-mix(in srgb, var(--text) 78%, transparent); }
 /* Les pages glissantes défilent à la verticale quand la liste dépasse (sinon « Ajouter une activité » était coupé) */
 .objDock .tasksPages { overflow-x: hidden; overflow-y: auto; }
+
+/* Page « Ton niveau » (10 nov. 2026) : trois questions guidées, groupes sans bulle avec un trait fin à gauche (couleur de séparation standard), choix en pastilles de 44 px (choisi = .cmpBtn violet, non choisi = .cmpBtnIdle verre calme) */
+.objNivTitle { padding: 0 0 4px; }
+.objNivSub { margin: 0 0 24px; }
+.objNivQ { margin: 0 0 24px; padding-left: 12px; border-left: 1px solid var(--sep); }
+.objNivHead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.objNivHead .hint { margin: 0; flex: none; }
+.objNivChips { display: flex; flex-wrap: wrap; gap: 8px; }
+.objNivChips .cmpBtn { width: auto; min-height: 44px; padding: 8px 16px; font-size: 14px; font-weight: 500; }

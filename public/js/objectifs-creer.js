@@ -558,17 +558,41 @@
     }
     function refresh() { renderActivities(); syncTerm(); }
     refresh();
-    // Étape « Niveau » : demandée SEULEMENT si des informations manquent (type d'objectif inconnu, plus d'un an, aucun historique Chrono) ; sinon sautée (3 étapes au lieu de 4).
-    function needsLevel() { var dl = daysLeft(); return (dl != null && dl > 365) || !(ctx.weeklyHours && form.activityId != null && ctx.weeklyHours[form.activityId]); }
-    var levelIn = el('input'); levelIn.type = 'text'; levelIn.maxLength = 200; levelIn.setAttribute('aria-label', tr('Ton niveau actuel')); levelIn.value = form.skill || '';
-    levelIn.addEventListener('input', function () { form.skill = levelIn.value; }); // le niveau de la personne n'est PAS form.level (niveau de l'arbre : activité, pôle, secteur)
-    boxes.niveau.appendChild(field(tr('Ton niveau actuel'), levelIn));
-    boxes.niveau.appendChild(btn('objLink', tr('Passer (je suis débutant)'), function () { form.skill = ''; levelIn.value = ''; (advance || stepNext)(); })); // dernière page : « Passer » termine
+    // Étape « Niveau » (10 nov. 2026) : TOUJOURS affichée, avant « Temps » ; trois questions guidées (accompli, régularité, ancienneté), quatre choix chacun, aucun texte à taper.
+    // Les questions sont écrites par l'IA selon l'objectif (questions fixes si l'IA ne répond pas) ; le niveau se déduit côté serveur des trois réponses (objectifs-niveau.js).
+    var niv = form.niv = form.niv || { key: null, qs: null, picks: [null, null, null] };
+    function nivKey() { return [form.title || '', form.activityId == null ? '' : form.activityId].join('|'); }
+    function nivDone() { return !!niv.qs && niv.picks.every(function (p) { return p != null; }); }
+    function nivSync() { stepBtn.disabled = !nivDone(); }
+    function nivPaint() {
+      boxes.niveau.textContent = '';
+      boxes.niveau.appendChild(el('p', 'cmpBlockTitle objNivTitle', tr('Ton niveau')));
+      boxes.niveau.appendChild(el('p', 'hint objNivSub', form.title + (form.endDate ? ' · ' + dateText(form.endDate) : '')));
+      if (!niv.qs) { boxes.niveau.appendChild(el('p', 'hint', tr('Un instant…'))); return; }
+      niv.qs.forEach(function (q, qi) {
+        var g = el('div', 'objNivQ'), head = el('div', 'objNivHead');
+        head.appendChild(el('span', 'cmpBlockTitle', tr(q.q))); head.appendChild(el('span', 'hint', (qi + 1) + '/3'));
+        var chips = el('div', 'objNivChips'); chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', tr(q.q));
+        q.choices.forEach(function (c, ci) {
+          var on = niv.picks[qi] === ci, b = btn('cmpBtn' + (on ? '' : ' cmpBtnIdle'), tr(c), function () { niv.picks[qi] = ci; nivPaint(); nivSync(); });
+          b.setAttribute('aria-pressed', on ? 'true' : 'false'); chips.appendChild(b);
+        });
+        g.appendChild(head); g.appendChild(chips); boxes.niveau.appendChild(g);
+      });
+    }
+    function nivLoad() { // une seule demande par objectif (titre + activité) ; changer le titre ou l'activité repose les questions et efface les réponses
+      var key = nivKey();
+      if (niv.key === key && niv.qs) { nivPaint(); nivSync(); return; }
+      niv.key = key; niv.qs = null; niv.picks = [null, null, null]; nivPaint(); nivSync();
+      var t = targets()[0];
+      api('POST', '/api/objectifs/niveau/questions', { title: form.title, activityName: t ? t.name : '' }).then(function (r) { if (niv.key === key && r && r.questions) { niv.qs = r.questions; nivPaint(); nivSync(); } })
+        .catch(function () { if (niv.key === key) { niv.key = null; boxes.niveau.querySelector('.hint:last-child').textContent = tr('Impossible pour le moment.'); } });
+    }
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
     var stepNames = { desc: 'Description', temps: 'Temps', heures: 'Heures', activite: 'Activité', niveau: 'Niveau', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(['temps']).concat(needsLevel() ? ['niveau'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
+    function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(['niveau', 'temps']).concat(TACHES_PAGE ? ['taches'] : []); }
     function loadRatt() {
       // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
       var key = rattKey();
@@ -585,14 +609,15 @@
       if (k === 'desc' && form._hints && form._shownOnce) form._hints();
       if (k === 'desc') form._shownOnce = true;
       if (k === 'activite') { form.poleOpen = false; renderActivities(); } // à l'arrivée : seulement les activités, aucun choix de pôle déroulé
+      if (k === 'niveau') nivLoad();
       if (k === 'temps') tpLoad();
       panelKicker.textContent = tr(stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
       stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave');
       stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');
-      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate)); // Suivant grisé tant que le rattachement n'est pas décidé
+      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate)) || (k === 'niveau' && !nivDone()); // Suivant grisé tant que le rattachement n'est pas décidé
       advance = i < tot - 1 ? stepNext : finishAll; setBack(i > 0 ? function () { show(l[i - 1]); } : null);
-      dock.classList.toggle('objTemps', k === 'temps'); // bouton du bas gris (R35) quand il est désactivé, à l'étape Temps
+      dock.classList.toggle('objTemps', k === 'temps' || k === 'niveau'); // bouton du bas gris (R35) quand il est désactivé, aux étapes Niveau et Temps
       if (k === 'temps') tpSync();
     }
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
@@ -623,7 +648,7 @@
         .then(function (P) { // UNE seule activité, qui existe déjà (elle se crée dans Réglages) ; les macros se font seulement depuis l'arbre
           return Promise.resolve(t.id)
             .then(function (activityId) {
-              return api('POST', '/api/objectifs', { replaceId: replaceId || undefined, term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, skill: form.skill || '', description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+              return api('POST', '/api/objectifs', { replaceId: replaceId || undefined, term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, niveau: nivDone() ? { answers: niv.qs.map(function (q, qi) { return { q: q.q, a: q.choices[niv.picks[qi]], i: niv.picks[qi] }; }) } : undefined, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
             })
             .then(function (cr) { if (cr && cr.id) first = cr; });
         })
