@@ -22,6 +22,7 @@ const REVIEWED = [
   [/^(?:svg|qr\.createSvgTag\(.*\))$/, 'SVG généré par le code (graphique : étiquettes de date échappées ; QR : bibliothèque)'],
   [/^(?:paneHtml|folderFilesHtml)\(/, 'fonction du même fichier dont les opérandes sont relevés séparément (esc partout)'],
   [/^TMT\.(?:goalsTaskEditIcon|ui\.editIcon)\(\)$/, 'icône SVG constante'],
+  [/^(?:TMT\.ui\.)?loaderHtml\(/, 'indicateur de chargement : balisage constant, phrase littérale du composant (R48)'],
   [/^r\[0\]$/, 'motif de signalement : constante du code'],
   [/^f\[0\]$|^tr\(f\[1\]\)$/, 'champs de la stratégie : constantes du code'],
   [/^folderRemoveId === f\.id \? /, 'test de comparaison ; ses branches sont des littéraux et des appels déjà relevés'],

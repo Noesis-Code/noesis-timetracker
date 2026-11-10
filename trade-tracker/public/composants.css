@@ -297,11 +297,27 @@
 /* Calendrier (bande de la vue Tâches ET grille du calendrier) : numéro de la semaine à gauche de sa rangée, périodes à gauche du mois, jours de la période soulignés. Défini une seule fois (R29). */
 .calWeekRow { position: relative; margin-left: 14px; }
 .calWeekRow > .goalsCalWeek { padding: 4px; border-radius: var(--radius-lg); }
-.calWeekNum, .calWeekNum.cmpStatus { position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%); z-index: 2; min-height: 0; padding: 2px 3px; border: 0; background: var(--bg, #0B0A0A); color: var(--text-light); font-size: 11px; font-weight: 400; line-height: 1; } /* numéro de la semaine centré sur le trait gauche du cadre */
+.calWeekNum, .calWeekNum.cmpStatus { position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%); z-index: 2; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px; border: 0; background: var(--bg, #0B0A0A); color: var(--text-light); font-size: 10px; font-weight: 400; line-height: 1.2; text-align: center; }
+.calWeekNum > i { font-style: normal; color: var(--purple); } /* numéro de période sous le S, dans la même pastille sur le trait */ /* numéro de la semaine centré sur le trait gauche du cadre */
 .goalsCalHead, .tasksWeekHead .goalsCalHead { margin-left: 14px; }
-.cmpNavLabel, #goalsCalTitle { position: relative; }
-.calPeriods { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: flex; gap: 8px; font-size: 13px; font-weight: 400; color: var(--text-light); white-space: nowrap; }
-.calPeriod { color: var(--purple); }
 .goalsCalDays { position: relative; }
 .goalsCalDay { position: relative; z-index: 1; }
-.calPeriodBand { position: absolute; top: 0; bottom: 0; z-index: 0; box-sizing: border-box; border-radius: var(--radius-pill, 999px); background: rgba(var(--purple-rgb), .28); border: 1px solid var(--glass-border); pointer-events: none; } /* faisceau violet pâle (halo R11) à 4 px des bords du cadre, comme la bulle de la barre des volets */
+
+/* Indicateur de chargement (R42, 10 nov. 2026, décision d'Émilien) : UN seul composant, le N de Noèsis dont les sections s'allument une à une
+   le long du tracé (opacité seulement, comme l'écran d'ouverture). Page ou zone : le N + la phrase ; place d'un texte : .cmpLoaderSeul (le N seul).
+   Créé par TMT.ui.loader (composants.js) ; n'apparaît qu'après 300 ms pour ne pas clignoter. Jamais de texte « Chargement… », jamais de spinner. */
+.cmpLoader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px 0; width: 100%; opacity: 0; animation: cmpLoaderIn .01s linear .3s forwards; }
+.cmpLoader.cmpLoaderSeul { display: inline-flex; width: auto; padding: 4px 0; }
+.cmpLoader svg { display: block; width: 19px; height: 24px; fill: var(--text); flex: none; }
+.cmpLoader polygon { opacity: .22; animation: cmpLoaderVague 1.4s linear infinite; }
+.cmpLoader polygon:nth-child(2) { animation-delay: 0s; }
+.cmpLoader polygon:nth-child(1) { animation-delay: .2s; }
+.cmpLoader polygon:nth-child(3) { animation-delay: .4s; }
+.cmpLoader polygon:nth-child(4) { animation-delay: .6s; }
+.cmpLoader polygon:nth-child(6) { animation-delay: .8s; }
+.cmpLoader polygon:nth-child(5) { animation-delay: 1s; }
+.cmpLoader polygon:nth-child(7) { animation-delay: 1.2s; }
+.cmpLoaderPhrase { display: block; margin: 0; font-size: 13px; line-height: 1.3; color: var(--text-light); text-align: center; }
+@keyframes cmpLoaderIn { to { opacity: 1; } }
+@keyframes cmpLoaderVague { 0% { opacity: .22; } 7% { opacity: 1; } 43% { opacity: 1; } 57% { opacity: .22; } 100% { opacity: .22; } }
+@media (prefers-reduced-motion: reduce) { .cmpLoader polygon { animation: none; opacity: .7; } }

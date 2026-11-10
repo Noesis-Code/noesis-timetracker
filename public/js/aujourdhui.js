@@ -617,7 +617,7 @@
     ui.tasksBox.appendChild(el('p', 'tasksPageHead', tr('Dans') + ' ' + (t ? t.activityName + ' › ' + String(t.categoryLabel || '').replace(' → ', ' › ') : '…')));
     if (!g) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Choisis d’abord l’activité.')));
     else {
-      if (g.loading) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Noèsis prépare les tâches…')));
+      if (g.loading) TMT.ui.loader(ui.tasksBox);
       if (!g.loading && g.tasks && !g.tasks.length) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', g.error ? g.error : tr('Aucune tâche proposée. Précise ta demande.')));
       (g.tasks || []).forEach(function (task, i) {
         var lab = el('label', 'tasksExpRow'), cb = el('input'); cb.type = 'checkbox'; cb.checked = g.checked[i] !== false;
@@ -679,7 +679,7 @@
     ui.pages.classList.add('locked'); // les choix de la page 1 sont figés une fois validés
     ui.tasksBox.textContent = '';
     ui.tasksBox.appendChild(el('p', 'tasksPageHead', tr('Dans') + ' ' + e.acts[0].name + (e.categoryLabel ? ' › ' + e.categoryLabel.replace(' → ', ' › ') : '')));
-    if (e.loading) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Noèsis prépare les tâches…')));
+    if (e.loading) TMT.ui.loader(ui.tasksBox);
     if (e.tasks && !e.tasks.length) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Aucune tâche proposée. Précise ta demande.')));
     (e.tasks || []).forEach(function (t, i) {
       var lab = el('label', 'tasksExpRow'), cb = el('input'); cb.type = 'checkbox'; cb.checked = e.checked[i] !== false;
@@ -691,7 +691,7 @@
     });
     ui.hint.classList.add('hidden');
     goPage(2);
-    say(e.loading ? tr('Noèsis prépare les tâches…') : e.tasks && e.tasks.length ? tr('Touche Enregistrer pour les ajouter, ou balaie pour revenir aux choix.') : tr('Balaie vers la droite pour changer le rangement.'));
+    say(e.loading ? '' : e.tasks && e.tasks.length ? tr('Touche Enregistrer pour les ajouter, ou balaie pour revenir aux choix.') : tr('Balaie vers la droite pour changer le rangement.'));
   }
   function paintExpansion() {
     var e = state.exp; if (!e) return;
@@ -714,7 +714,7 @@
       wrap.appendChild(box);
     }
     ui.fields.appendChild(wrap);
-    if (e.loading) ui.fields.appendChild(el('p', 'tasksProposeHint', tr('Noèsis prépare les tâches…')));
+    if (e.loading) TMT.ui.loader(ui.fields);
     if (e.tasks) {
       if (!e.tasks.length) ui.fields.appendChild(el('p', 'tasksProposeHint', tr('Aucune tâche proposée. Précise ta demande.')));
       e.tasks.forEach(function (t, i) {
@@ -728,7 +728,7 @@
     }
     ui.hint.classList.add('hidden'); // un seul message, centré sous la barre
     dock.classList.toggle('expSave', !!(e.tasks && e.tasks.length) && !e.loading);
-    say(e.loading ? tr('Noèsis prépare les tâches…') : e.tasks && e.tasks.length ? tr('Touche ✕ ou ↑ pour valider.') : tr('Touche ↑ pour envoyer, ou ✕ pour fermer.'));
+    say(e.loading ? '' : e.tasks && e.tasks.length ? tr('Touche ✕ ou ↑ pour valider.') : tr('Touche ↑ pour envoyer, ou ✕ pour fermer.'));
   }
   function runExpansion() {
     var e = state.exp; if (!e) return Promise.resolve();

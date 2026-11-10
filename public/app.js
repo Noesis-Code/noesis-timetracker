@@ -4428,7 +4428,7 @@
   function loadCategoryStats() {
     if (!profile || !csCtx) return;
     var token = ++categoryStatsToken;
-    $('categoryStatsMsg').textContent = t('Chargement...');
+    $('categoryStatsMsg').textContent = ''; TMT.ui.loader($('categoryStatsMsg'));
 
     var url = '/api/category-timesheet?userId=' + profile.id
       + '&activityId=' + csCtx.activityId
@@ -14691,7 +14691,7 @@
       } else {
         var ld = document.createElement('p');
         ld.className = 'hint';
-        ld.textContent = t('Chargement…');
+        TMT.ui.loader(ld, { seul: true });
         listBox.appendChild(ld);
       }
     }
@@ -16775,7 +16775,7 @@
     if (!profile) return;
     resetOffer1CheckoutModal();
     $('offer1CheckoutModal').classList.remove('hidden');
-    $('offer1CheckoutMsg').textContent = t('Chargement…');
+    $('offer1CheckoutMsg').textContent = ''; TMT.ui.loader($('offer1CheckoutMsg'));
     Promise.all([
       api('GET', '/api/activities?all=1&userId=' + profile.id),
       api('GET', '/api/offer/subscriptions?userId=' + profile.id),

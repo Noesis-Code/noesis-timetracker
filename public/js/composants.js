@@ -54,6 +54,22 @@
       try { (field || picks[0] || ok).focus({ preventScroll: true }); } catch (e) {}
     });
   }
+  // Indicateur de chargement (R48) : le N en vague ; avec phrase = page ou zone, sans (opts.seul) = à la place d'un texte. La phrase est définie ICI, une seule fois.
+  var LOADER_PHRASE = 'Noèsis s’en occupe…';
+  var LOADER_POLYS = ['183,293 287,461 287,616 183,675', '287,628 287,863 184,863 184,687', '192,262 293,262 468,557 367,555', '374,565 475,568 536,670 536,835', '556,262 616,262 659,286 661,616 556,673', '661,629 662,863 557,863 556,686', '729,151 612,186 635,253 708,287'];
+  function loaderHtml(opts) {
+    var seul = !!(opts && opts.seul), label = typeof window.t === 'function' ? window.t(LOADER_PHRASE) : LOADER_PHRASE;
+    return '<span class="cmpLoader' + (seul ? ' cmpLoaderSeul' : '') + '" role="status" aria-label="' + label + '">'
+      + '<svg viewBox="163 131 586 752" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">'
+      + LOADER_POLYS.map(function (p) { return '<polygon points="' + p + '"/>'; }).join('') + '</svg>'
+      + (seul ? '' : '<span class="cmpLoaderPhrase">' + label + '</span>') + '</span>';
+  }
+  function loader(container, opts) {
+    var w = document.createElement('span'); w.innerHTML = loaderHtml(opts);
+    var el = w.firstChild;
+    if (container) container.appendChild(el);
+    return { el: el, remove: function () { if (el.parentNode) el.parentNode.removeChild(el); } };
+  }
   function btn(cls, label, onClick) {
     var b = document.createElement('button');
     b.type = 'button'; b.className = cls;
@@ -64,6 +80,7 @@
   var ui = {
     editIcon: function () { return EDIT_SVG; },
     closeBtn: function (onClick, label) { var b = btn('cmpClose', label || 'Fermer', onClick); b.textContent = '✕'; return b; },
+    loader: loader, loaderHtml: loaderHtml,
     removeBtn: function (onClick, label) { return btn('cmpRemove', label || 'Retirer', onClick); },
     editBtn: function (onClick, label) { var b = btn('cmpEdit', label || 'Modifier', onClick); b.innerHTML = EDIT_SVG; return b; },
     addBtn: function (label, onClick) {

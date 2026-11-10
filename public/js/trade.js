@@ -13,6 +13,7 @@
   var closeBtn = document.getElementById('tradePageClose');
   var loading = false;
 
+  function showLoading() { stateBox.textContent = ''; TMT.ui.loader(stateBox); stateBox.classList.remove('hidden'); frame.classList.add('hidden'); frame.removeAttribute('src'); ext.classList.add('hidden'); }
   function showState(msg) { stateBox.textContent = msg; stateBox.classList.remove('hidden'); frame.classList.add('hidden'); frame.removeAttribute('src'); ext.classList.add('hidden'); }
   function showLink(url) {
     stateBox.classList.add('hidden'); frame.classList.remove('hidden');
@@ -27,7 +28,7 @@
   function open() {
     page.classList.remove('hidden');
     if (loading) return; loading = true;
-    showState(tr('Chargement…'));
+    showLoading();
     fetchLink().then(function (d) {
       if (!d.configured || !d.url) showState(tr('Trade Tracker n’est pas configuré sur ce serveur.'));
       else showLink(d.url);
