@@ -3,12 +3,8 @@
 // l'utilisateur n'a pas validé — règle produit « les suggestions informent,
 // ne décident jamais »).
 //
-// Report des tâches en retard (point 2) : le mécanisme existant
-// goalscaptureplace.js#redispatchOverdue replace déjà les tâches non cochées
-// dont la date a été POSÉE PAR LE MOTEUR (dueDateAuto=1). Une date SAISIE par
-// l'utilisateur n'est jamais écrasée d'office : si elle est en retard, la tâche
-// reste visible (l'écran Tâches montre toutes les non cochées) et n'est déplacée
-// que par le plan proposé ci-dessous, après validation.
+// Report des tâches en retard (point 2) : goalscaptureplace.js#redispatchOverdue replace les tâches non cochées dont le jour est passé.
+// ORDRE D'ÉMILIEN (10 nov. 2026) : seule l'importance compte (classement unique taskkind.comparePlacement) ; une date saisie à la main n'est pas protégée.
 //
 // Surcharge (point 3) : charge d'aujourd'hui = tâches non cochées dont la date
 // est <= aujourd'hui (reportées + du jour), estimation goals.estimateForGoal ou
@@ -62,7 +58,10 @@ function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DA
   const days = [];
   for (let i = 0; i <= lookahead; i += 1) days.push(goals.addDays(today, i));
   const isLong = (t) => !!t.long;
-  const movable = (t) => !isLong(t) && !!t.dueDateAuto && !t.pinned; // pinned : réforme ou maintenance urgente, jamais déplacée
+  const movable = (t) => !isLong(t); // ordre d'Émilien (10 nov. 2026) : seule l'importance compte (plus de protection d'une date saisie, d'une réforme ni d'une urgente : elles passent en premier du classement)
+  const taskkind = require('./taskkind');
+  const rk = (t) => ({ ...(t.rank || { tier: t.pinned ? 0 : 3 }), score: t.importance.score, dueDate: t.dueDate, id: t.id });
+  const byRank = (a, b) => taskkind.comparePlacement(rk(a), rk(b)); // UN classement, du plus urgent au moins urgent
   const cur = new Map();
   tasks.forEach((t) => { if (t.dueDate && !isLong(t)) cur.set(t.id, eff(t)); });
   const load = {};
@@ -84,8 +83,7 @@ function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DA
     if (load[d] <= budget) continue;
     if (firstLoad === null) firstLoad = load[d];
     const cands = tasks.filter((t) => movable(t) && cur.get(t.id) === d)
-      .sort((a, b) => (b.importance.score - a.importance.score)
-        || (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.id - b.id));
+      .sort(byRank);
     let kept = load[d] - cands.reduce((s, t) => s + t.minutes, 0);
     cands.forEach((t) => {
       if (kept === 0 || kept + t.minutes <= budget) { kept += t.minutes; return; }
@@ -164,10 +162,12 @@ function loadTasks(activityId, budget, today, poleKey) {
     return { ...r, long: true, spanDays: span.days, rest: span.rest, minutes: total, maxMinutes: high };
   });
   const reforms = require('./reform').readMany(kept.map((r) => r.id)), kinds = require('./taskkind').readMany(kept.map((r) => r.id));
+  const ranks = require('./taskkind').rankInfoMany(kept.map((r) => r.id), budget, (id) => (tasks.find((x) => x.id === id) || {}).minutes);
   tasks.forEach((t) => {
+    t.rank = ranks[t.id];
     const k = kinds[t.id] || {};
     t.pinned = !!reforms[t.id] || (k.kind === 'maintenance' && !!k.urgent);
-    if (t.dueDateAuto && t.category) { try { const g = goalsAt(activityId, t.category, t.dueDate); t.deadline = g && g.period ? g.period.endDate : null; } catch (e) { t.deadline = null; } }
+    if (t.category) { try { const g = goalsAt(activityId, t.category, t.dueDate); t.deadline = g && g.period ? g.period.endDate : null; } catch (e) { t.deadline = null; } }
   });
   // Charge de chaque jour (même règle que computeProposal) pour le critère « journée chargée ».
   const dayLoad = {};
@@ -202,12 +202,11 @@ function goalsAt(activityId, category, day) {
 
 // poleKey (optionnel) : ne garde que les déplacements de CE pôle (le secteur remonte au pôle).
 // Avec poleKey, charge ET capacité ET tâches sont celles de CE pôle (secteurs remontés au pôle) ; sans poleKey, toute l'activité.
-function buildProposal(userId, activityId, poleKey, strict) { // strict (déplacement silencieux) : seules les dates posées par le moteur (dueDateAuto = 1) bougent ; une date par défaut ou suggérée (2) reste
+function buildProposal(userId, activityId, poleKey) {
   const today = todayLocal();
   try { captureplace.redispatchOverdue(userId, activityId); } catch (e) { /* non bloquant */ }
   const budget = referenceFor(activityId, userId, poleKey); // référence adaptative au rythme tenu
   const tasks = loadTasks(activityId, budget, today, poleKey);
-  if (strict) tasks.forEach((t) => { if (t.dueDateAuto !== 1) t.pinned = true; });
   const p = computeProposal({ today, budgetMinutes: Math.round(budget * (1 + TOLERANCE)), tasks }); // dépassement léger (20 %) toléré, rien décalé en dessous
   // Plafonds de temps : appliqués APRÈS le plan de surcharge, mêmes règles
   // (proposé seulement, dates posées par le moteur uniquement).
@@ -260,8 +259,8 @@ function applyMoves(p) {
 
 
 // UNE SEULE fonction de rééquilibrage, en silence (plus de carte ni de proposition) : (1) tâches en retard posées par le moteur replacées selon leur urgence
-// (captureplace.redispatchOverdue), (2) journée au-delà de la capacité : les moins importantes passent au prochain jour libre, dans la limite de l'échéance de leur période,
-// en cascade si des retards urgents ont pris la place. Seules les dates posées par le moteur (dueDateAuto) bougent ; date saisie à la main, réforme, maintenance urgente : jamais.
+// (captureplace.redispatchOverdue), (2) journée au-delà de la capacité : les moins importantes du classement passent au prochain jour libre, dans la limite de l'échéance de leur période,
+// en cascade si des retards urgents ont pris la place. Aucune protection : une date saisie à la main bouge comme les autres ; réforme et maintenance urgente passent en premier du classement.
 // Déclenchée à l'ouverture de la liste du jour et du calendrier (au plus une fois par 30 s et par activité).
 const lastRebalance = new Map();
 function rebalance(userId, activityId, opts) {  const res = rebalanceMoves(userId, activityId, opts);  if (!res.skipped) { try { marksCache.set(userId + '|' + activityId, overloadMarks(userId, activityId)); } catch (e) { /* non bloquant */ } }  return res;}function rebalanceMoves(userId, activityId, opts) {
@@ -271,9 +270,8 @@ function rebalance(userId, activityId, opts) {  const res = rebalanceMoves(user
   try { require('./goalscarryover').repriseUnmet(activityId); } catch (e) { /* non bloquant */ } // objectifs hebdomadaires non atteints repris sur les semaines à venir de la période (silencieux, idempotent)
   const p = buildProposal(userId, activityId, undefined, true);
   if (!p.overloaded) return { applied: 0 };
-  const isAuto = db.prepare('SELECT dueDateAuto FROM sub_project_items WHERE id = ?');
   const deadlineOf = (m) => { try { const g = m.category ? goalsAt(activityId, m.category, m.from) : null; return g && g.period ? g.period.endDate : null; } catch (e) { return null; } };
-  const moves = p.moves.filter((m) => ((isAuto.get(m.id) || {}).dueDateAuto || 0) === 1 && (!deadlineOf(m) || m.to <= deadlineOf(m)));
+  const moves = p.moves.filter((m) => !deadlineOf(m) || m.to <= deadlineOf(m));
   if (!moves.length) return { applied: 0 };
   applyMoves({ moves });
   return { applied: moves.length };

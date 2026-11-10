@@ -66,7 +66,7 @@ const vente = keyOf('Ventes');
   // Page Aujourd'hui, de bout en bout
   const add = (label, cat) => {
     const it = goalstasks.addCategoryTask(actId, 'u1', cat, label, {});
-    db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?').run(today, it.id);
+    db.prepare('UPDATE sub_project_items SET dueDate = ?, medianMinutes = 5 WHERE id = ?').run(today, it.id);
     return it.id;
   };
   const t1 = add('Tâche ventes 1', vente);

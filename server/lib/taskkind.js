@@ -178,6 +178,34 @@ function compareTasks(a, b) {
     || (a.tier === 4 ? (a.estimatedMinutes - b.estimatedMinutes) || (rankOf(a.maintType) - rankOf(b.maintType)) : 0);
 }
 
+// Palier de PLACEMENT (ordre d'Émilien, 10 nov. 2026) : le même que tierOf, avec la réforme juste après la maintenance urgente (0 puis 0,5). Seule l'importance compte :
+// une date saisie à la main n'est pas plus importante qu'une autre. UN SEUL classement, du plus urgent au moins urgent, pour l'ajout, le report et le retrait d'une tâche.
+function placementTier(t, capacityMinutes) { return t.reform ? 0.5 : tierOf(t, capacityMinutes); }
+// Comparateur de placement (pur) : paliers, puis (palier 0 et réformes) l'essentiel (rankOf) puis l'échéance ; palier 3 : continuité ; en dernier recours score d'importance, échéance, id.
+// a, b : { tier (placementTier), maintType, estimatedMinutes, hasObjective, periodEnd, periodNumber, weekIndex, score?, dueDate?, id }. Plus petit = plus important.
+function comparePlacement(a, b) {
+  const da = String(a.dueDate || '9999'), db2 = String(b.dueDate || '9999');
+  return compareTasks(a, b) || ((b.score || 0) - (a.score || 0)) || (da < db2 ? -1 : da > db2 ? 1 : 0) || ((a.id || 0) - (b.id || 0));
+}
+// { [id]: rang } pour plusieurs tâches (type, objectif lié et sa continuité, réforme, palier de placement). minutesOf(id) : durée de la tâche ; capacityMinutes : temps d'une journée.
+function rankInfoMany(ids, capacityMinutes, minutesOf) {
+  const out = {};
+  if (!ids || !ids.length) return out;
+  const kinds = readMany(ids), reforms = require('./reform').readMany(ids), weekly = {};
+  db.prepare('SELECT id, goalWeeklyId FROM sub_project_items WHERE id IN (' + ids.map(() => '?').join(',') + ')').all(...ids).forEach((r) => { weekly[r.id] = r.goalWeeklyId; });
+  const info = {};
+  const wids = Array.from(new Set(Object.values(weekly).filter((w) => w != null)));
+  if (wids.length) db.prepare('SELECT w.id, w.weekIndex, p.endDate, p.periodNumber FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE w.id IN (' + wids.map(() => '?').join(',') + ')').all(...wids).forEach((r) => { info[r.id] = r; });
+  ids.forEach((id) => {
+    const k = kinds[id] || {}, oi = info[weekly[id]] || {};
+    const r = { id, taskKind: k.kind, maintType: k.maintType, maintUrgent: k.urgent, estimatedMinutes: (minutesOf ? minutesOf(id) : 0) || 0, hasObjective: weekly[id] != null, reform: !!reforms[id],
+      periodEnd: oi.endDate, periodNumber: oi.periodNumber, weekIndex: oi.weekIndex };
+    r.tier = placementTier(r, capacityMinutes);
+    out[id] = r;
+  });
+  return out;
+}
+
 function write(itemId, res) {
   const r = res || {};
   db.prepare('UPDATE sub_project_items SET taskKind = ?, maintType = ?, maintUrgent = ? WHERE id = ?')
@@ -195,4 +223,4 @@ function readMany(ids) {
   return out;
 }
 
-module.exports = { KINDS, ESSENTIAL_RANK, MIN_HISTORY, compute, rankOf, tierOf, compareTasks, maintTypeOf, isUrgentText, doneDatesForTitle, sectorDevShare, write, read, readMany };
+module.exports = { KINDS, ESSENTIAL_RANK, MIN_HISTORY, compute, rankOf, tierOf, compareTasks, placementTier, comparePlacement, rankInfoMany, maintTypeOf, isUrgentText, doneDatesForTitle, sectorDevShare, write, read, readMany };

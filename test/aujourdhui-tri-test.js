@@ -23,7 +23,7 @@ const mkAct = (name, pos) => {
 const zebre = mkAct('Zèbre', 0); const alpha = mkAct('Alpha', 1);
 const add = (a, label, kind, extra) => {
   const it = goalstasks.addCategoryTask(a.id, 'u1', a.key, label, {});
-  db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?').run(today, it.id);
+  db.prepare('UPDATE sub_project_items SET dueDate = ?, medianMinutes = 5 WHERE id = ?').run(today, it.id);
   if (kind) tk.write(it.id, Object.assign({ kind }, extra || {}));
   return it.id;
 };
@@ -44,7 +44,7 @@ assert(r.tasks.every((t) => t.rank === undefined), 'aucun champ interne exposé'
 
 // Règle des 5 par secteur (arbre « Activité ») : base >= 5 = toute la base et AUCUNE tâche à venir ; base < 5 = complétée par les à-venir du même secteur (échéance croissante) jusqu'à 5 au total.
 const inDays = (n) => { const d = new Date(today + 'T12:00:00'); d.setDate(d.getDate() + n); const p = (x) => String(x).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); };
-const addDue = (a, label, due) => { const it = goalstasks.addCategoryTask(a.id, 'u1', a.key, label, {}); db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?').run(due, it.id); return it.id; };
+const addDue = (a, label, due) => { const it = goalstasks.addCategoryTask(a.id, 'u1', a.key, label, {}); db.prepare('UPDATE sub_project_items SET dueDate = ?, medianMinutes = 5 WHERE id = ?').run(due, it.id); return it.id; };
 const gamma = mkAct('Gamma', 2), delta = mkAct('Delta', 3);
 for (let i = 0; i < 5; i++) addDue(gamma, 'Base Gamma ' + i, i === 0 ? inDays(-3) : today); // 5 en base (dont un retard)
 addDue(gamma, 'À venir Gamma 1', inDays(2)); addDue(gamma, 'À venir Gamma 2', inDays(3));

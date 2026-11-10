@@ -334,7 +334,7 @@ function redispatchOverdue(userId, activityId) {
     SELECT i.id, i.label, i.dueDate, i.medianMinutes, i.maxMinutes, sp.goalCategory AS category
     FROM sub_project_items i
     JOIN sub_projects sp ON sp.id = i.subProjectId
-    WHERE sp.activityId = ? AND i.done = 0 AND i.dueDateAuto = 1 AND i.dueDate IS NOT NULL AND i.dueDate != ''
+    WHERE sp.activityId = ? AND i.done = 0 AND i.dueDate IS NOT NULL AND i.dueDate != ''
     ORDER BY i.dueDate ASC, i.id ASC
   `).all(activityId);
   const cap = capacityFor(userId, activityId);
@@ -363,7 +363,7 @@ function redispatchOverdue(userId, activityId) {
   lateShort.forEach((r) => {
     if (reforms[r.id]) return;
     let urgent = false;
-    try { urgent = require('./goalsimportance').computeImportance({ today, goal: ctx[r.id], minutes: taskMinutes(activityId, r.category, r.label, r), capacity: cap, dayLoadMinutes: 0 }).level === 'haute'; } catch (e) { urgent = false; }
+    try { urgent = require('./taskkind').read(r.id).urgent || require('./goalsimportance').computeImportance({ today, goal: ctx[r.id], minutes: taskMinutes(activityId, r.category, r.label, r), capacity: cap, dayLoadMinutes: 0 }).level === 'haute'; } catch (e) { urgent = false; }
     upd.run(urgent ? today : chooseAutoPlacementDate(userId, activityId, r.category, r.label, r.id), r.id);
     moved += 1;
   });

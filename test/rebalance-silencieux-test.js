@@ -1,5 +1,5 @@
 // Rééquilibrage SILENCIEUX (plus de cartes d'alerte) : journée surchargée, retards urgents en cascade, recalcul des temps estimés.
-// Règles : seules les dates posées par le moteur (dueDateAuto = 1) bougent ; date manuelle, date par défaut/suggérée (2) et réforme : jamais ; jamais au-delà de l'échéance.
+// Règles (ordre d'Émilien, 10 nov. 2026) : seule l'importance compte (classement unique des paliers) ; une date saisie à la main, par défaut ou suggérée n'est pas protégée ; réforme et maintenance urgente passent en premier ; jamais au-delà de l'échéance.
 process.env.TZ = 'America/Montreal';
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-rebal-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
@@ -19,9 +19,9 @@ let p = overload.computeProposal({ today, budgetMinutes: 60, tasks: [mk(1, 90), 
 assert(p && p.moves.map((m) => m.id).sort().join() === '3,4', 'journée surchargée : les MOINS importantes (3 et 4) sont décalées, les plus importantes restent');
 assert(p.moves.every((m) => m.to > today), 'elles passent à un jour suivant');
 p = overload.computeProposal({ today, budgetMinutes: 60, tasks: [mk(1, 90), mk(2, 80), mk(3, 20, { dueDateAuto: 0 }), mk(4, 10, { dueDateAuto: 0 })] });
-assert(!p || p.moves.every((m) => m.id !== 3 && m.id !== 4), 'date posée à la main : jamais déplacée (seules les tâches du moteur cèdent la place)');
-p = overload.computeProposal({ today, budgetMinutes: 60, tasks: [mk(1, 90), mk(2, 80), mk(3, 20, { pinned: true }), mk(4, 10, { dueDateAuto: 2, pinned: true })] }); // en silence, une date par défaut ou suggérée (2) est épinglée (buildProposal strict)
-assert(!p || p.moves.every((m) => m.id !== 3 && m.id !== 4), 'réforme / maintenance urgente (épinglées) et date par défaut ou suggérée : jamais déplacées');
+assert(p && p.moves.map((m) => m.id).sort().join() === '3,4', 'date posée à la main : AUCUNE protection, les moins importantes (3 et 4) sont décalées comme les autres');
+p = overload.computeProposal({ today, budgetMinutes: 60, tasks: [mk(1, 90), mk(2, 80), mk(3, 20, { pinned: true }), mk(4, 10, { dueDateAuto: 2, pinned: true })] });
+assert(p && p.moves.map((m) => m.id).sort().join() === '1,2', 'réforme / maintenance urgente (palier 0) : elles passent en premier du classement, les moins importantes cèdent la place');
 p = overload.computeProposal({ today, budgetMinutes: 60, tasks: [mk(1, 90), mk(2, 80), mk(3, 20, { deadline: today }), mk(4, 10, { deadline: goals.addDays(today, 2) })] });
 assert(p && p.moves.length === 1 && p.moves[0].id === 4 && p.moves[0].to <= goals.addDays(today, 2), 'jamais au-delà de l\'échéance : la tâche dont l\'échéance est aujourd\'hui reste, l\'autre reste dans sa limite');
 // Cascade : un retard urgent (importance haute) a repris la place d'aujourd'hui ; les moins importantes posées par le moteur sont décalées
@@ -40,9 +40,8 @@ reform.write(refo, { reform: true, keys: [key] });
 const due = (id) => db.prepare('SELECT dueDate FROM sub_project_items WHERE id = ?').get(id).dueDate;
 const r = overload.rebalance('u1', actId, { force: true });
 assert(r.applied >= 1 && auto.some((id) => due(id) > today), 'surcharge : au moins une tâche posée par Noèsis passe à un jour suivant');
-assert(due(manual) === today, 'date saisie à la main : jamais déplacée');
-assert(due(suggested) === today, 'date par défaut/suggérée : jamais déplacée en silence');
-assert(due(refo) === today, 'réforme : jamais déplacée');
+assert(due(manual) > today && due(suggested) > today, 'date saisie à la main ou suggérée : aucune protection, elles cèdent la place comme les autres');
+assert(due(refo) === today, 'réforme : passe en premier, reste aujourd’hui');
 assert(overload.rebalance('u1', actId).skipped === true, 'au plus une fois par 30 s et par activité (pas de calcul répété)');
 
 // ---- Règle de charge : +20 % toléré en silence, au-delà une marque ; la référence s'adapte au rythme tenu ----
@@ -55,8 +54,7 @@ const g2 = goals.addCategory(act2, 'Prod'); const key2 = (g2 && g2.key) || goals
 const addB = (label) => { const it = goalstasks.addCategoryTask(act2, 'u9', key2, label, {}); db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 0 WHERE id = ?').run(today, it.id); return it.id; };
 const manualB = [addB('m1'), addB('m2'), addB('m3'), addB('m4')]; // 4 x 30 min = 120 min, dates posées à la main
 overload.rebalance('u9', act2, { force: true });
-assert(overload.getMarks('u9', act2)[key2] === true, 'charge de 120 min pour une référence de 60 (plancher) : marque sur le secteur');
-assert(manualB.every((id) => due(id) === today), 'date saisie à la main : jamais déplacée, même en surcharge');
+assert(manualB.filter((id) => due(id) > today).length === 2 && !overload.getMarks('u9', act2)[key2], 'charge de 120 min pour une référence de 60 (plancher) : 2 tâches (dates à la main comprises) passent au jour suivant, la charge revient sous la tolérance, plus de marque');
 // rythme soutenu : 8 jours ouvrés avec 4 tâches (120 min) terminées chaque jour
 let dd = 0, n = 0;
 while (n < 8) { dd += 1; const d = goals.addDays(today, -dd); const wd = new Date(d + 'T12:00:00Z').getUTCDay(); if (wd === 0 || wd === 6) continue; n += 1;
@@ -64,7 +62,7 @@ while (n < 8) { dd += 1; const d = goals.addDays(today, -dd); const wd = new Dat
 assert(overload.referenceFor(act2, 'u9') === 120, 'rythme réellement tenu (médiane 120 min par jour ouvré sur 8 jours) : la référence s\'y adapte');
 overload.rebalance('u9', act2, { force: true });
 assert(!overload.getMarks('u9', act2)[key2], 'la situation redevient équilibrée : la marque disparaît');
-assert(manualB.every((id) => due(id) === today), 'toujours aucune date manuelle déplacée');
+assert(overload.rebalance('u9', act2, { force: true }).applied === 0, 'idempotent : relancer le rééquilibrage ne change plus rien');
 
 // ---- Reprise silencieuse des objectifs hebdomadaires non atteints ----
 const carry = require('../server/lib/goalscarryover');

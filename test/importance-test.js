@@ -39,7 +39,7 @@ assert(p && p.moves.map((m) => m.id).join() === '2', 'la plus récente mais impo
 assert(p && !p.moves.some((m) => m.id === 3), 'tâche importante jamais décalée');
 const man = { dueDateAuto: 0 };
 const pin = overload.computeProposal({ today, budgetMinutes: 120, tasks: [mk(1, 30, man), mk(2, 30, man), mk(3, 90, man)] });
-assert(pin === null, 'dates saisies manuellement jamais déplacées');
+assert(pin && pin.moves.map((m) => m.id).join() === '2', 'dates saisies manuellement : AUCUNE protection (ordre d’Émilien, 10 nov. 2026), la moins importante est décalée comme les autres');
 
 // --- serveur : aucune écriture avant apply
 const { seedStagingData } = require('../server/lib/seed-staging');
