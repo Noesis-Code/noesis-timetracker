@@ -180,7 +180,7 @@ Délais d'expiration plus courts, relances 429/529, retrait des replis payants, 
 
 ### 7. Devises (20 oct. 2026, `docs/ia/ia-appels.md`)
 - [ ] Oui / non : 1 CAD = 0,72 USD est-il le bon taux à retenir (estimation, non vérifiée) ? Sinon donner le taux ; à revérifier tous les 90 jours (`FX_UPDATED`, `server/lib/fx.js`).
-- Plafonds IA : décision d'Émilien du 21 oct. 2026 = seulement 3,5 CAD par semaine et 15 CAD par mois et par compte (plus de plafond du jour ni par fonction).
+- Plafonds IA : décision du 21 oct. 2026 = plus de plafond du jour ni par fonction ; payant (Expansion) = 15 CAD par mois et 3,5 CAD par semaine. **Compte gratuit : plafond de 3 $ CA par mois seulement, décidé par Émilien le 10 nov. 2026 ; les anciens chiffres 3,5/semaine (et l'étalement hebdomadaire de 35 %) ne sont plus appliqués au gratuit.**
 
 ### Information (rien à cocher)
 Relance unique de la génération de tâches (`documenttasks.propose`) : au plus UN appel de plus quand toutes les tâches générées sont rejetées, sans créneau horaire de plus, après vérification du budget par compte ; les plafonds en dollars (semaine, mois) bornent le total relances comprises (`test/precision-repli-test.js`).

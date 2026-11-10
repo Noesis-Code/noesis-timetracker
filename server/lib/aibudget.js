@@ -3,6 +3,7 @@
 // DEVISES (décision du 20 oct. 2026) : plafonds et seuils en DOLLARS CANADIENS ; coûts réels (API Anthropic, ai_usage_log.costUsd) en DOLLARS AMÉRICAINS.
 // Chaque plafond est converti en USD par server/lib/fx.js (AI_USD_PER_CAD) avant toute comparaison ; capMonth()/capWeek() renvoient des USD, capMonthCad()/capWeekCad() des CAD.
 // Deux plafonds par compte, seuls : HEBDOMADAIRE (3,5 CAD par semaine civile, lundi-dimanche, heure de Montréal) et MENSUEL (15 CAD par mois civil).
+// EXCEPTION (décision d'Émilien, 10 nov. 2026) : un compte GRATUIT (sans accès Expansion) n'a qu'UN plafond, mensuel, de 3 CAD (AI_BUDGET_FREE_MONTH_CAD), aucun hebdomadaire ; un compte avec Expansion actif garde 15 CAD/mois et 3,5 CAD/semaine, même sans activité.
 // Plus de plafond journalier ni par fonction (décision d'Émilien, 21 oct. 2026). Tous les comptes et les appels sans utilisateur ('system') y sont soumis.
 // Le coût réel vient du champ `usage` de chaque réponse de l'API Anthropic (cache de prompt : lecture ×0,1,
 // création ×1,25 du prix d'entrée ; lots Anthropic : facteur 0,5 passé à record).
@@ -91,9 +92,12 @@ function capCad(cadKey, usdKey, def) {
 }
 function capMonthCad() { return capCad('AI_BUDGET_MONTH_CAD', 'AI_BUDGET_MONTH_USD', 15); }
 function capWeekCad() { return capCad('AI_BUDGET_WEEK_CAD', 'AI_BUDGET_WEEK_USD', 3.5); }
+// Compte GRATUIT (sans Expansion) : UN seul plafond, mensuel, 3 CAD (décision d'Émilien, 10 nov. 2026) ; plus de plafond hebdomadaire. Variable AI_BUDGET_FREE_MONTH_CAD ; l'ancienne IA_GRATUITE_CREDIT_MENSUEL_USD (USD) reste acceptée et prioritaire.
+function capFreeMonthCad() { return capCad('AI_BUDGET_FREE_MONTH_CAD', 'IA_GRATUITE_CREDIT_MENSUEL_USD', 3); }
 // Versions en USD : unité de comparaison avec les coûts réels.
 function capMonth() { return fx.toUsd(capMonthCad()); }
 function capWeek() { return fx.toUsd(capWeekCad()); }
+function capFreeMonth() { return fx.toUsd(capFreeMonthCad()); }
 
 function priceFor(model) {
   const m = String(model || '').toLowerCase();
@@ -178,10 +182,11 @@ function status(userId, now) {
   const uid = userId || SYSTEM_USER;
   const inflight = reservedOf(uid) + batchesInFlight(uid);
   const sM = spentMonth(uid, now) + inflight, sW = spentWeek(uid, now) + inflight;
-  const cM = capMonth(), cW = capWeek();
+  const free = isFreeUser(uid); // compte gratuit : plafond mensuel gratuit seul, aucun plafond hebdomadaire (cW = Infinity)
+  const cM = free ? capFreeMonth() : capMonth(), cW = free ? Infinity : capWeek();
   const bM = sM >= cM - 1e-9, bW = sW >= cW - 1e-9, blocked = bM || bW;
   return {
-    spentMonth: sM, spentWeek: sW, capMonth: cM, capWeek: cW, capMonthCad: capMonthCad(), capWeekCad: capWeekCad(),
+    spentMonth: sM, spentWeek: sW, capMonth: cM, capWeek: cW, capMonthCad: free ? capFreeMonthCad() : capMonthCad(), capWeekCad: free ? null : capWeekCad(), free,
     remaining: Math.max(0, Math.min(cM - sM, cW - sW)), blocked,
     period: !blocked ? null : bM ? 'mois' : 'semaine',
     resumesOn: !blocked ? null : bM ? nextMonthStart(now) : weekStart(now, 7),
@@ -351,15 +356,10 @@ function breakerReset() { breaker.fails = 0; breaker.openUntil = 0; breaker.prob
 // ---- CRÉDIT DE L'IA GRATUITE, PAR UTILISATEUR (cahier des charges d'Émilien, 6 nov. 2026 ; montant fixé le 7 nov. 2026 : 3 $ USD) ----
 // Tout compte SANS accès Expansion (jamais un compte Expansion, ni le connecteur IA libre qui n'appelle pas l'API de Noèsis) a un crédit mensuel de 3 $ USD par défaut
 // (IA_GRATUITE_CREDIT_MENSUEL_USD, réglable sans coder). Devise : USD, comme ai_usage_log.costUsd et le forfait Team (l'ancien crédit de 1 CAD des premiers essais est abandonné).
-// ÉTALEMENT HEBDOMADAIRE : chaque semaine civile (lundi-dimanche), l'utilisateur peut dépenser 35 % du SOLDE RESTANT du mois :
-//   fenêtre = de max(lundi de la semaine, 1er du mois) à aujourd'hui ;
-//   dépensé_avant = dépense du mois AVANT le début de la fenêtre ; dépensé_semaine = dépense depuis le début de la fenêtre ;
-//   dépense autorisée de la semaine = 0,35 × (crédit − dépensé_avant) ; budget restant de la semaine = dépense autorisée − dépensé_semaine.
-// (dépensé_avant exclut la semaine en cours, sinon la dépense compterait deux fois.) Le non-utilisé d'une semaine reste dans le solde ; remise à zéro le 1er de chaque mois ;
-// une semaine à cheval sur deux mois est coupée au 1er (chaque jour compte pour son mois). Avec 3 $ tout dépensé chaque semaine : 1,05 $, 0,68 $, 0,44 $, 0,29 $.
+// PLAFOND MENSUEL UNIQUE (décision d'Émilien, 10 nov. 2026 ; remplace l'étalement hebdomadaire de 35 % du 7 nov.) : 3 CAD par mois civil (AI_BUDGET_FREE_MONTH_CAD), aucun plafond hebdomadaire ;
+// remise à zéro le 1er du mois. Les 3,5 CAD/semaine ne s'appliquent plus aux comptes gratuits.
 // Modèle LÉGER seul (jamais le modèle fort). Épuisé : repli sans IA (même erreur aiBlocked que toute limite de budget, sans appeler l'API), message court avec le jour de recharge.
-function freeCreditUsd() { return envNum('IA_GRATUITE_CREDIT_MENSUEL_USD') || 3; }
-function freeWeekShare() { const n = envNum('IA_GRATUIT_FRACTION_SEMAINE'); return n && n <= 1 ? n : 0.35; }
+function freeCreditUsd() { return capFreeMonth(); }
 function isFreeUser(key) {
   if (key == null || key === '') return false;
   const id = splitKey(key).userId;
@@ -370,20 +370,15 @@ function freeSpentBetween(key, from, to) {
   const id = splitKey(key).userId;
   return db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE (userId = ? OR userId LIKE ?) AND day >= ? AND day <= ?').get(String(id), String(id) + '#a%', from, to).s || 0;
 }
-// État du crédit gratuit : { credit, windowStart, spentBefore, spentWeek, allowed, remaining, ok, resumesOn }
+// État du crédit gratuit : { credit, spentMonth, remaining, ok, resumesOn } (USD)
 function freeStatus(key, now) {
-  const day = todayLocal(now), monthStart = day.slice(0, 7) + '-01', wk = weekStart(now);
-  const windowStart = wk > monthStart ? wk : monthStart;
-  const credit = freeCreditUsd();
-  const before = windowStart > monthStart ? freeSpentBetween(key, monthStart, addDaysIso(windowStart, -1)) : 0;
-  const spentWeek = freeSpentBetween(key, windowStart, day);
-  const allowed = freeWeekShare() * Math.max(0, credit - before);
-  const remaining = allowed - spentWeek;
-  const nextMonday = weekStart(now, 7), nextMonth = nextMonthStart(now);
-  return { credit, windowStart, spentBefore: before, spentWeek, allowed, remaining, ok: remaining > 1e-12, resumesOn: nextMonday < nextMonth ? nextMonday : nextMonth, resumesMonday: nextMonday < nextMonth };
+  const day = todayLocal(now), monthStart = day.slice(0, 7) + '-01';
+  const credit = freeCreditUsd(), spentMonth = freeSpentBetween(key, monthStart, day.slice(0, 7) + '-31');
+  const remaining = credit - spentMonth;
+  return { credit, spentMonth, remaining, ok: remaining > 1e-12, resumesOn: nextMonthStart(now) };
 }
 function addDaysIso(d, n) { const t = new Date(Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10)) + n)); return t.getUTCFullYear() + '-' + pad2(t.getUTCMonth() + 1) + '-' + pad2(t.getUTCDate()); }
-function freeBlockedMessage(st) { return 'Crédit IA épuisé, reprend ' + (st.resumesMonday ? 'lundi' : 'le ' + dateLabelFr(st.resumesOn)) + '.'; }
+function freeBlockedMessage(st) { return 'Crédit IA épuisé, reprend le ' + dateLabelFr(st.resumesOn) + '.'; }
 // ---- GARDE-FOU GLOBAL MENSUEL DE L'IA GRATUITE (décision d'Émilien, 7 nov. 2026 ; remplace le plafond annuel net de 100 $) ----
 // Le forfait Team est lié à l'organisation Console : 120 $ USD/mois de crédits promotionnels (dépensés en premier, sans report, expirent en fin de cycle) + un solde payé en réserve.
 // L'IA des comptes gratuits est COUPÉE quand son coût du mois atteint 80 % du pool (120 $ -> 96 $) : 20 % restent aux comptes Expansion et au connecteur, et le solde payé n'est pas
@@ -479,7 +474,7 @@ function lightBody(init) {
 async function fetchAnthropic(feature, url, init, userId) {
   const uid = userId || currentUser() || SYSTEM_USER;
   const free = isFreeUser(uid);
-  if (free) { init = lightBody(init); const fc = freeCheck(uid, undefined, estimateMaxCost(init && init.body)); if (!fc.ok) throw Object.assign(new Error(fc.message), { aiBlocked: true, freeCap: true, resumesOn: fc.resumesOn, period: 'semaine' }); }
+  if (free) { init = lightBody(init); const fc = freeCheck(uid, undefined, estimateMaxCost(init && init.body)); if (!fc.ok) throw Object.assign(new Error(fc.message), { aiBlocked: true, freeCap: true, resumesOn: fc.resumesOn, period: 'mois' }); }
   const est = estimateMaxCost(init && init.body);
   const c = check(uid, undefined, est);
   if (!c.ok) throw Object.assign(new Error(c.message), { aiBlocked: true, resumesOn: c.resumesOn, period: c.period });
@@ -501,4 +496,4 @@ async function fetchAnthropic(feature, url, init, userId) {
   } finally { release(uid, est); }
 }
 
-module.exports = { freeMonthCost, freeNetYear, monthlyFreeReminder, freeStatus, freeCheck, isFreeUser, keyFor, splitKey, recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
+module.exports = { capFreeMonth, capFreeMonthCad, freeMonthCost, freeNetYear, monthlyFreeReminder, freeStatus, freeCheck, isFreeUser, keyFor, splitKey, recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
