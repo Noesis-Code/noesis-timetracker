@@ -162,7 +162,9 @@
   }
   function clearPending() { pendingEnd = null; if (basePlaceholder) input.placeholder = basePlaceholder; }
   var extendCancel = null;
+  var ficheEnd = null; // rappel posé par openFiche (pop-up de retard B) : appelé à la fin de la fiche, enregistrée ou fermée
   function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
+    if (ficheEnd) { var fe = ficheEnd; ficheEnd = null; window.setTimeout(fe, 0); }
     if (extendCancel) { var xc = extendCancel; extendCancel = null; xc(); } // mode Étendre annulé (✕) : l'arbre reprend son état
     clearPending(); dock.classList.remove('expSave', 'expExtend'); advance = null; setBack(null); panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; seq = { base: 0, count: 1, i: 0 };
   }
@@ -868,7 +870,7 @@
   // Responsables / chefs de projet : ils n'existent pas dans les réglages d'activité actuels : rien d'inventé ici.
   function fmtHours(sec) { var h = sec / 3600; return (h >= 10 ? String(Math.round(h)) : String(Math.round(h * 10) / 10).replace('.', ',')) + ' h'; }
   function isoDay(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-  function openFiche(spec) {
+  function openFiche(spec, onEnd) {
     var act = spec.activity, msg = el('p', 'tasksMsg objMsg'), win = 'week', plan = null; // plan : temps PRÉVU (heures par semaine) modifiable au niveau pôle
     panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = spec.title; panelForm = { edit: true }; setBack(null);
     panelBody.appendChild(el('p', 'hint', spec.path));
@@ -929,8 +931,8 @@
       }).catch(function () { planBox.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); });
     }
     // 2. Objectifs en cours
-    var ob = spec.objectives, objBox = el('div', 'objField'); objBox.appendChild(el('p', 'cmpBlockTitle', tr('Objectifs en cours')));
-    objBox.appendChild(line(tr('Objectifs actifs'), String(ob.count))); objBox.appendChild(line(tr('Prochaine échéance'), ob.next || '—')); objBox.appendChild(line(tr('En retard'), String(ob.late))); panelBody.appendChild(objBox);
+    var ob = spec.objectives || {}, objBox = el('div', 'objField'); objBox.appendChild(el('p', 'cmpBlockTitle', tr('Objectifs en cours')));
+    objBox.appendChild(line(tr('Objectifs actifs'), String(ob.count))); objBox.appendChild(line(tr('Prochaine échéance'), ob.next || '—')); objBox.appendChild(line(tr('En retard'), String(ob.late))); if (spec.objectives) panelBody.appendChild(objBox); // sans données d'objectifs (pop-up de retard), le bloc n'est pas affiché
     // 3. Responsables : mêmes lignes et même menu « ⋯ » que la liste des membres de l'activité (TMT.responsables + TMT.ui.dotsMenu, jamais recopiés). Un non-responsable n'apparaît que si je peux en ajouter.
     var respBox = el('div', 'objField'); panelBody.appendChild(respBox);
     function paintResp(r) {
@@ -951,7 +953,7 @@
       var chain = Promise.resolve(); Object.keys(plans).filter(function (k) { return plans[k].value !== plans[k].orig; }).forEach(function (k) { chain = chain.then(function () { return api('POST', '/api/member-times', { activityId: act.id, poleKey: spec.poleKey, memberId: k, afterMin: Math.round(plans[k].value * 60), origin: 'ajout' }); }); });
       chain.then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
     }
-    dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save;
+    dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null;
   }
   function openEdit(id) {
     api('GET', '/api/objectifs/' + id).then(function (o) {
@@ -1237,7 +1239,7 @@
     openGroup: function (ids, opts) { openGroup(ids, opts); },
     dock: function () { return dock; },
     openDetail: function (id) { openDetail(id); },
-    openFiche: function (spec) { openFiche(spec); },
+    openFiche: function (spec, onEnd) { openFiche(spec, onEnd); },
     guideProposals: guideProposals,
     openEdit: function (id) { openEdit(id); } // mode édition de l'arbre : panneau de modification (même format que la création)
   };

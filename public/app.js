@@ -1667,6 +1667,7 @@
     loadPendingInvites();
     loadFollowRequests();
     refreshUnreadBadges();
+    if (window.TMT.objectifsRetard) window.TMT.objectifsRetard.check(); // pop-ups de retard d'un objectif (lot 2B) : à l'ouverture de l'app
     // Ré-enregistre l'appareil côté serveur à chaque ouverture si la
     // permission est déjà accordée (30 sept. 2026, CO·15) — jamais de demande
     // de permission ici (pas de geste utilisateur).
