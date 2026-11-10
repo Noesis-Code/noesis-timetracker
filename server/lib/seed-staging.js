@@ -538,4 +538,34 @@ function seedCompteAOnStaging(db) {
   } catch (e) { console.error('[compte-a]', e && e.message); return null; }
 }
 
-module.exports = { seedCompteAOnStaging, COMPTE_A_SEED_ACCOUNT, seedStagingData, shouldSeed, recreateEmilienAccount, seedDemoObjectives, seedDemoObjectivesOnStaging };
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// COMPTE B (10 nov. 2026) — compte de test persistant pour Gaspard (règle de retard) : CINQ activités « S1 » à « S5 », une par scénario, données calculées par rapport au jour de création
+// (server/lib/seed-compte-b-scenarios.js, mode d'emploi : docs/objectifs/scenarios-retard.md). Même mécanisme que le Compte A : STAGING UNIQUEMENT, idempotent, mot de passe lu dans la
+// variable d'environnement COMPTE_B_PASSWORD (jamais dans le dépôt). Variable absente ou vide : compte non créé (et intact s'il existe) ; variable changée : seul le hachage est remplacé.
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+const COMPTE_B_SEED_ACCOUNT = { name: 'Compte', lastName: 'B' };
+function seedCompteBOnStaging(db) {
+  if (!shouldSeed()) return null;
+  const password = process.env.COMPTE_B_PASSWORD;
+  if (!password) { console.log('[compte-b] COMPTE_B_PASSWORD absent, Compte B non créé.'); return null; }
+  try {
+    db = db || require('../db');
+    const existing = db.prepare('SELECT id, pin FROM users WHERE name = ? AND lastName = ?').get(COMPTE_B_SEED_ACCOUNT.name, COMPTE_B_SEED_ACCOUNT.lastName);
+    if (existing) {
+      let ok = false; try { ok = verifyPinRecord(password, existing.pin); } catch (e) { ok = false; }
+      if (ok) return { created: false };
+      db.prepare('UPDATE users SET pin = ?, pinFailCount = 0, pinLockedUntil = NULL WHERE id = ?').run(makePinRecord(password), existing.id);
+      console.log('[compte-b] Mot de passe du Compte B mis à jour.');
+      return { created: false, passwordUpdated: true };
+    }
+    const now = new Date(), userId = randomUUID();
+    const color = DARK_PALETTE[2] || DARK_PALETTE[0];
+    db.prepare("INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang, passwordStrong) VALUES (?, ?, ?, '', 'compte-b@exemple.test', ?, ?, ?, 'dark', 1, 'fr', 1)")
+      .run(userId, COMPTE_B_SEED_ACCOUNT.name, COMPTE_B_SEED_ACCOUNT.lastName, color, now.toISOString(), makePinRecord(password));
+    const scenarios = require('./seed-compte-b-scenarios').creerScenarios(db, userId, color, now);
+    console.log('[compte-b] Compte B créé (' + scenarios.length + ' activités de scénario S1 à S5).');
+    return { created: true, id: userId, scenarios };
+  } catch (e) { console.error('[compte-b]', e && e.message); return null; }
+}
+
+module.exports = { seedCompteAOnStaging, COMPTE_A_SEED_ACCOUNT, seedCompteBOnStaging, COMPTE_B_SEED_ACCOUNT, seedStagingData, shouldSeed, recreateEmilienAccount, seedDemoObjectives, seedDemoObjectivesOnStaging };

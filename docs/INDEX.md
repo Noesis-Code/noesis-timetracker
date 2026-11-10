@@ -31,3 +31,4 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 - [objectifs/parametres-objectif.md](objectifs/parametres-objectif.md) : inventaire court des paramètres d’un objectif (existant, défaut, placement visible ou Avancé), à valider par Émilien
 - [objectifs/navigation-arbre.md](objectifs/navigation-arbre.md) : règle unique de navigation de l’arbre (niveaux, entrée = toucher, sortie = flèche, aucune entrée cachée).
 - [objectifs/retard.md](objectifs/retard.md) : retard d'un objectif de période (un test, un message : report silencieux sur la période suivante, seuil de 20 %, état « retard », définitions choisies, lot 1 sans interface)
+- [objectifs/scenarios-retard.md](objectifs/scenarios-retard.md) : Compte B de test (staging) : cinq activités S1 à S5, une par scénario de la règle de retard, données calculées par rapport au jour de création, ce que Gaspard fait et voit

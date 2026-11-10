@@ -152,6 +152,8 @@ const SUITE_FILES = [
   'communautes-test.js',
   'communautes-demo-test.js',
   'compte-a-staging-test.js',
+  'compte-b-retard-test.js',
+  'compte-b-ouverture-test.js',
   'reseau-perso-test.js',
   'fonctionnel-taches.js',
   'fonctionnel-modules.js',
