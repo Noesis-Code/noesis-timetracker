@@ -90,6 +90,7 @@ const SUITE_FILES = [
   'tri-maintenance-test.js',
   'aujourdhui-tri-test.js',
   'rebalance-silencieux-test.js',
+  'retard-objectif-periode-test.js',
   'feuille-balayage-test.js',
   'vue-taches-jour-test.js',
   'stats-partagees-choix-test.js',

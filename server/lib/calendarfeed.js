@@ -428,7 +428,7 @@ function periodDaysForUser(userId, activityId, category, periodNumber) {
   `).get(activityId, category, periodNumber);
   if (!period) throw Object.assign(new Error('Période introuvable.'), { statusCode: 404 });
 
-  try { require('./goalsoverload').rebalance(userId, activityId); } catch (e) { /* non bloquant */ } // rééquilibrage silencieux (retards urgents, surcharge) à l'ouverture du calendrier
+  try { require('./goalsoverload').rebalance(userId, activityId); } catch (e) { /* non bloquant */ } try { require('./goalsperiodlate').verifier(userId, activityId); } catch (e) { /* non bloquant */ } // rééquilibrage silencieux (retards urgents, surcharge) à l'ouverture du calendrier
   const rows = db.prepare(`
     SELECT isoDate, COALESCE(SUM(durationSeconds), 0) AS seconds
     FROM time_entries

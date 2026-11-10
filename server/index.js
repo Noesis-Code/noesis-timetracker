@@ -212,6 +212,7 @@ app.use('/api', require('./routes/statsactivityprogress'));
 // server/lib/goals.js.
 app.use('/api', require('./routes/goals'));
 // Objectifs de la Feuille de route (contexte, proposition d'étapes, création après validation, liste, détail).
+app.use('/api', require('./routes/objectifsretard')); // avant routes/objectifs : « /objectifs/retard » ne doit pas être lu comme un :id
 app.use('/api', require('./routes/objectifs'));
 app.use('/api', require('./routes/responsables')); // responsables d'une activité (8 nov. 2026)
 // Pôles/secteurs (gestion des catégories), extraits de routes/goals.js.

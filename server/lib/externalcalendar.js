@@ -337,7 +337,19 @@ async function dayCapacities(userId, days, tz) {
   } catch (e) { return {}; }
 }
 
+// Même calcul, SYNCHRONE, à partir du cache (jamais de réseau) : { jour: minutes } ; {} si le cache est vide ou périmé.
+function cachedDayCapacities(userId, days, tz) {
+  try {
+    const hit = textCache.get(userId);
+    if (!hit || Date.now() - hit.at >= BUSY_TTL_MS) return {};
+    const settings = getSettings(userId), out = {};
+    days.forEach((d) => { const c = dayCapacityFromTexts(hit.texts, d, settings, tz); if (c != null) out[d] = c; });
+    return out;
+  } catch (e) { return {}; }
+}
+
 module.exports = {
+  cachedDayCapacities,
   getSettings, setSettings, migrateLegacySettings, parseIcsEvents, dayCapacityFromTexts, dayCapacities, DEFAULT_VACATION_WORDS,
   cachedBusyMinutes,
   refreshBusy,

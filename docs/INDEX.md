@@ -30,3 +30,4 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 - [objectifs/cas-de-figure-objectifs.md](objectifs/cas-de-figure-objectifs.md) : dossier des cas de figure du module Objectifs (cas, comportement attendu, état réel du code, priorités des correctifs)
 - [objectifs/parametres-objectif.md](objectifs/parametres-objectif.md) : inventaire court des paramètres d’un objectif (existant, défaut, placement visible ou Avancé), à valider par Émilien
 - [objectifs/navigation-arbre.md](objectifs/navigation-arbre.md) : règle unique de navigation de l’arbre (niveaux, entrée = toucher, sortie = flèche, aucune entrée cachée).
+- [objectifs/retard.md](objectifs/retard.md) : retard d'un objectif de période (un test, un message : report silencieux sur la période suivante, seuil de 20 %, état « retard », définitions choisies, lot 1 sans interface)

@@ -16,7 +16,7 @@ const PERSONAL_NO_FK = [
   ['drive_connections', 'userId'], ['drive_folders', 'userId'], ['drive_infra_fails', 'userId'], ['drive_progress', 'userId'],
   ['drive_seen_chunks', 'userId'], ['drive_seen_files', 'userId'], ['drive_seen_tasks', 'userId'], ['drive_seg_done', 'userId'],
   ['drive_skipped', 'userId'], ['drive_sync', 'userId'],
-  ['objectifs_refus', 'userId'], ['user_objectives', 'userId'], ['objectifs_resume_annuel', 'userId'], ['objectifs_ordre', 'userId'], // objectifs de l'arbre (liens parent/enfant, descriptions, refus de fusion)
+  ['objectifs_refus', 'userId'], ['user_objectives', 'userId'], ['objectifs_resume_annuel', 'userId'], ['objectifs_ordre', 'userId'], ['objectif_retards', 'userId'], // objectifs de l'arbre (liens parent/enfant, descriptions, refus de fusion)
 ];
 const tableExists = (t) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(t);
 
