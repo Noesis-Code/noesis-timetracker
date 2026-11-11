@@ -200,6 +200,7 @@
       { k: 'horssujet', q: 'Hors sujet ?', label: 'Hors sujet', opts: ['Autre projet', 'Autre domaine', 'Plus tard'] },
       { k: 'nom', q: 'Autre nom ?', label: 'Autre nom', opts: ['Sigle', 'Surnom', 'Nom du client'] }] }
   ];
+  var GUIDE_REST_GROUPS = [{ g: 'Précisions', ks: ['ou', 'resultat', 'avance'] }, { g: 'Limites', ks: ['obstacle', 'horssujet', 'nom'] }]; // sous « Avancé » à la création : deux groupes de trois (la modification d'un objectif garde GUIDE_GROUPS)
   var GUIDE_MAIN = ['faire', 'qui', 'quoi']; // les trois questions VISIBLES à la création (les plus utiles pour reconnaître et rediriger les tâches) ; les six autres sont sous « Avancé »
   var GUIDE_ORDER = ['faire', 'resultat', 'avance', 'qui', 'quoi', 'ou', 'obstacle', 'horssujet', 'nom'];
   var GUIDE = [].concat.apply([], GUIDE_GROUPS.map(function (x) { return x.qs; })).sort(function (a, b) { return GUIDE_ORDER.indexOf(a.k) - GUIDE_ORDER.indexOf(b.k); }); // ordre du texte composé inchangé (Faire en premier), quel que soit le groupe
@@ -237,7 +238,7 @@
   function paintGuideInto(box, form, onChange, focusFirst, part) { // part : undefined = les neuf questions en groupes (modification d'un objectif) ; 'main' = les trois questions visibles de la création, à plat ; 'rest' = les six autres, en groupes (sous « Avancé »)
     box.textContent = '';
     if (form.guideOpen === undefined) form.guideOpen = 0;
-    var flat = part === 'main', groups = flat ? [{ g: '', qs: GUIDE_GROUPS.reduce(function (o, x) { return o.concat(x.qs); }, []).filter(function (g) { return GUIDE_MAIN.indexOf(g.k) >= 0; }).sort(function (x, y) { return GUIDE_MAIN.indexOf(x.k) - GUIDE_MAIN.indexOf(y.k); }) }] : part === 'rest' ? GUIDE_GROUPS.map(function (x) { return { g: x.g, qs: x.qs.filter(function (g) { return GUIDE_MAIN.indexOf(g.k) < 0; }) }; }).filter(function (x) { return x.qs.length; }) : GUIDE_GROUPS;
+    var flat = part === 'main', groups = flat ? [{ g: '', qs: GUIDE_GROUPS.reduce(function (o, x) { return o.concat(x.qs); }, []).filter(function (g) { return GUIDE_MAIN.indexOf(g.k) >= 0; }).sort(function (x, y) { return GUIDE_MAIN.indexOf(x.k) - GUIDE_MAIN.indexOf(y.k); }) }] : part === 'rest' ? GUIDE_REST_GROUPS.map(function (x) { return { g: x.g, qs: x.ks.map(function (k) { return GUIDE.filter(function (g) { return g.k === k; })[0]; }) }; }) : GUIDE_GROUPS;
     function again(foc) { paintGuideInto(box, form, onChange, foc, part); }
     groups.forEach(function (grp, gi) {
       var open = flat || form.guideOpen === gi, wrap = el('div', flat ? 'objField objGuideFlat' : 'objField objGuideRow' + (open ? ' open' : ''));
@@ -331,7 +332,7 @@
       clearPending();
     }
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
-    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
+    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Objectif'); // titre du premier panneau
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
     var boxes = { desc: el('div'), temps: el('div'), heures: el('div'), activite: el('div'), niveau: el('div'), echeance: el('div'), inf: el('div'), taches: el('div') };
     var slidePages = el('div', 'tasksPages'), slideTrack = el('div', 'tasksTrack'), slideA = el('div', 'tasksPage'), slideB = el('div', 'tasksPage off'), slideTimer = 0;
@@ -352,7 +353,7 @@
     boxes.desc.appendChild(field(tr('Objectif'), titleIn));
     var dueBox = el('div'); boxes.echeance.appendChild(dueBox); // l'échéance n'est plus demandée à la Description : étape « Échéance » après Activité et Niveau
     form.guide = form.guide || {}; // description guidée : blocs partagés avec la modification (paintGuideInto)
-    var mainBox = el('div', 'objGuide'), advBox = el('div', 'objGuide'), guideBox = el('div', 'objAdvBody'), advOpen = false; boxes.desc.appendChild(mainBox); boxes.desc.appendChild(advBox); // les neuf questions : sous « Avancé », replié par défaut (R8)
+    var mainBox = el('div', 'objGuide'), advBox = el('div', 'objGuide'), guideBox = el('div', 'objAdvBody'), advOpen = false; boxes.desc.appendChild(el('p', 'cmpBlockTitle', tr('Description'))); boxes.desc.appendChild(mainBox); boxes.desc.appendChild(advBox); // sous-titre du bloc des questions visibles // les neuf questions : sous « Avancé », replié par défaut (R8)
     function composeDesc() { form.description = guideCompose(form); }
     function paintAdv() {
       advBox.textContent = '';
@@ -787,7 +788,7 @@
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
-    var stepNames = { desc: 'Description', temps: 'Temps', heures: 'Heures', activite: TITRES_EMPLACEMENT.etape, niveau: 'Niveau', echeance: 'Échéance', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
+    var stepNames = { desc: 'Objectif', temps: 'Temps', heures: 'Heures', activite: TITRES_EMPLACEMENT.etape, niveau: 'Niveau', echeance: 'Échéance', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
     function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(niv.skip ? [] : ['niveau']).concat(form.endFixed ? [] : ['echeance']).concat(['temps']).concat(infListed() ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     function rattKey2() { return rattKey() + '|' + (form.endDate || ''); } // le rattachement dépend aussi de l'échéance (saisie après Activité)
     function loadRatt() {
