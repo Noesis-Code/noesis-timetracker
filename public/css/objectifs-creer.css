@@ -200,18 +200,20 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objInf { margin: 0 0 16px; }
 .objInf .objGridChrono { width: 48px; margin-right: 8px; font-size: 13px; }
 .objInf .objGridObj { width: 96px; margin-left: 8px; font-size: 13px; }
-.objInfHdr, .objInfTotal { padding: 0 20px 0 24px; }
-.objInfHdr .objGridChrono, .objInfTotal .objGridChrono { margin-right: 25px; } /* aligne l'en-tête et le total sur les lignes (espace + petit trait + espace) */
+.objInfHdr, .objInfTotal { gap: 8px; padding: 0 20px 0 24px; } /* mêmes espaces que les lignes : la barre verticale tombe au même endroit partout */
 .objInfRow .objGuideHead { gap: 8px; }
 .objInfCb { flex: none; width: 16px; }
-.objInfBar { flex: none; width: 1px; height: 14px; background: var(--sep); }
+.objInfBar { flex: none; align-self: stretch; width: 1px; margin-bottom: -1px; background: var(--sep); } /* UNE barre verticale continue : elle traverse les traits horizontaux (lignes collées, sans espace) */
+.objInfRow:nth-last-child(2) .objInfBar { margin-bottom: -2px; } /* jusqu'au trait marqué du Total */
+.objInfRow:nth-last-child(2) .objGuideHead { border-bottom-color: transparent; } /* pas de trait fin sous le dernier objectif : il ne reste que le trait du Total */
 .objInfSub { display: block; margin: 0; font-size: 11px; }
 .objInfRow .objGuideTxt { flex: 1 1 auto; }
-.objInfRow.open { margin: 0 -12px 8px; padding: 0 12px 4px; background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--glass-calm-line); -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur); border-radius: var(--radius-lg); }
-.objInfRow.open .objGuideHead { border-bottom-color: transparent; margin-bottom: 8px; }
+.objInfRow { margin-bottom: 0; }
+.objInfRow.open { margin: 0 -12px; padding: 0 12px 4px; box-shadow: inset 0 0 0 1px var(--glass-calm-line); border-radius: var(--radius-lg); } /* dépliée : même verre que le panneau (aucun fond ni flou propre : une seule opacité, R31), seulement un liseré aux coins arrondis */
+.objInfRow.open .objGuideHead { border-bottom-color: transparent; margin-bottom: 0; }
 .objInfOff { opacity: .5; }
 .objInfMuted .objGuideHead .cmpBlockTitle, .objInfMuted .objGridApres { color: var(--text-light); }
-.objInfBody { margin: 0 0 12px 24px; }
+.objInfBody { margin: 8px 0 4px 24px; }
 .objInfSubs .objGridName { flex: 1 1 auto; width: auto; color: var(--text-light); }
 .objInfSubs .objRecapVal { flex: none; color: var(--text-light); }
 .objNivSkip { display: flex; width: 100%; box-sizing: border-box; margin: 8px 0 0; padding: 0; } /* étape Niveau : lien discret « Passer » sous la liste (saute sans bloquer) */
