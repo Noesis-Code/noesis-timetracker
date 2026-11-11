@@ -726,7 +726,7 @@
       var box = boxes.inf; box.textContent = ''; var p = inf.plan; if (!p || p.skip) return;
       box.appendChild(el('p', 'cmpBlockTitle objNivTitle', form.title)); box.appendChild(infRecap(p));
       var wrap = el('div', 'objInf'), hasC = !!p.chiffre, totC, totH;
-      var hdr = el('div', 'objGridHead objInfHdr'); hdr.appendChild(el('span', 'objGridName', tr(infLevelName(p)))); // nom du niveau EN DESSOUS (celui des lignes)
+      var hdr = el('div', 'objGridHead objInfHdr'); hdr.appendChild(el('span', 'objGridName', tr(p.level === 'pole' ? 'Objectif annuel' : 'Objectif périodique')));
       if (hasC) hdr.appendChild(el('span', 'objGridChrono', tr('Chiffre'))); hdr.appendChild(el('span', 'objGridObj', tr('Heures'))); wrap.appendChild(hdr);
       function counted(i) { return infKind(i) !== 'existant' && inf.on[i] !== false; }
       function setTot() { // somme des lignes cochées : heures, et chiffre final (cumulatif : le plus haut jalon ; additif : la somme)
