@@ -710,22 +710,18 @@
       f.guide.faire = { picks: [], text: r.faire || '' }; f.guide.resultat = { picks: [], text: r.resultat || '' }; f.guide.avance = { picks: [], text: r.avancement || '' };
       return guideCompose(f);
     }
-    function infRecap(p) { // tableau récapitulatif de la description : libellé gris, valeur blanche ; une ligne absente n'est pas affichée
-      var g = form.guide || {}, nb = nivBody(), items = [];
-      function val(k) { var a = g[k]; return a ? a.picks.map(function (x) { return tr(x).toLowerCase(); }).concat(a.text && a.text.trim() ? [a.text.trim()] : []).join(', ') : ''; }
-      items.push([tr('Faire'), val('faire')]); items.push([tr('Résultat'), val('resultat')]);
-      if (p.chiffre) items.push([tr('Chiffre'), (p.chiffre.objet ? p.chiffre.objet + ' : ' : '') + infNum(p.chiffre.depart) + ' → ' + infNum(p.chiffre.cible) + (p.chiffre.unite ? ' ' + p.chiffre.unite : '')]);
-      items.push([tr('Départ'), nb && nb.answers[0] ? nb.answers[0].a : '']);
-      var node = el('div', 'objGrid objRecap');
-      items.filter(function (x) { return x[1]; }).forEach(function (x) { var row = el('div', 'objGridRow'); row.appendChild(el('span', 'objGridName', x[0])); row.appendChild(el('span', 'objRecapVal', x[1])); node.appendChild(row); });
-      return node;
+    function infRecap() { // en haut : seulement l'échéance de l'objectif créé (Faire, Résultat, Chiffre et Départ ne sont plus affichés ici : ils restent dans les lignes et les étapes précédentes)
+      var node = el('div', 'objGrid objRecap'), row = el('div', 'objGridRow');
+      row.appendChild(el('span', 'objGridName', tr('Échéance'))); row.appendChild(el('span', 'objRecapVal', form.endDate ? new Date(form.endDate + 'T12:00:00').toLocaleDateString(TMT.dateLocale || undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : ''));
+      node.appendChild(row); return node;
     }
+    function infCreatedName() { return { activite: 'Objectif annuel', pole: 'Objectif périodique', secteur: 'Objectif hebdomadaire' }[form.level || 'activite']; } // niveau RÉEL de l'objectif créé, libellés de l'arbre
     // Lignes de sous-objectifs : UNE ligne avec UN trait dessous, comme les groupes de la Description (.objGuideRow / .objGuideHead cmpToggle) ; toucher la ligne la déplie (une seule à la fois) et elle forme alors une section.
     // Ligne : case à cocher, période en petit gris au-dessus du titre, chiffre, petit trait, heures (violet, sélecteur standard), flèche à droite. Dépliée : Faire, Résultat, Avancement, puis les objectifs existants plus bas (gris, sans case).
     function infLevelName(p, one) { var k = p.level === 'pole' ? ['Objectifs annuels', 'Objectif annuel'] : p.level === 'secteur' ? ['Objectifs périodiques', 'Objectif périodique'] : ['Objectifs hebdomadaires', 'Objectif hebdomadaire']; return k[one ? 1 : 0]; } // UNE source : le niveau réel des LIGNES proposées (pôle = par année, secteur = par période, sinon par semaine) pour le titre du panneau et l'en-tête de colonne
     function infPaint() {
       var box = boxes.inf; box.textContent = ''; var p = inf.plan; if (!p || p.skip) return;
-      box.appendChild(el('p', 'cmpBlockTitle objNivTitle', form.title)); box.appendChild(infRecap(p));
+      box.appendChild(el('p', 'cmpBlockTitle objNivTitle', tr(infCreatedName()) + ' : ' + form.title)); box.appendChild(infRecap());
       var wrap = el('div', 'objInf'), hasC = !!p.chiffre, totC, totH;
       var hdr = el('div', 'objGridHead objInfHdr'); hdr.appendChild(el('span', 'objGridName', tr(infLevelName(p, true))));
       if (hasC) hdr.appendChild(el('span', 'objGridChrono', tr('Chiffre'))); hdr.appendChild(el('span', 'objGridObj', tr('Heures'))); wrap.appendChild(hdr);

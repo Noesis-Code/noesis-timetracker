@@ -10,4 +10,7 @@ assert(mk('semaine') === 'Objectifs hebdomadaires' && mk('semaine', true) === 'O
 assert(js.includes('tr(infLevelName(p, true))') && js.includes("panelKicker.textContent = tr(k === 'inf' && inf.plan && !inf.plan.skip ? infLevelName(inf.plan) : stepNames[k]);"), 'titre du panneau et en-tête de colonne : la même fonction');
 const en = fs.readFileSync(path.join(__dirname, '..', 'public/i18n.js'), 'utf8');
 assert(en.includes("'Objectifs périodiques': 'Period goals'") && en.includes("'Objectifs hebdomadaires': 'Weekly goals'") && en.includes("'Objectif hebdomadaire'"), 'traductions EN');
+const rc = js.slice(js.indexOf('    function infRecap('), js.indexOf('    function infCreatedName('));
+assert(rc.includes("tr('Échéance')") && !/Chiffre|Départ|Faire|Résultat/.test(rc), 'haut de la page : seulement l’échéance (plus Chiffre, Départ, Faire, Résultat)');
+assert(js.includes("tr(infCreatedName()) + ' : ' + form.title") && js.includes("activite: 'Objectif annuel', pole: 'Objectif périodique'"), 'titre du haut : « Objectif annuel : … » selon le niveau réel de l’objectif créé');
 if (failed) { console.log('\n' + failed + ' échec(s)'); process.exit(1); } console.log('\ntout passe');
