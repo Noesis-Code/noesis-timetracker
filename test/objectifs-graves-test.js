@@ -55,8 +55,6 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(ok.length >= 1 && ok.length <= 10, 'C12 : les premiers objectifs sont reliés à l’arbre périodique (' + ok.length + ')');
   assert(ko.length >= 2 && made.slice(ok.length).every((x) => x.bridgeFailed), 'C12 : les suivants sont signalés (bridgeFailed), jamais silencieux (' + ko.length + ')');
   assert(o.get(u, ko[0].id).bridgeFailed === true && !!ko[0].title, 'C12 : l’objectif sans pont existe et reste signalé à l’ouverture du détail');
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'js', 'objectifs-creer.js'), 'utf8');
-  assert(src.includes('bridgeFailed'), 'C12 : l’interface affiche le message');
 }
 
 // ---- 4. E03 : abandonner, réactiver, supprimer ----

@@ -101,7 +101,7 @@
     });
     return best.st;
   }
-  // Carte « N objectifs » : touchée = la liste ; appui long = quel objectif déplacer (la carte se sépare) .
+  // Carte « N objectifs » : touchée = la liste ; appui long = quel objectif déplacer (la carte se sépare).
   function bigOf(os) { // titre court d'un groupe SANS IA : l'objectif qui englobe le plus d'autres, à égalité l'échéance la plus lointaine
     var best = null; os.forEach(function (o) { var n = Object.keys(descendants(o.id, kidsAll)).length; if (!best || n > best.n || (n === best.n && o.endDate > best.o.endDate)) best = { o: o, n: n }; }); return best ? best.o : os[0];
   }
