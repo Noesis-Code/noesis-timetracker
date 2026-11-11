@@ -20,4 +20,15 @@ assert((ar.match(/TMT\.ui\.etiquette\(/g) || []).length >= 3 && !ar.includes('TM
 const p3 = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-page3.js'), 'utf8').replace(/\r\n/g, '\n');
 assert(!p3.includes('TMT.poleColor(') && (p3.match(/TMT\.ui\.etiquette\(/g) || []).length >= 2, 'calendrier : les couleurs de pôle passent par le composant partagé');
 assert(et({ activityColor: '#aaa', poleIndex: 2 }).color === '#aaa#2', 'couleur du pôle d’après son seul rang (calendrier)');
+assert(ar.includes('function objColor(o)') && ar.includes('c = objColor(o),') && !ar.includes('c = colColor || color(o)'), 'arbre : la case remplie prend la couleur de la CATÉGORIE de l’objectif (activité / pôle / nuance du pôle), jamais celle de la colonne');
+{
+  const i = ar.indexOf('  function objColor(o) {'), j = ar.indexOf('  function card(o, today');
+  const mkc = new Function('actOf', 'color', 'TMT', ar.slice(i, j) + '\nreturn objColor;');
+  const A = { id: 1, name: 'Noèsis', color: '#aaa', poles: [{ key: 'p0', label: 'TiMeTracker', shadeRank: 0 }, { key: 'p1', label: 'Trade', shadeRank: 1 }] };
+  const oc = mkc((id) => (id === 1 ? A : null), (o) => o.activity.color, { ui: { etiquette: et } });
+  const act = { id: 1, color: '#aaa' };
+  assert(oc({ activity: act, level: 'activite' }) === '#aaa', 'objectif pluriannuel / annuel de l’activité vu dans l’arbre : couleur de l’ACTIVITÉ');
+  assert(oc({ activity: act, level: 'pole', poleKey: 'p1' }) === '#aaa#1' && oc({ activity: act, level: 'pole', poleKey: 'p0' }) !== oc({ activity: act, level: 'pole', poleKey: 'p1' }), 'périodique d’un pôle sans secteur : la couleur de CE pôle (une par pôle)');
+  assert(oc({ activity: act, level: 'secteur', poleKey: 'p1', categoryKey: 's' }) === '#aaa#1', 'secteur : la nuance de son pôle');
+}
 if (failed) { console.log('\n' + failed + ' échec(s)'); process.exit(1); } console.log('\ntout passe');

@@ -75,8 +75,15 @@
     if (TMT.objectifsView && TMT.objectifsView.openGroup) TMT.objectifsView.openGroup(os.map(function (x) { return x.id; }), { title: tr('Supprimer quel objectif ?'), onPick: del });
   }
   function menuActs(os, relier, intro) { var a = []; if (relier) a.push({ label: tr('Relier'), onClick: relier }); a.push({ label: tr('Modifier'), onClick: function () { editAction(os, intro); } }); a.push({ label: tr('Supprimer'), danger: true, onClick: function () { deleteAction(os); } }); return a; }
+  // Couleur de remplissage d'une case = celle de la CATÉGORIE de l'objectif (activité : couleur de l'activité ; pôle : couleur du pôle ; secteur : nuance de son pôle), jamais celle de la colonne ou du niveau où on le voit. Composant partagé : TMT.ui.etiquette.
+  function objColor(o) {
+    var a = actOf(o.activity && o.activity.id), base = color(o), lvl = o.level || 'activite';
+    if (lvl === 'activite' || !a) return base;
+    var poles = a.poles || [], pk = o.poleKey || (poles[0] && poles[0].key), p = poles.filter(function (x) { return x.key === pk; })[0];
+    return TMT.ui.etiquette({ activityName: a.name, activityColor: base, poleLabel: p && p.label, poleIndex: p && p.shadeRank }).color;
+  }
   function card(o, today, all, mode, w, onTap, extCol, colColor) {
-    var st = stateOf(o, today), c = colColor || color(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c); if (ext && ext.mode === 'create' && ext.base && ext.base.id === o.id) b.classList.add('arExtSelf');
+    var st = stateOf(o, today), c = objColor(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c); if (ext && ext.mode === 'create' && ext.base && ext.base.id === o.id) b.classList.add('arExtSelf');
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', o.title));
     if (mode !== 'simple') {
       var nk = (all.kids[o.id] || []).length;
