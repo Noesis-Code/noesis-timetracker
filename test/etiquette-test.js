@@ -15,4 +15,6 @@ assert(e.name === 'Interface' && e.level === 'secteur' && e.color === p1.color, 
 assert(mk(undefined)({ activityName: 'X', activityColor: '#bbb', poleLabel: 'P', poleIndex: 0 }).color === '#bbb', 'sans palette de pôles : repli sur la couleur de l’activité');
 const au = fs.readFileSync(path.join(__dirname, '..', 'public/js/aujourdhui.js'), 'utf8').replace(/\r\n/g, '\n');
 assert(au.includes('TMT.ui.etiquette({ activityName: t.activityName, activityColor: t.activityColor, poleLabel: t.poleName, secteurLabel: t.sector, poleIndex: t.poleIndex })') && au.includes('if (et.color) dot.style.background = et.color;'), 'liste des tâches : l’étiquette d’une tâche passe par le composant partagé (nom le plus bas, couleur du pôle)');
+const ar = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-arbre.js'), 'utf8').replace(/\r\n/g, '\n');
+assert((ar.match(/TMT\.ui\.etiquette\(/g) || []).length >= 3 && !ar.includes('TMT.poleColor(col2, p.shadeRank)') && !ar.includes('TMT.poleColor(col, p.shadeRank)'), 'arbre : les couleurs des colonnes (pôles, secteurs) passent par le composant partagé');
 if (failed) { console.log('\n' + failed + ' échec(s)'); process.exit(1); } console.log('\ntout passe');
