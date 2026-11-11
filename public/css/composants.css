@@ -323,8 +323,9 @@
 .cmpLoader polygon:nth-child(5) { animation-delay: 1s; }
 .cmpLoader polygon:nth-child(7) { animation-delay: 1.2s; }
 .cmpLoaderPhrase { display: block; margin: 0; font-size: 13px; line-height: 1.3; color: var(--text-light); text-align: center; }
-.cmpVoile { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0; animation: cmpLoaderIn .01s linear 1s forwards; background: color-mix(in srgb, var(--bg, #0B0A0A) 72%, transparent); -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%); } /* voile de verre de chargement (R49) : toute la page, le N au milieu de l'écran, contenu derrière illisible */
+.cmpVoile { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center; opacity: 0; animation: cmpLoaderIn .01s linear 1s forwards; background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); } /* voile de verre de chargement (R49) : au-dessus de tout, même verre que les pop-ups (R31, jetons --glass-*), le N au milieu de l'écran */
 .cmpVoile > .cmpLoader { width: auto; padding: 0; }
+.cmpVoile .cmpLoader svg { width: 38px; height: 48px; } /* le N un peu plus gros que celui d'une ligne (19 × 24) */
 @keyframes cmpLoaderIn { to { opacity: 1; } }
 @keyframes cmpLoaderVague { 0% { opacity: .22; } 7% { opacity: 1; } 43% { opacity: 1; } 57% { opacity: .22; } 100% { opacity: .22; } }
 @media (prefers-reduced-motion: reduce) { .cmpLoader polygon { animation: none; opacity: .7; } }
