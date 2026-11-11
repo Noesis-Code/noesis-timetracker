@@ -209,3 +209,4 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objInfSubs .objRecapVal { flex: none; color: var(--text-light); }
 .objAdvHead { justify-content: flex-end; border: 0; } .objAdvHead .cmpBlockTitle { color: var(--purple); text-decoration: none; } /* « Avancé » (Description) et « Passer » (Niveau) : MÊME style, à droite, violet, sans trait */
 .objAdvBody .objGuideRow.open > .objGuideHead { border-bottom-color: transparent; } /* sous « Avancé » (Description, Niveau) : une question dépliée n'a plus de trait sous son titre ; repliée, le trait est celui de toujours */
+.objGuideFlat .cmpSeg { margin-bottom: 8px; } /* les trois questions visibles de la Description : même rythme que dans un groupe déplié */

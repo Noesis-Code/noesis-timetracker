@@ -200,6 +200,7 @@
       { k: 'horssujet', q: 'Hors sujet ?', label: 'Hors sujet', opts: ['Autre projet', 'Autre domaine', 'Plus tard'] },
       { k: 'nom', q: 'Autre nom ?', label: 'Autre nom', opts: ['Sigle', 'Surnom', 'Nom du client'] }] }
   ];
+  var GUIDE_MAIN = ['faire', 'qui', 'quoi']; // les trois questions VISIBLES à la création (les plus utiles pour reconnaître et rediriger les tâches) ; les six autres sont sous « Avancé »
   var GUIDE_ORDER = ['faire', 'resultat', 'avance', 'qui', 'quoi', 'ou', 'obstacle', 'horssujet', 'nom'];
   var GUIDE = [].concat.apply([], GUIDE_GROUPS.map(function (x) { return x.qs; })).sort(function (a, b) { return GUIDE_ORDER.indexOf(a.k) - GUIDE_ORDER.indexOf(b.k); }); // ordre du texte composé inchangé (Faire en premier), quel que soit le groupe
   function guideAns(form, g) { form.guide = form.guide || {}; return form.guide[g.k] || (form.guide[g.k] = { picks: [], text: '' }); }
@@ -233,37 +234,39 @@
   // Une question est remplie si au moins un mot est sélectionné OU du texte est écrit (jamais une proposition du parent non touchée)
   function guideFilled(a) { return a.picks.length > 0 || !!a.text.trim(); }
   function guideToggle(a, word) { var i = a.picks.indexOf(word); if (i >= 0) a.picks.splice(i, 1); else a.picks.push(word); a.touched = true; } // bascule sélectionné / non sélectionné ; rien n'est écrit dans le champ texte
-  function paintGuideInto(box, form, onChange, focusFirst) {
+  function paintGuideInto(box, form, onChange, focusFirst, part) { // part : undefined = les neuf questions en groupes (modification d'un objectif) ; 'main' = les trois questions visibles de la création, à plat ; 'rest' = les six autres, en groupes (sous « Avancé »)
     box.textContent = '';
     if (form.guideOpen === undefined) form.guideOpen = 0;
-    GUIDE_GROUPS.forEach(function (grp, gi) {
-      var open = form.guideOpen === gi, wrap = el('div', 'objField objGuideRow' + (open ? ' open' : ''));
-      var head = btn('objGuideHead cmpToggle', '', function () { form.guideOpen = open ? -1 : gi; paintGuideInto(box, form, onChange); });
-      head.setAttribute('aria-expanded', open ? 'true' : 'false');
-      var filled = grp.qs.filter(function (g) { return guideFilled(guideAns(form, g)); }).length, tx = el('span', 'objGuideTxt');
+    var flat = part === 'main', groups = flat ? [{ g: '', qs: GUIDE_GROUPS.reduce(function (o, x) { return o.concat(x.qs); }, []).filter(function (g) { return GUIDE_MAIN.indexOf(g.k) >= 0; }).sort(function (x, y) { return GUIDE_MAIN.indexOf(x.k) - GUIDE_MAIN.indexOf(y.k); }) }] : part === 'rest' ? GUIDE_GROUPS.map(function (x) { return { g: x.g, qs: x.qs.filter(function (g) { return GUIDE_MAIN.indexOf(g.k) < 0; }) }; }).filter(function (x) { return x.qs.length; }) : GUIDE_GROUPS;
+    function again(foc) { paintGuideInto(box, form, onChange, foc, part); }
+    groups.forEach(function (grp, gi) {
+      var open = flat || form.guideOpen === gi, wrap = el('div', flat ? 'objField objGuideFlat' : 'objField objGuideRow' + (open ? ' open' : ''));
+      var head = flat ? null : btn('objGuideHead cmpToggle', '', function () { form.guideOpen = open ? -1 : gi; again(); });
+      if (head) head.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (head) { var filled = grp.qs.filter(function (g) { return guideFilled(guideAns(form, g)); }).length, tx = el('span', 'objGuideTxt');
       tx.appendChild(el('span', 'cmpBlockTitle', tr(grp.g)));
       // à droite : compteur « 2/3 » (gris sable) puis la flèche R21 (composant .cmpChev, pivotée quand le groupe est ouvert)
       head.appendChild(tx); head.appendChild(el('span', 'hint objGuideRight', filled + '/' + grp.qs.length)); head.appendChild(el('span', 'cmpChev' + (open ? ' open' : '')));
-      wrap.appendChild(head);
+      wrap.appendChild(head); }
       if (open) {
         var firstIn = null;
         grp.qs.forEach(function (g, qi) {
           var a = guideAns(form, g), q = el('div', 'objGuideQ'), s = el('div', 'cmpSeg'), ans = el('input');
           q.appendChild(el('span', 'cmpBlockTitle', tr(g.q)));
           var prop = form.proposed && form.proposed[g.k], pending = !!prop && !a.touched && !guideFilled(a); // proposition du parent : visible tant qu'on n'y touche pas
-          if (pending) q.appendChild(btn('cmpBtn cmpBtnIdle', tr('Proposé') + ' : ' + prop.picks.map(function (x) { return tr(x).toLowerCase(); }).concat(prop.text ? [prop.text] : []).join(', '), function () { a.picks = prop.picks.slice(); a.text = prop.text; a.touched = true; onChange(); paintGuideInto(box, form, onChange); }));
+          if (pending) q.appendChild(btn('cmpBtn cmpBtnIdle', tr('Proposé') + ' : ' + prop.picks.map(function (x) { return tr(x).toLowerCase(); }).concat(prop.text ? [prop.text] : []).join(', '), function () { a.picks = prop.picks.slice(); a.text = prop.text; a.touched = true; onChange(); again(); }));
           s.setAttribute('role', 'group'); s.setAttribute('aria-label', tr(g.q));
           ans.type = 'text'; ans.maxLength = 80; ans.value = a.text; ans.placeholder = tr('Quelques mots'); ans.setAttribute('aria-label', tr(g.q)); ans.enterKeyHint = 'next';
           g.opts.forEach(function (o) {
             var on = a.picks.indexOf(o) >= 0 || (pending && prop.picks.indexOf(o) >= 0); // mots proposés : pré-sélectionnés (comme une sélection), mais pas enregistrés
             var b = btn(on ? 'active' : '', tr(o), function () {
               if (pending && !a.touched) { a.picks = prop.picks.slice(); a.touched = true; } // toucher un mot valide la sélection proposée puis la modifie
-              guideToggle(a, o); onChange(); paintGuideInto(box, form, onChange);
+              guideToggle(a, o); onChange(); again();
             });
             b.setAttribute('aria-pressed', on ? 'true' : 'false'); s.appendChild(b);
           });
           ans.addEventListener('input', function () { a.text = ans.value; a.touched = true; onChange(); });
-          ans.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); var nx = box.querySelectorAll('.objGuideQ input')[qi + 1]; if (nx) nx.focus(); else { form.guideOpen = gi + 1 < GUIDE_GROUPS.length ? gi + 1 : -1; paintGuideInto(box, form, onChange, true); } } });
+          ans.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); var nx = box.querySelectorAll('.objGuideQ input')[qi + 1]; if (nx) nx.focus(); else if (!flat) { form.guideOpen = gi + 1 < groups.length ? gi + 1 : -1; again(true); } } });
           q.appendChild(s); q.appendChild(ans); wrap.appendChild(q);
           if (!firstIn) firstIn = ans;
         });
@@ -349,7 +352,7 @@
     boxes.desc.appendChild(field(tr('Objectif'), titleIn));
     var dueBox = el('div'); boxes.echeance.appendChild(dueBox); // l'échéance n'est plus demandée à la Description : étape « Échéance » après Activité et Niveau
     form.guide = form.guide || {}; // description guidée : blocs partagés avec la modification (paintGuideInto)
-    var advBox = el('div', 'objGuide'), guideBox = el('div', 'objAdvBody'), advOpen = false; boxes.desc.appendChild(advBox); // les neuf questions : sous « Avancé », replié par défaut (R8)
+    var mainBox = el('div', 'objGuide'), advBox = el('div', 'objGuide'), guideBox = el('div', 'objAdvBody'), advOpen = false; boxes.desc.appendChild(mainBox); boxes.desc.appendChild(advBox); // les neuf questions : sous « Avancé », replié par défaut (R8)
     function composeDesc() { form.description = guideCompose(form); }
     function paintAdv() {
       advBox.textContent = '';
@@ -357,9 +360,9 @@
       head.setAttribute('aria-expanded', advOpen ? 'true' : 'false');
       var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
       head.appendChild(tx); head.appendChild(el('span', 'cmpChev' + (advOpen ? ' open' : ''))); wrap.appendChild(head); advBox.appendChild(wrap);
-      if (advOpen) { advBox.appendChild(guideBox); paintGuideInto(guideBox, form, composeDesc); }
+      if (advOpen) { advBox.appendChild(guideBox); paintGuideInto(guideBox, form, composeDesc, undefined, 'rest'); }
     }
-    function paintGuide(f) { if (advOpen) paintGuideInto(guideBox, form, composeDesc, f); }
+    function paintGuide(f) { paintGuideInto(mainBox, form, composeDesc, undefined, 'main'); if (advOpen) paintGuideInto(guideBox, form, composeDesc, f, 'rest'); }
     paintAdv();
     // Parent retenu automatiquement (même appel que le rattachement : même activité, échéance du parent au moins celle du nouvel objectif) : { id, title } ou null. Lecture seule.
     function rattBody() { return { inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined, endDate: form.endDate, title: form.title, activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, refused: form.refused || [] }; }
