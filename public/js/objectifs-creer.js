@@ -177,7 +177,7 @@
     if (!text || busy) return;
     seq = { base: 0, count: 1, i: 0 };
     busy = true; sendBtn.disabled = true;
-    TMT.ui.attente(input.parentNode, api('POST', '/api/objectifs/contexte', { text: text })).then(function (ctx) { busy = false; sendBtn.disabled = false; openComposer(ctx); })
+    TMT.ui.attente(api('POST', '/api/objectifs/contexte', { text: text })).then(function (ctx) { busy = false; sendBtn.disabled = false; openComposer(ctx); })
       .catch(function (err) { busy = false; sendBtn.disabled = false; if (TMT.ui && TMT.ui.confirm) TMT.ui.confirm((err && err.message) || tr('Impossible pour le moment.'), { ok: tr('OK') }); });
   }
 
@@ -796,11 +796,11 @@
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
     function stepNext() {
       var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
-      if (cur === 'temps' && l[i + 1] === 'inf') { stepBtn.disabled = true; TMT.ui.attente(panelBody, infFetch()).then(function () { stepBtn.disabled = false; if (inf.plan && !inf.plan.skip) show('inf'); else finishAll(); }); return; }
-      if (cur === 'desc') { if (!validDesc()) return; if (form.fixedCtx) { stepBtn.disabled = true; TMT.ui.attente(panelBody, loadRatt().then(nivFetch)).then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; } show(l[i + 1]); return; } // créé depuis une bulle : activité imposée, pas de page Activité
+      if (cur === 'temps' && l[i + 1] === 'inf') { stepBtn.disabled = true; TMT.ui.attente(infFetch()).then(function () { stepBtn.disabled = false; if (inf.plan && !inf.plan.skip) show('inf'); else finishAll(); }); return; }
+      if (cur === 'desc') { if (!validDesc()) return; if (form.fixedCtx) { stepBtn.disabled = true; TMT.ui.attente(loadRatt().then(nivFetch)).then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; } show(l[i + 1]); return; } // créé depuis une bulle : activité imposée, pas de page Activité
       if (cur === 'activite') { // le rattachement / la fusion dépendent de l'échéance ET de l'activité : proposés après la page Activité
         if (noActivity()) { msg.textContent = tr('Choisis une activité.'); return; }
-        stepBtn.disabled = true; TMT.ui.attente(panelBody, loadRatt().then(nivFetch)).then(function () { stepBtn.disabled = false; stepNextFrom('activite'); }); return;
+        stepBtn.disabled = true; TMT.ui.attente(loadRatt().then(nivFetch)).then(function () { stepBtn.disabled = false; stepNextFrom('activite'); }); return;
       }
       show(l[i + 1]);
     }
@@ -817,7 +817,7 @@
       if (form.ratt && form.ratt.key !== rattKey()) { form.parentId = null; form.parentRel = null; } // l'activité a changé après la proposition de rattachement : plus de parent
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
-      var t = targets()[0], actName = t ? t.name : '', first = null, fin = function (p) { return TMT.ui.attente(panelBody, p); };
+      var t = targets()[0], actName = t ? t.name : '', first = null, fin = function (p) { return TMT.ui.attente(p); };
       function go(replaceId) { return tpApply().then(function () { return api('POST', '/api/objectifs/proposition', { level: form.level || 'activite', inner: form.level === 'secteur' ? innerOf() : undefined, title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.activityId, activityName: actName }); })
         .then(function (P) { // UNE seule activité, qui existe déjà (elle se crée dans Réglages) ; les macros se font seulement depuis l'arbre
           return Promise.resolve(t.id)
@@ -972,7 +972,7 @@
       if (!dirty()) return;
       stepBtn.disabled = true; msg.textContent = '';
       var chain = Promise.resolve(); Object.keys(plans).filter(function (k) { return plans[k].value !== plans[k].orig; }).forEach(function (k) { chain = chain.then(function () { return api('POST', '/api/member-times', { activityId: act.id, poleKey: spec.poleKey, memberId: k, afterMin: Math.round(plans[k].value * 60), origin: 'ajout' }); }); });
-      TMT.ui.attente(panelBody, chain).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
+      TMT.ui.attente(chain).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
     }
     dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null;
   }
@@ -1113,7 +1113,7 @@
         calls.push(function () { var b = { term: form.term, inner: inner(), skill: String(form.skill).trim() }; if (form.hours !== orig.hours) b.hoursPerWeek = form.hours; if (byChanged()) b.hoursByDay = form.byDay; else if (!byShow() && byOrig && form.hours !== orig.hours) b.hoursByDay = null; return api('PUT', '/api/objectifs/' + id + '/parametres', b); }); // les heures ne sont envoyées que si elles ont changé (0 h = part à 0 %, jamais effacée en silence) // après l'échéance : le terme dépend de la date
         stepBtn.disabled = true; msg.textContent = '';
         var chain = Promise.resolve(); calls.forEach(function (c) { chain = chain.then(c); });
-        TMT.ui.attente(panelBody, chain).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
+        TMT.ui.attente(chain).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
       }
       dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save;
     }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });

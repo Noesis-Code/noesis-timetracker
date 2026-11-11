@@ -1749,7 +1749,7 @@
     var name = $('onbNewActivityName').value.trim();
     if (!name) return;
     $('onbNewActivitySave').disabled = true;
-    TMT.ui.attente($('onboarding'), api('POST', '/api/activities', { name: name, color: onbNewActivityColor, userId: profile.id }))
+    TMT.ui.attente(api('POST', '/api/activities', { name: name, color: onbNewActivityColor, userId: profile.id }))
       .then(function () { showApp(); })
       .catch(function (err) { $('onbMsg').textContent = err.message; $('onbNewActivitySave').disabled = false; });
   });
@@ -1882,7 +1882,7 @@
     if (pin !== $('onbPinConfirm').value.trim()) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
     if (onbModules && !onbModules.valid()) { $('onbMsg').textContent = t('Choisis au moins un module.'); return; }
     $('onbCreateBtn').disabled = true;
-    TMT.ui.attente($('onboarding'), api('POST', '/api/profile', { name: name, lastName: lastName, phone: phone, email: email, pin: pin, accountType: onbAccountType, termsAccepted: true, marketingConsent: $('onbMarketingCheckbox').checked, directoryConsent: $('onbDirectoryCheckbox').checked }))
+    TMT.ui.attente(api('POST', '/api/profile', { name: name, lastName: lastName, phone: phone, email: email, pin: pin, accountType: onbAccountType, termsAccepted: true, marketingConsent: $('onbMarketingCheckbox').checked, directoryConsent: $('onbDirectoryCheckbox').checked }))
       .then(function (p) {
         saveProfile(p);
         // Modules choisis enregistrés avant la suite ; un échec garde les modules par défaut (réglables dans Réglages).
@@ -2222,7 +2222,7 @@
         .finally(function () { $('onbPinSubmit').disabled = false; });
     } else {
       $('onbPinSubmit').disabled = true;
-      TMT.ui.attente($('onboarding'), api('POST', '/api/profile/' + pendingPinUser.id + '/verify-pin', { pin: pin }))
+      TMT.ui.attente(api('POST', '/api/profile/' + pendingPinUser.id + '/verify-pin', { pin: pin }))
         .then(function (p) {
           saveProfile(p);
           pendingPinUser = null;
@@ -3302,7 +3302,7 @@
       $('stopCancelBtn').disabled = false;
       return;
     }
-    TMT.ui.attente($('stopConfirmBtn'), api('POST', '/api/timer/stop', stopPayload))
+    TMT.ui.attente(api('POST', '/api/timer/stop', stopPayload))
       .then(function (data) {
         saveOfflineChrono(null);
         stopLiveTimer();

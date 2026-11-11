@@ -70,13 +70,12 @@
     if (container) container.appendChild(el);
     return { el: el, remove: function () { if (el.parentNode) el.parentNode.removeChild(el); } };
   }
-  // Attente (R49) : pendant qu'une opération dure, un voile de verre (flou fort, contenu illisible) couvre la zone qui attend (page, section ou bouton) avec le N au MILIEU ; rien n'apparaît avant 1 s.
-  // attente(zone ou [zones], promesse) rend la même promesse ; un seul composant pour toutes les attentes de l'app.
-  function attente(zones, p) {
-    var list = [].concat(zones).filter(Boolean), vs = list.map(function (z) {
-      var v = document.createElement('span'); v.className = 'cmpVoile'; z.classList.add('cmpAttente'); z.appendChild(v); loader(v, { seul: true }); return v;
-    });
-    function fin() { list.forEach(function (z, i) { z.classList.remove('cmpAttente'); if (vs[i].parentNode) vs[i].parentNode.removeChild(vs[i]); }); }
+  // Attente (R49) : dès qu'une opération dure plus d'1 s, TOUTE la page est recouverte d'un voile de verre (contenu illisible) avec le N au milieu de l'écran ; l'écran en dessous reste tel quel.
+  // attente(promesse) rend la même promesse ; un seul voile global pour toute l'app, partagé si plusieurs attentes se chevauchent.
+  var voile = null, voileN = 0;
+  function attente(p) {
+    if (!voileN++) { voile = document.createElement('div'); voile.className = 'cmpVoile'; loader(voile, { seul: true }); document.body.appendChild(voile); }
+    function fin() { if (!--voileN && voile) { if (voile.parentNode) voile.parentNode.removeChild(voile); voile = null; } }
     return Promise.resolve(p).then(function (v) { fin(); return v; }, function (e) { fin(); throw e; });
   }
   function btn(cls, label, onClick) {
