@@ -8,7 +8,7 @@
  * les doigts (Ctrl + molette sur ordinateur) descend d'un niveau : l'activité se découpe en PÔLES (une racine fixe par pôle), puis en SECTEURS ; au dernier niveau, la bulle ouvre l'arbre périodique (page 2).
  * La flèche ‹ ou RAPPROCHER les doigts remonte. Un objectif PORTE le niveau où il est créé (level, poleKey, categoryKey) ; toucher une case VIDE ajoute un objectif (activité, niveau, pôle/secteur, échéance = la case).
  * Couleurs (R16) : pâle = en cours, vif = réalisé, contour pointillé = à venir, atténué = abandonné. L'ACTIVITÉ est la racine, EN BAS : une BULLE pleine fixe sous sa colonne, juste au-dessus de la barre « Nouvel objectif… ».
- * Appui long + glisser (TMT.ui.holdDrag) : déposer une carte sur une autre la rattache, sur « Délier » elle redevient un objectif final ; une carte « N objectifs » est une cible (choix de l'objectif
+ * Appui long (TMT.ui.holdDrag) : menu d'actions (Relier, Modifier, Supprimer) ; une carte « N objectifs » est une cible (choix de l'objectif
  * qui reçoit) et, en appui long, propose l'objectif à déplacer. Une case grise juste au-dessus du sommet d'une branche porte un « + » : il crée un objectif rattaché à celui de la branche.
  * Données : GET /api/objectifs?filtre=tous ; PUT /api/objectifs/:id/parent. */
 (function () {
@@ -101,7 +101,7 @@
     });
     return best.st;
   }
-  // Carte « N objectifs » : touchée = la liste ; appui long = quel objectif déplacer (la carte se sépare) ; cible de dépôt (choix de l'objectif qui reçoit).
+  // Carte « N objectifs » : touchée = la liste ; appui long = quel objectif déplacer (la carte se sépare) .
   function bigOf(os) { // titre court d'un groupe SANS IA : l'objectif qui englobe le plus d'autres, à égalité l'échéance la plus lointaine
     var best = null; os.forEach(function (o) { var n = Object.keys(descendants(o.id, kidsAll)).length; if (!best || n > best.n || (n === best.n && o.endDate > best.o.endDate)) best = { o: o, n: n }; }); return best ? best.o : os[0];
   }

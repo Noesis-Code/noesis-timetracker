@@ -72,7 +72,6 @@ html.arbreOn body { position: fixed; inset: 0; width: 100%; overflow: hidden; ov
 .goalsRowMarker--ovale { border-radius: 999px; font-size: 13px; padding: 0; height: 20px; width: auto; justify-content: center; white-space: nowrap; }
 .goalsRowMarker--ovale.goalsRowMarker--future { opacity: 1; box-shadow: inset 0 0 0 1px currentColor; }
 .goalsRowMarker--ovale.goalsRowMarker--current { box-shadow: none; }
-.objParentLine { display: block; text-align: left; padding: 0; margin: 2px 0 4px; }
 .arSummary { text-align: left; }
 .arSummary .goalsGridCellText { display: flex; flex-direction: column; gap: 3px; }
 .arSummary .arCardName { font-size: 13px; font-weight: 600; }
