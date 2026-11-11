@@ -152,7 +152,7 @@
   // Contexte posé par l'arbre : niveau (activité | pôle | secteur) + activité, pôle, secteur ; toucher une case VIDE ajoute l'échéance de la case. Le prochain objectif écrit dans la barre
   // PORTE ce niveau, et l'activité (pôle, secteur) est verrouillée dans le panneau de création.
   var viewCtx = { level: 'activite' }, pendingEnd = null, basePlaceholder = '';
-  var STEP_CADRE = 'Cadre'; // titre PROVISOIRE de l'étape qui contient le type d'objectif et l'activité (Émilien tranchera le mot final) : UNE seule constante, passée par tr()
+  var TITRES_EMPLACEMENT = { etape: 'Emplacement', type: 'Type', cadre: 'Cadre' }; // titres FINAUX (Émilien, 11 nov. 2026) de l'étape : panneau / bloc du type annuel-périodique-hebdomadaire / sous-titre du choix activité-pôle-secteur ; UNE seule source, passée par tr()
   var LEVEL_LABEL = { activite: 'Activité', pole: 'Pôle', secteur: 'Secteur' };
   function setContext(c) { viewCtx = c || { level: 'activite' }; }
   function createAt(o) { // case vide touchée : le panneau s'ouvre tout de suite (titre vide à saisir), l'échéance de la case est imposée
@@ -400,7 +400,7 @@
     function actById(id) { return (ctx.activities || []).filter(function (a) { return a.id === id; })[0]; }
     function syncMain() { form.activityId = form.acts.length ? form.acts[0] : null; }
     function noActivity() { return !form.acts.length; }
-    // Type d'objectif (maquette approuvée) : Annuel | Périodique | Hebdomadaire, toujours visible, en haut de l'étape. Le type décide de la période (année ou tranche / période de 28 jours / semaine) ; le niveau du cadre (activité, pôle, secteur) se choisit en dessous.
+    // Type (maquette approuvée) : Annuel | Périodique | Hebdomadaire, toujours visible, en haut de l'étape. Le type décide de la période (année ou tranche / période de 28 jours / semaine) ; le niveau du cadre (activité, pôle, secteur) se choisit en dessous.
     // Combinaisons que le modèle de données porte : annuel = activité (tranche de 5 ans) ou pôle (année) ; périodique et hebdomadaire = secteur (période ou semaine). Les autres ne sont pas possibles aujourd'hui (une case de l'arbre n'existe pas) : message précis, Suivant grisé.
     var TYPES = [['annuel', 'Annuel'], ['periodique', 'Périodique'], ['hebdomadaire', 'Hebdomadaire']];
     function typeDerived() { return form.level === 'secteur' ? 'periodique' : 'annuel'; } // sans choix explicite : le type suit le niveau choisi dans l'arbre
@@ -409,7 +409,7 @@
     function typeMsg() { var t = typeOf(); return typeOk() ? '' : t === 'annuel' ? tr('Un objectif annuel se range sur l’activité ou sur un pôle.') : tr('Un objectif périodique ou hebdomadaire se range sur un secteur.'); }
     function paintTypeBlock() {
       var t = typeOf(); form.weeklyOn = t === 'hebdomadaire' && form.level === 'secteur';
-      actBox.appendChild(field(tr('Type d’objectif'), seg(TYPES.map(function (x) { return [x[0], tr(x[1])]; }), t, function (k) { form.type = k; form.typeTouched = true; refresh(); }, tr('Type d’objectif'))));
+      actBox.appendChild(field(tr(TITRES_EMPLACEMENT.type), seg(TYPES.map(function (x) { return [x[0], tr(x[1])]; }), t, function (k) { form.type = k; form.typeTouched = true; refresh(); }, tr(TITRES_EMPLACEMENT.type))));
       var m = typeMsg(); if (m) actBox.appendChild(el('p', 'hint', m));
       if (cur === 'activite') syncGo();
     }
@@ -422,7 +422,7 @@
         var own = actById(form.activityId), lock = el('div', 'aiModeChoices');
         if (own) { lock.appendChild(choice(own.name, tr(LEVEL_LABEL[form.level]) + (form.ctxLabel ? ' · ' + form.ctxLabel : ''), true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), lock)); return; }
       }
-      actBox.appendChild(el('p', 'cmpBlockTitle', tr('Activité'))); // sous-titre du bloc des activités (l'étape contient aussi le type)
+      actBox.appendChild(el('p', 'cmpBlockTitle', tr(TITRES_EMPLACEMENT.cadre))); // sous-titre au-dessus du choix activité / pôle / secteur
       var inTree = {}; (ctx.objectives || []).forEach(function (o) { inTree[o.activityId] = true; });
       // Pôle puis secteur (9 nov. 2026) : AUCUN choix déroulé à l'arrivée ; toucher l'activité déjà choisie déroule les pôles, collés sous sa carte (un seul bloc, même largeur) ; la retoucher les replie ;
       // choisir un pôle déroule ses secteurs juste dessous ; retoucher le pôle ou le secteur choisi l'annule (même règle qu'une carte d'activité). Pas de libellés, pas de « Aucun ». Facultatifs :
@@ -784,7 +784,7 @@
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
-    var stepNames = { desc: 'Description', temps: 'Temps', heures: 'Heures', activite: STEP_CADRE, niveau: 'Niveau', echeance: 'Échéance', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
+    var stepNames = { desc: 'Description', temps: 'Temps', heures: 'Heures', activite: TITRES_EMPLACEMENT.etape, niveau: 'Niveau', echeance: 'Échéance', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
     function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(niv.skip ? [] : ['niveau']).concat(form.endFixed ? [] : ['echeance']).concat(['temps']).concat(infListed() ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     function rattKey2() { return rattKey() + '|' + (form.endDate || ''); } // le rattachement dépend aussi de l'échéance (saisie après Activité)
     function loadRatt() {
