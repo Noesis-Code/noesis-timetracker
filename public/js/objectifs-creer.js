@@ -357,7 +357,7 @@
     function composeDesc() { form.description = guideCompose(form); }
     function paintAdv() {
       advBox.textContent = '';
-      var wrap = el('div', 'objField objGuideRow' + (advOpen ? ' open' : '')), head = btn('objGuideHead objAdvHead cmpToggle', '', function () { advOpen = !advOpen; paintAdv(); });
+      var wrap = el('div', 'objField objGuideRow' + (advOpen ? ' open' : '')), head = btn('objGuideHead objAdvHead cmpToggle', '', function () { advOpen = !advOpen; paintAdv(); if (advOpen) TMT.ui.revealOpened(advBox.querySelector('.objAdvHead')); });
       head.setAttribute('aria-expanded', advOpen ? 'true' : 'false');
       var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
       head.appendChild(tx); head.appendChild(el('span', 'cmpChev' + (advOpen ? ' open' : ''))); wrap.appendChild(head); advBox.appendChild(wrap);
@@ -651,7 +651,7 @@
       if (mi >= 0) { boxes.niveau.appendChild(el('p', 'cmpBlockTitle', tr(niv.qs[mi].q))); boxes.niveau.appendChild(grid(niv.qs[mi], mi, function () {})); } // UNE question générale, écrite par l'IA, proportionnée à l'objectif
       var adv = nivAdv();
       if (mi >= 0 && adv.length) { // les autres questions : sous « Avancé » (même style que la Description : à droite, violet, sans trait)
-        var advWrap = el('div', 'objField objGuideRow' + (niv.advOpen ? ' open' : '')), advHead = btn('objGuideHead objAdvHead cmpToggle', '', function () { niv.advOpen = !niv.advOpen; nivPaint(); });
+        var advWrap = el('div', 'objField objGuideRow' + (niv.advOpen ? ' open' : '')), advHead = btn('objGuideHead objAdvHead cmpToggle', '', function () { niv.advOpen = !niv.advOpen; nivPaint(); if (niv.advOpen) TMT.ui.revealOpened(boxes.niveau.querySelector('.objAdvHead')); });
         advHead.setAttribute('aria-expanded', niv.advOpen ? 'true' : 'false');
         var advTx = el('span', 'objGuideTxt'); advTx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
         advHead.appendChild(advTx); advHead.appendChild(el('span', 'cmpChev' + (niv.advOpen ? ' open' : ''))); advWrap.appendChild(advHead); boxes.niveau.appendChild(advWrap);
@@ -1059,7 +1059,7 @@
       var advBox = el('div', 'objGuide'), advInner = el('div'), advOpenE = false; panelBody.appendChild(advBox);
       function paintAdvE() {
         advBox.textContent = '';
-        var wrapA = el('div', 'objField objGuideRow' + (advOpenE ? ' open' : '')), headA = btn('objGuideHead objAdvHead cmpToggle', '', function () { advOpenE = !advOpenE; paintAdvE(); });
+        var wrapA = el('div', 'objField objGuideRow' + (advOpenE ? ' open' : '')), headA = btn('objGuideHead objAdvHead cmpToggle', '', function () { advOpenE = !advOpenE; paintAdvE(); if (advOpenE) TMT.ui.revealOpened(advBox.querySelector('.objAdvHead')); });
         headA.setAttribute('aria-expanded', advOpenE ? 'true' : 'false');
         var txA = el('span', 'objGuideTxt'); txA.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
         headA.appendChild(txA); headA.appendChild(el('span', 'cmpChev' + (advOpenE ? ' open' : ''))); wrapA.appendChild(headA); advBox.appendChild(wrapA);

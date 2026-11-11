@@ -90,6 +90,14 @@
   var ui = {
     editIcon: function () { return EDIT_SVG; },
     closeBtn: function (onClick, label) { var b = btn('cmpClose', label || 'Fermer', onClick); b.textContent = '✕'; return b; },
+    // « Avancé » déplié (11 nov. 2026, Émilien) : le panneau défile en douceur pour que la ligne « Avancé » monte en haut de la zone visible et que le contenu qui vient de s'ouvrir se voie (sinon il s'ouvre sous le bas de l'écran). Après l'ouverture seulement ; au repli on ne défile pas ; respecte prefers-reduced-motion. UN code pour tous les « Avancé » (R29).
+    revealOpened: function (target) {
+      if (!target || !target.scrollIntoView) return;
+      window.requestAnimationFrame(function () {
+        var calme = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        target.scrollIntoView({ block: 'start', behavior: calme ? 'auto' : 'smooth' });
+      });
+    },
     // Étiquette d'un objectif ou d'une tâche (11 nov. 2026, Émilien) : le NOM de l'élément du niveau le plus bas (secteur, sinon pôle, sinon l'activité), dans le MÊME format à tous les niveaux ; la couleur est celle du pôle (secteur = nuance de son pôle, un pôle = sa propre nuance), celle de l'activité sans catégorie.
     // UNE seule définition (R29) : o = { activityName, activityColor, poleLabel, secteurLabel, poleIndex } ; rend { name, color, level }. Le dessin (rond + nom) reste celui de chaque écran.
     etiquette: function (o) {
