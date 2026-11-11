@@ -17,4 +17,7 @@ const au = fs.readFileSync(path.join(__dirname, '..', 'public/js/aujourdhui.js')
 assert(au.includes('TMT.ui.etiquette({ activityName: t.activityName, activityColor: t.activityColor, poleLabel: t.poleName, secteurLabel: t.sector, poleIndex: t.poleIndex })') && au.includes('if (et.color) dot.style.background = et.color;'), 'liste des tâches : l’étiquette d’une tâche passe par le composant partagé (nom le plus bas, couleur du pôle)');
 const ar = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-arbre.js'), 'utf8').replace(/\r\n/g, '\n');
 assert((ar.match(/TMT\.ui\.etiquette\(/g) || []).length >= 3 && !ar.includes('TMT.poleColor(col2, p.shadeRank)') && !ar.includes('TMT.poleColor(col, p.shadeRank)'), 'arbre : les couleurs des colonnes (pôles, secteurs) passent par le composant partagé');
+const p3 = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-page3.js'), 'utf8').replace(/\r\n/g, '\n');
+assert(!p3.includes('TMT.poleColor(') && (p3.match(/TMT\.ui\.etiquette\(/g) || []).length >= 2, 'calendrier : les couleurs de pôle passent par le composant partagé');
+assert(et({ activityColor: '#aaa', poleIndex: 2 }).color === '#aaa#2', 'couleur du pôle d’après son seul rang (calendrier)');
 if (failed) { console.log('\n' + failed + ' échec(s)'); process.exit(1); } console.log('\ntout passe');

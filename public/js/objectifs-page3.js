@@ -235,7 +235,7 @@
   // du serveur le même jour (couleur 100% automatique, cadré séparément avec
   // Emilien — voir server/lib/goals.js). Adaptée pour rester fonctionnelle :
   // même mécanisme que renderGoalsGridHead()/renderGoalsGrid() (nuance de
-  // TMT.poleColor() à partir de TMT.currentGoalsActivityColor et du RANG de la
+  // TMT.ui.etiquette() à partir de TMT.currentGoalsActivityColor et du RANG de la
   // catégorie), plus aucun repli violet nécessaire — chaque catégorie, y
   // compris la catégorie par défaut seule, a désormais toujours sa propre
   // nuance calculée.
@@ -246,7 +246,7 @@
     // Secteur (page mensuel) : la couleur est celle du PÔLE affiché, jamais le violet de repli.
     if (index === -1 && TMT.currentGoalsPoleIndex != null) index = TMT.currentGoalsPoleIndex;
     if (index === -1) return 'var(--purple)';
-    return TMT.poleColor(TMT.currentGoalsActivityColor, index);
+    return TMT.ui.etiquette({ activityColor: TMT.currentGoalsActivityColor, poleIndex: index }).color; // étiquette partagée : couleur du pôle
   }
 
 
@@ -786,7 +786,7 @@
         // les objectifs hebdomadaires — l'assignation est réservée aux tâches.
       }
 
-      var weekFill = TMT.currentGoalsPoleIndex != null ? TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex) : currentGoalsCategoryColor();
+      var weekFill = TMT.currentGoalsPoleIndex != null ? TMT.ui.etiquette({ activityColor: TMT.currentGoalsActivityColor, poleIndex: TMT.currentGoalsPoleIndex }).color : currentGoalsCategoryColor();
       row.style.setProperty('--poleColor', weekFill);
       row.style.setProperty('--poleText', readableTextOn(weekFill));
     box.appendChild(row);
@@ -1024,7 +1024,7 @@
       var mainTextColor = readableTextOn(mainCatColor);
       mainCardEl.style.background = mainCatColor;
       mainCardEl.style.color = mainTextColor;
-      mainCardEl.style.setProperty('--cardEdge', TMT.currentGoalsPoleIndex != null ? TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex) : mainCatColor); // page mensuel : verre + contour de la couleur du pôle (CSS)
+      mainCardEl.style.setProperty('--cardEdge', TMT.currentGoalsPoleIndex != null ? TMT.ui.etiquette({ activityColor: TMT.currentGoalsActivityColor, poleIndex: TMT.currentGoalsPoleIndex }).color : mainCatColor); // page mensuel : verre + contour de la couleur du pôle (CSS)
       if (mainProgressTrackEl) {
         mainProgressTrackEl.style.background = mainTextColor === '#ffffff'
           ? 'rgba(255, 255, 255, 0.25)'
