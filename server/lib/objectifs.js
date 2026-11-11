@@ -419,9 +419,11 @@ function periodStartOf(iso) { const g = gridOf(iso); return addDays(g.grid, 28 *
 function cellStartOf(inner, iso) { return inner === 'hebdomadaires' ? mondayOf(iso) : periodStartOf(iso); }
 // Pôle = l'ANNÉE (celle de l'arbre : année civile de l'échéance) ; activité = la TRANCHE de 5 ans (première année = année en cours) qui la contient : MÊMES définitions que les colonnes de l'arbre (objectifs-arbre.js, blockStart / rowKey).
 function blockYearOf(iso) { const y0 = Number(today().slice(0, 4)), y = Number(iso.slice(0, 4)); return y0 + 5 * Math.floor((y - y0) / 5); }
-function cellKey(level, iso, weekly) {
-  if (level === 'secteur' && weekly) return Number(mondayOf(iso).replace(/-/g, '')) * 1000; // la semaine, par son lundi
-  if (level === 'secteur') { const g = gridOf(iso); return g.year * 100 + g.period; }
+// cadenced : objectif périodique / hebdomadaire posé directement sur un PÔLE (même cases qu'un secteur : la période ou la semaine qui contient l'échéance)
+function cadenceOf(body) { return body && body.level === 'pole' && ['periodique', 'hebdomadaire'].includes(body.cadence) ? body.cadence : null; }
+function cellKey(level, iso, weekly, cadenced) {
+  if ((level === 'secteur' || cadenced) && weekly) return Number(mondayOf(iso).replace(/-/g, '')) * 1000; // la semaine, par son lundi
+  if (level === 'secteur' || cadenced) { const g = gridOf(iso); return g.year * 100 + g.period; }
   if (level === 'pole') return Number(iso.slice(0, 4)) * 100;
   return blockYearOf(iso) * 100;
 }
@@ -432,7 +434,8 @@ function placement(body, start) {
   const end = body && body.endDate;
   if (!isDay(end) || (body && body.isMacro === true)) return { start, startCheck: start, placed: false };
   let cs = null, placedSecteur = false;
-  if (body.level === 'secteur' && ['periodiques', 'hebdomadaires'].includes(body.inner)) { cs = cellStartOf(body.inner, end); placedSecteur = true; }
+  if (cadenceOf(body)) { cs = cellStartOf(cadenceOf(body) === 'hebdomadaire' ? 'hebdomadaires' : 'periodiques', end); placedSecteur = true; }
+  else if (body.level === 'secteur' && ['periodiques', 'hebdomadaires'].includes(body.inner)) { cs = cellStartOf(body.inner, end); placedSecteur = true; }
   else if (body.level === 'pole') cs = end.slice(0, 4) + '-01-01'; // la colonne commence le 1er janvier de l'année
   else if (body.level === 'activite') cs = blockYearOf(end) + '-01-01';
   if (cs && cs > start && cs <= end) return { start: cs, startCheck: cs === end ? addDays(cs, -1) : cs, placed: placedSecteur };
@@ -443,18 +446,20 @@ function occupants(userId, body) {
   if (!act || !isDay(body && body.endDate)) return [];
   const level = ['activite', 'pole', 'secteur'].includes(body.level) ? body.level : 'activite';
   const pk = level === 'activite' ? null : (body.poleKey || null), ck = level === 'secteur' ? (body.categoryKey || null) : null;
-  const explicitInner = level === 'secteur' && ['periodiques', 'hebdomadaires'].includes(body.inner); // sans choix explicite : la période, comme avant
-  const weeklyReq = explicitInner && body.inner === 'hebdomadaires';
-  const key = cellKey(level, body.endDate, weeklyReq), now = today();
+  const cadReq = cadenceOf(body);
+  const explicitInner = !!cadReq || (level === 'secteur' && ['periodiques', 'hebdomadaires'].includes(body.inner)); // sans choix explicite : la période, comme avant
+  const weeklyReq = explicitInner && (cadReq ? cadReq === 'hebdomadaire' : body.inner === 'hebdomadaires');
+  const key = cellKey(level, body.endDate, weeklyReq, !!cadReq), now = today();
   return db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ? AND isMacro = 0 ORDER BY id').all(userId, act.id).filter((r) => {
     if (body.__skip != null && r.id === Number(body.__skip)) return false; // l'objectif qu'on vient de créer n'est pas l'occupant
     if ((r.level || 'activite') !== level || (r.poleKey || null) !== pk || (r.categoryKey || null) !== ck) return false;
     let meta = {}; try { meta = JSON.parse(r.metaJson || '{}'); } catch (e) { meta = {}; }
     if (meta.abandoned) return false;
-    const weeklyRow = explicitInner && meta.inner === 'hebdomadaires';
+    if (level === 'pole' && !!meta.cadence !== !!cadReq) return false; // un objectif annuel et un objectif périodique / hebdomadaire d'un pôle sont des cases différentes
+    const weeklyRow = explicitInner && (meta.cadence ? meta.cadence === 'hebdomadaire' : meta.inner === 'hebdomadaires');
     if (weeklyRow !== weeklyReq) return false; // une semaine et une période sont deux cases différentes
     const late = r.endDate < now && shape(r, false).status !== 'atteint';
-    return cellKey(level, late ? now : r.endDate, weeklyRow) === key;
+    return cellKey(level, late ? now : r.endDate, weeklyRow, !!meta.cadence) === key;
   }).map((r) => ({ id: r.id, title: r.title }));
 }
 function occupant(userId, body) { return occupants(userId, body)[0] || null; }
@@ -544,9 +549,24 @@ function writeBridge(r, periods, category) {
   });
   return plan;
 }
+function writePoleDirect(r, meta) { // la période (grille de 28 jours depuis le plan du pôle) ou la semaine qui contient l'échéance
+  const act = r.activityId, key = r.poleKey, plan = goals.ensurePlan(act, key), g = gridOf(r.endDate);
+  const n = (g.year - Number(String(plan.startDate).slice(0, 4))) * 13 + g.period;
+  if (n < 1) throw err('L’échéance est avant le début du plan de ce pôle.');
+  if (meta.cadence === 'hebdomadaire') {
+    const b = goals.periodBounds(plan.startDate, n), w = Math.floor(daysBetween(b.start, mondayOf(r.endDate)) / 7) + 1;
+    goals.setWeekly(act, key, n, w, r.title);
+  } else goals.setMainGoal(act, key, n, r.title);
+  return n;
+}
 function bridge(r, periods) { // jamais bloquant : sans pont, l'objectif reste complet dans la Feuille de route
   try {
     const meta = JSON.parse(r.metaJson || '{}');
+    if (meta.cadence && r.poleKey) { // périodique / hebdomadaire d'un pôle : écrit sur le pôle lui-même (mêmes fonctions que le connecteur : setMainGoal / setWeekly), SANS créer de secteur
+      writePoleDirect(r, meta); meta.category = r.poleKey; meta.bridged = true; delete meta.bridgeFailed;
+      db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
+      return meta.category;
+    }
     if (!meta.category) {
       const act = db.prepare('SELECT name FROM activities WHERE id = ?').get(r.activityId);
       meta.category = ensureObjectiveSector(r.activityId, act ? act.name : 'Objectifs', r.title);
@@ -595,6 +615,7 @@ function migrateEcheances() {
   return n;
 }
 function creer(userId, body) {
+  const cad = cadenceOf(body); if (cad) body = Object.assign({}, body, { inner: cad === 'hebdomadaire' ? 'hebdomadaires' : 'periodiques' }); // pôle (avec ou sans secteurs) : la période ou la semaine qui contient l'échéance, écrite sur le pôle lui-même
   const title = cleanTitle(body && body.title);
   const act = userActivities(userId).find((a) => a.id === Number(body.activityId));
   if (!act) throw err('Choisis une de tes activités.');
@@ -611,7 +632,7 @@ function creer(userId, body) {
   // 8 nov. 2026 (Émilien) : le NIVEAU gagne sur la durée. Activité seule = long, + pôle = moyen, + secteur = court ; l'échéance ne refuse plus un niveau.
   const LEVEL_TERM = { activite: 'pluriannuel', pole: 'annee', secteur: 'periode' };
   if (!['activite', 'pole', 'secteur'].includes(body.level) && body.term != null && !termsOk.includes(body.term)) throw err('Ce terme n’est pas possible pour cette échéance.');
-  const term = ['activite', 'pole', 'secteur'].includes(body.level) ? LEVEL_TERM[body.level] : (body.term || termsOk[termsOk.length - 1]);
+  const term = cad ? 'periode' : ['activite', 'pole', 'secteur'].includes(body.level) ? LEVEL_TERM[body.level] : (body.term || termsOk[termsOk.length - 1]);
   const innerReq = ['periodiques', 'hebdomadaires', 'les_deux'].includes(body.inner) ? body.inner : (body.weekly === false ? 'periodiques' : 'les_deux');
   // Au niveau secteur, si l'échéance tombe dans la semaine en cours ou la suivante, l'interrupteur « Hebdomadaire » choisit : périodique ou hebdomadaire ; ailleurs, l'échéance décide (une seule période : hebdomadaires).
   const inner = placed || daysBetween(start, body.endDate) > 28 ? innerReq : 'hebdomadaires';
@@ -647,6 +668,7 @@ function creer(userId, body) {
   const hpw = Number(body.hoursPerWeek) > 0 && Number(body.hoursPerWeek) <= 168 ? Math.round(Number(body.hoursPerWeek) * 10) / 10 : null; // facultatif : valeur de départ = historique Chrono, modifiable
   const meta0 = { plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7), term, inner };
   if (hpw) meta0.hoursPerWeek = hpw;
+  if (cad) meta0.cadence = cad; // posé sur le pôle : aucun secteur créé (voir bridge)
   if (typeof body.skill === 'string' && body.skill.trim()) { const sk = textlimits.clean(body.skill, { max: 200, word: 'Niveau' }); if (sk.error) throw err(sk.error); if (sk.text) meta0.skill = sk.text; }
   const niv = require('./objectifs-niveau').readAnswers(body.niveau, textlimits.clean, (m) => { throw err(m); }); if (niv) meta0.niveau = niv; const ty = typeof body.niveauType === 'string' ? textlimits.clean(body.niveauType, { max: 40, word: 'Type' }) : null; if (ty && !ty.error && ty.text) meta0.type = ty.text; // type court écrit par l'IA (similarité des objectifs) ; // trois réponses guidées + niveau déduit (débutant, intermédiaire, avancé), propre à cet objectif
   const sug = require('./objectifs-heures').readStored(body.suggestion); if (sug) meta0.suggestion = sug; // suggestion d'heures de l'IA (milieu, fourchette, facteur) gardée pour apprendre ; le choix de la personne = hoursPerWeek

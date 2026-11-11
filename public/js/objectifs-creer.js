@@ -366,7 +366,7 @@
     function paintGuide(f) { paintGuideInto(mainBox, form, composeDesc, undefined, 'main'); if (advOpen) paintGuideInto(guideBox, form, composeDesc, f, 'rest'); }
     paintAdv();
     // Parent retenu automatiquement (même appel que le rattachement : même activité, échéance du parent au moins celle du nouvel objectif) : { id, title } ou null. Lecture seule.
-    function rattBody() { return { inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined, endDate: form.endDate, title: form.title, activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, refused: form.refused || [] }; }
+    function rattBody() { return { inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined, cadence: cadenceNow(), endDate: form.endDate, title: form.title, activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, refused: form.refused || [] }; }
     function rattKey() { return [form.title, form.activityId, form.level || 'activite', form.poleKey || '', form.categoryKey || ''].join('|'); }
     function fetchParent() {
       if (form.activityId == null) return Promise.resolve(null);
@@ -405,12 +405,13 @@
     function syncMain() { form.activityId = form.acts.length ? form.acts[0] : null; }
     function noActivity() { return !form.acts.length; }
     // Type (maquette approuvée) : Annuel | Périodique | Hebdomadaire, toujours visible, en haut de l'étape. Le type décide de la période (année ou tranche / période de 28 jours / semaine) ; le niveau du cadre (activité, pôle, secteur) se choisit en dessous.
-    // Combinaisons que le modèle de données porte : annuel = activité (tranche de 5 ans) ou pôle (année) ; périodique et hebdomadaire = secteur (période ou semaine). Les autres ne sont pas possibles aujourd'hui (une case de l'arbre n'existe pas) : message précis, Suivant grisé.
+    // Combinaisons que le modèle de données porte : annuel = activité (tranche de 5 ans) ou pôle (année) ; périodique et hebdomadaire = pôle (avec ou sans secteurs, écrit sur le pôle) ou secteur (période ou semaine). Pas encore possible : périodique / hebdomadaire sur l'activité seule (aucun plan au niveau activité) ; annuel sur un secteur : message précis, Suivant grisé.
     var TYPES = [['annuel', 'Annuel'], ['periodique', 'Périodique'], ['hebdomadaire', 'Hebdomadaire']];
     function typeDerived() { return form.level === 'secteur' ? 'periodique' : 'annuel'; } // sans choix explicite : le type suit le niveau choisi dans l'arbre
     function typeOf() { return form.type || typeDerived(); }
-    function typeOk() { var t = typeOf(); return t === 'annuel' ? form.level !== 'secteur' : form.level === 'secteur' && !!form.categoryKey; }
-    function typeMsg() { var t = typeOf(); return typeOk() ? '' : t === 'annuel' ? tr('Un objectif annuel se range sur l’activité ou sur un pôle.') : tr('Un objectif périodique ou hebdomadaire se range sur un secteur.'); }
+    function typeOk() { var t = typeOf(); return t === 'annuel' ? form.level !== 'secteur' : form.level === 'pole' || (form.level === 'secteur' && !!form.categoryKey); } // annuel : activité ou pôle ; périodique et hebdomadaire : pôle (avec ou sans secteurs) ou secteur
+    function cadenceNow() { var t = typeOf(); return form.level === 'pole' && t !== 'annuel' ? t : undefined; } // périodique / hebdomadaire posé sur un PÔLE : écrit sur le pôle lui-même (serveur : cadence)
+    function typeMsg() { var t = typeOf(); return typeOk() ? '' : t === 'annuel' ? tr('Un objectif annuel se range sur l’activité ou sur un pôle.') : tr('Un objectif périodique ou hebdomadaire se range sur un pôle ou un secteur : choisis-en un.'); }
     function paintTypeBlock() {
       var t = typeOf(); form.weeklyOn = t === 'hebdomadaire' && form.level === 'secteur';
       actBox.appendChild(field(tr(TITRES_EMPLACEMENT.type), seg(TYPES.map(function (x) { return [x[0], tr(x[1])]; }), t, function (k) { form.type = k; form.typeTouched = true; refresh(); }, tr(TITRES_EMPLACEMENT.type))));
@@ -463,7 +464,7 @@
       if (cur0) {
         var live = el('p', 'hint'), path = [cur0.name], pol = (cur0.poles || []).filter(function (x) { return x.key === form.poleKey; })[0];
         if (pol) { path.push(pol.label); var sct = (pol.secteurs || []).filter(function (x) { return x.key === form.categoryKey; })[0]; if (sct) path.push(sct.label); }
-        var when = !form.endDate ? '' : (form.level === 'secteur' ? (weeklyPossible(form) && form.weeklyOn ? tr('semaine') + ' ' + weekNo(form.endDate) : tr('période') + ' ' + periodNo(form.endDate)) : form.level === 'pole' ? tr('année') + ' ' + form.endDate.slice(0, 4) : tr('années') + ' ' + blockStart(form.endDate) + '-' + (blockStart(form.endDate) + 4)); // le libellé suit le niveau : activité = tranche de 5 ans (comme l'arbre), pôle = année, secteur = période, hebdomadaire = semaine
+        var when = !form.endDate ? '' : (form.level === 'secteur' || cadenceNow() ? ((form.level === 'secteur' ? form.weeklyOn : cadenceNow() === 'hebdomadaire') ? tr('semaine') + ' ' + weekNo(form.endDate) : tr('période') + ' ' + periodNo(form.endDate)) : form.level === 'pole' ? tr('année') + ' ' + form.endDate.slice(0, 4) : tr('années') + ' ' + blockStart(form.endDate) + '-' + (blockStart(form.endDate) + 4)); // le libellé suit le niveau : activité = tranche de 5 ans (comme l'arbre), pôle = année, secteur = période, hebdomadaire = semaine
         var base = path.join(' › ') + (when ? ' · ' + when : '');
         live.textContent = base; actBox.appendChild(live);
         if (form.endFixed || form.echeanceDone) fetchParent().then(function (p) { live.textContent = base + ' · ' + (p && p.title ? tr('sous') + ' « ' + p.title + ' »' : tr('sans parent')); }); // « sous X / sans parent » : seulement une fois l'échéance confirmée
@@ -689,7 +690,7 @@
     // Étape « Objectifs inférieurs » (10 nov. 2026) : après Temps, seulement pour un objectif d'activité (annuels) ou de pôle (périodiques) et si le serveur propose quelque chose ; sautée en silence sinon (objectifs-inferieurs.js).
     // Le serveur calcule (cases, heures, chiffres) et l'IA rédige ; ici : cocher / refuser chaque ligne, changer les heures (les cases SUIVANTES suivent la nouvelle base) ; rien n'est écrit avant « Terminer ».
     var inf = form.inf = form.inf || { key: null, plan: null, on: [], hrs: [], edited: [], open: -1 };
-    function infEligible() { return (form.level === 'activite' || form.level === 'pole') && !!form.endDate && tp.valueMin > 0; }
+    function infEligible() { return (form.level === 'activite' || form.level === 'pole') && !cadenceNow() && !!form.endDate && tp.valueMin > 0; }
     function infListed() { return infEligible() && !(inf.plan && inf.plan.skip); }
     function infKey() { return [nivKey(), tp.valueMin, form.level || '', form.poleKey || ''].join('|'); }
     function infFetch() {
@@ -846,11 +847,11 @@
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
       var t = targets()[0], actName = t ? t.name : '', first = null, fin = function (p) { return TMT.ui.attente(p); };
-      function go(replaceId) { return tpApply().then(function () { return api('POST', '/api/objectifs/proposition', { level: form.level || 'activite', inner: form.level === 'secteur' ? innerOf() : undefined, title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.activityId, activityName: actName }); })
+      function go(replaceId) { return tpApply().then(function () { return api('POST', '/api/objectifs/proposition', { level: form.level || 'activite', cadence: cadenceNow(), inner: form.level === 'secteur' ? innerOf() : undefined, title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.activityId, activityName: actName }); })
         .then(function (P) { // UNE seule activité, qui existe déjà (elle se crée dans Réglages) ; les macros se font seulement depuis l'arbre
           return Promise.resolve(t.id)
             .then(function (activityId) {
-              return api('POST', '/api/objectifs', { replaceId: replaceId || undefined, term: form.term, inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, niveau: nivBody(), niveauType: niv.type || undefined, suggestion: tp.sugg ? { range: tp.sugg.range, perWeekMin: { mid: tp.sugg.perWeekMin.mid }, factor: tp.sugg.factor, weeks: tp.sugg.weeks, reason: tp.sugg.reason } : undefined, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+              return api('POST', '/api/objectifs', { replaceId: replaceId || undefined, term: form.term, cadence: cadenceNow(), inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, niveau: nivBody(), niveauType: niv.type || undefined, suggestion: tp.sugg ? { range: tp.sugg.range, perWeekMin: { mid: tp.sugg.perWeekMin.mid }, factor: tp.sugg.factor, weeks: tp.sugg.weeks, reason: tp.sugg.reason } : undefined, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
             })
             .then(function (cr) { if (cr && cr.id) first = cr; });
         })
@@ -859,7 +860,7 @@
         .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
       }
       // Case déjà occupée (même colonne, même ligne du temps) : avertissement (R28) ; « Remplacer » (rouge : suppression définitive) supprime l'ancien objectif avec la suppression existante, SEULEMENT une fois le nouveau enregistré (côté serveur) ; Annuler (violet) ne touche à rien
-      fin(api('POST', '/api/objectifs/case', { activityId: form.activityId, level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, endDate: form.endDate, inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }).then(function (r) { return r && r.occupant ? r.occupant : null; }, function () { return null; })
+      fin(api('POST', '/api/objectifs/case', { activityId: form.activityId, level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, endDate: form.endDate, cadence: cadenceNow(), inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }).then(function (r) { return r && r.occupant ? r.occupant : null; }, function () { return null; })
         .then(function (occ) {
           if (!occ) return go(null);
           return TMT.ui.confirm(tr('Un objectif existe déjà à cette date. Le remplacer le supprimera définitivement.'), { choices: [{ value: true, label: tr('Remplacer'), danger: true }, { value: false, label: tr('Annuler') }] })
