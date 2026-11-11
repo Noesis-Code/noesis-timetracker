@@ -73,6 +73,15 @@ const row = (id) => db.prepare('SELECT * FROM sub_project_items WHERE id = ?').g
     assert((await tool(tokV2, 'definir_objectif_periodique', { activityId: actA, pole: poleA, periode: 2, texte: '' })).isError, 'objectif vide refusé (pas de suppression)');
     assert((await tool(tokV2, 'planifier_jour', { jour: '2026-11-01', taskIds: Array.from({ length: 31 }, (_, i) => i + 1) })).isError, 'lot de 31 refusé');
 
+    // Durée en minutes (5 à 480) : création, modification, annulation, refus hors bornes.
+    for (const d of [0, 4, 481, 1.5, 'abc']) assert((await tool(tokV2, 'creer_tache', { activityId: actA, titre: 'ok', pole: poleA, duree: d })).isError, 'duree ' + d + ' refusée');
+    assert((await tool(tokV2, 'modifier_tache', { taskId: t1, duree: 600 })).isError, 'modifier : duree 600 refusée');
+    const cd = await tool(tokA, 'creer_tache', { activityId: actA, titre: 'Avec durée', pole: poleA, duree: 90 });
+    assert(ok(cd) && row(data(cd).taskId).medianMinutes === 90, 'creer_tache avec durée 90');
+    const md = await tool(tokA, 'modifier_tache', { taskId: data(cd).taskId, duree: 45 });
+    assert(ok(md) && row(data(cd).taskId).medianMinutes === 45 && row(data(cd).taskId).label === 'Avec durée', 'modifier_tache : durée seule');
+    assert(ok(await tool(tokA, 'annuler_modification', { journal: data(md).journal })) && row(data(cd).taskId).medianMinutes === 90, 'annuler : durée rétablie');
+
     // Création + annulation.
     const c = await tool(tokA, 'creer_tache', { activityId: actA, titre: 'Nouvelle tâche', pole: poleA, echeance: '2026-11-05' });
     assert(ok(c) && row(data(c).taskId).dueDate === '2026-11-05', 'creer_tache avec échéance');

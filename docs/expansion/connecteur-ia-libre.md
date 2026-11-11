@@ -6,8 +6,8 @@ Décision d'Émilien (21 oct. 2026) : voir `docs/regles/intentions.md`. Confirm�
 Un compte gratuit peut tout organiser avec SA propre IA (Claude, ChatGPT...) branchée par « Connecter mon IA », sans payer Expansion. Noèsis ne paie rien : l'IA de l'utilisateur travaille avec son jeton, aucun appel Anthropic de Noèsis.
 
 ## Outils d'écriture ajoutés (gratuits, jeton avec écriture autorisée)
-- `creer_tache` : ajoute une tâche (titre, pôle ou secteur, échéance).
-- `modifier_tache` : change le titre et/ou l'échéance d'une tâche.
+- `creer_tache` : ajoute une tâche (titre, pôle ou secteur, échéance, durée facultative en minutes de 5 à 480).
+- `modifier_tache` : change le titre, l'échéance et/ou la durée (minutes, 5 à 480) d'une tâche.
 - `ordonner_taches` : fixe l'ordre d'une liste de tâches d'un même secteur.
 - `planifier_jour` : place des tâches sur un jour (plan du jour).
 - `retirer_tache` : retire une tâche, mais garde une copie dans le journal (réversible).

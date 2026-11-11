@@ -245,6 +245,7 @@ Object.assign(tools, {
 // avec SON jeton, sur SON compte uniquement. Aucun appel IA de Noèsis, jamais de suppression définitive :
 // chaque écriture est journalisée (ai_write_log) avec l'état d'avant et `annuler_modification` le rétablit.
 const wlog = require('../lib/aiwritelog');
+const taskminutes = require('../lib/taskminutes');
 const textlimits = require('../lib/textlimits');
 const MAX_BATCH = 30;
 const MAX_GOAL = 300;
@@ -311,38 +312,47 @@ function setPositions(pairs) {
   db.exec('BEGIN');
   try { pairs.forEach(([id, pos]) => db.prepare('UPDATE sub_project_items SET position = ? WHERE id = ?').run(pos, id)); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
+function checkDuree(v) { // minutes entières 5 à 480 (mêmes bornes que taskminutes)
+  const n = Number(v);
+  if (v === '' || v === null || typeof v === 'boolean' || !Number.isInteger(n) || n < 5 || n > 480) throw toolError('duree : entier de 5 à 480 (minutes).');
+  return n;
+}
 const done = (data, logId) => Object.assign({}, data, { journal: logId });
 
 Object.assign(tools, {
   creer_tache: {
     write: true, journal: true,
-    description: "Ajoute une tâche (titre 300 caractères max) dans un pôle ou secteur de l'utilisateur, avec une échéance facultative AAAA-MM-JJ. Correction d'orthographe de Noèsis désactivée.",
-    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, titre: { type: 'string' }, pole: { type: 'string', description: 'Pôle (ou secteur si le pôle en a).' }, echeance: { type: 'string' } }, required: ['activityId', 'titre', 'pole'], additionalProperties: false },
+    description: "Ajoute une tâche (titre 300 caractères max) dans un pôle ou secteur de l'utilisateur, avec une échéance facultative AAAA-MM-JJ et une durée facultative en minutes (entier de 5 à 480). Correction d'orthographe de Noèsis désactivée.",
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, titre: { type: 'string' }, pole: { type: 'string', description: 'Pôle (ou secteur si le pôle en a).' }, echeance: { type: 'string' }, duree: { type: 'integer', minimum: 5, maximum: 480, description: 'Durée en minutes (5 à 480).' } }, required: ['activityId', 'titre', 'pole'], additionalProperties: false },
     run(userId, args, ctx) {
       const a = memberActivity(userId, args.activityId);
       const titre = checkTitle(args.titre);
       const t = poleAndSecteurs(a.id, args.pole);
       const extra = { noSpellfix: true };
+      if (args.duree != null) { const m = taskminutes.fromProposal(checkDuree(args.duree)); m.source = 'saisie'; extra.estimate = m; extra.durSource = 'saisie'; }
       if (args.echeance != null && args.echeance !== '') extra.dueDate = checkDay(args.echeance, 'echeance');
       let item;
       try { item = goalstasks.addCategoryTask(a.id, userId, t.key, titre, extra); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible d\'ajouter la tâche.'); }
-      const logId = wlog.record(ctx, 'creer_tache', a.id, item.id, null, { label: titre, dueDate: extra.dueDate || null });
+      const logId = wlog.record(ctx, 'creer_tache', a.id, item.id, null, { label: titre, dueDate: extra.dueDate || null, duree: extra.estimate ? extra.estimate.median : null });
       return done({ taskId: item.id, activityId: a.id, tache: titre }, logId);
     },
   },
   modifier_tache: {
     write: true, journal: true,
-    description: "Change le titre (300 caractères max) et/ou l'échéance (AAAA-MM-JJ) d'une tâche de l'utilisateur. Réversible avec annuler_modification.",
-    inputSchema: { type: 'object', properties: { taskId: { type: 'integer' }, titre: { type: 'string' }, echeance: { type: 'string' } }, required: ['taskId'], additionalProperties: false },
+    description: "Change le titre (300 caractères max) et/ou l'échéance (AAAA-MM-JJ) et/ou la durée (minutes, 5 à 480) d'une tâche de l'utilisateur. Réversible avec annuler_modification.",
+    inputSchema: { type: 'object', properties: { taskId: { type: 'integer' }, titre: { type: 'string' }, echeance: { type: 'string' }, duree: { type: 'integer', minimum: 5, maximum: 480 } }, required: ['taskId'], additionalProperties: false },
     run(userId, args, ctx) {
       const { item, activityId } = ownTask(userId, args.taskId);
       const fields = {};
       if (args.titre !== undefined) fields.label = checkTitle(args.titre);
       if (args.echeance !== undefined) fields.dueDate = checkDay(args.echeance, 'echeance');
-      if (!Object.keys(fields).length) throw toolError('Rien à modifier (titre ou echeance).');
-      try { sp.updateItem(item.id, fields, userId, { noSpellfix: true }); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de modifier cette tâche.'); }
-      const logId = wlog.record(ctx, 'modifier_tache', activityId, item.id, { label: item.label, dueDate: item.dueDate }, { label: fields.label || item.label, dueDate: fields.dueDate || item.dueDate });
-      return done({ taskId: item.id, tache: fields.label || item.label, echeance: fields.dueDate || item.dueDate }, logId);
+      const duree = args.duree !== undefined ? checkDuree(args.duree) : undefined;
+      if (!Object.keys(fields).length && duree === undefined) throw toolError('Rien à modifier (titre, echeance ou duree).');
+      try { if (Object.keys(fields).length) sp.updateItem(item.id, fields, userId, { noSpellfix: true }); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de modifier cette tâche.'); }
+      const beforeDur = item.medianMinutes == null ? null : item.medianMinutes;
+      if (duree !== undefined) { const m = taskminutes.fromProposal(duree); m.source = 'saisie'; taskminutes.store(db, item.id, m, 'saisie'); }
+      const logId = wlog.record(ctx, 'modifier_tache', activityId, item.id, { label: item.label, dueDate: item.dueDate, duree: beforeDur }, { label: fields.label || item.label, dueDate: fields.dueDate || item.dueDate, duree: duree === undefined ? beforeDur : duree });
+      return done({ taskId: item.id, tache: fields.label || item.label, echeance: fields.dueDate || item.dueDate, duree: duree === undefined ? beforeDur : duree }, logId);
     },
   },
   ordonner_taches: {
@@ -452,7 +462,9 @@ Object.assign(tools, {
           }
           case 'modifier_tache': {
             const { item } = ownTask(userId, row.targetId);
-            sp.updateItem(item.id, { label: before.label, dueDate: before.dueDate }, userId, { noSpellfix: true }); break;
+            sp.updateItem(item.id, { label: before.label, dueDate: before.dueDate }, userId, { noSpellfix: true });
+            if (before.duree !== undefined) { if (before.duree == null) db.prepare('UPDATE sub_project_items SET minMinutes = NULL, medianMinutes = NULL, maxMinutes = NULL, durSource = NULL, durConfidence = NULL WHERE id = ?').run(item.id); else { const m = taskminutes.fromProposal(before.duree); if (m) taskminutes.store(db, item.id, m, 'saisie'); } }
+            break;
           }
           case 'ordonner_taches': {
             Object.keys(before).forEach((id) => { ownTask(userId, id); });
