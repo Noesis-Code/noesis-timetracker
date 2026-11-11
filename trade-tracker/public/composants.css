@@ -245,6 +245,11 @@
 :root:root:root .cmpSeg > :is(.active, .on, [aria-pressed="true"], [aria-selected="true"]) { color: var(--text); font-weight: 600; }
 :root:root:root .cmpSeg > :is(.active, .on, [aria-pressed="true"], [aria-selected="true"])::before { background: var(--seg-active-bg); }
 :root:root:root .cmpSeg > * + *::after { content: ''; position: absolute; left: 0; top: 15px; width: 1px; height: 14px; border: 0; border-radius: 0; background: var(--seg-sep); }
+/* Tableau 2 × 2 (.cmpGrid) : deux .cmpSeg l'un sous l'autre ; la barre verticale de chaque ligne couvre toute la hauteur de la ligne et la barre horizontale entre les deux lignes la coupe au centre (les traits SE CROISENT). UNE seule définition (R29) : Niveau, Objectifs inférieurs… */
+:root:root:root .cmpGrid { position: relative; margin: 0 0 16px; --seg-sep: var(--sep); }
+:root:root:root .cmpGrid .cmpSeg { margin: 0; }
+:root:root:root .cmpGrid::before { content: ''; position: absolute; left: 0; right: 0; top: 44px; height: 1px; z-index: 1; background: var(--sep); }
+:root:root:root .cmpGrid .cmpSeg > * + *::after { top: 0; bottom: 0; height: auto; }
 .cmpSeg > *:focus-visible { outline: 2px solid var(--purple); outline-offset: -2px; border-radius: 8px; }
 
 /* Sous-catégories d'un écran (.cmpSubTabs, R44, 28 oct. 2026) : texte simple ; la sous-catégorie active est soulignée en violet

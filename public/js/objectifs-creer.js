@@ -588,39 +588,41 @@
     var niv = form.niv = form.niv || { key: null, qs: null, picks: [], open: 0, known: [], skip: false, type: null };
     var NIV_KEYS = ['accompli', 'regularite', 'anciennete'];
     function nivKey() { return [form.title || '', form.activityId == null ? '' : form.activityId, form.level || 'activite', form.poleKey || '', form.categoryKey || '', form.endDate || '', form.description || ''].join('|'); }
-    var NIV_LEVELS = ['Débutant', 'Apprenti', 'Intermédiaire', 'Expert']; // tableau 2 × 2 : le niveau général (index 0 à 3, comme les réponses détaillées)
-    function nivDone() { if (!niv.qs) return false; return niv.level != null || niv.picks.every(function (p) { return p != null; }); } // le niveau choisi suffit ; sinon toutes les réponses détaillées (Avancé)
-    function nivBody() { // les trois réponses : connues (Chrono ou objectif similaire) + détaillées (Avancé) ; ce qui n'est pas détaillé prend le niveau choisi ; rien si le niveau n'existe pas (objectif sans progression)
+    function nivMain() { return niv.qs ? niv.qs.findIndex(function (q) { return q.key === 'accompli'; }) : -1; } // la question générale (« accompli ») : seule affichée en haut ; les autres sont sous « Avancé »
+    function nivDone() { if (!niv.qs) return false; var m = nivMain(); return m >= 0 ? niv.picks[m] != null : niv.picks.every(function (p) { return p != null; }); } // seule la question générale est obligatoire
+    function nivBody() { // les trois réponses : connues (Chrono ou objectif similaire) + choisies ; rien si le niveau n'existe pas (objectif sans progression)
       if (!nivDone()) return undefined;
-      var by = {}; niv.known.forEach(function (k) { by[k.key] = { q: k.q, a: k.a, i: k.i }; });
-      niv.qs.forEach(function (q, qi) { by[q.key] = niv.picks[qi] != null ? { q: q.q, a: q.choices[niv.picks[qi]], i: niv.picks[qi] } : { q: q.q, a: tr(NIV_LEVELS[niv.level]), i: niv.level }; });
+      var by = {}; niv.known.forEach(function (k) { by[k.key] = { q: k.q, a: k.a, i: k.i }; }); niv.qs.forEach(function (q, qi) { var mi = niv.picks[nivMain()]; by[q.key] = niv.picks[qi] != null ? { q: q.q, a: q.choices[niv.picks[qi]], i: niv.picks[qi] } : { q: q.q, a: tr('Non précisé'), i: mi != null ? mi : 0 }; }); // question avancée sans réponse : le niveau général fait foi
       var out = NIV_KEYS.map(function (k) { return by[k]; });
       return out.every(Boolean) ? { answers: out } : undefined;
     }
     function nivSync() { stepBtn.disabled = !nivDone(); }
     function nivPaint() {
       boxes.niveau.textContent = '';
-      boxes.niveau.appendChild(el('p', 'cmpBlockTitle objNivTitle', tr('Quel est ton niveau ?')));
       if (!niv.qs) { if (niv.failed) boxes.niveau.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); else TMT.ui.loader(boxes.niveau); return; } // zone qui charge : le N standard (R48)
-      function grid(label, choices, cur, set) { // quatre réponses : deux sélecteurs standard (.cmpSeg) de deux cases l'un sous l'autre
-        var g = el('div', 'objNivGrid'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', tr(label));
+      function grid(q, qi, after) { // les quatre réponses : deux sélecteurs standard (.cmpSeg) de deux cases l'un sous l'autre
+        var g = el('div', 'cmpGrid'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', tr(q.q));
         [0, 2].forEach(function (from) {
           var sg = el('div', 'cmpSeg');
-          choices.slice(from, from + 2).forEach(function (c, k) {
-            var ci = from + k, on = cur === ci, bt = btn(on ? 'active' : '', tr(c), function () { set(ci); nivPaint(); nivSync(); });
+          q.choices.slice(from, from + 2).forEach(function (c, k) {
+            var ci = from + k, on = niv.picks[qi] === ci, bt = btn(on ? 'active' : '', tr(c), function () { niv.picks[qi] = ci; after(); nivPaint(); nivSync(); });
             bt.setAttribute('aria-pressed', on ? 'true' : 'false'); sg.appendChild(bt);
           });
           g.appendChild(sg);
         });
         return g;
       }
-      boxes.niveau.appendChild(grid('Quel est ton niveau ?', NIV_LEVELS, niv.level, function (ci) { niv.level = ci; }));
-      var advWrap = el('div', 'objField objGuideRow' + (niv.advOpen ? ' open' : '')), advHead = btn('objGuideHead objAdvHead cmpToggle', '', function () { niv.advOpen = !niv.advOpen; nivPaint(); }); // « Avancé » : toutes les questions détaillées, même style que la Description (à droite, violet, sans trait)
-      advHead.setAttribute('aria-expanded', niv.advOpen ? 'true' : 'false');
-      var advTx = el('span', 'objGuideTxt'); advTx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
-      advHead.appendChild(advTx); advHead.appendChild(el('span', 'cmpChev' + (niv.advOpen ? ' open' : ''))); advWrap.appendChild(advHead); boxes.niveau.appendChild(advWrap);
-      if (!niv.advOpen) return;
+      var mi = nivMain();
+      if (mi >= 0) { boxes.niveau.appendChild(el('p', 'cmpBlockTitle', tr(niv.qs[mi].q))); boxes.niveau.appendChild(grid(niv.qs[mi], mi, function () {})); } // UNE question générale, écrite par l'IA, proportionnée à l'objectif
+      if (niv.qs.length > (mi >= 0 ? 1 : 0) && mi >= 0) { // les autres questions : sous « Avancé » (même style que la Description : à droite, violet, sans trait)
+        var advWrap = el('div', 'objField objGuideRow' + (niv.advOpen ? ' open' : '')), advHead = btn('objGuideHead objAdvHead cmpToggle', '', function () { niv.advOpen = !niv.advOpen; nivPaint(); });
+        advHead.setAttribute('aria-expanded', niv.advOpen ? 'true' : 'false');
+        var advTx = el('span', 'objGuideTxt'); advTx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
+        advHead.appendChild(advTx); advHead.appendChild(el('span', 'cmpChev' + (niv.advOpen ? ' open' : ''))); advWrap.appendChild(advHead); boxes.niveau.appendChild(advWrap);
+      }
+      if (mi >= 0 && !niv.advOpen) return;
       niv.qs.forEach(function (q, qi) {
+        if (qi === mi) return;
         var open = niv.open === qi, wrap = el('div', 'objField objGuideRow' + (open ? ' open' : ''));
         var head = btn('objGuideHead cmpToggle', '', function () { niv.open = open ? -1 : qi; nivPaint(); });
         head.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -628,7 +630,7 @@
         head.appendChild(tx);
         head.appendChild(el('span', 'hint objGuideRight objNivAns', niv.picks[qi] != null ? tr(q.choices[niv.picks[qi]]) : '')); // à droite : la réponse choisie (violet) ; la flèche demeure à droite (R21)
         head.appendChild(el('span', 'cmpChev' + (open ? ' open' : ''))); wrap.appendChild(head);
-        if (open) wrap.appendChild(grid(q.q, q.choices, niv.picks[qi], function (ci) { niv.picks[qi] = ci; niv.open = -1; }));
+        if (open) wrap.appendChild(grid(q, qi, function () { niv.open = niv.picks.indexOf(null) === qi ? -1 : niv.open; niv.open = -1; }));
         boxes.niveau.appendChild(wrap);
       });
     }
@@ -636,7 +638,7 @@
       var key = nivKey();
       if (niv.key === key && niv.qs) return Promise.resolve();
       if (niv.key === key && niv.pending) return niv.pending; // demande déjà partie (préchargée pendant l'étape Activité) : on l'attend, on ne la refait pas
-      niv.key = key; niv.qs = null; niv.picks = []; niv.open = -1; niv.known = []; niv.skip = false; niv.type = null; niv.failed = false; niv.advOpen = false; niv.level = null;
+      niv.key = key; niv.qs = null; niv.picks = []; niv.open = -1; niv.known = []; niv.skip = false; niv.type = null; niv.failed = false; niv.advOpen = false;
       var t = targets()[0];
       var pr = api('POST', '/api/objectifs/niveau/questions', { title: form.title, description: form.description || '', endDate: form.endDate, activityId: form.activityId, activityName: t ? t.name : '', level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null }).then(function (r) {
         if (niv.key !== key || !r || !r.questions) return;

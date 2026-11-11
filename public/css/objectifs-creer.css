@@ -192,9 +192,6 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objNivTitle { padding: 0 0 4px; }
 .objNivSub { margin: 0 0 24px; }
 .objNivAns { color: var(--purple); } /* réponse choisie, à droite du titre replié (13 px comme .hint) */
-.objNivGrid { position: relative; margin: 0 0 16px; --seg-sep: var(--sep); } /* 16 px sous le tableau (les 16 px sous le trait du titre viennent de .objGuideRow.open .objGuideHead) ; la barre verticale (composant .cmpSeg) prend la couleur des séparateurs de groupes */
-.objNivGrid .cmpSeg { margin: 0; }
-.objNivGrid::before { content: ''; position: absolute; left: 0; right: 0; top: 44px; height: 1px; background: var(--sep); } /* UNE barre horizontale entre les deux lignes (44 px de haut chacune) */
 /* Étape « Objectifs inférieurs » : lignes au format des groupes de la Description (.objGuideRow / .objGuideHead) ; dépliée, la ligne forme une section en verre calme (jetons existants) */
 .objRecap { margin: 0 0 24px; }
 .objRecap::before { display: none; }
