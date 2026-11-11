@@ -15,4 +15,5 @@ assert(js.includes("if (form.endFixed) loadRatt().then(nivFetch); else nivFetch(
 assert(!/if \(!form\.dateOk \|\| !form\.endDate\) \{ msg\.textContent = tr\('Indique la date de l’échéance\.'\); return false; \}/.test(js), 'validDesc n’exige plus la date');
 assert(js.includes("form.endFixed || form.echeanceDone") && js.includes("echeance: 'Échéance'"), '« sous X / sans parent » seulement une fois l’échéance confirmée ; libellé de l’étape');
 assert(css.includes('.objAdvBody .objGuideRow.open > .objGuideHead { border-bottom-color: transparent; }') && js.includes("el('div', 'objAdvBody')") && js.includes("classList.add('objAdvBody')"), 'sous « Avancé » (Description, Niveau) : pas de trait sous une question dépliée (une seule règle CSS)');
+assert(js.includes("if (!force && tp.key === tpKey() && tp.e) { tp.page = 0; tp.shown = 0; tpPaint(); tpSync();"), 'étape Temps : à chaque ré-entrée on revient à la première sous-page (valeurs conservées)');
 if (failed) { console.log('\n' + failed + ' échec(s)'); process.exit(1); } console.log('\ntout passe');

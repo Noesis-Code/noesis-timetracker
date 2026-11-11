@@ -499,7 +499,7 @@
     }
     function tpGo(i) { var n = tpPages().length; tp.page = Math.max(0, Math.min(n - 1, i)); tpPaint(); tpSync(); }
     function tpLoad(force) {
-      if (!force && tp.key === tpKey() && tp.e) { tpPaint(); tpSync(); return Promise.resolve(); }
+      if (!force && tp.key === tpKey() && tp.e) { tp.page = 0; tp.shown = 0; tpPaint(); tpSync(); return Promise.resolve(); } // ré-entrée dans Temps : on revient à la PREMIÈRE sous-page (valeurs saisies conservées)
       tp.key = tpKey(); tp.loading = true; tp.e = null; tpPaint();
       var key = tp.key, nb = nivBody(), sg = form.endDate && niv.qs ? api('POST', '/api/objectifs/temps/suggestion', { title: form.title, endDate: form.endDate, startDate: form.startDate, activityName: (targets()[0] || {}).name || '', niveau: nb }).then(function (r) { return r && r.suggestion && r.suggestion.perWeekMin && r.suggestion.perWeekMin.mid > 0 ? r.suggestion : null; }, function () { return null; }) : Promise.resolve(null);
       return Promise.all([api('GET', '/api/objectifs/temps?' + tpQuery()), sg]).then(function (res) {
@@ -722,12 +722,12 @@
     }
     // Lignes de sous-objectifs : UNE ligne avec UN trait dessous, comme les groupes de la Description (.objGuideRow / .objGuideHead cmpToggle) ; toucher la ligne la déplie (une seule à la fois) et elle forme alors une section.
     // Ligne : case à cocher, période en petit gris au-dessus du titre, chiffre, petit trait, heures (violet, sélecteur standard), flèche à droite. Dépliée : Faire, Résultat, Avancement, puis les objectifs existants plus bas (gris, sans case).
-    function infLevelName(p) { var lv = form.level || 'activite'; return lv === 'activite' ? 'Objectifs périodiques' : 'Objectifs hebdomadaires'; } // titre de la page = niveau EN DESSOUS de l'objectif créé (niveau réel form.level) : activité (annuel dans l'arbre) → périodiques ; pôle (périodique) → hebdomadaires
+    function infLevelName(p, one) { var k = p.level === 'pole' ? ['Objectifs annuels', 'Objectif annuel'] : p.level === 'secteur' ? ['Objectifs périodiques', 'Objectif périodique'] : ['Objectifs hebdomadaires', 'Objectif hebdomadaire']; return k[one ? 1 : 0]; } // UNE source : le niveau réel des LIGNES proposées (pôle = par année, secteur = par période, sinon par semaine) pour le titre du panneau et l'en-tête de colonne
     function infPaint() {
       var box = boxes.inf; box.textContent = ''; var p = inf.plan; if (!p || p.skip) return;
       box.appendChild(el('p', 'cmpBlockTitle objNivTitle', form.title)); box.appendChild(infRecap(p));
       var wrap = el('div', 'objInf'), hasC = !!p.chiffre, totC, totH;
-      var hdr = el('div', 'objGridHead objInfHdr'); hdr.appendChild(el('span', 'objGridName', tr(p.level === 'pole' ? 'Objectif annuel' : 'Objectif périodique')));
+      var hdr = el('div', 'objGridHead objInfHdr'); hdr.appendChild(el('span', 'objGridName', tr(infLevelName(p, true))));
       if (hasC) hdr.appendChild(el('span', 'objGridChrono', tr('Chiffre'))); hdr.appendChild(el('span', 'objGridObj', tr('Heures'))); wrap.appendChild(hdr);
       function counted(i) { return infKind(i) !== 'existant' && inf.on[i] !== false; }
       function setTot() { // somme des lignes cochées : heures, et chiffre final (cumulatif : le plus haut jalon ; additif : la somme)
