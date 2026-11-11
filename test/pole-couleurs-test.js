@@ -25,7 +25,7 @@ const BAN = ['subProjectShade', 'SUB_PROJECT_SHADE_COUNT', 'POLE_TINTS', 'functi
 const old = files.filter((p) => !p.endsWith('theme-palette.js') && BAN.some((x) => fs.readFileSync(p, 'utf8').includes(x)));
 assert(old.length === 0, 'une seule source : aucune copie de la règle ni ancien nom ailleurs que dans theme-palette.js (' + (old.length ? old.map((p) => path.basename(p)).join(', ') : 'rien') + ')');
 const users = files.filter((p) => fs.readFileSync(p, 'utf8').includes('TMT.poleColor(')).map((p) => path.basename(p)).sort();
-assert(['app.js', 'aujourdhui.js', 'objectifs-arbre.js', 'objectifs-creer.js', 'objectifs-document-taches.js', 'objectifs-page2-objectif.js', 'objectifs-page2-taches.js', 'objectifs-page3.js', 'stats-avance.js'].every((n) => users.indexOf(n) >= 0), 'tous les appels passent par TMT.poleColor (' + users.join(', ') + ')');
+assert(['app.js', 'aujourdhui.js', 'composants.js', 'objectifs-creer.js', 'objectifs-document-taches.js', 'objectifs-page2-objectif.js', 'objectifs-page2-taches.js', 'stats-avance.js'].every((n) => users.indexOf(n) >= 0), 'tous les appels passent par TMT.poleColor (' + users.join(', ') + ')');
 assert(pal.includes('root.TMT.poleColor = root.NOESIS_THEME_PALETTES.poleColor'), 'TMT.poleColor est publiée par theme-palette.js (chargé avant app.js)');
 console.log(failed ? '\npole-couleurs-test : ' + failed + ' ÉCHEC(S)' : '\npole-couleurs-test : OK');
 process.exit(failed ? 1 : 0);
