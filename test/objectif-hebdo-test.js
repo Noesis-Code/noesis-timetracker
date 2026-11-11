@@ -92,6 +92,7 @@ const mk = (extra) => o.creer('u1', Object.assign({ title: 'Objectif ' + Math.ra
   assert(src.includes('TMT.poleColor(a.color, p.shadeRank)') && src.includes('r.style.color = pc') && src.includes('r2.style.color = pc') && src.includes("r2.classList.add('objSub')"), 'nom du pôle dans sa couleur ; secteurs dans la couleur de leur pôle, décalés');
   assert(fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'objectifs-creer.css'), 'utf8').includes('.objAct > .objChoice.objSub { padding-left: 32px; }'), 'secteur décalé d’un pas de 16 px');
   assert(src.includes("if (form.poleOpen) { form.poleKey = null; form.categoryKey = null; form.level = 'activite'; } form.poleOpen = !form.poleOpen; refresh();") && src.includes("form.poleKey = sel ? null : p.key; form.categoryKey = null; form.level = sel ? 'activite' : 'pole'") && src.includes("form.categoryKey = on2 ? null : x.key; form.level = on2 ? 'pole' : 'secteur'"), 'retoucher un parent le désélectionne et replie ses enfants ; niveau recalculé (activité / pôle / secteur)');
+  assert(src.includes("var TITRES_EMPLACEMENT = { etape: 'Emplacement', type: 'Type', cadre: 'Cadre' };") && src.includes('activite: TITRES_EMPLACEMENT.etape') && src.includes('tr(TITRES_EMPLACEMENT.type)'), 'titres finaux : panneau « Emplacement », bloc « Type », sous-titre « Cadre » (une seule source)');
   console.log(failed ? '\nobjectif-hebdo-test : ' + failed + ' ÉCHEC(S)' : '\nobjectif-hebdo-test : OK');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });
