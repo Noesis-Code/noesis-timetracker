@@ -3,6 +3,7 @@ process.env.TZ = 'America/Montreal';
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-inf-hebdo-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 delete process.env.ANTHROPIC_API_KEY;
+const fs = require('fs');
 let failed = 0; const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db'), categories = require('../server/lib/categories'), goals = require('../server/lib/goals'), aicache = require('../server/lib/aicache'), O = require('../server/lib/objectifs'), I = require('../server/lib/objectifs-inferieurs');
 const T = require('../server/lib/dates').userToday();
