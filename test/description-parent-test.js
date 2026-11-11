@@ -64,9 +64,9 @@ assert(api.guideCompose(child) === 'Avec qui : client, équipe, ma voisine' && a
 
 // ---- Compteur « n/3 » par groupe ----
 const cnt = (form, grp) => grp.qs.filter((g) => api.guideFilled(api.guideAns(form, g))).length;
-const ctxGroup = api.GUIDE_GROUPS[1];
-assert(ctxGroup.g === 'Le contexte' && api.GUIDE_GROUPS[0].g === 'Le travail' && api.GUIDE_GROUPS[2].g === 'Les précisions', 'titres des trois groupes : Le travail, Le contexte, Les précisions');
-assert(cnt(f, ctxGroup) === 3 - 1 && cnt(f, api.GUIDE_GROUPS[0]) === 0 && cnt(f, api.GUIDE_GROUPS[2]) === 0, 'compteur : une question avec un mot OU du texte compte (2/3 ici), sinon 0');
+const ctxGroup = api.GUIDE_GROUPS[0];
+assert(ctxGroup.g === 'Point de départ' && api.GUIDE_GROUPS[1].g === 'But' && api.GUIDE_GROUPS[2].g === 'Ce qui peut gêner', 'titres des trois groupes : Point de départ, But, Ce qui peut gêner');
+assert(cnt(f, ctxGroup) === 3 - 1 && cnt(f, api.GUIDE_GROUPS[1]) === 0 && cnt(f, api.GUIDE_GROUPS[2]) === 0, 'compteur : une question avec un mot OU du texte compte (2/3 ici), sinon 0');
 assert(cnt(child, ctxGroup) === 1, 'compteur : seulement ce qui est validé par la personne');
 
 // ---- Garde statique : lecture seule, composants existants, aucun appel payant ----

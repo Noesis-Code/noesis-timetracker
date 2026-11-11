@@ -217,3 +217,6 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objInfBody { margin: 0 0 12px 24px; }
 .objInfSubs .objGridName { flex: 1 1 auto; width: auto; color: var(--text-light); }
 .objInfSubs .objRecapVal { flex: none; color: var(--text-light); }
+.objNivSkip { display: flex; margin: 8px auto 0; } /* étape Niveau : lien discret « Passer » sous la liste (saute sans bloquer) */
+.objCenterChoices .objChoice:active, .objCenterChoices .objChoice.on { background: var(--purple); color: var(--on-action); box-shadow: none; } /* choix Ajouter / Déplacer : violet plein dès le toucher */
+.objCenterChoices .objChoice:active .aiModeChoiceTitle, .objCenterChoices .objChoice.on .aiModeChoiceTitle { color: var(--on-action); }

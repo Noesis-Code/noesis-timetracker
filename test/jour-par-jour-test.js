@@ -81,7 +81,7 @@ assert(JSON.stringify(o.joursDefaut('u1', o4, 480).default) === JSON.stringify([
   const i18n = fs.readFileSync(path.join(__dirname, '..', 'public', 'i18n.js'), 'utf8');
   const iEdit = js.indexOf('  function openEdit(id) {'), iEnd = js.indexOf('  // ---------- Fenêtre « détail d\'un objectif » ----------');
   const edit = js.slice(iEdit, iEnd), create = js.slice(0, iEdit);
-  assert(edit.includes("tr('Avancé')") && !create.includes('hoursByDay') && !create.includes('byDay') && !create.includes("tr('Avancé')"), 'le volet « Avancé » est dans la modification d’un objectif ; la création n’en parle pas (aucune étape, aucun écran de plus)');
+  assert(edit.includes("tr('Avancé')") && !create.includes('hoursByDay') && !create.includes('byDay'), 'le volet « Avancé » est dans la modification d’un objectif ; la création n’a ni jour par jour ni heures par jour (aucune étape, aucun écran de plus)');
   assert(edit.includes('byOpen = false') && edit.includes("btn('objGuideHead cmpToggle'") && edit.includes("'cmpChev' + (byOpen ? ' open' : '')"), 'volet fermé par défaut, même composant que les groupes repliables de la description (ligne fine, titre à gauche, chevron à droite)');
   assert(edit.includes('function byShow() { return !!bd && hoursMin() > 0 && hoursMin() !== (bd.passeWeekMin || 0); }') && edit.includes('if (!byShow() || !form.byDay) return;'), 'visible seulement si le Prévu diffère du Passé');
   const iDays = edit.indexOf('function paintDays()'), days = edit.slice(iDays, edit.indexOf('paintDays();\n      var sIn'));

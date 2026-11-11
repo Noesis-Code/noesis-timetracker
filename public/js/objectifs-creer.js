@@ -186,20 +186,21 @@
   // Chaque question propose trois mots : un toucher INSÈRE le mot dans la réponse (champ texte modifiable). Le texte composé « Libellé : réponse · … » est lu par l'IA (rattachement
   // des tâches à l'objectif) ; l'IA élargit chaque réponse avec des synonymes côté serveur, sans que la personne écrive plus. Le texte des questions et des mots est fixé par Émilien.
   var GUIDE_GROUPS = [
-    { g: 'Le travail', qs: [
-      { k: 'faire', q: 'Que faire ?', label: 'Faire', opts: ['Contacter', 'Créer', 'Organiser'] },
-      { k: 'resultat', q: 'Quel résultat ?', label: 'Résultat', opts: ['Document', 'Livraison', 'Décision'] },
-      { k: 'avance', q: 'Comment ça avance ?', label: 'Avancement', opts: ['Chiffre', 'Terminé', 'Habitude'] }] },
-    { g: 'Le contexte', qs: [
+    { g: 'Point de départ', qs: [
       { k: 'qui', q: 'Avec qui ?', label: 'Avec qui', opts: ['Client', 'Équipe', 'Proches'] },
       { k: 'quoi', q: 'Avec quoi ?', label: 'Avec quoi', opts: ['Outils', 'Matériel', 'Documents'] },
       { k: 'ou', q: 'Où ?', label: 'Lieu', opts: ['Lieu', 'En ligne', 'Déplacement'] }] },
-    { g: 'Les précisions', qs: [
+    { g: 'But', qs: [
+      { k: 'faire', q: 'Que faire ?', label: 'Faire', opts: ['Contacter', 'Créer', 'Organiser'] },
+      { k: 'resultat', q: 'Quel résultat ?', label: 'Résultat', opts: ['Document', 'Livraison', 'Décision'] },
+      { k: 'avance', q: 'Comment ça avance ?', label: 'Avancement', opts: ['Chiffre', 'Terminé', 'Habitude'] }] },
+    { g: 'Ce qui peut gêner', qs: [
       { k: 'obstacle', q: 'Obstacle ?', label: 'Obstacle', opts: ['Temps', 'Argent', 'Quelqu’un'] },
       { k: 'horssujet', q: 'Hors sujet ?', label: 'Hors sujet', opts: ['Autre projet', 'Autre domaine', 'Plus tard'] },
       { k: 'nom', q: 'Autre nom ?', label: 'Autre nom', opts: ['Sigle', 'Surnom', 'Nom du client'] }] }
   ];
-  var GUIDE = [].concat.apply([], GUIDE_GROUPS.map(function (x) { return x.qs; }));
+  var GUIDE_ORDER = ['faire', 'resultat', 'avance', 'qui', 'quoi', 'ou', 'obstacle', 'horssujet', 'nom'];
+  var GUIDE = [].concat.apply([], GUIDE_GROUPS.map(function (x) { return x.qs; })).sort(function (a, b) { return GUIDE_ORDER.indexOf(a.k) - GUIDE_ORDER.indexOf(b.k); }); // ordre du texte composé inchangé (Faire en premier), quel que soit le groupe
   function guideAns(form, g) { form.guide = form.guide || {}; return form.guide[g.k] || (form.guide[g.k] = { picks: [], text: '' }); }
   function guideParse(form, text) { // relit une description déjà enregistrée : mots connus = mots sélectionnés, le reste = texte libre ; tout texte qui n'est pas une réponse connue (ancien format compris) est gardé tel quel (form.guideRest), jamais perdu
     form.guide = {}; var rest = [];
@@ -339,16 +340,25 @@
     }
     if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
     panelForm = form; setBack(null);
-    function syncGo() { stepBtn.disabled = !form.dateOk || !form.endDate; } // échéance obligatoire : Suivant / Terminer grisé sans date valide
+    function syncGo() { stepBtn.disabled = !form.dateOk || !form.endDate || !String(form.title || '').trim(); } // échéance obligatoire : Suivant / Terminer grisé sans date valide
     var MSG_PASSE = tr('L’échéance ne peut pas être dans le passé.');
     var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.setAttribute('aria-label', tr('Objectif'));
-    titleIn.addEventListener('input', function () { form.title = titleIn.value; });
+    titleIn.addEventListener('input', function () { form.title = titleIn.value; if (cur === 'desc') syncGo(); });
     boxes.desc.appendChild(field(tr('Objectif'), titleIn));
     var dueBox = el('div'); boxes.desc.appendChild(dueBox); // l'échéance suit le titre (page 1), avant la description
     form.guide = form.guide || {}; // description guidée : blocs partagés avec la modification (paintGuideInto)
-    var guideBox = el('div', 'objGuide'); boxes.desc.appendChild(guideBox);
+    var advBox = el('div', 'objGuide'), guideBox = el('div'), advOpen = false; boxes.desc.appendChild(advBox); // les neuf questions : sous « Avancé », replié par défaut (R8)
     function composeDesc() { form.description = guideCompose(form); }
-    function paintGuide(f) { paintGuideInto(guideBox, form, composeDesc, f); }
+    function paintAdv() {
+      advBox.textContent = '';
+      var wrap = el('div', 'objField objGuideRow' + (advOpen ? ' open' : '')), head = btn('objGuideHead cmpToggle', '', function () { advOpen = !advOpen; paintAdv(); });
+      head.setAttribute('aria-expanded', advOpen ? 'true' : 'false');
+      var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
+      head.appendChild(tx); head.appendChild(el('span', 'cmpChev' + (advOpen ? ' open' : ''))); wrap.appendChild(head); advBox.appendChild(wrap);
+      if (advOpen) { advBox.appendChild(guideBox); paintGuideInto(guideBox, form, composeDesc); }
+    }
+    function paintGuide(f) { if (advOpen) paintGuideInto(guideBox, form, composeDesc, f); }
+    paintAdv();
     // Parent retenu automatiquement (même appel que le rattachement : même activité, échéance du parent au moins celle du nouvel objectif) : { id, title } ou null. Lecture seule.
     function rattBody() { return { inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined, endDate: form.endDate, title: form.title, activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, refused: form.refused || [] }; }
     function rattKey() { return [form.title, form.activityId, form.level || 'activite', form.poleKey || '', form.categoryKey || ''].join('|'); }
@@ -616,6 +626,7 @@
         }
         boxes.niveau.appendChild(wrap);
       });
+      boxes.niveau.appendChild(btn('objLink objNivSkip', tr('Passer'), function () { stepNextFrom('niveau'); })); // saute le niveau sans le bloquer (nivBody reste vide : rien n'est enregistré)
     }
     function nivFetch() { // une seule demande par objectif ; changer le titre, l'activité, le niveau de l'arbre, l'échéance ou la description repose les questions et efface les réponses
       var key = nivKey();
@@ -767,9 +778,9 @@
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
       stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave');
       stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');
-      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate)) || (k === 'niveau' && !nivDone()); // Suivant grisé tant que le rattachement n'est pas décidé
+      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate || !String(form.title || '').trim())) || (k === 'niveau' && !nivDone()); // Suivant grisé tant que le rattachement n'est pas décidé
       advance = i < tot - 1 ? stepNext : finishAll; setBack(i > 0 ? function () { show(l[i - 1]); } : null);
-      dock.classList.toggle('objTemps', k === 'temps' || k === 'niveau'); // bouton du bas gris (R35) quand il est désactivé, aux étapes Niveau et Temps
+      dock.classList.toggle('objTemps', k === 'temps' || k === 'niveau' || k === 'desc'); // bouton du bas gris (R35) quand il est désactivé, aux étapes Description, Niveau et Temps
       if (k === 'temps') tpSync();
     }
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
