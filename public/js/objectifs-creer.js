@@ -406,15 +406,17 @@
     function noActivity() { return !form.acts.length; }
     // Type (maquette approuvée) : Annuel | Périodique | Hebdomadaire, toujours visible, en haut de l'étape. Le type décide de la période (année ou tranche / période de 28 jours / semaine) ; le niveau du cadre (activité, pôle, secteur) se choisit en dessous.
     // Combinaisons que le modèle de données porte : annuel = activité (tranche de 5 ans) ou pôle (année) ; périodique et hebdomadaire = pôle (avec ou sans secteurs, écrit sur le pôle) ou secteur (période ou semaine). Pas encore possible : périodique / hebdomadaire sur l'activité seule (aucun plan au niveau activité) ; annuel sur un secteur : message précis, Suivant grisé.
-    var TYPES = [['annuel', 'Annuel'], ['periodique', 'Périodique'], ['hebdomadaire', 'Hebdomadaire']];
-    function typeDerived() { return form.level === 'secteur' ? 'periodique' : 'annuel'; } // sans choix explicite : le type suit le niveau choisi dans l'arbre
+    var TYPES = [['pluriannuel', 'Pluriannuel'], ['annuel', 'Annuel'], ['periodique', 'Périodique'], ['hebdomadaire', 'Hebdomadaire']]; // tableau 2 × 2 : le niveau activité de l'arbre = blocs de 5 ans (pluriannuel), pôle = année (annuel), période, semaine
+    function typeDerived() { return form.level === 'secteur' ? 'periodique' : form.level === 'pole' ? 'annuel' : 'pluriannuel'; } // sans choix explicite : le type suit le niveau choisi dans l'arbre
     function typeOf() { return form.type || typeDerived(); }
-    function typeOk() { var t = typeOf(); return t === 'annuel' ? form.level !== 'secteur' : form.level === 'pole' || (form.level === 'secteur' && !!form.categoryKey); } // annuel : activité ou pôle ; périodique et hebdomadaire : pôle (avec ou sans secteurs) ou secteur
-    function cadenceNow() { var t = typeOf(); return form.level === 'pole' && t !== 'annuel' ? t : undefined; } // périodique / hebdomadaire posé sur un PÔLE : écrit sur le pôle lui-même (serveur : cadence)
-    function typeMsg() { var t = typeOf(); return typeOk() ? '' : t === 'annuel' ? tr('Un objectif annuel se range sur l’activité ou sur un pôle.') : tr('Un objectif périodique ou hebdomadaire se range sur un pôle ou un secteur : choisis-en un.'); }
+    function typeOk() { var t = typeOf(); return t === 'pluriannuel' ? form.level === 'activite' || !form.level : t === 'annuel' ? form.level === 'pole' : form.level === 'pole' || (form.level === 'secteur' && !!form.categoryKey); } // pluriannuel : activité ; annuel : pôle ; périodique et hebdomadaire : pôle (avec ou sans secteurs) ou secteur (confirmé par l'arbre : objectifs-arbre.js, blocs de 5 ans / années / périodes)
+    function cadenceNow() { var t = typeOf(); return form.level === 'pole' && (t === 'periodique' || t === 'hebdomadaire') ? t : undefined; } // périodique / hebdomadaire posé sur un PÔLE : écrit sur le pôle lui-même (serveur : cadence)
+    function typeMsg() { var t = typeOf(); return typeOk() ? '' : t === 'pluriannuel' ? tr('Un objectif pluriannuel se range sur l’activité.') : t === 'annuel' ? tr('Un objectif annuel se range sur un pôle.') : tr('Un objectif périodique ou hebdomadaire se range sur un pôle ou un secteur : choisis-en un.'); }
     function paintTypeBlock() {
       var t = typeOf(); form.weeklyOn = t === 'hebdomadaire' && form.level === 'secteur';
-      actBox.appendChild(field(tr(TITRES_EMPLACEMENT.type), seg(TYPES.map(function (x) { return [x[0], tr(x[1])]; }), t, function (k) { form.type = k; form.typeTouched = true; refresh(); }, tr(TITRES_EMPLACEMENT.type))));
+      var grid = el('div', 'cmpGrid'); grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', tr(TITRES_EMPLACEMENT.type)); // composant partagé : barres verticale et horizontale qui se croisent
+      [TYPES.slice(0, 2), TYPES.slice(2)].forEach(function (row) { grid.appendChild(seg(row.map(function (x) { return [x[0], tr(x[1])]; }), t, function (k) { form.type = k; form.typeTouched = true; refresh(); })); });
+      actBox.appendChild(field(tr(TITRES_EMPLACEMENT.type), grid));
       var m = typeMsg(); if (m) actBox.appendChild(el('p', 'hint', m));
       if (cur === 'activite') syncGo();
     }
@@ -730,7 +732,7 @@
       row.appendChild(el('span', 'objGridName', tr('Échéance'))); row.appendChild(el('span', 'objRecapVal', form.endDate ? new Date(form.endDate + 'T12:00:00').toLocaleDateString(TMT.dateLocale || undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : ''));
       node.appendChild(row); return node;
     }
-    function infCreatedName() { return { activite: 'Objectif annuel', pole: 'Objectif périodique', secteur: 'Objectif hebdomadaire' }[form.level || 'activite']; } // niveau RÉEL de l'objectif créé, libellés de l'arbre
+    function infCreatedName() { return { activite: 'Objectif pluriannuel', pole: 'Objectif annuel', secteur: 'Objectif périodique' }[form.level || 'activite']; } // niveau RÉEL de l'objectif créé, libellés de l'arbre
     // Lignes de sous-objectifs : UNE ligne avec UN trait dessous, comme les groupes de la Description (.objGuideRow / .objGuideHead cmpToggle) ; toucher la ligne la déplie (une seule à la fois) et elle forme alors une section.
     // Ligne : case à cocher, période en petit gris au-dessus du titre, chiffre, petit trait, heures (violet, sélecteur standard), flèche à droite. Dépliée : Faire, Résultat, Avancement, puis les objectifs existants plus bas (gris, sans case).
     function infLevelName(p, one) { var k = p.level === 'pole' ? ['Objectifs annuels', 'Objectif annuel'] : p.level === 'secteur' ? ['Objectifs périodiques', 'Objectif périodique'] : ['Objectifs hebdomadaires', 'Objectif hebdomadaire']; return k[one ? 1 : 0]; } // UNE source : le niveau réel des LIGNES proposées (pôle = par année, secteur = par période, sinon par semaine) pour le titre du panneau et l'en-tête de colonne
