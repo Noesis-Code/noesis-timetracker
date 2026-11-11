@@ -727,7 +727,7 @@
       box.appendChild(el('p', 'cmpBlockTitle objNivTitle', form.title)); box.appendChild(infRecap(p));
       var wrap = el('div', 'objInf'), hasC = !!p.chiffre, totC, totH;
       var hdr = el('div', 'objGridHead objInfHdr'); hdr.appendChild(el('span', 'objGridName', tr(p.level === 'pole' ? 'Objectif annuel' : 'Objectif périodique')));
-      if (hasC) { hdr.appendChild(el('span', 'objGridChrono', tr('Chiffre'))); hdr.appendChild(el('span', 'objInfBar')); } hdr.appendChild(el('span', 'objGridObj', tr('Heures'))); wrap.appendChild(hdr);
+      if (hasC) hdr.appendChild(el('span', 'objGridChrono', tr('Chiffre'))); hdr.appendChild(el('span', 'objGridObj', tr('Heures'))); wrap.appendChild(hdr);
       function counted(i) { return infKind(i) !== 'existant' && inf.on[i] !== false; }
       function setTot() { // somme des lignes cochées : heures, et chiffre final (cumulatif : le plus haut jalon ; additif : la somme)
         totH.textContent = hh(p.rows.reduce(function (n, r, i) { return n + (counted(i) ? inf.hrs[i] : 0); }, 0));
@@ -759,7 +759,7 @@
         wrap.appendChild(rowEl);
       });
       var tot = el('div', 'objGridTotal objInfTotal'); tot.appendChild(el('span', 'objGridName', tr('Total')));
-      if (hasC) { totC = el('span', 'objGridChrono'); tot.appendChild(totC); tot.appendChild(el('span', 'objInfBar')); }
+      if (hasC) { totC = el('span', 'objGridChrono'); tot.appendChild(totC); }
       var th = el('span', 'objGridObj'); totH = el('span', 'objGridApres'); th.appendChild(totH); tot.appendChild(th); wrap.appendChild(tot);
       setTot(); box.appendChild(wrap);
     }
