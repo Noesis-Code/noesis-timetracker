@@ -94,7 +94,7 @@ const SYSTEM = 'Tu aides à situer le NIVEAU ACTUEL d\'une personne par rapport 
   + 'Certaines sont déjà connues (elles te sont données, ne les redemande pas). Écris des questions UNIQUEMENT pour les dimensions listées dans "dimensions", dans cet ordre : chaque question a QUATRE choix courts, du plus faible au plus fort, adaptés à l\'objectif (exemple marathon : Jamais couru / 5 km / 10 km / 21 km ou plus). '
   + 'Indique aussi "pertinent" : false pour un objectif administratif, financier ou une habitude simple (aucune progression de compétence), true quand la personne progresse (sport, langue, instrument, certification). '
   + 'Indique "type" : le genre d\'objectif en 1 à 3 mots, en minuscules, générique et stable (ex. "course à pied", "langue", "instrument"). '
-  + 'Réponds UNIQUEMENT par un objet JSON {"pertinent":true,"type":"...","questions":[{"key":"accompli","q":"...","choices":["","","",""]}],"confidence":0-100} (confidence = ta confiance). Questions de 60 caractères au plus, choix de 40 caractères au plus, tutoiement, même langue que le titre. La question "accompli" est la question GÉNÉRALE : ses quatre choix correspondent aux quatre niveaux (débutant, intermédiaire, bon, avancé), avec des paliers PROPORTIONNÉS à l’objectif (ex. objectif "Courir un 21 km" : "J’ai déjà couru" 5, 10, 15 ou 20 kilomètres ; pour un objectif de 5 km les paliers sont plus petits). Si pertinent est false, "questions" peut être vide.';
+  + 'Réponds UNIQUEMENT par un objet JSON {"pertinent":true,"type":"...","questions":[{"key":"accompli","q":"...","choices":["","","",""]}],"confidence":0-100} (confidence = ta confiance). Questions de 60 caractères au plus, choix de 40 caractères au plus, tutoiement, même langue que le titre. Si pertinent est false, "questions" peut être vide.';
 
 function validQuestions(parsed, keys) {
   const want = keys || KEYS, qs = parsed && Array.isArray(parsed.questions) ? parsed.questions : null;
@@ -156,7 +156,7 @@ async function questions(userId, body, today) {
     const description = String(body.description || '').replace(/\s+/g, ' ').trim().slice(0, 500);
     const payload = { objectif: title, description: description || undefined, activite: scope ? scope.activity : undefined, pole: (scope && scope.pole) || undefined, secteur: (scope && scope.secteur) || undefined, jours: days > 0 ? days : undefined, dimensions: keys, connues: known.length ? known.reduce((o, x) => { o[x.key] = x.a; return o; }, {}) : undefined };
     const aibudget = require('./aibudget');
-    const r = await aibudget.runAs(userId, () => aicache.memoize([FEATURE, 'v3', payload], () => generate(payload, keys)));
+    const r = await aibudget.runAs(userId, () => aicache.memoize([FEATURE, 'v4', payload], () => generate(payload, keys)));
     const similar = scope ? findSimilar(userId, scope, title, r.type, day) : null;
     if (similar) return { questions: [], known: similar.answers, skip: true, type: r.type || null, pertinent: r.pertinent, source: 'objectif' };
     if (!r.pertinent) return { questions: [], known: [], skip: true, type: r.type || null, pertinent: false, source: 'ia' };
