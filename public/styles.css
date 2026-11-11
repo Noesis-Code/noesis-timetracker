@@ -1481,6 +1481,8 @@ body.scrollLock { overflow: hidden; }
 #profilePage .communityMembersModal > .communityMembersModalCard,
 #goalsActivitySwitcher .communityMembersModal > .communityMembersModalCard,
 #goalsDetailPage .communityMembersModal > .communityMembersModalCard { border: 1px solid var(--glass-border); }
+/* Confirmation « Supprimer le secteur » : au-dessus de la fenêtre Catégories (.editPop, z-index 120). */
+#categoryRemoveModal { z-index: 130; }
 .announcementBody { white-space: pre-wrap; line-height: 1.5; margin: 0; }
 .communityMembersModalHeader {
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
