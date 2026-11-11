@@ -348,9 +348,9 @@
     function stepOff() { return cur === 'activite' ? !typeOk() : cur === 'echeance' ? (!form.dateOk || !form.endDate) : cur === 'desc' ? !String(form.title || '').trim() : false; } // Description : grisé sans titre ; Échéance (étape propre, après Activité et Niveau) : grisé sans date valide (R35)
     function syncGo() { stepBtn.disabled = stepOff(); }
     var MSG_PASSE = tr('L’échéance ne peut pas être dans le passé.');
-    var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.setAttribute('aria-label', tr('Objectif'));
+    var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.placeholder = tr('Titre'); titleIn.setAttribute('aria-label', tr('Titre'));
     titleIn.addEventListener('input', function () { form.title = titleIn.value; syncGo(); });
-    boxes.desc.appendChild(field(tr('Objectif'), titleIn));
+    boxes.desc.appendChild(field(tr('Titre'), titleIn)); // libellé du champ du titre (l'en-tête du panneau reste « Objectif »)
     var dueBox = el('div'); boxes.echeance.appendChild(dueBox); // l'échéance n'est plus demandée à la Description : étape « Échéance » après Activité et Niveau
     form.guide = form.guide || {}; // description guidée : blocs partagés avec la modification (paintGuideInto)
     var mainBox = el('div', 'objGuide'), advBox = el('div', 'objGuide'), guideBox = el('div', 'objAdvBody'), advOpen = false; boxes.desc.appendChild(el('p', 'cmpBlockTitle', tr('Description'))); boxes.desc.appendChild(mainBox); boxes.desc.appendChild(advBox); // sous-titre du bloc des questions visibles // les neuf questions : sous « Avancé », replié par défaut (R8)
