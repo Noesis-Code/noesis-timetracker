@@ -190,7 +190,6 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objRecap .objGridName { flex: none; width: 96px; }
 .objRecapVal { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-size: 14px; color: var(--text); }
 .objInf { position: relative; margin: 0 0 16px; }
-.objInf::before { content: ''; position: absolute; top: 0; bottom: 0; right: 158px; width: 1px; background: var(--sep); pointer-events: none; } /* UNE seule barre verticale, de l'en-tête (Chiffre | Heures) jusqu'au Total, sur toute la hauteur : elle croise tous les traits horizontaux */
 .objInf .objGridChrono { width: 48px; margin-right: 8px; font-size: 13px; }
 .objInf .objGridObj { width: 96px; margin-left: 8px; font-size: 13px; }
 .objInfHdr, .objInfTotal { padding: 0 32px 0 36px; } /* 12 px de plus de chaque côté : comme les lignes, dont le contenu est en retrait de 12 px (la section dépliée a ainsi de la marge pour son liseré) */

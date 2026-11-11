@@ -596,7 +596,7 @@
         if (key === 'accompli') return;
         var qi = niv.qs.findIndex(function (q) { return q.key === key; }), kn = niv.known.filter(function (k) { return k.key === key; })[0], fx = niv.fixed.filter(function (f) { return f.key === key; })[0];
         if (qi >= 0) out.push({ key: key, q: niv.qs[qi].q, choices: niv.qs[qi].choices, get: function () { return niv.picks[qi]; }, set: function (i) { niv.picks[qi] = i; }, known: false });
-        else if (kn && (fx || kn.choices)) out.push({ key: key, q: kn.q, choices: (fx || kn).choices, get: function () { return niv.kp[key] != null ? niv.kp[key] : kn.i; }, set: function (i) { niv.kp[key] = i; }, known: true });
+        else if (kn && (fx || kn.choices)) out.push({ key: key, q: kn.q, choices: (fx || kn).choices, get: function () { return niv.kp[key]; }, set: function (i) { niv.kp[key] = i; }, known: true });
         else if (fx) out.push({ key: key, q: fx.q, choices: fx.choices, get: function () { return niv.kp[key]; }, set: function (i) { niv.kp[key] = i; }, known: false, extra: true });
       });
       niv.qs.forEach(function (q, qi) { if (q.key !== 'accompli' && NIV_KEYS.indexOf(q.key) < 0) out.push({ key: q.key, q: q.q, choices: q.choices, get: function () { return niv.picks[qi]; }, set: function (i) { niv.picks[qi] = i; }, known: false }); });
@@ -644,7 +644,6 @@
         head.appendChild(el('span', 'hint objGuideRight objNivAns', cur != null ? tr(x.choices[cur]) : '')); // à droite : la réponse choisie (violet) ; la flèche demeure à droite (R21)
         head.appendChild(el('span', 'cmpChev' + (open ? ' open' : ''))); wrap.appendChild(head);
         if (open) {
-          if (x.known && niv.kp[x.key] == null) wrap.appendChild(el('p', 'hint', tr(niv.source === 'objectif' ? 'd’après un objectif similaire' : 'd’après ton Chrono'))); // réponse déjà connue : pré-sélectionnée, modifiable
           wrap.appendChild(grid({ q: x.q, choices: x.choices }, xi, function () {}, x.get, function (i) { x.set(i); niv.open = -1; }));
         }
         boxes.niveau.appendChild(wrap);
@@ -722,11 +721,12 @@
     }
     // Lignes de sous-objectifs : UNE ligne avec UN trait dessous, comme les groupes de la Description (.objGuideRow / .objGuideHead cmpToggle) ; toucher la ligne la déplie (une seule à la fois) et elle forme alors une section.
     // Ligne : case à cocher, période en petit gris au-dessus du titre, chiffre, petit trait, heures (violet, sélecteur standard), flèche à droite. Dépliée : Faire, Résultat, Avancement, puis les objectifs existants plus bas (gris, sans case).
+    function infLevelName(p) { return p.level === 'pole' ? 'Objectifs annuels' : p.level === 'secteur' && form.weeklyOn ? 'Objectifs hebdomadaires' : 'Objectifs périodiques'; } // titre de la page et en-tête de colonne : le niveau des lignes proposées
     function infPaint() {
       var box = boxes.inf; box.textContent = ''; var p = inf.plan; if (!p || p.skip) return;
       box.appendChild(el('p', 'cmpBlockTitle objNivTitle', form.title)); box.appendChild(infRecap(p));
       var wrap = el('div', 'objInf'), hasC = !!p.chiffre, totC, totH;
-      var hdr = el('div', 'objGridHead objInfHdr'); hdr.appendChild(el('span', 'objGridName', tr(p.level === 'pole' ? 'Objectif annuel' : 'Objectif périodique')));
+      var hdr = el('div', 'objGridHead objInfHdr'); hdr.appendChild(el('span', 'objGridName', tr(infLevelName(p)))); // nom du niveau EN DESSOUS (celui des lignes)
       if (hasC) hdr.appendChild(el('span', 'objGridChrono', tr('Chiffre'))); hdr.appendChild(el('span', 'objGridObj', tr('Heures'))); wrap.appendChild(hdr);
       function counted(i) { return infKind(i) !== 'existant' && inf.on[i] !== false; }
       function setTot() { // somme des lignes cochées : heures, et chiffre final (cumulatif : le plus haut jalon ; additif : la somme)
@@ -798,7 +798,7 @@
       if (k === 'activite') { form.poleOpen = false; renderActivities(); } // à l'arrivée : seulement les activités, aucun choix de pôle déroulé
       if (k === 'niveau') nivLoad();
       if (k === 'temps') tpLoad();
-      panelKicker.textContent = tr(stepNames[k]);
+      panelKicker.textContent = tr(k === 'inf' && inf.plan && !inf.plan.skip ? infLevelName(inf.plan) : stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
       stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave');
       stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');

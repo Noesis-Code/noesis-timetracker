@@ -14,11 +14,11 @@ const niv = { qs: [{ key: 'accompli', q: 'Ce que tu as accompli', choices: ['5 k
 const f = make(niv);
 const adv = f.nivAdv();
 assert(adv.length === 2 && adv[0].key === 'regularite' && adv[1].key === 'anciennete', 'Chrono connu : « Avancé » contient régularité et ancienneté (pas seulement les questions manquantes)');
-assert(adv[0].get() === 2 && adv[1].get() === 1 && adv.every((x) => x.known && x.choices.length === 4), 'valeurs connues pré-sélectionnées, quatre choix chacune');
+assert(adv.every((x) => x.get() == null && x.known && x.choices.length === 4), 'Avancé : aucune réponse sélectionnée par défaut (vide), quatre choix chacune');
 assert(!f.nivDone(), 'Suivant reste grisé tant que la question générale n’a pas de réponse');
 niv.picks[0] = 3; assert(f.nivDone(), 'la question générale suffit');
-let b = f.nivBody(); assert(b && b.answers.length === 3 && b.answers[1].i === 2 && b.answers[2].i === 1, 'nivBody envoie les trois réponses (valeurs du Chrono)');
-adv[0].set(3); b = f.nivBody(); assert(b.answers[1].i === 3 && b.answers[1].a === FIXED[1].choices[3], 'la valeur connue est modifiable dans « Avancé »');
+let b = f.nivBody(); assert(b && b.answers.length === 3 && b.answers[1].i === 2 && b.answers[2].i === 1, 'nivBody envoie les trois réponses : les valeurs du Chrono servent en silence aux questions laissées vides');
+adv[0].set(3); b = f.nivBody(); assert(b.answers[1].i === 3 && b.answers[1].a === FIXED[1].choices[3], 'une réponse donnée dans « Avancé » remplace la valeur connue');
 // Rien posé ni connu : questions fixes en complément
 const n2 = { qs: [{ key: 'accompli', q: 'A', choices: ['a', 'b', 'c', 'd'] }], picks: [1], known: [], fixed: FIXED, kp: {}, source: 'fixe' }, g = make(n2);
 assert(g.nivAdv().length === 2 && g.nivBody().answers.length === 3, 'ni posées ni connues : questions fixes ajoutées, trois réponses');
