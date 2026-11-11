@@ -72,10 +72,12 @@
   }
   // Attente (R49) : dès qu'une opération dure plus d'1 s, TOUTE la page est recouverte d'un voile de verre (contenu illisible) avec le N au milieu de l'écran ; l'écran en dessous reste tel quel.
   // attente(promesse) rend la même promesse ; un seul voile global pour toute l'app, partagé si plusieurs attentes se chevauchent.
-  var voile = null, voileN = 0;
+  var voile = null, voileN = 0, voileT = 0;
+  function voileOff() { clearTimeout(voileT); voileN = 0; if (voile && voile.parentNode) voile.parentNode.removeChild(voile); voile = null; }
   function attente(p) {
-    if (!voileN++) { voile = document.createElement('div'); voile.className = 'cmpVoile'; loader(voile, { seul: true }); document.body.appendChild(voile); }
-    function fin() { if (!--voileN && voile) { if (voile.parentNode) voile.parentNode.removeChild(voile); voile = null; } }
+    if (!voileN++) { voile = document.createElement('div'); voile.className = 'cmpVoile'; loader(voile, { seul: true }); document.body.appendChild(voile); voileT = setTimeout(voileOff, 30000); } // filet : jamais plus de 30 s même si la promesse ne se règle pas
+    var mine = voile;
+    function fin() { if (voile === mine && !--voileN) voileOff(); }
     return Promise.resolve(p).then(function (v) { fin(); return v; }, function (e) { fin(); throw e; });
   }
   function btn(cls, label, onClick) {
