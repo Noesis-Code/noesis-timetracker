@@ -13,4 +13,6 @@ assert(p1.name === 'TiMeTracker' && p1.level === 'pole' && p1.color !== p2.color
 e = et({ activityName: 'Noèsis', activityColor: '#aaa', poleLabel: 'TiMeTracker', secteurLabel: 'Interface', poleIndex: 0 });
 assert(e.name === 'Interface' && e.level === 'secteur' && e.color === p1.color, 'secteur : le nom du secteur seul, la couleur de son pôle');
 assert(mk(undefined)({ activityName: 'X', activityColor: '#bbb', poleLabel: 'P', poleIndex: 0 }).color === '#bbb', 'sans palette de pôles : repli sur la couleur de l’activité');
+const au = fs.readFileSync(path.join(__dirname, '..', 'public/js/aujourdhui.js'), 'utf8').replace(/\r\n/g, '\n');
+assert(au.includes('TMT.ui.etiquette({ activityName: t.activityName, activityColor: t.activityColor, poleLabel: t.poleName, secteurLabel: t.sector, poleIndex: t.poleIndex })') && au.includes('if (et.color) dot.style.background = et.color;'), 'liste des tâches : l’étiquette d’une tâche passe par le composant partagé (nom le plus bas, couleur du pôle)');
 if (failed) { console.log('\n' + failed + ' échec(s)'); process.exit(1); } console.log('\ntout passe');

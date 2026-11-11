@@ -956,9 +956,10 @@
       var txt = el('div', 'tasksPopText');
       txt.appendChild(el('b', null, t.label));
       var meta = el('small');
-      var dot = el('span', 'tasksPopDot'); if (t.activityColor) dot.style.background = t.activityColor;
+      var et = TMT.ui.etiquette({ activityName: t.activityName, activityColor: t.activityColor, poleLabel: t.poleName, secteurLabel: t.sector, poleIndex: t.poleIndex }); // étiquette partagée : nom du niveau le plus bas, couleur du pôle
+      var dot = el('span', 'tasksPopDot'); if (et.color) dot.style.background = et.color;
       meta.appendChild(dot);
-      meta.appendChild(document.createTextNode([t.activityName, t.sector, t.done ? tr('terminé') : (t.justAdded ? tr('ajoutée à l’instant') : '')].filter(Boolean).join(' · ')));
+      meta.appendChild(document.createTextNode([et.name, t.done ? tr('terminé') : (t.justAdded ? tr('ajoutée à l’instant') : '')].filter(Boolean).join(' · ')));
       txt.appendChild(meta);
       row.appendChild(cb); row.appendChild(txt);
       // Même icône et même panneau de modification que l'onglet Tâches de la page 2 (TMT.openGoalsTaskEditPanel) ; après enregistrement, la liste se recharge.
