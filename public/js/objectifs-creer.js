@@ -152,6 +152,7 @@
   // Contexte posé par l'arbre : niveau (activité | pôle | secteur) + activité, pôle, secteur ; toucher une case VIDE ajoute l'échéance de la case. Le prochain objectif écrit dans la barre
   // PORTE ce niveau, et l'activité (pôle, secteur) est verrouillée dans le panneau de création.
   var viewCtx = { level: 'activite' }, pendingEnd = null, basePlaceholder = '';
+  var STEP_CADRE = 'Cadre'; // titre PROVISOIRE de l'étape qui contient le type d'objectif et l'activité (Émilien tranchera le mot final) : UNE seule constante, passée par tr()
   var LEVEL_LABEL = { activite: 'Activité', pole: 'Pôle', secteur: 'Secteur' };
   function setContext(c) { viewCtx = c || { level: 'activite' }; }
   function createAt(o) { // case vide touchée : le panneau s'ouvre tout de suite (titre vide à saisir), l'échéance de la case est imposée
@@ -283,7 +284,7 @@
   function weekNo(iso) { return TMT.calNums.week(iso); }
   // Tranche de 5 ans d'un objectif d'ACTIVITÉ (pluriannuel) : MÊME définition que la colonne pluriannuelle de l'arbre (objectifs-arbre.js, blockStart / rowKey) : première année = année en cours + 5 × partie entière de (année de l'échéance - année en cours) / 5.
   function blockStart(iso) { var y0 = new Date().getFullYear(), y = Number(iso.slice(0, 4)); return y0 + 5 * Math.floor((y - y0) / 5); }
-  function weeklyPossible(f) { return f.level === 'secteur' && !!f.endDate; } // dès qu'un secteur est choisi, « Hebdomadaire » est toujours possible (l'échéance place l'objectif : sa semaine ou sa période)
+  function weeklyPossible(f) { return f.level === 'secteur'; } // dès qu'un secteur est choisi, « Hebdomadaire » est toujours possible (l'échéance place l'objectif : sa semaine ou sa période)
   function segDisabled(options, current, allowed, onPick, label) {
     var s = seg(options, current, onPick, label);
     Array.prototype.forEach.call(s.children, function (b, i) { if (allowed.indexOf(options[i][0]) < 0) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); } });
@@ -304,7 +305,7 @@
     var ok = termsFor(days); if (!noTerm && ok.indexOf(form.term) < 0) form.term = ok[ok.length - 1]; // imposé si un seul choix ; sinon, tant que rien n'est choisi, le terme le plus long permis
     if (!noTerm) box.appendChild(field(tr('Terme'), segDisabled(TERMS.map(function (t) { return [t[0], tr(t[1])]; }), form.term, ok, function (k) { form.term = k; form.termTouched = true; if (onChange) onChange(); }, tr('Terme'))));
     // Objectifs inclus : deux cases (cochées par défaut quand c'est possible, au moins une reste cochée) avec le nombre de chacun ; une seule période (≤ 28 jours) : hebdomadaires seulement, périodiques grisés
-    if (form._switchShown) return; // le bloc « Cet objectif est-il » (page Activité) décide : périodique ou hebdomadaire
+    if (form._switchShown) return; // le bloc « Type d’objectif » (étape Cadre) décide : périodique ou hebdomadaire
     var multi = multiOf(days), cnt = goalCounts(form, days), per = multi && form.innerGoals !== 'hebdomadaires', wk = form.innerGoals !== 'periodiques';
     var gs = el('div', 'cmpSeg'); gs.setAttribute('role', 'group'); gs.setAttribute('aria-label', tr('Objectifs inclus'));
     function goalBtn(on, label, n, enabled, toggle) {
@@ -340,7 +341,7 @@
     }
     if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
     panelForm = form; setBack(null);
-    function stepOff() { return cur === 'echeance' ? (!form.dateOk || !form.endDate) : cur === 'desc' ? !String(form.title || '').trim() : false; } // Description : grisé sans titre ; Échéance (étape propre, après Activité et Niveau) : grisé sans date valide (R35)
+    function stepOff() { return cur === 'activite' ? !typeOk() : cur === 'echeance' ? (!form.dateOk || !form.endDate) : cur === 'desc' ? !String(form.title || '').trim() : false; } // Description : grisé sans titre ; Échéance (étape propre, après Activité et Niveau) : grisé sans date valide (R35)
     function syncGo() { stepBtn.disabled = stepOff(); }
     var MSG_PASSE = tr('L’échéance ne peut pas être dans le passé.');
     var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.setAttribute('aria-label', tr('Objectif'));
@@ -399,14 +400,29 @@
     function actById(id) { return (ctx.activities || []).filter(function (a) { return a.id === id; })[0]; }
     function syncMain() { form.activityId = form.acts.length ? form.acts[0] : null; }
     function noActivity() { return !form.acts.length; }
+    // Type d'objectif (maquette approuvée) : Annuel | Périodique | Hebdomadaire, toujours visible, en haut de l'étape. Le type décide de la période (année ou tranche / période de 28 jours / semaine) ; le niveau du cadre (activité, pôle, secteur) se choisit en dessous.
+    // Combinaisons que le modèle de données porte : annuel = activité (tranche de 5 ans) ou pôle (année) ; périodique et hebdomadaire = secteur (période ou semaine). Les autres ne sont pas possibles aujourd'hui (une case de l'arbre n'existe pas) : message précis, Suivant grisé.
+    var TYPES = [['annuel', 'Annuel'], ['periodique', 'Périodique'], ['hebdomadaire', 'Hebdomadaire']];
+    function typeDerived() { return form.level === 'secteur' ? 'periodique' : 'annuel'; } // sans choix explicite : le type suit le niveau choisi dans l'arbre
+    function typeOf() { return form.type || typeDerived(); }
+    function typeOk() { var t = typeOf(); return t === 'annuel' ? form.level !== 'secteur' : form.level === 'secteur' && !!form.categoryKey; }
+    function typeMsg() { var t = typeOf(); return typeOk() ? '' : t === 'annuel' ? tr('Un objectif annuel se range sur l’activité ou sur un pôle.') : tr('Un objectif périodique ou hebdomadaire se range sur un secteur.'); }
+    function paintTypeBlock() {
+      var t = typeOf(); form.weeklyOn = t === 'hebdomadaire' && form.level === 'secteur';
+      actBox.appendChild(field(tr('Type d’objectif'), seg(TYPES.map(function (x) { return [x[0], tr(x[1])]; }), t, function (k) { form.type = k; form.typeTouched = true; refresh(); }, tr('Type d’objectif'))));
+      var m = typeMsg(); if (m) actBox.appendChild(el('p', 'hint', m));
+      if (cur === 'activite') syncGo();
+    }
     function renderActivities() { // UNE seule activité par objectif (les macros se font seulement depuis l'arbre)
       actBox.textContent = '';
       var acts = ctx.activities || [];
       form._switchShown = false;
+      paintTypeBlock();
       if (form.fixedCtx) { // créé depuis un niveau de l'arbre : l'activité (et le pôle, le secteur) sont verrouillés
         var own = actById(form.activityId), lock = el('div', 'aiModeChoices');
         if (own) { lock.appendChild(choice(own.name, tr(LEVEL_LABEL[form.level]) + (form.ctxLabel ? ' · ' + form.ctxLabel : ''), true, own.color, function () {})); actBox.appendChild(field(tr('Activité liée'), lock)); return; }
       }
+      actBox.appendChild(el('p', 'cmpBlockTitle', tr('Activité'))); // sous-titre du bloc des activités (l'étape contient aussi le type)
       var inTree = {}; (ctx.objectives || []).forEach(function (o) { inTree[o.activityId] = true; });
       // Pôle puis secteur (9 nov. 2026) : AUCUN choix déroulé à l'arrivée ; toucher l'activité déjà choisie déroule les pôles, collés sous sa carte (un seul bloc, même largeur) ; la retoucher les replie ;
       // choisir un pôle déroule ses secteurs juste dessous ; retoucher le pôle ou le secteur choisi l'annule (même règle qu'une carte d'activité). Pas de libellés, pas de « Aucun ». Facultatifs :
@@ -437,13 +453,7 @@
       var l2 = el('div', 'aiModeChoices');
       notYet.forEach(function (a) { card(a, l2); });
       if (notYet.length) actBox.appendChild(field(tr('Pas encore dans l’arbre'), l2));
-      // « Cet objectif est-il » (9 nov. 2026) : dès qu'un SECTEUR est choisi, deux options (.cmpSeg) : Hebdomadaire / Périodique (par défaut). « Hebdomadaire » n'est plus jamais grisé par la date (Périodique = la période qui contient l'échéance, Hebdomadaire = la semaine qui la contient) ; Sans secteur choisi, le bloc n'existe pas.
-      if (form.weeklyOn && !weeklyPossible(form)) form.weeklyOn = false;
-      if (form.level === 'secteur' && form.categoryKey) {
-        var okWeekly = weeklyPossible(form);
-        form._switchShown = okWeekly; // quand l'hebdomadaire est possible, ce choix décide (« Objectifs inclus » masqué) ; sinon l'échéance décide seule, comme avant
-        actBox.appendChild(field(tr('Cet objectif est-il'), segDisabled([['hebdomadaire', tr('Hebdomadaire')], ['periodique', tr('Périodique')]], form.weeklyOn && okWeekly ? 'hebdomadaire' : 'periodique', okWeekly ? ['hebdomadaire', 'periodique'] : ['periodique'], function (k) { form.weeklyOn = k === 'hebdomadaire'; refresh(); }, tr('Cet objectif est-il'))));
-      }
+      form._switchShown = form.level === 'secteur' && !!form.categoryKey; // le « Type d'objectif » (en haut) décide : « Objectifs inclus » masqué quand un secteur est choisi
       // Phrase en direct (texte seul) : activité › pôle › secteur · période ou semaine d'après l'échéance · parent retenu (« sans parent » s'il n'y en a pas)
       var cur0 = actById(form.activityId);
       if (cur0) {
@@ -582,7 +592,7 @@
       node.addEventListener('pointerup', function (ev) { if (ev.pointerType !== 'mouse' || !on) return; on = false; done(ev.clientX - x0, ev.clientY - y0); });
       node.addEventListener('pointercancel', function () { on = false; });
     }
-    function refresh() { renderActivities(); syncTerm(); if (cur === 'activite' && !noActivity()) { if (form.endFixed) loadRatt().then(nivFetch); else nivFetch(); } } // dès qu'une activité est touchée : rattachement et questions du Niveau partent en arrière-plan ; « Suivant » n'attend que s'ils ne sont pas revenus
+    function refresh() { if (!form.typeTouched) form.type = null; renderActivities(); syncTerm(); if (cur === 'activite' && !noActivity()) { if (form.endFixed) loadRatt().then(nivFetch); else nivFetch(); } } // dès qu'une activité est touchée : rattachement et questions du Niveau partent en arrière-plan ; « Suivant » n'attend que s'ils ne sont pas revenus
     refresh();
     // Étape « Niveau » (10 nov. 2026) : avant « Temps », SAUTÉE quand elle est inutile (objectif sans progression) ou que le niveau est déjà connu (objectif similaire récent) ; seules les questions manquantes sont posées (le Chrono répond à la régularité et à l'ancienneté) ; trois questions guidées (accompli, régularité, ancienneté), quatre choix chacun, aucun texte à taper.
     // Les questions sont écrites par l'IA selon l'objectif (questions fixes si l'IA ne répond pas) ; le niveau se déduit côté serveur des trois réponses (objectifs-niveau.js).
@@ -774,7 +784,7 @@
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
-    var stepNames = { desc: 'Description', temps: 'Temps', heures: 'Heures', activite: 'Activité', niveau: 'Niveau', echeance: 'Échéance', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
+    var stepNames = { desc: 'Description', temps: 'Temps', heures: 'Heures', activite: STEP_CADRE, niveau: 'Niveau', echeance: 'Échéance', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
     function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(niv.skip ? [] : ['niveau']).concat(form.endFixed ? [] : ['echeance']).concat(['temps']).concat(infListed() ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     function rattKey2() { return rattKey() + '|' + (form.endDate || ''); } // le rattachement dépend aussi de l'échéance (saisie après Activité)
     function loadRatt() {
@@ -812,6 +822,7 @@
       if (cur === 'temps' && l[i + 1] === 'inf') { stepBtn.disabled = true; TMT.ui.attente(infFetch()).then(function () { stepBtn.disabled = false; if (inf.plan && !inf.plan.skip) show('inf'); else finishAll(); }); return; }
       if (cur === 'desc') { if (!validDesc()) return; if (form.fixedCtx) { stepBtn.disabled = true; TMT.ui.attente(loadRatt().then(nivFetch)).then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; } show(l[i + 1]); return; } // créé depuis une bulle : activité imposée, pas de page Activité
       if (cur === 'echeance') { if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; } form.echeanceDone = true; stepBtn.disabled = true; refreshHints(); TMT.ui.attente(loadRatt()).then(function () { stepBtn.disabled = false; stepNextFrom('echeance'); }); return; } // l'échéance connue : rattachement (parent) et propositions recalculés
+      if (cur === 'activite' && !typeOk()) { msg.textContent = typeMsg(); return; }
       if (cur === 'activite') { // le rattachement / la fusion dépendent de l'échéance ET de l'activité : proposés après la page Activité
         if (noActivity()) { msg.textContent = tr('Choisis une activité.'); return; }
         stepBtn.disabled = true; TMT.ui.attente((form.endFixed ? loadRatt().then(nivFetch) : nivFetch())).then(function () { stepBtn.disabled = false; stepNextFrom('activite'); }); return; // échéance pas encore connue : seulement les questions du Niveau

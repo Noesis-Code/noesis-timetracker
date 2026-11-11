@@ -60,13 +60,12 @@ const mk = (extra) => o.creer('u1', Object.assign({ title: 'Objectif ' + Math.ra
 
   // Interface : affiché seulement au niveau secteur et si l'échéance est proche ; éteint par défaut ; remplace « Objectifs inclus »
   const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'objectifs-creer.js'), 'utf8').split('\r\n').join('\n');
-  assert(src.includes("function weeklyPossible(f) { return f.level === 'secteur' && !!f.endDate; }"), '« Hebdomadaire » : possible dès qu’un secteur est choisi, quelle que soit l’échéance');
-  // Bloc « Cet objectif est-il » (9 nov. 2026) : deux options .cmpSeg Hebdomadaire / Périodique, seulement quand un SECTEUR est choisi, sous la liste des activités et juste au-dessus de la phrase ; plus d'interrupteur
-  const iLists = src.indexOf("var l2 = el('div', 'aiModeChoices');"), iBlock = src.indexOf("field(tr('Cet objectif est-il'), segDisabled("), iLive = src.indexOf('// Phrase en direct (texte seul)');
-  assert(iLists > 0 && iBlock > iLists && iLive > iBlock, 'le bloc est sous la liste des activités et juste au-dessus de la phrase récapitulative');
-  assert(src.includes("if (form.level === 'secteur' && form.categoryKey) {") && !src.includes('toggleSwitch') && !src.includes("'switch'"), 'le bloc n’existe que si un secteur est sélectionné ; l’ancien interrupteur (.toggleSwitch) et son code sont retirés');
-  assert(src.includes("form.weeklyOn && okWeekly ? 'hebdomadaire' : 'periodique'") && src.includes("okWeekly ? ['hebdomadaire', 'periodique'] : ['periodique']") && src.includes('segDisabled([[\'hebdomadaire\', tr(\'Hebdomadaire\')], [\'periodique\', tr(\'Périodique\')]]'), '« Périodique » par défaut ; « Hebdomadaire » grisé quand l’échéance ne le permet pas ; « Périodique » toujours possible');
-  assert(src.includes("if (form.weeklyOn && !weeklyPossible(form)) form.weeklyOn = false;") && src.includes("form.weeklyOn = k === 'hebdomadaire'; refresh();"), 'si l’échéance change et que l’hebdomadaire devient impossible : retour automatique à « Périodique » ; le choix recalcule la phrase et le niveau');
+  assert(src.includes("function weeklyPossible(f) { return f.level === 'secteur'; }"), '« Hebdomadaire » : possible dès qu’un secteur est choisi, quelle que soit l’échéance (même sans date : l’échéance vient plus tard)');
+  // Bloc « Type d'objectif » (11 nov. 2026, maquette d'Émilien) : .cmpSeg Annuel | Périodique | Hebdomadaire, TOUJOURS visible, EN HAUT de l'étape ; remplace « Cet objectif est-il » ; plus d'interrupteur
+  const iType = src.indexOf('function paintTypeBlock()'), iAct = src.indexOf("actBox.appendChild(el('p', 'cmpBlockTitle', tr('Activité')))"), iLive = src.indexOf('// Phrase en direct (texte seul)');
+  assert(iType > 0 && iAct > iType && iLive > iAct && src.includes('      paintTypeBlock();') && !src.includes('Cet objectif est-il') && !src.includes('toggleSwitch') && !src.includes("'switch'"), 'le bloc « Type d’objectif » est en haut (avant le sous-titre « Activité » et les listes), toujours dessiné ; « Cet objectif est-il » et l’ancien interrupteur sont retirés');
+  assert(src.includes("var TYPES = [['annuel', 'Annuel'], ['periodique', 'Périodique'], ['hebdomadaire', 'Hebdomadaire']];") && src.includes("form.weeklyOn = t === 'hebdomadaire' && form.level === 'secteur';"), 'trois types ; l’hebdomadaire n’est actif qu’au niveau secteur (limite du modèle de données)');
+  assert(src.includes("return t === 'annuel' ? form.level !== 'secteur' : form.level === 'secteur' && !!form.categoryKey;") && src.includes('Un objectif périodique ou hebdomadaire se range sur un secteur.') && src.includes("cur === 'activite' ? !typeOk()"), 'combinaison impossible : message précis et Suivant grisé');
   {
     const a1 = src.indexOf('  function isoAdd(iso, n)'), a2 = src.indexOf('\n', src.indexOf('  function weeklyPossible(f) {'));
     const wp = new Function(src.slice(a1, a2) + '\nreturn weeklyPossible;')();
