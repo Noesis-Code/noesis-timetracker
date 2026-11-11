@@ -54,7 +54,7 @@
       try { (field || picks[0] || ok).focus({ preventScroll: true }); } catch (e) {}
     });
   }
-  // Indicateur de chargement (R42) : le N en vague ; avec phrase = page ou zone, sans (opts.seul) = à la place d'un texte. La phrase est définie ICI, une seule fois.
+  // Indicateur de chargement (R48) : le N en vague ; avec phrase = page ou zone, sans (opts.seul) = à la place d'un texte. La phrase est définie ICI, une seule fois.
   var LOADER_PHRASE = 'Noèsis s’en occupe…';
   var LOADER_POLYS = ['183,293 287,461 287,616 183,675', '287,628 287,863 184,863 184,687', '192,262 293,262 468,557 367,555', '374,565 475,568 536,670 536,835', '556,262 616,262 659,286 661,616 556,673', '661,629 662,863 557,863 556,686', '729,151 612,186 635,253 708,287'];
   function loaderHtml(opts) {
@@ -70,6 +70,13 @@
     if (container) container.appendChild(el);
     return { el: el, remove: function () { if (el.parentNode) el.parentNode.removeChild(el); } };
   }
+  // Attente (R49) : pendant qu'une opération dure, la zone (page, fenêtre, bloc) disparaît et seul le N reste ; sans rien avant 1 s (ni N, ni disparition : les attentes courtes ne clignotent pas).
+  // attente(zone ou [zones], promesse) rend la même promesse ; un seul composant pour toutes les attentes de l'app.
+  function attente(zones, p) {
+    var list = [].concat(zones).filter(Boolean), ls = list.map(function (z) { z.classList.add('cmpAttente'); return loader(z, { seul: true }); });
+    function fin() { list.forEach(function (z, i) { z.classList.remove('cmpAttente'); ls[i].remove(); }); }
+    return Promise.resolve(p).then(function (v) { fin(); return v; }, function (e) { fin(); throw e; });
+  }
   function btn(cls, label, onClick) {
     var b = document.createElement('button');
     b.type = 'button'; b.className = cls;
@@ -80,7 +87,7 @@
   var ui = {
     editIcon: function () { return EDIT_SVG; },
     closeBtn: function (onClick, label) { var b = btn('cmpClose', label || 'Fermer', onClick); b.textContent = '✕'; return b; },
-    loader: loader, loaderHtml: loaderHtml,
+    loader: loader, loaderHtml: loaderHtml, attente: attente,
     removeBtn: function (onClick, label) { return btn('cmpRemove', label || 'Retirer', onClick); },
     editBtn: function (onClick, label) { var b = btn('cmpEdit', label || 'Modifier', onClick); b.innerHTML = EDIT_SVG; return b; },
     addBtn: function (label, onClick) {

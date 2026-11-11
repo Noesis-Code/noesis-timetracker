@@ -188,7 +188,7 @@
 .cmpNav--fixed .cmpNavArrow { width: 32px; }
 .cmpNav--fixed .cmpNavLabel { flex: 0 0 var(--nav-label-w, 10em); width: var(--nav-label-w, 10em); overflow-wrap: normal; white-space: nowrap; }
 
-/* Sélecteur .cmpSeg (R42, décision d'Émilien du 27 oct. 2026) : UN composant pour tout choix entre quelques options (Aujourd'hui | Activités, Catégories | Statistiques, langues, catégories d'un message…).
+/* Sélecteur .cmpSeg (R48, décision d'Émilien du 27 oct. 2026) : UN composant pour tout choix entre quelques options (Aujourd'hui | Activités, Catégories | Statistiques, langues, catégories d'un message…).
    Aucun conteneur (ni fond, ni liseré). Options pleine largeur à parts égales, texte 13 px centré. Option active = pastille de 28 px (rayon 8, --seg-active-bg), texte plein en 600, aucun contour ;
    inactive = texte gris en 500, sans fond. Filet vertical 1×14 px entre les options. Zone de toucher de 44 px (hauteur de l'option). L'option active se marque par .active, .on, aria-pressed ou aria-selected.
    La triple pseudo-classe :root passe devant les anciens styles de boutons de période/thème ; ne jamais redéfinir ce rendu écran par écran. */
@@ -303,10 +303,10 @@
 .goalsCalDays { position: relative; }
 .goalsCalDay { position: relative; z-index: 1; }
 
-/* Indicateur de chargement (R42, 10 nov. 2026, décision d'Émilien) : UN seul composant, le N de Noèsis dont les sections s'allument une à une
+/* Indicateur de chargement (R48, 10 nov. 2026, décision d'Émilien) : UN seul composant, le N de Noèsis dont les sections s'allument une à une
    le long du tracé (opacité seulement, comme l'écran d'ouverture). Page ou zone : le N + la phrase ; place d'un texte : .cmpLoaderSeul (le N seul).
-   Créé par TMT.ui.loader (composants.js) ; n'apparaît qu'après 300 ms pour ne pas clignoter. Jamais de texte « Chargement… », jamais de spinner. */
-.cmpLoader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px 0; width: 100%; opacity: 0; animation: cmpLoaderIn .01s linear .3s forwards; }
+   Créé par TMT.ui.loader (composants.js) ; n’apparaît qu’après 1 s (R49). Jamais de texte « Chargement… », jamais de spinner. */
+.cmpLoader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px 0; width: 100%; opacity: 0; animation: cmpLoaderIn .01s linear 1s forwards; }
 .cmpLoader.cmpLoaderSeul { display: inline-flex; width: auto; padding: 4px 0; }
 .cmpLoader svg { display: block; width: 19px; height: 24px; fill: var(--text); flex: none; }
 .cmpLoader polygon { opacity: .22; animation: cmpLoaderVague 1.4s linear infinite; }
@@ -318,6 +318,9 @@
 .cmpLoader polygon:nth-child(5) { animation-delay: 1s; }
 .cmpLoader polygon:nth-child(7) { animation-delay: 1.2s; }
 .cmpLoaderPhrase { display: block; margin: 0; font-size: 13px; line-height: 1.3; color: var(--text-light); text-align: center; }
+.cmpAttente > :not(.cmpLoader) { animation: cmpAttenteOut .01s linear 1s forwards; } /* la zone disparaît en même temps que le N apparaît (R49) */
+.cmpAttente > .cmpLoaderSeul { display: flex; align-self: center; margin: auto; width: 100%; } /* le N centré dans la zone qui attend */
+@keyframes cmpAttenteOut { to { opacity: 0; pointer-events: none; display: none; } }
 @keyframes cmpLoaderIn { to { opacity: 1; } }
 @keyframes cmpLoaderVague { 0% { opacity: .22; } 7% { opacity: 1; } 43% { opacity: 1; } 57% { opacity: .22; } 100% { opacity: .22; } }
 @media (prefers-reduced-motion: reduce) { .cmpLoader polygon { animation: none; opacity: .7; } }
