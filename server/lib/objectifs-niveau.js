@@ -144,7 +144,7 @@ async function generate(payload, keys) {
 
 // Questions de la page : { questions (seulement les MANQUANTES), known (réponses déjà connues : Chrono ou objectif similaire), skip, type, pertinent, source }. Ne lève jamais.
 // skip = rien à demander : niveau repris d'un objectif similaire récent, ou objectif sans progression (pertinent = false). IA en panne, plafond atteint ou réponse invalide : les trois questions fixes (poser par erreur vaut mieux que manquer).
-async function questions(userId, body, today) {
+async function questionsCore(userId, body, today) {
   const fixed = () => ({ questions: FIXED.map((x) => ({ key: x.key, q: x.q, choices: x.choices.slice() })), known: [], skip: false, type: null, pertinent: null, source: 'fixe' });
   const title = String((body && body.title) || '').replace(/\s+/g, ' ').trim().slice(0, 200);
   if (!title || !process.env.ANTHROPIC_API_KEY) return fixed();
@@ -162,6 +162,11 @@ async function questions(userId, body, today) {
     if (!r.pertinent) return { questions: [], known: [], skip: true, type: r.type || null, pertinent: false, source: 'ia' };
     return { questions: r.questions, known, skip: false, type: r.type || null, pertinent: true, source: 'ia' };
   } catch (e) { return fixed(); } // plafond atteint (aiBlocked), panne, délai, réponse invalide : questions fixes
+}
+// Réponse complète : + `fixed` (les trois questions fixes avec leurs quatre choix) pour que le bloc « Avancé » montre TOUJOURS régularité et ancienneté, même quand le Chrono ou un objectif similaire les a déjà répondues (valeur connue pré-sélectionnée, modifiable).
+async function questions(userId, body, today) {
+  const r = await questionsCore(userId, body, today);
+  return Object.assign({}, r, { fixed: FIXED.map((x) => ({ key: x.key, q: x.q, choices: x.choices.slice() })) });
 }
 
 module.exports = { FEATURE, KEYS, FIXED, RECENT_DAYS, MIN_CHRONO_WEEKS, SIMILAR_MIN, derive, readAnswers, validQuestions, validAnswer, chronoDims, findSimilar, scopeOf, questions };

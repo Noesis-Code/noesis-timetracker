@@ -590,9 +590,22 @@
     function nivKey() { return [form.title || '', form.activityId == null ? '' : form.activityId, form.level || 'activite', form.poleKey || '', form.categoryKey || '', form.endDate || '', form.description || ''].join('|'); }
     function nivMain() { return niv.qs ? niv.qs.findIndex(function (q) { return q.key === 'accompli'; }) : -1; } // la question générale (« accompli ») : seule affichée en haut ; les autres sont sous « Avancé »
     function nivDone() { if (!niv.qs) return false; var m = nivMain(); return m >= 0 ? niv.picks[m] != null : niv.picks.every(function (p) { return p != null; }); } // seule la question générale est obligatoire
+    function nivAdv() { // TOUTES les questions du bloc « Avancé » (sauf « accompli », en haut) : posées par le serveur, sinon déjà connues (Chrono, objectif similaire : valeur pré-sélectionnée), sinon questions fixes
+      var out = [];
+      NIV_KEYS.forEach(function (key) {
+        if (key === 'accompli') return;
+        var qi = niv.qs.findIndex(function (q) { return q.key === key; }), kn = niv.known.filter(function (k) { return k.key === key; })[0], fx = niv.fixed.filter(function (f) { return f.key === key; })[0];
+        if (qi >= 0) out.push({ key: key, q: niv.qs[qi].q, choices: niv.qs[qi].choices, get: function () { return niv.picks[qi]; }, set: function (i) { niv.picks[qi] = i; }, known: false });
+        else if (kn && (fx || kn.choices)) out.push({ key: key, q: kn.q, choices: (fx || kn).choices, get: function () { return niv.kp[key] != null ? niv.kp[key] : kn.i; }, set: function (i) { niv.kp[key] = i; }, known: true });
+        else if (fx) out.push({ key: key, q: fx.q, choices: fx.choices, get: function () { return niv.kp[key]; }, set: function (i) { niv.kp[key] = i; }, known: false, extra: true });
+      });
+      niv.qs.forEach(function (q, qi) { if (q.key !== 'accompli' && NIV_KEYS.indexOf(q.key) < 0) out.push({ key: q.key, q: q.q, choices: q.choices, get: function () { return niv.picks[qi]; }, set: function (i) { niv.picks[qi] = i; }, known: false }); });
+      return out;
+    }
     function nivBody() { // les trois réponses : connues (Chrono ou objectif similaire) + choisies ; rien si le niveau n'existe pas (objectif sans progression)
       if (!nivDone()) return undefined;
-      var by = {}; niv.known.forEach(function (k) { by[k.key] = { q: k.q, a: k.a, i: k.i }; }); niv.qs.forEach(function (q, qi) { var mi = niv.picks[nivMain()]; by[q.key] = niv.picks[qi] != null ? { q: q.q, a: q.choices[niv.picks[qi]], i: niv.picks[qi] } : { q: q.q, a: tr('Non précisé'), i: mi != null ? mi : 0 }; }); // question avancée sans réponse : le niveau général fait foi
+      var by = {}; niv.known.forEach(function (k) { var o = niv.kp[k.key], f = niv.fixed.filter(function (x) { return x.key === k.key; })[0]; by[k.key] = o != null && f ? { q: k.q, a: f.choices[o], i: o } : { q: k.q, a: k.a, i: k.i }; }); // valeur connue, sauf si modifiée dans « Avancé » niv.qs.forEach(function (q, qi) { var mi = niv.picks[nivMain()]; by[q.key] = niv.picks[qi] != null ? { q: q.q, a: q.choices[niv.picks[qi]], i: niv.picks[qi] } : { q: q.q, a: tr('Non précisé'), i: mi != null ? mi : 0 }; }); // question avancée sans réponse : le niveau général fait foi
+      NIV_KEYS.forEach(function (k) { if (by[k]) return; var f = niv.fixed.filter(function (x) { return x.key === k; })[0], mi2 = niv.picks[nivMain()], o = niv.kp[k], i2 = o != null ? o : (mi2 != null ? mi2 : 0); if (f) by[k] = { q: f.q, a: o != null ? f.choices[o] : tr('Non précisé'), i: i2 }; }); // question ni posée ni connue : question fixe, valeur = niveau général
       var out = NIV_KEYS.map(function (k) { return by[k]; });
       return out.every(Boolean) ? { answers: out } : undefined;
     }
@@ -600,12 +613,12 @@
     function nivPaint() {
       boxes.niveau.textContent = '';
       if (!niv.qs) { if (niv.failed) boxes.niveau.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); else TMT.ui.loader(boxes.niveau); return; } // zone qui charge : le N standard (R48)
-      function grid(q, qi, after) { // les quatre réponses : deux sélecteurs standard (.cmpSeg) de deux cases l'un sous l'autre
+      function grid(q, qi, after, getPick, setPick) { // les quatre réponses : deux sélecteurs standard (.cmpSeg) de deux cases l'un sous l'autre
         var g = el('div', 'cmpGrid'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', tr(q.q));
         [0, 2].forEach(function (from) {
           var sg = el('div', 'cmpSeg');
           q.choices.slice(from, from + 2).forEach(function (c, k) {
-            var ci = from + k, on = niv.picks[qi] === ci, bt = btn(on ? 'active' : '', tr(c), function () { niv.picks[qi] = ci; after(); nivPaint(); nivSync(); });
+            var ci = from + k, on = (getPick ? getPick() : niv.picks[qi]) === ci, bt = btn(on ? 'active' : '', tr(c), function () { if (setPick) setPick(ci); else niv.picks[qi] = ci; after(); nivPaint(); nivSync(); });
             bt.setAttribute('aria-pressed', on ? 'true' : 'false'); sg.appendChild(bt);
           });
           g.appendChild(sg);
@@ -614,23 +627,26 @@
       }
       var mi = nivMain();
       if (mi >= 0) { boxes.niveau.appendChild(el('p', 'cmpBlockTitle', tr(niv.qs[mi].q))); boxes.niveau.appendChild(grid(niv.qs[mi], mi, function () {})); } // UNE question générale, écrite par l'IA, proportionnée à l'objectif
-      if (niv.qs.length > (mi >= 0 ? 1 : 0) && mi >= 0) { // les autres questions : sous « Avancé » (même style que la Description : à droite, violet, sans trait)
+      var adv = nivAdv();
+      if (mi >= 0 && adv.length) { // les autres questions : sous « Avancé » (même style que la Description : à droite, violet, sans trait)
         var advWrap = el('div', 'objField objGuideRow' + (niv.advOpen ? ' open' : '')), advHead = btn('objGuideHead objAdvHead cmpToggle', '', function () { niv.advOpen = !niv.advOpen; nivPaint(); });
         advHead.setAttribute('aria-expanded', niv.advOpen ? 'true' : 'false');
         var advTx = el('span', 'objGuideTxt'); advTx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
         advHead.appendChild(advTx); advHead.appendChild(el('span', 'cmpChev' + (niv.advOpen ? ' open' : ''))); advWrap.appendChild(advHead); boxes.niveau.appendChild(advWrap);
       }
       if (mi >= 0 && !niv.advOpen) return;
-      niv.qs.forEach(function (q, qi) {
-        if (qi === mi) return;
-        var open = niv.open === qi, wrap = el('div', 'objField objGuideRow' + (open ? ' open' : ''));
-        var head = btn('objGuideHead cmpToggle', '', function () { niv.open = open ? -1 : qi; nivPaint(); });
+      adv.forEach(function (x, xi) {
+        var open = niv.open === xi, cur = x.get(), wrap = el('div', 'objField objGuideRow' + (open ? ' open' : ''));
+        var head = btn('objGuideHead cmpToggle', '', function () { niv.open = open ? -1 : xi; nivPaint(); });
         head.setAttribute('aria-expanded', open ? 'true' : 'false');
-        var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr(q.q)));
+        var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr(x.q)));
         head.appendChild(tx);
-        head.appendChild(el('span', 'hint objGuideRight objNivAns', niv.picks[qi] != null ? tr(q.choices[niv.picks[qi]]) : '')); // à droite : la réponse choisie (violet) ; la flèche demeure à droite (R21)
+        head.appendChild(el('span', 'hint objGuideRight objNivAns', cur != null ? tr(x.choices[cur]) : '')); // à droite : la réponse choisie (violet) ; la flèche demeure à droite (R21)
         head.appendChild(el('span', 'cmpChev' + (open ? ' open' : ''))); wrap.appendChild(head);
-        if (open) wrap.appendChild(grid(q, qi, function () { niv.open = niv.picks.indexOf(null) === qi ? -1 : niv.open; niv.open = -1; }));
+        if (open) {
+          if (x.known && niv.kp[x.key] == null) wrap.appendChild(el('p', 'hint', tr(niv.source === 'objectif' ? 'd’après un objectif similaire' : 'd’après ton Chrono'))); // réponse déjà connue : pré-sélectionnée, modifiable
+          wrap.appendChild(grid({ q: x.q, choices: x.choices }, xi, function () {}, x.get, function (i) { x.set(i); niv.open = -1; }));
+        }
         boxes.niveau.appendChild(wrap);
       });
     }
@@ -642,7 +658,7 @@
       var t = targets()[0];
       var pr = api('POST', '/api/objectifs/niveau/questions', { title: form.title, description: form.description || '', endDate: form.endDate, activityId: form.activityId, activityName: t ? t.name : '', level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null }).then(function (r) {
         if (niv.key !== key || !r || !r.questions) return;
-        niv.qs = r.questions; niv.picks = r.questions.map(function () { return null; }); niv.known = r.known || []; niv.skip = !!r.skip; niv.type = r.type || null;
+        niv.qs = r.questions; niv.picks = r.questions.map(function () { return null; }); niv.known = r.known || []; niv.fixed = r.fixed || []; niv.source = r.source || null; niv.kp = {}; niv.skip = !!r.skip; niv.type = r.type || null;
       }).catch(function () { if (niv.key === key) niv.key = null; }).then(function () { if (niv.pending === pr) niv.pending = null; });
       niv.pending = pr; return pr;
     }
