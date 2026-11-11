@@ -420,7 +420,7 @@ function cellStartOf(inner, iso) { return inner === 'hebdomadaires' ? mondayOf(i
 // Pôle = l'ANNÉE (celle de l'arbre : année civile de l'échéance) ; activité = la TRANCHE de 5 ans (première année = année en cours) qui la contient : MÊMES définitions que les colonnes de l'arbre (objectifs-arbre.js, blockStart / rowKey).
 function blockYearOf(iso) { const y0 = Number(today().slice(0, 4)), y = Number(iso.slice(0, 4)); return y0 + 5 * Math.floor((y - y0) / 5); }
 // cadenced : objectif périodique / hebdomadaire posé directement sur un PÔLE (même cases qu'un secteur : la période ou la semaine qui contient l'échéance)
-function cadenceOf(body) { return body && body.level === 'pole' && ['periodique', 'hebdomadaire'].includes(body.cadence) ? body.cadence : null; }
+function cadenceOf(body) { return body && (body.level === 'pole' || body.level === 'activite') && ['periodique', 'hebdomadaire'].includes(body.cadence) ? body.cadence : null; } // niveau le plus bas des catégories de l'activité : le pôle (sans secteur) ou l'activité elle-même (sans catégorie)
 function cellKey(level, iso, weekly, cadenced) {
   if ((level === 'secteur' || cadenced) && weekly) return Number(mondayOf(iso).replace(/-/g, '')) * 1000; // la semaine, par son lundi
   if (level === 'secteur' || cadenced) { const g = gridOf(iso); return g.year * 100 + g.period; }
@@ -455,7 +455,7 @@ function occupants(userId, body) {
     if ((r.level || 'activite') !== level || (r.poleKey || null) !== pk || (r.categoryKey || null) !== ck) return false;
     let meta = {}; try { meta = JSON.parse(r.metaJson || '{}'); } catch (e) { meta = {}; }
     if (meta.abandoned) return false;
-    if (level === 'pole' && !!meta.cadence !== !!cadReq) return false; // un objectif annuel et un objectif périodique / hebdomadaire d'un pôle sont des cases différentes
+    if (level !== 'secteur' && !!meta.cadence !== !!cadReq) return false; // un objectif annuel et un objectif périodique / hebdomadaire d'un pôle sont des cases différentes
     const weeklyRow = explicitInner && (meta.cadence ? meta.cadence === 'hebdomadaire' : meta.inner === 'hebdomadaires');
     if (weeklyRow !== weeklyReq) return false; // une semaine et une période sont deux cases différentes
     const late = r.endDate < now && shape(r, false).status !== 'atteint';
@@ -550,7 +550,7 @@ function writeBridge(r, periods, category) {
   return plan;
 }
 function writePoleDirect(r, meta) { // la période (grille de 28 jours depuis le plan du pôle) ou la semaine qui contient l'échéance
-  const act = r.activityId, key = r.poleKey, plan = goals.ensurePlan(act, key), g = gridOf(r.endDate);
+  const act = r.activityId, key = r.poleKey || require('./categories').IMPLICIT_ACTIVITY_KEY, plan = goals.ensurePlan(act, key), g = gridOf(r.endDate);
   const n = (g.year - Number(String(plan.startDate).slice(0, 4))) * 13 + g.period;
   if (n < 1) throw err('L’échéance est avant le début du plan de ce pôle.');
   if (meta.cadence === 'hebdomadaire') {
@@ -562,8 +562,8 @@ function writePoleDirect(r, meta) { // la période (grille de 28 jours depuis le
 function bridge(r, periods) { // jamais bloquant : sans pont, l'objectif reste complet dans la Feuille de route
   try {
     const meta = JSON.parse(r.metaJson || '{}');
-    if (meta.cadence && r.poleKey) { // périodique / hebdomadaire d'un pôle : écrit sur le pôle lui-même (mêmes fonctions que le connecteur : setMainGoal / setWeekly), SANS créer de secteur
-      writePoleDirect(r, meta); meta.category = r.poleKey; meta.bridged = true; delete meta.bridgeFailed;
+    if (meta.cadence && (r.poleKey || (r.level || 'activite') === 'activite')) { // périodique / hebdomadaire d'un pôle : écrit sur le pôle lui-même (mêmes fonctions que le connecteur : setMainGoal / setWeekly), SANS créer de secteur
+      writePoleDirect(r, meta); meta.category = r.poleKey || require('./categories').IMPLICIT_ACTIVITY_KEY; meta.bridged = true; delete meta.bridgeFailed;
       db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
       return meta.category;
     }

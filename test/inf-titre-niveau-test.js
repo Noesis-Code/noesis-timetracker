@@ -12,5 +12,5 @@ const en = fs.readFileSync(path.join(__dirname, '..', 'public/i18n.js'), 'utf8')
 assert(en.includes("'Objectifs périodiques': 'Period goals'") && en.includes("'Objectifs hebdomadaires': 'Weekly goals'") && en.includes("'Objectif hebdomadaire'"), 'traductions EN');
 const rc = js.slice(js.indexOf('    function infRecap('), js.indexOf('    function infCreatedName('));
 assert(rc.includes("tr('Échéance')") && !/tr('(Chiffre|Départ|Faire|Résultat)')/.test(rc), 'haut de la page : seulement l’échéance (plus Chiffre, Départ, Faire, Résultat)');
-assert(js.includes("tr(infCreatedName()) + ' : ' + form.title") && js.includes("activite: 'Objectif pluriannuel', pole: 'Objectif annuel', secteur: 'Objectif périodique'"), 'titre du haut : « Objectif annuel : … » selon le niveau réel de l’objectif créé');
+assert(js.includes("tr(infCreatedName()) + ' : ' + form.title") && js.includes("pluriannuel: 'Objectif pluriannuel', annuel: 'Objectif annuel', periodique: 'Objectif périodique', hebdomadaire: 'Objectif hebdomadaire'"), 'titre du haut : « Objectif annuel : … » selon le niveau réel de l’objectif créé');
 if (failed) { console.log('\n' + failed + ' échec(s)'); process.exit(1); } console.log('\ntout passe');

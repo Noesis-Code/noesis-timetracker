@@ -817,7 +817,11 @@ function isValidCategoryOrSecteurForActivity(activityId, key) {
   return isValidCategoryForActivity(activityId, key) || isValidSecteurForActivity(activityId, key);
 }
 
+// Clé IMPLICITE réservée (11 nov. 2026) : un objectif périodique / hebdomadaire d'une activité SANS aucune catégorie s'écrit sur l'activité elle-même. Elle n'est PAS une catégorie : aucune ligne dans la table des catégories,
+// jamais listée dans les Réglages ni dans les listes de catégories, jamais comptée dans les 10 secteurs ; seules les écritures de plan (assertCategoryOrSecteurForActivity) l'acceptent.
+const IMPLICIT_ACTIVITY_KEY = '__activite';
 function assertCategoryOrSecteurForActivity(activityId, category) {
+  if (category === IMPLICIT_ACTIVITY_KEY && !activeCategoryRows(activityId).some((r) => !r.parentKey)) return; // seulement tant que l'activité n'a aucun pôle
   if (!isValidCategoryOrSecteurForActivity(activityId, category)) {
     throw Object.assign(new Error('Catégorie ou secteur invalide pour cette activité.'), { statusCode: 400 });
   }
@@ -884,6 +888,7 @@ function resolveToPole(activityId, key) {
 }
 
 module.exports = {
+  IMPLICIT_ACTIVITY_KEY,
   MAX_CUSTOM_CATEGORIES,
   MAX_SECTEURS_PER_POLE,
   DEFAULT_CATEGORY_KEY,

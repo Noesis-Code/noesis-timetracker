@@ -409,9 +409,13 @@
     var TYPES = [['pluriannuel', 'Pluriannuel'], ['annuel', 'Annuel'], ['periodique', 'Périodique'], ['hebdomadaire', 'Hebdomadaire']]; // tableau 2 × 2 : le niveau activité de l'arbre = blocs de 5 ans (pluriannuel), pôle = année (annuel), période, semaine
     function typeDerived() { return form.level === 'secteur' ? 'periodique' : form.level === 'pole' ? 'annuel' : 'pluriannuel'; } // sans choix explicite : le type suit le niveau choisi dans l'arbre
     function typeOf() { return form.type || typeDerived(); }
-    function typeOk() { var t = typeOf(); return t === 'pluriannuel' ? form.level === 'activite' || !form.level : t === 'annuel' ? form.level === 'pole' : form.level === 'pole' || (form.level === 'secteur' && !!form.categoryKey); } // pluriannuel : activité ; annuel : pôle ; périodique et hebdomadaire : pôle (avec ou sans secteurs) ou secteur (confirmé par l'arbre : objectifs-arbre.js, blocs de 5 ans / années / périodes)
-    function cadenceNow() { var t = typeOf(); return form.level === 'pole' && (t === 'periodique' || t === 'hebdomadaire') ? t : undefined; } // périodique / hebdomadaire posé sur un PÔLE : écrit sur le pôle lui-même (serveur : cadence)
-    function typeMsg() { var t = typeOf(); return typeOk() ? '' : t === 'pluriannuel' ? tr('Un objectif pluriannuel se range sur l’activité.') : t === 'annuel' ? tr('Un objectif annuel se range sur un pôle.') : tr('Un objectif périodique ou hebdomadaire se range sur un pôle ou un secteur : choisis-en un.'); }
+    function isSmall(t) { return t === 'periodique' || t === 'hebdomadaire'; } // les « petits objectifs »
+    function lowestOf(act) { var ps = (act && act.poles) || []; return ps.some(function (p) { return (p.secteurs || []).length; }) ? 'secteur' : ps.length ? 'pole' : 'activite'; } // niveau le plus bas des catégories de l'ACTIVITÉ : secteur s'il y en a, sinon pôle, sinon l'activité elle-même
+    function lowestNow() { return lowestOf(actById(form.activityId)); }
+    // Le type et le niveau du cadre ne sont plus reliés (règle finale d'Émilien) : les quatre types se choisissent librement ; les petits objectifs (périodique, hebdomadaire) se rangent TOUJOURS sur le niveau le plus bas de l'activité ; pluriannuel et annuel : activité ou pôle (aucune case de l'arbre au niveau secteur).
+    function typeOk() { var t = typeOf(); if (!isSmall(t)) return form.level !== 'secteur'; var low = lowestNow(); return form.level === low && (low === 'secteur' ? !!form.categoryKey : low === 'pole' ? !!form.poleKey : true); }
+    function cadenceNow() { var t = typeOf(); return isSmall(t) && (form.level === 'pole' || form.level === 'activite') ? t : undefined; } // petit objectif posé sur un PÔLE (sans secteur) ou sur l'ACTIVITÉ (sans catégorie) : écrit là, sans créer de secteur (serveur : cadence)
+    function typeMsg() { var t = typeOf(); if (typeOk()) return ''; if (!isSmall(t)) return tr('Un objectif pluriannuel ou annuel se range sur l’activité ou sur un pôle.'); var low = lowestNow(); return low === 'secteur' ? tr('Choisis un secteur de cette activité.') : low === 'pole' ? tr('Choisis un pôle de cette activité.') : ''; }
     function paintTypeBlock() {
       var t = typeOf(); form.weeklyOn = t === 'hebdomadaire' && form.level === 'secteur';
       var grid = el('div', 'cmpGrid'); grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', tr(TITRES_EMPLACEMENT.type)); // composant partagé : barres verticale et horizontale qui se croisent
@@ -437,6 +441,14 @@
       function chev(row, open) { row.classList.add('objHasChev'); row.appendChild(el('span', 'cmpChev' + (open ? ' open' : ''))); return row; }
       function poleColor(a, p) { return p && p.shadeRank != null && TMT.poleColor ? TMT.poleColor(a.color, p.shadeRank) : a.color; }
       function under(a, blk) {
+        if (isSmall(typeOf())) { // petits objectifs : seulement les choix du niveau le plus bas (les secteurs, ou les pôles s'il n'y a pas de secteur)
+          var low = lowestOf(a);
+          (a.poles || []).forEach(function (p) {
+            if (low === 'pole') { var sp = form.poleKey === p.key, rp = choice(p.label, '', sp, null, function () { form.poleKey = sp ? null : p.key; form.categoryKey = null; form.level = sp ? 'activite' : 'pole'; refresh(); }); var cp = poleColor(a, p); if (cp) rp.style.color = cp; blk.appendChild(rp); return; }
+            (p.secteurs || []).forEach(function (x) { var sx = form.categoryKey === x.key && form.poleKey === p.key, rx = choice(p.label + ' › ' + x.label, '', sx, null, function () { form.poleKey = sx ? null : p.key; form.categoryKey = sx ? null : x.key; form.level = sx ? 'activite' : 'secteur'; refresh(); }); rx.classList.add('objSub'); blk.appendChild(rx); });
+          });
+          return;
+        }
         (a.poles || []).forEach(function (p) {
           var sel = form.poleKey === p.key, secs = p.secteurs || [], pc = poleColor(a, p);
           var r = choice(p.label, '', sel, null, function () { form.poleKey = sel ? null : p.key; form.categoryKey = null; form.level = sel ? 'activite' : 'pole'; refresh(); });
@@ -446,9 +458,9 @@
         });
       }
       function card(a, host) {
-        var on = form.acts.indexOf(a.id) >= 0, hasP = (a.poles || []).length > 0, open = on && hasP && !!form.poleOpen, blk = el('div', 'objAct');
+        var on = form.acts.indexOf(a.id) >= 0, small = isSmall(typeOf()), hasP = (a.poles || []).length > 0, open = on && hasP && (small || !!form.poleOpen), blk = el('div', 'objAct');
         var c = choice(a.name, '', on, a.color, function () {
-          if (on) { if (hasP) { if (form.poleOpen) { form.poleKey = null; form.categoryKey = null; form.level = 'activite'; } form.poleOpen = !form.poleOpen; refresh(); } return; } // activité déjà choisie : déroule ses pôles ; la retoucher les replie et désélectionne pôle ET secteur (niveau, phrase, interrupteur recalculés)
+          if (on) { if (hasP && !small) { if (form.poleOpen) { form.poleKey = null; form.categoryKey = null; form.level = 'activite'; } form.poleOpen = !form.poleOpen; refresh(); } return; } // activité déjà choisie : déroule ses pôles ; la retoucher les replie et désélectionne pôle ET secteur (niveau, phrase, interrupteur recalculés)
           form.acts = [a.id]; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; form.poleOpen = false; syncMain(); refresh();
         });
         if (!inTree[a.id]) c.classList.add('cmpDashed'); // pas encore dans l'arbre : contour pointillé gris, titre atténué (composant partagé)
@@ -732,7 +744,7 @@
       row.appendChild(el('span', 'objGridName', tr('Échéance'))); row.appendChild(el('span', 'objRecapVal', form.endDate ? new Date(form.endDate + 'T12:00:00').toLocaleDateString(TMT.dateLocale || undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : ''));
       node.appendChild(row); return node;
     }
-    function infCreatedName() { return { activite: 'Objectif pluriannuel', pole: 'Objectif annuel', secteur: 'Objectif périodique' }[form.level || 'activite']; } // niveau RÉEL de l'objectif créé, libellés de l'arbre
+    function infCreatedName() { return { pluriannuel: 'Objectif pluriannuel', annuel: 'Objectif annuel', periodique: 'Objectif périodique', hebdomadaire: 'Objectif hebdomadaire' }[typeOf()]; } // niveau RÉEL de l'objectif créé, libellés de l'arbre
     // Lignes de sous-objectifs : UNE ligne avec UN trait dessous, comme les groupes de la Description (.objGuideRow / .objGuideHead cmpToggle) ; toucher la ligne la déplie (une seule à la fois) et elle forme alors une section.
     // Ligne : case à cocher, période en petit gris au-dessus du titre, chiffre, petit trait, heures (violet, sélecteur standard), flèche à droite. Dépliée : Faire, Résultat, Avancement, puis les objectifs existants plus bas (gris, sans case).
     function infLevelName(p, one) { var k = p.level === 'pole' ? ['Objectifs annuels', 'Objectif annuel'] : p.level === 'secteur' ? ['Objectifs périodiques', 'Objectif périodique'] : ['Objectifs hebdomadaires', 'Objectif hebdomadaire']; return k[one ? 1 : 0]; } // UNE source : le niveau réel des LIGNES proposées (pôle = par année, secteur = par période, sinon par semaine) pour le titre du panneau et l'en-tête de colonne
