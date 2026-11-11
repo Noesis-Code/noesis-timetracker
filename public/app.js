@@ -3302,7 +3302,7 @@
       $('stopCancelBtn').disabled = false;
       return;
     }
-    TMT.ui.attente($('stopConfirmBtn').parentNode, api('POST', '/api/timer/stop', stopPayload))
+    TMT.ui.attente($('stopConfirmBtn'), api('POST', '/api/timer/stop', stopPayload))
       .then(function (data) {
         saveOfflineChrono(null);
         stopLiveTimer();

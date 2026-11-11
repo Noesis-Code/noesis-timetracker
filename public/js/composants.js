@@ -70,11 +70,13 @@
     if (container) container.appendChild(el);
     return { el: el, remove: function () { if (el.parentNode) el.parentNode.removeChild(el); } };
   }
-  // Attente (R49) : pendant qu'une opération dure, la zone (page, fenêtre, bloc) disparaît et seul le N reste ; sans rien avant 1 s (ni N, ni disparition : les attentes courtes ne clignotent pas).
+  // Attente (R49) : pendant qu'une opération dure, un voile de verre (flou fort, contenu illisible) couvre la zone qui attend (page, section ou bouton) avec le N au MILIEU ; rien n'apparaît avant 1 s.
   // attente(zone ou [zones], promesse) rend la même promesse ; un seul composant pour toutes les attentes de l'app.
   function attente(zones, p) {
-    var list = [].concat(zones).filter(Boolean), ls = list.map(function (z) { z.classList.add('cmpAttente'); return loader(z, { seul: true }); });
-    function fin() { list.forEach(function (z, i) { z.classList.remove('cmpAttente'); ls[i].remove(); }); }
+    var list = [].concat(zones).filter(Boolean), vs = list.map(function (z) {
+      var v = document.createElement('span'); v.className = 'cmpVoile'; z.classList.add('cmpAttente'); z.appendChild(v); loader(v, { seul: true }); return v;
+    });
+    function fin() { list.forEach(function (z, i) { z.classList.remove('cmpAttente'); if (vs[i].parentNode) vs[i].parentNode.removeChild(vs[i]); }); }
     return Promise.resolve(p).then(function (v) { fin(); return v; }, function (e) { fin(); throw e; });
   }
   function btn(cls, label, onClick) {
