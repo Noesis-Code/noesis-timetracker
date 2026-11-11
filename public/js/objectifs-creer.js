@@ -696,15 +696,17 @@
     // Étape « Objectifs inférieurs » (10 nov. 2026) : après Temps, seulement pour un objectif d'activité (annuels) ou de pôle (périodiques) et si le serveur propose quelque chose ; sautée en silence sinon (objectifs-inferieurs.js).
     // Le serveur calcule (cases, heures, chiffres) et l'IA rédige ; ici : cocher / refuser chaque ligne, changer les heures (les cases SUIVANTES suivent la nouvelle base) ; rien n'est écrit avant « Terminer ».
     var inf = form.inf = form.inf || { key: null, plan: null, on: [], hrs: [], edited: [], open: -1 };
-    function infEligible() { return (form.level === 'activite' || form.level === 'pole') && !cadenceNow() && !!form.endDate && tp.valueMin > 0; }
+    // Chaîne (Émilien) : pluriannuel => annuels ; annuel => périodiques ; périodique => hebdomadaires ; hebdomadaire => rien.
+    function infMode() { var t = typeOf(); return t === 'periodique' ? 'weekly' : t === 'hebdomadaire' ? null : (form.level === 'activite' || form.level === 'pole') && !cadenceNow() ? 'down' : null; }
+    function infEligible() { return !!infMode() && !!form.endDate && tp.valueMin > 0; }
     function infListed() { return infEligible() && !(inf.plan && inf.plan.skip); }
-    function infKey() { return [nivKey(), tp.valueMin, form.level || '', form.poleKey || ''].join('|'); }
+    function infKey() { return [nivKey(), tp.valueMin, form.level || '', form.poleKey || '', form.categoryKey || '', infMode()].join('|'); }
     function infFetch() {
       if (!infEligible()) { inf.plan = { skip: true }; inf.key = null; return Promise.resolve(); }
       var key = infKey(); if (inf.key === key && inf.plan) return Promise.resolve();
       inf.key = key; inf.plan = null;
       var nb = nivBody(), dep = nb && nb.answers[0] ? nb.answers[0].a : '';
-      return api('POST', '/api/objectifs/inferieurs/proposition', { title: form.title, description: form.description || '', activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, startDate: form.startDate, endDate: form.endDate, rateMin: tp.valueMin, depart: dep }).then(function (p) {
+      return api('POST', '/api/objectifs/inferieurs/proposition', { title: form.title, description: form.description || '', activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, type: infMode() === 'weekly' ? 'periodique' : undefined, startDate: form.startDate, endDate: form.endDate, rateMin: tp.valueMin, depart: dep }).then(function (p) {
         if (inf.key !== key) return;
         inf.plan = p && !p.skip ? p : { skip: true };
         if (!inf.plan.skip) { inf.on = p.rows.map(function (r) { return r.checked; }); inf.hrs = p.rows.map(function (r) { return r.hoursMin; }); inf.edited = p.rows.map(function () { return false; }); inf.open = -1; }
@@ -790,7 +792,7 @@
         rows.push({ kind: 'nouveau', title: r.title, description: infChild(r), poleKey: r.poleKey, categoryKey: r.categoryKey, endDate: r.endDate, weeks: r.weeks, hoursMin: inf.hrs[i], chiffre: r.chiffre, reason: hh(p.rateMin) + ' × ' + r.weeks + ' ' + tr('sem'), attachIds: r.subs.filter(function (x) { return x.attach; }).map(function (x) { return x.id; }) });
       });
       if (!rows.length) return Promise.resolve();
-      return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: parent.id, rateMin: p.rateMin, rows: rows }).catch(function () { /* l'objectif principal existe déjà : jamais de blocage */ });
+      return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: parent.id, rateMin: p.rateMin, weekly: p.level === 'semaine' ? true : undefined, rows: rows }).catch(function () { /* l'objectif principal existe déjà : jamais de blocage */ });
     }
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));

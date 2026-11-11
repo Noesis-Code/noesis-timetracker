@@ -153,12 +153,71 @@ async function generate(payload, asked, parentTitle) {
   return r.answer;
 }
 
+// ---- Périodique => HEBDOMADAIRES (11 nov. 2026, décision d'Émilien) : les semaines de la période de 28 jours de l'objectif créé (4 lignes au plus) ----
+// Chaîne : pluriannuel => annuels ; annuel => périodiques ; périodique => hebdomadaires ; hebdomadaire => rien. Les hebdomadaires se rangent au MÊME niveau que leur périodique (le plus bas de l'activité : secteur, pôle ou l'activité elle-même), sans créer de secteur.
+const weekNo = (ws) => O.gridOf(ws).week;
+function weeksOfPeriod(start, end) {
+  const ps = O.periodStartOf(end), out = [];
+  for (let i = 0; i < 4; i += 1) {
+    const ws = O.addDays(ps, 7 * i), we = O.addDays(ws, 6);
+    if (we < start || ws > end) continue;
+    out.push({ label: 'S' + weekNo(ws), ws, we, endDate: we < end ? we : end });
+  }
+  return out;
+}
+function isWeeklyRow(r) { const m = parseMeta(r); return m.cadence === 'hebdomadaire' || m.inner === 'hebdomadaires'; }
+async function planWeekly(userId, body, today) {
+  const skip = { skip: true };
+  const level = ['activite', 'pole', 'secteur'].includes(body.level) ? body.level : null;
+  if (!level || !O.isDay(body.endDate) || !process.env.ANTHROPIC_API_KEY) return skip;
+  const act = db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.id = ?').get(userId, Number(body.activityId));
+  const rate = Math.round(Number(body.rateMin));
+  if (!act || !(rate > 0) || rate > 168 * 60) return skip;
+  const title = cleanText(body.title, 200); if (!title) return skip;
+  const startIn = O.isDay(body.startDate) ? body.startDate : today;
+  const start = O.placement({ level, endDate: body.endDate, cadence: level === 'secteur' ? undefined : 'periodique', inner: level === 'secteur' ? 'periodiques' : undefined }, startIn).start;
+  const pk = level === 'activite' ? null : (body.poleKey || null), ck = level === 'secteur' ? (body.categoryKey || null) : null;
+  const weeks = weeksOfPeriod(start, body.endDate); if (!weeks.length) return skip;
+  const rows = liveRows(userId, act.id);
+  const lines = weeks.map((w) => {
+    const ex = rows.find((r) => (r.level || 'activite') === level && (r.poleKey || null) === pk && (r.categoryKey || null) === ck && isWeeklyRow(r) && O.mondayOf(r.endDate) === w.ws) || null;
+    return { w, ex, existingMin: ex ? (hoursOf(ex) != null ? rq(hoursOf(ex) * 60) : 0) : null };
+  });
+  const hours = planHours(rate, lines.map((l) => ({ weeks: 1, existingMin: l.existingMin, subsMin: 0 })));
+  if (!hours.some((h) => h.kind !== 'existant')) return skip; // toutes les semaines existent déjà : étape sautée
+  const asked = lines.map((l, i) => ({ l, h: hours[i], i })).filter((x) => x.h.kind === 'nouveau').map((x, k) => ({ n: k + 1, i: x.i, label: x.l.w.label, weeks: 1 }));
+  let ai = { chiffre: null, lignes: [] };
+  if (asked.length) {
+    const payload = { objectif: title, description: cleanText(body.description, 900) || undefined, depart: cleanText(body.depart, 400) || undefined, activite: act.name, niveauInferieur: 'hebdomadaire', lignes: asked.map((a) => ({ n: a.n, periode: a.label, semaines: 1 })) };
+    const aibudget = require('./aibudget');
+    ai = await aibudget.runAs(userId, () => aicache.memoize([FEATURE, 'v1', payload], () => generate(payload, asked, title)));
+    if (ai.lignes.some((x) => norm(x.titre) === norm(title))) return skip;
+  }
+  const ch = ai.chiffre; let values = null;
+  if (ch) {
+    const fixed = lines.map((l) => { const m = l.ex ? parseMeta(l.ex).chiffre : null; return m && Number.isFinite(Number(m.value)) ? Number(m.value) : null; });
+    values = ch.type === 'cumulatif' ? divideCumulative(ch.depart, ch.cible, lines.map(() => 1), fixed) : divideAdditive(ch.cible, lines.map(() => 1), fixed);
+  }
+  const sub = (t, v) => t.replace(/{chiffre}/g, fmtChiffre(v, ch && ch.unite));
+  const outRows = lines.map((l, i) => {
+    const h = hours[i], a = asked.find((x) => x.i === i), t = a ? ai.lignes[a.n - 1] : null, v = values ? values[i] : null;
+    const row = { index: i, label: l.w.label, weeks: 1, start: l.w.ws, endDate: l.w.endDate, kind: h.kind, hoursMin: h.hoursMin, fromMin: h.fromMin, checked: h.kind !== 'existant', chiffre: values ? { value: v, unit: ch.unite, type: ch.type } : null,
+      existingId: l.ex ? l.ex.id : null, existingTitle: l.ex ? l.ex.title : null, poleKey: pk, categoryKey: ck, subs: [], choose: false };
+    if (t) { row.title = sub(t.titre, v).slice(0, MAX_TITLE); row.faire = sub(t.faire, v).slice(0, MAX_TEXT); row.resultat = sub(t.resultat, v).slice(0, MAX_TEXT); row.avancement = sub(t.avancement, v).slice(0, MAX_TEXT); }
+    return row;
+  });
+  const news = outRows.filter((r) => r.kind === 'nouveau');
+  for (let i = 0; i < news.length; i += 1) if (news.some((o, j) => j !== i && norm(o.title) === norm(news[i].title))) return skip;
+  return { skip: false, level: 'semaine', parentLevel: level, rateMin: rate, chiffre: ch, rows: outRows, totalMin: outRows.filter((r) => r.checked).reduce((a, r) => a + r.hoursMin, 0) };
+}
+
 // ---- Proposition ----
 // body : { title, description, activityId, level ('activite' | 'pole'), poleKey (pôle), startDate, endDate, rateMin (minutes par semaine), depart (texte du Niveau, facultatif) }.
 // Renvoie { skip: true } ou { skip: false, level (des lignes), rateMin, chiffre, rows, totalMin }.
 async function plan(userId, body, today) {
   const skip = { skip: true };
   try {
+    if (body && body.type === 'periodique') return await planWeekly(userId, body, today);
     const level = body && body.level;
     if (!['activite', 'pole'].includes(level) || !O.isDay(body.endDate) || !process.env.ANTHROPIC_API_KEY) return skip;
     const act = db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.id = ?').get(userId, Number(body.activityId));
@@ -226,7 +285,8 @@ function appliquer(userId, body) {
   const parent = db.prepare('SELECT * FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body && body.parentId), userId);
   if (!parent) throw err('Objectif parent introuvable.', 404);
   const list = Array.isArray(body.rows) ? body.rows.slice(0, 20) : [];
-  const childLevel = (parent.level || 'activite') === 'activite' ? 'pole' : (parent.level === 'pole' ? 'secteur' : null);
+  const weeklyParent = parseMeta(parent).cadence === 'periodique' || (parent.level === 'secteur' && parseMeta(parent).inner === 'periodiques' && body.weekly === true); // un périodique => ses hebdomadaires, au même niveau
+  const childLevel = weeklyParent ? (parent.level || 'activite') : (parent.level || 'activite') === 'activite' ? 'pole' : (parent.level === 'pole' ? 'secteur' : null);
   if (!childLevel) throw err('Aucun niveau inférieur à proposer.');
   const created = [], changed = [];
   list.forEach((r) => {
@@ -242,7 +302,7 @@ function appliquer(userId, body) {
       return;
     }
     if (r.kind !== 'nouveau') throw err('Ligne inconnue.');
-    const c = O.creer(userId, { title: r.title, activityId: parent.activityId, level: childLevel, poleKey: r.poleKey || (childLevel === 'secteur' ? parent.poleKey : null), categoryKey: childLevel === 'secteur' ? r.categoryKey : null, inner: childLevel === 'secteur' ? 'periodiques' : undefined, endDate: r.endDate, hoursPerWeek: hpw, description: r.description || '', parentId: parent.id, parentRel: 'apres', weekTasks: [] });
+    const c = O.creer(userId, { title: r.title, activityId: parent.activityId, level: childLevel, poleKey: weeklyParent ? (parent.poleKey || null) : (r.poleKey || (childLevel === 'secteur' ? parent.poleKey : null)), categoryKey: weeklyParent ? (parent.categoryKey || null) : (childLevel === 'secteur' ? r.categoryKey : null), inner: weeklyParent ? (childLevel === 'secteur' ? 'hebdomadaires' : undefined) : (childLevel === 'secteur' ? 'periodiques' : undefined), cadence: weeklyParent && childLevel !== 'secteur' ? 'hebdomadaire' : undefined, endDate: r.endDate, hoursPerWeek: hpw, description: r.description || '', parentId: parent.id, parentRel: 'apres', weekTasks: [] });
     const row = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(c.id), meta = parseMeta(row);
     meta.hoursPerWeek = hpw; // le rythme exact (au quart d'heure), non arrondi au dixième
     meta.inferieur = { rythmeMin: Math.round(Number(body.rateMin)) || null, hoursMin: min, weeks, chiffre: r.chiffre && Number.isFinite(Number(r.chiffre.value)) ? { value: Number(r.chiffre.value), unit: cleanText(r.chiffre.unit, 20), type: r.chiffre.type === 'additif' ? 'additif' : 'cumulatif' } : null, raison: cleanText(r.reason, 200) };
