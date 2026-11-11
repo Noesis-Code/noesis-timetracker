@@ -85,7 +85,7 @@
       });
   }
   // Construit la page si besoin : refresh() peut être appelé (TMT.horaire.refresh) avant la première ouverture du volet.
-  function refresh() { return loadAll().then(function () { if (!built) { build(); built = true; } render(); }, fail); }
+  function refresh() { return TMT.ui.attente(root, loadAll()).then(function () { if (!built) { build(); built = true; } render(); }, fail); }
   function fail(e) { S.msg = (e && e.message) || tr('Erreur serveur'); renderMsg(); }
 
   // ---------- petits constructeurs ----------
@@ -297,7 +297,7 @@
     try { localStorage.setItem('horaireSemaine', S.week); } catch (e) { /* stockage indisponible */ }
     if (S.editing && /^ev/.test(S.editing)) S.editing = null;
     closeMenu();
-    loadWeek().then(render, fail);
+    TMT.ui.attente(root, loadWeek()).then(render, fail);
   }
   function generate() {
     if (S.busy) return;
@@ -309,7 +309,7 @@
       return;
     }
     S.busy = true; genBtn.disabled = true; S.msg = '';
-    req('POST', 'weeks/' + S.week + '/generate').then(function (d) { S.schedule = d.schedule; render(); flashLabel(genBtn, 'Horaire généré'); }, fail)
+    TMT.ui.attente(root, req('POST', 'weeks/' + S.week + '/generate')).then(function (d) { S.schedule = d.schedule; render(); flashLabel(genBtn, 'Horaire généré'); }, fail)
       .then(function () { S.busy = false; genBtn.disabled = false; });
   }
   // Texte assemblé côté serveur (version en vigueur des prompts) copié dans le presse-papiers. ClipboardItem avec promesse quand il

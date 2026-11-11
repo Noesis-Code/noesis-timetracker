@@ -70,6 +70,13 @@
     if (container) container.appendChild(el);
     return { el: el, remove: function () { if (el.parentNode) el.parentNode.removeChild(el); } };
   }
+  // Attente (R49) : pendant qu'une opération dure, la zone (page, fenêtre, bloc) disparaît et seul le N reste ; sans rien avant 1 s (ni N, ni disparition : les attentes courtes ne clignotent pas).
+  // attente(zone ou [zones], promesse) rend la même promesse ; un seul composant pour toutes les attentes de l'app.
+  function attente(zones, p) {
+    var list = [].concat(zones).filter(Boolean), ls = list.map(function (z) { z.classList.add('cmpAttente'); return loader(z, { seul: true }); });
+    function fin() { list.forEach(function (z, i) { z.classList.remove('cmpAttente'); ls[i].remove(); }); }
+    return Promise.resolve(p).then(function (v) { fin(); return v; }, function (e) { fin(); throw e; });
+  }
   function btn(cls, label, onClick) {
     var b = document.createElement('button');
     b.type = 'button'; b.className = cls;
@@ -80,7 +87,7 @@
   var ui = {
     editIcon: function () { return EDIT_SVG; },
     closeBtn: function (onClick, label) { var b = btn('cmpClose', label || 'Fermer', onClick); b.textContent = '✕'; return b; },
-    loader: loader, loaderHtml: loaderHtml,
+    loader: loader, loaderHtml: loaderHtml, attente: attente,
     removeBtn: function (onClick, label) { return btn('cmpRemove', label || 'Retirer', onClick); },
     editBtn: function (onClick, label) { var b = btn('cmpEdit', label || 'Modifier', onClick); b.innerHTML = EDIT_SVG; return b; },
     addBtn: function (label, onClick) {

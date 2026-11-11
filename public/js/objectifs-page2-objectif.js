@@ -744,12 +744,12 @@
     add.addEventListener('click', function (e) {
       e.stopPropagation();
       menu.classList.add('hidden');
-      api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/years').then(function (r) {
+      TMT.ui.attente($('goalsGrid'), api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/years').then(function (r) {
         TMT.goalsYears = r; TMT.goalsTreeYear = r.year;
         var pk = TMT.currentGoalsSelectedPoleKey;
         var p = pk && TMT.reloadGoalsGridForPole ? TMT.reloadGoalsGridForPole(pk) : (TMT.reloadGoalsAll ? TMT.reloadGoalsAll() : null);
         return Promise.resolve(p).then(function () { renderGoalsYearPicker(); renderGoalsGridHead(); renderGoalsGrid(); });
-      }).catch(function () {});
+      })).catch(function () {});
     });
     menu.appendChild(add);
     (TMT.goalsYears.years || []).forEach(function (y) {

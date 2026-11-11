@@ -555,7 +555,7 @@
   }
   function startExpansion(kind, label) {
     state.busy = true; ui.send.disabled = true; say(tr('Je regarde où Expansion est actif…'));
-    essorActivities().then(function (list) {
+    TMT.ui.attente(ui.text.parentNode, essorActivities()).then(function (list) {
       say('');
       if (!list.length) {
         setExpMode(false); ui.exHint.classList.add('hidden');
@@ -869,7 +869,7 @@
     if (state.exp) { runExpansion(); return; }
     state.busy = true; ui.send.disabled = true; ui.msg.textContent = '';
     var shown = state.review; // le panneau de revue était déjà affiché AVANT cet appui : ↑ (ou ✕) valide
-    var go = shown ? Promise.resolve() : propose(label); // rien d'affiché encore : on demande d'abord la proposition
+    var go = shown ? Promise.resolve() : TMT.ui.attente(ui.text.parentNode, propose(label)); // rien d'affiché encore : on demande d'abord la proposition
     go.then(function () {
       var t = target();
       // IA partielle ou absente : une proposition qui vient d'arriver s'AFFICHE pour que tu la revoies, elle n'est jamais appliquée dans la foulée (30 oct. 2026, Émilien).

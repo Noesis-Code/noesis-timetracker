@@ -146,11 +146,11 @@
     var instruction = String(text || '').trim();
     if (!instruction) { msg('Écris une consigne.'); return; }
     $('docTasksPage').classList.remove('hidden');
-    busy = true; pendingMode = false; msg('L’IA lit le document…'); $('docTasksResults').innerHTML = '';
+    busy = true; pendingMode = false; msg(''); $('docTasksResults').innerHTML = '';
     var req = driveFile
       ? TMT.api('POST', '/api/drive/propose', { activityId: Number(actId()), fileId: driveFile.id, instruction: instruction })
       : TMT.api('POST', '/api/activities/' + actId() + '/document-tasks/propose', { instruction: instruction, files: files });
-    req
+    TMT.ui.attente($('docTasksMsg').parentNode, req)
       .then(function (r) {
         busy = false; proposals = r.tasks || []; categories = r.categories || [];
         var notes = (r.notes || []).slice(); if (r.truncated) notes.push('Document long : seule la première partie a été lue.');
@@ -959,8 +959,8 @@
     })();
   });
   $('docTasksChangesFind').addEventListener('click', function () {
-    if (busy) return; busy = true; cToast('L’IA cherche…');
-    cApi('POST', '/generate', {}).then(function (r) {
+    if (busy) return; busy = true; cToast('');
+    TMT.ui.attente($('docTasksChangesToast').parentNode, cApi('POST', '/generate', {})).then(function (r) {
       busy = false; changes = normCh(r.proposals || []); renderChanges();
       cToast(r.aiBlocked ? r.message : r.capReached ? 'Plafond IA du jour atteint.' : (r.configured === false ? 'IA non configurée.' : (r.failed ? 'L’IA n’a pas répondu.' : (r.added ? r.added + ' nouvelle(s) proposition(s).' : 'Rien de nouveau à proposer.'))));
     }).catch(function (err) { busy = false; cToast((err && err.message) || 'Erreur.'); });
