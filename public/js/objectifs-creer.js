@@ -449,15 +449,15 @@
           if (on) { if (hasP) { if (form.poleOpen) { form.poleKey = null; form.categoryKey = null; form.level = 'activite'; } form.poleOpen = !form.poleOpen; refresh(); } return; } // activité déjà choisie : déroule ses pôles ; la retoucher les replie et désélectionne pôle ET secteur (niveau, phrase, interrupteur recalculés)
           form.acts = [a.id]; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; form.poleOpen = false; syncMain(); refresh();
         });
+        if (!inTree[a.id]) c.classList.add('cmpDashed'); // pas encore dans l'arbre : contour pointillé gris, titre atténué (composant partagé)
         blk.appendChild(hasP && on ? chev(c, open) : c); // flèche seulement sur l'activité choisie (c'est elle qui déroule)
         if (open) under(a, blk);
         host.appendChild(blk);
       }
       var here = acts.filter(function (a) { return inTree[a.id]; }), notYet = acts.filter(function (a) { return !inTree[a.id]; });
-      if (here.length) { var l1 = el('div', 'aiModeChoices'); here.forEach(function (a) { card(a, l1); }); actBox.appendChild(field(tr('Dans l’arbre'), l1)); }
-      var l2 = el('div', 'aiModeChoices');
-      notYet.forEach(function (a) { card(a, l2); });
-      if (notYet.length) actBox.appendChild(field(tr('Pas encore dans l’arbre'), l2));
+      var lst = el('div', 'aiModeChoices'); // une seule liste, sans titres : d'abord les activités déjà dans l'arbre, puis celles qui n'y sont pas encore (pointillé gris, texte atténué)
+      here.forEach(function (a) { card(a, lst); }); notYet.forEach(function (a) { card(a, lst); });
+      if (here.length || notYet.length) actBox.appendChild(lst);
       form._switchShown = form.level === 'secteur' && !!form.categoryKey; // le « Type d'objectif » (en haut) décide : « Objectifs inclus » masqué quand un secteur est choisi
       // Phrase en direct (texte seul) : activité › pôle › secteur · période ou semaine d'après l'échéance · parent retenu (« sans parent » s'il n'y en a pas)
       var cur0 = actById(form.activityId);
