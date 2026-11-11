@@ -189,21 +189,23 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objRecap::before { display: none; }
 .objRecap .objGridName { flex: none; width: 96px; }
 .objRecapVal { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-size: 14px; color: var(--text); }
-.objInf { margin: 0 0 16px; }
+.objInf { position: relative; margin: 0 0 16px; }
+.objInf::before { content: ''; position: absolute; top: 0; bottom: 0; right: 158px; width: 1px; background: var(--sep); pointer-events: none; } /* UNE seule barre verticale, de l'en-tête (Chiffre | Heures) jusqu'au Total, sur toute la hauteur : elle croise tous les traits horizontaux */
 .objInf .objGridChrono { width: 48px; margin-right: 8px; font-size: 13px; }
 .objInf .objGridObj { width: 96px; margin-left: 8px; font-size: 13px; }
-.objInfHdr, .objInfTotal { padding: 0 20px 0 24px; }
+.objInfHdr, .objInfTotal { padding: 0 32px 0 36px; } /* 12 px de plus de chaque côté : comme les lignes, dont le contenu est en retrait de 12 px (la section dépliée a ainsi de la marge pour son liseré) */
 .objInfHdr .objGridChrono, .objInfTotal .objGridChrono { margin-right: 25px; } /* aligne l'en-tête et le total sur les lignes (espace + petit trait + espace) */
-.objInfRow .objGuideHead { gap: 8px; }
+.objInfRow .objGuideHead { gap: 8px; padding: 0 12px; box-sizing: border-box; } /* le trait sous la ligne va d'un bord à l'autre (R22) ; le contenu est en retrait de 12 px */
 .objInfCb { flex: none; width: 16px; }
-.objInfBar { flex: none; width: 1px; height: 14px; background: var(--sep); }
+.objInfBar { flex: none; width: 1px; } /* simple espace qui réserve la place de la barre (dessinée une fois par .objInf::before) */
+.objInfRow:nth-last-child(2) .objGuideHead { border-bottom-color: transparent; } /* pas de trait fin sous le dernier objectif : il ne reste que le trait marqué du Total */
 .objInfSub { display: block; margin: 0; font-size: 11px; }
 .objInfRow .objGuideTxt { flex: 1 1 auto; }
-.objInfRow.open { margin: 0 -12px 8px; padding: 0 12px 4px; background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--glass-calm-line); -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur); border-radius: var(--radius-lg); }
+.objInfRow.open { margin: 0 0 8px; padding: 0 0 4px; box-shadow: var(--glass-shadow); border-radius: var(--radius-lg); } /* dépliée : une SECTION visible autour de la ligne et de son contenu : même verre que le panneau (aucun fond ni flou propre, R31), liseré fin aux coins arrondis */
 .objInfRow.open .objGuideHead { border-bottom-color: transparent; margin-bottom: 8px; }
 .objInfOff { opacity: .5; }
 .objInfMuted .objGuideHead .cmpBlockTitle, .objInfMuted .objGridApres { color: var(--text-light); }
-.objInfBody { margin: 0 0 12px 24px; }
+.objInfBody { margin: 0 12px 12px 36px; }
 .objInfSubs .objGridName { flex: 1 1 auto; width: auto; color: var(--text-light); }
 .objInfSubs .objRecapVal { flex: none; color: var(--text-light); }
 .objAdvHead { justify-content: flex-end; border: 0; } .objAdvHead .cmpBlockTitle { color: var(--purple); text-decoration: none; } /* « Avancé » (Description) et « Passer » (Niveau) : MÊME style, à droite, violet, sans trait */
