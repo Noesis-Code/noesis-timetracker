@@ -329,9 +329,9 @@
     var win = { body: panelBody, foot: panelFoot, close: closePanel };
     panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Description');
     var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
-    var boxes = { desc: el('div'), temps: el('div'), heures: el('div'), activite: el('div'), niveau: el('div'), inf: el('div'), taches: el('div') };
+    var boxes = { desc: el('div'), temps: el('div'), heures: el('div'), activite: el('div'), niveau: el('div'), echeance: el('div'), inf: el('div'), taches: el('div') };
     var slidePages = el('div', 'tasksPages'), slideTrack = el('div', 'tasksTrack'), slideA = el('div', 'tasksPage'), slideB = el('div', 'tasksPage off'), slideTimer = 0;
-    ['desc', 'temps', 'heures', 'activite', 'niveau', 'inf', 'taches'].forEach(function (k) { slideA.appendChild(boxes[k]); });
+    ['desc', 'temps', 'heures', 'activite', 'niveau', 'echeance', 'inf', 'taches'].forEach(function (k) { slideA.appendChild(boxes[k]); });
     slideTrack.appendChild(slideA); slideTrack.appendChild(slideB); slidePages.appendChild(slideTrack); panelBody.appendChild(slidePages);
     function slideTo(sub) { // la page de création d'une activité glisse depuis la droite (et revient) comme les pages du panneau de tâche
       window.clearTimeout(slideTimer);
@@ -340,14 +340,15 @@
     }
     if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
     panelForm = form; setBack(null);
-    function syncGo() { stepBtn.disabled = !form.dateOk || !form.endDate || !String(form.title || '').trim(); } // échéance obligatoire : Suivant / Terminer grisé sans date valide
+    function stepOff() { return cur === 'echeance' ? (!form.dateOk || !form.endDate) : cur === 'desc' ? !String(form.title || '').trim() : false; } // Description : grisé sans titre ; Échéance (étape propre, après Activité et Niveau) : grisé sans date valide (R35)
+    function syncGo() { stepBtn.disabled = stepOff(); }
     var MSG_PASSE = tr('L’échéance ne peut pas être dans le passé.');
     var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.setAttribute('aria-label', tr('Objectif'));
-    titleIn.addEventListener('input', function () { form.title = titleIn.value; if (cur === 'desc') syncGo(); });
+    titleIn.addEventListener('input', function () { form.title = titleIn.value; syncGo(); });
     boxes.desc.appendChild(field(tr('Objectif'), titleIn));
-    var dueBox = el('div'); boxes.desc.appendChild(dueBox); // l'échéance suit le titre (page 1), avant la description
+    var dueBox = el('div'); boxes.echeance.appendChild(dueBox); // l'échéance n'est plus demandée à la Description : étape « Échéance » après Activité et Niveau
     form.guide = form.guide || {}; // description guidée : blocs partagés avec la modification (paintGuideInto)
-    var advBox = el('div', 'objGuide'), guideBox = el('div'), advOpen = false; boxes.desc.appendChild(advBox); // les neuf questions : sous « Avancé », replié par défaut (R8)
+    var advBox = el('div', 'objGuide'), guideBox = el('div', 'objAdvBody'), advOpen = false; boxes.desc.appendChild(advBox); // les neuf questions : sous « Avancé », replié par défaut (R8)
     function composeDesc() { form.description = guideCompose(form); }
     function paintAdv() {
       advBox.textContent = '';
@@ -364,7 +365,7 @@
     function rattKey() { return [form.title, form.activityId, form.level || 'activite', form.poleKey || '', form.categoryKey || ''].join('|'); }
     function fetchParent() {
       if (form.activityId == null) return Promise.resolve(null);
-      if (!form.dateOk || !form.endDate) return Promise.resolve(null);
+      if (!form.dateOk || !form.endDate || !(form.endFixed || form.echeanceDone)) return Promise.resolve(null); // le parent dépend de l'échéance : rien tant qu'elle n'est pas confirmée
       var key = rattKey() + '|' + form.endDate + '|' + (form.weeklyOn ? 'h' : 'p'); // le parent dépend aussi du niveau, du pôle et du secteur choisis
       if (form.hintKey === key) return Promise.resolve(form.hintParent || null);
       return api('POST', '/api/objectifs/rattachement', rattBody()).then(function (r) { form.hintKey = key; form.hintParent = r && r.candidate ? { id: r.candidate.id, title: r.candidate.title } : null; return form.hintParent; }).catch(function () { return null; });
@@ -385,9 +386,9 @@
       if (!v || v <= form.startDate) { form.dateOk = false; syncGo(); if (v) msg.textContent = MSG_PASSE; return; }
       msg.textContent = '';
       var days = Math.round((Date.parse(v + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
-      form.durTouched = true; form.dateOk = true; form.endDate = v; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines'; form.periodWeeks = days <= 28 ? '1' : days <= 366 ? '4' : 'mois'; syncGo(); refresh();
+      form.durTouched = true; form.dateOk = true; form.endDate = v; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines'; form.periodWeeks = days <= 28 ? '1' : days <= 366 ? '4' : 'mois'; syncGo(); refresh(); if (form.echeanceDone) { form.echeanceDone = false; } // recalculé à « Suivant »
     });
-    if (ctx.fixedDate && !ctx.dateConfirmed && !form.endFixed) { form.endDate = null; form.dateOk = false; window.setTimeout(function () { dateIn.focus(); }, 50); } // date imposée par le type d'objectif (examen, mariage…) : demandée, jamais estimée
+    if (ctx.fixedDate && !ctx.dateConfirmed && !form.endFixed) { form.endDate = null; form.dateOk = false; } // date imposée (demandée à l'étape Échéance, focus à l'arrivée) ; par le type d'objectif (examen, mariage…) : demandée, jamais estimée
     var dueRow = el('div', 'objDueRow'); dueRow.appendChild(el('span', 'objDueLabel', tr('Date d’échéance') + ' :'));
     if (form.endFixed) dueRow.appendChild(el('span', 'objDueLabel', dateText(form.endDate))); else dueRow.appendChild(dateIn); // depuis l'arbre : échéance de la case, non modifiable
     paintDates(); dueBox.appendChild(dueRow);
@@ -451,7 +452,7 @@
         var when = !form.endDate ? '' : (form.level === 'secteur' ? (weeklyPossible(form) && form.weeklyOn ? tr('semaine') + ' ' + weekNo(form.endDate) : tr('période') + ' ' + periodNo(form.endDate)) : form.level === 'pole' ? tr('année') + ' ' + form.endDate.slice(0, 4) : tr('années') + ' ' + blockStart(form.endDate) + '-' + (blockStart(form.endDate) + 4)); // le libellé suit le niveau : activité = tranche de 5 ans (comme l'arbre), pôle = année, secteur = période, hebdomadaire = semaine
         var base = path.join(' › ') + (when ? ' · ' + when : '');
         live.textContent = base; actBox.appendChild(live);
-        fetchParent().then(function (p) { live.textContent = base + ' · ' + (p && p.title ? tr('sous') + ' « ' + p.title + ' »' : tr('sans parent')); });
+        if (form.endFixed || form.echeanceDone) fetchParent().then(function (p) { live.textContent = base + ' · ' + (p && p.title ? tr('sous') + ' « ' + p.title + ' »' : tr('sans parent')); }); // « sous X / sans parent » : seulement une fois l'échéance confirmée
       }
     }
     // Étape « Temps » (refaite le 9 nov. 2026, décision d'Émilien ; règles du standard design : R22 lignes de tableau d'un bord à l'autre, R11 violet #9C8CC8 = modifiable, R33 aucun pointillé ni cadre,
@@ -581,7 +582,7 @@
       node.addEventListener('pointerup', function (ev) { if (ev.pointerType !== 'mouse' || !on) return; on = false; done(ev.clientX - x0, ev.clientY - y0); });
       node.addEventListener('pointercancel', function () { on = false; });
     }
-    function refresh() { renderActivities(); syncTerm(); if (cur === 'activite' && !noActivity()) loadRatt().then(nivFetch); } // dès qu'une activité est touchée : rattachement et questions du Niveau partent en arrière-plan ; « Suivant » n'attend que s'ils ne sont pas revenus
+    function refresh() { renderActivities(); syncTerm(); if (cur === 'activite' && !noActivity()) { if (form.endFixed) loadRatt().then(nivFetch); else nivFetch(); } } // dès qu'une activité est touchée : rattachement et questions du Niveau partent en arrière-plan ; « Suivant » n'attend que s'ils ne sont pas revenus
     refresh();
     // Étape « Niveau » (10 nov. 2026) : avant « Temps », SAUTÉE quand elle est inutile (objectif sans progression) ou que le niveau est déjà connu (objectif similaire récent) ; seules les questions manquantes sont posées (le Chrono répond à la régularité et à l'ancienneté) ; trois questions guidées (accompli, régularité, ancienneté), quatre choix chacun, aucun texte à taper.
     // Les questions sont écrites par l'IA selon l'objectif (questions fixes si l'IA ne répond pas) ; le niveau se déduit côté serveur des trois réponses (objectifs-niveau.js).
@@ -611,7 +612,7 @@
     }
     function nivSync() { stepBtn.disabled = !nivDone(); }
     function nivPaint() {
-      boxes.niveau.textContent = '';
+      boxes.niveau.textContent = ''; boxes.niveau.classList.add('objAdvBody');
       if (!niv.qs) { if (niv.failed) boxes.niveau.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); else TMT.ui.loader(boxes.niveau); return; } // zone qui charge : le N standard (R48)
       function grid(q, qi, after, getPick, setPick) { // les quatre réponses : deux sélecteurs standard (.cmpSeg) de deux cases l'un sous l'autre
         var g = el('div', 'cmpGrid'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', tr(q.q));
@@ -777,11 +778,12 @@
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
-    var stepNames = { desc: 'Description', temps: 'Temps', heures: 'Heures', activite: 'Activité', niveau: 'Niveau', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(niv.skip ? [] : ['niveau']).concat(['temps']).concat(infListed() ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
+    var stepNames = { desc: 'Description', temps: 'Temps', heures: 'Heures', activite: 'Activité', niveau: 'Niveau', echeance: 'Échéance', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
+    function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(niv.skip ? [] : ['niveau']).concat(form.endFixed ? [] : ['echeance']).concat(['temps']).concat(infListed() ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
+    function rattKey2() { return rattKey() + '|' + (form.endDate || ''); } // le rattachement dépend aussi de l'échéance (saisie après Activité)
     function loadRatt() {
       // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
-      var key = rattKey();
+      var key = rattKey2();
       if (form.ratt && form.ratt.key === key) return form.ratt.p || Promise.resolve(); // même titre, même activité et même niveau : la décision précédente reste
       form.ratt = { key: key, cand: null, rel: 'apres', decided: null }; form.parentId = null; form.parentRel = null;
       if (form.activityId == null) return Promise.resolve();
@@ -791,20 +793,21 @@
     }
     function show(k) {
       form._step = cur = k;
-      ['desc', 'temps', 'heures', 'activite', 'niveau', 'inf', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      ['desc', 'temps', 'heures', 'activite', 'niveau', 'echeance', 'inf', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
       if (k === 'inf') infPaint();
       if (k === 'desc' && form._hints && form._shownOnce) form._hints();
       if (k === 'desc') form._shownOnce = true;
       if (k === 'activite') { form.poleOpen = false; renderActivities(); } // à l'arrivée : seulement les activités, aucun choix de pôle déroulé
       if (k === 'niveau') nivLoad();
+      if (k === 'echeance') { paintDates(); if (!form.dateOk || !form.endDate) window.setTimeout(function () { dateIn.focus(); }, 50); }
       if (k === 'temps') tpLoad();
       panelKicker.textContent = tr(k === 'inf' && inf.plan && !inf.plan.skip ? infLevelName(inf.plan) : stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
       stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave');
       stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');
-      stepBtn.disabled = (k === 'desc' && (!form.dateOk || !form.endDate || !String(form.title || '').trim())) || (k === 'niveau' && !nivDone()); // Suivant grisé tant que le rattachement n'est pas décidé
+      stepBtn.disabled = stepOff() || (k === 'niveau' && !nivDone()); // Suivant grisé tant que le rattachement n'est pas décidé
       advance = i < tot - 1 ? stepNext : finishAll; setBack(i > 0 ? function () { show(l[i - 1]); } : null);
-      dock.classList.toggle('objTemps', k === 'temps' || k === 'niveau' || k === 'desc'); // bouton du bas gris (R35) quand il est désactivé, aux étapes Description, Niveau et Temps
+      dock.classList.toggle('objTemps', k === 'temps' || k === 'niveau' || k === 'desc' || k === 'echeance'); // bouton du bas gris (R35) quand il est désactivé, aux étapes Description, Niveau et Temps
       if (k === 'temps') tpSync();
     }
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
@@ -812,23 +815,23 @@
       var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
       if (cur === 'temps' && l[i + 1] === 'inf') { stepBtn.disabled = true; TMT.ui.attente(infFetch()).then(function () { stepBtn.disabled = false; if (inf.plan && !inf.plan.skip) show('inf'); else finishAll(); }); return; }
       if (cur === 'desc') { if (!validDesc()) return; if (form.fixedCtx) { stepBtn.disabled = true; TMT.ui.attente(loadRatt().then(nivFetch)).then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; } show(l[i + 1]); return; } // créé depuis une bulle : activité imposée, pas de page Activité
+      if (cur === 'echeance') { if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; } form.echeanceDone = true; stepBtn.disabled = true; refreshHints(); TMT.ui.attente(loadRatt()).then(function () { stepBtn.disabled = false; stepNextFrom('echeance'); }); return; } // l'échéance connue : rattachement (parent) et propositions recalculés
       if (cur === 'activite') { // le rattachement / la fusion dépendent de l'échéance ET de l'activité : proposés après la page Activité
         if (noActivity()) { msg.textContent = tr('Choisis une activité.'); return; }
-        stepBtn.disabled = true; TMT.ui.attente(loadRatt().then(nivFetch)).then(function () { stepBtn.disabled = false; stepNextFrom('activite'); }); return;
+        stepBtn.disabled = true; TMT.ui.attente((form.endFixed ? loadRatt().then(nivFetch) : nivFetch())).then(function () { stepBtn.disabled = false; stepNextFrom('activite'); }); return; // échéance pas encore connue : seulement les questions du Niveau
       }
       show(l[i + 1]);
     }
     function validDesc(final) {
       form.title = titleIn.value.trim();
       if (!form.title) { msg.textContent = tr('Écris ton objectif.'); return false; }
-      if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return false; }
       if (final && noActivity()) { msg.textContent = tr('Choisis une activité.'); return false; }
       return true;
     }
     function innerOf() { if (weeklyPossible(form)) return form.weeklyOn ? 'hebdomadaires' : 'periodiques'; return multiPeriods() ? form.innerGoals : 'hebdomadaires'; }
     function finishAll() { // Terminer : proposition par règles (ou IA gratuite du mois) puis création ; rien n'est créé avant ce geste
       if (!validDesc(true)) return;
-      if (form.ratt && form.ratt.key !== rattKey()) { form.parentId = null; form.parentRel = null; } // l'activité a changé après la proposition de rattachement : plus de parent
+      if (form.ratt && form.ratt.key !== rattKey2()) { form.parentId = null; form.parentRel = null; } // l'activité a changé après la proposition de rattachement : plus de parent
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
       var t = targets()[0], actName = t ? t.name : '', first = null, fin = function (p) { return TMT.ui.attente(p); };

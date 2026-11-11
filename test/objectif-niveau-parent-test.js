@@ -47,7 +47,7 @@ const sec = categories.addCategory(act, 'Site', webKey); const secKey = (sec && 
   // Interface : même corps de requête pour la phrase et la création, niveau envoyé ; libellé selon le niveau
   const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'objectifs-creer.js'), 'utf8').split('\r\n').join('\n');
   assert(src.includes("level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null") && (src.match(/rattBody\(\)/g) || []).length >= 3, '(2) fetchParent et loadRatt envoient le niveau, le pôle et le secteur choisis (même requête)');
-  assert(src.includes("var key = rattKey() + '|' + form.endDate + '|'") && src.includes('form.ratt.key !== rattKey()'), '(2) le parent affiché se recalcule quand le niveau, le pôle ou le secteur change');
+  assert(src.includes("var key = rattKey() + '|' + form.endDate + '|'") && src.includes('form.ratt.key !== rattKey2()'), '(2) le parent affiché se recalcule quand le niveau, le pôle ou le secteur change');
   assert(src.includes("form.level === 'secteur' ? (weeklyPossible(form) && form.weeklyOn ? tr('semaine') + ' ' + weekNo(form.endDate) : tr('période') + ' ' + periodNo(form.endDate)) : form.level === 'pole' ? tr('année') + ' ' + form.endDate.slice(0, 4) : tr('années') + ' ' + blockStart(form.endDate) + '-' + (blockStart(form.endDate) + 4)"), '(1) phrase : activité = tranche de 5 ans, pôle = année de l’échéance, secteur = période, secteur + hebdomadaire = semaine');
   // tranche de 5 ans : MÊME formule que la colonne pluriannuelle de l'arbre (objectifs-arbre.js blockStart) ; année en cours = celle d'aujourd'hui
   const arbre = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'objectifs-arbre.js'), 'utf8');
