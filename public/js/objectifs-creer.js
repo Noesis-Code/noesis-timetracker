@@ -1,9 +1,9 @@
 /* Noèsis — Feuille de route, vue « Objectifs » (4 nov. 2026) : créer et suivre ses objectifs.
- * Écrire un objectif (barre du bas) -> fenêtre « Nouvel objectif » (durée, activité liée) -> « Étapes proposées »
+ * Toucher le « + » d'une case vide de l'arbre -> fenêtre « Nouvel objectif » (durée, activité liée) -> « Étapes proposées »
  * (périodes, semaines, tâches de la semaine 1, tout modifiable) -> Valider -> liste des objectifs -> détail.
  * Rien n'est créé avant « Valider » (POST /api/objectifs/contexte et /proposition ne créent rien).
  * Serveur : server/lib/objectifs.js. Composants réutilisés : .goalTaskEditModal/.cmpGlass, TMT.ui.closeBtn (R13), .cmpSeg (R42),
- * .cmpSend (R29, barre .tasksDock/.tasksComposer), .cmpNav (R45), .cmpBtn, .cmpBlockTitle (R41), .tasksPopRow/.tasksPopCheck.
+ * .cmpNav (R45), .cmpBtn, .cmpBlockTitle (R41), .tasksPopRow/.tasksPopCheck.
  * Monté dans #goalsActivitiesView par objectifs-page1.js (TMT.objectifsView.show / hide). */
 (function () {
   'use strict';
@@ -59,7 +59,7 @@
   function plural(n, one, many) { return n + ' ' + tr(n > 1 ? many : one); }
 
   // ---------- Vue : liste, état vide, barre « Nouvel objectif… » ----------
-  var root = el('div', 'objView'), dock, input, sendBtn, panel, panelBody, panelFoot, panelKicker, stepBtn, stepLabel, stepPos, panelForm = null, goPropose = function () {}, backBtn, advance = null, goBack = null, seq = { base: 0, count: 1, i: 0 };
+  var root = el('div', 'objView'), dock, panel, panelBody, panelFoot, panelKicker, stepBtn, stepLabel, stepPos, panelForm = null, goPropose = function () {}, backBtn, advance = null, goBack = null, seq = { base: 0, count: 1, i: 0 };
   var state = { items: [], total: 0, shown: false };
 
   function buildView() {
@@ -74,13 +74,6 @@
     panel.appendChild(ph); panel.appendChild(panelBody); panel.appendChild(panelFoot); dock.appendChild(panel);
     panel.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true }); // les gestes du panneau n'appartiennent pas au balayage de page
     panel.addEventListener('touchmove', function (e) { e.stopPropagation(); }, { passive: true });
-    var bar = el('div', 'tasksComposer');
-    input = el('textarea', 'tasksText'); input.rows = 1; input.maxLength = 140; input.placeholder = tr('Nouvel objectif…'); input.setAttribute('aria-label', tr('Nouvel objectif'));
-    sendBtn = el('button', 'cmpSend'); sendBtn.type = 'button'; sendBtn.setAttribute('aria-label', tr('Envoyer'));
-    sendBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
-    sendBtn.addEventListener('click', start);
-    input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); start(); } });
-    bar.appendChild(input); bar.appendChild(sendBtn); dock.appendChild(bar);
     // Une fois l'objectif envoyé, la barre devient UN bouton (même mécanisme que « Enregistrer » d'Expansion : .tasksDock.expSave) : « Passer à … » à gauche, n/total à droite.
     stepBtn = el('button', 'tasksSaveBtn objStepBtn'); stepBtn.type = 'button'; stepLabel = el('span', 'objStepLabel'); stepPos = el('span', 'objStepPos');
     stepBtn.appendChild(stepLabel); stepBtn.appendChild(stepPos); stepBtn.addEventListener('click', function () { if (advance) advance(); });
@@ -91,9 +84,10 @@
       new MutationObserver(function () { dock.style.transform = tab.style.transform || ''; dock.style.transition = tab.style.transition || ''; syncDock(); }).observe(tab, { attributes: true, attributeFilter: ['style', 'class'] });
     }
     Array.prototype.forEach.call(document.querySelectorAll('#goalsCapturePage, #goalsActivitiesView'), function (n) { if (window.MutationObserver) new MutationObserver(syncDock).observe(n, { attributes: true, attributeFilter: ['class'] }); });
-    TMT.ui.dockKeyboard(dock, input); // MÊME code que la barre « Nouvelle tâche… » : juste au-dessus du clavier
+    TMT.ui.dockKeyboard(dock, panelBody); // MÊME code que la barre « Nouvelle tâche… » : le panneau reste juste au-dessus du clavier
+    if (window.MutationObserver) new MutationObserver(syncDock).observe(dock, { attributes: true, attributeFilter: ['class'] }); // plus de barre d'écriture : la zone du bas n'existe que pendant une création ou une modification (classe expSave)
   }
-  function syncDock() { if (dock) dock.classList.toggle('hidden', !(state.shown && host.getClientRects().length && !host.classList.contains('hidden'))); }
+  function syncDock() { if (dock) dock.classList.toggle('hidden', !(state.shown && dock.classList.contains('expSave') && host.getClientRects().length && !host.classList.contains('hidden'))); }
   function bar(p) {
     var t = el('div', 'goalMainProgressTrack objBar'), f = el('div', 'goalMainProgressFill');
     f.style.width = Math.round(Math.max(0, Math.min(1, p)) * 100) + '%'; t.appendChild(f); return t;
@@ -151,17 +145,17 @@
   }
   // Contexte posé par l'arbre : niveau (activité | pôle | secteur) + activité, pôle, secteur ; toucher une case VIDE ajoute l'échéance de la case. Le prochain objectif écrit dans la barre
   // PORTE ce niveau, et l'activité (pôle, secteur) est verrouillée dans le panneau de création.
-  var viewCtx = { level: 'activite' }, pendingEnd = null, basePlaceholder = '';
+  var viewCtx = { level: 'activite' }, pendingEnd = null, pendingType = null;
   var TITRES_EMPLACEMENT = { etape: 'Emplacement', type: 'Type', cadre: 'Cadre' }; // titres FINAUX (Émilien, 11 nov. 2026) de l'étape : panneau / bloc du type annuel-périodique-hebdomadaire / sous-titre du choix activité-pôle-secteur ; UNE seule source, passée par tr()
   var LEVEL_LABEL = { activite: 'Activité', pole: 'Pôle', secteur: 'Secteur' };
   function setContext(c) { viewCtx = c || { level: 'activite' }; }
   function createAt(o) { // case vide touchée : le panneau s'ouvre tout de suite (titre vide à saisir), l'échéance de la case est imposée
     if (busy) return;
-    setContext(o.ctx); pendingEnd = o.endDate || null; seq = { base: 0, count: 1, i: 0 }; busy = true;
+    setContext(o.ctx); pendingEnd = o.endDate || null; pendingType = o.type || null; seq = { base: 0, count: 1, i: 0 }; busy = true;
     api('POST', '/api/objectifs/contexte', { text: '', blank: true, amount: 1, unit: 'semaines', endDate: pendingEnd }).then(function (ctx) { busy = false; openComposer(ctx); })
       .catch(function (err) { busy = false; clearPending(); say((err && err.message) || tr('Impossible pour le moment.')); });
   }
-  function clearPending() { pendingEnd = null; if (basePlaceholder) input.placeholder = basePlaceholder; }
+  function clearPending() { pendingEnd = null; pendingType = null; }
   var extendCancel = null;
   var ficheEnd = null; // rappel posé par openFiche (pop-up de retard B) : appelé à la fin de la fiche, enregistrée ou fermée
   function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
@@ -173,15 +167,6 @@
   // ---------- Fenêtre « Nouvel objectif » ----------
   var busy = false;
   var TACHES_PAGE = false; // page « Tâches » (offre Expansion) gardée de côté jusqu'au lancement d'Expansion : remettre à true (docs/objectifs/creation-objectif-tache.md)
-  function start() {
-    var text = input.value.trim();
-    if (!text || busy) return;
-    seq = { base: 0, count: 1, i: 0 };
-    busy = true; sendBtn.disabled = true;
-    TMT.ui.attente(api('POST', '/api/objectifs/contexte', { text: text })).then(function (ctx) { busy = false; sendBtn.disabled = false; openComposer(ctx); })
-      .catch(function (err) { busy = false; sendBtn.disabled = false; if (TMT.ui && TMT.ui.confirm) TMT.ui.confirm((err && err.message) || tr('Impossible pour le moment.'), { ok: tr('OK') }); });
-  }
-
   // ---------- Blocs partagés par la création et la modification d'un objectif (une seule copie) ----------
   // Description guidée (9 nov. 2026, décision d'Émilien) : neuf questions FACULTATIVES en trois groupes de trois ; UN seul groupe ouvert à la fois (flèche à droite, R21).
   // Chaque question propose trois mots : un toucher INSÈRE le mot dans la réponse (champ texte modifiable). Le texte composé « Libellé : réponse · … » est lu par l'IA (rattachement
@@ -328,6 +313,7 @@
       form.ctxApplied = true; var vc = viewCtx || {}, fromCell = !!pendingEnd; // verrouillé SEULEMENT si on part d'une case vide de l'arbre ; depuis la barre, le choix de l'activité est libre
       form.level = fromCell ? (vc.level || 'activite') : 'activite'; form.poleKey = fromCell ? (vc.poleKey || null) : null; form.categoryKey = fromCell ? (vc.categoryKey || null) : null; form.ctxLabel = fromCell ? (vc.label || '') : '';
       if (vc.activityId != null) { form.activityId = vc.activityId; form.acts = [vc.activityId]; form.fixedCtx = fromCell; }
+      if (pendingType) { form.type = pendingType; form.typeTouched = true; } // le type vient de la ligne de la case touchée
       if (pendingEnd) { var dd0 = Math.round((Date.parse(pendingEnd + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000); form.endDate = pendingEnd; form.amount = Math.max(1, Math.ceil(dd0 / 7)); form.unit = 'semaines'; form.dateOk = true; form.durTouched = true; form.endFixed = true; }
       clearPending();
     }
@@ -798,7 +784,7 @@
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
     var stepNames = { desc: 'Objectif', temps: 'Temps', heures: 'Heures', activite: TITRES_EMPLACEMENT.etape, niveau: 'Niveau', echeance: 'Échéance', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return (form.fixedCtx ? ['desc'] : ['desc', 'activite']).concat(niv.skip ? [] : ['niveau']).concat(form.endFixed ? [] : ['echeance']).concat(['temps']).concat(infListed() ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
+    function list() { return ['desc', 'activite'].concat(niv.skip ? [] : ['niveau']).concat(['echeance']).concat(['temps']).concat(infListed() ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     function rattKey2() { return rattKey() + '|' + (form.endDate || ''); } // le rattachement dépend aussi de l'échéance (saisie après Activité)
     function loadRatt() {
       // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
@@ -864,7 +850,7 @@
             .then(function (cr) { if (cr && cr.id) first = cr; });
         })
         .then(function () { return infApply(first); })
-        .then(function () { var created = first; input.value = ''; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); })
+        .then(function () { var created = first; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); })
         .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
       }
       // Case déjà occupée (même colonne, même ligne du temps) : avertissement (R28) ; « Remplacer » (rouge : suppression définitive) supprime l'ancien objectif avec la suppression existante, SEULEMENT une fois le nouveau enregistré (côté serveur) ; Annuler (violet) ne touche à rien
@@ -1185,8 +1171,6 @@
   TMT.objectifsView = {
     show: function () { state.shown = true; syncDock(); if (TMT.objectifsArbre) TMT.objectifsArbre.showBase(); load(); },
     hide: function () { state.shown = false; syncDock(); if (TMT.objectifsArbre && TMT.objectifsArbre.hide) TMT.objectifsArbre.hide(); },
-    focus: function () { if (input) input.focus(); },
-    setContext: function (c) { setContext(c); },
     confirmDelete: function (id, title, isMacro) { confirmDelete(id, title, load, function (e) { if (TMT.objectifsArbre && TMT.objectifsArbre.say) TMT.objectifsArbre.say((e && e.message) || tr('Impossible pour le moment.')); }, isMacro); }, // un refus du serveur (ex. « Fusion passée : impossible de délier. ») s'affiche en message court
     openExtend: function (cfg) { return openExtend(cfg); }, closeExtend: function () { closeExtend(); },
     createAt: function (o) { createAt(o); },

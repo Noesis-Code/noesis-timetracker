@@ -44,9 +44,11 @@ html.arbreOn body { position: fixed; inset: 0; width: 100%; overflow: hidden; ov
 .arNode.arDragging { z-index: 7; opacity: .9; box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
 .arNode.arDropTarget { box-shadow: 0 0 0 2px var(--purple); }
 .arNode.arDropBad { opacity: .45; }
-/* Case vide = le gris NEUTRE de l'arbre périodique (aucune teinte d'activité, aucun « + ») ; touchable sur toute sa surface (ajouter un objectif). */
+/* Case vide = le gris NEUTRE de l'arbre périodique (aucune teinte d'activité) ; touchable sur toute sa surface (ajouter un objectif). */
 .arHole { cursor: pointer; padding: 0; }
 .arHole:disabled { cursor: default; opacity: 1; }
+/* « + » de création : petite marque violette en haut à droite de la case vide ; zone de toucher 44 px (R25, R33) */
+.arPlus { position: absolute; top: 0; right: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: var(--purple); font-size: 18px; line-height: 1; font-weight: 600; }
 /* Tous les objectifs ont le même cadre (bordure fine de la couleur de l'activité, posée en ligne : pleine, ou pointillée pour « à venir ») ; l'état = la teinte. */
 .arCard.ar-dropped { opacity: .4; }
 .arBackNav { margin: 0 0 4px; }

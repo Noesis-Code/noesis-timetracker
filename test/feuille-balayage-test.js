@@ -25,7 +25,7 @@ assert(/openGoalsForActivity|setGoalsPage2Mode\('goals', \{ noAnim: true \}\)/.t
 assert(/TMT\.keepGoalsView = target === 'goals'/.test(stats) && /!TMT\.keepGoalsView/.test(app), 'retour au doigt depuis Statistiques : le pager signale la conservation de la vue (il masque les statistiques avant switchTab)');
 const today = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'aujourdhui.js'), 'utf8'), page1 = read('objectifs-page1.js'), creer = read('objectifs-creer.js'), compo = read('composants.js');
 assert(/resetSort: function/.test(today) && /todayView\.resetSort\(\)/.test(page1) && !/localStorage\.getItem\(SORT_KEY\)/.test(today), 'arrivée dans la Feuille de route : toujours Tâches + tri Aujourd\'hui (tri mémorisé ignoré)');
-assert(/ui\.dockKeyboard = dockKeyboard/.test(compo) && /TMT\.ui\.dockKeyboard\(dock, ui\.text\)/.test(today) && /TMT\.ui\.dockKeyboard\(dock, input\)/.test(creer), 'barres « Nouvelle tâche » et « Nouvel objectif » : même code de positionnement au-dessus du clavier');
+assert(/ui\.dockKeyboard = dockKeyboard/.test(compo) && /TMT\.ui\.dockKeyboard\(dock, ui\.text\)/.test(today) && /TMT\.ui\.dockKeyboard\(dock, panelBody\)/.test(creer), 'barres « Nouvelle tâche » et « Nouvel objectif » : même code de positionnement au-dessus du clavier');
 const axis = read('axis-lock.js');
 assert(/THRESHOLD = 10, BIAS = 1\.6/.test(axis) && /même facilité de balayage sur toutes les vues de la page/.test(axis), 'règle : même facilité de balayage sur toutes les vues de la page (axe tolérant, un seul réglage pour tous les pagers)');
 assert(/mv >= Math\.min\(56, d\.w \* 0\.25\)/.test(stats), 'seuil de bascule commun à Tâches, Objectifs et Chrono : 56 px (ou 20 px avec de l\'élan)');

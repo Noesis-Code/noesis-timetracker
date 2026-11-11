@@ -13,14 +13,14 @@ assert(/if \(form\.ratt && form\.ratt\.key === key\) return form\.ratt\.p \|\| P
 // comportement : exécute les deux fonctions extraites avec un faux api
 const run = (async () => {
   let calls = 0;
-  const form = { activityId: 1, title: 't', dateOk: true, endDate: '2027-01-01' };
+  const form = { activityId: 1, title: 't', dateOk: true, endFixed: true, endDate: '2027-01-01' };
   const api = (m, u) => new Promise((r) => { calls++; setTimeout(() => r({ candidate: { id: 7, title: 'Parent' }, rel: 'apres' }), 20); });
-  const rattKey = () => 'k', rattBody = () => ({});
-  const loadRatt = new Function('form', 'api', 'rattKey', 'rattBody', lr.replace(/^\s*function loadRatt\(\)/, 'return function loadRatt()'))(form, api, rattKey, rattBody);
+  const rattKey = () => 'k', rattKey2 = rattKey, rattBody = () => ({});
+  const loadRatt = new Function('form', 'api', 'rattKey', 'rattKey2', 'rattBody', lr.replace(/^\s*function loadRatt\(\)/, 'return function loadRatt()'))(form, api, rattKey, rattKey2, rattBody);
   const p1 = loadRatt(), p2 = loadRatt();
   await p2; await p1;
   assert(calls === 1 && form.parentId === 7, 'deux appels : une seule requête, et l’attente de la seconde pose form.parentId');
-  const fetchParent = new Function('form', 'api', 'rattKey', 'rattBody', fp.replace(/^\s*function fetchParent\(\)/, 'return function fetchParent()'))(form, api, rattKey, rattBody);
+  const fetchParent = new Function('form', 'api', 'rattKey', 'rattKey2', 'rattBody', fp.replace(/^\s*function fetchParent\(\)/, 'return function fetchParent()'))(form, api, rattKey, rattKey2, rattBody);
   const r = fetchParent();
   assert(r && typeof r.then === 'function', 'fetchParent() renvoie une promesse (jamais undefined)');
   const v = await r; assert(v && v.id === 7, 'fetchParent résout le parent proposé');

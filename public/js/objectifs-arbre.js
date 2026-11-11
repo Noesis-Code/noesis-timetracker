@@ -7,7 +7,7 @@
  * ZOOM PAR NIVEAU (se cumule avec le zoom de temps) : on ouvre très dézoomé, les GRANDS objectifs par activité ; toucher la racine (ou une carte qui regroupe plusieurs objectifs) ou ÉCARTER
  * les doigts (Ctrl + molette sur ordinateur) descend d'un niveau : l'activité se découpe en PÔLES (une racine fixe par pôle), puis en SECTEURS ; au dernier niveau, la bulle ouvre l'arbre périodique (page 2).
  * La flèche ‹ ou RAPPROCHER les doigts remonte. Un objectif PORTE le niveau où il est créé (level, poleKey, categoryKey) ; toucher une case VIDE ajoute un objectif (activité, niveau, pôle/secteur, échéance = la case).
- * Couleurs (R16) : pâle = en cours, vif = réalisé, contour pointillé = à venir, atténué = abandonné. L'ACTIVITÉ est la racine, EN BAS : une BULLE pleine fixe sous sa colonne, juste au-dessus de la barre « Nouvel objectif… ».
+ * Couleurs (R16) : pâle = en cours, vif = réalisé, contour pointillé = à venir, atténué = abandonné. L'ACTIVITÉ est la racine, EN BAS : une BULLE pleine fixe sous sa colonne, juste au-dessus du bas de l'écran.
  * Appui long (TMT.ui.holdDrag) : menu d'actions (Relier, Modifier, Supprimer) ; une carte « N objectifs » est une cible (choix de l'objectif
  * qui reçoit) et, en appui long, propose l'objectif à déplacer. Une case grise juste au-dessus du sommet d'une branche porte un « + » : il crée un objectif rattaché à celui de la branche.
  * Données : GET /api/objectifs?filtre=tous ; PUT /api/objectifs/:id/parent. */
@@ -294,13 +294,16 @@
     }
     return null;
   }
-  function emptyCell(w, endIso, onTouch, below) {
+  function emptyCell(w, endIso, onTouch, below, plus) { // plus : création depuis cette case (le « + » en haut à droite) ; sur une case occupée par une pastille, pas de « + »
     var b = el('button', 'goalsGridCell goalsGridCell--empty arHole'); b.type = 'button'; cellSize(b, w);
     if (!endIso) { b.disabled = true; b.tabIndex = -1; return b; }
     if (below) { b.classList.add('arHoleBadge'); b.appendChild(el('span', 'goalsRowMarker goalsRowMarker--future', String(below.n))); b.setAttribute('aria-label', below.n + ' ' + tr('en dessous')); b.addEventListener('click', function () { below.go(); }); return b; } // objectifs plus bas : l'appui court descend
-    b.setAttribute('aria-label', tr('Nouvel objectif')); b.addEventListener('click', function () { onTouch(endIso); });
+    b.setAttribute('aria-label', tr('Nouvel objectif')); b.addEventListener('click', function (e) { if (plus && e.target.closest && e.target.closest('.arPlus')) plus(); else onTouch(endIso); });
+    if (plus) b.appendChild(el('span', 'arPlus', '+')); // petite marque violette (zone de toucher 44 px, voir le CSS)
     return b;
   }
+  // Création depuis une case vide : cadre = la colonne, type = la ligne (bloc de 5 ans, année, période), échéance = la fin de la case.
+  function createFrom(c, rw, endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, type: rw.block ? 'pluriannuel' : rw.p ? 'periodique' : 'annuel', label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); }
   // Fin de la case (jour ISO) : fin de la période du réglage, ou de l'année ; null si elle n'est pas dans le futur.
   function rowEnd(rw) {
     var iso;
@@ -475,9 +478,6 @@
     if (isMulti()) return cols; var o = ordreMap[ordreKey().join('|')]; if (!o) return cols;
     return cols.map(function (c, i) { return { c: c, i: i }; }).sort(function (x, y) { var p = o.indexOf(String(x.c.key)), q = o.indexOf(String(y.c.key)); p = p < 0 ? 999 + x.i : p; q = q < 0 ? 999 + y.i : q; return p - q; }).map(function (z) { return z.c; });
   }
-  function syncCtx() { // la barre « Nouvel objectif… » crée au niveau affiché (pré-rempli et verrouillé) ; le « + » d'une colonne précise le pôle / le secteur
-    if (TMT.objectifsView && TMT.objectifsView.setContext) TMT.objectifsView.setContext(lvl === 'activite' ? { level: 'activite' } : (curCols[0] && curCols[0].ctx) || { level: lvl, activityId: focus && focus.activityId });
-  }
   function go(l, f) {
     lvl = l; focus = f; split = {}; picked = null; animate = true; needBase = true; render();
     var k = ordreKey().join('|'), before = JSON.stringify(ordreMap[k]);
@@ -532,7 +532,7 @@
     tree.classList.toggle('arExtending', !!ext);
     if (items.length && lvl !== 'activite') { var zb = el('div', 'arZoomRow'); zb.appendChild(backNav()); tree.appendChild(zb); } // plus de crayon : deux gestes seulement (toucher = naviguer, appui long = menu)
     kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
-    curCols = foldMerged(shown, sortByOrdre(columnsFor(shown))); syncCtx();
+    curCols = foldMerged(shown, sortByOrdre(columnsFor(shown)));
     if (!curCols.length) { gridArea = scroller = null; tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
     var n = curCols.length, wide = window.innerWidth >= 1024;
     var arW = n === 1 ? 'calc(100cqw - 4px)' : 'calc((100cqw - ' + (GAP + 4) + 'px) / 2)'; // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
@@ -626,8 +626,8 @@
         if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols)); return; }
         if (holes[r + ':' + ci]) return; // colonne absorbée : au-dessus de la fusion il ne reste QU'UNE colonne, sur toute la largeur des colonnes liées (la case de l'entité touchée est élargie)
         var Wc = wideAt[r + ':' + ci] ? spanW(W, wideAt[r + ':' + ci]) : W;
-        if (!es.length && lvl === 'secteur' && rw.p) row.appendChild(emptyCell(Wc, 'cal', function () { openCalendar(rw, c.col.key); })); // niveau secteurs : toucher une case vide ouvre AUSSI le calendrier (« Ajouter un objectif périodique » s'y trouve)
-        else if (!es.length) row.appendChild(emptyCell(Wc, rowEnd(rw), function (endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); }, belowOf(c, rw))); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
+        if (!es.length && lvl === 'secteur' && rw.p) row.appendChild(emptyCell(Wc, 'cal', function () { openCalendar(rw, c.col.key); }, null, rowEnd(rw) ? function () { createFrom(c, rw, rowEnd(rw)); } : null)); // niveau secteurs : toucher une case vide ouvre AUSSI le calendrier (« Ajouter un objectif périodique » s'y trouve)
+        else if (!es.length) row.appendChild(emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
         else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, Wc, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
         else if (es.length > 1 && !es.some(function (e) { return split[e.o.id]; })) row.appendChild(mergedCard(es.map(function (e) { return e.o; }), today, Wc, function () { descend(ci, rw.y, rw.y); }, calTap(rw, c), c.color)); // plusieurs objectifs d'une même activité dans la même case : une seule carte
         else if (es.length > 1) { var stack = el('div', 'arStack'); cellSize(stack, Wc); es.forEach(function (e) { stack.appendChild(card(e.o, today, c.all, mode, Wc, calTap(rw, c), ci, c.color)); }); row.appendChild(stack); }
