@@ -410,16 +410,17 @@
     function typeDerived() { return form.level === 'secteur' ? 'periodique' : form.level === 'pole' ? 'annuel' : 'pluriannuel'; } // sans choix explicite : le type suit le niveau choisi dans l'arbre
     function typeOf() { return form.type || typeDerived(); }
     function isSmall(t) { return t === 'periodique' || t === 'hebdomadaire'; } // les « petits objectifs »
-    function lowestOf(act) { var ps = (act && act.poles) || []; return ps.some(function (p) { return (p.secteurs || []).length; }) ? 'secteur' : ps.length ? 'pole' : 'activite'; } // niveau le plus bas des catégories de l'ACTIVITÉ : secteur s'il y en a, sinon pôle, sinon l'activité elle-même
-    function lowestNow() { return lowestOf(actById(form.activityId)); }
-    // Le type et le niveau du cadre ne sont plus reliés (règle finale d'Émilien) : les quatre types se choisissent librement ; les petits objectifs (périodique, hebdomadaire) se rangent TOUJOURS sur le niveau le plus bas de l'activité ; pluriannuel et annuel : activité ou pôle (aucune case de l'arbre au niveau secteur).
-    function typeOk() { var t = typeOf(); if (!isSmall(t)) return form.level !== 'secteur'; var low = lowestNow(); return form.level === low && (low === 'secteur' ? !!form.categoryKey : low === 'pole' ? !!form.poleKey : true); }
+    function lowestOf(act) { var ps = (act && act.poles) || []; return ps.some(function (p) { return (p.secteurs || []).length; }) ? 'secteur' : ps.length ? 'pole' : 'activite'; } // niveau le plus bas des catégories de l'ACTIVITÉ
+    // Chaque type a SON niveau parmi ceux que l'activité possède (Émilien) : pluriannuel → l'activité ; annuel → un pôle (sinon l'activité) ; périodique et hebdomadaire → le niveau le plus bas (secteur, sinon pôle, sinon l'activité). Aucun autre niveau n'est proposé.
+    function levelFor(t, act) { var low = lowestOf(act); return t === 'pluriannuel' ? 'activite' : t === 'annuel' ? (low === 'activite' ? 'activite' : 'pole') : low; }
+    function levelNow() { return levelFor(typeOf(), actById(form.activityId)); }
+    function typeOk() { if (form.fixedCtx) return true; /* créé depuis une case de l'arbre : le cadre est imposé */ var lvl = levelNow(); return form.level === lvl && (lvl === 'secteur' ? !!form.categoryKey : lvl === 'pole' ? !!form.poleKey : true); }
     function cadenceNow() { var t = typeOf(); return isSmall(t) && (form.level === 'pole' || form.level === 'activite') ? t : undefined; } // petit objectif posé sur un PÔLE (sans secteur) ou sur l'ACTIVITÉ (sans catégorie) : écrit là, sans créer de secteur (serveur : cadence)
-    function typeMsg() { var t = typeOf(); if (typeOk()) return ''; if (!isSmall(t)) return tr('Un objectif pluriannuel ou annuel se range sur l’activité ou sur un pôle.'); var low = lowestNow(); return low === 'secteur' ? tr('Choisis un secteur de cette activité.') : low === 'pole' ? tr('Choisis un pôle de cette activité.') : ''; }
+    function typeMsg() { if (typeOk()) return ''; var lvl = levelNow(); return lvl === 'secteur' ? tr('Choisis un secteur de cette activité.') : lvl === 'pole' ? tr('Choisis un pôle de cette activité.') : ''; }
     function paintTypeBlock() {
       var t = typeOf(); form.weeklyOn = t === 'hebdomadaire' && form.level === 'secteur';
       var grid = el('div', 'cmpGrid'); grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', tr(TITRES_EMPLACEMENT.type)); // composant partagé : barres verticale et horizontale qui se croisent
-      [TYPES.slice(0, 2), TYPES.slice(2)].forEach(function (row) { grid.appendChild(seg(row.map(function (x) { return [x[0], tr(x[1])]; }), t, function (k) { form.type = k; form.typeTouched = true; refresh(); })); });
+      [TYPES.slice(0, 2), TYPES.slice(2)].forEach(function (row) { grid.appendChild(seg(row.map(function (x) { return [x[0], tr(x[1])]; }), t, function (k) { form.type = k; form.typeTouched = true; if (!form.fixedCtx) { form.level = 'activite'; form.poleKey = null; form.categoryKey = null; } refresh(); })); });
       actBox.appendChild(field(tr(TITRES_EMPLACEMENT.type), grid));
       var m = typeMsg(); if (m) actBox.appendChild(el('p', 'hint', m));
       if (cur === 'activite') syncGo();
@@ -440,31 +441,21 @@
       // activité seule = objectif long, + pôle = moyen, + secteur = court (le niveau gagne sur la durée). Une activité sans pôle : rien ne se déroule.
       function chev(row, open) { row.classList.add('objHasChev'); row.appendChild(el('span', 'cmpChev' + (open ? ' open' : ''))); return row; }
       function poleColor(a, p) { return p && p.shadeRank != null && TMT.poleColor ? TMT.poleColor(a.color, p.shadeRank) : a.color; }
-      function under(a, blk) {
-        if (isSmall(typeOf())) { // petits objectifs : seulement les choix du niveau le plus bas (les secteurs, ou les pôles s'il n'y a pas de secteur)
-          var low = lowestOf(a);
-          (a.poles || []).forEach(function (p) {
-            if (low === 'pole') { var sp = form.poleKey === p.key, rp = choice(p.label, '', sp, null, function () { form.poleKey = sp ? null : p.key; form.categoryKey = null; form.level = sp ? 'activite' : 'pole'; refresh(); }); var cp = poleColor(a, p); if (cp) rp.style.color = cp; blk.appendChild(rp); return; }
-            (p.secteurs || []).forEach(function (x) { var sx = form.categoryKey === x.key && form.poleKey === p.key, rx = choice(p.label + ' › ' + x.label, '', sx, null, function () { form.poleKey = sx ? null : p.key; form.categoryKey = sx ? null : x.key; form.level = sx ? 'activite' : 'secteur'; refresh(); }); rx.classList.add('objSub'); blk.appendChild(rx); });
-          });
-          return;
-        }
+      function under(a, blk) { // seulement les éléments du niveau qui correspond au TYPE choisi : les pôles, ou les secteurs (« pôle › secteur »)
+        var lvl = levelFor(typeOf(), a);
         (a.poles || []).forEach(function (p) {
-          var sel = form.poleKey === p.key, secs = p.secteurs || [], pc = poleColor(a, p);
-          var r = choice(p.label, '', sel, null, function () { form.poleKey = sel ? null : p.key; form.categoryKey = null; form.level = sel ? 'activite' : 'pole'; refresh(); });
-          if (pc) r.style.color = pc; // le nom du pôle s'écrit dans sa couleur
-          blk.appendChild(secs.length ? chev(r, sel) : r);
-          if (sel) secs.forEach(function (x) { var on2 = form.categoryKey === x.key, r2 = choice(x.label, '', on2, null, function () { form.categoryKey = on2 ? null : x.key; form.level = on2 ? 'pole' : 'secteur'; refresh(); }); r2.classList.add('objSub'); if (pc) r2.style.color = pc; blk.appendChild(r2); }); // les secteurs héritent de la couleur de leur pôle, décalés d'un cran
+          if (lvl === 'pole') { var sp = form.poleKey === p.key, rp = choice(p.label, '', sp, null, function () { form.poleKey = sp ? null : p.key; form.categoryKey = null; form.level = sp ? 'activite' : 'pole'; refresh(); }), cp = poleColor(a, p); if (cp) rp.style.color = cp; blk.appendChild(rp); return; }
+          (p.secteurs || []).forEach(function (x) { var sx = form.categoryKey === x.key && form.poleKey === p.key, rx = choice(p.label + ' › ' + x.label, '', sx, null, function () { form.poleKey = sx ? null : p.key; form.categoryKey = sx ? null : x.key; form.level = sx ? 'activite' : 'secteur'; refresh(); }); rx.classList.add('objSub'); var cx = poleColor(a, p); if (cx) rx.style.color = cx; blk.appendChild(rx); });
         });
       }
       function card(a, host) {
-        var on = form.acts.indexOf(a.id) >= 0, small = isSmall(typeOf()), hasP = (a.poles || []).length > 0, open = on && hasP && (small || !!form.poleOpen), blk = el('div', 'objAct');
+        var on = form.acts.indexOf(a.id) >= 0, open = on && levelFor(typeOf(), a) !== 'activite', blk = el('div', 'objAct');
         var c = choice(a.name, '', on, a.color, function () {
-          if (on) { if (hasP && !small) { if (form.poleOpen) { form.poleKey = null; form.categoryKey = null; form.level = 'activite'; } form.poleOpen = !form.poleOpen; refresh(); } return; } // activité déjà choisie : déroule ses pôles ; la retoucher les replie et désélectionne pôle ET secteur (niveau, phrase, interrupteur recalculés)
+          if (on) return; // activité déjà choisie : sa liste (pôles ou secteurs, selon le type) est déjà dessous
           form.acts = [a.id]; form.level = 'activite'; form.poleKey = null; form.categoryKey = null; form.poleOpen = false; syncMain(); refresh();
         });
         if (!inTree[a.id]) c.classList.add('cmpDashed'); // pas encore dans l'arbre : contour pointillé gris, titre atténué (composant partagé)
-        blk.appendChild(hasP && on ? chev(c, open) : c); // flèche seulement sur l'activité choisie (c'est elle qui déroule)
+        blk.appendChild(c);
         if (open) under(a, blk);
         host.appendChild(blk);
       }

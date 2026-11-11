@@ -60,10 +60,19 @@ const metaOf = (id) => JSON.parse(db.prepare('SELECT metaJson FROM user_objectiv
   const rs = o.creer('u1', { title: 'Hebdo secteur', activityId: aSect, startDate: today, level: 'secteur', poleKey: pSKey, categoryKey: sSKey, inner: 'hebdomadaires', endDate: addDays(today, 30) });
   assert(rs.level === 'secteur' && rs.categoryKey === sSKey && goals.secteursForPole(aSect, pSKey).length === nBefore + 1, 'activité avec secteurs × hebdomadaire : posé sur le secteur choisi (chemin existant : un secteur propre à l’objectif est ajouté par le pont)');
   const src = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
-  assert(src.includes("return form.level === low && (low === 'secteur' ? !!form.categoryKey : low === 'pole' ? !!form.poleKey : true);") && src.includes("if (!isSmall(t)) return form.level !== 'secteur';"), 'écran : périodique et hebdomadaire acceptés sur un pôle (avec ou sans secteurs) ; Suivant n’est grisé que si le cadre manque');
+  assert(src.includes("return form.level === lvl && (lvl === 'secteur' ? !!form.categoryKey : lvl === 'pole' ? !!form.poleKey : true);") && src.includes('function levelFor(t, act)'), 'écran : périodique et hebdomadaire acceptés sur un pôle (avec ou sans secteurs) ; Suivant n’est grisé que si le cadre manque');
   assert((src.match(/cadence: cadenceNow\(\)/g) || []).length >= 4 && src.includes("isSmall(t) && (form.level === 'pole' || form.level === 'activite') ? t : undefined"), 'écran : la cadence part au serveur (rattachement, case, proposition, création)');
   assert(src.includes("var lst = el('div', 'aiModeChoices');") && !src.includes("tr('Dans l’arbre')") && !src.includes("tr('Pas encore dans l’arbre')") && src.includes("if (!inTree[a.id]) c.classList.add('cmpDashed');"), 'Cadre : plus de titres « Dans l’arbre » / « Pas encore dans l’arbre » ; une liste (dans l’arbre d’abord) ; les « pas encore » en .cmpDashed');
   const css = fs.readFileSync(path.join(__dirname, '..', 'public/css/composants.css'), 'utf8');
   assert(css.includes('.aiModeChoice.cmpDashed:not(.on) { border: 1px dashed var(--cmp-dash); box-shadow: none; }') && css.includes('.cmpDashed:not(.on) .aiModeChoiceTitle { color: var(--text-light); }'), 'pointillé gris (--cmp-dash) et titre atténué (--text-light) : une seule règle partagée dans composants.css');
+  {
+    const i0 = src.indexOf('    function lowestOf('), i1 = src.indexOf('    function levelNow(');
+    const { lowestOf, levelFor } = new Function(src.slice(i0, i1) + '\nreturn { lowestOf: lowestOf, levelFor: levelFor };')();
+    const avecSecteurs = { poles: [{ key: 'p1', secteurs: [{ key: 's1' }] }, { key: 'p2', secteurs: [] }] }, polesSeuls = { poles: [{ key: 'p1', secteurs: [] }] }, sansCat = { poles: [] };
+    const lv = (a) => ['pluriannuel', 'annuel', 'periodique', 'hebdomadaire'].map((t) => levelFor(t, a)).join(',');
+    assert(lv(avecSecteurs) === 'activite,pole,secteur,secteur', 'activité avec secteurs : pluriannuel → activité, annuel → pôle, périodique et hebdomadaire → secteur');
+    assert(lv(polesSeuls) === 'activite,pole,pole,pole', 'activité avec seulement des pôles : pluriannuel → activité, annuel → pôle, périodique et hebdomadaire → pôle');
+    assert(lv(sansCat) === 'activite,activite,activite,activite' && lowestOf(sansCat) === 'activite', 'activité sans catégorie : les quatre types → l’activité elle-même');
+  }
   if (failed) { console.log('\n' + failed + ' échec(s)'); process.exit(1); } console.log('\ntout passe');
 })();
