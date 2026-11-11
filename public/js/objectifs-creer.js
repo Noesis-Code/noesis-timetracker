@@ -721,7 +721,7 @@
     }
     // Lignes de sous-objectifs : UNE ligne avec UN trait dessous, comme les groupes de la Description (.objGuideRow / .objGuideHead cmpToggle) ; toucher la ligne la déplie (une seule à la fois) et elle forme alors une section.
     // Ligne : case à cocher, période en petit gris au-dessus du titre, chiffre, petit trait, heures (violet, sélecteur standard), flèche à droite. Dépliée : Faire, Résultat, Avancement, puis les objectifs existants plus bas (gris, sans case).
-    function infLevelName(p) { return p.level === 'pole' ? 'Objectifs annuels' : p.level === 'secteur' && form.weeklyOn ? 'Objectifs hebdomadaires' : 'Objectifs périodiques'; } // titre de la page et en-tête de colonne : le niveau des lignes proposées
+    function infLevelName(p) { var lv = form.level || 'activite'; return lv === 'activite' ? 'Objectifs périodiques' : 'Objectifs hebdomadaires'; } // titre de la page = niveau EN DESSOUS de l'objectif créé (niveau réel form.level) : activité (annuel dans l'arbre) → périodiques ; pôle (périodique) → hebdomadaires
     function infPaint() {
       var box = boxes.inf; box.textContent = ''; var p = inf.plan; if (!p || p.skip) return;
       box.appendChild(el('p', 'cmpBlockTitle objNivTitle', form.title)); box.appendChild(infRecap(p));
