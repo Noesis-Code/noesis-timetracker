@@ -187,10 +187,8 @@ function uncappedCapacityMinutesForMember(activityId, category, userId) {
     const all = real.concat(new Array(RECENT_WEEKS_WINDOW - real.length).fill(row.minutes));
     return Math.max(1, Math.round(all.reduce((s, m) => s + m, 0) / all.length));
   }
-  if (history.length) {
-    return Math.max(1, Math.round(history.reduce((s, m) => s + m, 0) / history.length));
-  }
-  return fallbackCapacityMinutes(activityId);
+  // Sans capacité définie (ni max, ni période, ni ajustement) : défaut unique 30 h/semaine (weekplanner), plus la moyenne Chrono.
+  return require('./weekplanner').DEFAULT_WEEKLY_CAPACITY_MINUTES;
 }
 
 // ---------------------------------------------------------------------------

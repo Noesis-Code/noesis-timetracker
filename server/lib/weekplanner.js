@@ -7,6 +7,8 @@
 // NB : les weekKey doivent etre au format zero-rempli YYYY-Www (ex. 2026-W05) : le tri est lexical.
 const weeklyavg = require('./weeklyavg'); // moyenne hebdomadaire partagée : 4 semaines, les 2 dernières comptées double
 const MAX_WEEK_MINUTES = 10080;
+// Capacité hebdomadaire par défaut (11 nov. 2026, Émilien) : 30 h/semaine quand rien n'est défini. UN seul endroit : réutilisée par goalsauto (pôles/secteurs).
+const DEFAULT_WEEKLY_CAPACITY_MINUTES = 30 * 60;
 
 function cmpItems(a, b) {
   // echeance (la semaine, deja groupee) puis importance decroissante puis id.
@@ -92,7 +94,7 @@ function getWeeklyCapacity(userId) {
   if (!row) return null;
   const historyMinutes = historyAverageMinutes(userId, db);
   if (row.m != null) return { minutes: row.m, source: 'manual', historyMinutes };
-  return { minutes: historyMinutes, source: historyMinutes != null ? 'history' : null, historyMinutes };
+  return { minutes: DEFAULT_WEEKLY_CAPACITY_MINUTES, source: 'default', historyMinutes };
 }
 
 function setWeeklyCapacity(userId, minutes) {
@@ -109,4 +111,4 @@ function setWeeklyCapacity(userId, minutes) {
   return getWeeklyCapacity(userId);
 }
 
-module.exports = { planWeeks, getWeeklyCapacity, setWeeklyCapacity, MAX_WEEK_MINUTES };
+module.exports = { DEFAULT_WEEKLY_CAPACITY_MINUTES, planWeeks, getWeeklyCapacity, setWeeklyCapacity, MAX_WEEK_MINUTES };

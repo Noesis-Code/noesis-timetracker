@@ -45,10 +45,16 @@ assert(JSON.stringify(planWeeks(in1)) === JSON.stringify(planWeeks(in1)) && JSON
 
 const db = require('../server/db');
 db.prepare("INSERT INTO users (id, name, color, createdAt) VALUES ('u1','T','#000','2026-10-15T00:00:00Z')").run();
-assert(getWeeklyCapacity('u1').minutes === null, 'capacité sans historique : null');
+assert(getWeeklyCapacity('u1').minutes === 1800 && getWeeklyCapacity('u1').source === 'default', 'capacité non définie : défaut 30 h/semaine');
 assert(setWeeklyCapacity('u1', 1800).minutes === 1800 && getWeeklyCapacity('u1').source === 'manual', 'cible manuelle 1800');
 let bad = false; try { setWeeklyCapacity('u1', 20000); } catch (e) { bad = e.statusCode === 400; }
 assert(bad, 'valeur hors 0..10080 refusée');
-assert(setWeeklyCapacity('u1', null).source === null, 'cible effacée');
+assert(setWeeklyCapacity('u1', null).source === 'default', 'cible effacée : retour au défaut 30 h');
+// Sans capacité définie, des tâches ≤ 30 h sur la semaine ne sont pas déplacées ; capacité explicite inchangée.
+const cap30 = getWeeklyCapacity('u1').minutes;
+let r30 = planWeeks({ weeks: [W('w1', [it('a', 900, 'u1'), it('b', 900, 'u1')]), W('w2', [])], capacities: { u1: cap30 }, members: ['u1'], carryLimitWeeks: 1 });
+assert(r30.weeks[0].placements.length === 2 && !r30.weeks[0].proposals.length, '30 h de tâches, capacité par défaut : aucune tâche déplacée');
+r30 = planWeeks({ weeks: [W('w1', [it('a', 900, 'u1'), it('b', 900, 'u1')]), W('w2', [])], capacities: { u1: 1000 }, members: ['u1'], carryLimitWeeks: 1 });
+assert(r30.weeks[0].proposals.length === 1 && r30.weeks[0].proposals[0].type === 'reporter', 'capacité explicite 1000 : comportement inchangé (report)');
 console.log(failed ? `\n${failed} échec(s)` : '\nTout passe');
 process.exit(failed ? 1 : 0);

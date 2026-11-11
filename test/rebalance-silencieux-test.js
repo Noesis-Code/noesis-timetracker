@@ -34,6 +34,8 @@ const actId = db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALU
 db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt, position) VALUES (?, 'u1', '#fff', '', 0)").run(actId);
 const g = goals.addCategory(actId, 'Production'); const key = (g && g.key) || goals.categoriesForActivity(actId)[0].key;
 const add = (label, auto) => { const it = goalstasks.addCategoryTask(actId, 'u1', key, label, {}); db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = ? WHERE id = ?').run(today, auto, it.id); return it.id; };
+// Capacité explicite 7 h/semaine (60 min/jour) : sans capacité définie le défaut est 30 h/semaine (weekplanner.DEFAULT_WEEKLY_CAPACITY_MINUTES), qui ne surcharge pas ces journées de test.
+require('../server/lib/timecaps').setCaps('u1', actId, key, { maxWeekMinutes: 420 });
 const auto = [add('auto 1', 1), add('auto 2', 1), add('auto 3', 1), add('auto 4', 1)];
 const manual = add('manuelle', 0), suggested = add('suggérée', 2), refo = add('réforme', 1);
 reform.write(refo, { reform: true, keys: [key] });
@@ -52,6 +54,10 @@ const act2 = db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUE
 db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt, position) VALUES (?, 'u9', '#fff', '', 0)").run(act2);
 const g2 = goals.addCategory(act2, 'Prod'); const key2 = (g2 && g2.key) || goals.categoriesForActivity(act2)[0].key;
 const addB = (label) => { const it = goalstasks.addCategoryTask(act2, 'u9', key2, label, {}); db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 0 WHERE id = ?').run(today, it.id); return it.id; };
+require('../server/lib/timecaps').setCaps('u9', act2, key2, { maxWeekMinutes: 420 });
+{ const g3 = goals.addCategory(actId, 'Sans capacité'); const k3 = (g3 && g3.key) || goals.categoriesForActivity(actId).slice(-1)[0].key;
+  assert(require('../server/lib/goalsauto').capacityMinutesForMember(actId, k3, 'u1') === 1800, 'pôle sans capacité définie : défaut 30 h/semaine'); }
+assert(require('../server/lib/goalsauto').capacityMinutesForMember(actId, key, 'u1') === 420, 'capacité explicite : inchangée');
 const manualB = [addB('m1'), addB('m2'), addB('m3'), addB('m4')]; // 4 x 30 min = 120 min, dates posées à la main
 overload.rebalance('u9', act2, { force: true });
 assert(manualB.filter((id) => due(id) > today).length === 2 && !overload.getMarks('u9', act2)[key2], 'charge de 120 min pour une référence de 60 (plancher) : 2 tâches (dates à la main comprises) passent au jour suivant, la charge revient sous la tolérance, plus de marque');
