@@ -721,7 +721,13 @@
       items = (rs[0] && rs[0].objectifs) || []; struct = rs[1]; loaded = true; if (openPending) { applyOpen(); openPending = false; } return loadOrdre();
     }).then(function () { render(); }).catch(function () {});
   }
-  tree = document.getElementById('goalsObjArbre'); if (tree) tree.setAttribute('data-hscroll', '.arHScroll'); // le pager de pages (stats-avance.js) lit ce défilement horizontal pour tout toucher dans l'arbre (repères, bandeau compris)
+  tree = document.getElementById('goalsObjArbre'); if (tree) tree.setAttribute('data-hscroll', '.arHScroll');
+  // La page n'est verrouillée (html.arbreOn : body fixed, aucun élastique) QUE tant que l'onglet Feuille de route est affiché : en passant au Chrono ou aux statistiques, l'onglet est masqué sans que hide() soit appelé,
+  // et la classe restait posée (body fixe = barre noire sous la barre des volets) ; elle est défaite à la sortie de l'onglet et reposée au retour si l'arbre est affiché.
+  (function () {
+    var tab = tree && tree.closest ? tree.closest('#tab-goals') : document.getElementById('tab-goals'); if (!tab || !window.MutationObserver) return;
+    new MutationObserver(function () { var on = visible && !tab.classList.contains('hidden'); document.documentElement.classList.toggle('arbreOn', on); }).observe(tab, { attributes: true, attributeFilter: ['class'] });
+  })(); // le pager de pages (stats-avance.js) lit ce défilement horizontal pour tout toucher dans l'arbre (repères, bandeau compris)
   // Aucun écouteur de redimensionnement, de défilement ni de fenêtre visuelle, aucun minuteur : les largeurs et la hauteur sont du CSS ; seul le décalage haut/bas est mesuré à chaque rendu (fitTree).
   // UNE SEULE flèche de retour : depuis un calendrier ouvert par l'arbre, la flèche ‹ du cadre du pôle (qui ne change plus de pôle) ramène à l'arbre.
   document.addEventListener('click', function (e) {
