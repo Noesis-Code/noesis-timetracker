@@ -367,7 +367,7 @@
       if (!form.dateOk || !form.endDate) return Promise.resolve(null);
       var key = rattKey() + '|' + form.endDate + '|' + (form.weeklyOn ? 'h' : 'p'); // le parent dépend aussi du niveau, du pôle et du secteur choisis
       if (form.hintKey === key) return Promise.resolve(form.hintParent || null);
-      return api('POST', '/api/objectifs/rattachement', rattBody()).then(function (r) { form.hintKey = key; form.hintParent = r && r.candidate ? { id: r.candidate.id, title: r.candidate.title } : null; return form.hintParent; }).catch(function () { return null; });
+      var rp = api('POST', '/api/objectifs/rattachement', rattBody()).then(function (r) { form.hintKey = key; form.hintParent = r && r.candidate ? { id: r.candidate.id, title: r.candidate.title } : null; return form.hintParent; }).catch(function () { return null; });
     }
     function refreshHints() { // propositions du parent : lecture seule (aucune écriture), une activité, un parent ; sinon aucun champ proposé (comme avant)
       fetchParent().then(function (p) { return p ? api('GET', '/api/objectifs/' + p.id) : null; }).then(function (o) {
@@ -581,7 +581,7 @@
       node.addEventListener('pointerup', function (ev) { if (ev.pointerType !== 'mouse' || !on) return; on = false; done(ev.clientX - x0, ev.clientY - y0); });
       node.addEventListener('pointercancel', function () { on = false; });
     }
-    function refresh() { renderActivities(); syncTerm(); }
+    function refresh() { renderActivities(); syncTerm(); if (cur === 'activite' && !noActivity()) loadRatt().then(nivFetch); } // dès qu'une activité est touchée : rattachement et questions du Niveau partent en arrière-plan ; « Suivant » n'attend que s'ils ne sont pas revenus
     refresh();
     // Étape « Niveau » (10 nov. 2026) : avant « Temps », SAUTÉE quand elle est inutile (objectif sans progression) ou que le niveau est déjà connu (objectif similaire récent) ; seules les questions manquantes sont posées (le Chrono répond à la régularité et à l'ancienneté) ; trois questions guidées (accompli, régularité, ancienneté), quatre choix chacun, aucun texte à taper.
     // Les questions sont écrites par l'IA selon l'objectif (questions fixes si l'IA ne répond pas) ; le niveau se déduit côté serveur des trois réponses (objectifs-niveau.js).
@@ -631,12 +631,14 @@
     function nivFetch() { // une seule demande par objectif ; changer le titre, l'activité, le niveau de l'arbre, l'échéance ou la description repose les questions et efface les réponses
       var key = nivKey();
       if (niv.key === key && niv.qs) return Promise.resolve();
+      if (niv.key === key && niv.pending) return niv.pending; // demande déjà partie (préchargée pendant l'étape Activité) : on l'attend, on ne la refait pas
       niv.key = key; niv.qs = null; niv.picks = []; niv.open = 0; niv.known = []; niv.skip = false; niv.type = null; niv.failed = false;
       var t = targets()[0];
-      return api('POST', '/api/objectifs/niveau/questions', { title: form.title, description: form.description || '', endDate: form.endDate, activityId: form.activityId, activityName: t ? t.name : '', level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null }).then(function (r) {
+      var pr = api('POST', '/api/objectifs/niveau/questions', { title: form.title, description: form.description || '', endDate: form.endDate, activityId: form.activityId, activityName: t ? t.name : '', level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null }).then(function (r) {
         if (niv.key !== key || !r || !r.questions) return;
         niv.qs = r.questions; niv.picks = r.questions.map(function () { return null; }); niv.known = r.known || []; niv.skip = !!r.skip; niv.type = r.type || null;
-      }).catch(function () { if (niv.key === key) niv.key = null; });
+      }).catch(function () { if (niv.key === key) niv.key = null; }).then(function () { if (niv.pending === pr) niv.pending = null; });
+      niv.pending = pr; return pr;
     }
     function nivLoad() { // à l'arrivée sur la page (si la demande n'a pas déjà été faite avant d'y entrer)
       if (niv.qs) { nivPaint(); nivSync(); return; }
@@ -758,12 +760,12 @@
     function loadRatt() {
       // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
       var key = rattKey();
-      if (form.ratt && form.ratt.key === key) return Promise.resolve(); // même titre, même activité et même niveau : la décision précédente reste
+      if (form.ratt && form.ratt.key === key) return form.ratt.p || Promise.resolve(); // même titre, même activité et même niveau : la décision précédente reste
       form.ratt = { key: key, cand: null, rel: 'apres', decided: null }; form.parentId = null; form.parentRel = null;
       if (form.activityId == null) return Promise.resolve();
       return api('POST', '/api/objectifs/rattachement', rattBody()).then(function (r) { // une seule règle : le parent a une échéance au moins égale à celle du nouvel objectif ; niveau et pôle / secteur envoyés
         if (r && r.candidate) { form.ratt.cand = r.candidate; form.ratt.rel = r.rel || 'apres'; form.ratt.decided = 'accept'; form.parentId = r.candidate.id; form.parentRel = form.ratt.rel; } // parent de la même activité choisi tout seul (8 nov. 2026), plus de page Rattachement ; les macros ne se font plus à la création (seulement depuis l'arbre)
-      }).catch(function () {});
+      }).catch(function () {}); form.ratt.p = rp; return rp;
     }
     function show(k) {
       form._step = cur = k;
