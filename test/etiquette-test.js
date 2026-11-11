@@ -1,0 +1,16 @@
+// Étiquette (11 nov. 2026) : le nom de l'élément du niveau le plus bas, même format à tous les niveaux ; couleur du pôle (secteur : nuance de son pôle, plusieurs pôles sans secteur : une couleur par pôle), de l'activité sans catégorie. Usage : node test/etiquette-test.js
+const fs = require('fs'), path = require('path');
+let failed = 0; const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const src = fs.readFileSync(path.join(__dirname, '..', 'public/js/composants.js'), 'utf8').replace(/\r\n/g, '\n');
+const i = src.indexOf('    etiquette: function (o) {'), j = src.indexOf('    loader: loader,', i);
+const body = src.slice(i, j).replace(/^\s*etiquette: /, '').replace(/,\s*$/, '');
+const mk = (poleColor) => new Function('window', 'return (' + body + ');')({ TMT: { poleColor } });
+const pc = (base, idx) => base + '#' + idx, et = mk(pc);
+let e = et({ activityName: 'Noèsis', activityColor: '#aaa' });
+assert(e.name === 'Noèsis' && e.color === '#aaa' && e.level === 'activite', 'activité sans catégorie : son nom, la couleur de l’activité');
+const p1 = et({ activityName: 'Noèsis', activityColor: '#aaa', poleLabel: 'TiMeTracker', poleIndex: 0 }), p2 = et({ activityName: 'Noèsis', activityColor: '#aaa', poleLabel: 'Trade', poleIndex: 1 });
+assert(p1.name === 'TiMeTracker' && p1.level === 'pole' && p1.color !== p2.color && p2.color === '#aaa#1', 'pôles sans secteur : le nom du pôle, une couleur différente par pôle');
+e = et({ activityName: 'Noèsis', activityColor: '#aaa', poleLabel: 'TiMeTracker', secteurLabel: 'Interface', poleIndex: 0 });
+assert(e.name === 'Interface' && e.level === 'secteur' && e.color === p1.color, 'secteur : le nom du secteur seul, la couleur de son pôle');
+assert(mk(undefined)({ activityName: 'X', activityColor: '#bbb', poleLabel: 'P', poleIndex: 0 }).color === '#bbb', 'sans palette de pôles : repli sur la couleur de l’activité');
+if (failed) { console.log('\n' + failed + ' échec(s)'); process.exit(1); } console.log('\ntout passe');

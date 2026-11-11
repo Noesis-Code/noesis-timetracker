@@ -90,6 +90,13 @@
   var ui = {
     editIcon: function () { return EDIT_SVG; },
     closeBtn: function (onClick, label) { var b = btn('cmpClose', label || 'Fermer', onClick); b.textContent = '✕'; return b; },
+    // Étiquette d'un objectif ou d'une tâche (11 nov. 2026, Émilien) : le NOM de l'élément du niveau le plus bas (secteur, sinon pôle, sinon l'activité), dans le MÊME format à tous les niveaux ; la couleur est celle du pôle (secteur = nuance de son pôle, un pôle = sa propre nuance), celle de l'activité sans catégorie.
+    // UNE seule définition (R29) : o = { activityName, activityColor, poleLabel, secteurLabel, poleIndex } ; rend { name, color, level }. Le dessin (rond + nom) reste celui de chaque écran.
+    etiquette: function (o) {
+      o = o || {}; var cat = !!(o.poleLabel || o.secteurLabel), color = o.activityColor || '';
+      if (cat && color && o.poleIndex != null && window.TMT && typeof window.TMT.poleColor === 'function') color = window.TMT.poleColor(color, o.poleIndex) || color;
+      return { name: o.secteurLabel || o.poleLabel || o.activityName || '', color: color, level: o.secteurLabel ? 'secteur' : o.poleLabel ? 'pole' : 'activite' };
+    },
     loader: loader, loaderHtml: loaderHtml, attente: attente,
     removeBtn: function (onClick, label) { return btn('cmpRemove', label || 'Retirer', onClick); },
     editBtn: function (onClick, label) { var b = btn('cmpEdit', label || 'Modifier', onClick); b.innerHTML = EDIT_SVG; return b; },

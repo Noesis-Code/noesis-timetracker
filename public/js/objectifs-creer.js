@@ -444,8 +444,9 @@
       function under(a, blk) { // seulement les éléments du niveau qui correspond au TYPE choisi : les pôles, ou les secteurs (« pôle › secteur »)
         var lvl = levelFor(typeOf(), a);
         (a.poles || []).forEach(function (p) {
-          if (lvl === 'pole') { var sp = form.poleKey === p.key, rp = choice(p.label, '', sp, null, function () { form.poleKey = sp ? null : p.key; form.categoryKey = null; form.level = sp ? 'activite' : 'pole'; refresh(); }), cp = poleColor(a, p); if (cp) rp.style.color = cp; blk.appendChild(rp); return; }
-          (p.secteurs || []).forEach(function (x) { var sx = form.categoryKey === x.key && form.poleKey === p.key, rx = choice(p.label + ' › ' + x.label, '', sx, null, function () { form.poleKey = sx ? null : p.key; form.categoryKey = sx ? null : x.key; form.level = sx ? 'activite' : 'secteur'; refresh(); }); rx.classList.add('objSub'); var cx = poleColor(a, p); if (cx) rx.style.color = cx; blk.appendChild(rx); });
+          var ep = TMT.ui.etiquette({ activityName: a.name, activityColor: a.color, poleLabel: p.label, poleIndex: p.shadeRank }); // UNE étiquette partagée : nom du niveau le plus bas, couleur du pôle
+          if (lvl === 'pole') { var sp = form.poleKey === p.key, rp = choice(ep.name, '', sp, null, function () { form.poleKey = sp ? null : p.key; form.categoryKey = null; form.level = sp ? 'activite' : 'pole'; refresh(); }); if (ep.color) rp.style.color = ep.color; blk.appendChild(rp); return; }
+          (p.secteurs || []).forEach(function (x) { var sx = form.categoryKey === x.key && form.poleKey === p.key, ex = TMT.ui.etiquette({ activityName: a.name, activityColor: a.color, poleLabel: p.label, secteurLabel: x.label, poleIndex: p.shadeRank}), rx = choice(ex.name, '', sx, null, function () { form.poleKey = sx ? null : p.key; form.categoryKey = sx ? null : x.key; form.level = sx ? 'activite' : 'secteur'; refresh(); }); rx.classList.add('objSub'); if (ex.color) rx.style.color = ex.color; blk.appendChild(rx); });
         });
       }
       function card(a, host) {
