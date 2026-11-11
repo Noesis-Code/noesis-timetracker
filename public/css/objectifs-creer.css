@@ -109,7 +109,7 @@
 .objStepBtn { position: relative; justify-content: center; }
 .objStepBtn:disabled { opacity: .5; cursor: default; }
 .objDock.objTemps .objStepBtn:disabled { background: var(--card); color: var(--text-light); box-shadow: inset 0 0 0 1px var(--border); opacity: 1; } /* étape Temps : gris (R35) tant que le choix manque ou que le tableau n'est pas équilibré ; violet (état actif standard) dès que tout est bon */
-.objStepPos { position: absolute; right: 24px; top: 50%; transform: translateY(-50%); font-size: 13px; font-weight: 500; opacity: .7; font-variant-numeric: tabular-nums; }
+.objStepPos { display: none; position: absolute; right: 24px; top: 50%; transform: translateY(-50%); font-size: 13px; font-weight: 500; opacity: .7; font-variant-numeric: tabular-nums; }
 /* Expansion : plus de carte promo dans la vue Objectifs ; ne reste que la gestion (abonnements, résilier, code). */
 #offer1Section .offer1SoonBadge, #offer1Section .offer1PromoText, #offer1Section .offer1PromoSub, #offer1Section #offer1CheckoutOpenBtn { display: none; }
 #offer1Section .offer1Promo { background: none; border: 0; box-shadow: none; padding: 0; }
@@ -218,5 +218,4 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objInfSubs .objGridName { flex: 1 1 auto; width: auto; color: var(--text-light); }
 .objInfSubs .objRecapVal { flex: none; color: var(--text-light); }
 .objNivSkip { display: flex; margin: 8px auto 0; } /* étape Niveau : lien discret « Passer » sous la liste (saute sans bloquer) */
-.objCenterChoices .objChoice:active, .objCenterChoices .objChoice.on { background: var(--purple); color: var(--on-action); box-shadow: none; } /* choix Ajouter / Déplacer : violet plein dès le toucher */
-.objCenterChoices .objChoice:active .aiModeChoiceTitle, .objCenterChoices .objChoice.on .aiModeChoiceTitle { color: var(--on-action); }
+.objAdvHead { justify-content: flex-end; border-bottom: 0; } .objAdvHead .cmpBlockTitle { color: var(--purple); } /* « Avancé » (Description) : à droite, violet, sans trait dessous */

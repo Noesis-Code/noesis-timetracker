@@ -351,7 +351,7 @@
     function composeDesc() { form.description = guideCompose(form); }
     function paintAdv() {
       advBox.textContent = '';
-      var wrap = el('div', 'objField objGuideRow' + (advOpen ? ' open' : '')), head = btn('objGuideHead cmpToggle', '', function () { advOpen = !advOpen; paintAdv(); });
+      var wrap = el('div', 'objField objGuideRow' + (advOpen ? ' open' : '')), head = btn('objGuideHead objAdvHead cmpToggle', '', function () { advOpen = !advOpen; paintAdv(); });
       head.setAttribute('aria-expanded', advOpen ? 'true' : 'false');
       var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
       head.appendChild(tx); head.appendChild(el('span', 'cmpChev' + (advOpen ? ' open' : ''))); wrap.appendChild(head); advBox.appendChild(wrap);
@@ -790,7 +790,7 @@
       if (cur === 'desc') { if (!validDesc()) return; if (form.fixedCtx) { stepBtn.disabled = true; loadRatt().then(nivFetch).then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; } show(l[i + 1]); return; } // créé depuis une bulle : activité imposée, pas de page Activité
       if (cur === 'activite') { // le rattachement / la fusion dépendent de l'échéance ET de l'activité : proposés après la page Activité
         if (noActivity()) { msg.textContent = tr('Choisis une activité.'); return; }
-        stepBtn.disabled = true; loadRatt().then(nivFetch).then(function () { stepBtn.disabled = false; stepNextFrom('activite'); }); return;
+        stepBtn.disabled = true; boxes.activite.textContent = ''; TMT.ui.loader(boxes.activite, { seul: true }); /* attente : le N qui charge (composant standard) */ loadRatt().then(nivFetch).then(function () { stepBtn.disabled = false; stepNextFrom('activite'); }); return;
       }
       show(l[i + 1]);
     }
