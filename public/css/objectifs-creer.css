@@ -217,5 +217,5 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objInfBody { margin: 0 0 12px 24px; }
 .objInfSubs .objGridName { flex: 1 1 auto; width: auto; color: var(--text-light); }
 .objInfSubs .objRecapVal { flex: none; color: var(--text-light); }
-.objNivSkip { display: flex; margin: 8px auto 0; } /* étape Niveau : lien discret « Passer » sous la liste (saute sans bloquer) */
-.objAdvHead { justify-content: flex-end; border-bottom: 0; } .objAdvHead .cmpBlockTitle { color: var(--purple); } /* « Avancé » (Description) : à droite, violet, sans trait dessous */
+.objNivSkip { display: flex; width: 100%; box-sizing: border-box; margin: 8px 0 0; padding: 0; } /* étape Niveau : lien discret « Passer » sous la liste (saute sans bloquer) */
+.objAdvHead, .objNivSkip { justify-content: flex-end; border: 0; } .objAdvHead .cmpBlockTitle, .objNivSkip { color: var(--purple); text-decoration: none; } /* « Avancé » (Description) et « Passer » (Niveau) : MÊME style, à droite, violet, sans trait */
