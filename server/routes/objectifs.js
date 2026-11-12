@@ -31,6 +31,7 @@ router.post('/objectifs/temps/plan', run((req) => { const b = req.body || {}; re
 router.post('/objectifs/niveau/questions', run((req) => require('../lib/objectifs-niveau').questions(req.userId, req.body || {}, require('../lib/dates').userToday())));
 router.post('/objectifs/temps/suggestion', run((req) => require('../lib/objectifs-heures').suggest(req.userId, req.body || {}, require('../lib/dates').userToday())));
 router.post('/objectifs/inferieurs/proposition', run((req) => require('../lib/objectifs-inferieurs').plan(req.userId, req.body || {}, require('../lib/dates').userToday())));
+router.post('/objectifs/inferieurs/trou', run((req) => require('../lib/objectifs-trou').proposer(req.userId, req.body || {}, require('../lib/dates').userToday())));
 router.post('/objectifs/inferieurs/appliquer', run((req) => require('../lib/objectifs-inferieurs').appliquer(req.userId, req.body || {})));
 router.post('/objectifs/rattachement', run((req) => objectifs.rattachement(req.userId, req.body || {})));
 router.post('/objectifs/proposition', run((req) => objectifs.proposer(req.userId, req.body || {})));
