@@ -33,4 +33,17 @@ assert(ph[a] === 'cadrage' && ph[b] === null && ph[c] === 'reformer', 'écrit so
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? (e.name === 'node_modules' ? [] : walk(path.join(d, e.name))) : [path.join(d, e.name)]);
 const shown = walk(path.join(__dirname, '..', 'public')).filter((f) => /\.(js|html)$/.test(f)).filter((f) => fs.readFileSync(f, 'utf8').includes('taskPhase'));
 assert(shown.length === 0, 'aucune étiquette, aucun champ : « taskPhase » n\'apparaît dans aucun fichier de l\'interface');
+// ---- Ordre du plan du jour et usure ----
+const T0 = '2026-11-12', back = (n) => new Date(Date.parse(T0 + 'T00:00:00Z') - n * 86400000).toISOString().slice(0, 10);
+const dev1 = (phase, extra) => Object.assign({ taskKind: 'developpement', phase, dueDate: T0, hasObjective: true, objectiveDays: 7 }, extra);
+const R = (t) => K.dayRank(t, T0);
+assert(R({ taskKind: 'maintenance', maintUrgent: true, dueDate: T0 }) === 1 && R(dev1('reformer')) === 2 && R(dev1('cadrage')) === 3 && R(dev1('realisation')) === 4 && R(dev1('finition')) === 4 && R(dev1(null)) === 4 && R({ taskKind: 'maintenance', dueDate: T0 }) === 4, 'rangs : 1 maintenance urgente, 2 Réformer, 3 Cadrage, 4 Réalisation + Finition + maintenance non urgente (+ sans phase)');
+const order = [dev1('realisation', { id: 1 }), dev1('cadrage', { id: 2 }), { taskKind: 'maintenance', maintUrgent: true, maintType: 'legal', dueDate: T0, id: 3 }, dev1('reformer', { id: 4 }), { taskKind: 'maintenance', dueDate: T0, id: 5 }].map((t) => Object.assign(t, { dayRank: R(t) })).sort(K.compareDay).map((t) => t.id);
+assert(order.slice(0, 3).join() === '3,4,2' && order.slice(3).sort().join() === '1,5', 'ordre : maintenance urgente > Réformer > Cadrage > le reste mélangé');
+// usure : objectif hebdomadaire (7 j) : rang 4 -> 3 -> 2 -> 1 à intervalles égaux, rang 1 après 7 jours de retard
+assert(R(dev1('realisation', { dueDate: back(1) })) === 4 && R(dev1('realisation', { dueDate: back(3) })) === 3 && R(dev1('realisation', { dueDate: back(5) })) === 2 && R(dev1('realisation', { dueDate: back(7) })) === 1, 'usure hebdomadaire : 4 -> 3 -> 2 -> 1, rang 1 après 7 jours');
+// périodique / sans objectif / annuel : 28 jours (plafond)
+const per = (phase, late) => dev1(phase, { objectiveDays: null, dueDate: back(late) });
+assert(R(per('cadrage', 13)) === 3 && R(per('cadrage', 14)) === 2 && R(per('cadrage', 27)) === 2 && R(per('cadrage', 28)) === 1, 'usure périodique : 28 jours, jamais plus (annuel / pluriannuel plafonnés)');
+assert(R({ taskKind: 'maintenance', maintUrgent: true, dueDate: back(40) }) === 1 && R(dev1('realisation', { dueDate: T0 })) === 4 && R(dev1('realisation', { dueDate: '2026-12-01' })) === 4, 'rang 1 reste 1 ; une tâche à jour ou à venir ne s’use pas');
 console.log(failed ? '\n' + failed + ' échec(s)' : 'nature-phases-test OK'); process.exit(failed ? 1 : 0);

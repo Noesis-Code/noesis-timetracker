@@ -75,6 +75,7 @@ function tasksToday(userId, todayParam, dayParam) {
   const weekly = {};
   if (todo.length) db.prepare('SELECT id, goalWeeklyId FROM sub_project_items WHERE id IN (' + todo.map(() => '?').join(',') + ')').all(...todo.map((t) => t.id)).forEach((r) => { weekly[r.id] = r.goalWeeklyId; });
   const reforms = require('./reform').readMany(todo.map((t) => t.id));
+  const phases = taskkind.readPhaseMany(todo.map((t) => t.id));
   // Objectif périodique (fin, numéro) puis hebdomadaire (semaine) de chaque tâche liée : tri de la continuité.
   const objInfo = {};
   const wids = Array.from(new Set(Object.values(weekly).filter((w) => w != null)));
@@ -86,9 +87,11 @@ function tasksToday(userId, todayParam, dayParam) {
     t.rank = { taskKind: k.kind, maintType: k.maintType, maintUrgent: k.urgent, estimatedMinutes: t.minutes || 0, hasObjective: weekly[t.id] != null, reform: reforms[t.id],
       periodEnd: (objInfo[weekly[t.id]] || {}).endDate, periodNumber: (objInfo[weekly[t.id]] || {}).periodNumber, weekIndex: (objInfo[weekly[t.id]] || {}).weekIndex };
     t.rank.tier = taskkind.tierOf(t.rank, capacity[t.activityId]);
+    Object.assign(t.rank, { phase: phases[t.id], dueDate: t.dueDate, objectiveDays: weekly[t.id] != null ? 7 : null }); // ordre du jour : rang 1 à 4 et usure (taskkind.dayRank)
+    t.rank.dayRank = taskkind.dayRank(t.rank, today);
   });
   const dayWork = (a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.id - b.id);
-  todo.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || taskkind.compareTasks(x.rank, y.rank) || dayWork(x, y));
+  todo.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || taskkind.compareDay(x.rank, y.rank) || dayWork(x, y));
   // Réformes (reform.js) : en tête de leur pôle/secteur, ou de l'activité si elles en touchent au moins deux.
   const ordered = require('./reform').placeReforms(todo);
   todo.length = 0; ordered.forEach((t) => todo.push(t));

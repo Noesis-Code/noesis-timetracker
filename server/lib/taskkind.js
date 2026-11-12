@@ -200,6 +200,31 @@ function compareTasks(a, b) {
     || (a.tier === 4 ? (a.estimatedMinutes - b.estimatedMinutes) || (rankOf(a.maintType) - rankOf(b.maintType)) : 0);
 }
 
+// ORDRE DU PLAN DU JOUR (12 nov. 2026, décision d'Émilien) : rang 1 maintenance urgente > rang 2 Réformer > rang 3 Cadrage > rang 4 Réalisation, Finition et maintenance non urgente MÉLANGÉES (une tâche sans phase y est aussi).
+// USURE : une tâche repoussée (en retard sur sa date) monte d'un rang à intervalles égaux et atteint le rang 1 après la durée de la période de son objectif (hebdomadaire 7 j, périodique 28 j, annuel / pluriannuel plafonné à 28 j ;
+// sans objectif : 28 j). Du rang r au rang 1 il y a r - 1 marches, chacune dure (durée / (r - 1)) jours de retard. La place choisie à la main par la personne n'est jamais remise en question (l'ordre ne sert qu'à proposer).
+const DAY_MS = 86400000;
+function baseDayRank(t) {
+  if (t.taskKind === 'maintenance') return t.maintUrgent ? 1 : 4;
+  if (t.phase === 'reformer' || t.reform) return 2;
+  if (t.taskKind === 'developpement' && t.phase === 'cadrage') return 3;
+  return 4;
+}
+function periodDays(t) { return t.hasObjective ? (t.objectiveDays === 7 ? 7 : 28) : 28; } // tâche liée à un objectif hebdomadaire : 7 j ; sinon 28 j (périodique, annuel / pluriannuel plafonné, sans objectif)
+function dayRank(t, today) {
+  const base = baseDayRank(t);
+  if (base <= 1 || !t.dueDate || !today) return base;
+  const late = Math.round((Date.parse(today + 'T00:00:00Z') - Date.parse(String(t.dueDate).slice(0, 10) + 'T00:00:00Z')) / DAY_MS);
+  if (!(late > 0)) return base;
+  const D = periodDays(t), steps = base - 1;
+  if (late >= D) return 1;
+  return Math.max(1, base - Math.floor(late / (D / steps)));
+}
+// Comparateur du jour (pur) : rang du jour, puis l'essentiel pour la maintenance urgente, puis la continuité (objectif périodique puis hebdomadaire) ; l'appelant départage ensuite (échéance, création).
+function compareDay(a, b) {
+  return (a.dayRank - b.dayRank) || (a.dayRank === 1 ? rankOf(a.maintType) - rankOf(b.maintType) : 0) || (a.dayRank > 1 ? compareContinuity(a, b) : 0);
+}
+
 // Palier de PLACEMENT (ordre d'Émilien, 10 nov. 2026) : le même que tierOf, avec la réforme juste après la maintenance urgente (0 puis 0,5). Seule l'importance compte :
 // une date saisie à la main n'est pas plus importante qu'une autre. UN SEUL classement, du plus urgent au moins urgent, pour l'ajout, le report et le retrait d'une tâche.
 function placementTier(t, capacityMinutes) { return t.reform ? 0.5 : tierOf(t, capacityMinutes); }
@@ -254,4 +279,4 @@ function readMany(ids) {
   return out;
 }
 
-module.exports = { PHASES, phaseOf, setPhase, readPhaseMany, KINDS, ESSENTIAL_RANK, MIN_HISTORY, compute, rankOf, tierOf, compareTasks, placementTier, comparePlacement, rankInfoMany, maintTypeOf, isUrgentText, doneDatesForTitle, sectorDevShare, write, read, readMany };
+module.exports = { dayRank, compareDay, baseDayRank, PHASES, phaseOf, setPhase, readPhaseMany, KINDS, ESSENTIAL_RANK, MIN_HISTORY, compute, rankOf, tierOf, compareTasks, placementTier, comparePlacement, rankInfoMany, maintTypeOf, isUrgentText, doneDatesForTitle, sectorDevShare, write, read, readMany };
