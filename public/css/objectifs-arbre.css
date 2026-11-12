@@ -40,7 +40,6 @@ html.arbreOn body { position: fixed; inset: 0; width: 100%; overflow: hidden; ov
 .arToast { position: fixed; left: 16px; right: 16px; z-index: 45; margin: 0 auto; max-width: 420px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--card); color: var(--text); font-size: 13px; text-align: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); pointer-events: none; }
 .arToast.hidden { display: none; }
 .arBubble { position: relative; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 14px; border: 2px solid var(--track-bg); border-radius: var(--radius-md); background: var(--glass-bg); color: var(--text); font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: left; cursor: pointer; pointer-events: auto; box-sizing: border-box; } /* comme les cartes de l'arbre périodique : même rayon, contour plein de la couleur de l'activité */
-.arDot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
 .arBubble span { overflow-wrap: anywhere; }
 /* Lier / délier (appui long + glisser) : carte tirée, cible violette, zone « Délier » transitoire à la place de la barre (.cmpAdd sans « + »). */
 .arNode.arDragging { z-index: 7; opacity: .9; box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
@@ -105,7 +104,6 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 /* Règle de l'arbre périodique (.goalsGridScroll--locked) : une ou deux colonnes = aucun défilement horizontal, le balayage part vers la page voisine. */
 .arHScroll.goalsGridScroll--locked { overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; }
 .arBubble.arExtOn { box-shadow: none; } /* titre choisi : rempli de la couleur (script), jamais de contour violet */
-.arBubble.arExtOn .arDot { background: currentColor !important; opacity: .55; }
 /* Traits : dessinés par drawLinks (une seule fonction) ; ceux de la grille d'origine (cases vides, rangées) sont retirés. */
 .arGrid .goalsGridCell::before, .arGrid .goalsGridRow::before { display: none; }
 .arHInner { position: relative; }

@@ -654,8 +654,8 @@
     var column = el('div', 'arColumn'); gridArea = el('div', 'arGridArea');
     var baseWrap = el('div', 'goalsGrid arBaseWrap'), baseRow = el('div', 'goalsGridRow arBaseRow');
     data.forEach(function (c, ci) {
-      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; if (ext && ext.cols[ci]) { b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : ''; } // titre choisi en mode fusion : REMPLI de la couleur de l'activité (du pôle), plus de contour violet ; étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
-      var dot = el('i', 'arDot'); dot.style.background = c.color; b.appendChild(dot); b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
+      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); paint(b, null, c.color); // titre de colonne = une CASE au pied de l'arbre, MÊME style que les cases de l'arbre : pleine de la couleur de la catégorie (12 nov. 2026, tableau simple)
+      b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
       b.addEventListener('click', function () { openFiche(ci); }); // toucher le TITRE d'une colonne : la fiche (jamais un changement d'arbre ni le calendrier) ; on descend uniquement en touchant une case // niveau secteurs : toucher le NOM d'un secteur ouvre son calendrier (aujourd'hui) ; ailleurs : descendre d'un niveau
       baseRow.appendChild(b);
     });

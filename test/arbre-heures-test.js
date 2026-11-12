@@ -8,4 +8,5 @@ assert(/\.arRailR \.arHrs\.set \{ color: var\(--purple\)/.test(css) && /\.arRail
 assert(!/⚠/.test(js.slice(js.indexOf('function hrsTxt'), js.indexOf('function cellSize'))), 'aucun avertissement dans la colonne');
 assert(js.includes("tbl.appendChild(rail); tbl.appendChild(grid); tbl.appendChild(railR); hin.appendChild(tbl);") && !js.includes('body.appendChild(rail)'), 'repères à gauche et heures à droite dans le tableau qui défile (jamais en colonnes fixes)');
 assert(!/position:s*sticky/.test(css.slice(css.indexOf('.arRailR'))) && !/.arRail {[^}]*sticky/.test(css), 'aucun position: sticky sur les repères ni sur les heures');
+assert(js.includes("paint(b, null, c.color); // titre de colonne = une CASE") && !js.includes("el('i', 'arDot')"), 'titres de colonnes = cases au pied, pleines de la couleur de la catégorie (même fonction paint que les cases)');
 console.log(failed ? '\n' + failed + ' échec(s)' : 'arbre-heures-test OK'); process.exit(failed ? 1 : 0);
