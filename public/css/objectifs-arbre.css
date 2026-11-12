@@ -8,22 +8,24 @@ html.arbreOn body { position: fixed; inset: 0; width: 100%; overflow: hidden; ov
 .arZoomRow .arBackNav { margin: 0; }
 .arScroll { flex: 1 1 auto; min-height: 0; overflow: hidden; }
 .arColumn { display: flex; flex-direction: column; height: 100%; width: 100%; }
-/* Colonne fixe des repères (.arRail) à gauche ; à droite la zone qui défile horizontalement (.arHScroll) : jamais de carte sous un repère. */
+/* Repères du temps (.arRail) à gauche, grille, heures à droite : UN tableau dans la zone qui défile horizontalement (.arHScroll). */
 .arBody { display: flex; align-items: stretch; min-height: 100%; }
 .arRail { position: relative; flex: none; width: calc(var(--ar-mw, 46px) + 10px); }
 .arHScroll { container-type: inline-size; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; display: flex; flex-direction: column; -webkit-overflow-scrolling: touch; }
 .arHInner { width: max-content; min-width: 100%; flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-end; }
-.arGridArea { display: block; flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; } /* un seul conteneur de défilement : les repères du temps (sticky à gauche) restent fixes au défilement horizontal, alignés sur leur rangée */
+.arGridArea { display: block; flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; } /* un seul conteneur de défilement : les repères du temps et les heures défilent avec le tableau, alignés sur leur rangée */
 /* Bulles = dernière rangée de l'arbre : mêmes marges et mêmes largeurs que les rangées de la grille ; jamais fixes ni flottantes. */
-.arBaseWrap { flex: none; width: max-content; min-width: 100%; box-sizing: border-box; padding: 8px 4px 8px 0; }
+.arBaseWrap { flex: none; width: max-content; min-width: calc(100% - var(--ar-mw, 46px) - 68px); margin: 0 58px 0 calc(var(--ar-mw, 46px) + 10px); box-sizing: border-box; padding: 8px 4px 8px 0; } /* alignées sur les colonnes : décalage = repères à gauche, colonne « Heures » à droite */
 .arBaseRow { align-items: center; }
 .arBaseRow::before { display: none; }
 .arBaseWrap .arSpacer { position: static; transform: none; flex: 0 0 var(--ar-mw, 20px); width: var(--ar-mw, 20px); margin-left: calc(-1 * var(--ar-pl, 26px)); visibility: hidden; }
+.arTbl { display: flex; align-items: stretch; width: max-content; min-width: 100%; margin-top: auto; } /* repères, grille et heures forment UN tableau qui défile d'un bloc */
+.arTbl > .arGrid { flex: 1 0 auto; min-width: 0; margin-top: 0; }
 .arGrid { width: max-content; min-width: 100%; padding: 2px 4px 0 0; box-sizing: border-box; margin-top: auto; } /* ancré en BAS : la dernière rangée touche les bulles, les cases du futur s'empilent vers le haut */
 .arGrid .goalsGridRow { width: max-content; min-width: 100%; }
 .arGrid .goalsGridRow:has(.arDragging) { z-index: 6; }
-/* Repères à gauche, FIXES au défilement horizontal : numéro cerclé (à venir), pastille pleine (courante), point (passé) ; l'année sous le repère. */
-:is(.arGrid, .arRail) .goalsRowMarker { position: sticky; left: 0; top: auto; transform: none; flex: 0 0 var(--ar-mw, 20px); width: var(--ar-mw, 20px); margin-left: calc(-1 * var(--ar-pl, 26px)); align-self: center; background: var(--bg); }
+/* Repères à gauche (ils défilent avec le tableau) : numéro cerclé (à venir), pastille pleine (courante), point (passé) ; l'année sous le repère. */
+:is(.arGrid, .arRail) .goalsRowMarker { position: relative; top: auto; transform: none; flex: 0 0 var(--ar-mw, 20px); width: var(--ar-mw, 20px); margin-left: calc(-1 * var(--ar-pl, 26px)); align-self: center; background: var(--bg); }
 /* L'unique ligne « Aujourd'hui » : dans la gouttière entre deux rangées (le futur au-dessus, le passé au-dessous). */
 /* Cartes = cases remplies de la page 2, à la couleur de l'activité (R16) : pâle = en cours, vif = réalisé, contour pointillé = à venir, atténué = abandonné. */
 .arCard { box-shadow: none; text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }

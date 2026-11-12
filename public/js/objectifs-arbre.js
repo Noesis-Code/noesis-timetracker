@@ -543,9 +543,10 @@
     curCols = foldMerged(shown, sortByOrdre(columnsFor(shown)));
     if (!curCols.length) { gridArea = scroller = null; tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
     var n = curCols.length, wide = window.innerWidth >= 1024;
-    var arW = n === 1 ? 'calc(100cqw - 4px)' : 'calc((100cqw - ' + (GAP + 4) + 'px) / 2)'; // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
+    var SIDE = 114; // repères du temps (56 px) + colonne « Heures » (58 px) : dans le tableau qui défile
+    var arW = n === 1 ? 'calc(100cqw - ' + (4 + SIDE) + 'px)' : 'calc((100cqw - ' + (GAP + 4 + SIDE) + 'px) / 2)'; // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
     var W = 'var(--ar-w)'; // les titres passent à la ligne, la largeur ne grandit jamais avec le texte
-    if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) arW = 'calc((100cqw - ' + (4 + GAP * (spanN - 1)) + 'px) / ' + spanN + ')'; } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
+    if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) arW = 'calc((100cqw - ' + (4 + SIDE + GAP * (spanN - 1)) + 'px) / ' + spanN + ')'; } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
     var mode = lvl === 'activite' ? 'simple' : 'detail';
     // données par colonne : arbre, parcours, case (période ou année) de chaque objectif
     var data = curCols.map(function (c) {
@@ -661,7 +662,7 @@
     baseWrap.appendChild(baseRow);
     // COLONNE FIXE des repères du temps (.arRail, à gauche, jamais recouverte) + zone qui défile à droite (.arHScroll : colonnes d'activités ET titres, horizontalement) ; le défilement vertical est celui du conteneur commun .arGridArea : repères et rangées défilent ensemble sans script.
     var body = el('div', 'arBody'), rail = el('div', 'arRail' + (zoom !== 'period' ? ' arCompact' : '')), hs = el('div', 'arHScroll' + (n <= 2 ? ' goalsGridScroll--locked' : '')), hin = el('div', 'arHInner'); hs.style.setProperty('--ar-w', arW);
-    hin.appendChild(grid); hin.appendChild(baseWrap); hs.appendChild(hin); body.appendChild(rail); body.appendChild(hs); var railR = el('div', 'arRailR'); body.appendChild(railR); gridArea.appendChild(body); column.appendChild(gridArea); scroller.appendChild(column); tree.appendChild(scroller); scroller = hs; // UN SEUL conteneur défile (vertical ET horizontal) : c'est lui que les repères « collent » à gauche (sticky), sans aucun script // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
+    var railR = el('div', 'arRailR'), tbl = el('div', 'arTbl'); tbl.appendChild(rail); tbl.appendChild(grid); tbl.appendChild(railR); hin.appendChild(tbl); hin.appendChild(baseWrap); hs.appendChild(hin); body.appendChild(hs); gridArea.appendChild(body); // repères à gauche et heures à droite DÉFILENT avec le tableau (jamais fixes) column.appendChild(gridArea); scroller.appendChild(column); tree.appendChild(scroller); scroller = hs; // UN SEUL conteneur défile (vertical ET horizontal) : c'est lui que les repères « collent » à gauche (sticky), sans aucun script // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
     // La HAUTEUR d'une case ne dépend QUE de son contenu (min 64 px, 40 px aux années et blocs ; max 120 px, texte coupé par « … ») : jamais de la hauteur de l'écran, du geste ni de l'élastique. Plus aucun calcul de hauteur en JS.
     var layer = el('div', 'arLinks'); hin.insertBefore(layer, hin.firstChild);
     function drawLinks() { // UNE SEULE fonction de dessin des traits, pour tous les arbres et tous les niveaux : un trait de 2 px, uniquement entre deux objectifs REMPLIS reliés (parent-enfant, macro-enfants, macro-objectif du dessus), du bord BAS de la carte du haut au bord HAUT de la carte du bas ; jamais vers une case vide
