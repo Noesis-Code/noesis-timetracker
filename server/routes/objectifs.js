@@ -36,6 +36,8 @@ router.post('/objectifs/redessin', run((req) => { // fenêtre « Modifications p
   const R = require('../lib/objectifs-redessin'), b = req.body || {}, rows = Array.isArray(b.rows) ? b.rows.slice(0, 20) : [], n = Math.max(1, Math.min(13, Number(b.n) || 13));
   if (b.action === 'reorder') return { rows: R.reorder(rows, Array.isArray(b.order) ? b.order : []).map((r) => Object.assign({}, r, { moved: R.moved(r) })) };
   if (b.action === 'place') { const out = R.place(rows, b.id, Number(b.cell), n, Number(b.minCell) || 1); if (!out) throw Object.assign(new Error('Case indisponible.'), { statusCode: 400 }); return { rows: out.map((r) => Object.assign({}, r, { moved: R.moved(r) })) }; }
+  if (b.action === 'refus') return R.refuser(req.userId, b);
+  if (b.action === 'appliquer') return R.appliquer(req.userId, b, require('../lib/dates').userToday());
   return R.proposer(req.userId, b, require('../lib/dates').userToday());
 }));
 router.post('/objectifs/inferieurs/appliquer', run((req) => require('../lib/objectifs-inferieurs').appliquer(req.userId, req.body || {})));

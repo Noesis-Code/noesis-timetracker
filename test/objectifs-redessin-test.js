@@ -46,5 +46,24 @@ assert(R.place(base, 1, 3, 13, 1).find((x) => x.id === 1).p === 3 && R.place(bas
   assert(!R.proposer('u1', Object.assign({}, body, { type: 'hebdomadaire' }), TODAY).needed, 'seulement les enfants de premier niveau du parent');
   const before = JSON.stringify(db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(w4.id));
   R.proposer('u1', body, TODAY); assert(JSON.stringify(db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(w4.id)) === before, 'rien n\'est écrit à la proposition');
+  // 9. Appliquer : seul l'automatique bouge, l'écrit jamais ; deux lignes dans une même case refusé
+  const endOf = (id) => db.prepare('SELECT endDate FROM user_objectives WHERE id = ?').get(id).endDate;
+  const ap = R.appliquer('u1', { parentId: parent.id, rows: [{ id: a6.id, p: 7 }, { id: w4.id, p: 9 }, { id: a3.id, p: 3 }] }, TODAY);
+  assert(ap.moved.length === 1 && endOf(a6.id) === pend(7) && endOf(w4.id) === pend(4) && endOf(a3.id) === pend(3), 'appliquer : l\'automatique P6 passe en P7, l\'écrit et les autres restent');
+  let bad = false; try { R.appliquer('u1', { parentId: parent.id, rows: [{ id: a3.id, p: 4 }] }, TODAY); } catch (e) { bad = true; }
+  assert(bad && endOf(a3.id) === pend(3), 'appliquer : une case déjà prise est refusée sans rien écrire');
+  // 10. refus mémorisé (table partagée avec « Modifications proposées ») : jamais re-proposé à l'identique
+  const b2 = { parentId: parent.id, type: 'periodique', title: 'Autre', endDate: pend(7) };
+  const o2 = R.proposer('u1', b2, TODAY);
+  assert(o2.needed, 'avant refus : redessin proposé');
+  R.refuser('u1', Object.assign({}, b2, { rows: o2.rows }));
+  assert(!R.proposer('u1', b2, TODAY).needed && db.prepare("SELECT status FROM change_proposals WHERE target = 'redessin'").get().status === 'dismissed', 'après refus : plus jamais proposé à l\'identique (statut dismissed)');
+  // 11. fenêtre et branchement (source) : après Temps, avant les sous-objectifs ; Appliquer écrit à Terminer ; refus mémorisé ; poignée = appui long 500 ms
+  const js = require('fs').readFileSync(require('path').join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
+  const win = js.slice(js.indexOf('function openRedessin'), js.indexOf('function offerBtn'));
+  assert(js.includes("if (cur === 'temps' && form.parentId && form._rdKey !== rdKey())") && js.includes('TMT.ui.attente(redessinStep())'), 'fenêtre : ouverte à la sortie de Temps (avant les sous-objectifs), seulement s\'il y a un redessin');
+  assert(js.includes('.then(function () { return rdApply(); })') && js.includes("action: 'appliquer'") && js.includes("action: 'refus'"), 'Appliquer écrit à Terminer ; Annuler / ✕ = refus mémorisé');
+  assert(win.includes('TMT.ui.holdDrag(w, { holdMs: 500') && win.includes("call('reorder'") && win.includes("call('place'"), 'appui long 500 ms (mécanique existante), glisser = reorder et Place = place côté serveur');
+  assert(win.includes("[['auto', 'Automatique'], ['you', 'Écrit par toi'], ['new', 'Ton ajout'], ['mv', 'Déplacé']]") && !/explicat/i.test(win), 'légende : pastilles et un mot, aucune phrase explicative');
   console.log(failed ? '\n' + failed + ' échec(s)' : 'objectifs-redessin-test OK'); process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

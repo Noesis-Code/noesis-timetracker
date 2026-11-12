@@ -209,3 +209,36 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objAdvHead { justify-content: flex-end; border: 0; } .objAdvHead .cmpBlockTitle { color: var(--purple); text-decoration: none; } /* « Avancé » (Description) et « Passer » (Niveau) : MÊME style, à droite, violet, sans trait */
 .objAdvBody .objGuideRow.open > .objGuideHead { border-bottom-color: transparent; } /* sous « Avancé » (Description, Niveau) : une question dépliée n'a plus de trait sous son titre ; repliée, le trait est celui de toujours */
 .objGuideFlat .cmpSeg { margin-bottom: 8px; } /* les trois questions visibles de la Description : même rythme que dans un groupe déplié */
+
+/* Redessin des objectifs enfants (fenêtre « Modifications proposées ») : jetons existants seulement */
+.objRdMeta { margin: 8px 0 4px; font-size: 12px; color: var(--text-light); }
+.objRdStrip { display: grid; gap: 3px; }
+.objRdCell { height: 28px; padding: 0; border: 0; border-radius: 6px; background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text-light); font: inherit; font-size: 11px; display: grid; place-items: center; cursor: pointer; }
+.objRdCell.auto, .objRdKey .auto { background: color-mix(in srgb, var(--purple) 35%, transparent); color: var(--text); }
+.objRdCell.you, .objRdKey .you { background: color-mix(in srgb, var(--text) 28%, transparent); color: var(--text); }
+.objRdCell.new, .objRdKey .new { background: var(--purple); color: var(--on-action); font-weight: 700; }
+.objRdCell.mv { outline: 1.5px solid var(--violet-soft); }
+.objRdCell.open { box-shadow: 0 0 0 2px var(--text); }
+.objRdKey { display: flex; flex-wrap: wrap; gap: 14px; margin: 12px 0 4px; font-size: 12px; color: var(--text); }
+.objRdKey span { display: inline-flex; align-items: center; gap: 6px; }
+.objRdKey i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.objRdKey .mv { background: transparent; outline: 1.5px solid var(--violet-soft); }
+.objRdTop { display: grid; grid-template-columns: 30px 1fr 46px 46px 22px; gap: 6px; align-items: center; min-height: 46px; }
+.objRdCols { min-height: 0; padding: 6px 0; font-size: 12px; color: var(--text-light); }
+.objRdCols span:nth-child(3), .objRdCols span:nth-child(4) { text-align: center; }
+.objRdRow { border-top: 1px solid var(--sep); }
+.objRdRows { margin: 0 -16px; padding: 0 16px; }
+.objRdGrab { min-width: 30px; min-height: 44px; display: grid; place-items: center; color: var(--purple); font-size: 18px; line-height: 1; touch-action: none; }
+.objRdRow.fix .objRdGrab { color: var(--text-light); opacity: .35; }
+.objRdHead { display: contents; font: inherit; color: var(--text); background: none; border: 0; cursor: pointer; }
+.objRdT { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-size: 14px; }
+.objRdAv { text-align: center; color: var(--text-light); font-size: 14px; }
+.objRdAp { text-align: center; font-size: 14px; }
+.objRdRow.mv .objRdAp { color: var(--violet-soft); font-weight: 600; }
+.objRdRow.fix { opacity: .8; }
+.objRdDet { display: flex; flex-direction: column; gap: 6px; padding: 0 0 12px 36px; font-size: 13px; color: var(--text-light); }
+.objRdLine { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 34px; }
+.objRdLine b { color: var(--text); font-weight: 500; }
+.objRdDrag { background: color-mix(in srgb, var(--purple) 14%, transparent); border-radius: 10px; }
+.objRdDrop { box-shadow: 0 0 0 2px var(--purple); border-radius: 10px; }
+.objRdBtns { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; }

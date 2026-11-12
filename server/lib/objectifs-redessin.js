@@ -5,6 +5,7 @@
 const db = require('../db');
 const O = require('./objectifs');
 const T = require('./objectifs-trou');
+const crypto = require('crypto');
 
 const CHILD_TYPE = { pluriannuel: 'annuel', annuel: 'periodique', periodique: 'hebdomadaire' };
 const parseMeta = (r) => { try { return JSON.parse((r && r.metaJson) || '{}'); } catch (e) { return {}; } };
@@ -48,6 +49,45 @@ function cellsOf(parent) {
 }
 const indexOf = (cells, iso) => { const i = cells.findIndex((c) => iso >= c.start && iso <= c.endDate); return i < 0 ? null : i + 1; };
 
+// ---- Refus mémorisé : MÊME mécanisme que « Modifications proposées » (table change_proposals, clé unique activité + hash, statut 'dismissed') : un redessin refusé n'est jamais re-proposé à l'identique ----
+const hashOf = (parentId, endDate, rows) => crypto.createHash('sha256').update('redessin|' + parentId + '|' + endDate + '|' + rows.filter((r) => r.id !== 0).map((r) => r.id + ':' + r.p).sort().join(',')).digest('hex');
+function isDismissed(activityId, hash) { require('./changeproposals'); /* crée la table partagée */ return !!db.prepare("SELECT 1 FROM change_proposals WHERE activityId = ? AND hash = ? AND status = 'dismissed'").get(activityId, hash); }
+function refuser(userId, body) {
+  require('./changeproposals');
+  const parent = db.prepare('SELECT * FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body && body.parentId), userId);
+  if (!parent || !O.isDay(body.endDate)) throw Object.assign(new Error('Objectif introuvable.'), { statusCode: 404 });
+  const rows = (Array.isArray(body.rows) ? body.rows : []).slice(0, 20).map((r) => ({ id: Number(r.id), p: Number(r.p) })), now = new Date().toISOString();
+  db.prepare("INSERT OR IGNORE INTO change_proposals (activityId, userId, target, targetId, field, beforeValue, afterValue, reason, hash, status, createdAt, resolvedAt) VALUES (?, ?, 'redessin', ?, 'plan', NULL, ?, '', ?, 'dismissed', ?, ?)")
+    .run(parent.activityId, userId, parent.id, JSON.stringify(rows), hashOf(parent.id, body.endDate, rows), now, now);
+  return { ok: true };
+}
+
+// ---- Application (après la création de l'objectif, à « Terminer ») : déplace SEULEMENT les enfants automatiques, jamais un écrit, jamais une case passée ; chaque case finale est unique ----
+function appliquer(userId, body, today) {
+  const parent = db.prepare('SELECT * FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body && body.parentId), userId);
+  if (!parent) throw Object.assign(new Error('Objectif introuvable.'), { statusCode: 404 });
+  const geo = cellsOf(parent); if (!geo) return { moved: [] };
+  const want = new Map((Array.isArray(body.rows) ? body.rows : []).slice(0, 20).map((r) => [Number(r.id), { p: Number(r.p), hoursPerWeek: r.hoursPerWeek != null ? Number(r.hoursPerWeek) : null }]));
+  const kids = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND parentId = ? AND isMacro = 0').all(userId, parent.id).filter((r) => !parseMeta(r).abandoned);
+  const final = new Map(); // id -> case finale
+  kids.forEach((k) => { const a = indexOf(geo.cells, k.endDate); if (a != null) final.set(k.id, a); });
+  const plan = [];
+  want.forEach((w, id) => {
+    const k = kids.find((x) => x.id === id); if (!k) return;
+    const a = indexOf(geo.cells, k.endDate), isAuto = !!parseMeta(k).inferieur;
+    if (!isAuto || a == null || geo.cells[a - 1].endDate < today || k.status === 'atteint') return; // écrit par la personne ou passé : jamais touché
+    if (!Number.isInteger(w.p) || w.p < 1 || w.p > geo.cells.length || geo.cells[w.p - 1].endDate < today) throw Object.assign(new Error('Case indisponible.'), { statusCode: 400 });
+    final.set(id, w.p); plan.push({ k, p: w.p, hpw: w.hoursPerWeek });
+  });
+  const seen = new Set(); final.forEach((p) => { if (seen.has(p)) throw Object.assign(new Error('Deux objectifs dans la même case.'), { statusCode: 400 }); seen.add(p); });
+  const moved = [];
+  plan.sort((x, y) => x.p - y.p).forEach((x) => {
+    if (indexOf(geo.cells, x.k.endDate) !== x.p) { O.modifierEcheance(userId, x.k.id, geo.cells[x.p - 1].endDate); moved.push(x.k.id); }
+    if (x.hpw != null && x.hpw > 0 && x.hpw <= 168) O.parametres(userId, x.k.id, { hoursPerWeek: x.hpw });
+  });
+  return { moved };
+}
+
 // ---- Proposition : body { parentId, endDate (de l'objectif créé), title, type } -> { needed, level, cells, rows } ----
 function proposer(userId, body, today) {
   const none = { needed: false, rows: [], cells: [] };
@@ -65,8 +105,8 @@ function proposer(userId, body, today) {
   });
   rows.push({ id: 0, title: String(body.title || ''), kind: 'new', a: null, p: newCell, locked: false, hoursPerWeek: null });
   const out = redessiner(rows, geo.cells.length);
-  const needed = out.some(moved);
+  const needed = out.some(moved) && !isDismissed(parent.activityId, hashOf(parent.id, body.endDate, out));
   return { needed, level: geo.level, cells: geo.cells.map((c, i) => ({ n: i + 1, label: c.label, start: c.start, endDate: c.endDate })), minCell: Math.max(1, (geo.cells.findIndex((c) => c.endDate >= today) + 1) || 1), rows: needed ? out.map((r) => Object.assign({}, r, { moved: moved(r) })) : [] };
 }
 
-module.exports = { redessiner, reorder, place, moved, cellsOf, proposer, CHILD_TYPE };
+module.exports = { redessiner, reorder, place, moved, cellsOf, proposer, refuser, appliquer, hashOf, CHILD_TYPE };

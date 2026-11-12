@@ -699,6 +699,23 @@
         if (!inf.plan.skip) { inf.on = p.rows.map(function (r) { return r.checked; }); inf.hrs = p.rows.map(function (r) { return r.hoursMin; }); inf.edited = p.rows.map(function () { return false; }); inf.titles = p.rows.map(function (r) { return r.title || ''; }); inf.dates = p.rows.map(function (r) { return r.endDate; }); inf.open = -1; }
       }).catch(function () { if (inf.key === key) inf.plan = { skip: true }; });
     }
+    // Redessin des enfants (après Temps, avant les sous-objectifs) : seulement s'il y a quelque chose à redessiner ; « Appliquer » garde le choix, écrit à « Terminer » ; Annuler / ✕ = refus mémorisé
+    function rdKey() { return [form.parentId || '', form.endDate || '', typeOf()].join('|'); }
+    function redessinStep() {
+      if (!form.parentId || !form.endDate || form._rdKey === rdKey()) return Promise.resolve();
+      form._rdKey = rdKey(); form.redessin = null;
+      return api('POST', '/api/objectifs/redessin', { parentId: form.parentId, type: typeOf(), title: form.title, endDate: form.endDate }).then(function (d) {
+        if (!d || !d.needed) return;
+        return openRedessin(d).then(function (res) {
+          if (res.applied) form.redessin = { parentId: form.parentId, rows: res.rows };
+          else api('POST', '/api/objectifs/redessin', { action: 'refus', parentId: form.parentId, endDate: form.endDate, rows: res.rows }).catch(function () {});
+        });
+      }).catch(function () {});
+    }
+    function rdApply() {
+      var r = form.redessin; if (!r) return Promise.resolve(); form.redessin = null;
+      return api('POST', '/api/objectifs/redessin', { action: 'appliquer', parentId: r.parentId, rows: r.rows.filter(function (x) { return x.kind === 'auto' && x.id; }).map(function (x) { return { id: x.id, p: x.p, hoursPerWeek: x.hrsEdited ? x.hoursPerWeek : undefined }; }) }).catch(function () { /* l'objectif existe déjà : jamais de blocage */ });
+    }
     function infRq(m) { return Math.round(m / 15) * 15; }
     function infEx(r) { return r.kind === 'existant' ? r.hoursMin : (r.kind === 'modifier' ? r.fromMin : null); } // heures de l'objectif existant de la case
     function infKind(i) { var r = inf.plan.rows[i]; return r.kind === 'nouveau' ? 'nouveau' : (inf.hrs[i] > infEx(r) ? 'modifier' : 'existant'); }
@@ -844,6 +861,7 @@
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
     function stepNext() {
       var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
+      if (cur === 'temps' && form.parentId && form._rdKey !== rdKey()) { stepBtn.disabled = true; TMT.ui.attente(redessinStep()).then(function () { stepBtn.disabled = false; stepNext(); }); return; } // fenêtre « Modifications proposées » entre Temps et les sous-objectifs
       if (cur === 'temps' && l[i + 1] === 'inf') { stepBtn.disabled = true; TMT.ui.attente(infFetch()).then(function () { stepBtn.disabled = false; if (inf.plan && !inf.plan.skip) show('inf'); else finishAll(); }); return; }
       if (cur === 'desc') { if (!validDesc()) return; if (form.fixedCtx) { stepBtn.disabled = true; TMT.ui.attente(loadRatt().then(nivFetch)).then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; } show(l[i + 1]); return; } // créé depuis une bulle : activité imposée, pas de page Activité
       if (cur === 'echeance') { if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; } form.echeanceDone = true; stepBtn.disabled = true; refreshHints(); TMT.ui.attente(loadRatt()).then(function () { stepBtn.disabled = false; stepNextFrom('echeance'); }); return; } // l'échéance connue : rattachement (parent) et propositions recalculés
@@ -863,6 +881,7 @@
     function innerOf() { if (weeklyPossible(form)) return form.weeklyOn ? 'hebdomadaires' : 'periodiques'; return multiPeriods() ? form.innerGoals : 'hebdomadaires'; }
     function finishAll() { // Terminer : proposition par règles (ou IA gratuite du mois) puis création ; rien n'est créé avant ce geste
       if (!validDesc(true)) return;
+      if (cur === 'temps' && form.parentId && form._rdKey !== rdKey()) { stepBtn.disabled = true; TMT.ui.attente(redessinStep()).then(function () { stepBtn.disabled = false; finishAll(); }); return; } // dernier écran (hebdomadaire) : la fenêtre passe avant la création
       if (form.ratt && form.ratt.key !== rattKey2()) { form.parentId = null; form.parentRel = null; } // l'activité a changé après la proposition de rattachement : plus de parent
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
@@ -876,6 +895,7 @@
             .then(function (cr) { if (cr && cr.id) first = cr; });
         })
         .then(function () { return infApply(first); })
+        .then(function () { return rdApply(); })
         .then(function () { var created = first; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); })
         .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
       }
@@ -890,6 +910,65 @@
 
     form._show = show; show(cur);
 
+  }
+  // ---------- Fenêtre « Modifications proposées » : redessin des objectifs enfants (12 nov. 2026, maquette validée par Émilien) ----------
+  // Après l'étape Temps, avant les sous-objectifs : seulement s'il y a quelque chose à redessiner. Frise Avant / Après cliquable, lignes repliées (titre + période avant + après), appui long 500 ms (TMT.ui.holdDrag) pour réattribuer
+  // les périodes dans l'ordre ; les lignes écrites par la personne restent « inchangé ». Le calcul est côté serveur (objectifs-redessin.js, POST /api/objectifs/redessin) ; rien n'est écrit avant « Terminer ».
+  var RD_KIND = { auto: 'Automatique', you: 'Écrit par toi', 'new': 'Ton ajout' };
+  function openRedessin(d) {
+    return new Promise(function (resolve) {
+      var rows = d.rows, n = d.cells.length, open = null, decided = false, m, num = {}, listEl;
+      rows.slice().sort(function (x, y) { return (x.a || x.p) - (y.a || y.p); }).forEach(function (r, i) { num[r.id] = i + 1; });
+      var short = function (i) { return String(d.cells[i - 1].label).split(' ')[0]; };
+      var movable = function (r) { return r.kind === 'auto' && !r.locked; };
+      function done(res) { if (decided) return; decided = true; m.close(); resolve(res); }
+      m = openModal(tr('Modifications proposées'), { onClose: function () { if (!decided) { decided = true; resolve({ refused: true, rows: rows }); } } }); // ✕ = Annuler
+      function call(action, extra) { return api('POST', '/api/objectifs/redessin', Object.assign({ action: action, rows: rows, n: n, minCell: d.minCell }, extra)).then(function (r) { if (r && r.rows) rows = r.rows.map(function (x) { var o = rows.filter(function (y) { return y.id === x.id; })[0]; return o && o.hrsEdited ? Object.assign({}, x, { hoursPerWeek: o.hoursPerWeek, hrsEdited: true }) : x; }); paint(); }).catch(function () { paint(); }); }
+      function cellAt(key, i) { for (var k = 0; k < rows.length; k++) if (rows[k][key] === i) return rows[k]; return null; }
+      function strip(key) {
+        var g = el('div', 'objRdStrip'); g.style.gridTemplateColumns = 'repeat(' + n + ', 1fr)'; g.setAttribute('role', 'group'); g.setAttribute('aria-label', tr(key === 'a' ? 'Avant' : 'Après'));
+        for (var i = 1; i <= n; i++) {
+          var r = cellAt(key, i), b = el('button', 'objRdCell' + (r ? ' ' + r.kind + (key === 'p' && r.moved ? ' mv' : '') + (open === r.id ? ' open' : '') : ''), r ? String(num[r.id]) : ''); b.type = 'button';
+          if (r) { b.setAttribute('aria-label', r.title + ', ' + short(i)); (function (id) { b.addEventListener('click', function () { open = id; paint(); var row = listEl.querySelector('[data-id="' + id + '"]'); if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' }); }); })(r.id); }
+          else { b.tabIndex = -1; b.setAttribute('aria-hidden', 'true'); }
+          g.appendChild(b);
+        }
+        return g;
+      }
+      function rowEl(r) {
+        var isOpen = open === r.id, fix = !movable(r), w = el('div', 'objRdRow' + (r.moved ? ' mv' : '') + (fix ? ' fix' : '') + (isOpen ? ' open' : '')); w.setAttribute('data-id', String(r.id));
+        var top = el('div', 'objRdTop'), grab = el('span', 'objRdGrab', '≡'); grab.setAttribute('aria-label', tr('Déplacer') + ' ' + r.title); top.appendChild(grab);
+        var head = el('button', 'objRdHead'); head.type = 'button'; head.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        head.appendChild(el('span', 'objRdT', num[r.id] + ' · ' + r.title)); head.appendChild(el('span', 'objRdAv', r.a ? short(r.a) : '—')); head.appendChild(el('span', 'objRdAp', fix && r.kind === 'you' ? tr('inchangé') : short(r.p))); head.appendChild(el('span', 'cmpChev' + (isOpen ? ' open' : '')));
+        head.addEventListener('click', function () { open = isOpen ? null : r.id; paint(); }); top.appendChild(head); w.appendChild(top);
+        if (isOpen) {
+          var det = el('div', 'objRdDet'), line = function (k, v) { var l = el('div', 'objRdLine'); l.appendChild(el('span', '', k)); l.appendChild(v); det.appendChild(l); };
+          line(tr('Type'), el('b', '', tr(RD_KIND[r.kind])));
+          var hv = el('span', 'objRdHrs'); if (movable(r)) hv.appendChild(tbtn(Math.round((r.hoursPerWeek || 0) * 60), tr('Heures par semaine'), function (v) { r.hoursPerWeek = v / 60; r.hrsEdited = true; paint(); })); else hv.appendChild(el('b', '', r.hoursPerWeek != null ? hh(Math.round(r.hoursPerWeek * 60)) : '—'));
+          line(tr('Heures par semaine'), hv);
+          if (movable(r)) {
+            var sel = el('select'); sel.setAttribute('aria-label', tr('Place')); for (var i = Math.max(1, d.minCell || 1); i <= n; i++) { var tk = cellAt('p', i); if (tk && tk !== r) continue; var o = el('option', '', short(i)); o.value = String(i); if (i === r.p) o.selected = true; sel.appendChild(o); }
+            sel.addEventListener('change', function () { call('place', { id: r.id, cell: Number(sel.value) }); }); line(tr('Place'), sel);
+          } else line(tr('Place'), el('b', '', short(r.p)));
+          w.appendChild(det);
+        }
+        if (movable(r) && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(w, { holdMs: 500, list: function () { return listEl; }, scroller: function () { return m.body; }, targetSel: '.objRdRow:not(.fix)', draggingClass: 'objRdDrag', targetClass: 'objRdDrop',
+          onDrop: function (target) {
+            var ids = rows.slice().sort(function (x, y) { return x.p - y.p; }).map(function (x) { return x.id; }), from = ids.indexOf(r.id), to = ids.indexOf(Number(target.getAttribute('data-id')));
+            if (from < 0 || to < 0 || from === to) return; ids.splice(from, 1); ids.splice(to, 0, r.id); open = r.id; call('reorder', { order: ids });
+          } });
+        return w;
+      }
+      function paint() {
+        m.body.textContent = ''; m.foot.textContent = '';
+        m.body.appendChild(el('p', 'objRdMeta', tr('Avant'))); m.body.appendChild(strip('a')); m.body.appendChild(el('p', 'objRdMeta', tr('Après'))); m.body.appendChild(strip('p'));
+        var lg = el('div', 'objRdKey'); [['auto', 'Automatique'], ['you', 'Écrit par toi'], ['new', 'Ton ajout'], ['mv', 'Déplacé']].forEach(function (k) { var s = el('span'); s.appendChild(el('i', k[0])); s.appendChild(document.createTextNode(tr(k[1]))); lg.appendChild(s); }); m.body.appendChild(lg);
+        var cols = el('div', 'objRdTop objRdCols'); ['', tr('Objectif'), tr('Avant'), tr('Après'), ''].forEach(function (t) { cols.appendChild(el('span', '', t)); }); m.body.appendChild(cols);
+        listEl = el('div', 'objRdRows'); rows.slice().sort(function (x, y) { return x.p - y.p; }).forEach(function (r) { listEl.appendChild(rowEl(r)); }); m.body.appendChild(listEl);
+        var bt = el('div', 'objRdBtns'); bt.appendChild(btn('cmpBtn cmpBtnIdle', tr('Annuler'), function () { done({ refused: true, rows: rows }); })); bt.appendChild(btn('cmpBtn', tr('Appliquer'), function () { done({ applied: true, rows: rows }); })); m.foot.appendChild(bt);
+      }
+      paint(); // toutes les lignes repliées à l'ouverture
+    });
   }
   function offerBtn() { return btn('cmpBtn cmpBtnIdle objOffer', tr('Génère automatiquement tes tâches avec Noèsis'), function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); }); }
   // MODE ÉTENDRE (arbre) : le panneau porte le titre commun du macro (modifiable, jamais en silence) ; la barre devient « Enregistrer » pleine largeur (grisée tant que rien n'a changé, violette ensuite) ; ✕ annule.
