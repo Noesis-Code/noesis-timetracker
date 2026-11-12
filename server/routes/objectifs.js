@@ -40,6 +40,10 @@ router.post('/objectifs/redessin', run((req) => { // fenêtre « Modifications p
   if (b.action === 'appliquer') return R.appliquer(req.userId, b, require('../lib/dates').userToday());
   return R.proposer(req.userId, b, require('../lib/dates').userToday());
 }));
+// Allocation d'heures par catégorie (saisie dans l'arbre seul) : valeur à une date, colonne sur plusieurs lignes, total par ligne de l'arbre
+router.post('/objectifs/allocation/lignes', run((req) => require('../lib/allocation').lignes(req.userId, req.body || {}, (req.body || {}).dates)));
+router.post('/objectifs/allocation/colonne', run((req) => require('../lib/allocation').column(req.userId, req.body || {}, (req.body || {}).dates)));
+router.put('/objectifs/allocation', run((req) => { const b = req.body || {}; return require('../lib/allocation').set(req.userId, b, b.fromDate, b.minutes); }));
 router.post('/objectifs/inferieurs/appliquer', run((req) => require('../lib/objectifs-inferieurs').appliquer(req.userId, req.body || {})));
 router.post('/objectifs/rattachement', run((req) => objectifs.rattachement(req.userId, req.body || {})));
 router.post('/objectifs/proposition', run((req) => objectifs.proposer(req.userId, req.body || {})));
