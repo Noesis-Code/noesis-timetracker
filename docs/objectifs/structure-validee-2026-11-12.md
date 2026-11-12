@@ -43,7 +43,7 @@ Sans catégorie : le nom de l'activité seul est affiché, clé interne invisibl
 ## Après le lancement (App Store / Play Store)
 Tout ce qui exige de la donnée utilisateur se revoit **après** le lancement : estimations qui s'améliorent (phases 2 et 3), banque commune, seuil du Chrono qui propose d'ajuster l'allocation (à approfondir), mesure 3 questions contre 9.
 - Validé, à coder avec l'allocation : le Chrono qui connaît le plan (connexion objectif ↔ Chrono visible sur le volet Chrono : « il te reste 1 h cette semaine pour ce cadre »).
-- Projection honnête : dans les statistiques des tâches et des objectifs, barres par activité sur l'axe du temps (prévu en pointillé, réalisé plein ; jour, semaine, période, année, pluriannuel).
+- Projection honnête : dans les statistiques des tâches et des objectifs, barres par activité sur l'axe du temps (prévu en pointillé, réalisé plein ; jour, semaine, période, année, pluriannuel).  Les barres prennent toujours les vraies couleurs d'activité.
 
 ## Méthode
 Du plus macro au plus micro : modèle, parcours, écrans en gris, détails. Un niveau n'est abordé que quand le précédent est signé. Aucun détail visuel avant la structure.
