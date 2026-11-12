@@ -7,6 +7,6 @@ assert(/rw\.block \? 'pluriannuel' : rw\.p \? 'periodique' : 'annuel'/.test(arbr
 assert(/pendingType = o\.type/.test(creer) && /if \(pendingType\) \{ form\.type = pendingType; form\.typeTouched = true; \}/.test(creer), 'le type de la case pré-sélectionné');
 assert(!/tasksComposer|function start\(\)|sendBtn|basePlaceholder/.test(creer), 'barre « Nouvel objectif… » retirée (interface et code mort)');
 assert(!/syncCtx/.test(arbre), 'contexte de la barre retiré');
-assert(creer.includes('var fromCell = form.fixedCtx && form.endFixed;') && creer.includes("(fromCell ? ['desc'] : ['desc', 'activite'])") && creer.includes("fromCell && !form.cellPeriodic ? [] : ['echeance']"), 'depuis un « + » : ni Emplacement ni Échéance, sauf le périodique');
-assert(creer.includes('dateIn.max = form.cellEnd') && creer.includes('form.cellStart = '), 'périodique : date bornée à la période de la case, préremplie avec sa fin');
+assert(creer.includes('var fromCell = form.fixedCtx && form.endFixed;') && creer.includes("(fromCell ? ['desc'] : ['desc', 'activite'])") && creer.includes("fromCell ? [] : ['echeance']"), 'depuis un « + » : ni Emplacement ni Échéance, aucun type excepté');
+assert(creer.includes('pick.max = form.cellEnd') && creer.includes('pick.min = form.cellStart') && creer.includes("'objTEdit', txt") && creer.includes('loadRatt().then(function () { return infFetch(); }).then(infPaint)') && creer.includes("form.endDate || '', tp.valueMin"), 'périodique : date tactile du récapitulatif, bornée à la période, régénère les sous-objectifs');
 console.log('case-plus-test OK');
