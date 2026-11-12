@@ -542,18 +542,9 @@
     });
     return nav;
   }
-  // Toucher les HEURES d'une ligne : le même tableau un niveau plus bas (activités -> pôles -> secteurs), pour toutes les colonnes affichées ; au niveau le plus bas, la liste par membre (étape suivante).
-  function descendHours(rw) {
-    if (lvl === 'activite') {
-      var ids = []; curCols.forEach(function (c) { var id = (c.col ? c.col.ctx : c.ctx).activityId; if (ids.indexOf(id) < 0) ids.push(id); });
-      if (!ids.length) return; go('pole', ids.length > 1 ? { activityId: ids[0], activityIds: ids, block: rw.y } : { activityId: ids[0], block: rw.y });
-    } else if (lvl === 'pole') {
-      var u = {}; curCols.forEach(function (c) { var x = c.col ? c.col.ctx : c.ctx; u[x.activityId + '/' + pkeyOf(c)] = { activityId: x.activityId, poleKey: pkeyOf(c), label: c.label }; });
-      var prs = Object.keys(u).map(function (k) { return u[k]; }); if (!prs.length) return;
-      if (prs.length > 1) go('secteur', { activityId: prs[0].activityId, poleKey: prs[0].poleKey, poleLabel: '', year: rw.y, pairs: prs.map(function (p) { return { activityId: p.activityId, poleKey: p.poleKey }; }) });
-      else go('secteur', { activityId: prs[0].activityId, poleKey: prs[0].poleKey, poleLabel: prs[0].label, year: rw.y });
-    }
-  }
+  // Toucher les HEURES d'une ligne : UN seul niveau plus bas, dans la catégorie de CETTE ligne (la colonne qui porte un objectif sur la ligne, sinon la première) : les pôles de cette activité, ou les secteurs de ce pôle ;
+  // MÊME descente que le toucher d'une case (descend) : jamais les pôles de toutes les activités. Au niveau le plus bas (secteurs) : rien d'autre.
+  function descendHours(rw, ci) { if (lvl !== 'secteur') descend(ci, rw.block ? rw.y : null, rw.y); }
 
   function render() {
     if (!tree) return;
@@ -680,8 +671,8 @@
     var column = el('div', 'arColumn'); gridArea = el('div', 'arGridArea');
     var baseWrap = el('div', 'goalsGrid arBaseWrap'), baseRow = el('div', 'goalsGridRow arBaseRow');
     data.forEach(function (c, ci) {
-      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); paint(b, null, c.color); // titre de colonne = une CASE au pied de l'arbre, MÊME style que les cases de l'arbre : pleine de la couleur de la catégorie (12 nov. 2026, tableau simple)
-      b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
+      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; if (ext && ext.cols[ci]) { b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : ''; } // titre choisi en mode fusion : REMPLI de la couleur de l'activité (du pôle), plus de contour violet ; étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
+      var dot = el('i', 'arDot'); dot.style.background = c.color; b.appendChild(dot); b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
       b.addEventListener('click', function () { openFiche(ci); }); // toucher le TITRE d'une colonne : la fiche (jamais un changement d'arbre ni le calendrier) ; on descend uniquement en touchant une case // niveau secteurs : toucher le NOM d'un secteur ouvre son calendrier (aujourd'hui) ; ailleurs : descendre d'un niveau
       baseRow.appendChild(b);
     });
@@ -738,7 +729,7 @@
     (function paintHours() { // colonne « Heures » : un total par ligne, posé au milieu de la ligne comme son repère
       if (isMulti() || !list.length || (lvl !== 'activite' && !(focus && focus.activityId != null))) return;
       var spec = lvl === 'activite' ? { level: 'activite' } : lvl === 'pole' ? { level: 'pole', activityId: focus.activityId } : { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey };
-      var rows = list.map(rowSpan), spans = list.map(function (rw) { var sp = el(lvl === 'secteur' ? 'span' : 'button', 'arHrs', ''); sp.setAttribute('data-rank', String(rw.rank)); if (lvl !== 'secteur') { sp.type = 'button'; sp.setAttribute('aria-label', tr('Heures par semaine')); sp.addEventListener('click', function () { descendHours(rw); }); } railR.appendChild(sp); marks.push({ m: sp, rk: String(rw.rank) }); return sp; }), key = JSON.stringify([spec, rows]);
+      var rows = list.map(rowSpan), spans = list.map(function (rw) { var sp = el(lvl === 'secteur' ? 'span' : 'button', 'arHrs', ''); sp.setAttribute('data-rank', String(rw.rank)); if (lvl !== 'secteur') { sp.type = 'button'; sp.setAttribute('aria-label', tr('Heures par semaine')); sp.addEventListener('click', function () { var r = list.indexOf(rw), ci = 0; for (var q = 0; q < data.length; q++) if (cells[r] && cells[r][q] && cells[r][q].length) { ci = q; break; } descendHours(rw, ci); }); } railR.appendChild(sp); marks.push({ m: sp, rk: String(rw.rank) }); return sp; }), key = JSON.stringify([spec, rows]);
       function fill(res) { spans.forEach(function (sp, i) { var r = res && res[i]; sp.textContent = r ? hrsTxt(r.totalMin) : ''; sp.classList.toggle('set', !!(r && r.own)); }); }
       if (hrsCache[key]) fill(hrsCache[key]);
       TMT.api('POST', '/api/objectifs/allocation/lignes', Object.assign({ rows: rows }, spec)).then(function (res) { hrsCache[key] = res; if (spans[0] && spans[0].isConnected) fill(res); }).catch(function () {});
