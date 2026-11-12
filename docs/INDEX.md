@@ -9,6 +9,7 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 - `SIMPLIFICATION.md` : principes de simplicité, journal des refus.
 - `DESIGN.md` : lexique de design.
 - `docs/regles/regles-rangement.md` : règles de design et de rangement.
+- `docs/objectifs/structure-validee-2026-11-12.md` : structure des objectifs validée par Émilien (cadre, types, temps, parcours) ; à lire avant tout code sur la création d'objectif, l'arbre, le Temps, le Chrono.
 
 ## Sous-dossiers
 - `regles/` : règles de travail (`regles-rangement`, `brief-chantier`, `boucle-veille`, `modele-tache`, `intentions`) ; `efvp-horaire.md` (projet d'EFVP Loi 25 du module Horaire, à signer).
