@@ -106,7 +106,8 @@ const SYSTEM = 'Tu aides à décliner un objectif en objectifs de niveau inféri
   + '"faire", "resultat", "avancement" (phrases courtes, précises, sans mot vague), et "choix" (la clé du pôle ou du secteur le plus adapté parmi ceux proposés pour cette ligne, sinon null). '
   + 'Chiffre : si la description ou le départ contiennent un chiffre exploitable, renvoie "chiffre": {"objet","unite","depart","cible","type"} (type "cumulatif" = une valeur qui monte jusqu\'à la cible, ex. des km ; "additif" = un total à produire réparti sur les lignes, ex. des articles), sinon null : n\'invente JAMAIS de chiffre. '
   + 'Dans les phrases, écris le jeton {chiffre} là où la valeur de la ligne doit apparaître (le code le remplace) ; sans chiffre, aucun jeton. '
-  + 'Réponds UNIQUEMENT par un objet JSON {"chiffre":null,"lignes":[{"n":1,"titre":"","faire":"","resultat":"","avancement":"","choix":null}],"confidence":0-100}.';
+  + 'ORDRE DES LIGNES, selon le CONTEXTE que tu décides toi-même, EN SILENCE, d\'après le titre et la description (jamais écrit dans les textes) : un PROJET À CONSTRUIRE (application, site, livre, produit…) va du LARGE au PRÉCIS dans le temps : les premières lignes posent les grandes lignes (structure, plan, première version brute), les suivantes détaillent puis finissent ; une PROGRESSION ou une HABITUDE (courir, apprendre, s\'entraîner…) MONTE de façon RÉGULIÈRE : même nature de tâche, volume ou difficulté en hausse d\'une ligne à l\'autre. Renvoie "contexte":"projet" ou "progression" (null si aucun des deux). '
+  + 'Réponds UNIQUEMENT par un objet JSON {"chiffre":null,"contexte":null,"lignes":[{"n":1,"titre":"","faire":"","resultat":"","avancement":"","choix":null}],"confidence":0-100}.';
 const minConfidence = () => { const n = Number(process.env.NOESIS_NIVEAU_MIN_CONFIDENCE); return Number.isFinite(n) && n >= 0 && n <= 100 ? n : 80; };
 const cleanText = (s, max) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, max);
 
@@ -130,7 +131,8 @@ function validate(parsed, asked, parentTitle) {
     if (asked[k].choices && row.choix != null && !asked[k].choices.some((c) => c.key === row.choix)) row.choix = null;
     out.push(row);
   }
-  return { chiffre, lignes: out, parentTitle };
+  const contexte = ['projet', 'progression'].includes(parsed.contexte) ? parsed.contexte : null; // décidé en silence par l'IA : jamais montré
+  return { chiffre, lignes: out, parentTitle, contexte };
 }
 async function callOnce(model, payload, asked, parentTitle) {
   const aibudget = require('./aibudget'), aimodels = require('./aimodels');
@@ -191,7 +193,7 @@ async function planWeekly(userId, body, today) {
   if (asked.length) {
     const payload = { objectif: title, description: cleanText(body.description, 900) || undefined, depart: cleanText(body.depart, 400) || undefined, activite: act.name, niveauInferieur: 'hebdomadaire', lignes: asked.map((a) => ({ n: a.n, periode: a.label, semaines: 1 })) };
     const aibudget = require('./aibudget');
-    ai = await aibudget.runAs(userId, () => aicache.memoize([FEATURE, 'v1', payload], () => generate(payload, asked, title)));
+    ai = await aibudget.runAs(userId, () => aicache.memoize([FEATURE, 'v3', payload], () => generate(payload, asked, title)));
     if (ai.lignes.some((x) => norm(x.titre) === norm(title))) return skip;
   }
   const ch = ai.chiffre; let values = null;
@@ -242,7 +244,7 @@ async function planTrouRows(userId, body, today) {
     try {
       const payload = { objectif: title, description: cleanText(body.description, 900) || undefined, depart: cleanText(body.depart, 400) || undefined, activite: act.name, niveauInferieur: lineType, jalons: tr.mode === 'jalons' ? true : undefined, lignes: asked.map((a) => ({ n: a.n, periode: a.label, semaines: a.weeks })) };
       const aibudget = require('./aibudget');
-      ai = await aibudget.runAs(userId, () => aicache.memoize([FEATURE, 'v2', payload], () => generate(payload, asked, title)));
+      ai = await aibudget.runAs(userId, () => aicache.memoize([FEATURE, 'v3', payload], () => generate(payload, asked, title)));
       if (ai.lignes.some((x) => norm(x.titre) === norm(title))) ai = null;
     } catch (e) { ai = null; } // plafond atteint, panne, réponse invalide : repli sans IA, jamais de blocage
   }
@@ -255,7 +257,7 @@ async function planTrouRows(userId, body, today) {
     if (t) { row.faire = strip(t.faire).slice(0, MAX_TEXT); row.resultat = strip(t.resultat).slice(0, MAX_TEXT); row.avancement = strip(t.avancement).slice(0, MAX_TEXT); }
     return row;
   });
-  return { skip: false, level: LINE_LEVEL[lines[0].c.level], mode: tr.mode, gap: tr.gap, ai: !!ai, rateMin: rate, chiffre: null, rows, totalMin: rows.reduce((a, r) => a + r.hoursMin, 0) };
+  return { skip: false, level: LINE_LEVEL[lines[0].c.level], mode: tr.mode, gap: tr.gap, ai: !!ai, contexte: ai ? ai.contexte || null : null, rateMin: rate, chiffre: null, rows, totalMin: rows.reduce((a, r) => a + r.hoursMin, 0) };
 }
 
 // ---- Proposition ----
@@ -292,7 +294,7 @@ async function plan(userId, body, today) {
     if (asked.length) {
       const payload = { objectif: title, description: cleanText(body.description, 900) || undefined, depart: cleanText(body.depart, 400) || undefined, activite: act.name, niveauInferieur: childLevel === 'pole' ? 'annuel' : 'periodique', lignes: asked.map((a) => ({ n: a.n, periode: a.label, semaines: a.weeks, choix: a.choices })) };
       const aibudget = require('./aibudget');
-      ai = await aibudget.runAs(userId, () => aicache.memoize([FEATURE, 'v1', payload], () => generate(payload, asked, title)));
+      ai = await aibudget.runAs(userId, () => aicache.memoize([FEATURE, 'v3', payload], () => generate(payload, asked, title)));
       if (ai.lignes.some((x) => norm(x.titre) === norm(title))) return skip;
     }
     // Chiffres : le code divise (jetons {chiffre} remplacés après la division)

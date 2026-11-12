@@ -25,13 +25,14 @@ const pole = categories.addCategory(actId, 'Pôle A'); const poleKey = (pole && 
   assert(r0.rows.every((x) => x.checked && x.title && x.title !== parent.title && x.hoursMin > 0 && x.endDate < END + 'Z' && x.minDate <= x.endDate && x.maxDate >= x.endDate), 'lignes cochées par défaut, titre de repli, heures héritées, bornes de date');
   // 2. avec IA : un appel, titres personnalisés, mis en cache
   process.env.ANTHROPIC_API_KEY = 'test'; delete process.env.NOESIS_FAST_MODEL; aicache.memoClear();
-  const realFetch = global.fetch; let calls = 0;
+  const realFetch = global.fetch; let calls = 0, sysPrompt = '';
   global.fetch = async (url, init) => { calls++; const b = JSON.parse(init.body), payload = JSON.parse(b.messages[0].content);
-    const out = { confidence: 90, chiffre: null, lignes: payload.lignes.map((l) => ({ n: l.n, titre: 'Jalon ' + l.periode, faire: 'Faire', resultat: 'Résultat', avancement: 'Terminé', choix: null })) };
+    sysPrompt = b.system; const out = { confidence: 90, chiffre: null, contexte: 'projet', lignes: payload.lignes.map((l) => ({ n: l.n, titre: 'Jalon ' + l.periode, faire: 'Faire', resultat: 'Résultat', avancement: 'Terminé', choix: null })) };
     return { ok: true, status: 200, clone() { return this; }, json: async () => ({ model: b.model, usage: { input_tokens: 10, output_tokens: 10 }, content: [{ type: 'text', text: JSON.stringify(out) }] }) }; };
   try {
     const r1 = await I.plan('u1', body, T), r2 = await I.plan('u1', body, T);
     assert(!r1.skip && r1.ai === true && r1.rows.every((x) => /^Jalon /.test(x.title)) && calls === 1, 'avec IA : titres personnalisés, UN seul appel (le second vient du cache)');
+    assert(r1.contexte === 'projet' && /LARGE au PRÉCIS/.test(sysPrompt) && /RÉGULIÈRE/.test(sysPrompt) && /EN SILENCE/.test(sysPrompt), 'ordre des sous-objectifs : projet = du large au précis, progression = montée régulière ; contexte décidé par l’IA en silence (jamais montré)');
     // 3. validation ligne par ligne : une ligne décochée, un titre et une date modifiés ; « Terminer » n'écrit que le reste
     const rows = r1.rows.map((x, i) => ({ kind: 'nouveau', title: i === 1 ? 'Titre modifié' : x.title, description: 'd', weeks: x.weeks, hoursMin: x.hoursMin, endDate: i === 0 ? x.minDate : x.endDate, lineType: x.lineType, column: x.column, link: x.link, poleKey: x.poleKey, categoryKey: x.categoryKey }));
     const kept = rows.filter((_, i) => i !== rows.length - 1 || rows.length === 1);
@@ -44,6 +45,8 @@ const pole = categories.addCategory(actId, 'Pôle A'); const poleKey = (pole && 
     let refused = false; try { I.appliquer('u1', { parentId: parent.id, rows: [{ kind: 'nouveau', title: 'X', weeks: 1, hoursMin: 60, endDate: O.addDays(END, 7), lineType: 'periodique', column: r1.rows[0].column }] }); } catch (e) { refused = true; }
     assert(refused, 'une ligne au-delà de l’échéance de l’objectif est refusée');
   } finally { global.fetch = realFetch; }
+  const ui = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8');
+  assert(!/contextes*[:=]s*['"]?(projet|progression)/.test(ui) && !ui.includes('.contexte'), 'le contexte n’est jamais montré dans l’interface');
   // 5. source : le panneau
   const js = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
   assert(js.includes('function datePick(') && js.includes('inf.titles[i] = tIn.value') && js.includes("inf.dates[i] = v") && js.includes('lineType: r.lineType, column: r.column, link: r.link, endDate: inf.dates[i] || r.endDate'), 'panneau : titre et date modifiables, envoyés à « Terminer »');
