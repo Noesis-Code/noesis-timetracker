@@ -38,4 +38,24 @@ assert(m('2028-06-01') === 300 && m('2029-01-01') === 180, 'retirer une valeur :
 // refus
 let bad = 0; [() => A.set('u1', P, '2028-01-01', 99999), () => A.set('u1', P, 'pas une date', 60), () => A.set('u1', { activityId: a1, level: 'pole', poleKey: 'zzz' }, '2028-01-01', 60), () => A.set('u3', P, '2028-01-01', 60)].forEach((f) => { try { f(); } catch (e) { bad += 1; } });
 assert(bad === 4, 'valeur > 168 h, date invalide, pôle inconnu, activité d\'un autre : refusés');
+// ---- Moyenne par semaine d'une ligne (bloc de 5 ans) : 5 h puis 8 h dès le milieu de la ligne ----
+const Q = { activityId: a1, level: 'activite' };
+A.set('u1', Q, '2030-01-01', 300); A.set('u1', Q, '2033-01-01', 480);
+const avg = A.average('u1', Q, '2030-01-01', '2034-12-31'); // 3 ans à 5 h, 2 ans à 8 h : (3 × 300 + 2 × 480) / 5 = 372
+assert(avg.minutes === 372 && avg.own === true, 'moyenne par semaine d\'une ligne de 5 ans : 5 h puis 8 h -> 6 h12 (' + avg.minutes + ' min), réglé');
+const avg2 = A.average('u1', Q, '2036-01-01', '2036-12-31');
+assert(avg2.minutes === 480 && avg2.own === false, 'une ligne sans valeur posée reprend la précédente : 8 h, gris');
+// ---- Répartition par catégorie et par membre (donnée seulement) ----
+const O = require('../server/lib/objectifs');
+const aShared = mkAct('u1', 'Maison'); db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, 'u3', '#674EA7', '')").run(aShared);
+const cu = categories.addCategory(aShared, 'Cuisine'); const cuKey = (cu && cu.key) || goals.categoriesForActivity(aShared)[0].key;
+const T0 = '2027-03-01';
+A.set('u1', { activityId: aShared, level: 'pole', poleKey: cuKey }, '2027-01-01', 240);
+db.prepare("INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory) VALUES ('u3', ?, '', 'a', 'b', 7200, '2027-02-22', 'x', ?)").run(aShared, cuKey);
+db.prepare("INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory) VALUES ('u1', ?, '', 'a', 'b', 3600, '2027-02-22', 'x', ?)").run(aShared, cuKey);
+const R = A.repartition('u1', { level: 'pole', activityId: aShared }, { start: '2027-01-01', end: '2027-12-31' }, T0);
+const c0 = R.categories[0];
+assert(R.categories.length === 1 && c0.label === 'Cuisine' && c0.alloueMin === 240 && c0.own === true && R.totalMin === 240, 'répartition par pôle : alloué 4 h, réglé');
+assert(c0.chronoMin > 0 && c0.objectifsMin === 0, 'répartition : chrono mesuré sur la part écoulée de la ligne ; objectifs = somme des rythmes (0 ici)');
+assert(Array.isArray(c0.membres) && c0.membres.length === 2 && c0.membres.some((m) => m.userId === 'u3' && m.chronoMin > 0), 'par membre : le Chrono mesuré de chaque membre existe déjà (moyenne 4 semaines) ; prévu = null tant que rien n\'est posé');
 console.log(failed ? '\n' + failed + ' échec(s)' : 'allocation-test OK'); process.exit(failed ? 1 : 0);

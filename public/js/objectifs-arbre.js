@@ -47,6 +47,14 @@
   var SAME_ACT = 'Un objectif ne se rattache qu’à un objectif de la même activité.';
   var CYCLE = 'Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.';
   // LARGEURS 100 % CSS : une largeur est une expression CSS (jamais des pixels mesurés en JS) ; --ar-w (posée sur la zone qui défile) vaut toute la largeur utile pour UNE colonne, la moitié pour deux ou plus (règle de l'arbre périodique) ; cqw = largeur de cette zone, aucune mesure ni écouteur.
+  // Colonne de DROITE « Heures » (lecture) : MOYENNE par semaine de la ligne, total des colonnes affichées (allocation, server/lib/allocation.js) ; violet = heures réglées sur cette ligne, gris = reprend la ligne du dessus.
+  var hrsCache = {};
+  function hrsTxt(min) { if (min == null) return '—'; var h = min / 60; return (Number.isInteger(h) ? String(h) : String(Math.round(h * 10) / 10).replace('.', ',')) + ' h'; }
+  function rowSpan(rw) { // première et dernière date de la ligne (bloc de 5 ans, année, période de 28 jours)
+    if (rw.block) return { start: rw.y + '-01-01', end: rw.y2 + '-12-31' };
+    if (rw.p) { var d = new Date(Date.UTC(rw.y, 0, 1)); d.setUTCDate(d.getUTCDate() + (rw.p - 1) * PER_DAYS); var s0 = d.toISOString().slice(0, 10); d.setUTCDate(d.getUTCDate() + PER_DAYS - 1); return { start: s0, end: d.toISOString().slice(0, 10) }; }
+    return { start: rw.y + '-01-01', end: rw.y + '-12-31' };
+  }
   function cellSize(node, w) { node.style.flex = '0 0 ' + w; node.style.width = w; }
   function spanW(W, k) { return k === 1 ? W : 'calc(' + W + ' * ' + k + ' + ' + (GAP * (k - 1)) + 'px)'; }
 
@@ -653,7 +661,7 @@
     baseWrap.appendChild(baseRow);
     // COLONNE FIXE des repères du temps (.arRail, à gauche, jamais recouverte) + zone qui défile à droite (.arHScroll : colonnes d'activités ET titres, horizontalement) ; le défilement vertical est celui du conteneur commun .arGridArea : repères et rangées défilent ensemble sans script.
     var body = el('div', 'arBody'), rail = el('div', 'arRail' + (zoom !== 'period' ? ' arCompact' : '')), hs = el('div', 'arHScroll' + (n <= 2 ? ' goalsGridScroll--locked' : '')), hin = el('div', 'arHInner'); hs.style.setProperty('--ar-w', arW);
-    hin.appendChild(grid); hin.appendChild(baseWrap); hs.appendChild(hin); body.appendChild(rail); body.appendChild(hs); gridArea.appendChild(body); column.appendChild(gridArea); scroller.appendChild(column); tree.appendChild(scroller); scroller = hs; // UN SEUL conteneur défile (vertical ET horizontal) : c'est lui que les repères « collent » à gauche (sticky), sans aucun script // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
+    hin.appendChild(grid); hin.appendChild(baseWrap); hs.appendChild(hin); body.appendChild(rail); body.appendChild(hs); var railR = el('div', 'arRailR'); body.appendChild(railR); gridArea.appendChild(body); column.appendChild(gridArea); scroller.appendChild(column); tree.appendChild(scroller); scroller = hs; // UN SEUL conteneur défile (vertical ET horizontal) : c'est lui que les repères « collent » à gauche (sticky), sans aucun script // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
     // La HAUTEUR d'une case ne dépend QUE de son contenu (min 64 px, 40 px aux années et blocs ; max 120 px, texte coupé par « … ») : jamais de la hauteur de l'écran, du geste ni de l'élastique. Plus aucun calcul de hauteur en JS.
     var layer = el('div', 'arLinks'); hin.insertBefore(layer, hin.firstChild);
     function drawLinks() { // UNE SEULE fonction de dessin des traits, pour tous les arbres et tous les niveaux : un trait de 2 px, uniquement entre deux objectifs REMPLIS reliés (parent-enfant, macro-enfants, macro-objectif du dessus), du bord BAS de la carte du haut au bord HAUT de la carte du bas ; jamais vers une case vide
@@ -700,6 +708,14 @@
         var h = x.m.offsetHeight || 20; x.m.style.top = Math.round((top + bot) / 2 - r0 - h / 2) + 'px';
       });
     }
+    (function paintHours() { // colonne « Heures » : un total par ligne, posé au milieu de la ligne comme son repère
+      if (isMulti() || !list.length || (lvl !== 'activite' && !(focus && focus.activityId != null))) return;
+      var spec = lvl === 'activite' ? { level: 'activite' } : lvl === 'pole' ? { level: 'pole', activityId: focus.activityId } : { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey };
+      var rows = list.map(rowSpan), spans = list.map(function (rw) { var sp = el('span', 'arHrs', ''); sp.setAttribute('data-rank', String(rw.rank)); railR.appendChild(sp); marks.push({ m: sp, rk: String(rw.rank) }); return sp; }), key = JSON.stringify([spec, rows]);
+      function fill(res) { spans.forEach(function (sp, i) { var r = res && res[i]; sp.textContent = r ? hrsTxt(r.totalMin) : ''; sp.classList.toggle('set', !!(r && r.own)); }); }
+      if (hrsCache[key]) fill(hrsCache[key]);
+      TMT.api('POST', '/api/objectifs/allocation/lignes', Object.assign({ rows: rows }, spec)).then(function (res) { hrsCache[key] = res; if (spans[0] && spans[0].isConnected) fill(res); }).catch(function () {});
+    })();
     placeRail(); drawLinks(); drawSeps(); window.requestAnimationFrame(relayout); window.setTimeout(relayout, 350);
     if (restoreView) { gridArea.scrollTop = restoreView.top; scroller.scrollLeft = restoreView.left; restoreView = null; }
     else if (needBase || keepTop == null) { needBase = false; stickEnd = true; gridArea.scrollTop = gridArea.scrollHeight; window.requestAnimationFrame(function () { if (gridArea) gridArea.scrollTop = gridArea.scrollHeight; }); } // ouverture : le présent (en bas)
