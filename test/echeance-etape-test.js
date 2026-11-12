@@ -3,7 +3,7 @@ const fs = require('fs'), path = require('path');
 let failed = 0; const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const js = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
 const css = fs.readFileSync(path.join(__dirname, '..', 'public/css/objectifs-creer.css'), 'utf8');
-assert(js.includes(".concat(niv.skip ? [] : ['niveau']).concat(['echeance']).concat(['temps'])"), 'ordre : Description, Activité, Niveau, Échéance, Temps (Échéance et Emplacement restent présentes depuis une case, déjà remplies)');
+assert(js.includes(".concat(niv.skip ? [] : ['niveau']).concat(fromCell && !form.cellPeriodic ? [] : ['echeance']).concat(['temps'])"), 'ordre : Description, Activité, Niveau, Échéance, Temps (Échéance et Emplacement restent présentes depuis une case, déjà remplies)');
 assert(js.includes("var dueBox = el('div'); boxes.echeance.appendChild(dueBox);") && !js.includes('boxes.desc.appendChild(dueBox)'), 'le champ « Date d’échéance » est sur l’étape Échéance, plus sur la Description');
 const i = js.indexOf('    function stepOff()'), fn = js.slice(i, js.indexOf('\n', i));
 const off = (cur, form) => new Function('cur', 'form', fn + '\nreturn stepOff();')(cur, form);

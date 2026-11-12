@@ -5,7 +5,8 @@ assert(/el\('span', 'arPlus', '\+'\)/.test(arbre) && /\.arPlus \{[^}]*top: 0; ri
 assert(/if \(plus\) b\.appendChild/.test(arbre) && /if \(below\) \{[^]*?return b;\s*\}/.test(arbre), 'pas de « + » sur une case à pastille');
 assert(/rw\.block \? 'pluriannuel' : rw\.p \? 'periodique' : 'annuel'/.test(arbre) && /endDate: endIso/.test(arbre), 'type = la ligne, échéance = fin de la case');
 assert(/pendingType = o\.type/.test(creer) && /if \(pendingType\) \{ form\.type = pendingType; form\.typeTouched = true; \}/.test(creer), 'le type de la case pré-sélectionné');
-assert(/function list\(\) \{ return \['desc', 'activite'\]/.test(creer) && /\.concat\(\['echeance'\]\)/.test(creer), 'Emplacement et Échéance restent présentes depuis une case');
 assert(!/tasksComposer|function start\(\)|sendBtn|basePlaceholder/.test(creer), 'barre « Nouvel objectif… » retirée (interface et code mort)');
 assert(!/syncCtx/.test(arbre), 'contexte de la barre retiré');
+assert(creer.includes('var fromCell = form.fixedCtx && form.endFixed;') && creer.includes("(fromCell ? ['desc'] : ['desc', 'activite'])") && creer.includes("fromCell && !form.cellPeriodic ? [] : ['echeance']"), 'depuis un « + » : ni Emplacement ni Échéance, sauf le périodique');
+assert(creer.includes('dateIn.max = form.cellEnd') && creer.includes('form.cellStart = '), 'périodique : date bornée à la période de la case, préremplie avec sa fin');
 console.log('case-plus-test OK');

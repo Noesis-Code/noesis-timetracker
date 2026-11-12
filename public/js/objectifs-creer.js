@@ -313,7 +313,8 @@
       form.ctxApplied = true; var vc = viewCtx || {}, fromCell = !!pendingEnd; // verrouillé SEULEMENT si on part d'une case vide de l'arbre ; depuis la barre, le choix de l'activité est libre
       form.level = fromCell ? (vc.level || 'activite') : 'activite'; form.poleKey = fromCell ? (vc.poleKey || null) : null; form.categoryKey = fromCell ? (vc.categoryKey || null) : null; form.ctxLabel = fromCell ? (vc.label || '') : '';
       if (vc.activityId != null) { form.activityId = vc.activityId; form.acts = [vc.activityId]; form.fixedCtx = fromCell; }
-      if (pendingType) { form.type = pendingType; form.typeTouched = true; } // le type vient de la ligne de la case touchée
+      if (pendingType) { form.type = pendingType; form.typeTouched = true; }
+      if (pendingEnd && form.fixedCtx && pendingType === 'periodique') { form.cellPeriodic = true; form.cellEnd = pendingEnd; form.cellStart = new Date(Date.parse(pendingEnd + 'T00:00:00Z') - 27 * 86400000).toISOString().slice(0, 10); } // période de 28 jours : seule la date précise reste au choix, entre le début et la fin de la case // le type vient de la ligne de la case touchée
       if (pendingEnd) { var dd0 = Math.round((Date.parse(pendingEnd + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000); form.endDate = pendingEnd; form.amount = Math.max(1, Math.ceil(dd0 / 7)); form.unit = 'semaines'; form.dateOk = true; form.durTouched = true; form.endFixed = true; }
       clearPending();
     }
@@ -370,18 +371,19 @@
     form._hints = refreshHints;
     paintGuide(); composeDesc(); refreshHints();
     // Échéance (page 1) : « Date d'échéance : » et UN petit champ date à droite (calendrier natif), rien d'autre. Proposée par la base de durées (sans IA) ou imposée par la case de l'arbre.
-    var dateIn = el('input', 'objDueInput'); dateIn.type = 'date'; dateIn.min = ctx.startDate; dateIn.setAttribute('aria-label', tr('Date d’échéance'));
-    function paintDates() { if (!form.endFixed) dateIn.value = ctx.fixedDate && !ctx.dateConfirmed && !form.endDate ? '' : (form.endDate || ''); }
+    var dateIn = el('input', 'objDueInput'); dateIn.type = 'date'; dateIn.min = form.cellPeriodic && form.cellStart > ctx.startDate ? form.cellStart : ctx.startDate; if (form.cellPeriodic) dateIn.max = form.cellEnd; dateIn.setAttribute('aria-label', tr('Date d’échéance'));
+    function paintDates() { if (form.cellPeriodic) dateIn.value = form.endDate || form.cellEnd; else if (!form.endFixed) dateIn.value = ctx.fixedDate && !ctx.dateConfirmed && !form.endDate ? '' : (form.endDate || ''); }
     dateIn.addEventListener('change', function () {
       var v = dateIn.value;
       if (!v || v <= form.startDate) { form.dateOk = false; syncGo(); if (v) msg.textContent = MSG_PASSE; return; }
+      if (form.cellPeriodic && (v < form.cellStart || v > form.cellEnd)) { form.dateOk = false; syncGo(); msg.textContent = tr('La date doit être dans la période de la case.'); return; }
       msg.textContent = '';
       var days = Math.round((Date.parse(v + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
       form.durTouched = true; form.dateOk = true; form.endDate = v; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines'; form.periodWeeks = days <= 28 ? '1' : days <= 366 ? '4' : 'mois'; syncGo(); refresh(); if (form.echeanceDone) { form.echeanceDone = false; } // recalculé à « Suivant »
     });
     if (ctx.fixedDate && !ctx.dateConfirmed && !form.endFixed) { form.endDate = null; form.dateOk = false; } // date imposée (demandée à l'étape Échéance, focus à l'arrivée) ; par le type d'objectif (examen, mariage…) : demandée, jamais estimée
     var dueRow = el('div', 'objDueRow'); dueRow.appendChild(el('span', 'objDueLabel', tr('Date d’échéance') + ' :'));
-    if (form.endFixed) dueRow.appendChild(el('span', 'objDueLabel', dateText(form.endDate))); else dueRow.appendChild(dateIn); // depuis l'arbre : échéance de la case, non modifiable
+    if (form.endFixed && !form.cellPeriodic) dueRow.appendChild(el('span', 'objDueLabel', dateText(form.endDate))); else dueRow.appendChild(dateIn); // depuis l'arbre : échéance de la case, non modifiable
     paintDates(); dueBox.appendChild(dueRow);
 
     var actBox = el('div');
@@ -784,7 +786,7 @@
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
     var stepNames = { desc: 'Objectif', temps: 'Temps', heures: 'Heures', activite: TITRES_EMPLACEMENT.etape, niveau: 'Niveau', echeance: 'Échéance', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { return ['desc', 'activite'].concat(niv.skip ? [] : ['niveau']).concat(['echeance']).concat(['temps']).concat(infListed() ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
+    function list() { var fromCell = form.fixedCtx && form.endFixed; /* création par le « + » d'une case : ni Emplacement, ni Échéance (la fin de la case), sauf une date précise pour le périodique */ return (fromCell ? ['desc'] : ['desc', 'activite']).concat(niv.skip ? [] : ['niveau']).concat(fromCell && !form.cellPeriodic ? [] : ['echeance']).concat(['temps']).concat(infListed() ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     function rattKey2() { return rattKey() + '|' + (form.endDate || ''); } // le rattachement dépend aussi de l'échéance (saisie après Activité)
     function loadRatt() {
       // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
