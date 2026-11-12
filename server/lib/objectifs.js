@@ -510,7 +510,12 @@ function targetCategory(activityId, activityName) {
 
 // ---- Pont vers l'arbre périodique et le calendrier de l'activité ----
 // Aucun secteur n'est créé par un objectif (règle du 12 nov. 2026) : voir bridge. Les secteurs créés par d'anciens objectifs restent (jamais supprimés).
-function writeKeyOf(r) { return (r.level === 'secteur' && r.categoryKey) ? r.categoryKey : (r.poleKey || require('./categories').IMPLICIT_ACTIVITY_KEY); } // catégorie qui porte l'objectif : le secteur choisi, le pôle, ou l'activité (clé implicite)
+function writeKeyOf(r) { // un objectif encore rangé sous la clé implicite alors que l'activité a maintenant un pôle s'écrit sur son premier pôle (jamais d'échec)
+  if (r.level === 'secteur' && r.categoryKey) return r.categoryKey;
+  if (r.poleKey) return r.poleKey;
+  const first = goals.categoriesForActivity(r.activityId)[0];
+  return first ? first.key : require('./categories').IMPLICIT_ACTIVITY_KEY;
+} // catégorie qui porte l'objectif : le secteur choisi, le pôle, ou l'activité (clé implicite)
 function writePoleDirect(r, meta) { // la période (grille de 28 jours depuis le plan de la catégorie) ou la semaine qui contient l'échéance
   const act = r.activityId, key = writeKeyOf(r), plan = goals.ensurePlan(act, key), g = gridOf(r.endDate);
   const n = (g.year - Number(String(plan.startDate).slice(0, 4))) * 13 + g.period;

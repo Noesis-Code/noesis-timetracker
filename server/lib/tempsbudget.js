@@ -74,7 +74,9 @@ function defaultByDay(total, weights) {
 function metaOf(id) { const r = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(id); try { return JSON.parse((r && r.metaJson) || '{}'); } catch (e) { return {}; } }
 // Case de l'arbre (niveau + période) : l'objectif qui l'occupe et ses heures par semaine (minutes, ou null si aucune).
 function cell(userId, aid, level, pk, ck, endDate, inner) { // inner : « Hebdomadaire » / « Périodique » du secteur (la semaine et la période sont deux cases différentes)
-  const o = objectifs().occupant(userId, { activityId: aid, level, poleKey: pk, categoryKey: ck, endDate, inner: level === 'secteur' ? inner : undefined });
+  // Un périodique / hebdomadaire posé sur un PÔLE ou une activité sans catégorie (cadence) est une case différente de l'annuel du même pôle : la cadence est transmise (12 nov. 2026).
+  const cadence = level !== 'secteur' && inner ? (inner === 'hebdomadaires' ? 'hebdomadaire' : 'periodique') : undefined;
+  const o = objectifs().occupant(userId, { activityId: aid, level, poleKey: pk, categoryKey: ck, endDate, inner: level === 'secteur' ? inner : undefined, cadence });
   if (!o) return null;
   const h = Number(metaOf(o.id).hoursPerWeek);
   return { id: o.id, min: h > 0 ? Math.round(h * 60) : null };
@@ -109,7 +111,7 @@ function etat(userId, spec) {
   if (level === 'activite') {
     out.up = { kind: 'total', label: null, prevuMin: capDisplay(cap), passeMin: passeMin(userId, null, null) };
     out.me = { key: null, label: act.name, prevuMin: mePrevu, passeMin: passeMin(userId, aid, null) };
-    others = userActivities(userId).filter((x) => x.id !== aid).map((x) => { const c = cell(userId, x.id, 'activite', null, null, end); return { key: 'a' + x.id, label: x.name, chronoMin: passeMin(userId, x.id, null), avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
+    others = userActivities(userId).filter((x) => x.id !== aid).map((x) => { const c = cell(userId, x.id, 'activite', null, null, end, inn); return { key: 'a' + x.id, label: x.name, chronoMin: passeMin(userId, x.id, null), avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
     out.restMin = 0; // plus de « Reste de ta capacité » : le Chrono des lignes donne déjà le total
   } else {
     const upCell = level === 'pole' ? cell(userId, aid, 'activite', null, null, end) : cell(userId, aid, 'pole', poleKey, null, end);
@@ -117,7 +119,7 @@ function etat(userId, spec) {
     out.up = { kind: level === 'pole' ? 'activite' : 'pole', label: level === 'pole' ? act.name : label(poleKey), prevuMin: upCell ? upCell.min : null, passeMin: passeMin(userId, aid, upKey) };
     out.me = { key: level === 'pole' ? poleKey : catKey, label: label(level === 'pole' ? poleKey : catKey), prevuMin: mePrevu, passeMin: passeMin(userId, aid, level === 'pole' ? poleKey : catKey) };
     const sib = level === 'pole' ? poles.filter((p) => p.key !== poleKey) : sects.filter((s) => s.key !== catKey);
-    others = sib.map((x) => { const c = level === 'pole' ? cell(userId, aid, 'pole', x.key, null, end) : cell(userId, aid, 'secteur', poleKey, x.key, end, inn); return { key: x.key, label: x.label, chronoMin: passeMin(userId, aid, x.key), avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
+    others = sib.map((x) => { const c = level === 'pole' ? cell(userId, aid, 'pole', x.key, null, end, inn) : cell(userId, aid, 'secteur', poleKey, x.key, end, inn); return { key: x.key, label: x.label, chronoMin: passeMin(userId, aid, x.key), avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
     const used = others.reduce((s, x) => s + (x.avantMin || 0), 0) + (mePrevu || 0);
     out.restMin = out.up.prevuMin === null ? 0 : Math.max(0, out.up.prevuMin - used);
     out.restLabel = level === 'pole' ? 'Reste de l’activité' : 'Reste du pôle';

@@ -355,6 +355,7 @@ function addCategory(activityId, label, parentKey, atTop) {
     INSERT INTO activity_goal_categories (activityId, key, label, color, position, createdAt)
     VALUES (?, ?, ?, '', ?, ?)
   `).run(activityId, key, cleanLabel, position, createdAt);
+  if (poleCount === 0) migrateImplicitToFirstPole(activityId, key); // premier pôle : ce que portait la clé implicite de l'activité passe à ce pôle
   return categoriesForActivity(activityId);
 }
 
@@ -400,6 +401,27 @@ function migratePoleDirectDataToSecteur(activityId, poleKey, secteurKey) {
     .run(secteurKey, activityId, poleKey, minN);
   db.prepare('UPDATE goal_year_goals SET category = ? WHERE activityId = ? AND category = ? AND year >= ?')
     .run(secteurKey, activityId, poleKey, cur);
+}
+
+// 12 nov. 2026 : une activité SANS catégorie porte ses objectifs périodiques / hebdomadaires sur la clé implicite '__activite' (voir IMPLICIT_ACTIVITY_KEY). Quand elle reçoit son PREMIER pôle, tout ce qui
+// portait cette clé (plan, périodes, objectifs annuels de grille, tâches rattachées) passe à ce pôle (niveau le plus bas : règle type × niveau), et les objectifs périodiques / hebdomadaires de l'activité sont
+// remis au niveau pôle. Les objectifs pluriannuels et annuels restent à leur niveau. Simple réaffectation de clé, rien n'est perdu ; idempotent (rien à faire si la clé n'est plus utilisée).
+function migrateImplicitToFirstPole(activityId, poleKey) {
+  const K = '__activite', now = new Date().toISOString();
+  db.prepare('UPDATE sub_projects SET goalCategory = ? WHERE activityId = ? AND goalCategory = ?').run(poleKey, activityId, K);
+  const plan = db.prepare('SELECT startDate FROM activity_goal_plans WHERE activityId = ? AND category = ?').get(activityId, K);
+  if (plan) {
+    db.prepare('INSERT OR IGNORE INTO activity_goal_plans (activityId, category, startDate, createdAt) VALUES (?, ?, ?, ?)').run(activityId, poleKey, plan.startDate, now);
+    db.prepare('UPDATE goal_periods SET category = ? WHERE activityId = ? AND category = ?').run(poleKey, activityId, K);
+    db.prepare('UPDATE goal_year_goals SET category = ? WHERE activityId = ? AND category = ?').run(poleKey, activityId, K);
+    db.prepare('DELETE FROM activity_goal_plans WHERE activityId = ? AND category = ?').run(activityId, K);
+  }
+  db.prepare("SELECT id, metaJson FROM user_objectives WHERE activityId = ? AND (level IS NULL OR level = 'activite') AND poleKey IS NULL").all(activityId).forEach((r) => {
+    let m = {}; try { m = JSON.parse(r.metaJson || '{}'); } catch (e) { m = {}; }
+    if (!m.cadence) return; // pluriannuel / annuel : restent à leur niveau
+    m.category = poleKey;
+    db.prepare("UPDATE user_objectives SET level = 'pole', poleKey = ?, metaJson = ? WHERE id = ?").run(poleKey, JSON.stringify(m), r.id);
+  });
 }
 
 // Renomme une catégorie ACTIVE (jamais une gelée — modifier l'étiquette
