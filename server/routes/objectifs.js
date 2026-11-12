@@ -32,6 +32,12 @@ router.post('/objectifs/niveau/questions', run((req) => require('../lib/objectif
 router.post('/objectifs/temps/suggestion', run((req) => require('../lib/objectifs-heures').suggest(req.userId, req.body || {}, require('../lib/dates').userToday())));
 router.post('/objectifs/inferieurs/proposition', run((req) => require('../lib/objectifs-inferieurs').plan(req.userId, req.body || {}, require('../lib/dates').userToday())));
 router.post('/objectifs/inferieurs/trou', run((req) => require('../lib/objectifs-trou').proposer(req.userId, req.body || {}, require('../lib/dates').userToday())));
+router.post('/objectifs/redessin', run((req) => { // fenêtre « Modifications proposées » du redessin des enfants : proposition, glisser-déposer (reorder) et « Place » (place) ; rien n'est écrit
+  const R = require('../lib/objectifs-redessin'), b = req.body || {}, rows = Array.isArray(b.rows) ? b.rows.slice(0, 20) : [], n = Math.max(1, Math.min(13, Number(b.n) || 13));
+  if (b.action === 'reorder') return { rows: R.reorder(rows, Array.isArray(b.order) ? b.order : []).map((r) => Object.assign({}, r, { moved: R.moved(r) })) };
+  if (b.action === 'place') { const out = R.place(rows, b.id, Number(b.cell), n, Number(b.minCell) || 1); if (!out) throw Object.assign(new Error('Case indisponible.'), { statusCode: 400 }); return { rows: out.map((r) => Object.assign({}, r, { moved: R.moved(r) })) }; }
+  return R.proposer(req.userId, b, require('../lib/dates').userToday());
+}));
 router.post('/objectifs/inferieurs/appliquer', run((req) => require('../lib/objectifs-inferieurs').appliquer(req.userId, req.body || {})));
 router.post('/objectifs/rattachement', run((req) => objectifs.rattachement(req.userId, req.body || {})));
 router.post('/objectifs/proposition', run((req) => objectifs.proposer(req.userId, req.body || {})));

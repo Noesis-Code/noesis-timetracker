@@ -90,4 +90,4 @@ function proposer(userId, body, today) {
   return planTrou(type, body.endDate, nearestBefore(userId, body, type), today);
 }
 
-module.exports = { MAX_LINES, REPLI_PERIODES, evenPick, gapCells, belowOf, planTrou, proposer };
+module.exports = { MAX_LINES, REPLI_PERIODES, evenPick, gapCells, belowOf, planTrou, proposer, typeOfRow, periodCell, weekCell, yearCell };
