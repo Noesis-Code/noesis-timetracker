@@ -586,6 +586,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
             try {
               const ref = await require('./reform').detect({ label, activityId, categoryKey: item.categoryKey, kind: kind.kind, objectiveMatched: !!(objMatch && objMatch.cand) });
               require('./reform').write(item.id, ref);
+              if (ref && ref.reform) taskkind.setPhase(item.id, 'reformer'); // Réformer = première phase de Développer
             } catch (e) { /* jamais bloquant */ }
           }
         } catch (e) { kindInfo = null; }

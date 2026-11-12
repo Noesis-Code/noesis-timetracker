@@ -1,10 +1,13 @@
 // Type d'une tâche, calculé EN SILENCE (jamais montré ni proposé) : « développement » (fait avancer un objectif) ou
 // « maintenance » (entretien, sans objectif). Sert seulement au rangement (goalscaptureplace.js) et à l'ordre des tâches
 // (tierOf / compareTasks ci-dessous, prêts pour la page « Aujourd'hui »). Sans signal assez net : null = neutre (aucun effet, comportement d'avant). Aucune IA, aucun réseau.
+// NATURE et PHASE (12 nov. 2026, décision d'Émilien) : nature = Développer (taskKind 'developpement') | Maintenir (taskKind 'maintenance') ; phase (taskPhase) = Réformer, Cadrage, Réalisation, Finition, SEULEMENT sous Développer,
+// jamais sur la maintenance ; Réformer = première phase (avant le cadrage, voir reform.js). Calcul INTERNE : aucune étiquette, aucun champ, aucune proposition, aucun défaut « Réalisation » (sans signal net : null, ordonnée comme la réalisation).
 // Mode IA « Partiel » seulement (l'appelant ne calcule rien en mode « Absent »).
 const db = require('../db');
 
 const KINDS = ['maintenance', 'developpement'];
+const PHASES = ['reformer', 'cadrage', 'realisation', 'finition'];
 
 // Rang d'essentiel : plus petit = plus essentiel.
 const ESSENTIAL_RANK = {
@@ -19,6 +22,7 @@ function ensureColumns() {
   if (!cols.includes('taskKind')) db.exec('ALTER TABLE sub_project_items ADD COLUMN taskKind TEXT');
   if (!cols.includes('maintType')) db.exec('ALTER TABLE sub_project_items ADD COLUMN maintType TEXT');
   if (!cols.includes('maintUrgent')) db.exec('ALTER TABLE sub_project_items ADD COLUMN maintUrgent INTEGER NOT NULL DEFAULT 0');
+  if (!cols.includes('taskPhase')) db.exec('ALTER TABLE sub_project_items ADD COLUMN taskPhase TEXT'); // phase d'une tâche de développement : reformer | cadrage | realisation | finition | null (jamais montrée)
 }
 ensureColumns();
 
@@ -80,6 +84,24 @@ function maintTypeOf(label) {
     if (stems.some((s) => (s.includes(' ') ? (' ' + n + ' ').includes(' ' + s + ' ') : toks.some((t) => t === s || (s.length >= 4 && t.startsWith(s) && t.length <= s.length + 6))))) return type;
   }
   return 'routine';
+}
+
+// Phase d'une tâche de DÉVELOPPEMENT, d'après son titre (lexique, aucun réseau) : cadrage = décider, définir, planifier, étudier, concevoir avant de faire ; finition = terminer, relire, tester, corriger le détail, publier, livrer ;
+// réalisation = produire (verbes de fabrication) ; sans signal net : null. Réformer vient de reform.js (setPhase). Un seul verbe en tête de titre l'emporte ; sinon la phase la mieux représentée ; égalité : null.
+const PHASE_STEMS = {
+  cadrage: ['defin', 'planifi', 'plan', 'etudi', 'analys', 'cadr', 'esquiss', 'specif', 'cahier', 'brainstorm', 'recherch', 'estim', 'evalu', 'prepar', 'organis', 'imagin', 'concev', 'concoi', 'design', 'scope', 'outline', 'research', 'plann', 'roadmap', 'strateg'],
+  realisation: ['redig', 'ecri', 'write', 'draft', 'constru', 'build', 'develop', 'developp', 'cod', 'cre', 'creat', 'produi', 'produc', 'fabriqu', 'monter', 'enregistr', 'record', 'dessin', 'implement', 'realis', 'install', 'integr', 'tourn', 'film'],
+  finition: ['finalis', 'finit', 'relis', 'relir', 'polir', 'peaufin', 'tester', 'test', 'corrig', 'correct', 'verif', 'valid', 'publi', 'livr', 'lanc', 'launch', 'deploy', 'soumett', 'envoy', 'proofread', 'polish', 'finish', 'ship', 'submit', 'review', 'qa'],
+};
+function phaseOf(label) {
+  const toks = tokens(label); if (!toks.length) return null;
+  const score = { cadrage: 0, realisation: 0, finition: 0 };
+  Object.keys(PHASE_STEMS).forEach((ph) => {
+    toks.forEach((t, i) => { if (PHASE_STEMS[ph].some((s) => t === s || startsWith(t, s))) score[ph] += i === 0 ? 2 : 1; });
+  });
+  const best = Object.keys(score).sort((a, b) => score[b] - score[a]);
+  if (score[best[0]] === 0 || score[best[0]] === score[best[1]]) return null;
+  return best[0];
 }
 
 // --- Historique (base) ---
@@ -144,7 +166,7 @@ function compute(p) {
   const kind = diff >= MIN_MARGIN ? (dev > maint ? 'developpement' : 'maintenance') : null;
   const confidence = kind ? Math.min(100, 40 + diff * 15) : 0;
   const isMaint = kind === 'maintenance';
-  return { kind, confidence, maintType: isMaint ? maintTypeOf(label) : null, urgent: isMaint && urgentText, long };
+  return { kind, confidence, maintType: isMaint ? maintTypeOf(label) : null, urgent: isMaint && urgentText, long, phase: kind === 'developpement' ? phaseOf(label) : null };
 }
 
 function rankOf(maintType) { return ESSENTIAL_RANK[maintType] || DEFAULT_RANK; }
@@ -208,8 +230,17 @@ function rankInfoMany(ids, capacityMinutes, minutesOf) {
 
 function write(itemId, res) {
   const r = res || {};
-  db.prepare('UPDATE sub_project_items SET taskKind = ?, maintType = ?, maintUrgent = ? WHERE id = ?')
-    .run(KINDS.includes(r.kind) ? r.kind : null, r.kind === 'maintenance' ? (r.maintType || null) : null, r.kind === 'maintenance' && r.urgent ? 1 : 0, itemId);
+  db.prepare('UPDATE sub_project_items SET taskKind = ?, maintType = ?, maintUrgent = ?, taskPhase = ? WHERE id = ?')
+    .run(KINDS.includes(r.kind) ? r.kind : null, r.kind === 'maintenance' ? (r.maintType || null) : null, r.kind === 'maintenance' && r.urgent ? 1 : 0, r.kind === 'developpement' && PHASES.includes(r.phase) ? r.phase : null, itemId);
+}
+// Réformer = première phase de Développer (jamais sur la maintenance) : posée par la détection de réforme (reform.js).
+function setPhase(itemId, phase) {
+  db.prepare("UPDATE sub_project_items SET taskPhase = ? WHERE id = ? AND taskKind = 'developpement'").run(PHASES.includes(phase) ? phase : null, itemId);
+}
+function readPhaseMany(ids) {
+  const out = {}, sel = db.prepare('SELECT taskPhase FROM sub_project_items WHERE id = ?');
+  (ids || []).forEach((id) => { const r = sel.get(id); out[id] = (r && r.taskPhase) || null; });
+  return out;
 }
 function read(itemId) {
   const r = db.prepare('SELECT taskKind, maintType, maintUrgent FROM sub_project_items WHERE id = ?').get(itemId) || {};
@@ -223,4 +254,4 @@ function readMany(ids) {
   return out;
 }
 
-module.exports = { KINDS, ESSENTIAL_RANK, MIN_HISTORY, compute, rankOf, tierOf, compareTasks, placementTier, comparePlacement, rankInfoMany, maintTypeOf, isUrgentText, doneDatesForTitle, sectorDevShare, write, read, readMany };
+module.exports = { PHASES, phaseOf, setPhase, readPhaseMany, KINDS, ESSENTIAL_RANK, MIN_HISTORY, compute, rankOf, tierOf, compareTasks, placementTier, comparePlacement, rankInfoMany, maintTypeOf, isUrgentText, doneDatesForTitle, sectorDevShare, write, read, readMany };
