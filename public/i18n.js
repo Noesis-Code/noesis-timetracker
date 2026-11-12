@@ -389,6 +389,7 @@
     'Écrit par toi': 'Written by you',
     'Ton ajout': 'Your addition',
     'Place': 'Position',
+    'Secteurs': 'Sectors',
     'Indique la date de l’échéance.': 'Enter the deadline date.',
     'Réactiver': 'Reactivate',
     'Abandonner': 'Abandon',

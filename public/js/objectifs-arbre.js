@@ -529,11 +529,30 @@
     // dernier niveau (secteurs) : un toucher ne descend plus (règle de navigation : docs/objectifs/navigation-arbre.md) ; l'ancienne page « Pôle · Année » n'est plus une entrée cachée de l'arbre
   }
   function ascend() { if (lvl === 'secteur') { var ids2 = pairsOf().map(function (p) { return p.activityId; }).filter(function (v, i, x) { return x.indexOf(v) === i; }); go('pole', ids2.length > 1 ? { activityId: ids2[0], activityIds: ids2 } : { activityId: focus.activityId }); } else if (lvl === 'pole') go('activite', null); } // flèche de retour ou pincer inverse
-  function backNav() { // flèche de retour (.cmpNav, R45) + où l'on est
-    var nav = el('div', 'cmpNav cmpNav--sm arBackNav'), b = el('button', 'cmpNavArrow', '‹'); b.type = 'button'; b.setAttribute('aria-label', tr('Remonter'));
-    b.addEventListener('click', ascend);
+  function backNav() { // FIL D'ARIANE « Activités › Noèsis › TiMeTracker » (tableau simple, 12 nov. 2026) : seule technique pour remonter ; on touche l'élément du niveau voulu, le dernier (où l'on est) n'est pas touchable
+    var nav = el('nav', 'arCrumbs'); nav.setAttribute('aria-label', tr('Chemin'));
     var act = actOf(focus.activityId), name = isMulti() ? (focus.activityIds || pairsOf().map(function (p) { return p.activityId; }).filter(function (v, i, a) { return a.indexOf(v) === i; })).map(function (id) { var x = actOf(id); return x ? x.name : ''; }).join(' + ') : (act ? act.name : '');
-    nav.appendChild(b); nav.appendChild(el('span', 'cmpNavLabel', name + (lvl === 'secteur' && !pairsOf().length ? ' · ' + (focus.poleLabel || '') : ''))); return nav;
+    var parts = [{ label: tr('Activités'), go: function () { go('activite', null); } }, { label: name, go: lvl === 'secteur' ? ascend : null }];
+    if (lvl === 'secteur') parts.push({ label: pairsOf().length ? tr('Secteurs') : (focus.poleLabel || ''), go: null });
+    parts.forEach(function (p, i) {
+      var last = !p.go;
+      if (i) nav.appendChild(el('span', 'arCrumbSep', '›'));
+      if (last) { nav.appendChild(el('b', 'arCrumbNow', p.label)); return; }
+      var c = el('button', 'arCrumb', p.label); c.type = 'button'; c.addEventListener('click', p.go); nav.appendChild(c);
+    });
+    return nav;
+  }
+  // Toucher les HEURES d'une ligne : le même tableau un niveau plus bas (activités -> pôles -> secteurs), pour toutes les colonnes affichées ; au niveau le plus bas, la liste par membre (étape suivante).
+  function descendHours(rw) {
+    if (lvl === 'activite') {
+      var ids = []; curCols.forEach(function (c) { var id = (c.col ? c.col.ctx : c.ctx).activityId; if (ids.indexOf(id) < 0) ids.push(id); });
+      if (!ids.length) return; go('pole', ids.length > 1 ? { activityId: ids[0], activityIds: ids, block: rw.y } : { activityId: ids[0], block: rw.y });
+    } else if (lvl === 'pole') {
+      var u = {}; curCols.forEach(function (c) { var x = c.col ? c.col.ctx : c.ctx; u[x.activityId + '/' + pkeyOf(c)] = { activityId: x.activityId, poleKey: pkeyOf(c), label: c.label }; });
+      var prs = Object.keys(u).map(function (k) { return u[k]; }); if (!prs.length) return;
+      if (prs.length > 1) go('secteur', { activityId: prs[0].activityId, poleKey: prs[0].poleKey, poleLabel: '', year: rw.y, pairs: prs.map(function (p) { return { activityId: p.activityId, poleKey: p.poleKey }; }) });
+      else go('secteur', { activityId: prs[0].activityId, poleKey: prs[0].poleKey, poleLabel: prs[0].label, year: rw.y });
+    }
   }
 
   function render() {
@@ -719,7 +738,7 @@
     (function paintHours() { // colonne « Heures » : un total par ligne, posé au milieu de la ligne comme son repère
       if (isMulti() || !list.length || (lvl !== 'activite' && !(focus && focus.activityId != null))) return;
       var spec = lvl === 'activite' ? { level: 'activite' } : lvl === 'pole' ? { level: 'pole', activityId: focus.activityId } : { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey };
-      var rows = list.map(rowSpan), spans = list.map(function (rw) { var sp = el('span', 'arHrs', ''); sp.setAttribute('data-rank', String(rw.rank)); railR.appendChild(sp); marks.push({ m: sp, rk: String(rw.rank) }); return sp; }), key = JSON.stringify([spec, rows]);
+      var rows = list.map(rowSpan), spans = list.map(function (rw) { var sp = el(lvl === 'secteur' ? 'span' : 'button', 'arHrs', ''); sp.setAttribute('data-rank', String(rw.rank)); if (lvl !== 'secteur') { sp.type = 'button'; sp.setAttribute('aria-label', tr('Heures par semaine')); sp.addEventListener('click', function () { descendHours(rw); }); } railR.appendChild(sp); marks.push({ m: sp, rk: String(rw.rank) }); return sp; }), key = JSON.stringify([spec, rows]);
       function fill(res) { spans.forEach(function (sp, i) { var r = res && res[i]; sp.textContent = r ? hrsTxt(r.totalMin) : ''; sp.classList.toggle('set', !!(r && r.own)); }); }
       if (hrsCache[key]) fill(hrsCache[key]);
       TMT.api('POST', '/api/objectifs/allocation/lignes', Object.assign({ rows: rows }, spec)).then(function (res) { hrsCache[key] = res; if (spans[0] && spans[0].isConnected) fill(res); }).catch(function () {});
