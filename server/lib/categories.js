@@ -416,6 +416,7 @@ function migrateImplicitToFirstPole(activityId, poleKey) {
     db.prepare('UPDATE goal_year_goals SET category = ? WHERE activityId = ? AND category = ?').run(poleKey, activityId, K);
     db.prepare('DELETE FROM activity_goal_plans WHERE activityId = ? AND category = ?').run(activityId, K);
   }
+  if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'user_objectives'").get()) return; // la table des objectifs est créée par le module objectifs (absente dans certains contextes)
   db.prepare("SELECT id, metaJson FROM user_objectives WHERE activityId = ? AND (level IS NULL OR level = 'activite') AND poleKey IS NULL").all(activityId).forEach((r) => {
     let m = {}; try { m = JSON.parse(r.metaJson || '{}'); } catch (e) { m = {}; }
     if (!m.cadence) return; // pluriannuel / annuel : restent à leur niveau
