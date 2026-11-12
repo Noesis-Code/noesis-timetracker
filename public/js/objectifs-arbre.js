@@ -138,9 +138,16 @@
   }
   // MACRO (objectif qui englobe des objectifs de PLUSIEURS activités) : une carte LARGE, couleur NEUTRE (jetons existants, jamais celle d'une activité, R16), même cadre que les autres cartes,
   // de la largeur exacte des colonnes des activités concernées (les colonnes intermédiaires sont traversées) ; un trait par colonne concernée la relie à ses enfants, qui gardent la couleur de leur activité.
+  // Objectif fusionné (tableau simple, 12 nov. 2026) : UNE cellule sur les colonnes reliées, à la couleur de celle qui « mange » = la colonne de son rattachement (l'activité / le pôle d'attache du macro), sinon la première ;
+  // les colonnes mangées n'ont plus ni couleur ni case sur cette ligne (leurs cases sont remplacées par la carte large).
+  function eaterColor(m, c0, c1, cols) {
+    if (!cols) return null; var best = c0;
+    for (var i = c0; i <= c1; i++) { var x = cols[i] && (cols[i].col ? cols[i].col.ctx : cols[i].ctx); if (x && m.activity && x.activityId === m.activity.id && (lvl !== 'secteur' || x.poleKey === m.poleKey) && (lvl === 'activite' || x.poleKey === m.poleKey || m.poleKey == null)) { best = i; break; } }
+    return cols[best] ? cols[best].color : null;
+  }
   function macroCard(m, today, c0, c1, W, cols) {
     var st = stateOf(m, today), span = c1 - c0 + 1, w = spanW(W, span);
-    var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && (ext.macro && ext.macro.id === m.id || ext.mode === 'create' && m.id < 0) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-c0', String(c0)); b.setAttribute('data-c1', String(c1)); b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w);
+    var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && (ext.macro && ext.macro.id === m.id || ext.mode === 'create' && m.id < 0) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-c0', String(c0)); b.setAttribute('data-c1', String(c1)); b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w); var ec = eaterColor(m, c0, c1, cols); if (ec) paint(b, st, ec);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
     t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
     b.appendChild(t);
