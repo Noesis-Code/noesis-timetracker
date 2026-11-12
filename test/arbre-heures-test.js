@@ -12,4 +12,6 @@ assert(js.includes("paint(b, null, c.color); // titre de colonne = une CASE") &&
 assert(js.includes('function eaterColor(') && js.includes('var ec = eaterColor(m, c0, c1, cols); if (ec) paint(b, st, ec);'), 'objectif fusionné : une cellule à la couleur de celle qui mange (colonne de rattachement, sinon la première)');
 assert(js.includes('function descendHours(rw)') && js.includes("sp.addEventListener('click', function () { descendHours(rw); })") && js.includes("el(lvl === 'secteur' ? 'span' : 'button', 'arHrs', '')"), 'toucher les heures : le même tableau un niveau plus bas (activités → pôles → secteurs)');
 assert(js.includes("var nav = el('nav', 'arCrumbs')") && !js.includes("el('button', 'cmpNavArrow', '‹'); b.type = 'button'; b.setAttribute('aria-label', tr('Remonter'))"), 'fil d’Ariane : seule technique pour remonter (la flèche de retour est remplacée)');
+{ const ln = js.split('\n').find((l) => l.includes('tbl.appendChild(rail); tbl.appendChild(grid);')) || '';
+  assert(ln.includes('tree.appendChild(scroller)') && !/ \/\/ [^\n]*tree\.appendChild\(scroller\)/.test(ln), 'GARDE : l’arbre est attaché à la page (un commentaire // au milieu de la ligne avait avalé tree.appendChild(scroller), v1255 à v1258)'); }
 console.log(failed ? '\n' + failed + ' échec(s)' : 'arbre-heures-test OK'); process.exit(failed ? 1 : 0);
