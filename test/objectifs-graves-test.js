@@ -52,9 +52,9 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   const made = [];
   for (let i = 1; i <= 12; i++) made.push(o.creer(u, { title: 'Objectif C12 numéro ' + i, activityId: act, startDate: '2026-11-09', endDate: '2027-03-01' }));
   const ok = made.filter((x) => !x.bridgeFailed), ko = made.filter((x) => x.bridgeFailed);
-  assert(ok.length >= 1 && ok.length <= 10, 'C12 : les premiers objectifs sont reliés à l’arbre périodique (' + ok.length + ')');
-  assert(ko.length >= 2 && made.slice(ok.length).every((x) => x.bridgeFailed), 'C12 : les suivants sont signalés (bridgeFailed), jamais silencieux (' + ko.length + ')');
-  assert(o.get(u, ko[0].id).bridgeFailed === true && !!ko[0].title, 'C12 : l’objectif sans pont existe et reste signalé à l’ouverture du détail');
+  const nSecteurs = db.prepare('SELECT COUNT(*) AS n FROM activity_goal_categories WHERE activityId = ?').get(act).n;
+  assert(made.length === 12 && ok.length === 12, 'C12 : douze objectifs créés, aucun pont en échec (' + ok.length + ')'); // 12 nov. 2026 : un objectif ne crée plus de secteur, la limite de 10 secteurs par pôle ne s’applique plus
+  assert(ko.length === 0 && nSecteurs === 0, 'C12 : aucun secteur ni pôle créé par les objectifs (' + nSecteurs + ')');
 }
 
 // ---- 4. E03 : abandonner, réactiver, supprimer ----

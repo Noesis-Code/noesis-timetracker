@@ -80,13 +80,13 @@ o.setTasksCheck(() => true); // Expansion : tâches générées (le gratuit n'en
   const w = o.semaine(u, made.id, 1, 1, true);
   assert(w.progress > 0 && w.periods[0].weeks[0].done === true, 'semaine cochée : la progression avance');
   const meta = JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(made.id).metaJson);
-  assert(meta.category && meta.bridged, 'pont : un secteur propre à l objectif');
-  const gp = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? ORDER BY periodNumber').all(m.activityId, meta.category);
-  assert(gp.length >= made.periodCount && gp[0].startDate === made.periods[0].startDate && gp[0].mainGoalText === 'Courir 3 fois par semaine' && gp[0].kind === 'libre', 'pont : périodes de l objectif dans goal_periods, dates libres');
-  assert(gp.every((p, i) => !i || p.startDate > gp[i - 1].endDate), 'pont : aucun chevauchement');
+  assert(!meta.category && meta.bridged === 'aucun', 'pont : aucun secteur créé par un objectif (pluriannuel / annuel : pas de période libre)');
+  const nCat = db.prepare('SELECT COUNT(*) AS n FROM activity_goal_categories WHERE activityId = ?').get(m.activityId).n, gp = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND createdAt >= ?').all(m.activityId, made.createdAt || '');
+  assert(gp.every((p) => p.kind !== 'libre'), 'pont : aucune période libre écrite dans le plan (12 nov. 2026 : pluriannuel / annuel vivent dans l’arbre)');
+  assert(true, 'pont : aucun chevauchement possible (rien n’est écrit)');
   const made2 = o.creer(u, { title: 'Lire quatre livres', activityId: m.activityId, startDate: prop.startDate, endDate: '2027-01-04', amount: 2, unit: 'mois', periodWeeks: 4, weekly: false, weekTasks: [] });
   const meta2 = JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(made2.id).metaJson);
-  assert(meta2.category && meta2.category !== meta.category, 'pont : deux objectifs de la même activité, deux plans séparés (jamais mélangés)');
+  assert(!meta2.category && db.prepare('SELECT COUNT(*) AS n FROM activity_goal_categories WHERE activityId = ?').get(m.activityId).n === nCat, 'deux objectifs de la même activité coexistent sans créer de secteur ni de pôle');
   const ext = o.bilan(u, made.id, 'prolonger', 1);
   assert(ext.periods[1].weeks.length === 5 && ext.endDate > made.endDate, 'prolonger d\'une semaine décale la suite');
   // Périodes FIXES 13 × 4 (6 nov. 2026) : plus de réglage global ; une constante unique (objectifs-temps.js), niveau de temps par objectif.

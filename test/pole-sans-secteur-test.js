@@ -58,7 +58,7 @@ const metaOf = (id) => JSON.parse(db.prepare('SELECT metaJson FROM user_objectiv
   const sS = categories.addCategory(aSect, 'Secteur S', pSKey); const sSKey = (sS && sS.key) || goals.secteursForPole(aSect, pSKey)[0].key;
   const nBefore = goals.secteursForPole(aSect, pSKey).length;
   const rs = o.creer('u1', { title: 'Hebdo secteur', activityId: aSect, startDate: today, level: 'secteur', poleKey: pSKey, categoryKey: sSKey, inner: 'hebdomadaires', endDate: addDays(today, 30) });
-  assert(rs.level === 'secteur' && rs.categoryKey === sSKey && goals.secteursForPole(aSect, pSKey).length === nBefore + 1, 'activité avec secteurs × hebdomadaire : posé sur le secteur choisi (chemin existant : un secteur propre à l’objectif est ajouté par le pont)');
+  assert(rs.level === 'secteur' && rs.categoryKey === sSKey && goals.secteursForPole(aSect, pSKey).length === nBefore, 'activité avec secteurs × hebdomadaire : posé sur le secteur choisi, aucun secteur créé');
   const src = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
   assert(src.includes("return form.level === lvl && (lvl === 'secteur' ? !!form.categoryKey : lvl === 'pole' ? !!form.poleKey : true);") && src.includes('function levelFor(t, act)'), 'écran : périodique et hebdomadaire acceptés sur un pôle (avec ou sans secteurs) ; Suivant n’est grisé que si le cadre manque');
   assert((src.match(/cadence: cadenceNow\(\)/g) || []).length >= 4 && src.includes("isSmall(t) && (form.level === 'pole' || form.level === 'activite') ? t : undefined"), 'écran : la cadence part au serveur (rattachement, case, proposition, création)');

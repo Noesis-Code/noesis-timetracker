@@ -509,51 +509,13 @@ function targetCategory(activityId, activityName) {
 }
 
 // ---- Pont vers l'arbre périodique et le calendrier de l'activité ----
-// UN secteur par objectif (sous le premier pôle de l'activité) : chaque objectif a son propre plan, donc jamais deux
-// objectifs mélangés dans un même calendrier, et aucun chevauchement dans goal_periods (qui l'interdit par pôle/secteur).
-// Les périodes sont posées directement avec des dates libres (kind 'libre') ; les textes passent par goals.setMainGoal / setWeekly.
-function ensureObjectiveSector(activityId, activityName, title) {
-  let poles = goals.categoriesForActivity(activityId);
-  if (!poles.length) { goals.addCategory(activityId, activityName.slice(0, 40)); poles = goals.categoriesForActivity(activityId); }
-  // C12 : un pôle porte 10 secteurs au plus ; le 11e objectif prend le premier pôle de l'activité qui a encore de la place. Tous pleins : erreur claire (jamais de perte silencieuse, voir bridge).
-  const poleRow = poles.find((p) => goals.secteursForPole(activityId, p.key).length < goals.MAX_SECTEURS_PER_POLE);
-  if (!poleRow) throw err(goals.MAX_SECTEURS_PER_POLE + ' secteurs maximum par pôle : tous les pôles de cette activité sont pleins.');
-  const pole = poleRow.key;
-  if (!goals.secteursForPole(activityId, pole).length) {
-    const direct = db.prepare('SELECT 1 FROM activity_goal_plans WHERE activityId = ? AND category = ?').get(activityId, pole)
-      || db.prepare('SELECT 1 FROM sub_projects WHERE activityId = ? AND goalCategory = ?').get(activityId, pole);
-    // Le premier secteur d'un pôle reçoit tout ce que le pôle portait en direct : on le garde dans « Général », pas dans l'objectif.
-    if (direct) goals.addCategory(activityId, 'Général', pole);
-  }
-  const label = title.slice(0, 40).trim() || 'Objectif';
-  const after = goals.addCategory(activityId, label, pole);
-  return after[after.length - 1].key;
-}
-function writeBridge(r, periods, category) {
-  const act = r.activityId, plan = goals.ensurePlan(act, category), now = new Date().toISOString();
-  const have = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ?').all(act, category);
-  periods.forEach((p) => {
-    const row = have.find((x) => x.periodNumber === p.n);
-    if (row) db.prepare("UPDATE goal_periods SET startDate = ?, endDate = ?, kind = 'libre' WHERE id = ?").run(p.startDate, p.endDate, row.id);
-    else db.prepare("INSERT INTO goal_periods (activityId, category, periodNumber, cycleIndex, periodIndexInCycle, startDate, endDate, mainGoalText, kind, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, '', 'libre', ?)")
-      .run(act, category, p.n, Math.floor((p.n - 1) / 13) + 1, ((p.n - 1) % 13) + 1, p.startDate, p.endDate, now);
-  });
-  have.filter((x) => x.periodNumber > periods.length).forEach((x) => goals.deleteMainGoal(act, category, x.periodNumber)); // périodes devenues inutiles : vidées
-  have.filter((x) => x.periodNumber > periods.length).forEach((x) => db.prepare("UPDATE goal_periods SET kind = 'grille' WHERE id = ?").run(x.id));
-  periods.forEach((p) => {
-    goals.setMainGoal(act, category, p.n, p.title || r.title);
-    p.weeks.forEach((w) => {
-      if (w.text) goals.setWeekly(act, category, p.n, w.i, w.text);
-      else goals.deleteWeekly(act, category, p.n, w.i);
-    });
-  });
-  return plan;
-}
-function writePoleDirect(r, meta) { // la période (grille de 28 jours depuis le plan du pôle) ou la semaine qui contient l'échéance
-  const act = r.activityId, key = r.poleKey || require('./categories').IMPLICIT_ACTIVITY_KEY, plan = goals.ensurePlan(act, key), g = gridOf(r.endDate);
+// Aucun secteur n'est créé par un objectif (règle du 12 nov. 2026) : voir bridge. Les secteurs créés par d'anciens objectifs restent (jamais supprimés).
+function writeKeyOf(r) { return (r.level === 'secteur' && r.categoryKey) ? r.categoryKey : (r.poleKey || require('./categories').IMPLICIT_ACTIVITY_KEY); } // catégorie qui porte l'objectif : le secteur choisi, le pôle, ou l'activité (clé implicite)
+function writePoleDirect(r, meta) { // la période (grille de 28 jours depuis le plan de la catégorie) ou la semaine qui contient l'échéance
+  const act = r.activityId, key = writeKeyOf(r), plan = goals.ensurePlan(act, key), g = gridOf(r.endDate);
   const n = (g.year - Number(String(plan.startDate).slice(0, 4))) * 13 + g.period;
   if (n < 1) throw err('L’échéance est avant le début du plan de ce pôle.');
-  if (meta.cadence === 'hebdomadaire') {
+  if (meta.cadence === 'hebdomadaire' || meta.inner === 'hebdomadaires') {
     const b = goals.periodBounds(plan.startDate, n), w = Math.floor(daysBetween(b.start, mondayOf(r.endDate)) / 7) + 1;
     goals.setWeekly(act, key, n, w, r.title);
   } else goals.setMainGoal(act, key, n, r.title);
@@ -561,20 +523,17 @@ function writePoleDirect(r, meta) { // la période (grille de 28 jours depuis le
 }
 function bridge(r, periods) { // jamais bloquant : sans pont, l'objectif reste complet dans la Feuille de route
   try {
-    const meta = JSON.parse(r.metaJson || '{}');
-    if (meta.cadence && (r.poleKey || (r.level || 'activite') === 'activite')) { // périodique / hebdomadaire d'un pôle : écrit sur le pôle lui-même (mêmes fonctions que le connecteur : setMainGoal / setWeekly), SANS créer de secteur
-      writePoleDirect(r, meta); meta.category = r.poleKey || require('./categories').IMPLICIT_ACTIVITY_KEY; meta.bridged = true; delete meta.bridgeFailed;
+    const meta = JSON.parse(r.metaJson || '{}'), lvl = r.level || 'activite';
+    // RÈGLE (12 nov. 2026) : un objectif ne crée JAMAIS de secteur ni de pôle. Périodique / hebdomadaire (sur le pôle, l'activité ou le secteur choisi) : écrit sur la catégorie elle-même
+    // (mêmes fonctions que le connecteur : setMainGoal / setWeekly). Pluriannuel et annuel : aucune période libre dans le plan de la catégorie (goal_periods interdit le chevauchement par catégorie) ; l'objectif vit dans l'arbre.
+    if (meta.cadence || lvl === 'secteur') {
+      writePoleDirect(r, meta); meta.category = writeKeyOf(r); meta.bridged = true; delete meta.bridgeFailed;
       db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
       return meta.category;
     }
-    if (!meta.category) {
-      const act = db.prepare('SELECT name FROM activities WHERE id = ?').get(r.activityId);
-      meta.category = ensureObjectiveSector(r.activityId, act ? act.name : 'Objectifs', r.title);
-    }
-    writeBridge(r, periods, meta.category);
-    meta.bridged = true; delete meta.bridgeFailed;
+    meta.bridged = 'aucun'; delete meta.bridgeFailed; delete meta.category;
     db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
-    return meta.category;
+    return null;
   } catch (e) {
     console.warn('[objectifs] pont vers le calendrier impossible :', e && e.message);
     // Jamais silencieux : l'échec est noté sur l'objectif (bridgeFailed), l'interface le dit, et le pont est réessayé à l'ouverture du détail.
