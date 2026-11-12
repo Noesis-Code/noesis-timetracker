@@ -48,6 +48,6 @@ const nSect = (a, p) => goals.secteursForPole(a, p).length;
     }
   } finally { global.fetch = realFetch; }
   const src = fs.readFileSync(require('path').join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
-  assert(src.includes("function infMode() { var t = typeOf(); return t === 'periodique' ? 'weekly' : t === 'hebdomadaire' ? null :") && src.includes("type: infMode() === 'weekly' ? 'periodique' : undefined") && src.includes("weekly: p.level === 'semaine' ? true : undefined"), 'écran : périodique → hebdomadaires ; hebdomadaire → rien ; pluriannuel / annuel inchangés');
+  assert(src.includes("function infMode() { return typeOf() === 'hebdomadaire' ? null : 'trou'; }") && src.includes('trou: true, type: typeOf(), startDate:') && src.includes("weekly: p.level === 'semaine' ? true : undefined"), 'écran : périodique → hebdomadaires ; hebdomadaire → rien ; pluriannuel / annuel inchangés');
   if (failed) { console.log('\n' + failed + ' échec(s)'); process.exit(1); } console.log('\ntout passe');
 })().catch((e) => { console.log('  FAIL erreur', e && e.stack); process.exit(1); });

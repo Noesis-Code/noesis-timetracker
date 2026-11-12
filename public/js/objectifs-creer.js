@@ -684,7 +684,7 @@
     // Le serveur calcule (cases, heures, chiffres) et l'IA rédige ; ici : cocher / refuser chaque ligne, changer les heures (les cases SUIVANTES suivent la nouvelle base) ; rien n'est écrit avant « Terminer ».
     var inf = form.inf = form.inf || { key: null, plan: null, on: [], hrs: [], edited: [], open: -1 };
     // Chaîne (Émilien) : pluriannuel => annuels ; annuel => périodiques ; périodique => hebdomadaires ; hebdomadaire => rien.
-    function infMode() { var t = typeOf(); return t === 'periodique' ? 'weekly' : t === 'hebdomadaire' ? null : (form.level === 'activite' || form.level === 'pole') && !cadenceNow() ? 'down' : null; }
+    function infMode() { return typeOf() === 'hebdomadaire' ? null : 'trou'; } // plan proposé à la création : la règle du trou (serveur, objectifs-trou.js) ; rien en dessous d'un hebdomadaire
     function infEligible() { return !!infMode() && !!form.endDate && tp.valueMin > 0; }
     function infListed() { return infEligible() && !(inf.plan && inf.plan.skip); }
     function infKey() { return [nivKey(), form.endDate || '', tp.valueMin, form.level || '', form.poleKey || '', form.categoryKey || '', infMode()].join('|'); }
@@ -693,10 +693,10 @@
       var key = infKey(); if (inf.key === key && inf.plan) return Promise.resolve();
       inf.key = key; inf.plan = null;
       var nb = nivBody(), dep = nb && nb.answers[0] ? nb.answers[0].a : '';
-      return api('POST', '/api/objectifs/inferieurs/proposition', { title: form.title, description: form.description || '', activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, type: infMode() === 'weekly' ? 'periodique' : undefined, startDate: form.startDate, endDate: form.endDate, rateMin: tp.valueMin, depart: dep }).then(function (p) {
+      return api('POST', '/api/objectifs/inferieurs/proposition', { title: form.title, description: form.description || '', activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, trou: true, type: typeOf(), startDate: form.startDate, endDate: form.endDate, rateMin: tp.valueMin, depart: dep }).then(function (p) {
         if (inf.key !== key) return;
         inf.plan = p && !p.skip ? p : { skip: true };
-        if (!inf.plan.skip) { inf.on = p.rows.map(function (r) { return r.checked; }); inf.hrs = p.rows.map(function (r) { return r.hoursMin; }); inf.edited = p.rows.map(function () { return false; }); inf.open = -1; }
+        if (!inf.plan.skip) { inf.on = p.rows.map(function (r) { return r.checked; }); inf.hrs = p.rows.map(function (r) { return r.hoursMin; }); inf.edited = p.rows.map(function () { return false; }); inf.titles = p.rows.map(function (r) { return r.title || ''; }); inf.dates = p.rows.map(function (r) { return r.endDate; }); inf.open = -1; }
       }).catch(function () { if (inf.key === key) inf.plan = { skip: true }; });
     }
     function infRq(m) { return Math.round(m / 15) * 15; }
@@ -720,20 +720,24 @@
       f.guide.faire = { picks: [], text: r.faire || '' }; f.guide.resultat = { picks: [], text: r.resultat || '' }; f.guide.avance = { picks: [], text: r.avancement || '' };
       return guideCompose(f);
     }
+    function datePick(txt, min, max, value, onPick) { // UN sélecteur de date borné (récapitulatif et lignes du plan) : texte violet touchable + champ date caché
+      var vb = el('button', 'objTEdit', txt), pick = el('input'); vb.type = 'button'; vb.style.textAlign = 'left'; vb.setAttribute('aria-label', tr('Date d’échéance'));
+      pick.type = 'date'; pick.min = min; pick.max = max; pick.value = value; pick.tabIndex = -1; pick.setAttribute('aria-hidden', 'true'); pick.style.cssText = 'position:absolute;opacity:0;width:1px;height:1px;pointer-events:none';
+      vb.addEventListener('click', function () { if (pick.showPicker) { try { pick.showPicker(); return; } catch (e) {} } pick.focus(); pick.click(); });
+      pick.addEventListener('change', function () { var v = pick.value; if (!v || v < min || v > max) { pick.value = value; return; } onPick(v); });
+      return { btn: vb, input: pick };
+    }
+    function infDateTxt(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString(TMT.dateLocale || undefined, { day: 'numeric', month: 'long', year: 'numeric' }); }
     function infRecap() { // en haut : seulement l'échéance de l'objectif créé (Faire, Résultat, Chiffre et Départ ne sont plus affichés ici : ils restent dans les lignes et les étapes précédentes)
       var node = el('div', 'objGrid objRecap'), row = el('div', 'objGridRow');
       var txt = form.endDate ? new Date(form.endDate + 'T12:00:00').toLocaleDateString(TMT.dateLocale || undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
       row.appendChild(el('span', 'objGridName', tr('Échéance')));
       if (form.cellPeriodic) { // périodique créé depuis une case : la date se touche (sélecteur borné à la période de la case), violet comme les autres lignes modifiables
-        var vb = el('button', 'objTEdit', txt), pick = el('input'); vb.type = 'button'; vb.style.textAlign = 'left'; vb.setAttribute('aria-label', tr('Date d’échéance'));
-        pick.type = 'date'; pick.min = form.cellStart > form.startDate ? form.cellStart : form.startDate; pick.max = form.cellEnd; pick.value = form.endDate || form.cellEnd; pick.tabIndex = -1; pick.setAttribute('aria-hidden', 'true'); pick.style.cssText = 'position:absolute;opacity:0;width:1px;height:1px;pointer-events:none';
-        vb.addEventListener('click', function () { if (pick.showPicker) { try { pick.showPicker(); return; } catch (e) {} } pick.focus(); pick.click(); });
-        pick.addEventListener('change', function () {
-          var v = pick.value; if (!v || v <= form.startDate || v < form.cellStart || v > form.cellEnd) { pick.value = form.endDate; return; }
+        var dp = datePick(txt, form.cellStart > form.startDate ? form.cellStart : form.startDate, form.cellEnd, form.endDate || form.cellEnd, function (v) {
           var days = Math.round((Date.parse(v + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
           form.endDate = v; form.dateOk = true; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines'; form.periodWeeks = days <= 28 ? '1' : form.periodWeeks;
-          loadRatt().then(function () { return infFetch(); }).then(infPaint); // la date change : parent et sous-objectifs proposés recalculés
-        });
+          loadRatt().then(function () { return infFetch(); }).then(infPaint); // la date change : parent et plan proposé recalculés
+        }), vb = dp.btn, pick = dp.input;
         row.appendChild(vb); row.appendChild(pick);
       } else row.appendChild(el('span', 'objRecapVal', txt));
       node.appendChild(row); return node;
@@ -741,7 +745,7 @@
     function infCreatedName() { return { pluriannuel: 'Objectif pluriannuel', annuel: 'Objectif annuel', periodique: 'Objectif périodique', hebdomadaire: 'Objectif hebdomadaire' }[typeOf()]; } // niveau RÉEL de l'objectif créé, libellés de l'arbre
     // Lignes de sous-objectifs : UNE ligne avec UN trait dessous, comme les groupes de la Description (.objGuideRow / .objGuideHead cmpToggle) ; toucher la ligne la déplie (une seule à la fois) et elle forme alors une section.
     // Ligne : case à cocher, période en petit gris au-dessus du titre, chiffre, petit trait, heures (violet, sélecteur standard), flèche à droite. Dépliée : Faire, Résultat, Avancement, puis les objectifs existants plus bas (gris, sans case).
-    function infLevelName(p, one) { var k = p.level === 'pole' ? ['Objectifs annuels', 'Objectif annuel'] : p.level === 'secteur' ? ['Objectifs périodiques', 'Objectif périodique'] : ['Objectifs hebdomadaires', 'Objectif hebdomadaire']; return k[one ? 1 : 0]; } // UNE source : le niveau réel des LIGNES proposées (pôle = par année, secteur = par période, sinon par semaine) pour le titre du panneau et l'en-tête de colonne
+    function infLevelName(p, one) { var k = p.level === 'bloc' ? ['Objectifs pluriannuels', 'Objectif pluriannuel'] : p.level === 'pole' ? ['Objectifs annuels', 'Objectif annuel'] : p.level === 'secteur' ? ['Objectifs périodiques', 'Objectif périodique'] : ['Objectifs hebdomadaires', 'Objectif hebdomadaire']; return k[one ? 1 : 0]; } // UNE source : le niveau réel des LIGNES proposées (pôle = par année, secteur = par période, sinon par semaine) pour le titre du panneau et l'en-tête de colonne
     function infPaint() {
       var box = boxes.inf; box.textContent = ''; var p = inf.plan; if (!p || p.skip) return;
       box.appendChild(el('p', 'cmpBlockTitle objNivTitle', tr(infCreatedName()) + ' : ' + form.title)); box.appendChild(infRecap());
@@ -760,8 +764,8 @@
         var rowEl = el('div', 'objField objGuideRow objInfRow' + (open ? ' open' : '') + (!mute && inf.on[i] === false ? ' objInfOff' : '') + (mute ? ' objInfMuted' : ''));
         var head = el('div', 'objGuideHead cmpToggle'); head.setAttribute('role', 'button'); head.tabIndex = 0; head.setAttribute('aria-expanded', open ? 'true' : 'false');
         if (mute) head.appendChild(el('span', 'objInfCb'));
-        else { var cb = el('input'); cb.type = 'checkbox'; cb.checked = inf.on[i] !== false; cb.setAttribute('aria-label', r.title || r.existingTitle || r.label); cb.addEventListener('change', function () { inf.on[i] = cb.checked; rowEl.classList.toggle('objInfOff', !cb.checked); setTot(); }); head.appendChild(cb); }
-        var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'hint objInfSub', r.label)); tx.appendChild(el('span', 'cmpBlockTitle', r.title || r.existingTitle || r.label)); head.appendChild(tx);
+        else { var cb = el('input'); cb.type = 'checkbox'; cb.checked = inf.on[i] !== false; cb.setAttribute('aria-label', inf.titles[i] || r.title || r.existingTitle || r.label); cb.addEventListener('change', function () { inf.on[i] = cb.checked; rowEl.classList.toggle('objInfOff', !cb.checked); setTot(); }); head.appendChild(cb); }
+        var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'hint objInfSub', r.label)); tx.appendChild(el('span', 'cmpBlockTitle', inf.titles[i] || r.title || r.existingTitle || r.label)); head.appendChild(tx);
         if (hasC) { head.appendChild(el('span', 'objGridChrono', c ? infNum(c.value) + (c.unit ? ' ' + c.unit : '') : '')); head.appendChild(el('span', 'objInfBar')); }
         var hrs = el('span', 'objGridObj');
         if (kind === 'modifier') { hrs.appendChild(el('span', 'objGridAvant', hh(infEx(r)))); hrs.appendChild(el('span', 'objGridSlash', '→')); }
@@ -772,6 +776,14 @@
         head.addEventListener('keydown', function (e) { if (e.target === head && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); } });
         rowEl.appendChild(head);
         if (open) {
+          if (kind === 'nouveau' && r.lineType) { // validation ligne par ligne : titre et date modifiables (la date reste dans la case de la ligne, jamais au-delà de l'objectif créé)
+            var tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = inf.titles[i] || ''; tIn.setAttribute('aria-label', tr('Titre'));
+            tIn.addEventListener('input', function () { inf.titles[i] = tIn.value; });
+            tIn.addEventListener('change', function () { infPaint(); });
+            rowEl.appendChild(field(tr('Titre'), tIn));
+            var mx = r.maxDate < form.endDate ? r.maxDate : form.endDate, dr = el('div', 'objDueRow'), dpk = datePick(infDateTxt(inf.dates[i]), r.minDate, mx, inf.dates[i], function (v) { inf.dates[i] = v; infPaint(); });
+            dr.appendChild(el('span', 'objDueLabel', tr('Date d’échéance') + ' :')); dr.appendChild(dpk.btn); dr.appendChild(dpk.input); rowEl.appendChild(dr);
+          }
           var lines = [[tr('Faire'), r.faire], [tr('Résultat'), r.resultat], [tr('Avancement'), r.avancement]].filter(function (x) { return x[1]; });
           if (lines.length) { var tb = el('div', 'objGrid objRecap objInfBody'); lines.forEach(function (x) { var rw = el('div', 'objGridRow'); rw.appendChild(el('span', 'objGridName', x[0])); rw.appendChild(el('span', 'objRecapVal', x[1])); tb.appendChild(rw); }); rowEl.appendChild(tb); }
           if (r.subs.length) { var sb = el('div', 'objGrid objRecap objInfBody objInfSubs'); r.subs.forEach(function (x) { var rw = el('div', 'objGridRow'); rw.appendChild(el('span', 'objGridName', x.title)); rw.appendChild(el('span', 'objRecapVal', hh(x.hoursMin))); sb.appendChild(rw); }); rowEl.appendChild(sb); }
@@ -789,7 +801,7 @@
       p.rows.forEach(function (r, i) {
         var kind = infKind(i); if (kind === 'existant' || inf.on[i] === false) return;
         if (kind === 'modifier') { rows.push({ kind: 'modifier', existingId: r.existingId, weeks: r.weeks, hoursMin: inf.hrs[i] }); return; }
-        rows.push({ kind: 'nouveau', title: r.title, description: infChild(r), poleKey: r.poleKey, categoryKey: r.categoryKey, endDate: r.endDate, weeks: r.weeks, hoursMin: inf.hrs[i], chiffre: r.chiffre, reason: hh(p.rateMin) + ' × ' + r.weeks + ' ' + tr('sem'), attachIds: r.subs.filter(function (x) { return x.attach; }).map(function (x) { return x.id; }) });
+        rows.push({ kind: 'nouveau', title: (inf.titles[i] || r.title || '').trim() || r.title, description: infChild(r), poleKey: r.poleKey, categoryKey: r.categoryKey, lineType: r.lineType, column: r.column, link: r.link, endDate: inf.dates[i] || r.endDate, weeks: r.weeks, hoursMin: inf.hrs[i], chiffre: r.chiffre, reason: hh(p.rateMin) + ' × ' + r.weeks + ' ' + tr('sem'), attachIds: r.subs.filter(function (x) { return x.attach; }).map(function (x) { return x.id; }) });
       });
       if (!rows.length) return Promise.resolve();
       return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: parent.id, rateMin: p.rateMin, weekly: p.level === 'semaine' ? true : undefined, rows: rows }).catch(function () { /* l'objectif principal existe déjà : jamais de blocage */ });

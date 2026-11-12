@@ -6,6 +6,7 @@ const db = require('../db');
 const goals = require('./goals');
 const aicache = require('./aicache');
 const O = require('./objectifs');
+const T = require('./objectifs-trou');
 
 const FEATURE = 'objectifs-inferieurs';
 const MAX_TITLE = 140;
@@ -211,12 +212,59 @@ async function planWeekly(userId, body, today) {
   return { skip: false, level: 'semaine', parentLevel: level, rateMin: rate, chiffre: ch, rows: outRows, totalMin: outRows.filter((r) => r.checked).reduce((a, r) => a + r.hoursMin, 0) };
 }
 
+// ---- Plan proposé à la création (12 nov. 2026) : lignes de la règle du TROU (objectifs-trou.js), titres par l'IA (un appel, en cache), repli sans IA ----
+const LINE_WEEKS = { semaine: 1, periode: 4, annee: 52, bloc: 260 };
+const LINE_LEVEL = { semaine: 'semaine', periode: 'secteur', annee: 'pole', bloc: 'bloc' }; // niveau d'affichage des lignes (en-tête de colonne du panneau)
+const LEVEL_NAME = { semaine: 'hebdomadaire', periode: 'periodique', annee: 'annuel', bloc: 'pluriannuel' };
+// Colonne des lignes : celle de l'objectif (cases du trou) ; pour les lignes du DESSOUS, le premier secteur / pôle existant s'il en faut un (jamais de catégorie créée).
+function lineColumn(mode, type, col, actId) {
+  if (mode !== 'dessous') return col;
+  if (type === 'periodique' && col.level === 'pole') { const sx = goals.secteursForPole(actId, col.poleKey); return sx.length ? { level: 'secteur', poleKey: col.poleKey, categoryKey: sx[0].key } : col; }
+  if (type === 'annuel') { const ps = col.level === 'activite' ? goals.categoriesForActivity(actId) : []; return ps.length ? { level: 'pole', poleKey: ps[0].key, categoryKey: null } : (col.level === 'activite' ? null : col); }
+  return col;
+}
+async function planTrouRows(userId, body, today) {
+  const skip = { skip: true };
+  const type = ['pluriannuel', 'annuel', 'periodique'].includes(body.type) ? body.type : null;
+  if (!type || !O.isDay(body.endDate)) return skip;
+  const act = db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.id = ?').get(userId, Number(body.activityId));
+  const rate = Math.round(Number(body.rateMin)), title = cleanText(body.title, 200);
+  if (!act || !(rate > 0) || rate > 168 * 60 || !title) return skip;
+  const level = ['activite', 'pole', 'secteur'].includes(body.level) ? body.level : 'activite';
+  const col0 = { level, poleKey: level === 'activite' ? null : (body.poleKey || null), categoryKey: level === 'secteur' ? (body.categoryKey || null) : null };
+  const tr = T.proposer(userId, body, today); if (!tr.lines.length) return skip;
+  const lineType = LEVEL_NAME[tr.lines[0].level];
+  const col = lineColumn(tr.mode, lineType, col0, act.id); if (!col) return skip;
+  const lines = tr.lines.map((c) => { const a = c.start > today ? c.start : today; return { c, weeks: Math.max(1, Math.min(LINE_WEEKS[c.level], weeksIn(a, c.endDate))) }; });
+  const asked = lines.map((l, i) => ({ n: i + 1, label: l.c.label, weeks: l.weeks }));
+  let ai = null;
+  if (process.env.ANTHROPIC_API_KEY) {
+    try {
+      const payload = { objectif: title, description: cleanText(body.description, 900) || undefined, depart: cleanText(body.depart, 400) || undefined, activite: act.name, niveauInferieur: lineType, jalons: tr.mode === 'jalons' ? true : undefined, lignes: asked.map((a) => ({ n: a.n, periode: a.label, semaines: a.weeks })) };
+      const aibudget = require('./aibudget');
+      ai = await aibudget.runAs(userId, () => aicache.memoize([FEATURE, 'v2', payload], () => generate(payload, asked, title)));
+      if (ai.lignes.some((x) => norm(x.titre) === norm(title))) ai = null;
+    } catch (e) { ai = null; } // plafond atteint, panne, réponse invalide : repli sans IA, jamais de blocage
+  }
+  const strip = (t) => String(t || '').replace(/\s*\{chiffre\}/g, '');
+  const rows = lines.map((l, i) => {
+    const t = ai ? ai.lignes[i] : null, hoursMin = rq(rate * l.weeks);
+    const row = { index: i, label: l.c.label, weeks: l.weeks, start: l.c.start, endDate: l.c.endDate, kind: 'nouveau', hoursMin, fromMin: null, checked: true, chiffre: null, existingId: null, existingTitle: null,
+      poleKey: col.poleKey || null, categoryKey: col.categoryKey || null, subs: [], choose: false, lineType, column: col, link: tr.mode === 'dessous', minDate: l.c.start > today ? l.c.start : O.addDays(today, 1), maxDate: l.c.endDate };
+    row.title = (t ? strip(t.titre) : l.c.label + ' · ' + title).slice(0, MAX_TITLE);
+    if (t) { row.faire = strip(t.faire).slice(0, MAX_TEXT); row.resultat = strip(t.resultat).slice(0, MAX_TEXT); row.avancement = strip(t.avancement).slice(0, MAX_TEXT); }
+    return row;
+  });
+  return { skip: false, level: LINE_LEVEL[lines[0].c.level], mode: tr.mode, gap: tr.gap, ai: !!ai, rateMin: rate, chiffre: null, rows, totalMin: rows.reduce((a, r) => a + r.hoursMin, 0) };
+}
+
 // ---- Proposition ----
 // body : { title, description, activityId, level ('activite' | 'pole'), poleKey (pôle), startDate, endDate, rateMin (minutes par semaine), depart (texte du Niveau, facultatif) }.
 // Renvoie { skip: true } ou { skip: false, level (des lignes), rateMin, chiffre, rows, totalMin }.
 async function plan(userId, body, today) {
   const skip = { skip: true };
   try {
+    if (body && body.trou === true) return await planTrouRows(userId, body, today); // règle du trou (12 nov. 2026)
     if (body && body.type === 'periodique') return await planWeekly(userId, body, today);
     const level = body && body.level;
     if (!['activite', 'pole'].includes(level) || !O.isDay(body.endDate) || !process.env.ANTHROPIC_API_KEY) return skip;
@@ -279,6 +327,18 @@ async function plan(userId, body, today) {
   } catch (e) { return skip; } // plafond atteint (aiBlocked), panne, délai, réponse invalide
 }
 
+// Ligne du plan du trou : colonne choisie à la proposition, type de la ligne ; jamais au-delà de l'objectif créé.
+function typedArgs(parent, r, hpw) {
+  const col = r.column || {}, level = ['activite', 'pole', 'secteur'].includes(col.level) ? col.level : (parent.level || 'activite'), t = r.lineType;
+  if (!['pluriannuel', 'annuel', 'periodique', 'hebdomadaire'].includes(t)) throw err('Ligne inconnue.');
+  if (!O.isDay(r.endDate) || r.endDate > parent.endDate) throw err('L’échéance d’une ligne ne peut pas dépasser celle de l’objectif.');
+  const small = t === 'periodique' || t === 'hebdomadaire';
+  const args = { title: r.title, activityId: parent.activityId, level, poleKey: level === 'activite' ? null : (col.poleKey || null), categoryKey: level === 'secteur' ? (col.categoryKey || null) : null, endDate: r.endDate, hoursPerWeek: hpw, description: r.description || '', weekTasks: [] };
+  if (small && level === 'secteur') args.inner = t === 'periodique' ? 'periodiques' : 'hebdomadaires'; else if (small) args.cadence = t;
+  if (r.link) { args.parentId = parent.id; args.parentRel = 'apres'; }
+  return args;
+}
+
 // ---- Application à « Terminer » : créer / modifier SEULEMENT les lignes cochées, par les fonctions existantes (mêmes contrôles) ----
 // body : { parentId, rateMin, rows: [{ kind: 'nouveau' | 'modifier', existingId, title, description, poleKey, categoryKey, endDate, weeks, hoursMin, chiffre, reason, attachIds }] }
 function appliquer(userId, body) {
@@ -287,7 +347,7 @@ function appliquer(userId, body) {
   const list = Array.isArray(body.rows) ? body.rows.slice(0, 20) : [];
   const weeklyParent = parseMeta(parent).cadence === 'periodique' || (parent.level === 'secteur' && parseMeta(parent).inner === 'periodiques' && body.weekly === true); // un périodique => ses hebdomadaires, au même niveau
   const childLevel = weeklyParent ? (parent.level || 'activite') : (parent.level || 'activite') === 'activite' ? 'pole' : (parent.level === 'pole' ? 'secteur' : null);
-  if (!childLevel) throw err('Aucun niveau inférieur à proposer.');
+  if (!childLevel && !list.some((r) => r.lineType)) throw err('Aucun niveau inférieur à proposer.');
   const created = [], changed = [];
   list.forEach((r) => {
     const weeks = Math.max(1, Math.round(Number(r.weeks) || 1)), min = Math.round(Number(r.hoursMin));
@@ -302,7 +362,7 @@ function appliquer(userId, body) {
       return;
     }
     if (r.kind !== 'nouveau') throw err('Ligne inconnue.');
-    const c = O.creer(userId, { title: r.title, activityId: parent.activityId, level: childLevel, poleKey: weeklyParent ? (parent.poleKey || null) : (r.poleKey || (childLevel === 'secteur' ? parent.poleKey : null)), categoryKey: weeklyParent ? (parent.categoryKey || null) : (childLevel === 'secteur' ? r.categoryKey : null), inner: weeklyParent ? (childLevel === 'secteur' ? 'hebdomadaires' : undefined) : (childLevel === 'secteur' ? 'periodiques' : undefined), cadence: weeklyParent && childLevel !== 'secteur' ? 'hebdomadaire' : undefined, endDate: r.endDate, hoursPerWeek: hpw, description: r.description || '', parentId: parent.id, parentRel: 'apres', weekTasks: [] });
+    const c = r.lineType ? O.creer(userId, typedArgs(parent, r, hpw)) : O.creer(userId, { title: r.title, activityId: parent.activityId, level: childLevel, poleKey: weeklyParent ? (parent.poleKey || null) : (r.poleKey || (childLevel === 'secteur' ? parent.poleKey : null)), categoryKey: weeklyParent ? (parent.categoryKey || null) : (childLevel === 'secteur' ? r.categoryKey : null), inner: weeklyParent ? (childLevel === 'secteur' ? 'hebdomadaires' : undefined) : (childLevel === 'secteur' ? 'periodiques' : undefined), cadence: weeklyParent && childLevel !== 'secteur' ? 'hebdomadaire' : undefined, endDate: r.endDate, hoursPerWeek: hpw, description: r.description || '', parentId: parent.id, parentRel: 'apres', weekTasks: [] });
     const row = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(c.id), meta = parseMeta(row);
     meta.hoursPerWeek = hpw; // le rythme exact (au quart d'heure), non arrondi au dixième
     meta.inferieur = { rythmeMin: Math.round(Number(body.rateMin)) || null, hoursMin: min, weeks, chiffre: r.chiffre && Number.isFinite(Number(r.chiffre.value)) ? { value: Number(r.chiffre.value), unit: cleanText(r.chiffre.unit, 20), type: r.chiffre.type === 'additif' ? 'additif' : 'cumulatif' } : null, raison: cleanText(r.reason, 200) };
