@@ -510,6 +510,12 @@ function targetCategory(activityId, activityName) {
 
 // ---- Pont vers l'arbre périodique et le calendrier de l'activité ----
 // Aucun secteur n'est créé par un objectif (règle du 12 nov. 2026) : voir bridge. Les secteurs créés par d'anciens objectifs restent (jamais supprimés).
+// Nature choisie (Avancé, facultative) de l'objectif le plus récent non abandonné qui porte cette catégorie du plan : 'maintenance' | 'developpement' | null (vide = l'IA décide en silence).
+function natureOfCategory(activityId, category) {
+  const rows = db.prepare('SELECT metaJson FROM user_objectives WHERE activityId = ? AND isMacro = 0 ORDER BY id DESC').all(Number(activityId));
+  for (const r of rows) { let m = {}; try { m = JSON.parse(r.metaJson || '{}'); } catch (e) { m = {}; } if (!m.abandoned && m.category === category && (m.nature === 'maintenance' || m.nature === 'developpement')) return m.nature; }
+  return null;
+}
 function writeKeyOf(r) { // un objectif encore rangé sous la clé implicite alors que l'activité a maintenant un pôle s'écrit sur son premier pôle (jamais d'échec)
   if (r.level === 'secteur' && r.categoryKey) return r.categoryKey;
   if (r.poleKey) return r.poleKey;
@@ -636,6 +642,7 @@ function creer(userId, body) {
   if (typeof body.skill === 'string' && body.skill.trim()) { const sk = textlimits.clean(body.skill, { max: 200, word: 'Niveau' }); if (sk.error) throw err(sk.error); if (sk.text) meta0.skill = sk.text; }
   const niv = require('./objectifs-niveau').readAnswers(body.niveau, textlimits.clean, (m) => { throw err(m); }); if (niv) meta0.niveau = niv; const ty = typeof body.niveauType === 'string' ? textlimits.clean(body.niveauType, { max: 40, word: 'Type' }) : null; if (ty && !ty.error && ty.text) meta0.type = ty.text; // type court écrit par l'IA (similarité des objectifs) ; // trois réponses guidées + niveau déduit (débutant, intermédiaire, avancé), propre à cet objectif
   const sug = require('./objectifs-heures').readStored(body.suggestion); if (sug) meta0.suggestion = sug; // suggestion d'heures de l'IA (milieu, fourchette, facteur) gardée pour apprendre ; le choix de la personne = hoursPerWeek
+  if (body.nature === 'maintenance' || body.nature === 'developpement') meta0.nature = body.nature; // choix facultatif de la personne (Avancé) : vide = l'IA décide en silence pour chaque tâche
   if (body.description) meta0.description = String(body.description).trim().slice(0, 900); // description libre de l'objectif (étape « Description »)
   if (isDay(body.proposedEnd)) meta0.dateCorrectedDays = daysBetween(body.proposedEnd, body.endDate); // signal : date corrigée par l'utilisateur
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta0), id);
@@ -1171,4 +1178,4 @@ function supprimer(userId, id, confirmed) {
 }
 migrateEcheances(); // au chargement (idempotent)
 try { const n = purgeOrphanMacros(null); if (n) console.log('[objectifs] ' + n + ' macro(s) sans objectif relié retiré(s)'); } catch (e) { console.warn('[objectifs] nettoyage des macros vides impossible :', e.message); }
-module.exports = { gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { natureOfCategory, gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

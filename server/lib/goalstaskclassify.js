@@ -571,8 +571,10 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
           objMatch = await goalscaptureplace.matchObjective(userId, activityId, item.categoryKey, label);
           const own = recurrence || recurrenceSuggestion || null;
           const minutes = goalscaptureplace.taskMinutes(activityId, item.categoryKey, label, item.id);
+          let natureHint = null; // nature choisie sur l'objectif qui porte la tâche (meta.nature), s'il y en a une
+          try { const wk = objMatch && objMatch.cand && objMatch.cand.weeklyId ? db.prepare('SELECT p.category AS cat FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE w.id = ?').get(objMatch.cand.weeklyId) : null; if (wk) natureHint = require('./objectifs').natureOfCategory(activityId, wk.cat); } catch (e) { natureHint = null; }
           const kind = taskkind.compute({
-            label, activityId, categoryKey: item.categoryKey, recurrence: own, objectiveMatched: !!(objMatch && objMatch.cand),
+            label, activityId, categoryKey: item.categoryKey, recurrence: own, objectiveMatched: !!(objMatch && objMatch.cand), natureHint,
             minutes, capacity: require('./goalsoverload').budgetFor(activityId, userId),
           });
           taskkind.write(item.id, kind);

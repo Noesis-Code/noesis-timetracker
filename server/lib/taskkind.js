@@ -163,8 +163,9 @@ function compute(p) {
   const long = !!(minutes > 0 && capacity > 0 && minutes > capacity); // (d)
 
   const diff = Math.abs(dev - maint);
-  const kind = diff >= MIN_MARGIN ? (dev > maint ? 'developpement' : 'maintenance') : null;
-  const confidence = kind ? Math.min(100, 40 + diff * 15) : 0;
+  const hint = KINDS.includes(o.natureHint) ? o.natureHint : null; // nature choisie sur l'objectif de la tâche (Avancé) : elle l'emporte ; vide = l'IA (calcul ci-dessus) décide en silence
+  const kind = hint || (diff >= MIN_MARGIN ? (dev > maint ? 'developpement' : 'maintenance') : null);
+  const confidence = hint ? 100 : kind ? Math.min(100, 40 + diff * 15) : 0;
   const isMaint = kind === 'maintenance';
   return { kind, confidence, maintType: isMaint ? maintTypeOf(label) : null, urgent: isMaint && urgentText, long, phase: kind === 'developpement' ? phaseOf(label) : null };
 }

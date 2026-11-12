@@ -46,4 +46,17 @@ assert(R(dev1('realisation', { dueDate: back(1) })) === 4 && R(dev1('realisation
 const per = (phase, late) => dev1(phase, { objectiveDays: null, dueDate: back(late) });
 assert(R(per('cadrage', 13)) === 3 && R(per('cadrage', 14)) === 2 && R(per('cadrage', 27)) === 2 && R(per('cadrage', 28)) === 1, 'usure périodique : 28 jours, jamais plus (annuel / pluriannuel plafonnés)');
 assert(R({ taskKind: 'maintenance', maintUrgent: true, dueDate: back(40) }) === 1 && R(dev1('realisation', { dueDate: T0 })) === 4 && R(dev1('realisation', { dueDate: '2026-12-01' })) === 4, 'rang 1 reste 1 ; une tâche à jour ou à venir ne s’use pas');
+// ---- Choix « Nature » dans « Avancé » (12 nov. 2026) : vide par défaut, l'IA décide en silence ; aucun choix de phase ----
+const creer = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
+assert(creer.includes("if (mi >= 0) adv.push({ key: 'nature', q: 'Nature', choices: ['Maintenir', 'Développer']") && creer.includes('form.natureIdx = form.natureIdx === i ? null : i'), 'ligne « Nature » dans « Avancé » du Niveau, même style que les autres questions ; retoucher le choix l\u2019annule');
+assert(!creer.includes('natureIdx = 0') && !creer.includes('natureIdx: 0') && !creer.includes("key: 'phase'") && !creer.includes('taskPhase'), 'vide par défaut ; aucun choix de phase');
+assert(creer.includes("nature: form.natureIdx === 0 ? 'maintenance' : form.natureIdx === 1 ? 'developpement' : undefined"), 'envoyée à la création seulement si choisie');
+const O = require('../server/lib/objectifs'), T = require('../server/lib/dates').userToday(), addD = (n) => O.addDays(T, n);
+const objA = O.creer('u1', { title: 'Entretien du site', activityId: act, level: 'pole', poleKey: pk, cadence: 'periodique', nature: 'maintenance', startDate: T, endDate: addD(60), weekTasks: [] });
+const objB = O.creer('u1', { title: 'Sans choix', activityId: act, level: 'pole', poleKey: pk, cadence: 'hebdomadaire', startDate: T, endDate: addD(10), weekTasks: [] });
+const mt = (id) => JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(id).metaJson);
+assert(mt(objA.id).nature === 'maintenance' && mt(objB.id).nature === undefined, 'la nature choisie est gardée sur l\u2019objectif ; sans choix : rien (l\u2019IA décide en silence)');
+assert(O.natureOfCategory(act, pk) === 'maintenance', 'la nature de l\u2019objectif qui porte la catégorie sert de signal aux tâches');
+assert(K.compute({ label: 'Rédiger le texte', natureHint: 'maintenance', repeatCount: 0, sectorShare: null }).kind === 'maintenance' && K.compute({ label: 'Payer la facture', natureHint: 'developpement', repeatCount: 3, sectorShare: null }).kind === 'developpement' && K.compute({ label: 'Rédiger le texte', objectiveMatched: true, repeatCount: 0, sectorShare: null }).kind === 'developpement', 'nature choisie : elle l\u2019emporte ; sans choix : calcul silencieux d\u2019avant');
+assert(K.compute({ label: 'Définir le plan', natureHint: 'maintenance', repeatCount: 0, sectorShare: null }).phase === null, 'maintenance choisie : jamais de phase');
 console.log(failed ? '\n' + failed + ' échec(s)' : 'nature-phases-test OK'); process.exit(failed ? 1 : 0);
