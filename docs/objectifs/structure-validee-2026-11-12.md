@@ -47,3 +47,8 @@ Tout ce qui exige de la donnée utilisateur se revoit **après** le lancement : 
 
 ## Méthode
 Du plus macro au plus micro : modèle, parcours, écrans en gris, détails. Un niveau n'est abordé que quand le précédent est signé. Aucun détail visuel avant la structure.
+
+## Statistiques : un onglet dédié (décision du 12 nov. 2026, à coder après le lancement)
+- Option B retenue : un **onglet « Statistiques »** réunissant les statistiques du Chrono et celles des objectifs (et tâches), avec la projection honnête. La règle « 4 onglets au plus » (F1/R18) sera modifiée **quand il sera temps de le coder**, pas maintenant. Un volet Objectif refait en parallèle.
+- Les **statistiques communes** (activités partagées, 3e page du Chrono) restent **à leur place** pour le moment : ce ne sont plus vraiment des statistiques mais des variables qui informent le Chrono ou les objectifs.
+- Rien de ceci ne se code avant le lancement App Store / Play Store.
