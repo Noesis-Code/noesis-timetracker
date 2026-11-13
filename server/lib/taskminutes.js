@@ -61,11 +61,17 @@ function taskMaxMinutes(task, fallback) {
 }
 
 // Écriture : colonnes additives nullables ; jamais bloquant.
-function store(db, itemId, est, source) {
+// ctx (facultatif) : { userId, activityId, categoryKey } d'une tâche NOUVELLE proposée par l'IA : sa durée est corrigée en silence par le facteur du Chrono (dureefacteur.js, borné 0,5 à 3, 1 sans données) ; l'estimation d'origine est gardée.
+function store(db, itemId, est, source, ctx) {
   if (!est || !itemId) return false;
   try {
-    db.prepare('UPDATE sub_project_items SET minMinutes = ?, medianMinutes = ?, maxMinutes = ?, durSource = ?, durConfidence = ? WHERE id = ?')
-      .run(est.min, est.median, est.max, source || est.source || 'ia', est.confidence == null ? null : est.confidence, itemId);
+    const src = source || est.source || 'ia';
+    let out = est, raw = null;
+    if (ctx && ctx.userId && ctx.activityId != null && /^ia/.test(src)) {
+      try { const f = require('./dureefacteur').factorFor(ctx.userId, ctx.activityId, ctx.categoryKey || null); if (f.factor !== 1) { out = require('./dureefacteur').scaleEstimate(est, f.factor); raw = est.median; } } catch (e) { out = est; raw = null; } // jamais bloquant
+    }
+    db.prepare('UPDATE sub_project_items SET minMinutes = ?, medianMinutes = ?, maxMinutes = ?, durSource = ?, durConfidence = ?, rawMedianMinutes = ? WHERE id = ?')
+      .run(out.min, out.median, out.max, src, est.confidence == null ? null : est.confidence, raw, itemId);
     return true;
   } catch (e) { return false; }
 }

@@ -15,7 +15,7 @@ Décisions d'Émilien (10 nov. 2026) : aucune question de plus à l'utilisateur 
 ## Phase 2 — banque commune + recherche web (à venir)
 Banque de durées de référence alimentée par recherche web sourcée (≥ 2 sources), médiane, fourchette, stockage ; consultée avant l'estimation par micro-étapes.
 
-## Phase 3 — facteur silencieux (à venir)
-Facteur = médiane de (heures Chrono de la semaine ÷ Σ durées des tâches cochées) sur ≥ 8 semaines, borné entre 0,6 et 2 ; les durées modifiées à la main servent de signal. Le Chrono reste non lié aux tâches.
+## Phase 3 — facteur silencieux (livrée le 13 nov. 2026, `server/lib/dureefacteur.js`)
+Par catégorie : facteur = temps RÉEL (entrées du Chrono) ÷ temps ESTIMÉ (durées prévues, estimation brute, des tâches cochées). Deux fenêtres : COURTE = la période en cours (28 jours) ; LONGUE = jusqu'à 12 mois ; la courte l'emporte quand elle a assez de données, sinon la longue. Moins de 4 semaines de Chrono dans la catégorie sur la fenêtre = facteur 1 (jamais de temps inventé, dormant sans données). Facteur borné entre 0,5 et 3 (ancienne règle 0,6 à 2 et 8 semaines remplacée par décision d'Émilien). Il corrige en silence les durées PROPOSÉES par l'IA pour les nouvelles tâches (jamais celles saisies à la main) ; l'estimation d'origine est gardée (`rawMedianMinutes`) : le facteur se mesure toujours contre elle, il ne se corrige pas lui-même. Le Chrono reste non lié aux tâches. Tests : `test/duree-facteur-test.js`.
 
 **Contrôle** : erreur médiane ≤ 30 % sur 100 tâches de référence ; puis part des semaines où le Chrono tombe dans [Σmin, Σmax], cible 95 %.
