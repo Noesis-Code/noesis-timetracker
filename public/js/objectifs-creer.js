@@ -764,6 +764,12 @@
     // Lignes de sous-objectifs : UNE ligne avec UN trait dessous, comme les groupes de la Description (.objGuideRow / .objGuideHead cmpToggle) ; toucher la ligne la déplie (une seule à la fois) et elle forme alors une section.
     // Ligne : case à cocher, période en petit gris au-dessus du titre, chiffre, petit trait, heures (violet, sélecteur standard), flèche à droite. Dépliée : Faire, Résultat, Avancement, puis les objectifs existants plus bas (gris, sans case).
     function infLevelName(p, one) { var k = p.level === 'bloc' ? ['Objectifs pluriannuels', 'Objectif pluriannuel'] : p.level === 'pole' ? ['Objectifs annuels', 'Objectif annuel'] : p.level === 'secteur' ? ['Objectifs périodiques', 'Objectif périodique'] : ['Objectifs hebdomadaires', 'Objectif hebdomadaire']; return k[one ? 1 : 0]; } // UNE source : le niveau réel des LIGNES proposées (pôle = par année, secteur = par période, sinon par semaine) pour le titre du panneau et l'en-tête de colonne
+    // Ordre des sous-objectifs modifiable à la main : le CONTENU d'une ligne (titre, Faire, Résultat, Avancement, case cochée) change de période ; les dates, heures et chiffres restent à leur période.
+    function infMove(from, to) {
+      var rows = inf.plan && inf.plan.rows; if (!rows || from === to || from < 0 || to < 0 || from >= rows.length || to >= rows.length) return;
+      var c = rows.map(function (r, k) { return { t: inf.titles[k], f: r.faire, r: r.resultat, a: r.avancement, on: inf.on[k] }; }), it = c.splice(from, 1)[0]; c.splice(to, 0, it);
+      rows.forEach(function (r, k) { inf.titles[k] = c[k].t; r.title = c[k].t; r.faire = c[k].f; r.resultat = c[k].r; r.avancement = c[k].a; inf.on[k] = c[k].on; });
+    }
     function infPaint() {
       var box = boxes.inf; box.textContent = ''; var p = inf.plan; if (!p || p.skip) return;
       box.appendChild(el('p', 'cmpBlockTitle objNivTitle', tr(infCreatedName()) + ' : ' + form.title)); box.appendChild(infRecap());
@@ -781,6 +787,7 @@
         var kind = infKind(i), mute = kind === 'existant', open = inf.open === i, c = r.chiffre;
         var rowEl = el('div', 'objField objGuideRow objInfRow' + (open ? ' open' : '') + (!mute && inf.on[i] === false ? ' objInfOff' : '') + (mute ? ' objInfMuted' : ''));
         var head = el('div', 'objGuideHead cmpToggle'); head.setAttribute('role', 'button'); head.tabIndex = 0; head.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (!mute) head.appendChild(el('span', 'objRdGrab', '≡')); // poignée ≡ (même que la fenêtre « Modifications proposées ») : appui long 500 ms puis glisser = changer l'ORDRE des sous-objectifs (le contenu change de période, les dates et les heures restent à leur période)
         if (mute) head.appendChild(el('span', 'objInfCb'));
         else { var cb = el('input'); cb.type = 'checkbox'; cb.checked = inf.on[i] !== false; cb.setAttribute('aria-label', inf.titles[i] || r.title || r.existingTitle || r.label); cb.addEventListener('change', function () { inf.on[i] = cb.checked; rowEl.classList.toggle('objInfOff', !cb.checked); setTot(); }); head.appendChild(cb); }
         var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'hint objInfSub', r.label)); tx.appendChild(el('span', 'cmpBlockTitle', inf.titles[i] || r.title || r.existingTitle || r.label)); head.appendChild(tx);
@@ -806,6 +813,8 @@
           if (lines.length) { var tb = el('div', 'objGrid objRecap objInfBody'); lines.forEach(function (x) { var rw = el('div', 'objGridRow'); rw.appendChild(el('span', 'objGridName', x[0])); rw.appendChild(el('span', 'objRecapVal', x[1])); tb.appendChild(rw); }); rowEl.appendChild(tb); }
           if (r.subs.length) { var sb = el('div', 'objGrid objRecap objInfBody objInfSubs'); r.subs.forEach(function (x) { var rw = el('div', 'objGridRow'); rw.appendChild(el('span', 'objGridName', x.title)); rw.appendChild(el('span', 'objRecapVal', hh(x.hoursMin))); sb.appendChild(rw); }); rowEl.appendChild(sb); }
         }
+        rowEl.setAttribute('data-i', String(i));
+        if (!mute && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(rowEl, { holdMs: 500, list: function () { return wrap; }, scroller: function () { return panelBody; }, targetSel: '.objInfRow:not(.objInfMuted)', draggingClass: 'objRdDrag', targetClass: 'objRdDrop', onDrop: function (target) { infMove(i, Number(target.getAttribute('data-i'))); infPaint(); } });
         wrap.appendChild(rowEl);
       });
       var tot = el('div', 'objGridTotal objInfTotal'); tot.appendChild(el('span', 'objGridName', tr('Total')));

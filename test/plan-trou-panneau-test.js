@@ -50,5 +50,12 @@ const pole = categories.addCategory(actId, 'Pôle A'); const poleKey = (pole && 
   // 5. source : le panneau
   const js = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
   assert(js.includes('function datePick(') && js.includes('inf.titles[i] = tIn.value') && js.includes("inf.dates[i] = v") && js.includes('lineType: r.lineType, column: r.column, link: r.link, endDate: inf.dates[i] || r.endDate'), 'panneau : titre et date modifiables, envoyés à « Terminer »');
+  // 6. ordre des sous-objectifs modifiable à la main (poignée ≡, appui long 500 ms) : le contenu change de période, dates et heures restent
+  const i0 = js.indexOf('    function infMove(from, to) {'), i1 = js.indexOf('    function infPaint()'), fn = js.slice(i0, i1);
+  const inf = { plan: { rows: [{ title: 'A', faire: 'fa', resultat: 'ra', avancement: 'aa', endDate: '2027-02-01', hoursMin: 60 }, { title: 'B', faire: 'fb', resultat: 'rb', avancement: 'ab', endDate: '2027-03-01', hoursMin: 120 }, { title: 'C', faire: 'fc', resultat: 'rc', avancement: 'ac', endDate: '2027-04-01', hoursMin: 180 }] }, titles: ['A', 'B', 'C'], on: [true, false, true] };
+  new Function('inf', fn + '\ninfMove(0, 2);')(inf);
+  const rr = inf.plan.rows;
+  assert(inf.titles.join('') === 'BCA' && rr[2].faire === 'fa' && inf.on.join() === 'false,true,true' && rr.map((r) => r.endDate).join() === '2027-02-01,2027-03-01,2027-04-01' && rr.map((r) => r.hoursMin).join() === '60,120,180', 'poignée ≡ : le contenu (titre, Faire, case cochée) change de période ; les dates et les heures restent à leur période');
+  assert(js.includes("el('span', 'objRdGrab', '≡')") && js.includes('TMT.ui.holdDrag(rowEl, { holdMs: 500'), 'poignée ≡ visible et appui long 500 ms (mécanique existante)');
   console.log(failed ? '\n' + failed + ' échec(s)' : 'plan-trou-panneau-test OK'); process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });
