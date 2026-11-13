@@ -15,7 +15,7 @@ html.arbreOn body { position: fixed; inset: 0; width: 100%; overflow: hidden; ov
 .arHInner { width: max-content; min-width: 100%; flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-end; }
 .arGridArea { display: block; flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; } /* un seul conteneur de défilement : les repères du temps et les heures défilent avec le tableau, alignés sur leur rangée */
 /* Bulles = dernière rangée de l'arbre : mêmes marges et mêmes largeurs que les rangées de la grille ; jamais fixes ni flottantes. */
-.arBaseWrap { flex: none; width: max-content; min-width: calc(100% - var(--ar-mw, 46px) - 68px); margin: 0 58px 0 calc(var(--ar-mw, 46px) + 10px); box-sizing: border-box; padding: 8px 4px 8px 0; } /* alignées sur les colonnes : décalage = repères à gauche, colonne « Heures » à droite */
+.arBaseWrap { flex: none; width: max-content; min-width: calc(100% - var(--ar-mw, 46px) - 74px); margin: 0 64px 0 calc(var(--ar-mw, 46px) + 10px); box-sizing: border-box; padding: 8px 4px 8px 0; } /* alignées sur les colonnes : décalage = repères à gauche, colonne « Heures » à droite */
 .arBaseRow { align-items: center; }
 .arBaseRow::before { display: none; }
 .arBaseWrap .arSpacer { position: static; transform: none; flex: 0 0 var(--ar-mw, 20px); width: var(--ar-mw, 20px); margin-left: calc(-1 * var(--ar-pl, 26px)); visibility: hidden; }
@@ -124,12 +124,12 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arHoleBadge { display: flex; align-items: center; justify-content: center; }
 .arHoleBadge .goalsRowMarker { position: static; margin: 0; transform: none; flex: none; width: auto; min-width: 20px; padding: 0 5px; pointer-events: none; }
 /* Colonne de droite « Heures » : lecture seule ; violet = heures réglées sur la ligne, gris = reprend la ligne du dessus (aucune nouvelle couleur) */
-.arRailR { position: relative; flex: none; width: 58px; }
-.arRailR .arHrs { position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; line-height: 20px; font-weight: 400; font-variant-numeric: tabular-nums; color: var(--text-light); white-space: nowrap; }
-.arRailR .arHrs.set { color: var(--purple); font-weight: 600; }
+.arRailR { position: relative; flex: none; width: 64px; box-sizing: border-box; padding-left: 6px; } /* cellule de 58 px, 6 px d'écart avec la grille (maquette) */
+.arRailR .arHrs { position: absolute; left: 6px; right: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--sep); border-radius: 12px; background: none; font: inherit; font-size: 13px; font-weight: 400; text-align: center; font-variant-numeric: tabular-nums; color: var(--text-light); white-space: nowrap; } /* contour arrondi 12 px, texte centré ; gris = reprend la ligne du dessus */
+.arRailR .arHrs.set { color: var(--purple); border-color: var(--purple); font-weight: 600; } /* violet, contour violet = heures réglées sur cette ligne */
 /* Fil d'Ariane : on touche le niveau voulu pour remonter ; jetons existants seulement */
 .arCrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-height: 44px; font-size: 14px; }
 .arCrumb { min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--violet-soft); font: inherit; cursor: pointer; }
 .arCrumbNow { color: var(--text); font-weight: 600; }
 .arCrumbSep { color: var(--text-light); }
-.arRailR button.arHrs { border: 0; background: none; font: inherit; font-size: 13px; cursor: pointer; padding: 0; min-height: 28px; }
+.arRailR button.arHrs { cursor: pointer; }

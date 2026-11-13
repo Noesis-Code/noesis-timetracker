@@ -560,7 +560,7 @@
     curCols = foldMerged(shown, sortByOrdre(columnsFor(shown)));
     if (!curCols.length) { gridArea = scroller = null; tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
     var n = curCols.length, wide = window.innerWidth >= 1024;
-    var SIDE = 114; // repères du temps (56 px) + colonne « Heures » (58 px) : dans le tableau qui défile
+    var SIDE = 120; // repères du temps (56 px) + colonne « Heures » (58 px de cellule + 6 px d'écart, comme la maquette) : dans le tableau qui défile
     var arW = n === 1 ? 'calc(100cqw - ' + (4 + SIDE) + 'px)' : 'calc((100cqw - ' + (GAP + 4 + SIDE) + 'px) / 2)'; // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
     var W = 'var(--ar-w)'; // les titres passent à la ligne, la largeur ne grandit jamais avec le texte
     if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) arW = 'calc((100cqw - ' + (4 + SIDE + GAP * (spanN - 1)) + 'px) / ' + spanN + ')'; } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
@@ -723,13 +723,14 @@
       marks.forEach(function (x) {
         var top = 1e9, bot = -1e9;
         Array.prototype.forEach.call(grid.querySelectorAll('.goalsGridRow[data-rank="' + x.rk + '"]'), function (g) { var q = g.getBoundingClientRect(); top = Math.min(top, q.top); bot = Math.max(bot, q.bottom); });
+        if (x.full) { x.m.style.top = Math.round(top - r0) + 'px'; x.m.style.height = Math.round(bot - top) + 'px'; return; } // cellule d'heures : TOUTE la hauteur de sa ligne
         var h = x.m.offsetHeight || 20; x.m.style.top = Math.round((top + bot) / 2 - r0 - h / 2) + 'px';
       });
     }
     (function paintHours() { // colonne « Heures » : un total par ligne, posé au milieu de la ligne comme son repère
       if (isMulti() || !list.length || (lvl !== 'activite' && !(focus && focus.activityId != null))) return;
       var spec = lvl === 'activite' ? { level: 'activite' } : lvl === 'pole' ? { level: 'pole', activityId: focus.activityId } : { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey };
-      var rows = list.map(rowSpan), spans = list.map(function (rw) { var sp = el(lvl === 'secteur' ? 'span' : 'button', 'arHrs', ''); sp.setAttribute('data-rank', String(rw.rank)); if (lvl !== 'secteur') { sp.type = 'button'; sp.setAttribute('aria-label', tr('Heures par semaine')); sp.addEventListener('click', function () { var r = list.indexOf(rw), ci = 0; for (var q = 0; q < data.length; q++) if (cells[r] && cells[r][q] && cells[r][q].length) { ci = q; break; } descendHours(rw, ci); }); } railR.appendChild(sp); marks.push({ m: sp, rk: String(rw.rank) }); return sp; }), key = JSON.stringify([spec, rows]);
+      var rows = list.map(rowSpan), spans = list.map(function (rw) { var sp = el(lvl === 'secteur' ? 'span' : 'button', 'arHrs', ''); sp.setAttribute('data-rank', String(rw.rank)); if (lvl !== 'secteur') { sp.type = 'button'; sp.setAttribute('aria-label', tr('Heures par semaine')); sp.addEventListener('click', function () { var r = list.indexOf(rw), ci = 0; for (var q = 0; q < data.length; q++) if (cells[r] && cells[r][q] && cells[r][q].length) { ci = q; break; } descendHours(rw, ci); }); } railR.appendChild(sp); marks.push({ m: sp, rk: String(rw.rank), full: true }); return sp; }), key = JSON.stringify([spec, rows]);
       function fill(res) { spans.forEach(function (sp, i) { var r = res && res[i]; sp.textContent = r ? hrsTxt(r.totalMin) : ''; sp.classList.toggle('set', !!(r && r.own)); }); }
       if (hrsCache[key]) fill(hrsCache[key]);
       TMT.api('POST', '/api/objectifs/allocation/lignes', Object.assign({ rows: rows }, spec)).then(function (res) { hrsCache[key] = res; if (spans[0] && spans[0].isConnected) fill(res); }).catch(function () {});

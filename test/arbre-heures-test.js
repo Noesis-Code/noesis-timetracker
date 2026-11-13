@@ -3,7 +3,7 @@ const fs = require('fs');
 let failed = 0; const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const js = fs.readFileSync('public/js/objectifs-arbre.js', 'utf8').replace(/\r\n/g, '\n'), css = fs.readFileSync('public/css/objectifs-arbre.css', 'utf8');
 assert(js.includes("var railR = el('div', 'arRailR'), tbl = el('div', 'arTbl');") && js.includes("'/api/objectifs/allocation/lignes'"), 'colonne de droite alimentée par l\'API des lignes');
-assert(js.includes("sp.classList.toggle('set', !!(r && r.own))") && js.includes("marks.push({ m: sp, rk: String(rw.rank) })"), 'violet = réglé sur la ligne ; posée au milieu de la ligne comme son repère');
+assert(js.includes("sp.classList.toggle('set', !!(r && r.own))") && js.includes("marks.push({ m: sp, rk: String(rw.rank), full: true })"), 'violet = réglé sur la ligne ; posée au milieu de la ligne comme son repère');
 assert(/\.arRailR \.arHrs\.set \{ color: var\(--purple\)/.test(css) && /\.arRailR \.arHrs \{[^}]*color: var\(--text-light\)/.test(css) && !/#[0-9a-f]{6}/i.test(css.slice(css.indexOf('.arRailR'))), 'aucune nouvelle couleur : jetons existants');
 assert(!/⚠/.test(js.slice(js.indexOf('function hrsTxt'), js.indexOf('function cellSize'))), 'aucun avertissement dans la colonne');
 assert(js.includes("tbl.appendChild(rail); tbl.appendChild(grid); tbl.appendChild(railR); hin.appendChild(tbl);") && !js.includes('body.appendChild(rail)'), 'repères à gauche et heures à droite dans le tableau qui défile (jamais en colonnes fixes)');
@@ -14,4 +14,6 @@ assert(js.includes('function descendHours(rw, ci) { if (lvl !== \'secteur\') des
 assert(js.includes("var nav = el('nav', 'arCrumbs')") && !js.includes("el('button', 'cmpNavArrow', '‹'); b.type = 'button'; b.setAttribute('aria-label', tr('Remonter'))"), 'fil d’Ariane : seule technique pour remonter (la flèche de retour est remplacée)');
 { const ln = js.split('\n').find((l) => l.includes('tbl.appendChild(rail); tbl.appendChild(grid);')) || '';
   assert(ln.includes('tree.appendChild(scroller)') && !/ \/\/ [^\n]*tree\.appendChild\(scroller\)/.test(ln), 'GARDE : l’arbre est attaché à la page (un commentaire // au milieu de la ligne avait avalé tree.appendChild(scroller), v1255 à v1258)'); }
+assert(/\.arRailR \.arHrs \{[^}]*border: 1px solid var\(--sep\)[^}]*border-radius: 12px/.test(css) && /\.arRailR \.arHrs\.set \{ color: var\(--purple\); border-color: var\(--purple\)/.test(css) && /\.arRailR \{ position: relative; flex: none; width: 64px/.test(css), 'cellule d’heures : contour arrondi 12 px, 58 px de large, texte centré ; violet + contour violet = réglé, gris = hérité (maquette)');
+assert(js.includes('full: true') && js.includes("x.m.style.height = Math.round(bot - top) + 'px'"), 'chaque cellule d’heures a la hauteur de sa ligne, de la première à la dernière');
 console.log(failed ? '\n' + failed + ' échec(s)' : 'arbre-heures-test OK'); process.exit(failed ? 1 : 0);
