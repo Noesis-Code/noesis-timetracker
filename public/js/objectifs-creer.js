@@ -637,7 +637,6 @@
       var mi = nivMain();
       if (mi >= 0) { boxes.niveau.appendChild(el('p', 'cmpBlockTitle', tr(niv.qs[mi].q))); boxes.niveau.appendChild(grid(niv.qs[mi], mi, function () {})); } // UNE question générale, écrite par l'IA, proportionnée à l'objectif
       var adv = nivAdv();
-      if (mi >= 0) adv.push({ key: 'nature', q: 'Nature', choices: ['Maintenir', 'Développer'], get: function () { return form.natureIdx == null ? null : form.natureIdx; }, set: function (i) { form.natureIdx = form.natureIdx === i ? null : i; }, known: false }); // vide = l'IA décide en silence d'après le titre et la description ; aucun choix de phase
       if (mi >= 0 && adv.length) { // les autres questions : sous « Avancé » (même style que la Description : à droite, violet, sans trait)
         var advWrap = el('div', 'objField objGuideRow' + (niv.advOpen ? ' open' : '')), advHead = btn('objGuideHead objAdvHead cmpToggle', '', function () { niv.advOpen = !niv.advOpen; nivPaint(); if (niv.advOpen) TMT.ui.revealOpened(boxes.niveau.querySelector('.objAdvHead')); });
         advHead.setAttribute('aria-expanded', niv.advOpen ? 'true' : 'false');

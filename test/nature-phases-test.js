@@ -48,8 +48,8 @@ assert(R(per('cadrage', 13)) === 3 && R(per('cadrage', 14)) === 2 && R(per('cadr
 assert(R({ taskKind: 'maintenance', maintUrgent: true, dueDate: back(40) }) === 1 && R(dev1('realisation', { dueDate: T0 })) === 4 && R(dev1('realisation', { dueDate: '2026-12-01' })) === 4, 'rang 1 reste 1 ; une tâche à jour ou à venir ne s’use pas');
 // ---- Choix « Nature » dans « Avancé » (12 nov. 2026) : vide par défaut, l'IA décide en silence ; aucun choix de phase ----
 const creer = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
-assert(creer.includes("if (mi >= 0) adv.push({ key: 'nature', q: 'Nature', choices: ['Maintenir', 'Développer']") && creer.includes('form.natureIdx = form.natureIdx === i ? null : i'), 'ligne « Nature » dans « Avancé » du Niveau, même style que les autres questions ; retoucher le choix l\u2019annule');
-assert(!creer.includes('natureIdx = 0') && !creer.includes('natureIdx: 0') && !creer.includes("key: 'phase'") && !creer.includes('taskPhase'), 'vide par défaut ; aucun choix de phase');
+assert(!creer.includes("key: 'nature'") && !creer.includes("choices: ['Maintenir', 'Développer']"), 'la nature concerne les TÂCHES, pas les objectifs : plus aucun choix « Nature » dans la création d’un objectif (13 nov. 2026)');
+assert(!creer.includes("key: 'phase'") && !creer.includes('taskPhase'), 'aucun choix de phase dans l’interface');
 assert(creer.includes("nature: form.natureIdx === 0 ? 'maintenance' : form.natureIdx === 1 ? 'developpement' : undefined"), 'envoyée à la création seulement si choisie');
 const O = require('../server/lib/objectifs'), T = require('../server/lib/dates').userToday(), addD = (n) => O.addDays(T, n);
 const objA = O.creer('u1', { title: 'Entretien du site', activityId: act, level: 'pole', poleKey: pk, cadence: 'periodique', nature: 'maintenance', startDate: T, endDate: addD(60), weekTasks: [] });
