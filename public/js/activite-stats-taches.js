@@ -109,28 +109,14 @@
   function build() {
     if (built) return; built = true;
     var page = el('div', 'caTaskPage');
-    var chartCard = el('div', 'saCard saGlass caTaskChartCard');
-    chartMeta = el('span', 'meta');
-    cardHead(chartCard, 'Qui fait quoi', chartMeta, scopeMenu(function () { return scope; }, function (s) { scope = s; chartMeta.textContent = scopeLabel(scope); load(true); }));
-    chartBody = el('div'); chartCard.appendChild(chartBody); page.appendChild(chartCard);
-    chartMeta.textContent = scopeLabel(scope);
-    var doneCard = el('div', 'saCard saGlass shrDone');
-    doneCard.appendChild(el('p', 'shrDoneTitle', tr('Tâches faites')));
-    doneBody = el('p', 'shrDoneValue', '—'); doneCard.appendChild(doneBody); page.appendChild(doneCard);
     var recCard = el('div', 'saCard saGlass shrRec');
     recMeta = el('span', 'meta');
     cardHead(recCard, 'Tâches récurrentes', recMeta, scopeMenu(function () { return recScope; }, function (s) { recScope = s; recMeta.textContent = scopeLabel(recScope); loadRecurring(); }));
     recMeta.textContent = scopeLabel(recScope);
     recBody = el('div'); recCard.appendChild(recBody); page.appendChild(recCard);
-    var share = el('button', 'shrOpen', tr('Partager les tâches')); share.type = 'button';
-    share.addEventListener('click', function () { if (actId) openShare(actId); });
-    page.appendChild(share);
     host.appendChild(page);
   }
-  function render(d) {
-    renderChart(d);
-    doneBody.textContent = d.total.done + ' / ' + d.total.tasks;
-  }
+  function render(d) { /* « Qui fait quoi » et « Tâches faites » sont retirés de l'écran (14 nov. 2026) : seul le tableau des tâches récurrentes reste */ }
   // Tableau « Tâches récurrentes » : lignes = tâches, colonnes = membres, nombre de fois faite.
   function renderRecurring(d) {
     recBody.textContent = '';
@@ -162,7 +148,7 @@
     var my = ++seq;
     TMT.api('GET', '/api/stats/activity-members?activityId=' + encodeURIComponent(actId) + '&scope=' + scope).then(function (d) {
       if (my !== seq) return; loadedKey = key; render(d);
-    }).catch(function (err) { if (my === seq) { chartBody.textContent = ''; chartBody.appendChild(el('p', 'hint', err.message)); } });
+    }).catch(function () { /* données de groupe non affichées */ });
   }
 
   // ---- Fenêtre « Partager les tâches » (pop-up centré, ✕ en haut à droite, verre commun) ----

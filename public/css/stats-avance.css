@@ -179,3 +179,4 @@
 .bbTable td.bbC { color: var(--text); }
 .bbTable td.bbMax { color: var(--good); font-weight: 600; }
 .bbTable td.bbMin { color: var(--danger); font-weight: 600; }
+#statsPages.bilanStack #statsPage1 > .statsPeriodMenuWrap { display: none; } /* Bilan : pas de filtre Tous / Public / Confidentiel */

@@ -536,15 +536,6 @@
   // Chaque définition : key, title, def (par défaut, non supprimable), body(d) -> noeud ou null (donnée absente).
   var CARDS = {
     t: [
-      { key: 'onTime', def: true, title: 'Répartition', body: function (d) { return splitBody(d); } },
-      { key: 'estimate', title: 'Durée estimée contre durée réelle', body: function (d) {
-        var a = d.tasks && d.tasks.estimate; if (!a || !a.length) return null;
-        var w = document.createElement('div');
-        a.forEach(function (r, i) {
-          var dp = Math.round(r.deltaPct || 0);
-          w.appendChild(row(plain(r.label), plain(fmtMin(r.estimatedMin) + ' → ' + fmtMin(r.actualMin)), colored(sgn(dp, ' %'), dp <= 0)));
-        });
-        return w; } },
       { key: 'weekdays', def: true, title: 'Jours où tu travailles vraiment', body: function (d) {
         var a = d.tasks && d.tasks.weekdays; if (!a || !a.minutes || !a.minutes.length) return null;
         var mx = Math.max.apply(null, a.minutes.map(function (m) { return m || 0; })), w = document.createElement('div');
@@ -567,90 +558,12 @@
           lab.appendChild(el('span', null, a.minutes.length > 7 ? String(Number((a.dates[i] || '').slice(8, 10))) : tr(['L', 'M', 'M', 'J', 'V', 'S', 'D'][i])));
         });
         w.appendChild(days); w.appendChild(lab); return w; } },
-      { key: 'remaining', title: 'Charge restante par pôle', body: function (d) {
-        var r = d.tasks && d.tasks.remaining; if (!r) return null;
-        var w = document.createElement('div');
-        w.appendChild(bigRow(r.count + ' ' + tr(r.count > 1 ? 'tâches' : 'tâche'), '≈ ' + fmtMin(r.minutes)));
-        (r.poles || []).forEach(function (p, i) {
-          var doneShare = p.total ? (p.total - p.remaining) * 100 / p.total : 100, ok = doneShare >= 50;
-          var rw = row(poleName(p.label, poleColor(i)), bar([[doneShare, ok ? GREEN : RED]]), colored(p.remaining + ' / ' + p.total + (hasSectors(p) ? ' ›' : ''), ok));
-          if (hasSectors(p)) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openSheet(p, i); }); }
-          w.appendChild(rw);
-        });
-        return w; } },
-      { key: 'workload', title: 'Capacité', body: function (d) {
-        var c = d.tasks && d.tasks.workload; if (!c || !has(c.pct)) return null;
-        var w = document.createElement('div'), MAX = 160; // échelle 0 – 160 % du temps estimé ; la cible (100 %) est le repère central
-        var g = el('div', 'saGauge');
-        [[80, 120, GREEN], [120, 140, YELLOW], [140, MAX, RED]].forEach(function (z) { var s = el('i', 'saGaugeZone'); s.style.left = (z[0] * 100 / MAX) + '%'; s.style.width = ((z[1] - z[0]) * 100 / MAX) + '%'; s.style.background = z[2]; g.appendChild(s); });
-        g.appendChild(el('i', 'saGaugeTarget')).style.left = (100 * 100 / MAX) + '%';
-        var nd = el('i', 'saGaugeNeedle'); nd.style.left = (Math.max(0, Math.min(MAX, c.pct)) * 100 / MAX) + '%'; g.appendChild(nd);
-        w.appendChild(g);
-        w.appendChild(el('p', 'meta saGaugeMeta', tr('{a} passées sur {b} estimées', { a: fmtMin(c.actualMin), b: fmtMin(c.estimatedMin) })));
-        return w; } },
-      { key: 'postponed', title: 'Tâches reportées plusieurs fois', body: function (d) {
-        var a = d.tasks && d.tasks.postponed; if (!a || !a.length) return null;
-        var ul = el('ul', 'saLst');
-        a.forEach(function (p) { var li = el('li'); li.appendChild(el('span', null, p.label)); li.appendChild(el('b', null, p.count + ' ' + tr(p.count > 1 ? 'reports' : 'report'))); ul.appendChild(li); });
-        return ul; } },
-      { key: 'capacity', title: 'Capacité par jour', body: function (d) {
+      { key: 'capacity', def: true, title: 'Capacité par jour', body: function (d) {
         var c = d.tasks && d.tasks.capacity; if (!c || !has(c.avgFreeMinutes)) return null;
-        return bigRow(fmtMin(c.avgFreeMinutes), tr('libres en moyenne')); } },
-      { key: 'urgent', title: 'Urgence et échéances', body: function (d) {
-        var u = d.tasks && d.tasks.urgent; if (!u || !has(u.count)) return null;
-        return bigRow(String(u.count), tr('tâches à échéance sous {n} jours', { n: u.withinDays })); } }
+        return bigRow(fmtMin(c.avgFreeMinutes), tr('libres en moyenne')); } }
     ],
     o: [
-      { key: 'advance', def: true, title: 'Avancement', body: function (d) { return timelineBody(d); } },
-      { key: 'target', title: 'Temps cible contre temps fait', body: function (d) {
-        var a = d.objectives && d.objectives.target; if (!a || !a.length) return null;
-        var w = document.createElement('div');
-        a.forEach(function (r, i) {
-          var ok = r.doneMin >= r.targetMin, share = r.targetMin ? r.doneMin * 100 / r.targetMin : 0;
-          var rw = row(poleName(r.label, poleColor(i)), bar([[share, ok ? GREEN : RED]]), colored(fmtMin(r.doneMin) + ' / ' + fmtMin(r.targetMin) + (hasSectors(r) ? ' ›' : ''), ok));
-          if (hasSectors(r)) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openObjSheet(r, i, 'target'); }); }
-          w.appendChild(rw);
-        });
-        return w; } },
-      { key: 'weeks', title: 'Où ça glisse', body: function (d) {
-        var a = d.objectives && d.objectives.weeks; if (!a || !a.list || !a.list.length) return null;
-        var w = document.createElement('div');
-        if (a.mode === 'weekly') {
-          var nav = el('div', 'cmpNav cmpNav--sm cmpNav--fixed saDaysNav'); nav.style.setProperty('--nav-label-w', '150px');
-          var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Période précédente')); prev.disabled = !a.canPrev;
-          var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Période suivante')); next.disabled = !a.canNext;
-          prev.addEventListener('click', function () { if (a.canPrev) { wOff = (a.offset || 0) - 1; load(); } });
-          next.addEventListener('click', function () { if (a.canNext) { wOff = Math.min(0, (a.offset || 0) + 1); load(); } });
-          nav.appendChild(prev); nav.appendChild(el('span', 'cmpNavLabel', a.label)); nav.appendChild(next);
-          w.appendChild(nav);
-        }
-        var items = a.list;
-        if (a.mode === 'periodic') {
-          // Pas de période à venir. Dernière période = tout à droite, puis 4 par 4 en remontant ; au début de l'année la dernière page se cale sur P1-P4 (jamais une période seule).
-          var vis = a.list.filter(function (c) { return !c.future; }), n = vis.length, wins = [], e = n - 1;
-          while (e >= 0) { var st = e - 3; if (st <= 0) { wins.push([0, Math.min(3, n - 1)]); break; } wins.push([st, e]); e = st - 1; }
-          var np = wins.length, pg = Math.max(0, Math.min(np - 1, pPage || 0));
-          items = vis.slice(wins[pg][0], wins[pg][1] + 1);
-          var pn = el('div', 'cmpNav cmpNav--sm cmpNav--fixed saDaysNav'); pn.style.setProperty('--nav-label-w', '150px');
-          var pv = el('button', 'cmpNavArrow', '‹'); pv.type = 'button'; pv.setAttribute('aria-label', tr('Période précédente')); pv.disabled = pg >= np - 1;
-          var nx = el('button', 'cmpNavArrow', '›'); nx.type = 'button'; nx.setAttribute('aria-label', tr('Période suivante')); nx.disabled = pg <= 0;
-          pv.addEventListener('click', function () { if (pg < np - 1) { pPage = pg + 1; load(); } });
-          nx.addEventListener('click', function () { if (pg > 0) { pPage = pg - 1; load(); } });
-          pn.appendChild(pv); pn.appendChild(el('span', 'cmpNavLabel', items[0].label + (items.length > 1 ? ' – ' + items[items.length - 1].label : ''))); pn.appendChild(nx);
-          w.appendChild(pn);
-        }
-        var g = el('div', 'saTiles');
-        g.style.gridTemplateColumns = 'repeat(4,1fr)';
-        items.forEach(function (wk) {
-          var has = wk.pct != null, ok = has && (wk.status ? wk.status === 'atteint' : wk.pct >= 80), click = !visitor && has && wk.periodStart;
-          var t = el(click ? 'button' : 'div', 'saTile saGlass' + (click ? ' saTileBtn' : '')); if (click) t.type = 'button';
-          if (click) t.addEventListener('click', function () { openGlisse(wk.periodStart, wk.week || null); });
-          if (has) t.style.borderColor = ok ? GREEN : RED; else t.style.opacity = wk.future ? '.4' : '.6';
-          t.appendChild(el('small', null, wk.label));
-          var b = el('b', null, has ? Math.round(wk.pct) + ' %' : '–'); if (has) b.style.color = ok ? GREEN : RED; t.appendChild(b); g.appendChild(t);
-        });
-        w.appendChild(g);
-        return w; } },
+      { key: 'advance', def: true, title: 'Avancement', body: function (d) { return timelineBody(d); } }
     ]
   };
 
@@ -662,7 +575,7 @@
   function saveAdded(k, arr) { try { localStorage.setItem(infoStore(k), JSON.stringify(arr)); } catch (e) { /* stockage indisponible */ } }
 
   // Cartes à peu d'informations : deux par ligne (une seule restante = pleine largeur).
-  var HALF = { capacity: 1, urgent: 1 };
+  var HALF = { capacity: 1 };
   function fillHalfRuns() {
     var run = [];
     var flush = function () { if (run.length % 2 === 1) run[run.length - 1].classList.add('saFull'); run = []; };
@@ -726,6 +639,7 @@
   }
   // Au-delà de 120 % du temps estimé : fenêtre standard (✕), une fois par période, avec le bilan existant (Garder / Alléger / Prolonger) appliqué aux objectifs en cours de l'activité.
   function capacityAlert() {
+    return; /* alerte de capacité retirée (doublon avec l'arbre, 14 nov. 2026) */
     var c = data && data.tasks && data.tasks.workload;
     if (visitor || !c || !c.over || activityId == null || !zone || zone.classList.contains('hidden') || !TMT.ui || !TMT.ui.confirm) return;
     var key = 'tmt.capAlert.' + activityId + '.' + c.periodStart;
@@ -766,7 +680,7 @@
     var defs = CARDS[tab], added = loadAdded(tab);
     if (visitor) {
       // Profil visité : cartes fixes, lecture seule (liste blanche aussi côté serveur).
-      var fixed = tab === 't' ? ['onTime'] : ['weeks'];
+      var fixed = []; /* profil visité : plus de cartes fixes (Répartition et « Où ça glisse » retirées, 14 nov. 2026) : seul le graphique reste */
       fixed.forEach(function (k) {
         var c = defs.filter(function (x) { return x.key === k; })[0], n = c && c.body(data);
         if (n) els.body.appendChild(infoCard(c, n, false));
@@ -777,8 +691,8 @@
     // Page unique : le bouton Tâches | Objectifs ne change que le graphique ; toutes les cartes (tâches ET objectifs) restent affichées.
     var all = CARDS.t.concat(CARDS.o), byKey = function (k) { return all.filter(function (x) { return x.key === k; })[0]; };
     var put = function (c, removable) { var n = c.body(data); if (n) els.body.appendChild(infoCard(c, n, removable)); };
-    put(byKey('onTime'), false); put(byKey('advance'), false); // Répartition (synchronisée avec le graphique) juste dessous, puis l'Avancement
-    all.filter(function (c) { return c.def && c.key !== 'advance' && c.key !== 'onTime'; }).forEach(function (c) { put(c, false); });
+    put(byKey('advance'), false); /* l'Avancement juste sous le graphique */
+    all.filter(function (c) { return c.def && c.key !== 'advance'; }).forEach(function (c) { put(c, false); });
     var addedAll = all.filter(function (c) { return !c.def && loadAdded(c.tab).indexOf(c.key) >= 0; });
     if (!adding) {
       addedAll.forEach(function (c) { put(c, true); });
@@ -1004,10 +918,10 @@
   var bilanOn = false;
   TMT.bilanShow = function () {
     bilanOn = true; pages.classList.add('bilanStack');
-    [page1, page2, sharedEl, groupEl].forEach(function (p) { if (p) p.classList.remove('hidden'); });
+    [page1, page2, groupEl].forEach(function (p) { if (p) p.classList.remove('hidden'); });
+    if (sharedEl) sharedEl.classList.add('hidden');
     if (modOnId('stats-tasks')) { inst.setTab('t'); inst.open(); }
     if (groupAvailable() && TMT.groupStats) TMT.groupStats.open();
-    if (sharedAvailable()) openShared();
     if (TMT.bilanBlocs) TMT.bilanBlocs.open();
     setDots();
   };
