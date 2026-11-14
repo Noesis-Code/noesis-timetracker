@@ -157,6 +157,7 @@
     els.msg = el('p', 'hint hidden');
     // Une page par onglet (Tâches | Objectifs) : les deux voisines coexistent pendant le glissement (slidePager).
     bodies.t = el('div', 'saBody'); bodies.o = el('div', 'saBody hidden'); els.body = bodies.t;
+    if (cfg.paint) return; // Bilan : une carte à la fois, peinte par cfg.paint ; ni page, ni feuille du bas
     [els.chips, els.yearRow, els.msg, bodies.t, bodies.o].forEach(function (e) { if (e) page2.appendChild(e); });
     if (visitor) { bodies.t.classList.add('saVisitor'); bodies.o.classList.add('saVisitor'); }
     // Feuille du bas (charge restante par secteur) : même fenêtre qu'avant (communityMembersModal), fermeture ✕.
@@ -203,7 +204,7 @@
     els.modal.classList.remove('hidden');
   }
   // Un pôle n'est cliquable que s'il a au moins un vrai secteur (l'entrée « pôle hors secteur » seule ne compte pas).
-  function hasSectors(p) { return !visitor && !!(p && p.sectors && p.sectors.some(function (x) { return x.label; })); }
+  function hasSectors(p) { return !visitor && !cfg.paint && !!(p && p.sectors && p.sectors.some(function (x) { return x.label; })); }
   // Feuille « par secteur » de la carte Objectifs « Temps cible contre temps fait » (kind = 'target').
   function openObjSheet(p, index, kind) {
     els.mTitle.innerHTML = '';
@@ -590,7 +591,7 @@
     hd.appendChild(el('h3', null, tr(def.title)));
     if (removable) {
       var x = el('button', 'cmpRemove cmpRemove--corner'); x.type = 'button'; x.setAttribute('aria-label', tr('Retirer'));
-      x.addEventListener('click', function () { askRemove(def); });
+      x.addEventListener('click', function () { if (typeof removable === 'function') removable(); else askRemove(def); });
       hd.appendChild(x);
     }
     c.appendChild(hd); c.appendChild(node);
@@ -659,6 +660,7 @@
   }
   function render() {
     if (!built) return;
+    if (cfg.paint) { cfg.paint(data); return; }
     var sd = slideDir; slideDir = 0;
     var bt = visitor ? tab : 't';
     els.body = bodies[bt];
@@ -800,6 +802,19 @@
       if (!visitor && data && datas[tab] && activityId != null) { if (!els.body.firstChild) { data = datas[tab]; render(); } load(true); return; } // déjà chargée : montrée telle quelle (le glissement n'attend plus le réseau), rafraîchie en arrière-plan
       load();
     },
+    // BILAN : une carte d'information d'UNE activité (mode cfg.paint). key : 'graph' (courbe tâches et objectifs), 'advance', 'weekdays', 'capacity'. remover : croix rouge (retirer).
+    paintFor: function (aid) { activityId = aid; load(); },
+    bodyFor: function (key, d) { var c = d && CARDS.t.concat(CARDS.o).filter(function (k) { return k.key === key; })[0]; return c ? c.body(d) : null; }, // contenu seul d'une carte (sans cadre)
+    cardFor: function (key, d, remover) {
+      if (!d) return null;
+      if (key === 'graph') {
+        var g = chartCard(d);
+        if (remover) { var x = el('button', 'cmpRemove cmpRemove--corner'); x.type = 'button'; x.setAttribute('aria-label', tr('Retirer')); x.addEventListener('click', remover); g.appendChild(x); }
+        return g;
+      }
+      var c = CARDS.t.concat(CARDS.o).filter(function (k) { return k.key === key; })[0], n = c && c.body(d);
+      return n ? infoCard(c, n, remover || false) : null;
+    },
     reset: resetTransient, hideSheet: hideSheet, isDirty: isDirty, getTab: function () { return tab; }, setTab: setTab, goTab: goTab, commitTab: commitTab,
     bodyOf: function (t) { build(); return bodies[t]; }, otherReady: function () { return !!datas[tab === 't' ? 'o' : 't']; },
     forget: function () { activityId = null; data = null; if (built) { els.chips.innerHTML = ''; els.yearRow.innerHTML = ''; els.yearRow.classList.add('hidden'); bodies.t.innerHTML = ''; bodies.o.innerHTML = ''; datas = { t: null, o: null }; } }
@@ -882,6 +897,15 @@
       return TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(aid) + qs).then(function (d) { return { data: d }; });
     }
   });
+  // BILAN : une instance par carte d'information d'une activité (dessin dans cfg.paint, aucune page, aucune feuille).
+  TMT.bilanCardInstance = function (paint) {
+    return createInstance({
+      root: document.createElement('div'), paint: paint,
+      activities: function () { return (TMT.getActivitiesCache && TMT.getActivitiesCache()) || []; },
+      isShown: function () { return true; }, onTab: function () {},
+      fetch: function (aid, qs) { return TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(aid) + qs).then(function (d) { return { data: d }; }); }
+    });
+  };
   // Profil d'un AUTRE utilisateur : même code, lecture seule. Voir TMT.createVisitorStats (app.js : page de visite).
   TMT.createVisitorStats = function (root, userId, onTab) {
     var acts = [];
@@ -918,13 +942,11 @@
   var bilanOn = false;
   TMT.bilanShow = function () {
     bilanOn = true; pages.classList.add('bilanStack');
-    [page1, page2, groupEl].forEach(function (p) { if (p) p.classList.remove('hidden'); });
-    if (sharedEl) sharedEl.classList.add('hidden');
-    if (modOnId('stats-tasks')) { inst.setTab('t'); inst.open(); }
-    if (groupAvailable() && TMT.groupStats) TMT.groupStats.open();
+    [page2, sharedEl, groupEl].forEach(function (p) { if (p) p.classList.add('hidden'); }); // Bilan : seuls les 3 tableaux Chrono sont visibles d'office (vue Toutes : page 1 ; une activité : zone de la fenêtre Chrono), le reste s'ajoute
     if (TMT.bilanBlocs) TMT.bilanBlocs.open();
     setDots();
   };
+  TMT.bilanPage1 = function (on) { if (bilanOn) page1.classList.toggle('hidden', !on); };
   TMT.bilanHide = function () {
     if (!bilanOn) return;
     if (TMT.bilanBlocs) TMT.bilanBlocs.close();

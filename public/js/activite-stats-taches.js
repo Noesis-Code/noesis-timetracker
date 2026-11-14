@@ -113,7 +113,7 @@
     recMeta = el('span', 'meta');
     cardHead(recCard, 'Tâches récurrentes', recMeta, scopeMenu(function () { return recScope; }, function (s) { recScope = s; recMeta.textContent = scopeLabel(recScope); loadRecurring(); }));
     recMeta.textContent = scopeLabel(recScope);
-    recBody = el('div'); recCard.appendChild(recBody); page.appendChild(recCard);
+    recBody = el('div'); recCard.appendChild(recBody); page.appendChild(recCard); legacyRec = { body: recBody, meta: recMeta };
     host.appendChild(page);
   }
   function render(d) { /* « Qui fait quoi » et « Tâches faites » sont retirés de l'écran (14 nov. 2026) : seul le tableau des tâches récurrentes reste */ }
@@ -269,9 +269,25 @@
       chips.appendChild(b);
     });
   }
+  // BILAN (14 nov. 2026) : le tableau « Tâches récurrentes » seul (ni « Qui fait quoi », ni « Tâches faites », ni « Partager les tâches »), posé dans le conteneur donné pour l'activité donnée.
+  // remover (optionnel) : croix rouge en haut à droite.
+  var legacyRec = null; // le tableau de la page Groupe : le Bilan pose le sien ailleurs, la page Groupe retrouve le sien à son ouverture
+  TMT.groupStatsRecurring = function (aid, container, remover) {
+    actId = aid;
+    var card = el('div', 'saCard saGlass shrRec');
+    recMeta = el('span', 'meta');
+    cardHead(card, 'Tâches récurrentes', recMeta, scopeMenu(function () { return recScope; }, function (s2) { recScope = s2; recMeta.textContent = scopeLabel(recScope); loadRecurring(); }));
+    recMeta.textContent = scopeLabel(recScope);
+    recBody = el('div'); card.appendChild(recBody);
+    if (remover) { var x = el('button', 'cmpRemove cmpRemove--corner'); x.type = 'button'; x.setAttribute('aria-label', tr('Retirer')); x.addEventListener('click', remover); card.appendChild(x); }
+    container.appendChild(card);
+    loadRecurring();
+    return card;
+  };
   TMT.groupStats = {
     // Ouverture de la page : puces des activités partagées, puis les données de l'activité choisie.
     open: function () {
+      if (legacyRec) { recBody = legacyRec.body; recMeta = legacyRec.meta; }
       var list = shared();
       if (!list.some(function (a) { return String(a.id) === String(actId); })) {
         var pref = list.filter(function (a) { return String(a.id) === String(TMT.currentGoalsActivityId); })[0];

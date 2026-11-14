@@ -4422,6 +4422,31 @@
     loadCategoryChart();
   }
 
+  // BILAN (14 nov. 2026) : le contenu de cette fenêtre (Feuille de temps, Répartition, Graphique d'UNE activité par pôle et par secteur) est déplacé tel quel dans la page Bilan,
+  // sans fenêtre : on y réutilise la zone défilante (mêmes ids, mêmes fonctions) puis on la remet dans la fenêtre en quittant.
+  var bilanCsHome = null;
+  TMT.bilanCategoryStats = {
+    open: function (hostEl, activityId, name) {
+      var scroll = $('categoryStatsScroll');
+      if (!profile || !hostEl || !scroll || categoryStatsMarkupMissing().length) return;
+      if (!bilanCsHome) bilanCsHome = { parent: scroll.parentNode, next: scroll.nextSibling };
+      hostEl.appendChild(scroll);
+      csCtx = { activityId: Number(activityId), memberId: null, name: name || '' };
+      csPeriod = 'week'; csWeekOffset = 0; csMonthOffset = 0; csTodayMode = false; csLastData = null; csChartGranularity = 'day';
+      syncCsTodayBtn();
+      syncPeriodMenuActive($('csTsPeriodMenu'), 'week');
+      syncPeriodMenuActive($('csChartPeriodMenu'), 'day');
+      loadCategoryStats();
+      loadCategoryChart();
+    },
+    close: function () {
+      var scroll = $('categoryStatsScroll');
+      categoryStatsToken++; categoryChartToken++; csCtx = null;
+      if (bilanCsHome && scroll && scroll.parentNode !== bilanCsHome.parent) bilanCsHome.parent.insertBefore(scroll, bilanCsHome.next && bilanCsHome.next.parentNode === bilanCsHome.parent ? bilanCsHome.next : null);
+      bilanCsHome = null;
+    }
+  };
+
   function closeCategoryStats() {
     categoryStatsToken++;   // toute réponse encore en vol devient périmée
     categoryChartToken++;

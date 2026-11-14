@@ -180,3 +180,5 @@
 .bbTable td.bbMax { color: var(--good); font-weight: 600; }
 .bbTable td.bbMin { color: var(--danger); font-weight: 600; }
 #statsPages.bilanStack #statsPage1 > .statsPeriodMenuWrap { display: none; } /* Bilan : pas de filtre Tous / Public / Confidentiel */
+/* Bilan, vue d'une activité : le contenu de la fenêtre Chrono est posé dans la page (aucune fenêtre, aucun défilement propre) */
+#bilanBlocs #categoryStatsScroll { overflow: visible; padding: 0; }
