@@ -263,6 +263,12 @@ function write(itemId, res) {
 function setPhase(itemId, phase) {
   db.prepare("UPDATE sub_project_items SET taskPhase = ? WHERE id = ? AND taskKind = 'developpement'").run(PHASES.includes(phase) ? phase : null, itemId);
 }
+// Nature choisie par la personne à la création manuelle (Avancé) : elle l'emporte sur le calcul ; maintenance = jamais de phase, développement = phase d'après le titre (sinon vide).
+function setNature(itemId, nature, label) {
+  if (!KINDS.includes(nature)) return;
+  const maint = nature === 'maintenance';
+  write(itemId, { kind: nature, maintType: maint ? maintTypeOf(label) : null, urgent: maint && isUrgentText(label), phase: maint ? null : phaseOf(label) });
+}
 function readPhaseMany(ids) {
   const out = {}, sel = db.prepare('SELECT taskPhase FROM sub_project_items WHERE id = ?');
   (ids || []).forEach((id) => { const r = sel.get(id); out[id] = (r && r.taskPhase) || null; });
@@ -280,4 +286,4 @@ function readMany(ids) {
   return out;
 }
 
-module.exports = { dayRank, compareDay, baseDayRank, PHASES, phaseOf, setPhase, readPhaseMany, KINDS, ESSENTIAL_RANK, MIN_HISTORY, compute, rankOf, tierOf, compareTasks, placementTier, comparePlacement, rankInfoMany, maintTypeOf, isUrgentText, doneDatesForTitle, sectorDevShare, write, read, readMany };
+module.exports = { setNature, dayRank, compareDay, baseDayRank, PHASES, phaseOf, setPhase, readPhaseMany, KINDS, ESSENTIAL_RANK, MIN_HISTORY, compute, rankOf, tierOf, compareTasks, placementTier, comparePlacement, rankInfoMany, maintTypeOf, isUrgentText, doneDatesForTitle, sectorDevShare, write, read, readMany };

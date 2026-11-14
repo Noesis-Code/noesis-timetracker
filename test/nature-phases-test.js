@@ -59,4 +59,17 @@ assert(mt(objA.id).nature === 'maintenance' && mt(objB.id).nature === undefined,
 assert(O.natureOfCategory(act, pk) === 'maintenance', 'la nature de l\u2019objectif qui porte la catégorie sert de signal aux tâches');
 assert(K.compute({ label: 'Rédiger le texte', natureHint: 'maintenance', repeatCount: 0, sectorShare: null }).kind === 'maintenance' && K.compute({ label: 'Payer la facture', natureHint: 'developpement', repeatCount: 3, sectorShare: null }).kind === 'developpement' && K.compute({ label: 'Rédiger le texte', objectiveMatched: true, repeatCount: 0, sectorShare: null }).kind === 'developpement', 'nature choisie : elle l\u2019emporte ; sans choix : calcul silencieux d\u2019avant');
 assert(K.compute({ label: 'Définir le plan', natureHint: 'maintenance', repeatCount: 0, sectorShare: null }).phase === null, 'maintenance choisie : jamais de phase');
+// ---- Création manuelle d'une tâche : bloc « Avancé » replié, un seul choix « Nature », vide par défaut (13-14 nov. 2026) ----
+const aj = fs.readFileSync(path.join(__dirname, '..', 'public/js/aujourdhui.js'), 'utf8').replace(/\r\n/g, '\n');
+assert(aj.includes('function advBlock()') && aj.includes("var NATURES = [['maintenance', 'Maintenir'], ['developpement', 'Développer']]") && aj.includes('ui.fields.appendChild(advBlock())'), 'création de tâche : bloc « Avancé » avec le seul choix « Nature » (Maintenir / Développer)');
+assert(aj.includes("state.nature = null; state.advOpen = false; state.natureOpen = false;") && aj.includes('state.nature = natureValue() === n[0] ? null : n[0]') && !/key: 'phase'|phaseChoice|choisir la phase/i.test(aj), 'replié et vide par défaut ; retoucher le choix l\u2019annule ; aucun choix de phase');
+assert(aj.includes('nature: natureValue()') && aj.includes('if (c.nature) extra.nature = c.nature;'), 'la nature choisie accompagne l\u2019enregistrement ; rien si vide (l\u2019IA décide en silence)');
+assert(/objGuideRow/.test(aj.slice(aj.indexOf('function advBlock()'), aj.indexOf('function closeChooser()'))) && /objAdvHead/.test(aj.slice(aj.indexOf('function advBlock()'), aj.indexOf('function closeChooser()'))), 'même classes que l\u2019« Avancé » de l\u2019étape Niveau d\u2019un objectif');
+const sp = fs.readFileSync(path.join(__dirname, '..', 'server/routes/subprojects.js'), 'utf8');
+assert(sp.includes("req.body.nature === 'maintenance' || req.body.nature === 'developpement'") && sp.includes("require('../lib/taskkind').setNature("), 'route : la nature choisie est écrite sur la tâche');
+const t1 = mk('Rédiger la page de vente'), t2 = mk('Payer la facture du serveur');
+K.setNature(t1, 'maintenance', 'Rédiger la page de vente'); K.setNature(t2, 'developpement', 'Payer la facture du serveur');
+const rd = (id) => db.prepare('SELECT taskKind, maintType, taskPhase FROM sub_project_items WHERE id = ?').get(id);
+assert(rd(t1).taskKind === 'maintenance' && rd(t1).taskPhase === null && rd(t1).maintType, 'nature choisie « Maintenir » : maintenance, jamais de phase');
+assert(rd(t2).taskKind === 'developpement' && rd(t2).maintType === null, 'nature choisie « Développer » : développement, pas de type d\u2019entretien');
 console.log(failed ? '\n' + failed + ' échec(s)' : 'nature-phases-test OK'); process.exit(failed ? 1 : 0);

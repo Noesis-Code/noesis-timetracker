@@ -431,10 +431,35 @@
     ui.fields.appendChild(fieldRow('pole', 'Pôle', t ? poleOf(t) : tr('Choisir'), readOnly || !poleId));
     if (!t || sectorsOfPole(t).length) ui.fields.appendChild(fieldRow('secteur', 'Secteur', t && sectorOf(t) ? sectorOf(t) : tr('Choisir'), readOnly || !t));
     if (!state.expStep) ui.fields.appendChild(dateRow(readOnly)); // étape 1 d'Expansion : seulement le pôle et le secteur
+    if (!state.expStep && !readOnly) ui.fields.appendChild(advBlock()); // « Avancé » : replié, un seul choix « Nature »
     if (!state.expStep && poleId && state.members[poleId] && state.members[poleId].length > 1) ui.fields.appendChild(fieldRow('who', 'Responsable', state.who ? state.who.name : '—', readOnly));
     if (state.expStep) { ui.hint.textContent = tr('Balaie vers la gauche pour voir les tâches générées.'); ui.hint.classList.remove('hidden'); }
     else { ui.hint.textContent = tr('Rien n’est rangé sans toi : ↑ ou ✕ enregistre ce rangement.'); ui.hint.classList.toggle('hidden', !t || !!readOnly); }
     if (poleId && !state.members[poleId]) membersOf(poleId).then(function () { if (!readOnly && (target() ? target().activityId : state.poleId) === poleId) paintProposal(); });
+  }
+  // « Avancé » de la création manuelle d'une tâche : replié par défaut ; « Nature » (Maintenir / Développer) VIDE par défaut = l'IA décide en silence d'après le titre ; aucun choix de phase. Retoucher le choix l'annule.
+  var NATURES = [['maintenance', 'Maintenir'], ['developpement', 'Développer']];
+  function natureValue() { return state.nature || null; }
+  function advBlock() {
+    var box = el('div', 'tasksAdv'), wrap = el('div', 'objField objGuideRow' + (state.advOpen ? ' open' : ''));
+    var head = el('button', 'objGuideHead objAdvHead cmpToggle'); head.type = 'button'; head.setAttribute('aria-expanded', state.advOpen ? 'true' : 'false');
+    var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
+    head.appendChild(tx); head.appendChild(el('span', 'cmpChev' + (state.advOpen ? ' open' : '')));
+    head.addEventListener('click', function () { state.advOpen = !state.advOpen; paintProposal(); });
+    wrap.appendChild(head); box.appendChild(wrap);
+    if (!state.advOpen) return box;
+    var row = el('div', 'objField objGuideRow' + (state.natureOpen ? ' open' : '')), h2 = el('button', 'objGuideHead cmpToggle'); h2.type = 'button'; h2.setAttribute('aria-expanded', state.natureOpen ? 'true' : 'false');
+    var t2 = el('span', 'objGuideTxt'); t2.appendChild(el('span', 'cmpBlockTitle', tr('Nature'))); h2.appendChild(t2);
+    var cur = NATURES.filter(function (n) { return n[0] === natureValue(); })[0];
+    h2.appendChild(el('span', 'hint objGuideRight objNivAns', cur ? tr(cur[1]) : '')); h2.appendChild(el('span', 'cmpChev' + (state.natureOpen ? ' open' : '')));
+    h2.addEventListener('click', function () { state.natureOpen = !state.natureOpen; paintProposal(); });
+    row.appendChild(h2);
+    if (state.natureOpen) {
+      var seg = el('div', 'cmpSeg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', tr('Nature'));
+      NATURES.forEach(function (n) { var b = el('button', natureValue() === n[0] ? 'active' : '', tr(n[1])); b.type = 'button'; b.setAttribute('aria-pressed', natureValue() === n[0] ? 'true' : 'false'); b.addEventListener('click', function () { state.nature = natureValue() === n[0] ? null : n[0]; state.natureOpen = false; paintProposal(); }); seg.appendChild(b); });
+      row.appendChild(seg);
+    }
+    box.appendChild(row); return box;
   }
   function closeChooser() { state.open = ''; }
   function choice(box, label, fn) { var b = el('button', 'tasksChoice', label); b.type = 'button'; b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); if (state.expStep) genEnsure(); }); box.appendChild(b); }
@@ -834,7 +859,7 @@
   }
   function reset() {
     clearTimeout(state.flash); state.exp = null; state.gen = null; state.expStep = 0; state.review = false; ui.pages.classList.remove('locked'); goPage(1, true); dock.classList.remove('expSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
-    state.date = null; state.who = null; state.poleId = null; closeChooser();
+    state.date = null; state.who = null; state.poleId = null; state.nature = null; state.advOpen = false; state.natureOpen = false; closeChooser();
     ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
     repaintText(); // iPhone : le texte d'invite (placeholder) ne se redessinait qu'en partie (« Ajou ») après l'envoi
   }
@@ -856,6 +881,7 @@
       if (!ok) { var bad = flow && (flow.results || [])[0]; fail(bad && bad.error ? tr(bad.error) : ''); return null; }
       state.added.unshift({ id: ok.id, label: c.label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
       var extra = { userId: TMT.getProfile().id, dueDate: c.date };
+      if (c.nature) extra.nature = c.nature; // choisie dans « Avancé » ; vide = l'IA décide en silence
       if (c.who) { extra.plannedUserId = c.who.id; extra.notifyAssignee = true; }
       return TMT.api('PUT', '/api/sub-project-items/' + ok.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }).then(function () { refresh(); calReload(); });
     }).catch(function (err) { fail(err && err.message); });
@@ -892,7 +918,7 @@
         });
       }
       // Proposition déjà affichée : validation INSTANTANÉE (↑ ou ✕). Le panneau se ferme tout de suite, « Tâche enregistrée » s'affiche en haut de la barre, l'enregistrement se termine en arrière-plan.
-      if (shown) { fastCommit({ t: t, label: label, date: state.date || dayIso(), who: state.who }); return null; }
+      if (shown) { fastCommit({ t: t, label: label, date: state.date || dayIso(), who: state.who, nature: natureValue() }); return null; }
       return TMT.captureTaskFlow(label, [t.activityId], t.categoryKey, { inline: true }).then(function (flow) {
         if (!flow) return null;
         var ok = (flow.results || []).filter(function (x) { return x.ok; })[0];
@@ -900,7 +926,7 @@
         var r = ok;
           // Montrée tout de suite dans la liste, même si Noèsis l'a placée un autre jour (« demain »…), tant que la vue reste ouverte.
           state.added.unshift({ id: r.id, label: label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
-          var snap = { t: t, date: state.date || dayIso(), who: state.who }, extra = { userId: TMT.getProfile().id, dueDate: snap.date };
+          var snap = { t: t, date: state.date || dayIso(), who: state.who }, extra = { userId: TMT.getProfile().id, dueDate: snap.date }; if (natureValue()) extra.nature = natureValue();
           if (snap.who) { extra.plannedUserId = snap.who.id; extra.notifyAssignee = true; }
           var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }) : Promise.resolve();
           return after.then(function () {

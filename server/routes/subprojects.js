@@ -77,6 +77,9 @@ router.put('/sub-project-items/:id', (req, res) => {
     goalsauto.onSubProjectItemChanged(access.subProject.activityId, access.subProject.goalCategory);
   }
 
+  // Nature choisie à la création manuelle (bloc « Avancé », facultative) : Maintenir / Développer ; vide = l'IA décide en silence (rien n'est écrit ici).
+  if (req.body && (req.body.nature === 'maintenance' || req.body.nature === 'developpement')) { try { require('../lib/taskkind').setNature(item.id, req.body.nature, updated && updated.label ? updated.label : item.label); } catch (e) { /* jamais bloquant */ } }
+
   // Pop-up de rangement enregistré (page 1) → le responsable choisi (autre que
   // l'auteur) reçoit une notification. Le client envoie notifyAssignee à l'enregistrement.
   if (req.body && req.body.notifyAssignee === true) {
