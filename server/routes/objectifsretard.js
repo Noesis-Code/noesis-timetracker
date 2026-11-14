@@ -10,7 +10,7 @@ const fail = (res, tag, err) => {
 
 router.get('/objectifs/retard', (req, res) => {
   if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
-  try { let ecarts = []; try { ecarts = require('../lib/objectifs-ecart').evaluate(req.userId); } catch (e) { ecarts = []; } res.json({ retards: late().lister(req.userId), ecarts }); } /* ecarts : message de dépassement ou de sous-utilisation, jamais bloquant */ catch (err) { fail(res, 'GET /objectifs/retard', err); }
+  try { let ecarts = []; try { ecarts = require('../lib/objectifs-ecart').evaluate(req.userId); } catch (e) { ecarts = []; } try { require('../lib/estimateur').enregistrerTermines(req.userId); } catch (e) { /* temps réel contre prévu : seulement avec le consentement, jamais bloquant */ } res.json({ retards: late().lister(req.userId), ecarts }); } /* ecarts : message de dépassement ou de sous-utilisation, jamais bloquant */ catch (err) { fail(res, 'GET /objectifs/retard', err); }
 });
 router.post('/objectifs/retard/recalculer', (req, res) => {
   if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
