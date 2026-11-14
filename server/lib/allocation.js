@@ -148,12 +148,24 @@ function chronoAvg(userId, c, start, end, today) {
   if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); }
   const m = db.prepare(q).get(...args).s / 60 / weeks; return m > 0 ? Math.round(m) : null;
 }
-function membres(userId, c, today) {
+// MEMBRES d'une catégorie pour une ligne (pop-up des heures, lecture seule) : seuls les membres qui ont du Chrono dans la catégorie sur la ligne (ou du temps prévu) y figurent ; un membre absent n'y apparaît pas.
+// Chrono = temps mesuré par semaine de CE membre sur la part écoulée de la ligne ; plannedMin = temps prévu du membre (tempsmembres.js : activité et pôles seulement, null pour un secteur : rien n'est inventé).
+// Les responsables existent par ACTIVITÉ (activity_managers) mais aucun lien « membre sous son responsable » n'est stocké : la liste est donc simple, avec isResponsable.
+function membres(userId, c, start, end, today) {
   try {
-    const t = require('./tempsmembres').tableFor(Number(c.activityId), userId, today); if (t.error) return null;
-    const lvl = t.levels.find((l) => l.key === (c.level === 'activite' ? null : c.poleKey));
-    const bar = c.level === 'secteur' ? (t.bars || []).find((b) => b.key === c.categoryKey) : null, src = lvl || bar; if (!src) return null;
-    return (t.members || []).map((m) => { const r = src.rows.find((x) => x.userId === m.userId) || {}; return { userId: m.userId, name: m.name || null, plannedMin: r.plannedMin === undefined ? null : r.plannedMin, chronoMin: r.pastMin == null ? null : r.pastMin }; });
+    const goals = require('./goals'), act = Number(c.activityId);
+    const keys = c.level === 'activite' ? null : c.level === 'pole' ? [c.poleKey].concat((goals.secteursForPole(act, c.poleKey) || []).map((x) => x.key)) : [c.categoryKey];
+    const stop = end < today ? end : today, weeks = stop >= start ? Math.max(1, (daysBetween(start, stop) + 1) / 7) : null;
+    const mem = db.prepare('SELECT m.userId, u.name FROM activity_members m JOIN users u ON u.id = m.userId WHERE m.activityId = ? ORDER BY m.joinedAt').all(act);
+    let t = null; try { t = require('./tempsmembres').tableFor(act, userId, today); if (t && t.error) t = null; } catch (e) { t = null; }
+    const lvl = t && c.level !== 'secteur' ? (t.levels || []).find((l) => l.key === (c.level === 'activite' ? null : c.poleKey)) : null;
+    const resp = require('./responsables').ids(act) || [];
+    return mem.map((m) => {
+      let chrono = null;
+      if (weeks) { let q = 'SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ?', args = [m.userId, act, start, stop]; if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); } const v = db.prepare(q).get(...args).s / 60 / weeks; chrono = v > 0 ? Math.round(v) : null; }
+      const pr = lvl ? (lvl.rows.find((x) => x.userId === m.userId) || {}).plannedMin : undefined;
+      return { userId: m.userId, name: m.name || null, plannedMin: pr == null ? null : pr, chronoMin: chrono, isResponsable: resp.indexOf(m.userId) >= 0 };
+    }).filter((m) => m.chronoMin != null || (m.plannedMin != null && m.plannedMin > 0));
   } catch (e) { return null; }
 }
 function repartition(userId, spec, row, today) {
@@ -162,7 +174,7 @@ function repartition(userId, spec, row, today) {
   const cols = colsOf(userId, spec).map((c) => {
     const a = average(userId, c, rr.start, rr.end), goals = require('./goals');
     const label = c.level === 'activite' ? (db.prepare('SELECT name FROM activities WHERE id = ?').get(c.activityId) || {}).name : ((c.level === 'pole' ? goals.categoriesForActivity(c.activityId) : goals.secteursForPole(c.activityId, c.poleKey)) || []).find((x) => x.key === (c.level === 'pole' ? c.poleKey : c.categoryKey));
-    return { activityId: c.activityId, level: c.level, poleKey: c.poleKey || null, categoryKey: c.categoryKey || null, label: label && label.label ? label.label : (label || ''), alloueMin: a.minutes, own: a.own, objectifsMin: objectifsAvg(userId, c, rr.start, rr.end), chronoMin: chronoAvg(userId, c, rr.start, rr.end, t), membres: membres(userId, c, t) };
+    return { activityId: c.activityId, level: c.level, poleKey: c.poleKey || null, categoryKey: c.categoryKey || null, label: label && label.label ? label.label : (label || ''), alloueMin: a.minutes, own: a.own, objectifsMin: objectifsAvg(userId, c, rr.start, rr.end), chronoMin: chronoAvg(userId, c, rr.start, rr.end, t), membres: membres(userId, c, rr.start, rr.end, t) };
   });
   return { start: rr.start, end: rr.end, level: spec.level, categories: cols, totalMin: cols.some((c) => c.alloueMin != null) ? cols.reduce((n, c) => n + (c.alloueMin || 0), 0) : null };
 }

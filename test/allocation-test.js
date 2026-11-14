@@ -58,4 +58,13 @@ const c0 = R.categories[0];
 assert(R.categories.length === 1 && c0.label === 'Cuisine' && c0.alloueMin === 240 && c0.own === true && R.totalMin === 240, 'répartition par pôle : alloué 4 h, réglé');
 assert(c0.chronoMin > 0 && c0.objectifsMin === 0, 'répartition : chrono mesuré sur la part écoulée de la ligne ; objectifs = somme des rythmes (0 ici)');
 assert(Array.isArray(c0.membres) && c0.membres.length === 2 && c0.membres.some((m) => m.userId === 'u3' && m.chronoMin > 0), 'par membre : le Chrono mesuré de chaque membre existe déjà (moyenne 4 semaines) ; prévu = null tant que rien n\'est posé');
+// ---- Pop-up des heures : membres d'une catégorie pour une ligne (seulement ceux qui ont du Chrono ou du prévu ; un membre absent n'apparaît pas) ----
+db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u4', 'Absent', datetime('now'))").run();
+db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, 'u4', '#674EA7', '')").run(aShared);
+const R2 = A.repartition('u1', { level: 'pole', activityId: aShared }, { start: '2027-01-01', end: '2027-12-31' }, T0);
+const mm = R2.categories[0].membres || [];
+assert(mm.some((m) => m.userId === 'u1' && m.chronoMin > 0) && mm.some((m) => m.userId === 'u3' && m.chronoMin > 0) && !mm.some((m) => m.userId === 'u4'), 'pop-up : les membres avec du Chrono dans la catégorie, un membre absent n’y apparaît pas');
+assert(mm.every((m) => typeof m.isResponsable === 'boolean' && 'plannedMin' in m), 'pop-up : chaque membre porte son Chrono, son prévu (null si inexistant, rien d’inventé) et s’il est responsable de l’activité');
+const creerSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
+assert(creerSrc.includes('function openHeures(spec, row, label)') && creerSrc.includes("'/api/objectifs/allocation/repartition'") && creerSrc.includes('objTable({ levelLabel:') && creerSrc.includes("crumbs.appendChild(back)"), 'pop-up S1 / S2 : même tableau que le dépassement (objTable), fil « ligne › catégorie », données de la répartition');
 console.log(failed ? '\n' + failed + ' échec(s)' : 'allocation-test OK'); process.exit(failed ? 1 : 0);

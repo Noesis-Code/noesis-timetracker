@@ -979,6 +979,33 @@
       paint(); // toutes les lignes repliées à l'ouverture
     });
   }
+  // POP-UP DES HEURES d'une ligne (maquette v4, 14 nov. 2026) : lecture seule, l'arbre ne change jamais ; le tableau `objTable` du dépassement (colonnes « Chrono » puis « Objectif », seulement des traits).
+  // S1 : une ligne par catégorie de la ligne touchée + Total ; toucher une catégorie = S2 dans le même pop-up : les membres qui ont du Chrono dans cette catégorie (fil « 2027 › TiMeTracker », ✕ ferme).
+  // Données : POST /api/objectifs/allocation/repartition. Les responsables existent par activité mais aucun lien « membre sous son responsable » : liste simple de membres (marqués resp.).
+  function openHeures(spec, row, label) {
+    var m = openModal(tr('Heures par semaine') + ' · ' + label), res = null;
+    function sum(rows, k) { var n = 0, any = false; rows.forEach(function (r) { if (r[k] != null) { n += r[k]; any = true; } }); return any ? n : null; }
+    function table(rows, onTap) {
+      var t = objTable({ levelLabel: '', rows: rows.map(function (r) { return { label: r.label, chrono: r.chrono, avant: r.avant }; }), total: false });
+      Array.prototype.forEach.call(t.node.querySelectorAll('.objGridRow'), function (rowEl, i) { if (!onTap) return; rowEl.style.cursor = 'pointer'; rowEl.setAttribute('role', 'button'); rowEl.tabIndex = 0; rowEl.addEventListener('click', function () { onTap(i); }); rowEl.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(i); } }); });
+      var tot = el('div', 'objGridTotal'), to = el('span', 'objGridObj'); to.appendChild(el('span', 'objGridApres', hh(sum(rows, 'avant'))));
+      tot.appendChild(el('span', 'objGridName', tr('Total'))); tot.appendChild(el('span', 'objGridChrono', hh(sum(rows, 'chrono')))); tot.appendChild(to); t.node.appendChild(tot);
+      return t.node;
+    }
+    function s1() {
+      m.head.textContent = ''; m.head.appendChild(el('p', 'sectionTitle', tr('Heures par semaine') + ' · ' + label));
+      m.body.textContent = '';
+      m.body.appendChild(table(res.categories.map(function (c) { return { label: c.label, chrono: c.chronoMin, avant: c.objectifsMin }; }), function (i) { s2(res.categories[i]); }));
+    }
+    function s2(c) {
+      m.head.textContent = ''; var crumbs = el('nav', 'arCrumbs'), back = el('button', 'arCrumb', label); back.type = 'button'; back.addEventListener('click', s1);
+      crumbs.appendChild(back); crumbs.appendChild(el('span', 'arCrumbSep', '›')); crumbs.appendChild(el('b', 'arCrumbNow', c.label)); m.head.appendChild(crumbs);
+      m.body.textContent = '';
+      var rows = (c.membres || []).map(function (x) { return { label: (x.name || '') + (x.isResponsable ? ' · ' + tr('resp.') : ''), chrono: x.chronoMin, avant: x.plannedMin }; });
+      m.body.appendChild(table(rows, null));
+    }
+    TMT.ui.attente(api('POST', '/api/objectifs/allocation/repartition', { level: spec.level, activityId: spec.activityId, poleKey: spec.poleKey, row: { start: row.start, end: row.end } })).then(function (r) { res = r; s1(); }).catch(function () { m.close(); });
+  }
   function offerBtn() { return btn('cmpBtn cmpBtnIdle objOffer', tr('Génère automatiquement tes tâches avec Noèsis'), function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); }); }
   // MODE ÉTENDRE (arbre) : le panneau porte le titre commun du macro (modifiable, jamais en silence) ; la barre devient « Enregistrer » pleine largeur (grisée tant que rien n'a changé, violette ensuite) ; ✕ annule.
   // cfg : { title (null = pas de champ), hint, canSave(), onTitle(t), onSave(), onCancel() } -> { setTitle, setHint, setEnabled }
@@ -1288,6 +1315,7 @@
     confirmDelete: function (id, title, isMacro) { confirmDelete(id, title, load, function (e) { if (TMT.objectifsArbre && TMT.objectifsArbre.say) TMT.objectifsArbre.say((e && e.message) || tr('Impossible pour le moment.')); }, isMacro); }, // un refus du serveur (ex. « Fusion passée : impossible de délier. ») s'affiche en message court
     openExtend: function (cfg) { return openExtend(cfg); }, closeExtend: function () { closeExtend(); },
     createAt: function (o) { createAt(o); },
+    openHeures: function (spec, row, label) { openHeures(spec, row, label); },
     openGroup: function (ids, opts) { openGroup(ids, opts); },
     dock: function () { return dock; },
     openFiche: function (spec, onEnd) { openFiche(spec, onEnd); },

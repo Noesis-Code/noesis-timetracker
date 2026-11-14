@@ -542,10 +542,6 @@
     });
     return nav;
   }
-  // Toucher les HEURES d'une ligne : UN seul niveau plus bas, dans la catégorie de CETTE ligne (la colonne qui porte un objectif sur la ligne, sinon la première) : les pôles de cette activité, ou les secteurs de ce pôle ;
-  // MÊME descente que le toucher d'une case (descend) : jamais les pôles de toutes les activités. Au niveau le plus bas (secteurs) : rien d'autre.
-  function descendHours(rw, ci) { if (lvl !== 'secteur') descend(ci, rw.block ? rw.y : null, rw.y); }
-
   function render() {
     if (!tree) return;
     var keepTop = !needBase && gridArea ? gridArea.scrollTop : null, keepLeft = !needBase && scroller ? scroller.scrollLeft : 0;
@@ -730,7 +726,7 @@
     (function paintHours() { // colonne « Heures » : un total par ligne, posé au milieu de la ligne comme son repère
       if (isMulti() || !list.length || (lvl !== 'activite' && !(focus && focus.activityId != null))) return;
       var spec = lvl === 'activite' ? { level: 'activite' } : lvl === 'pole' ? { level: 'pole', activityId: focus.activityId } : { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey };
-      var rows = list.map(rowSpan), spans = list.map(function (rw) { var sp = el(lvl === 'secteur' ? 'span' : 'button', 'arHrs', ''); sp.setAttribute('data-rank', String(rw.rank)); if (lvl !== 'secteur') { sp.type = 'button'; sp.setAttribute('aria-label', tr('Heures par semaine')); sp.addEventListener('click', function () { var r = list.indexOf(rw), ci = 0; for (var q = 0; q < data.length; q++) if (cells[r] && cells[r][q] && cells[r][q].length) { ci = q; break; } descendHours(rw, ci); }); } railR.appendChild(sp); marks.push({ m: sp, rk: String(rw.rank), full: true }); return sp; }), key = JSON.stringify([spec, rows]);
+      var rows = list.map(rowSpan), spans = list.map(function (rw) { var sp = el('button', 'arHrs', ''); sp.setAttribute('data-rank', String(rw.rank)); sp.type = 'button'; sp.setAttribute('aria-label', tr('Heures par semaine')); sp.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.openHeures) TMT.objectifsView.openHeures(spec, rowSpan(rw), rw.block ? rw.y + '–' + rw.y2 : rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y)); }); /* pop-up en lecture seule : l'arbre ne change jamais */ railR.appendChild(sp); marks.push({ m: sp, rk: String(rw.rank), full: true }); return sp; }), key = JSON.stringify([spec, rows]);
       function fill(res) { spans.forEach(function (sp, i) { var r = res && res[i]; sp.textContent = r ? hrsTxt(r.totalMin) : ''; sp.classList.toggle('set', !!(r && r.own)); }); }
       if (hrsCache[key]) fill(hrsCache[key]);
       TMT.api('POST', '/api/objectifs/allocation/lignes', Object.assign({ rows: rows }, spec)).then(function (res) { hrsCache[key] = res; if (spans[0] && spans[0].isConnected) fill(res); }).catch(function () {});

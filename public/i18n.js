@@ -390,6 +390,7 @@
     'Ton ajout': 'Your addition',
     'Place': 'Position',
     'Secteurs': 'Sectors',
+    'resp.': 'mgr.',
     'Nature': 'Nature',
     'Maintenir': 'Maintain',
     'Développer': 'Develop',
