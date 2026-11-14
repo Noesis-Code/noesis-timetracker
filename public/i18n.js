@@ -391,6 +391,7 @@
     'Place': 'Position',
     'Secteurs': 'Sectors',
     'resp.': 'mgr.',
+    'Part des tâches (%)': 'Share of tasks (%)',
     'Depuis 4 semaines tu dépasses en moyenne de {h} par semaine ({pct} %). Redéfinir ton temps pour cet objectif ?': 'For 4 weeks you have been going over by {h} per week on average ({pct}%). Redefine your time for this goal?',
     'Depuis 4 semaines tu es en dessous en moyenne de {h} par semaine ({pct} %). Redéfinir ton temps pour cet objectif ?': 'For 4 weeks you have been under by {h} per week on average ({pct}%). Redefine your time for this goal?',
     'Nature': 'Nature',

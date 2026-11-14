@@ -1099,7 +1099,8 @@
     // Temps PRÉVU (heures par semaine), au niveau pôle seulement (le prévu se règle par pôle ; un secteur remonte au pôle) : une ligne par membre ; un responsable règle celui des autres, un non-responsable ne règle que le sien
     // (droits vérifiés côté serveur par changePlanned) ; le temps enregistré par le Chrono ne change jamais. Route existante POST /api/member-times (historique, origines, notification déjà prévus).
     var plans = {};
-    function dirty() { return Object.keys(plans).some(function (k) { return plans[k].value !== plans[k].orig; }); }
+    var shares = {}; /* part des tâches demandée (%) par membre : fiche de l'activité partagée */
+    function dirty() { return Object.keys(plans).some(function (k) { return plans[k].value !== plans[k].orig; }) || Object.keys(shares).some(function (k) { return shares[k].value !== shares[k].orig; }); }
     function sync() { stepBtn.disabled = !dirty(); }
     var planKey = spec.level === 'activite' ? null : spec.poleKey;
     if (spec.level === 'pole' || (spec.suggestPlannedMin != null && (spec.level === 'activite' || spec.level === 'secteur'))) {
@@ -1135,10 +1136,27 @@
       if (!ms.length) respBox.appendChild(el('p', 'hint', '—'));
     }
     membersP.then(paintResp);
+    // Part des tâches demandée (« toi 60 %, moi 40 % ») : fiche d'une activité partagée ; lue par le bloc « proportion réelle contre demandée » du Bilan. Un responsable règle celle de tous, un membre seulement la sienne ; total <= 100 (serveur).
+    if (spec.level === 'activite') membersP.then(function (mr) {
+      var ms = mr.members || []; if (ms.length < 2) return;
+      var me = (TMT.getProfile && TMT.getProfile() || {}).id;
+      return api('GET', '/api/bilan/proportion?activityId=' + act.id).then(function (pr) {
+        var box = el('div', 'objField'); box.appendChild(el('p', 'cmpBlockTitle', tr('Part des tâches (%)')));
+        ms.forEach(function (m) {
+          var cur = ((pr.rows || []).filter(function (x) { return x.userId === m.id; })[0] || {}).enteredPct, row = el('div', 'objTimeRow'), v = el('span', 'objHoursVal'), inp = el('input');
+          shares[m.id] = { value: cur == null ? null : cur, orig: cur == null ? null : cur };
+          inp.type = 'text'; inp.inputMode = 'numeric'; inp.maxLength = 3; inp.value = cur == null ? '' : String(cur); inp.setAttribute('aria-label', tr('Part des tâches (%)') + ' ' + (m.name || ''));
+          inp.disabled = !(m.id === me || mr.canManage);
+          inp.addEventListener('input', function () { var t = String(inp.value).trim(), x = parseInt(t, 10); shares[m.id].value = t === '' ? null : (x >= 0 && x <= 100 ? x : shares[m.id].orig); sync(); });
+          v.appendChild(inp); v.appendChild(el('span', null, '%')); row.appendChild(el('span', null, (m.name || '') + (m.id === me ? ' (' + tr('toi') + ')' : ''))); row.appendChild(v); box.appendChild(row);
+        });
+        panelBody.appendChild(box);
+      });
+    }).catch(function () { /* jamais bloquant */ });
     function save() {
       if (!dirty()) return;
       stepBtn.disabled = true; msg.textContent = '';
-      var chain = Promise.resolve(); Object.keys(plans).filter(function (k) { return plans[k].value !== plans[k].orig; }).forEach(function (k) { chain = chain.then(function () { return api('POST', '/api/member-times', { activityId: act.id, poleKey: planKey, memberId: k, afterMin: Math.round(plans[k].value * 60), origin: 'ajout' }); }); });
+      var chain = Promise.resolve(); var shareParts = {}; Object.keys(shares).forEach(function (k) { if (shares[k].value !== shares[k].orig) shareParts[k] = shares[k].value; }); if (Object.keys(shareParts).length) chain = chain.then(function () { return api('PUT', '/api/bilan/proportion', { activityId: act.id, parts: shareParts }); }); Object.keys(plans).filter(function (k) { return plans[k].value !== plans[k].orig; }).forEach(function (k) { chain = chain.then(function () { return api('POST', '/api/member-times', { activityId: act.id, poleKey: planKey, memberId: k, afterMin: Math.round(plans[k].value * 60), origin: 'ajout' }); }); });
       TMT.ui.attente(chain).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
     }
     dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null;

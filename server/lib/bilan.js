@@ -7,6 +7,14 @@
 //    temps VOULU de chacun (task_share_wanted, la valeur déjà saisie dans « Partager les tâches »). Sans temps voulu : demandée vide (rien n'est inventé).
 const db = require('../db');
 
+// Proportion DEMANDÉE de chaque membre (« toi 60 %, moi 40 % »), saisie dans l'arbre (fiche de l'activité) : un pourcentage par membre, la somme ne dépasse pas 100.
+db.exec(`CREATE TABLE IF NOT EXISTS task_share_pct (
+  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pct INTEGER NOT NULL,
+  PRIMARY KEY (activityId, userId)
+)`);
+
 const DAY = 86400000;
 const iso = (t) => new Date(t).toISOString().slice(0, 10);
 const addDays = (d, n) => iso(Date.parse(d + 'T00:00:00Z') + n * DAY);
@@ -73,8 +81,29 @@ function proportion(userId, activityId, today) {
   const done = doneTasks(act.id, periods[0].start, periods[3].end), resp = (x) => x.doneBy || x.plannedUserId || null;
   const total = done.filter((x) => mem.some((m) => m.id === resp(x))).length;
   const wantedRows = {}; try { db.prepare('SELECT userId, minutes FROM task_share_wanted WHERE activityId = ?').all(act.id).forEach((r) => { wantedRows[r.userId] = r.minutes; }); } catch (e) { /* table créée par partagetaches.js */ }
+  const entered = {}; db.prepare('SELECT userId, pct FROM task_share_pct WHERE activityId = ?').all(act.id).forEach((r) => { entered[r.userId] = r.pct; });
+  const hasEntered = Object.keys(entered).length > 0;
   const wTotal = mem.reduce((a, m) => a + (wantedRows[m.id] > 0 ? wantedRows[m.id] : 0), 0);
-  return { activityId: act.id, rows: mem.map((m) => ({ userId: m.id, name: m.name, realPct: total ? Math.round(done.filter((x) => resp(x) === m.id).length / total * 100) : null, wantedPct: wTotal && wantedRows[m.id] > 0 ? Math.round(wantedRows[m.id] / wTotal * 100) : null })) };
+  return { activityId: act.id, rows: mem.map((m) => ({ userId: m.id, name: m.name, realPct: total ? Math.round(done.filter((x) => resp(x) === m.id).length / total * 100) : null, wantedPct: hasEntered ? (entered[m.id] != null ? entered[m.id] : null) : (wTotal && wantedRows[m.id] > 0 ? Math.round(wantedRows[m.id] / wTotal * 100) : null), enteredPct: entered[m.id] != null ? entered[m.id] : null })) };
 }
 
-module.exports = { lastPeriods, moyenneTaches, urgentes, proportion };
+// Écriture de la proportion demandée (fiche de l'activité dans l'arbre) : parts = { userId: pourcentage 0 à 100 } ; un responsable règle celle de tous, un non-responsable seulement la sienne ; somme <= 100. null retire la valeur.
+function setProportion(userId, activityId, parts) {
+  const act = member(userId, activityId), mem = membersOf(act.id), isMgr = require('./responsables').isManager(userId, act.id);
+  if (!parts || typeof parts !== 'object') throw err('Parts invalides.');
+  const next = {}; db.prepare('SELECT userId, pct FROM task_share_pct WHERE activityId = ?').all(act.id).forEach((r) => { next[r.userId] = r.pct; });
+  Object.keys(parts).forEach((uid) => {
+    if (!mem.some((m) => m.id === uid)) throw err('Ce membre ne fait pas partie de l’activité.', 400);
+    if (uid !== userId && !isMgr) throw err('Seul un responsable règle la part d’un autre membre.', 403);
+    const v = parts[uid];
+    if (v === null || v === '') { delete next[uid]; return; }
+    const n = Math.round(Number(v)); if (!Number.isFinite(n) || n < 0 || n > 100) throw err('La part est un pourcentage de 0 à 100.');
+    next[uid] = n;
+  });
+  if (Object.keys(next).reduce((a, k) => a + next[k], 0) > 100) throw err('Le total des parts ne peut pas dépasser 100 %.');
+  const tx = db.prepare('DELETE FROM task_share_pct WHERE activityId = ?'), ins = db.prepare('INSERT INTO task_share_pct (activityId, userId, pct) VALUES (?, ?, ?)');
+  tx.run(act.id); Object.keys(next).forEach((k) => ins.run(act.id, k, next[k]));
+  return proportion(userId, act.id);
+}
+
+module.exports = { lastPeriods, moyenneTaches, urgentes, proportion, setProportion };

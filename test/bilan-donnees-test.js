@@ -42,6 +42,18 @@ const pr = B.proportion('u1', A.id, TODAY), p1 = pr.rows.find((r) => r.userId ==
 assert(p1.wantedPct === 60 && p2.wantedPct === 40 && p1.realPct + p2.realPct >= 99 && p1.realPct > p2.realPct, 'proportion : demandée 60 / 40 (temps voulu de « Partager les tâches »), réelle = part des tâches faites');
 db.prepare('DELETE FROM task_share_wanted').run();
 assert(B.proportion('u1', A.id, TODAY).rows.every((r) => r.wantedPct === null) && B.proportion('u1', S.id, TODAY).rows.length === 0, 'rien de voulu : demandée vide (rien d’inventé) ; activité seule : pas de tableau');
+// proportion demandée saisie dans l'arbre (« toi 60 %, moi 40 % »)
+const setP = (u, parts) => B.setProportion(u, A.id, parts);
+let r2 = setP('u1', { u1: 60, u2: 40 });
+assert(r2.rows.find((x) => x.userId === 'u1').wantedPct === 60 && r2.rows.find((x) => x.userId === 'u2').wantedPct === 40 && r2.rows.find((x) => x.userId === 'u1').enteredPct === 60, 'un responsable (propriétaire) règle la part de tous : 60 % / 40 %');
+const bad = (u, parts, code) => { try { setP(u, parts); return false; } catch (e) { return code ? e.statusCode === code : true; } };
+assert(bad('u2', { u1: 10 }, 403), 'un non-responsable ne règle pas la part d’un autre (403)');
+assert(!bad('u2', { u2: 30 }) && B.proportion('u1', A.id, TODAY).rows.find((x) => x.userId === 'u2').enteredPct === 30, 'un membre règle seulement la sienne');
+assert(bad('u1', { u1: 80 }) && bad('u1', { u1: 101 }) && bad('u1', { u1: -5 }), 'le total ne dépasse pas 100 % ; une part est un pourcentage de 0 à 100');
+setP('u1', { u2: null }); setP('u1', { u1: null });
+assert(B.proportion('u1', A.id, TODAY).rows.every((x) => x.enteredPct === null), 'une part retirée (null) est effacée');
+const crSrc = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
+assert(crSrc.includes("tr('Part des tâches (%)')") && crSrc.includes("api('PUT', '/api/bilan/proportion'") && crSrc.includes("if (spec.level === 'activite') membersP.then"), 'fiche de l’activité dans l’arbre : champ « Part des tâches (%) » modifiable par membre, enregistré avec le bouton Enregistrer');
 // routes
 const rt = fs.readFileSync(path.join(__dirname, '..', 'server/routes/bilan.js'), 'utf8'), ix = fs.readFileSync(path.join(__dirname, '..', 'server/index.js'), 'utf8');
 assert(rt.includes("'/bilan/moyenne-taches'") && rt.includes("'/bilan/urgentes'") && rt.includes("'/bilan/proportion'") && ix.includes("require('./routes/bilan')"), 'routes montées');
