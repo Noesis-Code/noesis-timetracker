@@ -1,9 +1,8 @@
 // MESSAGE de dépassement ou de sous-utilisation (décision d'Émilien, 14 nov. 2026) : après 2 semaines de rodage depuis le début de l'objectif, si le Chrono réel a dépassé OU est resté en dessous des heures prévues
 // de plus de 20 % du total hebdomadaire, QUATRE semaines de suite dans le même sens, un pop-up simple propose de redéfinir le temps. Aucun seuil en heures. « Non » = rien ne change, et la question n'est pas reposée
 // pendant 4 semaines pour cet objectif (table objectif_ecart_refus). Rien n'est écrit par l'évaluation.
-// CHOIX (le Chrono est par CATÉGORIE, pas par objectif) : l'unité de comparaison est le PÔLE (ses secteurs compris), ou l'activité quand elle n'a aucun pôle ; le Chrono de l'unité est comparé à la SOMME des heures prévues
-// (hoursPerWeek) des objectifs de l'unité actifs la semaine considérée (un enfant remplace son parent pendant sa durée : pas de double comptage ; un objectif compte après 14 jours de rodage) ; le pop-up est rattaché à
-// l'objectif de l'unité qui demande le plus d'heures. Un objectif d'activité qui a des pôles n'est pas évalué (ses heures sont portées par ses enfants).
+// RÈGLE (Émilien, 14 nov. 2026) : une catégorie (secteur, pôle ou activité) n'a qu'UN objectif actif à la fois : l'objectif EST la catégorie sur une période ; le Chrono de la catégorie pendant la période de l'objectif est le Chrono de l'objectif.
+// On compare donc, semaine par semaine, le Chrono de la catégorie de l'objectif (un pôle cumule ses secteurs, l'activité cumule tout) à ses heures prévues (hoursPerWeek).
 const db = require('../db');
 
 const WEEKS = 4, RODAGE_DAYS = 14, THRESHOLD = 0.2, MUTE_DAYS = 28;
@@ -35,44 +34,31 @@ function evaluateWeeks(weeks) {
   const P = weeks.reduce((a, w) => a + w.planned, 0), R = weeks.reduce((a, w) => a + w.real, 0);
   return { direction: over ? 'depasse' : 'sous', pct: Math.round(Math.abs(R - P) / P * 100), deltaMin: Math.round((R - P) / WEEKS), realMin: Math.round(R / WEEKS), plannedMin: Math.round(P / WEEKS) };
 }
-function keysOf(activityId, poleKey) {
-  if (!poleKey) return null;
+// Clés du Chrono d'une catégorie : un secteur est seul ; un pôle cumule ses secteurs ; l'activité (null) cumule tout.
+function keysOf(o) {
   const goals = require('./goals');
-  return [poleKey].concat((goals.secteursForPole(activityId, poleKey) || []).map((s) => s.key));
+  if ((o.level || 'activite') === 'secteur' && o.categoryKey) return [o.categoryKey];
+  if (o.level === 'pole' && o.poleKey) return [o.poleKey].concat((goals.secteursForPole(o.activityId, o.poleKey) || []).map((x) => x.key));
+  return null;
 }
 function realIn(userId, activityId, keys, start, end) {
   let q = 'SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ?', args = [userId, Number(activityId), start, end];
   if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); }
   return db.prepare(q).get(...args).s / 60;
 }
-// Évaluation de tous les objectifs du membre : liste de { objectifId, titre, activityId, activite, poleKey, pole, direction, pct, deltaMin, realMin, plannedMin } (refusés « Non » exclus pendant 28 jours).
+// Évaluation de tous les objectifs actifs du membre : { objectifId, titre, activityId, activite, level, poleKey, categoryKey, categorie, direction, pct, deltaMin, realMin, plannedMin } (« Non » exclus pendant 28 jours).
 function evaluate(userId, today) {
   today = today || require('./dates').userToday();
   const goals = require('./goals'), weeks = lastWeeks(today), out = [];
-  const rows = db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND isMacro = 0').all(userId).filter((r) => { const m = parseMeta(r); return !m.abandoned && Number(m.hoursPerWeek) > 0; });
-  const units = new Map();
-  rows.forEach((r) => {
-    const poles = goals.categoriesForActivity(r.activityId) || [];
-    let pole = null;
-    if (poles.length) { const k = r.poleKey || (r.categoryKey ? goals.resolveToPole(r.activityId, r.categoryKey) : null); if (!k) return; pole = k; } // objectif d'activité qui a des pôles : porté par ses enfants
-    const key = r.activityId + '|' + (pole || '');
-    if (!units.has(key)) units.set(key, { activityId: r.activityId, pole, rows: [] });
-    units.get(key).rows.push(r);
-  });
-  units.forEach((u) => {
-    const ws = weeks.map((w) => {
-      const active = u.rows.filter((r) => r.startDate <= w.end && r.endDate >= w.start && addDays(r.startDate, RODAGE_DAYS) <= w.start);
-      const kept = active.filter((r) => !active.some((c) => c.parentId === r.id)); // un enfant remplace son parent pendant sa durée
-      return { planned: kept.reduce((a, r) => a + parseMeta(r).hoursPerWeek * 60, 0), real: realIn(userId, u.activityId, keysOf(u.activityId, u.pole), w.start, w.end) };
-    });
+  db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND isMacro = 0 AND endDate >= ? AND startDate <= ?').all(userId, today, today).forEach((o) => {
+    const m = parseMeta(o), hpw = Number(m.hoursPerWeek); if (m.abandoned || !(hpw > 0)) return;
+    const ws = weeks.map((w) => ({ planned: o.startDate <= w.end && o.endDate >= w.start && addDays(o.startDate, RODAGE_DAYS) <= w.start ? hpw * 60 : 0, real: realIn(userId, o.activityId, keysOf(o), w.start, w.end) }));
     const ev = evaluateWeeks(ws); if (!ev) return;
-    const current = u.rows.filter((r) => r.endDate >= today).sort((a, b) => parseMeta(b).hoursPerWeek - parseMeta(a).hoursPerWeek || b.id - a.id)[0]; // l'objectif de l'unité qui demande le plus d'heures
-    if (!current) return;
-    const muted = db.prepare('SELECT until FROM objectif_ecart_refus WHERE userId = ? AND objectifId = ?').get(userId, current.id);
+    const muted = db.prepare('SELECT until FROM objectif_ecart_refus WHERE userId = ? AND objectifId = ?').get(userId, o.id);
     if (muted && muted.until >= today) return;
-    const act = db.prepare('SELECT name FROM activities WHERE id = ?').get(u.activityId) || {};
-    let pole = null; try { pole = u.pole ? goals.categoryLabelFor(u.activityId, u.pole) : null; } catch (e) { pole = null; }
-    out.push(Object.assign({ objectifId: current.id, titre: current.title, activityId: u.activityId, activite: act.name || '', poleKey: u.pole, pole }, ev));
+    const act = db.prepare('SELECT name FROM activities WHERE id = ?').get(o.activityId) || {};
+    let cat = null; try { const k = o.level === 'secteur' ? o.categoryKey : o.level === 'pole' ? o.poleKey : null; cat = k ? goals.categoryLabelFor(o.activityId, k) : null; } catch (e) { cat = null; }
+    out.push(Object.assign({ objectifId: o.id, titre: o.title, activityId: o.activityId, activite: act.name || '', level: o.level || 'activite', poleKey: o.poleKey || null, categoryKey: o.categoryKey || null, categorie: cat }, ev));
   });
   return out;
 }

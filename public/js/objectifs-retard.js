@@ -72,7 +72,7 @@
     var e = ecarts[0]; if (!e || !TMT.objectifsViewShown) return;
     var c = el('div', 'cmpConfirmCard cmpGlass retCard'), head = el('div', 'retHead');
     c.setAttribute('role', 'dialog'); c.setAttribute('aria-modal', 'true');
-    head.appendChild(el('span', 'retKicker', e.activite + (e.pole ? ' › ' + e.pole : ''))); c.appendChild(head);
+    head.appendChild(el('span', 'retKicker', e.activite + (e.categorie ? ' › ' + e.categorie : ''))); c.appendChild(head);
     c.appendChild(el('p', 'retLine', tr(e.direction === 'depasse' ? 'Depuis 4 semaines tu dépasses en moyenne de {h} par semaine ({pct} %). Redéfinir ton temps pour cet objectif ?' : 'Depuis 4 semaines tu es en dessous en moyenne de {h} par semaine ({pct} %). Redéfinir ton temps pour cet objectif ?', { h: hh(Math.abs(e.deltaMin)), pct: e.pct })));
     var yes = el('button', 'cmpBtn', tr('Oui')), no = el('button', 'cmpBtn cmpBtnIdle', tr('Non')); yes.type = 'button'; no.type = 'button';
     no.addEventListener('click', function () { ecarts.shift(); api('POST', '/api/objectifs/ecart/' + e.objectifId + '/non').catch(function () {}); paint(); });
@@ -85,7 +85,7 @@
     b.disabled = true;
     api('GET', '/api/objectifs/' + e.objectifId).then(function (o) {
       var a = o.activity || {}; away = true; ecarts.shift(); close();
-      TMT.objectifsView.openFiche({ level: e.poleKey ? 'pole' : 'activite', title: e.pole || e.activite, path: e.activite + (e.pole ? ' · ' + e.pole : ''), activity: { id: a.id, name: a.name || e.activite, color: a.color }, poleKey: e.poleKey, objectives: null, suggestPlannedMin: e.realMin },
+      TMT.objectifsView.openFiche({ level: e.level, title: e.categorie || e.activite, path: e.activite + (e.categorie ? ' · ' + e.categorie : ''), activity: { id: a.id, name: a.name || e.activite, color: a.color }, poleKey: e.poleKey, categoryKey: e.categoryKey, objectives: null, suggestPlannedMin: e.realMin },
         function () { away = false; recalc(); });
     }).catch(function () { away = false; b.disabled = false; });
   }

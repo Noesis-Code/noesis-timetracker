@@ -1101,10 +1101,11 @@
     var plans = {};
     function dirty() { return Object.keys(plans).some(function (k) { return plans[k].value !== plans[k].orig; }); }
     function sync() { stepBtn.disabled = !dirty(); }
-    if (spec.level === 'pole') {
+    var planKey = spec.level === 'activite' ? null : spec.poleKey;
+    if (spec.level === 'pole' || (spec.suggestPlannedMin != null && (spec.level === 'activite' || spec.level === 'secteur'))) {
       var planBox = el('div', 'objField'); planBox.appendChild(el('p', 'cmpBlockTitle', tr('Temps prévu (heures par semaine)'))); panelBody.appendChild(planBox);
       api('GET', '/api/member-times?activityId=' + act.id).then(function (t) {
-        var lv = (t.levels || []).filter(function (l) { return l.key === spec.poleKey; })[0], names = {}; (t.members || []).forEach(function (m) { names[m.userId] = m.name; });
+        var lv = (t.levels || []).filter(function (l) { return l.key === planKey; })[0], names = {}; (t.members || []).forEach(function (m) { names[m.userId] = m.name; });
         ((lv && lv.rows) || []).forEach(function (row) {
           var mine = row.userId === t.me, h = row.plannedMin != null ? Math.round(row.plannedMin / 6) / 10 : null, r = el('div', 'objTimeRow'), v = el('span', 'objHoursVal'), inp = el('input');
           plans[row.userId] = { value: h, orig: h };
@@ -1137,7 +1138,7 @@
     function save() {
       if (!dirty()) return;
       stepBtn.disabled = true; msg.textContent = '';
-      var chain = Promise.resolve(); Object.keys(plans).filter(function (k) { return plans[k].value !== plans[k].orig; }).forEach(function (k) { chain = chain.then(function () { return api('POST', '/api/member-times', { activityId: act.id, poleKey: spec.poleKey, memberId: k, afterMin: Math.round(plans[k].value * 60), origin: 'ajout' }); }); });
+      var chain = Promise.resolve(); Object.keys(plans).filter(function (k) { return plans[k].value !== plans[k].orig; }).forEach(function (k) { chain = chain.then(function () { return api('POST', '/api/member-times', { activityId: act.id, poleKey: planKey, memberId: k, afterMin: Math.round(plans[k].value * 60), origin: 'ajout' }); }); });
       TMT.ui.attente(chain).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
     }
     dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null;

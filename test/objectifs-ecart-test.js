@@ -31,19 +31,28 @@ db.prepare('UPDATE user_objectives SET startDate = ?, endDate = ? WHERE id = ?')
 const chrono = (day, min) => db.prepare("INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory) VALUES ('u1', ?, '', 'a', 'b', ?, ?, 'x', ?)").run(act, min * 60, day, pk);
 weeks.forEach((w) => chrono(add(w.start, 2), 780)); // 13 h par semaine pour 10 h prévues : +30 %
 let ev = E.evaluate('u1', TODAY);
-assert(ev.length === 1 && ev[0].objectifId === o1.id && ev[0].direction === 'depasse' && ev[0].pct === 30 && ev[0].deltaMin === 180 && ev[0].pole === 'Pôle', 'base : dépassement détecté, rattaché à l’objectif, niveau pôle (le Chrono est par catégorie)');
+assert(ev.length === 1 && ev[0].objectifId === o1.id && ev[0].direction === 'depasse' && ev[0].pct === 30 && ev[0].deltaMin === 180 && ev[0].level === 'pole' && ev[0].categorie === 'Pôle', 'base : dépassement détecté ; l’objectif EST sa catégorie sur une période : le Chrono du pôle est celui de l’objectif');
 // rodage : un objectif commencé il y a moins de 14 jours avant la première semaine n'est pas évalué
 db.prepare('UPDATE user_objectives SET startDate = ? WHERE id = ?').run(add(weeks[0].start, -5), o1.id);
 assert(E.evaluate('u1', TODAY).length === 0, 'rodage : moins de 2 semaines depuis le début de l’objectif : rien');
 db.prepare('UPDATE user_objectives SET startDate = ? WHERE id = ?').run(add(weeks[0].start, -30), o1.id);
+// une activité SANS pôle : ses objectifs sont directement sur l'activité ; « Oui » doit pouvoir s'ouvrir sur une activité
+const act2 = Number(db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('Sans pôle', 'u1', '')").run().lastInsertRowid);
+db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, 'u1', '#A04B52', '')").run(act2);
+const o2 = O.creer('u1', { title: 'Objectif nu', activityId: act2, level: 'activite', startDate: '2026-12-01', endDate: add(TODAY, 300), hoursPerWeek: 5, weekTasks: [], noBridge: true });
+db.prepare('UPDATE user_objectives SET startDate = ?, endDate = ? WHERE id = ?').run(add(weeks[0].start, -30), add(TODAY, 300), o2.id);
+weeks.forEach((w) => db.prepare("INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory) VALUES ('u1', ?, '', 'a', 'b', ?, ?, 'x', NULL)").run(act2, 120 * 60, add(w.start, 1)));
+const evn = E.evaluate('u1', TODAY).filter((x) => x.objectifId === o2.id)[0];
+assert(evn && evn.level === 'activite' && evn.poleKey === null && evn.categorie === null && evn.direction === 'sous' && evn.pct === 60 && evn.realMin === 120, 'activité sans pôle : l’objectif de l’activité est évalué (sous-utilisation de 60 %), « Oui » s’ouvre sur l’activité');
 // « Non » : pas reposé pendant 4 semaines
-E.refuser('u1', o1.id, TODAY);
-assert(E.evaluate('u1', TODAY).length === 0 && E.evaluate('u1', add(TODAY, 27)).length === 0 && E.evaluate('u1', add(TODAY, 29)).length === 1, '« Non » : rien pendant 28 jours pour cet objectif, puis la question revient');
+E.refuser('u1', o1.id, TODAY); E.refuser('u1', o2.id, TODAY);
+assert(E.evaluate('u1', TODAY).length === 0 && E.evaluate('u1', add(TODAY, 27)).length === 0 && E.evaluate('u1', add(TODAY, 29)).length === 2, '« Non » : rien pendant 28 jours pour cet objectif, puis la question revient');
 // route et interface
 const rt = fs.readFileSync(path.join(__dirname, '..', 'server/routes/objectifsretard.js'), 'utf8');
 assert(rt.includes("require('../lib/objectifs-ecart').evaluate(req.userId)") && rt.includes("'/objectifs/ecart/:id/non'"), 'route : écarts dans la lecture du retard, « Non » mémorisé');
 const rj = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-retard.js'), 'utf8'), cj = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8');
 assert(rj.includes('function paintEcart()') && rj.includes('!TMT.objectifsViewShown') && rj.includes("if (!r) { paintEcart(); return; }") && rj.includes("tr('Oui')") && rj.includes("tr('Non')") && rj.includes("'/api/objectifs/ecart/'"), 'pop-up : réutilise le pop-up du retard (cmpConfirmCard / cmpConfirmVeil), Oui / Non, seulement sur l\u2019onglet Objectif et jamais par-dessus un retard A ou B');
+assert(rj.includes('level: e.level') && rj.includes('categoryKey: e.categoryKey') && cj.includes("var planKey = spec.level === 'activite' ? null : spec.poleKey;") && cj.includes("(spec.level === 'activite' || spec.level === 'secteur')"), '« Oui » ouvre la fiche de la catégorie de l’objectif (secteur, pôle ou activité) : le bloc du temps prévu propose le Chrono, aussi pour une activité sans pôle');
 assert(rj.includes('suggestPlannedMin: e.realMin') && cj.includes('spec.suggestPlannedMin != null') && cj.includes('TMT.objectifsViewShown = true'), '« Oui » : la fiche du temps prévu s\u2019ouvre avec le temps réel du Chrono (moyenne des 4 semaines) déjà proposé ; arrivée sur l\u2019onglet Objectif déclenche la vérification');
 assert(!/\/\/[^\n]*tbl\.appendChild/.test(rj), 'GARDE : aucun commentaire // ne coupe une ligne de code');
 console.log(failed ? '\n' + failed + ' échec(s)' : 'objectifs-ecart-test OK'); process.exit(failed ? 1 : 0);
