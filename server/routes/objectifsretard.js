@@ -10,7 +10,7 @@ const fail = (res, tag, err) => {
 
 router.get('/objectifs/retard', (req, res) => {
   if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
-  try { res.json({ retards: late().lister(req.userId) }); } catch (err) { fail(res, 'GET /objectifs/retard', err); }
+  try { let ecarts = []; try { ecarts = require('../lib/objectifs-ecart').evaluate(req.userId); } catch (e) { ecarts = []; } res.json({ retards: late().lister(req.userId), ecarts }); } /* ecarts : message de dépassement ou de sous-utilisation, jamais bloquant */ catch (err) { fail(res, 'GET /objectifs/retard', err); }
 });
 router.post('/objectifs/retard/recalculer', (req, res) => {
   if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
@@ -22,6 +22,12 @@ router.post('/objectifs/retard/:id/refuser', (req, res) => {
     if (!late().marquer(req.userId, req.params.id, 'refuse')) return res.status(404).json({ error: 'Retard introuvable.' });
     res.json({ ok: true });
   } catch (err) { fail(res, 'POST /objectifs/retard/:id/refuser', err); }
+});
+
+// « Non » au message d'écart (dépassement / sous-utilisation) : pas reposé pendant 4 semaines pour cet objectif.
+router.post('/objectifs/ecart/:id/non', (req, res) => {
+  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
+  try { res.json(require('../lib/objectifs-ecart').refuser(req.userId, req.params.id)); } catch (err) { fail(res, 'POST /objectifs/ecart/:id/non', err); }
 });
 
 module.exports = router;

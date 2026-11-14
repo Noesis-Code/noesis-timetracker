@@ -10,14 +10,14 @@
   var api = function (m, u, b) { return TMT.api(m, u, b); };
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function hh(min) { if (min == null) return '—'; var m = Math.round(min), h = Math.floor(m / 60), r = m % 60; return h + 'h' + (r ? (r < 10 ? '0' : '') + r : ''); }
-  var retards = [], veil = null, busy = false, away = false;
+  var retards = [], ecarts = [], veil = null, busy = false, away = false;
 
   function current() { // un pop-up à la fois : B avant A
     for (var i = 0; i < retards.length; i++) if (retards[i].niveau === 'B') return retards[i];
     return retards[0] || null;
   }
   function close() { if (veil) { veil.remove(); veil = null; } }
-  function setAll(r) { retards = ((r && r.retards) || []).filter(function (x) { return x && (x.niveau === 'A' || x.niveau === 'B'); }); paint(); } // seul le format du contrat (niveau A ou B) s'affiche
+  function setAll(r) { retards = ((r && r.retards) || []).filter(function (x) { return x && (x.niveau === 'A' || x.niveau === 'B'); }); ecarts = (r && r.ecarts) || []; paint(); } /* seul le format du contrat (niveau A ou B) s'affiche ; ecarts : message de dépassement ou de sous-utilisation */
   function recalc() { return api('POST', '/api/objectifs/retard/recalculer').then(setAll).catch(function () { paint(); }); }
 
   function card(r, withClose) {
@@ -62,9 +62,32 @@
   }
   function paint() {
     close(); if (away) return;
-    var r = current(); if (!r) return;
+    var r = current(); if (!r) { paintEcart(); return; }
     veil = el('div', 'cmpConfirmVeil retVeil'); // pas de fermeture par le fond
     veil.appendChild(r.niveau === 'B' ? paintB(r) : paintA(r)); document.body.appendChild(veil);
+  }
+  // MESSAGE d'écart (14 nov. 2026) : le Chrono a dépassé OU est resté sous les heures prévues de plus de 20 %, 4 semaines de suite (serveur : objectifs-ecart.js). Seulement sur la Feuille de route, onglet Objectif, et jamais par-dessus un retard A ou B.
+  // Non = rien ne change (pas reposé pendant 4 semaines pour cet objectif) ; Oui = la fiche du pôle (Temps prévu) s'ouvre avec le temps réel du Chrono (moyenne des 4 semaines) déjà proposé ; mêmes composants que le retard.
+  function paintEcart() {
+    var e = ecarts[0]; if (!e || !TMT.objectifsViewShown) return;
+    var c = el('div', 'cmpConfirmCard cmpGlass retCard'), head = el('div', 'retHead');
+    c.setAttribute('role', 'dialog'); c.setAttribute('aria-modal', 'true');
+    head.appendChild(el('span', 'retKicker', e.activite + (e.pole ? ' › ' + e.pole : ''))); c.appendChild(head);
+    c.appendChild(el('p', 'retLine', tr(e.direction === 'depasse' ? 'Depuis 4 semaines tu dépasses en moyenne de {h} par semaine ({pct} %). Redéfinir ton temps pour cet objectif ?' : 'Depuis 4 semaines tu es en dessous en moyenne de {h} par semaine ({pct} %). Redéfinir ton temps pour cet objectif ?', { h: hh(Math.abs(e.deltaMin)), pct: e.pct })));
+    var yes = el('button', 'cmpBtn', tr('Oui')), no = el('button', 'cmpBtn cmpBtnIdle', tr('Non')); yes.type = 'button'; no.type = 'button';
+    no.addEventListener('click', function () { ecarts.shift(); api('POST', '/api/objectifs/ecart/' + e.objectifId + '/non').catch(function () {}); paint(); });
+    yes.addEventListener('click', function () { openEcart(e, yes); });
+    c.appendChild(yes); c.appendChild(no);
+    veil = el('div', 'cmpConfirmVeil retVeil'); veil.appendChild(c); document.body.appendChild(veil);
+  }
+  function openEcart(e, b) {
+    if (!(TMT.objectifsView && TMT.objectifsView.openFiche)) return;
+    b.disabled = true;
+    api('GET', '/api/objectifs/' + e.objectifId).then(function (o) {
+      var a = o.activity || {}; away = true; ecarts.shift(); close();
+      TMT.objectifsView.openFiche({ level: e.poleKey ? 'pole' : 'activite', title: e.pole || e.activite, path: e.activite + (e.pole ? ' · ' + e.pole : ''), activity: { id: a.id, name: a.name || e.activite, color: a.color }, poleKey: e.poleKey, objectives: null, suggestPlannedMin: e.realMin },
+        function () { away = false; recalc(); });
+    }).catch(function () { away = false; b.disabled = false; });
   }
   // B : la fiche du pôle (bloc « Temps prévu (heures par semaine) »), sans écran nouveau ; le pop-up se cache pendant la fiche et revient (recalculé) à sa fermeture.
   function openPole(r, b) {

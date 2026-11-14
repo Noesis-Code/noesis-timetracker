@@ -1111,8 +1111,10 @@
           inp.type = 'text'; inp.inputMode = 'decimal'; inp.maxLength = 4; inp.value = h != null ? String(h) : ''; inp.setAttribute('aria-label', tr('Heures par semaine') + ' ' + (names[row.userId] || ''));
           inp.disabled = !(mine || t.isResponsable); // seul un responsable règle le temps d'un autre membre
           inp.addEventListener('input', function () { var x = parseFloat(String(inp.value).replace(',', '.')); plans[row.userId].value = x >= 0 && x <= 80 ? Math.round(x * 10) / 10 : plans[row.userId].orig; sync(); });
+          if (mine && spec.suggestPlannedMin != null) { var sg = Math.round(spec.suggestPlannedMin / 6) / 10; inp.value = String(sg); plans[row.userId].value = sg; } /* temps réel du Chrono (moyenne des 4 semaines) déjà proposé */
           v.appendChild(inp); v.appendChild(el('span', null, 'h')); r.appendChild(el('span', null, (names[row.userId] || '') + (mine ? ' (' + tr('toi') + ')' : ''))); r.appendChild(v); planBox.appendChild(r);
         });
+        sync();
       }).catch(function () { planBox.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); });
     }
     // 2. Objectifs en cours
@@ -1310,8 +1312,8 @@
     sync();
   })();
   TMT.objectifsView = {
-    show: function () { state.shown = true; syncDock(); if (TMT.objectifsArbre) TMT.objectifsArbre.showBase(); load(); },
-    hide: function () { state.shown = false; syncDock(); if (TMT.objectifsArbre && TMT.objectifsArbre.hide) TMT.objectifsArbre.hide(); },
+    show: function () { state.shown = true; TMT.objectifsViewShown = true; syncDock(); if (TMT.objectifsRetard && TMT.objectifsRetard.check) TMT.objectifsRetard.check(); if (TMT.objectifsArbre) TMT.objectifsArbre.showBase(); load(); },
+    hide: function () { state.shown = false; TMT.objectifsViewShown = false; syncDock(); if (TMT.objectifsArbre && TMT.objectifsArbre.hide) TMT.objectifsArbre.hide(); },
     confirmDelete: function (id, title, isMacro) { confirmDelete(id, title, load, function (e) { if (TMT.objectifsArbre && TMT.objectifsArbre.say) TMT.objectifsArbre.say((e && e.message) || tr('Impossible pour le moment.')); }, isMacro); }, // un refus du serveur (ex. « Fusion passée : impossible de délier. ») s'affiche en message court
     openExtend: function (cfg) { return openExtend(cfg); }, closeExtend: function () { closeExtend(); },
     createAt: function (o) { createAt(o); },
