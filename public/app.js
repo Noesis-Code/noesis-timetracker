@@ -2282,6 +2282,7 @@
 
   function switchTab(tab, opts) {
     if (!tabAllowed(tab)) tab = firstTab();
+    var bilan = tab === 'bilan'; if (bilan) tab = 'stats'; /* le volet Bilan = la page de statistiques, toutes les pages dans une seule colonne */
     var fromGoalsStats = !$('tab-stats').classList.contains('hidden') && TMT.statsContext && TMT.statsContext() === 'goals'; // retour des statistiques vers la Feuille de route : on garde la dernière vue (Tâches ou Objectifs)
     // 5 oct. 2026 (Emilien) : Historique/Archives reviennent enroulés (et sans réserve d'espace) à chaque changement d'onglet.
     collapseChronoHistory();
@@ -2290,7 +2291,7 @@
     $('tab-' + tab).classList.remove('hidden');
     // Chantier B (20 oct. 2026) : Stats n'est plus un onglet de la barre, c'est une page à gauche de Chrono (stats de temps) ou de la
     // Feuille de route (tâches et objectifs) ; l'icône de la barre qui reste allumée est celle du volet d'où l'on vient.
-    var barTab = tab === 'stats' ? ((TMT.statsContext && TMT.statsContext()) === 'goals' ? 'goals' : 'chrono') : tab;
+    var barTab = bilan ? 'bilan' : tab === 'stats' ? ((TMT.statsContext && TMT.statsContext()) === 'goals' ? 'goals' : 'chrono') : tab;
     tabButtons.forEach(function (b) {
       b.classList.toggle('active', b.dataset.tab === barTab);
       if (b.dataset.tab === barTab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); // onglet courant annoncé par les lecteurs d'écran
@@ -2317,10 +2318,12 @@
 
     if (tab === 'stats') {
       // Page de statistiques à gauche de Chrono (stats de temps) ou de la Feuille de route (tâches/objectifs) : voir enterStats().
-      if (!(opts && opts.prepared)) enterStats('chrono');
+      if (bilan) { enterStats('chrono'); if (TMT.bilanShow) TMT.bilanShow(); }
+      else { if (TMT.bilanHide) TMT.bilanHide(); if (!(opts && opts.prepared)) enterStats('chrono'); }
       refreshScrollLock();
     }
     else {
+      if (TMT.bilanHide) TMT.bilanHide();
       if (tab === 'community') loadCommunity();
       else if (tab === 'goals') { if (!fromGoalsStats && !TMT.keepGoalsView && TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(); TMT.loadGoalsTab(); if (TMT.objectifsArbre && TMT.objectifsArbre.reopen) TMT.objectifsArbre.reopen(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
       else if (tab === 'chrono') {

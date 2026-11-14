@@ -32,6 +32,7 @@
   function tabOn(tab) {
     if (tab === 'chrono') return on('stats');
     if (tab === 'stats') return on('stats') || on('stats-tasks');  // « Temps » off : l'onglet Stats ne garde que les stats des tâches (ensemble B)
+    if (tab === 'bilan') return on('stats') || on('stats-tasks');
     if (tab === 'goals') return on('roadmap');
     if (tab === 'community') return on('community');
     if (tab === 'trade') return !!state && state.trade === true;

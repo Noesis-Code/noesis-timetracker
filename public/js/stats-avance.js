@@ -1000,6 +1000,23 @@
   var groupOn = false; // contexte « goals » : page Groupe (Tâches par membre) affichée à la place de la page Tâches/Objectifs
   function showing(id) { var e = document.getElementById(id); return !!e && !e.classList.contains('hidden'); }
   function modOnId(id) { return !TMT.modules || TMT.modules.isOn(id); }
+  // MODE BILAN (volet « Bilan », 14 nov. 2026) : les pages (Chrono-statistiques, Tâches | Objectifs, activités partagées, groupe) sont empilées dans UNE colonne qui défile ; plus de points ni de glissement entre elles.
+  var bilanOn = false;
+  TMT.bilanShow = function () {
+    bilanOn = true; pages.classList.add('bilanStack');
+    [page1, page2, sharedEl, groupEl].forEach(function (p) { if (p) p.classList.remove('hidden'); });
+    if (modOnId('stats-tasks')) { inst.setTab('t'); inst.open(); }
+    if (groupAvailable() && TMT.groupStats) TMT.groupStats.open();
+    if (sharedAvailable()) openShared();
+    setDots();
+  };
+  TMT.bilanHide = function () {
+    if (!bilanOn) return;
+    bilanOn = false; pages.classList.remove('bilanStack');
+    page1.classList.toggle('hidden', page !== 1); page2.classList.toggle('hidden', page !== 2);
+    if (sharedEl) sharedEl.classList.toggle('hidden', !sharedOn); if (groupEl) groupEl.classList.toggle('hidden', !groupOn);
+    setDots();
+  };
   TMT.statsContext = function () { return ctx; };
   TMT.setStatsContext = function (c) {
     ctx = c === 'goals' ? 'goals' : 'chrono';
@@ -1014,6 +1031,7 @@
   var DOT_LABELS = { chrono: ['Chrono', 'Statistiques', 'Activités partagées'], goals: ['Feuille de route', 'Statistiques', 'Groupe'] }; // 27 oct. 2026 : Tâches et Objectifs ne font plus qu'une page (sélecteur Tâches | Objectifs dans la page)
   var dotsKey = '', dotsTimer = 0;
   function place() {
+    if (bilanOn) return null; /* Bilan : une seule page, aucun point */
     if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (groupOn ? 2 : 1) : (sharedOn ? 2 : 1) };
     if (showing('tab-chrono')) return { ctx: 'chrono', idx: 0 };
     if (showing('tab-goals') && showing('goalsCapturePage')) return { ctx: 'goals', idx: 0 }; // Tâches ET Objectifs = la même page 1 = un seul point (le sélecteur est dans la page)
@@ -1209,8 +1227,9 @@
   function curIdx() { return ctx === 'goals' ? (groupOn ? 1 : 0) : 0; }
   slidePager({
     zone: zone,
-    swallow: function (dir) { return ctx === 'chrono' ? (sharedOn && dir > 0) : (dir > 0 && curIdx() === (groupAvailable() ? 1 : 0)); },
+    swallow: function (dir) { return bilanOn || ctx === 'chrono' ? (sharedOn && dir > 0) : (dir > 0 && curIdx() === (groupAvailable() ? 1 : 0)); },
     neighbor: function (dir) {
+      if (bilanOn) return null;
       var i = curIdx(), t = i + dir;
       if (ctx === 'chrono') {
         if (sharedOn) return dir < 0 ? sharedNeighbor(false) : null; // 3e page : retour vers Temps

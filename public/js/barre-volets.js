@@ -16,7 +16,7 @@
     var addBtn = document.getElementById('tabbarAdd');
   var hint = { classList: { add: function () {}, toggle: function () {} } }; // le message « Appui long… » est supprimé (demande d'Émilien, 25 oct. 2026)
   if (!nav || !pill || !addBtn) return;
-  var ALL = ['chrono', 'goals', 'horaire', 'community', 'trade'];
+  var ALL = ['chrono', 'goals', 'bilan', 'horaire', 'community', 'trade'];
   var KEEP = ['chrono', 'goals', 'horaire']; // au moins un de ces trois doit rester dans la barre (26 oct. 2026)
   var LONG_MS = 500, MOVE_PX = 10;
   var editMode = false, justEdited = false, adding = false;
@@ -28,12 +28,13 @@
   function tradeOn() { var m = mods(); return !!(m && m.tradeOn && m.tradeOn()); }
   function btnOf(tab) { return pill.querySelector('.tabBtn[data-tab="' + tab + '"]'); }
 
-  function defaults() { var d = ['chrono', 'goals', 'horaire', 'community']; if (tradeOn()) d.push('trade'); return d; }
+  function defaults() { var d = ['chrono', 'goals', 'bilan', 'horaire', 'community']; if (tradeOn()) d.push('trade'); return d; }
   function load() {
     var list = null;
     try { list = JSON.parse(localStorage.getItem(key()) || 'null'); } catch (e) { /* illisible : défaut */ }
     if (!Array.isArray(list)) return defaults();
     list = list.filter(function (x, i) { return ALL.indexOf(x) !== -1 && list.indexOf(x) === i; });
+    try { if (list.length && list.indexOf('bilan') === -1 && !localStorage.getItem(key() + ':bilan')) { var gi = list.indexOf('goals'); list.splice(gi === -1 ? list.length : gi + 1, 0, 'bilan'); localStorage.setItem(key() + ':bilan', '1'); localStorage.setItem(key(), JSON.stringify(list)); } } catch (e) { /* stockage indisponible : le volet reste ajoutable par le « + » */ } /* une seule fois par compte : le volet Bilan apparaît après la Feuille de route ; la retirer ensuite reste possible */
     return list.length ? list : defaults();
   }
   function save(list) { try { localStorage.setItem(key(), JSON.stringify(list)); } catch (e) { /* stockage plein */ } }
