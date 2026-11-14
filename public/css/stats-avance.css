@@ -165,3 +165,17 @@
 /* Volet Bilan : toutes les pages de statistiques dans UNE colonne qui défile (aucun glissement, aucun point) */
 #statsPages.bilanStack { display: block; }
 #statsPages.bilanStack > div { position: static; transform: none; margin-bottom: 24px; }
+/* Bilan : nouveaux blocs (sélecteur, tableaux de traits) : jetons existants seulement */
+.bilanBlocs { margin-bottom: 24px; }
+.bilanBlocs.hidden { display: none; }
+.bbCard { margin: 8px 0 20px; }
+.bbHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bbNav { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin: 4px 0 8px; border-top: 1px solid var(--sep); border-bottom: 1px solid var(--sep); }
+.bbNavLabel { font-size: 14px; color: var(--text); }
+.bbTable { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; font-variant-numeric: tabular-nums; }
+.bbTable th, .bbTable td { border: 1px solid var(--sep); padding: 8px 6px; text-align: center; overflow-wrap: anywhere; }
+.bbTable th { font-weight: 500; font-size: 11px; color: var(--text-light); }
+.bbTable .bbN { width: 76px; text-align: left; color: var(--text); }
+.bbTable td.bbC { color: var(--text); }
+.bbTable td.bbMax { color: var(--good); font-weight: 600; }
+.bbTable td.bbMin { color: var(--danger); font-weight: 600; }

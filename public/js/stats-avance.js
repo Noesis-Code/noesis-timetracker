@@ -1008,10 +1008,12 @@
     if (modOnId('stats-tasks')) { inst.setTab('t'); inst.open(); }
     if (groupAvailable() && TMT.groupStats) TMT.groupStats.open();
     if (sharedAvailable()) openShared();
+    if (TMT.bilanBlocs) TMT.bilanBlocs.open();
     setDots();
   };
   TMT.bilanHide = function () {
     if (!bilanOn) return;
+    if (TMT.bilanBlocs) TMT.bilanBlocs.close();
     bilanOn = false; pages.classList.remove('bilanStack');
     page1.classList.toggle('hidden', page !== 1); page2.classList.toggle('hidden', page !== 2);
     if (sharedEl) sharedEl.classList.toggle('hidden', !sharedOn); if (groupEl) groupEl.classList.toggle('hidden', !groupOn);
