@@ -84,10 +84,6 @@
     if (window.MutationObserver) new MutationObserver(syncDock).observe(dock, { attributes: true, attributeFilter: ['class'] }); // plus de barre d'écriture : la zone du bas n'existe que pendant une création ou une modification (classe expSave)
   }
   function syncDock() { if (dock) dock.classList.toggle('hidden', !(state.shown && dock.classList.contains('expSave') && host.getClientRects().length && !host.classList.contains('hidden'))); }
-  function bar(p) {
-    var t = el('div', 'goalMainProgressTrack objBar'), f = el('div', 'goalMainProgressFill');
-    f.style.width = Math.round(Math.max(0, Math.min(1, p)) * 100) + '%'; t.appendChild(f); return t;
-  }
   function load() { if (TMT.objectifsArbre) TMT.objectifsArbre.refresh(); } // l'arbre se redessine après une création ou une modification
 
   // ---------- Fenêtres (gabarit commun .goalTaskEditModal) ----------
@@ -135,10 +131,6 @@
   // ---------- Parcours : paramètres -> étapes proposées (-> objectifs lus avant, si plusieurs) ----------
   function total() { return seq.base + 2 * seq.count; }
   function setBack(fn) { goBack = fn; if (backBtn) backBtn.classList.toggle('hidden', !fn); }
-  function showStep(n, next, fn, enabled) { // next : nom de l'étape suivante, ou null = dernière étape (« Terminer »)
-    dock.classList.add('expSave'); advance = fn;
-    stepLabel.textContent = next ? tr('Suivant') : tr('Terminer'); stepBtn.setAttribute('aria-label', (next ? tr('Suivant') + ' : ' + tr(next) : tr('Terminer')) + ' (' + n + '/' + total() + ')'); stepPos.textContent = n + '/' + total(); stepBtn.disabled = !enabled;
-  }
   // Contexte posé par l'arbre : niveau (activité | pôle | secteur) + activité, pôle, secteur ; toucher une case VIDE ajoute l'échéance de la case. Le prochain objectif écrit dans la barre
   // PORTE ce niveau, et l'activité (pôle, secteur) est verrouillée dans le panneau de création.
   var viewCtx = { level: 'activite' }, pendingEnd = null, pendingType = null;
@@ -260,7 +252,6 @@
   function termsFor(days) { var w = (days || 0) / 7; return w <= 26 ? ['periode'] : w <= 130 ? ['periode', 'annee'] : ['periode', 'annee', 'pluriannuel']; }
   function multiOf(days) { return (days || 0) > 28; }
   function isoAdd(iso, n) { var d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
-  function mondayIso(iso) { return isoAdd(iso, -((new Date(iso + 'T00:00:00Z').getUTCDay() + 6) % 7)); }
   // Interrupteur « Hebdomadaire » (9 nov. 2026) : possible SEULEMENT au niveau secteur et si l'échéance tombe dans la semaine en cours ou la suivante ; l'échéance décide ce qui est possible.
   // Numéros de semaine et de période : la MÊME fonction que le calendrier (public/js/calendrier-numeros.js, premier lundi de janvier) ; aucune copie ici.
   // Tranche de 5 ans d'un objectif d'ACTIVITÉ (pluriannuel) : MÊME définition que la colonne pluriannuelle de l'arbre (objectifs-arbre.js, blockStart / rowKey) : première année = année en cours + 5 × partie entière de (année de l'échéance - année en cours) / 5.
@@ -317,11 +308,6 @@
     var slidePages = el('div', 'tasksPages'), slideTrack = el('div', 'tasksTrack'), slideA = el('div', 'tasksPage'), slideB = el('div', 'tasksPage off'), slideTimer = 0;
     ['desc', 'temps', 'heures', 'niveau', 'inf', 'taches'].forEach(function (k) { slideA.appendChild(boxes[k]); });
     slideTrack.appendChild(slideA); slideTrack.appendChild(slideB); slidePages.appendChild(slideTrack); panelBody.appendChild(slidePages);
-    function slideTo(sub) { // la page de création d'une activité glisse depuis la droite (et revient) comme les pages du panneau de tâche
-      window.clearTimeout(slideTimer);
-      if (sub) { slideB.classList.remove('off'); void slideTrack.offsetWidth; slideTrack.style.transform = 'translateX(-50%)'; slideTimer = window.setTimeout(function () { slideA.classList.add('off'); }, 300); }
-      else { slideA.classList.remove('off'); void slideTrack.offsetWidth; slideTrack.style.transform = ''; slideTimer = window.setTimeout(function () { slideB.classList.add('off'); }, 300); }
-    }
     if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
     panelForm = form; setBack(null);
     function stepOff() { return cur === 'desc' ? !String(form.title || '').trim() : false; } // Description : grisé sans titre ; Échéance (étape propre, après Activité et Niveau) : grisé sans date valide (R35)
@@ -867,7 +853,6 @@
   function closeExtend() { extendCancel = null; endFlow(); }
   function closePanel() { endFlow(); } // ✕ : annule, la barre redevient normale (l'objectif tapé y reste)
 
-  function durText(f) { return f.unit === 'semaines' ? plural(f.amount, 'semaine', 'semaines') : f.unit === 'mois' ? f.amount + ' ' + tr('mois') : plural(f.amount, 'an', 'ans'); }
 
   // Carte fusionnée de l’arbre : la liste des objectifs qu’elle contient ; chaque ligne choisit un objectif.
   // opts.title / opts.onPick (choix d’un objectif du groupe) / opts.skip (ids exclus).

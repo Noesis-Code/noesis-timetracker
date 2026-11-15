@@ -43,7 +43,6 @@
   // L03 : un objectif ne se rattache qu'à un objectif de la MÊME ACTIVITÉ (toutes colonnes confondues : pôles et secteurs d'une activité sont des colonnes d'une même activité).
   var kidsAll = {};
   function sameAct(o, id) { var t = items.filter(function (x) { return x.id === id; })[0]; return !!t && (t.isMacro || t.activity.id === o.activity.id); } // sauf sous un objectif macro (règle serveur)
-  function idsOf(t) { var s = t.getAttribute('data-ids'); return s ? s.split(',').map(Number) : [Number(t.getAttribute('data-id'))]; }
   var SAME_ACT = 'Un objectif ne se rattache qu’à un objectif de la même activité.';
   var CYCLE = 'Un objectif ne peut pas être rattaché à l’un de ses propres objectifs.';
   // LARGEURS 100 % CSS : une largeur est une expression CSS (jamais des pixels mesurés en JS) ; --ar-w (posée sur la zone qui défile) vaut toute la largeur utile pour UNE colonne, la moitié pour deux ou plus (règle de l'arbre périodique) ; cqw = largeur de cette zone, aucune mesure ni écouteur.
