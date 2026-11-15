@@ -33,7 +33,6 @@ html.arbreOn body { position: fixed; inset: 0; width: 100%; overflow: hidden; ov
 .arCardName { font-size: 13px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .arCardMeta { font-size: 12px; font-weight: 400; opacity: .72; line-height: 1.25; }
 .arCard.arPicked { box-shadow: 0 0 0 2px var(--purple); }
-.arStack { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .arEnter { animation: arEnter .22s ease-out; }
 @keyframes arEnter { from { opacity: 0; } to { opacity: 1; } } /* fondu seulement : jamais de décalage, les bulles restent exactement sous leur colonne */
 @media (prefers-reduced-motion: reduce) { .arEnter { animation: none; } }

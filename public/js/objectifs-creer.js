@@ -599,9 +599,10 @@
     function rdKey() { return [form.parentId || '', form.endDate || '', typeOf()].join('|'); }
     function redessinStep() {
       if (!form.parentId || !form.endDate || form._rdKey === rdKey()) return Promise.resolve();
-      form._rdKey = rdKey(); form.redessin = null;
+      form._rdKey = rdKey(); form.redessin = null; form.rdNeeded = false;
       return api('POST', '/api/objectifs/redessin', { parentId: form.parentId, type: typeOf(), title: form.title, endDate: form.endDate }).then(function (d) {
         if (!d || !d.needed) return;
+        form.rdNeeded = true; // des objectifs existants changent : la fenêtre « Modifications proposées » remplace l'étape des sous-objectifs (un seul chemin)
         return openRedessin(d).then(function (res) {
           if (res.applied) form.redessin = { parentId: form.parentId, rows: res.rows };
           else api('POST', '/api/objectifs/redessin', { action: 'refus', parentId: form.parentId, endDate: form.endDate, rows: res.rows }).catch(function () {});
@@ -732,7 +733,7 @@
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
     if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
     var stepNames = { desc: 'Objectif', temps: 'Temps', heures: 'Heures', niveau: 'Niveau', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
-    function list() { /* création par le « + » d'une case : ni Emplacement ni Échéance (la fin de la case ; la date précise d'un périodique se touche dans le récapitulatif du dernier panneau) */ return ['desc'].concat(niv.skip ? [] : ['niveau']).concat(['temps']).concat(infListed() ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
+    function list() { /* création par le « + » d'une case : ni Emplacement ni Échéance (la fin de la case ; la date précise d'un périodique se touche dans le récapitulatif du dernier panneau) */ return ['desc'].concat(niv.skip ? [] : ['niveau']).concat(['temps']).concat(infListed() && !form.rdNeeded ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     function rattKey2() { return rattKey() + '|' + (form.endDate || ''); } // le rattachement dépend aussi de l'échéance (saisie après Activité)
     function loadRatt() {
       // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
@@ -764,7 +765,7 @@
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
     function stepNext() {
       var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
-      if (cur === 'temps' && form.parentId && form._rdKey !== rdKey()) { stepBtn.disabled = true; TMT.ui.attente(redessinStep()).then(function () { stepBtn.disabled = false; stepNext(); }); return; } // fenêtre « Modifications proposées » entre Temps et les sous-objectifs
+      if (cur === 'temps' && form.parentId && form._rdKey !== rdKey()) { stepBtn.disabled = true; TMT.ui.attente(redessinStep()).then(function () { stepBtn.disabled = false; if (form.rdNeeded) finishAll(); else stepNext(); }); return; } // fenêtre « Modifications proposées » : si elle a eu lieu, on termine (pas d'étape des sous-objectifs) ; sinon on enchaîne
       if (cur === 'temps' && l[i + 1] === 'inf') { stepBtn.disabled = true; TMT.ui.attente(infFetch()).then(function () { stepBtn.disabled = false; if (inf.plan && !inf.plan.skip) show('inf'); else finishAll(); }); return; }
       if (cur === 'desc') { if (!validDesc()) return; stepBtn.disabled = true; TMT.ui.attente(loadRatt().then(nivFetch)).then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; } // créé depuis une case : activité et échéance imposées
       show(l[i + 1]);
@@ -791,7 +792,7 @@
             })
             .then(function (cr) { if (cr && cr.id) first = cr; });
         })
-        .then(function () { return infApply(first); })
+        .then(function () { return form.rdNeeded ? null : infApply(first); })
         .then(function () { return rdApply(); })
         .then(function () { var created = first; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); })
         .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
@@ -856,20 +857,6 @@
 
   // Carte fusionnée de l’arbre : la liste des objectifs qu’elle contient ; chaque ligne choisit un objectif.
   // opts.title / opts.onPick (choix d’un objectif du groupe) / opts.skip (ids exclus).
-  function openGroup(ids, opts) {
-    opts = opts || {};
-    api('GET', '/api/objectifs?filtre=tous').then(function (r) {
-      var os = ((r && r.objectifs) || []).filter(function (o) { return ids.indexOf(o.id) >= 0 && (opts.skip || []).indexOf(o.id) < 0; });
-      var win = openModal(opts.title || os.length + ' ' + tr('objectifs'), { onClose: load }), born0 = Date.now(); // le relâchement d'un appui long ne choisit jamais une ligne
-      if (opts.intro) { var ip = el('p', 'objDesc'), ld = TMT.ui.loader(ip, { seul: true }); win.body.appendChild(ip); opts.intro().then(function (t) { ld.remove(); ip.textContent = t || ''; }).catch(function () { ld.remove(); ip.textContent = ''; }); } // texte placé au-dessus de la liste (résumé annuel)
-      os.forEach(function (o) {
-        var row = el('button', 'objGroupRow cmpSepRow'); row.type = 'button';
-        row.appendChild(el('span', 'objRowName', o.title)); row.appendChild(el('span', 'objMeta', o.durationLabel + ' · ' + o.activity.name));
-        row.addEventListener('click', function () { if (Date.now() - born0 < 700) return; win.close(); if (opts.onPick) opts.onPick(o.id); });
-        win.body.appendChild(row);
-      });
-    }).catch(function () {});
-  }
   // Suppression : confirmation rouge ; les objectifs rattachés sont listés puis détachés, jamais supprimés (croix rouge du mode édition de l'arbre et du détail).
   function confirmDelete(id, title, done, fail, isMacro) {
     api('GET', '/api/objectifs?filtre=tous').then(function (r) {
@@ -1171,7 +1158,6 @@
     openExtend: function (cfg) { return openExtend(cfg); }, closeExtend: function () { closeExtend(); },
     createAt: function (o) { createAt(o); },
     openHeures: function (spec, row, label) { openHeures(spec, row, label); },
-    openGroup: function (ids, opts) { openGroup(ids, opts); },
     dock: function () { return dock; },
     openFiche: function (spec, onEnd) { openFiche(spec, onEnd); },
     guideProposals: guideProposals,

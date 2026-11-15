@@ -155,7 +155,6 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objDesc { margin: 8px 0 0; font-size: 14px; color: var(--text); white-space: pre-wrap; }
 .objPlain { margin: 0; font-size: 14px; color: var(--text); }
 
-.objGroupRow { display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 53px; padding: 8px 4px; border: 0; border-radius: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .objGuideHead { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; box-sizing: border-box; padding: 0; border: 0; border-bottom: 1px solid var(--sep); border-radius: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; } /* titre calé à gauche, ligne fine d'un bord à l'autre (R22, même trait que .cmpSep) */
 .objGuideHead .cmpBlockTitle { margin: 0; padding: 0; }
 .objGuideHead .cmpChev { margin-left: 0; }
