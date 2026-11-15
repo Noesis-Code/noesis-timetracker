@@ -1,33 +1,29 @@
-// Retard d'un objectif de période : lecture, refus (niveau A) et recalcul. Voir docs/objectifs/retard.md.
+// « Ajuste ton temps » : lecture (fenêtre + lignes d'information), refus d'une fenêtre, information vue. Voir server/lib/objectifs-ajuste.js.
+// (Le retard d'un objectif de période — replacement des tâches — vit toujours dans server/lib/goalsperiodlate.js ; plus aucun message A ou B.)
 const express = require('express');
 const router = express.Router();
-const late = () => require('../lib/goalsperiodlate');
+const ajuste = () => require('../lib/objectifs-ajuste');
 const fail = (res, tag, err) => {
   if (err && err.statusCode) return res.status(err.statusCode).json({ error: err.message });
-  console.error('[retard] ' + tag, err);
+  console.error('[ajuste] ' + tag, err);
   return res.status(500).json({ error: 'Impossible pour le moment : réessaie dans un instant.' });
 };
 
-router.get('/objectifs/retard', (req, res) => {
-  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
-  try { let ecarts = []; try { ecarts = require('../lib/objectifs-ecart').evaluate(req.userId); } catch (e) { ecarts = []; } try { require('../lib/estimateur').enregistrerTermines(req.userId); } catch (e) { /* temps réel contre prévu : seulement avec le consentement, jamais bloquant */ } res.json({ retards: late().lister(req.userId), ecarts }); } /* ecarts : message de dépassement ou de sous-utilisation, jamais bloquant */ catch (err) { fail(res, 'GET /objectifs/retard', err); }
-});
-router.post('/objectifs/retard/recalculer', (req, res) => {
-  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
-  try { res.json({ retards: late().recalculer(req.userId) }); } catch (err) { fail(res, 'POST /objectifs/retard/recalculer', err); }
-});
-router.post('/objectifs/retard/:id/refuser', (req, res) => {
+router.get('/objectifs/ajuste', (req, res) => {
   if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
   try {
-    if (!late().marquer(req.userId, req.params.id, 'refuse')) return res.status(404).json({ error: 'Retard introuvable.' });
-    res.json({ ok: true });
-  } catch (err) { fail(res, 'POST /objectifs/retard/:id/refuser', err); }
+    try { require('../lib/estimateur').enregistrerTermines(req.userId); } catch (e) { /* temps réel contre prévu : seulement avec le consentement, jamais bloquant */ }
+    res.json(ajuste().lire(req.userId));
+  } catch (err) { fail(res, 'GET /objectifs/ajuste', err); }
 });
-
-// « Non » au message d'écart (dépassement / sous-utilisation) : pas reposé pendant 4 semaines pour cet objectif.
-router.post('/objectifs/ecart/:id/non', (req, res) => {
+// ✕ ou « Modifier » : pas reposé pour cet objectif pendant la période en cours.
+router.post('/objectifs/ajuste/:id/refuser', (req, res) => {
   if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
-  try { res.json(require('../lib/objectifs-ecart').refuser(req.userId, req.params.id)); } catch (err) { fail(res, 'POST /objectifs/ecart/:id/non', err); }
+  try { res.json(ajuste().refuser(req.userId, req.params.id)); } catch (err) { fail(res, 'POST /objectifs/ajuste/:id/refuser', err); }
+});
+router.post('/objectifs/ajuste/info/:id/vue', (req, res) => {
+  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
+  try { res.json(ajuste().infoVue(req.userId, req.params.id)); } catch (err) { fail(res, 'POST /objectifs/ajuste/info/:id/vue', err); }
 });
 
 module.exports = router;

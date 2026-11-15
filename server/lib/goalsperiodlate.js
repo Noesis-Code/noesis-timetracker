@@ -338,4 +338,4 @@ function recalculer(userId, opts) {
   return lister(userId);
 }
 
-module.exports = { evaluerRetard, placerSemaines, reprendre, capaciteSur, evaluerObjectif, verifier, lister, marquer, recalculer, LIMITE };
+module.exports = { evaluerRetard, placerSemaines, reprendre, capaciteSur, evaluerObjectif, verifier, lister, marquer, recalculer, taskRows, LIMITE };

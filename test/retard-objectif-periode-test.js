@@ -163,41 +163,20 @@ const E = setup('E', 48, 45, 0, 0);
 require('../server/lib/goalstoday').tasksToday(E.uid, today);
 assert(late.verifier(E.uid, E.actId).skipped === true, 'l\'ouverture de la liste du jour a déclenché la vérification (puis au plus une fois par 30 s)');
 
-// F. routes : GET, recalculer, refuser (A seulement)
-(async () => {
-  const express = require('express');
-  const app = express(); app.use(express.json());
-  app.use((req, res, next) => { req.userId = req.get('x-test-user') || null; next(); });
-  app.use('/api', require('../server/routes/objectifsretard'));
-  const srv = app.listen(0, '127.0.0.1');
-  await new Promise((ok) => srv.once('listening', ok));
-  const base = 'http://127.0.0.1:' + srv.address().port;
-  const call = async (m, u, uid) => { const x = await fetch(base + u, { method: m, headers: { 'x-test-user': uid || '', 'Content-Type': 'application/json' }, body: m === 'POST' ? '{}' : undefined }); let b = null; try { b = await x.json(); } catch (e) { /* vide */ } return { status: x.status, body: b }; };
+// F. lecture, recalcul, refus (A seulement) : les routes et les pop-ups A/B ont disparu (15 nov. 2026, fenêtre « Ajuste ton temps ») ; la logique serveur de replacement des tâches reste, ici par ses fonctions.
+{
   const G = setup('G', 48, 45, 60, 25);
-  let x = await call('GET', '/api/objectifs/retard', G.uid);
-  assert(x.status === 200 && Array.isArray(x.body.retards) && x.body.retards.length === 0, 'GET : liste vide tant que rien n\'est calculé');
-  x = await call('POST', '/api/objectifs/retard/recalculer', G.uid);
-  const rg = x.body && x.body.retards && x.body.retards[0];
-  assert(x.status === 200 && rg && rg.niveau === 'A' && ['id', 'niveau', 'objectifId', 'titre', 'activite', 'pole', 'secteur', 'poleId', 'heuresManquantes', 'depassementPct', 'tachesRetirees', 'totalRetireMinutes', 'tempsPoleMinutesSemaine', 'necessaireMinutesSemaine'].every((k) => k in rg), 'recalculer : recalcule et renvoie la forme du contrat');
-  x = await call('GET', '/api/objectifs/retard', G.uid);
-  assert(x.body.retards.length === 1 && x.body.retards[0].id === rg.id, 'GET : le retard non refusé est listé');
-  x = await call('POST', '/api/objectifs/retard/' + rg.id + '/refuser', G.uid);
-  assert(x.status === 200, 'refuser (niveau A) : 200');
-  x = await call('GET', '/api/objectifs/retard', G.uid);
-  assert(x.body.retards.length === 0, 'GET : A refusé exclu');
+  assert(late.lister(G.uid).length === 0, 'liste vide tant que rien n’est calculé');
+  const rg = late.recalculer(G.uid)[0];
+  assert(rg && rg.niveau === 'A' && ['id', 'niveau', 'objectifId', 'titre', 'activite', 'pole', 'secteur', 'poleId', 'heuresManquantes', 'depassementPct', 'tachesRetirees', 'totalRetireMinutes', 'tempsPoleMinutesSemaine', 'necessaireMinutesSemaine'].every((k) => k in rg), 'recalculer : niveau A listé, forme du contrat');
+  assert(late.lister(G.uid).length === 1 && late.lister(G.uid)[0].id === rg.id, 'le retard non refusé est listé');
+  assert(late.marquer(G.uid, rg.id, 'refuse') === true && late.lister(G.uid).length === 0, 'refuser (niveau A) : A refusé exclu');
   const CC = setup('H', 20, 45, 0, 0);
-  x = await call('POST', '/api/objectifs/retard/recalculer', CC.uid);
-  const rb = x.body.retards[0];
+  const rb = late.recalculer(CC.uid)[0];
   assert(rb && rb.niveau === 'B', 'recalculer : niveau B listé');
-  x = await call('POST', '/api/objectifs/retard/' + rb.id + '/refuser', CC.uid);
-  assert(x.status === 400, 'refuser un niveau B : 400');
-  x = await call('GET', '/api/objectifs/retard', CC.uid);
-  assert(x.body.retards.length === 1, 'GET : B toujours inclus');
-  x = await call('GET', '/api/objectifs/retard', '');
-  assert(x.status === 400, 'sans utilisateur : 400');
-  x = await call('POST', '/api/objectifs/retard/99999/refuser', G.uid);
-  assert(x.status === 404, 'refuser un retard inconnu : 404');
-  srv.close();
-  console.log(failed ? '\n' + failed + ' échec(s)' : '\nOK');
-  process.exit(failed ? 1 : 0);
-})();
+  let code = 0; try { late.marquer(CC.uid, rb.id, 'refuse'); } catch (e) { code = e.statusCode; }
+  assert(code === 400 && late.lister(CC.uid).length === 1, 'refuser un niveau B : refusé (400), B toujours inclus');
+  assert(late.marquer(G.uid, 99999, 'refuse') === false, 'refuser un retard inconnu : introuvable');
+}
+console.log(failed ? String.fromCharCode(10) + failed + ' échec(s)' : String.fromCharCode(10) + 'OK');
+process.exit(failed ? 1 : 0);

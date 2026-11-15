@@ -1,11 +1,12 @@
-// MESSAGE de dépassement ou de sous-utilisation (décision d'Émilien, 14 nov. 2026) : après 2 semaines de rodage depuis le début de l'objectif, si le Chrono réel a dépassé OU est resté en dessous des heures prévues
-// de plus de 20 % du total hebdomadaire, QUATRE semaines de suite dans le même sens, un pop-up simple propose de redéfinir le temps. Aucun seuil en heures. « Non » = rien ne change, et la question n'est pas reposée
-// pendant 4 semaines pour cet objectif (table objectif_ecart_refus). Rien n'est écrit par l'évaluation.
+// ÉCART DU CHRONO (décision d'Émilien, 14-15 nov. 2026) : dépassement = cause « Réel » de la fenêtre « Ajuste ton temps » ; sous-utilisation = le temps de l'objectif est réduit automatiquement
+// (server/lib/objectifs-ajuste.js). L'ancienne table objectif_ecart_refus n'est plus lue : ses données restent.
+// Après 2 semaines de rodage depuis le début de l'objectif, si le Chrono réel a dépassé OU est resté en dessous des heures prévues
+// de plus de 20 % du total hebdomadaire, QUATRE semaines de suite dans le même sens. Aucun seuil en heures. Rien n'est écrit par l'évaluation.
 // RÈGLE (Émilien, 14 nov. 2026) : une catégorie (secteur, pôle ou activité) n'a qu'UN objectif actif à la fois : l'objectif EST la catégorie sur une période ; le Chrono de la catégorie pendant la période de l'objectif est le Chrono de l'objectif.
 // On compare donc, semaine par semaine, le Chrono de la catégorie de l'objectif (un pôle cumule ses secteurs, l'activité cumule tout) à ses heures prévues (hoursPerWeek).
 const db = require('../db');
 
-const WEEKS = 4, RODAGE_DAYS = 14, THRESHOLD = 0.2, MUTE_DAYS = 28;
+const WEEKS = 4, RODAGE_DAYS = 14, THRESHOLD = 0.2;
 const DAY = 86400000;
 const iso = (t) => new Date(t).toISOString().slice(0, 10);
 const addDays = (d, n) => iso(Date.parse(d + 'T00:00:00Z') + n * DAY);
@@ -46,7 +47,7 @@ function realIn(userId, activityId, keys, start, end) {
   if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); }
   return db.prepare(q).get(...args).s / 60;
 }
-// Évaluation de tous les objectifs actifs du membre : { objectifId, titre, activityId, activite, level, poleKey, categoryKey, categorie, direction, pct, deltaMin, realMin, plannedMin } (« Non » exclus pendant 28 jours).
+// Évaluation de tous les objectifs actifs du membre : { objectifId, titre, activityId, activite, level, poleKey, categoryKey, categorie, direction, pct, deltaMin, realMin, plannedMin }.
 function evaluate(userId, today) {
   today = today || require('./dates').userToday();
   const goals = require('./goals'), weeks = lastWeeks(today), out = [];
@@ -54,20 +55,10 @@ function evaluate(userId, today) {
     const m = parseMeta(o), hpw = Number(m.hoursPerWeek); if (m.abandoned || !(hpw > 0)) return;
     const ws = weeks.map((w) => ({ planned: o.startDate <= w.end && o.endDate >= w.start && addDays(o.startDate, RODAGE_DAYS) <= w.start ? hpw * 60 : 0, real: realIn(userId, o.activityId, keysOf(o), w.start, w.end) }));
     const ev = evaluateWeeks(ws); if (!ev) return;
-    const muted = db.prepare('SELECT until FROM objectif_ecart_refus WHERE userId = ? AND objectifId = ?').get(userId, o.id);
-    if (muted && muted.until >= today) return;
     const act = db.prepare('SELECT name FROM activities WHERE id = ?').get(o.activityId) || {};
     let cat = null; try { const k = o.level === 'secteur' ? o.categoryKey : o.level === 'pole' ? o.poleKey : null; cat = k ? goals.categoryLabelFor(o.activityId, k) : null; } catch (e) { cat = null; }
     out.push(Object.assign({ objectifId: o.id, titre: o.title, activityId: o.activityId, activite: act.name || '', level: o.level || 'activite', poleKey: o.poleKey || null, categoryKey: o.categoryKey || null, categorie: cat }, ev));
   });
   return out;
 }
-// « Non » : la question n'est pas reposée pendant 4 semaines pour cet objectif.
-function refuser(userId, objectifId, today) {
-  const r = db.prepare('SELECT id FROM user_objectives WHERE id = ? AND userId = ?').get(Number(objectifId), userId);
-  if (!r) throw Object.assign(new Error('Objectif introuvable.'), { statusCode: 404 });
-  db.prepare('INSERT INTO objectif_ecart_refus (userId, objectifId, until) VALUES (?, ?, ?) ON CONFLICT(userId, objectifId) DO UPDATE SET until = excluded.until').run(userId, r.id, addDays(today || require('./dates').userToday(), MUTE_DAYS));
-  return { ok: true };
-}
-
-module.exports = { WEEKS, RODAGE_DAYS, THRESHOLD, MUTE_DAYS, lastWeeks, evaluateWeeks, evaluate, refuser };
+module.exports = { WEEKS, RODAGE_DAYS, THRESHOLD, lastWeeks, evaluateWeeks, evaluate };
