@@ -104,7 +104,7 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(o.migrateEcheances() === 0, 'migration idempotente');
   assert(db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE userId = ?').get(u).n === before + 3, 'migration : rien supprimé');
   const cs = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'js', 'objectifs-creer.js'), 'utf8');
-  assert(cs.includes('!form.dateOk || !form.endDate') && cs.includes('MSG_PASSE'), 'interface : Suivant/Terminer grisé sans date valide, message pour une date passée');
+  assert(cs.includes('!form.dateOk || !form.endDate') && !cs.includes('MSG_PASSE'), 'interface : Terminer refusé sans échéance (elle vient de la case), plus de saisie de date ni de message de date passée');
 }
 
 // ---- 6. Objectifs MACRO : plusieurs activités sous un objectif commun ----

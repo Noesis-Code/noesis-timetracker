@@ -63,7 +63,7 @@ assert(R.place(base, 1, 3, 13, 1).find((x) => x.id === 1).p === 3 && R.place(bas
   const win = js.slice(js.indexOf('function openRedessin'), js.indexOf('function offerBtn'));
   assert(js.includes("if (cur === 'temps' && form.parentId && form._rdKey !== rdKey())") && js.includes('TMT.ui.attente(redessinStep())'), 'fenêtre : ouverte à la sortie de Temps (avant les sous-objectifs), seulement s\'il y a un redessin');
   assert(js.includes('.then(function () { return rdApply(); })') && js.includes("action: 'appliquer'") && js.includes("action: 'refus'"), 'Appliquer écrit à Terminer ; Annuler / ✕ = refus mémorisé');
-  assert(win.includes('TMT.ui.holdDrag(w, { holdMs: 500') && win.includes("call('reorder'") && win.includes("call('place'"), 'appui long 500 ms (mécanique existante), glisser = reorder et Place = place côté serveur');
-  assert(win.includes("[['auto', 'Automatique'], ['you', 'Écrit par toi'], ['new', 'Ton ajout'], ['mv', 'Déplacé']]") && !/explicat/i.test(win), 'légende : pastilles et un mot, aucune phrase explicative');
+  assert(win.includes("label: tr('Oui')") && win.includes("label: tr('Non')") && win.includes('TMT.ui.confirm('), 'fenetre Modifications proposees : un simple Oui / Non (confirmation commune)');
+  assert(win.includes('applied: true') && win.includes('refused: true'), 'Oui applique le calcul propose, Non le refuse (refus memorise)');
   console.log(failed ? '\n' + failed + ' échec(s)' : 'objectifs-redessin-test OK'); process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

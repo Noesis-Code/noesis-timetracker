@@ -14,7 +14,7 @@ const sandbox = { window: {} }; vm.runInNewContext(read('public', 'js', 'calendr
 const cal = sandbox.window.TMT.calNums;
 // aucune copie côté création
 const cr = read('public', 'js', 'objectifs-creer.js');
-assert(cr.includes('TMT.calNums.period(iso)') && cr.includes('TMT.calNums.week(iso)') && !/function (periodNo|weekNo)\(iso\) \{ var y/.test(cr), 'objectifs-creer.js : periodNo / weekNo appellent la fonction du calendrier (plus de calcul depuis le 1er janvier)');
+assert(!/function (periodNo|weekNo)(iso) { var y/.test(cr), 'objectifs-creer.js : plus de calcul des numeros de periode et de semaine (la creation ne demande plus ni activite ni echeance)');
 // référence indépendante : premier lundi de janvier
 const DAY = 86400000, ms = (iso) => Date.parse(iso + 'T00:00:00Z'), iso = (m) => new Date(m).toISOString().slice(0, 10);
 const firstMonday = (y) => { const j = Date.UTC(y, 0, 1); return j + ((8 - new Date(j).getUTCDay()) % 7) * DAY; };

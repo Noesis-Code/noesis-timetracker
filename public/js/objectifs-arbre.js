@@ -244,11 +244,7 @@
     if (x.mode === 'create') { var ids = extChildIds(); TMT.api('POST', '/api/objectifs/macro', { childIds: ids, emptyColumns: emptyCols().map(function (i) { return colPayload(i); }), level: lvl, title: (x.title || x.base.title || '').trim() || x.base.title }).then(done).catch(fail); return; }
     if (!extChanged()) { TMT.api('DELETE', '/api/objectifs/' + x.macro.id + '?confirm=1').then(done).catch(fail); return; } // SÉPARER : le macro disparaît, ses objectifs sont conservés (fusion passée : refus du serveur affiché)
     var added = []; Object.keys(x.cols).filter(function (k) { return !x.init[k]; }).forEach(function (k) { newest(Number(k), 2).forEach(function (o) { added.push(o); }); });
-    var far = added.map(function (o) { return o.endDate; }).sort().pop(), seq = Promise.resolve();
-    if (far && far > x.macro.endDate) seq = TMT.ui.confirm(tr('Repousser l’échéance du macro au') + ' ' + far + ' ?', { ok: tr('Repousser') }).then(function (ok) { // une colonne ajoutée a une échéance plus lointaine : l'échéance du macro la suit, avec ton accord (jamais en silence)
-      if (!ok) throw { message: tr('Rien n’est changé : l’échéance du macro reste la même.') };
-      return TMT.api('PUT', '/api/objectifs/' + x.macro.id + '/echeance', { endDate: far });
-    });
+    var seq = Promise.resolve();
     added.forEach(function (o) { seq = seq.then(function () { return TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: x.macro.id, rel: 'apres' }); }); }); // colonne ajoutée : ses objectifs les plus récents rejoignent le macro
     Object.keys(x.init).filter(function (k) { return !x.cols[k]; }).forEach(function (k) { items.filter(function (o) { return o.parentId === x.macro.id && colOfObj(o) === Number(k); }).forEach(function (o) { seq = seq.then(function () { return TMT.api('PUT', '/api/objectifs/' + o.id + '/parent', { parentId: null }); }); }); }); // colonne retirée : DÉLIER
     var kidCols = {}; items.filter(function (o) { return o.parentId === x.macro.id && !o.isMacro; }).forEach(function (o) { kidCols[colOfObj(o)] = true; });
