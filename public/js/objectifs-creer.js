@@ -654,7 +654,10 @@
         }), vb = dp.btn, pick = dp.input;
         row.appendChild(vb); row.appendChild(pick);
       } else row.appendChild(el('span', 'objRecapVal', txt));
-      node.appendChild(row); return node;
+      node.appendChild(row);
+      var fx = el('label', 'objGridRow'), cb = el('input'); cb.type = 'checkbox'; cb.checked = !!form.dateFixe; // « Date fixe » (algorithme v46) : une date fixe devient un mur et peut être parent
+      cb.addEventListener('change', function () { form.dateFixe = cb.checked; });
+      fx.appendChild(el('span', 'objGridName', tr('Date fixe'))); fx.appendChild(cb); node.appendChild(fx); return node;
     }
     function infCreatedName() { return { pluriannuel: 'Objectif pluriannuel', annuel: 'Objectif annuel', periodique: 'Objectif périodique', hebdomadaire: 'Objectif hebdomadaire' }[typeOf()]; } // niveau RÉEL de l'objectif créé, libellés de l'arbre
     // Lignes de sous-objectifs : UNE ligne avec UN trait dessous, comme les groupes de la Description (.objGuideRow / .objGuideHead cmpToggle) ; toucher la ligne la déplie (une seule à la fois) et elle forme alors une section.
@@ -788,7 +791,7 @@
         .then(function (P) { // UNE seule activité, qui existe déjà (elle se crée dans Réglages) ; les macros se font seulement depuis l'arbre
           return Promise.resolve(t.id)
             .then(function (activityId) {
-              return api('POST', '/api/objectifs', { replaceId: replaceId || undefined, term: form.term, cadence: cadenceNow(), inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, niveau: nivBody(), niveauType: niv.type || undefined, nature: form.natureIdx === 0 ? 'maintenance' : form.natureIdx === 1 ? 'developpement' : undefined, suggestion: tp.sugg ? { range: tp.sugg.range, perWeekMin: { mid: tp.sugg.perWeekMin.mid }, factor: tp.sugg.factor, weeks: tp.sugg.weeks, reason: tp.sugg.reason } : undefined, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+              return api('POST', '/api/objectifs', { replaceId: replaceId || undefined, term: form.term, cadence: cadenceNow(), inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, niveau: nivBody(), niveauType: niv.type || undefined, nature: form.natureIdx === 0 ? 'maintenance' : form.natureIdx === 1 ? 'developpement' : undefined, suggestion: tp.sugg ? { range: tp.sugg.range, perWeekMin: { mid: tp.sugg.perWeekMin.mid }, factor: tp.sugg.factor, weeks: tp.sugg.weeks, reason: tp.sugg.reason } : undefined, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, dateFixe: form.dateFixe === true, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
             })
             .then(function (cr) { if (cr && cr.id) first = cr; });
         })

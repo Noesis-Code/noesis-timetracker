@@ -644,6 +644,7 @@ function creer(userId, body) {
   const sug = require('./objectifs-heures').readStored(body.suggestion); if (sug) meta0.suggestion = sug; // suggestion d'heures de l'IA (milieu, fourchette, facteur) gardée pour apprendre ; le choix de la personne = hoursPerWeek
   if (body.nature === 'maintenance' || body.nature === 'developpement') meta0.nature = body.nature; // choix facultatif de la personne (Avancé) : vide = l'IA décide en silence pour chaque tâche
   if (body.description) meta0.description = String(body.description).trim().slice(0, 900); // description libre de l'objectif (étape « Description »)
+  if (body.dateFixe === true) meta0.dateFixe = true; // case « Date fixe » (algorithme v46) : mur et parent possible
   if (isDay(body.proposedEnd)) meta0.dateCorrectedDays = daysBetween(body.proposedEnd, body.endDate); // signal : date corrigée par l'utilisateur
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta0), id);
   catKey = (body.noBridge === true || body.isMacro === true ? null : bridge(db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(id), periods)) || // noBridge : objectifs de démonstration (staging), sans secteur ni plan dans l'arbre périodique
