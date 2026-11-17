@@ -59,6 +59,7 @@ const P = {
   goal_capacity_overrides: { cols: ['userId'], erase: 'cascade', exp: 'goalCapacityOverrides' },
   goal_classify_examples: { cols: ['userId'], erase: 'explicit', exp: 'NON: apprentissage technique du classement IA (remise à zéro par l\'API)' },
   goal_objective_examples: { cols: ['userId'], erase: 'explicit', exp: 'NON: apprentissage technique du rattachement tâche → objectif (remise à zéro par l\'API)' },
+  category_strategies: { cols: ['updatedBy'], erase: 'explicit', exp: 'NON: stratégie partagée de la catégorie (le lien auteur seul est retiré)' },
   task_proposal_refus: { cols: ['userId'], erase: 'explicit', exp: 'NON: refus techniques de propositions de tâches (alimentent « à ignorer », effacés avec le compte)' },
   task_rangement_corrections: { cols: ['userId'], erase: 'explicit', exp: 'NON: apprentissage technique du rangement des tâches (remise à zéro par l\'API, effacé avec le compte)' },
   rangement_consentement: { cols: ['userId'], erase: 'explicit', exp: 'NON: preuve du consentement à l\'amélioration anonyme du modèle (effacée avec le compte)' },

@@ -79,7 +79,8 @@ function planifier(ordonnees, semaines, cap, strategie, delai) {
     const minutes = Number(t.minutes) > 0 ? Number(t.minutes) : DEFAULT_MINUTES;
     let minIdx = 0;
     if (t.cle != null && prev) {
-      const gap = strategie === 'progression' ? Math.max(1, Math.round((delai ? delai(prev.cle, t.cle) : 1) || 1)) : 0;
+      const g = strategie === 'progression' ? (delai ? delai(prev.cle, t.cle) : 1) : 0;
+      const gap = strategie === 'progression' ? (g === 0 ? 0 : Math.max(1, Math.round(g || 1))) : 0; // 0 : « à mon rythme », aucun écart minimal imposé (l'ordre de la chaîne reste)
       minIdx = prev.idx + (t.cle === prev.cle ? 0 : gap);
     }
     let idx = -1;
@@ -124,9 +125,11 @@ async function strategieDe(activityId, categoryKey, taches, opts) {
 }
 
 // Délai (semaines) entre deux paliers : l'écart RÉEL de la personne (puis de l'ensemble, ≥ 5 personnes consentantes), sinon le tableau général, sinon 1.
-function delaiDe(userId, famille, heuresParSemaine) {
+function delaiDe(userId, famille, heuresParSemaine, rythme) {
   return (de, vers) => {
     try {
+      if (rythme === 'libre') return 0; // « à mon rythme » (panneau Stratégie) : pas d'écart minimal entre paliers
+      if (rythme === 'regulier') return 1; // « régulier » : un palier par semaine au plus
       if (!famille) return 1;
       const perso = require('./taches-apprentissage').personalDelay(userId, famille, de, vers);
       if (perso && perso.semaines > 0) return Math.max(1, Math.round(perso.semaines));
@@ -155,7 +158,9 @@ async function proposer(userId, body, opts) {
   const hpw = meta.hoursPerWeek != null && Number(meta.hoursPerWeek) > 0 ? Number(meta.hoursPerWeek) : null;
   const cap = hpw ? Math.round(hpw * 60) : null;
   const ordre = ordonner(taches, strategie, sens);
-  const plan = planifier(ordre, semaines, cap, strategie, delaiDe(userId, obj.objectif_famille || null, hpw));
+  let rythme = null;
+  try { rythme = require('./categorie-strategie').effective(it.activityId, obj.categoryKey || obj.poleKey || it.goalCategory || null).rythme; } catch (e) { rythme = null; }
+  const plan = planifier(ordre, semaines, cap, strategie, delaiDe(userId, obj.objectif_famille || null, hpw, rythme));
   const byId = new Map(taches.map((t) => [t.id, t]));
   const idxAvant = (t) => (t.date ? (semaines.indexOf(mondayOf(t.date)) >= 0 ? semaines.indexOf(mondayOf(t.date)) : null) : null);
   const planById = new Map(plan.map((p) => [p.id, p]));

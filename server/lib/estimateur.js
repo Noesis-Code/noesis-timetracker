@@ -70,8 +70,13 @@ async function classer(userId, title, description) {
 // À la création d'un objectif (asynchrone, jamais bloquant) : range en silence ; famille introuvable : famille null + mots-clés + UNE notification à Émilien.
 async function classerObjectif(userId, objectifId) {
   try {
-    const o = db.prepare('SELECT id, title, metaJson, objectif_famille FROM user_objectives WHERE id = ? AND userId = ?').get(Number(objectifId), userId);
+    const o = db.prepare('SELECT id, title, metaJson, objectif_famille, activityId, categoryKey, poleKey FROM user_objectives WHERE id = ? AND userId = ?').get(Number(objectifId), userId);
     if (!o || o.objectif_famille) return null;
+    // La famille indiquée dans le panneau « Stratégie » de la catégorie (héritage secteur -> pôle -> activité) PRIME sur la lecture silencieuse ; « autre » : lecture silencieuse comme avant (18 nov. 2026).
+    try {
+      const e = require('./categorie-strategie').effective(o.activityId, o.categoryKey || o.poleKey || null);
+      if (e.famille && e.famille !== 'autre') { db.prepare('UPDATE user_objectives SET objectif_famille = ? WHERE id = ?').run(e.famille, o.id); return e.famille; }
+    } catch (err) { /* sans stratégie */ }
     let desc = ''; try { desc = JSON.parse(o.metaJson || '{}').description || ''; } catch (e) { desc = ''; }
     const fam = await classer(userId, o.title, desc);
     if (fam) { db.prepare('UPDATE user_objectives SET objectif_famille = ? WHERE id = ?').run(fam, o.id); return fam; }

@@ -36,6 +36,7 @@ function deleteAccountData(user) {
     db.prepare('DELETE FROM goal_classify_examples WHERE userId = ?').run(user.id); // exemples appris du classement IA (propres au compte)
     try { require('./taches-apprentissage').resetForUser(user.id); } catch (e) { /* retire les contributions anonymes : jamais bloquant */ }
     db.prepare('DELETE FROM task_rangement_corrections WHERE userId = ?').run(user.id); // journal d'apprentissage du rangement des tâches (propre au compte)
+    try { db.prepare('UPDATE category_strategies SET updatedBy = NULL WHERE updatedBy = ?').run(user.id); } catch (e) { /* table créée à la première utilisation */ } // stratégie de catégorie : le lien auteur seul est retiré
     try { db.prepare('DELETE FROM task_proposal_refus WHERE userId = ?').run(user.id); } catch (e) { /* table créée à la première utilisation de strategy.js */ } // refus de propositions de tâches (alimentent « à ignorer »)
     db.prepare('DELETE FROM paliers_delais WHERE userId = ?').run(user.id); // délais réels entre paliers (propres au compte)
     db.prepare('DELETE FROM rangement_consentement WHERE userId = ?').run(user.id); // consentement à l'amélioration anonyme du modèle

@@ -226,6 +226,7 @@ app.use('/api', require('./routes/categories'));
 app.use('/api', require('./routes/offercheckout'));
 app.use('/api', require('./routes/offer1access'));
 app.use('/api', require('./routes/strategy'));
+app.use('/api', require('./routes/categoriestrategie')); // Panneau « Stratégie » par catégorie (activité, pôle, secteur) : questions facultatives, héritage, priment sur la lecture silencieuse
 // Confirmation du consentement parental (14 septembre 2026, point 5 du volet
 // Légal du chantier paiement/abonnements) — route PUBLIQUE, sans req.userId :
 // le représentant légal n'a pas de compte TimeTracker, voir l'en-tête de

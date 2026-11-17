@@ -102,6 +102,11 @@ async function typePropre(activityId, key, opts) {
 }
 // Type EFFECTIF : le propre d'abord, sinon celui du pôle parent (jamais au-delà : l'activité n'a pas de description).
 async function typeEffectif(activityId, key, opts) {
+  // Les RÉPONSES du panneau « Stratégie » de la catégorie (héritage secteur -> pôle -> activité) PRIMENT sur la lecture silencieuse de la description (18 nov. 2026).
+  try {
+    const CS = require('./categorie-strategie'), e = CS.effective(activityId, key);
+    if (e.kind) return { type: e.kind, sens: e.kind === 'progression' ? CS.sensPourType(e.sens) : null, origine: 'strategie:' + (e.origine || 'propre') };
+  } catch (err) { /* sans stratégie : lecture silencieuse */ }
   const r = ligne(activityId, key); if (!r) return { type: null, sens: null, origine: null };
   const own = await typePropre(activityId, key, opts);
   const chaine = [{ type: own.type, sens: own.sens, nom: 'propre' }];

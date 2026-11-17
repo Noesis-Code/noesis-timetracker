@@ -7267,6 +7267,75 @@
       if (f && f.scrollIntoView) f.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
   }
+  // ---------- Stratégie d'une catégorie (18 nov. 2026, décision d'Émilien) ----------
+  // Panneau « Stratégie » PAR CATÉGORIE (activité, pôle, secteur) : questions FACULTATIVES, une à la fois (la suivante apparaît après la réponse), 4 au plus ; réponses stockées par catégorie (PUT /api/activities/:id/strategie-categorie/:key,
+  // « _ » = l'activité), héritage secteur -> pôle -> activité si vide. La ligne se déroule sur place (R36) ; composants existants : .activityEditRow, .cmpSeg, select. Seul le propriétaire modifie.
+  function buildStrategieBlock(activityId, key, open) {
+    var url = '/api/activities/' + activityId + '/strategie-categorie/' + (key || '_');
+    var root = document.createElement('div'); root.className = 'catStrategie';
+    var body = document.createElement('div'); body.className = 'catStrategieBody' + (open ? '' : ' hidden');
+    var data = null, loading = false;
+    if (!open) {
+      var head = document.createElement('button'); head.type = 'button'; head.className = 'activityEditRow';
+      var hl = document.createElement('span'); hl.textContent = t('Stratégie');
+      var hc = document.createElement('span'); hc.className = 'cmpChev'; hc.setAttribute('aria-hidden', 'true');
+      head.appendChild(hl); head.appendChild(hc); root.appendChild(head);
+      head.addEventListener('click', function () { var show = body.classList.toggle('hidden') === false; if (show && !data) load(); });
+    }
+    root.appendChild(body);
+    function load() {
+      if (loading) return; loading = true;
+      api('GET', url).then(function (d) { data = d; paint(); }).catch(function (e) { body.textContent = e.message; }).then(function () { loading = false; });
+    }
+    function put(patch) {
+      api('PUT', url, patch).then(function (d) { data = d; paint(); }).catch(function (e) { var m = body.querySelector('.msg'); if (m) m.textContent = e.message; });
+    }
+    function seg(question, options, current, field) {
+      var wrap = document.createElement('div'); wrap.className = 'catStrategieQ';
+      var q = document.createElement('p'); q.className = 'hint'; q.textContent = t(question);
+      var s = document.createElement('div'); s.className = 'periodSwitch cmpSeg';
+      options.forEach(function (o) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'periodBtn' + (current === o.value ? ' active' : ''); b.textContent = t(o.label);
+        b.disabled = !data.canEdit;
+        b.addEventListener('click', function () { var p = {}; p[field] = current === o.value ? null : o.value; put(p); });
+        s.appendChild(b);
+      });
+      wrap.appendChild(q); wrap.appendChild(s); return wrap;
+    }
+    function paint() {
+      body.textContent = '';
+      var own = data.own, eff = data.effective, kind = own.kind || eff.kind;
+      var hint = document.createElement('p'); hint.className = 'hint';
+      hint.textContent = t('Facultatif : sans réponse, Noèsis lit la description de la catégorie.') + (!own.kind && eff.kind ? ' ' + t('Hérité') + ' : ' + t(eff.kind === 'projet' ? 'Construire' : 'Progresser') + ' (' + t(eff.origine === 'pôle' ? 'du pôle' : 'de l’activité') + ').' : '');
+      body.appendChild(hint);
+      body.appendChild(seg('Construire ou progresser ?', [{ value: 'projet', label: 'Construire' }, { value: 'progression', label: 'Progresser' }], own.kind, 'kind'));
+      if (kind === 'progression') {
+        body.appendChild(seg('Monter, descendre ou maintenir ?', [{ value: 'monter', label: 'Monter' }, { value: 'descendre', label: 'Descendre' }, { value: 'maintenir', label: 'Maintenir' }], own.sens, 'sens'));
+        if (own.sens || eff.sens) {
+          var fw = document.createElement('div'); fw.className = 'catStrategieQ';
+          var fq = document.createElement('p'); fq.className = 'hint'; fq.textContent = t('Qu’est-ce qui progresse ?');
+          var sel = document.createElement('select'); sel.disabled = !data.canEdit; sel.setAttribute('aria-label', t('Qu’est-ce qui progresse ?'));
+          var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '—'; sel.appendChild(o0);
+          data.familles.forEach(function (f) { var o = document.createElement('option'); o.value = f.id; o.textContent = t(f.label); sel.appendChild(o); });
+          sel.value = own.famille || '';
+          sel.addEventListener('change', function () { put({ famille: sel.value || null }); });
+          fw.appendChild(fq); fw.appendChild(sel); body.appendChild(fw);
+          if (own.famille || eff.famille) body.appendChild(seg('Quel rythme ?', [{ value: 'regulier', label: 'Régulier' }, { value: 'espaces', label: 'Par paliers' }, { value: 'libre', label: 'À mon rythme' }], own.rythme, 'rythme'));
+        }
+      } else if (kind === 'projet') {
+        body.appendChild(seg('Date d’arrivée fixe ?', [{ value: true, label: 'Oui' }, { value: false, label: 'Non' }], own.dateFixe, 'dateFixe'));
+        if (own.dateFixe != null) body.appendChild(seg('Quelque chose à corriger avant de construire ?', [{ value: true, label: 'Oui' }, { value: false, label: 'Non' }], own.reformer, 'reformer'));
+      }
+      var msg = document.createElement('p'); msg.className = 'msg'; body.appendChild(msg);
+      if (data.canEdit && (own.kind || own.sens || own.famille || own.rythme || own.dateFixe != null || own.reformer != null)) {
+        var reset = document.createElement('button'); reset.type = 'button'; reset.className = 'iconBtn'; reset.textContent = t('Effacer mes réponses');
+        reset.addEventListener('click', function () { put({ kind: null, sens: null, famille: null, rythme: null, dateFixe: null, reformer: null }); });
+        body.appendChild(reset);
+      }
+    }
+    if (open) load();
+    return root;
+  }
   function catBuildEditForm(activityId) {
     var st = catEditState;
     var box = document.createElement('div');
@@ -7292,7 +7361,7 @@
     save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
     actions.appendChild(cancel); actions.appendChild(save);
     var caps = buildTimeCapsBlock(activityId, st.key, !st.poleKey);
-    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(caps.node); fields.appendChild(msg); fields.appendChild(actions);
+    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(caps.node); fields.appendChild(buildStrategieBlock(activityId, st.key, false)); fields.appendChild(msg); fields.appendChild(actions);
     box.appendChild(fields);
     box.appendChild(del);
     nameIn.addEventListener('input', function () { st.name = nameIn.value; });
@@ -15193,6 +15262,8 @@
     // 8 nov. 2026 (demande d'Émilien) : « Membres » prend la place de « Stratégie » (retirée de l'interface ; les données de stratégie restent, jamais supprimées) et n'est plus sous « Avancé ».
     rows.appendChild(plainRow(t('Membres'), function () { openCommunityMembersModal(a.id, a.name, { activity: a, solo: !(a.membersCount > 1) }); }));
     rows.appendChild(plainRow(t('Catégories'), function () { openCategoriesPopup(a); }));
+    // 18 nov. 2026 (Émilien) : « Stratégie » existe PAR CATÉGORIE (activité, pôle, secteur) ; ici, celle de l'activité elle-même (clé « _ »).
+    rows.appendChild(plainRow(t('Stratégie'), function () { openEditPopup(t('Stratégie'), function (body) { body.appendChild(buildStrategieBlock(a.id, '_', true)); }); }));
     fields.appendChild(rows);
 
     // « Avancé » : replié par défaut ; ouvert, il montre la visibilité et la fusion.
