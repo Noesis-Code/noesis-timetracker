@@ -952,7 +952,6 @@ function purgeOrphanMacros(userId) {
 // Une fusion dont la période est PASSÉE est définitive : on ne détache plus ses objectifs (ni on ne les range ailleurs).
 function assertFusionOuverte(r) {
   const par = r.parentId ? db.prepare('SELECT isMacro, endDate FROM user_objectives WHERE id = ?').get(r.parentId) : null;
-  if (par && par.isMacro && absorption.lockedByMacro(r.userId, r.parentId)) throw err(absorption.MSG_IRREVERSIBLE); // absorption enregistrée : irréversible
   if (par && par.isMacro && fusion.state(par.endDate, today()).mergePast) throw err(fusion.MSG_PASSEE);
 }
 function lier(userId, id, parentId, rel) {
@@ -961,7 +960,9 @@ function lier(userId, id, parentId, rel) {
   if (parentId == null || parentId === '') {
     let back = null; // détaché d'un macro : l'objectif retrouve le parent qu'il avait avant d'y être relié (s'il existe encore, même activité, non macro)
     try { const m0 = JSON.parse(r.metaJson || '{}'), op = r.parentId ? db.prepare('SELECT isMacro FROM user_objectives WHERE id = ?').get(r.parentId) : null; if (op && op.isMacro && m0.prevParent) { const pp = m0.prevParent.id ? db.prepare('SELECT id, activityId, isMacro FROM user_objectives WHERE id = ? AND userId = ?').get(m0.prevParent.id, userId) : null; if (pp && !pp.isMacro && pp.activityId === r.activityId) back = pp.id; delete m0.prevParent; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(m0), r.id); } } catch (e) { back = null; }
+    const oldMacro = r.parentId;
     db.prepare('UPDATE user_objectives SET parentId = ?, parentRel = NULL, position = ? WHERE id = ?').run(back, nextPosition(userId, back), r.id);
+    if (oldMacro) { const ck = columnsOfLeaves(r.level || 'activite', [r])[0]; absorption.annuler(userId, oldMacro, ck ? (r.level === 'pole' ? ck.poleKey : ck.categoryKey) : null); } // la colonne détachée n'est plus absorbée ; ses tâches reviennent
     purgeOrphanMacros(userId); relinkMacros(userId); // le dernier enfant détaché : le macro vide disparaît
     return get(userId, r.id);
   }
@@ -1124,7 +1125,6 @@ function setMacro(userId, id, on, anchor) {
     const par = r.parentId ? db.prepare('SELECT isMacro FROM user_objectives WHERE id = ?').get(r.parentId) : null;
     if (par && !par.isMacro) throw err('Un objectif étape d’un objectif ordinaire ne peut pas devenir macro.');
   } else {
-    if (absorption.lockedByMacro(userId, r.id)) throw err(absorption.MSG_IRREVERSIBLE);
     if (fusion.state(r.endDate, today()).mergePast) throw err(fusion.MSG_PASSEE);
     const other = activeKids(r).filter((k) => k.activityId !== r.activityId);
     if (other.length) throw err('Ce macro englobe des objectifs d’autres activités (' + other.map((k) => '« ' + k.title + ' »').join(', ') + ') : détache-les avant d’en faire un objectif ordinaire.');
@@ -1302,7 +1302,6 @@ function abandonner(userId, id, on) {
 // confirmée, les enfants sont détachés (ils redeviennent des objectifs finaux), jamais supprimés. Le secteur et les tâches déjà posés dans l'arbre périodique restent à l'utilisateur.
 function supprimer(userId, id, confirmed) {
   const r = rowOf(userId, id);
-  if (r.isMacro && absorption.lockedByMacro(userId, r.id)) throw err(absorption.MSG_IRREVERSIBLE); // fusion avec absorption : irréversible
   // Supprimer un macro, même passé : le macro disparaît, ses enfants redeviennent des objectifs NORMAUX de leurs activités (jamais supprimés, jamais orphelins) ; seul « délier » un enfant d'un macro passé reste refusé (assertFusionOuverte).
   const kids = db.prepare('SELECT id, title, activityId, metaJson FROM user_objectives WHERE userId = ? AND parentId = ? ORDER BY position, id').all(userId, r.id);
   if (kids.length && !confirmed) throw Object.assign(err('Cet objectif a ' + kids.length + ' objectif' + (kids.length > 1 ? 's rattachés' : ' rattaché') + ' : confirme pour les détacher.', 409), { extra: { children: kids } });
@@ -1323,6 +1322,7 @@ function supprimer(userId, id, confirmed) {
     db.prepare('DELETE FROM user_objectives WHERE id = ? AND userId = ?').run(r.id, userId);
     db.exec('COMMIT');
   } catch (e) { try { db.exec('ROLLBACK'); } catch (e2) { /* aucune transaction ouverte : on garde l'erreur d'origine */ } throw e; }
+  if (r.isMacro && !fusion.state(r.endDate, today()).mergePast) absorption.annuler(userId, r.id); // fusion séparée avant sa période : la colonne réapparaît, les tâches déplacées reviennent (ligne marquée annulée)
   try { purgeOrphanMacros(userId); relinkMacros(userId); } catch (e) { console.warn('[objectifs] nettoyage des macros vides : ' + (e && e.message)); } // un macro dont le dernier enfant vient d'être supprimé disparaît aussi ; jamais bloquant
   return { ok: true, detached: kids.map((k) => k.id) };
 }

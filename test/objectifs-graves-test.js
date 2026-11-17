@@ -12,8 +12,6 @@ const m = db.prepare('SELECT userId, activityId FROM activity_members LIMIT 1').
 if (!m) { console.log('  (pas de données de base : test ignoré)'); process.exit(0); }
 const u = m.userId;
 o.setTasksCheck(() => false); o.setControleConflit(false); // ici : la mécanique des macros ; le contrôle de conflit est éprouvé dans objectifs-fusion-conflit-test.js
-// Ces cas éprouvent la mécanique des macros (séparer, supprimer, délier) : l'irréversibilité de l'absorption (pôles/secteurs, 18 nov. 2026) est éprouvée dans objectifs-absorption-test.js ; ici on lève l'enregistrement avant chaque séparation.
-for (const fnName of ['supprimer', 'lier']) { const orig = o[fnName]; o[fnName] = (uu, id, ...r) => { const row = db.prepare('SELECT parentId, isMacro FROM user_objectives WHERE id = ?').get(id); if (row) db.prepare('DELETE FROM fusion_absorption WHERE macroId = ?').run(fnName === 'supprimer' ? id : (row.parentId || 0)); return orig(uu, id, ...r); }; }
 const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.activityId, startDate: '2026-11-09', endDate: '2027-03-01', noBridge: true }, extra || {}));
 
 (async () => {
