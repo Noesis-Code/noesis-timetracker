@@ -1,17 +1,14 @@
-// Statistiques de groupe de la Feuille de route (activités partagées) : « Qui fait quoi », « Tâches faites », « Tâches récurrentes »
-// et « Partager les tâches » (partage des tâches, 8 nov. 2026, maquettes d'Émilien ; calcul sans IA : server/lib/partagetaches.js).
-// Page tout à droite des statistiques de la Feuille de route : [ Feuille de route | Tâches | Objectifs | Groupe ] (demande d'Émilien, 26 oct. 2026).
-// Données : GET /api/stats/activity-members (courbes, tâches faites), GET /api/stats/recurring-tasks, GET/POST /api/stats/task-share.
+// Tâches récurrentes (carte du volet Bilan) et fenêtre « Partager les tâches » (calcul sans IA : server/lib/partagetaches.js).
+// La page « Groupe » de la Feuille de route, « Qui fait quoi » et « Tâches faites » sont supprimés (18 nov. 2026).
+// Données : GET /api/stats/recurring-tasks, GET/POST /api/stats/task-share.
 (function () {
   'use strict';
   var TMT = window.TMT;
-  var host = document.getElementById('sgBody'), chips = document.getElementById('sgChips'), empty = document.getElementById('sgEmpty');
-  if (!host || !chips || !empty) return;
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-  var actId = null, scope = 'year', recScope = 'year', seq = 0, recSeq = 0, built = false, loadedKey = null;
+  var actId = null, recScope = 'year', recSeq = 0;
   var SCOPES = [['all', 'Tout'], ['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
-  var chartBody, chartMeta, doneBody, recBody, recMeta;
+  var recBody, recMeta;
 
   function scopeLabel(s) { var c = SCOPES.filter(function (x) { return x[0] === s; })[0]; return c ? '· ' + tr(c[1]) : ''; }
   function esc(x) { return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
@@ -61,62 +58,6 @@
     row.appendChild(menu); card.appendChild(row);
   }
 
-  // « Qui fait quoi » : par membre, heures enregistrées (trait plein, axe de gauche) et tâches faites (pointillé, axe de droite),
-  // par case de la portée ; l'écart entre les deux courbes est teinté de la couleur du membre.
-  function chartSvg(sr, colors) {
-    var labels = sr.labels || [], n = labels.length;
-    if (n < 2) return null;
-    var W = 300, H = 140, L = 24, R = 284, T = 8, B = 112, mh = Math.max(1, sr.maxHours || 1), mt = Math.max(1, sr.maxTasks || 1);
-    var x = function (i) { return L + (R - L) * i / (n - 1); }, yh = function (v) { return B - (B - T) * v / mh; }, yt = function (v) { return B - (B - T) * v / mt; };
-    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(tr('Qui fait quoi')) + '">';
-    [0, 0.5, 1].forEach(function (f) {
-      var yy = B - (B - T) * f;
-      s += '<line class="saGrid" x1="' + L + '" x2="' + R + '" y1="' + yy + '" y2="' + yy + '"/>';
-      s += '<text class="saTick" x="' + (L - 4) + '" y="' + (yy + 3) + '" text-anchor="end">' + (Math.round(mh * f * 10) / 10) + ' h</text>';
-      s += '<text class="saTick" x="' + (R + 4) + '" y="' + (yy + 3) + '" text-anchor="start">' + Math.round(mt * f) + '</text>';
-    });
-    var step = n <= 13 ? 1 : Math.ceil(n / 11);
-    labels.forEach(function (l, i) { if (l !== '' && i % step === 0) s += '<text class="saTick" x="' + x(i) + '" y="' + (H - 16) + '" text-anchor="middle">' + esc(l) + '</text>'; });
-    sr.members.forEach(function (m, k) {
-      var hp = [], tp = [];
-      (m.hours || []).forEach(function (v, i) { if (v != null) hp.push([x(i), yh(v)]); });
-      (m.tasks || []).forEach(function (v, i) { if (v != null) tp.push([x(i), yt(v)]); });
-      if (!hp.length) return;
-      var d = function (pts) { return pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0] + ',' + p[1]; }).join(' '); };
-      if (tp.length === hp.length && hp.length > 1) {
-        var band = hp.concat(tp.slice().reverse());
-        s += '<path d="' + d(band) + ' Z" fill="' + colors[k] + '" fill-opacity=".28" stroke="none"/>';
-      }
-      s += '<path d="' + d(hp) + '" fill="none" stroke="' + colors[k] + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
-      if (tp.length) s += '<path d="' + d(tp) + '" fill="none" stroke="' + colors[k] + '" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round" stroke-linejoin="round"/>';
-    });
-    return s + '</svg>';
-  }
-  function memberColors(list) { return TMT.caMemberColors ? TMT.caMemberColors(list) : list.map(function (m) { return m.color || '#9C8CC8'; }); }
-  function renderChart(d) {
-    chartBody.textContent = '';
-    var sr = d.series;
-    if (!sr || !sr.members.length) { chartBody.appendChild(el('p', 'hint', '—')); return; }
-    var colors = memberColors(sr.members);
-    var svg = chartSvg(sr, colors);
-    if (!svg) { chartBody.appendChild(el('p', 'hint', '—')); return; }
-    var c = el('div'); c.innerHTML = svg; chartBody.appendChild(c);
-    var lg = el('div', 'saLegend shrLegend');
-    sr.members.forEach(function (m, k) { var sp = el('span'), i = el('i', 'saSw'); i.style.background = colors[k]; sp.appendChild(i); sp.appendChild(document.createTextNode(m.name)); lg.appendChild(sp); });
-    lg.appendChild(el('span', null, '— ' + tr('heures'))); lg.appendChild(el('span', null, '-- ' + tr('tâches')));
-    chartBody.appendChild(lg);
-  }
-  function build() {
-    if (built) return; built = true;
-    var page = el('div', 'caTaskPage');
-    var recCard = el('div', 'saCard saGlass shrRec');
-    recMeta = el('span', 'meta');
-    cardHead(recCard, 'Tâches récurrentes', recMeta, scopeMenu(function () { return recScope; }, function (s) { recScope = s; recMeta.textContent = scopeLabel(recScope); loadRecurring(); }));
-    recMeta.textContent = scopeLabel(recScope);
-    recBody = el('div'); recCard.appendChild(recBody); page.appendChild(recCard); legacyRec = { body: recBody, meta: recMeta };
-    host.appendChild(page);
-  }
-  function render(d) { /* « Qui fait quoi » et « Tâches faites » sont retirés de l'écran (14 nov. 2026) : seul le tableau des tâches récurrentes reste */ }
   // Tableau « Tâches récurrentes » : lignes = tâches, colonnes = membres, nombre de fois faite.
   function renderRecurring(d) {
     recBody.textContent = '';
@@ -140,17 +81,6 @@
       if (my === recSeq) renderRecurring(d);
     }).catch(function (err) { if (my === recSeq) { recBody.textContent = ''; recBody.appendChild(el('p', 'hint', err.message)); } });
   }
-  function load(force) {
-    if (!actId) return;
-    var key = actId + '|' + scope;
-    if (!force && key === loadedKey) return;
-    build();
-    var my = ++seq;
-    TMT.api('GET', '/api/stats/activity-members?activityId=' + encodeURIComponent(actId) + '&scope=' + scope).then(function (d) {
-      if (my !== seq) return; loadedKey = key; render(d);
-    }).catch(function () { /* données de groupe non affichées */ });
-  }
-
   // ---- Fenêtre « Partager les tâches » (pop-up centré, ✕ en haut à droite, verre commun) ----
   function openShare(activityId) {
     var mode = 'week', data = null, wantedEdit = {}, minutesEdit = {}, pick = {}, mySeq = 0;
@@ -253,25 +183,8 @@
   }
 
   // Activités partagées seulement (au moins deux membres), choisies par des puces en haut, comme la 3e page du Chrono.
-  function shared() { return ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a.membersCount > 1 && TMT.sharedStatsChoice && TMT.sharedStatsChoice.on(a.id, 'tasks'); }); } // choisies dans « Activités partagées » (interrupteur Tâches)
-  function renderChips(list) {
-    chips.innerHTML = '';
-    list.forEach(function (a) {
-      var b = el('button', 'saChip' + (String(a.id) === String(actId) ? ' on' : ''));
-      b.type = 'button';
-      b.style.setProperty('--chipEdge', a.color || '#674EA7');
-      var d = el('span', 'saChipDot'); d.style.background = a.color || '#674EA7';
-      b.appendChild(d); b.appendChild(el('span', null, a.name));
-      b.addEventListener('click', function () {
-        if (String(a.id) === String(actId)) return;
-        actId = a.id; loadedKey = null; renderChips(list); load(true); loadRecurring();
-      });
-      chips.appendChild(b);
-    });
-  }
   // BILAN (14 nov. 2026) : le tableau « Tâches récurrentes » seul (ni « Qui fait quoi », ni « Tâches faites », ni « Partager les tâches »), posé dans le conteneur donné pour l'activité donnée.
   // remover (optionnel) : croix rouge en haut à droite.
-  var legacyRec = null; // le tableau de la page Groupe : le Bilan pose le sien ailleurs, la page Groupe retrouve le sien à son ouverture
   TMT.groupStatsRecurring = function (aid, container, remover) {
     actId = aid;
     var card = el('div', 'saCard saGlass shrRec');
@@ -283,22 +196,6 @@
     container.appendChild(card);
     loadRecurring();
     return card;
-  };
-  TMT.groupStats = {
-    // Ouverture de la page : puces des activités partagées, puis les données de l'activité choisie.
-    open: function () {
-      if (legacyRec) { recBody = legacyRec.body; recMeta = legacyRec.meta; }
-      var list = shared();
-      if (!list.some(function (a) { return String(a.id) === String(actId); })) {
-        var pref = list.filter(function (a) { return String(a.id) === String(TMT.currentGoalsActivityId); })[0];
-        actId = pref ? pref.id : (list[0] ? list[0].id : null);
-        loadedKey = null;
-      }
-      empty.classList.toggle('hidden', list.length > 0);
-      host.classList.toggle('hidden', list.length === 0);
-      renderChips(list);
-      if (list.length) { build(); load(); loadRecurring(); }
-    }
   };
   // Anciens appels (fenêtre Activité) : plus rien à faire, la page n'est plus là-bas.
   TMT.caTasks = { onActivity: function () {}, onCategory: function () {}, onShow: function () {} };

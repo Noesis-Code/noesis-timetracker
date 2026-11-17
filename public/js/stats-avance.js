@@ -929,20 +929,18 @@
   // ---------- Pages de statistiques à GAUCHE de Chrono et de la Feuille de route (chantier B, 20 oct. 2026) ----------
   // L'onglet Stats n'existe plus dans la barre : #tab-stats reste le conteneur, mais on y arrive en glissant vers la droite.
   //   contexte « chrono » : [ Chrono | Statistiques (temps) | Statistiques des activités partagées ]  (chantier Chrono : statistiques À DROITE du chrono)
-  //   contexte « goals »  : [ Feuille de route (page 1) | Tâches | Objectifs | Groupe ]  (26 oct. 2026 : statistiques À DROITE de la page 1)
+  //   contexte « goals »  : [ Feuille de route (page 1) | statistiques : retirées, voir Bilan ]  (26 oct. 2026 : statistiques À DROITE de la page 1)
   // Les écrans eux-mêmes (feuille de temps, répartition, graphique, cartes Tâches/Objectifs) ne changent pas.
   var ctx = 'chrono';
   var sharedEl = document.getElementById('statsSharedPage');
   var sharedOn = false; // contexte « chrono » : 3e page (activités partagées) affichée à la place de la page Temps
-  var groupEl = document.getElementById('statsGroupPage');
-  var groupOn = false; // contexte « goals » : page Groupe (Tâches par membre) affichée à la place de la page Tâches/Objectifs
   function showing(id) { var e = document.getElementById(id); return !!e && !e.classList.contains('hidden'); }
   function modOnId(id) { return !TMT.modules || TMT.modules.isOn(id); }
   // MODE BILAN (volet « Bilan », 14 nov. 2026) : les pages (Chrono-statistiques, Tâches | Objectifs, activités partagées, groupe) sont empilées dans UNE colonne qui défile ; plus de points ni de glissement entre elles.
   var bilanOn = false;
   TMT.bilanShow = function () {
     bilanOn = true; pages.classList.add('bilanStack');
-    [page2, sharedEl, groupEl].forEach(function (p) { if (p) p.classList.add('hidden'); }); // Bilan : seuls les 3 tableaux Chrono sont visibles d'office (vue Toutes : page 1 ; une activité : zone de la fenêtre Chrono), le reste s'ajoute
+    [page2, sharedEl].forEach(function (p) { if (p) p.classList.add('hidden'); }); // Bilan : seuls les 3 tableaux Chrono sont visibles d'office (vue Toutes : page 1 ; une activité : zone de la fenêtre Chrono), le reste s'ajoute
     if (TMT.bilanBlocs) TMT.bilanBlocs.open();
     setDots();
   };
@@ -952,14 +950,13 @@
     if (TMT.bilanBlocs) TMT.bilanBlocs.close();
     bilanOn = false; pages.classList.remove('bilanStack');
     page1.classList.toggle('hidden', page !== 1); page2.classList.toggle('hidden', page !== 2);
-    if (sharedEl) sharedEl.classList.toggle('hidden', !sharedOn); if (groupEl) groupEl.classList.toggle('hidden', !groupOn);
+    if (sharedEl) sharedEl.classList.toggle('hidden', !sharedOn);
     setDots();
   };
   TMT.statsContext = function () { return ctx; };
   TMT.setStatsContext = function (c) {
     ctx = c === 'goals' ? 'goals' : 'chrono';
     setSharedPage(false, { noAnim: true }); // on arrive toujours sur la page Temps (ou Tâches), jamais sur la 3e page
-    setGroupPage(false, { noAnim: true });
     if (ctx === 'goals' && page === 2) { inst.setTab('t'); inst.open(); } // déjà sur la page tâches/objectifs : on repart de Tâches, données fraîches
     else setStatsPage(ctx === 'goals' ? 2 : 1, { noAnim: true });
     setDots();
@@ -980,7 +977,7 @@
     var pl = place();
     if (!pl || (pl.ctx === 'goals' && !modOnId('stats-tasks')) || (pl.ctx === 'chrono' && !modOnId('stats'))) { dots.classList.add('hidden'); return; }
     dots.classList.remove('hidden');
-    var labels = DOT_LABELS[pl.ctx].slice(0, pl.ctx === 'chrono' ? (sharedAvailable() ? 3 : 2) : (groupAvailable() ? 3 : 2)); // sans partage : une page de moins
+    var labels = DOT_LABELS[pl.ctx].slice(0, pl.ctx === 'chrono' ? (sharedAvailable() ? 3 : 2) : 0); // sans partage : une page de moins
     if (dotsKey !== pl.ctx + labels.length) {
       dotsKey = pl.ctx + labels.length; dots.innerHTML = '';
       labels.forEach(function (lab) {
@@ -1013,7 +1010,7 @@
   // Répartition par membre et Graphique (déplacés tels quels depuis la fenêtre Activité ; données et dessin : app.js, TMT.selectSharedStats).
   var ssChips = document.getElementById('ssChips'), ssEmpty = document.getElementById('ssEmpty'), ssBody = document.getElementById('ssBody');
   var ssActId = null;
-  function groupAvailable() { return !!groupEl && modOnId('sharing') && !!TMT.sharedStatsChoice && TMT.sharedStatsChoice.any('tasks'); } // la page n'existe que si « Comparer les tâches » est allumé pour au moins une activité
+
   function sharedAvailable() { return !!sharedEl && modOnId('stats') && modOnId('sharing') && sharedActivities().length > 0; } // idem pour « Comparer le chrono »
   // ---------- Statistiques partagées OPTIONNELLES : choix dans les réglages de l'activité (onglet Avancé, activité partagée seulement) ----------
   // « Comparer le chrono » et « Comparer les tâches » : réglages PERSONNELS à l'utilisateur et à CETTE activité (activity_members.compareChrono / compareTasks, défaut : désactivé).
@@ -1054,7 +1051,7 @@
     var a = selectedShared(list);
     if (a && TMT.selectSharedStats) TMT.selectSharedStats(a);
   }
-  TMT.sharedStatsRefresh = function () { if (sharedOn) { if (sharedAvailable()) openShared(); else setSharedPage(false, { noAnim: true }); } if (groupOn && !groupAvailable()) setGroupPage(false, { noAnim: true }); setDots(); };
+  TMT.sharedStatsRefresh = function () { if (sharedOn) { if (sharedAvailable()) openShared(); else setSharedPage(false, { noAnim: true }); } setDots(); };
   // Glissement animé entre deux pages internes de #statsPages (même technique que setStatsPage).
   function slideInternal(from, to, dir) {
     to.classList.remove('hidden');
@@ -1085,26 +1082,6 @@
     slideInternal(from, to, on ? 1 : -1);
   }
   TMT.setSharedPage = setSharedPage;
-  // Page Groupe (Tâches par membre) : glissement animé depuis / vers la page Tâches-Objectifs.
-  function setGroupPage(on, opts) {
-    opts = opts || {};
-    if (!groupEl || on === groupOn) return;
-    if (on && !groupAvailable()) return;
-    groupOn = on;
-    if (on && TMT.groupStats) TMT.groupStats.open();
-    setDots();
-    var from = on ? page2 : groupEl, to = on ? groupEl : page2;
-    if (opts.noAnim) { to.classList.remove('hidden'); from.classList.add('hidden'); return; }
-    slideInternal(from, to, on ? 1 : -1);
-  }
-  TMT.setGroupPage = setGroupPage;
-  function groupNeighbor(on) {
-    return {
-      cur: on ? page2 : groupEl, nb: on ? groupEl : page2, host: pages,
-      start: function () { if (on && TMT.groupStats) TMT.groupStats.open(); },
-      commit: function () { groupOn = on; setDots(); }
-    };
-  }
   // Voisine du glissement continu : page Temps <-> 3e page (même objet que les autres voisines internes de slidePager).
   function sharedNeighbor(on) {
     return {
@@ -1158,13 +1135,11 @@
       cancel: done
     };
   }
-  function curIdx() { return ctx === 'goals' ? (groupOn ? 1 : 0) : 0; }
   slidePager({
     zone: zone,
-    swallow: function (dir) { return bilanOn || ctx === 'chrono' ? (sharedOn && dir > 0) : (dir > 0 && curIdx() === (groupAvailable() ? 1 : 0)); },
+    swallow: function (dir) { return bilanOn || ctx === 'chrono' ? (sharedOn && dir > 0) : false; },
     neighbor: function (dir) {
       if (bilanOn) return null;
-      var i = curIdx(), t = i + dir;
       if (ctx === 'chrono') {
         if (sharedOn) return dir < 0 ? sharedNeighbor(false) : null; // 3e page : retour vers Temps
         if (dir > 0) return sharedAvailable() ? sharedNeighbor(true) : null; // glisser de droite à gauche : page des activités partagées

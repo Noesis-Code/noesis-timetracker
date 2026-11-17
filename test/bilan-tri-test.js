@@ -10,8 +10,8 @@ assert(!/title: 'Capacité',/.test(sa) && sa.includes('return; /* alerte de capa
 assert(!grp.includes("'Qui fait quoi'") || !grp.includes("cardHead(chartCard, 'Qui fait quoi'"), '« Qui fait quoi » retiré du groupe') ;
 assert(!grp.includes("el('p', 'shrDoneTitle', tr('Tâches faites'))"), 'ancien nombre « Tâches faites » du groupe retiré');
 assert(!grp.includes("el('button', 'shrOpen', tr('Partager les tâches'))"), '« Partager les tâches » retiré du Bilan');
-assert(grp.includes("cardHead(recCard, 'Tâches récurrentes'"), '« Tâches récurrentes » du groupe reste (proposé dans « Ajouter une information »)');
-assert(sa.includes("[page2, sharedEl, groupEl].forEach(function (p) { if (p) p.classList.add('hidden'); })") && !/bilanShow[\s\S]{0,600}openShared\(\)/.test(sa), 'Bilan : plus de page empilée (partagées, Tâches | Objectifs, Groupe) : seuls les 3 tableaux Chrono d’office');
+assert(grp.includes("cardHead(card, 'Tâches récurrentes'"), '« Tâches récurrentes » du groupe reste (proposé dans « Ajouter une information »)');
+assert(sa.includes("[page2, sharedEl].forEach(function (p) { if (p) p.classList.add('hidden'); })") && !/bilanShow[\s\S]{0,600}openShared\(\)/.test(sa), 'Bilan : plus de page empilée (partagées, Tâches | Objectifs, Groupe) : seuls les 3 tableaux Chrono d’office');
 assert(css.includes('#statsPages.bilanStack #statsPage1 > .statsPeriodMenuWrap { display: none; }'), 'Bilan : plus de filtre Tous / Public / Confidentiel');
 assert(sa.includes("var fixed = []; /* profil visité") && !sa.includes("put(byKey('onTime')"), 'profil visité : plus de cartes fixes retirées');
 console.log(failed ? '\n' + failed + ' échec(s)' : 'bilan-tri-test OK'); process.exit(failed ? 1 : 0);

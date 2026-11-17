@@ -51,7 +51,7 @@ const router = require('../server/routes/activities');
   assert(!T.on(3, 'chrono'), 'une activité non partagée (un seul membre) ne compte jamais');
   cache[1].compareChrono = true;
   assert(T.any('chrono') && !T.any('tasks') && ctx.shared().length === 1 && ctx.shared()[0].id === 2, 'un seul interrupteur allumé : la page existe, avec cette seule activité');
-  assert(/function sharedAvailable\(\) \{[^}]*sharedActivities\(\)\.length > 0/.test(src) && /function groupAvailable\(\) \{[^}]*sharedStatsChoice\.any\('tasks'\)/.test(src), 'les points de pagination et le balayage dépendent de cette disponibilité');
+  assert(/function sharedAvailable\(\) \{[^}]*sharedActivities\(\)\.length > 0/.test(src), 'les points de pagination et le balayage dépendent de cette disponibilité');
   srv.close();
   if (failed) { console.log('\nstats-partagees-choix-test : ' + failed + ' échec(s)'); process.exit(1); }
   console.log('\nstats-partagees-choix-test : OK');
