@@ -1080,7 +1080,7 @@ function assertLiaison(userId, level, leaves, ignoreRootId, extras) {
 // CONTRÔLE DE CONFLIT (Émilien, 18 nov. 2026) : une fusion ne vaut que vers le haut (périodes PLUS TARDIVES que celle de la fusion). Si, après elle, deux des colonnes reliées ont chacune un objectif
 // dans la MÊME case (même niveau de temps, même période / année / bloc), ils s'écraseraient : refus avec un message qui nomme les objectifs à déplacer. Dates différentes : la fusion se fait, rien n'est écrit ni supprimé.
 const MSG_CONFLIT = 'Vous devez déplacer ';
-function caseApres(o) { const t = temps.deduce(o.startDate, o.endDate), p = fusion.periodOf(o.endDate); return { rank: p.year * 100 + p.number, label: t === 'periode' ? 'période ' + p.number + ' de ' + p.year : t === 'annee' ? 'année ' + p.year : 'après ' + p.year, k: t === 'periode' ? 'P' + p.year + '/' + p.number : t === 'annee' ? 'A' + p.year : 'B' + Math.floor(p.year / 5) }; }
+function caseApres(o) { const t = temps.deduce(o.startDate, o.endDate), p = fusion.periodOf(o.endDate); return { rank: p.year * 100 + p.number, label: t === 'periode' ? 'période ' + p.number + ' de ' + p.year : t === 'annee' ? 'année ' + p.year : 'après ' + p.year, k: t === 'periode' ? 'P' + p.year + '/' + p.number : t === 'annee' ? 'A' + p.year : 'B' + blockYearOf(o.endDate) }; }
 let controleConflit = true; // coupé seulement par les tests de la mécanique des macros
 function setControleConflit(on) { controleConflit = on !== false; }
 function assertSansConflit(userId, level, leaves, extras) {
