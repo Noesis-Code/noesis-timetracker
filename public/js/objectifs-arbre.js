@@ -360,7 +360,7 @@
     var oval = !rw.p && !rw.w, st = rw.rank > here.rank ? 'future' : rw.rank === here.rank ? 'current' : 'past', m = el('span', 'goalsRowMarker goalsRowMarker--' + st + (oval ? ' goalsRowMarker--ovale' : ''));
     var label = rw.block ? rw.y + '-' + rw.y2 : rw.w ? String(rw.w) : rw.p ? String(rw.p) : String(rw.y);
     m.setAttribute('aria-label', rw.w ? tr('Semaine') + ' ' + rw.w + ' · ' + rw.y : rw.p ? tr('Période') + ' ' + rw.p + ' · ' + rw.y : label);
-    if (st !== 'past') m.textContent = rw.block ? ('0' + (rw.y % 100)).slice(-2) + '/' + ('0' + (rw.y2 % 100)).slice(-2) : label; // bloc de 5 ans : les deux derniers chiffres de chaque année (« 26/30 »), pastille cerclée étroite
+    if (st !== 'past') m.textContent = rw.block ? ('0' + (rw.y % 100)).slice(-2) + '/' + ('0' + (rw.y2 % 100)).slice(-2) : (!rw.p && !rw.w) ? ('0' + (rw.y % 100)).slice(-2) : label; /* année : deux derniers chiffres (« 27 »), horizontal ; aria-label = année complète */ if (m.textContent.length > 2) m.classList.add('goalsRowMarker--long'); // plus de 2 caractères (« 26/30 », « 2027 ») : tourné de bas en haut ; 1 ou 2 caractères : horizontal // bloc de 5 ans : les deux derniers chiffres de chaque année (« 26/30 »), pastille cerclée étroite
     if (st === 'current') { m.style.background = 'var(--text)'; m.style.color = 'var(--bg)'; }
     if (onTap) { m.setAttribute('role', 'button'); m.tabIndex = 0; m.style.cursor = 'pointer'; m.addEventListener('click', onTap); }
     return m;
@@ -503,7 +503,7 @@
     document.documentElement.classList.toggle('arbreOn', visible); // page non défilante tant que l'arbre est affiché (aucun élastique)
     tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024); fitTree();
     zoom = lvl === 'activite' ? 'block' : lvl === 'pole' ? 'year' : wk ? 'week' : 'period'; // le temps suit le zoom : arbre macro = blocs de 5 ans (pluriannuel), années (annuel), périodes 13 × 4 (période)
-    var mw = 14; RAIL = mw + 10; /* colonne des dates : ~5 fois plus étroite, texte tourné (lu de bas en haut) */ tree.style.setProperty('--ar-mw', mw + 'px'); tree.style.setProperty('--ar-pl', (mw + 6) + 'px'); // colonne de repères : ovale d'un bloc / d'une année, rond d'une période (+ année en ovale)
+    var mw = isLand() ? 46 : 20; RAIL = mw + 10; /* colonne des dates : largeur du plus large repère court (2 caractères) ; les repères de plus de 2 caractères sont tournés (lus de bas en haut) */ tree.style.setProperty('--ar-mw', mw + 'px'); tree.style.setProperty('--ar-pl', (mw + 6) + 'px'); // colonne de repères : ovale d'un bloc / d'une année, rond d'une période (+ année en ovale)
     var today = dayIso(), keep = visibleSet(today), shown = items.filter(function (o) { return keep[o.id]; });
     tree.classList.toggle('arExtending', !!ext);
     if (items.length && lvl !== 'activite') { var zb = el('div', 'arZoomRow'); zb.appendChild(backNav()); if (wk) { var xb0 = el('button', 'cmpClose'); xb0.type = 'button'; xb0.setAttribute('aria-label', tr('Fermer')); zb.style.position = 'relative'; zb.style.paddingRight = '40px'; xb0.style.cssText = 'position:absolute;top:0;right:0'; xb0.addEventListener('click', closeWeeks); zb.appendChild(xb0); } /* ✕ en haut à droite : retour aux périodes (R13) */ tree.appendChild(zb); } // plus de crayon : deux gestes seulement (toucher = naviguer, appui long = menu)
@@ -588,7 +588,7 @@
     var grid = el('div', 'goalsGrid arGrid' + (zoom !== 'period' && zoom !== 'week' ? ' arCompact' : '') + (animate ? ' arEnter' : '')); // années et blocs de 5 ans : rangées COMPACTES (moins de hauteur) animate = false;
     
     list.forEach(function (rw, r) {
-      var row = el('div', 'goalsGridRow'); row.setAttribute('data-rank', String(rw.rank));
+      var row = el('div', 'goalsGridRow' + (rw.rank < here.rank ? ' arPastRow' : '')); row.setAttribute('data-rank', String(rw.rank));
       var rowMark = marker(rw, here, null); row.appendChild(rowMark);
       var macs = macrosAt[rw.rank] || [], skip = {}, extra = [];
       macs.sort(function (x, y) { return (x.m.endDate < y.m.endDate ? 1 : -1); }); // le macro le plus lointain d'abord : un macro peut avoir un autre macro pour enfant (A+B puis (A+B)+C), les cartes larges s'empilent
