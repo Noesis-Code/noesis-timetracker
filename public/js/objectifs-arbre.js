@@ -48,7 +48,7 @@
   // LARGEURS 100 % CSS : une largeur est une expression CSS (jamais des pixels mesurés en JS) ; --ar-w (posée sur la zone qui défile) vaut toute la largeur utile pour UNE colonne, la moitié pour deux ou plus (règle de l'arbre périodique) ; cqw = largeur de cette zone, aucune mesure ni écouteur.
   // Colonne de DROITE « Heures » (lecture) : MOYENNE par semaine de la ligne, total des colonnes affichées (allocation, server/lib/allocation.js) ; violet = heures réglées sur cette ligne, gris = reprend la ligne du dessus.
   var hrsCache = {};
-  function hrsTxt(min) { if (min == null) return '—'; var h = min / 60; return (Number.isInteger(h) ? String(h) : String(Math.round(h * 10) / 10).replace('.', ',')) + ' h'; }
+  function hrsTxt(min) { return TMT.ui.heures(min); }
   function rowSpan(rw) { // première et dernière date de la ligne (bloc de 5 ans, année, période de 28 jours)
     if (rw.block) return { start: rw.y + '-01-01', end: rw.y2 + '-12-31' };
     if (rw.w) { var dw = new Date(Date.UTC(rw.y, 0, 1)); dw.setUTCDate(dw.getUTCDate() + (rw.w - 1) * 7); var sw = dw.toISOString().slice(0, 10); dw.setUTCDate(dw.getUTCDate() + 6); return { start: sw, end: dw.toISOString().slice(0, 10) }; }

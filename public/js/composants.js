@@ -107,6 +107,7 @@
     },
     loader: loader, loaderHtml: loaderHtml, attente: attente,
     removeBtn: function (onClick, label) { return btn('cmpRemove', label || 'Retirer', onClick); },
+    heures: function (min) { if (min == null) return '—'; var h = min / 60; return (Number.isInteger(h) ? String(h) : String(Math.round(h * 10) / 10).replace('.', ',')) + ' h'; }, // UN SEUL format d'heures (« 6 h », « 2,5 h ») : colonne de droite de l'arbre ET détail par catégorie (R29)
     editBtn: function (onClick, label) { var b = btn('cmpEdit', label || 'Modifier', onClick); b.innerHTML = EDIT_SVG; return b; },
     addBtn: function (label, onClick) {
       var b = btn('cmpAdd', '', onClick);

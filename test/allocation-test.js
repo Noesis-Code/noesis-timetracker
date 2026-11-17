@@ -37,6 +37,11 @@ const pole3 = categories.addCategory(a1, 'Pôle C'); const poleC = (pole3 && pol
 require('../server/lib/objectifs').creer('u1', { title: 'Obj heures', activityId: a1, startDate: '2031-01-01', endDate: '2031-12-31', level: 'pole', poleKey: poleC, hoursPerWeek: 4 });
 const L2 = A.lignes('u1', { level: 'pole', activityId: a1 }, [{ start: '2031-01-01', end: '2031-12-31' }]);
 assert(L2[0].cols.find((c) => c.poleKey === poleC).minutes === 240, 'ligne sans allocation propre mais avec un objectif à 4 h : la colonne compte ses heures (plus de trait)');
+// moyenne PAR SEMAINE de la ligne (fond du calcul inchangé) : la colonne de droite et le détail par catégorie donnent le même total, dans la même unité
+const L3 = A.lignes('u1', { level: 'pole', activityId: a1 }, [{ start: '2031-01-01', end: '2031-12-31' }]);
+assert(L3[0].cols.find((c) => c.poleKey === poleC).minutes === 240, 'ligne couverte par l’objectif : 4 h par semaine = 240 min');
+const R3 = A.repartition('u1', { level: 'pole', activityId: a1 }, { start: '2031-01-01', end: '2031-12-31' });
+assert(R3.totalMin === L3[0].totalMin && R3.categories.find((c) => c.poleKey === poleC).heuresMin === 240, 'le détail par catégorie et la colonne de droite donnent le même total, dans la même unité');
 // retirer une valeur posée : la catégorie reprend la précédente
 A.set('u1', P, '2028-01-01', null);
 assert(m('2028-06-01') === 300 && m('2029-01-01') === 180, 'retirer une valeur : reprend la précédente, la suite reste');
