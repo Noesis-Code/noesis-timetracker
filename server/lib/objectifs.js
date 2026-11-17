@@ -1075,10 +1075,31 @@ const MSG_COLONNE_RELIEE = liaison.MSG;
 function assertLiaison(userId, level, leaves, ignoreRootId, extras) {
   if (liaison.refuse(level, columnsOfLeaves(level, leaves, extras), macroGroups(userId), ignoreRootId)) throw err(MSG_COLONNE_RELIEE);
 }
+// CONTRÔLE DE CONFLIT (Émilien, 18 nov. 2026) : une fusion ne vaut que vers le haut (périodes PLUS TARDIVES que celle de la fusion). Si, après elle, deux des colonnes reliées ont chacune un objectif
+// dans la MÊME case (même niveau de temps, même période / année / bloc), ils s'écraseraient : refus avec un message qui nomme les objectifs à déplacer. Dates différentes : la fusion se fait, rien n'est écrit ni supprimé.
+const MSG_CONFLIT = 'Vous devez déplacer ';
+function caseApres(o) { const t = temps.deduce(o.startDate, o.endDate), p = fusion.periodOf(o.endDate); return { rank: p.year * 100 + p.number, label: t === 'periode' ? 'période ' + p.number + ' de ' + p.year : t === 'annee' ? 'année ' + p.year : 'après ' + p.year, k: t === 'periode' ? 'P' + p.year + '/' + p.number : t === 'annee' ? 'A' + p.year : 'B' + Math.floor(p.year / 5) }; }
+function assertSansConflit(userId, level, leaves, extras) {
+  const kids = leaves.filter((k) => k.id > 0), kidIds = new Set(kids.map((k) => k.id)), cols = columnsOfLeaves(level, leaves, extras);
+  if (cols.length < 2 || !kids.length) return;
+  const colKey = (c) => level === 'activite' ? String(c.activityId) : level === 'pole' ? c.activityId + '/' + c.poleKey : c.activityId + '/' + c.poleKey + '/' + c.categoryKey, mine = new Set(cols.map(colKey));
+  const fin = fusion.periodOf(kids.map((k) => k.endDate).sort().pop()), rangFusion = fin.year * 100 + fin.number, byCase = {};
+  db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND isMacro = 0').all(userId).forEach((r) => {
+    if (kidIds.has(r.id) || (r.level || 'activite') !== level || parseMetaSafe(r).abandoned || !isDay(r.endDate) || !isDay(r.startDate)) return;
+    const k = colKey(columnsOfLeaves(level, [r])[0]); if (!mine.has(k)) return;
+    const c = caseApres(r); if (c.rank <= rangFusion) return;
+    (byCase[c.k] = byCase[c.k] || []).push({ r, col: k, label: c.label });
+  });
+  const clash = Object.keys(byCase).map((c) => byCase[c]).filter((l) => new Set(l.map((x) => x.col)).size > 1);
+  if (!clash.length) return;
+  const nom = (x) => '« ' + x.r.title + ' » (' + x.label + ')';
+  throw err(clash.slice(0, 3).map((l) => MSG_CONFLIT + l.map(nom).join(' et ')).join(' ; ') + ' : ils tombent sur la même ligne après la fusion et s’écraseraient.');
+}
 function assertColumnFree(userId, macroRow, child) { // child : ligne d'objectif (ou objet { id, activityId, level, poleKey, categoryKey, isMacro }) que l'on relie à ce macro
   const root = macroRoot(macroRow), level = root.level || 'activite';
   const add = child.isMacro ? (child.id > 0 ? leafKids(child, 0) : []) : [child];
   assertLiaison(userId, level, leafKids(root, 0).concat(add), child.isMacro && child.id > 0 ? [root.id, child.id] : root.id, treeExtras(root, 0));
+  if (child.id > 0 || child.isMacro) assertSansConflit(userId, level, leafKids(root, 0).concat(add), treeExtras(root, 0));
 }
 // Groupes de macros (macros racines) et colonnes reliées : lus par l'ordre de présentation des colonnes.
 function macroGroups(userId) {
@@ -1142,6 +1163,7 @@ function fusionnerEnMacro(userId, body) {
   const lv = ['activite', 'pole', 'secteur'].includes(body.level) ? body.level : (kids[0].level || 'activite'); // niveau de la vue où l'on fusionne
   const empties = cleanEmpties(userId, lv, emptiesRaw); // cases vides de la même ligne reliées à la carte pleine (aucun nouvel objectif)
   assertLiaison(userId, lv, kids, null, empties); // règle de liaison, avant toute création
+  assertSansConflit(userId, lv, kids, empties); // contrôle de conflit (objectifs après la fusion), avant toute création
   const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : (kids.find((k) => k.poleKey) || {}).poleKey || null, categoryKey: lv === 'secteur' ? ((kids.find((k) => k.categoryKey) || {}).categoryKey || null) : null });
   if (commonParent) lier(userId, created.id, commonParent, 'apres'); // le macro prend la place de ses objectifs sous leur parent
   if (empties.length) writeExtras(created.id, empties);
