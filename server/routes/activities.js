@@ -393,6 +393,7 @@ router.delete('/activities/:id/members/:memberId', (req, res) => {
   db.exec('BEGIN');
   try {
     db.prepare('DELETE FROM activity_managers WHERE activityId = ? AND userId = ?').run(activity.id, targetId); // exclure un membre le retire des responsables
+    db.prepare('DELETE FROM category_managers WHERE activityId = ? AND userId = ?').run(activity.id, targetId); // ... et des responsables de catégorie (retour à l'héritage)
     // Nouvelle activité personnelle pour la personne exclue, même logique que
     // "Séparer" (voir plus haut) : elle garde son historique déjà enregistré.
     const info = db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, createdAt) VALUES (?, ?, 1, ?, ?)')

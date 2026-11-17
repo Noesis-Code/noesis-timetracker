@@ -51,6 +51,9 @@ router.post('/objectifs/rattachement', run((req) => objectifs.rattachement(req.u
 router.post('/objectifs/proposition', run((req) => objectifs.proposer(req.userId, req.body || {})));
 router.post('/objectifs', run(async (req) => { objectifs.checkEcheance(req.body || {}, null, true); return objectifs.creer(req.userId, req.body || {}); })); // échéance obligatoire, jamais passée
 router.post('/objectifs/macro', run((req) => objectifs.fusionnerEnMacro(req.userId, req.body || {})));
+router.post('/objectifs/:id/inferieurs/generer', run((req) => require('../lib/objectifs-inferieurs').genererPour(req.userId, req.params.id, require('../lib/dates').userToday())));
+router.get('/objectifs/:id/reorganisation', run((req) => objectifs.reorganisationDe(req.userId, req.params.id)));
+router.post('/objectifs/:id/reorganisation', run((req) => objectifs.appliquerReorganisationDe(req.userId, req.params.id, Array.isArray((req.body || {}).moves) ? req.body.moves : [])));
 router.get('/objectifs/:id', run((req) => objectifs.get(req.userId, req.params.id)));
 router.put('/objectifs/:id/periodes/:n/semaines/:i', run((req) => objectifs.semaine(req.userId, req.params.id, req.params.n, req.params.i, req.body && req.body.done === true)));
 router.post('/objectifs/:id/bilan', run((req) => objectifs.bilan(req.userId, req.params.id, String((req.body || {}).action || ''), (req.body || {}).period)));

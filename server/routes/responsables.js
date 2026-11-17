@@ -15,4 +15,6 @@ function run(fn) {
 router.get('/activities/:id/responsables', run((req) => resp.lister(req.userId, req.params.id)));
 router.put('/activities/:id/responsables', run((req) => resp.ajouter(req.userId, req.params.id, req.body && req.body.userId)));
 router.delete('/activities/:id/responsables/:userId', run((req) => resp.retirer(req.userId, req.params.id, req.params.userId)));
+router.get('/activities/:id/categories/:key/responsable', run((req) => resp.categorie(req.userId, req.params.id, req.params.key, req.query.poleKey)));
+router.put('/activities/:id/categories/:key/responsable', run((req) => resp.definirCategorie(req.userId, req.params.id, req.params.key, req.body && req.body.userId, req.body && req.body.poleKey)));
 module.exports = router;

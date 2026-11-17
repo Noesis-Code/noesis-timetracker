@@ -53,8 +53,8 @@ function belowOf(type, cells, today) {
   let out = [];
   if (type === 'periodique') cells.forEach((c) => { for (let i = 0; i < 4; i += 1) { const w = weekCell(O.addDays(c.start, 7 * i)); if (w.endDate >= today) out.push(w); } });
   else if (type === 'annuel') {
-    cells.forEach((c) => { const all = []; for (let p = 0; p < PER_YEAR; p += 1) all.push(periodCell(c.ord * PER_YEAR + p)); out.push(...all); });
-    if (out.length > MAX_LINES) { out = []; cells.forEach((c) => REPLI_PERIODES.forEach((p) => out.push(periodCell(c.ord * PER_YEAR + p - 1)))); }
+    cells.forEach((c) => { const all = []; for (let p = 0; p < PER_YEAR; p += 1) all.push(periodCell(c.ord * PER_YEAR + p)); out.push(...all.filter((x) => x.endDate >= today)); }); // jamais une période déjà passée
+    if (out.length > MAX_LINES) { out = []; cells.forEach((c) => REPLI_PERIODES.forEach((p) => { const x = periodCell(c.ord * PER_YEAR + p - 1); if (x.endDate >= today) out.push(x); })); }
   } else if (type === 'pluriannuel') cells.forEach((c) => { for (let v = c.ord; v < c.ord + 5; v += 1) out.push(yearCell(v)); });
   return evenPick(out, MAX_LINES);
 }

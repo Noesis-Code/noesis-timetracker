@@ -398,4 +398,14 @@ function appliquer(userId, body) {
   return { created, changed };
 }
 
-module.exports = { FEATURE, weeksIn, casesOf, divideCumulative, divideAdditive, planHours, validate, plan, appliquer };
+// « Générer les inférieurs » d'un objectif EXISTANT (fiche de modification, 17 nov. 2026) : mêmes règles que la fin de la création (règle du trou, 8 lignes au plus, titres par l'IA dans le plafond du compte, heures prédites par l'IA, repli : heures du parent).
+// Rien n'est écrit : la personne valide, puis appliquer() crée seulement les lignes gardées. Jamais d'erreur affichée : sans proposition possible, { skip: true }.
+async function genererPour(userId, id, today) {
+  const r = db.prepare('SELECT * FROM user_objectives WHERE id = ? AND userId = ?').get(Number(id), userId);
+  if (!r) throw err('Objectif introuvable.', 404);
+  const m = parseMeta(r), type = T.typeOfRow(r);
+  if (!['pluriannuel', 'annuel', 'periodique'].includes(type)) return { skip: true };
+  const hpw = Number(m.hoursPerWeek) > 0 ? Number(m.hoursPerWeek) : 1;
+  return planTrouRows(userId, { trou: true, parentId: r.parentId || undefined, type, title: r.title, description: m.description || '', activityId: r.activityId, level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null, startDate: r.startDate, endDate: r.endDate, rateMin: Math.round(hpw * 60) }, today || require('./dates').userToday());
+}
+module.exports = { genererPour, FEATURE, weeksIn, casesOf, divideCumulative, divideAdditive, planHours, validate, plan, appliquer };

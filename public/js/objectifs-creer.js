@@ -987,14 +987,24 @@
     }
     dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null;
   }
+  // À la fin d'une MODIFICATION : l'app PROPOSE (fenêtre « Modifications proposées », jamais écrit seul) de réordonner ce qui suit l'objectif modifié ; Non = rien ne change.
+  function proposeReorg(id) {
+    return api('GET', '/api/objectifs/' + id + '/reorganisation').then(function (d) {
+      var moves = (d && d.moves) || []; if (!moves.length) return;
+      return openRedessin({ moves: moves, rows: [] }).then(function (res) {
+        if (!res.applied) return;
+        return api('POST', '/api/objectifs/' + id + '/reorganisation', { moves: moves.map(function (m) { return { id: m.id, startDate: m.apres.startDate, endDate: m.apres.endDate }; }) });
+      });
+    }).catch(function () { /* jamais de blocage : l'objectif est déjà enregistré */ });
+  }
   function openEdit(id) {
     api('GET', '/api/objectifs/' + id).then(function (o) {
       var daysOf = function (end) { return Math.max(0, Math.round((Date.parse(end + 'T00:00:00Z') - Date.parse(o.startDate + 'T00:00:00Z')) / 86400000)); };
-      var form = { title: o.title, endDate: o.endDate, startDate: o.startDate, periodWeeks: o.periodWeeks, term: o.term || null, innerGoals: o.innerGoals || 'les_deux', hours: o.hoursPerWeek != null ? o.hoursPerWeek : null, skill: o.skill || '', guideOpen: 0 };
+      var form = { title: o.title, endDate: o.endDate, startDate: o.startDate, periodWeeks: o.periodWeeks, term: o.term || null, innerGoals: o.innerGoals || 'les_deux', hours: o.hoursPerWeek != null ? o.hoursPerWeek : null, skill: o.skill || '', guideOpen: 0, dateFixe: o.dateFixe === true };
       guideParse(form, o.description || '');
       var okInit = termsFor(daysOf(o.endDate)); if (okInit.indexOf(form.term) < 0) form.term = okInit[okInit.length - 1];
       if (!multiOf(daysOf(o.endDate))) form.innerGoals = 'hebdomadaires';
-      var orig = { title: o.title, endDate: o.endDate, desc: guideCompose(form), term: form.term, inner: form.innerGoals, hours: form.hours, skill: String(form.skill).trim() };
+      var orig = { title: o.title, endDate: o.endDate, desc: guideCompose(form), term: form.term, inner: form.innerGoals, hours: form.hours, skill: String(form.skill).trim(), dateFixe: form.dateFixe };
       function inner() { return multiOf(daysOf(form.endDate)) ? form.innerGoals : 'hebdomadaires'; }
       // Réglage « jour par jour » (volet « Avancé » sous les heures par semaine) : visible seulement si le Prévu diffère du Passé ; Σ des jours = heures par semaine, sinon « Enregistrer » reste grisé.
       var bd = o.byDay || null, byOrig = o.hoursByDay ? o.hoursByDay.slice() : null, byBase = bd ? (byOrig || bd.default.slice()) : null, byTimer = 0, byDirtyFlag = false, byLoading = false;
@@ -1004,12 +1014,12 @@
       function bySum() { return form.byDay ? form.byDay.reduce(function (a, b) { return a + b; }, 0) : 0; }
       function byOk() { return !byShow() || (!byLoading && bySum() === hoursMin()); }
       function byChanged() { return byShow() && JSON.stringify(form.byDay) !== JSON.stringify(byBase); }
-      function dirty() { return byChanged() || form.title.trim() !== orig.title || form.endDate !== orig.endDate || guideCompose(form) !== orig.desc || form.term !== orig.term || inner() !== orig.inner || form.hours !== orig.hours || String(form.skill).trim() !== orig.skill || partDirty(); }
+      function dirty() { return byChanged() || form.title.trim() !== orig.title || form.endDate !== orig.endDate || form.dateFixe !== orig.dateFixe || guideCompose(form) !== orig.desc || form.term !== orig.term || inner() !== orig.inner || form.hours !== orig.hours || String(form.skill).trim() !== orig.skill || partDirty(); }
       var msg = el('p', 'tasksMsg objMsg');
       function sync() { stepBtn.disabled = !dirty() || !form.endDate || !byOk(); }
       panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = tr('Modifier l’objectif'); panelForm = { edit: true }; setBack(null);
       panelBody.appendChild(el('p', 'hint', o.activity.name + (o.isMacro ? '' : ' · ' + o.title))); // l'activité est affichée, jamais modifiable
-      if (o.isMacro) { // seul un titre qui regroupe plusieurs objectifs se réécrit ; un objectif simple garde son titre
+      { // tous les paramètres de la création se modifient : titre (4 champs en haut : titre, description, date, heures)
         var tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = form.title; tIn.setAttribute('aria-label', tr('Titre'));
         tIn.addEventListener('input', function () { form.title = tIn.value; sync(); }); panelBody.appendChild(field(tr('Titre'), tIn));
       }
@@ -1024,6 +1034,9 @@
         if (!dateIn.value || dateIn.value <= o.startDate) { form.endDate = null; msg.textContent = dateIn.value ? tr('L’échéance ne peut pas être dans le passé.') : ''; sync(); return; }
         msg.textContent = ''; form.endDate = dateIn.value; paintT(); sync();
       });
+      var fx = el('label', 'objGridRow'), fxCb = el('input'); fxCb.type = 'checkbox'; fxCb.checked = form.dateFixe === true; // « Date fixe » : même case que la création
+      fxCb.addEventListener('change', function () { form.dateFixe = fxCb.checked; sync(); });
+      fx.appendChild(el('span', 'objGridName', tr('Date fixe'))); fx.appendChild(fxCb); panelBody.appendChild(fx);
       paintT(); panelBody.appendChild(tBox);
       var hRow = el('div', 'objTimeRow'), hVal = el('span', 'objHoursVal'), hIn = el('input');
       hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.value = form.hours != null ? String(form.hours) : ''; hIn.setAttribute('aria-label', tr('Heures par semaine'));
@@ -1120,17 +1133,30 @@
         partsBox.appendChild(el('p', 'hint', tr(o.parts.mode === 'temps' ? 'Selon le temps prévu de chaque objectif. Changer une part change le temps des autres, le total reste le même.' : 'Parts égales : les heures ne sont pas toutes prévues.')));
       }
       var ab = btn('cmpBtn cmpBtnIdle', tr(o.abandoned ? 'Réactiver' : 'Abandonner'), function () { api('POST', '/api/objectifs/' + id + (o.abandoned ? '/reactiver' : '/abandon')).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }); });
+      var gen = btn('cmpBtn cmpBtnIdle', tr('Générer les inférieurs'), function () { // 8 au plus, règle du trou ; titres et heures par l'IA dans le plafond du compte ; rien n'est écrit avant ton Oui
+        msg.textContent = '';
+        TMT.ui.attente(api('POST', '/api/objectifs/' + id + '/inferieurs/generer')).then(function (pl) {
+          if (!pl || pl.skip || !pl.rows || !pl.rows.length) { msg.textContent = tr('Rien à proposer pour le moment.'); return; }
+          var lines = pl.rows.map(function (r) { return r.title + ' : ' + r.endDate + ' · ' + hh(r.hoursMin); });
+          return TMT.ui.confirm(tr('Objectifs proposés') + '\n' + lines.join('\n'), { choices: [{ value: true, label: tr('Oui') }, { value: false, label: tr('Non') }] }).then(function (yes) {
+            if (!yes) return;
+            var rows = pl.rows.map(function (r) { return { kind: 'nouveau', title: r.title, description: [r.faire, r.resultat, r.avancement].filter(Boolean).join(' · '), poleKey: r.poleKey, categoryKey: r.categoryKey, lineType: r.lineType, column: r.column, link: r.link, endDate: r.endDate, weeks: r.weeks, hoursMin: r.hoursMin, chiffre: r.chiffre }; });
+            return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: id, rateMin: pl.rateMin, weekly: pl.level === 'semaine' ? true : undefined, rows: rows }).then(function () { load(); endFlow(); });
+          });
+        }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); });
+      });
+      if (!o.isMacro && !o.abandoned) panelBody.appendChild(gen);
       var rare = el('div', 'objRare'); rare.appendChild(ab); panelBody.appendChild(rare); // action rare, tout en bas, violette (R4, R28)
       function save() {
         var calls = [];
         if (partDirty()) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/parts', { childId: partEdit.id, percent: partEdit.percent }); });
-        if (o.isMacro && form.title.trim() !== orig.title) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/titre', { title: form.title.trim() }); });
+        if (form.title.trim() !== orig.title) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/titre', { title: form.title.trim() }); });
         if (guideCompose(form) !== orig.desc) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/description', { description: guideCompose(form) }); });
         if (form.endDate !== orig.endDate) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/echeance', { endDate: form.endDate }); });
-        calls.push(function () { var b = { term: form.term, inner: inner(), skill: String(form.skill).trim() }; if (form.hours !== orig.hours) b.hoursPerWeek = form.hours; if (byChanged()) b.hoursByDay = form.byDay; else if (!byShow() && byOrig && form.hours !== orig.hours) b.hoursByDay = null; return api('PUT', '/api/objectifs/' + id + '/parametres', b); }); // les heures ne sont envoyées que si elles ont changé (0 h = part à 0 %, jamais effacée en silence) // après l'échéance : le terme dépend de la date
+        calls.push(function () { var b = { term: form.term, inner: inner(), skill: String(form.skill).trim(), dateFixe: form.dateFixe }; if (form.hours !== orig.hours) b.hoursPerWeek = form.hours; if (byChanged()) b.hoursByDay = form.byDay; else if (!byShow() && byOrig && form.hours !== orig.hours) b.hoursByDay = null; return api('PUT', '/api/objectifs/' + id + '/parametres', b); }); // les heures ne sont envoyées que si elles ont changé (0 h = part à 0 %, jamais effacée en silence) // après l'échéance : le terme dépend de la date
         stepBtn.disabled = true; msg.textContent = '';
         var chain = Promise.resolve(); calls.forEach(function (c) { chain = chain.then(c); });
-        TMT.ui.attente(chain).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
+        TMT.ui.attente(chain).then(function () { return proposeReorg(id); }).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
       }
       dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save;
     }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });

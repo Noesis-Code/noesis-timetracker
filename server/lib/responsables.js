@@ -66,4 +66,32 @@ function retirer(userId, activityId, targetId) {
   db.prepare('DELETE FROM activity_managers WHERE activityId = ? AND userId = ?').run(a.id, String(targetId));
   return lister(userId, a.id);
 }
-module.exports = { ids, migrerAncienneTable, lister, ajouter, retirer, isManager };
+// ---- Responsable d'une CATÉGORIE (pôle ou secteur), décision d'Émilien du 13-14 nov. 2026 : un seul responsable par catégorie, avec héritage (secteur -> son pôle -> responsables de l'activité). 17 nov. 2026 ----
+db.exec(`CREATE TABLE IF NOT EXISTS category_managers (
+  activityId INTEGER NOT NULL,
+  categoryKey TEXT NOT NULL,
+  userId TEXT NOT NULL,
+  setBy TEXT,
+  setAt TEXT NOT NULL,
+  PRIMARY KEY (activityId, categoryKey)
+)`);
+// Responsable effectif : propre à la catégorie, sinon celui de son pôle (poleKey), sinon le propriétaire de l'activité (les autres responsables d'activité le restent aussi, voir ids()).
+function categorie(userId, activityId, categoryKey, poleKey) {
+  const a = activity(activityId);
+  if (!isMember(userId, a.id)) throw err(403, 'Tu ne fais pas partie de cette activité.');
+  const get = (k) => k ? db.prepare('SELECT userId FROM category_managers WHERE activityId = ? AND categoryKey = ?').get(a.id, String(k)) : null;
+  const own = get(categoryKey), up = !own && poleKey && poleKey !== categoryKey ? get(poleKey) : null;
+  const uid = own ? own.userId : up ? up.userId : a.ownerId;
+  const inherited = !own;
+  const name = db.prepare('SELECT name FROM users WHERE id = ?').get(uid);
+  return { activityId: a.id, categoryKey: String(categoryKey), userId: uid, name: name ? name.name : '', inherited, from: own ? 'categorie' : up ? 'pole' : 'activite', canManage: isManager(userId, a.id) };
+}
+function definirCategorie(userId, activityId, categoryKey, targetId, poleKey) {
+  const a = activity(activityId);
+  if (!isManager(userId, a.id)) throw err(403, 'Seul un responsable peut choisir le responsable d’une catégorie.');
+  if (targetId == null || targetId === '') { db.prepare('DELETE FROM category_managers WHERE activityId = ? AND categoryKey = ?').run(a.id, String(categoryKey)); return categorie(userId, a.id, categoryKey, poleKey); } // retour à l'héritage
+  if (!isMember(String(targetId), a.id)) throw err(400, 'Seul un membre de l’activité peut être responsable.');
+  db.prepare('INSERT OR REPLACE INTO category_managers (activityId, categoryKey, userId, setBy, setAt) VALUES (?, ?, ?, ?, ?)').run(a.id, String(categoryKey), String(targetId), userId, new Date().toISOString());
+  return categorie(userId, a.id, categoryKey, poleKey);
+}
+module.exports = { categorie, definirCategorie, ids, migrerAncienneTable, lister, ajouter, retirer, isManager };

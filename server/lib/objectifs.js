@@ -897,7 +897,7 @@ function shape(r, full) {
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },
     weekTasks: { done: weekTasks.filter((t) => t.done).length, total: weekTasks.length },
   };
-  out.hoursPerWeek = meta.hoursPerWeek != null ? meta.hoursPerWeek : null; out.skill = meta.skill || ''; out.niveau = meta.niveau || null; // 0 h = part à 0 %
+  out.dateFixe = meta.dateFixe === true; out.hoursPerWeek = meta.hoursPerWeek != null ? meta.hoursPerWeek : null; out.skill = meta.skill || ''; out.niveau = meta.niveau || null; // 0 h = part à 0 %
   out.hoursByDay = Array.isArray(meta.hoursByDay) ? meta.hoursByDay : null;
   if (full) out.byDay = byDayInfo(r, meta); // détail seulement : Passé par jour (Chrono du niveau) pour le réglage « jour par jour » de la modification
   out.term = meta.term || null; out.innerGoals = meta.inner || null; // choix de création (terme, objectifs inclus) ; null pour les objectifs plus anciens
@@ -1162,13 +1162,22 @@ function reorganisation(userId, body) {
   try {
     const act = userActivities(userId).find((a) => a.id === Number(body && body.activityId));
     if (!act || !isDay(body.endDate)) return none;
-    const lvl = levelOf(userId, act.id, body), all = algoObjectifs(userId, act.id);
-    const n = { id: 0, level: lvl.level, poleKey: lvl.poleKey, categoryKey: lvl.categoryKey, endDate: body.endDate, dateFixe: body.dateFixe === true };
+    const lvl = levelOf(userId, act.id, body), all = algoObjectifs(userId, act.id), self = Number(body.objectifId) || 0; // modification : l'objectif lui-même n'est jamais déplacé par son propre calcul
+    const n = { id: self, level: lvl.level, poleKey: lvl.poleKey, categoryKey: lvl.categoryKey, endDate: body.endDate, dateFixe: body.dateFixe === true };
     const par = body.parentId ? db.prepare('SELECT endDate FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body.parentId), userId) : null;
     const out = require('./objectifs-boucle').reorganiser(n, all, { today: today(), delaiMinimal: (o) => delaiDe(o, all), limite: par ? par.endDate : null });
     const titles = new Map(db.prepare('SELECT id, title FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).map((r) => [r.id, r.title]));
     return { moves: out.moves.map((m) => ({ id: m.id, title: titles.get(m.id) || '', avant: m.avant, apres: m.apres })), ok: out.ok, tours: out.tours };
   } catch (e) { return none; }
+}
+// Après une MODIFICATION (17 nov. 2026, Émilien) : l'app PROPOSE de réordonner ce qui suit l'objectif modifié, mêmes règles que la création ; rien n'est écrit.
+function reorganisationDe(userId, id) {
+  const r = rowOf(userId, id), m = parseMetaSafe(r), fixed = m.dateFixe === true || (Number(m.dateCorrectedDays) || 0) !== 0;
+  return reorganisation(userId, { objectifId: r.id, activityId: r.activityId, level: r.level || 'activite', poleKey: r.poleKey, categoryKey: r.categoryKey, endDate: r.endDate, dateFixe: fixed, parentId: r.parentId });
+}
+function appliquerReorganisationDe(userId, id, moves) {
+  const r = rowOf(userId, id), m = parseMetaSafe(r), fixed = m.dateFixe === true || (Number(m.dateCorrectedDays) || 0) !== 0;
+  return appliquerReorganisation(userId, { objectifId: r.id, activityId: r.activityId, level: r.level || 'activite', poleKey: r.poleKey, categoryKey: r.categoryKey, endDate: r.endDate, dateFixe: fixed, parentId: r.parentId, moves });
 }
 // Application à « Terminer » : seulement les déplacements recalculés ici et identiques à ceux validés (jamais un objectif non proposé).
 function appliquerReorganisation(userId, body) {
@@ -1258,4 +1267,4 @@ function supprimer(userId, id, confirmed) {
 }
 migrateEcheances(); // au chargement (idempotent)
 try { const n = purgeOrphanMacros(null); if (n) console.log('[objectifs] ' + n + ' macro(s) sans objectif relié retiré(s)'); } catch (e) { console.warn('[objectifs] nettoyage des macros vides impossible :', e.message); }
-module.exports = { reprogrammer, reorganisation, appliquerReorganisation, natureOfCategory, gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { reprogrammer, reorganisation, appliquerReorganisation, reorganisationDe, appliquerReorganisationDe, natureOfCategory, gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
