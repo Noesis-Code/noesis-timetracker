@@ -121,7 +121,7 @@ const col = (id) => db.prepare('SELECT taskKind, maintType, maintUrgent, goalWee
   const due = rec.nextDueDate(today, 1, 'month', today);
   assert(c.ok && c.taskKind === 'maintenance' && c.recurrenceSuggestion && c.dueDate === due, 'S5 : récurrente => première échéance de la fréquence (' + due + ')');
   c = await cap('Payer la facture du fournisseur', 'absence');
-  assert(c.ok && c.taskKind === null && col(c.id).taskKind === null && c.devIdea === false, 'mode Absent : aucun type calculé');
+  assert(c.ok && c.taskKind === null && c.devIdea === false && col(c.id).taskKind === 'maintenance', 'mode Absent : aucun type calculé par la capture ; le classement silencieux par règles gratuites (18 nov. 2026) le pose à la création');
 
   // ---- S5 : longues (placement direct) ----
   mkUser('u2'); const actC = mkAct('C', 'u2'); const keyC = mkPole(actC);
