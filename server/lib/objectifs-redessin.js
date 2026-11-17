@@ -44,7 +44,7 @@ function cellsOf(parent) {
   const t = T.typeOfRow(parent);
   if (t === 'annuel') { const y = O.gridOf(parent.endDate).year; return { level: 'periode', cells: Array.from({ length: 13 }, (_, k) => T.periodCell(y * 13 + k)) }; }
   if (t === 'periodique') { const ps = O.periodStartOf(parent.endDate); return { level: 'semaine', cells: Array.from({ length: 4 }, (_, k) => T.weekCell(O.addDays(ps, 7 * k))) }; }
-  if (t === 'pluriannuel') { const y0 = Number(parent.endDate.slice(0, 4)) - 4; return { level: 'annee', cells: Array.from({ length: 5 }, (_, k) => T.yearCell(y0 + k)) }; }
+  if (t === 'pluriannuel') { const y0 = O.blockYearOf(parent.endDate); return { level: 'annee', cells: Array.from({ length: 5 }, (_, k) => T.yearCell(y0 + k)) }; }
   return null;
 }
 const indexOf = (cells, iso) => { const i = cells.findIndex((c) => iso >= c.start && iso <= c.endDate); return i < 0 ? null : i + 1; };

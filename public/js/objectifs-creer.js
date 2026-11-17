@@ -255,7 +255,7 @@
   // Interrupteur « Hebdomadaire » (9 nov. 2026) : possible SEULEMENT au niveau secteur et si l'échéance tombe dans la semaine en cours ou la suivante ; l'échéance décide ce qui est possible.
   // Numéros de semaine et de période : la MÊME fonction que le calendrier (public/js/calendrier-numeros.js, premier lundi de janvier) ; aucune copie ici.
   // Tranche de 5 ans d'un objectif d'ACTIVITÉ (pluriannuel) : MÊME définition que la colonne pluriannuelle de l'arbre (objectifs-arbre.js, blockStart / rowKey) : première année = année en cours + 5 × partie entière de (année de l'échéance - année en cours) / 5.
-  function blockStart(iso) { var y0 = new Date().getFullYear(), y = Number(iso.slice(0, 4)); return y0 + 5 * Math.floor((y - y0) / 5); }
+  function blockStart(iso) { var y = Number(iso.slice(0, 4)); return 2026 + 5 * Math.floor((y - 2026) / 5); } /* blocs de 5 ans FIXES */
   function weeklyPossible(f) { return f.level === 'secteur'; } // dès qu'un secteur est choisi, « Hebdomadaire » est toujours possible (l'échéance place l'objectif : sa semaine ou sa période)
   function segDisabled(options, current, allowed, onPick, label) {
     var s = seg(options, current, onPick, label);

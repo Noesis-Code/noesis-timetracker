@@ -87,7 +87,7 @@ function cadreDeDecalage(objectiveId) {
   const type = T.typeOfRow(row);
   if (type === 'hebdomadaire') { const s0 = O.periodStartOf(row.endDate); return { type, start: s0, end: O.addDays(s0, 27) }; }
   if (type === 'periodique') { const g = O.gridOf(row.endDate).grid; return { type, start: g, end: O.addDays(g, 363) }; }
-  const y0 = Number(new Date().toISOString().slice(0, 4)), y = Number(row.endDate.slice(0, 4)), b0 = y0 + 5 * Math.floor((y - y0) / 5);
+  const b0 = O.blockYearOf(row.endDate); // bloc de 5 ans FIXE
   const start = O.gridOf(b0 + '-01-15').grid, next = O.gridOf((b0 + 5) + '-01-15').grid;
   return { type, start, end: O.addDays(next, -1) };
 }

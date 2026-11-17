@@ -24,8 +24,8 @@ eq(T.planTrou('hebdomadaire', '2027-02-10', null, today).mode, 'aucun', 'hebdoma
 // annuel : 3 ans -> 3 années ; borné au bloc de 5 ans
 r = T.planTrou('annuel', '2030-12-31', null, today);
 eq([r.mode, r.gap, r.lines.map((l) => l.label)], ['trou', 3, ['2027', '2028', '2029']], 'annuel 3 ans -> 3 années');
-r = T.planTrou('annuel', '2031-12-31', null, today);
-eq([r.mode, r.gap], ['trou', 4], 'annuel borné à son bloc (2027-2031) : 4 années');
+r = T.planTrou('annuel', '2030-12-31', null, today);
+eq([r.mode, r.gap], ['trou', 3], 'annuel borné à son bloc FIXE (2026-2030) : 3 années (2027 à 2029)');
 // annuel 1 ou 2 années de trou -> périodiques (repli : périodes 3, 6, 9, 13 par an, 8 au plus)
 r = T.planTrou('annuel', '2029-12-31', '2027-12-31', today);
 eq([r.mode, r.gap, r.lines.length, r.lines.map((l) => l.label)], ['dessous', 1, 4, ['P3 2028', 'P6 2028', 'P9 2028', 'P13 2028']], 'annuel 1 an -> 4 jalons');

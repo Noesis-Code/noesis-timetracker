@@ -18,7 +18,7 @@ const periodOf = (iso) => { const g = O.gridOf(iso); return g.year * PER_YEAR + 
 const periodCell = (o) => { const s = periodStart(o); return { level: 'periode', ord: o, label: 'P' + (o % PER_YEAR + 1) + ' ' + Math.floor(o / PER_YEAR), start: s, endDate: O.addDays(s, 27) }; };
 const yearCell = (y) => ({ level: 'annee', ord: y, label: String(y), start: y + '-01-01', endDate: y + '-12-31' });
 const blockCell = (b) => ({ level: 'bloc', ord: b, label: b + '–' + (b + 4), start: b + '-01-01', endDate: (b + 4) + '-12-31' });
-const blockOf = (y, y0) => y0 + 5 * Math.floor((y - y0) / 5);
+const blockOf = (y) => O.blockYearOf(y + '-06-01'); // bloc de 5 ans FIXE (26/30, 31/35…)
 const weekCell = (ws) => ({ level: 'semaine', ord: ws, label: 'S' + O.gridOf(ws).week, start: ws, endDate: O.addDays(ws, 6) });
 
 // Choisit au plus `max` éléments répartis régulièrement (le dernier toujours retenu) : jalons déterministes.

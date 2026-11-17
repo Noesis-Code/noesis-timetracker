@@ -18,7 +18,7 @@
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
   var zoom = 'period', wk = null, lvl = 'activite', focus = null, struct = null, picked = null, animate = false, openPending = false;
   var tree = null, items = [], toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, scroller = null, gridArea = null, ext = null, savedView = null, restoreView = null;
-  var MIN_ROWS = 5;
+  var MIN_ROWS = 5, BLOCK0 = 2026; // BLOCK0 : premier bloc de 5 ans fixe (26/30)
   var RAIL = 30, GAP = 10; // largeur de la colonne de repères + gouttière (RAIL change avec le niveau : ovale d'un bloc de 5 ans, d'une année, rond d'une période)
 
   function dayIso(date) { var d = date || new Date(), p = function (x) { return String(x).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
@@ -229,7 +229,7 @@
   }
   function summaryCard(os, color, w, year, ci) {
     var b = el('button', 'goalsGridCell goalsGridCell--filled arSummary arCard' + (ext && ext.mode === 'create' && ext.base && os.some(function (x) { return x.id === ext.base.id; }) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-ids', os.map(function (x) { return x.id; }).join(',')); cellSize(b, w); paint(b, 'now', color);
-    var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', bigOf(os).title)); b.appendChild(t); if (os.length === 1) b.appendChild(editMark(os[0]));
+    var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', bigOf(os).title)); b.appendChild(t); b.appendChild(editMark(bigOf(os))); /* case occupée = crayon, même à plusieurs objectifs (celui qui englobe les autres) */
     resumeOf(os[0].activity.id, year).then(function (txt) { // le texte du serveur remplace la liste de titres dans la case (3 lignes au plus, coupure propre)
       if (!txt || !b.isConnected) return;
       t.textContent = ''; t.appendChild(el('span', 'arSummaryText', txt.replace(/\n\s*-\s*/g, ' · ').replace(/^\s*-\s*/, '')));
@@ -305,7 +305,7 @@
     if (zoom === 'week') { var w0 = Math.min(52, Math.floor(Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(x.y + '-01-01T00:00:00Z')) / 86400000) / 7) + 1); return { k: x.y + 'S' + w0, rank: x.y * 100 + w0, y: x.y, w: w0 }; } // semaine de 7 jours à partir du 1er janvier : la période de 28 jours en compte exactement 4
     if (zoom === 'period') return { k: x.y + 'P' + x.p, rank: x.y * 100 + x.p, y: x.y, p: x.p };
     if (zoom === 'year') return { k: String(x.y), rank: x.y * 100, y: x.y, p: 0 };
-    var y0 = new Date().getFullYear(), s0 = y0 + 5 * Math.floor((x.y - y0) / 5);
+    var s0 = BLOCK0 + 5 * Math.floor((x.y - BLOCK0) / 5); /* blocs de 5 ans FIXES : 26/30, 31/35… */
     return { k: 'B' + s0, rank: s0 * 100, y: s0, y2: s0 + 4, p: 0, block: true };
   }
   function rowOfRank(rk) { if (zoom === 'week') return { k: Math.floor(rk / 100) + 'S' + (rk % 100), rank: rk, y: Math.floor(rk / 100), w: rk % 100 }; return zoom === 'period' ? { k: Math.floor(rk / 100) + 'P' + (rk % 100), rank: rk, y: Math.floor(rk / 100), p: rk % 100 } : zoom === 'year' ? { k: String(rk / 100), rank: rk, y: rk / 100, p: 0 } : { k: 'B' + rk / 100, rank: rk, y: rk / 100, y2: rk / 100 + 4, p: 0, block: true }; }
@@ -441,7 +441,7 @@
     var k = ordreKey().join('|'), before = JSON.stringify(ordreMap[k]);
     loadOrdre().then(function () { if (visible && ordreKey().join('|') === k && JSON.stringify(ordreMap[k]) !== before) render(); }); // l'ordre de présentation arrive : les colonnes reliées se rapprochent
   }
-  function blockStart(iso) { var y0 = new Date().getFullYear(), y = Number(iso.slice(0, 4)); return y0 + 5 * Math.floor((y - y0) / 5); } // première année du bloc de 5 ans qui contient l'échéance
+  function blockStart(iso) { var y = Number(iso.slice(0, 4)); return BLOCK0 + 5 * Math.floor((y - BLOCK0) / 5); } // première année du bloc de 5 ans qui contient l'échéance
   function ficheOf(ci) { // données de la fiche d'un titre : activité, pôle ou secteur (temps : routes existantes, côté fenêtre)
     var c = curCols[ci], x = c.col ? c.col.ctx : c.ctx, a = actOf(x.activityId) || { id: x.activityId, name: (c.label || ''), color: c.color }, today = dayIso(), firstPole = a.poles && a.poles[0] ? a.poles[0].key : null;
     var mine = items.filter(function (o) {
