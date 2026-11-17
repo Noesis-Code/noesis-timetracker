@@ -151,3 +151,5 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
   html.arbreOn .arGrid .goalsGridCell, html.arbreOn .arGrid.arCompact .goalsGridCell--filled { min-height: 44px; }
   html.arbreOn .arGrid, html.arbreOn .arGrid.arCompact { --goalsGridGap: 8px; } /* gouttière verticale réduite : plus de lignes à la fois */
 }
+/* COLONNE DES DATES (18 nov. 2026) : ~5 fois plus étroite, texte TOURNÉ (lisible en penchant la tête, de bas en haut), 13 px, mêmes informations (numéro de période, année, bloc). */
+.arRail .goalsRowMarker, .arRail.arCompact .goalsRowMarker--ovale { writing-mode: vertical-rl; transform: rotate(180deg); width: var(--ar-mw, 14px); height: auto; min-height: var(--ar-mw, 14px); padding: 8px 0; font-size: 13px; line-height: 1; white-space: nowrap; }
