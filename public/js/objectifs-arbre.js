@@ -552,14 +552,15 @@
       if (xi.length > 1) { var xb = bucketOf(ext.base, today); byRank[xb.rank] = xb; if (xb.rank > hi) hi = xb.rank; (macrosAt[xb.rank] = macrosAt[xb.rank] || []).push({ m: { id: -1, title: ext.title || ext.base.title, startDate: ext.base.startDate, endDate: ext.base.endDate, status: 'en_cours', isMacro: true, macroChildren: xi.length }, c0: Math.min.apply(null, xi), c1: Math.max.apply(null, xi) }); }
     }
     if (zoom !== 'period') hi = Math.max(hi, here.rank + 500); // horizon : au moins 5 ans devant (bloc suivant, ou cinq années)
-    var blockYears = zoom === 'year' && focus && focus.block; // arbre des années ouvert depuis un grand objectif : exactement les 5 années de son bloc
-    if (blockYears) { lo = focus.block * 100; hi = (focus.block + 4) * 100; } /* les 5 années du bloc : toujours toutes, passées incluses (aucune case énorme) */ // le cycle (le bloc de 5 ans) a une fin FIXE : la vue va du présent à cette fin, jamais au-delà
+    var blockNow = zoom === 'year' ? (focus && focus.block ? focus.block : blockStart(today)) : null, periodYear = zoom === 'period' ? (focus && focus.year ? focus.year : Number(today.slice(0, 4))) : null; /* bloc FIXE affiché (par défaut celui du présent) et année affichée : jamais d'année d'un autre bloc */
+    var blockYears = !!blockNow; // arbre des années : exactement les 5 années de son bloc
+    if (blockYears) { lo = blockNow * 100; hi = (blockNow + 4) * 100; } /* les 5 années du bloc : toujours toutes, passées incluses (aucune case énorme) */ // le cycle (le bloc de 5 ans) a une fin FIXE : la vue va du présent à cette fin, jamais au-delà
     var farRank = hi; for (var yy = 0; yy < (zoom === 'period' ? PER_YEAR : 1); yy++) farRank = nextRank(farRank); // + 1 an
     if (blockYears) farRank = hi;
-    if (zoom === 'period' && focus && focus.year) { var y1 = focus.year * 100 + 1, y13 = focus.year * 100 + PER_YEAR; lo = y1; hi = y13; /* les 13 périodes de l'année : toujours toutes, passées incluses */ farRank = hi; } // vue des périodes : le cycle (l'année, 13 périodes) a une fin FIXE ; on n'affiche que les périodes qui RESTENT du présent à cette fin (aucune période de l'année suivante)
+    if (periodYear) { var y1 = periodYear * 100 + 1, y13 = periodYear * 100 + PER_YEAR; lo = y1; hi = y13; /* les 13 périodes de l'année : toujours toutes, passées incluses */ farRank = hi; } // vue des périodes : le cycle (l'année, 13 périodes) a une fin FIXE ; on n'affiche que les périodes qui RESTENT du présent à cette fin (aucune période de l'année suivante)
     var list = [];
     for (var rk = lo; rk <= farRank; rk = nextRank(rk)) list.push(byRank[rk] || rowOfRank(rk));
-    var cycleEnd = blockYears || (zoom === 'period' && focus && focus.year); // cycle à fin FIXE : jamais de case au-delà de sa fin (pas de remplissage vers l'année ou le bloc suivant)
+    var cycleEnd = blockYears || !!periodYear; // cycle à fin FIXE : jamais de case au-delà de sa fin (pas de remplissage vers l'année ou le bloc suivant)
     while (!cycleEnd && list.length < (isLand() ? 7 : MIN_ROWS)) list.push(rowOfRank(nextRank(list[list.length - 1].rank))); // toujours au moins 5 cases : le futur se prolonge en cases grises vides
     if (wk) { list = []; for (var wi = 1; wi <= 4; wi++) list.push(rowOfRank(wk.y * 100 + (wk.p - 1) * 4 + wi)); } // les 4 semaines de la période
     list.reverse();
@@ -667,7 +668,8 @@
       if (isMulti()) Array.prototype.forEach.call(tree.querySelectorAll('.arMacro[data-c1]'), function (mc) { var a0 = bs[Number(mc.getAttribute('data-c0'))], a1 = bs[Number(mc.getAttribute('data-c1'))]; if (a0 && a1 && mc.getAttribute('data-c1') !== mc.getAttribute('data-c0')) { var wpx = Math.round(a1.getBoundingClientRect().right - a0.getBoundingClientRect().left) + 'px'; mc.style.width = wpx; mc.style.flex = '0 0 ' + wpx; } }); // une carte large qui enjambe la gouttière doublée du séparateur couvre exactement ses colonnes
       for (var k = 1; k < curCols.length; k++) if ((curCols[k].ctx.activityId !== curCols[k - 1].ctx.activityId || (lvl === 'secteur' && curCols[k].ctx.poleKey !== curCols[k - 1].ctx.poleKey)) && bs[k] && bs[k - 1]) { bs[k].classList.add('arSepStart'); Array.prototype.forEach.call(tree.querySelectorAll('[data-col="' + k + '"]'), function (n) { n.classList.add('arSepStart'); }); var x = (bs[k - 1].getBoundingClientRect().right + bs[k].getBoundingClientRect().left) / 2, l = el('i', 'arSep'); l.style.left = Math.round(x - b0.left - 1) + 'px'; layer.appendChild(l); }
     }
-    function relayout() { if (stickEnd && gridArea) gridArea.scrollTop = gridArea.scrollHeight; fitTree(); positionRail(); drawLinks(); drawSeps(); }
+    function toNow() { /* ouverture : la ligne du PRÉSENT (période, année, bloc ou semaine courante) est visible, centrée ; sinon le bas */ if (!gridArea) return; var cr = grid.querySelector('.goalsGridRow[data-rank="' + here.rank + '"]'); if (!cr) { gridArea.scrollTop = gridArea.scrollHeight; return; } var ar = gridArea.getBoundingClientRect(), rr = cr.getBoundingClientRect(); gridArea.scrollTop = Math.max(0, gridArea.scrollTop + (rr.top - ar.top) - (ar.height - parseFloat(getComputedStyle(gridArea).paddingBottom || 0) - rr.height) / 2); }
+    function relayout() { if (stickEnd && gridArea) toNow(); fitTree(); positionRail(); drawLinks(); drawSeps(); }
     if (window.ResizeObserver) { var rqd = false, roL = new ResizeObserver(function () { if (rqd) return; rqd = true; window.requestAnimationFrame(function () { rqd = false; positionRail(); drawLinks(); drawSeps(); }); }); roL.observe(gridArea); roL.observe(grid); } // repères, traits et séparateurs suivent toute rangée qui change de hauteur (mise en page tardive)
     var marks = [];
     function placeRail() { // chaque repère va dans la colonne fixe ; sa position est ensuite (re)mesurée sur la rangée de sa période
@@ -698,7 +700,7 @@
     })();
     placeRail(); drawLinks(); drawSeps(); window.requestAnimationFrame(relayout); window.setTimeout(relayout, 350);
     if (restoreView) { gridArea.scrollTop = restoreView.top; scroller.scrollLeft = restoreView.left; restoreView = null; }
-    else if (needBase || keepTop == null) { needBase = false; stickEnd = true; gridArea.scrollTop = gridArea.scrollHeight; window.requestAnimationFrame(function () { if (gridArea) gridArea.scrollTop = gridArea.scrollHeight; }); } // ouverture : le présent (en bas)
+    else if (needBase || keepTop == null) { needBase = false; stickEnd = true; toNow(); window.requestAnimationFrame(function () { if (gridArea) toNow(); }); } // ouverture : le présent (en bas)
     else { gridArea.scrollTop = keepTop; scroller.scrollLeft = keepLeft; }
   }
   // On ne change de niveau QUE par le toucher (descendre) et la flèche de retour : ni pincement ni Ctrl + molette (retirés à la demande d'Émilien).
