@@ -24,4 +24,16 @@ db.prepare('DELETE FROM user_objectives WHERE id = ?').run(oid);
 assert(R.readLink(t2).objectiveId === null, 'un objectif supprimé disparaît du lien sans erreur');
 assert(R.setLink(t2, { chainRank: null, parentItemId: null }).chainRank === null && R.readLink(t2).parentItemId === null, 'null efface le rang et le regroupement');
 assert(R.setLink(999999, { chainRank: 1 }) === null, 'tâche inconnue : null');
+// ---- classement silencieux de toute tâche créée (Expansion, Drive, connecteur, calendrier, ajout direct) ----
+const subprojects = require('../server/lib/subprojects'), taskkind = require('../server/lib/taskkind');
+const section = db.prepare('SELECT * FROM sub_project_sections WHERE id = ?').get(sec);
+const urgent = subprojects.createItem(section, 'Réparer la fuite du robinet, urgent', { noSpellfix: true });
+const k1 = taskkind.read(urgent.id);
+assert(k1.kind === 'maintenance' && k1.urgent === true, 'une tâche créée par n\'importe quel chemin reçoit sa nature en silence (maintenance urgente)');
+const dev = subprojects.createItem(section, 'Concevoir la nouvelle page d\'accueil du site', { noSpellfix: true });
+assert(['developpement', null].includes(taskkind.read(dev.id).kind), 'un développement est classé, ou laissé neutre sans signal net : jamais d\'erreur');
+const t4 = mk('Déjà classée par la personne');
+taskkind.setNature(t4, 'developpement', 'Déjà classée par la personne');
+assert(R.classerSilencieux(t4) === null && taskkind.read(t4).kind === 'developpement', 'une tâche déjà classée n\'est jamais reclassée');
+assert(R.classerSilencieux(999999) === null, 'tâche inconnue : null');
 process.exit(failed ? 1 : 0);

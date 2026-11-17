@@ -68,6 +68,23 @@ const row = (id) => db.prepare('SELECT * FROM sub_project_items WHERE id = ?').g
     assert((await tool(tokV2, 'creer_tache', { activityId: actA, titre: 'ok', pole: poleA, echeance: '2026-02-31' })).isError, 'date inexistante refusée');
     assert((await tool(tokV2, 'creer_tache', { activityId: actA, titre: 'ok', pole: poleA, echeance: '2099-01-01' })).isError, 'date trop lointaine refusée');
     assert((await tool(tokV2, 'creer_tache', { activityId: actA, titre: 'ok', pole: poleA, echeance: 'demain' })).isError, 'date mal formée refusée');
+    // Rangement fourni par l'IA de la personne (18 nov. 2026) : objectif, nature, étape de ; sans appel IA de Noèsis.
+    const objA = Number(db.prepare("INSERT INTO user_objectives (userId, activityId, title, amount, unit, startDate, endDate, createdAt) VALUES ('A', ?, 'Objectif A', 1, 'x', '2027-01-01', '2027-12-31', '')").run(actA).lastInsertRowid);
+    const aiAvant = aiCalls;
+    const rg = await tool(tokV2, 'creer_tache', { activityId: actA, titre: 'Réparer la fuite urgente', pole: poleA, nature: 'maintenance', objectif: objA, etape_de: t1 });
+    assert(!rg.isError, 'creer_tache avec objectif, nature et étape de : accepté');
+    const rgItem = db.prepare("SELECT taskKind, objectiveId, parentItemId FROM sub_project_items WHERE label = 'Réparer la fuite urgente'").get();
+    assert(rgItem && rgItem.taskKind === 'maintenance' && rgItem.objectiveId === objA && rgItem.parentItemId === t1, 'le rangement fourni est enregistré (nature, objectif, étape de)');
+    assert(aiCalls === aiAvant, 'le rangement par le connecteur ne déclenche aucun appel IA de Noèsis');
+    const nbAvant = db.prepare('SELECT COUNT(*) AS n FROM sub_project_items').get().n;
+    assert((await tool(tokV2, 'creer_tache', { activityId: actA, titre: 'refus objectif', pole: poleA, objectif: 99999 })).isError, 'objectif inconnu : refusé');
+    assert((await tool(tokV2, 'creer_tache', { activityId: actA, titre: 'refus nature', pole: poleA, nature: 'zzz' })).isError, 'nature inconnue : refusée');
+    assert((await tool(tokV2, 'creer_tache', { activityId: actA, titre: 'refus étape', pole: poleA, etape_de: tB })).isError, 'étape d\'une tâche d\'un autre compte : refusée');
+    assert(db.prepare('SELECT COUNT(*) AS n FROM sub_project_items').get().n === nbAvant, 'un rangement invalide ne crée aucune tâche');
+    const sansRg = await tool(tokV2, 'creer_tache', { activityId: actA, titre: 'Payer la facture d\'électricité', pole: poleA });
+    assert(!sansRg.isError && db.prepare("SELECT taskKind FROM sub_project_items WHERE label = 'Payer la facture d''électricité'").get().taskKind !== undefined, 'sans rangement fourni : le classement par règles gratuites prend le relais');
+    const rg2 = await tool(tokV2, 'modifier_tache', { taskId: rgItem ? db.prepare("SELECT id FROM sub_project_items WHERE label = 'Réparer la fuite urgente'").get().id : 0, nature: 'developpement' });
+    assert(!rg2.isError, 'modifier_tache : la nature peut être corrigée');
     assert((await tool(tokV2, 'definir_objectif_hebdomadaire', { activityId: actA, pole: poleA, periode: 2, semaine: 5, texte: 'x' })).isError, 'semaine 5 refusée');
     assert((await tool(tokV2, 'definir_objectif_periodique', { activityId: actA, pole: poleA, periode: 0, texte: 'x' })).isError, 'période 0 refusée');
     assert((await tool(tokV2, 'definir_objectif_periodique', { activityId: actA, pole: poleA, periode: 2, texte: '' })).isError, 'objectif vide refusé (pas de suppression)');

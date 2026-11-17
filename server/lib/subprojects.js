@@ -484,6 +484,9 @@ function createItem(section, label, extra) {
   `).run(section.subProjectId, section.id, label, next, new Date().toISOString(),
     opts.dueDate || todayIso(), opts.dueDate ? 0 : 2, opts.plannedUserId || null, opts.autoCaptured ? 1 : 0,
     rec ? rec.every : null, rec ? rec.unit : null, opts.origin === 'ai' ? 'ai' : 'user');
+  // Classement silencieux de TOUTE tâche créée (nature, phase, urgence : règles gratuites, sans IA ; 18 nov. 2026) : Expansion, Drive, connecteur IA, calendrier, ajout direct.
+  // La bulle de capture (mode Partiel) le recalcule ensuite avec plus de contexte. Jamais bloquant.
+  try { require('./taches-rangement').classerSilencieux(info.lastInsertRowid); } catch (e) { /* jamais bloquant */ }
   // Correction orthographique silencieuse, après l'enregistrement (jamais bloquante).
   if (!opts.noSpellfix) require('./silentspellfix').schedule(info.lastInsertRowid);
   return getItem(info.lastInsertRowid);

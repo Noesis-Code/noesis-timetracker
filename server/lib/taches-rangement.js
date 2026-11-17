@@ -63,4 +63,18 @@ function tasksOf(objectiveId) {
   return db.prepare('SELECT id, label, done, dueDate, chainRank, parentItemId FROM sub_project_items WHERE objectiveId = ? ORDER BY COALESCE(chainRank, 1000000), id').all(posInt(objectiveId) || 0);
 }
 
-module.exports = { setLink, readLink, stepsOf, tasksOf, wouldCycle, ensureColumns };
+// CLASSEMENT SILENCIEUX par règles (taskkind.js : aucune IA, aucun réseau, gratuit) d'une tâche qui n'a pas encore de nature : nature, phase, urgence. Ne touche jamais une tâche déjà classée
+// (choix de la personne ou classement plus riche de la bulle de capture). Renvoie le résultat posé ou null.
+function classerSilencieux(itemId) {
+  const id = posInt(itemId);
+  if (!id) return null;
+  const r = db.prepare('SELECT i.id, i.label, i.taskKind, p.activityId, p.goalCategory FROM sub_project_items i JOIN sub_projects p ON p.id = i.subProjectId WHERE i.id = ?').get(id);
+  if (!r || r.taskKind) return null;
+  const tk = require('./taskkind');
+  const res = tk.compute({ label: r.label, activityId: r.activityId, categoryKey: r.goalCategory || null });
+  if (!res || !res.kind) return null; // sans signal assez net : neutre, comme avant (aucun effet)
+  tk.write(id, res);
+  return res;
+}
+
+module.exports = { classerSilencieux, setLink, readLink, stepsOf, tasksOf, wouldCycle, ensureColumns };

@@ -317,40 +317,60 @@ function checkDuree(v) { // minutes entières 5 à 480 (mêmes bornes que taskmi
   if (v === '' || v === null || typeof v === 'boolean' || !Number.isInteger(n) || n < 5 || n > 480) throw toolError('duree : entier de 5 à 480 (minutes).');
   return n;
 }
+// Rangement fourni par l'IA de la personne (18 nov. 2026) : objectif, nature, étape de. Validé AVANT toute écriture ; appliqué APRÈS, et appris (journal de la personne ; agrégat anonyme seulement avec consentement).
+// Noèsis ne lit que ce qui passe par ces champs : jamais le prompt ni le modèle de la personne. Ce qui manque est classé par règles gratuites (taches-rangement.classerSilencieux) à la création.
+function checkRangement(userId, activityId, args) {
+  if (args.nature !== undefined && args.nature !== null && !['maintenance', 'developpement'].includes(args.nature)) throw toolError('nature : maintenance ou developpement.');
+  if (args.objectif !== undefined && args.objectif !== null && !db.prepare('SELECT 1 FROM user_objectives WHERE id = ? AND userId = ? AND activityId = ?').get(Number(args.objectif), userId, activityId)) throw toolError('Objectif introuvable dans cette activité.');
+  if (args.etape_de !== undefined && args.etape_de !== null && !db.prepare('SELECT 1 FROM sub_project_items i JOIN sub_projects p ON p.id = i.subProjectId WHERE i.id = ? AND p.activityId = ?').get(Number(args.etape_de), activityId)) throw toolError('Tâche regroupante introuvable dans cette activité.');
+}
+function applyRangement(userId, item, args) {
+  try {
+    const choix = require('../lib/taches-choix');
+    if (args.nature !== undefined && args.nature !== null) choix.corriger(userId, { itemId: item.id, field: 'nature', to: args.nature });
+    if (args.objectif !== undefined) choix.corriger(userId, { itemId: item.id, field: 'objective', to: args.objectif });
+    if (args.etape_de !== undefined) choix.corriger(userId, { itemId: item.id, field: 'group', to: args.etape_de });
+  } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de ranger la tâche.'); }
+}
 const done = (data, logId) => Object.assign({}, data, { journal: logId });
 
 Object.assign(tools, {
   creer_tache: {
     write: true, journal: true,
-    description: "Ajoute une tâche (titre 300 caractères max) dans un pôle ou secteur de l'utilisateur, avec une échéance facultative AAAA-MM-JJ et une durée facultative en minutes (entier de 5 à 480). Correction d'orthographe de Noèsis désactivée.",
-    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, titre: { type: 'string' }, pole: { type: 'string', description: 'Pôle (ou secteur si le pôle en a).' }, echeance: { type: 'string' }, duree: { type: 'integer', minimum: 5, maximum: 480, description: 'Durée en minutes (5 à 480).' } }, required: ['activityId', 'titre', 'pole'], additionalProperties: false },
+    description: "Ajoute une tâche (titre 300 caractères max) dans un pôle ou secteur de l'utilisateur, avec une échéance facultative AAAA-MM-JJ et une durée facultative en minutes (entier de 5 à 480). Correction d'orthographe de Noèsis désactivée. Rangement facultatif : objectif (identifiant), nature (maintenance ou developpement), etape_de (identifiant d'une tâche existante) ; ce qui manque est classé par règles gratuites.",
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, titre: { type: 'string' }, pole: { type: 'string', description: 'Pôle (ou secteur si le pôle en a).' }, echeance: { type: 'string' }, duree: { type: 'integer', minimum: 5, maximum: 480, description: 'Durée en minutes (5 à 480).' }, objectif: { type: 'integer', description: 'Identifiant de l\'objectif qui accueille la tâche (facultatif).' }, nature: { type: 'string', enum: ['maintenance', 'developpement'], description: 'Maintenir ou développer (facultatif).' }, etape_de: { type: 'integer', description: 'Identifiant d\'une tâche existante dont celle-ci est une étape (facultatif).' } }, required: ['activityId', 'titre', 'pole'], additionalProperties: false },
     run(userId, args, ctx) {
       const a = memberActivity(userId, args.activityId);
       const titre = checkTitle(args.titre);
       const t = poleAndSecteurs(a.id, args.pole);
+      checkRangement(userId, a.id, args);
       const extra = { noSpellfix: true };
       if (args.duree != null) { const m = taskminutes.fromProposal(checkDuree(args.duree)); m.source = 'saisie'; extra.estimate = m; extra.durSource = 'saisie'; }
       if (args.echeance != null && args.echeance !== '') extra.dueDate = checkDay(args.echeance, 'echeance');
       let item;
       try { item = goalstasks.addCategoryTask(a.id, userId, t.key, titre, extra); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible d\'ajouter la tâche.'); }
+      applyRangement(userId, item, args);
       const logId = wlog.record(ctx, 'creer_tache', a.id, item.id, null, { label: titre, dueDate: extra.dueDate || null, duree: extra.estimate ? extra.estimate.median : null });
       return done({ taskId: item.id, activityId: a.id, tache: titre }, logId);
     },
   },
   modifier_tache: {
     write: true, journal: true,
-    description: "Change le titre (300 caractères max) et/ou l'échéance (AAAA-MM-JJ) et/ou la durée (minutes, 5 à 480) d'une tâche de l'utilisateur. Réversible avec annuler_modification.",
-    inputSchema: { type: 'object', properties: { taskId: { type: 'integer' }, titre: { type: 'string' }, echeance: { type: 'string' }, duree: { type: 'integer', minimum: 5, maximum: 480 } }, required: ['taskId'], additionalProperties: false },
+    description: "Change le titre (300 caractères max) et/ou l'échéance (AAAA-MM-JJ) et/ou la durée (minutes, 5 à 480) et/ou le rangement (objectif, nature, etape_de) d'une tâche de l'utilisateur. Réversible avec annuler_modification.",
+    inputSchema: { type: 'object', properties: { taskId: { type: 'integer' }, titre: { type: 'string' }, echeance: { type: 'string' }, duree: { type: 'integer', minimum: 5, maximum: 480 }, objectif: { type: 'integer' }, nature: { type: 'string', enum: ['maintenance', 'developpement'] }, etape_de: { type: 'integer' } }, required: ['taskId'], additionalProperties: false },
     run(userId, args, ctx) {
       const { item, activityId } = ownTask(userId, args.taskId);
       const fields = {};
       if (args.titre !== undefined) fields.label = checkTitle(args.titre);
       if (args.echeance !== undefined) fields.dueDate = checkDay(args.echeance, 'echeance');
       const duree = args.duree !== undefined ? checkDuree(args.duree) : undefined;
-      if (!Object.keys(fields).length && duree === undefined) throw toolError('Rien à modifier (titre, echeance ou duree).');
+      const rang = args.objectif !== undefined || args.nature !== undefined || args.etape_de !== undefined;
+      if (rang) checkRangement(userId, activityId, args);
+      if (!Object.keys(fields).length && duree === undefined && !rang) throw toolError('Rien à modifier (titre, echeance, duree ou rangement).');
       try { if (Object.keys(fields).length) sp.updateItem(item.id, fields, userId, { noSpellfix: true }); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de modifier cette tâche.'); }
       const beforeDur = item.medianMinutes == null ? null : item.medianMinutes;
       if (duree !== undefined) { const m = taskminutes.fromProposal(duree); m.source = 'saisie'; taskminutes.store(db, item.id, m, 'saisie'); }
+      if (rang) applyRangement(userId, item, args);
       const logId = wlog.record(ctx, 'modifier_tache', activityId, item.id, { label: item.label, dueDate: item.dueDate, duree: beforeDur }, { label: fields.label || item.label, dueDate: fields.dueDate || item.dueDate, duree: duree === undefined ? beforeDur : duree });
       return done({ taskId: item.id, tache: fields.label || item.label, echeance: fields.dueDate || item.dueDate, duree: duree === undefined ? beforeDur : duree }, logId);
     },
@@ -594,7 +614,11 @@ router.get('/api/ai-tokens', requireAuth, (req, res) => {
 });
 router.post('/api/ai-tokens', requireAuth, (req, res) => {
   try {
-    res.json(aitokens.createToken(req.userId, req.body && req.body.label, !!(req.body && req.body.canWrite)));
+    const consent = req.body && req.body.consentement;
+    if (consent === false || (process.env.CONNECTEUR_CONSENTEMENT_OBLIGATOIRE === '1' && consent !== true)) return res.status(400).json({ error: 'Le consentement est nécessaire pour connecter une IA : les rangements et corrections qui passent par le connecteur servent, de façon anonyme et agrégée, à améliorer le modèle de Noèsis.' });
+    const out = aitokens.createToken(req.userId, req.body && req.body.label, !!(req.body && req.body.canWrite));
+    if (consent === true) require('../lib/taches-apprentissage').setConsent(req.userId, true, 'connecteur'); // date d'acceptation journalisée (rangement_consentement)
+    res.json(out);
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     console.error('[mcp] création jeton', err.message);
