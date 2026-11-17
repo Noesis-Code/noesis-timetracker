@@ -12,4 +12,5 @@ const ex = fs.readFileSync('test/objectifs-export-test.js', 'utf8');
 assert(ex.includes('tous les objectifs sont exportés, passés et abandonnés compris'), 'l\'export contient les objectifs passés (donc ceux d\'un bloc masqué)');
 assert(js.includes("'calc((100cqw - var(--ar-mw, 46px) - ' + (10 + 2 * GAP + 4) + 'px) / 3)'"), 'trois colonnes ou plus : TROIS colonnes entières à l’arrivée, le reste en défilant de côté');
 assert(js.includes('function isLand()') && js.includes('safe-area-inset-top') && fs.readFileSync('public/css/objectifs-arbre.css', 'utf8').includes('@media (orientation: landscape) and (max-height: 500px)'), 'paysage : arbre plein écran dans les zones de sécurité, barres masquées en CSS');
+assert(js.includes("'max(env(safe-area-inset-left, 0px), ' + Math.round(pr.left / 2) + 'px)'") && js.includes("'max(env(safe-area-inset-right, 0px), ' + Math.round((window.innerWidth - pr.right) / 2) + 'px)'"), 'portrait : bords latéraux de l’arbre moitié moins larges (20 px -> 10 px à 390 px), zones de sécurité gardées');
 console.log(failed ? '\n' + failed + ' échec(s)' : 'arbre-passe-test OK'); process.exit(failed ? 1 : 0);

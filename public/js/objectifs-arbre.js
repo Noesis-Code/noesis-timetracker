@@ -336,7 +336,7 @@
     if (!tree || !tree.getClientRects().length) return;
     if (isLand()) { tree.style.setProperty('--ar-top', 'max(env(safe-area-inset-top, 0px), 6px)'); tree.style.setProperty('--ar-left', 'max(env(safe-area-inset-left, 0px), 8px)'); tree.style.setProperty('--ar-right', 'max(env(safe-area-inset-right, 0px), 8px)'); tree.style.setProperty('--ar-bot', 'max(env(safe-area-inset-bottom, 0px), 6px)'); } else {
     var pr = tree.parentElement.getBoundingClientRect();
-    tree.style.setProperty('--ar-top', Math.round(pr.top) + 'px'); tree.style.setProperty('--ar-left', Math.round(pr.left) + 'px'); tree.style.setProperty('--ar-right', Math.round(window.innerWidth - pr.right) + 'px');
+    tree.style.setProperty('--ar-top', Math.round(pr.top) + 'px'); tree.style.setProperty('--ar-left', 'max(env(safe-area-inset-left, 0px), ' + Math.round(pr.left / 2) + 'px)'); tree.style.setProperty('--ar-right', 'max(env(safe-area-inset-right, 0px), ' + Math.round((window.innerWidth - pr.right) / 2) + 'px)'); /* bords latéraux sans information : moitié moins larges (zones de sécurité gardées) */
     publishBot(); }
     var d = dockEl(), tp = document.getElementById('tabbarPill'); if (d && !botObs && window.ResizeObserver) { botObs = new ResizeObserver(publishBot); botObs.observe(d); if (tp) botObs.observe(tp); }
     if (!topObs) { // le haut est remesuré quand l'en-tête, le sélecteur ou la fenêtre changent de taille (iPhone : barre d'état, polices tardives, clavier) : la grille ne passe jamais sous le sélecteur
