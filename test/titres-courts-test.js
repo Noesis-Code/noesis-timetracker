@@ -46,6 +46,8 @@ categories.addCategory(act, 'Production'); const poleKey = goals.categoriesForAc
     const p1 = await I.genererPour('u1', par.id, today);
     assert(!p1.skip && p1.ai && p1.rows.length > 0, 'IA simulée : proposition faite');
     assert(p1.rows.every((r) => words(r.title) <= 5), 'IA : titre de 14 mots réduit à 5 mots au plus (' + p1.rows[0].title + ')');
+    const rp = await I.plan('u1', { trou: true, parentId: par.id, type: 'annuel', title: 'Lancer la boutique', description: '', activityId: act, level: 'pole', poleKey, startDate: today, endDate: y + '-09-01', rateMin: 180 }, today); // même fonction que POST /api/objectifs/inferieurs/proposition
+    assert(!rp.skip && rp.rows.every((r) => words(r.title) <= 5 && r.faire.startsWith(longT)), 'proposition (route) : titres courts, texte complet dans la description');
     assert(p1.rows.every((r, i) => r.faire.startsWith(longT)), 'IA : le titre complet part en tête de la description, rien n’est perdu');
   } finally { global.fetch = realFetch; delete process.env.ANTHROPIC_API_KEY; }
   console.log(failed ? '\ntitres-courts-test : ' + failed + ' ÉCHEC(S)' : '\ntitres-courts-test : OK');
