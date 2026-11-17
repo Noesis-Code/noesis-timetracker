@@ -48,6 +48,13 @@ function handleGoalsError(res, err) {
 // Projets) : une route `/categories/:key` déclarée avant `/categories/reorder`
 // intercepterait "reorder" comme valeur de `:key`.
 
+// Fusion (18 nov. 2026) : les pôles fusionnés sont voisins partout (arbre, Chrono, Réglages) : ordre de présentation DÉRIVÉ des fusions (objectifs-ordre), jamais écrit ; sans fusion l'ordre est inchangé.
+function fusionOrder(userId, activityId, list) {
+  try {
+    const ord = require('../lib/objectifs-ordre').lire(userId, 'pole', String(activityId)).order, at = (k) => { const i = ord.indexOf(String(k)); return i < 0 ? 999 : i; };
+    return list.map((c, i) => ({ c, i })).sort((x, y) => (at(x.c.key) - at(y.c.key)) || (x.i - y.i)).map((z) => z.c);
+  } catch (e) { return list; }
+}
 router.get('/activities/:id/goals/categories', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
@@ -64,7 +71,7 @@ router.get('/activities/:id/goals/categories', (req, res) => {
       // vide) — changement rétrocompatible, aucun champ existant retiré ni
       // renommé. `categoriesForActivity` ne renvoie que les pôles (voir son
       // commentaire dans server/lib/goals.js), donc jamais de doublon ici.
-      categories: goals.categoriesForActivity(activityId).map((c) => ({
+      categories: fusionOrder(userId, activityId, goals.categoriesForActivity(activityId)).map((c) => ({
         ...c,
         secteurs: goals.secteursForPole(activityId, c.key),
       })),

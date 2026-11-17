@@ -20,4 +20,9 @@ if (m) {
   const x = mk('X', X), y = mk('Y', Y), f = o.fusionnerEnMacro(m.userId, { level: 'pole', childIds: [y.id, x.id], title: 'Y+X' });
   assert(o.get(m.userId, f.id).absorbing && o.get(m.userId, f.id).absorbing.key === Y, 'le macro expose la branche absorbante (la première choisie)');
 }
+assert(fs.readFileSync('server/routes/categories.js', 'utf8').includes('fusionOrder(userId, activityId, goals.categoriesForActivity(activityId))'), 'Chrono et Réglages : la liste des pôles suit l\'ordre de présentation des fusions');
+if (m) {
+  const all = goals.categoriesForActivity(m.activityId).map((q) => q.key), first = all[0], last = all[all.length - 1], mid = all[1];
+  if (all.length >= 3 && mid !== last) { const a = o.creer(m.userId, { title: 'N1', activityId: m.activityId, level: 'pole', poleKey: first, startDate: '2026-11-09', endDate: '2027-01-15', noBridge: true }), b = o.creer(m.userId, { title: 'N2', activityId: m.activityId, level: 'pole', poleKey: last, startDate: '2026-11-09', endDate: '2027-01-16', noBridge: true }); o.fusionnerEnMacro(m.userId, { level: 'pole', childIds: [a.id, b.id], title: 'N1+N2' }); const ord = require('../server/lib/objectifs-ordre').lire(m.userId, 'pole', String(m.activityId)).order; assert(Math.abs(ord.indexOf(first) - ord.indexOf(last)) === 1, 'pôles fusionnés non voisins : déplacés côte à côte dans l’ordre de présentation'); }
+}
 console.log(failed ? '\n' + failed + ' échec(s)' : 'arbre-fusion-test OK'); process.exit(failed ? 1 : 0);
