@@ -133,15 +133,15 @@
   function setBack(fn) { goBack = fn; if (backBtn) backBtn.classList.toggle('hidden', !fn); }
   // Contexte posé par l'arbre : niveau (activité | pôle | secteur) + activité, pôle, secteur ; toucher une case VIDE ajoute l'échéance de la case. Le prochain objectif écrit dans la barre
   // PORTE ce niveau, et l'activité (pôle, secteur) est verrouillée dans le panneau de création.
-  var viewCtx = { level: 'activite' }, pendingEnd = null, pendingType = null;
+  var viewCtx = { level: 'activite' }, pendingEnd = null, pendingType = null, pendingStart = null;
   function setContext(c) { viewCtx = c || { level: 'activite' }; }
   function createAt(o) { // case vide touchée : le panneau s'ouvre tout de suite (titre vide à saisir), l'échéance de la case est imposée
     if (busy) return;
-    setContext(o.ctx); pendingEnd = o.endDate || null; pendingType = o.type || null; seq = { base: 0, count: 1, i: 0 }; busy = true;
+    setContext(o.ctx); pendingEnd = o.endDate || null; pendingStart = o.start || null; pendingType = o.type || null; seq = { base: 0, count: 1, i: 0 }; busy = true;
     api('POST', '/api/objectifs/contexte', { text: '', blank: true, amount: 1, unit: 'semaines', endDate: pendingEnd }).then(function (ctx) { busy = false; openComposer(ctx); })
       .catch(function (err) { busy = false; clearPending(); say((err && err.message) || tr('Impossible pour le moment.')); });
   }
-  function clearPending() { pendingEnd = null; pendingType = null; }
+  function clearPending() { pendingEnd = null; pendingType = null; pendingStart = null; }
   var extendCancel = null;
   var ficheEnd = null; // rappel posé par openFiche (pop-up de retard B) : appelé à la fin de la fiche, enregistrée ou fermée
   function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
@@ -298,6 +298,7 @@
       if (vc.activityId != null) { form.activityId = vc.activityId; form.acts = [vc.activityId]; form.fixedCtx = fromCell; }
       if (pendingType) { form.type = pendingType; form.typeTouched = true; }
       if (pendingEnd && form.fixedCtx && pendingType === 'periodique') { form.cellPeriodic = true; form.cellEnd = pendingEnd; form.cellStart = new Date(Date.parse(pendingEnd + 'T00:00:00Z') - 27 * 86400000).toISOString().slice(0, 10); } // période de 28 jours : la date précise se choisit sur le dernier panneau, entre le début et la fin de la case // le type vient de la ligne de la case touchée
+      if (pendingEnd) { form.cellFrom = pendingStart; form.cellDefaultEnd = pendingEnd; }
       if (pendingEnd) { var dd0 = Math.round((Date.parse(pendingEnd + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000); form.endDate = pendingEnd; form.amount = Math.max(1, Math.ceil(dd0 / 7)); form.unit = 'semaines'; form.dateOk = true; form.durTouched = true; form.endFixed = true; }
       clearPending();
     }
@@ -315,6 +316,21 @@
     var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.placeholder = tr('Titre'); titleIn.setAttribute('aria-label', tr('Titre'));
     titleIn.addEventListener('input', function () { form.title = titleIn.value; syncGo(); });
     boxes.desc.appendChild(field(tr('Titre'), titleIn)); // libellé du champ du titre (l'en-tête du panneau reste « Objectif »)
+    if (form.endFixed && form.cellDefaultEnd) { // depuis une case : ÉCHÉANCE et « Date fixe » juste sous le titre, dès le premier écran (une fonction, un seul endroit)
+      var dueRow = el('div', 'objDueRow'), dueIn = el('input', 'objDueInput'), cfrom = form.cellFrom && form.cellFrom > form.startDate ? form.cellFrom : form.startDate;
+      dueIn.type = 'date'; dueIn.value = form.endDate || form.cellDefaultEnd; dueIn.setAttribute('aria-label', tr('Échéance')); /* aucun min/max : jamais de jour grisé, la date est ramenée dans la case */
+      dueRow.appendChild(el('span', 'objDueLabel', tr('Échéance') + ' :')); dueRow.appendChild(dueIn); boxes.desc.appendChild(dueRow);
+      var fxRow = el('label', 'objGridRow'), fxBox = el('input'); fxBox.type = 'checkbox'; fxBox.checked = !!form.dateFixe;
+      fxBox.addEventListener('change', function () { form.dateFixe = fxBox.checked; });
+      fxRow.appendChild(el('span', 'objGridName', tr('Date fixe'))); fxRow.appendChild(fxBox); boxes.desc.appendChild(fxRow);
+      dueIn.addEventListener('change', function () {
+        var v = dueIn.value || form.cellDefaultEnd; if (v < cfrom) v = cfrom; if (v > form.cellDefaultEnd) v = form.cellDefaultEnd; dueIn.value = v; // l'échéance reste dans la case où l'on crée
+        var days = Math.round((Date.parse(v + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
+        form.endDate = v; form.dateOk = true; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines';
+        if (form.cellPeriodic) form.periodWeeks = days <= 28 ? '1' : form.periodWeeks;
+        if (v !== form.cellDefaultEnd) { form.dateFixe = true; fxBox.checked = true; } // une date modifiée vaut « date fixée »
+      });
+    }
     form.guide = form.guide || {}; // description guidée : blocs partagés avec la modification (paintGuideInto)
     var mainBox = el('div', 'objGuide'), advBox = el('div', 'objGuide'), guideBox = el('div', 'objAdvBody'), advOpen = false; boxes.desc.appendChild(mainBox); boxes.desc.appendChild(advBox); // sous-titre du bloc des questions visibles // les neuf questions : sous « Avancé », replié par défaut (R8)
     function composeDesc() { form.description = guideCompose(form); }
@@ -645,6 +661,7 @@
     function infDateTxt(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString(TMT.dateLocale || undefined, { day: 'numeric', month: 'long', year: 'numeric' }); }
     function infRecap() { // en haut : seulement l'échéance de l'objectif créé (Faire, Résultat, Chiffre et Départ ne sont plus affichés ici : ils restent dans les lignes et les étapes précédentes)
       var node = el('div', 'objGrid objRecap'), row = el('div', 'objGridRow');
+      if (form.endFixed && form.cellDefaultEnd) return node; // depuis une case : échéance et « Date fixe » sont sur le premier écran (S2)
       var txt = form.endDate ? new Date(form.endDate + 'T12:00:00').toLocaleDateString(TMT.dateLocale || undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
       row.appendChild(el('span', 'objGridName', tr('Échéance')));
       if (form.cellPeriodic) { // périodique créé depuis une case : la date se touche (sélecteur borné à la période de la case), violet comme les autres lignes modifiables

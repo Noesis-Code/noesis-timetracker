@@ -269,7 +269,7 @@
     return b;
   }
   // Création depuis une case vide : cadre = la colonne, type = la ligne (bloc de 5 ans, année, période), échéance = la fin de la case.
-  function createFrom(c, rw, endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, type: rw.block ? 'pluriannuel' : rw.w ? 'hebdomadaire' : rw.p ? 'periodique' : 'annuel', label: rw.w ? 'S' + rw.w + ' ' + rw.y : rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); }
+  function createFrom(c, rw, endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, start: rowSpan(rw).start, type: rw.block ? 'pluriannuel' : rw.w ? 'hebdomadaire' : rw.p ? 'periodique' : 'annuel', label: rw.w ? 'S' + rw.w + ' ' + rw.y : rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); }
   // Fin de la case (jour ISO) : fin de la période du réglage, ou de l'année ; null si elle n'est pas dans le futur.
   function rowEnd(rw) {
     var iso;
