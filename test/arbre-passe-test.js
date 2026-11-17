@@ -10,4 +10,6 @@ assert(js.includes('function rowEnd(rw)') && js.includes('return iso > dayIso() 
 // l'export garde tout (même test que objectifs-export-test.js : tous les objectifs, passés compris)
 const ex = fs.readFileSync('test/objectifs-export-test.js', 'utf8');
 assert(ex.includes('tous les objectifs sont exportés, passés et abandonnés compris'), 'l\'export contient les objectifs passés (donc ceux d\'un bloc masqué)');
+assert(js.includes("'calc((100cqw - var(--ar-mw, 46px) - ' + (10 + 2 * GAP + 4) + 'px) / 3)'"), 'trois colonnes ou plus : TROIS colonnes entières à l’arrivée, le reste en défilant de côté');
+assert(js.includes('function isLand()') && js.includes('safe-area-inset-top') && fs.readFileSync('public/css/objectifs-arbre.css', 'utf8').includes('@media (orientation: landscape) and (max-height: 500px)'), 'paysage : arbre plein écran dans les zones de sécurité, barres masquées en CSS');
 console.log(failed ? '\n' + failed + ' échec(s)' : 'arbre-passe-test OK'); process.exit(failed ? 1 : 0);

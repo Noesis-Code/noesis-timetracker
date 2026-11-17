@@ -505,7 +505,7 @@
     if (!curCols.length) { gridArea = scroller = null; tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
     var n = curCols.length, wide = window.innerWidth >= 1024;
     var SIDE = 120; // repères du temps (56 px) + colonne « Heures » (58 px de cellule + 6 px d'écart, comme la maquette) : dans le tableau qui défile
-    var arW = n === 1 ? 'calc(100cqw - ' + (4 + SIDE) + 'px)' : (n === 2 ? 'calc((100cqw - ' + (GAP + 4 + SIDE) + 'px) / 2)' : 'calc((100cqw - var(--ar-mw, 46px) - ' + (10 + GAP + 4) + 'px) / 2)'); // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
+    var arW = n === 1 ? 'calc(100cqw - ' + (4 + SIDE) + 'px)' : (n === 2 ? 'calc((100cqw - ' + (GAP + 4 + SIDE) + 'px) / 2)' : 'calc((100cqw - var(--ar-mw, 46px) - ' + (10 + 2 * GAP + 4) + 'px) / 3)'); // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
     var W = 'var(--ar-w)'; // les titres passent à la ligne, la largeur ne grandit jamais avec le texte
     if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) arW = 'calc((100cqw - ' + (4 + SIDE + GAP * (spanN - 1)) + 'px) / ' + spanN + ')'; } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
     var mode = lvl === 'activite' ? 'simple' : 'detail';
