@@ -96,10 +96,13 @@
   // Objectif fusionné (tableau simple, 12 nov. 2026) : UNE cellule sur les colonnes reliées, à la couleur de celle qui « mange » = la colonne de son rattachement (l'activité / le pôle d'attache du macro), sinon la première ;
   // les colonnes mangées n'ont plus ni couleur ni case sur cette ligne (leurs cases sont remplacées par la carte large).
   function absorbIdx(m, cols) { // colonne de la branche absorbante d'un macro (pôles, secteurs) ; -1 sans absorption
-    var a = m.absorbing; if (!a || !cols || lvl === 'activite') return -1;
+    if (!cols) return -1;
+    if (lvl === 'activite') { for (var j = 0; j < cols.length; j++) { var y = cols[j] && (cols[j].col ? cols[j].col.ctx : cols[j].ctx); if (y && m.activity && y.activityId === m.activity.id) return j; } return -1; } // activités : l'absorbante = l'activité d'attache du macro = la PREMIÈRE sélectionnée
+    var a = m.absorbing; if (!a) return -1;
     for (var i = 0; i < cols.length; i++) { var x = cols[i] && (cols[i].col ? cols[i].col.ctx : cols[i].ctx); if (x && x.activityId === a.activityId && (lvl === 'pole' ? x.poleKey === a.key : x.categoryKey === a.key && x.poleKey === a.poleKey)) return i; }
     return -1;
   }
+  function anchorOf(m, idx, cols) { var a = absorbIdx(m, cols); return idx.indexOf(a) >= 0 ? a : idx[0]; } // la colonne qui subsiste après la fusion : l'absorbante (jamais la plus à gauche par défaut)
   function eaterColor(m, c0, c1, cols) {
     if (!cols) return null; var best = c0, ab = absorbIdx(m, cols); if (ab >= 0) return cols[ab].color; // la branche absorbante (choisie en premier) donne sa couleur au groupe
     for (var i = c0; i <= c1; i++) { var x = cols[i] && (cols[i].col ? cols[i].col.ctx : cols[i].ctx); if (x && m.activity && x.activityId === m.activity.id && (lvl !== 'secteur' || x.poleKey === m.poleKey) && (lvl === 'activite' || x.poleKey === m.poleKey || m.poleKey == null)) { best = i; break; } }
@@ -135,12 +138,13 @@
     });
     return ci;
   }
-  function extChildIds() { var ids = []; Object.keys(ext.cols).forEach(function (k) { var i = Number(k); (i === ext.baseCol ? [ext.base] : newest(i, 2)).forEach(function (o) { if (o && ids.indexOf(o.id) < 0) ids.push(o.id); }); }); return ids; }
+  function pickOrder() { var ks = Object.keys(ext.cols).map(Number), o = (ext.order || []).filter(function (i) { return ks.indexOf(i) >= 0; }); ks.forEach(function (i) { if (o.indexOf(i) < 0) o.push(i); }); return o; } // ORDRE DE SÉLECTION (la première touchée absorbe), jamais l'ordre des colonnes
+  function extChildIds() { var ids = []; pickOrder().forEach(function (k) { var i = Number(k); (i === ext.baseCol ? [ext.base] : newest(i, 2)).forEach(function (o) { if (o && ids.indexOf(o.id) < 0) ids.push(o.id); }); }); return ids; }
   function colEmpty(i) { return (curCols[i].objs || []).every(function (o) { return o.isMacro || o.abandoned || bucketOf(o, dayIso()).rank !== ext.rank; }); } // aucune carte dans cette colonne sur la ligne de l'objectif touché : une CASE VIDE de la même ligne se relie à la carte pleine (aucun nouvel objectif)
   function colFree(i) { return newest(i, 2).length > 0; } // la colonne a des objectifs libres (non rattachés) à relier
   function colLinked(i) { return (curCols[i].objs || []).some(function (o) { var p = o.parentId != null && items.filter(function (x) { return x.id === o.parentId; })[0]; return !!(p && p.isMacro); }); }
   function extEligible(i) { return !!ext.cols[i] || colFree(i) || colEmpty(i); }
-  function emptyCols() { return Object.keys(ext.cols).map(Number).filter(function (i) { return i !== ext.baseCol && !newest(i, 2).length; }); } // colonnes cochées sans carte sur la ligne
+  function emptyCols() { return pickOrder().filter(function (i) { return i !== ext.baseCol && !newest(i, 2).length; }); } // colonnes cochées sans carte sur la ligne
   function colIndexOfPayload(p) { for (var j = 0; j < curCols.length; j++) { var q = colPayload(j); if (q.activityId === p.activityId && (lvl === 'activite' || q.poleKey === p.poleKey) && (lvl !== 'secteur' || q.categoryKey === p.categoryKey)) return j; } return -1; }
   function extScrollToEligible() { // colonnes cachées par le défilement horizontal : la première colonne reliable arrive à l'écran
     if (!scroller || !tree) return;
@@ -169,7 +173,7 @@
   function startExtend(o, ci, fromList) {
     if (ext || !TMT.objectifsView || !TMT.objectifsView.openExtend) return;
     o = pickBase(o, ci);
-    ext = { mode: 'create', level: lvl, base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now(), rank: bucketOf(o, dayIso()).rank }; ext.cols[ci] = true; ext.init[ci] = true;
+    ext = { mode: 'create', level: lvl, base: o, baseCol: ci, cols: {}, init: {}, title: o.title, touched: false, seq: 0, born: Date.now(), rank: bucketOf(o, dayIso()).rank }; ext.cols[ci] = true; ext.init[ci] = true; ext.order = [ci];
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
     extOpenPanel(); render(); if (fromList) ext.born -= 2000; else watchRelease(); extScrollToEligible();
     // création : le doigt est DÉJÀ relevé (appui long relâché sur place) ; le clic qui suit ne coche rien
@@ -195,8 +199,8 @@
   function extToggle(ci) {
     if (!ext || ci < 0 || ci >= curCols.length || (ext.mode === 'create' && ci === ext.baseCol)) return;
     if (!extEligible(ci)) { say(tr(colLinked(ci) ? 'Délie d’abord ce macro.' : 'Aucun objectif libre à relier dans cette colonne.')); return; } // colonne éteinte : message court, jamais un blocage muet
-    if (ext.cols[ci]) delete ext.cols[ci];
-    else { var next = Object.keys(ext.cols).map(Number).concat([ci]); if (liaisonRefusee(next)) { say(TMT.liaison.MSG); return; } ext.cols[ci] = true; } // refus : une phrase, la colonne n'est pas cochée
+    if (ext.cols[ci]) { delete ext.cols[ci]; ext.order = (ext.order || []).filter(function (i) { return i !== ci; }); }
+    else { var next = Object.keys(ext.cols).map(Number).concat([ci]); if (liaisonRefusee(next)) { say(TMT.liaison.MSG); return; } ext.cols[ci] = true; (ext.order = ext.order || []).push(ci); } // refus : une phrase, la colonne n'est pas cochée
     extSync(); render();
   }
   function extSave() { // jamais en silence : enregistrer = macro créé (titre visible, modifiable) ou colonnes reliées / déliées ; l'échéance du macro est la plus lointaine des enfants (serveur)
@@ -435,7 +439,7 @@
     var lo0 = (zoom === 'period' && focus && focus.year) ? focus.year * 100 + 1 : (zoom === 'year' && focus && focus.block) ? focus.block * 100 : rowKey(dayIso()).rank; // première ligne affichée
     shown.filter(function (o) { return o.isMacro && o.mergeReached && o.mergeStart && lo0 >= rowKey(o.mergeStart).rank && rootMacro(o) && (o.macroLevel || o.level || 'activite') === lvl; }).forEach(function (m) { // absorbée masquée quand plus aucune ligne affichée ne la montre séparée
       var idx = macroIdx(m, cols); if (idx.length < 2) return;
-      var anchor = idx[0]; idx.slice(1).forEach(function (q) { if (drop[q]) return; drop[q] = true; cols[anchor].objs = cols[anchor].objs.concat(cols[q].objs); });
+      var anchor = anchorOf(m, idx, cols); idx.filter(function (q) { return q !== anchor; }).forEach(function (q) { if (drop[q]) return; drop[q] = true; cols[anchor].objs = cols[anchor].objs.concat(cols[q].objs); });
     });
     return cols.filter(function (c, i) { return !drop[i]; });
   }
@@ -582,8 +586,8 @@
     Object.keys(macrosAt).forEach(function (k) {
       macrosAt[k].forEach(function (mm) {
         if (!(mm.m.id > 0) || mm.m.mergeReached || !rootMacro(mm.m) || !mm.idxs || mm.idxs.length < 2) return;
-        var anchor = mm.idxs[0];
-        list.forEach(function (rw2, r2) { if (rw2.rank <= Number(k)) return; mm.idxs.slice(1).forEach(function (q) { cells[r2][anchor] = cells[r2][anchor].concat(cells[r2][q]); cells[r2][q] = []; holes[r2 + ':' + q] = true; wideAt[r2 + ':' + anchor] = mm.idxs.length; }); });
+        var anchor = anchorOf(mm.m, mm.idxs, curCols);
+        list.forEach(function (rw2, r2) { if (rw2.rank <= Number(k)) return; mm.idxs.filter(function (q) { return q !== anchor; }).forEach(function (q) { cells[r2][anchor] = cells[r2][anchor].concat(cells[r2][q]); cells[r2][q] = []; holes[r2 + ':' + q] = true; wideAt[r2 + ':' + anchor] = mm.idxs.length; }); });
       });
     });
     var grid = el('div', 'goalsGrid arGrid' + (zoom !== 'period' && zoom !== 'week' ? ' arCompact' : '') + (animate ? ' arEnter' : '')); // années et blocs de 5 ans : rangées COMPACTES (moins de hauteur) animate = false;
