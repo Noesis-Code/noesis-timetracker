@@ -4,6 +4,9 @@
 /* Tant que l'arbre est affiché la page ne défile pas : aucun élastique, rien ne se déplace sous le doigt. */
 html.arbreOn { overflow: hidden; overscroll-behavior: none; }
 html.arbreOn body { position: fixed; inset: 0; width: 100%; overflow: hidden; overscroll-behavior: none; }
+/* BANDE NOIRE EN BAS (iPhone, zone de sécurité basse), onglet Objectifs seulement (18 nov. 2026) : le corps fixe peut laisser à découvert la bande sous la barre des volets, qui montrait le noir uni de <html> (et le voile noir de #app::after). Le fond de <html> porte donc le MÊME halo violet que les autres onglets (.cmpHalo : cercle flou ancré en bas), et le voile noir est retiré ici (aucun rebond à couvrir : overscroll désactivé). */
+html.arbreOn { background: radial-gradient(circle 260px at 50% calc(100% + 70px), var(--halo), transparent) fixed, var(--black); }
+html.arbreOn #app::after { display: none; }
 .arZoomRow { flex: none; margin: 0 0 4px; display: flex; align-items: center; min-height: 26px; }
 .arZoomRow .arBackNav { margin: 0; }
 .arScroll { flex: 1 1 auto; min-height: 0; overflow: hidden; }
