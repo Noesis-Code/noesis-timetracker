@@ -77,4 +77,19 @@ function classerSilencieux(itemId) {
   return res;
 }
 
-module.exports = { classerSilencieux, setLink, readLink, stepsOf, tasksOf, wouldCycle, ensureColumns };
+// CADRE DE DÉCALAGE d'une tâche rangée dans un objectif (« jamais au-delà de l'arbre ») : où ses voisines moins utiles peuvent reculer.
+//  hebdomadaire -> sa période (4 semaines) ; périodique -> son année ; annuel, pluriannuel -> la fin de son BLOC DE 5 ANS (une tâche peut viser un objectif dans 5 ans ; le bloc commence à l'année en cours).
+// Renvoie { type, start, end } (dates AAAA-MM-JJ, bornes comprises) ou null (objectif inconnu).
+function cadreDeDecalage(objectiveId) {
+  const row = db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(posInt(objectiveId) || 0);
+  if (!row) return null;
+  const O = require('./objectifs'), T = require('./objectifs-trou');
+  const type = T.typeOfRow(row);
+  if (type === 'hebdomadaire') { const s0 = O.periodStartOf(row.endDate); return { type, start: s0, end: O.addDays(s0, 27) }; }
+  if (type === 'periodique') { const g = O.gridOf(row.endDate).grid; return { type, start: g, end: O.addDays(g, 363) }; }
+  const y0 = Number(new Date().toISOString().slice(0, 4)), y = Number(row.endDate.slice(0, 4)), b0 = y0 + 5 * Math.floor((y - y0) / 5);
+  const start = O.gridOf(b0 + '-01-15').grid, next = O.gridOf((b0 + 5) + '-01-15').grid;
+  return { type, start, end: O.addDays(next, -1) };
+}
+
+module.exports = { cadreDeDecalage, classerSilencieux, setLink, readLink, stepsOf, tasksOf, wouldCycle, ensureColumns };

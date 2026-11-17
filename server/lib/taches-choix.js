@@ -78,7 +78,7 @@ function repli(ctx, activityId) {
 
 // userId, activityId, label ; opts : { date, itemId, ai (tests : (prompt, { tier }) -> texte), categoryKey (catégorie imposée, ex. connecteur) }.
 // Renvoie TOUJOURS { categoryKey, objectiveId, parentItemId, source: 'memoire' | 'ia' | 'ia-fort' | 'regles', confidence }.
-async function choisir(userId, activityId, label, opts) {
+async function choisirCategorieObjectif(userId, activityId, label, opts) {
   const o = opts || {};
   const clean = String(label || '').trim();
   const ctx = { label: clean, date: o.date || null, cats: categories(activityId), objs: objectifs(userId, activityId, o.date), taches: tachesRegroupantes(activityId, o.itemId), exemples: [], aide: null };
@@ -162,8 +162,25 @@ function corriger(userId, body) {
     const was = db.prepare('SELECT taskPhase FROM sub_project_items WHERE id = ?').get(it.id).taskPhase;
     tk.setPhase(it.id, to);
     A.recordCorrection(userId, it.activityId, it.label, 'phase', was, to);
+  } else if (field === 'responsable') {
+    if (to != null && !db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(it.activityId, String(to))) throw fail('Seul un membre de l\u2019activité peut être responsable.');
+    const was = db.prepare('SELECT plannedUserId FROM sub_project_items WHERE id = ?').get(it.id).plannedUserId;
+    db.prepare('UPDATE sub_project_items SET plannedUserId = ? WHERE id = ?').run(to == null ? null : String(to), it.id);
+    A.recordCorrection(userId, it.activityId, it.label, 'responsable', was, to == null ? null : String(to));
   } else throw fail('Champ inconnu.');
   return R.readLink(it.id);
+}
+
+// Proposition complète d'un rangement (18 nov. 2026, bloc 7 du schéma v11) : catégorie, objectif, tâche regroupante ET responsable. TOUJOURS UNE SEULE proposition, correctible ; la correction est apprise.
+// Responsable : un seul membre = lui ; sinon les parts voulues décident, puis le responsable de catégorie avec héritage (taches-responsable.js).
+async function choisir(userId, activityId, label, opts) {
+  const p = await choisirCategorieObjectif(userId, activityId, label, opts);
+  try {
+    let poleKey = null; try { poleKey = require('./goals').parentKeyFor(activityId, p.categoryKey) || null; } catch (e) { /* pôle lui-même */ }
+    const r = require('./taches-responsable').proposer(userId, activityId, { itemId: opts && opts.itemId, label, categoryKey: p.categoryKey, poleKey });
+    p.responsableId = r.userId; p.responsableSource = r.source;
+  } catch (e) { p.responsableId = userId; p.responsableSource = 'regles'; }
+  return p;
 }
 
 module.exports = { corriger, choisir, appliquer, buildPrompt, parseAnswer, repli, categories, objectifs, tachesRegroupantes };

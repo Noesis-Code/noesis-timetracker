@@ -9,7 +9,9 @@ Schéma de référence : « Rangement d'une tâche » (8 blocs : date, catégori
 - **Choix de la catégorie et de l'objectif** (`server/lib/taches-choix.js`, `POST /api/taches/choix`) : UN seul appel IA avec l'arbre de la catégorie, UNE seule proposition, doute = échéance la plus proche, tâche avec date = objectifs qui couvrent la date, mémoire exacte du titre déjà rangé (aucun appel), repli par règles. Rien n'est écrit.
 - **Correction apprise** (`POST /api/taches/rangement/corriger`) : objectif, étape de, rang, nature, phase.
 - **Apprentissage** (`server/lib/taches-apprentissage.js`) : journal personnel des corrections (réinjecté dans les prompts), motifs globaux anonymes, délais réels entre paliers.
-- **Connecteur IA** : `creer_tache` et `modifier_tache` acceptent `objectif`, `nature`, `etape_de`. Noèsis ne lit que ces champs, jamais le prompt ni le modèle de la personne.
+- **Responsable de la tâche** (`server/lib/taches-responsable.js`) : une seule proposition, correctible, correction apprise (champ `responsable`). Un seul membre : la tâche est à lui. Plusieurs membres : les parts voulues (`task_share_wanted`, « toi 60 %, moi 40 % ») décident l'attribution automatique (la plus en dessous de sa part), puis le responsable de la catégorie avec héritage départage ou sert quand aucune part n'est saisie. Règles gratuites, sans IA.
+- **Connecteur IA** : `creer_tache` et `modifier_tache` acceptent `objectif`, `nature`, `etape_de`. L'outil `ranger_tache` exige tous les champs structurés (catégorie, objectif, nature, raison courte d'une phrase, confiance 0 à 100) et le consentement ; il alimente des exemples étiquetés anonymes (motif générique, valeur, confiance : jamais la raison en texte libre, qui reste dans le journal de la personne). Noèsis ne lit que ces champs, jamais le prompt ni le modèle de la personne.
+- **Cadre de décalage** (`cadreDeDecalage`) : hebdomadaire = sa période ; périodique = son année ; annuel et pluriannuel = la fin de son bloc de 5 ans (une tâche peut viser un objectif dans 5 ans ; le bloc commence à l'année en cours). Le décalage lui-même est livré au lot 2.
 
 ## Anonymat et consentement
 

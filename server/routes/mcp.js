@@ -375,6 +375,35 @@ Object.assign(tools, {
       return done({ taskId: item.id, tache: fields.label || item.label, echeance: fields.dueDate || item.dueDate, duree: duree === undefined ? beforeDur : duree }, logId);
     },
   },
+  ranger_tache: {
+    write: true, journal: true,
+    description: "Range une tâche de l'utilisateur (catégorie, objectif, nature) avec une RAISON courte (une phrase) et une CONFIANCE (0 à 100). Tous les champs sont obligatoires : objectif = 0 si aucun objectif ne convient. Exige le consentement à l'amélioration anonyme du modèle de Noèsis, donné à la connexion de l'IA. Réversible avec annuler_modification.",
+    inputSchema: { type: 'object', properties: { taskId: { type: 'integer' }, categorie: { type: 'string', description: 'Pôle (ou secteur si le pôle en a).' }, objectif: { type: 'integer', minimum: 0, description: "Identifiant de l'objectif, ou 0 si aucun ne convient." }, nature: { type: 'string', enum: ['maintenance', 'developpement'] }, raison: { type: 'string', description: 'Une phrase (200 caractères au plus).' }, confiance: { type: 'integer', minimum: 0, maximum: 100 } }, required: ['taskId', 'categorie', 'objectif', 'nature', 'raison', 'confiance'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const { item, activityId } = ownTask(userId, args.taskId);
+      const apprentissage = require('../lib/taches-apprentissage'), choix = require('../lib/taches-choix'), rangement = require('../lib/taches-rangement'), taskkind = require('../lib/taskkind');
+      if (!apprentissage.hasConsent(userId)) throw toolError("Le consentement à l'amélioration anonyme du modèle de Noèsis est nécessaire pour ranger une tâche par le connecteur. Il se donne à la connexion de l'IA.");
+      const raison = typeof args.raison === 'string' ? args.raison.trim() : '';
+      if (raison.length < 3 || raison.length > 200) throw toolError('raison : une phrase de 3 à 200 caractères.');
+      const conf = Number(args.confiance);
+      if (!Number.isInteger(conf) || conf < 0 || conf > 100) throw toolError('confiance : un entier de 0 à 100.');
+      if (!['maintenance', 'developpement'].includes(args.nature)) throw toolError('nature : maintenance ou developpement.');
+      const t = poleAndSecteurs(activityId, args.categorie);
+      const objectif = Number(args.objectif) > 0 ? Number(args.objectif) : null;
+      let objTitle = null;
+      if (objectif) { const o = db.prepare('SELECT title FROM user_objectives WHERE id = ? AND userId = ? AND activityId = ?').get(objectif, userId, activityId); if (!o) throw toolError('Objectif introuvable dans cette activité.'); objTitle = o.title; }
+      const sub = sp.getSubProject(item.subProjectId);
+      const before = { categorie: sub && sub.goalCategory ? sub.goalCategory : null, objectif: (rangement.readLink(item.id) || {}).objectiveId || null, nature: taskkind.read(item.id).kind };
+      try {
+        if (t.key !== before.categorie) goalstasks.moveCategoryTask(activityId, userId, item.id, t.key);
+        choix.corriger(userId, { itemId: item.id, field: 'objective', to: objectif });
+        choix.corriger(userId, { itemId: item.id, field: 'nature', to: args.nature });
+      } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de ranger cette tâche.'); }
+      apprentissage.recordExempleConnecteur(userId, activityId, item.label, { categorie: t.key, objectif: objTitle, nature: args.nature }, raison, conf);
+      const logId = wlog.record(ctx, 'ranger_tache', activityId, item.id, before, { categorie: t.key, objectif, nature: args.nature });
+      return done({ taskId: item.id, tache: item.label, categorie: t.key, objectif: objectif || 0, nature: args.nature }, logId);
+    },
+  },
   ordonner_taches: {
     write: true, journal: true,
     description: "Fixe l'ordre d'une liste de tâches de l'utilisateur appartenant au MÊME secteur (ou pôle sans secteur), de la première à la dernière. 30 maximum.",
@@ -484,6 +513,14 @@ Object.assign(tools, {
             const { item } = ownTask(userId, row.targetId);
             sp.updateItem(item.id, { label: before.label, dueDate: before.dueDate }, userId, { noSpellfix: true });
             if (before.duree !== undefined) { if (before.duree == null) db.prepare('UPDATE sub_project_items SET minMinutes = NULL, medianMinutes = NULL, maxMinutes = NULL, durSource = NULL, durConfidence = NULL WHERE id = ?').run(item.id); else { const m = taskminutes.fromProposal(before.duree); if (m) taskminutes.store(db, item.id, m, 'saisie'); } }
+            break;
+          }
+          case 'ranger_tache': {
+            const { item } = ownTask(userId, row.targetId);
+            const sub = sp.getSubProject(item.subProjectId), choix = require('../lib/taches-choix');
+            if (before.categorie && sub && sub.goalCategory !== before.categorie) goalstasks.moveCategoryTask(act, userId, item.id, before.categorie);
+            require('../lib/taches-rangement').setLink(item.id, { objectiveId: before.objectif || null });
+            if (before.nature) require('../lib/taskkind').setNature(item.id, before.nature, item.label);
             break;
           }
           case 'ordonner_taches': {

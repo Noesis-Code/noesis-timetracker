@@ -36,4 +36,16 @@ const t4 = mk('Déjà classée par la personne');
 taskkind.setNature(t4, 'developpement', 'Déjà classée par la personne');
 assert(R.classerSilencieux(t4) === null && taskkind.read(t4).kind === 'developpement', 'une tâche déjà classée n\'est jamais reclassée');
 assert(R.classerSilencieux(999999) === null, 'tâche inconnue : null');
+// ---- cadre de décalage : jamais au-delà de l'arbre ; pluriannuel : jusqu'à la fin de son bloc de 5 ans ----
+const Y = new Date().getFullYear(), days = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
+const ob = (title, start, end, meta) => Number(db.prepare("INSERT INTO user_objectives (userId, activityId, title, amount, unit, startDate, endDate, level, metaJson, createdAt) VALUES ('u1', ?, ?, 1, 'x', ?, ?, 'pole', ?, '')").run(act, title, start, end, JSON.stringify(meta || {})).lastInsertRowid);
+const annuel = R.cadreDeDecalage(ob('Annuel', Y + '-01-05', Y + '-12-20'));
+assert(annuel && annuel.type === 'annuel' && annuel.start <= Y + '-01-31' && annuel.end >= (Y + 4) + '-12-20' && annuel.end <= (Y + 5) + '-01-10', 'annuel : le décalage va jusqu\'à la fin de son bloc de 5 ans (année en cours + 4)');
+const plu = R.cadreDeDecalage(ob('Dans 5 ans', Y + '-02-01', (Y + 5) + '-06-30'));
+assert(plu && plu.type === 'pluriannuel' && plu.start >= (Y + 5) + '-01-01' && plu.start <= (Y + 5) + '-01-10' && plu.end >= (Y + 9) + '-12-20' && plu.end <= (Y + 10) + '-01-10', 'pluriannuel visé dans 5 ans : son cadre est SON bloc de 5 ans (' + plu.start + ' → ' + plu.end + '), jusqu\'à la fin de ce bloc');
+const per = R.cadreDeDecalage(ob('Périodique', Y + '-03-01', Y + '-03-28', { cadence: 'periodique' }));
+assert(per && per.type === 'periodique' && days(per.start, per.end) === 363 && per.start <= Y + '-03-01' && per.end >= Y + '-03-28', 'périodique : son année (364 jours), jamais l\'année suivante');
+const heb = R.cadreDeDecalage(ob('Hebdo', Y + '-03-02', Y + '-03-08', { cadence: 'hebdomadaire' }));
+assert(heb && heb.type === 'hebdomadaire' && days(heb.start, heb.end) === 27, 'hebdomadaire : sa période de 4 semaines');
+assert(R.cadreDeDecalage(999999) === null, 'objectif inconnu : null');
 process.exit(failed ? 1 : 0);

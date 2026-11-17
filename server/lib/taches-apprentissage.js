@@ -3,12 +3,12 @@
 //  2. Motifs GLOBAUX (rangement_motifs) : le titre est réduit à un motif générique (au plus 2 mots courants, jamais de nom propre, de chiffre ni d'adresse) ; identité = empreinte salée,
 //     jamais l'identifiant ; utilisés seulement avec ≥ 5 personnes distinctes et ≥ 90 % de convergence ; alimentés SEULEMENT avec le consentement (rangement_consentement).
 //  3. Délais entre paliers (paliers_delais, paliers_delais_globaux) : l'écart RÉEL de la personne personnalise le tableau de connaissance générale ; agrégé de la même façon.
-// Jamais bloquant : toute erreur est avalée. À VALIDER (Gaspard, loi 25) : texte de consentement, anonymisation, seuil de 5.
+// Jamais bloquant : toute erreur est avalée. Anonymat et consentement : docs/ia/rangement-taches.md.
 const crypto = require('crypto');
 const db = require('../db');
 
 const MIN_USERS = 5, MIN_SHARE = 0.9, KEEP_PER_USER = 300, MAX_LABEL = 120;
-const FIELDS = ['category', 'objective', 'nature', 'phase', 'rank', 'group'];
+const FIELDS = ['category', 'objective', 'nature', 'phase', 'rank', 'group', 'responsable']; // « responsable » reste PERSONNEL (jamais agrégé : une personne n'est pas un motif)
 const GLOBAL_FIELDS = ['category', 'objective', 'nature', 'phase'];
 
 db.exec(`CREATE TABLE IF NOT EXISTS task_rangement_corrections (
@@ -22,6 +22,18 @@ db.exec(`CREATE TABLE IF NOT EXISTS task_rangement_corrections (
   createdAt TEXT NOT NULL
 )`);
 db.exec('CREATE INDEX IF NOT EXISTS idx_task_rangement_corrections_user ON task_rangement_corrections(userId, activityId, field, id)');
+// Raison (une phrase) et confiance (0 à 100) données par l'IA de la personne via le connecteur : restent dans SON journal.
+try { const cols = db.prepare('PRAGMA table_info(task_rangement_corrections)').all().map((c) => c.name); if (!cols.includes('raison')) db.exec('ALTER TABLE task_rangement_corrections ADD COLUMN raison TEXT'); if (!cols.includes('confiance')) db.exec('ALTER TABLE task_rangement_corrections ADD COLUMN confiance INTEGER'); } catch (e) { /* non bloquant */ }
+// Exemples ÉTIQUETÉS du connecteur, agrégés et anonymes (motif générique, valeur, confiance, empreinte salée) : jamais la raison en texte libre ni l'identifiant.
+db.exec(`CREATE TABLE IF NOT EXISTS rangement_exemples_connecteur (
+  motif TEXT NOT NULL,
+  field TEXT NOT NULL,
+  value TEXT NOT NULL,
+  confiance INTEGER NOT NULL,
+  userKey TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  PRIMARY KEY (motif, field, value, userKey)
+)`);
 db.exec(`CREATE TABLE IF NOT EXISTS rangement_consentement (
   userId TEXT PRIMARY KEY,
   accepted INTEGER NOT NULL,
@@ -77,6 +89,7 @@ function retirerContributions(userId) {
     const k = userKey(userId);
     db.prepare('DELETE FROM rangement_motifs WHERE userKey = ?').run(k);
     db.prepare('DELETE FROM paliers_delais_globaux WHERE userKey = ?').run(k);
+    db.prepare('DELETE FROM rangement_exemples_connecteur WHERE userKey = ?').run(k);
   } catch (e) { /* non bloquant */ }
 }
 
@@ -103,19 +116,37 @@ function motifOf(label) {
 }
 
 // ---- Journal personnel ----
-function recordCorrection(userId, activityId, label, field, fromValue, toValue) {
+// extra (facultatif) : { raison, confiance } fournis par l'IA de la personne (connecteur), gardés dans son journal seulement.
+function recordCorrection(userId, activityId, label, field, fromValue, toValue, extra) {
   try {
     if (!userId || !FIELDS.includes(field)) return false;
     const clean = String(label || '').trim().slice(0, MAX_LABEL);
     if (!clean) return false;
     const to = toValue == null ? null : String(toValue).slice(0, 160), from = fromValue == null ? null : String(fromValue).slice(0, 160);
     if (from === to) return false;
-    db.prepare('INSERT INTO task_rangement_corrections (userId, activityId, label, field, fromValue, toValue, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(userId, activityId || null, clean, field, from, to, new Date().toISOString());
+    const raison = extra && extra.raison ? String(extra.raison).slice(0, 200) : null, conf = extra && Number.isFinite(Number(extra.confiance)) ? Math.max(0, Math.min(100, Math.round(Number(extra.confiance)))) : null;
+    db.prepare('INSERT INTO task_rangement_corrections (userId, activityId, label, field, fromValue, toValue, createdAt, raison, confiance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(userId, activityId || null, clean, field, from, to, new Date().toISOString(), raison, conf);
     db.prepare('DELETE FROM task_rangement_corrections WHERE userId = ? AND id NOT IN (SELECT id FROM task_rangement_corrections WHERE userId = ? ORDER BY id DESC LIMIT ?)').run(userId, userId, KEEP_PER_USER);
     if (to && GLOBAL_FIELDS.includes(field) && hasConsent(userId)) addGlobalPattern(userId, clean, field, to);
     return true;
   } catch (e) { return false; }
+}
+// Rangement fourni par l'IA de la personne via le connecteur (outil ranger_tache) : champs structurés catégorie, objectif, nature + raison courte + confiance. Le consentement est OBLIGATOIRE :
+// sans lui rien n'est enregistré. Chaque champ entre dans le journal de la personne (avec raison et confiance) et, de façon anonyme, dans les exemples étiquetés du connecteur (motif générique, valeur, confiance).
+function recordExempleConnecteur(userId, activityId, label, champs, raison, confiance) {
+  try {
+    if (!userId || !hasConsent(userId)) return { ok: false, raison: 'consentement' };
+    const extra = { raison, confiance }, conf = Math.max(0, Math.min(100, Math.round(Number(confiance) || 0))), m = motifOf(label), k = userKey(userId), when = new Date().toISOString();
+    let n = 0;
+    [['category', champs && champs.categorie], ['objective', champs && champs.objectif], ['nature', champs && champs.nature]].forEach(([field, value]) => {
+      if (value == null || value === '') return;
+      recordCorrection(userId, activityId, label, field, null, value, extra);
+      if (m) db.prepare('INSERT INTO rangement_exemples_connecteur (motif, field, value, confiance, userKey, createdAt) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(motif, field, value, userKey) DO UPDATE SET confiance = excluded.confiance, createdAt = excluded.createdAt').run(m, field, String(value).slice(0, 160), conf, k, when);
+      n++;
+    });
+    return { ok: true, champs: n };
+  } catch (e) { return { ok: false, raison: 'erreur' }; }
 }
 // Derniers exemples DE CETTE PERSONNE pour un champ (du plus récent au plus ancien), dans la limite de taille du prompt.
 function recentExamples(userId, activityId, field, limit, maxChars) {
@@ -194,4 +225,4 @@ function personalDelay(userId, famille, de, vers) {
   } catch (e) { return null; }
 }
 
-module.exports = { FIELDS, MIN_USERS, MIN_SHARE, setConsent, hasConsent, retirerContributions, motifOf, recordCorrection, recentExamples, lastChoiceFor, resetForUser, addGlobalPattern, globalSuggestion, recordPalierDelay, personalDelay, userKey };
+module.exports = { recordExempleConnecteur, FIELDS, MIN_USERS, MIN_SHARE, setConsent, hasConsent, retirerContributions, motifOf, recordCorrection, recentExamples, lastChoiceFor, resetForUser, addGlobalPattern, globalSuggestion, recordPalierDelay, personalDelay, userKey };

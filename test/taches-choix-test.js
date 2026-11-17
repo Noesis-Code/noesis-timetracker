@@ -70,5 +70,15 @@ const courses = mk('Faire les courses');
   let refus = 0; for (const b of [{ itemId: x, field: 'inconnu' }, { itemId: 999999, field: 'rank', to: 1 }, { itemId: x, field: 'nature', to: 'zzz' }, { itemId: x, field: 'objective', to: 99999 }]) { try { C.corriger('u1', b); } catch (e) { refus++; } }
   assert(refus === 4, 'correction : champ inconnu, tâche inconnue, nature inconnue et objectif inconnu sont refusés');
   try { C.corriger('intrus', { itemId: x, field: 'rank', to: 1 }); assert(false, 'un non-membre ne peut pas corriger'); } catch (e) { assert(e.statusCode === 404, 'un non-membre ne peut pas corriger la tâche d\'une activité'); }
+  // ---- responsable de la tâche : une seule proposition, correctible, apprise ----
+  r = await C.choisir('u1', act, 'Courir 10 km', { ai: async () => sport + ' | ' + lointain + ' | 0 | 92' });
+  assert(r.responsableId === 'u1' && r.responsableSource === 'unique', 'activité à un seul membre : la tâche est à lui');
+  db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u2', 'u2', datetime('now'))").run();
+  db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, 'u2', '#fff', '')").run(act);
+  r = await C.choisir('u1', act, 'Courir 12 km', { ai: async () => sport + ' | ' + lointain + ' | 0 | 92' });
+  assert(['u1', 'u2'].includes(r.responsableId) && r.responsableSource !== 'unique', 'plusieurs membres : UN responsable proposé (parts, sinon responsable de catégorie)');
+  C.corriger('u1', { itemId: x, field: 'responsable', to: 'u2' });
+  assert(db.prepare('SELECT plannedUserId FROM sub_project_items WHERE id = ?').get(x).plannedUserId === 'u2' && A.recentExamples('u1', act, 'responsable').some((e) => e.value === 'u2'), 'responsable corrigé : appliqué et appris');
+  assert((() => { try { C.corriger('u1', { itemId: x, field: 'responsable', to: 'intrus' }); return false; } catch (e) { return e.statusCode === 400; } })(), 'un non-membre ne peut pas être responsable');
   process.exit(failed ? 1 : 0);
 })();

@@ -85,6 +85,23 @@ const row = (id) => db.prepare('SELECT * FROM sub_project_items WHERE id = ?').g
     assert(!sansRg.isError && db.prepare("SELECT taskKind FROM sub_project_items WHERE label = 'Payer la facture d''électricité'").get().taskKind !== undefined, 'sans rangement fourni : le classement par règles gratuites prend le relais');
     const rg2 = await tool(tokV2, 'modifier_tache', { taskId: rgItem ? db.prepare("SELECT id FROM sub_project_items WHERE label = 'Réparer la fuite urgente'").get().id : 0, nature: 'developpement' });
     assert(!rg2.isError, 'modifier_tache : la nature peut être corrigée');
+    // Outil de rangement « ranger_tache » (18 nov. 2026) : champs structurés obligatoires + consentement obligatoire.
+    const apprentissage = require('../server/lib/taches-apprentissage');
+    const rtId = db.prepare("SELECT id FROM sub_project_items WHERE label = 'Réparer la fuite urgente'").get().id;
+    const champs = { taskId: rtId, categorie: poleA, objectif: objA, nature: 'maintenance', raison: 'Réparation à faire vite', confiance: 90 };
+    const sansConsent = await tool(tokV, 'ranger_tache', champs);
+    assert(sansConsent.isError && /consentement/i.test(JSON.stringify(sansConsent)), 'ranger_tache sans consentement : refusé');
+    apprentissage.setConsent('A', true, 'test');
+    assert((await tool(tokV, 'ranger_tache', { taskId: rtId, categorie: poleA, objectif: objA, nature: 'maintenance', confiance: 90 })).isError, 'ranger_tache sans raison : refusé (tous les champs sont obligatoires)');
+    assert((await tool(tokV, 'ranger_tache', Object.assign({}, champs, { raison: 'ok' }))).isError, 'ranger_tache : raison trop courte refusée');
+    assert((await tool(tokV, 'ranger_tache', Object.assign({}, champs, { confiance: 150 }))).isError, 'ranger_tache : confiance hors de 0 à 100 refusée');
+    assert((await tool(tokV, 'ranger_tache', Object.assign({}, champs, { objectif: 99999 }))).isError, 'ranger_tache : objectif inconnu refusé');
+    const okRt = await tool(tokV, 'ranger_tache', champs);
+    assert(!okRt.isError, 'ranger_tache avec consentement et tous les champs : accepté');
+    assert(db.prepare('SELECT raison, confiance FROM task_rangement_corrections WHERE userId = ? AND raison IS NOT NULL ORDER BY id DESC LIMIT 1').get('A'), 'la raison et la confiance sont gardées dans le journal de la personne');
+    assert(db.prepare("SELECT COUNT(*) AS n FROM rangement_exemples_connecteur WHERE field = 'nature'").get().n >= 1, 'un exemple étiqueté anonyme est enregistré (motif, valeur, confiance)');
+    assert(!JSON.stringify(db.prepare('SELECT * FROM rangement_exemples_connecteur').all()).includes('Réparation à faire vite'), 'la raison en texte libre n\'entre jamais dans l\'agrégat anonyme');
+    assert(aiCalls === aiAvant, 'ranger_tache ne déclenche aucun appel IA de Noèsis');
     assert((await tool(tokV2, 'definir_objectif_hebdomadaire', { activityId: actA, pole: poleA, periode: 2, semaine: 5, texte: 'x' })).isError, 'semaine 5 refusée');
     assert((await tool(tokV2, 'definir_objectif_periodique', { activityId: actA, pole: poleA, periode: 0, texte: 'x' })).isError, 'période 0 refusée');
     assert((await tool(tokV2, 'definir_objectif_periodique', { activityId: actA, pole: poleA, periode: 2, texte: '' })).isError, 'objectif vide refusé (pas de suppression)');

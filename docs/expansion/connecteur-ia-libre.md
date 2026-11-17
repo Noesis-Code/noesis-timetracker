@@ -9,6 +9,7 @@ Un compte gratuit peut tout organiser avec SA propre IA (Claude, ChatGPT...) bra
 - `creer_tache` : ajoute une tâche (titre, pôle ou secteur, échéance, durée facultative en minutes de 5 à 480).
 - `modifier_tache` : change le titre, l'échéance et/ou la durée (minutes, 5 à 480) d'une tâche.
 - `ordonner_taches` : fixe l'ordre d'une liste de tâches d'un même secteur.
+- `ranger_tache` : range une tâche (catégorie, objectif, nature) avec une raison courte et une confiance ; tous les champs sont obligatoires ; consentement à l'amélioration anonyme du modèle obligatoire (donné à la connexion). Réversible.
 - `planifier_jour` : place des tâches sur un jour (plan du jour).
 - `retirer_tache` : retire une tâche, mais garde une copie dans le journal (réversible).
 - `definir_objectif_periodique`, `definir_objectif_hebdomadaire` : écrit l'objectif d'une période ou d'une semaine (jamais de suppression).
