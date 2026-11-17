@@ -552,10 +552,7 @@
       var b = kb || bucketOf(m, today); byRank[b.rank] = b; // la carte du macro INCORPORE l'objectif existant : elle prend la place de sa rangée (celle de son enfant le plus lointain), aucune rangée n'est créée if (zoom === 'block' && b.rank < lo) lo = b.rank; if (b.rank > hi) hi = b.rank;
       (macrosAt[b.rank] = macrosAt[b.rank] || []).push({ m: m, c0: Math.min.apply(null, idx), c1: Math.max.apply(null, idx), idxs: idx });
     });
-    if (ext && ext.mode === 'create' && ext.base) { // aperçu : la carte de base devient une carte large neutre sur les colonnes incluses
-      var xi = Object.keys(ext.cols).map(Number).filter(function (i) { return i < curCols.length; });
-      if (xi.length > 1) { var xb = bucketOf(ext.base, today); byRank[xb.rank] = xb; if (xb.rank > hi) hi = xb.rank; (macrosAt[xb.rank] = macrosAt[xb.rank] || []).push({ m: { id: -1, title: ext.title || ext.base.title, startDate: ext.base.startDate, endDate: ext.base.endDate, status: 'en_cours', isMacro: true, macroChildren: xi.length }, c0: Math.min.apply(null, xi), c1: Math.max.apply(null, xi) }); }
-    }
+    // Aperçu pendant la sélection : AUCUNE carte insérée, aucune ligne décalée ; les colonnes choisies se montrent par leur surlignage (arExtOn) seulement.
     if (zoom !== 'period') hi = Math.max(hi, here.rank + 500); // horizon : au moins 5 ans devant (bloc suivant, ou cinq années)
     var blockNow = zoom === 'year' ? (focus && focus.block ? focus.block : blockStart(today)) : null, periodYear = zoom === 'period' ? (focus && focus.year ? focus.year : Number(today.slice(0, 4))) : null; /* bloc FIXE affiché (par défaut celui du présent) et année affichée : jamais d'année d'un autre bloc */
     var blockYears = !!blockNow; // arbre des années : exactement les 5 années de son bloc

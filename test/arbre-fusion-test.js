@@ -9,6 +9,7 @@ assert(js.includes('if (ab >= 0) return cols[ab].color;'), 'la carte large prend
 assert(js.includes('lo0 >= rowKey(o.mergeStart).rank'), 'colonne absorbée visible tant qu\'une ligne affichée précède la période de fusion');
 assert(js.includes('function pickOrder()') && js.includes('pickOrder().forEach(function (k)') && js.includes('(ext.order = ext.order || []).push(ci)'), 'ordre de SÉLECTION (la première touchée absorbe), jamais l’ordre des colonnes');
 assert(js.includes('function anchorOf(m, idx, cols)') && js.includes('var anchor = anchorOf(m, idx, cols)') && js.includes('var anchor = anchorOf(mm.m, mm.idxs, curCols)'), 'la colonne qui subsiste après la fusion est l’absorbante, pas la plus à gauche');
+assert(!js.includes('aperçu : la carte de base devient une carte large') && !js.includes('id: -1, title: ext.title') && js.includes('AUCUNE carte insérée, aucune ligne décalée'), 'l’aperçu pendant la sélection n’insère aucune carte et ne décale aucune ligne (surlignage des colonnes seulement)');
 // côté serveur : le macro dit qui l'absorbe
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-arbf-');
 try { require('child_process').execFileSync('node', [require('path').join(__dirname, '..', 'scripts', 'dev-seed.js')], { env: Object.assign({}, process.env, { RAILWAY_ENVIRONMENT_NAME: 'staging' }), stdio: 'ignore' }); } catch (e) { /* déjà semée */ }
