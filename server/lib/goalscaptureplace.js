@@ -468,7 +468,7 @@ function weekOfYear(weekStart) {
 function objectiveHints(activityId, category) {
   try {
     const parts = [];
-    db.prepare('SELECT metaJson FROM user_objectives WHERE activityId = ?').all(activityId).forEach((r) => {
+    db.prepare('SELECT metaJson FROM user_objectives WHERE activityId = ? AND isMacro = 0').all(activityId).forEach((r) => {
       const m = JSON.parse(r.metaJson || '{}');
       if (m.category !== category) return;
       const ans = String(m.description || '').split(' · ').map((x) => { const i = x.indexOf(' : '); return (i >= 0 ? x.slice(i + 3) : x).trim(); }).filter(Boolean).join(', ');

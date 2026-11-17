@@ -37,7 +37,7 @@ function aiMode(userId) {
 function descOf(metaJson) { try { return String(JSON.parse(metaJson || '{}').description || '').replace(/\s+/g, ' ').trim().slice(0, 300); } catch (e) { return ''; } } // « Description (pour l'IA) » : 300 caractères au plus
 function bigOnes(userId, activityId, year) {
   return db.prepare(`SELECT o.id, o.title, o.endDate, o.metaJson FROM user_objectives o
-    WHERE o.userId = ? AND o.activityId = ? AND substr(o.endDate, 1, 4) = ?
+    WHERE o.userId = ? AND o.isMacro = 0 AND o.activityId = ? AND substr(o.endDate, 1, 4) = ?
       AND EXISTS (SELECT 1 FROM user_objectives c WHERE c.parentId = o.id AND c.userId = o.userId)
     ORDER BY o.endDate, o.id`).all(userId, activityId, String(year))
     .filter((r) => { try { return !JSON.parse(r.metaJson || '{}').abandoned; } catch (e) { return true; } })

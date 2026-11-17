@@ -724,7 +724,7 @@
   }
   function refresh() {
     if (!tree) return Promise.resolve();
-    return Promise.all([TMT.api('GET', '/api/objectifs?filtre=tous'), TMT.api('GET', '/api/objectifs/structure').catch(function () { return null; })]).then(function (rs) {
+    return Promise.all([TMT.api('GET', '/api/objectifs?filtre=tous&liens=1'), TMT.api('GET', '/api/objectifs/structure').catch(function () { return null; })]).then(function (rs) {
       items = (rs[0] && rs[0].objectifs) || []; struct = rs[1]; loaded = true; if (openPending) { applyOpen(); openPending = false; } return loadOrdre();
     }).then(function () { render(); }).catch(function () {});
   }

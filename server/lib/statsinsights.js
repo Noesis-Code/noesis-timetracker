@@ -461,7 +461,7 @@ function objectivesCards(ctx) {
 
   // Avancement : une ligne PAR ACTIVITÉ sur un axe de temps commun (début le plus tôt -> fin la plus tardive) ; « fait » = semaines cochées / semaines prévues des objectifs en cours de l'activité.
   out.timeline = safe(() => {
-    const rows = db.prepare('SELECT o.activityId, o.startDate, o.endDate, o.stepsJson, o.metaJson, a.name FROM user_objectives o JOIN activities a ON a.id = o.activityId WHERE o.userId = ?').all(ctx.userId);
+    const rows = db.prepare('SELECT o.activityId, o.startDate, o.endDate, o.stepsJson, o.metaJson, a.name FROM user_objectives o JOIN activities a ON a.id = o.activityId WHERE o.userId = ? AND o.isMacro = 0').all(ctx.userId);
     const by = {};
     rows.forEach((r) => {
       let meta = {}, periods = [];

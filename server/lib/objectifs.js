@@ -1011,12 +1011,14 @@ function noterAtteintes(userId, all) {
     });
   } catch (e) { /* jamais bloquant */ }
 }
-function liste(userId, filtre) {
+// Un MACRO est un LIEN de fusion (18 nov. 2026) : jamais une ligne d'objectif visible. Seul l'arbre (liens: true) et l'export le lisent ; partout ailleurs la liste les exclut.
+function liste(userId, filtre, opts) {
   const all = db.prepare('SELECT * FROM user_objectives WHERE userId = ? ORDER BY endDate, id').all(userId).map((r) => { try { return shape(r, false); } catch (e) { console.warn('[objectifs] ligne illisible ignorée dans la liste (id ' + r.id + ') : ' + (e && e.message)); return null; } }).filter(Boolean); // une ligne corrompue ne fait plus tomber toute la liste (elle reste dans l'export)
   const known = new Set(all.map((o) => o.id));
   noterAtteintes(userId, all);
   all.forEach((o) => { o.archived = (o.parentId == null || !known.has(o.parentId)) && o.status === 'atteint'; }); // objectif FINAL atteint -> archives (un nouveau peut être créé)
-  return filtre === 'atteints' ? all.filter((o) => o.status === 'atteint') : filtre === 'tous' ? all : all.filter((o) => o.status !== 'atteint');
+  const vus = opts && opts.liens ? all : all.filter((o) => !o.isMacro);
+  return filtre === 'atteints' ? vus.filter((o) => o.status === 'atteint') : filtre === 'tous' ? vus : vus.filter((o) => o.status !== 'atteint');
 }
 
 // ---- Modifications (toujours explicites, jamais silencieuses) ----

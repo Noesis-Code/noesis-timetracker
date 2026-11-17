@@ -309,7 +309,7 @@ function buildUserExport(userId) {
   // enfants, macros (activités / colonnes reliées), périodes dépliées. Format décrit dans docs/objectifs/export-objectifs.md.
   if (objectives.length) {
     let byId = {};
-    try { require('./objectifs').liste(userId, 'tous').forEach((x) => { byId[x.id] = x; }); } catch (e) { byId = {}; }
+    try { require('./objectifs').liste(userId, 'tous', { liens: true }).forEach((x) => { byId[x.id] = x; }); } catch (e) { byId = {}; }
     const poleLabel = {}, sectLabel = {};
     const goalsLib = require('./goals');
     const labelsOf = (aid) => {

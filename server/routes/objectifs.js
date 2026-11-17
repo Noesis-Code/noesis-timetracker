@@ -16,7 +16,7 @@ function run(fn) {
   };
 }
 
-router.get('/objectifs', run((req) => ({ objectifs: objectifs.liste(req.userId, String(req.query.filtre || 'en_cours')) })));
+router.get('/objectifs', run((req) => ({ objectifs: objectifs.liste(req.userId, String(req.query.filtre || 'en_cours'), { liens: req.query.liens === '1' }) })));
 router.post('/objectifs/contexte', run((req) => objectifs.contexte(req.userId, req.body || {})));
 router.post('/objectifs/macro/titre', run((req) => require('../lib/objectifs-resume').titreMacro(req.userId, req.body || {})));
 router.get('/objectifs/ordre', run((req) => require('../lib/objectifs-ordre').lire(req.userId, String(req.query.level || ''), req.query.scope, req.query.anchor)));

@@ -76,7 +76,7 @@ function chronoDims(userId, scope, today) {
 // (a) Objectif similaire récent du même périmètre avec un niveau enregistré : même type (metaJson.type) ou, pour les anciens objectifs sans type, titre proche. Renvoie ses trois réponses ou null.
 function findSimilar(userId, scope, title, type, today) {
   const db = require('../db'), goals = require('./goals'), since = addDays(today, -RECENT_DAYS);
-  const rows = db.prepare('SELECT title, level, poleKey, categoryKey, metaJson, createdAt FROM user_objectives WHERE userId = ? AND activityId = ? AND substr(createdAt, 1, 10) >= ? ORDER BY createdAt DESC').all(userId, scope.activityId, since);
+  const rows = db.prepare('SELECT title, level, poleKey, categoryKey, metaJson, createdAt FROM user_objectives WHERE userId = ? AND activityId = ? AND isMacro = 0 AND substr(createdAt, 1, 10) >= ? ORDER BY createdAt DESC').all(userId, scope.activityId, since);
   const mine = new Set(goals.tokenize(title)), t = norm(type);
   for (const r of rows) {
     if ((r.level || 'activite') !== scope.level || keyOf(r.poleKey) !== keyOf(scope.poleKey) || keyOf(r.categoryKey) !== keyOf(scope.categoryKey)) continue;

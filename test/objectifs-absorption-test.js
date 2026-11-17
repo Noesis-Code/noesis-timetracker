@@ -59,6 +59,13 @@ const old1 = mkx(FV.id, 'Old1', V1, '2024-01-10', '2024-02-10'), old2 = mkx(FV.i
 o.fusionnerEnMacro(u, { level: 'pole', childIds: [old1.id, old2.id], title: 'Passée' });
 const eOld = bad(() => o.lier(u, old2.id, null));
 assert(eOld && /passée/.test(eOld.message), 'fusion passée : impossible de délier (historique) : ' + (eOld && eOld.message));
+// Fusion de période PASSÉE insérée directement en base (macro, enfants, ligne d'absorption) : jamais séparable
+const FW = fresh('Fus W'), [W1, W2] = FW.k, rw1 = mkx(FW.id, 'Wa', W1, '2024-01-10', '2024-02-10'), rw2 = mkx(FW.id, 'Wb', W2, '2024-01-10', '2024-02-11');
+const mid = Number(db.prepare("INSERT INTO user_objectives (userId, activityId, title, amount, unit, startDate, endDate, isMacro, level, createdAt) VALUES (?, ?, 'Macro passé base', 1, 'mois', '2024-01-10', '2024-02-11', 1, 'pole', '2024-01-10T00:00:00.000Z')").run(u, FW.id).lastInsertRowid);
+db.prepare('UPDATE user_objectives SET parentId = ? WHERE id IN (?, ?)').run(mid, rw1.id, rw2.id);
+ab.record(u, 'pole', [{ activityId: FW.id, poleKey: W1 }, { activityId: FW.id, poleKey: W2 }], '2024-01-01', mid);
+const eW = bad(() => o.lier(u, rw2.id, null)), eW2 = bad(() => o.setMacro(u, mid, false));
+assert(eW && /passée/.test(eW.message) && eW2 && /passée/.test(eW2.message) && o.get(u, rw2.id).parentId === mid, 'fusion passée posée en base : délier et défaire le macro refusés, rien ne bouge : ' + (eW && eW.message));
 // Aucune absorption au niveau activité (pas de remontée en catégorie)
 const before = ab.all(u).length;
 assert(ab.record(u, 'activite', [{ activityId: ACT }, { activityId: ACT + 99 }], from, null) === 0 && ab.all(u).length === before, 'niveau activité : jamais d’absorption');
