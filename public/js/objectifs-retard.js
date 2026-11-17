@@ -1,8 +1,8 @@
 /* Noèsis — « Ajuste ton temps » (15 nov. 2026, maquette validée par Émilien) : UNE seule fenêtre CENTRÉE en verre, qui remplace les anciens pop-ups de retard A et B et le message de dépassement/sous-utilisation.
  * Règle unique : écart de plus de 20 % du total hebdomadaire de l'objectif ; deux causes, même fenêtre, même tableau à deux lignes : « Objectif » et la mesure qui a déclenché (« Planifié » ou « Réel »).
  * Une croix ✕ (refus mémorisé pour la période) et UN bouton « Modifier » (ouvre les paramètres de l'objectif). Affichée à l'arrivée sur la Feuille de route (onglet Objectif), jamais à l'ouverture de l'app.
- * Sous-utilisation du Chrono : AUCUNE fenêtre ; le serveur a réduit le temps de l'objectif et une ligne d'information (✕ seulement) s'affiche en haut de la Feuille de route.
- * Serveur : GET /api/objectifs/ajuste, POST /api/objectifs/ajuste/:id/refuser, POST /api/objectifs/ajuste/info/:id/vue (server/lib/objectifs-ajuste.js).
+ * Sous-utilisation du Chrono : RIEN (ni fenêtre, ni réduction automatique, ni ligne d'information) : les heures fixées par l'utilisateur ne changent que par lui (décision d'Émilien, 17 nov. 2026).
+ * Serveur : GET /api/objectifs/ajuste, POST /api/objectifs/ajuste/:id/refuser (server/lib/objectifs-ajuste.js).
  * Composants réutilisés (R29) : .cmpConfirmVeil/.cmpConfirmCard/.cmpGlass (verre R31), TMT.ui.closeBtn (R13), .cmpBtn (R1). */
 (function () {
   'use strict';
@@ -11,7 +11,7 @@
   var api = function (m, u, b) { return TMT.api(m, u, b); };
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function hh(min) { if (min == null) return '—'; var m = Math.round(min), h = Math.floor(m / 60), r = m % 60; return h + 'h' + (r ? (r < 10 ? '0' : '') + r : ''); }
-  var veil = null, busy = false, infoBox = null;
+  var veil = null, busy = false;
 
   function close() { if (veil) { veil.remove(); veil = null; } }
   function refuse(f) { close(); api('POST', '/api/objectifs/ajuste/' + f.objectifId + '/refuser').catch(function () {}); }
@@ -42,27 +42,11 @@
     veil.appendChild(c); document.body.appendChild(veil);
   }
 
-  // Ligne d'information de la sous-utilisation : en haut de la Feuille de route, ✕ seulement.
-  function paintInfos(infos) {
-    if (infoBox) { infoBox.remove(); infoBox = null; }
-    if (!infos || !infos.length) return;
-    var host = document.getElementById('tab-goals'); if (!host) return;
-    infoBox = el('div', 'retInfos');
-    infos.forEach(function (i) {
-      var row = el('div', 'retInfo cmpGlass'); row.setAttribute('role', 'status');
-      row.appendChild(el('span', 'retInfoText', tr('{n} : le temps de l’objectif a été réduit de {a} à {b} par semaine.', { n: i.categorie || i.activite, a: hh(i.fromMin), b: hh(i.toMin) })));
-      row.appendChild(TMT.ui.closeBtn(function () { row.remove(); api('POST', '/api/objectifs/ajuste/info/' + i.id + '/vue').catch(function () {}); }, tr('Fermer')));
-      infoBox.appendChild(row);
-    });
-    host.insertBefore(infoBox, host.firstChild);
-  }
-
   function check(n) { // attend la fin des autres fenêtres d'ouverture (consentement, info IA) : jamais deux fenêtres l'une sur l'autre
     if (busy || veil) return;
     if (document.querySelector('#marketingInviteModal:not(.hidden), #aiNoticeModal:not(.hidden), #legalTermsModal:not(.hidden)') && (n || 0) < 40) { window.setTimeout(function () { check((n || 0) + 1); }, 1500); return; }
     busy = true;
     api('GET', '/api/objectifs/ajuste').then(function (r) {
-      paintInfos(r && r.infos);
       if (r && r.fenetre && TMT.objectifsViewShown) paintWindow(r.fenetre);
     }).catch(function (e) { if (window.console) console.error('ajuste', e); }).then(function () { busy = false; });
   }

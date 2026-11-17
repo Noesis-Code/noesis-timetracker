@@ -396,7 +396,6 @@
     'Écart de plus de 20 % : {h} planifiées par semaine pour {o} d’objectif (+{pct} %).': 'Gap of more than 20%: {h} planned per week for {o} of goal time (+{pct}%).',
     'Écart de plus de 20 % : {h} réelles par semaine pour {o} d’objectif (+{pct} %), 4 semaines de suite.': 'Gap of more than 20%: {h} actual per week for {o} of goal time (+{pct}%), 4 weeks in a row.',
     'Planifié': 'Planned', 'Réel': 'Actual', '/ semaine': '/ week',
-    '{n} : le temps de l’objectif a été réduit de {a} à {b} par semaine.': '{n}: the goal time was reduced from {a} to {b} per week.',
     'Nature': 'Nature',
     'Maintenir': 'Maintain',
     'Développer': 'Develop',

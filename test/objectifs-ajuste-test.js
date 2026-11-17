@@ -1,4 +1,4 @@
-// « Ajuste ton temps » : une fenêtre, deux causes (Planifié, Réel), un affichage par période et par objectif ; sous-utilisation = réduction automatique du temps de l'objectif (un seul endroit : metaJson.hoursPerWeek).
+// « Ajuste ton temps » : une fenêtre, deux causes (Planifié, Réel), un affichage par période et par objectif ; sous-utilisation du Chrono = RIEN (les heures fixées par l'utilisateur ne changent que par lui).
 // Usage : node test/objectifs-ajuste-test.js
 process.env.TZ = 'America/Montreal';
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-ajuste-');
@@ -28,15 +28,15 @@ db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) V
 const o2 = O.creer('u1', { title: 'Objectif nu', activityId: act2, level: 'activite', startDate: '2026-12-01', endDate: add(TODAY, 300), hoursPerWeek: 5, weekTasks: [], noBridge: true });
 db.prepare('UPDATE user_objectives SET startDate = ?, endDate = ? WHERE id = ?').run(add(weeks[0].start, -30), add(TODAY, 300), o2.id);
 weeks.forEach((w) => db.prepare("INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory) VALUES ('u1', ?, '', 'a', 'b', ?, ?, 'x', NULL)").run(act2, 120 * 60, add(w.start, 1))); // 2 h pour 5 h : −60 %
-// ---- sous-utilisation : réduction automatique, un seul endroit ----
+// ---- sous-utilisation : rien ne change seul ----
 assert(O.get('u1', o2.id).hoursPerWeek === 5, 'avant : le temps de l’objectif nu est de 5 h par semaine');
 let r = A.lire('u1', TODAY);
-assert(O.get('u1', o2.id).hoursPerWeek === 2, 'sous-utilisation de plus de 20 % : le temps de l’objectif est réduit à 2 h, dans le champ des réglages de l’objectif (le même que partout)');
-assert(r.infos.length === 1 && r.infos[0].objectifId === o2.id && r.infos[0].fromMin === 300 && r.infos[0].toMin === 120 && r.infos[0].activite === 'Sans pôle', 'ligne d’information : de 5 h à 2 h, sans fenêtre');
+assert(O.get('u1', o2.id).hoursPerWeek === 5, 'sous-utilisation de plus de 20 % : les heures de l’objectif ne changent pas seules (5 h)');
+assert(r.infos === undefined && !('infos' in r), 'aucune ligne d’information de sous-utilisation');
 assert(r.fenetre && r.fenetre.cause === 'reel' && r.fenetre.objectifId === o1.id && r.fenetre.pct === 30 && r.fenetre.objectifMin === 600 && r.fenetre.mesureMin === 780 && r.fenetre.categorie === 'Pôle', 'dépassement du Chrono : la fenêtre « Réel » (13 h pour 10 h, +30 %)');
-const hs = db.prepare("SELECT COUNT(*) AS n FROM objectif_ajuste_info WHERE userId = 'u1'").get().n;
+const n0 = db.prepare('SELECT COUNT(*) AS n FROM objectif_ajuste_info').get().n;
 A.lire('u1', TODAY);
-assert(hs === 1 && db.prepare("SELECT COUNT(*) AS n FROM objectif_ajuste_info WHERE userId = 'u1'").get().n === 1 && O.get('u1', o2.id).hoursPerWeek === 2, 'une seconde lecture ne réduit pas deux fois');
+assert(db.prepare('SELECT COUNT(*) AS n FROM objectif_ajuste_info').get().n === n0 && n0 === 0 && O.get('u1', o2.id).hoursPerWeek === 5, 'une seconde lecture n’écrit rien non plus');
 // ---- Planifié passe avant Réel (tâches simulées) ----
 const late = require('../server/lib/goalsperiodlate'), realRows = late.taskRows;
 db.prepare("UPDATE user_objectives SET taskIdsJson = '[1,2]' WHERE id = ?").run(o1.id);
@@ -47,9 +47,6 @@ assert(r.fenetre && r.fenetre.cause === 'planifie' && r.fenetre.objectifId === o
 A.refuser('u1', o1.id, TODAY);
 r = A.lire('u1', TODAY);
 assert(r.fenetre === null, 'après ✕ : plus de fenêtre pour cet objectif pendant la période (ni Planifié, ni Réel)');
-assert(r.infos.length === 1, 'la ligne d’information reste jusqu’à son ✕');
-A.infoVue('u1', r.infos[0].id);
-assert(A.lire('u1', TODAY).infos.length === 0, '✕ de la ligne d’information : elle disparaît');
 let code = 0; try { A.refuser('u1', 99999, TODAY); } catch (e) { code = e.statusCode; }
 assert(code === 404, 'refuser un objectif inconnu : 404');
 late.taskRows = realRows;
@@ -57,7 +54,7 @@ late.taskRows = realRows;
 const rj = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-retard.js'), 'utf8'), rt = fs.readFileSync(path.join(__dirname, '..', 'server/routes/objectifsretard.js'), 'utf8');
 assert(rj.includes("tr('Ajuste ton temps')") && rj.includes("tr('Modifier')") && rj.includes('TMT.ui.closeBtn') && rj.includes('TMT.objectifsView.openEdit(f.objectifId)'), 'fenêtre unique : titre « Ajuste ton temps », ✕ et UN bouton « Modifier » vers les paramètres de l’objectif');
 assert(!rj.includes('paintA') && !rj.includes('paintB') && !rj.includes('paintEcart') && !rj.includes("tr('Oui')") && !rj.includes("tr('Non')") && !rj.includes('Il faut plus de temps'), 'plus de pop-ups A et B, plus de Oui / Non');
-assert(rt.includes("'/objectifs/ajuste'") && rt.includes("'/objectifs/ajuste/:id/refuser'") && !rt.includes('/objectifs/retard') && !rt.includes('/objectifs/ecart'), 'routes : lecture, refus, information vue ; plus de routes de l’ancien retard A/B ni du « Non »');
+assert(rt.includes("'/objectifs/ajuste'") && rt.includes("'/objectifs/ajuste/:id/refuser'") && !rt.includes('/info/') && !rt.includes('/objectifs/retard') && !rt.includes('/objectifs/ecart'), 'routes : lecture et refus (plus d’information vue) ; plus de routes de l’ancien retard A/B ni du « Non »');
 const app = fs.readFileSync(path.join(__dirname, '..', 'public/app.js'), 'utf8');
 assert(!app.includes('objectifsRetard'), 'la fenêtre ne s’ouvre plus à l’ouverture de l’app (seulement à l’arrivée sur la Feuille de route)');
 assert(!/\/\/[^\n]*\.appendChild/.test(rj), 'GARDE : aucun commentaire // ne coupe une ligne de code');

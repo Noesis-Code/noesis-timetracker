@@ -1,4 +1,4 @@
-// « Ajuste ton temps » : lecture (fenêtre + lignes d'information), refus d'une fenêtre, information vue. Voir server/lib/objectifs-ajuste.js.
+// « Ajuste ton temps » : lecture (fenêtre) et refus d'une fenêtre. Voir server/lib/objectifs-ajuste.js.
 // (Le retard d'un objectif de période — replacement des tâches — vit toujours dans server/lib/goalsperiodlate.js ; plus aucun message A ou B.)
 const express = require('express');
 const router = express.Router();
@@ -20,10 +20,6 @@ router.get('/objectifs/ajuste', (req, res) => {
 router.post('/objectifs/ajuste/:id/refuser', (req, res) => {
   if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
   try { res.json(ajuste().refuser(req.userId, req.params.id)); } catch (err) { fail(res, 'POST /objectifs/ajuste/:id/refuser', err); }
-});
-router.post('/objectifs/ajuste/info/:id/vue', (req, res) => {
-  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
-  try { res.json(ajuste().infoVue(req.userId, req.params.id)); } catch (err) { fail(res, 'POST /objectifs/ajuste/info/:id/vue', err); }
 });
 
 module.exports = router;

@@ -10,7 +10,3 @@
 .retLabel, .retVal { display: flex; align-items: center; padding: 8px 16px; font-size: 14px; color: var(--text); }
 .retLabel { border-right: 1px solid var(--sep); }
 .retValQuiet { color: var(--text-light); }
-/* Ligne d'information (sous-utilisation) : en haut de la Feuille de route, texte + ✕ */
-.retInfos { display: flex; flex-direction: column; gap: 8px; padding: 8px 16px 0; }
-.retInfo { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 8px 8px 16px; border-radius: var(--radius-md); }
-.retInfoText { flex: 1; min-width: 0; font-size: 14px; line-height: 1.4; color: var(--text); overflow-wrap: anywhere; }

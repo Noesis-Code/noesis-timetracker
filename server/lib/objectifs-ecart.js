@@ -1,4 +1,4 @@
-// ÉCART DU CHRONO (décision d'Émilien, 14-15 nov. 2026) : dépassement = cause « Réel » de la fenêtre « Ajuste ton temps » ; sous-utilisation = le temps de l'objectif est réduit automatiquement
+// ÉCART DU CHRONO (décision d'Émilien, 14-15 nov. 2026) : dépassement = cause « Réel » de la fenêtre « Ajuste ton temps » ; sous-utilisation = rien (décision du 17 nov. 2026)
 // (server/lib/objectifs-ajuste.js). L'ancienne table objectif_ecart_refus n'est plus lue : ses données restent.
 // Après 2 semaines de rodage depuis le début de l'objectif, si le Chrono réel a dépassé OU est resté en dessous des heures prévues
 // de plus de 20 % du total hebdomadaire, QUATRE semaines de suite dans le même sens. Aucun seuil en heures. Rien n'est écrit par l'évaluation.

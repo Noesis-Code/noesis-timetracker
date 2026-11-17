@@ -46,7 +46,11 @@
 // demande d'Emilien) : v6 → v7 ; objectifs-page2.js/.css remplacés par
 // objectifs-page2-taches.js/.css et objectifs-page2-objectif.js/.css.
 // 2 oct. 2026 : v9 → v10, ajout de stats-avance.js/.css (Statistiques, page 2).
-const CACHE_VERSION = 'noesis-v1286';
+<<<<<<< HEAD
+const CACHE_VERSION = 'noesis-v1287';
+=======
+const CACHE_VERSION = 'noesis-v1285';
+>>>>>>> a499d997 (Ajuste ton temps : plus aucune réduction automatique des heures (sous-utilisation du Chrono), plus de ligne d'information ; les heures fixées ne changent que par l'utilisateur)
 
 // File d'attente des tâches capturées hors ligne (voir l'en-tête de
 // public/offline-queue.js). Chargée ici pour que Background Sync puisse la
