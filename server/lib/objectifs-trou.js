@@ -7,6 +7,7 @@ const goals = require('./goals');
 const O = require('./objectifs');
 
 const MAX_LINES = 8;
+const MIN_PROPOSITIONS = 8; // 17 nov. 2026 (Émilien) : au moins 8 propositions au total (modifications + ajouts) ; les ajouts sont des ÉTAPES (enfants) vers l'objectif créé, avant lui
 const PER_YEAR = 13;
 const REPLI_PERIODES = [3, 6, 9, 13]; // 4 jalons fixes par an : toujours quelque chose à faire (repli sans IA)
 const parseMeta = (r) => { try { return JSON.parse((r && r.metaJson) || '{}'); } catch (e) { return {}; } };
@@ -58,6 +59,26 @@ function belowOf(type, cells, today) {
   return evenPick(out, MAX_LINES);
 }
 
+// Ajouts pour atteindre le minimum : un ENFANT est une étape vers son parent, donc AVANT lui (17 nov. 2026, précision d'Émilien). Cases LIBRES du même niveau AVANT l'objectif créé, dans la cellule englobante
+// (périodique : son année ; annuel : son bloc de 5 ans ; pluriannuel : depuis le bloc d'aujourd'hui), jamais le passé ; les plus proches de l'objectif d'abord.
+function beforeCells(type, newEnd, today) {
+  const y0 = Number(today.slice(0, 4));
+  if (type === 'periodique') { const g = O.gridOf(newEnd), lo = g.year * PER_YEAR, out = []; for (let o = Math.max(lo, periodOf(today)); o < periodOf(newEnd); o += 1) out.push(periodCell(o)); return out.reverse(); }
+  if (type === 'annuel') { const y = Number(newEnd.slice(0, 4)), lo = Math.max(blockOf(y, y0), y0), out = []; for (let v = lo; v < y; v += 1) out.push(yearCell(v)); return out.reverse(); }
+  if (type === 'pluriannuel') { const b = blockOf(Number(newEnd.slice(0, 4)), y0), out = []; for (let v = blockOf(y0, y0); v < b; v += 5) out.push(blockCell(v)); return out.reverse(); }
+  return [];
+}
+const ordOfEnd = (type, iso) => (type === 'periodique' ? periodOf(iso) : type === 'annuel' ? Number(iso.slice(0, 4)) : blockOf(Number(iso.slice(0, 4)), Number(new Date().toISOString().slice(0, 4))));
+// Complète les lignes jusqu'à minLines avec des cases libres du même niveau, AVANT l'objectif ; jamais d'erreur : sans case libre, moins de lignes.
+function completer(plan, type, newEnd, today, occupiedOrds, minLines) {
+  if (!(minLines > plan.lines.length) || plan.mode === 'dessous') return plan; // les lignes du DESSOUS sont d'un autre niveau : on ne les mélange pas
+  const have = new Set(plan.lines.map((c) => c.ord)), free = beforeCells(type, newEnd, today).filter((c) => !have.has(c.ord) && !(occupiedOrds && occupiedOrds.has(c.ord)) && c.endDate >= today);
+  const add = free.slice(0, Math.min(MAX_LINES, minLines) - plan.lines.length); // du plus proche de l'objectif au plus lointain
+  if (!add.length) return plan;
+  const lines = plan.lines.concat(add).sort((a, b) => a.ord - b.ord);
+  return { mode: plan.mode === 'aucun' ? 'ajouts' : plan.mode, gap: plan.gap, lines, ajouts: add.length };
+}
+
 // Règle complète : renvoie { mode: 'aucun' | 'dessous' | 'trou' | 'jalons', gap (nombre de cases du trou), lines }.
 function planTrou(type, newEnd, nearestEnd, today) {
   const cells = gapCells(type, newEnd, nearestEnd, today), n = cells.length;
@@ -82,12 +103,22 @@ function nearestBefore(userId, body, type) {
     .filter((r) => !parseMeta(r).abandoned && (r.level || 'activite') === level && (r.poleKey || null) === pk && (r.categoryKey || null) === ck && typeOfRow(r) === type && r.endDate < body.endDate);
   return rows.reduce((best, r) => (!best || r.endDate > best ? r.endDate : best), null);
 }
+function occupiedOrds(userId, body, type) {
+  const level = ['activite', 'pole', 'secteur'].includes(body.level) ? body.level : 'activite';
+  const pk = level === 'activite' ? null : (body.poleKey || null), ck = level === 'secteur' ? (body.categoryKey || null) : null, set = new Set();
+  db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ? AND isMacro = 0').all(userId, Number(body.activityId))
+    .filter((r) => !parseMeta(r).abandoned && (r.level || 'activite') === level && (r.poleKey || null) === pk && (r.categoryKey || null) === ck && typeOfRow(r) === type)
+    .forEach((r) => set.add(ordOfEnd(type, r.endDate)));
+  return set;
+}
 function proposer(userId, body, today) {
   const type = ['pluriannuel', 'annuel', 'periodique', 'hebdomadaire'].includes(body && body.type) ? body.type : null;
   if (!type || !O.isDay(body.endDate)) return { mode: 'aucun', gap: 0, lines: [] };
   const act = db.prepare('SELECT a.id FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.id = ?').get(userId, Number(body.activityId));
   if (!act) return { mode: 'aucun', gap: 0, lines: [] };
-  return planTrou(type, body.endDate, nearestBefore(userId, body, type), today);
+  const plan = planTrou(type, body.endDate, nearestBefore(userId, body, type), today);
+  const minLines = Math.max(0, Math.min(MAX_LINES, Number(body.minLines) || 0));
+  return minLines ? completer(plan, type, body.endDate, today, occupiedOrds(userId, body, type), minLines) : plan;
 }
 
-module.exports = { MAX_LINES, REPLI_PERIODES, evenPick, gapCells, belowOf, planTrou, proposer, typeOfRow, periodCell, weekCell, yearCell };
+module.exports = { MIN_PROPOSITIONS, beforeCells, completer, MAX_LINES, REPLI_PERIODES, evenPick, gapCells, belowOf, planTrou, proposer, typeOfRow, periodCell, weekCell, yearCell };

@@ -225,6 +225,22 @@ function lineColumn(mode, type, col, actId) {
   if (type === 'annuel') { const ps = col.level === 'activite' ? goals.categoriesForActivity(actId) : []; return ps.length ? { level: 'pole', poleKey: ps[0].key, categoryKey: null } : (col.level === 'activite' ? null : col); }
   return col;
 }
+// Nombre de modifications proposées par le redessin des enfants (fenêtre « Modifications proposées ») : jamais bloquant.
+function modifsCount(userId, body, today) {
+  try {
+    if (!body.parentId) return 0;
+    const d = require('./objectifs-redessin').proposer(userId, { parentId: body.parentId, endDate: body.endDate, title: body.title, type: body.type }, today);
+    return d && d.needed ? d.rows.filter((r) => r.moved).length : 0;
+  } catch (e) { return 0; }
+}
+// Minutes par semaine prédites pour UNE ligne (un appel mis en cache par objectifs-heures, plafonds et crédit gratuit appliqués) ; null = repli sur le parent.
+async function predictHours(userId, row, activityName, today) {
+  try {
+    const r = await require('./objectifs-heures').suggest(userId, { title: row.title, endDate: row.endDate, startDate: row.start > today ? row.start : today, activityName }, today);
+    const mid = r && r.suggestion && r.suggestion.perWeekMin && Number(r.suggestion.perWeekMin.mid);
+    return Number.isFinite(mid) && mid > 0 && mid <= 168 * 60 ? mid : null;
+  } catch (e) { return null; }
+}
 async function planTrouRows(userId, body, today) {
   const skip = { skip: true };
   const type = ['pluriannuel', 'annuel', 'periodique'].includes(body.type) ? body.type : null;
@@ -234,7 +250,7 @@ async function planTrouRows(userId, body, today) {
   if (!act || !(rate > 0) || rate > 168 * 60 || !title) return skip;
   const level = ['activite', 'pole', 'secteur'].includes(body.level) ? body.level : 'activite';
   const col0 = { level, poleKey: level === 'activite' ? null : (body.poleKey || null), categoryKey: level === 'secteur' ? (body.categoryKey || null) : null };
-  const tr = T.proposer(userId, body, today); if (!tr.lines.length) return skip;
+  const tr = T.proposer(userId, Object.assign({}, body, { minLines: Math.max(0, T.MIN_PROPOSITIONS - modifsCount(userId, body, today)) }), today); if (!tr.lines.length) return skip; // au moins 8 propositions au total : modifications + ajouts
   const lineType = LEVEL_NAME[tr.lines[0].level];
   const col = lineColumn(tr.mode, lineType, col0, act.id); if (!col) return skip;
   const lines = tr.lines.map((c) => { const a = c.start > today ? c.start : today; return { c, weeks: Math.max(1, Math.min(LINE_WEEKS[c.level], weeksIn(a, c.endDate))) }; });
@@ -257,6 +273,9 @@ async function planTrouRows(userId, body, today) {
     if (t) { row.faire = strip(t.faire).slice(0, MAX_TEXT); row.resultat = strip(t.resultat).slice(0, MAX_TEXT); row.avancement = strip(t.avancement).slice(0, MAX_TEXT); }
     return row;
   });
+  // Heures (17 nov. 2026, Émilien) : prédites par l'IA pour la personne (objectifs-heures.js, mêmes variables que l'étape Temps), JAMAIS héritées d'office du parent ; repli : les heures du parent quand l'IA manque de données ou doute.
+  const preds = await Promise.all(rows.map((r) => predictHours(userId, r, act.name, today)));
+  rows.forEach((r, i) => { r.hoursSource = 'parent'; if (preds[i]) { r.hoursMin = rq(preds[i] * r.weeks); r.hoursSource = 'ia'; } });
   return { skip: false, level: LINE_LEVEL[lines[0].c.level], mode: tr.mode, gap: tr.gap, ai: !!ai, contexte: ai ? ai.contexte || null : null, rateMin: rate, chiffre: null, rows, totalMin: rows.reduce((a, r) => a + r.hoursMin, 0) };
 }
 

@@ -583,13 +583,13 @@
     function infMode() { return typeOf() === 'hebdomadaire' ? null : 'trou'; } // plan proposé à la création : la règle du trou (serveur, objectifs-trou.js) ; rien en dessous d'un hebdomadaire
     function infEligible() { return !!infMode() && !!form.endDate && tp.valueMin > 0; }
     function infListed() { return infEligible() && !(inf.plan && inf.plan.skip); }
-    function infKey() { return [nivKey(), form.endDate || '', tp.valueMin, form.level || '', form.poleKey || '', form.categoryKey || '', infMode()].join('|'); }
+    function infKey() { return [nivKey(), form.endDate || '', form.parentId || '', tp.valueMin, form.level || '', form.poleKey || '', form.categoryKey || '', infMode()].join('|'); }
     function infFetch() {
       if (!infEligible()) { inf.plan = { skip: true }; inf.key = null; return Promise.resolve(); }
       var key = infKey(); if (inf.key === key && inf.plan) return Promise.resolve();
       inf.key = key; inf.plan = null;
       var nb = nivBody(), dep = nb && nb.answers[0] ? nb.answers[0].a : '';
-      return api('POST', '/api/objectifs/inferieurs/proposition', { title: form.title, description: form.description || '', activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, trou: true, type: typeOf(), startDate: form.startDate, endDate: form.endDate, rateMin: tp.valueMin, depart: dep }).then(function (p) {
+      return api('POST', '/api/objectifs/inferieurs/proposition', { title: form.title, description: form.description || '', activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, trou: true, parentId: form.parentId || undefined, type: typeOf(), startDate: form.startDate, endDate: form.endDate, rateMin: tp.valueMin, depart: dep }).then(function (p) {
         if (inf.key !== key) return;
         inf.plan = p && !p.skip ? p : { skip: true };
         if (!inf.plan.skip) { inf.on = p.rows.map(function (r) { return r.checked; }); inf.hrs = p.rows.map(function (r) { return r.hoursMin; }); inf.edited = p.rows.map(function () { return false; }); inf.titles = p.rows.map(function (r) { return r.title || ''; }); inf.dates = p.rows.map(function (r) { return r.endDate; }); inf.open = -1; }

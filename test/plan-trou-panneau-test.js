@@ -16,8 +16,8 @@ const pole = categories.addCategory(actId, 'Pôle A'); const poleKey = (pole && 
   const existing = O.creer('u1', { title: 'Existant', activityId: actId, level: 'pole', poleKey, cadence: 'periodique', startDate: T, endDate: E0, hoursPerWeek: 2, weekTasks: [] });
   const before = JSON.stringify(db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(existing.id));
   const parent = O.creer('u1', { title: 'Nouveau périodique', activityId: actId, level: 'pole', poleKey, cadence: 'periodique', startDate: T, endDate: END, hoursPerWeek: 2, weekTasks: [] });
-  const expect = TR.planTrou('periodique', END, E0, T);
   const body = { trou: true, type: 'periodique', title: parent.title, activityId: actId, level: 'pole', poleKey, startDate: T, endDate: END, rateMin: 120 };
+  const expect = TR.proposer('u1', Object.assign({}, body, { minLines: TR.MIN_PROPOSITIONS }), T); // trou + ajouts jusqu'à 8 propositions (17 nov. 2026)
   // 1. sans IA : repli, toujours quelque chose à proposer s'il y a un trou
   const r0 = await I.plan('u1', body, T);
   if (!expect.lines.length) { assert(r0.skip, 'aucun trou : rien à proposer'); console.log(failed ? 'ÉCHEC' : 'plan-trou-panneau-test OK (aucun trou aujourd’hui)'); process.exit(failed ? 1 : 0); }
@@ -26,12 +26,14 @@ const pole = categories.addCategory(actId, 'Pôle A'); const poleKey = (pole && 
   // 2. avec IA : un appel, titres personnalisés, mis en cache
   process.env.ANTHROPIC_API_KEY = 'test'; delete process.env.NOESIS_FAST_MODEL; aicache.memoClear();
   const realFetch = global.fetch; let calls = 0, sysPrompt = '';
-  global.fetch = async (url, init) => { calls++; const b = JSON.parse(init.body), payload = JSON.parse(b.messages[0].content);
-    sysPrompt = b.system; const out = { confidence: 90, chiffre: null, contexte: 'projet', lignes: payload.lignes.map((l) => ({ n: l.n, titre: 'Jalon ' + l.periode, faire: 'Faire', resultat: 'Résultat', avancement: 'Terminé', choix: null })) };
+  global.fetch = async (url, init) => { const b = JSON.parse(init.body), payload = JSON.parse(b.messages[0].content);
+    if (!payload.lignes) { const h = { min: 10, max: 10, raison: 'r', confidence: 95 }; return { ok: true, status: 200, clone() { return this; }, json: async () => ({ model: b.model, usage: { input_tokens: 10, output_tokens: 10 }, content: [{ type: 'text', text: JSON.stringify(h) }] }) }; } // prédiction des heures (objectifs-heures)
+    calls++; sysPrompt = b.system; const out = { confidence: 90, chiffre: null, contexte: 'projet', lignes: payload.lignes.map((l) => ({ n: l.n, titre: 'Jalon ' + l.periode, faire: 'Faire', resultat: 'Résultat', avancement: 'Terminé', choix: null })) };
     return { ok: true, status: 200, clone() { return this; }, json: async () => ({ model: b.model, usage: { input_tokens: 10, output_tokens: 10 }, content: [{ type: 'text', text: JSON.stringify(out) }] }) }; };
   try {
     const r1 = await I.plan('u1', body, T), r2 = await I.plan('u1', body, T);
     assert(!r1.skip && r1.ai === true && r1.rows.every((x) => /^Jalon /.test(x.title)) && calls === 1, 'avec IA : titres personnalisés, UN seul appel (le second vient du cache)');
+    assert(r1.rows.every((x) => x.hoursSource === 'ia' && x.hoursMin !== 120 * x.weeks) && r0.rows.every((x) => x.hoursSource === 'parent'), 'heures : prédites par l’IA pour chaque ligne, jamais héritées d’office ; repli sur le parent sans IA');
     assert(r1.contexte === 'projet' && /LARGE au PRÉCIS/.test(sysPrompt) && /RÉGULIÈRE/.test(sysPrompt) && /EN SILENCE/.test(sysPrompt), 'ordre des sous-objectifs : projet = du large au précis, progression = montée régulière ; contexte décidé par l’IA en silence (jamais montré)');
     // 3. validation ligne par ligne : une ligne décochée, un titre et une date modifiés ; « Terminer » n'écrit que le reste
     const rows = r1.rows.map((x, i) => ({ kind: 'nouveau', title: i === 1 ? 'Titre modifié' : x.title, description: 'd', weeks: x.weeks, hoursMin: x.hoursMin, endDate: i === 0 ? x.minDate : x.endDate, lineType: x.lineType, column: x.column, link: x.link, poleKey: x.poleKey, categoryKey: x.categoryKey }));
