@@ -647,12 +647,15 @@ router.delete('/mcp', (req, res) => res.status(405).set('Allow', 'POST').json({ 
 
 // ---------------------------------------------------------------- jetons (Réglages)
 router.get('/api/ai-tokens', requireAuth, (req, res) => {
-  res.json({ tokens: aitokens.listTokens(req.userId), max: aitokens.MAX_ACTIVE, url: req.protocol + '://' + req.get('host') + '/mcp', origin: req.protocol + '://' + req.get('host') });
+  let consentement = false; try { consentement = require('../lib/taches-apprentissage').hasConsent(req.userId); } catch (e) { consentement = false; }
+  res.json({ consentement, tokens: aitokens.listTokens(req.userId), max: aitokens.MAX_ACTIVE, url: req.protocol + '://' + req.get('host') + '/mcp', origin: req.protocol + '://' + req.get('host') });
 });
 router.post('/api/ai-tokens', requireAuth, (req, res) => {
   try {
     const consent = req.body && req.body.consentement;
-    if (consent === false || (process.env.CONNECTEUR_CONSENTEMENT_OBLIGATOIRE === '1' && consent !== true)) return res.status(400).json({ error: 'Le consentement est nécessaire pour connecter une IA : les rangements et corrections qui passent par le connecteur servent, de façon anonyme et agrégée, à améliorer le modèle de Noèsis.' });
+    // Consentement OBLIGATOIRE par défaut (18 nov. 2026, décision d'Émilien : la fenêtre existe maintenant) ; CONNECTEUR_CONSENTEMENT_OBLIGATOIRE=0 le désactive ; déjà donné : pas redemandé.
+    let deja = false; try { deja = require('../lib/taches-apprentissage').hasConsent(req.userId); } catch (e) { deja = false; }
+    if (consent === false || (process.env.CONNECTEUR_CONSENTEMENT_OBLIGATOIRE !== '0' && consent !== true && !deja)) return res.status(400).json({ error: 'Le consentement est nécessaire pour connecter une IA : les rangements et corrections qui passent par le connecteur servent, de façon anonyme et agrégée, à améliorer le modèle de Noèsis.' });
     const out = aitokens.createToken(req.userId, req.body && req.body.label, !!(req.body && req.body.canWrite));
     if (consent === true) require('../lib/taches-apprentissage').setConsent(req.userId, true, 'connecteur'); // date d'acceptation journalisée (rangement_consentement)
     res.json(out);

@@ -984,9 +984,32 @@ function refusDe(userId, id) {
   const r = rowOf(userId, id);
   return db.prepare('SELECT candidateId FROM objectifs_refus WHERE userId = ? AND objectifId = ?').all(userId, r.id).map((x) => x.candidateId);
 }
+// Date d'ATTEINTE d'un objectif (lot 2 du rangement des tâches, 18 nov. 2026) : la première fois que la lecture le voit atteint, sa date est gardée (metaJson.atteintLe) et, avec une famille connue,
+// l'écart RÉEL en semaines depuis le palier précédent de la même famille alimente les délais personnalisés (taches-apprentissage.recordPalierDelay). Jamais bloquant, jamais d'effet sur l'affichage.
+function noterAtteintes(userId, all) {
+  try {
+    const atteints = all.filter((o) => o.status === 'atteint');
+    if (!atteints.length) return;
+    const A = require('./taches-apprentissage'), now = today();
+    const rows = db.prepare('SELECT id, activityId, endDate, metaJson, objectif_famille FROM user_objectives WHERE userId = ?').all(userId).map((r) => ({ r, m: parseMetaSafe(r) }));
+    const ids = new Set(atteints.map((o) => o.id));
+    rows.filter((x) => ids.has(x.r.id) && !x.m.atteintLe).forEach((x) => {
+      x.m.atteintLe = now;
+      db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(x.m), x.r.id);
+      const chiffre = x.m.chiffre && Number.isFinite(Number(x.m.chiffre.value)) ? Number(x.m.chiffre.value) : null;
+      if (!x.r.objectif_famille || chiffre == null) return;
+      const prev = rows.filter((y) => y.r.id !== x.r.id && y.r.activityId === x.r.activityId && y.r.objectif_famille === x.r.objectif_famille && y.m.atteintLe && y.m.chiffre && Number.isFinite(Number(y.m.chiffre.value)) && y.m.atteintLe < now)
+        .sort((a, b) => (a.m.atteintLe < b.m.atteintLe ? 1 : -1))[0];
+      if (!prev) return;
+      const semaines = Math.round(daysBetween(prev.m.atteintLe, now) / 7);
+      if (semaines > 0) A.recordPalierDelay(userId, x.r.objectif_famille, Number(prev.m.chiffre.value), chiffre, semaines);
+    });
+  } catch (e) { /* jamais bloquant */ }
+}
 function liste(userId, filtre) {
   const all = db.prepare('SELECT * FROM user_objectives WHERE userId = ? ORDER BY endDate, id').all(userId).map((r) => { try { return shape(r, false); } catch (e) { console.warn('[objectifs] ligne illisible ignorée dans la liste (id ' + r.id + ') : ' + (e && e.message)); return null; } }).filter(Boolean); // une ligne corrompue ne fait plus tomber toute la liste (elle reste dans l'export)
   const known = new Set(all.map((o) => o.id));
+  noterAtteintes(userId, all);
   all.forEach((o) => { o.archived = (o.parentId == null || !known.has(o.parentId)) && o.status === 'atteint'; }); // objectif FINAL atteint -> archives (un nouveau peut être créé)
   return filtre === 'atteints' ? all.filter((o) => o.status === 'atteint') : filtre === 'tous' ? all : all.filter((o) => o.status !== 'atteint');
 }

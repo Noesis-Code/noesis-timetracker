@@ -39,11 +39,11 @@
   }
 
   // Crée une adresse : si des accès existent déjà, ils sont d'abord révoqués (une seule adresse active à la fois).
-  function create(data) {
+  function create(data, consentement) {
     var old = data.tokens.slice();
     var chain = Promise.resolve();
     old.forEach(function (tk) { chain = chain.then(function () { return call('DELETE', '/api/ai-tokens/' + tk.id); }); });
-    return chain.then(function () { return call('POST', '/api/ai-tokens', { label: 'Claude', canWrite: canWrite }); })
+    return chain.then(function () { return call('POST', '/api/ai-tokens', { label: 'Claude', canWrite: canWrite, consentement: consentement === true ? true : undefined }); })
       .then(function (r) { shown = r; return refresh(); });
   }
   function revokeAll(data) {
@@ -77,8 +77,13 @@
     } else {
       var main = el('button', 'btn btn-primary btn-small', connected ? tr('Générer une nouvelle adresse') : tr("Créer l'adresse de connexion")); main.type = 'button';
       main.addEventListener('click', function () {
-        main.disabled = true;
-        create(data).catch(function (e) { paint(data, e.message); });
+        // Consentement (18 nov. 2026) : une seule fenêtre au moment de connecter, pas redemandée une fois acceptée ; sans accepter, rien ne se connecte.
+        var go = function (accepte) { main.disabled = true; create(data, accepte).catch(function (e) { paint(data, e.message); }); };
+        if (data.consentement || !(window.TMT && TMT.ui && typeof TMT.ui.confirm === 'function')) return go(data.consentement === true);
+        var texte = [tr("Ton IA range tes tâches avec les outils de Noèsis. En la connectant, tu acceptes que Noèsis lise ce qui passe par ces outils : la catégorie et l'objectif choisis, la nature, la raison et la confiance, et tes corrections."),
+          tr("Ces données servent, de façon anonyme et regroupée, à améliorer le classement de Noèsis. Noèsis ne voit jamais les instructions ni le modèle de ton IA."), tr("Tu peux te déconnecter à tout moment.")].join('\n');
+        TMT.ui.confirm(texte, { choices: [{ value: true, label: tr("J'accepte et je connecte") }, { value: false, label: tr('Annuler'), quiet: true }] })
+          .then(function (yes) { if (yes) go(true); });
       });
       var wl = el('label', 'aiConnectWrite');
       var wc = el('input'); wc.type = 'checkbox'; wc.checked = canWrite;

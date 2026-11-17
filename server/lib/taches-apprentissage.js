@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const db = require('../db');
 
 const MIN_USERS = 5, MIN_SHARE = 0.9, KEEP_PER_USER = 300, MAX_LABEL = 120;
-const FIELDS = ['category', 'objective', 'nature', 'phase', 'rank', 'group', 'responsable']; // « responsable » reste PERSONNEL (jamais agrégé : une personne n'est pas un motif)
+const FIELDS = ['category', 'objective', 'nature', 'phase', 'rank', 'group', 'responsable', 'place']; // « responsable » reste PERSONNEL (jamais agrégé : une personne n'est pas un motif)
 const GLOBAL_FIELDS = ['category', 'objective', 'nature', 'phase'];
 
 db.exec(`CREATE TABLE IF NOT EXISTS task_rangement_corrections (

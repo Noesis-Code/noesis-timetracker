@@ -769,6 +769,54 @@
       v.textContent = m ? t(m.label) : '';
     }).catch(function () {});
   };
+  // ---------- Rangement proposé (18 nov. 2026, lot 2 du rangement des tâches, schéma « Rangement d'une tâche » v11) ----------
+  // Après la création d'une tâche : Noèsis PROPOSE son objectif (POST /api/taches/choix) puis sa place (POST /api/taches/place), jamais deux choix. Panneau à trois sections (où la tâche est rangée,
+  // ces tâches se décalent avec la chaîne entière, dépassements), seulement les sections utiles ; MÊME composant que « Modifications proposées » (TMT.ui.confirm, R29). Oui écrit (POST /api/taches/place/appliquer),
+  // Non n'écrit rien. Le responsable est proposé selon les parts de l'activité ; « Changer le responsable » ouvre le même composant avec les membres. Chaque correction est apprise côté serveur.
+  function rangWeek(iso) { try { return new Date(iso + 'T00:00:00').toLocaleDateString(dateLocale || undefined, { day: 'numeric', month: 'short' }); } catch (e) { return iso; } }
+  function rangTexte(label, p, resp) {
+    var L = [t('Rangement proposé'), '', t('Où la tâche est rangée'), label + ' → ' + p.objectifTitre + ', ' + t('semaine du') + ' ' + rangWeek(p.rangement.semaine)];
+    if (p.membres && p.membres.length > 1 && resp) L.push(t('Responsable') + ' : ' + resp.name);
+    var moved = {}; (p.decales || []).forEach(function (d) { moved[d.id] = d; });
+    var lignes = [];
+    if (p.chaine && p.chaine.length > 1) {
+      p.chaine.forEach(function (c) { var d = moved[c.id]; lignes.push(c.label + ' : ' + (d ? rangWeek(d.avant) + ' ⇒ ' + rangWeek(d.apres) : rangWeek(c.semaine)) + (c.nouvelle ? ' (' + t('nouvelle') + ')' : '')); });
+    } else (p.decales || []).forEach(function (d) { lignes.push(d.label + ' : ' + rangWeek(d.avant) + ' ⇒ ' + rangWeek(d.apres)); });
+    if ((p.decales || []).length && lignes.length) { L.push('', t('Ces tâches se décalent')); lignes.forEach(function (x) { L.push(x); }); }
+    if ((p.depassements || []).length) {
+      L.push('', t('Dépassements'));
+      p.depassements.forEach(function (d) { L.push(d.label + ' : ' + t(d.raison.indexOf('date') >= 0 ? 'après sa date' : 'reste dans son objectif, en dépassement (aucune heure transférée)')); });
+    }
+    return L.join('\n');
+  }
+  function rangResponsable(p, cur) {
+    var ch = p.membres.map(function (m) { return { value: m.id, label: m.name + (cur && cur.id === m.id ? ' ✓' : ''), quiet: !(cur && cur.id === m.id) }; });
+    ch.push({ value: false, label: t('Annuler'), quiet: true });
+    return TMT.ui.confirm(t('Responsable'), { choices: ch }).then(function (id) { return id ? p.membres.filter(function (m) { return m.id === id; })[0] || null : null; });
+  }
+  function rangDemande(r, label, p, who) {
+    var resp = who || p.responsable, uid = TMT.getProfile().id;
+    var choices = [{ value: 'oui', label: t('Oui') }];
+    if (p.membres && p.membres.length > 1) choices.push({ value: 'resp', label: t('Changer le responsable'), quiet: true });
+    choices.push({ value: false, label: t('Non'), quiet: true });
+    return TMT.ui.confirm(rangTexte(label, p, resp), { choices: choices }).then(function (v) {
+      if (v === 'resp') return rangResponsable(p, resp).then(function (m) { return rangDemande(r, label, p, m || resp); });
+      if (v !== 'oui') return null;
+      return api('POST', '/api/taches/place/appliquer', { userId: uid, itemId: r.id, objectiveId: p.objectiveId, lignes: p.lignes, proposition: { lignes: p.lignes }, responsableId: resp ? resp.id : undefined }).then(function () { return true; });
+    });
+  }
+  TMT.rangerTache = function (r, label) {
+    if (!r || !r.ok || !r.id || !r.activityId || TMT.aiMode === 'absence' || !TMT.ui || typeof TMT.ui.confirm !== 'function') return Promise.resolve(null);
+    var uid = TMT.getProfile().id;
+    return api('POST', '/api/taches/choix', { userId: uid, activityId: r.activityId, label: label, itemId: r.id }).then(function (d) {
+      var c = d && d.proposition;
+      if (!c || !c.objectiveId) return null; // aucun objectif ne convient : la tâche reste dans sa catégorie, rien à valider
+      return api('POST', '/api/taches/place', { userId: uid, itemId: r.id, objectiveId: c.objectiveId }).then(function (q) {
+        var p = q && q.proposition;
+        return p && p.rangement ? rangDemande(r, label, p, null) : null;
+      });
+    }).catch(function () { return null; }); // jamais bloquant : la tâche est déjà créée
+  };
   // Envoi d'une tâche libre vers des activités déjà choisies (pop-up du bouton flottant) : MÊME chaîne que « Ajouter » de la page 1 —
   // mode de l'IA, puis pop-up de choix (sans IA), de placement (partiel) ou de confirmation (autonome). Résout { results } ou null (annulé).
   TMT.captureTaskFlow = function (label, ids, forcedCategory, opts) {
@@ -778,7 +826,7 @@
     }).then(function (outcome) {
       if (!outcome || outcome.cancelled) return null;
       var results = outcome.results, okResults = results.filter(function (r) { return r.ok; });
-      function finish() { loadGoalsCaptureBadges(); return { results: results }; }
+      function finish() { loadGoalsCaptureBadges(); if (okResults.length === 1) setTimeout(function () { TMT.rangerTache(okResults[0], label); }, 0); return { results: results }; }
       function undo() {
         return Promise.all(okResults.map(function (r) {
           return api('DELETE', '/api/sub-project-items/' + r.id + '?userId=' + TMT.getProfile().id).catch(function () {});

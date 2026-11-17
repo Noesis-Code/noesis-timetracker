@@ -18,8 +18,13 @@ Schéma de référence : « Rangement d'une tâche » (8 blocs : date, catégori
 - Le journal personnel reste celui de la personne (remise à zéro par l'API, effacé avec le compte).
 - Les motifs globaux (`rangement_motifs`, `paliers_delais_globaux`) ne contiennent AUCUN identifiant ni texte brut : le titre est réduit à un motif générique (au plus 2 mots courants, jamais de nom propre, de chiffre ni d'adresse), la personne est une empreinte salée. Ils ne servent qu'avec au moins 5 personnes distinctes et 90 % de convergence.
 - Alimentés SEULEMENT avec le consentement (`rangement_consentement`). Retrait du consentement : les contributions de la personne sortent des agrégats.
-- `POST /api/ai-tokens` accepte `consentement: true` (journalise la date) et refuse `consentement: false`. Il devient OBLIGATOIRE avec la variable `CONNECTEUR_CONSENTEMENT_OBLIGATOIRE=1` : à activer quand la fenêtre « Connecter mon IA » affichera le texte de consentement (interface à maquetter d'abord, règle R30).
+- `POST /api/ai-tokens` accepte `consentement: true` (journalise la date) et refuse `consentement: false`. Il est OBLIGATOIRE par défaut depuis le 18 nov. 2026 (la fenêtre « Connecter mon IA » affiche le texte de consentement ; `GET /api/ai-tokens` renvoie `consentement`, déjà accepté = pas redemandé) ; `CONNECTEUR_CONSENTEMENT_OBLIGATOIRE=0` le désactive.
 
-## Pas encore livré (lot 2)
+## Lot 2 : place d'une tâche dans son objectif (18 nov. 2026, `server/lib/taches-place.js`)
 
-Blocs 5 à 7 du schéma : importance liée au type de l'objectif, rang dans la chaîne, place (semaine, périodique, année), décalage des tâches moins utiles, dépassement sans transfert d'heures, panneau de validation avec la chaîne affichée.
+- **Importance** selon le TYPE de l'objectif (`objectifs-type.js`, repli : des paliers chiffrés = progression, sinon projet) : projet = maintenance urgente (rang 1), réformer (2), cadrage (3), réalisation ou finition (4) ; progression = paliers, petite valeur d'abord (diminution : sens inverse).
+- **Rang dans la chaîne** : jamais avant son prérequis (palier ou phase précédente) ; une tâche sans chiffre ni phase garde son ordre d'ajout.
+- **Place** : semaine par semaine dans le cadre de l'objectif (`cadreDeDecalage`) ; sans place dans la semaine, la progression efficace passe en premier et les moins utiles reculent suivant la courbe de l'objectif (délai réel de la personne, puis global ≥ 5 personnes consentantes, puis tableau général, jamais une seule case). Rien ne trouve de place : dépassement dans son objectif, AUCUN transfert d'heures.
+- **API** : `POST /api/taches/place` (proposition unique : `rangement`, `decales`, `chaine`, `depassements`, `responsable`, `membres`, `lignes`) ; `POST /api/taches/place/appliquer` (écrit date = lundi de la semaine, rang, objectif, responsable ; chaque ligne changée est apprise, champ `place`). Aucune heure modifiée.
+- **Date d'atteinte** d'un objectif : `metaJson.atteintLe` posée à la première lecture qui le voit atteint ; avec une famille et des chiffres, l'écart réel entre paliers alimente les délais personnalisés.
+- **Interface** : panneau « Rangement proposé » (`TMT.rangerTache`, `public/js/objectifs-page1.js`) avec le composant de « Modifications proposées » (`TMT.ui.confirm`) ; fenêtre de consentement dans `public/js/connexion-ia.js`. Aucun nouveau style.

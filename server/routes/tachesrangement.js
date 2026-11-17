@@ -27,4 +27,15 @@ router.post('/taches/rangement/corriger', (req, res) => {
   try { res.json({ lien: choix().corriger(req.userId, req.body || {}) }); } catch (err) { fail(res, 'POST /taches/rangement/corriger', err); }
 });
 
+// body { itemId, objectiveId? } -> { rangement, decales, chaine, depassements, responsableId, lignes } (PROPOSITION unique, rien n'est écrit ; schéma v11, blocs 5, 6, 8)
+router.post('/taches/place', async (req, res) => {
+  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
+  try { res.json({ proposition: await require('../lib/taches-place').proposer(req.userId, req.body || {}) }); } catch (err) { fail(res, 'POST /taches/place', err); }
+});
+// body { itemId, objectiveId, lignes: [{ id, semaine, rang }], proposition?: { lignes }, responsableId? } -> { appliquees } : écrit ce que la personne valide ; chaque ligne changée est apprise.
+router.post('/taches/place/appliquer', (req, res) => {
+  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
+  try { res.json(require('../lib/taches-place').appliquer(req.userId, req.body || {})); } catch (err) { fail(res, 'POST /taches/place/appliquer', err); }
+});
+
 module.exports = router;
