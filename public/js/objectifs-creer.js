@@ -596,22 +596,23 @@
       }).catch(function () { if (inf.key === key) inf.plan = { skip: true }; });
     }
     // Redessin des enfants (après Temps, avant les sous-objectifs) : seulement s'il y a quelque chose à redessiner ; « Appliquer » garde le choix, écrit à « Terminer » ; Annuler / ✕ = refus mémorisé
-    function rdKey() { return [form.parentId || '', form.endDate || '', typeOf()].join('|'); }
+    function rdKey() { return [form.parentId || '', form.endDate || '', typeOf(), form.activityId == null ? '' : form.activityId, form.level || '', form.poleKey || '', form.categoryKey || '', form.dateFixe === true].join('|'); }
+    function rdBody() { return { parentId: form.parentId || undefined, type: typeOf(), title: form.title, endDate: form.endDate, activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, dateFixe: form.dateFixe === true }; }
     function redessinStep() {
-      if (!form.parentId || !form.endDate || form._rdKey === rdKey()) return Promise.resolve();
+      if (!form.endDate || form.activityId == null || form._rdKey === rdKey()) return Promise.resolve();
       form._rdKey = rdKey(); form.redessin = null; form.rdNeeded = false;
-      return api('POST', '/api/objectifs/redessin', { parentId: form.parentId, type: typeOf(), title: form.title, endDate: form.endDate }).then(function (d) {
+      return api('POST', '/api/objectifs/redessin', rdBody()).then(function (d) {
         if (!d || !d.needed) return;
         form.rdNeeded = true; // des objectifs existants changent : la fenêtre « Modifications proposées » remplace l'étape des sous-objectifs (un seul chemin)
         return openRedessin(d).then(function (res) {
-          if (res.applied) form.redessin = { parentId: form.parentId, rows: res.rows };
+          if (res.applied) form.redessin = { parentId: form.parentId, rows: res.rows, moves: d.moves || [] };
           else api('POST', '/api/objectifs/redessin', { action: 'refus', parentId: form.parentId, endDate: form.endDate, rows: res.rows }).catch(function () {});
         });
       }).catch(function () {});
     }
     function rdApply() {
       var r = form.redessin; if (!r) return Promise.resolve(); form.redessin = null;
-      return api('POST', '/api/objectifs/redessin', { action: 'appliquer', parentId: r.parentId, rows: r.rows.filter(function (x) { return x.kind === 'auto' && x.id; }).map(function (x) { return { id: x.id, p: x.p, hoursPerWeek: x.hrsEdited ? x.hoursPerWeek : undefined }; }) }).catch(function () { /* l'objectif existe déjà : jamais de blocage */ });
+      return api('POST', '/api/objectifs/redessin', Object.assign(rdBody(), { moves: (r.moves || []).map(function (m) { return { id: m.id, startDate: m.apres.startDate, endDate: m.apres.endDate }; }) }, { action: 'appliquer', parentId: r.parentId, rows: r.rows.filter(function (x) { return x.kind === 'auto' && x.id; }).map(function (x) { return { id: x.id, p: x.p, hoursPerWeek: x.hrsEdited ? x.hoursPerWeek : undefined }; }) })).catch(function () { /* l'objectif existe déjà : jamais de blocage */ });
     }
     function infRq(m) { return Math.round(m / 15) * 15; }
     function infEx(r) { return r.kind === 'existant' ? r.hoursMin : (r.kind === 'modifier' ? r.fromMin : null); } // heures de l'objectif existant de la case
@@ -815,7 +816,8 @@
   // ---------- Fenêtre « Modifications proposées » (14 nov. 2026, décision d'Émilien : un simple Oui / Non) ----------
   // Après l'étape Temps, seulement s'il y a quelque chose à décaler : Oui applique le calcul proposé par le serveur (POST /api/objectifs/redessin), Non le refuse (refus mémorisé). Rien n'est écrit avant « Terminer ».
   function openRedessin(d) {
-    return TMT.ui.confirm(tr('Modifications proposées'), { choices: [{ value: true, label: tr('Oui') }, { value: false, label: tr('Non') }] })
+    var lines = (d.moves || []).map(function (m) { return m.title + ' : ' + m.avant.startDate + ' → ' + m.avant.endDate + '  ⇒  ' + m.apres.startDate + ' → ' + m.apres.endDate; });
+    return TMT.ui.confirm(tr('Modifications proposées') + (lines.length ? '\n' + lines.join('\n') : ''), { choices: [{ value: true, label: tr('Oui') }, { value: false, label: tr('Non') }] })
       .then(function (yes) { return yes ? { applied: true, rows: d.rows } : { refused: true, rows: d.rows }; });
   }
   // POP-UP DES HEURES d'une ligne (maquette v4, 14 nov. 2026) : lecture seule, l'arbre ne change jamais ; le tableau `objTable` du dépassement (colonnes « Chrono » puis « Objectif », seulement des traits).

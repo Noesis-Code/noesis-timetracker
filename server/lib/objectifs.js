@@ -589,7 +589,7 @@ function migrateEcheances() {
 function algoObjectifs(userId, activityId) {
   return db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ? AND isMacro = 0').all(userId, activityId).map((r) => {
     const m = parseMetaSafe(r);
-    return { id: r.id, level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null, startDate: r.startDate, endDate: r.endDate, dateFixe: m.dateFixe === true || (Number(m.dateCorrectedDays) || 0) !== 0, abandoned: !!m.abandoned, atteint: shape(r, false).status === 'atteint' };
+    return { id: r.id, level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null, startDate: r.startDate, endDate: r.endDate, dateFixe: m.dateFixe === true || (Number(m.dateCorrectedDays) || 0) !== 0, abandoned: !!m.abandoned, atteint: shape(r, false).status === 'atteint', hoursPerWeek: m.hoursPerWeek != null ? Number(m.hoursPerWeek) : null, famille: r.objectif_famille || null, chiffre: m.chiffre && Number.isFinite(Number(m.chiffre.value)) ? Number(m.chiffre.value) : null, parentId: r.parentId || null };
   });
 }
 function parseMetaSafe(r) { try { return JSON.parse((r && r.metaJson) || '{}'); } catch (e) { return {}; } }
@@ -843,6 +843,7 @@ function parametres(userId, id, body) {
     if (!hpwMin) delete meta.hoursByDay;
     else if (meta.hoursByDay.reduce((a, b) => a + b, 0) !== hpwMin) meta.hoursByDay = tb.defaultByDay(hpwMin, meta.hoursByDay);
   }
+  if ('dateFixe' in body) { if (body.dateFixe === true) meta.dateFixe = true; else delete meta.dateFixe; } // case « Date fixe » (algorithme v46) : mur et parent possible ; décochée, l'objectif peut de nouveau bouger par proposition validée
   if ('skill' in body) { const c = textlimits.clean(String(body.skill || ''), { max: 200, word: 'Niveau' }); if (c.error) throw err(c.error); if (c.text) meta.skill = c.text; else delete meta.skill; }
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
   return get(userId, id);
@@ -1127,6 +1128,57 @@ function fusionnerEnMacro(userId, body) {
 }
 // Modification de l'échéance (jamais vide ; macro : au moins aussi lointaine que celle de ses enfants ; enfant d'un macro : pas au-delà du macro).
 // Les périodes sont redécoupées de la date de début à la nouvelle échéance ; les semaines gardent texte et état (même date de début).
+// Nouveau début ET nouvelle échéance d'un objectif (réorganisation v46) : mêmes règles que modifierEcheance ; les textes des semaines gardées sont conservés ; jamais la date fixée à la main d'un autre.
+function reprogrammer(userId, id, startDate, endDate) {
+  const r = rowOf(userId, id);
+  if (!isDay(startDate) || !isDay(endDate) || endDate < startDate) throw err('Dates invalides.');
+  const m0 = parseMetaSafe(r); if (m0.dateFixe === true || (Number(m0.dateCorrectedDays) || 0) !== 0 || m0.abandoned) throw err('Cet objectif ne se déplace pas.');
+  const par = r.parentId ? db.prepare('SELECT isMacro, endDate FROM user_objectives WHERE id = ?').get(r.parentId) : null;
+  if (par && endDate > par.endDate) throw err('L’échéance dépasse celle du parent.');
+  const old = JSON.parse(r.stepsJson || '[]'), wk = {}; old.forEach((p) => p.weeks.forEach((w) => { wk[w.startDate] = w; }));
+  const next = splitPeriods(startDate, endDate, r.periodWeeks);
+  next.forEach((p) => {
+    p.title = p.n === next.length ? r.title : 'P ' + p.n;
+    p.weeks.forEach((w) => { const o = wk[w.startDate]; if (o) { w.text = o.text || ''; w.done = !!o.done; } });
+  });
+  const meta = JSON.parse(r.metaJson || '{}'); meta.plannedWeeks = Math.round(daysBetween(startDate, endDate) / 7);
+  db.prepare('UPDATE user_objectives SET startDate = ?, endDate = ?, stepsJson = ?, metaJson = ? WHERE id = ?').run(startDate, endDate, JSON.stringify(next), JSON.stringify(meta), r.id);
+  if (meta.category) bridge(rowOf(userId, r.id), next);
+  return get(userId, r.id);
+}
+// Délai minimal de l'objectif o : famille connue (objectifs-delais.js, tableau de connaissance générale) entre son prédécesseur de la même famille et lui ; null sans chiffres ou sans famille.
+function delaiDe(o, all) {
+  try {
+    if (!o.famille || o.chiffre == null) return null;
+    const prev = all.filter((x) => x.famille === o.famille && x.chiffre != null && x.endDate < o.startDate && x.id !== o.id).sort((a, b) => (a.endDate < b.endDate ? 1 : -1))[0];
+    if (!prev) return null;
+    const r = require('./objectifs-delais').delaiMinimal(o.famille, prev.chiffre, o.chiffre, { heuresParSemaine: o.hoursPerWeek || undefined });
+    return r && r.semaines > 0 ? r.semaines : null;
+  } catch (e) { return null; }
+}
+// Réorganisation proposée à la création (bloc 4 du schéma v46) : body { activityId, level, poleKey, categoryKey, endDate, dateFixe, parentId } -> { moves: [{ id, title, avant, apres }], ok, tours } ; rien n'est écrit.
+function reorganisation(userId, body) {
+  const none = { moves: [], ok: true, tours: 0 };
+  try {
+    const act = userActivities(userId).find((a) => a.id === Number(body && body.activityId));
+    if (!act || !isDay(body.endDate)) return none;
+    const lvl = levelOf(userId, act.id, body), all = algoObjectifs(userId, act.id);
+    const n = { id: 0, level: lvl.level, poleKey: lvl.poleKey, categoryKey: lvl.categoryKey, endDate: body.endDate, dateFixe: body.dateFixe === true };
+    const par = body.parentId ? db.prepare('SELECT endDate FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body.parentId), userId) : null;
+    const out = require('./objectifs-boucle').reorganiser(n, all, { today: today(), delaiMinimal: (o) => delaiDe(o, all), limite: par ? par.endDate : null });
+    const titles = new Map(db.prepare('SELECT id, title FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).map((r) => [r.id, r.title]));
+    return { moves: out.moves.map((m) => ({ id: m.id, title: titles.get(m.id) || '', avant: m.avant, apres: m.apres })), ok: out.ok, tours: out.tours };
+  } catch (e) { return none; }
+}
+// Application à « Terminer » : seulement les déplacements recalculés ici et identiques à ceux validés (jamais un objectif non proposé).
+function appliquerReorganisation(userId, body) {
+  const prop = reorganisation(userId, body), asked = Array.isArray(body && body.moves) ? body.moves : [], done = [];
+  asked.slice(0, 40).forEach((a) => {
+    const m = prop.moves.find((x) => x.id === Number(a && a.id));
+    if (m && m.apres.startDate === a.startDate && m.apres.endDate === a.endDate) { try { reprogrammer(userId, m.id, a.startDate, a.endDate); done.push(m.id); } catch (e) { console.warn('[objectifs] déplacement ignoré : ' + (e && e.message)); } }
+  });
+  return { moved: done };
+}
 function modifierEcheance(userId, id, endDate) {
   const r = rowOf(userId, id);
   checkEcheance({ endDate, startDate: r.startDate }, r.startDate);
@@ -1206,4 +1258,4 @@ function supprimer(userId, id, confirmed) {
 }
 migrateEcheances(); // au chargement (idempotent)
 try { const n = purgeOrphanMacros(null); if (n) console.log('[objectifs] ' + n + ' macro(s) sans objectif relié retiré(s)'); } catch (e) { console.warn('[objectifs] nettoyage des macros vides impossible :', e.message); }
-module.exports = { natureOfCategory, gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { reprogrammer, reorganisation, appliquerReorganisation, natureOfCategory, gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

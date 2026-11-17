@@ -37,8 +37,9 @@ router.post('/objectifs/redessin', run((req) => { // fenêtre « Modifications p
   if (b.action === 'reorder') return { rows: R.reorder(rows, Array.isArray(b.order) ? b.order : []).map((r) => Object.assign({}, r, { moved: R.moved(r) })) };
   if (b.action === 'place') { const out = R.place(rows, b.id, Number(b.cell), n, Number(b.minCell) || 1); if (!out) throw Object.assign(new Error('Case indisponible.'), { statusCode: 400 }); return { rows: out.map((r) => Object.assign({}, r, { moved: R.moved(r) })) }; }
   if (b.action === 'refus') return R.refuser(req.userId, b);
-  if (b.action === 'appliquer') return R.appliquer(req.userId, b, require('../lib/dates').userToday());
-  return R.proposer(req.userId, b, require('../lib/dates').userToday());
+  if (b.action === 'appliquer') { const out = b.parentId ? R.appliquer(req.userId, b, require('../lib/dates').userToday()) : { moved: [] }; return Object.assign(out, objectifs.appliquerReorganisation(req.userId, b)); }
+  const d = R.proposer(req.userId, b, require('../lib/dates').userToday()), ro = objectifs.reorganisation(req.userId, b); // + réorganisation des objectifs qui SUIVENT le nouvel (schéma v46, bloc 4)
+  return Object.assign({}, d, { moves: ro.moves, needed: !!(d.needed || ro.moves.length) });
 }));
 // Allocation d'heures par catégorie (saisie dans l'arbre seul) : valeur à une date, colonne sur plusieurs lignes, total par ligne de l'arbre
 router.post('/objectifs/allocation/lignes', run((req) => require('../lib/allocation').lignes(req.userId, req.body || {}, (req.body || {}).rows || (req.body || {}).dates)));
