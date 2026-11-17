@@ -285,7 +285,8 @@
     var byId = {}, keep = {};
     items.forEach(function (o) { byId[o.id] = o; });
     items.forEach(function (o) {
-      var st = stateOf(o, today), ok = zoom === 'block' || o.endDate >= today || st === 'now' || st === 'future';
+      // RÈGLE (18 nov. 2026) : plus aucune case passée n'est masquée une à une ; seuls les BLOCS ENTIERS du niveau le plus haut disparaissent (voir les bornes de lignes dans render) ; tout reste en base et dans l'export
+      var ok = true;
       if (!ok) return;
       for (var c = o; c && !keep[c.id]; c = c.parentId != null ? byId[c.parentId] : null) keep[c.id] = true;
     });
@@ -522,7 +523,7 @@
     });
     // rangées communes (futur en haut) : TOUTES les cases, de la plus ancienne affichée (aujourd'hui, ou le passé au zoom Tout) jusqu'à l'objectif le plus lointain + 1 an
     var here = rowKey(today), lo = here.rank, hi = here.rank, byRank = {};
-    data.forEach(function (c) { c.entries.forEach(function (e) { byRank[e.b.rank] = e.b; if (zoom === 'block' && e.b.rank < lo) lo = e.b.rank; if (e.b.rank > hi) hi = e.b.rank; }); });
+    data.forEach(function (c) { c.entries.forEach(function (e) { byRank[e.b.rank] = e.b; if (e.b.rank > hi) hi = e.b.rank; /* vue pluriannuelle : un bloc de 5 ans ENTIÈREMENT passé a disparu de l'arbre (jamais de ligne avant le bloc du présent) */ }); });
     // macros : colonnes concernées (celles de leurs activités visibles ; entre la première et la dernière, les colonnes intermédiaires sont traversées) et case d'échéance
     var macrosAt = {}, colIdx = {};
     curCols.forEach(function (c, i) { colIdx[c.key] = i; });
@@ -540,10 +541,10 @@
     }
     if (zoom !== 'period') hi = Math.max(hi, here.rank + 500); // horizon : au moins 5 ans devant (bloc suivant, ou cinq années)
     var blockYears = zoom === 'year' && focus && focus.block; // arbre des années ouvert depuis un grand objectif : exactement les 5 années de son bloc
-    if (blockYears) { lo = (focus.block + 4) * 100 < here.rank ? focus.block * 100 : Math.max(focus.block * 100, here.rank); hi = (focus.block + 4) * 100; } // le cycle (le bloc de 5 ans) a une fin FIXE : la vue va du présent à cette fin, jamais au-delà
+    if (blockYears) { lo = focus.block * 100; hi = (focus.block + 4) * 100; } /* les 5 années du bloc : toujours toutes, passées incluses (aucune case énorme) */ // le cycle (le bloc de 5 ans) a une fin FIXE : la vue va du présent à cette fin, jamais au-delà
     var farRank = hi; for (var yy = 0; yy < (zoom === 'period' ? PER_YEAR : 1); yy++) farRank = nextRank(farRank); // + 1 an
     if (blockYears) farRank = hi;
-    if (zoom === 'period' && focus && focus.year) { var y1 = focus.year * 100 + 1, y13 = focus.year * 100 + PER_YEAR; lo = y13 < here.rank ? y1 : Math.max(y1, here.rank); hi = y13; farRank = hi; } // vue des périodes : le cycle (l'année, 13 périodes) a une fin FIXE ; on n'affiche que les périodes qui RESTENT du présent à cette fin (aucune période de l'année suivante)
+    if (zoom === 'period' && focus && focus.year) { var y1 = focus.year * 100 + 1, y13 = focus.year * 100 + PER_YEAR; lo = y1; hi = y13; /* les 13 périodes de l'année : toujours toutes, passées incluses */ farRank = hi; } // vue des périodes : le cycle (l'année, 13 périodes) a une fin FIXE ; on n'affiche que les périodes qui RESTENT du présent à cette fin (aucune période de l'année suivante)
     var list = [];
     for (var rk = lo; rk <= farRank; rk = nextRank(rk)) list.push(byRank[rk] || rowOfRank(rk));
     var cycleEnd = blockYears || (zoom === 'period' && focus && focus.year); // cycle à fin FIXE : jamais de case au-delà de sa fin (pas de remplissage vers l'année ou le bloc suivant)

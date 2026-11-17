@@ -1,0 +1,13 @@
+// Arbre : les cases passées ne sont masquées que par BLOCS ENTIERS du niveau le plus haut (18 nov. 2026). Usage : node test/arbre-passe-test.js
+const fs = require('fs');
+let failed = 0; const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const js = fs.readFileSync('public/js/objectifs-arbre.js', 'utf8').replace(/\r\n/g, '\n');
+assert(js.includes('lo = y1; hi = y13;') && !js.includes('lo = y13 < here.rank ? y1 : Math.max(y1, here.rank)'), 'arbre périodique d\'une année : les 13 périodes sont toujours visibles, passées incluses');
+assert(js.includes('lo = focus.block * 100; hi = (focus.block + 4) * 100;') && !js.includes('Math.max(focus.block * 100, here.rank)'), 'arbre de l\'année dans son bloc : les 5 années sont toujours visibles, passées incluses');
+assert(!js.includes("zoom === 'block' && e.b.rank < lo") && js.includes('un bloc de 5 ans ENTIÈREMENT passé a disparu'), 'vue pluriannuelle : un bloc de 5 ans entièrement passé n\'a plus de ligne (la ligne de départ est celle du présent)');
+assert(!js.includes("ok = zoom === 'block' || o.endDate >= today || st === 'now' || st === 'future'") && js.includes('var ok = true;'), 'plus aucun objectif ou case passée masqué un à un');
+assert(js.includes('function rowEnd(rw)') && js.includes('return iso > dayIso() ? iso : null;'), 'création toujours interdite dans le passé (fin de case passée = case sans « + »)');
+// l'export garde tout (même test que objectifs-export-test.js : tous les objectifs, passés compris)
+const ex = fs.readFileSync('test/objectifs-export-test.js', 'utf8');
+assert(ex.includes('tous les objectifs sont exportés, passés et abandonnés compris'), 'l\'export contient les objectifs passés (donc ceux d\'un bloc masqué)');
+console.log(failed ? '\n' + failed + ' échec(s)' : 'arbre-passe-test OK'); process.exit(failed ? 1 : 0);
