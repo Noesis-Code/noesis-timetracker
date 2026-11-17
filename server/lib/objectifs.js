@@ -15,6 +15,7 @@ const textlimits = require('./textlimits');
 const durees = require('./objectifs-durees');
 const temps = require('./objectifs-temps');
 const fusion = require('./objectifs-fusion');
+const absorption = require('./objectifs-absorption');
 
 db.exec(`CREATE TABLE IF NOT EXISTS user_objectives (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -951,6 +952,7 @@ function purgeOrphanMacros(userId) {
 // Une fusion dont la période est PASSÉE est définitive : on ne détache plus ses objectifs (ni on ne les range ailleurs).
 function assertFusionOuverte(r) {
   const par = r.parentId ? db.prepare('SELECT isMacro, endDate FROM user_objectives WHERE id = ?').get(r.parentId) : null;
+  if (par && par.isMacro && absorption.lockedByMacro(r.userId, r.parentId)) throw err(absorption.MSG_IRREVERSIBLE); // absorption enregistrée : irréversible
   if (par && par.isMacro && fusion.state(par.endDate, today()).mergePast) throw err(fusion.MSG_PASSEE);
 }
 function lier(userId, id, parentId, rel) {
@@ -1079,13 +1081,20 @@ function assertLiaison(userId, level, leaves, ignoreRootId, extras) {
 // dans la MÊME case (même niveau de temps, même période / année / bloc), ils s'écraseraient : refus avec un message qui nomme les objectifs à déplacer. Dates différentes : la fusion se fait, rien n'est écrit ni supprimé.
 const MSG_CONFLIT = 'Vous devez déplacer ';
 function caseApres(o) { const t = temps.deduce(o.startDate, o.endDate), p = fusion.periodOf(o.endDate); return { rank: p.year * 100 + p.number, label: t === 'periode' ? 'période ' + p.number + ' de ' + p.year : t === 'annee' ? 'année ' + p.year : 'après ' + p.year, k: t === 'periode' ? 'P' + p.year + '/' + p.number : t === 'annee' ? 'A' + p.year : 'B' + Math.floor(p.year / 5) }; }
+let controleConflit = true; // coupé seulement par les tests de la mécanique des macros
+function setControleConflit(on) { controleConflit = on !== false; }
 function assertSansConflit(userId, level, leaves, extras) {
+  if (!controleConflit) return;
   const kids = leaves.filter((k) => k.id > 0), kidIds = new Set(kids.map((k) => k.id)), cols = columnsOfLeaves(level, leaves, extras);
   if (cols.length < 2 || !kids.length) return;
   const colKey = (c) => level === 'activite' ? String(c.activityId) : level === 'pole' ? c.activityId + '/' + c.poleKey : c.activityId + '/' + c.poleKey + '/' + c.categoryKey, mine = new Set(cols.map(colKey));
+  // transitivité : les groupes déjà fusionnés qui partagent une colonne entrent dans le contrôle (A-B puis B-C : A, B et C ensemble)
+  const groups = macroGroups(userId).filter((g) => g.level === level).map((g) => g.columns.map(colKey)); let grew = true;
+  while (grew) { grew = false; groups.forEach((g) => { if (g.some((k) => mine.has(k)) && g.some((k) => !mine.has(k))) { g.forEach((k) => mine.add(k)); grew = true; } }); }
+  const macroIds = new Set(db.prepare('SELECT id FROM user_objectives WHERE userId = ? AND isMacro = 1').all(userId).map((x) => x.id));
   const fin = fusion.periodOf(kids.map((k) => k.endDate).sort().pop()), rangFusion = fin.year * 100 + fin.number, byCase = {};
   db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND isMacro = 0').all(userId).forEach((r) => {
-    if (kidIds.has(r.id) || (r.level || 'activite') !== level || parseMetaSafe(r).abandoned || !isDay(r.endDate) || !isDay(r.startDate)) return;
+    if (kidIds.has(r.id) || (r.parentId && macroIds.has(r.parentId)) || (r.level || 'activite') !== level || parseMetaSafe(r).abandoned || !isDay(r.endDate) || !isDay(r.startDate)) return;
     const k = colKey(columnsOfLeaves(level, [r])[0]); if (!mine.has(k)) return;
     const c = caseApres(r); if (c.rank <= rangFusion) return;
     (byCase[c.k] = byCase[c.k] || []).push({ r, col: k, label: c.label });
@@ -1115,6 +1124,7 @@ function setMacro(userId, id, on, anchor) {
     const par = r.parentId ? db.prepare('SELECT isMacro FROM user_objectives WHERE id = ?').get(r.parentId) : null;
     if (par && !par.isMacro) throw err('Un objectif étape d’un objectif ordinaire ne peut pas devenir macro.');
   } else {
+    if (absorption.lockedByMacro(userId, r.id)) throw err(absorption.MSG_IRREVERSIBLE);
     if (fusion.state(r.endDate, today()).mergePast) throw err(fusion.MSG_PASSEE);
     const other = activeKids(r).filter((k) => k.activityId !== r.activityId);
     if (other.length) throw err('Ce macro englobe des objectifs d’autres activités (' + other.map((k) => '« ' + k.title + ' »').join(', ') + ') : détache-les avant d’en faire un objectif ordinaire.');
@@ -1169,6 +1179,8 @@ function fusionnerEnMacro(userId, body) {
   if (empties.length) writeExtras(created.id, empties);
   kids.forEach((k) => { setPrevParent(k, k.parentId || null); lier(userId, k.id, created.id, 'avant'); });
   relinkMacros(userId); // le parent d'origine est gardé : séparer remet les objectifs tels qu'ils étaient
+  // ABSORPTION (pôles, secteurs) : la branche choisie en premier absorbe les autres à partir de la période de fusion ; un enregistrement par absorbée, rien n'est modifié ni supprimé.
+  absorption.record(userId, lv, columnsOfLeaves(lv, [kids[0]]).concat(columnsOfLeaves(lv, kids.slice(1), empties)), fusion.periodOf(end).start, created.id); absorption.appliquer(userId, today());
   const out = get(userId, created.id);
   return Object.assign(out, require('./objectifs-ordre').forMacro(userId, out.macroColumns, body.anchor) || {}); // ordre de présentation dérivé (rien n'est écrit)
 }
@@ -1290,6 +1302,7 @@ function abandonner(userId, id, on) {
 // confirmée, les enfants sont détachés (ils redeviennent des objectifs finaux), jamais supprimés. Le secteur et les tâches déjà posés dans l'arbre périodique restent à l'utilisateur.
 function supprimer(userId, id, confirmed) {
   const r = rowOf(userId, id);
+  if (r.isMacro && absorption.lockedByMacro(userId, r.id)) throw err(absorption.MSG_IRREVERSIBLE); // fusion avec absorption : irréversible
   // Supprimer un macro, même passé : le macro disparaît, ses enfants redeviennent des objectifs NORMAUX de leurs activités (jamais supprimés, jamais orphelins) ; seul « délier » un enfant d'un macro passé reste refusé (assertFusionOuverte).
   const kids = db.prepare('SELECT id, title, activityId, metaJson FROM user_objectives WHERE userId = ? AND parentId = ? ORDER BY position, id').all(userId, r.id);
   if (kids.length && !confirmed) throw Object.assign(err('Cet objectif a ' + kids.length + ' objectif' + (kids.length > 1 ? 's rattachés' : ' rattaché') + ' : confirme pour les détacher.', 409), { extra: { children: kids } });
@@ -1315,4 +1328,4 @@ function supprimer(userId, id, confirmed) {
 }
 migrateEcheances(); // au chargement (idempotent)
 try { const n = purgeOrphanMacros(null); if (n) console.log('[objectifs] ' + n + ' macro(s) sans objectif relié retiré(s)'); } catch (e) { console.warn('[objectifs] nettoyage des macros vides impossible :', e.message); }
-module.exports = { blockYearOf, reprogrammer, reorganisation, appliquerReorganisation, reorganisationDe, appliquerReorganisationDe, natureOfCategory, gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { setControleConflit, blockYearOf, reprogrammer, reorganisation, appliquerReorganisation, reorganisationDe, appliquerReorganisationDe, natureOfCategory, gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

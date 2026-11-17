@@ -69,6 +69,7 @@ router.get('/activities/:id/goals/categories', (req, res) => {
         secteurs: goals.secteursForPole(activityId, c.key),
       })),
       frozenCategories: goals.frozenCategoriesForActivity(activityId),
+      absorbed: require('../lib/objectifs-absorption').absorbedOf(userId, activityId), // fusions (pôles/secteurs absorbés à partir d'une date) : le Chrono ne propose plus que l'absorbant ; le passé reste lisible
       maxCategories: goals.MAX_CUSTOM_CATEGORIES, maxSecteurs: goals.MAX_SECTEURS_PER_POLE,
       // 17 septembre 2026 (fusion sous-projet → catégorie, section Tâches) :
       // les tâches de chaque catégorie ACTIVE, agrégées depuis tous les

@@ -34,9 +34,11 @@ assert(c1 && o.get(u, c1.id), 'colonne non reliée : aucun contrôle');
 // Même colonne : deux objectifs de A dans la même case ne sont pas un conflit.
 const [D, E] = [newAct('Fus D'), newAct('Fus E')], g1 = mk('D-2026', D, '2026-11-09', '2027-01-10'), g2 = mk('E-2026', E, '2026-11-09', '2027-01-12'); mk('D-2031', D, '2031-01-10', '2031-12-01'); mk('D-2031b', D, '2031-02-10', '2031-12-02');
 assert(!bad(() => o.fusionnerEnMacro(u, { childIds: [g1.id, g2.id], title: 'Même colonne' })), 'deux objectifs de la même colonne dans la même case : pas un conflit');
-// Transitivité : A-B déjà fusionnées puis B-C : le groupe entier est contrôlé (C-2029 contre B-2028 déplacé en 2029).
-const c2 = mk('C-2026b', C, '2027-03-01', '2027-05-01'); mk('C-2029', C, '2029-02-10', '2029-11-15');
-e = bad(() => o.fusionnerEnMacro(u, { childIds: [b1.id, c2.id], title: 'B-C' }));
-assert(e && /déjà reliés|Vous devez déplacer/.test(e.message), 'transitivité : B-C refusée tant que le groupe A-B entre en conflit : ' + (e && e.message));
+// Transitivité : A-B déjà fusionnées ; B-C (autres objectifs, non reliés) : le groupe entier A,B,C est contrôlé (C-2028 contre A-2028).
+const b3 = mk('B-2026c', B, '2026-11-09', '2027-02-10'), c2 = mk('C-2026b', C, '2026-11-09', '2027-02-12'), c3 = mk('C-2028', C, '2028-03-10', '2028-10-15');
+e = bad(() => o.fusionnerEnMacro(u, { childIds: [b3.id, c2.id], title: 'B-C' }));
+assert(e && /Vous devez déplacer/.test(e.message) && /C-2028/.test(e.message) && /A-2028/.test(e.message), 'transitivité : B-C refusée car C entre en conflit avec A (groupe A-B-C) : ' + (e && e.message));
+o.reprogrammer(u, c3.id, '2032-03-10', '2032-10-15'); o.reprogrammer(u, c1.id, '2033-01-10', '2033-12-01');
+assert(!bad(() => o.fusionnerEnMacro(u, { childIds: [b3.id, c2.id], title: 'B-C ok' })), 'transitivité : conflit levé, B-C se fait');
 console.log(failed ? `\n${failed} échec(s)` : '\nTous les contrôles passent.');
 process.exit(failed ? 1 : 0);

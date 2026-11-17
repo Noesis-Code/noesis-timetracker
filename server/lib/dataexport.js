@@ -335,6 +335,7 @@ function buildUserExport(userId) {
   const objectiveColumnOrder = has('objectifs_ordre') ? rows('SELECT level, scopeKey, orderJson, updatedAt FROM objectifs_ordre WHERE userId = ? ORDER BY level, scopeKey', userId).map((r) => { let order = []; try { order = JSON.parse(r.orderJson); } catch (e) { order = []; } return { level: r.level, scope: r.scopeKey, order, updatedAt: r.updatedAt }; }) : [];
   const objectiveRefusals = has('objectifs_refus') ? rows(
     'SELECT objectifId, candidateId, createdAt FROM objectifs_refus WHERE userId = ? ORDER BY objectifId, candidateId', userId) : [];
+  const fusionAbsorptions = has('fusion_absorption') ? rows('SELECT level, absorbingActivityId, absorbingPoleKey, absorbingKey, absorbedActivityId, absorbedPoleKey, absorbedKey, fromDate, macroId, createdAt FROM fusion_absorption WHERE userId = ? ORDER BY fromDate, id', userId) : [];
   const dailySuggestionSettings = has('daily_suggestion_settings')
     ? row('SELECT declaredMinutes, updatedAt FROM daily_suggestion_settings WHERE userId = ?', userId) || null : null;
   // Abonnement payant : état et dates seulement, jamais les identifiants Stripe.
@@ -482,6 +483,7 @@ function buildUserExport(userId) {
     goalCapacityOverrides,
     objectives,
     objectiveRefusals,
+    fusionAbsorptions,
     objectiveColumnOrder,
     dailySuggestionSettings,
     subscriptions,

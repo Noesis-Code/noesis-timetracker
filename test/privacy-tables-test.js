@@ -74,6 +74,7 @@ const P = {
   objectif_retards: { cols: ['userId'], erase: 'explicit', exp: 'NON: état de retard d\'un objectif de période, recalculé à chaque ouverture, effacé avec le compte' },
   objectifs_ordre: { cols: ['userId'], erase: 'explicit', exp: 'objectiveColumnOrder' },
   user_objectives: { cols: ['userId'], erase: 'explicit', exp: 'objectives' },
+  fusion_absorption: { cols: ['userId'], erase: 'explicit', exp: 'fusionAbsorptions' },
   objectifs_refus: { cols: ['userId'], erase: 'explicit', exp: 'objectiveRefusals' },
   goal_time_caps: { cols: ['userId'], erase: 'explicit', exp: 'goalTimeCaps' },
   goal_weekly: { cols: ['assignedUserId'], erase: 'setnull', exp: 'goalWeekly' },

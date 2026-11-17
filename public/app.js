@@ -2702,7 +2702,9 @@
     // par activité, pour pouvoir choisir un pôle/secteur sans réseau.
     return api('GET', '/api/activities/' + activityId + '/goals/categories?userId=' + profile.id)
       .then(function (data) {
-        var list = (data && data.categories) || [];
+        var list = (data && data.categories) || [], gone = {}, now = new Date(), iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        ((data && data.absorbed) || []).forEach(function (x) { if (x.fromDate <= iso) gone[x.key] = true; }); // fusion : le Chrono ne propose plus que la branche absorbante (le passé reste lisible)
+        list = list.filter(function (c) { return !gone[c.key]; }).map(function (c) { return c.secteurs && c.secteurs.some(function (x) { return gone[x.key]; }) ? Object.assign({}, c, { secteurs: c.secteurs.filter(function (x) { return !gone[x.key]; }) }) : c; });
         offlineStoreSet('cats:' + activityId, list);
         return list;
       })

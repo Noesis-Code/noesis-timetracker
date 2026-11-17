@@ -11,7 +11,9 @@ const o = require('../server/lib/objectifs');
 const m = db.prepare('SELECT userId, activityId FROM activity_members LIMIT 1').get();
 if (!m) { console.log('  (pas de données de base : test ignoré)'); process.exit(0); }
 const u = m.userId;
-o.setTasksCheck(() => false);
+o.setTasksCheck(() => false); o.setControleConflit(false); // ici : la mécanique des macros ; le contrôle de conflit est éprouvé dans objectifs-fusion-conflit-test.js
+// Ces cas éprouvent la mécanique des macros (séparer, supprimer, délier) : l'irréversibilité de l'absorption (pôles/secteurs, 18 nov. 2026) est éprouvée dans objectifs-absorption-test.js ; ici on lève l'enregistrement avant chaque séparation.
+for (const fnName of ['supprimer', 'lier']) { const orig = o[fnName]; o[fnName] = (uu, id, ...r) => { const row = db.prepare('SELECT parentId, isMacro FROM user_objectives WHERE id = ?').get(id); if (row) db.prepare('DELETE FROM fusion_absorption WHERE macroId = ?').run(fnName === 'supprimer' ? id : (row.parentId || 0)); return orig(uu, id, ...r); }; }
 const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.activityId, startDate: '2026-11-09', endDate: '2027-03-01', noBridge: true }, extra || {}));
 
 (async () => {
@@ -393,7 +395,7 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
       const refAB = bad(() => o.fusionnerEnMacro(u, { title: 'A+B bis', childIds: [l3.id, l4.id], level: 'pole' }));
       assert(refAB && refAB.message === 'Ces colonnes sont déjà reliées au-dessus.', 'A+B déjà reliées au-dessus : A+B refusé, message d’une phrase');
       const okBC = bad(() => o.fusionnerEnMacro(u, { title: 'B+C', childIds: [l4.id, l7.id], level: 'pole' }));
-      assert(!okBC, 'B+C accepté (A laissée de côté)');
+      assert(!okBC, 'B+C accepté (A laissée de côté) ' + (okBC && okBC.message));
       require('../server/lib/objectifs-ordre').lire(u, 'pole', String(m.activityId)); // l'ordre dérivé ne casse pas avec deux macros qui partagent la colonne B
       o.supprimer(u, m27.id, true); o.supprimer(u, o.get(u, l4.id).parentId, true);
       // CHAÎNAGE (9 nov. 2026) : A+B dessus (2029), B+C dessous (2027) : ils partagent B, le dessus devient parent du dessous et couvre A+B+C ; Séparer le dessous : le dessus retrouve A+B ; sans colonne commune : aucun lien
