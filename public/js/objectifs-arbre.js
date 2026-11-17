@@ -269,11 +269,11 @@
     }
     return null;
   }
-  function emptyCell(w, endIso, onTouch, below, plus) { // plus : création depuis cette case (le « + » en haut à droite) ; sur une case occupée par une pastille, pas de « + »
+  function emptyCell(w, endIso, onTouch, below, plus, enter) { // plus : création depuis cette case (le « + » en haut à droite) ; sur une case occupée par une pastille, pas de « + »
     var b = el('button', 'goalsGridCell goalsGridCell--empty arHole'); b.type = 'button'; cellSize(b, w);
-    if (!endIso && !below) { b.disabled = true; b.tabIndex = -1; return b; } // une case passée SANS rien dessous est inerte ; avec des objectifs dessous elle descend toujours (jamais un trou sans réaction)
+    if (!endIso && !below && !enter) { b.disabled = true; b.tabIndex = -1; return b; } // une case passée SANS rien dessous est inerte ; avec des objectifs dessous elle descend toujours (jamais un trou sans réaction)
     if (below) { b.classList.add('arHoleBadge'); b.appendChild(el('span', 'goalsRowMarker goalsRowMarker--future', String(below.n))); b.setAttribute('aria-label', below.n + ' ' + tr('en dessous')); b.addEventListener('click', function (e) { if (plus && e.target.closest && e.target.closest('.arPlus')) plus(); else below.go(); }); if (plus) b.appendChild(el('span', 'arPlus cmpRemove cmpRemove--add cmpRemove--corner', '')); return b; } // objectifs plus bas : l'appui court descend
-    b.setAttribute('aria-label', tr('Nouvel objectif')); b.addEventListener('click', function (e) { if (plus && e.target.closest && e.target.closest('.arPlus')) plus(); }); // case vide : SEUL le « + » crée ; toucher ailleurs ne fait rien
+    b.setAttribute('aria-label', tr('Nouvel objectif')); b.addEventListener('click', function (e) { if (plus && e.target.closest && e.target.closest('.arPlus')) plus(); else if (enter) enter(); }); // case vide : SEUL le « + » crée ; toucher ailleurs ENTRE dans la case (niveau du dessous ; au dernier niveau, la page des 4 semaines)
     if (plus) b.appendChild(el('span', 'arPlus cmpRemove cmpRemove--add cmpRemove--corner', '')); // petite marque violette (zone de toucher 44 px, voir le CSS)
     return b;
   }
@@ -359,6 +359,7 @@
   // Dernier niveau (secteurs) : toucher un objectif PÉRIODIQUE (hors du « + ») ouvre la page de ses 4 SEMAINES : la même grille, une ligne par semaine, la colonne touchée seule ; la ✕ en haut à droite revient aux périodes.
   function openWeeks(rw, c) { if (!rw.p || wk) return; dive = true; wk = { y: rw.y, p: rw.p, key: c.col.key, label: c.col.label }; animate = true; needBase = true; render(); }
   function closeWeeks() { if (!wk) return; wk = null; animate = true; needBase = true; render(); }
+  function enterCell(rw, c, ci) { if (wk) return; if (lvl === 'secteur') { openWeeks(rw, c); return; } descend(ci, lvl === 'activite' ? rw.y : null, rw.y); } // entrer dans une case vide : même descente qu'une carte (bloc de 5 ans / année de la ligne) ; dernier niveau : les 4 semaines de la période
   function calTap(rw, c) { return lvl !== 'secteur' ? null : wk ? function () {} : rw.p ? function () { openWeeks(rw, c); } : null; } // dernier niveau : une case occupée n'ouvre rien de plus bas dans la page des semaines
   function marker(rw, here, onTap) {
     var oval = !rw.p && !rw.w, st = rw.rank > here.rank ? 'future' : rw.rank === here.rank ? 'current' : 'past', m = el('span', 'goalsRowMarker goalsRowMarker--' + st + (oval ? ' goalsRowMarker--ovale' : ''));
@@ -619,7 +620,7 @@
         if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols)); return; }
         if (holes[r + ':' + ci]) return; // colonne absorbée : au-dessus de la fusion il ne reste QU'UNE colonne, sur toute la largeur des colonnes liées (la case de l'entité touchée est élargie)
         var Wc = wideAt[r + ':' + ci] ? spanW(W, wideAt[r + ':' + ci]) : W;
-        if (!es.length) row.appendChild(emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
+        if (!es.length) row.appendChild(emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); }, function () { enterCell(rw, c, ci); })); // « + » d'une case VIDE = ajouter un objectif (activité, niveau et échéance de la case) ; ailleurs dans la case = y entrer
         else if (zoom === 'year' || (zoom === 'block' && es.length > 1)) row.appendChild(summaryCard(es.map(function (e) { return e.o; }), recolor[r + ':' + ci] || c.color, Wc, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
         else row.appendChild(card(fused[es[0].o.id] ? Object.assign({}, es[0].o, { title: fused[es[0].o.id] }) : es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, recolor[r + ':' + ci] || c.color));
       });
