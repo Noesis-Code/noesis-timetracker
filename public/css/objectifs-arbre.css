@@ -178,5 +178,4 @@ button.arHoleBadge .goalsRowMarker:not(.goalsRowMarker--ovale) { position: stati
   html.arbreOn .arBubble span { -webkit-line-clamp: 2; }
   html.arbreOn .arBaseWrap { padding-top: 8px; padding-bottom: 0; }
   html.arbreOn .arZoomRow { margin-bottom: 0; }
-  html.arbreOn .arRail .goalsRowMarker, html.arbreOn .arRail.arCompact .goalsRowMarker--ovale { padding: 2px 0; max-height: 40px; } /* repère jamais plus haut que sa ligne (44 px) : ni chevauchement ni coupure */
 }
