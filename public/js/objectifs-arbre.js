@@ -337,6 +337,7 @@
   }
   var LAND = '(orientation: landscape) and (max-height: 500px)'; // téléphone tourné : l'arbre prend tout l'écran (barres masquées en CSS), dans les zones de sécurité
   function isLand() { return !!(window.matchMedia && window.matchMedia(LAND).matches); }
+  if (window.matchMedia) { var landMq = window.matchMedia(LAND); if (landMq.addEventListener) landMq.addEventListener('change', function () { if (visible && tree && tree.getClientRects().length) render(); }); } // on tourne le téléphone : l'arbre se redessine (colonnes et lignes)
   function fitTree() { // MISE EN PAGE DÉTERMINISTE : l'arbre est posé en CSS (fixed, haut = bas de l'en-tête, bas = haut de la barre du bas) ; le haut est mesuré à chaque rendu, le bas est republié par un ResizeObserver sur la barre elle-même, jamais par un minuteur ni un écouteur de défilement
     if (!tree || !tree.getClientRects().length) return;
     if (isLand()) { tree.style.setProperty('--ar-top', 'max(env(safe-area-inset-top, 0px), 6px)'); tree.style.setProperty('--ar-left', 'max(env(safe-area-inset-left, 0px), 8px)'); tree.style.setProperty('--ar-right', 'max(env(safe-area-inset-right, 0px), 8px)'); tree.style.setProperty('--ar-bot', 'max(env(safe-area-inset-bottom, 0px), 6px)'); } else {
@@ -512,6 +513,7 @@
     var n = curCols.length, wide = window.innerWidth >= 1024;
     var SIDE = 120; // repères du temps (56 px) + colonne « Heures » (58 px de cellule + 6 px d'écart, comme la maquette) : dans le tableau qui défile
     var arW = n === 1 ? 'calc(100cqw - ' + (4 + SIDE) + 'px)' : (n === 2 ? 'calc((100cqw - ' + (GAP + 4 + SIDE) + 'px) / 2)' : 'calc((100cqw - var(--ar-mw, 46px) - ' + (10 + 2 * GAP + 4) + 'px) / 3)'); // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
+    if (isLand() && n >= 3) { var kL = Math.max(3, Math.min(n, 7, Math.floor((window.innerWidth - 120) / 100))); arW = 'calc((100cqw - var(--ar-mw, 46px) - ' + (10 + (kL - 1) * GAP + 4) + 'px) / ' + kL + ')'; } // paysage : jusqu'à 7 colonnes entières (plancher ~100 px), au-delà on défile de côté
     var W = 'var(--ar-w)'; // les titres passent à la ligne, la largeur ne grandit jamais avec le texte
     if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) arW = 'calc((100cqw - ' + (4 + SIDE + GAP * (spanN - 1)) + 'px) / ' + spanN + ')'; } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
     var mode = lvl === 'activite' ? 'simple' : 'detail';
@@ -557,7 +559,7 @@
     var list = [];
     for (var rk = lo; rk <= farRank; rk = nextRank(rk)) list.push(byRank[rk] || rowOfRank(rk));
     var cycleEnd = blockYears || (zoom === 'period' && focus && focus.year); // cycle à fin FIXE : jamais de case au-delà de sa fin (pas de remplissage vers l'année ou le bloc suivant)
-    while (!cycleEnd && list.length < MIN_ROWS) list.push(rowOfRank(nextRank(list[list.length - 1].rank))); // toujours au moins 5 cases : le futur se prolonge en cases grises vides
+    while (!cycleEnd && list.length < (isLand() ? 7 : MIN_ROWS)) list.push(rowOfRank(nextRank(list[list.length - 1].rank))); // toujours au moins 5 cases : le futur se prolonge en cases grises vides
     if (wk) { list = []; for (var wi = 1; wi <= 4; wi++) list.push(rowOfRank(wk.y * 100 + (wk.p - 1) * 4 + wi)); } // les 4 semaines de la période
     list.reverse();
     // cellules des colonnes : [rangée][colonne] -> entrées

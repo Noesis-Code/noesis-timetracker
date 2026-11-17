@@ -144,6 +144,7 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 /* MODE PAYSAGE (18 nov. 2026) : téléphone tourné, l'arbre prend tout l'écran ; en-tête, bascule Tâches | Objectifs et barre des volets sont masqués (on tourne pour revenir), zones de sécurité respectées par le JS (env(safe-area-inset-*)). */
 @media (orientation: landscape) and (max-height: 500px) {
   html.arbreOn .topbar, html.arbreOn .tabbar, html.arbreOn #goalsPage1Switch { display: none; }
-  html.arbreOn .arGrid .goalsGridRow:not(.arMacroRow), html.arbreOn .arGrid.arCompact .goalsGridRow.arEmptyRow { min-height: 40px; } /* l'arbre complet tient dans la hauteur réduite */
-  html.arbreOn .arGrid .goalsGridCell, html.arbreOn .arGrid.arCompact .goalsGridCell--filled { min-height: 40px; }
+  html.arbreOn .arGrid .goalsGridRow:not(.arMacroRow), html.arbreOn .arGrid.arCompact .goalsGridRow.arEmptyRow { min-height: 44px; } /* l'arbre complet tient dans la hauteur réduite (R7 : 44 px au moins) */
+  html.arbreOn .arGrid .goalsGridCell, html.arbreOn .arGrid.arCompact .goalsGridCell--filled { min-height: 44px; }
+  html.arbreOn .arGrid, html.arbreOn .arGrid.arCompact { --goalsGridGap: 8px; } /* gouttière verticale réduite : plus de lignes à la fois */
 }
