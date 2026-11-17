@@ -594,7 +594,7 @@
         if (holes[r + ':' + ci]) return; // colonne absorbée : au-dessus de la fusion il ne reste QU'UNE colonne, sur toute la largeur des colonnes liées (la case de l'entité touchée est élargie)
         var Wc = wideAt[r + ':' + ci] ? spanW(W, wideAt[r + ':' + ci]) : W;
         if (!es.length) row.appendChild(emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
-        else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, Wc, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
+        else if (zoom === 'year' || (zoom === 'block' && es.length > 1)) row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, Wc, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
         else row.appendChild(card(es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, c.color));
       });
       if (!row.querySelector('.goalsGridCell--filled')) row.classList.add('arEmptyRow'); // rangée sans objectif : elle prend sa part du reste (CSS)

@@ -3,6 +3,7 @@ const fs = require('fs'), assert = require('assert');
 const arbre = fs.readFileSync('public/js/objectifs-arbre.js', 'utf8'), creer = fs.readFileSync('public/js/objectifs-creer.js', 'utf8'), css = fs.readFileSync('public/css/objectifs-arbre.css', 'utf8');
 assert(/el\('span', 'arPlus', '\+'\)/.test(arbre) && /\.arPlus \{[^}]*top: 0; right: 0; width: 44px; height: 44px/.test(css), '« + » en haut à droite, zone 44 px');
 assert(arbre.includes("closest('.arPlus')) plus(); });") && !arbre.includes('else onTouch(endIso)'), 'case vide : seul le « + » crée, toucher ailleurs ne fait rien');
+assert(arbre.includes("(zoom === 'block' && es.length > 1)) row.appendChild(summaryCard("), 'deux objectifs dans la même case (colonnes fusionnées ou deux grands objectifs de la période) : aucun n’est caché, la case résume et descend');
 assert(arbre.includes('if (!endIso && !below) { b.disabled = true;'), 'case à pastille : descend toujours, même sur une ligne passée (jamais désactivée avec des objectifs dessous)');
 assert(arbre.includes("plus(); else below.go(); }); if (plus) b.appendChild(el('span', 'arPlus', '+')); return b; }"), 'case à pastille (objectifs inférieurs) : « + » aussi, seul déclencheur de la création ; ailleurs dans la case on descend');
 assert(arbre.includes("type: rw.block ? 'pluriannuel' : rw.w ? 'hebdomadaire' : rw.p ? 'periodique' : 'annuel'") && /endDate: endIso/.test(arbre), 'type = la ligne (bloc, année, période, semaine), échéance = fin de la case');
