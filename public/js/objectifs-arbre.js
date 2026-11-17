@@ -333,14 +333,15 @@
     var d = dockEl(), bar = d && d.querySelector('.tasksComposer'); if (bar && !bar.getClientRects().length) bar = d.querySelector('.tasksSaveBtn');
     if (!bar || !bar.getClientRects().length) bar = document.getElementById('tabbarPill'); // plus de barre d'écriture ni de points : l'arbre descend jusqu'à la barre des volets (plus de bande noire)
     if (!bar || !bar.getClientRects().length) return;
-    tree.style.setProperty('--ar-bot', Math.round(window.innerHeight - bar.getBoundingClientRect().top + (bar.id === 'tabbarPill' ? 8 : 0)) + 'px');
+    tree.style.setProperty('--ar-bot', '0px'); // l'arbre va jusqu'au BAS DE L'ÉCRAN (zone de sécurité comprise) : plus de bande noire, la grille défile derrière la barre des volets en verre
+    tree.style.setProperty('--ar-pad', Math.round(window.innerHeight - bar.getBoundingClientRect().top + (bar.id === 'tabbarPill' ? 8 : 0)) + 'px'); // marge basse = hauteur de la barre + zone de sécurité : la dernière rangée reste atteignable
   }
   var LAND = '(orientation: landscape) and (max-height: 500px)'; // téléphone tourné : l'arbre prend tout l'écran (barres masquées en CSS), dans les zones de sécurité
   function isLand() { return !!(window.matchMedia && window.matchMedia(LAND).matches); }
   if (window.matchMedia) { var landMq = window.matchMedia(LAND); if (landMq.addEventListener) landMq.addEventListener('change', function () { if (visible && tree && tree.getClientRects().length) render(); }); } // on tourne le téléphone : l'arbre se redessine (colonnes et lignes)
   function fitTree() { // MISE EN PAGE DÉTERMINISTE : l'arbre est posé en CSS (fixed, haut = bas de l'en-tête, bas = haut de la barre du bas) ; le haut est mesuré à chaque rendu, le bas est republié par un ResizeObserver sur la barre elle-même, jamais par un minuteur ni un écouteur de défilement
     if (!tree || !tree.getClientRects().length) return;
-    if (isLand()) { tree.style.setProperty('--ar-top', 'max(env(safe-area-inset-top, 0px), 6px)'); tree.style.setProperty('--ar-left', 'max(env(safe-area-inset-left, 0px), 8px)'); tree.style.setProperty('--ar-right', 'max(env(safe-area-inset-right, 0px), 8px)'); tree.style.setProperty('--ar-bot', 'max(env(safe-area-inset-bottom, 0px), 6px)'); } else {
+    if (isLand()) { tree.style.setProperty('--ar-top', 'max(env(safe-area-inset-top, 0px), 6px)'); tree.style.setProperty('--ar-left', 'max(env(safe-area-inset-left, 0px), 8px)'); tree.style.setProperty('--ar-right', 'max(env(safe-area-inset-right, 0px), 8px)'); tree.style.setProperty('--ar-bot', 'max(env(safe-area-inset-bottom, 0px), 6px)'); tree.style.setProperty('--ar-pad', '0px'); } else {
     var pr = tree.parentElement.getBoundingClientRect();
     tree.style.setProperty('--ar-top', Math.round(pr.top) + 'px'); tree.style.setProperty('--ar-left', 'max(env(safe-area-inset-left, 0px), ' + Math.round(pr.left / 2) + 'px)'); tree.style.setProperty('--ar-right', 'max(env(safe-area-inset-right, 0px), ' + Math.round((window.innerWidth - pr.right) / 2) + 'px)'); /* bords latéraux sans information : moitié moins larges (zones de sécurité gardées) */
     publishBot(); }
