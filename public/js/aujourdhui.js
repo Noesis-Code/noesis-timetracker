@@ -667,7 +667,7 @@
     var picked = g.tasks.filter(function (x, i) { return g.checked[i] !== false; });
     if (!picked.length) { reset(); return; }
     ui.save.disabled = true;
-    TMT.api('POST', '/api/activities/' + t.activityId + '/document-tasks/apply', { tasks: picked.map(function (x) { return { title: x.title, key: t.categoryKey, day: x.day, week: x.week, minutes: x.minutes, minMinutes: x.minMinutes, maxMinutes: x.maxMinutes }; }) }).then(function (r) {
+    TMT.api('POST', '/api/activities/' + t.activityId + '/document-tasks/apply', { tasks: picked.map(function (x) { return { title: x.title, key: t.categoryKey, day: x.day, week: x.week, minutes: x.minutes, minMinutes: x.minMinutes, maxMinutes: x.maxMinutes }; }), refused: g.tasks.filter(function (x, i) { return g.checked[i] === false; }).map(function (x) { return x.title; }) }).then(function (r) {
       var n = (r && r.addedCount) || 0; reset(); refresh(); calReload();
       showToast(n + ' ' + tr(n > 1 ? 'tâches enregistrées' : 'tâche enregistrée'));
     }).catch(function (err) { say((err && err.message) || tr('Erreur.')); }).then(function () { ui.save.disabled = false; });

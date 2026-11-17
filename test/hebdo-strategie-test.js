@@ -26,8 +26,16 @@ goals.setMainGoal(act, key, 1, 'Lancer le prototype');
   const n = bodies.length;
   await w.generateForPeriod(act, 'u', key, 1, { dryRun: true });
   const sent = JSON.parse(bodies[n].messages[0].content);
-  assert(/Devenir rentable/.test(sent.strategie) && /Clients/.test(sent.strategie) && /Site web/.test(sent.strategie), 'avec stratégie : but, priorité et « à ignorer » transmis');
-  assert(/strategie/.test(bodies[n].system), 'consigne système : respecter la stratégie');
+  assert(/Site web/.test(sent.strategie) && !/Devenir rentable/.test(sent.strategie) && !/Clients/.test(sent.strategie), '18 nov. 2026 : seul « à ignorer » est transmis (le but et les priorités ne sont plus lus ; leurs données restent)');
+  assert(strategy.get(act).goal === 'Devenir rentable' && strategy.get(act).priorities[0] === 'Clients', 'S6 : le but et les priorités restent en base, jamais supprimés');
+  assert(/strategie/.test(bodies[n].system), 'consigne système : respecter « à ignorer »');
+  // « À ignorer » se remplit tout seul : deux refus d'un même type de proposition de tâche.
+  assert(strategy.noterRefus('u', act, ['Appeler Paul']).length === 0 && !/appeler/.test(strategy.get(act).ignore), 'un seul refus : rien n\'est ajouté à « à ignorer »');
+  const ajoutes = strategy.noterRefus('u', act, ['Appeler Marie']);
+  assert(ajoutes.join() === 'appeler' && /appeler/.test(strategy.get(act).ignore) && /Site web/.test(strategy.get(act).ignore), 'deux refus d\'un même type (appeler) : le motif s\'ajoute à « à ignorer », sans effacer l\'existant');
+  assert(strategy.noterRefus('u', act, ['Appeler Luc']).length === 0 && (strategy.get(act).ignore.match(/appeler/g) || []).length === 1, 'le motif n\'est ajouté qu\'une fois');
+  assert(/appeler/.test(strategy.promptBlock(act)), 'la génération lit le motif ajouté (bloc stratégie)');
+  assert(strategy.noterRefus('u', act, ['Payer la facture 1234', 'Payer la facture 5678']).length === 0, 'un même titre refusé deux fois dans la même proposition compte une fois');
   global.fetch = real;
   fs.rmSync(process.env.NOESIS_DATA_DIR, { recursive: true, force: true });
   process.exit(failed ? 1 : 0);

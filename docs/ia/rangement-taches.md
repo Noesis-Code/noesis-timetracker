@@ -28,3 +28,10 @@ Schéma de référence : « Rangement d'une tâche » (8 blocs : date, catégori
 - **API** : `POST /api/taches/place` (proposition unique : `rangement`, `decales`, `chaine`, `depassements`, `responsable`, `membres`, `lignes`) ; `POST /api/taches/place/appliquer` (écrit date = lundi de la semaine, rang, objectif, responsable ; chaque ligne changée est apprise, champ `place`). Aucune heure modifiée.
 - **Date d'atteinte** d'un objectif : `metaJson.atteintLe` posée à la première lecture qui le voit atteint ; avec une famille et des chiffres, l'écart réel entre paliers alimente les délais personnalisés.
 - **Interface** : panneau « Rangement proposé » (`TMT.rangerTache`, `public/js/objectifs-page1.js`) avec le composant de « Modifications proposées » (`TMT.ui.confirm`) ; fenêtre de consentement dans `public/js/connexion-ia.js`. Aucun nouveau style.
+
+## Stratégie de l'activité : seul « à ignorer » est lu (18 nov. 2026)
+
+- La fiche (but, échéance, priorités 1 à 3) n'est plus lue par la génération de tâches, ni par la déclinaison hebdomadaire, ni par les modifications proposées. Ses données restent en base (jamais supprimées, S6) ; aucun écran n'existait plus depuis le 8 nov.
+- Seul « à ignorer » est lu (`server/lib/strategy.js`, `promptBlock`, `isEmpty`) et appliqué strictement (`taskprecision.matchesIgnore`).
+- « À ignorer » se remplit TOUT SEUL : une tâche proposée par la génération puis décochée est un refus (`POST /api/activities/:id/document-tasks/apply`, champ `refused`) ; après DEUX refus d'un même type (motif générique de `taches-apprentissage.motifOf`, jamais un chiffre ni un nom propre) le motif s'ajoute à « à ignorer » (`strategy.noterRefus`, table `task_proposal_refus` sans titre ni texte brut, effacée avec le compte).
+- La stratégie par type d'objectif (construction ou progression) reste silencieuse (`taches-place.js`).

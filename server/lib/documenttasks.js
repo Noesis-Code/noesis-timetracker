@@ -598,8 +598,9 @@ async function propose(userId, activityId, body, opts) {
 }
 
 // `tasks` : uniquement ce que l'utilisateur a coché ({ title, key, week?, minutes? }).
-function apply(userId, activityId, tasks) {
+function apply(userId, activityId, tasks, refused) {
   if (!Array.isArray(tasks) || !tasks.length) throw httpError(400, 'Rien à ajouter : coche au moins une tâche.');
+  if (Array.isArray(refused) && refused.length) require('./strategy').noterRefus(userId, activityId, refused.map((x) => String(x || '').slice(0, 200))); // tâches décochées : après deux refus d'un même type, « à ignorer » se remplit seul
   if (tasks.length > MAX_TASKS) throw httpError(400, 'Trop de tâches à la fois.');
   const weeks = weeksContext(activityId);
   const today = todayIso();
