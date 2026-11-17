@@ -11,7 +11,7 @@ Schéma de référence : « Rangement d'une tâche » (8 blocs : date, catégori
 - **Apprentissage** (`server/lib/taches-apprentissage.js`) : journal personnel des corrections (réinjecté dans les prompts), motifs globaux anonymes, délais réels entre paliers.
 - **Connecteur IA** : `creer_tache` et `modifier_tache` acceptent `objectif`, `nature`, `etape_de`. Noèsis ne lit que ces champs, jamais le prompt ni le modèle de la personne.
 
-## Anonymat et consentement (à valider avec Gaspard, loi 25)
+## Anonymat et consentement
 
 - Le journal personnel reste celui de la personne (remise à zéro par l'API, effacé avec le compte).
 - Les motifs globaux (`rangement_motifs`, `paliers_delais_globaux`) ne contiennent AUCUN identifiant ni texte brut : le titre est réduit à un motif générique (au plus 2 mots courants, jamais de nom propre, de chiffre ni d'adresse), la personne est une empreinte salée. Ils ne servent qu'avec au moins 5 personnes distinctes et 90 % de convergence.
