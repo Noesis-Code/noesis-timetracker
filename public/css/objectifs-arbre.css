@@ -157,12 +157,10 @@ button.arHoleBadge .goalsRowMarker:not(.goalsRowMarker--ovale) { position: stati
   .arRail .goalsRowMarker--long, .arRail.arCompact .goalsRowMarker--long { writing-mode: vertical-rl; transform: rotate(180deg); width: var(--ar-mw, 20px); height: auto; min-height: 44px; padding: 8px 0; font-size: 13px; line-height: 1; white-space: nowrap; }
 }
 .arGridArea { padding-bottom: var(--ar-pad, 0px); box-sizing: border-box; } /* défile derrière la barre des volets (verre) ; la dernière rangée reste visible en fin de course */
-<<<<<<< HEAD
 /* PÉRIODES PASSÉES (18 nov. 2026) : le repère est un POINT gris uni (même gris que les cases vides, aucun halo noir derrière) ; les cases vides passées sont beaucoup plus pâles que celles du présent et du futur (même jeton, opacité réduite). */
 :is(.arGrid, .arRail) .goalsRowMarker--past { background: transparent; box-shadow: none; }
 .arRail .goalsRowMarker--past::before { background: color-mix(in srgb, var(--poleTree, var(--track-bg)) 22%, var(--track-bg)); }
 .arGrid .arPastRow .goalsGridCell--empty { opacity: .35; }
-=======
 /* ESPACEMENT UNIQUE (18 nov. 2026) : l'écart entre deux bulles est celui des objectifs pluriannuels (14 px en hauteur, 10 px en largeur), à TOUS les niveaux ; les rangées ne s'étirent plus pour combler la hauteur : cases plus hautes, écart constant. */
 .arGrid, .arGrid.arCompact { --goalsGridGap: 14px; }
 /* BULLES DE TITRE : toutes de même hauteur et de même largeur (celle de la colonne), un peu plus bas sous la grille, texte coupé proprement. */
@@ -181,4 +179,3 @@ button.arHoleBadge .goalsRowMarker:not(.goalsRowMarker--ovale) { position: stati
   html.arbreOn .arBaseWrap { padding-top: 8px; padding-bottom: 0; }
   html.arbreOn .arZoomRow { margin-bottom: 0; }
 }
->>>>>>> 271d9a2c (Arbre des objectifs : écart unique entre bulles (14 px), bulles de titre uniformes et plus bas, transition de zoom à la descente ; test)
