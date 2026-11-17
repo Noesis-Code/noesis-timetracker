@@ -9,4 +9,5 @@ assert(!/tasksComposer|function start\(\)|sendBtn|basePlaceholder/.test(creer), 
 assert(!/syncCtx/.test(arbre), 'contexte de la barre retiré');
 assert(creer.includes('var fromCell = form.fixedCtx && form.endFixed;') && creer.includes("(fromCell ? ['desc'] : ['desc', 'activite'])") && creer.includes("fromCell ? [] : ['echeance']"), 'depuis un « + » : ni Emplacement ni Échéance, aucun type excepté');
 assert(creer.includes('form.cellEnd, form.endDate || form.cellEnd') && creer.includes('function datePick(') && creer.includes("'objTEdit', txt") && creer.includes('loadRatt().then(function () { return infFetch(); }).then(infPaint)') && creer.includes("form.endDate || '', tp.valueMin"), 'périodique : date tactile du récapitulatif, bornée à la période, régénère les sous-objectifs');
+assert(arbre.includes("closest('.arPlus')) plus(); });") && !arbre.includes('else onTouch(endIso)'), 'case vide : seul le « + » crée, toucher ailleurs ne fait rien');
 console.log('case-plus-test OK');

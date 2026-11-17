@@ -277,7 +277,7 @@
     var b = el('button', 'goalsGridCell goalsGridCell--empty arHole'); b.type = 'button'; cellSize(b, w);
     if (!endIso) { b.disabled = true; b.tabIndex = -1; return b; }
     if (below) { b.classList.add('arHoleBadge'); b.appendChild(el('span', 'goalsRowMarker goalsRowMarker--future', String(below.n))); b.setAttribute('aria-label', below.n + ' ' + tr('en dessous')); b.addEventListener('click', function () { below.go(); }); return b; } // objectifs plus bas : l'appui court descend
-    b.setAttribute('aria-label', tr('Nouvel objectif')); b.addEventListener('click', function (e) { if (plus && e.target.closest && e.target.closest('.arPlus')) plus(); else onTouch(endIso); });
+    b.setAttribute('aria-label', tr('Nouvel objectif')); b.addEventListener('click', function (e) { if (plus && e.target.closest && e.target.closest('.arPlus')) plus(); }); // case vide : SEUL le « + » crée ; toucher ailleurs ne fait rien
     if (plus) b.appendChild(el('span', 'arPlus', '+')); // petite marque violette (zone de toucher 44 px, voir le CSS)
     return b;
   }
