@@ -22,6 +22,7 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 - `precision/` : génération et estimation des tâches, tri.
 - `questions/` : `questions-emilien.md`, fichier unique des questions à Émilien.
 - `journal/` : journaux de chantiers, bilans, relectures croisées, plan de semaine.
+  - `journal/diagnostic-mesures-iphone.md` : mode diagnostic invisible (mesures de mise en page iPhone sur staging, `?diag=1`).
 - `simplifications/` : `propositions.md`, liste vivante unique des propositions de simplification (S1 à S15 et suivantes).
 - `fonctionnalites/` : `chantiers-planifies.md`, les 5 tâches planifiées qui font avancer les chantiers (rythme, exécution, rapports, rotation), `captures-chantiers.md` (une capture 390 px par chantier), `tiroir-taches.md` (tiroir des tâches mis de côté le 6 nov. 2026, code au repos dans `repos-tiroir/`).
 - `img/`, `maquettes/` : images et maquettes.

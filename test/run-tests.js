@@ -447,6 +447,8 @@ async function main() {
   catch (e) { assert(false, 'accessibilité : attributs (test/a11y-attributs-test.js) échoue'); }
   try { await runChild('popups-croix-test.js'); assert(true, 'pop-up : croix ✕ nommée (test/popups-croix-test.js) passe'); }
   catch (e) { assert(false, 'pop-up : croix ✕ nommée (test/popups-croix-test.js) échoue'); }
+  try { await runChild('diag-mesures-test.js'); assert(true, 'mode diagnostic : staging seulement, liste blanche, débit (test/diag-mesures-test.js) passe'); }
+  catch (e) { assert(false, 'mode diagnostic (test/diag-mesures-test.js) échoue'); }
   try { await runChild('interactions-test.js'); assert(true, 'interactions : Échap et zone 44 px des croix (test/interactions-test.js) passe'); }
   catch (e) { assert(false, 'interactions : Échap et zone 44 px des croix (test/interactions-test.js) échoue'); }
   try { await runChild('a11y-chrono-stats-test.js'); assert(true, 'accessibilité Chrono et Stats (test/a11y-chrono-stats-test.js) passe'); }

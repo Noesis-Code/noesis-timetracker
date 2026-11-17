@@ -79,6 +79,7 @@ const SHELL = [
   '/js/objectifs-page3.js',
   '/js/axis-lock.js',
   '/js/a11y-popups.js',
+  '/js/diag-mesures.js',
   '/js/stats-avance.js',
   '/js/bureau.js',
   '/js/aujourdhui.js',
