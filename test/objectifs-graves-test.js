@@ -139,7 +139,7 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   o.abandonner(u, m5.id, true); done(m3.id);
   g = o.get(u, macro.id);
   assert(g.status === 'atteint' && g.progress === 1, 'macro : atteint quand tous ses enfants non abandonnés le sont (calcul à l’affichage)');
-  assert(o.liste(u, 'tous').find((x) => x.id === macro.id).status === 'atteint' && o.macroDe(u, macro.id).status === 'atteint', 'macro : même état dans liste() et dans la route macro');
+  assert(o.liste(u, 'tous', { liens: true }).find((x) => x.id === macro.id).status === 'atteint' && o.macroDe(u, macro.id).status === 'atteint', 'macro : même état dans liste() et dans la route macro');
   // tous les enfants abandonnés
   const A4 = newAct('Macro A4'), A5 = newAct('Macro A5'), A6 = newAct('Macro A6'); // colonnes libres : une colonne déjà reliée à un macro ne peut pas être reliée à un autre
   const m6 = mkIn('Macro tout abandonné', A1, { isMacro: true }), c1 = mkIn('Enfant abandonné', A4, { parentId: m6.id });
@@ -184,7 +184,7 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   const gB = o.get(u, mB.id);
   assert(gB.macroLevel === 'activite' && gB.childMacroIds.length === 1 && gB.childMacroIds[0] === mA.id, 'liste/get : macroLevel et childMacroIds');
   assert(gB.macroColumns.length === 3 && [B1, B2, B3].every((a) => gB.macroColumns.some((c) => c.activityId === a)) && gB.macroActivities.length === 3, 'macro enchaîné : colonnes reliées à travers les macros (A, B et C)');
-  assert(o.liste(u, 'tous').find((x) => x.id === mB.id).macroColumns.length === 3, 'liste() expose macroColumns');
+  assert(o.liste(u, 'tous', { liens: true }).find((x) => x.id === mB.id).macroColumns.length === 3, 'liste() expose macroColumns');
   // cycles macro <-> macro
   let e = bad(() => o.lier(u, mB.id, mA.id, 'apres')); assert(e && e.statusCode === 400 && /propres/.test(e.message), 'cycle macro <-> macro refusé');
   e = bad(() => o.lier(u, mA.id, mA.id, 'apres')); assert(e && e.statusCode === 400, 'un macro n’est pas son propre parent');
