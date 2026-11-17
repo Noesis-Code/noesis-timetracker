@@ -330,11 +330,14 @@
     if (!bar || !bar.getClientRects().length) return;
     tree.style.setProperty('--ar-bot', Math.round(window.innerHeight - bar.getBoundingClientRect().top + (bar.id === 'tabbarPill' ? 8 : 0)) + 'px');
   }
+  var LAND = '(orientation: landscape) and (max-height: 500px)'; // téléphone tourné : l'arbre prend tout l'écran (barres masquées en CSS), dans les zones de sécurité
+  function isLand() { return !!(window.matchMedia && window.matchMedia(LAND).matches); }
   function fitTree() { // MISE EN PAGE DÉTERMINISTE : l'arbre est posé en CSS (fixed, haut = bas de l'en-tête, bas = haut de la barre du bas) ; le haut est mesuré à chaque rendu, le bas est republié par un ResizeObserver sur la barre elle-même, jamais par un minuteur ni un écouteur de défilement
     if (!tree || !tree.getClientRects().length) return;
+    if (isLand()) { tree.style.setProperty('--ar-top', 'max(env(safe-area-inset-top, 0px), 6px)'); tree.style.setProperty('--ar-left', 'max(env(safe-area-inset-left, 0px), 8px)'); tree.style.setProperty('--ar-right', 'max(env(safe-area-inset-right, 0px), 8px)'); tree.style.setProperty('--ar-bot', 'max(env(safe-area-inset-bottom, 0px), 6px)'); } else {
     var pr = tree.parentElement.getBoundingClientRect();
     tree.style.setProperty('--ar-top', Math.round(pr.top) + 'px'); tree.style.setProperty('--ar-left', Math.round(pr.left) + 'px'); tree.style.setProperty('--ar-right', Math.round(window.innerWidth - pr.right) + 'px');
-    publishBot();
+    publishBot(); }
     var d = dockEl(), tp = document.getElementById('tabbarPill'); if (d && !botObs && window.ResizeObserver) { botObs = new ResizeObserver(publishBot); botObs.observe(d); if (tp) botObs.observe(tp); }
     if (!topObs) { // le haut est remesuré quand l'en-tête, le sélecteur ou la fenêtre changent de taille (iPhone : barre d'état, polices tardives, clavier) : la grille ne passe jamais sous le sélecteur
       topObs = true; var again = function () { if (visible) fitTree(); };

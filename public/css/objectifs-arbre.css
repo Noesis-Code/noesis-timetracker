@@ -141,3 +141,9 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arGrid .goalsGridCell--filled { max-height: none; }
 .arGrid.arCompact { justify-content: flex-start; }
 .arCard > .cmpEdit { position: absolute; top: 0; right: 0; width: 44px; height: 44px; } /* le crayon Modifier (R15) au même endroit que le « + » : zone de toucher de 44 px */
+/* MODE PAYSAGE (18 nov. 2026) : téléphone tourné, l'arbre prend tout l'écran ; en-tête, bascule Tâches | Objectifs et barre des volets sont masqués (on tourne pour revenir), zones de sécurité respectées par le JS (env(safe-area-inset-*)). */
+@media (orientation: landscape) and (max-height: 500px) {
+  html.arbreOn .topbar, html.arbreOn .tabbar, html.arbreOn #goalsPage1Switch { display: none; }
+  html.arbreOn .arGrid .goalsGridRow:not(.arMacroRow), html.arbreOn .arGrid.arCompact .goalsGridRow.arEmptyRow { min-height: 40px; } /* l'arbre complet tient dans la hauteur réduite */
+  html.arbreOn .arGrid .goalsGridCell, html.arbreOn .arGrid.arCompact .goalsGridCell--filled { min-height: 40px; }
+}
