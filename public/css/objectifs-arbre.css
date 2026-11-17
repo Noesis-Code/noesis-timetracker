@@ -132,3 +132,10 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arCrumbNow { color: var(--text); font-weight: 600; }
 .arCrumbSep { color: var(--text-light); }
 .arRailR button.arHrs { cursor: pointer; }
+
+/* Cases plus grandes (18 nov. 2026) : à tous les niveaux, la grille comble la hauteur libre (de la bascule à la barre des volets) ; les rangées se la partagent, les cases s'étirent (zone de toucher agrandie). Au-delà de la hauteur, la grille défile comme avant. */
+.arTbl { flex: 1 1 auto; margin-top: 0; }
+.arGrid:not(.arCompact) { flex: 1 1 auto; display: flex; flex-direction: column; }
+.arGrid:not(.arCompact) .goalsGridRow { flex: 1 0 auto; }
+.arGrid:not(.arCompact) .goalsGridCell { align-self: stretch; }
+.arGrid:not(.arCompact) .goalsGridCell--filled { max-height: none; }

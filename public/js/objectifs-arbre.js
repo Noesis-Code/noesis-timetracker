@@ -335,15 +335,16 @@
   function publishBot() { // distance du HAUT RÉEL de la barre du bas au bas de l'écran (barre « Nouvel objectif » + points + onglets + zone de sécurité) ; l'arbre se pose juste au-dessus (bottom CSS)
     if (!tree) return;
     var d = dockEl(), bar = d && d.querySelector('.tasksComposer'); if (bar && !bar.getClientRects().length) bar = d.querySelector('.tasksSaveBtn');
+    if (!bar || !bar.getClientRects().length) bar = document.getElementById('tabbarPill'); // plus de barre d'écriture ni de points : l'arbre descend jusqu'à la barre des volets (plus de bande noire)
     if (!bar || !bar.getClientRects().length) return;
-    tree.style.setProperty('--ar-bot', Math.round(window.innerHeight - bar.getBoundingClientRect().top) + 'px');
+    tree.style.setProperty('--ar-bot', Math.round(window.innerHeight - bar.getBoundingClientRect().top + (bar.id === 'tabbarPill' ? 8 : 0)) + 'px');
   }
   function fitTree() { // MISE EN PAGE DÉTERMINISTE : l'arbre est posé en CSS (fixed, haut = bas de l'en-tête, bas = haut de la barre du bas) ; le haut est mesuré à chaque rendu, le bas est republié par un ResizeObserver sur la barre elle-même, jamais par un minuteur ni un écouteur de défilement
     if (!tree || !tree.getClientRects().length) return;
     var pr = tree.parentElement.getBoundingClientRect();
     tree.style.setProperty('--ar-top', Math.round(pr.top) + 'px'); tree.style.setProperty('--ar-left', Math.round(pr.left) + 'px'); tree.style.setProperty('--ar-right', Math.round(window.innerWidth - pr.right) + 'px');
     publishBot();
-    var d = dockEl(); if (d && !botObs && window.ResizeObserver) { botObs = new ResizeObserver(publishBot); botObs.observe(d); }
+    var d = dockEl(), tp = document.getElementById('tabbarPill'); if (d && !botObs && window.ResizeObserver) { botObs = new ResizeObserver(publishBot); botObs.observe(d); if (tp) botObs.observe(tp); }
     if (!topObs) { // le haut est remesuré quand l'en-tête, le sélecteur ou la fenêtre changent de taille (iPhone : barre d'état, polices tardives, clavier) : la grille ne passe jamais sous le sélecteur
       topObs = true; var again = function () { if (visible) fitTree(); };
       if (window.ResizeObserver) { var to = new ResizeObserver(again); to.observe(document.documentElement); to.observe(tree.parentElement); if (tree.parentElement.parentElement) to.observe(tree.parentElement.parentElement); }
