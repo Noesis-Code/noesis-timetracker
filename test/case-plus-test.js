@@ -3,7 +3,7 @@ const fs = require('fs'), assert = require('assert');
 const arbre = fs.readFileSync('public/js/objectifs-arbre.js', 'utf8'), creer = fs.readFileSync('public/js/objectifs-creer.js', 'utf8'), css = fs.readFileSync('public/css/objectifs-arbre.css', 'utf8');
 assert(/el\('span', 'arPlus', '\+'\)/.test(arbre) && /\.arPlus \{[^}]*top: 0; right: 0; width: 44px; height: 44px/.test(css), '« + » en haut à droite, zone 44 px');
 assert(arbre.includes("closest('.arPlus')) plus(); });") && !arbre.includes('else onTouch(endIso)'), 'case vide : seul le « + » crée, toucher ailleurs ne fait rien');
-assert(/if \(plus\) b\.appendChild/.test(arbre) && /if \(below\) \{[^]*?return b;\s*\}/.test(arbre), 'pas de « + » sur une case à pastille');
+assert(arbre.includes("plus(); else below.go(); }); if (plus) b.appendChild(el('span', 'arPlus', '+')); return b; }"), 'case à pastille (objectifs inférieurs) : « + » aussi, seul déclencheur de la création ; ailleurs dans la case on descend');
 assert(/rw\.block \? 'pluriannuel' : rw\.p \? 'periodique' : 'annuel'/.test(arbre) && /endDate: endIso/.test(arbre), 'type = la ligne, échéance = fin de la case');
 assert(/pendingType = o\.type/.test(creer) && /if \(pendingType\) \{ form\.type = pendingType; form\.typeTouched = true; \}/.test(creer), 'le type de la case pré-sélectionné');
 assert(!/tasksComposer|function start\(\)|sendBtn|basePlaceholder/.test(creer), 'barre « Nouvel objectif… » retirée (interface et code mort)');

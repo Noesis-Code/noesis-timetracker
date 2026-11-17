@@ -276,7 +276,7 @@
   function emptyCell(w, endIso, onTouch, below, plus) { // plus : création depuis cette case (le « + » en haut à droite) ; sur une case occupée par une pastille, pas de « + »
     var b = el('button', 'goalsGridCell goalsGridCell--empty arHole'); b.type = 'button'; cellSize(b, w);
     if (!endIso) { b.disabled = true; b.tabIndex = -1; return b; }
-    if (below) { b.classList.add('arHoleBadge'); b.appendChild(el('span', 'goalsRowMarker goalsRowMarker--future', String(below.n))); b.setAttribute('aria-label', below.n + ' ' + tr('en dessous')); b.addEventListener('click', function () { below.go(); }); return b; } // objectifs plus bas : l'appui court descend
+    if (below) { b.classList.add('arHoleBadge'); b.appendChild(el('span', 'goalsRowMarker goalsRowMarker--future', String(below.n))); b.setAttribute('aria-label', below.n + ' ' + tr('en dessous')); b.addEventListener('click', function (e) { if (plus && e.target.closest && e.target.closest('.arPlus')) plus(); else below.go(); }); if (plus) b.appendChild(el('span', 'arPlus', '+')); return b; } // objectifs plus bas : l'appui court descend
     b.setAttribute('aria-label', tr('Nouvel objectif')); b.addEventListener('click', function (e) { if (plus && e.target.closest && e.target.closest('.arPlus')) plus(); }); // case vide : SEUL le « + » crée ; toucher ailleurs ne fait rien
     if (plus) b.appendChild(el('span', 'arPlus', '+')); // petite marque violette (zone de toucher 44 px, voir le CSS)
     return b;
@@ -522,7 +522,7 @@
     if (!curCols.length) { gridArea = scroller = null; tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
     var n = curCols.length, wide = window.innerWidth >= 1024;
     var SIDE = 120; // repères du temps (56 px) + colonne « Heures » (58 px de cellule + 6 px d'écart, comme la maquette) : dans le tableau qui défile
-    var arW = n === 1 ? 'calc(100cqw - ' + (4 + SIDE) + 'px)' : 'calc((100cqw - ' + (GAP + 4 + SIDE) + 'px) / 2)'; // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
+    var arW = n === 1 ? 'calc(100cqw - ' + (4 + SIDE) + 'px)' : (n === 2 ? 'calc((100cqw - ' + (GAP + 4 + SIDE) + 'px) / 2)' : 'calc((100cqw - var(--ar-mw, 46px) - ' + (10 + GAP + 4) + 'px) / 2)'); // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
     var W = 'var(--ar-w)'; // les titres passent à la ligne, la largeur ne grandit jamais avec le texte
     if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) arW = 'calc((100cqw - ' + (4 + SIDE + GAP * (spanN - 1)) + 'px) / ' + spanN + ')'; } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
     var mode = lvl === 'activite' ? 'simple' : 'detail';

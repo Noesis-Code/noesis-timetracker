@@ -136,6 +136,7 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 /* Cases plus grandes (18 nov. 2026) : à tous les niveaux, la grille comble la hauteur libre (de la bascule à la barre des volets) ; les rangées se la partagent, les cases s'étirent (zone de toucher agrandie). Au-delà de la hauteur, la grille défile comme avant. */
 .arTbl { flex: 1 1 auto; margin-top: 0; }
 .arGrid:not(.arCompact) { flex: 1 1 auto; display: flex; flex-direction: column; }
-.arGrid:not(.arCompact) .goalsGridRow { flex: 1 0 auto; }
-.arGrid:not(.arCompact) .goalsGridCell { align-self: stretch; }
-.arGrid:not(.arCompact) .goalsGridCell--filled { max-height: none; }
+.arGrid .goalsGridRow:not(.arMacroRow), .arGrid.arCompact .goalsGridRow.arEmptyRow { flex: 1 1 0; min-height: 64px; max-height: none; } /* toutes les rangées de cases ont la MÊME hauteur */
+.arGrid .goalsGridCell, .arGrid.arCompact .goalsGridCell--filled { align-self: stretch; }
+.arGrid .goalsGridCell--filled { max-height: none; }
+.arGrid.arCompact { justify-content: flex-start; }
