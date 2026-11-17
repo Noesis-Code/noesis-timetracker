@@ -16,7 +16,7 @@
   var TMT = window.TMT = window.TMT || {};
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-  var zoom = 'period', wk = null, lvl = 'activite', focus = null, struct = null, picked = null, animate = false, openPending = false;
+  var zoom = 'period', wk = null, lvl = 'activite', focus = null, struct = null, picked = null, animate = false, openPending = false, dive = false, lastTap = null;
   var tree = null, items = [], toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, scroller = null, gridArea = null, ext = null, savedView = null, restoreView = null;
   var MIN_ROWS = 5, BLOCK0 = 2026; // BLOCK0 : premier bloc de 5 ans fixe (26/30)
   var RAIL = 30, GAP = 10; // largeur de la colonne de repères + gouttière (RAIL change avec le niveau : ovale d'un bloc de 5 ans, d'une année, rond d'une période)
@@ -353,7 +353,7 @@
   }
   // Repère de période (mêmes classes que la page 2) : à venir = numéro cerclé, courante = pastille pleine, passée = point. En zoom Année : les deux derniers chiffres de l'année.
   // Dernier niveau (secteurs) : toucher un objectif PÉRIODIQUE (hors du « + ») ouvre la page de ses 4 SEMAINES : la même grille, une ligne par semaine, la colonne touchée seule ; la ✕ en haut à droite revient aux périodes.
-  function openWeeks(rw, c) { if (!rw.p || wk) return; wk = { y: rw.y, p: rw.p, key: c.col.key, label: c.col.label }; animate = true; needBase = true; render(); }
+  function openWeeks(rw, c) { if (!rw.p || wk) return; dive = true; wk = { y: rw.y, p: rw.p, key: c.col.key, label: c.col.label }; animate = true; needBase = true; render(); }
   function closeWeeks() { if (!wk) return; wk = null; animate = true; needBase = true; render(); }
   function calTap(rw, c) { return lvl !== 'secteur' ? null : wk ? function () {} : rw.p ? function () { openWeeks(rw, c); } : null; } // dernier niveau : une case occupée n'ouvre rien de plus bas dans la page des semaines
   function marker(rw, here, onTap) {
@@ -466,8 +466,9 @@
     return { level: lvl, title: label, path: path || a.name, activity: { id: a.id, name: a.name, color: a.color || c.color }, poleKey: x.poleKey, categoryKey: x.categoryKey, objectives: { count: mine.length, next: next, late: mine.filter(function (o) { return o.endDate < today; }).length } };
   }
   function openFiche(ci) { if (TMT.objectifsView && TMT.objectifsView.openFiche) TMT.objectifsView.openFiche(ficheOf(ci)); }
+  document.addEventListener('click', function (e) { lastTap = [e.clientX, e.clientY]; }, true); // où l'on a touché : origine du zoom de descente
   function descend(ci, block, year, macro) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
-    var c = curCols[ci]; if (!c) return;
+    var c = curCols[ci]; if (!c) return; dive = true; // transition de zoom (arZoomIn) : on entre dans la bulle touchée
     if (macro && block == null && macro.endDate) block = blockStart(macro.endDate); // la vue des années d'un macro : le bloc FIXE de 5 ans de SON échéance, jamais l'étendue de ses enfants
     if (lvl === 'activite') {
       var order = ((struct && struct.activities) || []).map(function (x) { return x.id; }), ids = [];
@@ -641,7 +642,7 @@
     baseWrap.appendChild(baseRow);
     // COLONNE FIXE des repères du temps (.arRail, à gauche, jamais recouverte) + zone qui défile à droite (.arHScroll : colonnes d'activités ET titres, horizontalement) ; le défilement vertical est celui du conteneur commun .arGridArea : repères et rangées défilent ensemble sans script.
     var body = el('div', 'arBody'), rail = el('div', 'arRail' + (zoom !== 'period' && zoom !== 'week' ? ' arCompact' : '')), hs = el('div', 'arHScroll' + (n <= 2 ? ' goalsGridScroll--locked' : '')), hin = el('div', 'arHInner'); hs.style.setProperty('--ar-w', arW);
-    var railR = el('div', 'arRailR'), tbl = el('div', 'arTbl'); tbl.appendChild(rail); tbl.appendChild(grid); tbl.appendChild(railR); hin.appendChild(tbl); hin.appendChild(baseWrap); hs.appendChild(hin); body.appendChild(hs); gridArea.appendChild(body); /* repères à gauche et heures à droite DÉFILENT avec le tableau (jamais fixes) */ column.appendChild(gridArea); scroller.appendChild(column); tree.appendChild(scroller); scroller = hs; // UN SEUL conteneur défile (vertical ET horizontal) : c'est lui que les repères « collent » à gauche (sticky), sans aucun script // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
+    var railR = el('div', 'arRailR'), tbl = el('div', 'arTbl'); tbl.appendChild(rail); tbl.appendChild(grid); tbl.appendChild(railR); hin.appendChild(tbl); hin.appendChild(baseWrap); hs.appendChild(hin); body.appendChild(hs); gridArea.appendChild(body); /* repères à gauche et heures à droite DÉFILENT avec le tableau (jamais fixes) */ column.appendChild(gridArea); scroller.appendChild(column); tree.appendChild(scroller); if (dive) { dive = false; var tb = tree.getBoundingClientRect(); scroller.style.setProperty('--ar-zx', Math.round((lastTap ? lastTap[0] : tb.left + tb.width / 2) - tb.left) + 'px'); scroller.style.setProperty('--ar-zy', Math.round((lastTap ? lastTap[1] : tb.top + tb.height / 2) - tb.top) + 'px'); scroller.classList.add('arZoomIn'); } scroller = hs; // UN SEUL conteneur défile (vertical ET horizontal) : c'est lui que les repères « collent » à gauche (sticky), sans aucun script // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
     // La HAUTEUR d'une case ne dépend QUE de son contenu (min 64 px, 40 px aux années et blocs ; max 120 px, texte coupé par « … ») : jamais de la hauteur de l'écran, du geste ni de l'élastique. Plus aucun calcul de hauteur en JS.
     var layer = el('div', 'arLinks'); hin.insertBefore(layer, hin.firstChild);
     function drawLinks() { // UNE SEULE fonction de dessin des traits, pour tous les arbres et tous les niveaux : un trait de 2 px, uniquement entre deux objectifs REMPLIS reliés (parent-enfant, macro-enfants, macro-objectif du dessus), du bord BAS de la carte du haut au bord HAUT de la carte du bas ; jamais vers une case vide
