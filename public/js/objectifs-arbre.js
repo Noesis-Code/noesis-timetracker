@@ -501,7 +501,7 @@
   function render() {
     if (!tree) return;
     var keepTop = !needBase && gridArea ? gridArea.scrollTop : null, keepLeft = !needBase && scroller ? scroller.scrollLeft : 0;
-    document.documentElement.classList.toggle('arbreOn', visible); // page non défilante tant que l'arbre est affiché (aucun élastique)
+    document.documentElement.classList.toggle('arbreOn', visible); if (visible) window.scrollTo(0, 0); // page non défilante tant que l'arbre est affiché (aucun élastique)
     tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024); fitTree();
     zoom = lvl === 'activite' ? 'block' : lvl === 'pole' ? 'year' : wk ? 'week' : 'period'; // le temps suit le zoom : arbre macro = blocs de 5 ans (pluriannuel), années (annuel), périodes 13 × 4 (période)
     var mw = isLand() ? 46 : 20; RAIL = mw + 10; /* colonne des dates : largeur du plus large repère court (2 caractères) ; les repères de plus de 2 caractères sont tournés (lus de bas en haut) */ tree.style.setProperty('--ar-mw', mw + 'px'); tree.style.setProperty('--ar-pl', (mw + 6) + 'px'); // colonne de repères : ovale d'un bloc / d'une année, rond d'une période (+ année en ovale)
@@ -732,7 +732,7 @@
   // et la classe restait posée (body fixe = barre noire sous la barre des volets) ; elle est défaite à la sortie de l'onglet et reposée au retour si l'arbre est affiché.
   (function () {
     var tab = tree && tree.closest ? tree.closest('#tab-goals') : document.getElementById('tab-goals'); if (!tab || !window.MutationObserver) return;
-    new MutationObserver(function () { var on = visible && !tab.classList.contains('hidden'); document.documentElement.classList.toggle('arbreOn', on); }).observe(tab, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(function () { var on = visible && !tab.classList.contains('hidden'); document.documentElement.classList.toggle('arbreOn', on); if (on) window.scrollTo(0, 0); }).observe(tab, { attributes: true, attributeFilter: ['class'] });
   })(); // le pager de pages (stats-avance.js) lit ce défilement horizontal pour tout toucher dans l'arbre (repères, bandeau compris)
   // Aucun écouteur de redimensionnement, de défilement ni de fenêtre visuelle, aucun minuteur : les largeurs et la hauteur sont du CSS ; seul le décalage haut/bas est mesuré à chaque rendu (fitTree).
   // UNE SEULE flèche de retour : depuis un calendrier ouvert par l'arbre, la flèche ‹ du cadre du pôle (qui ne change plus de pôle) ramène à l'arbre.
