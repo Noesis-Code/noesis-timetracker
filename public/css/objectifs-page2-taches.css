@@ -7,7 +7,6 @@
  * .goalsTasks* de l'écran Tâches. Les classes partagées (styles.css) restent
  * là-bas. L'arbre périodique et le rail sont dans css/objectifs-page2-objectif.css.
  */
-
 /* chantier « Épuration visuelle » (demande d'Emilien :
    « je souhaite que la page 2 soit une fenêtre dans le même style que la
    fenêtre des activités et que la page 3 ») : #goalsActivitySwitcher cesse
@@ -190,15 +189,8 @@
 :root.goalsActOpen.tabbarHasPlus #goalsPage2AddBtn { display: none; } /* la barre portait déjà un « + » : aucune animation, c'est ce « + » qui sert à Expansion (voir objectifs-page2-taches.js) */
 :root.goalsActOpen:not(.tabbarHasPlus) #goalsPage2AddBtn { animation: goalsPlusIn .5s cubic-bezier(.22, .8, .3, 1) .5s both; } /* le « + » apparaît (fondu + agrandissement) une fois la barre rétrécie : 0,5 s + 0,5 s */
 @media (prefers-reduced-motion: reduce) { :root.goalsActOpen:not(.tabbarHasPlus) .tabbar { transition: none; } :root.goalsActOpen:not(.tabbarHasPlus) #goalsPage2AddBtn { animation: none; } }
-#goalsPage2Dots {
-  position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
-  bottom: var(--tabbar-h, 64px); display: flex; gap: 0; /* même place que #statsPageDots du Chrono */
-}
-#goalsPage2Dots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
 /* Zone tactile 44 px ; le point visuel reste à 7 px (même position qu'avant : 18 px du bas). */
 .goalsDotBtn { width: 17px; height: 44px; /* pas de 17 px = écartement d'origine (7 px + 10 px) */ padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-#goalsPage2Dots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; }
-#goalsPage2Dots .goalsDotBtn.on .goalsDot { opacity: 1; }
 
 /* page figée en haut quand tout tient à l'écran (posé par lockPage2Scroll, objectifs-page2-taches.js). */
 #goalsActivitySwitcherScroll.noScroll { overflow-y: hidden; touch-action: pan-x; }
@@ -231,7 +223,7 @@
 .goalsTaskEditPanel .rowActions { width: 100%; max-width: 320px; }
 
 /* clavier ouvert => bulle Discussion et 3 points masqués. */
-:root.kbOpen #goalsPage2Dots, :root.kbOpen #goalsPage2AddBtn { display: none !important; }
+:root.kbOpen #goalsPage2AddBtn { display: none !important; }
 
 /* en modification, le texte de la tâche est éditable sur place (pas de doublon),
    plus de case à cocher ; champs de date arrondis sans contour (aussi dans les historiques) ; Responsable à gauche. */
@@ -286,7 +278,6 @@
 .goalsNoPoleForm { display: flex; flex-direction: column; gap: 10px; }
 .goalsNoPoleForm input { width: 100%; box-sizing: border-box; }
 .goalsActivitySwitcher.goalsNoPole #goalsActivitySwitcherScroll,
-.goalsActivitySwitcher.goalsNoPole #goalsPage2Dots { display: none; }
 .goalsNoPoleForm input { padding: 12px; font-size: 1rem; }
 .goalsNoPoleForm button { width: 100%; height: auto; min-height: 44px; padding: 10px 14px; white-space: normal; }
 

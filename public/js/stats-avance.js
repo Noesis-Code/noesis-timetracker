@@ -966,13 +966,12 @@
   };
 
   // ---------- Points de pagination (un seul jeu, #statsPageDots, posé hors des onglets) ----------
-  var DOT_LABELS = { chrono: ['Chrono', 'Statistiques', 'Activités partagées'], goals: ['Feuille de route', 'Statistiques', 'Groupe'] }; // 27 oct. 2026 : Tâches et Objectifs ne font plus qu'une page (sélecteur Tâches | Objectifs dans la page)
+  var DOT_LABELS = { chrono: ['Chrono', 'Statistiques', 'Activités partagées'], goals: [] }; // 27 oct. 2026 : Tâches et Objectifs ne font plus qu'une page (sélecteur Tâches | Objectifs dans la page)
   var dotsKey = '', dotsTimer = 0;
   function place() {
     if (bilanOn) return null; /* Bilan : une seule page, aucun point */
-    if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (groupOn ? 2 : 1) : (sharedOn ? 2 : 1) };
+    if (showing('tab-stats') && ctx !== 'goals') return { ctx: ctx, idx: sharedOn ? 2 : 1 }; // Feuille de route (18 nov. 2026) : plus de pages glissantes ni de points ; les statistiques vivent dans le Bilan
     if (showing('tab-chrono')) return { ctx: 'chrono', idx: 0 };
-    if (showing('tab-goals') && showing('goalsCapturePage')) return { ctx: 'goals', idx: 0 }; // Tâches ET Objectifs = la même page 1 = un seul point (le sélecteur est dans la page)
     return null;
   }
   function paintDots() {
@@ -1002,9 +1001,6 @@
       else TMT.openStats('chrono', i === 2 ? 3 : 1);
       return;
     }
-    if (i === 0) { TMT.switchTab('goals'); return; }
-    if (i === 2) { if (showing('tab-stats')) setGroupPage(true); else TMT.openStats('goals', 4); return; }
-    if (showing('tab-stats')) { if (groupOn) setGroupPage(false); } else TMT.openStats('goals', 2);
   });
   // Les points suivent les onglets et l'écran de capture (ouvrir/fermer une page, glissement, notification…).
   (function () {
@@ -1174,32 +1170,16 @@
         if (dir > 0) return sharedAvailable() ? sharedNeighbor(true) : null; // glisser de droite à gauche : page des activités partagées
         return external(zone, document.getElementById('tab-chrono'), null, 'chrono'); // glisser de gauche à droite : retour au Chrono
       }
-      if (t < 0) return external(zone, document.getElementById('tab-goals'), function () { if (TMT.showGoalsCapturePage) TMT.showGoalsCapturePage(); }, 'goals'); // retour à la page 1, à gauche
-      if (t > 1) return null;
-      if (t === 1) return groupAvailable() ? groupNeighbor(true) : null; // page Groupe, tout à droite
-      return groupNeighbor(false); // de Groupe vers Statistiques (Tâches | Objectifs : sélecteur dans la page)
+      return null; // Feuille de route : plus de glissement (18 nov. 2026)
     }
   });
-  // Arrivée sur la page de statistiques depuis Chrono ou depuis la page 1 de la Feuille de route (glisser vers la gauche dans les deux cas).
-  var chronoZone = document.getElementById('tab-chrono'), goalsZone = document.getElementById('tab-goals');
+  // Arrivée sur la page de statistiques depuis Chrono (glisser vers la gauche).
+  var chronoZone = document.getElementById('tab-chrono');
   if (chronoZone) slidePager({
     zone: chronoZone,
     neighbor: function (dir) {
       if (dir < 0 || !modOnId('stats')) return null; // le Chrono est la page la plus à gauche : on ne va qu'à droite, vers les statistiques
       return external(chronoZone, zone, function () { TMT.enterStats('chrono'); }, 'stats');
-    }
-  });
-  // Préchauffage : dès que le doigt se pose sur la page 1, la page Statistiques charge et se dessine (cachée) ; le glissement la trouve prête au lieu de la charger pendant le geste.
-  var lastWarm = 0;
-  if (goalsZone) goalsZone.addEventListener('touchstart', function () {
-    if (Date.now() - lastWarm < 30000 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsDetailPage')) return;
-    lastWarm = Date.now(); inst.open();
-  }, { passive: true });
-  if (goalsZone) slidePager({
-    zone: goalsZone,
-    neighbor: function (dir) {
-      if (dir < 0 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsDetailPage')) return null; // les statistiques sont à droite de la page 1
-      return external(goalsZone, zone, function () { TMT.enterStats('goals'); }, 'stats');
     }
   });
   setDots();

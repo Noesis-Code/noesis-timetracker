@@ -6,10 +6,8 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', 'public', 'js', f
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const stats = read('stats-avance.js');
-assert(/if \(goalsZone\) slidePager\(\{\s*zone: goalsZone/.test(stats), 'gestionnaire de balayage de la page 1 (Feuille de route) présent');
-const neighbor = (stats.match(/if \(goalsZone\) slidePager\(\{[\s\S]*?\n  \}\);/) || [''])[0];
-assert(!/showing\('goalsActivitiesView'\)/.test(neighbor) && !/showing\('goalsTodayView'\)/.test(neighbor) && /showing\('goalsDetailPage'\)/.test(neighbor), 'balayage vers les statistiques sur Tâches ET sur Objectifs (liste) ; dans une activité il sert au pager de l\'activité');
-assert(/showing\('goalsCapturePage'\)\) return \{ ctx: 'goals', idx: 0 \}/.test(stats) && !/idx: 0 \}[^\n]*\n/.test('') , 'points de pagination visibles sur Tâches ET sur Objectifs (une seule page 1 = un seul point)');
+assert(!/zone: goalsZone/.test(stats), 'plus de balayage sur la page 1 de la Feuille de route (18 nov. 2026)');
+assert(!/ctx: 'goals', idx: 0/.test(stats), 'plus de points de pagination sur la Feuille de route');
 assert(!/noFollow/.test(stats), 'le contenu suit le doigt (aucun mode sans suivi) : sélecteur, liste et barre glissent d\'un bloc avec la page Statistiques');
 const app = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
 assert(/fromGoalsStats/.test(app) && /!fromGoalsStats && !TMT.keepGoalsView && TMT\.resetGoalsPage1View/.test(app), 'retour des statistiques : dernière vue (Tâches ou Objectifs) gardée ; Tâches par défaut seulement après un autre module');
@@ -20,7 +18,7 @@ assert(/\.tasksPopList \{[^}]*overflow-x: hidden/.test(css2), 'liste de tâches 
 assert(/input:not\(\[type=checkbox\]\)/.test(stats), 'un balayage qui commence sur une case à cocher reste possible');
 const p2 = read('objectifs-page2-taches.js');
 assert(p2.includes("GOALS_PAGE2_ORDER = ['goals']"), 'dans l activité : Objectifs seul (la page 3 Calendrier est retirée : le calendrier est dans la vue Tâches)');
-assert(p2.includes('data-dot="home"') && p2.includes('data-dot="goals"') && !p2.includes('data-dot="next"'), 'deux points : page 1, Objectifs (le point de la page 3 est retiré)');
+assert(!p2.includes('data-dot='), 'plus de points de pagination sur la page 2 de la Feuille de route');
 assert(/openGoalsForActivity|setGoalsPage2Mode\('goals', \{ noAnim: true \}\)/.test(p2), 'une activité s\'ouvre sur Objectifs');
 assert(/TMT\.keepGoalsView = target === 'goals'/.test(stats) && /!TMT\.keepGoalsView/.test(app), 'retour au doigt depuis Statistiques : le pager signale la conservation de la vue (il masque les statistiques avant switchTab)');
 const today = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'aujourdhui.js'), 'utf8'), page1 = read('objectifs-page1.js'), creer = read('objectifs-creer.js'), compo = read('composants.js');
