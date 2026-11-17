@@ -6,6 +6,7 @@
 // Aucune vérification d'identité ici : c'est à l'APPELANT de l'avoir faite
 // (PIN pour la route, délai d'inactivité + avis préalable pour la tâche).
 const db = require('../db');
+require('./taches-apprentissage'); // crée les tables d'apprentissage du rangement (effacées avec le compte) avant toute suppression
 
 // [table, colonne du compte] : tables à userId sans ON DELETE CASCADE vers users.
 const PERSONAL_NO_FK = [
@@ -33,6 +34,10 @@ function deleteAccountData(user) {
   try {
     db.prepare('DELETE FROM running_timers WHERE userId = ?').run(user.id);
     db.prepare('DELETE FROM goal_classify_examples WHERE userId = ?').run(user.id); // exemples appris du classement IA (propres au compte)
+    try { require('./taches-apprentissage').resetForUser(user.id); } catch (e) { /* retire les contributions anonymes : jamais bloquant */ }
+    db.prepare('DELETE FROM task_rangement_corrections WHERE userId = ?').run(user.id); // journal d'apprentissage du rangement des tâches (propre au compte)
+    db.prepare('DELETE FROM paliers_delais WHERE userId = ?').run(user.id); // délais réels entre paliers (propres au compte)
+    db.prepare('DELETE FROM rangement_consentement WHERE userId = ?').run(user.id); // consentement à l'amélioration anonyme du modèle
     if (tableExists('activity_managers')) db.prepare('DELETE FROM activity_managers WHERE userId = ?').run(user.id); // responsables d'activité (le propriétaire reste responsable par sa propriété)
     if (tableExists('goal_objective_examples')) db.prepare('DELETE FROM goal_objective_examples WHERE userId = ?').run(user.id); // choix entre deux objectifs (rattachement IA), propres au compte
     db.prepare('DELETE FROM time_entries WHERE userId = ?').run(user.id);

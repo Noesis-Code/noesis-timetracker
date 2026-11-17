@@ -1,0 +1,27 @@
+// Rangement des tâches, modèle de données : colonnes, liens objectif / regroupement / rang, cycles, objectif supprimé. Usage : node test/taches-rangement-test.js
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-rangement-');
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
+delete process.env.ANTHROPIC_API_KEY;
+let failed = 0; const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const db = require('../server/db'); require('../server/lib/objectifs'); const R = require('../server/lib/taches-rangement');
+const cols = db.prepare('PRAGMA table_info(sub_project_items)').all().map((c) => c.name);
+assert(['objectiveId', 'parentItemId', 'chainRank'].every((c) => cols.includes(c)), 'colonnes objectiveId, parentItemId, chainRank présentes');
+db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u1', 'u1', datetime('now'))").run();
+const act = Number(db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('Act', 'u1', '')").run().lastInsertRowid);
+const sp = Number(db.prepare("INSERT INTO sub_projects (activityId, name, createdAt, createdBy) VALUES (?, 'sp', '', 'u1')").run(act).lastInsertRowid);
+const sec = Number(db.prepare("INSERT INTO sub_project_sections (subProjectId, kind, title, createdBy, position, createdAt) VALUES (?, 'tasks', 's', 'u1', 0, '')").run(sp).lastInsertRowid);
+const mk = (l) => Number(db.prepare("INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt) VALUES (?, ?, ?, 0, 0, '')").run(sp, sec, l).lastInsertRowid);
+const t1 = mk('Faire les courses'), t2 = mk('Acheter les carottes'), t3 = mk('Acheter le pain');
+assert(R.readLink(t1).objectiveId === null && R.readLink(t1).parentItemId === null && R.readLink(t1).chainRank === null, 'sans lien : tout est null (comportement d\'avant)');
+assert(R.setLink(t2, { parentItemId: t1, chainRank: 1 }).parentItemId === t1, 'une tâche devient l\'étape d\'une autre');
+R.setLink(t3, { parentItemId: t1, chainRank: 2 });
+assert(R.stepsOf(t1).map((s) => s.id).join() === [t2, t3].join(), 'les étapes sortent dans l\'ordre du rang');
+assert(R.setLink(t1, { parentItemId: t1 }).parentItemId === null, 'une tâche ne peut pas être sa propre étape');
+assert(R.setLink(t1, { parentItemId: t2 }).parentItemId === null, 'aucun cycle : le parent ne devient pas l\'étape de son étape');
+const oid = Number(db.prepare("INSERT INTO user_objectives (userId, activityId, title, amount, unit, startDate, endDate, createdAt) VALUES ('u1', ?, 'Objectif', 1, 'x', '2027-01-01', '2027-12-31', '')").run(act).lastInsertRowid);
+assert(R.setLink(t2, { objectiveId: oid }).objectiveId === oid && R.tasksOf(oid).length === 1, 'la tâche est rangée dans un objectif');
+db.prepare('DELETE FROM user_objectives WHERE id = ?').run(oid);
+assert(R.readLink(t2).objectiveId === null, 'un objectif supprimé disparaît du lien sans erreur');
+assert(R.setLink(t2, { chainRank: null, parentItemId: null }).chainRank === null && R.readLink(t2).parentItemId === null, 'null efface le rang et le regroupement');
+assert(R.setLink(999999, { chainRank: 1 }) === null, 'tâche inconnue : null');
+process.exit(failed ? 1 : 0);

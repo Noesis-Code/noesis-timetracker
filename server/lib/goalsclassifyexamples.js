@@ -19,6 +19,8 @@ function recordCorrection(activityId, userId, label, categoryKey) {
     if (!clean || !categoryKey) return;
     db.prepare('INSERT INTO goal_classify_examples (activityId, userId, label, categoryKey, createdAt) VALUES (?, ?, ?, ?, ?)')
       .run(activityId, userId || null, clean, categoryKey, new Date().toISOString());
+    // Journal d'apprentissage du rangement des tâches (18 nov. 2026) : une catégorie corrigée à la main informe l'IA (personnelle, et agrégée anonymement avec consentement).
+    require('./taches-apprentissage').recordCorrection(userId, activityId, clean, 'category', null, categoryKey);
     db.prepare(`DELETE FROM goal_classify_examples WHERE activityId = ? AND id NOT IN
       (SELECT id FROM goal_classify_examples WHERE activityId = ? ORDER BY id DESC LIMIT ?)`)
       .run(activityId, activityId, KEEP_PER_ACTIVITY);
@@ -62,6 +64,7 @@ function resetForUser(userId) {
   try {
     if (!userId) return 0;
     db.prepare('DELETE FROM goal_objective_examples WHERE userId = ?').run(userId);
+    require('./taches-apprentissage').resetForUser(userId); // journal du rangement des tâches, délais réels et contributions anonymes de ce compte
     return Number(db.prepare('DELETE FROM goal_classify_examples WHERE userId = ?').run(userId).changes) || 0;
   } catch (e) {
     return 0;
@@ -91,6 +94,8 @@ function recordObjective(activityId, userId, label, objective, chosen) {
       .run(activityId, userId, l, o, chosen ? 'choisi' : 'refuse', new Date().toISOString());
     db.prepare(`DELETE FROM goal_objective_examples WHERE activityId = ? AND id NOT IN
       (SELECT id FROM goal_objective_examples WHERE activityId = ? ORDER BY id DESC LIMIT ?)`).run(activityId, activityId, KEEP_PER_ACTIVITY);
+    // Journal d'apprentissage du rangement des tâches (18 nov. 2026) : un objectif choisi à la main est une correction (personnelle, et agrégée anonymement avec consentement).
+    if (chosen) require('./taches-apprentissage').recordCorrection(userId, activityId, l, 'objective', null, o);
   } catch (e) { /* non bloquant */ }
 }
 // Derniers exemples DE CET UTILISATEUR dans cette activité (du plus récent au plus ancien), bloc plafonné.

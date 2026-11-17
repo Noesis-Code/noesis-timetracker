@@ -1147,11 +1147,13 @@ function reprogrammer(userId, id, startDate, endDate) {
   return get(userId, r.id);
 }
 // Délai minimal de l'objectif o : famille connue (objectifs-delais.js, tableau de connaissance générale) entre son prédécesseur de la même famille et lui ; null sans chiffres ou sans famille.
-function delaiDe(o, all) {
+// userId (facultatif) : l'écart RÉEL de la personne (puis celui de l'ensemble, ≥ 5 personnes consentantes) remplace le tableau général quand il existe (taches-apprentissage.js).
+function delaiDe(o, all, userId) {
   try {
     if (!o.famille || o.chiffre == null) return null;
     const prev = all.filter((x) => x.famille === o.famille && x.chiffre != null && x.endDate < o.startDate && x.id !== o.id).sort((a, b) => (a.endDate < b.endDate ? 1 : -1))[0];
     if (!prev) return null;
+    if (userId) { const perso = require('./taches-apprentissage').personalDelay(userId, o.famille, prev.chiffre, o.chiffre); if (perso && perso.semaines > 0) return Math.max(1, Math.round(perso.semaines)); }
     const r = require('./objectifs-delais').delaiMinimal(o.famille, prev.chiffre, o.chiffre, { heuresParSemaine: o.hoursPerWeek || undefined });
     return r && r.semaines > 0 ? r.semaines : null;
   } catch (e) { return null; }
@@ -1165,7 +1167,7 @@ function reorganisation(userId, body) {
     const lvl = levelOf(userId, act.id, body), all = algoObjectifs(userId, act.id), self = Number(body.objectifId) || 0; // modification : l'objectif lui-même n'est jamais déplacé par son propre calcul
     const n = { id: self, level: lvl.level, poleKey: lvl.poleKey, categoryKey: lvl.categoryKey, endDate: body.endDate, dateFixe: body.dateFixe === true };
     const par = body.parentId ? db.prepare('SELECT endDate FROM user_objectives WHERE id = ? AND userId = ?').get(Number(body.parentId), userId) : null;
-    const out = require('./objectifs-boucle').reorganiser(n, all, { today: today(), delaiMinimal: (o) => delaiDe(o, all), limite: par ? par.endDate : null });
+    const out = require('./objectifs-boucle').reorganiser(n, all, { today: today(), delaiMinimal: (o) => delaiDe(o, all, userId), limite: par ? par.endDate : null });
     const titles = new Map(db.prepare('SELECT id, title FROM user_objectives WHERE userId = ? AND activityId = ?').all(userId, act.id).map((r) => [r.id, r.title]));
     return { moves: out.moves.map((m) => ({ id: m.id, title: titles.get(m.id) || '', avant: m.avant, apres: m.apres })), ok: out.ok, tours: out.tours };
   } catch (e) { return none; }

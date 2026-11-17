@@ -59,6 +59,9 @@ const P = {
   goal_capacity_overrides: { cols: ['userId'], erase: 'cascade', exp: 'goalCapacityOverrides' },
   goal_classify_examples: { cols: ['userId'], erase: 'explicit', exp: 'NON: apprentissage technique du classement IA (remise à zéro par l\'API)' },
   goal_objective_examples: { cols: ['userId'], erase: 'explicit', exp: 'NON: apprentissage technique du rattachement tâche → objectif (remise à zéro par l\'API)' },
+  task_rangement_corrections: { cols: ['userId'], erase: 'explicit', exp: 'NON: apprentissage technique du rangement des tâches (remise à zéro par l\'API, effacé avec le compte)' },
+  rangement_consentement: { cols: ['userId'], erase: 'explicit', exp: 'NON: preuve du consentement à l\'amélioration anonyme du modèle (effacée avec le compte)' },
+  paliers_delais: { cols: ['userId'], erase: 'explicit', exp: 'NON: délais réels entre paliers pour personnaliser les durées (remise à zéro par l\'API, effacé avec le compte)' },
   activity_managers: { cols: ['userId'], erase: 'explicit', exp: 'NON: liste des responsables d\'une activité (effacée avec le compte)' },
   member_time_changes: { cols: ['memberId'], erase: 'cascade', exp: 'NON: historique des temps prévus d\'un membre (effacé avec le compte)' },
   goal_overload_dismissals: { cols: ['userId'], erase: 'explicit', exp: 'NON: alerte de surcharge écartée' },
@@ -105,7 +108,7 @@ P.horaire_refused_threads = { cols: ['userId'], erase: 'cascade', exp: 'NON: emp
 // Tables sans aucune colonne qui désigne un compte (contenu d'activité, journaux globaux, jetons de webhooks...).
 const NON_PERSONAL = new Set(['task_share_minutes', 'activities_rebuild', 'activity_billing_cycles', 'activity_goal_categories', 'activity_goal_plans', 'activity_offre1',
   'announcements', 'generation_quality_log', 'goal_cross_sector_suggestions', 'goal_periods', 'goal_year_goals', 'goal_years', 'inactive_account_runs',
-  'poll_options', 'plan_activation_attempts', 'stripe_webhook_events', 'sub_project_item_queue', 'ai_alerts_sent', 'passkey_challenges', 'horaire_migrations', 'objectifs_signaux', 'ai_free_cost']);
+  'poll_options', 'plan_activation_attempts', 'stripe_webhook_events', 'sub_project_item_queue', 'ai_alerts_sent', 'passkey_challenges', 'horaire_migrations', 'objectifs_signaux', 'ai_free_cost', 'rangement_motifs', 'paliers_delais_globaux']);
 
 const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map((r) => r.name);
 const info = (t) => db.prepare(`PRAGMA table_info(${t})`).all();
