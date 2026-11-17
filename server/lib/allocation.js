@@ -120,7 +120,7 @@ function lignes(userId, spec, input) {
   const cols = colsOf(userId, spec);
   return rowsOf(input).map((r) => {
     let total = 0, any = false, own = false;
-    const parts = cols.map((c) => { const e = average(userId, c, r.start, r.end); if (e.minutes != null) { total += e.minutes; any = true; } if (e.own) own = true; return { activityId: c.activityId, poleKey: c.poleKey || null, categoryKey: c.categoryKey || null, minutes: e.minutes, own: e.own }; });
+    const parts = cols.map((c) => { const e = average(userId, c, r.start, r.end); if (e.minutes == null) { const ob = objectifsAvg(userId, c, r.start, r.end); if (ob > 0) e.minutes = ob; } /* aucune allocation posée : le total reprend les heures des objectifs de la catégorie (metaJson.hoursPerWeek), jamais un trait sur une ligne qui en a */ if (e.minutes != null) { total += e.minutes; any = true; } if (e.own) own = true; return { activityId: c.activityId, poleKey: c.poleKey || null, categoryKey: c.categoryKey || null, minutes: e.minutes, own: e.own }; });
     return { start: r.start, end: r.end, totalMin: any ? total : null, own, cols: parts };
   });
 }

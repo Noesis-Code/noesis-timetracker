@@ -10,7 +10,7 @@ db.prepare("INSERT INTO users (id, name, createdAt, weeklyCapacityMinutes) VALUE
 db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u3', 'u3', datetime('now'))").run();
 const mkAct = (u, name) => { const id = Number(db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES (?, ?, '')").run(name, u).lastInsertRowid); db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#A04B52', '')").run(id, u); return id; };
 const a1 = mkAct('u1', 'Noèsis'), a2a = mkAct('u2', 'A'), a2b = mkAct('u2', 'B');
-const A = require('../server/lib/allocation'), categories = require('../server/lib/categories'), goals = require('../server/lib/goals');
+require('../server/lib/objectifs'); const A = require('../server/lib/allocation'), categories = require('../server/lib/categories'), goals = require('../server/lib/goals');
 const cap = (u) => db.prepare('SELECT weeklyCapacityMinutes AS m FROM users WHERE id = ?').get(u).m;
 // migration
 assert(A.effective('u1', { activityId: a1, level: 'activite' }, '2027-03-01').minutes === 1200, 'migration : la capacité manuelle d\'une personne à UNE activité devient l\'allocation de départ de l\'activité');
@@ -32,6 +32,11 @@ const L = A.lignes('u1', { level: 'pole', activityId: a1 }, ['2027-01-01', '2028
 assert(L[0].totalMin === 300 && L[0].own, 'ligne 2027 : total 5 h, réglé');
 assert(L[1].totalMin === 600 && L[1].own, 'ligne 2028 : 8 h + 2 h = 10 h, réglé');
 assert(L[2].totalMin === 300 && L[2].own && L[3].totalMin === 300 && !L[3].own, 'ligne 2029 : 3 h + 2 h (héritée) ; 2030 hérite : gris');
+// total par ligne : une catégorie SANS allocation mais dont un objectif porte des heures (hoursPerWeek) compte ces heures (avant : trait « — » sur une ligne qui a des objectifs)
+const pole3 = categories.addCategory(a1, 'Pôle C'); const poleC = (pole3 && pole3.key) || goals.categoriesForActivity(a1)[2].key;
+require('../server/lib/objectifs').creer('u1', { title: 'Obj heures', activityId: a1, startDate: '2031-01-01', endDate: '2031-12-31', level: 'pole', poleKey: poleC, hoursPerWeek: 4 });
+const L2 = A.lignes('u1', { level: 'pole', activityId: a1 }, [{ start: '2031-01-01', end: '2031-12-31' }]);
+assert(L2[0].cols.find((c) => c.poleKey === poleC).minutes === 240, 'ligne sans allocation propre mais avec un objectif à 4 h : la colonne compte ses heures (plus de trait)');
 // retirer une valeur posée : la catégorie reprend la précédente
 A.set('u1', P, '2028-01-01', null);
 assert(m('2028-06-01') === 300 && m('2029-01-01') === 180, 'retirer une valeur : reprend la précédente, la suite reste');
