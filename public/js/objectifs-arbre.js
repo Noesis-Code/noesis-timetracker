@@ -95,8 +95,13 @@
   // de la largeur exacte des colonnes des activités concernées (les colonnes intermédiaires sont traversées) ; un trait par colonne concernée la relie à ses enfants, qui gardent la couleur de leur activité.
   // Objectif fusionné (tableau simple, 12 nov. 2026) : UNE cellule sur les colonnes reliées, à la couleur de celle qui « mange » = la colonne de son rattachement (l'activité / le pôle d'attache du macro), sinon la première ;
   // les colonnes mangées n'ont plus ni couleur ni case sur cette ligne (leurs cases sont remplacées par la carte large).
+  function absorbIdx(m, cols) { // colonne de la branche absorbante d'un macro (pôles, secteurs) ; -1 sans absorption
+    var a = m.absorbing; if (!a || !cols || lvl === 'activite') return -1;
+    for (var i = 0; i < cols.length; i++) { var x = cols[i] && (cols[i].col ? cols[i].col.ctx : cols[i].ctx); if (x && x.activityId === a.activityId && (lvl === 'pole' ? x.poleKey === a.key : x.categoryKey === a.key && x.poleKey === a.poleKey)) return i; }
+    return -1;
+  }
   function eaterColor(m, c0, c1, cols) {
-    if (!cols) return null; var best = c0;
+    if (!cols) return null; var best = c0, ab = absorbIdx(m, cols); if (ab >= 0) return cols[ab].color; // la branche absorbante (choisie en premier) donne sa couleur au groupe
     for (var i = c0; i <= c1; i++) { var x = cols[i] && (cols[i].col ? cols[i].col.ctx : cols[i].ctx); if (x && m.activity && x.activityId === m.activity.id && (lvl !== 'secteur' || x.poleKey === m.poleKey) && (lvl === 'activite' || x.poleKey === m.poleKey || m.poleKey == null)) { best = i; break; } }
     return cols[best] ? cols[best].color : null;
   }
@@ -425,7 +430,8 @@
   function rootMacro(m) { return !(m.parentId != null && items.some(function (x) { return x.id === m.parentId && x.isMacro; })); }
   function foldMerged(shown, cols) {
     var drop = {};
-    shown.filter(function (o) { return o.isMacro && o.mergeReached && rootMacro(o) && (o.macroLevel || o.level || 'activite') === lvl; }).forEach(function (m) {
+    var lo0 = (zoom === 'period' && focus && focus.year) ? focus.year * 100 + 1 : (zoom === 'year' && focus && focus.block) ? focus.block * 100 : rowKey(dayIso()).rank; // première ligne affichée
+    shown.filter(function (o) { return o.isMacro && o.mergeReached && o.mergeStart && lo0 >= rowKey(o.mergeStart).rank && rootMacro(o) && (o.macroLevel || o.level || 'activite') === lvl; }).forEach(function (m) { // absorbée masquée quand plus aucune ligne affichée ne la montre séparée
       var idx = macroIdx(m, cols); if (idx.length < 2) return;
       var anchor = idx[0]; idx.slice(1).forEach(function (q) { if (drop[q]) return; drop[q] = true; cols[anchor].objs = cols[anchor].objs.concat(cols[q].objs); });
     });
@@ -557,6 +563,16 @@
     // cellules des colonnes : [rangée][colonne] -> entrées
     var cells = list.map(function (rw) { return data.map(function (c) { return c.entries.filter(function (e) { return e.b.rank === rw.rank; }).sort(function (a, b) { return (a.ri - b.ri) || (b.i - a.i); }); }); });
 
+    var fused = {}, recolor = {}; // fusion de deux objectifs existants : titres « A · B » dans les lignes existantes, couleur de la branche absorbante pour la branche absorbée à partir de la fusion
+    Object.keys(macrosAt).forEach(function (k) {
+      macrosAt[k].forEach(function (mm) {
+        if (!(mm.m.id > 0) || !rootMacro(mm.m)) return;
+        var kids = items.filter(function (x) { return x.parentId === mm.m.id && !x.isMacro; }), ttl = kids.map(function (x) { return x.title; }).filter(function (v, i, a) { return a.indexOf(v) === i; }).join(' · ');
+        if (kids.length > 1) kids.forEach(function (x) { fused[x.id] = ttl; });
+        var ab = absorbIdx(mm.m, curCols); if (ab < 0 || !mm.idxs) return;
+        mm.idxs.forEach(function (q) { if (q === ab) return; list.forEach(function (rw3, r3) { if (rw3.rank >= Number(k)) recolor[r3 + ':' + q] = curCols[ab].color; }); });
+      });
+    });
     var holes = {}, wideAt = {}; // au-dessus (périodes plus tardives) d'une carte large non encore atteinte : les colonnes absorbées n'ont plus de cases, leurs objectifs vont dans la colonne de l'entité touchée
     Object.keys(macrosAt).forEach(function (k) {
       macrosAt[k].forEach(function (mm) {
@@ -575,7 +591,7 @@
       macs.forEach(function (mm) { // inline si aucune carte ni autre macro n'occupe les colonnes traversées dans cette case ; sinon dans une rangée de macro juste au-dessus (signalé)
         var free = true; for (var q = mm.c0; q <= mm.c1; q++) if (skip[q] || cells[r][q].some(function (e) { return e.o.parentId !== mm.m.id && !(mm.m.id < 0 && ext && ext.base && e.o.id === ext.base.id); })) free = false; // seuls ses propres enfants peuvent être incorporés dans sa case
         if (free) for (var q3 = mm.c0; q3 <= mm.c1; q3++) cells[r][q3] = []; // l'objectif incorporé n'a plus de carte à lui dans cette rangée : la carte du macro la remplace
-        if (free) for (var q2 = mm.c0; q2 <= mm.c1; q2++) skip[q2] = mm; else extra.push(mm);
+        if (free) for (var q2 = mm.c0; q2 <= mm.c1; q2++) skip[q2] = mm; else if (mm.m.id > 0) mm.fuse = true; /* aucune nouvelle ligne : les objectifs existants restent dans leurs lignes, titres fusionnés, couleur de l'absorbante */ else extra.push(mm);
       });
       var mrows = []; // rangées de macro empilées : un macro va dans la première rangée où il ne chevauche aucun autre
       extra.forEach(function (mm) {
@@ -598,8 +614,8 @@
         if (holes[r + ':' + ci]) return; // colonne absorbée : au-dessus de la fusion il ne reste QU'UNE colonne, sur toute la largeur des colonnes liées (la case de l'entité touchée est élargie)
         var Wc = wideAt[r + ':' + ci] ? spanW(W, wideAt[r + ':' + ci]) : W;
         if (!es.length) row.appendChild(emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
-        else if (zoom === 'year' || (zoom === 'block' && es.length > 1)) row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, Wc, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
-        else row.appendChild(card(es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, c.color));
+        else if (zoom === 'year' || (zoom === 'block' && es.length > 1)) row.appendChild(summaryCard(es.map(function (e) { return e.o; }), recolor[r + ':' + ci] || c.color, Wc, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
+        else row.appendChild(card(fused[es[0].o.id] ? Object.assign({}, es[0].o, { title: fused[es[0].o.id] }) : es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, recolor[r + ':' + ci] || c.color));
       });
       if (!row.querySelector('.goalsGridCell--filled')) row.classList.add('arEmptyRow'); // rangée sans objectif : elle prend sa part du reste (CSS)
       grid.appendChild(row);

@@ -911,6 +911,7 @@ function shape(r, full) {
     out.macroLevel = r.level || 'activite'; out.macroColumns = columnsOf(r); out.emptyColumns = ownExtras(r); out.childMacroIds = activeKids(r).filter((k) => k.isMacro).map((k) => k.id);
     out.macroActivities = mi.activities; out.macroEmpty = mi.empty; out.macroAllAbandoned = mi.allAbandoned; out.macroChildren = mi.total;
     out.status = mi.status; out.progress = mi.progress;
+    out.absorbing = absorption.absorbingOf(r.id); // branche absorbante (couleur des branches absorbées dans l'arbre)
     Object.assign(out, fusion.state(r.endDate, today())); // fusion dans le temps : période de fusion et son état (calculé à chaque lecture, rien n'est écrit)
   }
   if (full) {

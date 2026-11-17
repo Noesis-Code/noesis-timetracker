@@ -74,4 +74,6 @@ function annuler(userId, macroId, onlyKey) {
   });
   return n;
 }
-module.exports = { record, all, survivor, groupAt, absorbedOf, isAbsorbed, appliquer, annuler };
+// Branche absorbante d'un macro (pôles/secteurs) : lue par l'arbre pour donner sa couleur aux branches absorbées ; null sans absorption (activités).
+function absorbingOf(macroId) { const r = db.prepare('SELECT level, absorbingActivityId, absorbingPoleKey, absorbingKey FROM fusion_absorption WHERE macroId = ? AND cancelledAt IS NULL ORDER BY id LIMIT 1').get(macroId); return r ? { level: r.level, activityId: r.absorbingActivityId, poleKey: r.absorbingPoleKey, key: r.absorbingKey } : null; }
+module.exports = { absorbingOf, record, all, survivor, groupAt, absorbedOf, isAbsorbed, appliquer, annuler };
