@@ -1,4 +1,5 @@
-// Création : un objectif de niveau PÔLE ou ACTIVITÉ est placé PAR COLONNE (pôle = l'année de l'échéance, activité = la tranche de 5 ans qui la contient) ; il ne couvre pas l'intervalle depuis aujourd'hui,
+// (16 nov. 2026 : le placement par colonne est remplacé par l'algorithme v46 pour pôle et activité : départ = lendemain du mur, voir objectifs-algo-creation-test ; ici le départ du client est respecté.)
+// Création : un objectif de niveau PÔLE ou ACTIVITÉ était placé PAR COLONNE (pôle = l'année de l'échéance, activité = la tranche de 5 ans qui la contient) ; il ne couvre pas l'intervalle depuis aujourd'hui,
 // aucune période n'est générée avant sa colonne (plus de « Trop de périodes » pour 2039 et au-delà). Échéance dans la colonne actuelle : comportement d'avant (début = aujourd'hui).
 process.env.TZ = 'America/Montreal';
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-colonnes-');
@@ -27,13 +28,13 @@ const caseOf = (level, endDate) => o.occupant('u1', { activityId: act, level, po
   for (const end of ['2030-06-15', '2039-06-15', '2060-06-15']) {
     let r, err = null; try { r = mk('pole', end); } catch (e) { err = e.message; }
     const row = r && rowOf(r.id);
-    assert(!err && row.startDate === end.slice(0, 4) + '-01-01' && row.endDate === end && row.periodes <= 14, 'pôle ' + end + ' : commence le 1er janvier de son année, ' + (row ? row.periodes : '?') + ' périodes, aucune erreur (' + (err || 'ok') + ')');
+    assert(!err && row.startDate === today && row.endDate === end, 'pôle ' + end + ' : départ envoyé par le client respecté (algorithme v46, plus de placement par colonne), ' + (row ? row.periodes : '?') + ' périodes, aucune erreur (' + (err || 'ok') + ')');
   }
   // ---- activité : la tranche de 5 ans ----
   for (const end of ['2030-06-15', '2039-06-15', '2060-06-15']) {
     let r, err = null; try { r = mk('activite', end); } catch (e) { err = e.message; }
     const row = r && rowOf(r.id), b = blockOf(Number(end.slice(0, 4))), colStart = b + '-01-01';
-    assert(!err && row.endDate === end && row.startDate === (colStart > today ? colStart : today) && row.periodes <= 70, 'activité ' + end + ' : tranche ' + b + '-' + (b + 4) + ', début ' + row.startDate + ' (' + row.periodes + ' périodes)' + (err ? ' ' + err : ''));
+    assert(!err && row.endDate === end && row.startDate === today, 'activité ' + end + ' : départ du client respecté, tranche ' + b + '-' + (b + 4) + ', début ' + row.startDate + ' (' + row.periodes + ' périodes)' + (err ? ' ' + err : ''));
   }
   // ---- échéance dans la colonne actuelle : comportement d'avant (début = aujourd'hui) ----
   const dec = y0 + '-12-31';
@@ -42,10 +43,10 @@ const caseOf = (level, endDate) => o.occupant('u1', { activityId: act, level, po
   near = mk('activite', (y0 + 2) + '-06-15');
   assert(rowOf(near.id).startDate === today, 'activité dont l’échéance est dans la tranche en cours : commence aujourd’hui (comme avant)');
   // ---- proposition d'étapes : même placement, pas de « Trop de périodes » ----
-  let prop, perr = null; try { prop = await o.proposer('u1', { title: 'Projet loin', activityId: act, level: 'pole', startDate: today, endDate: '2039-06-15' }); } catch (e) { perr = e.message; }
-  assert(!perr && prop.startDate === '2039-01-01' && prop.periods.length <= 14, 'Étapes proposées pour un pôle 2039 : placées dans leur année (' + (perr || prop.periods.length + ' périodes') + ')');
+  let prop, perr = null; try { prop = await o.proposer('u1', { title: 'Projet loin', activityId: act, level: 'pole', poleKey, startDate: today, endDate: '2039-06-15' }); } catch (e) { perr = e.message; }
+  assert(!perr && prop.startDate >= today && prop.periods.length > 14, 'Étapes proposées pour un pôle 2039 : départ du calcul (algorithme v46), plusieurs cases, sans « Trop de périodes » (' + (perr || prop.periods.length + ' périodes') + ')');
   try { prop = await o.proposer('u1', { title: 'Projet loin', activityId: act, level: 'activite', startDate: today, endDate: '2060-06-15' }); perr = null; } catch (e) { perr = e.message; }
-  assert(!perr && prop.startDate === '2056-01-01', 'Étapes proposées pour une activité 2060 : tranche 2056-2060');
+  assert(!perr && prop.startDate >= today && prop.startDate < '2056-01-01', 'Étapes proposées pour une activité 2060 : départ du calcul (algorithme v46), sans limite de périodes');
   // ---- case occupée sur la colonne ----
   assert(caseOf('pole', '2039-11-30') && !caseOf('pole', '2040-02-01'), 'pôle : la colonne (année 2039) est occupée, 2040 est libre');
   assert(caseOf('activite', '2038-03-01') && !caseOf('activite', '2041-03-01'), 'activité : la tranche 2036-2040 est occupée, 2041-2045 est libre');

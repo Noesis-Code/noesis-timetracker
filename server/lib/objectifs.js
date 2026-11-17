@@ -66,7 +66,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS objectifs_refus (
 
 const UNITS = ['semaines', 'mois', 'années'];
 const MAX_AMOUNT = { semaines: 156, mois: 120, 'années': 10 };
-const MAX_PERIODS = 140; // 13 périodes par an sur dix ans au plus (MAX_AMOUNT années)
+const MAX_PERIODS = 600; // 13 périodes par an : un objectif couvre toutes les cases depuis son départ (algorithme v46, 16 nov. 2026) ; garde-fou seulement
 const TASKS_PER_WEEK = 3; // ordre de grandeur des tâches par semaine d'un objectif (carte « Semaine prochaine »)
 const MAX_TITLE = 140;
 
@@ -341,6 +341,7 @@ async function proposer(userId, body) {
   const end = isDay(body.endDate) ? body.endDate : computeEnd(start, body.amount, body.unit);
   const pl = placement(Object.assign({}, body, { endDate: end }), start); // même placement par colonne que la création
   start = pl.start;
+  if (body.activityId) { const dep = departAlgo(userId, Number(body.activityId), Object.assign({}, body, { endDate: end }), pl, start, true); if (dep.algo) { start = dep.start; pl.startCheck = start; } } // même départ que la création
   if (end <= pl.startCheck) throw err('La fin doit être après le début.');
   const periodWeeks = userPW();
   const weekly = body.weekly !== false;
@@ -584,6 +585,28 @@ function migrateEcheances() {
   if (n) console.log('[objectifs] échéance par défaut attribuée à ' + n + ' objectif(s) sans échéance valide');
   return n;
 }
+// ---- Algorithme de création v46 (16 nov. 2026) : parent, cas A/B/C, murs, départ = lendemain du mur (objectifs-algo.js, module pur) ----
+function algoObjectifs(userId, activityId) {
+  return db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND activityId = ? AND isMacro = 0').all(userId, activityId).map((r) => {
+    const m = parseMetaSafe(r);
+    return { id: r.id, level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null, startDate: r.startDate, endDate: r.endDate, dateFixe: m.dateFixe === true || (Number(m.dateCorrectedDays) || 0) !== 0, abandoned: !!m.abandoned, atteint: shape(r, false).status === 'atteint' };
+  });
+}
+function parseMetaSafe(r) { try { return JSON.parse((r && r.metaJson) || '{}'); } catch (e) { return {}; } }
+function algoDepart(userId, activityId, body, lvl) {
+  const A = require('./objectifs-algo');
+  const n = { level: lvl.level, poleKey: lvl.poleKey, categoryKey: lvl.categoryKey, endDate: body.endDate, dateFixe: body.dateFixe === true, proposedEnd: body.proposedEnd };
+  return A.computeStart(n, algoObjectifs(userId, activityId), today());
+}
+// Départ retenu : le lendemain du mur (hebdomadaires placés par leur semaine et macros exclus) ; jamais d'erreur : sans calcul possible, le départ d'avant est gardé.
+function departAlgo(userId, activityId, body, pl, start, ignoreClientStart) {
+  if (pl.placed || body.isMacro === true || !isDay(body.endDate)) return { start, algo: null, free: false };
+  if (!ignoreClientStart && isDay(body.startDate)) return { start: body.startDate, algo: null, free: true }; // départ déjà calculé par la proposition d'étapes
+  try {
+    const algo = algoDepart(userId, activityId, body, levelOf(userId, activityId, body));
+    return algo.start < body.endDate ? { start: algo.start, algo, free: true } : { start, algo: null, free: false };
+  } catch (e) { console.warn('[objectifs] algorithme de départ ignoré : ' + (e && e.message)); return { start, algo: null, free: false }; }
+}
 function creer(userId, body) {
   const cad = cadenceOf(body); if (cad) body = Object.assign({}, body, { inner: cad === 'hebdomadaire' ? 'hebdomadaires' : 'periodiques' }); // pôle (avec ou sans secteurs) : la période ou la semaine qui contient l'échéance, écrite sur le pôle lui-même
   const title = cleanTitle(body && body.title);
@@ -593,6 +616,8 @@ function creer(userId, body) {
   // Secteur (9 nov. 2026) : « Hebdomadaire » est toujours possible, quelle que soit l'échéance ; l'échéance PLACE l'objectif : la semaine ou la période qui la contient (jamais tout l'intervalle depuis aujourd'hui).
   const pl = placement(body, start), placed = pl.placed;
   start = pl.start;
+  const dep = departAlgo(userId, act.id, body, pl, start), algo = dep.algo; // un départ envoyé par le client vient de la proposition d'étapes, déjà calculée par l'algorithme : il est respecté
+  if (dep.free) { start = isDay(body.startDate) ? body.startDate : start; if (algo) start = dep.start; pl.startCheck = start; }
   checkEcheance(body, pl.startCheck);
   const unit = UNITS.includes(body.unit) ? body.unit : 'semaines';
   const amount = Number.isInteger(Number(body.amount)) && Number(body.amount) > 0 ? Number(body.amount) : Math.max(1, Math.round(daysBetween(start, body.endDate) / 7));
@@ -644,6 +669,7 @@ function creer(userId, body) {
   const sug = require('./objectifs-heures').readStored(body.suggestion); if (sug) meta0.suggestion = sug; // suggestion d'heures de l'IA (milieu, fourchette, facteur) gardée pour apprendre ; le choix de la personne = hoursPerWeek
   if (body.nature === 'maintenance' || body.nature === 'developpement') meta0.nature = body.nature; // choix facultatif de la personne (Avancé) : vide = l'IA décide en silence pour chaque tâche
   if (body.description) meta0.description = String(body.description).trim().slice(0, 900); // description libre de l'objectif (étape « Description »)
+  if (algo) meta0.algo = { cas: algo.cas, parentId: algo.parent ? algo.parent.id : null, mur: algo.wall.why, depart: algo.start };
   if (body.dateFixe === true) meta0.dateFixe = true; // case « Date fixe » (algorithme v46) : mur et parent possible
   if (isDay(body.proposedEnd)) meta0.dateCorrectedDays = daysBetween(body.proposedEnd, body.endDate); // signal : date corrigée par l'utilisateur
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta0), id);

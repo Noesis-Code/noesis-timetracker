@@ -1,6 +1,7 @@
 // Algorithme de création d'un objectif (schéma v46, 16 nov. 2026, Émilien) — ÉTAPE 1 : blocs « 1 · PARENT », « 2 · MURS », « Départ = fin du mur ».
 // Module PUR : aucune lecture de base ; les objectifs existants sont passés en paramètre. Rien n'est écrit ici.
 // objectif = { id, level: 'activite'|'pole'|'secteur', poleKey, categoryKey, startDate, endDate, dateFixe, abandoned, atteint }
+const addDays = (d, n) => new Date(Date.parse(d + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 const RANK = { secteur: 0, pole: 1, activite: 2 };
 const rank = (o) => RANK[o.level || 'activite'];
 const live = (o) => !o.abandoned && !o.atteint;
@@ -64,11 +65,11 @@ function walls(n, objs, cas, today, unrelated) {
   }
   return w;
 }
-// Départ du nouvel objectif = fin du mur le plus tardif, jamais dans le passé, jamais de vide ; jamais après sa propre échéance.
+// Départ du nouvel objectif = LENDEMAIN de la fin du mur le plus tardif (aujourd’hui si le mur est aujourd’hui), jamais dans le passé, jamais de vide ; jamais après sa propre échéance.
 function computeStart(n, objs, today, unrelated) {
   const { cas, parent } = classify(n, objs), w = walls(n, objs, cas, today, unrelated);
   const wall = w.reduce((a, b) => (b.date > a.date ? b : a));
-  const start = wall.date > n.endDate ? n.endDate : wall.date;
+  const raw = wall.why === 'aujourd’hui' ? wall.date : addDays(wall.date, 1), start = raw > n.endDate ? n.endDate : raw;
   return { cas, parent, walls: w, wall, start };
 }
 module.exports = { findParent, classify, walls, computeStart, isDateFixed, superiorOf, sameLevel };
