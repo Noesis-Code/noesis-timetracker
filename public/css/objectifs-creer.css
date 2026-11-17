@@ -212,3 +212,7 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objRdGrab { min-width: 30px; min-height: 44px; display: grid; place-items: center; color: var(--purple); font-size: 18px; line-height: 1; touch-action: none; }
 .objRdDrag { background: color-mix(in srgb, var(--purple) 14%, transparent); border-radius: 10px; }
 .objRdDrop { box-shadow: 0 0 0 2px var(--purple); border-radius: 10px; }
+/* Création d'un objectif : le bouton Suivant / Terminer prend la place de la barre des volets (même bas, mêmes 16 px latéraux, même hauteur 52 px ; zone de sécurité gardée) ; elle revient à la fermeture. */
+:root.objBarOn .tabbar { visibility: hidden; }
+.objDock.objDockBar { bottom: max(16px, env(safe-area-inset-bottom)); }
+.objDock.objDockBar .objStepBtn { height: 52px; }

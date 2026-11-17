@@ -83,7 +83,7 @@
     TMT.ui.dockKeyboard(dock, panelBody); // MÊME code que la barre « Nouvelle tâche… » : le panneau reste juste au-dessus du clavier
     if (window.MutationObserver) new MutationObserver(syncDock).observe(dock, { attributes: true, attributeFilter: ['class'] }); // plus de barre d'écriture : la zone du bas n'existe que pendant une création ou une modification (classe expSave)
   }
-  function syncDock() { if (dock) dock.classList.toggle('hidden', !(state.shown && dock.classList.contains('expSave') && host.getClientRects().length && !host.classList.contains('hidden'))); }
+  function syncDock() { if (!dock) return; dock.classList.toggle('hidden', !(state.shown && dock.classList.contains('expSave') && host.getClientRects().length && !host.classList.contains('hidden'))); document.documentElement.classList.toggle('objBarOn', dock.classList.contains('objDockBar') && !dock.classList.contains('hidden')); } // pendant la création, le bouton du bas REMPLACE la barre des volets (classe objBarOn sur <html>, CSS objectifs-creer.css)
   function load() { if (TMT.objectifsArbre) TMT.objectifsArbre.refresh(); } // l'arbre se redessine après une création ou une modification
 
   // ---------- Fenêtres (gabarit commun .goalTaskEditModal) ----------
@@ -147,7 +147,7 @@
   function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
     if (ficheEnd) { var fe = ficheEnd; ficheEnd = null; window.setTimeout(fe, 0); }
     if (extendCancel) { var xc = extendCancel; extendCancel = null; xc(); } // mode Étendre annulé (✕) : l'arbre reprend son état
-    clearPending(); dock.classList.remove('expSave', 'expExtend'); advance = null; setBack(null); panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; seq = { base: 0, count: 1, i: 0 };
+    clearPending(); dock.classList.remove('expSave', 'expExtend', 'objDockBar'); advance = null; setBack(null); panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; seq = { base: 0, count: 1, i: 0 };
   }
 
   // ---------- Fenêtre « Nouvel objectif » ----------
@@ -776,7 +776,7 @@
       if (k === 'temps') tpLoad();
       panelKicker.textContent = tr(k === 'inf' && inf.plan && !inf.plan.skip ? infLevelName(inf.plan) : stepNames[k]);
       var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
-      stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave');
+      stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave', 'objDockBar');
       stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');
       stepBtn.disabled = stepOff() || (k === 'niveau' && !nivDone()); // Suivant grisé tant que le rattachement n'est pas décidé
       advance = i < tot - 1 ? stepNext : finishAll; setBack(i > 0 ? function () { show(l[i - 1]); } : null);
