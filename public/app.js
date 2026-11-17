@@ -7335,6 +7335,82 @@
     if (open) load();
     return root;
   }
+  // ---------- Répartition des tâches par membre (18 nov. 2026, décision d'Émilien) ----------
+  // Ligne « Répartition des tâches » JUSTE APRÈS la Stratégie, par catégorie (activité, pôle, secteur), seulement si l'activité a plusieurs membres : un pourcentage par membre (le total fait 100 %), héritage
+  // du dessus si vide. Quand une part change, l'app PROPOSE d'ajuster les autres catégories : chaque ligne se valide ou se refuse (refus mémorisé) ; si c'est impossible, elle propose de changer la part du dessus
+  // (aucun message d'erreur). Ces parts décident le responsable des tâches rangées. Composants existants : .activityEditRow, .cmpChev, .iconBtn ; seul le propriétaire modifie.
+  function buildRepartitionBlock(activityId, key, open) {
+    var url = '/api/activities/' + activityId + '/repartition/' + (key || '_');
+    var root = document.createElement('div'); root.className = 'catStrategie hidden';
+    var body = document.createElement('div'); body.className = 'catStrategieBody' + (open ? '' : ' hidden');
+    var data = null, edit = {}, prop = null;
+    if (!open) {
+      var head = document.createElement('button'); head.type = 'button'; head.className = 'activityEditRow';
+      var hl = document.createElement('span'); hl.textContent = t('Répartition des tâches');
+      var hc = document.createElement('span'); hc.className = 'cmpChev'; hc.setAttribute('aria-hidden', 'true');
+      head.appendChild(hl); head.appendChild(hc); root.appendChild(head);
+      head.addEventListener('click', function () { body.classList.toggle('hidden'); });
+    }
+    root.appendChild(body);
+    function show(d) { data = d; edit = {}; (d.membres || []).forEach(function (m) { var v = (d.own || d.effective || {})[m.userId]; edit[m.userId] = v == null ? '' : String(v); }); paint(); }
+    function names(o) { return data.membres.map(function (m) { return m.name + ' ' + (o[m.userId] || 0) + ' %'; }).join(' · '); }
+    function sum() { return data.membres.reduce(function (s, m) { return s + (Number(edit[m.userId]) || 0); }, 0); }
+    function changed() { var o = data.own || {}; return data.membres.some(function (m) { return (Number(edit[m.userId]) || 0) !== (o[m.userId] || 0); }) || (!data.own && sum() > 0); }
+    function err(m) { var e = body.querySelector('.msg'); if (e) e.textContent = m || ''; }
+    function save(shares) {
+      api('PUT', url, { shares: shares }).then(function (d) { prop = d.proposition || null; show(d); }).catch(function (e) { err(e.message); });
+    }
+    function applyLines(lines, accept) {
+      var p = accept ? { acceptees: lines.map(function (l) { return { key: l.key, apres: l.apres }; }) } : { refusees: lines.map(function (l) { return { key: l.key, apres: l.apres }; }) };
+      api('POST', url + '/appliquer', p).then(function (d) {
+        prop.lignes = (prop.lignes || []).filter(function (x) { return lines.indexOf(x) < 0; });
+        if (prop.suggestion && lines.indexOf(prop.suggestion) >= 0) prop.suggestion = null;
+        show(d);
+      }).catch(function (e) { err(e.message); });
+    }
+    function proposalLine(l, text) {
+      var row = document.createElement('div'); row.className = 'catStrategieQ';
+      var q = document.createElement('p'); q.className = 'hint'; q.textContent = text; row.appendChild(q);
+      var a = document.createElement('button'); a.type = 'button'; a.className = 'iconBtn btnBrique'; a.textContent = t('Accepter');
+      var r = document.createElement('button'); r.type = 'button'; r.className = 'iconBtn'; r.textContent = t('Refuser');
+      a.addEventListener('click', function () { applyLines([l], true); }); r.addEventListener('click', function () { applyLines([l], false); });
+      row.appendChild(a); row.appendChild(r); return row;
+    }
+    function paint() {
+      body.textContent = '';
+      var hint = document.createElement('p'); hint.className = 'hint';
+      hint.textContent = t('Part des tâches de chaque membre. Sans réponse, la catégorie reprend celle du dessus.') + (!data.own && data.effective ? ' ' + t('Hérité') + ' : ' + names(data.effective) + '.' : '');
+      body.appendChild(hint);
+      data.membres.forEach(function (m) {
+        var w = document.createElement('div'); w.className = 'catStrategieQ';
+        var q = document.createElement('p'); q.className = 'hint'; q.textContent = m.name + ' (%)'; w.appendChild(q);
+        var i = document.createElement('input'); i.type = 'text'; i.inputMode = 'numeric'; i.maxLength = 3; i.autocomplete = 'off'; i.value = edit[m.userId]; i.disabled = !data.canEdit; i.setAttribute('aria-label', m.name + ' (%)');
+        i.addEventListener('input', function () {
+          edit[m.userId] = i.value;
+          if (data.membres.length === 2) { var o = data.membres.filter(function (x) { return x.userId !== m.userId; })[0]; var v = Math.max(0, Math.min(100, Number(i.value) || 0)); edit[o.userId] = String(100 - v); var oi = body.querySelector('input[data-u="' + o.userId + '"]'); if (oi) oi.value = edit[o.userId]; }
+          refreshSave();
+        });
+        i.setAttribute('data-u', m.userId); w.appendChild(i); body.appendChild(w);
+      });
+      var msg = document.createElement('p'); msg.className = 'msg'; body.appendChild(msg);
+      if (data.canEdit) {
+        var sv = document.createElement('button'); sv.type = 'button'; sv.className = 'iconBtn btnBrique'; sv.textContent = t('Enregistrer'); sv.setAttribute('data-role', 'save'); body.appendChild(sv);
+        sv.addEventListener('click', function () { var s = {}; data.membres.forEach(function (m) { s[m.userId] = Number(edit[m.userId]) || 0; }); save(s); });
+        if (data.own) { var rs = document.createElement('button'); rs.type = 'button'; rs.className = 'iconBtn'; rs.textContent = t('Reprendre celle du dessus'); rs.addEventListener('click', function () { save(null); }); body.appendChild(rs); }
+        refreshSave();
+      }
+      if (prop && prop.lignes && prop.lignes.length) {
+        var pt = document.createElement('p'); pt.className = 'hint'; pt.textContent = t('Pour garder le total, ajuster :'); body.appendChild(pt);
+        prop.lignes.forEach(function (l) { body.appendChild(proposalLine(l, l.nom + ' : ' + names(l.avant) + ' → ' + names(l.apres))); });
+      } else if (prop && prop.suggestion) {
+        body.appendChild(proposalLine(prop.suggestion, t('Changer la part de') + ' ' + (prop.suggestion.nom || t('l’activité')) + ' : ' + names(prop.suggestion.avant) + ' → ' + names(prop.suggestion.apres)));
+      }
+      root.classList.remove('hidden');
+    }
+    function refreshSave() { var sv = body.querySelector('[data-role="save"]'); if (sv) sv.disabled = !(changed() && sum() === 100); }
+    api('GET', url).then(function (d) { if (d.multi) show(d); }).catch(function () { /* reste masquée */ });
+    return root;
+  }
   function catBuildEditForm(activityId) {
     var st = catEditState;
     var box = document.createElement('div');
@@ -7360,7 +7436,7 @@
     save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
     actions.appendChild(cancel); actions.appendChild(save);
     var caps = buildTimeCapsBlock(activityId, st.key, !st.poleKey);
-    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(caps.node); fields.appendChild(buildStrategieBlock(activityId, st.key, false)); fields.appendChild(msg); fields.appendChild(actions);
+    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(caps.node); fields.appendChild(buildStrategieBlock(activityId, st.key, false)); fields.appendChild(buildRepartitionBlock(activityId, st.key, false)); fields.appendChild(msg); fields.appendChild(actions);
     box.appendChild(fields);
     box.appendChild(del);
     nameIn.addEventListener('input', function () { st.name = nameIn.value; });
@@ -15263,6 +15339,7 @@
     rows.appendChild(plainRow(t('Catégories'), function () { openCategoriesPopup(a); }));
     // 18 nov. 2026 (Émilien) : « Stratégie » existe PAR CATÉGORIE (activité, pôle, secteur) ; ici, celle de l'activité elle-même (clé « _ »).
     rows.appendChild(plainRow(t('Stratégie'), function () { openEditPopup(t('Stratégie'), function (body) { body.appendChild(buildStrategieBlock(a.id, '_', true)); }); }));
+    if (a.membersCount > 1) rows.appendChild(plainRow(t('Répartition des tâches'), function () { openEditPopup(t('Répartition des tâches'), function (body) { body.appendChild(buildRepartitionBlock(a.id, '_', true)); }); }));
     fields.appendChild(rows);
 
     // « Avancé » : replié par défaut ; ouvert, il montre la visibilité et la fusion.

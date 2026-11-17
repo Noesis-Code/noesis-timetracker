@@ -3093,7 +3093,7 @@ button { -webkit-user-select: none; user-select: none; }
 .catStrategieBody { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
 .catStrategieQ { display: flex; flex-direction: column; gap: 8px; }
 .catStrategieQ .hint, .catStrategieBody > .hint { margin: 0; }
-.catStrategieQ select { width: 100%; min-height: 44px; }
+.catStrategieQ select, .catStrategieQ input { width: 100%; min-height: 44px; }
 .catNewPole input, .catNewPole textarea { width: 100%; min-width: 0; font-size: 16px; box-sizing: border-box; }
 .catNewPole .catNewPoleActions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
 .catEditForm .catNewPoleActions > .cmpRemove { margin-right: auto; } /* 5 oct. 2026 : corbeille tout à gauche, comme les historiques */

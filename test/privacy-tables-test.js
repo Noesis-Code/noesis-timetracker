@@ -80,6 +80,8 @@ const P = {
   idempotency_keys: { cols: ['userId'], erase: 'explicit', exp: 'NON: clés techniques de capture hors ligne' },
   inactive_account_log: { cols: ['userId'], erase: 'kept', exp: 'NON: journal d\'avis/suppression, id seul sans nom ni courriel, conservé exprès (preuve de suppression)' },
   member_time_overrides: { cols: ['memberId'], erase: 'explicit', exp: 'NON: estimation de temps posée par l\'activité' },
+  category_shares: { cols: ['userId'], erase: 'cascade', exp: 'NON: part de tâches du membre dans une catégorie de l\'activité' },
+  category_share_refusals: { cols: ['userId'], erase: 'cascade', exp: 'NON: refus mémorisé d\'une proposition d\'équilibrage des parts' },
   task_share_wanted: { cols: ['userId'], erase: 'cascade', exp: 'NON: temps voulu du membre pour le partage des tâches de l\'activité' },
   message_reports: { cols: ['reporterId'], erase: 'explicit', exp: 'NON: signalement de modération' },
   note_attachments: { cols: ['userId'], erase: 'cascade', exp: 'noteAttachments' },

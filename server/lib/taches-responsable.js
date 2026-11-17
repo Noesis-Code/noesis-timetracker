@@ -21,11 +21,12 @@ function wanted(activityId) {
   return out;
 }
 // Travail ouvert de chacun dans l'activité (minutes : médiane estimée, sinon 30) : { userId: minutes }.
-function charge(activityId, excludeItemId) {
+function charge(activityId, excludeItemId, categoryKeys) {
   const out = {};
   try {
+    const ks = Array.isArray(categoryKeys) && categoryKeys.length ? categoryKeys : null; // parts d'une catégorie : seulement le travail ouvert de cette catégorie
     db.prepare(`SELECT i.plannedUserId AS u, SUM(COALESCE(i.medianMinutes, ?)) AS m FROM sub_project_items i JOIN sub_projects p ON p.id = i.subProjectId
-      WHERE p.activityId = ? AND i.done = 0 AND i.plannedUserId IS NOT NULL AND i.id != ? GROUP BY i.plannedUserId`).all(DEFAULT_MINUTES, activityId, Number(excludeItemId) || 0).forEach((r) => { out[r.u] = r.m; });
+      WHERE p.activityId = ? AND i.done = 0 AND i.plannedUserId IS NOT NULL AND i.id != ?` + (ks ? ' AND p.goalCategory IN (' + ks.map(() => '?').join(',') + ')' : '') + ' GROUP BY i.plannedUserId').all(DEFAULT_MINUTES, activityId, Number(excludeItemId) || 0, ...(ks || [])).forEach((r) => { out[r.u] = r.m; });
   } catch (e) { /* sans charge connue */ }
   return out;
 }
@@ -41,9 +42,12 @@ function proposer(userId, activityId, opts) {
   } catch (e) { /* suite */ }
   let manager = null;
   try { const r = require('./responsables').categorie(userId, activityId, o.categoryKey || '', o.poleKey || null); manager = r && ms.includes(r.userId) ? r.userId : null; } catch (e) { manager = null; }
-  const w = wanted(activityId), tot = ms.reduce((s, u) => s + (w[u] || 0), 0);
+  // 18 nov. 2026 : les parts en pour cent de la CATÉGORIE (secteur, pôle ou activité, avec héritage ; repartition-membres.js) décident en premier, sur le travail ouvert de cette catégorie ; sinon le temps voulu de l'activité (task_share_wanted).
+  let w = wanted(activityId), scoped = false;
+  try { const cs = require('./repartition-membres').partsEnVigueur(activityId, o.categoryKey, o.poleKey); if (cs && ms.reduce((s, u) => s + (cs[u] || 0), 0) > 0) { w = cs; scoped = true; } } catch (e) { /* repli sur le temps voulu */ }
+  const tot = ms.reduce((s, u) => s + (w[u] || 0), 0);
   if (tot > 0) {
-    const c = charge(activityId, o.itemId), load = ms.reduce((s, u) => s + (c[u] || 0), 0);
+    const c = charge(activityId, o.itemId, scoped ? [o.categoryKey, o.poleKey].filter(Boolean) : null), load = ms.reduce((s, u) => s + (c[u] || 0), 0);
     // Écart entre la part voulue et la part réelle de travail ouvert : le plus grand écart positif reçoit la tâche.
     const gap = (u) => (w[u] || 0) / tot - (load > 0 ? (c[u] || 0) / load : 0);
     const ranked = ms.map((u) => ({ u, g: gap(u) })).sort((a, b) => b.g - a.g || (a.u === manager ? -1 : b.u === manager ? 1 : 0));
