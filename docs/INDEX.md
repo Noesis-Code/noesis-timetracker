@@ -14,6 +14,7 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 ## Sous-dossiers
 - `regles/` : règles de travail (`regles-rangement`, `brief-chantier`, `boucle-veille`, `modele-tache`, `intentions`) ; `efvp-horaire.md` (projet d'EFVP Loi 25 du module Horaire, à signer).
 - `audits/` : audits, benchmarks, écarts de design, performance, fiabilité, sécurité, accessibilité, fuseaux, PWA.
+- `audits/verification-navigateur-arbre.md` : vérification navigateur (Chrome + CDP) de l’arbre des objectifs : décalage de page, nombre de lignes, semaine courante (scripts `scripts/verif-*.js`).
 - `ia/` : `ia-appels.md`, document IA unique (appels, modèles, budget, échecs, coûts) ; `objectifs-durees.md`, base de durées des objectifs (date butoir proposée sans IA) ; `durees-taches.md`, durée d'une tâche (fourchette stockée, micro-étapes, plan en 3 phases) ; `rangement-taches.md`, rangement des tâches dans les objectifs (modèle, choix, apprentissage, consentement).
 - `expansion/` : offre payante (accès, résiliation, courriels, Stripe, taxes, parcours commercial) ; `connecteur-ia-libre.md` (outils d'écriture du connecteur IA, gratuits) ; `lecture-organisation-ia-cadrage.md` (lecture anonyme de l'organisation IA, à trancher).
 - `trade/` : Trade Tracker (connexion, délais, intégration).
