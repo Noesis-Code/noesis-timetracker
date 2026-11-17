@@ -16,7 +16,7 @@
   var TMT = window.TMT = window.TMT || {};
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-  var zoom = 'period', lvl = 'activite', focus = null, struct = null, picked = null, animate = false, openPending = false;
+  var zoom = 'period', wk = null, lvl = 'activite', focus = null, struct = null, picked = null, animate = false, openPending = false;
   var tree = null, items = [], toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, scroller = null, gridArea = null, ext = null, savedView = null, restoreView = null;
   var MIN_ROWS = 5;
   var RAIL = 30, GAP = 10; // largeur de la colonne de repères + gouttière (RAIL change avec le niveau : ovale d'un bloc de 5 ans, d'une année, rond d'une période)
@@ -51,6 +51,7 @@
   function hrsTxt(min) { if (min == null) return '—'; var h = min / 60; return (Number.isInteger(h) ? String(h) : String(Math.round(h * 10) / 10).replace('.', ',')) + ' h'; }
   function rowSpan(rw) { // première et dernière date de la ligne (bloc de 5 ans, année, période de 28 jours)
     if (rw.block) return { start: rw.y + '-01-01', end: rw.y2 + '-12-31' };
+    if (rw.w) { var dw = new Date(Date.UTC(rw.y, 0, 1)); dw.setUTCDate(dw.getUTCDate() + (rw.w - 1) * 7); var sw = dw.toISOString().slice(0, 10); dw.setUTCDate(dw.getUTCDate() + 6); return { start: sw, end: dw.toISOString().slice(0, 10) }; }
     if (rw.p) { var d = new Date(Date.UTC(rw.y, 0, 1)); d.setUTCDate(d.getUTCDate() + (rw.p - 1) * PER_DAYS); var s0 = d.toISOString().slice(0, 10); d.setUTCDate(d.getUTCDate() + PER_DAYS - 1); return { start: s0, end: d.toISOString().slice(0, 10) }; }
     return { start: rw.y + '-01-01', end: rw.y + '-12-31' };
   }
@@ -282,11 +283,12 @@
     return b;
   }
   // Création depuis une case vide : cadre = la colonne, type = la ligne (bloc de 5 ans, année, période), échéance = la fin de la case.
-  function createFrom(c, rw, endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, type: rw.block ? 'pluriannuel' : rw.p ? 'periodique' : 'annuel', label: rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); }
+  function createFrom(c, rw, endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, type: rw.block ? 'pluriannuel' : rw.w ? 'hebdomadaire' : rw.p ? 'periodique' : 'annuel', label: rw.w ? 'S' + rw.w + ' ' + rw.y : rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); }
   // Fin de la case (jour ISO) : fin de la période du réglage, ou de l'année ; null si elle n'est pas dans le futur.
   function rowEnd(rw) {
     var iso;
     if (rw.block) iso = rw.y2 + '-12-31';
+    else if (rw.w) iso = rowSpan(rw).end; // fin de la semaine (7 jours à partir du 1er janvier)
     else if (rw.p && rw.p < PER_YEAR) { var d = new Date(Date.UTC(rw.y, 0, 1)); d.setUTCDate(d.getUTCDate() + rw.p * PER_DAYS - 1); iso = d.toISOString().slice(0, 10); }
     else iso = rw.y + '-12-31';
     return iso > dayIso() ? iso : null;
@@ -313,15 +315,17 @@
   }
   function rowKey(iso) { // la case du temps selon le niveau d'arbre : bloc de 5 ans (arbre macro), année, période
     var x = periodOf(iso);
+    if (zoom === 'week') { var w0 = Math.min(52, Math.floor(Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(x.y + '-01-01T00:00:00Z')) / 86400000) / 7) + 1); return { k: x.y + 'S' + w0, rank: x.y * 100 + w0, y: x.y, w: w0 }; } // semaine de 7 jours à partir du 1er janvier : la période de 28 jours en compte exactement 4
     if (zoom === 'period') return { k: x.y + 'P' + x.p, rank: x.y * 100 + x.p, y: x.y, p: x.p };
     if (zoom === 'year') return { k: String(x.y), rank: x.y * 100, y: x.y, p: 0 };
     var y0 = new Date().getFullYear(), s0 = y0 + 5 * Math.floor((x.y - y0) / 5);
     return { k: 'B' + s0, rank: s0 * 100, y: s0, y2: s0 + 4, p: 0, block: true };
   }
-  function rowOfRank(rk) { return zoom === 'period' ? { k: Math.floor(rk / 100) + 'P' + (rk % 100), rank: rk, y: Math.floor(rk / 100), p: rk % 100 } : zoom === 'year' ? { k: String(rk / 100), rank: rk, y: rk / 100, p: 0 } : { k: 'B' + rk / 100, rank: rk, y: rk / 100, y2: rk / 100 + 4, p: 0, block: true }; }
+  function rowOfRank(rk) { if (zoom === 'week') return { k: Math.floor(rk / 100) + 'S' + (rk % 100), rank: rk, y: Math.floor(rk / 100), w: rk % 100 }; return zoom === 'period' ? { k: Math.floor(rk / 100) + 'P' + (rk % 100), rank: rk, y: Math.floor(rk / 100), p: rk % 100 } : zoom === 'year' ? { k: String(rk / 100), rank: rk, y: rk / 100, p: 0 } : { k: 'B' + rk / 100, rank: rk, y: rk / 100, y2: rk / 100 + 4, p: 0, block: true }; }
   function bucketOf(o, today) { var late = o.endDate < today && !o.abandoned && o.status !== 'atteint'; return rowKey(late ? today : o.endDate); }
   function nextRank(r) { // case suivante, vers le futur
     if (zoom === 'year') return r + 100;
+    if (zoom === 'week') return r % 100 >= 52 ? (Math.floor(r / 100) + 1) * 100 + 1 : r + 1;
     if (zoom === 'block') return r + 500;
     return r % 100 >= PER_YEAR ? (Math.floor(r / 100) + 1) * 100 + 1 : r + 1;
   }
@@ -351,27 +355,14 @@
     }
   }
   // Repère de période (mêmes classes que la page 2) : à venir = numéro cerclé, courante = pastille pleine, passée = point. En zoom Année : les deux derniers chiffres de l'année.
-  // Dernier niveau (secteurs) : toucher le repère d'une PÉRIODE ouvre le calendrier (page 3) de cette période, par l'ouverture existante (openGoalsPeriodFromNotification) ; rien d'autre n'est ajouté.
-  function calTap(rw, c) { return lvl === 'secteur' && rw.p ? function () { openCalendar(rw, c.col.key); } : null; } // niveau secteurs : toucher une case OCCUPÉE ouvre le calendrier de la période
-  // Calendrier des tâches (page 3) depuis l'arbre : TMT.ouvrirCalendrierTaches ; la vue (niveau, colonne, défilement) est mémorisée AVANT l'appel pour que la flèche de retour y revienne.
-  function openTasksCal(extra) {
-    if (!focus || focus.activityId == null || !focus.poleKey || !TMT.ouvrirCalendrierTaches) return;
-    var keep = savedView = { lvl: lvl, focus: focus, top: gridArea ? gridArea.scrollTop : 0, left: scroller ? scroller.scrollLeft : 0 };
-    document.documentElement.classList.add('calFromTree');
-    Promise.resolve(TMT.ouvrirCalendrierTaches(Object.assign({ activityId: focus.activityId, poleKey: focus.poleKey }, extra))).then(function (ok) {
-      if (ok) return;
-      if (savedView === keep) savedView = null; document.documentElement.classList.remove('calFromTree'); say(tr('Aucune période du calendrier à ces dates.'));
-    }).catch(function () { if (savedView === keep) savedView = null; document.documentElement.classList.remove('calFromTree'); say(tr('Impossible pour le moment.')); });
-  }
-  function openCalendar(rw, secteurKey) { // toucher une PÉRIODE (niveau secteurs) : calendrier du secteur, au mois du 1er jour de la période
-    if (!rw.p) return;
-    var d0 = new Date(Date.UTC(rw.y, 0, 1)); d0.setUTCDate(d0.getUTCDate() + (rw.p - 1) * PER_DAYS);
-    openTasksCal({ secteurKey: secteurKey, date: d0.toISOString().slice(0, 10) });
-  }
+  // Dernier niveau (secteurs) : toucher un objectif PÉRIODIQUE (hors du « + ») ouvre la page de ses 4 SEMAINES : la même grille, une ligne par semaine, la colonne touchée seule ; la ✕ en haut à droite revient aux périodes.
+  function openWeeks(rw, c) { if (!rw.p || wk) return; wk = { y: rw.y, p: rw.p, key: c.col.key, label: c.col.label }; animate = true; needBase = true; render(); }
+  function closeWeeks() { if (!wk) return; wk = null; animate = true; needBase = true; render(); }
+  function calTap(rw, c) { return lvl !== 'secteur' ? null : wk ? function () {} : rw.p ? function () { openWeeks(rw, c); } : null; } // dernier niveau : une case occupée n'ouvre rien de plus bas dans la page des semaines
   function marker(rw, here, onTap) {
-    var oval = !rw.p, st = rw.rank > here.rank ? 'future' : rw.rank === here.rank ? 'current' : 'past', m = el('span', 'goalsRowMarker goalsRowMarker--' + st + (oval ? ' goalsRowMarker--ovale' : ''));
-    var label = rw.block ? rw.y + '-' + rw.y2 : rw.p ? String(rw.p) : String(rw.y);
-    m.setAttribute('aria-label', rw.p ? tr('Période') + ' ' + rw.p + ' · ' + rw.y : label);
+    var oval = !rw.p && !rw.w, st = rw.rank > here.rank ? 'future' : rw.rank === here.rank ? 'current' : 'past', m = el('span', 'goalsRowMarker goalsRowMarker--' + st + (oval ? ' goalsRowMarker--ovale' : ''));
+    var label = rw.block ? rw.y + '-' + rw.y2 : rw.w ? String(rw.w) : rw.p ? String(rw.p) : String(rw.y);
+    m.setAttribute('aria-label', rw.w ? tr('Semaine') + ' ' + rw.w + ' · ' + rw.y : rw.p ? tr('Période') + ' ' + rw.p + ' · ' + rw.y : label);
     if (st !== 'past') m.textContent = rw.block ? ('0' + (rw.y % 100)).slice(-2) + '/' + ('0' + (rw.y2 % 100)).slice(-2) : label; // bloc de 5 ans : les deux derniers chiffres de chaque année (« 26/30 »), pastille cerclée étroite
     if (st === 'current') { m.style.background = 'var(--text)'; m.style.color = 'var(--bg)'; }
     if (onTap) { m.setAttribute('role', 'button'); m.tabIndex = 0; m.style.cursor = 'pointer'; m.addEventListener('click', onTap); }
@@ -459,7 +450,7 @@
     return cols.map(function (c, i) { return { c: c, i: i }; }).sort(function (x, y) { var p = o.indexOf(String(x.c.key)), q = o.indexOf(String(y.c.key)); p = p < 0 ? 999 + x.i : p; q = q < 0 ? 999 + y.i : q; return p - q; }).map(function (z) { return z.c; });
   }
   function go(l, f) {
-    lvl = l; focus = f; picked = null; animate = true; needBase = true; render();
+    lvl = l; focus = f; wk = null; picked = null; animate = true; needBase = true; render();
     var k = ordreKey().join('|'), before = JSON.stringify(ordreMap[k]);
     loadOrdre().then(function () { if (visible && ordreKey().join('|') === k && JSON.stringify(ordreMap[k]) !== before) render(); }); // l'ordre de présentation arrive : les colonnes reliées se rapprochent
   }
@@ -498,7 +489,8 @@
     var nav = el('nav', 'arCrumbs'); nav.setAttribute('aria-label', tr('Chemin'));
     var act = actOf(focus.activityId), name = isMulti() ? (focus.activityIds || pairsOf().map(function (p) { return p.activityId; }).filter(function (v, i, a) { return a.indexOf(v) === i; })).map(function (id) { var x = actOf(id); return x ? x.name : ''; }).join(' + ') : (act ? act.name : '');
     var parts = [{ label: tr('Activités'), go: function () { go('activite', null); } }, { label: name, go: lvl === 'secteur' ? ascend : null }];
-    if (lvl === 'secteur') parts.push({ label: pairsOf().length ? tr('Secteurs') : (focus.poleLabel || ''), go: null });
+    if (lvl === 'secteur') parts.push({ label: pairsOf().length ? tr('Secteurs') : (focus.poleLabel || ''), go: wk ? closeWeeks : null });
+    if (wk) parts.push({ label: 'P' + wk.p + ' · ' + wk.label, go: null }); // page des semaines : le chemin finit par la période et la colonne touchée
     parts.forEach(function (p, i) {
       var last = !p.go;
       if (i) nav.appendChild(el('span', 'arCrumbSep', '›'));
@@ -512,13 +504,14 @@
     var keepTop = !needBase && gridArea ? gridArea.scrollTop : null, keepLeft = !needBase && scroller ? scroller.scrollLeft : 0;
     document.documentElement.classList.toggle('arbreOn', visible); // page non défilante tant que l'arbre est affiché (aucun élastique)
     tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024); fitTree();
-    zoom = lvl === 'activite' ? 'block' : lvl === 'pole' ? 'year' : 'period'; // le temps suit le zoom : arbre macro = blocs de 5 ans (pluriannuel), années (annuel), périodes 13 × 4 (période)
+    zoom = lvl === 'activite' ? 'block' : lvl === 'pole' ? 'year' : wk ? 'week' : 'period'; // le temps suit le zoom : arbre macro = blocs de 5 ans (pluriannuel), années (annuel), périodes 13 × 4 (période)
     var mw = 46; RAIL = mw + 10; tree.style.setProperty('--ar-mw', mw + 'px'); tree.style.setProperty('--ar-pl', (mw + 6) + 'px'); // colonne de repères : ovale d'un bloc / d'une année, rond d'une période (+ année en ovale)
     var today = dayIso(), keep = visibleSet(today), shown = items.filter(function (o) { return keep[o.id]; });
     tree.classList.toggle('arExtending', !!ext);
-    if (items.length && lvl !== 'activite') { var zb = el('div', 'arZoomRow'); zb.appendChild(backNav()); tree.appendChild(zb); } // plus de crayon : deux gestes seulement (toucher = naviguer, appui long = menu)
+    if (items.length && lvl !== 'activite') { var zb = el('div', 'arZoomRow'); zb.appendChild(backNav()); if (wk) { var xb0 = el('button', 'cmpClose'); xb0.type = 'button'; xb0.setAttribute('aria-label', tr('Fermer')); zb.style.position = 'relative'; zb.style.paddingRight = '40px'; xb0.style.cssText = 'position:absolute;top:0;right:0'; xb0.addEventListener('click', closeWeeks); zb.appendChild(xb0); } /* ✕ en haut à droite : retour aux périodes (R13) */ tree.appendChild(zb); } // plus de crayon : deux gestes seulement (toucher = naviguer, appui long = menu)
     kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
     curCols = foldMerged(shown, sortByOrdre(columnsFor(shown)));
+    if (wk) { var wsp = [wk.y + '-01-01', wk.y + '-12-31']; (function () { var d0 = new Date(Date.UTC(wk.y, 0, 1)); d0.setUTCDate(d0.getUTCDate() + (wk.p - 1) * PER_DAYS); wsp[0] = d0.toISOString().slice(0, 10); d0.setUTCDate(d0.getUTCDate() + PER_DAYS - 1); wsp[1] = d0.toISOString().slice(0, 10); })(); curCols = curCols.filter(function (c) { return c.key === wk.key; }).map(function (c) { return Object.assign({}, c, { objs: c.objs.filter(function (o) { return !o.isMacro && weeksOf(o) <= 1 && o.endDate >= wsp[0] && o.endDate <= wsp[1]; }) }); }); } // page des semaines : la colonne touchée seule, ses objectifs hebdomadaires de la période
     if (!curCols.length) { gridArea = scroller = null; tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
     var n = curCols.length, wide = window.innerWidth >= 1024;
     var SIDE = 120; // repères du temps (56 px) + colonne « Heures » (58 px de cellule + 6 px d'écart, comme la maquette) : dans le tableau qui défile
@@ -569,6 +562,7 @@
     for (var rk = lo; rk <= farRank; rk = nextRank(rk)) list.push(byRank[rk] || rowOfRank(rk));
     var cycleEnd = blockYears || (zoom === 'period' && focus && focus.year); // cycle à fin FIXE : jamais de case au-delà de sa fin (pas de remplissage vers l'année ou le bloc suivant)
     while (!cycleEnd && list.length < MIN_ROWS) list.push(rowOfRank(nextRank(list[list.length - 1].rank))); // toujours au moins 5 cases : le futur se prolonge en cases grises vides
+    if (wk) { list = []; for (var wi = 1; wi <= 4; wi++) list.push(rowOfRank(wk.y * 100 + (wk.p - 1) * 4 + wi)); } // les 4 semaines de la période
     list.reverse();
     // cellules des colonnes : [rangée][colonne] -> entrées
     var cells = list.map(function (rw) { return data.map(function (c) { return c.entries.filter(function (e) { return e.b.rank === rw.rank; }).sort(function (a, b) { return (a.ri - b.ri) || (b.i - a.i); }); }); });
@@ -581,11 +575,11 @@
         list.forEach(function (rw2, r2) { if (rw2.rank <= Number(k)) return; mm.idxs.slice(1).forEach(function (q) { cells[r2][anchor] = cells[r2][anchor].concat(cells[r2][q]); cells[r2][q] = []; holes[r2 + ':' + q] = true; wideAt[r2 + ':' + anchor] = mm.idxs.length; }); });
       });
     });
-    var grid = el('div', 'goalsGrid arGrid' + (zoom !== 'period' ? ' arCompact' : '') + (animate ? ' arEnter' : '')); // années et blocs de 5 ans : rangées COMPACTES (moins de hauteur) animate = false;
+    var grid = el('div', 'goalsGrid arGrid' + (zoom !== 'period' && zoom !== 'week' ? ' arCompact' : '') + (animate ? ' arEnter' : '')); // années et blocs de 5 ans : rangées COMPACTES (moins de hauteur) animate = false;
     
     list.forEach(function (rw, r) {
       var row = el('div', 'goalsGridRow'); row.setAttribute('data-rank', String(rw.rank));
-      var rowMark = marker(rw, here, lvl === 'secteur' && rw.p ? function () { openCalendar(rw, curCols[0] && curCols[0].key); } : null); row.appendChild(rowMark);
+      var rowMark = marker(rw, here, null); row.appendChild(rowMark);
       var macs = macrosAt[rw.rank] || [], skip = {}, extra = [];
       macs.sort(function (x, y) { return (x.m.endDate < y.m.endDate ? 1 : -1); }); // le macro le plus lointain d'abord : un macro peut avoir un autre macro pour enfant (A+B puis (A+B)+C), les cartes larges s'empilent
       macs.forEach(function (mm) { // inline si aucune carte ni autre macro n'occupe les colonnes traversées dans cette case ; sinon dans une rangée de macro juste au-dessus (signalé)
@@ -599,7 +593,7 @@
         if (mr) mr.push(mm); else mrows.push([mm]);
       });
       mrows.forEach(function (mr) {
-        var mrow = el('div', 'goalsGridRow arMacroRow'); mrow.setAttribute('data-rank', String(rw.rank)); var sp = marker(rw, here, lvl === 'secteur' && rw.p ? function () { openCalendar(rw, curCols[0] && curCols[0].key); } : null); if (mr !== mrows[0]) sp.style.visibility = 'hidden'; mrow.appendChild(sp); // un macro est TOUJOURS dans sa période : sa rangée porte le repère de la période (alignée sur lui), collée à la rangée des cases de cette même période
+        var mrow = el('div', 'goalsGridRow arMacroRow'); mrow.setAttribute('data-rank', String(rw.rank)); var sp = marker(rw, here, null); if (mr !== mrows[0]) sp.style.visibility = 'hidden'; mrow.appendChild(sp); // un macro est TOUJOURS dans sa période : sa rangée porte le repère de la période (alignée sur lui), collée à la rangée des cases de cette même période
         data.forEach(function (c2, cj) {
           var hit = mr.filter(function (mm) { return cj >= mm.c0 && cj <= mm.c1; })[0];
           if (hit) { if (hit.c0 === cj) mrow.appendChild(macroCard(hit.m, today, hit.c0, hit.c1, W, curCols)); return; }
@@ -613,8 +607,7 @@
         if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols)); return; }
         if (holes[r + ':' + ci]) return; // colonne absorbée : au-dessus de la fusion il ne reste QU'UNE colonne, sur toute la largeur des colonnes liées (la case de l'entité touchée est élargie)
         var Wc = wideAt[r + ':' + ci] ? spanW(W, wideAt[r + ':' + ci]) : W;
-        if (!es.length && lvl === 'secteur' && rw.p) row.appendChild(emptyCell(Wc, 'cal', function () { openCalendar(rw, c.col.key); }, null, rowEnd(rw) ? function () { createFrom(c, rw, rowEnd(rw)); } : null)); // niveau secteurs : toucher une case vide ouvre AUSSI le calendrier (« Ajouter un objectif périodique » s'y trouve)
-        else if (!es.length) row.appendChild(emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
+        if (!es.length) row.appendChild(emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); })); // toucher une case VIDE = ajouter un objectif (activité, niveau et échéance de la case)
         else if (zoom === 'year') row.appendChild(summaryCard(es.map(function (e) { return e.o; }), c.color, Wc, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
         else row.appendChild(card(es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, c.color));
       });
@@ -637,7 +630,7 @@
     });
     baseWrap.appendChild(baseRow);
     // COLONNE FIXE des repères du temps (.arRail, à gauche, jamais recouverte) + zone qui défile à droite (.arHScroll : colonnes d'activités ET titres, horizontalement) ; le défilement vertical est celui du conteneur commun .arGridArea : repères et rangées défilent ensemble sans script.
-    var body = el('div', 'arBody'), rail = el('div', 'arRail' + (zoom !== 'period' ? ' arCompact' : '')), hs = el('div', 'arHScroll' + (n <= 2 ? ' goalsGridScroll--locked' : '')), hin = el('div', 'arHInner'); hs.style.setProperty('--ar-w', arW);
+    var body = el('div', 'arBody'), rail = el('div', 'arRail' + (zoom !== 'period' && zoom !== 'week' ? ' arCompact' : '')), hs = el('div', 'arHScroll' + (n <= 2 ? ' goalsGridScroll--locked' : '')), hin = el('div', 'arHInner'); hs.style.setProperty('--ar-w', arW);
     var railR = el('div', 'arRailR'), tbl = el('div', 'arTbl'); tbl.appendChild(rail); tbl.appendChild(grid); tbl.appendChild(railR); hin.appendChild(tbl); hin.appendChild(baseWrap); hs.appendChild(hin); body.appendChild(hs); gridArea.appendChild(body); /* repères à gauche et heures à droite DÉFILENT avec le tableau (jamais fixes) */ column.appendChild(gridArea); scroller.appendChild(column); tree.appendChild(scroller); scroller = hs; // UN SEUL conteneur défile (vertical ET horizontal) : c'est lui que les repères « collent » à gauche (sticky), sans aucun script // les titres sont la DERNIÈRE RANGÉE du contenu défilant : dans le flux, ils montent et sortent de l'écran avec les colonnes
     // La HAUTEUR d'une case ne dépend QUE de son contenu (min 64 px, 40 px aux années et blocs ; max 120 px, texte coupé par « … ») : jamais de la hauteur de l'écran, du geste ni de l'élastique. Plus aucun calcul de hauteur en JS.
     var layer = el('div', 'arLinks'); hin.insertBefore(layer, hin.firstChild);
@@ -689,7 +682,7 @@
     (function paintHours() { // colonne « Heures » : un total par ligne, posé au milieu de la ligne comme son repère
       if (isMulti() || !list.length || (lvl !== 'activite' && !(focus && focus.activityId != null))) return;
       var spec = lvl === 'activite' ? { level: 'activite' } : lvl === 'pole' ? { level: 'pole', activityId: focus.activityId } : { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey };
-      var rows = list.map(rowSpan), spans = list.map(function (rw) { var sp = el('button', 'arHrs', ''); sp.setAttribute('data-rank', String(rw.rank)); sp.type = 'button'; sp.setAttribute('aria-label', tr('Heures par semaine')); sp.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.openHeures) TMT.objectifsView.openHeures(spec, rowSpan(rw), rw.block ? rw.y + '–' + rw.y2 : rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y)); }); /* pop-up en lecture seule : l'arbre ne change jamais */ railR.appendChild(sp); marks.push({ m: sp, rk: String(rw.rank), full: true }); return sp; }), key = JSON.stringify([spec, rows]);
+      var rows = list.map(rowSpan), spans = list.map(function (rw) { var sp = el('button', 'arHrs', ''); sp.setAttribute('data-rank', String(rw.rank)); sp.type = 'button'; sp.setAttribute('aria-label', tr('Heures par semaine')); sp.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.openHeures) TMT.objectifsView.openHeures(spec, rowSpan(rw), rw.block ? rw.y + '–' + rw.y2 : rw.w ? 'S' + rw.w + ' ' + rw.y : rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y)); }); /* pop-up en lecture seule : l'arbre ne change jamais */ railR.appendChild(sp); marks.push({ m: sp, rk: String(rw.rank), full: true }); return sp; }), key = JSON.stringify([spec, rows]);
       function fill(res) { spans.forEach(function (sp, i) { var r = res && res[i]; sp.textContent = r ? hrsTxt(r.totalMin) : ''; sp.classList.toggle('set', !!(r && r.own)); }); }
       if (hrsCache[key]) fill(hrsCache[key]);
       TMT.api('POST', '/api/objectifs/allocation/lignes', Object.assign({ rows: rows }, spec)).then(function (res) { hrsCache[key] = res; if (spans[0] && spans[0].isConnected) fill(res); }).catch(function () {});
