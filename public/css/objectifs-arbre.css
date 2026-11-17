@@ -143,7 +143,7 @@ button.arHoleBadge .goalsRowMarker:not(.goalsRowMarker--ovale) { position: stati
 .arGrid .goalsGridCell, .arGrid.arCompact .goalsGridCell--filled { align-self: stretch; }
 .arGrid .goalsGridCell--filled { max-height: none; }
 .arGrid.arCompact { justify-content: flex-start; }
-.arCard > .cmpEdit { position: absolute; top: 1.5px; right: 1.5px; width: 26px; height: 26px; color: var(--purple); } /* centre = celui de la croix de retrait / du « + » (8 px + 6,5 px de l'angle) ; zone de toucher 44 px par ::after */ /* le crayon Modifier (R15) au même endroit que le « + » : zone de toucher de 44 px */
+.arCard > .cmpEdit { position: absolute; top: 4.5px; right: 4.5px; width: 20px; height: 20px; } /* centre = celui de la croix de retrait / du « + » (8 px + 6,5 px de l'angle) ; zone de toucher 44 px par ::after */ /* le crayon Modifier (R15) au même endroit que le « + » : zone de toucher de 44 px */
 /* MODE PAYSAGE (18 nov. 2026) : téléphone tourné, l'arbre prend tout l'écran ; en-tête, bascule Tâches | Objectifs et barre des volets sont masqués (on tourne pour revenir), zones de sécurité respectées par le JS (env(safe-area-inset-*)). */
 @media (orientation: landscape) and (max-height: 500px) {
   html.arbreOn .topbar, html.arbreOn .tabbar, html.arbreOn #goalsPage1Switch { display: none; }

@@ -60,7 +60,7 @@
 
   // mode : 'simple' (nom seul, niveau activités) | 'detail' (durée, état, objectifs rattachés, niveaux pôle et secteur). La carte EST la case (.goalsGridCell--filled).
   // APPUI LONG sur une carte (500 ms, TMT.ui.holdDrag, même mécanique que les activités, R27) = RELIER directement (mode Étendre) ; MODIFIER = le crayon de la carte ; SUPPRIMER = dans la fiche de modification.
-  function editMark(o) { var e = TMT.ui.editBtn(function () { openEditOf(o.id); }, tr('Modifier')); return e; } // MODIFIER : le crayon existant (R15), à la place du « + » d'une case occupée ; ouvre la fiche de l'objectif (suppression dedans)
+  function editMark(o) { var e = TMT.ui.editBtn(function () { openEditOf(o.id); }, tr('Modifier')); e.classList.add('cmpRemove--edit'); return e; } // MODIFIER : le crayon existant (R15), à la place du « + » d'une case occupée ; ouvre la fiche de l'objectif (suppression dedans)
   function openEditOf(id) { if (TMT.objectifsView && TMT.objectifsView.openEdit) TMT.objectifsView.openEdit(id); }
   // Couleur de remplissage d'une case = celle de la CATÉGORIE de l'objectif (activité : couleur de l'activité ; pôle : couleur du pôle ; secteur : nuance de son pôle), jamais celle de la colonne ou du niveau où on le voit. Composant partagé : TMT.ui.etiquette.
   function objColor(o) {
