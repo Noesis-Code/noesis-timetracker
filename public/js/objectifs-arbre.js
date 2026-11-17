@@ -59,23 +59,9 @@
   function spanW(W, k) { return k === 1 ? W : 'calc(' + W + ' * ' + k + ' + ' + (GAP * (k - 1)) + 'px)'; }
 
   // mode : 'simple' (nom seul, niveau activités) | 'detail' (durée, état, objectifs rattachés, niveaux pôle et secteur). La carte EST la case (.goalsGridCell--filled).
-  // APPUI LONG sur une carte (500 ms, TMT.ui.holdDrag, même mécanique que les activités, R27) = MENU d'actions (composant commun TMT.ui.dotsMenu, R29) : Relier · Modifier · Supprimer (rouge, R28, confirmation TMT.ui.confirm).
-  // Les trois actions sont EXACTEMENT celles de l'ancien mode Modifier / du mode de liaison (R9 : on déplace, on ne retire rien).
-  function actionMenu(anchor, acts) {
-    if (!TMT.ui || !TMT.ui.dotsMenu) return;
-    var r = anchor.getBoundingClientRect(), wrap, away;
-    var cleanup = function () { if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap); document.removeEventListener('pointerdown', away, true); };
-    wrap = TMT.ui.dotsMenu(tr('Actions'), acts.map(function (a) { return { label: a.label, danger: a.danger, onClick: function () { cleanup(); a.onClick(); } }; }));
-    wrap.style.cssText = 'position:fixed;left:' + Math.round(r.left + r.width / 2) + 'px;top:' + Math.round(r.top + r.height / 2) + 'px;width:0;height:0;z-index:300';
-    var mb = wrap.querySelector('.menuBtn'); mb.style.visibility = 'hidden';
-    document.body.appendChild(wrap); mb.click();
-    away = function (e) { if (!e.target.closest || !e.target.closest('.statsPeriodMenu')) cleanup(); };
-    window.setTimeout(function () { document.addEventListener('pointerdown', away, true); }, 350);
-  }
+  // APPUI LONG sur une carte (500 ms, TMT.ui.holdDrag, même mécanique que les activités, R27) = RELIER directement (mode Étendre) ; MODIFIER = le crayon de la carte ; SUPPRIMER = dans la fiche de modification.
+  function editMark(o) { var e = TMT.ui.editBtn(function () { openEditOf(o.id); }, tr('Modifier')); return e; } // MODIFIER : le crayon existant (R15), à la place du « + » d'une case occupée ; ouvre la fiche de l'objectif (suppression dedans)
   function openEditOf(id) { if (TMT.objectifsView && TMT.objectifsView.openEdit) TMT.objectifsView.openEdit(id); }
-  function editAction(os) { if (os.length === 1) openEditOf(os[0].id); } // Modifier : le panneau de l'objectif de la carte
-  function deleteAction(os) { var t = os.length === 1 ? os[0] : null; if (t && TMT.objectifsView && TMT.objectifsView.confirmDelete) TMT.objectifsView.confirmDelete(t.id, t.title, !!t.isMacro); } // Supprimer : la confirmation rouge de l'objectif de la carte
-  function menuActs(os, relier) { var a = []; if (relier) a.push({ label: tr('Relier'), onClick: relier }); if (os.length === 1) { a.push({ label: tr('Modifier'), onClick: function () { editAction(os); } }); a.push({ label: tr('Supprimer'), danger: true, onClick: function () { deleteAction(os); } }); } return a; }
   // Couleur de remplissage d'une case = celle de la CATÉGORIE de l'objectif (activité : couleur de l'activité ; pôle : couleur du pôle ; secteur : nuance de son pôle), jamais celle de la colonne ou du niveau où on le voit. Composant partagé : TMT.ui.etiquette.
   function objColor(o) {
     var a = actOf(o.activity && o.activity.id), base = color(o), lvl = o.level || 'activite';
@@ -90,13 +76,13 @@
       var nk = (all.kids[o.id] || []).length;
       t.appendChild(el('span', 'arCardMeta', (o.durationLabel || '') + ' · ' + tr(STATE_LABEL[st]) + (nk ? ' · ' + nk + ' ' + tr(nk > 1 ? 'objectifs rattachés' : 'objectif rattaché') : '')));
     }
-    b.appendChild(t);
-    b.addEventListener('click', function () { // toucher = DESCENDRE d'un niveau dans la branche de la carte (jamais de panneau)
+    b.appendChild(t); b.appendChild(editMark(o));
+    b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; // toucher = DESCENDRE d'un niveau dans la branche de la carte (jamais de panneau)
       if (onTap) { onTap(); return; } if (extCol != null) descend(extCol, blockStart(o.endDate), Number(String(o.endDate).slice(0, 4)));
     });
     if (TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { // APPUI LONG : le menu d'actions (Relier = le mode de liaison actuel, Modifier, Supprimer)
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
-      onHold: function () { var par = o.parentId != null && items.filter(function (x) { return x.id === o.parentId && x.isMacro; })[0]; actionMenu(b, menuActs([o], extCol != null ? function () { if (par) startExtendEdit(par); else startExtend(o, extCol); } : null)); }
+      onHold: function () { if (extCol == null || wk) return; var par = o.parentId != null && items.filter(function (x) { return x.id === o.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par); else startExtend(o, extCol); } /* appui long = RELIER directement (mode Étendre existant) */
     });
     return b;
   }
@@ -119,9 +105,9 @@
     var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && (ext.macro && ext.macro.id === m.id || ext.mode === 'create' && m.id < 0) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-c0', String(c0)); b.setAttribute('data-c1', String(c1)); b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w); var ec = eaterColor(m, c0, c1, cols); if (ec) paint(b, st, ec);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
     t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
-    b.appendChild(t);
-    b.addEventListener('click', function () { descend(c0, null, null, m); }); // toucher COURT = descendre d'un niveau (règle générale)
-    if (m.id > 0 && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', onHold: function () { actionMenu(b, menuActs([m], function () { startExtendEdit(m); })); } }); // appui long sur un macro : menu (Relier = modifier les colonnes reliées / Séparer, Modifier, Supprimer)
+    b.appendChild(t); b.appendChild(editMark(m));
+    b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; descend(c0, null, null, m); }); // toucher COURT = descendre d'un niveau (règle générale)
+    if (m.id > 0 && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', onHold: function () { startExtendEdit(m); } }); // appui long sur un macro : modifier les colonnes reliées / Séparer (mode Étendre existant)
     return b;
   }
   // ---------- MODE ÉTENDRE : relier d'autres colonnes du MÊME niveau (activités, pôles d'une activité, secteurs d'un pôle) par un macro ----------
@@ -243,17 +229,17 @@
   }
   function summaryCard(os, color, w, year, ci) {
     var b = el('button', 'goalsGridCell goalsGridCell--filled arSummary arCard' + (ext && ext.mode === 'create' && ext.base && os.some(function (x) { return x.id === ext.base.id; }) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-ids', os.map(function (x) { return x.id; }).join(',')); cellSize(b, w); paint(b, 'now', color);
-    var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', bigOf(os).title)); b.appendChild(t);
+    var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', bigOf(os).title)); b.appendChild(t); if (os.length === 1) b.appendChild(editMark(os[0]));
     resumeOf(os[0].activity.id, year).then(function (txt) { // le texte du serveur remplace la liste de titres dans la case (3 lignes au plus, coupure propre)
       if (!txt || !b.isConnected) return;
       t.textContent = ''; t.appendChild(el('span', 'arSummaryText', txt.replace(/\n\s*-\s*/g, ' · ').replace(/^\s*-\s*/, '')));
     });
-    b.addEventListener('click', function () { descend(ci, null, year); }); // toucher = descendre d'un niveau
+    b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; descend(ci, null, year); }); // toucher = descendre d'un niveau
     if (TMT.ui && TMT.ui.holdDrag && ci != null) TMT.ui.holdDrag(b, { // appui long : le menu d'actions
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
       onHold: function () {
         var relier = function () { var same = os.filter(function (x) { return (x.level || 'activite') === lvl; }), base = bigOf(same.length ? same : os), par = base.parentId != null && items.filter(function (x) { return x.id === base.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par); else startExtend(base, ci); };
-        actionMenu(b, menuActs(os, relier, { title: tr('Objectif annuel') + ' ' + year, intro: function () { return TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + os[0].activity.id + '&year=' + year).then(function (r) { return r && r.text; }); } })); // Modifier : l'« objectif annuel » (résumé de l'année) puis la liste
+        relier(); // appui long = RELIER directement
       }
     });
     return b;

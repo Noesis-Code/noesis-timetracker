@@ -1146,7 +1146,8 @@
         }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); });
       });
       if (!o.isMacro && !o.abandoned) panelBody.appendChild(gen);
-      var rare = el('div', 'objRare'); rare.appendChild(ab); panelBody.appendChild(rare); // action rare, tout en bas, violette (R4, R28)
+      var del = btn('cmpBtn cmpBtnDanger', tr('Supprimer'), function () { confirmDelete(id, o.title, function () { load(); endFlow(); }, function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }, !!o.isMacro); }); /* suppression existante (confirmation TMT.ui.confirm), dans la fiche : rouge, tout en bas (R4, R28) */
+      var rare = el('div', 'objRare'); rare.appendChild(ab); rare.appendChild(del); panelBody.appendChild(rare); // action rare, tout en bas, violette (R4, R28)
       function save() {
         var calls = [];
         if (partDirty()) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/parts', { childId: partEdit.id, percent: partEdit.percent }); });
