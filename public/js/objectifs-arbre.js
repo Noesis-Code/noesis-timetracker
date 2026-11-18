@@ -48,7 +48,7 @@
   // LARGEURS 100 % CSS : une largeur est une expression CSS (jamais des pixels mesurés en JS) ; --ar-w (posée sur la zone qui défile) vaut toute la largeur utile pour UNE colonne, la moitié pour deux ou plus (règle de l'arbre périodique) ; cqw = largeur de cette zone, aucune mesure ni écouteur.
   // Colonne de DROITE « Heures » (lecture) : MOYENNE par semaine de la ligne, total des colonnes affichées (allocation, server/lib/allocation.js) ; violet = heures réglées sur cette ligne, gris = reprend la ligne du dessus.
   var hrsCache = {};
-  function hrsTxt(min) { return TMT.ui.heures(min); }
+  function hrsTxt(min) { if (min == null) return TMT.ui.heures(min); var m = Math.max(0, Math.round(min)), h = Math.floor(m / 60), r = m % 60; return h ? h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : '') : r + ' min'; } // heures normales (« 1 h 30 », « 45 min », « 12 h ») : même format que fmtMin des stats, affichage seulement
   function rowSpan(rw) { // première et dernière date de la ligne (bloc de 5 ans, année, période de 28 jours)
     if (rw.block) return { start: rw.y + '-01-01', end: rw.y2 + '-12-31' };
     if (rw.w) { var dw = new Date(Date.UTC(rw.y, 0, 1)); dw.setUTCDate(dw.getUTCDate() + (rw.w - 1) * 7); var sw = dw.toISOString().slice(0, 10); dw.setUTCDate(dw.getUTCDate() + 6); return { start: sw, end: dw.toISOString().slice(0, 10) }; }
@@ -269,10 +269,15 @@
     }
     return null;
   }
+  var dotSeq = 0; function holeDot(n) { // pastille « N en dessous » : disque gris pâle de 20 px dont le NUMÉRO est DÉCOUPÉ (masque SVG) : on voit à travers lui le fond de la case
+    var NS = 'http://www.w3.org/2000/svg', id = 'arDot' + (++dotSeq), svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'arHoleDot'); svg.setAttribute('width', '20'); svg.setAttribute('height', '20'); svg.setAttribute('viewBox', '0 0 20 20'); svg.setAttribute('aria-hidden', 'true');
+    var mk = document.createElementNS(NS, 'mask'); mk.setAttribute('id', id); var r1 = document.createElementNS(NS, 'circle'); r1.setAttribute('cx', '10'); r1.setAttribute('cy', '10'); r1.setAttribute('r', '10'); r1.setAttribute('fill', '#fff'); var tx = document.createElementNS(NS, 'text'); tx.setAttribute('x', '10'); tx.setAttribute('y', '10'); tx.setAttribute('text-anchor', 'middle'); tx.setAttribute('dominant-baseline', 'central'); tx.setAttribute('fill', '#000'); tx.setAttribute('font-size', '13'); tx.setAttribute('font-weight', '600'); tx.setAttribute('font-family', 'inherit'); tx.textContent = String(n); mk.appendChild(r1); mk.appendChild(tx);
+    var d = document.createElementNS(NS, 'circle'); d.setAttribute('cx', '10'); d.setAttribute('cy', '10'); d.setAttribute('r', '10'); d.setAttribute('class', 'arHoleDisc'); d.setAttribute('mask', 'url(#' + id + ')'); svg.appendChild(mk); svg.appendChild(d); return svg;
+  }
   function emptyCell(w, endIso, onTouch, below, plus, enter) { // plus : création depuis cette case (le « + » en haut à droite) ; sur une case occupée par une pastille, pas de « + »
     var b = el('button', 'goalsGridCell goalsGridCell--empty arHole'); b.type = 'button'; cellSize(b, w);
     if (!endIso && !below && !enter) { b.disabled = true; b.tabIndex = -1; return b; } // une case passée SANS rien dessous est inerte ; avec des objectifs dessous elle descend toujours (jamais un trou sans réaction)
-    if (below) { b.classList.add('arHoleBadge'); b.appendChild(el('span', 'goalsRowMarker goalsRowMarker--future', String(below.n))); b.setAttribute('aria-label', below.n + ' ' + tr('en dessous')); b.addEventListener('click', function (e) { if (plus && e.target.closest && e.target.closest('.arPlus')) plus(); else below.go(); }); if (plus) b.appendChild(el('span', 'arPlus cmpRemove cmpRemove--add cmpRemove--corner', '')); return b; } // objectifs plus bas : l'appui court descend
+    if (below) { b.classList.add('arHoleBadge'); b.appendChild(holeDot(below.n)); b.setAttribute('aria-label', below.n + ' ' + tr('en dessous')); b.addEventListener('click', function (e) { if (plus && e.target.closest && e.target.closest('.arPlus')) plus(); else below.go(); }); if (plus) b.appendChild(el('span', 'arPlus cmpRemove cmpRemove--add cmpRemove--corner', '')); return b; } // objectifs plus bas : l'appui court descend
     b.setAttribute('aria-label', tr('Nouvel objectif')); b.addEventListener('click', function (e) { if (plus && e.target.closest && e.target.closest('.arPlus')) plus(); else if (enter) enter(); }); // case vide : SEUL le « + » crée ; toucher ailleurs ENTRE dans la case (niveau du dessous ; au dernier niveau, la page des 4 semaines)
     if (plus) b.appendChild(el('span', 'arPlus cmpRemove cmpRemove--add cmpRemove--corner', '')); // petite marque violette (zone de toucher 44 px, voir le CSS)
     return b;
@@ -343,6 +348,8 @@
   var LAND = '(orientation: landscape) and (max-height: 500px)'; // téléphone tourné : l'arbre prend tout l'écran (barres masquées en CSS), dans les zones de sécurité
   function isLand() { return !!(window.matchMedia && window.matchMedia(LAND).matches); }
   if (window.matchMedia) { var landMq = window.matchMedia(LAND); if (landMq.addEventListener) landMq.addEventListener('change', function () { if (visible && tree && tree.getClientRects().length) render(); }); } // on tourne le téléphone : l'arbre se redessine (colonnes et lignes)
+  function viewW() { var w = Math.max(document.documentElement.clientWidth || 0, tree && tree.clientWidth || 0, window.innerWidth || 0); if (isLand() && w < (window.innerHeight || 0)) w = Math.max((window.screen && window.screen.width) || 0, (window.screen && window.screen.height) || 0, w); return w; } // largeur réelle : sur iPhone, window.innerWidth reste à l'ANCIENNE valeur (portrait) juste après une rotation ; on prend la plus grande mesure fiable, et en paysage jamais moins que la hauteur
+  var rzTimer = 0; function onTurn() { clearTimeout(rzTimer); rzTimer = setTimeout(function () { if (visible && tree && tree.getClientRects().length) render(); }, 250); } window.addEventListener('resize', onTurn); window.addEventListener('orientationchange', function () { onTurn(); setTimeout(onTurn, 600); }); // rotation / redimensionnement : l'arbre se recalcule toujours (colonnes comprises)
   function fitTree() { // MISE EN PAGE DÉTERMINISTE : l'arbre est posé en CSS (fixed, haut = bas de l'en-tête, bas = haut de la barre du bas) ; le haut est mesuré à chaque rendu, le bas est republié par un ResizeObserver sur la barre elle-même, jamais par un minuteur ni un écouteur de défilement
     if (!tree || !tree.getClientRects().length) return;
     if (isLand()) { tree.style.setProperty('--ar-top', 'max(env(safe-area-inset-top, 0px), 6px)'); tree.style.setProperty('--ar-left', 'max(env(safe-area-inset-left, 0px), 4px)'); tree.style.setProperty('--ar-right', 'max(env(safe-area-inset-right, 0px), 8px)'); tree.style.setProperty('--ar-bot', 'max(env(safe-area-inset-bottom, 0px), 6px)'); tree.style.setProperty('--ar-pad', '0px'); } else {
@@ -365,7 +372,7 @@
     var oval = !rw.p && !rw.w, st = rw.rank > here.rank ? 'future' : rw.rank === here.rank ? 'current' : 'past', m = el('span', 'goalsRowMarker goalsRowMarker--' + st + (oval ? ' goalsRowMarker--ovale' : ''));
     var label = rw.block ? rw.y + '-' + rw.y2 : rw.w ? String(rw.w) : rw.p ? String(rw.p) : String(rw.y);
     m.setAttribute('aria-label', rw.w ? tr('Semaine') + ' ' + rw.w + ' · ' + rw.y : rw.p ? tr('Période') + ' ' + rw.p + ' · ' + rw.y : label);
-    if (st !== 'past') m.textContent = rw.block ? ('0' + (rw.y % 100)).slice(-2) + '/' + ('0' + (rw.y2 % 100)).slice(-2) : (!rw.p && !rw.w) ? ('0' + (rw.y % 100)).slice(-2) : label; /* année : deux derniers chiffres (« 27 »), horizontal ; aria-label = année complète */ if (m.textContent.length > 2) m.classList.add('goalsRowMarker--long'); // plus de 2 caractères (« 26/30 », « 2027 ») : tourné de bas en haut ; 1 ou 2 caractères : horizontal // bloc de 5 ans : les deux derniers chiffres de chaque année (« 26/30 »), pastille cerclée étroite
+    if (st !== 'past') m.textContent = rw.block ? ('0' + (rw.y % 100)).slice(-2) + '/' + ('0' + (rw.y2 % 100)).slice(-2) : (!rw.p && !rw.w) ? (isLand() ? String(rw.y) : ('0' + (rw.y % 100)).slice(-2)) : label; /* année : deux derniers chiffres (« 27 ») en portrait, année entière en paysage (« 2027 »), horizontal ; aria-label = année complète */ if (m.textContent.length > 2) m.classList.add('goalsRowMarker--long'); // plus de 2 caractères (« 26/30 », « 2027 ») : tourné de bas en haut ; 1 ou 2 caractères : horizontal // bloc de 5 ans : les deux derniers chiffres de chaque année (« 26/30 »), pastille cerclée étroite
     if (st === 'current') { m.style.background = 'var(--text)'; m.style.color = 'var(--bg)'; }
     if (onTap) { m.setAttribute('role', 'button'); m.tabIndex = 0; m.style.cursor = 'pointer'; m.addEventListener('click', onTap); }
     return m;
@@ -521,7 +528,7 @@
     var n = curCols.length, wide = window.innerWidth >= 1024;
     var SIDE = mw + 10 + 64; // repères du temps (56 px) + colonne « Heures » (58 px de cellule + 6 px d'écart, comme la maquette) : dans le tableau qui défile
     var arW = n === 1 ? 'calc(100cqw - ' + (4 + SIDE) + 'px)' : (n === 2 ? 'calc((100cqw - ' + (GAP + 4 + SIDE) + 'px) / 2)' : 'calc((100cqw - var(--ar-mw, 46px) - ' + (10 + 2 * GAP + 14) + 'px) / 3)'); // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
-    if (isLand() && n >= 3) { var kL = Math.max(3, Math.min(n, 7, Math.floor((window.innerWidth - 120) / 100))); arW = 'calc((100cqw - var(--ar-mw, 46px) - ' + (10 + (kL - 1) * GAP + 4) + 'px) / ' + kL + ')'; } // paysage : jusqu'à 7 colonnes entières (plancher ~100 px), au-delà on défile de côté
+    if (isLand() && n >= 3) { var kL = Math.max(3, Math.min(n, 7, Math.floor((viewW() - 120) / 100))); arW = 'calc((100cqw - var(--ar-mw, 46px) - ' + (10 + (kL - 1) * GAP + 4) + 'px) / ' + kL + ')'; } // paysage : jusqu'à 7 colonnes entières (plancher ~100 px), au-delà on défile de côté
     var W = 'var(--ar-w)'; // les titres passent à la ligne, la largeur ne grandit jamais avec le texte
     if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) arW = 'calc((100cqw - ' + (4 + SIDE + GAP * (spanN - 1)) + 'px) / ' + spanN + ')'; } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
     var mode = lvl === 'activite' ? 'simple' : 'detail';
