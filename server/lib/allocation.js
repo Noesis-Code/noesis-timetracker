@@ -115,15 +115,56 @@ function average(userId, spec, start, end) {
 }
 // rows : [{ start, end }] (une ligne de l'arbre) ; compatible avec une simple liste de dates (ligne d'un jour).
 const rowsOf = (input) => (Array.isArray(input) ? input.slice(0, 80) : []).map((r) => (typeof r === 'string' ? { start: r, end: r } : { start: r && r.start, end: r && r.end })).filter((r) => isDay(r.start) && isDay(r.end) && r.end >= r.start);
-// Heures de l'ARBRE par ligne : MOYENNE par semaine de la ligne, total des catégories affichées en colonnes (activités, ou pôles d'une activité, ou secteurs d'un pôle).
-// Heures d'une catégorie sur une ligne : l'allocation posée, sinon les heures par semaine des objectifs de la catégorie ; UNE seule valeur pour la colonne de droite et pour le détail (même total).
-function heuresCol(userId, c, start, end) { const e = average(userId, c, start, end); if (e.minutes == null) { const ob = objectifsAvg(userId, c, start, end); if (ob > 0) e.minutes = ob; } return e; }
+// Heures d'une ligne (règle d'Émilien, 18 nov. 2026) : MOYENNE par semaine calculée sur les SEULES périodes REMPLIES de la ligne (jours où au moins une catégorie du niveau porte des heures) ; les périodes vides ne diluent plus
+// (un bloc de 5 ans avec une seule année chargée = les heures de cette année). Par jour, les heures des catégories du niveau S'ADDITIONNENT ; puis moyenne sur les jours remplis : jamais sous la plus faible période remplie,
+// jamais au-dessus de la plus forte. Ligne sans période remplie = null (vide, pas 0). Les heures posées à la main (allocation) ne sont jamais modifiées : elles sont lues telles quelles. Une catégorie compte son allocation
+// si elle en a une sur la ligne, sinon les heures par semaine de ses objectifs.
+function allocCurve(userId, c, start, end, len) {
+  const k = keyOf(c.level, c.poleKey, c.categoryKey), act = Number(c.activityId), out = new Array(len).fill(null);
+  const cuts = db.prepare('SELECT fromDate, minutes FROM hour_allocations WHERE userId = ? AND activityId = ? AND level = ? AND poleKey = ? AND categoryKey = ? AND fromDate > ? AND fromDate <= ? ORDER BY fromDate').all(userId, act, c.level, k.pk, k.ck, start, end);
+  let cur = effective(userId, c, start).minutes, from = 0;
+  const fill = (to) => { if (cur != null) for (let i = from; i < to; i++) out[i] = cur; };
+  cuts.forEach((x) => { const at = daysBetween(start, x.fromDate); fill(at); from = at; cur = x.minutes; });
+  fill(len);
+  return out;
+}
+function objCurve(userId, c, start, end, len) {
+  const rows = db.prepare('SELECT startDate, endDate, level, poleKey, categoryKey, metaJson FROM user_objectives WHERE userId = ? AND activityId = ? AND isMacro = 0').all(userId, Number(c.activityId));
+  const k = keyOf(c.level, c.poleKey, c.categoryKey), out = new Array(len).fill(null);
+  rows.forEach((r) => {
+    if ((r.level || 'activite') !== c.level || (r.poleKey || '') !== k.pk || (c.level === 'secteur' && (r.categoryKey || '') !== k.ck)) return;
+    let m = {}; try { m = JSON.parse(r.metaJson || '{}'); } catch (e) { m = {}; }
+    const h = Number(m.hoursPerWeek) * 60;
+    if (m.abandoned || !(h > 0)) return;
+    const a = Math.max(0, daysBetween(start, r.startDate > start ? r.startDate : start)), z = Math.min(len - 1, daysBetween(start, r.endDate < end ? r.endDate : end));
+    for (let i = a; i <= z; i++) out[i] = (out[i] || 0) + h;
+  });
+  return out;
+}
+// Courbe d'une catégorie sur la ligne (minutes par semaine, jour par jour ; null = jour sans heures) : allocation si elle existe sur la ligne, sinon objectifs.
+function curveOf(userId, c, start, end) {
+  const len = daysBetween(start, end) + 1, al = allocCurve(userId, c, start, end, len);
+  return al.some((v) => v != null) ? al : objCurve(userId, c, start, end, len);
+}
+// Total du niveau sur la ligne : { totalMin, parts: minutes de chaque catégorie (contribution à la moyenne, leur somme = totalMin) }.
+function levelTotals(userId, cols, start, end) {
+  const curves = cols.map((c) => curveOf(userId, c, start, end)), len = daysBetween(start, end) + 1;
+  const sums = cols.map(() => 0); let filled = 0;
+  for (let i = 0; i < len; i++) {
+    if (!curves.some((cv) => cv[i] != null)) continue;
+    filled++; curves.forEach((cv, j) => { sums[j] += cv[i] || 0; });
+  }
+  if (!filled) return { totalMin: null, parts: cols.map(() => null) };
+  const parts = sums.map((v, j) => (curves[j].some((x) => x != null) ? Math.round(v / filled) : null));
+  return { totalMin: Math.round(sums.reduce((a, b) => a + b, 0) / filled), parts };
+}
 function lignes(userId, spec, input) {
   const cols = colsOf(userId, spec);
   return rowsOf(input).map((r) => {
-    let total = 0, any = false, own = false;
-    const parts = cols.map((c) => { const e = heuresCol(userId, c, r.start, r.end); if (e.minutes != null) { total += e.minutes; any = true; } if (e.own) own = true; return { activityId: c.activityId, poleKey: c.poleKey || null, categoryKey: c.categoryKey || null, minutes: e.minutes, own: e.own }; });
-    return { start: r.start, end: r.end, totalMin: any ? total : null, own, cols: parts };
+    const t = levelTotals(userId, cols, r.start, r.end);
+    let own = false;
+    const parts = cols.map((c, j) => { const e = average(userId, c, r.start, r.end); if (e.own) own = true; return { activityId: c.activityId, poleKey: c.poleKey || null, categoryKey: c.categoryKey || null, minutes: t.parts[j], own: e.own }; });
+    return { start: r.start, end: r.end, totalMin: t.totalMin, own, cols: parts };
   });
 }
 
@@ -131,17 +172,8 @@ function lignes(userId, spec, input) {
 // Par catégorie : Alloué (moyenne par semaine, tableau ci-dessus), Objectifs (somme des rythmes hoursPerWeek des objectifs posés directement sur cette catégorie, au prorata de leurs jours dans la ligne),
 // Chrono (temps mesuré par semaine sur la part écoulée de la ligne). Par MEMBRE, quand la catégorie appartient à une activité partagée : prévu (alloué au membre) et Chrono mesuré (moyenne des 4 dernières semaines), voir tempsmembres.js.
 function objectifsAvg(userId, c, start, end) {
-  const rows = db.prepare('SELECT startDate, endDate, level, poleKey, categoryKey, metaJson FROM user_objectives WHERE userId = ? AND activityId = ? AND isMacro = 0').all(userId, Number(c.activityId));
-  const k = keyOf(c.level, c.poleKey, c.categoryKey), len = daysBetween(start, end) + 1;
-  let sum = 0;
-  rows.forEach((r) => {
-    if ((r.level || 'activite') !== c.level || (r.poleKey || '') !== k.pk || (c.level === 'secteur' && (r.categoryKey || '') !== k.ck)) return;
-    let m = {}; try { m = JSON.parse(r.metaJson || '{}'); } catch (e) { m = {}; }
-    if (m.abandoned || !(Number(m.hoursPerWeek) > 0)) return;
-    const a = r.startDate > start ? r.startDate : start, z = r.endDate < end ? r.endDate : end, d = daysBetween(a, z) + 1;
-    if (d > 0) sum += Number(m.hoursPerWeek) * 60 * d / len;
-  });
-  return Math.round(sum);
+  const cv = objCurve(userId, c, start, end, daysBetween(start, end) + 1).filter((v) => v != null);
+  return cv.length ? Math.round(cv.reduce((a, b) => a + b, 0) / cv.length) : 0;
 }
 function chronoAvg(userId, c, start, end, today) {
   const stop = end < today ? end : today; if (stop < start) return null;
@@ -173,12 +205,13 @@ function membres(userId, c, start, end, today) {
 function repartition(userId, spec, row, today) {
   const rr = rowsOf([row])[0]; if (!rr) throw err('Ligne invalide.');
   const t = isDay(today) ? today : require('./dates').userToday();
-  const cols = colsOf(userId, spec).map((c) => {
+  const cl = colsOf(userId, spec), tot = levelTotals(userId, cl, rr.start, rr.end);
+  const cols = cl.map((c, j) => {
     const a = average(userId, c, rr.start, rr.end), goals = require('./goals');
     const label = c.level === 'activite' ? (db.prepare('SELECT name FROM activities WHERE id = ?').get(c.activityId) || {}).name : ((c.level === 'pole' ? goals.categoriesForActivity(c.activityId) : goals.secteursForPole(c.activityId, c.poleKey)) || []).find((x) => x.key === (c.level === 'pole' ? c.poleKey : c.categoryKey));
-    return { activityId: c.activityId, level: c.level, poleKey: c.poleKey || null, categoryKey: c.categoryKey || null, label: label && label.label ? label.label : (label || ''), alloueMin: a.minutes, heuresMin: heuresCol(userId, c, rr.start, rr.end).minutes, own: a.own, objectifsMin: objectifsAvg(userId, c, rr.start, rr.end), chronoMin: chronoAvg(userId, c, rr.start, rr.end, t), membres: membres(userId, c, rr.start, rr.end, t) };
+    return { activityId: c.activityId, level: c.level, poleKey: c.poleKey || null, categoryKey: c.categoryKey || null, label: label && label.label ? label.label : (label || ''), alloueMin: a.minutes, heuresMin: tot.parts[j], own: a.own, objectifsMin: objectifsAvg(userId, c, rr.start, rr.end), chronoMin: chronoAvg(userId, c, rr.start, rr.end, t), membres: membres(userId, c, rr.start, rr.end, t) };
   });
-  return { start: rr.start, end: rr.end, level: spec.level, categories: cols, totalMin: cols.some((c) => c.heuresMin != null) ? cols.reduce((n, c) => n + (c.heuresMin || 0), 0) : null };
+  return { start: rr.start, end: rr.end, level: spec.level, categories: cols, totalMin: tot.totalMin };
 }
 
 module.exports = { MAX_MIN, START, effective, set, column, average, lignes, repartition, migrateLegacy };

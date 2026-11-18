@@ -55,8 +55,25 @@ const avg = A.average('u1', Q, '2030-01-01', '2034-12-31'); // 3 ans à 5 h, 2 a
 assert(avg.minutes === 372 && avg.own === true, 'moyenne par semaine d\'une ligne de 5 ans : 5 h puis 8 h -> 6 h12 (' + avg.minutes + ' min), réglé');
 const avg2 = A.average('u1', Q, '2036-01-01', '2036-12-31');
 assert(avg2.minutes === 480 && avg2.own === false, 'une ligne sans valeur posée reprend la précédente : 8 h, gris');
-// ---- Répartition par catégorie et par membre (donnée seulement) ----
 const O = require('../server/lib/objectifs');
+// ---- Moyenne sur les seules périodes REMPLIES (18 nov. 2026) : une période vide ne dilue pas ----
+const aM = mkAct('u1', 'Moyenne'); const pm = categories.addCategory(aM, 'Pôle M'); const pmKey = (pm && pm.key) || goals.categoriesForActivity(aM)[0].key; const pm2 = categories.addCategory(aM, 'Pôle N'); const pnKey = (pm2 && pm2.key) || goals.categoriesForActivity(aM)[1].key;
+const SPM = { level: 'pole', activityId: aM }, bloc = { start: '2040-01-01', end: '2044-12-31' };
+const vide = A.lignes('u1', SPM, [bloc])[0];
+assert(vide.totalMin === null && A.repartition('u1', SPM, bloc).totalMin === null, 'ligne sans période remplie : vide (null), pas 0');
+O.creer('u1', { title: 'Année 2041', activityId: aM, startDate: '2041-01-01', endDate: '2041-12-31', level: 'pole', poleKey: pmKey, hoursPerWeek: 10 });
+const un = A.lignes('u1', SPM, [bloc, { start: '2041-01-01', end: '2041-12-31' }]);
+assert(un[0].totalMin === 600 && un[1].totalMin === 600, 'bloc de 5 ans avec UNE année chargée : 10 h (plus diluée à 2 h), comme l’année seule');
+O.creer('u1', { title: 'Année 2043', activityId: aM, startDate: '2043-01-01', endDate: '2043-12-31', level: 'pole', poleKey: pmKey, hoursPerWeek: 4 });
+O.creer('u1', { title: 'Année 2043 N', activityId: aM, startDate: '2043-01-01', endDate: '2043-12-31', level: 'pole', poleKey: pnKey, hoursPerWeek: 2 });
+const deux = A.lignes('u1', SPM, [bloc])[0].totalMin, rp = A.repartition('u1', SPM, bloc);
+assert(deux >= 360 && deux <= 600, 'le niveau du dessus reste entre la plus faible (2043 : 6 h) et la plus forte (2041 : 10 h) période remplie (' + deux + ' min)');
+assert(rp.totalMin === deux && rp.categories.reduce((n, c) => n + (c.heuresMin || 0), 0) === deux, 'le détail par catégorie additionne exactement la colonne');
+// heures posées à la main : jamais modifiées, lues telles quelles
+A.set('u1', { activityId: aM, level: 'pole', poleKey: pnKey }, '2045-01-01', 90);
+const man = A.lignes('u1', SPM, [{ start: '2045-01-01', end: '2045-12-31' }])[0];
+assert(man.totalMin === 90 && A.effective('u1', { activityId: aM, level: 'pole', poleKey: pnKey }, '2045-06-01').minutes === 90 && A.average('u1', { activityId: aM, level: 'pole', poleKey: pnKey }, '2045-01-01', '2045-12-31').minutes === 90, 'heures fixées à la main : inchangées par le calcul');
+// ---- Répartition par catégorie et par membre (donnée seulement) ----
 const aShared = mkAct('u1', 'Maison'); db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, 'u3', '#674EA7', '')").run(aShared);
 const cu = categories.addCategory(aShared, 'Cuisine'); const cuKey = (cu && cu.key) || goals.categoriesForActivity(aShared)[0].key;
 const T0 = '2027-03-01';
