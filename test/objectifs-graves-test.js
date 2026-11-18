@@ -11,7 +11,14 @@ const o = require('../server/lib/objectifs');
 const m = db.prepare('SELECT userId, activityId FROM activity_members LIMIT 1').get();
 if (!m) { console.log('  (pas de données de base : test ignoré)'); process.exit(0); }
 const u = m.userId;
-o.setTasksCheck(() => false); o.setControleConflit(false); // ici : la mécanique des macros ; le contrôle de conflit est éprouvé dans objectifs-fusion-conflit-test.js
+o.setTasksCheck(() => false); // ici : la mécanique des macros ; le contrôle de conflit est éprouvé dans objectifs-fusion-conflit-test.js
+// Ici : la mécanique des macros. Le contrôle de conflit (toujours actif) est éprouvé dans objectifs-fusion-conflit-test.js : pendant chaque fusion, les AUTRES objectifs posés par les scénarios sont mis de côté (abandonnés le temps de l'appel, état rendu ensuite).
+const fusionReelle = o.fusionnerEnMacro;
+o.fusionnerEnMacro = (uid, body) => {
+  const keep = new Set((body && body.childIds || []).map(Number)), saved = db.prepare('SELECT id, metaJson FROM user_objectives WHERE userId = ? AND isMacro = 0').all(uid).filter((r) => !keep.has(r.id));
+  saved.forEach((r) => { let mm = {}; try { mm = JSON.parse(r.metaJson || '{}'); } catch (e) { mm = {}; } mm.abandoned = true; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(mm), r.id); });
+  try { return fusionReelle(uid, body); } finally { saved.forEach((r) => db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(r.metaJson, r.id)); }
+};
 const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.activityId, startDate: '2026-11-09', endDate: '2027-03-01', noBridge: true }, extra || {}));
 
 (async () => {
@@ -318,8 +325,9 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   e = bad(() => o.setMacro(u, m2.id, false));
   assert(e && /Fusion passée/.test(e.message), 'fusion passée : le macro ne redevient pas un objectif ordinaire');
   assert(o.get(u, a1.id).parentId === m2.id && o.get(u, c1.id).parentId === m2.id, 'aucune donnée supprimée ni détachée');
-  const del = o.supprimer(u, m2.id, true);
-  assert(del.ok && !db.prepare('SELECT 1 FROM user_objectives WHERE id = ?').get(m2.id) && o.get(u, a1.id).parentId === null && o.get(u, c1.id).parentId === null && !o.get(u, a1.id).isMacro, 'fusion passée : supprimer le macro reste permis (le macro disparaît, les enfants redeviennent des objectifs normaux, jamais supprimés)');
+  e = null; try { o.supprimer(u, m2.id, true); } catch (x) { e = x; }
+  assert(e && /Fusion passée/.test(e.message) && db.prepare('SELECT 1 FROM user_objectives WHERE id = ?').get(m2.id) && o.get(u, a1.id).parentId === m2.id, 'fusion passée : séparer (supprimer le macro) est refusé, définitif : rien ne bouge');
+  db.prepare('UPDATE user_objectives SET parentId = NULL WHERE parentId = ?').run(m2.id); db.prepare('DELETE FROM user_objectives WHERE id = ?').run(m2.id); // nettoyage de la base de test (aucune action utilisateur possible après l'échéance)
 }
 // ---- Macro séparé : plus de macro orphelin ----
 {
@@ -363,7 +371,8 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   db.prepare("UPDATE user_objectives SET endDate = '2026-01-20', startDate = '2026-01-05' WHERE id IN (?, ?, ?)").run(m3.id, f.id, g.id);
   assert(o.get(u, m3.id).mergePast === true, 'macro passé : fusion passée');
   err = bad(() => o.lier(u, f.id, null)); assert(err && err.message === 'Fusion passée : impossible de délier.', 'macro passé : délier un enfant reste refusé (message court en français)');
-  assert(o.supprimer(u, m3.id, true).ok && normal(f.id) && normal(g.id), 'macro passé : supprimer le macro est permis, enfants redevenus normaux');
+  err = bad(() => o.supprimer(u, m3.id, true)); assert(err && /Fusion passée/.test(err.message) && o.get(u, f.id).parentId === m3.id, 'macro passé : supprimer le macro est refusé (définitif)');
+  db.prepare('UPDATE user_objectives SET parentId = NULL WHERE parentId = ?').run(m3.id); db.prepare('DELETE FROM user_objectives WHERE id = ?').run(m3.id); // nettoyage de la base de test (aucune action utilisateur possible après l'échéance)
   // macros chaînés : supprimer l'enfant puis le parent
   const h = mkS('s-h', S1), i2 = mkS('s-i', S2), j = mkS('s-j', S3), k2 = mkS('s-k', S4);
   const mA = o.fusionnerEnMacro(u, { title: 'Macro A', childIds: [h.id, i2.id] }), mB = o.fusionnerEnMacro(u, { title: 'Macro B', childIds: [j.id, k2.id] });

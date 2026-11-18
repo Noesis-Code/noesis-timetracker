@@ -10,6 +10,18 @@ assert(js.includes('lo0 >= rowKey(o.mergeStart).rank'), 'colonne absorbée visib
 assert(js.includes('function pickOrder()') && js.includes('pickOrder().forEach(function (k)') && js.includes('(ext.order = ext.order || []).push(ci)'), 'ordre de SÉLECTION (la première touchée absorbe), jamais l’ordre des colonnes');
 assert(js.includes('function anchorOf(m, idx, cols)') && js.includes('var anchor = anchorOf(m, idx, cols)') && js.includes('var anchor = anchorOf(mm.m, mm.idxs, curCols)'), 'la colonne qui subsiste après la fusion est l’absorbante, pas la plus à gauche');
 assert(!js.includes('aperçu : la carte de base devient une carte large') && !js.includes('id: -1, title: ext.title') && js.includes('AUCUNE carte insérée, aucune ligne décalée'), 'l’aperçu pendant la sélection n’insère aucune carte et ne décale aucune ligne (surlignage des colonnes seulement)');
+// colonne absorbée seulement ÉCHÉANCE PASSÉE (la cause des cases qui disparaissaient : absorption dès le début de la période) ; chaque lien compte (groupe de trois) ; conflit contrôlé avant d'enregistrer ; sélection remplie de la dominante ; aucun trait entre objectifs
+assert(js.includes('o.isMacro && o.mergePast && o.mergeStart') && !js.includes('o.mergeReached') && !js.includes('mm.m.mergeReached') && js.includes('mm.m.mergePast'), 'colonnes absorbées masquées seulement quand l échéance du lien est PASSÉE (jamais dès le début de la période)');
+assert(js.includes('function extControle(ci)') && js.includes('dryRun: true') && js.includes('extControle(ci); }'), 'le conflit est contrôlé (appel sans écriture) dès qu on coche une colonne');
+assert(js.includes('function domCol()') && js.includes('ch.style.background = dcol'), 'toute case ou carte choisie de la ligne est remplie de la couleur de la dominante');
+assert(!js.includes('drawLinks') && !js.includes("'arLink'"), 'aucun trait entre objectifs (un tableau, pas un arbre)');
+assert(js.includes('if (m.mergePast) return; // échéance passée'), 'échéance passée : plus aucune action (ni Séparer) sur la fusion');
+// colonne absorbée seulement ÉCHÉANCE PASSÉE (cause des cases qui disparaissaient : absorption dès le début de la période) ; chaque lien compte (groupe de trois) ; conflit contrôlé avant d'enregistrer ; sélection remplie de la dominante ; aucun trait entre objectifs
+assert(js.includes('o.isMacro && o.mergePast && o.mergeStart') && !js.includes('o.mergeReached') && !js.includes('mm.m.mergeReached') && js.includes('mm.m.mergePast'), 'colonnes absorbées masquées seulement quand l’échéance du lien est PASSÉE (jamais dès le début de la période)');
+assert(js.includes('function extControle(ci)') && js.includes('dryRun: true') && js.includes('extControle(ci); }'), 'le conflit est contrôlé (appel sans écriture) dès qu’on coche une colonne');
+assert(js.includes('function domCol()') && js.includes('ch.style.background = dcol'), 'toute case ou carte choisie de la ligne est remplie de la couleur de la dominante');
+assert(!js.includes('drawLinks') && !js.includes("'arLink'"), 'aucun trait entre objectifs (un tableau, pas un arbre)');
+assert(js.includes('if (m.mergePast) return; // échéance passée'), 'échéance passée : plus aucune action (ni Séparer) sur la fusion');
 // côté serveur : le macro dit qui l'absorbe
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-arbf-');
 try { require('child_process').execFileSync('node', [require('path').join(__dirname, '..', 'scripts', 'dev-seed.js')], { env: Object.assign({}, process.env, { RAILWAY_ENVIRONMENT_NAME: 'staging' }), stdio: 'ignore' }); } catch (e) { /* déjà semée */ }

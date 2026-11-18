@@ -109,11 +109,10 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arHScroll.goalsGridScroll--locked { overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; }
 .arBubble.arExtOn { box-shadow: none; } /* titre choisi : rempli de la couleur (script), jamais de contour violet */
 
-/* Traits : dessinés par drawLinks (une seule fonction) ; ceux de la grille d'origine (cases vides, rangées) sont retirés. */
+/* Aucun trait entre objectifs (un tableau, pas un arbre) ; la couche .arLinks ne porte plus que les séparateurs pointillés .arSep. */
 .arGrid .goalsGridCell::before, .arGrid .goalsGridRow::before { display: none; }
 .arHInner { position: relative; }
 .arLinks { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
-.arLink { position: absolute; width: 2px; }
 /* Arbres les plus macro (blocs de 5 ans et années) : la grille COMBLE toute la hauteur libre entre l'en-tête et la barre du bas (rangées qui se partagent la hauteur, CSS pur) ; une carte pleine garde sa taille de contenu (64 à 120 px, texte coupé, centrée dans sa rangée), les cases vides prennent le reste ; titres collés en bas. Arbre des périodes : hauteur naturelle, défilement vertical. */
 .arGrid.arCompact { flex: 1 1 auto; margin-top: 0; padding-top: 0; }
 .arGrid.arCompact { justify-content: space-between; } /* aucune rangée vide : la marge restante est répartie entre les rangées (jamais de vide) */

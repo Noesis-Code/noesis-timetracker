@@ -108,4 +108,8 @@ function forMacro(userId, columns, anchorKey) {
   if (level === 'secteur') { if (new Set(columns.map((c) => c.activityId + ':' + c.poleKey)).size > 1) return null; scope = columns[0].activityId + ':' + columns[0].poleKey; }
   try { return { orderLevel: level, orderScope: scope, order: orderFor(userId, level, scope, anchorKey) }; } catch (e) { return null; }
 }
-module.exports = { baseOrder, orderFor, lire, ecrire, forMacro, arrange };
+// COULEUR ATTRIBUÉE À LA PLACE (Émilien, 18 nov. 2026) : le rang de nuance d'un pôle dans l'arbre = sa place dans l'ordre de présentation (ordre de base réarrangé par les fusions), pas une propriété du pôle. Map clé -> rang ; null si illisible (repli : rang du serveur).
+function placeRanks(userId, activityId) {
+  try { const ord = orderFor(userId, 'pole', String(activityId)), m = new Map(); ord.forEach((k, i) => m.set(k, i)); return m; } catch (e) { return null; }
+}
+module.exports = { placeRanks, baseOrder, orderFor, lire, ecrire, forMacro, arrange };

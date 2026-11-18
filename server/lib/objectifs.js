@@ -79,8 +79,6 @@ function checkParent(child, parent) {
   if (child.isMacro && !parent.isMacro && (child.level || 'activite') === 'activite') throw err(MSG_MACRO_PARENT); // aux niveaux pôles et secteurs un macro prend la place de ses objectifs sous leur parent commun
   if (!parent.isMacro && parent.activityId !== child.activityId) throw err(MSG_AUTRE_ACTIVITE);
   if (parent.isMacro) {
-    // Un macro relie des colonnes d'UN niveau (activités, pôles ou secteurs) : ses enfants sont de ce niveau.
-    if (false && child.level && (parent.level || 'activite') !== child.level) throw err('Ce macro relie des objectifs de niveau « ' + (parent.level || 'activite') + ' » : cet objectif est de niveau « ' + child.level + ' ».');
     // Échéance d'un macro : au moins aussi lointaine que celle de chacun de ses enfants (le serveur refuse ; l'interface propose de repousser celle du macro).
   }
   // Seule règle de hiérarchie (modèle simplifié, 6 nov. 2026) : l'échéance du parent est au moins celle de l'enfant (macros comprises).
@@ -185,8 +183,8 @@ function rankActivities(userId, text) {
   return userActivities(userId).filter((a) => !hid.has(a.id)).map((a) => {
     const aw = words(a.name + ' ' + labelsOf(a.id).join(' ')).map(stemOf);
     const score = aw.filter((w, i) => aw.indexOf(w) === i && tw.has(w)).length;
-    const sr = require('./categorystats').shadeRanks(a.id);
-    return { id: a.id, name: a.name, color: a.color, score, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, shadeRank: sr.ranks.has(p.key) ? sr.ranks.get(p.key) : 0, shadeCount: sr.count, secteurs: goals.secteursForPole(a.id, p.key).map((x) => ({ key: x.key, label: x.label })) })) }; // pôles et secteurs : choisis après l'activité (le niveau en découle)
+    const sr = require('./categorystats').shadeRanks(a.id), pl = require('./objectifs-ordre').placeRanks(userId, a.id);
+    return { id: a.id, name: a.name, color: a.color, score, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, shadeRank: pl && pl.has(p.key) ? pl.get(p.key) : sr.ranks.has(p.key) ? sr.ranks.get(p.key) : 0, shadeCount: sr.count, secteurs: goals.secteursForPole(a.id, p.key).map((x) => ({ key: x.key, label: x.label })) })) }; // pôles et secteurs : choisis après l'activité (le niveau en découle)
   }).sort((x, y) => y.score - x.score);
 }
 function nextWeekTaskCount(userId) {
@@ -503,7 +501,7 @@ function levelOf(userId, activityId, body) {
 // Structure pour l'arbre : par activité, ses pôles et leurs secteurs (même source que l'arbre périodique de la page 2).
 function structure(userId) {
   const hid = hiddenFromTree(userId);
-  return { hidden: Array.from(hid), activities: userActivities(userId).map((a) => { const sr = require('./categorystats').shadeRanks(a.id); return ({ id: a.id, name: a.name, color: a.color, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, shadeRank: sr.ranks.has(p.key) ? sr.ranks.get(p.key) : 0, shadeCount: sr.count, // couleur du pôle = la MÊME règle que Chrono et les statistiques : nuance de la couleur de l'activité selon ce rang
+  return { hidden: Array.from(hid), activities: userActivities(userId).map((a) => { const sr = require('./categorystats').shadeRanks(a.id), pl = require('./objectifs-ordre').placeRanks(userId, a.id); return ({ id: a.id, name: a.name, color: a.color, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, shadeRank: pl && pl.has(p.key) ? pl.get(p.key) : sr.ranks.has(p.key) ? sr.ranks.get(p.key) : 0, shadeCount: sr.count, // couleur du pôle = la MÊME règle que Chrono et les statistiques : nuance de la couleur de l'activité selon ce rang
  secteurs: goals.secteursForPole(a.id, p.key).map((x) => ({ key: x.key, label: x.label })) })) }); }) };
 }
 
@@ -915,7 +913,7 @@ function shape(r, full) {
     out.macroLevel = r.level || 'activite'; out.macroColumns = columnsOf(r); out.emptyColumns = ownExtras(r); out.childMacroIds = activeKids(r).filter((k) => k.isMacro).map((k) => k.id);
     out.macroActivities = mi.activities; out.macroEmpty = mi.empty; out.macroAllAbandoned = mi.allAbandoned; out.macroChildren = mi.total;
     out.status = mi.status; out.progress = mi.progress;
-    out.absorbing = absorption.absorbingOf(r.id); // branche absorbante (couleur des branches absorbées dans l'arbre)
+    out.absorbing = absorption.dominante(r.userId, r.id); // branche absorbante (couleur des branches absorbées dans l'arbre)
     Object.assign(out, fusion.state(r.endDate, today())); // fusion dans le temps : période de fusion et son état (calculé à chaque lecture, rien n'est écrit)
   }
   if (full) {
@@ -959,7 +957,7 @@ function assertFusionOuverte(r) {
   const par = r.parentId ? db.prepare('SELECT isMacro, endDate FROM user_objectives WHERE id = ?').get(r.parentId) : null;
   if (par && par.isMacro && fusion.state(par.endDate, today()).mergePast) throw err(fusion.MSG_PASSEE);
 }
-function lier(userId, id, parentId, rel) {
+function lier(userId, id, parentId, rel, opts) {
   const r = rowOf(userId, id);
   if (Number(parentId) !== r.parentId) assertFusionOuverte(r);
   if (parentId == null || parentId === '') {
@@ -967,11 +965,12 @@ function lier(userId, id, parentId, rel) {
     try { const m0 = JSON.parse(r.metaJson || '{}'), op = r.parentId ? db.prepare('SELECT isMacro FROM user_objectives WHERE id = ?').get(r.parentId) : null; if (op && op.isMacro && m0.prevParent) { const pp = m0.prevParent.id ? db.prepare('SELECT id, activityId, isMacro FROM user_objectives WHERE id = ? AND userId = ?').get(m0.prevParent.id, userId) : null; if (pp && !pp.isMacro && pp.activityId === r.activityId) back = pp.id; delete m0.prevParent; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(m0), r.id); } } catch (e) { back = null; }
     const oldMacro = r.parentId;
     db.prepare('UPDATE user_objectives SET parentId = ?, parentRel = NULL, position = ? WHERE id = ?').run(back, nextPosition(userId, back), r.id);
-    if (oldMacro) { const ck = columnsOfLeaves(r.level || 'activite', [r])[0]; absorption.annuler(userId, oldMacro, ck ? (r.level === 'pole' ? ck.poleKey : ck.categoryKey) : null); } // la colonne détachée n'est plus absorbée ; ses tâches reviennent
     purgeOrphanMacros(userId); relinkMacros(userId); // le dernier enfant détaché : le macro vide disparaît
+    if (oldMacro) absorption.appliquer(userId, today()); // l'absorption est dérivée des liens : la colonne détachée n'est plus absorbée, ses tâches reviennent
     return get(userId, r.id);
   }
   const p = rowOf(userId, parentId);
+  if (p.isMacro && !(opts && opts.creation) && p.id !== r.parentId && fusion.state(p.endDate, today()).mergePast) throw err(fusion.MSG_PASSEE); // on ne rejoint pas une fusion passée
   checkParent({ activityId: r.activityId, isMacro: !!r.isMacro, level: r.level || 'activite', endDate: r.endDate }, p);
   if (p.isMacro) assertColumnFree(userId, p, r); // L03 (revu pour le macro) + niveau de colonne + échéance
   for (let cur = p; cur; cur = cur.parentId ? db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId) : null) {
@@ -1074,6 +1073,10 @@ function bilan(userId, id, action, n) {
 // Une colonne = (niveau, activité, pôle, secteur). RÈGLE : une colonne déjà reliée à un macro ne peut pas être reliée à un AUTRE macro séparé (400 « Délie d'abord ce macro ») ;
 // relier à un macro existant par chaînage (macro enfant) fait entrer le groupe entier. La fusion est réversible : aucune donnée de base n'est modifiée (voir objectifs-ordre.js).
 
+// Les liens directs de fusion (SOURCE UNIQUE, un macro = un lien) : colonnes directes dans l'ordre de sélection, échéance. Tout le reste (groupe, dominante, absorption, couleur, ordre) en est calculé.
+function liensDirects(userId) {
+  return db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND isMacro = 1').all(userId).map((r) => { const level = r.level || 'activite'; return { id: r.id, level, endDate: r.endDate, columns: columnsOfLeaves(level, activeKids(r).filter((k) => !k.isMacro), ownExtras(r)) }; });
+}
 function macroRoot(row) { // macro le plus haut de la chaîne (le macro lui-même s'il en est un), sinon null
   let cur = row, root = row.isMacro ? row : null, n = 0;
   while (cur && cur.parentId && n++ < 50) { const p = db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(cur.parentId); if (!p) break; if (p.isMacro && (p.level || 'activite') === (row.level || 'activite')) root = p; cur = p; }
@@ -1089,10 +1092,7 @@ function assertLiaison(userId, level, leaves, ignoreRootId, extras) {
 // dans la MÊME case (même niveau de temps, même période / année / bloc), ils s'écraseraient : refus avec un message qui nomme les objectifs à déplacer. Dates différentes : la fusion se fait, rien n'est écrit ni supprimé.
 const MSG_CONFLIT = 'Vous devez déplacer ';
 function caseApres(o) { const t = temps.deduce(o.startDate, o.endDate), p = fusion.periodOf(o.endDate); return { rank: p.year * 100 + p.number, label: t === 'periode' ? 'période ' + p.number + ' de ' + p.year : t === 'annee' ? 'année ' + p.year : 'après ' + p.year, k: t === 'periode' ? 'P' + p.year + '/' + p.number : t === 'annee' ? 'A' + p.year : 'B' + blockYearOf(o.endDate) }; }
-let controleConflit = true; // coupé seulement par les tests de la mécanique des macros
-function setControleConflit(on) { controleConflit = on !== false; }
 function assertSansConflit(userId, level, leaves, extras) {
-  if (!controleConflit) return;
   const kids = leaves.filter((k) => k.id > 0), kidIds = new Set(kids.map((k) => k.id)), cols = columnsOfLeaves(level, leaves, extras);
   if (cols.length < 2 || !kids.length) return;
   const colKey = (c) => level === 'activite' ? String(c.activityId) : level === 'pole' ? c.activityId + '/' + c.poleKey : c.activityId + '/' + c.poleKey + '/' + c.categoryKey, mine = new Set(cols.map(colKey));
@@ -1166,7 +1166,9 @@ function setEmptyColumns(userId, id, list) { // mode modification d'un macro : a
   writeExtras(r.id, empties); relinkMacros(userId);
   return get(userId, r.id);
 }
+// Contrôle SANS écriture (dryRun) : les mêmes fonctions que l'enregistrement, appelées par l'écran dès qu'on coche une colonne (le refus apparaît avant d'enregistrer). macroId : on ajoute ces objectifs à une fusion existante.
 function fusionnerEnMacro(userId, body) {
+  if (body && body.macroId != null) { const mr = rowOf(userId, body.macroId); if (!mr.isMacro) throw err('Cet objectif n’est pas un macro.'); (Array.isArray(body.childIds) ? body.childIds : []).slice(0, 20).forEach((i) => assertColumnFree(userId, mr, rowOf(userId, i))); return { ok: true }; }
   const ids = [...new Set((Array.isArray(body && body.childIds) ? body.childIds : []).map(Number))].slice(0, 20);
   const emptiesRaw = body && body.emptyColumns;
   if (ids.length < 1 || (ids.length < 2 && !(Array.isArray(emptiesRaw) && emptiesRaw.length))) throw err('Un macro englobe au moins deux objectifs.');
@@ -1181,13 +1183,14 @@ function fusionnerEnMacro(userId, body) {
   const empties = cleanEmpties(userId, lv, emptiesRaw); // cases vides de la même ligne reliées à la carte pleine (aucun nouvel objectif)
   assertLiaison(userId, lv, kids, null, empties); // règle de liaison, avant toute création
   assertSansConflit(userId, lv, kids, empties); // contrôle de conflit (objectifs après la fusion), avant toute création
+  if (body.dryRun === true) return { ok: true };
   const created = creer(userId, { title: body.title, activityId: kids[0].activityId, startDate: start, endDate: end, isMacro: true, noBridge: true, description: body.description, level: lv, poleKey: lv === 'activite' ? null : (kids.find((k) => k.poleKey) || {}).poleKey || null, categoryKey: lv === 'secteur' ? ((kids.find((k) => k.categoryKey) || {}).categoryKey || null) : null });
   if (commonParent) lier(userId, created.id, commonParent, 'apres'); // le macro prend la place de ses objectifs sous leur parent
   if (empties.length) writeExtras(created.id, empties);
-  kids.forEach((k) => { setPrevParent(k, k.parentId || null); lier(userId, k.id, created.id, 'avant'); });
+  kids.forEach((k) => { setPrevParent(k, k.parentId || null); lier(userId, k.id, created.id, 'avant', { creation: true }); });
   relinkMacros(userId); // le parent d'origine est gardé : séparer remet les objectifs tels qu'ils étaient
-  // ABSORPTION (pôles, secteurs) : la branche choisie en premier absorbe les autres à partir de la période de fusion ; un enregistrement par absorbée, rien n'est modifié ni supprimé.
-  absorption.record(userId, lv, columnsOfLeaves(lv, [kids[0]]).concat(columnsOfLeaves(lv, kids.slice(1), empties)), fusion.periodOf(end).start, created.id); absorption.appliquer(userId, today());
+  // ABSORPTION (pôles, secteurs) : DÉRIVÉE des liens (objectifs-absorption.js) : la branche choisie en premier absorbe les autres une fois l'échéance passée ; rien n'est stocké ici.
+  absorption.appliquer(userId, today());
   const out = get(userId, created.id);
   return Object.assign(out, require('./objectifs-ordre').forMacro(userId, out.macroColumns, body.anchor) || {}); // ordre de présentation dérivé (rien n'est écrit)
 }
@@ -1309,7 +1312,8 @@ function abandonner(userId, id, on) {
 // confirmée, les enfants sont détachés (ils redeviennent des objectifs finaux), jamais supprimés. Le secteur et les tâches déjà posés dans l'arbre périodique restent à l'utilisateur.
 function supprimer(userId, id, confirmed) {
   const r = rowOf(userId, id);
-  // Supprimer un macro, même passé : le macro disparaît, ses enfants redeviennent des objectifs NORMAUX de leurs activités (jamais supprimés, jamais orphelins) ; seul « délier » un enfant d'un macro passé reste refusé (assertFusionOuverte).
+  // Séparer (supprimer le macro) : possible SEULEMENT avant l'échéance de la fusion ; ensuite définitif, aucune action. Les enfants redeviennent des objectifs NORMAUX de leurs activités (jamais supprimés, jamais orphelins).
+  if (r.isMacro && fusion.state(r.endDate, today()).mergePast) throw err(fusion.MSG_PASSEE);
   const kids = db.prepare('SELECT id, title, activityId, metaJson FROM user_objectives WHERE userId = ? AND parentId = ? ORDER BY position, id').all(userId, r.id);
   if (kids.length && !confirmed) throw Object.assign(err('Cet objectif a ' + kids.length + ' objectif' + (kids.length > 1 ? 's rattachés' : ' rattaché') + ' : confirme pour les détacher.', 409), { extra: { children: kids } });
   db.exec('BEGIN');
@@ -1329,10 +1333,9 @@ function supprimer(userId, id, confirmed) {
     db.prepare('DELETE FROM user_objectives WHERE id = ? AND userId = ?').run(r.id, userId);
     db.exec('COMMIT');
   } catch (e) { try { db.exec('ROLLBACK'); } catch (e2) { /* aucune transaction ouverte : on garde l'erreur d'origine */ } throw e; }
-  if (r.isMacro && !fusion.state(r.endDate, today()).mergePast) absorption.annuler(userId, r.id); // fusion séparée avant sa période : la colonne réapparaît, les tâches déplacées reviennent (ligne marquée annulée)
-  try { purgeOrphanMacros(userId); relinkMacros(userId); } catch (e) { console.warn('[objectifs] nettoyage des macros vides : ' + (e && e.message)); } // un macro dont le dernier enfant vient d'être supprimé disparaît aussi ; jamais bloquant
+  try { purgeOrphanMacros(userId); relinkMacros(userId); if (r.isMacro) absorption.appliquer(userId, today()); } catch (e) { console.warn('[objectifs] nettoyage des macros vides : ' + (e && e.message)); } // un macro dont le dernier enfant vient d'être supprimé disparaît aussi ; jamais bloquant
   return { ok: true, detached: kids.map((k) => k.id) };
 }
 migrateEcheances(); // au chargement (idempotent)
 try { const n = purgeOrphanMacros(null); if (n) console.log('[objectifs] ' + n + ' macro(s) sans objectif relié retiré(s)'); } catch (e) { console.warn('[objectifs] nettoyage des macros vides impossible :', e.message); }
-module.exports = { setControleConflit, blockYearOf, reprogrammer, reorganisation, appliquerReorganisation, reorganisationDe, appliquerReorganisationDe, natureOfCategory, gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { liensDirects, blockYearOf, reprogrammer, reorganisation, appliquerReorganisation, reorganisationDe, appliquerReorganisationDe, natureOfCategory, gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

@@ -1,8 +1,11 @@
-// Absorption (Émilien, 18 nov. 2026) : fusionner deux pôles (ou secteurs) à une période = à partir de cette période, il n'existe plus que l'ABSORBANT (la branche choisie en premier).
-// Un ENREGISTREMENT par branche absorbée (fusion_absorption), jamais une ligne d'objectif ou de catégorie modifiée ou supprimée : le passé (statistiques, objectifs, temps) reste lisible et dans l'export.
-// La fusion se DÉLIE tant que sa période n'est pas passée (; les fusions sont des liens indépendants (A-B délié, B-C reste : A réapparaît, C reste avec B)) : la ligne est alors marquée ANNULÉE (jamais supprimée), la colonne réapparaît et les tâches déplacées reviennent. Chaque fusion vaut à partir de SA période vers le haut ; à une date, le groupe = fermeture transitive des fusions dont la période est antérieure ou égale.
-// Les tâches ouvertes de la branche absorbée passent à l'absorbante (même activité) dès que la période est atteinte. Pas de remontée en catégorie : seuls les niveaux pôle et secteur absorbent.
+// Absorption (Émilien, 18 nov. 2026) : DÉRIVÉE à chaque lecture des liens de fusion, jamais stockée.
+// SOURCE UNIQUE = les liens directs de fusion : un macro (user_objectives, isMacro = 1) = un lien { colonnes reliées dans l'ordre de sélection, échéance }. La première colonne est la DOMINANTE (elle absorbe les autres).
+// Tout le reste est calculé ici : absorption effective = l'échéance du lien (sa période de l'arbre) est PASSÉE (pas avant) ; branche qui subsiste = on suit les liens effectifs (A-B puis B-C : A absorbe B et C) ; le groupe = composantes connexes des liens.
+// Séparer = supprimer le lien, seulement avant l'échéance (objectifs.js) ; rien ne s'écrit ici, sauf le registre des tâches déplacées (fusion_absorption.movedJson), seul état qui ne se déduit pas, qui permet de les remettre en place.
+// Les colonnes fromDate / cancelledAt / macroId de fusion_absorption sont conservées pour les données existantes (jamais supprimées) mais ne décident plus de rien.
+// Pas de remontée en catégorie : seuls les niveaux pôle et secteur absorbent. Les tâches OUVERTES de l'absorbée passent à la survivante (même activité) une fois l'échéance passée ; le temps déjà enregistré ne bouge pas.
 const db = require('../db');
+const fusion = require('./objectifs-fusion');
 db.exec(`CREATE TABLE IF NOT EXISTS fusion_absorption (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   userId TEXT NOT NULL,
@@ -17,63 +20,76 @@ db.exec(`CREATE TABLE IF NOT EXISTS fusion_absorption (
   UNIQUE (userId, level, absorbedActivityId, absorbedKey)
 )`);
 if (!db.prepare('PRAGMA table_info(fusion_absorption)').all().some((c) => c.name === 'cancelledAt')) { db.exec('ALTER TABLE fusion_absorption ADD COLUMN cancelledAt TEXT'); db.exec('ALTER TABLE fusion_absorption ADD COLUMN movedJson TEXT'); }
-const colOf = (level, c) => ({ activityId: c.activityId, poleKey: level === 'pole' ? c.poleKey : c.poleKey || null, key: level === 'pole' ? c.poleKey : c.categoryKey });
-// cols : colonnes reliées dans l'ordre de sélection ; la première absorbe. Rien n'est écrit pour deux colonnes identiques ni pour un niveau « activité ».
-function record(userId, level, cols, fromDate, macroId) {
-  if (level === 'activite' || !cols || cols.length < 2) return 0;
-  const first = colOf(level, cols[0]); let n = 0;
-  cols.slice(1).forEach((c) => {
-    const x = colOf(level, c); if (x.activityId === first.activityId && x.key === first.key) return;
-    const r = db.prepare('INSERT INTO fusion_absorption (userId, level, absorbingActivityId, absorbingPoleKey, absorbingKey, absorbedActivityId, absorbedPoleKey, absorbedKey, fromDate, macroId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(userId, level, absorbedActivityId, absorbedKey) DO UPDATE SET absorbingActivityId = excluded.absorbingActivityId, absorbingPoleKey = excluded.absorbingPoleKey, absorbingKey = excluded.absorbingKey, absorbedPoleKey = excluded.absorbedPoleKey, fromDate = excluded.fromDate, macroId = excluded.macroId, createdAt = excluded.createdAt, cancelledAt = NULL, movedJson = NULL WHERE fusion_absorption.cancelledAt IS NOT NULL')
-      .run(userId, level, first.activityId, first.poleKey, first.key, x.activityId, x.poleKey, x.key, fromDate, macroId || null, new Date().toISOString());
-    n += r.changes;
+const todayOf = () => require('./dates').userToday();
+const addDay = (iso) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
+const same = (a, b) => a.activityId === b.activityId && a.key === b.key;
+// Les liens directs de l'utilisateur (pôles et secteurs) : [{ id, level, endDate, mergeEnd, cols: [{ activityId, poleKey, key }] }], cols dans l'ordre de sélection (la première est dominante).
+function liens(userId) {
+  return require('./objectifs').liensDirects(userId).filter((l) => l.level === 'pole' || l.level === 'secteur').map((l) => {
+    const cols = l.columns.map((c) => ({ activityId: c.activityId, poleKey: c.poleKey || null, key: l.level === 'pole' ? c.poleKey : c.categoryKey })).filter((c) => c.key);
+    return { id: l.id, level: l.level, endDate: l.endDate, mergeEnd: fusion.state(l.endDate, '0000-00-00').mergeEnd, cols };
+  }).filter((l) => l.cols.length > 1 && l.mergeEnd);
+}
+// Paires « absorbée -> absorbante » de tous les liens ; effectives = échéance passée à `date` (aujourd'hui par défaut).
+function paires(userId, date, effectiveOnly) {
+  const d = date || todayOf(), out = [];
+  liens(userId).forEach((l) => {
+    if (effectiveOnly && !(d > l.mergeEnd)) return;
+    l.cols.slice(1).forEach((c) => { if (!same(c, l.cols[0])) out.push({ level: l.level, macroId: l.id, absorbed: c, absorbing: l.cols[0], mergeEnd: l.mergeEnd }); });
   });
-  return n;
-}
-const all = (userId) => db.prepare('SELECT * FROM fusion_absorption WHERE userId = ? AND cancelledAt IS NULL ORDER BY fromDate, id').all(userId);
-// Branche qui subsiste à `date` pour (activityId, key) : on suit les absorptions dont la période est atteinte (transitif : B absorbée par A, A absorbée par C => C).
-function survivor(userId, level, activityId, key, date) {
-  let cur = { activityId: Number(activityId), key: String(key) }, n = 0;
-  const rows = all(userId).filter((r) => r.level === level && r.fromDate <= date);
-  for (;;) {
-    const r = rows.find((x) => x.absorbedActivityId === cur.activityId && x.absorbedKey === cur.key);
-    if (!r || n++ > 50) return cur;
-    cur = { activityId: r.absorbingActivityId, key: r.absorbingKey };
-  }
-}
-// Groupe à `date` : toutes les branches (y compris l'absorbant) dont survivor() est la même ; sert à l'affichage de l'arbre.
-function groupAt(userId, level, activityId, key, date) {
-  const s = survivor(userId, level, activityId, key, date), out = [{ activityId: s.activityId, key: s.key }];
-  all(userId).filter((r) => r.level === level && r.fromDate <= date).forEach((r) => { const t = survivor(userId, level, r.absorbedActivityId, r.absorbedKey, date); if (t.activityId === s.activityId && t.key === s.key) out.push({ activityId: r.absorbedActivityId, key: r.absorbedKey }); });
   return out;
 }
-// Branches absorbées d'une activité (lues par le Chrono, les Réglages et l'arbre) : [{ key, level, absorbedInto, fromDate }]
-function absorbedOf(userId, activityId) {
-  return all(userId).filter((r) => r.absorbedActivityId === Number(activityId)).map((r) => ({ key: r.absorbedKey, level: r.level, absorbedInto: r.absorbingKey, absorbingActivityId: r.absorbingActivityId, fromDate: r.fromDate }));
+// Branche qui subsiste pour (activityId, key) : on suit les paires (transitif : B absorbée par A, A absorbée par C => C).
+function chaine(ps, level, activityId, key) {
+  let cur = { activityId: Number(activityId), key: String(key) }, n = 0;
+  const rows = ps.filter((p) => p.level === level);
+  for (;;) {
+    const p = rows.find((x) => same(x.absorbed, cur));
+    if (!p || n++ > 50) return cur;
+    cur = { activityId: p.absorbing.activityId, key: p.absorbing.key };
+  }
 }
-const isAbsorbed = (userId, activityId, key, date) => all(userId).some((r) => r.absorbedActivityId === Number(activityId) && r.absorbedKey === key && r.fromDate <= date);
-// Tâches OUVERTES de la branche absorbée -> absorbante (même activité) quand la période est atteinte. Idempotent ; rien n'est supprimé, le temps déjà enregistré ne bouge pas.
+// Branche qui subsiste à `date` : seules les fusions dont l'échéance est passée comptent.
+const survivor = (userId, level, activityId, key, date) => chaine(paires(userId, date, true), level, activityId, key);
+// Branche dominante d'un lien (lue par l'arbre pour la couleur et la colonne qui subsiste) : sa première colonne, suivie à travers les autres liens (A-B puis B-C : A). null sans lien pôle/secteur.
+function dominante(userId, macroId) {
+  const l = liens(userId).find((x) => x.id === Number(macroId)); if (!l) return null;
+  const s = chaine(paires(userId, null, false), l.level, l.cols[0].activityId, l.cols[0].key), c = l.cols.find((x) => same(x, s)) || l.cols[0];
+  return { level: l.level, activityId: s.activityId, poleKey: c.poleKey, key: s.key };
+}
+// Branches absorbées d'une activité, EFFECTIVES seulement (lues par le Chrono et les Réglages) : [{ key, level, absorbedInto, absorbingActivityId, fromDate }] ; fromDate = lendemain de l'échéance.
+function absorbedOf(userId, activityId) {
+  const ps = paires(userId, null, true);
+  return ps.filter((p) => p.absorbed.activityId === Number(activityId)).map((p) => { const s = chaine(ps, p.level, p.absorbed.activityId, p.absorbed.key); return { key: p.absorbed.key, level: p.level, absorbedInto: s.key, absorbingActivityId: s.activityId, fromDate: addDay(p.mergeEnd) }; });
+}
+function tasksOf(activityId, key, level) {
+  const ks = [key].concat(level === 'pole' ? db.prepare('SELECT key FROM activity_goal_categories WHERE activityId = ? AND parentKey = ?').all(activityId, key).map((x) => x.key) : []);
+  return db.prepare(`SELECT sp.id, sp.goalCategory FROM sub_projects sp WHERE sp.activityId = ? AND sp.goalCategory IN (${ks.map(() => '?').join(',')}) AND EXISTS (SELECT 1 FROM sub_project_items i WHERE i.subProjectId = sp.id AND i.done = 0)`).all(activityId, ...ks);
+}
+const rowOfAbsorbed = (userId, level, a) => db.prepare('SELECT * FROM fusion_absorption WHERE userId = ? AND level = ? AND absorbedActivityId = ? AND absorbedKey = ?').get(userId, level, a.activityId, a.key);
+// Remet les tâches en accord avec les liens (idempotent, appelé à la lecture) : (1) un registre dont la fusion n'est plus effective (lien séparé ou supprimé, échéance non passée) -> les tâches reviennent ; (2) fusion effective -> tâches ouvertes de l'absorbée vers la survivante.
 function appliquer(userId, today) {
+  const ps = paires(userId, today, true);
   let moved = 0;
-  all(userId).filter((r) => r.fromDate <= today && r.absorbedActivityId === r.absorbingActivityId).forEach((r) => {
-    const keys = [r.absorbedKey].concat(r.level === 'pole' ? db.prepare('SELECT key FROM activity_goal_categories WHERE activityId = ? AND parentKey = ?').all(r.absorbedActivityId, r.absorbedKey).map((x) => x.key) : []);
-    const ph = keys.map(() => '?').join(',');
-    const homes = db.prepare(`SELECT sp.id FROM sub_projects sp WHERE sp.activityId = ? AND sp.goalCategory IN (${ph}) AND EXISTS (SELECT 1 FROM sub_project_items i WHERE i.subProjectId = sp.id AND i.done = 0)`).all(r.absorbedActivityId, ...keys);
-    const was = JSON.parse(r.movedJson || '[]');
-    homes.forEach((h) => { const cur = db.prepare('SELECT goalCategory FROM sub_projects WHERE id = ?').get(h.id); was.push({ id: h.id, from: cur.goalCategory }); moved += db.prepare('UPDATE sub_projects SET goalCategory = ? WHERE id = ?').run(r.absorbingKey, h.id).changes; });
-    if (homes.length) db.prepare('UPDATE fusion_absorption SET movedJson = ? WHERE id = ?').run(JSON.stringify(was), r.id);
+  db.prepare('SELECT * FROM fusion_absorption WHERE userId = ? AND cancelledAt IS NULL AND movedJson IS NOT NULL').all(userId).forEach((r) => {
+    if (ps.some((p) => p.level === r.level && p.absorbed.activityId === r.absorbedActivityId && p.absorbed.key === r.absorbedKey)) return;
+    JSON.parse(r.movedJson || '[]').forEach((m) => { db.prepare('UPDATE sub_projects SET goalCategory = ? WHERE id = ? AND goalCategory = ?').run(m.from, m.id, r.absorbingKey); });
+    db.prepare('UPDATE fusion_absorption SET cancelledAt = ? WHERE id = ?').run(new Date().toISOString(), r.id);
+  });
+  ps.forEach((p) => {
+    const s = chaine(ps, p.level, p.absorbed.activityId, p.absorbed.key);
+    if (s.activityId !== p.absorbed.activityId || s.key === p.absorbed.key) return;
+    const homes = tasksOf(p.absorbed.activityId, p.absorbed.key, p.level); if (!homes.length) return;
+    let row = rowOfAbsorbed(userId, p.level, p.absorbed);
+    if (!row) {
+      db.prepare('INSERT INTO fusion_absorption (userId, level, absorbingActivityId, absorbingPoleKey, absorbingKey, absorbedActivityId, absorbedPoleKey, absorbedKey, fromDate, macroId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(userId, p.level, s.activityId, p.absorbing.poleKey, s.key, p.absorbed.activityId, p.absorbed.poleKey, p.absorbed.key, addDay(p.mergeEnd), p.macroId, new Date().toISOString());
+      row = rowOfAbsorbed(userId, p.level, p.absorbed);
+    } else if (row.cancelledAt) { db.prepare('UPDATE fusion_absorption SET cancelledAt = NULL, movedJson = NULL, macroId = ? WHERE id = ?').run(p.macroId, row.id); row.movedJson = null; }
+    const was = JSON.parse(row.movedJson || '[]');
+    homes.forEach((h) => { was.push({ id: h.id, from: h.goalCategory }); moved += db.prepare('UPDATE sub_projects SET goalCategory = ? WHERE id = ?').run(s.key, h.id).changes; });
+    db.prepare('UPDATE fusion_absorption SET movedJson = ?, absorbingKey = ? WHERE id = ?').run(JSON.stringify(was), s.key, row.id);
   });
   return moved;
 }
-// Annule l'absorption (ligne marquée, jamais supprimée) : la colonne réapparaît, les tâches déplacées reviennent à leur catégorie d'origine. onlyKey : seulement les lignes touchant cette branche.
-function annuler(userId, macroId, onlyKey) {
-  let n = 0;
-  all(userId).filter((r) => r.macroId === Number(macroId) && (!onlyKey || r.absorbedKey === onlyKey || r.absorbingKey === onlyKey)).forEach((r) => {
-    JSON.parse(r.movedJson || '[]').forEach((m) => { db.prepare('UPDATE sub_projects SET goalCategory = ? WHERE id = ? AND goalCategory = ?').run(m.from, m.id, r.absorbingKey); });
-    db.prepare('UPDATE fusion_absorption SET cancelledAt = ? WHERE id = ?').run(new Date().toISOString(), r.id); n++;
-  });
-  return n;
-}
-// Branche absorbante d'un macro (pôles/secteurs) : lue par l'arbre pour donner sa couleur aux branches absorbées ; null sans absorption (activités).
-function absorbingOf(macroId) { const r = db.prepare('SELECT level, absorbingActivityId, absorbingPoleKey, absorbingKey FROM fusion_absorption WHERE macroId = ? AND cancelledAt IS NULL ORDER BY id LIMIT 1').get(macroId); return r ? { level: r.level, activityId: r.absorbingActivityId, poleKey: r.absorbingPoleKey, key: r.absorbingKey } : null; }
-module.exports = { absorbingOf, record, all, survivor, groupAt, absorbedOf, isAbsorbed, appliquer, annuler };
+module.exports = { dominante, absorbedOf, survivor, appliquer, paires };
