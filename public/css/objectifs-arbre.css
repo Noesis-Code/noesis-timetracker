@@ -185,10 +185,9 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 /* Colonne des dates (18 nov. 2026, choix d'Émilien) : du texte simple, SANS contour ; seule la période courante garde sa pastille pleine (blanche). */
 :is(.arGrid, .arRail) .goalsRowMarker.goalsRowMarker--future { box-shadow: none; opacity: 1; }
 /* Cases vides SANS fond ; titres du bas centrés, transparents, contour seul ; heures non affichées = bouton sans contour (18 nov. 2026, Émilien). */
-.arGrid .goalsGridCell--empty { background: var(--glass-bg); } /* cases vides en VERRE calme (jeton standard --glass-bg), à tous les niveaux : essai demandé par Émilien le 18 nov. 2026 ; sinon retour au pointillé */
-.arBubble { justify-content: center; text-align: center; background: transparent; }
+.arGrid .goalsGridCell--empty { background: var(--glass-bg); -webkit-backdrop-filter: saturate(0); backdrop-filter: saturate(0); } /* verre calme SANS teinte violette : ce qui est derrière se voit mais désaturé (18 nov. 2026, Émilien) ; à tous les niveaux ; sinon pointillé */.arBubble { justify-content: center; text-align: center; background: transparent; }
 .arRailR .arHrs:empty { border-color: transparent; }
 /* Niveau SECTEUR, cases et cartes (18 nov. 2026, Émilien) : case vide = cadre en POINTILLÉ très faible, de la couleur du numéro « N en dessous » (outline : le !important de la grille interdit la bordure) ; carte = le même trait court que sous le titre, pour ressembler au titre du secteur. */
 /* Niveau SECTEUR (18 nov. 2026, Émilien) : le TITRE garde la bulle du pôle mais son CONTOUR est en pointillé. */
-.arLvlSecteur .arBubble { border-style: dashed; }
+.arLvlSecteur .arBubble { border-style: dotted; } /* pointillé court et serré (petits points) */
 .arRailR .arHrs { border: 0; } .arRailR .arHrs.set { border: 0; } /* colonne des heures sans cadre (18 nov. 2026) */
