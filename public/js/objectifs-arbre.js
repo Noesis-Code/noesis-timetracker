@@ -483,7 +483,7 @@
   function openFiche(ci) { if (TMT.objectifsView && TMT.objectifsView.openFiche) TMT.objectifsView.openFiche(ficheOf(ci)); }
   document.addEventListener('click', function (e) { lastTap = [e.clientX, e.clientY]; }, true); // où l'on a touché : origine du zoom de descente
   function descend(ci, block, year, macro) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
-    var c = curCols[ci]; if (!c) return; if (lvl === 'activite' && block == null && year != null && !macro) block = blockStart(year + '-06-01'); /* case d'un bloc qui résume plusieurs objectifs : SON bloc fixe (jamais celui du présent) */ dive = true; // transition de zoom (arZoomIn) : on entre dans la bulle touchée
+    var c = curCols[ci]; if (!c) return; if (lvl === 'activite' && block == null && year != null && !macro) block = blockStart(year + '-06-01'); /* case d'un bloc qui résume plusieurs objectifs : SON bloc fixe (jamais celui du présent) */ dive = !(macro || ext); /* 18 nov. 2026 (Émilien) : AUCUN zoom en touchant une bulle fusionnée ni en mode fusion */ // transition de zoom (arZoomIn) : on entre dans la bulle touchée
     if (macro && block == null && macro.endDate) block = blockStart(macro.endDate); // la vue des années d'un macro : le bloc FIXE de 5 ans de SON échéance, jamais l'étendue de ses enfants
     if (lvl === 'activite') {
       var order = ((struct && struct.activities) || []).map(function (x) { return x.id; }), ids = [];
