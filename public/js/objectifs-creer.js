@@ -29,11 +29,11 @@
   // (sélecteur de durée standard) si edit, sinon blanc. Traits : horizontaux entre les lignes ; un trait vertical continu entre Chrono et Objectif (décalé de 12 px), de l'en-tête jusqu'au bas de « Total » ; trait horizontal plus marqué au-dessus de « Total ».
   function objTable(cfg) {
     var fmt = cfg.fmt || hh, node = el('div', 'objGrid'), body = el('div', 'objGridBody'), head = el('div', 'objGridHead');
-    head.appendChild(el('span', 'objGridName', cfg.levelLabel)); head.appendChild(el('span', 'objGridChrono', tr('Chrono'))); head.appendChild(el('span', 'objGridObj', tr('Objectif')));
+    head.appendChild(el('span', 'objGridName', cfg.levelLabel)); if (!cfg.noChrono) head.appendChild(el('span', 'objGridChrono', tr('Chrono'))); head.appendChild(el('span', 'objGridObj', tr('Objectif')));
     body.appendChild(head);
     cfg.rows.forEach(function (r) {
       var row = el('div', 'objGridRow'), obj = el('span', 'objGridObj');
-      row.appendChild(el('span', 'objGridName', r.label)); row.appendChild(el('span', 'objGridChrono', r.chrono == null ? '' : fmt(r.chrono)));
+      row.appendChild(el('span', 'objGridName', r.label)); if (!cfg.noChrono) row.appendChild(el('span', 'objGridChrono', r.chrono == null ? '' : fmt(r.chrono)));
       obj.appendChild(el('span', 'objGridAvant', r.avant == null ? '—' : fmt(r.avant)));
       if (r.apres !== undefined) {
         obj.appendChild(el('span', 'objGridSlash', '/'));
@@ -844,10 +844,10 @@
     var m = openModal(tr('Heures par semaine') + ' · ' + label), res = null;
     function sum(rows, k) { var n = 0, any = false; rows.forEach(function (r) { if (r[k] != null) { n += r[k]; any = true; } }); return any ? n : null; }
     function table(rows, onTap) {
-      var t = objTable({ levelLabel: '', rows: rows.map(function (r) { return { label: r.label, chrono: r.chrono, avant: r.avant }; }), total: false, fmt: TMT.ui.heures });
+      var t = objTable({ levelLabel: '', rows: rows.map(function (r) { return { label: r.label, chrono: r.chrono, avant: r.avant }; }), total: false, noChrono: true, fmt: TMT.ui.heures }); /* 18 nov. 2026 (Émilien) : plus de colonne Chrono (pas encore de chrono) */
       Array.prototype.forEach.call(t.node.querySelectorAll('.objGridRow'), function (rowEl, i) { if (!onTap) return; rowEl.style.cursor = 'pointer'; rowEl.setAttribute('role', 'button'); rowEl.tabIndex = 0; rowEl.addEventListener('click', function () { onTap(i); }); rowEl.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(i); } }); });
       var tot = el('div', 'objGridTotal'), to = el('span', 'objGridObj'); to.appendChild(el('span', 'objGridApres', TMT.ui.heures(sum(rows, 'avant'))));
-      tot.appendChild(el('span', 'objGridName', tr('Total'))); tot.appendChild(el('span', 'objGridChrono', TMT.ui.heures(sum(rows, 'chrono')))); tot.appendChild(to); t.node.appendChild(tot);
+      tot.appendChild(el('span', 'objGridName', tr('Total'))); tot.appendChild(to); t.node.appendChild(tot);
       return t.node;
     }
     function s1() {

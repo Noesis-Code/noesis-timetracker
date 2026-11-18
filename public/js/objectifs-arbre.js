@@ -72,10 +72,7 @@
   function card(o, today, all, mode, w, onTap, extCol, colColor) {
     var st = stateOf(o, today), c = objColor(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c); if (ext && ext.mode === 'create' && ext.base && ext.base.id === o.id) b.classList.add('arExtSelf');
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', o.title));
-    if (mode !== 'simple') {
-      var nk = (all.kids[o.id] || []).length;
-      t.appendChild(el('span', 'arCardMeta', (o.durationLabel || '') + ' · ' + tr(STATE_LABEL[st]) + (nk ? ' · ' + nk + ' ' + tr(nk > 1 ? 'objectifs rattachés' : 'objectif rattaché') : '')));
-    }
+    /* 18 nov. 2026 (Émilien) : la carte ne montre que son TITRE ; durée, état et rattachements ne s'affichent plus, l'échéance se lit en modifiant la case */
     b.appendChild(t); b.appendChild(editMark(o));
     b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; // toucher = DESCENDRE d'un niveau dans la branche de la carte (jamais de panneau)
       if (onTap) { onTap(); return; } if (extCol != null) descend(extCol, blockStart(o.endDate), Number(String(o.endDate).slice(0, 4)));
@@ -700,9 +697,10 @@
     (function paintHours() { // colonne « Heures » : un total par ligne, posé au milieu de la ligne comme son repère
       if (isMulti() || !list.length || (lvl !== 'activite' && !(focus && focus.activityId != null))) return;
       var spec = lvl === 'activite' ? { level: 'activite' } : lvl === 'pole' ? { level: 'pole', activityId: focus.activityId } : { level: 'secteur', activityId: focus.activityId, poleKey: focus.poleKey };
-      var rows = list.map(rowSpan), spans = list.map(function (rw) { var sp = el('button', 'arHrs', ''); sp.setAttribute('data-rank', String(rw.rank)); sp.type = 'button'; sp.setAttribute('aria-label', tr('Heures par semaine')); sp.addEventListener('click', function () { if (TMT.objectifsView && TMT.objectifsView.openHeures) TMT.objectifsView.openHeures(spec, rowSpan(rw), rw.block ? rw.y + '–' + rw.y2 : rw.w ? 'S' + rw.w + ' ' + rw.y : rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y)); }); /* pop-up en lecture seule : l'arbre ne change jamais */ railR.appendChild(sp); marks.push({ m: sp, rk: String(rw.rank), full: true }); return sp; }), key = JSON.stringify([spec, rows]);
-      function fill(res) { spans.forEach(function (sp, i) { var r = res && res[i]; sp.textContent = r ? hrsTxt(r.totalMin) : ''; sp.classList.toggle('set', !!(r && r.own)); }); }
+      var touchedRk = null, curRk = String(here.rank), rows = list.map(rowSpan), spans = list.map(function (rw) { var sp = el('button', 'arHrs', ''); sp.setAttribute('data-rank', String(rw.rank)); sp.type = 'button'; sp.setAttribute('aria-label', tr('Heures par semaine')); sp.addEventListener('click', function () { touchedRk = String(rw.rank); if (hrsCache[key]) fill(hrsCache[key]); if (TMT.objectifsView && TMT.objectifsView.openHeures) TMT.objectifsView.openHeures(spec, rowSpan(rw), rw.block ? rw.y + '–' + rw.y2 : rw.w ? 'S' + rw.w + ' ' + rw.y : rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y)); }); /* pop-up en lecture seule : l'arbre ne change jamais */ railR.appendChild(sp); marks.push({ m: sp, rk: String(rw.rank), full: true }); return sp; }), key = JSON.stringify([spec, rows]);
+      function fill(res) { spans.forEach(function (sp, i) { var r = res && res[i], rk = String(list[i].rank), show = !!r && (rk === curRk || rk === touchedRk); sp.textContent = show ? hrsTxt(r.totalMin) : ''; sp.classList.toggle('set', !!(show && r.own)); }); } /* 18 nov. 2026 (Émilien) : seules la période COURANTE et la ligne TOUCHÉE affichent leurs heures */
       if (hrsCache[key]) fill(hrsCache[key]);
+      Array.prototype.forEach.call(grid.querySelectorAll('.goalsGridRow[data-rank] > .goalsRowMarker'), function (mk) { var rk = mk.parentNode.getAttribute('data-rank'); mk.style.cursor = 'pointer'; mk.addEventListener('click', function () { touchedRk = touchedRk === rk ? null : rk; if (hrsCache[key]) fill(hrsCache[key]); }); }); /* 18 nov. 2026 : toucher la DATE d'une ligne (à gauche) affiche ses heures à droite ; la retoucher les masque ; toucher les heures ouvre le détail. Toucher une case descend toujours. */
       TMT.api('POST', '/api/objectifs/allocation/lignes', Object.assign({ rows: rows }, spec)).then(function (res) { hrsCache[key] = res; if (spans[0] && spans[0].isConnected) fill(res); }).catch(function () {});
     })();
     placeRail(); drawLinks(); drawSeps(); window.requestAnimationFrame(relayout); window.setTimeout(relayout, 350);
