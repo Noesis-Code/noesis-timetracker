@@ -269,11 +269,7 @@
     }
     return null;
   }
-  var dotSeq = 0; function holeDot(n) { // pastille « N en dessous » : disque gris pâle de 20 px dont le NUMÉRO est DÉCOUPÉ (masque SVG) : on voit à travers lui le fond de la case
-    var NS = 'http://www.w3.org/2000/svg', id = 'arDot' + (++dotSeq), svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'arHoleDot'); svg.setAttribute('width', '20'); svg.setAttribute('height', '20'); svg.setAttribute('viewBox', '0 0 20 20'); svg.setAttribute('aria-hidden', 'true');
-    var mk = document.createElementNS(NS, 'mask'); mk.setAttribute('id', id); var r1 = document.createElementNS(NS, 'circle'); r1.setAttribute('cx', '10'); r1.setAttribute('cy', '10'); r1.setAttribute('r', '10'); r1.setAttribute('fill', '#fff'); var tx = document.createElementNS(NS, 'text'); tx.setAttribute('x', '10'); tx.setAttribute('y', '10'); tx.setAttribute('text-anchor', 'middle'); tx.setAttribute('dominant-baseline', 'central'); tx.setAttribute('fill', '#000'); tx.setAttribute('font-size', '13'); tx.setAttribute('font-weight', '600'); tx.setAttribute('font-family', 'inherit'); tx.textContent = String(n); mk.appendChild(r1); mk.appendChild(tx);
-    var d = document.createElementNS(NS, 'circle'); d.setAttribute('cx', '10'); d.setAttribute('cy', '10'); d.setAttribute('r', '10'); d.setAttribute('class', 'arHoleDisc'); d.setAttribute('mask', 'url(#' + id + ')'); svg.appendChild(mk); svg.appendChild(d); return svg;
-  }
+  function holeDot(n) { var e = el('span', 'arHoleNum', String(n)); e.setAttribute('aria-hidden', 'true'); return e; } // « N en dessous » (18 nov. 2026) : juste le numéro, sans pastille (allègement demandé par Émilien)
   function emptyCell(w, endIso, onTouch, below, plus, enter) { // plus : création depuis cette case (le « + » en haut à droite) ; sur une case occupée par une pastille, pas de « + »
     var b = el('button', 'goalsGridCell goalsGridCell--empty arHole'); b.type = 'button'; cellSize(b, w);
     if (!endIso && !below && !enter) { b.disabled = true; b.tabIndex = -1; return b; } // une case passée SANS rien dessous est inerte ; avec des objectifs dessous elle descend toujours (jamais un trou sans réaction)
@@ -645,7 +641,7 @@
     var baseWrap = el('div', 'goalsGrid arBaseWrap'), baseRow = el('div', 'goalsGridRow arBaseRow');
     data.forEach(function (c, ci) {
       var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; if (ext && ext.cols[ci]) { b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : ''; } // titre choisi en mode fusion : REMPLI de la couleur de l'activité (du pôle), plus de contour violet ; étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
-      var dot = el('i', 'arDot'); dot.style.background = c.color; b.appendChild(dot); b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
+      b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
       b.addEventListener('click', function () { openFiche(ci); }); // toucher le TITRE d'une colonne : la fiche (jamais un changement d'arbre ni le calendrier) ; on descend uniquement en touchant une case // niveau secteurs : toucher le NOM d'un secteur ouvre son calendrier (aujourd'hui) ; ailleurs : descendre d'un niveau
       baseRow.appendChild(b);
     });

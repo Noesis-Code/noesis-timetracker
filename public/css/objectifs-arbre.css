@@ -41,7 +41,7 @@ html.arbreOn #app::after { display: none; }
 .arToast { position: fixed; left: 16px; right: 16px; z-index: 45; margin: 0 auto; max-width: 420px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--card); color: var(--text); font-size: 13px; text-align: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); pointer-events: none; }
 .arToast.hidden { display: none; }
 .arBubble { position: relative; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 14px; border: 2px solid var(--track-bg); border-radius: var(--radius-md); background: var(--glass-bg); color: var(--text); font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: left; cursor: pointer; pointer-events: auto; box-sizing: border-box; } /* comme les cartes de l'arbre périodique : même rayon, contour plein de la couleur de l'activité */
-.arDot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
+
 .arBubble span { overflow-wrap: anywhere; }
 /* Lier / délier (appui long + glisser) : carte tirée, cible violette, zone « Délier » transitoire à la place de la barre (.cmpAdd sans « + »). */
 .arNode.arDragging { z-index: 7; opacity: .9; box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
@@ -107,7 +107,7 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 /* Règle de l'arbre périodique (.goalsGridScroll--locked) : une ou deux colonnes = aucun défilement horizontal, le balayage part vers la page voisine. */
 .arHScroll.goalsGridScroll--locked { overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; }
 .arBubble.arExtOn { box-shadow: none; } /* titre choisi : rempli de la couleur (script), jamais de contour violet */
-.arBubble.arExtOn .arDot { background: currentColor !important; opacity: .55; }
+
 /* Traits : dessinés par drawLinks (une seule fonction) ; ceux de la grille d'origine (cases vides, rangées) sont retirés. */
 .arGrid .goalsGridCell::before, .arGrid .goalsGridRow::before { display: none; }
 .arHInner { position: relative; }
@@ -124,7 +124,7 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 
 /* Case vide avec repère : la pastille numérotée est la même que celle des repères du temps (R23), centrée dans la case ; toute la case est la zone de toucher (R25) */
 .arHoleBadge { display: flex; align-items: center; justify-content: center; }
-.arHoleDot { display: block; width: 20px; height: 20px; flex: none; pointer-events: none; font-family: inherit; } .arHoleDisc { fill: color-mix(in srgb, var(--text-light) 45%, transparent); } /* pastille « N en dessous » (18 nov. 2026) : disque gris pâle de 20 px, numéro DÉCOUPÉ (masque SVG) : la couleur de la case se voit à travers le chiffre */
+.arHoleNum { color: var(--text-light); font-size: 13px; font-weight: 600; line-height: 1; pointer-events: none; } /* « N en dessous » : le numéro seul, sans pastille (18 nov. 2026) */
 /* Colonne de droite « Heures » : lecture seule ; violet = heures réglées sur la ligne, gris = reprend la ligne du dessus (aucune nouvelle couleur) */
 .arRailR { position: relative; flex: none; width: 64px; box-sizing: border-box; padding-left: 6px; } /* cellule de 58 px, 6 px d'écart avec la grille (maquette) */
 .arRailR .arHrs { position: absolute; left: 6px; right: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--sep); border-radius: 12px; background: none; font: inherit; font-size: 13px; font-weight: 400; text-align: center; font-variant-numeric: tabular-nums; color: var(--text-light); white-space: nowrap; } /* contour arrondi 12 px, texte centré ; gris = reprend la ligne du dessus */
