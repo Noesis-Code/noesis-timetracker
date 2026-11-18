@@ -7,8 +7,18 @@
     var q = new URLSearchParams(location.search).get('diag');
     if (q === '1') localStorage.setItem('noesis_diag', '1');
     else if (q === '0') localStorage.removeItem('noesis_diag');
-    if (localStorage.getItem('noesis_diag') !== '1') return;
-  } catch (e) { return; }
+    var manual = localStorage.getItem('noesis_diag') === '1';
+  } catch (e) { manual = false; }
+  // Sans drapeau (app installée iOS : localStorage séparé de Safari), le serveur dit s'il faut mesurer (/api/session/me : diag:true, staging seulement).
+  if (manual) boot();
+  else {
+    var run = function () {
+      fetch('/api/session/me', { credentials: 'same-origin' }).then(function (r) { return r.json(); })
+        .then(function (j) { if (j && j.diag === true) boot(); }).catch(function () {});
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+  }
+  function boot() {
 
   var MAX = 20, sent = 0, timer = null, debounce = null, cacheVersion = '', ok = null;
 
@@ -91,4 +101,5 @@
     }).catch(function () {});
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+  }
 })();

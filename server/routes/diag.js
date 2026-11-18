@@ -6,6 +6,7 @@ const router = express.Router();
 const guard = (req, res, next) => {
   if (!diag.isStaging()) return res.status(404).json({ error: 'Introuvable.' });
   if (!req.userId) return res.status(401).json({ error: 'Session requise.' });
+  if (!diag.active(req.userId)) return res.status(404).json({ error: 'Introuvable.' }); // DIAG_USER_IDS non vide : seulement ces profils
   next();
 };
 

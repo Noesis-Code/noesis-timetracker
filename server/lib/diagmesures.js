@@ -19,6 +19,12 @@ const MAX_BODY = 8192;
 const sent = new Map(); // userId -> horodatages (ms) de la dernière heure
 
 const isStaging = () => process.env.RAILWAY_ENVIRONMENT_NAME === 'staging';
+// Actif sans manipulation : staging ET (DIAG_USER_IDS vide = tout profil, sinon seulement les ids listés, séparés par des virgules).
+const active = (userId) => {
+  if (!isStaging() || !userId) return false;
+  const ids = String(process.env.DIAG_USER_IDS || '').split(',').map((s) => s.trim()).filter(Boolean);
+  return !ids.length || ids.includes(userId);
+};
 
 // Liste blanche : nom -> 'n' nombre, 's' chaîne courte (≤ 200), 'o' objet (sous-liste), 'b' booléen.
 const RECT = { top: 'n', bottom: 'n', left: 'n', right: 'n', height: 'n', width: 'n' };
@@ -65,4 +71,4 @@ function store(userId, data) {
 const list = (userId) => db.prepare('SELECT receivedAt, json FROM diag_mesures WHERE userId = ? ORDER BY id DESC').all(userId)
   .map((r) => ({ receivedAt: r.receivedAt, mesures: JSON.parse(r.json) }));
 
-module.exports = { isStaging, sanitize, allow, store, list, MAX_BODY, PER_HOUR, _reset: () => sent.clear() };
+module.exports = { isStaging, active, sanitize, allow, store, list, MAX_BODY, PER_HOUR, _reset: () => sent.clear() };
