@@ -712,7 +712,7 @@
   function refresh() {
     if (!tree) return Promise.resolve();
     return Promise.all([TMT.api('GET', '/api/objectifs?filtre=tous&liens=1'), TMT.api('GET', '/api/objectifs/structure').catch(function () { return null; })]).then(function (rs) {
-      struct = rs[1]; var hid = (struct && struct.hidden) || []; items = ((rs[0] && rs[0].objectifs) || []).filter(function (o) { return hid.indexOf(o.activity.id) < 0; }); /* activité masquée (réglage « Arbre des objectifs ») : ses objectifs restent en base, absents de l'arbre */ loaded = true; if (openPending) { applyOpen(); openPending = false; } return loadOrdre();
+      struct = rs[1]; var hid = (struct && struct.hidden) || []; if (struct && struct.activities) struct = Object.assign({}, struct, { activities: struct.activities.filter(function (a) { return hid.indexOf(a.id) < 0; }) }); /* les colonnes viennent de la structure : l'activité masquée en disparaît aussi */ items = ((rs[0] && rs[0].objectifs) || []).filter(function (o) { return hid.indexOf(o.activity.id) < 0; }); /* activité masquée (réglage « Arbre des objectifs ») : ses objectifs restent en base, absents de l'arbre */ loaded = true; if (openPending) { applyOpen(); openPending = false; } return loadOrdre();
     }).then(function () { render(); }).catch(function () {});
   }
   tree = document.getElementById('goalsObjArbre'); if (tree) tree.setAttribute('data-hscroll', '.arHScroll');

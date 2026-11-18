@@ -93,7 +93,7 @@ const SUITE_FILES = [
   'retard-objectif-periode-test.js',
   'feuille-balayage-test.js',
   'vue-taches-jour-test.js',
-  'stats-partagees-choix-test.js',
+  'reglages-categorie-test.js',
   'reforme-test.js',
   'recurrence-frequence-test.js',
   'saisie-manuelle-proposition-test.js',

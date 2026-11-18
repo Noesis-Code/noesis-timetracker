@@ -1011,16 +1011,10 @@
   var ssChips = document.getElementById('ssChips'), ssEmpty = document.getElementById('ssEmpty'), ssBody = document.getElementById('ssBody');
   var ssActId = null;
 
-  function sharedAvailable() { return !!sharedEl && modOnId('stats') && modOnId('sharing') && sharedActivities().length > 0; } // idem pour « Comparer le chrono »
-  // ---------- Statistiques partagées OPTIONNELLES : choix dans les réglages de l'activité (onglet Avancé, activité partagée seulement) ----------
-  // « Comparer le chrono » et « Comparer les tâches » : réglages PERSONNELS à l'utilisateur et à CETTE activité (activity_members.compareChrono / compareTasks, défaut : désactivé).
-  // La 3e page n'existe que si au moins une activité a l'interrupteur correspondant allumé ; un membre qui l'allume voit les statistiques de TOUS les membres (comportement existant).
+  function sharedAvailable() { return !!sharedEl && modOnId('stats') && modOnId('sharing') && sharedActivities().length > 0; }
+  // Statistiques partagées : la 3e page existe dès qu'une activité a plusieurs membres (interrupteurs de comparaison retirés le 18 nov. 2026 ; leurs colonnes restent en base).
   function allActivities() { return (TMT.getActivitiesCache && TMT.getActivitiesCache()) || []; }
-  TMT.sharedStatsChoice = {
-    on: function (activityId, kind) { var x = allActivities().filter(function (a) { return String(a.id) === String(activityId); })[0]; return !!(x && x.membersCount > 1 && x[kind === 'tasks' ? 'compareTasks' : 'compareChrono']); },
-    any: function (kind) { return allActivities().some(function (a) { return TMT.sharedStatsChoice.on(a.id, kind); }); }
-  };
-  function sharedActivities() { return allActivities().filter(function (a) { return TMT.sharedStatsChoice.on(a.id, 'chrono'); }); }
+  function sharedActivities() { return allActivities().filter(function (a) { return a.membersCount > 1; }); }
   function selectedShared(list) { return list.filter(function (a) { return String(a.id) === String(ssActId); })[0] || null; }
   function renderSsChips(list) {
     ssChips.innerHTML = '';

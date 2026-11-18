@@ -7413,6 +7413,7 @@
     api('GET', url).then(function (d) { if (d.multi) show(d); }).catch(function () { /* reste masquée */ });
     return root;
   }
+  TMT.buildStrategieBlock = buildStrategieBlock; TMT.buildRepartitionBlock = buildRepartitionBlock; // 18 nov. 2026 : ces deux lignes vivent dans la fiche d'une catégorie (js/objectifs-creer.js), plus dans Réglages
   function catBuildEditForm(activityId) {
     var st = catEditState;
     var box = document.createElement('div');
@@ -7438,7 +7439,7 @@
     save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
     actions.appendChild(cancel); actions.appendChild(save);
     var caps = buildTimeCapsBlock(activityId, st.key, !st.poleKey);
-    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(caps.node); fields.appendChild(buildStrategieBlock(activityId, st.key, false)); fields.appendChild(buildRepartitionBlock(activityId, st.key, false)); fields.appendChild(msg); fields.appendChild(actions);
+    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(caps.node); fields.appendChild(msg); fields.appendChild(actions);
     box.appendChild(fields);
     box.appendChild(del);
     nameIn.addEventListener('input', function () { st.name = nameIn.value; });
@@ -15339,9 +15340,6 @@
     // 8 nov. 2026 (demande d'Émilien) : « Membres » prend la place de « Stratégie » (retirée de l'interface ; les données de stratégie restent, jamais supprimées) et n'est plus sous « Avancé ».
     rows.appendChild(plainRow(t('Membres'), function () { openCommunityMembersModal(a.id, a.name, { activity: a, solo: !(a.membersCount > 1) }); }));
     rows.appendChild(plainRow(t('Catégories'), function () { openCategoriesPopup(a); }));
-    // 18 nov. 2026 (Émilien) : « Stratégie » existe PAR CATÉGORIE (activité, pôle, secteur) ; ici, celle de l'activité elle-même (clé « _ »).
-    rows.appendChild(plainRow(t('Stratégie'), function () { openEditPopup(t('Stratégie'), function (body) { body.appendChild(buildStrategieBlock(a.id, '_', true)); }); }));
-    if (a.membersCount > 1) rows.appendChild(plainRow(t('Répartition des tâches'), function () { openEditPopup(t('Répartition des tâches'), function (body) { body.appendChild(buildRepartitionBlock(a.id, '_', true)); }); }));
     fields.appendChild(rows);
 
     // « Avancé » : replié par défaut ; ouvert, il montre la visibilité et la fusion.
@@ -15369,7 +15367,7 @@
     visRow.appendChild(visWord);
     visRow.appendChild(sw);
     adv.appendChild(visRow);
-    // Statistiques d'activité partagée : deux interrupteurs PERSONNELS (à moi et à cette activité), désactivés par défaut ; allumer l'un donne accès aux statistiques de tous les membres. Enregistrés avec le bouton Enregistrer.
+    // Réglages personnels de l'activité, enregistrés avec le bouton Enregistrer.
     var cmpPending = {};
     // « Arbre des objectifs » : allumé = l'activité est dans l'arbre de Feuille de route (défaut) ; éteint = masquée (objectifs gardés, rétablissable). Enregistré avec le bouton Enregistrer.
     (function () {
@@ -15381,15 +15379,6 @@
       tSw.appendChild(tIn); tSw.appendChild(tTrack); tRow.appendChild(tWord); tRow.appendChild(tSw); adv.appendChild(tRow);
       tIn.addEventListener('change', function () { if (!tIn.checked !== !!a.treeHidden) cmpPending.treeHidden = !tIn.checked; else delete cmpPending.treeHidden; markDirty(); });
     })();
-    if (a.membersCount > 1) [['compareChrono', 'Comparer le chrono'], ['compareTasks', 'Comparer les tâches']].forEach(function (k) {
-      var cRow = document.createElement('label'); cRow.className = 'activityEditRow activityEditVis';
-      var cWord = document.createElement('span'); cWord.textContent = t(k[1]);
-      var cSw = document.createElement('span'); cSw.className = 'toggleSwitch';
-      var cIn = document.createElement('input'); cIn.type = 'checkbox'; cIn.checked = !!a[k[0]]; cIn.setAttribute('role', 'switch');
-      var cTrack = document.createElement('span'); cTrack.className = 'toggleSwitchTrack';
-      cSw.appendChild(cIn); cSw.appendChild(cTrack); cRow.appendChild(cWord); cRow.appendChild(cSw); adv.appendChild(cRow);
-      cIn.addEventListener('change', function () { if (cIn.checked !== !!a[k[0]]) cmpPending[k[0]] = cIn.checked; else delete cmpPending[k[0]]; markDirty(); });
-    });
     if ((acts || []).length > 1) adv.appendChild(plainRow(t('Fusionner avec…'), function () { openMergeActivityModal(a); }));
     advToggle.addEventListener('click', function () {
       var open = adv.classList.toggle('hidden') === false;

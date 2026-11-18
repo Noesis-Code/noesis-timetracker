@@ -979,6 +979,8 @@
       if (!ms.length) respBox.appendChild(el('p', 'hint', '—'));
     }
     membersP.then(paintResp);
+    // 4. Stratégie et Répartition des tâches de CETTE catégorie (18 nov. 2026, Émilien : réglages de la catégorie, plus de Réglages > activité) : mêmes blocs que partout (app.js), la ligne se déroule sur place ; Répartition : activité à plusieurs membres seulement.
+    if (TMT.buildStrategieBlock) { var catKey = spec.level === 'activite' ? '_' : spec.level === 'pole' ? spec.poleKey : spec.categoryKey; if (catKey) { panelBody.appendChild(TMT.buildStrategieBlock(act.id, catKey, false)); panelBody.appendChild(TMT.buildRepartitionBlock(act.id, catKey, false)); } }
     // Part des tâches demandée (« toi 60 %, moi 40 % ») : fiche d'une activité partagée ; lue par le bloc « proportion réelle contre demandée » du Bilan. Un responsable règle celle de tous, un membre seulement la sienne ; total <= 100 (serveur).
     if (spec.level === 'activite') membersP.then(function (mr) {
       var ms = mr.members || []; if (ms.length < 2) return;
