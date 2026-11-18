@@ -337,6 +337,9 @@ app.use(require('./lib/errorlog').errorHandler);
 // sur toutes les interfaces (0.0.0.0), sinon le routeur du service ne voit
 // jamais l'application. Mettre NOESIS_HOST=0.0.0.0 permet aussi de tester
 // depuis un téléphone sur le même WiFi.
+// Un rejet de promesse ou une exception non attrapée ne doit jamais tuer le processus (Railway : « Application failed to respond » sur tous les points d'accès pendant le redémarrage) : on journalise et on continue.
+process.on('unhandledRejection', (reason) => { console.error('[processus] rejet non attrapé', reason); });
+process.on('uncaughtException', (err) => { console.error('[processus] exception non attrapée', err); });
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.NOESIS_HOST || (process.env.PORT ? '0.0.0.0' : 'localhost');
 app.listen(PORT, HOST, () => {

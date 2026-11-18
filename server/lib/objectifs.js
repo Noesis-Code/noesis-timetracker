@@ -344,6 +344,7 @@ async function proposer(userId, body) {
   start = pl.start;
   if (body.activityId) { const dep = departAlgo(userId, Number(body.activityId), Object.assign({}, body, { endDate: end }), pl, start, true); if (dep.algo) { start = dep.start; pl.startCheck = start; } } // même départ que la création
   if (end <= pl.startCheck) throw err('La fin doit être après le début.');
+  checkHorizon(pl.startCheck, end);
   const periodWeeks = userPW();
   const weekly = body.weekly !== false;
   const periods = splitPeriods(start, end, periodWeeks);
@@ -558,12 +559,18 @@ function bridge(r, periods) { // jamais bloquant : sans pont, l'objectif reste c
 
 // RÈGLE (Émilien, 6 nov. 2026) : un objectif a TOUJOURS une échéance, une date précise. Absente ou invalide = impossible (400, message clair).
 // `pasPassee` : seule la saisie de l'utilisateur (route) refuse une échéance déjà passée ; les objectifs de démonstration du staging en gardent.
+// Horizon maximal d'une échéance : 15 ans à partir d'AUJOURD'HUI (trois blocs pluriannuels de 5 ans, le plus long arbre possible). Au-delà (ex. 789 semaines), c'est une faute de frappe d'année, jamais un objectif.
+const MAX_HORIZON_YEARS = 15;
+function checkHorizon(start, end) {
+  if (isDay(end) && end > addMonths(today(), MAX_HORIZON_YEARS * 12)) throw err('L’échéance est trop lointaine (' + MAX_HORIZON_YEARS + ' ans au plus) : vérifie l’année.');
+}
 function checkEcheance(body, start, pasPassee) {
   const e = body && body.endDate;
   if (e === undefined || e === null || e === '') throw err('Indique l’échéance de l’objectif (une date précise).');
   if (!isDay(e)) throw err('L’échéance doit être une date valide.');
   if (pasPassee && e < today()) throw err('L’échéance ne peut pas être dans le passé.');
   if (e <= (start || (isDay(body.startDate) ? body.startDate : today()))) throw err('L’échéance doit venir après le début de l’objectif.');
+  checkHorizon(start || (isDay(body.startDate) ? body.startDate : today()), e);
 }
 // Migration idempotente : un objectif existant sans échéance valide en reçoit une PAR DÉFAUT, rien n'est supprimé. Ordre : dernière date connue de ses périodes,
 // sinon début + durée typique de sa catégorie, sinon début + 1 an. Marqué meta.echeanceDefaut (pour que l'utilisateur la corrige). Retourne le nombre d'objectifs touchés.
