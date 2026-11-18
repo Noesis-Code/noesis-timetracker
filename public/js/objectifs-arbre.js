@@ -105,9 +105,9 @@
     for (var i = c0; i <= c1; i++) { var x = cols[i] && (cols[i].col ? cols[i].col.ctx : cols[i].ctx); if (x && m.activity && x.activityId === m.activity.id && (lvl !== 'secteur' || x.poleKey === m.poleKey) && (lvl === 'activite' || x.poleKey === m.poleKey || m.poleKey == null)) { best = i; break; } }
     return cols[best] ? cols[best].color : null;
   }
-  function macroCard(m, today, c0, c1, W, cols) {
+  function macroCard(m, today, c0, c1, W, cols, ov) {
     var st = stateOf(m, today), span = c1 - c0 + 1, w = spanW(W, span);
-    var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && (ext.macro && ext.macro.id === m.id || ext.mode === 'create' && m.id < 0) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-c0', String(c0)); b.setAttribute('data-c1', String(c1)); b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w); var ec = eaterColor(m, c0, c1, cols); if (ec) paint(b, st, ec);
+    var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && (ext.macro && ext.macro.id === m.id || ext.mode === 'create' && m.id < 0) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-c0', String(c0)); b.setAttribute('data-c1', String(c1)); b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w); var ec = ov || eaterColor(m, c0, c1, cols); if (ec) paint(b, st, ec);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
     t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
     b.appendChild(t); b.appendChild(editMark(m));
@@ -444,6 +444,12 @@
     if (!idx.length && lvl === 'activite' && ci[m.activity.id] != null) idx = [ci[m.activity.id]];
     return idx.sort(function (x, y) { return x - y; }).filter(function (v, i, arr) { return arr.indexOf(v) === i; });
   }
+  function directIdx(m) { // colonnes DIRECTES d'un lien (ses objectifs, puis ses cases vides), dans l'ordre de sélection : la première est la dominante du lien (même ordre que le serveur : position puis id)
+    var out = [];
+    items.filter(function (x) { return x.parentId === m.id && !x.isMacro; }).sort(function (a, b) { return ((a.position == null ? -1 : a.position) - (b.position == null ? -1 : b.position)) || a.id - b.id; }).forEach(function (x) { var i = colOfObj(x); if (i >= 0 && out.indexOf(i) < 0) out.push(i); });
+    (m.emptyColumns || []).forEach(function (e) { var i = colIndexOfPayload(e); if (i >= 0 && out.indexOf(i) < 0) out.push(i); });
+    return out;
+  }
   function rootMacro(m) { return !(m.parentId != null && items.some(function (x) { return x.id === m.parentId && x.isMacro; })); }
   function foldMerged(shown, cols) {
     var drop = {};
@@ -580,25 +586,21 @@
     // cellules des colonnes : [rangée][colonne] -> entrées
     var cells = list.map(function (rw) { return data.map(function (c) { return c.entries.filter(function (e) { return e.b.rank === rw.rank; }).sort(function (a, b) { return (a.ri - b.ri) || (b.i - a.i); }); }); });
 
-    var fused = {}, recolor = {}; // fusion de deux objectifs existants : titres « A · B » dans les lignes existantes, couleur de la branche absorbante pour la branche absorbée à partir de la fusion
+    var fused = {}; // fusion de deux objectifs existants : titres « A · B » dans les lignes existantes (la couleur de la dominante suit les groupes de chaque ligne, plus bas)
     Object.keys(macrosAt).forEach(function (k) {
       macrosAt[k].forEach(function (mm) {
         if (!(mm.m.id > 0)) return;
         var kids = items.filter(function (x) { return x.parentId === mm.m.id && !x.isMacro; }), ttl = kids.map(function (x) { return x.title; }).filter(function (v, i, a) { return a.indexOf(v) === i; }).join(' · ');
         if (kids.length > 1) kids.forEach(function (x) { fused[x.id] = ttl; });
-        var ab = absorbIdx(mm.m, curCols); if (ab < 0 || !mm.idxs) return;
-        mm.idxs.forEach(function (q) { if (q === ab) return; list.forEach(function (rw3, r3) { if (rw3.rank >= Number(k)) recolor[r3 + ':' + q] = curCols[ab].color; }); });
       });
     });
     Object.keys(macrosAt).forEach(function (k) { macrosAt[k].sort(function (x, y) { return (x.idxs ? x.idxs.length : 0) - (y.idxs ? y.idxs.length : 0); }); });
-    var holes = {}, wideAt = {}; // au-dessus (périodes plus tardives) d'une carte large non encore atteinte : les colonnes absorbées n'ont plus de cases, leurs objectifs vont dans la colonne de l'entité touchée
-    Object.keys(macrosAt).forEach(function (k) {
-      macrosAt[k].forEach(function (mm) {
-        if (!(mm.m.id > 0) || mm.m.mergePast || !mm.idxs || mm.idxs.length < 2) return; // chaque lien (racine ou non) : le groupe de trois = deux liens indépendants, lisibles ligne par ligne
-        var anchor = anchorOf(mm.m, mm.idxs, curCols);
-        list.forEach(function (rw2, r2) { if (rw2.rank <= Number(k)) return; mm.idxs.filter(function (q) { return q !== anchor; }).forEach(function (q) { cells[r2][anchor] = cells[r2][anchor].concat(cells[r2][q]); cells[r2][q] = []; holes[r2 + ':' + q] = true; wideAt[r2 + ':' + anchor] = mm.idxs.length; }); });
-      });
-    });
+    // GROUPES PAR LIGNE (js/objectifs-liaison.js, règle unique) : les liens de fusion sont indépendants (A-B, B-D) ; un lien vaut à partir de SA ligne vers le haut ; sur une ligne, le groupe = les liens actifs (composantes connexes), UNE colonne ;
+    // avant la ligne d'un lien ses branches restent séparées. La dominante donne sa couleur ; les colonnes absorbées n'ont plus de case sur la ligne, leurs objectifs vont dans la case du groupe (aucun n'est caché).
+    var recolor = {}, rowGroups = list.map(function () { return []; }), links = [];
+    Object.keys(macrosAt).forEach(function (k) { macrosAt[k].forEach(function (mm) { if (!(mm.m.id > 0) || mm.m.mergePast) return; var d = directIdx(mm.m); if (d.length > 1) links.push({ id: mm.m.id, rank: Number(k), cols: d }); }); });
+    if (TMT.liaison && TMT.liaison.groupsAt) list.forEach(function (rw2, r2) { rowGroups[r2] = TMT.liaison.groupsAt(links, rw2.rank); rowGroups[r2].forEach(function (g) { recolor[r2 + ':' + g.members[0]] = curCols[g.anchor].color; }); });
+    function groupOf(r2, q) { return rowGroups[r2].filter(function (g) { return g.members.indexOf(q) >= 0; })[0] || null; }
     var grid = el('div', 'goalsGrid arGrid' + (zoom !== 'period' && zoom !== 'week' ? ' arCompact' : '') + (animate ? ' arEnter' : '')); // années et blocs de 5 ans : rangées COMPACTES (moins de hauteur) animate = false;
     
     list.forEach(function (rw, r) {
@@ -606,7 +608,7 @@
       var rowMark = marker(rw, here, null); row.appendChild(rowMark);
       var macs = macrosAt[rw.rank] || [], skip = {}, extra = [];
       macs.sort(function (x, y) { return (x.m.endDate < y.m.endDate ? 1 : -1); }); // le macro le plus lointain d'abord : un macro peut avoir un autre macro pour enfant (A+B puis (A+B)+C), les cartes larges s'empilent
-      macs.forEach(function (mm) { // inline si aucune carte ni autre macro n'occupe les colonnes traversées dans cette case ; sinon dans une rangée de macro juste au-dessus (signalé)
+      macs.forEach(function (mm) { var g0 = mm.m.id > 0 && !mm.m.mergePast ? groupOf(r, (directIdx(mm.m))[0]) : null; if (g0) { mm.c0 = g0.members[0]; mm.c1 = g0.members[g0.members.length - 1]; mm.ov = curCols[g0.anchor].color; } /* le groupe de la ligne : la carte du lien couvre toutes ses colonnes, couleur de la dominante */ // inline si aucune carte ni autre macro n'occupe les colonnes traversées dans cette case ; sinon dans une rangée de macro juste au-dessus (signalé)
         var free = true; for (var q = mm.c0; q <= mm.c1; q++) if (skip[q] || cells[r][q].some(function (e) { return e.o.parentId !== mm.m.id && !(mm.m.id < 0 && ext && ext.base && e.o.id === ext.base.id); })) free = false; // seuls ses propres enfants peuvent être incorporés dans sa case
         if (free) for (var q3 = mm.c0; q3 <= mm.c1; q3++) cells[r][q3] = []; // l'objectif incorporé n'a plus de carte à lui dans cette rangée : la carte du macro la remplace
         if (free) for (var q2 = mm.c0; q2 <= mm.c1; q2++) skip[q2] = mm; else if (mm.m.id > 0) mm.fuse = true; /* aucune nouvelle ligne : les objectifs existants restent dans leurs lignes, titres fusionnés, couleur de l'absorbante */ else extra.push(mm);
@@ -620,7 +622,7 @@
         var mrow = el('div', 'goalsGridRow arMacroRow'); mrow.setAttribute('data-rank', String(rw.rank)); var sp = marker(rw, here, null); if (mr !== mrows[0]) sp.style.visibility = 'hidden'; mrow.appendChild(sp); // un macro est TOUJOURS dans sa période : sa rangée porte le repère de la période (alignée sur lui), collée à la rangée des cases de cette même période
         data.forEach(function (c2, cj) {
           var hit = mr.filter(function (mm) { return cj >= mm.c0 && cj <= mm.c1; })[0];
-          if (hit) { if (hit.c0 === cj) mrow.appendChild(macroCard(hit.m, today, hit.c0, hit.c1, W, curCols)); return; }
+          if (hit) { if (hit.c0 === cj) mrow.appendChild(macroCard(hit.m, today, hit.c0, hit.c1, W, curCols, hit.ov)); return; }
           var gap = el('div', 'arGap'); cellSize(gap, W); mrow.appendChild(gap);
         });
         grid.appendChild(mrow);
@@ -628,12 +630,15 @@
       if (mrows.length) rowMark.style.visibility = 'hidden'; // le repère de la période est porté par la rangée du macro, juste au-dessus
       data.forEach(function (c, ci) {
         var es = cells[r][ci];
-        if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols)); return; }
-        if (holes[r + ':' + ci]) return; // colonne absorbée : au-dessus de la fusion il ne reste QU'UNE colonne, sur toute la largeur des colonnes liées (la case de l'entité touchée est élargie)
-        var Wc = wideAt[r + ':' + ci] ? spanW(W, wideAt[r + ':' + ci]) : W;
-        if (!es.length) row.appendChild(emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); }, function () { enterCell(rw, c, ci); })); // « + » d'une case VIDE = ajouter un objectif (activité, niveau et échéance de la case) ; ailleurs dans la case = y entrer
-        else if (zoom === 'year' || (zoom === 'block' && es.length > 1)) row.appendChild(summaryCard(es.map(function (e) { return e.o; }), recolor[r + ':' + ci] || c.color, Wc, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
-        else row.appendChild(card(fused[es[0].o.id] ? Object.assign({}, es[0].o, { title: fused[es[0].o.id] }) : es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, recolor[r + ':' + ci] || c.color));
+        if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols, skip[ci].ov)); return; }
+        var gr = groupOf(r, ci), Wc = W; if (gr && gr.members[0] !== ci) return; // colonne absorbée sur cette ligne : plus de case, ses objectifs sont dans celle du groupe
+        if (gr) { es = []; gr.members.forEach(function (q) { es = es.concat(cells[r][q]); }); Wc = spanW(W, gr.members.length); } // une SEULE colonne, sur toute la largeur des colonnes liées
+        var grTitle = gr && es.length > 1 ? es.map(function (e) { return fused[e.o.id] || e.o.title; }).filter(function (v, i2, a2) { return a2.indexOf(v) === i2; }).join(' · ') : null; // tous les objectifs du groupe sur la ligne, jamais l'un caché derrière l'autre
+        var made = null;
+        if (!es.length) row.appendChild(made = emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); }, function () { enterCell(rw, c, ci); })); // « + » d'une case VIDE = ajouter un objectif (activité, niveau et échéance de la case) ; ailleurs dans la case = y entrer
+        else if (zoom === 'year' || (zoom === 'block' && es.length > 1)) row.appendChild(made = summaryCard(es.map(function (e) { return e.o; }), recolor[r + ':' + ci] || c.color, Wc, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
+        else row.appendChild(made = card(grTitle || fused[es[0].o.id] ? Object.assign({}, es[0].o, { title: grTitle || fused[es[0].o.id] }) : es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, recolor[r + ':' + ci] || c.color));
+        if (made && gr) made.setAttribute('data-span', String(gr.members.length)); // numéro de colonne des cases suivantes (data-col)
       });
       if (!row.querySelector('.goalsGridCell--filled')) row.classList.add('arEmptyRow'); // rangée sans objectif : elle prend sa part du reste (CSS)
       grid.appendChild(row);
@@ -641,7 +646,7 @@
     // UN SEUL conteneur de défilement horizontal (colonnes ET bulles) > colonne verticale : (1) la grille, qui défile en vertical sous la ligne « Aujourd'hui » ; (2) la rangée des bulles, dernière
     // rangée de la colonne (flex: none), même mise en page que les rangées de la grille (mêmes marges, mêmes largeurs de cellule) : chaque bulle est sous sa colonne par construction.
     var rowIdx = {}; list.forEach(function (rw, r) { rowIdx[rw.rank] = r; });
-    grid.querySelectorAll('.goalsGridRow').forEach(function (row) { var k = 0, r = rowIdx[Number(row.getAttribute('data-rank'))]; Array.prototype.forEach.call(row.children, function (ch) { if (ch.classList.contains('arMacro')) k += Number(ch.getAttribute('data-span')) || 1; else if (ch.classList.contains('arGap')) k += 1; else if (ch.classList.contains('goalsGridCell')) { ch.setAttribute('data-col', String(k)); k++; } }); }); // colonne de chaque cellule (un macro en couvre plusieurs)
+    grid.querySelectorAll('.goalsGridRow').forEach(function (row) { var k = 0, r = rowIdx[Number(row.getAttribute('data-rank'))]; Array.prototype.forEach.call(row.children, function (ch) { if (ch.classList.contains('arMacro')) k += Number(ch.getAttribute('data-span')) || 1; else if (ch.classList.contains('arGap')) k += 1; else if (ch.classList.contains('goalsGridCell')) { ch.setAttribute('data-col', String(k)); k += Number(ch.getAttribute('data-span')) || 1; } }); }); // colonne de chaque cellule (un macro ou un groupe de la ligne en couvre plusieurs)
     if (ext) Array.prototype.forEach.call(grid.querySelectorAll('[data-col]'), function (ch) { var cj = Number(ch.getAttribute('data-col')), on = !!ext.cols[cj]; var rr = ch.closest('.goalsGridRow'), inRow = !!rr && Number(rr.getAttribute('data-rank')) === ext.rank; ch.classList.toggle('arExtOn', on && inRow); ch.classList.toggle('arExtOff', !(inRow && extEligible(cj)));
       if (on && inRow && !ch.classList.contains('arBubble')) { var dc = curCols[domCol()], dcol = dc && (dc.col || dc).color; if (dcol) { ch.style.background = dcol; ch.style.borderColor = dcol; ch.style.setProperty('--ar-c', dcol); ch.style.color = TMT.readableTextOn ? TMT.readableTextOn(dcol) : ''; } } /* case ou carte choisie de la ligne : REMPLIE de la couleur de la dominante (la première touchée), la même pour toutes ; retirée au décochage (la grille est redessinée) */ }); // seules les cases de la LIGNE de la carte touchée (colonnes éligibles) restent éclairées
     scroller = el('div', 'goalsGridScroll arScroll');

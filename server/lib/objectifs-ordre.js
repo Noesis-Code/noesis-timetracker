@@ -2,9 +2,11 @@
 // ORDRE DE BASE : mémorisé dans objectifs_ordre (userId, level, scopeKey, orderJson, updatedAt), jamais modifié par un macro. Seul PUT /objectifs/ordre l'écrit
 // (si la personne change plus tard l'ordre de base). level : activite | pole | secteur ; scopeKey : '' (activités), activityId (pôles d'une activité),
 // activityId:poleKey (secteurs d'un pôle). Les colonnes absentes de la liste mémorisée viennent à la fin, dans l'ordre existant.
-// ORDRE DE PRÉSENTATION : DÉRIVÉ à chaque lecture des macros existants : les colonnes reliées par un même groupe de macros (macros enchaînés compris) sont rendues voisines
-// (le groupe se rassemble à la place de la colonne ancre, l'ordre relatif des autres colonnes est conservé). Fusion réversible : délier un macro (ou le supprimer)
-// rend aux colonnes leur ordre de base ; aucune donnée de base n'est touchée. Colonne ancre = l'objectif touché (paramètre anchor), sinon la première du groupe dans l'ordre de base.
+// ORDRE DE PRÉSENTATION : DÉRIVÉ à chaque lecture des LIENS DIRECTS de fusion (un macro = un lien ; objectifs.js liensDirects, source unique) : les colonnes de CHAQUE lien sont rendues voisines, donc aussi celles
+// d'une chaîne (A-B puis B-D : A, B, D se suivent). Chaque lien se rassemble à la place de sa colonne ancre ; l'ordre relatif des autres colonnes est conservé. Fusion réversible : délier un lien (ou le supprimer)
+// rend aux colonnes leur ordre de base ; aucune donnée de base n'est touchée. Colonne ancre = l'objectif touché (paramètre anchor), sinon la première du lien dans l'ordre courant.
+// LIENS CROISÉS (impossible de garder voisines toutes les branches de tous les liens, ex. A-C, B-C et A-B ne tiennent pas côte à côte autrement qu'en triangle) : les liens sont traités par priorité, le plus proche d'aujourd'hui
+// (le plus bas dans l'arbre) d'abord, puis le plus récent ; un lien ne peut pas défaire le voisinage d'un lien plus prioritaire : s'il n'y a aucune place qui les garde tous, il reste séparé (aucune donnée touchée).
 const db = require('../db');
 const goals = require('./goals');
 
@@ -47,12 +49,12 @@ function baseOrder(userId, level, scope) {
   const known = saved.filter((k) => all.includes(k));
   return known.concat(all.filter((k) => !known.includes(k)));
 }
-// Clés des colonnes (du périmètre) reliées par chaque groupe de macros du niveau.
+// Clés des colonnes (du périmètre) reliées par chaque LIEN DIRECT du niveau, du plus prioritaire au moins prioritaire.
 function groupsIn(userId, level, scope) {
   const sc = scopeOf(level, scope);
   const t = Date.parse(require('./dates').userToday() + 'T00:00:00Z'), dist = (g) => Math.abs(Date.parse(String(g.endDate) + 'T00:00:00Z') - t) || 0;
-  // deux macros de lignes différentes peuvent partager une colonne : le macro le plus proche d'aujourd'hui est appliqué EN DERNIER, c'est lui qui décide du voisinage (ordre stable, jamais d'erreur)
-  return require('./objectifs').macroGroups(userId).filter((g) => g.level === level).sort((x, y) => dist(y) - dist(x) || x.id - y.id).map((g) => {
+  // priorité : le lien le plus proche d'aujourd'hui (le plus bas), puis le plus récent (ordre stable, jamais d'erreur)
+  return require('./objectifs').liensDirects(userId).filter((g) => g.level === level).sort((x, y) => dist(x) - dist(y) || y.id - x.id).map((g) => {
     const keys = [];
     g.columns.forEach((c) => {
       let k = null;
@@ -64,16 +66,23 @@ function groupsIn(userId, level, scope) {
     return keys;
   }).filter((keys) => keys.length > 1);
 }
-// Ordre de présentation = ordre de base réarrangé pour que les colonnes reliées soient voisines.
+// Ordre de présentation = ordre de base réarrangé pour que les colonnes de chaque lien soient voisines (groups : du lien le plus prioritaire au moins prioritaire).
+const contigu = (order, keys) => { const ix = keys.map((k) => order.indexOf(k)); return ix.every((i) => i >= 0) && Math.max(...ix) - Math.min(...ix) === keys.length - 1; };
+function rassembler(order, members, a, inverse) { // les colonnes du lien en un bloc, à la place de `a` ; bloc dans l'ordre courant ou inversé
+  const blk = inverse ? members.slice().reverse() : members, rest = order.filter((k) => !members.includes(k)), at = rest.filter((k) => order.indexOf(k) < order.indexOf(a)).length;
+  return rest.slice(0, at).concat(blk, rest.slice(at));
+}
 function arrange(base, groups, anchor) {
   let order = base.slice();
+  const tenus = []; // liens plus prioritaires déjà rendus voisins : jamais défaits par un lien suivant
   groups.forEach((keys) => {
     const members = order.filter((k) => keys.includes(k));
     if (members.length < 2) return;
-    const a = anchor != null && members.includes(String(anchor)) ? String(anchor) : members[0];
-    const next = [];
-    order.forEach((k) => { if (!members.includes(k)) next.push(k); else if (k === a) next.push(...members); });
-    order = next;
+    const as = (anchor != null && members.includes(String(anchor)) ? [String(anchor)] : []).concat(members), essais = [];
+    as.forEach((a) => [false, true].forEach((inv) => essais.push(rassembler(order, members, a, inv))));
+    const bon = essais.find((o) => contigu(o, members) && tenus.every((t) => contigu(o, t)));
+    if (!bon) return; // aucune place ne garde voisins tous les liens plus prioritaires : ce lien reste séparé
+    order = bon; tenus.push(members);
   });
   return order;
 }
